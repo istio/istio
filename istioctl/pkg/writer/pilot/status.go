@@ -96,26 +96,29 @@ func (s *XdsStatusWriter) PrintAll(statuses map[string]*discovery.DiscoveryRespo
 
 func (s *XdsStatusWriter) printMachineReadable(statuses map[string]*discovery.DiscoveryResponse) error {
 	for _, status := range statuses {
-		validResources := []*anypb.Any{}
-		for _, resource := range status.Resources {
-
-			clientConfig := xdsstatus.ClientConfig{}
-			if err := resource.UnmarshalTo(&clientConfig); err != nil {
-				return fmt.Errorf("could not unmarshal ClientConfig: %w", err)
-			}
-
-			meta, err := model.ParseMetadata(clientConfig.GetNode().GetMetadata())
-			if err != nil {
-				return fmt.Errorf("could not parse node metadata: %w", err)
-			}
-
-			if s.Namespace == "" || meta.Namespace == s.Namespace {
-				validResources = append(validResources, resource)
-			}
-		}
-
 		outStatus := status
-		outStatus.Resources = validResources
+		if s.Namespace != "" {
+			validResources := []*anypb.Any{}
+			for _, resource := range status.Resources {
+
+				clientConfig := xdsstatus.ClientConfig{}
+				if err := resource.UnmarshalTo(&clientConfig); err != nil {
+					return fmt.Errorf("could not unmarshal ClientConfig: %w", err)
+				}
+
+				meta, err := model.ParseMetadata(clientConfig.GetNode().GetMetadata())
+				if err != nil {
+					return fmt.Errorf("could not parse node metadata: %w", err)
+				}
+
+				if meta.Namespace == s.Namespace {
+					validResources = append(validResources, resource)
+				}
+			}
+			filtered := *status
+			filtered.Resources = validResources
+			outStatus = &filtered
+		}
 		out, err := protomarshal.ToJSONWithIndent(outStatus, "    ")
 		if err != nil {
 			return err
