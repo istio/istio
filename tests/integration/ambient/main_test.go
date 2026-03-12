@@ -18,7 +18,6 @@ package ambient
 
 import (
 	"context"
-	"strings"
 	"testing"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -74,33 +73,6 @@ values:
     podLabels:
       networking.istio.io/tunnel: "http"
 `
-
-	nativeNftablesValues = `
-  global:
-    nativeNftables: true
-`
-	ambientMultiNetworkControlPlaneValues = `
-values:
-  pilot:
-    env:
-      AMBIENT_ENABLE_MULTI_NETWORK: "true"
-      AMBIENT_ENABLE_BAGGAGE: "true"
-      AMBIENT_ENABLE_MULTI_NETWORK_INGRESS: "true"
-      # Note: support is alpha and env var is tightly scoped
-      ENABLE_WILDCARD_HOST_SERVICE_ENTRIES_FOR_TLS: "true"
-  ztunnel:
-    terminationGracePeriodSeconds: 5
-    env:
-      SECRET_TTL: 5m
-    podLabels:
-      networking.istio.io/tunnel: "http"
-  cni:
-    # The CNI repair feature is disabled for these tests because this is a controlled environment,
-    # and it is important to catch issues that might otherwise be automatically fixed.
-    # Refer to issue #49207 for more context.
-    repair:
-      enabled: false
-`
 )
 
 type EchoDeployments struct {
@@ -155,14 +127,16 @@ func TestMain(m *testing.M) {
 
 			if ctx.Settings().NativeNftables {
 				scopes.Framework.Infof("Running the integration tests with nativeNftables enabled")
-				cfg.ControlPlaneValues = strings.TrimRight(ambientControlPlaneValues, "\n") + nativeNftablesValues
+				cfg.Values["global.nativeNftables"] = "true"
 			}
 
 			if ctx.Settings().AmbientMultiNetwork {
 				cfg.DeployEastWestGW = true
 				cfg.DeployGatewayAPI = true
-				cfg.ControlPlaneValues = ambientMultiNetworkControlPlaneValues
 				cfg.SkipDeployCrossClusterSecrets = false
+				cfg.Values["pilot.env.AMBIENT_ENABLE_MULTI_NETWORK"] = "true"
+				cfg.Values["pilot.env.AMBIENT_ENABLE_MULTI_NETWORK_INGRESS"] = "true"
+				cfg.Values["pilot.env.AMBIENT_ENABLE_BAGGAGE"] = "true"
 			}
 		}, cert.CreateCASecretAlt)).
 		Setup(func(t resource.Context) error {
