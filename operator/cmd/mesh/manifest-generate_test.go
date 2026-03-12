@@ -536,19 +536,19 @@ func TestManifestGenerateIstiodRemoteLocalInjection(t *testing.T) {
 	}
 }
 
-func TestManifestGenerateReaderRBACMulticlusterGating(t *testing.T) {
+func TestManifestGenerateReaderRBACDisableFlag(t *testing.T) {
 	g := NewWithT(t)
 
-	t.Run("without clusterName", func(t *testing.T) {
+	t.Run("enabled by default", func(t *testing.T) {
 		manifest := generateManifest(t, "minimal", "--set values.global.resourceScope=all", liveCharts, nil)
 		objs := parseObjectSetFromManifest(t, manifest)
-		g.Expect(objs.kind(gvk.ServiceAccount.Kind).nameEquals("istio-reader-service-account")).Should(BeNil())
+		g.Expect(objs.kind(gvk.ServiceAccount.Kind).nameEquals("istio-reader-service-account")).Should(Not(BeNil()))
 	})
 
-	t.Run("with clusterName", func(t *testing.T) {
-		manifest := generateManifest(t, "minimal", "--set values.global.resourceScope=all --set values.global.multiCluster.clusterName=cluster-0", liveCharts, nil)
+	t.Run("disabled explicitly", func(t *testing.T) {
+		manifest := generateManifest(t, "minimal", "--set values.global.resourceScope=all --set values.global.disableReaderSA=true", liveCharts, nil)
 		objs := parseObjectSetFromManifest(t, manifest)
-		g.Expect(objs.kind(gvk.ServiceAccount.Kind).nameEquals("istio-reader-service-account")).Should(Not(BeNil()))
+		g.Expect(objs.kind(gvk.ServiceAccount.Kind).nameEquals("istio-reader-service-account")).Should(BeNil())
 	})
 }
 

@@ -18,6 +18,10 @@ _internal_defaults_do_not_set:
     # - cluster: only cluster-scoped resources are processed
     # - namespace: only namespace-scoped resources are processed
     resourceScope: all
+
+    # If true, do not install istio-reader service account and associated cluster role/binding,
+    # which are used for multicluster remote-secret workflows.
+    disableReaderSA: false
   base:
     # A list of CRDs to exclude. Requires `enableCRDTemplates` to be true.
     # Example: `excludedCRDs: ["envoyfilters.networking.istio.io"]`.

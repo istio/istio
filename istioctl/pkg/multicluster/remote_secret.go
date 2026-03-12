@@ -432,7 +432,6 @@ func generateServiceAccountYAML(opt RemoteSecretOptions) (string, error) {
 	flags := []string{
 		"installPackagePath=" + opt.ManifestsPath,
 		"values.global.istioNamespace=" + opt.Namespace,
-		"values.global.multiCluster.clusterName=" + opt.ClusterName,
 	}
 	mfs, _, err := render.GenerateManifest(nil, flags, false, nil, nil)
 	if err != nil {

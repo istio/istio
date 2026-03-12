@@ -5,5 +5,4 @@ issue:
   - 56326
 releaseNotes:
   - |
-    **Fixed** `istio-reader-service-account` and its related `istio-reader` ClusterRole/ClusterRoleBinding are no longer installed by default.
-    These resources are now rendered only when `values.global.multiCluster.clusterName` is explicitly set, which matches their use for multicluster remote-secret workflows.
+    **Added** `values.global.disableReaderSA` to allow disabling `istio-reader-service-account` and its related `istio-reader` ClusterRole/ClusterRoleBinding when multicluster remote-secret resources are not needed.

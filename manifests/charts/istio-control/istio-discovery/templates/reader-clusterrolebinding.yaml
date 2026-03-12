@@ -1,5 +1,5 @@
-# Created if cluster resources are not omitted
-{{- if and (or (eq .Values.global.resourceScope "all") (eq .Values.global.resourceScope "cluster")) (ne (dig "global" "multiCluster" "clusterName" "" .Values) "") }}
+# Created if cluster resources are not omitted. Used for multicluster remote secret workflows.
+{{- if and (or (eq .Values.global.resourceScope "all") (eq .Values.global.resourceScope "cluster")) (not (dig "global" "disableReaderSA" false .Values)) }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:

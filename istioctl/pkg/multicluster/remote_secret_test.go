@@ -449,10 +449,9 @@ func TestGetServiceAccountSecretToken(t *testing.T) {
 }
 
 func TestGenerateServiceAccount(t *testing.T) {
-	t.Run("with cluster name", func(t *testing.T) {
+	t.Run("enabled by default", func(t *testing.T) {
 		opts := RemoteSecretOptions{
 			CreateServiceAccount: true,
-			ClusterName:          "cluster-0",
 			ManifestsPath:        filepath.Join(env.IstioSrc, "manifests"),
 			KubeOptions: KubeOptions{
 				Namespace: "istio-system",
@@ -471,28 +470,6 @@ func TestGenerateServiceAccount(t *testing.T) {
 		mustFindObject(t, objs, "istio-reader-clusterrole-istio-system", "ClusterRole")
 		mustFindObject(t, objs, "istio-reader-clusterrole-istio-system", "ClusterRoleBinding")
 	})
-
-	t.Run("without cluster name", func(t *testing.T) {
-		opts := RemoteSecretOptions{
-			CreateServiceAccount: true,
-			ManifestsPath:        filepath.Join(env.IstioSrc, "manifests"),
-			KubeOptions: KubeOptions{
-				Namespace: "istio-system",
-			},
-		}
-		yaml, err := generateServiceAccountYAML(opts)
-		if err != nil {
-			t.Fatalf("failed to generate service account YAML: %v", err)
-		}
-		objs, err := manifest.ParseMultiple(yaml)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		mustNotFindObject(t, objs, "istio-reader-service-account", "ServiceAccount")
-		mustNotFindObject(t, objs, "istio-reader-clusterrole-istio-system", "ClusterRole")
-		mustNotFindObject(t, objs, "istio-reader-clusterrole-istio-system", "ClusterRoleBinding")
-	})
 }
 
 func mustFindObject(t test.Failer, objs []manifest.Manifest, name, kind string) {
@@ -506,15 +483,6 @@ func mustFindObject(t test.Failer, objs []manifest.Manifest, name, kind string) 
 	}
 	if obj == nil {
 		t.Fatalf("expected %v/%v", name, kind)
-	}
-}
-
-func mustNotFindObject(t test.Failer, objs []manifest.Manifest, name, kind string) {
-	t.Helper()
-	for _, o := range objs {
-		if o.GetKind() == kind && o.GetName() == name {
-			t.Fatalf("did not expect %v/%v", name, kind)
-		}
 	}
 }
 
