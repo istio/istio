@@ -9,8 +9,13 @@ updates:
     labels:
       - "release-notes-none"
     target-branch: "master"
-    # We have to do some ignores here as the dependencies for these are meant to be locked to a minor version
-    # and/or are updated through automation.
+    # The following dependencies are locked to a specific minor version and/or are updated through
+    # automation (e.g. Istio API sync, Kubernetes version bumps, Envoy version bumps). We use both
+    # `ignore` and `groups.exclude-patterns` for each entry:
+    #   - `ignore` prevents Dependabot from opening standalone PRs for these packages.
+    #   - `exclude-patterns` prevents them from being pulled into a grouped PR triggered by other
+    #     updates. Without this, Dependabot can still include ignored packages in a group PR when
+    #     other packages in the group have updates.
     ignore:
       - dependency-name: "istio.io/*"
       - dependency-name: "k8s.io/*"
@@ -20,6 +25,12 @@ updates:
       all-dependencies:
         patterns:
           - "*"
+        # Must mirror the ignore list above — see comment there for why both are needed.
+        exclude-patterns:
+          - "istio.io/*"
+          - "k8s.io/*"
+          - "sigs.k8s.io/*"
+          - "github.com/envoyproxy/go-control-plane/*"
 
   - package-ecosystem: "gomod"
     directories:
@@ -30,12 +41,7 @@ updates:
     labels:
       - "release-notes-none"
     target-branch: "release-1.29"
-    # Only allow security updates on release branches
-    allow:
-      - dependency-type: "all"
-        update-type: "security"
-    # We have to do some ignores here as the dependencies for these are meant to be locked to a minor version
-    # and/or are updated through automation.
+    # See master stanza above for why both ignore and exclude-patterns are required.
     ignore:
       - dependency-name: "istio.io/*"
       - dependency-name: "k8s.io/*"
@@ -45,6 +51,11 @@ updates:
       all-dependencies:
         patterns:
           - "*"
+        exclude-patterns:
+          - "istio.io/*"
+          - "k8s.io/*"
+          - "sigs.k8s.io/*"
+          - "github.com/envoyproxy/go-control-plane/*"
 
   - package-ecosystem: "gomod"
     directories:
@@ -55,12 +66,7 @@ updates:
     labels:
       - "release-notes-none"
     target-branch: "release-1.28"
-    # Only allow security updates on release branches
-    allow:
-      - dependency-type: "all"
-        update-type: "security"
-    # We have to do some ignores here as the dependencies for these are meant to be locked to a minor version
-    # and/or are updated through automation.
+    # See master stanza above for why both ignore and exclude-patterns are required.
     ignore:
       - dependency-name: "istio.io/*"
       - dependency-name: "k8s.io/*"
@@ -70,6 +76,11 @@ updates:
       all-dependencies:
         patterns:
           - "*"
+        exclude-patterns:
+          - "istio.io/*"
+          - "k8s.io/*"
+          - "sigs.k8s.io/*"
+          - "github.com/envoyproxy/go-control-plane/*"
 
   - package-ecosystem: "gomod"
     directories:
@@ -80,12 +91,7 @@ updates:
     labels:
       - "release-notes-none"
     target-branch: "release-1.27"
-    # Only allow security updates on release branches
-    allow:
-      - dependency-type: "all"
-        update-type: "security"
-    # We have to do some ignores here as the dependencies for these are meant to be locked to a minor version
-    # and/or are updated through automation.
+    # See master stanza above for why both ignore and exclude-patterns are required.
     ignore:
       - dependency-name: "istio.io/*"
       - dependency-name: "k8s.io/*"
@@ -95,6 +101,11 @@ updates:
       all-dependencies:
         patterns:
           - "*"
+        exclude-patterns:
+          - "istio.io/*"
+          - "k8s.io/*"
+          - "sigs.k8s.io/*"
+          - "github.com/envoyproxy/go-control-plane/*"
 
   # Ignore all dependency updates in samples/
   # We do not care about the dependencies in the samples/ directory as they are not meant
