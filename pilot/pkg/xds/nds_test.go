@@ -133,7 +133,7 @@ func TestGenerate(t *testing.T) {
 		{
 			name:      "full push",
 			proxy:     &model.Proxy{Type: model.SidecarProxy},
-			request:   &model.PushRequest{Full: true, Forced: true},
+			request:   &model.PushRequest{Forced: true},
 			nameTable: emptyNameTable,
 		},
 		{

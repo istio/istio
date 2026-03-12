@@ -152,7 +152,6 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 
 	serviceHandler := func(_, curr *model.Service, _ model.Event) {
 		pushReq := &model.PushRequest{
-			Full:           true,
 			ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: string(curr.Hostname), Namespace: curr.Attributes.Namespace}),
 			Reason:         model.NewReasonStats(model.ServiceUpdate),
 		}
@@ -169,7 +168,6 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	if opts.NetworksWatcher != nil {
 		opts.NetworksWatcher.AddNetworksHandler(func() {
 			s.ConfigUpdate(&model.PushRequest{
-				Full:   true,
 				Reason: model.NewReasonStats(model.NetworksTrigger),
 				Forced: true,
 			})
@@ -338,7 +336,6 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	// TODO code re-use from server.go
 	configHandler := func(_, curr config.Config, event model.Event) {
 		pushReq := &model.PushRequest{
-			Full:           true,
 			ConfigsUpdated: sets.New(model.ConfigKey{Kind: gvk.MustToKind(curr.GroupVersionKind), Name: curr.Name, Namespace: curr.Namespace}),
 			Reason:         model.NewReasonStats(model.ConfigUpdate),
 		}
@@ -409,7 +406,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 
 	// Send an update. This ensures that even if there are no configs provided, the push context is
 	// initialized.
-	s.ConfigUpdate(&model.PushRequest{Full: true, Forced: true})
+	s.ConfigUpdate(&model.PushRequest{Forced: true})
 
 	// Wait until initial updates are committed
 	c := s.InboundUpdates.Load()

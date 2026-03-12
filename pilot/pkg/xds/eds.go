@@ -54,10 +54,13 @@ func (s *DiscoveryServer) EDSUpdate(shard model.ShardKey, serviceName string, na
 	// Update the endpoint shards
 	pushType := s.Env.EndpointIndex.UpdateServiceEndpoints(shard, serviceName, namespace, istioEndpoints, true)
 	if pushType == model.IncrementalPush || pushType == model.FullPush {
+		configKind := kind.Endpoints
+		if pushType == model.FullPush {
+			configKind = kind.ServiceEntry
+		}
 		// Trigger a push
 		s.ConfigUpdate(&model.PushRequest{
-			Full:           pushType == model.FullPush,
-			ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: serviceName, Namespace: namespace}),
+			ConfigsUpdated: sets.New(model.ConfigKey{Kind: configKind, Name: serviceName, Namespace: namespace}),
 			Reason:         model.NewReasonStats(model.EndpointUpdate),
 		})
 	}
@@ -107,6 +110,7 @@ var skippedEdsConfigs = sets.New(
 )
 
 var deltaAwareEdsConfigs = sets.New(
+	kind.Endpoints,
 	kind.ServiceEntry,
 	kind.DestinationRule,
 	kind.PeerAuthentication,
@@ -186,7 +190,7 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 			switch cfg.Kind {
 			case kind.DestinationRule:
 				changedDrs.Insert(types.NamespacedName{Name: cfg.Name, Namespace: cfg.Namespace})
-			case kind.ServiceEntry:
+			case kind.ServiceEntry, kind.Endpoints:
 				edsUpdatedServices.Insert(cfg.Name)
 			case kind.PeerAuthentication:
 				changedAuthnNs.Insert(cfg.Namespace)

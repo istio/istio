@@ -305,7 +305,6 @@ func (s *Controller) pushServiceEndpointUpdates(events []krt.Event[InstancesByNa
 			s.XdsUpdater.EDSUpdate(shard, obj.Hostname, obj.Namespace, instances)
 			if obj.HasDNSServiceEndpoint && e.Event == controllers.EventUpdate {
 				s.XdsUpdater.ConfigUpdate(&model.PushRequest{
-					Full:           true,
 					ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: obj.Hostname, Namespace: obj.Namespace}),
 					Reason:         model.NewReasonStats(model.EndpointUpdate),
 				})
@@ -331,7 +330,6 @@ func (s *Controller) pushServiceUpdates(events []krt.Event[ServiceWithInstances]
 	}
 	if len(configsUpdated) > 0 {
 		s.XdsUpdater.ConfigUpdate(&model.PushRequest{
-			Full:           true,
 			ConfigsUpdated: configsUpdated,
 			Reason:         model.NewReasonStats(model.ServiceUpdate),
 		})

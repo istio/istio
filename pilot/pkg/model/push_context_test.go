@@ -77,19 +77,18 @@ func TestMergeUpdateRequest(t *testing.T) {
 		{
 			"left nil",
 			nil,
-			&PushRequest{Full: true, Forced: true},
-			PushRequest{Full: true, Forced: true},
+			&PushRequest{Forced: true},
+			PushRequest{Forced: true},
 		},
 		{
 			"right nil",
-			&PushRequest{Full: true, Forced: true},
+			&PushRequest{Forced: true},
 			nil,
-			PushRequest{Full: true, Forced: true},
+			PushRequest{Forced: true},
 		},
 		{
 			"simple merge",
 			&PushRequest{
-				Full:  true,
 				Push:  push0,
 				Start: t0,
 				ConfigsUpdated: sets.Set[ConfigKey]{
@@ -99,7 +98,6 @@ func TestMergeUpdateRequest(t *testing.T) {
 				Forced: true,
 			},
 			&PushRequest{
-				Full:  false,
 				Push:  push1,
 				Start: t1,
 				ConfigsUpdated: sets.Set[ConfigKey]{
@@ -109,7 +107,6 @@ func TestMergeUpdateRequest(t *testing.T) {
 				Forced: false,
 			},
 			PushRequest{
-				Full:  true,
 				Push:  push1,
 				Start: t0,
 				ConfigsUpdated: sets.Set[ConfigKey]{
@@ -122,11 +119,11 @@ func TestMergeUpdateRequest(t *testing.T) {
 		},
 		{
 			"skip config type merge: one empty",
-			&PushRequest{Full: true, ConfigsUpdated: nil, Forced: true},
-			&PushRequest{Full: true, ConfigsUpdated: sets.Set[ConfigKey]{{
+			&PushRequest{ConfigsUpdated: nil, Forced: true},
+			&PushRequest{ConfigsUpdated: sets.Set[ConfigKey]{{
 				Kind: kind.Kind(2),
 			}: {}}},
-			PushRequest{Full: true, ConfigsUpdated: sets.Set[ConfigKey]{{
+			PushRequest{ConfigsUpdated: sets.Set[ConfigKey]{{
 				Kind: kind.Kind(2),
 			}: {}}, Reason: nil, Forced: true},
 		},
@@ -2060,7 +2057,6 @@ func TestRootSidecarScopePropagation(t *testing.T) {
 			{Kind: kind.Service, Name: svcName, Namespace: "foo"}: {},
 		},
 		Reason: nil,
-		Full:   true,
 	})
 	when = "updateContext(with no changes)"
 	verifyServices(true, fmt.Sprintf(testDesc, otherNS, when), otherNS, newPush)

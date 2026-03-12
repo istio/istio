@@ -549,7 +549,6 @@ func (s *Server) initSDSServer() {
 		creds := kubecredentials.NewMulticluster(s.clusterID, s.multiclusterController)
 		creds.AddSecretHandler(func(k kind.Kind, name string, namespace string) {
 			s.XDSServer.ConfigUpdate(&model.PushRequest{
-				Full:           false,
 				ConfigsUpdated: sets.New(model.ConfigKey{Kind: k, Name: name, Namespace: namespace}),
 				Reason:         model.NewReasonStats(model.SecretTrigger),
 			})
@@ -911,7 +910,6 @@ func (s *Server) initRegistryEventHandlers() {
 	// Flush cached discovery responses whenever services configuration change.
 	serviceHandler := func(prev, curr *model.Service, event model.Event) {
 		pushReq := &model.PushRequest{
-			Full:           true,
 			ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: string(curr.Hostname), Namespace: curr.Attributes.Namespace}),
 			Reason:         model.NewReasonStats(model.ServiceUpdate),
 		}
@@ -928,7 +926,6 @@ func (s *Server) initRegistryEventHandlers() {
 				return
 			}
 			pushReq := &model.PushRequest{
-				Full:           true,
 				ConfigsUpdated: sets.New(model.ConfigKey{Kind: gvk.MustToKind(curr.GroupVersionKind), Name: curr.Name, Namespace: curr.Namespace}),
 				Reason:         model.NewReasonStats(model.ConfigUpdate),
 			}
@@ -1320,7 +1317,6 @@ func (s *Server) initMeshHandlers(changeHandler func(_ *meshconfig.MeshConfig)) 
 	s.environment.AddMeshHandler(func() {
 		changeHandler(s.environment.Mesh())
 		s.XDSServer.ConfigUpdate(&model.PushRequest{
-			Full:   true,
 			Reason: model.NewReasonStats(model.GlobalUpdate),
 			Forced: true,
 		})
@@ -1354,7 +1350,6 @@ func (s *Server) initWorkloadTrustBundle(args *PilotArgs) error {
 
 	s.workloadTrustBundle.UpdateCb(func() {
 		pushReq := &model.PushRequest{
-			Full:   true,
 			Reason: model.NewReasonStats(model.GlobalUpdate),
 			Forced: true,
 		}

@@ -82,6 +82,19 @@ func HasConfigsOfKind(configs sets.Set[ConfigKey], kind kind.Kind) bool {
 	return false
 }
 
+// OnlyHasEndpointUpdates returns true if configs is non-empty and all configs are of kind.Endpoints.
+func OnlyHasEndpointUpdates(configs sets.Set[ConfigKey]) bool {
+	if len(configs) == 0 {
+		return false
+	}
+	for c := range configs {
+		if c.Kind != kind.Endpoints {
+			return false
+		}
+	}
+	return true
+}
+
 // ConfigNamesOfKind extracts config names of the specified kind.
 func ConfigNamesOfKind(configs sets.Set[ConfigKey], kind kind.Kind) sets.String {
 	ret := sets.New[string]()

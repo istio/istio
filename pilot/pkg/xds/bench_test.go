@@ -346,7 +346,7 @@ func BenchmarkEndpointGeneration(b *testing.B) {
 					watchedResources.Insert(fmt.Sprintf("outbound|80||foo-%d.com", svc))
 				}
 				wr := &model.WatchedResource{ResourceNames: watchedResources}
-				c, _, _ = s.Discovery.Generators[v3.EndpointType].Generate(proxy, wr, &model.PushRequest{Full: true, Push: s.PushContext()})
+				c, _, _ = s.Discovery.Generators[v3.EndpointType].Generate(proxy, wr, &model.PushRequest{Push: s.PushContext()})
 			}
 			logDebug(b, c)
 		})
@@ -392,7 +392,7 @@ func testBenchmark(t *testing.T, tpe string, testCases []ConfigInput) {
 func runBenchmarkCase(t testing.TB, tt ConfigInput, tpe string, n int, reset func()) model.Resources {
 	s, proxy := setupAndInitializeTest(t, tt)
 	wr := getWatchedResources(tpe, tt, s, proxy)
-	pr := &model.PushRequest{Full: true, Push: s.PushContext(), Forced: true}
+	pr := &model.PushRequest{Push: s.PushContext(), Forced: true}
 	if tt.PushRequest != nil {
 		// Some types get watched resources populated on the first run. So generate with a full push first
 		_, _, _ = s.Discovery.Generators[tpe].Generate(proxy, wr, pr)

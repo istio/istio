@@ -64,23 +64,15 @@ func (fx *Updater) ConfigUpdate(req *model.PushRequest) {
 	sort.Strings(names)
 	if fx.SplitEvents {
 		for _, n := range names {
-			event := "xds"
-			if req.Full {
-				event += " full"
-			}
 			select {
-			case fx.Events <- Event{Type: event, ID: n}:
+			case fx.Events <- Event{Type: "xds", ID: n}:
 			default:
 			}
 		}
 	} else {
 		id := strings.Join(names, ",")
-		event := "xds"
-		if req.Full {
-			event += " full"
-		}
 		select {
-		case fx.Events <- Event{Type: event, ID: id, Reason: req.Reason}:
+		case fx.Events <- Event{Type: "xds", ID: id, Reason: req.Reason}:
 		default:
 		}
 	}

@@ -42,6 +42,7 @@ var skippedCdsConfigs = sets.New(
 	kind.WasmPlugin,
 	kind.ProxyConfig,
 	kind.DNSName,
+	kind.Endpoints,
 )
 
 // Map all aditional configs that impact CDS for gateways.
@@ -64,9 +65,6 @@ func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) (*model.PushReques
 	}
 	if proxy.Type == model.Waypoint && waypointNeedsPush(req) {
 		return req, true
-	}
-	if !req.Full {
-		return req, false
 	}
 
 	relevantUpdates := make(sets.Set[model.ConfigKey])

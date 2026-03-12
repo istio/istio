@@ -356,15 +356,6 @@ type XDSUpdater interface {
 // PushRequest defines a request to push to proxies
 // It is used to send updates to the config update debouncer and pass to the PushQueue.
 type PushRequest struct {
-	// Full determines whether a full push is required or not. If false, an incremental update will be sent.
-	// Incremental pushes:
-	// * Do not recompute the push context
-	// * Do not recompute proxy state (such as ServiceInstances)
-	// * Are not reported in standard metrics such as push time
-	// As a result, configuration updates should never be incremental. Generally, only EDS will set this, but
-	// in the future SDS will as well.
-	Full bool
-
 	// ConfigsUpdated keeps track of configs that have changed.
 	// This is used as an optimization to avoid unnecessary pushes to proxies that are scoped with a Sidecar.
 	// If this is empty, then all proxies will get an update.
@@ -507,9 +498,6 @@ func (pr *PushRequest) Merge(other *PushRequest) *PushRequest {
 		pr.Reason.Merge(other.Reason)
 	}
 
-	// If either is full we need a full push
-	pr.Full = pr.Full || other.Full
-
 	// If either is forced we need a forced push
 	pr.Forced = pr.Forced || other.Forced
 
@@ -553,9 +541,6 @@ func (pr *PushRequest) CopyMerge(other *PushRequest) *PushRequest {
 	merged := &PushRequest{
 		// Keep the first (older) start time
 		Start: pr.Start,
-
-		// If either is full we need a full push
-		Full: pr.Full || other.Full,
 
 		// If either is forced we need a forced push
 		Forced: pr.Forced || other.Forced,

@@ -836,7 +836,6 @@ func PushXds[T any](xds model.XDSUpdater, f func(T) model.ConfigKey) func(events
 			return
 		}
 		xds.ConfigUpdate(&model.PushRequest{
-			Full:           false,
 			ConfigsUpdated: cu,
 			Reason:         model.NewReasonStats(model.AmbientUpdate),
 		})
@@ -865,7 +864,6 @@ func PushXdsAddress[T any](xds model.XDSUpdater, f func(T) string) func(events [
 			})
 		}
 		xds.ConfigUpdate(&model.PushRequest{
-			Full:             false,
 			AddressesUpdated: au,
 			ConfigsUpdated:   cu,
 			Reason:           model.NewReasonStats(model.AmbientUpdate),

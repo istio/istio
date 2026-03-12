@@ -2087,7 +2087,7 @@ func TestEndpointUpdate(t *testing.T) {
 	svc1Ips = append(svc1Ips, "128.0.0.2")
 	updateEndpoints(controller, "svc1", "nsa", portNames, svc1Ips, t)
 	host := string(kube.ServiceHostname("svc1", "nsa", controller.opts.DomainSuffix))
-	fx.MatchOrFail(t, xdsfake.Event{Type: "xds full", ID: host})
+	fx.MatchOrFail(t, xdsfake.Event{Type: "xds", ID: host})
 }
 
 // Validates that when Pilot sees Endpoint before the corresponding Pod, it triggers endpoint event on pod event.
@@ -2447,7 +2447,6 @@ func TestVisibilityNoneService(t *testing.T) {
 	controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{})
 	serviceHandler := func(_, curr *model.Service, _ model.Event) {
 		pushReq := &model.PushRequest{
-			Full:           true,
 			ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: string(curr.Hostname), Namespace: curr.Attributes.Namespace}),
 			Reason:         model.NewReasonStats(model.ServiceUpdate),
 		}
@@ -2480,7 +2479,7 @@ func TestVisibilityNoneService(t *testing.T) {
 	fx.WaitOrFail(t, "service")
 	host := string(kube.ServiceHostname("svc1", "nsA", controller.opts.DomainSuffix))
 	// We should see a full push.
-	fx.MatchOrFail(t, xdsfake.Event{Type: "xds full", ID: host})
+	fx.MatchOrFail(t, xdsfake.Event{Type: "xds", ID: host})
 }
 
 func TestDiscoverySelector(t *testing.T) {

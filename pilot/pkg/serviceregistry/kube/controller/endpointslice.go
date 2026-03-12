@@ -144,7 +144,6 @@ func (esc *endpointSliceController) onEventInternal(_, ep *v1.EndpointSlice, eve
 
 	if len(configsUpdated) > 0 {
 		esc.c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
-			Full:           true,
 			ConfigsUpdated: configsUpdated,
 			Reason:         model.NewReasonStats(model.HeadlessEndpointUpdate),
 		})
