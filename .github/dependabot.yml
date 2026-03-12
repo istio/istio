@@ -9,6 +9,13 @@ updates:
     labels:
       - "release-notes-none"
     target-branch: "master"
+    # We have to do some ignores here as the dependencies for these are meant to be locked to a minor version
+    # and/or are updated through automation.
+    ignore:
+      - dependency-name: "istio.io/*"
+      - dependency-name: "k8s.io/*"
+      - dependency-name: "sigs.k8s.io/*"
+      - dependency-name: "github.com/envoyproxy/go-control-plane/*"
     groups:
       all-dependencies:
         patterns:
@@ -23,6 +30,13 @@ updates:
     labels:
       - "release-notes-none"
     target-branch: "release-1.29"
+    # We have to do some ignores here as the dependencies for these are meant to be locked to a minor version
+    # and/or are updated through automation.
+    ignore:
+      - dependency-name: "istio.io/*"
+      - dependency-name: "k8s.io/*"
+      - dependency-name: "sigs.k8s.io/*"
+      - dependency-name: "github.com/envoyproxy/go-control-plane/*"
     groups:
       all-dependencies:
         patterns:
@@ -37,6 +51,13 @@ updates:
     labels:
       - "release-notes-none"
     target-branch: "release-1.28"
+    # We have to do some ignores here as the dependencies for these are meant to be locked to a minor version
+    # and/or are updated through automation.
+    ignore:
+      - dependency-name: "istio.io/*"
+      - dependency-name: "k8s.io/*"
+      - dependency-name: "sigs.k8s.io/*"
+      - dependency-name: "github.com/envoyproxy/go-control-plane/*"
     groups:
       all-dependencies:
         patterns:
@@ -51,6 +72,13 @@ updates:
     labels:
       - "release-notes-none"
     target-branch: "release-1.27"
+    # We have to do some ignores here as the dependencies for these are meant to be locked to a minor version
+    # and/or are updated through automation.
+    ignore:
+      - dependency-name: "istio.io/*"
+      - dependency-name: "k8s.io/*"
+      - dependency-name: "sigs.k8s.io/*"
+      - dependency-name: "github.com/envoyproxy/go-control-plane/*"
     groups:
       all-dependencies:
         patterns:
