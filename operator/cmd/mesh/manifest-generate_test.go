@@ -566,7 +566,12 @@ func TestManifestGenerateReaderRBACDisableFlag(t *testing.T) {
 	})
 
 	t.Run("disabled explicitly on revisioned install", func(t *testing.T) {
-		flags := fmt.Sprintf("--set values.global.resourceScope=all --set values.global.istioNamespace=%s --set values.global.disableReaderSA=true --set revision=%s", namespace, revision)
+		flags := fmt.Sprintf(
+			"--set values.global.resourceScope=all --set values.global.istioNamespace=%s "+
+				"--set values.global.disableReaderSA=true --set revision=%s",
+			namespace,
+			revision,
+		)
 		manifest := generateManifest(t, "default", flags, liveCharts, nil)
 		objs := parseObjectSetFromManifest(t, manifest)
 		g.Expect(objs.kind(gvk.ServiceAccount.Kind).nameEquals(readerSAName)).Should(BeNil())
