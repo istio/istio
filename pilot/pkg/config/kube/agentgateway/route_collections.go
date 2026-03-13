@@ -367,10 +367,18 @@ func createRouteCollectionGeneric[T controllers.Object, R comparable, ST any](
 			routeNN,
 			resourceTransformer,
 		)
-		// TODO(jaellio)
-		// status := BuildRouteStatusWithParentRefDefaulting(context.Background(), obj, inputs.ControllerName, true)
-		// return ptr.Of(buildStatus(*status)), resources
-		return nil, resources
+
+		// Build route status from parent refs and conversion result
+		rpResults := slices.Map(parentRefs, func(r RouteParentReference) RouteParentResult {
+			return RouteParentResult{
+				OriginalReference: r.OriginalReference,
+				DeniedReason:      r.DeniedReason,
+				RouteError:        gwResult.Error,
+			}
+		})
+		parents := createRouteStatus(rpResults, obj.GetNamespace(), obj.GetGeneration(), inputs.ControllerName, GetCommonRouteStateParents(obj))
+		routeStatus := gatewayv1.RouteStatus{Parents: parents}
+		return ptr.Of(buildStatus(routeStatus)), resources
 	}, krtopts.WithName(collectionName)...)
 }
 
@@ -456,6 +464,7 @@ type RouteContext struct {
 type RouteContextInputs struct {
 	Grants         gatewaycommon.ReferenceGrants
 	RouteParents   RouteParents
+	ControllerName string
 	DomainSuffix   string
 	Services       krt.Collection[*corev1.Service]
 	Namespaces     krt.Collection[*corev1.Namespace]

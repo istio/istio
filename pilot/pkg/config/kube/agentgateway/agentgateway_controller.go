@@ -42,6 +42,7 @@ import (
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -641,6 +642,8 @@ func (c *Controller) buildAgwResources(
 	routeInputs := RouteContextInputs{
 		Grants:         refGrants,
 		RouteParents:   routeParents,
+		ControllerName: constants.ManagedAgentgatewayController,
+		DomainSuffix:   c.domainSuffix,
 		Services:       c.inputs.Services,
 		Namespaces:     c.inputs.Namespaces,
 		ServiceEntries: c.inputs.ServiceEntries,
