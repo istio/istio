@@ -19,8 +19,8 @@ _internal_defaults_do_not_set:
     # - namespace: only namespace-scoped resources are processed
     resourceScope: all
 
-    # If true, do not install istio-reader service account and associated cluster role/binding,
-    # which are used for multicluster remote-secret workflows.
+    # If true, do not install the istio-reader ServiceAccount and associated RBAC.
+    # These are only needed for multicluster remote-secret workflows.
     disableReaderSA: false
   base:
     # A list of CRDs to exclude. Requires `enableCRDTemplates` to be true.

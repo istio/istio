@@ -490,10 +490,6 @@ _internal_defaults_do_not_set:
     #
     meshNetworks: {}
 
-    # If true, do not install istio-reader service account and associated cluster role/binding,
-    # which are used for multicluster remote-secret workflows.
-    disableReaderSA: false
-
     # Use the user-specified, secret volume mounted key and certs for Pilot and workloads.
     mountMtlsCerts: false
 

@@ -538,17 +538,59 @@ func TestManifestGenerateIstiodRemoteLocalInjection(t *testing.T) {
 
 func TestManifestGenerateReaderRBACDisableFlag(t *testing.T) {
 	g := NewWithT(t)
+	const (
+		readerSAName = "istio-reader-service-account"
+		namespace    = "istio-system"
+		revision     = "canary"
+	)
+	readerRBACName := func(rev string) string {
+		return fmt.Sprintf("istio-reader-clusterrole(-%s)?-%s", rev, namespace)
+	}
 
 	t.Run("enabled by default", func(t *testing.T) {
-		manifest := generateManifest(t, "minimal", "--set values.global.resourceScope=all", liveCharts, nil)
+		flags := fmt.Sprintf("--set values.global.resourceScope=all --set values.global.istioNamespace=%s", namespace)
+		manifest := generateManifest(t, "default", flags, liveCharts, nil)
 		objs := parseObjectSetFromManifest(t, manifest)
-		g.Expect(objs.kind(gvk.ServiceAccount.Kind).nameEquals("istio-reader-service-account")).Should(Not(BeNil()))
+		g.Expect(objs.kind(gvk.ServiceAccount.Kind).nameEquals(readerSAName)).Should(Not(BeNil()))
+		g.Expect(manifest).Should(MatchRegexp("kind: ClusterRole[\\s\\S]*name: istio-reader-clusterrole-" + namespace))
+		g.Expect(manifest).Should(MatchRegexp("kind: ClusterRoleBinding[\\s\\S]*name: istio-reader-clusterrole-" + namespace))
+	})
+
+	t.Run("enabled by default on revisioned install", func(t *testing.T) {
+		flags := fmt.Sprintf("--set values.global.resourceScope=all --set values.global.istioNamespace=%s --set revision=%s", namespace, revision)
+		manifest := generateManifest(t, "default", flags, liveCharts, nil)
+		objs := parseObjectSetFromManifest(t, manifest)
+		g.Expect(objs.kind(gvk.ServiceAccount.Kind).nameEquals(readerSAName)).Should(Not(BeNil()))
+		g.Expect(manifest).Should(MatchRegexp("kind: ClusterRole[\\s\\S]*name: " + readerRBACName(revision)))
+		g.Expect(manifest).Should(MatchRegexp("kind: ClusterRoleBinding[\\s\\S]*name: " + readerRBACName(revision)))
+	})
+
+	t.Run("disabled explicitly on revisioned install", func(t *testing.T) {
+		flags := fmt.Sprintf("--set values.global.resourceScope=all --set values.global.istioNamespace=%s --set values.global.disableReaderSA=true --set revision=%s", namespace, revision)
+		manifest := generateManifest(t, "default", flags, liveCharts, nil)
+		objs := parseObjectSetFromManifest(t, manifest)
+		g.Expect(objs.kind(gvk.ServiceAccount.Kind).nameEquals(readerSAName)).Should(BeNil())
+		g.Expect(manifest).Should(Not(MatchRegexp("kind: ClusterRole[\\s\\S]*name: " + readerRBACName(revision))))
+		g.Expect(manifest).Should(Not(MatchRegexp("kind: ClusterRoleBinding[\\s\\S]*name: " + readerRBACName(revision))))
 	})
 
 	t.Run("disabled explicitly", func(t *testing.T) {
-		manifest := generateManifest(t, "minimal", "--set values.global.resourceScope=all --set values.global.disableReaderSA=true", liveCharts, nil)
+		// Use default profile (includes both base and discovery charts) to verify that
+		// disableReaderSA=true suppresses the SA (from base) and the ClusterRole/Binding
+		// (from discovery) in a single consistent install.
+		flags := fmt.Sprintf("--set values.global.resourceScope=all --set values.global.istioNamespace=%s --set values.global.disableReaderSA=true", namespace)
+		manifest := generateManifest(t, "default", flags, liveCharts, nil)
 		objs := parseObjectSetFromManifest(t, manifest)
-		g.Expect(objs.kind(gvk.ServiceAccount.Kind).nameEquals("istio-reader-service-account")).Should(BeNil())
+		g.Expect(objs.kind(gvk.ServiceAccount.Kind).nameEquals(readerSAName)).Should(BeNil())
+		g.Expect(manifest).Should(Not(MatchRegexp("kind: ClusterRole[\\s\\S]*name: istio-reader-clusterrole-" + namespace)))
+		g.Expect(manifest).Should(Not(MatchRegexp("kind: ClusterRoleBinding[\\s\\S]*name: istio-reader-clusterrole-" + namespace)))
+	})
+
+	t.Run("disabled explicitly in base chart only", func(t *testing.T) {
+		flags := "--set values.global.resourceScope=all --set values.global.disableReaderSA=true"
+		manifest := generateManifest(t, "minimal", flags, liveCharts, []string{"templates/reader-serviceaccount.yaml"})
+		objs := parseObjectSetFromManifest(t, manifest)
+		g.Expect(objs.kind(gvk.ServiceAccount.Kind).nameEquals(readerSAName)).Should(BeNil())
 	})
 }
 
