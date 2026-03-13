@@ -690,7 +690,7 @@ func TestDNSBlockedQueryTypes(t *testing.T) {
 		expectBlocked     bool
 		expectAnswers     bool
 		expectRcode       int
-		expectAuthoritive bool
+		expectAuthoritative bool
 	}{
 		{
 			name:              "SRV blocked",
