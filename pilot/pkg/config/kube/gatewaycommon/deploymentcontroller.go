@@ -391,6 +391,9 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 	serviceType := gi.DefaultServiceType
 	if o, f := gw.Annotations[annotation.NetworkingServiceType.Name]; f {
 		serviceType = corev1.ServiceType(o)
+	} else if existingService := d.services.Get(defaultName, gw.Namespace); existingService != nil {
+		// Respect the existing service type if already set
+		serviceType = existingService.Spec.Type
 	}
 	listenersFromListenerSets := []gateway.Listener{}
 	if d.listenerSets != nil {

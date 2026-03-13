@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	kubeVersion "k8s.io/apimachinery/pkg/version"
 	fakediscovery "k8s.io/client-go/discovery/fake"
 	k8s "sigs.k8s.io/gateway-api/apis/v1"
@@ -118,7 +119,33 @@ func TestConfigureIstioGateway(t *testing.T) {
 		},
 	}
 
+	customService := func(gwname, classname string, svctype corev1.ServiceType) *corev1.Service {
+		return &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      fmt.Sprintf("%v-%v", gwname, classname),
+				Namespace: "default",
+				Labels: map[string]string{
+					"gateway.networking.k8s.io/gateway-name": gwname,
+					"gateway.istio.io/managed":               "istio.io-gateway-controller",
+				},
+			},
+			Spec: corev1.ServiceSpec{
+				Type: svctype,
+				Ports: []corev1.ServicePort{
+					{
+						AppProtocol: ptr.Of("tcp"),
+						Name:        "status-port",
+						Port:        15021,
+						Protocol:    corev1.ProtocolTCP,
+						TargetPort:  intstr.FromInt(15021),
+					},
+				},
+			},
+		}
+	}
+
 	defaultObjects := []runtime.Object{defaultNamespace}
+
 	store := model.NewFakeStore()
 	if _, err := store.Create(config.Config{
 		Meta: config.Meta{
@@ -236,6 +263,30 @@ func TestConfigureIstioGateway(t *testing.T) {
 				},
 			},
 			objects:                  defaultObjects,
+			discoveryNamespaceFilter: discoveryNamespacesFilter,
+		},
+		{
+			name: "cluster-ip-from-service",
+			gw: k8s.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "default",
+					Namespace: "default",
+					Annotations: map[string]string{
+						annotation.GatewayNameOverride.Name: "default",
+					},
+				},
+				Spec: k8s.GatewaySpec{
+					GatewayClassName: k8s.ObjectName(features.GatewayAPIDefaultGatewayClass),
+					Listeners: []k8s.Listener{{
+						Name:     "http",
+						Port:     k8s.PortNumber(80),
+						Protocol: k8s.HTTPProtocolType,
+					}},
+				},
+			},
+			objects: append(defaultObjects,
+				customService("default", string(k8s.ObjectName(features.GatewayAPIDefaultGatewayClass)), corev1.ServiceTypeClusterIP),
+			),
 			discoveryNamespaceFilter: discoveryNamespacesFilter,
 		},
 		{
