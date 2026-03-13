@@ -683,41 +683,41 @@ func equalsDNSrecords(got []dns.RR, want []dns.RR) bool {
 
 func TestDNSBlockedQueryTypes(t *testing.T) {
 	testCases := []struct {
-		name              string
-		blockedTypes      string
-		queryType         uint16
-		host              string
-		expectBlocked     bool
-		expectAnswers     bool
-		expectRcode       int
+		name                string
+		blockedTypes        string
+		queryType           uint16
+		host                string
+		expectBlocked       bool
+		expectAnswers       bool
+		expectRcode         int
 		expectAuthoritative bool
 	}{
 		{
-			name:              "SRV blocked",
-			blockedTypes:      "SRV,TXT,PTR",
-			queryType:         dns.TypeSRV,
-			host:              "productpage.ns1.svc.cluster.local.",
-			expectBlocked:     true,
-			expectRcode:       dns.RcodeSuccess,
-			expectAuthoritive: true,
+			name:                "SRV blocked",
+			blockedTypes:        "SRV,TXT,PTR",
+			queryType:           dns.TypeSRV,
+			host:                "productpage.ns1.svc.cluster.local.",
+			expectBlocked:       true,
+			expectRcode:         dns.RcodeSuccess,
+			expectAuthoritative: true,
 		},
 		{
-			name:              "TXT blocked",
-			blockedTypes:      "SRV,TXT,PTR",
-			queryType:         dns.TypeTXT,
-			host:              "www.google.com.",
-			expectBlocked:     true,
-			expectRcode:       dns.RcodeSuccess,
-			expectAuthoritive: true,
+			name:                "TXT blocked",
+			blockedTypes:        "SRV,TXT,PTR",
+			queryType:           dns.TypeTXT,
+			host:                "www.google.com.",
+			expectBlocked:       true,
+			expectRcode:         dns.RcodeSuccess,
+			expectAuthoritative: true,
 		},
 		{
-			name:              "PTR blocked",
-			blockedTypes:      "SRV,TXT,PTR",
-			queryType:         dns.TypePTR,
-			host:              "1.1.1.1.in-addr.arpa.",
-			expectBlocked:     true,
-			expectRcode:       dns.RcodeSuccess,
-			expectAuthoritive: true,
+			name:                "PTR blocked",
+			blockedTypes:        "SRV,TXT,PTR",
+			queryType:           dns.TypePTR,
+			host:                "1.1.1.1.in-addr.arpa.",
+			expectBlocked:       true,
+			expectRcode:         dns.RcodeSuccess,
+			expectAuthoritative: true,
 		},
 		{
 			name:          "A query not blocked when SRV,TXT,PTR are blocked",
@@ -743,13 +743,13 @@ func TestDNSBlockedQueryTypes(t *testing.T) {
 			expectBlocked: false,
 		},
 		{
-			name:              "single type blocked",
-			blockedTypes:      "MX",
-			queryType:         dns.TypeMX,
-			host:              "www.google.com.",
-			expectBlocked:     true,
-			expectRcode:       dns.RcodeSuccess,
-			expectAuthoritive: true,
+			name:                "single type blocked",
+			blockedTypes:        "MX",
+			queryType:           dns.TypeMX,
+			host:                "www.google.com.",
+			expectBlocked:       true,
+			expectRcode:         dns.RcodeSuccess,
+			expectAuthoritative: true,
 		},
 		{
 			name:          "SRV not blocked when only MX is blocked",
@@ -787,7 +787,7 @@ func TestDNSBlockedQueryTypes(t *testing.T) {
 				if len(res.Answer) != 0 {
 					t.Errorf("expected empty answer for blocked query, got %v", res.Answer)
 				}
-				if tc.expectAuthoritive && !res.Authoritative {
+				if tc.expectAuthoritative && !res.Authoritative {
 					t.Error("expected authoritative response for blocked query")
 				}
 			} else if tc.expectAnswers {
