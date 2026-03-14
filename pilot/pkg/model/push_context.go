@@ -703,6 +703,11 @@ var (
 		"Duplicate subsets across destination rules for same host",
 	)
 
+	ConflictHTTPRoutes = monitoring.NewGauge(
+		"pilot_conflict_http_routes",
+		"Conflict of http routes between root and delegate virtual services",
+	)
+
 	// totalVirtualServices tracks the total number of virtual service
 	totalVirtualServices = monitoring.NewGauge(
 		"pilot_virt_services",
@@ -728,6 +733,7 @@ var (
 		ProxyStatusClusterNoInstances,
 		DuplicatedDomains,
 		DuplicatedSubsets,
+		ConflictHTTPRoutes,
 	}
 )
 
@@ -1776,7 +1782,7 @@ func (ps *PushContext) initVirtualServices(env *Environment) {
 		vservices[i] = resolveVirtualServiceShortnames(r)
 	}
 
-	vservices, ps.virtualServiceIndex.delegates = mergeVirtualServicesIfNeeded(vservices, ps.exportToDefaults.virtualService)
+	vservices, ps.virtualServiceIndex.delegates = mergeVirtualServicesIfNeeded(ps, vservices, ps.exportToDefaults.virtualService)
 
 	for _, virtualService := range vservices {
 		ns := virtualService.Namespace

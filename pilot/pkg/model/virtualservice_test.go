@@ -701,7 +701,7 @@ func TestMergeVirtualServices(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got, _ := mergeVirtualServicesIfNeeded(tc.virtualServices, tc.defaultExportTo)
+			got, _ := mergeVirtualServicesIfNeeded(nil, tc.virtualServices, tc.defaultExportTo)
 			assert.Equal(t, got, tc.expectedVirtualServices)
 		})
 	}
@@ -727,10 +727,10 @@ func TestMergeVirtualServices(t *testing.T) {
 		}
 
 		vses := []config.Config{root, delegate, normal}
-		checkOrder(mergeVirtualServicesIfNeeded(vses, sets.New(visibility.Public)))
+		checkOrder(mergeVirtualServicesIfNeeded(nil, vses, sets.New(visibility.Public)))
 
 		vses = []config.Config{normal, delegate, root}
-		checkOrder(mergeVirtualServicesIfNeeded(vses, sets.New(visibility.Public)))
+		checkOrder(mergeVirtualServicesIfNeeded(nil, vses, sets.New(visibility.Public)))
 	})
 }
 
@@ -1165,11 +1165,148 @@ func TestMergeHttpRoutes(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "both root and delegate regex uri conflict",
+			root: &networking.HTTPRoute{
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Uri: &networking.StringMatch{
+							MatchType: &networking.StringMatch_Regex{Regex: "^/productpage"},
+						},
+					},
+				},
+				Delegate: &networking.Delegate{
+					Name:      "delegate",
+					Namespace: "default",
+				},
+			},
+			delegate: []*networking.HTTPRoute{
+				{
+					Match: []*networking.HTTPMatchRequest{
+						{
+							Uri: &networking.StringMatch{
+								MatchType: &networking.StringMatch_Regex{Regex: "^/productpage/v1"},
+							},
+						},
+					},
+					Route: []*networking.HTTPRouteDestination{{Destination: dstV1}},
+				},
+			},
+			expected: []*networking.HTTPRoute{},
+		},
+		{
+			name: "root regex delegate prefix conflict",
+			root: &networking.HTTPRoute{
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Uri: &networking.StringMatch{
+							MatchType: &networking.StringMatch_Regex{Regex: "^/productpage"},
+						},
+					},
+				},
+				Delegate: &networking.Delegate{
+					Name:      "delegate",
+					Namespace: "default",
+				},
+			},
+			delegate: []*networking.HTTPRoute{
+				{
+					Match: []*networking.HTTPMatchRequest{
+						{
+							Uri: &networking.StringMatch{
+								MatchType: &networking.StringMatch_Prefix{Prefix: "/productpage"},
+							},
+						},
+					},
+					Route: []*networking.HTTPRouteDestination{{Destination: dstV1}},
+				},
+			},
+			expected: []*networking.HTTPRoute{},
+		},
+		{
+			name: "root prefix delegate one regex conflict one prefix match",
+			root: &networking.HTTPRoute{
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Uri: &networking.StringMatch{
+							MatchType: &networking.StringMatch_Prefix{Prefix: "/productpage"},
+						},
+					},
+				},
+				Delegate: &networking.Delegate{
+					Name:      "delegate",
+					Namespace: "default",
+				},
+			},
+			delegate: []*networking.HTTPRoute{
+				{
+					Match: []*networking.HTTPMatchRequest{
+						{
+							Uri: &networking.StringMatch{
+								MatchType: &networking.StringMatch_Regex{Regex: "^/reviews"},
+							},
+						},
+					},
+					Route: []*networking.HTTPRouteDestination{{Destination: dstV1}},
+				},
+				{
+					Match: []*networking.HTTPMatchRequest{
+						{
+							Uri: &networking.StringMatch{
+								MatchType: &networking.StringMatch_Prefix{Prefix: "/productpage/v2"},
+							},
+						},
+					},
+					Route: []*networking.HTTPRouteDestination{{Destination: dstV2}},
+				},
+			},
+			expected: []*networking.HTTPRoute{
+				{
+					Match: []*networking.HTTPMatchRequest{
+						{
+							Uri: &networking.StringMatch{
+								MatchType: &networking.StringMatch_Prefix{Prefix: "/productpage/v2"},
+							},
+						},
+					},
+					Route: []*networking.HTTPRouteDestination{{Destination: dstV2}},
+				},
+			},
+		},
+		{
+			name: "root regex delegate exact conflict",
+			root: &networking.HTTPRoute{
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Uri: &networking.StringMatch{
+							MatchType: &networking.StringMatch_Regex{Regex: "^/api"},
+						},
+					},
+				},
+				Delegate: &networking.Delegate{
+					Name:      "delegate",
+					Namespace: "default",
+				},
+			},
+			delegate: []*networking.HTTPRoute{
+				{
+					Match: []*networking.HTTPMatchRequest{
+						{
+							Uri: &networking.StringMatch{
+								MatchType: &networking.StringMatch_Exact{Exact: "/api/v1"},
+							},
+						},
+					},
+					Route: []*networking.HTTPRouteDestination{{Destination: dstV1}},
+				},
+			},
+			expected: []*networking.HTTPRoute{},
+		},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := mergeHTTPRoutes(tc.root, tc.delegate)
+			got := mergeHTTPRoutes(nil, tc.root, tc.delegate)
 			assert.Equal(t, got, tc.expected)
 		})
 	}
@@ -1962,7 +2099,7 @@ func TestFuzzMergeHttpRoute(t *testing.T) {
 	f.Fuzz(root)
 
 	delegate := &networking.HTTPRoute{}
-	expected := mergeHTTPRoute(root, delegate)
+	expected := mergeHTTPRoute(nil, root, delegate)
 	assert.Equal(t, expected, root)
 }
 

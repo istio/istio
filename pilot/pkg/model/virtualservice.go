@@ -15,6 +15,7 @@
 package model
 
 import (
+	"fmt"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/types"
@@ -200,6 +201,7 @@ func resolveVirtualServiceShortnames(config config.Config) config.Config {
 
 // Return merged virtual services and the root->delegate vs map
 func mergeVirtualServicesIfNeeded(
+	ps *PushContext,
 	vServices []config.Config,
 	defaultExportTo sets.Set[visibility.Instance],
 ) ([]config.Config, map[ConfigKey][]ConfigKey) {
@@ -285,7 +287,7 @@ func mergeVirtualServicesIfNeeded(
 				// when multiple routes delegate to one single VS.
 				copiedDelegate := config.DeepCopy(delegateVS.Spec)
 				vs := copiedDelegate.(*networking.VirtualService)
-				merged := mergeHTTPRoutes(route, vs.Http)
+				merged := mergeHTTPRoutes(ps, route, vs.Http)
 				mergedRoutes = append(mergedRoutes, merged...)
 			} else {
 				mergedRoutes = append(mergedRoutes, route)
@@ -306,12 +308,12 @@ func mergeVirtualServicesIfNeeded(
 
 // merge root's route with delegate's and the merged route number equals the delegate's.
 // if there is a conflict with root, the route is ignored
-func mergeHTTPRoutes(root *networking.HTTPRoute, delegate []*networking.HTTPRoute) []*networking.HTTPRoute {
+func mergeHTTPRoutes(ps *PushContext, root *networking.HTTPRoute, delegate []*networking.HTTPRoute) []*networking.HTTPRoute {
 	root.Delegate = nil
 
 	out := make([]*networking.HTTPRoute, 0, len(delegate))
 	for _, subRoute := range delegate {
-		merged := mergeHTTPRoute(root, subRoute)
+		merged := mergeHTTPRoute(ps, root, subRoute)
 		if merged != nil {
 			out = append(out, merged)
 		}
@@ -320,12 +322,15 @@ func mergeHTTPRoutes(root *networking.HTTPRoute, delegate []*networking.HTTPRout
 }
 
 // merge the two HTTPRoutes, if there is a conflict with root, the delegate route is ignored
-func mergeHTTPRoute(root *networking.HTTPRoute, delegate *networking.HTTPRoute) *networking.HTTPRoute {
+func mergeHTTPRoute(ps *PushContext, root *networking.HTTPRoute, delegate *networking.HTTPRoute) *networking.HTTPRoute {
 	// suppose there are N1 match conditions in root, N2 match conditions in delegate
 	// if match condition of N2 is a subset of anyone in N1, this is a valid matching conditions
 	merged, conflict := mergeHTTPMatchRequests(root.Match, delegate.Match)
 	if conflict {
 		log.Warnf("HTTPMatchRequests conflict: root route %s, delegate route %s", root.Name, delegate.Name)
+		ps.AddMetric(ConflictHTTPRoutes, root.Name+"-"+delegate.Name, "",
+			fmt.Sprintf("HTTPMatchRequests conflict: root route %s, delegate route %s",
+				root.Name, delegate.Name))
 		return nil
 	}
 	delegate.Match = merged
