@@ -35,69 +35,69 @@ This implementation adds comprehensive OAuth 2.0 Demonstrating Proof-of-Possessi
 
 ## Key Features Implemented
 
-### ✅ RFC 9449 Compliance
+### RFC 9449 Compliance
 - **DPoP Header Validation**: Full validation of DPoP proof JWTs
 - **Required Claims**: Validates `jti`, `htu`, `htm`, `iat` claims
 - **JWK Header**: Validates embedded public key in JWT header
 - **Signature Verification**: Cryptographic verification using embedded JWK
 
-### ✅ Token Binding
+### Token Binding
 - **JKT Calculation**: SHA-256 JWK thumbprint computation
 - **CNF Claim Validation**: Verifies `cnf.jkt` in access tokens
 - **Key Matching**: Ensures DPoP key matches token binding
 
-### ✅ Request Integrity
+### Request Integrity
 - **HTTP Method Validation**: Confirms `htm` claim matches request method
 - **URI Validation**: Confirms `htu` claim matches full request URI
 - **Scheme Handling**: Proper HTTP/HTTPS scheme detection
 
-### ✅ Replay Protection
+### Replay Protection
 - **JTI Tracking**: In-memory cache of used JWT IDs
 - **Automatic Cleanup**: Time-based expiration of old entries
 - **Size Limits**: Configurable cache size to prevent memory exhaustion
 
-### ✅ Configuration Flexibility
+### Configuration Flexibility
 - **Optional/Required Modes**: Support for migration and strict security
 - **Tunable Parameters**: Configurable max age, cache size, cleanup intervals
 - **Multi-Policy Support**: Consolidates settings from multiple policies
 
 ## Security Benefits
 
-### 🛡️ Token Theft Mitigation
+### Token Theft Mitigation
 - **Sender-Constrained Tokens**: Tokens bound to specific client keys
 - **Theft Protection**: Stolen tokens unusable without private key
 - **Reduced Attack Surface**: Eliminates bearer token vulnerabilities
 
-### 🛡️ Replay Attack Prevention
+### Replay Attack Prevention
 - **One-Time Use**: Each DPoP proof can only be used once
 - **Time-Bound**: Short proof lifetimes limit exposure
 - **Cryptographic Binding**: Proofs tied to specific requests
 
-### 🛡️ Enhanced Authentication
+### Enhanced Authentication
 - **Multi-Factor**: Combines token possession with key possession
 - **Request Integrity**: Ensures requests haven't been tampered with
 - **Client Authentication**: Strong client identity verification
 
 ## Performance Characteristics
 
-### ⚡ Low Latency Impact
+### Low Latency Impact
 - **Minimal Overhead**: ~1-2ms additional validation time
 - **Efficient Algorithms**: Optimized cryptographic operations
 - **Cache Lookups**: O(1) replay cache operations
 
-### ⚡ Memory Efficiency
+### Memory Efficiency
 - **Bounded Cache**: Configurable size limits prevent memory leaks
 - **Automatic Cleanup**: Regular garbage collection of expired entries
 - **Shared Instances**: Validator reuse across policies
 
-### ⚡ Scalability
+### Scalability
 - **Thread-Safe**: Concurrent validation support
 - **Horizontal Scaling**: Distributed cache options available
 - **Load Handling**: Tunable for different traffic patterns
 
 ## Integration Points
 
-### 🔧 Istio RequestAuthentication
+### Istio RequestAuthentication
 ```yaml
 apiVersion: security.istio.io/v1beta1
 kind: RequestAuthentication
@@ -154,68 +154,68 @@ dpopSettings:
 
 ## Testing and Validation
 
-### 🧪 Unit Tests
+### Unit Tests
 - Comprehensive test coverage for all components
 - Mock implementations for external dependencies
 - Performance benchmarks for validation operations
 
-### 🧪 Integration Tests
+### Integration Tests
 - End-to-end DPoP validation flows
 - Multi-policy configuration scenarios
 - Error handling and edge cases
 
-### 🧪 Security Tests
+### Security Tests
 - Replay attack prevention validation
 - Token binding verification
 - Cryptographic correctness testing
 
 ## Compliance and Standards
 
-### ✅ RFC 9449: OAuth 2.0 DPoP
+### RFC 9449: OAuth 2.0 DPoP
 - Complete implementation of all required features
 - Proper handling of all required claims and headers
 - Cryptographic compliance with specification
 
-### ✅ FAPI 2.0 Security Profile
+### FAPI 2.0 Security Profile
 - Financial-grade security requirements
 - Short proof lifetimes and strict validation
 - Enhanced replay protection measures
 
-### ✅ OAuth 2.1 Best Practices
+### OAuth 2.1 Best Practices
 - Modern security recommendations
 - Reduced attack surface
 - Improved token security
 
 ## Operational Considerations
 
-### 📊 Monitoring and Observability
+### Monitoring and Observability
 - Detailed logging for DPoP validation events
 - Metrics for cache performance and hit rates
 - Alerting for replay attack attempts
 
-### 📊 Configuration Management
+### Configuration Management
 - Flexible configuration options for different environments
 - Runtime configuration updates without restart
 - Validation of configuration changes
 
-### 📊 Troubleshooting Support
+### Troubleshooting Support
 - Comprehensive error messages for debugging
 - Debug logging for detailed investigation
 - Common issue documentation and solutions
 
 ## Future Enhancements
 
-### 🚀 Distributed Cache Support
+### Distributed Cache Support
 - Redis-based replay cache for multi-pod deployments
 - Cache synchronization across cluster nodes
 - Improved scalability for large deployments
 
-### 🚀 Advanced Token Binding
+### Advanced Token Binding
 - MTLS certificate binding support
 - Device binding capabilities
 - Multi-factor authentication integration
 
-### 🚀 Performance Optimizations
+### Performance Optimizations
 - Hardware cryptographic acceleration
 - Batch validation for high-throughput scenarios
 - Adaptive cache sizing based on traffic patterns
