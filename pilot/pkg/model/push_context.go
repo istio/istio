@@ -104,8 +104,6 @@ type virtualServiceIndex struct {
 	privateByNamespaceAndGateway map[types.NamespacedName][]config.Config
 	// This contains all virtual services whose exportTo is "*", keyed by gateway
 	publicByGateway map[string][]config.Config
-	// root vs namespace/name ->delegate vs virtualservice gvk/namespace/name
-	delegates map[ConfigKey][]ConfigKey
 
 	// This contains destination hosts of virtual services, keyed by gateway's namespace/name,
 	// only used when PILOT_FILTER_GATEWAY_CLUSTER_CONFIG is enabled
@@ -120,7 +118,6 @@ func newVirtualServiceIndex() virtualServiceIndex {
 		publicByGateway:              map[string][]config.Config{},
 		privateByNamespaceAndGateway: map[types.NamespacedName][]config.Config{},
 		exportedToNamespaceByGateway: map[types.NamespacedName][]config.Config{},
-		delegates:                    map[ConfigKey][]ConfigKey{},
 		referencedDestinations:       map[string]sets.String{},
 	}
 	if features.FilterGatewayClusterConfig {
@@ -1137,17 +1134,6 @@ func (ps *PushContext) VirtualServicesForGateway(proxyNamespace, gateway string)
 	return res
 }
 
-// DelegateVirtualServices lists all the delegate virtual services configkeys associated with the provided virtual services
-func (ps *PushContext) DelegateVirtualServices(vses []*config.Config) []ConfigHash {
-	var out []ConfigHash
-	for _, vs := range vses {
-		for _, delegate := range ps.virtualServiceIndex.delegates[ConfigKey{Kind: kind.VirtualService, Namespace: vs.Namespace, Name: vs.Name}] {
-			out = append(out, delegate.HashCode())
-		}
-	}
-	return out
-}
-
 // getSidecarScope returns a SidecarScope object associated with the
 // proxy. The SidecarScope object is a semi-processed view of the service
 // registry, and config state associated with the sidecar crd. The scope contains
@@ -1765,18 +1751,9 @@ func (ps *PushContext) initVirtualServices(env *Environment) {
 		ps.virtualServiceIndex.destinationsByGateway = make(map[string]sets.String)
 	}
 
-	virtualServices := env.List(gvk.VirtualService, NamespaceAll)
+	vservices := env.VirtualServiceController.MergedVirtualServices()
 
-	vservices := make([]config.Config, len(virtualServices))
-
-	totalVirtualServices.Record(float64(len(virtualServices)))
-
-	// convert all shortnames in virtual services into FQDNs
-	for i, r := range virtualServices {
-		vservices[i] = resolveVirtualServiceShortnames(r)
-	}
-
-	vservices, ps.virtualServiceIndex.delegates = mergeVirtualServicesIfNeeded(vservices, ps.exportToDefaults.virtualService)
+	totalVirtualServices.Record(float64(len(vservices)))
 
 	for _, virtualService := range vservices {
 		ns := virtualService.Namespace
