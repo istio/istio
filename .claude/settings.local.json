@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:github.com)",
+      "Bash(REFRESH_GOLDEN=true go test ./pilot/pkg/config/kube/gateway/ -run TestConvertResources/empty-backend-refs -count=1 -v)",
+      "Bash(go test:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
