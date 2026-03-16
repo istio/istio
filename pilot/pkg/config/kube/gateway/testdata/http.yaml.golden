@@ -159,7 +159,13 @@ spec:
       - HEAD
       - POST
       allowOrigins:
+      - regex: ^https://.*\.xpto\.com$
       - exact: https://example.com
+      exposeHeaders:
+      - x-header-3
+      - x-header-4
+      maxAge: 50s
+      unmatchedPreflights: IGNORE
     name: default.http-route-cors.0
     route:
     - destination:
