@@ -18,7 +18,6 @@ package pqc
 
 import (
 	"fmt"
-	"net/http"
 	"path"
 	"testing"
 	"time"
@@ -230,7 +229,7 @@ spec:
 						MinVersion:       "1.3",
 						CurvePreferences: []string{"X25519MLKEM768"},
 					},
-					Check: check.Status(http.StatusOK),
+					Check: check.OK(),
 				})
 			})
 
