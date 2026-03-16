@@ -294,13 +294,14 @@ func (c *Controller) buildResourceCollections(opts krt.OptionsBuilder) {
 	)
 
 	// Build agw resources for gateway
-	agwResources, routeAttachments := c.buildAgwResources(gateways, referenceGrants, opts)
+	inferencePolicies := InferencePolicyCollection(c.inputs.InferencePools, c.domainSuffix, opts)
+	agwResources, routeAttachments := c.buildAgwResources(gateways, referenceGrants, inferencePolicies, opts)
 
 	gatewayFinalStatus := c.buildFinalGatewayStatus(gatewayInitialStatus, routeAttachments, opts)
 	status.RegisterStatus(c.status, gatewayFinalStatus, GetStatus, c.tagWatcher.AccessUnprotected())
 
 	httpRoutesByInferencePool := krt.NewIndex(c.inputs.HTTPRoutes, "inferencepool-route", indexHTTPRouteByInferencePool)
-	InferencePoolStatus, _ := InferencePoolCollection(
+	inferencePoolStatus, _ := InferencePoolCollection(
 		c.inputs.InferencePools,
 		c.inputs.Services,
 		c.inputs.HTTPRoutes,
@@ -310,7 +311,7 @@ func (c *Controller) buildResourceCollections(opts krt.OptionsBuilder) {
 		opts,
 	)
 	if features.EnableGatewayAPIInferenceExtension {
-		status.RegisterStatus(c.status, InferencePoolStatus, GetStatus, c.tagWatcher.AccessUnprotected())
+		status.RegisterStatus(c.status, inferencePoolStatus, GetStatus, c.tagWatcher.AccessUnprotected())
 	}
 
 	// TODO(jaellio): Source addresses from the ambientindex so the agentgateway proxies get the same
@@ -583,6 +584,7 @@ func ToResourceForGateway(gw types.NamespacedName, resource any) AgwResource {
 func (c *Controller) buildAgwResources(
 	gateways krt.Collection[*GatewayListener],
 	refGrants gatewaycommon.ReferenceGrants,
+	inferencePolicies krt.Collection[AgwResource],
 	opts krt.OptionsBuilder,
 ) (
 	krt.Collection[AgwResource],
@@ -650,11 +652,10 @@ func (c *Controller) buildAgwResources(
 		InferencePools: c.inputs.InferencePools,
 	}
 
-	// TODO(jaellio): Should the tag watcher be registered with dependents?
 	agwRoutes, routeAttachments := AgwRouteCollection(c.status, c.inputs.HTTPRoutes, c.inputs.GRPCRoutes, c.inputs.TCPRoutes, c.inputs.TLSRoutes, routeInputs, c.tagWatcher, opts)
 
 	// Join all Agw resources
-	allAgwResources := krt.JoinCollection([]krt.Collection[AgwResource]{binds, listeners, agwRoutes}, opts.WithName("Resources")...)
+	allAgwResources := krt.JoinCollection([]krt.Collection[AgwResource]{binds, listeners, agwRoutes, inferencePolicies}, opts.WithName("Resources")...)
 
 	return allAgwResources, routeAttachments
 }

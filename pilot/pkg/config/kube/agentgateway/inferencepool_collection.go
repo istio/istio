@@ -15,7 +15,6 @@
 package agentgateway
 
 import (
-	"crypto/sha256"
 	"fmt"
 	"slices"
 
@@ -32,43 +31,18 @@ import (
 )
 
 const (
-	maxServiceNameLength                 = 63
-	hashSize                             = 8
-	InferencePoolRefLabel                = "istio.io/inferencepool-name"
-	InferencePoolExtensionRefSvc         = "istio.io/inferencepool-extension-service"
-	InferencePoolExtensionRefPort        = "istio.io/inferencepool-extension-port"
-	InferencePoolExtensionRefFailureMode = "istio.io/inferencepool-extension-failure-mode"
-	InferencePoolFieldManager            = "istio.io/inference-pool-controller"
+	InferencePoolFieldManager = "istio.io/inference-pool-controller"
 )
 
-type shadowServiceInfo struct {
-	key      types.NamespacedName
-	selector map[string]string
-	poolName string
-	poolUID  types.UID
-	// targetPorts is the port number on the pods selected by the selector.
-	// Currently, inference extension only supports a single target port.
-	targetPorts []targetPort
-}
-
-type targetPort struct {
-	port int32
-}
-
-type extRefInfo struct {
-	name        string
-	port        int32
-	failureMode string
-}
-
+// InferencePool holds the gateway parents that reference an InferencePool, used for status tracking.
 type InferencePool struct {
-	shadowService  shadowServiceInfo
-	extRef         extRefInfo
-	gatewayParents sets.Set[types.NamespacedName] // Gateways that reference this InferencePool
+	poolName       string
+	namespace      string
+	gatewayParents sets.Set[types.NamespacedName]
 }
 
 func (i InferencePool) ResourceName() string {
-	return i.shadowService.key.Namespace + "/" + i.shadowService.poolName
+	return i.namespace + "/" + i.poolName
 }
 
 var supportedControllers = getSupportedControllers()
@@ -90,6 +64,7 @@ func InferencePoolCollection(
 	c *Controller,
 	opts krt.OptionsBuilder,
 ) (krt.StatusCollection[*inferencev1.InferencePool, inferencev1.InferencePoolStatus], krt.Collection[InferencePool]) {
+	// TODO(jaellio): Only configure status, no need to return an collection of InferencePool objects since they are not used
 	return krt.NewStatusCollection(pools,
 		func(
 			ctx krt.HandlerContext,
@@ -182,78 +157,11 @@ func findGatewayParents(
 	return gatewayParents
 }
 
-// generateHash generates an 8-character SHA256 hash of the input string.
-func generateHash(input string, length int) string {
-	hashBytes := sha256.Sum256([]byte(input))
-	hashString := fmt.Sprintf("%x", hashBytes) // Convert to hexadecimal string
-	return hashString[:length]                 // Truncate to desired length
-}
-
-func InferencePoolServiceName(poolName string) (string, error) {
-	ipSeparator := "-ip-"
-	hash := generateHash(poolName, hashSize)
-	svcName := poolName + ipSeparator + hash
-	// Truncate if necessary to meet the Kubernetes naming constraints
-	if len(svcName) > maxServiceNameLength {
-		// Calculate the maximum allowed base name length
-		maxBaseLength := maxServiceNameLength - len(ipSeparator) - hashSize
-		if maxBaseLength < 0 {
-			return "", fmt.Errorf("inference pool name: %s is too long", poolName)
-		}
-
-		// Truncate the base name and reconstruct the service name
-		truncatedBase := poolName[:maxBaseLength]
-		svcName = truncatedBase + ipSeparator + hash
-	}
-	return svcName, nil
-}
-
-// createInferencePoolObject creates the InferencePool object with shadow service and extension ref info
+// createInferencePoolObject creates a simplified InferencePool for status tracking.
 func createInferencePoolObject(pool *inferencev1.InferencePool, gatewayParents sets.Set[types.NamespacedName]) *InferencePool {
-	// Build extension reference info
-	extRef := extRefInfo{
-		name: string(pool.Spec.EndpointPickerRef.Name),
-	}
-
-	if pool.Spec.EndpointPickerRef.Port == nil {
-		logger.Errorf("invalid InferencePool %s/%s; endpointPickerRef port is required", pool.Namespace, pool.Name)
-		return nil
-	}
-	extRef.port = int32(pool.Spec.EndpointPickerRef.Port.Number)
-
-	extRef.failureMode = string(inferencev1.EndpointPickerFailClose) // Default failure mode
-	if pool.Spec.EndpointPickerRef.FailureMode != inferencev1.EndpointPickerFailClose {
-		extRef.failureMode = string(pool.Spec.EndpointPickerRef.FailureMode)
-	}
-
-	svcName, err := InferencePoolServiceName(pool.Name)
-	if err != nil {
-		logger.Errorf("failed to generate service name for InferencePool %s: %v", pool.Name, err)
-		return nil
-	}
-
-	shadowSvcInfo := shadowServiceInfo{
-		key: types.NamespacedName{
-			Name:      svcName,
-			Namespace: pool.GetNamespace(),
-		},
-		selector:    make(map[string]string, len(pool.Spec.Selector.MatchLabels)),
-		poolName:    pool.GetName(),
-		targetPorts: make([]targetPort, 0, len(pool.Spec.TargetPorts)),
-		poolUID:     pool.GetUID(),
-	}
-
-	for k, v := range pool.Spec.Selector.MatchLabels {
-		shadowSvcInfo.selector[string(k)] = string(v)
-	}
-
-	for _, port := range pool.Spec.TargetPorts {
-		shadowSvcInfo.targetPorts = append(shadowSvcInfo.targetPorts, targetPort{port: int32(port.Number)})
-	}
-
 	return &InferencePool{
-		shadowService:  shadowSvcInfo,
-		extRef:         extRef,
+		poolName:       pool.Name,
+		namespace:      pool.Namespace,
 		gatewayParents: gatewayParents,
 	}
 }
