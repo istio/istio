@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net/netip"
 	"strconv"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -47,6 +48,18 @@ var annotationRemovePatch = []byte(fmt.Sprintf(
 	`{"metadata":{"annotations":{"%s":null}}}`,
 	annotation.AmbientRedirection.Name,
 ))
+
+// SplitExcludeNamespaces splits a comma-separated namespace string into a slice,
+// filtering out empty strings that result from splitting an empty input or consecutive/trailing commas.
+func SplitExcludeNamespaces(s string) []string {
+	var result []string
+	for ns := range strings.SplitSeq(s, ",") {
+		if ns != "" {
+			result = append(result, ns)
+		}
+	}
+	return result
+}
 
 // PodFullyEnrolled reports on whether the pod _has_ actually been fully configured for traffic redirection.
 //
