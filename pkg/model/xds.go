@@ -38,6 +38,9 @@ const (
 	AddressType               = APITypePrefix + "istio.workload.Address"
 	WorkloadType              = APITypePrefix + "istio.workload.Workload"
 	WorkloadAuthorizationType = APITypePrefix + "istio.security.Authorization"
+
+	// AgentGateway
+	AgwResourceType = APITypePrefix + "agentgateway.dev.resource.Resource"
 )
 
 // GetShortType returns an abbreviated form of a type, useful for logging or human friendly messages
