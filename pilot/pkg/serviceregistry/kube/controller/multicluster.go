@@ -130,6 +130,9 @@ func NewMulticluster(
 		// Create per-cluster mesh watcher for remote clusters
 		// This allows controllers to detect cluster-specific settings that may be relevant for the local proxies, e.g. trust domain.
 		if !configCluster {
+			// Save the config cluster's mesh watcher as fallback for when the remote meshconfig is unreadable
+			// (e.g. during upgrades before RBAC rules are applied to the remote cluster).
+			options.ConfigClusterMeshWatcher = opts.MeshWatcher
 			meshConfigMapName := mc.getMeshConfigMapName()
 			meshSource := kubemesh.NewConfigMapSource(
 				client,
@@ -147,6 +150,18 @@ func NewMulticluster(
 		}
 
 		kubeRegistry := NewController(client, options)
+
+		// When the remote meshconfig changes (e.g. trust domain becomes readable after RBAC is applied),
+		// trigger a full push so services and endpoints are rebuilt with the correct trust domain.
+		if !configCluster && options.XDSUpdater != nil {
+			options.MeshWatcher.AddMeshHandler(func() {
+				kubeRegistry.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
+					Full:   true,
+					Reason: model.NewReasonStats(model.GlobalUpdate),
+					Forced: true,
+				})
+			})
+		}
 		kubeController := &kubeController{
 			MeshServiceController: opts.MeshServiceController,
 			Controller:            kubeRegistry,

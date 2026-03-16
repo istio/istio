@@ -66,20 +66,42 @@ type RestrictedConfigWatcher interface {
 	ServiceScopeConfigs() []*v1alpha1.MeshConfig_ServiceScopeConfigs
 }
 
-// NewRestrictedConfigWatcher wraps a Holder to expose only trust domain and service scope.
-func NewRestrictedConfigWatcher(holder Holder) RestrictedConfigWatcher {
-	return restrictedConfigAdapter{holder}
+// NewRestrictedConfigWatcher wraps a primary Holder to expose only trust domain and service scope.
+// An optional fallback Holder can be provided; if the primary returns nil or an empty trust domain,
+// the fallback is consulted. This is used for remote clusters where the remote meshconfig may not
+// be readable (e.g. during upgrades before RBAC is applied), falling back to the local cluster's config.
+func NewRestrictedConfigWatcher(primary Holder, fallback ...Holder) RestrictedConfigWatcher {
+	var fb Holder
+	if len(fallback) > 0 {
+		fb = fallback[0]
+	}
+	return restrictedConfigAdapter{primary: primary, fallback: fb}
 }
 
 // restrictedConfigAdapter wraps a Holder to provide RestrictedConfigWatcher interface.
 type restrictedConfigAdapter struct {
-	Holder
+	primary  Holder
+	fallback Holder
 }
 
 func (r restrictedConfigAdapter) TrustDomain() string {
-	return r.Mesh().GetTrustDomain()
+	if m := r.primary.Mesh(); m != nil {
+		if td := m.GetTrustDomain(); td != "" {
+			return td
+		}
+	}
+	if r.fallback != nil {
+		return r.fallback.Mesh().GetTrustDomain()
+	}
+	return ""
 }
 
 func (r restrictedConfigAdapter) ServiceScopeConfigs() []*v1alpha1.MeshConfig_ServiceScopeConfigs {
-	return r.Mesh().GetServiceScopeConfigs()
+	if m := r.primary.Mesh(); m != nil {
+		return m.GetServiceScopeConfigs()
+	}
+	if r.fallback != nil {
+		return r.fallback.Mesh().GetServiceScopeConfigs()
+	}
+	return nil
 }
