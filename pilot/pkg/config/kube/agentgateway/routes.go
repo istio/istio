@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"github.com/agentgateway/agentgateway/go/api"
-	"github.com/golang/protobuf/ptypes/duration"
 	"google.golang.org/protobuf/types/known/durationpb"
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -55,7 +54,7 @@ func InternalRouteRuleKey(routeNamespace, routeName, ruleName string) string {
 func RouteName[T ~string](kind string, namespace, name string, routeRule *T) *api.RouteName {
 	var ls *string
 	if routeRule != nil {
-		ls = ptr.Of((string)(*routeRule))
+		ls = ptr.Of(string(*routeRule))
 	}
 	return &api.RouteName{
 		Name:      name,
@@ -68,10 +67,25 @@ func RouteName[T ~string](kind string, namespace, name string, routeRule *T) *ap
 // Helper function to process route matches
 func processRouteMatches(r *gatewayv1.HTTPRouteRule, res *api.Route) error {
 	for _, match := range r.Matches {
-		path := CreateAgwPathMatch(match)
-		headers := CreateAgwHeadersMatch(match)
-		method := CreateAgwMethodMatch(match)
-		query := CreateAgwQueryMatch(match)
+		path, err := CreateAgwPathMatch(match)
+		if err != nil {
+			return fmt.Errorf("path match Error: %v", err)
+		}
+
+		headers, err := CreateAgwHeadersMatch(match)
+		if err != nil {
+			return fmt.Errorf("headers match Error: %v", err)
+		}
+
+		method, err := CreateAgwMethodMatch(match)
+		if err != nil {
+			return fmt.Errorf("method match Error: %v", err)
+		}
+
+		query, err := CreateAgwQueryMatch(match)
+		if err != nil {
+			return fmt.Errorf("query match Error: %v", err)
+		}
 
 		res.Matches = append(res.GetMatches(), &api.RouteMatch{
 			Path:        path,
@@ -164,7 +178,7 @@ func ApplyRetries(rule *gatewayv1.HTTPRouteRule, route *api.Route) error {
 // ConvertHTTPRouteToAgw converts a HTTPRouteRule to an agentgateway HTTPRoute
 func ConvertHTTPRouteToAgw(ctx RouteContext, r gatewayv1.HTTPRouteRule,
 	obj *gatewayv1.HTTPRoute, pos int, matchPos int,
-) (*api.Route, *condition) {
+) (*api.Route, *Condition) {
 	routeRuleKey := strconv.Itoa(pos) + "." + strconv.Itoa(matchPos)
 	res := &api.Route{
 		// unique for route rule
@@ -175,7 +189,7 @@ func ConvertHTTPRouteToAgw(ctx RouteContext, r gatewayv1.HTTPRouteRule,
 	}
 
 	if err := processRouteMatches(&r, res); err != nil {
-		return nil, &condition{
+		return nil, &Condition{
 			status: "False",
 			error: &ConfigError{
 				Reason:  "InvalidMatch",
@@ -188,7 +202,7 @@ func ConvertHTTPRouteToAgw(ctx RouteContext, r gatewayv1.HTTPRouteRule,
 	res.TrafficPolicies = policies
 
 	if err := ApplyTimeouts(&r, res); err != nil {
-		return nil, &condition{
+		return nil, &Condition{
 			status: "False",
 			error: &ConfigError{
 				Reason:  "TranslationError",
@@ -197,7 +211,7 @@ func ConvertHTTPRouteToAgw(ctx RouteContext, r gatewayv1.HTTPRouteRule,
 		}
 	}
 	if err := ApplyRetries(&r, res); err != nil {
-		return nil, &condition{
+		return nil, &Condition{
 			status: "False",
 			error: &ConfigError{
 				Reason:  "TranslationError",
@@ -208,7 +222,7 @@ func ConvertHTTPRouteToAgw(ctx RouteContext, r gatewayv1.HTTPRouteRule,
 
 	backends, backendErr, err := buildAgwHTTPDestination(ctx, r.BackendRefs, obj.Namespace)
 	if err != nil {
-		return nil, &condition{
+		return nil, &Condition{
 			status: "False",
 			error: &ConfigError{
 				Reason:  "BackendError",
@@ -230,7 +244,7 @@ func ConvertHTTPRouteToAgw(ctx RouteContext, r gatewayv1.HTTPRouteRule,
 // ConvertGRPCRouteToAgw converts a GRPCRouteRule to an agentgateway HTTPRoute
 func ConvertGRPCRouteToAgw(ctx RouteContext, r gatewayv1.GRPCRouteRule,
 	obj *gatewayv1.GRPCRoute, pos int,
-) (*api.Route, *condition) {
+) (*api.Route, *Condition) {
 	routeRuleKey := strconv.Itoa(pos)
 	res := &api.Route{
 		// unique for route rule
@@ -298,7 +312,7 @@ func ConvertGRPCRouteToAgw(ctx RouteContext, r gatewayv1.GRPCRouteRule,
 // ConvertTCPRouteToAgw converts a TCPRouteRule to an agentgateway TCPRoute
 func ConvertTCPRouteToAgw(ctx RouteContext, r gatewayalpha.TCPRouteRule,
 	obj *gatewayalpha.TCPRoute, pos int,
-) (*api.TCPRoute, *condition) {
+) (*api.TCPRoute, *Condition) {
 	routeRuleKey := strconv.Itoa(pos)
 	res := &api.TCPRoute{
 		// unique for route rule
@@ -321,7 +335,7 @@ func ConvertTCPRouteToAgw(ctx RouteContext, r gatewayalpha.TCPRouteRule,
 // ConvertTLSRouteToAgw converts a TLSRouteRule to an agentgateway TCPRoute
 func ConvertTLSRouteToAgw(ctx RouteContext, r gatewayalpha.TLSRouteRule,
 	obj *gatewayalpha.TLSRoute, pos int,
-) (*api.TCPRoute, *condition) {
+) (*api.TCPRoute, *Condition) {
 	routeRuleKey := strconv.Itoa(pos)
 	res := &api.TCPRoute{
 		// unique for route rule
@@ -404,7 +418,7 @@ func createAgwCorsFilter(cors *gatewayv1.HTTPCORSFilter) *api.TrafficPolicySpec 
 			AllowMethods:     slices.Map(cors.AllowMethods, func(m gatewayv1.HTTPMethodWithWildcard) string { return string(m) }),
 			AllowOrigins:     slices.Map(cors.AllowOrigins, func(o gatewayv1.CORSOrigin) string { return string(o) }),
 			ExposeHeaders:    slices.Map(cors.ExposeHeaders, func(h gatewayv1.HTTPHeaderName) string { return string(h) }),
-			MaxAge: &duration.Duration{
+			MaxAge: &durationpb.Duration{
 				Seconds: int64(cors.MaxAge),
 			},
 		}},
@@ -414,7 +428,7 @@ func createAgwCorsFilter(cors *gatewayv1.HTTPCORSFilter) *api.TrafficPolicySpec 
 // createAgwExtensionRefFilter creates Agw filter from Gateway API ExtensionRef filter
 func createAgwExtensionRefFilter(
 	extensionRef *gatewayv1.LocalObjectReference,
-) *condition {
+) *Condition {
 	if extensionRef == nil {
 		return nil
 	}
@@ -423,7 +437,7 @@ func createAgwExtensionRefFilter(
 	// https://github.com/kgateway-dev/kgateway/issues/12037
 
 	// Unsupported ExtensionRef
-	return &condition{
+	return &Condition{
 		status: "False",
 		error: &ConfigError{
 			Reason:  ConfigErrorReason(gatewayv1.RouteReasonIncompatibleFilters),

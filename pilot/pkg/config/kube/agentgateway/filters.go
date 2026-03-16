@@ -30,11 +30,11 @@ func BuildAgwTrafficPolicyFilters(
 	ctx RouteContext,
 	ns string,
 	inputFilters []gatewayv1.HTTPRouteFilter,
-) ([]*api.TrafficPolicySpec, *condition) {
+) ([]*api.TrafficPolicySpec, *Condition) {
 	var policies []*api.TrafficPolicySpec
 	var hasTerminalFilter bool
 	var terminalFilterType string
-	var policyError *condition
+	var policyError *Condition
 	// Collect multiples of same-type filters to merge
 	var mergedReqHdr *api.HeaderModifier
 	var mergedRespHdr *api.HeaderModifier
@@ -55,7 +55,7 @@ func BuildAgwTrafficPolicyFilters(
 			mergedRespHdr = mergeHeaderModifiers(mergedRespHdr, h)
 		case gatewayv1.HTTPRouteFilterRequestRedirect:
 			if hasTerminalFilter {
-				policyError = &condition{
+				policyError = &Condition{
 					status: metav1.ConditionFalse,
 					error: &ConfigError{
 						Reason:  ConfigErrorReason(gatewayv1.RouteReasonIncompatibleFilters),
@@ -109,7 +109,7 @@ func BuildAgwTrafficPolicyFilters(
 				continue
 			}
 		default:
-			return nil, &condition{
+			return nil, &Condition{
 				status: metav1.ConditionFalse,
 				error: &ConfigError{
 					Reason:  ConfigErrorReason(gatewayv1.RouteReasonIncompatibleFilters),
@@ -136,11 +136,11 @@ func BuildAgwBackendPolicyFilters(
 	ctx RouteContext,
 	ns string,
 	inputFilters []gatewayv1.HTTPRouteFilter,
-) ([]*api.BackendPolicySpec, *condition) {
+) ([]*api.BackendPolicySpec, *Condition) {
 	var policies []*api.BackendPolicySpec
 	var hasTerminalFilter bool
 	var terminalFilterType string
-	var policyError *condition
+	var policyError *Condition
 	// Collect multiples of same-type filters to merge
 	var mergedReqHdr *api.HeaderModifier
 	var mergedRespHdr *api.HeaderModifier
@@ -161,7 +161,7 @@ func BuildAgwBackendPolicyFilters(
 			mergedRespHdr = mergeHeaderModifiers(mergedRespHdr, h)
 		case gatewayv1.HTTPRouteFilterRequestRedirect:
 			if hasTerminalFilter {
-				policyError = &condition{
+				policyError = &Condition{
 					status: metav1.ConditionFalse,
 					error: &ConfigError{
 						Reason:  ConfigErrorReason(gatewayv1.RouteReasonIncompatibleFilters),
@@ -187,7 +187,7 @@ func BuildAgwBackendPolicyFilters(
 				mergedMirror = append(mergedMirror, h)
 			}
 		default:
-			return nil, &condition{
+			return nil, &Condition{
 				status: metav1.ConditionFalse,
 				error: &ConfigError{
 					Reason:  ConfigErrorReason(gatewayv1.RouteReasonIncompatibleFilters),
@@ -243,10 +243,11 @@ func mergeHeaderModifiers(dst, src *api.HeaderModifier) *api.HeaderModifier {
 
 // terminalFilterCombinationError creates a standardized error message for when multiple terminal filters are used together
 func terminalFilterCombinationError(existingFilter, newFilter string) string {
-	return fmt.Sprintf("Cannot combine multiple terminal filters: %s and %s are mutually exclusive. Only one terminal filter is allowed per route rule.", existingFilter, newFilter)
+	return fmt.Sprintf("Cannot combine multiple terminal filters: %s and %s are mutually exclusive. Only one terminal filter "+
+		"is allowed per route rule.", existingFilter, newFilter)
 }
 
-func isPolicyErrorCritical(filterError *condition) bool {
+func isPolicyErrorCritical(filterError *Condition) bool {
 	criticalReasons := []gatewayv1.RouteConditionReason{
 		"FilterNotSupported",
 		"FilterConfigInvalid",

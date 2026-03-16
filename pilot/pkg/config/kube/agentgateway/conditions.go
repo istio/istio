@@ -32,7 +32,7 @@ import (
 )
 
 // setConditions sets the existingConditions with the new conditions
-func setConditions(generation int64, existingConditions []metav1.Condition, conditions map[string]*condition) []metav1.Condition {
+func setConditions(generation int64, existingConditions []metav1.Condition, conditions map[string]*Condition) []metav1.Condition {
 	// Sort keys for deterministic ordering
 	for _, k := range slices.Sort(maps.Keys(conditions)) {
 		cond := conditions[k]
@@ -114,7 +114,7 @@ func generateSupportedKinds(l k8s.Listener) ([]k8s.RouteGroupKind, bool) {
 }
 
 func reportListenerCondition(index int, l k8s.Listener, obj controllers.Object,
-	statusListeners []k8s.ListenerStatus, conditions map[string]*condition,
+	statusListeners []k8s.ListenerStatus, conditions map[string]*Condition,
 ) []k8s.ListenerStatus {
 	for index >= len(statusListeners) {
 		statusListeners = append(statusListeners, k8s.ListenerStatus{})
@@ -122,7 +122,7 @@ func reportListenerCondition(index int, l k8s.Listener, obj controllers.Object,
 	cond := statusListeners[index].Conditions
 	supported, valid := generateSupportedKinds(l)
 	if !valid {
-		conditions[string(k8s.ListenerConditionResolvedRefs)] = &condition{
+		conditions[string(k8s.ListenerConditionResolvedRefs)] = &Condition{
 			reason:  string(k8s.ListenerReasonInvalidRouteKinds),
 			status:  metav1.ConditionFalse,
 			message: "Invalid route kinds",
@@ -157,7 +157,7 @@ type RouteParentResult struct {
 	// DeniedReason, if present, indicates why the reference was not valid
 	DeniedReason *ParentError
 	// RouteError, if present, indicates a route-level error (e.g. unresolved backend refs)
-	RouteError *condition
+	RouteError *Condition
 }
 
 // createRouteStatus builds the RouteParentStatus slice from route parent results.
@@ -248,7 +248,7 @@ func createRouteStatus(
 		if successCount[k] > 1 {
 			msg = fmt.Sprintf("Route was valid, bound to %d parents", successCount[k])
 		}
-		conds := map[string]*condition{
+		conds := map[string]*Condition{
 			string(k8s.RouteConditionAccepted): {
 				reason:  string(k8s.RouteReasonAccepted),
 				message: msg,

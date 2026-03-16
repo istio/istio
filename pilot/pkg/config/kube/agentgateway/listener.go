@@ -82,7 +82,7 @@ func buildListener(
 	controllerName gatewayv1.GatewayController,
 	portErr error,
 ) (*istio.Server, *TLSInfo, []gatewayv1.ListenerStatus, bool) {
-	listenerConditions := map[string]*condition{
+	listenerConditions := map[string]*Condition{
 		string(gatewayv1.ListenerConditionAccepted): {
 			reason:  string(gatewayv1.ListenerReasonAccepted),
 			message: "No errors found",

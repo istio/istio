@@ -32,17 +32,17 @@ import (
 )
 
 // CreateAgwMethodMatch creates an agw MethodMatch from a HTTPRouteMatch.
-func CreateAgwMethodMatch(match gatewayv1.HTTPRouteMatch) *api.MethodMatch {
+func CreateAgwMethodMatch(match gatewayv1.HTTPRouteMatch) (*api.MethodMatch, *Condition) {
 	if match.Method == nil {
-		return nil
+		return nil, nil
 	}
 	return &api.MethodMatch{
 		Exact: string(*match.Method),
-	}
+	}, nil
 }
 
 // CreateAgwQueryMatch creates an agw QueryMatch from a HTTPRouteMatch.
-func CreateAgwQueryMatch(match gatewayv1.HTTPRouteMatch) []*api.QueryMatch {
+func CreateAgwQueryMatch(match gatewayv1.HTTPRouteMatch) ([]*api.QueryMatch, *Condition) {
 	res := []*api.QueryMatch{}
 	for _, header := range match.QueryParams {
 		tp := gatewayv1.QueryParamMatchExact
@@ -62,19 +62,25 @@ func CreateAgwQueryMatch(match gatewayv1.HTTPRouteMatch) []*api.QueryMatch {
 			})
 		default:
 			// Should never happen, unless a new field is added
-			return nil
+			return nil, &Condition{
+				status: metav1.ConditionFalse,
+				error: &ConfigError{
+					Reason:  ConfigErrorReason(gatewayv1.RouteReasonUnsupportedValue),
+					Message: fmt.Sprintf("unknown type: %q is not supported QueryMatch type", tp),
+				},
+			}
 		}
 	}
 	if len(res) == 0 {
-		return nil
+		return nil, nil
 	}
-	return res
+	return res, nil
 }
 
 // CreateAgwPathMatch creates an agw PathMatch from a HTTPRouteMatch.
-func CreateAgwPathMatch(match gatewayv1.HTTPRouteMatch) *api.PathMatch {
+func CreateAgwPathMatch(match gatewayv1.HTTPRouteMatch) (*api.PathMatch, *Condition) {
 	if match.Path == nil {
-		return nil
+		return nil, nil
 	}
 	tp := gatewayv1.PathMatchPathPrefix
 	if match.Path.Type != nil {
@@ -101,7 +107,7 @@ func CreateAgwPathMatch(match gatewayv1.HTTPRouteMatch) *api.PathMatch {
 			Kind: &api.PathMatch_PathPrefix{
 				PathPrefix: dest,
 			},
-		}
+		}, nil
 
 	case gatewayv1.PathMatchExact:
 		// EXACT: do not normalize trailing slash; it must match byte-for-byte.
@@ -109,22 +115,28 @@ func CreateAgwPathMatch(match gatewayv1.HTTPRouteMatch) *api.PathMatch {
 			Kind: &api.PathMatch_Exact{
 				Exact: dest,
 			},
-		}
+		}, nil
 	case gatewayv1.PathMatchRegularExpression:
 		// Pass regex through unchanged.
 		return &api.PathMatch{
 			Kind: &api.PathMatch_Regex{
 				Regex: dest,
 			},
-		}
+		}, nil
 	default:
 		// Defensive: unknown type => UnsupportedValue.
-		return nil
+		return nil, &Condition{
+			status: metav1.ConditionFalse,
+			error: &ConfigError{
+				Reason:  ConfigErrorReason(gatewayv1.RouteReasonUnsupportedValue),
+				Message: fmt.Sprintf("unsupported Path match type %q", tp),
+			},
+		}
 	}
 }
 
 // CreateAgwHeadersMatch creates an agw HeadersMatch from a HTTPRouteMatch.
-func CreateAgwHeadersMatch(match gatewayv1.HTTPRouteMatch) []*api.HeaderMatch {
+func CreateAgwHeadersMatch(match gatewayv1.HTTPRouteMatch) ([]*api.HeaderMatch, *Condition) {
 	var res []*api.HeaderMatch
 	for _, header := range match.Headers {
 		tp := gatewayv1.HeaderMatchExact
@@ -144,14 +156,21 @@ func CreateAgwHeadersMatch(match gatewayv1.HTTPRouteMatch) []*api.HeaderMatch {
 			})
 		default:
 			// Should never happen, unless a new field is added
-			return nil
+			return nil, &Condition{
+				status: metav1.ConditionFalse,
+				error: &ConfigError{
+					Reason:  ConfigErrorReason(gatewayv1.RouteReasonUnsupportedValue),
+					Message: fmt.Sprintf("unknown type: %q is not supported HeaderMatch type", tp),
+				},
+			}
+
 		}
 	}
 
 	if len(res) == 0 {
-		return nil
+		return nil, nil
 	}
-	return res
+	return res, nil
 }
 
 // CreateAgwHeadersFilter creates an agw HeaderModifier based on a HTTPHeaderFilter
@@ -212,7 +231,7 @@ func CreateAgwMirrorFilter(
 	filter *gatewayv1.HTTPRequestMirrorFilter,
 	ns string,
 	k config.GroupVersionKind,
-) (*api.RequestMirrors_Mirror, *condition) {
+) (*api.RequestMirrors_Mirror, *Condition) {
 	if filter == nil {
 		return nil, nil
 	}
@@ -253,7 +272,7 @@ func CreateAgwExternalAuthFilter(
 	filter *gatewayv1.HTTPExternalAuthFilter,
 	ns string,
 	k config.GroupVersionKind,
-) (*api.TrafficPolicySpec, *condition) {
+) (*api.TrafficPolicySpec, *Condition) {
 	if filter == nil {
 		return nil, nil
 	}
@@ -331,7 +350,7 @@ func CreateAgwExternalAuthFilter(
 }
 
 // CreateAgwGRPCHeadersMatch creates an agw HeaderMatch from a GRPCRouteMatch.
-func CreateAgwGRPCHeadersMatch(match gatewayv1.GRPCRouteMatch) ([]*api.HeaderMatch, *condition) {
+func CreateAgwGRPCHeadersMatch(match gatewayv1.GRPCRouteMatch) ([]*api.HeaderMatch, *Condition) {
 	var res []*api.HeaderMatch
 	for _, header := range match.Headers {
 		tp := gatewayv1.GRPCHeaderMatchExact
@@ -351,7 +370,7 @@ func CreateAgwGRPCHeadersMatch(match gatewayv1.GRPCRouteMatch) ([]*api.HeaderMat
 			})
 		default:
 			// Should never happen, unless a new field is added
-			return nil, &condition{
+			return nil, &Condition{
 				status: metav1.ConditionFalse,
 				error: &ConfigError{
 					Reason:  ConfigErrorReason(gatewayv1.RouteReasonUnsupportedValue),
@@ -418,9 +437,9 @@ func BuildAgwGRPCTrafficPolicies(
 	ctx RouteContext,
 	ns string,
 	inputFilters []gatewayv1.GRPCRouteFilter,
-) ([]*api.TrafficPolicySpec, *condition) {
+) ([]*api.TrafficPolicySpec, *Condition) {
 	var policies []*api.TrafficPolicySpec
-	var mirrorBackendErr *condition
+	var mirrorBackendErr *Condition
 	// Collect multiples of same-type filters to merge
 	var mergedReqHdr *api.HeaderModifier
 	var mergedRespHdr *api.HeaderModifier
@@ -447,7 +466,7 @@ func BuildAgwGRPCTrafficPolicies(
 				mergedMirror = append(mergedMirror, h)
 			}
 		default:
-			return nil, &condition{
+			return nil, &Condition{
 				status: metav1.ConditionFalse,
 				error: &ConfigError{
 					Reason:  ConfigErrorReason(gatewayv1.RouteReasonIncompatibleFilters),
@@ -473,9 +492,9 @@ func BuildAgwGRPCBackendPolicies(
 	ctx RouteContext,
 	ns string,
 	inputFilters []gatewayv1.GRPCRouteFilter,
-) ([]*api.BackendPolicySpec, *condition) {
+) ([]*api.BackendPolicySpec, *Condition) {
 	var policies []*api.BackendPolicySpec
-	var mirrorBackendErr *condition
+	var mirrorBackendErr *Condition
 	// Collect multiples of same-type filters to merge
 	var mergedReqHdr *api.HeaderModifier
 	var mergedRespHdr *api.HeaderModifier
@@ -502,7 +521,7 @@ func BuildAgwGRPCBackendPolicies(
 				mergedMirror = append(mergedMirror, h)
 			}
 		default:
-			return nil, &condition{
+			return nil, &Condition{
 				status: metav1.ConditionFalse,
 				error: &ConfigError{
 					Reason:  ConfigErrorReason(gatewayv1.RouteReasonIncompatibleFilters),
@@ -528,12 +547,12 @@ func buildAgwGRPCDestination(
 	ctx RouteContext,
 	forwardTo []gatewayv1.GRPCBackendRef,
 	ns string,
-) ([]*api.RouteBackend, *condition, *condition) {
+) ([]*api.RouteBackend, *Condition, *Condition) {
 	if forwardTo == nil {
 		return nil, nil, nil
 	}
 
-	var invalidBackendErr *condition
+	var invalidBackendErr *Condition
 	var res []*api.RouteBackend
 	for _, fwd := range forwardTo {
 		dst, err := buildAgwDestination(ctx, gatewayv1.HTTPBackendRef{

@@ -134,9 +134,9 @@ func AgwRouteCollection(
 ) (krt.Collection[AgwResource], krt.Collection[*RouteAttachment]) {
 	// Create httpRoutes collection
 	httpRouteStatus, httpRoutes := createRouteCollection(httpRouteCol, inputs, krtopts, "HTTPRoutes",
-		func(ctx RouteContext, obj *gatewayv1.HTTPRoute) (RouteContext, iter.Seq2[AgwRoute, *condition]) {
+		func(ctx RouteContext, obj *gatewayv1.HTTPRoute) (RouteContext, iter.Seq2[AgwRoute, *Condition]) {
 			route := obj.Spec
-			return ctx, func(yield func(AgwRoute, *condition) bool) {
+			return ctx, func(yield func(AgwRoute, *Condition) bool) {
 				for n, r := range route.Rules {
 					// split the rule to make sure each rule has up to one match
 					matches := slices.Reference(r.Matches)
@@ -161,9 +161,9 @@ func AgwRouteCollection(
 
 	// Create gRPCRoutes collection
 	grpcRouteStatus, grpcRoutes := createRouteCollection(grpcRouteCol, inputs, krtopts, "GRPCRoutes",
-		func(ctx RouteContext, obj *gatewayv1.GRPCRoute) (RouteContext, iter.Seq2[AgwRoute, *condition]) {
+		func(ctx RouteContext, obj *gatewayv1.GRPCRoute) (RouteContext, iter.Seq2[AgwRoute, *Condition]) {
 			route := obj.Spec
-			return ctx, func(yield func(AgwRoute, *condition) bool) {
+			return ctx, func(yield func(AgwRoute, *Condition) bool) {
 				for n, r := range route.Rules {
 					// Convert the entire rule with all matches at once
 					res, err := ConvertGRPCRouteToAgw(ctx, r, obj, n)
@@ -179,9 +179,9 @@ func AgwRouteCollection(
 
 	// Create TCPRoutes collection
 	tcpRouteStatus, tcpRoutes := createTCPRouteCollection(tcpRouteCol, inputs, krtopts, "TCPRoutes",
-		func(ctx RouteContext, obj *gatewayalpha.TCPRoute) (RouteContext, iter.Seq2[AgwTCPRoute, *condition]) {
+		func(ctx RouteContext, obj *gatewayalpha.TCPRoute) (RouteContext, iter.Seq2[AgwTCPRoute, *Condition]) {
 			route := obj.Spec
-			return ctx, func(yield func(AgwTCPRoute, *condition) bool) {
+			return ctx, func(yield func(AgwTCPRoute, *Condition) bool) {
 				for n, r := range route.Rules {
 					// Convert the entire rule with all matches at once
 					res, err := ConvertTCPRouteToAgw(ctx, r, obj, n)
@@ -197,9 +197,9 @@ func AgwRouteCollection(
 
 	// Create TLSRoutes collection
 	tlsRouteStatus, tlsRoutes := createTCPRouteCollection(tlsRouteCol, inputs, krtopts, "TLSRoutes",
-		func(ctx RouteContext, obj *gatewayalpha.TLSRoute) (RouteContext, iter.Seq2[AgwTCPRoute, *condition]) {
+		func(ctx RouteContext, obj *gatewayalpha.TLSRoute) (RouteContext, iter.Seq2[AgwTCPRoute, *Condition]) {
 			route := obj.Spec
-			return ctx, func(yield func(AgwTCPRoute, *condition) bool) {
+			return ctx, func(yield func(AgwTCPRoute, *Condition) bool) {
 				for n, r := range route.Rules {
 					// Convert the entire rule with all matches at once
 					res, err := ConvertTLSRouteToAgw(ctx, r, obj, n)
@@ -232,7 +232,7 @@ func createRouteCollection[T controllers.Object, ST any](
 	inputs RouteContextInputs,
 	krtopts krt.OptionsBuilder,
 	collectionName string,
-	translator func(ctx RouteContext, obj T) (RouteContext, iter.Seq2[AgwRoute, *condition]),
+	translator func(ctx RouteContext, obj T) (RouteContext, iter.Seq2[AgwRoute, *Condition]),
 	buildStatus func(status gatewayv1.RouteStatus) ST,
 ) (
 	krt.StatusCollection[T, ST],
@@ -267,7 +267,7 @@ func IsNil[O comparable](o O) bool {
 }
 
 type ConversionResult[O any] struct {
-	Error  *condition
+	Error  *Condition
 	Routes []O
 }
 
@@ -279,7 +279,7 @@ func buildGatewayRoutes[T any](convertRules func() T) T {
 // computeRoute holds the common route building logic shared amongst all types
 func computeRoute[T controllers.Object, O comparable](ctx RouteContext, obj T, translator func(
 	obj T,
-) iter.Seq2[O, *condition],
+) iter.Seq2[O, *Condition],
 ) ([]RouteParentReference, ConversionResult[O]) {
 	parentRefs := extractParentReferenceInfo(ctx, ctx.RouteParents, obj)
 
@@ -461,7 +461,7 @@ func createRouteCollectionGeneric[T controllers.Object, R comparable, ST any](
 	inputs RouteContextInputs,
 	krtopts krt.OptionsBuilder,
 	collectionName string,
-	translator func(ctx RouteContext, obj T) (RouteContext, iter.Seq2[R, *condition]),
+	translator func(ctx RouteContext, obj T) (RouteContext, iter.Seq2[R, *Condition]),
 	resourceTransformer func(route R, parent RouteParentReference) *api.Resource,
 	buildStatus func(status gatewayv1.RouteStatus) ST,
 ) (
@@ -474,7 +474,7 @@ func createRouteCollectionGeneric[T controllers.Object, R comparable, ST any](
 		// Apply route-specific preprocessing and get the translator
 		ctx, translatorSeq := translator(ctx, obj)
 
-		parentRefs, gwResult := computeRoute(ctx, obj, func(obj T) iter.Seq2[R, *condition] {
+		parentRefs, gwResult := computeRoute(ctx, obj, func(obj T) iter.Seq2[R, *Condition] {
 			return translatorSeq
 		})
 
@@ -512,7 +512,7 @@ func createTCPRouteCollection[T controllers.Object, ST any](
 	inputs RouteContextInputs,
 	krtopts krt.OptionsBuilder,
 	collectionName string,
-	translator func(ctx RouteContext, obj T) (RouteContext, iter.Seq2[AgwTCPRoute, *condition]),
+	translator func(ctx RouteContext, obj T) (RouteContext, iter.Seq2[AgwTCPRoute, *Condition]),
 	buildStatus func(status gatewayv1.RouteStatus) ST,
 ) (
 	krt.StatusCollection[T, ST],

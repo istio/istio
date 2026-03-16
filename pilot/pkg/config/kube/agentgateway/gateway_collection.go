@@ -259,7 +259,7 @@ func reportListenerSetStatus(
 	gs *gatewayv1.ListenerSetStatus,
 	gatewayServices []string,
 	servers []*istio.Server,
-	cond *condition,
+	cond *Condition,
 ) {
 	internal, _, _, _, warnings, allUsable := r.ResolveGatewayInstances(parentGwObj.Namespace, gatewayServices, servers)
 
@@ -268,7 +268,7 @@ func reportListenerSetStatus(
 	// Accepted: is the configuration valid. We only have errors in listeners, and the status is not supposed to
 	// be tied to listeners, so this is always accepted
 	// Programmed: is the data plane "ready" (note: eventually consistent)
-	gatewayConditions := map[string]*condition{
+	gatewayConditions := map[string]*Condition{
 		string(gatewayv1.GatewayConditionAccepted): {
 			reason:  string(gatewayv1.GatewayReasonAccepted),
 			message: "Resource accepted",

@@ -26,9 +26,10 @@ import (
 
 func TestCreateAgwPathMatch(t *testing.T) {
 	tests := []struct {
-		name  string
-		match gatewayv1.HTTPRouteMatch
-		want  *api.PathMatch
+		name      string
+		match     gatewayv1.HTTPRouteMatch
+		want      *api.PathMatch
+		wantError bool
 	}{
 		{
 			name:  "nil path returns nil",
@@ -141,10 +142,29 @@ func TestCreateAgwPathMatch(t *testing.T) {
 				Kind: &api.PathMatch_Exact{Exact: "/foo/bar"},
 			},
 		},
+		{
+			name: "unsupported path match type returns error",
+			match: gatewayv1.HTTPRouteMatch{
+				Path: &gatewayv1.HTTPPathMatch{
+					Type:  ptr.Of(gatewayv1.PathMatchType("Invalid")),
+					Value: ptr.Of("/foo"),
+				},
+			},
+			wantError: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := CreateAgwPathMatch(tt.match)
+			got, cond := CreateAgwPathMatch(tt.match)
+			if tt.wantError {
+				if cond == nil || cond.error == nil {
+					t.Fatal("expected error condition but got nil")
+				}
+				return
+			}
+			if cond != nil && cond.error != nil {
+				t.Fatalf("unexpected error: %v", cond.error.Message)
+			}
 			assert.Equal(t, got, tt.want)
 		})
 	}
@@ -152,9 +172,10 @@ func TestCreateAgwPathMatch(t *testing.T) {
 
 func TestCreateAgwHeadersMatch(t *testing.T) {
 	tests := []struct {
-		name  string
-		match gatewayv1.HTTPRouteMatch
-		want  []*api.HeaderMatch
+		name      string
+		match     gatewayv1.HTTPRouteMatch
+		want      []*api.HeaderMatch
+		wantError bool
 	}{
 		{
 			name:  "no headers returns nil",
@@ -223,10 +244,32 @@ func TestCreateAgwHeadersMatch(t *testing.T) {
 				{Name: "X-Version", Value: &api.HeaderMatch_Regex{Regex: "v[0-9]+"}},
 			},
 		},
+		{
+			name: "unsupported header match type returns error",
+			match: gatewayv1.HTTPRouteMatch{
+				Headers: []gatewayv1.HTTPHeaderMatch{
+					{
+						Type:  ptr.Of(gatewayv1.HeaderMatchType("Invalid")),
+						Name:  "X-Bad",
+						Value: "foo",
+					},
+				},
+			},
+			wantError: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := CreateAgwHeadersMatch(tt.match)
+			got, cond := CreateAgwHeadersMatch(tt.match)
+			if tt.wantError {
+				if cond == nil || cond.error == nil {
+					t.Fatal("expected error condition but got nil")
+				}
+				return
+			}
+			if cond != nil && cond.error != nil {
+				t.Fatalf("unexpected error: %v", cond.error.Message)
+			}
 			assert.Equal(t, got, tt.want)
 		})
 	}
@@ -234,9 +277,10 @@ func TestCreateAgwHeadersMatch(t *testing.T) {
 
 func TestCreateAgwQueryMatch(t *testing.T) {
 	tests := []struct {
-		name  string
-		match gatewayv1.HTTPRouteMatch
-		want  []*api.QueryMatch
+		name      string
+		match     gatewayv1.HTTPRouteMatch
+		want      []*api.QueryMatch
+		wantError bool
 	}{
 		{
 			name:  "no query params returns nil",
@@ -290,10 +334,32 @@ func TestCreateAgwQueryMatch(t *testing.T) {
 				{Name: "sort", Value: &api.QueryMatch_Regex{Regex: "(asc|desc)"}},
 			},
 		},
+		{
+			name: "unsupported query param match type returns error",
+			match: gatewayv1.HTTPRouteMatch{
+				QueryParams: []gatewayv1.HTTPQueryParamMatch{
+					{
+						Type:  ptr.Of(gatewayv1.QueryParamMatchType("Invalid")),
+						Name:  "bad",
+						Value: "val",
+					},
+				},
+			},
+			wantError: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := CreateAgwQueryMatch(tt.match)
+			got, cond := CreateAgwQueryMatch(tt.match)
+			if tt.wantError {
+				if cond == nil || cond.error == nil {
+					t.Fatal("expected error condition but got nil")
+				}
+				return
+			}
+			if cond != nil && cond.error != nil {
+				t.Fatalf("unexpected error: %v", cond.error.Message)
+			}
 			assert.Equal(t, got, tt.want)
 		})
 	}
@@ -301,9 +367,10 @@ func TestCreateAgwQueryMatch(t *testing.T) {
 
 func TestCreateAgwMethodMatch(t *testing.T) {
 	tests := []struct {
-		name  string
-		match gatewayv1.HTTPRouteMatch
-		want  *api.MethodMatch
+		name      string
+		match     gatewayv1.HTTPRouteMatch
+		want      *api.MethodMatch
+		wantError bool
 	}{
 		{
 			name:  "nil method returns nil",
@@ -334,7 +401,16 @@ func TestCreateAgwMethodMatch(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := CreateAgwMethodMatch(tt.match)
+			got, cond := CreateAgwMethodMatch(tt.match)
+			if tt.wantError {
+				if cond == nil || cond.error == nil {
+					t.Fatal("expected error condition but got nil")
+				}
+				return
+			}
+			if cond != nil && cond.error != nil {
+				t.Fatalf("unexpected error: %v", cond.error.Message)
+			}
 			assert.Equal(t, got, tt.want)
 		})
 	}

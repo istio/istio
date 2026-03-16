@@ -111,7 +111,7 @@ type ConfigError struct {
 	Message string
 }
 
-type condition struct {
+type Condition struct {
 	// reason defines the reason to report on success. Ignored if error is set
 	reason string
 	// message defines the message to report on success. Ignored if error is set

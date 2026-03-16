@@ -34,7 +34,7 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
-func extractGatewayServices(domainSuffix string, kgw *gatewayv1.Gateway, info gatewaycommon.ClassInfo) ([]string, *condition) {
+func extractGatewayServices(domainSuffix string, kgw *gatewayv1.Gateway, info gatewaycommon.ClassInfo) ([]string, *Condition) {
 	if gatewaycommon.IsManaged(&kgw.Spec) {
 		name := model.GetOrDefault(kgw.Annotations[annotation.GatewayNameOverride.Name], gatewaycommon.GetDefaultName(kgw.Name, &kgw.Spec, info.DisableNameSuffix))
 		return []string{fmt.Sprintf("%s.%s.svc.%v", name, kgw.Namespace, domainSuffix)}, nil
@@ -59,7 +59,7 @@ func extractGatewayServices(domainSuffix string, kgw *gatewayv1.Gateway, info ga
 	}
 	if len(skippedAddresses) > 0 {
 		// Give error but return services, this is a soft failure
-		return gatewayServices, &condition{
+		return gatewayServices, &Condition{
 			status: metav1.ConditionFalse,
 			error: &ConfigError{
 				Reason:  InvalidAddress,
@@ -70,7 +70,7 @@ func extractGatewayServices(domainSuffix string, kgw *gatewayv1.Gateway, info ga
 	if _, f := kgw.Annotations[annotation.NetworkingServiceType.Name]; f {
 		// Give error but return services, this is a soft failure
 		// Remove entirely in 1.20
-		return gatewayServices, &condition{
+		return gatewayServices, &Condition{
 			status: metav1.ConditionFalse,
 			error: &ConfigError{
 				Reason:  DeprecateFieldUsage,
@@ -99,7 +99,7 @@ func reportGatewayStatus(
 	// Accepted: is the configuration valid. We only have errors in listeners, and the status is not supposed to
 	// be tied to listeners, so this is always accepted
 	// Programmed: is the data plane "ready" (note: eventually consistent)
-	gatewayConditions := map[string]*condition{
+	gatewayConditions := map[string]*Condition{
 		string(gatewayv1.GatewayConditionAccepted): {
 			reason:  string(gatewayv1.GatewayReasonAccepted),
 			message: "Resource accepted",
@@ -116,7 +116,7 @@ func reportGatewayStatus(
 	// Not defined in upstream API
 	const AttachedListenerSets = "AttachedListenerSets"
 	if obj.Spec.AllowedListeners != nil {
-		gatewayConditions[AttachedListenerSets] = &condition{
+		gatewayConditions[AttachedListenerSets] = &Condition{
 			reason:  "ListenersAttached",
 			message: "At least one ListenerSet is attached",
 		}
@@ -185,7 +185,7 @@ func reportGatewayStatus(
 	gs.Conditions = setConditions(obj.Generation, gs.Conditions, gatewayConditions)
 }
 
-func setProgrammedCondition(gatewayConditions map[string]*condition, internal []string, gatewayServices []string, warnings []string, allUsable bool) {
+func setProgrammedCondition(gatewayConditions map[string]*Condition, internal []string, gatewayServices []string, warnings []string, allUsable bool) {
 	if len(internal) > 0 {
 		msg := fmt.Sprintf("Resource programmed, assigned to service(s) %s", humanReadableJoin(internal))
 		gatewayConditions[string(gatewayv1.GatewayConditionProgrammed)].message = msg
@@ -220,7 +220,7 @@ func setProgrammedCondition(gatewayConditions map[string]*condition, internal []
 
 // reportUnsupportedListenerSet reports a status message for a ListenerSet that is not supported
 func reportUnsupportedListenerSet(class string, status *gatewayv1.ListenerSetStatus, obj *gatewayv1.ListenerSet) {
-	gatewayConditions := map[string]*condition{
+	gatewayConditions := map[string]*Condition{
 		string(gatewayv1.GatewayConditionAccepted): {
 			reason: string(gatewayv1.GatewayReasonAccepted),
 			error: &ConfigError{
@@ -242,7 +242,7 @@ func reportUnsupportedListenerSet(class string, status *gatewayv1.ListenerSetSta
 
 // reportNotAllowedListenerSet reports a status message for a ListenerSet that is not allowed to be selected
 func reportNotAllowedListenerSet(status *gatewayv1.ListenerSetStatus, obj *gatewayv1.ListenerSet) {
-	gatewayConditions := map[string]*condition{
+	gatewayConditions := map[string]*Condition{
 		string(gatewayv1.GatewayConditionAccepted): {
 			reason: string(gatewayv1.GatewayReasonAccepted),
 			error: &ConfigError{

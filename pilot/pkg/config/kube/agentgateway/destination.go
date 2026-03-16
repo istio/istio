@@ -34,7 +34,6 @@ func GetInferenceServiceHostname(ctx RouteContext, name, namespace string) strin
 	return fmt.Sprintf("%s.%s.inference.%s", name, namespace, ctx.DomainSuffix)
 }
 
-// TODO(jaellio): Is domain suffix correct here?
 // GetServiceHostname returns the fully qualified service hostname
 func GetServiceHostname(ctx RouteContext, name, namespace string) string {
 	return fmt.Sprintf("%s.%s.svc.%s", name, namespace, ctx.DomainSuffix)
@@ -46,14 +45,14 @@ func buildAgwDestination(
 	to gatewayv1.HTTPBackendRef,
 	ns string,
 	k config.GroupVersionKind,
-) (*api.RouteBackend, *condition) {
+) (*api.RouteBackend, *Condition) {
 	ref := normalizeReference(to.Group, to.Kind, gvk.Service)
 	// check if the reference is allowed
 	if toNs := to.Namespace; toNs != nil && string(*toNs) != ns {
 		if !ctx.Grants.BackendAllowed(ctx.Krt, k, ref, to.Name, *toNs, ns) {
 			msg := fmt.Sprintf("backendRef %v/%v not accessible to a %s in namespace %q (missing a ReferenceGrant?)", to.Name, *toNs, k.Kind, ns)
 			log.Debug(msg)
-			return nil, &condition{
+			return nil, &Condition{
 				status: metav1.ConditionFalse,
 				error: &ConfigError{
 					Reason:  ConfigErrorReason(gatewayv1.RouteReasonRefNotPermitted),
@@ -67,7 +66,7 @@ func buildAgwDestination(
 	if to.Namespace != nil {
 		namespace = string(*to.Namespace)
 	}
-	var invalidBackendErr *condition
+	var invalidBackendErr *Condition
 	var hostname string
 	weight := int32(1) // default
 	if to.Weight != nil {
@@ -83,7 +82,7 @@ func buildAgwDestination(
 		if strings.Contains(string(to.Name), ".") {
 			msg := fmt.Sprintf("service name invalid; the name of the InferencePool must be used, not the hostname. Got %q", to.Name)
 			log.Debug(msg)
-			return nil, &condition{
+			return nil, &Condition{
 				status: metav1.ConditionFalse,
 				error: &ConfigError{
 					Reason:  ConfigErrorReason(gatewayv1.RouteReasonUnsupportedValue),
@@ -98,7 +97,7 @@ func buildAgwDestination(
 		if svc == nil {
 			msg := fmt.Sprintf("backendRef %s not found", key)
 			log.Debug(msg)
-			invalidBackendErr = &condition{
+			invalidBackendErr = &Condition{
 				status: metav1.ConditionFalse,
 				error: &ConfigError{
 					Reason:  ConfigErrorReason(gatewayv1.RouteReasonBackendNotFound),
@@ -113,7 +112,7 @@ func buildAgwDestination(
 						Namespace: namespace,
 					},
 				},
-				// InferencePool only supports single port
+				// TODO(jaellio): Update to support multiple ports
 				Port: uint32(svc.Spec.TargetPorts[0].Number), //nolint:gosec // G115: InferencePool TargetPort is int32 with validation 1-65535, always safe
 			}
 		}
@@ -125,7 +124,7 @@ func buildAgwDestination(
 		if port == nil {
 			msg := fmt.Sprintf("port is required in backendRef for Hostname kind when referencing %q", to.Name)
 			log.Debug(msg)
-			return nil, &condition{
+			return nil, &Condition{
 				status: metav1.ConditionFalse,
 				error: &ConfigError{
 					Reason:  ConfigErrorReason(gatewayv1.RouteReasonUnsupportedValue),
@@ -136,7 +135,7 @@ func buildAgwDestination(
 		if to.Namespace != nil {
 			msg := fmt.Sprintf("namespace may not be set with Hostname type when referencing %q", to.Name)
 			log.Debug(msg)
-			return nil, &condition{
+			return nil, &Condition{
 				status: metav1.ConditionFalse,
 				error: &ConfigError{
 					Reason:  ConfigErrorReason(gatewayv1.RouteReasonUnsupportedValue),
@@ -162,7 +161,7 @@ func buildAgwDestination(
 		if strings.Contains(string(to.Name), ".") {
 			msg := fmt.Sprintf("service name invalid; the name of the Service must be used, not the hostname. Got %q", to.Name)
 			log.Debug(msg)
-			return nil, &condition{
+			return nil, &Condition{
 				status: metav1.ConditionFalse,
 				error: &ConfigError{
 					Reason:  ConfigErrorReason(gatewayv1.RouteReasonUnsupportedValue),
@@ -176,7 +175,7 @@ func buildAgwDestination(
 		if svc == nil {
 			msg := fmt.Sprintf("backend(%s) not found", hostname)
 			log.Debug(msg)
-			invalidBackendErr = &condition{
+			invalidBackendErr = &Condition{
 				status: metav1.ConditionFalse,
 				error: &ConfigError{
 					Reason:  ConfigErrorReason(gatewayv1.RouteReasonBackendNotFound),
@@ -190,7 +189,7 @@ func buildAgwDestination(
 			// "Port is required when the referent is a Kubernetes Service."
 			msg := fmt.Sprintf("port is required in backendRef when referencing service %q", hostname)
 			log.Debug(msg)
-			return nil, &condition{
+			return nil, &Condition{
 				status: metav1.ConditionFalse,
 				error: &ConfigError{
 					Reason:  ConfigErrorReason(gatewayv1.RouteReasonUnsupportedValue),
@@ -210,7 +209,7 @@ func buildAgwDestination(
 	default:
 		msg := fmt.Sprintf("unsupported backendRef kind %q with group %q", ptr.OrEmpty(to.Group), ptr.OrEmpty(to.Kind))
 		log.Debug(msg)
-		return nil, &condition{
+		return nil, &Condition{
 			status: metav1.ConditionFalse,
 			error: &ConfigError{
 				Reason:  ConfigErrorReason(gatewayv1.RouteReasonInvalidKind),
@@ -226,12 +225,12 @@ func buildAgwHTTPDestination(
 	ctx RouteContext,
 	forwardTo []gatewayv1.HTTPBackendRef,
 	ns string,
-) ([]*api.RouteBackend, *condition, *condition) {
+) ([]*api.RouteBackend, *Condition, *Condition) {
 	if forwardTo == nil {
 		return nil, nil, nil
 	}
 
-	var invalidBackendErr *condition
+	var invalidBackendErr *Condition
 	var res []*api.RouteBackend
 	for _, fwd := range forwardTo {
 		dst, err := buildAgwDestination(ctx, fwd, ns, gvk.HTTPRoute)
@@ -261,12 +260,12 @@ func buildAgwTCPDestination(
 	ctx RouteContext,
 	forwardTo []gatewayv1.BackendRef,
 	ns string,
-) ([]*api.RouteBackend, *condition, *condition) {
+) ([]*api.RouteBackend, *Condition, *Condition) {
 	if forwardTo == nil {
 		return nil, nil, nil
 	}
 
-	var invalidBackendErr *condition
+	var invalidBackendErr *Condition
 	var res []*api.RouteBackend
 	for _, fwd := range forwardTo {
 		dst, err := buildAgwDestination(ctx, gatewayv1.HTTPBackendRef{
@@ -293,11 +292,11 @@ func buildAgwTLSDestination(
 	ctx RouteContext,
 	forwardTo []gatewayv1.BackendRef,
 	ns string,
-) ([]*api.RouteBackend, *condition, *condition) {
+) ([]*api.RouteBackend, *Condition, *Condition) {
 	if forwardTo == nil {
 		return nil, nil, nil
 	}
-	var invalidBackendErr *condition
+	var invalidBackendErr *Condition
 	var res []*api.RouteBackend
 	for _, fwd := range forwardTo {
 		dst, err := buildAgwDestination(ctx, gatewayv1.HTTPBackendRef{
@@ -319,7 +318,7 @@ func buildAgwTLSDestination(
 }
 
 // https://github.com/kubernetes-sigs/gateway-api/blob/cea484e38e078a2c1997d8c7a62f410a1540f519/apis/v1beta1/httproute_types.go#L207-L212
-func isInvalidBackend(err *condition) bool {
+func isInvalidBackend(err *Condition) bool {
 	return err.reason == ConfigErrorReason(gatewayv1.RouteReasonRefNotPermitted) ||
 		err.reason == ConfigErrorReason(gatewayv1.RouteReasonBackendNotFound) ||
 		err.reason == ConfigErrorReason(gatewayv1.RouteReasonInvalidKind)
