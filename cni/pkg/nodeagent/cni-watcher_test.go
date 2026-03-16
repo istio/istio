@@ -145,7 +145,7 @@ func TestCNIPluginServer(t *testing.T) {
 
 	dpServer := getFakeDP(fs, client.Kube())
 
-	handlers := setupHandlers(ctx, client, dpServer, "istio-system", defaultAmbientSelector)
+	handlers := setupHandlers(ctx, client, dpServer, "istio-system", defaultAmbientSelector, nil)
 
 	// We are not going to start the server, so the sockpath is irrelevant
 	pluginServer := startCniPluginServer(ctx, "/tmp/test.sock", handlers, dpServer)
@@ -222,7 +222,7 @@ func TestGetPodWithRetry(t *testing.T) {
 
 	dpServer := getFakeDP(fs, client.Kube())
 
-	handlers := setupHandlers(ctx, client, dpServer, "istio-system", defaultAmbientSelector)
+	handlers := setupHandlers(ctx, client, dpServer, "istio-system", defaultAmbientSelector, nil)
 
 	// We are not going to start the server, so the sockpath is irrelevant
 	pluginServer := startCniPluginServer(ctx, "/tmp/test.sock", handlers, dpServer)
@@ -297,7 +297,7 @@ func TestCNIPluginServerPrefersCNIProvidedPodIP(t *testing.T) {
 
 	dpServer := getFakeDP(fs, client.Kube())
 
-	handlers := setupHandlers(ctx, client, dpServer, "istio-system", defaultAmbientSelector)
+	handlers := setupHandlers(ctx, client, dpServer, "istio-system", defaultAmbientSelector, nil)
 
 	// We are not going to start the server, so the sockpath is irrelevant
 	pluginServer := startCniPluginServer(ctx, "/tmp/test.sock", handlers, dpServer)

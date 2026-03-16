@@ -80,7 +80,7 @@ func NewServer(ctx context.Context, ready *atomic.Value, pluginSocket string, ar
 	}
 
 	s.NotReady()
-	s.handlers = setupHandlers(s.ctx, s.kubeClient, s.dataplane, args.SystemNamespace, args.EnablementSelector)
+	s.handlers = setupHandlers(s.ctx, s.kubeClient, s.dataplane, args.SystemNamespace, args.EnablementSelector, args.ExcludeNamespaces)
 
 	cniServer := startCniPluginServer(ctx, pluginSocket, s.handlers, s.dataplane)
 	err = cniServer.Start()

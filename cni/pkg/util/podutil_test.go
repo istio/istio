@@ -255,13 +255,13 @@ func TestSplitExcludeNamespaces(t *testing.T) {
 		input string
 		want  []string
 	}{
-		{name: "empty string", input: "", want: nil},
+		{name: "empty string", input: "", want: []string{}},
 		{name: "single namespace", input: "kube-system", want: []string{"kube-system"}},
 		{name: "two namespaces", input: "kube-system,istio-system", want: []string{"kube-system", "istio-system"}},
 		{name: "trailing comma", input: "kube-system,", want: []string{"kube-system"}},
 		{name: "leading comma", input: ",kube-system", want: []string{"kube-system"}},
 		{name: "embedded empty", input: "kube-system,,istio-system", want: []string{"kube-system", "istio-system"}},
-		{name: "only commas", input: ",,", want: nil},
+		{name: "only commas", input: ",,", want: []string{}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

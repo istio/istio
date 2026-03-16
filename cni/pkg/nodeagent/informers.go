@@ -53,6 +53,7 @@ type InformerHandlers struct {
 	dataplane          MeshDataplane
 	systemNamespace    string
 	enablementSelector *util.CompiledEnablementSelectors
+	excludeNamespaces  map[string]struct{}
 
 	queue      controllers.Queue
 	pods       kclient.Client[*corev1.Pod]
@@ -60,9 +61,19 @@ type InformerHandlers struct {
 }
 
 func setupHandlers(ctx context.Context, kubeClient kube.Client, dataplane MeshDataplane,
-	systemNamespace string, enablementSelector *util.CompiledEnablementSelectors,
+	systemNamespace string, enablementSelector *util.CompiledEnablementSelectors, excludeNamespaces []string,
 ) *InformerHandlers {
-	s := &InformerHandlers{ctx: ctx, dataplane: dataplane, systemNamespace: systemNamespace, enablementSelector: enablementSelector}
+	nsExcludeSet := make(map[string]struct{}, len(excludeNamespaces))
+	for _, ns := range excludeNamespaces {
+		nsExcludeSet[ns] = struct{}{}
+	}
+	s := &InformerHandlers{
+		ctx:                ctx,
+		dataplane:          dataplane,
+		systemNamespace:    systemNamespace,
+		enablementSelector: enablementSelector,
+		excludeNamespaces:  nsExcludeSet,
+	}
 	s.queue = controllers.NewQueue("ambient",
 		controllers.WithGenericReconciler(s.reconcile),
 		// Effectively uncapped max attempts.
@@ -192,6 +203,11 @@ func (s *InformerHandlers) enqueueNamespace(o controllers.Object) {
 	}
 }
 
+func (s *InformerHandlers) isNamespaceExcluded(namespace string) bool {
+	_, excluded := s.excludeNamespaces[namespace]
+	return excluded
+}
+
 func (s *InformerHandlers) reconcile(input any) error {
 	event := input.(controllers.Event)
 
@@ -270,7 +286,8 @@ func (s *InformerHandlers) reconcilePod(input any) error {
 		oldPod := event.Old.(*corev1.Pod)
 		isEnrolled := util.PodFullyEnrolled(currentPod)
 		isPartiallyEnrolled := util.PodPartiallyEnrolled(currentPod)
-		shouldBeEnabled := s.enablementSelector.Matches(currentPod.Labels, currentPod.Annotations, ns.Labels)
+		shouldBeEnabled := s.enablementSelector.Matches(currentPod.Labels, currentPod.Annotations, ns.Labels) &&
+			!s.isNamespaceExcluded(currentPod.Namespace)
 		isTerminated := kube.CheckPodTerminal(currentPod)
 		// Check intent (labels) versus status (annotation) - is there a delta we need to fix?
 		changeNeeded := (isEnrolled != shouldBeEnabled) || isPartiallyEnrolled

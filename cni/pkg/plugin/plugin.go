@@ -42,6 +42,7 @@ import (
 	"istio.io/istio/cni/pkg/util"
 	"istio.io/istio/pkg/file"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -230,11 +231,9 @@ func doAddRun(args *skel.CmdArgs, conf *Config, kClient kubernetes.Interface, ru
 		return nil
 	}
 
-	for _, excludeNs := range conf.ExcludeNamespaces {
-		if podNamespace == excludeNs {
-			log.Infof("pod namespace excluded")
-			return nil
-		}
+	if slices.Contains(conf.ExcludeNamespaces, podNamespace) {
+		log.Infof("pod namespace excluded")
+		return nil
 	}
 
 	// Begin ambient plugin logic
