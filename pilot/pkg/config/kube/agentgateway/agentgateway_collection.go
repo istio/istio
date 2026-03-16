@@ -18,9 +18,10 @@ package agentgateway
 
 import (
 	"github.com/agentgateway/agentgateway/go/api"
+	"k8s.io/apimachinery/pkg/types"
+
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/log"
-	"k8s.io/apimachinery/pkg/types"
 )
 
 func GetAgwResourceName(r *api.Resource) string {
