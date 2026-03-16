@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 59474
+releaseNotes:
+  - |
+    **Fixed** multi-cluster installations trying to validate the wrong trust domain when the
+    control plane does not have an updated `istio-reader` ClusterRole, failing to read the
+    trust domain from the remote ConfigMap. Now, istiod will fallback to using the
+    trust domain specified in the local mesh config until it can read the remote one.
