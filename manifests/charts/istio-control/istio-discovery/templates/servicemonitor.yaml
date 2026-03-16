@@ -28,5 +28,5 @@ spec:
   endpoints:
     - port: http-monitoring 
       path: /metrics
-      interval: 10s
+      interval: {{ .Values.serviceMonitor.interval | default "30s" }}
 {{- end }}
