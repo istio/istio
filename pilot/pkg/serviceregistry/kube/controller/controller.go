@@ -143,6 +143,10 @@ type Options struct {
 	// MeshWatcher observes changes to the mesh config
 	MeshWatcher meshwatcher.WatcherCollection
 
+	// ConfigClusterMeshWatcher is the mesh watcher from the config (local) cluster.
+	// Used as a fallback when the per-cluster MeshWatcher cannot read the remote meshconfig.
+	ConfigClusterMeshWatcher meshwatcher.WatcherCollection
+
 	// Maximum QPS when communicating with kubernetes API
 	KubernetesAPIQPS float32
 
@@ -345,7 +349,11 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	c.exports = newServiceExportCache(c)
 	c.imports = newServiceImportCache(c)
 
-	c.meshWatcher = mesh.NewRestrictedConfigWatcher(options.MeshWatcher)
+	if options.ConfigClusterMeshWatcher != nil {
+		c.meshWatcher = mesh.NewRestrictedConfigWatcher(options.MeshWatcher, options.ConfigClusterMeshWatcher)
+	} else {
+		c.meshWatcher = mesh.NewRestrictedConfigWatcher(options.MeshWatcher)
+	}
 	if c.opts.MeshNetworksWatcher != nil {
 		c.networksHandlerRegistration = c.opts.MeshNetworksWatcher.AddNetworksHandler(func() {
 			c.reloadMeshNetworks()
