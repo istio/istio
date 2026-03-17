@@ -1759,7 +1759,7 @@ func (ps *PushContext) initVirtualServices(env *Environment) {
 
 	vservices := env.VirtualServiceController.MergedVirtualServices()
 
-	totalVirtualServices.Record(float64(env.VirtualServiceController.TotalVirtualServices()))
+	totalVirtualServices.Record(float64(len(env.List(gvk.VirtualService, NamespaceAll))))
 	totalMergedVirtualServices.Record(float64(len(vservices)))
 
 	for _, virtualService := range vservices {

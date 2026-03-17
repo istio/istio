@@ -45,9 +45,6 @@ type VirtualServiceController struct {
 
 	outputs Outputs
 
-	// allVirtualServices is the raw collection of all VirtualServices (before merging)
-	allVirtualServices krt.Collection[config.Config]
-
 	xdsUpdater XDSUpdater
 
 	stop chan struct{}
@@ -64,9 +61,8 @@ func NewVirtualServiceController(
 	VirtualServices := store.KrtCollection(gvk.VirtualService)
 
 	c := &VirtualServiceController{
-		allVirtualServices: VirtualServices,
-		xdsUpdater:         options.XDSUpdater,
-		stop:               stop,
+		xdsUpdater: options.XDSUpdater,
+		stop:       stop,
 	}
 	if VirtualServices == nil {
 		panic("VirtualServices is nil")
@@ -129,11 +125,6 @@ func (c *VirtualServiceController) xdsPush(events []krt.Event[config.Config]) {
 
 func (c *VirtualServiceController) MergedVirtualServices() []config.Config {
 	return sortConfigByCreationTime(c.outputs.MergedVirtualServices.List())
-}
-
-// TotalVirtualServices returns the total number of all virtual services (before merging).
-func (c *VirtualServiceController) TotalVirtualServices() int {
-	return len(c.allVirtualServices.List())
 }
 
 func (c *VirtualServiceController) Collection() krt.Collection[config.Config] {
