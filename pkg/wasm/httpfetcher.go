@@ -175,7 +175,8 @@ func getFileFromGZ(b []byte) []byte {
 		return nil
 	}
 
-	ret, err := io.ReadAll(zr)
+	// Limit wasm module to 256mb; in reality it must be much smaller
+	ret, err := io.ReadAll(io.LimitReader(zr, 1024*1024*256))
 	if err != nil {
 		return nil
 	}
