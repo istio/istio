@@ -610,7 +610,7 @@ func TestMergeHttpRoutes(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := MergeHTTPRoutes(tc.root, tc.delegate)
+			got, _ := MergeHTTPRoutes(tc.root, tc.delegate)
 			assert.Equal(t, got, tc.expected)
 		})
 	}

@@ -700,16 +700,16 @@ var (
 		"Duplicate subsets across destination rules for same host",
 	)
 
-	// totalVirtualServices tracks the total number of virtual services (before merging)
+	// totalVirtualServices tracks the total number of effective virtual services known to pilot (after delegate merging).
 	totalVirtualServices = monitoring.NewGauge(
 		"pilot_virt_services",
 		"Total virtual services known to pilot.",
 	)
 
-	// totalMergedVirtualServices tracks the total number of virtual services after delegate merging
-	totalMergedVirtualServices = monitoring.NewGauge(
-		"pilot_merged_virt_services",
-		"Total merged virtual services known to pilot.",
+	// ProxyStatusConflictHTTPRoutes tracks conflicts between root and delegate virtual service HTTP routes.
+	ProxyStatusConflictHTTPRoutes = monitoring.NewGauge(
+		"pilot_conflict_http_routes",
+		"Conflicts between root and delegate virtual service HTTP routes.",
 	)
 
 	// LastPushStatus preserves the metrics and data collected during lasts global push.
@@ -731,6 +731,7 @@ var (
 		ProxyStatusClusterNoInstances,
 		DuplicatedDomains,
 		DuplicatedSubsets,
+		ProxyStatusConflictHTTPRoutes,
 	}
 )
 
@@ -1759,8 +1760,8 @@ func (ps *PushContext) initVirtualServices(env *Environment) {
 
 	vservices := env.VirtualServiceController.MergedVirtualServices()
 
-	totalVirtualServices.Record(float64(len(env.List(gvk.VirtualService, NamespaceAll))))
-	totalMergedVirtualServices.Record(float64(len(vservices)))
+	totalVirtualServices.Record(float64(len(vservices)))
+	env.VirtualServiceController.AddHTTPRouteConflictMetrics(ps)
 
 	for _, virtualService := range vservices {
 		ns := virtualService.Namespace

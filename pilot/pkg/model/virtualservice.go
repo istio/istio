@@ -25,13 +25,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/maps"
-	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/util/sets"
-)
-
-var conflictHTTPRoutes = monitoring.NewSum(
-	"pilot_conflict_http_routes",
-	"Conflict of http routes between root and delegate virtual services",
 )
 
 // SelectVirtualServices selects the virtual services by matching given services' host names.
@@ -197,18 +191,22 @@ func ResolveVirtualServiceShortnames(config config.Config) config.Config {
 }
 
 // merge root's route with delegate's and the merged route number equals the delegate's.
-// if there is a conflict with root, the route is ignored
-func MergeHTTPRoutes(root *networking.HTTPRoute, delegate []*networking.HTTPRoute) []*networking.HTTPRoute {
+// if there is a conflict with root, the route is ignored.
+// Returns the merged routes and the number of conflicts detected.
+func MergeHTTPRoutes(root *networking.HTTPRoute, delegate []*networking.HTTPRoute) ([]*networking.HTTPRoute, int) {
 	root.Delegate = nil
 
+	conflicts := 0
 	out := make([]*networking.HTTPRoute, 0, len(delegate))
 	for _, subRoute := range delegate {
 		merged := mergeHTTPRoute(root, subRoute)
 		if merged != nil {
 			out = append(out, merged)
+		} else {
+			conflicts++
 		}
 	}
-	return out
+	return out, conflicts
 }
 
 // merge the two HTTPRoutes, if there is a conflict with root, the delegate route is ignored
@@ -218,7 +216,6 @@ func mergeHTTPRoute(root *networking.HTTPRoute, delegate *networking.HTTPRoute) 
 	merged, conflict := mergeHTTPMatchRequests(root.Match, delegate.Match)
 	if conflict {
 		log.Warnf("HTTPMatchRequests conflict: root route %s, delegate route %s", root.Name, delegate.Name)
-		conflictHTTPRoutes.Increment()
 		return nil
 	}
 	delegate.Match = merged

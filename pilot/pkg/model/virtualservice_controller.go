@@ -15,6 +15,9 @@
 package model
 
 import (
+	"fmt"
+	"sync"
+
 	"k8s.io/apimachinery/pkg/types"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -40,12 +43,23 @@ type VSControllerOptions struct {
 	XDSUpdater  XDSUpdater
 }
 
+// conflictInfo stores details about a root-delegate HTTP route conflict for a virtual service.
+type conflictInfo struct {
+	rootVS     types.NamespacedName
+	delegateVS types.NamespacedName
+	routeName  string
+}
+
 type VirtualServiceController struct {
 	handlers []krt.HandlerRegistration
 
 	outputs Outputs
 
 	xdsUpdater XDSUpdater
+
+	// httpRouteConflicts tracks HTTP route conflicts between root and delegate virtual services.
+	// Key: root VS NamespacedName, Value: []conflictInfo
+	httpRouteConflicts sync.Map
 
 	stop chan struct{}
 }
@@ -82,6 +96,7 @@ func NewVirtualServiceController(
 	MergedVirtualServices := mergeVirtualServices(
 		VirtualServices,
 		DelegateVirtualServices,
+		&c.httpRouteConflicts,
 		opts,
 	)
 
@@ -129,6 +144,22 @@ func (c *VirtualServiceController) MergedVirtualServices() []config.Config {
 
 func (c *VirtualServiceController) Collection() krt.Collection[config.Config] {
 	return c.outputs.MergedVirtualServices
+}
+
+// AddHTTPRouteConflictMetrics populates the PushContext with any HTTP route conflicts
+// between root and delegate virtual services.
+func (c *VirtualServiceController) AddHTTPRouteConflictMetrics(ps *PushContext) {
+	c.httpRouteConflicts.Range(func(key, value any) bool {
+		conflicts := value.([]conflictInfo)
+		for _, ci := range conflicts {
+			ps.AddMetric(ProxyStatusConflictHTTPRoutes,
+				ci.rootVS.String(),
+				"",
+				fmt.Sprintf("Root=%s Delegate=%s Route=%s", ci.rootVS, ci.delegateVS, ci.routeName),
+			)
+		}
+		return true
+	})
 }
 
 func (c *VirtualServiceController) Run(stop <-chan struct{}) {
@@ -246,6 +277,7 @@ func defaultExportTo(
 func mergeVirtualServices(
 	virtualServices krt.Collection[config.Config],
 	delegateVirtualServices krt.Collection[DelegateVirtualService],
+	httpRouteConflicts *sync.Map,
 	opts krt.OptionsBuilder,
 ) krt.Collection[config.Config] {
 	return krt.NewCollection(virtualServices, func(ctx krt.HandlerContext, cfg config.Config) *config.Config {
@@ -272,6 +304,8 @@ func mergeVirtualServices(
 			return &root
 		}
 
+		rootNN := root.NamespacedName()
+		var conflicts []conflictInfo
 		mergedRoutes := []*networking.HTTPRoute{}
 		for _, http := range spec.Http {
 			if delegate := http.Delegate; delegate != nil {
@@ -299,11 +333,25 @@ func mergeVirtualServices(
 				// DeepCopy to prevent mutate the original delegate, it can conflict
 				// when multiple routes delegate to one single VS.
 				copiedDelegate := delegateVs.Spec.DeepCopy()
-				merged := MergeHTTPRoutes(http, copiedDelegate.Http)
+				merged, conflictCount := MergeHTTPRoutes(http, copiedDelegate.Http)
 				mergedRoutes = append(mergedRoutes, merged...)
+				if conflictCount > 0 {
+					conflicts = append(conflicts, conflictInfo{
+						rootVS:     rootNN,
+						delegateVS: key,
+						routeName:  http.Name,
+					})
+				}
 			} else {
 				mergedRoutes = append(mergedRoutes, http)
 			}
+		}
+
+		// Update conflict tracking for this root VS
+		if len(conflicts) > 0 {
+			httpRouteConflicts.Store(rootNN, conflicts)
+		} else {
+			httpRouteConflicts.Delete(rootNN)
 		}
 
 		// this modification is OK because ResolveVirtualServiceShortnames already deep copied the spec
