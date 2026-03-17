@@ -277,7 +277,7 @@ spec:
 				Eval(internalNs.Name(), map[string]string{
 					"ExternalNamespace": externalNs.Name(),
 				}, serviceEntryYaml).
-				ApplyOrFail(t)
+				ApplyOrFail(t, apply.CleanupConditionally)
 
 			t.NewSubTest("TLS connection with PQC-compliant settings should succeed").Run(func(t framework.TestContext) {
 				a.CallOrFail(t, echo.CallOptions{
@@ -364,7 +364,7 @@ spec:
 						"ExternalNamespace": externalNs.Name(),
 						"EgressNamespace":   egressNamespace.Name(),
 					}, serviceEntryWithWaypointYaml).
-					ApplyOrFail(t)
+					ApplyOrFail(t, apply.CleanupConditionally)
 
 				rootCert := file.AsStringOrFail(t, path.Join(env.IstioSrc, "tests/testdata/certs/dns/root-cert.pem"))
 				caConfigMap := `
