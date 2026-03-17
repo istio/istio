@@ -67,18 +67,34 @@ func (h *Helm) DeleteChart(name, namespace string) error {
 	return err
 }
 
-// Template runs the template command and applies the generated file with kubectl
+// Template runs the template command and returns the rendered YAML.
+// Uses stdout-only to avoid Helm 4 structured log warnings (level=WARN)
+// on stderr being mixed into the YAML output.
 func (h *Helm) Template(name, chartPath, namespace, templateFile string, timeout time.Duration, args ...string) (string, error) {
 	command := fmt.Sprintf("helm template %s %s --namespace %s -s %s --kubeconfig %s --timeout %s %s ",
 		name, chartPath, namespace, templateFile, h.kubeConfig, timeout, strings.Join(args, " "))
 
-	return execCommand(command)
+	return execStdoutCommand(command)
 }
 
 func execCommand(cmd string) (string, error) {
 	scopes.Framework.Infof("Applying helm command: %s", cmd)
 
 	s, err := shell.Execute(true, cmd)
+	if err != nil {
+		scopes.Framework.Infof("(FAILED) Executing helm: %s (err: %v): %s", cmd, err, s)
+		return "", fmt.Errorf("%v: %s", err, s)
+	}
+
+	return s, nil
+}
+
+// execStdoutCommand runs the command returning only stdout.
+// This avoids Helm 4 structured log warnings on stderr polluting the output.
+func execStdoutCommand(cmd string) (string, error) {
+	scopes.Framework.Infof("Applying helm command: %s", cmd)
+
+	s, err := shell.Execute(false, cmd)
 	if err != nil {
 		scopes.Framework.Infof("(FAILED) Executing helm: %s (err: %v): %s", cmd, err, s)
 		return "", fmt.Errorf("%v: %s", err, s)
