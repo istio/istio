@@ -1221,7 +1221,7 @@ func TestValidateMeshConfig(t *testing.T) {
 			},
 		},
 		MeshMTLS: &meshconfig.MeshConfig_TLSConfig{
-			EcdhCurves: []string{"P-256"},
+			EcdhCurves: []string{"P-256", "P-256", "invalid-curve"},
 		},
 		TlsDefaults: &meshconfig.MeshConfig_TLSConfig{
 			EcdhCurves: []string{"P-256", "P-256", "invalid"},
@@ -1251,7 +1251,6 @@ func TestValidateMeshConfig(t *testing.T) {
 			"trustDomainAliases[0]",
 			"trustDomainAliases[1]",
 			"trustDomainAliases[2]",
-			"mesh TLS does not support ECDH curves configuration",
 			"invalid default inbound http retry policy: \"not-a-policy\" is not a valid retryOn policy",
 		}
 		switch err := err.(type) {
@@ -1274,6 +1273,8 @@ func TestValidateMeshConfig(t *testing.T) {
 		t.Errorf("expected a warning on invalid proxy mesh config: %v", invalid)
 	} else {
 		wantWarnings := []string{
+			"detected unrecognized ECDH curves in mesh mTLS",
+			"detected duplicate ECDH curves in mesh mTLS",
 			"detected unrecognized ECDH curves",
 			"detected duplicate ECDH curves",
 			"perTryTimeout is ignored by the default inbound http retry policy",
