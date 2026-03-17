@@ -975,7 +975,7 @@ func buildWaypointInboundHTTPRouteConfig(lb *ListenerBuilder, svc *model.Service
 	// Typically we setup routes with the Host header match. However, for waypoint inbound we are actually using
 	// hostname purely to match to the Service VIP. So we only need a single VHost, with routes compute based on the VS.
 	// For destinations, we need to hit the inbound clusters if it is an internal destination, otherwise outbound.
-	// Iterate all matching VirtualServices and merge their routes, consistent with gateway.go behaviour.
+	// Iterate all matching VirtualServices and merge their routes, consistent with gateway.go behavior.
 	var routes []*route.Route
 	for _, vs := range virtualServices {
 		if vs.Spec.(*networking.VirtualService).Http == nil {
