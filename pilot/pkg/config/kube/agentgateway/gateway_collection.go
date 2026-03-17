@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"fmt"
 
+	"github.com/agentgateway/agentgateway/go/api"
 	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -25,6 +26,7 @@ import (
 
 	istio "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/kube/gatewaycommon"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -257,7 +259,7 @@ func reportListenerSetStatus(
 	gs *gatewayv1.ListenerSetStatus,
 	gatewayServices []string,
 	servers []*istio.Server,
-	cond *condition,
+	cond *Condition,
 ) {
 	internal, _, _, _, warnings, allUsable := r.ResolveGatewayInstances(parentGwObj.Namespace, gatewayServices, servers)
 
@@ -266,7 +268,7 @@ func reportListenerSetStatus(
 	// Accepted: is the configuration valid. We only have errors in listeners, and the status is not supposed to
 	// be tied to listeners, so this is always accepted
 	// Programmed: is the data plane "ready" (note: eventually consistent)
-	gatewayConditions := map[string]*condition{
+	gatewayConditions := map[string]*Condition{
 		string(gatewayv1.GatewayConditionAccepted): {
 			reason:  string(gatewayv1.GatewayReasonAccepted),
 			message: "Resource accepted",
@@ -447,4 +449,87 @@ func convertStandardStatusToListenerSetStatus(l gatewayv1.ListenerEntry) func(e 
 
 func convertListenerSetStatusToStandardStatus(e gatewayv1.ListenerEntryStatus) gatewayv1.ListenerStatus {
 	return gatewayv1.ListenerStatus(e)
+}
+
+// TODO(jaellio): Move these definitions to route collection?
+// RouteParents holds information about things routes can reference as parents.
+type RouteParents struct {
+	gateways     krt.Collection[*GatewayListener]
+	gatewayIndex krt.Index[AgwParentKey, *GatewayListener]
+}
+
+func (p RouteParents) fetch(ctx krt.HandlerContext, pk AgwParentKey) []*AgwParentInfo {
+	return slices.Map(krt.Fetch(ctx, p.gateways, krt.FilterIndex(p.gatewayIndex, pk)), func(gw *GatewayListener) *AgwParentInfo {
+		return &gw.ParentInfo
+	})
+}
+
+func BuildRouteParents(
+	gateways krt.Collection[*GatewayListener],
+) RouteParents {
+	idx := krt.NewIndex(gateways, "parent", func(o *GatewayListener) []AgwParentKey {
+		return []AgwParentKey{o.ParentObject}
+	})
+	return RouteParents{
+		gateways:     gateways,
+		gatewayIndex: idx,
+	}
+}
+
+// AgwRoute is a wrapper type that contains the route on the gateway, as well as the status for the route.
+// A Route is a special resource that represents a route for an HTTP listener, which has different semantics
+// than a TCP route and needs to be tracked separately.
+type AgwRoute struct {
+	*api.Route
+}
+
+func (g AgwRoute) ResourceName() string {
+	return g.Key
+}
+
+func (g AgwRoute) Equals(other AgwRoute) bool {
+	return protoconv.Equals(g, other)
+}
+
+// AgwTCPRoute is a wrapper type that contains the tcp route on the gateway, as well as the status for the tcp route.
+// A TCPRoute is a special resource that represents a route for a TCP listener, which has different semantics than an
+// HTTP route and needs to be tracked separately.
+type AgwTCPRoute struct {
+	*api.TCPRoute
+}
+
+func (g AgwTCPRoute) ResourceName() string {
+	return g.Key
+}
+
+func (g AgwTCPRoute) Equals(other AgwTCPRoute) bool {
+	return protoconv.Equals(g, other)
+}
+
+// AgwBind is a wrapper type that contains the bind on the gateway, as well as the status for the bind.
+// A Bind is a special resource that represents the binding of a route to a listener. It is used to track
+// the attached routes for a listener, which is information that is not available until route processing.
+type AgwBind struct {
+	*api.Bind
+}
+
+func (g AgwBind) ResourceName() string {
+	return g.Key
+}
+
+func (g AgwBind) Equals(other AgwBind) bool {
+	return protoconv.Equals(g, other)
+}
+
+// AgwListener is a wrapper type that contains the listener on the gateway, as well as the status for the listener.
+type AgwListener struct {
+	*api.Listener
+}
+
+func (g AgwListener) ResourceName() string {
+	return g.Key
+}
+
+func (g AgwListener) Equals(other AgwListener) bool {
+	return protoconv.Equals(g, other)
 }
