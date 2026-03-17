@@ -15,7 +15,6 @@
 package model
 
 import (
-	"fmt"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/types"
@@ -25,11 +24,14 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/config/schema/kind"
-	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/maps"
-	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/util/sets"
+)
+
+var conflictHTTPRoutes = monitoring.NewSum(
+	"pilot_conflict_http_routes",
+	"Conflict of http routes between root and delegate virtual services",
 )
 
 // SelectVirtualServices selects the virtual services by matching given services' host names.
@@ -121,12 +123,7 @@ func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, ho
 	return importedVirtualServices
 }
 
-func resolveVirtualServiceShortnames(config config.Config) config.Config {
-	// Kubernetes Gateway API semantics do not support shortnames
-	if UseGatewaySemantics(config) {
-		return config
-	}
-
+func ResolveVirtualServiceShortnames(config config.Config) config.Config {
 	// values returned from ConfigStore.List are immutable.
 	// Therefore, we make a copy
 	r := config.DeepCopy()
@@ -199,121 +196,14 @@ func resolveVirtualServiceShortnames(config config.Config) config.Config {
 	return r
 }
 
-// Return merged virtual services and the root->delegate vs map
-func mergeVirtualServicesIfNeeded(
-	ps *PushContext,
-	vServices []config.Config,
-	defaultExportTo sets.Set[visibility.Instance],
-) ([]config.Config, map[ConfigKey][]ConfigKey) {
-	out := make([]config.Config, 0, len(vServices))
-	delegatesMap := map[types.NamespacedName]config.Config{}
-	delegatesExportToMap := make(map[types.NamespacedName]sets.Set[visibility.Instance])
-	// root virtualservices with delegate
-	var rootVses []config.Config
-
-	// 1. classify virtualservices
-	for _, vs := range vServices {
-		rule := vs.Spec.(*networking.VirtualService)
-		// it is delegate, add it to the indexer cache along with the exportTo for the delegate
-		if len(rule.Hosts) == 0 {
-			delegatesMap[vs.NamespacedName()] = vs
-			var exportToSet sets.Set[visibility.Instance]
-			if len(rule.ExportTo) == 0 {
-				// No exportTo in virtualService. Use the global default
-				exportToSet = sets.NewWithLength[visibility.Instance](defaultExportTo.Len())
-				for v := range defaultExportTo {
-					if v == visibility.Private {
-						exportToSet.Insert(visibility.Instance(vs.Namespace))
-					} else {
-						exportToSet.Insert(v)
-					}
-				}
-			} else {
-				exportToSet = sets.NewWithLength[visibility.Instance](len(rule.ExportTo))
-				for _, e := range rule.ExportTo {
-					if e == string(visibility.Private) {
-						exportToSet.Insert(visibility.Instance(vs.Namespace))
-					} else {
-						exportToSet.Insert(visibility.Instance(e))
-					}
-				}
-			}
-			delegatesExportToMap[vs.NamespacedName()] = exportToSet
-
-			continue
-		}
-
-		// root vs
-		if isRootVs(rule) {
-			rootVses = append(rootVses, vs)
-			continue
-		}
-
-		// the others are normal vs without delegate
-		out = append(out, vs)
-	}
-
-	delegatesByRoot := make(map[ConfigKey][]ConfigKey, len(rootVses))
-
-	// 2. merge delegates and root
-	for _, root := range rootVses {
-		rootConfigKey := ConfigKey{Kind: kind.VirtualService, Name: root.Name, Namespace: root.Namespace}
-		rootVs := root.Spec.(*networking.VirtualService)
-		mergedRoutes := []*networking.HTTPRoute{}
-		for _, route := range rootVs.Http {
-			// it is root vs with delegate
-			if delegate := route.Delegate; delegate != nil {
-				delegateNamespace := delegate.Namespace
-				if delegateNamespace == "" {
-					delegateNamespace = root.Namespace
-				}
-				delegateConfigKey := ConfigKey{Kind: kind.VirtualService, Name: delegate.Name, Namespace: delegateNamespace}
-				delegatesByRoot[rootConfigKey] = append(delegatesByRoot[rootConfigKey], delegateConfigKey)
-				delegateVS, ok := delegatesMap[types.NamespacedName{Namespace: delegateNamespace, Name: delegate.Name}]
-				if !ok {
-					log.Warnf("delegate virtual service %s/%s of %s/%s not found",
-						delegateNamespace, delegate.Name, root.Namespace, root.Name)
-					// delegate not found, ignore only the current HTTP route
-					continue
-				}
-				// make sure that the delegate is visible to root virtual service's namespace
-				exportTo := delegatesExportToMap[types.NamespacedName{Namespace: delegateNamespace, Name: delegate.Name}]
-				if !exportTo.Contains(visibility.Public) && !exportTo.Contains(visibility.Instance(root.Namespace)) {
-					log.Warnf("delegate virtual service %s/%s of %s/%s is not exported to %s",
-						delegateNamespace, delegate.Name, root.Namespace, root.Name, root.Namespace)
-					continue
-				}
-				// DeepCopy to prevent mutate the original delegate, it can conflict
-				// when multiple routes delegate to one single VS.
-				copiedDelegate := config.DeepCopy(delegateVS.Spec)
-				vs := copiedDelegate.(*networking.VirtualService)
-				merged := mergeHTTPRoutes(ps, route, vs.Http)
-				mergedRoutes = append(mergedRoutes, merged...)
-			} else {
-				mergedRoutes = append(mergedRoutes, route)
-			}
-		}
-		rootVs.Http = mergedRoutes
-		if log.DebugEnabled() {
-			vsString, _ := protomarshal.ToJSONWithIndent(rootVs, "   ")
-			log.Debugf("merged virtualService: %s", vsString)
-		}
-		out = append(out, root)
-	}
-
-	sortConfigByCreationTime(out)
-
-	return out, delegatesByRoot
-}
-
 // merge root's route with delegate's and the merged route number equals the delegate's.
 // if there is a conflict with root, the route is ignored
-func mergeHTTPRoutes(ps *PushContext, root *networking.HTTPRoute, delegate []*networking.HTTPRoute) []*networking.HTTPRoute {
+func MergeHTTPRoutes(root *networking.HTTPRoute, delegate []*networking.HTTPRoute) []*networking.HTTPRoute {
 	root.Delegate = nil
 
 	out := make([]*networking.HTTPRoute, 0, len(delegate))
 	for _, subRoute := range delegate {
-		merged := mergeHTTPRoute(ps, root, subRoute)
+		merged := mergeHTTPRoute(root, subRoute)
 		if merged != nil {
 			out = append(out, merged)
 		}
@@ -322,15 +212,13 @@ func mergeHTTPRoutes(ps *PushContext, root *networking.HTTPRoute, delegate []*ne
 }
 
 // merge the two HTTPRoutes, if there is a conflict with root, the delegate route is ignored
-func mergeHTTPRoute(ps *PushContext, root *networking.HTTPRoute, delegate *networking.HTTPRoute) *networking.HTTPRoute {
+func mergeHTTPRoute(root *networking.HTTPRoute, delegate *networking.HTTPRoute) *networking.HTTPRoute {
 	// suppose there are N1 match conditions in root, N2 match conditions in delegate
 	// if match condition of N2 is a subset of anyone in N1, this is a valid matching conditions
 	merged, conflict := mergeHTTPMatchRequests(root.Match, delegate.Match)
 	if conflict {
 		log.Warnf("HTTPMatchRequests conflict: root route %s, delegate route %s", root.Name, delegate.Name)
-		ps.AddMetric(ConflictHTTPRoutes, root.Name+"-"+delegate.Name, "",
-			fmt.Sprintf("HTTPMatchRequests conflict: root route %s, delegate route %s",
-				root.Name, delegate.Name))
+		conflictHTTPRoutes.Increment()
 		return nil
 	}
 	delegate.Match = merged

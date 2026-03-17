@@ -104,8 +104,6 @@ type virtualServiceIndex struct {
 	privateByNamespaceAndGateway map[types.NamespacedName][]config.Config
 	// This contains all virtual services whose exportTo is "*", keyed by gateway
 	publicByGateway map[string][]config.Config
-	// root vs namespace/name ->delegate vs virtualservice gvk/namespace/name
-	delegates map[ConfigKey][]ConfigKey
 
 	// This contains destination hosts of virtual services, keyed by gateway's namespace/name,
 	// only used when PILOT_FILTER_GATEWAY_CLUSTER_CONFIG is enabled
@@ -120,7 +118,6 @@ func newVirtualServiceIndex() virtualServiceIndex {
 		publicByGateway:              map[string][]config.Config{},
 		privateByNamespaceAndGateway: map[types.NamespacedName][]config.Config{},
 		exportedToNamespaceByGateway: map[types.NamespacedName][]config.Config{},
-		delegates:                    map[ConfigKey][]ConfigKey{},
 		referencedDestinations:       map[string]sets.String{},
 	}
 	if features.FilterGatewayClusterConfig {
@@ -703,15 +700,16 @@ var (
 		"Duplicate subsets across destination rules for same host",
 	)
 
-	ConflictHTTPRoutes = monitoring.NewGauge(
-		"pilot_conflict_http_routes",
-		"Conflict of http routes between root and delegate virtual services",
-	)
-
-	// totalVirtualServices tracks the total number of virtual service
+	// totalVirtualServices tracks the total number of virtual services (before merging)
 	totalVirtualServices = monitoring.NewGauge(
 		"pilot_virt_services",
 		"Total virtual services known to pilot.",
+	)
+
+	// totalMergedVirtualServices tracks the total number of virtual services after delegate merging
+	totalMergedVirtualServices = monitoring.NewGauge(
+		"pilot_merged_virt_services",
+		"Total merged virtual services known to pilot.",
 	)
 
 	// LastPushStatus preserves the metrics and data collected during lasts global push.
@@ -733,7 +731,6 @@ var (
 		ProxyStatusClusterNoInstances,
 		DuplicatedDomains,
 		DuplicatedSubsets,
-		ConflictHTTPRoutes,
 	}
 )
 
@@ -1141,17 +1138,6 @@ func (ps *PushContext) VirtualServicesForGateway(proxyNamespace, gateway string)
 	}
 
 	return res
-}
-
-// DelegateVirtualServices lists all the delegate virtual services configkeys associated with the provided virtual services
-func (ps *PushContext) DelegateVirtualServices(vses []*config.Config) []ConfigHash {
-	var out []ConfigHash
-	for _, vs := range vses {
-		for _, delegate := range ps.virtualServiceIndex.delegates[ConfigKey{Kind: kind.VirtualService, Namespace: vs.Namespace, Name: vs.Name}] {
-			out = append(out, delegate.HashCode())
-		}
-	}
-	return out
 }
 
 // getSidecarScope returns a SidecarScope object associated with the
@@ -1771,18 +1757,10 @@ func (ps *PushContext) initVirtualServices(env *Environment) {
 		ps.virtualServiceIndex.destinationsByGateway = make(map[string]sets.String)
 	}
 
-	virtualServices := env.List(gvk.VirtualService, NamespaceAll)
+	vservices := env.VirtualServiceController.MergedVirtualServices()
 
-	vservices := make([]config.Config, len(virtualServices))
-
-	totalVirtualServices.Record(float64(len(virtualServices)))
-
-	// convert all shortnames in virtual services into FQDNs
-	for i, r := range virtualServices {
-		vservices[i] = resolveVirtualServiceShortnames(r)
-	}
-
-	vservices, ps.virtualServiceIndex.delegates = mergeVirtualServicesIfNeeded(ps, vservices, ps.exportToDefaults.virtualService)
+	totalVirtualServices.Record(float64(env.VirtualServiceController.TotalVirtualServices()))
+	totalMergedVirtualServices.Record(float64(len(vservices)))
 
 	for _, virtualService := range vservices {
 		ns := virtualService.Namespace
