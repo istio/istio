@@ -58,12 +58,12 @@ func NewVirtualServiceController(
 	stop := make(chan struct{})
 	opts := krt.NewOptionsBuilder(stop, "virtualservice", options.KrtDebugger)
 
-	VirtualServices := store.KrtCollection(gvk.VirtualService)
-
 	c := &VirtualServiceController{
 		xdsUpdater: options.XDSUpdater,
 		stop:       stop,
 	}
+
+	VirtualServices := store.KrtCollection(gvk.VirtualService)
 	if VirtualServices == nil {
 		panic("VirtualServices is nil")
 	}
