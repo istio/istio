@@ -1,8 +1,10 @@
 apiVersion: release-notes/v2
-kind: bug-fix
+kind: feature
 area: installation
 issue:
   - 56326
 releaseNotes:
   - |
-    **Added** `values.global.disableReaderSA` to allow disabling `istio-reader-service-account` and its related `istio-reader` ClusterRole/ClusterRoleBinding when multicluster remote-secret resources are not needed.
+    **Added** `values.global.disableReaderSA` (default: `false`) to allow disabling
+    `istio-reader-service-account` and its related `istio-reader` ClusterRole/ClusterRoleBinding
+    when multicluster remote-secret resources are not needed.
