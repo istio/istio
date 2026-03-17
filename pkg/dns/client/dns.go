@@ -256,6 +256,9 @@ func parseBlockedQueryTypes(raw string) sets.Set[uint16] {
 			continue
 		}
 		if qtype, ok := dns.StringToType[name]; ok {
+			if qtype == dns.TypeA || qtype == dns.TypeAAAA {
+				log.Warnf("blocking %s queries can silently break DNS resolution for pods", name)
+			}
 			blocked.Insert(qtype)
 			log.Infof("blocking DNS query type: %s", name)
 		} else {
