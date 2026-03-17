@@ -54,7 +54,7 @@ var annotationRemovePatch = []byte(fmt.Sprintf(
 func SplitExcludeNamespaces(s string) []string {
 	var result []string
 	for ns := range strings.SplitSeq(s, ",") {
-        ns = strings.TrimSpace(ns)
+		ns = strings.TrimSpace(ns)
 		if ns != "" {
 			result = append(result, ns)
 		}
