@@ -150,11 +150,13 @@ func setupAppsConfig(_ resource.Context) error {
 			Namespace: externalNs,
 			Ports:     ports.All(),
 			TLSSettings: &common.TLSSettings{
-				RootCert:         file.MustAsString(path.Join(env.IstioSrc, "tests/testdata/certs/dns/root-cert.pem")),
-				ClientCert:       file.MustAsString(path.Join(env.IstioSrc, "tests/testdata/certs/dns/cert-chain.pem")),
-				Key:              file.MustAsString(path.Join(env.IstioSrc, "tests/testdata/certs/dns/key.pem")),
-				Hostname:         "server.default.svc",
-				MinVersion:       "1.3",
+				RootCert:   file.MustAsString(path.Join(env.IstioSrc, "tests/testdata/certs/dns/root-cert.pem")),
+				ClientCert: file.MustAsString(path.Join(env.IstioSrc, "tests/testdata/certs/dns/cert-chain.pem")),
+				Key:        file.MustAsString(path.Join(env.IstioSrc, "tests/testdata/certs/dns/key.pem")),
+				Hostname:   "server.default.svc",
+				MinVersion: "1.3",
+				// Server only accepts the X25519MLKEM768 curve to verify that
+				// waypoint TLS origination correctly negotiates PQC key exchange.
 				CurvePreferences: []string{"X25519MLKEM768"},
 			},
 			Subsets: []echo.SubsetConfig{{
