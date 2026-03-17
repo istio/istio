@@ -246,8 +246,7 @@ spec:
 						MinVersion:       "1.3",
 						CurvePreferences: []string{"P-256"},
 					},
-					Timeout: 5 * time.Second,
-					Check:   check.TLSHandshakeFailure(),
+					Check: check.TLSHandshakeFailure(),
 				})
 			})
 		})
