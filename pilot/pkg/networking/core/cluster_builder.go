@@ -281,7 +281,7 @@ func (cb *ClusterBuilder) buildSubsetCluster(
 	opts buildClusterOpts, destRule *config.Config, subset *networking.Subset, service *model.Service,
 	endpointBuilder *endpoints.EndpointBuilder,
 ) *cluster.Cluster {
-	opts.serviceMTLSMode = cb.req.Push.BestEffortInferServiceMTLSMode(subset.GetTrafficPolicy(), service, opts.port)
+	opts.serviceMTLSMode = cb.req.Push.BestEffortInferServiceMTLSMode(cb.sidecarScope.AuthnPolicies, subset.GetTrafficPolicy(), service, opts.port)
 	var subsetClusterName string
 	var defaultSni string
 	if opts.clusterMode == DefaultClusterMode {
@@ -363,7 +363,7 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *clusterWrapper, clusterMode C
 		}
 		opts.meshExternal = service.MeshExternal
 		opts.serviceRegistry = service.Attributes.ServiceRegistry
-		opts.serviceMTLSMode = cb.req.Push.BestEffortInferServiceMTLSMode(destinationRule.GetTrafficPolicy(), service, port)
+		opts.serviceMTLSMode = cb.req.Push.BestEffortInferServiceMTLSMode(cb.sidecarScope.AuthnPolicies, destinationRule.GetTrafficPolicy(), service, port)
 		opts.allInstancesHBONE = cb.req.Push.AllInstancesSupportHBONE(service, port)
 	}
 

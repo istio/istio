@@ -68,7 +68,8 @@ const (
 func TestIncrementalPush(t *testing.T) {
 	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{
 		ConfigString: mustReadFile(t, "tests/testdata/config/destination-rule-all.yaml") +
-			mustReadFile(t, "tests/testdata/config/static-weighted-se.yaml"),
+			mustReadFile(t, "tests/testdata/config/static-weighted-se.yaml") +
+			mustReadFile(t, "tests/testdata/config/peer-authn-strict.yaml"),
 	})
 	ads := s.Connect(nil, nil, watchAll)
 	t.Run("Full Push", func(t *testing.T) {
@@ -159,6 +160,30 @@ func TestIncrementalPush(t *testing.T) {
 		}
 		if len(ads.GetEndpoints()) < 3 {
 			t.Fatalf("Expected a full EDS update, but got: %v", ads.GetEndpoints())
+		}
+	})
+	t.Run("Full Push with updated peer authentication", func(t *testing.T) {
+		ads.WaitClear()
+		s.Discovery.Push(&model.PushRequest{
+			Full:           true,
+			ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.PeerAuthentication, Name: "default", Namespace: "testns"}),
+		})
+		if _, err := ads.Wait(time.Second*5, v3.ClusterType, v3.EndpointType); err != nil {
+			t.Fatal(err)
+		}
+		if len(ads.GetEndpoints()) < 4 {
+			t.Fatalf("Expected a full EDS update, but got: %v", ads.GetEndpoints())
+		}
+	})
+	t.Run("Full Push with updated unrelated peer authentication", func(t *testing.T) {
+		ads.WaitClear()
+		s.Discovery.Push(&model.PushRequest{
+			Full:           true,
+			ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.PeerAuthentication, Name: "default", Namespace: "otherns"}),
+		})
+		upd, _ := ads.Wait(time.Second*5, watchAll...)
+		if slices.Contains(upd, v3.EndpointType) {
+			t.Fatalf("Expected no EDS push, got %v", upd)
 		}
 	})
 }

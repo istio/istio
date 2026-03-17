@@ -537,6 +537,8 @@ func TestFilterIstioEndpoint(t *testing.T) {
 				t.Fatal("error: NetworkManager should not be nil!")
 			}
 
+			tt.proxy.SetSidecarScope(push)
+
 			builder := NewCDSEndpointBuilder(
 				tt.proxy, push,
 				"outbound||example.ns.svc.cluster.local",
@@ -655,6 +657,8 @@ func TestBuildClusterLoadAssignment_InferenceServicePortFiltering(t *testing.T) 
 			push := model.NewPushContext()
 			push.InitContext(env, nil, nil)
 			env.SetPushContext(push)
+
+			proxy.SetSidecarScope(push)
 
 			builder := NewCDSEndpointBuilder(
 				proxy, push,

@@ -48,6 +48,7 @@ var (
 		kind.VirtualService,
 		kind.DestinationRule,
 		kind.Sidecar,
+		kind.PeerAuthentication,
 	)
 
 	// clusterScopedKnownConfigTypes includes configs when they are in root namespace,
@@ -56,7 +57,6 @@ var (
 		kind.EnvoyFilter,
 		kind.AuthorizationPolicy,
 		kind.RequestAuthentication,
-		kind.PeerAuthentication,
 		kind.WasmPlugin,
 		kind.Telemetry,
 	)
@@ -171,6 +171,11 @@ type SidecarScope struct {
 	destinationRules        map[host.Name][]*ConsolidatedDestRule
 	destinationRulesByNames map[types.NamespacedName]*config.Config
 
+	// AuthnPolicies contains the PeerAuthentication policies relevant to this sidecar scope.
+	// It only includes policies from the root namespace, the config namespace, and namespaces
+	// from which services have been imported.
+	AuthnPolicies PeerAuthnPolicies
+
 	// OutboundTrafficPolicy defines the outbound traffic policy for this sidecar.
 	// If OutboundTrafficPolicy is ALLOW_ANY traffic to unknown destinations will
 	// be forwarded.
@@ -265,6 +270,8 @@ func DefaultSidecarScopeForGateway(ps *PushContext, configNamespace string) *Sid
 	}
 	out.selectDestinationRules(ps, configNamespace)
 
+	out.selectAuthnPolicies(ps, configNamespace)
+
 	// waypoint need to get vses from the egress listener
 	defaultEgressListener := &IstioEgressListenerWrapper{
 		virtualServices: ps.VirtualServicesForGateway(configNamespace, constants.IstioMeshGateway),
@@ -324,6 +331,10 @@ func initSidecarScopeInternalIndexes(ps *PushContext, sidecarScope *SidecarScope
 	// Now collect all the imported services across all egress listeners in
 	// this sidecar crd. This is needed to generate CDS output
 	sidecarScope.collectImportedServices(ps, configNamespace)
+
+	// Select PeerAuthentication policies from namespaces relevant to this sidecar:
+	// root namespace, config namespace, and namespaces of imported services.
+	sidecarScope.selectAuthnPolicies(ps, configNamespace)
 
 	// Now that we have all the services that sidecars using this scope (in
 	// this config namespace) will see, identify all the destinationRules
@@ -393,6 +404,31 @@ func (sc *SidecarScope) collectImportedServices(ps *PushContext, configNamespace
 					}
 				}
 			}
+		}
+	}
+}
+
+func (sc *SidecarScope) selectAuthnPolicies(ps *PushContext, configNamespace string) {
+	if ps.AuthnPolicies == nil {
+		return
+	}
+
+	// Collect relevant namespaces: root namespace + config namespace + namespaces of all imported services.
+	relevantNamespaces := sets.New(configNamespace, ps.AuthnPolicies.GetRootNamespace())
+	for _, svc := range sc.services {
+		relevantNamespaces.Insert(svc.Attributes.Namespace)
+	}
+
+	sc.AuthnPolicies = ps.AuthnPolicies.FilterPeerAuthenticationNamespaces(relevantNamespaces)
+
+	// Add all selected PeerAuthentication policies as config dependencies
+	for _, configs := range sc.AuthnPolicies.GetPeerAuthentications() {
+		for _, cfg := range configs {
+			sc.AddConfigDependencies(ConfigKey{
+				Kind:      kind.PeerAuthentication,
+				Name:      cfg.Name,
+				Namespace: cfg.Namespace,
+			}.HashCode())
 		}
 	}
 }
@@ -553,7 +589,7 @@ func (ilw *IstioEgressListenerWrapper) MostSpecificWildcardVirtualServiceIndex()
 }
 
 // DependsOnConfig determines if the proxy depends on the given config.
-// Returns whether depends on this config or this kind of config is not scopeZd(unknown to be depended) here.
+// Returns whether depends on this config or this kind of config is not scoped(unknown to be depended) here.
 func (sc *SidecarScope) DependsOnConfig(config ConfigKey, rootNs string) bool {
 	if sc == nil {
 		return true

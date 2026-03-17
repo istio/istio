@@ -165,7 +165,7 @@ func (b *EndpointBuilder) populateSubsetInfo() {
 		b.subsetName = strings.TrimPrefix(b.subsetName, "http/")
 		b.subsetName = strings.TrimPrefix(b.subsetName, "tcp/")
 	}
-	b.mtlsChecker = newMtlsChecker(b.push, b.port, b.destinationRule.GetRule(), b.subsetName)
+	b.mtlsChecker = newMtlsChecker(b.push, b.proxy.SidecarScope.AuthnPolicies, b.port, b.destinationRule.GetRule(), b.subsetName)
 	b.subsetLabels = getSubSetLabels(b.DestinationRule(), b.subsetName)
 }
 
@@ -252,8 +252,8 @@ func (b *EndpointBuilder) WriteHash(h hash.Hash) {
 		h.Write(Separator)
 	}
 
-	if b.push != nil && b.push.AuthnPolicies != nil {
-		h.WriteString(b.push.AuthnPolicies.GetVersion())
+	if b.push != nil && b.proxy.SidecarScope.AuthnPolicies != nil {
+		h.WriteString(b.proxy.SidecarScope.AuthnPolicies.GetVersion())
 	}
 	h.Write(Separator)
 

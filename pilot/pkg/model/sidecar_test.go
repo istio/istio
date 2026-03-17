@@ -28,6 +28,7 @@ import (
 
 	"istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	securityBeta "istio.io/api/security/v1beta1"
 	"istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
@@ -3124,6 +3125,157 @@ func TestRootNsSidecarDependencies(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestSidecarScopeAuthnPolicies(t *testing.T) {
+	const (
+		svcName       = "svc1.com"
+		configNs      = "default"
+		svcNs         = "ns"
+		unrelatedNs   = "other-ns"
+		rootNs        = "istio-system"
+		peerAuthName  = "pa-default"
+		peerAuthName2 = "pa-svc-ns"
+		peerAuthName3 = "pa-unrelated"
+		peerAuthName4 = "pa-root"
+	)
+
+	peerAuthnConfigs := []config.Config{
+		{
+			Meta: config.Meta{
+				GroupVersionKind: gvk.PeerAuthentication,
+				Name:             peerAuthName,
+				Namespace:        configNs,
+			},
+			Spec: &securityBeta.PeerAuthentication{
+				Mtls: &securityBeta.PeerAuthentication_MutualTLS{
+					Mode: securityBeta.PeerAuthentication_MutualTLS_STRICT,
+				},
+			},
+		},
+		{
+			Meta: config.Meta{
+				GroupVersionKind: gvk.PeerAuthentication,
+				Name:             peerAuthName2,
+				Namespace:        svcNs,
+			},
+			Spec: &securityBeta.PeerAuthentication{
+				Mtls: &securityBeta.PeerAuthentication_MutualTLS{
+					Mode: securityBeta.PeerAuthentication_MutualTLS_PERMISSIVE,
+				},
+			},
+		},
+		{
+			Meta: config.Meta{
+				GroupVersionKind: gvk.PeerAuthentication,
+				Name:             peerAuthName3,
+				Namespace:        unrelatedNs,
+			},
+			Spec: &securityBeta.PeerAuthentication{
+				Mtls: &securityBeta.PeerAuthentication_MutualTLS{
+					Mode: securityBeta.PeerAuthentication_MutualTLS_DISABLE,
+				},
+			},
+		},
+		{
+			Meta: config.Meta{
+				GroupVersionKind: gvk.PeerAuthentication,
+				Name:             peerAuthName4,
+				Namespace:        rootNs,
+			},
+			Spec: &securityBeta.PeerAuthentication{
+				Mtls: &securityBeta.PeerAuthentication_MutualTLS{
+					Mode: securityBeta.PeerAuthentication_MutualTLS_UNSET,
+				},
+			},
+		},
+	}
+
+	configStore := NewFakeStore()
+	for _, cfg := range peerAuthnConfigs {
+		if _, err := configStore.Create(cfg); err != nil {
+			t.Fatalf("failed to create config: %v", err)
+		}
+	}
+
+	meshConfig := mesh.DefaultMeshConfig()
+	meshConfig.RootNamespace = rootNs
+	env := NewEnvironment()
+	env.Watcher = meshwatcher.NewTestWatcher(meshConfig)
+	env.ConfigStore = configStore
+
+	ps := NewPushContext()
+	ps.Mesh = env.Mesh()
+	ps.initAuthnPolicies(env)
+
+	services := []*Service{
+		{
+			Hostname:   svcName,
+			Attributes: ServiceAttributes{Namespace: svcNs},
+		},
+	}
+	ps.ServiceIndex.public = append(ps.ServiceIndex.public, services...)
+
+	sidecarCfg := &config.Config{
+		Meta: config.Meta{
+			Name:      "test-sidecar",
+			Namespace: configNs,
+		},
+		Spec: &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*"},
+				},
+			},
+		},
+	}
+
+	sidecarScope := convertToSidecarScope(ps, sidecarCfg, configNs)
+	if features.EnableLazySidecarEvaluation {
+		sidecarScope.initFunc()
+	}
+
+	// AuthnPolicies should be populated
+	if sidecarScope.AuthnPolicies == nil {
+		t.Fatal("expected AuthnPolicies to be set on SidecarScope")
+	}
+
+	// Should have policies from configNs, svcNs, and rootNs
+	for _, ns := range []string{configNs, svcNs, rootNs} {
+		if _, ok := sidecarScope.AuthnPolicies.GetPeerAuthentications()[ns]; !ok {
+			t.Errorf("expected PeerAuthentication policies in namespace %q", ns)
+		}
+	}
+
+	// Should NOT have policies from unrelatedNs
+	if _, ok := sidecarScope.AuthnPolicies.GetPeerAuthentications()[unrelatedNs]; ok {
+		t.Errorf("unexpected PeerAuthentication policies in namespace %q", unrelatedNs)
+	}
+
+	// PeerAuthentication in configNs should be a dependency
+	if !sidecarScope.DependsOnConfig(ConfigKey{kind.PeerAuthentication, peerAuthName, configNs}, rootNs) {
+		t.Error("expected sidecar to depend on PeerAuthentication in config namespace")
+	}
+
+	// PeerAuthentication in svcNs (imported service namespace) should be a dependency
+	if !sidecarScope.DependsOnConfig(ConfigKey{kind.PeerAuthentication, peerAuthName2, svcNs}, rootNs) {
+		t.Error("expected sidecar to depend on PeerAuthentication in imported service namespace")
+	}
+
+	// PeerAuthentication in rootNs should be a dependency
+	if !sidecarScope.DependsOnConfig(ConfigKey{kind.PeerAuthentication, peerAuthName4, rootNs}, rootNs) {
+		t.Error("expected sidecar to depend on PeerAuthentication in root namespace")
+	}
+
+	// PeerAuthentication in unrelatedNs should NOT be a dependency
+	if sidecarScope.DependsOnConfig(ConfigKey{kind.PeerAuthentication, peerAuthName3, unrelatedNs}, rootNs) {
+		t.Error("expected sidecar NOT to depend on PeerAuthentication in unrelated namespace")
+	}
+
+	// Verify version is non-empty
+	if sidecarScope.AuthnPolicies.GetVersion() == "" {
+		t.Error("expected non-empty AuthnPolicies version")
 	}
 }
 
