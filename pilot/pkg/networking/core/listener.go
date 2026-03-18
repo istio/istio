@@ -1435,7 +1435,7 @@ func buildInnerConnectOriginateListener(push *model.PushContext, proxy *model.Pr
 						},
 					},
 				},
-				FactoryKey:         "envoy.string",
+				FactoryKey:         "istio.hashable_string",
 				SharedWithUpstream: sfsvalue.FilterStateValue_TRANSITIVE,
 			},
 		},
