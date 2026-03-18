@@ -536,7 +536,7 @@ func TestManifestGenerateIstiodRemoteLocalInjection(t *testing.T) {
 	}
 }
 
-func TestManifestGenerateReaderRBACDisableFlag(t *testing.T) {
+func TestManifestGenerateReaderRBACEnableFlag(t *testing.T) {
 	g := NewWithT(t)
 	const (
 		readerSAName = "istio-reader-service-account"
@@ -568,7 +568,7 @@ func TestManifestGenerateReaderRBACDisableFlag(t *testing.T) {
 	t.Run("disabled explicitly on revisioned install", func(t *testing.T) {
 		flags := fmt.Sprintf(
 			"--set values.global.resourceScope=all --set values.global.istioNamespace=%s "+
-				"--set values.global.disableReaderSA=true --set revision=%s",
+				"--set values.global.enableReaderRBAC=false --set revision=%s",
 			namespace,
 			revision,
 		)
@@ -581,9 +581,9 @@ func TestManifestGenerateReaderRBACDisableFlag(t *testing.T) {
 
 	t.Run("disabled explicitly", func(t *testing.T) {
 		// Use default profile (includes both base and discovery charts) to verify that
-		// disableReaderSA=true suppresses the SA (from base) and the ClusterRole/Binding
+		// enableReaderRBAC=false suppresses the SA (from base) and the ClusterRole/Binding
 		// (from discovery) in a single consistent install.
-		flags := fmt.Sprintf("--set values.global.resourceScope=all --set values.global.istioNamespace=%s --set values.global.disableReaderSA=true", namespace)
+		flags := fmt.Sprintf("--set values.global.resourceScope=all --set values.global.istioNamespace=%s --set values.global.enableReaderRBAC=false", namespace)
 		manifest := generateManifest(t, "default", flags, liveCharts, nil)
 		objs := parseObjectSetFromManifest(t, manifest)
 		g.Expect(objs.kind(gvk.ServiceAccount.Kind).nameEquals(readerSAName)).Should(BeNil())
@@ -592,7 +592,7 @@ func TestManifestGenerateReaderRBACDisableFlag(t *testing.T) {
 	})
 
 	t.Run("disabled explicitly in base chart only", func(t *testing.T) {
-		flags := "--set values.global.resourceScope=all --set values.global.disableReaderSA=true"
+		flags := "--set values.global.resourceScope=all --set values.global.enableReaderRBAC=false"
 		manifest := generateManifest(t, "minimal", flags, liveCharts, []string{"templates/reader-serviceaccount.yaml"})
 		objs := parseObjectSetFromManifest(t, manifest)
 		g.Expect(objs.kind(gvk.ServiceAccount.Kind).nameEquals(readerSAName)).Should(BeNil())

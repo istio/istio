@@ -1,5 +1,5 @@
 # Created if cluster resources are not omitted. Used for multicluster remote secret workflows.
-{{- if and (or (eq .Values.global.resourceScope "all") (eq .Values.global.resourceScope "cluster")) (not (dig "global" "disableReaderSA" false .Values)) }}
+{{- if and (or (eq .Values.global.resourceScope "all") (eq .Values.global.resourceScope "cluster")) (dig "global" "enableReaderRBAC" true .Values) }}
 {{ $mcsAPIGroup := or .Values.env.MCS_API_GROUP "multicluster.x-k8s.io" }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole

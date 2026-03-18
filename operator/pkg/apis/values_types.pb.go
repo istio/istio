@@ -1907,11 +1907,11 @@ type GlobalConfig struct {
 	ResourceScope ResourceScope `protobuf:"varint,76,opt,name=resourceScope,proto3,enum=istio.operator.v1alpha1.ResourceScope" json:"resourceScope,omitempty"`
 	// Specifies how proxies are configured within Istio.
 	Agentgateway *Agentgateway `protobuf:"bytes,77,opt,name=agentgateway,proto3" json:"agentgateway,omitempty"`
-	// If true, do not install istio-reader service account and associated cluster role/binding,
+	// If true, install istio-reader service account and associated cluster role/binding,
 	// which are used for multicluster remote-secret workflows.
-	DisableReaderSA *wrapperspb.BoolValue `protobuf:"bytes,78,opt,name=disableReaderSA,proto3" json:"disableReaderSA,omitempty"` // The next available key is 79
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	EnableReaderRBAC *wrapperspb.BoolValue `protobuf:"bytes,78,opt,name=enableReaderRBAC,proto3" json:"enableReaderRBAC,omitempty"` // The next available key is 79
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *GlobalConfig) Reset() {
@@ -2279,9 +2279,9 @@ func (x *GlobalConfig) GetAgentgateway() *Agentgateway {
 	return nil
 }
 
-func (x *GlobalConfig) GetDisableReaderSA() *wrapperspb.BoolValue {
+func (x *GlobalConfig) GetEnableReaderRBAC() *wrapperspb.BoolValue {
 	if x != nil {
-		return x.DisableReaderSA
+		return x.EnableReaderRBAC
 	}
 	return nil
 }
@@ -5705,7 +5705,7 @@ const file_pkg_apis_values_types_proto_rawDesc = "" +
 	"\x14istio_ingressgateway\x18\x04 \x01(\v2-.istio.operator.v1alpha1.IngressGatewayConfigR\x14istio-ingressgateway\x12@\n" +
 	"\x0fsecurityContext\x18\n" +
 	" \x01(\v2\x16.google.protobuf.ValueR\x0fsecurityContext\x12>\n" +
-	"\x0eseccompProfile\x18\f \x01(\v2\x16.google.protobuf.ValueR\x0eseccompProfile\"\xb7\x15\n" +
+	"\x0eseccompProfile\x18\f \x01(\v2\x16.google.protobuf.ValueR\x0eseccompProfile\"\xb9\x15\n" +
 	"\fGlobalConfig\x12;\n" +
 	"\x04arch\x18\x01 \x01(\v2#.istio.operator.v1alpha1.ArchConfigB\x02\x18\x01R\x04arch\x12 \n" +
 	"\vcertSigners\x18D \x03(\tR\vcertSigners\x12F\n" +
@@ -5757,8 +5757,8 @@ const file_pkg_apis_values_types_proto_rawDesc = "" +
 	"\x0enativeNftables\x18J \x01(\v2\x1a.google.protobuf.BoolValueR\x0enativeNftables\x12R\n" +
 	"\rnetworkPolicy\x18K \x01(\v2,.istio.operator.v1alpha1.NetworkPolicyConfigR\rnetworkPolicy\x12L\n" +
 	"\rresourceScope\x18L \x01(\x0e2&.istio.operator.v1alpha1.ResourceScopeR\rresourceScope\x12I\n" +
-	"\fagentgateway\x18M \x01(\v2%.istio.operator.v1alpha1.AgentgatewayR\fagentgateway\x12D\n" +
-	"\x0fdisableReaderSA\x18N \x01(\v2\x1a.google.protobuf.BoolValueR\x0fdisableReaderSA\"$\n" +
+	"\fagentgateway\x18M \x01(\v2%.istio.operator.v1alpha1.AgentgatewayR\fagentgateway\x12F\n" +
+	"\x10enableReaderRBAC\x18N \x01(\v2\x1a.google.protobuf.BoolValueR\x10enableReaderRBAC\"$\n" +
 	"\fAgentgateway\x12\x14\n" +
 	"\x05image\x18\x01 \x01(\tR\x05image\"-\n" +
 	"\tSTSConfig\x12 \n" +
@@ -6208,7 +6208,7 @@ var file_pkg_apis_values_types_proto_depIdxs = []int32{
 	52,  // 82: istio.operator.v1alpha1.GlobalConfig.networkPolicy:type_name -> istio.operator.v1alpha1.NetworkPolicyConfig
 	0,   // 83: istio.operator.v1alpha1.GlobalConfig.resourceScope:type_name -> istio.operator.v1alpha1.ResourceScope
 	18,  // 84: istio.operator.v1alpha1.GlobalConfig.agentgateway:type_name -> istio.operator.v1alpha1.Agentgateway
-	57,  // 85: istio.operator.v1alpha1.GlobalConfig.disableReaderSA:type_name -> google.protobuf.BoolValue
+	57,  // 85: istio.operator.v1alpha1.GlobalConfig.enableReaderRBAC:type_name -> google.protobuf.BoolValue
 	57,  // 86: istio.operator.v1alpha1.IstiodConfig.enableAnalysis:type_name -> google.protobuf.BoolValue
 	57,  // 87: istio.operator.v1alpha1.IngressGatewayConfig.autoscaleEnabled:type_name -> google.protobuf.BoolValue
 	10,  // 88: istio.operator.v1alpha1.IngressGatewayConfig.memory:type_name -> istio.operator.v1alpha1.TargetUtilizationConfig
