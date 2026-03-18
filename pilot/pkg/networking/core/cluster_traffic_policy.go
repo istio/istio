@@ -187,7 +187,7 @@ func applyRetryBudget(
 		return
 	}
 
-	percent := &xdstype.Percent{Value: 0.2} // default to 20%
+	percent := &xdstype.Percent{Value: 20.0} // default to 20%
 	if retryBudget.Percent != nil {
 		percent = &xdstype.Percent{Value: retryBudget.Percent.Value}
 	}
