@@ -110,10 +110,12 @@ func (g *MergedGateway) HasAutoPassthroughGateways() bool {
 }
 
 // PrevMergedGateway describes previous state of the gateway.
-// Currently, it only contains information relevant for auto passthrough gateways used by CDS.
+// Currently, it only contains information relevant for auto passthrough gateways
+// and gateway names used by CDS.
 type PrevMergedGateway struct {
 	ContainsAutoPassthroughGateways bool
 	AutoPassthroughSNIHosts         sets.Set[string]
+	GatewayNameForServer            map[*networking.Server]string
 }
 
 func (g *PrevMergedGateway) HasAutoPassthroughGateway() bool {
