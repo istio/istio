@@ -3839,7 +3839,7 @@ func TestBuildDeltaClusters(t *testing.T) {
 			},
 		},
 		{
-			name:     "virtual service is updated targetting an unselected service",
+			name:     "virtual service is updated targeting an unselected service",
 			services: []*model.Service{testService1, testService2, fooService},
 			prevConfigs: []config.Config{{
 				Meta: config.Meta{
@@ -3883,7 +3883,7 @@ func TestBuildDeltaClusters(t *testing.T) {
 			},
 		},
 		{
-			name:     "virtual service is updated targetting an unselected service with subsets",
+			name:     "virtual service is updated targeting an unselected service with subsets",
 			services: []*model.Service{testService1, testService2, fooService},
 			prevConfigs: []config.Config{{
 				Meta: config.Meta{
@@ -4035,7 +4035,7 @@ func TestBuildDeltaClusters(t *testing.T) {
 			},
 		},
 		{
-			name:     "virtual service targetting service with subsets is removed",
+			name:     "virtual service targeting service with subsets is removed",
 			services: []*model.Service{testService1, testService2},
 			prevConfigs: []config.Config{{
 				Meta: config.Meta{
