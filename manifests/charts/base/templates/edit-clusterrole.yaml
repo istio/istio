@@ -1,0 +1,30 @@
+{{- if or (eq .Values.global.resourceScope "all") (eq .Values.global.resourceScope "cluster") }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: istio-edit
+  namespace: {{ .Values.global.istioNamespace }}
+  labels:
+    app: istio
+    release: {{ .Release.Name }}
+    app.kubernetes.io/name: "istio"
+    {{- include "istio.labels" . | nindent 4 }}
+    {{- if .Values.global.rbac.aggregateClusterRoles }}
+    rbac.authorization.k8s.io/aggregate-to-admin: "true"
+    rbac.authorization.k8s.io/aggregate-to-edit: "true"
+    {{- end }}
+rules:
+  - apiGroups:
+      - networking.istio.io
+      - security.istio.io
+      - telemetry.istio.io
+      - extensions.istio.io
+    resources:
+      - "*"
+    verbs:
+      - create
+      - update
+      - patch
+      - delete
+      - deletecollection
+{{- end }}
