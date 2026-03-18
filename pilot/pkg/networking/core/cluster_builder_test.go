@@ -864,7 +864,7 @@ func TestApplyDestinationRule(t *testing.T) {
 									Value: 10,
 								},
 								RetryBudget: &cluster.CircuitBreakers_Thresholds_RetryBudget{
-									BudgetPercent:       &xdstype.Percent{Value: 0.2},
+									BudgetPercent:       &xdstype.Percent{Value: 20.0},
 									MinRetryConcurrency: &wrappers.UInt32Value{Value: 3},
 								},
 							},
@@ -3120,7 +3120,7 @@ func TestApplyConnectionPool(t *testing.T) {
 						MaxPendingRequests: &wrappers.UInt32Value{Value: math.MaxUint32},
 						TrackRemaining:     false,
 						RetryBudget: &cluster.CircuitBreakers_Thresholds_RetryBudget{
-							BudgetPercent:       &xdstype.Percent{Value: 0.2},
+							BudgetPercent:       &xdstype.Percent{Value: 20.0},
 							MinRetryConcurrency: &wrappers.UInt32Value{Value: 3},
 						},
 					},
