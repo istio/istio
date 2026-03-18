@@ -16,7 +16,6 @@ package cluster
 
 import (
 	"context"
-	"slices"
 	"testing"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -25,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
 
+	"istio.io/istio/pkg/slices"
 	config2 "istio.io/istio/tools/bug-report/pkg/config"
 )
 
