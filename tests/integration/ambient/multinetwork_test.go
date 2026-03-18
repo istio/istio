@@ -21,7 +21,6 @@ import (
 	"testing"
 
 	"golang.org/x/sync/errgroup"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/api/label"
