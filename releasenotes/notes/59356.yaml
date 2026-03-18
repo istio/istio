@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 59356
+releaseNotes:
+  - |
+    **Fixed** an issue where an `HTTPRoute` with no `backendRefs` returned an HTTP 500 status code
+    instead of the expected 404. Per the Gateway API specification, routes without any backend
+    references should return 404, while routes with backend references that all have zero weight
+    should return 500.
