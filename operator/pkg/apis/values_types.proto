@@ -1010,6 +1010,10 @@ message PilotTaintControllerConfig {
 
   // The namespace of the CNI daemonset, incase it's not the same as istiod.
   string namespace = 2;
+  // The taint key used by the node-untaint controller to identify nodes that should be untainted.
+  // This corresponds to the Helm chart value `values.pilot.taint.name` and the
+  // environment variable `PILOT_NODE_UNTAINT_CONTROLLERS_TAINT_NAME` used by istiod.
+  string name = 3;
 }
 
 // Controls legacy k8s ingress. Only one pilot profile should enable ingress support.
