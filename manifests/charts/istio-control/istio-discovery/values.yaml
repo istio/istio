@@ -47,6 +47,8 @@ _internal_defaults_do_not_set:
     enabled: false
     # What namespace the untaint controller should watch for istio-cni pods. This is only required when istio-cni is running in a different namespace than istiod
     namespace: ""
+    # The taint key used by the node-untaint controller to identify nodes that should be untainted.
+    name: cni.istio.io/not-ready
 
   affinity: {}
 
