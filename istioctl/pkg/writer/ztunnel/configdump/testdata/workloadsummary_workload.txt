@@ -1,0 +1,2 @@
+NAMESPACE POD NAME                       ADDRESS     NODE            WAYPOINT                            PROTOCOL
+bookinfo  productpage-v1-675fc69cf-jscn2 10.244.2.53 ambient-worker2 bookinfo-productpage-istio-waypoint HBONE

@@ -73,6 +73,8 @@ func TestConfigWriter_PrintSummary(t *testing.T) {
 		wantOutputAll            string
 		wantOutputConn           string
 		configNamespace          string
+		workloadName             string
+		connWorkload             string
 		wantOutputAllwithHeaders string
 	}{
 		{
@@ -89,12 +91,23 @@ func TestConfigWriter_PrintSummary(t *testing.T) {
 			wantOutputWorkload: "testdata/workloadsummary_default.txt",
 		},
 		{
+			name:               "filtered workload by name",
+			workloadName:       "productpage-v1-675fc69cf-jscn2",
+			configNamespace:    "bookinfo",
+			wantOutputWorkload: "testdata/workloadsummary_workload.txt",
+		},
+		{
 			name:               "policies",
 			wantOutputPolicies: "testdata/policies.txt",
 		},
 		{
 			name:           "connections",
 			wantOutputConn: "testdata/connectionsummary.txt",
+		},
+		{
+			name:           "filtered connections by workload",
+			connWorkload:   "productpage-v1-796f87b58-97bjk.bookinfo",
+			wantOutputConn: "testdata/connectionsummary_workload.txt",
 		},
 		{
 			name:          "all",
@@ -116,7 +129,7 @@ func TestConfigWriter_PrintSummary(t *testing.T) {
 				util.CompareContent(t, gotOut.Bytes(), tt.wantOutputSecret)
 			}
 			if tt.wantOutputWorkload != "" {
-				wf := WorkloadFilter{Namespace: tt.configNamespace}
+				wf := WorkloadFilter{Namespace: tt.configNamespace, Name: tt.workloadName}
 				assert.NoError(t, cw.PrintWorkloadSummary(wf))
 				util.CompareContent(t, gotOut.Bytes(), tt.wantOutputWorkload)
 			}
@@ -133,7 +146,7 @@ func TestConfigWriter_PrintSummary(t *testing.T) {
 				util.CompareContent(t, gotOut.Bytes(), tt.wantOutputAllwithHeaders)
 			}
 			if tt.wantOutputConn != "" {
-				assert.NoError(t, cw.PrintConnectionsSummary(ConnectionsFilter{}))
+				assert.NoError(t, cw.PrintConnectionsSummary(ConnectionsFilter{Workload: tt.connWorkload}))
 				util.CompareContent(t, gotOut.Bytes(), tt.wantOutputConn)
 			}
 		})
