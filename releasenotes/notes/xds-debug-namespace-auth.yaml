@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: security-fix
+area: security
+releaseNotes:
+- |
+  **Fixed** XDS debug endpoint to pass caller namespace for proper authorization checks.
