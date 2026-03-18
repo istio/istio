@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 58750
+releaseNotes:
+  - |
+    **Fixed** an issue preventing the usage of Kubernetes User Namespaces (hostUsers: false) pods together with istio-cni, support is limited to operating systems with nsenter binary.
