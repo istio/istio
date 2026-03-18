@@ -3,6 +3,7 @@ kind: feature
 area: istioctl
 releaseNotes:
 - |
-  **Improved** `istioctl bug-report` performance and added `--skip-cluster-dump`, `--skip-analyze`,
-  `--skip-proxy-debug`, `--skip-netstat`, and `--skip-coredumps` flags to allow skipping expensive
-  sections of the report. Also fixed log fetching and include/exclude filtering for pod selection.
+  **Improved** the `istioctl bug-report` command's performance.
+  **Added** `--skip-cluster-dump`, `--skip-analyze`,  `--skip-proxy-debug`, `--skip-netstat`, and `--skip-coredumps` flags to the `istioctl bug-report` command to allow skipping expensive sections of the report.
+  **Fixed** log fetching with support for include and exclude filtering for pod selection.
+  **Changed** the default value of the `--tail` flag to 10000 rather than unlimited.

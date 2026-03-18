@@ -171,6 +171,7 @@ type Client interface {
 type PodLogOptions struct {
 	Container string
 	Previous  bool
+	Follow    bool
 	TailLines *int64
 	SinceTime *metav1.Time
 }
@@ -207,14 +208,8 @@ type CLIClient interface {
 	// PodExec takes a command and the pod data to run the command in the specified pod.
 	PodExec(podName, podNamespace, container string, command string) (stdout string, stderr string, err error)
 
-	// PodLogs retrieves the logs for the given pod.
-	PodLogs(ctx context.Context, podName string, podNamespace string, container string, previousLog bool) (string, error)
-
-	// PodLogsOfOptions retrieves the logs for the given pod with additional options like tail lines and since time.
-	PodLogsOfOptions(ctx context.Context, podName string, podNamespace string, opts *PodLogOptions) (string, error)
-
-	// PodLogsFollow retrieves the logs for the given pod, following until the pod log stream is interrupted
-	PodLogsFollow(ctx context.Context, podName string, podNamespace string, container string) (string, error)
+	// PodLogsWithOptions retrieves the logs for the given pod with configurable options.
+	PodLogsWithOptions(ctx context.Context, podName string, podNamespace string, opts *PodLogOptions) (string, error)
 
 	// ServicesForSelector finds services matching selector.
 	ServicesForSelector(ctx context.Context, namespace string, labelSelectors ...string) (*v1.ServiceList, error)
@@ -994,55 +989,17 @@ func (c *client) PodExec(podName, podNamespace, container string, command string
 	return c.PodExecCommands(podName, podNamespace, container, commandFields)
 }
 
-func (c *client) PodLogs(ctx context.Context, podName, podNamespace, container string, previousLog bool) (string, error) {
-	opts := &v1.PodLogOptions{
-		Container: container,
-		Previous:  previousLog,
-	}
-	res, err := c.kube.CoreV1().Pods(podNamespace).GetLogs(podName, opts).Stream(ctx)
-	if err != nil {
-		return "", err
-	}
-	defer closeQuietly(res)
-
-	builder := &strings.Builder{}
-	if _, err = io.Copy(builder, res); err != nil {
-		return "", err
-	}
-
-	return builder.String(), nil
-}
-
-func (c *client) PodLogsOfOptions(ctx context.Context, podName, podNamespace string, plo *PodLogOptions) (string, error) {
+func (c *client) PodLogsWithOptions(ctx context.Context, podName, podNamespace string, plo *PodLogOptions) (string, error) {
 	opts := &v1.PodLogOptions{
 		Container: plo.Container,
 		Previous:  plo.Previous,
+		Follow:    plo.Follow,
 	}
 	if plo.TailLines != nil {
 		opts.TailLines = plo.TailLines
 	}
 	if plo.SinceTime != nil {
 		opts.SinceTime = plo.SinceTime
-	}
-	res, err := c.kube.CoreV1().Pods(podNamespace).GetLogs(podName, opts).Stream(ctx)
-	if err != nil {
-		return "", err
-	}
-	defer closeQuietly(res)
-
-	builder := &strings.Builder{}
-	if _, err = io.Copy(builder, res); err != nil {
-		return "", err
-	}
-
-	return builder.String(), nil
-}
-
-func (c *client) PodLogsFollow(ctx context.Context, podName, podNamespace, container string) (string, error) {
-	opts := &v1.PodLogOptions{
-		Container: container,
-		Previous:  false,
-		Follow:    true,
 	}
 	res, err := c.kube.CoreV1().Pods(podNamespace).GetLogs(podName, opts).Stream(ctx)
 	if err != nil {

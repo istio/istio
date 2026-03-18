@@ -16,6 +16,7 @@ package cluster
 
 import (
 	"context"
+	"slices"
 	"testing"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -613,27 +614,27 @@ func TestExtractIncludedNamespaces(t *testing.T) {
 		expected []string
 	}{
 		{
-			name:     "no includes returns nil",
+			name:     "no includes returns all-namespaces sentinel",
 			config:   &config2.BugReportConfig{},
-			expected: nil,
+			expected: []string{""},
 		},
 		{
-			name: "include with empty namespaces returns nil",
+			name: "include with empty namespaces returns all-namespaces sentinel",
 			config: &config2.BugReportConfig{
 				Include: []*config2.SelectionSpec{
 					{Pods: []string{"my-pod"}},
 				},
 			},
-			expected: nil,
+			expected: []string{""},
 		},
 		{
-			name: "include with wildcard namespace returns nil",
+			name: "include with wildcard namespace returns all-namespaces sentinel",
 			config: &config2.BugReportConfig{
 				Include: []*config2.SelectionSpec{
 					{Namespaces: []string{"istio-*"}},
 				},
 			},
-			expected: nil,
+			expected: []string{""},
 		},
 		{
 			name: "concrete namespaces are extracted",
@@ -687,8 +688,8 @@ func TestExtractIncludedNamespaces(t *testing.T) {
 					t.Errorf("expected 1 namespace after dedup, got %d: %v", len(result), result)
 				}
 			default:
-				if c.expected == nil && result != nil {
-					t.Errorf("expected nil, got %v", result)
+				if !slices.Equal(c.expected, result) {
+					t.Errorf("expected %v, got %v", c.expected, result)
 				}
 			}
 		})

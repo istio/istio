@@ -27,6 +27,7 @@ import (
 
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/inject"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/tools/bug-report/pkg/common"
 	config2 "istio.io/istio/tools/bug-report/pkg/config"
 	"istio.io/istio/tools/bug-report/pkg/util/path"
@@ -306,16 +307,8 @@ func GetClusterResources(ctx context.Context, clientset kubernetes.Interface, co
 	return out, nil
 }
 
-// listPods lists pods from the given namespaces. If namespaces is empty, lists from all namespaces.
+// listPods lists pods from the given namespaces. An empty string entry means all namespaces.
 func listPods(ctx context.Context, clientset kubernetes.Interface, namespaces []string) ([]corev1.Pod, error) {
-	if len(namespaces) == 0 {
-		pods, err := clientset.CoreV1().Pods("").List(ctx, metav1.ListOptions{})
-		if err != nil {
-			return nil, err
-		}
-		return pods.Items, nil
-	}
-
 	var allPods []corev1.Pod
 	for _, ns := range namespaces {
 		pods, err := clientset.CoreV1().Pods(ns).List(ctx, metav1.ListOptions{})
@@ -328,42 +321,38 @@ func listPods(ctx context.Context, clientset kubernetes.Interface, namespaces []
 }
 
 // ExtractIncludedNamespaces returns concrete (non-wildcard) namespaces from include specs.
-// Returns nil if no concrete namespaces can be determined (meaning all namespaces should be queried).
+// Returns []string{""} if no concrete namespaces can be determined (meaning all namespaces should be queried).
 func ExtractIncludedNamespaces(config *config2.BugReportConfig) []string {
 	if len(config.Include) == 0 {
-		return nil
+		return []string{""}
 	}
 
-	nsSet := make(map[string]struct{})
+	nsSet := sets.New[string]()
 	for _, spec := range config.Include {
 		if len(spec.Namespaces) == 0 {
 			// Empty namespaces means "all namespaces"
-			return nil
+			return []string{""}
 		}
 		for _, ns := range spec.Namespaces {
 			if strings.Contains(ns, "*") {
 				// Wildcard namespace, can't scope the API call
-				return nil
+				return []string{""}
 			}
-			nsSet[ns] = struct{}{}
+			nsSet.Insert(ns)
 		}
 	}
 
 	// Always include the istio namespace for control plane data
 	if config.IstioNamespace != "" {
-		nsSet[config.IstioNamespace] = struct{}{}
+		nsSet.Insert(config.IstioNamespace)
 	}
 
 	// If too many namespaces, fall back to cluster-wide query
 	if len(nsSet) > 20 {
-		return nil
+		return []string{""}
 	}
 
-	namespaces := make([]string, 0, len(nsSet))
-	for ns := range nsSet {
-		namespaces = append(namespaces, ns)
-	}
-	return namespaces
+	return sets.SortedList(nsSet)
 }
 
 // buildReplicaSetOwnerMap builds a map from "namespace/rsName" to the owning Deployment name.

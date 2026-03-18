@@ -214,7 +214,7 @@ func (w *workload) Cluster() cluster.Cluster {
 }
 
 func (w *workload) Logs() (string, error) {
-	return w.cluster.PodLogs(context.TODO(), w.pod.Name, w.pod.Namespace, appContainerName, false)
+	return w.cluster.PodLogsWithOptions(context.TODO(), w.pod.Name, w.pod.Namespace, &istioKube.PodLogOptions{Container: appContainerName})
 }
 
 func (w *workload) LogsOrFail(t test.Failer) string {
