@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 58630
+releaseNotes:
+- |
+  **Fixed** a bug when E/W gateway occasionally routed HBONE connections to a wrong service due to
+  incorrect connection pooling in Envoy.
