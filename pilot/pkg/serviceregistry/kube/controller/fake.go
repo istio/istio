@@ -21,7 +21,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/util/xdsfake"
@@ -33,7 +32,6 @@ import (
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/kube/krt"
-	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/kube/namespace"
 	"istio.io/istio/pkg/queue"
 	"istio.io/istio/pkg/test"
@@ -124,17 +122,6 @@ func NewFakeControllerWithOptions(t test.Failer, opts FakeControllerOptions) (*F
 		KrtDebugger:           new(krt.DebugHandler),
 	}
 
-	// Create a multicluster controller when ambient is enabled.
-	// This matches the production path where the mc controller is always created in server.go.
-	if features.EnableAmbient && opts.ConfigCluster {
-		options.MultiClusterController = multicluster.NewController(multicluster.ControllerOptions{
-			Client:          opts.Client,
-			ClusterID:       opts.ClusterID,
-			SystemNamespace: opts.SystemNamespace,
-			MeshConfig:      opts.MeshWatcher,
-			Debugger:        options.KrtDebugger,
-		})
-	}
 	c := NewController(opts.Client, options)
 	meshServiceController.AddRegistry(c)
 
@@ -160,12 +147,6 @@ func NewFakeControllerWithOptions(t test.Failer, opts FakeControllerOptions) (*F
 		clienttest.MakeCRD(t, c.client, crd)
 	}
 	opts.Client.RunAndWait(c.stop)
-	// Run the multicluster controller after informers are started and ambient handlers
-	// are registered (via NewController above). This starts the queue so it can be
-	// properly shut down when stop is closed, preventing goroutine leaks.
-	if options.MultiClusterController != nil {
-		assert.NoError(t, options.MultiClusterController.Run(stop))
-	}
 	var fx *xdsfake.Updater
 	if x, ok := xdsUpdater.(*xdsfake.Updater); ok {
 		fx = x

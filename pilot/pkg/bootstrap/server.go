@@ -52,6 +52,7 @@ import (
 	sec_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/server"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
+	"istio.io/istio/pilot/pkg/serviceregistry/ambient"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pilot/pkg/status"
@@ -116,6 +117,7 @@ type Server struct {
 	virtualServiceController *model.VirtualServiceController
 	ConfigStores             []model.ConfigStoreController
 	serviceEntryController   *serviceentry.Controller
+	ambientIndex             ambient.Index
 
 	httpServer  *http.Server // debug, monitoring and readiness Server.
 	httpAddr    string
@@ -885,6 +887,9 @@ func (s *Server) pushContextReady(expected int64) bool {
 // cachesSynced checks whether caches have been synced.
 func (s *Server) cachesSynced() bool {
 	if s.multiclusterController != nil && !s.multiclusterController.HasSynced() {
+		return false
+	}
+	if s.ambientIndex != nil && !s.ambientIndex.HasSynced() {
 		return false
 	}
 	if !s.ServiceController().HasSynced() {

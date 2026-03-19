@@ -44,6 +44,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pilot/pkg/serviceregistry"
+	"istio.io/istio/pilot/pkg/serviceregistry/ambient"
 	kube "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/serviceregistry/util/xdsfake"
@@ -51,6 +52,7 @@ import (
 	"istio.io/istio/pilot/pkg/xds/endpoints"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
+	"istio.io/istio/pkg/activenotifier"
 	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
@@ -112,6 +114,10 @@ type FakeOptions struct {
 	DisableSecretAuthorization bool
 	Services                   []*model.Service
 	Gateways                   []model.NetworkGateway
+
+	// If provided, this ambient index will be used instead of creating a new one.
+	// Useful for tests that need a custom in-memory ambient store.
+	AmbientIndex model.AmbientIndexes
 }
 
 type FakeDiscoveryServer struct {
@@ -123,6 +129,7 @@ type FakeDiscoveryServer struct {
 	BufListener    *bufconn.Listener
 	kubeClient     kubelib.Client
 	KubeRegistry   *kube.FakeController
+	AmbientIndex   ambient.Index
 	XdsUpdater     model.XDSUpdater
 	MemRegistry    *memregistry.ServiceDiscovery
 }
@@ -274,6 +281,41 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	memRegistry := cg.MemRegistry
 	memRegistry.XdsUpdater = s
 
+	// Create the ambient index at the server level (matching the production path in bootstrap/servicecontroller.go).
+	var ambientIdx ambient.Index
+	if opts.AmbientIndex != nil {
+		s.Env.AmbientIndexes = opts.AmbientIndex
+	} else if features.EnableAmbient {
+		meshWatcher := meshwatcher.NewTestWatcher(m)
+		mcController := multicluster.NewController(multicluster.ControllerOptions{
+			Client:          defaultKubeClient,
+			ClusterID:       opts.DefaultClusterName,
+			SystemNamespace: "istio-system",
+			MeshConfig:      meshWatcher,
+			Debugger:        krt.GlobalDebugHandler,
+		})
+		if err := mcController.Run(stop); err != nil {
+			t.Fatal(err)
+		}
+		ambientIdx = ambient.New(ambient.Options{
+			SystemNamespace:        "istio-system",
+			DomainSuffix:           "cluster.local",
+			ClusterID:              opts.DefaultClusterName,
+			XDSUpdater:             xdsUpdater,
+			MeshConfig:             meshWatcher,
+			StatusNotifier:         activenotifier.New(false),
+			Debugger:               krt.GlobalDebugHandler,
+			MultiClusterController: mcController,
+			Flags: ambient.FeatureFlags{
+				DefaultAllowFromWaypoint:              features.DefaultAllowFromWaypoint,
+				EnableK8SServiceSelectWorkloadEntries: features.EnableK8SServiceSelectWorkloadEntries,
+			},
+		})
+		s.Env.AmbientIndexes = ambientIdx
+	} else {
+		s.Env.AmbientIndexes = &model.NoopAmbientIndexes{}
+	}
+
 	// Setup config handlers
 	// TODO code re-use from server.go
 	configHandler := func(_, curr config.Config, event model.Event) {
@@ -336,6 +378,10 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	// Start the discovery server
 	s.Start(stop)
 	cg.ServiceEntryRegistry.XdsUpdater = s
+	// Start the ambient index if available (for tests that create real pods/services)
+	if ambientIdx != nil {
+		go ambientIdx.Run(stop)
+	}
 	// Now that handlers are added, get everything started
 	cg.Run()
 	kubelib.WaitForCacheSync("fake", stop,
@@ -366,6 +412,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		ConfigGenTest:  cg,
 		kubeClient:     defaultKubeClient,
 		KubeRegistry:   defaultKubeController,
+		AmbientIndex:   ambientIdx,
 		XdsUpdater:     xdsUpdater,
 		MemRegistry:    memRegistry,
 	}
