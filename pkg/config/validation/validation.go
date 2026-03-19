@@ -2310,6 +2310,16 @@ func validateStringMatch(sm *networking.StringMatch, where string) error {
 		}
 	case *networking.StringMatch_Regex:
 		return validateStringMatchRegexp(sm, where)
+	case *networking.StringMatch_PathTemplate:
+		return fmt.Errorf("%q: pathTemplate is only supported for uri matches", where)
+	}
+	return nil
+}
+
+func validatePathTemplateMatch(sm *networking.StringMatch, where string) error {
+	switch sm.GetMatchType().(type) {
+	case *networking.StringMatch_PathTemplate:
+		return security.CheckValidPathTemplate(where, []string{sm.GetPathTemplate()})
 	}
 	return nil
 }
