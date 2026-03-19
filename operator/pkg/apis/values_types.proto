@@ -649,7 +649,10 @@ message GlobalConfig {
   ResourceScope resourceScope = 76;
   // Specifies how proxies are configured within Istio.
   Agentgateway agentgateway = 77;
-  // The next available key is 78
+  // If true, install istio-reader service account and associated cluster role/binding,
+  // which are used for multicluster remote-secret workflows.
+  google.protobuf.BoolValue enableReaderRBAC = 78;
+  // The next available key is 79
 }
 
 message Agentgateway {

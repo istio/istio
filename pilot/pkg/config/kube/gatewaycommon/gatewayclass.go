@@ -43,7 +43,7 @@ type ClassController struct {
 
 func NewClassController(kc kube.Client) *ClassController {
 	gc := &ClassController{
-		builtinClasses: BuiltinClasses,
+		builtinClasses: AllClasses,
 		classInfos:     ClassInfos,
 	}
 	gc.queue = controllers.NewQueue("gateway class",

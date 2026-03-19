@@ -114,7 +114,7 @@ func ListenerSetCollection(
 				return nil, nil
 			}
 
-			class := gatewaycommon.FetchClass(ctx, gatewayClasses, parentGwObj.Spec.GatewayClassName)
+			class := gatewaycommon.FetchGatewayClass(ctx, gatewayClasses, parentGwObj.Spec.GatewayClassName)
 			if class == nil {
 				// Cannot report status since we don't know if it is for us
 				return nil, nil
@@ -254,7 +254,7 @@ func GatewayCollection(
 		result := []Gateway{}
 		kgw := obj.Spec
 		status := obj.Status.DeepCopy()
-		class := gatewaycommon.FetchClass(ctx, gatewayClasses, kgw.GatewayClassName)
+		class := gatewaycommon.FetchGatewayClass(ctx, gatewayClasses, kgw.GatewayClassName)
 		if class == nil {
 			return nil, nil
 		}

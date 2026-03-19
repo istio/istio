@@ -187,7 +187,7 @@ func applyRetryBudget(
 		return
 	}
 
-	percent := &xdstype.Percent{Value: 0.2} // default to 20%
+	percent := &xdstype.Percent{Value: 20.0} // default to 20%
 	if retryBudget.Percent != nil {
 		percent = &xdstype.Percent{Value: retryBudget.Percent.Value}
 	}
@@ -266,6 +266,10 @@ func applyLoadBalancer(
 	meshConfig *meshconfig.MeshConfig,
 	wrappedLocalityLbEndpoints *loadbalancer.WrappedLocalityLbEndpoints,
 ) {
+	// DFP clusters (DYNAMIC_DNS ServiceEntries) use CLUSTER_PROVIDED LB policy
+	if c.LbPolicy == cluster.Cluster_CLUSTER_PROVIDED {
+		return
+	}
 	// Disable panic threshold when SendUnhealthyEndpoints is enabled as enabling it "may" send traffic to unready
 	// end points when load balancer is in panic mode.
 	if svc.SupportsUnhealthyEndpoints() {

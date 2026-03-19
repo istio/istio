@@ -535,31 +535,31 @@ func TCPRouteCollection(
 }
 
 func TLSRouteCollection(
-	tlsRoutes krt.Collection[*gatewayalpha.TLSRoute],
+	tlsRoutes krt.Collection[*gatewayv1.TLSRoute],
 	inputs RouteContextInputs,
 	opts krt.OptionsBuilder,
-) RouteResult[*gatewayalpha.TLSRoute, gatewayalpha.TLSRouteStatus] {
+) RouteResult[*gatewayv1.TLSRoute, gatewayv1.TLSRouteStatus] {
 	routeCount := gatewayRouteAttachmentCountCollection(inputs, tlsRoutes, gvk.TLSRoute, opts)
-	ancestorBackends := krt.NewManyCollection(tlsRoutes, func(krtctx krt.HandlerContext, obj *gatewayalpha.TLSRoute) []AncestorBackend {
+	ancestorBackends := krt.NewManyCollection(tlsRoutes, func(krtctx krt.HandlerContext, obj *gatewayv1.TLSRoute) []AncestorBackend {
 		return extractAncestorBackends(
 			obj.ObjectMeta,
 			kind.FromString(obj.Kind),
 			obj.Spec.ParentRefs,
 			obj.Spec.Rules,
-			func(r gatewayalpha.TLSRouteRule) []gatewayv1.BackendRef {
+			func(r gatewayv1.TLSRouteRule) []gatewayv1.BackendRef {
 				return r.BackendRefs
 			},
 		)
 	}, opts.WithName("TLSAncestors")...)
-	status, virtualServices := krt.NewStatusManyCollection(tlsRoutes, func(krtctx krt.HandlerContext, obj *gatewayalpha.TLSRoute) (
-		*gatewayalpha.TLSRouteStatus,
+	status, virtualServices := krt.NewStatusManyCollection(tlsRoutes, func(krtctx krt.HandlerContext, obj *gatewayv1.TLSRoute) (
+		*gatewayv1.TLSRouteStatus,
 		[]config.Config,
 	) {
 		ctx := inputs.WithCtx(krtctx)
 		status := obj.Status.DeepCopy()
 		route := obj.Spec
 		parentStatus, parentRefs, meshResult, gwResult := computeRoute(ctx,
-			obj, func(mesh bool, obj *gatewayalpha.TLSRoute) iter.Seq2[*istio.TLSRoute, *ConfigError] {
+			obj, func(mesh bool, obj *gatewayv1.TLSRoute) iter.Seq2[*istio.TLSRoute, *ConfigError] {
 				return func(yield func(*istio.TLSRoute, *ConfigError) bool) {
 					for _, r := range route.Rules {
 						if !yield(convertTLSRoute(ctx, r, obj, !mesh)) {
@@ -622,7 +622,7 @@ func TLSRouteCollection(
 		}
 		return status, vs
 	}, opts.WithName("TLSRoute")...)
-	return RouteResult[*gatewayalpha.TLSRoute, gatewayalpha.TLSRouteStatus]{
+	return RouteResult[*gatewayv1.TLSRoute, gatewayv1.TLSRouteStatus]{
 		VirtualServices:  virtualServices,
 		RouteAttachments: routeCount,
 		Status:           status,

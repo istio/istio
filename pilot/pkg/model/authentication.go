@@ -15,7 +15,7 @@
 package model
 
 import (
-	"strings"
+	"fmt"
 	"time"
 
 	"istio.io/api/security/v1beta1"
@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/hash"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // MutualTLSMode is the mutual TLS mode specified by authentication policy.
@@ -100,6 +101,15 @@ type AuthenticationPolicies struct {
 	aggregateVersion string
 }
 
+type PeerAuthnPolicies interface {
+	GetPeerAuthenticationsForWorkload(policyMatcher WorkloadPolicyMatcher) []*config.Config
+	GetNamespaceMutualTLSMode(namespace string) MutualTLSMode
+	GetPeerAuthentications() map[string][]config.Config
+	GetGlobalMutualTLSMode() MutualTLSMode
+	GetRootNamespace() string
+	GetVersion() string
+}
+
 // initAuthenticationPolicies creates a new AuthenticationPolicies struct and populates with the
 // authentication policies in the mesh environment.
 func initAuthenticationPolicies(env *Environment) *AuthenticationPolicies {
@@ -129,10 +139,13 @@ func (policy *AuthenticationPolicies) addPeerAuthentication(configs []config.Con
 	foundNamespaceMTLS := make(map[string]v1beta1.PeerAuthentication_MutualTLS_Mode)
 	// Track which namespace/mesh level policy seen so far to make sure the oldest one is used.
 	seenNamespaceOrMeshConfig := make(map[string]time.Time)
-	versions := []string{}
 
+	var versionSum uint64
+	hash := hash.New()
 	for _, config := range configs {
-		versions = append(versions, config.UID+"."+config.ResourceVersion)
+		hash.WriteString(config.UID + "." + config.ResourceVersion)
+		versionSum += hash.Sum64()
+		hash.Reset()
 		// Mesh & namespace level policy are those that have empty selector.
 		spec := config.Spec.(*v1beta1.PeerAuthentication)
 		if spec.Selector == nil || len(spec.Selector.MatchLabels) == 0 {
@@ -166,8 +179,7 @@ func (policy *AuthenticationPolicies) addPeerAuthentication(configs []config.Con
 		policy.peerAuthentications[config.Namespace] = append(policy.peerAuthentications[config.Namespace], config)
 	}
 
-	hash := hash.New()
-	hash.WriteString(strings.Join(versions, ";"))
+	hash.WriteString(fmt.Sprintf("%016x", versionSum))
 	policy.aggregateVersion = hash.Sum()
 
 	// Process found namespace-level policy.
@@ -224,6 +236,47 @@ func GetAmbientPolicyConfigName(key ConfigKey) string {
 	default:
 		return key.Name
 	}
+}
+
+func (policy *AuthenticationPolicies) GetPeerAuthentications() map[string][]config.Config {
+	return policy.peerAuthentications
+}
+
+func (policy *AuthenticationPolicies) GetGlobalMutualTLSMode() MutualTLSMode {
+	return policy.globalMutualTLSMode
+}
+
+// FilterPeerAuthenticationNamespaces creates a new AuthenticationPolicies containing only
+// PeerAuthentication policies from the specified namespaces.
+func (policy *AuthenticationPolicies) FilterPeerAuthenticationNamespaces(namespaces sets.Set[string]) PeerAuthnPolicies {
+	filtered := &AuthenticationPolicies{
+		peerAuthentications:    make(map[string][]config.Config, len(namespaces)+1),
+		namespaceMutualTLSMode: make(map[string]MutualTLSMode, len(namespaces)+1),
+		globalMutualTLSMode:    policy.globalMutualTLSMode,
+		rootNamespace:          policy.rootNamespace,
+		aggregateVersion:       policy.aggregateVersion,
+	}
+
+	var versionSum uint64
+	h := hash.New()
+	for ns := range namespaces {
+		if configs, ok := policy.peerAuthentications[ns]; ok {
+			filtered.peerAuthentications[ns] = configs
+			for _, cfg := range configs {
+				h.WriteString(cfg.UID + "." + cfg.ResourceVersion)
+				versionSum += h.Sum64()
+				h.Reset()
+			}
+		}
+		if mode, ok := policy.namespaceMutualTLSMode[ns]; ok {
+			filtered.namespaceMutualTLSMode[ns] = mode
+		}
+	}
+
+	h.WriteString(fmt.Sprintf("%016x", versionSum))
+	filtered.aggregateVersion = h.Sum()
+
+	return filtered
 }
 
 func getConfigsForWorkload(rootNamespace string, configsByNamespace map[string][]config.Config, selectionOpts WorkloadPolicyMatcher) []*config.Config {

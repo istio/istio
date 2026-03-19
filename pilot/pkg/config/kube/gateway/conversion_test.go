@@ -618,7 +618,7 @@ func init() {
 	features.EnableAgentgateway = true
 	// Recompute with ambient enabled
 	gatewaycommon.ClassInfos = gatewaycommon.GetClassInfos()
-	gatewaycommon.BuiltinClasses = gatewaycommon.GetBuiltinClasses()
+	gatewaycommon.BuiltinGatewayClasses = gatewaycommon.GetBuiltinGatewayClasses()
 }
 
 type TestStatusQueue struct {
@@ -773,6 +773,7 @@ func TestConvertResources(t *testing.T) {
 		{name: "redirect-only"},
 		{name: "reference-grant-multiple-to"},
 		{name: "http-grpc-same-host"},
+		{name: "empty-backend-refs"},
 	}
 	test.SetForTest(t, &features.EnableGatewayAPIGatewayClassController, false)
 	test.SetForTest(t, &features.EnableGatewayAPIInferenceExtension, true)

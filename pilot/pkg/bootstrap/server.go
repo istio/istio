@@ -112,9 +112,10 @@ type Server struct {
 
 	multiclusterController *multicluster.Controller
 
-	configController       model.ConfigStoreController
-	ConfigStores           []model.ConfigStoreController
-	serviceEntryController *serviceentry.Controller
+	configController         model.ConfigStoreController
+	virtualServiceController *model.VirtualServiceController
+	ConfigStores             []model.ConfigStoreController
+	serviceEntryController   *serviceentry.Controller
 
 	httpServer  *http.Server // debug, monitoring and readiness Server.
 	httpAddr    string
@@ -892,6 +893,9 @@ func (s *Server) cachesSynced() bool {
 	if !s.configController.HasSynced() {
 		return false
 	}
+	if s.virtualServiceController != nil && !s.virtualServiceController.HasSynced() {
+		return false
+	}
 	return true
 }
 
@@ -941,6 +945,10 @@ func (s *Server) initRegistryEventHandlers() {
 			}
 			// Already handled by gateway controller
 			if schema.GroupVersionKind().Group == gvk.KubernetesGateway.Group {
+				continue
+			}
+			// Already handled by virtual service controller
+			if schema.GroupVersionKind() == gvk.VirtualService {
 				continue
 			}
 

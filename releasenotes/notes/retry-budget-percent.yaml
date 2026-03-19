@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 59504
+releaseNotes:
+  - |
+    **Fixed** a bug where the default `percent` for `retryBudget` in `DestinationRule` was
+    incorrectly set to 0.2% instead of the intended 20%.

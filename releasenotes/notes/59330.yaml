@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue: 
+  - 58133
+releaseNotes:
+  - |
+    **Fixed** an issue preventing multi-cluster waypoint routing with single network (no east-west gateway).
