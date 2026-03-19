@@ -1999,6 +1999,76 @@ func testSidecarRDSVHosts(t *testing.T, services []*model.Service,
 	}
 }
 
+// TestServiceEntryMultipleAddresses verifies that a ServiceEntry with multiple addresses
+// exposes all addresses in the HTTP VirtualHost domains (issue #58692).
+// When a ServiceEntry has multiple addresses, the conversion layer creates multiple
+// model.Service objects with the same hostname but different DefaultAddress values.
+// All of these addresses must appear in the VirtualHost domains.
+func TestServiceEntryMultipleAddresses(t *testing.T) {
+	cg := NewConfigGenTest(t, TestOptions{
+		ConfigString: `
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: multi-address-http
+  namespace: default
+spec:
+  hosts:
+  - example.com
+  addresses:
+  - 10.2.2.118
+  - 10.4.2.206
+  ports:
+  - name: http-port-80
+    number: 80
+    protocol: HTTP
+  endpoints:
+  - address: 10.0.0.1
+  location: MESH_EXTERNAL
+  resolution: STATIC`,
+	})
+
+	proxy := cg.SetupProxy(nil)
+
+	vHostCache := make(map[int][]*route.VirtualHost)
+	resource, _ := cg.ConfigGen.buildSidecarOutboundHTTPRouteConfig(
+		proxy, &model.PushRequest{Push: cg.PushContext()}, "80", vHostCache, nil, nil)
+	if resource == nil {
+		t.Fatal("Expected route configuration, got nil")
+	}
+
+	routeCfg := &route.RouteConfiguration{}
+	if err := resource.Resource.UnmarshalTo(routeCfg); err != nil {
+		t.Fatalf("Failed to unmarshal route configuration: %v", err)
+	}
+	xdstest.ValidateRouteConfiguration(t, routeCfg)
+
+	// Find the VirtualHost for example.com:80.
+	var found *route.VirtualHost
+	for _, vh := range routeCfg.VirtualHosts {
+		if vh.Name == "example.com:80" {
+			found = vh
+			break
+		}
+	}
+	if found == nil {
+		var names []string
+		for _, vh := range routeCfg.VirtualHosts {
+			names = append(names, vh.Name)
+		}
+		t.Fatalf("VirtualHost 'example.com:80' not found; got: %v", names)
+	}
+
+	domains := sets.New(found.Domains...)
+
+	// Both addresses from the ServiceEntry must appear in the domains.
+	for _, addr := range []string{"10.2.2.118", "10.4.2.206"} {
+		if !domains.Contains(addr) {
+			t.Errorf("Address %s missing from VirtualHost domains: %v", addr, found.Domains)
+		}
+	}
+}
+
 func buildHTTPServiceWithLabels(hostname string, v visibility.Instance, ip, namespace string, labels map[string]string, ports ...int) *model.Service {
 	svc := buildHTTPService(hostname, v, ip, namespace, ports...)
 	svc.Attributes.Labels = labels
