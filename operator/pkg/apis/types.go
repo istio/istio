@@ -74,7 +74,7 @@ type IstioOperatorSpec struct {
 	//
 	// * /tmp/istio-installer/nightly (local file path)
 	InstallPackagePath string `json:"installPackagePath,omitempty"`
-	// Root for docker image paths e.g. `docker.io/istio`
+	// Root for docker image paths e.g. `registry.istio.io/release`
 	Hub string `json:"hub,omitempty"`
 	// Version tag for docker images e.g. `1.7.2`
 	Tag any `json:"tag,omitempty"`

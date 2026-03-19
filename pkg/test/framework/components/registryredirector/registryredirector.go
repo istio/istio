@@ -36,7 +36,7 @@ type Instance interface {
 type Config struct {
 	// Cluster to be used in a multicluster environment
 	Cluster cluster.Cluster
-	// Upstream registry. Default is "gcr.io".
+	// Upstream registry. Default is "registry.istio.io".
 	TargetRegistry string
 	// URL scheme for the registry. Default is "https".
 	Scheme string

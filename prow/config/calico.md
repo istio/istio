@@ -1,6 +1,6 @@
 The calico.yaml file is from [https://raw.githubusercontent.com/projectcalico/calico/v3.27.0/manifests/calico.yaml](https://raw.githubusercontent.com/projectcalico/calico/v3.27.0/manifests/calico.yaml)
 
-Once downloaded, run the following sed command to replace the default docker.io images with istio-testing's copies of them:
+Once downloaded, run the following sed command to replace the default docker.io images with `registry.istio.io/testing`'s copies of them:
 
 ```shell
 sed -ie "s?docker.io?registry.istio.io/testing?g" calico.yaml
