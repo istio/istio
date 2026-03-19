@@ -213,7 +213,7 @@ func calculateSingleParentStatus(
 			Namespace: inferencev1.Namespace(gatewayParent.Namespace),
 			Name:      inferencev1.ObjectName(gatewayParent.Name),
 		},
-		Conditions: setConditions(pool.Generation, filteredConditions, map[string]*condition{
+		Conditions: setConditions(pool.Generation, filteredConditions, map[string]*Condition{
 			string(inferencev1.InferencePoolConditionAccepted):     acceptedStatus,
 			string(inferencev1.InferencePoolConditionResolvedRefs): resolvedRefsStatus,
 		}),
@@ -225,7 +225,7 @@ func calculateAcceptedStatus(
 	pool *inferencev1.InferencePool,
 	gatewayParent types.NamespacedName,
 	routeList []*gatewayv1.HTTPRoute,
-) *condition {
+) *Condition {
 	// Check if any HTTPRoute references this InferencePool and has this gateway as an accepted parent
 	for _, route := range routeList {
 		// Only process routes that reference our InferencePool
@@ -251,13 +251,13 @@ func calculateAcceptedStatus(
 				for _, parentCondition := range parentStatus.Conditions {
 					if parentCondition.Type == string(gatewayv1.RouteConditionAccepted) {
 						if parentCondition.Status == metav1.ConditionTrue {
-							return &condition{
+							return &Condition{
 								reason:  string(inferencev1.InferencePoolReasonAccepted),
 								status:  metav1.ConditionTrue,
 								message: "Referenced by an HTTPRoute accepted by the parentRef Gateway",
 							}
 						}
-						return &condition{
+						return &Condition{
 							reason: string(inferencev1.InferencePoolReasonHTTPRouteNotAccepted),
 							status: metav1.ConditionFalse,
 							message: fmt.Sprintf("Referenced HTTPRoute %s/%s not accepted by Gateway %s/%s: %s",
@@ -267,7 +267,7 @@ func calculateAcceptedStatus(
 				}
 
 				// If no Accepted condition found, treat as unknown (parent is listed in status)
-				return &condition{
+				return &Condition{
 					reason:  string(inferencev1.InferencePoolReasonAccepted),
 					status:  metav1.ConditionUnknown,
 					message: "Referenced by an HTTPRoute unknown parentRef Gateway status",
@@ -278,7 +278,7 @@ func calculateAcceptedStatus(
 
 	// If we get here, no HTTPRoute was found that references this InferencePool with this gateway as parent
 	// This shouldn't happen in normal operation since we only call this for known gateway parents
-	return &condition{
+	return &Condition{
 		reason: string(inferencev1.InferencePoolReasonHTTPRouteNotAccepted),
 		status: metav1.ConditionFalse,
 		message: fmt.Sprintf("No HTTPRoute found referencing this InferencePool with Gateway %s/%s as parent",
@@ -293,7 +293,7 @@ func calculateAcceptedStatus(
 func calculateResolvedRefsStatus(
 	pool *inferencev1.InferencePool,
 	services krt.Collection[*corev1.Service],
-) *condition {
+) *Condition {
 	// Default Kind to Service if unset
 	kind := string(pool.Spec.EndpointPickerRef.Kind)
 	if kind == "" {
@@ -301,7 +301,7 @@ func calculateResolvedRefsStatus(
 	}
 
 	if kind != gvk.Service.Kind {
-		return &condition{
+		return &Condition{
 			reason:  string(inferencev1.InferencePoolReasonInvalidExtensionRef),
 			status:  metav1.ConditionFalse,
 			message: "Unsupported ExtensionRef kind " + kind,
@@ -310,7 +310,7 @@ func calculateResolvedRefsStatus(
 
 	name := string(pool.Spec.EndpointPickerRef.Name)
 	if name == "" {
-		return &condition{
+		return &Condition{
 			reason:  string(inferencev1.InferencePoolReasonInvalidExtensionRef),
 			status:  metav1.ConditionFalse,
 			message: "ExtensionRef not defined",
@@ -319,14 +319,14 @@ func calculateResolvedRefsStatus(
 
 	svc := ptr.Flatten(services.GetKey(fmt.Sprintf("%s/%s", pool.Namespace, name)))
 	if svc == nil {
-		return &condition{
+		return &Condition{
 			reason:  string(inferencev1.InferencePoolReasonInvalidExtensionRef),
 			status:  metav1.ConditionFalse,
 			message: "Referenced ExtensionRef not found " + name,
 		}
 	}
 
-	return &condition{
+	return &Condition{
 		reason:  string(inferencev1.InferencePoolReasonResolvedRefs),
 		status:  metav1.ConditionTrue,
 		message: "Referenced ExtensionRef resolved successfully",

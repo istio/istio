@@ -117,7 +117,7 @@ type Server struct {
 	virtualServiceController *model.VirtualServiceController
 	ConfigStores             []model.ConfigStoreController
 	serviceEntryController   *serviceentry.Controller
-	agentgatewayController *agentgateway.Controller
+	agentgatewayController   *agentgateway.Controller
 
 	httpServer  *http.Server // debug, monitoring and readiness Server.
 	httpAddr    string

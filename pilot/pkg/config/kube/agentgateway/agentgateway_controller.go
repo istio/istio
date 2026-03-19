@@ -104,7 +104,6 @@ type Controller struct {
 	stop chan struct{}
 
 	// TODO(jaellio): Verify we don't need handlers for syncing. In the gateway controller we register handlers for the outputs
-
 	outputs OutputCollections
 
 	inputs *AgwInputs
@@ -115,13 +114,11 @@ type Controller struct {
 	Registrations []xds.Registration
 }
 
-// borrowed from kgateway syncer.go
 type OutputCollections struct {
 	Resources krt.Collection[AgwResource]
 	Addresses krt.Collection[Address]
 }
 
-// Similar type to agwcollections in kgateway.
 type AgwInputs struct {
 	// Core k8s resources
 	Namespaces     krt.Collection[*corev1.Namespace]
@@ -179,7 +176,6 @@ func NewAgwController(
 		c.tagWatcher.TriggerRecomputation()
 	})
 
-	// TODO(jaellio): pass in inputs. Allowing reinitialization is risky
 	c.initializeInputs(kc, opts)
 	c.buildResourceCollections(opts)
 
@@ -385,7 +381,6 @@ func (c *Controller) buildAddressCollections(opts krt.OptionsBuilder) krt.Collec
 		true,
 	)
 
-	// TODO(jaellio): Is this the correct domain suffix?
 	inferencePoolsInfo := krt.NewCollection(inputs.InferencePools, inferencePoolBuilder(c.domainSuffix),
 		opts.WithName("InferencePools")...)
 	services = krt.JoinCollection([]krt.Collection[model.ServiceInfo]{services, inferencePoolsInfo}, krt.WithJoinUnchecked())
@@ -537,6 +532,7 @@ func (c *Controller) Run(stop <-chan struct{}) {
 }
 
 func (c *Controller) HasSynced() bool {
+	// Output collection must be synced
 	return c.outputs.Addresses.HasSynced() &&
 		c.outputs.Resources.HasSynced()
 }

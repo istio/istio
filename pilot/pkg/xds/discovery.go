@@ -225,8 +225,6 @@ func (s *DiscoveryServer) CachesSynced() {
 }
 
 func (s *DiscoveryServer) IsServerReady() bool {
-	cachesSynced := s.serverReady.Load()
-	// TODO(jaellio): verify
 	if features.EnableAgentgateway {
 		for _, r := range s.registrations {
 			if !r.HasSynced() {
@@ -234,7 +232,7 @@ func (s *DiscoveryServer) IsServerReady() bool {
 			}
 		}
 	}
-	return cachesSynced
+	return s.serverReady.Load()
 }
 
 func (s *DiscoveryServer) Start(stopCh <-chan struct{}) {
@@ -243,6 +241,12 @@ func (s *DiscoveryServer) Start(stopCh <-chan struct{}) {
 	go s.periodicRefreshMetrics(stopCh)
 	go s.sendPushes(stopCh)
 	go s.Cache.Run(stopCh)
+
+	if features.EnableAgentgateway {
+		for _, reg := range s.registrations {
+			reg.Start(stopCh)
+		}
+	}
 }
 
 // Push metrics are updated periodically (10s default)
