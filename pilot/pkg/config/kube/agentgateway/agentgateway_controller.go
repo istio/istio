@@ -313,8 +313,6 @@ func (c *Controller) buildResourceCollections(opts krt.OptionsBuilder) {
 	// Build XDS collection
 	c.buildXDSCollection(agwResources, addresses, opts)
 
-	// TODO(jaellio): Determine what additional sync dependencies are needed in addition to WaitForCacheSync
-	// c.setupSyncDependencies(agwResources, addresses)
 	c.outputs.Resources = agwResources
 	c.outputs.Addresses = addresses
 }
@@ -457,11 +455,13 @@ func (c *Controller) Schemas() collection.Schemas {
 }
 
 func (c *Controller) Get(typ config.GroupVersionKind, name, namespace string) *config.Config {
+	log.Debug("Called Get on agentgateway controller. Not implemented.")
 	return nil
 }
 
 // TODO(jaellio): Remove or update for agentgateway output collection types
 func (c *Controller) List(typ config.GroupVersionKind, namespace string) []config.Config {
+	log.Debug("Called Get on agentgateway controller. Not implemented.")
 	return nil
 }
 
@@ -532,9 +532,21 @@ func (c *Controller) Run(stop <-chan struct{}) {
 }
 
 func (c *Controller) HasSynced() bool {
-	// Output collection must be synced
-	return c.outputs.Addresses.HasSynced() &&
-		c.outputs.Resources.HasSynced()
+	// Output collections must be synced
+    if !c.outputs.Addresses.HasSynced() || !c.outputs.Resources.HasSynced() {
+        return false
+    }
+    // Key input collections must also be synced to avoid transient "not found" errors
+    // when derived collections reference objects that haven't been indexed yet
+    if c.inputs != nil {
+        if !c.inputs.InferencePools.HasSynced() ||
+            !c.inputs.Services.HasSynced() ||
+            !c.inputs.HTTPRoutes.HasSynced() ||
+            !c.inputs.Gateways.HasSynced() {
+            return false
+        }
+    }
+    return true
 }
 
 func (c *Controller) inRevision(obj any) bool {
