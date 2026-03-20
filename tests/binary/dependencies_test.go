@@ -74,8 +74,7 @@ func TestDependencies(t *testing.T) {
 				`^sigs\.k8s\.io/controller-runtime`,
 				`^testing$`,
 			},
-			wantToDeny: []string{
-			},
+			wantToDeny: []string{},
 		},
 		{
 			entrypoint: "pilot/cmd/pilot-discovery",
@@ -110,8 +109,7 @@ func TestDependencies(t *testing.T) {
 				`^github\.com/howardjohn/unshare-go`,
 				`^testing$`,
 			},
-			wantToDeny: []string{
-			},
+			wantToDeny: []string{},
 		},
 	}
 	allDenials := []*regexp.Regexp{}
