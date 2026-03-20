@@ -749,7 +749,7 @@ func TestInjection(t *testing.T) {
 				// Split multi-part yaml documents. Input and output will have the same number of parts.
 				inputYAMLs := splitYamlFile(inputFilePath, t)
 				wantYAMLs := splitYamlFile(wantFilePath, t)
-				for i := 0; i < len(inputYAMLs); i++ {
+				for i := range inputYAMLs {
 					t.Run(fmt.Sprintf("yamlPart[%d]", i), func(t *testing.T) {
 						runWebhook(t, webhook, inputYAMLs[i], wantYAMLs[i], true)
 					})
@@ -974,7 +974,7 @@ func TestInjectionOlderVersion(t *testing.T) {
 				// Split multi-part yaml documents. Input and output will have the same number of parts.
 				inputYAMLs := splitYamlFile(inputFilePath, t)
 				wantYAMLs := splitYamlFile(wantFilePath, t)
-				for i := 0; i < len(inputYAMLs); i++ {
+				for i := range inputYAMLs {
 					t.Run(fmt.Sprintf("yamlPart[%d]", i), func(t *testing.T) {
 						runWebhook(t, webhook, inputYAMLs[i], wantYAMLs[i], true)
 					})
@@ -1266,7 +1266,7 @@ func TestSkipUDPPorts(t *testing.T) {
 		if len(ports) != len(expectPorts) {
 			t.Fatalf("unexpected ports result for case %d", i)
 		}
-		for j := 0; j < len(ports); j++ {
+		for j := range ports {
 			if ports[j] != expectPorts[j] {
 				t.Fatalf("unexpected ports result for case %d: expect %v, got %v", i, expectPorts, ports)
 			}
@@ -1562,7 +1562,7 @@ func TestProxyImage(t *testing.T) {
 
 func podWithEnv(envCount int) *corev1.Pod {
 	envs := []corev1.EnvVar{}
-	for i := 0; i < envCount; i++ {
+	for i := range envCount {
 		envs = append(envs, corev1.EnvVar{
 			Name:  fmt.Sprintf("something-%d", i),
 			Value: "blah",

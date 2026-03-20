@@ -2212,7 +2212,7 @@ func Test_legacyAutoAllocateIP_values(t *testing.T) {
 	test.SetForTest(t, &features.EnableIPAutoallocate, false)
 	ips := maxIPs
 	inServices := make([]*model.Service, ips)
-	for i := 0; i < ips; i++ {
+	for i := range ips {
 		temp := model.Service{
 			Hostname:       host.Name(fmt.Sprintf("foo%d.com", i)),
 			Resolution:     model.ClientSideLB,
@@ -2272,7 +2272,7 @@ func Test_legacyAutoAllocateIP_values(t *testing.T) {
 
 func BenchmarkAutoAllocateIPs(t *testing.B) {
 	inServices := make([]*model.Service, 255*255)
-	for i := 0; i < 255*255; i++ {
+	for i := range 255 * 255 {
 		temp := model.Service{
 			Hostname:       host.Name(fmt.Sprintf("foo%d.com", i)),
 			Resolution:     model.ClientSideLB,

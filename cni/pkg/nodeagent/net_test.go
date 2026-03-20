@@ -607,7 +607,7 @@ func TestGetPodLevelOverrides(t *testing.T) {
 // and it is flake-prone to check for closure after calling it, this retries for a bit to make
 // sure the netns is closed eventually.
 func assertNSClosed(t *testing.T, closed *atomic.Bool) {
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		if closed.Load() {
 			return
 		}

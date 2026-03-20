@@ -1110,7 +1110,7 @@ func TestValidateMeshConfig(t *testing.T) {
 			if len(err.Errors) != len(wantErrors) {
 				t.Errorf("expected %d errors but found %v", len(wantErrors), err)
 			} else {
-				for i := 0; i < len(wantErrors); i++ {
+				for i := range wantErrors {
 					if !strings.HasPrefix(err.Errors[i].Error(), wantErrors[i]) {
 						t.Errorf("expected error %q at index %d but found %q", wantErrors[i], i, err.Errors[i])
 					}
@@ -1133,7 +1133,7 @@ func TestValidateMeshConfig(t *testing.T) {
 			if len(warn.Errors) != len(wantWarnings) {
 				t.Errorf("expected %d warnings but found %v", len(wantWarnings), warn)
 			} else {
-				for i := 0; i < len(wantWarnings); i++ {
+				for i := range wantWarnings {
 					if !strings.HasPrefix(warn.Errors[i].Error(), wantWarnings[i]) {
 						t.Errorf("expected warning %q at index %d but found %q", wantWarnings[i], i, warn.Errors[i])
 					}

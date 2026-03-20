@@ -411,7 +411,7 @@ func generateSupportedKinds(l k8s.Listener) ([]k8s.RouteGroupKind, bool) {
 
 func FilterInPlaceByIndex[E any](s []E, keep func(int) bool) []E {
 	i := 0
-	for j := 0; j < len(s); j++ {
+	for j := range s {
 		if keep(j) {
 			s[i] = s[j]
 			i++

@@ -63,15 +63,15 @@ func TestNew(t *testing.T) {
 
 func BenchmarkSet(b *testing.B) {
 	items1000 := []string{}
-	for i := 0; i < 1000; i++ {
+	for i := range 1000 {
 		items1000 = append(items1000, fmt.Sprint(i))
 	}
 	items100 := []string{}
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		items100 = append(items100, fmt.Sprint(i))
 	}
 	items2 := []string{}
-	for i := 0; i < 2; i++ {
+	for i := range 2 {
 		items2 = append(items2, fmt.Sprint(i))
 	}
 	b.Run("Set", func(b *testing.B) {

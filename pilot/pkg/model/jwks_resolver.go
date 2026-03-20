@@ -407,7 +407,7 @@ func (r *JwksResolver) getRemoteContentWithRetry(uri string, retry int, timeout 
 		return body, nil
 	}
 
-	for i := 0; i < retry; i++ {
+	for range retry {
 		body, err := getPublicKey()
 		if err == nil {
 			return body, nil
@@ -422,7 +422,7 @@ func (r *JwksResolver) getRemoteContentWithRetry(uri string, retry int, timeout 
 }
 
 func (r *JwksResolver) updateCacheBucket(key jwtKey, updateFunc func(*jwtPubKeyEntry)) bool {
-	for attempt := 0; attempt < JwtMaxCacheBucketUpdateCompareAndSwapAttempts; attempt++ {
+	for range JwtMaxCacheBucketUpdateCompareAndSwapAttempts {
 		val, found := r.keyEntries.Load(key)
 		if !found {
 			return false
