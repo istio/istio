@@ -124,7 +124,7 @@ func TestDelayQueuePushNonblockingWithFullBuffer(t *testing.T) {
 	defer close(success)
 
 	go func() {
-		for i := 0; i < queuedItems; i++ {
+		for i := range queuedItems {
 			dq.PushDelayed(func() error { return nil }, time.Minute*time.Duration(queuedItems-i))
 		}
 		success <- struct{}{}
@@ -150,7 +150,7 @@ func TestPriorityQueueShrinking(t *testing.T) {
 	pqp := &pq
 
 	t0 := time.Now()
-	for i := 0; i < c; i++ {
+	for i := range c {
 		dt := &delayTask{runAt: t0.Add(time.Duration(i) * time.Hour)}
 		heap.Push(pqp, dt)
 	}
@@ -163,7 +163,7 @@ func TestPriorityQueueShrinking(t *testing.T) {
 		t.Fatalf("the capacity of pq should be %d, but end up %d", c, cap(pq))
 	}
 
-	for i := 0; i < c; i++ {
+	for i := range c {
 		_ = heap.Pop(pqp)
 		if i == 1+c/2 && cap(pq) != c/2 {
 			t.Fatalf("the capacity of pq should be reduced to half its length %d, but got %d", c/2, cap(pq))

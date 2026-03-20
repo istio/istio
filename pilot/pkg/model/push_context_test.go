@@ -149,7 +149,7 @@ func TestMergeUpdateRequest(t *testing.T) {
 func TestConcurrentMerge(t *testing.T) {
 	reqA := &PushRequest{Reason: make(ReasonStats)}
 	reqB := &PushRequest{Reason: NewReasonStats(ServiceUpdate, ProxyUpdate)}
-	for i := 0; i < 50; i++ {
+	for range 50 {
 		go func() {
 			reqA.CopyMerge(reqB)
 		}()

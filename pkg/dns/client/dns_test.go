@@ -489,7 +489,7 @@ func bench(t *testing.B, nameserver string, hostname string) {
 
 var giantResponse = func() []dns.RR {
 	ips := make([]netip.Addr, 0)
-	for i := 0; i < 64; i++ {
+	for i := range 64 {
 		ips = append(ips, netip.MustParseAddr(fmt.Sprintf("240.0.0.%d", i)))
 	}
 	return a("aaaaaaaaaaaa.aaaaaa.", ips)

@@ -341,7 +341,7 @@ func TestMultipleConnectedZtunnelsGetEvents(t *testing.T) {
 	sendHello(client1)
 	mt.Assert(ztunnelConnected.Name(), nil, monitortest.Exactly(1))
 
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		m1, fds1 := readRequest(t, client1)
 		_, ok := cache.pods[m1.Payload.(*zdsapi.WorkloadRequest_Add).Add.Uid]
 		assert.Equal(t, ok, true)
@@ -362,7 +362,7 @@ func TestMultipleConnectedZtunnelsGetEvents(t *testing.T) {
 	client2 := connectZtClientToServer(srv.addr)
 	sendHello(client2)
 
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		m2, fds2 := readRequest(t, client2)
 		_, ok := cache.pods[m2.Payload.(*zdsapi.WorkloadRequest_Add).Add.Uid]
 		assert.Equal(t, ok, true)
@@ -446,7 +446,7 @@ func TestZtunnelLatestConnFallsBackToPreviousIfNewestDisconnects(t *testing.T) {
 	sendHello(client1)
 	mt.Assert(ztunnelConnected.Name(), nil, monitortest.Exactly(1))
 
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		m1, fds1 := readRequest(t, client1)
 		_, ok := cache.pods[m1.Payload.(*zdsapi.WorkloadRequest_Add).Add.Uid]
 		assert.Equal(t, ok, true)
@@ -467,7 +467,7 @@ func TestZtunnelLatestConnFallsBackToPreviousIfNewestDisconnects(t *testing.T) {
 	client2 := connectZtClientToServer(srv.addr)
 	sendHello(client2)
 
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		m2, fds2 := readRequest(t, client2)
 		_, ok := cache.pods[m2.Payload.(*zdsapi.WorkloadRequest_Add).Add.Uid]
 		assert.Equal(t, ok, true)
@@ -678,7 +678,7 @@ func fillCacheWithFakePods(cache *fakePodCache, podCount int) func() {
 		cache.pods = make(map[string]WorkloadInfo)
 	}
 	filesToClose := make([]*os.File, 0)
-	for i := 0; i < podCount; i++ {
+	for range podCount {
 		uid, ns, closeFile := podAndNetns()
 		filesToClose = append(filesToClose, closeFile)
 		workload := WorkloadInfo{

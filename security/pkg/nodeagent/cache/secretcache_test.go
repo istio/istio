@@ -299,7 +299,7 @@ func TestRotateTimeWithJitter(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			for i := 0; i < 1000; i++ {
+			for range 1000 {
 				got := rotateTime(security.SecretItem{
 					CreatedTime: tt.created,
 					ExpireTime:  tt.expire,
