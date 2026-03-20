@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"testing"
 
+	"golang.org/x/sync/errgroup"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/api/label"
@@ -36,20 +37,128 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 )
 
-func TestMultinetworkFailover(t *testing.T) {
-	const brokenService = "broken"
+type workload struct {
+	serviceName   string
+	cluster       cluster.Cluster
+	namespace     namespace.Instance
+	replicas      int32
+	serviceLabels map[string]string
+}
 
-	runTest := func(t framework.TestContext, healthy, unhealthy cluster.Cluster, ns namespace.Instance) {
-		clients := deployEchoOrFail(t, brokenService, healthy, unhealthy, ns)
+func TestMultinetworkFailover(t *testing.T) {
+	const brokenService1 = "broken1"
+	const brokenService2 = "broken2"
+	const clientService = "client"
+
+	runTest := func(t framework.TestContext, healthy, unhealthy cluster.Cluster, ns1, ns2 namespace.Instance) {
+		workloads := deployWorkloadsOrFail(t, []workload{
+			{
+				serviceName: brokenService1,
+				cluster:     unhealthy,
+				namespace:   ns1,
+				serviceLabels: map[string]string{
+					"istio.io/global": "true",
+				},
+				replicas: 0,
+			},
+			{
+				serviceName: brokenService1,
+				cluster:     healthy,
+				namespace:   ns1,
+				serviceLabels: map[string]string{
+					"istio.io/global": "true",
+				},
+				replicas: 1,
+			},
+			{
+				serviceName: brokenService2,
+				cluster:     unhealthy,
+				namespace:   ns2,
+				serviceLabels: map[string]string{
+					"istio.io/global": "true",
+				},
+				replicas: 0,
+			},
+			{
+				serviceName: brokenService2,
+				cluster:     healthy,
+				namespace:   ns2,
+				serviceLabels: map[string]string{
+					"istio.io/global": "true",
+				},
+				replicas: 1,
+			},
+			{
+				serviceName: clientService,
+				cluster:     unhealthy,
+				namespace:   ns1,
+				replicas:    1,
+			},
+			{
+				serviceName: clientService,
+				cluster:     healthy,
+				namespace:   ns1,
+				replicas:    1,
+			},
+			{
+				serviceName: clientService,
+				cluster:     unhealthy,
+				namespace:   ns2,
+				replicas:    1,
+			},
+			{
+				serviceName: clientService,
+				cluster:     healthy,
+				namespace:   ns2,
+				replicas:    1,
+			},
+		})
+		clients := match.AnyServiceName([]echo.NamespacedName{
+			{Name: clientService, Namespace: ns1},
+			{Name: clientService, Namespace: ns2},
+		}).GetMatches(workloads)
 		for _, src := range clients {
-			// This service is partially broken, but because we can failover to remote network the request
-			// should still succeed.
-			src.CallOrFail(t, echo.CallOptions{
-				Address: fmt.Sprintf("%s.%s.svc.cluster.local", brokenService, ns.Name()),
-				Port:    ports.HTTP,
-				Scheme:  scheme.HTTP,
-				Check:   check.OK(),
+			// The services we call below are partially broken, i.e., one of the clusters does not have any healthy
+			// replicas to talk to. However, because this setup is multi-cluster, we should be able to successfully
+			// failover to replicas in a remote cluster
+			//
+			// NOTE: we talk to two different services here to cover the case reported in
+			// https://github.com/istio/istio/issues/58630. That bug wasn't caught by any other tests we had.
+			var wg errgroup.Group
+			wg.Go(func() error {
+				_, err := src.Call(echo.CallOptions{
+					Address: fmt.Sprintf("%s.%s.svc.cluster.local", brokenService1, ns1.Name()),
+					Port:    ports.HTTP,
+					Scheme:  scheme.HTTP,
+					Check:   check.OK(),
+					HTTP: echo.HTTP{
+						HTTP2: true,
+						Path:  "/?delay=1s",
+					},
+					Retry: echo.Retry{NoRetry: true},
+					Count: 1,
+				})
+				return err
 			})
+			wg.Go(func() error {
+				_, err := src.Call(echo.CallOptions{
+					Address: fmt.Sprintf("%s.%s.svc.cluster.local", brokenService2, ns2.Name()),
+					Port:    ports.HTTP,
+					Scheme:  scheme.HTTP,
+					Check:   check.OK(),
+					HTTP: echo.HTTP{
+						HTTP2: true,
+						Path:  "/?delay=1s",
+					},
+					Retry: echo.Retry{NoRetry: true},
+					Count: 1,
+				})
+				return err
+			})
+			err := wg.Wait()
+			if err != nil {
+				t.Fatal(err)
+			}
 		}
 	}
 	framework.NewTest(t).Run(func(t framework.TestContext) {
@@ -65,8 +174,23 @@ func TestMultinetworkFailover(t *testing.T) {
 			allClusters := t.Clusters()
 			local := allClusters[0]
 			remote := allClusters[1]
+			// if we have multiple-cluster in the topology, find the cluster on a remote nework,
+			// if one is available, to make sure that traffic goes through an E/W gateway.
+			for _, c := range allClusters {
+				if local.NetworkName() != c.NetworkName() {
+					remote = c
+					break
+				}
+			}
 
-			nsConfig := namespace.NewOrFail(t, namespace.Config{
+			ns1 := namespace.NewOrFail(t, namespace.Config{
+				Prefix: "without-waypoint",
+				Inject: false,
+				Labels: map[string]string{
+					label.IoIstioDataplaneMode.Name: "ambient",
+				},
+			})
+			ns2 := namespace.NewOrFail(t, namespace.Config{
 				Prefix: "without-waypoint",
 				Inject: false,
 				Labels: map[string]string{
@@ -74,7 +198,7 @@ func TestMultinetworkFailover(t *testing.T) {
 				},
 			})
 
-			runTest(t, local, remote, nsConfig)
+			runTest(t, local, remote, ns1, ns2)
 		})
 		t.NewSubTest("with-waypoints").Run(func(t framework.TestContext) {
 			if !t.Settings().Ambient || !t.Settings().AmbientMultiNetwork {
@@ -88,8 +212,23 @@ func TestMultinetworkFailover(t *testing.T) {
 			allClusters := t.Clusters()
 			local := allClusters[0]
 			remote := allClusters[1]
+			// if we have multiple-cluster in the topology, find the cluster on a remote nework,
+			// if one is available, to make sure that traffic goes through an E/W gateway.
+			for _, c := range allClusters {
+				if local.NetworkName() != c.NetworkName() {
+					remote = c
+					break
+				}
+			}
 
-			nsConfig := namespace.NewOrFail(t, namespace.Config{
+			ns1 := namespace.NewOrFail(t, namespace.Config{
+				Prefix: "with-waypoint",
+				Inject: false,
+				Labels: map[string]string{
+					label.IoIstioDataplaneMode.Name: "ambient",
+				},
+			})
+			ns2 := namespace.NewOrFail(t, namespace.Config{
 				Prefix: "with-waypoint",
 				Inject: false,
 				Labels: map[string]string{
@@ -98,85 +237,40 @@ func TestMultinetworkFailover(t *testing.T) {
 			})
 
 			waypointName := "waypoint"
-			deployWaypointsOrFail(t, local, waypointName, nsConfig)
-
-			runTest(t, local, remote, nsConfig)
+			deployWaypointsOrFail(t, local, waypointName, ns1)
+			deployWaypointsOrFail(t, local, waypointName, ns2)
+			runTest(t, local, remote, ns1, ns2)
 		})
 	})
 }
 
-// deployEchoOrFail deploys global (a.k.a. multi-network) Echo servers and local clients in provided clusters.
-// One of the clusters is designated as unhealthy and one as healthy.
-// This function will deploy an "unhealthy" version of the service in the unhealthy cluster and a "healthy" version in
-// the healthy cluster.
-func deployEchoOrFail(t framework.TestContext, serviceName string, healthy, unhealthy cluster.Cluster, ns namespace.Instance) echo.Instances {
+func deployWorkloadsOrFail(t framework.TestContext, workloads []workload) echo.Instances {
 	t.Helper()
 
-	broken := serviceName
-	client := "client"
-
-	builder := deployment.New(t).
-		WithConfig(echo.Config{
-			Service:   broken,
-			Namespace: ns,
-			Cluster:   unhealthy,
-			Ports:     ports.All(),
-			ServiceLabels: map[string]string{
-				"istio.io/global": "true",
-			},
-			Subsets: []echo.SubsetConfig{
-				{
-					Version: broken,
-				},
-			},
-		}).
-		WithConfig(echo.Config{
-			Service:   broken,
-			Namespace: ns,
-			Cluster:   healthy,
-			Ports:     ports.All(),
-			ServiceLabels: map[string]string{
-				"istio.io/global": "true",
-			},
-			Subsets: []echo.SubsetConfig{
-				{
-					Version: broken,
-				},
-			},
-		}).
-		// This is the client, we deploy it in all clusters and use clients in different clusters to validate
-		// different traffic paths.
-		WithConfig(echo.Config{
-			Service:   client,
-			Namespace: ns,
-			Cluster:   unhealthy,
-			Ports:     ports.All(),
-			Subsets: []echo.SubsetConfig{
-				{
-					Version: client,
-				},
-			},
-		}).
-		WithConfig(echo.Config{
-			Service:   client,
-			Namespace: ns,
-			Cluster:   healthy,
-			Ports:     ports.All(),
-			Subsets: []echo.SubsetConfig{
-				{
-					Version: client,
-				},
-			},
+	builder := deployment.New(t)
+	for _, w := range workloads {
+		builder = builder.WithConfig(echo.Config{
+			Service:       w.serviceName,
+			Namespace:     w.namespace,
+			Cluster:       w.cluster,
+			Ports:         ports.All(),
+			ServiceLabels: w.serviceLabels,
+			Subsets: []echo.SubsetConfig{{
+				Version:  w.serviceName,
+				Replicas: 1,
+			}},
 		})
+	}
 
-	echos := builder.BuildOrFail(t)
+	deployments := builder.BuildOrFail(t)
 
-	// NOTE: We cannot just specify replicas 0, because the way the Deployment config template is written
-	// it treats 0 as unset value and defaults to 1 replica in that case defeating the point of setting
-	// replicas to 0 explicitly.
-	scaleDeploymentOrFail(t, unhealthy, ns.Name(), fmt.Sprintf("%s-%s", broken, broken), 0)
+	for _, w := range workloads {
+		if w.replicas != 1 {
+			scaleDeploymentOrFail(t, w.cluster, w.namespace.Name(), fmt.Sprintf("%s-%s", w.serviceName, w.serviceName), w.replicas)
+		}
+	}
 
-	return match.ServiceName(echo.NamespacedName{Name: client, Namespace: ns}).GetMatches(echos)
+	return deployments
 }
 
 // deployWaypointsOrFail deploys global (a.k.a. multi-network) waypoints in two clusters.

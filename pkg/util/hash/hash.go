@@ -25,6 +25,7 @@ type Hash interface {
 	WriteString(s string) (n int)
 	Sum() string
 	Sum64() uint64
+	Reset()
 }
 
 type instance struct {
@@ -60,4 +61,8 @@ func (i *instance) Sum64() uint64 {
 func (i *instance) Sum() string {
 	sum := i.hash.Sum(nil)
 	return hex.EncodeToString(sum)
+}
+
+func (i *instance) Reset() {
+	i.hash.Reset()
 }

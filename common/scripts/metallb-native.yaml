@@ -1,5 +1,5 @@
 # Downloaded from https://github.com/metallb/metallb/raw/v0.13.12/config/manifests/metallb-native.yaml
-# With quay.io hub replaced with gcr.io/istio-testing
+# With quay.io hub replaced with registry.istio.io/testing
 # And probes tuned to startup faster
 apiVersion: v1
 kind: Namespace
@@ -1533,7 +1533,7 @@ spec:
           value: memberlist
         - name: METALLB_DEPLOYMENT
           value: controller
-        image: gcr.io/istio-testing/metallb/controller:v0.14.3
+        image: registry.istio.io/testing/metallb/controller:v0.14.3
         livenessProbe:
           failureThreshold: 3
           httpGet:
@@ -1634,7 +1634,7 @@ spec:
           value: app=metallb,component=speaker
         - name: METALLB_ML_SECRET_KEY_PATH
           value: /etc/ml_secret_key
-        image: gcr.io/istio-testing/metallb/speaker:v0.14.3
+        image: registry.istio.io/testing/metallb/speaker:v0.14.3
         livenessProbe:
           failureThreshold: 3
           httpGet:

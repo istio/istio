@@ -197,16 +197,9 @@ func NewController(
 		),
 	}
 
+	// we don't need to register the virtual services here because they are handled by the virtual service controller
 	c.handlers = append(
 		c.handlers,
-		c.outputs.VirtualServices.RegisterBatch(pushXds(c.xdsUpdater,
-			func(t config.Config) model.ConfigKey {
-				return model.ConfigKey{
-					Kind:      kind.VirtualService,
-					Name:      t.Name,
-					Namespace: t.Namespace,
-				}
-			}), false),
 		c.outputs.Gateways.RegisterBatch(pushXds(c.xdsUpdater,
 			func(t config.Config) model.ConfigKey {
 				return model.ConfigKey{

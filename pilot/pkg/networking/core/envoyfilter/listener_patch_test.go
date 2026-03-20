@@ -46,8 +46,11 @@ import (
 	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/log"
 	istio_proto "istio.io/istio/pkg/proto"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/wellknown"
 )
@@ -59,8 +62,8 @@ var testMesh = &meshconfig.MeshConfig{
 	},
 }
 
-func buildEnvoyFilterConfigStore(configPatches []*networking.EnvoyFilter_EnvoyConfigObjectPatch) model.ConfigStore {
-	store := memory.Make(collections.Pilot)
+func buildEnvoyFilterConfigStore(configPatches []*networking.EnvoyFilter_EnvoyConfigObjectPatch) model.ConfigStoreController {
+	store := memory.NewController(memory.Make(collections.Pilot))
 
 	for i, cp := range configPatches {
 		_, err := store.Create(config.Config{
@@ -80,8 +83,8 @@ func buildEnvoyFilterConfigStore(configPatches []*networking.EnvoyFilter_EnvoyCo
 	return store
 }
 
-func buildEnvoyFilterConfigStoreWithPriorities(configPatches []*networking.EnvoyFilter_EnvoyConfigObjectPatch, priorities []int32) model.ConfigStore {
-	store := memory.Make(collections.Pilot)
+func buildEnvoyFilterConfigStoreWithPriorities(configPatches []*networking.EnvoyFilter_EnvoyConfigObjectPatch, priorities []int32) model.ConfigStoreController {
+	store := memory.NewController(memory.Make(collections.Pilot))
 
 	for i, cp := range configPatches {
 		_, err := store.Create(config.Config{
@@ -115,14 +118,25 @@ func buildGolangPatchStruct(config string) *structpb.Struct {
 	return val
 }
 
-func newTestEnvironment(serviceDiscovery model.ServiceDiscovery, meshConfig *meshconfig.MeshConfig,
-	configStore model.ConfigStore,
+func newTestEnvironment(t *testing.T, serviceDiscovery model.ServiceDiscovery, meshConfig *meshconfig.MeshConfig,
+	configStore model.ConfigStoreController,
 ) *model.Environment {
 	e := &model.Environment{
 		ServiceDiscovery: serviceDiscovery,
 		ConfigStore:      configStore,
 		Watcher:          meshwatcher.NewTestWatcher(meshConfig),
 	}
+	e.VirtualServiceController = model.NewVirtualServiceController(
+		configStore,
+		model.VSControllerOptions{KrtDebugger: krt.GlobalDebugHandler},
+		meshwatcher.NewTestWatcher(meshConfig),
+	)
+
+	stop := test.NewStop(t)
+	go configStore.Run(stop)
+	go e.VirtualServiceController.Run(stop)
+	kube.WaitForCacheSync("test", stop, configStore.HasSynced)
+	kube.WaitForCacheSync("test", stop, e.VirtualServiceController.HasSynced)
 
 	pushContext := model.NewPushContext()
 	e.Init()
@@ -2272,12 +2286,12 @@ func TestApplyListenerPatches(t *testing.T) {
 		},
 	}
 	serviceDiscovery := memregistry.NewServiceDiscovery()
-	e := newTestEnvironment(serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(configPatches))
+	e := newTestEnvironment(t, serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(configPatches))
 	push := model.NewPushContext()
 	push.InitContext(e, nil, nil)
 
 	// Test different priorities
-	ep := newTestEnvironment(serviceDiscovery, testMesh, buildEnvoyFilterConfigStoreWithPriorities(configPatchesPriorities, priorities))
+	ep := newTestEnvironment(t, serviceDiscovery, testMesh, buildEnvoyFilterConfigStoreWithPriorities(configPatchesPriorities, priorities))
 	pushPriorities := model.NewPushContext()
 	pushPriorities.InitContext(ep, nil, nil)
 

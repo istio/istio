@@ -287,6 +287,7 @@ func convertServices(cfg config.Config, nsAnnotations map[string]string) []*mode
 	if features.CanonicalServiceForMeshExternalServiceEntry && serviceEntry.Location == networking.ServiceEntry_MESH_EXTERNAL {
 		labels = ensureCanonicalServiceLabels(cfg.Name, cfg.Labels)
 	}
+
 	for _, ha := range hostAddresses {
 		svc := &model.Service{
 			CreationTime:   creationTime,

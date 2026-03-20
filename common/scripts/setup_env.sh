@@ -74,10 +74,10 @@ else
 fi
 
 # Build image to use
-TOOLS_REGISTRY_PROVIDER=${TOOLS_REGISTRY_PROVIDER:-gcr.io}
-PROJECT_ID=${PROJECT_ID:-istio-testing}
+TOOLS_REGISTRY_PROVIDER=${TOOLS_REGISTRY_PROVIDER:-registry.istio.io}
+PROJECT_ID=${PROJECT_ID:-testing}
 if [[ "${IMAGE_VERSION:-}" == "" ]]; then
-  IMAGE_VERSION=master-79018218e02a1c1c6aac48fdea9fc3760d19b480
+  IMAGE_VERSION=master-b7201a4e3411e85dff202449182d26efd7491b89
 fi
 if [[ "${IMAGE_NAME:-}" == "" ]]; then
   IMAGE_NAME=build-tools
