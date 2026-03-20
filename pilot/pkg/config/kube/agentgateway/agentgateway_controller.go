@@ -532,21 +532,8 @@ func (c *Controller) Run(stop <-chan struct{}) {
 }
 
 func (c *Controller) HasSynced() bool {
-	// Output collections must be synced
-    if !c.outputs.Addresses.HasSynced() || !c.outputs.Resources.HasSynced() {
-        return false
-    }
-    // Key input collections must also be synced to avoid transient "not found" errors
-    // when derived collections reference objects that haven't been indexed yet
-    if c.inputs != nil {
-        if !c.inputs.InferencePools.HasSynced() ||
-            !c.inputs.Services.HasSynced() ||
-            !c.inputs.HTTPRoutes.HasSynced() ||
-            !c.inputs.Gateways.HasSynced() {
-            return false
-        }
-    }
-    return true
+	return c.outputs.Addresses.HasSynced() &&
+		c.outputs.Resources.HasSynced()
 }
 
 func (c *Controller) inRevision(obj any) bool {

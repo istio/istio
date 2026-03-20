@@ -244,7 +244,7 @@ func (s *DiscoveryServer) Start(stopCh <-chan struct{}) {
 
 	if features.EnableAgentgateway {
 		for _, reg := range s.registrations {
-			reg.Start(stopCh)
+			go reg.Start(stopCh)
 		}
 	}
 }
