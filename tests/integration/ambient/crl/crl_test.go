@@ -26,7 +26,6 @@ import (
 
 	"istio.io/api/label"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"

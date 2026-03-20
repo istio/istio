@@ -1005,7 +1005,6 @@ func (c *client) PodLogs(ctx context.Context, podName, podNamespace, container s
 	return builder.String(), nil
 }
 
-
 func (c *client) PodLogsWithOptions(ctx context.Context, podName, podNamespace string, plo *v1.PodLogOptions) (string, error) {
 	opts := &v1.PodLogOptions{
 		Container: plo.Container,
