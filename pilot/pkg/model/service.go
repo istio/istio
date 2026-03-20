@@ -120,12 +120,30 @@ type Service struct {
 	// by the caller)
 	Resolution Resolution
 
+	// PortResolutionOverrides stores per-port resolution overrides. When multiple ServiceEntries
+	// share the same hostname but have different resolution modes, ports merged from a ServiceEntry
+	// with a different resolution will have their resolution recorded here. The key is the port number.
+	// If a port is not in this map, the service-level Resolution field applies.
+	PortResolutionOverrides map[int]Resolution `json:"portResolutionOverrides,omitempty"`
+
 	// MeshExternal (if true) indicates that the service is external to the mesh.
 	// These services are defined using Istio's ServiceEntry spec.
 	MeshExternal bool
 
 	// ResourceVersion represents the internal version of this object.
 	ResourceVersion string
+}
+
+// GetPortResolution returns the resolution mode for a specific port. If a per-port override
+// exists (from merging ServiceEntries with different resolutions), it is returned. Otherwise,
+// the service-level Resolution is returned.
+func (s *Service) GetPortResolution(portNumber int) Resolution {
+	if s.PortResolutionOverrides != nil {
+		if r, ok := s.PortResolutionOverrides[portNumber]; ok {
+			return r
+		}
+	}
+	return s.Resolution
 }
 
 // UseInferenceSemantics determines which logic we should use for Service
@@ -1847,6 +1865,12 @@ func (s *Service) DeepCopy() *Service {
 
 	out.ServiceAccounts = slices.Clone(s.ServiceAccounts)
 	out.ClusterVIPs = *s.ClusterVIPs.DeepCopy()
+	if s.PortResolutionOverrides != nil {
+		out.PortResolutionOverrides = make(map[int]Resolution, len(s.PortResolutionOverrides))
+		for k, v := range s.PortResolutionOverrides {
+			out.PortResolutionOverrides[k] = v
+		}
+	}
 	return &out
 }
 
@@ -1877,6 +1901,10 @@ func (s *Service) Equals(other *Service) bool {
 		if v2, ok := other.ClusterVIPs.Addresses[k]; !ok || !slices.Equal(v1, v2) {
 			return false
 		}
+	}
+
+	if !maps.Equal(s.PortResolutionOverrides, other.PortResolutionOverrides) {
+		return false
 	}
 
 	return true

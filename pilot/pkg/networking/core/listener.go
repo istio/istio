@@ -500,7 +500,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 					// Instead of generating a single 0.0.0.0:Port listener, generate a listener
 					// for each instance. HTTP services can happily reside on 0.0.0.0:PORT and use the
 					// wildcard route match to get to the appropriate IP through original dst clusters.
-					if bind.Primary() == "" && service.Resolution == model.Passthrough &&
+					if bind.Primary() == "" && service.GetPortResolution(servicePort.Port) == model.Passthrough &&
 						saddress == constants.UnspecifiedIP && (servicePort.Protocol.IsTCP() || servicePort.Protocol.IsUnsupported()) {
 						instances := push.ServiceEndpointsByPort(service, servicePort.Port, nil)
 						if service.Attributes.ServiceRegistry != provider.Kubernetes && len(instances) == 0 && service.Attributes.LabelSelectors == nil {

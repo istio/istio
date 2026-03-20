@@ -182,7 +182,8 @@ func buildClusterKey(service *model.Service, port *model.Port, cb *ClusterBuilde
 	clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
 	dr := proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, service.Hostname)
 	var eb *endpoints.EndpointBuilder
-	if service.Resolution == model.DNSLB || service.Resolution == model.DNSRoundRobinLB {
+	portResolution := service.GetPortResolution(port.Port)
+	if portResolution == model.DNSLB || portResolution == model.DNSRoundRobinLB {
 		eb = endpoints.NewCDSEndpointBuilder(
 			proxy,
 			cb.req.Push,

@@ -439,7 +439,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 			}
 
 			// create default cluster
-			discoveryType := convertResolution(cb.proxyType, service)
+			discoveryType := convertResolution(cb.proxyType, service, port.Port)
 			defaultCluster := cb.buildCluster(clusterKey.clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, port, service, nil, "")
 			if defaultCluster == nil {
 				continue
@@ -549,13 +549,14 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.
 			}
 
 			// create default cluster
-			discoveryType := convertResolution(cb.proxyType, service)
+			portResolution := service.GetPortResolution(port.Port)
+			discoveryType := convertResolution(cb.proxyType, service, port.Port)
 			clusterName := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "",
 				service.Hostname, port.Port)
 
 			var lbEndpoints []*endpoint.LocalityLbEndpoints
 			var endpointBuilder *endpoints.EndpointBuilder
-			if service.Resolution == model.DNSLB || service.Resolution == model.DNSRoundRobinLB {
+			if portResolution == model.DNSLB || portResolution == model.DNSRoundRobinLB {
 				endpointBuilder = endpoints.NewCDSEndpointBuilder(proxy, cb.req.Push,
 					clusterName, model.TrafficDirectionOutbound, "", service.Hostname, port.Port,
 					service, destRule,
@@ -801,8 +802,12 @@ func findOrCreateService(instances []model.ServiceTarget,
 	}
 }
 
-func convertResolution(proxyType model.NodeType, service *model.Service) cluster.Cluster_DiscoveryType {
-	switch service.Resolution {
+func convertResolution(proxyType model.NodeType, service *model.Service, portNumber ...int) cluster.Cluster_DiscoveryType {
+	resolution := service.Resolution
+	if len(portNumber) > 0 {
+		resolution = service.GetPortResolution(portNumber[0])
+	}
+	switch resolution {
 	case model.ClientSideLB:
 		return cluster.Cluster_EDS
 	case model.DNSLB:
