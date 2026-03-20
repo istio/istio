@@ -23,6 +23,8 @@ import (
 	"sync"
 	"time"
 
+	v1 "k8s.io/api/core/v1"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/operator/pkg/util"
@@ -116,7 +118,7 @@ func (r *Runner) LogsWithOptions(namespace, pod, container string, previous, dry
 	r.addRunningTask(task)
 	defer r.removeRunningTask(task)
 
-	opts := kube.PodLogOptions{
+	opts := v1.PodLogOptions{
 		Container: container,
 		Previous:  previous,
 	}
@@ -127,7 +129,7 @@ func (r *Runner) LogsWithOptions(namespace, pod, container string, previous, dry
 		metaTime := metav1.NewTime(*sinceTime)
 		opts.SinceTime = &metaTime
 	}
-	return r.Client.PodLogsOfOptions(context.TODO(), pod, namespace, &opts)
+	return r.Client.PodLogsWithOptions(context.TODO(), pod, namespace, &opts)
 }
 
 // EnvoyGet sends a GET request for the URL in the Envoy container in the given namespace/pod and returns the result.

@@ -105,7 +105,7 @@ func addFlags(cmd *cobra.Command, args *config2.BugReportConfig) {
 		"Set the concurrency limit of requests to the Kubernetes API server, defaults to 32.")
 
 	// log line limit
-	cmd.PersistentFlags().Int64Var(&args.TailLines, "tail", 10000,
+	cmd.PersistentFlags().Int64Var(&args.TailLines, "tail", 0,
 		"Maximum number of log lines to fetch per container. Set to 0 for unlimited.")
 
 	// skip flags for expensive sections

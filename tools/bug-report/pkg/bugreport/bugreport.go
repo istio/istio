@@ -316,8 +316,8 @@ func gatherInfo(runner *kubectlcmd.Runner, config *config.BugReportConfig, resou
 		getFromCluster(content.GetCRs, params, clusterDir, &mandatoryWg)
 		getFromCluster(content.GetNodeInfo, params, clusterDir, &mandatoryWg)
 		getFromCluster(content.GetSecrets, params.SetVerbose(config.FullSecrets), clusterDir, &mandatoryWg)
+		getFromCluster(content.GetEvents, params, clusterDir, &mandatoryWg)
 	}
-	getFromCluster(content.GetEvents, params, clusterDir, &mandatoryWg)
 	getFromCluster(content.GetClusterInfo, params, clusterDir, &mandatoryWg)
 	getFromCluster(content.GetPodInfo, params.SetIstioNamespace(config.IstioNamespace), clusterDir, &mandatoryWg)
 

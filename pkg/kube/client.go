@@ -167,14 +167,6 @@ type Client interface {
 	IsWatchListSemanticsUnSupported() bool
 }
 
-// PodLogOptions provides options for PodLogsOfOptions.
-type PodLogOptions struct {
-	Container string
-	Previous  bool
-	TailLines *int64
-	SinceTime *metav1.Time
-}
-
 // CLIClient is an extended client with additional helpers/functionality for Istioctl and testing.
 // CLIClient is not appropriate for controllers, as it does a number of highly privileged or highly risky operations
 // such as `exec`, `port-forward`, etc.
@@ -210,8 +202,8 @@ type CLIClient interface {
 	// PodLogs retrieves the logs for the given pod.
 	PodLogs(ctx context.Context, podName string, podNamespace string, container string, previousLog bool) (string, error)
 
-	// PodLogsOfOptions retrieves the logs for the given pod with additional options like tail lines and since time.
-	PodLogsOfOptions(ctx context.Context, podName string, podNamespace string, opts *PodLogOptions) (string, error)
+	// PodLogsWithOptions retrieves the logs for the given pod with additional options like tail lines and since time.
+	PodLogsWithOptions(ctx context.Context, podName string, podNamespace string, opts *v1.PodLogOptions) (string, error)
 
 	// PodLogsFollow retrieves the logs for the given pod, following until the pod log stream is interrupted
 	PodLogsFollow(ctx context.Context, podName string, podNamespace string, container string) (string, error)
@@ -1013,7 +1005,8 @@ func (c *client) PodLogs(ctx context.Context, podName, podNamespace, container s
 	return builder.String(), nil
 }
 
-func (c *client) PodLogsOfOptions(ctx context.Context, podName, podNamespace string, plo *PodLogOptions) (string, error) {
+
+func (c *client) PodLogsWithOptions(ctx context.Context, podName, podNamespace string, plo *v1.PodLogOptions) (string, error) {
 	opts := &v1.PodLogOptions{
 		Container: plo.Container,
 		Previous:  plo.Previous,

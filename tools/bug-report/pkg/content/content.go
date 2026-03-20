@@ -105,7 +105,7 @@ func GetK8sResources(p *Params) (map[string]string, error) {
 	nsResources := "all,jobs,ingresses,endpointslices,configmaps,networkpolicies"
 
 	nsFlag := "--all-namespaces"
-	if len(p.IncludedNamespaces) > 0 {
+	if len(p.IncludedNamespaces) > 0 && p.IncludedNamespaces[0] != "" {
 		nsFlag = "-n " + strings.Join(p.IncludedNamespaces, ",")
 	}
 
@@ -130,7 +130,7 @@ func GetK8sResources(p *Params) (map[string]string, error) {
 // GetSecrets returns all k8s secrets. If full is set, the secret contents are also returned.
 func GetSecrets(p *Params) (map[string]string, error) {
 	nsFlag := "--all-namespaces"
-	if len(p.IncludedNamespaces) > 0 {
+	if len(p.IncludedNamespaces) > 0 && p.IncludedNamespaces[0] != "" {
 		nsFlag = "-n " + strings.Join(p.IncludedNamespaces, ",")
 	}
 	cmdStr := "get secrets " + nsFlag
@@ -153,7 +153,7 @@ func GetCRs(p *Params) (map[string]string, error) {
 		return map[string]string{"crs": ""}, nil
 	}
 	nsFlag := "--all-namespaces"
-	if len(p.IncludedNamespaces) > 0 {
+	if len(p.IncludedNamespaces) > 0 && p.IncludedNamespaces[0] != "" {
 		nsFlag = "-n " + strings.Join(p.IncludedNamespaces, ",")
 	}
 	out, err := p.Runner.RunCmd("get "+nsFlag+" "+strings.Join(crds, ",")+" -o yaml", "", p.KubeConfig, p.KubeContext, p.DryRun)
@@ -206,7 +206,7 @@ func GetPodInfo(p *Params) (map[string]string, error) {
 // GetEvents returns events for all namespaces, or scoped namespaces if specified.
 func GetEvents(p *Params) (map[string]string, error) {
 	nsFlag := "--all-namespaces"
-	if len(p.IncludedNamespaces) > 0 {
+	if len(p.IncludedNamespaces) > 0 && p.IncludedNamespaces[0] != "" {
 		nsFlag = "-n " + strings.Join(p.IncludedNamespaces, ",")
 	}
 	out, err := p.Runner.RunCmd("get events "+nsFlag+" -o wide --sort-by=.metadata.creationTimestamp", "", p.KubeConfig, p.KubeContext, p.DryRun)
