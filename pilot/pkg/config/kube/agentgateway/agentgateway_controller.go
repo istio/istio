@@ -327,7 +327,8 @@ func (c *Controller) buildFinalGatewayStatus(
 	})
 	return krt.NewCollection(
 		gatewayStatuses,
-		func(ctx krt.HandlerContext, i krt.ObjectWithStatus[*gatewayv1.Gateway, gatewayv1.GatewayStatus]) *krt.ObjectWithStatus[*gatewayv1.Gateway, gatewayv1.GatewayStatus] {
+		func(ctx krt.HandlerContext,
+			i krt.ObjectWithStatus[*gatewayv1.Gateway, gatewayv1.GatewayStatus]) *krt.ObjectWithStatus[*gatewayv1.Gateway, gatewayv1.GatewayStatus] {
 			tcpRoutes := krt.Fetch(ctx, routeAttachments, krt.FilterIndex(routeAttachmentsIndex, config.NamespacedName(i.Obj)))
 			counts := map[string]int32{}
 			for _, r := range tcpRoutes {
@@ -347,14 +348,14 @@ func (c *Controller) buildFinalGatewayStatus(
 
 func (c *Controller) buildAddressCollections(opts krt.OptionsBuilder) krt.Collection[Address] {
 	inputs := c.inputs
-	clusterId := cluster.ID(c.cluster)
+	clusterID := cluster.ID(c.cluster)
 	Networks := ambient.BuildNetworkCollections(inputs.Namespaces, inputs.Gateways, ambient.Options{
 		SystemNamespace: c.istioNamespace,
-		ClusterID:       clusterId,
+		ClusterID:       clusterID,
 	}, opts)
 	builder := ambient.Builder{
 		DomainSuffix:      c.domainSuffix,
-		ClusterID:         clusterId,
+		ClusterID:         clusterID,
 		NetworkGateways:   Networks.NetworkGateways,
 		GatewaysByNetwork: Networks.GatewaysByNetwork,
 		Flags: ambient.FeatureFlags{
@@ -367,9 +368,9 @@ func (c *Controller) buildAddressCollections(opts krt.OptionsBuilder) krt.Collec
 	// Dummy empty mesh config
 	meshConfig := krt.NewStatic[ambient.MeshConfig](&ambient.MeshConfig{MeshConfig: mesh.DefaultMeshConfig()}, true, opts.WithName("MeshConfig")...)
 
-	waypoints := builder.WaypointsCollection(clusterId, inputs.Gateways, inputs.GatewayClasses, inputs.Pods, opts)
+	waypoints := builder.WaypointsCollection(clusterID, inputs.Gateways, inputs.GatewayClasses, inputs.Pods, opts)
 	services := builder.ServicesCollection(
-		clusterId,
+		clusterID,
 		inputs.Services,
 		inputs.ServiceEntries,
 		waypoints,
@@ -635,7 +636,16 @@ func (c *Controller) buildAgwResources(
 		InferencePools: c.inputs.InferencePools,
 	}
 
-	agwRoutes, routeAttachments := AgwRouteCollection(c.status, c.inputs.HTTPRoutes, c.inputs.GRPCRoutes, c.inputs.TCPRoutes, c.inputs.TLSRoutes, routeInputs, c.tagWatcher, opts)
+	agwRoutes, routeAttachments := AgwRouteCollection(
+		c.status,
+		c.inputs.HTTPRoutes,
+		c.inputs.GRPCRoutes,
+		c.inputs.TCPRoutes,
+		c.inputs.TLSRoutes,
+		routeInputs,
+		c.tagWatcher,
+		opts,
+	)
 
 	// Join all Agw resources
 	allAgwResources := krt.JoinCollection([]krt.Collection[AgwResource]{binds, listeners, agwRoutes, inferencePolicies}, opts.WithName("Resources")...)
@@ -705,10 +715,9 @@ func (c *Controller) getProtocolAndTLSConfig(obj *GatewayListener) (api.Protocol
 			if obj.ParentInfo.TLSPassthrough {
 				// For passthrough, we don't want TLS config
 				return api.Protocol_TLS, nil, true
-			} else {
-				// TLS required but not configured
-				return api.Protocol_TLS, nil, false
 			}
+			// TLS required but not configured
+			return api.Protocol_TLS, nil, false
 		}
 		return api.Protocol_TLS, tlsConfig, true
 	case gatewayv1.TCPProtocolType:
