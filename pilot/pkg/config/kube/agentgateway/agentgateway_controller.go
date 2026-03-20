@@ -327,8 +327,8 @@ func (c *Controller) buildFinalGatewayStatus(
 	})
 	return krt.NewCollection(
 		gatewayStatuses,
-		func(ctx krt.HandlerContext,
-			i krt.ObjectWithStatus[*gatewayv1.Gateway, gatewayv1.GatewayStatus]) *krt.ObjectWithStatus[*gatewayv1.Gateway, gatewayv1.GatewayStatus] {
+		func(ctx krt.HandlerContext, i krt.ObjectWithStatus[*gatewayv1.Gateway, gatewayv1.GatewayStatus],
+		) *krt.ObjectWithStatus[*gatewayv1.Gateway, gatewayv1.GatewayStatus] {
 			tcpRoutes := krt.Fetch(ctx, routeAttachments, krt.FilterIndex(routeAttachmentsIndex, config.NamespacedName(i.Obj)))
 			counts := map[string]int32{}
 			for _, r := range tcpRoutes {
@@ -348,14 +348,13 @@ func (c *Controller) buildFinalGatewayStatus(
 
 func (c *Controller) buildAddressCollections(opts krt.OptionsBuilder) krt.Collection[Address] {
 	inputs := c.inputs
-	clusterID := cluster.ID(c.cluster)
 	Networks := ambient.BuildNetworkCollections(inputs.Namespaces, inputs.Gateways, ambient.Options{
 		SystemNamespace: c.istioNamespace,
-		ClusterID:       clusterID,
+		ClusterID:       c.cluster,
 	}, opts)
 	builder := ambient.Builder{
 		DomainSuffix:      c.domainSuffix,
-		ClusterID:         clusterID,
+		ClusterID:         c.cluster,
 		NetworkGateways:   Networks.NetworkGateways,
 		GatewaysByNetwork: Networks.GatewaysByNetwork,
 		Flags: ambient.FeatureFlags{
@@ -368,9 +367,9 @@ func (c *Controller) buildAddressCollections(opts krt.OptionsBuilder) krt.Collec
 	// Dummy empty mesh config
 	meshConfig := krt.NewStatic[ambient.MeshConfig](&ambient.MeshConfig{MeshConfig: mesh.DefaultMeshConfig()}, true, opts.WithName("MeshConfig")...)
 
-	waypoints := builder.WaypointsCollection(clusterID, inputs.Gateways, inputs.GatewayClasses, inputs.Pods, opts)
+	waypoints := builder.WaypointsCollection(c.cluster, inputs.Gateways, inputs.GatewayClasses, inputs.Pods, opts)
 	services := builder.ServicesCollection(
-		clusterID,
+		c.cluster,
 		inputs.Services,
 		inputs.ServiceEntries,
 		waypoints,
@@ -422,8 +421,8 @@ func (c *Controller) buildXDSCollection(
 	agwResourcesByGateway := func(resource AgwResource) types.NamespacedName {
 		return resource.Gateway
 	}
-	c.Registrations = append(c.Registrations, xds.Collection[Address, *workloadapi.Address](xdsAddresses, opts))
-	c.Registrations = append(c.Registrations, xds.PerGatewayCollection[AgwResource, *api.Resource](agwResources, agwResourcesByGateway, opts))
+	c.Registrations = append(c.Registrations, xds.Collection[Address, *workloadapi.Address](xdsAddresses, opts),
+		xds.PerGatewayCollection[AgwResource, *api.Resource](agwResources, agwResourcesByGateway, opts))
 }
 
 // buildClient is a small wrapper to build a krt collection based on a delayed informer.
