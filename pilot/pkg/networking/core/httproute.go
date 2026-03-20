@@ -265,18 +265,10 @@ func selectVirtualServices(virtualServices []*config.Config, servicesByName map[
 						break
 					}
 				}
-			} else {
+			} else if slices.ContainsFunc(wcSvcHosts, lch.Matches) {
 				// If non wildcard vs host isn't be found in service map, only loop through
 				// wildcard service hosts to avoid repeated matching.
-				for _, svcHost := range wcSvcHosts {
-					if lch.Matches(svcHost) {
-						match = true
-						break
-					}
-				}
-			}
-
-			if match {
+				match = true
 				break
 			}
 		}

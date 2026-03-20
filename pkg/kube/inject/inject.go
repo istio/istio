@@ -51,6 +51,7 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 )
 
@@ -209,10 +210,8 @@ func injectRequired(ignored []string, config *Config, podSpec *corev1.PodSpec, m
 	}
 
 	// skip special kubernetes system namespaces
-	for _, namespace := range ignored {
-		if metadata.Namespace == namespace {
-			return false
-		}
+	if slices.Contains(ignored, metadata.Namespace) {
+		return false
 	}
 
 	annos := metadata.GetAnnotations()

@@ -89,10 +89,8 @@ func (b *SchemasBuilder) Build() Schemas {
 
 // ForEach executes the given function on each contained schema, until the function returns true.
 func (s Schemas) ForEach(handleSchema func(resource.Schema) (done bool)) {
-	for _, schema := range s.byAddOrder {
-		if handleSchema(schema) {
-			return
-		}
+	if slices.ContainsFunc(s.byAddOrder, handleSchema) {
+		return
 	}
 }
 
@@ -141,10 +139,8 @@ func (s Schemas) FindByGroupVersionKind(gvk config.GroupVersionKind) (resource.S
 // if not found, it will search for version aliases for the schema to see if there is a match.
 func (s Schemas) FindByGroupVersionAliasesKind(gvk config.GroupVersionKind) (resource.Schema, bool) {
 	for _, rs := range s.byAddOrder {
-		for _, va := range rs.GroupVersionAliasKinds() {
-			if va == gvk {
-				return rs, true
-			}
+		if slices.Contains(rs.GroupVersionAliasKinds(), gvk) {
+			return rs, true
 		}
 	}
 	return nil, false

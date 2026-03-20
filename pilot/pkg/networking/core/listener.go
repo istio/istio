@@ -1279,15 +1279,7 @@ func (chain *filterChainOpts) toFilterChainMatch() *listener.FilterChainMatch {
 		TransportProtocol:    chain.transportProtocol,
 	}
 	if len(chain.sniHosts) > 0 {
-		fullWildcardFound := false
-		for _, h := range chain.sniHosts {
-			if h == "*" {
-				fullWildcardFound = true
-				// If we have a host with *, it effectively means match anything, i.e.
-				// no SNI based matching for this host.
-				break
-			}
-		}
+		fullWildcardFound := slices.Contains(chain.sniHosts, "*")
 		if !fullWildcardFound {
 			chain.sniHosts = append([]string{}, chain.sniHosts...)
 			sort.Stable(sort.StringSlice(chain.sniHosts))

@@ -132,12 +132,7 @@ func (i index[K, O]) Fetch(ctx HandlerContext, key K, opts ...FetchOption) []O {
 
 // nolint: unused // (not true)
 func (i index[K, O]) objectHasKey(obj O, k K) bool {
-	for _, got := range i.extract(obj) {
-		if got == k {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(i.extract(obj), k)
 }
 
 // nolint: unused // (not true)

@@ -37,6 +37,7 @@ import (
 
 	"istio.io/api/annotation"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -557,14 +558,7 @@ func hasEnvoy(pod corev1.Pod) bool {
 		// assume VMs run Envoy
 		return true
 	}
-	f := false
-	for _, c := range pod.Spec.Containers {
-		if proxyContainer.IsContainer(c) {
-			f = true
-			break
-		}
-	}
-	if !f {
+	if !slices.ContainsFunc(pod.Spec.Containers, proxyContainer.IsContainer) {
 		// no proxy container
 		return false
 	}

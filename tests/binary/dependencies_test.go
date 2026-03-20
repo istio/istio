@@ -165,14 +165,7 @@ func TestDependencies(t *testing.T) {
 		all, err := getDependencies(env.IstioSrc+"/...", "integ", true)
 		assert.NoError(t, err)
 		for _, d := range allDenials {
-			found := false
-			for _, dep := range all {
-				if d.MatchString(dep) {
-					found = true
-					break
-				}
-			}
-			if !found {
+			if !slices.ContainsFunc(all, d.MatchString) {
 				t.Errorf("Had a deny rule %q, but it doesn't match *any* dependency in the repo. This is likely a bug.", d)
 			}
 		}
