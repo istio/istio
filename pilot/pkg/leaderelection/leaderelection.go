@@ -247,6 +247,13 @@ func NewLeaderElectionMulticluster(namespace, name, electionID, revision string,
 	return newLeaderElection(namespace, name, electionID, revision, false, remote, false, client)
 }
 
+// NewPerRevisionLeaderElectionMulticluster creates a *per revision* leader election for multicluster.
+// This means there will be one leader for each revision, allowing each revisioned control plane
+// to independently manage resources for its own set of namespaces (e.g., via discoverySelectors).
+func NewPerRevisionLeaderElectionMulticluster(namespace, name, electionID, revision string, remote bool, client kube.Client) *LeaderElection {
+	return newLeaderElection(namespace, name, electionID, revision, true, remote, true, client)
+}
+
 func newLeaderElection(namespace, name, electionID, revision string, perRevision bool, remote bool, leaseLock bool, client kube.Client) *LeaderElection {
 	var watcher revisions.DefaultWatcher
 	if features.EnableLeaderElection {

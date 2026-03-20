@@ -179,6 +179,19 @@ func TestMulticlusterLeaderElection(t *testing.T) {
 	close(stop)
 }
 
+func TestPerRevisionMulticlusterLeaderElection(t *testing.T) {
+	client := fake.NewClientset()
+	watcher := &fakeDefaultWatcher{}
+	// Two different revisions can both be leaders simultaneously because they use separate locks
+	_, stop := createElectionMulticluster(t, "pod1", "1-22", true, true, watcher, true, client)
+	_, stop2 := createElectionMulticluster(t, "pod2", "1-23", true, true, watcher, true, client)
+	// A second pod for the same revision cannot become leader
+	_, stop3 := createElectionMulticluster(t, "pod3", "1-22", true, true, watcher, false, client)
+	close(stop3)
+	close(stop2)
+	close(stop)
+}
+
 func TestPrioritizedMulticlusterLeaderElection(t *testing.T) {
 	client := fake.NewClientset()
 	watcher := &fakeDefaultWatcher{defaultRevision: "red"}
