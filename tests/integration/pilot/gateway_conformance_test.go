@@ -162,7 +162,7 @@ func TestGatewayConformance(t *testing.T) {
 				Clientset:                gatewayConformanceInputs.Client.Kube(),
 				ClientOptions:            clientOptions,
 				RestConfig:               gatewayConformanceInputs.Client.RESTConfig(),
-				GatewayClassName:         "istio",
+				GatewayClassName:         i.Settings().GatewayClassName,
 				Debug:                    scopes.Framework.DebugEnabled(),
 				CleanupBaseResources:     gatewayConformanceInputs.Cleanup,
 				ManifestFS:               []fs.FS{&conformance.Manifests},
