@@ -94,7 +94,7 @@ endef
 # Ensure that all test files are tagged properly. This ensures that we don't accidentally skip tests
 # and that integration tests are not run as part of the unit test suite.
 check-go-tag:
-	@go list ./tests/integration/... 2>/dev/null | xargs -r -I{} sh -c 'echo "Detected a file in tests/integration/ without a build tag set. Add // +build integ to the files: {}"; exit 2'
+	@go list ./tests/integration/... 2>/dev/null | xargs -r -I{} sh -c 'echo "Detected a file in tests/integration/ without a build tag set. Add //go:build integ to the files: {}"; exit 2'
 
 # Generate integration test targets for kubernetes environment.
 test.integration.%.kube: | $(JUNIT_REPORT) check-go-tag
