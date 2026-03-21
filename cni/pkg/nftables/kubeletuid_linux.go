@@ -37,7 +37,7 @@ func getKubeletUIDFromPath(procPath string) (string, error) {
 	}
 
 	// List of process names to search for, in order of preference
-	processNames := []string{"kubelet", "kubelite"}
+	processNames := []string{"kubelet", "kubelite", "k3s", "k3s-server", "k3s-agent"}
 
 	for _, proc := range procs {
 		comm, err := proc.Comm()
