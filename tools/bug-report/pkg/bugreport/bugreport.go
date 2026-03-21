@@ -304,18 +304,21 @@ func gatherInfo(runner *kubectlcmd.Runner, config *config.BugReportConfig, resou
 	clusterDir := archive.ClusterInfoPath(tempDir)
 
 	params := &content.Params{
-		Runner:      runner,
-		DryRun:      config.DryRun,
-		KubeConfig:  config.KubeConfigPath,
-		KubeContext: config.Context,
+		Runner:             runner,
+		DryRun:             config.DryRun,
+		KubeConfig:         config.KubeConfigPath,
+		KubeContext:        config.Context,
+		IncludedNamespaces: cluster2.ExtractIncludedNamespaces(config),
 	}
 	common.LogAndPrintf("\n✅ Fetching Istio control plane information from cluster.\n\n")
-	getFromCluster(content.GetK8sResources, params, clusterDir, &mandatoryWg)
-	getFromCluster(content.GetCRs, params, clusterDir, &mandatoryWg)
-	getFromCluster(content.GetEvents, params, clusterDir, &mandatoryWg)
+	if !config.SkipClusterDump {
+		getFromCluster(content.GetK8sResources, params, clusterDir, &mandatoryWg)
+		getFromCluster(content.GetCRs, params, clusterDir, &mandatoryWg)
+		getFromCluster(content.GetNodeInfo, params, clusterDir, &mandatoryWg)
+		getFromCluster(content.GetSecrets, params.SetVerbose(config.FullSecrets), clusterDir, &mandatoryWg)
+		getFromCluster(content.GetEvents, params, clusterDir, &mandatoryWg)
+	}
 	getFromCluster(content.GetClusterInfo, params, clusterDir, &mandatoryWg)
-	getFromCluster(content.GetNodeInfo, params, clusterDir, &mandatoryWg)
-	getFromCluster(content.GetSecrets, params.SetVerbose(config.FullSecrets), clusterDir, &mandatoryWg)
 	getFromCluster(content.GetPodInfo, params.SetIstioNamespace(config.IstioNamespace), clusterDir, &mandatoryWg)
 
 	common.LogAndPrintf("\n✅ Fetching CNI logs from cluster.\n\n")
@@ -337,13 +340,23 @@ func gatherInfo(runner *kubectlcmd.Runner, config *config.BugReportConfig, resou
 		switch {
 		case common.IsProxyContainer(params.ClusterVersion, container):
 			if !ambient.IsZtunnelPod(client, pod, namespace) {
-				getFromCluster(content.GetCoredumps, cp, filepath.Join(proxyDir, "cores"), &mandatoryWg)
-				getFromCluster(content.GetNetstat, cp, proxyDir, &mandatoryWg)
-				getFromCluster(content.GetProxyInfo, cp.SetProxyAdminPort(config.ProxyAdminPort), archive.ProxyOutputPath(tempDir, namespace, pod), &optionalWg)
+				if !config.SkipCoredumps {
+					getFromCluster(content.GetCoredumps, cp, filepath.Join(proxyDir, "cores"), &mandatoryWg)
+				}
+				if !config.SkipNetstat {
+					getFromCluster(content.GetNetstat, cp, proxyDir, &mandatoryWg)
+				}
+				if !config.SkipProxyDebug {
+					getFromCluster(content.GetProxyInfo, cp.SetProxyAdminPort(config.ProxyAdminPort), archive.ProxyOutputPath(tempDir, namespace, pod), &optionalWg)
+				}
 				getProxyLogs(runner, config, resources, p, namespace, pod, container, &optionalWg)
 			} else {
-				getFromCluster(content.GetNetstat, cp, proxyDir, &mandatoryWg)
-				getFromCluster(content.GetZtunnelInfo, cp.SetProxyAdminPort(config.ProxyAdminPort), archive.ProxyOutputPath(tempDir, namespace, pod), &optionalWg)
+				if !config.SkipNetstat {
+					getFromCluster(content.GetNetstat, cp, proxyDir, &mandatoryWg)
+				}
+				if !config.SkipProxyDebug {
+					getFromCluster(content.GetZtunnelInfo, cp.SetProxyAdminPort(config.ProxyAdminPort), archive.ProxyOutputPath(tempDir, namespace, pod), &optionalWg)
+				}
 				getProxyLogs(runner, config, resources, p, namespace, pod, container, &optionalWg)
 			}
 		case resources.IsDiscoveryContainer(params.ClusterVersion, namespace, pod, container):
@@ -371,7 +384,9 @@ func gatherInfo(runner *kubectlcmd.Runner, config *config.BugReportConfig, resou
 	analyzeTimeout := time.Until(beginTime.Add(time.Duration(config.CommandTimeout)))
 
 	// Analyze runs many queries internally, so run these queries sequentially and after everything else has finished.
-	runAnalyze(config, params, analyzeTimeout)
+	if !config.SkipAnalyze {
+		runAnalyze(config, params, analyzeTimeout)
+	}
 }
 
 // getFromCluster runs a cluster info fetching function f against the cluster and writes the results to fileName.
@@ -502,12 +517,22 @@ func getLog(runner *kubectlcmd.Runner, resources *cluster2.Resources, config *co
 	defer logRuntime(time.Now(), "Done getting logs only for %v/%v/%v", namespace, pod, container)
 
 	log.Infof("Getting logs for %s/%s/%s...", namespace, pod, container)
-	clog, err := runner.Logs(namespace, pod, container, false, config.DryRun)
+
+	var tailLines *int64
+	if config.TailLines > 0 {
+		tailLines = &config.TailLines
+	}
+	var sinceTime *time.Time
+	if config.TimeFilterApplied && !config.StartTime.IsZero() {
+		sinceTime = &config.StartTime
+	}
+
+	clog, err := runner.LogsWithOptions(namespace, pod, container, false, config.DryRun, tailLines, sinceTime)
 	if err != nil {
 		return "", nil, 0, err
 	}
 	if resources.ContainerRestarts(namespace, pod, container, common.IsCniPod(pod)) > 0 {
-		pclog, err := runner.Logs(namespace, pod, container, true, config.DryRun)
+		pclog, err := runner.LogsWithOptions(namespace, pod, container, true, config.DryRun, tailLines, sinceTime)
 		if err != nil {
 			return "", nil, 0, err
 		}

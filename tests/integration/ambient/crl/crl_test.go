@@ -26,6 +26,7 @@ import (
 
 	"istio.io/api/label"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -127,7 +128,7 @@ func waitForZtunnelCRLReload(t framework.TestContext) {
 			}
 
 			for _, pod := range pods.Items {
-				logs, err := c.PodLogs(t.Context(), pod.Name, systemNS.Name(), "istio-proxy", false)
+				logs, err := c.PodLogsWithOptions(t.Context(), pod.Name, systemNS.Name(), &kube.PodLogOptions{Container: "istio-proxy"})
 				if err != nil {
 					return fmt.Errorf("failed to get logs from %s: %w", pod.Name, err)
 				}

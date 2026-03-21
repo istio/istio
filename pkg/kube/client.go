@@ -167,6 +167,15 @@ type Client interface {
 	IsWatchListSemanticsUnSupported() bool
 }
 
+// PodLogOptions provides options for PodLogsOfOptions.
+type PodLogOptions struct {
+	Container string
+	Previous  bool
+	Follow    bool
+	TailLines *int64
+	SinceTime *metav1.Time
+}
+
 // CLIClient is an extended client with additional helpers/functionality for Istioctl and testing.
 // CLIClient is not appropriate for controllers, as it does a number of highly privileged or highly risky operations
 // such as `exec`, `port-forward`, etc.
@@ -199,11 +208,8 @@ type CLIClient interface {
 	// PodExec takes a command and the pod data to run the command in the specified pod.
 	PodExec(podName, podNamespace, container string, command string) (stdout string, stderr string, err error)
 
-	// PodLogs retrieves the logs for the given pod.
-	PodLogs(ctx context.Context, podName string, podNamespace string, container string, previousLog bool) (string, error)
-
-	// PodLogsFollow retrieves the logs for the given pod, following until the pod log stream is interrupted
-	PodLogsFollow(ctx context.Context, podName string, podNamespace string, container string) (string, error)
+	// PodLogsWithOptions retrieves the logs for the given pod with configurable options.
+	PodLogsWithOptions(ctx context.Context, podName string, podNamespace string, opts *PodLogOptions) (string, error)
 
 	// ServicesForSelector finds services matching selector.
 	ServicesForSelector(ctx context.Context, namespace string, labelSelectors ...string) (*v1.ServiceList, error)
@@ -983,30 +989,17 @@ func (c *client) PodExec(podName, podNamespace, container string, command string
 	return c.PodExecCommands(podName, podNamespace, container, commandFields)
 }
 
-func (c *client) PodLogs(ctx context.Context, podName, podNamespace, container string, previousLog bool) (string, error) {
+func (c *client) PodLogsWithOptions(ctx context.Context, podName, podNamespace string, plo *PodLogOptions) (string, error) {
 	opts := &v1.PodLogOptions{
-		Container: container,
-		Previous:  previousLog,
+		Container: plo.Container,
+		Previous:  plo.Previous,
+		Follow:    plo.Follow,
 	}
-	res, err := c.kube.CoreV1().Pods(podNamespace).GetLogs(podName, opts).Stream(ctx)
-	if err != nil {
-		return "", err
+	if plo.TailLines != nil {
+		opts.TailLines = plo.TailLines
 	}
-	defer closeQuietly(res)
-
-	builder := &strings.Builder{}
-	if _, err = io.Copy(builder, res); err != nil {
-		return "", err
-	}
-
-	return builder.String(), nil
-}
-
-func (c *client) PodLogsFollow(ctx context.Context, podName, podNamespace, container string) (string, error) {
-	opts := &v1.PodLogOptions{
-		Container: container,
-		Previous:  false,
-		Follow:    true,
+	if plo.SinceTime != nil {
+		opts.SinceTime = plo.SinceTime
 	}
 	res, err := c.kube.CoreV1().Pods(podNamespace).GetLogs(podName, opts).Stream(ctx)
 	if err != nil {

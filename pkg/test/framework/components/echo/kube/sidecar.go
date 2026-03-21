@@ -27,6 +27,7 @@ import (
 
 	// Import all XDS config types
 	_ "istio.io/istio/pkg/config/xds"
+	istioKube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -205,7 +206,7 @@ func (s *sidecar) adminRequest(path string, out proto.Message) error {
 }
 
 func (s *sidecar) Logs() (string, error) {
-	return s.cluster.PodLogs(context.TODO(), s.podName, s.podNamespace, proxyContainerName, false)
+	return s.cluster.PodLogsWithOptions(context.TODO(), s.podName, s.podNamespace, &istioKube.PodLogOptions{Container: proxyContainerName})
 }
 
 func (s *sidecar) LogsOrFail(t test.Failer) string {

@@ -328,7 +328,7 @@ func DumpPodLogs(_ resource.Context, c cluster.Cluster, workDir, namespace strin
 		isVM := checkIfVM(pod)
 		containers := append(pod.Spec.Containers, pod.Spec.InitContainers...)
 		for _, container := range containers {
-			l, err := c.PodLogs(context.TODO(), pod.Name, pod.Namespace, container.Name, false /* previousLog */)
+			l, err := c.PodLogsWithOptions(context.TODO(), pod.Name, pod.Namespace, &kube.PodLogOptions{Container: container.Name})
 			if err != nil {
 				scopes.Framework.Warnf("Unable to get logs for cluster/pod/container: %s/%s/%s/%s for: %v",
 					c.Name(), pod.Namespace, pod.Name, container.Name, err)
@@ -352,7 +352,7 @@ func DumpPodLogs(_ resource.Context, c cluster.Cluster, workDir, namespace strin
 					scopes.Framework.Errorf("FAIL: cluster/pod/container %s/%s/%s/%s crashed/restarted %d times. Logs: %v",
 						c.Name(), pod.Namespace, pod.Name, container.Name, restarts, prow.ArtifactsURL(fname))
 				}
-				l, err := c.PodLogs(context.TODO(), pod.Name, pod.Namespace, container.Name, true /* previousLog */)
+				l, err := c.PodLogsWithOptions(context.TODO(), pod.Name, pod.Namespace, &kube.PodLogOptions{Container: container.Name, Previous: true})
 				if err != nil {
 					scopes.Framework.Warnf("Unable to get previous logs for cluster/pod/container: %s/%s/%s/%s: %v",
 						c.Name(), pod.Namespace, pod.Name, container.Name, err)
@@ -642,7 +642,7 @@ func DumpPodAgent(ctx resource.Context, c cluster.Cluster, workDir string, _ str
 // Generally should be run in a goroutine while deletion happens
 func DumpTerminationLogs(ctx context.Context, c cluster.Cluster, workDir string, pod corev1.Pod, containerName string) {
 	fname := podOutputPath(workDir, c, pod, fmt.Sprintf("%s.termination.log", containerName))
-	l, err := c.PodLogsFollow(ctx, pod.Name, pod.Namespace, containerName)
+	l, err := c.PodLogsWithOptions(ctx, pod.Name, pod.Namespace, &kube.PodLogOptions{Container: containerName, Follow: true})
 	if err != nil && len(l) == 0 {
 		scopes.Framework.Warnf("Unable to capture termination logs for cluster/pod/container: %s/%s/%s/%s: %v",
 			c.Name(), pod.Namespace, pod.Name, containerName, err)
