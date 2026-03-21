@@ -31,6 +31,8 @@ type ConnectionsFilter struct {
 	Namespace string
 	Direction string
 	Raw       bool
+	// Workload filters connections to only those belonging to a specific workload (format: "name.namespace")
+	Workload string
 }
 
 func (c *ConfigWriter) PrintConnectionsDump(filter ConnectionsFilter, outputFormat string) error {
@@ -45,6 +47,12 @@ func (c *ConfigWriter) PrintConnectionsDump(filter ConnectionsFilter, outputForm
 	workloads = slices.FilterInPlace(workloads, func(state WorkloadState) bool {
 		if filter.Namespace != "" && filter.Namespace != state.Info.Namespace {
 			return false
+		}
+		if filter.Workload != "" {
+			name := fmt.Sprintf("%s.%s", state.Info.Name, state.Info.Namespace)
+			if !strings.EqualFold(filter.Workload, name) {
+				return false
+			}
 		}
 		return true
 	})
@@ -114,6 +122,9 @@ func (c *ConfigWriter) PrintConnectionsSummary(filter ConnectionsFilter) error {
 			continue
 		}
 		name := fmt.Sprintf("%s.%s", wl.Info.Name, wl.Info.Namespace)
+		if filter.Workload != "" && !strings.EqualFold(filter.Workload, name) {
+			continue
+		}
 		if filter.Direction != "outbound" {
 			for _, c := range wl.Connections.Inbound {
 				fmt.Fprintf(w, "%v\tInbound\t%v\t%v\t%v\t%v\n", name, lookupIP(c.ActualDst), lookupIP(c.Src), c.OriginalDst, c.Protocol)
