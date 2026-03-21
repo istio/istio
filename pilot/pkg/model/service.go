@@ -791,6 +791,11 @@ type K8sAttributes struct {
 	// ObjectName is the object name of the underlying object. This may differ from the Service.Attributes.Name for legacy semantics.
 	ObjectName string
 
+	// DNSConnectStrategy specifies the connection strategy for the service.
+	// When set to DNSConnectStrategyFirstHealthyRace, waypoint proxies will set DnsLookupFamily=ALL
+	// to enable Envoy's happy eyeballs algorithm.
+	DNSConnectStrategy DNSConnectStrategy
+
 	// spec.PublishNotReadyAddresses
 	PublishNotReadyAddresses bool
 }
@@ -805,6 +810,23 @@ const (
 	// TrafficDistributionPreferNode prefers traffic in same node, failing over to same subzone, then zone, region, and network.
 	TrafficDistributionPreferSameNode
 )
+
+type DNSConnectStrategy int
+
+const (
+	// DNSConnectStrategyDefault uses standard connection behavior.
+	DNSConnectStrategyDefault DNSConnectStrategy = iota
+	// DNSConnectStrategyFirstHealthyRace races connections to all resolved IPs and picks the first healthy one.
+	DNSConnectStrategyFirstHealthyRace
+)
+
+// GetDNSConnectStrategy reads the connect strategy from annotations.
+func GetDNSConnectStrategy(annotations map[string]string) DNSConnectStrategy {
+	if strings.EqualFold(annotations["ambient.istio.io/connect-strategy"], "FIRST_HEALTHY_RACE") {
+		return DNSConnectStrategyFirstHealthyRace
+	}
+	return DNSConnectStrategyDefault
+}
 
 func GetTrafficDistribution(specValue *string, svcAnnotations, nsAnnotations map[string]string) TrafficDistribution {
 	// 1. Check spec field first (highest priority)
@@ -1148,6 +1170,9 @@ type ServiceInfo struct {
 	// AsAddress contains a pre-created AddressInfo representation. This ensures we do not need repeated conversions on
 	// the hotpath
 	AsAddress AddressInfo
+	// DNSConnectStrategy is the DNS connection strategy for this service. Used internally
+	// to generate status conditions.
+	DNSConnectStrategy DNSConnectStrategy
 	// CreationTime is the time when the service was created. Note this is used internally only
 	// for conflict resolution.
 	CreationTime time.Time
@@ -1170,8 +1195,12 @@ const (
 	// WaypointMissing is set on a ServiceEntry with a wildcard hostname and not bound to a waypoint.
 	// It is used to inform the user that the ServiceEntry will not be active until it is bound to a waypoint.
 	WaypointMissing ConditionType = "istio.io/WaypointMissing"
+	// ConnectStrategyWithoutWaypoint is set when a ServiceEntry has a non-default connect strategy
+	// but is not bound to a waypoint. A waypoint is required for connect strategies to take effect.
+	ConnectStrategyWithoutWaypoint ConditionType = "istio.io/ConnectStrategyWithoutWaypoint"
 
-	NoWaypointForWildcardService string = "NoWaypointForWildcardService"
+	NoWaypointForWildcardService          string = "NoWaypointForWildcardService"
+	NoWaypointForConnectStrategyCondition string = "ConnectStrategyRequiresWaypoint"
 )
 
 type ConditionSet = map[ConditionType]*Condition
@@ -1199,6 +1228,10 @@ func (i ServiceInfo) GetConditions() ConditionSet {
 	if host.Name(i.Service.Hostname).IsWildCarded() && i.Source.Kind == kind.ServiceEntry {
 		// Only prune WaypointMissing condition if we have a wildcard service entry
 		set[WaypointMissing] = nil
+	}
+	if i.DNSConnectStrategy != DNSConnectStrategyDefault && i.Source.Kind == kind.ServiceEntry {
+		// Only prune ConnectStrategyWithoutWaypoint condition if we have a non-default connect strategy
+		set[ConnectStrategyWithoutWaypoint] = nil
 	}
 
 	if i.Waypoint.ResourceName != "" {
@@ -1232,6 +1265,13 @@ func (i ServiceInfo) GetConditions() ConditionSet {
 				Status:  true,
 				Reason:  NoWaypointForWildcardService,
 				Message: buildMsg.String(),
+			}
+		}
+		if i.DNSConnectStrategy != DNSConnectStrategyDefault && i.Source.Kind == kind.ServiceEntry {
+			set[ConnectStrategyWithoutWaypoint] = &Condition{
+				Status:  false,
+				Reason:  NoWaypointForConnectStrategyCondition,
+				Message: "ServiceEntry has a non-default connect strategy but no waypoint bound. A waypoint is required for connect strategies to take effect.",
 			}
 		}
 	}

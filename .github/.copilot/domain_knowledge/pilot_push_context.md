@@ -21,6 +21,7 @@ This document explains the purpose, construction, and usage of the `PushContext`
 4. **Delivery**: xDS resources are sent to Envoy via the discovery service.
 
 ### Key Relationships
+
 - `PushContext` is owned by the `Environment` (see `pilot/pkg/model/environment.go`).
 - xDS generators (e.g., `CdsGenerator`, `LdsGenerator`) consume `PushContext`.
 - Each push event creates a new `PushContext` instance.
