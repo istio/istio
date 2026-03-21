@@ -899,6 +899,15 @@ func (ps *PushContext) GatewayServices(proxy *Proxy, patches *MergedEnvoyFilterW
 	return gwSvcs
 }
 
+// GatewayHasDestination returns true if the gateway has a destination matching the host.
+func (ps *PushContext) GatewayHasDestination(gw, host string) bool {
+	if dst, ok := ps.virtualServiceIndex.destinationsByGateway[gw]; ok {
+		return dst.Contains(host)
+	}
+
+	return false
+}
+
 func (ps *PushContext) ServicesAttachedToMesh() map[string]sets.String {
 	return ps.virtualServiceIndex.referencedDestinations
 }

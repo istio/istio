@@ -396,14 +396,16 @@ func TestAdsPushScoping(t *testing.T) {
 	scc := config.Config{
 		Meta: config.Meta{
 			GroupVersionKind: gvk.Sidecar,
-			Name:             "sc", Namespace: testConfigNamespace,
+			Name:             "sc",
+			Namespace:        testConfigNamespace,
 		},
 		Spec: sc,
 	}
 	notMatchedScc := config.Config{
 		Meta: config.Meta{
 			GroupVersionKind: gvk.Sidecar,
-			Name:             "notMatchedSc", Namespace: testConfigNamespace,
+			Name:             "notMatchedSc",
+			Namespace:        testConfigNamespace,
 		},
 		Spec: &networking.Sidecar{
 			WorkloadSelector: &networking.WorkloadSelector{
@@ -659,7 +661,7 @@ func TestAdsPushScoping(t *testing.T) {
 			ev:              model.EventUpdate,
 			cfgs:            []config.Config{scc},
 			ns:              testConfigNamespace,
-			expectedUpdates: []string{v3.ListenerType, v3.RouteType, v3.ClusterType, v3.EndpointType},
+			expectedUpdates: []string{v3.ListenerType, v3.RouteType, v3.ClusterType},
 		},
 	}
 
