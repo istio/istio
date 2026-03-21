@@ -800,6 +800,9 @@ func mergeHTTPRoutes(baseVirtualServices krt.Collection[RouteWithKey], opts ...k
 	}).AsCollection(opts...)
 	finalVirtualServices := krt.NewCollection(idx, func(ctx krt.HandlerContext, object krt.IndexObject[string, RouteWithKey]) *config.Config {
 		configs := object.Objects
+		if len(configs) == 0 {
+			return nil
+		}
 		if len(configs) == 1 {
 			base := configs[0].Config
 			nm := base.Meta.DeepCopy()
