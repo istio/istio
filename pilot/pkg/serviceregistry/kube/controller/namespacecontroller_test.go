@@ -259,6 +259,103 @@ func TestNamespaceControllerDiscovery(t *testing.T) {
 	expectConfigMapNotExist(t, nc.configmaps, "selected")
 }
 
+// TestMultiRevisionNamespaceController verifies that two revisioned control planes with
+// different discoverySelectors can independently create istio-ca-root-cert ConfigMaps
+// for their respective namespaces. This is the scenario described in istio/istio#56594.
+func TestMultiRevisionNamespaceController(t *testing.T) {
+	// Use two separate kube clients (simulating two istiod processes) but sharing
+	// the same underlying fake API server for namespaces.
+	client1 := kube.NewFakeClient()
+	t.Cleanup(client1.Shutdown)
+	client2 := kube.NewFakeClient()
+	t.Cleanup(client2.Shutdown)
+
+	// Revision 1-22 selects namespaces with istio-discovery=istio-1-22
+	watcher1 := keycertbundle.NewWatcher()
+	caBundle1 := []byte("caBundle-rev122")
+	watcher1.SetAndNotify(nil, nil, caBundle1)
+	meshWatcher1 := meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{
+		DiscoverySelectors: []*meshconfig.LabelSelector{{
+			MatchLabels: map[string]string{"istio-discovery": "istio-1-22"},
+		}},
+	})
+
+	// Revision 1-23 selects namespaces with istio-discovery=istio-1-23
+	watcher2 := keycertbundle.NewWatcher()
+	caBundle2 := []byte("caBundle-rev123")
+	watcher2.SetAndNotify(nil, nil, caBundle2)
+	meshWatcher2 := meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{
+		DiscoverySelectors: []*meshconfig.LabelSelector{{
+			MatchLabels: map[string]string{"istio-discovery": "istio-1-23"},
+		}},
+	})
+
+	stop := test.NewStop(t)
+
+	// Set up discovery filters per revision
+	filter1 := filter.NewDiscoveryNamespacesFilter(
+		kclient.New[*v1.Namespace](client1),
+		meshWatcher1,
+		stop,
+	)
+	kube.SetObjectFilter(client1, filter1)
+
+	filter2 := filter.NewDiscoveryNamespacesFilter(
+		kclient.New[*v1.Namespace](client2),
+		meshWatcher2,
+		stop,
+	)
+	kube.SetObjectFilter(client2, filter2)
+
+	// Create namespace controllers per revision
+	nc1 := NewNamespaceController(client1, watcher1)
+	nc2 := NewNamespaceController(client2, watcher2)
+
+	client1.RunAndWait(stop)
+	client2.RunAndWait(stop)
+	go nc1.Run(stop)
+	go nc2.Run(stop)
+	retry.UntilOrFail(t, nc1.queue.HasSynced)
+	retry.UntilOrFail(t, nc2.queue.HasSynced)
+
+	expectedData1 := map[string]string{
+		constants.CACertNamespaceConfigMapDataName: string(caBundle1),
+	}
+	expectedData2 := map[string]string{
+		constants.CACertNamespaceConfigMapDataName: string(caBundle2),
+	}
+
+	// Create namespaces for revision 1-22
+	createNamespace(t, client1.Kube(), "httpbin122", map[string]string{
+		"istio-discovery": "istio-1-22",
+		"istio.io/rev":    "1-22",
+	})
+	createNamespace(t, client1.Kube(), "httpbin122-v2", map[string]string{
+		"istio-discovery": "istio-1-22",
+		"istio.io/rev":    "1-22",
+	})
+
+	// Create namespaces for revision 1-23
+	createNamespace(t, client2.Kube(), "httpbin123", map[string]string{
+		"istio-discovery": "istio-1-23",
+		"istio.io/rev":    "1-23",
+	})
+
+	// Revision 1-22 should create ConfigMaps for its namespaces
+	expectConfigMap(t, nc1.configmaps, CACertNamespaceConfigMap, "httpbin122", expectedData1)
+	expectConfigMap(t, nc1.configmaps, CACertNamespaceConfigMap, "httpbin122-v2", expectedData1)
+
+	// Revision 1-23 should create ConfigMaps for its namespaces
+	expectConfigMap(t, nc2.configmaps, CACertNamespaceConfigMap, "httpbin123", expectedData2)
+
+	// Revision 1-22 should NOT see namespaces for revision 1-23 (filtered out)
+	expectConfigMapNotExist(t, nc1.configmaps, "httpbin123")
+
+	// Revision 1-23 should NOT see namespaces for revision 1-22 (filtered out)
+	expectConfigMapNotExist(t, nc2.configmaps, "httpbin122")
+	expectConfigMapNotExist(t, nc2.configmaps, "httpbin122-v2")
+}
+
 func deleteConfigMap(t *testing.T, client kubernetes.Interface, ns string) {
 	t.Helper()
 	_, err := client.CoreV1().ConfigMaps(ns).Get(context.TODO(), CACertNamespaceConfigMap, metav1.GetOptions{})

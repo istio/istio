@@ -247,8 +247,13 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeCont
 				m.s.RunComponentAsyncAndWait("clustertrustbundle controller", func(_ <-chan struct{}) error {
 					log.Infof("joining leader-election for %s in %s on cluster %s",
 						leaderelection.ClusterTrustBundleController, options.SystemNamespace, options.ClusterID)
+					// Use per-revision leader election so each revisioned control plane independently
+					// manages its own namespaces based on its discoverySelectors. Without this, only
+					// one revision wins the shared lock and creates resources only for namespaces
+					// matching its own selectors, leaving other revisions' namespaces without the
+					// istio-ca-root-cert ConfigMap (istio/istio#56594).
 					election := leaderelection.
-						NewLeaderElectionMulticluster(options.SystemNamespace, m.serverID, leaderelection.NamespaceController, m.revision, !configCluster, client).
+						NewPerRevisionLeaderElectionMulticluster(options.SystemNamespace, m.serverID, leaderelection.ClusterTrustBundleController, m.revision, !configCluster, client).
 						AddRunFunction(func(leaderStop <-chan struct{}) {
 							log.Infof("starting clustertrustbundle controller for cluster %s", cluster.ID)
 							c := clustertrustbundle.NewController(client, m.caBundleWatcher)
@@ -263,8 +268,13 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeCont
 				m.s.RunComponentAsyncAndWait("namespace controller", func(_ <-chan struct{}) error {
 					log.Infof("joining leader-election for %s in %s on cluster %s",
 						leaderelection.NamespaceController, options.SystemNamespace, options.ClusterID)
+					// Use per-revision leader election so each revisioned control plane independently
+					// manages its own namespaces based on its discoverySelectors. Without this, only
+					// one revision wins the shared lock and creates ConfigMaps only for namespaces
+					// matching its own selectors, leaving other revisions' namespaces without the
+					// istio-ca-root-cert ConfigMap (istio/istio#56594).
 					election := leaderelection.
-						NewLeaderElectionMulticluster(options.SystemNamespace, m.serverID, leaderelection.NamespaceController, m.revision, !configCluster, client).
+						NewPerRevisionLeaderElectionMulticluster(options.SystemNamespace, m.serverID, leaderelection.NamespaceController, m.revision, !configCluster, client).
 						AddRunFunction(func(leaderStop <-chan struct{}) {
 							log.Infof("starting namespace controller for cluster %s", cluster.ID)
 							nc := NewNamespaceController(client, m.caBundleWatcher)
