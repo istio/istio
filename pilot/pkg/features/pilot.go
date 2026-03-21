@@ -170,6 +170,12 @@ var (
 		false,
 		"If enabled, controller that untaints nodes with cni pods ready will run. This should be enabled if you disabled ambient init containers.").Get()
 
+	NodeUntaintTaintName = env.Register(
+		"PILOT_NODE_UNTAINT_CONTROLLERS_TAINT_NAME",
+		"cni.istio.io/not-ready",
+		"The taint key used by the node-untaint controller to identify nodes that should be untainted.",
+	).Get()
+
 	EnableIPAutoallocate = env.Register(
 		"PILOT_ENABLE_IP_AUTOALLOCATE",
 		true,

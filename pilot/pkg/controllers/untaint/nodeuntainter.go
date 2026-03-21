@@ -22,6 +22,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/labels"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
@@ -32,10 +33,6 @@ import (
 )
 
 var log = istiolog.RegisterScope("untaint", "CNI node-untaint controller")
-
-const (
-	TaintName = "cni.istio.io/not-ready"
-)
 
 var istioCniLabels = map[string]string{
 	"k8s-app": "istio-cni-node",
@@ -195,7 +192,7 @@ func removeReadinessTaint(nodesClient kclient.Client[*v1.Node], node *v1.Node) e
 func deleteTaint(taints []v1.Taint) []v1.Taint {
 	newTaints := []v1.Taint{}
 	for i := range taints {
-		if taints[i].Key == TaintName {
+		if taints[i].Key == features.NodeUntaintTaintName {
 			continue
 		}
 		newTaints = append(newTaints, taints[i])
@@ -205,7 +202,7 @@ func deleteTaint(taints []v1.Taint) []v1.Taint {
 
 func hasTaint(n *v1.Node) bool {
 	for _, taint := range n.Spec.Taints {
-		if taint.Key == TaintName {
+		if taint.Key == features.NodeUntaintTaintName {
 			return true
 		}
 	}
