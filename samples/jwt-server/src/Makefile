@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-HUB ?= gcr.io/istio-testing/jwt-server
+HUB ?= registry.istio.io/testing/jwt-server
 TAG ?= 0.7
 
 push: main.go Dockerfile

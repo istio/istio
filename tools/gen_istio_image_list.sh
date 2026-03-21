@@ -52,8 +52,8 @@ function get_istio_images() {
        if [[ $repo == *docker.* ]]
        then
            istio_component=${repo##*docker.};
-           istio_repo=istio/$istio_component;
-           echo docker.io/"$istio_repo":"${1}"
+           istio_repo=release/$istio_component;
+           echo registry.istio.io/"$istio_repo":"${1}"
        fi
     done
 

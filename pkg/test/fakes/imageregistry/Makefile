@@ -16,7 +16,7 @@
 
 MKFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
 MD_PATH := $(dir $(MKFILE_PATH))
-HUB ?= gcr.io/istio-testing
+HUB ?= registry.istio.io/testing
 IMG := $(HUB)/fake-registry
 BIN_NAME := main
 

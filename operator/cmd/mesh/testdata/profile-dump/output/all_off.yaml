@@ -14,7 +14,7 @@ spec:
       name: istio-ingressgateway
     pilot:
       enabled: false
-  hub: gcr.io/istio-testing
+  hub: registry.istio.io/testing
 
   profile: default
   tag: latest
