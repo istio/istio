@@ -1,0 +1,300 @@
+# DPoP Configuration Examples for Istio
+
+# Example 1: Basic Optional DPoP (Good for migration)
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
+metadata:
+  name: basic-dpop
+  namespace: default
+  annotations:
+    security.istio.io/dpop-enabled: "true"
+    security.istio.io/dpop-required: "false"
+    security.istio.io/dpop-max-age: "5m"
+spec:
+  selector:
+    matchLabels:
+      app: myapp
+  jwtRules:
+  - issuer: "https://auth.example.com"
+    jwksUri: "https://auth.example.com/.well-known/jwks.json"
+    fromHeaders:
+    - name: "Authorization"
+      prefix: "Bearer "
+
+---
+# Example 2: Strict Required DPoP (High security)
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
+metadata:
+  name: strict-dpop
+  namespace: default
+  annotations:
+    security.istio.io/dpop-enabled: "true"
+    security.istio.io/dpop-required: "true"
+    security.istio.io/dpop-max-age: "2m"
+spec:
+  selector:
+    matchLabels:
+      app: secure-app
+  jwtRules:
+  - issuer: "https://auth.example.com"
+    jwksUri: "https://auth.example.com/.well-known/jwks.json"
+    fromHeaders:
+    - name: "Authorization"
+      prefix: "Bearer "
+    audiences:
+    - "secure-app"
+
+---
+# Example 3: FAPI 2.0 Compliance (Financial grade)
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
+metadata:
+  name: fapi-compliant
+  namespace: default
+  annotations:
+    security.istio.io/dpop-enabled: "true"
+    security.istio.io/dpop-required: "true"
+    security.istio.io/dpop-max-age: "1m"
+spec:
+  selector:
+    matchLabels:
+      app: banking-app
+  jwtRules:
+  - issuer: "https://bank.auth.example.com"
+    jwksUri: "https://bank.auth.example.com/.well-known/jwks.json"
+    fromHeaders:
+    - name: "Authorization"
+      prefix: "Bearer "
+    audiences:
+    - "banking-api"
+    - "transaction-service"
+
+---
+# Example 4: Multi-issuer with DPoP
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
+metadata:
+  name: multi-issuer-dpop
+  namespace: default
+  annotations:
+    security.istio.io/dpop-enabled: "true"
+    security.istio.io/dpop-required: "true"
+    security.istio.io/dpop-max-age: "3m"
+spec:
+  selector:
+    matchLabels:
+      app: gateway
+  jwtRules:
+  - issuer: "https://auth.example.com"
+    jwksUri: "https://auth.example.com/.well-known/jwks.json"
+    fromHeaders:
+    - name: "Authorization"
+      prefix: "Bearer "
+  - issuer: "https://partner.auth.com"
+    jwksUri: "https://partner.auth.com/.well-known/jwks.json"
+    fromHeaders:
+    - name: "Authorization"
+      prefix: "Bearer "
+
+---
+# Example 5: DPoP with AuthorizationPolicy
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
+metadata:
+  name: authz-dpop
+  namespace: default
+  annotations:
+    security.istio.io/dpop-enabled: "true"
+    security.istio.io/dpop-required: "true"
+    security.istio.io/dpop-max-age: "5m"
+spec:
+  selector:
+    matchLabels:
+      app: protected-api
+  jwtRules:
+  - issuer: "https://auth.example.com"
+    jwksUri: "https://auth.example.com/.well-known/jwks.json"
+    fromHeaders:
+    - name: "Authorization"
+      prefix: "Bearer "
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: dpop-authorization
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      app: protected-api
+  action: ALLOW
+  rules:
+  - when:
+    - key: request.auth.claims[scope]
+      values: ["api:read", "api:write"]
+  - when:
+    - key: request.auth.claims[role]
+      values: ["api_user", "admin"]
+
+---
+# Example 6: DPoP with different extraction methods
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
+metadata:
+  name: dpop-multiple-sources
+  namespace: default
+  annotations:
+    security.istio.io/dpop-enabled: "true"
+    security.istio.io/dpop-required: "false"
+    security.istio.io/dpop-max-age: "10m"
+spec:
+  selector:
+    matchLabels:
+      app: flexible-app
+  jwtRules:
+  - issuer: "https://auth.example.com"
+    jwksUri: "https://auth.example.com/.well-known/jwks.json"
+    fromHeaders:
+    - name: "Authorization"
+      prefix: "Bearer "
+    fromParams:
+    - "access_token"
+    fromCookies:
+    - "session_token"
+
+---
+# Example 7: Environment-specific configurations
+# Development (relaxed settings)
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
+metadata:
+  name: dev-dpop
+  namespace: development
+  annotations:
+    security.istio.io/dpop-enabled: "true"
+    security.istio.io/dpop-required: "false"
+    security.istio.io/dpop-max-age: "30m"
+spec:
+  selector:
+    matchLabels:
+      app: dev-app
+  jwtRules:
+  - issuer: "https://dev-auth.example.com"
+    jwksUri: "https://dev-auth.example.com/.well-known/jwks.json"
+
+---
+# Production (strict settings)
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
+metadata:
+  name: prod-dpop
+  namespace: production
+  annotations:
+    security.istio.io/dpop-enabled: "true"
+    security.istio.io/dpop-required: "true"
+    security.istio.io/dpop-max-age: "2m"
+spec:
+  selector:
+    matchLabels:
+      app: prod-app
+  jwtRules:
+  - issuer: "https://auth.example.com"
+    jwksUri: "https://auth.example.com/.well-known/jwks.json"
+    audiences:
+    - "production-api"
+
+---
+# Example 8: Gateway-level DPoP configuration
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: dpop-gateway
+  namespace: istio-system
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    tls:
+      mode: SIMPLE
+      credentialName: gateway-cert
+    hosts:
+    - api.example.com
+
+---
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
+metadata:
+  name: gateway-dpop
+  namespace: istio-system
+  annotations:
+    security.istio.io/dpop-enabled: "true"
+    security.istio.io/dpop-required: "true"
+    security.istio.io/dpop-max-age: "3m"
+spec:
+  selector:
+    matchLabels:
+      istio: ingressgateway
+  jwtRules:
+  - issuer: "https://auth.example.com"
+    jwksUri: "https://auth.example.com/.well-known/jwks.json"
+    fromHeaders:
+    - name: "Authorization"
+      prefix: "Bearer "
+
+---
+# Example 9: DPoP with custom headers and forwarding
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
+metadata:
+  name: dpop-advanced
+  namespace: default
+  annotations:
+    security.istio.io/dpop-enabled: "true"
+    security.istio.io/dpop-required: "true"
+    security.istio.io/dpop-max-age: "5m"
+spec:
+  selector:
+    matchLabels:
+      app: advanced-app
+  jwtRules:
+  - issuer: "https://auth.example.com"
+    jwksUri: "https://auth.example.com/.well-known/jwks.json"
+    fromHeaders:
+    - name: "Authorization"
+      prefix: "Bearer "
+    forwardOriginalToken: true
+    outputPayloadToHeader: "X-JWT-Payload"
+    outputClaimToHeaders:
+    - claim: "sub"
+      header: "X-User-Id"
+    - claim: "email"
+      header: "X-User-Email"
+
+---
+# Example 10: DPoP with timeout and retry configuration
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
+metadata:
+  name: dpop-with-timeout
+  namespace: default
+  annotations:
+    security.istio.io/dpop-enabled: "true"
+    security.istio.io/dpop-required: "true"
+    security.istio.io/dpop-max-age: "5m"
+spec:
+  selector:
+    matchLabels:
+      app: resilient-app
+  jwtRules:
+  - issuer: "https://auth.example.com"
+    jwksUri: "https://auth.example.com/.well-known/jwks.json"
+    timeout: "10s"  # JWKS fetch timeout
+    fromHeaders:
+    - name: "Authorization"
+      prefix: "Bearer "
