@@ -2615,7 +2615,7 @@ func TestCreateSidecarScope(t *testing.T) {
 			},
 		},
 		{
-			name:          "serviceentry not merge when resolution is different",
+			name:          "serviceentry merge when resolution is different with per-port overrides",
 			sidecarConfig: configs22,
 			services: []*Service{
 				{
@@ -2639,10 +2639,57 @@ func TestCreateSidecarScope(t *testing.T) {
 			expectedServices: []*Service{
 				{
 					Hostname: "foobar.svc.cluster.local",
-					Ports:    port803x[:3],
+					Ports:    port803x,
 					Attributes: ServiceAttributes{
 						Name:      "foo",
 						Namespace: "ns1",
+					},
+					PortResolutionOverrides: map[int]Resolution{
+						8034: DNSLB,
+						8035: DNSLB,
+					},
+				},
+			},
+		},
+		{
+			// Regression test for https://github.com/istio/istio/issues/54988
+			// Two ServiceEntries: same host, different ports, different resolutions (NONE vs DNS)
+			name:          "serviceentry merge same host different port and resolution",
+			sidecarConfig: nil,
+			services: []*Service{
+				{
+					Hostname:   "example.com",
+					Ports:      []*Port{{Name: "https-passthrough", Port: 9093, Protocol: "HTTPS"}},
+					Resolution: Passthrough,
+					Attributes: ServiceAttributes{
+						Name:      "service-entry-1",
+						Namespace: "mynamespace",
+					},
+				},
+				{
+					Hostname:   "example.com",
+					Ports:      []*Port{{Name: "https-dns", Port: 443, Protocol: "HTTPS"}},
+					Resolution: DNSLB,
+					Attributes: ServiceAttributes{
+						Name:      "service-entry-2",
+						Namespace: "mynamespace",
+					},
+				},
+			},
+			expectedServices: []*Service{
+				{
+					Hostname: "example.com",
+					Ports: []*Port{
+						{Name: "https-passthrough", Port: 9093, Protocol: "HTTPS"},
+						{Name: "https-dns", Port: 443, Protocol: "HTTPS"},
+					},
+					Resolution: Passthrough,
+					Attributes: ServiceAttributes{
+						Name:      "service-entry-1",
+						Namespace: "mynamespace",
+					},
+					PortResolutionOverrides: map[int]Resolution{
+						443: DNSLB,
 					},
 				},
 			},

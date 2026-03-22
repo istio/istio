@@ -153,8 +153,8 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 	var endpointBuilder *endpoints.EndpointBuilder
 	// All non custom DiscoveryTypes use the same cluster creation logic
 	// DynamicDNS uses a custom DiscoveryType
-	if svc.Resolution != model.DynamicDNS {
-		discoveryType := convertResolution(cb.proxyType, svc)
+	if svc.GetPortResolution(port.Port) != model.DynamicDNS {
+		discoveryType := convertResolution(cb.proxyType, svc, port.Port)
 		var lbEndpoints []*endpoint.LocalityLbEndpoints
 		if discoveryType == cluster.Cluster_STRICT_DNS || discoveryType == cluster.Cluster_LOGICAL_DNS {
 			endpointBuilder = endpoints.NewCDSEndpointBuilder(
@@ -223,7 +223,7 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 	applyOutlierDetection(nil, localCluster.cluster, outlierDetection)
 
 	// Unless the svc resolution type is DynamicDNS, we apply the LB settings
-	if svc.Resolution != model.DynamicDNS {
+	if svc.GetPortResolution(port.Port) != model.DynamicDNS {
 		applyLoadBalancer(svc, localCluster.cluster, loadBalancer, &port, cb.locality, cb.proxyLabels, mesh, nil)
 	}
 
@@ -322,11 +322,11 @@ func (cb *ClusterBuilder) buildWaypointInboundVIP(proxy *model.Proxy, svcs map[h
 				continue
 			}
 			// For dynamic DNS (dynamic forward proxy) resolution protocol other than HTTP and TLS are not supported
-			if svc.Resolution == model.DynamicDNS && port.Protocol != protocol.HTTP && port.Protocol != protocol.TLS {
+			if svc.GetPortResolution(port.Port) == model.DynamicDNS && port.Protocol != protocol.HTTP && port.Protocol != protocol.TLS {
 				log.Debugf("skipping waypoint VIP cluster for unsupported protocol %s for service %s with DynamicDNS resolution", port.Protocol, svc.Hostname)
 				continue
 			}
-			if svc.Resolution == model.DynamicDNS && port.Protocol == protocol.TLS && !features.EnableWildcardHostServiceEntriesForTLS {
+			if svc.GetPortResolution(port.Port) == model.DynamicDNS && port.Protocol == protocol.TLS && !features.EnableWildcardHostServiceEntriesForTLS {
 				log.Warnf("skipping waypoint VIP cluster for TLS protocol for service %s with DynamicDNS resolution since the feature is disabled", svc.Hostname)
 				continue
 			}

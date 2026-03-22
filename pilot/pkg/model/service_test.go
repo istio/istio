@@ -1055,3 +1055,59 @@ func TestGetTrafficDistribution(t *testing.T) {
 		})
 	}
 }
+
+func TestGetPortResolution(t *testing.T) {
+	tests := []struct {
+		name       string
+		svc        *Service
+		portNumber int
+		want       Resolution
+	}{
+		{
+			name: "no overrides returns service resolution",
+			svc: &Service{
+				Resolution: Passthrough,
+			},
+			portNumber: 443,
+			want:       Passthrough,
+		},
+		{
+			name: "port with override returns override resolution",
+			svc: &Service{
+				Resolution: Passthrough,
+				PortResolutionOverrides: map[int]Resolution{
+					443: DNSLB,
+				},
+			},
+			portNumber: 443,
+			want:       DNSLB,
+		},
+		{
+			name: "port without override returns service resolution",
+			svc: &Service{
+				Resolution: Passthrough,
+				PortResolutionOverrides: map[int]Resolution{
+					443: DNSLB,
+				},
+			},
+			portNumber: 9093,
+			want:       Passthrough,
+		},
+		{
+			name: "empty overrides map returns service resolution",
+			svc: &Service{
+				Resolution:              DNSLB,
+				PortResolutionOverrides: map[int]Resolution{},
+			},
+			portNumber: 443,
+			want:       DNSLB,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.svc.GetPortResolution(tt.portNumber)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}

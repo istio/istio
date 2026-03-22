@@ -977,6 +977,8 @@ func (sc *SidecarScope) appendSidecarServices(servicesAdded map[host.Name]sideca
 			return
 		}
 
+		resolutionDiffers := existing.Resolution != s.Resolution
+
 		// If it comes here, it means we can merge the services.
 		// Merge the ports to service when each listener generates partial service.
 		// We only merge if the found service is in the same namespace as the one we're trying to add
@@ -987,6 +989,15 @@ func (sc *SidecarScope) appendSidecarServices(servicesAdded map[host.Name]sideca
 			p := *port
 			copied.Ports = append(copied.Ports, &p)
 		}
+
+		// Deep copy any existing port resolution overrides
+		if foundSvc.svc.PortResolutionOverrides != nil {
+			copied.PortResolutionOverrides = make(map[int]Resolution, len(foundSvc.svc.PortResolutionOverrides)+len(s.Ports))
+			for k, v := range foundSvc.svc.PortResolutionOverrides {
+				copied.PortResolutionOverrides[k] = v
+			}
+		}
+
 		// Add new ports from s, avoiding duplicates
 		for _, p := range s.Ports {
 			found := false
@@ -998,6 +1009,13 @@ func (sc *SidecarScope) appendSidecarServices(servicesAdded map[host.Name]sideca
 			}
 			if !found {
 				copied.Ports = append(copied.Ports, p)
+				// When resolution differs, record the incoming service's resolution for this port
+				if resolutionDiffers {
+					if copied.PortResolutionOverrides == nil {
+						copied.PortResolutionOverrides = make(map[int]Resolution, len(s.Ports))
+					}
+					copied.PortResolutionOverrides[p.Port] = s.Resolution
+				}
 			}
 		}
 		// replace service in slice
@@ -1013,9 +1031,6 @@ func (sc *SidecarScope) appendSidecarServices(servicesAdded map[host.Name]sideca
 func canMergeServices(s1, s2 *Service) bool {
 	// Hostname has been compared in the caller `appendSidecarServices`, so we do not need to compare again.
 	if s1.Attributes.Namespace != s2.Attributes.Namespace {
-		return false
-	}
-	if s1.Resolution != s2.Resolution {
 		return false
 	}
 	// kuberneres service registry has been checked before
