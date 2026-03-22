@@ -616,6 +616,83 @@
          ],
          "title": "Workload Manager",
          "type": "timeseries"
+      },
+      {
+         "collapsed": false,
+         "gridPos": {
+            "h": 1,
+            "w": 24,
+            "x": 0,
+            "y": 27
+         },
+         "id": 13,
+         "panels": [ ],
+         "title": "Network Resources",
+         "type": "row"
+      },
+      {
+         "datasource": {
+            "type": "datasource",
+            "uid": "-- Mixed --"
+         },
+         "description": "Active TCP connections, open file descriptors, and open sockets per instance",
+         "fieldConfig": {
+            "defaults": {
+               "custom": {
+                  "fillOpacity": 10,
+                  "gradientMode": "hue",
+                  "showPoints": "never"
+               },
+               "decimals": 0,
+               "unit": "short"
+            }
+         },
+         "gridPos": {
+            "h": 8,
+            "w": 24,
+            "x": 0,
+            "y": 28
+         },
+         "id": 14,
+         "interval": "5s",
+         "options": {
+            "legend": {
+               "calcs": [
+                  "last",
+                  "max"
+               ],
+               "displayMode": "table"
+            }
+         },
+         "pluginVersion": "v11.0.0",
+         "targets": [
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum by (pod) (istio_tcp_connections_opened_total{app=\"ztunnel\"}) - sum by (pod) (istio_tcp_connections_closed_total{app=\"ztunnel\"})",
+               "legendFormat": "TCP Connections ({{pod}})"
+            },
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum by (pod) (process_open_fds{app=\"ztunnel\"})",
+               "legendFormat": "Open File Descriptors ({{pod}})"
+            },
+            {
+               "datasource": {
+                  "type": "prometheus",
+                  "uid": "$datasource"
+               },
+               "expr": "sum by (pod) (istio_tcp_sockets_open{app=\"ztunnel\"})",
+               "legendFormat": "Open Sockets ({{pod}})"
+            }
+         ],
+         "title": "Resource Usage",
+         "type": "timeseries"
       }
    ],
    "refresh": "15s",
