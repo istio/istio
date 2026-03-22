@@ -525,7 +525,7 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 		// 0 disables jitter.
 		c.DnsJitter = durationpb.New(features.PilotDNSJitterDurationEnv) //nolint:staticcheck // DnsJitter is deprecated
 		c.DnsRefreshRate = cb.req.Push.Mesh.DnsRefreshRate               //nolint:staticcheck // DnsRefreshRate is deprecated
-		c.RespectDnsTtl = true                                           //nolint:staticcheck // RespectDnsTtl is deprecated
+		c.RespectDnsTtl = cb.req.Push.Mesh.GetRespectDnsTtl().GetValue() //nolint:staticcheck // RespectDnsTtl is deprecated
 		// we want to run all the STATIC parts as well to build the load assignment
 		fallthrough
 	case cluster.Cluster_STATIC:
