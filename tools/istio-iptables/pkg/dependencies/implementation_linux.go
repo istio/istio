@@ -19,7 +19,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"syscall"
@@ -243,6 +245,44 @@ func mount(src, dst string) error {
 	return syscall.Mount(src, dst, "", syscall.MS_BIND|syscall.MS_RDONLY, "")
 }
 
+// build fd /proc path to use for nsenter
+func buildProcFdPath(fd int) string {
+	return fmt.Sprintf("/proc/%d/fd/%d", os.Getpid(), fd)
+}
+
+// retrieves the internal namespace id of the kernel for the given fd namespace path
+func getNsId(nsPath string) (int, error) {
+	fd, err := unix.Open(nsPath, unix.O_RDONLY, 0)
+	if err != nil {
+		return 0, err
+	}
+	defer unix.Close(fd)
+
+	var stat unix.Stat_t
+	err = unix.Fstat(fd, &stat)
+	if err != nil {
+		return 0, err
+	}
+
+	return int(stat.Ino), nil
+}
+
+// retrieves on success the parent user ns fd and return the fd
+func getParentUserNsByNsPath(nsPath string) (int, error) {
+	fd, err := unix.Open(nsPath, unix.O_RDONLY, 0)
+	if err != nil {
+		return 0, err
+	}
+	defer unix.Close(fd)
+
+	nsFd, err := unix.IoctlRetInt(fd, unix.NS_GET_USERNS)
+	if err != nil {
+		return 0, err
+	}
+
+	return nsFd, nil
+}
+
 func (r *RealDependencies) executeXTables(log *log.Scope, cmd constants.IptablesCmd, iptVer *IptablesVersion,
 	silenceErrors bool, stdin io.ReadSeeker, args ...string,
 ) (*bytes.Buffer, error) {
@@ -266,6 +306,32 @@ func (r *RealDependencies) executeXTables(log *log.Scope, cmd constants.Iptables
 		// But a container netns is just a file, and like any Linux file,
 		// we can't guarantee no other process has it locked.
 		args = append(args, "--wait=30")
+	}
+
+	// Check if we need to switch into the User Namespace for hostUsers: false
+	executable, errName := os.Executable()
+	// check only in istio-cni mode for backwards compatibility
+	if errName == nil && filepath.Base(executable) == "istio-cni" {
+		parentNs, errParent := getParentUserNsByNsPath(r.NetworkNamespace)
+		defer unix.Close(parentNs)
+		grandParentNs, errGrandParent := getParentUserNsByNsPath(buildProcFdPath(parentNs))
+		defer unix.Close(grandParentNs)
+
+		if errParent == nil && errGrandParent == nil {
+			// retrieve nsId for comparison, if grandParentNsId is 0 (access denied)
+			// it means it's already kernel base user namepace or we don't have the permissions
+			// in that case ignore it
+			netNsId, errNsId := getNsId(r.NetworkNamespace)
+			parentNsId, errParentNsId := getNsId(buildProcFdPath(parentNs))
+			grandParentNsId, errGrandParentNsId := getNsId(buildProcFdPath(grandParentNs))
+			// we successfully retrieved parentNs and grandParentNs if they do not match the net ns is inside a linux user ns
+			if errNsId == nil && errParentNsId == nil && errGrandParentNsId == nil && parentNsId != grandParentNsId {
+				log.Debugf("k8s user namespaces relationship detected linux base %d -> %d -> %d", grandParentNsId, parentNsId, netNsId)
+				log.Debugf("using nsenter with --user=%s --net=%s %s", buildProcFdPath(parentNs), r.NetworkNamespace, cmdBin)
+				args = append([]string{fmt.Sprintf("--user=%s", buildProcFdPath(parentNs)), fmt.Sprintf("--net=%s", r.NetworkNamespace), cmdBin}, args...)
+				cmdBin = "nsenter"
+			}
+		}
 	}
 
 	if r.UsePodScopedXtablesLock {
