@@ -112,6 +112,7 @@ func setupIPAllocateTest(t *testing.T, ipv4Prefix, ipv6Prefix string) ipAllocate
 	)
 	go ipController.Run(s)
 	c.RunAndWait(s)
+	retry.UntilOrFail(t, ipController.HasSynced, retry.Delay(time.Millisecond))
 
 	return ipAllocateTestRig{
 		client: c,
