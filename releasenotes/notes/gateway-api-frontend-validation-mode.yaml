@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+
+releaseNotes:
+  - |
+    **Added** Gateway API frontend mTLS mode support by honoring `spec.tls.frontend.{default,perPort}.validation.mode`
+    (`AllowValidOnly` and `AllowInsecureFallback`) when converting `Gateway` listeners.
+  - |
+    **Updated** Gateway API listener TLS conversion to keep backward compatibility with
+    `tls.options["gateway.istio.io/tls-terminate-mode"]` so existing configurations continue to work.
