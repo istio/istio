@@ -24,11 +24,14 @@ import (
 	"istio.io/istio/cni/pkg/util"
 )
 
-func getPodLevelTrafficOverrides(pod *corev1.Pod) config.PodLevelOverrides {
+// getPodTrafficOverrides computes iptables configuration overrides for the pod.
+// Iptables overrides can come from both the pod level or namespace level.
+func getPodTrafficOverrides(pod *corev1.Pod, namespace *corev1.Namespace, interfaceExclusionRules *util.CompiledInterfaceExclusionRules) config.PodOverrides {
 	// If true, the pod will run in 'ingress mode'. This is intended to be used for "ingress" type workloads which handle
 	// non-mesh traffic on inbound, and send to the mesh on outbound.
 	// Basically, this just disables inbound redirection.
-	podCfg := config.PodLevelOverrides{IngressMode: false}
+	podCfg := config.PodOverrides{}
+	podCfg.IngressMode = false
 
 	if ingressMode, present := util.CheckBooleanAnnotation(pod, annotation.AmbientBypassInboundCapture.Name); present {
 		podCfg.IngressMode = ingressMode
@@ -53,6 +56,9 @@ func getPodLevelTrafficOverrides(pod *corev1.Pod) config.PodLevelOverrides {
 			}
 		}
 	}
+
+	// Apply namespace-based interface exclusion rules
+	podCfg.ExcludeInterfaces = interfaceExclusionRules.GetExcludedInterfaces(namespace.Labels)
 
 	return podCfg
 }
