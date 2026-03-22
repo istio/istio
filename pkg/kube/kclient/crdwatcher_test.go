@@ -17,12 +17,14 @@ package kclient_test
 import (
 	"testing"
 
+	"github.com/Masterminds/semver/v3"
 	"go.uber.org/atomic"
 	"sigs.k8s.io/gateway-api/pkg/consts"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -113,6 +115,58 @@ func TestCRDWatcherMinimumVersion(t *testing.T) {
 		consts.BundleVersionAnnotation: "v1.1.0",
 	})
 	assert.EventuallyEqual(t, calls.Load, 1)
+}
+
+func TestCRDWatcherMaximumVersion(t *testing.T) {
+	// Temporarily add TLSRoute_v1alpha2 to MaximumCRDVersions at max 1.5.0 (inclusive).
+	// This simulates the backport scenario: the Go client targets v1alpha2 and GWAPI > 1.5.0
+	// only serves v1, so we must not watch v1alpha2 when bundle version > 1.5.0.
+	const tlsRouteCRDName = "tlsroutes.gateway.networking.k8s.io"
+
+	oldMax := kclient.MaximumCRDVersions[tlsRouteCRDName]
+	kclient.MaximumCRDVersions[tlsRouteCRDName] = semver.New(1, 5, 0, "", "")
+	t.Cleanup(func() {
+		if oldMax == nil {
+			delete(kclient.MaximumCRDVersions, tlsRouteCRDName)
+		} else {
+			kclient.MaximumCRDVersions[tlsRouteCRDName] = oldMax
+		}
+	})
+
+	// Case 1: bundle v1.6.0 is above the inclusive maximum (1.5.0) — should be rejected.
+	t.Run("above maximum is rejected", func(t *testing.T) {
+		stop := test.NewStop(t)
+		c := kube.NewFakeClient()
+		clienttest.MakeCRDWithAnnotations(t, c, gvr.TLSRoute_v1alpha2, map[string]string{
+			consts.BundleVersionAnnotation: "v1.6.0",
+		})
+		calls := atomic.NewInt32(0)
+		ctl := c.CrdWatcher()
+		assert.Equal(t, ctl.KnownOrCallback(gvr.TLSRoute_v1alpha2, func(s <-chan struct{}) {
+			calls.Inc()
+		}), false)
+		c.RunAndWait(stop)
+		assert.Equal(t, calls.Load(), int32(0))
+		assert.Equal(t, ctl.KnownOrCallback(gvr.TLSRoute_v1alpha2, func(_ <-chan struct{}) {}), false)
+	})
+
+	// Case 2: bundle v1.5.0 equals the inclusive maximum — should be accepted.
+	// TLSRoute also has minimumCRDVersions at 1.5.0, so v1.5.0 passes both filters.
+	t.Run("equal to maximum is accepted", func(t *testing.T) {
+		stop := test.NewStop(t)
+		c := kube.NewFakeClient()
+		clienttest.MakeCRDWithAnnotations(t, c, gvr.TLSRoute_v1alpha2, map[string]string{
+			consts.BundleVersionAnnotation: "v1.5.0",
+		})
+		calls := atomic.NewInt32(0)
+		ctl := c.CrdWatcher()
+		assert.Equal(t, ctl.KnownOrCallback(gvr.TLSRoute_v1alpha2, func(s <-chan struct{}) {
+			assert.Equal(t, s, stop)
+			calls.Inc()
+		}), false)
+		c.RunAndWait(stop)
+		assert.EventuallyEqual(t, calls.Load, int32(1))
+	})
 }
 
 // This test will verify:

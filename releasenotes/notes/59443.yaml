@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+  - 59443
+releaseNotes:
+  - |
+    **Fixed** istiod errors on startup when a CRD version greater than the maximum supported version is installed on a cluster.
