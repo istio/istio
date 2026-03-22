@@ -1,0 +1,15 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 59295
+releaseNotes:
+  - |
+    **Fixed** cni agent behavior to respect excludeNamespaces config so that behavior is consistent between the plugin and agent.
+upgradeNotes:
+  - title: CNI Agent respects excludeNamespaces configuration
+    content: |
+      Previously, only the CNI Plugin respected the excludeNamespaces config by skipping the processing of excluded namespace's pods,
+      while the CNI Agent would still reconcile and add ambient-labeled Pods in an excluded namespace to the mesh.
+      Now, the CNI Agent respects excluded namespaces, which means existing, enrolled pods in an excluded namespace will be un-enrolled, and
+      new, ambient-labeled pods in an excluded namespace will not be enrolled.
