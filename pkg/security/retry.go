@@ -31,8 +31,8 @@ var caLog = log.RegisterScope("ca", "ca client")
 // CARetryOptions returns the default retry options recommended for CA calls
 // This includes 5 retries, with backoff from 100ms -> 1.6s with jitter.
 var CARetryOptions = []retry.CallOption{
-	retry.WithMax(5),
-	retry.WithBackoff(wrapBackoffWithMetrics(retry.BackoffExponentialWithJitter(100*time.Millisecond, 0.1))),
+	retry.WithMax(6), // 6 attempts = 5 retries
+	retry.WithBackoff(WrapBackoffWithMetrics(retry.BackoffExponentialWithJitter(100*time.Millisecond, 0.1))),
 	retry.WithCodes(codes.Canceled, codes.DeadlineExceeded, codes.ResourceExhausted, codes.Aborted, codes.Internal, codes.Unavailable),
 }
 
@@ -45,7 +45,7 @@ func CARetryInterceptor() grpc.DialOption {
 
 // grpcretry has no hooks to trigger logic on failure (https://github.com/grpc-ecosystem/go-grpc-middleware/issues/375)
 // Instead, we can wrap the backoff hook to log/increment metrics before returning the backoff result.
-func wrapBackoffWithMetrics(bf retry.BackoffFunc) retry.BackoffFunc {
+func WrapBackoffWithMetrics(bf retry.BackoffFunc) retry.BackoffFunc {
 	return func(ctx context.Context, attempt uint) time.Duration {
 		wait := bf(ctx, attempt)
 		caLog.Warnf("ca request failed, starting attempt %d in %v", attempt, wait)
