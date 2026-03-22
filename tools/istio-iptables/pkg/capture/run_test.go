@@ -21,6 +21,7 @@ import (
 
 	testutil "istio.io/istio/pilot/test/util"
 	"istio.io/istio/tools/common/config"
+	"istio.io/istio/tools/istio-iptables/pkg/builder"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
 )
@@ -250,6 +251,101 @@ func getCommonTestCases() []struct {
 				cfg.HostIPv4LoopbackCidr = "127.0.0.1/8"
 			},
 		},
+		{
+			"outbound-ports-exclude",
+			func(cfg *config.Config) {
+				cfg.OutboundPortsExclude = "22,80,443"
+			},
+		},
+		{
+			"outbound-ports-exclude-single",
+			func(cfg *config.Config) {
+				cfg.OutboundPortsExclude = "22"
+			},
+		},
+		{
+			"inbound-wildcard-exclude",
+			func(cfg *config.Config) {
+				cfg.InboundPortsInclude = "*"
+				cfg.InboundPortsExclude = "22,80,443"
+			},
+		},
+	}
+}
+
+func TestAppendMultiportRules(t *testing.T) {
+	tests := []struct {
+		name     string
+		ports    []string
+		protocol string
+		want     []string // expected rule snippets
+	}{
+		{
+			name:     "empty ports",
+			ports:    []string{},
+			protocol: "tcp",
+			want:     nil,
+		},
+		{
+			name:     "single port uses dport",
+			ports:    []string{"22"},
+			protocol: "tcp",
+			want:     []string{"-p tcp --dport 22 -j RETURN"},
+		},
+		{
+			name:     "two ports uses multiport",
+			ports:    []string{"22", "80"},
+			protocol: "tcp",
+			want:     []string{"-p tcp -m multiport --dports 22,80 -j RETURN"},
+		},
+		{
+			name:     "15 ports in single multiport rule",
+			ports:    []string{"1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15"},
+			protocol: "tcp",
+			want:     []string{"-p tcp -m multiport --dports 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15 -j RETURN"},
+		},
+		{
+			name:     "16 ports splits into two rules",
+			ports:    []string{"1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16"},
+			protocol: "udp",
+			want: []string{
+				"-p udp -m multiport --dports 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15 -j RETURN",
+				"-p udp --dport 16 -j RETURN",
+			},
+		},
+		{
+			name: "31 ports splits into three rules",
+			ports: []string{
+				"1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15",
+				"16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30",
+				"31",
+			},
+			protocol: "tcp",
+			want: []string{
+				"-p tcp -m multiport --dports 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15 -j RETURN",
+				"-p tcp -m multiport --dports 16,17,18,19,20,21,22,23,24,25,26,27,28,29,30 -j RETURN",
+				"-p tcp --dport 31 -j RETURN",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var got []string
+			mockAppend := func(chain string, table string, params ...string) *builder.IptablesRuleBuilder {
+				got = append(got, strings.Join(params, " "))
+				return nil
+			}
+			appendMultiportRules(mockAppend, "TEST_CHAIN", "nat", tt.protocol, tt.ports, "RETURN")
+			if len(tt.want) != len(got) {
+				t.Fatalf("expected %d rules, got %d: %v", len(tt.want), len(got), got)
+			}
+			for i, want := range tt.want {
+				if got[i] != want {
+					t.Errorf("rule[%d] = %q, want %q", i, got[i], want)
+				}
+			}
+		})
 	}
 }
 

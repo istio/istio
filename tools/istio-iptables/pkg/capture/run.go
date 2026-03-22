@@ -120,10 +120,8 @@ func (cfg *IptablesConfigurator) handleInboundPortsInclude() {
 		if cfg.cfg.InboundPortsInclude == "*" {
 			// Apply any user-specified port exclusions.
 			if cfg.cfg.InboundPortsExclude != "" {
-				for _, port := range config.Split(cfg.cfg.InboundPortsExclude) {
-					cfg.ruleBuilder.AppendRule(constants.ISTIOINBOUND, table, "-p", "tcp",
-						"--dport", port, "-j", "RETURN")
-				}
+				ports := config.Split(cfg.cfg.InboundPortsExclude)
+				appendMultiportRules(cfg.ruleBuilder.AppendRule, constants.ISTIOINBOUND, table, "tcp", ports, "RETURN")
 			}
 			// Redirect remaining inbound traffic to Envoy.
 			if cfg.cfg.InboundInterceptionMode == "TPROXY" {
@@ -151,6 +149,37 @@ func (cfg *IptablesConfigurator) handleInboundPortsInclude() {
 						constants.ISTIOINBOUND, "nat", "-p", "tcp", "--dport", port, "-j", constants.ISTIOINREDIRECT)
 				}
 			}
+		}
+	}
+}
+
+// appendMultiportRules consolidates individual per-port iptables rules into multiport rules.
+// The iptables multiport extension supports up to 15 ports per rule, so ports are chunked
+// into groups of 15 if necessary. For a single port, a simple --dport rule is used instead
+// of the multiport extension for clarity and compatibility.
+func appendMultiportRules(
+	appendFn func(chain string, table string, params ...string) *builder.IptablesRuleBuilder,
+	chain, table, protocol string, ports []string, target string,
+) {
+	if len(ports) == 0 {
+		return
+	}
+	if len(ports) == 1 {
+		appendFn(chain, table, "-p", protocol, "--dport", ports[0], "-j", target)
+		return
+	}
+	// multiport supports up to 15 ports per rule
+	const maxMultiport = 15
+	for i := 0; i < len(ports); i += maxMultiport {
+		end := i + maxMultiport
+		if end > len(ports) {
+			end = len(ports)
+		}
+		chunk := ports[i:end]
+		if len(chunk) == 1 {
+			appendFn(chain, table, "-p", protocol, "--dport", chunk[0], "-j", target)
+		} else {
+			appendFn(chain, table, "-p", protocol, "-m", "multiport", "--dports", strings.Join(chunk, ","), "-j", target)
 		}
 	}
 }
@@ -281,9 +310,9 @@ func (cfg *IptablesConfigurator) Run() error {
 
 	// Apply port based exclusions. Must be applied before connections back to self are redirected.
 	if cfg.cfg.OutboundPortsExclude != "" {
-		for _, port := range config.Split(cfg.cfg.OutboundPortsExclude) {
-			cfg.ruleBuilder.AppendRule(constants.ISTIOOUTPUT, "nat", "-p", "tcp", "--dport", port, "-j", "RETURN")
-			cfg.ruleBuilder.AppendRule(constants.ISTIOOUTPUT, "nat", "-p", "udp", "--dport", port, "-j", "RETURN")
+		ports := config.Split(cfg.cfg.OutboundPortsExclude)
+		for _, proto := range []string{"tcp", "udp"} {
+			appendMultiportRules(cfg.ruleBuilder.AppendRule, constants.ISTIOOUTPUT, "nat", proto, ports, "RETURN")
 		}
 	}
 
