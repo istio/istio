@@ -462,7 +462,7 @@ func parentMeta(obj controllers.Object, sectionName *k8s.SectionName) map[string
 	}
 }
 
-// getURIRank ranks a URI match type. Exact > Prefix > Regex
+// getURIRank ranks a URI match type. Exact > Prefix > Regex > PathTemplate
 func getURIRank(match *istio.HTTPMatchRequest) int {
 	if match.Uri == nil {
 		return -1
@@ -473,6 +473,8 @@ func getURIRank(match *istio.HTTPMatchRequest) int {
 	case *istio.StringMatch_Prefix:
 		return 2
 	case *istio.StringMatch_Regex:
+		return 1
+	case *istio.StringMatch_PathTemplate:
 		return 1
 	}
 	// should not happen
@@ -490,6 +492,8 @@ func getURILength(match *istio.HTTPMatchRequest) int {
 		return len(match.Uri.GetExact())
 	case *istio.StringMatch_Regex:
 		return len(match.Uri.GetRegex())
+	case *istio.StringMatch_PathTemplate:
+		return len(match.Uri.GetPathTemplate())
 	}
 	// should not happen
 	return -1

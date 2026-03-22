@@ -410,6 +410,10 @@ func stringMatchConflict(root, leaf *networking.StringMatch) bool {
 	if root == nil || leaf == nil {
 		return false
 	}
+	// pathTemplate cannot be composed with delegate VirtualServices.
+	if root.GetPathTemplate() != "" || leaf.GetPathTemplate() != "" {
+		return true
+	}
 	// If root regex match is specified, delegate should not have other matches.
 	if root.GetRegex() != "" {
 		if leaf.GetRegex() != "" || leaf.GetPrefix() != "" || leaf.GetExact() != "" {
