@@ -1,0 +1,22 @@
+{{- if and .Values.podMonitor.enabled (or (eq .Values.resourceScope "all") (eq .Values.resourceScope "namespace")) }}
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: {{ include "ztunnel.release-name" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: ztunnel
+    {{- include "istio.labels" . | nindent 4}}
+    {{ with .Values.labels -}}{{ toYaml . | nindent 4}}{{ end }}
+spec:
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}
+  selector:
+    matchLabels:
+      app: ztunnel
+  podMetricsEndpoints:
+    - port: ztunnel-stats
+      path: /metrics
+      interval: {{ .Values.podMonitor.interval | default "30s" }}
+{{- end }}
