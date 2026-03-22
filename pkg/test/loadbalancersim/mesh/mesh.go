@@ -80,7 +80,7 @@ func (m *Instance) ShutDown() {
 
 func (m *Instance) NewNodes(count int, serviceTime time.Duration, enableQueueLatency bool, locality locality.Instance) Nodes {
 	out := make(Nodes, 0, count)
-	for i := 0; i < count; i++ {
+	for i := range count {
 		name := fmt.Sprintf("%s_%d", locality, i)
 		out = append(out, newNode(name, serviceTime, enableQueueLatency, locality))
 	}

@@ -3609,7 +3609,7 @@ func BenchmarkConvertIstioListenerToWrapper(b *testing.B) {
 func benchmarkConvertIstioListenerToWrapper(b *testing.B, vsNum int, hostNum int, wildcard string, matchAll bool) {
 	// virtual service
 	cfgs := make([]config.Config, 0)
-	for i := 0; i < vsNum; i++ {
+	for i := range vsNum {
 		cfgs = append(cfgs, config.Config{
 			Meta: config.Meta{
 				GroupVersionKind: gvk.VirtualService,
@@ -3626,7 +3626,7 @@ func benchmarkConvertIstioListenerToWrapper(b *testing.B, vsNum int, hostNum int
 
 	// service
 	svcList := make([]*Service, 0, vsNum)
-	for i := 0; i < vsNum; i++ {
+	for i := range vsNum {
 		svcList = append(svcList, &Service{
 			Attributes: ServiceAttributes{Namespace: "default"},
 			Hostname:   host.Name("host-" + strconv.Itoa(i) + ".com"),
@@ -3640,7 +3640,7 @@ func benchmarkConvertIstioListenerToWrapper(b *testing.B, vsNum int, hostNum int
 		hosts = append(hosts, "default/*")
 	} else {
 		// default/xx or default/*.xx
-		for i := 0; i < hostNum; i++ {
+		for i := range hostNum {
 			h := "default/" + wildcard + "host-" + strconv.Itoa(i) + ".com"
 			hosts = append(hosts, h)
 		}
@@ -3760,7 +3760,7 @@ func TestComputeWildcardHostVirtualServiceIndex(t *testing.T) {
 // createBenchmarkService creates a service with realistic attributes for benchmarking
 func createBenchmarkService(numPorts int, numAliases int) *Service {
 	ports := make([]*Port, numPorts)
-	for i := 0; i < numPorts; i++ {
+	for i := range numPorts {
 		ports[i] = &Port{
 			Name:     "http-" + string(rune('0'+i)),
 			Port:     8080 + i,
@@ -3769,7 +3769,7 @@ func createBenchmarkService(numPorts int, numAliases int) *Service {
 	}
 
 	aliases := make([]NamespacedHostname, numAliases)
-	for i := 0; i < numAliases; i++ {
+	for i := range numAliases {
 		aliases[i] = NamespacedHostname{
 			Hostname:  host.Name("alias" + string(rune('0'+i)) + ".example.com"),
 			Namespace: "default",

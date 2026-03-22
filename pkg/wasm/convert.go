@@ -109,7 +109,7 @@ func MaybeConvertWasmExtensionConfig(resources []*anypb.Any, cache Cache) error 
 		wasmConfigConversionDuration.Record(float64(time.Since(startTime).Milliseconds()))
 	}()
 
-	for i := 0; i < numResources; i++ {
+	for i := range numResources {
 		go func(i int) {
 			defer wg.Done()
 			extConfig, wasmHTTPConfig, wasmNetworkConfig, err := tryUnmarshal(resources[i])

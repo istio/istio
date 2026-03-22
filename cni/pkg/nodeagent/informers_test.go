@@ -1241,7 +1241,7 @@ func TestInformerStillHandlesDeleteEventIfPodNotActuallyPresentAnymore(t *testin
 }
 
 func assertPodAnnotated(t *testing.T, client kube.Client, pod *corev1.Pod) {
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		p, err := client.Kube().CoreV1().Pods(pod.Namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
 		if err != nil {
 			t.Fatal(err)
@@ -1255,7 +1255,7 @@ func assertPodAnnotated(t *testing.T, client kube.Client, pod *corev1.Pod) {
 }
 
 func assertPodAnnotatedPending(t *testing.T, client kube.Client, pod *corev1.Pod) {
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		p, err := client.Kube().CoreV1().Pods(pod.Namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
 		if err != nil {
 			t.Fatal(err)
@@ -1269,7 +1269,7 @@ func assertPodAnnotatedPending(t *testing.T, client kube.Client, pod *corev1.Pod
 }
 
 func assertPodNotAnnotated(t *testing.T, client kube.Client, pod *corev1.Pod) {
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		p, err := client.Kube().CoreV1().Pods(pod.Namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
 		if err != nil {
 			t.Fatal(err)

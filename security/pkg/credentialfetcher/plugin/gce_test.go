@@ -129,7 +129,7 @@ func getTokenFromServer(t *testing.T, p *GCEPlugin, callReps int) ([]string, []e
 	t.Helper()
 	var tokens []string
 	var errs []error
-	for i := 0; i < callReps; i++ {
+	for range callReps {
 		token, err := p.GetPlatformCredential()
 		tokens = append(tokens, token)
 		errs = append(errs, err)

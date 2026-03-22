@@ -184,7 +184,7 @@ func BenchmarkControllers(b *testing.B) {
 	log.FindScope("krt").SetOutputLevel(log.InfoLevel)
 	watch.DefaultChanSize = 100_000
 	initialPods := []*v1.Pod{}
-	for i := 0; i < 1000; i++ {
+	for i := range 1000 {
 		initialPods = append(initialPods, &v1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      fmt.Sprintf("pod-%d", i),
@@ -203,7 +203,7 @@ func BenchmarkControllers(b *testing.B) {
 		})
 	}
 	initialServices := []*v1.Service{}
-	for i := 0; i < 50; i++ {
+	for i := range 50 {
 		initialServices = append(initialServices, &v1.Service{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      fmt.Sprintf("pod-%d", i),
@@ -233,7 +233,7 @@ func BenchmarkControllers(b *testing.B) {
 		c.RunAndWait(test.NewStop(b))
 		drainN(events, 1000)
 		for n := 0; n < b.N; n++ {
-			for i := 0; i < 1000; i++ {
+			for i := range 1000 {
 				pods.Update(&v1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      fmt.Sprintf("pod-%d", i),

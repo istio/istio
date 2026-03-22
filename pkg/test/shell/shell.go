@@ -34,7 +34,7 @@ func Execute(combinedOutput bool, args string) (string, error) {
 	}
 
 	var p []string
-	for i := 0; i < len(parts); i++ {
+	for i := range parts {
 		if parts[i] != "" {
 			p = append(p, parts[i])
 		}
