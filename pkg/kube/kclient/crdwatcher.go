@@ -91,6 +91,9 @@ type resourceFilterConfig struct {
 // flags.
 func fetchResourceFilter(filters string) []resourceFilterConfig {
 	resourceFilter := make([]resourceFilterConfig, 0)
+	if len(filters) == 0 {
+		return resourceFilter
+	}
 
 	for filter := range strings.SplitSeq(filters, ",") {
 		val := strings.TrimSpace(filter)
