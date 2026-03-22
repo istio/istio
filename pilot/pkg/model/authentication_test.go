@@ -17,6 +17,7 @@ package model
 import (
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -1877,9 +1878,10 @@ func TestFilterPeerAuthenticationNamespacesPreservesPolicies(t *testing.T) {
 }
 
 func printConfigs(configs []*config.Config) string {
-	s := "[\n"
+	var s strings.Builder
+	s.WriteString("[\n")
 	for _, c := range configs {
-		s += fmt.Sprintf("%+v\n", c)
+		s.WriteString(fmt.Sprintf("%+v\n", c))
 	}
-	return s + "]"
+	return s.String() + "]"
 }
