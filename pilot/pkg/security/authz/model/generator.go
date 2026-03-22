@@ -212,6 +212,18 @@ func serviceAccountRegex(defaultNamespace string, value string) string {
 	return fmt.Sprintf("spiffe://.+/ns/%s/(.+/|)sa/%s(/.+)?", ns, sa)
 }
 
+type srcTrustDomainGenerator struct{}
+
+func (srcTrustDomainGenerator) permission(_, _ string, _ bool) (*rbacpb.Permission, error) {
+	return nil, fmt.Errorf("unimplemented")
+}
+
+func (srcTrustDomainGenerator) principal(_, value string, _ bool, useAuthenticated bool) (*rbacpb.Principal, error) {
+	v := strings.Replace(value, "*", "[^/]*", -1)
+	m := matcher.StringMatcherRegex(fmt.Sprintf("spiffe://%s/.*", v))
+	return principalAuthenticated(m, useAuthenticated), nil
+}
+
 type srcPrincipalGenerator struct{}
 
 func (srcPrincipalGenerator) permission(_, _ string, _ bool) (*rbacpb.Permission, error) {

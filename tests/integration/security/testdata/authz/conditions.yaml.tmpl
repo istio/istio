@@ -93,6 +93,29 @@ spec:
 apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
+  name: {{ .To.ServiceName }}-source-trust-domain
+spec:
+  selector:
+    matchLabels:
+      app: "{{ .To.ServiceName }}"
+  rules:
+  - to:
+    - operation:
+        paths: [ "/source-trust-domain" ]
+    when:
+    - key: source.trustDomain
+      values: [ "cluster.local" ]
+  - to:
+      - operation:
+          paths: [ "/source-trust-domain-notValues" ]
+    when:
+      - key: source.trustDomain
+        notValues: [ "bad.example.com" ]
+---
+
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
   name: {{ .To.ServiceName }}-destination-ip
 spec:
   selector:

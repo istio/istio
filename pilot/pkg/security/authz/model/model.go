@@ -38,6 +38,7 @@ const (
 	attrRemoteIP          = "remote.ip"                   // original client ip determined from x-forwarded-for or proxy protocol.
 	attrSrcNamespace      = "source.namespace"            // e.g. "default".
 	attrSrcServiceAccount = "source.serviceAccount"       // e.g. "default/productpage".
+	attrSrcTrustDomain    = "source.trustDomain"          // trust domain portion of the source SPIFFE identity.
 	attrSrcPrincipal      = "source.principal"            // source identity, e,g, "cluster.local/ns/default/sa/productpage".
 	attrRequestPrincipal  = "request.auth.principal"      // authenticated principal of the request.
 	attrRequestAudiences  = "request.auth.audiences"      // intended audience(s) for this authentication information.
@@ -99,6 +100,8 @@ func New(policyName types.NamespacedName, r *authzpb.Rule) (*Model, error) {
 			basePrincipal.appendLast(remoteIPGenerator{}, k, when.Values, when.NotValues)
 		case k == attrSrcNamespace:
 			basePrincipal.appendLast(srcNamespaceGenerator{}, k, when.Values, when.NotValues)
+		case k == attrSrcTrustDomain:
+			basePrincipal.appendLast(srcTrustDomainGenerator{}, k, when.Values, when.NotValues)
 		case k == attrSrcServiceAccount:
 			basePrincipal.appendLast(srcServiceAccountGenerator{policyName: policyName}, k, when.Values, when.NotValues)
 		case k == attrSrcPrincipal:
@@ -124,6 +127,7 @@ func New(policyName types.NamespacedName, r *authzpb.Rule) (*Model, error) {
 			merged.insertFront(srcIPGenerator{}, attrSrcIP, s.IpBlocks, s.NotIpBlocks)
 			merged.insertFront(remoteIPGenerator{}, attrRemoteIP, s.RemoteIpBlocks, s.NotRemoteIpBlocks)
 			merged.insertFront(srcNamespaceGenerator{}, attrSrcNamespace, s.Namespaces, s.NotNamespaces)
+			merged.insertFront(srcTrustDomainGenerator{}, attrSrcTrustDomain, s.TrustDomains, s.NotTrustDomains)
 			merged.insertFront(srcServiceAccountGenerator{policyName: policyName}, attrSrcServiceAccount, s.ServiceAccounts, s.NotServiceAccounts)
 			merged.insertFrontExtended(requestPrincipalGenerator{}, attrRequestPrincipal, s.RequestPrincipals, s.NotRequestPrincipals)
 			merged.insertFront(srcPrincipalGenerator{}, attrSrcPrincipal, s.Principals, s.NotPrincipals)
@@ -161,6 +165,13 @@ func (m *Model) MigrateTrustDomain(tdBundle trustdomain.Bundle) {
 				}
 				if len(r.notValues) != 0 {
 					r.notValues = tdBundle.ReplaceTrustDomainAliases(r.notValues)
+				}
+			} else if r.key == attrSrcTrustDomain {
+				if len(r.values) != 0 {
+					r.values = tdBundle.ExpandTrustDomainAliases(r.values)
+				}
+				if len(r.notValues) != 0 {
+					r.notValues = tdBundle.ExpandTrustDomainAliases(r.notValues)
 				}
 			}
 		}

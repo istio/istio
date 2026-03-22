@@ -344,6 +344,50 @@ func TestGenerator(t *testing.T) {
               regex: .*/ns/foo/.*`),
 		},
 		{
+			name:  "srcTrustDomainGenerator-exact",
+			g:     srcTrustDomainGenerator{},
+			value: "cluster.local",
+			want: yamlPrincipal(t, `
+         filter_state:
+           key: io.istio.peer_principal
+           string_match:
+            safeRegex:
+              regex: spiffe://cluster.local/.*`),
+		},
+		{
+			name:  "srcTrustDomainGenerator-wildcard",
+			g:     srcTrustDomainGenerator{},
+			value: "*",
+			want: yamlPrincipal(t, `
+         filter_state:
+           key: io.istio.peer_principal
+           string_match:
+            safeRegex:
+              regex: spiffe://[^/]*/.*`),
+		},
+		{
+			name:  "srcTrustDomainGenerator-prefix-wildcard",
+			g:     srcTrustDomainGenerator{},
+			value: "cluster.*",
+			want: yamlPrincipal(t, `
+         filter_state:
+           key: io.istio.peer_principal
+           string_match:
+            safeRegex:
+              regex: spiffe://cluster.[^/]*/.*`),
+		},
+		{
+			name:  "srcTrustDomainGenerator-suffix-wildcard",
+			g:     srcTrustDomainGenerator{},
+			value: "*local",
+			want: yamlPrincipal(t, `
+         filter_state:
+           key: io.istio.peer_principal
+           string_match:
+            safeRegex:
+              regex: spiffe://[^/]*local/.*`),
+		},
+		{
 			name:  "srcPrincipalGenerator-http",
 			g:     srcPrincipalGenerator{},
 			key:   "source.principal",

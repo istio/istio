@@ -179,6 +179,73 @@ func TestAuthz_ServiceAccount(t *testing.T) {
 		})
 }
 
+func TestAuthz_TrustDomain(t *testing.T) {
+	framework.NewTest(t).
+		Run(func(t framework.TestContext) {
+			from := apps.Ns1.A.Append(apps.Ns2.A)
+			fromMatch := match.AnyServiceName(from.NamespacedNames())
+			toMatch := match.Not(fromMatch)
+			to := toMatch.GetServiceMatches(apps.Ns1.All)
+			fromAndTo := to.Instances().Append(from)
+
+			config.New(t).
+				Source(config.File("testdata/authz/mtls.yaml.tmpl")).
+				Source(config.File("testdata/authz/allow-trust-domain.yaml.tmpl")).
+				BuildAll(nil, to).
+				Apply()
+
+			newTrafficTest(t, fromAndTo).
+				FromMatch(fromMatch).
+				ToMatch(toMatch).
+				Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
+					cases := []struct {
+						ports []echo.Port
+						path  string
+						allow allowValue
+					}{
+						{
+							// All test instances are in cluster.local, so all should be allowed.
+							ports: []echo.Port{ports.GRPC, ports.TCP},
+							allow: true,
+						},
+						{
+							// trustDomains: ["cluster.local"] matches all test instances.
+							ports: []echo.Port{ports.HTTP, ports.HTTP2},
+							path:  "/allow",
+							allow: true,
+						},
+						{
+							// trustDomains: ["bad.example.com"] matches no test instance.
+							ports: []echo.Port{ports.HTTP, ports.HTTP2},
+							path:  "/deny",
+							allow: false,
+						},
+						{
+							// notTrustDomains: ["cluster.local"] excludes all test instances.
+							ports: []echo.Port{ports.HTTP, ports.HTTP2},
+							path:  "/not-trust-domain",
+							allow: false,
+						},
+						{
+							// notTrustDomains: ["bad.example.com"] excludes nothing, so cluster.local is allowed.
+							ports: []echo.Port{ports.HTTP, ports.HTTP2},
+							path:  "/not-deny",
+							allow: true,
+						},
+					}
+
+					for _, c := range cases {
+						newAuthzTest().
+							From(from).
+							To(to).
+							Allow(c.allow).
+							Path(c.path).
+							BuildAndRunForPorts(t, c.ports...)
+					}
+				})
+		})
+}
+
 func TestAuthz_DenyPrincipal(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
@@ -1571,6 +1638,17 @@ func TestAuthz_Conditions(t *testing.T) {
 						{
 							path:  "/source-principal-notValues",
 							allow: allow,
+						},
+
+						// Test source trust domain.
+						// All test instances are in cluster.local, so both cases always allow.
+						{
+							path:  "/source-trust-domain",
+							allow: true,
+						},
+						{
+							path:  "/source-trust-domain-notValues",
+							allow: true,
 						},
 
 						// Test destination IP
