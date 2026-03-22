@@ -16,6 +16,9 @@ metadata:
     {{- .Values.annotations | toYaml | nindent 4 }}
 {{- end }}
 spec:
+  {{- if .Values.minReadySeconds }}
+  minReadySeconds: {{ .Values.minReadySeconds }}
+  {{- end }}
   {{- with .Values.updateStrategy }}
   updateStrategy:
     {{- toYaml . | nindent 4 }}
