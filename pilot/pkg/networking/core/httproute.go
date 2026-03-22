@@ -325,23 +325,34 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 		if listenerPort == 0 {
 			// Take all ports when listen port is 0 (http_proxy or uds)
 			// Expect virtualServices to resolve to right port
-			servicesByName[svc.Hostname] = svc
+			if existing, ok := servicesByName[svc.Hostname]; ok {
+				// ServiceEntry with multiple addresses creates multiple services with the same hostname.
+				// Merge additional addresses so that all IPs appear in VirtualHost domains.
+				addServiceAddress(existing, svc.GetAddressForProxy(node))
+			} else {
+				servicesByName[svc.Hostname] = svc
+			}
 		} else if svcPort, exists := svc.Ports.GetByPort(listenerPort); exists {
 			h := host.Name(strings.ToLower(string(svc.Hostname)))
-			servicesByName[h] = &model.Service{
-				Hostname:       h,
-				DefaultAddress: svc.GetAddressForProxy(node),
-				ClusterVIPs:    model.AddressMap{Addresses: svc.ClusterVIPs.Addresses},
-				MeshExternal:   svc.MeshExternal,
-				Resolution:     svc.Resolution,
-				Ports:          []*model.Port{svcPort},
-				Attributes: model.ServiceAttributes{
-					Namespace:       svc.Attributes.Namespace,
-					ServiceRegistry: svc.Attributes.ServiceRegistry,
-					Labels:          svc.Attributes.Labels,
-					Aliases:         svc.Attributes.Aliases,
-					K8sAttributes:   svc.Attributes.K8sAttributes,
-				},
+			addr := svc.GetAddressForProxy(node)
+			if existing, ok := servicesByName[h]; ok {
+				addServiceAddress(existing, addr)
+			} else {
+				servicesByName[h] = &model.Service{
+					Hostname:       h,
+					DefaultAddress: addr,
+					ClusterVIPs:    model.AddressMap{Addresses: svc.ClusterVIPs.Addresses},
+					MeshExternal:   svc.MeshExternal,
+					Resolution:     svc.Resolution,
+					Ports:          []*model.Port{svcPort},
+					Attributes: model.ServiceAttributes{
+						Namespace:       svc.Attributes.Namespace,
+						ServiceRegistry: svc.Attributes.ServiceRegistry,
+						Labels:          svc.Attributes.Labels,
+						Aliases:         svc.Attributes.Aliases,
+						K8sAttributes:   svc.Attributes.K8sAttributes,
+					},
+				}
 			}
 		}
 	}
@@ -544,6 +555,31 @@ func SidecarIgnorePort(node *model.Proxy) bool {
 	return !node.IsProxylessGrpc()
 }
 
+// addServiceAddress adds addr to dst's ClusterVIPs under the empty cluster ID so that
+// generateVirtualHostDomains includes it in the VirtualHost domains list.
+// This handles ServiceEntry with multiple addresses where each address creates a separate
+// Service object with the same hostname. Without merging, only one address would be visible.
+func addServiceAddress(dst *model.Service, addr string) {
+	if len(addr) == 0 || addr == constants.UnspecifiedIP {
+		return
+	}
+	// Check if addr is already the DefaultAddress or already in ClusterVIPs.
+	if dst.DefaultAddress == addr {
+		return
+	}
+	existing := dst.ClusterVIPs.GetAddressesFor("")
+	for _, a := range existing {
+		if a == addr {
+			return
+		}
+	}
+	// First merge: include dst's own DefaultAddress in the list.
+	if len(existing) == 0 && dst.DefaultAddress != "" && dst.DefaultAddress != constants.UnspecifiedIP {
+		existing = []string{dst.DefaultAddress}
+	}
+	dst.ClusterVIPs.SetAddressesFor("", append(existing, addr))
+}
+
 // generateVirtualHostDomains generates the set of domain matches for a service being accessed from
 // a proxy node
 func generateVirtualHostDomains(service *model.Service, listenerPort int, port int, node *model.Proxy) ([]string, []string) {
@@ -572,7 +608,18 @@ func generateVirtualHostDomains(service *model.Service, listenerPort int, port i
 		}
 	}
 
-	for _, svcAddr := range service.GetAllAddressesForProxy(node) {
+	// Collect all addresses for this service. GetAllAddressesForProxy handles the common case,
+	// but when multiple addresses are merged from a ServiceEntry (issue #58692), we also need
+	// to check ClusterVIPs directly in case the proxy has no ClusterID set.
+	svcAddresses := service.GetAllAddressesForProxy(node)
+	if node.Metadata == nil || node.Metadata.ClusterID == "" {
+		// When ClusterID is empty, GetAllAddressesForProxy only returns DefaultAddress.
+		// Check ClusterVIPs for additional merged addresses.
+		if vips := service.ClusterVIPs.GetAddressesFor(""); len(vips) > len(svcAddresses) {
+			svcAddresses = vips
+		}
+	}
+	for _, svcAddr := range svcAddresses {
 		if len(svcAddr) > 0 && svcAddr != constants.UnspecifiedIP {
 			domains = appendDomainPort(domains, svcAddr, port)
 		}

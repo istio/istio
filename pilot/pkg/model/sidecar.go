@@ -964,10 +964,17 @@ func (sc *SidecarScope) appendSidecarServices(servicesAdded map[host.Name]sideca
 			return
 		}
 
-		// if both services have the same ports, no need to merge and we save a deepcopy
+		// if both services have the same ports, no need to merge ports and we save a deepcopy.
+		// However, if they have different addresses (e.g., ServiceEntry with multiple addresses),
+		// we still need to merge the addresses so that all IPs are exposed in route domains.
 		if existing.Ports.Equals(s.Ports) {
-			log.Debugf("Service %s/%s from registry %s ignored as it has the same ports as %s/%s/%s", s.Attributes.Namespace, s.Hostname,
-				s.Attributes.ServiceRegistry, existing.Attributes.Namespace, existing.Hostname, existing.Attributes.ServiceRegistry)
+			if s.DefaultAddress != existing.DefaultAddress &&
+				s.DefaultAddress != "" && s.DefaultAddress != constants.UnspecifiedIP {
+				mergeServiceAddresses(existing, s, foundSvc.index, sc, servicesAdded)
+			} else {
+				log.Debugf("Service %s/%s from registry %s ignored as it has the same ports as %s/%s/%s", s.Attributes.Namespace, s.Hostname,
+					s.Attributes.ServiceRegistry, existing.Attributes.Namespace, existing.Hostname, existing.Attributes.ServiceRegistry)
+			}
 			return
 		}
 
@@ -1008,6 +1015,40 @@ func (sc *SidecarScope) appendSidecarServices(servicesAdded map[host.Name]sideca
 		// update the existing service in the map to the merged one
 		sc.servicesByHostname[s.Hostname] = copied
 	}
+}
+
+// mergeServiceAddresses merges the DefaultAddress from s into the existing service's ClusterVIPs.
+// This is needed for ServiceEntry with multiple addresses, where the conversion layer creates
+// one Service per address with the same hostname and ports. Without merging, only one address
+// would be visible in HTTP route domains.
+func mergeServiceAddresses(existing, s *Service, idx int, sc *SidecarScope, servicesAdded map[host.Name]sidecarServiceIndex) {
+	copied := existing.ShallowCopy()
+	// Collect all unique addresses into ClusterVIPs under empty cluster ID,
+	// which is the convention for ServiceEntry-originated services.
+	var addresses []string
+	existingAddrs := copied.ClusterVIPs.GetAddressesFor("")
+	if len(existingAddrs) > 0 {
+		addresses = append(addresses, existingAddrs...)
+	} else if copied.DefaultAddress != "" && copied.DefaultAddress != constants.UnspecifiedIP {
+		addresses = []string{copied.DefaultAddress}
+	}
+	// Add the new address if not already present.
+	addr := s.DefaultAddress
+	found := false
+	for _, a := range addresses {
+		if a == addr {
+			found = true
+			break
+		}
+	}
+	if !found {
+		addresses = append(addresses, addr)
+	}
+	copied.ClusterVIPs.SetAddressesFor("", addresses)
+
+	sc.services[idx] = copied
+	servicesAdded[copied.Hostname] = sidecarServiceIndex{copied, idx}
+	sc.servicesByHostname[copied.Hostname] = copied
 }
 
 func canMergeServices(s1, s2 *Service) bool {
