@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 59483
+releaseNotes:
+  - |
+    - **Fixed** applying multiple VirtualService for the same hostname to waypoints.
