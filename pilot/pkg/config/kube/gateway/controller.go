@@ -473,8 +473,14 @@ func buildClient[I controllers.ComparableObject](
 		ObjectFilter: kubetypes.ComposeFilters(kc.ObjectFilter(), c.inRevision),
 	}
 
-	// all other types are filtered by revision, but for gateways we need to select tags as well
-	if res == gvr.KubernetesGateway {
+	// Gateways are not filtered by revision because they use tag-based selection instead.
+	// Routes (HTTPRoute, GRPCRoute, TCPRoute, TLSRoute) are also not filtered by revision
+	// so that they remain globally visible to all revisions. This is critical for multi-revision
+	// canary upgrade scenarios where a route labeled with revision A must still be programmed
+	// by a Gateway owned by revision B. Status writing is already independently gated by
+	// tagWatcher.IsMine() in RegisterStatus, so revision-scoped ownership is preserved there.
+	switch res {
+	case gvr.KubernetesGateway, gvr.HTTPRoute, gvr.GRPCRoute, gvr.TCPRoute, gvr.TLSRoute:
 		filter.ObjectFilter = kc.ObjectFilter()
 	}
 

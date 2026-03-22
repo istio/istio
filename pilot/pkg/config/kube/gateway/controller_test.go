@@ -93,6 +93,90 @@ func setupController(t *testing.T, objs ...runtime.Object) *Controller {
 	return controller
 }
 
+func setupControllerWithRevision(t *testing.T, revision string, objs ...runtime.Object) *Controller {
+	kc := kube.NewFakeClient(objs...)
+	setupClientCRDs(t, kc)
+	stop := test.NewStop(t)
+	ctrl := NewController(
+		kc,
+		AlwaysReady,
+		controller.Options{
+			Revision:    revision,
+			KrtDebugger: krt.GlobalDebugHandler,
+		},
+		nil)
+	kc.RunAndWait(stop)
+	go ctrl.Run(stop)
+	cg := core.NewConfigGenTest(t, core.TestOptions{})
+	ctrl.Reconcile(cg.PushContext())
+	kube.WaitForCacheSync("test", stop, ctrl.HasSynced)
+	return ctrl
+}
+
+// TestHTTPRouteVisibleAcrossRevisions verifies that an HTTPRoute labeled with
+// one revision is still programmed into a VirtualService by a controller
+// running under a different revision. This is the fix for
+// https://github.com/istio/istio/issues/58840 where revision-scoped informer
+// filtering caused routes to be invisible during multi-revision canary upgrades.
+func TestHTTPRouteVisibleAcrossRevisions(t *testing.T) {
+	// The controller runs as revision "rev-B".  The Gateway is labeled with
+	// "rev-B" so tagWatcher.IsMine claims it.  The HTTPRoute is labeled with
+	// "rev-A" (a different revision).  Without the fix, the inRevision
+	// informer filter would drop the route entirely, producing zero
+	// VirtualServices.
+	ctrl := setupControllerWithRevision(t, "rev-B",
+		&k8s.GatewayClass{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "gwclass",
+			},
+			Spec: *gatewayClassSpec,
+		},
+		&k8s.Gateway{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "gwspec",
+				Namespace: "ns1",
+				Labels: map[string]string{
+					"istio.io/rev": "rev-B",
+				},
+			},
+			Spec: *gatewaySpec,
+		},
+		&k8s.HTTPRoute{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "cross-rev-route",
+				Namespace: "ns1",
+				Labels: map[string]string{
+					"istio.io/rev": "rev-A",
+				},
+			},
+			Spec: k8s.HTTPRouteSpec{
+				CommonRouteSpec: k8s.CommonRouteSpec{ParentRefs: []k8s.ParentReference{{
+					Name: "gwspec",
+				}}},
+				Hostnames: []k8s.Hostname{"test.cluster.local"},
+				Rules: []k8s.HTTPRouteRule{{
+					BackendRefs: []k8s.HTTPBackendRef{{
+						BackendRef: k8s.BackendRef{
+							BackendObjectReference: k8s.BackendObjectReference{
+								Name: "test-service",
+								Port: func() *k8s.PortNumber { p := k8s.PortNumber(80); return &p }(),
+							},
+						},
+					}},
+				}},
+			},
+		})
+
+	dumpOnFailure(t, krt.GlobalDebugHandler)
+
+	// The route should produce a VirtualService even though the route carries
+	// a different revision label than the controller.
+	vs := ctrl.List(gvk.VirtualService, "ns1")
+	if len(vs) == 0 {
+		t.Fatalf("expected VirtualService to be generated for cross-revision HTTPRoute, got none")
+	}
+}
+
 func TestListInvalidGroupVersionKind(t *testing.T) {
 	controller := setupController(t)
 
