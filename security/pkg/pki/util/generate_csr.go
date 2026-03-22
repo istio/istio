@@ -36,7 +36,7 @@ import (
 
 // MinimumRsaKeySize is the minimum RSA key size to generate certificates
 // to ensure proper security
-const MinimumRsaKeySize = 2048
+var MinimumRsaKeySize = 2048
 
 // GenCSR generates a X.509 certificate sign request and private key with the given options.
 func GenCSR(options CertOptions) ([]byte, []byte, error) {
