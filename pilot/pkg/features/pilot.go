@@ -380,6 +380,13 @@ var (
 		1024*1024*256,
 		"Maximum size of a Wasm binary in bytes. Default is 256MB.",
 	).Get()
+
+	SidecarPickBestServiceNamespace = env.Register(
+		"PILOT_SIDECAR_PICK_BEST_SERVICE_NAMESPACE",
+		true,
+		"If enabled, when a sidecar needs to pick a service namespace for a hostname, it will prefer Kubernetes services "+
+			"and fall back to the oldest non-Kubernetes service. When disabled, the first visible namespace alphabetically is used.",
+	).Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.
