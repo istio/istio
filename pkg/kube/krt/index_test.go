@@ -230,6 +230,9 @@ func TestIndexAsCollection(t *testing.T) {
 		assert.EventuallyEqual(t, func() *PodCount {
 			return Collection.GetKey(ip)
 		}, wo)
+		assert.EventuallyEqual(t, func() *PodCount {
+			return Collection.GetKey("dummy")
+		}, nil)
 	}
 
 	pod := &corev1.Pod{
