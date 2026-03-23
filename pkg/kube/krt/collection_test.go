@@ -779,6 +779,101 @@ func TestCollectionDiscardResult(t *testing.T) {
 		// Should see only one update -- the skip is ignored.
 		tt.WaitOrdered("add/static", "update/static")
 	})
+	t.Run("swapping with NewStatusManyCollection", func(t *testing.T) {
+		stop := test.NewStop(t)
+		opts := testOptions(t)
+		c := kube.NewFakeClient()
+		services := krt.NewInformer[*corev1.Service](c, opts.WithName("Services")...)
+		c.RunAndWait(stop)
+		sc := clienttest.Wrap(t, kclient.New[*corev1.Service](c))
+
+		// isMine and ip simulate tagWatcher.IsMine() as used in gateway_collection.go:
+		// when false, DiscardResult should retain the last-known primary outputs so that
+		// existing xDS clients keep their config during a revision transition (e.g. a
+		// Gateway annotated istio.io/rev:1-27 is re-annotated to istio.io/rev:1-28 — the
+		// 1-27 control plane must not push empty config to pods still on 1.27.x).
+		isMine := atomic.NewBool(true)
+		ip := atomic.NewString("1.2.3.4")
+		trigger := krt.NewRecomputeTrigger(true)
+		// discardCalled lets the test synchronize on the isMine=false recompute
+		// completing so it can assert retention before the second recompute runs.
+		discardCalled := atomic.NewBool(false)
+
+		tt := assert.NewTracker[string](t)
+		_, SimpleEndpoints := krt.NewStatusManyCollection[*corev1.Service, SimpleServiceStatus, SimpleEndpoint](services,
+			func(ctx krt.HandlerContext, svc *corev1.Service) (*SimpleServiceStatus, []SimpleEndpoint) {
+				trigger.MarkDependant(ctx)
+				if !isMine.Load() {
+					ctx.DiscardResult()
+					discardCalled.Store(true)
+					return nil, nil
+				}
+				currentIP := ip.Load()
+				return &SimpleServiceStatus{ValidName: true, TotalEndpoints: 1}, []SimpleEndpoint{
+					{Pod: "pod", Service: svc.Name, Namespace: svc.Namespace, IP: currentIP},
+				}
+			}, opts.WithName("SimpleEndpoints")...)
+
+		SimpleEndpoints.Register(TrackerHandler[SimpleEndpoint](tt))
+
+		svc := &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{Name: "svc", Namespace: "namespace"},
+			Spec:       corev1.ServiceSpec{Selector: map[string]string{"app": "foo"}},
+		}
+		sc.Create(svc)
+		// Wait for the initial endpoint without consuming a tracker event.
+		assert.EventuallyEqual(t, fetcherSorted(SimpleEndpoints), []SimpleEndpoint{
+			{Pod: "pod", Service: "svc", Namespace: "namespace", IP: "1.2.3.4"},
+		})
+
+		// Simulate IsMine() transitioning to false (e.g., during a revision change).
+		isMine.Store(false)
+		trigger.TriggerRecomputation()
+
+		// Wait for the recompute to actually run before asserting, otherwise the two
+		// TriggerRecomputation calls could be coalesced and the DiscardResult path
+		// would never be exercised.
+		assert.EventuallyEqual(t, discardCalled.Load, true)
+
+		// Core assertion: config must be RETAINED while isMine=false.  Without
+		// ctx.DiscardResult() the collection would have emitted a delete, wiping
+		// the xDS config for pods that are still on the old revision.
+		assert.Equal(t, fetcherSorted(SimpleEndpoints)(), []SimpleEndpoint{
+			{Pod: "pod", Service: "svc", Namespace: "namespace", IP: "1.2.3.4"},
+		})
+
+		// Transition back to isMine=true with a different IP so the update is observable.
+		// Using a distinct IP ensures the final WaitOrdered can detect any spurious delete
+		// that may have occurred during the isMine=false phase.
+		ip.Store("1.2.3.5")
+		isMine.Store(true)
+		trigger.TriggerRecomputation()
+
+		assert.EventuallyEqual(t, fetcherSorted(SimpleEndpoints), []SimpleEndpoint{
+			{Pod: "pod", Service: "svc", Namespace: "namespace", IP: "1.2.3.5"},
+		})
+		// Exactly add then update — no delete between the two isMine=true phases.
+		tt.WaitOrdered("add/namespace/svc/pod", "update/namespace/svc/pod")
+	})
+	t.Run("initial discard with NewStatusManyCollection", func(t *testing.T) {
+		stop := test.NewStop(t)
+		opts := testOptions(t)
+		c := kube.NewFakeClient(&corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{Name: "svc", Namespace: "namespace"},
+			Spec:       corev1.ServiceSpec{Selector: map[string]string{"app": "foo"}},
+		})
+		services := krt.NewInformer[*corev1.Service](c, opts.WithName("Services")...)
+		_, SimpleEndpoints := krt.NewStatusManyCollection[*corev1.Service, SimpleServiceStatus, SimpleEndpoint](services,
+			func(ctx krt.HandlerContext, svc *corev1.Service) (*SimpleServiceStatus, []SimpleEndpoint) {
+				// DiscardResult with no prior result produces nothing — there is nothing to retain.
+				ctx.DiscardResult()
+				return nil, nil
+			}, opts.WithName("SimpleEndpoints")...)
+		c.RunAndWait(stop)
+		assert.Equal(t, SimpleEndpoints.WaitUntilSynced(stop), true)
+		// No output: with no prior result, DiscardResult + nil return produces nothing.
+		assert.Equal(t, fetcherSorted(SimpleEndpoints)(), nil)
+	})
 }
 
 func TestCollectionMetadata(t *testing.T) {

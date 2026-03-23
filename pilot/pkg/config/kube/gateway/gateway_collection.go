@@ -95,6 +95,7 @@ func ListenerSetCollection(
 				return nil, nil
 			}
 			if !tagWatcher.Get(ctx).IsMine(obj.ObjectMeta) {
+				ctx.DiscardResult()
 				return nil, nil
 			}
 			result := []ListenerSet{}
@@ -249,6 +250,7 @@ func GatewayCollection(
 			return nil, nil
 		}
 		if !tagWatcher.Get(ctx).IsMine(obj.ObjectMeta) {
+			ctx.DiscardResult()
 			return nil, nil
 		}
 		result := []Gateway{}
