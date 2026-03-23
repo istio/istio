@@ -180,9 +180,9 @@ func getIngressGatewayServiceAccount(t framework.TestContext) string {
 	appsClient := cluster.Kube().AppsV1()
 
 	// Get the ingress gateway deployment
-	dep, err := appsClient.Deployments("istio-system").Get(
+	dep, err := appsClient.Deployments(i.Settings().SystemNamespace).Get(
 		context.TODO(),
-		"istio-ingressgateway",
+		i.IngressFor(cluster).ServiceName(),
 		metav1.GetOptions{},
 	)
 	if err != nil {

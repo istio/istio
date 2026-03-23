@@ -41,7 +41,7 @@ func TestClientToServiceTls(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
 			createObject(t, echo1NS.Name(), DestinationRuleConfigMutual)
-			createObject(t, "istio-system", PeerAuthenticationConfig)
+			createObject(t, inst.Settings().SystemNamespace, PeerAuthenticationConfig)
 
 			opts := echo.CallOptions{
 				To:    server,
