@@ -148,8 +148,13 @@ message CNIConfig {
 
   // Specifies if an Istio owned CNI config should be created.
   google.protobuf.BoolValue istioOwnedCNIConfig = 35;
-  
+
   string istioOwnedCNIConfigFileName = 36;
+
+  // Specifies whether to use the AppArmor annotation or the appArmorProfile field in the securityContext to configure the profile.
+  // See https://kubernetes.io/docs/tutorials/security/apparmor/
+  // https://kubernetes.io/docs/reference/labels-annotations-taints/#container-apparmor-security-beta-kubernetes-io
+  google.protobuf.BoolValue useAppArmorAnnotation = 37;
 }
 
 message CNIUsageConfig {
