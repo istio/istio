@@ -1468,7 +1468,7 @@ func TestServiceConditions(t *testing.T) {
 				true,
 			)
 			res := builder(krt.TestingDummyContext{}, tt.svc)
-			assert.Equal(t, res.GetConditions(), tt.conditions)
+			assert.Equal(t, res.GetConditions(nil), tt.conditions) // TODO: Test transitions for conditions
 		})
 	}
 }

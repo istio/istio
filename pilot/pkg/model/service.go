@@ -1219,13 +1219,21 @@ func (c *Condition) Equals(v *Condition) bool {
 		c.Status == v.Status
 }
 
-func (i ServiceInfo) GetConditions() ConditionSet {
+func (i ServiceInfo) GetConditions(currentConditions map[string]Condition) ConditionSet {
 	set := ConditionSet{
 		// Write all conditions here, then override if we want them set.
 		// This ensures we can properly prune the condition if its no longer needed (such as if there is no waypoint attached at all).
-		WaypointBound:                  nil,
-		ConnectStrategyWithoutWaypoint: nil,
-		WaypointMissing:                nil,
+		WaypointBound: nil,
+	}
+	if _, f := currentConditions[string(WaypointMissing)]; f || host.Name(i.Service.Hostname).IsWildCarded() && i.Source.Kind == kind.ServiceEntry {
+		// Only prune WaypointMissing condition if we have a wildcard service entry
+		set[WaypointMissing] = nil
+	}
+	if _, f := currentConditions[string(ConnectStrategyWithoutWaypoint)]; f || (i.DNSConnectStrategy != DNSConnectStrategyDefault && i.Source.Kind == kind.ServiceEntry) {
+		// Only prune ConnectStrategyWithoutWaypoint condition if we have a non-default connect strategy OR if the condition is already set.
+		// This ensures we do not have a scenario where a user sets a connect strategy, then removes it and
+		// the condition never goes away because we only check for non default strategies and not the presence of the condition itself.
+		set[ConnectStrategyWithoutWaypoint] = nil
 	}
 
 	if i.Waypoint.ResourceName != "" {
@@ -1396,7 +1404,7 @@ func (i WaypointPolicyStatus) GetStatusTarget() TypedObject {
 	return i.Source
 }
 
-func (i WaypointPolicyStatus) GetConditions() ConditionSet {
+func (i WaypointPolicyStatus) GetConditions(_currentConditions map[string]Condition) ConditionSet {
 	set := make(ConditionSet, 1)
 
 	set[WaypointAccepted] = flattenConditions(i.Conditions)
@@ -1497,7 +1505,7 @@ func (i WorkloadAuthorization) GetStatusTarget() TypedObject {
 	return i.Source
 }
 
-func (i WorkloadAuthorization) GetConditions() ConditionSet {
+func (i WorkloadAuthorization) GetConditions(_currentConditions map[string]Condition) ConditionSet {
 	set := make(ConditionSet, 1)
 
 	if i.Binding.Status != nil {
