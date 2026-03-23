@@ -278,7 +278,7 @@ func (i indexCollection[K, O]) RegisterBatch(f func(o []Event[IndexObject[K, O]]
 			// However, we don't really need to: simply triggering an Add/Delete is close enough to work.
 			// Building a collection from an indexCollection only uses the events to determine the changed keys, which is
 			// available with this information.
-			if v == nil || len(v.Objects) == 0 {
+			if v == nil {
 				downstream = append(downstream, Event[IndexObject[K, O]]{
 					Old:   &IndexObject[K, O]{Key: key, Objects: nil},
 					Event: controllers.EventDelete,
