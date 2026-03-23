@@ -68,7 +68,7 @@ func WaypointPolicyStatusCollection(
 				}
 				key := namespace + "/" + target.GetName()
 				message := "not bound"
-				reason := "unknown"
+				reason := model.WaypointPolicyReasonUnknown
 				bound := false
 				switch target.GetKind() {
 				case gvk.GatewayClass.Kind:
@@ -142,7 +142,7 @@ func WaypointPolicyStatusCollection(
 				conditions = append(conditions, model.PolicyBindingStatus{
 					ObservedGeneration: i.GetGeneration(),
 					Status: &model.StatusMessage{
-						Reason:  reason,
+						Reason:  string(reason),
 						Message: message,
 					},
 					Ancestor: target.GetKind() + "." + targetGroup + ":" + key,

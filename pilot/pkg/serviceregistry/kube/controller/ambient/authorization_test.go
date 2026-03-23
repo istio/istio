@@ -337,7 +337,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 				{
 					Ancestor: "ServiceEntry.networking.istio.io:ns1/working-se",
 					Status: &model.StatusMessage{
-						Reason:  model.WaypointPolicyReasonAccepted,
+						Reason:  string(model.WaypointPolicyReasonAccepted),
 						Message: "bound to " + testNS + "/waypoint",
 					},
 					Bound:              true,
@@ -377,7 +377,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 				{
 					Ancestor: "ServiceEntry.networking.istio.io:ns1/working-se-tr",
 					Status: &model.StatusMessage{
-						Reason:  model.WaypointPolicyReasonAccepted,
+						Reason:  string(model.WaypointPolicyReasonAccepted),
 						Message: "bound to " + testNS + "/waypoint",
 					},
 					Bound:              true,
@@ -422,7 +422,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 				{
 					Ancestor: "ServiceEntry.networking.istio.io:ns1/no-waypoint-se",
 					Status: &model.StatusMessage{
-						Reason:  model.WaypointPolicyReasonAncestorNotBound,
+						Reason:  string(model.WaypointPolicyReasonAncestorNotBound),
 						Message: gvk.ServiceEntry.Kind + " " + testNS + "/no-waypoint-se is not bound to a waypoint",
 					},
 					Bound:              false,
@@ -455,7 +455,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 				{
 					Ancestor: "ServiceEntry.networking.istio.io:ns1/missing-se",
 					Status: &model.StatusMessage{
-						Reason:  model.WaypointPolicyReasonTargetNotFound,
+						Reason:  string(model.WaypointPolicyReasonTargetNotFound),
 						Message: gvk.ServiceEntry.Kind + " " + testNS + "/missing-se was not found",
 					},
 					Bound:              false,
@@ -510,7 +510,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 				{
 					Ancestor: "ServiceEntry.networking.istio.io:ns1/multi-working-se-1",
 					Status: &model.StatusMessage{
-						Reason:  model.WaypointPolicyReasonAccepted,
+						Reason:  string(model.WaypointPolicyReasonAccepted),
 						Message: "bound to " + testNS + "/waypoint",
 					},
 					Bound:              true,
@@ -519,7 +519,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 				{
 					Ancestor: "ServiceEntry.networking.istio.io:ns1/multi-working-se-2",
 					Status: &model.StatusMessage{
-						Reason:  model.WaypointPolicyReasonAccepted,
+						Reason:  string(model.WaypointPolicyReasonAccepted),
 						Message: "bound to " + testNS + "/waypoint",
 					},
 					Bound:              true,
@@ -582,7 +582,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 				{
 					Ancestor: "ServiceEntry.networking.istio.io:ns1/multi-partial-no-waypoint-se-1",
 					Status: &model.StatusMessage{
-						Reason:  model.WaypointPolicyReasonAncestorNotBound,
+						Reason:  string(model.WaypointPolicyReasonAncestorNotBound),
 						Message: gvk.ServiceEntry.Kind + " " + testNS + "/multi-partial-no-waypoint-se-1 is not bound to a waypoint",
 					},
 					Bound:              false,
@@ -591,7 +591,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 				{
 					Ancestor: "ServiceEntry.networking.istio.io:ns1/multi-partial-bound-se-1",
 					Status: &model.StatusMessage{
-						Reason:  model.WaypointPolicyReasonAccepted,
+						Reason:  string(model.WaypointPolicyReasonAccepted),
 						Message: "bound to " + testNS + "/waypoint",
 					},
 					Bound:              true,
@@ -600,7 +600,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 				{
 					Ancestor: "ServiceEntry.networking.istio.io:ns1/multi-partial-missing-se-1",
 					Status: &model.StatusMessage{
-						Reason:  model.WaypointPolicyReasonTargetNotFound,
+						Reason:  string(model.WaypointPolicyReasonTargetNotFound),
 						Message: gvk.ServiceEntry.Kind + " " + testNS + "/multi-partial-missing-se-1 was not found",
 					},
 					Bound:              false,
@@ -642,7 +642,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 				{
 					Ancestor: "Service.core:ns1/working-service",
 					Status: &model.StatusMessage{
-						Reason:  model.WaypointPolicyReasonAccepted,
+						Reason:  string(model.WaypointPolicyReasonAccepted),
 						Message: "bound to " + testNS + "/waypoint",
 					},
 					Bound:              true,
@@ -682,7 +682,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 				{
 					Ancestor: "Service.core:ns1/working-service-tr",
 					Status: &model.StatusMessage{
-						Reason:  model.WaypointPolicyReasonAccepted,
+						Reason:  string(model.WaypointPolicyReasonAccepted),
 						Message: "bound to " + testNS + "/waypoint",
 					},
 					Bound:              true,
@@ -727,7 +727,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 				{
 					Ancestor: "Service.core:ns1/no-waypoint-service",
 					Status: &model.StatusMessage{
-						Reason:  model.WaypointPolicyReasonAncestorNotBound,
+						Reason:  string(model.WaypointPolicyReasonAncestorNotBound),
 						Message: "Service " + testNS + "/no-waypoint-service is not bound to a waypoint",
 					},
 					Bound:              false,
@@ -759,7 +759,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 				{
 					Ancestor: "Service.core:ns1/no-service",
 					Status: &model.StatusMessage{
-						Reason:  model.WaypointPolicyReasonTargetNotFound,
+						Reason:  string(model.WaypointPolicyReasonTargetNotFound),
 						Message: "Service " + testNS + "/no-service was not found",
 					},
 					Bound:              false,
@@ -791,7 +791,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 				{
 					Ancestor: "Gateway.gateway.networking.k8s.io:ns1/waypoint",
 					Status: &model.StatusMessage{
-						Reason:  model.WaypointPolicyReasonAccepted,
+						Reason:  string(model.WaypointPolicyReasonAccepted),
 						Message: "bound to " + testNS + "/waypoint",
 					},
 					Bound:              true,
@@ -823,7 +823,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 				{
 					Ancestor: "Gateway.gateway.networking.k8s.io:ns1/waypoint",
 					Status: &model.StatusMessage{
-						Reason:  model.WaypointPolicyReasonAccepted,
+						Reason:  string(model.WaypointPolicyReasonAccepted),
 						Message: "bound to " + testNS + "/waypoint",
 					},
 					Bound:              true,
@@ -855,7 +855,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 				{
 					Ancestor: "Gateway.gateway.networking.k8s.io:ns1/not-a-waypoint",
 					Status: &model.StatusMessage{
-						Reason:  model.WaypointPolicyReasonTargetNotFound,
+						Reason:  string(model.WaypointPolicyReasonTargetNotFound),
 						Message: "not bound",
 					},
 					Bound:              false,
@@ -922,7 +922,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 				{
 					Ancestor: "ServiceEntry.networking.istio.io:ns1/working-se",
 					Status: &model.StatusMessage{
-						Reason:  model.WaypointPolicyReasonAccepted,
+						Reason:  string(model.WaypointPolicyReasonAccepted),
 						Message: "bound to " + testNS + "/waypoint",
 					},
 					Bound:              true,
@@ -931,7 +931,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 				{
 					Ancestor: "ServiceEntry.networking.istio.io:ns1/no-waypoint-se",
 					Status: &model.StatusMessage{
-						Reason:  model.WaypointPolicyReasonAncestorNotBound,
+						Reason:  string(model.WaypointPolicyReasonAncestorNotBound),
 						Message: gvk.ServiceEntry.Kind + " " + testNS + "/no-waypoint-se is not bound to a waypoint",
 					},
 					Bound:              false,
@@ -940,7 +940,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 				{
 					Ancestor: "ServiceEntry.networking.istio.io:ns1/missing-se",
 					Status: &model.StatusMessage{
-						Reason:  model.WaypointPolicyReasonTargetNotFound,
+						Reason:  string(model.WaypointPolicyReasonTargetNotFound),
 						Message: gvk.ServiceEntry.Kind + " " + testNS + "/missing-se was not found",
 					},
 					Bound:              false,
@@ -949,7 +949,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 				{
 					Ancestor: "Service.core:ns1/working-service",
 					Status: &model.StatusMessage{
-						Reason:  model.WaypointPolicyReasonAccepted,
+						Reason:  string(model.WaypointPolicyReasonAccepted),
 						Message: "bound to " + testNS + "/waypoint",
 					},
 					Bound:              true,
@@ -958,7 +958,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 				{
 					Ancestor: "Service.core:ns1/no-waypoint-service",
 					Status: &model.StatusMessage{
-						Reason:  model.WaypointPolicyReasonAncestorNotBound,
+						Reason:  string(model.WaypointPolicyReasonAncestorNotBound),
 						Message: "Service " + testNS + "/no-waypoint-service is not bound to a waypoint",
 					},
 					Bound:              false,
@@ -967,7 +967,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 				{
 					Ancestor: "Service.core:ns1/no-service",
 					Status: &model.StatusMessage{
-						Reason:  model.WaypointPolicyReasonTargetNotFound,
+						Reason:  string(model.WaypointPolicyReasonTargetNotFound),
 						Message: "Service " + testNS + "/no-service was not found",
 					},
 					Bound:              false,
@@ -976,7 +976,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 				{
 					Ancestor: "Gateway.gateway.networking.k8s.io:ns1/waypoint",
 					Status: &model.StatusMessage{
-						Reason:  model.WaypointPolicyReasonAccepted,
+						Reason:  string(model.WaypointPolicyReasonAccepted),
 						Message: "bound to " + testNS + "/waypoint",
 					},
 					Bound:              true,
@@ -985,7 +985,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 				{
 					Ancestor: "Gateway.gateway.networking.k8s.io:ns1/not-a-waypoint",
 					Status: &model.StatusMessage{
-						Reason:  model.WaypointPolicyReasonTargetNotFound,
+						Reason:  string(model.WaypointPolicyReasonTargetNotFound),
 						Message: "not bound",
 					},
 					Bound:              false,
@@ -1027,7 +1027,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 				{
 					Ancestor: "GatewayClass.gateway.networking.k8s.io:istio-system/istio-waypoint",
 					Status: &model.StatusMessage{
-						Reason:  model.WaypointPolicyReasonAccepted,
+						Reason:  string(model.WaypointPolicyReasonAccepted),
 						Message: "bound to istio-waypoint",
 					},
 					Bound:              true,
@@ -1060,7 +1060,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 				{
 					Ancestor: "GatewayClass.gateway.networking.k8s.io:istio-system/nonexistent-gateway-class",
 					Status: &model.StatusMessage{
-						Reason:  model.WaypointPolicyReasonTargetNotFound,
+						Reason:  string(model.WaypointPolicyReasonTargetNotFound),
 						Message: "not bound",
 					},
 					Bound:              false,
@@ -1102,7 +1102,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 				{
 					Ancestor: "GatewayClass.gateway.networking.k8s.io:istio-system/not-for-waypoint",
 					Status: &model.StatusMessage{
-						Reason:  model.WaypointPolicyReasonInvalid,
+						Reason:  string(model.WaypointPolicyReasonInvalid),
 						Message: fmt.Sprintf("GatewayClass must use controller name `%s` for waypoints", constants.ManagedGatewayMeshController),
 					},
 					Bound:              false,
@@ -1144,7 +1144,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 				{
 					Ancestor: "GatewayClass.gateway.networking.k8s.io:other-ns/waypoint",
 					Status: &model.StatusMessage{
-						Reason:  model.WaypointPolicyReasonInvalid,
+						Reason:  string(model.WaypointPolicyReasonInvalid),
 						Message: "AuthorizationPolicy must be in the root namespace `istio-system` when referencing a GatewayClass",
 					},
 					Bound:              false,

@@ -1349,12 +1349,16 @@ type WaypointPolicyStatus struct {
 	Conditions []PolicyBindingStatus
 }
 
+// WaypointPolicyReason is the reason for WaypointAccepted condition on AuthorizationPolicy.
+type WaypointPolicyReason string
+
 const (
-	WaypointPolicyReasonAccepted         = "Accepted"
-	WaypointPolicyReasonInvalid          = "Invalid"
-	WaypointPolicyReasonPartiallyInvalid = "PartiallyInvalid"
-	WaypointPolicyReasonAncestorNotBound = "AncestorNotBound"
-	WaypointPolicyReasonTargetNotFound   = "TargetNotFound"
+	WaypointPolicyReasonUnknown          WaypointPolicyReason = "unknown"
+	WaypointPolicyReasonAccepted         WaypointPolicyReason = "Accepted"
+	WaypointPolicyReasonInvalid          WaypointPolicyReason = "Invalid"
+	WaypointPolicyReasonPartiallyInvalid WaypointPolicyReason = "PartiallyInvalid"
+	WaypointPolicyReasonAncestorNotBound WaypointPolicyReason = "AncestorNotBound"
+	WaypointPolicyReasonTargetNotFound   WaypointPolicyReason = "TargetNotFound"
 )
 
 // impl pilot/pkg/serviceregistry/kube/controller/ambient/statusqueue/StatusWriter
@@ -1422,7 +1426,7 @@ func flattenConditions(conditions []PolicyBindingStatus) *Condition {
 
 	return &Condition{
 		highestObservedGeneration,
-		reason,
+		string(reason),
 		message,
 		status,
 	}
