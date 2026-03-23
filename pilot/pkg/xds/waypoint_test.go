@@ -626,7 +626,7 @@ metadata:
     istio.io/use-waypoint: waypoint
     istio.io/use-waypoint-namespace: default
   annotations:
-    ambient.istio.io/connect-strategy: FIRST_HEALTHY_RACE
+    ambient.istio.io/connect-strategy: RACE_FIRST_TCP_CONNECT
 spec:
   hosts: ["sql.example.com"]
   ports:
@@ -644,7 +644,7 @@ spec:
 	c := clusters["inbound-vip|1433|tcp|sql.example.com"]
 	g.Expect(c).NotTo(BeNil(), "expected inbound-vip cluster for sql.example.com")
 	g.Expect(c.DnsLookupFamily).To(Equal(clusterv3.Cluster_ALL),
-		"connect strategy FIRST_HEALTHY_RACE should set DnsLookupFamily=ALL for happy eyeballs")
+		"connect strategy RACE_FIRST_TCP_CONNECT should set DnsLookupFamily=ALL for happy eyeballs")
 }
 
 func TestWaypointClusterWithDynamicDNSWithoutWaypoint(t *testing.T) {

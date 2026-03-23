@@ -106,14 +106,6 @@ func TestMultiCluster(ctx framework.TestContext) {
 }
 ```
 
-## Best Practices
-
-- Use labels to categorize and filter tests (e.g., `label.CustomSetup`, `label.Flaky`).
-- Always clean up resources using `defer` or test context cleanup hooks.
-- Use the provided resource and environment abstractions instead of direct Kubernetes API calls.
-- Prefer `NewTest` and `NewSuite` for test and suite setup to ensure consistent lifecycle management.
-- Leverage the logging and telemetry integration for debugging and observability.
-
 ## Ambient Waypoint Testing Patterns
 
 ### Egress Waypoint with ServiceEntry
@@ -163,7 +155,13 @@ json.Unmarshal([]byte(output), &clusters)
 
 ### Verifying ServiceEntry Status Conditions
 
-ServiceEntry conditions use `IstioCondition` from `istio.io/api/meta/v1alpha1` (NOT `metav1.Condition` which is for Kubernetes-native objects like Services/Gateways):
+Use `IstioCondition` when testing Istio-native ServiceEntry status rather than Kubernetes-native objects like Services/Gateways.
+
+**Constraints:**
+* **API:** Use `istio.io/api/meta/v1alpha1.IstioCondition`.
+* **Comparison:** Do NOT use `metav1.Condition` (types are incompatible).
+* **Field Mapping:** `IstioCondition.Status` is a `string` ("True"/"False"), whereas `metav1.Condition.Status` is an `enum`.
+* **Helper:** Use `pilot/pkg/model/status.GetCondition`.
 
 ```go
 se, err := t.Clusters().Default().Istio().NetworkingV1().ServiceEntries(ns).
@@ -187,7 +185,13 @@ Status conditions are defined in `pilot/pkg/model/service.go`:
 
 ### Traffic Verification
 
-Use `check.And(check.OK(), IsL7())` to verify traffic flows through the waypoint (L7 processing indicates waypoint involvement). The `hboneClient()` helper filters sources that support HBONE. Skip sidecars with `src.Config().HasSidecar()` as they don't fully support cross-namespace use-waypoint yet.
+Final verification of traffic flow in Ambient mesh
+
+**Constraints:**
+
+- **L7 Validation**: Always use `check.And(check.OK(), IsL7())` to verify traffic flows through the waypoint, L7 processing indicates waypoint is involved.
+- **Source Filtering**: Use `hboneClient()` helper to filter for HBONE capable sources.
+- **Sidecar Limitation**: Skip sidecar sources using src.Config().HasSidecar(); they do not yet fully support cross-namespace use-waypoint logic.
 
 ## Related Components
 
@@ -198,3 +202,11 @@ Use `check.And(check.OK(), IsL7())` to verify traffic flows through the waypoint
 ---
 
 This file should be updated as the test framework evolves and new patterns or utilities are introduced.
+
+## Best Practices
+
+- Use labels to categorize and filter tests (e.g., `label.CustomSetup`, `label.Flaky`).
+- Always clean up resources using `defer` or test context cleanup hooks.
+- Use the provided resource and environment abstractions instead of direct Kubernetes API calls.
+- Prefer `NewTest` and `NewSuite` for test and suite setup to ensure consistent lifecycle management.
+- Leverage the logging and telemetry integration for debugging and observability.

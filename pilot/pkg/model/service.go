@@ -792,7 +792,7 @@ type K8sAttributes struct {
 	ObjectName string
 
 	// DNSConnectStrategy specifies the connection strategy for the service.
-	// When set to DNSConnectStrategyFirstHealthyRace, waypoint proxies will set DnsLookupFamily=ALL
+	// When set to DNSConnectStrategyRaceFirstTCPConnect, waypoint proxies will set DnsLookupFamily=ALL
 	// to enable Envoy's happy eyeballs algorithm.
 	DNSConnectStrategy DNSConnectStrategy
 
@@ -816,14 +816,14 @@ type DNSConnectStrategy int
 const (
 	// DNSConnectStrategyDefault uses standard connection behavior.
 	DNSConnectStrategyDefault DNSConnectStrategy = iota
-	// DNSConnectStrategyFirstHealthyRace races connections to all resolved IPs and picks the first healthy one.
-	DNSConnectStrategyFirstHealthyRace
+	// DNSConnectStrategyRaceFirstTCPConnect races connections to all resolved IPs and picks the first healthy one.
+	DNSConnectStrategyRaceFirstTCPConnect
 )
 
 // GetDNSConnectStrategy reads the connect strategy from annotations.
 func GetDNSConnectStrategy(annotations map[string]string) DNSConnectStrategy {
-	if strings.EqualFold(annotations["ambient.istio.io/connect-strategy"], "FIRST_HEALTHY_RACE") {
-		return DNSConnectStrategyFirstHealthyRace
+	if strings.EqualFold(annotations["ambient.istio.io/connect-strategy"], "RACE_FIRST_TCP_CONNECT") {
+		return DNSConnectStrategyRaceFirstTCPConnect
 	}
 	return DNSConnectStrategyDefault
 }
@@ -1223,15 +1223,9 @@ func (i ServiceInfo) GetConditions() ConditionSet {
 	set := ConditionSet{
 		// Write all conditions here, then override if we want them set.
 		// This ensures we can properly prune the condition if its no longer needed (such as if there is no waypoint attached at all).
-		WaypointBound: nil,
-	}
-	if host.Name(i.Service.Hostname).IsWildCarded() && i.Source.Kind == kind.ServiceEntry {
-		// Only prune WaypointMissing condition if we have a wildcard service entry
-		set[WaypointMissing] = nil
-	}
-	if i.DNSConnectStrategy != DNSConnectStrategyDefault && i.Source.Kind == kind.ServiceEntry {
-		// Only prune ConnectStrategyWithoutWaypoint condition if we have a non-default connect strategy
-		set[ConnectStrategyWithoutWaypoint] = nil
+		WaypointBound:                  nil,
+		ConnectStrategyWithoutWaypoint: nil,
+		WaypointMissing:                nil,
 	}
 
 	if i.Waypoint.ResourceName != "" {

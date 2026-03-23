@@ -1347,7 +1347,7 @@ metadata:
     istio.io/use-waypoint: connect-strategy-gw
     istio.io/use-waypoint-namespace: {{.EgressNamespace}}
   annotations:
-    ambient.istio.io/connect-strategy: FIRST_HEALTHY_RACE
+    ambient.istio.io/connect-strategy: RACE_FIRST_TCP_CONNECT
 spec:
   hosts:
   - fake-connect-strategy.example.com
@@ -1438,7 +1438,7 @@ kind: ServiceEntry
 metadata:
   name: connect-strategy-no-wp
   annotations:
-    ambient.istio.io/connect-strategy: FIRST_HEALTHY_RACE
+    ambient.istio.io/connect-strategy: RACE_FIRST_TCP_CONNECT
 spec:
   hosts:
   - fake-no-waypoint.example.com
