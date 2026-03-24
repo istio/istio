@@ -30,4 +30,4 @@ spec:
     spec:
       containers:
         - name: dotdotpwn
-          image: gcr.io/istio-testing/dotdotpwn:0.1
+          image: registry.istio.io/testing/dotdotpwn:0.1

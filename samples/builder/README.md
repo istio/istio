@@ -27,5 +27,5 @@ You will also want to update the sample YAMLs
 
 ## Building official images
 
-Set `HUB=docker.io/istio` for official image builds.
+Set `HUB=registry.istio.io/release` for official image builds.
 Its best to only do this once for each image to avoid accidentally mutating existing images.
