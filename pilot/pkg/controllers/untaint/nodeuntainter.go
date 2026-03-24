@@ -44,7 +44,7 @@ type NodeUntainter struct {
 	cnilabels   labels.Instance
 	ourNs       string
 	queue       controllers.Queue
-	taintKey    string
+	taintName    string
 }
 
 func filterNamespace(ns string) func(any) bool {
@@ -74,7 +74,7 @@ func NewNodeUntainter(stop <-chan struct{}, kubeClient kubelib.Client, cniNs, sy
 		nodesClient: nodes,
 		cnilabels:   labels.Instance(istioCniLabels),
 		ourNs:       ns,
-		taintKey:    features.NodeUntaintTaintName,
+		taintName:    features.NodeUntaintTaintName,
 	}
 	nt.setup(stop, debugger)
 	return nt
@@ -148,15 +148,15 @@ func (n *NodeUntainter) reconcileNode(key types.NamespacedName) error {
 		return nil
 	}
 
-	err := removeReadinessTaint(n.nodesClient, node, n.taintKey)
+	err := removeReadinessTaint(n.nodesClient, node, n.taintName)
 	if err != nil {
 		log.Errorf("failed to remove readiness taint from node %v: %v", node.Name, err)
 	}
 	return err
 }
 
-func removeReadinessTaint(nodesClient kclient.Client[*v1.Node], node *v1.Node, taintKey string) error {
-	updatedTaint := deleteTaint(node.Spec.Taints, taintKey)
+func removeReadinessTaint(nodesClient kclient.Client[*v1.Node], node *v1.Node, taintName string) error {
+	updatedTaint := deleteTaint(node.Spec.Taints, taintName)
 	if len(updatedTaint) == len(node.Spec.Taints) {
 		// nothing to remove..
 		return nil
@@ -191,10 +191,10 @@ func removeReadinessTaint(nodesClient kclient.Client[*v1.Node], node *v1.Node, t
 }
 
 // deleteTaint removes all the taints that have the same key and effect to given taintToDelete.
-func deleteTaint(taints []v1.Taint, taintKey string) []v1.Taint {
+func deleteTaint(taints []v1.Taint, taintName string) []v1.Taint {
 	newTaints := []v1.Taint{}
 	for i := range taints {
-		if taints[i].Key == taintKey {
+		if taints[i].Key == taintName {
 			continue
 		}
 		newTaints = append(newTaints, taints[i])
@@ -204,7 +204,7 @@ func deleteTaint(taints []v1.Taint, taintKey string) []v1.Taint {
 
 func (n *NodeUntainter) hasTaint(node *v1.Node) bool {
 	for _, taint := range node.Spec.Taints {
-		if taint.Key == n.taintKey {
+		if taint.Key == n.taintName {
 			return true
 		}
 	}
