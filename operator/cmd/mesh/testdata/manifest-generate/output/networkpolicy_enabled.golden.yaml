@@ -20,12 +20,10 @@ spec:
   egress:
   - {}
   ingress:
-  - from: []
-    ports:
+  - ports:
     - port: 15017
       protocol: TCP
-  - from: []
-    ports:
+  - ports:
     - port: 15010
       protocol: TCP
     - port: 15011
