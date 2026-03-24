@@ -44,6 +44,7 @@ type NodeUntainter struct {
 	cnilabels   labels.Instance
 	ourNs       string
 	queue       controllers.Queue
+	taintKey    string
 }
 
 func filterNamespace(ns string) func(any) bool {
@@ -73,6 +74,7 @@ func NewNodeUntainter(stop <-chan struct{}, kubeClient kubelib.Client, cniNs, sy
 		nodesClient: nodes,
 		cnilabels:   labels.Instance(istioCniLabels),
 		ourNs:       ns,
+		taintKey:    features.NodeUntaintTaintName,
 	}
 	nt.setup(stop, debugger)
 	return nt
@@ -106,10 +108,10 @@ func (n *NodeUntainter) setup(stop <-chan struct{}, debugger *krt.DebugHandler) 
 			return nil
 		}
 		node := *pnode
-		if !hasTaint(node) {
+		if !n.hasTaint(node) {
 			return nil
 		}
-		return &node
+		return pnode
 	}, opts.WithName("ready-cni-nodes")...)
 
 	n.queue = controllers.NewQueue("untaint nodes",
@@ -146,15 +148,15 @@ func (n *NodeUntainter) reconcileNode(key types.NamespacedName) error {
 		return nil
 	}
 
-	err := removeReadinessTaint(n.nodesClient, node)
+	err := removeReadinessTaint(n.nodesClient, node, n.taintKey)
 	if err != nil {
 		log.Errorf("failed to remove readiness taint from node %v: %v", node.Name, err)
 	}
 	return err
 }
 
-func removeReadinessTaint(nodesClient kclient.Client[*v1.Node], node *v1.Node) error {
-	updatedTaint := deleteTaint(node.Spec.Taints)
+func removeReadinessTaint(nodesClient kclient.Client[*v1.Node], node *v1.Node, taintKey string) error {
+	updatedTaint := deleteTaint(node.Spec.Taints, taintKey)
 	if len(updatedTaint) == len(node.Spec.Taints) {
 		// nothing to remove..
 		return nil
@@ -189,10 +191,10 @@ func removeReadinessTaint(nodesClient kclient.Client[*v1.Node], node *v1.Node) e
 }
 
 // deleteTaint removes all the taints that have the same key and effect to given taintToDelete.
-func deleteTaint(taints []v1.Taint) []v1.Taint {
+func deleteTaint(taints []v1.Taint, taintKey string) []v1.Taint {
 	newTaints := []v1.Taint{}
 	for i := range taints {
-		if taints[i].Key == features.NodeUntaintTaintName {
+		if taints[i].Key == taintKey {
 			continue
 		}
 		newTaints = append(newTaints, taints[i])
@@ -200,9 +202,9 @@ func deleteTaint(taints []v1.Taint) []v1.Taint {
 	return newTaints
 }
 
-func hasTaint(n *v1.Node) bool {
-	for _, taint := range n.Spec.Taints {
-		if taint.Key == features.NodeUntaintTaintName {
+func (n *NodeUntainter) hasTaint(node *v1.Node) bool {
+	for _, taint := range node.Spec.Taints {
+		if taint.Key == n.taintKey {
 			return true
 		}
 	}
