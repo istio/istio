@@ -44,7 +44,7 @@ type NodeUntainter struct {
 	cnilabels   labels.Instance
 	ourNs       string
 	queue       controllers.Queue
-	taintName    string
+	taintName   string
 }
 
 func filterNamespace(ns string) func(any) bool {
@@ -74,7 +74,7 @@ func NewNodeUntainter(stop <-chan struct{}, kubeClient kubelib.Client, cniNs, sy
 		nodesClient: nodes,
 		cnilabels:   labels.Instance(istioCniLabels),
 		ourNs:       ns,
-		taintName:    features.NodeUntaintTaintName,
+		taintName:   features.NodeUntaintTaintName,
 	}
 	nt.setup(stop, debugger)
 	return nt
