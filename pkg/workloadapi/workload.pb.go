@@ -356,6 +356,55 @@ func (TunnelProtocol) EnumDescriptor() ([]byte, []int) {
 	return file_workloadapi_workload_proto_rawDescGZIP(), []int{5}
 }
 
+// TlsVersion represents the TLS protocol versions that can be configured.
+type TlsVersion int32
+
+const (
+	// TLS 1.2 - minimum version when TLS 1.2 is enabled
+	TlsVersion_TLS_1_2 TlsVersion = 0
+	// TLS 1.3 - minimum version for TLS 1.3 only mode
+	TlsVersion_TLS_1_3 TlsVersion = 1
+)
+
+// Enum value maps for TlsVersion.
+var (
+	TlsVersion_name = map[int32]string{
+		0: "TLS_1_2",
+		1: "TLS_1_3",
+	}
+	TlsVersion_value = map[string]int32{
+		"TLS_1_2": 0,
+		"TLS_1_3": 1,
+	}
+)
+
+func (x TlsVersion) Enum() *TlsVersion {
+	p := new(TlsVersion)
+	*p = x
+	return p
+}
+
+func (x TlsVersion) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (TlsVersion) Descriptor() protoreflect.EnumDescriptor {
+	return file_workloadapi_workload_proto_enumTypes[6].Descriptor()
+}
+
+func (TlsVersion) Type() protoreflect.EnumType {
+	return &file_workloadapi_workload_proto_enumTypes[6]
+}
+
+func (x TlsVersion) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use TlsVersion.Descriptor instead.
+func (TlsVersion) EnumDescriptor() ([]byte, []int) {
+	return file_workloadapi_workload_proto_rawDescGZIP(), []int{6}
+}
+
 type LoadBalancing_Scope int32
 
 const (
@@ -407,11 +456,11 @@ func (x LoadBalancing_Scope) String() string {
 }
 
 func (LoadBalancing_Scope) Descriptor() protoreflect.EnumDescriptor {
-	return file_workloadapi_workload_proto_enumTypes[6].Descriptor()
+	return file_workloadapi_workload_proto_enumTypes[7].Descriptor()
 }
 
 func (LoadBalancing_Scope) Type() protoreflect.EnumType {
-	return &file_workloadapi_workload_proto_enumTypes[6]
+	return &file_workloadapi_workload_proto_enumTypes[7]
 }
 
 func (x LoadBalancing_Scope) Number() protoreflect.EnumNumber {
@@ -472,11 +521,11 @@ func (x LoadBalancing_Mode) String() string {
 }
 
 func (LoadBalancing_Mode) Descriptor() protoreflect.EnumDescriptor {
-	return file_workloadapi_workload_proto_enumTypes[7].Descriptor()
+	return file_workloadapi_workload_proto_enumTypes[8].Descriptor()
 }
 
 func (LoadBalancing_Mode) Type() protoreflect.EnumType {
-	return &file_workloadapi_workload_proto_enumTypes[7]
+	return &file_workloadapi_workload_proto_enumTypes[8]
 }
 
 func (x LoadBalancing_Mode) Number() protoreflect.EnumNumber {
@@ -520,11 +569,11 @@ func (x LoadBalancing_HealthPolicy) String() string {
 }
 
 func (LoadBalancing_HealthPolicy) Descriptor() protoreflect.EnumDescriptor {
-	return file_workloadapi_workload_proto_enumTypes[8].Descriptor()
+	return file_workloadapi_workload_proto_enumTypes[9].Descriptor()
 }
 
 func (LoadBalancing_HealthPolicy) Type() protoreflect.EnumType {
-	return &file_workloadapi_workload_proto_enumTypes[8]
+	return &file_workloadapi_workload_proto_enumTypes[9]
 }
 
 func (x LoadBalancing_HealthPolicy) Number() protoreflect.EnumNumber {
@@ -572,11 +621,11 @@ func (x ApplicationTunnel_Protocol) String() string {
 }
 
 func (ApplicationTunnel_Protocol) Descriptor() protoreflect.EnumDescriptor {
-	return file_workloadapi_workload_proto_enumTypes[9].Descriptor()
+	return file_workloadapi_workload_proto_enumTypes[10].Descriptor()
 }
 
 func (ApplicationTunnel_Protocol) Type() protoreflect.EnumType {
-	return &file_workloadapi_workload_proto_enumTypes[9]
+	return &file_workloadapi_workload_proto_enumTypes[10]
 }
 
 func (x ApplicationTunnel_Protocol) Number() protoreflect.EnumNumber {
@@ -1724,6 +1773,147 @@ func (x *Extension) GetConfig() *anypb.Any {
 	return nil
 }
 
+// TlsConfig defines the TLS configuration for mTLS connections.
+// This matches Istio's MeshConfig.meshMTLS (TLSConfig) structure.
+type TlsConfig struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Minimum TLS protocol version (required).
+	// Determines which TLS versions are enabled for connections.
+	MinProtocolVersion TlsVersion `protobuf:"varint,1,opt,name=min_protocol_version,json=minProtocolVersion,proto3,enum=istio.workload.TlsVersion" json:"min_protocol_version,omitempty"`
+	// Cipher suites to enable, specified as standard TLS cipher suite names.
+	// Examples: "TLS_AES_256_GCM_SHA384", "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384"
+	// If empty, defaults to provider's default cipher suites based on enabled TLS versions.
+	CipherSuites []string `protobuf:"bytes,2,rep,name=cipher_suites,json=cipherSuites,proto3" json:"cipher_suites,omitempty"`
+	// Key exchange groups (ECDH curves) for TLS handshake.
+	// Examples: "P-256", "P-384", "X25519", "X25519MLKEM768"
+	// If empty, defaults based on crypto provider capabilities.
+	// Note: "X25519MLKEM768" enables post-quantum cryptography if supported by the provider.
+	EcdhCurves    []string `protobuf:"bytes,3,rep,name=ecdh_curves,json=ecdhCurves,proto3" json:"ecdh_curves,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TlsConfig) Reset() {
+	*x = TlsConfig{}
+	mi := &file_workloadapi_workload_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TlsConfig) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TlsConfig) ProtoMessage() {}
+
+func (x *TlsConfig) ProtoReflect() protoreflect.Message {
+	mi := &file_workloadapi_workload_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TlsConfig.ProtoReflect.Descriptor instead.
+func (*TlsConfig) Descriptor() ([]byte, []int) {
+	return file_workloadapi_workload_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *TlsConfig) GetMinProtocolVersion() TlsVersion {
+	if x != nil {
+		return x.MinProtocolVersion
+	}
+	return TlsVersion_TLS_1_2
+}
+
+func (x *TlsConfig) GetCipherSuites() []string {
+	if x != nil {
+		return x.CipherSuites
+	}
+	return nil
+}
+
+func (x *TlsConfig) GetEcdhCurves() []string {
+	if x != nil {
+		return x.EcdhCurves
+	}
+	return nil
+}
+
+// MeshSettings provides mesh-wide configuration pushed from istiod to ztunnel.
+// This consolidates settings that were previously scattered across environment variables,
+// enabling dynamic updates without requiring ztunnel restarts.
+type MeshSettings struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Trust domain for SPIFFE identities (e.g., "cluster.local").
+	// Used for constructing and validating workload identities.
+	// If empty, falls back to TRUST_DOMAIN environment variable.
+	TrustDomain string `protobuf:"bytes,1,opt,name=trust_domain,json=trustDomain,proto3" json:"trust_domain,omitempty"`
+	// Alternate trust domains that should be treated as equivalent.
+	// Used for multi-cluster trust domain migration and federation.
+	TrustDomainAliases []string `protobuf:"bytes,2,rep,name=trust_domain_aliases,json=trustDomainAliases,proto3" json:"trust_domain_aliases,omitempty"`
+	// TLS configuration for mTLS connections between workloads.
+	// If not set, falls back to environment variable defaults (TLS12_ENABLED, COMPLIANCE_POLICY).
+	Tls           *TlsConfig `protobuf:"bytes,3,opt,name=tls,proto3" json:"tls,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MeshSettings) Reset() {
+	*x = MeshSettings{}
+	mi := &file_workloadapi_workload_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MeshSettings) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MeshSettings) ProtoMessage() {}
+
+func (x *MeshSettings) ProtoReflect() protoreflect.Message {
+	mi := &file_workloadapi_workload_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MeshSettings.ProtoReflect.Descriptor instead.
+func (*MeshSettings) Descriptor() ([]byte, []int) {
+	return file_workloadapi_workload_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *MeshSettings) GetTrustDomain() string {
+	if x != nil {
+		return x.TrustDomain
+	}
+	return ""
+}
+
+func (x *MeshSettings) GetTrustDomainAliases() []string {
+	if x != nil {
+		return x.TrustDomainAliases
+	}
+	return nil
+}
+
+func (x *MeshSettings) GetTls() *TlsConfig {
+	if x != nil {
+		return x.Tls
+	}
+	return nil
+}
+
 var File_workloadapi_workload_proto protoreflect.FileDescriptor
 
 const file_workloadapi_workload_proto_rawDesc = "" +
@@ -1839,7 +2029,16 @@ const file_workloadapi_workload_proto_rawDesc = "" +
 	"\bhostname\x18\x02 \x01(\tR\bhostname\"M\n" +
 	"\tExtension\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12,\n" +
-	"\x06config\x18\x02 \x01(\v2\x14.google.protobuf.AnyR\x06config*C\n" +
+	"\x06config\x18\x02 \x01(\v2\x14.google.protobuf.AnyR\x06config\"\x9f\x01\n" +
+	"\tTlsConfig\x12L\n" +
+	"\x14min_protocol_version\x18\x01 \x01(\x0e2\x1a.istio.workload.TlsVersionR\x12minProtocolVersion\x12#\n" +
+	"\rcipher_suites\x18\x02 \x03(\tR\fcipherSuites\x12\x1f\n" +
+	"\vecdh_curves\x18\x03 \x03(\tR\n" +
+	"ecdhCurves\"\x90\x01\n" +
+	"\fMeshSettings\x12!\n" +
+	"\ftrust_domain\x18\x01 \x01(\tR\vtrustDomain\x120\n" +
+	"\x14trust_domain_aliases\x18\x02 \x03(\tR\x12trustDomainAliases\x12+\n" +
+	"\x03tls\x18\x03 \x01(\v2\x19.istio.workload.TlsConfigR\x03tls*C\n" +
 	"\n" +
 	"IPFamilies\x12\r\n" +
 	"\tAUTOMATIC\x10\x00\x12\r\n" +
@@ -1869,7 +2068,11 @@ const file_workloadapi_workload_proto_rawDesc = "" +
 	"\x0eTunnelProtocol\x12\b\n" +
 	"\x04NONE\x10\x00\x12\t\n" +
 	"\x05HBONE\x10\x01\x12\x15\n" +
-	"\x11LEGACY_ISTIO_MTLS\x10\x02B Z\x1eistio.io/istio/pkg/workloadapib\x06proto3"
+	"\x11LEGACY_ISTIO_MTLS\x10\x02*&\n" +
+	"\n" +
+	"TlsVersion\x12\v\n" +
+	"\aTLS_1_2\x10\x00\x12\v\n" +
+	"\aTLS_1_3\x10\x01B Z\x1eistio.io/istio/pkg/workloadapib\x06proto3"
 
 var (
 	file_workloadapi_workload_proto_rawDescOnce sync.Once
@@ -1883,8 +2086,8 @@ func file_workloadapi_workload_proto_rawDescGZIP() []byte {
 	return file_workloadapi_workload_proto_rawDescData
 }
 
-var file_workloadapi_workload_proto_enumTypes = make([]protoimpl.EnumInfo, 10)
-var file_workloadapi_workload_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
+var file_workloadapi_workload_proto_enumTypes = make([]protoimpl.EnumInfo, 11)
+var file_workloadapi_workload_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
 var file_workloadapi_workload_proto_goTypes = []any{
 	(IPFamilies)(0),                 // 0: istio.workload.IPFamilies
 	(NetworkMode)(0),                // 1: istio.workload.NetworkMode
@@ -1892,61 +2095,66 @@ var file_workloadapi_workload_proto_goTypes = []any{
 	(WorkloadType)(0),               // 3: istio.workload.WorkloadType
 	(AppProtocol)(0),                // 4: istio.workload.AppProtocol
 	(TunnelProtocol)(0),             // 5: istio.workload.TunnelProtocol
-	(LoadBalancing_Scope)(0),        // 6: istio.workload.LoadBalancing.Scope
-	(LoadBalancing_Mode)(0),         // 7: istio.workload.LoadBalancing.Mode
-	(LoadBalancing_HealthPolicy)(0), // 8: istio.workload.LoadBalancing.HealthPolicy
-	(ApplicationTunnel_Protocol)(0), // 9: istio.workload.ApplicationTunnel.Protocol
-	(*Address)(nil),                 // 10: istio.workload.Address
-	(*Service)(nil),                 // 11: istio.workload.Service
-	(*LoadBalancing)(nil),           // 12: istio.workload.LoadBalancing
-	(*Workload)(nil),                // 13: istio.workload.Workload
-	(*Locality)(nil),                // 14: istio.workload.Locality
-	(*PortList)(nil),                // 15: istio.workload.PortList
-	(*Port)(nil),                    // 16: istio.workload.Port
-	(*ApplicationTunnel)(nil),       // 17: istio.workload.ApplicationTunnel
-	(*GatewayAddress)(nil),          // 18: istio.workload.GatewayAddress
-	(*NetworkAddress)(nil),          // 19: istio.workload.NetworkAddress
-	(*NamespacedHostname)(nil),      // 20: istio.workload.NamespacedHostname
-	(*Extension)(nil),               // 21: istio.workload.Extension
-	nil,                             // 22: istio.workload.Workload.ServicesEntry
-	(*wrapperspb.UInt32Value)(nil),  // 23: google.protobuf.UInt32Value
-	(*anypb.Any)(nil),               // 24: google.protobuf.Any
+	(TlsVersion)(0),                 // 6: istio.workload.TlsVersion
+	(LoadBalancing_Scope)(0),        // 7: istio.workload.LoadBalancing.Scope
+	(LoadBalancing_Mode)(0),         // 8: istio.workload.LoadBalancing.Mode
+	(LoadBalancing_HealthPolicy)(0), // 9: istio.workload.LoadBalancing.HealthPolicy
+	(ApplicationTunnel_Protocol)(0), // 10: istio.workload.ApplicationTunnel.Protocol
+	(*Address)(nil),                 // 11: istio.workload.Address
+	(*Service)(nil),                 // 12: istio.workload.Service
+	(*LoadBalancing)(nil),           // 13: istio.workload.LoadBalancing
+	(*Workload)(nil),                // 14: istio.workload.Workload
+	(*Locality)(nil),                // 15: istio.workload.Locality
+	(*PortList)(nil),                // 16: istio.workload.PortList
+	(*Port)(nil),                    // 17: istio.workload.Port
+	(*ApplicationTunnel)(nil),       // 18: istio.workload.ApplicationTunnel
+	(*GatewayAddress)(nil),          // 19: istio.workload.GatewayAddress
+	(*NetworkAddress)(nil),          // 20: istio.workload.NetworkAddress
+	(*NamespacedHostname)(nil),      // 21: istio.workload.NamespacedHostname
+	(*Extension)(nil),               // 22: istio.workload.Extension
+	(*TlsConfig)(nil),               // 23: istio.workload.TlsConfig
+	(*MeshSettings)(nil),            // 24: istio.workload.MeshSettings
+	nil,                             // 25: istio.workload.Workload.ServicesEntry
+	(*wrapperspb.UInt32Value)(nil),  // 26: google.protobuf.UInt32Value
+	(*anypb.Any)(nil),               // 27: google.protobuf.Any
 }
 var file_workloadapi_workload_proto_depIdxs = []int32{
-	13, // 0: istio.workload.Address.workload:type_name -> istio.workload.Workload
-	11, // 1: istio.workload.Address.service:type_name -> istio.workload.Service
-	19, // 2: istio.workload.Service.addresses:type_name -> istio.workload.NetworkAddress
-	16, // 3: istio.workload.Service.ports:type_name -> istio.workload.Port
-	18, // 4: istio.workload.Service.waypoint:type_name -> istio.workload.GatewayAddress
-	12, // 5: istio.workload.Service.load_balancing:type_name -> istio.workload.LoadBalancing
+	14, // 0: istio.workload.Address.workload:type_name -> istio.workload.Workload
+	12, // 1: istio.workload.Address.service:type_name -> istio.workload.Service
+	20, // 2: istio.workload.Service.addresses:type_name -> istio.workload.NetworkAddress
+	17, // 3: istio.workload.Service.ports:type_name -> istio.workload.Port
+	19, // 4: istio.workload.Service.waypoint:type_name -> istio.workload.GatewayAddress
+	13, // 5: istio.workload.Service.load_balancing:type_name -> istio.workload.LoadBalancing
 	0,  // 6: istio.workload.Service.ip_families:type_name -> istio.workload.IPFamilies
-	21, // 7: istio.workload.Service.extensions:type_name -> istio.workload.Extension
-	6,  // 8: istio.workload.LoadBalancing.routing_preference:type_name -> istio.workload.LoadBalancing.Scope
-	7,  // 9: istio.workload.LoadBalancing.mode:type_name -> istio.workload.LoadBalancing.Mode
-	8,  // 10: istio.workload.LoadBalancing.health_policy:type_name -> istio.workload.LoadBalancing.HealthPolicy
+	22, // 7: istio.workload.Service.extensions:type_name -> istio.workload.Extension
+	7,  // 8: istio.workload.LoadBalancing.routing_preference:type_name -> istio.workload.LoadBalancing.Scope
+	8,  // 9: istio.workload.LoadBalancing.mode:type_name -> istio.workload.LoadBalancing.Mode
+	9,  // 10: istio.workload.LoadBalancing.health_policy:type_name -> istio.workload.LoadBalancing.HealthPolicy
 	5,  // 11: istio.workload.Workload.tunnel_protocol:type_name -> istio.workload.TunnelProtocol
-	18, // 12: istio.workload.Workload.waypoint:type_name -> istio.workload.GatewayAddress
-	18, // 13: istio.workload.Workload.network_gateway:type_name -> istio.workload.GatewayAddress
+	19, // 12: istio.workload.Workload.waypoint:type_name -> istio.workload.GatewayAddress
+	19, // 13: istio.workload.Workload.network_gateway:type_name -> istio.workload.GatewayAddress
 	3,  // 14: istio.workload.Workload.workload_type:type_name -> istio.workload.WorkloadType
-	17, // 15: istio.workload.Workload.application_tunnel:type_name -> istio.workload.ApplicationTunnel
-	22, // 16: istio.workload.Workload.services:type_name -> istio.workload.Workload.ServicesEntry
+	18, // 15: istio.workload.Workload.application_tunnel:type_name -> istio.workload.ApplicationTunnel
+	25, // 16: istio.workload.Workload.services:type_name -> istio.workload.Workload.ServicesEntry
 	2,  // 17: istio.workload.Workload.status:type_name -> istio.workload.WorkloadStatus
-	14, // 18: istio.workload.Workload.locality:type_name -> istio.workload.Locality
+	15, // 18: istio.workload.Workload.locality:type_name -> istio.workload.Locality
 	1,  // 19: istio.workload.Workload.network_mode:type_name -> istio.workload.NetworkMode
-	21, // 20: istio.workload.Workload.extensions:type_name -> istio.workload.Extension
-	23, // 21: istio.workload.Workload.capacity:type_name -> google.protobuf.UInt32Value
-	16, // 22: istio.workload.PortList.ports:type_name -> istio.workload.Port
+	22, // 20: istio.workload.Workload.extensions:type_name -> istio.workload.Extension
+	26, // 21: istio.workload.Workload.capacity:type_name -> google.protobuf.UInt32Value
+	17, // 22: istio.workload.PortList.ports:type_name -> istio.workload.Port
 	4,  // 23: istio.workload.Port.app_protocol:type_name -> istio.workload.AppProtocol
-	9,  // 24: istio.workload.ApplicationTunnel.protocol:type_name -> istio.workload.ApplicationTunnel.Protocol
-	20, // 25: istio.workload.GatewayAddress.hostname:type_name -> istio.workload.NamespacedHostname
-	19, // 26: istio.workload.GatewayAddress.address:type_name -> istio.workload.NetworkAddress
-	24, // 27: istio.workload.Extension.config:type_name -> google.protobuf.Any
-	15, // 28: istio.workload.Workload.ServicesEntry.value:type_name -> istio.workload.PortList
-	29, // [29:29] is the sub-list for method output_type
-	29, // [29:29] is the sub-list for method input_type
-	29, // [29:29] is the sub-list for extension type_name
-	29, // [29:29] is the sub-list for extension extendee
-	0,  // [0:29] is the sub-list for field type_name
+	10, // 24: istio.workload.ApplicationTunnel.protocol:type_name -> istio.workload.ApplicationTunnel.Protocol
+	21, // 25: istio.workload.GatewayAddress.hostname:type_name -> istio.workload.NamespacedHostname
+	20, // 26: istio.workload.GatewayAddress.address:type_name -> istio.workload.NetworkAddress
+	27, // 27: istio.workload.Extension.config:type_name -> google.protobuf.Any
+	6,  // 28: istio.workload.TlsConfig.min_protocol_version:type_name -> istio.workload.TlsVersion
+	23, // 29: istio.workload.MeshSettings.tls:type_name -> istio.workload.TlsConfig
+	16, // 30: istio.workload.Workload.ServicesEntry.value:type_name -> istio.workload.PortList
+	31, // [31:31] is the sub-list for method output_type
+	31, // [31:31] is the sub-list for method input_type
+	31, // [31:31] is the sub-list for extension type_name
+	31, // [31:31] is the sub-list for extension extendee
+	0,  // [0:31] is the sub-list for field type_name
 }
 
 func init() { file_workloadapi_workload_proto_init() }
@@ -1968,8 +2176,8 @@ func file_workloadapi_workload_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_workloadapi_workload_proto_rawDesc), len(file_workloadapi_workload_proto_rawDesc)),
-			NumEnums:      10,
-			NumMessages:   13,
+			NumEnums:      11,
+			NumMessages:   15,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

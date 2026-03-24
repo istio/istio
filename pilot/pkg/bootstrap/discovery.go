@@ -53,6 +53,7 @@ func InitGenerators(
 	generators[v3.AddressType] = workloadGen
 	generators[v3.WorkloadType] = workloadGen
 	generators[v3.WorkloadAuthorizationType] = &xds.WorkloadRBACGenerator{Server: s}
+	generators[v3.WorkloadMeshSettingsType] = &xds.WorkloadMeshSettingsGenerator{Server: s}
 
 	generators["grpc"] = &grpcgen.GrpcConfigGenerator{}
 	generators["grpc/"+v3.EndpointType] = edsGen

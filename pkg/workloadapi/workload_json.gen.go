@@ -138,6 +138,28 @@ func (this *Extension) UnmarshalJSON(b []byte) error {
 	return WorkloadUnmarshaler.Unmarshal(bytes.NewReader(b), this)
 }
 
+// MarshalJSON is a custom marshaler for TlsConfig
+func (this *TlsConfig) MarshalJSON() ([]byte, error) {
+	str, err := WorkloadMarshaler.MarshalToString(this)
+	return []byte(str), err
+}
+
+// UnmarshalJSON is a custom unmarshaler for TlsConfig
+func (this *TlsConfig) UnmarshalJSON(b []byte) error {
+	return WorkloadUnmarshaler.Unmarshal(bytes.NewReader(b), this)
+}
+
+// MarshalJSON is a custom marshaler for MeshSettings
+func (this *MeshSettings) MarshalJSON() ([]byte, error) {
+	str, err := WorkloadMarshaler.MarshalToString(this)
+	return []byte(str), err
+}
+
+// UnmarshalJSON is a custom unmarshaler for MeshSettings
+func (this *MeshSettings) UnmarshalJSON(b []byte) error {
+	return WorkloadUnmarshaler.Unmarshal(bytes.NewReader(b), this)
+}
+
 var (
 	WorkloadMarshaler   = &jsonpb.Marshaler{}
 	WorkloadUnmarshaler = &jsonpb.Unmarshaler{AllowUnknownFields: true}

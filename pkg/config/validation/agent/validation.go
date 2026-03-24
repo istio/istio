@@ -767,13 +767,15 @@ func validateTrustDomainConfig(config *meshconfig.MeshConfig) (errs error) {
 	return errs
 }
 
-func ValidateMeshTLSConfig(mesh *meshconfig.MeshConfig) (errs error) {
+func ValidateMeshTLSConfig(mesh *meshconfig.MeshConfig) Validation {
+	v := Validation{}
 	if meshMTLS := mesh.MeshMTLS; meshMTLS != nil {
 		if meshMTLS.EcdhCurves != nil {
-			errs = multierror.Append(errs, errors.New("mesh TLS does not support ECDH curves configuration"))
+			v = AppendWarningf(v, "meshMTLS.ecdhCurves is set but not yet supported for Envoy sidecars; "+
+				"the values will be forwarded to ztunnel but ignored by Envoy")
 		}
 	}
-	return errs
+	return v
 }
 
 func ValidateMeshTLSDefaults(mesh *meshconfig.MeshConfig) (v Validation) {

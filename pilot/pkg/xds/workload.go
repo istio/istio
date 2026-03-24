@@ -17,11 +17,13 @@ package xds
 import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/workloadapi"
 )
 
 type WorkloadGenerator struct {
@@ -225,4 +227,84 @@ func (e WorkloadRBACGenerator) Generate(proxy *model.Proxy, w *model.WatchedReso
 var (
 	_ model.XdsResourceGenerator      = &WorkloadRBACGenerator{}
 	_ model.XdsDeltaResourceGenerator = &WorkloadRBACGenerator{}
+)
+
+// WorkloadMeshSettingsGenerator generates MeshSettings resources for ztunnel.
+// This sends mesh-wide configuration (trust domain, TLS settings, etc.) to ztunnel.
+type WorkloadMeshSettingsGenerator struct {
+	Server *DiscoveryServer
+}
+
+func (e WorkloadMeshSettingsGenerator) GenerateDeltas(
+	proxy *model.Proxy,
+	req *model.PushRequest,
+	w *model.WatchedResource,
+) (model.Resources, model.DeletedResources, model.XdsLogDetails, bool, error) {
+	// Only respond if:
+	// 1. This is an explicit subscription request for MeshSettings, OR
+	// 2. MeshConfig changed (which contains meshMTLS, trustDomain, etc.)
+	if !req.IsRequest() && !req.ConfigsUpdated.Contains(model.ConfigKey{Kind: kind.MeshConfig}) {
+		return nil, nil, model.DefaultXdsLogDetails, false, nil
+	}
+
+	mesh := e.Server.Env.Mesh()
+	if mesh == nil {
+		return nil, nil, model.DefaultXdsLogDetails, false, nil
+	}
+
+	meshSettings := e.buildMeshSettings(mesh)
+
+	resources := model.Resources{
+		&discovery.Resource{
+			Name:     "mesh", // Single global resource
+			Resource: protoconv.MessageToAny(meshSettings),
+		},
+	}
+
+	return resources, nil, model.XdsLogDetails{}, true, nil
+}
+
+func (e WorkloadMeshSettingsGenerator) Generate(
+	proxy *model.Proxy,
+	w *model.WatchedResource,
+	req *model.PushRequest,
+) (model.Resources, model.XdsLogDetails, error) {
+	resources, _, details, _, err := e.GenerateDeltas(proxy, req, w)
+	return resources, details, err
+}
+
+func (e WorkloadMeshSettingsGenerator) buildMeshSettings(mesh *meshconfig.MeshConfig) *workloadapi.MeshSettings {
+	settings := &workloadapi.MeshSettings{
+		TrustDomain:        mesh.GetTrustDomain(),
+		TrustDomainAliases: mesh.GetTrustDomainAliases(),
+	}
+
+	// Add TLS config if meshMTLS is configured
+	meshMTLS := mesh.GetMeshMTLS()
+	if meshMTLS != nil {
+		// Map MeshConfig TLS version to workloadapi TLS version
+		var minVersion workloadapi.TlsVersion
+		switch meshMTLS.GetMinProtocolVersion() {
+		case meshconfig.MeshConfig_TLSConfig_TLSV1_2:
+			minVersion = workloadapi.TlsVersion_TLS_1_2
+		case meshconfig.MeshConfig_TLSConfig_TLSV1_3:
+			minVersion = workloadapi.TlsVersion_TLS_1_3
+		default:
+			// TLS_AUTO defaults to TLS 1.2
+			minVersion = workloadapi.TlsVersion_TLS_1_2
+		}
+
+		settings.Tls = &workloadapi.TlsConfig{
+			MinProtocolVersion: minVersion,
+			CipherSuites:       meshMTLS.GetCipherSuites(),
+			EcdhCurves:         meshMTLS.GetEcdhCurves(),
+		}
+	}
+
+	return settings
+}
+
+var (
+	_ model.XdsResourceGenerator      = &WorkloadMeshSettingsGenerator{}
+	_ model.XdsDeltaResourceGenerator = &WorkloadMeshSettingsGenerator{}
 )
