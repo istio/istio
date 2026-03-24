@@ -351,7 +351,7 @@ func (a *index) buildGlobalCollections(
 					capacity += wl.Workload.Capacity.GetValue()
 				}
 			}
-			gws := LookupNetworkGateway(ctx, networkID, a.networks.NetworkGateways, a.networks.GatewaysByNetwork)
+			gws := LookupNetworkGateway(ctx, networkID, a.networks.GatewaysByNetwork)
 			meshCfg := krt.FetchOne(ctx, a.meshConfig.AsCollection())
 			if meshCfg == nil {
 				log.Errorf("Failed to find mesh config for network %s", networkID)
@@ -448,7 +448,7 @@ func (a *index) buildGlobalCollections(
 				return &svc
 			}
 
-			wls := krt.Fetch(ctx, GlobalWorkloads, krt.FilterIndex(GlobalWorkloadServiceIndex, svc.ResourceName()))
+			wls := GlobalWorkloadServiceIndex.Fetch(ctx, svc.ResourceName())
 			if len(wls) == 0 {
 				return &svc
 			}

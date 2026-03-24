@@ -105,12 +105,7 @@ func runningAddresses(
 
 	// get all pods acting as ingress gateways
 	igSelector := getIngressGatewaySelector(ingressSelector, ingressService)
-	igPods := krt.Fetch(
-		ctx,
-		pods,
-		krt.FilterLabel(igSelector),
-		krt.FilterIndex(podsByNamespace, IngressNamespace),
-	)
+	igPods := podsByNamespace.Fetch(ctx, IngressNamespace, krt.FilterLabel(igSelector))
 
 	for _, pod := range igPods {
 		// only Running pods are valid

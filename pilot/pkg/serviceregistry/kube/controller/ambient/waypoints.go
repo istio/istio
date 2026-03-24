@@ -228,9 +228,9 @@ func gatewayToWaypointTransform(
 			return nil
 		}
 
-		instances := krt.Fetch(ctx, pods, krt.FilterLabel(map[string]string{
+		instances := podsByNamespace.Fetch(ctx, gateway.Namespace, krt.FilterLabel(map[string]string{
 			label.IoK8sNetworkingGatewayGatewayName.Name: gateway.Name,
-		}), krt.FilterIndex(podsByNamespace, gateway.Namespace))
+		}))
 
 		serviceAccounts := slices.Map(instances, func(p *v1.Pod) string {
 			return p.Spec.ServiceAccountName
@@ -282,9 +282,9 @@ func GlobalWaypointsCollection(
 				return nil
 			}
 
-			instances := krt.Fetch(ctx, pods, krt.FilterLabel(map[string]string{
+			instances := podsByNamespace.Fetch(ctx, gateway.Namespace, krt.FilterLabel(map[string]string{
 				label.IoK8sNetworkingGatewayGatewayName.Name: gateway.Name,
-			}), krt.FilterIndex(podsByNamespace, gateway.Namespace))
+			}))
 
 			serviceAccounts := slices.Map(instances, func(p *v1.Pod) string {
 				return p.Spec.ServiceAccountName

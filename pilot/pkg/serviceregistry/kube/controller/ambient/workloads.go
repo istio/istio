@@ -875,7 +875,7 @@ func matchingServicesWithoutSelectors(
 		UID:       p.UID,
 	}
 	// For each IP, find any endpointSlices referencing it.
-	matchedSlices := krt.Fetch(ctx, endpointSlices, krt.FilterIndex(endpointSlicesAddressIndex, tr))
+	matchedSlices := endpointSlicesAddressIndex.Fetch(ctx, tr)
 	for _, es := range matchedSlices {
 		serviceName, f := es.Labels[discovery.LabelServiceName]
 		if !f {
@@ -972,7 +972,7 @@ func serviceEntryWorkloadBuilder(
 		cluster := clusterGetter(ctx)
 		// here we don't care about the *service* waypoint (hence it is nil); we are only going to use a subset of the info in
 		// `allServices` (since we are building workloads here, not services).
-		allServices := krt.Fetch(ctx, workloadServices, krt.FilterIndex(serviceEntryInfosByNamespaceAndName, se.Namespace+"/"+se.Name))
+		allServices := serviceEntryInfosByNamespaceAndName.Fetch(ctx, se.Namespace+"/"+se.Name)
 		if len(allServices) == 0 {
 			// This ServiceEntry was pruned entirely by deduplication in the WorkloadServices collection, it's endpoints should not be sent to the data plane.
 			// TODO: Once we write deduplication results to ServiceEntry status, we should consider lowering this to Debug to reduce noise in the logs. For now, we warn.
@@ -1486,7 +1486,7 @@ func getNetworkGatewayAddress(
 	networkGateways krt.Collection[NetworkGateway],
 	gatewaysByNetwork krt.Index[network.ID, NetworkGateway],
 ) *workloadapi.GatewayAddress {
-	if networks := LookupNetworkGateway(ctx, network.ID(n), networkGateways, gatewaysByNetwork); len(networks) > 0 {
+	if networks := LookupNetworkGateway(ctx, network.ID(n), gatewaysByNetwork); len(networks) > 0 {
 		// Currently only support one, so find the first one that is valid
 		for _, net := range networks {
 			if net.HBONEPort == 0 {

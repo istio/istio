@@ -540,10 +540,9 @@ func services(
 		}
 
 		dnsService := isDNSTypeService(services[0])
-		selectedWorkloads := krt.Fetch(
+		selectedWorkloads := workloadsByNamespace.Fetch(
 			ctx,
-			workloads,
-			krt.FilterIndex(workloadsByNamespace, cfg.Namespace),
+			cfg.Namespace,
 			krt.FilterLabel(se.WorkloadSelector.Labels),
 			krt.FilterGeneric(func(o any) bool {
 				wi := o.(*model.WorkloadInstance)

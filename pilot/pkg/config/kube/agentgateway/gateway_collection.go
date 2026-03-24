@@ -395,7 +395,7 @@ func GatewayCollection(
 			}
 			result = append(result, res)
 		}
-		listenersFromSets := krt.Fetch(ctx, listenerSets, krt.FilterIndex(listenerIndex, config.NamespacedName(obj)))
+		listenersFromSets := listenerIndex.Fetch(ctx, config.NamespacedName(obj))
 		for _, ls := range listenersFromSets {
 			result = append(result, &GatewayListener{
 				Name:          ls.Name,
@@ -454,12 +454,11 @@ func convertListenerSetStatusToStandardStatus(e gatewayv1.ListenerEntryStatus) g
 // TODO(jaellio): Move these definitions to route collection (?)
 // RouteParents holds information about things routes can reference as parents.
 type RouteParents struct {
-	gateways     krt.Collection[*GatewayListener]
 	gatewayIndex krt.Index[AgwParentKey, *GatewayListener]
 }
 
 func (p RouteParents) fetch(ctx krt.HandlerContext, pk AgwParentKey) []*AgwParentInfo {
-	return slices.Map(krt.Fetch(ctx, p.gateways, krt.FilterIndex(p.gatewayIndex, pk)), func(gw *GatewayListener) *AgwParentInfo {
+	return slices.Map(p.gatewayIndex.Fetch(ctx, pk), func(gw *GatewayListener) *AgwParentInfo {
 		return &gw.ParentInfo
 	})
 }
@@ -471,7 +470,6 @@ func BuildRouteParents(
 		return []AgwParentKey{o.ParentObject}
 	})
 	return RouteParents{
-		gateways:     gateways,
 		gatewayIndex: idx,
 	}
 }

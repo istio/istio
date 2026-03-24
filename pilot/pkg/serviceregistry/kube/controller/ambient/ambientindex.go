@@ -797,10 +797,9 @@ func (a *index) AdditionalPodSubscriptions(
 func LookupNetworkGateway(
 	ctx krt.HandlerContext,
 	id network.ID,
-	networkGateways krt.Collection[NetworkGateway],
 	gatewaysByNetwork krt.Index[network.ID, NetworkGateway],
 ) []NetworkGateway {
-	return krt.Fetch(ctx, networkGateways, krt.FilterIndex(gatewaysByNetwork, id))
+	return gatewaysByNetwork.Fetch(ctx, id)
 }
 
 func LookupAllNetworkGateway(
@@ -811,7 +810,7 @@ func LookupAllNetworkGateway(
 }
 
 func (a *index) LookupNetworkGateway(ctx krt.HandlerContext, id network.ID) []NetworkGateway {
-	return LookupNetworkGateway(ctx, id, a.networks.NetworkGateways, a.networks.GatewaysByNetwork)
+	return LookupNetworkGateway(ctx, id, a.networks.GatewaysByNetwork)
 }
 
 func (a *index) LookupAllNetworkGateway(ctx krt.HandlerContext) []NetworkGateway {
