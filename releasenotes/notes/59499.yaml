@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 57844
+releaseNotes:
+  - |
+    Added PILOT_NODE_UNTAINT_CONTROLLERS_TAINT_NAME environment variable to allow users to specify 
+    a custom taint name for the pilot node untaint controller. Defaults to cni.istio.io/not-ready
