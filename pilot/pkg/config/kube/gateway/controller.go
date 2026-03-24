@@ -158,6 +158,7 @@ var _ model.GatewayController = &Controller{}
 
 func NewController(
 	kc kube.Client,
+	endpoints krt.Collection[*model.IstioEndpoints],
 	waitForCRD func(class schema.GroupVersionResource, stop <-chan struct{}) bool,
 	options controller.Options,
 	xdsUpdater model.XDSUpdater,
@@ -248,6 +249,7 @@ func NewController(
 		ReferenceGrants,
 		inputs.ConfigMaps,
 		inputs.Secrets,
+		endpoints,
 		options.DomainSuffix,
 		c.gatewayContext,
 		c.tagWatcher,
@@ -265,6 +267,7 @@ func NewController(
 		ReferenceGrants,
 		inputs.ConfigMaps,
 		inputs.Secrets,
+		endpoints,
 		c.domainSuffix,
 		c.gatewayContext,
 		c.tagWatcher,

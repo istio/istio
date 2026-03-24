@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
@@ -82,17 +83,19 @@ func extractGatewayServices(domainSuffix string, kgw *gatewayv1.Gateway, info ga
 }
 
 func reportGatewayStatus(
+	ctx krt.HandlerContext,
 	r *gatewaycommon.GatewayContext,
 	obj *gatewayv1.Gateway,
 	gs *gatewayv1.GatewayStatus,
 	classInfo gatewaycommon.ClassInfo,
 	gatewayServices []string,
+	endpoints krt.Collection[*model.IstioEndpoints],
 	servers []*istio.Server,
 	listenerSetCount int,
 	gatewayErr *ConfigError,
 ) {
 	// TODO: we lose address if servers is empty due to an error
-	internal, internalIP, external, pending, warnings, allUsable := r.ResolveGatewayInstances(obj.Namespace, gatewayServices, servers)
+	internal, internalIP, external, pending, warnings, allUsable := r.ResolveGatewayInstances(ctx, obj.Namespace, gatewayServices, endpoints, servers)
 
 	// Setup initial conditions to the success state. If we encounter errors, we will update this.
 	// We have two status
