@@ -22,6 +22,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
@@ -182,6 +183,10 @@ type SidecarScope struct {
 	// If OutboundTrafficPolicy is ALLOW_ANY traffic to unknown destinations will
 	// be forwarded.
 	OutboundTrafficPolicy *networking.OutboundTrafficPolicy
+
+	// OutboundTrafficPolicyTLS holds the client TLS settings from MeshConfig's
+	// OutboundTrafficPolicy. Applicable only when mode is ALLOW_ANY_DYNAMIC_DNS (mesh-level only).
+	OutboundTrafficPolicyTLS *networking.ClientTLSSettings
 
 	// Set of known configs this sidecar depends on.
 	// This field will be used to determine the config/resource scope
@@ -345,8 +350,11 @@ func initSidecarScopeInternalIndexes(ps *PushContext, sidecarScope *SidecarScope
 
 	if sidecarScope.Sidecar.GetOutboundTrafficPolicy() == nil {
 		if ps.Mesh.OutboundTrafficPolicy != nil {
-			sidecarScope.OutboundTrafficPolicy = &networking.OutboundTrafficPolicy{
-				Mode: networking.OutboundTrafficPolicy_Mode(ps.Mesh.OutboundTrafficPolicy.Mode),
+			mode := networking.OutboundTrafficPolicy_Mode(ps.Mesh.OutboundTrafficPolicy.Mode)
+			sidecarScope.OutboundTrafficPolicy = &networking.OutboundTrafficPolicy{Mode: mode}
+			if ps.Mesh.OutboundTrafficPolicy.Mode ==
+				meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY_DYNAMIC_DNS {
+				sidecarScope.OutboundTrafficPolicyTLS = ps.Mesh.OutboundTrafficPolicy.GetTls()
 			}
 		}
 	} else {

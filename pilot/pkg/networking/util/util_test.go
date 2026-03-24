@@ -834,10 +834,76 @@ func TestIsAllowAnyOutbound(t *testing.T) {
 			},
 			result: true,
 		},
+		{
+			name: "OutboundTrafficPolicyAllowAnyDynamicDNS",
+			node: &model.Proxy{
+				SidecarScope: &model.SidecarScope{
+					OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
+						Mode: networking.OutboundTrafficPolicy_Mode(meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY_DYNAMIC_DNS),
+					},
+				},
+			},
+			result: false,
+		},
 	}
 	for i := range tests {
 		t.Run(tests[i].name, func(t *testing.T) {
 			out := IsAllowAnyOutbound(tests[i].node)
+			if out != tests[i].result {
+				t.Errorf("Expected %t but got %t for test case: %v\n", tests[i].result, out, tests[i].node)
+			}
+		})
+	}
+}
+
+func TestIsAllowAnyDynamicDNSOutbound(t *testing.T) {
+	tests := []struct {
+		name   string
+		node   *model.Proxy
+		result bool
+	}{
+		{
+			name:   "NilSidecarScope",
+			node:   &model.Proxy{},
+			result: false,
+		},
+		{
+			name: "AllowAny",
+			node: &model.Proxy{
+				SidecarScope: &model.SidecarScope{
+					OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
+						Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,
+					},
+				},
+			},
+			result: false,
+		},
+		{
+			name: "RegistryOnly",
+			node: &model.Proxy{
+				SidecarScope: &model.SidecarScope{
+					OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
+						Mode: networking.OutboundTrafficPolicy_REGISTRY_ONLY,
+					},
+				},
+			},
+			result: false,
+		},
+		{
+			name: "AllowAnyDynamicDNS",
+			node: &model.Proxy{
+				SidecarScope: &model.SidecarScope{
+					OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
+						Mode: networking.OutboundTrafficPolicy_Mode(meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY_DYNAMIC_DNS),
+					},
+				},
+			},
+			result: true,
+		},
+	}
+	for i := range tests {
+		t.Run(tests[i].name, func(t *testing.T) {
+			out := IsAllowAnyDynamicDNSOutbound(tests[i].node)
 			if out != tests[i].result {
 				t.Errorf("Expected %t but got %t for test case: %v\n", tests[i].result, out, tests[i].node)
 			}

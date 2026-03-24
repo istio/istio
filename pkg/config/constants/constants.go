@@ -20,6 +20,9 @@ const (
 	// UnspecifiedIPv6 constant for empty IPv6 address
 	UnspecifiedIPv6 = "::"
 
+	// DefaultDNSProxyAddr is the default host:port for the Istio DNS proxy (istio-agent DNS_PROXY_ADDR).
+	DefaultDNSProxyAddr = "localhost:15053"
+
 	// StatPrefixDelimiter constant for the stat delimiter
 	StatPrefixDelimiter = ";"
 

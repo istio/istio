@@ -3534,6 +3534,70 @@ outboundTrafficPolicy:
 	}
 }
 
+func TestSidecarOutboundTrafficPolicyAllowAnyDynamicDNS(t *testing.T) {
+	tlsSettings := &networking.ClientTLSSettings{
+		Mode: networking.ClientTLSSettings_SIMPLE,
+	}
+	meshWithDynamicDNS := &v1alpha1.MeshConfig{
+		OutboundTrafficPolicy: &v1alpha1.MeshConfig_OutboundTrafficPolicy{
+			Mode: v1alpha1.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY_DYNAMIC_DNS,
+			Tls:  tlsSettings,
+		},
+	}
+	meshWithDynamicDNSNoTLS := &v1alpha1.MeshConfig{
+		OutboundTrafficPolicy: &v1alpha1.MeshConfig_OutboundTrafficPolicy{
+			Mode: v1alpha1.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY_DYNAMIC_DNS,
+		},
+	}
+
+	tests := []struct {
+		name         string
+		meshConfig   *v1alpha1.MeshConfig
+		expectedMode networking.OutboundTrafficPolicy_Mode
+		expectedTLS  *networking.ClientTLSSettings
+	}{
+		{
+			name:         "ALLOW_ANY_DYNAMIC_DNS with TLS propagates TLS settings",
+			meshConfig:   meshWithDynamicDNS,
+			expectedMode: networking.OutboundTrafficPolicy_Mode(v1alpha1.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY_DYNAMIC_DNS),
+			expectedTLS:  tlsSettings,
+		},
+		{
+			name:         "ALLOW_ANY_DYNAMIC_DNS without TLS has nil TLS",
+			meshConfig:   meshWithDynamicDNSNoTLS,
+			expectedMode: networking.OutboundTrafficPolicy_Mode(v1alpha1.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY_DYNAMIC_DNS),
+			expectedTLS:  nil,
+		},
+		{
+			name:         "ALLOW_ANY does not propagate TLS",
+			meshConfig:   mesh.DefaultMeshConfig(),
+			expectedMode: networking.OutboundTrafficPolicy_ALLOW_ANY,
+			expectedTLS:  nil,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			ps := NewPushContext()
+			ps.Mesh = tc.meshConfig
+
+			sidecarScope := convertToSidecarScope(ps, nil, "not-default")
+			if features.EnableLazySidecarEvaluation {
+				sidecarScope.initFunc()
+			}
+
+			gotMode := sidecarScope.OutboundTrafficPolicy.Mode
+			if gotMode != tc.expectedMode {
+				t.Errorf("OutboundTrafficPolicy mode: want %v, got %v", tc.expectedMode, gotMode)
+			}
+
+			if !reflect.DeepEqual(tc.expectedTLS, sidecarScope.OutboundTrafficPolicyTLS) {
+				t.Errorf("OutboundTrafficPolicyTLS: want %v, got %v", tc.expectedTLS, sidecarScope.OutboundTrafficPolicyTLS)
+			}
+		})
+	}
+}
+
 func TestInboundConnectionPoolForPort(t *testing.T) {
 	connectionPoolSettings := &networking.ConnectionPoolSettings{
 		Http: &networking.ConnectionPoolSettings_HTTPSettings{

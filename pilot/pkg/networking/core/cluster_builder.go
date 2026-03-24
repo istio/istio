@@ -564,6 +564,56 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 	return ec
 }
 
+// buildAllowAnyDFPCluster builds the DFP cluster for ALLOW_ANY_DYNAMIC_DNS mode.
+// Plaintext HTTP traffic is routed here via the HTTP DFP filter which resolves hostnames
+// from the Host/:authority header. Optional TLS origination is applied when OutboundTrafficPolicyTLS
+// is configured.
+func (cb *ClusterBuilder) buildAllowAnyDFPCluster(tls *networking.ClientTLSSettings) *clusterWrapper {
+	c := &cluster.Cluster{
+		Name:     util.AllowAnyDynamicDNSCluster,
+		LbPolicy: cluster.Cluster_CLUSTER_PROVIDED,
+		ClusterDiscoveryType: &cluster.Cluster_ClusterType{ClusterType: &cluster.Cluster_CustomClusterType{
+			Name: "envoy.clusters.dynamic_forward_proxy",
+			TypedConfig: protoconv.MessageToAny(&dfpcluster.ClusterConfig{
+				ClusterImplementationSpecifier: &dfpcluster.ClusterConfig_DnsCacheConfig{
+					DnsCacheConfig: buildAllowAnyDynamicDNSDNSCacheConfig(cb.proxyMetadata),
+				},
+				// Required to bypass Envoy's auto_sni/auto_san_validation guard when no upstream TLS is set.
+				AllowInsecureClusterOptions: tls == nil || tls.Mode == networking.ClientTLSSettings_DISABLE,
+			}),
+		}},
+		ConnectTimeout: cb.req.Push.Mesh.ConnectTimeout,
+	}
+	c.AltStatName = util.DelimitedStatsPrefix(util.AllowAnyDynamicDNSCluster)
+	// Use same protocol options as passthrough cluster
+	httpProtocolOptions := passthroughHttpProtocolOptions
+	if shouldPreserveHeaderCase(cb.proxyMetadata, cb.req.Push) {
+		httpProtocolOptions = passthroughHttpProtocolOptionsWithPreserveHeaderCase
+	}
+	c.TypedExtensionProtocolOptions = map[string]*anypb.Any{
+		v3.HttpProtocolOptionsType: httpProtocolOptions,
+	}
+	ec := newDFPClusterWrapper(c)
+	if tls != nil && tls.Mode != networking.ClientTLSSettings_DISABLE {
+		opts := &buildClusterOpts{
+			mesh:      cb.req.Push.Mesh,
+			mutable:   ec,
+			direction: model.TrafficDirectionOutbound,
+		}
+		tlsContext, err := cb.buildUpstreamClusterTLSContext(opts, tls)
+		if err != nil {
+			log.Errorf("failed to build TLS context for %s cluster: %v", util.AllowAnyDynamicDNSCluster, err)
+		} else if tlsContext != nil {
+			c.TransportSocket = &core.TransportSocket{
+				Name:       wellknown.TransportSocketTLS,
+				ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(tlsContext)},
+			}
+		}
+	}
+	cb.applyMetadataExchange(c)
+	return ec
+}
+
 // Builds a dynamic forward proxy cluster with DNS cache config, stats configuration
 // and upstream protocol settings.
 func (cb *ClusterBuilder) buildDFPCluster(name string, service *model.Service, port *model.Port) *clusterWrapper {

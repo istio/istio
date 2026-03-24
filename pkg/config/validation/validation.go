@@ -34,6 +34,7 @@ import (
 	"istio.io/api/annotation"
 	extensions "istio.io/api/extensions/v1alpha1"
 	"istio.io/api/label"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	networkingv1beta1 "istio.io/api/networking/v1beta1"
 	security_beta "istio.io/api/security/v1beta1"
@@ -978,6 +979,14 @@ func validateSidecarOutboundTrafficPolicy(tp *networking.OutboundTrafficPolicy) 
 		return errs
 	}
 	mode := tp.GetMode()
+
+	// ALLOW_ANY_DYNAMIC_DNS is only supported at the mesh level (MeshConfig),
+	// not in the Sidecar CRD.
+	if meshconfig.MeshConfig_OutboundTrafficPolicy_Mode(mode) == meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY_DYNAMIC_DNS {
+		errs = appendErrors(errs, fmt.Errorf("sidecar: ALLOW_ANY_DYNAMIC_DNS mode is only supported in MeshConfig, not in Sidecar resource"))
+		return errs
+	}
+
 	if tp.EgressProxy != nil {
 		if mode != networking.OutboundTrafficPolicy_ALLOW_ANY {
 			errs = appendErrors(errs, fmt.Errorf("sidecar: egress_proxy must be set only with ALLOW_ANY outbound_traffic_policy mode"))

@@ -66,6 +66,13 @@ const (
 	// PassthroughCluster
 	Passthrough = "allow_any"
 
+	// AllowAnyDynamicDNSCluster is the DFP cluster used for ALLOW_ANY_DYNAMIC_DNS outbound traffic policy mode.
+	AllowAnyDynamicDNSCluster = "AllowAnyDynamicDNSCluster"
+	// AllowAnyDynamicDNS is the name of the virtual host and route name for ALLOW_ANY_DYNAMIC_DNS mode.
+	AllowAnyDynamicDNS = "allow_any_dynamic_dns"
+	// AllowAnyDFPDNSCacheName is the shared DNS cache name used by the DFP cluster and filters for ALLOW_ANY_DYNAMIC_DNS.
+	AllowAnyDFPDNSCacheName = "allow_any_dfp_dns_cache"
+
 	// PassthroughFilterChain to catch traffic that doesn't match other filter chains.
 	PassthroughFilterChain = "PassthroughFilterChain"
 
@@ -514,7 +521,16 @@ func addIstioEndpointLabel(metadata *core.Metadata, key string, val *structpb.Va
 	metadata.FilterMetadata[IstioMetadataKey].Fields[key] = val
 }
 
-// IsAllowAnyOutbound checks if allow_any is enabled for outbound traffic
+// IsAllowAnyDynamicDNSOutbound checks if ALLOW_ANY_DYNAMIC_DNS mode is enabled for outbound traffic.
+func IsAllowAnyDynamicDNSOutbound(node *model.Proxy) bool {
+	return node.SidecarScope != nil &&
+		node.SidecarScope.OutboundTrafficPolicy != nil &&
+		meshconfig.MeshConfig_OutboundTrafficPolicy_Mode(node.SidecarScope.OutboundTrafficPolicy.Mode) ==
+			meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY_DYNAMIC_DNS
+}
+
+// IsAllowAnyOutbound checks if outbound traffic to unknown destinations should be allowed
+// (either via ALLOW_ANY passthrough or ALLOW_ANY_DYNAMIC_DNS via DFP).
 func IsAllowAnyOutbound(node *model.Proxy) bool {
 	return node.SidecarScope != nil &&
 		node.SidecarScope.OutboundTrafficPolicy != nil &&
