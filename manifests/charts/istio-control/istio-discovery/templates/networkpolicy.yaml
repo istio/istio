@@ -24,13 +24,11 @@ spec:
   - Egress
   ingress:
   # Webhook from kube-apiserver
-  - from: []
-    ports:
+  - ports:
     - protocol: TCP
       port: 15017
   # xDS from potentially anywhere
-  - from: []
-    ports:
+  - ports:
     - protocol: TCP
       port: 15010
     - protocol: TCP

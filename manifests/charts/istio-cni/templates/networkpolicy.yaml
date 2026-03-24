@@ -21,13 +21,11 @@ spec:
   - Egress
   ingress:
   # Metrics endpoint for monitoring/prometheus
-  - from: []
-    ports:
+  - ports:
     - protocol: TCP
       port: 15014
   # Readiness probe endpoint
-  - from: []
-    ports:
+  - ports:
     - protocol: TCP
       port: 8000
   egress:
