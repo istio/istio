@@ -148,6 +148,13 @@ func TestInjection(t *testing.T) {
 		},
 		{
 			in:   "hello.yaml",
+			want: "hello.yaml.proxyInitImageName.injected",
+			setFlags: []string{
+				"values.global.proxy_init.image=proxyInitTest",
+			},
+		},
+		{
+			in:   "hello.yaml",
 			want: "hello-tproxy.yaml.injected",
 			mesh: func(m *meshapi.MeshConfig) {
 				m.DefaultConfig.InterceptionMode = meshapi.ProxyConfig_TPROXY

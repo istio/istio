@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+  - 59066
+releaseNotes:
+  - |
+    **Fixed** an issue where the `istio-init` container would use the wrong image when `global.proxy_init.image` and `global.proxy.image` were configured differently.
