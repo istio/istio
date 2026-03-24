@@ -1,6 +1,6 @@
 FROM mcr.microsoft.com/oss/kubernetes/windows-host-process-containers-base-image:v1.0.0
 
 ARG TARGETARCH
-COPY ${TARGETARCH:-amd64}/install-cni.exe /install-cni.exe
-COPY ${TARGETARCH:-amd64}/istio-cni.exe /opt/cni/bin/istio-cni.exe
+COPY out/windows_${TARGETARCH:-amd64}/install-cni.exe /install-cni.exe
+COPY out/windows_${TARGETARCH:-amd64}/istio-cni.exe /opt/cni/bin/istio-cni.exe
 ENTRYPOINT [ "/install-cni.exe" ]
