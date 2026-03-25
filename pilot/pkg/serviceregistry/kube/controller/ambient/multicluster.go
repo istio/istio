@@ -66,7 +66,6 @@ func (a *index) buildGlobalCollections(
 	LocalNamespaces := localCluster.Namespaces()
 	LocalNodes := localCluster.Nodes()
 	LocalGateways := localCluster.Gateways()
-	LocalWaypoints := a.builder.WaypointsCollection(options.ClusterID, LocalGateways, localGatewayClasses, LocalPods, opts)
 
 	LocalMeshConfig := options.MeshConfig
 	// These first collections can't be merged since the Kubernetes APIs don't have enough room
@@ -163,6 +162,9 @@ func (a *index) buildGlobalCollections(
 		opts,
 	)
 	a.networks = GlobalNetworks
+
+	// we need networks to be initialized before we can build waypoints
+	LocalWaypoints := a.builder.WaypointsCollection(options.ClusterID, LocalGateways, localGatewayClasses, LocalPods, opts)
 
 	// We need this because there may be services and waypoints on remote clusters that aren't represented
 	// in our local config cluster
