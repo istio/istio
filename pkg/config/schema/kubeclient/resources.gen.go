@@ -76,8 +76,8 @@ func GetWriteClient[T runtime.Object](c ClientGetter, namespace string) ktypes.W
 		return c.Kube().CoreV1().Endpoints(namespace).(ktypes.WriteAPI[T])
 	case *apiistioioapinetworkingv1alpha3.EnvoyFilter:
 		return c.Istio().NetworkingV1alpha3().EnvoyFilters(namespace).(ktypes.WriteAPI[T])
-	case *apiistioioapiextensionsv1alpha1.ExtensionFilter:
-		return c.Istio().ExtensionsV1alpha1().ExtensionFilters(namespace).(ktypes.WriteAPI[T])
+	case *apiistioioapiextensionsv1alpha1.TrafficExtension:
+		return c.Istio().ExtensionsV1alpha1().TrafficExtensions(namespace).(ktypes.WriteAPI[T])
 	case *sigsk8siogatewayapiapisv1.GRPCRoute:
 		return c.GatewayAPI().GatewayV1().GRPCRoutes(namespace).(ktypes.WriteAPI[T])
 	case *apiistioioapinetworkingv1.Gateway:
@@ -181,8 +181,8 @@ func GetClient[T, TL runtime.Object](c ClientGetter, namespace string) ktypes.Re
 		return c.Kube().CoreV1().Endpoints(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *apiistioioapinetworkingv1alpha3.EnvoyFilter:
 		return c.Istio().NetworkingV1alpha3().EnvoyFilters(namespace).(ktypes.ReadWriteAPI[T, TL])
-	case *apiistioioapiextensionsv1alpha1.ExtensionFilter:
-		return c.Istio().ExtensionsV1alpha1().ExtensionFilters(namespace).(ktypes.ReadWriteAPI[T, TL])
+	case *apiistioioapiextensionsv1alpha1.TrafficExtension:
+		return c.Istio().ExtensionsV1alpha1().TrafficExtensions(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *sigsk8siogatewayapiapisv1.GRPCRoute:
 		return c.GatewayAPI().GatewayV1().GRPCRoutes(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *apiistioioapinetworkingv1.Gateway:
@@ -286,8 +286,8 @@ func gvrToObject(g schema.GroupVersionResource) runtime.Object {
 		return &k8sioapicorev1.Endpoints{}
 	case gvr.EnvoyFilter:
 		return &apiistioioapinetworkingv1alpha3.EnvoyFilter{}
-	case gvr.ExtensionFilter:
-		return &apiistioioapiextensionsv1alpha1.ExtensionFilter{}
+	case gvr.TrafficExtension:
+		return &apiistioioapiextensionsv1alpha1.TrafficExtension{}
 	case gvr.GRPCRoute:
 		return &sigsk8siogatewayapiapisv1.GRPCRoute{}
 	case gvr.Gateway:
@@ -454,12 +454,12 @@ func getInformerFiltered(c ClientGetter, opts ktypes.InformerOptions, g schema.G
 		w = func(options metav1.ListOptions) (watch.Interface, error) {
 			return c.Istio().NetworkingV1alpha3().EnvoyFilters(opts.Namespace).Watch(context.Background(), options)
 		}
-	case gvr.ExtensionFilter:
+	case gvr.TrafficExtension:
 		l = func(options metav1.ListOptions) (runtime.Object, error) {
-			return c.Istio().ExtensionsV1alpha1().ExtensionFilters(opts.Namespace).List(context.Background(), options)
+			return c.Istio().ExtensionsV1alpha1().TrafficExtensions(opts.Namespace).List(context.Background(), options)
 		}
 		w = func(options metav1.ListOptions) (watch.Interface, error) {
-			return c.Istio().ExtensionsV1alpha1().ExtensionFilters(opts.Namespace).Watch(context.Background(), options)
+			return c.Istio().ExtensionsV1alpha1().TrafficExtensions(opts.Namespace).Watch(context.Background(), options)
 		}
 	case gvr.GRPCRoute:
 		l = func(options metav1.ListOptions) (runtime.Object, error) {

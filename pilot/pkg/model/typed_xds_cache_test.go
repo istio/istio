@@ -222,12 +222,12 @@ func TestCleanIndexesOnCacheClear(t *testing.T) {
 	// second entry has different key and dependencies
 	secondEntry := entry{
 		key:            "key2",
-		dependentTypes: []kind.Kind{kind.Service, kind.EnvoyFilter, kind.WasmPlugin, kind.ExtensionFilter},
+		dependentTypes: []kind.Kind{kind.Service, kind.EnvoyFilter, kind.WasmPlugin, kind.TrafficExtension},
 		dependentConfigs: []ConfigHash{
 			ConfigKey{Kind: kind.Service, Name: "name", Namespace: "namespace"}.HashCode(),
 			ConfigKey{Kind: kind.EnvoyFilter, Name: "name", Namespace: "namespace"}.HashCode(),
 			ConfigKey{Kind: kind.WasmPlugin, Name: "name", Namespace: "namespace"}.HashCode(),
-			ConfigKey{Kind: kind.ExtensionFilter, Name: "name", Namespace: "namespace"}.HashCode(),
+			ConfigKey{Kind: kind.TrafficExtension, Name: "name", Namespace: "namespace"}.HashCode(),
 		},
 	}
 
@@ -246,7 +246,7 @@ func TestCleanIndexesOnCacheClear(t *testing.T) {
 		ConfigKey{Kind: kind.Gateway, Name: "name", Namespace: "namespace"}.HashCode():         sets.New(firstEntry.Key()),
 		ConfigKey{Kind: kind.EnvoyFilter, Name: "name", Namespace: "namespace"}.HashCode():     sets.New(secondEntry.Key()),
 		ConfigKey{Kind: kind.WasmPlugin, Name: "name", Namespace: "namespace"}.HashCode():      sets.New(secondEntry.Key()),
-		ConfigKey{Kind: kind.ExtensionFilter, Name: "name", Namespace: "namespace"}.HashCode(): sets.New(secondEntry.Key()),
+		ConfigKey{Kind: kind.TrafficExtension, Name: "name", Namespace: "namespace"}.HashCode(): sets.New(secondEntry.Key()),
 	})
 
 	cache.Clear(sets.Set[ConfigKey]{})
@@ -260,7 +260,7 @@ func TestCleanIndexesOnCacheClear(t *testing.T) {
 		ConfigKey{Kind: kind.Gateway, Name: "name", Namespace: "namespace"}.HashCode():         sets.New(firstEntry.Key()),
 		ConfigKey{Kind: kind.EnvoyFilter, Name: "name", Namespace: "namespace"}.HashCode():     sets.New(secondEntry.Key()),
 		ConfigKey{Kind: kind.WasmPlugin, Name: "name", Namespace: "namespace"}.HashCode():      sets.New(secondEntry.Key()),
-		ConfigKey{Kind: kind.ExtensionFilter, Name: "name", Namespace: "namespace"}.HashCode(): sets.New(secondEntry.Key()),
+		ConfigKey{Kind: kind.TrafficExtension, Name: "name", Namespace: "namespace"}.HashCode(): sets.New(secondEntry.Key()),
 	})
 
 	// clear only DestinationRule dependencies, should clear all firstEntry references
@@ -276,7 +276,7 @@ func TestCleanIndexesOnCacheClear(t *testing.T) {
 		ConfigKey{Kind: kind.Service, Name: "name", Namespace: "namespace"}.HashCode():         sets.New(secondEntry.Key()),
 		ConfigKey{Kind: kind.EnvoyFilter, Name: "name", Namespace: "namespace"}.HashCode():     sets.New(secondEntry.Key()),
 		ConfigKey{Kind: kind.WasmPlugin, Name: "name", Namespace: "namespace"}.HashCode():      sets.New(secondEntry.Key()),
-		ConfigKey{Kind: kind.ExtensionFilter, Name: "name", Namespace: "namespace"}.HashCode(): sets.New(secondEntry.Key()),
+		ConfigKey{Kind: kind.TrafficExtension, Name: "name", Namespace: "namespace"}.HashCode(): sets.New(secondEntry.Key()),
 	})
 
 	// add firstEntry again
@@ -294,7 +294,7 @@ func TestCleanIndexesOnCacheClear(t *testing.T) {
 		ConfigKey{Kind: kind.Gateway, Name: "name", Namespace: "namespace"}.HashCode():         sets.New(firstEntry.Key()),
 		ConfigKey{Kind: kind.EnvoyFilter, Name: "name", Namespace: "namespace"}.HashCode():     sets.New(secondEntry.Key()),
 		ConfigKey{Kind: kind.WasmPlugin, Name: "name", Namespace: "namespace"}.HashCode():      sets.New(secondEntry.Key()),
-		ConfigKey{Kind: kind.ExtensionFilter, Name: "name", Namespace: "namespace"}.HashCode(): sets.New(secondEntry.Key()),
+		ConfigKey{Kind: kind.TrafficExtension, Name: "name", Namespace: "namespace"}.HashCode(): sets.New(secondEntry.Key()),
 	})
 
 	// clear only EnvoyFilter dependencies, should clear all secondEntry references
@@ -327,7 +327,7 @@ func TestCleanIndexesOnCacheClear(t *testing.T) {
 		ConfigKey{Kind: kind.Gateway, Name: "name", Namespace: "namespace"}.HashCode():         sets.New(firstEntry.Key()),
 		ConfigKey{Kind: kind.EnvoyFilter, Name: "name", Namespace: "namespace"}.HashCode():     sets.New(secondEntry.Key()),
 		ConfigKey{Kind: kind.WasmPlugin, Name: "name", Namespace: "namespace"}.HashCode():      sets.New(secondEntry.Key()),
-		ConfigKey{Kind: kind.ExtensionFilter, Name: "name", Namespace: "namespace"}.HashCode(): sets.New(secondEntry.Key()),
+		ConfigKey{Kind: kind.TrafficExtension, Name: "name", Namespace: "namespace"}.HashCode(): sets.New(secondEntry.Key()),
 	})
 
 	// clear only Service dependencies, should clear both firstEntry and secondEntry references
@@ -359,12 +359,12 @@ func TestCacheClearAll(t *testing.T) {
 	// second entry has different key and dependencies
 	secondEntry := entry{
 		key:            "key2",
-		dependentTypes: []kind.Kind{kind.Service, kind.EnvoyFilter, kind.WasmPlugin, kind.ExtensionFilter},
+		dependentTypes: []kind.Kind{kind.Service, kind.EnvoyFilter, kind.WasmPlugin, kind.TrafficExtension},
 		dependentConfigs: []ConfigHash{
 			ConfigKey{Kind: kind.Service, Name: "name", Namespace: "namespace"}.HashCode(),
 			ConfigKey{Kind: kind.EnvoyFilter, Name: "name", Namespace: "namespace"}.HashCode(),
 			ConfigKey{Kind: kind.WasmPlugin, Name: "name", Namespace: "namespace"}.HashCode(),
-			ConfigKey{Kind: kind.ExtensionFilter, Name: "name", Namespace: "namespace"}.HashCode(),
+			ConfigKey{Kind: kind.TrafficExtension, Name: "name", Namespace: "namespace"}.HashCode(),
 		},
 	}
 
@@ -382,7 +382,7 @@ func TestCacheClearAll(t *testing.T) {
 		ConfigKey{Kind: kind.Gateway, Name: "name", Namespace: "namespace"}.HashCode():         sets.New(firstEntry.Key()),
 		ConfigKey{Kind: kind.EnvoyFilter, Name: "name", Namespace: "namespace"}.HashCode():     sets.New(secondEntry.Key()),
 		ConfigKey{Kind: kind.WasmPlugin, Name: "name", Namespace: "namespace"}.HashCode():      sets.New(secondEntry.Key()),
-		ConfigKey{Kind: kind.ExtensionFilter, Name: "name", Namespace: "namespace"}.HashCode(): sets.New(secondEntry.Key()),
+		ConfigKey{Kind: kind.TrafficExtension, Name: "name", Namespace: "namespace"}.HashCode(): sets.New(secondEntry.Key()),
 	})
 
 	cache.ClearAll()

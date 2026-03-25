@@ -68,10 +68,10 @@ func getGvk(obj any) (config.GroupVersionKind, bool) {
 		return gvk.EnvoyFilter, true
 	case *apiistioioapinetworkingv1alpha3.EnvoyFilter:
 		return gvk.EnvoyFilter, true
-	case *istioioapiextensionsv1alpha1.ExtensionFilter:
-		return gvk.ExtensionFilter, true
-	case *apiistioioapiextensionsv1alpha1.ExtensionFilter:
-		return gvk.ExtensionFilter, true
+	case *istioioapiextensionsv1alpha1.TrafficExtension:
+		return gvk.TrafficExtension, true
+	case *apiistioioapiextensionsv1alpha1.TrafficExtension:
+		return gvk.TrafficExtension, true
 	case *sigsk8siogatewayapiapisv1.GRPCRoute:
 		return gvk.GRPCRoute, true
 	case *istioioapinetworkingv1alpha3.Gateway:

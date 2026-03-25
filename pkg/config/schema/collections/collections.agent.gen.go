@@ -58,19 +58,19 @@ var (
 		ValidateProto: validation.ValidateDestinationRule,
 	}.MustBuild()
 
-	ExtensionFilter = resource.Builder{
-		Identifier: "ExtensionFilter",
+	TrafficExtension = resource.Builder{
+		Identifier: "TrafficExtension",
 		Group:      "extensions.istio.io",
-		Kind:       "ExtensionFilter",
-		Plural:     "extensionfilters",
+		Kind:       "TrafficExtension",
+		Plural:     "trafficextensions",
 		Version:    "v1alpha1",
-		Proto:      "istio.extensions.v1alpha1.ExtensionFilter", StatusProto: "istio.meta.v1alpha1.IstioStatus",
-		ReflectType: reflect.TypeOf(&istioioapiextensionsv1alpha1.ExtensionFilter{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
+		Proto:      "istio.extensions.v1alpha1.TrafficExtension", StatusProto: "istio.meta.v1alpha1.IstioStatus",
+		ReflectType: reflect.TypeOf(&istioioapiextensionsv1alpha1.TrafficExtension{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
 		ProtoPackage: "istio.io/api/extensions/v1alpha1", StatusPackage: "istio.io/api/meta/v1alpha1",
 		ClusterScoped: false,
 		Synthetic:     false,
 		Builtin:       false,
-		ValidateProto: ValidateExtensionFilter,
+		ValidateProto: ValidateTrafficExtension,
 	}.MustBuild()
 
 	Gateway = resource.Builder{
@@ -305,7 +305,7 @@ var (
 	All = collection.NewSchemasBuilder().
 		MustAdd(AuthorizationPolicy).
 		MustAdd(DestinationRule).
-		MustAdd(ExtensionFilter).
+		MustAdd(TrafficExtension).
 		MustAdd(Gateway).
 		MustAdd(MeshConfig).
 		MustAdd(MeshNetworks).
@@ -329,7 +329,7 @@ var (
 	Pilot = collection.NewSchemasBuilder().
 		MustAdd(AuthorizationPolicy).
 		MustAdd(DestinationRule).
-		MustAdd(ExtensionFilter).
+		MustAdd(TrafficExtension).
 		MustAdd(Gateway).
 		MustAdd(PeerAuthentication).
 		MustAdd(ProxyConfig).
@@ -347,7 +347,7 @@ var (
 	pilotGatewayAPI = collection.NewSchemasBuilder().
 			MustAdd(AuthorizationPolicy).
 			MustAdd(DestinationRule).
-			MustAdd(ExtensionFilter).
+			MustAdd(TrafficExtension).
 			MustAdd(Gateway).
 			MustAdd(PeerAuthentication).
 			MustAdd(ProxyConfig).
@@ -365,7 +365,7 @@ var (
 	pilotStableGatewayAPI = collection.NewSchemasBuilder().
 				MustAdd(AuthorizationPolicy).
 				MustAdd(DestinationRule).
-				MustAdd(ExtensionFilter).
+				MustAdd(TrafficExtension).
 				MustAdd(Gateway).
 				MustAdd(PeerAuthentication).
 				MustAdd(ProxyConfig).

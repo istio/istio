@@ -166,46 +166,46 @@ func TestFailurePolicy(t *testing.T) {
 	cases := []struct {
 		desc  string
 		proxy *Proxy
-		in    *extensions.ExtensionFilter
+		in    *extensions.TrafficExtension
 		out   wasmextensions.FailurePolicy
 	}{
 		{
 			desc: "UNSPECIFIED",
-			in: &extensions.ExtensionFilter{
-				Wasm: &extensions.WasmConfig{
+			in: &extensions.TrafficExtension{
+				FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
 					Url: "file://fake.wasm",
 					// FailStrategy not set (zero value) defaults to FAIL_CLOSE, which maps to FAIL_CLOSED
-				},
+				}},
 			},
 			out: wasmextensions.FailurePolicy_FAIL_CLOSED,
 		},
 		{
 			desc: "CLOSED",
-			in: &extensions.ExtensionFilter{
-				Wasm: &extensions.WasmConfig{
+			in: &extensions.TrafficExtension{
+				FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
 					Url:          "file://fake.wasm",
 					FailStrategy: extensions.FailStrategy_FAIL_CLOSE,
-				},
+				}},
 			},
 			out: wasmextensions.FailurePolicy_FAIL_CLOSED,
 		},
 		{
 			desc: "OPEN",
-			in: &extensions.ExtensionFilter{
-				Wasm: &extensions.WasmConfig{
+			in: &extensions.TrafficExtension{
+				FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
 					Url:          "file://fake.wasm",
 					FailStrategy: extensions.FailStrategy_FAIL_OPEN,
-				},
+				}},
 			},
 			out: wasmextensions.FailurePolicy_FAIL_OPEN,
 		},
 		{
 			desc: "RELOAD",
-			in: &extensions.ExtensionFilter{
-				Wasm: &extensions.WasmConfig{
+			in: &extensions.TrafficExtension{
+				FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
 					Url:          "file://fake.wasm",
 					FailStrategy: extensions.FailStrategy_FAIL_RELOAD,
-				},
+				}},
 			},
 			out: wasmextensions.FailurePolicy_FAIL_RELOAD,
 		},
@@ -244,10 +244,10 @@ func TestConvertToExtensionFilterWrapper(t *testing.T) {
 					Namespace:       "default",
 					ResourceVersion: "v1",
 				},
-				Spec: &extensions.ExtensionFilter{
-					Lua: &extensions.LuaConfig{
+				Spec: &extensions.TrafficExtension{
+					FilterConfig: &extensions.TrafficExtension_Lua{Lua: &extensions.LuaConfig{
 						InlineCode: "function envoy_on_request(request_handle)\nend",
-					},
+					}},
 				},
 			},
 			wantType: FilterTypeLua,
@@ -261,33 +261,14 @@ func TestConvertToExtensionFilterWrapper(t *testing.T) {
 					Namespace:       "default",
 					ResourceVersion: "v1",
 				},
-				Spec: &extensions.ExtensionFilter{
-					Wasm: &extensions.WasmConfig{
+				Spec: &extensions.TrafficExtension{
+					FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
 						Url: "oci://example.com/wasm:latest",
-					},
+					}},
 				},
 			},
 			wantType: FilterTypeWasm,
 			wantNil:  false,
-		},
-		{
-			desc: "both wasm and lua set",
-			config: config.Config{
-				Meta: config.Meta{
-					Name:      "test-both",
-					Namespace: "default",
-				},
-				Spec: &extensions.ExtensionFilter{
-					Wasm: &extensions.WasmConfig{
-						Url: "oci://example.com/wasm:latest",
-					},
-					Lua: &extensions.LuaConfig{
-						InlineCode: "function envoy_on_request(request_handle)\nend",
-					},
-				},
-			},
-			wantNil:    true,
-			wantErrLog: "both wasm and lua are set",
 		},
 		{
 			desc: "neither wasm nor lua set",
@@ -296,7 +277,7 @@ func TestConvertToExtensionFilterWrapper(t *testing.T) {
 					Name:      "test-neither",
 					Namespace: "default",
 				},
-				Spec: &extensions.ExtensionFilter{},
+				Spec: &extensions.TrafficExtension{},
 			},
 			wantNil:    true,
 			wantErrLog: "neither wasm nor lua is set",
@@ -308,10 +289,10 @@ func TestConvertToExtensionFilterWrapper(t *testing.T) {
 					Name:      "test-empty-lua",
 					Namespace: "default",
 				},
-				Spec: &extensions.ExtensionFilter{
-					Lua: &extensions.LuaConfig{
+				Spec: &extensions.TrafficExtension{
+					FilterConfig: &extensions.TrafficExtension_Lua{Lua: &extensions.LuaConfig{
 						InlineCode: "",
-					},
+					}},
 				},
 			},
 			wantNil:    true,
@@ -324,10 +305,10 @@ func TestConvertToExtensionFilterWrapper(t *testing.T) {
 					Name:      "test-large-lua",
 					Namespace: "default",
 				},
-				Spec: &extensions.ExtensionFilter{
-					Lua: &extensions.LuaConfig{
+				Spec: &extensions.TrafficExtension{
+					FilterConfig: &extensions.TrafficExtension_Lua{Lua: &extensions.LuaConfig{
 						InlineCode: string(make([]byte, 65537)),
-					},
+					}},
 				},
 			},
 			wantNil:    true,
@@ -340,10 +321,10 @@ func TestConvertToExtensionFilterWrapper(t *testing.T) {
 					Name:      "test-empty-url",
 					Namespace: "default",
 				},
-				Spec: &extensions.ExtensionFilter{
-					Wasm: &extensions.WasmConfig{
+				Spec: &extensions.TrafficExtension{
+					FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
 						Url: "",
-					},
+					}},
 				},
 			},
 			wantNil:    true,
@@ -415,10 +396,8 @@ func TestExtensionFilterWrapper_MatchType(t *testing.T) {
 			desc: "wasm HTTP matches HTTP",
 			wrapper: &ExtensionFilterWrapper{
 				FilterType: FilterTypeWasm,
-				ExtensionFilter: &extensions.ExtensionFilter{
-					Wasm: &extensions.WasmConfig{
-						Type: extensions.PluginType_HTTP,
-					},
+				Wasm: &extensions.WasmConfig{
+					Type: extensions.PluginType_HTTP,
 				},
 			},
 			chainType: FilterChainTypeHTTP,
@@ -428,10 +407,8 @@ func TestExtensionFilterWrapper_MatchType(t *testing.T) {
 			desc: "wasm Network matches Network",
 			wrapper: &ExtensionFilterWrapper{
 				FilterType: FilterTypeWasm,
-				ExtensionFilter: &extensions.ExtensionFilter{
-					Wasm: &extensions.WasmConfig{
-						Type: extensions.PluginType_NETWORK,
-					},
+				Wasm: &extensions.WasmConfig{
+					Type: extensions.PluginType_NETWORK,
 				},
 			},
 			chainType: FilterChainTypeNetwork,
@@ -459,7 +436,7 @@ func TestMatchListener(t *testing.T) {
 	}{
 		{
 			desc:        "match and selector are nil",
-			extensionFilter:  &ExtensionFilterWrapper{ExtensionFilter: &extensions.ExtensionFilter{Selector: nil, Match: nil}},
+			extensionFilter:  &ExtensionFilterWrapper{TrafficExtension: &extensions.TrafficExtension{Selector: nil, Match: nil}},
 			proxyLabels: map[string]string{"a": "b", "c": "d"},
 			listenerInfo: ListenerInfo{
 				Port:  1234,
@@ -469,7 +446,7 @@ func TestMatchListener(t *testing.T) {
 		},
 		{
 			desc: "only the workload selector is given",
-			extensionFilter: &ExtensionFilterWrapper{ExtensionFilter: &extensions.ExtensionFilter{
+			extensionFilter: &ExtensionFilterWrapper{TrafficExtension: &extensions.TrafficExtension{
 				Selector: &v1beta1.WorkloadSelector{
 					MatchLabels: map[string]string{"a": "b"},
 				},
@@ -484,7 +461,7 @@ func TestMatchListener(t *testing.T) {
 		},
 		{
 			desc: "mismatched selector",
-			extensionFilter: &ExtensionFilterWrapper{ExtensionFilter: &extensions.ExtensionFilter{
+			extensionFilter: &ExtensionFilterWrapper{TrafficExtension: &extensions.TrafficExtension{
 				Selector: &v1beta1.WorkloadSelector{
 					MatchLabels: map[string]string{"e": "f"},
 				},
@@ -499,7 +476,7 @@ func TestMatchListener(t *testing.T) {
 		},
 		{
 			desc: "default traffic selector value is matched with all the traffics",
-			extensionFilter: &ExtensionFilterWrapper{ExtensionFilter: &extensions.ExtensionFilter{
+			extensionFilter: &ExtensionFilterWrapper{TrafficExtension: &extensions.TrafficExtension{
 				Selector: nil,
 				Match: []*extensions.TrafficSelector{
 					{},
@@ -514,7 +491,7 @@ func TestMatchListener(t *testing.T) {
 		},
 		{
 			desc: "only workloadMode of the traffic selector is given",
-			extensionFilter: &ExtensionFilterWrapper{ExtensionFilter: &extensions.ExtensionFilter{
+			extensionFilter: &ExtensionFilterWrapper{TrafficExtension: &extensions.TrafficExtension{
 				Selector: nil,
 				Match: []*extensions.TrafficSelector{
 					{
@@ -532,7 +509,7 @@ func TestMatchListener(t *testing.T) {
 		},
 		{
 			desc: "workloadMode of the traffic selector and empty list of ports are given",
-			extensionFilter: &ExtensionFilterWrapper{ExtensionFilter: &extensions.ExtensionFilter{
+			extensionFilter: &ExtensionFilterWrapper{TrafficExtension: &extensions.TrafficExtension{
 				Selector: nil,
 				Match: []*extensions.TrafficSelector{
 					{
@@ -550,7 +527,7 @@ func TestMatchListener(t *testing.T) {
 		},
 		{
 			desc: "workloadMode of the traffic selector and numbered port are given",
-			extensionFilter: &ExtensionFilterWrapper{ExtensionFilter: &extensions.ExtensionFilter{
+			extensionFilter: &ExtensionFilterWrapper{TrafficExtension: &extensions.TrafficExtension{
 				Selector: nil,
 				Match: []*extensions.TrafficSelector{
 					{
@@ -568,7 +545,7 @@ func TestMatchListener(t *testing.T) {
 		},
 		{
 			desc: "workloadMode of the traffic selector and mismatched ports are given",
-			extensionFilter: &ExtensionFilterWrapper{ExtensionFilter: &extensions.ExtensionFilter{
+			extensionFilter: &ExtensionFilterWrapper{TrafficExtension: &extensions.TrafficExtension{
 				Selector: nil,
 				Match: []*extensions.TrafficSelector{
 					{
@@ -586,7 +563,7 @@ func TestMatchListener(t *testing.T) {
 		},
 		{
 			desc: "traffic selector is matched, but workload selector is not matched",
-			extensionFilter: &ExtensionFilterWrapper{ExtensionFilter: &extensions.ExtensionFilter{
+			extensionFilter: &ExtensionFilterWrapper{TrafficExtension: &extensions.TrafficExtension{
 				Selector: &v1beta1.WorkloadSelector{
 					MatchLabels: map[string]string{"e": "f"},
 				},
@@ -606,7 +583,7 @@ func TestMatchListener(t *testing.T) {
 		},
 		{
 			desc: "outbound traffic is matched with workloadMode CLIENT",
-			extensionFilter: &ExtensionFilterWrapper{ExtensionFilter: &extensions.ExtensionFilter{
+			extensionFilter: &ExtensionFilterWrapper{TrafficExtension: &extensions.TrafficExtension{
 				Selector: nil,
 				Match: []*extensions.TrafficSelector{
 					{
@@ -624,7 +601,7 @@ func TestMatchListener(t *testing.T) {
 		},
 		{
 			desc: "any traffic is matched with workloadMode CLIENT_AND_SERVER",
-			extensionFilter: &ExtensionFilterWrapper{ExtensionFilter: &extensions.ExtensionFilter{
+			extensionFilter: &ExtensionFilterWrapper{TrafficExtension: &extensions.TrafficExtension{
 				Selector: nil,
 				Match: []*extensions.TrafficSelector{
 					{
@@ -642,7 +619,7 @@ func TestMatchListener(t *testing.T) {
 		},
 		{
 			desc: "gateway is matched with workloadMode CLIENT",
-			extensionFilter: &ExtensionFilterWrapper{ExtensionFilter: &extensions.ExtensionFilter{
+			extensionFilter: &ExtensionFilterWrapper{TrafficExtension: &extensions.TrafficExtension{
 				Selector: nil,
 				Match: []*extensions.TrafficSelector{
 					{
@@ -660,7 +637,7 @@ func TestMatchListener(t *testing.T) {
 		},
 		{
 			desc: "gateway is not matched with workloadMode SERVER",
-			extensionFilter: &ExtensionFilterWrapper{ExtensionFilter: &extensions.ExtensionFilter{
+			extensionFilter: &ExtensionFilterWrapper{TrafficExtension: &extensions.TrafficExtension{
 				Selector: nil,
 				Match: []*extensions.TrafficSelector{
 					{

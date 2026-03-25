@@ -107,15 +107,15 @@ func makeExtensionFilter(name, namespace, secret string) config.Config {
 	if secret != "" {
 		wasmConfig.ImagePullSecret = secret
 	}
-	spec := &extensions.ExtensionFilter{
-		Phase: extensions.PluginPhase_AUTHN,
-		Wasm:  wasmConfig,
+	spec := &extensions.TrafficExtension{
+		Phase:        extensions.ExecutionPhase_EXECUTION_PHASE_AUTHN,
+		FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: wasmConfig},
 	}
 	return config.Config{
 		Meta: config.Meta{
 			Name:             name,
 			Namespace:        namespace,
-			GroupVersionKind: gvk.ExtensionFilter,
+			GroupVersionKind: gvk.TrafficExtension,
 		},
 		Spec: spec,
 	}
@@ -228,7 +228,7 @@ func TestECDSGenerate(t *testing.T) {
 			proxyNamespace: "default",
 			request: &model.PushRequest{
 				Full:           true,
-				ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.AuthorizationPolicy}, model.ConfigKey{Kind: kind.ExtensionFilter}),
+				ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.AuthorizationPolicy}, model.ConfigKey{Kind: kind.TrafficExtension}),
 			},
 			watchedResources: []string{"extensions.istio.io/extensionfilter/default.default-plugin-with-sec~istio-translated-wasmplugin"},
 			wantExtensions:   sets.String{"extensions.istio.io/extensionfilter/default.default-plugin-with-sec~istio-translated-wasmplugin": {}},
@@ -250,7 +250,7 @@ func TestECDSGenerate(t *testing.T) {
 			proxyNamespace: "default",
 			request: &model.PushRequest{
 				Full:           true,
-				ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ExtensionFilter}, model.ConfigKey{Kind: kind.Secret}),
+				ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.TrafficExtension}, model.ConfigKey{Kind: kind.Secret}),
 			},
 			watchedResources: []string{"extensions.istio.io/extensionfilter/default.default-plugin-with-sec~istio-translated-wasmplugin"},
 			wantExtensions:   sets.String{"extensions.istio.io/extensionfilter/default.default-plugin-with-sec~istio-translated-wasmplugin": {}},
@@ -357,7 +357,7 @@ func TestECDSGenerate(t *testing.T) {
 			proxyNamespace: "default",
 			request: &model.PushRequest{
 				Full:           true,
-				ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.AuthorizationPolicy}, model.ConfigKey{Kind: kind.ExtensionFilter}),
+				ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.AuthorizationPolicy}, model.ConfigKey{Kind: kind.TrafficExtension}),
 			},
 			watchedResources: []string{"extensions.istio.io/extensionfilter/default.default-extension-with-sec"},
 			wantExtensions:   sets.String{"extensions.istio.io/extensionfilter/default.default-extension-with-sec": {}},

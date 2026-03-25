@@ -73,7 +73,7 @@ func TestTranslation(t *testing.T) {
 	// Wait for translation (KRT collections are async)
 	var translated []config.Config
 	retry.UntilSuccessOrFail(t, func() error {
-		translated = controller.List(gvk.ExtensionFilter, "")
+		translated = controller.List(gvk.TrafficExtension, "")
 		if len(translated) == 0 {
 			return fmt.Errorf("no translated configs yet")
 		}
@@ -92,7 +92,7 @@ func TestTranslation(t *testing.T) {
 	if ef.Namespace != "default" {
 		t.Errorf("expected namespace default, got %s", ef.Namespace)
 	}
-	if ef.GroupVersionKind != gvk.ExtensionFilter {
+	if ef.GroupVersionKind != gvk.TrafficExtension {
 		t.Errorf("expected GVK ExtensionFilter, got %v", ef.GroupVersionKind)
 	}
 }

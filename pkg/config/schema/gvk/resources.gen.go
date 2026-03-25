@@ -26,7 +26,7 @@ var (
 	EndpointSlice                  = config.GroupVersionKind{Group: "discovery.k8s.io", Version: "v1", Kind: "EndpointSlice"}
 	Endpoints                      = config.GroupVersionKind{Group: "", Version: "v1", Kind: "Endpoints"}
 	EnvoyFilter                    = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1alpha3", Kind: "EnvoyFilter"}
-	ExtensionFilter                = config.GroupVersionKind{Group: "extensions.istio.io", Version: "v1alpha1", Kind: "ExtensionFilter"}
+	TrafficExtension                = config.GroupVersionKind{Group: "extensions.istio.io", Version: "v1alpha1", Kind: "TrafficExtension"}
 	GRPCRoute                      = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1", Kind: "GRPCRoute"}
 	GRPCRoute_v1alpha2             = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1alpha2", Kind: "GRPCRoute"}
 	Gateway                        = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1", Kind: "Gateway"}
@@ -124,8 +124,8 @@ func ToGVR(g config.GroupVersionKind) (schema.GroupVersionResource, bool) {
 		return gvr.Endpoints, true
 	case EnvoyFilter:
 		return gvr.EnvoyFilter, true
-	case ExtensionFilter:
-		return gvr.ExtensionFilter, true
+	case TrafficExtension:
+		return gvr.TrafficExtension, true
 	case GRPCRoute:
 		return gvr.GRPCRoute, true
 	case GRPCRoute_v1alpha2:
@@ -281,8 +281,8 @@ func ToKind(g config.GroupVersionKind) (kind.Kind, bool) {
 		return kind.Endpoints, true
 	case EnvoyFilter:
 		return kind.EnvoyFilter, true
-	case ExtensionFilter:
-		return kind.ExtensionFilter, true
+	case TrafficExtension:
+		return kind.TrafficExtension, true
 	case GRPCRoute:
 		return kind.GRPCRoute, true
 	case Gateway:
@@ -409,8 +409,8 @@ func FromGVR(g schema.GroupVersionResource) (config.GroupVersionKind, bool) {
 		return Endpoints, true
 	case gvr.EnvoyFilter:
 		return EnvoyFilter, true
-	case gvr.ExtensionFilter:
-		return ExtensionFilter, true
+	case gvr.TrafficExtension:
+		return TrafficExtension, true
 	case gvr.GRPCRoute:
 		return GRPCRoute, true
 	case gvr.Gateway:
@@ -530,7 +530,7 @@ func KebabKind(k string) string {
 		return "endpoints"
 	case "EnvoyFilter":
 		return "envoy-filter"
-	case "ExtensionFilter":
+	case "TrafficExtension":
 		return "extension-filter"
 	case "GRPCRoute":
 		return "grpc-route"

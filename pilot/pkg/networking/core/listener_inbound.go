@@ -873,12 +873,12 @@ func (lb *ListenerBuilder) buildInboundNetworkFiltersForHTTP(cc inboundChainConf
 	}
 
 	// Authn
-	filters = extension.PopAppendNetworkExtensionFilter(filters, extensionFilters, extensions.PluginPhase_AUTHN)
+	filters = extension.PopAppendNetworkExtensionFilter(filters, extensionFilters, extensions.ExecutionPhase_EXECUTION_PHASE_AUTHN)
 
 	// Authz. Since this is HTTP, we only add network filters -- not TCP RBAC, stats, etc.
-	filters = extension.PopAppendNetworkExtensionFilter(filters, extensionFilters, extensions.PluginPhase_AUTHZ)
-	filters = extension.PopAppendNetworkExtensionFilter(filters, extensionFilters, extensions.PluginPhase_STATS)
-	filters = extension.PopAppendNetworkExtensionFilter(filters, extensionFilters, extensions.PluginPhase_UNSPECIFIED_PHASE)
+	filters = extension.PopAppendNetworkExtensionFilter(filters, extensionFilters, extensions.ExecutionPhase_EXECUTION_PHASE_AUTHZ)
+	filters = extension.PopAppendNetworkExtensionFilter(filters, extensionFilters, extensions.ExecutionPhase_EXECUTION_PHASE_STATS)
+	filters = extension.PopAppendNetworkExtensionFilter(filters, extensionFilters, extensions.ExecutionPhase_EXECUTION_PHASE_UNSPECIFIED)
 
 	h := lb.buildHTTPConnectionManager(httpOpts)
 	filters = append(filters, &listener.Filter{

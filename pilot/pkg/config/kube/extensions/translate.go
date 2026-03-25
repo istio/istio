@@ -20,12 +20,12 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 )
 
-// syntheticMarker is appended to the name of ExtensionFilter resources that are
+// syntheticMarker is appended to the name of TrafficExtension resources that are
 // synthesized from WasmPlugin resources. The tilde character (~) is not a valid
-// Kubernetes name character, preventing collisions with real ExtensionFilter objects.
+// Kubernetes name character, preventing collisions with real TrafficExtension objects.
 const syntheticMarker = "~istio-translated-wasmplugin"
 
-// translateWasmPlugin converts a WasmPlugin config.Config into a synthetic ExtensionFilter
+// translateWasmPlugin converts a WasmPlugin config.Config into a synthetic TrafficExtension
 // config.Config. Returns nil if the input is not a valid WasmPlugin.
 func translateWasmPlugin(cfg config.Config) *config.Config {
 	wp, ok := cfg.Spec.(*extensions.WasmPlugin)
@@ -33,35 +33,38 @@ func translateWasmPlugin(cfg config.Config) *config.Config {
 		return nil
 	}
 
-	ef := &extensions.ExtensionFilter{
+	te := &extensions.TrafficExtension{
 		Selector:   wp.Selector,
-		TargetRef:  wp.TargetRef,
 		TargetRefs: wp.TargetRefs,
-		Phase:      wp.Phase,
-		Priority:   wp.Priority,
-		Match:      convertTrafficSelectors(wp.Match),
-		Wasm: &extensions.WasmConfig{
-			Url:             wp.Url,
-			Sha256:          wp.Sha256,
-			ImagePullPolicy: wp.ImagePullPolicy,
-			ImagePullSecret: wp.ImagePullSecret,
-			PluginConfig:    wp.PluginConfig,
-			PluginName:      wp.PluginName,
-			FailStrategy:    wp.FailStrategy,
-			VmConfig:        wp.VmConfig,
-			Type:            wp.Type,
+		// WasmPlugin.Phase is PluginPhase; TrafficExtension.Phase is ExecutionPhase.
+		// Both enums share the same numeric values (AUTHN=1, AUTHZ=2, STATS=3, unspecified=0).
+		Phase:    extensions.ExecutionPhase(wp.Phase),
+		Priority: wp.Priority,
+		Match:    convertTrafficSelectors(wp.Match),
+		FilterConfig: &extensions.TrafficExtension_Wasm{
+			Wasm: &extensions.WasmConfig{
+				Url:             wp.Url,
+				Sha256:          wp.Sha256,
+				ImagePullPolicy: wp.ImagePullPolicy,
+				ImagePullSecret: wp.ImagePullSecret,
+				PluginConfig:    wp.PluginConfig,
+				PluginName:      wp.PluginName,
+				FailStrategy:    wp.FailStrategy,
+				VmConfig:        wp.VmConfig,
+				Type:            wp.Type,
+			},
 		},
 	}
 
 	return &config.Config{
 		Meta: config.Meta{
-			GroupVersionKind:  gvk.ExtensionFilter,
+			GroupVersionKind:  gvk.TrafficExtension,
 			Name:              cfg.Name + syntheticMarker,
 			Namespace:         cfg.Namespace,
 			ResourceVersion:   cfg.ResourceVersion,
 			CreationTimestamp: cfg.CreationTimestamp,
 		},
-		Spec: ef,
+		Spec: te,
 	}
 }
 

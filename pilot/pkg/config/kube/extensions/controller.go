@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package extensions provides a translation controller that converts WasmPlugin
-// resources into synthetic ExtensionFilter configs, consolidating both resource
+// resources into synthetic TrafficExtension configs, consolidating both resource
 // types into a single internal code path.
 package extensions
 
@@ -32,7 +32,7 @@ import (
 
 var errUnsupportedOp = fmt.Errorf("unsupported operation: the extensions config store is a read-only view")
 
-// Controller translates WasmPlugin resources into synthetic ExtensionFilter configs.
+// Controller translates WasmPlugin resources into synthetic TrafficExtension configs.
 // It implements model.ConfigStoreController so it can be appended to s.ConfigStores
 // alongside the underlying crdclient.
 type Controller struct {
@@ -51,11 +51,11 @@ type Inputs struct {
 
 // Outputs holds the collections produced by the translation controller.
 type Outputs struct {
-	ExtensionFilters krt.Collection[config.Config]
+	TrafficExtensions krt.Collection[config.Config]
 }
 
 // NewController constructs a Controller that reads WasmPlugin objects from
-// inputStore and emits synthetic ExtensionFilter configs.
+// inputStore and emits synthetic TrafficExtension configs.
 // The krtDebugger may be nil.
 func NewController(inputStore model.ConfigStoreController, xdsUpdater model.XDSUpdater, krtDebugger *krt.DebugHandler) *Controller {
 	stop := make(chan struct{})
@@ -70,19 +70,19 @@ func NewController(inputStore model.ConfigStoreController, xdsUpdater model.XDSU
 		func(_ krt.HandlerContext, obj config.Config) *config.Config {
 			return translateWasmPlugin(obj)
 		},
-		opts.WithName("extensions/WasmPlugin->ExtensionFilter")...,
+		opts.WithName("extensions/WasmPlugin->TrafficExtension")...,
 	)
 
 	c := &Controller{
 		outputs: Outputs{
-			ExtensionFilters: extensionFilters,
+			TrafficExtensions: extensionFilters,
 		},
-		schema:     collection.SchemasFor(collections.ExtensionFilter),
+		schema:     collection.SchemasFor(collections.TrafficExtension),
 		xdsUpdater: xdsUpdater,
 		stop:       stop,
 	}
 
-	// Register a batch handler so changes to translated ExtensionFilters trigger XDS pushes.
+	// Register a batch handler so changes to translated TrafficExtensions trigger XDS pushes.
 	handler := extensionFilters.RegisterBatch(func(events []krt.Event[config.Config]) {
 		if xdsUpdater == nil {
 			return
@@ -91,7 +91,7 @@ func NewController(inputStore model.ConfigStoreController, xdsUpdater model.XDSU
 		for _, e := range events {
 			for _, item := range e.Items() {
 				cu.Insert(model.ConfigKey{
-					Kind:      kind.ExtensionFilter,
+					Kind:      kind.TrafficExtension,
 					Name:      item.Name,
 					Namespace: item.Namespace,
 				})
@@ -121,13 +121,13 @@ func (c *Controller) Get(typ config.GroupVersionKind, name, namespace string) *c
 	return nil
 }
 
-// List returns all synthetic ExtensionFilter configs. The namespace parameter is
+// List returns all synthetic TrafficExtension configs. The namespace parameter is
 // ignored; the aggregate layer handles namespace filtering.
 func (c *Controller) List(typ config.GroupVersionKind, namespace string) []config.Config {
-	if typ != gvk.ExtensionFilter {
+	if typ != gvk.TrafficExtension {
 		return nil
 	}
-	return c.outputs.ExtensionFilters.List()
+	return c.outputs.TrafficExtensions.List()
 }
 
 // Create is not supported.
@@ -153,10 +153,10 @@ func (c *Controller) Delete(typ config.GroupVersionKind, name, namespace string,
 // RegisterEventHandler is not used; XDS updates are pushed directly via the batch handler.
 func (c *Controller) RegisterEventHandler(typ config.GroupVersionKind, handler model.EventHandler) {}
 
-// KrtCollection returns the krt collection for a given GVK. Only ExtensionFilter is supported.
+// KrtCollection returns the krt collection for a given GVK. Only TrafficExtension is supported.
 func (c *Controller) KrtCollection(typ config.GroupVersionKind) krt.Collection[config.Config] {
-	if typ == gvk.ExtensionFilter {
-		return c.outputs.ExtensionFilters
+	if typ == gvk.TrafficExtension {
+		return c.outputs.TrafficExtensions
 	}
 	return nil
 }
@@ -167,9 +167,9 @@ func (c *Controller) Run(stop <-chan struct{}) {
 	close(c.stop)
 }
 
-// HasSynced returns true once the underlying ExtensionFilter collection has synced.
+// HasSynced returns true once the underlying TrafficExtension collection has synced.
 func (c *Controller) HasSynced() bool {
-	if !c.outputs.ExtensionFilters.HasSynced() {
+	if !c.outputs.TrafficExtensions.HasSynced() {
 		return false
 	}
 	for _, h := range c.handlers {

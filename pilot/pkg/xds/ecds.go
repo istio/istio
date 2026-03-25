@@ -47,7 +47,7 @@ func ecdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
 		switch config.Kind {
 		case kind.EnvoyFilter:
 			return true
-		case kind.ExtensionFilter:
+		case kind.TrafficExtension:
 			return true
 		case kind.Secret:
 			return true
@@ -65,7 +65,7 @@ func onlyReferencedConfigsUpdated(req *model.PushRequest) bool {
 		switch config.Kind {
 		case kind.EnvoyFilter:
 			return false
-		case kind.ExtensionFilter:
+		case kind.TrafficExtension:
 			return false
 		case kind.Secret:
 			referencedConfigUpdated = true

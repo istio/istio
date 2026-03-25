@@ -3446,18 +3446,21 @@ func validateWasmPluginMatch(selectors []*extensions.WasmPlugin_TrafficSelector)
 	return nil
 }
 
-// ValidateExtensionFilter validates an ExtensionFilter.
-var ValidateExtensionFilter = RegisterValidateFunc("ValidateExtensionFilter",
+// ValidateTrafficExtension validates a TrafficExtension.
+var ValidateTrafficExtension = RegisterValidateFunc("ValidateTrafficExtension",
 	func(cfg config.Config) (Warning, error) {
-		spec, ok := cfg.Spec.(*extensions.ExtensionFilter)
+		spec, ok := cfg.Spec.(*extensions.TrafficExtension)
 		if !ok {
-			return nil, fmt.Errorf("cannot cast to extensionfilter")
+			return nil, fmt.Errorf("cannot cast to trafficextension")
 		}
 
 		errs := Validation{}
 
+		wasm := spec.GetWasm()
+		lua := spec.GetLua()
+
 		// Validate exactly one of wasm or lua is set
-		if (spec.Wasm != nil && spec.Lua != nil) || (spec.Wasm == nil && spec.Lua == nil) {
+		if (wasm != nil && lua != nil) || (wasm == nil && lua == nil) {
 			errs = AppendValidation(errs, fmt.Errorf("exactly one of wasm or lua must be set"))
 		}
 
@@ -3469,23 +3472,23 @@ var ValidateExtensionFilter = RegisterValidateFunc("ValidateExtensionFilter",
 		)
 
 		// Validate Lua config if present
-		if spec.Lua != nil {
-			errs = AppendValidation(errs, validateLuaConfig(spec.Lua))
+		if lua != nil {
+			errs = AppendValidation(errs, validateLuaConfig(lua))
 		}
 
 		// Validate WASM config if present
-		if spec.Wasm != nil {
+		if wasm != nil {
 			errs = AppendValidation(errs,
-				validateWasmPluginURL(spec.Wasm.Url),
-				validateWasmConfigSHA(spec.Wasm),
-				validateWasmConfigImagePullSecret(spec.Wasm, cfg.Namespace),
-				validateWasmConfigName(spec.Wasm),
-				validateWasmPluginVMConfig(spec.Wasm.VmConfig),
+				validateWasmPluginURL(wasm.Url),
+				validateWasmConfigSHA(wasm),
+				validateWasmConfigImagePullSecret(wasm, cfg.Namespace),
+				validateWasmConfigName(wasm),
+				validateWasmPluginVMConfig(wasm.VmConfig),
 			)
 		}
 
 		// Validate match selectors
-		errs = AppendValidation(errs, validateExtensionFilterMatch(spec.Match))
+		errs = AppendValidation(errs, validateTrafficExtensionMatch(spec.Match))
 
 		return errs.Unwrap()
 	})
@@ -3524,7 +3527,7 @@ func validateWasmConfigName(wasm *extensions.WasmConfig) error {
 	return nil
 }
 
-func validateExtensionFilterMatch(selectors []*extensions.TrafficSelector) error {
+func validateTrafficExtensionMatch(selectors []*extensions.TrafficSelector) error {
 	if len(selectors) == 0 {
 		return nil
 	}

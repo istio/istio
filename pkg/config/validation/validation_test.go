@@ -8172,7 +8172,7 @@ func TestValidateWasmPlugin(t *testing.T) {
 	}
 }
 
-func TestValidateExtensionFilter(t *testing.T) {
+func TestValidateTrafficExtension(t *testing.T) {
 	tests := []struct {
 		name    string
 		in      proto.Message
@@ -8186,151 +8186,138 @@ func TestValidateExtensionFilter(t *testing.T) {
 			"",
 		},
 		{
-			"both wasm and lua set",
-			&extensions.ExtensionFilter{
-				Wasm: &extensions.WasmConfig{
-					Url: "http://test.com/test",
-				},
-				Lua: &extensions.LuaConfig{
-					InlineCode: "function envoy_on_request() end",
-				},
-			},
-			"exactly one of wasm or lua must be set",
-			"",
-		},
-		{
 			"neither wasm nor lua set",
-			&extensions.ExtensionFilter{},
+			&extensions.TrafficExtension{},
 			"exactly one of wasm or lua must be set",
 			"",
 		},
 		{
 			"valid lua config",
-			&extensions.ExtensionFilter{
-				Lua: &extensions.LuaConfig{
+			&extensions.TrafficExtension{
+				FilterConfig: &extensions.TrafficExtension_Lua{Lua: &extensions.LuaConfig{
 					InlineCode: "function envoy_on_request(request_handle)\n  request_handle:headers():add('x-foo', 'bar')\nend",
-				},
+				}},
 			},
 			"",
 			"",
 		},
 		{
 			"lua code empty",
-			&extensions.ExtensionFilter{
-				Lua: &extensions.LuaConfig{
+			&extensions.TrafficExtension{
+				FilterConfig: &extensions.TrafficExtension_Lua{Lua: &extensions.LuaConfig{
 					InlineCode: "",
-				},
+				}},
 			},
 			"lua.inlineCode cannot be empty",
 			"",
 		},
 		{
 			"lua code too large",
-			&extensions.ExtensionFilter{
-				Lua: &extensions.LuaConfig{
+			&extensions.TrafficExtension{
+				FilterConfig: &extensions.TrafficExtension_Lua{Lua: &extensions.LuaConfig{
 					InlineCode: string(make([]byte, 65537)),
-				},
+				}},
 			},
 			"lua.inlineCode exceeds maximum size of 64KB",
 			"",
 		},
 		{
 			"valid wasm config",
-			&extensions.ExtensionFilter{
-				Wasm: &extensions.WasmConfig{
+			&extensions.TrafficExtension{
+				FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
 					Url: "http://test.com/test",
-				},
+				}},
 			},
 			"",
 			"",
 		},
 		{
 			"wasm url empty",
-			&extensions.ExtensionFilter{
-				Wasm: &extensions.WasmConfig{
+			&extensions.TrafficExtension{
+				FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
 					Url: "",
-				},
+				}},
 			},
 			"url field needs to be set",
 			"",
 		},
 		{
 			"wasm wrong scheme",
-			&extensions.ExtensionFilter{
-				Wasm: &extensions.WasmConfig{
+			&extensions.TrafficExtension{
+				FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
 					Url: "ftp://test.com/test",
-				},
+				}},
 			},
 			"unsupported scheme",
 			"",
 		},
 		{
 			"wasm valid http",
-			&extensions.ExtensionFilter{
-				Wasm: &extensions.WasmConfig{
+			&extensions.TrafficExtension{
+				FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
 					Url: "http://test.com/test",
-				},
+				}},
 			},
 			"",
 			"",
 		},
 		{
 			"wasm valid http w/ sha",
-			&extensions.ExtensionFilter{
-				Wasm: &extensions.WasmConfig{
+			&extensions.TrafficExtension{
+				FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
 					Url:    "http://test.com/test",
 					Sha256: "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
-				},
+				}},
 			},
 			"",
 			"",
 		},
 		{
 			"wasm short sha",
-			&extensions.ExtensionFilter{
-				Wasm: &extensions.WasmConfig{
+			&extensions.TrafficExtension{
+				FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
 					Url:    "http://test.com/test",
 					Sha256: "01ba47",
-				},
+				}},
 			},
 			"sha256 field must be 64 characters long",
 			"",
 		},
 		{
 			"wasm invalid sha characters",
-			&extensions.ExtensionFilter{
-				Wasm: &extensions.WasmConfig{
+			&extensions.TrafficExtension{
+				FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
 					Url:    "http://test.com/test",
 					Sha256: "01Ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
-				},
+				}},
 			},
 			"sha256 field must match [a-f0-9]{64} pattern",
 			"",
 		},
 		{
 			"wasm valid oci",
-			&extensions.ExtensionFilter{
-				Wasm: &extensions.WasmConfig{
+			&extensions.TrafficExtension{
+				FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
 					Url: "oci://test.com/test",
-				},
+				}},
 			},
 			"",
 			"",
 		},
 		{
 			"wasm valid oci no scheme",
-			&extensions.ExtensionFilter{
-				Wasm: &extensions.WasmConfig{
+			&extensions.TrafficExtension{
+				FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
 					Url: "test.com/test",
-				},
+				}},
 			},
 			"",
 			"",
 		},
 		{
 			"wasm invalid vm config - invalid env name",
-			&extensions.ExtensionFilter{
-				Wasm: &extensions.WasmConfig{
+			&extensions.TrafficExtension{
+				FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
 					Url: "test.com/test",
 					VmConfig: &extensions.VmConfig{
 						Env: []*extensions.EnvVar{
@@ -8340,15 +8327,15 @@ func TestValidateExtensionFilter(t *testing.T) {
 							},
 						},
 					},
-				},
+				}},
 			},
 			"spec.vmConfig.env invalid",
 			"",
 		},
 		{
 			"wasm invalid vm config - duplicate env",
-			&extensions.ExtensionFilter{
-				Wasm: &extensions.WasmConfig{
+			&extensions.TrafficExtension{
+				FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
 					Url: "test.com/test",
 					VmConfig: &extensions.VmConfig{
 						Env: []*extensions.EnvVar{
@@ -8362,27 +8349,27 @@ func TestValidateExtensionFilter(t *testing.T) {
 							},
 						},
 					},
-				},
+				}},
 			},
 			"duplicate env",
 			"",
 		},
 		{
 			"valid lua with selector",
-			&extensions.ExtensionFilter{
+			&extensions.TrafficExtension{
 				Selector: &api.WorkloadSelector{
 					MatchLabels: map[string]string{"app": "test"},
 				},
-				Lua: &extensions.LuaConfig{
+				FilterConfig: &extensions.TrafficExtension_Lua{Lua: &extensions.LuaConfig{
 					InlineCode: "function envoy_on_request() end",
-				},
+				}},
 			},
 			"",
 			"",
 		},
 		{
 			"valid lua with targetRefs",
-			&extensions.ExtensionFilter{
+			&extensions.TrafficExtension{
 				TargetRefs: []*api.PolicyTargetReference{
 					{
 						Group: gvk.KubernetesGateway.Group,
@@ -8390,16 +8377,16 @@ func TestValidateExtensionFilter(t *testing.T) {
 						Name:  "gateway",
 					},
 				},
-				Lua: &extensions.LuaConfig{
+				FilterConfig: &extensions.TrafficExtension_Lua{Lua: &extensions.LuaConfig{
 					InlineCode: "function envoy_on_request() end",
-				},
+				}},
 			},
 			"",
 			"",
 		},
 		{
 			"both selector and targetRefs",
-			&extensions.ExtensionFilter{
+			&extensions.TrafficExtension{
 				Selector: &api.WorkloadSelector{
 					MatchLabels: map[string]string{"app": "test"},
 				},
@@ -8410,42 +8397,42 @@ func TestValidateExtensionFilter(t *testing.T) {
 						Name:  "gateway",
 					},
 				},
-				Lua: &extensions.LuaConfig{
+				FilterConfig: &extensions.TrafficExtension_Lua{Lua: &extensions.LuaConfig{
 					InlineCode: "function envoy_on_request() end",
-				},
+				}},
 			},
 			"only one of targetRefs or workloadSelector can be set",
 			"",
 		},
 		{
 			"invalid match - nil traffic selector",
-			&extensions.ExtensionFilter{
+			&extensions.TrafficExtension{
 				Match: []*extensions.TrafficSelector{nil},
-				Lua: &extensions.LuaConfig{
+				FilterConfig: &extensions.TrafficExtension_Lua{Lua: &extensions.LuaConfig{
 					InlineCode: "function envoy_on_request() end",
-				},
+				}},
 			},
 			"spec.Match[0] is nil",
 			"",
 		},
 		{
 			"invalid match - nil port selector",
-			&extensions.ExtensionFilter{
+			&extensions.TrafficExtension{
 				Match: []*extensions.TrafficSelector{
 					{
 						Ports: []*api.PortSelector{nil},
 					},
 				},
-				Lua: &extensions.LuaConfig{
+				FilterConfig: &extensions.TrafficExtension_Lua{Lua: &extensions.LuaConfig{
 					InlineCode: "function envoy_on_request() end",
-				},
+				}},
 			},
 			"spec.Match[0].Ports[0] is nil",
 			"",
 		},
 		{
 			"invalid match - port out of range (too low)",
-			&extensions.ExtensionFilter{
+			&extensions.TrafficExtension{
 				Match: []*extensions.TrafficSelector{
 					{
 						Ports: []*api.PortSelector{
@@ -8453,16 +8440,16 @@ func TestValidateExtensionFilter(t *testing.T) {
 						},
 					},
 				},
-				Lua: &extensions.LuaConfig{
+				FilterConfig: &extensions.TrafficExtension_Lua{Lua: &extensions.LuaConfig{
 					InlineCode: "function envoy_on_request() end",
-				},
+				}},
 			},
 			"spec.Match[0].Ports[0] is out of range: 0",
 			"",
 		},
 		{
 			"invalid match - port out of range (too high)",
-			&extensions.ExtensionFilter{
+			&extensions.TrafficExtension{
 				Match: []*extensions.TrafficSelector{
 					{
 						Ports: []*api.PortSelector{
@@ -8470,16 +8457,16 @@ func TestValidateExtensionFilter(t *testing.T) {
 						},
 					},
 				},
-				Lua: &extensions.LuaConfig{
+				FilterConfig: &extensions.TrafficExtension_Lua{Lua: &extensions.LuaConfig{
 					InlineCode: "function envoy_on_request() end",
-				},
+				}},
 			},
 			"spec.Match[0].Ports[0] is out of range: 65536",
 			"",
 		},
 		{
 			"valid match with port",
-			&extensions.ExtensionFilter{
+			&extensions.TrafficExtension{
 				Match: []*extensions.TrafficSelector{
 					{
 						Mode: api.WorkloadMode_CLIENT,
@@ -8488,20 +8475,20 @@ func TestValidateExtensionFilter(t *testing.T) {
 						},
 					},
 				},
-				Lua: &extensions.LuaConfig{
+				FilterConfig: &extensions.TrafficExtension_Lua{Lua: &extensions.LuaConfig{
 					InlineCode: "function envoy_on_request() end",
-				},
+				}},
 			},
 			"",
 			"",
 		},
 		{
 			"wasm plugin name too long",
-			&extensions.ExtensionFilter{
-				Wasm: &extensions.WasmConfig{
+			&extensions.TrafficExtension{
+				FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
 					Url:        "test.com/test",
 					PluginName: string(make([]byte, 257)),
-				},
+				}},
 			},
 			"pluginName field must be less than 256 characters long",
 			"",
@@ -8509,7 +8496,7 @@ func TestValidateExtensionFilter(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			warn, err := ValidateExtensionFilter(config.Config{
+			warn, err := ValidateTrafficExtension(config.Config{
 				Meta: config.Meta{
 					Name:      someName,
 					Namespace: someNamespace,

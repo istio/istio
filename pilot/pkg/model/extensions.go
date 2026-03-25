@@ -170,9 +170,13 @@ func filterChainTypeFromPluginType(pluginType extensions.PluginType) FilterChain
 	return FilterChainTypeHTTP
 }
 
-// ExtensionFilterWrapper is a wrapper for extensions.ExtensionFilter with additional runtime information
+// ExtensionFilterWrapper is a wrapper for extensions.TrafficExtension with additional runtime information
 type ExtensionFilterWrapper struct {
-	*extensions.ExtensionFilter
+	*extensions.TrafficExtension
+
+	// Wasm and Lua are extracted from the oneof FilterConfig at construction time for convenience.
+	Wasm *extensions.WasmConfig
+	Lua  *extensions.LuaConfig
 
 	Name            string
 	Namespace       string
@@ -181,8 +185,14 @@ type ExtensionFilterWrapper struct {
 	FilterType      FilterType
 }
 
+// GetTargetRef returns nil; TrafficExtension uses GetTargetRefs (plural) only.
+// This satisfies the TargetablePolicy interface.
+func (e *ExtensionFilterWrapper) GetTargetRef() *typeapi.PolicyTargetReference {
+	return nil
+}
+
 func (e *ExtensionFilterWrapper) MatchListener(matcher WorkloadPolicyMatcher, li ListenerInfo) bool {
-	if matcher.ShouldAttachPolicy(gvk.ExtensionFilter, e.NamespacedName(), e) {
+	if matcher.ShouldAttachPolicy(gvk.TrafficExtension, e.NamespacedName(), e) {
 		return matchExtensionFilterTrafficSelectors(e.Match, li)
 	}
 	return false
@@ -231,7 +241,7 @@ func (e *ExtensionFilterWrapper) buildWasmConfig() *wasmextensions.PluginConfig 
 	if e.Wasm.PluginConfig != nil && len(e.Wasm.PluginConfig.Fields) > 0 {
 		cfgJSON, err := protomarshal.ToJSON(e.Wasm.PluginConfig)
 		if err != nil {
-			log.Warnf("extensionfilter %v/%v discarded due to json marshaling error: %s", e.Namespace, e.Name, err)
+			log.Warnf("trafficextension %v/%v discarded due to json marshaling error: %s", e.Namespace, e.Name, err)
 			return nil
 		}
 		cfg = protoconv.MessageToAny(&wrapperspb.StringValue{
@@ -241,7 +251,7 @@ func (e *ExtensionFilterWrapper) buildWasmConfig() *wasmextensions.PluginConfig 
 
 	u, err := url.Parse(e.Wasm.Url)
 	if err != nil {
-		log.Warnf("extensionfilter %v/%v discarded due to failure to parse URL: %s", e.Namespace, e.Name, err)
+		log.Warnf("trafficextension %v/%v discarded due to failure to parse URL: %s", e.Namespace, e.Name, err)
 		return nil
 	}
 	// when no scheme is given, default to oci://
@@ -286,29 +296,27 @@ func matchExtensionFilterTrafficSelectors(ts []*extensions.TrafficSelector, li L
 
 func convertToExtensionFilterWrapper(originConfig config.Config) *ExtensionFilterWrapper {
 	plugin := originConfig.DeepCopy()
-	var extFilter *extensions.ExtensionFilter
+	var trafficExt *extensions.TrafficExtension
 	var ok bool
-	if extFilter, ok = plugin.Spec.(*extensions.ExtensionFilter); !ok {
+	if trafficExt, ok = plugin.Spec.(*extensions.TrafficExtension); !ok {
 		return nil
 	}
 
-	// Determine filter type - must have exactly one of wasm or lua
+	wasm := trafficExt.GetWasm()
+	lua := trafficExt.GetLua()
+
+	// Determine filter type based on which oneof variant is set
 	var filterType FilterType
-	if extFilter.Wasm != nil && extFilter.Lua != nil {
-		log.Warnf("extensionfilter %v/%v discarded: both wasm and lua are set (must have exactly one)", plugin.Namespace, plugin.Name)
-		return nil
-	}
-
-	if extFilter.Wasm != nil {
+	if wasm != nil {
 		filterType = FilterTypeWasm
 		// Validate WASM config
-		if extFilter.Wasm.Url == "" {
-			log.Warnf("extensionfilter %v/%v discarded: wasm.url is required", plugin.Namespace, plugin.Name)
+		if wasm.Url == "" {
+			log.Warnf("trafficextension %v/%v discarded: wasm.url is required", plugin.Namespace, plugin.Name)
 			return nil
 		}
-		u, err := url.Parse(extFilter.Wasm.Url)
+		u, err := url.Parse(wasm.Url)
 		if err != nil {
-			log.Warnf("extensionfilter %v/%v discarded due to failure to parse wasm URL: %s", plugin.Namespace, plugin.Name, err)
+			log.Warnf("trafficextension %v/%v discarded due to failure to parse wasm URL: %s", plugin.Namespace, plugin.Name, err)
 			return nil
 		}
 		// when no scheme is given, default to oci://
@@ -316,52 +324,54 @@ func convertToExtensionFilterWrapper(originConfig config.Config) *ExtensionFilte
 			u.Scheme = ociScheme
 		}
 		// Validate plugin config can be marshaled
-		if extFilter.Wasm.PluginConfig != nil && len(extFilter.Wasm.PluginConfig.Fields) > 0 {
-			_, err := protomarshal.ToJSON(extFilter.Wasm.PluginConfig)
+		if wasm.PluginConfig != nil && len(wasm.PluginConfig.Fields) > 0 {
+			_, err := protomarshal.ToJSON(wasm.PluginConfig)
 			if err != nil {
-				log.Warnf("extensionfilter %v/%v discarded due to json marshaling error: %s", plugin.Namespace, plugin.Name, err)
+				log.Warnf("trafficextension %v/%v discarded due to json marshaling error: %s", plugin.Namespace, plugin.Name, err)
 				return nil
 			}
 		}
 		// Normalize the image pull secret to the full resource name
-		if extFilter.Wasm.ImagePullSecret != "" {
+		if wasm.ImagePullSecret != "" {
 			// Convert user provided secret name to secret resource name.
-			rn := credentials.ToResourceName(extFilter.Wasm.ImagePullSecret)
+			rn := credentials.ToResourceName(wasm.ImagePullSecret)
 			// Parse the secret resource name.
 			sr, err := credentials.ParseResourceName(rn, plugin.Namespace, "", "")
 			if err != nil {
 				log.Debugf("Failed to parse wasm secret resource name %v", err)
-				extFilter.Wasm.ImagePullSecret = ""
+				wasm.ImagePullSecret = ""
 			} else {
 				// Forcely rewrite secret namespace to plugin namespace, since we require secret resource
-				// referenced by ExtensionFilter co-located with ExtensionFilter in the same namespace.
+				// referenced by TrafficExtension co-located with TrafficExtension in the same namespace.
 				sr.Namespace = plugin.Namespace
-				extFilter.Wasm.ImagePullSecret = sr.KubernetesResourceName()
+				wasm.ImagePullSecret = sr.KubernetesResourceName()
 			}
 		}
-	} else if extFilter.Lua != nil {
+	} else if lua != nil {
 		filterType = FilterTypeLua
 		// Validate Lua config
-		if len(extFilter.Lua.InlineCode) == 0 {
-			log.Warnf("extensionfilter %v/%v discarded: lua.inlineCode cannot be empty", plugin.Namespace, plugin.Name)
+		if len(lua.InlineCode) == 0 {
+			log.Warnf("trafficextension %v/%v discarded: lua.inlineCode cannot be empty", plugin.Namespace, plugin.Name)
 			return nil
 		}
-		if len(extFilter.Lua.InlineCode) > 65536 {
-			log.Warnf("extensionfilter %v/%v discarded: lua.inlineCode exceeds maximum size of 64KB", plugin.Namespace, plugin.Name)
+		if len(lua.InlineCode) > 65536 {
+			log.Warnf("trafficextension %v/%v discarded: lua.inlineCode exceeds maximum size of 64KB", plugin.Namespace, plugin.Name)
 			return nil
 		}
 	} else {
-		log.Warnf("extensionfilter %v/%v discarded: neither wasm nor lua is set", plugin.Namespace, plugin.Name)
+		log.Warnf("trafficextension %v/%v discarded: neither wasm nor lua is set", plugin.Namespace, plugin.Name)
 		return nil
 	}
 
 	return &ExtensionFilterWrapper{
-		Name:            plugin.Name,
-		Namespace:       plugin.Namespace,
-		ResourceName:    ExtensionFilterResourceNamePrefix + plugin.Namespace + "." + plugin.Name,
-		ExtensionFilter: extFilter,
-		ResourceVersion: plugin.ResourceVersion,
-		FilterType:      filterType,
+		Name:             plugin.Name,
+		Namespace:        plugin.Namespace,
+		ResourceName:     ExtensionFilterResourceNamePrefix + plugin.Namespace + "." + plugin.Name,
+		TrafficExtension: trafficExt,
+		Wasm:             wasm,
+		Lua:              lua,
+		ResourceVersion:  plugin.ResourceVersion,
+		FilterType:       filterType,
 	}
 }
 

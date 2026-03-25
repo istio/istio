@@ -225,19 +225,19 @@ var (
 		ValidateProto: envoyfilter.ValidateEnvoyFilter,
 	}.MustBuild()
 
-	ExtensionFilter = resource.Builder{
-		Identifier: "ExtensionFilter",
+	TrafficExtension = resource.Builder{
+		Identifier: "TrafficExtension",
 		Group:      "extensions.istio.io",
-		Kind:       "ExtensionFilter",
-		Plural:     "extensionfilters",
+		Kind:       "TrafficExtension",
+		Plural:     "trafficextensions",
 		Version:    "v1alpha1",
-		Proto:      "istio.extensions.v1alpha1.ExtensionFilter", StatusProto: "istio.meta.v1alpha1.IstioStatus",
-		ReflectType: reflect.TypeOf(&istioioapiextensionsv1alpha1.ExtensionFilter{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
+		Proto:      "istio.extensions.v1alpha1.TrafficExtension", StatusProto: "istio.meta.v1alpha1.IstioStatus",
+		ReflectType: reflect.TypeOf(&istioioapiextensionsv1alpha1.TrafficExtension{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
 		ProtoPackage: "istio.io/api/extensions/v1alpha1", StatusPackage: "istio.io/api/meta/v1alpha1",
 		ClusterScoped: false,
 		Synthetic:     false,
 		Builtin:       false,
-		ValidateProto: validation.ValidateExtensionFilter,
+		ValidateProto: validation.ValidateTrafficExtension,
 	}.MustBuild()
 
 	GRPCRoute = resource.Builder{
@@ -878,7 +878,7 @@ var (
 		MustAdd(EndpointSlice).
 		MustAdd(Endpoints).
 		MustAdd(EnvoyFilter).
-		MustAdd(ExtensionFilter).
+		MustAdd(TrafficExtension).
 		MustAdd(GRPCRoute).
 		MustAdd(Gateway).
 		MustAdd(GatewayClass).
@@ -962,7 +962,7 @@ var (
 		MustAdd(AuthorizationPolicy).
 		MustAdd(DestinationRule).
 		MustAdd(EnvoyFilter).
-		MustAdd(ExtensionFilter).
+		MustAdd(TrafficExtension).
 		MustAdd(Gateway).
 		MustAdd(PeerAuthentication).
 		MustAdd(ProxyConfig).
@@ -982,7 +982,7 @@ var (
 			MustAdd(BackendTLSPolicy).
 			MustAdd(DestinationRule).
 			MustAdd(EnvoyFilter).
-			MustAdd(ExtensionFilter).
+			MustAdd(TrafficExtension).
 			MustAdd(GRPCRoute).
 			MustAdd(Gateway).
 			MustAdd(GatewayClass).
@@ -1012,7 +1012,7 @@ var (
 				MustAdd(BackendTLSPolicy).
 				MustAdd(DestinationRule).
 				MustAdd(EnvoyFilter).
-				MustAdd(ExtensionFilter).
+				MustAdd(TrafficExtension).
 				MustAdd(GRPCRoute).
 				MustAdd(Gateway).
 				MustAdd(GatewayClass).

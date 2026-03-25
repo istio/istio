@@ -404,13 +404,13 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 		filters = appendMxFilter(httpOpts, filters)
 		// TODO: how to deal with ext-authz? It will be in the ordering twice
 		filters = append(filters, lb.authzCustomBuilder.BuildHTTP(httpOpts.class)...)
-		filters = extension.PopAppendHTTPExtensionFilter(filters, extensionFilters, extensions.PluginPhase_AUTHN)
+		filters = extension.PopAppendHTTPExtensionFilter(filters, extensionFilters, extensions.ExecutionPhase_EXECUTION_PHASE_AUTHN)
 		filters = append(filters, lb.authnBuilder.BuildHTTP(httpOpts.class)...)
-		filters = extension.PopAppendHTTPExtensionFilter(filters, extensionFilters, extensions.PluginPhase_AUTHZ)
+		filters = extension.PopAppendHTTPExtensionFilter(filters, extensionFilters, extensions.ExecutionPhase_EXECUTION_PHASE_AUTHZ)
 		filters = append(filters, lb.authzBuilder.BuildHTTP(httpOpts.class)...)
 		// TODO: these feel like the wrong place to insert, but this retains backwards compatibility with the original implementation
-		filters = extension.PopAppendHTTPExtensionFilter(filters, extensionFilters, extensions.PluginPhase_STATS)
-		filters = extension.PopAppendHTTPExtensionFilter(filters, extensionFilters, extensions.PluginPhase_UNSPECIFIED_PHASE)
+		filters = extension.PopAppendHTTPExtensionFilter(filters, extensionFilters, extensions.ExecutionPhase_EXECUTION_PHASE_STATS)
+		filters = extension.PopAppendHTTPExtensionFilter(filters, extensionFilters, extensions.ExecutionPhase_EXECUTION_PHASE_UNSPECIFIED)
 		// Add ExtProc per listener only if the Gateway has any inferencePool attached to it
 		if kubeGwName, ok := lb.node.Labels[label.IoK8sNetworkingGatewayGatewayName.Name]; ok {
 			if lb.push.GatewayAPIController.HasInferencePool(types.NamespacedName{Name: kubeGwName, Namespace: lb.node.GetNamespace()}) {
