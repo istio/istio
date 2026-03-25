@@ -517,6 +517,5 @@ resources:
     version: "v1alpha1"
     proto: "istio.extensions.v1alpha1.TrafficExtension"
     protoPackage: "istio.io/api/extensions/v1alpha1"
-    validate: "ValidateTrafficExtension"
     statusProto: "istio.meta.v1alpha1.IstioStatus"
     statusProtoPackage: "istio.io/api/meta/v1alpha1"

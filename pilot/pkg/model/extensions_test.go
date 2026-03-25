@@ -428,16 +428,16 @@ func TestExtensionFilterWrapper_MatchType(t *testing.T) {
 
 func TestMatchListener(t *testing.T) {
 	cases := []struct {
-		desc         string
-		extensionFilter   *ExtensionFilterWrapper
-		proxyLabels  map[string]string
-		listenerInfo ListenerInfo
-		want         bool
+		desc            string
+		extensionFilter *ExtensionFilterWrapper
+		proxyLabels     map[string]string
+		listenerInfo    ListenerInfo
+		want            bool
 	}{
 		{
-			desc:        "match and selector are nil",
-			extensionFilter:  &ExtensionFilterWrapper{TrafficExtension: &extensions.TrafficExtension{Selector: nil, Match: nil}},
-			proxyLabels: map[string]string{"a": "b", "c": "d"},
+			desc:            "match and selector are nil",
+			extensionFilter: &ExtensionFilterWrapper{TrafficExtension: &extensions.TrafficExtension{Selector: nil, Match: nil}},
+			proxyLabels:     map[string]string{"a": "b", "c": "d"},
 			listenerInfo: ListenerInfo{
 				Port:  1234,
 				Class: networking.ListenerClassSidecarInbound,

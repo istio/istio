@@ -3481,7 +3481,7 @@ var ValidateTrafficExtension = RegisterValidateFunc("ValidateTrafficExtension",
 			errs = AppendValidation(errs,
 				validateWasmPluginURL(wasm.Url),
 				validateWasmConfigSHA(wasm),
-				validateWasmConfigImagePullSecret(wasm, cfg.Namespace),
+				validateWasmConfigImagePullSecret(wasm),
 				validateWasmConfigName(wasm),
 				validateWasmPluginVMConfig(wasm.VmConfig),
 			)
@@ -3513,7 +3513,7 @@ func validateWasmConfigSHA(wasm *extensions.WasmConfig) error {
 	return validateWasmPluginSHA(&extensions.WasmPlugin{Sha256: wasm.Sha256})
 }
 
-func validateWasmConfigImagePullSecret(wasm *extensions.WasmConfig, namespace string) error {
+func validateWasmConfigImagePullSecret(wasm *extensions.WasmConfig) error {
 	if wasm.ImagePullSecret == "" {
 		return nil
 	}

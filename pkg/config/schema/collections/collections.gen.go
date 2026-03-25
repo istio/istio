@@ -225,21 +225,6 @@ var (
 		ValidateProto: envoyfilter.ValidateEnvoyFilter,
 	}.MustBuild()
 
-	TrafficExtension = resource.Builder{
-		Identifier: "TrafficExtension",
-		Group:      "extensions.istio.io",
-		Kind:       "TrafficExtension",
-		Plural:     "trafficextensions",
-		Version:    "v1alpha1",
-		Proto:      "istio.extensions.v1alpha1.TrafficExtension", StatusProto: "istio.meta.v1alpha1.IstioStatus",
-		ReflectType: reflect.TypeOf(&istioioapiextensionsv1alpha1.TrafficExtension{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
-		ProtoPackage: "istio.io/api/extensions/v1alpha1", StatusPackage: "istio.io/api/meta/v1alpha1",
-		ClusterScoped: false,
-		Synthetic:     false,
-		Builtin:       false,
-		ValidateProto: validation.ValidateTrafficExtension,
-	}.MustBuild()
-
 	GRPCRoute = resource.Builder{
 		Identifier: "GRPCRoute",
 		Group:      "gateway.networking.k8s.io",
@@ -747,6 +732,21 @@ var (
 		ValidateProto: validation.ValidateTelemetry,
 	}.MustBuild()
 
+	TrafficExtension = resource.Builder{
+		Identifier: "TrafficExtension",
+		Group:      "extensions.istio.io",
+		Kind:       "TrafficExtension",
+		Plural:     "trafficextensions",
+		Version:    "v1alpha1",
+		Proto:      "istio.extensions.v1alpha1.TrafficExtension", StatusProto: "istio.meta.v1alpha1.IstioStatus",
+		ReflectType: reflect.TypeOf(&istioioapiextensionsv1alpha1.TrafficExtension{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
+		ProtoPackage: "istio.io/api/extensions/v1alpha1", StatusPackage: "istio.io/api/meta/v1alpha1",
+		ClusterScoped: false,
+		Synthetic:     false,
+		Builtin:       false,
+		ValidateProto: validation.ValidateTrafficExtension,
+	}.MustBuild()
+
 	UDPRoute = resource.Builder{
 		Identifier: "UDPRoute",
 		Group:      "gateway.networking.k8s.io",
@@ -878,7 +878,6 @@ var (
 		MustAdd(EndpointSlice).
 		MustAdd(Endpoints).
 		MustAdd(EnvoyFilter).
-		MustAdd(TrafficExtension).
 		MustAdd(GRPCRoute).
 		MustAdd(Gateway).
 		MustAdd(GatewayClass).
@@ -910,6 +909,7 @@ var (
 		MustAdd(TCPRoute).
 		MustAdd(TLSRoute).
 		MustAdd(Telemetry).
+		MustAdd(TrafficExtension).
 		MustAdd(UDPRoute).
 		MustAdd(ValidatingWebhookConfiguration).
 		MustAdd(VirtualService).
@@ -962,7 +962,6 @@ var (
 		MustAdd(AuthorizationPolicy).
 		MustAdd(DestinationRule).
 		MustAdd(EnvoyFilter).
-		MustAdd(TrafficExtension).
 		MustAdd(Gateway).
 		MustAdd(PeerAuthentication).
 		MustAdd(ProxyConfig).
@@ -970,6 +969,7 @@ var (
 		MustAdd(ServiceEntry).
 		MustAdd(Sidecar).
 		MustAdd(Telemetry).
+		MustAdd(TrafficExtension).
 		MustAdd(VirtualService).
 		MustAdd(WasmPlugin).
 		MustAdd(WorkloadEntry).
@@ -982,7 +982,6 @@ var (
 			MustAdd(BackendTLSPolicy).
 			MustAdd(DestinationRule).
 			MustAdd(EnvoyFilter).
-			MustAdd(TrafficExtension).
 			MustAdd(GRPCRoute).
 			MustAdd(Gateway).
 			MustAdd(GatewayClass).
@@ -998,6 +997,7 @@ var (
 			MustAdd(TCPRoute).
 			MustAdd(TLSRoute).
 			MustAdd(Telemetry).
+			MustAdd(TrafficExtension).
 			MustAdd(UDPRoute).
 			MustAdd(VirtualService).
 			MustAdd(WasmPlugin).
@@ -1012,7 +1012,6 @@ var (
 				MustAdd(BackendTLSPolicy).
 				MustAdd(DestinationRule).
 				MustAdd(EnvoyFilter).
-				MustAdd(TrafficExtension).
 				MustAdd(GRPCRoute).
 				MustAdd(Gateway).
 				MustAdd(GatewayClass).
@@ -1027,6 +1026,7 @@ var (
 				MustAdd(Sidecar).
 				MustAdd(TLSRoute).
 				MustAdd(Telemetry).
+				MustAdd(TrafficExtension).
 				MustAdd(VirtualService).
 				MustAdd(WasmPlugin).
 				MustAdd(WorkloadEntry).

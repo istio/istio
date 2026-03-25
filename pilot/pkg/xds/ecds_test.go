@@ -196,8 +196,8 @@ func TestECDSGenerate(t *testing.T) {
 				"extensions.istio.io/extensionfilter/istio-system.root-plugin~istio-translated-wasmplugin",
 			},
 			wantExtensions: sets.String{
-				"extensions.istio.io/extensionfilter/default.default-plugin-with-sec~istio-translated-wasmplugin":   {},
-				"extensions.istio.io/extensionfilter/istio-system.root-plugin~istio-translated-wasmplugin":          {},
+				"extensions.istio.io/extensionfilter/default.default-plugin-with-sec~istio-translated-wasmplugin": {},
+				"extensions.istio.io/extensionfilter/istio-system.root-plugin~istio-translated-wasmplugin":        {},
 			},
 			wantSecrets: sets.String{"default-docker-credential": {}, "root-docker-credential": {}},
 		},
@@ -292,8 +292,8 @@ func TestECDSGenerate(t *testing.T) {
 				"extensions.istio.io/extensionfilter/istio-system.root-plugin~istio-translated-wasmplugin",
 			},
 			wantExtensions: sets.String{
-				"extensions.istio.io/extensionfilter/default.default-plugin-with-sec~istio-translated-wasmplugin":  {},
-				"extensions.istio.io/extensionfilter/istio-system.root-plugin~istio-translated-wasmplugin":         {},
+				"extensions.istio.io/extensionfilter/default.default-plugin-with-sec~istio-translated-wasmplugin": {},
+				"extensions.istio.io/extensionfilter/istio-system.root-plugin~istio-translated-wasmplugin":        {},
 			},
 			wantSecrets: sets.String{"default-docker-credential": {}, "root-docker-credential": {}},
 		},

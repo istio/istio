@@ -15,6 +15,7 @@
 package extension
 
 import (
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	lua "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/lua/v3"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -28,6 +29,10 @@ func BuildHTTPLuaFilter(filter *model.ExtensionFilterWrapper) *lua.Lua {
 	}
 
 	return &lua.Lua{
-		InlineCode: filter.Lua.InlineCode,
+		DefaultSourceCode: &core.DataSource{
+			Specifier: &core.DataSource_InlineString{
+				InlineString: filter.Lua.InlineCode,
+			},
+		},
 	}
 }

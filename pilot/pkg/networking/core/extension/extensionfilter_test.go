@@ -19,8 +19,8 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
-	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	lua "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/lua/v3"
+	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	extensions "istio.io/api/extensions/v1alpha1"
@@ -57,7 +57,9 @@ func TestBuildHTTPLuaFilter(t *testing.T) {
 				},
 			},
 			expected: &lua.Lua{
-				InlineCode: "function envoy_on_request(request_handle)\n  request_handle:headers():add('x-test', 'value')\nend",
+				DefaultSourceCode: &core.DataSource{Specifier: &core.DataSource_InlineString{
+					InlineString: "function envoy_on_request(request_handle)\n  request_handle:headers():add('x-test', 'value')\nend",
+				}},
 			},
 		},
 	}
@@ -68,7 +70,7 @@ func TestBuildHTTPLuaFilter(t *testing.T) {
 			if tt.expected == nil {
 				assert.Equal(t, got, nil)
 			} else {
-				assert.Equal(t, got.InlineCode, tt.expected.InlineCode)
+				assert.Equal(t, got.DefaultSourceCode.GetInlineString(), tt.expected.DefaultSourceCode.GetInlineString())
 			}
 		})
 	}
@@ -76,11 +78,11 @@ func TestBuildHTTPLuaFilter(t *testing.T) {
 
 func TestToEnvoyHTTPExtensionFilter(t *testing.T) {
 	tests := []struct {
-		name           string
-		filter         *model.ExtensionFilterWrapper
-		expectTyped    bool // true if TypedConfig expected, false if ConfigDiscovery
-		expectNil      bool
-		expectLuaCode  string
+		name          string
+		filter        *model.ExtensionFilterWrapper
+		expectTyped   bool // true if TypedConfig expected, false if ConfigDiscovery
+		expectNil     bool
+		expectLuaCode string
 	}{
 		{
 			name:      "nil filter",
@@ -130,7 +132,7 @@ func TestToEnvoyHTTPExtensionFilter(t *testing.T) {
 				// Verify it's a Lua config
 				luaConfig, err := protoconv.UnmarshalAny[lua.Lua](typedConfig)
 				assert.NoError(t, err)
-				assert.Equal(t, luaConfig.InlineCode, tt.expectLuaCode)
+				assert.Equal(t, luaConfig.DefaultSourceCode.GetInlineString(), tt.expectLuaCode)
 			} else {
 				// WASM filter should have ConfigDiscovery
 				configDiscovery := got.GetConfigDiscovery()
@@ -143,9 +145,9 @@ func TestToEnvoyHTTPExtensionFilter(t *testing.T) {
 
 func TestToEnvoyNetworkExtensionFilter(t *testing.T) {
 	tests := []struct {
-		name      string
-		filter    *model.ExtensionFilterWrapper
-		expectNil bool
+		name       string
+		filter     *model.ExtensionFilterWrapper
+		expectNil  bool
 		expectECDS bool
 	}{
 		{
@@ -158,9 +160,9 @@ func TestToEnvoyNetworkExtensionFilter(t *testing.T) {
 			filter: &model.ExtensionFilterWrapper{
 				ResourceName: "test-lua-filter",
 				FilterType:   model.FilterTypeLua,
-					Lua: &extensions.LuaConfig{
+				Lua: &extensions.LuaConfig{
 					InlineCode: "function envoy_on_request() end",
-					},
+				},
 			},
 			expectNil: true, // Lua doesn't support network filtering
 		},
@@ -169,10 +171,10 @@ func TestToEnvoyNetworkExtensionFilter(t *testing.T) {
 			filter: &model.ExtensionFilterWrapper{
 				ResourceName: "test-wasm-filter",
 				FilterType:   model.FilterTypeWasm,
-					Wasm: &extensions.WasmConfig{
+				Wasm: &extensions.WasmConfig{
 					Url:  "oci://test.com/filter:v1",
 					Type: extensions.PluginType_NETWORK,
-					},
+				},
 			},
 			expectECDS: true,
 		},
@@ -203,9 +205,9 @@ func TestPopAppendHTTPExtensionFilter(t *testing.T) {
 		TrafficExtension: &extensions.TrafficExtension{
 			Phase: extensions.ExecutionPhase_EXECUTION_PHASE_AUTHN,
 		},
-			Lua: &extensions.LuaConfig{
+		Lua: &extensions.LuaConfig{
 			InlineCode: "function envoy_on_request() end",
-			},
+		},
 	}
 
 	wasmFilter := &model.ExtensionFilterWrapper{
@@ -214,9 +216,9 @@ func TestPopAppendHTTPExtensionFilter(t *testing.T) {
 		TrafficExtension: &extensions.TrafficExtension{
 			Phase: extensions.ExecutionPhase_EXECUTION_PHASE_AUTHZ,
 		},
-			Wasm: &extensions.WasmConfig{
+		Wasm: &extensions.WasmConfig{
 			Url: "oci://test.com/filter:v1",
-			},
+		},
 	}
 
 	filterMap := map[extensions.ExecutionPhase][]*model.ExtensionFilterWrapper{
@@ -257,9 +259,9 @@ func TestPopAppendNetworkExtensionFilter(t *testing.T) {
 		TrafficExtension: &extensions.TrafficExtension{
 			Phase: extensions.ExecutionPhase_EXECUTION_PHASE_AUTHN,
 		},
-			Lua: &extensions.LuaConfig{
+		Lua: &extensions.LuaConfig{
 			InlineCode: "function envoy_on_request() end",
-			},
+		},
 	}
 
 	wasmFilter := &model.ExtensionFilterWrapper{
@@ -268,10 +270,10 @@ func TestPopAppendNetworkExtensionFilter(t *testing.T) {
 		TrafficExtension: &extensions.TrafficExtension{
 			Phase: extensions.ExecutionPhase_EXECUTION_PHASE_AUTHN,
 		},
-			Wasm: &extensions.WasmConfig{
+		Wasm: &extensions.WasmConfig{
 			Url:  "oci://test.com/filter:v1",
 			Type: extensions.PluginType_NETWORK,
-			},
+		},
 	}
 
 	filterMap := map[extensions.ExecutionPhase][]*model.ExtensionFilterWrapper{
@@ -296,27 +298,27 @@ func TestInsertedExtensionFilterConfigurations(t *testing.T) {
 	luaFilter := &model.ExtensionFilterWrapper{
 		ResourceName: "extensions.istio.io/extensionfilter/default.lua-filter",
 		FilterType:   model.FilterTypeLua,
-			Lua: &extensions.LuaConfig{
+		Lua: &extensions.LuaConfig{
 			InlineCode: "function envoy_on_request() end",
-			},
+		},
 	}
 
 	wasmHTTPFilter := &model.ExtensionFilterWrapper{
 		ResourceName: "extensions.istio.io/extensionfilter/default.wasm-http",
 		FilterType:   model.FilterTypeWasm,
-			Wasm: &extensions.WasmConfig{
+		Wasm: &extensions.WasmConfig{
 			Url:  "oci://test.com/filter:v1",
 			Type: extensions.PluginType_HTTP,
-			},
+		},
 	}
 
 	wasmNetworkFilter := &model.ExtensionFilterWrapper{
 		ResourceName: "extensions.istio.io/extensionfilter/default.wasm-network",
 		FilterType:   model.FilterTypeWasm,
-			Wasm: &extensions.WasmConfig{
+		Wasm: &extensions.WasmConfig{
 			Url:  "oci://test.com/filter:v1",
 			Type: extensions.PluginType_NETWORK,
-			},
+		},
 	}
 
 	// Mock BuildHTTPWasmFilter and BuildNetworkWasmFilter to return non-nil values
@@ -355,9 +357,9 @@ func TestMixedLuaWasmFilters(t *testing.T) {
 		TrafficExtension: &extensions.TrafficExtension{
 			Phase: extensions.ExecutionPhase_EXECUTION_PHASE_STATS,
 		},
-			Lua: &extensions.LuaConfig{
+		Lua: &extensions.LuaConfig{
 			InlineCode: "function envoy_on_request() end",
-			},
+		},
 	}
 
 	wasmFilter := &model.ExtensionFilterWrapper{
@@ -366,9 +368,9 @@ func TestMixedLuaWasmFilters(t *testing.T) {
 		TrafficExtension: &extensions.TrafficExtension{
 			Phase: extensions.ExecutionPhase_EXECUTION_PHASE_STATS,
 		},
-			Wasm: &extensions.WasmConfig{
+		Wasm: &extensions.WasmConfig{
 			Url: "oci://test.com/filter:v1",
-			},
+		},
 	}
 
 	filterMap := map[extensions.ExecutionPhase][]*model.ExtensionFilterWrapper{
@@ -397,9 +399,9 @@ func TestLuaFilterInlining(t *testing.T) {
 	filter := &model.ExtensionFilterWrapper{
 		ResourceName: "inline-lua",
 		FilterType:   model.FilterTypeLua,
-			Lua: &extensions.LuaConfig{
+		Lua: &extensions.LuaConfig{
 			InlineCode: luaCode,
-			},
+		},
 	}
 
 	envoyFilter := toEnvoyHTTPExtensionFilter(filter)
@@ -411,13 +413,13 @@ func TestLuaFilterInlining(t *testing.T) {
 	// Verify the Lua code is actually embedded
 	luaConfig, err := protoconv.UnmarshalAny[lua.Lua](envoyFilter.GetTypedConfig())
 	assert.NoError(t, err)
-	assert.Equal(t, luaConfig.InlineCode, luaCode, "Lua code should be fully inlined")
+	assert.Equal(t, luaConfig.DefaultSourceCode.GetInlineString(), luaCode, "Lua code should be fully inlined")
 }
 
 func TestBuildHTTPWasmFilter(t *testing.T) {
 	tests := []struct {
-		name     string
-		filter   *model.ExtensionFilterWrapper
+		name      string
+		filter    *model.ExtensionFilterWrapper
 		expectNil bool
 	}{
 		{
@@ -426,10 +428,10 @@ func TestBuildHTTPWasmFilter(t *testing.T) {
 				Name:       "test-wasm",
 				Namespace:  "default",
 				FilterType: model.FilterTypeWasm,
-					Wasm: &extensions.WasmConfig{
+				Wasm: &extensions.WasmConfig{
 					Url:  "oci://test.com/wasm:v1",
 					Type: extensions.PluginType_HTTP,
-					},
+				},
 			},
 			expectNil: false,
 		},
@@ -439,10 +441,10 @@ func TestBuildHTTPWasmFilter(t *testing.T) {
 				Name:       "test-wasm",
 				Namespace:  "default",
 				FilterType: model.FilterTypeWasm,
-					Wasm: &extensions.WasmConfig{
+				Wasm: &extensions.WasmConfig{
 					Url:  "oci://test.com/wasm:v1",
 					Type: extensions.PluginType_UNSPECIFIED_PLUGIN_TYPE,
-					},
+				},
 			},
 			expectNil: false,
 		},
@@ -452,10 +454,10 @@ func TestBuildHTTPWasmFilter(t *testing.T) {
 				Name:       "test-wasm",
 				Namespace:  "default",
 				FilterType: model.FilterTypeWasm,
-					Wasm: &extensions.WasmConfig{
+				Wasm: &extensions.WasmConfig{
 					Url:  "oci://test.com/wasm:v1",
 					Type: extensions.PluginType_NETWORK,
-					},
+				},
 			},
 			expectNil: true,
 		},
@@ -463,9 +465,9 @@ func TestBuildHTTPWasmFilter(t *testing.T) {
 			name: "Lua filter returns nil",
 			filter: &model.ExtensionFilterWrapper{
 				FilterType: model.FilterTypeLua,
-					Lua: &extensions.LuaConfig{
+				Lua: &extensions.LuaConfig{
 					InlineCode: "function envoy_on_request() end",
-					},
+				},
 			},
 			expectNil: true,
 		},
@@ -496,10 +498,10 @@ func TestBuildNetworkWasmFilter(t *testing.T) {
 				Name:       "test-wasm",
 				Namespace:  "default",
 				FilterType: model.FilterTypeWasm,
-					Wasm: &extensions.WasmConfig{
+				Wasm: &extensions.WasmConfig{
 					Url:  "oci://test.com/wasm:v1",
 					Type: extensions.PluginType_NETWORK,
-					},
+				},
 			},
 			expectNil: false,
 		},
@@ -509,10 +511,10 @@ func TestBuildNetworkWasmFilter(t *testing.T) {
 				Name:       "test-wasm",
 				Namespace:  "default",
 				FilterType: model.FilterTypeWasm,
-					Wasm: &extensions.WasmConfig{
+				Wasm: &extensions.WasmConfig{
 					Url:  "oci://test.com/wasm:v1",
 					Type: extensions.PluginType_HTTP,
-					},
+				},
 			},
 			expectNil: true,
 		},
@@ -522,10 +524,10 @@ func TestBuildNetworkWasmFilter(t *testing.T) {
 				Name:       "test-wasm",
 				Namespace:  "default",
 				FilterType: model.FilterTypeWasm,
-					Wasm: &extensions.WasmConfig{
+				Wasm: &extensions.WasmConfig{
 					Url:  "oci://test.com/wasm:v1",
 					Type: extensions.PluginType_UNSPECIFIED_PLUGIN_TYPE,
-					},
+				},
 			},
 			expectNil: true,
 		},
@@ -533,9 +535,9 @@ func TestBuildNetworkWasmFilter(t *testing.T) {
 			name: "Lua filter returns nil",
 			filter: &model.ExtensionFilterWrapper{
 				FilterType: model.FilterTypeLua,
-					Lua: &extensions.LuaConfig{
+				Lua: &extensions.LuaConfig{
 					InlineCode: "function envoy_on_request() end",
-					},
+				},
 			},
 			expectNil: true,
 		},
@@ -594,10 +596,10 @@ func TestInsertedExtensionFilterConfigurations_WasmURLs(t *testing.T) {
 				Name:         "wasm-test",
 				Namespace:    "default",
 				FilterType:   model.FilterTypeWasm,
-					Wasm: &extensions.WasmConfig{
+				Wasm: &extensions.WasmConfig{
 					Url:  tt.url,
 					Type: extensions.PluginType_HTTP,
-					},
+				},
 			}
 
 			configs := InsertedExtensionFilterConfigurations(
@@ -623,11 +625,11 @@ func TestInsertedExtensionFilterConfigurations_PullSecrets(t *testing.T) {
 		Name:         "wasm-auth",
 		Namespace:    "default",
 		FilterType:   model.FilterTypeWasm,
-			Wasm: &extensions.WasmConfig{
+		Wasm: &extensions.WasmConfig{
 			Url:             "oci://private.registry.com/wasm:v1",
 			Type:            extensions.PluginType_HTTP,
 			ImagePullSecret: secretName,
-			},
+		},
 	}
 
 	pullSecrets := map[string][]byte{
@@ -651,10 +653,10 @@ func TestInsertedExtensionFilterConfigurations_HTTPAndNetwork(t *testing.T) {
 		Name:         "http-wasm",
 		Namespace:    "default",
 		FilterType:   model.FilterTypeWasm,
-			Wasm: &extensions.WasmConfig{
+		Wasm: &extensions.WasmConfig{
 			Url:  "oci://test.com/http:v1",
 			Type: extensions.PluginType_HTTP,
-			},
+		},
 	}
 
 	networkFilter := &model.ExtensionFilterWrapper{
@@ -662,10 +664,10 @@ func TestInsertedExtensionFilterConfigurations_HTTPAndNetwork(t *testing.T) {
 		Name:         "network-wasm",
 		Namespace:    "default",
 		FilterType:   model.FilterTypeWasm,
-			Wasm: &extensions.WasmConfig{
+		Wasm: &extensions.WasmConfig{
 			Url:  "oci://test.com/network:v1",
 			Type: extensions.PluginType_NETWORK,
-			},
+		},
 	}
 
 	configs := InsertedExtensionFilterConfigurations(
@@ -701,9 +703,9 @@ func TestToEnvoyNetworkExtensionFilter_LuaReturnsNil(t *testing.T) {
 		TrafficExtension: &extensions.TrafficExtension{
 			Phase: extensions.ExecutionPhase_EXECUTION_PHASE_AUTHN,
 		},
-			Lua: &extensions.LuaConfig{
+		Lua: &extensions.LuaConfig{
 			InlineCode: "function envoy_on_request(request_handle)\n  request_handle:headers():add('x-lua', 'true')\nend",
-			},
+		},
 	}
 
 	// Attempt to create a network filter from a Lua ExtensionFilter
@@ -722,9 +724,9 @@ func TestPopAppendNetworkExtensionFilter_LuaSkipped(t *testing.T) {
 		TrafficExtension: &extensions.TrafficExtension{
 			Phase: extensions.ExecutionPhase_EXECUTION_PHASE_AUTHN,
 		},
-			Lua: &extensions.LuaConfig{
+		Lua: &extensions.LuaConfig{
 			InlineCode: "function envoy_on_request() end",
-			},
+		},
 	}
 
 	wasmFilter := &model.ExtensionFilterWrapper{
@@ -733,10 +735,10 @@ func TestPopAppendNetworkExtensionFilter_LuaSkipped(t *testing.T) {
 		TrafficExtension: &extensions.TrafficExtension{
 			Phase: extensions.ExecutionPhase_EXECUTION_PHASE_AUTHN,
 		},
-			Wasm: &extensions.WasmConfig{
+		Wasm: &extensions.WasmConfig{
 			Url:  "oci://test.com/filter:v1",
 			Type: extensions.PluginType_NETWORK,
-			},
+		},
 	}
 
 	filterMap := map[extensions.ExecutionPhase][]*model.ExtensionFilterWrapper{
@@ -761,9 +763,9 @@ func TestMixedWasmLuaPriorityOrdering(t *testing.T) {
 		TrafficExtension: &extensions.TrafficExtension{
 			Phase: extensions.ExecutionPhase_EXECUTION_PHASE_AUTHN,
 		},
-			Lua: &extensions.LuaConfig{
+		Lua: &extensions.LuaConfig{
 			InlineCode: "function envoy_on_request() end",
-			},
+		},
 	}
 
 	wasmFilter := &model.ExtensionFilterWrapper{
@@ -772,9 +774,9 @@ func TestMixedWasmLuaPriorityOrdering(t *testing.T) {
 		TrafficExtension: &extensions.TrafficExtension{
 			Phase: extensions.ExecutionPhase_EXECUTION_PHASE_AUTHN,
 		},
-			Wasm: &extensions.WasmConfig{
+		Wasm: &extensions.WasmConfig{
 			Url: "oci://test.com/filter:v1",
-			},
+		},
 	}
 
 	luaFilter2 := &model.ExtensionFilterWrapper{
@@ -783,9 +785,9 @@ func TestMixedWasmLuaPriorityOrdering(t *testing.T) {
 		TrafficExtension: &extensions.TrafficExtension{
 			Phase: extensions.ExecutionPhase_EXECUTION_PHASE_AUTHN,
 		},
-			Lua: &extensions.LuaConfig{
+		Lua: &extensions.LuaConfig{
 			InlineCode: "function envoy_on_response() end",
-			},
+		},
 	}
 
 	// All filters have same priority (nil = MinInt32), order should be preserved
@@ -822,9 +824,9 @@ func TestMixedWasmLuaPriorityOrdering_PreservesSortedOrder(t *testing.T) {
 			Phase:    extensions.ExecutionPhase_EXECUTION_PHASE_AUTHN,
 			Priority: wrapperspb.Int32(100),
 		},
-			Wasm: &extensions.WasmConfig{
+		Wasm: &extensions.WasmConfig{
 			Url: "oci://test.com/filter:v1",
-			},
+		},
 	}
 
 	luaMedPrio := &model.ExtensionFilterWrapper{
@@ -834,9 +836,9 @@ func TestMixedWasmLuaPriorityOrdering_PreservesSortedOrder(t *testing.T) {
 			Phase:    extensions.ExecutionPhase_EXECUTION_PHASE_AUTHN,
 			Priority: wrapperspb.Int32(50),
 		},
-			Lua: &extensions.LuaConfig{
+		Lua: &extensions.LuaConfig{
 			InlineCode: "function envoy_on_response() end",
-			},
+		},
 	}
 
 	luaLowPrio := &model.ExtensionFilterWrapper{
@@ -846,9 +848,9 @@ func TestMixedWasmLuaPriorityOrdering_PreservesSortedOrder(t *testing.T) {
 			Phase:    extensions.ExecutionPhase_EXECUTION_PHASE_AUTHN,
 			Priority: wrapperspb.Int32(10),
 		},
-			Lua: &extensions.LuaConfig{
+		Lua: &extensions.LuaConfig{
 			InlineCode: "function envoy_on_request() end",
-			},
+		},
 	}
 
 	wasmNoPrio := &model.ExtensionFilterWrapper{
@@ -858,9 +860,9 @@ func TestMixedWasmLuaPriorityOrdering_PreservesSortedOrder(t *testing.T) {
 			Phase: extensions.ExecutionPhase_EXECUTION_PHASE_AUTHN,
 			// No priority set - defaults to MinInt32
 		},
-			Wasm: &extensions.WasmConfig{
+		Wasm: &extensions.WasmConfig{
 			Url: "oci://test.com/filter2:v1",
-			},
+		},
 	}
 
 	// Input is pre-sorted by priority (as ExtensionFiltersByListenerInfo would do)
@@ -885,4 +887,3 @@ func TestMixedWasmLuaPriorityOrdering_PreservesSortedOrder(t *testing.T) {
 	assert.Equal(t, filters[2].GetTypedConfig() != nil, true, "Lua filter should use TypedConfig (inlined)")
 	assert.Equal(t, filters[3].GetConfigDiscovery() != nil, true, "WASM filter should use ConfigDiscovery")
 }
-
