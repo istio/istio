@@ -76,8 +76,6 @@ func GetWriteClient[T runtime.Object](c ClientGetter, namespace string) ktypes.W
 		return c.Kube().CoreV1().Endpoints(namespace).(ktypes.WriteAPI[T])
 	case *apiistioioapinetworkingv1alpha3.EnvoyFilter:
 		return c.Istio().NetworkingV1alpha3().EnvoyFilters(namespace).(ktypes.WriteAPI[T])
-	case *apiistioioapiextensionsv1alpha1.TrafficExtension:
-		return c.Istio().ExtensionsV1alpha1().TrafficExtensions(namespace).(ktypes.WriteAPI[T])
 	case *sigsk8siogatewayapiapisv1.GRPCRoute:
 		return c.GatewayAPI().GatewayV1().GRPCRoutes(namespace).(ktypes.WriteAPI[T])
 	case *apiistioioapinetworkingv1.Gateway:
@@ -136,6 +134,8 @@ func GetWriteClient[T runtime.Object](c ClientGetter, namespace string) ktypes.W
 		return c.GatewayAPI().GatewayV1().TLSRoutes(namespace).(ktypes.WriteAPI[T])
 	case *apiistioioapitelemetryv1.Telemetry:
 		return c.Istio().TelemetryV1().Telemetries(namespace).(ktypes.WriteAPI[T])
+	case *apiistioioapiextensionsv1alpha1.TrafficExtension:
+		return c.Istio().ExtensionsV1alpha1().TrafficExtensions(namespace).(ktypes.WriteAPI[T])
 	case *sigsk8siogatewayapiapisv1alpha2.UDPRoute:
 		return c.GatewayAPI().GatewayV1alpha2().UDPRoutes(namespace).(ktypes.WriteAPI[T])
 	case *k8sioapiadmissionregistrationv1.ValidatingWebhookConfiguration:
@@ -181,8 +181,6 @@ func GetClient[T, TL runtime.Object](c ClientGetter, namespace string) ktypes.Re
 		return c.Kube().CoreV1().Endpoints(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *apiistioioapinetworkingv1alpha3.EnvoyFilter:
 		return c.Istio().NetworkingV1alpha3().EnvoyFilters(namespace).(ktypes.ReadWriteAPI[T, TL])
-	case *apiistioioapiextensionsv1alpha1.TrafficExtension:
-		return c.Istio().ExtensionsV1alpha1().TrafficExtensions(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *sigsk8siogatewayapiapisv1.GRPCRoute:
 		return c.GatewayAPI().GatewayV1().GRPCRoutes(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *apiistioioapinetworkingv1.Gateway:
@@ -241,6 +239,8 @@ func GetClient[T, TL runtime.Object](c ClientGetter, namespace string) ktypes.Re
 		return c.GatewayAPI().GatewayV1().TLSRoutes(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *apiistioioapitelemetryv1.Telemetry:
 		return c.Istio().TelemetryV1().Telemetries(namespace).(ktypes.ReadWriteAPI[T, TL])
+	case *apiistioioapiextensionsv1alpha1.TrafficExtension:
+		return c.Istio().ExtensionsV1alpha1().TrafficExtensions(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *sigsk8siogatewayapiapisv1alpha2.UDPRoute:
 		return c.GatewayAPI().GatewayV1alpha2().UDPRoutes(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *k8sioapiadmissionregistrationv1.ValidatingWebhookConfiguration:
@@ -286,8 +286,6 @@ func gvrToObject(g schema.GroupVersionResource) runtime.Object {
 		return &k8sioapicorev1.Endpoints{}
 	case gvr.EnvoyFilter:
 		return &apiistioioapinetworkingv1alpha3.EnvoyFilter{}
-	case gvr.TrafficExtension:
-		return &apiistioioapiextensionsv1alpha1.TrafficExtension{}
 	case gvr.GRPCRoute:
 		return &sigsk8siogatewayapiapisv1.GRPCRoute{}
 	case gvr.Gateway:
@@ -346,6 +344,8 @@ func gvrToObject(g schema.GroupVersionResource) runtime.Object {
 		return &sigsk8siogatewayapiapisv1.TLSRoute{}
 	case gvr.Telemetry:
 		return &apiistioioapitelemetryv1.Telemetry{}
+	case gvr.TrafficExtension:
+		return &apiistioioapiextensionsv1alpha1.TrafficExtension{}
 	case gvr.UDPRoute:
 		return &sigsk8siogatewayapiapisv1alpha2.UDPRoute{}
 	case gvr.ValidatingWebhookConfiguration:
@@ -453,13 +453,6 @@ func getInformerFiltered(c ClientGetter, opts ktypes.InformerOptions, g schema.G
 		}
 		w = func(options metav1.ListOptions) (watch.Interface, error) {
 			return c.Istio().NetworkingV1alpha3().EnvoyFilters(opts.Namespace).Watch(context.Background(), options)
-		}
-	case gvr.TrafficExtension:
-		l = func(options metav1.ListOptions) (runtime.Object, error) {
-			return c.Istio().ExtensionsV1alpha1().TrafficExtensions(opts.Namespace).List(context.Background(), options)
-		}
-		w = func(options metav1.ListOptions) (watch.Interface, error) {
-			return c.Istio().ExtensionsV1alpha1().TrafficExtensions(opts.Namespace).Watch(context.Background(), options)
 		}
 	case gvr.GRPCRoute:
 		l = func(options metav1.ListOptions) (runtime.Object, error) {
@@ -663,6 +656,13 @@ func getInformerFiltered(c ClientGetter, opts ktypes.InformerOptions, g schema.G
 		}
 		w = func(options metav1.ListOptions) (watch.Interface, error) {
 			return c.Istio().TelemetryV1().Telemetries(opts.Namespace).Watch(context.Background(), options)
+		}
+	case gvr.TrafficExtension:
+		l = func(options metav1.ListOptions) (runtime.Object, error) {
+			return c.Istio().ExtensionsV1alpha1().TrafficExtensions(opts.Namespace).List(context.Background(), options)
+		}
+		w = func(options metav1.ListOptions) (watch.Interface, error) {
+			return c.Istio().ExtensionsV1alpha1().TrafficExtensions(opts.Namespace).Watch(context.Background(), options)
 		}
 	case gvr.UDPRoute:
 		l = func(options metav1.ListOptions) (runtime.Object, error) {

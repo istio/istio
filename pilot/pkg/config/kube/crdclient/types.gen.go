@@ -67,11 +67,6 @@ func create(c kube.Client, cfg config.Config, objMeta metav1.ObjectMeta) (metav1
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*istioioapinetworkingv1alpha3.EnvoyFilter)),
 		}, metav1.CreateOptions{})
-	case gvk.TrafficExtension:
-		return c.Istio().ExtensionsV1alpha1().TrafficExtensions(cfg.Namespace).Create(context.TODO(), &apiistioioapiextensionsv1alpha1.TrafficExtension{
-			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*istioioapiextensionsv1alpha1.TrafficExtension)),
-		}, metav1.CreateOptions{})
 	case gvk.GRPCRoute:
 		return c.GatewayAPI().GatewayV1().GRPCRoutes(cfg.Namespace).Create(context.TODO(), &sigsk8siogatewayapiapisv1.GRPCRoute{
 			ObjectMeta: objMeta,
@@ -152,6 +147,11 @@ func create(c kube.Client, cfg config.Config, objMeta metav1.ObjectMeta) (metav1
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*istioioapitelemetryv1alpha1.Telemetry)),
 		}, metav1.CreateOptions{})
+	case gvk.TrafficExtension:
+		return c.Istio().ExtensionsV1alpha1().TrafficExtensions(cfg.Namespace).Create(context.TODO(), &apiistioioapiextensionsv1alpha1.TrafficExtension{
+			ObjectMeta: objMeta,
+			Spec:       *(cfg.Spec.(*istioioapiextensionsv1alpha1.TrafficExtension)),
+		}, metav1.CreateOptions{})
 	case gvk.UDPRoute:
 		return c.GatewayAPI().GatewayV1alpha2().UDPRoutes(cfg.Namespace).Create(context.TODO(), &sigsk8siogatewayapiapisv1alpha2.UDPRoute{
 			ObjectMeta: objMeta,
@@ -208,11 +208,6 @@ func update(c kube.Client, cfg config.Config, objMeta metav1.ObjectMeta) (metav1
 		return c.Istio().NetworkingV1alpha3().EnvoyFilters(cfg.Namespace).Update(context.TODO(), &apiistioioapinetworkingv1alpha3.EnvoyFilter{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*istioioapinetworkingv1alpha3.EnvoyFilter)),
-		}, metav1.UpdateOptions{})
-	case gvk.TrafficExtension:
-		return c.Istio().ExtensionsV1alpha1().TrafficExtensions(cfg.Namespace).Update(context.TODO(), &apiistioioapiextensionsv1alpha1.TrafficExtension{
-			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*istioioapiextensionsv1alpha1.TrafficExtension)),
 		}, metav1.UpdateOptions{})
 	case gvk.GRPCRoute:
 		return c.GatewayAPI().GatewayV1().GRPCRoutes(cfg.Namespace).Update(context.TODO(), &sigsk8siogatewayapiapisv1.GRPCRoute{
@@ -294,6 +289,11 @@ func update(c kube.Client, cfg config.Config, objMeta metav1.ObjectMeta) (metav1
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*istioioapitelemetryv1alpha1.Telemetry)),
 		}, metav1.UpdateOptions{})
+	case gvk.TrafficExtension:
+		return c.Istio().ExtensionsV1alpha1().TrafficExtensions(cfg.Namespace).Update(context.TODO(), &apiistioioapiextensionsv1alpha1.TrafficExtension{
+			ObjectMeta: objMeta,
+			Spec:       *(cfg.Spec.(*istioioapiextensionsv1alpha1.TrafficExtension)),
+		}, metav1.UpdateOptions{})
 	case gvk.UDPRoute:
 		return c.GatewayAPI().GatewayV1alpha2().UDPRoutes(cfg.Namespace).Update(context.TODO(), &sigsk8siogatewayapiapisv1alpha2.UDPRoute{
 			ObjectMeta: objMeta,
@@ -348,11 +348,6 @@ func updateStatus(c kube.Client, cfg config.Config, objMeta metav1.ObjectMeta) (
 		}, metav1.UpdateOptions{})
 	case gvk.EnvoyFilter:
 		return c.Istio().NetworkingV1alpha3().EnvoyFilters(cfg.Namespace).UpdateStatus(context.TODO(), &apiistioioapinetworkingv1alpha3.EnvoyFilter{
-			ObjectMeta: objMeta,
-			Status:     *(cfg.Status.(*istioioapimetav1alpha1.IstioStatus)),
-		}, metav1.UpdateOptions{})
-	case gvk.TrafficExtension:
-		return c.Istio().ExtensionsV1alpha1().TrafficExtensions(cfg.Namespace).UpdateStatus(context.TODO(), &apiistioioapiextensionsv1alpha1.TrafficExtension{
 			ObjectMeta: objMeta,
 			Status:     *(cfg.Status.(*istioioapimetav1alpha1.IstioStatus)),
 		}, metav1.UpdateOptions{})
@@ -433,6 +428,11 @@ func updateStatus(c kube.Client, cfg config.Config, objMeta metav1.ObjectMeta) (
 		}, metav1.UpdateOptions{})
 	case gvk.Telemetry:
 		return c.Istio().TelemetryV1().Telemetries(cfg.Namespace).UpdateStatus(context.TODO(), &apiistioioapitelemetryv1.Telemetry{
+			ObjectMeta: objMeta,
+			Status:     *(cfg.Status.(*istioioapimetav1alpha1.IstioStatus)),
+		}, metav1.UpdateOptions{})
+	case gvk.TrafficExtension:
+		return c.Istio().ExtensionsV1alpha1().TrafficExtensions(cfg.Namespace).UpdateStatus(context.TODO(), &apiistioioapiextensionsv1alpha1.TrafficExtension{
 			ObjectMeta: objMeta,
 			Status:     *(cfg.Status.(*istioioapimetav1alpha1.IstioStatus)),
 		}, metav1.UpdateOptions{})
@@ -535,21 +535,6 @@ func patch(c kube.Client, orig config.Config, origMeta metav1.ObjectMeta, mod co
 			return nil, err
 		}
 		return c.Istio().NetworkingV1alpha3().EnvoyFilters(orig.Namespace).
-			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
-	case gvk.TrafficExtension:
-		oldRes := &apiistioioapiextensionsv1alpha1.TrafficExtension{
-			ObjectMeta: origMeta,
-			Spec:       *(orig.Spec.(*istioioapiextensionsv1alpha1.TrafficExtension)),
-		}
-		modRes := &apiistioioapiextensionsv1alpha1.TrafficExtension{
-			ObjectMeta: modMeta,
-			Spec:       *(mod.Spec.(*istioioapiextensionsv1alpha1.TrafficExtension)),
-		}
-		patchBytes, err := genPatchBytes(oldRes, modRes, typ)
-		if err != nil {
-			return nil, err
-		}
-		return c.Istio().ExtensionsV1alpha1().TrafficExtensions(orig.Namespace).
 			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
 	case gvk.GRPCRoute:
 		oldRes := &sigsk8siogatewayapiapisv1.GRPCRoute{
@@ -791,6 +776,21 @@ func patch(c kube.Client, orig config.Config, origMeta metav1.ObjectMeta, mod co
 		}
 		return c.Istio().TelemetryV1().Telemetries(orig.Namespace).
 			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
+	case gvk.TrafficExtension:
+		oldRes := &apiistioioapiextensionsv1alpha1.TrafficExtension{
+			ObjectMeta: origMeta,
+			Spec:       *(orig.Spec.(*istioioapiextensionsv1alpha1.TrafficExtension)),
+		}
+		modRes := &apiistioioapiextensionsv1alpha1.TrafficExtension{
+			ObjectMeta: modMeta,
+			Spec:       *(mod.Spec.(*istioioapiextensionsv1alpha1.TrafficExtension)),
+		}
+		patchBytes, err := genPatchBytes(oldRes, modRes, typ)
+		if err != nil {
+			return nil, err
+		}
+		return c.Istio().ExtensionsV1alpha1().TrafficExtensions(orig.Namespace).
+			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
 	case gvk.UDPRoute:
 		oldRes := &sigsk8siogatewayapiapisv1alpha2.UDPRoute{
 			ObjectMeta: origMeta,
@@ -900,8 +900,6 @@ func delete(c kube.Client, typ config.GroupVersionKind, name, namespace string, 
 		return c.Istio().NetworkingV1().DestinationRules(namespace).Delete(context.TODO(), name, deleteOptions)
 	case gvk.EnvoyFilter:
 		return c.Istio().NetworkingV1alpha3().EnvoyFilters(namespace).Delete(context.TODO(), name, deleteOptions)
-	case gvk.TrafficExtension:
-		return c.Istio().ExtensionsV1alpha1().TrafficExtensions(namespace).Delete(context.TODO(), name, deleteOptions)
 	case gvk.GRPCRoute:
 		return c.GatewayAPI().GatewayV1().GRPCRoutes(namespace).Delete(context.TODO(), name, deleteOptions)
 	case gvk.Gateway:
@@ -934,6 +932,8 @@ func delete(c kube.Client, typ config.GroupVersionKind, name, namespace string, 
 		return c.GatewayAPI().GatewayV1().TLSRoutes(namespace).Delete(context.TODO(), name, deleteOptions)
 	case gvk.Telemetry:
 		return c.Istio().TelemetryV1().Telemetries(namespace).Delete(context.TODO(), name, deleteOptions)
+	case gvk.TrafficExtension:
+		return c.Istio().ExtensionsV1alpha1().TrafficExtensions(namespace).Delete(context.TODO(), name, deleteOptions)
 	case gvk.UDPRoute:
 		return c.GatewayAPI().GatewayV1alpha2().UDPRoutes(namespace).Delete(context.TODO(), name, deleteOptions)
 	case gvk.VirtualService:
@@ -1159,25 +1159,6 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 		return config.Config{
 			Meta: config.Meta{
 				GroupVersionKind:  gvk.EnvoyFilter,
-				Name:              obj.Name,
-				Namespace:         obj.Namespace,
-				Labels:            obj.Labels,
-				Annotations:       obj.Annotations,
-				ResourceVersion:   obj.ResourceVersion,
-				CreationTimestamp: obj.CreationTimestamp.Time,
-				OwnerReferences:   obj.OwnerReferences,
-				UID:               string(obj.UID),
-				Generation:        obj.Generation,
-			},
-			Spec:   &obj.Spec,
-			Status: &obj.Status,
-		}
-	},
-	gvk.TrafficExtension: func(r runtime.Object) config.Config {
-		obj := r.(*apiistioioapiextensionsv1alpha1.TrafficExtension)
-		return config.Config{
-			Meta: config.Meta{
-				GroupVersionKind:  gvk.TrafficExtension,
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,
@@ -1719,6 +1700,25 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 		return config.Config{
 			Meta: config.Meta{
 				GroupVersionKind:  gvk.Telemetry,
+				Name:              obj.Name,
+				Namespace:         obj.Namespace,
+				Labels:            obj.Labels,
+				Annotations:       obj.Annotations,
+				ResourceVersion:   obj.ResourceVersion,
+				CreationTimestamp: obj.CreationTimestamp.Time,
+				OwnerReferences:   obj.OwnerReferences,
+				UID:               string(obj.UID),
+				Generation:        obj.Generation,
+			},
+			Spec:   &obj.Spec,
+			Status: &obj.Status,
+		}
+	},
+	gvk.TrafficExtension: func(r runtime.Object) config.Config {
+		obj := r.(*apiistioioapiextensionsv1alpha1.TrafficExtension)
+		return config.Config{
+			Meta: config.Meta{
+				GroupVersionKind:  gvk.TrafficExtension,
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,

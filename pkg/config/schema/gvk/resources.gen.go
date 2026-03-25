@@ -26,7 +26,6 @@ var (
 	EndpointSlice                  = config.GroupVersionKind{Group: "discovery.k8s.io", Version: "v1", Kind: "EndpointSlice"}
 	Endpoints                      = config.GroupVersionKind{Group: "", Version: "v1", Kind: "Endpoints"}
 	EnvoyFilter                    = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1alpha3", Kind: "EnvoyFilter"}
-	TrafficExtension                = config.GroupVersionKind{Group: "extensions.istio.io", Version: "v1alpha1", Kind: "TrafficExtension"}
 	GRPCRoute                      = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1", Kind: "GRPCRoute"}
 	GRPCRoute_v1alpha2             = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1alpha2", Kind: "GRPCRoute"}
 	Gateway                        = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1", Kind: "Gateway"}
@@ -76,6 +75,7 @@ var (
 	TLSRoute_v1alpha2              = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1alpha2", Kind: "TLSRoute"}
 	Telemetry                      = config.GroupVersionKind{Group: "telemetry.istio.io", Version: "v1", Kind: "Telemetry"}
 	Telemetry_v1alpha1             = config.GroupVersionKind{Group: "telemetry.istio.io", Version: "v1alpha1", Kind: "Telemetry"}
+	TrafficExtension               = config.GroupVersionKind{Group: "extensions.istio.io", Version: "v1alpha1", Kind: "TrafficExtension"}
 	UDPRoute                       = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1alpha2", Kind: "UDPRoute"}
 	ValidatingWebhookConfiguration = config.GroupVersionKind{Group: "admissionregistration.k8s.io", Version: "v1", Kind: "ValidatingWebhookConfiguration"}
 	VirtualService                 = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1", Kind: "VirtualService"}
@@ -124,8 +124,6 @@ func ToGVR(g config.GroupVersionKind) (schema.GroupVersionResource, bool) {
 		return gvr.Endpoints, true
 	case EnvoyFilter:
 		return gvr.EnvoyFilter, true
-	case TrafficExtension:
-		return gvr.TrafficExtension, true
 	case GRPCRoute:
 		return gvr.GRPCRoute, true
 	case GRPCRoute_v1alpha2:
@@ -224,6 +222,8 @@ func ToGVR(g config.GroupVersionKind) (schema.GroupVersionResource, bool) {
 		return gvr.Telemetry, true
 	case Telemetry_v1alpha1:
 		return gvr.Telemetry_v1alpha1, true
+	case TrafficExtension:
+		return gvr.TrafficExtension, true
 	case UDPRoute:
 		return gvr.UDPRoute, true
 	case ValidatingWebhookConfiguration:
@@ -281,8 +281,6 @@ func ToKind(g config.GroupVersionKind) (kind.Kind, bool) {
 		return kind.Endpoints, true
 	case EnvoyFilter:
 		return kind.EnvoyFilter, true
-	case TrafficExtension:
-		return kind.TrafficExtension, true
 	case GRPCRoute:
 		return kind.GRPCRoute, true
 	case Gateway:
@@ -345,6 +343,8 @@ func ToKind(g config.GroupVersionKind) (kind.Kind, bool) {
 		return kind.TLSRoute, true
 	case Telemetry:
 		return kind.Telemetry, true
+	case TrafficExtension:
+		return kind.TrafficExtension, true
 	case UDPRoute:
 		return kind.UDPRoute, true
 	case ValidatingWebhookConfiguration:
@@ -409,8 +409,6 @@ func FromGVR(g schema.GroupVersionResource) (config.GroupVersionKind, bool) {
 		return Endpoints, true
 	case gvr.EnvoyFilter:
 		return EnvoyFilter, true
-	case gvr.TrafficExtension:
-		return TrafficExtension, true
 	case gvr.GRPCRoute:
 		return GRPCRoute, true
 	case gvr.Gateway:
@@ -473,6 +471,8 @@ func FromGVR(g schema.GroupVersionResource) (config.GroupVersionKind, bool) {
 		return TLSRoute, true
 	case gvr.Telemetry:
 		return Telemetry, true
+	case gvr.TrafficExtension:
+		return TrafficExtension, true
 	case gvr.UDPRoute:
 		return UDPRoute, true
 	case gvr.ValidatingWebhookConfiguration:
@@ -530,8 +530,6 @@ func KebabKind(k string) string {
 		return "endpoints"
 	case "EnvoyFilter":
 		return "envoy-filter"
-	case "TrafficExtension":
-		return "extension-filter"
 	case "GRPCRoute":
 		return "grpc-route"
 	case "Gateway":
@@ -592,6 +590,8 @@ func KebabKind(k string) string {
 		return "tls-route"
 	case "Telemetry":
 		return "telemetry"
+	case "TrafficExtension":
+		return "traffic-extension"
 	case "UDPRoute":
 		return "udp-route"
 	case "ValidatingWebhookConfiguration":
