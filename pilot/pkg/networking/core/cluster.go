@@ -161,6 +161,9 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 	return clusters, sets.SortedList(deletedClusters), log, true
 }
 
+// gatewayHasDestination checks if any of the gateway's VirtualServices reference the given host as a destination.
+// We can rely only current PushContext because services can only disappear if they are deleted or
+// if a VirtualService is changed that stops referencing a service.
 func gatewayHasDestination(push *model.PushContext, proxy *model.Proxy, host string) bool {
 	if proxy.MergedGateway != nil {
 		for _, gw := range proxy.MergedGateway.GatewayNameForServer {
@@ -188,7 +191,6 @@ func (configgen *ConfigGeneratorImpl) deltaFromServices(key model.ConfigKey, pro
 		deletedClusters = append(deletedClusters, subsetClusters[key.Name].UnsortedList()...)
 	} else {
 		if features.FilterGatewayClusterConfig && proxy.Type == model.Router {
-			// we need to check if the service is actually referenced by the gateway, if not, we can ignore the update.
 			if !gatewayHasDestination(push, proxy, key.Name) {
 				return services, deletedClusters
 			}
@@ -239,7 +241,6 @@ func (configgen *ConfigGeneratorImpl) deltaFromDestinationRules(
 	}
 
 	if features.FilterGatewayClusterConfig && proxy.Type == model.Router {
-		// filter only services which are actual destinations of the gateway.
 		slices.FilterInPlace(services, func(s *model.Service) bool {
 			return gatewayHasDestination(push, proxy, string(s.Hostname))
 		})
