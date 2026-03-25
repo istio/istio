@@ -31,7 +31,7 @@ import (
 )
 
 const (
-	imageName      = "istio-testing/wasm/header-injector"
+	imageName      = "testing/wasm/header-injector"
 	injectedHeader = "x-resp-injection"
 	wasmConfigFile = "testdata/wasm-filter.yaml"
 )

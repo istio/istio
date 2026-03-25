@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-HUB ?= "gcr.io/istio-testing/fuzz_tomcat"
+HUB ?= "registry.istio.io/testing/fuzz_tomcat"
 TAG ?= "0.1"
 
 push: Dockerfile

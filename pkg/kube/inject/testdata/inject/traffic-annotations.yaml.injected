@@ -70,7 +70,7 @@ spec:
           value: bar
         - name: ISTIO_META_TLS_CLIENT_KEY
           value: /etc/identity2/client/keys/client-key.pem
-        image: gcr.io/istio-testing/proxyv2:latest
+        image: registry.istio.io/testing/proxyv2:latest
         name: istio-init
         resources:
           requests:
@@ -166,7 +166,7 @@ spec:
           value: bar
         - name: ISTIO_META_TLS_CLIENT_KEY
           value: /etc/identity2/client/keys/client-key.pem
-        image: gcr.io/istio-testing/proxyv2:latest
+        image: registry.istio.io/testing/proxyv2:latest
         lifecycle:
           preStop:
             exec:

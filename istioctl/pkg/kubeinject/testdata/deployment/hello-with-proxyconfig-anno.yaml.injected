@@ -24,7 +24,7 @@ spec:
         track: stable
     spec:
       containers:
-      - image: docker.io/istio/proxy_debug:unittest
+      - image: registry.istio.io/release/proxy_debug:unittest
         name: istio-proxy
         resources: {}
       - image: fake.docker.io/google-samples/hello-go-gke:1.0
@@ -34,7 +34,7 @@ spec:
           name: http
         resources: {}
       initContainers:
-      - image: docker.io/istio/proxy_init:unittest-test
+      - image: registry.istio.io/release/proxy_init:unittest-test
         name: istio-init
         resources: {}
 status: {}

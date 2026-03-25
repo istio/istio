@@ -28,6 +28,8 @@ basicConstraints = CA:FALSE
 keyUsage = nonRepudiation, digitalSignature, keyEncipherment
 extendedKeyUsage = clientAuth, serverAuth
 subjectAltName = @alt_names
+subjectKeyIdentifier = none
+authorityKeyIdentifier = none
 [alt_names]
 DNS = *.example.com
 EOF
@@ -42,6 +44,8 @@ basicConstraints = CA:FALSE
 keyUsage = nonRepudiation, digitalSignature, keyEncipherment
 extendedKeyUsage = clientAuth, serverAuth
 subjectAltName = @alt_names
+subjectKeyIdentifier = none
+authorityKeyIdentifier = none
 [alt_names]
 DNS = *.example.com
 EOF

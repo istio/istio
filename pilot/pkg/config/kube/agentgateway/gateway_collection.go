@@ -451,7 +451,7 @@ func convertListenerSetStatusToStandardStatus(e gatewayv1.ListenerEntryStatus) g
 	return gatewayv1.ListenerStatus(e)
 }
 
-// TODO(jaellio): Move these definitions to route collection?
+// TODO(jaellio): Move these definitions to route collection (?)
 // RouteParents holds information about things routes can reference as parents.
 type RouteParents struct {
 	gateways     krt.Collection[*GatewayListener]

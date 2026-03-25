@@ -67,12 +67,19 @@ func TestSendPushesManyPushes(t *testing.T) {
 
 	proxies := createProxies(5)
 
+	const numPushRounds = 100
+	// Each round enqueues one push per proxy; the queue may coalesce them,
+	// so track how many individual events each proxy *receives*, not sends.
+	var wg sync.WaitGroup
+	wg.Add(len(proxies)) // at least one push per proxy is guaranteed
+
 	pushes := make(map[string]int)
 	pushesMu := &sync.Mutex{}
 
 	for _, proxy := range proxies {
 		// Start receive thread
 		go func() {
+			first := true
 			for {
 				select {
 				case ev := <-proxy.PushCh():
@@ -81,6 +88,10 @@ func TestSendPushesManyPushes(t *testing.T) {
 					pushesMu.Lock()
 					pushes[proxy.ID()]++
 					pushesMu.Unlock()
+					if first {
+						wg.Done()
+						first = false
+					}
 				case <-stopCh:
 					return
 				}
@@ -89,15 +100,26 @@ func TestSendPushesManyPushes(t *testing.T) {
 	}
 	go doSendPushes(stopCh, semaphore, queue)
 
-	for push := 0; push < 100; push++ {
+	// Enqueue all pushes without sleeping between rounds.
+	for push := 0; push < numPushRounds; push++ {
 		for _, proxy := range proxies {
 			queue.Enqueue(proxy, &model.PushRequest{Push: &model.PushContext{}, Forced: true})
 		}
-		time.Sleep(time.Millisecond * 10)
 	}
-	for queue.Pending() > 0 {
-		time.Sleep(time.Millisecond)
+
+	// Wait for queue to process all requests
+	retry.UntilSuccessOrFail(t, func() error {
+		if queue.Pending() > 0 {
+			return fmt.Errorf("queue still has %d pending items", queue.Pending())
+		}
+		return nil
+	}, retry.Timeout(5*time.Second))
+
+	// Wait for every proxy to receive at least one push (or timeout).
+	if !wgDoneOrTimeout(&wg, 5*time.Second) {
+		t.Fatal("timed out waiting for proxies to receive pushes")
 	}
+
 	pushesMu.Lock()
 	defer pushesMu.Unlock()
 	for proxy, numPushes := range pushes {
