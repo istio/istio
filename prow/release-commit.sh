@@ -56,7 +56,7 @@ mkdir -p "${WORK_DIR}"
 
 MANIFEST=$(cat <<EOF
 version: ${VERSION}
-docker: ${DOCKER_HUB}
+docker: ${DEFAULT_DOCKER_HUB}
 directory: ${WORK_DIR}
 ignoreVulnerability: true
 dependencies:
@@ -111,5 +111,5 @@ release-builder validate --release "${WORK_DIR}/out"
 if [[ -z "${DRY_RUN:-}" ]]; then
   release-builder publish --release "${WORK_DIR}/out" \
     --gcsbucket "${GCS_BUCKET}" --gcsaliases "${TAG},${NEXT_VERSION}-dev,latest" \
-    --dockerhub "${DEFAULT_DOCKER_HUB}" --helmhub "${HELM_HUB}" --dockertags "${TAG},${VERSION},${NEXT_VERSION}-dev,latest"
+    --dockerhub "${DOCKER_HUB}" --helmhub "${HELM_HUB}" --dockertags "${TAG},${VERSION},${NEXT_VERSION}-dev,latest"
 fi
