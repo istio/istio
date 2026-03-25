@@ -111,7 +111,7 @@ func RegisterEdsShim(
 				}
 				waypointServiceKey = waypointSvc.ResourceName()
 			}
-			workloads := krt.Fetch(ctx, Workloads, krt.FilterIndex(WorkloadsByServiceKey, waypointServiceKey))
+			workloads := WorkloadsByServiceKey.Fetch(ctx, waypointServiceKey)
 			// for comparison in Equals
 			workloads = slices.SortBy(workloads, func(i model.WorkloadInfo) string {
 				return i.Workload.Uid

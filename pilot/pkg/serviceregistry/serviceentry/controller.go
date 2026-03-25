@@ -260,7 +260,6 @@ func (s *Controller) buildCollections() {
 			s.inputs.ServiceEntries,
 			s.inputs.MeshConfig,
 			s.inputs.Namespaces,
-			allWorkloads,
 			workloadsByNamespace,
 			s.clusterID,
 			s.networkIDCallback,

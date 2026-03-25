@@ -113,10 +113,10 @@ func TestIndexCollection(t *testing.T) {
 	})
 	Collection := krt.NewSingleton[string](func(ctx krt.HandlerContext) *string {
 		// two fetches by the same index
-		a := krt.Fetch(ctx, SimplePods, krt.FilterIndex(IPIndex, "2.2.2.2"))
-		b := krt.Fetch(ctx, SimplePods, krt.FilterIndex(IPIndex, "3.3.3.3"))
+		a := IPIndex.Fetch(ctx, "2.2.2.2")
+		b := IPIndex.Fetch(ctx, "3.3.3.3")
 		// a third fetch on the same SimplePods but with another index
-		c := krt.Fetch(ctx, SimplePods, krt.FilterIndex(LabelIndex, "marker=true"))
+		c := LabelIndex.Fetch(ctx, "marker=true")
 
 		pods := append(a, b...)
 		pods = append(pods, c...)
@@ -305,7 +305,7 @@ func TestReverseIndex(t *testing.T) {
 		return []string{o.IP}
 	})
 	Collection := krt.NewSingleton(func(ctx krt.HandlerContext) *PodCounts {
-		idxPods := krt.Fetch(ctx, SimplePods, krt.FilterIndex(IPIndex, "1.2.3.5"))
+		idxPods := IPIndex.Fetch(ctx, "1.2.3.5")
 		namePods := krt.Fetch(ctx, SimplePods, krt.FilterKeys("namespace/name", "namespace/name3"))
 		return &PodCounts{
 			ByIP:   len(idxPods),

@@ -329,7 +329,7 @@ func (c *Controller) buildFinalGatewayStatus(
 		gatewayStatuses,
 		func(ctx krt.HandlerContext, i krt.ObjectWithStatus[*gatewayv1.Gateway, gatewayv1.GatewayStatus],
 		) *krt.ObjectWithStatus[*gatewayv1.Gateway, gatewayv1.GatewayStatus] {
-			tcpRoutes := krt.Fetch(ctx, routeAttachments, krt.FilterIndex(routeAttachmentsIndex, config.NamespacedName(i.Obj)))
+			tcpRoutes := routeAttachmentsIndex.Fetch(ctx, config.NamespacedName(i.Obj))
 			counts := map[string]int32{}
 			for _, r := range tcpRoutes {
 				counts[r.ListenerName]++
