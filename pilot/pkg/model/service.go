@@ -1710,7 +1710,7 @@ func (s *Service) GetAddressForProxy(node *Proxy) string {
 			}
 		}
 
-		if nodeUsesAutoallocatedIPs(node) && s.DefaultAddress == constants.UnspecifiedIP {
+		if NodeUsesAutoallocatedIPs(node) && s.DefaultAddress == constants.UnspecifiedIP {
 			if node.SupportsIPv4() && s.AutoAllocatedIPv4Address != "" {
 				return s.AutoAllocatedIPv4Address
 			}
@@ -1762,8 +1762,8 @@ func (s *Service) GetAllAddressesForProxy(node *Proxy) []string {
 	return s.getAllAddressesForProxy(node)
 }
 
-// nodeUsesAutoallocatedIPs checks to see if this node is eligible to consume automatically allocated IPs
-func nodeUsesAutoallocatedIPs(node *Proxy) bool {
+// NodeUsesAutoallocatedIPs checks to see if this node is eligible to consume automatically allocated IPs
+func NodeUsesAutoallocatedIPs(node *Proxy) bool {
 	if node == nil {
 		return false
 	}
@@ -1786,7 +1786,7 @@ func (s *Service) getAllAddressesForProxy(node *Proxy) []string {
 	if node.Metadata != nil && node.Metadata.ClusterID != "" {
 		addresses = s.ClusterVIPs.GetAddressesFor(node.Metadata.ClusterID)
 	}
-	if len(addresses) == 0 && nodeUsesAutoallocatedIPs(node) {
+	if len(addresses) == 0 && NodeUsesAutoallocatedIPs(node) {
 		if s.AutoAllocatedIPv4Address != "" {
 			addresses = append(addresses, s.AutoAllocatedIPv4Address)
 		}
