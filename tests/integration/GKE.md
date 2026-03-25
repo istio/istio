@@ -125,6 +125,6 @@ GOOS=linux make docker push
 In this case, you'll need to specify the image SHA in the `TAG` environment variable. You can pick any SHA available from the [published build releases](https://github.com/istio/istio/wiki/Dev%20Builds) or the `latest` for latest released dev images.
 
 ```bash
-export HUB="gcr.io/istio-testing"
+export HUB="registry.istio.io/testing"
 export TAG="latest"
 ```

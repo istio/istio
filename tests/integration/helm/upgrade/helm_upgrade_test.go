@@ -34,7 +34,7 @@ var (
 	nMinusTwoVersion         string
 )
 
-const imageToCheck = "gcr.io/istio-release/pilot"
+const imageToCheck = "registry.istio.io/release/pilot"
 
 func initVersions(ctx resource.Context) error {
 	versionFromFile, err := env.ReadVersion()

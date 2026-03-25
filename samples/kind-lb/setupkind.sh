@@ -75,7 +75,7 @@ done
 
 # This block is to setup kind to have a local image repo to push
 # images using localhost:5000, to use this feature, start up
-# a registry container such as gcr.io/istio-testing/registry, then
+# a registry container such as registry.istio.io/testing/registry, then
 # connect it to the docker network where kind nodes are running on
 # which normally will be called kind
 FEATURES=$(cat << EOF

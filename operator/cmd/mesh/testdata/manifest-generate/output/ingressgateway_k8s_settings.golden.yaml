@@ -3,8 +3,15 @@ kind: Deployment
 metadata:
   labels:
     app: istio-ingressgateway
+    app.kubernetes.io/instance: istio
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: istio-ingressgateway
+    app.kubernetes.io/part-of: istio
+    app.kubernetes.io/version: 1.0.0
+    helm.sh/chart: istio-ingress-1.0.0
     install.operator.istio.io/owning-resource: unknown
     istio: ingressgateway
+    istio.io/dataplane-mode: none
     istio.io/rev: default
     operator.istio.io/component: IngressGateways
     release: istio
@@ -29,10 +36,17 @@ spec:
         sidecar.istio.io/inject: "false"
       labels:
         app: istio-ingressgateway
+        app.kubernetes.io/instance: istio
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: istio-ingressgateway
+        app.kubernetes.io/part-of: istio
+        app.kubernetes.io/version: 1.0.0
         chart: gateways
+        helm.sh/chart: istio-ingress-1.0.0
         heritage: Tiller
         install.operator.istio.io/owning-resource: unknown
         istio: ingressgateway
+        istio.io/dataplane-mode: none
         istio.io/rev: default
         operator.istio.io/component: IngressGateways
         release: istio
@@ -86,6 +100,7 @@ spec:
         - name: ISTIO_CPU_LIMIT
           valueFrom:
             resourceFieldRef:
+              divisor: "1"
               resource: limits.cpu
         - name: SERVICE_ACCOUNT
           valueFrom:
@@ -107,7 +122,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
-        image: gcr.io/istio-testing/proxyv2:latest
+        image: registry.istio.io/testing/proxyv2:latest
         name: istio-proxy
         ports:
         - containerPort: 15021
@@ -225,8 +240,15 @@ kind: Deployment
 metadata:
   labels:
     app: istio-ingressgateway
+    app.kubernetes.io/instance: istio
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: istio-ingressgateway
+    app.kubernetes.io/part-of: istio
+    app.kubernetes.io/version: 1.0.0
+    helm.sh/chart: istio-ingress-1.0.0
     install.operator.istio.io/owning-resource: unknown
     istio: ingressgateway
+    istio.io/dataplane-mode: none
     istio.io/rev: default
     operator.istio.io/component: IngressGateways
     release: istio
@@ -251,10 +273,17 @@ spec:
         sidecar.istio.io/inject: "false"
       labels:
         app: istio-ingressgateway
+        app.kubernetes.io/instance: istio
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: istio-ingressgateway
+        app.kubernetes.io/part-of: istio
+        app.kubernetes.io/version: 1.0.0
         chart: gateways
+        helm.sh/chart: istio-ingress-1.0.0
         heritage: Tiller
         install.operator.istio.io/owning-resource: unknown
         istio: ingressgateway
+        istio.io/dataplane-mode: none
         istio.io/rev: default
         operator.istio.io/component: IngressGateways
         release: istio
@@ -308,6 +337,7 @@ spec:
         - name: ISTIO_CPU_LIMIT
           valueFrom:
             resourceFieldRef:
+              divisor: "1"
               resource: limits.cpu
         - name: SERVICE_ACCOUNT
           valueFrom:
@@ -329,7 +359,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
-        image: gcr.io/istio-testing/proxyv2:latest
+        image: registry.istio.io/testing/proxyv2:latest
         name: istio-proxy
         ports:
         - containerPort: 15021
@@ -446,6 +476,12 @@ metadata:
     manifest-generate: testserviceAnnotation
   labels:
     app: istio-ingressgateway
+    app.kubernetes.io/instance: istio
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: istio-ingressgateway
+    app.kubernetes.io/part-of: istio
+    app.kubernetes.io/version: 1.0.0
+    helm.sh/chart: istio-ingress-1.0.0
     install.operator.istio.io/owning-resource: unknown
     istio: ingressgateway
     istio.io/rev: default
@@ -479,6 +515,12 @@ metadata:
   annotations: null
   labels:
     app: istio-ingressgateway
+    app.kubernetes.io/instance: istio
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: istio-ingressgateway
+    app.kubernetes.io/part-of: istio
+    app.kubernetes.io/version: 1.0.0
+    helm.sh/chart: istio-ingress-1.0.0
     install.operator.istio.io/owning-resource: unknown
     istio: ingressgateway
     istio.io/rev: default
