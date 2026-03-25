@@ -70,7 +70,7 @@ var (
 		ClusterScoped: false,
 		Synthetic:     false,
 		Builtin:       false,
-		ValidateProto: ValidateTrafficExtension,
+		ValidateProto: validation.ValidateTrafficExtension,
 	}.MustBuild()
 
 	Gateway = resource.Builder{
