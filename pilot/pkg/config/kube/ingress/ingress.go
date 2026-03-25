@@ -56,7 +56,7 @@ func SupportedIngresses(
 				return nil, nil
 			}
 
-			wantIPs := sliceToStatus(runningAddresses(ctx, meshConfig, services, nodes, pods, podsByNamespace))
+			wantIPs := sliceToStatus(runningAddresses(ctx, meshConfig, services, nodes, podsByNamespace))
 
 			return &knetworking.IngressStatus{
 				LoadBalancer: knetworking.IngressLoadBalancerStatus{
@@ -73,7 +73,6 @@ func runningAddresses(
 	meshConfig meshwatcher.WatcherCollection,
 	services krt.Collection[*corev1.Service],
 	nodes krt.Collection[*corev1.Node],
-	pods krt.Collection[*corev1.Pod],
 	podsByNamespace krt.Index[string, *corev1.Pod],
 ) []string {
 	mesh := krt.FetchOne(ctx, meshConfig.AsCollection())

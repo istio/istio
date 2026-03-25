@@ -511,7 +511,6 @@ func services(
 	serviceEntries krt.Collection[config.Config],
 	meshConfig krt.Collection[meshwatcher.MeshConfigResource],
 	namespaces krt.Collection[*v1.Namespace],
-	workloads krt.Collection[*model.WorkloadInstance],
 	workloadsByNamespace krt.Index[string, *model.WorkloadInstance],
 	clusterID cluster.ID,
 	networkIDFn networkIDCallback,

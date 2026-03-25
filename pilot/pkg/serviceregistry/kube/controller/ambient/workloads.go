@@ -85,7 +85,6 @@ func (a Builder) WorkloadsCollection(
 			waypoints,
 			workloadServices,
 			WorkloadServicesNamespaceIndex,
-			endpointSlices,
 			EndpointSlicesByIPIndex,
 			namespaces,
 			nodes,
@@ -177,14 +176,12 @@ func MergedGlobalWorkloadsCollection(
 			localWaypoints,
 			localWorkloadServices,
 			LocalWorkloadServicesNamespaceIndex,
-			localCluster.EndpointSlices(),
 			LocalEndpointSlicesByIPIndex,
 			localCluster.Namespaces(),
 			localNodeLocalities,
 			domainSuffix,
 			localClusterGetter,
 			localNetworkGetter,
-			globalNetworks.NetworkGateways,
 			globalNetworks.GatewaysByNetwork,
 			flags,
 			true, // Remote network workloads will be coalesced; safe to skip precompute
@@ -209,7 +206,6 @@ func MergedGlobalWorkloadsCollection(
 			localCluster.Namespaces(),
 			localClusterGetter,
 			localNetworkGetter,
-			globalNetworks.NetworkGateways,
 			globalNetworks.GatewaysByNetwork,
 			flags,
 			true, // Remote network workloads will be coalesced; safe to skip precompute
@@ -234,7 +230,6 @@ func MergedGlobalWorkloadsCollection(
 			localWorkloadServices,
 			localClusterGetter,
 			localNetworkGetter,
-			globalNetworks.NetworkGateways,
 			globalNetworks.GatewaysByNetwork,
 			flags,
 		),
@@ -353,7 +348,6 @@ func MergedGlobalWorkloadsCollection(
 					waypoints,
 					globalWorkloadServices,
 					WorkloadServicesNamespaceIndex,
-					endpointSlices,
 					EndpointSlicesByIPIndex,
 					namespaces,
 					nodes,
@@ -370,7 +364,6 @@ func MergedGlobalWorkloadsCollection(
 						}
 						return nw.Network
 					},
-					globalNetworks.NetworkGateways,
 					globalNetworks.GatewaysByNetwork,
 					flags,
 					true, // Remote network workloads will be coalesced; safe to skip precompute
@@ -418,7 +411,6 @@ func MergedGlobalWorkloadsCollection(
 						}
 						return nw.Network
 					},
-					globalNetworks.NetworkGateways,
 					globalNetworks.GatewaysByNetwork,
 					flags,
 					true, // Remote network workloads will be coalesced; safe to skip precompute
@@ -465,7 +457,6 @@ func MergedGlobalWorkloadsCollection(
 						}
 						return nw.Network
 					},
-					globalNetworks.NetworkGateways,
 					globalNetworks.GatewaysByNetwork,
 					flags,
 				),
@@ -559,7 +550,6 @@ func workloadEntryWorkloadBuilder(
 	namespaces krt.Collection[*v1.Namespace],
 	clusterGetter func(krt.HandlerContext) cluster.ID,
 	networkGetter func(krt.HandlerContext) network.ID,
-	networkGateways krt.Collection[NetworkGateway],
 	gatewaysByNetwork krt.Index[network.ID, NetworkGateway],
 	flags FeatureFlags,
 	canSkipPrecompute bool,
@@ -593,7 +583,7 @@ func workloadEntryWorkloadBuilder(
 			Name:                  wle.Name,
 			Namespace:             wle.Namespace,
 			Network:               network,
-			NetworkGateway:        getNetworkGatewayAddress(ctx, network, networkGateways, gatewaysByNetwork),
+			NetworkGateway:        getNetworkGatewayAddress(ctx, network, gatewaysByNetwork),
 			ClusterId:             string(cluster),
 			ServiceAccount:        wle.Spec.ServiceAccount,
 			Services:              constructServicesFromWorkloadEntry(&wle.Spec, services),
@@ -658,7 +648,6 @@ func (a Builder) workloadEntryWorkloadBuilder(
 			return a.ClusterID
 		},
 		localNetworkGetter,
-		a.NetworkGateways,
 		a.GatewaysByNetwork,
 		a.Flags,
 		false, // No coalesced path; always precompute
@@ -697,14 +686,12 @@ func podWorkloadBuilder(
 	waypoints krt.Collection[Waypoint],
 	workloadServices krt.Collection[model.ServiceInfo],
 	workloadServicesNamespaceIndex krt.Index[string, model.ServiceInfo],
-	endpointSlices krt.Collection[*discovery.EndpointSlice],
 	endpointSlicesAddressIndex krt.Index[TargetRef, *discovery.EndpointSlice],
 	namespaces krt.Collection[*v1.Namespace],
 	nodes krt.Collection[Node],
 	domainSuffix string,
 	clusterGetter func(krt.HandlerContext) cluster.ID,
 	networkGetter func(krt.HandlerContext) network.ID,
-	networkGateways krt.Collection[NetworkGateway],
 	gatewaysByNetwork krt.Index[network.ID, NetworkGateway],
 	flags FeatureFlags,
 	canSkipPrecompute bool,
@@ -740,7 +727,7 @@ func podWorkloadBuilder(
 			}))
 		}
 		services := krt.Fetch(ctx, workloadServices, fo...)
-		services = append(services, matchingServicesWithoutSelectors(ctx, p, services, workloadServices, endpointSlices, endpointSlicesAddressIndex, domainSuffix)...)
+		services = append(services, matchingServicesWithoutSelectors(ctx, p, services, workloadServices, endpointSlicesAddressIndex, domainSuffix)...)
 		// Logic from https://github.com/kubernetes/kubernetes/blob/7c873327b679a70337288da62b96dd610858181d/staging/src/k8s.io/endpointslice/utils.go#L37
 		// Kubernetes has Ready, Serving, and Terminating. We only have a boolean, which is sufficient for our cases
 		status := workloadapi.WorkloadStatus_HEALTHY
@@ -762,7 +749,7 @@ func podWorkloadBuilder(
 			Name:                  p.Name,
 			Namespace:             p.Namespace,
 			Network:               network,
-			NetworkGateway:        getNetworkGatewayAddress(ctx, network, networkGateways, gatewaysByNetwork),
+			NetworkGateway:        getNetworkGatewayAddress(ctx, network, gatewaysByNetwork),
 			ClusterId:             cluster.String(),
 			Addresses:             podIPs,
 			ServiceAccount:        p.Spec.ServiceAccountName,
@@ -806,7 +793,6 @@ func (a Builder) podWorkloadBuilder(
 	waypoints krt.Collection[Waypoint],
 	workloadServices krt.Collection[model.ServiceInfo],
 	workloadServicesNamespaceIndex krt.Index[string, model.ServiceInfo],
-	endpointSlices krt.Collection[*discovery.EndpointSlice],
 	endpointSlicesAddressIndex krt.Index[TargetRef, *discovery.EndpointSlice],
 	namespaces krt.Collection[*v1.Namespace],
 	nodes krt.Collection[Node],
@@ -822,7 +808,6 @@ func (a Builder) podWorkloadBuilder(
 		waypoints,
 		workloadServices,
 		workloadServicesNamespaceIndex,
-		endpointSlices,
 		endpointSlicesAddressIndex,
 		namespaces,
 		nodes,
@@ -831,7 +816,6 @@ func (a Builder) podWorkloadBuilder(
 			return a.ClusterID
 		},
 		localNetworkGetter,
-		a.NetworkGateways,
 		a.GatewaysByNetwork,
 		a.Flags,
 		false, // No coalesced path; always precompute
@@ -858,7 +842,6 @@ func matchingServicesWithoutSelectors(
 	p *v1.Pod,
 	alreadyMatchingServices []model.ServiceInfo,
 	workloadServices krt.Collection[model.ServiceInfo],
-	endpointSlices krt.Collection[*discovery.EndpointSlice],
 	endpointSlicesAddressIndex krt.Index[TargetRef, *discovery.EndpointSlice],
 	domainSuffix string,
 ) []model.ServiceInfo {
@@ -946,7 +929,6 @@ func serviceEntryWorkloadBuilder(
 	workloadServices krt.Collection[model.ServiceInfo],
 	clusterGetter func(krt.HandlerContext) cluster.ID,
 	networkGetter func(krt.HandlerContext) network.ID,
-	networkGateways krt.Collection[NetworkGateway],
 	gatewaysByNetwork krt.Index[network.ID, NetworkGateway],
 	flags FeatureFlags,
 ) krt.TransformationMulti[*networkingclient.ServiceEntry, model.WorkloadInfo] {
@@ -1025,7 +1007,7 @@ func serviceEntryWorkloadBuilder(
 				Name:                  se.Name,
 				Namespace:             se.Namespace,
 				Network:               nw.String(),
-				NetworkGateway:        getNetworkGatewayAddress(ctx, nw.String(), networkGateways, gatewaysByNetwork),
+				NetworkGateway:        getNetworkGatewayAddress(ctx, nw.String(), gatewaysByNetwork),
 				ClusterId:             cluster.String(),
 				ServiceAccount:        wle.ServiceAccount,
 				Services:              constructServicesFromWorkloadEntry(wle, services),
@@ -1082,7 +1064,6 @@ func (a Builder) serviceEntryWorkloadBuilder(
 		func(ctx krt.HandlerContext) network.ID {
 			return a.Network(ctx)
 		},
-		a.NetworkGateways,
 		a.GatewaysByNetwork,
 		a.Flags,
 	)
@@ -1483,7 +1464,6 @@ func convertGateway(mesh *MeshConfig) func(gw NetworkGateway) model.WorkloadInfo
 func getNetworkGatewayAddress(
 	ctx krt.HandlerContext,
 	n string,
-	networkGateways krt.Collection[NetworkGateway],
 	gatewaysByNetwork krt.Index[network.ID, NetworkGateway],
 ) *workloadapi.GatewayAddress {
 	if networks := LookupNetworkGateway(ctx, network.ID(n), gatewaysByNetwork); len(networks) > 0 {

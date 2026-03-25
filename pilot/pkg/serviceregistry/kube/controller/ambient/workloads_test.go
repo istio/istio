@@ -841,7 +841,6 @@ func TestPodWorkloads(t *testing.T) {
 				krttest.GetMockCollection[Waypoint](mock),
 				WorkloadServices,
 				WorkloadServicesNamespaceIndex,
-				EndpointSlices,
 				EndpointSlicesAddressIndex,
 				krttest.GetMockCollection[*v1.Namespace](mock),
 				krttest.GetMockCollection[Node](mock),
