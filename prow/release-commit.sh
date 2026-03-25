@@ -28,8 +28,8 @@ setup_gcloud_credentials
 # Old prow image does not set this, so needed explicitly here as this is not called through make
 export GO111MODULE=on
 
-DOCKER_HUB=${DOCKER_HUB:-registry.istio.io/testing}
-HELM_HUB=${HELM_HUB:-registry.istio.io/testing/charts}
+DOCKER_HUB=${DOCKER_HUB:-gcr.io/istio-testing}
+HELM_HUB=${HELM_HUB:-gcr.io/istio-testing/charts}
 GCS_BUCKET=${GCS_BUCKET:-istio-build/dev}
 
 # Enable emulation required for cross compiling a few images (VMs)
