@@ -91,7 +91,7 @@ func TestServiceExportController(t *testing.T) {
 			Status: mcsapi.ServiceExportStatus{
 				Conditions: []metav1.Condition{
 					{
-						Type: mcsapi.ServiceExportValid,
+						Type: string(mcsapi.ServiceExportConditionValid),
 					},
 				},
 			},
@@ -109,7 +109,7 @@ func TestServiceExportController(t *testing.T) {
 
 		// assert that we didn't wipe out the pre-existing serviceexport status
 		assertServiceExportHasCondition(t, client, "exportable-ns", "manual-export",
-			mcsapi.ServiceExportValid)
+			string(mcsapi.ServiceExportConditionValid))
 	})
 }
 
