@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+- |
+    **Added** `respectDnsTtl` to MeshConfig, allowing users to configure whether proxies respect DNS TTL.
