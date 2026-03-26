@@ -105,7 +105,7 @@ export PATH=${GOPATH}/bin:${PATH}
 go install "istio.io/release-builder@${BUILDER_SHA}"
 
 release-builder build --manifest <(echo "${MANIFEST}")
-cat manifest.yaml
+
 release-builder validate --release "${WORK_DIR}/out"
 
 if [[ -z "${DRY_RUN:-}" ]]; then
