@@ -178,6 +178,12 @@ func (i *istioImpl) cleanupCluster(c cluster.Cluster, errG *multierror.Group) {
 			context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{}); e != nil {
 			err = multierror.Append(err, e)
 		}
+		if e := c.Ext().ApiextensionsV1().CustomResourceDefinitions().DeleteCollection(
+			context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{
+			LabelSelector: "app.kubernetes.io/part-of=istio",
+		}); e != nil {
+			err = multierror.Append(err, e)
+		}
 
 		// Delete the revision tags service that were created similarly to MutatingWebhookConfigurations
 		services, e := c.Kube().CoreV1().Services(i.cfg.SystemNamespace).List(context.Background(), metav1.ListOptions{
