@@ -180,8 +180,8 @@ func (i *istioImpl) cleanupCluster(c cluster.Cluster, errG *multierror.Group) {
 		}
 		if e := c.Ext().ApiextensionsV1().CustomResourceDefinitions().DeleteCollection(
 			context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{
-			LabelSelector: "app.kubernetes.io/part-of=istio",
-		}); e != nil {
+				LabelSelector: "app.kubernetes.io/part-of=istio",
+			}); e != nil {
 			err = multierror.Append(err, e)
 		}
 
