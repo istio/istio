@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+  - 24309
+releaseNotes:
+  - |
+    **Added** `--service` and `--response-code` filters to `istioctl experimental metrics` so users can narrow metrics queries by destination service and HTTP response code.
