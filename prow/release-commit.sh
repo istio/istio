@@ -31,7 +31,7 @@ export GO111MODULE=on
 # Where we actually push the docker images
 DOCKER_HUB=${DOCKER_HUB:-gcr.io/istio-testing}
 # The default hub helm charts and istioctl use.
-DEFAULT_DOCKER_HUB=${DOCKER_HUB:-registry.istio.io/testing}
+DEFAULT_DOCKER_HUB=${DEFAULT_DOCKER_HUB:-registry.istio.io/testing}
 
 HELM_HUB=${HELM_HUB:-gcr.io/istio-testing/charts}
 GCS_BUCKET=${GCS_BUCKET:-istio-build/dev}
