@@ -170,7 +170,6 @@ func setupAppsConfig(_ resource.Context) error {
 func TestIngress(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
-			t.Skip("https://github.com/istio/istio/issues/59520")
 			credName := "ingress-pqc-credential"
 			host := "ingress-pqc.example.com"
 			gatewayName := "ingress-pqc-credential"
@@ -249,7 +248,7 @@ spec:
 						MinVersion:       "1.3",
 						CurvePreferences: []string{"P-256"},
 					},
-					Check: check.TLSHandshakeFailure(),
+					Check: check.Or(check.TLSHandshakeFailure(), check.ConnectionResetByPeer()),
 				})
 			})
 		})
@@ -258,7 +257,6 @@ spec:
 func TestWaypoint(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
-			t.Skip("https://github.com/istio/istio/issues/59520")
 			serviceEntryYaml := `
 apiVersion: networking.istio.io/v1
 kind: ServiceEntry
@@ -310,7 +308,7 @@ spec:
 						CurvePreferences: []string{"P-256"},
 					},
 					Timeout: 1 * time.Second,
-					Check:   check.TLSHandshakeFailure(),
+					Check:   check.Or(check.TLSHandshakeFailure(), check.ConnectionResetByPeer()),
 				})
 			})
 
