@@ -1,0 +1,37 @@
+global:
+  spire:
+    caSubject:
+      country: US
+      organization: istio.io
+
+spire-server:
+  service:
+    type: LoadBalancer
+  federation:
+    enabled: true
+  controllerManager:
+    enabled: true
+    identities:
+      clusterSPIFFEIDs:
+        default:
+          enabled: false
+        sidecars:
+          spiffeIDTemplate: "spiffe://{{ .TrustDomain }}/ns/{{ .PodMeta.Namespace }}/sa/{{ .PodSpec.ServiceAccountName }}"
+          podSelector:
+            matchExpressions:
+            - key: service.istio.io/canonical-name
+              operator: Exists
+        oidc-discovery-provider:
+          enabled: false
+        test-keys:
+          enabled: false
+
+spire-agent:
+  sds:
+    enabled: true
+    defaultSVIDName: default
+    defaultBundleName: "null"
+    defaultAllBundlesName: ROOTCA
+
+spiffe-oidc-discovery-provider:
+  enabled: false

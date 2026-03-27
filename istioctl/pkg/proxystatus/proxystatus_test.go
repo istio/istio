@@ -51,19 +51,23 @@ type execTestCase struct {
 	expectedString string // String output is expected to contain
 
 	wantException bool
+
+	// Optionally set verbosity for the test (for future expansion)
+	verbosity int
 }
 
 func TestProxyStatus(t *testing.T) {
 	cases := []execTestCase{
-		{ // case 0, with no Isitod instance
+		{ // case 0, with no Istiod instance
 			args:           []string{},
 			noIstiod:       true,
 			expectedOutput: "Error: no running Istio pods in \"istio-system\"\n",
 			wantException:  true,
 		},
-		{ // case 1, with Istiod instance
+		{ // case 1, with Istiod instance but no proxies
 			args:           []string{},
-			expectedString: "NAME     CLUSTER     CDS     LDS     EDS     RDS     ECDS     ISTIOD",
+			expectedOutput: "NAME     CLUSTER     ISTIOD     VERSION     SUBSCRIBED TYPES\n",
+			wantException:  false,
 		},
 		{ // case 2: supplying nonexistent pod name should result in error with flag
 			args:          strings.Split("deployment/random-gibberish", " "),
@@ -81,14 +85,24 @@ func TestProxyStatus(t *testing.T) {
 			args:          strings.Split("random-gibberish-podname-61789237418234", " "),
 			wantException: true,
 		},
-		{ // case 6: new --revision argument
+		{ // case 6: new --revision argument, but no proxies
 			args:           strings.Split("--revision canary", " "),
-			expectedString: "NAME     CLUSTER     CDS     LDS     EDS     RDS     ECDS     ISTIOD",
+			expectedOutput: "NAME     CLUSTER     ISTIOD     VERSION     SUBSCRIBED TYPES\n",
 			revision:       "canary",
+			wantException:  false,
 		},
 		{ // case 7: supplying type that doesn't select pods should fail
 			args:          strings.Split("serviceaccount/sleep", " "),
 			wantException: true,
+		},
+		{ // case 8: unsupported output format value should fail
+			args:          strings.Split("-o invalid-format", " "),
+			wantException: true,
+		},
+		{ // case 9: JSON format outputs empty object when no proxies are present
+			args:           strings.Split("-o json", " "),
+			expectedOutput: "{\n\n}\n",
+			wantException:  false,
 		},
 	}
 	multixds.GetXdsResponse = func(_ *discovery.DiscoveryRequest, _ string, _ string, _ clioptions.CentralControlPlaneOptions, _ []grpc.DialOption,
@@ -101,6 +115,9 @@ func TestProxyStatus(t *testing.T) {
 
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("case %d %s", i, strings.Join(c.args, " ")), func(t *testing.T) {
+			if c.revision == "" {
+				c.revision = "default"
+			}
 			ctx := cli.NewFakeContext(&cli.NewFakeContextOption{
 				IstioNamespace: "istio-system",
 			})
@@ -131,7 +148,12 @@ func verifyExecTestOutput(t *testing.T, cmd *cobra.Command, c execTestCase) {
 	t.Helper()
 
 	var out bytes.Buffer
-	cmd.SetArgs(c.args)
+	args := c.args
+	// If verbosity is set, inject it into the args for the command
+	if c.verbosity > 0 {
+		args = append(args, fmt.Sprintf("--verbosity=%d", c.verbosity))
+	}
+	cmd.SetArgs(args)
 	cmd.SilenceUsage = true
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)
@@ -140,21 +162,21 @@ func verifyExecTestOutput(t *testing.T, cmd *cobra.Command, c execTestCase) {
 	output := out.String()
 
 	if c.expectedOutput != "" && c.expectedOutput != output {
-		t.Fatalf("Unexpected output for 'istioctl %s'\n got: %q\nwant: %q", strings.Join(c.args, " "), output, c.expectedOutput)
+		t.Fatalf("Unexpected output for 'istioctl %s' (verbosity=%d)\n got: %q\nwant: %q", strings.Join(args, " "), c.verbosity, output, c.expectedOutput)
 	}
 
 	if c.expectedString != "" && !strings.Contains(output, c.expectedString) {
-		t.Fatalf("Output didn't match for '%s %s'\n got %v\nwant: %v", cmd.Name(), strings.Join(c.args, " "), output, c.expectedString)
+		t.Fatalf("Output didn't match for '%s %s' (verbosity=%d)\n got %v\nwant: %v", cmd.Name(), strings.Join(args, " "), c.verbosity, output, c.expectedString)
 	}
 
 	if c.wantException {
 		if fErr == nil {
-			t.Fatalf("Wanted an exception for 'istioctl %s', didn't get one, output was %q",
-				strings.Join(c.args, " "), output)
+			t.Fatalf("Wanted an exception for 'istioctl %s' (verbosity=%d), didn't get one, output was %q",
+				strings.Join(args, " "), c.verbosity, output)
 		}
 	} else {
 		if fErr != nil {
-			t.Fatalf("Unwanted exception for 'istioctl %s': %v", strings.Join(c.args, " "), fErr)
+			t.Fatalf("Unwanted exception for 'istioctl %s' (verbosity=%d): %v", strings.Join(args, " "), c.verbosity, fErr)
 		}
 	}
 }

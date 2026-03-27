@@ -37,6 +37,21 @@ func redirectRunningPod(pod *corev1.Pod, netns string) error {
 	return nil
 }
 
+// redirectRunningPodNFT dynamically enters the provided pod, that is already running,
+// and programs it's networking configuration using nftables rules.
+func redirectRunningPodNFT(pod *corev1.Pod, netns string) error {
+	pi := plugin.ExtractPodInfo(pod)
+	redirect, err := plugin.NewRedirect(pi)
+	if err != nil {
+		return fmt.Errorf("setup redirect: %v", err)
+	}
+	rulesMgr := plugin.NftablesInterceptRuleMgr()
+	if err := rulesMgr.Program(pod.Name, netns, redirect); err != nil {
+		return fmt.Errorf("program redirection: %v", err)
+	}
+	return nil
+}
+
 // repairPod actually dynamically repairs a pod. This is done by entering the pods network namespace and setting up rules.
 // This differs from the general CNI plugin flow, which triggers before the pod fully starts.
 // Additionally, we need to jump through hoops to find the network namespace.
@@ -73,11 +88,17 @@ func (c *Controller) repairPod(pod *corev1.Pod) error {
 	}
 	log = log.WithLabels("netns", netns)
 
-	if err := redirectRunningPod(pod, netns); err != nil {
+	redirector := redirectRunningPod
+	if c.cfg.NativeNftables {
+		redirector = redirectRunningPodNFT
+	}
+
+	if err := redirector(pod, netns); err != nil {
 		log.Errorf("failed to setup redirection: %v", err)
 		m.With(resultLabel.Value(resultFail)).Increment()
 		return err
 	}
+
 	c.repairedPods[key] = pod.UID
 	log.Infof("pod repaired")
 	m.With(resultLabel.Value(resultSuccess)).Increment()

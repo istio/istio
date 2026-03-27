@@ -31,7 +31,7 @@ var AuthPlaintext = env.Register("XDS_AUTH_PLAINTEXT", false,
 // Authenticate authenticates the ADS request using the configured authenticators.
 // Returns the validated principals or an error.
 // If no authenticators are configured, or if the request is on a non-secure
-// stream ( 15010 ) - returns amn empty caller and no errors.
+// stream ( 15010 ) - returns an empty caller and no errors.
 func Authenticate(ctx context.Context, authenticators []Authenticator) (*Caller, error) {
 	if !features.XDSAuth {
 		return nil, nil

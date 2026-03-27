@@ -38,6 +38,7 @@ import (
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/env"
+	pm "istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/xds"
 )
@@ -196,7 +197,7 @@ func (s *DiscoveryServer) Stream(stream DiscoveryStream) error {
 	// Check if server is ready to accept clients and process new requests.
 	// Currently ready means caches have been synced and hence can build
 	// clusters correctly. Without this check, InitContext() call below would
-	// initialize with empty config, leading to reconnected Envoys loosing
+	// initialize with empty config, leading to reconnected Envoys losing
 	// configuration. This is an additional safety check inaddition to adding
 	// cachesSynced logic to readiness probe to handle cases where kube-proxy
 	// ip tables update latencies.
@@ -346,9 +347,9 @@ func localityFromProxyLabels(proxy *model.Proxy) *core.Locality {
 	if !f1 && !f2 && !f3 {
 		// If no labels set, we didn't find the locality from the service registry. We do support a (mostly undocumented/internal)
 		// label to override the locality, so respect that here as well.
-		ls, f := proxy.Labels[model.LocalityLabel]
-		if f {
-			return util.ConvertLocality(ls)
+		localityLabel := pm.GetLocalityLabel(proxy.Labels)
+		if localityLabel != "" {
+			return util.ConvertLocality(localityLabel)
 		}
 		return nil
 	}
@@ -417,7 +418,7 @@ func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.P
 		}
 		for conf := range request.ConfigsUpdated {
 			switch conf.Kind {
-			case kind.ServiceEntry, kind.DestinationRule, kind.VirtualService, kind.Sidecar:
+			case kind.ServiceEntry, kind.DestinationRule, kind.VirtualService, kind.PeerAuthentication, kind.Sidecar:
 				shouldResetSidecarScope = true
 			case kind.Gateway:
 				shouldResetGateway = true
@@ -434,8 +435,8 @@ func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.P
 	if shouldResetSidecarScope {
 		proxy.SetSidecarScope(push)
 	}
-	// only compute gateways for "router" type proxy.
-	if shouldResetGateway && proxy.Type == model.Router {
+	// only compute gateways for "router" type proxy and E/W gateway waypoints.
+	if shouldResetGateway && (proxy.Type == model.Router || proxy.IsAmbientEastWestGateway()) {
 		proxy.SetGatewaysForProxy(push)
 	}
 	proxy.LastPushContext = push

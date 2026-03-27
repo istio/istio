@@ -17,7 +17,6 @@ package model
 import (
 	"fmt"
 	"reflect"
-	"regexp"
 	"sort"
 	"sync"
 	"testing"
@@ -50,7 +49,10 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
+	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -161,40 +163,132 @@ func TestConcurrentMerge(t *testing.T) {
 }
 
 func TestEnvoyFilters(t *testing.T) {
-	proxyVersionRegex := regexp.MustCompile(`1\.4.*`)
 	envoyFilters := []*EnvoyFilterWrapper{
-		{
-			Name:             "ef1",
-			workloadSelector: map[string]string{"app": "v1"},
-			Patches: map[networking.EnvoyFilter_ApplyTo][]*EnvoyFilterConfigPatchWrapper{
-				networking.EnvoyFilter_LISTENER: {
+		convertToEnvoyFilterWrapper(&config.Config{
+			Meta: config.Meta{
+				Name:      "ef1",
+				Namespace: "test-ns",
+			},
+			Spec: &networking.EnvoyFilter{
+				WorkloadSelector: &networking.WorkloadSelector{
+					Labels: map[string]string{"app": "v1"},
+				},
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 					{
+						ApplyTo: networking.EnvoyFilter_LISTENER,
 						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
 							Proxy: &networking.EnvoyFilter_ProxyMatch{
 								ProxyVersion: "1\\.4.*",
 							},
 						},
-						ProxyVersionRegex: proxyVersionRegex,
+						// we don't care about the patch content in this test, but it must be non-nil
+						Patch: &networking.EnvoyFilter_Patch{},
 					},
 				},
 			},
-		},
-		{
-			Name:             "ef2",
-			workloadSelector: map[string]string{"app": "v1"},
-			Patches: map[networking.EnvoyFilter_ApplyTo][]*EnvoyFilterConfigPatchWrapper{
-				networking.EnvoyFilter_CLUSTER: {
+		}),
+		convertToEnvoyFilterWrapper(&config.Config{
+			Meta: config.Meta{
+				Name:      "ef2",
+				Namespace: "test-ns",
+			},
+			Spec: &networking.EnvoyFilter{
+				WorkloadSelector: &networking.WorkloadSelector{
+					Labels: map[string]string{"app": "v1"},
+				},
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 					{
+						ApplyTo: networking.EnvoyFilter_CLUSTER,
 						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
 							Proxy: &networking.EnvoyFilter_ProxyMatch{
-								ProxyVersion: `1\\.4.*`,
+								ProxyVersion: "1\\.4.*",
 							},
 						},
-						ProxyVersionRegex: proxyVersionRegex,
+						// we don't care about the patch content in this test, but it must be non-nil
+						Patch: &networking.EnvoyFilter_Patch{},
 					},
 				},
 			},
-		},
+		}),
+		convertToEnvoyFilterWrapper(&config.Config{
+			Meta: config.Meta{
+				Name:      "ef-with-target-ref",
+				Namespace: "test-ns",
+			},
+			Spec: &networking.EnvoyFilter{
+				TargetRefs: []*selectorpb.PolicyTargetReference{
+					{
+						Group: "gateway.networking.k8s.io",
+						Kind:  "Gateway",
+						Name:  "gateway-1",
+					},
+				},
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+					{
+						ApplyTo: networking.EnvoyFilter_CLUSTER,
+						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+							Proxy: &networking.EnvoyFilter_ProxyMatch{
+								ProxyVersion: "1\\.4.*",
+							},
+						},
+						// we don't care about the patch content in this test, but it must be non-nil
+						Patch: &networking.EnvoyFilter_Patch{},
+					},
+				},
+			},
+		}),
+		convertToEnvoyFilterWrapper(&config.Config{
+			Meta: config.Meta{
+				Name:      "ef-for-waypoint",
+				Namespace: "test-ns",
+			},
+			Spec: &networking.EnvoyFilter{
+				TargetRefs: []*selectorpb.PolicyTargetReference{
+					{
+						Group: "gateway.networking.k8s.io",
+						Kind:  "Gateway",
+						Name:  "waypoint",
+					},
+				},
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+					{
+						ApplyTo: networking.EnvoyFilter_CLUSTER,
+						// we don't care about the patch content in this test, but it must be non-nil
+						Patch: &networking.EnvoyFilter_Patch{},
+					},
+				},
+			},
+		}),
+	}
+
+	rootEnvoyFilters := []*EnvoyFilterWrapper{
+		convertToEnvoyFilterWrapper(&config.Config{
+			Meta: config.Meta{
+				Name:      "ef-gatewayclass-root",
+				Namespace: "istio-system",
+			},
+			Spec: &networking.EnvoyFilter{
+				TargetRefs: []*selectorpb.PolicyTargetReference{
+					{
+						Group: "gateway.networking.k8s.io",
+						Kind:  "GatewayClass",
+						Name:  "istio-waypoint",
+					},
+				},
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+					{
+						ApplyTo: networking.EnvoyFilter_HTTP_FILTER,
+						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+							Proxy: &networking.EnvoyFilter_ProxyMatch{
+								ProxyVersion: "1\\.4.*",
+							},
+						},
+						// we don't care about the patch content in this test, but it must be non-nil
+						Patch: &networking.EnvoyFilter_Patch{},
+					},
+				},
+			},
+		}),
 	}
 
 	push := &PushContext{
@@ -202,7 +296,7 @@ func TestEnvoyFilters(t *testing.T) {
 			RootNamespace: "istio-system",
 		},
 		envoyFiltersByNamespace: map[string][]*EnvoyFilterWrapper{
-			"istio-system": envoyFilters,
+			"istio-system": append(envoyFilters, rootEnvoyFilters...),
 			"test-ns":      envoyFilters,
 		},
 	}
@@ -215,10 +309,11 @@ func TestEnvoyFilters(t *testing.T) {
 	}
 
 	cases := []struct {
-		name                    string
-		proxy                   *Proxy
-		expectedListenerPatches int
-		expectedClusterPatches  int
+		name                      string
+		proxy                     *Proxy
+		expectedListenerPatches   int
+		expectedClusterPatches    int
+		expectedHTTPFilterPatches int
 	}{
 		{
 			name: "proxy matches two envoyfilters",
@@ -227,8 +322,9 @@ func TestEnvoyFilters(t *testing.T) {
 				Metadata:        &NodeMetadata{IstioVersion: "1.4.0", Labels: map[string]string{"app": "v1"}},
 				ConfigNamespace: "test-ns",
 			},
-			expectedListenerPatches: 2,
-			expectedClusterPatches:  2,
+			expectedListenerPatches:   2,
+			expectedClusterPatches:    2,
+			expectedHTTPFilterPatches: 0,
 		},
 		{
 			name: "proxy in root namespace matches an envoyfilter",
@@ -237,10 +333,10 @@ func TestEnvoyFilters(t *testing.T) {
 				Metadata:        &NodeMetadata{IstioVersion: "1.4.0", Labels: map[string]string{"app": "v1"}},
 				ConfigNamespace: "istio-system",
 			},
-			expectedListenerPatches: 1,
-			expectedClusterPatches:  1,
+			expectedListenerPatches:   1,
+			expectedClusterPatches:    1,
+			expectedHTTPFilterPatches: 0,
 		},
-
 		{
 			name: "proxy matches no envoyfilter",
 			proxy: &Proxy{
@@ -248,8 +344,9 @@ func TestEnvoyFilters(t *testing.T) {
 				Metadata:        &NodeMetadata{IstioVersion: "1.4.0", Labels: map[string]string{"app": "v2"}},
 				ConfigNamespace: "test-ns",
 			},
-			expectedListenerPatches: 0,
-			expectedClusterPatches:  0,
+			expectedListenerPatches:   0,
+			expectedClusterPatches:    0,
+			expectedHTTPFilterPatches: 0,
 		},
 		{
 			name: "proxy matches envoyfilter in root ns",
@@ -258,8 +355,9 @@ func TestEnvoyFilters(t *testing.T) {
 				Metadata:        &NodeMetadata{IstioVersion: "1.4.0", Labels: map[string]string{"app": "v1"}},
 				ConfigNamespace: "test-n2",
 			},
-			expectedListenerPatches: 1,
-			expectedClusterPatches:  1,
+			expectedListenerPatches:   1,
+			expectedClusterPatches:    1,
+			expectedHTTPFilterPatches: 0,
 		},
 		{
 			name: "proxy version matches no envoyfilters",
@@ -268,8 +366,44 @@ func TestEnvoyFilters(t *testing.T) {
 				Metadata:        &NodeMetadata{IstioVersion: "1.3.0", Labels: map[string]string{"app": "v1"}},
 				ConfigNamespace: "test-ns",
 			},
-			expectedListenerPatches: 0,
-			expectedClusterPatches:  0,
+			expectedListenerPatches:   0,
+			expectedClusterPatches:    0,
+			expectedHTTPFilterPatches: 0,
+		},
+		{
+			name: "proxy matched target ref",
+			proxy: &Proxy{
+				Labels:          map[string]string{"gateway.networking.k8s.io/gateway-name": "gateway-1"},
+				Metadata:        &NodeMetadata{IstioVersion: "1.4.0", Labels: map[string]string{"app": "v1"}},
+				ConfigNamespace: "test-ns",
+			},
+			expectedListenerPatches:   0,
+			expectedClusterPatches:    2,
+			expectedHTTPFilterPatches: 0,
+		},
+		{
+			name: "waypoint matched",
+			proxy: &Proxy{
+				Type:            model.Waypoint,
+				Labels:          map[string]string{"gateway.networking.k8s.io/gateway-name": "waypoint"},
+				Metadata:        &NodeMetadata{IstioVersion: "1.4.0", Labels: map[string]string{"app": "v1"}},
+				ConfigNamespace: "test-ns",
+			},
+			expectedListenerPatches:   0,
+			expectedClusterPatches:    2,
+			expectedHTTPFilterPatches: 1,
+		},
+		{
+			name: "waypoint matched gatewayclass in root namespace",
+			proxy: &Proxy{
+				Type:            model.Waypoint,
+				Labels:          map[string]string{"gateway.networking.k8s.io/gateway-name": "istio-waypoint"},
+				Metadata:        &NodeMetadata{IstioVersion: "1.4.0"},
+				ConfigNamespace: "test-ns",
+			},
+			expectedListenerPatches:   0,
+			expectedClusterPatches:    0,
+			expectedHTTPFilterPatches: 1,
 		},
 	}
 
@@ -277,7 +411,7 @@ func TestEnvoyFilters(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			filter := push.EnvoyFilters(tt.proxy)
 			if filter == nil {
-				if tt.expectedClusterPatches != 0 || tt.expectedListenerPatches != 0 {
+				if tt.expectedClusterPatches != 0 || tt.expectedListenerPatches != 0 || tt.expectedHTTPFilterPatches != 0 {
 					t.Errorf("Got no envoy filter")
 				}
 				return
@@ -287,6 +421,9 @@ func TestEnvoyFilters(t *testing.T) {
 			}
 			if len(filter.Patches[networking.EnvoyFilter_LISTENER]) != tt.expectedListenerPatches {
 				t.Errorf("Expect %d envoy filter listener patches, but got %d", tt.expectedListenerPatches, len(filter.Patches[networking.EnvoyFilter_LISTENER]))
+			}
+			if len(filter.Patches[networking.EnvoyFilter_HTTP_FILTER]) != tt.expectedHTTPFilterPatches {
+				t.Errorf("Expect %d envoy filter http filter patches, but got %d", tt.expectedHTTPFilterPatches, len(filter.Patches[networking.EnvoyFilter_HTTP_FILTER]))
 			}
 		})
 	}
@@ -1296,7 +1433,8 @@ func TestWasmPlugins(t *testing.T) {
 func TestServiceIndex(t *testing.T) {
 	g := NewWithT(t)
 	env := NewEnvironment()
-	env.ConfigStore = NewFakeStore()
+	configController := NewFakeStore()
+	env.ConfigStore = configController
 	env.ServiceDiscovery = &localServiceDiscovery{
 		services: []*Service{
 			{
@@ -1358,6 +1496,16 @@ func TestServiceIndex(t *testing.T) {
 	}
 	m := mesh.DefaultMeshConfig()
 	env.Watcher = meshwatcher.NewTestWatcher(m)
+	stop := test.NewStop(t)
+	env.VirtualServiceController = NewVirtualServiceController(
+		configController,
+		VSControllerOptions{KrtDebugger: krt.GlobalDebugHandler},
+		env.Watcher,
+	)
+	go configController.Run(stop)
+	go env.VirtualServiceController.Run(stop)
+	kube.WaitForCacheSync("test", stop, configController.HasSynced)
+	kube.WaitForCacheSync("test", stop, env.VirtualServiceController.HasSynced)
 	env.Init()
 
 	// Init a new push context
@@ -1547,8 +1695,11 @@ func serviceNames(svcs []*Service) []string {
 
 func TestInitPushContext(t *testing.T) {
 	env := NewEnvironment()
-	configStore := NewFakeStore()
-	_, _ = configStore.Create(config.Config{
+	m := mesh.DefaultMeshConfig()
+	env.Watcher = meshwatcher.NewTestWatcher(m)
+	fakeStore := NewFakeStore()
+	var controller ConfigStoreController = fakeStore
+	_, _ = controller.Create(config.Config{
 		Meta: config.Meta{
 			Name:             "rule1",
 			Namespace:        "test1",
@@ -1559,7 +1710,7 @@ func TestInitPushContext(t *testing.T) {
 			ExportTo: []string{".", "ns1"},
 		},
 	})
-	_, _ = configStore.Create(config.Config{
+	_, _ = controller.Create(config.Config{
 		Meta: config.Meta{
 			Name:             "rule1",
 			Namespace:        "test1",
@@ -1569,7 +1720,7 @@ func TestInitPushContext(t *testing.T) {
 			ExportTo: []string{".", "ns1"},
 		},
 	})
-	_, _ = configStore.Create(config.Config{
+	_, _ = controller.Create(config.Config{
 		Meta: config.Meta{
 			Name:             "default",
 			Namespace:        "istio-system",
@@ -1582,7 +1733,19 @@ func TestInitPushContext(t *testing.T) {
 		},
 	})
 
-	env.ConfigStore = configStore
+	env.VirtualServiceController = NewVirtualServiceController(
+		controller,
+		VSControllerOptions{KrtDebugger: krt.GlobalDebugHandler},
+		env.Watcher,
+	)
+
+	stop := test.NewStop(t)
+	go controller.Run(stop)
+	go env.VirtualServiceController.Run(stop)
+	kube.WaitForCacheSync("test", stop, controller.HasSynced)
+	kube.WaitForCacheSync("test", stop, env.VirtualServiceController.HasSynced)
+
+	env.ConfigStore = controller
 	env.ServiceDiscovery = &localServiceDiscovery{
 		services: []*Service{
 			{
@@ -1618,13 +1781,17 @@ func TestInitPushContext(t *testing.T) {
 			},
 		},
 	}
-	m := mesh.DefaultMeshConfig()
-	env.Watcher = meshwatcher.NewTestWatcher(m)
 	env.Init()
 
 	// Init a new push context
 	old := NewPushContext()
 	old.InitContext(env, nil, nil)
+
+	for _, sidecars := range old.sidecarIndex.sidecarsByNamespace {
+		for _, sidecar := range sidecars {
+			sidecar.initFunc()
+		}
+	}
 
 	// Create a new one, copying from the old one
 	// Pass a ConfigsUpdated otherwise we would just copy it directly
@@ -1635,6 +1802,12 @@ func TestInitPushContext(t *testing.T) {
 		},
 	})
 
+	for _, sidecars := range newPush.sidecarIndex.sidecarsByNamespace {
+		for _, sidecar := range sidecars {
+			sidecar.initFunc()
+		}
+	}
+
 	// Check to ensure the update is identical to the old one
 	// There is probably a better way to do this.
 	diff := cmp.Diff(old, newPush,
@@ -1644,7 +1817,7 @@ func TestInitPushContext(t *testing.T) {
 			AuthenticationPolicies{}, NetworkManager{}, sidecarIndex{}, Telemetries{}, ProxyConfigs{}, ConsolidatedDestRule{},
 			ClusterLocalHosts{}),
 		// These are not feasible/worth comparing
-		cmpopts.IgnoreTypes(sync.RWMutex{}, localServiceDiscovery{}, FakeStore{}, atomic.Bool{}, sync.Mutex{}),
+		cmpopts.IgnoreTypes(sync.RWMutex{}, localServiceDiscovery{}, FakeStore{}, atomic.Bool{}, sync.Mutex{}, func() {}),
 		cmpopts.IgnoreUnexported(IstioEndpoint{}),
 		cmpopts.IgnoreInterfaces(struct{ mesh.Holder }{}),
 		protocmp.Transform(),
@@ -1771,10 +1944,14 @@ func TestRootSidecarScopePropagation(t *testing.T) {
 	}
 
 	env := NewEnvironment()
-	configStore := NewFakeStore()
-
 	m := mesh.DefaultMeshConfig()
 	env.Watcher = meshwatcher.NewTestWatcher(m)
+	configStore := NewFakeStore()
+	virtualServiceController := NewVirtualServiceController(
+		configStore,
+		VSControllerOptions{KrtDebugger: krt.GlobalDebugHandler},
+		env.Watcher,
+	)
 
 	env.ServiceDiscovery = &localServiceDiscovery{
 		services: []*Service{
@@ -1832,6 +2009,12 @@ func TestRootSidecarScopePropagation(t *testing.T) {
 
 	_, _ = configStore.Create(rootConfig)
 	env.ConfigStore = configStore
+	env.VirtualServiceController = virtualServiceController
+	stop := test.NewStop(t)
+	go configStore.Run(stop)
+	go virtualServiceController.Run(stop)
+	kube.WaitForCacheSync("test", stop, configStore.HasSynced)
+	kube.WaitForCacheSync("test", stop, virtualServiceController.HasSynced)
 
 	testDesc := "Testing root SidecarScope for ns:%v enabled when %v is called."
 	when := "createNewContext"
@@ -1949,10 +2132,10 @@ func TestBestEffortInferServiceMTLSMode(t *testing.T) {
 			port := &Port{
 				Port: tc.servicePort,
 			}
-			if got := ps.BestEffortInferServiceMTLSMode(nil, service, port); got != tc.wanted {
+			if got := ps.BestEffortInferServiceMTLSMode(ps.AuthnPolicies, nil, service, port); got != tc.wanted {
 				t.Fatalf("want %s, but got %s", tc.wanted, got)
 			}
-			if got := ps.BestEffortInferServiceMTLSMode(nil, externalService, port); got != MTLSUnknown {
+			if got := ps.BestEffortInferServiceMTLSMode(ps.AuthnPolicies, nil, externalService, port); got != MTLSUnknown {
 				t.Fatalf("MTLS mode for external service should always be %s, but got %s", MTLSUnknown, got)
 			}
 		})
@@ -2598,7 +2781,8 @@ func TestVirtualServiceWithExportTo(t *testing.T) {
 	ps := NewPushContext()
 	env := &Environment{Watcher: meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{RootNamespace: "zzz"})}
 	ps.Mesh = env.Mesh()
-	configStore := NewFakeStore()
+	fakeStore := NewFakeStore()
+	var controller ConfigStoreController = fakeStore
 	gatewayName := "default/gateway"
 
 	rule1 := config.Config{
@@ -2671,12 +2855,24 @@ func TestVirtualServiceWithExportTo(t *testing.T) {
 	}
 
 	for _, c := range []config.Config{rule1, rule2, rule3, rule2Gw, rule3Gw, rootNS} {
-		if _, err := configStore.Create(c); err != nil {
+		if _, err := controller.Create(c); err != nil {
 			t.Fatalf("could not create %v", c.Name)
 		}
 	}
 
-	env.ConfigStore = configStore
+	env.VirtualServiceController = NewVirtualServiceController(
+		controller,
+		VSControllerOptions{KrtDebugger: krt.GlobalDebugHandler},
+		env.Watcher,
+	)
+
+	stop := test.NewStop(t)
+	go controller.Run(stop)
+	go env.VirtualServiceController.Run(stop)
+	kube.WaitForCacheSync("test", stop, controller.HasSynced)
+	kube.WaitForCacheSync("test", stop, env.VirtualServiceController.HasSynced)
+
+	env.ConfigStore = controller
 	ps.initDefaultExportMaps()
 	ps.initVirtualServices(env)
 
@@ -2748,7 +2944,9 @@ func TestInitVirtualService(t *testing.T) {
 		ps := NewPushContext()
 		env := &Environment{Watcher: meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-system"})}
 		ps.Mesh = env.Mesh()
-		configStore := NewFakeStore()
+		fakeStore := NewFakeStore()
+		var controller ConfigStoreController = fakeStore
+
 		gatewayName := "ns1/gateway"
 		root := config.Config{
 			Meta: config.Meta{
@@ -2987,12 +3185,24 @@ func TestInitVirtualService(t *testing.T) {
 			sourceNamespaceMatchWithoutGatewayNamespace,
 			sourceNamespaceNotMatch,
 		} {
-			if _, err := configStore.Create(c); err != nil {
+			if _, err := controller.Create(c); err != nil {
 				t.Fatalf("could not create %v", c.Name)
 			}
 		}
 
-		env.ConfigStore = configStore
+		env.VirtualServiceController = NewVirtualServiceController(
+			controller,
+			VSControllerOptions{KrtDebugger: krt.GlobalDebugHandler},
+			env.Watcher,
+		)
+
+		stop := test.NewStop(t)
+		go controller.Run(stop)
+		go env.VirtualServiceController.Run(stop)
+		kube.WaitForCacheSync("test", stop, controller.HasSynced)
+		kube.WaitForCacheSync("test", stop, env.VirtualServiceController.HasSynced)
+
+		env.ConfigStore = controller
 		ps.initDefaultExportMaps()
 		ps.initVirtualServices(env)
 
@@ -3022,7 +3232,7 @@ func TestInitVirtualService(t *testing.T) {
 				"ns5/gateway": ns5GatewayExpectedDestinations,
 			}
 			if !reflect.DeepEqual(got, want) {
-				t.Errorf("destinationsByGateway: got %+v", got)
+				t.Errorf("destinationsByGateway: got %+v, want: %+v", got, want)
 			}
 		})
 	}
@@ -3174,7 +3384,7 @@ func TestInstancesByPort(t *testing.T) {
 		svc5_1.Hostname.String(): {
 			svc5_1.Attributes.Namespace: {
 				Shards: map[ShardKey][]*IstioEndpoint{
-					{Cluster: "Kubernets", Provider: provider.External}: {
+					{Cluster: "Kubernetes", Provider: provider.External}: {
 						&IstioEndpoint{
 							Addresses:       []string{"1.1.1.1"},
 							EndpointPort:    7000,
@@ -3235,7 +3445,8 @@ func TestGetHostsFromMeshConfig(t *testing.T) {
 		},
 	})
 	ps.Mesh = env.Mesh()
-	configStore := NewFakeStore()
+	fakeStore := NewFakeStore()
+	var controller ConfigStoreController = fakeStore
 	gatewayName := "ns1/gateway"
 
 	vs1 := config.Config{
@@ -3288,7 +3499,7 @@ func TestGetHostsFromMeshConfig(t *testing.T) {
 	ef := config.Config{
 		Meta: config.Meta{
 			GroupVersionKind: gvk.EnvoyFilter,
-			Annotations:      map[string]string{"envoyfilter.istio.io/referenced-services": "envoyfilter.example.com"},
+			Annotations:      map[string]string{"envoyfilter.istio.io/referenced-services": "envoyfilter.example.com,ratelimiting/grls.ratelimiting.svc.cluster.local"},
 			Name:             "ef",
 			Namespace:        "istio-system",
 		},
@@ -3296,12 +3507,24 @@ func TestGetHostsFromMeshConfig(t *testing.T) {
 	}
 
 	for _, c := range []config.Config{vs1, vs2, ef} {
-		if _, err := configStore.Create(c); err != nil {
+		if _, err := controller.Create(c); err != nil {
 			t.Fatalf("could not create %v", c.Name)
 		}
 	}
 
-	env.ConfigStore = configStore
+	env.VirtualServiceController = NewVirtualServiceController(
+		controller,
+		VSControllerOptions{KrtDebugger: krt.GlobalDebugHandler},
+		env.Watcher,
+	)
+
+	stop := test.NewStop(t)
+	go controller.Run(stop)
+	go env.VirtualServiceController.Run(stop)
+	kube.WaitForCacheSync("test", stop, controller.HasSynced)
+	kube.WaitForCacheSync("test", stop, env.VirtualServiceController.HasSynced)
+
+	env.ConfigStore = controller
 	test.SetForTest(t, &features.FilterGatewayClusterConfig, true)
 	ps.initTelemetry(env)
 	ps.initDefaultExportMaps()
@@ -3324,6 +3547,10 @@ func TestGetHostsFromMeshConfig(t *testing.T) {
 				Hostname:   "envoyfilter.example.com",
 				Attributes: ServiceAttributes{Namespace: "some-ns"},
 			},
+			{
+				Hostname:   "grls.ratelimiting.svc.cluster.local",
+				Attributes: ServiceAttributes{Namespace: "ratelimiting"},
+			},
 		},
 	}
 	ps.initDefaultExportMaps()
@@ -3337,7 +3564,7 @@ func TestGetHostsFromMeshConfig(t *testing.T) {
 		return e.Hostname.String()
 	})...)
 	// Should match 2 of the 3 providers; one has a mismatched namespace though
-	assert.Equal(t, got, sets.New("otel.foo.svc.cluster.local", "otel.example.com", "envoyfilter.example.com"))
+	assert.Equal(t, got, sets.New("otel.foo.svc.cluster.local", "otel.example.com", "envoyfilter.example.com", "grls.ratelimiting.svc.cluster.local"))
 }
 
 func TestWellKnownProvidersCount(t *testing.T) {

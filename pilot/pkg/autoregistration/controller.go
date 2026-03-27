@@ -40,6 +40,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/controllers"
 	istiolog "istio.io/istio/pkg/log"
+	pm "istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/queue"
 )
@@ -378,6 +379,11 @@ func (c *Controller) changeWorkloadEntryStateToConnected(entryName string, proxy
 	if conTime.Before(lastConTime) {
 		return false, nil
 	}
+	// Already connected to this controller at this time; skip redundant update to avoid
+	// racing with concurrent status updates (e.g. health condition writes).
+	if wle.Annotations[annotation.IoIstioWorkloadController.Name] == c.instanceID && !conTime.After(lastConTime) {
+		return false, nil
+	}
 	// Try to update, if it fails we retry all the above logic since the WLE changed
 	updated := wle.DeepCopy()
 	setConnectMeta(&updated, c.instanceID, conTime)
@@ -690,7 +696,7 @@ func workloadEntryFromGroup(name string, proxy *model.Proxy, groupCfg *config.Co
 		// the label has been converted to "istio-locality: region/zone/subzone"
 		// in pilot/pkg/xds/ads.go, and `/` is not allowed in k8s label value.
 		// Instead of converting again, we delete it since has set WorkloadEntry.Locality
-		delete(entry.Labels, model.LocalityLabel)
+		delete(entry.Labels, pm.LocalityLabel)
 	}
 
 	annotations := map[string]string{annotation.IoIstioAutoRegistrationGroup.Name: groupCfg.Name}

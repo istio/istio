@@ -1,0 +1,48 @@
+{{- if or (eq .Values.global.resourceScope "all") (eq .Values.global.resourceScope "namespace") }}
+{{- if (.Values.global.networkPolicy).enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: istiod
+    istio.io/rev: {{ .Values.revision | default "default" | quote }}
+    install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
+    operator.istio.io/component: "Pilot"
+    istio: pilot
+    release: {{ .Release.Name }}
+    app.kubernetes.io/name: "istiod"
+    {{- include "istio.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app: istiod
+      istio.io/rev: {{ .Values.revision | default "default" | quote }}
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Webhook from kube-apiserver
+  - from: []
+    ports:
+    - protocol: TCP
+      port: 15017
+  # xDS from potentially anywhere
+  - from: []
+    ports:
+    - protocol: TCP
+      port: 15010
+    - protocol: TCP
+      port: 15011
+    - protocol: TCP
+      port: 15012
+    - protocol: TCP
+      port: 8080
+    - protocol: TCP
+      port: 15014
+  # Allow all egress (needed because features like JWKS require connections to user-defined endpoints)
+  egress:
+  - {}
+{{- end }}
+{{- end }}

@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"sort"
 	"strings"
+	"sync"
 
 	"k8s.io/apimachinery/pkg/types"
 
@@ -47,6 +48,7 @@ var (
 		kind.VirtualService,
 		kind.DestinationRule,
 		kind.Sidecar,
+		kind.PeerAuthentication,
 	)
 
 	// clusterScopedKnownConfigTypes includes configs when they are in root namespace,
@@ -55,7 +57,6 @@ var (
 		kind.EnvoyFilter,
 		kind.AuthorizationPolicy,
 		kind.RequestAuthentication,
-		kind.PeerAuthentication,
 		kind.WasmPlugin,
 		kind.Telemetry,
 	)
@@ -170,6 +171,11 @@ type SidecarScope struct {
 	destinationRules        map[host.Name][]*ConsolidatedDestRule
 	destinationRulesByNames map[types.NamespacedName]*config.Config
 
+	// AuthnPolicies contains the PeerAuthentication policies relevant to this sidecar scope.
+	// It only includes policies from the root namespace, the config namespace, and namespaces
+	// from which services have been imported.
+	AuthnPolicies PeerAuthnPolicies
+
 	// OutboundTrafficPolicy defines the outbound traffic policy for this sidecar.
 	// If OutboundTrafficPolicy is ALLOW_ANY traffic to unknown destinations will
 	// be forwarded.
@@ -179,6 +185,11 @@ type SidecarScope struct {
 	// This field will be used to determine the config/resource scope
 	// which means which config changes will affect the proxies within this scope.
 	configDependencies sets.Set[ConfigHash]
+
+	// Function that will initialize the sidecar scope. This is used to
+	// defer the initialization of the sidecar scope until the first time
+	// it is used
+	initFunc func()
 }
 
 // MarshalJSON implements json.Marshaller
@@ -231,7 +242,8 @@ type IstioEgressListenerWrapper struct {
 	// namespace A that has some path rewrite, while listener2 could import
 	// a private virtual service for serviceA from the local namespace,
 	// with a different path rewrite or no path rewrites.
-	virtualServices []config.Config
+	// Stored as pointers to avoid copying config.Config structs.
+	virtualServices []*config.Config
 
 	// An index of hostname to the namespaced name of the VirtualService containing the most
 	// specific host match.
@@ -258,94 +270,14 @@ func DefaultSidecarScopeForGateway(ps *PushContext, configNamespace string) *Sid
 	}
 	out.selectDestinationRules(ps, configNamespace)
 
+	out.selectAuthnPolicies(ps, configNamespace)
+
 	// waypoint need to get vses from the egress listener
 	defaultEgressListener := &IstioEgressListenerWrapper{
 		virtualServices: ps.VirtualServicesForGateway(configNamespace, constants.IstioMeshGateway),
 	}
 	out.EgressListeners = []*IstioEgressListenerWrapper{defaultEgressListener}
-
-	return out
-}
-
-// DefaultSidecarScopeForNamespace is a sidecar scope object with a default catch all egress listener
-// that matches the default Istio behavior: a sidecar has listeners for all services in the mesh
-// We use this scope when the user has not set any sidecar Config for a given config namespace.
-func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *SidecarScope {
-	if features.UnifiedSidecarScoping {
-		// Modern way: treat no Sidecar the same as having a Sidecar with a single egress listener for `*/*`
-		return convertToSidecarScope(ps, nil, configNamespace)
-	}
-	// Legacy way, for compatibility: disjoint logic for Sidecar vs no Sidecar. This has minor differences in the face of
-	// overlapping hostnames across services.
-	defaultEgressListener := &IstioEgressListenerWrapper{
-		IstioListener: &networking.IstioEgressListener{
-			Hosts: []string{"*/*"},
-		},
-	}
-	services := ps.servicesExportedToNamespace(configNamespace)
-	defaultEgressListener.virtualServices = ps.VirtualServicesForGateway(configNamespace, constants.IstioMeshGateway)
-	defaultEgressListener.mostSpecificWildcardVsIndex = computeWildcardHostVirtualServiceIndex(
-		defaultEgressListener.virtualServices, services)
-
-	out := &SidecarScope{
-		Name:                    defaultSidecar,
-		Namespace:               configNamespace,
-		EgressListeners:         []*IstioEgressListenerWrapper{defaultEgressListener},
-		destinationRules:        make(map[host.Name][]*ConsolidatedDestRule),
-		destinationRulesByNames: make(map[types.NamespacedName]*config.Config),
-		servicesByHostname:      make(map[host.Name]*Service, len(defaultEgressListener.services)),
-		configDependencies:      make(sets.Set[ConfigHash]),
-		Version:                 ps.PushVersion,
-	}
-
-	servicesAdded := make(map[host.Name]sidecarServiceIndex)
-	for _, s := range services {
-		out.appendSidecarServices(servicesAdded, s)
-	}
-	defaultEgressListener.services = out.services
-
-	// add dependencies on delegate virtual services
-	delegates := ps.DelegateVirtualServices(defaultEgressListener.virtualServices)
-	for _, delegate := range delegates {
-		out.AddConfigDependencies(delegate)
-	}
-	for _, vs := range defaultEgressListener.virtualServices {
-		out.AddConfigDependencies(ConfigKey{
-			Kind:      kind.VirtualService,
-			Namespace: vs.Namespace,
-			Name:      vs.Name,
-		}.HashCode())
-	}
-
-	// Now that we have all the services that sidecars using this scope (in
-	// this config namespace) will see, identify all the destinationRules
-	// that these services need
-	for _, s := range out.services {
-		if dr := ps.destinationRule(configNamespace, s); dr != nil {
-			out.destinationRules[s.Hostname] = dr
-			for _, cdr := range dr {
-				for _, from := range cdr.from {
-					out.destinationRulesByNames[from] = cdr.rule
-					out.AddConfigDependencies(ConfigKey{
-						Kind:      kind.DestinationRule,
-						Name:      from.Name,
-						Namespace: from.Namespace,
-					}.HashCode())
-				}
-			}
-		}
-		out.AddConfigDependencies(ConfigKey{
-			Kind:      kind.ServiceEntry,
-			Name:      string(s.Hostname),
-			Namespace: s.Attributes.Namespace,
-		}.HashCode())
-	}
-
-	if ps.Mesh.OutboundTrafficPolicy != nil {
-		out.OutboundTrafficPolicy = &networking.OutboundTrafficPolicy{
-			Mode: networking.OutboundTrafficPolicy_Mode(ps.Mesh.OutboundTrafficPolicy.Mode),
-		}
-	}
+	out.initFunc = func() {}
 
 	return out
 }
@@ -372,37 +304,52 @@ func convertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 
 	}
 
-	egressConfigs := sidecar.GetEgress()
+	out.initFunc = sync.OnceFunc(func() {
+		initSidecarScopeInternalIndexes(ps, out, configNamespace)
+	})
+
+	if features.ConvertSidecarScopeConcurrency > 1 || !features.EnableLazySidecarEvaluation {
+		out.initFunc()
+	}
+
+	return out
+}
+
+// initSidecarScopeInternalIndexes initializes SidecarScope's internal indexes derived from PushContext
+func initSidecarScopeInternalIndexes(ps *PushContext, sidecarScope *SidecarScope, configNamespace string) {
+	egressConfigs := sidecarScope.Sidecar.GetEgress()
 	// If egress not set, setup a default listener
 	if len(egressConfigs) == 0 {
 		egressConfigs = append(egressConfigs, &networking.IstioEgressListener{Hosts: []string{"*/*"}})
 	}
-	out.EgressListeners = make([]*IstioEgressListenerWrapper, 0, len(egressConfigs))
+	sidecarScope.EgressListeners = make([]*IstioEgressListenerWrapper, 0, len(egressConfigs))
 	for _, e := range egressConfigs {
-		out.EgressListeners = append(out.EgressListeners,
+		sidecarScope.EgressListeners = append(sidecarScope.EgressListeners,
 			convertIstioListenerToWrapper(ps, configNamespace, e))
 	}
 
 	// Now collect all the imported services across all egress listeners in
 	// this sidecar crd. This is needed to generate CDS output
-	out.collectImportedServices(ps, configNamespace)
+	sidecarScope.collectImportedServices(ps, configNamespace)
+
+	// Select PeerAuthentication policies from namespaces relevant to this sidecar:
+	// root namespace, config namespace, and namespaces of imported services.
+	sidecarScope.selectAuthnPolicies(ps, configNamespace)
 
 	// Now that we have all the services that sidecars using this scope (in
 	// this config namespace) will see, identify all the destinationRules
 	// that these services need
-	out.selectDestinationRules(ps, configNamespace)
+	sidecarScope.selectDestinationRules(ps, configNamespace)
 
-	if sidecar.GetOutboundTrafficPolicy() == nil {
+	if sidecarScope.Sidecar.GetOutboundTrafficPolicy() == nil {
 		if ps.Mesh.OutboundTrafficPolicy != nil {
-			out.OutboundTrafficPolicy = &networking.OutboundTrafficPolicy{
+			sidecarScope.OutboundTrafficPolicy = &networking.OutboundTrafficPolicy{
 				Mode: networking.OutboundTrafficPolicy_Mode(ps.Mesh.OutboundTrafficPolicy.Mode),
 			}
 		}
 	} else {
-		out.OutboundTrafficPolicy = sidecar.GetOutboundTrafficPolicy()
+		sidecarScope.OutboundTrafficPolicy = sidecarScope.Sidecar.GetOutboundTrafficPolicy()
 	}
-
-	return out
 }
 
 func (sc *SidecarScope) collectImportedServices(ps *PushContext, configNamespace string) {
@@ -420,15 +367,12 @@ func (sc *SidecarScope) collectImportedServices(ps *PushContext, configNamespace
 			sc.appendSidecarServices(servicesAdded, s)
 		}
 
-		// add dependencies on delegate virtual services
-		delegates := ps.DelegateVirtualServices(ilw.virtualServices)
-		sc.AddConfigDependencies(delegates...)
-
 		// Infer more possible destinations from virtual services
 		// Services chosen here will not override services explicitly requested in ilw.services.
 		// That way, if there is ambiguity around what hostname to pick, a user can specify the one they
 		// want in the hosts field, and the potentially random choice below won't matter
 		for _, vs := range ilw.virtualServices {
+			// we don't need to add dependencies on delegate virtual services because they are handled by the virtual service controller
 			sc.AddConfigDependencies(ConfigKey{
 				Kind:      kind.VirtualService,
 				Namespace: vs.Namespace,
@@ -460,6 +404,31 @@ func (sc *SidecarScope) collectImportedServices(ps *PushContext, configNamespace
 					}
 				}
 			}
+		}
+	}
+}
+
+func (sc *SidecarScope) selectAuthnPolicies(ps *PushContext, configNamespace string) {
+	if ps.AuthnPolicies == nil {
+		return
+	}
+
+	// Collect relevant namespaces: root namespace + config namespace + namespaces of all imported services.
+	relevantNamespaces := sets.New(configNamespace, ps.AuthnPolicies.GetRootNamespace())
+	for _, svc := range sc.services {
+		relevantNamespaces.Insert(svc.Attributes.Namespace)
+	}
+
+	sc.AuthnPolicies = ps.AuthnPolicies.FilterPeerAuthenticationNamespaces(relevantNamespaces)
+
+	// Add all selected PeerAuthentication policies as config dependencies
+	for _, configs := range sc.AuthnPolicies.GetPeerAuthentications() {
+		for _, cfg := range configs {
+			sc.AddConfigDependencies(ConfigKey{
+				Kind:      kind.PeerAuthentication,
+				Name:      cfg.Name,
+				Namespace: cfg.Namespace,
+			}.HashCode())
 		}
 	}
 }
@@ -608,8 +577,8 @@ func (ilw *IstioEgressListenerWrapper) Services() []*Service {
 }
 
 // VirtualServices returns the list of virtual services imported by this
-// egress listener
-func (ilw *IstioEgressListenerWrapper) VirtualServices() []config.Config {
+// egress listener. Returns pointers to avoid copying config.Config structs.
+func (ilw *IstioEgressListenerWrapper) VirtualServices() []*config.Config {
 	return ilw.virtualServices
 }
 
@@ -620,7 +589,7 @@ func (ilw *IstioEgressListenerWrapper) MostSpecificWildcardVirtualServiceIndex()
 }
 
 // DependsOnConfig determines if the proxy depends on the given config.
-// Returns whether depends on this config or this kind of config is not scopeZd(unknown to be depended) here.
+// Returns whether depends on this config or this kind of config is not scoped(unknown to be depended) here.
 func (sc *SidecarScope) DependsOnConfig(config ConfigKey, rootNs string) bool {
 	if sc == nil {
 		return true
@@ -837,9 +806,9 @@ func matchingAliasService(importedHosts hostClassification, service *Service) *S
 	if len(matched) == len(service.Attributes.Aliases) {
 		return service
 	}
-	service = service.DeepCopy()
-	service.Attributes.Aliases = matched
-	return service
+	sc := service.ShallowCopy()
+	sc.Attributes.Aliases = matched
+	return sc
 }
 
 // serviceMatchingListenerPort constructs service with listener port.
@@ -853,8 +822,14 @@ func serviceMatchingListenerPort(service *Service, ilw *IstioEgressListenerWrapp
 				return service
 			}
 			// when there are multiple ports, construct service with listener port
-			sc := service.DeepCopy()
-			sc.Ports = []*Port{port}
+			sc := service.ShallowCopy()
+			sc.Ports = []*Port{
+				{
+					Name:     port.Name,
+					Port:     port.Port,
+					Protocol: port.Protocol,
+				},
+			}
 			return sc
 		}
 	}
@@ -871,7 +846,8 @@ func serviceMatchingVirtualServicePorts(service *Service, vsDestPorts sets.Set[i
 	foundPorts := make([]*Port, 0)
 	for _, port := range service.Ports {
 		if vsDestPorts.Contains(port.Port) {
-			foundPorts = append(foundPorts, port)
+			p := *port
+			foundPorts = append(foundPorts, &p)
 		}
 	}
 
@@ -880,7 +856,7 @@ func serviceMatchingVirtualServicePorts(service *Service, vsDestPorts sets.Set[i
 	}
 
 	if len(foundPorts) > 0 {
-		sc := service.DeepCopy()
+		sc := service.ShallowCopy()
 		sc.Ports = foundPorts
 		return sc
 	}
@@ -900,9 +876,9 @@ func serviceMatchingVirtualServicePorts(service *Service, vsDestPorts sets.Set[i
 //
 // N.B the caller MUST presort virtualServices based on the desired precedence for duplicate hostnames.
 // This function will persist that order and not overwrite any previous entries for a given hostname.
-func computeWildcardHostVirtualServiceIndex(virtualServices []config.Config, services []*Service) map[host.Name]types.NamespacedName {
-	fqdnVirtualServiceHostIndex := make(map[host.Name]config.Config, len(virtualServices))
-	wildcardVirtualServiceHostIndex := make(map[host.Name]config.Config, len(virtualServices))
+func computeWildcardHostVirtualServiceIndex(virtualServices []*config.Config, services []*Service) map[host.Name]types.NamespacedName {
+	fqdnVirtualServiceHostIndex := make(map[host.Name]*config.Config, len(virtualServices))
+	wildcardVirtualServiceHostIndex := make(map[host.Name]*config.Config, len(virtualServices))
 	for _, vs := range virtualServices {
 		v := vs.Spec.(*networking.VirtualService)
 		for _, h := range v.Hosts {
@@ -1004,7 +980,14 @@ func (sc *SidecarScope) appendSidecarServices(servicesAdded map[host.Name]sideca
 		// If it comes here, it means we can merge the services.
 		// Merge the ports to service when each listener generates partial service.
 		// We only merge if the found service is in the same namespace as the one we're trying to add
-		copied := foundSvc.svc.DeepCopy()
+		copied := foundSvc.svc.ShallowCopy()
+		// Deep copy existing ports
+		copied.Ports = make(PortList, 0, len(foundSvc.svc.Ports)+len(s.Ports))
+		for _, port := range foundSvc.svc.Ports {
+			p := *port
+			copied.Ports = append(copied.Ports, &p)
+		}
+		// Add new ports from s, avoiding duplicates
 		for _, p := range s.Ports {
 			found := false
 			for _, osp := range copied.Ports {
@@ -1028,7 +1011,7 @@ func (sc *SidecarScope) appendSidecarServices(servicesAdded map[host.Name]sideca
 }
 
 func canMergeServices(s1, s2 *Service) bool {
-	// Hostname has been compared in the caller `appendSidecarServices`, so we donot need to compare again.
+	// Hostname has been compared in the caller `appendSidecarServices`, so we do not need to compare again.
 	if s1.Attributes.Namespace != s2.Attributes.Namespace {
 		return false
 	}

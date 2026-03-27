@@ -10,7 +10,7 @@ If you want to _install_ Istio with Helm, instead please [follow the Helm instal
 
 Charts in this folder are published to the following Helm repos:
  - `https://istio-release.storage.googleapis.com/charts` (charts for official release versions)
- - `oci://gcr.io/istio-release/charts/` (charts for official release versions and dev build versions)
+ - `oci://registry.istio.io/release/charts/` (charts for official release versions and dev build versions)
 
 Chart publishing is handled by [release builder](https://github.com/istio/release-builder).
 
@@ -132,7 +132,7 @@ iop istio-control istio-discovery $IBASE/istio-control/istio-discovery \
             --set global.istioNamespace=istio-system
 
 # Second istio-discovery, using master version of istio
-TAG=latest HUB=gcr.io/istio-testing iop istio-master istio-discovery-master $IBASE/istio-control/istio-discovery \
+TAG=latest HUB=registry.istio.io/testing iop istio-master istio-discovery-master $IBASE/istio-control/istio-discovery \
             --set policy.enable=false \
             --set global.istioNamespace=istio-master
 ```

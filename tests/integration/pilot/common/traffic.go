@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 // Copyright Istio Authors
 //
@@ -192,6 +191,9 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 				doTest(t, src, dsts)
 			})
 		} else if c.viaIngress {
+			if t.Settings().AmbientMultiNetwork {
+				t.Skip("https://github.com/istio/istio/issues/57878")
+			}
 			echoT.RunViaIngress(func(t framework.TestContext, from ingress.Instance, to echo.Target) {
 				doTest(t, from, echo.Services{to.Instances()})
 			})
@@ -298,7 +300,7 @@ func RunAllTrafficTests(t framework.TestContext, i istio.Instance, apps deployme
 	RunSkipAmbient("dns", DNSTestCases, "https://github.com/istio/istio/issues/48614")
 	RunCase("externalservice", TestExternalService)
 	RunCase("upstreamproxy", TestUpstreamProxyProtocol)
-	RunSkipAmbient("service-entry-vips-resolution-none", testServiceEntryWithMultipleVIPsAndResolutionNone, "")
+	RunCase("service-entry-vips-resolution-none", testServiceEntryWithMultipleVIPsAndResolutionNone)
 }
 
 func ExpectString(got, expected, help string) error {

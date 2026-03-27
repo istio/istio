@@ -1,5 +1,6 @@
+{{- if or (eq .Values.global.resourceScope "all") (eq .Values.global.resourceScope "namespace") }}
 # Not created if istiod is running remotely
-{{- if not .Values.istiodRemote.enabled }}
+{{- if or (not .Values.istiodRemote.enabled) (and .Values.istiodRemote.enabled .Values.istiodRemote.enabledLocalInjectorIstiod) }}
 {{- if .Values.jwksResolverExtraRootCA }}
 apiVersion: v1
 kind: ConfigMap
@@ -15,5 +16,6 @@ metadata:
     {{- include "istio.labels" . | nindent 4 }}
 data:
   extra.pem: {{ .Values.jwksResolverExtraRootCA | quote }}
+{{- end }}
 {{- end }}
 {{- end }}

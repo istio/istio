@@ -173,7 +173,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	mc := multicluster.NewFakeController()
 	creds := kubesecrets.NewMulticluster(opts.DefaultClusterName, mc)
 
-	configController := memory.NewSyncController(memory.MakeSkipValidation(collections.PilotGatewayAPI()))
+	configController := memory.NewController(memory.MakeSkipValidation(collections.PilotGatewayAPI()))
 	clientBuilder := opts.KubeClientBuilder
 	if clientBuilder == nil {
 		clientBuilder = func(objects ...runtime.Object) kubelib.Client {
@@ -529,7 +529,7 @@ func getKubernetesObjects(t test.Failer, opts FakeOptions) map[cluster.ID][]runt
 func kubernetesObjectsFromString(s string) ([]runtime.Object, error) {
 	var objects []runtime.Object
 	decode := kubelib.IstioCodec.UniversalDeserializer().Decode
-	objectStrs := strings.Split(s, "---")
+	objectStrs := strings.Split(s, "\n---\n")
 	for _, s := range objectStrs {
 		if len(strings.TrimSpace(s)) == 0 {
 			continue

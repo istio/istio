@@ -37,10 +37,11 @@ setup_and_export_git_sha
 source "${ROOT}/common/scripts/kind_provisioner.sh"
 
 TOPOLOGY=SINGLE_CLUSTER
-NODE_IMAGE="gcr.io/istio-testing/kind-node:v1.32.0"
+NODE_IMAGE="registry.istio.io/testing/kind-node:v1.35.0"
 KIND_CONFIG=""
 CLUSTER_TOPOLOGY_CONFIG_FILE="${ROOT}/prow/config/topology/multicluster.json"
 CLUSTER_NAME="${CLUSTER_NAME:-istio-testing}"
+CLUSTER_YAML="${CLUSTER_YAML:-prow/config/default.yaml}"
 
 export FAST_VM_BUILDS=true
 export ISTIO_DOCKER_BUILDER="${ISTIO_DOCKER_BUILDER:-crane}"
@@ -84,8 +85,7 @@ while (( "$#" )); do
     ;;
     --topology)
       case $2 in
-        # TODO(landow) get rid of MULTICLUSTER_SINGLE_NETWORK after updating Prow job
-        SINGLE_CLUSTER | MULTICLUSTER_SINGLE_NETWORK | MULTICLUSTER | AMBIENT_MULTICLUSTER )
+        SINGLE_CLUSTER | MULTICLUSTER | AMBIENT_MULTICLUSTER )
           TOPOLOGY=$2
           echo "Running with topology ${TOPOLOGY}"
           ;;
@@ -139,7 +139,7 @@ export KIND_REGISTRY_PORT="5000"
 export KIND_REGISTRY="localhost:${KIND_REGISTRY_PORT}"
 export KIND_REGISTRY_DIR="/etc/containerd/certs.d/localhost:${KIND_REGISTRY_PORT}"
 
-export HUB=${HUB:-"istio-testing"}
+export HUB=${HUB:-"testing"}
 export TAG="${TAG:-"istio-testing"}"
 export VARIANT
 
@@ -157,7 +157,12 @@ export ARTIFACTS="${ARTIFACTS:-$(mktemp -d)}"
 trace "init" make init
 
 if [[ -z "${SKIP_SETUP:-}" ]]; then
-  export DEFAULT_CLUSTER_YAML="./prow/config/default.yaml"
+  # Use KIND_CONFIG if specified, otherwise fall back to CLUSTER_YAML
+  if [[ -n "${KIND_CONFIG}" ]]; then
+    export DEFAULT_CLUSTER_YAML="${ROOT}/${KIND_CONFIG}"
+  else
+    export DEFAULT_CLUSTER_YAML="${ROOT}/${CLUSTER_YAML}"
+  fi
   export METRICS_SERVER_CONFIG_DIR='./prow/config/metrics'
 
   if [[ "${TOPOLOGY}" == "SINGLE_CLUSTER" ]]; then
@@ -189,9 +194,9 @@ if [[ -z "${SKIP_BUILD:-}" ]]; then
 
   # upload WASM plugins to kind-registry
   registry_url=$(if [ -z "$DEVCONTAINER" ]; then echo "localhost"; else echo $KIND_REGISTRY_NAME; fi):$KIND_REGISTRY_PORT
-  crane copy gcr.io/istio-testing/wasm/attributegen:359dcd3a19f109c50e97517fe6b1e2676e870c4d "$registry_url/istio-testing/wasm/attributegen:0.0.1" --insecure
-  crane copy gcr.io/istio-testing/wasm/header-injector:0.0.1 "$registry_url/istio-testing/wasm/header-injector:0.0.1" --insecure
-  crane copy gcr.io/istio-testing/wasm/header-injector:0.0.2 "$registry_url/istio-testing/wasm/header-injector:0.0.2" --insecure
+  crane copy registry.istio.io/testing/wasm/attributegen:359dcd3a19f109c50e97517fe6b1e2676e870c4d "$registry_url/testing/wasm/attributegen:0.0.1" --insecure
+  crane copy registry.istio.io/testing/wasm/header-injector:0.0.1 "$registry_url/testing/wasm/header-injector:0.0.1" --insecure
+  crane copy registry.istio.io/testing/wasm/header-injector:0.0.2 "$registry_url/testing/wasm/header-injector:0.0.2" --insecure
 
   # Make "kind-registry" resolvable in IPv6 cluster
   if [[ "$KIND_IP_FAMILY" == "ipv6" ]]; then

@@ -38,7 +38,9 @@ func NewMulticluster(configCluster cluster.ID, controller multicluster.Component
 	}
 
 	m.component = multicluster.BuildMultiClusterComponent(controller, func(cluster *multicluster.Cluster) *CredentialsController {
-		return NewCredentialsController(cluster.Client, m.secretHandlers)
+		// Only enable ConfigMaps for the config cluster, not for remote clusters
+		isConfigCluster := cluster.ID == m.configCluster
+		return NewCredentialsController(cluster.Client, m.secretHandlers, isConfigCluster)
 	})
 	return m
 }
@@ -113,13 +115,13 @@ func (a *AggregateController) GetConfigMapCaCert(name, namespace string) (certIn
 	// Search through all clusters, find first non-empty result
 	var firstError error
 	for _, c := range a.controllers {
-		k, err := c.GetConfigMapCaCert(name, namespace)
+		certInfo, err := c.GetConfigMapCaCert(name, namespace)
 		if err != nil {
 			if firstError == nil {
 				firstError = err
 			}
 		} else {
-			return k, nil
+			return certInfo, nil
 		}
 	}
 	return nil, firstError

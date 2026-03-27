@@ -23,6 +23,7 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
@@ -70,6 +71,16 @@ func ControlPlane(typ string) *core.ControlPlane {
 }
 
 func (s *DiscoveryServer) findGenerator(typeURL string, con *Connection) model.XdsResourceGenerator {
+	if con.proxy.Type == model.Agentgateway && features.EnableAgentgateway {
+		log.Debugf("finding collection generator for agentgateway connection %s with typeURL %s", con.proxy.ID, typeURL)
+		c, f := s.Collections[typeURL]
+		if f {
+			return c
+		}
+		// Doesn't match any collection. For now, we may just want to avoid breaking existing
+		// functionality with a default XdsResourceGenerator.
+		return CollectionGenerator{}
+	}
 	if g, f := s.Generators[con.proxy.Metadata.Generator+"/"+typeURL]; f {
 		return g
 	}

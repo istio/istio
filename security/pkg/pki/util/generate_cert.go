@@ -450,5 +450,5 @@ func encodePem(isCSR bool, csrOrCert []byte, priv any, pkcs8 bool) (
 		}
 	}
 	err = nil
-	return
+	return csrOrCertPem, privPem, err
 }

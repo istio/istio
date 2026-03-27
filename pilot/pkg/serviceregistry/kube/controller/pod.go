@@ -235,6 +235,20 @@ func getPortMap(pod *v1.Pod) map[string]uint32 {
 			}
 		}
 	}
+	// Also include ports from native sidecar init containers (restartPolicy=Always).
+	for _, c := range pod.Spec.InitContainers {
+		if c.RestartPolicy == nil || *c.RestartPolicy != v1.ContainerRestartPolicyAlways {
+			continue
+		}
+		for _, port := range c.Ports {
+			if port.Name == "" || port.Protocol != v1.ProtocolTCP {
+				continue
+			}
+			if _, f := pmap[port.Name]; !f {
+				pmap[port.Name] = uint32(port.ContainerPort)
+			}
+		}
+	}
 	return pmap
 }
 
@@ -348,36 +362,39 @@ func (pc *PodCache) getPodByKey(key types.NamespacedName) *v1.Pod {
 
 // getPodByKey returns the pod of the proxy
 func (pc *PodCache) getPodByProxy(proxy *model.Proxy) *v1.Pod {
-	var pod *v1.Pod
 	key := podKeyByProxy(proxy)
 	if key.Name != "" {
-		pod = pc.getPodByKey(key)
+		pod := pc.getPodByKey(key)
 		if pod != nil {
 			return pod
 		}
 	}
 
-	// only need to fetch the corresponding pod through the first IP, although there are multiple IP scenarios,
-	// because multiple ips belong to the same pod
-	proxyIP := proxy.IPAddresses[0]
-	// just in case the proxy ID is bad formatted
-	pods := pc.getPodsByIP(proxyIP)
-	switch len(pods) {
-	case 0:
-		return nil
-	case 1:
-		return pods[0]
-	default:
-		// This should only happen with hostNetwork pods, which cannot be proxy clients...
-		log.Errorf("unexpected: found multiple pods for proxy %v (%v)", proxy.ID, proxyIP)
-		// Try to handle it gracefully
-		for _, p := range pods {
-			// At least filter out wrong namespaces...
-			if proxy.ConfigNamespace != p.Namespace {
-				continue
+	if features.EnableProxyFindPodByIP {
+		// only need to fetch the corresponding pod through the first IP, although there are multiple IP scenarios,
+		// because multiple ips belong to the same pod
+		proxyIP := proxy.IPAddresses[0]
+		// just in case the proxy ID is bad formatted
+		pods := pc.getPodsByIP(proxyIP)
+		switch len(pods) {
+		case 0:
+			return nil
+		case 1:
+			return pods[0]
+		default:
+			// This should only happen with hostNetwork pods, which cannot be proxy clients...
+			log.Errorf("unexpected: found multiple pods for proxy %v (%v)", proxy.ID, proxyIP)
+			// Try to handle it gracefully
+			for _, p := range pods {
+				// At least filter out wrong namespaces...
+				if proxy.ConfigNamespace != p.Namespace {
+					continue
+				}
+				return p
 			}
-			return p
+			return nil
 		}
-		return nil
 	}
+
+	return nil
 }

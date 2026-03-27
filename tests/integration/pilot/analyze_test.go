@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 // Copyright Istio Authors
 //
@@ -427,7 +426,7 @@ func istioctlWithStderr(t test.Failer, i istioctl.Instance, ns string, useKube b
 	return i.Invoke(args)
 }
 
-// applyFileOrFail applys the given yaml file and deletes it during context cleanup
+// applyFileOrFail applies the given yaml file and deletes it during context cleanup
 func applyFileOrFail(t framework.TestContext, ns, filename string) {
 	t.Helper()
 	if err := t.Clusters().Default().ApplyYAMLFiles(ns, filename); err != nil {

@@ -12,9 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Allow a smaller key since large keys + race detector is pretty slow
-//
-//go:debug rsa1024min=0
 package authenticate
 
 import (
@@ -130,7 +127,7 @@ func TestCheckAudience(t *testing.T) {
 
 func TestOIDCAuthenticate(t *testing.T) {
 	// Create a JWKS server
-	rsaKey, err := rsa.GenerateKey(rand.Reader, 512)
+	rsaKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		t.Fatalf("failed to generate a private key: %v", err)
 	}

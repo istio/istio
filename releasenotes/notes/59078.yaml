@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 59078
+releaseNotes:
+  - |
+    **Fixed** error wrapping in file-based config store to use `%w` verb, enabling proper error chain
+    propagation with `errors.Is()` and `errors.As()`.

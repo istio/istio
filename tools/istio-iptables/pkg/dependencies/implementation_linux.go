@@ -32,7 +32,7 @@ import (
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 )
 
-var testRuleAdd = []string{"-t", "filter", "-A", "INPUT", "-p", "255", "-j", "DROP", "-m", "comment", "--comment", `"Istio no-op iptables capability probe"`}
+var testRuleAdd = []string{"-t", "nat", "-A", "INPUT", "-p", "255", "-j", "RETURN"}
 
 // TODO the entire `istio-iptables` package is linux-specific, I'm not sure we really need
 // platform-differentiators for the `dependencies` package itself.
@@ -105,7 +105,13 @@ func shouldUseBinaryForCurrentContext(iptablesBin string) (IptablesVersion, erro
 	// so try to add a no-op rule to that table, and make sure it doesn't fail - if it does, we can't use this version
 	// as the host is missing kernel support for it.
 	// (255 is a nonexistent protocol number, IANA reserved, see `cat /etc/protocols`, so this rule will never match anything)
-	testCmd := exec.Command(iptablesBin, testRuleAdd...)
+	// should use the wait flag if supported to avoid lock contention whenever possible
+	needLock := !isNft && !parsedVer.LessThan(IptablesRestoreLocking)
+	testArgs := append(make([]string, 0, len(testRuleAdd)+1), testRuleAdd...)
+	if needLock {
+		testArgs = append(testArgs, "--wait=30")
+	}
+	testCmd := exec.Command(iptablesBin, testArgs...)
 
 	var testStdErr bytes.Buffer
 	testCmd.Stderr = &testStdErr
@@ -117,7 +123,7 @@ func shouldUseBinaryForCurrentContext(iptablesBin string) (IptablesVersion, erro
 			iptablesBin, testRes, testStdErr.String())
 	}
 
-	testRuleDel := append(make([]string, 0, len(testRuleAdd)), testRuleAdd...)
+	testRuleDel := append(make([]string, 0, len(testArgs)), testArgs...)
 	testRuleDel[2] = "-D"
 
 	testCmd = exec.Command(iptablesBin, testRuleDel...)
@@ -164,8 +170,16 @@ func runInSandbox(lockFile string, f func() error) error {
 		}
 		// Remount / as a private mount so that our mounts do not impact outside the namespace
 		// (see https://unix.stackexchange.com/questions/246312/why-is-my-bind-mount-visible-outside-its-mount-namespace).
+		// MS_PRIVATE is preferred because it completely stops mount event propagation in both directions.
+		// However, on some systems (for example Bottlerocket on EKS), seccomp or LSM policies may block
+		// mount() calls that use MS_PRIVATE, even when running inside a new mount namespace. If that
+		// happens, we fall back to MS_SLAVE. For our use case this still achieves the main goal as it
+		// prevents our bind mounts from propagating back to the parent namespace, while being less likely
+		// to be blocked by stricter security policies.
 		if err := unix.Mount("", "/", "", unix.MS_PRIVATE|unix.MS_REC, ""); err != nil {
-			return fmt.Errorf("failed to remount /: %v", err)
+			if slaveErr := unix.Mount("", "/", "", unix.MS_SLAVE|unix.MS_REC, ""); slaveErr != nil {
+				return fmt.Errorf("failed to remount /: (MS_PRIVATE returned: %v; MS_SLAVE returned: %v)", err, slaveErr)
+			}
 		}
 		// In CNI, we are running the pod network namespace, but the host filesystem. Locking the host is both useless and harmful,
 		// as it opens the risk of lock contention with other node actors (such as kube-proxy), and isn't actually needed at all.

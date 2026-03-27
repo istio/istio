@@ -40,7 +40,7 @@ spec:
     spec:
       containers:
       - name: fortio
-        image: fortio/fortio:latest_release
+        image: docker.io/fortio/fortio:latest_release
         imagePullPolicy: Always
         ports:
         - containerPort: 8080

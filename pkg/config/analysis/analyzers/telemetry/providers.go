@@ -23,12 +23,12 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 )
 
-type ProdiverAnalyzer struct{}
+type ProviderAnalyzer struct{}
 
-var _ analysis.Analyzer = &ProdiverAnalyzer{}
+var _ analysis.Analyzer = &ProviderAnalyzer{}
 
 // Metadata implements Analyzer
-func (a *ProdiverAnalyzer) Metadata() analysis.Metadata {
+func (a *ProviderAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name:        "telemetry.ProviderAnalyzer",
 		Description: "Validates that providers in telemetry resource is valid",
@@ -40,7 +40,7 @@ func (a *ProdiverAnalyzer) Metadata() analysis.Metadata {
 }
 
 // Analyze implements Analyzer
-func (a *ProdiverAnalyzer) Analyze(c analysis.Context) {
+func (a *ProviderAnalyzer) Analyze(c analysis.Context) {
 	meshConfig := fetchMeshConfig(c)
 	if meshConfig.DefaultProviders == nil ||
 		len(meshConfig.DefaultProviders.AccessLogging) == 0 {

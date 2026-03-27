@@ -36,12 +36,12 @@ func TestVersion(t *testing.T) {
 		{
 			desc:    "major fail",
 			input:   "1..",
-			wantErr: `Malformed version: 1..`,
+			wantErr: `malformed version: 1..`,
 		},
 		{
 			desc:    "major fail prefix",
 			input:   ".1",
-			wantErr: `Malformed version: .1`,
+			wantErr: `malformed version: .1`,
 		},
 		{
 			desc:  "minor success",
@@ -51,7 +51,7 @@ func TestVersion(t *testing.T) {
 		{
 			desc:    "minor fail",
 			input:   "1.1..",
-			wantErr: `Malformed version: 1.1..`,
+			wantErr: `malformed version: 1.1..`,
 		},
 		{
 			desc:  "patch success",
@@ -61,7 +61,7 @@ func TestVersion(t *testing.T) {
 		{
 			desc:    "patch fail",
 			input:   "1.1.-1",
-			wantErr: `Malformed version: 1.1.-1`,
+			wantErr: `malformed version: 1.1.-1`,
 		},
 		{
 			desc:  "suffix success",
@@ -71,12 +71,12 @@ func TestVersion(t *testing.T) {
 		{
 			desc:    "suffix fail",
 			input:   ".1.1.1-something",
-			wantErr: `Malformed version: .1.1.1-something`,
+			wantErr: `malformed version: .1.1.1-something`,
 		},
 		{
 			desc:    "Malformed version fail",
 			input:   "istio-testing-distroless",
-			wantErr: `Malformed version: istio-testing-distroless`,
+			wantErr: `malformed version: istio-testing-distroless`,
 		},
 	}
 

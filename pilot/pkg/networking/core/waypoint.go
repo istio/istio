@@ -15,10 +15,9 @@
 package core
 
 import (
-	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -39,6 +38,13 @@ const (
 	// EncapClusterName is the name of the cluster used for traffic to the connect_originate listener.
 	EncapClusterName = "encap"
 
+	// DoubleHBONEInnerConnectOriginate and DoubleHBONEOuterConnectOriginate is the name for resources (cluster and
+	// listener) associated with estabslishing double HBONE (CONNECT within CONNECT) tunnel.
+	// DoubleHBONEInnerConnectOriginate is used for the inner CONNECT tunnel and DoubleHBONEOuterConnectOriginate
+	// is used for the outer CONNECT tunnel.
+	DoubleHBONEInnerConnectOriginate = "inner_connect_originate"
+	DoubleHBONEOuterConnectOriginate = "outer_connect_originate"
+
 	// ConnectUpgradeType is the type of upgrade for HTTP CONNECT.
 	ConnectUpgradeType = "CONNECT"
 )
@@ -50,7 +56,13 @@ type waypointServices struct {
 
 // findWaypointResources returns workloads and services associated with the waypoint proxy
 func findWaypointResources(node *model.Proxy, push *model.PushContext) ([]model.WorkloadInfo, *waypointServices) {
-	key := model.WaypointKeyForProxy(node)
+	var key model.WaypointKey
+	if isAmbientEastWestGateway(node) {
+		key = model.WaypointKeyForNetworkGatewayProxy(node)
+	} else {
+		key = model.WaypointKeyForProxy(node)
+	}
+
 	workloads := push.WorkloadsForWaypoint(key)
 	serviceInfos := push.ServicesForWaypoint(key)
 
@@ -59,6 +71,11 @@ func findWaypointResources(node *model.Proxy, push *model.PushContext) ([]model.
 		hostName := host.Name(s.Service.Hostname)
 		svc, ok := push.ServiceIndex.HostnameAndNamespace[hostName][s.Service.Namespace]
 		if !ok {
+			continue
+		}
+		// Exclude MESH_INTERNAL services with DYNAMIC_DNS resolution from waypoint.
+		if svc.Resolution == model.DynamicDNS && !svc.MeshExternal {
+			log.Warnf("DYNAMIC_DNS is supported only for MESH_EXTERNAL services; skipping waypoint service %s/%s", svc.Attributes.Namespace, svc.Hostname)
 			continue
 		}
 		if waypointServices.services == nil {
@@ -115,11 +132,6 @@ func filterWaypointOutboundServices(
 	return res
 }
 
-func isEastWestGateway(node *model.Proxy) bool {
-	if node == nil || node.Type != model.Waypoint {
-		return false
-	}
-	controller, isManagedGateway := node.Labels[label.GatewayManaged.Name]
-
-	return isManagedGateway && controller == constants.ManagedGatewayEastWestControllerLabel
+func isAmbientEastWestGateway(node *model.Proxy) bool {
+	return node.IsAmbientEastWestGateway()
 }

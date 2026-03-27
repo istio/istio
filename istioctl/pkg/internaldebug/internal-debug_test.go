@@ -44,7 +44,8 @@ import (
 )
 
 type execTestCase struct {
-	args     []string
+	args []string
+	// revision should default to "default" if not set
 	revision string
 	noIstiod bool
 
@@ -60,7 +61,7 @@ func TestInternalDebug(t *testing.T) {
 		{ // case 0, no args
 			args:           []string{},
 			noIstiod:       true,
-			expectedOutput: "Error: debug type is required\n",
+			expectedOutput: "Error: debug type is required, you can specify --list flag to list supported debug types\n",
 			wantException:  true,
 		},
 		{ // case 1, no istiod
@@ -83,6 +84,9 @@ func TestInternalDebug(t *testing.T) {
 	})
 
 	for i, c := range cases {
+		if c.revision == "" {
+			c.revision = "default"
+		}
 		t.Run(fmt.Sprintf("case %d %s", i, strings.Join(c.args, " ")), func(t *testing.T) {
 			ctx := cli.NewFakeContext(&cli.NewFakeContextOption{
 				IstioNamespace: "istio-system",
@@ -192,6 +196,9 @@ func TestInternalDebugWithMultiIstiod(t *testing.T) {
 	}
 
 	for _, c := range cases {
+		if c.testcase.revision == "" {
+			c.testcase.revision = "default"
+		}
 		t.Run(c.name, func(t *testing.T) {
 			defer func() {
 				getXdsResponseCall = 0
@@ -201,7 +208,7 @@ func TestInternalDebugWithMultiIstiod(t *testing.T) {
 			ctx := cli.NewFakeContext(&cli.NewFakeContextOption{
 				IstioNamespace: "istio-system",
 			})
-			client, err := ctx.CLIClient()
+			client, err := ctx.CLIClientWithRevision(c.testcase.revision)
 			require.NoError(t, err)
 
 			_, err = client.Kube().CoreV1().Pods("istio-system").Create(context.TODO(), &corev1.Pod{
@@ -209,7 +216,8 @@ func TestInternalDebugWithMultiIstiod(t *testing.T) {
 					Name:      "istiod-test-1",
 					Namespace: "istio-system",
 					Labels: map[string]string{
-						"app": "istiod",
+						"app":                 "istiod",
+						label.IoIstioRev.Name: c.testcase.revision,
 					},
 				},
 				Status: corev1.PodStatus{
@@ -223,7 +231,8 @@ func TestInternalDebugWithMultiIstiod(t *testing.T) {
 					Name:      "istiod-test-2",
 					Namespace: "istio-system",
 					Labels: map[string]string{
-						"app": "istiod",
+						"app":                 "istiod",
+						label.IoIstioRev.Name: c.testcase.revision,
 					},
 				},
 				Status: corev1.PodStatus{
@@ -234,6 +243,187 @@ func TestInternalDebugWithMultiIstiod(t *testing.T) {
 
 			verifyExecTestOutput(t, DebugCommand(ctx), c.testcase)
 			require.Equal(t, c.ExceptGetXdsResponseCall, getXdsResponseCall)
+		})
+	}
+}
+
+func TestPrintAll(t *testing.T) {
+	testCases := []struct {
+		name     string
+		input    map[string]*discovery.DiscoveryResponse
+		expected string
+	}{
+		{
+			name: "valid JSON struct",
+			input: map[string]*discovery.DiscoveryResponse{
+				"user": {
+					Resources: []*anypb.Any{
+						{Value: []byte(`{"name": "Alice", "age": 30}`)},
+					},
+				},
+			},
+			expected: `{
+  "user": {
+    "name": "Alice",
+    "age": 30
+  }
+}
+`,
+		},
+		{
+			name: "valid JSON slice",
+			input: map[string]*discovery.DiscoveryResponse{
+				"hobbies": {
+					Resources: []*anypb.Any{
+						{Value: []byte(`["reading", "coding"]`)},
+					},
+				},
+			},
+			expected: `{
+  "hobbies": [
+    "reading",
+    "coding"
+  ]
+}
+`,
+		},
+		{
+			name: "invalid JSON string",
+			input: map[string]*discovery.DiscoveryResponse{
+				"invalid": {
+					Resources: []*anypb.Any{
+						{Value: []byte(`invalid json data`)},
+					},
+				},
+			},
+			expected: `{
+  "invalid": "invalid json data"
+}
+`,
+		},
+		{
+			name: "empty key",
+			input: map[string]*discovery.DiscoveryResponse{
+				"": {
+					Resources: []*anypb.Any{
+						{Value: []byte(`empty key`)},
+					},
+				},
+			},
+			expected: `{
+  "": "empty key"
+}
+`,
+		},
+		{
+			name: "empty value",
+			input: map[string]*discovery.DiscoveryResponse{
+				"empty": {
+					Resources: []*anypb.Any{
+						{Value: []byte(`{}`)},
+					},
+				},
+			},
+			expected: `{
+  "empty": {}
+}
+`,
+		},
+		{
+			name: "the value is nil",
+			input: map[string]*discovery.DiscoveryResponse{
+				"nilValue": {
+					Resources: []*anypb.Any{
+						{Value: nil},
+					},
+				},
+			},
+			expected: `{
+  "nilValue": ""
+}
+`,
+		},
+		{
+			name: "special characters",
+			input: map[string]*discovery.DiscoveryResponse{
+				"special": {
+					Resources: []*anypb.Any{
+						{Value: []byte(`"Hello \"World\"!"`)},
+					},
+				},
+			},
+			expected: `{
+  "special": "Hello \"World\"!"
+}
+`,
+		},
+		{
+			name: "binary data",
+			input: map[string]*discovery.DiscoveryResponse{
+				"binary": {
+					Resources: []*anypb.Any{
+						{Value: []byte{0x00, 0x01, 0x02}},
+					},
+				},
+			},
+			expected: `{
+  "binary": "\u0000\u0001\u0002"
+}
+`,
+		},
+		{
+			name: "valid nested structures",
+			input: map[string]*discovery.DiscoveryResponse{
+				"nested": {
+					Resources: []*anypb.Any{
+						{Value: []byte(`{"user": {"name": "Bob", "tags": ["dev", "ops"]}}`)},
+					},
+				},
+			},
+			expected: `{
+  "nested": {
+    "user": {
+      "name": "Bob",
+      "tags": [
+        "dev",
+        "ops"
+      ]
+    }
+  }
+}
+`,
+		},
+		{
+			name: "invalid nested structures, missing a \" at the end",
+			input: map[string]*discovery.DiscoveryResponse{
+				"nested": {
+					Resources: []*anypb.Any{
+						{Value: []byte(`{"user": {"name": "Bob", "tags": ["dev", "ops]}}`)},
+					},
+				},
+			},
+			expected: `{
+  "nested": "{\"user\": {\"name\": \"Bob\", \"tags\": [\"dev\", \"ops]}}"
+}
+`,
+		},
+	}
+
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			dw := &DebugWriter{
+				Writer:                 &buf,
+				InternalDebugAllIstiod: true,
+			}
+
+			if err := dw.PrintAll(tt.input); err != nil {
+				t.Fatalf("PrintAll() returned error: %v", err)
+			}
+			got := buf.String()
+			if got != tt.expected {
+				t.Errorf("Output mismatch.\nWant:\n%s\nGot:\n%s", tt.expected, got)
+			}
 		})
 	}
 }

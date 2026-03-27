@@ -107,7 +107,7 @@ func UndoRules(rules []Rule) []Rule {
 	return output
 }
 
-// BuildCustomCleanup generates a set of iptables commands to clean up unexpected leftover rules and chains.
+// BuildCleanupFromState generates a set of iptables commands to clean up unexpected leftover rules and chains.
 // The function takes the current state of iptables, represented by a map of table names to their associated chains and rules.
 // It first transforms the provided rules into corresponding undo rules.
 // It then appends flush and delete commands for each ISTIO_* chain.

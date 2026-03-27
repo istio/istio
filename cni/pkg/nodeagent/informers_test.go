@@ -176,7 +176,7 @@ func TestInformerExistingPodAddErrorAnnotatesWithPartialStatusOnRetry(t *testing
 	client := kube.NewFakeClient(ns, pod)
 	fs := &fakeServer{}
 
-	fs.On("AddPodToMesh",
+	call := fs.On("AddPodToMesh",
 		ctx,
 		mock.IsType(pod),
 		util.GetPodIPsIfPresent(pod),
@@ -200,6 +200,11 @@ func TestInformerExistingPodAddErrorAnnotatesWithPartialStatusOnRetry(t *testing
 	mt.Assert(EventTotals.Name(), map[string]string{"type": "update"}, monitortest.AtLeast(6))
 
 	assertPodAnnotatedPending(t, client, pod)
+
+	// allow the call to succeed, this will stop further retry events from occurring
+	call.Return(nil)
+	// assert that the pod has been annotated before we proceed
+	assertPodAnnotated(t, client, pod)
 
 	// Assert expected calls actually made
 	fs.AssertExpectations(t)
@@ -792,7 +797,7 @@ func TestInformerGetActiveAmbientPodSnapshotOnlyReturnsActivePods(t *testing.T) 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	enrolledNotRedirected := &corev1.Pod{
+	enrolledNotRedirected := kube.EnsureTypeMeta(&corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "enrolled-not-redirected",
 			Namespace: "test",
@@ -805,8 +810,8 @@ func TestInformerGetActiveAmbientPodSnapshotOnlyReturnsActivePods(t *testing.T) 
 		Status: corev1.PodStatus{
 			PodIP: "11.1.1.12",
 		},
-	}
-	redirectedNotEnrolled := &corev1.Pod{
+	})
+	redirectedNotEnrolled := kube.EnsureTypeMeta(&corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        "redirected-not-enrolled",
 			Namespace:   "test",
@@ -819,7 +824,7 @@ func TestInformerGetActiveAmbientPodSnapshotOnlyReturnsActivePods(t *testing.T) 
 		Status: corev1.PodStatus{
 			PodIP: "11.1.1.13",
 		},
-	}
+	})
 	ns := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   "test",

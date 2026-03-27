@@ -1623,7 +1623,10 @@ func TestBuildGatewayListenerTlsContext(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			ret := buildGatewayListenerTLSContext(tc.mesh, tc.server, &pilot_model.Proxy{
+			push := &pilot_model.PushContext{
+				Mesh: tc.mesh,
+			}
+			ret := buildGatewayListenerTLSContext(push, tc.server, &pilot_model.Proxy{
 				Metadata: &pilot_model.NodeMetadata{},
 			}, tc.transportProtocol)
 			if diff := cmp.Diff(tc.result, ret, protocmp.Transform()); diff != "" {
@@ -3551,6 +3554,101 @@ func TestBuildGatewayListeners(t *testing.T) {
 			},
 			[]string{"10.0.0.1_443", "10.0.0.2_443"},
 		},
+		{
+			"gateway with multiple QUIC/HTTP3 servers with bind",
+			&pilot_model.Proxy{
+				ServiceTargets: []pilot_model.ServiceTarget{
+					{
+						Service: &pilot_model.Service{
+							Hostname: "test",
+						},
+						Port: pilot_model.ServiceInstancePort{
+							ServicePort: &pilot_model.Port{
+								Port:     443,
+								Protocol: protocol.UDP,
+							},
+							TargetPort: 443,
+						},
+					},
+				},
+			},
+			[]config.Config{
+				{
+					Meta: config.Meta{Name: "gateway1", Namespace: "testns", GroupVersionKind: gvk.Gateway},
+					Spec: &networking.Gateway{
+						Servers: []*networking.Server{
+							{
+								Port:  &networking.Port{Name: "https", Number: 443, Protocol: "HTTPS"},
+								Hosts: []string{"*.example.com"},
+								Bind:  "10.0.0.1",
+								Tls:   &networking.ServerTLSSettings{CredentialName: "test1", Mode: networking.ServerTLSSettings_SIMPLE},
+							},
+						},
+					},
+				},
+				{
+					Meta: config.Meta{Name: "gateway2", Namespace: "testns", GroupVersionKind: gvk.Gateway},
+					Spec: &networking.Gateway{
+						Servers: []*networking.Server{
+							{
+								Port:  &networking.Port{Name: "https", Number: 443, Protocol: "HTTPS"},
+								Hosts: []string{"*.example.org"},
+								Bind:  "10.0.0.2",
+								Tls:   &networking.ServerTLSSettings{CredentialName: "test2", Mode: networking.ServerTLSSettings_SIMPLE},
+							},
+						},
+					},
+				},
+			},
+			[]config.Config{
+				{
+					Meta: config.Meta{Name: uuid.NewString(), Namespace: uuid.NewString(), GroupVersionKind: gvk.VirtualService},
+					Spec: &networking.VirtualService{
+						Gateways: []string{"testns/gateway1"},
+						Hosts:    []string{"*.example.com"},
+						Http: []*networking.HTTPRoute{
+							{
+								Route: []*networking.HTTPRouteDestination{
+									{
+										Destination: &networking.Destination{
+											Host: "foo.example.com",
+											Port: &networking.PortSelector{
+												Number: 80,
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				{
+					Meta: config.Meta{Name: uuid.NewString(), Namespace: uuid.NewString(), GroupVersionKind: gvk.VirtualService},
+					Spec: &networking.VirtualService{
+						Gateways: []string{"testns/gateway2"},
+						Hosts:    []string{"*.example.org"},
+						Http: []*networking.HTTPRoute{
+							{
+								Route: []*networking.HTTPRouteDestination{
+									{
+										Destination: &networking.Destination{
+											Host: "bar.example.org",
+											Port: &networking.PortSelector{
+												Number: 80,
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			// Expect both TCP listeners for HTTPS and UDP listeners for QUIC/HTTP3 when PILOT_ENABLE_QUIC_LISTENERS=true
+			// Without QUIC enabled: []string{"10.0.0.1_443", "10.0.0.2_443"}
+			// With QUIC enabled: []string{"10.0.0.1_443", "10.0.0.2_443", "udp_10.0.0.1_443", "udp_10.0.0.2_443"}
+			[]string{"10.0.0.1_443", "10.0.0.2_443"},
+		},
 	}
 
 	for _, tt := range cases {
@@ -4646,30 +4744,48 @@ func TestGatewayHCMInternalAddressConfig(t *testing.T) {
 }
 
 func TestListenerTransportSocketConnectTimeoutForGateway(t *testing.T) {
-	cases := []struct {
-		name            string
-		expectedTimeout int64
-		configs         []config.Config
-	}{
-		{
-			name:            "should set timeout",
-			expectedTimeout: durationpb.New(defaultGatewayTransportSocketConnectTimeout).GetSeconds(),
-			configs: []config.Config{
+	gatewayConfig := config.Config{
+		Meta: config.Meta{Name: "http-server", Namespace: "testns", GroupVersionKind: gvk.Gateway},
+		Spec: &networking.Gateway{
+			Servers: []*networking.Server{
 				{
-					Meta: config.Meta{Name: "http-server", Namespace: "testns", GroupVersionKind: gvk.Gateway},
-					Spec: &networking.Gateway{
-						Servers: []*networking.Server{
-							{
-								Port: &networking.Port{Name: "http", Number: 80, Protocol: "HTTP"},
-							},
-						},
-					},
+					Port: &networking.Port{Name: "http", Number: 80, Protocol: "HTTP"},
 				},
 			},
 		},
 	}
+	cases := []struct {
+		name            string
+		expectedTimeout int64
+		timeoutDisabled bool
+		configuredValue time.Duration
+		configs         []config.Config
+	}{
+		{
+			name:            "should set default timeout",
+			expectedTimeout: durationpb.New(defaultGatewayTransportSocketConnectTimeout).GetSeconds(),
+			configs:         []config.Config{gatewayConfig},
+		},
+		{
+			name:            "should set custom timeout",
+			expectedTimeout: 30,
+			configuredValue: 30 * time.Second,
+			configs:         []config.Config{gatewayConfig},
+		},
+		{
+			name:            "should disable timeout when set to 0",
+			timeoutDisabled: true,
+			configuredValue: 0,
+			configs:         []config.Config{gatewayConfig},
+		},
+	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
+			if tt.configuredValue > 0 {
+				test.SetForTest(t, &features.GatewayTransportSocketConnectTimeout, tt.configuredValue)
+			} else if tt.timeoutDisabled {
+				test.SetForTest(t, &features.GatewayTransportSocketConnectTimeout, time.Duration(0))
+			}
 			cg := NewConfigGenTest(t, TestOptions{
 				Configs:    tt.configs,
 				MeshConfig: mesh.DefaultMeshConfig(),
@@ -4691,8 +4807,13 @@ func TestListenerTransportSocketConnectTimeoutForGateway(t *testing.T) {
 			lb := NewListenerBuilder(proxy, cg.PushContext())
 			builder := cg.ConfigGen.buildGatewayListeners(lb)
 			fc := builder.gatewayListeners[0].FilterChains[0]
-			if fc.TransportSocketConnectTimeout == nil || fc.TransportSocketConnectTimeout.Seconds != tt.expectedTimeout {
-				t.Errorf("expected transport socket connect timeout to be %v on gateway listern's filter chain %v, got %v",
+			if tt.timeoutDisabled {
+				if fc.TransportSocketConnectTimeout != nil {
+					t.Errorf("expected no transport socket connect timeout on gateway listener's filter chain %v, got %v",
+						fc.Name, fc.TransportSocketConnectTimeout)
+				}
+			} else if fc.TransportSocketConnectTimeout == nil || fc.TransportSocketConnectTimeout.Seconds != tt.expectedTimeout {
+				t.Errorf("expected transport socket connect timeout to be %v on gateway listener's filter chain %v, got %v",
 					tt.expectedTimeout, fc.Name, fc.TransportSocketConnectTimeout)
 			}
 		})

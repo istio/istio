@@ -333,7 +333,7 @@ spec:
       tcp1: 7070
 ---
 
-# TODO: in progres, should bind to 127.0.0.1
+# TODO: in progress, should bind to 127.0.0.1
 # will resolve using SNI
 # DNS or etc/hosts or code must override the address, but pass proper SNI
 apiVersion: networking.istio.io/v1

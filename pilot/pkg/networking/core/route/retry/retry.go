@@ -30,56 +30,76 @@ import (
 
 var defaultRetryPriorityTypedConfig = protoconv.MessageToAny(buildPreviousPrioritiesConfig())
 
-// DefaultPolicy gets a copy of the default retry policy.
-func DefaultPolicy() *route.RetryPolicy {
-	policy := defaultPolicy()
-	policy.RetryHostPredicate = []*route.RetryPolicy_RetryHostPredicate{
-		// to configure retries to prefer hosts that haven’t been attempted already,
-		// the builtin `envoy.retry_host_predicates.previous_hosts` predicate can be used.
+// Cached immutable default values to avoid repeated allocations.
+// These are shared and must not be modified.
+var (
+	defaultNumRetries = &wrappers.UInt32Value{Value: 2}
+	defaultRetryOn    = "connect-failure,refused-stream,unavailable,cancelled,retriable-status-codes"
+
+	// Shared slice for RetryHostPredicate - immutable, safe to share
+	defaultRetryHostPredicate = []*route.RetryPolicy_RetryHostPredicate{
 		xdsfilters.RetryPreviousHosts,
+	}
+
+	// Cached default policy with RetryHostPredicate (for non-consistent-hash cases)
+	cachedDefaultPolicy = &route.RetryPolicy{
+		NumRetries:                    defaultNumRetries,
+		RetryOn:                       defaultRetryOn,
+		HostSelectionRetryMaxAttempts: 5,
+		RetryHostPredicate:            defaultRetryHostPredicate,
+	}
+
+	// Cached default policy without RetryHostPredicate (for consistent-hash cases)
+	cachedDefaultConsistentHashPolicy = &route.RetryPolicy{
+		NumRetries:                    defaultNumRetries,
+		RetryOn:                       defaultRetryOn,
+		HostSelectionRetryMaxAttempts: 5,
+	}
+
+	cachedRetryRemoteLocalitiesPredicate = &route.RetryPolicy_RetryPriority{
+		Name: "envoy.retry_priorities.previous_priorities",
+		ConfigType: &route.RetryPolicy_RetryPriority_TypedConfig{
+			TypedConfig: defaultRetryPriorityTypedConfig,
+		},
+	}
+)
+
+// DefaultPolicy returns the default retry policy.
+// The returned policy is a shared immutable instance and must not be modified.
+// If modification is needed, use newRetryPolicy() instead.
+func DefaultPolicy() *route.RetryPolicy {
+	return cachedDefaultPolicy
+}
+
+// DefaultConsistentHashPolicy returns the default retry policy without previous host predicate.
+// When Consistent Hashing is enabled, we don't want to use other hosts during retries.
+// The returned policy is a shared immutable instance and must not be modified.
+func DefaultConsistentHashPolicy() *route.RetryPolicy {
+	return cachedDefaultConsistentHashPolicy
+}
+
+// newRetryPolicy creates a new mutable retry policy with default values.
+// Use this when the policy needs to be customized.
+func newRetryPolicy(hashPolicy bool) *route.RetryPolicy {
+	policy := &route.RetryPolicy{
+		NumRetries:                    &wrappers.UInt32Value{Value: 2},
+		RetryOn:                       defaultRetryOn,
+		HostSelectionRetryMaxAttempts: 5,
+	}
+	if !hashPolicy {
+		policy.RetryHostPredicate = defaultRetryHostPredicate
 	}
 	return policy
 }
 
-func defaultPolicy() *route.RetryPolicy {
-	return &route.RetryPolicy{
-		NumRetries: &wrappers.UInt32Value{Value: 2},
-		RetryOn:    "connect-failure,refused-stream,unavailable,cancelled,retriable-status-codes",
-		// TODO: allow this to be configured via API.
-		HostSelectionRetryMaxAttempts: 5,
-	}
-}
-
-// DefaultConsistentHashPolicy gets a copy of the default retry policy without previous host predicate.
-// When Consistent Hashing is enabled, we don't want to use other hosts during retries.
-func DefaultConsistentHashPolicy() *route.RetryPolicy {
-	return defaultPolicy()
-}
-
 // ConvertPolicy converts the given Istio retry policy to an Envoy policy.
-//
-// If in is nil, DefaultPolicy is returned.
-//
-// If in.Attempts == 0, returns nil.
-//
-// Otherwise, the returned policy is DefaultPolicy with the following overrides:
-//
-// - NumRetries: set from in.Attempts
-//
-// - RetryOn, RetriableStatusCodes: set from in.RetryOn (if specified). RetriableStatusCodes
-// is appended when encountering parts that are valid HTTP status codes.
-//
-// - PerTryTimeout: set from in.PerTryTimeout (if specified)
 func ConvertPolicy(in *networking.HTTPRetry, hashPolicy bool) *route.RetryPolicy {
-	var out *route.RetryPolicy
-	if hashPolicy {
-		out = DefaultConsistentHashPolicy()
-	} else {
-		out = DefaultPolicy()
-	}
+	// Fast path: if no custom config, return cached immutable default
 	if in == nil {
-		// No policy was set, use a default.
-		return out
+		if hashPolicy {
+			return cachedDefaultConsistentHashPolicy
+		}
+		return cachedDefaultPolicy
 	}
 
 	if in.Attempts <= 0 {
@@ -87,7 +107,10 @@ func ConvertPolicy(in *networking.HTTPRetry, hashPolicy bool) *route.RetryPolicy
 		return nil
 	}
 
-	// A policy was specified. Start with the default and override with user-provided fields where appropriate.
+	// A policy was specified - we need a mutable copy to customize
+	out := newRetryPolicy(hashPolicy)
+
+	// Override with user-provided fields
 	out.NumRetries = &wrappers.UInt32Value{Value: uint32(in.Attempts)}
 
 	if in.RetryOn != "" {
@@ -108,22 +131,13 @@ func ConvertPolicy(in *networking.HTTPRetry, hashPolicy bool) *route.RetryPolicy
 	if in.RetryIgnorePreviousHosts != nil {
 		var retryHostPredicate []*route.RetryPolicy_RetryHostPredicate
 		if in.RetryIgnorePreviousHosts.GetValue() {
-			retryHostPredicate = []*route.RetryPolicy_RetryHostPredicate{
-				// to configure retries to prefer hosts that haven’t been attempted already,
-				// the builtin `envoy.retry_host_predicates.previous_hosts` predicate can be used.
-				xdsfilters.RetryPreviousHosts,
-			}
+			retryHostPredicate = defaultRetryHostPredicate
 		}
 		out.RetryHostPredicate = retryHostPredicate
 	}
 
 	if in.RetryRemoteLocalities != nil && in.RetryRemoteLocalities.GetValue() {
-		out.RetryPriority = &route.RetryPolicy_RetryPriority{
-			Name: "envoy.retry_priorities.previous_priorities",
-			ConfigType: &route.RetryPolicy_RetryPriority_TypedConfig{
-				TypedConfig: defaultRetryPriorityTypedConfig,
-			},
-		}
+		out.RetryPriority = cachedRetryRemoteLocalitiesPredicate
 	}
 
 	if in.Backoff != nil {

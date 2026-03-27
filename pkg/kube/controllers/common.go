@@ -38,6 +38,7 @@ var log = istiolog.RegisterScope("controllers", "common controller logic")
 // Object is a union of runtime + meta objects. Essentially every k8s object meets this interface.
 // and certainly all that we care about.
 type Object interface {
+	SetGroupVersionKind(gvk schema.GroupVersionKind)
 	metav1.Object
 	runtime.Object
 }
@@ -198,9 +199,13 @@ func FromEventHandler(handler func(o Event)) cache.ResourceEventHandler {
 // ObjectHandler returns a handler that will act on the latest version of an object
 // This means Add/Update/Delete are all handled the same and are just used to trigger reconciling.
 func ObjectHandler(handler func(o Object)) cache.ResourceEventHandler {
+	return TypedObjectHandler[Object](handler)
+}
+
+func TypedObjectHandler[T ComparableObject](handler func(o T)) cache.ResourceEventHandler {
 	h := func(obj any) {
-		o := ExtractObject(obj)
-		if o == nil {
+		o := Extract[T](obj)
+		if IsNil(o) {
 			return
 		}
 		handler(o)

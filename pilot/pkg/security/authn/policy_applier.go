@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // MTLSSettings describes the mTLS options for a filter chain
@@ -166,7 +167,7 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 			ForwardPayloadHeader: jwtRule.OutputPayloadToHeader,
 			PayloadInMetadata:    filters.EnvoyJwtFilterPayload,
 			NormalizePayloadInMetadata: &envoy_jwt.JwtProvider_NormalizePayload{
-				SpaceDelimitedClaims: []string{"scope", "permission"},
+				SpaceDelimitedClaims: buildSpaceDelimitedClaims(jwtRule.SpaceDelimitedClaims),
 			},
 			ClearRouteCache: clearRouteCache,
 		}
@@ -328,6 +329,38 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 		Providers:           providers,
 		BypassCorsPreflight: true,
 	}
+}
+
+// buildSpaceDelimitedClaims constructs a list of JWT claim names that should be treated
+// as space-delimited strings by the Envoy JWT filter.
+// The default claims ("scope" and "permission") are always included while allowing users
+// to specify additional custom claims.
+// Parameters:
+//   - spaceDelimitedClaimsList: A slice of custom JWT claim names that should be treated
+//     as space-delimited. Can be nil or empty.
+//
+// Returns:
+//   - A slice of strings containing all claim names that should be treated as space-delimited.
+//     The default claims "scope" and "permission" are always included.
+//
+// Example:
+//   - If spaceDelimitedClaimsList is nil, the function returns ["permission", "scope"].
+//   - If spaceDelimitedClaimsList is ["customClaim1", "customClaim2"], the function returns
+//     ["customClaim1", "customClaim2", "permission", "scope"].
+func buildSpaceDelimitedClaims(spaceDelimitedClaimsList []string) []string {
+	// Default claims that are always space-delimited
+	defaultClaims := []string{"permission", "scope"}
+
+	// If input is nil, return the default list
+	if spaceDelimitedClaimsList == nil {
+		return defaultClaims
+	}
+
+	// Use sets to deduplicate and merge claims, then return sorted list for deterministic output
+	// Note: This sorting does not affect JWT processing functionality - Envoy treats
+	// all claims in the list equally regardless of order. The sorting is purely for
+	// consistent test results and implementation predictability.
+	return sets.SortedList(sets.New(spaceDelimitedClaimsList...).InsertAll(defaultClaims...))
 }
 
 func (a policyApplier) PortLevelSetting() map[uint32]model.MutualTLSMode {

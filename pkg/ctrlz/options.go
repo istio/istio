@@ -30,10 +30,13 @@ type Options struct {
 	EnablePprof bool
 }
 
+// DefaultControlZPort is the default port for the ControlZ server
+const DefaultControlZPort = 9876
+
 // DefaultOptions returns a new set of options, initialized to the defaults
 func DefaultOptions() *Options {
 	return &Options{
-		Port:    9876,
+		Port:    DefaultControlZPort,
 		Address: "localhost",
 	}
 }

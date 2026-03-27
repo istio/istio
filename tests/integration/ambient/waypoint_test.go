@@ -20,11 +20,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
+	"path"
 	"strings"
 	"testing"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	k8s "sigs.k8s.io/gateway-api/apis/v1"
 
@@ -34,7 +38,9 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/common/scheme"
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
@@ -45,6 +51,7 @@ import (
 	kubetest "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -53,7 +60,7 @@ func TestWaypointStatus(t *testing.T) {
 		NewTest(t).
 		Run(func(t framework.TestContext) {
 			t.NewSubTest("gateway class").Run(func(t framework.TestContext) {
-				client := t.Clusters().Default().GatewayAPI().GatewayV1beta1().GatewayClasses()
+				client := t.Clusters().Default().GatewayAPI().GatewayV1().GatewayClasses()
 
 				check := func() error {
 					gwc, _ := client.Get(context.Background(), constants.WaypointGatewayClassName, metav1.GetOptions{})
@@ -209,7 +216,11 @@ func TestWaypoint(t *testing.T) {
 }
 
 func checkWaypointIsReady(t framework.TestContext, ns, name string) error {
-	fetch := kubetest.NewPodFetch(t.AllClusters()[0], ns, label.IoK8sNetworkingGatewayGatewayName.Name+"="+name)
+	return checkWaypointIsReadyInCluster(t.AllClusters()[0], ns, name)
+}
+
+func checkWaypointIsReadyInCluster(c cluster.Cluster, ns, name string) error {
+	fetch := kubetest.NewPodFetch(c, ns, label.IoK8sNetworkingGatewayGatewayName.Name+"="+name)
 	_, err := kubetest.CheckPodsAreReady(fetch)
 	return err
 }
@@ -230,7 +241,7 @@ spec:
   environmentVariables:
     ISTIO_META_DISABLE_HBONE_SEND: "true"
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: simple-http-waypoint
@@ -276,7 +287,7 @@ spec:
     port: 15008
     protocol: TCP
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: {{.Service}}-httproute
@@ -443,15 +454,85 @@ func TestWaypointDNS(t *testing.T) {
 			})
 			t.NewSubTest("with waypoint").Run(func(t framework.TestContext) {
 				// Update use-waypoint for Captured service
-				SetWaypointServiceEntry(t, "external-service", apps.Namespace.Name(), "waypoint")
+				SetWaypointServiceEntry(t, "external-service", apps.Namespace.Name(), "waypoint-service")
 				runTest(t, check.And(check.OK(), IsL7()))
 			})
 		})
 }
 
+type externalSubsetService struct {
+	Name      string
+	SubsetKey string
+	Hostname  string
+	ClusterIP string
+}
+
+// servicesForSubsets is a helper function to create a kubernetes service for all subsets of a service
+// Assumes a single pod per subset
+func servicesForSubsets(t framework.TestContext, instance echo.Instance) []externalSubsetService {
+	ns := instance.Config().Namespace.Name()
+	services := []externalSubsetService{}
+	for _, subset := range instance.Config().Subsets {
+		svc := corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      instance.Config().Service + "-" + subset.Version,
+				Namespace: ns,
+				Labels: map[string]string{
+					"app":     instance.Config().Service,
+					"version": subset.Version,
+				},
+			},
+			Spec: corev1.ServiceSpec{
+				Selector: map[string]string{
+					"app":     instance.Config().Service,
+					"version": subset.Version,
+				},
+				Ports: []corev1.ServicePort{
+					{
+						Name: "http",
+						Port: 8080,
+					},
+				},
+			},
+		}
+
+		s, err := t.Clusters().Default().Kube().CoreV1().Services(ns).Create(context.TODO(), &svc, metav1.CreateOptions{})
+		if err != nil {
+			t.Fatalf("failed to create service %s: %v", svc.Name, err)
+		}
+
+		t.CleanupConditionally(func() {
+			t.Clusters().Default().Kube().CoreV1().Services(ns).Delete(context.TODO(), s.Name, metav1.DeleteOptions{})
+		})
+
+		pods, err := t.Clusters().Default().Kube().CoreV1().Pods(ns).List(context.TODO(), metav1.ListOptions{
+			LabelSelector: labels.SelectorFromSet(map[string]string{
+				"app":     instance.Config().Service,
+				"version": subset.Version,
+			}).String(),
+		})
+		if err != nil {
+			t.Fatalf("failed to list pods: %v", err)
+		}
+		if len(pods.Items) != 1 {
+			t.Fatalf("expected 1 pod found for service %s, got %d", svc.Name, len(pods.Items))
+		}
+		services = append(services, externalSubsetService{
+			Name:      s.Name,
+			SubsetKey: subset.Version,
+			Hostname:  pods.Items[0].Name,
+			ClusterIP: s.Spec.ClusterIP,
+		})
+	}
+	return services
+}
+
 func TestWaypointAsEgressGateway(t *testing.T) {
-	runTest := func(t framework.TestContext, name string, config string, opts ...echo.CallOptions) {
+	runTest := func(t framework.TestContext, name string, config string, skipMultiClusterReason string, opts ...echo.CallOptions) {
 		t.NewSubTest(name).Run(func(t framework.TestContext) {
+			if skipMultiClusterReason != "" && t.Settings().AmbientMultiNetwork {
+				t.Skip(skipMultiClusterReason)
+			}
 			if config != "" {
 				t.ConfigIstio().YAML(apps.Namespace.Name(), config).ApplyOrFail(t)
 			}
@@ -499,6 +580,64 @@ spec:
 				Eval(egressNamespace.Name(), apps.Namespace.Name(), waypointSpec).
 				ApplyOrFail(t, apply.CleanupConditionally)
 
+			external := apps.MockExternal.Instances()[0]
+
+			if len(external.WorkloadsOrFail(t)) < 1 {
+				t.Skip("not enough external service instances")
+			}
+
+			// Use the first subset service for testing consistency
+			subsetService := servicesForSubsets(t, external)[0]
+			resolutionNoneServiceEntry := `apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: external-resolution-none
+  labels:
+    istio.io/use-waypoint: egress-gateway
+    istio.io/use-waypoint-namespace: {{.EgressNamespace}}
+spec:
+  hosts:
+  - fake-passthrough.example.com
+  ports:
+  - name: http
+    number: 8080
+    protocol: HTTP
+  resolution: NONE
+  location: MESH_EXTERNAL
+  addresses:
+  - {{.IP}}
+`
+			t.ConfigIstio().
+				Eval(apps.Namespace.Name(), map[string]any{
+					"EgressNamespace": egressNamespace.Name(),
+					"IP":              subsetService.ClusterIP,
+				}, resolutionNoneServiceEntry).
+				ApplyOrFail(t, apply.CleanupConditionally)
+
+			hostHeader := http.Header{}
+			hostHeader.Set("Host", "fake-passthrough.example.com")
+
+			// Test that we send traffic through the waypoint successfully
+			// The setup for this testing would be tricky in multi-network because the VIPs being used
+			// are not in the mesh, but they are in a cluster.
+			// This means each cluster's VIPs would need to be unique.
+			// That isn't useful for testing though because it's just turning the multi-cluster
+			// tests into multiple single-cluster tests.
+			// Arguably, egress gateways should never be accessed across a cluster-boundary,
+			// so perhaps the skips need not be removed as even in multi-cluster testing we expect egress
+			// to behave as though it is single-cluster.
+			testName := fmt.Sprintf("resolution none %s", subsetService.ClusterIP)
+			runTest(t, testName, "",
+				"relies on unmeshed ClusterIPs as a simulated external service IP",
+				echo.CallOptions{
+					Address: subsetService.ClusterIP,
+					HTTP:    echo.HTTP{Headers: hostHeader},
+					Port:    echo.Port{ServicePort: 8080},
+					Scheme:  scheme.HTTP,
+					Count:   1,
+					Check:   check.And(check.OK(), IsL7(), check.Hostname(subsetService.Hostname)),
+				})
+
 			service := `apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
@@ -533,7 +672,7 @@ spec:
 				ApplyOrFail(t)
 
 			// We can send a simple request
-			runTest(t, "basic", "", echo.CallOptions{
+			runTest(t, "basic", "", "", echo.CallOptions{
 				Address: "fake-egress.example.com",
 				Port:    echo.Port{ServicePort: 80},
 				Scheme:  scheme.HTTP,
@@ -552,7 +691,7 @@ spec:
     tls:
       mode: SIMPLE
       insecureSkipVerify: true`
-			runTest(t, "http origination targetPort", tlsOrigination, echo.CallOptions{
+			runTest(t, "http origination targetPort", tlsOrigination, "", echo.CallOptions{
 				Address: "fake-egress.example.com",
 				Port:    echo.Port{ServicePort: 8080},
 				Scheme:  scheme.HTTP,
@@ -560,7 +699,48 @@ spec:
 				Check:   check.And(check.OK(), IsL7(), check.Alpn("http/1.1")),
 			})
 
-			tlsOriginationRedirect := tlsOrigination + `
+			rootCert := file.AsStringOrFail(t, path.Join(env.IstioSrc, "tests/testdata/certs/dns/root-cert.pem"))
+			caConfigMap := `apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: external-ca-cert
+data:
+  ca.crt: |
+{{.RootCert | indent 4}}
+`
+			t.ConfigIstio().
+				Eval(egressNamespace.Name(), map[string]any{"RootCert": rootCert}, caConfigMap).
+				ApplyOrFail(t, apply.CleanupConditionally)
+
+			// Test we can do TLS origination, by utilizing ServiceEntry target port
+			backendTLSPolicy := func(portName string) string {
+				return fmt.Sprintf(`apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: fake-egress-tls
+spec:
+  targetRefs:
+  - group: networking.istio.io
+    kind: ServiceEntry
+    name: external
+    sectionName: %s
+  validation:
+    hostname: server.default.svc
+    caCertificateRefs:
+    - kind: ConfigMap
+      name: external-ca-cert
+      group: ""`, portName)
+			}
+
+			runTest(t, "http origination targetPort with BackendTLSPolicy", backendTLSPolicy("http-for-tls"), "", echo.CallOptions{
+				Address: "fake-egress.example.com",
+				Port:    echo.Port{ServicePort: 8080},
+				Scheme:  scheme.HTTP,
+				Count:   1,
+				Check:   check.And(check.OK(), IsL7(), check.Alpn("http/1.1")),
+			})
+
+			httpRoute := `
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
@@ -576,9 +756,17 @@ spec:
     - kind: Hostname
       group: networking.istio.io
       name: fake-egress.example.com
-      port: 443
-`
-			runTest(t, "http origination route", tlsOriginationRedirect, echo.CallOptions{
+      port: 443`
+
+			runTest(t, "http origination route", tlsOrigination+httpRoute, "", echo.CallOptions{
+				Address: "fake-egress.example.com",
+				Port:    echo.Port{ServicePort: 80},
+				Scheme:  scheme.HTTP,
+				Count:   1,
+				Check:   check.And(check.OK(), IsL7(), check.Alpn("http/1.1")),
+			})
+
+			runTest(t, "http origination route with BackendTLSPolicy", backendTLSPolicy("https")+httpRoute, "", echo.CallOptions{
 				Address: "fake-egress.example.com",
 				Port:    echo.Port{ServicePort: 80},
 				Scheme:  scheme.HTTP,
@@ -605,6 +793,7 @@ spec:
 				t,
 				"authz on service allow",
 				authz,
+				"",
 				// Check blocked requests are denied
 				echo.CallOptions{
 					Address: "fake-egress.example.com",
@@ -820,6 +1009,14 @@ spec:
           port: 9093
           weight: 1
 `).ApplyOrFail(t)
+		if t.Settings().AmbientMultiNetwork {
+			labelServiceGlobal(t, apps.Captured.ServiceName(), t.AllClusters()...)
+			labelServiceGlobal(t, apps.ServiceAddressedWaypoint.ServiceName(), t.AllClusters()...)
+			t.Cleanup(func() {
+				unlabelServiceGlobal(t, apps.ServiceAddressedWaypoint.ServiceName(), t.AllClusters()...)
+				unlabelServiceGlobal(t, apps.Captured.ServiceName(), t.AllClusters()...)
+			})
+		}
 		apps.Captured[0].CallOrFail(t, echo.CallOptions{
 			To:    apps.ServiceAddressedWaypoint,
 			Port:  ports.TCP,
@@ -873,6 +1070,14 @@ spec:
           port: 9093
           weight: 1
 `).ApplyOrFail(t)
+		if t.Settings().AmbientMultiNetwork {
+			labelServiceGlobal(t, apps.Captured.ServiceName(), t.AllClusters()...)
+			labelServiceGlobal(t, apps.ServiceAddressedWaypoint.ServiceName(), t.AllClusters()...)
+			t.Cleanup(func() {
+				unlabelServiceGlobal(t, apps.ServiceAddressedWaypoint.ServiceName(), t.AllClusters()...)
+				unlabelServiceGlobal(t, apps.Captured.ServiceName(), t.AllClusters()...)
+			})
+		}
 		apps.Captured[0].CallOrFail(t, echo.CallOptions{
 			To:    apps.ServiceAddressedWaypoint,
 			Port:  ports.TCP,
@@ -901,6 +1106,180 @@ spec:
 			}),
 		})
 	})
+}
+
+func TestWaypointAsEgressGatewayForWildcardEntries(t *testing.T) {
+	runTest := func(t framework.TestContext, name string, config string, opts ...echo.CallOptions) {
+		t.NewSubTest(name).Run(func(t framework.TestContext) {
+			if config != "" {
+				t.ConfigIstio().YAML(apps.Namespace.Name(), config).ApplyOrFail(t)
+			}
+			for _, src := range apps.All {
+				if !hboneClient(src) {
+					continue
+				}
+				t.NewSubTestf("from %s", src.ServiceName()).Run(func(t framework.TestContext) {
+					if src.Config().HasSidecar() {
+						t.Skip("TODO: sidecars don't properly handle use-waypoint. See https://github.com/istio/istio/issues/51445")
+					}
+					for _, o := range opts {
+						src.CallOrFail(t, o)
+					}
+				})
+			}
+		})
+	}
+	framework.
+		NewTest(t).
+		Run(func(t framework.TestContext) {
+			if _, v6 := getSupportedIPFamilies(t); v6 {
+				t.Skip("TODO: skipping test as wildcard DNS doesn't support resolving to IPv6 address")
+			}
+			egressNamespace, err := namespace.Claim(t, namespace.Config{
+				Prefix: "wildcard-egress",
+				Inject: false,
+			})
+			assert.NoError(t, err)
+			waypointSpec := `apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: wildcard-egress-gateway
+spec:
+  gatewayClassName: istio-waypoint
+  listeners:
+  - name: mesh
+    port: 15008
+    protocol: HBONE
+    allowedRoutes:
+      namespaces:
+        from: Selector
+        selector:
+          matchLabels:
+            kubernetes.io/metadata.name: "{{.}}"
+`
+			t.ConfigIstio().
+				Eval(egressNamespace.Name(), apps.Namespace.Name(), waypointSpec).
+				ApplyOrFail(t, apply.CleanupConditionally)
+			service := `apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: external-wildcard
+  labels:
+    istio.io/use-waypoint: wildcard-egress-gateway
+    istio.io/use-waypoint-namespace: {{.EgressNamespace}}
+spec:
+  hosts:
+  - "*.{{.ExternalNamespace}}.svc.cluster.local"
+  ports:
+  - name: http
+    number: 80
+    protocol: HTTP
+  - name: tls
+    number: 443
+    protocol: TLS
+  - name: http-for-tls
+    number: 8080
+    protocol: HTTP
+    targetPort: 443
+  location: MESH_EXTERNAL
+  resolution: DYNAMIC_DNS`
+			// ServiceEntry in app namespace, points to waypoint in EgressNamespace. Backend is in ExternalNamespace
+			t.ConfigIstio().
+				Eval(apps.Namespace.Name(), map[string]string{
+					"ExternalNamespace": apps.ExternalNamespace.Name(),
+					"EgressNamespace":   egressNamespace.Name(),
+				}, service).
+				ApplyOrFail(t)
+			// We can send a simple request
+			runTest(t, "basic", "", echo.CallOptions{
+				Address: fmt.Sprintf("external.%s.svc.cluster.local", apps.ExternalNamespace.Name()),
+				Port:    echo.Port{ServicePort: 80},
+				Scheme:  scheme.HTTP,
+				Count:   1,
+				Check:   check.And(check.OK(), IsL7()),
+			})
+
+			// Try to use a different Host header than the target host
+			invalidHeader := make(http.Header, 1)
+			invalidHeader.Add("Host", "external.non-existent.svc.cluster.local")
+			runTest(t, "overriding with invalid Host header", "", echo.CallOptions{
+				Address: fmt.Sprintf("external.%s.svc.cluster.local", apps.ExternalNamespace.Name()),
+				Port:    echo.Port{ServicePort: 80},
+				Scheme:  scheme.HTTP,
+				Count:   1,
+				HTTP: echo.HTTP{
+					Headers: invalidHeader,
+				},
+				// We expect the request to return a 404 since the Host does not match the wildcarded hostname
+				Check: check.And(check.Status(404)),
+			})
+
+			matchingHeader := make(http.Header, 1)
+			matchingHeader.Add("Host", fmt.Sprintf("external.%s.svc.cluster.local", apps.ExternalNamespace.Name()))
+			runTest(t, "overriding with matching Host header", "", echo.CallOptions{
+				Address: fmt.Sprintf("non-existent.%s.svc.cluster.local", apps.ExternalNamespace.Name()),
+				Port:    echo.Port{ServicePort: 80},
+				Scheme:  scheme.HTTP,
+				Count:   1,
+				HTTP: echo.HTTP{
+					Headers: matchingHeader,
+				},
+				// We expect the request to succeed since Host matches the wildcarded hostname even though it is not the original destination host
+				Check: check.And(check.OK(), IsL7()),
+			})
+
+			// We can send a simple request over TLS (no HTTP)
+			runTest(t, "basic TLS", "", echo.CallOptions{
+				Address: fmt.Sprintf("external.%s.svc.cluster.local", apps.ExternalNamespace.Name()),
+				Port:    echo.Port{ServicePort: 443},
+				Scheme:  scheme.TLS,
+				TLS: echo.TLS{
+					InsecureSkipVerify: true,
+					ServerName:         fmt.Sprintf("external.%s.svc.cluster.local", apps.ExternalNamespace.Name()),
+				},
+				Count: 1,
+				Check: check.NoError(),
+			})
+
+			// We can send a HTTPS request
+			runTest(t, "basic HTTPS", "", echo.CallOptions{
+				Address: fmt.Sprintf("external.%s.svc.cluster.local", apps.ExternalNamespace.Name()),
+				Port:    echo.Port{ServicePort: 443},
+				Scheme:  scheme.HTTPS,
+				TLS: echo.TLS{
+					InsecureSkipVerify: true,
+					ServerName:         fmt.Sprintf("external.%s.svc.cluster.local", apps.ExternalNamespace.Name()),
+				},
+				Count: 1,
+				Check: check.OK(),
+			})
+
+			// Test we can do TLS origination, by utilizing ServiceEntry target port
+			wildacardTLSOrigination := `apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: wildcard-tls-origination
+spec:
+  host: "*.{{.ExternalNamespace}}.svc.cluster.local"
+  trafficPolicy:
+    tls:
+      mode: SIMPLE
+      insecureSkipVerify: true
+`
+			t.ConfigIstio().
+				Eval(apps.Namespace.Name(), map[string]string{
+					"ExternalNamespace": apps.ExternalNamespace.Name(),
+				}, wildacardTLSOrigination).
+				ApplyOrFail(t)
+
+			runTest(t, "http origination targetPort", "", echo.CallOptions{
+				Address: fmt.Sprintf("external.%s.svc.cluster.local", apps.ExternalNamespace.Name()),
+				Port:    echo.Port{ServicePort: 8080},
+				Scheme:  scheme.HTTP,
+				Count:   1,
+				Check:   check.And(check.OK(), IsL7(), check.Alpn("http/1.1")),
+			})
+		})
 }
 
 func SetIngressUseWaypoint(t framework.TestContext, name, ns string) {

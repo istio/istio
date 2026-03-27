@@ -102,8 +102,8 @@ func ValidateCSR(csrPEM []byte, subjectIDs []string) bool {
 	// in the ExtraExtensions field. CreateCertificateRequest would normally add the SAN extensions
 	// from ExtraExtensions to the Extensions field. However, we are only generating the
 	// template here and not the actual CSR since we do not know the exact signing mechanisms
-	// of the client. Additionally, if we compared extensions the the generated CSR and the original
-	// CSR would match since the hosts where constructed from the extracted SAN extensions.
+	// of the client. Additionally, if we compared extensions the generated CSR and the original
+	// CSR would match since the hosts were constructed from the extracted SAN extensions.
 	genCSRTemplate, err := util.GenCSRTemplate(util.CertOptions{Host: hosts})
 	if err != nil {
 		return false
@@ -147,7 +147,7 @@ func compareCSRs(orgCSR, genCSR *x509.CertificateRequest) bool {
 	if len(orgCSR.EmailAddresses) != len(genCSR.EmailAddresses) {
 		return false
 	}
-	// Expexted length is 0
+	// Expected length is 0
 	if len(orgCSR.IPAddresses) != len(genCSR.IPAddresses) {
 		return false
 	}
@@ -184,7 +184,7 @@ func NewIstioRA(opts *IstioRAOptions) (RegistrationAuthority, error) {
 func preSign(raOpts *IstioRAOptions, csrPEM []byte, subjectIDs []string, requestedLifetime time.Duration, forCA bool) (time.Duration, error) {
 	if forCA {
 		return requestedLifetime, raerror.NewError(raerror.CSRError,
-			fmt.Errorf("unable to generate CA certifificates"))
+			fmt.Errorf("unable to generate CA certificates"))
 	}
 	if !ValidateCSR(csrPEM, subjectIDs) {
 		return requestedLifetime, raerror.NewError(raerror.CSRError, fmt.Errorf(

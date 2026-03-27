@@ -20,10 +20,11 @@ import (
 	"fmt"
 
 	"github.com/Microsoft/hcsshim/hcn"
-	podsandbox "github.com/containerd/containerd/pkg/cri/sbserver/podsandbox"
+	runtimespec "github.com/opencontainers/runtime-spec/specs-go"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	criapi "k8s.io/cri-api/pkg/apis"
+	runtime "k8s.io/cri-api/pkg/apis/runtime/v1"
 
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/util/sets"
@@ -83,7 +84,7 @@ func (p *PodNetNsHNSFinder) FindNetnsForPods(pods map[types.UID]*corev1.Pod) (Po
 
 		// We've got the correct sandbox information, now we need to get the namespace
 		// guid
-		var sandbox podsandbox.SandboxInfo
+		var sandbox SandboxInfo
 		err = json.Unmarshal([]byte(resp.Info["info"]), &sandbox)
 		if err != nil {
 			log.Warnf("error unmarshalling sandbox info for %s: %v. Info was %#v", podUID, err, resp.Info)
@@ -122,4 +123,23 @@ func (p *PodNetNsHNSFinder) FindNetnsForPods(pods map[types.UID]*corev1.Pod) (Po
 	}
 
 	return podUIDNetns, nil
+}
+
+// this's copied from containerd/containerd to avoid depending on the whole package
+type SandboxInfo struct {
+	Pid         uint32 `json:"pid"`
+	Status      string `json:"processStatus"`
+	NetNSClosed bool   `json:"netNamespaceClosed"`
+	Image       string `json:"image"`
+	SnapshotKey string `json:"snapshotKey"`
+	Snapshotter string `json:"snapshotter"`
+	// Note: a new field `RuntimeHandler` has been added into the CRI PodSandboxStatus struct, and
+	// should be set. This `RuntimeHandler` field will be deprecated after containerd 1.3 (tracked
+	// in https://github.com/containerd/cri/issues/1064).
+	RuntimeHandler string                    `json:"runtimeHandler"` // see the Note above
+	RuntimeType    string                    `json:"runtimeType"`
+	RuntimeOptions interface{}               `json:"runtimeOptions"`
+	Config         *runtime.PodSandboxConfig `json:"config"`
+	// Note: RuntimeSpec may not be populated if the sandbox has not been fully created.
+	RuntimeSpec *runtimespec.Spec `json:"runtimeSpec"`
 }

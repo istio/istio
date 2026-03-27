@@ -1,10 +1,11 @@
 iptables-save
 ip6tables-save
 * mangle
--N ISTIO_OUTPUT
 -N ISTIO_PRERT
+-N ISTIO_OUTPUT
 -A PREROUTING -j ISTIO_PRERT
 -A OUTPUT -j ISTIO_OUTPUT
+-A ISTIO_PRERT -m mark --mark 0x539/0xfff -j CONNMARK --set-xmark 0x111/0xfff
 -A ISTIO_OUTPUT -m connmark --mark 0x111/0xfff -j CONNMARK --restore-mark --nfmask 0xffffffff --ctmask 0xffffffff
 COMMIT
 * nat

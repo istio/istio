@@ -1,5 +1,4 @@
 //go:build !agent
-// +build !agent
 
 // Copyright Istio Authors
 //
@@ -16,7 +15,7 @@
 // limitations under the License.
 
 /*
-NOTICE: The zsh constants are derived from the kubectl completion code,
+NOTICE: The zsh constants are derived from the kubectl completion code
 (k8s.io/kubernetes/pkg/kubectl/cmd/completion/completion.go), with the
 following copyright/license:
 
@@ -39,6 +38,7 @@ import (
 	"fmt"
 	"html"
 	"os"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -379,7 +379,7 @@ func buildNestedMap(flatMap map[string]string) (result map[string]any) {
 	for complexkey, value := range flatMap {
 		buildMapRecursive(strings.Split(complexkey, "."), result, value)
 	}
-	return
+	return result
 }
 
 func buildMapRecursive(remainingPath []string, currentPointer map[string]any, value string) {
@@ -659,7 +659,7 @@ func unquoteUsage(flag *pflag.Flag) (name string, usage string) {
 		name = "uint"
 	}
 
-	return
+	return name, usage
 }
 
 func normalizeID(id string) string {
@@ -712,12 +712,13 @@ func (g *generator) genVars(root *cobra.Command, selectFn SelectEnvFn) {
 			continue
 		}
 
+		id := slugifyID(html.EscapeString(v.Name))
 		if v.Deprecated {
-			g.emit("<tr class='deprecated'>")
+			g.emit(fmt.Sprintf("<tr id='%s' class='deprecated'>", id))
 		} else {
-			g.emit("<tr>")
+			g.emit(fmt.Sprintf("<tr id='%s'>", id))
 		}
-		g.emit("<td><code>", html.EscapeString(v.Name), "</code></td>")
+		g.emit(fmt.Sprintf("<td><a href='#%s'><code>%s</code></a></td>", id, html.EscapeString(v.Name)))
 
 		switch v.Type {
 		case env.STRING:
@@ -764,4 +765,14 @@ func (g *generator) genMetrics(selectFn SelectMetricFn) {
 
 	g.emit(`</tbody>
 </table>`)
+}
+
+func slugifyID(text string) string {
+	text = strings.ToLower(text)
+
+	// Replace non-alphanumeric characters with dashes
+	re := regexp.MustCompile(`[^a-z0-9]+`)
+	text = re.ReplaceAllString(text, "-")
+
+	return strings.Trim(text, "-")
 }

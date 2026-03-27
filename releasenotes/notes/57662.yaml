@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 57662
+releaseNotes:
+- |
+  **Fixed** an annotation issue where both istio.io/reroute-virtual-interfaces and the deprecated traffic.sidecar.istio.io/kubevirtInterfaces were processed. The newer reroute-virtual-interfaces annotation now correctly takes precedence. 

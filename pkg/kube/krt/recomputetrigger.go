@@ -36,7 +36,7 @@ func (c RecomputeProtected[T]) TriggerRecomputation() {
 	c.trigger.TriggerRecomputation()
 }
 
-// MarkSynced marks this trigger as ready. Before this is called, dependant collections will be blocked.
+// MarkSynced marks this trigger as ready. Before this is called, dependent collections will be blocked.
 // This ensures initial state is populated.
 func (c RecomputeProtected[T]) MarkSynced() {
 	c.trigger.MarkSynced()
@@ -48,7 +48,7 @@ func (c RecomputeProtected[T]) Modify(fn func(*T)) {
 	c.TriggerRecomputation()
 }
 
-// AccessUnprotected returns the data without marking as dependant. This must be used with caution; any use within a collection
+// AccessUnprotected returns the data without marking as dependent. This must be used with caution; any use within a collection
 // is likely broken
 func (c RecomputeProtected[T]) AccessUnprotected() T {
 	return c.data
@@ -94,7 +94,7 @@ func (r *RecomputeTrigger) MarkDependant(ctx HandlerContext) {
 	_ = Fetch(ctx, r.inner.AsCollection())
 }
 
-// MarkSynced marks this trigger as ready. Before this is called, dependant collections will be blocked.
+// MarkSynced marks this trigger as ready. Before this is called, dependent collections will be blocked.
 // This ensures initial state is populated.
 func (r *RecomputeTrigger) MarkSynced() {
 	r.inner.MarkSynced()

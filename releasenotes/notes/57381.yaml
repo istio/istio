@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+releaseNotes:
+- |
+  **Added** `Added ability to completely null out resource limits or requests in the gateway chart`

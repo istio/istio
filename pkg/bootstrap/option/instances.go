@@ -16,6 +16,7 @@ package option
 
 import (
 	"strings"
+	"time"
 
 	"google.golang.org/protobuf/types/known/durationpb"
 
@@ -198,6 +199,10 @@ func EnvoyMetricsServiceTCPKeepalive(value *networkingAPI.ConnectionPoolSettings
 	return newTCPKeepaliveOption("envoy_metrics_service_tcp_keepalive", value)
 }
 
+func EnvoyMetricsStatsCompression(value bool) Instance {
+	return newOption("envoy_metrics_stats_compression", value)
+}
+
 func EnvoyAccessLogServiceAddress(value string) Instance {
 	return newOptionOrSkipIfZero("envoy_accesslog_service_address", value).withConvert(addressConverter(value))
 }
@@ -229,6 +234,14 @@ func EnvoyStatsMatcherInclusionRegexp(value []string) Instance {
 
 func EnvoyStatusPort(value int) Instance {
 	return newOption("envoy_status_port", value)
+}
+
+func GlobalDownstreamMaxConnections(value int) Instance {
+	return newOption("global_downstream_max_connections", value)
+}
+
+func EnvoyStatusPortEnableProxyProtocol(value bool) Instance {
+	return newOption("envoy_status_port_enable_proxy_protocol", value)
 }
 
 func EnvoyPrometheusPort(value int) Instance {
@@ -271,10 +284,6 @@ func MetricsLocalhostAccessOnly(proxyMetadata map[string]string) Instance {
 	return newOption("metrics_localhost_access_only", false)
 }
 
-func BypassOverloadManagerForStaticListeners(bypass bool) Instance {
-	return newOption("bypass_overload_manager", bypass)
-}
-
 func LoadStatsConfigJSONStr(node *model.Node) Instance {
 	// JSON string for configuring Load Reporting Service.
 	if json, ok := node.RawMetadata["LOAD_STATS_CONFIG_JSON"].(string); ok {
@@ -299,6 +308,10 @@ func EnvoyHistogramBuckets(value []HistogramBucket) Instance {
 	return newOption("histogram_buckets", value)
 }
 
-func EnvoyStatsCompression(value string) Instance {
-	return newOption("stats_compression", value)
+func EnvoyStatsFlushInterval(interval time.Duration) Instance {
+	return newOption("stats_flush_interval", interval)
+}
+
+func EnvoyStatsEvictionInterval(interval *durationpb.Duration) Instance {
+	return newEnvoyDurationOption("stats_eviction_interval", interval)
 }

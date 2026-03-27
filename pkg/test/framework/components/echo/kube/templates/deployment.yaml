@@ -76,6 +76,7 @@ spec:
   (ne (index $subset.Annotations "sidecar.istio.io/inject") "false")
   (ne (index $subset.Annotations "inject.istio.io/templates") "grpc")
   ($.OverlayIstioProxy)
+  (not (and $.OpenShift (eq $.Service "tproxy")))
 }}
       - name: istio-proxy
         image: auto
@@ -108,6 +109,8 @@ spec:
 {{- range $i, $p := $appContainer.ContainerPorts }}
 {{- if and $p.XDSServer (eq .Protocol "GRPC") }}
           - --xds-grpc-server={{ $p.Port }}
+{{- else if $p.EndpointPicker }}
+          - --endpoint-picker={{ $p.Port }}
 {{- else if eq .Protocol "GRPC" }}
           - --grpc={{ $p.Port }}
 {{- else if eq .Protocol "TCP" }}
@@ -117,6 +120,9 @@ spec:
 {{- end }}
 {{- if $p.TLS }}
           - --tls={{ $p.Port }}
+{{- end }}
+{{- if $p.RequireClientCert }}
+          - --mtls={{ $p.Port }}
 {{- end }}
 {{- if $p.ServerFirst }}
           - --server-first={{ $p.Port }}
@@ -136,12 +142,24 @@ spec:
 {{- if $.TLSSettings }}
           - --crt=/etc/certs/custom/cert-chain.pem
           - --key=/etc/certs/custom/key.pem
+{{- if not $appContainer.DisableCAFlag }}
+          - --ca=/etc/certs/custom/root-cert.pem
+{{- end }}
 {{- if $.TLSSettings.AcceptAnyALPN}}
           - --disable-alpn
+{{- end }}
+{{- if $.TLSSettings.MinVersion }}
+          - --tls-min-version={{ $.TLSSettings.MinVersion }}
+{{- end }}
+{{- if $.TLSSettings.CurvePreferences }}
+          - --tls-curve-preferences={{ $.TLSSettings.CurvePreferences | join "," }}
 {{- end }}
 {{- else }}
           - --crt=/cert.crt
           - --key=/cert.key
+{{- if not $appContainer.DisableCAFlag }}
+          - --ca=/root-cert.pem
+{{- end}}
 {{- end }}
         ports:
 {{- range $i, $p := $appContainer.ContainerPorts }}
@@ -150,6 +168,8 @@ spec:
           name: tcp-health-port
 {{- else if and ($appContainer.ImageFullPath) (eq .Port 17171) }}
           name: tcp-health-port
+{{- else if and $p.Name (le (len $p.Name) 15) }}
+          name: {{ $p.Name }}
 {{- end }}
 {{- end }}
         env:

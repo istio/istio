@@ -61,7 +61,7 @@ type SecretResource struct {
 }
 
 func (sr SecretResource) Key() string {
-	return sr.ResourceType + "/" + sr.ResourceKind.String() + "/" + sr.Name + "/" + sr.Namespace + "/" + string(sr.Cluster)
+	return sr.ResourceName + "/" + sr.ResourceType + "/" + sr.ResourceKind.String() + "/" + sr.Name + "/" + sr.Namespace + "/" + string(sr.Cluster)
 }
 
 func (sr SecretResource) KubernetesResourceName() string {

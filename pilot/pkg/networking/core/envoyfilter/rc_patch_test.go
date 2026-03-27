@@ -779,7 +779,7 @@ func TestApplyRouteConfigurationPatches(t *testing.T) {
 	}
 
 	serviceDiscovery := memory.NewServiceDiscovery()
-	env := newTestEnvironment(serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(configPatches))
+	env := newTestEnvironment(t, serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(configPatches))
 	push := model.NewPushContext()
 	push.InitContext(env, nil, nil)
 
@@ -930,7 +930,7 @@ func TestReplaceVhost(t *testing.T) {
 	}
 
 	serviceDiscovery := memory.NewServiceDiscovery()
-	env := newTestEnvironment(serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(configPatches))
+	env := newTestEnvironment(t, serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(configPatches))
 	push := model.NewPushContext()
 	push.InitContext(env, nil, nil)
 
@@ -1043,7 +1043,7 @@ func Test_routeMatch(t *testing.T) {
 			want: true,
 		},
 		{
-			name: "mis match by action",
+			name: "mismatch by action",
 			args: args{
 				httpRoute: &route.Route{
 					Action: &route.Route_Redirect{Redirect: &route.RedirectAction{}},

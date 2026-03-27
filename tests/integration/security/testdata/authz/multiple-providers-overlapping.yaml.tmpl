@@ -1,0 +1,39 @@
+# Template for testing multiple CUSTOM authorization providers with overlapping paths
+# Provider1 handles /api/*
+# Provider2 ALSO handles /api/admin/* (more specific, but alphabetically may come before/after Provider1)
+# This tests the evaluation order and decision semantics when both providers match
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: multi-provider-api-broad-{{ .To.ServiceName }}
+spec:
+  selector:
+    matchLabels:
+      "app": "{{ .To.ServiceName }}"
+  action: CUSTOM
+  provider:
+    name: "{{ .Provider1.Name }}"
+  rules:
+  - to:
+    - operation: # HTTP - broad match
+        ports: [ "{{ (.To.PortForName `http`).WorkloadPort }}", "{{ (.To.PortForName `http2`).WorkloadPort }}" ]
+        paths: [ "/api/*" ]
+        methods: [ "GET" ]
+---
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: multi-provider-api-specific-{{ .To.ServiceName }}
+spec:
+  selector:
+    matchLabels:
+      "app": "{{ .To.ServiceName }}"
+  action: CUSTOM
+  provider:
+    name: "{{ .Provider2.Name }}"
+  rules:
+  - to:
+    - operation: # HTTP - specific match that overlaps with Provider1
+        ports: [ "{{ (.To.PortForName `http`).WorkloadPort }}", "{{ (.To.PortForName `http2`).WorkloadPort }}" ]
+        paths: [ "/api/admin", "/api/admin/*" ]
+        methods: [ "GET" ]

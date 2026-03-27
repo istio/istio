@@ -147,6 +147,8 @@ type Settings struct {
 
 	AmbientMultiNetwork bool
 
+	IstioOwnedCNIConfig bool
+
 	// Compatibility determines whether we should transparently deploy echo workloads attached to each revision
 	// specified in `Revisions` when creating echo instances. Used primarily for compatibility testing between revisions
 	// on different control plane versions.
@@ -187,8 +189,14 @@ type Settings struct {
 
 	GatewayConformanceTimeoutConfig gwConformanceConfig.TimeoutConfig
 
+	// GatewayConformanceAllowCRDsMismatch lets gateway conformance tests to run on environments with pre-installed gateway-api CRDs
+	GatewayConformanceAllowCRDsMismatch bool
+
 	// OpenShift indicates the tests run in an OpenShift platform rather than in plain Kubernetes.
 	OpenShift bool
+
+	// If enabled, native nftable rules will be used for traffic redirection instead of iptable rules.
+	NativeNftables bool
 }
 
 // SkipVMs changes the skip settings at runtime
@@ -270,6 +278,7 @@ func (s *Settings) String() string {
 	result += fmt.Sprintf("HelmRepo:          						 %v\n", s.HelmRepo)
 	result += fmt.Sprintf("IPFamilies:							 %v\n", s.IPFamilies)
 	result += fmt.Sprintf("GatewayConformanceStandardOnly: %v\n", s.GatewayConformanceStandardOnly)
+	result += fmt.Sprintf("GatewayConformanceAllowCRDsMismatch: %v\n", s.GatewayConformanceAllowCRDsMismatch)
 	return result
 }
 

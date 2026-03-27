@@ -65,8 +65,8 @@ func (s *ServiceAnalyzer) Analyze(c analysis.Context) {
 		if len(clusterServices) == 1 {
 			continue
 		}
-		inconsistents, errors := findInconsistencies(clusterServices)
-		if len(inconsistents) > 0 {
+		inconsistencies, errors := findInconsistencies(clusterServices)
+		if len(inconsistencies) > 0 {
 			var serviceInstance *resource.Instance
 			for _, r := range clusterServices {
 				if r != nil {
@@ -75,7 +75,7 @@ func (s *ServiceAnalyzer) Analyze(c analysis.Context) {
 				}
 			}
 			message := msg.NewMultiClusterInconsistentService(serviceInstance, fullname.Name.String(),
-				fullname.Namespace.String(), inconsistents, errors)
+				fullname.Namespace.String(), inconsistencies, errors)
 
 			c.Report(gvk.Service, message)
 		}

@@ -28,17 +28,24 @@ import (
 
 	"istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	securityBeta "istio.io/api/security/v1beta1"
 	"istio.io/api/type/v1beta1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/mesh/meshwatcher"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
+	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -2732,13 +2739,24 @@ func TestCreateSidecarScope(t *testing.T) {
 			ps.initDefaultExportMaps()
 			ps.initServiceRegistry(env, nil)
 			ps.setDestinationRules([]config.Config{destinationRule1, destinationRule2, destinationRule3, nonWorkloadSelectorDr})
-			configStore := NewFakeStore()
+			fakeStore := NewFakeStore()
+			var controller ConfigStoreController = fakeStore
 			for _, c := range tt.virtualServices {
-				if _, err := configStore.Create(c); err != nil {
+				if _, err := controller.Create(c); err != nil {
 					t.Fatalf("could not create %v", c.Name)
 				}
 			}
-			env.ConfigStore = configStore
+			env.VirtualServiceController = NewVirtualServiceController(
+				controller,
+				VSControllerOptions{KrtDebugger: krt.GlobalDebugHandler},
+				env.Watcher,
+			)
+			stop := test.NewStop(t)
+			go controller.Run(stop)
+			go env.VirtualServiceController.Run(stop)
+			kube.WaitForCacheSync("test", stop, controller.HasSynced)
+			kube.WaitForCacheSync("test", stop, env.VirtualServiceController.HasSynced)
+			env.ConfigStore = controller
 			ps.initVirtualServices(env)
 			sidecarConfig := tt.sidecarConfig
 			configuredListeneres := 1
@@ -2750,6 +2768,9 @@ func TestCreateSidecarScope(t *testing.T) {
 			}
 
 			sidecarScope := convertToSidecarScope(ps, sidecarConfig, "mynamespace")
+			if features.EnableLazySidecarEvaluation {
+				sidecarScope.initFunc()
+			}
 
 			numberListeners := len(sidecarScope.EgressListeners)
 			if numberListeners != configuredListeneres {
@@ -3030,7 +3051,10 @@ func TestContainsEgressDependencies(t *testing.T) {
 			ps.setDestinationRules(destinationRules)
 			sidecarScope := convertToSidecarScope(ps, cfg, "default")
 			if len(tt.egress) == 0 {
-				sidecarScope = DefaultSidecarScopeForNamespace(ps, "default")
+				sidecarScope = convertToSidecarScope(ps, nil, "default")
+			}
+			if features.EnableLazySidecarEvaluation {
+				sidecarScope.initFunc()
 			}
 
 			for k, v := range tt.contains {
@@ -3089,7 +3113,10 @@ func TestRootNsSidecarDependencies(t *testing.T) {
 			ps.Mesh = meshConfig
 			sidecarScope := convertToSidecarScope(ps, cfg, "default")
 			if len(tt.egress) == 0 {
-				sidecarScope = DefaultSidecarScopeForNamespace(ps, "default")
+				sidecarScope = convertToSidecarScope(ps, nil, "default")
+			}
+			if features.EnableLazySidecarEvaluation {
+				sidecarScope.initFunc()
 			}
 
 			for k, v := range tt.contains {
@@ -3098,6 +3125,157 @@ func TestRootNsSidecarDependencies(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestSidecarScopeAuthnPolicies(t *testing.T) {
+	const (
+		svcName       = "svc1.com"
+		configNs      = "default"
+		svcNs         = "ns"
+		unrelatedNs   = "other-ns"
+		rootNs        = "istio-system"
+		peerAuthName  = "pa-default"
+		peerAuthName2 = "pa-svc-ns"
+		peerAuthName3 = "pa-unrelated"
+		peerAuthName4 = "pa-root"
+	)
+
+	peerAuthnConfigs := []config.Config{
+		{
+			Meta: config.Meta{
+				GroupVersionKind: gvk.PeerAuthentication,
+				Name:             peerAuthName,
+				Namespace:        configNs,
+			},
+			Spec: &securityBeta.PeerAuthentication{
+				Mtls: &securityBeta.PeerAuthentication_MutualTLS{
+					Mode: securityBeta.PeerAuthentication_MutualTLS_STRICT,
+				},
+			},
+		},
+		{
+			Meta: config.Meta{
+				GroupVersionKind: gvk.PeerAuthentication,
+				Name:             peerAuthName2,
+				Namespace:        svcNs,
+			},
+			Spec: &securityBeta.PeerAuthentication{
+				Mtls: &securityBeta.PeerAuthentication_MutualTLS{
+					Mode: securityBeta.PeerAuthentication_MutualTLS_PERMISSIVE,
+				},
+			},
+		},
+		{
+			Meta: config.Meta{
+				GroupVersionKind: gvk.PeerAuthentication,
+				Name:             peerAuthName3,
+				Namespace:        unrelatedNs,
+			},
+			Spec: &securityBeta.PeerAuthentication{
+				Mtls: &securityBeta.PeerAuthentication_MutualTLS{
+					Mode: securityBeta.PeerAuthentication_MutualTLS_DISABLE,
+				},
+			},
+		},
+		{
+			Meta: config.Meta{
+				GroupVersionKind: gvk.PeerAuthentication,
+				Name:             peerAuthName4,
+				Namespace:        rootNs,
+			},
+			Spec: &securityBeta.PeerAuthentication{
+				Mtls: &securityBeta.PeerAuthentication_MutualTLS{
+					Mode: securityBeta.PeerAuthentication_MutualTLS_UNSET,
+				},
+			},
+		},
+	}
+
+	configStore := NewFakeStore()
+	for _, cfg := range peerAuthnConfigs {
+		if _, err := configStore.Create(cfg); err != nil {
+			t.Fatalf("failed to create config: %v", err)
+		}
+	}
+
+	meshConfig := mesh.DefaultMeshConfig()
+	meshConfig.RootNamespace = rootNs
+	env := NewEnvironment()
+	env.Watcher = meshwatcher.NewTestWatcher(meshConfig)
+	env.ConfigStore = configStore
+
+	ps := NewPushContext()
+	ps.Mesh = env.Mesh()
+	ps.initAuthnPolicies(env)
+
+	services := []*Service{
+		{
+			Hostname:   svcName,
+			Attributes: ServiceAttributes{Namespace: svcNs},
+		},
+	}
+	ps.ServiceIndex.public = append(ps.ServiceIndex.public, services...)
+
+	sidecarCfg := &config.Config{
+		Meta: config.Meta{
+			Name:      "test-sidecar",
+			Namespace: configNs,
+		},
+		Spec: &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*"},
+				},
+			},
+		},
+	}
+
+	sidecarScope := convertToSidecarScope(ps, sidecarCfg, configNs)
+	if features.EnableLazySidecarEvaluation {
+		sidecarScope.initFunc()
+	}
+
+	// AuthnPolicies should be populated
+	if sidecarScope.AuthnPolicies == nil {
+		t.Fatal("expected AuthnPolicies to be set on SidecarScope")
+	}
+
+	// Should have policies from configNs, svcNs, and rootNs
+	for _, ns := range []string{configNs, svcNs, rootNs} {
+		if _, ok := sidecarScope.AuthnPolicies.GetPeerAuthentications()[ns]; !ok {
+			t.Errorf("expected PeerAuthentication policies in namespace %q", ns)
+		}
+	}
+
+	// Should NOT have policies from unrelatedNs
+	if _, ok := sidecarScope.AuthnPolicies.GetPeerAuthentications()[unrelatedNs]; ok {
+		t.Errorf("unexpected PeerAuthentication policies in namespace %q", unrelatedNs)
+	}
+
+	// PeerAuthentication in configNs should be a dependency
+	if !sidecarScope.DependsOnConfig(ConfigKey{kind.PeerAuthentication, peerAuthName, configNs}, rootNs) {
+		t.Error("expected sidecar to depend on PeerAuthentication in config namespace")
+	}
+
+	// PeerAuthentication in svcNs (imported service namespace) should be a dependency
+	if !sidecarScope.DependsOnConfig(ConfigKey{kind.PeerAuthentication, peerAuthName2, svcNs}, rootNs) {
+		t.Error("expected sidecar to depend on PeerAuthentication in imported service namespace")
+	}
+
+	// PeerAuthentication in rootNs should be a dependency
+	if !sidecarScope.DependsOnConfig(ConfigKey{kind.PeerAuthentication, peerAuthName4, rootNs}, rootNs) {
+		t.Error("expected sidecar to depend on PeerAuthentication in root namespace")
+	}
+
+	// PeerAuthentication in unrelatedNs should NOT be a dependency
+	if sidecarScope.DependsOnConfig(ConfigKey{kind.PeerAuthentication, peerAuthName3, unrelatedNs}, rootNs) {
+		t.Error("expected sidecar NOT to depend on PeerAuthentication in unrelated namespace")
+	}
+
+	// Verify version is non-empty
+	if sidecarScope.AuthnPolicies.GetVersion() == "" {
+		t.Error("expected non-empty AuthnPolicies version")
 	}
 }
 
@@ -3219,9 +3397,13 @@ outboundTrafficPolicy:
 
 			var sidecarScope *SidecarScope
 			if test.sidecar == nil {
-				sidecarScope = DefaultSidecarScopeForNamespace(ps, "not-default")
+				sidecarScope = convertToSidecarScope(ps, nil, "not-default")
 			} else {
 				sidecarScope = convertToSidecarScope(ps, test.sidecar, test.sidecar.Namespace)
+			}
+
+			if features.EnableLazySidecarEvaluation {
+				sidecarScope.initFunc()
 			}
 
 			if !reflect.DeepEqual(test.outboundTrafficPolicy, sidecarScope.OutboundTrafficPolicy) {
@@ -3378,6 +3560,9 @@ func TestInboundConnectionPoolForPort(t *testing.T) {
 				Spec: tt.sidecar,
 			}
 			scope := convertToSidecarScope(ps, sidecar, sidecar.Namespace)
+			if features.EnableLazySidecarEvaluation {
+				scope.initFunc()
+			}
 
 			for port, expected := range tt.want {
 				actual := scope.InboundConnectionPoolForPort(port)
@@ -3545,13 +3730,13 @@ func TestComputeWildcardHostVirtualServiceIndex(t *testing.T) {
 
 	tests := []struct {
 		name            string
-		virtualServices []config.Config
+		virtualServices []*config.Config
 		services        []*Service
 		expectedIndex   map[host.Name]types.NamespacedName
 	}{
 		{
 			name:            "most specific",
-			virtualServices: virtualServices,
+			virtualServices: configsToPointers(virtualServices),
 			services:        services,
 			expectedIndex: map[host.Name]types.NamespacedName{
 				"foo.example.com":     {Name: "foo", Namespace: "default"},
@@ -3570,4 +3755,113 @@ func TestComputeWildcardHostVirtualServiceIndex(t *testing.T) {
 			}
 		})
 	}
+}
+
+// createBenchmarkService creates a service with realistic attributes for benchmarking
+func createBenchmarkService(numPorts int, numAliases int) *Service {
+	ports := make([]*Port, numPorts)
+	for i := 0; i < numPorts; i++ {
+		ports[i] = &Port{
+			Name:     "http-" + string(rune('0'+i)),
+			Port:     8080 + i,
+			Protocol: protocol.HTTP,
+		}
+	}
+
+	aliases := make([]NamespacedHostname, numAliases)
+	for i := 0; i < numAliases; i++ {
+		aliases[i] = NamespacedHostname{
+			Hostname:  host.Name("alias" + string(rune('0'+i)) + ".example.com"),
+			Namespace: "default",
+		}
+	}
+
+	labels := map[string]string{
+		"app":     "test",
+		"version": "v1",
+		"env":     "prod",
+	}
+
+	labelSelectors := map[string]string{
+		"app": "test",
+	}
+
+	clusterVIPs := AddressMap{
+		Addresses: map[cluster.ID][]string{
+			"cluster-1": {"10.0.0.1"},
+			"cluster-2": {"10.0.0.2"},
+		},
+	}
+
+	return &Service{
+		Hostname: "test.default.svc.cluster.local",
+		Ports:    ports,
+		Attributes: ServiceAttributes{
+			ServiceRegistry: provider.Kubernetes,
+			Name:            "test",
+			Namespace:       "default",
+			Labels:          labels,
+			LabelSelectors:  labelSelectors,
+			Aliases:         aliases,
+		},
+		ServiceAccounts: []string{
+			"spiffe://cluster.local/ns/default/sa/test",
+		},
+		ClusterVIPs: *clusterVIPs.DeepCopy(),
+	}
+}
+
+// variables to avoid the compiler from optimizing out the copies
+var (
+	deepCopySink    *Service
+	shallowCopySink *Service
+)
+
+// Benchmark comparison between old DeepCopy approach and new shallow copy approach
+func BenchmarkServiceCopyComparison(b *testing.B) {
+	benchmarks := []struct {
+		name       string
+		numPorts   int
+		numAliases int
+	}{
+		{"tiny-service", 1, 0},
+		{"small-service", 3, 5},
+		{"medium-service", 10, 10},
+		{"large-service", 20, 30},
+	}
+
+	for _, bm := range benchmarks {
+		b.Run(bm.name+"-DeepCopy", func(b *testing.B) {
+			svc := createBenchmarkService(bm.numPorts, bm.numAliases)
+			b.ResetTimer()
+			b.ReportAllocs()
+			for b.Loop() {
+				deepCopySink = svc.DeepCopy()
+				if deepCopySink == nil {
+					b.Fatal("expected non-nil copy")
+				}
+			}
+		})
+
+		b.Run(bm.name+"-ShallowCopy", func(b *testing.B) {
+			svc := createBenchmarkService(bm.numPorts, bm.numAliases)
+			b.ResetTimer()
+			b.ReportAllocs()
+			for b.Loop() {
+				shallowCopySink = svc.ShallowCopy()
+				if shallowCopySink == nil {
+					b.Fatal("expected non-nil copy")
+				}
+			}
+		})
+	}
+}
+
+// helper function to convert []config.Config to []*config.Config for tests
+func configsToPointers(configs []config.Config) []*config.Config {
+	result := make([]*config.Config, len(configs))
+	for i := range configs {
+		result[i] = &configs[i]
+	}
+	return result
 }

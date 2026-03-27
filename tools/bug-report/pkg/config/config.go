@@ -141,6 +141,9 @@ type BugReportConfig struct {
 	// FullSecrets controls whether secret contents are included.
 	FullSecrets bool `json:"fullSecrets,omitempty"`
 
+	// ProxyAdminPort is envoy proxy admin port
+	ProxyAdminPort int `json:"proxyAdminPort,omitempty"`
+
 	// CommandTimeout is the maximum amount of time running the command
 	// before giving up, even if not all logs are captured. Upon timeout,
 	// the command creates an archive with only the logs captured so far.

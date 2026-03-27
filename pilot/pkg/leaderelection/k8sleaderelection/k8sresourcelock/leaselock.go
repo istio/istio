@@ -44,7 +44,7 @@ func (ll *LeaseLock) Get(ctx context.Context) (*LeaderElectionRecord, []byte, er
 	if err != nil {
 		return nil, nil, err
 	}
-	record := LeaseSpecToLeaderElectionRecord(&ll.lease.Spec)
+	record := LeaseToLeaderElectionRecord(ll.lease)
 	recordByte, err := json.Marshal(*record)
 	if err != nil {
 		return nil, nil, err
@@ -55,15 +55,30 @@ func (ll *LeaseLock) Get(ctx context.Context) (*LeaderElectionRecord, []byte, er
 // Create attempts to create a Lease
 func (ll *LeaseLock) Create(ctx context.Context, ler LeaderElectionRecord) error {
 	var err error
-	ll.lease, err = ll.Client.Leases(ll.LeaseMeta.Namespace).Create(ctx, &coordinationv1.Lease{
+	lease := &coordinationv1.Lease{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      ll.LeaseMeta.Name,
 			Namespace: ll.LeaseMeta.Namespace,
 		},
 		Spec: LeaderElectionRecordToLeaseSpec(&ler),
-	}, metav1.CreateOptions{})
+	}
+	ensureHolderKey(ler, lease)
+	ll.lease, err = ll.Client.Leases(ll.LeaseMeta.Namespace).Create(ctx, lease, metav1.CreateOptions{})
 	return err
 }
+
+func ensureHolderKey(ler LeaderElectionRecord, lease *coordinationv1.Lease) {
+	if ler.HolderKey != "" {
+		if lease.Annotations == nil {
+			lease.Annotations = make(map[string]string)
+		}
+		lease.Annotations[LeaseHolderKey] = ler.HolderKey
+	} else {
+		delete(lease.Annotations, LeaseHolderKey)
+	}
+}
+
+const LeaseHolderKey = "leader.istio.io/holder-key"
 
 // Update will update an existing Lease spec.
 func (ll *LeaseLock) Update(ctx context.Context, ler LeaderElectionRecord) error {
@@ -71,6 +86,7 @@ func (ll *LeaseLock) Update(ctx context.Context, ler LeaderElectionRecord) error
 		return errors.New("lease not initialized, call get or create first")
 	}
 	ll.lease.Spec = LeaderElectionRecordToLeaseSpec(&ler)
+	ensureHolderKey(ler, ll.lease)
 
 	lease, err := ll.Client.Leases(ll.LeaseMeta.Namespace).Update(ctx, ll.lease, metav1.UpdateOptions{})
 	if err != nil {
@@ -106,7 +122,8 @@ func (ll *LeaseLock) Key() string {
 	return ll.LockConfig.Key
 }
 
-func LeaseSpecToLeaderElectionRecord(spec *coordinationv1.LeaseSpec) *LeaderElectionRecord {
+func LeaseToLeaderElectionRecord(l *coordinationv1.Lease) *LeaderElectionRecord {
+	spec := l.Spec
 	var r LeaderElectionRecord
 	if spec.HolderIdentity != nil {
 		r.HolderIdentity = *spec.HolderIdentity
@@ -123,6 +140,8 @@ func LeaseSpecToLeaderElectionRecord(spec *coordinationv1.LeaseSpec) *LeaderElec
 	if spec.RenewTime != nil {
 		r.RenewTime = metav1.Time{Time: spec.RenewTime.Time}
 	}
+	r.HolderKey = l.Annotations[LeaseHolderKey]
+
 	return &r
 }
 

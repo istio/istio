@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 // Copyright Istio Authors. All Rights Reserved.
 //
@@ -64,13 +63,21 @@ func GetZipkinInstance() zipkin.Instance {
 	return zipkinInst
 }
 
+func GetServerInstances() echo.Instances {
+	return server
+}
+
+func GetClientInstances() echo.Instances {
+	return client
+}
+
 func TestSetup(ctx resource.Context) (err error) {
 	appNsInst, err = namespace.New(ctx, namespace.Config{
 		Prefix: "echo",
 		Inject: true,
 	})
 	if err != nil {
-		return
+		return err
 	}
 	builder := deployment.New(ctx)
 	for _, c := range ctx.Clusters() {
@@ -119,19 +126,26 @@ func TestSetup(ctx resource.Context) (err error) {
 	addrs, _ := ingInst.HTTPAddresses()
 	zipkinInst, err = zipkin.New(ctx, zipkin.Config{Cluster: ctx.Clusters().Default(), IngressAddr: addrs[0]})
 	if err != nil {
-		return
+		return err
 	}
 	return nil
+}
+
+// isNonGatewayRoot returns true if this span is a root (no parent) and is not from a gateway.
+// Used to skip egress/ingress gateway roots when finding the client's trace to compare.
+func isNonGatewayRoot(s *zipkin.Span) bool {
+	if s.ParentSpanID != "" {
+		return false
+	}
+	return !strings.Contains(s.ServiceName, "egressgateway") && !strings.Contains(s.ServiceName, "ingressgateway")
 }
 
 func VerifyEchoTraces(t framework.TestContext, namespace, clName string, traces []zipkin.Trace) bool {
 	t.Helper()
 	wtr := WantTraceRoot(namespace, clName)
 	for _, trace := range traces {
-		// compare each candidate trace with the wanted trace
 		for _, s := range trace.Spans {
-			// find the root span of candidate trace and do recursive comparison
-			if s.ParentSpanID == "" && CompareTrace(t, s, wtr) {
+			if isNonGatewayRoot(&s) && CompareTrace(t, s, wtr) {
 				return true
 			}
 		}
@@ -144,10 +158,8 @@ func VerifyOtelEchoTraces(t framework.TestContext, namespace, clName string, tra
 	t.Helper()
 	wtr := WantOtelTraceRoot(namespace, clName)
 	for _, trace := range traces {
-		// compare each candidate trace with the wanted trace
 		for _, s := range trace.Spans {
-			// find the root span of candidate trace and do recursive comparison
-			if s.ParentSpanID == "" && CompareTrace(t, s, wtr) {
+			if isNonGatewayRoot(&s) && CompareTrace(t, s, wtr) {
 				return true
 			}
 		}
@@ -167,7 +179,7 @@ func WantOtelTraceRoot(namespace, clName string) (root zipkin.Span) {
 		ServiceName: fmt.Sprintf("client-%s.%s", clName, namespace),
 		ChildSpans:  []*zipkin.Span{&serverSpan},
 	}
-	return
+	return root
 }
 
 func VerifyOtelIngressTraces(t framework.TestContext, namespace, path string, traces []zipkin.Trace) bool {
@@ -241,7 +253,7 @@ func WantTraceRoot(namespace, clName string) (root zipkin.Span) {
 		ServiceName: fmt.Sprintf("client-%s.%s", clName, namespace),
 		ChildSpans:  []*zipkin.Span{&serverSpan},
 	}
-	return
+	return root
 }
 
 // SendTraffic makes a client call to the "server" service on the http port.

@@ -102,8 +102,13 @@ func (c ObjectWithStatus[I, IStatus]) ResourceName() string {
 }
 
 func (c ObjectWithStatus[I, IStatus]) Equals(o ObjectWithStatus[I, IStatus]) bool {
-	// we need to include object generation in the comparison to allow retrying status updates
-	// if a conflict occurs
-	return c.Obj.GetGeneration() == o.Obj.GetGeneration() &&
-		equal(c.Status, o.Status)
+	// Check the resource is identical.
+	// Typically, this will generate more events than needed.
+	// The object may change for reasons we don't care about, such as things not impacting generation (labels, annotations),
+	// or other writes to status.
+	// Downstream of the collection, a user should suppress events where the status in the cluster (o.Obj) and the desired status (o.Status)
+	// are not equal.
+	// In theory, we could do this here but there is not a good way to get the o.Obj.Status since there is no common interface
+	// for GetStatus()
+	return Equal(c.Obj, o.Obj) && Equal(c.Status, o.Status)
 }

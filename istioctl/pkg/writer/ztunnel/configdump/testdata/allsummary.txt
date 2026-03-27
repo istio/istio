@@ -1,0 +1,71 @@
+
+NAMESPACE          POD NAME                                             ADDRESS     NODE                  WAYPOINT                            PROTOCOL
+bookinfo           bookinfo-productpage-istio-waypoint-5cdd6745d5-rc2gg 10.244.2.59 ambient-worker2       None                                TCP
+bookinfo           details-v1-698d88b-dqrbr                             10.244.2.51 ambient-worker2       namespace-istio-waypoint            HBONE
+bookinfo           namespace-istio-waypoint-d94944bf6-z89g2             10.244.2.52 ambient-worker2       None                                TCP
+bookinfo           productpage-v1-675fc69cf-jscn2                       10.244.2.53 ambient-worker2       bookinfo-productpage-istio-waypoint HBONE
+bookinfo           ratings-v1-6484c4d9bb-mdxm5                          10.244.2.54 ambient-worker2       namespace-istio-waypoint            HBONE
+bookinfo           reviews-v1-5b5d6494f4-qwjv4                          10.244.1.37 ambient-worker        namespace-istio-waypoint            HBONE
+bookinfo           reviews-v2-5b667bcbf8-q5pn2                          10.244.1.38 ambient-worker        namespace-istio-waypoint            HBONE
+bookinfo           reviews-v3-5b9bd44f4-7fff4                           10.244.1.39 ambient-worker        namespace-istio-waypoint            HBONE
+default            details-v1-698d88b-krdw7                             10.244.2.55 ambient-worker2       None                                HBONE
+default            httpbin-7447985f87-t8hv7                             10.244.1.40 ambient-worker        None                                TCP
+default            productpage-v1-675fc69cf-kkrm2                       10.244.2.56 ambient-worker2       None                                HBONE
+default            ratings-v1-6484c4d9bb-8xc2r                          10.244.2.57 ambient-worker2       None                                HBONE
+default            reviews-v1-5b5d6494f4-c7z5w                          10.244.1.41 ambient-worker        None                                HBONE
+default            reviews-v2-5b667bcbf8-twvx6                          10.244.1.42 ambient-worker        None                                HBONE
+default            reviews-v3-5b9bd44f4-z9ms4                           10.244.1.43 ambient-worker        None                                HBONE
+default            sleep-7656cf8794-lxcmx                               10.244.2.58 ambient-worker2       None                                HBONE
+gateway-system     gateway-api-admission-server-85985d48ff-5jcvd        10.244.2.8  ambient-worker2       None                                TCP
+httpbin            httpbin-65975d4c6f-jr69n                             10.244.1.10 ambient-worker        None                                TCP
+istio-system       istiod-8c7b98fc4-mwjfp                               10.244.2.49 ambient-worker2       None                                TCP
+istio-system       istiod-test-6bdfb786d-s58pj                          10.244.1.34 ambient-worker        None                                TCP
+istio-system       ztunnel-n5bg2                                        10.244.0.8  ambient-control-plane None                                TCP
+istio-system       ztunnel-qk2pp                                        10.244.2.60 ambient-worker2       None                                TCP
+istio-system       ztunnel-xljhg                                        10.244.1.44 ambient-worker        None                                TCP
+kube-system        coredns-5dd5756b68-mgjn9                             10.244.0.2  ambient-control-plane None                                TCP
+kube-system        coredns-5dd5756b68-nzlpw                             10.244.0.3  ambient-control-plane None                                TCP
+local-path-storage local-path-provisioner-6f8956fb48-vvnpn              10.244.0.4  ambient-control-plane None                                TCP
+sleep              sleep-7656cf8794-qpvbm                               10.244.1.16 ambient-worker        None                                TCP
+
+NAMESPACE      SERVICE NAME                        SERVICE VIP   WAYPOINT ENDPOINTS
+bookinfo       bookinfo-productpage-istio-waypoint 10.96.71.36   None     1/1
+bookinfo       details                             10.96.200.228 None     1/1
+bookinfo       namespace-istio-waypoint            10.96.65.117  None     1/1
+bookinfo       productpage                         10.96.131.140 None     1/1
+bookinfo       ratings                             10.96.95.231  None     1/1
+bookinfo       reviews                             10.96.74.131  None     3/3
+default        details                             10.96.101.171 None     1/1
+default        httpbin                             10.96.26.108  None     1/1
+default        kubernetes                          10.96.0.1     None     0/0
+default        productpage                         10.96.198.255 None     1/1
+default        ratings                             10.96.6.205   None     1/1
+default        reviews                             10.96.68.3    None     3/3
+default        sleep                               10.96.30.20   None     1/1
+gateway-system gateway-api-admission-server        10.96.115.16  None     1/1
+httpbin        httpbin                             10.96.136.225 None     1/1
+istio-system   istiod                              10.96.111.11  None     1/1
+istio-system   istiod-test                         10.96.182.227 None     1/1
+kube-system    kube-dns                            10.96.0.10    None     2/2
+sleep          sleep                               10.96.89.127  None     1/1
+
+NAMESPACE POLICY NAME    ACTION SCOPE
+default   allow-nothing  Allow  Namespace
+default   allow-waypoint Allow  WorkloadSelector
+
+CERTIFICATE NAME                                         TYPE     STATUS           VALID CERT     SERIAL NUMBER                        NOT AFTER                NOT BEFORE
+spiffe://cluster.local/ns/istio-system/sa/istiod         Leaf     Available        true           e5dfb59150b2ba7f108d93dcec5aa613     2033-03-22T13:04:57Z     2023-03-21T13:02:57Z
+spiffe://cluster.local/ns/istio-system/sa/istiod         Root     Available        false          8a516645c40ce76c2c0d27ab4e2461c1     2022-03-18T13:04:49Z     2022-03-21T13:04:49Z
+spiffe://cluster.local/ns/istio-system/sa/ztunnel        NA       Initializing     false          NA                                   NA                       NA
+spiffe://cluster.local/ns/istio-system/sa/another-sa     NA       Unavailable      false          NA                                   NA                       NA
+spiffe://cluster.local/ns/istio-system/sa/istiod         NA       Unavailable      false          NA                                   NA                       NA
+
+WORKLOAD                                DIRECTION LOCAL               REMOTE              REMOTE TARGET                PROTOCOL
+details-v1-7f85d59cff-bmpln.bookinfo    Inbound   10.233.97.136:9080  10.233.97.129:55018 details.am.svc.cluster.local HBONE
+productpage-v1-796f87b58-97bjk.bookinfo Inbound   10.233.97.129:9080  10.233.97.150:35078                              HBONE
+productpage-v1-796f87b58-97bjk.bookinfo Inbound   10.233.97.129:9080  10.233.97.150:35068                              HBONE
+productpage-v1-796f87b58-97bjk.bookinfo Outbound  10.233.97.129:35380 10.233.97.136:15008 10.233.25.246:9080           HBONE
+ratings-v1-779dfc6dc5-5q5wz.bookinfo    Inbound   10.233.97.188:9080  10.233.97.141:40780 ratings.am.svc.cluster.local HBONE
+ratings-v1-779dfc6dc5-5q5wz.bookinfo    Inbound   10.233.97.188:9080  10.233.97.144:50504 ratings.am.svc.cluster.local HBONE
+reviews-v2-76c648db77-lrkkx.bookinfo    Outbound  10.233.97.144:43960 10.233.97.188:15008 10.233.52.25:9080            HBONE
+reviews-v3-b84b7f64f-vdnsx.bookinfo     Outbound  10.233.97.141:52898 10.233.97.188:15008 10.233.52.25:9080            HBONE

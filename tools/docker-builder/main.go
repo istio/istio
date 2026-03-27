@@ -65,8 +65,8 @@ func main() {
 var privilegedHubs = sets.New[string](
 	"docker.io/istio",
 	"istio",
-	"gcr.io/istio-release",
-	"gcr.io/istio-testing",
+	"registry.istio.io/release",
+	"registry.istio.io/testing",
 )
 
 // TODO: make the help command work

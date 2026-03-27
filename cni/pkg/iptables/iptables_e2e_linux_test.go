@@ -25,6 +25,7 @@ import (
 	_ "github.com/howardjohn/unshare-go/netns"
 	"github.com/howardjohn/unshare-go/userns"
 
+	"istio.io/istio/cni/pkg/config"
 	"istio.io/istio/cni/pkg/ipset"
 	"istio.io/istio/cni/pkg/scopes"
 	"istio.io/istio/pkg/test/util/assert"
@@ -34,7 +35,7 @@ import (
 
 func createHostsideProbeIpset(isV6 bool) (ipset.IPSet, error) {
 	linDeps := ipset.RealNlDeps()
-	probeSet, err := ipset.NewIPSet(ProbeIPSet, isV6, linDeps)
+	probeSet, err := ipset.NewIPSet(config.ProbeIPSet, isV6, linDeps)
 	if err != nil {
 		return probeSet, err
 	}
@@ -59,32 +60,32 @@ func TestIdempotentEquivalentInPodRerun(t *testing.T) {
 				t.Fatalf("failed to setup iptables configurator: %v", err)
 			}
 			defer func() {
-				assert.NoError(t, iptConfiguratorPod.DeleteInpodRules(log, ""))
+				assert.NoError(t, iptConfiguratorPod.DeleteInpodRules(log))
 				residueExists, deltaExists := iptablescapture.VerifyIptablesState(log, iptConfiguratorPod.ext, builder, &iptConfiguratorPod.iptV, &iptConfiguratorPod.ipt6V)
 				assert.Equal(t, residueExists, false)
 				assert.Equal(t, deltaExists, true)
 			}()
-			assert.NoError(t, iptConfiguratorPod.CreateInpodRules(scopes.CNIAgent, tt.podOverrides, ""))
+			assert.NoError(t, iptConfiguratorPod.CreateInpodRules(scopes.CNIAgent, tt.podOverrides))
 			residueExists, deltaExists := iptablescapture.VerifyIptablesState(log, iptConfiguratorPod.ext, builder, &iptConfiguratorPod.iptV, &iptConfiguratorPod.ipt6V)
 			assert.Equal(t, residueExists, true)
 			assert.Equal(t, deltaExists, false)
 
 			t.Log("Starting cleanup")
 			// Cleanup, should work
-			assert.NoError(t, iptConfiguratorPod.DeleteInpodRules(log, ""))
+			assert.NoError(t, iptConfiguratorPod.DeleteInpodRules(log))
 			residueExists, deltaExists = iptablescapture.VerifyIptablesState(log, iptConfiguratorPod.ext, builder, &iptConfiguratorPod.iptV, &iptConfiguratorPod.ipt6V)
 			assert.Equal(t, residueExists, false)
 			assert.Equal(t, deltaExists, true)
 
 			t.Log("Second run")
 			// Apply should work again
-			assert.NoError(t, iptConfiguratorPod.CreateInpodRules(scopes.CNIAgent, tt.podOverrides, ""))
+			assert.NoError(t, iptConfiguratorPod.CreateInpodRules(scopes.CNIAgent, tt.podOverrides))
 			residueExists, deltaExists = iptablescapture.VerifyIptablesState(log, iptConfiguratorPod.ext, builder, &iptConfiguratorPod.iptV, &iptConfiguratorPod.ipt6V)
 			assert.Equal(t, residueExists, true)
 			assert.Equal(t, deltaExists, false)
 
 			t.Log("Third run")
-			assert.NoError(t, iptConfiguratorPod.CreateInpodRules(scopes.CNIAgent, tt.podOverrides, ""))
+			assert.NoError(t, iptConfiguratorPod.CreateInpodRules(scopes.CNIAgent, tt.podOverrides))
 		})
 	}
 }
@@ -107,7 +108,7 @@ func TestIdempotentUnequalInPodRerun(t *testing.T) {
 			}
 
 			defer func() {
-				assert.NoError(t, iptConfiguratorPod.DeleteInpodRules(log, ""))
+				assert.NoError(t, iptConfiguratorPod.DeleteInpodRules(log))
 				residueExists, deltaExists := iptablescapture.VerifyIptablesState(log, iptConfiguratorPod.ext, builder, &iptConfiguratorPod.iptV, &iptConfiguratorPod.ipt6V)
 				assert.Equal(t, residueExists, true)
 				assert.Equal(t, deltaExists, true)
@@ -123,7 +124,7 @@ func TestIdempotentUnequalInPodRerun(t *testing.T) {
 				assert.Equal(t, deltaExists, true)
 			}()
 
-			assert.NoError(t, iptConfiguratorPod.CreateInpodRules(scopes.CNIAgent, tt.podOverrides, ""))
+			assert.NoError(t, iptConfiguratorPod.CreateInpodRules(scopes.CNIAgent, tt.podOverrides))
 			residueExists, deltaExists := iptablescapture.VerifyIptablesState(log, iptConfiguratorPod.ext, builder, &iptConfiguratorPod.iptV, &iptConfiguratorPod.ipt6V)
 			assert.Equal(t, residueExists, true)
 			assert.Equal(t, deltaExists, false)
@@ -157,11 +158,11 @@ func TestIdempotentUnequalInPodRerun(t *testing.T) {
 
 			// Creating new inpod rules should fail if reconciliation is disabled
 			cfg.Reconcile = false
-			assert.Error(t, iptConfiguratorPod.CreateInpodRules(scopes.CNIAgent, tt.podOverrides, ""))
+			assert.Error(t, iptConfiguratorPod.CreateInpodRules(scopes.CNIAgent, tt.podOverrides))
 
 			// Creating new inpod rules should succeed if reconciliation is enabled
 			cfg.Reconcile = true
-			assert.NoError(t, iptConfiguratorPod.CreateInpodRules(scopes.CNIAgent, tt.podOverrides, ""))
+			assert.NoError(t, iptConfiguratorPod.CreateInpodRules(scopes.CNIAgent, tt.podOverrides))
 			residueExists, deltaExists = iptablescapture.VerifyIptablesState(log, iptConfiguratorPod.ext, builder, &iptConfiguratorPod.iptV, &iptConfiguratorPod.ipt6V)
 			assert.Equal(t, residueExists, true)
 			assert.Equal(t, deltaExists, false)

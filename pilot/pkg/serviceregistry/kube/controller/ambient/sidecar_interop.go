@@ -19,6 +19,7 @@ import (
 	"net/netip"
 	"strings"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube/krt"
@@ -32,12 +33,31 @@ import (
 // This is to map to the eventual EDS structure.
 type serviceEDS struct {
 	ServiceKey       string
-	WaypointInstance []*workloadapi.Workload
+	WaypointInstance []model.WorkloadInfo
 	UseWaypoint      bool
 }
 
-func (w serviceEDS) ResourceName() string {
-	return w.ServiceKey
+func (s serviceEDS) ResourceName() string {
+	return s.ServiceKey
+}
+
+func (s serviceEDS) Equals(other serviceEDS) bool {
+	if s.ServiceKey != other.ServiceKey {
+		return false
+	}
+	if s.UseWaypoint != other.UseWaypoint {
+		return false
+	}
+	if len(s.WaypointInstance) != len(other.WaypointInstance) {
+		return false
+	}
+	// assumes builder sorted the slices
+	for i := range s.WaypointInstance {
+		if !s.WaypointInstance[i].Equals(other.WaypointInstance[i]) {
+			return false
+		}
+	}
+	return true
 }
 
 // RegisterEdsShim handles triggering xDS events when Envoy EDS needs to change.
@@ -55,12 +75,16 @@ func RegisterEdsShim(
 	ServicesByAddress krt.Index[networkAddress, model.ServiceInfo],
 	opts krt.OptionsBuilder,
 ) {
+	// Helps us avoid race conditions in tests.
+	// Also, this flag shouldn't change once initialized, so this
+	// has slightly better cache locality.
+	multiNetworkEnabled := features.EnableAmbientMultiNetwork
 	ServiceEds := krt.NewCollection(
 		Services,
 		func(ctx krt.HandlerContext, svc model.ServiceInfo) *serviceEDS {
 			useWaypoint := ingressUseWaypoint(svc, krt.FetchOne(ctx, Namespaces, krt.FilterKey(svc.Service.Namespace)))
-			if !useWaypoint {
-				// Currently, we only need this for ingres -> waypoint usage
+			if !useWaypoint && (!multiNetworkEnabled || svc.Scope != model.Global) {
+				// Currently, we only need this for ingress/east west gateway -> waypoint usage
 				// If we extend this to sidecars, etc we can drop this.
 				return nil
 			}
@@ -87,13 +111,15 @@ func RegisterEdsShim(
 				}
 				waypointServiceKey = waypointSvc.ResourceName()
 			}
-			workloads := krt.Fetch(ctx, Workloads, krt.FilterIndex(WorkloadsByServiceKey, waypointServiceKey))
+			workloads := WorkloadsByServiceKey.Fetch(ctx, waypointServiceKey)
+			// for comparison in Equals
+			workloads = slices.SortBy(workloads, func(i model.WorkloadInfo) string {
+				return i.Workload.Uid
+			})
 			return &serviceEDS{
-				ServiceKey:  svc.ResourceName(),
-				UseWaypoint: useWaypoint,
-				WaypointInstance: slices.Map(workloads, func(e model.WorkloadInfo) *workloadapi.Workload {
-					return e.Workload
-				}),
+				ServiceKey:       svc.ResourceName(),
+				UseWaypoint:      useWaypoint,
+				WaypointInstance: workloads,
 			}
 		},
 		opts.WithName("ServiceEds")...)

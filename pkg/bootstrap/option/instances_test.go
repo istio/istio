@@ -647,6 +647,24 @@ func TestOptions(t *testing.T) {
 			}, &model.BootstrapNodeMetadata{}, false),
 			expected: `{"name":"envoy.transport_sockets.tls","typed_config":{"@type":"type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext","common_tls_context":{"combined_validation_context":{"default_validation_context":{},"validation_context_sds_secret_config":{"name":"file-root:/etc/tracing/ca.pem","sds_config":{"api_config_source":{"api_type":"GRPC","grpc_services":[{"envoy_grpc":{"cluster_name":"sds-grpc"}}],"set_node_on_first_message_only":true,"transport_api_version":"V3"},"resource_api_version":"V3"}}}}}}`,
 		},
+		{
+			testName: "stats eviction interval normal",
+			key:      "stats_eviction_interval",
+			option:   option.EnvoyStatsEvictionInterval(durationpb.New(time.Second * 10)),
+			expected: "10s",
+		},
+		{
+			testName: "stats eviction interval fractional",
+			key:      "stats_eviction_interval",
+			option:   option.EnvoyStatsEvictionInterval(durationpb.New(time.Second*2 + time.Millisecond*5)),
+			expected: "2.005000000s",
+		},
+		{
+			testName: "stats eviction interval longer than 60s",
+			key:      "stats_eviction_interval",
+			option:   option.EnvoyStatsEvictionInterval(durationpb.New(time.Second * 120)),
+			expected: "120s",
+		},
 	}
 
 	for _, c := range cases {

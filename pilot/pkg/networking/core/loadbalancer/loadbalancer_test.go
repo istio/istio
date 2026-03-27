@@ -37,6 +37,9 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/test"
 )
 
 func TestApplyLocalitySetting(t *testing.T) {
@@ -69,7 +72,7 @@ func TestApplyLocalitySetting(t *testing.T) {
 		}
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
-				env := buildEnvForClustersWithDistribute(tt.distribute)
+				env := buildEnvForClustersWithDistribute(t, tt.distribute)
 				cluster := buildFakeCluster()
 				ApplyLocalityLoadBalancer(cluster.LoadAssignment, nil, locality, nil, env.Mesh().LocalityLbSetting, true)
 				weights := make([]int, 0)
@@ -85,7 +88,7 @@ func TestApplyLocalitySetting(t *testing.T) {
 
 	t.Run("Failover: all priorities", func(t *testing.T) {
 		g := NewWithT(t)
-		env := buildEnvForClustersWithFailover()
+		env := buildEnvForClustersWithFailover(t)
 		cluster := buildFakeCluster()
 		ApplyLocalityLoadBalancer(cluster.LoadAssignment, nil, locality, nil, env.Mesh().LocalityLbSetting, true)
 		for _, localityEndpoint := range cluster.LoadAssignment.Endpoints {
@@ -111,7 +114,7 @@ func TestApplyLocalitySetting(t *testing.T) {
 
 	t.Run("Failover: priorities with gaps", func(t *testing.T) {
 		g := NewWithT(t)
-		env := buildEnvForClustersWithFailover()
+		env := buildEnvForClustersWithFailover(t)
 		cluster := buildSmallCluster()
 		ApplyLocalityLoadBalancer(cluster.LoadAssignment, nil, locality, nil, env.Mesh().LocalityLbSetting, true)
 		for _, localityEndpoint := range cluster.LoadAssignment.Endpoints {
@@ -137,7 +140,7 @@ func TestApplyLocalitySetting(t *testing.T) {
 
 	t.Run("Failover: priorities with some nil localities", func(t *testing.T) {
 		g := NewWithT(t)
-		env := buildEnvForClustersWithFailover()
+		env := buildEnvForClustersWithFailover(t)
 		cluster := buildSmallClusterWithNilLocalities()
 		ApplyLocalityLoadBalancer(cluster.LoadAssignment, nil, locality, nil, env.Mesh().LocalityLbSetting, true)
 		for _, localityEndpoint := range cluster.LoadAssignment.Endpoints {
@@ -816,7 +819,7 @@ func TestApplyLocalitySetting(t *testing.T) {
 
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
-				env := buildEnvForClustersWithFailoverPriority(tt.failoverPriority)
+				env := buildEnvForClustersWithFailoverPriority(t, tt.failoverPriority)
 				cluster := buildFakeCluster()
 				ApplyLocalityLoadBalancer(cluster.LoadAssignment, wrappedEndpoints, locality, tt.proxyLabels, env.Mesh().LocalityLbSetting, true)
 
@@ -835,6 +838,11 @@ func TestApplyLocalitySetting(t *testing.T) {
 			})
 		}
 	})
+
+	// NOTE: The test "FailoverPriority with DNS service instances" has been moved to
+	// loadbalancer_simulation_test.go as TestFailoverPriorityWithDNSServiceEntry.
+	// That test uses a real ServiceEntry converted through the full xDS pipeline
+	// rather than manually constructed cluster structures.
 
 	t.Run("FailoverPriority with Failover", func(t *testing.T) {
 		tests := []struct {
@@ -971,7 +979,7 @@ func TestApplyLocalitySetting(t *testing.T) {
 		wrappedEndpoints := buildWrappedLocalityLbEndpointsForFailoverPriorityWithFailover()
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
-				env := buildEnvForClustersWithMixedFailoverPriorityAndLocalityFailover(tt.failoverPriority)
+				env := buildEnvForClustersWithMixedFailoverPriorityAndLocalityFailover(t, tt.failoverPriority)
 				cluster := buildFakeCluster()
 				ApplyLocalityLoadBalancer(cluster.LoadAssignment, wrappedEndpoints, locality, tt.proxyLabels, env.Mesh().LocalityLbSetting, true)
 
@@ -994,8 +1002,11 @@ func TestApplyLocalitySetting(t *testing.T) {
 
 func TestGetLocalityLbSetting(t *testing.T) {
 	// dummy config for test
-	preferCloseService := &model.Service{Attributes: model.ServiceAttributes{K8sAttributes: model.K8sAttributes{
-		TrafficDistribution: model.TrafficDistributionPreferClose,
+	preferSameZoneService := &model.Service{Attributes: model.ServiceAttributes{K8sAttributes: model.K8sAttributes{
+		TrafficDistribution: model.TrafficDistributionPreferSameZone,
+	}}}
+	preferSameNodeService := &model.Service{Attributes: model.ServiceAttributes{K8sAttributes: model.K8sAttributes{
+		TrafficDistribution: model.TrafficDistributionPreferSameNode,
 	}}}
 	failover := []*networking.LocalityLoadBalancerSetting_Failover{nil}
 	cases := []struct {
@@ -1041,23 +1052,45 @@ func TestGetLocalityLbSetting(t *testing.T) {
 			&networking.LocalityLoadBalancerSetting{Failover: failover},
 		},
 		{
-			"all",
-			&networking.LocalityLoadBalancerSetting{},
-			&networking.LocalityLoadBalancerSetting{Failover: failover},
-			preferCloseService,
-			&networking.LocalityLoadBalancerSetting{Failover: failover},
-		},
-		{
-			"service and mesh",
+			"prefer close service and mesh",
 			&networking.LocalityLoadBalancerSetting{},
 			nil,
-			preferCloseService,
+			preferSameZoneService,
+			&networking.LocalityLoadBalancerSetting{
+				FailoverPriority: []string{
+					label.TopologyNetwork.Name,
+					registrylabel.LabelTopologyRegion,
+					registrylabel.LabelTopologyZone,
+				},
+				Enabled: &wrappers.BoolValue{Value: true},
+			},
+		},
+		{
+			"prefer same zone service and mesh",
+			&networking.LocalityLoadBalancerSetting{},
+			nil,
+			preferSameZoneService,
+			&networking.LocalityLoadBalancerSetting{
+				FailoverPriority: []string{
+					label.TopologyNetwork.Name,
+					registrylabel.LabelTopologyRegion,
+					registrylabel.LabelTopologyZone,
+				},
+				Enabled: &wrappers.BoolValue{Value: true},
+			},
+		},
+		{
+			"prefer same node service and mesh",
+			&networking.LocalityLoadBalancerSetting{},
+			nil,
+			preferSameNodeService,
 			&networking.LocalityLoadBalancerSetting{
 				FailoverPriority: []string{
 					label.TopologyNetwork.Name,
 					registrylabel.LabelTopologyRegion,
 					registrylabel.LabelTopologyZone,
 					label.TopologySubzone.Name,
+					registrylabel.LabelHostname,
 				},
 				Enabled: &wrappers.BoolValue{Value: true},
 			},
@@ -1094,7 +1127,7 @@ func TestGetLocalityLbSetting(t *testing.T) {
 	}
 }
 
-func buildEnvForClustersWithDistribute(distribute []*networking.LocalityLoadBalancerSetting_Distribute) *model.Environment {
+func buildEnvForClustersWithDistribute(t *testing.T, distribute []*networking.LocalityLoadBalancerSetting_Distribute) *model.Environment {
 	serviceDiscovery := memregistry.NewServiceDiscovery(&model.Service{
 		Hostname:       "test.example.org",
 		DefaultAddress: "1.1.1.1",
@@ -1117,12 +1150,22 @@ func buildEnvForClustersWithDistribute(distribute []*networking.LocalityLoadBala
 		},
 	}
 
-	configStore := memory.Make(collections.Pilot)
+	configStore := memory.NewController(memory.Make(collections.Pilot))
 
 	env := model.NewEnvironment()
 	env.ServiceDiscovery = serviceDiscovery
 	env.ConfigStore = configStore
 	env.Watcher = meshwatcher.NewTestWatcher(meshConfig)
+	env.VirtualServiceController = model.NewVirtualServiceController(
+		configStore,
+		model.VSControllerOptions{KrtDebugger: krt.GlobalDebugHandler},
+		env.Watcher,
+	)
+	stop := test.NewStop(t)
+	go configStore.Run(stop)
+	go env.VirtualServiceController.Run(stop)
+	kube.WaitForCacheSync("test", stop, configStore.HasSynced)
+	kube.WaitForCacheSync("test", stop, env.VirtualServiceController.HasSynced)
 
 	pushContext := model.NewPushContext()
 	env.Init()
@@ -1146,7 +1189,7 @@ func buildEnvForClustersWithDistribute(distribute []*networking.LocalityLoadBala
 	return env
 }
 
-func buildEnvForClustersWithFailover() *model.Environment {
+func buildEnvForClustersWithFailover(t *testing.T) *model.Environment {
 	serviceDiscovery := memregistry.NewServiceDiscovery(&model.Service{
 		Hostname:       "test.example.org",
 		DefaultAddress: "1.1.1.1",
@@ -1174,12 +1217,22 @@ func buildEnvForClustersWithFailover() *model.Environment {
 		},
 	}
 
-	configStore := memory.Make(collections.Pilot)
+	configStore := memory.NewController(memory.Make(collections.Pilot))
 
 	env := model.NewEnvironment()
 	env.ServiceDiscovery = serviceDiscovery
 	env.ConfigStore = configStore
 	env.Watcher = meshwatcher.NewTestWatcher(meshConfig)
+	env.VirtualServiceController = model.NewVirtualServiceController(
+		configStore,
+		model.VSControllerOptions{KrtDebugger: krt.GlobalDebugHandler},
+		env.Watcher,
+	)
+	stop := test.NewStop(t)
+	go configStore.Run(stop)
+	go env.VirtualServiceController.Run(stop)
+	kube.WaitForCacheSync("test", stop, configStore.HasSynced)
+	kube.WaitForCacheSync("test", stop, env.VirtualServiceController.HasSynced)
 
 	pushContext := model.NewPushContext()
 	env.Init()
@@ -1203,7 +1256,7 @@ func buildEnvForClustersWithFailover() *model.Environment {
 	return env
 }
 
-func buildEnvForClustersWithFailoverPriority(failoverPriority []string) *model.Environment {
+func buildEnvForClustersWithFailoverPriority(t *testing.T, failoverPriority []string) *model.Environment {
 	serviceDiscovery := memregistry.NewServiceDiscovery(&model.Service{
 		Hostname:       "test.example.org",
 		DefaultAddress: "1.1.1.1",
@@ -1226,12 +1279,22 @@ func buildEnvForClustersWithFailoverPriority(failoverPriority []string) *model.E
 		},
 	}
 
-	configStore := memory.Make(collections.Pilot)
+	configStore := memory.NewController(memory.Make(collections.Pilot))
 
 	env := model.NewEnvironment()
 	env.ServiceDiscovery = serviceDiscovery
 	env.ConfigStore = configStore
 	env.Watcher = meshwatcher.NewTestWatcher(meshConfig)
+	env.VirtualServiceController = model.NewVirtualServiceController(
+		configStore,
+		model.VSControllerOptions{KrtDebugger: krt.GlobalDebugHandler},
+		env.Watcher,
+	)
+	stop := test.NewStop(t)
+	go configStore.Run(stop)
+	go env.VirtualServiceController.Run(stop)
+	kube.WaitForCacheSync("test", stop, configStore.HasSynced)
+	kube.WaitForCacheSync("test", stop, env.VirtualServiceController.HasSynced)
 
 	pushContext := model.NewPushContext()
 	env.Init()
@@ -1255,7 +1318,7 @@ func buildEnvForClustersWithFailoverPriority(failoverPriority []string) *model.E
 	return env
 }
 
-func buildEnvForClustersWithMixedFailoverPriorityAndLocalityFailover(failoverPriority []string) *model.Environment {
+func buildEnvForClustersWithMixedFailoverPriorityAndLocalityFailover(t *testing.T, failoverPriority []string) *model.Environment {
 	serviceDiscovery := memregistry.NewServiceDiscovery(&model.Service{
 		Hostname:       "test.example.org",
 		DefaultAddress: "1.1.1.1",
@@ -1284,12 +1347,22 @@ func buildEnvForClustersWithMixedFailoverPriorityAndLocalityFailover(failoverPri
 		},
 	}
 
-	configStore := memory.Make(collections.Pilot)
+	configStore := memory.NewController(memory.Make(collections.Pilot))
 
 	env := model.NewEnvironment()
 	env.ServiceDiscovery = serviceDiscovery
 	env.ConfigStore = configStore
 	env.Watcher = meshwatcher.NewTestWatcher(meshConfig)
+	env.VirtualServiceController = model.NewVirtualServiceController(
+		configStore,
+		model.VSControllerOptions{KrtDebugger: krt.GlobalDebugHandler},
+		env.Watcher,
+	)
+	stop := test.NewStop(t)
+	go configStore.Run(stop)
+	go env.VirtualServiceController.Run(stop)
+	kube.WaitForCacheSync("test", stop, configStore.HasSynced)
+	kube.WaitForCacheSync("test", stop, env.VirtualServiceController.HasSynced)
 
 	pushContext := model.NewPushContext()
 	env.Init()

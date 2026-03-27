@@ -230,7 +230,7 @@ func NewTCPProber(cfg *v1alpha3.TCPHealthCheckConfig, host string) *TCPProber {
 var _ Prober = &TCPProber{}
 
 func (t *TCPProber) Probe(timeout time.Duration) (ProbeResult, error) {
-	// if we cant connect, count as fail
+	// if we can't connect, count as fail
 	d := status.ProbeDialer()
 	d.Timeout = timeout
 	var hostPort string

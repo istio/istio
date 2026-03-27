@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+
+issue:
+ - https://github.com/istio/istio/issues/57890
+
+releaseNotes:
+- |
+  **Fixed** missing gateway reconciliation for meshconfig changes

@@ -20,6 +20,7 @@ import (
 	rawbuffer "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/raw_buffer/v3"
 	metadata "github.com/envoyproxy/go-control-plane/envoy/type/metadata/v3"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 )
 
@@ -30,28 +31,55 @@ func RawBufferTransport() *core.TransportSocket {
 	}
 }
 
-// DefaultInternalUpstreamTransportSocket provides an internal_upstream transport that does not passthrough any metadata.
-var DefaultInternalUpstreamTransportSocket = &core.TransportSocket{
-	Name: "internal_upstream",
-	ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&internalupstream.InternalUpstreamTransport{
-		TransportSocket: RawBufferTransport(),
-	})},
+// InternalUpstreamTransportSocket wraps provided transport socket into Envoy InteralUpstreamTransport.
+func InternalUpstreamTransportSocket(name string, transport *core.TransportSocket) *core.TransportSocket {
+	return &core.TransportSocket{
+		Name: name,
+		ConfigType: &core.TransportSocket_TypedConfig{
+			TypedConfig: protoconv.MessageToAny(
+				&internalupstream.InternalUpstreamTransport{
+					TransportSocket: transport,
+				},
+			),
+		},
+	}
 }
 
+// DefaultInternalUpstreamTransportSocket provides an internal_upstream transport that does not passthrough any metadata.
+var DefaultInternalUpstreamTransportSocket = InternalUpstreamTransportSocket("internal_upstream", RawBufferTransport())
+
 // WaypointInternalUpstreamTransportSocket builds an internal upstream transport socket suitable for usage in a waypoint
-// This will passthrough the OrigDst key
+// This will passthrough the OrigDst key and HBONE destination address.
 func WaypointInternalUpstreamTransportSocket(inner *core.TransportSocket) *core.TransportSocket {
+	passthroughMetadata := []*internalupstream.InternalUpstreamTransport_MetadataValueSource{
+		{
+			Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Host_{Host: &metadata.MetadataKind_Host{}}},
+			Name: OriginalDstMetadataKey,
+		},
+		{
+			Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Host_{Host: &metadata.MetadataKind_Host{}}},
+			Name: "istio",
+		},
+	}
+
+	if features.EnableAmbientBaggage {
+		passthroughMetadata = append(passthroughMetadata,
+			&internalupstream.InternalUpstreamTransport_MetadataValueSource{
+				Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Cluster_{Cluster: &metadata.MetadataKind_Cluster{}}},
+				Name: "istio.peer_metadata",
+			},
+			&internalupstream.InternalUpstreamTransport_MetadataValueSource{
+				Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Host_{Host: &metadata.MetadataKind_Host{}}},
+				Name: "istio.peer_metadata",
+			},
+		)
+	}
+
 	return &core.TransportSocket{
 		Name: "internal_upstream",
 		ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&internalupstream.InternalUpstreamTransport{
-			PassthroughMetadata: []*internalupstream.InternalUpstreamTransport_MetadataValueSource{
-				{
-					Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Host_{Host: &metadata.MetadataKind_Host{}}},
-					Name: OriginalDstMetadataKey,
-				},
-			},
-
-			TransportSocket: inner,
+			PassthroughMetadata: passthroughMetadata,
+			TransportSocket:     inner,
 		})},
 	}
 }
@@ -59,28 +87,39 @@ func WaypointInternalUpstreamTransportSocket(inner *core.TransportSocket) *core.
 // FullMetadataPassthroughInternalUpstreamTransportSocket builds an internal upstream transport socket suitable for usage in
 // originating HBONE. For waypoints, use WaypointInternalUpstreamTransportSocket.
 func FullMetadataPassthroughInternalUpstreamTransportSocket(inner *core.TransportSocket) *core.TransportSocket {
+	passthroughMetadata := []*internalupstream.InternalUpstreamTransport_MetadataValueSource{
+		{
+			Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Host_{Host: &metadata.MetadataKind_Host{}}},
+			Name: OriginalDstMetadataKey,
+		},
+		{
+			Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Cluster_{Cluster: &metadata.MetadataKind_Cluster{}}},
+			Name: "istio",
+		},
+		{
+			Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Host_{Host: &metadata.MetadataKind_Host{}}},
+			Name: "istio",
+		},
+	}
+
+	if features.EnableAmbientBaggage {
+		passthroughMetadata = append(passthroughMetadata,
+			&internalupstream.InternalUpstreamTransport_MetadataValueSource{
+				Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Cluster_{Cluster: &metadata.MetadataKind_Cluster{}}},
+				Name: "istio.peer_metadata",
+			},
+			&internalupstream.InternalUpstreamTransport_MetadataValueSource{
+				Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Host_{Host: &metadata.MetadataKind_Host{}}},
+				Name: "istio.peer_metadata",
+			},
+		)
+	}
+
 	return &core.TransportSocket{
 		Name: "envoy.transport_sockets.internal_upstream",
 		ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&internalupstream.InternalUpstreamTransport{
-			PassthroughMetadata: []*internalupstream.InternalUpstreamTransport_MetadataValueSource{
-				{
-					Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Host_{}},
-					Name: OriginalDstMetadataKey,
-				},
-				{
-					Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Cluster_{
-						Cluster: &metadata.MetadataKind_Cluster{},
-					}},
-					Name: "istio",
-				},
-				{
-					Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Host_{
-						Host: &metadata.MetadataKind_Host{},
-					}},
-					Name: "istio",
-				},
-			},
-			TransportSocket: inner,
+			PassthroughMetadata: passthroughMetadata,
+			TransportSocket:     inner,
 		})},
 	}
 }

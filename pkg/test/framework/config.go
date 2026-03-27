@@ -19,13 +19,11 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/hashicorp/go-multierror"
 	"go.uber.org/atomic"
 	"golang.org/x/sync/errgroup"
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/cluster"
-	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/framework/resource/config"
 	"istio.io/istio/pkg/test/framework/resource/config/apply"
@@ -135,38 +133,6 @@ func (c *configFactory) deleteYAML(ns string, yamlText ...string) error {
 	return g.Wait()
 }
 
-func (c *configFactory) WaitForConfig(ctx resource.Context, ns string, yamlText ...string) error {
-	var outErr error
-	for _, c := range c.ctx.Clusters() {
-		ik, err := istioctl.New(ctx, istioctl.Config{Cluster: c})
-		if err != nil {
-			return err
-		}
-
-		for _, cfg := range yamlText {
-			// TODO(https://github.com/istio/istio/issues/37324): It's currently unsafe
-			// to call istioctl concurrently since it relies on the istioctl library
-			// (rather than calling the binary from the command line) which uses a number
-			// of global variables, which will be overwritten for each call.
-			if err := ik.WaitForConfig(ns, cfg); err != nil {
-				// Get proxy status for additional debugging
-				s, _, _ := ik.Invoke([]string{"ps"})
-				outErr = multierror.Append(err, fmt.Errorf("failed waiting for config for cluster %s: err=%v. Proxy status: %v",
-					c.StableName(), err, s))
-			}
-		}
-	}
-	return outErr
-}
-
-func (c *configFactory) WaitForConfigOrFail(ctx resource.Context, t test.Failer, ns string, yamlText ...string) {
-	err := c.WaitForConfig(ctx, ns, yamlText...)
-	if err != nil {
-		// TODO(https://github.com/istio/istio/issues/37148) fail hard in this case
-		t.Log(err)
-	}
-}
-
 func (c *configFactory) withFilePrefix(prefix string) config.Factory {
 	return &configFactory{
 		ctx:      c.ctx,
@@ -248,16 +214,6 @@ func (c *configPlan) Apply(opts ...apply.Option) error {
 		return err
 	}
 
-	if options.Wait {
-		// TODO: wait for each namespace concurrently once WaitForConfig supports concurrency.
-		for ns, y := range c.yamlText {
-			if err := c.WaitForConfig(c.ctx, ns, y...); err != nil {
-				// TODO(https://github.com/istio/istio/issues/37148) fail hard in this case
-				scopes.Framework.Warnf("(Ignored until https://github.com/istio/istio/issues/37148 is fixed) "+
-					"failed waiting for YAML %v: %v", y, err)
-			}
-		}
-	}
 	return nil
 }
 

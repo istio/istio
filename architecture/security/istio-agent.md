@@ -10,7 +10,7 @@ At a high level, the Istio agent acts as an intermediate proxy between Istiod an
 at two levels. For distributing workload certificates, Envoy will send [SDS](https://www.envoyproxy.io/docs/envoy/latest/configuration/security/secret)
 requests to the agent, causing the agent to submit a CSR to the configured CA (generally Istiod). For other configuration,
 Envoy will send [ADS](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/operations/dynamic_configuration#aggregated-xds-ads)
-requests to the agent, which will be forwarded to the configured discovery server (general Istiod).
+requests to the agent, which will be forwarded to the configured discovery server (generally Istiod).
 
 ## CA Flow
 

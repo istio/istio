@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+releaseNotes:
+  - |
+    **Added** support for annotation `sidecar.istio.io/statsFlushInterval`and `sidecar.istio.io/statsEvictionInterval`. 

@@ -69,10 +69,15 @@ func (i *istioImpl) Close() error {
 
 	// Execute External Control Plane Cleanup Script
 	if i.cfg.ControlPlaneInstaller != "" && !i.cfg.DeployIstio {
-		scopes.Framework.Infof("============= Execute Control Plane Cleanup =============")
+		scopes.Framework.Infof("=== BEGIN: Execute Control Plane Cleanup ===")
 		cmd := exec.Command(i.cfg.ControlPlaneInstaller, "cleanup", i.workDir)
-		if err := cmd.Run(); err != nil {
-			scopes.Framework.Errorf("failed to run external control plane installer: %v", err)
+		if output, err := cmd.CombinedOutput(); err != nil {
+			// Display the installer output within the error message, but proceed with the subsequent cleanup without returning an error.
+			scopes.Framework.Errorf("Execute Control Plane Cleanup failed on: %v\nInstaller output:\n%s", err, string(output))
+			scopes.Framework.Infof("=== FAILED: Execute Control Plane Cleanup ===")
+		} else {
+			scopes.Framework.Debugf("Control Plane cleanup output:\n%s", string(output))
+			scopes.Framework.Infof("=== DONE: Execute Control Plane Cleanup ===")
 		}
 	}
 
@@ -173,6 +178,26 @@ func (i *istioImpl) cleanupCluster(c cluster.Cluster, errG *multierror.Group) {
 			context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{}); e != nil {
 			err = multierror.Append(err, e)
 		}
+		if e := c.Ext().ApiextensionsV1().CustomResourceDefinitions().DeleteCollection(
+			context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{
+				LabelSelector: "app.kubernetes.io/part-of=istio",
+			}); e != nil {
+			err = multierror.Append(err, e)
+		}
+
+		// Delete the revision tags service that were created similarly to MutatingWebhookConfigurations
+		services, e := c.Kube().CoreV1().Services(i.cfg.SystemNamespace).List(context.Background(), metav1.ListOptions{
+			LabelSelector: "istio.io/tag",
+		})
+		if e != nil {
+			err = multierror.Append(err, e)
+		} else {
+			for _, svc := range services.Items {
+				if e := c.Kube().CoreV1().Services(i.cfg.SystemNamespace).Delete(context.Background(), svc.Name, metav1.DeleteOptions{}); e != nil {
+					err = multierror.Append(err, e)
+				}
+			}
+		}
 
 		// We deleted all resources, but don't report cleanup finished until all Istio pods
 		// in the system namespace have actually terminated.
@@ -200,12 +225,17 @@ func (i *istioImpl) cleanupCluster(c cluster.Cluster, errG *multierror.Group) {
 			}
 			res := fmt.Sprintf("Still waiting for %d pods and %d services to terminate in %s ", len(fetchedPod), len(fetchedSvc), i.cfg.SystemNamespace)
 			scopes.Framework.Infof(res)
+
+			for _, svc := range fetchedSvc {
+				scopes.Framework.Infof("Service still present: namespace=%s, name=%s", svc.Namespace, svc.Name)
+			}
+
 			return errors.New(res)
 		}, retry.Timeout(RetryTimeOut), retry.Delay(RetryDelay))
 
 		err = multierror.Append(err, cleanErr)
 
-		return
+		return err
 	})
 }
 

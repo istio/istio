@@ -82,7 +82,7 @@ spec:
           value: /tmp
         ports:
         - containerPort: 8080
-      - image: gcr.io/istio-testing/ext-authz:latest
+      - image: registry.istio.io/testing/ext-authz:latest
         imagePullPolicy: Always
         name: ext-authz
         ports:

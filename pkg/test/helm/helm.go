@@ -39,16 +39,14 @@ func New(kubeConfig string) *Helm {
 func (h *Helm) InstallChartWithValues(name, chartPath, namespace string, values []string, timeout time.Duration) error {
 	command := fmt.Sprintf("helm install %s %s --namespace %s --kubeconfig %s --timeout %s %s",
 		name, chartPath, namespace, h.kubeConfig, timeout, strings.Join(values, " "))
-	_, err := execCommand(command)
-	return err
+	return execCommand(command)
 }
 
 // InstallChart installs the specified chart with its given name to the given namespace
 func (h *Helm) InstallChart(name, chartPath, namespace, overridesFile string, timeout time.Duration, args ...string) error {
 	command := fmt.Sprintf("helm install %s %s --namespace %s -f %s --kubeconfig %s --timeout %s %s ",
 		name, chartPath, namespace, overridesFile, h.kubeConfig, timeout, strings.Join(args, " "))
-	_, err := execCommand(command)
-	return err
+	return execCommand(command)
 }
 
 // UpgradeChart upgrades the specified chart with its given name to the given namespace; does not use baseWorkDir
@@ -56,29 +54,43 @@ func (h *Helm) InstallChart(name, chartPath, namespace, overridesFile string, ti
 func (h *Helm) UpgradeChart(name, chartPath, namespace, overridesFile string, timeout time.Duration, args ...string) error {
 	command := fmt.Sprintf("helm upgrade %s %s --namespace %s -f %s --kubeconfig %s --timeout %s %v",
 		name, chartPath, namespace, overridesFile, h.kubeConfig, timeout, strings.Join(args, " "))
-	_, err := execCommand(command)
-	return err
+	return execCommand(command)
 }
 
 // DeleteChart deletes the specified chart with its given name in the given namespace
 func (h *Helm) DeleteChart(name, namespace string) error {
 	command := fmt.Sprintf("helm delete %s --namespace %s --kubeconfig %s", name, namespace, h.kubeConfig)
-	_, err := execCommand(command)
-	return err
+	return execCommand(command)
 }
 
-// Template runs the template command and applies the generated file with kubectl
+// Template runs the template command and returns the rendered YAML.
+// Uses stdout-only to avoid Helm 4 structured log warnings (level=WARN)
+// on stderr being mixed into the YAML output.
 func (h *Helm) Template(name, chartPath, namespace, templateFile string, timeout time.Duration, args ...string) (string, error) {
 	command := fmt.Sprintf("helm template %s %s --namespace %s -s %s --kubeconfig %s --timeout %s %s ",
 		name, chartPath, namespace, templateFile, h.kubeConfig, timeout, strings.Join(args, " "))
 
-	return execCommand(command)
+	return execStdoutCommand(command)
 }
 
-func execCommand(cmd string) (string, error) {
+func execCommand(cmd string) error {
 	scopes.Framework.Infof("Applying helm command: %s", cmd)
 
 	s, err := shell.Execute(true, cmd)
+	if err != nil {
+		scopes.Framework.Infof("(FAILED) Executing helm: %s (err: %v): %s", cmd, err, s)
+		return fmt.Errorf("%v: %s", err, s)
+	}
+
+	return nil
+}
+
+// execStdoutCommand runs the command returning only stdout.
+// This avoids Helm 4 structured log warnings on stderr polluting the output.
+func execStdoutCommand(cmd string) (string, error) {
+	scopes.Framework.Infof("Applying helm command: %s", cmd)
+
+	s, err := shell.Execute(false, cmd)
 	if err != nil {
 		scopes.Framework.Infof("(FAILED) Executing helm: %s (err: %v): %s", cmd, err, s)
 		return "", fmt.Errorf("%v: %s", err, s)

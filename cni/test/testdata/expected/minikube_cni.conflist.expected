@@ -25,12 +25,14 @@
       "ambient_enabled": false,
       "cni_agent_run_dir": "/tmp",
       "dns": {},
+      "enable_ambient_detection_retry": false,
       "enablement_selectors": [],
       "exclude_namespaces": [
         "istio-system"
       ],
       "ipam": {},
       "name": "istio-cni",
+      "native_nftables": false,
       "plugin_log_level": "debug",
       "pod_namespace": "",
       "type": "istio-cni"

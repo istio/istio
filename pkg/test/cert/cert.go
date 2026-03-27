@@ -21,7 +21,7 @@ import (
 
 // GenerateKey and writes output to keyFile.
 func GenerateKey(keyFile string) error {
-	return openssl("genrsa", "-out", keyFile, "1024")
+	return openssl("genrsa", "-out", keyFile, "2048")
 }
 
 // GenerateCSR and writes output to csrFile.

@@ -43,7 +43,7 @@ func ParsePath(path string) (namespace string, deployment, pod string, container
 	return pv[0], pv[1], pv[2], pv[3], nil
 }
 
-// shouldSkip means that current pod should be skip or not based on given --include and --exclude
+// shouldSkipPod means that current pod should be skip or not based on given --include and --exclude
 func shouldSkipPod(pod *corev1.Pod, config *config2.BugReportConfig) bool {
 	for _, eld := range config.Exclude {
 		if len(eld.Namespaces) > 0 {

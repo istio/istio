@@ -21,6 +21,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/labels"
@@ -210,4 +211,111 @@ func hasProxyIP(addresses []v1.EndpointAddress, proxyIP string) bool {
 		}
 	}
 	return false
+}
+
+func TestFindPortNativeSidecar(t *testing.T) {
+	nativeSidecarRestartPolicy := v1.ContainerRestartPolicyAlways
+	pod := &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-pod",
+			Namespace: "default",
+			UID:       types.UID("test-uid"),
+		},
+		Spec: v1.PodSpec{
+			InitContainers: []v1.Container{
+				{
+					Name: "regular-init",
+					Ports: []v1.ContainerPort{
+						{
+							Name:          "init-port",
+							ContainerPort: 9090,
+							Protocol:      v1.ProtocolTCP,
+						},
+					},
+				},
+				{
+					Name:          "native-sidecar",
+					RestartPolicy: &nativeSidecarRestartPolicy,
+					Ports: []v1.ContainerPort{
+						{
+							Name:          "grpc",
+							ContainerPort: 8080,
+							Protocol:      v1.ProtocolTCP,
+						},
+					},
+				},
+			},
+			Containers: []v1.Container{
+				{
+					Name: "main",
+					Ports: []v1.ContainerPort{
+						{
+							Name:          "http",
+							ContainerPort: 80,
+							Protocol:      v1.ProtocolTCP,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	tests := []struct {
+		name     string
+		svcPort  *v1.ServicePort
+		wantPort int
+		wantErr  bool
+	}{
+		{
+			name: "find port in regular container",
+			svcPort: &v1.ServicePort{
+				TargetPort: intstr.FromString("http"),
+				Protocol:   v1.ProtocolTCP,
+			},
+			wantPort: 80,
+		},
+		{
+			name: "find port in native sidecar init container",
+			svcPort: &v1.ServicePort{
+				TargetPort: intstr.FromString("grpc"),
+				Protocol:   v1.ProtocolTCP,
+			},
+			wantPort: 8080,
+		},
+		{
+			name: "do not find port in regular init container",
+			svcPort: &v1.ServicePort{
+				TargetPort: intstr.FromString("init-port"),
+				Protocol:   v1.ProtocolTCP,
+			},
+			wantErr: true,
+		},
+		{
+			name: "numeric target port always works",
+			svcPort: &v1.ServicePort{
+				TargetPort: intstr.FromInt32(8080),
+				Protocol:   v1.ProtocolTCP,
+			},
+			wantPort: 8080,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := FindPort(pod, tt.svcPort)
+			if tt.wantErr {
+				if err == nil {
+					t.Errorf("FindPort() expected error, got port %d", got)
+				}
+				return
+			}
+			if err != nil {
+				t.Errorf("FindPort() unexpected error: %v", err)
+				return
+			}
+			if got != tt.wantPort {
+				t.Errorf("FindPort() = %d, want %d", got, tt.wantPort)
+			}
+		})
+	}
 }

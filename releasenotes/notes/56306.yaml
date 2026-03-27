@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+issue: [56306]
+releaseNotes:
+  - |
+    **Added** support for ClusterTrustBundle by migrating from `certificates.k8s.io/v1alpha1` to the stable `v1beta1` API in Kubernetes 1.33+. This improves compatibility and future-proofs Istio’s certificate distribution mechanism.

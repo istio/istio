@@ -15,10 +15,17 @@
 package xds_test
 
 import (
+	"fmt"
 	"strings"
 	"testing"
+	"time"
 
+	udpa "github.com/cncf/xds/go/udpa/type/v1"
+	clusterv3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	listenerv3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	upstream "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
+	. "github.com/onsi/gomega"
 
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -26,10 +33,12 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pilot/test/xdstest"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/wellknown"
 )
@@ -63,7 +72,7 @@ spec:
   labels:
     gateway.networking.k8s.io/gateway-name: waypoint
 `
-	waypointGateway = `apiVersion: gateway.networking.k8s.io/v1beta1
+	waypointGateway = `apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: waypoint
@@ -226,6 +235,41 @@ spec:
 	hasTLSInspector(91, false)
 	hasTLSInspector(90, false)
 	hasTLSInspector(443, true)
+}
+
+func TestWaypointTLSInspectorWithOnlyTLSPorts(t *testing.T) {
+	// Test that tls_inspector is added when only TLS ports exist.
+	// This reproduces a bug where tls_inspector was only added when there
+	// were non-TLS ports to exclude from inspection.
+
+	tlsServiceEntry := `apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: tls-only
+  namespace: default
+  labels:
+    istio.io/use-waypoint: waypoint
+spec:
+  hosts: ["secure.example.com"]
+  addresses: ["5.5.5.5"]
+  ports:
+  - number: 443
+    name: tls
+    protocol: TLS
+  resolution: STATIC`
+
+	d, proxy := setupWaypointTest(t,
+		waypointGateway,
+		waypointSvc,
+		waypointInstance,
+		tlsServiceEntry)
+
+	l := xdstest.ExtractListener("main_internal", d.Listeners(proxy))
+	filters := xdstest.ExtractListenerFilters(l)
+
+	// tls_inspector must be present even with only TLS ports
+	tlsInspector := filters[wellknown.TLSInspector]
+	assert.Equal(t, tlsInspector != nil, true)
 }
 
 func TestWaypointEndpoints(t *testing.T) {
@@ -419,7 +463,7 @@ spec:
   labels:
     gateway.networking.k8s.io/gateway-name: waypoint`
 
-	waypointGateway := `apiVersion: gateway.networking.k8s.io/v1beta1
+	waypointGateway := `apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: waypoint
@@ -442,7 +486,7 @@ status:
 kind: ServiceEntry
 metadata:
   name: app
-  namespace: app 
+  namespace: app
   labels:
     istio.io/use-waypoint: waypoint
     istio.io/use-waypoint-namespace: default
@@ -481,15 +525,36 @@ spec:
 		waypointGateway, waypointSvc, waypointInstance,
 		appServiceEntry, notSelectedAppServiceEntry, requestAuthn)
 
-	l := xdstest.ExtractListener("main_internal", d.Listeners(proxy))
+	var app, notApp *hcm.HttpConnectionManager
+	retry.UntilSuccessOrFail(t, func() error {
+		l := xdstest.ExtractListener("main_internal", d.Listeners(proxy))
+		if l == nil {
+			return fmt.Errorf("listener not found")
+		}
 
-	app := xdstest.ExtractHTTPConnectionManager(t,
-		xdstest.ExtractFilterChain(model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "http", "app.com", 80), l))
+		appFc := xdstest.ExtractFilterChain(model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "http", "app.com", 80), l)
+		if appFc == nil {
+			return fmt.Errorf("app filter chain not found")
+		}
+		app = xdstest.ExtractHTTPConnectionManager(t, appFc)
+		if app == nil {
+			return fmt.Errorf("app hcm not found")
+		}
+
+		notAppFc := xdstest.ExtractFilterChain(model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "http", "not-app.com", 80), l)
+		if notAppFc == nil {
+			return fmt.Errorf("notApp filter chain not found")
+		}
+		notApp = xdstest.ExtractHTTPConnectionManager(t, notAppFc)
+		if notApp == nil {
+			return fmt.Errorf("notApp hcm not found")
+		}
+		return nil
+	}, retry.Timeout(time.Second*10))
+
 	assert.Equal(t, sets.New(slices.Map(app.HttpFilters, (*hcm.HttpFilter).GetName)...).Contains("envoy.filters.http.jwt_authn"), true)
 
 	// assert not-app.com has not gotten config from the req authn
-	notApp := xdstest.ExtractHTTPConnectionManager(t,
-		xdstest.ExtractFilterChain(model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "http", "not-app.com", 80), l))
 	assert.Equal(t, sets.New(slices.Map(notApp.HttpFilters, (*hcm.HttpFilter).GetName)...).Contains("envoy.filters.http.jwt_authn"), false)
 }
 
@@ -514,6 +579,397 @@ func TestIngressUseWaypoint(t *testing.T) {
 	})
 }
 
+func TestWaypointClusterWithDynamicDNS(t *testing.T) {
+	g := NewWithT(t)
+	dynamicDNSServiceEntry := `apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: wildcard-service-entry
+  namespace: default
+  labels:
+    istio.io/use-waypoint: waypoint
+    istio.io/use-waypoint-namespace: default
+spec:
+  hosts: ["*.domain.com"]
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+  resolution: DYNAMIC_DNS`
+	d, p := setupWaypointTest(t,
+		waypointGateway,
+		waypointSvc,
+		waypointInstance,
+		dynamicDNSServiceEntry)
+
+	clusters := xdstest.ExtractClusters(d.Clusters(p))
+	cluster := clusters["inbound-vip|80|http|*.domain.com"]
+	g.Expect(cluster).NotTo(BeNil())
+	g.Expect(cluster.TransportSocket.GetTypedConfig().TypeUrl).
+		To(Equal("type.googleapis.com/envoy.extensions.transport_sockets.internal_upstream.v3.InternalUpstreamTransport"))
+	clusterType := cluster.ClusterDiscoveryType.(*clusterv3.Cluster_ClusterType)
+	g.Expect(clusterType).NotTo(BeNil())
+	g.Expect(clusterType.ClusterType.GetTypedConfig().TypeUrl).
+		To(Equal("type.googleapis.com/envoy.extensions.clusters.dynamic_forward_proxy.v3.ClusterConfig"))
+	po := cluster.TypedExtensionProtocolOptions["envoy.extensions.upstreams.http.v3.HttpProtocolOptions"]
+	g.Expect(po).To(BeNil())
+}
+
+func TestWaypointClusterWithDynamicDNSWithoutWaypoint(t *testing.T) {
+	g := NewWithT(t)
+	dynamicDNSServiceEntry := `apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: wildcard-service-entry
+  namespace: default
+spec:
+  hosts: ["*.domain.com"]
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+  resolution: DYNAMIC_DNS`
+	d, p := setupWaypointTest(t,
+		waypointGateway,
+		waypointSvc,
+		waypointInstance,
+		dynamicDNSServiceEntry)
+
+	clusters := xdstest.ExtractClusters(d.Clusters(p))
+	var clusterNames []string
+	for _, c := range clusters {
+		clusterNames = append(clusterNames, c.Name)
+	}
+	g.Expect(len(clusterNames)).To(Equal(4))
+	g.Expect(clusterNames).To(ContainElements([]string{
+		"connect_originate",
+		"outbound|15008||waypoint.default.svc.cluster.local",
+		"main_internal",
+		"encap",
+	}))
+}
+
+func TestWaypointClusterWithDynamicDNSAndTLSOrigination(t *testing.T) {
+	g := NewWithT(t)
+	dynamicDNSServiceEntry := `apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: wildcard-service-entry
+  namespace: default
+  labels:
+    istio.io/use-waypoint: waypoint
+    istio.io/use-waypoint-namespace: default
+spec:
+  hosts: ["*.domain.com"]
+  ports:
+  - number: 80
+    name: outbound-tls-1
+    protocol: HTTP
+  - number: 81
+    name: outbound-tls-2
+    protocol: HTTP
+  resolution: DYNAMIC_DNS`
+	// TODO(jaellio): Also set trust bundle
+	destinationRule := `apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: domain-tls
+  namespace: default
+spec:
+  host: "*.domain.com"
+  trafficPolicy:
+    tls:
+      mode: SIMPLE`
+	d, p := setupWaypointTest(t,
+		waypointGateway,
+		waypointSvc,
+		waypointInstance,
+		dynamicDNSServiceEntry,
+		destinationRule)
+
+	clusters := xdstest.ExtractClusters(d.Clusters(p))
+	tlsCluster1 := clusters["inbound-vip|80|http|*.domain.com"]
+	g.Expect(tlsCluster1).ToNot(BeNil())
+	g.Expect(tlsCluster1.TransportSocket.GetTypedConfig().TypeUrl).
+		To(Equal("type.googleapis.com/envoy.extensions.transport_sockets.internal_upstream.v3.InternalUpstreamTransport"))
+	tlsCluster2 := clusters["inbound-vip|81|http|*.domain.com"]
+	g.Expect(tlsCluster2).ToNot(BeNil())
+	g.Expect(tlsCluster2.TransportSocket.GetTypedConfig().TypeUrl).
+		To(Equal("type.googleapis.com/envoy.extensions.transport_sockets.internal_upstream.v3.InternalUpstreamTransport"))
+	// Here we make sure we add validation of SAN for the upstream
+	// connections generated by the DFP cluster. That's required by
+	// DFP clusters when `allow_insecure_cluster_options` is false.
+	po := tlsCluster1.TypedExtensionProtocolOptions["envoy.extensions.upstreams.http.v3.HttpProtocolOptions"]
+	g.Expect(po).NotTo(BeNil())
+	var httpOptions upstream.HttpProtocolOptions
+	err := po.UnmarshalTo(&httpOptions)
+	g.Expect(err).To(BeNil())
+
+	g.Expect(httpOptions.UpstreamHttpProtocolOptions.AutoSni).To(BeTrue())
+	g.Expect(httpOptions.UpstreamHttpProtocolOptions.AutoSanValidation).To(BeTrue())
+}
+
+func TestWaypointFiltersWithDynamicDns(t *testing.T) {
+	g := NewWithT(t)
+	dynamicDNSServiceEntry := `apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: wildcard-service-entry
+  namespace: default
+  labels:
+    istio.io/use-waypoint: waypoint
+    istio.io/use-waypoint-namespace: default
+spec:
+  hosts: ["*.domain.com"]
+  ports:
+  - number: 80
+    name: http-1
+    protocol: HTTP
+  - number: 8080
+    name: http-2
+    protocol: HTTP
+  resolution: DYNAMIC_DNS`
+	d, p := setupWaypointTest(t,
+		waypointGateway,
+		waypointSvc,
+		waypointInstance,
+		dynamicDNSServiceEntry)
+
+	listeners := make(map[string]*listenerv3.Listener)
+	for _, l := range d.Listeners(p) {
+		listeners[l.Name] = l
+	}
+
+	// Making sure the filter chains are there
+	mainInternalListener := listeners["main_internal"]
+	g.Expect(mainInternalListener).NotTo(BeNil())
+	filterChainNames := xdstest.ExtractFilterChainNames(mainInternalListener)
+	g.Expect(filterChainNames).To(ContainElements(
+		"inbound-vip|80|http|*.domain.com",
+		"inbound-vip|8080|http|*.domain.com",
+	))
+
+	// Making sure the virtual host matches the wildcarded domain
+	// so malicious apps can't exploit the Host header.
+	filterChain := xdstest.ExtractFilterChain("inbound-vip|80|http|*.domain.com", mainInternalListener)
+	httpConnMngr := xdstest.ExtractHTTPConnectionManager(t, filterChain)
+	g.Expect(httpConnMngr).NotTo(BeNil())
+	routeConfig := httpConnMngr.GetRouteConfig()
+	virtualHosts := xdstest.ExtractVirtualHosts(routeConfig)
+	g.Expect(virtualHosts["*.domain.com"]).To(Equal([]string{
+		"inbound-vip|80|http|*.domain.com",
+	}))
+
+	// Make sure we have the DFP filter in place
+	var dfpFilter *hcm.HttpFilter
+	for _, f := range httpConnMngr.HttpFilters {
+		if f.Name == "envoy.filters.http.dynamic_forward_proxy" {
+			dfpFilter = f
+		}
+	}
+	g.Expect(dfpFilter).NotTo(BeNil())
+	g.Expect(dfpFilter.GetTypedConfig().TypeUrl).To(Equal("type.googleapis.com/envoy.extensions.filters.http.dynamic_forward_proxy.v3.FilterConfig"))
+}
+
+func TestWaypointPeerMetadataFilters(t *testing.T) {
+	testCases := []struct {
+		name                                string
+		enableAmbientMultiNetwork           bool
+		enableAmbientBaggage                bool
+		expectedDownstreamDiscoveryMethods  []string
+		expectedDownstreamPropagationMethod string
+		expectedUpstreamDiscoveryMethods    []string
+		expectedClusterFilters              []string
+		expectedConnectFilters              []string
+		expectedInnerConnectFilters         []string
+	}{
+		{
+			name:                                "single network ambient uses workload_discovery",
+			enableAmbientMultiNetwork:           false,
+			enableAmbientBaggage:                false,
+			expectedDownstreamDiscoveryMethods:  []string{"workload_discovery"},
+			expectedDownstreamPropagationMethod: "",
+			expectedUpstreamDiscoveryMethods:    []string{"workload_discovery"},
+			expectedClusterFilters:              []string{},
+			expectedConnectFilters:              []string{wellknown.TCPProxy},
+			expectedInnerConnectFilters:         nil,
+		},
+		{
+			name:                                "ENABLE_AMBIENT_MULTI_NETWORK=true, ENABLE_AMBIENT_BAGGAGE=false",
+			enableAmbientMultiNetwork:           true,
+			enableAmbientBaggage:                false,
+			expectedDownstreamDiscoveryMethods:  []string{"workload_discovery"},
+			expectedDownstreamPropagationMethod: "",
+			expectedUpstreamDiscoveryMethods:    []string{"workload_discovery"},
+			expectedClusterFilters:              []string{},
+			expectedConnectFilters:              []string{"envoy.filters.network.tcp_proxy"},
+			expectedInnerConnectFilters:         []string{"propagate_endpoint_metadata", wellknown.TCPProxy},
+		},
+		{
+			name:                                "single network ambient uses baggage",
+			enableAmbientMultiNetwork:           false,
+			enableAmbientBaggage:                true,
+			expectedDownstreamDiscoveryMethods:  []string{"baggage", "workload_discovery"},
+			expectedDownstreamPropagationMethod: "baggage",
+			expectedUpstreamDiscoveryMethods:    []string{"workload_discovery", "upstream_filter_state"},
+			expectedClusterFilters:              []string{"upstream_hbone_peer_metadata"},
+			expectedConnectFilters:              []string{"upstream_hbone_peer_metadata", wellknown.TCPProxy},
+			expectedInnerConnectFilters:         nil,
+		},
+		{
+			name:                                "multi-network ambient uses baggage",
+			enableAmbientMultiNetwork:           true,
+			enableAmbientBaggage:                true,
+			expectedDownstreamDiscoveryMethods:  []string{"baggage", "workload_discovery"},
+			expectedDownstreamPropagationMethod: "baggage",
+			expectedUpstreamDiscoveryMethods:    []string{"workload_discovery", "upstream_filter_state"},
+			expectedClusterFilters:              []string{"upstream_hbone_peer_metadata"},
+			expectedConnectFilters:              []string{"upstream_hbone_peer_metadata", wellknown.TCPProxy},
+			expectedInnerConnectFilters:         []string{"propagate_endpoint_metadata", "upstream_hbone_peer_metadata", "envoy.filters.network.tcp_proxy"},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			g := NewWithT(t)
+			test.SetForTest(t, &features.EnableAmbientMultiNetwork, tc.enableAmbientMultiNetwork)
+			test.SetForTest(t, &features.EnableAmbientWaypointMultiNetwork, tc.enableAmbientMultiNetwork)
+			test.SetForTest(t, &features.EnableAmbientBaggage, tc.enableAmbientBaggage)
+
+			d, proxy := setupWaypointTest(t,
+				waypointGateway,
+				waypointSvc,
+				waypointInstance,
+				appServiceEntry)
+
+			connectTerminateListener := xdstest.ExtractListener("connect_terminate", d.Listeners(proxy))
+			g.Expect(connectTerminateListener).NotTo(BeNil())
+
+			connectTerminateHCM := xdstest.ExtractHTTPConnectionManager(t,
+				xdstest.ExtractFilterChain("default", connectTerminateListener))
+			g.Expect(connectTerminateHCM).NotTo(BeNil(), "connect_terminate HCM should exist")
+
+			// testing downstream first
+			{
+				var downstreamMetadataFilter *hcm.HttpFilter
+				for _, f := range connectTerminateHCM.HttpFilters {
+					if f.Name == "waypoint_downstream_peer_metadata" {
+						downstreamMetadataFilter = f
+						break
+					}
+				}
+				g.Expect(downstreamMetadataFilter).NotTo(BeNil())
+
+				typedStruct := &udpa.TypedStruct{}
+				err := downstreamMetadataFilter.GetTypedConfig().UnmarshalTo(typedStruct)
+				g.Expect(err).NotTo(HaveOccurred())
+
+				g.Expect(typedStruct.TypeUrl).To(Equal("type.googleapis.com/io.istio.http.peer_metadata.Config"))
+
+				downstreamDiscovery := typedStruct.Value.Fields["downstream_discovery"].GetListValue()
+				g.Expect(downstreamDiscovery).NotTo(BeNil())
+				g.Expect(len(downstreamDiscovery.Values)).To(BeNumerically("==", len(tc.expectedDownstreamDiscoveryMethods)))
+
+				var discoveryMethods []string
+				for _, v := range downstreamDiscovery.Values {
+					for key := range v.GetStructValue().GetFields() {
+						discoveryMethods = append(discoveryMethods, key)
+					}
+				}
+				for _, expectedDiscoveryMethod := range tc.expectedDownstreamDiscoveryMethods {
+					g.Expect(discoveryMethods).To(ContainElement(expectedDiscoveryMethod))
+				}
+
+				sharedWithUpstream := typedStruct.Value.Fields["shared_with_upstream"].GetBoolValue()
+				g.Expect(sharedWithUpstream).To(BeTrue())
+
+				if tc.expectedDownstreamPropagationMethod != "" {
+					downstreamPropagation := typedStruct.Value.Fields["downstream_propagation"].GetListValue()
+					g.Expect(downstreamPropagation).NotTo(BeNil())
+					g.Expect(len(downstreamPropagation.Values)).To(BeNumerically("==", 1))
+
+					propagationMethod := downstreamPropagation.Values[0].GetStructValue()
+					g.Expect(propagationMethod).NotTo(BeNil())
+					_, hasExpectedPropagationMethod := propagationMethod.Fields[tc.expectedDownstreamPropagationMethod]
+					g.Expect(hasExpectedPropagationMethod).To(BeTrue())
+				} else {
+					downstreamPropagation := typedStruct.Value.Fields["downstream_propagation"].GetListValue()
+					g.Expect(downstreamPropagation).To(BeNil())
+				}
+			}
+
+			// Now we're going to test upstream
+			{
+				listeners := make(map[string]*listenerv3.Listener)
+				for _, l := range d.Listeners(proxy) {
+					listeners[l.Name] = l
+				}
+
+				// Making sure the filter chains are there
+				mainInternalListener := listeners["main_internal"]
+				filterChain := xdstest.ExtractFilterChain("inbound-vip|80|http|app.com", mainInternalListener)
+				g.Expect(filterChain).NotTo(BeNil())
+				httpConnMngr := xdstest.ExtractHTTPConnectionManager(t, filterChain)
+				var upstreamMetadataFilter *hcm.HttpFilter
+				for _, f := range httpConnMngr.HttpFilters {
+					if f.Name == "waypoint_upstream_peer_metadata" {
+						upstreamMetadataFilter = f
+						break
+					}
+				}
+				g.Expect(upstreamMetadataFilter).NotTo(BeNil())
+
+				typedStruct := &udpa.TypedStruct{}
+				err := upstreamMetadataFilter.GetTypedConfig().UnmarshalTo(typedStruct)
+				g.Expect(err).NotTo(HaveOccurred())
+
+				g.Expect(typedStruct.TypeUrl).To(Equal("type.googleapis.com/io.istio.http.peer_metadata.Config"))
+
+				upstreamDiscovery := typedStruct.Value.Fields["upstream_discovery"].GetListValue()
+				g.Expect(upstreamDiscovery).NotTo(BeNil())
+				g.Expect(len(upstreamDiscovery.Values)).To(BeNumerically("==", len(tc.expectedUpstreamDiscoveryMethods)))
+
+				var discoveryMethods []string
+				for _, v := range upstreamDiscovery.Values {
+					for key := range v.GetStructValue().GetFields() {
+						discoveryMethods = append(discoveryMethods, key)
+					}
+				}
+				for _, expectedDiscoveryMethod := range tc.expectedUpstreamDiscoveryMethods {
+					g.Expect(discoveryMethods).To(ContainElement(expectedDiscoveryMethod))
+				}
+				// No upstream propagation expected
+
+				c := xdstest.ExtractCluster("inbound-vip|80|http|app.com", d.Clusters(proxy))
+				g.Expect(c).NotTo(BeNil())
+				g.Expect(xdstest.ExtractClusterFilterNames(c.Filters)).To(HaveExactElements(tc.expectedClusterFilters))
+
+				if tc.expectedConnectFilters == nil {
+					g.Expect(listeners).NotTo(HaveKey("connect_originate"))
+				} else {
+					g.Expect(listeners).To(HaveKey("connect_originate"))
+					l := listeners["connect_originate"]
+					fc := xdstest.ExtractFilterChain("", l)
+					g.Expect(fc).NotTo(BeNil())
+					fs, _ := xdstest.ExtractFilterNames(t, fc)
+					g.Expect(fs).To(HaveExactElements(tc.expectedConnectFilters))
+				}
+
+				if tc.expectedInnerConnectFilters == nil {
+					g.Expect(listeners).NotTo(HaveKey("inner_connect_originate"))
+				} else {
+					g.Expect(listeners).To(HaveKey("inner_connect_originate"))
+					l := listeners["inner_connect_originate"]
+					fc := xdstest.ExtractFilterChain("", l)
+					g.Expect(fc).NotTo(BeNil())
+					fs, _ := xdstest.ExtractFilterNames(t, fc)
+					g.Expect(fs).To(HaveExactElements(tc.expectedInnerConnectFilters))
+				}
+			}
+		})
+	}
+}
+
 func setupWaypointTest(t *testing.T, configs ...string) (*xds.FakeDiscoveryServer, *model.Proxy) {
 	test.SetForTest(t, &features.EnableDualStack, true)
 	test.SetForTest(t, &features.EnableIngressWaypointRouting, true)
@@ -535,12 +991,129 @@ func setupWaypointTest(t *testing.T, configs ...string) (*xds.FakeDiscoveryServe
 	proxy := d.SetupProxy(&model.Proxy{
 		Type:            model.Waypoint,
 		ConfigNamespace: "default",
-		Labels:          map[string]string{label.IoK8sNetworkingGatewayGatewayName.Name: "waypoint"},
-		IPAddresses:     []string{"3.0.0.1"}, // match the WE
+		Labels: map[string]string{
+			label.IoK8sNetworkingGatewayGatewayName.Name: "waypoint",
+			label.GatewayManaged.Name:                    constants.ManagedGatewayMeshControllerLabel,
+		},
+		IPAddresses: []string{"3.0.0.1"}, // match the WE
 	})
 	return d, proxy
 }
 
 func joinYaml(s ...string) string {
 	return strings.Join(s, "\n---\n")
+}
+
+func TestIngressGatewayListenersAndClustersMultiNetwork(t *testing.T) {
+	// Ingress gateway service with network label
+	ingressGatewaySvc := `apiVersion: v1
+kind: Service
+metadata:
+  name: istio-ingressgateway
+  namespace: istio-system
+  labels:
+    istio: ingressgateway
+    topology.istio.io/network: network-1
+spec:
+  type: LoadBalancer
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8080
+`
+
+	// Gateway resource for ingress
+	ingressGateway := `apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: my-gateway
+  namespace: istio-system
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "*.example.com"
+`
+
+	cases := []struct {
+		name            string
+		enableHBONESend bool
+		expect2HBONE    bool
+	}{
+		{
+			name:            "2HBONE listeners and clusters present when HBONESend enabled",
+			enableHBONESend: true,
+			expect2HBONE:    true,
+		},
+		{
+			name:            "no 2HBONE listeners and clusters when HBONESend disabled",
+			enableHBONESend: false,
+			expect2HBONE:    false,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Set feature flags before creating discovery server
+			test.SetForTest(t, &features.MultiNetworkGatewayAPI, true)
+			test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
+			test.SetForTest(t, &features.EnableAmbientIngressMultiNetwork, true)
+			test.SetForTest(t, &features.EnableHBONESend, tc.enableHBONESend)
+
+			c := joinYaml(ingressGatewaySvc, ingressGateway)
+			mc := mesh.DefaultMeshConfig()
+			d := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+				ConfigString:           c,
+				KubernetesObjectString: c,
+				MeshConfig:             mc,
+			})
+
+			// Create an ingress gateway proxy (Router type)
+			proxy := d.SetupProxy(&model.Proxy{
+				Type:            model.Router,
+				ConfigNamespace: "istio-system",
+				Labels: map[string]string{
+					"istio":                    "ingressgateway",
+					label.TopologyNetwork.Name: "network-1",
+				},
+				IPAddresses: []string{"10.0.0.1"},
+				Metadata: &model.NodeMetadata{
+					Labels: map[string]string{
+						"istio":                    "ingressgateway",
+						label.TopologyNetwork.Name: "network-1",
+					},
+				},
+			})
+
+			listeners := d.Listeners(proxy)
+			clusters := d.Clusters(proxy)
+
+			listenerNames := []string{}
+			for _, l := range listeners {
+				listenerNames = append(listenerNames, l.Name)
+			}
+
+			clusterNames := []string{}
+			for _, c := range clusters {
+				clusterNames = append(clusterNames, c.Name)
+			}
+
+			expectedListeners := []string{"inner_connect_originate", "outer_connect_originate"}
+			expectedClusters := []string{"inner_connect_originate", "outer_connect_originate"}
+
+			g := NewWithT(t)
+			if tc.expect2HBONE {
+				g.Expect(listenerNames).To(ContainElements(expectedListeners))
+				g.Expect(clusterNames).To(ContainElements(expectedClusters))
+			} else {
+				g.Expect(listenerNames).ToNot(ContainElements(expectedListeners))
+				g.Expect(clusterNames).ToNot(ContainElements(expectedClusters))
+			}
+		})
+	}
 }

@@ -1,4 +1,4 @@
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: gateway
@@ -13,7 +13,7 @@ spec:
       namespaces:
         from: All
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: http
@@ -46,7 +46,7 @@ spec:
     name: tls
     protocol: TLS
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: egress
@@ -56,6 +56,8 @@ spec:
   - kind: ServiceEntry
     group: networking.istio.io
     name: egress
+  hostnames:
+  - "google.com"
   rules:
   - backendRefs:
     - kind: Hostname
@@ -63,7 +65,7 @@ spec:
       name: google.com
       port: 80
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: TLSRoute
 metadata:
   name: egress
@@ -73,6 +75,8 @@ spec:
   - kind: ServiceEntry
     group: networking.istio.io
     name: egress
+  hostnames:
+  - "google.com"
   rules:
   - backendRefs:
     - kind: Hostname

@@ -52,6 +52,7 @@ import (
 	"istio.io/istio/pkg/config/visibility"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
+	pm "istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
@@ -176,7 +177,9 @@ func TestController_GetPodLocality(t *testing.T) {
 	pod1 := generatePod([]string{"128.0.1.1"}, "pod1", "nsA", "", "node1", map[string]string{"app": "prod-app"}, map[string]string{})
 	pod2 := generatePod([]string{"128.0.1.2"}, "pod2", "nsB", "", "node2", map[string]string{"app": "prod-app"}, map[string]string{})
 	podOverride := generatePod([]string{"128.0.1.2"}, "pod2", "nsB", "",
-		"node1", map[string]string{"app": "prod-app", model.LocalityLabel: "regionOverride.zoneOverride.subzoneOverride"}, map[string]string{})
+		"node1", map[string]string{"app": "prod-app", pm.LocalityLabel: "regionOverride.zoneOverride.subzoneOverride"}, map[string]string{})
+	podOverride2 := generatePod([]string{"128.0.1.2"}, "pod2", "nsB", "",
+		"node1", map[string]string{"app": "prod-app", label.TopologyLocality.Name: "regionOverride.zoneOverride.subzoneOverride"}, map[string]string{})
 	testCases := []struct {
 		name   string
 		pods   []*corev1.Pod
@@ -266,6 +269,16 @@ func TestController_GetPodLocality(t *testing.T) {
 			},
 			wantAZ: map[*corev1.Pod]string{
 				podOverride: "regionOverride/zoneOverride/subzoneOverride",
+			},
+		},
+		{
+			name: "should return correct az with new label",
+			pods: []*corev1.Pod{podOverride2},
+			nodes: []*corev1.Node{
+				generateNode("node1", map[string]string{NodeZoneLabel: "zone1", NodeRegionLabel: "region1", label.TopologySubzone.Name: "subzone1"}),
+			},
+			wantAZ: map[*corev1.Pod]string{
+				podOverride2: "regionOverride/zoneOverride/subzoneOverride",
 			},
 		},
 	}
@@ -1655,7 +1668,7 @@ func TestExternalNameServiceInstances(t *testing.T) {
 		ExportTo:                 nil,
 		LabelSelectors:           nil,
 		Aliases:                  nil,
-		ClusterExternalAddresses: nil,
+		ClusterExternalAddresses: model.AddressMap{},
 		ClusterExternalPorts:     nil,
 		K8sAttributes: model.K8sAttributes{
 			Type:         string(corev1.ServiceTypeExternalName),
@@ -2608,6 +2621,7 @@ func TestStripNodeUnusedFields(t *testing.T) {
 }
 
 func TestStripPodUnusedFields(t *testing.T) {
+	nativeSidecarRestartPolicy := corev1.ContainerRestartPolicyAlways
 	inputPod := &corev1.Pod{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Pod",
@@ -2633,6 +2647,27 @@ func TestStripPodUnusedFields(t *testing.T) {
 			InitContainers: []corev1.Container{
 				{
 					Name: "init-container",
+				},
+				{
+					Name:          "native-sidecar",
+					RestartPolicy: &nativeSidecarRestartPolicy,
+					Ports: []corev1.ContainerPort{
+						{
+							Name:          "grpc",
+							ContainerPort: 8080,
+							Protocol:      corev1.ProtocolTCP,
+						},
+					},
+				},
+				{
+					Name: "init-container-with-ports",
+					Ports: []corev1.ContainerPort{
+						{
+							Name:          "debug",
+							ContainerPort: 9090,
+							Protocol:      corev1.ProtocolTCP,
+						},
+					},
 				},
 			},
 			Containers: []corev1.Container{
@@ -2696,6 +2731,19 @@ func TestStripPodUnusedFields(t *testing.T) {
 					Ports: []corev1.ContainerPort{
 						{
 							Name: "http",
+						},
+					},
+				},
+			},
+			// Native sidecar init container with ports should be preserved.
+			InitContainers: []corev1.Container{
+				{
+					RestartPolicy: &nativeSidecarRestartPolicy,
+					Ports: []corev1.ContainerPort{
+						{
+							Name:          "grpc",
+							ContainerPort: 8080,
+							Protocol:      corev1.ProtocolTCP,
 						},
 					},
 				},
@@ -2800,16 +2848,16 @@ func TestServiceUpdateNeedsPush(t *testing.T) {
 			name:     "target ports changed",
 			prev:     &svc,
 			curr:     &updatedSvc,
-			prevConv: kube.ConvertService(svc, constants.DefaultClusterLocalDomain, "", nil),
-			currConv: kube.ConvertService(updatedSvc, constants.DefaultClusterLocalDomain, "", nil),
+			prevConv: kube.ConvertService(svc, nil, constants.DefaultClusterLocalDomain, "", ""),
+			currConv: kube.ConvertService(updatedSvc, nil, constants.DefaultClusterLocalDomain, "", ""),
 			expect:   true,
 		},
 		testcase{
 			name:     "target ports unchanged",
 			prev:     &svc,
 			curr:     &svc,
-			prevConv: kube.ConvertService(svc, constants.DefaultClusterLocalDomain, "", nil),
-			currConv: kube.ConvertService(svc, constants.DefaultClusterLocalDomain, "", nil),
+			prevConv: kube.ConvertService(svc, nil, constants.DefaultClusterLocalDomain, "", ""),
+			currConv: kube.ConvertService(svc, nil, constants.DefaultClusterLocalDomain, "", ""),
 			expect:   false,
 		})
 
@@ -2818,5 +2866,50 @@ func TestServiceUpdateNeedsPush(t *testing.T) {
 		if actual != test.expect {
 			t.Fatalf("%s: expected %v, got %v", test.name, test.expect, actual)
 		}
+	}
+}
+
+func TestNamespaceTrafficDistributionInheritance(t *testing.T) {
+	controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{})
+
+	nsName := "test-ns"
+	// Create namespace without traffic-distribution annotation
+	ns := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: nsName,
+		},
+	}
+	clienttest.Wrap(t, controller.namespaces).CreateOrUpdate(ns)
+
+	// Create a service in this namespace
+	createServiceWait(controller, "test-svc", nsName, []string{"10.0.0.1"},
+		map[string]string{}, map[string]string{},
+		[]int32{8080}, map[string]string{"app": "test"}, t)
+
+	// Verify initial traffic distribution is Any
+	svc := controller.GetService(kube.ServiceHostname("test-svc", nsName, defaultFakeDomainSuffix))
+	if svc == nil {
+		t.Fatal("service not found")
+	}
+	if svc.Attributes.TrafficDistribution != model.TrafficDistributionAny {
+		t.Fatalf("expected TrafficDistributionAny, got %v", svc.Attributes.TrafficDistribution)
+	}
+
+	// Update namespace with traffic-distribution annotation
+	ns.Annotations = map[string]string{
+		annotation.NetworkingTrafficDistribution.Name: "PreferClose",
+	}
+	clienttest.Wrap(t, controller.namespaces).CreateOrUpdate(ns)
+
+	// Wait for service update event
+	fx.WaitOrFail(t, "service")
+
+	// Verify service now has PreferSameZone traffic distribution
+	svc = controller.GetService(kube.ServiceHostname("test-svc", nsName, defaultFakeDomainSuffix))
+	if svc == nil {
+		t.Fatal("service not found after namespace update")
+	}
+	if svc.Attributes.TrafficDistribution != model.TrafficDistributionPreferSameZone {
+		t.Fatalf("expected TrafficDistributionPreferSameZone, got %v", svc.Attributes.TrafficDistribution)
 	}
 }

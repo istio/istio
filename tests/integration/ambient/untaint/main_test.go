@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 // Copyright Istio Authors
 //
@@ -27,7 +26,6 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/tests/integration/security/util/cert"
 )
@@ -43,7 +41,6 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		RequireMinVersion(24).
-		Label(label.IPv4). // https://github.com/istio/istio/issues/41008
 		Setup(func(t resource.Context) error {
 			t.Settings().Ambient = true
 			return nil
@@ -52,17 +49,12 @@ func TestMain(m *testing.M) {
 			// can't deploy VMs without eastwest gateway
 			ctx.Settings().SkipVMs()
 			cfg.DeployEastWestGW = false
-			if ctx.Settings().AmbientMultiNetwork {
-				cfg.SkipDeployCrossClusterSecrets = true
-			}
 			cfg.ControlPlaneValues = fmt.Sprintf(`
 values:
   pilot:
     taint:
       enabled: true
       namespace: "%s"
-    env:
-      PILOT_ENABLE_NODE_UNTAINT_CONTROLLERS: "true"
   ztunnel:
     terminationGracePeriodSeconds: 5
     env:
@@ -75,6 +67,12 @@ values:
       enabled: false
 
 `, cfg.SystemNamespace)
+			if ctx.Settings().NativeNftables {
+				cfg.ControlPlaneValues += `
+  global:
+    nativeNftables: true
+`
+			}
 		}, cert.CreateCASecretAlt)).
 		Teardown(untaintNodes).
 		Run()

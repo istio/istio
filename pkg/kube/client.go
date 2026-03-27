@@ -25,6 +25,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
@@ -64,6 +65,9 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/remotecommand"
+	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
+	gatewayapiinferenceclient "sigs.k8s.io/gateway-api-inference-extension/client-go/clientset/versioned"
+	gatewayapiinferencefake "sigs.k8s.io/gateway-api-inference-extension/client-go/clientset/versioned/fake"
 	gatewayapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayapi "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayapialpha3 "sigs.k8s.io/gateway-api/apis/v1alpha3"
@@ -95,6 +99,7 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/sleep"
 	"istio.io/istio/pkg/test/util/yml"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/version"
 )
 
@@ -128,6 +133,9 @@ type Client interface {
 	// GatewayAPI returns the gateway-api kube client.
 	GatewayAPI() gatewayapiclient.Interface
 
+	// GatewayAPIInference returns the gateway-api kube client.
+	GatewayAPIInference() gatewayapiinferenceclient.Interface
+
 	// Informers returns an informer factory
 	Informers() informerfactory.InformerFactory
 
@@ -154,6 +162,9 @@ type Client interface {
 
 	// ClusterID returns the cluster this client is connected to
 	ClusterID() cluster.ID
+
+	// IsWatchListSemanticsUnSupported is used by internal client-go libraries to tell if the client is a fake client (more or less)
+	IsWatchListSemanticsUnSupported() bool
 }
 
 // CLIClient is an extended client with additional helpers/functionality for Istioctl and testing.
@@ -163,9 +174,6 @@ type CLIClient interface {
 	Client
 	// Revision of the Istio control plane.
 	Revision() string
-
-	// EnvoyDo makes a http request to the Envoy in the specified pod.
-	EnvoyDo(ctx context.Context, podName, podNamespace, method, path string) ([]byte, error)
 
 	// EnvoyDoWithPort makes a http request to the Envoy in the specified pod and port.
 	EnvoyDoWithPort(ctx context.Context, podName, podNamespace, method, path string, port int) ([]byte, error)
@@ -203,6 +211,10 @@ type CLIClient interface {
 	// NewPortForwarder creates a new PortForwarder configured for the given pod. If localPort=0, a port will be
 	// dynamically selected. If localAddress is empty, "localhost" is used.
 	NewPortForwarder(podName string, ns string, localAddress string, localPort int, podPort int) (PortForwarder, error)
+
+	// SetDefaultApplyNamespace sets a default namespace to deploy files to when using ApplyYAML on objects with no namespace
+	// set.
+	SetDefaultApplyNamespace(namespace string)
 
 	// ApplyYAMLFiles applies the resources in the given YAML files.
 	ApplyYAMLFiles(namespace string, yamlFiles ...string) error
@@ -254,6 +266,9 @@ func setupFakeClient[T fakeClient](fc T, group string, objects []runtime.Object)
 		if strings.Contains(g, "istio.io") {
 			return group == "istio"
 		}
+		if strings.Contains(g, inferencev1.GroupVersion.Group) {
+			return group == "inference"
+		}
 		if strings.Contains(g, "gateway.networking.k8s.io") {
 			return group == "gateway"
 		}
@@ -287,6 +302,76 @@ func setupFakeClient[T fakeClient](fc T, group string, objects []runtime.Object)
 	return fc
 }
 
+// NewErroringFakeClient creates a new fake client that always returns errors
+// on lists and watches to simulate errors from the API server.
+func NewErroringFakeClient(objects ...runtime.Object) CLIClient {
+	c := &client{
+		informerWatchesPending: atomic.NewInt32(0),
+		clusterID:              "fake",
+	}
+
+	c.kube = setupFakeClient(fake.NewClientset(), "kube", objects)
+
+	c.config = &rest.Config{
+		Host: "server",
+	}
+
+	c.informerFactory = informerfactory.NewSharedInformerFactory()
+	s := FakeIstioScheme
+
+	c.metadata = metadatafake.NewSimpleMetadataClient(s)
+	c.dynamic = dynamicfake.NewSimpleDynamicClient(s)
+	c.istio = setupFakeClient(istiofake.NewSimpleClientset(), "istio", objects)
+	c.gatewayapi = setupFakeClient(gatewayapifake.NewSimpleClientset(), "gateway", objects) //nolint:staticcheck // SA1019: as NewSimpleClientset breaks
+	c.gatewayapiinference = setupFakeClient(gatewayapiinferencefake.NewSimpleClientset(), "inference", objects)
+	c.extSet = extfake.NewClientset()
+
+	listReactor := func(action clienttesting.Action) (handled bool, ret runtime.Object, err error) {
+		return true, nil, errors.New("fake client list error")
+	}
+	watchReactor := func(tracker clienttesting.ObjectTracker) func(action clienttesting.Action) (handled bool, ret watch.Interface, err error) {
+		return func(action clienttesting.Action) (handled bool, ret watch.Interface, err error) {
+			return true, nil, errors.New("fake client watch error")
+		}
+	}
+	// https://github.com/kubernetes/client-go/issues/439
+	createReactor := func(action clienttesting.Action) (handled bool, ret runtime.Object, err error) {
+		ret = action.(clienttesting.CreateAction).GetObject()
+		meta, ok := ret.(metav1.Object)
+		if !ok {
+			return handled, ret, err
+		}
+
+		if meta.GetName() == "" && meta.GetGenerateName() != "" {
+			meta.SetName(names.SimpleNameGenerator.GenerateName(meta.GetGenerateName()))
+		}
+
+		return handled, ret, err
+	}
+	for _, fc := range []fakeClient{
+		c.kube.(*fake.Clientset),
+		c.istio.(*istiofake.Clientset),
+		c.gatewayapi.(*gatewayapifake.Clientset),
+		c.gatewayapiinference.(*gatewayapiinferencefake.Clientset),
+		c.dynamic.(*dynamicfake.FakeDynamicClient),
+		c.metadata.(*metadatafake.FakeMetadataClient),
+	} {
+		fc.PrependReactor("list", "*", listReactor)
+		fc.PrependWatchReactor("*", watchReactor(fc.Tracker()))
+		fc.PrependReactor("create", "*", createReactor)
+	}
+
+	c.fastSync = true
+
+	c.version = lazy.NewWithRetry(c.kube.Discovery().ServerVersion)
+
+	if NewCrdWatcher != nil {
+		c.crdWatcher = NewCrdWatcher(c)
+	}
+
+	return c
+}
+
 // NewFakeClient creates a new, fake, client
 func NewFakeClient(objects ...runtime.Object) CLIClient {
 	c := &client{
@@ -306,7 +391,8 @@ func NewFakeClient(objects ...runtime.Object) CLIClient {
 	c.metadata = metadatafake.NewSimpleMetadataClient(s)
 	c.dynamic = dynamicfake.NewSimpleDynamicClient(s)
 	c.istio = setupFakeClient(istiofake.NewSimpleClientset(), "istio", objects)
-	c.gatewayapi = setupFakeClient(gatewayapifake.NewSimpleClientset(), "gateway", objects)
+	c.gatewayapi = setupFakeClient(gatewayapifake.NewSimpleClientset(), "gateway", objects) //nolint:staticcheck // SA1019: as NewSimpleClientset breaks
+	c.gatewayapiinference = setupFakeClient(gatewayapiinferencefake.NewSimpleClientset(), "inference", objects)
 	c.extSet = extfake.NewClientset()
 
 	// https://github.com/kubernetes/kubernetes/issues/95372
@@ -338,19 +424,20 @@ func NewFakeClient(objects ...runtime.Object) CLIClient {
 		ret = action.(clienttesting.CreateAction).GetObject()
 		meta, ok := ret.(metav1.Object)
 		if !ok {
-			return
+			return handled, ret, err
 		}
 
 		if meta.GetName() == "" && meta.GetGenerateName() != "" {
 			meta.SetName(names.SimpleNameGenerator.GenerateName(meta.GetGenerateName()))
 		}
 
-		return
+		return handled, ret, err
 	}
 	for _, fc := range []fakeClient{
 		c.kube.(*fake.Clientset),
 		c.istio.(*istiofake.Clientset),
 		c.gatewayapi.(*gatewayapifake.Clientset),
+		c.gatewayapiinference.(*gatewayapiinferencefake.Clientset),
 		c.dynamic.(*dynamicfake.FakeDynamicClient),
 		c.metadata.(*metadatafake.FakeMetadataClient),
 	} {
@@ -360,6 +447,7 @@ func NewFakeClient(objects ...runtime.Object) CLIClient {
 	}
 
 	c.fastSync = true
+	c.isFake = true
 
 	c.version = lazy.NewWithRetry(c.kube.Discovery().ServerVersion)
 
@@ -373,6 +461,49 @@ func NewFakeClient(objects ...runtime.Object) CLIClient {
 func NewFakeClientWithVersion(minor string, objects ...runtime.Object) CLIClient {
 	c := NewFakeClient(objects...).(*client)
 	c.Kube().Discovery().(*fakediscovery.FakeDiscovery).FakedServerVersion = &kubeVersion.Info{Major: "1", Minor: minor, GitVersion: fmt.Sprintf("v1.%v.0", minor)}
+	return c
+}
+
+// NewFakeClientWithNFailures creates a fake client that fails for get operations on the specified
+// resource kinds for the first failureCount attempts, then succeeds.
+// failingResources is a set of resource (e.g., "pods", "namespaces") that should fail.
+func NewFakeClientWithNFailures(failureCount int, failingResources sets.Set[schema.GroupVersionResource], objects ...runtime.Object) CLIClient {
+	c := NewFakeClient(objects...).(*client)
+
+	// Track retry attempts per resource
+	attempts := &sync.Map{}
+
+	// Create a reactor that fails initially then succeeds
+	retryReactor := func(action clienttesting.Action) (handled bool, ret runtime.Object, err error) {
+		// Only handle Get actions for failingResources
+		if action.GetVerb() != "get" {
+			return false, nil, nil
+		}
+		resource := action.GetResource()
+		if !failingResources.Contains(resource) {
+			return false, nil, nil
+		}
+
+		getAction := action.(clienttesting.GetAction)
+		key := fmt.Sprintf("%s/%s/%s", resource, action.GetNamespace(), getAction.GetName())
+
+		val, _ := attempts.LoadOrStore(key, atomic.NewInt32(0))
+		attemptCounter := val.(*atomic.Int32)
+
+		currentAttempt := attemptCounter.Inc()
+
+		if int(currentAttempt) <= failureCount {
+			return true, nil, kerrors.NewServiceUnavailable(fmt.Sprintf("transient error: attempt %d/%d", currentAttempt, failureCount))
+		}
+
+		return false, nil, nil
+	}
+
+	// Prepend the reactor for each failing kind
+	for resource := range failingResources {
+		c.kube.(*fake.Clientset).PrependReactor("get", resource.Resource, retryReactor)
+	}
+
 	return c
 }
 
@@ -390,12 +521,15 @@ type client struct {
 
 	informerFactory informerfactory.InformerFactory
 
-	extSet     kubeExtClient.Interface
-	kube       kubernetes.Interface
-	dynamic    dynamic.Interface
-	metadata   metadata.Interface
-	istio      istioclient.Interface
-	gatewayapi gatewayapiclient.Interface
+	extSet              kubeExtClient.Interface
+	kube                kubernetes.Interface
+	dynamic             dynamic.Interface
+	metadata            metadata.Interface
+	istio               istioclient.Interface
+	gatewayapi          gatewayapiclient.Interface
+	gatewayapiinference gatewayapiinferenceclient.Interface
+
+	isFake bool
 
 	started atomic.Bool
 	// If enabled, will wait for cache syncs with extremely short delay. This should be used only for tests
@@ -403,10 +537,11 @@ type client struct {
 	informerWatchesPending *atomic.Int32
 
 	// These may be set only when creating an extended client.
-	revision        string
-	restClient      *rest.RESTClient
-	discoveryClient discovery.CachedDiscoveryInterface
-	mapper          meta.ResettableRESTMapper
+	revision              string
+	restClient            *rest.RESTClient
+	discoveryClient       discovery.CachedDiscoveryInterface
+	mapper                meta.ResettableRESTMapper
+	defaultApplyNamespace string
 
 	version lazy.Lazy[*kubeVersion.Info]
 
@@ -470,6 +605,11 @@ func newClientInternal(clientFactory *clientFactory, opts ...ClientOption) (*cli
 	}
 
 	c.gatewayapi, err = gatewayapiclient.NewForConfig(c.config)
+	if err != nil {
+		return nil, err
+	}
+
+	c.gatewayapiinference, err = gatewayapiinferenceclient.NewForConfig(c.config)
 	if err != nil {
 		return nil, err
 	}
@@ -603,6 +743,10 @@ func (c *client) GatewayAPI() gatewayapiclient.Interface {
 	return c.gatewayapi
 }
 
+func (c *client) GatewayAPIInference() gatewayapiinferenceclient.Interface {
+	return c.gatewayapiinference
+}
+
 func (c *client) Informers() informerfactory.InformerFactory {
 	return c.informerFactory
 }
@@ -677,6 +821,10 @@ func (c *client) ClusterID() cluster.ID {
 	return c.clusterID
 }
 
+func (c *client) IsWatchListSemanticsUnSupported() bool {
+	return c.isFake
+}
+
 // Wait for cache sync immediately, rather than with 100ms delay which slows tests
 // See https://github.com/kubernetes/kubernetes/issues/95262#issuecomment-703141573
 func fastWaitForCacheSync(stop <-chan struct{}, informerFactory informerfactory.InformerFactory) bool {
@@ -717,7 +865,7 @@ func WaitForCacheSync(name string, stop <-chan struct{}, cacheSyncs ...cache.Inf
 	attempt := 0
 	defer func() {
 		if r {
-			log.WithLabels("name", name, "attempt", attempt, "time", time.Since(t0)).Debugf("sync complete")
+			log.WithLabels("name", name, "attempt", attempt, "time", time.Since(t0)).Infof("sync complete")
 		} else {
 			log.WithLabels("name", name, "attempt", attempt, "time", time.Since(t0)).Errorf("sync failed")
 		}
@@ -827,7 +975,7 @@ func (c *client) PodExecCommands(podName, podNamespace, container string, comman
 
 	stdout = stdoutBuf.String()
 	stderr = stderrBuf.String()
-	return
+	return stdout, stderr, err
 }
 
 func (c *client) PodExec(podName, podNamespace, container string, command string) (stdout, stderr string, err error) {
@@ -902,10 +1050,6 @@ func (c *client) AllDiscoveryDo(ctx context.Context, istiodNamespace, path strin
 		return result, nil
 	}
 	return nil, nil
-}
-
-func (c *client) EnvoyDo(ctx context.Context, podName, podNamespace, method, path string) ([]byte, error) {
-	return c.portForwardRequest(ctx, podName, podNamespace, method, path, 15000)
 }
 
 func (c *client) EnvoyDoWithPort(ctx context.Context, podName, podNamespace, method, path string, port int) ([]byte, error) {
@@ -1080,6 +1224,10 @@ func (c *client) ServicesForSelector(ctx context.Context, namespace string, labe
 	return c.kube.CoreV1().Services(namespace).List(ctx, metav1.ListOptions{
 		LabelSelector: strings.Join(labelSelectors, ","),
 	})
+}
+
+func (c *client) SetDefaultApplyNamespace(namespace string) {
+	c.defaultApplyNamespace = namespace
 }
 
 func (c *client) ApplyYAMLFiles(namespace string, yamlFiles ...string) error {
@@ -1304,6 +1452,9 @@ func (c *client) DynamicClientFor(g schema.GroupVersionKind, obj *unstructured.U
 		} else if namespace != "" && ns != namespace {
 			return nil, fmt.Errorf("object %v/%v provided namespace %q but apply called with %q", g, obj.GetName(), ns, namespace)
 		}
+		if ns == "" {
+			ns = c.defaultApplyNamespace
+		}
 		// namespaced resources should specify the namespace
 		dr = c.dynamic.Resource(gvr).Namespace(ns)
 	} else {
@@ -1364,6 +1515,7 @@ func istioScheme() *runtime.Scheme {
 	utilruntime.Must(gatewayapibeta.Install(scheme))
 	utilruntime.Must(gatewayapiv1.Install(scheme))
 	utilruntime.Must(gatewayx.Install(scheme))
+	utilruntime.Must(inferencev1.Install(scheme))
 	utilruntime.Must(apiextensionsv1.AddToScheme(scheme))
 	return scheme
 }

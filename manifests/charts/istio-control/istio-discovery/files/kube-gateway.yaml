@@ -10,11 +10,12 @@ metadata:
       .InfrastructureLabels
       (strdict
         "gateway.networking.k8s.io/gateway-name" .Name
+        "gateway.networking.k8s.io/gateway-class-name" .GatewayClass
       ) | nindent 4 }}
   {{- if ge .KubeVersion 128 }}
   # Safe since 1.28: https://github.com/kubernetes/kubernetes/pull/117412
   ownerReferences:
-  - apiVersion: gateway.networking.k8s.io/v1beta1
+  - apiVersion: gateway.networking.k8s.io/v1
     kind: Gateway
     name: "{{.Name}}"
     uid: "{{.UID}}"
@@ -32,10 +33,11 @@ metadata:
       .InfrastructureLabels
       (strdict
         "gateway.networking.k8s.io/gateway-name" .Name
+        "gateway.networking.k8s.io/gateway-class-name" .GatewayClass
         "gateway.istio.io/managed" "istio.io-gateway-controller"
       ) | nindent 4 }}
   ownerReferences:
-  - apiVersion: gateway.networking.k8s.io/v1beta1
+  - apiVersion: gateway.networking.k8s.io/v1
     kind: Gateway
     name: {{.Name}}
     uid: "{{.UID}}"
@@ -64,6 +66,7 @@ spec:
           .InfrastructureLabels
           (strdict
             "gateway.networking.k8s.io/gateway-name" .Name
+            "gateway.networking.k8s.io/gateway-class-name" .GatewayClass
             "gateway.istio.io/managed" "istio.io-gateway-controller"
           ) | nindent 8 }}
     spec:
@@ -89,7 +92,7 @@ spec:
       {{- end }}
         {{- if .Values.global.proxy.resources }}
         resources:
-          {{- toYaml .Values.global.proxy.resources | nindent 10 }}
+          {{- toYaml (omitNil .Values.global.proxy.resources) | nindent 10 }}
         {{- end }}
         {{with .Values.global.imagePullPolicy }}imagePullPolicy: "{{.}}"{{end}}
         securityContext:
@@ -166,6 +169,7 @@ spec:
           valueFrom:
             resourceFieldRef:
               resource: limits.cpu
+              divisor: "1"
         - name: PROXY_CONFIG
           value: |
                  {{ protoToJSON .ProxyConfig }}
@@ -177,10 +181,12 @@ spec:
           valueFrom:
             resourceFieldRef:
               resource: limits.memory
+              divisor: "1"
         - name: GOMAXPROCS
           valueFrom:
             resourceFieldRef:
               resource: limits.cpu
+              divisor: "1"
         - name: ISTIO_META_CLUSTER_ID
           value: "{{ valueOrDefault .Values.global.multiCluster.clusterName .ClusterID }}"
         - name: ISTIO_META_NODE_NAME
@@ -327,11 +333,12 @@ metadata:
       .InfrastructureLabels
       (strdict
         "gateway.networking.k8s.io/gateway-name" .Name
+        "gateway.networking.k8s.io/gateway-class-name" .GatewayClass
       ) | nindent 4 }}
   name: {{.DeploymentName | quote}}
   namespace: {{.Namespace | quote}}
   ownerReferences:
-  - apiVersion: gateway.networking.k8s.io/v1beta1
+  - apiVersion: gateway.networking.k8s.io/v1
     kind: Gateway
     name: {{.Name}}
     uid: {{.UID}}
@@ -363,9 +370,10 @@ metadata:
           .InfrastructureLabels
           (strdict
           "gateway.networking.k8s.io/gateway-name" .Name
+          "gateway.networking.k8s.io/gateway-class-name" .GatewayClass
           ) | nindent 4 }}
   ownerReferences:
-    - apiVersion: gateway.networking.k8s.io/v1beta1
+    - apiVersion: gateway.networking.k8s.io/v1
       kind: Gateway
       name: {{.Name}}
       uid: "{{.UID}}"
@@ -388,9 +396,10 @@ metadata:
           .InfrastructureLabels
           (strdict
           "gateway.networking.k8s.io/gateway-name" .Name
+          "gateway.networking.k8s.io/gateway-class-name" .GatewayClass
           ) | nindent 4 }}
   ownerReferences:
-    - apiVersion: gateway.networking.k8s.io/v1beta1
+    - apiVersion: gateway.networking.k8s.io/v1
       kind: Gateway
       name: {{.Name}}
       uid: "{{.UID}}"
