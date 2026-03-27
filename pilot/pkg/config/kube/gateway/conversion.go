@@ -404,6 +404,37 @@ func compatibleRoutesForHost(routes []*istio.TLSRoute, parentHost string) []*ist
 	return res
 }
 
+// constrainTLSRoutesToListenerHost constrains TLS route SniHosts to only include the
+// intersection with the listener hostname. This ensures that a TLSRoute with a broader
+// hostname (e.g. *.com) attached to a listener with a narrower hostname (e.g. *.example.com)
+// only matches the intersection (*.example.com), not the full route hostname.
+func constrainTLSRoutesToListenerHost(routes []*istio.TLSRoute, listenerHost string) []*istio.TLSRoute {
+	if listenerHost == "" {
+		return routes
+	}
+	listenerNames := host.NewNames([]string{listenerHost})
+	res := make([]*istio.TLSRoute, 0, len(routes))
+	for _, r := range routes {
+		r = r.DeepCopy()
+		for _, m := range r.Match {
+			routeNames := host.NewNames(m.SniHosts)
+			m.SniHosts = slices.Map(routeNames.Intersection(listenerNames), func(n host.Name) string { return string(n) })
+		}
+		// Only include the route if at least one match still has hosts
+		hasHosts := false
+		for _, m := range r.Match {
+			if len(m.SniHosts) > 0 {
+				hasHosts = true
+				break
+			}
+		}
+		if hasHosts || len(r.Match) == 0 {
+			res = append(res, r)
+		}
+	}
+	return res
+}
+
 func routeMeta(obj controllers.Object) map[string]string {
 	m := parentMeta(obj, nil)
 	m[constants.InternalRouteSemantics] = constants.RouteSemanticsGateway
