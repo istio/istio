@@ -53,7 +53,7 @@ spec:
         - -d
         - 15090,15021,15020
         - --log_output_level=default:info
-        image: gcr.io/istio-testing/proxyv2:latest
+        image: registry.istio.io/testing/proxyv2:latest
         name: istio-init
         resources:
           limits:
@@ -151,7 +151,7 @@ spec:
           value: cluster.local
         - name: OTEL_RESOURCE_ATTRIBUTES
           value: service.namespace=default,service.version=v1.2.3,service.instance.id=default.$(POD_NAME).hello
-        image: gcr.io/istio-testing/proxyv2:latest
+        image: registry.istio.io/testing/proxyv2:latest
         lifecycle:
           preStop:
             exec:

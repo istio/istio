@@ -66,7 +66,6 @@ func (a *index) buildGlobalCollections(
 	LocalNamespaces := localCluster.Namespaces()
 	LocalNodes := localCluster.Nodes()
 	LocalGateways := localCluster.Gateways()
-	LocalWaypoints := a.builder.WaypointsCollection(options.ClusterID, LocalGateways, localGatewayClasses, LocalPods, opts)
 
 	LocalMeshConfig := options.MeshConfig
 	// These first collections can't be merged since the Kubernetes APIs don't have enough room
@@ -163,6 +162,9 @@ func (a *index) buildGlobalCollections(
 		opts,
 	)
 	a.networks = GlobalNetworks
+
+	// we need networks to be initialized before we can build waypoints
+	LocalWaypoints := a.builder.WaypointsCollection(options.ClusterID, LocalGateways, localGatewayClasses, LocalPods, opts)
 
 	// We need this because there may be services and waypoints on remote clusters that aren't represented
 	// in our local config cluster
@@ -351,7 +353,7 @@ func (a *index) buildGlobalCollections(
 					capacity += wl.Workload.Capacity.GetValue()
 				}
 			}
-			gws := LookupNetworkGateway(ctx, networkID, a.networks.NetworkGateways, a.networks.GatewaysByNetwork)
+			gws := LookupNetworkGateway(ctx, networkID, a.networks.GatewaysByNetwork)
 			meshCfg := krt.FetchOne(ctx, a.meshConfig.AsCollection())
 			if meshCfg == nil {
 				log.Errorf("Failed to find mesh config for network %s", networkID)
@@ -448,7 +450,7 @@ func (a *index) buildGlobalCollections(
 				return &svc
 			}
 
-			wls := krt.Fetch(ctx, GlobalWorkloads, krt.FilterIndex(GlobalWorkloadServiceIndex, svc.ResourceName()))
+			wls := GlobalWorkloadServiceIndex.Fetch(ctx, svc.ResourceName())
 			if len(wls) == 0 {
 				return &svc
 			}

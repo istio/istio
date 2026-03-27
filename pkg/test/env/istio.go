@@ -81,9 +81,6 @@ var (
 	// OtelCollectorInstallFilePath is the OpenTelemetry installation file.
 	OtelCollectorInstallFilePath = path.Join(IstioSrc, getSampleFile("open-telemetry/otel.yaml"))
 
-	// GCEMetadataServerInstallFilePath is the GCE Metadata Server installation file.
-	GCEMetadataServerInstallFilePath = path.Join(IstioSrc, getInstallationFile("gcemetadata/gce_metadata_server.yaml"))
-
 	// RegistryRedirectorServerInstallFilePath is the registry redirector installation file.
 	RegistryRedirectorServerInstallFilePath = path.Join(IstioSrc, getInstallationFile("registryredirector/registry_redirector_server.yaml"))
 )

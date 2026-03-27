@@ -1,7 +1,7 @@
 .PHONY: docker-push docker-build build clean
 
 VERSION_LIST := 1 2
-HUB ?= gcr.io/istio-testing
+HUB ?= registry.istio.io/testing
 IMAGE_PREFIX ?= /wasm
 IMG := $(HUB)$(IMAGE_PREFIX)/header-injector
 

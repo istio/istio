@@ -149,3 +149,8 @@ allowlisted_modules:
 # BSD
 # https://github.com/cyphar/filepath-securejoin/blob/main/LICENSE.BSD
 - github.com/cyphar/filepath-securejoin
+
+# The code is MIT: https://github.com/quic-go/quic-go/blob/master/LICENSE
+# However, the logo is not https://github.com/quic-go/quic-go/blob/master/assets/LICENSE.md.
+# However, we do not consume the logo.
+- github.com/quic-go/quic-go

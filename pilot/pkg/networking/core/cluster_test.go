@@ -374,6 +374,9 @@ func TestBuildClustersForInferencePoolServices(t *testing.T) {
 				g.Expect(overrideHostPolicy.GetOverrideHostSources()).NotTo(BeEmpty())
 				g.Expect(overrideHostPolicy.GetOverrideHostSources()[0].GetMetadata().GetKey()).To(Equal("envoy.lb"))
 				g.Expect(overrideHostPolicy.GetOverrideHostSources()[0].GetMetadata().GetPath()[0].GetKey()).To(Equal("x-gateway-destination-endpoint"))
+				g.Expect(overrideHostPolicy.GetSelectedHostKey()).NotTo(BeNil())
+				g.Expect(overrideHostPolicy.GetSelectedHostKey().GetKey()).To(Equal("envoy.lb"))
+				g.Expect(overrideHostPolicy.GetSelectedHostKey().GetPath()[0].GetKey()).To(Equal("x-gateway-destination-endpoint-served"))
 				var serviceClusters []string
 				for _, c := range clusters {
 					if strings.Contains(c.Name, "*.example.org") && strings.HasPrefix(c.Name, "outbound|") {
