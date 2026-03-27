@@ -18,7 +18,7 @@ require (
 	github.com/containernetworking/plugins v1.9.1
 	github.com/coreos/go-oidc/v3 v3.17.0
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
-	github.com/docker/cli v29.3.0+incompatible
+	github.com/docker/cli v29.3.1+incompatible
 	github.com/envoyproxy/go-control-plane/contrib v1.36.1-0.20260320154714-96e6f9406571
 	github.com/envoyproxy/go-control-plane/envoy v1.37.1-0.20260320154714-96e6f9406571
 	github.com/evanphx/json-patch/v5 v5.9.11
@@ -29,7 +29,7 @@ require (
 	github.com/go-logr/logr v1.4.3
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/protobuf v1.5.4
-	github.com/google/cel-go v0.26.0
+	github.com/google/cel-go v0.27.0
 	github.com/google/go-cmp v0.7.0
 	github.com/google/go-containerregistry v0.21.3
 	github.com/google/gofuzz v1.2.0
@@ -48,7 +48,7 @@ require (
 	github.com/mattn/go-isatty v0.0.20
 	github.com/miekg/dns v1.1.72
 	github.com/mitchellh/copystructure v1.2.0
-	github.com/moby/buildkit v0.28.0
+	github.com/moby/buildkit v0.28.1
 	github.com/onsi/gomega v1.39.1
 	github.com/openshift/api v0.0.0-20260320151444-324a1bcb9f55
 	github.com/pires/go-proxyproto v0.11.0
@@ -109,11 +109,18 @@ require (
 	k8s.io/utils v0.0.0-20260319190234-28399d86e0b5
 	sigs.k8s.io/controller-runtime v0.23.3
 	sigs.k8s.io/gateway-api v1.5.1
-	sigs.k8s.io/gateway-api-inference-extension v0.0.0-20250926182816-0a3bb2010751
+	sigs.k8s.io/gateway-api-inference-extension v1.4.0
 	sigs.k8s.io/gateway-api/conformance v1.5.1
 	sigs.k8s.io/knftables v0.0.21
 	sigs.k8s.io/mcs-api v0.4.0
 	sigs.k8s.io/yaml v1.6.0
+)
+
+require (
+	github.com/creack/pty v1.1.24 // indirect
+	github.com/dlclark/regexp2 v1.11.5 // indirect
+	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.64.0 // indirect
+	gotest.tools/v3 v3.5.2 // indirect
 )
 
 require (
@@ -124,7 +131,6 @@ require (
 	github.com/MakeNowJust/heredoc v1.0.0 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/VividCortex/ewma v1.2.0 // indirect
-	github.com/agentgateway/agentgateway v0.12.0
 	github.com/alecthomas/participle/v2 v2.1.4 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
@@ -175,13 +181,13 @@ require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/lestrrat-go/backoff/v2 v2.0.8 // indirect
-	github.com/lestrrat-go/blackmagic v1.0.3 // indirect
+	github.com/lestrrat-go/blackmagic v1.0.4 // indirect
 	github.com/lestrrat-go/httpcc v1.0.1 // indirect
 	github.com/lestrrat-go/iter v1.0.2 // indirect
 	github.com/lestrrat-go/option v1.0.1 // indirect
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
-	github.com/mattn/go-runewidth v0.0.16 // indirect
+	github.com/mattn/go-runewidth v0.0.17 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/go-wordwrap v1.0.1 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
@@ -229,11 +235,11 @@ require (
 	gopkg.in/evanphx/json-patch.v4 v4.13.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	k8s.io/component-base v0.35.3 // indirect
-	k8s.io/kube-openapi v0.0.0-20251125145642-4e65d59e963e // indirect
+	k8s.io/kube-openapi v0.0.0-20260127142750-a19766b6e2d4 // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.32.1 // indirect
 	sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 // indirect
-	sigs.k8s.io/kustomize/api v0.20.1 // indirect
-	sigs.k8s.io/kustomize/kyaml v0.20.1 // indirect
+	sigs.k8s.io/kustomize/api v0.21.1 // indirect
+	sigs.k8s.io/kustomize/kyaml v0.21.1 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v6 v6.3.2 // indirect
 )
