@@ -16,6 +16,7 @@ package extensions
 
 import (
 	extensions "istio.io/api/extensions/v1alpha1"
+	typeapi "istio.io/api/type/v1beta1"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
 )
@@ -33,9 +34,16 @@ func translateWasmPlugin(cfg config.Config) *config.Config {
 		return nil
 	}
 
+	// Merge the singular targetRef (deprecated) into TargetRefs so downstream code
+	// only needs to handle the repeated field.
+	targetRefs := wp.TargetRefs
+	if wp.TargetRef != nil && len(targetRefs) == 0 {
+		targetRefs = []*typeapi.PolicyTargetReference{wp.TargetRef}
+	}
+
 	te := &extensions.TrafficExtension{
 		Selector:   wp.Selector,
-		TargetRefs: wp.TargetRefs,
+		TargetRefs: targetRefs,
 		// WasmPlugin.Phase is PluginPhase; TrafficExtension.Phase is ExecutionPhase.
 		// Both enums share the same numeric values (AUTHN=1, AUTHZ=2, STATS=3, unspecified=0).
 		Phase:    extensions.TrafficExtension_ExecutionPhase(wp.Phase),

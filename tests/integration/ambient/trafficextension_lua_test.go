@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"testing"
 
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/crd"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -117,7 +116,7 @@ func TestLuaTrafficExtension_HeaderInjection(t *testing.T) {
 					desc:       "Lua filter for waypoint",
 					name:       "waypoint-lua-test",
 					targetType: "gateway",
-					targetName: constants.DefaultNamespaceWaypoint,
+					targetName: GetTarget().Config().ServiceWaypointProxy,
 				},
 				{
 					desc:       "Lua filter for specific service",
