@@ -12,14 +12,11 @@ metadata:
         "gateway.networking.k8s.io/gateway-name" .Name
         "gateway.networking.k8s.io/gateway-class-name" .GatewayClass
       ) | nindent 4 }}
-  {{- if ge .KubeVersion 128 }}
-  # Safe since 1.28: https://github.com/kubernetes/kubernetes/pull/117412
   ownerReferences:
-  - apiVersion: gateway.networking.k8s.io/v1beta1
+  - apiVersion: gateway.networking.k8s.io/v1
     kind: Gateway
     name: "{{.Name}}"
     uid: "{{.UID}}"
-  {{- end }}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -34,10 +31,10 @@ metadata:
       (strdict
         "gateway.networking.k8s.io/gateway-name" .Name
         "gateway.networking.k8s.io/gateway-class-name" .GatewayClass
-        "gateway.istio.io/managed" "istio.io-gateway-controller"
+        "gateway.istio.io/managed" "istio.io-agentgateway-controller"
       ) | nindent 4 }}
   ownerReferences:
-  - apiVersion: gateway.networking.k8s.io/v1beta1
+  - apiVersion: gateway.networking.k8s.io/v1
     kind: Gateway
     name: {{.Name}}
     uid: "{{.UID}}"
@@ -67,7 +64,7 @@ spec:
           (strdict
             "gateway.networking.k8s.io/gateway-name" .Name
             "gateway.networking.k8s.io/gateway-class-name" .GatewayClass
-            "gateway.istio.io/managed" "istio.io-gateway-controller"
+            "gateway.istio.io/managed" "istio.io-agentgateway-controller"
           ) | nindent 8 }}
     spec:
       securityContext:
@@ -75,7 +72,7 @@ spec:
         {{- toYaml .Values.gateways.securityContext | nindent 8 }}
       {{- else }}
         sysctls:
-        - name: net.ipv4.ip_unprivileged_port_start
+        - name: net.ipv4.ip_unprivileged_port_start # allows binding to 80 and 443 without root
           value: "0"
       {{- if .Values.gateways.seccompProfile }}
         seccompProfile:
@@ -84,11 +81,11 @@ spec:
       {{- end }}
       serviceAccountName: {{.ServiceAccount | quote}}
       containers:
-      - name: istio-proxy
-      {{- if contains "/" (annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image) }}
-        image: "{{ annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image }}"
+      - name: agentgateway
+      {{- if contains "/" (annotation .ObjectMeta `gateway.istio.io/agentgatewayImage` .Values.global.agentgateway.image) }}
+        image: "{{ annotation .ObjectMeta `gateway.istio.io/agentgatewayImage` .Values.global.agentgateway.image }}"
       {{- else }}
-        image: "{{ .ProxyImage }}"
+        image: "{{ .AgentgatewayImage }}"
       {{- end }}
         {{- if .Values.global.proxy.resources }}
         resources:
@@ -102,8 +99,8 @@ spec:
           allowPrivilegeEscalation: false
           privileged: false
           readOnlyRootFilesystem: true
-          runAsUser: {{ .ProxyUID | default "1337" }}
-          runAsGroup: {{ .ProxyGID | default "1337" }}
+          runAsUser: {{ .ProxyUID | default "10101" }}
+          runAsGroup: {{ .ProxyGID | default "10101" }}
           runAsNonRoot: true
         ports:
         - containerPort: 15020
@@ -112,44 +109,23 @@ spec:
         - containerPort: 15021
           name: status-port
           protocol: TCP
-        - containerPort: 15090
-          protocol: TCP
-          name: http-envoy-prom
         args:
-        - proxy
-        - router
-        - --domain
-        - $(POD_NAMESPACE).svc.{{ .Values.global.proxy.clusterDomain }}
-        - --proxyLogLevel
-        - {{ annotation .ObjectMeta `sidecar.istio.io/logLevel` .Values.global.proxy.logLevel | quote}}
-        - --proxyComponentLogLevel
-        - {{ annotation .ObjectMeta `sidecar.istio.io/componentLogLevel` .Values.global.proxy.componentLogLevel | quote}}
-        - --log_output_level
-        - {{ annotation .ObjectMeta `sidecar.istio.io/agentLogLevel` .Values.global.logging.level | quote}}
-      {{- if .Values.global.sts.servicePort }}
-        - --stsPort={{ .Values.global.sts.servicePort }}
-      {{- end }}
-      {{- if .Values.global.logAsJson }}
-        - --log_as_json
-      {{- end }}
+        - --config
+        - '{}'
       {{- if .Values.global.proxy.lifecycle }}
         lifecycle:
           {{- toYaml .Values.global.proxy.lifecycle | nindent 10 }}
       {{- end }}
         env:
-        - name: PILOT_CERT_PROVIDER
-          value: {{ .Values.global.pilotCertProvider }}
-        - name: CA_ADDR
-        {{- if .Values.global.caAddress }}
-          value: {{ .Values.global.caAddress }}
-        {{- else }}
-          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.istioNamespace }}.svc:15012
-        {{- end }}
         - name: POD_NAME
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
         - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: NAMESPACE
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
@@ -161,51 +137,20 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.serviceAccountName
-        - name: HOST_IP
-          valueFrom:
-            fieldRef:
-              fieldPath: status.hostIP
-        - name: ISTIO_CPU_LIMIT
+        - name: CPU_LIMIT
           valueFrom:
             resourceFieldRef:
               resource: limits.cpu
-        - name: PROXY_CONFIG
-          value: |
-                 {{ protoToJSON .ProxyConfig }}
-        - name: ISTIO_META_POD_PORTS
-          value: "[]"
-        - name: ISTIO_META_APP_CONTAINERS
-          value: ""
-        - name: GOMEMLIMIT
-          valueFrom:
-            resourceFieldRef:
-              resource: limits.memory
-        - name: GOMAXPROCS
-          valueFrom:
-            resourceFieldRef:
-              resource: limits.cpu
-        - name: ISTIO_META_CLUSTER_ID
+              divisor: "1"
+        - name: GATEWAY
+          value: {{.Name|quote}}
+        - name: RUST_BACKTRACE
+          value: "1"
+        - name: CLUSTER_ID
           value: "{{ valueOrDefault .Values.global.multiCluster.clusterName .ClusterID }}"
-        - name: ISTIO_META_NODE_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: spec.nodeName
-        - name: ISTIO_META_INTERCEPTION_MODE
-          value: "{{ .ProxyConfig.InterceptionMode.String }}"
         {{- with (valueOrDefault  (index .InfrastructureLabels "topology.istio.io/network") .Values.global.network) }}
-        - name: ISTIO_META_NETWORK
+        - name: NETWORK
           value: {{.|quote}}
-        {{- end }}
-        - name: ISTIO_META_WORKLOAD_NAME
-          value: {{.DeploymentName|quote}}
-        - name: ISTIO_META_OWNER
-          value: "kubernetes://apis/apps/v1/namespaces/{{.Namespace}}/deployments/{{.DeploymentName}}"
-        {{- if .Values.global.meshID }}
-        - name: ISTIO_META_MESH_ID
-          value: "{{ .Values.global.meshID }}"
-        {{- else if (valueOrDefault .MeshConfig.TrustDomain .Values.global.trustDomain) }}
-        - name: ISTIO_META_MESH_ID
-          value: "{{ (valueOrDefault .MeshConfig.TrustDomain .Values.global.trustDomain) }}"
         {{- end }}
         {{- with (valueOrDefault .MeshConfig.TrustDomain .Values.global.trustDomain)  }}
         - name: TRUST_DOMAIN
@@ -215,10 +160,8 @@ spec:
         - name: {{ $key }}
           value: "{{ $value }}"
         {{- end }}
-        {{- with (index .InfrastructureLabels "topology.istio.io/network") }}
-        - name: ISTIO_META_REQUESTED_NETWORK_VIEW
-          value: {{.|quote}}
-        {{- end }}
+        - name: XDS_ADDRESS
+          value: {{ .ProxyConfig.DiscoveryAddress | quote }}
         startupProbe:
           failureThreshold: 30
           httpGet:
@@ -240,64 +183,20 @@ spec:
           successThreshold: 1
           timeoutSeconds: 1
         volumeMounts:
-        - name: workload-socket
-          mountPath: /var/run/secrets/workload-spiffe-uds
-        - name: credential-socket
-          mountPath: /var/run/secrets/credential-uds
-        {{- if eq .Values.global.caName "GkeWorkloadCertificate" }}
-        - name: gke-workload-certificate
-          mountPath: /var/run/secrets/workload-spiffe-credentials
-          readOnly: true
-        {{- else }}
-        - name: workload-certs
-          mountPath: /var/run/secrets/workload-spiffe-credentials
-        {{- end }}
-        {{- if eq .Values.global.pilotCertProvider "istiod" }}
-        - mountPath: /var/run/secrets/istio
+        - mountPath: /var/run/secrets/xds
           name: istiod-ca-cert
-        {{- end }}
-        - mountPath: /var/lib/istio/data
-          name: istio-data
-        # SDS channel between istioagent and Envoy
-        - mountPath: /etc/istio/proxy
-          name: istio-envoy
-        - mountPath: /var/run/secrets/tokens
+        - mountPath: /var/run/secrets/xds-tokens
           name: istio-token
-        - name: istio-podinfo
-          mountPath: /etc/istio/pod
+        - mountPath: /tmp
+          name: tmp
       volumes:
       - emptyDir: {}
-        name: workload-socket
-      - emptyDir: {}
-        name: credential-socket
-      {{- if eq .Values.global.caName "GkeWorkloadCertificate" }}
-      - name: gke-workload-certificate
-        csi:
-          driver: workloadcertificates.security.cloud.google.com
-      {{- else}}
-      - emptyDir: {}
-        name: workload-certs
-      {{- end }}
-      # SDS channel between istioagent and Envoy
-      - emptyDir:
-          medium: Memory
-        name: istio-envoy
-      - name: istio-data
-        emptyDir: {}
-      - name: istio-podinfo
-        downwardAPI:
-          items:
-            - path: "labels"
-              fieldRef:
-                fieldPath: metadata.labels
-            - path: "annotations"
-              fieldRef:
-                fieldPath: metadata.annotations
+        name: tmp
       - name: istio-token
         projected:
           sources:
           - serviceAccountToken:
-              path: istio-token
+              path: xds-token
               expirationSeconds: 43200
               audience: {{ .Values.global.sds.token.aud }}
       {{- if eq .Values.global.pilotCertProvider "istiod" }}
@@ -335,7 +234,7 @@ metadata:
   name: {{.DeploymentName | quote}}
   namespace: {{.Namespace | quote}}
   ownerReferences:
-  - apiVersion: gateway.networking.k8s.io/v1beta1
+  - apiVersion: gateway.networking.k8s.io/v1
     kind: Gateway
     name: {{.Name}}
     uid: {{.UID}}
@@ -370,7 +269,7 @@ metadata:
           "gateway.networking.k8s.io/gateway-class-name" .GatewayClass
           ) | nindent 4 }}
   ownerReferences:
-    - apiVersion: gateway.networking.k8s.io/v1beta1
+    - apiVersion: gateway.networking.k8s.io/v1
       kind: Gateway
       name: {{.Name}}
       uid: "{{.UID}}"
@@ -396,7 +295,7 @@ metadata:
           "gateway.networking.k8s.io/gateway-class-name" .GatewayClass
           ) | nindent 4 }}
   ownerReferences:
-    - apiVersion: gateway.networking.k8s.io/v1beta1
+    - apiVersion: gateway.networking.k8s.io/v1
       kind: Gateway
       name: {{.Name}}
       uid: "{{.UID}}"
