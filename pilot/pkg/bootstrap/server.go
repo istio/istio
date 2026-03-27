@@ -40,6 +40,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/security/v1beta1"
+	"istio.io/istio/pilot/pkg/config/kube/agentgateway"
 	"istio.io/istio/pilot/pkg/controllers/ipallocate"
 	"istio.io/istio/pilot/pkg/controllers/untaint"
 	kubecredentials "istio.io/istio/pilot/pkg/credentials/kube"
@@ -112,9 +113,11 @@ type Server struct {
 
 	multiclusterController *multicluster.Controller
 
-	configController       model.ConfigStoreController
-	ConfigStores           []model.ConfigStoreController
-	serviceEntryController *serviceentry.Controller
+	configController         model.ConfigStoreController
+	virtualServiceController *model.VirtualServiceController
+	ConfigStores             []model.ConfigStoreController
+	serviceEntryController   *serviceentry.Controller
+	agentgatewayController   *agentgateway.Controller
 
 	httpServer  *http.Server // debug, monitoring and readiness Server.
 	httpAddr    string
@@ -330,6 +333,11 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	}
 
 	InitGenerators(s.XDSServer, configGen, args.Namespace, s.clusterID, s.internalDebugMux)
+
+	if features.EnableAgentgateway {
+		// Must occur after initControllers
+		s.XDSServer.InitCollections(s.agentgatewayController.Registrations...)
+	}
 
 	// Initialize workloadTrustBundle after CA has been initialized
 	if err := s.initWorkloadTrustBundle(args); err != nil {
@@ -886,6 +894,9 @@ func (s *Server) cachesSynced() bool {
 	if !s.configController.HasSynced() {
 		return false
 	}
+	if s.virtualServiceController != nil && !s.virtualServiceController.HasSynced() {
+		return false
+	}
 	return true
 }
 
@@ -935,6 +946,10 @@ func (s *Server) initRegistryEventHandlers() {
 			}
 			// Already handled by gateway controller
 			if schema.GroupVersionKind().Group == gvk.KubernetesGateway.Group {
+				continue
+			}
+			// Already handled by virtual service controller
+			if schema.GroupVersionKind() == gvk.VirtualService {
 				continue
 			}
 
@@ -1203,9 +1218,18 @@ func (s *Server) initMulticluster(args *PilotArgs) {
 	if s.kubeClient == nil {
 		return
 	}
-	s.multiclusterController = multicluster.NewController(s.kubeClient, args.Namespace, s.clusterID, s.environment.Watcher, func(r *rest.Config) {
-		r.QPS = args.RegistryOptions.KubeOptions.KubernetesAPIQPS
-		r.Burst = args.RegistryOptions.KubeOptions.KubernetesAPIBurst
+	s.multiclusterController = multicluster.NewController(multicluster.ControllerOptions{
+		Client:          s.kubeClient,
+		ClusterID:       s.clusterID,
+		SystemNamespace: args.Namespace,
+		MeshConfig:      s.environment.Watcher,
+		ConfigOverrides: []func(*rest.Config){
+			func(r *rest.Config) {
+				r.QPS = args.RegistryOptions.KubeOptions.KubernetesAPIQPS
+				r.Burst = args.RegistryOptions.KubeOptions.KubernetesAPIBurst
+			},
+		},
+		Debugger: args.KrtDebugger,
 	})
 	s.XDSServer.ListRemoteClusters = s.multiclusterController.ListRemoteClusters
 	s.addStartFunc("multicluster controller", func(stop <-chan struct{}) error {

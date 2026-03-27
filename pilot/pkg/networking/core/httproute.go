@@ -186,9 +186,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(
 
 	if !useSniffing {
 		ph := util.GetProxyHeaders(node, req.Push, istionetworking.ListenerClassSidecarOutbound)
-		appendXForwardedHost := ph.XForwardedHost
-		includeRequestAttemptCount := ph.IncludeRequestAttemptCount
-		virtualHosts = append(virtualHosts, buildCatchAllVirtualHost(node, includeRequestAttemptCount, appendXForwardedHost))
+		virtualHosts = append(virtualHosts, buildCatchAllVirtualHost(node, ph.IncludeRequestAttemptCount, ph.XForwardedHost))
 	}
 
 	out := &route.RouteConfiguration{
@@ -359,18 +357,17 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 			return services[i].Hostname <= services[j].Hostname
 		})
 		routeCache = &istio_route.Cache{
-			RouteName:               routeName,
-			ProxyVersion:            node.Metadata.IstioVersion,
-			ClusterID:               string(node.Metadata.ClusterID),
-			DNSDomain:               node.DNSDomain,
-			DNSCapture:              bool(node.Metadata.DNSCapture),
-			DNSAutoAllocate:         bool(node.Metadata.DNSAutoAllocate),
-			AllowAny:                util.IsAllowAnyOutbound(node),
-			ListenerPort:            listenerPort,
-			Services:                services,
-			VirtualServices:         virtualServices,
-			DelegateVirtualServices: push.DelegateVirtualServices(virtualServices),
-			EnvoyFilterKeys:         efKeys,
+			RouteName:       routeName,
+			ProxyVersion:    node.Metadata.IstioVersion,
+			ClusterID:       string(node.Metadata.ClusterID),
+			DNSDomain:       node.DNSDomain,
+			DNSCapture:      bool(node.Metadata.DNSCapture),
+			DNSAutoAllocate: bool(node.Metadata.DNSAutoAllocate),
+			AllowAny:        util.IsAllowAnyOutbound(node),
+			ListenerPort:    listenerPort,
+			Services:        services,
+			VirtualServices: virtualServices,
+			EnvoyFilterKeys: efKeys,
 		}
 	}
 
@@ -554,6 +551,7 @@ func generateVirtualHostDomains(service *model.Service, listenerPort int, port i
 		// Indicate we do not need port, as we will set IgnorePortInHostMatching
 		port = portNoAppendPortSuffix
 	}
+
 	domains := []string{}
 	allAltHosts := []string{}
 	all := []string{string(service.Hostname)}

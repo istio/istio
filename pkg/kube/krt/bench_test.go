@@ -63,7 +63,7 @@ func NewModern(c kube.Client, events chan string, _ <-chan struct{}) {
 		if p.Status.PodIP == "" {
 			return nil
 		}
-		services := krt.Fetch(ctx, Services, krt.FilterIndex(ServicesByNamespace, p.Namespace), krt.FilterSelectsNonEmpty(p.GetLabels()))
+		services := ServicesByNamespace.Fetch(ctx, p.Namespace, krt.FilterSelectsNonEmpty(p.GetLabels()))
 		return &Workload{
 			Named:        krt.NewNamed(p),
 			IP:           p.Status.PodIP,

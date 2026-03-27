@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -84,7 +85,13 @@ func verifyControllers(t *testing.T, m *Multicluster, expectedControllerCount in
 }
 
 func initController(client kube.CLIClient, ns string, stop <-chan struct{}) *multicluster.Controller {
-	sc := multicluster.NewController(client, ns, "cluster-1", meshwatcher.NewTestWatcher(nil))
+	sc := multicluster.NewController(multicluster.ControllerOptions{
+		Client:          client,
+		SystemNamespace: ns,
+		ClusterID:       "cluster-1",
+		MeshConfig:      meshwatcher.NewTestWatcher(nil),
+		Debugger:        krt.GlobalDebugHandler,
+	})
 	sc.ClientBuilder = func(kubeConfig []byte, c cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
 		return kube.NewFakeClient(), nil
 	}

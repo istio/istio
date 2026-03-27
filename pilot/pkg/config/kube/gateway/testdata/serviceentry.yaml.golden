@@ -138,7 +138,7 @@ spec:
   tls:
   - match:
     - sniHosts:
-      - '*.egress.com'
+      - google.com
     route:
     - destination:
         host: google.com

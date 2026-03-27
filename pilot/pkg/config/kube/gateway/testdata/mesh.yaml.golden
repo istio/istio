@@ -242,7 +242,7 @@ spec:
   tls:
   - match:
     - sniHosts:
-      - echo-1.default.svc.domain.suffix
+      - '*.example.com'
     route:
     - destination:
         host: echo.default.svc.domain.suffix

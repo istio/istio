@@ -26,7 +26,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/rest"
 
 	"istio.io/api/annotation"
 	"istio.io/api/label"
@@ -144,6 +143,10 @@ type Options struct {
 	// MeshWatcher observes changes to the mesh config
 	MeshWatcher meshwatcher.WatcherCollection
 
+	// ConfigClusterMeshWatcher is the mesh watcher from the config (local) cluster.
+	// Used as a fallback when the per-cluster MeshWatcher cannot read the remote meshconfig.
+	ConfigClusterMeshWatcher meshwatcher.WatcherCollection
+
 	// Maximum QPS when communicating with kubernetes API
 	KubernetesAPIQPS float32
 
@@ -165,6 +168,10 @@ type Options struct {
 	StatusWritingEnabled *activenotifier.ActiveNotifier
 
 	KrtDebugger *krt.DebugHandler
+
+	// MultiClusterController is the unified multicluster controller providing both
+	// callback-based and KRT-based cluster lifecycle management.
+	MultiClusterController *multicluster.Controller
 }
 
 // kubernetesNode represents a kubernetes node that is reachable externally
@@ -323,26 +330,18 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 
 	if features.EnableAmbient && options.ConfigCluster {
 		c.ambientIndex = ambient.New(ambient.Options{
-			Client:          kubeClient,
-			SystemNamespace: options.SystemNamespace,
-			DomainSuffix:    options.DomainSuffix,
-			ClusterID:       options.ClusterID,
-			IsConfigCluster: options.ConfigCluster,
-			Revision:        options.Revision,
-			XDSUpdater:      options.XDSUpdater,
-			MeshConfig:      options.MeshWatcher,
-			StatusNotifier:  options.StatusWritingEnabled,
-			Debugger:        options.KrtDebugger,
+			SystemNamespace:        options.SystemNamespace,
+			DomainSuffix:           options.DomainSuffix,
+			ClusterID:              options.ClusterID,
+			Revision:               options.Revision,
+			XDSUpdater:             options.XDSUpdater,
+			MeshConfig:             options.MeshWatcher,
+			StatusNotifier:         options.StatusWritingEnabled,
+			Debugger:               options.KrtDebugger,
+			MultiClusterController: options.MultiClusterController,
 			Flags: ambient.FeatureFlags{
 				DefaultAllowFromWaypoint:              features.DefaultAllowFromWaypoint,
 				EnableK8SServiceSelectWorkloadEntries: features.EnableK8SServiceSelectWorkloadEntries,
-			},
-			ClientBuilder: multicluster.DefaultBuildClientsFromConfig,
-			RemoteClientConfigOverrides: []func(*rest.Config){
-				func(r *rest.Config) {
-					r.QPS = options.KubernetesAPIQPS
-					r.Burst = options.KubernetesAPIBurst
-				},
 			},
 		})
 	}
@@ -350,7 +349,11 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	c.exports = newServiceExportCache(c)
 	c.imports = newServiceImportCache(c)
 
-	c.meshWatcher = mesh.NewRestrictedConfigWatcher(options.MeshWatcher)
+	if options.ConfigClusterMeshWatcher != nil {
+		c.meshWatcher = mesh.NewRestrictedConfigWatcher(options.MeshWatcher, options.ConfigClusterMeshWatcher)
+	} else {
+		c.meshWatcher = mesh.NewRestrictedConfigWatcher(options.MeshWatcher)
+	}
 	if c.opts.MeshNetworksWatcher != nil {
 		c.networksHandlerRegistration = c.opts.MeshNetworksWatcher.AddNetworksHandler(func() {
 			c.reloadMeshNetworks()

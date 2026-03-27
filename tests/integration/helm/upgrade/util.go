@@ -42,7 +42,7 @@ import (
 )
 
 const (
-	gcrHub            = "gcr.io/istio-release"
+	gcrHub            = "registry.istio.io/release"
 	prodTag           = "prod"
 	canaryTag         = "canary"
 	latestRevisionTag = "latest"
@@ -164,8 +164,6 @@ func performInPlaceUpgradeFunc(previousVersion string, isAmbient bool) func(fram
 
 		overrideValuesFile = helmtest.GetValuesOverrides(t, s.Image.Hub, s.Image.Tag, s.Image.Variant, "", isAmbient)
 
-		helmtest.AdoptPre123CRDResourcesIfNeeded()
-
 		upgradeCharts(t, h, overrideValuesFile, nsConfig, isAmbient)
 		helmtest.VerifyInstallation(t, cs, nsConfig, true, isAmbient, "")
 
@@ -212,8 +210,6 @@ func upgradeAllButZtunnel(previousVersion string) func(framework.TestContext) {
 		sanitycheck.RunTrafficTestClientServer(t, oldClient, oldServer)
 
 		overrideValuesFile = helmtest.GetValuesOverrides(t, s.Image.Hub, s.Image.Tag, s.Image.Variant, "", isAmbient)
-
-		helmtest.AdoptPre123CRDResourcesIfNeeded()
 
 		// Upgrade everything but Ztunnel and CNI
 		upgradeCharts(t, h, overrideValuesFile, nsConfig, false)
@@ -283,8 +279,6 @@ func performCanaryUpgradeFunc(nsConfig helmtest.NamespaceConfig, previousVersion
 		sanitycheck.RunTrafficTestClientServer(t, oldClient, oldServer)
 
 		overrideValuesFile = helmtest.GetValuesOverrides(t, s.Image.Hub, s.Image.Tag, s.Image.Variant, canaryTag, false)
-
-		helmtest.AdoptPre123CRDResourcesIfNeeded()
 
 		helmtest.InstallIstioWithRevision(t, cs, h, "", canaryTag, overrideValuesFile, true, false)
 		helmtest.VerifyInstallation(t, cs, helmtest.DefaultNamespaceConfig, false, false, "")
@@ -356,8 +350,6 @@ func performRevisionTagsUpgradeFunc(previousVersion string) func(framework.TestC
 		// helm upgrade istio-base ../manifests/charts/base --namespace istio-system -f values.yaml
 		// helm install istiod-latest ../manifests/charts/istio-control/istio-discovery -f values.yaml
 		overrideValuesFile = helmtest.GetValuesOverrides(t, s.Image.Hub, s.Image.Tag, s.Image.Variant, latestRevisionTag, false)
-
-		helmtest.AdoptPre123CRDResourcesIfNeeded()
 
 		helmtest.InstallIstioWithRevision(t, cs, h, "", latestRevisionTag, overrideValuesFile, true, false)
 		helmtest.VerifyInstallation(t, cs, helmtest.DefaultNamespaceConfig, false, false, "")
@@ -471,8 +463,6 @@ func runMultipleTagsFunc(ambient, checkGatewayStatus bool) func(framework.TestCo
 		// helm upgrade istio-base ../manifests/charts/base --namespace istio-system -f values.yaml
 		// helm install istiod-latest ../manifests/charts/istio-control/istio-discovery -f values.yaml
 		overrideValuesFile = helmtest.GetValuesOverrides(t, s.Image.Hub, s.Image.Tag, s.Image.Variant, latestRevisionTag, ambient)
-
-		helmtest.AdoptPre123CRDResourcesIfNeeded()
 
 		helmtest.InstallIstioWithRevision(t, cs, h, "", latestRevisionTag, overrideValuesFile, true, false)
 		helmtest.VerifyInstallation(t, cs, helmtest.DefaultNamespaceConfig, false, false, "")

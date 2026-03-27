@@ -29,3 +29,26 @@ spec:
   - name: mesh
     port: 15008
     protocol: HBONE # No TLS mode terminate
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: with-tls-passthrough
+  namespace: istio-system
+  labels:
+    topology.istio.io/network: "network-1"
+spec:
+  gatewayClassName: istio-east-west
+  listeners:
+  - name: mesh
+    port: 15008
+    protocol: HBONE
+    tls:
+      mode: Terminate
+      options:
+        gateway.istio.io/tls-terminate-mode: ISTIO_MUTUAL
+  - name: tls-passthrough
+    port: 6443
+    protocol: TLS
+    tls:
+      mode: Passthrough

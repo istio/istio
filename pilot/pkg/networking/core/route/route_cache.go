@@ -15,7 +15,6 @@
 package route
 
 import (
-	"math/big"
 	"strconv"
 	"strings"
 
@@ -50,12 +49,11 @@ type Cache struct {
 	// AllowAny indicates if the proxy should allow all outbound traffic or only known registries
 	AllowAny bool
 
-	ListenerPort            int
-	Services                []*model.Service
-	VirtualServices         []*config.Config
-	DelegateVirtualServices []model.ConfigHash
-	DestinationRules        []*model.ConsolidatedDestRule
-	EnvoyFilterKeys         []string
+	ListenerPort     int
+	Services         []*model.Service
+	VirtualServices  []*config.Config
+	DestinationRules []*model.ConsolidatedDestRule
+	EnvoyFilterKeys  []string
 }
 
 func (r *Cache) Type() string {
@@ -86,7 +84,7 @@ func (r *Cache) Cacheable() bool {
 }
 
 func (r *Cache) DependentConfigs() []model.ConfigHash {
-	size := len(r.Services) + len(r.VirtualServices) + len(r.DelegateVirtualServices) + len(r.EnvoyFilterKeys)
+	size := len(r.Services) + len(r.VirtualServices) + len(r.EnvoyFilterKeys)
 	for _, mergedDR := range r.DestinationRules {
 		size += len(mergedDR.GetFrom())
 	}
@@ -101,6 +99,7 @@ func (r *Cache) DependentConfigs() []model.ConfigHash {
 			configs = append(configs, model.ConfigKey{Kind: kind.ServiceEntry, Name: alias.Hostname.String(), Namespace: alias.Namespace}.HashCode())
 		}
 	}
+	// we don't need to add dependencies on delegate virtual services because they are handled by the virtual service controller
 	for _, vs := range r.VirtualServices {
 		configs = append(configs, model.ConfigKey{
 			Kind:      kind.VirtualService,
@@ -108,9 +107,6 @@ func (r *Cache) DependentConfigs() []model.ConfigHash {
 			Name:      vs.Name,
 		}.HashCode())
 	}
-	// add delegate virtual services to dependent configs
-	// so that we can clear the rds cache when delegate virtual services are updated
-	configs = append(configs, r.DelegateVirtualServices...)
 	for _, mergedDR := range r.DestinationRules {
 		for _, dr := range mergedDR.GetFrom() {
 			configs = append(configs, model.ConfigKey{Kind: kind.DestinationRule, Name: dr.Name, Namespace: dr.Namespace}.HashCode())
@@ -166,12 +162,6 @@ func (r *Cache) Key() any {
 	}
 	h.Write(Separator)
 
-	for _, vs := range r.DelegateVirtualServices {
-		h.Write(hashToBytes(vs))
-		h.Write(Separator)
-	}
-	h.Write(Separator)
-
 	for _, mergedDR := range r.DestinationRules {
 		for _, dr := range mergedDR.GetFrom() {
 			h.WriteString(dr.Name)
@@ -189,10 +179,4 @@ func (r *Cache) Key() any {
 	h.Write(Separator)
 
 	return h.Sum64()
-}
-
-func hashToBytes(number model.ConfigHash) []byte {
-	big := new(big.Int)
-	big.SetUint64(uint64(number))
-	return big.Bytes()
 }

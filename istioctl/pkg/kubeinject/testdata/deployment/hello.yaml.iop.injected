@@ -29,11 +29,11 @@ spec:
         - containerPort: 80
           name: http
         resources: {}
-      - image: docker.io/istio/proxy_debug:unittest
+      - image: registry.istio.io/release/proxy_debug:unittest
         name: istio-proxy
         resources: {}
       initContainers:
-      - image: docker.io/istio/proxy_init:unittest-testiop
+      - image: registry.istio.io/release/proxy_init:unittest-testiop
         name: istio-init
         resources: {}
 status: {}

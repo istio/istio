@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Crediting the kgateway authors for the patterns used in this file, as well as some of the code
+
 package gateway
 
 import (
@@ -40,6 +42,7 @@ import (
 	"istio.io/api/annotation"
 	"istio.io/api/label"
 	istio "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/config/kube/gatewaycommon"
 	"istio.io/istio/pilot/pkg/credentials"
 	kubecreds "istio.io/istio/pilot/pkg/credentials/kube"
 	"istio.io/istio/pilot/pkg/features"
@@ -51,7 +54,6 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 	schematypes "istio.io/istio/pkg/config/schema/kubetypes"
@@ -64,10 +66,8 @@ import (
 )
 
 const (
-	gatewayTLSTerminateModeKey = "gateway.istio.io/tls-terminate-mode"
-	addressTypeOverride        = "networking.istio.io/address-type"
-	gatewayClassDefaults       = "gateway.istio.io/defaults-for-class"
-	gatewayTLSCipherSuites     = "gateway.istio.io/tls-cipher-suites"
+	addressTypeOverride    = "networking.istio.io/address-type"
+	gatewayTLSCipherSuites = "gateway.istio.io/tls-cipher-suites"
 )
 
 func sortConfigByCreationTime(configs []config.Config) {
@@ -222,9 +222,16 @@ func convertHTTPRoute(ctx RouteContext, r k8s.HTTPRouteRule,
 		}
 	}
 	if weightSum(r.BackendRefs) == 0 && vs.Redirect == nil {
-		// The spec requires us to return 500 when there are no >0 weight backends
-		vs.DirectResponse = &istio.HTTPDirectResponse{
-			Status: 500,
+		if len(r.BackendRefs) == 0 {
+			// No backends specified at all; per the Gateway API spec return 404
+			vs.DirectResponse = &istio.HTTPDirectResponse{
+				Status: 404,
+			}
+		} else {
+			// Backends exist but all have zero weight; per the Gateway API spec return 500
+			vs.DirectResponse = &istio.HTTPDirectResponse{
+				Status: 500,
+			}
 		}
 	} else {
 		route, ipCfg, backendErr, err := buildHTTPDestination(ctx, r.BackendRefs, obj.Namespace, enforceRefGrant)
@@ -407,6 +414,37 @@ func compatibleRoutesForHost(routes []*istio.TLSRoute, parentHost string) []*ist
 	return res
 }
 
+// constrainTLSRoutesToListenerHost constrains TLS route SniHosts to only include the
+// intersection with the listener hostname. This ensures that a TLSRoute with a broader
+// hostname (e.g. *.com) attached to a listener with a narrower hostname (e.g. *.example.com)
+// only matches the intersection (*.example.com), not the full route hostname.
+func constrainTLSRoutesToListenerHost(routes []*istio.TLSRoute, listenerHost string) []*istio.TLSRoute {
+	if listenerHost == "" {
+		return routes
+	}
+	listenerNames := host.NewNames([]string{listenerHost})
+	res := make([]*istio.TLSRoute, 0, len(routes))
+	for _, r := range routes {
+		r = r.DeepCopy()
+		for _, m := range r.Match {
+			routeNames := host.NewNames(m.SniHosts)
+			m.SniHosts = slices.Map(routeNames.Intersection(listenerNames), func(n host.Name) string { return string(n) })
+		}
+		// Only include the route if at least one match still has hosts
+		hasHosts := false
+		for _, m := range r.Match {
+			if len(m.SniHosts) > 0 {
+				hasHosts = true
+				break
+			}
+		}
+		if hasHosts || len(r.Match) == 0 {
+			res = append(res, r)
+		}
+	}
+	return res
+}
+
 func routeMeta(obj controllers.Object) map[string]string {
 	m := parentMeta(obj, nil)
 	m[constants.InternalRouteSemantics] = constants.RouteSemanticsGateway
@@ -502,11 +540,11 @@ var allowedParentReferences = sets.New(
 	gvk.KubernetesGateway,
 	gvk.Service,
 	gvk.ServiceEntry,
-	gvk.XListenerSet,
+	gvk.ListenerSet,
 )
 
 func toInternalParentReference(p k8s.ParentReference, localNamespace string) (parentKey, error) {
-	ref := normalizeReference(p.Group, p.Kind, gvk.KubernetesGateway)
+	ref := gatewaycommon.NormalizeReference(p.Group, p.Kind, gvk.KubernetesGateway)
 	if !allowedParentReferences.Contains(ref) {
 		return parentKey{}, fmt.Errorf("unsupported parent: %v/%v", p.Group, p.Kind)
 	}
@@ -534,7 +572,8 @@ func referenceAllowed(
 	hostnames []k8s.Hostname,
 	localNamespace string,
 ) (*ParentError, *WaypointError) {
-	if parentRef.Kind == gvk.Service {
+	switch parentRef.Kind {
+	case gvk.Service:
 
 		key := parentRef.Namespace + "/" + parentRef.Name
 		svc := ptr.Flatten(krt.FetchOne(ctx.Krt, ctx.Services, krt.FilterKey(key)))
@@ -563,7 +602,7 @@ func referenceAllowed(
 				}
 			}
 		}
-	} else if parentRef.Kind == gvk.ServiceEntry {
+	case gvk.ServiceEntry:
 		// check that the referenced svc entry exists
 		key := parentRef.Namespace + "/" + parentRef.Name
 		svcEntry := ptr.Flatten(krt.FetchOne(ctx.Krt, ctx.ServiceEntries, krt.FilterKey(key)))
@@ -590,7 +629,7 @@ func referenceAllowed(
 				}
 			}
 		}
-	} else {
+	default:
 		// First, check section and port apply. This must come first
 		if parentRef.Port != 0 && parentRef.Port != parent.Port {
 			return &ParentError{
@@ -763,7 +802,7 @@ func convertTCPRoute(ctx RouteContext, r k8salpha.TCPRouteRule, obj *k8salpha.TC
 	}, backendErr
 }
 
-func convertTLSRoute(ctx RouteContext, r k8salpha.TLSRouteRule, obj *k8salpha.TLSRoute, enforceRefGrant bool) (*istio.TLSRoute, *ConfigError) {
+func convertTLSRoute(ctx RouteContext, r k8s.TLSRouteRule, obj *k8s.TLSRoute, enforceRefGrant bool) (*istio.TLSRoute, *ConfigError) {
 	if tcpWeightSum(r.BackendRefs) == 0 {
 		// The spec requires us to reject connections when there are no >0 weight backends
 		// We don't have a great way to do it. TODO: add a fault injection API for TCP?
@@ -1023,7 +1062,7 @@ type inferencePoolConfig struct {
 func buildDestination(ctx RouteContext, to k8s.BackendRef, ns string,
 	enforceRefGrant bool, k config.GroupVersionKind,
 ) (*istio.Destination, *inferencePoolConfig, *ConfigError) {
-	ref := normalizeReference(to.Group, to.Kind, gvk.Service)
+	ref := gatewaycommon.NormalizeReference(to.Group, to.Kind, gvk.Service)
 	// check if the reference is allowed
 	if enforceRefGrant {
 		if toNs := to.Namespace; toNs != nil && string(*toNs) != ns {
@@ -1658,13 +1697,6 @@ func filteredReferences(parents []routeParentReference) []routeParentReference {
 	return ret
 }
 
-func getDefaultName(name string, kgw *k8s.GatewaySpec, disableNameSuffix bool) string {
-	if disableNameSuffix {
-		return name
-	}
-	return fmt.Sprintf("%v-%v", name, kgw.GatewayClassName)
-}
-
 // Gateway currently requires a listener (https://github.com/kubernetes-sigs/gateway-api/pull/1596).
 // We don't *really* care about the listener, but it may make sense to add a warning if users do not
 // configure it in an expected way so that we have consistency and can make changes in the future as needed.
@@ -1680,17 +1712,16 @@ func unexpectedWaypointListener(l k8s.Listener) bool {
 }
 
 func unexpectedEastWestWaypointListener(l k8s.Listener) bool {
-	if l.Port != 15008 {
-		return true
+	// Port 15008 must be the HBONE/Terminate listener.
+	if l.Port == 15008 {
+		return l.Protocol != k8s.ProtocolType(protocol.HBONE) ||
+			l.TLS == nil || *l.TLS.Mode != k8s.TLSModeTerminate
 	}
-	if l.Protocol != k8s.ProtocolType(protocol.HBONE) {
-		return true
+	// All other ports must be TLS passthrough.
+	if l.Protocol == k8s.TLSProtocolType && l.TLS != nil && *l.TLS.Mode == k8s.TLSModePassthrough {
+		return false
 	}
-	if l.TLS == nil || *l.TLS.Mode != k8s.TLSModeTerminate {
-		return true
-	}
-	// TODO: Should we check that there aren't more things set
-	return false
+	return true
 }
 
 func getListenerNames(spec *k8s.GatewaySpec) sets.Set[k8s.SectionName] {
@@ -1702,10 +1733,10 @@ func getListenerNames(spec *k8s.GatewaySpec) sets.Set[k8s.SectionName] {
 }
 
 func reportGatewayStatus(
-	r *GatewayContext,
+	r *gatewaycommon.GatewayContext,
 	obj *k8s.Gateway,
 	gs *k8s.GatewayStatus,
-	classInfo classInfo,
+	classInfo gatewaycommon.ClassInfo,
 	gatewayServices []string,
 	servers []*istio.Server,
 	listenerSetCount int,
@@ -1733,32 +1764,15 @@ func reportGatewayStatus(
 		gatewayConditions[string(k8s.GatewayConditionAccepted)].error = gatewayErr
 	}
 
-	// Not defined in upstream API
-	const AttachedListenerSets = "AttachedListenerSets"
-	if obj.Spec.AllowedListeners != nil {
-		gatewayConditions[AttachedListenerSets] = &condition{
-			reason:  "ListenersAttached",
-			message: "At least one ListenerSet is attached",
-		}
-		if !features.EnableAlphaGatewayAPI {
-			gatewayConditions[AttachedListenerSets].error = &ConfigError{
-				Reason: "Unsupported",
-				Message: fmt.Sprintf("AllowedListeners is configured, but ListenerSets are not enabled (set %v=true)",
-					features.EnableAlphaGatewayAPIName),
-			}
-		} else if listenerSetCount == 0 {
-			gatewayConditions[AttachedListenerSets].error = &ConfigError{
-				Reason:  "NoListenersAttached",
-				Message: "AllowedListeners is configured, but no ListenerSets are attached",
-			}
-		}
+	if listenerSetCount != 0 {
+		gs.AttachedListenerSets = ptr.Of(int32(listenerSetCount))
 	}
 
 	setProgrammedCondition(gatewayConditions, internal, gatewayServices, warnings, allUsable)
 
 	addressesToReport := external
 	if len(addressesToReport) == 0 {
-		wantAddressType := classInfo.addressType
+		wantAddressType := classInfo.AddressType
 		if override, ok := obj.Annotations[addressTypeOverride]; ok {
 			wantAddressType = k8s.AddressType(override)
 		}
@@ -1806,10 +1820,10 @@ func reportGatewayStatus(
 }
 
 func reportListenerSetStatus(
-	r *GatewayContext,
+	r *gatewaycommon.GatewayContext,
 	parentGwObj *k8s.Gateway,
-	obj *gatewayx.XListenerSet,
-	gs *gatewayx.ListenerSetStatus,
+	obj *k8s.ListenerSet,
+	gs *k8s.ListenerSetStatus,
 	gatewayServices []string,
 	servers []*istio.Server,
 	gatewayErr *ConfigError,
@@ -1901,19 +1915,19 @@ func reportUnmanagedGatewayStatus(
 }
 
 // reportUnsupportedListenerSet reports a status message for a ListenerSet that is not supported
-func reportUnsupportedListenerSet(class string, status *gatewayx.ListenerSetStatus, obj *gatewayx.XListenerSet) {
+func reportUnsupportedListenerSet(class string, status *k8s.ListenerSetStatus, obj *k8s.ListenerSet) {
 	gatewayConditions := map[string]*condition{
 		string(k8s.GatewayConditionAccepted): {
 			reason: string(k8s.GatewayReasonAccepted),
 			error: &ConfigError{
-				Reason:  string(gatewayx.ListenerSetReasonNotAllowed),
+				Reason:  string(k8s.ListenerSetReasonNotAllowed),
 				Message: fmt.Sprintf("The %q GatewayClass does not support ListenerSet", class),
 			},
 		},
 		string(k8s.GatewayConditionProgrammed): {
 			reason: string(k8s.GatewayReasonProgrammed),
 			error: &ConfigError{
-				Reason:  string(gatewayx.ListenerSetReasonNotAllowed),
+				Reason:  string(k8s.ListenerSetReasonNotAllowed),
 				Message: fmt.Sprintf("The %q GatewayClass does not support ListenerSet", class),
 			},
 		},
@@ -1923,19 +1937,19 @@ func reportUnsupportedListenerSet(class string, status *gatewayx.ListenerSetStat
 }
 
 // reportNotAllowedListenerSet reports a status message for a ListenerSet that is not allowed to be selected
-func reportNotAllowedListenerSet(status *gatewayx.ListenerSetStatus, obj *gatewayx.XListenerSet) {
+func reportNotAllowedListenerSet(status *k8s.ListenerSetStatus, obj *k8s.ListenerSet) {
 	gatewayConditions := map[string]*condition{
 		string(k8s.GatewayConditionAccepted): {
 			reason: string(k8s.GatewayReasonAccepted),
 			error: &ConfigError{
-				Reason:  string(gatewayx.ListenerSetReasonNotAllowed),
+				Reason:  string(k8s.ListenerSetReasonNotAllowed),
 				Message: "The parent Gateway does not allow this reference; check the 'spec.allowedRoutes'",
 			},
 		},
 		string(k8s.GatewayConditionProgrammed): {
 			reason: string(k8s.GatewayReasonProgrammed),
 			error: &ConfigError{
-				Reason:  string(gatewayx.ListenerSetReasonNotAllowed),
+				Reason:  string(k8s.ListenerSetReasonNotAllowed),
 				Message: "The parent Gateway does not allow this reference; check the 'spec.allowedRoutes'",
 			},
 		},
@@ -1944,46 +1958,9 @@ func reportNotAllowedListenerSet(status *gatewayx.ListenerSetStatus, obj *gatewa
 	status.Conditions = setConditions(obj.Generation, status.Conditions, gatewayConditions)
 }
 
-// IsManaged checks if a Gateway is managed (ie we create the Deployment and Service) or unmanaged.
-// This is based on the address field of the spec. If address is set with a Hostname type, it should point to an existing
-// Service that handles the gateway traffic. If it is not set, or refers to only a single IP, we will consider it managed and provision the Service.
-// If there is an IP, we will set the `loadBalancerIP` type.
-// While there is no defined standard for this in the API yet, it is tracked in https://github.com/kubernetes-sigs/gateway-api/issues/892.
-// So far, this mirrors how out of clusters work (address set means to use existing IP, unset means to provision one),
-// and there has been growing consensus on this model for in cluster deployments.
-//
-// Currently, the supported options are:
-// * 1 Hostname value. This can be short Service name ingress, or FQDN ingress.ns.svc.cluster.local, example.com. If its a non-k8s FQDN it is a ServiceEntry.
-// * 1 IP address. This is managed, with IP explicit
-// * Nothing. This is managed, with IP auto assigned
-//
-// Not supported:
-// Multiple hostname/IP - It is feasible but preference is to create multiple Gateways. This would also break the 1:1 mapping of GW:Service
-// Mixed hostname and IP - doesn't make sense; user should define the IP in service
-// NamedAddress - Service has no concept of named address. For cloud's that have named addresses they can be configured by annotations,
-//
-//	which users can add to the Gateway.
-//
-// If manual deployments are disabled, IsManaged() always returns true.
-func IsManaged(gw *k8s.GatewaySpec) bool {
-	if !features.EnableGatewayAPIManualDeployment {
-		return true
-	}
-	if len(gw.Addresses) == 0 {
-		return true
-	}
-	if len(gw.Addresses) > 1 {
-		return false
-	}
-	if t := gw.Addresses[0].Type; t == nil || *t == k8s.IPAddressType {
-		return true
-	}
-	return false
-}
-
-func extractGatewayServices(domainSuffix string, kgw *k8s.Gateway, info classInfo) ([]string, *ConfigError) {
-	if IsManaged(&kgw.Spec) {
-		name := model.GetOrDefault(kgw.Annotations[annotation.GatewayNameOverride.Name], getDefaultName(kgw.Name, &kgw.Spec, info.disableNameSuffix))
+func extractGatewayServices(domainSuffix string, kgw *k8s.Gateway, info gatewaycommon.ClassInfo) ([]string, *ConfigError) {
+	if gatewaycommon.IsManaged(&kgw.Spec) {
+		name := model.GetOrDefault(kgw.Annotations[annotation.GatewayNameOverride.Name], gatewaycommon.GetDefaultName(kgw.Name, &kgw.Spec, info.DisableNameSuffix))
 		return []string{fmt.Sprintf("%s.%s.svc.%v", name, kgw.Namespace, domainSuffix)}, nil
 	}
 	gatewayServices := []string{}
@@ -2026,7 +2003,7 @@ func buildListener(
 	ctx krt.HandlerContext,
 	configMaps krt.Collection[*corev1.ConfigMap],
 	secrets krt.Collection[*corev1.Secret],
-	grants ReferenceGrants,
+	grants gatewaycommon.ReferenceGrants,
 	namespaces krt.Collection[*corev1.Namespace],
 	obj controllers.Object,
 	status []k8s.ListenerStatus,
@@ -2095,7 +2072,7 @@ func buildListener(
 		if unexpectedEastWestWaypointListener(l) {
 			listenerConditions[string(k8s.ListenerConditionAccepted)].error = &ConfigError{
 				Reason:  string(k8s.ListenerReasonUnsupportedProtocol),
-				Message: `Expected a single listener on port 15008 with protocol "HBONE" and TLS.Mode == Terminate`,
+				Message: `East-west gateway listeners must be either port 15008 with protocol "HBONE" and TLS.Mode == Terminate, or TLS with TLS.Mode == Passthrough`,
 			}
 		}
 	}
@@ -2166,7 +2143,7 @@ func buildTLS(
 	ctx krt.HandlerContext,
 	configMaps krt.Collection[*corev1.ConfigMap],
 	secrets krt.Collection[*corev1.Secret],
-	grants ReferenceGrants,
+	grants gatewaycommon.ReferenceGrants,
 	gatewayTLS *k8s.TLSConfig,
 	tls *k8s.ListenerTLSConfig,
 	gw controllers.Object,
@@ -2189,7 +2166,7 @@ func buildTLS(
 	case k8s.TLSModeTerminate:
 		out.Mode = istio.ServerTLSSettings_SIMPLE
 		if tls.Options != nil {
-			switch tls.Options[gatewayTLSTerminateModeKey] {
+			switch tls.Options[gatewaycommon.GatewayTLSTerminateModeKey] {
 			case "MUTUAL":
 				out.Mode = istio.ServerTLSSettings_MUTUAL
 			case "OPTIONAL_MUTUAL":
@@ -2270,6 +2247,14 @@ func buildTLS(
 			}
 			out.Mode = istio.ServerTLSSettings_MUTUAL
 			out.CaCertCredentialName = cred.ResourceName
+			if tls.Options != nil {
+				switch tls.Options[gatewaycommon.GatewayTLSTerminateModeKey] {
+				case "MUTUAL":
+					out.Mode = istio.ServerTLSSettings_MUTUAL
+				case "OPTIONAL_MUTUAL":
+					out.Mode = istio.ServerTLSSettings_OPTIONAL_MUTUAL
+				}
+			}
 		}
 	case k8s.TLSModePassthrough:
 		out.Mode = istio.ServerTLSSettings_PASSTHROUGH
@@ -2292,7 +2277,7 @@ func buildSecretReference(
 	gw controllers.Object,
 	secrets krt.Collection[*corev1.Secret],
 ) (string, *ConfigError) {
-	if normalizeReference(ref.Group, ref.Kind, gvk.Secret) != gvk.Secret {
+	if gatewaycommon.NormalizeReference(ref.Group, ref.Kind, gvk.Secret) != gvk.Secret {
 		return "", &ConfigError{
 			Reason:  InvalidTLS,
 			Message: fmt.Sprintf("invalid certificate reference %v, only secret is allowed", secretObjectReferenceString(ref)),
@@ -2344,7 +2329,7 @@ func buildCaCertificateReference(
 	namespace := ptr.OrDefault((*string)(ref.Namespace), gw.GetNamespace())
 	name := string(ref.Name)
 
-	switch normalizeReference(&ref.Group, &ref.Kind, config.GroupVersionKind{}) {
+	switch gatewaycommon.NormalizeReference(&ref.Group, &ref.Kind, config.GroupVersionKind{}) {
 	case gvk.ConfigMap:
 		resourceType = creds.KubernetesConfigMapType
 		resourceKind = kind.ConfigMap
@@ -2481,45 +2466,6 @@ func namespacesFromSelector(ctx krt.HandlerContext, localNamespace string, names
 	return namespaces
 }
 
-// namespaceAcceptedByAllowListeners determines a list of allowed namespaces for a given AllowedListener
-func namespaceAcceptedByAllowListeners(localNamespace string, parent *k8s.Gateway, lookupNamespace func(string) *corev1.Namespace) bool {
-	lr := parent.Spec.AllowedListeners
-	// Default allows none
-	if lr == nil || lr.Namespaces == nil {
-		return false
-	}
-	n := *lr.Namespaces
-	if n.From != nil {
-		switch *n.From {
-		case k8s.NamespacesFromAll:
-			return true
-		case k8s.NamespacesFromSame:
-			return localNamespace == parent.Namespace
-		case k8s.NamespacesFromNone:
-			return false
-		case k8s.NamespacesFromSelector:
-			// Fallthrough
-		default:
-			// Unknown?
-			return false
-		}
-	}
-	if lr.Namespaces.Selector == nil {
-		// Should never happen, invalid config
-		return false
-	}
-	ls, err := metav1.LabelSelectorAsSelector(lr.Namespaces.Selector)
-	if err != nil {
-		return false
-	}
-	localNamespaceObject := lookupNamespace(localNamespace)
-	if localNamespaceObject == nil {
-		// Couldn't find the namespace
-		return false
-	}
-	return ls.Matches(toNamespaceSet(localNamespaceObject.Name, localNamespaceObject.Labels))
-}
-
 func humanReadableJoin(ss []string) string {
 	switch len(ss) {
 	case 0:
@@ -2556,7 +2502,7 @@ func GetCommonRouteInfo(spec any) ([]k8s.ParentReference, []k8s.Hostname, config
 	switch t := spec.(type) {
 	case *k8salpha.TCPRoute:
 		return t.Spec.ParentRefs, nil, gvk.TCPRoute
-	case *k8salpha.TLSRoute:
+	case *k8s.TLSRoute:
 		return t.Spec.ParentRefs, t.Spec.Hostnames, gvk.TLSRoute
 	case *k8s.HTTPRoute:
 		return t.Spec.ParentRefs, t.Spec.Hostnames, gvk.HTTPRoute
@@ -2572,7 +2518,7 @@ func GetCommonRouteStateParents(spec any) []k8s.RouteParentStatus {
 	switch t := spec.(type) {
 	case *k8salpha.TCPRoute:
 		return t.Status.Parents
-	case *k8salpha.TLSRoute:
+	case *k8s.TLSRoute:
 		return t.Status.Parents
 	case *k8s.HTTPRoute:
 		return t.Status.Parents
@@ -2582,28 +2528,6 @@ func GetCommonRouteStateParents(spec any) []k8s.RouteParentStatus {
 		log.Fatalf("unknown type %T", t)
 		return nil
 	}
-}
-
-// normalizeReference takes a generic Group/Kind (the API uses a few variations) and converts to a known GroupVersionKind.
-// Defaults for the group/kind are also passed.
-func normalizeReference[G ~string, K ~string](group *G, kind *K, def config.GroupVersionKind) config.GroupVersionKind {
-	k := def.Kind
-	if kind != nil {
-		k = string(*kind)
-	}
-	g := def.Group
-	if group != nil {
-		g = string(*group)
-	}
-	gk := config.GroupVersionKind{
-		Group: g,
-		Kind:  k,
-	}
-	s, f := collections.All.FindByGroupKind(gk)
-	if f {
-		return s.GroupVersionKind()
-	}
-	return gk
 }
 
 func defaultString[T ~string](s *T, def string) string {
@@ -2629,7 +2553,7 @@ func GetStatus[I, IS any](spec I) IS {
 	switch t := any(spec).(type) {
 	case *k8salpha.TCPRoute:
 		return any(t.Status).(IS)
-	case *k8salpha.TLSRoute:
+	case *k8s.TLSRoute:
 		return any(t.Status).(IS)
 	case *k8s.HTTPRoute:
 		return any(t.Status).(IS)
@@ -2643,7 +2567,7 @@ func GetStatus[I, IS any](spec I) IS {
 		return any(t.Status).(IS)
 	case *k8s.BackendTLSPolicy:
 		return any(t.Status).(IS)
-	case *gatewayx.XListenerSet:
+	case *k8s.ListenerSet:
 		return any(t.Status).(IS)
 	case *inferencev1.InferencePool:
 		return any(t.Status).(IS)
@@ -2656,11 +2580,11 @@ func GetStatus[I, IS any](spec I) IS {
 func GetBackendRef[I any](spec I) (config.GroupVersionKind, *k8s.Namespace, k8s.ObjectName) {
 	switch t := any(spec).(type) {
 	case k8s.HTTPBackendRef:
-		return normalizeReference(t.Group, t.Kind, gvk.Service), t.Namespace, t.Name
+		return gatewaycommon.NormalizeReference(t.Group, t.Kind, gvk.Service), t.Namespace, t.Name
 	case k8s.GRPCBackendRef:
-		return normalizeReference(t.Group, t.Kind, gvk.Service), t.Namespace, t.Name
+		return gatewaycommon.NormalizeReference(t.Group, t.Kind, gvk.Service), t.Namespace, t.Name
 	case k8s.BackendRef:
-		return normalizeReference(t.Group, t.Kind, gvk.Service), t.Namespace, t.Name
+		return gatewaycommon.NormalizeReference(t.Group, t.Kind, gvk.Service), t.Namespace, t.Name
 	default:
 		log.Fatalf("unknown GetBackendRef type %T", t)
 		return config.GroupVersionKind{}, nil, ""

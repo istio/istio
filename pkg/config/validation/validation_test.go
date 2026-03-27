@@ -3678,6 +3678,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		in      *networking.ServiceEntry
 		valid   bool
 		warning bool
+		labels  map[string]string
 	}{
 		{
 			name: "discovery type DNS", in: &networking.ServiceEntry{
@@ -4388,6 +4389,17 @@ func TestValidateServiceEntries(t *testing.T) {
 			valid: false,
 		},
 		{
+			name: "discovery type DYNAMIC_DNS, GRPC protocol", in: &networking.ServiceEntry{
+				Hosts:     []string{"*.svc.cluster.local"},
+				Addresses: []string{},
+				Ports: []*networking.ServicePort{
+					{Number: 9090, Protocol: "GRPC", Name: "grpc"},
+				},
+				Resolution: networking.ServiceEntry_DYNAMIC_DNS,
+			},
+			valid: true,
+		},
+		{
 			name: "discovery type DYNAMIC_DNS, FQDN host", in: &networking.ServiceEntry{
 				Hosts:     []string{"google.com"},
 				Addresses: []string{},
@@ -4460,17 +4472,70 @@ func TestValidateServiceEntries(t *testing.T) {
 				Resolution: networking.ServiceEntry_DYNAMIC_DNS,
 				Location:   networking.ServiceEntry_MESH_INTERNAL,
 			},
+			valid: true,
+		},
+		{
+			name: "discovery type DYNAMIC_DNS, MESH_INTERNAL with waypoint (invalid)",
+			in: &networking.ServiceEntry{
+				Hosts:     []string{"*.google.com"},
+				Addresses: []string{},
+				Ports: []*networking.ServicePort{
+					{Number: 80, Protocol: "http", Name: "http-valid1"},
+				},
+				Resolution: networking.ServiceEntry_DYNAMIC_DNS,
+				Location:   networking.ServiceEntry_MESH_INTERNAL,
+			},
+			valid:  false,
+			labels: map[string]string{"istio.io/use-waypoint": "my-waypoint"},
+		},
+		{
+			name: "discovery type DYNAMIC_DNS, nil port",
+			in: &networking.ServiceEntry{
+				Hosts:    []string{"*.google.com"},
+				Location: networking.ServiceEntry_MESH_EXTERNAL,
+				Ports: []*networking.ServicePort{
+					nil,
+				},
+				Resolution: networking.ServiceEntry_DYNAMIC_DNS,
+			},
+			valid: false,
+		},
+		{
+			name: "nil port in ports array",
+			in: &networking.ServiceEntry{
+				Hosts: []string{"google.com"},
+				Ports: []*networking.ServicePort{
+					nil,
+				},
+				Resolution: networking.ServiceEntry_NONE,
+			},
+			valid: false,
+		},
+		{
+			name: "discovery type DNS with addresses, nil port",
+			in: &networking.ServiceEntry{
+				Hosts:     []string{"google.com"},
+				Addresses: []string{"1.2.3.4"},
+				Ports: []*networking.ServicePort{
+					nil,
+				},
+				Resolution: networking.ServiceEntry_DNS,
+			},
 			valid: false,
 		},
 	}
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
+			meta := config.Meta{
+				Name:      someName,
+				Namespace: someNamespace,
+			}
+			if c.labels != nil {
+				meta.Labels = c.labels
+			}
 			warning, err := ValidateServiceEntry(config.Config{
-				Meta: config.Meta{
-					Name:      someName,
-					Namespace: someNamespace,
-				},
+				Meta: meta,
 				Spec: c.in,
 			})
 			if (err == nil) != c.valid {

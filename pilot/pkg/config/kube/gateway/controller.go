@@ -28,6 +28,7 @@ import (
 	gatewayx "sigs.k8s.io/gateway-api/apisx/v1alpha1"
 
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
+	"istio.io/istio/pilot/pkg/config/kube/gatewaycommon"
 	kubesecrets "istio.io/istio/pilot/pkg/credentials/kube"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -85,7 +86,7 @@ type Controller struct {
 	// gatewayContext exposes us to the internal Istio service registry. This is outside krt knowledge (currently), so,
 	// so we wrap it in a RecomputeProtected.
 	// Most usages in the API are directly referenced typed objects (Service, ServiceEntry, etc) so this is not needed typically.
-	gatewayContext krt.RecomputeProtected[*atomic.Pointer[GatewayContext]]
+	gatewayContext krt.RecomputeProtected[*atomic.Pointer[gatewaycommon.GatewayContext]]
 	// tagWatcher allows us to check which tags are ours. Unlike most Istio codepaths, we read istio.io/rev=<tag> and not just
 	// revisions for Gateways. This is because a Gateway is sort of a mix of a Deployment and Config.
 	// Since the TagWatcher is not yet krt-aware, we wrap this in RecomputeProtected.
@@ -126,7 +127,7 @@ type Outputs struct {
 	Gateways                krt.Collection[Gateway]
 	GatewayConfigs          krt.Collection[config.Config]
 	VirtualServices         krt.Collection[config.Config]
-	ReferenceGrants         ReferenceGrants
+	ReferenceGrants         gatewaycommon.ReferenceGrants
 	DestinationRules        krt.Collection[config.Config]
 	InferencePools          krt.Collection[InferencePool]
 	InferencePoolsByGateway krt.Index[types.NamespacedName, InferencePool]
@@ -144,8 +145,8 @@ type Inputs struct {
 	HTTPRoutes           krt.Collection[*gatewayv1.HTTPRoute]
 	GRPCRoutes           krt.Collection[*gatewayv1.GRPCRoute]
 	TCPRoutes            krt.Collection[*gatewayalpha.TCPRoute]
-	TLSRoutes            krt.Collection[*gatewayalpha.TLSRoute]
-	ListenerSets         krt.Collection[*gatewayx.XListenerSet]
+	TLSRoutes            krt.Collection[*gatewayv1.TLSRoute]
+	ListenerSets         krt.Collection[*gatewayv1.ListenerSet]
 	ReferenceGrants      krt.Collection[*gateway.ReferenceGrant]
 	BackendTrafficPolicy krt.Collection[*gatewayx.XBackendTrafficPolicy]
 	BackendTLSPolicies   krt.Collection[*gatewayv1.BackendTLSPolicy]
@@ -172,7 +173,7 @@ func NewController(
 		status:         &status.StatusCollections{},
 		tagWatcher:     krt.NewRecomputeProtected(tw, false, opts.WithName("tagWatcher")...),
 		waitForCRD:     waitForCRD,
-		gatewayContext: krt.NewRecomputeProtected(atomic.NewPointer[GatewayContext](nil), false, opts.WithName("gatewayContext")...),
+		gatewayContext: krt.NewRecomputeProtected(atomic.NewPointer[gatewaycommon.GatewayContext](nil), false, opts.WithName("gatewayContext")...),
 		stop:           stop,
 		xdsUpdater:     xdsUpdater,
 		domainSuffix:   options.DomainSuffix,
@@ -202,21 +203,19 @@ func NewController(
 		HTTPRoutes:         buildClient[*gatewayv1.HTTPRoute](c, kc, gvr.HTTPRoute, opts, "informer/HTTPRoutes"),
 		GRPCRoutes:         buildClient[*gatewayv1.GRPCRoute](c, kc, gvr.GRPCRoute, opts, "informer/GRPCRoutes"),
 		BackendTLSPolicies: buildClient[*gatewayv1.BackendTLSPolicy](c, kc, gvr.BackendTLSPolicy, opts, "informer/BackendTLSPolicies"),
+		TLSRoutes:          buildClient[*gatewayv1.TLSRoute](c, kc, gvr.TLSRoute, opts, "informer/TLSRoutes"),
+		ListenerSets:       buildClient[*gatewayv1.ListenerSet](c, kc, gvr.ListenerSet, opts, "informer/ListenerSet"),
 
 		ReferenceGrants: buildClient[*gateway.ReferenceGrant](c, kc, gvr.ReferenceGrant, opts, "informer/ReferenceGrants"),
 		ServiceEntries:  buildClient[*networkingclient.ServiceEntry](c, kc, gvr.ServiceEntry, opts, "informer/ServiceEntries"),
 	}
 	if features.EnableAlphaGatewayAPI {
 		inputs.TCPRoutes = buildClient[*gatewayalpha.TCPRoute](c, kc, gvr.TCPRoute, opts, "informer/TCPRoutes")
-		inputs.TLSRoutes = buildClient[*gatewayalpha.TLSRoute](c, kc, gvr.TLSRoute, opts, "informer/TLSRoutes")
 		inputs.BackendTrafficPolicy = buildClient[*gatewayx.XBackendTrafficPolicy](c, kc, gvr.XBackendTrafficPolicy, opts, "informer/XBackendTrafficPolicy")
-		inputs.ListenerSets = buildClient[*gatewayx.XListenerSet](c, kc, gvr.XListenerSet, opts, "informer/XListenerSet")
 	} else {
 		// If disabled, still build a collection but make it always empty
 		inputs.TCPRoutes = krt.NewStaticCollection[*gatewayalpha.TCPRoute](nil, nil, opts.WithName("disable/TCPRoutes")...)
-		inputs.TLSRoutes = krt.NewStaticCollection[*gatewayalpha.TLSRoute](nil, nil, opts.WithName("disable/TLSRoutes")...)
 		inputs.BackendTrafficPolicy = krt.NewStaticCollection[*gatewayx.XBackendTrafficPolicy](nil, nil, opts.WithName("disable/XBackendTrafficPolicy")...)
-		inputs.ListenerSets = krt.NewStaticCollection[*gatewayx.XListenerSet](nil, nil, opts.WithName("disable/XListenerSet")...)
 	}
 
 	if features.EnableGatewayAPIInferenceExtension {
@@ -226,21 +225,21 @@ func NewController(
 		inputs.InferencePools = krt.NewStaticCollection[*inferencev1.InferencePool](nil, nil, opts.WithName("disable/InferencePools")...)
 	}
 
-	references := NewReferenceSet(
-		AddReference(inputs.Services),
-		AddReference(inputs.ServiceEntries),
-		AddReference(inputs.ConfigMaps),
-		AddReference(inputs.Secrets),
+	references := gatewaycommon.NewReferenceSet(
+		gatewaycommon.AddReference(inputs.Services),
+		gatewaycommon.AddReference(inputs.ServiceEntries),
+		gatewaycommon.AddReference(inputs.ConfigMaps),
+		gatewaycommon.AddReference(inputs.Secrets),
 	)
 
 	handlers := []krt.HandlerRegistration{}
 
 	httpRoutesByInferencePool := krt.NewIndex(inputs.HTTPRoutes, "inferencepool-route", indexHTTPRouteByInferencePool)
 
-	GatewayClassStatus, GatewayClasses := GatewayClassesCollection(inputs.GatewayClasses, opts)
+	GatewayClassStatus, GatewayClasses := gatewaycommon.GatewayClassesCollection(inputs.GatewayClasses, opts)
 	status.RegisterStatus(c.status, GatewayClassStatus, GetStatus, c.tagWatcher.AccessUnprotected())
 
-	ReferenceGrants := BuildReferenceGrants(ReferenceGrantsCollection(inputs.ReferenceGrants, opts))
+	ReferenceGrants := gatewaycommon.BuildReferenceGrants(gatewaycommon.ReferenceGrantsCollection(inputs.ReferenceGrants, opts))
 	ListenerSetStatus, ListenerSets := ListenerSetCollection(
 		inputs.ListenerSets,
 		inputs.Gateways,
@@ -369,11 +368,18 @@ func NewController(
 	GatewayFinalStatus := FinalGatewayStatusCollection(GatewaysStatus, RouteAttachments, RouteAttachmentsIndex, opts)
 	status.RegisterStatus(c.status, GatewayFinalStatus, GetStatus, c.tagWatcher.AccessUnprotected())
 
+	// Merge HTTP and gRPC base VirtualServices together so routes on the same
+	// gateway+hostname are combined into a single VirtualService, allowing
+	// HTTPRoute and GRPCRoute to coexist on the same hostname.
+	httpAndGrpcVS := mergeHTTPRoutes(krt.JoinCollection([]krt.Collection[RouteWithKey]{
+		httpRoutes.BaseVirtualServices,
+		grpcRoutes.BaseVirtualServices,
+	}, opts.WithName("HTTPAndGRPCBaseVS")...), opts.WithName("HTTPAndGRPCMerged")...)
+
 	VirtualServices := krt.JoinCollection([]krt.Collection[config.Config]{
 		tcpRoutes.VirtualServices,
 		tlsRoutes.VirtualServices,
-		httpRoutes.VirtualServices,
-		grpcRoutes.VirtualServices,
+		httpAndGrpcVS,
 	}, opts.WithName("DerivedVirtualServices")...)
 
 	InferencePoolsByGateway := krt.NewIndex(InferencePools, "byGateway", func(i InferencePool) []types.NamespacedName {
@@ -391,15 +397,8 @@ func NewController(
 	}
 	c.outputs = outputs
 
+	// we don't need to register the virtual services here because they are handled by the virtual service controller
 	handlers = append(handlers,
-		outputs.VirtualServices.RegisterBatch(pushXds(xdsUpdater,
-			func(t config.Config) model.ConfigKey {
-				return model.ConfigKey{
-					Kind:      kind.VirtualService,
-					Name:      t.Name,
-					Namespace: t.Namespace,
-				}
-			}), false),
 		outputs.DestinationRules.RegisterBatch(pushXds(xdsUpdater,
 			func(t config.Config) model.ConfigKey {
 				return model.ConfigKey{
@@ -521,8 +520,8 @@ func (c *Controller) SetStatusWrite(enabled bool, statusManager *status.Manager)
 
 // Reconcile is called each time the `gatewayContext` may change. We use this to mark it as updated.
 func (c *Controller) Reconcile(ps *model.PushContext) {
-	ctx := NewGatewayContext(ps, c.cluster)
-	c.gatewayContext.Modify(func(i **atomic.Pointer[GatewayContext]) {
+	ctx := gatewaycommon.NewGatewayContext(ps, c.cluster)
+	c.gatewayContext.Modify(func(i **atomic.Pointer[gatewaycommon.GatewayContext]) {
 		(*i).Store(&ctx)
 	})
 	c.gatewayContext.MarkSynced()
@@ -565,7 +564,7 @@ func (c *Controller) Run(stop <-chan struct{}) {
 	if features.EnableGatewayAPIGatewayClassController {
 		go func() {
 			if c.waitForCRD(gvr.GatewayClass, stop) {
-				gcc := NewClassController(c.client)
+				gcc := gatewaycommon.NewClassController(c.client)
 				c.client.RunAndWait(stop)
 				gcc.Run(stop)
 			}
@@ -589,7 +588,7 @@ func (c *Controller) HasSynced() bool {
 		c.outputs.DestinationRules.HasSynced() &&
 		c.outputs.Gateways.HasSynced() &&
 		c.outputs.GatewayConfigs.HasSynced() &&
-		c.outputs.ReferenceGrants.collection.HasSynced()) {
+		c.outputs.ReferenceGrants.Collection.HasSynced()) {
 		return false
 	}
 	for _, h := range c.handlers {

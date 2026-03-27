@@ -103,6 +103,15 @@ var (
 	EnableDebugEndpointAuth = env.Register("ENABLE_DEBUG_ENDPOINT_AUTH", true,
 		"Enforce namespace-based authorization on debug endpoints. Non-system namespaces restricted to config_dump/ndsz/edsz for same-namespace proxies only.").Get()
 
+	DebugEndpointAuthAllowedNamespaces = func() sets.String {
+		v := env.Register(
+			"DEBUG_ENDPOINT_AUTH_ALLOWED_NAMESPACES",
+			"",
+			"Comma separated list of namespaces to allow access to debug endpoints. Only used if ENABLE_DEBUG_ENDPOINT_AUTH is enabled. The system namespace"+
+				"is always authorized.").Get()
+		return sets.New(strings.Split(v, ",")...)
+	}()
+
 	EnableServiceEntrySelectPods = env.Register("PILOT_ENABLE_SERVICEENTRY_SELECT_PODS", true,
 		"If enabled, service entries with selectors will select pods from the cluster. "+
 			"It is safe to disable it if you are quite sure you don't need this feature").Get()
@@ -355,6 +364,22 @@ var (
 		}
 		return blockedCIDRs
 	}()
+
+	// GatewayTransportSocketConnectTimeout specifies the timeout for transport socket (e.g., TLS
+	// handshake) connections on gateway listeners. This protects against slow or incomplete TLS
+	// handshakes consuming resources. Set to 0s to disable the timeout entirely.
+	GatewayTransportSocketConnectTimeout = env.Register(
+		"PILOT_GATEWAY_TRANSPORT_SOCKET_CONNECT_TIMEOUT",
+		15*time.Second,
+		"The timeout for transport socket (e.g., TLS handshake) connections on gateway listeners. "+
+			"This helps protect against slow TLS handshake attacks. Set to 0s to disable.",
+	).Get()
+
+	MaxWasmBinarySizeBytes = env.Register[int64](
+		"ISTIO_WASM_MAX_BINARY_SIZE_BYTES",
+		1024*1024*256,
+		"Maximum size of a Wasm binary in bytes. Default is 256MB.",
+	).Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.

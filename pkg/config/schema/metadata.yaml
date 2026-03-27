@@ -261,7 +261,7 @@ resources:
     proto: "x-k8s.io.gateway-api-inference-extension.api.v1.InferencePoolSpec"
     statusProto: "x-k8s.io.gateway-api-inference-extension.api.v1.InferencePoolStatus"
     statusProtoPackage: "sigs.k8s.io/gateway-api-inference-extension/api/v1"
-    
+
   - kind: "GRPCRoute"
     plural: "grpcroutes"
     group: "gateway.networking.k8s.io"
@@ -285,11 +285,13 @@ resources:
   - kind: "TLSRoute"
     plural: "tlsroutes"
     group: "gateway.networking.k8s.io"
-    version: "v1alpha2"
-    protoPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2"
-    proto: "k8s.io.gateway_api.api.v1alpha1.TLSRouteSpec"
-    statusProtoPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2"
-    statusProto: "k8s.io.gateway_api.api.v1alpha1.TLSRouteStatus"
+    version: "v1"
+    versionAliases:
+      - "v1alpha2"
+    protoPackage: "sigs.k8s.io/gateway-api/apis/v1"
+    proto: "k8s.io.gateway_api.api.v1.TLSRouteSpec"
+    statusProtoPackage: "sigs.k8s.io/gateway-api/apis/v1"
+    statusProto: "k8s.io.gateway_api.api.v1.TLSRouteStatus"
 
   - kind: "UDPRoute"
     plural: "udproutes"
@@ -327,14 +329,14 @@ resources:
     statusProtoPackage: "sigs.k8s.io/gateway-api/apis/v1"
     statusProto: "k8s.io.gateway_api.api.v1.PolicyStatus"
 
-  - kind: "XListenerSet"
-    identifier: XListenerSet
-    plural: "xlistenersets"
-    group: "gateway.networking.x-k8s.io"
-    version: "v1alpha1"
-    protoPackage: "sigs.k8s.io/gateway-api/apisx/v1alpha1"
+  - kind: "ListenerSet"
+    identifier: ListenerSet
+    plural: "listenersets"
+    group: "gateway.networking.k8s.io"
+    version: "v1"
+    protoPackage: "sigs.k8s.io/gateway-api/apis/v1"
     proto: "ListenerSetSpec"
-    statusProtoPackage: "sigs.k8s.io/gateway-api/apisx/v1alpha1"
+    statusProtoPackage: "sigs.k8s.io/gateway-api/apis/v1"
     statusProto: "ListenerSetStatus"
 
   ## Istio resources

@@ -36,7 +36,7 @@ if [[ -z "${IGNORE_DIRTY_TREE}" ]] && ! git diff-index --quiet HEAD --; then
 fi
 
 GIT_DESCRIBE_TAG=$(git describe --tags --always)
-HUB=${HUB:-"docker.io/istio"}
+HUB=${HUB:-"registry.istio.io/release"}
 
 # used by common/scripts/gobuild.sh
 echo "istio.io/istio/pkg/version.buildVersion=${VERSION:-$BUILD_GIT_REVISION}"

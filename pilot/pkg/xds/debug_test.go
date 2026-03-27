@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func TestSyncz(t *testing.T) {
@@ -295,6 +296,12 @@ func TestDebugAuthorization(t *testing.T) {
 			wantAllow:  true,
 		},
 		{
+			name:       "allowed namespace via DEBUG_ENDPOINT_AUTH_ALLOWED_NAMESPACES",
+			identities: []string{"spiffe://cluster.local/ns/non-system-ns/sa/some"},
+			path:       "/debug/configz",
+			wantAllow:  true,
+		},
+		{
 			name:       "invalid identity denied",
 			identities: []string{"not-a-spiffe-id"},
 			path:       "/debug/configz",
@@ -315,6 +322,8 @@ func TestDebugAuthorization(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+
+			test.SetForTest(t, &features.DebugEndpointAuthAllowedNamespaces, sets.New("non-system-ns"))
 
 			got := s.Discovery.AuthorizeDebugRequest(tt.identities, req)
 			if got != tt.wantAllow {
@@ -423,4 +432,45 @@ func TestStatusGenRequiresAuth(t *testing.T) {
 			t.Fatalf("expected no error when auth disabled, got %v", err)
 		}
 	})
+}
+
+// TestDebugGenPassesNamespaceContext verifies that DebugGen passes the caller namespace
+// to the internal HTTP handler via CallerNamespaceKey context.
+// This test FAILS without the fix (CallerNamespaceKey empty) and PASSES with the fix.
+func TestDebugGenPassesNamespaceContext(t *testing.T) {
+	var capturedNS string
+	var handlerCalled bool
+	mux := http.NewServeMux()
+	mux.HandleFunc("/debug/", func(w http.ResponseWriter, r *http.Request) {
+		handlerCalled = true
+		capturedNS, _ = r.Context().Value(xds.CallerNamespaceKey{}).(string)
+		// Simulate what getDebugConnection does: if CallerNamespaceKey is empty,
+		// the namespace check is skipped (security bug we're fixing)
+		if capturedNS == "" {
+			t.Fatal("CallerNamespaceKey not set in context - cross-namespace access would be allowed")
+		}
+		w.WriteHeader(http.StatusOK)
+	})
+
+	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
+	gen := xds.NewDebugGen(s.Discovery, "istio-system", mux)
+
+	proxy := &model.Proxy{
+		ID:               "test.production",
+		VerifiedIdentity: &spiffe.Identity{Namespace: "production"},
+	}
+	watchedRes := &model.WatchedResource{
+		TypeUrl:       v3.DebugType,
+		ResourceNames: sets.New("config_dump"),
+	}
+
+	_, _, err := gen.Generate(proxy, watchedRes, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !handlerCalled {
+		t.Fatal("handler was not called")
+	}
+	assert.Equal(t, "production", capturedNS, "caller namespace should be passed to handler")
 }

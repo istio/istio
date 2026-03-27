@@ -35,6 +35,7 @@ import (
 
 	istio "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
+	"istio.io/istio/pilot/pkg/config/kube/gatewaycommon"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core"
@@ -58,6 +59,8 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/util/sets"
 )
+
+var timestampRegex = regexp.MustCompile(`lastTransitionTime:.*`)
 
 var ports = []*model.Port{
 	{
@@ -614,8 +617,8 @@ func init() {
 	features.EnableAmbientMultiNetwork = true
 	features.EnableAgentgateway = true
 	// Recompute with ambient enabled
-	classInfos = getClassInfos()
-	builtinClasses = getBuiltinClasses()
+	gatewaycommon.ClassInfos = gatewaycommon.GetClassInfos()
+	gatewaycommon.BuiltinGatewayClasses = gatewaycommon.GetBuiltinGatewayClasses()
 }
 
 type TestStatusQueue struct {
@@ -769,6 +772,8 @@ func TestConvertResources(t *testing.T) {
 		},
 		{name: "redirect-only"},
 		{name: "reference-grant-multiple-to"},
+		{name: "http-grpc-same-host"},
+		{name: "empty-backend-refs"},
 	}
 	test.SetForTest(t, &features.EnableGatewayAPIGatewayClassController, false)
 	test.SetForTest(t, &features.EnableGatewayAPIInferenceExtension, true)
@@ -841,7 +846,7 @@ func setupClientCRDs(t *testing.T, kc kube.CLIClient) {
 	for _, crd := range []schema.GroupVersionResource{
 		gvr.KubernetesGateway,
 		gvr.ReferenceGrant,
-		gvr.XListenerSet,
+		gvr.ListenerSet,
 		gvr.GatewayClass,
 		gvr.HTTPRoute,
 		gvr.GRPCRoute,
@@ -1597,8 +1602,6 @@ spec:
 		})
 	}
 }
-
-var timestampRegex = regexp.MustCompile(`lastTransitionTime:.*`)
 
 func readConfig(t testing.TB, filename string, validator *crdvalidation.Validator, ignorer *crdvalidation.ValidationIgnorer) []runtime.Object {
 	t.Helper()

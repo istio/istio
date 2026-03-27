@@ -218,6 +218,18 @@ func NewValidatorFromFiles(files ...string) (*Validator, error) {
 				if err := apiextensionsv1beta1.Convert_v1beta1_CustomResourceDefinition_To_apiextensions_CustomResourceDefinition(&crdv1beta1, &crd, nil); err != nil {
 					return nil, err
 				}
+			case schema.GroupVersionKind{
+				Group:   "admissionregistration.k8s.io",
+				Version: "v1",
+				Kind:    "ValidatingAdmissionPolicyBinding",
+			}:
+				continue
+			case schema.GroupVersionKind{
+				Group:   "admissionregistration.k8s.io",
+				Version: "v1",
+				Kind:    "ValidatingAdmissionPolicy",
+			}:
+				continue
 			case schema.GroupVersionKind{}:
 				// Not a CRD, skip. Sometimes people put empty objects in YAML files.
 				continue

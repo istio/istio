@@ -42,7 +42,11 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/wellknown"
@@ -104,16 +108,17 @@ func (to TestOptions) FuzzValidate() bool {
 }
 
 type ConfigGenTest struct {
-	t                    test.Failer
-	store                model.ConfigStoreController
-	env                  *model.Environment
-	ConfigGen            *ConfigGeneratorImpl
-	MemRegistry          *memregistry.ServiceDiscovery
-	ServiceEntryRegistry *serviceentry.Controller
-	Registry             model.Controller
-	initialConfigs       []config.Config
-	stop                 chan struct{}
-	MemServiceRegistry   serviceregistry.Simple
+	t                        test.Failer
+	store                    model.ConfigStoreController
+	virtualServiceController *model.VirtualServiceController
+	env                      *model.Environment
+	ConfigGen                *ConfigGeneratorImpl
+	MemRegistry              *memregistry.ServiceDiscovery
+	ServiceEntryRegistry     *serviceentry.Controller
+	Registry                 model.Controller
+	initialConfigs           []config.Config
+	stop                     chan struct{}
+	MemServiceRegistry       serviceregistry.Simple
 }
 
 func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
@@ -138,10 +143,32 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 	env := model.NewEnvironment()
 	env.Watcher = meshwatcher.NewTestWatcher(m)
 
+	stop := test.NewStop(t)
+
 	xdsUpdater := opts.XDSUpdater
 	if xdsUpdater == nil {
 		xdsUpdater = model.NewEndpointIndexUpdater(env.EndpointIndex)
 	}
+
+	virtualServiceController := model.NewVirtualServiceController(
+		configController,
+		model.VSControllerOptions{
+			KrtDebugger: krt.GlobalDebugHandler,
+			XDSUpdater:  xdsUpdater,
+		},
+		env.Watcher,
+	)
+
+	client := kube.NewFakeClient()
+	mc := multicluster.NewController(multicluster.ControllerOptions{
+		Client:          client,
+		ClusterID:       opts.ClusterID,
+		SystemNamespace: env.Mesh().RootNamespace,
+		MeshConfig:      env.Watcher,
+		Debugger:        krt.GlobalDebugHandler,
+	})
+	assert.NoError(t, mc.Run(stop))
+	client.RunAndWait(stop)
 
 	serviceDiscovery := aggregate.NewController(aggregate.Options{
 		ConfigClusterID: opts.ClusterID,
@@ -149,8 +176,10 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 	se := serviceentry.NewController(
 		configController,
 		xdsUpdater,
+		mc,
 		env.Watcher,
-		serviceentry.WithClusterID(opts.ClusterID))
+		serviceentry.WithClusterID(opts.ClusterID),
+		serviceentry.WithKRTDebugger(krt.GlobalDebugHandler))
 	// TODO allow passing in registry, for k8s, mem registry
 	serviceDiscovery.AddRegistry(se)
 	msd := memregistry.NewServiceDiscovery(opts.Services...)
@@ -174,20 +203,22 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 	}
 	env.ServiceDiscovery = serviceDiscovery
 	env.ConfigStore = configController
+	env.VirtualServiceController = virtualServiceController
 	env.NetworksWatcher = opts.NetworksWatcher
 	env.Init()
 
 	fake := &ConfigGenTest{
-		t:                    t,
-		store:                configController,
-		env:                  env,
-		initialConfigs:       configs,
-		stop:                 test.NewStop(t),
-		ConfigGen:            NewConfigGenerator(&model.DisabledCache{}),
-		MemRegistry:          msd,
-		MemServiceRegistry:   memserviceRegistry,
-		Registry:             serviceDiscovery,
-		ServiceEntryRegistry: se,
+		t:                        t,
+		store:                    configController,
+		virtualServiceController: virtualServiceController,
+		env:                      env,
+		initialConfigs:           configs,
+		stop:                     stop,
+		ConfigGen:                NewConfigGenerator(&model.DisabledCache{}),
+		MemRegistry:              msd,
+		MemServiceRegistry:       memserviceRegistry,
+		Registry:                 serviceDiscovery,
+		ServiceEntryRegistry:     se,
 	}
 	if !opts.SkipRun {
 		fake.Run()
@@ -209,11 +240,13 @@ func (f *ConfigGenTest) Run() {
 
 	go f.Registry.Run(f.stop)
 	go f.store.Run(f.stop)
+	go f.virtualServiceController.Run(f.stop)
 
 	// TODO allow passing event handlers for controller
 
 	retry.UntilOrFail(f.t, f.store.HasSynced, retry.Delay(time.Millisecond))
 	retry.UntilOrFail(f.t, f.Registry.HasSynced, retry.Delay(time.Millisecond))
+	retry.UntilOrFail(f.t, f.virtualServiceController.HasSynced, retry.Delay(time.Millisecond))
 
 	f.ServiceEntryRegistry.ResyncEDS()
 }

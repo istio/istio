@@ -104,8 +104,6 @@ type virtualServiceIndex struct {
 	privateByNamespaceAndGateway map[types.NamespacedName][]config.Config
 	// This contains all virtual services whose exportTo is "*", keyed by gateway
 	publicByGateway map[string][]config.Config
-	// root vs namespace/name ->delegate vs virtualservice gvk/namespace/name
-	delegates map[ConfigKey][]ConfigKey
 
 	// This contains destination hosts of virtual services, keyed by gateway's namespace/name,
 	// only used when PILOT_FILTER_GATEWAY_CLUSTER_CONFIG is enabled
@@ -120,7 +118,6 @@ func newVirtualServiceIndex() virtualServiceIndex {
 		publicByGateway:              map[string][]config.Config{},
 		privateByNamespaceAndGateway: map[types.NamespacedName][]config.Config{},
 		exportedToNamespaceByGateway: map[types.NamespacedName][]config.Config{},
-		delegates:                    map[ConfigKey][]ConfigKey{},
 		referencedDestinations:       map[string]sets.String{},
 	}
 	if features.FilterGatewayClusterConfig {
@@ -267,6 +264,9 @@ type PushContext struct {
 
 	// GatewayAPIController holds a reference to the gateway API controller.
 	GatewayAPIController GatewayController
+
+	// AgentgatewayController holds a reference to the agent gateway controller when enabled.
+	AgentgatewayController AgentgatewayController
 
 	// cache gateways addresses for each network
 	// this is mainly used for kubernetes multi-cluster scenario
@@ -1137,17 +1137,6 @@ func (ps *PushContext) VirtualServicesForGateway(proxyNamespace, gateway string)
 	return res
 }
 
-// DelegateVirtualServices lists all the delegate virtual services configkeys associated with the provided virtual services
-func (ps *PushContext) DelegateVirtualServices(vses []*config.Config) []ConfigHash {
-	var out []ConfigHash
-	for _, vs := range vses {
-		for _, delegate := range ps.virtualServiceIndex.delegates[ConfigKey{Kind: kind.VirtualService, Namespace: vs.Namespace, Name: vs.Name}] {
-			out = append(out, delegate.HashCode())
-		}
-	}
-	return out
-}
-
 // getSidecarScope returns a SidecarScope object associated with the
 // proxy. The SidecarScope object is a semi-processed view of the service
 // registry, and config state associated with the sidecar crd. The scope contains
@@ -1450,6 +1439,9 @@ func (ps *PushContext) updateContext(
 		ps.initKubernetesGateways(env)
 	} else {
 		ps.GatewayAPIController = oldPushContext.GatewayAPIController
+		if features.EnableAgentgateway {
+			ps.AgentgatewayController = oldPushContext.AgentgatewayController
+		}
 	}
 
 	if virtualServicesChanged {
@@ -1515,7 +1507,7 @@ func (ps *PushContext) updateContext(
 
 	// Must be initialized in the end
 	// Sidecars need to be updated if services, virtual services, destination rules, or the sidecar configs change
-	if servicesChanged || virtualServicesChanged || destinationRulesChanged || sidecarsChanged {
+	if servicesChanged || virtualServicesChanged || destinationRulesChanged || authnChanged || sidecarsChanged {
 		ps.initSidecarScopes(env)
 	} else {
 		// new ADS connection may insert new entry to computedSidecarsByNamespace/gatewayDefaultSidecarsByNamespace.
@@ -1765,18 +1757,9 @@ func (ps *PushContext) initVirtualServices(env *Environment) {
 		ps.virtualServiceIndex.destinationsByGateway = make(map[string]sets.String)
 	}
 
-	virtualServices := env.List(gvk.VirtualService, NamespaceAll)
+	vservices := env.VirtualServiceController.MergedVirtualServices()
 
-	vservices := make([]config.Config, len(virtualServices))
-
-	totalVirtualServices.Record(float64(len(virtualServices)))
-
-	// convert all shortnames in virtual services into FQDNs
-	for i, r := range virtualServices {
-		vservices[i] = resolveVirtualServiceShortnames(r)
-	}
-
-	vservices, ps.virtualServiceIndex.delegates = mergeVirtualServicesIfNeeded(vservices, ps.exportToDefaults.virtualService)
+	totalVirtualServices.Record(float64(len(vservices)))
 
 	for _, virtualService := range vservices {
 		ns := virtualService.Namespace
@@ -2497,7 +2480,10 @@ func (ps *PushContext) AllInstancesSupportHBONE(service *Service, port *Port) bo
 // to compute the correct service mTLS mode without knowing service to workload binding. For now, this
 // function uses only mesh and namespace level PeerAuthentication and ignore workload & port level policies.
 // This function is used to give a hint for auto-mTLS configuration on client side.
-func (ps *PushContext) BestEffortInferServiceMTLSMode(tp *networking.TrafficPolicy, service *Service, port *Port) MutualTLSMode {
+func (ps *PushContext) BestEffortInferServiceMTLSMode(
+	authnPolicies PeerAuthnPolicies, tp *networking.TrafficPolicy,
+	service *Service, port *Port,
+) MutualTLSMode {
 	if service.MeshExternal {
 		// Only need the authentication mTLS mode when service is not external.
 		return MTLSUnknown
@@ -2522,7 +2508,7 @@ func (ps *PushContext) BestEffortInferServiceMTLSMode(tp *networking.TrafficPoli
 
 	// 2. check mTLS settings from beta policy (i.e PeerAuthentication) at namespace / mesh level.
 	// If the mode is not unknown, use it.
-	if serviceMTLSMode := ps.AuthnPolicies.GetNamespaceMutualTLSMode(service.Attributes.Namespace); serviceMTLSMode != MTLSUnknown {
+	if serviceMTLSMode := authnPolicies.GetNamespaceMutualTLSMode(service.Attributes.Namespace); serviceMTLSMode != MTLSUnknown {
 		return serviceMTLSMode
 	}
 
@@ -2584,8 +2570,14 @@ func (ps *PushContext) initKubernetesGateways(env *Environment) {
 		ps.GatewayAPIController = env.GatewayAPIController
 		env.GatewayAPIController.Reconcile(ps)
 	}
+
+	if env.AgentgatewayController != nil && features.EnableAgentgateway {
+		ps.AgentgatewayController = env.AgentgatewayController
+		env.AgentgatewayController.Reconcile(ps)
+	}
 }
 
+// TODO(jaellio): support for agentgatewaycontroller (?)
 // SecretAllowed determines if a given resource (of type `Secret` and name `resourceName`) can be
 // accessed by `namespace`, based of specific reference policies.
 // Note: this function only determines if a reference is *explicitly* allowed; the reference may not require

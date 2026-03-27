@@ -1357,6 +1357,60 @@ func TestOutboundTLSIPv6Only(t *testing.T) {
 	log.Printf("Listeners: %v", listeners)
 }
 
+// TestOutboundTLSDynamicDNSWildcardServerNames verifies that a DYNAMIC_DNS wildcard ServiceEntry
+// with TLS port gets filter_chain_match.server_names set (e.g. ["*.google.com"]) on the per-VIP listener.
+func TestOutboundTLSDynamicDNSWildcardServerNames(t *testing.T) {
+	const vip = "240.240.0.2"
+	const hostname = "*.google.com"
+	svc := &model.Service{
+		CreationTime:             tnow,
+		Hostname:                 host.Name(hostname),
+		DefaultAddress:           constants.UnspecifiedIP,
+		AutoAllocatedIPv4Address: vip,
+		Ports: model.PortList{
+			{
+				Name:     "https",
+				Port:     443,
+				Protocol: protocol.TLS,
+			},
+		},
+		Resolution: model.DynamicDNS,
+		Attributes: model.ServiceAttributes{
+			Namespace: "default",
+		},
+	}
+
+	proxy := getProxy()
+	proxy.Metadata.DNSCapture = true
+
+	listeners := buildOutboundListeners(t, proxy, nil, nil, svc)
+
+	l := xdstest.ExtractListener(vip+"_443", listeners)
+	if l == nil {
+		t.Fatalf("expected listener %s_443, not found in %d listeners", vip, len(listeners))
+	}
+	if len(l.FilterChains) == 0 {
+		t.Fatal("expected at least one filter chain")
+	}
+	fc := l.FilterChains[0]
+	if fc.FilterChainMatch == nil {
+		t.Fatal("expected filter_chain_match to be set for DYNAMIC_DNS wildcard TLS")
+	}
+	if len(fc.FilterChainMatch.ServerNames) == 0 {
+		t.Fatalf("expected filter_chain_match.server_names (e.g. [%q]), got %v", hostname, fc.FilterChainMatch.ServerNames)
+	}
+	found := false
+	for _, sn := range fc.FilterChainMatch.ServerNames {
+		if sn == hostname {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected server_names to contain %q, got %v", hostname, fc.FilterChainMatch.ServerNames)
+	}
+}
+
 func TestOutboundListenerConfigWithSidecarHTTPProxy(t *testing.T) {
 	sidecarConfig := &config.Config{
 		Meta: config.Meta{
@@ -3107,11 +3161,29 @@ func TestListenerTransportSocketConnectTimeoutForSidecar(t *testing.T) {
 	cases := []struct {
 		name            string
 		expectedTimeout int64
+		timeoutDisabled bool
+		configuredValue time.Duration
 		services        []*model.Service
 	}{
 		{
-			name:            "should set timeout",
+			name:            "should set default timeout",
 			expectedTimeout: durationpb.New(defaultGatewayTransportSocketConnectTimeout).GetSeconds(),
+			services: []*model.Service{
+				buildService("test.com", "1.2.3.4", protocol.TCP, tnow.Add(1*time.Second)),
+			},
+		},
+		{
+			name:            "should set custom timeout",
+			expectedTimeout: 30,
+			configuredValue: 30 * time.Second,
+			services: []*model.Service{
+				buildService("test.com", "1.2.3.4", protocol.TCP, tnow.Add(1*time.Second)),
+			},
+		},
+		{
+			name:            "should disable timeout when set to 0",
+			timeoutDisabled: true,
+			configuredValue: 0,
 			services: []*model.Service{
 				buildService("test.com", "1.2.3.4", protocol.TCP, tnow.Add(1*time.Second)),
 			},
@@ -3119,18 +3191,33 @@ func TestListenerTransportSocketConnectTimeoutForSidecar(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
+			if tt.configuredValue > 0 {
+				test.SetForTest(t, &features.GatewayTransportSocketConnectTimeout, tt.configuredValue)
+			} else if tt.timeoutDisabled {
+				test.SetForTest(t, &features.GatewayTransportSocketConnectTimeout, time.Duration(0))
+			}
 			p := getProxy()
 			listeners := buildOutboundListeners(t, p, nil, nil, tt.services...)
 			for _, l := range listeners {
 				for _, fc := range l.FilterChains {
-					if fc.TransportSocketConnectTimeout == nil || fc.TransportSocketConnectTimeout.Seconds != tt.expectedTimeout {
+					if tt.timeoutDisabled {
+						if fc.TransportSocketConnectTimeout != nil {
+							t.Errorf("expected no transport socket connect timeout for listener %s filter chain %s, got %v",
+								l.Name, fc.Name, fc.TransportSocketConnectTimeout)
+						}
+					} else if fc.TransportSocketConnectTimeout == nil || fc.TransportSocketConnectTimeout.Seconds != tt.expectedTimeout {
 						t.Errorf("expected transport socket connect timeout to be %v for listener %s filter chain %s, got %v",
 							tt.expectedTimeout, l.Name, fc.Name, fc.TransportSocketConnectTimeout)
 					}
 				}
 				if l.DefaultFilterChain != nil {
 					fc := l.DefaultFilterChain
-					if fc.TransportSocketConnectTimeout == nil || fc.TransportSocketConnectTimeout.Seconds != tt.expectedTimeout {
+					if tt.timeoutDisabled {
+						if fc.TransportSocketConnectTimeout != nil {
+							t.Errorf("expected no transport socket connect timeout for listener %s default filter chain, got %v",
+								l.Name, fc.TransportSocketConnectTimeout)
+						}
+					} else if fc.TransportSocketConnectTimeout == nil || fc.TransportSocketConnectTimeout.Seconds != tt.expectedTimeout {
 						t.Errorf("expected transport socket connect timeout to be %v for listener %s default filter chain, got %v",
 							tt.expectedTimeout, l.Name, fc.TransportSocketConnectTimeout)
 					}

@@ -42,6 +42,7 @@ import (
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
+	netutil "istio.io/istio/pilot/pkg/util/network"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
@@ -136,6 +137,15 @@ func (s *Service) UseInferenceSemantics() bool {
 
 func (s *Service) NamespacedName() types.NamespacedName {
 	return types.NamespacedName{Name: s.Attributes.Name, Namespace: s.Attributes.Namespace}
+}
+
+func (s *Service) ResourceName() string {
+	// address and hostname are included in the resource name as for each
+	// ServiceEntry address and hostname a new service is created
+	return s.Attributes.Namespace + "/" +
+		s.Attributes.K8sAttributes.ObjectName + "/" +
+		s.Hostname.String() + "/" +
+		s.DefaultAddress
 }
 
 func (s *Service) Key() string {
@@ -320,6 +330,14 @@ type ServiceInstance struct {
 	Endpoint    *IstioEndpoint `json:"endpoint,omitempty"`
 }
 
+func (instance *ServiceInstance) ResourceName() string {
+	return instance.Service.ResourceName() + "/" + instance.Endpoint.Key() + "/" + strconv.Itoa(instance.ServicePort.Port)
+}
+
+func (instance *ServiceInstance) Equals(other *ServiceInstance) bool {
+	return instance.ServicePort.Equals(other.ServicePort) && instance.Service.Equals(other.Service) && instance.Endpoint.Equals(other.Endpoint)
+}
+
 func (instance *ServiceInstance) CmpOpts() []cmp.Option {
 	res := []cmp.Option{}
 	res = append(res, istioEndpointCmpOpts...)
@@ -405,6 +423,18 @@ type WorkloadInstance struct {
 	DNSServiceEntryOnly bool `json:"dnsServiceEntryOnly,omitempty"`
 }
 
+func (instance *WorkloadInstance) ResourceName() string {
+	return instance.Namespace + "/" + instance.Name
+}
+
+func (instance *WorkloadInstance) GetLabels() map[string]string {
+	return instance.Endpoint.Labels
+}
+
+func (instance *WorkloadInstance) GetNamespace() string {
+	return instance.Namespace
+}
+
 func (instance *WorkloadInstance) CmpOpts() []cmp.Option {
 	return istioEndpointCmpOpts
 }
@@ -417,47 +447,27 @@ func (instance *WorkloadInstance) DeepCopy() *WorkloadInstance {
 	return &out
 }
 
-// WorkloadInstancesEqual is a custom comparison of workload instances based on the fields that we need.
-// Returns true if equal, false otherwise.
-func WorkloadInstancesEqual(first, second *WorkloadInstance) bool {
-	if first.Endpoint == nil || second.Endpoint == nil {
-		return first.Endpoint == second.Endpoint
-	}
-
-	if !slices.EqualUnordered(first.Endpoint.Addresses, second.Endpoint.Addresses) {
+func (instance *WorkloadInstance) Equals(other *WorkloadInstance) bool {
+	eql := instance.Namespace == other.Namespace &&
+		instance.Name == other.Name &&
+		instance.Kind == other.Kind &&
+		instance.DNSServiceEntryOnly == other.DNSServiceEntryOnly
+	if !eql {
 		return false
 	}
 
-	if first.Endpoint.Network != second.Endpoint.Network {
+	if !maps.Equal(instance.PortMap, other.PortMap) {
 		return false
 	}
-	if first.Endpoint.TLSMode != second.Endpoint.TLSMode {
+
+	if instance.Endpoint == nil || other.Endpoint == nil {
+		return instance.Endpoint == other.Endpoint
+	}
+
+	if !instance.Endpoint.Equals(other.Endpoint) {
 		return false
 	}
-	if !first.Endpoint.Labels.Equals(second.Endpoint.Labels) {
-		return false
-	}
-	if first.Endpoint.ServiceAccount != second.Endpoint.ServiceAccount {
-		return false
-	}
-	if first.Endpoint.Locality != second.Endpoint.Locality {
-		return false
-	}
-	if first.Endpoint.GetLoadBalancingWeight() != second.Endpoint.GetLoadBalancingWeight() {
-		return false
-	}
-	if first.Namespace != second.Namespace {
-		return false
-	}
-	if first.Name != second.Name {
-		return false
-	}
-	if first.Kind != second.Kind {
-		return false
-	}
-	if !maps.Equal(first.PortMap, second.PortMap) {
-		return false
-	}
+
 	return true
 }
 
@@ -641,7 +651,7 @@ func (ep *IstioEndpoint) FirstAddressOrNil() string {
 
 // Key returns a function suitable for usage to distinguish this IstioEndpoint from another
 func (ep *IstioEndpoint) Key() string {
-	return ep.FirstAddressOrNil() + "/" + ep.WorkloadName + "/" + ep.ServicePortName
+	return ep.Namespace + "/" + ep.WorkloadName + "/" + ep.FirstAddressOrNil() + "/" + ep.ServicePortName
 }
 
 // EndpointMetadata represents metadata set on Envoy LbEndpoint used for telemetry purposes.
@@ -869,11 +879,10 @@ func (s *ServiceAttributes) DeepCopy() ServiceAttributes {
 
 // Equals checks whether the attributes are equal from the passed in service.
 func (s *ServiceAttributes) Equals(other *ServiceAttributes) bool {
-	if s == nil {
-		return other == nil
-	}
-	if other == nil {
-		return s == nil
+	eql := s.Name == other.Name && s.Namespace == other.Namespace &&
+		s.ServiceRegistry == other.ServiceRegistry && s.K8sAttributes == other.K8sAttributes
+	if !eql {
+		return false
 	}
 
 	if !maps.Equal(s.Labels, other.Labels) {
@@ -911,8 +920,8 @@ func (s *ServiceAttributes) Equals(other *ServiceAttributes) bool {
 			return false
 		}
 	}
-	return s.Name == other.Name && s.Namespace == other.Namespace &&
-		s.ServiceRegistry == other.ServiceRegistry && s.K8sAttributes == other.K8sAttributes
+
+	return true
 }
 
 // ServiceDiscovery enumerates Istio service instances.
@@ -1578,12 +1587,6 @@ func (ports PortList) GetByPort(num int) (*Port, bool) {
 }
 
 func (p *Port) Equals(other *Port) bool {
-	if p == nil {
-		return other == nil
-	}
-	if other == nil {
-		return p == nil
-	}
 	return p.Name == other.Name && p.Port == other.Port && p.Protocol == other.Protocol
 }
 
@@ -1701,7 +1704,7 @@ func (s *Service) GetAddressForProxy(node *Proxy) string {
 	if node.Metadata != nil {
 		if node.Metadata.ClusterID != "" {
 			addresses := s.ClusterVIPs.GetAddressesFor(node.Metadata.ClusterID)
-			addresses = filterAddresses(addresses, node.SupportsIPv4(), node.SupportsIPv6())
+			addresses = netutil.FilterAddressesByIPFamily(addresses, node.SupportsIPv4(), node.SupportsIPv6())
 			if len(addresses) > 0 {
 				return addresses[0]
 			}
@@ -1779,12 +1782,11 @@ func nodeUsesAutoallocatedIPs(node *Proxy) bool {
 }
 
 func (s *Service) getAllAddressesForProxy(node *Proxy) []string {
-	addresses := []string{}
+	var addresses []string
 	if node.Metadata != nil && node.Metadata.ClusterID != "" {
 		addresses = s.ClusterVIPs.GetAddressesFor(node.Metadata.ClusterID)
 	}
 	if len(addresses) == 0 && nodeUsesAutoallocatedIPs(node) {
-		// The criteria to use AutoAllocated addresses is met so we should go ahead and use them if they are populated
 		if s.AutoAllocatedIPv4Address != "" {
 			addresses = append(addresses, s.AutoAllocatedIPv4Address)
 		}
@@ -1793,80 +1795,16 @@ func (s *Service) getAllAddressesForProxy(node *Proxy) []string {
 		}
 	}
 	if (!features.EnableDualStack && !features.EnableAmbient) || node.GetIPMode() != Dual {
-		addresses = filterAddresses(addresses, node.SupportsIPv4(), node.SupportsIPv6())
+		addresses = netutil.FilterAddressesByIPFamily(addresses, node.SupportsIPv4(), node.SupportsIPv6())
 	}
 	if len(addresses) > 0 {
 		return addresses
 	}
 
-	// fallback to the default address
 	if a := s.DefaultAddress; len(a) > 0 {
 		return []string{a}
 	}
 	return nil
-}
-
-func filterAddresses(addresses []string, supportsV4, supportsV6 bool) []string {
-	if len(addresses) == 0 {
-		return nil
-	}
-
-	var ipv4Addresses []string
-	var ipv6Addresses []string
-	for _, addr := range addresses {
-		// check if an address is a CIDR range
-		if strings.Contains(addr, "/") {
-			if prefix, err := netip.ParsePrefix(addr); err != nil {
-				log.Warnf("failed to parse prefix address '%s': %s", addr, err)
-				continue
-			} else if supportsV4 && prefix.Addr().Is4() {
-				ipv4Addresses = append(ipv4Addresses, addr)
-			} else if supportsV6 && prefix.Addr().Is6() {
-				ipv6Addresses = append(ipv6Addresses, addr)
-			}
-		} else {
-			if ipAddr, err := netip.ParseAddr(addr); err != nil {
-				log.Warnf("failed to parse address '%s': %s", addr, err)
-				continue
-			} else if supportsV4 && ipAddr.Is4() {
-				ipv4Addresses = append(ipv4Addresses, addr)
-			} else if supportsV6 && ipAddr.Is6() {
-				ipv6Addresses = append(ipv6Addresses, addr)
-			}
-		}
-	}
-
-	if supportsV4 && supportsV6 {
-		firstAddrFamily := ""
-		if strings.Contains(addresses[0], "/") {
-			if prefix, err := netip.ParsePrefix(addresses[0]); err == nil {
-				if prefix.Addr().Is4() {
-					firstAddrFamily = "v4"
-				} else if prefix.Addr().Is6() {
-					firstAddrFamily = "v6"
-				}
-			}
-		} else {
-			if ipAddr, err := netip.ParseAddr(addresses[0]); err == nil {
-				if ipAddr.Is4() {
-					firstAddrFamily = "v4"
-				} else if ipAddr.Is6() {
-					firstAddrFamily = "v6"
-				}
-			}
-		}
-
-		if firstAddrFamily == "v4" {
-			return ipv4Addresses
-		} else if firstAddrFamily == "v6" {
-			return ipv6Addresses
-		}
-	}
-
-	if len(ipv4Addresses) > 0 {
-		return ipv4Addresses
-	}
-	return ipv6Addresses
 }
 
 // GetTLSModeFromEndpointLabels returns the value of the label
@@ -1914,11 +1852,11 @@ func (s *Service) DeepCopy() *Service {
 
 // Equals compares two service objects.
 func (s *Service) Equals(other *Service) bool {
-	if s == nil {
-		return other == nil
-	}
-	if other == nil {
-		return s == nil
+	eql := s.DefaultAddress == other.DefaultAddress && s.AutoAllocatedIPv4Address == other.AutoAllocatedIPv4Address &&
+		s.AutoAllocatedIPv6Address == other.AutoAllocatedIPv6Address && s.Hostname == other.Hostname &&
+		s.Resolution == other.Resolution && s.MeshExternal == other.MeshExternal
+	if !eql {
+		return false
 	}
 
 	if !s.Attributes.Equals(&other.Attributes) {
@@ -1941,9 +1879,7 @@ func (s *Service) Equals(other *Service) bool {
 		}
 	}
 
-	return s.DefaultAddress == other.DefaultAddress && s.AutoAllocatedIPv4Address == other.AutoAllocatedIPv4Address &&
-		s.AutoAllocatedIPv6Address == other.AutoAllocatedIPv6Address && s.Hostname == other.Hostname &&
-		s.Resolution == other.Resolution && s.MeshExternal == other.MeshExternal
+	return true
 }
 
 // DeepCopy creates a clone of IstioEndpoint.
@@ -1967,13 +1903,6 @@ func (ep *IstioEndpoint) ShallowCopy() *IstioEndpoint {
 
 // Equals checks whether the attributes are equal from the passed in service.
 func (ep *IstioEndpoint) Equals(other *IstioEndpoint) bool {
-	if ep == nil {
-		return other == nil
-	}
-	if other == nil {
-		return ep == nil
-	}
-
 	// Check things we can directly compare...
 	eq := ep.ServicePortName == other.ServicePortName &&
 		ep.LegacyClusterPortKey == other.LegacyClusterPortKey &&

@@ -27,11 +27,11 @@ import (
 	clientsecurityv1beta1 "istio.io/client-go/pkg/apis/security/v1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/ambient/multicluster"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -127,7 +127,7 @@ func TestAmbientMulticlusterIndex_WaypointForWorkloadTraffic(t *testing.T) {
 			s := newAmbientTestServer(t, testC, testNW, "")
 			s.AddSecret("s1", "c1") // overlapping ips
 			s.AddSecret("s2", "c2") // Non-overlapping ips
-			remoteClients := krt.NewCollection(s.remoteClusters, func(_ krt.HandlerContext, c *multicluster.Cluster) **remoteAmbientClients {
+			remoteClients := krt.NewCollection(s.mcController.Clusters(), func(_ krt.HandlerContext, c *multicluster.Cluster) **remoteAmbientClients {
 				cl := c.Client
 				return ptr.Of(&remoteAmbientClients{
 					clusterID: c.ID,
@@ -426,7 +426,7 @@ func TestMulticlusterAmbientIndex_TestServiceMerging(t *testing.T) {
 	test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
 	s := newAmbientTestServer(t, testC, testNW, "")
 	s.AddSecret("s1", "remote-cluster") // overlapping ips
-	remoteClients := krt.NewCollection(s.remoteClusters, func(_ krt.HandlerContext, c *multicluster.Cluster) **remoteAmbientClients {
+	remoteClients := krt.NewCollection(s.mcController.Clusters(), func(_ krt.HandlerContext, c *multicluster.Cluster) **remoteAmbientClients {
 		cl := c.Client
 		return ptr.Of(&remoteAmbientClients{
 			clusterID: c.ID,
@@ -554,7 +554,7 @@ func TestMulticlusterAmbientIndex_SplitHorizon(t *testing.T) {
 	// Test that we're propagating the trust domain correctly
 	s.meshConfig.Mesh().TrustDomain = s.DomainSuffix
 	s.AddSecret("s1", "remote-cluster") // overlapping ips
-	remoteClients := krt.NewCollection(s.remoteClusters, func(_ krt.HandlerContext, c *multicluster.Cluster) **remoteAmbientClients {
+	remoteClients := krt.NewCollection(s.mcController.Clusters(), func(_ krt.HandlerContext, c *multicluster.Cluster) **remoteAmbientClients {
 		cl := c.Client
 		return ptr.Of(&remoteAmbientClients{
 			clusterID: c.ID,

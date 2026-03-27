@@ -255,6 +255,9 @@ func applyFailoverPriorities(
 	priorityMap := make(map[int][]int, len(failoverPriorities))
 	localityLbEndpoints := []*endpoint.LocalityLbEndpoints{}
 	for _, wrappedLbEndpoint := range wrappedLocalityLbEndpoints {
+		if wrappedLbEndpoint == nil {
+			continue
+		}
 		localityLbEndpointsPerLocality := applyFailoverPriorityPerLocality(proxyLabels, wrappedLbEndpoint, failoverPriorities)
 		localityLbEndpoints = append(localityLbEndpoints, localityLbEndpointsPerLocality...)
 	}

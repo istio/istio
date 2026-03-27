@@ -165,7 +165,7 @@ func (b *EndpointBuilder) populateSubsetInfo() {
 		b.subsetName = strings.TrimPrefix(b.subsetName, "http/")
 		b.subsetName = strings.TrimPrefix(b.subsetName, "tcp/")
 	}
-	b.mtlsChecker = newMtlsChecker(b.push, b.port, b.destinationRule.GetRule(), b.subsetName)
+	b.mtlsChecker = newMtlsChecker(b.push, b.proxy.SidecarScope.AuthnPolicies, b.port, b.destinationRule.GetRule(), b.subsetName)
 	b.subsetLabels = getSubSetLabels(b.DestinationRule(), b.subsetName)
 }
 
@@ -252,8 +252,8 @@ func (b *EndpointBuilder) WriteHash(h hash.Hash) {
 		h.Write(Separator)
 	}
 
-	if b.push != nil && b.push.AuthnPolicies != nil {
-		h.WriteString(b.push.AuthnPolicies.GetVersion())
+	if b.push != nil && b.proxy.SidecarScope.AuthnPolicies != nil {
+		h.WriteString(b.proxy.SidecarScope.AuthnPolicies.GetVersion())
 	}
 	h.Write(Separator)
 
@@ -347,6 +347,14 @@ func (b *EndpointBuilder) FromServiceEndpoints() []*endpoint.LocalityLbEndpoints
 	// don't use the pre-computed endpoints for CDS to preserve previous behavior
 	// CDS is always toServiceWaypoint=false. We do not yet support calling waypoints for CDS (DNS type)
 	return ExtractEnvoyEndpoints(b.generate(svcEps, false))
+}
+
+// IstioEndpoints returns IstioEndpoints from the PushContext's snapshotted ServiceIndex.
+func (b *EndpointBuilder) IstioEndpoints() []*model.IstioEndpoint {
+	if b == nil {
+		return nil
+	}
+	return b.push.ServiceEndpointsByPort(b.service, b.port, b.subsetLabels)
 }
 
 // BuildClusterLoadAssignment converts the shards for this EndpointBuilder's Service
@@ -938,12 +946,7 @@ func (b *EndpointBuilder) snapshotEndpointsForPort(endpointIndex *model.Endpoint
 
 // Duplicated from networking/core/waypoint to avoid circular dependency
 func isEastWestGateway(node *model.Proxy) bool {
-	if node == nil || node.Type != model.Waypoint {
-		return false
-	}
-	controller, isManagedGateway := node.Labels[label.GatewayManaged.Name]
-
-	return isManagedGateway && controller == constants.ManagedGatewayEastWestControllerLabel
+	return node.IsAmbientEastWestGateway()
 }
 
 func isSidecarProxy(node *model.Proxy) bool {

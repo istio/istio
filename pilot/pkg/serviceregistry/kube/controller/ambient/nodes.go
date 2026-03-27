@@ -18,9 +18,9 @@ import (
 	v1 "k8s.io/api/core/v1"
 
 	"istio.io/api/label"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/ambient/multicluster"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/workloadapi"

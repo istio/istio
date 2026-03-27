@@ -402,8 +402,8 @@ spec:
 		t.ConfigIstio().Eval("", map[string]string{
 			"GatewayNamespace":  apps.Namespace.Name(),
 			"ListenerNamespace": ns.Name(),
-		}, `apiVersion: gateway.networking.x-k8s.io/v1alpha1
-kind: XListenerSet
+		}, `apiVersion: gateway.networking.k8s.io/v1
+kind: ListenerSet
 metadata:
   name: listenerset
   namespace: {{.ListenerNamespace}}
@@ -432,8 +432,8 @@ metadata:
 spec:
   parentRefs:
   - name: listenerset
-    kind: XListenerSet
-    group: gateway.networking.x-k8s.io
+    kind: ListenerSet
+    group: gateway.networking.k8s.io
   hostnames: ["listenerset.example.com"]
   rules:
   - backendRefs:
