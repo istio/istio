@@ -137,7 +137,7 @@ func TestControllerFileSource(t *testing.T) {
 	assert.NoError(t, controller.Run(stopCh))
 
 	remotePath := filepath.Join(root, "remote.yaml")
-	file.WriteOrFail(t, remotePath, kubeconfigYAML("remote-1"))
+	file.WriteOrFail(t, remotePath, kubeconfigFileYAML("remote-1"))
 	retry.UntilOrFail(t, func() bool {
 		return controller.cs.GetByID("remote-1") != nil
 	}, retry.Timeout(2*time.Second))

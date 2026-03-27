@@ -212,7 +212,7 @@ func NewController(opts ControllerOptions) *Controller {
 }
 
 func (c *Controller) buildClustersCollection(optsBuilder krt.OptionsBuilder) {
-	// Wait for the configured remote config source to sync and mark the cluster store as ready.
+	// Wait for the remote config source to sync and mark the cluster store as ready.
 	// This is also done in Run() for the queue-based path, but this goroutine
 	// ensures MarkSynced happens even when Run() hasn't been called yet.
 	go func() {
@@ -282,7 +282,7 @@ func (c *Controller) Run(stopCh <-chan struct{}) error {
 		t0 := time.Now()
 		log.Info("Starting multicluster remote secrets controller")
 
-		if (features.LocalClusterSecretWatcher && features.ExternalIstiod) || features.MulticlusterKubeconfigPath != "" {
+		if features.MulticlusterKubeconfigPath != "" || (features.LocalClusterSecretWatcher && features.ExternalIstiod) {
 			c.source.Start(stopCh)
 		}
 		if !kube.WaitForCacheSync("multicluster remote secrets", stopCh, c.source.HasSynced) {
@@ -359,12 +359,12 @@ func (c *Controller) processItem(key types.NamespacedName) error {
 	log.Infof("processing remote config event for %s", key)
 	cfg := c.source.Get(key)
 	if cfg != nil {
-		log.Debugf("remote config %s exists in cache, processing it", key)
+		log.Debugf("remote config %s exists in informer cache, processing it", key)
 		if err := c.addRemoteConfig(key, cfg); err != nil {
 			return fmt.Errorf("error adding remote config %s: %v", key, err)
 		}
 	} else {
-		log.Debugf("remote config %s does not exist in cache, deleting it", key)
+		log.Debugf("remote config %s does not exist in informer cache, deleting it", key)
 		c.deleteRemoteConfig(key.String())
 	}
 	remoteClusters.Record(float64(c.cs.Len()))

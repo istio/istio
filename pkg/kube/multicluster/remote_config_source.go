@@ -84,7 +84,9 @@ type fileConfigSource struct {
 	mu         sync.RWMutex
 	collection krt.Collection[KubeconfigFile]
 	started    atomic.Bool
-	pending    []func(types.NamespacedName, controllers.EventType)
+	// deferredHandlers stores AddEventHandler registrations made before Start() initializes the collection.
+	// They are registered against the collection once Start() finishes creating it.
+	deferredHandlers []func(types.NamespacedName, controllers.EventType)
 }
 
 func newFileConfigSource(root string) *fileConfigSource {
@@ -110,11 +112,12 @@ func (f *fileConfigSource) Start(stop <-chan struct{}) {
 		collection = krt.NewStaticCollection[KubeconfigFile](nil, nil, opts.WithName("RemoteKubeconfigs")...)
 	}
 	f.collection = collection
-	pending := f.pending
-	f.pending = nil
+	deferredHandlers := f.deferredHandlers
+	f.deferredHandlers = nil
 	f.mu.Unlock()
 
-	for _, handler := range pending {
+	// Register deferred handlers that arrived before the collection was initialized.
+	for _, handler := range deferredHandlers {
 		f.registerHandler(handler)
 	}
 
@@ -138,6 +141,7 @@ func (f *fileConfigSource) Get(key types.NamespacedName) *remoteConfig {
 		return nil
 	}
 
+	// File-based remote kubeconfigs are keyed only by cluster ID, so the namespace is ignored here.
 	entry := collection.GetKey(key.Name)
 	if entry == nil {
 		return nil
@@ -148,7 +152,7 @@ func (f *fileConfigSource) Get(key types.NamespacedName) *remoteConfig {
 func (f *fileConfigSource) AddEventHandler(handler func(key types.NamespacedName, event controllers.EventType)) {
 	f.mu.Lock()
 	if f.collection == nil {
-		f.pending = append(f.pending, handler)
+		f.deferredHandlers = append(f.deferredHandlers, handler)
 		f.mu.Unlock()
 		return
 	}

@@ -15,7 +15,6 @@
 package multicluster
 
 import (
-	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -31,57 +30,38 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 )
 
-// TestFileConfigSource verifies file-backed kubeconfig add/delete events and sync behavior.
+// TestFileConfigSource verifies file-based kubeconfig add/delete events and sync behavior.
 func TestFileConfigSource(t *testing.T) {
 	stop := test.NewStop(t)
 	root := t.TempDir()
 	source := newFileConfigSource(root)
 
 	tracker := assert.NewTracker[string](t)
+	// Register before Start() to verify deferred handlers are replayed once the collection is initialized.
 	source.AddEventHandler(func(key types.NamespacedName, event controllers.EventType) {
+		// NamespacedName.String() renders an empty namespace, so file-based events show up as "add//remote-1".
 		tracker.Record(fmt.Sprintf("%s/%s", event.String(), key.String()))
 	})
 
 	assert.Equal(t, source.HasSynced(), false)
+	// Start initializes the file-based collection and begins watching the directory.
 	source.Start(stop)
 	retry.UntilOrFail(t, source.HasSynced, retry.Timeout(2*time.Second))
 
-	assert.Equal(t, source.Get(types.NamespacedName{Name: "remote-1", Namespace: "istio-system"}), (*remoteConfig)(nil))
+	// An empty directory should not return any kubeconfig entries.
+	assert.Equal(t, source.Get(types.NamespacedName{Name: "remote-1", Namespace: ""}), (*remoteConfig)(nil))
 
-	kubeconfig := kubeconfigYAML("remote-1")
+	kubeconfig := kubeconfigFileYAML("remote-1")
 	file.WriteOrFail(t, filepath.Join(root, "remote.yaml"), kubeconfig)
+	// File-based sources ignore namespaces, so events show up as "add//remote-1".
 	tracker.WaitOrdered("add//remote-1")
 
-	got := source.Get(types.NamespacedName{Name: "remote-1", Namespace: "istio-system"})
+	got := source.Get(types.NamespacedName{Name: "remote-1", Namespace: ""})
 	if got == nil {
 		t.Fatal("expected kubeconfig entry to be present")
 	}
-	if !bytes.Equal(got.Data["remote-1"], kubeconfig) {
-		t.Fatalf("unexpected kubeconfig data: got %q", string(got.Data["remote-1"]))
-	}
+	assert.Equal(t, got.Data["remote-1"], kubeconfig)
 
-	if err := os.Remove(filepath.Join(root, "remote.yaml")); err != nil {
-		t.Fatalf("failed to remove kubeconfig file: %v", err)
-	}
+	assert.NoError(t, os.Remove(filepath.Join(root, "remote.yaml")))
 	tracker.WaitOrdered("delete//remote-1")
-}
-
-func kubeconfigYAML(clusterID string) []byte {
-	return []byte(fmt.Sprintf(`apiVersion: v1
-kind: Config
-clusters:
-- name: %s
-  cluster:
-    server: https://%s.example.com
-contexts:
-- name: %s-context
-  context:
-    cluster: %s
-    user: %s-user
-current-context: %s-context
-users:
-- name: %s-user
-  user:
-    token: token
-`, clusterID, clusterID, clusterID, clusterID, clusterID, clusterID, clusterID))
 }

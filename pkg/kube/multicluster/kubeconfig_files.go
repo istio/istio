@@ -73,7 +73,7 @@ func parseKubeconfig(data []byte) ([]KubeconfigFile, error) {
 	}}, nil
 }
 
-// clusterIDFromKubeconfig selects a cluster ID in this order:
+// clusterIDFromKubeconfig selects a cluster ID in below order:
 // 1. The cluster referenced by the current context.
 // 2. The first valid context by lexicographic context name.
 // 3. The first cluster name by lexicographic order.
