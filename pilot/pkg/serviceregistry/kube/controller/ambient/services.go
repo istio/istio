@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 
+	"istio.io/api/label"
 	meshapi "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
@@ -767,24 +768,21 @@ func setCanonical(se *model.ServiceInfo) model.ServiceInfo {
 	})
 }
 
-// TODO: replace with Istio API label.IoIstioIngressUseWaypoint.Name once bumped
-const IoIstioIngressUseWaypoint = "istio.io/ingress-use-waypoint"
-
 // ingressUseWaypointFromLabels returns whether the ingress-use-waypoint label is
 // present and whether its value is "true". It checks the service labels first,
 // then falls back to namespace labels.
 func ingressUseWaypointFromLabels(serviceLabels, namespaceLabels map[string]string) (labelPresent bool, useWaypoint bool) {
 	var val string
-	val, labelPresent = serviceLabels[IoIstioIngressUseWaypoint]
+	val, labelPresent = serviceLabels[label.IoIstioIngressUseWaypoint.Name]
 	if !labelPresent && namespaceLabels != nil {
-		val, labelPresent = namespaceLabels[IoIstioIngressUseWaypoint]
+		val, labelPresent = namespaceLabels[label.IoIstioIngressUseWaypoint.Name]
 	}
 	if !labelPresent {
 		return false, false
 	}
 	parsed, err := strconv.ParseBool(val)
 	if err != nil {
-		log.Warnf("invalid value for label %s: %s, defaulting to false", IoIstioIngressUseWaypoint, val)
+		log.Warnf("invalid value for label %s: %s, defaulting to false", label.IoIstioIngressUseWaypoint.Name, val)
 	}
 	return true, err == nil && parsed
 }
