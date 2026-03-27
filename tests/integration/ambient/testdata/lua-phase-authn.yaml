@@ -10,7 +10,11 @@ spec:
     name: {{ .TargetName }}
   lua:
     inlineCode: |
-      function envoy_on_request(request_handle)
-        -- First phase: set initial value
-        request_handle:headers():add("x-phase-order", "1")
+      function envoy_on_response(response_handle)
+        local existing = response_handle:headers():get("x-phase-order")
+        if existing then
+          response_handle:headers():replace("x-phase-order", existing .. "1")
+        else
+          response_handle:headers():add("x-phase-order", "1")
+        end
       end

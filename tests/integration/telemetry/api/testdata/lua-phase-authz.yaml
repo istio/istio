@@ -9,12 +9,11 @@ spec:
       app: {{ .TargetAppName }}
   lua:
     inlineCode: |
-      function envoy_on_request(request_handle)
-        -- Second phase: append to existing value
-        local existing = request_handle:headers():get("x-phase-order")
+      function envoy_on_response(response_handle)
+        local existing = response_handle:headers():get("x-phase-order")
         if existing then
-          request_handle:headers():replace("x-phase-order", existing .. "2")
+          response_handle:headers():replace("x-phase-order", existing .. "2")
         else
-          request_handle:headers():add("x-phase-order", "2")
+          response_handle:headers():add("x-phase-order", "2")
         end
       end

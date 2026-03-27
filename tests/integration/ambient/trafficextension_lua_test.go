@@ -219,9 +219,9 @@ func TestLuaTrafficExtension_PhaseOrdering(t *testing.T) {
 			targetType := "service"
 			targetName := GetTarget().Instances().ServiceName()
 
-			// Install 3 filters, one for each phase
-			// Each filter appends a number to a header: AUTHN=1, AUTHZ=2, STATS=3
-			// If they execute in order, we should see "123"
+			// Install 3 filters, one for each phase. Each appends its phase number to
+			// x-phase-order in envoy_on_response. Since response filters run in reverse
+			// phase order (STATS -> AUTHZ -> AUTHN), the result should be "321".
 
 			if err := installLuaTrafficExtension(t, "lua-phase-test-authn", targetType, targetName, "testdata/lua-phase-authn.yaml"); err != nil {
 				t.Fatalf("failed to install AUTHN filter: %v", err)
@@ -235,9 +235,9 @@ func TestLuaTrafficExtension_PhaseOrdering(t *testing.T) {
 				t.Fatalf("failed to install STATS filter: %v", err)
 			}
 
-			// Verify the filters executed in order: AUTHN(1) -> AUTHZ(2) -> STATS(3)
-			// The STATS filter echoes the request header to response header
-			sendTraffic(t, check.ResponseHeader("x-phase-result", "123"))
+			// On the response path filters execute in reverse phase order: STATS -> AUTHZ -> AUTHN
+			// STATS appends "3", AUTHZ appends "2", AUTHN appends "1", yielding "321"
+			sendTraffic(t, check.ResponseHeader("x-phase-order", "321"))
 
 			// Cleanup all three filters
 			if err := uninstallLuaTrafficExtension(t, "lua-phase-test-authn", "testdata/lua-phase-authn.yaml"); err != nil {
@@ -251,6 +251,6 @@ func TestLuaTrafficExtension_PhaseOrdering(t *testing.T) {
 			}
 
 			// Verify the header is gone
-			sendTraffic(t, check.ResponseHeader("x-phase-result", ""), retry.Converge(2))
+			sendTraffic(t, check.ResponseHeader("x-phase-order", ""), retry.Converge(2))
 		})
 }
