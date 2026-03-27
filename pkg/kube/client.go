@@ -991,31 +991,10 @@ func (c *client) PodLogs(ctx context.Context, podName, podNamespace, container s
 		Container: container,
 		Previous:  previousLog,
 	}
-	res, err := c.kube.CoreV1().Pods(podNamespace).GetLogs(podName, opts).Stream(ctx)
-	if err != nil {
-		return "", err
-	}
-	defer closeQuietly(res)
-
-	builder := &strings.Builder{}
-	if _, err = io.Copy(builder, res); err != nil {
-		return "", err
-	}
-
-	return builder.String(), nil
+	return c.PodLogsWithOptions(ctx, podName, podNamespace, opts)
 }
 
-func (c *client) PodLogsWithOptions(ctx context.Context, podName, podNamespace string, plo *v1.PodLogOptions) (string, error) {
-	opts := &v1.PodLogOptions{
-		Container: plo.Container,
-		Previous:  plo.Previous,
-	}
-	if plo.TailLines != nil {
-		opts.TailLines = plo.TailLines
-	}
-	if plo.SinceTime != nil {
-		opts.SinceTime = plo.SinceTime
-	}
+func (c *client) PodLogsWithOptions(ctx context.Context, podName, podNamespace string, opts *v1.PodLogOptions) (string, error) {
 	res, err := c.kube.CoreV1().Pods(podNamespace).GetLogs(podName, opts).Stream(ctx)
 	if err != nil {
 		return "", err
@@ -1036,18 +1015,7 @@ func (c *client) PodLogsFollow(ctx context.Context, podName, podNamespace, conta
 		Previous:  false,
 		Follow:    true,
 	}
-	res, err := c.kube.CoreV1().Pods(podNamespace).GetLogs(podName, opts).Stream(ctx)
-	if err != nil {
-		return "", err
-	}
-	defer closeQuietly(res)
-
-	builder := &strings.Builder{}
-	if _, err = io.Copy(builder, res); err != nil {
-		return "", err
-	}
-
-	return builder.String(), nil
+	return c.PodLogsWithOptions(ctx, podName, podNamespace, opts)
 }
 
 func (c *client) AllDiscoveryDo(ctx context.Context, istiodNamespace, path string) (map[string][]byte, error) {
