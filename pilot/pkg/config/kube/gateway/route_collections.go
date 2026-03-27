@@ -35,6 +35,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/gateway/kube"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube/controllers"
@@ -591,12 +592,20 @@ func TLSRouteCollection(
 					vsHosts = []string{fmt.Sprintf("%s.%s.svc.%s", ref.Name, ref.Namespace, ctx.DomainSuffix)}
 				}
 				routes = augmentTLSPortMatch(routes, parent.OriginalReference.Port, vsHosts)
+			} else if parent.Hostname != "" {
+				// For gateway parents with a listener hostname constraint, intersect the route
+				// hostnames with the listener hostname per the Gateway API spec.
+				// e.g. route hostnames [*.com] ∩ listener hostname *.example.com = [*.example.com]
+				routeNames := host.NewNames(vsHosts)
+				listenerNames := host.NewNames([]string{parent.Hostname})
+				vsHosts = slices.Map(routeNames.Intersection(listenerNames), func(n host.Name) string { return string(n) })
+				routes = constrainTLSRoutesToListenerHost(routes, parent.Hostname)
 			}
-			for _, host := range vsHosts {
+			for _, vsHost := range vsHosts {
 				name := fmt.Sprintf("%s~tls~%d~%s", obj.Name, count, constants.KubernetesGatewayName)
 				filteredRoutes := routes
 				if parent.IsMesh() {
-					filteredRoutes = compatibleRoutesForHost(routes, host)
+					filteredRoutes = compatibleRoutesForHost(routes, vsHost)
 				}
 				// Create one VS per hostname with a single hostname.
 				// This ensures we can treat each hostname independently, as the spec requires
@@ -610,7 +619,7 @@ func TLSRouteCollection(
 						Domain:            ctx.DomainSuffix,
 					},
 					Spec: &istio.VirtualService{
-						Hosts:    []string{host},
+						Hosts:    []string{vsHost},
 						Gateways: []string{parent.InternalName},
 						Tls:      filteredRoutes,
 					},
