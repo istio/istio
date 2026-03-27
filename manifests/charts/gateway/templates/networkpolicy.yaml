@@ -22,13 +22,11 @@ spec:
   - Egress
   ingress:
   # Status/health check port
-  - from: []
-    ports:
+  - ports:
     - protocol: TCP
       port: 15021
   # Metrics endpoints for monitoring/prometheus
-  - from: []
-    ports:
+  - ports:
     - protocol: TCP
       port: 15020
     - protocol: TCP
@@ -36,8 +34,7 @@ spec:
   # Main gateway traffic ports
 {{- if .Values.service.ports }}
 {{- range .Values.service.ports }}
-  - from: []
-    ports:
+  - ports:
     - protocol: {{ .protocol | default "TCP" }}
       port: {{ .targetPort | default .port }}
 {{- end }}
