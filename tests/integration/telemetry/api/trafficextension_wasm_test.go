@@ -32,11 +32,11 @@ import (
 const (
 	wasmImageName               = "istio-testing/wasm/header-injector"
 	wasmInjectedHeader          = "x-resp-injection"
-	extensionFilterWasmFile     = "testdata/extensionfilter-wasm.yaml"
-	extensionFilterWasmHTTPFile = "testdata/extensionfilter-wasm-http.yaml"
+	trafficExtensionWasmFile     = "testdata/trafficextension-wasm.yaml"
+	trafficExtensionWasmHTTPFile = "testdata/trafficextension-wasm-http.yaml"
 )
 
-type extensionFilterWasmTestConfig struct {
+type trafficExtensionWasmTestConfig struct {
 	desc            string
 	name            string
 	policy          string
@@ -45,7 +45,7 @@ type extensionFilterWasmTestConfig struct {
 	expectedVersion string
 }
 
-var efGeneration = 0
+var teGeneration = 0
 
 func mapWasmTagToVersionOrFail(t framework.TestContext, tag, version string) {
 	t.Helper()
@@ -56,34 +56,34 @@ func mapWasmTagToVersionOrFail(t framework.TestContext, tag, version string) {
 	}
 }
 
-func applyAndTestExtensionFilterWithOCI(ctx framework.TestContext, c extensionFilterWasmTestConfig) {
+func applyAndTestTrafficExtensionWithOCI(ctx framework.TestContext, c trafficExtensionWasmTestConfig) {
 	ctx.NewSubTest("OCI_" + c.desc).Run(func(t framework.TestContext) {
 		defer func() {
-			efGeneration++
+			teGeneration++
 		}()
 		mapWasmTagToVersionOrFail(t, c.tag, c.upstreamVersion)
 		wasmModuleURL := fmt.Sprintf("oci://%v/%v:%v", registry.Address(), wasmImageName, c.tag)
-		if err := installWasmExtensionFilter(t, c.name, wasmModuleURL, c.policy, fmt.Sprintf("g-%d", efGeneration), extensionFilterWasmFile); err != nil {
+		if err := installWasmTrafficExtension(t, c.name, wasmModuleURL, c.policy, fmt.Sprintf("g-%d", teGeneration), trafficExtensionWasmFile); err != nil {
 			t.Fatalf("failed to install ExtensionFilter: %v", err)
 		}
 		sendTraffic(t, check.ResponseHeader(wasmInjectedHeader, c.expectedVersion))
 	})
 }
 
-func resetExtensionFilterWasm(ctx framework.TestContext, filterName string) {
-	ctx.NewSubTest("Delete ExtensionFilter " + filterName).Run(func(t framework.TestContext) {
-		if err := uninstallWasmExtensionFilter(t, filterName, extensionFilterWasmFile); err != nil {
+func resetTrafficExtensionWasm(ctx framework.TestContext, filterName string) {
+	ctx.NewSubTest("Delete TrafficExtension " + filterName).Run(func(t framework.TestContext) {
+		if err := uninstallWasmTrafficExtension(t, filterName, trafficExtensionWasmFile); err != nil {
 			t.Fatal(err)
 		}
 		sendTraffic(t, check.ResponseHeader(wasmInjectedHeader, ""), retry.Converge(2))
 	})
 }
 
-func applyExtensionFilterWasmConfig(ctx framework.TestContext, ns string, args map[string]any, path string) error {
+func applyTrafficExtensionWasmConfig(ctx framework.TestContext, ns string, args map[string]any, path string) error {
 	return ctx.ConfigIstio().EvalFile(ns, args, path).Apply()
 }
 
-func installWasmExtensionFilter(ctx framework.TestContext, filterName, wasmModuleURL, imagePullPolicy, filterVersion, path string) error {
+func installWasmTrafficExtension(ctx framework.TestContext, filterName, wasmModuleURL, imagePullPolicy, filterVersion, path string) error {
 	args := map[string]any{
 		"ExtensionFilterName": filterName,
 		"TestWasmModuleURL":   wasmModuleURL,
@@ -95,14 +95,14 @@ func installWasmExtensionFilter(ctx framework.TestContext, filterName, wasmModul
 		args["ImagePullPolicy"] = imagePullPolicy
 	}
 
-	if err := applyExtensionFilterWasmConfig(ctx, apps.Namespace.Name(), args, path); err != nil {
+	if err := applyTrafficExtensionWasmConfig(ctx, apps.Namespace.Name(), args, path); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func uninstallWasmExtensionFilter(ctx framework.TestContext, filterName, path string) error {
+func uninstallWasmTrafficExtension(ctx framework.TestContext, filterName, path string) error {
 	args := map[string]any{
 		"ExtensionFilterName": filterName,
 	}
@@ -112,34 +112,34 @@ func uninstallWasmExtensionFilter(ctx framework.TestContext, filterName, path st
 	return nil
 }
 
-// TestExtensionFilter_ImagePullPolicy tests WASM image pull policies with ExtensionFilter
-func TestExtensionFilter_ImagePullPolicy(t *testing.T) {
+// TestTrafficExtension_ImagePullPolicy tests WASM image pull policies with ExtensionFilter
+func TestTrafficExtension_ImagePullPolicy(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
 			tag := names.SimpleNameGenerator.GenerateName("test-tag-")
-			applyAndTestExtensionFilterWithOCI(t, extensionFilterWasmTestConfig{
+			applyAndTestTrafficExtensionWithOCI(t, trafficExtensionWasmTestConfig{
 				desc:            "initial creation with 0.0.1",
-				name:            "extensionfilter-wasm-test",
+				name:            "trafficextension-wasm-test",
 				tag:             tag,
 				policy:          "",
 				upstreamVersion: "0.0.1",
 				expectedVersion: "0.0.1",
 			})
 
-			resetExtensionFilterWasm(t, "extensionfilter-wasm-test")
-			applyAndTestExtensionFilterWithOCI(t, extensionFilterWasmTestConfig{
+			resetTrafficExtensionWasm(t, "trafficextension-wasm-test")
+			applyAndTestTrafficExtensionWithOCI(t, trafficExtensionWasmTestConfig{
 				desc:            "upstream is upgraded to 0.0.2, but 0.0.1 is already present and policy is IfNotPresent",
-				name:            "extensionfilter-wasm-test",
+				name:            "trafficextension-wasm-test",
 				tag:             tag,
 				policy:          "IfNotPresent",
 				upstreamVersion: "0.0.2",
 				expectedVersion: "0.0.1",
 			})
 
-			resetExtensionFilterWasm(t, "extensionfilter-wasm-test")
-			applyAndTestExtensionFilterWithOCI(t, extensionFilterWasmTestConfig{
+			resetTrafficExtensionWasm(t, "trafficextension-wasm-test")
+			applyAndTestTrafficExtensionWithOCI(t, trafficExtensionWasmTestConfig{
 				desc:            "upstream is upgraded to 0.0.2, but 0.0.1 is already present and policy is default",
-				name:            "extensionfilter-wasm-test",
+				name:            "trafficextension-wasm-test",
 				tag:             tag,
 				policy:          "",
 				upstreamVersion: "0.0.2",
@@ -147,9 +147,9 @@ func TestExtensionFilter_ImagePullPolicy(t *testing.T) {
 			})
 
 			// Intentionally, do not reset here to see the upgrade from 0.0.1.
-			applyAndTestExtensionFilterWithOCI(t, extensionFilterWasmTestConfig{
+			applyAndTestTrafficExtensionWithOCI(t, trafficExtensionWasmTestConfig{
 				desc:            "upstream is upgraded to 0.0.2. 0.0.1 is already present but policy is Always, so pull 0.0.2",
-				name:            "extensionfilter-wasm-test",
+				name:            "trafficextension-wasm-test",
 				tag:             tag,
 				policy:          "Always",
 				upstreamVersion: "0.0.2",
@@ -158,53 +158,53 @@ func TestExtensionFilter_ImagePullPolicy(t *testing.T) {
 		})
 }
 
-// TestExtensionFilter_ImagePullPolicyWithHTTP tests WASM HTTP URLs with ExtensionFilter
-func TestExtensionFilter_ImagePullPolicyWithHTTP(t *testing.T) {
+// TestTrafficExtension_ImagePullPolicyWithHTTP tests WASM HTTP URLs with ExtensionFilter
+func TestTrafficExtension_ImagePullPolicyWithHTTP(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
 			tag := names.SimpleNameGenerator.GenerateName("test-tag-")
-			applyAndTestExtensionFilterWithHTTP(t, extensionFilterWasmTestConfig{
+			applyAndTestTrafficExtensionWithHTTP(t, trafficExtensionWasmTestConfig{
 				desc:            "initial creation with 0.0.1",
-				name:            "extensionfilter-wasm-http-test",
+				name:            "trafficextension-wasm-http-test",
 				tag:             tag,
 				upstreamVersion: "0.0.1",
 				expectedVersion: "0.0.1",
 			})
 
-			resetExtensionFilterWasmHTTP(t, "extensionfilter-wasm-http-test")
+			resetTrafficExtensionWasmHTTP(t, "trafficextension-wasm-http-test")
 		})
 }
 
-func applyAndTestExtensionFilterWithHTTP(ctx framework.TestContext, c extensionFilterWasmTestConfig) {
+func applyAndTestTrafficExtensionWithHTTP(ctx framework.TestContext, c trafficExtensionWasmTestConfig) {
 	ctx.NewSubTest("HTTP_" + c.desc).Run(func(t framework.TestContext) {
 		defer func() {
-			efGeneration++
+			teGeneration++
 		}()
 		mapWasmTagToVersionOrFail(t, c.tag, c.upstreamVersion)
 		wasmModuleURL := fmt.Sprintf("http://%v/wasm/%v/%v.wasm", registry.Address(), wasmImageName, c.tag)
-		if err := installWasmExtensionFilter(t, c.name, wasmModuleURL, "", fmt.Sprintf("g-%d", efGeneration), extensionFilterWasmHTTPFile); err != nil {
+		if err := installWasmTrafficExtension(t, c.name, wasmModuleURL, "", fmt.Sprintf("g-%d", teGeneration), trafficExtensionWasmHTTPFile); err != nil {
 			t.Fatalf("failed to install ExtensionFilter: %v", err)
 		}
 		sendTraffic(t, check.ResponseHeader(wasmInjectedHeader, c.expectedVersion))
 	})
 }
 
-func resetExtensionFilterWasmHTTP(ctx framework.TestContext, filterName string) {
-	ctx.NewSubTest("Delete ExtensionFilter " + filterName).Run(func(t framework.TestContext) {
-		if err := uninstallWasmExtensionFilter(t, filterName, extensionFilterWasmHTTPFile); err != nil {
+func resetTrafficExtensionWasmHTTP(ctx framework.TestContext, filterName string) {
+	ctx.NewSubTest("Delete TrafficExtension " + filterName).Run(func(t framework.TestContext) {
+		if err := uninstallWasmTrafficExtension(t, filterName, trafficExtensionWasmHTTPFile); err != nil {
 			t.Fatal(err)
 		}
 		sendTraffic(t, check.ResponseHeader(wasmInjectedHeader, ""), retry.Converge(2))
 	})
 }
 
-// TestExtensionFilter_BadWasmRemoteLoad tests WASM load failures with ExtensionFilter
-func TestExtensionFilter_BadWasmRemoteLoad(t *testing.T) {
+// TestTrafficExtension_BadWasmRemoteLoad tests WASM load failures with ExtensionFilter
+func TestTrafficExtension_BadWasmRemoteLoad(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
 			// This test verifies that a bad WASM module fails to load
 			// Using a non-existent OCI image should cause the filter to fail
-			if err := installWasmExtensionFilter(t, "bad-wasm-filter", "oci://invalid-registry.example.com/nonexistent:latest", "", "v1", extensionFilterWasmFile); err != nil {
+			if err := installWasmTrafficExtension(t, "bad-wasm-filter", "oci://invalid-registry.example.com/nonexistent:latest", "", "v1", trafficExtensionWasmFile); err != nil {
 				t.Fatalf("failed to install ExtensionFilter: %v", err)
 			}
 
@@ -212,14 +212,14 @@ func TestExtensionFilter_BadWasmRemoteLoad(t *testing.T) {
 			sendTraffic(t, check.OK())
 
 			// Cleanup
-			if err := uninstallWasmExtensionFilter(t, "bad-wasm-filter", extensionFilterWasmFile); err != nil {
+			if err := uninstallWasmTrafficExtension(t, "bad-wasm-filter", trafficExtensionWasmFile); err != nil {
 				t.Fatal(err)
 			}
 		})
 }
 
-// TestExtensionFilter_SelectorMatching tests selector-based WASM filter targeting
-func TestExtensionFilter_SelectorMatching(t *testing.T) {
+// TestTrafficExtension_SelectorMatching tests selector-based WASM filter targeting
+func TestTrafficExtension_SelectorMatching(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
 			tag := names.SimpleNameGenerator.GenerateName("test-tag-")
@@ -227,7 +227,7 @@ func TestExtensionFilter_SelectorMatching(t *testing.T) {
 			wasmModuleURL := fmt.Sprintf("oci://%v/%v:%v", registry.Address(), wasmImageName, tag)
 
 			// Install filter targeting specific app via selector
-			if err := installWasmExtensionFilter(t, "wasm-selector-test", wasmModuleURL, "", "v1", extensionFilterWasmFile); err != nil {
+			if err := installWasmTrafficExtension(t, "wasm-selector-test", wasmModuleURL, "", "v1", trafficExtensionWasmFile); err != nil {
 				t.Fatalf("failed to install ExtensionFilter: %v", err)
 			}
 
@@ -235,12 +235,12 @@ func TestExtensionFilter_SelectorMatching(t *testing.T) {
 			sendTraffic(t, check.ResponseHeader(wasmInjectedHeader, "0.0.1"))
 
 			// Cleanup
-			resetExtensionFilterWasm(t, "wasm-selector-test")
+			resetTrafficExtensionWasm(t, "wasm-selector-test")
 		})
 }
 
-// TestExtensionFilter_GatewaySelection tests ExtensionFilter targeting a Gateway resource
-func TestExtensionFilter_GatewaySelection(t *testing.T) {
+// TestTrafficExtension_GatewaySelection tests ExtensionFilter targeting a Gateway resource
+func TestTrafficExtension_GatewaySelection(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
 			crd.DeployGatewayAPIOrSkip(t)
@@ -260,7 +260,7 @@ func TestExtensionFilter_GatewaySelection(t *testing.T) {
 				"TargetGatewayName":   GetTarget().(echo.Instances).ServiceName() + "-gateway",
 			}
 
-			if err := applyExtensionFilterWasmConfig(t, apps.Namespace.Name(), gatewayArgs, "testdata/extensionfilter-gateway-wasm.yaml"); err != nil {
+			if err := applyTrafficExtensionWasmConfig(t, apps.Namespace.Name(), gatewayArgs, "testdata/trafficextension-gateway-wasm.yaml"); err != nil {
 				t.Fatalf("failed to install Gateway ExtensionFilter: %v", err)
 			}
 
@@ -269,14 +269,14 @@ func TestExtensionFilter_GatewaySelection(t *testing.T) {
 			sendTrafficToHostname(t, check.ResponseHeader(wasmInjectedHeader, "0.0.1"), testHostname)
 
 			// Cleanup
-			if err := uninstallWasmExtensionFilter(t, "gateway-wasm-filter", "testdata/extensionfilter-gateway-wasm.yaml"); err != nil {
+			if err := uninstallWasmTrafficExtension(t, "gateway-wasm-filter", "testdata/trafficextension-gateway-wasm.yaml"); err != nil {
 				t.Fatal(err)
 			}
 		})
 }
 
-// TestExtensionFilter_BadWasmWithFailOpen tests WASM load failures with fail_open strategy
-func TestExtensionFilter_BadWasmWithFailOpen(t *testing.T) {
+// TestTrafficExtension_BadWasmWithFailOpen tests WASM load failures with fail_open strategy
+func TestTrafficExtension_BadWasmWithFailOpen(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
 			// Enable logging for debugging
@@ -286,12 +286,12 @@ func TestExtensionFilter_BadWasmWithFailOpen(t *testing.T) {
 			args := map[string]any{
 				"TargetAppName": GetTarget().(echo.Instances).NamespacedName().Name,
 			}
-			t.ConfigIstio().EvalFile(apps.Namespace.Name(), args, "testdata/bad-wasm-extensionfilter-fail-open.yaml").ApplyOrFail(t)
+			t.ConfigIstio().EvalFile(apps.Namespace.Name(), args, "testdata/bad-wasm-trafficextension-fail-open.yaml").ApplyOrFail(t)
 
 			// Since fail_open=true, traffic should continue to work even though WASM fails to load
 			sendTraffic(t, check.OK())
 
 			// Cleanup
-			t.ConfigIstio().EvalFile(apps.Namespace.Name(), args, "testdata/bad-wasm-extensionfilter-fail-open.yaml").DeleteOrFail(t)
+			t.ConfigIstio().EvalFile(apps.Namespace.Name(), args, "testdata/bad-wasm-trafficextension-fail-open.yaml").DeleteOrFail(t)
 		})
 }

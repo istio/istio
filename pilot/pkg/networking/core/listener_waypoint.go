@@ -832,13 +832,13 @@ func (lb *ListenerBuilder) buildWaypointHTTPFilters(svc *model.Service) (pre []*
 	// TODO: how to deal with ext-authz? It will be in the ordering twice
 	// TODO policies here will need to be different per-chain (service attached)
 	pre = append(pre, authzCustomBuilder.BuildHTTP(cls)...)
-	pre = extension.PopAppendHTTPExtensionFilter(pre, extensionFilters, extensions.ExecutionPhase_EXECUTION_PHASE_AUTHN)
+	pre = extension.PopAppendHTTPExtensionFilter(pre, extensionFilters, extensions.TrafficExtension_AUTHN)
 	pre = append(pre, authnBuilder.BuildHTTP(cls)...)
-	pre = extension.PopAppendHTTPExtensionFilter(pre, extensionFilters, extensions.ExecutionPhase_EXECUTION_PHASE_AUTHZ)
+	pre = extension.PopAppendHTTPExtensionFilter(pre, extensionFilters, extensions.TrafficExtension_AUTHZ)
 	pre = append(pre, authzBuilder.BuildHTTP(cls)...)
 	// TODO: these feel like the wrong place to insert, but this retains backwards compatibility with the original implementation
-	post = extension.PopAppendHTTPExtensionFilter(post, extensionFilters, extensions.ExecutionPhase_EXECUTION_PHASE_STATS)
-	post = extension.PopAppendHTTPExtensionFilter(post, extensionFilters, extensions.ExecutionPhase_EXECUTION_PHASE_UNSPECIFIED)
+	post = extension.PopAppendHTTPExtensionFilter(post, extensionFilters, extensions.TrafficExtension_STATS)
+	post = extension.PopAppendHTTPExtensionFilter(post, extensionFilters, extensions.TrafficExtension_UNSPECIFIED)
 	post = append(post, xdsfilters.GenerateWaypointUpstreamMetadataFilter())
 	post = append(post, lb.push.Telemetry.HTTPFilters(lb.node, cls, svc)...)
 	return pre, post

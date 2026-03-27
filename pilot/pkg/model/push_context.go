@@ -2139,7 +2139,7 @@ func (ps *PushContext) initExtensionFilters(env *Environment) {
 }
 
 // sortByPriority sorts a map of slices by priority (highest first).
-func sortByPriority(items map[extensions.ExecutionPhase][]*ExtensionFilterWrapper) {
+func sortByPriority(items map[extensions.TrafficExtension_ExecutionPhase][]*ExtensionFilterWrapper) {
 	for phase, slice := range items {
 		sort.SliceStable(slice, func(i, j int) bool {
 			iPriority := int32(math.MinInt32)
@@ -2160,7 +2160,7 @@ func sortByPriority(items map[extensions.ExecutionPhase][]*ExtensionFilterWrappe
 // For most proxy types, we include only the root namespace and same-namespace objects.
 // However, waypoints allow cross-namespace access based on attached Service objects.
 // In this case, include all referenced services in the selection criteria
-func (ps *PushContext) ExtensionFilters(proxy *Proxy) map[extensions.ExecutionPhase][]*ExtensionFilterWrapper {
+func (ps *PushContext) ExtensionFilters(proxy *Proxy) map[extensions.TrafficExtension_ExecutionPhase][]*ExtensionFilterWrapper {
 	listenerInfo := ListenerInfo{}
 	if proxy.IsWaypointProxy() {
 		servicesInfo := ps.ServicesForWaypoint(WaypointKeyForProxy(proxy))
@@ -2197,12 +2197,12 @@ func (ps *PushContext) ExtensionFiltersByName(proxy *Proxy, names []types.Namesp
 // ExtensionFiltersByListenerInfo return the ExtensionFilterWrappers which are matched with TrafficSelector in the given proxy.
 func (ps *PushContext) ExtensionFiltersByListenerInfo(proxy *Proxy, info ListenerInfo,
 	chainType FilterChainType,
-) map[extensions.ExecutionPhase][]*ExtensionFilterWrapper {
+) map[extensions.TrafficExtension_ExecutionPhase][]*ExtensionFilterWrapper {
 	if proxy == nil {
 		return nil
 	}
 
-	matchedFilters := make(map[extensions.ExecutionPhase][]*ExtensionFilterWrapper)
+	matchedFilters := make(map[extensions.TrafficExtension_ExecutionPhase][]*ExtensionFilterWrapper)
 	lookupInNamespaces := []string{proxy.ConfigNamespace, ps.Mesh.RootNamespace}
 	for i := range info.Services {
 		lookupInNamespaces = append(lookupInNamespaces, info.Services[i].NamespacedName().Namespace)

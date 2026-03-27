@@ -29,51 +29,51 @@ import (
 )
 
 const (
-	efWasmImageName      = "istio-testing/wasm/header-injector"
-	efWasmInjectedHeader = "x-resp-injection"
-	efWasmConfigFile     = "testdata/extensionfilter-wasm.yaml"
+	teWasmImageName      = "istio-testing/wasm/header-injector"
+	teWasmInjectedHeader = "x-resp-injection"
+	teWasmConfigFile     = "testdata/trafficextension-wasm.yaml"
 )
 
-type extensionFilterWasmTestConfig struct {
+type trafficExtensionWasmTestConfig struct {
 	desc         string
 	name         string
 	testHostname string
 }
 
-var efWasmGeneration = 0
+var teWasmGeneration = 0
 
-func applyAndTestExtensionFilterWasmWithOCI(ctx framework.TestContext, c extensionFilterWasmTestConfig, path, targetType, targetName string) {
+func applyAndTestTrafficExtensionWasmWithOCI(ctx framework.TestContext, c trafficExtensionWasmTestConfig, path, targetType, targetName string) {
 	ctx.NewSubTest("OCI_" + c.desc).Run(func(t framework.TestContext) {
 		defer func() {
-			efWasmGeneration++
+			teWasmGeneration++
 		}()
 		mapTagToVersionOrFail(t, "latest", "0.0.1")
-		wasmModuleURL := fmt.Sprintf("oci://%v/%v:%v", registry.Address(), efWasmImageName, "latest")
-		if err := installExtensionFilterWasm(t, c.name, wasmModuleURL, "", fmt.Sprintf("g-%d", efWasmGeneration), targetType, targetName, path); err != nil {
+		wasmModuleURL := fmt.Sprintf("oci://%v/%v:%v", registry.Address(), teWasmImageName, "latest")
+		if err := installTrafficExtensionWasm(t, c.name, wasmModuleURL, "", fmt.Sprintf("g-%d", teWasmGeneration), targetType, targetName, path); err != nil {
 			t.Fatalf("failed to install ExtensionFilter: %v", err)
 		}
 		if c.testHostname != "" {
-			sendTrafficToHostname(t, check.ResponseHeader(efWasmInjectedHeader, "0.0.1"), c.testHostname)
+			sendTrafficToHostname(t, check.ResponseHeader(teWasmInjectedHeader, "0.0.1"), c.testHostname)
 		} else {
-			sendTraffic(t, check.ResponseHeader(efWasmInjectedHeader, "0.0.1"))
+			sendTraffic(t, check.ResponseHeader(teWasmInjectedHeader, "0.0.1"))
 		}
 	})
 }
 
-func resetExtensionFilterWasmConfig(ctx framework.TestContext, filterName, path string) {
-	ctx.NewSubTest("Delete ExtensionFilter " + filterName).Run(func(t framework.TestContext) {
-		if err := uninstallExtensionFilterWasm(t, filterName, path); err != nil {
+func resetTrafficExtensionWasmConfig(ctx framework.TestContext, filterName, path string) {
+	ctx.NewSubTest("Delete TrafficExtension " + filterName).Run(func(t framework.TestContext) {
+		if err := uninstallTrafficExtensionWasm(t, filterName, path); err != nil {
 			t.Fatal(err)
 		}
-		sendTraffic(t, check.ResponseHeader(efWasmInjectedHeader, ""), retry.Converge(2))
+		sendTraffic(t, check.ResponseHeader(teWasmInjectedHeader, ""), retry.Converge(2))
 	})
 }
 
-func applyExtensionFilterWasmConfigFile(ctx framework.TestContext, ns string, args map[string]any, path string) error {
+func applyTrafficExtensionWasmConfigFile(ctx framework.TestContext, ns string, args map[string]any, path string) error {
 	return ctx.ConfigIstio().EvalFile(ns, args, path).Apply()
 }
 
-func installExtensionFilterWasm(ctx framework.TestContext, filterName, wasmModuleURL, imagePullPolicy, filterVersion, targetType, targetName, path string) error {
+func installTrafficExtensionWasm(ctx framework.TestContext, filterName, wasmModuleURL, imagePullPolicy, filterVersion, targetType, targetName, path string) error {
 	kind, group, name := getTargetRefValues(targetType, targetName)
 
 	args := map[string]any{
@@ -89,14 +89,14 @@ func installExtensionFilterWasm(ctx framework.TestContext, filterName, wasmModul
 		args["ImagePullPolicy"] = imagePullPolicy
 	}
 
-	if err := applyExtensionFilterWasmConfigFile(ctx, apps.Namespace.Name(), args, path); err != nil {
+	if err := applyTrafficExtensionWasmConfigFile(ctx, apps.Namespace.Name(), args, path); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func uninstallExtensionFilterWasm(ctx framework.TestContext, filterName, path string) error {
+func uninstallTrafficExtensionWasm(ctx framework.TestContext, filterName, path string) error {
 	args := map[string]any{
 		"ExtensionFilterName": filterName,
 	}
@@ -106,8 +106,8 @@ func uninstallExtensionFilterWasm(ctx framework.TestContext, filterName, path st
 	return nil
 }
 
-// TestExtensionFilter_WasmConfigurations tests WASM ExtensionFilter on different targets in ambient mode
-func TestExtensionFilter_WasmConfigurations(t *testing.T) {
+// TestTrafficExtension_WasmConfigurations tests WASM ExtensionFilter on different targets in ambient mode
+func TestTrafficExtension_WasmConfigurations(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
 			testCases := []struct {
@@ -119,27 +119,27 @@ func TestExtensionFilter_WasmConfigurations(t *testing.T) {
 			}{
 				{
 					desc:         "Configure WASM filter for gateway",
-					name:         "gateway-wasm-extensionfilter",
+					name:         "gateway-wasm-trafficextension",
 					testHostname: fmt.Sprintf("%s-gateway-istio.%s.svc.cluster.local", GetTarget().ServiceName(), apps.Namespace.Name()),
 					targetType:   "gateway",
 					targetName:   fmt.Sprintf("%s-gateway", GetTarget().(echo.Instances).ServiceName()),
 				},
 				{
 					desc:       "Configure WASM filter for waypoint",
-					name:       "waypoint-wasm-extensionfilter",
+					name:       "waypoint-wasm-trafficextension",
 					targetType: "gateway",
 					targetName: constants.DefaultNamespaceWaypoint,
 				},
 				{
 					desc:       "Configure WASM filter for specific service",
-					name:       "service-wasm-extensionfilter",
+					name:       "service-wasm-trafficextension",
 					targetType: "service",
 					targetName: GetTarget().Instances().ServiceName(),
 				},
 			}
 
 			for _, tc := range testCases {
-				if tc.name == "gateway-wasm-extensionfilter" {
+				if tc.name == "gateway-wasm-trafficextension" {
 					crd.DeployGatewayAPIOrSkip(t)
 					args := map[string]any{
 						"To": GetTarget().Instances(),
@@ -147,13 +147,13 @@ func TestExtensionFilter_WasmConfigurations(t *testing.T) {
 					t.ConfigIstio().EvalFile(apps.Namespace.Name(), args, "testdata/gateway-api.yaml").ApplyOrFail(t)
 				}
 
-				applyAndTestExtensionFilterWasmWithOCI(t, extensionFilterWasmTestConfig{
+				applyAndTestTrafficExtensionWasmWithOCI(t, trafficExtensionWasmTestConfig{
 					desc:         tc.desc,
 					name:         tc.name,
 					testHostname: tc.testHostname,
-				}, efWasmConfigFile, tc.targetType, tc.targetName)
+				}, teWasmConfigFile, tc.targetType, tc.targetName)
 
-				resetExtensionFilterWasmConfig(t, tc.name, efWasmConfigFile)
+				resetTrafficExtensionWasmConfig(t, tc.name, teWasmConfigFile)
 			}
 		})
 }

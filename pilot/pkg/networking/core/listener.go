@@ -652,10 +652,10 @@ func buildListenerFromEntry(builder *ListenerBuilder, le *outboundListenerEntry,
 				Name:       wellknown.HTTPConnectionManager,
 				ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(hcm)},
 			}
-			opt.networkFilters = extension.PopAppendNetworkExtensionFilter(opt.networkFilters, extensionFilters, extensions.ExecutionPhase_EXECUTION_PHASE_AUTHN)
-			opt.networkFilters = extension.PopAppendNetworkExtensionFilter(opt.networkFilters, extensionFilters, extensions.ExecutionPhase_EXECUTION_PHASE_AUTHZ)
-			opt.networkFilters = extension.PopAppendNetworkExtensionFilter(opt.networkFilters, extensionFilters, extensions.ExecutionPhase_EXECUTION_PHASE_STATS)
-			opt.networkFilters = extension.PopAppendNetworkExtensionFilter(opt.networkFilters, extensionFilters, extensions.ExecutionPhase_EXECUTION_PHASE_UNSPECIFIED)
+			opt.networkFilters = extension.PopAppendNetworkExtensionFilter(opt.networkFilters, extensionFilters, extensions.TrafficExtension_AUTHN)
+			opt.networkFilters = extension.PopAppendNetworkExtensionFilter(opt.networkFilters, extensionFilters, extensions.TrafficExtension_AUTHZ)
+			opt.networkFilters = extension.PopAppendNetworkExtensionFilter(opt.networkFilters, extensionFilters, extensions.TrafficExtension_STATS)
+			opt.networkFilters = extension.PopAppendNetworkExtensionFilter(opt.networkFilters, extensionFilters, extensions.TrafficExtension_UNSPECIFIED)
 			chain.Filters = append(chain.Filters, opt.networkFilters...)
 			chain.Filters = append(chain.Filters, filter)
 		}

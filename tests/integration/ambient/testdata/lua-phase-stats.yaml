@@ -1,11 +1,11 @@
 apiVersion: extensions.istio.io/v1alpha1
-kind: ExtensionFilter
+kind: TrafficExtension
 metadata:
   name: {{ .ExtensionFilterName }}-stats
 spec:
   phase: STATS
-  targetRef:
-    kind: {{ .TargetKind }}
+  targetRefs:
+  - kind: {{ .TargetKind }}
     group: {{ .TargetGroup }}
     name: {{ .TargetName }}
   lua:

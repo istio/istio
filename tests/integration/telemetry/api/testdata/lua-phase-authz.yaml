@@ -1,5 +1,5 @@
 apiVersion: extensions.istio.io/v1alpha1
-kind: ExtensionFilter
+kind: TrafficExtension
 metadata:
   name: {{ .ExtensionFilterName }}-authz
 spec:

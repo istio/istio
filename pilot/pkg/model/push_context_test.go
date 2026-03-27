@@ -1132,7 +1132,7 @@ func TestExtensionFilters(t *testing.T) {
 		"both-wasm-and-lua": {
 			Meta: config.Meta{Name: "both-wasm-and-lua", Namespace: constants.IstioSystemNamespace, GroupVersionKind: gvk.TrafficExtension},
 			Spec: &extensions.TrafficExtension{
-				Phase:    extensions.ExecutionPhase_EXECUTION_PHASE_AUTHN,
+				Phase:    extensions.TrafficExtension_AUTHN,
 				Priority: &wrapperspb.Int32Value{Value: 5},
 				// Note: oneof FilterConfig cannot hold both Wasm and Lua; use empty URL to test invalid config rejection
 				FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
@@ -1143,7 +1143,7 @@ func TestExtensionFilters(t *testing.T) {
 		"authn-lua-low-prio-all": {
 			Meta: config.Meta{Name: "authn-lua-low-prio-all", Namespace: "testns-1", GroupVersionKind: gvk.TrafficExtension},
 			Spec: &extensions.TrafficExtension{
-				Phase:    extensions.ExecutionPhase_EXECUTION_PHASE_AUTHN,
+				Phase:    extensions.TrafficExtension_AUTHN,
 				Priority: &wrapperspb.Int32Value{Value: 10},
 				FilterConfig: &extensions.TrafficExtension_Lua{Lua: &extensions.LuaConfig{
 					InlineCode: "function envoy_on_request(request_handle) end",
@@ -1153,7 +1153,7 @@ func TestExtensionFilters(t *testing.T) {
 		"authn-wasm-low-prio-all": {
 			Meta: config.Meta{Name: "authn-wasm-low-prio-all", Namespace: "testns-1", GroupVersionKind: gvk.TrafficExtension},
 			Spec: &extensions.TrafficExtension{
-				Phase:    extensions.ExecutionPhase_EXECUTION_PHASE_AUTHN,
+				Phase:    extensions.TrafficExtension_AUTHN,
 				Priority: &wrapperspb.Int32Value{Value: 10},
 				FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
 					Url: "file:///etc/istio/filters/authn.wasm",
@@ -1171,7 +1171,7 @@ func TestExtensionFilters(t *testing.T) {
 		"authn-wasm-low-prio-all-network": {
 			Meta: config.Meta{Name: "authn-wasm-low-prio-all-network", Namespace: "testns-1", GroupVersionKind: gvk.TrafficExtension},
 			Spec: &extensions.TrafficExtension{
-				Phase:    extensions.ExecutionPhase_EXECUTION_PHASE_AUTHN,
+				Phase:    extensions.TrafficExtension_AUTHN,
 				Priority: &wrapperspb.Int32Value{Value: 10},
 				FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
 					Type:   extensions.PluginType_NETWORK,
@@ -1183,7 +1183,7 @@ func TestExtensionFilters(t *testing.T) {
 		"global-authn-lua-low-prio-ingress": {
 			Meta: config.Meta{Name: "global-authn-lua-low-prio-ingress", Namespace: constants.IstioSystemNamespace, GroupVersionKind: gvk.TrafficExtension},
 			Spec: &extensions.TrafficExtension{
-				Phase:    extensions.ExecutionPhase_EXECUTION_PHASE_AUTHN,
+				Phase:    extensions.TrafficExtension_AUTHN,
 				Priority: &wrapperspb.Int32Value{Value: 5},
 				Selector: &selectorpb.WorkloadSelector{
 					MatchLabels: map[string]string{
@@ -1198,7 +1198,7 @@ func TestExtensionFilters(t *testing.T) {
 		"authn-lua-med-prio-all": {
 			Meta: config.Meta{Name: "authn-lua-med-prio-all", Namespace: "testns-1", GroupVersionKind: gvk.TrafficExtension},
 			Spec: &extensions.TrafficExtension{
-				Phase:    extensions.ExecutionPhase_EXECUTION_PHASE_AUTHN,
+				Phase:    extensions.TrafficExtension_AUTHN,
 				Priority: &wrapperspb.Int32Value{Value: 50},
 				FilterConfig: &extensions.TrafficExtension_Lua{Lua: &extensions.LuaConfig{
 					InlineCode: "function envoy_on_request(request_handle) end",
@@ -1208,7 +1208,7 @@ func TestExtensionFilters(t *testing.T) {
 		"global-authn-wasm-high-prio-app": {
 			Meta: config.Meta{Name: "global-authn-wasm-high-prio-app", Namespace: constants.IstioSystemNamespace, GroupVersionKind: gvk.TrafficExtension},
 			Spec: &extensions.TrafficExtension{
-				Phase:    extensions.ExecutionPhase_EXECUTION_PHASE_AUTHN,
+				Phase:    extensions.TrafficExtension_AUTHN,
 				Priority: &wrapperspb.Int32Value{Value: 1000},
 				Selector: &selectorpb.WorkloadSelector{
 					MatchLabels: map[string]string{
@@ -1229,7 +1229,7 @@ func TestExtensionFilters(t *testing.T) {
 		"global-authz-lua-med-prio-app": {
 			Meta: config.Meta{Name: "global-authz-lua-med-prio-app", Namespace: constants.IstioSystemNamespace, GroupVersionKind: gvk.TrafficExtension},
 			Spec: &extensions.TrafficExtension{
-				Phase:    extensions.ExecutionPhase_EXECUTION_PHASE_AUTHZ,
+				Phase:    extensions.TrafficExtension_AUTHZ,
 				Priority: &wrapperspb.Int32Value{Value: 50},
 				Selector: &selectorpb.WorkloadSelector{
 					MatchLabels: map[string]string{
@@ -1250,7 +1250,7 @@ func TestExtensionFilters(t *testing.T) {
 		"authz-wasm-high-prio-ingress": {
 			Meta: config.Meta{Name: "authz-wasm-high-prio-ingress", Namespace: "testns-2", GroupVersionKind: gvk.TrafficExtension},
 			Spec: &extensions.TrafficExtension{
-				Phase:    extensions.ExecutionPhase_EXECUTION_PHASE_AUTHZ,
+				Phase:    extensions.TrafficExtension_AUTHZ,
 				Priority: &wrapperspb.Int32Value{Value: 1000},
 				FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
 					Url: "oci://example.com/authz:v1",
@@ -1264,7 +1264,7 @@ func TestExtensionFilters(t *testing.T) {
 		node               *Proxy
 		listenerInfo       ListenerInfo
 		chainType          FilterChainType
-		expectedExtensions map[extensions.ExecutionPhase][]*ExtensionFilterWrapper
+		expectedExtensions map[extensions.TrafficExtension_ExecutionPhase][]*ExtensionFilterWrapper
 	}{
 		{
 			name:               "nil proxy",
@@ -1281,7 +1281,7 @@ func TestExtensionFilters(t *testing.T) {
 			},
 			listenerInfo:       ListenerInfo{},
 			chainType:          FilterChainTypeHTTP,
-			expectedExtensions: map[extensions.ExecutionPhase][]*ExtensionFilterWrapper{},
+			expectedExtensions: map[extensions.TrafficExtension_ExecutionPhase][]*ExtensionFilterWrapper{},
 		},
 		{
 			name: "ingress",
@@ -1298,8 +1298,8 @@ func TestExtensionFilters(t *testing.T) {
 			},
 			listenerInfo: ListenerInfo{},
 			chainType:    FilterChainTypeHTTP,
-			expectedExtensions: map[extensions.ExecutionPhase][]*ExtensionFilterWrapper{
-				extensions.ExecutionPhase_EXECUTION_PHASE_AUTHN: {
+			expectedExtensions: map[extensions.TrafficExtension_ExecutionPhase][]*ExtensionFilterWrapper{
+				extensions.TrafficExtension_AUTHN: {
 					convertToExtensionFilterWrapper(extensionFilters["global-authn-lua-low-prio-ingress"]),
 				},
 			},
@@ -1319,8 +1319,8 @@ func TestExtensionFilters(t *testing.T) {
 			},
 			listenerInfo: ListenerInfo{},
 			chainType:    FilterChainTypeHTTP,
-			expectedExtensions: map[extensions.ExecutionPhase][]*ExtensionFilterWrapper{
-				extensions.ExecutionPhase_EXECUTION_PHASE_AUTHN: {
+			expectedExtensions: map[extensions.TrafficExtension_ExecutionPhase][]*ExtensionFilterWrapper{
+				extensions.TrafficExtension_AUTHN: {
 					convertToExtensionFilterWrapper(extensionFilters["authn-lua-med-prio-all"]),
 					convertToExtensionFilterWrapper(extensionFilters["authn-lua-low-prio-all"]),
 					convertToExtensionFilterWrapper(extensionFilters["authn-wasm-low-prio-all"]),
@@ -1343,8 +1343,8 @@ func TestExtensionFilters(t *testing.T) {
 			},
 			listenerInfo: ListenerInfo{},
 			chainType:    FilterChainTypeNetwork,
-			expectedExtensions: map[extensions.ExecutionPhase][]*ExtensionFilterWrapper{
-				extensions.ExecutionPhase_EXECUTION_PHASE_AUTHN: {
+			expectedExtensions: map[extensions.TrafficExtension_ExecutionPhase][]*ExtensionFilterWrapper{
+				extensions.TrafficExtension_AUTHN: {
 					convertToExtensionFilterWrapper(extensionFilters["authn-wasm-low-prio-all-network"]),
 				},
 			},
@@ -1364,8 +1364,8 @@ func TestExtensionFilters(t *testing.T) {
 			},
 			listenerInfo: ListenerInfo{},
 			chainType:    FilterChainTypeAny,
-			expectedExtensions: map[extensions.ExecutionPhase][]*ExtensionFilterWrapper{
-				extensions.ExecutionPhase_EXECUTION_PHASE_AUTHN: {
+			expectedExtensions: map[extensions.TrafficExtension_ExecutionPhase][]*ExtensionFilterWrapper{
+				extensions.TrafficExtension_AUTHN: {
 					convertToExtensionFilterWrapper(extensionFilters["authn-lua-med-prio-all"]),
 					convertToExtensionFilterWrapper(extensionFilters["authn-lua-low-prio-all"]),
 					convertToExtensionFilterWrapper(extensionFilters["authn-wasm-low-prio-all"]),
@@ -1389,11 +1389,11 @@ func TestExtensionFilters(t *testing.T) {
 			},
 			listenerInfo: ListenerInfo{},
 			chainType:    FilterChainTypeHTTP,
-			expectedExtensions: map[extensions.ExecutionPhase][]*ExtensionFilterWrapper{
-				extensions.ExecutionPhase_EXECUTION_PHASE_AUTHN: {
+			expectedExtensions: map[extensions.TrafficExtension_ExecutionPhase][]*ExtensionFilterWrapper{
+				extensions.TrafficExtension_AUTHN: {
 					convertToExtensionFilterWrapper(extensionFilters["global-authn-wasm-high-prio-app"]),
 				},
-				extensions.ExecutionPhase_EXECUTION_PHASE_AUTHZ: {
+				extensions.TrafficExtension_AUTHZ: {
 					convertToExtensionFilterWrapper(extensionFilters["authz-wasm-high-prio-ingress"]),
 					convertToExtensionFilterWrapper(extensionFilters["global-authz-lua-med-prio-app"]),
 				},
@@ -1423,11 +1423,11 @@ func TestExtensionFilters(t *testing.T) {
 				Class: istionetworking.ListenerClassSidecarInbound,
 			},
 			chainType: FilterChainTypeHTTP,
-			expectedExtensions: map[extensions.ExecutionPhase][]*ExtensionFilterWrapper{
-				extensions.ExecutionPhase_EXECUTION_PHASE_AUTHN: {
+			expectedExtensions: map[extensions.TrafficExtension_ExecutionPhase][]*ExtensionFilterWrapper{
+				extensions.TrafficExtension_AUTHN: {
 					convertToExtensionFilterWrapper(extensionFilters["global-authn-wasm-high-prio-app"]),
 				},
-				extensions.ExecutionPhase_EXECUTION_PHASE_AUTHZ: {
+				extensions.TrafficExtension_AUTHZ: {
 					convertToExtensionFilterWrapper(extensionFilters["authz-wasm-high-prio-ingress"]),
 				},
 			},

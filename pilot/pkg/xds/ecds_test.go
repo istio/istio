@@ -108,7 +108,7 @@ func makeExtensionFilter(name, namespace, secret string) config.Config {
 		wasmConfig.ImagePullSecret = secret
 	}
 	spec := &extensions.TrafficExtension{
-		Phase:        extensions.ExecutionPhase_EXECUTION_PHASE_AUTHN,
+		Phase:        extensions.TrafficExtension_AUTHN,
 		FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: wasmConfig},
 	}
 	return config.Config{

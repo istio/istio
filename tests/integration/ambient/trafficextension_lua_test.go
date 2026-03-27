@@ -41,9 +41,9 @@ type luaTestConfig struct {
 	testHostname string
 }
 
-func applyAndTestLuaExtensionFilter(ctx framework.TestContext, c luaTestConfig, path, targetType, targetName, expectedHeader, expectedValue string) {
+func applyAndTestLuaTrafficExtension(ctx framework.TestContext, c luaTestConfig, path, targetType, targetName, expectedHeader, expectedValue string) {
 	ctx.NewSubTest(c.desc).Run(func(t framework.TestContext) {
-		if err := installLuaExtensionFilter(t, c.name, targetType, targetName, path); err != nil {
+		if err := installLuaTrafficExtension(t, c.name, targetType, targetName, path); err != nil {
 			t.Fatalf("failed to install ExtensionFilter: %v", err)
 		}
 		if c.testHostname != "" {
@@ -54,9 +54,9 @@ func applyAndTestLuaExtensionFilter(ctx framework.TestContext, c luaTestConfig, 
 	})
 }
 
-func resetLuaExtensionFilter(ctx framework.TestContext, filterName, path string) {
-	ctx.NewSubTest("Delete ExtensionFilter " + filterName).Run(func(t framework.TestContext) {
-		if err := uninstallLuaExtensionFilter(t, filterName, path); err != nil {
+func resetLuaTrafficExtension(ctx framework.TestContext, filterName, path string) {
+	ctx.NewSubTest("Delete TrafficExtension " + filterName).Run(func(t framework.TestContext) {
+		if err := uninstallLuaTrafficExtension(t, filterName, path); err != nil {
 			t.Fatal(err)
 		}
 		// Verify the header is no longer present
@@ -64,11 +64,11 @@ func resetLuaExtensionFilter(ctx framework.TestContext, filterName, path string)
 	})
 }
 
-func applyLuaExtensionFilterConfig(ctx framework.TestContext, ns string, args map[string]any, path string) error {
+func applyLuaTrafficExtensionConfig(ctx framework.TestContext, ns string, args map[string]any, path string) error {
 	return ctx.ConfigIstio().EvalFile(ns, args, path).Apply()
 }
 
-func installLuaExtensionFilter(ctx framework.TestContext, filterName, targetType, targetName, path string) error {
+func installLuaTrafficExtension(ctx framework.TestContext, filterName, targetType, targetName, path string) error {
 	kind, group, name := getTargetRefValues(targetType, targetName)
 
 	args := map[string]any{
@@ -78,14 +78,14 @@ func installLuaExtensionFilter(ctx framework.TestContext, filterName, targetType
 		"TargetName":          name,
 	}
 
-	if err := applyLuaExtensionFilterConfig(ctx, apps.Namespace.Name(), args, path); err != nil {
+	if err := applyLuaTrafficExtensionConfig(ctx, apps.Namespace.Name(), args, path); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func uninstallLuaExtensionFilter(ctx framework.TestContext, filterName, path string) error {
+func uninstallLuaTrafficExtension(ctx framework.TestContext, filterName, path string) error {
 	args := map[string]any{
 		"ExtensionFilterName": filterName,
 	}
@@ -95,8 +95,8 @@ func uninstallLuaExtensionFilter(ctx framework.TestContext, filterName, path str
 	return nil
 }
 
-// TestLuaExtensionFilter_HeaderInjection tests that Lua filters can inject headers
-func TestLuaExtensionFilter_HeaderInjection(t *testing.T) {
+// TestLuaTrafficExtension_HeaderInjection tests that Lua filters can inject headers
+func TestLuaTrafficExtension_HeaderInjection(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
 			testCases := []struct {
@@ -136,19 +136,19 @@ func TestLuaExtensionFilter_HeaderInjection(t *testing.T) {
 					t.ConfigIstio().EvalFile(apps.Namespace.Name(), args, "testdata/gateway-api.yaml").ApplyOrFail(t)
 				}
 
-				applyAndTestLuaExtensionFilter(t, luaTestConfig{
+				applyAndTestLuaTrafficExtension(t, luaTestConfig{
 					desc:         tc.desc,
 					name:         tc.name,
 					testHostname: tc.testHostname,
 				}, luaHeaderInjectorFile, tc.targetType, tc.targetName, luaInjectedHeader, "true")
 
-				resetLuaExtensionFilter(t, tc.name, luaHeaderInjectorFile)
+				resetLuaTrafficExtension(t, tc.name, luaHeaderInjectorFile)
 			}
 		})
 }
 
-// TestLuaExtensionFilter_ResponseModification tests that Lua filters can modify responses
-func TestLuaExtensionFilter_ResponseModification(t *testing.T) {
+// TestLuaTrafficExtension_ResponseModification tests that Lua filters can modify responses
+func TestLuaTrafficExtension_ResponseModification(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
 			filterName := "lua-response-modifier"
@@ -156,7 +156,7 @@ func TestLuaExtensionFilter_ResponseModification(t *testing.T) {
 			targetName := GetTarget().Instances().ServiceName()
 
 			// Install the response modifier filter
-			if err := installLuaExtensionFilter(t, filterName, targetType, targetName, luaResponseModifierFile); err != nil {
+			if err := installLuaTrafficExtension(t, filterName, targetType, targetName, luaResponseModifierFile); err != nil {
 				t.Fatalf("failed to install ExtensionFilter: %v", err)
 			}
 
@@ -164,7 +164,7 @@ func TestLuaExtensionFilter_ResponseModification(t *testing.T) {
 			sendTraffic(t, check.ResponseHeader(luaResponseHeader, "modified"))
 
 			// Cleanup
-			if err := uninstallLuaExtensionFilter(t, filterName, luaResponseModifierFile); err != nil {
+			if err := uninstallLuaTrafficExtension(t, filterName, luaResponseModifierFile); err != nil {
 				t.Fatal(err)
 			}
 
@@ -173,20 +173,20 @@ func TestLuaExtensionFilter_ResponseModification(t *testing.T) {
 		})
 }
 
-// TestLuaExtensionFilter_MultipleFilters tests multiple Lua filters with different priorities
-func TestLuaExtensionFilter_MultipleFilters(t *testing.T) {
+// TestLuaTrafficExtension_MultipleFilters tests multiple Lua filters with different priorities
+func TestLuaTrafficExtension_MultipleFilters(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
 			targetType := "service"
 			targetName := GetTarget().Instances().ServiceName()
 
 			// Install header injector (phase: AUTHN)
-			if err := installLuaExtensionFilter(t, "lua-header-injector", targetType, targetName, luaHeaderInjectorFile); err != nil {
+			if err := installLuaTrafficExtension(t, "lua-header-injector", targetType, targetName, luaHeaderInjectorFile); err != nil {
 				t.Fatalf("failed to install header injector: %v", err)
 			}
 
 			// Install response modifier (phase: STATS)
-			if err := installLuaExtensionFilter(t, "lua-response-modifier", targetType, targetName, luaResponseModifierFile); err != nil {
+			if err := installLuaTrafficExtension(t, "lua-response-modifier", targetType, targetName, luaResponseModifierFile); err != nil {
 				t.Fatalf("failed to install response modifier: %v", err)
 			}
 
@@ -197,10 +197,10 @@ func TestLuaExtensionFilter_MultipleFilters(t *testing.T) {
 			))
 
 			// Cleanup
-			if err := uninstallLuaExtensionFilter(t, "lua-header-injector", luaHeaderInjectorFile); err != nil {
+			if err := uninstallLuaTrafficExtension(t, "lua-header-injector", luaHeaderInjectorFile); err != nil {
 				t.Fatal(err)
 			}
-			if err := uninstallLuaExtensionFilter(t, "lua-response-modifier", luaResponseModifierFile); err != nil {
+			if err := uninstallLuaTrafficExtension(t, "lua-response-modifier", luaResponseModifierFile); err != nil {
 				t.Fatal(err)
 			}
 
@@ -212,8 +212,8 @@ func TestLuaExtensionFilter_MultipleFilters(t *testing.T) {
 		})
 }
 
-// TestLuaExtensionFilter_PhaseOrdering tests that filters execute in the correct phase order in ambient mode
-func TestLuaExtensionFilter_PhaseOrdering(t *testing.T) {
+// TestLuaTrafficExtension_PhaseOrdering tests that filters execute in the correct phase order in ambient mode
+func TestLuaTrafficExtension_PhaseOrdering(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
 			targetType := "service"
@@ -223,15 +223,15 @@ func TestLuaExtensionFilter_PhaseOrdering(t *testing.T) {
 			// Each filter appends a number to a header: AUTHN=1, AUTHZ=2, STATS=3
 			// If they execute in order, we should see "123"
 
-			if err := installLuaExtensionFilter(t, "lua-phase-test-authn", targetType, targetName, "testdata/lua-phase-authn.yaml"); err != nil {
+			if err := installLuaTrafficExtension(t, "lua-phase-test-authn", targetType, targetName, "testdata/lua-phase-authn.yaml"); err != nil {
 				t.Fatalf("failed to install AUTHN filter: %v", err)
 			}
 
-			if err := installLuaExtensionFilter(t, "lua-phase-test-authz", targetType, targetName, "testdata/lua-phase-authz.yaml"); err != nil {
+			if err := installLuaTrafficExtension(t, "lua-phase-test-authz", targetType, targetName, "testdata/lua-phase-authz.yaml"); err != nil {
 				t.Fatalf("failed to install AUTHZ filter: %v", err)
 			}
 
-			if err := installLuaExtensionFilter(t, "lua-phase-test-stats", targetType, targetName, "testdata/lua-phase-stats.yaml"); err != nil {
+			if err := installLuaTrafficExtension(t, "lua-phase-test-stats", targetType, targetName, "testdata/lua-phase-stats.yaml"); err != nil {
 				t.Fatalf("failed to install STATS filter: %v", err)
 			}
 
@@ -240,13 +240,13 @@ func TestLuaExtensionFilter_PhaseOrdering(t *testing.T) {
 			sendTraffic(t, check.ResponseHeader("x-phase-result", "123"))
 
 			// Cleanup all three filters
-			if err := uninstallLuaExtensionFilter(t, "lua-phase-test-authn", "testdata/lua-phase-authn.yaml"); err != nil {
+			if err := uninstallLuaTrafficExtension(t, "lua-phase-test-authn", "testdata/lua-phase-authn.yaml"); err != nil {
 				t.Fatal(err)
 			}
-			if err := uninstallLuaExtensionFilter(t, "lua-phase-test-authz", "testdata/lua-phase-authz.yaml"); err != nil {
+			if err := uninstallLuaTrafficExtension(t, "lua-phase-test-authz", "testdata/lua-phase-authz.yaml"); err != nil {
 				t.Fatal(err)
 			}
-			if err := uninstallLuaExtensionFilter(t, "lua-phase-test-stats", "testdata/lua-phase-stats.yaml"); err != nil {
+			if err := uninstallLuaTrafficExtension(t, "lua-phase-test-stats", "testdata/lua-phase-stats.yaml"); err != nil {
 				t.Fatal(err)
 			}
 

@@ -1,5 +1,5 @@
 apiVersion: extensions.istio.io/v1alpha1
-kind: ExtensionFilter
+kind: TrafficExtension
 metadata:
   name: {{ .ExtensionFilterName }}
   {{- if .FilterVersion }}
@@ -8,10 +8,9 @@ metadata:
   {{- end }}
 spec:
   phase: STATS
-  targetRef:
-    kind: Gateway
-    group: gateway.networking.k8s.io
-    name: {{ .TargetGatewayName}}
+  selector:
+    matchLabels:
+      app: {{ .TargetAppName }}
   wasm:
     {{- if .TestWasmModuleURL }}
     url: {{ .TestWasmModuleURL }}

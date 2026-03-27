@@ -60,7 +60,7 @@ func uninstallLuaExtensionFilter(ctx framework.TestContext, filterName, path str
 }
 
 func resetLuaExtensionFilter(ctx framework.TestContext, filterName, path string, headerToCheck string) {
-	ctx.NewSubTest("Delete ExtensionFilter " + filterName).Run(func(t framework.TestContext) {
+	ctx.NewSubTest("Delete TrafficExtension " + filterName).Run(func(t framework.TestContext) {
 		if err := uninstallLuaExtensionFilter(t, filterName, path); err != nil {
 			t.Fatal(err)
 		}
@@ -69,8 +69,8 @@ func resetLuaExtensionFilter(ctx framework.TestContext, filterName, path string,
 	})
 }
 
-// TestLuaExtensionFilter_HeaderInjection tests that Lua filters can inject headers in sidecar mode
-func TestLuaExtensionFilter_HeaderInjection(t *testing.T) {
+// TestLuaTrafficExtension_HeaderInjection tests that Lua filters can inject headers in sidecar mode
+func TestLuaTrafficExtension_HeaderInjection(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
 			filterName := "lua-header-injector"
@@ -89,8 +89,8 @@ func TestLuaExtensionFilter_HeaderInjection(t *testing.T) {
 		})
 }
 
-// TestLuaExtensionFilter_ResponseModification tests that Lua filters can modify responses in sidecar mode
-func TestLuaExtensionFilter_ResponseModification(t *testing.T) {
+// TestLuaTrafficExtension_ResponseModification tests that Lua filters can modify responses in sidecar mode
+func TestLuaTrafficExtension_ResponseModification(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
 			filterName := "lua-response-modifier"
@@ -109,8 +109,8 @@ func TestLuaExtensionFilter_ResponseModification(t *testing.T) {
 		})
 }
 
-// TestLuaExtensionFilter_MultipleFilters tests multiple Lua filters with different priorities
-func TestLuaExtensionFilter_MultipleFilters(t *testing.T) {
+// TestLuaTrafficExtension_MultipleFilters tests multiple Lua filters with different priorities
+func TestLuaTrafficExtension_MultipleFilters(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
 			targetAppName := GetTarget().(echo.Instances).NamespacedName().Name
@@ -147,8 +147,8 @@ func TestLuaExtensionFilter_MultipleFilters(t *testing.T) {
 		})
 }
 
-// TestLuaExtensionFilter_PhaseOrdering tests that filters execute in the correct phase order
-func TestLuaExtensionFilter_PhaseOrdering(t *testing.T) {
+// TestLuaTrafficExtension_PhaseOrdering tests that filters execute in the correct phase order
+func TestLuaTrafficExtension_PhaseOrdering(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
 			targetAppName := GetTarget().(echo.Instances).NamespacedName().Name
@@ -189,8 +189,8 @@ func TestLuaExtensionFilter_PhaseOrdering(t *testing.T) {
 		})
 }
 
-// TestLuaExtensionFilter_SelectorMatching tests that selector-based matching works correctly
-func TestLuaExtensionFilter_SelectorMatching(t *testing.T) {
+// TestLuaTrafficExtension_SelectorMatching tests that selector-based matching works correctly
+func TestLuaTrafficExtension_SelectorMatching(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
 			targetAppName := GetTarget().(echo.Instances).NamespacedName().Name

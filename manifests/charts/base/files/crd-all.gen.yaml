@@ -99,12 +99,12 @@ spec:
                 description: |-
                   Determines where in the filter chain this `TrafficExtension` is to be injected.
 
-                  Valid Options: EXECUTION_PHASE_AUTHN, EXECUTION_PHASE_AUTHZ, EXECUTION_PHASE_STATS
+                  Valid Options: AUTHN, AUTHZ, STATS
                 enum:
-                - EXECUTION_PHASE_UNSPECIFIED
-                - EXECUTION_PHASE_AUTHN
-                - EXECUTION_PHASE_AUTHZ
-                - EXECUTION_PHASE_STATS
+                - UNSPECIFIED
+                - AUTHN
+                - AUTHZ
+                - STATS
                 type: string
               priority:
                 description: Determines ordering of `TrafficExtensions` in the same

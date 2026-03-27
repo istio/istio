@@ -60,8 +60,8 @@ func updatePluginConfig(pluginConfig *wasmextensions.PluginConfig, pullSecrets m
 // PopAppendHTTPExtensionFilter takes a list of HTTP filters and a set of ExtensionFilters, keyed by phase.
 // It will remove all filters of the provided phase from the ExtensionFilter set and append them to the list of filters.
 func PopAppendHTTPExtensionFilter(list []*hcm.HttpFilter,
-	filterMap map[extensions.ExecutionPhase][]*model.ExtensionFilterWrapper,
-	phase extensions.ExecutionPhase,
+	filterMap map[extensions.TrafficExtension_ExecutionPhase][]*model.ExtensionFilterWrapper,
+	phase extensions.TrafficExtension_ExecutionPhase,
 ) []*hcm.HttpFilter {
 	for _, ext := range filterMap[phase] {
 		if filter := toEnvoyHTTPExtensionFilter(ext); filter != nil {
@@ -75,8 +75,8 @@ func PopAppendHTTPExtensionFilter(list []*hcm.HttpFilter,
 // PopAppendNetworkExtensionFilter takes a list of network filters and a set of ExtensionFilters, keyed by phase.
 // It will remove all filters of the provided phase from the ExtensionFilter set and append them to the list of filters.
 func PopAppendNetworkExtensionFilter(list []*listener.Filter,
-	filterMap map[extensions.ExecutionPhase][]*model.ExtensionFilterWrapper,
-	phase extensions.ExecutionPhase,
+	filterMap map[extensions.TrafficExtension_ExecutionPhase][]*model.ExtensionFilterWrapper,
+	phase extensions.TrafficExtension_ExecutionPhase,
 ) []*listener.Filter {
 	for _, ext := range filterMap[phase] {
 		if filter := toEnvoyNetworkExtensionFilter(ext); filter != nil {

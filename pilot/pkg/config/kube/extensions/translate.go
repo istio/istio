@@ -38,7 +38,7 @@ func translateWasmPlugin(cfg config.Config) *config.Config {
 		TargetRefs: wp.TargetRefs,
 		// WasmPlugin.Phase is PluginPhase; TrafficExtension.Phase is ExecutionPhase.
 		// Both enums share the same numeric values (AUTHN=1, AUTHZ=2, STATS=3, unspecified=0).
-		Phase:    extensions.ExecutionPhase(wp.Phase),
+		Phase:    extensions.TrafficExtension_ExecutionPhase(wp.Phase),
 		Priority: wp.Priority,
 		Match:    convertTrafficSelectors(wp.Match),
 		FilterConfig: &extensions.TrafficExtension_Wasm{

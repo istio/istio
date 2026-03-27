@@ -1,5 +1,5 @@
 apiVersion: extensions.istio.io/v1alpha1
-kind: ExtensionFilter
+kind: TrafficExtension
 metadata:
   name: {{ .ExtensionFilterName }}
   {{- if .FilterVersion }}
@@ -8,15 +8,10 @@ metadata:
   {{- end }}
 spec:
   phase: STATS
-  targetRef:
-    kind: {{ .TargetKind }}
-    group: {{ .TargetGroup }}
-    name: {{ .TargetName }}
+  selector:
+    matchLabels:
+      app: {{ .TargetAppName }}
   wasm:
     {{- if .TestWasmModuleURL }}
     url: {{ .TestWasmModuleURL }}
-    {{- end }}
-    imagePullSecret: reg-cred
-    {{- if .ImagePullPolicy }}
-    imagePullPolicy: {{ .ImagePullPolicy }}
     {{- end }}

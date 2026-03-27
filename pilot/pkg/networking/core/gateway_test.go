@@ -4305,7 +4305,7 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 				{
 					Meta: config.Meta{Name: "extension-wasm-network-authz", Namespace: "istio-system", GroupVersionKind: gvk.TrafficExtension},
 					Spec: &extensions.TrafficExtension{
-						Phase: extensions.ExecutionPhase_EXECUTION_PHASE_AUTHZ,
+						Phase: extensions.TrafficExtension_AUTHZ,
 						FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
 							Url:  "file:///etc/istio/filters/authz.wasm",
 							Type: extensions.PluginType_NETWORK,
@@ -4315,7 +4315,7 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 				{
 					Meta: config.Meta{Name: "extension-wasm-network-authn", Namespace: "istio-system", GroupVersionKind: gvk.TrafficExtension},
 					Spec: &extensions.TrafficExtension{
-						Phase: extensions.ExecutionPhase_EXECUTION_PHASE_AUTHN,
+						Phase: extensions.TrafficExtension_AUTHN,
 						FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
 							Url:  "file:///etc/istio/filters/authn.wasm",
 							Type: extensions.PluginType_NETWORK,
@@ -4325,7 +4325,7 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 				{
 					Meta: config.Meta{Name: "extension-wasm-network-stats", Namespace: "istio-system", GroupVersionKind: gvk.TrafficExtension},
 					Spec: &extensions.TrafficExtension{
-						Phase: extensions.ExecutionPhase_EXECUTION_PHASE_STATS,
+						Phase: extensions.TrafficExtension_STATS,
 						FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
 							Url:  "file:///etc/istio/filters/stats.wasm",
 							Type: extensions.PluginType_NETWORK,
@@ -4335,7 +4335,7 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 				{
 					Meta: config.Meta{Name: "extension-wasm-unspecified", Namespace: "istio-system", GroupVersionKind: gvk.TrafficExtension},
 					Spec: &extensions.TrafficExtension{
-						Phase: extensions.ExecutionPhase_EXECUTION_PHASE_UNSPECIFIED,
+						Phase: extensions.TrafficExtension_UNSPECIFIED,
 						FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
 							Url:  "oci://example.com/unspecified:v1",
 							Type: extensions.PluginType_NETWORK,
@@ -4399,7 +4399,7 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 				{
 					Meta: config.Meta{Name: "extension-wasm-network-authz", Namespace: "istio-system", GroupVersionKind: gvk.TrafficExtension},
 					Spec: &extensions.TrafficExtension{
-						Phase: extensions.ExecutionPhase_EXECUTION_PHASE_AUTHZ,
+						Phase: extensions.TrafficExtension_AUTHZ,
 						FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
 							Url:  "file:///etc/istio/filters/authz.wasm",
 							Type: extensions.PluginType_NETWORK,
@@ -4409,7 +4409,7 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 				{
 					Meta: config.Meta{Name: "extension-wasm-network-authn", Namespace: "istio-system", GroupVersionKind: gvk.TrafficExtension},
 					Spec: &extensions.TrafficExtension{
-						Phase: extensions.ExecutionPhase_EXECUTION_PHASE_AUTHN,
+						Phase: extensions.TrafficExtension_AUTHN,
 						FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
 							Url:  "file:///etc/istio/filters/authn.wasm",
 							Type: extensions.PluginType_NETWORK,
@@ -4419,7 +4419,7 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 				{
 					Meta: config.Meta{Name: "extension-wasm-network-stats", Namespace: "istio-system", GroupVersionKind: gvk.TrafficExtension},
 					Spec: &extensions.TrafficExtension{
-						Phase: extensions.ExecutionPhase_EXECUTION_PHASE_STATS,
+						Phase: extensions.TrafficExtension_STATS,
 						FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
 							Url:  "file:///etc/istio/filters/stats.wasm",
 							Type: extensions.PluginType_NETWORK,
@@ -4429,7 +4429,7 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 				{
 					Meta: config.Meta{Name: "extension-wasm-authz", Namespace: "istio-system", GroupVersionKind: gvk.TrafficExtension},
 					Spec: &extensions.TrafficExtension{
-						Phase: extensions.ExecutionPhase_EXECUTION_PHASE_AUTHZ,
+						Phase: extensions.TrafficExtension_AUTHZ,
 						FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
 							Url:  "oci://example.com/http-authz:v1",
 							Type: extensions.PluginType_HTTP,
@@ -4439,7 +4439,7 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 				{
 					Meta: config.Meta{Name: "extension-wasm-authn", Namespace: "istio-system", GroupVersionKind: gvk.TrafficExtension},
 					Spec: &extensions.TrafficExtension{
-						Phase: extensions.ExecutionPhase_EXECUTION_PHASE_AUTHN,
+						Phase: extensions.TrafficExtension_AUTHN,
 						FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
 							Url:  "oci://example.com/http-authn:v1",
 							Type: extensions.PluginType_HTTP,
@@ -4449,7 +4449,7 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 				{
 					Meta: config.Meta{Name: "extension-wasm-stats", Namespace: "istio-system", GroupVersionKind: gvk.TrafficExtension},
 					Spec: &extensions.TrafficExtension{
-						Phase: extensions.ExecutionPhase_EXECUTION_PHASE_STATS,
+						Phase: extensions.TrafficExtension_STATS,
 						FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
 							Url:  "oci://example.com/http-stats:v1",
 							Type: extensions.PluginType_HTTP,
@@ -4459,7 +4459,7 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 				{
 					Meta: config.Meta{Name: "extension-lua-authn", Namespace: "istio-system", GroupVersionKind: gvk.TrafficExtension},
 					Spec: &extensions.TrafficExtension{
-						Phase: extensions.ExecutionPhase_EXECUTION_PHASE_AUTHN,
+						Phase: extensions.TrafficExtension_AUTHN,
 						FilterConfig: &extensions.TrafficExtension_Lua{Lua: &extensions.LuaConfig{
 							InlineCode: "function envoy_on_request(request_handle) end",
 						}},
@@ -4468,7 +4468,7 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 				{
 					Meta: config.Meta{Name: "extension-lua-authz", Namespace: "istio-system", GroupVersionKind: gvk.TrafficExtension},
 					Spec: &extensions.TrafficExtension{
-						Phase: extensions.ExecutionPhase_EXECUTION_PHASE_AUTHZ,
+						Phase: extensions.TrafficExtension_AUTHZ,
 						FilterConfig: &extensions.TrafficExtension_Lua{Lua: &extensions.LuaConfig{
 							InlineCode: "function envoy_on_request(request_handle) end",
 						}},
@@ -4477,7 +4477,7 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 				{
 					Meta: config.Meta{Name: "extension-wasm-network-unspecified", Namespace: "istio-system", GroupVersionKind: gvk.TrafficExtension},
 					Spec: &extensions.TrafficExtension{
-						Phase: extensions.ExecutionPhase_EXECUTION_PHASE_UNSPECIFIED,
+						Phase: extensions.TrafficExtension_UNSPECIFIED,
 						FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
 							Url:  "oci://example.com/unspecified:v1",
 							Type: extensions.PluginType_NETWORK,
