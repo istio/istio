@@ -1,6 +1,6 @@
 module istio.io/istio
 
-go 1.25.7
+go 1.25.8
 
 require (
 	cloud.google.com/go/compute/metadata v0.9.0
