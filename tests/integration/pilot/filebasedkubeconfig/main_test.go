@@ -90,7 +90,7 @@ func createEmptyMountedKubeconfigSecrets(ctx resource.Context) error {
 		if err := ensureSystemNamespace(ctx, c); err != nil {
 			return err
 		}
-		if err := upsertMountedKubeconfigSecret(ctx, c, map[string][]byte{}); err != nil {
+		if err := upsertMountedKubeconfigSecret(c, map[string][]byte{}); err != nil {
 			return err
 		}
 	}
@@ -129,7 +129,7 @@ func populateMountedKubeconfigSecrets(ctx resource.Context) error {
 			}
 			data[kubeconfigFileKey(clusterName)] = kubeconfig
 		}
-		if err := upsertMountedKubeconfigSecret(ctx, primary, data); err != nil {
+		if err := upsertMountedKubeconfigSecret(primary, data); err != nil {
 			return err
 		}
 	}
@@ -158,7 +158,7 @@ func extractKubeconfig(secretManifest string) ([]byte, string, error) {
 	return nil, "", fmt.Errorf("expected one kubeconfig entry, got stringData=%d data=%d", len(generated.StringData), len(generated.Data))
 }
 
-func upsertMountedKubeconfigSecret(ctx resource.Context, c cluster.Cluster, data map[string][]byte) error {
+func upsertMountedKubeconfigSecret(c cluster.Cluster, data map[string][]byte) error {
 	secrets := c.Kube().CoreV1().Secrets(systemNamespace)
 	existing, err := secrets.Get(context.Background(), remoteKubeconfigSecretName, metav1.GetOptions{})
 	if apierrors.IsNotFound(err) {
