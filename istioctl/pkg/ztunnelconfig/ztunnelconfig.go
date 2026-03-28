@@ -309,7 +309,8 @@ func connectionsCmd(ctx cli.Context) *cobra.Command {
 				Raw:       raw,
 			}
 			if cw.TargetWorkload != nil {
-				filter.Workload = fmt.Sprintf("%s.%s", cw.TargetWorkload.Name, cw.TargetWorkload.Namespace)
+				filter.Workload = cw.TargetWorkload.Name
+				filter.Namespace = cw.TargetWorkload.Namespace
 			}
 			switch common.outputFormat {
 			case summaryOutput:

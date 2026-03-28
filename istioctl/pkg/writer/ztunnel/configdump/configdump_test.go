@@ -105,9 +105,15 @@ func TestConfigWriter_PrintSummary(t *testing.T) {
 			wantOutputConn: "testdata/connectionsummary.txt",
 		},
 		{
-			name:           "filtered connections by workload",
+			name:           "filtered connections by workload name.namespace",
 			connWorkload:   "productpage-v1-796f87b58-97bjk.bookinfo",
 			wantOutputConn: "testdata/connectionsummary_workload.txt",
+		},
+		{
+			name:            "filtered connections by workload and namespace",
+			connWorkload:    "productpage-v1-796f87b58-97bjk",
+			configNamespace: "bookinfo",
+			wantOutputConn:  "testdata/connectionsummary_workload.txt",
 		},
 		{
 			name:          "all",
@@ -146,7 +152,7 @@ func TestConfigWriter_PrintSummary(t *testing.T) {
 				util.CompareContent(t, gotOut.Bytes(), tt.wantOutputAllwithHeaders)
 			}
 			if tt.wantOutputConn != "" {
-				assert.NoError(t, cw.PrintConnectionsSummary(ConnectionsFilter{Workload: tt.connWorkload}))
+				assert.NoError(t, cw.PrintConnectionsSummary(ConnectionsFilter{Workload: tt.connWorkload, Namespace: tt.configNamespace}))
 				util.CompareContent(t, gotOut.Bytes(), tt.wantOutputConn)
 			}
 		})

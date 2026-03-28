@@ -31,11 +31,24 @@ type ConnectionsFilter struct {
 	Namespace string
 	Direction string
 	Raw       bool
-	// Workload filters connections to only those belonging to a specific workload (format: "name.namespace")
+	// Workload filters connections to only those belonging to a specific workload by pod name.
+	// Supports both "name" (with Namespace set separately) and "name.namespace" formats.
 	Workload string
 }
 
+// normalize parses a "name.namespace" Workload field into separate Workload and Namespace
+// when Namespace is not already set.
+func (f *ConnectionsFilter) normalize() {
+	if f.Workload != "" && f.Namespace == "" {
+		if parts := strings.SplitN(f.Workload, ".", 2); len(parts) == 2 {
+			f.Workload = parts[0]
+			f.Namespace = parts[1]
+		}
+	}
+}
+
 func (c *ConfigWriter) PrintConnectionsDump(filter ConnectionsFilter, outputFormat string) error {
+	filter.normalize()
 	d := c.ztunnelDump
 	workloads := maps.Values(d.WorkloadState)
 	workloads = slices.SortFunc(workloads, func(a, b WorkloadState) int {
@@ -49,8 +62,7 @@ func (c *ConfigWriter) PrintConnectionsDump(filter ConnectionsFilter, outputForm
 			return false
 		}
 		if filter.Workload != "" {
-			name := fmt.Sprintf("%s.%s", state.Info.Name, state.Info.Namespace)
-			if !strings.EqualFold(filter.Workload, name) {
+			if !strings.EqualFold(filter.Workload, state.Info.Name) {
 				return false
 			}
 		}
@@ -70,6 +82,7 @@ func (c *ConfigWriter) PrintConnectionsDump(filter ConnectionsFilter, outputForm
 }
 
 func (c *ConfigWriter) PrintConnectionsSummary(filter ConnectionsFilter) error {
+	filter.normalize()
 	w := c.tabwriter()
 	d := c.ztunnelDump
 	serviceNames := map[string]string{}
@@ -122,7 +135,7 @@ func (c *ConfigWriter) PrintConnectionsSummary(filter ConnectionsFilter) error {
 			continue
 		}
 		name := fmt.Sprintf("%s.%s", wl.Info.Name, wl.Info.Namespace)
-		if filter.Workload != "" && !strings.EqualFold(filter.Workload, name) {
+		if filter.Workload != "" && !strings.EqualFold(filter.Workload, wl.Info.Name) {
 			continue
 		}
 		if filter.Direction != "outbound" {
