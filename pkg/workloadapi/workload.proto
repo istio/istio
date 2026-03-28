@@ -93,6 +93,14 @@ message Service {
   // canonical marks this Service as taking priority during hostname lookups,
   // when there is not a match in the namespace of the client.
   bool canonical = 11;
+
+  // export_to defines the namespaces to which this service is visible.
+  // Follows Istio exportTo semantics:
+  //   "." means only the namespace where the service is defined.
+  //   "*" means all namespaces.
+  //   A specific namespace name means only that namespace.
+  // If empty, the service is visible to all namespaces (equivalent to ["*"]).
+  repeated string export_to = 12;
 }
 
 enum IPFamilies {

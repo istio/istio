@@ -70,7 +70,7 @@ func (a Builder) ServicesCollection(
 			}),
 		)...)
 
-	ServiceEntriesInfo := krt.NewManyCollection(serviceEntries, a.serviceEntryServiceBuilder(waypoints, namespaces),
+	ServiceEntriesInfo := krt.NewManyCollection(serviceEntries, a.serviceEntryServiceBuilder(waypoints, namespaces, meshConfig),
 		append(
 			opts.WithName("ServiceEntriesInfo"),
 			krt.WithMetadata(krt.Metadata{
@@ -462,6 +462,7 @@ func (t TypedServiceInfo) Equals(other TypedServiceInfo) bool {
 func (a Builder) serviceEntryServiceBuilder(
 	waypoints krt.Collection[Waypoint],
 	namespaces krt.Collection[*v1.Namespace],
+	meshConfig krt.Singleton[MeshConfig],
 ) krt.TransformationMulti[*networkingclient.ServiceEntry, TypedServiceInfo] {
 	return func(ctx krt.HandlerContext, s *networkingclient.ServiceEntry) []TypedServiceInfo {
 		waypoint, waypointError := fetchWaypointForService(ctx, waypoints, namespaces, s.ObjectMeta)
@@ -472,7 +473,9 @@ func (a Builder) serviceEntryServiceBuilder(
 			nsAnnotations = (*ns).Annotations
 		}
 
-		serviceInfos := serviceEntriesInfo(ctx, s, waypoint, waypointError, nsAnnotations, func(ctx krt.HandlerContext) network.ID {
+		meshCfg := krt.FetchOne(ctx, meshConfig.AsCollection())
+
+		serviceInfos := serviceEntriesInfo(ctx, s, waypoint, waypointError, nsAnnotations, meshCfg, func(ctx krt.HandlerContext) network.ID {
 			return a.Network(ctx)
 		})
 		return slices.Map(serviceInfos, func(si model.ServiceInfo) TypedServiceInfo {
@@ -487,6 +490,7 @@ func serviceEntriesInfo(
 	w *Waypoint,
 	wperr *model.StatusMessage,
 	nsAnnotations map[string]string,
+	meshCfg *MeshConfig,
 	networkGetter func(ctx krt.HandlerContext) network.ID,
 ) []model.ServiceInfo {
 	sel := model.NewSelector(s.Spec.GetWorkloadSelector().GetLabels())
@@ -514,7 +518,7 @@ func serviceEntriesInfo(
 		log.Warnf("ServiceEntry %s/%s has dynamic DNS resolution but no valid waypoint", s.Namespace, s.Name)
 	}
 
-	return slices.Map(constructServiceEntries(ctx, s, w, nsAnnotations, networkGetter), func(e *workloadapi.Service) model.ServiceInfo {
+	return slices.Map(constructServiceEntries(ctx, s, w, nsAnnotations, meshCfg, networkGetter), func(e *workloadapi.Service) model.ServiceInfo {
 		return precomputeService(model.ServiceInfo{
 			Service:       e,
 			PortNames:     portNames,
@@ -531,6 +535,7 @@ func constructServiceEntries(
 	svc *networkingclient.ServiceEntry,
 	w *Waypoint,
 	nsAnnotations map[string]string,
+	meshCfg *MeshConfig,
 	networkGetter func(ctx krt.HandlerContext) network.ID,
 ) []*workloadapi.Service {
 	var autoassignedHostAddresses map[string][]netip.Addr
@@ -583,6 +588,13 @@ func constructServiceEntries(
 		}
 	}
 
+	// Resolve effective exportTo: explicit on the ServiceEntry takes precedence,
+	// otherwise fall back to the mesh-wide default.
+	exportTo := svc.Spec.ExportTo
+	if len(exportTo) == 0 && meshCfg != nil && len(meshCfg.DefaultServiceExportTo) > 0 {
+		exportTo = meshCfg.DefaultServiceExportTo
+	}
+
 	// TODO this is only checking one controller - we may be missing service vips for instances in another cluster
 	res := make([]*workloadapi.Service, 0, len(svc.Spec.Hosts))
 	for _, h := range svc.Spec.Hosts {
@@ -613,6 +625,7 @@ func constructServiceEntries(
 			Waypoint:        w.GetAddress(),
 			SubjectAltNames: svc.Spec.SubjectAltNames,
 			LoadBalancing:   lb,
+			ExportTo:        exportTo,
 		})
 	}
 	return res
