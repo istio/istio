@@ -339,8 +339,8 @@ github.com/mitchellh/go-wordwrap v1.0.1 h1:TLuKupo69TCn6TQSyGxwI1EblZZEsQ0vMlAFQ
 github.com/mitchellh/go-wordwrap v1.0.1/go.mod h1:R62XHJLzvMFRBbcrT7m7WgmE1eOyTSsCt+hzestvNj0=
 github.com/mitchellh/reflectwalk v1.0.2 h1:G2LzWKi524PWgd3mLHV8Y5k7s6XUvT0Gef6zxSIeXaQ=
 github.com/mitchellh/reflectwalk v1.0.2/go.mod h1:mSTlrgnPZtwu0c4WaC2kGObEpuNDbx0jmZXqmk4esnw=
-github.com/moby/buildkit v0.28.0 h1:rKulfRRSduHJPNpLTk481fHElqN9tps0VUx8YV/5zsA=
-github.com/moby/buildkit v0.28.0/go.mod h1:RCuOcj/bVsCriBG8NeFzRxjiCFQKnKP7KOVlNTS18t4=
+github.com/moby/buildkit v0.28.1 h1:Tq6H6gOMU2JyEQ5rA0pa7Ey3VGNR3qpw90liSIpMQoo=
+github.com/moby/buildkit v0.28.1/go.mod h1:xO6wb9VBXszkIBxaGTLXc1rQORVQFIJRt3GSX7KzCFc=
 github.com/moby/spdystream v0.5.0 h1:7r0J1Si3QO/kjRitvSLVVFUjxMEb/YLj6S9FF62JBCU=
 github.com/moby/spdystream v0.5.0/go.mod h1:xBAYlnt/ay+11ShkdFKNAG7LsyK/tmNBVvVOwrfMgdI=
 github.com/moby/term v0.5.2 h1:6qk3FJAFDs6i/q3W/pQ97SX192qKfZgGjCQqfCJkgzQ=
