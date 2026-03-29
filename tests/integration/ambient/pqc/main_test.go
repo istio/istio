@@ -135,6 +135,9 @@ spec:
     mode: STRICT`
 			return ctx.ConfigIstio().YAML(i.Settings().SystemNamespace, peerAuthYaml).Apply(apply.Wait)
 		}).
+		SkipIf("K8s < 1.34 doesn't support PQC", func(ctx resource.Context) bool {
+			return ctx.Clusters().Default().MinKubeVersion(34)
+		}).
 		Run()
 }
 
