@@ -60,12 +60,32 @@ func listenOnAddressTLS(ip string, port int, cfg *tls.Config) (net.Listener, int
 			ipBind = "tcp4"
 		}
 	}
-	ln, err := tls.Listen(ipBind, net.JoinHostPort(ip, strconv.Itoa(port)), cfg)
+	tcpLn, err := net.Listen(ipBind, net.JoinHostPort(ip, strconv.Itoa(port)))
 	if err != nil {
 		return nil, 0, err
 	}
-	port = ln.Addr().(*net.TCPAddr).Port
+	// Wrap the TCP listener with a listener that enables lingering on accepted connections.
+	// This ensures TLS alerts are sent before connection close, so clients
+	// see "tls: handshake failure" instead of "connection reset by peer".
+	ln := tls.NewListener(&lingeringListener{Listener: tcpLn}, cfg)
+	port = tcpLn.Addr().(*net.TCPAddr).Port
 	return ln, port, nil
+}
+
+// lingeringListener wraps a net.Listener and enables TCP lingering on accepted connections.
+type lingeringListener struct {
+	net.Listener
+}
+
+func (l *lingeringListener) Accept() (net.Conn, error) {
+	c, err := l.Listener.Accept()
+	if err != nil {
+		return nil, err
+	}
+	if tc, ok := c.(*net.TCPConn); ok {
+		_ = tc.SetLinger(1)
+	}
+	return c, nil
 }
 
 func listenOnUDS(uds string) (net.Listener, error) {
