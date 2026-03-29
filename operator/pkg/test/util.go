@@ -51,10 +51,14 @@ func FilterManifest(t test.Failer, ms string, selectResources string) string {
 
 // buildResourceRegexp translates the resource indicator to regexp.
 func buildResourceRegexp(s string) (*regexp.Regexp, error) {
-	hash := strings.Split(s, ":")
-	for i, v := range hash {
-		if v == "" || v == "*" {
-			hash[i] = ".*"
+	var hash []string
+	for _, v := range strings.Split(s, ":") {
+		switch v {
+		case "":
+		case "*":
+			hash = append(hash, ".*")
+		default:
+			hash = append(hash, v)
 		}
 	}
 	return regexp.Compile(strings.Join(hash, ":"))

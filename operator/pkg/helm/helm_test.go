@@ -250,6 +250,20 @@ func TestRender(t *testing.T) {
 			chartName:   "base",
 			diffSelect:  "ValidatingWebhookConfiguration:*:istiod-default-validator",
 		},
+		{
+			desc:        "base-clusterroles",
+			releaseName: "istio-base",
+			namespace:   "istio-system",
+			chartName:   "base",
+			diffSelect:  "ClusterRole::istio-view,ClusterRole::istio-edit",
+		},
+		{
+			desc:        "base-clusterroles-aggregation",
+			releaseName: "istio-base",
+			namespace:   "istio-system",
+			chartName:   "base",
+			diffSelect:  "ClusterRole::istio-view,ClusterRole::istio-edit",
+		},
 	}
 
 	for _, tc := range cases {

@@ -1,0 +1,53 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: istio-edit
+  labels:
+    app: istio
+    release: istio-base
+    app.kubernetes.io/name: "istio"
+    app.kubernetes.io/managed-by: "Helm"
+    app.kubernetes.io/instance: "istio-base"
+    app.kubernetes.io/part-of: "istio"
+    app.kubernetes.io/version: "1.0.0"
+    helm.sh/chart: base-1.0.0
+rules:
+  - apiGroups:
+      - networking.istio.io
+      - security.istio.io
+      - telemetry.istio.io
+      - extensions.istio.io
+    resources:
+      - "*"
+    verbs:
+      - create
+      - update
+      - patch
+      - delete
+      - deletecollection
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: istio-view
+  labels:
+    app: istio
+    release: istio-base
+    app.kubernetes.io/name: "istio"
+    app.kubernetes.io/managed-by: "Helm"
+    app.kubernetes.io/instance: "istio-base"
+    app.kubernetes.io/part-of: "istio"
+    app.kubernetes.io/version: "1.0.0"
+    helm.sh/chart: base-1.0.0
+rules:
+  - apiGroups:
+      - networking.istio.io
+      - security.istio.io
+      - telemetry.istio.io
+      - extensions.istio.io
+    resources:
+      - "*"
+    verbs:
+      - get
+      - list
+      - watch
