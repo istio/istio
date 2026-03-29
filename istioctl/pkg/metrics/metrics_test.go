@@ -101,24 +101,29 @@ var _ promv1.API = mockPromAPI{}
 func TestPrintMetrics(t *testing.T) {
 	mockProm := mockPromAPI{
 		cannedResponse: map[string]prometheus_model.Value{
-			"sum(rate(istio_requests_total{destination_workload=~\"details.*\", destination_workload_namespace=~\".*\",reporter=\"destination\"}[1m0s]))": prometheus_model.Vector{ // nolint: lll
+			"sum(rate(istio_requests_total{destination_workload=~\"details.*\",destination_workload_namespace=~\".*\",reporter=\"destination\"}[1m0s]))": prometheus_model.Vector{ // nolint: lll
 				&prometheus_model.Sample{Value: 0.04},
 			},
-			"sum(rate(istio_requests_total{destination_workload=~\"details.*\", destination_workload_namespace=~\".*\",reporter=\"destination\",response_code=~\"[45][0-9]{2}\"}[1m0s]))": prometheus_model.Vector{}, // nolint: lll
-			"histogram_quantile(0.500000, sum(rate(istio_request_duration_milliseconds_bucket{destination_workload=~\"details.*\", destination_workload_namespace=~\".*\",reporter=\"destination\"}[1m0s])) by (le))": prometheus_model.Vector{ // nolint: lll
+			"sum(rate(istio_requests_total{destination_workload=~\"details.*\",destination_workload_namespace=~\".*\",reporter=\"destination\",response_code=~\"[45][0-9]{2}\"}[1m0s]))": prometheus_model.Vector{}, // nolint: lll
+			"histogram_quantile(0.500000, sum(rate(istio_request_duration_milliseconds_bucket{destination_workload=~\"details.*\",destination_workload_namespace=~\".*\",reporter=\"destination\"}[1m0s])) by (le))": prometheus_model.Vector{ // nolint: lll
 				&prometheus_model.Sample{Value: 2.5},
 			},
-			"histogram_quantile(0.900000, sum(rate(istio_request_duration_milliseconds_bucket{destination_workload=~\"details.*\", destination_workload_namespace=~\".*\",reporter=\"destination\"}[1m0s])) by (le))": prometheus_model.Vector{ // nolint: lll
+			"histogram_quantile(0.900000, sum(rate(istio_request_duration_milliseconds_bucket{destination_workload=~\"details.*\",destination_workload_namespace=~\".*\",reporter=\"destination\"}[1m0s])) by (le))": prometheus_model.Vector{ // nolint: lll
 				&prometheus_model.Sample{Value: 4.5},
 			},
-			"histogram_quantile(0.990000, sum(rate(istio_request_duration_milliseconds_bucket{destination_workload=~\"details.*\", destination_workload_namespace=~\".*\",reporter=\"destination\"}[1m0s])) by (le))": prometheus_model.Vector{ // nolint: lll
+			"histogram_quantile(0.990000, sum(rate(istio_request_duration_milliseconds_bucket{destination_workload=~\"details.*\",destination_workload_namespace=~\".*\",reporter=\"destination\"}[1m0s])) by (le))": prometheus_model.Vector{ // nolint: lll
 				&prometheus_model.Sample{Value: 4.95},
 			},
 		},
 	}
 	workload := "details"
 
-	sm, err := metrics(mockProm, workload, time.Minute)
+	query, err := buildMetricsQuery(workload, "", "")
+	if err != nil {
+		t.Fatalf("Unwanted exception %v", err)
+	}
+
+	sm, err := metrics(mockProm, query, time.Minute)
 	if err != nil {
 		t.Fatalf("Unwanted exception %v", err)
 	}
@@ -133,6 +138,52 @@ func TestPrintMetrics(t *testing.T) {
 `
 	if output != expectedOutput {
 		t.Fatalf("Unexpected output; got:\n %q\nwant:\n %q", output, expectedOutput)
+	}
+}
+
+func TestMetricsFilters(t *testing.T) {
+	mockProm := mockPromAPI{
+		cannedResponse: map[string]prometheus_model.Value{
+			"sum(rate(istio_requests_total{destination_workload=~\"details.*\",destination_workload_namespace=~\"bookinfo.*\",reporter=\"destination\",destination_service_name=~\"details.*\",destination_service_namespace=~\"bookinfo.*\",response_code=~\"200|429|500\"}[1m0s]))": prometheus_model.Vector{ // nolint: lll
+				&prometheus_model.Sample{Value: 0.07},
+			},
+			"sum(rate(istio_requests_total{destination_workload=~\"details.*\",destination_workload_namespace=~\"bookinfo.*\",reporter=\"destination\",destination_service_name=~\"details.*\",destination_service_namespace=~\"bookinfo.*\",response_code=~\"200|429|500\",response_code=~\"[45][0-9]{2}\"}[1m0s]))": prometheus_model.Vector{ // nolint: lll
+				&prometheus_model.Sample{Value: 0.02},
+			},
+			"histogram_quantile(0.500000, sum(rate(istio_request_duration_milliseconds_bucket{destination_workload=~\"details.*\",destination_workload_namespace=~\"bookinfo.*\",reporter=\"destination\",destination_service_name=~\"details.*\",destination_service_namespace=~\"bookinfo.*\",response_code=~\"200|429|500\"}[1m0s])) by (le))": prometheus_model.Vector{ // nolint: lll
+				&prometheus_model.Sample{Value: 3.5},
+			},
+			"histogram_quantile(0.900000, sum(rate(istio_request_duration_milliseconds_bucket{destination_workload=~\"details.*\",destination_workload_namespace=~\"bookinfo.*\",reporter=\"destination\",destination_service_name=~\"details.*\",destination_service_namespace=~\"bookinfo.*\",response_code=~\"200|429|500\"}[1m0s])) by (le))": prometheus_model.Vector{ // nolint: lll
+				&prometheus_model.Sample{Value: 6.5},
+			},
+			"histogram_quantile(0.990000, sum(rate(istio_request_duration_milliseconds_bucket{destination_workload=~\"details.*\",destination_workload_namespace=~\"bookinfo.*\",reporter=\"destination\",destination_service_name=~\"details.*\",destination_service_namespace=~\"bookinfo.*\",response_code=~\"200|429|500\"}[1m0s])) by (le))": prometheus_model.Vector{ // nolint: lll
+				&prometheus_model.Sample{Value: 9.5},
+			},
+		},
+	}
+
+	query, err := buildMetricsQuery("details.bookinfo", "details.bookinfo", "200|429|500")
+	if err != nil {
+		t.Fatalf("Unwanted exception %v", err)
+	}
+
+	sm, err := metrics(mockProm, query, time.Minute)
+	if err != nil {
+		t.Fatalf("Unwanted exception %v", err)
+	}
+
+	if sm.totalRPS != 0.07 || sm.errorRPS != 0.02 {
+		t.Fatalf("unexpected rates: %+v", sm)
+	}
+	if sm.p50Latency != 3*time.Millisecond || sm.p90Latency != 6*time.Millisecond || sm.p99Latency != 9*time.Millisecond {
+		t.Fatalf("unexpected latencies: %+v", sm)
+	}
+}
+
+func TestBuildMetricsQueryInvalidResponseCode(t *testing.T) {
+	_, err := buildMetricsQuery("details", "", "[")
+	if err == nil || !strings.Contains(err.Error(), "invalid response code regex") {
+		t.Fatalf("expected invalid response code regex error, got %v", err)
 	}
 }
 
