@@ -3157,6 +3157,65 @@ func TestOutboundListenerConfig_WithAutoAllocatedAddress(t *testing.T) {
 	}
 }
 
+func TestOutboundListenerConfig_TCPDNSWithoutDNSCapture(t *testing.T) {
+	const tcpPort = 443
+	service := &model.Service{
+		CreationTime:             tnow.Add(1 * time.Second),
+		Hostname:                 host.Name("google.com"),
+		DefaultAddress:           wildcardIPv4,
+		AutoAllocatedIPv4Address: "240.240.0.21",
+		Ports: model.PortList{
+			&model.Port{
+				Name:     "tcp",
+				Port:     tcpPort,
+				Protocol: protocol.TCP,
+			},
+		},
+		Resolution: model.DNSLB,
+		Attributes: model.ServiceAttributes{
+			Namespace: "default",
+		},
+	}
+
+	tests := []struct {
+		name              string
+		dnsCaptureEnabled bool
+		wantListeners     int
+	}{
+		{
+			name:              "DNS_CAPTURE disabled: listener should be skipped to prevent default_filter_chain hijack",
+			dnsCaptureEnabled: false,
+			wantListeners:     0,
+		},
+		{
+			name:              "DNS_CAPTURE enabled: per-VIP listener should be created",
+			dnsCaptureEnabled: true,
+			wantListeners:     1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			proxy := getProxy()
+			proxy.Metadata.DNSCapture = model.StringBool(tt.dnsCaptureEnabled)
+			proxy.Metadata.DNSAutoAllocate = model.StringBool(tt.dnsCaptureEnabled)
+
+			listeners := buildOutboundListeners(t, proxy, nil, nil, service)
+
+			var count int
+			for _, l := range listeners {
+				if l.Address.GetSocketAddress().GetPortValue() == tcpPort {
+					count++
+				}
+			}
+
+			if count != tt.wantListeners {
+				t.Errorf("expected %d listeners on port %d, got %d", tt.wantListeners, tcpPort, count)
+			}
+		})
+	}
+}
+
 func TestListenerTransportSocketConnectTimeoutForSidecar(t *testing.T) {
 	cases := []struct {
 		name            string

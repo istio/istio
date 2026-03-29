@@ -44,10 +44,14 @@ func (serviceEntry *ProtocolAddressesAnalyzer) Metadata() analysis.Metadata {
 }
 
 func (serviceEntry *ProtocolAddressesAnalyzer) Analyze(context analysis.Context) {
+	dnsCapture := false
 	autoAllocated := false
 	context.ForEach(gvk.MeshConfig, func(r *resource.Instance) bool {
 		mc := r.Message.(*meshconfig.MeshConfig)
-		if v, ok := mc.DefaultConfig.ProxyMetadata["ISTIO_META_DNS_CAPTURE"]; !ok || v != "true" {
+		if v, ok := mc.DefaultConfig.ProxyMetadata["ISTIO_META_DNS_CAPTURE"]; ok && v == "true" {
+			dnsCapture = true
+		}
+		if !dnsCapture {
 			return true
 		}
 		if v, ok := mc.DefaultConfig.ProxyMetadata["ISTIO_META_DNS_AUTO_ALLOCATE"]; ok && v == "true" {
@@ -60,24 +64,32 @@ func (serviceEntry *ProtocolAddressesAnalyzer) Analyze(context analysis.Context)
 	})
 
 	context.ForEach(gvk.ServiceEntry, func(resource *resource.Instance) bool {
-		serviceEntry.analyzeProtocolAddresses(resource, context, autoAllocated)
+		serviceEntry.analyzeProtocolAddresses(resource, context, dnsCapture, autoAllocated)
 		return true
 	})
 }
 
-func (serviceEntry *ProtocolAddressesAnalyzer) analyzeProtocolAddresses(r *resource.Instance, ctx analysis.Context, metaDNSAutoAllocated bool) {
+func (serviceEntry *ProtocolAddressesAnalyzer) analyzeProtocolAddresses(r *resource.Instance, ctx analysis.Context, dnsCapture bool, metaDNSAutoAllocated bool) {
 	se := r.Message.(*v1alpha3.ServiceEntry)
-	if se.Addresses == nil && !addressAllocated(r) && !metaDNSAutoAllocated {
-		for index, port := range se.Ports {
-			if port.Protocol == "" || strings.EqualFold(port.Protocol, "TCP") {
-				message := msg.NewServiceEntryAddressesRequired(r)
+	if se.Addresses != nil {
+		return
+	}
+	// Auto-allocated VIPs in status.addresses are only reflected in per-VIP listener
+	// generation when DNS_CAPTURE is enabled. Without DNS_CAPTURE, the service falls
+	// into the default_filter_chain of the 0.0.0.0_PORT wildcard listener, causing
+	// all traffic on that port to be intercepted unintentionally.
+	if dnsCapture && (metaDNSAutoAllocated || addressAllocated(r)) {
+		return
+	}
+	for index, port := range se.Ports {
+		if port.Protocol == "" || strings.EqualFold(port.Protocol, "TCP") {
+			message := msg.NewServiceEntryAddressesRequired(r)
 
-				if line, ok := util.ErrorLine(r, fmt.Sprintf(util.ServiceEntryPort, index)); ok {
-					message.Line = line
-				}
-
-				ctx.Report(gvk.ServiceEntry, message)
+			if line, ok := util.ErrorLine(r, fmt.Sprintf(util.ServiceEntryPort, index)); ok {
+				message.Line = line
 			}
+
+			ctx.Report(gvk.ServiceEntry, message)
 		}
 	}
 }

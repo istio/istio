@@ -840,6 +840,25 @@ func (lb *ListenerBuilder) buildSidecarOutboundListener(listenerOpts outboundLis
 		if listenerOpts.bind.Primary() == "" { // TODO: make this better
 			svcListenAddress := listenerOpts.service.GetAddressForProxy(listenerOpts.proxy)
 			svcExtraListenAddresses := listenerOpts.service.GetExtraAddressesForProxy(listenerOpts.proxy)
+			// A TCP ServiceEntry with DNS resolution (DNS or DNS_ROUND_ROBIN) and no addresses
+			// will fall into the default_filter_chain of the 0.0.0.0_PORT wildcard listener,
+			// intercepting ALL traffic on that port unintentionally. The default_filter_chain
+			// is intended solely for PassthroughCluster/BlackHoleCluster, not for specific
+			// services. Without DNS_CAPTURE, auto-allocated VIPs are not used for listener
+			// binding, so there is no way to create a proper per-service filter chain. Skip
+			// listener generation and log an error so the misconfiguration is visible. The
+			// user should either set spec.addresses or enable ISTIO_META_DNS_CAPTURE.
+			if svcListenAddress == constants.UnspecifiedIP &&
+				(listenerOpts.service.Resolution == model.DNSLB || listenerOpts.service.Resolution == model.DNSRoundRobinLB) &&
+				listenerPortProtocol.IsTCP() &&
+				!model.NodeUsesAutoallocatedIPs(listenerOpts.proxy) {
+				log.Errorf("ServiceEntry %s has TCP protocol with DNS resolution but no addresses, "+
+					"and ISTIO_META_DNS_CAPTURE is not enabled on proxy %s. "+
+					"Listener generation skipped to prevent intercepting all traffic on port %d. "+
+					"Set ISTIO_META_DNS_CAPTURE=true or add spec.addresses to fix this.",
+					listenerOpts.service.Hostname, listenerOpts.proxy.ID, listenerOpts.port.Port)
+				return
+			}
 			// Override the svcListenAddress, using the proxy ipFamily, for cases where the ipFamily cannot be detected easily.
 			// For example: due to the possibility of using hostnames instead of ips in ServiceEntry,
 			// it is hard to detect ipFamily for such services.

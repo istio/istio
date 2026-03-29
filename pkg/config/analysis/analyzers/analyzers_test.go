@@ -1048,6 +1048,14 @@ var testGrid = []testCase{
 		analyzer:       &serviceentry.ProtocolAddressesAnalyzer{},
 		expected:       []message{},
 	},
+	{
+		name:       "ServiceEntry Addresses Allocated but DNS Capture disabled",
+		inputFiles: []string{"testdata/serviceentry-address-allocated-no-dns-capture.yaml"},
+		analyzer:   &serviceentry.ProtocolAddressesAnalyzer{},
+		expected: []message{
+			{msg.ServiceEntryAddressesRequired, "ServiceEntry address-allocated-no-dns-capture"},
+		},
+	},
 }
 
 // regex patterns for analyzer names that should be explicitly ignored for testing
