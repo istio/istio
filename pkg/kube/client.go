@@ -202,6 +202,9 @@ type CLIClient interface {
 	// PodLogs retrieves the logs for the given pod.
 	PodLogs(ctx context.Context, podName string, podNamespace string, container string, previousLog bool) (string, error)
 
+	// PodLogsWithOptions retrieves the logs for the given pod with additional options like tail lines and since time.
+	PodLogsWithOptions(ctx context.Context, podName string, podNamespace string, opts *v1.PodLogOptions) (string, error)
+
 	// PodLogsFollow retrieves the logs for the given pod, following until the pod log stream is interrupted
 	PodLogsFollow(ctx context.Context, podName string, podNamespace string, container string) (string, error)
 
@@ -988,6 +991,10 @@ func (c *client) PodLogs(ctx context.Context, podName, podNamespace, container s
 		Container: container,
 		Previous:  previousLog,
 	}
+	return c.PodLogsWithOptions(ctx, podName, podNamespace, opts)
+}
+
+func (c *client) PodLogsWithOptions(ctx context.Context, podName, podNamespace string, opts *v1.PodLogOptions) (string, error) {
 	res, err := c.kube.CoreV1().Pods(podNamespace).GetLogs(podName, opts).Stream(ctx)
 	if err != nil {
 		return "", err
@@ -1008,18 +1015,7 @@ func (c *client) PodLogsFollow(ctx context.Context, podName, podNamespace, conta
 		Previous:  false,
 		Follow:    true,
 	}
-	res, err := c.kube.CoreV1().Pods(podNamespace).GetLogs(podName, opts).Stream(ctx)
-	if err != nil {
-		return "", err
-	}
-	defer closeQuietly(res)
-
-	builder := &strings.Builder{}
-	if _, err = io.Copy(builder, res); err != nil {
-		return "", err
-	}
-
-	return builder.String(), nil
+	return c.PodLogsWithOptions(ctx, podName, podNamespace, opts)
 }
 
 func (c *client) AllDiscoveryDo(ctx context.Context, istiodNamespace, path string) (map[string][]byte, error) {
