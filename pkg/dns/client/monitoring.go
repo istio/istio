@@ -34,6 +34,11 @@ var (
 		"Total number of DNS failures.",
 	)
 
+	blockedQueries = monitoring.NewSum(
+		"dns_blocked_queries_total",
+		"Total number of DNS queries blocked by type.",
+	)
+
 	requestDuration = monitoring.NewDistribution(
 		"dns_upstream_request_duration_seconds",
 		"Total time in seconds Istio takes to get DNS response from upstream.",

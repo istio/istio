@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+  - |
+    **Added** (non-ambient) `DNS_BLOCKED_QUERY_TYPES` environment variable to the istio-agent, allowing operators to specify
+    a comma-separated list of DNS query types (e.g. `SRV,TXT,PTR`) that should be blocked at the local DNS server
+    (smartDNS) rather than forwarded upstream. Blocked queries return an empty authoritative NOERROR response.
+    This prevents unnecessary upstream DNS traffic and avoids NXDOMAIN or empty NOERROR responses from CoreDNS
+    for query types that are not relevant to the application.
