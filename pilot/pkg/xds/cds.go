@@ -20,6 +20,8 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/jwt"
+	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -29,24 +31,21 @@ type CdsGenerator struct {
 
 var _ model.XdsDeltaResourceGenerator = &CdsGenerator{}
 
-// Map of all configs that do not impact CDS
-var skippedCdsConfigs = sets.New(
-	kind.Gateway,
-	kind.WorkloadEntry,
-	kind.WorkloadGroup,
-	kind.AuthorizationPolicy,
-	kind.RequestAuthentication,
-	kind.Secret,
-	kind.Telemetry,
-	kind.WasmPlugin,
-	kind.ProxyConfig,
-	kind.DNSName,
+// Map of all configs that impact CDS
+// CDS is also affected by other global resources, but these always trigger a Forced push.
+var cdsAffectingConfigs = sets.New(
+	kind.ServiceEntry,
+	kind.DestinationRule,
+	kind.PeerAuthentication,
+	kind.VirtualService,
+	kind.EnvoyFilter,
+	kind.Sidecar,
 )
 
-// Map all configs that impact CDS for gateways when `PILOT_FILTER_GATEWAY_CLUSTER_CONFIG = true`.
+// Map all aditional configs that impact CDS for gateways.
+// Gateway resources can impact VirtualService selection and so should need a push.
 var pushCdsGatewayConfig = func() sets.Set[kind.Kind] {
 	s := sets.New(
-		kind.VirtualService,
 		kind.Gateway,
 	)
 	if features.JwksFetchMode != jwt.Istiod {
@@ -77,22 +76,14 @@ func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) (*model.PushReques
 				// Do the check outside of the loop since its slow; just trigger we need it
 				checkGateway = true
 			}
-			if features.FilterGatewayClusterConfig {
-				if _, f := pushCdsGatewayConfig[config.Kind]; f {
-					relevantUpdates.Insert(config)
-					continue
-				}
-			}
-			if config.Kind == kind.VirtualService {
-				// We largely don't use VirtualService for CDS building. However, we do use it as part of Sidecar scoping, which
-				// implicitly includes VS destinations.
-				// Since Routers do not use Sidecar, though, we can skip for Router.
-				filtered = true
+
+			if _, f := pushCdsGatewayConfig[config.Kind]; f {
+				relevantUpdates.Insert(config)
 				continue
 			}
 		}
 
-		if _, f := skippedCdsConfigs[config.Kind]; !f {
+		if cdsAffectingConfigs.Contains(config.Kind) {
 			relevantUpdates.Insert(config)
 		} else {
 			// we filtered a config
@@ -105,7 +96,7 @@ func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) (*model.PushReques
 	if checkGateway {
 		autoPassthroughModeChanged := proxy.MergedGateway.HasAutoPassthroughGateways() != proxy.PrevMergedGateway.HasAutoPassthroughGateway()
 		autoPassthroughHostsChanged := !proxy.MergedGateway.GetAutoPassthroughGatewaySNIHosts().Equals(proxy.PrevMergedGateway.GetAutoPassthroughSNIHosts())
-		if autoPassthroughModeChanged || autoPassthroughHostsChanged {
+		if autoPassthroughModeChanged || autoPassthroughHostsChanged || gatewayNamesChanged(proxy) {
 			needsPush = true
 		}
 	}
@@ -117,6 +108,17 @@ func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) (*model.PushReques
 	}
 
 	return req, needsPush || len(req.ConfigsUpdated) > 0
+}
+
+func gatewayNamesChanged(proxy *model.Proxy) bool {
+	if proxy.MergedGateway == nil {
+		return true
+	}
+
+	return proxy.PrevMergedGateway != nil && !slices.EqualUnordered(
+		maps.Values(proxy.MergedGateway.GatewayNameForServer),
+		maps.Values(proxy.PrevMergedGateway.GatewayNameForServer),
+	)
 }
 
 func (c CdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
