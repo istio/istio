@@ -348,6 +348,39 @@ func TestValidateRootHTTPRoute(t *testing.T) {
 				},
 			}},
 		}, valid: true},
+		{name: "path template uri match", route: &networking.HTTPRoute{
+			Delegate: &networking.Delegate{
+				Name:      "test",
+				Namespace: "test",
+			},
+			Match: []*networking.HTTPMatchRequest{{
+				Uri: &networking.StringMatch{
+					MatchType: &networking.StringMatch_PathTemplate{PathTemplate: "/users/{*}/orders/{**}"},
+				},
+			}},
+		}, valid: true},
+		{name: "invalid path template uri match with multiple {**}", route: &networking.HTTPRoute{
+			Delegate: &networking.Delegate{
+				Name:      "test",
+				Namespace: "test",
+			},
+			Match: []*networking.HTTPMatchRequest{{
+				Uri: &networking.StringMatch{
+					MatchType: &networking.StringMatch_PathTemplate{PathTemplate: "/users/{**}/{**}"},
+				},
+			}},
+		}, valid: false},
+		{name: "path template on non-uri field is invalid", route: &networking.HTTPRoute{
+			Delegate: &networking.Delegate{
+				Name:      "test",
+				Namespace: "test",
+			},
+			Match: []*networking.HTTPMatchRequest{{
+				Method: &networking.StringMatch{
+					MatchType: &networking.StringMatch_PathTemplate{PathTemplate: "/users/{*}"},
+				},
+			}},
+		}, valid: false},
 		{
 			name: "prefix queryParams match", route: &networking.HTTPRoute{
 				Delegate: &networking.Delegate{

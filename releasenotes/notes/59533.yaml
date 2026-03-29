@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 59533
+
+releaseNotes:
+- |
+  **Added** support for `pathTemplate` URI matching in VirtualService `HTTPMatchRequest`, using `{*}` (matches one path segment) and `{**}` (matches one or more path segments) operators. This is backed by Envoy's URI template path matching extension and is consistent with the existing `pathTemplate` support in `AuthorizationPolicy`. See https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/path/match/uri_template/v3/uri_template_match.proto

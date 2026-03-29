@@ -44,6 +44,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/telemetry"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authz "istio.io/istio/pilot/pkg/security/authz/model"
+	authmatcher "istio.io/istio/pilot/pkg/security/authz/matcher"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -1107,6 +1108,13 @@ func TranslateRouteMatch(vs config.Config, in *networking.HTTPMatchRequest) *rou
 			out.PathSpecifier = &route.RouteMatch_SafeRegex{
 				SafeRegex: &matcher.RegexMatcher{
 					Regex: m.Regex,
+				},
+			}
+		case *networking.StringMatch_PathTemplate:
+			out.PathSpecifier = &route.RouteMatch_PathMatchPolicy{
+				PathMatchPolicy: &core.TypedExtensionConfig{
+					Name:        "envoy.path.match.uri_template.uri_template_matcher",
+					TypedConfig: protoconv.MessageToAny(authmatcher.PathTemplateMatcher(m.PathTemplate)),
 				},
 			}
 		}

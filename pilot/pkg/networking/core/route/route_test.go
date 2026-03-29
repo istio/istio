@@ -1210,6 +1210,26 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		}))
 	})
 
+	t.Run("for URI path template match", func(t *testing.T) {
+		g := NewWithT(t)
+		cg := core.NewConfigGenTest(t, core.TestOptions{})
+
+		routeOptsWithPush := routeOpts
+		routeOptsWithPush.Push = cg.PushContext()
+		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg),
+			virtualServiceWithPathTemplateMatch,
+			8080, gatewayNames, routeOptsWithPush)
+		xdstest.ValidateRoutes(t, routes)
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(len(routes)).To(Equal(1))
+
+		// Verify the route match uses PathMatchPolicy (URI template extension)
+		pathMatchPolicy, ok := routes[0].Match.PathSpecifier.(*envoyroute.RouteMatch_PathMatchPolicy)
+		g.Expect(ok).To(BeTrue(), "expected PathMatchPolicy specifier for path template match")
+		g.Expect(pathMatchPolicy.PathMatchPolicy.Name).To(Equal("envoy.path.match.uri_template.uri_template_matcher"))
+		g.Expect(pathMatchPolicy.PathMatchPolicy.TypedConfig).NotTo(BeNil())
+	})
+
 	t.Run("for host rewrite with XForwardedHost enabled", func(t *testing.T) {
 		g := NewWithT(t)
 		cg := core.NewConfigGenTest(t, core.TestOptions{})
@@ -2380,6 +2400,39 @@ var virtualServiceWithPathRegexMatchRegexRewrite = config.Config{
 					UriRegexRewrite: &networking.RegexRewrite{
 						Match:   "^/service/([^/]+)(/.*)$",
 						Rewrite: "\\2/instance/\\1",
+					},
+				},
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "foo.example.org",
+						},
+						Weight: 100,
+					},
+				},
+			},
+		},
+	},
+}
+
+var virtualServiceWithPathTemplateMatch = config.Config{
+	Meta: config.Meta{
+		GroupVersionKind: gvk.VirtualService,
+		Name:             "acme",
+	},
+	Spec: &networking.VirtualService{
+		Hosts:    []string{},
+		Gateways: []string{"some-gateway"},
+		Http: []*networking.HTTPRoute{
+			{
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Name: "path-template",
+						Uri: &networking.StringMatch{
+							MatchType: &networking.StringMatch_PathTemplate{
+								PathTemplate: "/users/{*}/orders/{**}",
+							},
+						},
 					},
 				},
 				Route: []*networking.HTTPRouteDestination{
