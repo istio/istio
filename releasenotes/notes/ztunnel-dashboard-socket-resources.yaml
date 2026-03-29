@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+
+kind: feature
+
+area: telemetry
+
+releaseNotes:
+- |
+  **Added** a Resource Usage panel to the Ztunnel Grafana dashboard overlaying active TCP connections, open file descriptors, and open sockets per instance.
