@@ -12,7 +12,7 @@ opentelemetry-sdk==1.32.1
 opentelemetry-semantic-conventions==0.53b1
 opentelemetry-util-http==0.53b1
 prometheus-client==0.21.1
-requests==2.32.3
+requests==2.33.0
 simplejson==3.20.1
 urllib3==2.4.0
 gunicorn==23.0.0
