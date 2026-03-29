@@ -88,6 +88,30 @@ func TestParseJwksURI(t *testing.T) {
 	}
 }
 
+func TestCheckWildcardValues(t *testing.T) {
+	cases := []struct {
+		name      string
+		values    []string
+		wantError bool
+	}{
+		{name: "exact", values: []string{"foo"}},
+		{name: "presence", values: []string{"*"}},
+		{name: "prefix", values: []string{"foo*"}},
+		{name: "suffix", values: []string{"*foo"}},
+		{name: "empty", values: []string{""}, wantError: true},
+		{name: "middle wildcard", values: []string{"fo*-bar"}, wantError: true},
+		{name: "multiple wildcards", values: []string{"fo*bar*"}, wantError: true},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			err := security.CheckWildcardValues("key", c.values)
+			if c.wantError == (err == nil) {
+				t.Fatalf("CheckWildcardValues(%v): want error (%v) but got (%v)", c.values, c.wantError, err)
+			}
+		})
+	}
+}
+
 func TestValidateCondition(t *testing.T) {
 	cases := []struct {
 		key       string
@@ -161,6 +185,37 @@ func TestValidateCondition(t *testing.T) {
 		{
 			key:    "source.serviceAccount",
 			values: []string{"sa"},
+		},
+		{
+			key:    "source.trustDomain",
+			values: []string{"cluster.local"},
+		},
+		{
+			key:    "source.trustDomain",
+			values: []string{"*"},
+		},
+		{
+			key:    "source.trustDomain",
+			values: []string{"foo*"},
+		},
+		{
+			key:    "source.trustDomain",
+			values: []string{"*bar"},
+		},
+		{
+			key:       "source.trustDomain",
+			values:    []string{"fo*-bar"},
+			wantError: true,
+		},
+		{
+			key:       "source.trustDomain",
+			values:    []string{"fo*bar*"},
+			wantError: true,
+		},
+		{
+			key:       "source.trustDomain",
+			values:    []string{""},
+			wantError: true,
 		},
 		{
 			key:    "request.auth.principal",

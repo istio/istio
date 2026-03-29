@@ -1,0 +1,56 @@
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: {{ .To.ServiceName }}
+spec:
+  selector:
+    matchLabels:
+      "app": "{{ .To.ServiceName }}"
+  action: ALLOW
+  rules:
+    - to:
+        - operation: # HTTP - allow from cluster.local
+            ports: [ "{{ (.To.PortForName `http`).WorkloadPort }}", "{{ (.To.PortForName `http2`).WorkloadPort }}" ]
+            paths: [ "/allow" ]
+            methods: [ "GET" ]
+      from:
+        - source:
+            trustDomains: [ "cluster.local" ]
+    - to:
+        - operation: # HTTP - never matches (wrong trust domain)
+            ports: [ "{{ (.To.PortForName `http`).WorkloadPort }}", "{{ (.To.PortForName `http2`).WorkloadPort }}" ]
+            paths: [ "/deny" ]
+            methods: [ "GET" ]
+      from:
+        - source:
+            trustDomains: [ "bad.example.com" ]
+    - to:
+        - operation: # HTTP - never matches (cluster.local is excluded)
+            ports: [ "{{ (.To.PortForName `http`).WorkloadPort }}", "{{ (.To.PortForName `http2`).WorkloadPort }}" ]
+            paths: [ "/not-trust-domain" ]
+            methods: [ "GET" ]
+      from:
+        - source:
+            notTrustDomains: [ "cluster.local" ]
+    - to:
+        - operation: # HTTP - always matches (bad.example.com is excluded, cluster.local is not)
+            ports: [ "{{ (.To.PortForName `http`).WorkloadPort }}", "{{ (.To.PortForName `http2`).WorkloadPort }}" ]
+            paths: [ "/not-deny" ]
+            methods: [ "GET" ]
+      from:
+        - source:
+            notTrustDomains: [ "bad.example.com" ]
+    - to:
+        - operation: # GRPC
+            ports: [ "{{ (.To.PortForName `grpc`).WorkloadPort }}" ]
+            paths: [ "/proto.EchoTestService/Echo" ]
+            methods: [ "POST" ]
+      from:
+        - source:
+            trustDomains: [ "cluster.local" ]
+    - to:
+        - operation: # TCP
+            ports: [ "{{ (.To.PortForName `tcp`).WorkloadPort }}" ]
+      from:
+        - source:
+            trustDomains: [ "cluster.local" ]

@@ -45,6 +45,7 @@ const (
 	attrSrcNamespace      = "source.namespace"       // e.g. "default".
 	attrSrcServiceAccount = "source.serviceAccount"  // e.g. "default/productpage".
 	attrSrcPrincipal      = "source.principal"       // source identity, e,g, "cluster.local/ns/default/sa/productpage".
+	attrSrcTrustDomain    = "source.trustDomain"     // e.g. "cluster.local".
 	attrRequestPrincipal  = "request.auth.principal" // authenticated principal of the request.
 	attrRequestAudiences  = "request.auth.audiences" // intended audience(s) for this authentication information.
 	attrRequestPresenter  = "request.auth.presenter" // authorized presenter of the credential.
@@ -106,6 +107,24 @@ func CheckEmptyValues(key string, values []string) error {
 	for _, value := range values {
 		if value == "" {
 			return fmt.Errorf("empty value not allowed, found in %s", key)
+		}
+	}
+	return nil
+}
+
+// CheckWildcardValues checks that values are non-empty and that any wildcard is only
+// at the start or end (exact, prefix foo*, suffix *foo, or presence *).
+func CheckWildcardValues(key string, values []string) error {
+	if err := CheckEmptyValues(key, values); err != nil {
+		return err
+	}
+	for _, value := range values {
+		count := strings.Count(value, "*")
+		if count > 1 {
+			return fmt.Errorf("at most one wildcard is allowed, found in %s: %q", key, value)
+		}
+		if count == 1 && value != "*" && !strings.HasPrefix(value, "*") && !strings.HasSuffix(value, "*") {
+			return fmt.Errorf("wildcard is only allowed at the start or end, found in %s: %q", key, value)
 		}
 	}
 	return nil
@@ -211,6 +230,8 @@ func ValidateAttribute(key string, values []string) error {
 	case isEqual(key, attrSrcServiceAccount):
 		return CheckServiceAccount(key, values)
 	case isEqual(key, attrSrcPrincipal):
+	case isEqual(key, attrSrcTrustDomain):
+		return CheckWildcardValues(key, values)
 	case isEqual(key, attrRequestPrincipal):
 	case isEqual(key, attrRequestAudiences):
 	case isEqual(key, attrRequestPresenter):

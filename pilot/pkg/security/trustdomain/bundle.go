@@ -21,6 +21,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/constants"
 	istiolog "istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/slices"
 )
 
 var authzLog = istiolog.RegisterScope("authorization", "Istio Authorization Policy")
@@ -116,6 +117,20 @@ func (t Bundle) replaceTrustDomains(principal, trustDomainFromPrincipal string) 
 		}
 	}
 	return principalsForAliases
+}
+
+// ExpandTrustDomainAliases takes a list of trust domain values and expands any value that matches
+// a known trust domain to include all trust domain aliases.
+func (t Bundle) ExpandTrustDomainAliases(values []string) []string {
+	result := make([]string, 0, len(values))
+	for _, v := range values {
+		if slices.Contains(t.TrustDomains, v) {
+			result = append(result, t.TrustDomains...)
+		} else {
+			result = append(result, v)
+		}
+	}
+	return slices.FilterDuplicates(result)
 }
 
 // replaceTrustDomainInPrincipal returns a new SPIFFE identity with the new trust domain.
