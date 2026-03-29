@@ -21,12 +21,14 @@ import (
 	"net"
 	"net/url"
 	"path"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	statefulsession "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/stateful_session/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	cookiev3 "github.com/envoyproxy/go-control-plane/envoy/extensions/http/stateful_session/cookie/v3"
@@ -576,4 +578,536 @@ func (t *testClientConn) ParseServiceConfig(jsonSC string) *serviceconfig.ParseR
 	//          {"cds_experimental":
 	//         		{"cluster":"outbound|14057||istiod.istio-system.svc.cluster.local"}}]}}}}]}
 	return &serviceconfig.ParseResult{}
+}
+
+// TestGRPCRDSVirtualHostFiltering verifies that the gRPC generator's RDS
+// response contains only the virtual host matching the requested route name,
+// not all services sharing the same port.
+func TestGRPCRDSVirtualHostFiltering(t *testing.T) {
+	t.Parallel()
+
+	var (
+		sharedPort = 8080
+
+		// Create three services on the same port.
+		svcA = "svc-a.test.svc.cluster.local"
+		svcB = "svc-b.test.svc.cluster.local"
+		svcC = "svc-c.test.svc.cluster.local"
+
+		ds = xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+		sd = ds.MemRegistry
+	)
+
+	for _, svc := range []struct {
+		name     string
+		hostname string
+		ip       string
+	}{
+		{"svc-a", svcA, "10.0.0.1"},
+		{"svc-b", svcB, "10.0.0.2"},
+		{"svc-c", svcC, "10.0.0.3"},
+	} {
+		sd.AddService(&model.Service{
+			Attributes: model.ServiceAttributes{
+				Name:      svc.name,
+				Namespace: "test",
+			},
+			Hostname:       host.Name(svc.hostname),
+			DefaultAddress: svc.ip,
+			Ports: model.PortList{
+				{
+					Name:     "grpc-main",
+					Port:     sharedPort,
+					Protocol: protocol.GRPC,
+				},
+			},
+		})
+		sd.SetEndpoints(svc.hostname, "test", []*model.IstioEndpoint{
+			{
+				Addresses:       []string{"127.0.0.1"},
+				EndpointPort:    uint32(sharedPort),
+				ServicePortName: "grpc-main",
+			},
+		})
+	}
+
+	routeName := fmt.Sprintf("outbound|%d||%s", sharedPort, svcA)
+	proxy := ds.SetupProxy(&model.Proxy{
+		Metadata: &model.NodeMetadata{
+			Generator: "grpc",
+			Namespace: "test",
+		},
+	})
+	adscConn := ds.Connect(proxy, []string{}, []string{})
+	defer adscConn.Close()
+
+	adscConn.Send(&discovery.DiscoveryRequest{
+		TypeUrl:       v3.RouteType,
+		ResourceNames: []string{routeName},
+	})
+	msg, err := adscConn.Wait(5*time.Second, v3.RouteType)
+	if err != nil {
+		t.Fatal("Failed to receive RDS response", err)
+	}
+
+	routes := adscConn.GetRoutes()
+	rc, ok := routes[routeName]
+	if !ok {
+		t.Fatalf("route config %q not found in response, got routes: %v", routeName, msg)
+	}
+
+	if len(rc.GetVirtualHosts()) != 1 {
+		t.Fatalf("expected 1 virtual host, got %d: %v", len(rc.GetVirtualHosts()), virtualHostNames(rc))
+	}
+
+	vh := rc.GetVirtualHosts()[0]
+	if !slices.Contains(vh.Domains, svcA) {
+		t.Errorf("expected virtual host domains %v to contain %s", vh.Domains, svcA)
+	}
+}
+
+// TestGRPCRDSWithVirtualService verifies that virtual host filtering works
+// correctly when a VirtualService is present. The VS changes routing behavior
+// (e.g., routing svc-a traffic to svc-b) but should not affect which virtual
+// hosts are returned — only the VH matching the requested hostname.
+func TestGRPCRDSWithVirtualService(t *testing.T) {
+	t.Parallel()
+
+	var (
+		sharedPort = 8080
+
+		svcA = "svc-a.test.svc.cluster.local"
+		svcB = "svc-b.test.svc.cluster.local"
+
+		ds = xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+			Configs: []config.Config{
+				{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.VirtualService,
+						Name:             "route-a-to-b",
+						Namespace:        "test",
+					},
+					Spec: &networking.VirtualService{
+						Hosts: []string{svcA},
+						Http: []*networking.HTTPRoute{
+							{
+								Route: []*networking.HTTPRouteDestination{
+									{
+										Destination: &networking.Destination{
+											Host: svcB,
+											Port: &networking.PortSelector{Number: uint32(sharedPort)},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		})
+		sd = ds.MemRegistry
+	)
+
+	for _, svc := range []struct {
+		name     string
+		hostname string
+		ip       string
+	}{
+		{"svc-a", svcA, "10.0.0.1"},
+		{"svc-b", svcB, "10.0.0.2"},
+	} {
+		sd.AddService(&model.Service{
+			Attributes: model.ServiceAttributes{
+				Name:      svc.name,
+				Namespace: "test",
+			},
+			Hostname:       host.Name(svc.hostname),
+			DefaultAddress: svc.ip,
+			Ports: model.PortList{
+				{
+					Name:     "grpc-main",
+					Port:     sharedPort,
+					Protocol: protocol.GRPC,
+				},
+			},
+		})
+		sd.SetEndpoints(svc.hostname, "test", []*model.IstioEndpoint{
+			{
+				Addresses:       []string{"127.0.0.1"},
+				EndpointPort:    uint32(sharedPort),
+				ServicePortName: "grpc-main",
+			},
+		})
+	}
+
+	proxy := ds.SetupProxy(&model.Proxy{
+		Metadata: &model.NodeMetadata{
+			Generator: "grpc",
+			Namespace: "test",
+		},
+	})
+	adscConn := ds.Connect(proxy, []string{}, []string{})
+	defer adscConn.Close()
+
+	routeName := fmt.Sprintf("outbound|%d||%s", sharedPort, svcA)
+	adscConn.Send(&discovery.DiscoveryRequest{
+		TypeUrl:       v3.RouteType,
+		ResourceNames: []string{routeName},
+	})
+	_, err := adscConn.Wait(5*time.Second, v3.RouteType)
+	if err != nil {
+		t.Fatal("Failed to receive RDS response", err)
+	}
+
+	routes := adscConn.GetRoutes()
+	rc, ok := routes[routeName]
+	if !ok {
+		t.Fatalf("route config %q not found", routeName)
+	}
+
+	// Verify only svc-a's virtual host is returned.
+	if len(rc.GetVirtualHosts()) != 1 {
+		t.Fatalf("expected 1 virtual host, got %d: %v",
+			len(rc.GetVirtualHosts()), virtualHostNames(rc))
+	}
+
+	vh := rc.GetVirtualHosts()[0]
+	hasSvcA := false
+	for _, d := range vh.Domains {
+		if d == svcA {
+			hasSvcA = true
+		}
+	}
+	if !hasSvcA {
+		t.Errorf("virtual host domains %v do not contain %s", vh.Domains, svcA)
+	}
+
+	// Verify the routing goes to svc-b (VirtualService effect).
+	if len(vh.Routes) == 0 {
+		t.Fatal("expected at least one route in the virtual host")
+	}
+	cluster := vh.Routes[0].GetRoute().GetCluster()
+	wantCluster := fmt.Sprintf("outbound|%d||%s", sharedPort, svcB)
+	if cluster != wantCluster {
+		t.Errorf("expected route cluster %q, got %q", wantCluster, cluster)
+	}
+}
+
+// TestGRPCRDSWithWildcardVirtualServiceHost verifies wildcard VirtualService
+// hosts are matched for the requested route hostname and returned as the only
+// virtual host for gRPC RDS.
+func TestGRPCRDSWithWildcardVirtualServiceHost(t *testing.T) {
+	t.Parallel()
+
+	var (
+		sharedPort = 80
+
+		requestedHost   = "foo.example.com"
+		wildcardHost    = "*.example.com"
+		destinationHost = "api.example.net"
+
+		routeName = fmt.Sprintf("outbound|%d||%s", sharedPort, requestedHost)
+
+		ds = xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+			Configs: []config.Config{
+				{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.VirtualService,
+						Name:             "wildcard-host-route",
+						Namespace:        "test",
+					},
+					Spec: &networking.VirtualService{
+						Hosts: []string{wildcardHost},
+						Http: []*networking.HTTPRoute{
+							{
+								Route: []*networking.HTTPRouteDestination{
+									{
+										Destination: &networking.Destination{
+											Host: destinationHost,
+											Port: &networking.PortSelector{Number: uint32(sharedPort)},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		})
+
+		proxy = ds.SetupProxy(&model.Proxy{
+			Metadata: &model.NodeMetadata{
+				Generator: "grpc",
+				Namespace: "test",
+			},
+		})
+	)
+
+	adscConn := ds.Connect(proxy, []string{}, []string{})
+	defer adscConn.Close()
+
+	adscConn.Send(&discovery.DiscoveryRequest{
+		TypeUrl:       v3.RouteType,
+		ResourceNames: []string{routeName},
+	})
+	_, err := adscConn.Wait(5*time.Second, v3.RouteType)
+	if err != nil {
+		t.Fatal("Failed to receive RDS response", err)
+	}
+
+	routes := adscConn.GetRoutes()
+	rc, ok := routes[routeName]
+	if !ok {
+		t.Fatalf("route config %q not found", routeName)
+	}
+
+	if len(rc.GetVirtualHosts()) != 1 {
+		t.Fatalf("expected 1 virtual host, got %d: %v", len(rc.GetVirtualHosts()), virtualHostNames(rc))
+	}
+
+	vh := rc.GetVirtualHosts()[0]
+	hasWildcard := false
+	hasRequestedHost := false
+	for _, d := range vh.Domains {
+		if d == wildcardHost || d == wildcardHost+":80" {
+			hasWildcard = true
+		}
+		if d == requestedHost || d == requestedHost+":80" {
+			hasRequestedHost = true
+		}
+	}
+	if !hasWildcard {
+		t.Errorf("virtual host domains %v do not contain wildcard host %q", vh.Domains, wildcardHost)
+	}
+	if hasRequestedHost {
+		t.Errorf(
+			"virtual host domains %v unexpectedly contain requested host %q", vh.Domains, requestedHost,
+		)
+	}
+
+	if len(vh.Routes) == 0 {
+		t.Fatal("expected at least one route in the virtual host")
+	}
+	wantCluster := fmt.Sprintf("outbound|%d||%s", sharedPort, destinationHost)
+	cluster := vh.Routes[0].GetRoute().GetCluster()
+	if cluster != wantCluster {
+		t.Errorf("expected route cluster %q, got %q", wantCluster, cluster)
+	}
+}
+
+// TestGRPCRDSSubsetRouteFiltering verifies that requesting a subset route name
+// (e.g. "outbound|8080|v1|svc.ns.svc.cluster.local") still returns the correct
+// virtual host for the hostname.
+func TestGRPCRDSSubsetRouteFiltering(t *testing.T) {
+	t.Parallel()
+
+	var (
+		sharedPort = 8080
+
+		svcA = "svc-a.test.svc.cluster.local"
+		svcB = "svc-b.test.svc.cluster.local"
+
+		ds = xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+			Configs: []config.Config{
+				{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.DestinationRule,
+						Name:             "svc-a-subsets",
+						Namespace:        "test",
+					},
+					Spec: &networking.DestinationRule{
+						Host: svcA,
+						Subsets: []*networking.Subset{
+							{
+								Name:   "v1",
+								Labels: map[string]string{"version": "v1"},
+							},
+						},
+					},
+				},
+			},
+		})
+		sd = ds.MemRegistry
+	)
+
+	for _, svc := range []struct {
+		name     string
+		hostname string
+		ip       string
+	}{
+		{"svc-a", svcA, "10.0.0.1"},
+		{"svc-b", svcB, "10.0.0.2"},
+	} {
+		sd.AddService(&model.Service{
+			Attributes: model.ServiceAttributes{
+				Name:      svc.name,
+				Namespace: "test",
+			},
+			Hostname:       host.Name(svc.hostname),
+			DefaultAddress: svc.ip,
+			Ports: model.PortList{
+				{
+					Name:     "grpc-main",
+					Port:     sharedPort,
+					Protocol: protocol.GRPC,
+				},
+			},
+		})
+		sd.SetEndpoints(svc.hostname, "test", []*model.IstioEndpoint{
+			{
+				Addresses:       []string{"127.0.0.1"},
+				EndpointPort:    uint32(sharedPort),
+				ServicePortName: "grpc-main",
+			},
+		})
+	}
+
+	proxy := ds.SetupProxy(&model.Proxy{
+		Metadata: &model.NodeMetadata{
+			Generator: "grpc",
+			Namespace: "test",
+		},
+	})
+	adscConn := ds.Connect(proxy, []string{}, []string{})
+	defer adscConn.Close()
+
+	// Request with subset in the route name.
+	routeName := fmt.Sprintf("outbound|%d|v1|%s", sharedPort, svcA)
+	adscConn.Send(&discovery.DiscoveryRequest{
+		TypeUrl:       v3.RouteType,
+		ResourceNames: []string{routeName},
+	})
+	_, err := adscConn.Wait(5*time.Second, v3.RouteType)
+	if err != nil {
+		t.Fatal("Failed to receive RDS response", err)
+	}
+
+	routes := adscConn.GetRoutes()
+	rc, ok := routes[routeName]
+	if !ok {
+		t.Fatalf("route config %q not found", routeName)
+	}
+
+	// Should still return only svc-a's virtual host.
+	if len(rc.GetVirtualHosts()) != 1 {
+		t.Fatalf("expected 1 virtual host, got %d: %v",
+			len(rc.GetVirtualHosts()), virtualHostNames(rc))
+	}
+	vh := rc.GetVirtualHosts()[0]
+	hasSvcA := false
+	for _, d := range vh.Domains {
+		if d == svcA {
+			hasSvcA = true
+		}
+	}
+	if !hasSvcA {
+		t.Errorf("virtual host domains %v do not contain %s", vh.Domains, svcA)
+	}
+}
+
+// TestGRPCRDSSameShortNameDifferentNamespaces verifies that when two services
+// share the same short name but are in different namespaces, requesting a route
+// by FQDN returns only the correct service's virtual host.
+func TestGRPCRDSSameShortNameDifferentNamespaces(t *testing.T) {
+	t.Parallel()
+
+	var (
+		sharedPort = 8080
+
+		svcNS1 = "svc.ns1.svc.cluster.local"
+		svcNS2 = "svc.ns2.svc.cluster.local"
+
+		ds = xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+		sd = ds.MemRegistry
+	)
+
+	for _, svc := range []struct {
+		name      string
+		namespace string
+		hostname  string
+		ip        string
+	}{
+		{"svc", "ns1", svcNS1, "10.0.0.1"},
+		{"svc", "ns2", svcNS2, "10.0.0.2"},
+	} {
+		sd.AddService(&model.Service{
+			Attributes: model.ServiceAttributes{
+				Name:      svc.name,
+				Namespace: svc.namespace,
+			},
+			Hostname:       host.Name(svc.hostname),
+			DefaultAddress: svc.ip,
+			Ports: model.PortList{
+				{
+					Name:     "grpc-main",
+					Port:     sharedPort,
+					Protocol: protocol.GRPC,
+				},
+			},
+		})
+		sd.SetEndpoints(svc.hostname, svc.namespace, []*model.IstioEndpoint{
+			{
+				Addresses:       []string{"127.0.0.1"},
+				EndpointPort:    uint32(sharedPort),
+				ServicePortName: "grpc-main",
+			},
+		})
+	}
+
+	proxy := ds.SetupProxy(&model.Proxy{
+		Metadata: &model.NodeMetadata{
+			Generator: "grpc",
+			Namespace: "ns1",
+		},
+	})
+	adscConn := ds.Connect(proxy, []string{}, []string{})
+	defer adscConn.Close()
+
+	routeName := fmt.Sprintf("outbound|%d||%s", sharedPort, svcNS1)
+	adscConn.Send(&discovery.DiscoveryRequest{
+		TypeUrl:       v3.RouteType,
+		ResourceNames: []string{routeName},
+	})
+	_, err := adscConn.Wait(5*time.Second, v3.RouteType)
+	if err != nil {
+		t.Fatal("Failed to receive RDS response", err)
+	}
+
+	routes := adscConn.GetRoutes()
+	rc, ok := routes[routeName]
+	if !ok {
+		t.Fatalf("route config %q not found", routeName)
+	}
+
+	// Should return only ns1's virtual host, not ns2's.
+	if len(rc.GetVirtualHosts()) != 1 {
+		t.Fatalf("expected 1 virtual host, got %d: %v",
+			len(rc.GetVirtualHosts()), virtualHostNames(rc))
+	}
+
+	vh := rc.GetVirtualHosts()[0]
+	hasNS1 := false
+	hasNS2 := false
+	for _, d := range vh.Domains {
+		if d == svcNS1 {
+			hasNS1 = true
+		}
+		if d == svcNS2 {
+			hasNS2 = true
+		}
+	}
+	if !hasNS1 {
+		t.Errorf("virtual host domains %v do not contain %s", vh.Domains, svcNS1)
+	}
+	if hasNS2 {
+		t.Errorf("virtual host domains %v unexpectedly contain %s", vh.Domains, svcNS2)
+	}
+}
+
+func virtualHostNames(rc *route.RouteConfiguration) []string {
+	var names []string
+	for _, vh := range rc.GetVirtualHosts() {
+		names = append(names, vh.Name)
+	}
+	return names
 }
