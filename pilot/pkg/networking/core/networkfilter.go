@@ -140,9 +140,9 @@ func (lb *ListenerBuilder) buildCompleteNetworkFilters(
 	}
 
 	var filters []*listener.Filter
-	wasm := lb.push.WasmPluginsByListenerInfo(
-		lb.node, model.WasmPluginListenerInfo{Port: port, Class: class}.WithService(policySvc),
-		model.WasmPluginTypeNetwork,
+	extensionFilters := lb.push.ExtensionFiltersByListenerInfo(
+		lb.node, model.ListenerInfo{Port: port, Class: class}.WithService(policySvc),
+		model.FilterChainTypeNetwork,
 	)
 
 	// Metadata exchange goes first, so RBAC failures, etc can access the state. See https://github.com/istio/istio/issues/41066
@@ -153,15 +153,15 @@ func (lb *ListenerBuilder) buildCompleteNetworkFilters(
 	filters = append(filters, authzCustomBuilder.BuildTCP()...)
 
 	// Authn
-	filters = extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_AUTHN)
+	filters = extension.PopAppendNetworkExtensionFilter(filters, extensionFilters, extensions.TrafficExtension_AUTHN)
 
 	// Authz
-	filters = extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_AUTHZ)
+	filters = extension.PopAppendNetworkExtensionFilter(filters, extensionFilters, extensions.TrafficExtension_AUTHZ)
 	filters = append(filters, authzBuilder.BuildTCP()...)
 
 	// Stats
-	filters = extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_STATS)
-	filters = extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
+	filters = extension.PopAppendNetworkExtensionFilter(filters, extensionFilters, extensions.TrafficExtension_STATS)
+	filters = extension.PopAppendNetworkExtensionFilter(filters, extensionFilters, extensions.TrafficExtension_UNSPECIFIED)
 	filters = append(filters, buildMetricsNetworkFilters(lb.push, lb.node, class, policySvc)...)
 
 	// Add SNI DFP filter for sidecar outbound with DYNAMIC_DNS wildcard ServiceEntries (TLS traffic)

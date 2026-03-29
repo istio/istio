@@ -1,0 +1,19 @@
+apiVersion: extensions.istio.io/v1alpha1
+kind: TrafficExtension
+metadata:
+  name: {{ .ExtensionFilterName }}-authn
+spec:
+  phase: AUTHN
+  selector:
+    matchLabels:
+      app: {{ .TargetAppName }}
+  lua:
+    inlineCode: |
+      function envoy_on_response(response_handle)
+        local existing = response_handle:headers():get("x-phase-order")
+        if existing then
+          response_handle:headers():replace("x-phase-order", existing .. "1")
+        else
+          response_handle:headers():add("x-phase-order", "1")
+        end
+      end

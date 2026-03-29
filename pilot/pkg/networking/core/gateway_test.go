@@ -4270,7 +4270,7 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 			},
 		},
 		{
-			name: "mTLS, RBAC, WASM, and Stats",
+			name: "mTLS, RBAC, WASM, ExtensionFilter, and Stats",
 			configs: []config.Config{
 				{
 					Meta: config.Meta{Name: "gateway", Namespace: "testns", GroupVersionKind: gvk.Gateway},
@@ -4303,24 +4303,43 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 					},
 				},
 				{
-					Meta: config.Meta{Name: "wasm-authz", Namespace: "istio-system", GroupVersionKind: gvk.WasmPlugin},
-					Spec: &extensions.WasmPlugin{
-						Phase: extensions.PluginPhase_AUTHZ,
-						Type:  extensions.PluginType_NETWORK,
+					Meta: config.Meta{Name: "extension-wasm-network-authz", Namespace: "istio-system", GroupVersionKind: gvk.TrafficExtension},
+					Spec: &extensions.TrafficExtension{
+						Phase: extensions.TrafficExtension_AUTHZ,
+						FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
+							Url:  "file:///etc/istio/filters/authz.wasm",
+							Type: extensions.PluginType_NETWORK,
+						}},
 					},
 				},
 				{
-					Meta: config.Meta{Name: "wasm-authn", Namespace: "istio-system", GroupVersionKind: gvk.WasmPlugin},
-					Spec: &extensions.WasmPlugin{
-						Phase: extensions.PluginPhase_AUTHN,
-						Type:  extensions.PluginType_NETWORK,
+					Meta: config.Meta{Name: "extension-wasm-network-authn", Namespace: "istio-system", GroupVersionKind: gvk.TrafficExtension},
+					Spec: &extensions.TrafficExtension{
+						Phase: extensions.TrafficExtension_AUTHN,
+						FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
+							Url:  "file:///etc/istio/filters/authn.wasm",
+							Type: extensions.PluginType_NETWORK,
+						}},
 					},
 				},
 				{
-					Meta: config.Meta{Name: "wasm-stats", Namespace: "istio-system", GroupVersionKind: gvk.WasmPlugin},
-					Spec: &extensions.WasmPlugin{
-						Phase: extensions.PluginPhase_STATS,
-						Type:  extensions.PluginType_NETWORK,
+					Meta: config.Meta{Name: "extension-wasm-network-stats", Namespace: "istio-system", GroupVersionKind: gvk.TrafficExtension},
+					Spec: &extensions.TrafficExtension{
+						Phase: extensions.TrafficExtension_STATS,
+						FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
+							Url:  "file:///etc/istio/filters/stats.wasm",
+							Type: extensions.PluginType_NETWORK,
+						}},
+					},
+				},
+				{
+					Meta: config.Meta{Name: "extension-wasm-unspecified", Namespace: "istio-system", GroupVersionKind: gvk.TrafficExtension},
+					Spec: &extensions.TrafficExtension{
+						Phase: extensions.TrafficExtension_UNSPECIFIED,
+						FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
+							Url:  "oci://example.com/unspecified:v1",
+							Type: extensions.PluginType_NETWORK,
+						}},
 					},
 				},
 				{
@@ -4351,10 +4370,11 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 							// Ext auth makes 2 filters
 							wellknown.RoleBasedAccessControl,
 							wellknown.ExternalAuthorization,
-							"extensions.istio.io/wasmplugin/istio-system.wasm-authn",
-							"extensions.istio.io/wasmplugin/istio-system.wasm-authz",
+							"extensions.istio.io/extensionfilter/istio-system.extension-wasm-network-authn",
+							"extensions.istio.io/extensionfilter/istio-system.extension-wasm-network-authz",
 							wellknown.RoleBasedAccessControl,
-							"extensions.istio.io/wasmplugin/istio-system.wasm-stats",
+							"extensions.istio.io/extensionfilter/istio-system.extension-wasm-network-stats",
+							"extensions.istio.io/extensionfilter/istio-system.extension-wasm-unspecified",
 							xds.StatsFilterName,
 							wellknown.TCPProxy,
 						},
@@ -4363,7 +4383,7 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 			},
 		},
 		{
-			name: "HTTP RBAC, WASM, and Stats",
+			name: "HTTP RBAC, WASM, ExtensionFilter, and Stats",
 			configs: []config.Config{
 				{
 					Meta: config.Meta{Name: "gateway", Namespace: "testns", GroupVersionKind: gvk.Gateway},
@@ -4377,42 +4397,91 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 					},
 				},
 				{
-					Meta: config.Meta{Name: "wasm-network-authz", Namespace: "istio-system", GroupVersionKind: gvk.WasmPlugin},
-					Spec: &extensions.WasmPlugin{
-						Phase: extensions.PluginPhase_AUTHZ,
-						Type:  extensions.PluginType_NETWORK,
+					Meta: config.Meta{Name: "extension-wasm-network-authz", Namespace: "istio-system", GroupVersionKind: gvk.TrafficExtension},
+					Spec: &extensions.TrafficExtension{
+						Phase: extensions.TrafficExtension_AUTHZ,
+						FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
+							Url:  "file:///etc/istio/filters/authz.wasm",
+							Type: extensions.PluginType_NETWORK,
+						}},
 					},
 				},
 				{
-					Meta: config.Meta{Name: "wasm-network-authn", Namespace: "istio-system", GroupVersionKind: gvk.WasmPlugin},
-					Spec: &extensions.WasmPlugin{
-						Phase: extensions.PluginPhase_AUTHN,
-						Type:  extensions.PluginType_NETWORK,
+					Meta: config.Meta{Name: "extension-wasm-network-authn", Namespace: "istio-system", GroupVersionKind: gvk.TrafficExtension},
+					Spec: &extensions.TrafficExtension{
+						Phase: extensions.TrafficExtension_AUTHN,
+						FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
+							Url:  "file:///etc/istio/filters/authn.wasm",
+							Type: extensions.PluginType_NETWORK,
+						}},
 					},
 				},
 				{
-					Meta: config.Meta{Name: "wasm-network-stats", Namespace: "istio-system", GroupVersionKind: gvk.WasmPlugin},
-					Spec: &extensions.WasmPlugin{
-						Phase: extensions.PluginPhase_STATS,
-						Type:  extensions.PluginType_NETWORK,
+					Meta: config.Meta{Name: "extension-wasm-network-stats", Namespace: "istio-system", GroupVersionKind: gvk.TrafficExtension},
+					Spec: &extensions.TrafficExtension{
+						Phase: extensions.TrafficExtension_STATS,
+						FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
+							Url:  "file:///etc/istio/filters/stats.wasm",
+							Type: extensions.PluginType_NETWORK,
+						}},
 					},
 				},
 				{
-					Meta: config.Meta{Name: "wasm-authz", Namespace: "istio-system", GroupVersionKind: gvk.WasmPlugin},
-					Spec: &extensions.WasmPlugin{
-						Phase: extensions.PluginPhase_AUTHZ,
+					Meta: config.Meta{Name: "extension-wasm-authz", Namespace: "istio-system", GroupVersionKind: gvk.TrafficExtension},
+					Spec: &extensions.TrafficExtension{
+						Phase: extensions.TrafficExtension_AUTHZ,
+						FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
+							Url:  "oci://example.com/http-authz:v1",
+							Type: extensions.PluginType_HTTP,
+						}},
 					},
 				},
 				{
-					Meta: config.Meta{Name: "wasm-authn", Namespace: "istio-system", GroupVersionKind: gvk.WasmPlugin},
-					Spec: &extensions.WasmPlugin{
-						Phase: extensions.PluginPhase_AUTHN,
+					Meta: config.Meta{Name: "extension-wasm-authn", Namespace: "istio-system", GroupVersionKind: gvk.TrafficExtension},
+					Spec: &extensions.TrafficExtension{
+						Phase: extensions.TrafficExtension_AUTHN,
+						FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
+							Url:  "oci://example.com/http-authn:v1",
+							Type: extensions.PluginType_HTTP,
+						}},
 					},
 				},
 				{
-					Meta: config.Meta{Name: "wasm-stats", Namespace: "istio-system", GroupVersionKind: gvk.WasmPlugin},
-					Spec: &extensions.WasmPlugin{
-						Phase: extensions.PluginPhase_STATS,
+					Meta: config.Meta{Name: "extension-wasm-stats", Namespace: "istio-system", GroupVersionKind: gvk.TrafficExtension},
+					Spec: &extensions.TrafficExtension{
+						Phase: extensions.TrafficExtension_STATS,
+						FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
+							Url:  "oci://example.com/http-stats:v1",
+							Type: extensions.PluginType_HTTP,
+						}},
+					},
+				},
+				{
+					Meta: config.Meta{Name: "extension-lua-authn", Namespace: "istio-system", GroupVersionKind: gvk.TrafficExtension},
+					Spec: &extensions.TrafficExtension{
+						Phase: extensions.TrafficExtension_AUTHN,
+						FilterConfig: &extensions.TrafficExtension_Lua{Lua: &extensions.LuaConfig{
+							InlineCode: "function envoy_on_request(request_handle) end",
+						}},
+					},
+				},
+				{
+					Meta: config.Meta{Name: "extension-lua-authz", Namespace: "istio-system", GroupVersionKind: gvk.TrafficExtension},
+					Spec: &extensions.TrafficExtension{
+						Phase: extensions.TrafficExtension_AUTHZ,
+						FilterConfig: &extensions.TrafficExtension_Lua{Lua: &extensions.LuaConfig{
+							InlineCode: "function envoy_on_request(request_handle) end",
+						}},
+					},
+				},
+				{
+					Meta: config.Meta{Name: "extension-wasm-network-unspecified", Namespace: "istio-system", GroupVersionKind: gvk.TrafficExtension},
+					Spec: &extensions.TrafficExtension{
+						Phase: extensions.TrafficExtension_UNSPECIFIED,
+						FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
+							Url:  "oci://example.com/unspecified:v1",
+							Type: extensions.PluginType_NETWORK,
+						}},
 					},
 				},
 				{
@@ -4457,9 +4526,10 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 					{
 						TotalMatch: true,
 						NetworkFilters: []string{
-							"extensions.istio.io/wasmplugin/istio-system.wasm-network-authn",
-							"extensions.istio.io/wasmplugin/istio-system.wasm-network-authz",
-							"extensions.istio.io/wasmplugin/istio-system.wasm-network-stats",
+							"extensions.istio.io/extensionfilter/istio-system.extension-wasm-network-authn",
+							"extensions.istio.io/extensionfilter/istio-system.extension-wasm-network-authz",
+							"extensions.istio.io/extensionfilter/istio-system.extension-wasm-network-stats",
+							"extensions.istio.io/extensionfilter/istio-system.extension-wasm-network-unspecified",
 							wellknown.HTTPConnectionManager,
 						},
 						HTTPFilters: []string{
@@ -4467,10 +4537,12 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 							// Ext auth makes 2 filters
 							wellknown.HTTPRoleBasedAccessControl,
 							wellknown.HTTPExternalAuthorization,
-							"extensions.istio.io/wasmplugin/istio-system.wasm-authn",
-							"extensions.istio.io/wasmplugin/istio-system.wasm-authz",
+							"extensions.istio.io/extensionfilter/istio-system.extension-wasm-authn",
+							"extensions.istio.io/extensionfilter/istio-system.extension-lua-authn",
+							"extensions.istio.io/extensionfilter/istio-system.extension-wasm-authz",
+							"extensions.istio.io/extensionfilter/istio-system.extension-lua-authz",
 							wellknown.HTTPRoleBasedAccessControl,
-							"extensions.istio.io/wasmplugin/istio-system.wasm-stats",
+							"extensions.istio.io/extensionfilter/istio-system.extension-wasm-stats",
 							wellknown.HTTPGRPCStats,
 							xdsfilters.Alpn.Name,
 							xdsfilters.Fault.Name,

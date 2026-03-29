@@ -3445,3 +3445,104 @@ func validateWasmPluginMatch(selectors []*extensions.WasmPlugin_TrafficSelector)
 	}
 	return nil
 }
+
+// ValidateTrafficExtension validates a TrafficExtension.
+var ValidateTrafficExtension = RegisterValidateFunc("ValidateTrafficExtension",
+	func(cfg config.Config) (Warning, error) {
+		spec, ok := cfg.Spec.(*extensions.TrafficExtension)
+		if !ok {
+			return nil, fmt.Errorf("cannot cast to trafficextension")
+		}
+
+		errs := Validation{}
+
+		wasm := spec.GetWasm()
+		lua := spec.GetLua()
+
+		// Validate exactly one of wasm or lua is set
+		if (wasm != nil && lua != nil) || (wasm == nil && lua == nil) {
+			errs = AppendValidation(errs, fmt.Errorf("exactly one of wasm or lua must be set"))
+		}
+
+		// Validate selector type
+		errs = AppendValidation(errs,
+			validateOneOfSelectorType(spec.GetSelector(), nil, spec.GetTargetRefs()),
+			validateWorkloadSelector(spec.GetSelector()),
+			validatePolicyTargetReferences(spec.GetTargetRefs()),
+		)
+
+		// Validate Lua config if present
+		if lua != nil {
+			errs = AppendValidation(errs, validateLuaConfig(lua))
+		}
+
+		// Validate WASM config if present
+		if wasm != nil {
+			errs = AppendValidation(errs,
+				validateWasmPluginURL(wasm.Url),
+				validateWasmConfigSHA(wasm),
+				validateWasmConfigImagePullSecret(wasm),
+				validateWasmConfigName(wasm),
+				validateWasmPluginVMConfig(wasm.VmConfig),
+			)
+		}
+
+		// Validate match selectors
+		errs = AppendValidation(errs, validateTrafficExtensionMatch(spec.Match))
+
+		return errs.Unwrap()
+	})
+
+func validateLuaConfig(lua *extensions.LuaConfig) error {
+	if lua == nil {
+		return fmt.Errorf("lua config cannot be nil")
+	}
+	if len(lua.InlineCode) == 0 {
+		return fmt.Errorf("lua.inlineCode cannot be empty")
+	}
+	if len(lua.InlineCode) > 65536 {
+		return fmt.Errorf("lua.inlineCode exceeds maximum size of 64KB")
+	}
+	return nil
+}
+
+func validateWasmConfigSHA(wasm *extensions.WasmConfig) error {
+	if wasm.Sha256 == "" {
+		return nil
+	}
+	return validateWasmPluginSHA(&extensions.WasmPlugin{Sha256: wasm.Sha256})
+}
+
+func validateWasmConfigImagePullSecret(wasm *extensions.WasmConfig) error {
+	if wasm.ImagePullSecret == "" {
+		return nil
+	}
+	return validateWasmPluginImagePullSecret(&extensions.WasmPlugin{ImagePullSecret: wasm.ImagePullSecret})
+}
+
+func validateWasmConfigName(wasm *extensions.WasmConfig) error {
+	if len(wasm.PluginName) > 256 {
+		return fmt.Errorf("pluginName field must be less than 256 characters long")
+	}
+	return nil
+}
+
+func validateTrafficExtensionMatch(selectors []*extensions.TrafficSelector) error {
+	if len(selectors) == 0 {
+		return nil
+	}
+	for selIdx, sel := range selectors {
+		if sel == nil {
+			return fmt.Errorf("spec.Match[%d] is nil", selIdx)
+		}
+		for portIdx, port := range sel.Ports {
+			if port == nil {
+				return fmt.Errorf("spec.Match[%d].Ports[%d] is nil", selIdx, portIdx)
+			}
+			if port.GetNumber() <= 0 || port.GetNumber() > 65535 {
+				return fmt.Errorf("spec.Match[%d].Ports[%d] is out of range: %d", selIdx, portIdx, port.GetNumber())
+			}
+		}
+	}
+	return nil
+}

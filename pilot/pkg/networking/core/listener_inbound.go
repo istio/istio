@@ -859,12 +859,12 @@ func buildSidecarInboundHTTPOpts(lb *ListenerBuilder, cc inboundChainConfig) *ht
 // buildInboundNetworkFiltersForHTTP builds the network filters that should be inserted before an HCM.
 // This should only be used with HTTP; see buildInboundNetworkFilters for TCP
 func (lb *ListenerBuilder) buildInboundNetworkFiltersForHTTP(cc inboundChainConfig) []*listener.Filter {
-	// Add network level WASM filters if any configured.
+	// Add network level extension filters if any configured.
 	httpOpts := buildSidecarInboundHTTPOpts(lb, cc)
-	wasm := lb.push.WasmPluginsByListenerInfo(lb.node, model.WasmPluginListenerInfo{
+	extensionFilters := lb.push.ExtensionFiltersByListenerInfo(lb.node, model.ListenerInfo{
 		Port:  httpOpts.port,
 		Class: httpOpts.class,
-	}, model.WasmPluginTypeNetwork)
+	}, model.FilterChainTypeNetwork)
 
 	var filters []*listener.Filter
 	// Metadata exchange goes first, so RBAC failures, etc can access the state. See https://github.com/istio/istio/issues/41066
@@ -873,12 +873,12 @@ func (lb *ListenerBuilder) buildInboundNetworkFiltersForHTTP(cc inboundChainConf
 	}
 
 	// Authn
-	filters = extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_AUTHN)
+	filters = extension.PopAppendNetworkExtensionFilter(filters, extensionFilters, extensions.TrafficExtension_AUTHN)
 
-	// Authz. Since this is HTTP, we only add WASM network filters -- not TCP RBAC, stats, etc.
-	filters = extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_AUTHZ)
-	filters = extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_STATS)
-	filters = extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
+	// Authz. Since this is HTTP, we only add network filters -- not TCP RBAC, stats, etc.
+	filters = extension.PopAppendNetworkExtensionFilter(filters, extensionFilters, extensions.TrafficExtension_AUTHZ)
+	filters = extension.PopAppendNetworkExtensionFilter(filters, extensionFilters, extensions.TrafficExtension_STATS)
+	filters = extension.PopAppendNetworkExtensionFilter(filters, extensionFilters, extensions.TrafficExtension_UNSPECIFIED)
 
 	h := lb.buildHTTPConnectionManager(httpOpts)
 	filters = append(filters, &listener.Filter{

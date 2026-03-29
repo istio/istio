@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+  - |
+    **Added** `TrafficExtension` API to the extensions package, enabling first-class support for Lua extensibility.

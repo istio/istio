@@ -36,6 +36,8 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/autoregistration"
 	"istio.io/istio/pilot/pkg/bootstrap"
+	"istio.io/istio/pilot/pkg/config/aggregate"
+	"istio.io/istio/pilot/pkg/config/kube/extensions"
 	"istio.io/istio/pilot/pkg/config/kube/gateway"
 	ingress "istio.io/istio/pilot/pkg/config/kube/ingress"
 	"istio.io/istio/pilot/pkg/config/memory"
@@ -232,6 +234,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	defaultKubeClient.RunAndWait(stop)
 
 	var gwc *gateway.Controller
+	var extc *extensions.Controller
 	cg := core.NewConfigGenTest(t, core.TestOptions{
 		Configs:             opts.Configs,
 		ConfigString:        opts.ConfigString,
@@ -243,13 +246,20 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		ServiceRegistries:   registries,
 		ConfigStoreCaches:   []model.ConfigStoreController{ingr},
 		CreateConfigStore: func(c model.ConfigStoreController) model.ConfigStoreController {
+			// Create extension controller with the aggregate controller 'c'
+			// so it can see all configs including those from the base store
+			extc = extensions.NewController(c, xdsUpdater, krt.GlobalDebugHandler)
+
 			g := gateway.NewController(defaultKubeClient, func(class schema.GroupVersionResource, stop <-chan struct{}) bool {
 				return true
 			}, kube.Options{
 				DomainSuffix: "cluster.local",
 			}, xdsUpdater)
 			gwc = g
-			return gwc
+
+			// Return a multi-controller that includes both extension and gateway controllers
+			multi, _ := aggregate.MakeCache([]model.ConfigStoreController{extc, gwc})
+			return multi
 		},
 		SkipRun:   true,
 		ClusterID: opts.DefaultClusterName,
