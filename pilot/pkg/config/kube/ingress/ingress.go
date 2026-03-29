@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/slices"
 	netutil "istio.io/istio/pkg/util/net"
 )
 
@@ -122,7 +123,7 @@ func runningAddresses(
 		addrs := make([]string, 0)
 		for _, address := range node.Status.Addresses {
 			if address.Type == corev1.NodeExternalIP {
-				if address.Address != "" && !addressInSlice(address.Address, addrs) {
+				if address.Address != "" && !slices.Contains(addrs, address.Address) {
 					addrs = append(addrs, address.Address)
 				}
 			}
@@ -242,14 +243,4 @@ func lessLoadBalancerIngress(addrs []knetworking.IngressLoadBalancerIngress) fun
 		}
 		return addrs[a].IP < addrs[b].IP
 	}
-}
-
-func addressInSlice(addr string, list []string) bool {
-	for _, v := range list {
-		if v == addr {
-			return true
-		}
-	}
-
-	return false
 }

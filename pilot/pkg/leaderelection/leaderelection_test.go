@@ -28,6 +28,7 @@ import (
 	k8stesting "k8s.io/client-go/testing"
 
 	"istio.io/istio/pkg/revisions"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -250,17 +251,8 @@ func TestPrioritizationCycles(t *testing.T) {
 	}
 }
 
-func alreadyHit(cur instance, chain []instance) bool {
-	for _, cc := range chain {
-		if cur == cc {
-			return true
-		}
-	}
-	return false
-}
-
 func checkCycles(t *testing.T, start instance, cases []instance, chain []instance) {
-	if alreadyHit(start, chain) {
+	if slices.Contains(chain, start) {
 		t.Fatalf("cycle on leader election: cur %v, chain %v", start, chain)
 	}
 	for _, nextHop := range cases {

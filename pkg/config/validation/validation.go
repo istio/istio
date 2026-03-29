@@ -1861,12 +1861,7 @@ func isSniHost(context *networking.VirtualService) bool {
 }
 
 func isGateway(context *networking.VirtualService) bool {
-	for _, gatewayName := range context.Gateways {
-		if gatewayName == constants.IstioMeshGateway {
-			return false
-		}
-	}
-	return true
+	return !slices.Contains(context.Gateways, constants.IstioMeshGateway)
 }
 
 // genMatchHTTPRoutes build the match rules into struct OverlappingMatchValidationForHTTPRoute

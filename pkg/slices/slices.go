@@ -118,6 +118,12 @@ func Contains[E comparable](s []E, v E) bool {
 	return slices.Contains(s, v)
 }
 
+// ContainsFunc reports whether at least one
+// element e of s satisfies f(e).
+func ContainsFunc[S ~[]E, E any](s S, f func(E) bool) bool {
+	return slices.ContainsFunc(s, f)
+}
+
 // Max returns the maximal value in x. It panics if x is empty.
 // For floating-point E, Max propagates NaNs (any NaN value in x
 // forces the output to be NaN).
