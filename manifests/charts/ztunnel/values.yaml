@@ -152,3 +152,7 @@ _internal_defaults_do_not_set:
   # DNS config for the ztunnel pod
   # https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-dns-config
   dnsConfig: {}
+
+  podMonitor:
+    enabled: false
+    interval: ""

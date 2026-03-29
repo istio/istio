@@ -1,0 +1,32 @@
+{{- if and .Values.serviceMonitor.enabled (or (eq .Values.global.resourceScope "all") (eq .Values.global.resourceScope "namespace")) }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: istiod
+    istio.io/rev: {{ .Values.revision | default "default" | quote }}
+    install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
+    operator.istio.io/component: "Pilot"
+    istio: pilot
+    release: {{ .Release.Name }}
+    app.kubernetes.io/name: "istiod"
+    {{- include "istio.labels" . | nindent 4 }}
+spec:
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}
+  selector:
+    matchLabels:
+      app: istiod
+      {{- if ne .Values.revision "" }}
+      istio.io/rev: {{ .Values.revision | quote }}
+      {{- else }}
+      istio: pilot
+      {{- end }}
+  endpoints:
+    - port: http-monitoring 
+      path: /metrics
+      interval: {{ .Values.serviceMonitor.interval | default "30s" }}
+{{- end }}

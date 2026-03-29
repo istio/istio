@@ -1,0 +1,26 @@
+{{- if and .Values.podMonitor.enabled (or (eq .Values.global.resourceScope "all") (eq .Values.global.resourceScope "namespace")) }}
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: {{ template "name" . }}-node
+  namespace: {{ .Release.Namespace }}
+  labels:
+    k8s-app: {{ template "name" . }}-node
+    release: {{ .Release.Name }}
+    istio.io/rev: {{ .Values.revision | default "default" }}
+    install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
+    operator.istio.io/component: "Cni"
+    app.kubernetes.io/name: {{ template "name" . }}
+    {{- include "istio.labels" . | nindent 4 }}
+spec:
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}
+  selector:
+    matchLabels:
+      k8s-app: {{ template "name" . }}-node
+  podMetricsEndpoints:
+    - port: metrics
+      path: /metrics
+      interval: {{ .Values.podMonitor.interval | default "30s" }}
+{{- end }}

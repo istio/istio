@@ -207,3 +207,7 @@ _internal_defaults_do_not_set:
 
   # A `key: value` mapping of environment variables to add to the pod
   env: {}
+
+  podMonitor:
+    enabled: false
+    interval: ""
