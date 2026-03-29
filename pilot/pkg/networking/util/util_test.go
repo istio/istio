@@ -1699,6 +1699,56 @@ func TestMergeSubsetTrafficPolicy(t *testing.T) {
 			},
 		},
 		{
+			name: "top-level retryBudget is preserved when subset has a traffic policy",
+			original: &networking.TrafficPolicy{
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Http: &networking.ConnectionPoolSettings_HTTPSettings{
+						MaxRetries: 10,
+					},
+				},
+				RetryBudget: &networking.TrafficPolicy_RetryBudget{
+					MinRetryConcurrency: 5,
+				},
+			},
+			subset: &networking.TrafficPolicy{
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Http: &networking.ConnectionPoolSettings_HTTPSettings{
+						Http2MaxRequests: 1000,
+					},
+				},
+			},
+			port: nil,
+			expected: &networking.TrafficPolicy{
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Http: &networking.ConnectionPoolSettings_HTTPSettings{
+						Http2MaxRequests: 1000,
+					},
+				},
+				RetryBudget: &networking.TrafficPolicy_RetryBudget{
+					MinRetryConcurrency: 5,
+				},
+			},
+		},
+		{
+			name: "subset-level retryBudget overrides top-level retryBudget",
+			original: &networking.TrafficPolicy{
+				RetryBudget: &networking.TrafficPolicy_RetryBudget{
+					MinRetryConcurrency: 3,
+				},
+			},
+			subset: &networking.TrafficPolicy{
+				RetryBudget: &networking.TrafficPolicy_RetryBudget{
+					MinRetryConcurrency: 10,
+				},
+			},
+			port: nil,
+			expected: &networking.TrafficPolicy{
+				RetryBudget: &networking.TrafficPolicy_RetryBudget{
+					MinRetryConcurrency: 10,
+				},
+			},
+		},
+		{
 			name: "default cluster, non-matching port selector",
 			original: &networking.TrafficPolicy{
 				LoadBalancer: &networking.LoadBalancerSettings{
