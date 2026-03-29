@@ -50,6 +50,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/plugin/authz"
 	"istio.io/istio/pilot/pkg/networking/telemetry"
 	"istio.io/istio/pilot/pkg/networking/util"
+	authnutils "istio.io/istio/pilot/pkg/security/authn/utils"
 	security "istio.io/istio/pilot/pkg/security/model"
 	netutil "istio.io/istio/pilot/pkg/util/network"
 	"istio.io/istio/pilot/pkg/util/protoconv"
@@ -1263,6 +1264,9 @@ func buildCommonConnectTLSContext(proxy *model.Proxy, push *model.PushContext) *
 		// Ensure TLS 1.3 is used everywhere
 		TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
 		TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_3,
+		// Cipher suites must be set for compatibility when FIPS compliance enforcement
+		// downgrades the connection to TLS 1.2.
+		CipherSuites: authnutils.SupportedCiphers,
 	}
 	// Compliance for Envoy tunnel TLS contexts.
 	security.EnforceCompliance(ctx)
