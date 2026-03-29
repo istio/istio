@@ -79,6 +79,7 @@ func ListenerSetCollection(
 	grants gatewaycommon.ReferenceGrants,
 	configMaps krt.Collection[*corev1.ConfigMap],
 	secrets krt.Collection[*corev1.Secret],
+	endpoints krt.Collection[*model.IstioEndpoints],
 	domainSuffix string,
 	gatewayContext krt.RecomputeProtected[*atomic.Pointer[gatewaycommon.GatewayContext]],
 	tagWatcher krt.RecomputeProtected[revisions.TagWatcher],
@@ -141,7 +142,7 @@ func ListenerSetCollection(
 			gatewayServices, err := extractGatewayServices(domainSuffix, parentGwObj, classInfo)
 			if len(gatewayServices) == 0 && err != nil {
 				// Short circuit if it's a hard failure
-				reportListenerSetStatus(context, parentGwObj, obj, status, gatewayServices, nil, err)
+				reportListenerSetStatus(ctx, context, parentGwObj, obj, status, gatewayServices, endpoints, nil, err)
 				return status, nil
 			}
 
@@ -216,7 +217,7 @@ func ListenerSetCollection(
 				result = append(result, res)
 			}
 
-			reportListenerSetStatus(context, parentGwObj, obj, status, gatewayServices, servers, err)
+			reportListenerSetStatus(ctx, context, parentGwObj, obj, status, gatewayServices, endpoints, servers, err)
 			return status, result
 		}, opts.WithName("ListenerSets")...)
 
@@ -231,6 +232,7 @@ func GatewayCollection(
 	grants gatewaycommon.ReferenceGrants,
 	configMaps krt.Collection[*corev1.ConfigMap],
 	secrets krt.Collection[*corev1.Secret],
+	endpoints krt.Collection[*model.IstioEndpoints],
 	domainSuffix string,
 	gatewayContext krt.RecomputeProtected[*atomic.Pointer[gatewaycommon.GatewayContext]],
 	tagWatcher krt.RecomputeProtected[revisions.TagWatcher],
@@ -274,7 +276,7 @@ func GatewayCollection(
 		gatewayServices, err := extractGatewayServices(domainSuffix, obj, classInfo)
 		if len(gatewayServices) == 0 && err != nil {
 			// Short circuit if its a hard failure
-			reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, 0, err)
+			reportGatewayStatus(ctx, context, obj, status, classInfo, gatewayServices, endpoints, servers, 0, err)
 			return status, nil
 		}
 
@@ -359,7 +361,7 @@ func GatewayCollection(
 			})
 		}
 
-		reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, len(listenersFromSets), err)
+		reportGatewayStatus(ctx, context, obj, status, classInfo, gatewayServices, endpoints, servers, len(listenersFromSets), err)
 		return status, result
 	}, opts.WithName("KubernetesGateway")...)
 

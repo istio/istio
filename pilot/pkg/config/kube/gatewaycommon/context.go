@@ -27,6 +27,8 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/kube/krt"
+
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -64,8 +66,10 @@ func (gc GatewayContext) Cluster() cluster.ID {
 // * Pending addresses (eg istio-ingressgateway.istio-system.svc), are LoadBalancer-type services with pending external addresses.
 // * Warnings for references that could not be resolved. These are intended to be user facing.
 func (gc GatewayContext) ResolveGatewayInstances(
+	ctx krt.HandlerContext,
 	namespace string,
 	gwsvcs []string,
+	endpoints krt.Collection[*model.IstioEndpoints],
 	servers []*networking.Server,
 ) (internal, internalIP, external, pending, warns []string, allUsable bool) {
 	ports := map[int]struct{}{}
@@ -96,9 +100,23 @@ func (gc GatewayContext) ResolveGatewayInstances(
 			foundUnusable = true
 			continue
 		}
-		svcKey := svc.Key()
+
+		istioEndpoints := krt.Fetch(ctx, endpoints, krt.FilterLabel(map[string]string{
+			"service":   svc.Hostname.String(),
+			"namespace": namespace,
+		}))
+		instancesByPort := map[int][]*model.IstioEndpoint{}
+		for _, shard := range istioEndpoints {
+			for _, endpoint := range shard.Endpoints {
+				if endpoint.HealthStatus != model.Healthy {
+					continue
+				}
+				instancesByPort[int(endpoint.EndpointPort)] = append(instancesByPort[int(endpoint.EndpointPort)], endpoint)
+			}
+		}
+
 		for port := range ports {
-			instances := gc.ps.ServiceEndpointsByPort(svc, port, nil)
+			instances := instancesByPort[port]
 			if len(instances) > 0 {
 				foundInternal.Insert(g + ":" + strconv.Itoa(port))
 				dummyProxy := &model.Proxy{Metadata: &model.NodeMetadata{ClusterID: gc.cluster}}
@@ -116,7 +134,6 @@ func (gc GatewayContext) ResolveGatewayInstances(
 					}
 				}
 			} else {
-				instancesByPort := gc.ps.ServiceEndpoints(svcKey)
 				if InstancesEmpty(instancesByPort) {
 					warnings = append(warnings, fmt.Sprintf("no instances found for hostname %q", g))
 				} else {

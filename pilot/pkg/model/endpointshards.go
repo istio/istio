@@ -15,12 +15,14 @@
 package model
 
 import (
+	"fmt"
 	"sort"
 	"sync"
 
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -135,6 +137,34 @@ func (es *EndpointShards) DeepCopy() *EndpointShards {
 	return res
 }
 
+type IstioEndpoints struct {
+	Endpoints []*IstioEndpoint
+	Service   string
+	Namespace string
+	ShardKey  ShardKey
+}
+
+func (e *IstioEndpoints) ResourceName() string {
+	return fmt.Sprintf("%s/%s/%s", e.ShardKey, e.Namespace, e.Service)
+}
+
+func (e *IstioEndpoints) Equals(other *IstioEndpoints) bool {
+	if e.ShardKey != other.ShardKey || e.Service != other.Service ||
+		e.Namespace != other.Namespace || len(e.Endpoints) != len(other.Endpoints) {
+		return false
+	}
+	_, equals := endpointUpdateRequiresPush(e.Endpoints, other.Endpoints)
+	return equals
+}
+
+func (e *IstioEndpoints) GetLabels() map[string]string {
+	return map[string]string{
+		"service":   e.Service,
+		"namespace": e.Namespace,
+		"shardKey":  e.ShardKey.String(),
+	}
+}
+
 // EndpointIndex is a mutex protected index of endpoint shards
 type EndpointIndex struct {
 	mu sync.RWMutex
@@ -142,7 +172,24 @@ type EndpointIndex struct {
 	shardsBySvc map[string]map[string]*EndpointShards
 	// We'll need to clear the cache in-sync with endpoint shards modifications.
 	cache XdsCache
+
+	col     *krt.StaticCollection[*IstioEndpoints]
+	initCol sync.Once
 }
+
+type syncedSyncer struct{}
+
+// HasSynced implements [krt.Syncer].
+func (s *syncedSyncer) HasSynced() bool {
+	return true
+}
+
+// WaitUntilSynced implements [krt.Syncer].
+func (s *syncedSyncer) WaitUntilSynced(stop <-chan struct{}) bool {
+	return true
+}
+
+var _ krt.Syncer = &syncedSyncer{}
 
 func NewEndpointIndex(cache XdsCache) *EndpointIndex {
 	return &EndpointIndex{
@@ -249,7 +296,41 @@ func (e *EndpointIndex) deleteServiceInner(shard ShardKey, serviceName, namespac
 			delete(e.shardsBySvc, serviceName)
 		}
 	}
+
+	if e.col != nil {
+		e.col.DeleteObject(fmt.Sprintf("%s/%s/%s", shard, namespace, serviceName))
+	}
+
 	epShards.Unlock()
+}
+
+func (e *EndpointIndex) AsCollection() krt.Collection[*IstioEndpoints] {
+	e.initCol.Do(func() {
+		col := krt.NewStaticCollection[*IstioEndpoints](&syncedSyncer{}, e.buildIstioEndpoints())
+		e.col = &col
+	})
+	return e.col
+}
+
+func (e *EndpointIndex) buildIstioEndpoints() []*IstioEndpoints {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+	endpoints := []*IstioEndpoints{}
+	for svc, shardsByNamespace := range e.shardsBySvc {
+		for ns, shards := range shardsByNamespace {
+			shards.RLock()
+			for shardKey, istioEndpoints := range shards.Shards {
+				endpoints = append(endpoints, &IstioEndpoints{
+					Service:   svc,
+					Namespace: ns,
+					ShardKey:  shardKey,
+					Endpoints: istioEndpoints,
+				})
+			}
+			shards.RUnlock()
+		}
+	}
+	return endpoints
 }
 
 // PushType is an enumeration that decides what type push we should do when we get EDS update.
@@ -335,6 +416,15 @@ func (e *EndpointIndex) UpdateServiceEndpoints(
 	// immediately. However, clearing the cache here has almost no impact on cache performance as we
 	// would clear it shortly after anyways.
 	e.clearCacheForService(hostname, namespace)
+
+	if e.col != nil {
+		e.col.UpdateObject(&IstioEndpoints{
+			Endpoints: istioEndpoints,
+			Service:   hostname,
+			Namespace: namespace,
+			ShardKey:  shard,
+		})
+	}
 
 	return pushType
 }

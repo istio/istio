@@ -1733,17 +1733,19 @@ func getListenerNames(spec *k8s.GatewaySpec) sets.Set[k8s.SectionName] {
 }
 
 func reportGatewayStatus(
+	ctx krt.HandlerContext,
 	r *gatewaycommon.GatewayContext,
 	obj *k8s.Gateway,
 	gs *k8s.GatewayStatus,
 	classInfo gatewaycommon.ClassInfo,
 	gatewayServices []string,
+	endpoints krt.Collection[*model.IstioEndpoints],
 	servers []*istio.Server,
 	listenerSetCount int,
 	gatewayErr *ConfigError,
 ) {
 	// TODO: we lose address if servers is empty due to an error
-	internal, internalIP, external, pending, warnings, allUsable := r.ResolveGatewayInstances(obj.Namespace, gatewayServices, servers)
+	internal, internalIP, external, pending, warnings, allUsable := r.ResolveGatewayInstances(ctx, obj.Namespace, gatewayServices, endpoints, servers)
 
 	// Setup initial conditions to the success state. If we encounter errors, we will update this.
 	// We have two status
@@ -1820,15 +1822,17 @@ func reportGatewayStatus(
 }
 
 func reportListenerSetStatus(
+	ctx krt.HandlerContext,
 	r *gatewaycommon.GatewayContext,
 	parentGwObj *k8s.Gateway,
 	obj *k8s.ListenerSet,
 	gs *k8s.ListenerSetStatus,
 	gatewayServices []string,
+	endpoints krt.Collection[*model.IstioEndpoints],
 	servers []*istio.Server,
 	gatewayErr *ConfigError,
 ) {
-	internal, _, _, _, warnings, allUsable := r.ResolveGatewayInstances(parentGwObj.Namespace, gatewayServices, servers)
+	internal, _, _, _, warnings, allUsable := r.ResolveGatewayInstances(ctx, parentGwObj.Namespace, gatewayServices, endpoints, servers)
 
 	// Setup initial conditions to the success state. If we encounter errors, we will update this.
 	// We have two status

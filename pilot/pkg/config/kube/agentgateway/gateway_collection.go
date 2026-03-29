@@ -26,6 +26,7 @@ import (
 
 	istio "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/kube/gatewaycommon"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -135,6 +136,7 @@ func ListenerSetCollection(
 	grants gatewaycommon.ReferenceGrants,
 	configMaps krt.Collection[*corev1.ConfigMap],
 	secrets krt.Collection[*corev1.Secret],
+	endpoints krt.Collection[*model.IstioEndpoints],
 	domainSuffix string,
 	gatewayContext krt.RecomputeProtected[*atomic.Pointer[gatewaycommon.GatewayContext]],
 	tagWatcher krt.RecomputeProtected[revisions.TagWatcher],
@@ -198,7 +200,7 @@ func ListenerSetCollection(
 			gatewayServices, err := extractGatewayServices(domainSuffix, parentGwObj, classInfo)
 			if len(gatewayServices) == 0 && err != nil {
 				// Short circuit if it's a hard failure
-				reportListenerSetStatus(context, parentGwObj, obj, status, gatewayServices, nil, err)
+				reportListenerSetStatus(ctx, context, parentGwObj, obj, status, gatewayServices, endpoints, nil, err)
 				return status, nil
 			}
 
@@ -245,7 +247,7 @@ func ListenerSetCollection(
 				result = append(result, res)
 			}
 
-			reportListenerSetStatus(context, parentGwObj, obj, status, gatewayServices, servers, err)
+			reportListenerSetStatus(ctx, context, parentGwObj, obj, status, gatewayServices, endpoints, servers, err)
 			return status, result
 		}, opts.WithName("ListenerSets")...)
 
@@ -253,15 +255,17 @@ func ListenerSetCollection(
 }
 
 func reportListenerSetStatus(
+	ctx krt.HandlerContext,
 	r *gatewaycommon.GatewayContext,
 	parentGwObj *gatewayv1.Gateway,
 	obj *gatewayv1.ListenerSet,
 	gs *gatewayv1.ListenerSetStatus,
 	gatewayServices []string,
+	endpoints krt.Collection[*model.IstioEndpoints],
 	servers []*istio.Server,
 	cond *Condition,
 ) {
-	internal, _, _, _, warnings, allUsable := r.ResolveGatewayInstances(parentGwObj.Namespace, gatewayServices, servers)
+	internal, _, _, _, warnings, allUsable := r.ResolveGatewayInstances(ctx, parentGwObj.Namespace, gatewayServices, endpoints, servers)
 
 	// Setup initial conditions to the success state. If we encounter errors, we will update this.
 	// We have two status
@@ -300,6 +304,7 @@ func GatewayCollection(
 	grants gatewaycommon.ReferenceGrants,
 	configMaps krt.Collection[*corev1.ConfigMap],
 	secrets krt.Collection[*corev1.Secret],
+	endpoints krt.Collection[*model.IstioEndpoints],
 	domainSuffix string,
 	gatewayContext krt.RecomputeProtected[*atomic.Pointer[gatewaycommon.GatewayContext]],
 	tagWatcher krt.RecomputeProtected[revisions.TagWatcher],
@@ -347,7 +352,7 @@ func GatewayCollection(
 		if len(gatewayServices) == 0 && err != nil {
 			// Short circuit if its a hard failure
 			log.Errorf("failed to translate gwv1", "name", obj.GetName(), "namespace", obj.GetNamespace(), "err", err.message)
-			reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, 0, err.error)
+			reportGatewayStatus(ctx, context, obj, status, classInfo, gatewayServices, endpoints, servers, 0, err.error)
 			return status, nil
 		}
 		var gatewayErr *ConfigError
@@ -411,7 +416,7 @@ func GatewayCollection(
 			})
 		}
 
-		reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, len(listenersFromSets), gatewayErr)
+		reportGatewayStatus(ctx, context, obj, status, classInfo, gatewayServices, endpoints, servers, len(listenersFromSets), gatewayErr)
 		return status, result
 	}, opts.WithName("KubernetesGateway")...)
 
