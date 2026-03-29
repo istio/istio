@@ -42,7 +42,7 @@ func createCNIConfigFile(ctx context.Context, cfg *config.InstallConfig) (string
 		CNIAgentRunDir:              cfg.CNIAgentRunDir,
 		AmbientEnabled:              cfg.AmbientEnabled,
 		EnablementSelectors:         selectors,
-		ExcludeNamespaces:           strings.Split(cfg.ExcludeNamespaces, ","),
+		ExcludeNamespaces:           util.SplitExcludeNamespaces(cfg.ExcludeNamespaces),
 		PodNamespace:                cfg.PodNamespace,
 		NativeNftables:              cfg.NativeNftables,
 		EnableAmbientDetectionRetry: cfg.EnableAmbientDetectionRetry,
