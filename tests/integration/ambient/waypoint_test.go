@@ -18,6 +18,7 @@ package ambient
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -1371,6 +1372,173 @@ func setIngressUseWaypoint(t framework.TestContext, name string, patcher func(cl
 			}
 		})
 	}
+}
+
+func TestWaypointDNSConnectStrategy(t *testing.T) {
+	framework.
+		NewTest(t).
+		Run(func(t framework.TestContext) {
+			egressNamespace, err := namespace.Claim(t, namespace.Config{
+				Prefix: "connect-strategy-egress",
+				Inject: false,
+			})
+			assert.NoError(t, err)
+
+			waypointSpec := `apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: connect-strategy-gw
+spec:
+  gatewayClassName: istio-waypoint
+  listeners:
+  - name: mesh
+    port: 15008
+    protocol: HBONE
+    allowedRoutes:
+      namespaces:
+        from: Selector
+        selector:
+          matchLabels:
+            kubernetes.io/metadata.name: "{{.}}"`
+			t.ConfigIstio().
+				Eval(egressNamespace.Name(), apps.Namespace.Name(), waypointSpec).
+				ApplyOrFail(t, apply.CleanupConditionally)
+
+			serviceEntry := `apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: connect-strategy-se
+  labels:
+    istio.io/use-waypoint: connect-strategy-gw
+    istio.io/use-waypoint-namespace: {{.EgressNamespace}}
+  annotations:
+    ambient.istio.io/connect-strategy: RACE_FIRST_TCP_CONNECT
+spec:
+  hosts:
+  - fake-connect-strategy.example.com
+  ports:
+  - name: http
+    number: 80
+    protocol: HTTP
+  location: MESH_EXTERNAL
+  resolution: DNS
+  endpoints:
+  - address: external.{{.ExternalNamespace}}.svc.cluster.local`
+			t.ConfigIstio().
+				Eval(apps.Namespace.Name(), map[string]string{
+					"ExternalNamespace": apps.ExternalNamespace.Name(),
+					"EgressNamespace":   egressNamespace.Name(),
+				}, serviceEntry).
+				ApplyOrFail(t, apply.CleanupConditionally)
+
+			// Subtest 1: Verify waypoint cluster config has DnsLookupFamily=ALL (happy eyeballs)
+			t.NewSubTest("envoy cluster config").Run(func(t framework.TestContext) {
+				waypointLabel := label.IoK8sNetworkingGatewayGatewayName.Name + "=connect-strategy-gw"
+				fetchFn := kubetest.NewSinglePodFetch(t.Clusters().Default(), egressNamespace.Name(), waypointLabel)
+				pods, err := kubetest.WaitUntilPodsAreReady(fetchFn)
+				if err != nil {
+					t.Fatalf("failed to find waypoint pod: %v", err)
+				}
+				waypointPod := fmt.Sprintf("%s.%s", pods[0].Name, egressNamespace.Name())
+
+				retry.UntilSuccessOrFail(t, func() error {
+					output, _ := istioctl.NewOrFail(t, istioctl.Config{}).InvokeOrFail(t,
+						[]string{"proxy-config", "cluster", waypointPod, "-o", "json"})
+
+					var clusters []json.RawMessage
+					if err := json.Unmarshal([]byte(output), &clusters); err != nil {
+						return fmt.Errorf("failed to parse cluster dump: %v", err)
+					}
+
+					for _, raw := range clusters {
+						var c map[string]any
+						if err := json.Unmarshal(raw, &c); err != nil {
+							continue
+						}
+						name, _ := c["name"].(string)
+						if !strings.Contains(name, "fake-connect-strategy.example.com") {
+							continue
+						}
+						// Verify DnsLookupFamily is ALL (enables happy eyeballs)
+						dnsFamily, _ := c["dnsLookupFamily"].(string)
+						if dnsFamily != "ALL" {
+							return fmt.Errorf("expected dnsLookupFamily=ALL for cluster %s, got %q", name, dnsFamily)
+						}
+						// Verify cluster type is LOGICAL_DNS (required for happy eyeballs)
+						clusterType, _ := c["type"].(string)
+						if clusterType != "LOGICAL_DNS" {
+							return fmt.Errorf("expected type=LOGICAL_DNS for cluster %s, got %q", name, clusterType)
+						}
+						return nil
+					}
+					return fmt.Errorf("cluster for fake-connect-strategy.example.com not found in config dump")
+				}, retry.Timeout(30*time.Second))
+			})
+
+			// Subtest 2: Verify traffic flows through the waypoint with L7 processing
+			t.NewSubTest("traffic through waypoint").Run(func(t framework.TestContext) {
+				for _, src := range apps.All {
+					if !hboneClient(src) {
+						continue
+					}
+					t.NewSubTestf("from %s", src.ServiceName()).Run(func(t framework.TestContext) {
+						if src.Config().HasSidecar() {
+							t.Skip("TODO: sidecars don't properly handle use-waypoint")
+						}
+						src.CallOrFail(t, echo.CallOptions{
+							Address: "fake-connect-strategy.example.com",
+							Port:    echo.Port{ServicePort: 80},
+							Scheme:  scheme.HTTP,
+							Count:   1,
+							Check:   check.And(check.OK(), IsL7()),
+						})
+					})
+				}
+			})
+
+			// Subtest 3: Verify status condition when connect strategy is set without waypoint
+			t.NewSubTest("status condition without waypoint").Run(func(t framework.TestContext) {
+				noWaypointSE := `apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: connect-strategy-no-wp
+  annotations:
+    ambient.istio.io/connect-strategy: RACE_FIRST_TCP_CONNECT
+spec:
+  hosts:
+  - fake-no-waypoint.example.com
+  ports:
+  - name: http
+    number: 80
+    protocol: HTTP
+  location: MESH_EXTERNAL
+  resolution: DNS
+  endpoints:
+  - address: external.{{.ExternalNamespace}}.svc.cluster.local`
+				t.ConfigIstio().
+					Eval(apps.Namespace.Name(), map[string]string{
+						"ExternalNamespace": apps.ExternalNamespace.Name(),
+					}, noWaypointSE).
+					ApplyOrFail(t, apply.CleanupConditionally)
+
+				retry.UntilSuccessOrFail(t, func() error {
+					se, err := t.Clusters().Default().Istio().NetworkingV1().ServiceEntries(apps.Namespace.Name()).
+						Get(context.TODO(), "connect-strategy-no-wp", metav1.GetOptions{})
+					if err != nil {
+						return err
+					}
+					for _, cond := range se.Status.Conditions {
+						if cond.Type == string(model.ConnectStrategyWithoutWaypoint) {
+							if cond.Status == "False" {
+								return nil
+							}
+							return fmt.Errorf("expected condition status %q, got %q", "False", cond.Status)
+						}
+					}
+					return fmt.Errorf("condition %s not found on ServiceEntry", model.ConnectStrategyWithoutWaypoint)
+				}, retry.Timeout(1*time.Minute))
+			})
+		})
 }
 
 func GetCondition(conditions []metav1.Condition, condition string) *metav1.Condition {

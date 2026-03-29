@@ -104,7 +104,7 @@ func (q *StatusQueue) reconcile(raw any) error {
 	// * Condition was there, but is now removed: No problem, we will at worst do a patch that wasn't needed.
 	// * Condition was not there, but now it was added: clearly some other controller is writing the same type as us, which is not really allowed.
 	targetObject := obj.GetStatusTarget()
-	status := translateToPatch(targetObject, obj.GetConditions(), currentConditions)
+	status := translateToPatch(targetObject, obj.GetConditions(currentConditions), currentConditions)
 
 	if status == nil {
 		log.Debugf("no status to write")
@@ -121,7 +121,7 @@ type StatusWriter interface {
 	// GetStatusTarget returns the metadata about the object we are writing to
 	GetStatusTarget() model.TypedObject
 	// GetConditions returns a set of conditions for the object
-	GetConditions() model.ConditionSet
+	GetConditions(map[string]model.Condition) model.ConditionSet
 }
 
 // statusReporter is a generics-erased object storing context on how to write status for a given type.
