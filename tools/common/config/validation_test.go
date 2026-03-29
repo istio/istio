@@ -25,7 +25,7 @@ import (
 
 func NOwnerGroups(n int) string {
 	var values []string
-	for i := 0; i < n; i++ {
+	for i := range n {
 		values = append(values, strconv.Itoa(i))
 	}
 	return strings.Join(values, ",")

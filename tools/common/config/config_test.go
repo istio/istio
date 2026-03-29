@@ -23,7 +23,7 @@ import (
 
 var tesrLocalIPAddrs = func(ips []netip.Addr) ([]net.Addr, error) {
 	var IPAddrs []net.Addr
-	for i := 0; i < len(ips); i++ {
+	for i := range ips {
 		var ipAddr net.Addr
 		ipNetAddr := &net.IPNet{IP: net.ParseIP(ips[i].String())}
 		ipAddr = ipNetAddr

@@ -41,7 +41,7 @@ func BenchmarkStoreGet(b *testing.B) {
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
 		// get one thousand times
-		for i := 0; i < 1000; i++ {
+		for i := range 1000 {
 			if s.Get(gvk.ServiceEntry, strconv.Itoa(i), "ns") == nil {
 				b.Fatal("get failed")
 			}
@@ -78,7 +78,7 @@ func BenchmarkStoreUpdate(b *testing.B) {
 		s := initStore(b)
 		b.StartTimer()
 		// update one thousand times
-		for i := 0; i < 1000; i++ {
+		for i := range 1000 {
 			cfg.Name = strconv.Itoa(i)
 			cfg.Spec.(*v1alpha3.ServiceEntry).Hosts[0] = cfg.Name
 			if _, err := s.Update(cfg); err != nil {
@@ -94,7 +94,7 @@ func BenchmarkStoreDelete(b *testing.B) {
 		s := initStore(b)
 		b.StartTimer()
 		// delete one thousand times
-		for i := 0; i < 1000; i++ {
+		for i := range 1000 {
 			if err := s.Delete(gvk.ServiceEntry, strconv.Itoa(i), "ns", nil); err != nil {
 				b.Fatalf("delete failed: %v", err)
 			}
@@ -114,7 +114,7 @@ func initStore(b *testing.B) model.ConfigStore {
 			Hosts: []string{"www.foo.com"},
 		},
 	}
-	for i := 0; i < 1000; i++ {
+	for i := range 1000 {
 		cfg.Name = strconv.Itoa(i)
 		if _, err := s.Create(cfg); err != nil {
 			b.Fatalf("create failed: %v", err)

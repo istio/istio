@@ -177,11 +177,11 @@ func TestSupersetOf(t *testing.T) {
 
 func BenchmarkSupersetOf(b *testing.B) {
 	set1 := New[string]()
-	for i := 0; i < 1000; i++ {
+	for i := range 1000 {
 		set1.Insert(fmt.Sprint(i))
 	}
 	set2 := New[string]()
-	for i := 0; i < 50; i++ {
+	for i := range 50 {
 		set2.Insert(fmt.Sprint(i))
 	}
 	b.ResetTimer()
@@ -301,11 +301,11 @@ func TestInsertContains(t *testing.T) {
 
 func BenchmarkSet(b *testing.B) {
 	containsTest := New[string]()
-	for i := 0; i < 1000; i++ {
+	for i := range 1000 {
 		containsTest.Insert(fmt.Sprint(i))
 	}
 	sortOrder := []string{}
-	for i := 0; i < 1000; i++ {
+	for range 1000 {
 		sortOrder = append(sortOrder, fmt.Sprint(rand.Intn(1000)))
 	}
 	b.ResetTimer()
@@ -313,7 +313,7 @@ func BenchmarkSet(b *testing.B) {
 	b.Run("insert", func(b *testing.B) {
 		for n := 0; n < b.N; n++ {
 			s = New[string]()
-			for i := 0; i < 1000; i++ {
+			for range 1000 {
 				s.Insert("item")
 			}
 		}
@@ -355,7 +355,7 @@ func TestSetString(t *testing.T) {
 
 func BenchmarkOperateInPlace(b *testing.B) {
 	s1 := New[int]()
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		s1.Insert(i)
 	}
 	s2 := New[int]()

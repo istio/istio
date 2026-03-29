@@ -34,8 +34,8 @@ const (
 var wantReads []int
 
 func init() {
-	for i := 0; i < numWriters; i++ {
-		for j := 0; j < numWrites; j++ {
+	for i := range numWriters {
+		for range numWrites {
 			wantReads = append(wantReads, i)
 		}
 	}
@@ -52,7 +52,7 @@ func TestSingleWriter(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		ch := ub.Get()
-		for i := 0; i < numWriters*numWrites; i++ {
+		for range numWriters * numWrites {
 			r := <-ch
 			reads = append(reads, r)
 			ub.Load()
@@ -62,8 +62,8 @@ func TestSingleWriter(t *testing.T) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		for i := 0; i < numWriters; i++ {
-			for j := 0; j < numWrites; j++ {
+		for i := range numWriters {
+			for range numWrites {
 				ub.Put(i)
 			}
 		}
@@ -86,7 +86,7 @@ func TestMultipleWriters(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		ch := ub.Get()
-		for i := 0; i < numWriters*numWrites; i++ {
+		for range numWriters * numWrites {
 			r := <-ch
 			reads = append(reads, r)
 			ub.Load()
@@ -94,10 +94,10 @@ func TestMultipleWriters(t *testing.T) {
 	}()
 
 	wg.Add(numWriters)
-	for i := 0; i < numWriters; i++ {
+	for i := range numWriters {
 		go func(index int) {
 			defer wg.Done()
-			for j := 0; j < numWrites; j++ {
+			for range numWrites {
 				ub.Put(index)
 			}
 		}(i)
