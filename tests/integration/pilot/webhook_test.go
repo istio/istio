@@ -42,7 +42,7 @@ func TestWebhook(t *testing.T) {
 			if t.Settings().Revisions.Default() != "" {
 				vwcName = fmt.Sprintf("%s-%s", vwcName, t.Settings().Revisions.Default())
 			}
-			vwcName += "-istio-system"
+			vwcName += fmt.Sprintf("-%s", i.Settings().SystemNamespace)
 			webhooks := []string{vwcName, "istiod-default-validator"}
 
 			// clear the updated fields and verify istiod updates them
@@ -117,7 +117,7 @@ func verifyValidatingWebhookConfiguration(c *kubeApiAdmission.ValidatingWebhookC
 
 func verifyRejectsInvalidConfig(t framework.TestContext, configRevision string, shouldReject bool) {
 	t.Helper()
-	const istioNamespace = "istio-system"
+	istioNamespace := i.Settings().SystemNamespace
 	revLabel := map[string]string{}
 	if configRevision != "" {
 		revLabel[label.IoIstioRev.Name] = configRevision
