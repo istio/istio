@@ -71,6 +71,9 @@ components:
 func TestMultiRevision(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
+			if t.Settings().Meshless {
+				t.Skip("TestMultiRevision requires full Istio mesh with revision support")
+			}
 			stable := namespace.NewOrFail(t, namespace.Config{
 				Prefix:   "stable",
 				Inject:   true,
@@ -137,9 +140,13 @@ func TestMultiRevision(t *testing.T) {
 func TestMultiRevisionRouteStatusHandling(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
+			if t.Settings().Meshless {
+				t.Skip("TestMultiRevisionRouteStatusHandling requires full Istio mesh with revision support")
+			}
 			if err := crd.DeployGatewayAPI(t); err != nil {
 				t.Fatal(err)
 			}
+			cfg := istio.DefaultConfigOrFail(t, t)
 			stable := namespace.NewOrFail(t, namespace.Config{
 				Prefix:   "stable",
 				Inject:   true,
@@ -171,14 +178,17 @@ func TestMultiRevisionRouteStatusHandling(t *testing.T) {
 				}).
 				BuildOrFail(t)
 
-			t.ConfigIstio().YAML(canary.Name(), fmt.Sprintf(`
+			t.ConfigIstio().Eval(canary.Name(), map[string]string{
+				"namespace":    canary.Name(),
+				"gatewayClass": cfg.GatewayClassName,
+			}, `
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: test-gateway
-  namespace: %s
+  namespace: {{.namespace}}
 spec:
-  gatewayClassName: istio
+  gatewayClassName: {{.gatewayClass}}
   listeners:
   - name: http
     hostname: "test.example.com"
@@ -189,7 +199,7 @@ apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: test-route
-  namespace: %s
+  namespace: {{.namespace}}
 spec:
   parentRefs:
   - name: test-gateway
@@ -203,7 +213,7 @@ spec:
     backendRefs:
     - name: server
       port: 8090
-`, canary.Name(), canary.Name())).ApplyOrFail(t)
+`).ApplyOrFail(t)
 
 			var parentsFound bool
 			checkStatus := func() (completed bool, err error) {
