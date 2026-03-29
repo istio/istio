@@ -907,6 +907,7 @@ func extractServicePorts(gw gateway.Gateway, listenerSets []gateway.Listener) []
 	svcPorts = append(svcPorts, corev1.ServicePort{
 		Name:        "status-port",
 		Port:        int32(15021),
+		Protocol:    corev1.ProtocolTCP,
 		AppProtocol: &tcp,
 	})
 	portNums := sets.New[int32]()
@@ -925,8 +926,17 @@ func extractServicePorts(gw gateway.Gateway, listenerSets []gateway.Listener) []
 		svcPorts = append(svcPorts, corev1.ServicePort{
 			Name:        name,
 			Port:        l.Port,
+			Protocol:    corev1.ProtocolTCP,
 			AppProtocol: &appProtocol,
 		})
+		if features.EnableQUICListeners && protocol.Parse(appProtocol) == protocol.HTTPS {
+			svcPorts = append(svcPorts, corev1.ServicePort{
+				Name:        name + "-quic",
+				Port:        l.Port,
+				Protocol:    corev1.ProtocolUDP,
+				AppProtocol: &appProtocol,
+			})
+		}
 	}
 	return svcPorts
 }
