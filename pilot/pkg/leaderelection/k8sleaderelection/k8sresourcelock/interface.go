@@ -160,10 +160,7 @@ func New(lockType string, ns string, name string, coreClient corev1.CoreV1Interf
 func NewFromKubeconfig(lockType string, ns string, name string, rlc ResourceLockConfig, kubeconfig *restclient.Config, renewDeadline time.Duration) (Interface, error) {
 	// shallow copy, do not modify the kubeconfig
 	config := *kubeconfig
-	timeout := renewDeadline / 2
-	if timeout < time.Second {
-		timeout = time.Second
-	}
+	timeout := max(renewDeadline/2, time.Second)
 	config.Timeout = timeout
 	leaderElectionClient := clientset.NewForConfigOrDie(restclient.AddUserAgent(&config, "leader-election"))
 	return New(lockType, ns, name, leaderElectionClient.CoreV1(), leaderElectionClient.CoordinationV1(), rlc)
