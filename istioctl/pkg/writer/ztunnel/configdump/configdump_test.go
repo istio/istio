@@ -67,6 +67,7 @@ func TestConfigWriter_Prime(t *testing.T) {
 func TestConfigWriter_PrintSummary(t *testing.T) {
 	tests := []struct {
 		name                     string
+		wantOutVersion           string
 		wantOutputSecret         string
 		wantOutputWorkload       string
 		wantOutputPolicies       string
@@ -75,6 +76,10 @@ func TestConfigWriter_PrintSummary(t *testing.T) {
 		configNamespace          string
 		wantOutputAllwithHeaders string
 	}{
+		{
+			name:           "version",
+			wantOutVersion: "testdata/versionsummary.txt",
+		},
 		{
 			name:             "secret",
 			wantOutputSecret: "testdata/secretsummary.txt",
@@ -111,6 +116,10 @@ func TestConfigWriter_PrintSummary(t *testing.T) {
 			cw := &ConfigWriter{Stdout: gotOut}
 			cd := util.ReadFile(t, "testdata/dump.json")
 			assert.NoError(t, cw.Prime(cd))
+			if tt.wantOutVersion != "" {
+				assert.NoError(t, cw.PrintVersionSummary())
+				util.CompareContent(t, gotOut.Bytes(), tt.wantOutVersion)
+			}
 			if tt.wantOutputSecret != "" {
 				assert.NoError(t, cw.PrintSecretSummary())
 				util.CompareContent(t, gotOut.Bytes(), tt.wantOutputSecret)

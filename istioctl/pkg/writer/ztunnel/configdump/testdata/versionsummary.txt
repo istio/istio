@@ -1,0 +1,2 @@
+Ztunnel version:  c5c31102fd1ddefe95bf3c40dbbe36652dcd7889
+Istio version:  1.26.2

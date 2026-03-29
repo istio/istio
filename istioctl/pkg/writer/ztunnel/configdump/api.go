@@ -14,6 +14,8 @@
 
 package configdump
 
+import "encoding/json"
+
 type Locality struct {
 	Region  string `json:"region,omitempty"`
 	Zone    string `json:"zone,omitempty"`
@@ -121,6 +123,7 @@ type ZtunnelDump struct {
 	Policies      []*ZtunnelPolicy         `json:"policies"`
 	Certificates  []*CertsDump             `json:"certificates"`
 	WorkloadState map[string]WorkloadState `json:"workloadState"`
+	Version       json.RawMessage          `json:"version"`
 }
 
 type CertsDump struct {
