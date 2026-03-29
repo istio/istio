@@ -243,6 +243,9 @@ func workloadConfigCmd(ctx cli.Context) *cobra.Command {
 
   # Retrieve workload summary for a specific namespace
   istioctl ztunnel-config workloads <ztunnel-name[.namespace]> --workload-namespace foo
+
+  # Retrieve workload info for a specific workload pod (auto-resolves to its ztunnel).
+  istioctl ztunnel-config workload <workload-pod-name[.namespace]>
 `,
 		Aliases: []string{"w", "workloads"},
 		Args:    common.validateArgs,
@@ -251,6 +254,10 @@ func workloadConfigCmd(ctx cli.Context) *cobra.Command {
 				Namespace: workloadsNamespace,
 				Address:   address,
 				Node:      workloadNode,
+			}
+			if cw.TargetWorkload != nil {
+				filter.Name = cw.TargetWorkload.Name
+				filter.Namespace = cw.TargetWorkload.Namespace
 			}
 			switch common.outputFormat {
 			case summaryOutput:
@@ -289,6 +296,9 @@ func connectionsCmd(ctx cli.Context) *cobra.Command {
 
   # Retrieve summary of connections for a given Ztunnel instance.
   istioctl ztunnel-config connections <ztunnel-name[.namespace]>
+
+  # Retrieve connections for a specific workload pod (auto-resolves to its ztunnel).
+  istioctl ztunnel-config connections <workload-pod-name[.namespace]>
 `,
 		Aliases: []string{"cons"},
 		Args:    common.validateArgs,
@@ -297,6 +307,10 @@ func connectionsCmd(ctx cli.Context) *cobra.Command {
 				Namespace: workloadsNamespace,
 				Direction: direction,
 				Raw:       raw,
+			}
+			if cw.TargetWorkload != nil {
+				filter.Workload = cw.TargetWorkload.Name
+				filter.Namespace = cw.TargetWorkload.Namespace
 			}
 			switch common.outputFormat {
 			case summaryOutput:
@@ -621,6 +635,7 @@ func runConfigDump(
 				// If they explicitly asked for an unreliable container, allow it
 				enforceSinglePod = false
 			}
+			var targetWorkload *ztunnelDump.TargetWorkload
 			if common.node != "" {
 				nsn, err := PodOnNodeFromDaemonset(common.node, "ztunnel", ctx.IstioNamespace(), kubeClient)
 				if err != nil {
@@ -634,9 +649,30 @@ func runConfigDump(
 			}
 			ztunnelPod := ambientutil.IsZtunnelPod(kubeClient, podName, podNamespace)
 			if !ztunnelPod {
-				return fmt.Errorf("workloads command is only supported by Ztunnel proxies: %v", podName)
+				// The user targeted a workload pod, not a ztunnel. Resolve to the ztunnel
+				// on the same node and filter output to this workload.
+				workloadPod, podErr := kubeClient.Kube().CoreV1().Pods(podNamespace).Get(context.Background(), podName, metav1.GetOptions{})
+				if podErr != nil {
+					return fmt.Errorf("failed to get pod %s.%s: %v", podName, podNamespace, podErr)
+				}
+				nodeName := workloadPod.Spec.NodeName
+				if nodeName == "" {
+					return fmt.Errorf("pod %s.%s is not scheduled to a node", podName, podNamespace)
+				}
+				targetWorkload = &ztunnelDump.TargetWorkload{
+					Name:      podName,
+					Namespace: podNamespace,
+				}
+				nsn, nodeErr := PodOnNodeFromDaemonset(nodeName, "ztunnel", ctx.IstioNamespace(), kubeClient)
+				if nodeErr != nil {
+					return fmt.Errorf("failed to find ztunnel on node %s for pod %s.%s: %v", nodeName, podName, podNamespace, nodeErr)
+				}
+				podName, podNamespace = nsn.Name, nsn.Namespace
 			}
 			configWriter, err = setupZtunnelConfigDumpWriter(kubeClient, podName, podNamespace, c.OutOrStdout(), common.proxyAdminPort)
+			if err == nil && targetWorkload != nil {
+				configWriter.TargetWorkload = targetWorkload
+			}
 		}
 		if err != nil {
 			return err
