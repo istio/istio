@@ -64,6 +64,16 @@ _internal_defaults_do_not_set:
         - { key: istio.io/dataplane-mode, operator: NotIn, values: [none] }
       namespaceSelector:
         matchLabels: {istio.io/dataplane-mode: ambient}
+    # Interface exclusion rules for ambient mode
+    # Allows excluding specific interfaces from ambient redirection based on namespace selectors
+    #excludeInterfaces: []
+    # NOTE: just an example of how one might achieve this. Remember to revert this to
+    # the above empty slice before submit.
+    excludeInterfaces:
+     - interfaceName: "eth1"
+       namespaceSelector:
+         matchLabels:
+           swift-enabled: "true"
     # Set ambient config dir path: defaults to /etc/ambient-config
     configDir: ""
     # If enabled, and ambient is enabled, DNS redirection will be enabled

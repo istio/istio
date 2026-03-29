@@ -107,7 +107,7 @@ func NewNftablesConfigurator(
 }
 
 // CreateInpodRules creates nftables rules within a pod's network namespace
-func (cfg *NftablesConfigurator) CreateInpodRules(log *istiolog.Scope, podOverrides config.PodLevelOverrides) error {
+func (cfg *NftablesConfigurator) CreateInpodRules(log *istiolog.Scope, podOverrides config.PodOverrides) error {
 	log.Info("native nftables enabled, using nft rules for inpod traffic redirection")
 
 	rules, err := cfg.AppendInpodRules(podOverrides)
@@ -130,7 +130,7 @@ func (cfg *NftablesConfigurator) CreateInpodRules(log *istiolog.Scope, podOverri
 	return nil
 }
 
-func (cfg *NftablesConfigurator) AppendInpodRules(podOverrides config.PodLevelOverrides) (*knftables.Transaction, error) {
+func (cfg *NftablesConfigurator) AppendInpodRules(podOverrides config.PodOverrides) (*knftables.Transaction, error) {
 	cfg.ruleBuilder = builder.NewNftablesRuleBuilder(config.GetConfig(cfg.cfg))
 
 	var redirectDNS bool
@@ -194,6 +194,44 @@ func (cfg *NftablesConfigurator) AppendInpodRules(podOverrides config.PodLevelOv
 			cfg.ruleBuilder.AppendRule(IstioPreroutingChain, AmbientNatTable,
 				"iifname", fmt.Sprint(virtInterface),
 				"meta l4proto tcp", Counter,
+				"return",
+			)
+		}
+	}
+
+	// Short-circuit for excluded interfaces
+	// Mimics the sidecar shortCircuitExcludeInterfaces implementation
+	for _, excludeInterface := range podOverrides.ExcludeInterfaces {
+		// nat table - prerouting
+		cfg.ruleBuilder.AppendRule(IstioPreroutingChain, AmbientNatTable,
+			"iifname", excludeInterface, Counter,
+			"return",
+		)
+		// nat table - output
+		cfg.ruleBuilder.AppendRule(IstioOutputChain, AmbientNatTable,
+			"oifname", excludeInterface, Counter,
+			"return",
+		)
+
+		// mangle table - prerouting
+		cfg.ruleBuilder.AppendRule(IstioPreroutingChain, AmbientMangleTable,
+			"iifname", excludeInterface, Counter,
+			"return",
+		)
+		// mangle table - output
+		cfg.ruleBuilder.AppendRule(IstioOutputChain, AmbientMangleTable,
+			"oifname", excludeInterface, Counter,
+			"return",
+		)
+
+		// If DNS capture is enabled, also add raw table rules
+		if redirectDNS {
+			cfg.ruleBuilder.AppendRule(IstioPreroutingChain, AmbientRawTable,
+				"iifname", excludeInterface, Counter,
+				"return",
+			)
+			cfg.ruleBuilder.AppendRule(IstioOutputChain, AmbientRawTable,
+				"oifname", excludeInterface, Counter,
 				"return",
 			)
 		}
