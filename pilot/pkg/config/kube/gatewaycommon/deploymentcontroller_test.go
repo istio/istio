@@ -658,6 +658,25 @@ metadata:
 			objects:               defaultObjects,
 			copyLabelsAnnotations: &copyLabelsAnnotationsEnabled,
 		},
+		{
+			name: "udp-listener",
+			gw: k8s.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "default",
+					Namespace: "default",
+				},
+				Spec: k8s.GatewaySpec{
+					GatewayClassName: k8s.ObjectName(features.GatewayAPIDefaultGatewayClass),
+					Listeners: []k8s.Listener{{
+						Name:     "dns",
+						Port:     53,
+						Protocol: k8s.UDPProtocolType,
+					}},
+				},
+			},
+			objects:                  defaultObjects,
+			discoveryNamespaceFilter: discoveryNamespacesFilter,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

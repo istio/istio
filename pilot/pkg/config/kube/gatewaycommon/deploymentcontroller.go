@@ -914,6 +914,7 @@ func extractServicePorts(gw gateway.Gateway, listenerSets []gateway.Listener) []
 	svcPorts = append(svcPorts, corev1.ServicePort{
 		Name:        "status-port",
 		Port:        int32(15021),
+		Protocol:    corev1.ProtocolTCP,
 		AppProtocol: &tcp,
 	})
 	portNums := sets.New[int32]()
@@ -929,9 +930,14 @@ func extractServicePorts(gw gateway.Gateway, listenerSets []gateway.Listener) []
 			name = fmt.Sprintf("%s-%d", strings.ToLower(string(l.Protocol)), i)
 		}
 		appProtocol := strings.ToLower(string(l.Protocol))
+		svcPortProtocol := corev1.ProtocolTCP
+		if l.Protocol == gateway.UDPProtocolType {
+			svcPortProtocol = corev1.ProtocolUDP
+		}
 		svcPorts = append(svcPorts, corev1.ServicePort{
 			Name:        name,
 			Port:        l.Port,
+			Protocol:    svcPortProtocol,
 			AppProtocol: &appProtocol,
 		})
 	}

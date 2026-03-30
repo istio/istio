@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 59663
+releaseNotes:
+  - |
+    **Fixed** auto-provisioned Gateway Service ports using TCP protocol for UDP listeners.
