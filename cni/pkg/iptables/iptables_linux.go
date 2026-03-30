@@ -219,7 +219,11 @@ func NewIptablesConfigurator(
 
 		ipt6Ver, err := hostDeps.DetectIptablesVersion(true)
 		if err != nil {
-			return err
+			if configurator.cfg.EnableIPv6 {
+				return err
+			}
+			log.Warnf("Failed to detect a working ip6tables binary; continuing because IPv6 support is disabled (ENABLE_INBOUND_IPV6=false): %v", err)
+			ipt6Ver = dep.IptablesVersion{}
 		}
 		log.Debugf("found iptables v6 binary: %+v", iptVer)
 
