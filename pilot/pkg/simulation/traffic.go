@@ -291,7 +291,7 @@ func (sim *Simulation) Run(input Call) (result Result) {
 	l := matchListener(sim.Listeners, input)
 	if l == nil {
 		result.Error = ErrNoListener
-		return
+		return result
 	}
 	result.ListenerMatched = l.Name
 
@@ -312,13 +312,13 @@ func (sim *Simulation) Run(input Call) (result Result) {
 	fc, err := sim.matchFilterChain(l.FilterChains, l.DefaultFilterChain, input, hasTLSInspector)
 	if err != nil {
 		result.Error = err
-		return
+		return result
 	}
 	result.FilterChainMatched = fc.Name
 	// Plaintext to TLS is an error
 	if fc.TransportSocket != nil && input.TLS == Plaintext {
 		result.Error = ErrTLSError
-		return
+		return result
 	}
 
 	mTLSSecretConfigName := "default"
@@ -330,7 +330,7 @@ func (sim *Simulation) Run(input Call) (result Result) {
 	if fc.TransportSocket != nil && sim.requiresMTLS(fc, mTLSSecretConfigName) != (input.TLS == MTLS) {
 		// If there is no tls inspector, then
 		result.Error = ErrMTLSError
-		return
+		return result
 	}
 
 	if len(input.CustomListenerValidations) > 0 {
@@ -345,12 +345,12 @@ func (sim *Simulation) Run(input Call) (result Result) {
 		// We matched HCM and didn't terminate TLS, but we are sending TLS traffic - decoding will fail
 		if input.TLS != Plaintext && fc.TransportSocket == nil {
 			result.Error = ErrProtocolError
-			return
+			return result
 		}
 		// TCP to HCM is invalid
 		if input.Protocol != HTTP && input.Protocol != HTTP2 {
 			result.Error = ErrProtocolError
-			return
+			return result
 		}
 
 		// Fetch inline route
@@ -368,18 +368,18 @@ func (sim *Simulation) Run(input Call) (result Result) {
 		vh := sim.matchVirtualHost(rc, hostHeader)
 		if vh == nil {
 			result.Error = ErrNoVirtualHost
-			return
+			return result
 		}
 		result.VirtualHostMatched = vh.Name
 		if vh.RequireTls == route.VirtualHost_ALL && input.TLS == Plaintext {
 			result.Error = ErrTLSRedirect
-			return
+			return result
 		}
 
 		r := sim.matchRoute(vh, input)
 		if r == nil {
 			result.Error = ErrNoRoute
-			return
+			return result
 		}
 		result.RouteMatched = r.Name
 		switch t := r.GetAction().(type) {
@@ -389,7 +389,7 @@ func (sim *Simulation) Run(input Call) (result Result) {
 	} else if tcp := xdstest.ExtractTCPProxy(sim.t, fc); tcp != nil {
 		result.ClusterMatched = tcp.GetCluster()
 	}
-	return
+	return result
 }
 
 func (sim *Simulation) requiresMTLS(fc *listener.FilterChain, mTLSSecretConfigName string) bool {

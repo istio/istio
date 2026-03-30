@@ -78,7 +78,7 @@ func NewFakeWatcher(changedFunc func(path string, added bool)) (NewFileWatcherFu
 func (w *FakeWatcher) Add(path string) error {
 	w.Lock()
 
-	// w.events and w.errors are always updated togeather. We only check
+	// w.events and w.errors are always updated together. We only check
 	// the first to determine existence.
 	if _, ok := w.events[path]; ok {
 		w.Unlock()

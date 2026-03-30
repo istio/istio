@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package bootstrap
 
 import (
@@ -34,6 +35,7 @@ import (
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/compressor/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/router/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/resource_monitors/downstream_connections/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	"github.com/google/go-cmp/cmp"
@@ -201,28 +203,47 @@ func TestGolden(t *testing.T) {
 			},
 		},
 		{
-			base: "stats_compression_gzip",
+			base: "stats_flush_interval",
 			annotations: map[string]string{
-				"sidecar.istio.io/statsCompression": "gzip",
+				"sidecar.istio.io/statsFlushInterval": "10s",
 			},
 		},
 		{
-			base: "stats_compression_brotli",
+			base: "stats_eviction_interval",
 			annotations: map[string]string{
-				"sidecar.istio.io/statsCompression": "brotli",
+				"sidecar.istio.io/statsEvictionInterval": "10s",
 			},
 		},
 		{
-			base: "stats_compression_zstd",
+			base: "invalid_stats_eviction_interval",
 			annotations: map[string]string{
-				"sidecar.istio.io/statsCompression": "zstd",
+				"sidecar.istio.io/statsEvictionInterval": "11s",
 			},
 		},
 		{
-			base: "stats_compression_unknown",
+			base: "stats_interval",
 			annotations: map[string]string{
-				"sidecar.istio.io/statsCompression": "unknown",
+				"sidecar.istio.io/statsFlushInterval":    "10s",
+				"sidecar.istio.io/statsEvictionInterval": "20s",
 			},
+		},
+		{
+			base: "global_downstream_max_connections_meta",
+			envVars: map[string]string{
+				GlobalDownstreamMaxConnections: "10000",
+			},
+		},
+		{
+			base: "global_downstream_max_connections_runtime",
+		},
+		{
+			base: "global_downstream_max_connections_both",
+			envVars: map[string]string{
+				GlobalDownstreamMaxConnections: "20000",
+			},
+		},
+		{
+			base: "stats_compression",
 		},
 	}
 
@@ -241,6 +262,14 @@ func TestGolden(t *testing.T) {
 			proxyConfig, err := loadProxyConfig(c.base, out, t)
 			if err != nil {
 				t.Fatalf("unable to load proxy config: %s\n%v", c.base, err)
+			}
+
+			// Set ProxyMetadata from env vars for global downstream max connections
+			if proxyConfig.ProxyMetadata == nil {
+				proxyConfig.ProxyMetadata = make(map[string]string)
+			}
+			if val, ok := c.envVars[GlobalDownstreamMaxConnections]; ok {
+				proxyConfig.ProxyMetadata[GlobalDownstreamMaxConnections] = val
 			}
 
 			_, localEnv := createEnv(t, map[string]string{}, c.annotations)

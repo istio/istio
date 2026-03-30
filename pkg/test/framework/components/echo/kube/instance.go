@@ -291,12 +291,23 @@ func (c *instance) Restart() error {
 		return fmt.Errorf("restart failed to get initial workloads: %v", err)
 	}
 
+	// Collect original pod UIDs so we can verify new pods have come up.
+	// Pod names are not sufficient because StatefulSet pods keep their names across restarts,
+	// but UIDs always change when a pod is deleted and recreated.
+	origPodUIDs := make(map[string]struct{}, len(origWorkloads))
+	for _, w := range origWorkloads {
+		origPodUIDs[string(w.(*workload).pod.UID)] = struct{}{}
+	}
+
 	// Restart the deployment.
 	if err := c.deployment.Restart(); err != nil {
 		return err
 	}
 
-	// Wait until all pods are ready and match the original count.
+	// Wait until all pods are ready, match the original count, and are actually new pods.
+	// Without the UID check, there's a race where the workload manager's informer hasn't
+	// processed delete/add events yet, so WaitForReadyWorkloads returns stale old pods
+	// with the correct count, causing this loop to exit before new pods are actually up.
 	return retry.UntilSuccess(func() (err error) {
 		// Get the currently ready workloads.
 		workloads, err := c.workloadMgr.WaitForReadyWorkloads()
@@ -309,6 +320,15 @@ func (c *instance) Restart() error {
 		if len(workloads) != len(origWorkloads) {
 			return fmt.Errorf("failed restarting echo %s/%s: number of pods %d does not match original %d",
 				c.cfg.Namespace.Name(), c.cfg.Service, len(workloads), len(origWorkloads))
+		}
+
+		// Verify all workloads are actually new pods, not old ones lingering in the workload manager.
+		for _, w := range workloads {
+			uid := string(w.(*workload).pod.UID)
+			if _, ok := origPodUIDs[uid]; ok {
+				return fmt.Errorf("failed restarting echo %s/%s: old pod %s (UID %s) still present",
+					c.cfg.Namespace.Name(), c.cfg.Service, w.PodName(), uid)
+			}
 		}
 
 		return nil

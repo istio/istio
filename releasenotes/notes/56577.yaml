@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+releaseNotes:
+  - |
+    **Fixed** incorrect UID and GID assignment for `istio-proxy` and `istio-validation` containers on OpenShift when TPROXY mode is enabled.

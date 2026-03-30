@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/netip"
 	"os"
 	"strings"
 	"sync"
@@ -39,6 +40,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/security/v1beta1"
+	"istio.io/istio/pilot/pkg/config/kube/agentgateway"
 	"istio.io/istio/pilot/pkg/controllers/ipallocate"
 	"istio.io/istio/pilot/pkg/controllers/untaint"
 	kubecredentials "istio.io/istio/pilot/pkg/credentials/kube"
@@ -79,6 +81,7 @@ import (
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/sets"
+	xdspkg "istio.io/istio/pkg/xds"
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/ra"
 	caserver "istio.io/istio/security/pkg/server/ca"
@@ -110,9 +113,11 @@ type Server struct {
 
 	multiclusterController *multicluster.Controller
 
-	configController       model.ConfigStoreController
-	ConfigStores           []model.ConfigStoreController
-	serviceEntryController *serviceentry.Controller
+	configController         model.ConfigStoreController
+	virtualServiceController *model.VirtualServiceController
+	ConfigStores             []model.ConfigStoreController
+	serviceEntryController   *serviceentry.Controller
+	agentgatewayController   *agentgateway.Controller
 
 	httpServer  *http.Server // debug, monitoring and readiness Server.
 	httpAddr    string
@@ -231,7 +236,8 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	e.DomainSuffix = args.RegistryOptions.KubeOptions.DomainSuffix
 
 	ac := aggregate.NewController(aggregate.Options{
-		MeshHolder: e,
+		MeshHolder:      e,
+		ConfigClusterID: getClusterID(args),
 	})
 	e.ServiceDiscovery = ac
 
@@ -327,6 +333,11 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	}
 
 	InitGenerators(s.XDSServer, configGen, args.Namespace, s.clusterID, s.internalDebugMux)
+
+	if features.EnableAgentgateway {
+		// Must occur after initControllers
+		s.XDSServer.InitCollections(s.agentgatewayController.Registrations...)
+	}
 
 	// Initialize workloadTrustBundle after CA has been initialized
 	if err := s.initWorkloadTrustBundle(args); err != nil {
@@ -756,7 +767,7 @@ func (s *Server) initGrpcServer(options *istiokeepalive.Options) {
 		// setup server prometheus monitoring (as final interceptor in chain)
 		grpcprom.UnaryServerInterceptor,
 	}
-	grpcOptions := istiogrpc.ServerOptions(options, interceptors...)
+	grpcOptions := istiogrpc.ServerOptions(options, xdspkg.RecordRecvSize, interceptors...)
 	s.grpcServer = grpc.NewServer(grpcOptions...)
 	s.XDSServer.Register(s.grpcServer)
 	reflection.Register(s.grpcServer)
@@ -779,6 +790,7 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs, trustDomain string)
 		return nil
 	}
 	log.Info("initializing secure discovery service")
+
 	cfg := &tls.Config{
 		GetCertificate: s.getIstiodCertificate,
 		ClientAuth:     tls.VerifyClientCertIfGiven,
@@ -791,7 +803,10 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs, trustDomain string)
 			return err
 		},
 		MinVersion:   tls.VersionTLS12,
-		CipherSuites: args.ServerOptions.TLSOptions.CipherSuits,
+		CipherSuites: args.ServerOptions.TLSOptions.CipherSuites,
+	}
+	if args.ServerOptions.TLSOptions.MinVersion != 0 {
+		cfg.MinVersion = args.ServerOptions.TLSOptions.MinVersion
 	}
 	// Compliance for xDS server TLS.
 	sec_model.EnforceGoCompliance(cfg)
@@ -804,7 +819,7 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs, trustDomain string)
 		// setup server prometheus monitoring (as final interceptor in chain)
 		grpcprom.UnaryServerInterceptor,
 	}
-	opts := istiogrpc.ServerOptions(args.KeepaliveOptions, interceptors...)
+	opts := istiogrpc.ServerOptions(args.KeepaliveOptions, xdspkg.RecordRecvSize, interceptors...)
 	opts = append(opts, grpc.Creds(tlsCreds))
 
 	s.secureGrpcServer = grpc.NewServer(opts...)
@@ -879,6 +894,9 @@ func (s *Server) cachesSynced() bool {
 	if !s.configController.HasSynced() {
 		return false
 	}
+	if s.virtualServiceController != nil && !s.virtualServiceController.HasSynced() {
+		return false
+	}
 	return true
 }
 
@@ -928,6 +946,10 @@ func (s *Server) initRegistryEventHandlers() {
 			}
 			// Already handled by gateway controller
 			if schema.GroupVersionKind().Group == gvk.KubernetesGateway.Group {
+				continue
+			}
+			// Already handled by virtual service controller
+			if schema.GroupVersionKind() == gvk.VirtualService {
 				continue
 			}
 
@@ -995,7 +1017,7 @@ func (s *Server) initIstiodCerts(args *PilotArgs, host string) error {
 
 		// In Istio 1.22 - we return nil here - the old code in s.initDNSCerts used to have
 		// an 'else' to handle the unknown providers by not initializing the TLS certs but
-		// still seting the root from /etc/certs/root-cert.pem for distribution in the
+		// still setting the root from /etc/certs/root-cert.pem for distribution in the
 		// namespace controller.
 		// The new behavior appears safer - IMO we may also do a fatal unless provider is
 		// set to "none" because it is not clear what the user intends.
@@ -1103,17 +1125,17 @@ func hasCustomTLSCerts(tlsOptions TLSOptions) (ok bool, tlsCertPath, tlsKeyPath,
 		tlsCertPath = constants.DefaultPilotTLSCert
 		tlsKeyPath = constants.DefaultPilotTLSKey
 		caCertPath = constants.DefaultPilotTLSCaCert
-		return
+		return ok, tlsCertPath, tlsKeyPath, caCertPath
 	}
 
 	if ok = checkPathsExist(constants.DefaultPilotTLSCert, constants.DefaultPilotTLSKey, constants.DefaultPilotTLSCaCertAlternatePath); ok {
 		tlsCertPath = constants.DefaultPilotTLSCert
 		tlsKeyPath = constants.DefaultPilotTLSKey
 		caCertPath = constants.DefaultPilotTLSCaCertAlternatePath
-		return
+		return ok, tlsCertPath, tlsKeyPath, caCertPath
 	}
 
-	return
+	return ok, tlsCertPath, tlsKeyPath, caCertPath
 }
 
 // hasCustomTLSCerts returns true if custom TLS certificates are configured via args.
@@ -1143,6 +1165,13 @@ func (s *Server) initControllers(args *PilotArgs) error {
 	}
 
 	if features.EnableIPAutoallocate {
+		// validate the IP autoallocate CIDR prefixes for IPv4 and IPv6
+		if _, err := netip.ParsePrefix(features.IPAutoallocateIPv4Prefix); err != nil {
+			return fmt.Errorf("invalid IPv4 prefix %s: %v", features.IPAutoallocateIPv4Prefix, err)
+		}
+		if _, err := netip.ParsePrefix(features.IPAutoallocateIPv6Prefix); err != nil {
+			return fmt.Errorf("invalid IPv6 prefix %s: %v", features.IPAutoallocateIPv6Prefix, err)
+		}
 		s.initIPAutoallocateController(args)
 	}
 
@@ -1189,9 +1218,18 @@ func (s *Server) initMulticluster(args *PilotArgs) {
 	if s.kubeClient == nil {
 		return
 	}
-	s.multiclusterController = multicluster.NewController(s.kubeClient, args.Namespace, s.clusterID, s.environment.Watcher, func(r *rest.Config) {
-		r.QPS = args.RegistryOptions.KubeOptions.KubernetesAPIQPS
-		r.Burst = args.RegistryOptions.KubeOptions.KubernetesAPIBurst
+	s.multiclusterController = multicluster.NewController(multicluster.ControllerOptions{
+		Client:          s.kubeClient,
+		ClusterID:       s.clusterID,
+		SystemNamespace: args.Namespace,
+		MeshConfig:      s.environment.Watcher,
+		ConfigOverrides: []func(*rest.Config){
+			func(r *rest.Config) {
+				r.QPS = args.RegistryOptions.KubeOptions.KubernetesAPIQPS
+				r.Burst = args.RegistryOptions.KubeOptions.KubernetesAPIBurst
+			},
+		},
+		Debugger: args.KrtDebugger,
 	})
 	s.XDSServer.ListRemoteClusters = s.multiclusterController.ListRemoteClusters
 	s.addStartFunc("multicluster controller", func(stop <-chan struct{}) error {

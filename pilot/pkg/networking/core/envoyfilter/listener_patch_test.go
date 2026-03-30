@@ -23,6 +23,7 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	fault "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/fault/v3"
+	tlsinspector "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/tls_inspector/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	redis "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/redis_proxy/v3"
 	tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
@@ -40,12 +41,16 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/util/protoconv"
+	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/log"
 	istio_proto "istio.io/istio/pkg/proto"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/wellknown"
 )
@@ -57,8 +62,8 @@ var testMesh = &meshconfig.MeshConfig{
 	},
 }
 
-func buildEnvoyFilterConfigStore(configPatches []*networking.EnvoyFilter_EnvoyConfigObjectPatch) model.ConfigStore {
-	store := memory.Make(collections.Pilot)
+func buildEnvoyFilterConfigStore(configPatches []*networking.EnvoyFilter_EnvoyConfigObjectPatch) model.ConfigStoreController {
+	store := memory.NewController(memory.Make(collections.Pilot))
 
 	for i, cp := range configPatches {
 		_, err := store.Create(config.Config{
@@ -78,8 +83,8 @@ func buildEnvoyFilterConfigStore(configPatches []*networking.EnvoyFilter_EnvoyCo
 	return store
 }
 
-func buildEnvoyFilterConfigStoreWithPriorities(configPatches []*networking.EnvoyFilter_EnvoyConfigObjectPatch, priorities []int32) model.ConfigStore {
-	store := memory.Make(collections.Pilot)
+func buildEnvoyFilterConfigStoreWithPriorities(configPatches []*networking.EnvoyFilter_EnvoyConfigObjectPatch, priorities []int32) model.ConfigStoreController {
+	store := memory.NewController(memory.Make(collections.Pilot))
 
 	for i, cp := range configPatches {
 		_, err := store.Create(config.Config{
@@ -113,14 +118,25 @@ func buildGolangPatchStruct(config string) *structpb.Struct {
 	return val
 }
 
-func newTestEnvironment(serviceDiscovery model.ServiceDiscovery, meshConfig *meshconfig.MeshConfig,
-	configStore model.ConfigStore,
+func newTestEnvironment(t *testing.T, serviceDiscovery model.ServiceDiscovery, meshConfig *meshconfig.MeshConfig,
+	configStore model.ConfigStoreController,
 ) *model.Environment {
 	e := &model.Environment{
 		ServiceDiscovery: serviceDiscovery,
 		ConfigStore:      configStore,
 		Watcher:          meshwatcher.NewTestWatcher(meshConfig),
 	}
+	e.VirtualServiceController = model.NewVirtualServiceController(
+		configStore,
+		model.VSControllerOptions{KrtDebugger: krt.GlobalDebugHandler},
+		meshwatcher.NewTestWatcher(meshConfig),
+	)
+
+	stop := test.NewStop(t)
+	go configStore.Run(stop)
+	go e.VirtualServiceController.Run(stop)
+	kube.WaitForCacheSync("test", stop, configStore.HasSynced)
+	kube.WaitForCacheSync("test", stop, e.VirtualServiceController.HasSynced)
 
 	pushContext := model.NewPushContext()
 	e.Init()
@@ -172,9 +188,31 @@ func TestApplyListenerPatches(t *testing.T) {
 				Operation: networking.EnvoyFilter_Patch_REMOVE,
 			},
 		},
+		{
+			ApplyTo: networking.EnvoyFilter_LISTENER_FILTER,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_GATEWAY,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+					Listener: &networking.EnvoyFilter_ListenerMatch{
+						PortNumber:     80,
+						ListenerFilter: "envoy.filters.listener.tls_inspector",
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_MERGE,
+				Value: buildPatchStruct(`{
+    "name": "envoy.filters.listener.tls_inspector",
+    "typedConfig": {
+        "@type": "type.googleapis.com/envoy.extensions.filters.listener.tls_inspector.v3.TlsInspector",
+        "initialReadBufferSize": 8192
+    }
+}`),
+			},
+		},
 	}
 	priorities := []int32{
-		2, 1,
+		2, 1, 0,
 	}
 
 	configPatches := []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
@@ -1919,6 +1957,9 @@ func TestApplyListenerPatches(t *testing.T) {
 					},
 				},
 			},
+			ListenerFilters: []*listener.ListenerFilter{
+				{Name: "envoy.filters.listener.tls_inspector", ConfigType: xdsfilters.TLSInspector.ConfigType},
+			},
 		},
 	}
 
@@ -1947,6 +1988,16 @@ func TestApplyListenerPatches(t *testing.T) {
 								}),
 							},
 						},
+					},
+				},
+			},
+			ListenerFilters: []*listener.ListenerFilter{
+				{
+					Name: "envoy.filters.listener.tls_inspector",
+					ConfigType: &listener.ListenerFilter_TypedConfig{
+						TypedConfig: protoconv.MessageToAny(&tlsinspector.TlsInspector{
+							InitialReadBufferSize: &wrapperspb.UInt32Value{Value: 8192},
+						}),
 					},
 				},
 			},
@@ -2235,12 +2286,12 @@ func TestApplyListenerPatches(t *testing.T) {
 		},
 	}
 	serviceDiscovery := memregistry.NewServiceDiscovery()
-	e := newTestEnvironment(serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(configPatches))
+	e := newTestEnvironment(t, serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(configPatches))
 	push := model.NewPushContext()
 	push.InitContext(e, nil, nil)
 
 	// Test different priorities
-	ep := newTestEnvironment(serviceDiscovery, testMesh, buildEnvoyFilterConfigStoreWithPriorities(configPatchesPriorities, priorities))
+	ep := newTestEnvironment(t, serviceDiscovery, testMesh, buildEnvoyFilterConfigStoreWithPriorities(configPatchesPriorities, priorities))
 	pushPriorities := model.NewPushContext()
 	pushPriorities.InitContext(ep, nil, nil)
 

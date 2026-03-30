@@ -158,6 +158,10 @@ func testDNS(t *testing.T, d *LocalDNSServer) {
 			expected: a("productpage.ns1.svc.cluster.local.", []netip.Addr{netip.MustParseAddr("9.9.9.9")}),
 		},
 		{
+			name: "not found: k8s host, fqdn with search namespace[0]",
+			host: "productpage.ns1.svc.cluster.local.ns1.svc.cluster.local.", // This should not exist in the table.
+		},
+		{
 			name:     "success: k8s host - name.namespace",
 			host:     "productpage.ns1.",
 			expected: a("productpage.ns1.", []netip.Addr{netip.MustParseAddr("9.9.9.9")}),

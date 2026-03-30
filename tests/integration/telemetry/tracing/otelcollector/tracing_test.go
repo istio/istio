@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 // Copyright Istio Authors. All Rights Reserved.
 //
@@ -78,7 +77,7 @@ func TestProxyTracingOpenTelemetryProvider(t *testing.T) {
 	}{
 		{
 			name:            "grpc exporter",
-			customAttribute: "provider=otel",
+			customAttribute: "provider=otel and key1=val1",
 			cfgFile:         otelTracingCfg,
 		},
 		{
@@ -117,7 +116,9 @@ func TestProxyTracingOpenTelemetryProvider(t *testing.T) {
 						for _, cluster := range ctx.Clusters().ByNetwork()[ctx.Clusters().Default().NetworkName()] {
 							ctx.NewSubTest(cluster.StableName()).Run(func(ctx framework.TestContext) {
 								retry.UntilSuccessOrFail(ctx, func() error {
-									err := tracing.SendTraffic(ctx, nil, cluster)
+									err := tracing.SendTraffic(ctx, map[string][]string{
+										"key1": {"val1"},
+									}, cluster)
 									if err != nil {
 										return fmt.Errorf("cannot send traffic from cluster %s: %v", cluster.Name(), err)
 									}
@@ -291,5 +292,5 @@ meshConfig:
 func testSetup(ctx resource.Context) (err error) {
 	addrs, _ := tracing.GetIngressInstance().HTTPAddresses()
 	_, err = opentelemetry.New(ctx, opentelemetry.Config{IngressAddr: addrs[0]})
-	return
+	return err
 }

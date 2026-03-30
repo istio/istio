@@ -21,7 +21,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	k8s "sigs.k8s.io/gateway-api/apis/v1"
-	k8sbeta "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
@@ -104,20 +103,20 @@ func TestListInvalidGroupVersionKind(t *testing.T) {
 
 func TestListGatewayResourceType(t *testing.T) {
 	controller := setupController(t,
-		&k8sbeta.GatewayClass{
+		&k8s.GatewayClass{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "gwclass",
 			},
 			Spec: *gatewayClassSpec,
 		},
-		&k8sbeta.Gateway{
+		&k8s.Gateway{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "gwspec",
 				Namespace: "ns1",
 			},
 			Spec: *gatewaySpec,
 		},
-		&k8sbeta.HTTPRoute{
+		&k8s.HTTPRoute{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "http-route",
 				Namespace: "ns1",
@@ -130,7 +129,7 @@ func TestListGatewayResourceType(t *testing.T) {
 	assert.Equal(t, len(cfg), 1)
 	for _, c := range cfg {
 		assert.Equal(t, c.GroupVersionKind, gvk.Gateway)
-		assert.Equal(t, c.Name, "gwspec"+"-"+constants.KubernetesGatewayName+"-default")
+		assert.Equal(t, c.Name, "gwspec"+"~"+constants.KubernetesGatewayName+"~default")
 		assert.Equal(t, c.Namespace, "ns1")
 		assert.Equal(t, c.Spec, any(expectedgw))
 	}

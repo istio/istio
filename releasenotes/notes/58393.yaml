@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 58392
+
+releaseNotes:
+- |
+  **Fixed** an issue where InferencePool configurations were lost during VirtualService merging when multiple HTTPRoutes referencing different InferencePools were attached to the same Gateway.

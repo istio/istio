@@ -1,0 +1,13 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  values:
+    global:
+      proxy:
+        resources:
+          limits:
+            cpu: 100m
+            memory: null
+          requests:
+            cpu: 50m
+            memory: null

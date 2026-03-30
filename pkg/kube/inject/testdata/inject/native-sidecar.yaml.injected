@@ -8,8 +8,7 @@ metadata:
     prometheus.io/path: /stats/prometheus
     prometheus.io/port: "15020"
     prometheus.io/scrape: "true"
-    sidecar.istio.io/status: '{"initContainers":["istio-init","istio-proxy"],"containers":null,"volumes":["workload-socket","credential-socket","workload-certs","istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null,"revision":"default"}'
-  creationTimestamp: null
+    sidecar.istio.io/status: '{"initContainers":["istio-init","istio-proxy"],"containers":null,"volumes":["workload-socket","credential-socket","workload-certs","istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert","istio-ca-crl"],"imagePullSecrets":null,"revision":"default"}'
   labels:
     security.istio.io/tlsMode: istio
     service.istio.io/canonical-name: hello
@@ -43,7 +42,7 @@ spec:
     - -d
     - 15090,15021,15020
     - --log_output_level=default:info
-    image: gcr.io/istio-testing/proxyv2:latest
+    image: registry.istio.io/testing/proxyv2:latest
     name: istio-init
     resources:
       limits:
@@ -101,7 +100,7 @@ spec:
     - name: ISTIO_CPU_LIMIT
       valueFrom:
         resourceFieldRef:
-          divisor: "0"
+          divisor: "1"
           resource: limits.cpu
     - name: PROXY_CONFIG
       value: |
@@ -116,12 +115,12 @@ spec:
     - name: GOMEMLIMIT
       valueFrom:
         resourceFieldRef:
-          divisor: "0"
+          divisor: "1"
           resource: limits.memory
     - name: GOMAXPROCS
       valueFrom:
         resourceFieldRef:
-          divisor: "0"
+          divisor: "1"
           resource: limits.cpu
     - name: ISTIO_META_CLUSTER_ID
       value: Kubernetes
@@ -141,7 +140,7 @@ spec:
       value: cluster.local
     - name: ISTIO_KUBE_APP_PROBERS
       value: '{"/app-health/other-sidecar/readyz":{"httpGet":{"port":3333}}}'
-    image: gcr.io/istio-testing/proxyv2:latest
+    image: registry.istio.io/testing/proxyv2:latest
     lifecycle:
       preStop:
         exec:
@@ -197,6 +196,8 @@ spec:
       name: workload-certs
     - mountPath: /var/run/secrets/istio
       name: istiod-ca-cert
+    - mountPath: /var/run/secrets/istio/crl
+      name: istio-ca-crl
     - mountPath: /var/lib/istio/data
       name: istio-data
     - mountPath: /etc/istio/proxy
@@ -244,5 +245,9 @@ spec:
   - configMap:
       name: istio-ca-root-cert
     name: istiod-ca-cert
+  - configMap:
+      name: istio-ca-crl
+      optional: true
+    name: istio-ca-crl
 status: {}
 ---

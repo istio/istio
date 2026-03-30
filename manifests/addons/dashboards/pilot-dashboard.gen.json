@@ -709,7 +709,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "sum(rate(pilot_xds_push_time_bucket{}[1m])) by (le)",
+               "expr": "sum(rate(pilot_xds_push_time_bucket{}[$__rate_interval])) by (le)",
                "format": "heatmap",
                "legendFormat": "{{le}}"
             }
@@ -756,7 +756,7 @@
                   "type": "prometheus",
                   "uid": "$datasource"
                },
-               "expr": "sum(rate(pilot_xds_config_size_bytes_bucket{}[1m])) by (le)",
+               "expr": "sum(rate(pilot_xds_config_size_bytes_bucket{}[$__rate_interval])) by (le)",
                "format": "heatmap",
                "legendFormat": "{{le}}"
             }

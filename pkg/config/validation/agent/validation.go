@@ -162,7 +162,7 @@ func ValidateDrainDuration(drainTime *durationpb.Duration) (errs error) {
 		errs = multierror.Append(errs, multierror.Prefix(err, "invalid drain duration:"))
 	}
 	if errs != nil {
-		return
+		return errs
 	}
 
 	drainDuration := drainTime.AsDuration()
@@ -171,7 +171,7 @@ func ValidateDrainDuration(drainTime *durationpb.Duration) (errs error) {
 		errs = multierror.Append(errs,
 			errors.New("drain time only supports durations to seconds precision"))
 	}
-	return
+	return errs
 }
 
 // ValidatePort checks that the network port is in range
@@ -279,7 +279,7 @@ func ValidateDatadogCollector(d *meshconfig.Tracing_Datadog) error {
 
 func ValidateTLS(configNamespace string, settings *networking.ClientTLSSettings) (errs error) {
 	if settings == nil {
-		return
+		return errs
 	}
 
 	if settings.CredentialName != "" && strings.HasPrefix(settings.CredentialName, credentials.KubernetesConfigMapTypeURI) {
@@ -317,7 +317,7 @@ func ValidateTLS(configNamespace string, settings *networking.ClientTLSSettings)
 
 		// If tls mode is SIMPLE or MUTUAL, and CredentialName is specified, credentials are fetched
 		// remotely. ServerCertificate and CaCertificates fields are not required.
-		return
+		return errs
 	}
 
 	if settings.Mode == networking.ClientTLSSettings_MUTUAL {
@@ -329,7 +329,7 @@ func ValidateTLS(configNamespace string, settings *networking.ClientTLSSettings)
 		}
 	}
 
-	return
+	return errs
 }
 
 // ValidateMeshConfigProxyConfig checks that the mesh config is well-formed
@@ -523,12 +523,12 @@ func ValidateProtocolDetectionTimeout(timeout *durationpb.Duration) error {
 // ValidateLocalityLbSetting checks the LocalityLbSetting of MeshConfig
 func ValidateLocalityLbSetting(lb *networking.LocalityLoadBalancerSetting, outlier *networking.OutlierDetection) (errs Validation) {
 	if lb == nil {
-		return
+		return errs
 	}
 
 	if len(lb.GetDistribute()) > 0 && len(lb.GetFailover()) > 0 {
 		errs = AppendValidation(errs, fmt.Errorf("can not simultaneously specify 'distribute' and 'failover'"))
-		return
+		return errs
 	}
 
 	if len(lb.GetFailover()) > 0 && len(lb.GetFailoverPriority()) > 0 {
@@ -536,7 +536,7 @@ func ValidateLocalityLbSetting(lb *networking.LocalityLoadBalancerSetting, outli
 			switch priorityLabel {
 			case label.LabelTopologyRegion, label.LabelTopologyZone, label.LabelTopologySubzone:
 				errs = AppendValidation(errs, fmt.Errorf("can not simultaneously set 'failover' and topology label '%s' in 'failover_priority'", priorityLabel))
-				return
+				return errs
 			}
 		}
 	}
@@ -550,13 +550,13 @@ func ValidateLocalityLbSetting(lb *networking.LocalityLoadBalancerSetting, outli
 			destLocalities = append(destLocalities, loc)
 			if weight <= 0 || weight > 100 {
 				errs = AppendValidation(errs, fmt.Errorf("locality weight must be in range [1, 100]"))
-				return
+				return errs
 			}
 			totalWeight += weight
 		}
 		if totalWeight != 100 {
 			errs = AppendValidation(errs, fmt.Errorf("total locality weight %v != 100", totalWeight))
-			return
+			return errs
 		}
 		errs = AppendValidation(errs, validateLocalities(destLocalities))
 	}
@@ -579,7 +579,7 @@ func ValidateLocalityLbSetting(lb *networking.LocalityLoadBalancerSetting, outli
 		}
 	}
 
-	return
+	return errs
 }
 
 const (
@@ -675,7 +675,7 @@ func validateServiceSettings(config *meshconfig.MeshConfig) (errs error) {
 			}
 		}
 	}
-	return
+	return errs
 }
 
 // ValidateWildcardDomain checks that a domain is a valid FQDN, but also allows wildcard prefixes.
@@ -764,7 +764,7 @@ func validateTrustDomainConfig(config *meshconfig.MeshConfig) (errs error) {
 			errs = multierror.Append(errs, fmt.Errorf("trustDomainAliases[%d], domain `%s` : %v", i, tda, err))
 		}
 	}
-	return
+	return errs
 }
 
 func ValidateMeshTLSConfig(mesh *meshconfig.MeshConfig) (errs error) {
@@ -797,7 +797,7 @@ func ValidateMeshTLSDefaults(mesh *meshconfig.MeshConfig) (v Validation) {
 	if len(duplicateECDHCurves) > 0 {
 		v = AppendWarningf(v, "detected duplicate ECDH curves: %v", sets.SortedList(duplicateECDHCurves))
 	}
-	return
+	return v
 }
 
 // ValidateMeshConfig checks that the mesh config is well-formed
@@ -875,7 +875,7 @@ func validateSidecarOrGatewayHostnamePart(hostname string, isGateway bool) (errs
 	// Gateway: https://istio.io/latest/docs/reference/config/networking/gateway/
 	// SideCar: https://istio.io/latest/docs/reference/config/networking/sidecar/#IstioEgressListener
 	errs = AppendErrors(errs, ValidatePartialWildCard(hostname))
-	return
+	return errs
 }
 
 func ValidateNamespaceSlashWildcardHostname(hostname string, isGateway bool, gatewaySemantics bool) (errs error) {
@@ -886,7 +886,7 @@ func ValidateNamespaceSlashWildcardHostname(hostname string, isGateway bool, gat
 			return validateSidecarOrGatewayHostnamePart(hostname, true)
 		}
 		errs = AppendErrors(errs, fmt.Errorf("host must be of form namespace/dnsName"))
-		return
+		return errs
 	}
 
 	if len(parts[0]) == 0 || len(parts[1]) == 0 {
@@ -910,7 +910,7 @@ func ValidateNamespaceSlashWildcardHostname(hostname string, isGateway bool, gat
 		}
 	}
 	errs = AppendErrors(errs, validateSidecarOrGatewayHostnamePart(parts[1], isGateway))
-	return
+	return errs
 }
 
 // ValidateIPSubnet checks that a string is in "CIDR notation" or "Dot-decimal notation"
@@ -961,7 +961,7 @@ func validateNetwork(network *meshconfig.Network) (errs error) {
 			errs = multierror.Append(errs, err)
 		}
 	}
-	return
+	return errs
 }
 
 // ValidateMeshNetworks validates meshnetworks.
@@ -972,5 +972,5 @@ func ValidateMeshNetworks(meshnetworks *meshconfig.MeshNetworks) (errs error) {
 			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("invalid network %v:", name)))
 		}
 	}
-	return
+	return errs
 }

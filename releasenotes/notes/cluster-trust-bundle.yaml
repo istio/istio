@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+releaseNotes:
+  - |
+    **Fixed** issues that ClusterTrustBundle was not working when `ENABLE_CLUSTER_TRUST_BUNDLE_API` is enabled.

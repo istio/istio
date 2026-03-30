@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+
+releaseNotes:
+- |
+  **Added** support for watching symlinked secrets in the Istio node agent. 
+

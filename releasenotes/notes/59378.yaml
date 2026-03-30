@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+  - 59377
+releaseNotes:
+  - |
+    **Added** support for `istioctl proxy-status -oyaml/json` to list proxy
+    status of a single namespace.

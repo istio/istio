@@ -24,10 +24,14 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	sfsvalue "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/common/set_filter_state/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	sfsnetwork "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/set_filter_state/v3"
+	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	envoyquicv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/quic/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"google.golang.org/protobuf/types/known/durationpb"
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	extensions "istio.io/api/extensions/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -37,6 +41,7 @@ import (
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/core/extension"
 	"istio.io/istio/pilot/pkg/networking/util"
+	authnutils "istio.io/istio/pilot/pkg/security/authn/utils"
 	authnmodel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/util/protoconv"
@@ -96,6 +101,16 @@ var (
 	defaultGatewayTransportSocketConnectTimeout = 15 * time.Second
 )
 
+// gatewayTransportSocketConnectTimeout returns the configured transport socket connect timeout
+// for gateway listeners. Returns nil if the timeout is set to 0 (disabled).
+func gatewayTransportSocketConnectTimeout() *durationpb.Duration {
+	timeout := features.GatewayTransportSocketConnectTimeout
+	if timeout == 0 {
+		return nil
+	}
+	return durationpb.New(timeout)
+}
+
 // BuildListeners produces a list of listeners and referenced clusters for all proxies
 func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
 	push *model.PushContext,
@@ -124,7 +139,7 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
 }
 
 func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
-	proxy *model.Proxy, mesh *meshconfig.MeshConfig, transportProtocol istionetworking.TransportProtocol, gatewayTCPServerWithTerminatingTLS bool,
+	proxy *model.Proxy, push *model.PushContext, transportProtocol istionetworking.TransportProtocol, gatewayTCPServerWithTerminatingTLS bool,
 ) *auth.DownstreamTlsContext {
 	alpnByTransport := util.ALPNHttp
 	if transportProtocol == istionetworking.TransportProtocolQUIC {
@@ -167,7 +182,7 @@ func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
 			[]string{}, validateClient, nil)
 	// If credential name(s) are specified at gateway config, create SDS config for gateway to fetch key/cert from Istiod.
 	case len(serverTLSSettings.GetCredentialNames()) > 0 || serverTLSSettings.CredentialName != "":
-		authnmodel.ApplyCredentialSDSToServerCommonTLSContext(ctx.CommonTlsContext, serverTLSSettings, credentialSocketExist)
+		authnmodel.ApplyCredentialSDSToServerCommonTLSContext(ctx.CommonTlsContext, serverTLSSettings, credentialSocketExist, push)
 	default:
 		certProxy := &model.Proxy{}
 		certProxy.IstioVersion = proxy.IstioVersion
@@ -185,7 +200,7 @@ func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
 
 	if isSimpleOrMutual(serverTLSSettings.Mode) {
 		// If Mesh TLSDefaults are set, use them.
-		applyDownstreamTLSDefaults(mesh.GetTlsDefaults(), ctx.CommonTlsContext)
+		applyDownstreamTLSDefaults(push.Mesh.GetTlsDefaults(), ctx.CommonTlsContext)
 		applyServerTLSSettings(serverTLSSettings, ctx.CommonTlsContext)
 	}
 
@@ -206,7 +221,7 @@ func applyDownstreamTLSDefaults(tlsDefaults *meshconfig.MeshConfig_TLSConfig, ct
 		tlsParamsOrNew(ctx).CipherSuites = tlsDefaults.CipherSuites
 	}
 	if tlsDefaults.MinProtocolVersion != meshconfig.MeshConfig_TLSConfig_TLS_AUTO {
-		tlsParamsOrNew(ctx).TlsMinimumProtocolVersion = auth.TlsParameters_TlsProtocol(tlsDefaults.MinProtocolVersion)
+		tlsParamsOrNew(ctx).TlsMinimumProtocolVersion = authnutils.GetMinTLSVersion(tlsDefaults.MinProtocolVersion)
 	}
 }
 
@@ -569,7 +584,12 @@ func buildListenerFromEntry(builder *ListenerBuilder, le *outboundListenerEntry,
 			},
 		}
 	}
-	if !le.bind.bindToPort {
+	if le.bind.bindToPort {
+		// This only applies to listeners that actually bind to a port given that only those listeners
+		// interface with the OS.
+		// See https://github.com/envoyproxy/envoy/blob/v1.35.3/source/common/network/tcp_listener_impl.cc#L57
+		l.MaxConnectionsToAcceptPerSocketEvent = maxConnectionsToAcceptPerSocketEvent()
+	} else {
 		l.BindToPort = proto.BoolFalse
 	}
 
@@ -581,6 +601,13 @@ func buildListenerFromEntry(builder *ListenerBuilder, le *outboundListenerEntry,
 		needsALPN := chain.tlsContext != nil && chain.tlsContext.CommonTlsContext != nil && len(chain.tlsContext.CommonTlsContext.AlpnProtocols) > 0
 		if len(chain.sniHosts) > 0 || needsALPN {
 			needTLSInspector = true
+		}
+		// SNI DFP filter needs TLS inspector to get requested server name from ClientHello for DNS resolution.
+		for _, f := range chain.networkFilters {
+			if f.Name == wellknown.SNIDynamicForwardProxy {
+				needTLSInspector = true
+				break
+			}
 		}
 		needHTTP := len(chain.applicationProtocols) > 0
 		if needHTTP {
@@ -611,7 +638,7 @@ func buildListenerFromEntry(builder *ListenerBuilder, le *outboundListenerEntry,
 			TransportSocket: buildDownstreamTLSTransportSocket(opt.tlsContext),
 			// Setting this timeout enables the proxy to enhance its resistance against memory exhaustion attacks,
 			// such as slow TLS Handshake attacks.
-			TransportSocketConnectTimeout: durationpb.New(defaultGatewayTransportSocketConnectTimeout),
+			TransportSocketConnectTimeout: gatewayTransportSocketConnectTimeout(),
 		}
 		if opt.httpOpts == nil {
 			// we are building a network filter chain (no http connection manager) for this filter chain
@@ -673,7 +700,7 @@ func (lb *ListenerBuilder) buildHTTPProxy(node *model.Proxy,
 	if httpProxyPort == 0 {
 		return nil
 	}
-	ph := GetProxyHeaders(node, push, istionetworking.ListenerClassSidecarOutbound)
+	ph := util.GetProxyHeaders(node, push, istionetworking.ListenerClassSidecarOutbound)
 
 	// enable HTTP PROXY port if necessary; this will add an RDS route for this port
 	_, actualLocalHosts := getWildcardsAndLocalHost(node.GetIPMode())
@@ -729,7 +756,7 @@ func buildSidecarOutboundHTTPListenerOpts(
 			rdsName = strconv.Itoa(opts.port.Port)
 		}
 	}
-	ph := GetProxyHeaders(opts.proxy, opts.push, istionetworking.ListenerClassSidecarOutbound)
+	ph := util.GetProxyHeaders(opts.proxy, opts.push, istionetworking.ListenerClassSidecarOutbound)
 	httpOpts := &httpListenerOpts{
 		// Set useRemoteAddress to true for sidecar outbound listeners so that it picks up the localhost address of the sender,
 		// which is an internal address, so that trusted headers are not sanitized. This helps to retain the timeout headers
@@ -747,6 +774,7 @@ func buildSidecarOutboundHTTPListenerOpts(
 		skipIstioMXHeaders:        ph.SkipIstioMXHeaders,
 		protocol:                  opts.port.Protocol,
 		class:                     istionetworking.ListenerClassSidecarOutbound,
+		policySvc:                 opts.service,
 	}
 
 	if features.HTTP10 || enableHTTP10(opts.proxy.Metadata.HTTP10) {
@@ -760,10 +788,10 @@ func buildSidecarOutboundHTTPListenerOpts(
 	}}
 }
 
-func buildSidecarOutboundTCPListenerOpts(opts outboundListenerOpts, virtualServices []config.Config) []*filterChainOpts {
+func buildSidecarOutboundTCPListenerOpts(opts outboundListenerOpts, virtualServices []*config.Config) []*filterChainOpts {
 	meshGateway := sets.New(constants.IstioMeshGateway)
 	out := make([]*filterChainOpts, 0)
-	var svcConfigs []config.Config
+	var svcConfigs []*config.Config
 	if opts.service != nil {
 		// Do not filter namespace for now.
 		// TODO(https://github.com/istio/istio/issues/46146) we may need to, or something more sophisticated
@@ -785,7 +813,7 @@ func buildSidecarOutboundTCPListenerOpts(opts outboundListenerOpts, virtualServi
 // (as vhosts are shipped through RDS).  TCP listeners on same port are
 // allowed only if they have different CIDR matches.
 func (lb *ListenerBuilder) buildSidecarOutboundListener(listenerOpts outboundListenerOpts,
-	listenerMap map[listenerKey]*outboundListenerEntry, virtualServices []config.Config, actualWildcards []string,
+	listenerMap map[listenerKey]*outboundListenerEntry, virtualServices []*config.Config, actualWildcards []string,
 ) {
 	// Alias services do not get listeners generated
 	if listenerOpts.service.Resolution == model.Alias {
@@ -820,7 +848,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListener(listenerOpts outboundLis
 				svcListenAddress = constants.UnspecifiedIPv6
 			}
 
-			// For dualstack proxies we need to add the unspecifed ipv6 address to the list of extra listen addresses
+			// For dualstack proxies we need to add the unspecified ipv6 address to the list of extra listen addresses
 			if listenerOpts.service.Attributes.ServiceRegistry == provider.External && listenerOpts.proxy.IsDualStack() &&
 				svcListenAddress == constants.UnspecifiedIP {
 				svcExtraListenAddresses = append(svcExtraListenAddresses, constants.UnspecifiedIPv6)
@@ -1118,7 +1146,7 @@ func buildGatewayListener(opts gatewayListenerOpts, transport istionetworking.Tr
 			TransportSocket:  transportSocket,
 			// Setting this timeout enables the proxy to enhance its resistance against memory exhaustion attacks,
 			// such as slow TLS Handshake attacks.
-			TransportSocketConnectTimeout: durationpb.New(defaultGatewayTransportSocketConnectTimeout),
+			TransportSocketConnectTimeout: gatewayTransportSocketConnectTimeout(),
 		})
 	}
 
@@ -1380,4 +1408,156 @@ func buildDownstreamQUICTransportSocket(tlsContext *auth.DownstreamTlsContext) *
 type listenerKey struct {
 	bind string
 	port int
+}
+
+// buildInnerConnectOriginateListener creates configuration for the waypoint inner_connect_originate listener.
+// This listener together with the corresponding cluster is responsible for the creating the inner HBONE tunnel of the
+// double-HBONE connection needed to communicate across networks in ambient mode.
+//
+// In terms of Envoy configuration this listener has two important bits:
+//
+// 1. It uses TCP Proxy network filter to establish a CONNECT tunnel
+// 2. It captures and propagates metadata about the actual destination and service name required for double-HBONE.
+func buildInnerConnectOriginateListener(push *model.PushContext, proxy *model.Proxy) *listener.Listener {
+	setFilterState := &sfsnetwork.Config{
+		OnNewConnection: []*sfsvalue.FilterStateValue{
+			{
+				Key: &sfsvalue.FilterStateValue_ObjectKey{
+					ObjectKey: "envoy.filters.listener.original_dst.local_ip",
+				},
+				Value: &sfsvalue.FilterStateValue_FormatString{
+					FormatString: &core.SubstitutionFormatString{
+						Format: &core.SubstitutionFormatString_TextFormatSource{
+							TextFormatSource: &core.DataSource{
+								Specifier: &core.DataSource_InlineString{
+									InlineString: "%DYNAMIC_METADATA(envoy.filters.listener.original_dst:local)%",
+								},
+							},
+						},
+					},
+				},
+				SharedWithUpstream: sfsvalue.FilterStateValue_TRANSITIVE,
+			},
+			{
+				Key: &sfsvalue.FilterStateValue_ObjectKey{
+					ObjectKey: "istio.double_hbone.hbone_target_address",
+				},
+				Value: &sfsvalue.FilterStateValue_FormatString{
+					FormatString: &core.SubstitutionFormatString{
+						Format: &core.SubstitutionFormatString_TextFormatSource{
+							TextFormatSource: &core.DataSource{
+								Specifier: &core.DataSource_InlineString{
+									InlineString: "%DYNAMIC_METADATA(istio:double_hbone:hbone_target_address)%",
+								},
+							},
+						},
+					},
+				},
+				FactoryKey:         "istio.hashable_string",
+				SharedWithUpstream: sfsvalue.FilterStateValue_TRANSITIVE,
+			},
+		},
+	}
+	tunnel := &tcp.TcpProxy_TunnelingConfig{
+		Hostname: "%FILTER_STATE(istio.double_hbone.hbone_target_address:PLAIN)%",
+	}
+
+	headers := []*core.HeaderValueOption{{
+		AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
+		Header: &core.HeaderValue{
+			Key:   downstreamOriginNetworkHeader,
+			Value: string(proxy.Metadata.Network),
+		},
+	}}
+
+	if features.EnableAmbientBaggage {
+		tunnel.PropagateResponseHeaders = true
+		headers = append(headers, &core.HeaderValueOption{
+			AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
+			Header: &core.HeaderValue{
+				Key:   "baggage",
+				Value: "%FILTER_STATE(io.istio.baggage:PLAIN)%",
+			},
+		})
+	}
+	tunnel.HeadersToAdd = headers
+
+	tcpProxy := &tcp.TcpProxy{
+		StatPrefix:       DoubleHBONEInnerConnectOriginate,
+		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: DoubleHBONEInnerConnectOriginate},
+		TunnelingConfig:  tunnel,
+	}
+	accessLogBuilder.setHboneOriginationAccessLog(push, proxy, tcpProxy, istionetworking.ListenerClassSidecarInbound)
+
+	sfs := &listener.Filter{
+		Name: "propagate_endpoint_metadata",
+		ConfigType: &listener.Filter_TypedConfig{
+			TypedConfig: protoconv.MessageToAny(setFilterState),
+		},
+	}
+	tcp := &listener.Filter{
+		Name: wellknown.TCPProxy,
+		ConfigType: &listener.Filter_TypedConfig{
+			TypedConfig: protoconv.MessageToAny(tcpProxy),
+		},
+	}
+	filters := []*listener.Filter{sfs, tcp}
+	if features.EnableAmbientBaggage {
+		filters = []*listener.Filter{sfs, xdsfilters.WaypointListenerBaggagePeerMetadata, tcp}
+	}
+
+	l := &listener.Listener{
+		Name:              DoubleHBONEInnerConnectOriginate,
+		UseOriginalDst:    wrappers.Bool(false),
+		ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
+		FilterChains: []*listener.FilterChain{{
+			Filters: filters,
+		}},
+	}
+	accessLogBuilder.setListenerAccessLog(push, proxy, l, istionetworking.ListenerClassSidecarInbound)
+	return l
+}
+
+// buildOuterConnectOriginateListener creates configuration for the waypoint outer_connect_originate listener.
+// This listener together with the corresponding cluster is responsible for the creating the outer HBONE tunnel of the
+// double-HBONE connection needed to communicate across networks in ambient mode.
+//
+// Just like the inner_connect_originate listener above it uses TCP Proxy network filter to wrap traffic in HTTP CONNECT
+// tunnel, but unlike the inner_connect_originate it does not need to capture any metadata - it uses what
+// inner_connect_originate already captured and put in the filter state.
+func buildOuterConnectOriginateListener(push *model.PushContext, proxy *model.Proxy) *listener.Listener {
+	tcpProxy := &tcp.TcpProxy{
+		StatPrefix:       DoubleHBONEOuterConnectOriginate,
+		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: DoubleHBONEOuterConnectOriginate},
+		TunnelingConfig: &tcp.TcpProxy_TunnelingConfig{
+			Hostname: "%FILTER_STATE(istio.double_hbone.hbone_target_address:PLAIN)%",
+			HeadersToAdd: []*core.HeaderValueOption{{
+				AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
+				Header: &core.HeaderValue{
+					Key:   downstreamSourceHeader,
+					Value: "waypoint",
+				},
+			}},
+		},
+	}
+	accessLogBuilder.setHboneOriginationAccessLog(push, proxy, tcpProxy, istionetworking.ListenerClassSidecarInbound)
+
+	l := &listener.Listener{
+		Name:              DoubleHBONEOuterConnectOriginate,
+		UseOriginalDst:    wrappers.Bool(false),
+		ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
+		ListenerFilters: []*listener.ListenerFilter{
+			xdsfilters.OriginalDestination,
+		},
+		FilterChains: []*listener.FilterChain{{
+			Filters: []*listener.Filter{{
+				Name: wellknown.TCPProxy,
+				ConfigType: &listener.Filter_TypedConfig{
+					TypedConfig: protoconv.MessageToAny(tcpProxy),
+				},
+			}},
+		}},
+	}
+	accessLogBuilder.setListenerAccessLog(push, proxy, l, istionetworking.ListenerClassSidecarInbound)
+	return l
 }

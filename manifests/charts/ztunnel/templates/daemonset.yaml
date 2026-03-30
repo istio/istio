@@ -1,3 +1,4 @@
+{{- if or (eq .Values.resourceScope "all") (eq .Values.resourceScope "namespace") }}
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -52,6 +53,13 @@ spec:
       tolerations:
 {{ toYaml .Values.tolerations | trim | indent 8 }}
 {{- end }}
+{{- if .Values.dnsPolicy }}
+      dnsPolicy: {{ .Values.dnsPolicy }}
+{{- end }}
+{{- if .Values.dnsConfig }}
+      dnsConfig:
+{{ toYaml .Values.dnsConfig | trim | indent 8 }}
+{{- end }}
       containers:
       - name: istio-proxy
 {{- if contains "/" .Values.image }}
@@ -65,7 +73,7 @@ spec:
           protocol: TCP
         resources:
 {{- if .Values.resources }}
-{{ toYaml .Values.resources | trim | indent 10 }}
+{{ include "ztunnel.resources" .Values.resources | trim | indent 10 }}
 {{- end }}
 {{- with .Values.imagePullPolicy }}
         imagePullPolicy: {{ . }}
@@ -115,9 +123,9 @@ spec:
         - name: LOG_FORMAT
           value: json
         {{- end}}
-        {{- if .Values.global.network }}
+        {{- if .Values.network }}
         - name: NETWORK
-          value: {{ .Values.global.network | quote }}
+          value: {{ .Values.network | quote }}
         {{- end }}
         - name: RUST_LOG
           value: {{ .Values.logLevel | quote }}
@@ -155,11 +163,20 @@ spec:
           value: "{{ $value }}"
         {{- end }}
         {{- end }}
+        - name: ZTUNNEL_CPU_LIMIT
+          valueFrom:
+            resourceFieldRef:
+              resource: limits.cpu
+              divisor: "1"
         {{- with .Values.env }}
         {{- range $key, $val := . }}
         - name: {{ $key }}
           value: "{{ $val }}"
         {{- end }}
+        {{- end }}
+        {{- if .Values.peerCaCrl.enabled }}
+        - name: CRL_PATH
+          value: "/var/run/secrets/istio/crl/ca-crl.pem"
         {{- end }}
         volumeMounts:
         - mountPath: /var/run/secrets/istio
@@ -170,6 +187,11 @@ spec:
           name: cni-ztunnel-sock-dir
         - mountPath: /tmp
           name: tmp
+        {{- if .Values.peerCaCrl.enabled }}
+        - mountPath: /var/run/secrets/istio/crl
+          name: crl-volume
+          readOnly: true
+        {{- end }}
         {{- with .Values.volumeMounts }}
           {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -188,7 +210,7 @@ spec:
         projected:
           sources:
           - clusterTrustBundle:
-              name: istio.io:istiod-ca:{{ .Values.global.trustBundleName | default "root-cert" }}
+              name: istio.io:istiod-ca:{{ .Values.trustBundleName | default "root-cert" }}
               path: root-cert.pem
         {{- else }}
         configMap:
@@ -201,6 +223,14 @@ spec:
       # pprof needs a writable /tmp, and we don't have that thanks to `readOnlyRootFilesystem: true`, so mount one
       - name: tmp
         emptyDir: {}
+      {{- if .Values.peerCaCrl.enabled }}
+      # Optional CRL volume - mounts istio-ca-crl ConfigMap if it exists
+      - name: crl-volume
+        configMap:
+          name: istio-ca-crl
+          optional: true
+      {{- end }}
       {{- with .Values.volumes }}
         {{- toYaml . | nindent 6}}
       {{- end }}
+{{- end }}

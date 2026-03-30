@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 // Copyright Istio Authors
 //
@@ -30,7 +29,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	testlabel "istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/tests/integration/pilot/common"
@@ -68,7 +66,7 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		RequireMinVersion(24).
-		Label(testlabel.IPv4). // https://github.com/istio/istio/issues/41008
+		RequireSingleCluster().
 		Setup(func(t resource.Context) error {
 			t.Settings().Ambient = true
 			return nil
@@ -78,9 +76,6 @@ func TestMain(m *testing.M) {
 			ctx.Settings().SkipVMs()
 			cfg.EnableCNI = true
 			cfg.DeployEastWestGW = false
-			if ctx.Settings().AmbientMultiNetwork {
-				cfg.SkipDeployCrossClusterSecrets = true
-			}
 			cfg.ControlPlaneValues = `
 values:
   cni:
@@ -91,6 +86,12 @@ values:
     env:
       SECRET_TTL: 5m
 `
+			if ctx.Settings().NativeNftables {
+				cfg.ControlPlaneValues += `
+  global:
+    nativeNftables: true
+`
+			}
 		}, cert.CreateCASecretAlt)).
 		Setup(func(t resource.Context) error {
 			return SetupApps(t, i, apps)

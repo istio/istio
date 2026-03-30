@@ -1122,14 +1122,17 @@ func TestCidrRangeSliceEqual(t *testing.T) {
 }
 
 func TestEndpointMetadata(t *testing.T) {
-	test.SetForTest(t, &features.EndpointTelemetryLabel, true)
 	cases := []struct {
-		name     string
-		metadata *model.EndpointMetadata
-		want     *core.Metadata
+		name                   string
+		enableTelemetryLabel   bool
+		endpointTelemetryLabel bool
+		metadata               *model.EndpointMetadata
+		want                   *core.Metadata
 	}{
 		{
-			name: "all empty",
+			name:                   "all empty",
+			enableTelemetryLabel:   true,
+			endpointTelemetryLabel: true,
 			metadata: &model.EndpointMetadata{
 				TLSMode:      model.DisabledTLSModeLabel,
 				Network:      "",
@@ -1151,7 +1154,9 @@ func TestEndpointMetadata(t *testing.T) {
 			},
 		},
 		{
-			name: "tls mode",
+			name:                   "tls mode",
+			enableTelemetryLabel:   true,
+			endpointTelemetryLabel: true,
 			metadata: &model.EndpointMetadata{
 				TLSMode:      model.IstioMutualTLSModeLabel,
 				Network:      "",
@@ -1182,7 +1187,9 @@ func TestEndpointMetadata(t *testing.T) {
 			},
 		},
 		{
-			name: "network and tls mode",
+			name:                   "network and tls mode",
+			enableTelemetryLabel:   true,
+			endpointTelemetryLabel: true,
 			metadata: &model.EndpointMetadata{
 				TLSMode:      model.IstioMutualTLSModeLabel,
 				Network:      "network",
@@ -1213,7 +1220,9 @@ func TestEndpointMetadata(t *testing.T) {
 			},
 		},
 		{
-			name: "all label",
+			name:                   "all label",
+			enableTelemetryLabel:   true,
+			endpointTelemetryLabel: true,
 			metadata: &model.EndpointMetadata{
 				TLSMode:      model.IstioMutualTLSModeLabel,
 				Network:      "network",
@@ -1249,7 +1258,9 @@ func TestEndpointMetadata(t *testing.T) {
 			},
 		},
 		{
-			name: "miss pod label",
+			name:                   "miss pod label",
+			enableTelemetryLabel:   true,
+			endpointTelemetryLabel: true,
 			metadata: &model.EndpointMetadata{
 				TLSMode:      model.IstioMutualTLSModeLabel,
 				Network:      "network",
@@ -1281,7 +1292,9 @@ func TestEndpointMetadata(t *testing.T) {
 			},
 		},
 		{
-			name: "miss workload name",
+			name:                   "miss workload name",
+			enableTelemetryLabel:   true,
+			endpointTelemetryLabel: true,
 			metadata: &model.EndpointMetadata{
 				TLSMode:      model.IstioMutualTLSModeLabel,
 				Network:      "network",
@@ -1312,9 +1325,49 @@ func TestEndpointMetadata(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:                   "all empty, telemetry label disabled",
+			enableTelemetryLabel:   false,
+			endpointTelemetryLabel: false,
+			metadata: &model.EndpointMetadata{
+				TLSMode:      model.DisabledTLSModeLabel,
+				Network:      "",
+				WorkloadName: "",
+				ClusterID:    "",
+			},
+			want: &core.Metadata{
+				FilterMetadata: map[string]*structpb.Struct{},
+			},
+		},
+		{
+			name:                   "tls mode, telemetry label disabled",
+			enableTelemetryLabel:   false,
+			endpointTelemetryLabel: false,
+			metadata: &model.EndpointMetadata{
+				TLSMode:      model.IstioMutualTLSModeLabel,
+				Network:      "",
+				WorkloadName: "",
+				ClusterID:    "",
+			},
+			want: &core.Metadata{
+				FilterMetadata: map[string]*structpb.Struct{
+					EnvoyTransportSocketMetadataKey: {
+						Fields: map[string]*structpb.Value{
+							model.TLSModeLabelShortname: {
+								Kind: &structpb.Value_StringValue{
+									StringValue: model.IstioMutualTLSModeLabel,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
+			test.SetForTest(t, &features.EnableTelemetryLabel, tt.enableTelemetryLabel)
+			test.SetForTest(t, &features.EndpointTelemetryLabel, tt.endpointTelemetryLabel)
 			input := &core.Metadata{}
 			AppendLbEndpointMetadata(tt.metadata, input)
 			if !reflect.DeepEqual(input, tt.want) {
@@ -1810,4 +1863,55 @@ func TestMeshNetworksToEnvoyInternalAddressConfig(t *testing.T) {
 			}
 		})
 	}
+}
+
+func BenchmarkAddConfigInfoMetadata(b *testing.B) {
+	configs := []config.Meta{
+		{
+			Name:             "my-virtual-service",
+			Namespace:        "default",
+			GroupVersionKind: gvk.VirtualService,
+		},
+		{
+			Name:             "my-destination-rule",
+			Namespace:        "istio-system",
+			GroupVersionKind: gvk.DestinationRule,
+		},
+		{
+			Name:             "my-gateway",
+			Namespace:        "production",
+			GroupVersionKind: gvk.Gateway,
+		},
+	}
+
+	b.Run("NilMetadata", func(b *testing.B) {
+		cfg := configs[0]
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			_ = AddConfigInfoMetadata(nil, cfg)
+		}
+	})
+
+	b.Run("ExistingMetadata", func(b *testing.B) {
+		cfg := configs[0]
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			meta := &core.Metadata{
+				FilterMetadata: map[string]*structpb.Struct{},
+			}
+			_ = AddConfigInfoMetadata(meta, cfg)
+		}
+	})
+
+	b.Run("MultipleConfigs", func(b *testing.B) {
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			for _, cfg := range configs {
+				_ = AddConfigInfoMetadata(nil, cfg)
+			}
+		}
+	})
 }

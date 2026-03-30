@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+  - 58572
+
+releaseNotes:
+  - |
+    **Added** support for configuring terminationGracePeriodSeconds on the istio-cni pod, and updated the default value from 5 secs to 30 secs.
+

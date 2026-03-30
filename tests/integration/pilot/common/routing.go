@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 // Copyright Istio Authors
 //
@@ -192,8 +191,13 @@ func httpGateway(host string, port int, portName, protocol string, gatewayIstioL
 func virtualServiceCases(t TrafficContext) {
 	// reduce the total # of subtests that don't give valuable coverage or just don't work
 	// TODO include proxyless as different features become supported
-	t.SetDefaultSourceMatchers(match.NotNaked, match.NotHeadless, match.NotProxylessGRPC)
-	t.SetDefaultTargetMatchers(match.NotNaked, match.NotHeadless, match.NotProxylessGRPC)
+	matchers := []match.Matcher{match.NotNaked, match.NotHeadless, match.NotProxylessGRPC}
+	if t.Settings().AmbientMultiNetwork {
+		matchers = append(matchers, match.AmbientCaptured())
+	}
+	t.SetDefaultSourceMatchers(matchers...)
+	t.SetDefaultTargetMatchers(matchers...)
+
 	includeProxyless := []match.Matcher{match.NotNaked, match.NotHeadless}
 
 	skipVM := t.Settings().Skip(echo.VM)
@@ -1732,7 +1736,7 @@ func gatewayCases(t TrafficContext) {
 		}
 	}
 
-	// clears the To to avoid echo internals trying to match the protocol with the port on echo.Config
+	// clears the To field to avoid echo internals trying to match the protocol with the port on echo.Config
 	noTarget := func(_ echo.Caller, opts *echo.CallOptions) {
 		opts.To = nil
 	}
@@ -3300,11 +3304,16 @@ func protocolSniffingCases(t TrafficContext) {
 
 	// so we can check all clusters are hit
 	for _, call := range protocols {
+		skip := skip{}
+		if call.scheme == scheme.TCP {
+			skip.skip = true
+			skip.reason = "https://github.com/istio/istio/issues/26798: enable sniffing tcp"
+		} else if call.scheme == scheme.HTTP && t.Settings().AmbientMultiNetwork {
+			skip.skip = true
+			skip.reason = "https://github.com/istio/istio/issues/58010"
+		}
 		t.RunTraffic(TrafficTestCase{
-			skip: skip{
-				skip:   call.scheme == scheme.TCP,
-				reason: "https://github.com/istio/istio/issues/26798: enable sniffing tcp",
-			},
+			skip: skip,
 			name: call.port,
 			opts: echo.CallOptions{
 				Count: 1,
@@ -5224,8 +5233,8 @@ func createService(t TrafficContext, name, ns, appLabelValue string, instances i
 	return clusterIPs
 }
 
-func getSupportedIPFamilies(t framework.TestContext, instace echo.Instance) (v4 bool, v6 bool) {
-	for _, a := range instace.WorkloadsOrFail(t).Addresses() {
+func getSupportedIPFamilies(t framework.TestContext, instance echo.Instance) (v4 bool, v6 bool) {
+	for _, a := range instance.WorkloadsOrFail(t).Addresses() {
 		ip, err := netip.ParseAddr(a)
 		assert.NoError(t, err)
 		if ip.Is4() {
@@ -5235,7 +5244,7 @@ func getSupportedIPFamilies(t framework.TestContext, instace echo.Instance) (v4 
 		}
 	}
 	if !v4 && !v6 {
-		t.Fatalf("pod is neither v4 nor v6? %v", instace.WorkloadsOrFail(t).Addresses())
+		t.Fatalf("pod is neither v4 nor v6? %v", instance.WorkloadsOrFail(t).Addresses())
 	}
-	return
+	return v4, v6
 }

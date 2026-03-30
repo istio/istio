@@ -23,10 +23,12 @@ const (
 	GatewayClass
 	HTTPRoute
 	HorizontalPodAutoscaler
+	InferencePool
 	Ingress
 	IngressClass
 	KubernetesGateway
 	Lease
+	ListenerSet
 	MeshConfig
 	MeshNetworks
 	MutatingWebhookConfiguration
@@ -47,6 +49,7 @@ const (
 	TCPRoute
 	TLSRoute
 	Telemetry
+	TypeUrl
 	UDPRoute
 	ValidatingWebhookConfiguration
 	VirtualService
@@ -96,6 +99,8 @@ func (k Kind) String() string {
 		return "HTTPRoute"
 	case HorizontalPodAutoscaler:
 		return "HorizontalPodAutoscaler"
+	case InferencePool:
+		return "InferencePool"
 	case Ingress:
 		return "Ingress"
 	case IngressClass:
@@ -104,6 +109,8 @@ func (k Kind) String() string {
 		return "KubernetesGateway"
 	case Lease:
 		return "Lease"
+	case ListenerSet:
+		return "ListenerSet"
 	case MeshConfig:
 		return "MeshConfig"
 	case MeshNetworks:
@@ -144,6 +151,8 @@ func (k Kind) String() string {
 		return "TLSRoute"
 	case Telemetry:
 		return "Telemetry"
+	case TypeUrl:
+		return "TypeUrl"
 	case UDPRoute:
 		return "UDPRoute"
 	case ValidatingWebhookConfiguration:
@@ -203,6 +212,8 @@ func FromString(s string) Kind {
 		return HTTPRoute
 	case "HorizontalPodAutoscaler":
 		return HorizontalPodAutoscaler
+	case "InferencePool":
+		return InferencePool
 	case "Ingress":
 		return Ingress
 	case "IngressClass":
@@ -211,6 +222,8 @@ func FromString(s string) Kind {
 		return KubernetesGateway
 	case "Lease":
 		return Lease
+	case "ListenerSet":
+		return ListenerSet
 	case "MeshConfig":
 		return MeshConfig
 	case "MeshNetworks":
@@ -251,6 +264,8 @@ func FromString(s string) Kind {
 		return TLSRoute
 	case "Telemetry":
 		return Telemetry
+	case "TypeUrl":
+		return TypeUrl
 	case "UDPRoute":
 		return UDPRoute
 	case "ValidatingWebhookConfiguration":

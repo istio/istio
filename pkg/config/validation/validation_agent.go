@@ -1,5 +1,4 @@
 //go:build agent
-// +build agent
 
 // Copyright Istio Authors
 //

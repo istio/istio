@@ -238,7 +238,7 @@ func (s Schemas) Validate() (err error) {
 	for _, c := range s.byAddOrder {
 		err = multierror.Append(err, c.Validate()).ErrorOrNil()
 	}
-	return
+	return err
 }
 
 func (s Schemas) Equal(o Schemas) bool {

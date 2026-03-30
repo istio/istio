@@ -32,7 +32,7 @@ helm delete istiod --namespace istio-system
 
 ## Configuration
 
-To view support configuration options and documentation, run:
+To view supported configuration options and documentation, run:
 
 ```console
 helm show values istio/istiod

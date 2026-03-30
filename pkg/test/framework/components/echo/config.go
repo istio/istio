@@ -377,6 +377,10 @@ func (c Config) HasProxyCapabilities() bool {
 	return !c.IsUncaptured() || c.HasSidecar() || c.IsProxylessGRPC()
 }
 
+func (c Config) IsAmbient() bool {
+	return c.HasProxyCapabilities() && !c.HasSidecar()
+}
+
 func (c Config) IsVM() bool {
 	return c.DeployAsVM
 }

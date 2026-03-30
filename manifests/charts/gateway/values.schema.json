@@ -1,13 +1,19 @@
 {
   "$schema": "http://json-schema.org/schema#",
-  "type": "object",
-  "additionalProperties": false,
   "$defs": {
     "values": {
       "type": "object",
+      "additionalProperties": false,
       "properties": {
+        "_internal_defaults_do_not_set": {
+          "type": "object"
+        },
         "global": {
           "type": "object"
+        },
+        "enabled": {
+          "description": "Field used as a condition when this chart is included as a dependency. It's allowed in the schema, but the chart itself does not read it. For more information see: https://helm.sh/docs/chart_best_practices/dependencies/#conditions-and-tags.",
+          "type": "boolean"
         },
         "affinity": {
           "type": "object"
@@ -60,6 +66,16 @@
         "env": {
           "type": "object"
         },
+        "envVarFrom": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "valueFrom": { "type": "object" }
+            }
+          }
+        },
         "strategy": {
           "type": "object"
         },
@@ -105,7 +121,7 @@
           "type": "object",
           "properties": {
             "limits": {
-              "type": "object",
+              "type": ["object", "null"],
               "properties": {
                 "cpu": {
                   "type": ["string", "null"]
@@ -116,7 +132,7 @@
               }
             },
             "requests": {
-              "type": "object",
+              "type": ["object", "null"],
               "properties": {
                 "cpu": {
                   "type": ["string", "null"]
@@ -131,8 +147,20 @@
         "revision": {
           "type": "string"
         },
+        "defaultRevision": {
+          "type": "string"
+        },
         "compatibilityVersion": {
           "type": "string"
+        },
+        "profile": {
+          "type": "string"
+        },
+        "platform": {
+          "type": "string"
+        },
+        "pilot": {
+          "type": "object"
         },
         "runAsRoot": {
           "type": "boolean"
@@ -153,6 +181,12 @@
           "properties": {
             "annotations": {
               "type": "object"
+            },
+            "selectorLabels": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
             },
             "externalTrafficPolicy": {
               "type": "string"
@@ -296,6 +330,14 @@
           "items": {
             "type": "object"
           }
+        },
+        "initContainers": {
+          "type": "array",
+          "items": { "type": "object" }
+        },
+        "additionalContainers": {
+          "type": "array",
+          "items": { "type": "object" }
         },
         "priorityClassName": {
           "type": "string"

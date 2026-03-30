@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 // Copyright Istio Authors
 //
@@ -36,6 +35,7 @@ import (
 
 	"istio.io/api/label"
 	"istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/http/headers"
@@ -46,6 +46,7 @@ import (
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/ambient"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
@@ -127,9 +128,7 @@ var (
 			{Port: ports.TCPServer},
 			{Port: ports.AutoTCP},
 			{Port: ports.AutoHTTP},
-			{Port: ports.AutoHTTP},
 			{Port: ports.AutoGRPC},
-			{Port: ports.AutoHTTPS},
 			{Port: ports.AutoHTTPS},
 			{Port: ports.HTTPInstance},
 			{Port: ports.HTTPLocalHost},
@@ -138,7 +137,7 @@ var (
 		for _, c := range cases {
 			res = append(res, echo.CallOptions{Port: c.Port})
 		}
-		return
+		return res
 	}()
 )
 
@@ -147,13 +146,13 @@ func OriginalSourceCheck(t framework.TestContext, src echo.Instance) echo.Checke
 	addresses := sets.New(src.WorkloadsOrFail(t).Addresses()...)
 	return check.Each(func(response echot.Response) error {
 		if !addresses.Contains(response.IP) {
-			return fmt.Errorf("expected original source (%v) to be propogated, but got %v", addresses.UnsortedList(), response.IP)
+			return fmt.Errorf("expected original source (%v) to be propagated, but got %v", addresses.UnsortedList(), response.IP)
 		}
 		return nil
 	})
 }
 
-func supportsL7(opt echo.CallOptions, src, dst echo.Instance) bool {
+func supportsL7(opt echo.CallOptions, src echo.Instance, dst echo.Target) bool {
 	s := src.Config().HasSidecar()
 	d := dst.Config().HasSidecar() || dst.Config().HasAnyWaypointProxy()
 	sch := opt.Scheme
@@ -173,18 +172,50 @@ func hboneClient(instance echo.Instance) bool {
 	return instance.Config().ZTunnelCaptured()
 }
 
+// getIngressGatewayServiceAccount dynamically retrieves the service account name
+// used by the ingress gateway deployment. This handles differences between
+// deployment methods (Helm vs External Control Plane) which could use different naming conventions.
+func getIngressGatewayServiceAccount(t framework.TestContext) string {
+	cluster := t.Clusters().Default()
+	appsClient := cluster.Kube().AppsV1()
+
+	// Get the ingress gateway deployment
+	dep, err := appsClient.Deployments("istio-system").Get(
+		context.TODO(),
+		"istio-ingressgateway",
+		metav1.GetOptions{},
+	)
+	if err != nil {
+		t.Fatalf("Failed to get ingress gateway deployment: %v", err)
+	}
+
+	serviceAccountName := dep.Spec.Template.Spec.ServiceAccountName
+	if serviceAccountName == "" {
+		t.Fatalf("Ingress gateway deployment has no service account name specified")
+	}
+
+	t.Logf("Using ingress gateway service account: %s", serviceAccountName)
+	return serviceAccountName
+}
+
 func TestServices(t *testing.T) {
-	runAllCallsTest(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
+	runAllCallsTest(t, func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions) {
 		if supportsL7(opt, src, dst) {
 			opt.Check = httpValidator
 		} else {
 			opt.Check = tcpValidator
 		}
 
+		if t.Settings().AmbientMultiNetwork && src.Config().HasSidecar() {
+			t.Skip("https://github.com/istio/istio/issues/57878")
+		}
+
 		if !dst.Config().HasServiceAddressedWaypointProxy() &&
 			!src.Config().HasServiceAddressedWaypointProxy() &&
 			(src.Config().Service != dst.Config().Service) &&
-			!dst.Config().HasSidecar() {
+			!dst.Config().HasSidecar() &&
+			(opt.Port.Protocol != protocol.GRPC && t.Settings().AmbientMultiNetwork) {
+			// TODO (mitchconnors): gRPC seems to break original source propagation, need to investigats
 			// Check original source, unless there is a waypoint in the path. For waypoint, we don't (yet?) propagate original src.
 			// Self call is also (temporarily) broken
 			// Sidecars lose the original src
@@ -224,18 +255,18 @@ func TestServices(t *testing.T) {
 			opt.Check = check.Or(check.Error(), check.Status(503))
 		}
 
-		if dst.Config().HasServiceAddressedWaypointProxy() && opt.Port.ServerFirst {
-			// This is a testing gap, not a functional gap. Server first protocols only work for service-only waypoints.
-			// We use a single waypoint for service+workloads, though, which makes this not work
-			t.Skip("https://github.com/istio/istio/issues/55420")
-		}
-
 		if !src.Config().HasProxyCapabilities() && dst.Config().HasSidecar() && opt.Port.ServerFirst {
 			// This is expected to be broken (src clause is because mTLS makes it work)
 			return
 		}
 
-		// TODO test from all source workloads as well
+		if t.Settings().AmbientMultiNetwork && src.Config().IsAmbient() &&
+			dst.Config().IsAmbient() && !opt.Port.LocalhostIP {
+			opt.Check = check.And(opt.Check, check.ReachedTargetClusters(t))
+			opt.NewConnectionPerRequest = true
+			opt.Count = 20
+		}
+
 		src.CallOrFail(t, opt)
 	})
 }
@@ -308,7 +339,7 @@ func TestPodIP(t *testing.T) {
 
 func TestServerSideLB(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
-		runTestToServiceWaypoint(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
+		runTestToServiceWaypoint(t, func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions) {
 			// Need HTTP
 			if opt.Scheme != scheme.HTTP {
 				return
@@ -344,14 +375,17 @@ func TestServerSideLB(t *testing.T) {
 			shouldBalance := dst.Config().HasServiceAddressedWaypointProxy()
 			// Istio client will not reuse connections for HTTP/1.1
 			opt.HTTP.HTTP2 = true
-			// Make sure we make multiple calls
-			opt.Count = 10
+			// Make sure we make multiple calls and scale the number of calls with the number of clusters as well.
+			// We need to make sure that we run enough requests to cover all the backends we want to hit.
+			opt.Count = 10 * len(t.AllClusters())
 			c := singleHost
 			if shouldBalance {
 				c = multipleHost
 			}
 			opt.Check = check.And(check.OK(), c)
-			opt.NewConnectionPerRequest = false
+			// for multi-network, we must re-establish tcp connection to let
+			// ztunnel load balance across clusters
+			opt.NewConnectionPerRequest = t.Settings().AmbientMultiNetwork
 			src.CallOrFail(t, opt)
 		})
 	})
@@ -359,8 +393,9 @@ func TestServerSideLB(t *testing.T) {
 
 func TestWaypointChanges(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
+		waypointName := "waypoint-service"
 		getGracePeriod := func(want int64) bool {
-			pods, err := kubetest.NewPodFetch(t.AllClusters()[0], apps.Namespace.Name(), label.IoK8sNetworkingGatewayGatewayName.Name+"=waypoint")()
+			pods, err := kubetest.NewPodFetch(t.AllClusters()[0], apps.Namespace.Name(), label.IoK8sNetworkingGatewayGatewayName.Name+"="+waypointName)()
 			assert.NoError(t, err)
 			for _, p := range pods {
 				grace := p.Spec.TerminationGracePeriodSeconds
@@ -370,14 +405,19 @@ func TestWaypointChanges(t *testing.T) {
 			}
 			return false
 		}
-		// check that waypoint deployment is unmodified
+		// check that waypoint deployment uses default grace period (30s)
 		retry.UntilOrFail(t, func() bool {
-			return getGracePeriod(2)
+			return getGracePeriod(30)
 		})
-		// change the waypoint template
+		// change the waypoint template to add custom terminationGracePeriodSeconds
 		istio.GetOrFail(t).UpdateInjectionConfig(t, func(cfg *inject.Config) error {
 			mainTemplate := file.MustAsString(filepath.Join(env.IstioSrc, templateFile))
-			cfg.RawTemplates["waypoint"] = strings.ReplaceAll(mainTemplate, "terminationGracePeriodSeconds: 2", "terminationGracePeriodSeconds: 3")
+			// Add terminationGracePeriodSeconds: 3 after serviceAccountName
+			cfg.RawTemplates["waypoint"] = strings.ReplaceAll(
+				mainTemplate,
+				"serviceAccountName: {{.ServiceAccount | quote}}",
+				"serviceAccountName: {{.ServiceAccount | quote}}\n      terminationGracePeriodSeconds: 3",
+			)
 			return nil
 		}, cleanup.Always)
 
@@ -538,7 +578,7 @@ func TestBogusUseWaypoint(t *testing.T) {
 
 func TestServerRouting(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
-		runTestToServiceWaypoint(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
+		runTestToServiceWaypoint(t, func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions) {
 			// Need waypoint proxy and HTTP
 			if opt.Scheme != scheme.HTTP {
 				return
@@ -619,21 +659,25 @@ spec:
 
 func TestWaypointEnvoyFilter(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
-		runTestToServiceWaypoint(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
+		runTestToServiceWaypoint(t, func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions) {
 			// Need at least one waypoint proxy and HTTP
 			if opt.Scheme != scheme.HTTP {
 				return
 			}
+			// Get the actual waypoint name for this destination
+			waypointName := dst.Config().ServiceWaypointProxy
 			t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
-				"Destination": "waypoint",
+				"Destination":  waypointName,
+				"WaypointName": waypointName,
 			}, `apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: inbound
 spec:
-  workloadSelector:
-    labels:
-      gateway.networking.k8s.io/gateway-name: "{{.Destination}}"
+  targetRefs:
+  - kind: Gateway
+    name: {{ .WaypointName }}
+    group: gateway.networking.k8s.io
   configPatches:
   - applyTo: HTTP_FILTER
     match:
@@ -688,7 +732,10 @@ spec:
 
 func TestTrafficSplit(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
-		runTestToServiceWaypoint(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
+		if t.Settings().AmbientMultiNetwork {
+			t.Skip("https://github.com/istio/istio/issues/58140")
+		}
+		runTestToServiceWaypoint(t, func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions) {
 			// Need at least one waypoint proxy and HTTP
 			if opt.Scheme != scheme.HTTP {
 				return
@@ -732,6 +779,7 @@ spec:
     labels:
       version: v2
 `).ApplyOrFail(t)
+			time.Sleep(100 * time.Millisecond)
 			t.NewSubTest("v1").Run(func(t framework.TestContext) {
 				opt := opt.DeepCopy()
 				opt.Count = 5
@@ -776,7 +824,7 @@ spec:
 func TestPeerAuthentication(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
 		applyDrainingWorkaround(t)
-		runTestContext(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
+		runTestContext(t, func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions) {
 			// Ensure we don't get stuck on old connections with old RBAC rules. This causes 45s test times
 			// due to draining.
 			opt.NewConnectionPerRequest = true
@@ -879,6 +927,10 @@ spec:
     19090:
       mode: PERMISSIVE
         `).ApplyOrFail(t)
+				// this seems flakey for multi-network, possibly due to race condition?
+				if opt.Port.Protocol == protocol.TCP && t.Settings().AmbientMultiNetwork {
+					time.Sleep(1000 * time.Millisecond)
+				}
 				opt := opt.DeepCopy()
 				// Should pass for all workloads, in or out of mesh, targeting this port
 				src.CallOrFail(t, opt)
@@ -927,15 +979,29 @@ func TestAuthorizationL4(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
 		applyDrainingWorkaround(t)
 		// pairs x allow/deny
-		runTestContext(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
+		runTestContext(t, func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions) {
 			if opt.Scheme != scheme.TCP {
-				return
+				t.Skip("this test is only for L4/TCP")
 			}
+
+			if t.Settings().AmbientMultiNetwork && src.Config().HasSidecar() && !dst.Config().HasSidecar() {
+				// Currently sidecars cannot talk to ambient endpoints on a remote network.
+				//
+				// Sidecars can't use double-HBONE and therefore cannot use ambient E/W gateways.
+				// And if we filter out all the ambient gateways, due to an old bug/feature, EDS
+				// generation code, when it can't find any E/W gateways for an endpoint, it just
+				// assumes that it's directly reachable and does not even try to use HBONE - this
+				// is not correct.
+				//
+				// See the linked bug for more details.
+				t.Skip("https://github.com/istio/istio/issues/57878")
+			}
+
 			// Ensure we don't get stuck on old connections with old RBAC rules. This causes 45s test times
 			// due to draining.
 			opt.NewConnectionPerRequest = true
 
-			overrideCheck := func(_ echo.Instance, dst echo.Instance, opt *echo.CallOptions) {
+			overrideCheck := func(_ echo.Instance, dst echo.Target, opt *echo.CallOptions) {
 				if !dst.Config().HasProxyCapabilities() {
 					// No destination means no RBAC to apply. Make sure we do not accidentally reject
 					opt.Check = check.OK()
@@ -959,7 +1025,7 @@ func TestAuthorizationL4(t *testing.T) {
   - from:
     - source:
         principals: ["cluster.local/ns/{{.Namespace}}/sa/{{.Source}}", "cluster.local/ns/{{.Namespace}}/sa/{{.WaypointName}}"]
-`,
+  `,
 				},
 				{
 					name:  "not allow",
@@ -969,12 +1035,16 @@ func TestAuthorizationL4(t *testing.T) {
   - from:
     - source:
         principals: ["cluster.local/ns/something/sa/else"]
-          `,
+`,
 				},
 			}
 
 			for _, tc := range authzCases {
 				t.NewSubTest(tc.name).Run(func(t framework.TestContext) {
+					if t.Settings().AmbientMultiNetwork && src.Config().HasSidecar() && !dst.Config().HasSidecar() {
+						// Sidecar + Ambient is not supported
+						t.Skip("https://github.com/istio/istio/issues/57878")
+					}
 					t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
 						"Destination":  dst.Config().Service,
 						"Source":       src.Config().Service,
@@ -1006,6 +1076,7 @@ spec:
 					perCaseOpt := opt.DeepCopy()
 					perCaseOpt.Check = tc.check
 					overrideCheck(src, dst, &perCaseOpt)
+					time.Sleep(1 * time.Second)
 					src.CallOrFail(t, perCaseOpt)
 				})
 			}
@@ -1114,7 +1185,7 @@ func TestAuthorizationGateway(t *testing.T) {
 `
 			t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
 				"Destination":       dst.Config().Service,
-				"Source":            "istio-ingressgateway-service-account",
+				"Source":            getIngressGatewayServiceAccount(t),
 				"Namespace":         apps.Namespace.Name(),
 				"PortAllow":         strconv.Itoa(ports.HTTP.ServicePort),
 				"PortAllowWorkload": strconv.Itoa(ports.HTTP.WorkloadPort),
@@ -1200,7 +1271,7 @@ spec:
 func TestAuthorizationWaypointDefaultDeny(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
 		applyDrainingWorkaround(t)
-		runTestContext(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
+		runTestContextIndividual(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
 			if !dst.Config().HasAnyWaypointProxy() {
 				// we only care about testing waypoints
 				return
@@ -1241,7 +1312,6 @@ metadata:
  name: allow-nothing
 spec:
   {}`).ApplyOrFail(t)
-
 			t.NewSubTest("allow-nothing").Run(func(t framework.TestContext) {
 				opt := opt.DeepCopy()
 				opt.Check = CheckDeny
@@ -1292,7 +1362,7 @@ spec:
 func TestAuthorizationL7(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
 		applyDrainingWorkaround(t)
-		runTestContext(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
+		runTestContextIndividual(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
 			if opt.Scheme != scheme.HTTP {
 				return
 			}
@@ -1394,7 +1464,7 @@ spec:
   targetRefs:
   - kind: Gateway
     group: gateway.networking.k8s.io
-    name: waypoint
+    name: {{ .WaypointName }}
 `+policySpec+`
 ---
 apiVersion: security.istio.io/v1
@@ -1415,7 +1485,7 @@ spec:
   targetRefs:
   - kind: Gateway
     group: gateway.networking.k8s.io
-    name: waypoint
+    name: {{ .WaypointName }}
 `+denySpec).ApplyOrFail(t)
 			overrideCheck := func(opt *echo.CallOptions) {
 				switch {
@@ -1516,7 +1586,7 @@ func TestL7JWT(t *testing.T) {
 		Label(testlabel.IPv4). // https://github.com/istio/istio/issues/35835
 		Run(func(t framework.TestContext) {
 			applyDrainingWorkaround(t)
-			runTestToServiceWaypoint(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
+			runTestToServiceWaypoint(t, func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions) {
 				if opt.Scheme != scheme.HTTP {
 					return
 				}
@@ -1558,6 +1628,7 @@ func TestL7JWT(t *testing.T) {
 						WithAuthz(jwt.TokenIssuer1).
 						Build()
 					opt.Check = check.OK()
+					src.CallOrFail(t, opt)
 				})
 
 				t.NewSubTest("deny with sub-3 token due to ignored RequestAuthentication").Run(func(t framework.TestContext) {
@@ -2152,7 +2223,17 @@ spec:
 `).
 				WithParams(param.Params{}.SetWellKnown(param.Namespace, apps.Namespace))
 
-			ips, ports := istio.DefaultIngressOrFail(t, t).HTTPAddresses()
+			rawIPs, ports := istio.DefaultIngressOrFail(t, t).HTTPAddresses()
+			var ips []string
+			for _, ip := range rawIPs {
+				// Resolve ingress domain name into ip address
+				addr, err := kubetest.WaitUntilReachableIngress(ip)
+				if err != nil {
+					t.Fatalf("unable to resolve domain name to ip address - %q: %v", ip, err)
+				}
+				t.Logf("Resolved ingress %q to %q", ip, addr)
+				ips = append(ips, addr)
+			}
 			for _, tc := range testCases {
 				for i, ip := range ips {
 					t.NewSubTestf("%s %s %d", tc.location, tc.resolution, i).Run(func(t framework.TestContext) {
@@ -2198,7 +2279,7 @@ func getSupportedIPFamilies(t framework.TestContext) (v4 bool, v6 bool) {
 	if !v4 && !v6 {
 		t.Fatalf("pod is neither v4 nor v6? %v", addrs)
 	}
-	return
+	return v4, v6
 }
 
 func TestServiceEntrySelectsWorkloadEntry(t *testing.T) {
@@ -2291,7 +2372,17 @@ spec:
 				WithParams(param.Params{}.SetWellKnown(param.Namespace, apps.Namespace))
 
 			ingress := istio.DefaultIngressOrFail(t, t)
-			ips, ports := ingress.HTTPAddresses()
+			rawIPs, ports := ingress.HTTPAddresses()
+			var ips []string
+			for _, ip := range rawIPs {
+				// Resolve ingress domain name into ip address
+				addr, err := kubetest.WaitUntilReachableIngress(ip)
+				if err != nil {
+					t.Fatalf("unable to resolve domain name to ip address - %q: %v", ip, err)
+				}
+				t.Logf("Resolved ingress %q to %q", ip, addr)
+				ips = append(ips, addr)
+			}
 			for _, tc := range testCases {
 				for i, ip := range ips {
 					t.Logf("run %s test with ingress IP %s", tc.resolution, ip)
@@ -2310,6 +2401,9 @@ spec:
 								"IngressHttpPort": ports[i],
 							})).
 							Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
+								if t.Settings().AmbientMultiNetwork && from.Config().HasSidecar() {
+									t.Skip("https://github.com/istio/istio/issues/57878")
+								}
 								// TODO validate L7 processing/some headers indicating we reach the svc we wanted
 								from.CallOrFail(t, echo.CallOptions{
 									Address:   "dummy.example.com",
@@ -2344,6 +2438,9 @@ spec:
 								"IngressHttpPort": ports[idx],
 							})).
 							Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
+								if t.Settings().AmbientMultiNetwork && from.Config().HasSidecar() {
+									t.Skip("https://github.com/istio/istio/issues/57878")
+								}
 								// TODO validate L7 processing/some headers indicating we reach the svc we wanted
 								from.CallOrFail(t, echo.CallOptions{
 									Address:   "dummy.example.com",
@@ -2706,15 +2803,23 @@ var CheckDeny = check.Or(
 )
 
 // runTest runs a given function against every src/dst pair
-func runAllCallsTest(t *testing.T, f func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions)) {
+func runAllCallsTest(t *testing.T, f func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions)) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
 		runAllTests(t, f)
 	})
 }
 
+func getAllInstancesByServiceName() map[string]echo.Instances {
+	out := make(map[string]echo.Instances)
+	for _, inst := range apps.All {
+		out[inst.Config().Service] = append(out[inst.Config().Service], inst)
+	}
+	return out
+}
+
 // runTestToServiceWaypoint runs a given function against every src/dst pair where a call will traverse a service waypoint
-func runTestToServiceWaypoint(t framework.TestContext, f func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions)) {
-	runTestContext(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
+func runTestToServiceWaypoint(t framework.TestContext, f func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions)) {
+	runTestContext(t, func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions) {
 		if !dst.Config().HasServiceAddressedWaypointProxy() {
 			return
 		}
@@ -2730,29 +2835,80 @@ func runTestToServiceWaypoint(t framework.TestContext, f func(t framework.TestCo
 	})
 }
 
-func runTestContext(t framework.TestContext, f func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions)) {
+func runTestContextIndividual(t framework.TestContext, f func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions)) {
+	runTestContext(t, func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions) {
+		dstInstances := dst.(echo.Instances)
+		for _, dst := range dstInstances {
+			t.NewSubTestf("to %s-%s", dst.Config().Cluster.Name(), dst.Config().Service).Run(func(t framework.TestContext) {
+				f(t, src, dst, opt)
+			})
+		}
+	})
+}
+
+func runTestContext(t framework.TestContext, f func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions)) {
 	runTestContextForCalls(t, basicCalls, f)
 }
 
-func runAllTests(t framework.TestContext, f func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions)) {
+func runAllTests(t framework.TestContext, f func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions)) {
 	runTestContextForCalls(t, allCalls, f)
 }
 
 func runTestContextForCalls(
 	t framework.TestContext,
 	callOptions []echo.CallOptions,
-	f func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions),
+	f func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions),
 ) {
 	svcs := apps.All
+	if t.Settings().AmbientMultiNetwork {
+		// all meshed services need to be labeled as global for the reachability tests.
+		for _, app := range apps.Mesh {
+			if app.Config().IsAmbient() {
+				// don't label sidecar services until https://github.com/istio/istio/issues/57877 is resolved.
+				labelServiceGlobal(t, app.ServiceName(), app.Config().Cluster)
+			}
+		}
+		for name := range apps.WaypointProxies {
+			labelServiceGlobal(t, name, t.Clusters()...)
+		}
+
+		t.Cleanup(func() {
+			// cleanup services which other tests expect to be local
+			for _, app := range apps.Mesh {
+				if app.Config().IsAmbient() {
+					unlabelServiceGlobal(t, app.ServiceName(), app.Config().Cluster)
+				}
+			}
+			for name := range apps.WaypointProxies {
+				labelServiceGlobal(t, name, t.Clusters()...)
+			}
+		})
+		// Pilot delays pushing changes to be able to batch multiple incoming changes together and push them
+		// all at once. That means that there is a delay after the last detect change and the push of that
+		// change to the all the relevant nodes.
+		//
+		// We don't expect any changes that should trigger the push in parallel, so it should be enough to
+		// wait for the DebounceAfter time, after the pilot sees the update. Naturally, just because we updated
+		// service labels it does not mean that pilot will immediately see them - there is a race condition here,
+		// but we do expect pilot to notice the update rather quickly, so we double the DebounceAfter time here
+		// to account for this issue.
+		time.Sleep(2 * features.DebounceAfter)
+	}
 	for _, src := range svcs {
-		t.NewSubTestf("from %v", src.Config().Service).Run(func(t framework.TestContext) {
-			for _, dst := range svcs {
-				t.NewSubTestf("to %v", dst.Config().Service).Run(func(t framework.TestContext) {
+		t.NewSubTestf("from %v %v", src.Config().Cluster.Name(), src.Config().Service).Run(func(t framework.TestContext) {
+			for _, dst := range getAllInstancesByServiceName() {
+				t.NewSubTestf("to all %v", dst.Config().Service).Run(func(t framework.TestContext) {
+					if t.Settings().AmbientMultiNetwork && src.Config().HasSidecar() && !dst.Config().HasSidecar() {
+						// Skip sidecar to sidecar in multinetwork, as they will use the east-west gateway which is not tested here.
+						t.Skip("https://github.com/istio/istio/issues/57878")
+					}
 					for _, opt := range callOptions {
 						t.NewSubTestf("%v", opt.Port.Name).Run(func(t framework.TestContext) {
+							// t.NewSubTestf("%v", opt.Port.Name).RunParallel(func(t framework.TestContext) {
 							opt := opt.DeepCopy()
 							opt.To = dst
 							opt.Check = check.OK()
+							opt.Retry.Options = []retry.Option{retry.Timeout(10 * time.Second)}
 							f(t, src, dst, opt)
 						})
 					}
@@ -2887,25 +3043,28 @@ spec:
 			}
 
 			var httpMetricVal string
-			cluster := t.Clusters().Default()
-			retry.UntilSuccessOrFail(t, func() error {
-				if _, err := apps.Captured[0].Call(echo.CallOptions{To: apps.ServiceAddressedWaypoint, Port: echo.Port{Name: "http"}}); err != nil {
-					t.Log("failed to send traffic")
-					return err
+			for _, cluster := range t.Clusters() {
+				src := apps.Captured.ForCluster(cluster.Name())[0]
+				dst := apps.ServiceAddressedWaypoint.ForCluster(cluster.Name())
+				retry.UntilSuccessOrFail(t, func() error {
+					if _, err := src.Call(echo.CallOptions{To: dst, Port: echo.Port{Name: "http"}}); err != nil {
+						t.Log("failed to send traffic")
+						return err
+					}
+					var err error
+					httpMetricVal, err = util.QueryPrometheus(t, cluster, query, prom)
+					if err != nil {
+						util.PromDiff(t, prom, cluster, query)
+						return err
+					}
+					return nil
+				}, retry.Timeout(15*time.Second), retry.BackoffDelay(1*time.Second))
+				// check tag removed
+				if strings.Contains(httpMetricVal, "source_principal") {
+					t.Errorf("failed to remove tag: source_principal")
 				}
-				var err error
-				httpMetricVal, err = util.QueryPrometheus(t, cluster, query, prom)
-				if err != nil {
-					util.PromDiff(t, prom, cluster, query)
-					return err
-				}
-				return nil
-			}, retry.Timeout(15*time.Second), retry.BackoffDelay(1*time.Second))
-			// check tag removed
-			if strings.Contains(httpMetricVal, "source_principal") {
-				t.Errorf("failed to remove tag: source_principal")
+				util.ValidateMetric(t, cluster, prom, query, 1)
 			}
-			util.ValidateMetric(t, cluster, prom, query, 1)
 		})
 }
 
@@ -3060,34 +3219,33 @@ func TestMetadataServer(t *testing.T) {
 
 func TestAPIServer(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
-		svcs := apps.All
-		token, err := t.Clusters().Default().Kube().CoreV1().ServiceAccounts(apps.Namespace.Name()).CreateToken(context.Background(), "default",
-			&authenticationv1.TokenRequest{
-				Spec: authenticationv1.TokenRequestSpec{
-					Audiences:         []string{"kubernetes.default.svc"},
-					ExpirationSeconds: ptr.Of(int64(600)),
-				},
-			}, metav1.CreateOptions{})
-		assert.NoError(t, err)
-
-		for _, src := range svcs {
-			if t.Settings().AmbientMultiNetwork && src.Config().Cluster != t.Clusters().Default() {
-				t.Skipf("skipping test for %v, not on default cluster", src.Config().Service)
-			}
-			t.NewSubTestf("from %v", src.Config().Service).Run(func(t framework.TestContext) {
-				opts := echo.CallOptions{
-					Address: "kubernetes.default.svc",
-					Port:    echo.Port{ServicePort: 443},
-					Scheme:  scheme.HTTPS,
-					HTTP: echo.HTTP{
-						Headers: headers.New().With("Authorization", "Bearer "+token.Status.Token).Build(),
-						Path:    "/",
+		for _, cluster := range t.Clusters() {
+			svcs := apps.All.ForCluster(cluster.Name())
+			token, err := cluster.Kube().CoreV1().ServiceAccounts(apps.Namespace.Name()).CreateToken(context.Background(), "default",
+				&authenticationv1.TokenRequest{
+					Spec: authenticationv1.TokenRequestSpec{
+						Audiences:         []string{"kubernetes.default.svc"},
+						ExpirationSeconds: ptr.Of(int64(600)),
 					},
-					// Test that we see our own identity -- not the ztunnel (istio-system/ztunnel).
-					Check: check.BodyContains(fmt.Sprintf(`system:serviceaccount:%v:default`, apps.Namespace.Name())),
-				}
-				src.CallOrFail(t, opts)
-			})
+				}, metav1.CreateOptions{})
+			assert.NoError(t, err)
+
+			for _, src := range svcs {
+				t.NewSubTestf("from %v", src.Config().Service).Run(func(t framework.TestContext) {
+					opts := echo.CallOptions{
+						Address: "kubernetes.default.svc",
+						Port:    echo.Port{ServicePort: 443},
+						Scheme:  scheme.HTTPS,
+						HTTP: echo.HTTP{
+							Headers: headers.New().With("Authorization", "Bearer "+token.Status.Token).Build(),
+							Path:    "/",
+						},
+						// Test that we see our own identity -- not the ztunnel (istio-system/ztunnel).
+						Check: check.BodyContains(fmt.Sprintf(`system:serviceaccount:%v:default`, apps.Namespace.Name())),
+					}
+					src.CallOrFail(t, opts)
+				})
+			}
 		}
 	})
 }
@@ -3096,110 +3254,115 @@ func TestDirect(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
 		t.NewSubTest("waypoint").Run(func(t framework.TestContext) {
 			c := common.NewCaller()
-			run := func(name string, options echo.CallOptions) {
-				t.NewSubTest(name).Run(func(t framework.TestContext) {
-					_, err := c.CallEcho(nil, options)
-					if err != nil {
-						t.Fatal(err)
-					}
-				})
-			}
-			cluster := t.Clusters().Default() // TODO: support multicluster
-			cert, err := istio.CreateCertificate(t, i, apps.Captured.ServiceName(), apps.Namespace.Name())
-			if err != nil {
-				t.Fatal(err)
-			}
-			// this is real odd but we're going to assume for now that we've just got the one waypoint I guess?
-			hbwl := echo.HBONE{
-				Address:            apps.WaypointProxies[apps.WorkloadAddressedWaypoint.Config().WorkloadWaypointProxy].Inbound(),
-				Headers:            nil,
-				Cert:               string(cert.ClientCert),
-				Key:                string(cert.Key),
-				CaCert:             string(cert.RootCert),
-				InsecureSkipVerify: true,
-			}
-			hbsvc := echo.HBONE{
-				Address:            apps.WaypointProxies[apps.ServiceAddressedWaypoint.Config().ServiceWaypointProxy].Inbound(),
-				Headers:            nil,
-				Cert:               string(cert.ClientCert),
-				Key:                string(cert.Key),
-				CaCert:             string(cert.RootCert),
-				InsecureSkipVerify: true,
-			}
+			for _, cluster := range t.Clusters() {
+				run := func(name string, options echo.CallOptions) {
+					t.NewSubTest(fmt.Sprintf("%s - %s", name, cluster.Name())).Run(func(t framework.TestContext) {
+						_, err := c.CallEcho(nil, options)
+						if err != nil {
+							t.Fatal(err)
+						}
+					})
+				}
+				cert, err := istio.CreateCertificateForCluster(t, i, apps.Captured.ForCluster(cluster.Name()).ServiceName(),
+					apps.Namespace.Name(), cluster)
+				if err != nil {
+					t.Fatal(err)
+				}
+				workloadAddressedWaypoints := apps.WorkloadAddressedWaypoint.ForCluster(cluster.Name())
+				// this is real odd but we're going to assume for now that we've just got the one waypoint I guess?
+				hbwl := echo.HBONE{
+					Address:            apps.WaypointProxies[workloadAddressedWaypoints.Config().WorkloadWaypointProxy].ForCluster(cluster.Name())[0].Inbound(),
+					Headers:            nil,
+					Cert:               string(cert.ClientCert),
+					Key:                string(cert.Key),
+					CaCert:             string(cert.RootCert),
+					InsecureSkipVerify: true,
+				}
+				serviceAddressedWaypoints := apps.ServiceAddressedWaypoint.ForCluster(cluster.Name())
+				hbsvc := echo.HBONE{
+					Address:            apps.WaypointProxies[serviceAddressedWaypoints.Config().ServiceWaypointProxy].ForCluster(cluster.Name())[0].Inbound(),
+					Headers:            nil,
+					Cert:               string(cert.ClientCert),
+					Key:                string(cert.Key),
+					CaCert:             string(cert.RootCert),
+					InsecureSkipVerify: true,
+				}
 
-			run("named destination", echo.CallOptions{
-				To:    apps.WorkloadAddressedWaypoint.ForCluster(cluster.Name()), // TODO: not sure how this is actually addressed?
-				Count: 1,
-				Port:  echo.Port{Name: ports.HTTP.Name},
-				HBONE: hbwl,
-				// This is not supported now, discussion in https://github.com/istio/istio/issues/43241
-				Check: check.Error(),
-			})
-			run("VIP destination", echo.CallOptions{
-				To:      apps.ServiceAddressedWaypoint.ForCluster(cluster.Name()),
-				Count:   1,
-				Address: apps.ServiceAddressedWaypoint.ForCluster(cluster.Name())[0].Address(),
-				Port:    echo.Port{Name: ports.HTTP.Name},
-				HBONE:   hbsvc,
-				Check:   check.OK(),
-			})
-			// Only works with multinetwork
-			if t.Settings().AmbientMultiNetwork {
-				run("VIP destination, FQDN authority", echo.CallOptions{
+				run("named destination", echo.CallOptions{
+					To:    apps.WorkloadAddressedWaypoint.ForCluster(cluster.Name()), // TODO: not sure how this is actually addressed?
+					Count: 1,
+					Port:  echo.Port{Name: ports.HTTP.Name},
+					HBONE: hbwl,
+					// This is not supported now, discussion in https://github.com/istio/istio/issues/43241
+					Check: check.Error(),
+				})
+				run("VIP destination", echo.CallOptions{
 					To:      apps.ServiceAddressedWaypoint.ForCluster(cluster.Name()),
 					Count:   1,
-					Address: apps.ServiceAddressedWaypoint.ForCluster(cluster.Name()).ClusterLocalFQDN(),
+					Address: apps.ServiceAddressedWaypoint.ForCluster(cluster.Name())[0].Address(),
 					Port:    echo.Port{Name: ports.HTTP.Name},
 					HBONE:   hbsvc,
 					Check:   check.OK(),
 				})
+				// Only works with multinetwork
+				if t.Settings().AmbientMultiNetwork {
+					run("VIP destination, FQDN authority", echo.CallOptions{
+						To:      apps.ServiceAddressedWaypoint.ForCluster(cluster.Name()),
+						Count:   1,
+						Address: apps.ServiceAddressedWaypoint.ForCluster(cluster.Name()).ClusterLocalFQDN(),
+						Port:    echo.Port{Name: ports.HTTP.Name},
+						HBONE:   hbsvc,
+						Check:   check.OK(),
+					})
+				}
+				run("VIP destination, unknown port", echo.CallOptions{
+					To:      apps.ServiceAddressedWaypoint.ForCluster(cluster.Name()),
+					Count:   1,
+					Address: apps.ServiceAddressedWaypoint.ForCluster(cluster.Name())[0].Address(),
+					Port:    echo.Port{ServicePort: 12345},
+					Scheme:  scheme.HTTP,
+					HBONE:   hbsvc,
+					// TODO: VIP:* should error sooner for undeclared ports
+					Check: check.Error(),
+				})
+				run("Pod IP destination", echo.CallOptions{
+					To:      apps.WorkloadAddressedWaypoint.ForCluster(cluster.Name()),
+					Count:   1,
+					Address: apps.WorkloadAddressedWaypoint.ForCluster(cluster.Name())[0].WorkloadsOrFail(t)[0].Address(),
+					Port:    echo.Port{ServicePort: ports.HTTP.WorkloadPort},
+					Scheme:  scheme.HTTP,
+					HBONE:   hbwl,
+					Check:   check.OK(),
+				})
+				run("Unserved VIP destination", echo.CallOptions{
+					To:      apps.Captured.ForCluster(cluster.Name()),
+					Count:   1,
+					Address: apps.Captured.ForCluster(cluster.Name())[0].Address(),
+					Port:    echo.Port{ServicePort: ports.HTTP.ServicePort},
+					Scheme:  scheme.HTTP,
+					HBONE:   hbsvc,
+					Check:   check.Error(),
+				})
+				run("Unserved pod destination", echo.CallOptions{
+					To:      apps.Captured.ForCluster(cluster.Name()),
+					Count:   1,
+					Address: apps.Captured.ForCluster(cluster.Name())[0].WorkloadsOrFail(t)[0].Address(),
+					Port:    echo.Port{ServicePort: ports.HTTP.ServicePort},
+					Scheme:  scheme.HTTP,
+					HBONE:   hbwl,
+					Check:   check.Error(),
+				})
+				run("Waypoint destination", echo.CallOptions{
+					To:    apps.ServiceAddressedWaypoint.ForCluster(cluster.Name()),
+					Count: 1,
+					Address: apps.WaypointProxies[apps.ServiceAddressedWaypoint.ForCluster(cluster.Name()).Config().
+						ServiceWaypointProxy].ForCluster(cluster.Name())[0].PodIP(),
+					Port:   echo.Port{ServicePort: 15000},
+					Scheme: scheme.HTTP,
+					HBONE:  hbsvc,
+					Check:  check.Error(),
+				})
 			}
-			run("VIP destination, unknown port", echo.CallOptions{
-				To:      apps.ServiceAddressedWaypoint.ForCluster(cluster.Name()),
-				Count:   1,
-				Address: apps.ServiceAddressedWaypoint.ForCluster(cluster.Name())[0].Address(),
-				Port:    echo.Port{ServicePort: 12345},
-				Scheme:  scheme.HTTP,
-				HBONE:   hbsvc,
-				// TODO: VIP:* should error sooner for undeclared ports
-				Check: check.Error(),
-			})
-			run("Pod IP destination", echo.CallOptions{
-				To:      apps.WorkloadAddressedWaypoint.ForCluster(cluster.Name()),
-				Count:   1,
-				Address: apps.WorkloadAddressedWaypoint.ForCluster(cluster.Name())[0].WorkloadsOrFail(t)[0].Address(),
-				Port:    echo.Port{ServicePort: ports.HTTP.WorkloadPort},
-				Scheme:  scheme.HTTP,
-				HBONE:   hbwl,
-				Check:   check.OK(),
-			})
-			run("Unserved VIP destination", echo.CallOptions{
-				To:      apps.Captured.ForCluster(cluster.Name()),
-				Count:   1,
-				Address: apps.Captured.ForCluster(cluster.Name())[0].Address(),
-				Port:    echo.Port{ServicePort: ports.HTTP.ServicePort},
-				Scheme:  scheme.HTTP,
-				HBONE:   hbsvc,
-				Check:   check.Error(),
-			})
-			run("Unserved pod destination", echo.CallOptions{
-				To:      apps.Captured.ForCluster(cluster.Name()),
-				Count:   1,
-				Address: apps.Captured.ForCluster(cluster.Name())[0].WorkloadsOrFail(t)[0].Address(),
-				Port:    echo.Port{ServicePort: ports.HTTP.ServicePort},
-				Scheme:  scheme.HTTP,
-				HBONE:   hbwl,
-				Check:   check.Error(),
-			})
-			run("Waypoint destination", echo.CallOptions{
-				To:      apps.ServiceAddressedWaypoint.ForCluster(cluster.Name()),
-				Count:   1,
-				Address: apps.WaypointProxies[apps.ServiceAddressedWaypoint.ForCluster(cluster.Name()).Config().ServiceWaypointProxy].PodIP(),
-				Port:    echo.Port{ServicePort: 15000},
-				Scheme:  scheme.HTTP,
-				HBONE:   hbsvc,
-				Check:   check.Error(),
-			})
 		})
 		t.NewSubTest("sidecar").Run(func(t framework.TestContext) {
 			c := common.NewCaller()
@@ -3291,11 +3454,99 @@ func TestDirect(t *testing.T) {
 				Check: check.Status(503),
 			})
 		})
+		t.NewSubTest("east west gateway").Run(func(t framework.TestContext) {
+			if !t.Settings().AmbientMultiNetwork {
+				t.Skip("only test east west gateway service scope in multi-network mode")
+			}
+			c := common.NewCaller()
+			for _, cluster := range t.Clusters() {
+				ewginstance := i.EastWestGatewayForAmbient(cluster)
+				run := func(name string, options echo.CallOptions) {
+					t.NewSubTest(fmt.Sprintf("%s - %s", name, cluster.Name())).Run(func(t framework.TestContext) {
+						_, err := c.CallEcho(nil, options)
+						if err != nil {
+							t.Fatal(err)
+						}
+					})
+				}
+				i := istio.GetOrFail(t)
+				ewgaddresses, ewgports := ewginstance.HBONEAddresses()
+				if len(ewgaddresses) == 0 || len(ewgports) == 0 {
+					t.Fatal("east-west gateway address or ports not found")
+				}
+				ewgaddr := ewgaddresses[0]
+				ewgport := ewgports[0]
+				cert, err := istio.CreateCertificateForCluster(t, i, apps.Captured.ServiceName(), apps.Namespace.Name(), cluster)
+				if err != nil {
+					t.Fatal(err)
+				}
+				hbsvc := echo.HBONE{
+					Address:            fmt.Sprintf("%s:%v", ewgaddr, ewgport),
+					Headers:            nil,
+					Cert:               string(cert.ClientCert),
+					Key:                string(cert.Key),
+					CaCert:             string(cert.RootCert),
+					InsecureSkipVerify: true,
+				}
+				run("local service", echo.CallOptions{
+					To:          apps.Captured.ForCluster(cluster.Name()),
+					Count:       1,
+					Address:     apps.Captured.ForCluster(cluster.Name()).ClusterLocalFQDN(),
+					Port:        echo.Port{Name: ports.HTTP.Name},
+					HBONE:       hbsvc,
+					DoubleHBONE: hbsvc,
+					// Local services are not expected to be reachable via the east-west gateway
+					Check: check.Error(),
+				})
+
+				capturedSvc := apps.Captured.ForCluster(cluster.Name()).ServiceName()
+				labelServiceGlobal(t, capturedSvc, cluster)
+				t.Cleanup(func() {
+					unlabelServiceGlobal(t, capturedSvc, cluster)
+				})
+				run("global service", echo.CallOptions{
+					To:          apps.Captured.ForCluster(cluster.Name()),
+					Count:       1,
+					Address:     apps.Captured.ForCluster(cluster.Name()).ClusterLocalFQDN(),
+					Port:        echo.Port{Name: ports.HTTP.Name},
+					HBONE:       hbsvc,
+					DoubleHBONE: hbsvc,
+					// Global services are expected to be reachable via the east-west gateway
+					Check: check.OK(),
+				})
+			}
+		})
 	})
 }
 
 func TestServiceRestart(t *testing.T) {
-	const callInterval = 100 * time.Millisecond
+	// Keep the call interval small - it reduces test flakiness.
+	//
+	// echo app after it received SIGTERM will wait for 1 second before shutting down.
+	// If during this one second it gets a new request, it rests the timer and waits for another
+	// second and so on, until it gets forcefully terminated or until it gets no request during
+	// the 1 second wait time.
+	//
+	// We need to wait after receiving SIGTERM before terminating, because k8s may start pod
+	// shutdown sequence, before the pod was removed from the service endpoints list. That race
+	// condition creates a situation where request can be routed to a pod that is being shut down
+	// and does not accept new requests anymore.
+	//
+	// Normally for the destination service we have 2 deployments with 1 pod each, however during
+	// the restart of one of the deployments in this test we can temporary have 3 pods backing
+	// the service, assuming some level of uniformity each pod for each request is chosen with
+	// probability of 1/3 and not chosen with probability 2/3.
+	//
+	// That creates a small, but not insignificant chance that a pod will not get any requests
+	// after it had already received SIGTERM for 1 second just due to random chance and not
+	// because it was removed from the service endpoint list.
+	//
+	// When that happens the echo process in the pod will terminate prematurely resulting in test
+	// flakes.
+	//
+	// To reduce the possibility of such flakes we changed the call interval from 100ms to 40ms
+	// in the past, so please do not increase the call interval.
+	const callInterval = 40 * time.Millisecond
 	successThreshold := 1.0
 	if os.Getenv("KUBERNETES_CNI") == "calico" {
 		// See https://github.com/istio/istio/issues/52719. It seems Calico itself cannot achieve 100% uptime
@@ -3303,9 +3554,8 @@ func TestServiceRestart(t *testing.T) {
 	}
 
 	framework.NewTest(t).Run(func(t framework.TestContext) {
-		dst := apps.Captured
 		generators := []traffic.Generator{}
-		mkGen := func(src echo.Caller) {
+		mkGen := func(src echo.Caller, dst echo.Instances) {
 			g := traffic.NewGenerator(t, traffic.Config{
 				Source: src,
 				Options: echo.CallOptions{
@@ -3322,12 +3572,18 @@ func TestServiceRestart(t *testing.T) {
 			}).Start()
 			generators = append(generators, g)
 		}
-		mkGen(apps.Uncaptured[0])
-		mkGen(apps.Sidecar[0])
-		// This is effectively "captured" since its the client; we cannot use captured since captured is the dest, though
-		mkGen(apps.WorkloadAddressedWaypoint[0])
-		if err := dst.Restart(); err != nil {
-			t.Fatal(err)
+		for _, c := range t.Clusters() {
+			dst := apps.Captured.ForCluster(c.Name())
+			mkGen(apps.Uncaptured.ForCluster(c.Name())[0], dst)
+			// TODO(https://github.com/istio/istio/issues/57878): remove this condition when the issue is addressed
+			if !t.Settings().AmbientMultiNetwork {
+				mkGen(apps.Sidecar.ForCluster(c.Name())[0], dst)
+			}
+			// This is effectively "captured" since its the client; we cannot use captured since captured is the dest, though
+			mkGen(apps.WorkloadAddressedWaypoint.ForCluster(c.Name())[0], dst)
+			if err := dst.Restart(); err != nil {
+				t.Fatal(err)
+			}
 		}
 		for _, gen := range generators {
 			// Stop the traffic generator and get the result.
@@ -3343,8 +3599,7 @@ func TestZtunnelRestart(t *testing.T) {
 	const sidecarSuccessThreshold = .9
 
 	framework.NewTest(t).Run(func(t framework.TestContext) {
-		dst := apps.Captured
-		mkGen := func(src echo.Caller) traffic.Generator {
+		mkGen := func(src echo.Caller, dst echo.Instances) traffic.Generator {
 			g := traffic.NewGenerator(t, traffic.Config{
 				Source: src,
 				Options: echo.CallOptions{
@@ -3361,17 +3616,28 @@ func TestZtunnelRestart(t *testing.T) {
 			}).Start()
 			return g
 		}
-		uncap := mkGen(apps.Uncaptured[0])
-		sidecar := mkGen(apps.Sidecar[0])
-		// This is effectively "captured" since its the client; we cannot use captured since captured is the dest, though
-		captured := mkGen(apps.WorkloadAddressedWaypoint[0])
-		restartZtunnel(t)
-		// Stop the traffic generator and get the result.
-		uncap.Stop().CheckSuccessRate(t, successThreshold)
-		captured.Stop().CheckSuccessRate(t, successThreshold)
-		// We have a lighter check for sidecars. Sidecars will pool HTTP, so these are long lived connections.
-		// These we have no way to signal to Envoy (https://github.com/envoyproxy/envoy/issues/34897).
-		sidecar.Stop().CheckSuccessRate(t, sidecarSuccessThreshold)
+		for _, c := range t.Clusters() {
+			dst := apps.Captured.ForCluster(c.Name())
+			uncap := mkGen(apps.Uncaptured.ForCluster(c.Name())[0], dst)
+
+			var sidecar traffic.Generator
+			// TODO(https://github.com/istio/istio/issues/57878): remove this condition when the issue is addressed
+			if !t.Settings().AmbientMultiNetwork {
+				sidecar = mkGen(apps.Sidecar.ForCluster(c.Name())[0], dst)
+			}
+			// This is effectively "captured" since its the client; we cannot use captured since captured is the dest, though
+			captured := mkGen(apps.WorkloadAddressedWaypoint.ForCluster(c.Name())[0], dst)
+			restartZtunnel(t, c)
+			// Stop the traffic generator and get the result.
+			uncap.Stop().CheckSuccessRate(t, successThreshold)
+			captured.Stop().CheckSuccessRate(t, successThreshold)
+			// We have a lighter check for sidecars. Sidecars will pool HTTP, so these are long lived connections.
+			// These we have no way to signal to Envoy (https://github.com/envoyproxy/envoy/issues/34897).
+			// TODO(https://github.com/istio/istio/issues/57878): remove this condition when the issue is addressed
+			if sidecar != nil {
+				sidecar.Stop().CheckSuccessRate(t, sidecarSuccessThreshold)
+			}
+		}
 	})
 }
 
@@ -3382,44 +3648,49 @@ func TestServiceDynamicEnroll(t *testing.T) {
 
 	framework.NewTest(t).Run(func(t framework.TestContext) {
 		if t.Settings().AmbientMultiNetwork {
-			t.Skip("https://github.com/istio/istio/issues/54245")
+			t.Skip("https://github.com/istio/istio/issues/58228")
 		}
-		c := t.Clusters().Default() // TODO: support multicluster
-		dst := apps.Captured.ForCluster(c.Name())
 		generators := []traffic.Generator{}
-		mkGen := func(src echo.Caller) {
-			g := traffic.NewGenerator(t, traffic.Config{
-				Source: src,
-				Options: echo.CallOptions{
-					To:    dst,
-					Count: 1,
-					Check: check.OK(),
-					HTTP:  echo.HTTP{Path: "/"},
-					Port: echo.Port{
-						Name: "http",
+		for _, c := range t.Clusters() {
+			dst := apps.Captured.ForCluster(c.Name())
+			mkGen := func(src echo.Instance) {
+				if t.Settings().AmbientMultiNetwork && (src.Config().HasSidecar() || dst.Config().HasSidecar()) {
+					// Skip sidecar to sidecar in multinetwork, as they will use the east-west gateway which is not tested here.
+					return
+				}
+				g := traffic.NewGenerator(t, traffic.Config{
+					Source: src,
+					Options: echo.CallOptions{
+						To:    dst,
+						Count: 1,
+						Check: check.OK(),
+						HTTP:  echo.HTTP{Path: "/"},
+						Port: echo.Port{
+							Name: "http",
+						},
+						Timeout: time.Millisecond * 100,
+						Retry:   echo.Retry{NoRetry: true},
 					},
-					Timeout: time.Millisecond * 100,
-					Retry:   echo.Retry{NoRetry: true},
-				},
-				Interval: callInterval,
-			}).Start()
-			generators = append(generators, g)
-		}
-		mkGen(apps.Uncaptured.ForCluster(c.Name())[0])
-		// TODO(https://github.com/istio/istio/issues/53064) re-enable this, it is not reliable enough
-		// mkGen(apps.Sidecar[0])
-		// This is effectively "captured" since its the client; we cannot use captured since captured is the dest, though
-		mkGen(apps.WorkloadAddressedWaypoint.ForCluster(c.Name())[0])
+					Interval: callInterval,
+				}).Start()
+				generators = append(generators, g)
+			}
+			mkGen(apps.Uncaptured.ForCluster(c.Name())[0])
+			// TODO(https://github.com/istio/istio/issues/53064) re-enable this, it is not reliable enough
+			// mkGen(apps.Sidecar[0])
+			// This is effectively "captured" since its the client; we cannot use captured since captured is the dest, though
+			mkGen(apps.WorkloadAddressedWaypoint.ForCluster(c.Name())[0])
 
-		// Unenroll from the mesh
-		for _, p := range dst.WorkloadsOrFail(t) {
-			labelWorkload(t, p, label.IoIstioDataplaneMode.Name, constants.DataplaneModeNone)
-		}
-		// Let it run some traffic
-		time.Sleep(time.Millisecond * 500)
-		// Revert back
-		for _, p := range dst.WorkloadsOrFail(t) {
-			labelWorkload(t, p, label.IoIstioDataplaneMode.Name, "")
+			// Unenroll from the mesh
+			for _, p := range dst.WorkloadsOrFail(t) {
+				labelWorkload(t, p, label.IoIstioDataplaneMode.Name, constants.DataplaneModeNone)
+			}
+			// Let it run some traffic
+			time.Sleep(time.Millisecond * 500)
+			// Revert back
+			for _, p := range dst.WorkloadsOrFail(t) {
+				labelWorkload(t, p, label.IoIstioDataplaneMode.Name, "")
+			}
 		}
 		time.Sleep(time.Millisecond * 500)
 
@@ -3438,14 +3709,57 @@ func labelWorkload(t framework.TestContext, w echo.Workload, k, v string) {
 	if v == "" {
 		patchData = fmt.Sprintf(`{"metadata":{"labels": {%q: null}}}`, k)
 	}
-	p := t.Clusters().Default().Kube().CoreV1().Pods(apps.Namespace.Name())
+	p := w.Cluster().Kube().CoreV1().Pods(apps.Namespace.Name())
 	_, err := p.Patch(context.Background(), w.PodName(), types.StrategicMergePatchType, []byte(patchData), patchOpts)
 	if err != nil {
 		t.Fatal(err)
 	}
 }
 
-func restartZtunnel(t framework.TestContext) {
+func labelService(t framework.TestContext, nsName, svcName, k, v string, cs ...cluster.Cluster) {
+	t.Helper()
+
+	for _, c := range cs {
+		labelServiceInCluster(t, c, nsName, svcName, k, v)
+	}
+}
+
+func labelServiceGlobal(t framework.TestContext, svcName string, cls ...cluster.Cluster) {
+	k := "istio.io/global"
+	v := "true"
+	labelService(t, apps.Namespace.Name(), svcName, k, v, cls...)
+}
+
+func labelServiceInCluster(t framework.TestContext, c cluster.Cluster, nsName, svcName, k, v string) {
+	patchOpts := metav1.PatchOptions{}
+	patchData := fmt.Sprintf(`{"metadata":{"labels": {%q: %q}}}`, k, v)
+	if v == "" {
+		patchData = fmt.Sprintf(`{"metadata":{"labels": {%q: null}}}`, k)
+	}
+	s := c.Kube().CoreV1().Services(nsName)
+	_, err := s.Patch(t.Context(), svcName, types.StrategicMergePatchType, []byte(patchData), patchOpts)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func unlabelServiceGlobal(t framework.TestContext, svcName string, cls ...cluster.Cluster) {
+	for _, cl := range cls {
+		unlabelServiceGlobalInCluster(t, svcName, cl)
+	}
+}
+
+func unlabelServiceGlobalInCluster(t framework.TestContext, svcName string, cl cluster.Cluster) {
+	patchOpts := metav1.PatchOptions{}
+	patchData := fmt.Sprintf(`{"metadata":{"labels":{ %q: null}}}`, "istio.io/global")
+	s := cl.Kube().CoreV1().Services(apps.Namespace.Name())
+	_, err := s.Patch(context.Background(), svcName, types.StrategicMergePatchType, []byte(patchData), patchOpts)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func restartZtunnel(t framework.TestContext, c cluster.Cluster) {
 	patchOpts := metav1.PatchOptions{}
 	patchData := fmt.Sprintf(`{
 			"spec": {
@@ -3458,7 +3772,8 @@ func restartZtunnel(t framework.TestContext) {
 				}
 			}
 		}`, time.Now().Format(time.RFC3339)) // e.g., “2006-01-02T15:04:05Z07:00”
-	ds := t.Clusters().Default().Kube().AppsV1().DaemonSets(i.Settings().SystemNamespace)
+	ztunnelNS := i.Settings().ZtunnelNamespace
+	ds := c.Kube().AppsV1().DaemonSets(ztunnelNS)
 	_, err := ds.Patch(context.Background(), "ztunnel", types.StrategicMergePatchType, []byte(patchData), patchOpts)
 	if err != nil {
 		t.Fatal(err)
@@ -3476,7 +3791,7 @@ func restartZtunnel(t framework.TestContext) {
 	}, retry.Timeout(60*time.Second), retry.Delay(2*time.Second)); err != nil {
 		t.Fatalf("failed to wait for ztunnel rollout status for: %v", err)
 	}
-	if _, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(t.AllClusters()[0], i.Settings().SystemNamespace, "app=ztunnel")); err != nil {
+	if _, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(t.AllClusters()[0], ztunnelNS, "app=ztunnel")); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -3514,7 +3829,7 @@ spec:
       port: 80
 `).
 				ApplyOrFail(t)
-			SetWaypoint(t, Sidecar, "waypoint")
+			SetWaypoint(t, Sidecar, "waypoint-service")
 			for _, c := range t.Clusters() {
 				// TODO: Support sending to a different cluster
 				client := apps.Captured.ForCluster(c.Name())
@@ -3567,9 +3882,9 @@ spec:
   rules:
   - from:
     - source:
-        principals: ["cluster.local/ns/{{.}}/sa/waypoint"]`).
+        principals: ["cluster.local/ns/{{.}}/sa/waypoint-service"]`).
 				ApplyOrFail(t)
-			SetWaypoint(t, Sidecar, "waypoint")
+			SetWaypoint(t, Sidecar, "waypoint-service")
 			for _, c := range t.Clusters() {
 				// TODO: Support sending to a different cluster
 				client := apps.Captured.ForCluster(c.Name())
@@ -3581,6 +3896,98 @@ spec:
 						check.RequestHeader("greeting", "hello world!"),
 					),
 				})
+			}
+		})
+}
+
+func TestZtunnelSecureMetrics(t *testing.T) {
+	framework.NewTest(t).
+		Run(func(tc framework.TestContext) {
+			for _, c := range tc.Clusters() {
+				clientInstance := apps.Captured.ForCluster(c.Name())[0]
+				if clientInstance == nil {
+					tc.Fatal("No captured client instance found for ZtunnelSecureMetrics test")
+				}
+
+				ztunnelNS := i.Settings().ZtunnelNamespace
+				k8sPods := c.Kube().CoreV1().Pods(ztunnelNS)
+
+				// Get ztunnel pod info
+				ztunnelPods, err := k8sPods.List(context.TODO(), metav1.ListOptions{LabelSelector: "app=ztunnel"})
+				if err != nil || len(ztunnelPods.Items) == 0 {
+					tc.Fatalf("Failed to list ztunnel pods or none found: %v", err)
+				}
+				ztunnelPod := ztunnelPods.Items[0] // Pick the first ztunnel pod
+				ztunnelPodIP := ztunnelPod.Status.PodIP
+				ztunnelMetricsPort := 15020 // Default ztunnel metrics port
+				ztunnelServiceAccount := ztunnelPod.Spec.ServiceAccountName
+				trustDomain := util.GetTrustDomain(c, ztunnelNS)
+				// Extract ztunnel app labels for canonical service/revision
+				ztunnelAppLabel := ztunnelPod.Labels["app"]
+				ztunnelVersionLabel := ztunnelPod.Labels["app.kubernetes.io/version"]
+
+				tc.Logf("Using client %s (%s) to query ztunnel %s (%s) metrics on port %d. Expecting transport HBONE.",
+					clientInstance.Config().Service, clientInstance.WorkloadsOrFail(tc)[0].PodName(), ztunnelPod.Name, ztunnelPodIP, ztunnelMetricsPort)
+
+				// Client calls ztunnel's `/metrics` endpoint.
+				// This request should be intercepted by clientInstance's ztunnel,
+				// and an HBONE connection made to the target ztunnel's inbound (15008),
+				// which then proxies to its internal metrics server (15020).
+				opts := echo.CallOptions{
+					Address: ztunnelPodIP,
+					Port:    echo.Port{ServicePort: ztunnelMetricsPort, Name: "http-ztunnel-metrics", Protocol: protocol.HTTP},
+					Scheme:  scheme.HTTP,
+					HTTP:    echo.HTTP{Path: "/metrics"},
+					Check:   check.And(check.OK(), check.BodyContains("# TYPE")), // Check for Prometheus format
+				}
+				clientInstance.CallOrFail(tc, opts)
+				tc.Logf("Successfully called ztunnel /metrics endpoint via HTTP from %s", clientInstance.WorkloadsOrFail(tc)[0].PodName())
+
+				// Verify Prometheus L4 telemetry for the HBONE connection to ztunnel
+				// The ztunnel pod itself is the destination workload for this specific HBONE connection.
+				// sourceWorkloadPodName := clientInstance.WorkloadsOrFail(tc)[0].PodName() // For istio_tcp_connections_opened_total, source_workload is pod name
+				sourceNamespace := clientInstance.Config().Namespace.Name()
+				sourceSA := clientInstance.Config().AccountName()
+				sourceWorkloadLabel := clientInstance.Config().Service + "-" + clientInstance.Config().Version
+
+				query := prometheus.Query{
+					Metric: "istio_tcp_connections_opened_total",
+					Labels: map[string]string{
+						"reporter":                       "destination",
+						"connection_security_policy":     "mutual_tls",
+						"destination_workload_namespace": ztunnelNS,
+						"destination_workload":           "ztunnel",
+						"destination_principal":          fmt.Sprintf("spiffe://%s/ns/%s/sa/%s", trustDomain, ztunnelNS, ztunnelServiceAccount),
+						"destination_canonical_service":  ztunnelAppLabel,
+						"destination_canonical_revision": ztunnelVersionLabel,
+						"source_workload_namespace":      sourceNamespace,
+						"source_workload":                sourceWorkloadLabel,
+						"source_principal":               fmt.Sprintf("spiffe://%s/ns/%s/sa/%s", trustDomain, sourceNamespace, sourceSA),
+						"source_canonical_service":       clientInstance.Config().Service,
+						"source_canonical_revision":      clientInstance.Config().Version,
+					},
+				}
+
+				tc.Logf("Prometheus query for ztunnel secure metrics: %#v", query)
+
+				retry.UntilSuccessOrFail(tc, func() error {
+					clientInstance.CallOrFail(tc, opts)
+					count, err := prom.QuerySum(c, query)
+					if err != nil {
+						tc.Logf("Prometheus query failed (will retry for query %s): %v", query.String(), err)
+						// Attempt to dump metrics related to the query for easier debugging during retries.
+						util.PromDump(c, prom, query)
+						return err
+					}
+					if count < 1 {
+						tc.Logf("Expected at least 1 connection for query %s, got %f (will retry)", query.String(), count)
+						// Attempt to dump metrics related to the query for easier debugging during retries.
+						util.PromDump(c, prom, query)
+						return fmt.Errorf("expected at least 1 connection for query %s, got %f", query.String(), count)
+					}
+					tc.Logf("Successfully validated prometheus query %s, count: %f", query.String(), count)
+					return nil
+				}, retry.Timeout(30*time.Second), retry.BackoffDelay(time.Second))
 			}
 		})
 }

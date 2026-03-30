@@ -24,14 +24,24 @@ _internal_defaults_do_not_set:
   cniConfFileName: ""
   cniNetnsDir: "/var/run/netns"
 
+  # If Istio owned CNI config is enabled, defaults to 02-istio-cni.conflist
+  istioOwnedCNIConfigFileName: ""
+  istioOwnedCNIConfig: false
+
   excludeNamespaces:
     - kube-system
 
   # Allows user to set custom affinity for the DaemonSet
   affinity: {}
 
+  # Additional labels to apply on the daemonset level
+  daemonSetLabels: {}
+
   # Custom annotations on pod level, if you need them
   podAnnotations: {}
+
+  # Additional labels to apply on the pod level
+  podLabels: {}
 
   # Deploy the config files as plugin chain (value "true") or as standalone files in the conf dir (value "false")?
   # Some k8s flavors (e.g. OpenShift) do not support the chain approach, set to false if this is the case
@@ -61,10 +71,12 @@ _internal_defaults_do_not_set:
     # If enabled, and ambient is enabled, enables ipv6 support
     ipv6: true
     # If enabled, and ambient is enabled, the CNI agent will reconcile incompatible iptables rules and chains at startup.
-    # This will eventually be enabled by default
+    # This is enabled by default
     reconcileIptablesOnStartup: true
     # If enabled, and ambient is enabled, the CNI agent will always share the network namespace of the host node it is running on
     shareHostNetworkNamespace: false
+    # If enabled, the CNI agent will retry checking if a pod is ambient enabled when there are errors
+    enableAmbientDetectionRetry: false
 
 
   repair:
@@ -98,6 +110,11 @@ _internal_defaults_do_not_set:
   # SELinux options to set in the istio-cni-node pods. You may need to set this to `type: spc_t` for some platforms.
   seLinuxOptions: {}
 
+  # Use `useAppArmorAnnotation: true` to set up appArmor profile via `container.apparmor.security.beta.kubernetes.io` annotation.
+  # This is required for Kubernetes 1.29 (and earlier) which does not support setting appArmorProfile in the
+  # securityContext. Otherwise, appArmor profile will be set via appArmorProfile setting in securityContext.
+  useAppArmorAnnotation: true
+
   resources:
     requests:
       cpu: 100m
@@ -124,6 +141,12 @@ _internal_defaults_do_not_set:
     rollingUpdate:
       maxUnavailable: 1
 
+  # Sets the per-pod terminationGracePeriodSeconds setting.
+  # A higher value gives more time for CNI cleanup during rolling updates,
+  # preventing "failed to find plugin istio-cni" errors.
+  # Default K8s value is 30 seconds.
+  terminationGracePeriodSeconds: 30
+
   # Revision is set as 'version' label and part of the resource names when installing multiple control planes.
   revision: ""
 
@@ -133,8 +156,8 @@ _internal_defaults_do_not_set:
   global:
     # Default hub for Istio images.
     # Releases are published to docker hub under 'istio' project.
-    # Dev builds from prow are on gcr.io
-    hub: gcr.io/istio-testing
+    # Dev builds from prow are on registry.istio.io/testing
+    hub: registry.istio.io/testing
 
     # Default tag for Istio images.
     tag: latest
@@ -153,6 +176,10 @@ _internal_defaults_do_not_set:
 
     logAsJson: false
 
+    # When enabled, default NetworkPolicy resources will be created
+    networkPolicy:
+      enabled: false
+
     # ImagePullSecrets for all ServiceAccount, list of secrets in the same namespace
     # to use for pulling any images in pods that reference this ServiceAccount.
     # For components that don't use ServiceAccounts (i.e. grafana, servicegraph, tracing)
@@ -166,6 +193,17 @@ _internal_defaults_do_not_set:
       requests:
         cpu: 100m
         memory: 100Mi
+
+    # In order to use native nftable rules instead of iptable rules, set this flag to true.
+    nativeNftables: false
+
+    # resourceScope controls what resources will be processed by helm.
+    # This is useful when installing Istio on a cluster where some resources need to be owned by a cluster administrator and some can be owned by the mesh administrator.
+    # It can be one of:
+    # - all: all resources are processed
+    # - cluster: only cluster-scoped resources are processed
+    # - namespace: only namespace-scoped resources are processed
+    resourceScope: all
 
   # A `key: value` mapping of environment variables to add to the pod
   env: {}

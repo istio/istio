@@ -44,6 +44,7 @@ type Config struct {
 	Metrics               int
 	TLSCert               string
 	TLSKey                string
+	TLSCACert             string
 	Version               string
 	UDSServer             string
 	Cluster               string
@@ -51,6 +52,8 @@ type Config struct {
 	IstioVersion          string
 	Namespace             string
 	DisableALPN           bool
+	TLSMinVersion         string
+	TLSCurvePreferences   []string
 	ReportRequest         func()
 }
 
@@ -62,11 +65,14 @@ func (c Config) String() string {
 	b.WriteString(fmt.Sprintf("Metrics:               %v\n", c.Metrics))
 	b.WriteString(fmt.Sprintf("TLSCert:               %v\n", c.TLSCert))
 	b.WriteString(fmt.Sprintf("TLSKey:                %v\n", c.TLSKey))
+	b.WriteString(fmt.Sprintf("TLSCACert:             %v\n", c.TLSCACert))
 	b.WriteString(fmt.Sprintf("Version:               %v\n", c.Version))
 	b.WriteString(fmt.Sprintf("UDSServer:             %v\n", c.UDSServer))
 	b.WriteString(fmt.Sprintf("Cluster:               %v\n", c.Cluster))
 	b.WriteString(fmt.Sprintf("IstioVersion:          %v\n", c.IstioVersion))
 	b.WriteString(fmt.Sprintf("Namespace:             %v\n", c.Namespace))
+	b.WriteString(fmt.Sprintf("TLSMinVersion:         %v\n", c.TLSMinVersion))
+	b.WriteString(fmt.Sprintf("TLSCurvePreferences:   %v\n", c.TLSCurvePreferences))
 
 	return b.String()
 }
@@ -189,7 +195,7 @@ func (s *Instance) Close() (err error) {
 			err = multierror.Append(err, s.Close())
 		}
 	}
-	return
+	return err
 }
 
 func (s *Instance) getListenerIPs(port *common.Port) ([]string, error) {
@@ -231,20 +237,27 @@ func (s *Instance) getListenerIPs(port *common.Port) ([]string, error) {
 }
 
 func (s *Instance) newEndpoint(port *common.Port, listenerIP string, udsServer string) (endpoint.Instance, error) {
-	return endpoint.New(endpoint.Config{
-		Port:          port,
-		UDSServer:     udsServer,
-		IsServerReady: s.isReady,
-		ReportRequest: s.ReportRequest,
-		Version:       s.Version,
-		Cluster:       s.Cluster,
-		TLSCert:       s.TLSCert,
-		TLSKey:        s.TLSKey,
-		Dialer:        s.Dialer,
-		ListenerIP:    listenerIP,
-		DisableALPN:   s.DisableALPN,
-		IstioVersion:  s.IstioVersion,
-	})
+	epConfig := endpoint.Config{
+		Port:                port,
+		UDSServer:           udsServer,
+		IsServerReady:       s.isReady,
+		ReportRequest:       s.ReportRequest,
+		Version:             s.Version,
+		Cluster:             s.Cluster,
+		TLSCert:             s.TLSCert,
+		TLSKey:              s.TLSKey,
+		TLSCACert:           s.TLSCACert,
+		Dialer:              s.Dialer,
+		ListenerIP:          listenerIP,
+		DisableALPN:         s.DisableALPN,
+		TLSMinVersion:       s.TLSMinVersion,
+		TLSCurvePreferences: s.TLSCurvePreferences,
+		IstioVersion:        s.IstioVersion,
+	}
+	if port != nil && port.EndpointPicker {
+		epConfig.EndpointPicker = true
+	}
+	return endpoint.New(epConfig)
 }
 
 func (s *Instance) isReady() bool {

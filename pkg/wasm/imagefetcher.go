@@ -23,7 +23,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"net/url"
 	"path/filepath"
 	"strings"
 
@@ -35,6 +37,8 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/hashicorp/go-multierror"
+
+	"istio.io/istio/pilot/pkg/features"
 )
 
 // This file implements the fetcher of "Wasm Image Specification" compatible container images.
@@ -62,6 +66,95 @@ type ImageFetcher struct {
 	fetchOpts []remote.Option
 }
 
+// ssrfProtectionTransport wraps http.RoundTripper to block SSRF via bearer realm
+type ssrfProtectionTransport struct {
+	inner http.RoundTripper
+}
+
+func (t *ssrfProtectionTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	resp, err := t.inner.RoundTrip(req)
+	if err != nil || resp == nil {
+		return resp, err
+	}
+
+	// check 401 responses for malicious WWW-Authenticate realm
+	// check ALL headers as the server can return multiple, and library might use any
+	if resp.StatusCode == http.StatusUnauthorized {
+		for _, auth := range resp.Header.Values("WWW-Authenticate") {
+			if err := validateAllRealms(auth); err != nil {
+				resp.Body.Close()
+				return nil, fmt.Errorf("rejected unsafe bearer realm: %w", err)
+			}
+		}
+	}
+
+	return resp, nil
+}
+
+// validateAllRealms checks all realm parameters in a WWW-Authenticate header.
+// in case of multiple challenges - validate all of them.
+func validateAllRealms(wwwAuth string) error {
+	// find all realm="..." occurrences
+	remaining := wwwAuth
+	for {
+		idx := strings.Index(remaining, "realm=\"")
+		if idx == -1 {
+			break
+		}
+		remaining = remaining[idx+7:] // skip 'realm="'
+
+		end := strings.Index(remaining, "\"")
+		if end == -1 {
+			break
+		}
+		realm := remaining[:end]
+		remaining = remaining[end+1:]
+
+		if err := validateRealmURL(realm); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateRealmURL(realm string) error {
+	u, err := url.Parse(realm)
+	if err != nil {
+		return fmt.Errorf("invalid realm URL: %w", err)
+	}
+
+	// block non-http schemes (file://, gopher://, dict://, etc)
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return fmt.Errorf("realm scheme %q not allowed", u.Scheme)
+	}
+
+	host := u.Hostname()
+	if host == "" {
+		return fmt.Errorf("realm missing host")
+	}
+
+	// block known cloud metadata DNS names
+	if host == "metadata.google.internal" {
+		return fmt.Errorf("realm targets cloud metadata service")
+	}
+
+	// block localhost DNS name (ParseIP returns nil for hostnames)
+	if host == "localhost" {
+		return fmt.Errorf("realm targets localhost")
+	}
+
+	// block private, loopback, and link-local IP ranges
+	// covers 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16 (private)
+	// covers 127.0.0.0/8, ::1 (loopback)
+	// covers 169.254.0.0/16, fe80::/10 (link-local, includes cloud metadata 169.254.169.254)
+	ip := net.ParseIP(host)
+	if ip != nil && (ip.IsPrivate() || ip.IsLoopback() || ip.IsLinkLocalUnicast()) {
+		return fmt.Errorf("realm targets private/loopback/link-local IP")
+	}
+
+	return nil
+}
+
 func NewImageFetcher(ctx context.Context, opt ImageFetcherOption) *ImageFetcher {
 	fetchOpts := make([]remote.Option, 0, 2)
 	// TODO(mathetake): have "Anonymous" option?
@@ -73,6 +166,7 @@ func NewImageFetcher(ctx context.Context, opt ImageFetcherOption) *ImageFetcher 
 		fetchOpts = append(fetchOpts, remote.WithAuthFromKeychain(&wasmKeyChain{data: opt.PullSecret}))
 	}
 
+	var transport http.RoundTripper
 	if opt.Insecure {
 		t := remote.DefaultTransport.(*http.Transport).Clone()
 		// nolint: gosec
@@ -80,8 +174,13 @@ func NewImageFetcher(ctx context.Context, opt ImageFetcherOption) *ImageFetcher 
 		t.TLSClientConfig = &tls.Config{
 			InsecureSkipVerify: opt.Insecure,
 		}
-		fetchOpts = append(fetchOpts, remote.WithTransport(t))
+		transport = t
+	} else {
+		transport = remote.DefaultTransport
 	}
+
+	// wrap transport with SSRF protection for CVE-pending bearer realm vulnerability
+	fetchOpts = append(fetchOpts, remote.WithTransport(&ssrfProtectionTransport{inner: transport}))
 
 	return &ImageFetcher{
 		fetchOpts: append(fetchOpts, remote.WithContext(ctx)),
@@ -95,7 +194,7 @@ func (o *ImageFetcher) PrepareFetch(url string) (binaryFetcher func() ([]byte, e
 	ref, err := name.ParseReference(url)
 	if err != nil {
 		err = fmt.Errorf("could not parse url in image reference: %v", err)
-		return
+		return binaryFetcher, actualDigest, err
 	}
 	wasmLog.Infof("fetching image %s from registry %s with tag %s", ref.Context().RepositoryStr(),
 		ref.Context().RegistryStr(), ref.Identifier())
@@ -113,14 +212,14 @@ func (o *ImageFetcher) PrepareFetch(url string) (binaryFetcher func() ([]byte, e
 
 	if err != nil {
 		err = fmt.Errorf("could not fetch manifest: %v", err)
-		return
+		return binaryFetcher, actualDigest, err
 	}
 
 	// Fetch image.
 	img, err := desc.Image()
 	if err != nil {
 		err = fmt.Errorf("could not fetch image: %v", err)
-		return
+		return binaryFetcher, actualDigest, err
 	}
 
 	// Check Manifest's digest if expManifestDigest is not empty.
@@ -163,7 +262,7 @@ func (o *ImageFetcher) PrepareFetch(url string) (binaryFetcher func() ([]byte, e
 			),
 		)
 	}
-	return
+	return binaryFetcher, actualDigest, err
 }
 
 // extractDockerImage extracts the Wasm binary from the
@@ -256,8 +355,7 @@ func extractWasmPluginBinary(r io.Reader) ([]byte, error) {
 
 	// Search for the file walking through the archive.
 
-	// Limit wasm binary to 256mb; in reality it must be much smaller
-	tr := tar.NewReader(io.LimitReader(gr, 1024*1024*256))
+	tr := tar.NewReader(io.LimitReader(gr, features.MaxWasmBinarySizeBytes))
 	for {
 		h, err := tr.Next()
 		if err == io.EOF {
@@ -322,7 +420,7 @@ func extractOCIArtifactImage(img v1.Image) ([]byte, error) {
 	defer r.Close()
 
 	// Just read it since the content is already a raw Wasm binary as mentioned above.
-	ret, err := io.ReadAll(r)
+	ret, err := io.ReadAll(io.LimitReader(r, features.MaxWasmBinarySizeBytes))
 	if err != nil {
 		return nil, fmt.Errorf("could not extract wasm binary: %v", err)
 	}

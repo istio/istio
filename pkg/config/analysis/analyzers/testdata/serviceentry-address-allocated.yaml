@@ -1,0 +1,17 @@
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: address-allocated
+spec:
+  hosts:
+  - dummy.testing.io # not used
+  ports:
+  - name: tcp
+    number: 22
+    protocol: TCP
+status:
+  addresses:
+  - host: dummy.testing.io
+    value: 240.240.0.1
+  - host: dummy.testing.io
+    value: 2001:2::1

@@ -52,8 +52,6 @@ const (
 	summaryOutput          = "short"
 	prometheusOutput       = "prom"
 	prometheusMergedOutput = "prom-merged"
-
-	defaultProxyAdminPort = 15000
 )
 
 var (
@@ -70,6 +68,8 @@ var (
 
 	// output format (json, yaml or short)
 	outputFormat string
+
+	withHeaders bool
 
 	proxyAdminPort int
 
@@ -527,6 +527,7 @@ func allConfigCmd(ctx cli.Context) *cobra.Command {
 						Cluster: clusterName,
 						Status:  status,
 					},
+					withHeaders,
 				)
 			default:
 				return fmt.Errorf("output format %q not supported", outputFormat)
@@ -537,6 +538,7 @@ func allConfigCmd(ctx cli.Context) *cobra.Command {
 	}
 
 	allConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
+	allConfigCmd.PersistentFlags().BoolVar(&withHeaders, "with-headers", false, "Print summary with headers")
 	allConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"Envoy config dump file")
 	allConfigCmd.PersistentFlags().BoolVar(&verboseProxyConfig, "verbose", true, "Output more information")
@@ -706,7 +708,7 @@ func StatsConfigCmd(ctx cli.Context) *cobra.Command {
 	statsConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short|prom|prom-merged")
 	statsConfigCmd.PersistentFlags().StringVarP(&statsType, "type", "t", "server", "Where to grab the stats: one of server|clusters")
 	statsConfigCmd.PersistentFlags().StringVarP(&labelSelector, "selector", "l", "", "Label selector")
-	statsConfigCmd.PersistentFlags().IntVar(&proxyAdminPort, "proxy-admin-port", defaultProxyAdminPort, "Envoy proxy admin port")
+	statsConfigCmd.PersistentFlags().IntVar(&proxyAdminPort, "proxy-admin-port", istioctlutil.DefaultProxyAdminPort, "Envoy proxy admin port")
 
 	return statsConfigCmd
 }
@@ -1356,10 +1358,13 @@ func ProxyConfig(ctx cli.Context) *cobra.Command {
 		Example: `  # Retrieve information about proxy configuration from an Envoy instance.
   istioctl proxy-config <clusters|listeners|routes|endpoints|ecds|bootstrap|log|secret> <pod-name[.namespace]>`,
 		Aliases: []string{"pc"},
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			return istioctlutil.ValidatePort(proxyAdminPort)
+		},
 	}
 
 	configCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short")
-	configCmd.PersistentFlags().IntVar(&proxyAdminPort, "proxy-admin-port", defaultProxyAdminPort, "Envoy proxy admin port")
+	configCmd.PersistentFlags().IntVar(&proxyAdminPort, "proxy-admin-port", istioctlutil.DefaultProxyAdminPort, "Envoy proxy admin port")
 
 	configCmd.AddCommand(clusterConfigCmd(ctx))
 	configCmd.AddCommand(allConfigCmd(ctx))

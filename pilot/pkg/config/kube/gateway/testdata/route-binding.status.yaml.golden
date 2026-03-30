@@ -1,7 +1,6 @@
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: GatewayClass
 metadata:
-  creationTimestamp: null
   name: istio
 spec: null
 status:
@@ -12,10 +11,9 @@ status:
     status: "True"
     type: Accepted
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
-  creationTimestamp: null
   name: gateway
   namespace: istio-system
 spec: null
@@ -450,10 +448,9 @@ status:
     - group: gateway.networking.k8s.io
       kind: GRPCRoute
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  creationTimestamp: null
   name: bind-all
   namespace: default
 spec: null
@@ -475,10 +472,9 @@ status:
       name: gateway
       namespace: istio-system
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  creationTimestamp: null
   name: host-mismatch
   namespace: default
 spec: null
@@ -501,10 +497,9 @@ status:
       namespace: istio-system
       sectionName: foobar
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  creationTimestamp: null
   name: invalid-bind-cross-namespace
   namespace: default
 spec: null
@@ -528,10 +523,9 @@ status:
       namespace: istio-system
       sectionName: slctr-labels
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  creationTimestamp: null
   name: same-namespace-invalid
   namespace: default
 spec: null
@@ -555,10 +549,9 @@ status:
       namespace: istio-system
       sectionName: same-namespace
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  creationTimestamp: null
   name: section-name-cross-namespace
   namespace: default
 spec: null
@@ -581,10 +574,9 @@ status:
       namespace: istio-system
       sectionName: foobar
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  creationTimestamp: null
   name: bind-cross-namespace
   namespace: group-namespace1
 spec: null
@@ -772,10 +764,9 @@ status:
       namespace: istio-system
       sectionName: slctr-combined-no
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  creationTimestamp: null
   name: bind-cross-namespace
   namespace: group-namespace2
 spec: null
@@ -798,10 +789,9 @@ status:
       namespace: istio-system
       sectionName: slctr-labels
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  creationTimestamp: null
   name: same-namespace-valid
   namespace: istio-system
 spec: null
@@ -843,7 +833,6 @@ status:
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: TCPRoute
 metadata:
-  creationTimestamp: null
   name: wrong-protocol
   namespace: default
 spec: null

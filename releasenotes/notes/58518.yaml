@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: telemetry
+issue:
+  - https://github.com/istio/istio/issues/58500
+releaseNotes:
+- |
+  **Fixed** `sidecar.istio.io/statsEvictionInterval` annotation with values >= 60s
+  causing `istio-proxy` sidecars to fail to start.

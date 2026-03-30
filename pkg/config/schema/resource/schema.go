@@ -42,6 +42,9 @@ type Schema interface {
 	// IsClusterScoped indicates that this resource is scoped to a particular namespace within a cluster.
 	IsClusterScoped() bool
 
+	// IsSynthetic indicates that this resource is Synthetic (resource that do not actually exist in a cluster).
+	IsSynthetic() bool
+
 	// IsBuiltin indicates that this resource is builtin (not a CRD)
 	IsBuiltin() bool
 
@@ -226,6 +229,10 @@ func (s *schemaImpl) GroupVersionResource() schema.GroupVersionResource {
 	}
 }
 
+func (s *schemaImpl) IsSynthetic() bool {
+	return s.synthetic
+}
+
 func (s *schemaImpl) IsClusterScoped() bool {
 	return s.clusterScoped
 }
@@ -290,7 +297,7 @@ func (s *schemaImpl) Validate() (err error) {
 	if s.reflectType == nil && getProtoMessageType(s.proto) == nil {
 		err = multierror.Append(err, fmt.Errorf("proto message or reflect type not found: %v", s.proto))
 	}
-	return
+	return err
 }
 
 func (s *schemaImpl) String() string {

@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+releaseNotes:
+  - |
+    **Added** `istiod_remote_cluster_sync_status` gauge metric to Pilot to track the synchronization status of remote clusters.

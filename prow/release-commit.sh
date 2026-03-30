@@ -28,7 +28,7 @@ setup_gcloud_credentials
 # Old prow image does not set this, so needed explicitly here as this is not called through make
 export GO111MODULE=on
 
-DOCKER_HUB=${DOCKER_HUB:-gcr.io/istio-testing}
+DOCKER_HUB=${DOCKER_HUB:-registry.istio.io/testing}
 HELM_HUB=${HELM_HUB:-gcr.io/istio-testing/charts}
 GCS_BUCKET=${GCS_BUCKET:-istio-build/dev}
 
@@ -37,7 +37,7 @@ docker run --rm --privileged "${DOCKER_HUB}/qemu-user-static" --reset -p yes
 export ISTIO_DOCKER_QEMU=true
 
 # Use a pinned version in case breaking changes are needed
-BUILDER_SHA=fc82e3e6453cbd8ec28e5cc133f29632cf5a4851
+BUILDER_SHA=0d2d6c63fa55fd0a059d873f84ffc82d7cb799d9
 
 # Reference to the next minor version of Istio
 # This will create a version like 1.4-alpha.sha
@@ -107,5 +107,5 @@ release-builder validate --release "${WORK_DIR}/out"
 if [[ -z "${DRY_RUN:-}" ]]; then
   release-builder publish --release "${WORK_DIR}/out" \
     --gcsbucket "${GCS_BUCKET}" --gcsaliases "${TAG},${NEXT_VERSION}-dev,latest" \
-    --dockerhub "${DOCKER_HUB}" --helmhub "${HELM_HUB}" --dockertags "${TAG},${VERSION},${NEXT_VERSION}-dev,latest"
+    --dockerhub "gcr.io/istio-testing" --helmhub "${HELM_HUB}" --dockertags "${TAG},${VERSION},${NEXT_VERSION}-dev,latest"
 fi

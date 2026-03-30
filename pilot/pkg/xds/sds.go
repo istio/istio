@@ -188,7 +188,7 @@ func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClust
 			return nil
 		}
 		if err := ValidateCertificate(caCertInfo.Cert); err != nil {
-			recordInvalidCertificate(sr.ResourceName, err)
+			recordInvalidCertificate(sr.Namespace, sr.Name, sr.ResourceName, err)
 		}
 		res := toEnvoyCaSecret(sr.ResourceName, caCertInfo)
 		return res
@@ -200,7 +200,7 @@ func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClust
 			return nil
 		}
 		if err := ValidateCertificate(caCertInfo.Cert); err != nil {
-			recordInvalidCertificate(sr.ResourceName, err)
+			recordInvalidCertificate(sr.Namespace, sr.Name, sr.ResourceName, err)
 		}
 		res := toEnvoyCaSecret(sr.ResourceName, caCertInfo)
 		return res
@@ -212,7 +212,7 @@ func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClust
 		return nil
 	}
 	if err := ValidateCertificate(certInfo.Cert); err != nil {
-		recordInvalidCertificate(sr.ResourceName, err)
+		recordInvalidCertificate(sr.Namespace, sr.Name, sr.ResourceName, err)
 	}
 	res := toEnvoyTLSSecret(sr.ResourceName, certInfo, proxy, s.meshConfig)
 	return res
@@ -237,9 +237,9 @@ func ValidateCertificate(data []byte) error {
 	return nil
 }
 
-func recordInvalidCertificate(name string, err error) {
+func recordInvalidCertificate(namespace string, name string, resourceName string, err error) {
 	pilotSDSCertificateErrors.Increment()
-	log.Warnf("invalid certificates: %q: %v", name, err)
+	log.Warnf("invalid certificates: %s/%s %q: %v", namespace, name, resourceName, err)
 }
 
 // filterAuthorizedResources takes a list of SecretResource and filters out resources that proxy cannot access
@@ -314,7 +314,7 @@ func filterAuthorizedResources(resources []SecretResource, proxy *model.Proxy, s
 	if len(deniedResources) > 0 {
 		errMessage := authzError
 		if errMessage == nil {
-			errMessage = fmt.Errorf("cross namespace secret reference requires ReferencePolicy")
+			errMessage = fmt.Errorf("cross namespace secret reference requires ReferenceGrant")
 		}
 		log.Warnf("proxy %s attempted to access unauthorized certificates %s: %v", proxy.ID, atMostNJoin(deniedResources, 3), errMessage)
 		pilotSDSCertificateErrors.Increment()

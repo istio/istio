@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue: [57600]
+releaseNotes:
+  - |
+    **Removed** istioctl installation dependency between pilot and CNI. CNI installation is no longer dependent on pilot being installed first.
+    If the istio-cni configuration exists pre-installation (which may be the case when using an istio-owned CNI config), pilot installation will
+    not fail waiting for CNI readiness since the CNI installation is no longer a dependent on pilot.

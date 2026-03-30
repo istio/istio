@@ -70,7 +70,7 @@ func SettingsFromCommandLine(testID string) (*Settings, error) {
 	s.IPFamilies = normalizedIPFamilies
 
 	if s.Image.Hub == "" {
-		s.Image.Hub = env.HUB.ValueOrDefault("gcr.io/istio-testing")
+		s.Image.Hub = env.HUB.ValueOrDefault("registry.istio.io/testing")
 	}
 
 	if s.Image.Tag == "" {
@@ -226,6 +226,19 @@ func init() {
 	flag.BoolVar(&settingsFromCommandLine.AmbientMultiNetwork, "istio.test.ambient.multinetwork", settingsFromCommandLine.AmbientMultiNetwork,
 		"Indicate the use of ambient multicluster.")
 
+	flag.BoolVar(&settingsFromCommandLine.IstioOwnedCNIConfig, "istio.test.ambient.istioOwnedCNIConfig", settingsFromCommandLine.IstioOwnedCNIConfig,
+		"Indicate the use of an Istio owned CNI configuration.")
+
+	flag.BoolVar(
+		&settingsFromCommandLine.GatewayConformanceAllowCRDsMismatch,
+		"istio.test.GatewayConformanceAllowCRDsMismatch",
+		settingsFromCommandLine.GatewayConformanceAllowCRDsMismatch,
+		"If set, gateway conformance tests will run even if the environment has pre-installed Gateway API CRDs that differ from the current Gateway API version.",
+	)
+
+	flag.BoolVar(&settingsFromCommandLine.NativeNftables, "istio.test.nativeNftables", settingsFromCommandLine.NativeNftables,
+		"If set, native nftable rules will be used instead of iptable rules for traffic redirection.")
+
 	initGatewayConformanceTimeouts()
 }
 
@@ -261,7 +274,7 @@ func initGatewayConformanceTimeouts() {
 		"istio.test.gatewayConformance.tlsRouteMustHaveConditionTimeout", 0,
 		"Gateway conformance test timeout for waiting for an TLSRoute to have a certain condition.")
 	flag.DurationVar(&settingsFromCommandLine.GatewayConformanceTimeoutConfig.RouteMustHaveParents, "istio.test.gatewayConformance.routeMustHaveParentsTimeout",
-		0, "Gateway conformance test timeout for the the maximum time for an xRoute to have parents in status that match the expected parents.")
+		0, "Maximum time in the Gateway conformance test for an xRoute to have parents in status that match the expected parents before timing out.")
 	flag.DurationVar(&settingsFromCommandLine.GatewayConformanceTimeoutConfig.ManifestFetchTimeout, "istio.test.gatewayConformance.manifestFetchTimeout",
 		0, "Gateway conformance test timeout for the maximum time for getting content from a https:// URL.")
 	flag.DurationVar(&settingsFromCommandLine.GatewayConformanceTimeoutConfig.MaxTimeToConsistency, "istio.test.gatewayConformance.maxTimeToConsistency",

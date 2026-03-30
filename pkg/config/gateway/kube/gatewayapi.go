@@ -28,11 +28,11 @@ func IsInternalGatewayReference(gatewayName string) bool {
 	if len(parts) == 2 {
 		gatewayName = parts[1]
 	}
-	return strings.Contains(gatewayName, fmt.Sprintf("-%s-", constants.KubernetesGatewayName))
+	return strings.Contains(gatewayName, fmt.Sprintf("~%s~", constants.KubernetesGatewayName))
 }
 
 // InternalGatewayName returns the name of the internal Istio Gateway corresponding to the
 // specified gateway-api gateway and listener.
 func InternalGatewayName(gwName, lName string) string {
-	return fmt.Sprintf("%s-%s-%s", gwName, constants.KubernetesGatewayName, lName)
+	return fmt.Sprintf("%s~%s~%s", gwName, constants.KubernetesGatewayName, lName)
 }

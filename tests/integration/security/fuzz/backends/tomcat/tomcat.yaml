@@ -27,7 +27,7 @@ spec:
     spec:
       containers:
         - name: tomcat
-          image: gcr.io/istio-testing/fuzz_tomcat:0.1
+          image: registry.istio.io/testing/fuzz_tomcat:0.1
           ports:
           - containerPort: 8080
 ---

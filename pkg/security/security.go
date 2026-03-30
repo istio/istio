@@ -125,6 +125,9 @@ const (
 
 	// FileRootSystemCACert is a unique resource name signaling that the system CA certificate should be used
 	FileRootSystemCACert = "file-root:system"
+
+	// CACRLFilePath is the well-known path for the plugged-in CA's CRL file
+	CACRLFilePath = "/var/run/secrets/istio/crl/ca-crl.pem"
 )
 
 // TODO: For 1.8, make sure MeshConfig is updated with those settings,
@@ -293,7 +296,7 @@ type SecretManager interface {
 	GenerateSecret(resourceName string) (*SecretItem, error)
 }
 
-// SecretItem is the cached item in in-memory secret store.
+// SecretItem is the cached item in an in-memory secret store.
 type SecretItem struct {
 	CertificateChain []byte
 	PrivateKey       []byte

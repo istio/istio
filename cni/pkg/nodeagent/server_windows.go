@@ -1,3 +1,5 @@
+//go:build windows
+
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,7 +24,9 @@ import (
 	criclient "k8s.io/cri-client/pkg"
 	"k8s.io/klog/v2"
 
+	cniconfig "istio.io/istio/cni/pkg/config"
 	"istio.io/istio/cni/pkg/iptables"
+	"istio.io/istio/cni/pkg/trafficmanager"
 	"istio.io/istio/pkg/kube"
 )
 
@@ -33,7 +37,7 @@ var (
 )
 
 func initMeshDataplane(client kube.Client, args AmbientArgs) (*meshDataplane, error) {
-	podCfg := &iptables.IptablesConfig{
+	podCfg := &cniconfig.AmbientConfig{
 		RedirectDNS:            args.DNSCapture,
 		EnableIPv6:             args.EnableIPv6,
 		HostProbeSNATAddress:   HostProbeSNATIP,
@@ -50,9 +54,13 @@ func initMeshDataplane(client kube.Client, args AmbientArgs) (*meshDataplane, er
 		EndpointsFinder: podNsMap,
 		Cfg:             podCfg,
 	}
+	tm, err := trafficmanager.NewWFPTrafficManager(wfpConfigurator)
+	if err != nil {
+		return nil, fmt.Errorf("error initializing WFP traffic manager: %w", err)
+	}
 	criClient, err := newCRIClient()
 	podNetns := NewPodNetNsHNSFinder(criClient)
-	netServer := newNetServer(ztunnelServer, podNsMap, wfpConfigurator, podNetns)
+	netServer := newNetServer(ztunnelServer, podNsMap, tm, podNetns)
 
 	return &meshDataplane{
 		kubeClient: client.Kube(),

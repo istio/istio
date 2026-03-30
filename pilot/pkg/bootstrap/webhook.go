@@ -19,6 +19,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	sec_model "istio.io/istio/pilot/pkg/security/model"
 	istiolog "istio.io/istio/pkg/log"
@@ -54,7 +55,10 @@ func (s *Server) initSecureWebhookServer(args *PilotArgs) {
 	tlsConfig := &tls.Config{
 		GetCertificate: s.getIstiodCertificate,
 		MinVersion:     tls.VersionTLS12,
-		CipherSuites:   args.ServerOptions.TLSOptions.CipherSuits,
+		CipherSuites:   args.ServerOptions.TLSOptions.CipherSuites,
+	}
+	if args.ServerOptions.TLSOptions.MinVersion != 0 {
+		tlsConfig.MinVersion = args.ServerOptions.TLSOptions.MinVersion
 	}
 	// Compliance for control plane validation and injection webhook server.
 	sec_model.EnforceGoCompliance(tlsConfig)
@@ -63,10 +67,12 @@ func (s *Server) initSecureWebhookServer(args *PilotArgs) {
 	// create the https server for hosting the k8s injectionWebhook handlers.
 	s.httpsMux = http.NewServeMux()
 	s.httpsServer = &http.Server{
-		Addr:      args.ServerOptions.HTTPSAddr,
-		ErrorLog:  log.New(&httpServerErrorLogWriter{}, "", 0),
-		Handler:   s.httpsMux,
-		TLSConfig: tlsConfig,
+		Addr:              args.ServerOptions.HTTPSAddr,
+		ErrorLog:          log.New(&httpServerErrorLogWriter{}, "", 0),
+		Handler:           s.httpsMux,
+		TLSConfig:         tlsConfig,
+		ReadHeaderTimeout: 30 * time.Second,
+		IdleTimeout:       90 * time.Second,
 	}
 
 	// register istiodReadyHandler on the httpsMux so that readiness can also be checked remotely

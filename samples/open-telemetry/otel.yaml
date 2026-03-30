@@ -120,7 +120,7 @@ spec:
                 fieldRef:
                   apiVersion: v1
                   fieldPath: metadata.namespace
-          image: otel/opentelemetry-collector-contrib:0.123.0
+          image: docker.io/otel/opentelemetry-collector-contrib:0.123.0
           imagePullPolicy: IfNotPresent
           name: opentelemetry-collector
           ports:

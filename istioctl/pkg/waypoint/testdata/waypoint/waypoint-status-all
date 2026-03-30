@@ -1,0 +1,4 @@
+NAMESPACE     NAME         STATUS     TYPE           REASON     MESSAGE
+fake1         waypoint     True       Programmed                
+fake2         waypoint     True       Programmed                
+fake3         waypoint     True       Programmed                

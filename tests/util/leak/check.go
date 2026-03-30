@@ -67,6 +67,13 @@ type TestingM interface {
 	Run() int
 }
 
+type checkOptions struct {
+	allowedLeaks int
+	exclusions   []string
+}
+
+type CheckOption func(c *checkOptions)
+
 type TestingTB interface {
 	Cleanup(func())
 	Errorf(format string, args ...any)
@@ -74,7 +81,26 @@ type TestingTB interface {
 
 var gracePeriod = time.Second * 5
 
-func check(filter func(in []*goroutine) []*goroutine) error {
+func WithAllowedLeaks(n int) CheckOption {
+	return func(c *checkOptions) {
+		c.allowedLeaks = n
+	}
+}
+
+func WithExcludedLeaks(substrings []string) CheckOption {
+	return func(c *checkOptions) {
+		c.exclusions = append(c.exclusions, substrings...)
+	}
+}
+
+func check(filter func(in []*goroutine) []*goroutine, options ...CheckOption) error {
+	checkOpts := &checkOptions{
+		allowedLeaks: 0, // Default to no leaks
+		exclusions:   []string{},
+	}
+	for _, opt := range options {
+		opt(checkOpts)
+	}
 	// Loop, waiting for goroutines to shut down.
 	// Wait up to timeout, but finish as quickly as possible.
 	// The timeout here is not super sensitive, since if we hit this we will fail; a happy case will finish quickly
@@ -90,13 +116,34 @@ func check(filter func(in []*goroutine) []*goroutine) error {
 		if filter != nil {
 			leaked = filter(leaked)
 		}
+		if len(checkOpts.exclusions) > 0 {
+			filtered := make([]*goroutine, 0, len(leaked))
+			for _, g := range leaked {
+				ignore := false
+				for _, s := range checkOpts.exclusions {
+					if strings.Contains(g.stack, s) {
+						ignore = true
+						break
+					}
+				}
+				if !ignore {
+					filtered = append(filtered, g)
+				}
+			}
+			leaked = filtered
+		}
 		if len(leaked) == 0 {
+			return nil // No leaks, we are done
+		}
+		if len(leaked) <= checkOpts.allowedLeaks {
+			fmt.Printf("leaked %d goroutines, but allowed %d; passing\n", len(leaked), checkOpts.allowedLeaks)
 			return nil
 		}
 		time.Sleep(delay)
 		delay += time.Millisecond * 10
 	}
 	errString := strings.Builder{}
+	errString.WriteString(fmt.Sprintf("%d leaked goroutines (allowed %d):\n", len(leaked), checkOpts.allowedLeaks))
 	for _, g := range leaked {
 		errString.WriteString(fmt.Sprintf("Leaked goroutine: %v\n", g.stack))
 	}
@@ -110,7 +157,7 @@ func check(filter func(in []*goroutine) []*goroutine) error {
 // Any existing goroutines before the test starts are filtered out. This ensures a single test failing doesn't
 // cause all future tests to fail. However, it is still possible another test influences the result when t.Parallel is used.
 // Where possible, CheckMain is preferred.
-func Check(t TestingTB) {
+func Check(t TestingTB, options ...CheckOption) {
 	existingRaw, err := interestingGoroutines()
 	if err != nil {
 		t.Errorf("failed to fetch pre-test goroutines: %v", err)
@@ -131,7 +178,7 @@ func Check(t TestingTB) {
 		return res
 	}
 	t.Cleanup(func() {
-		if err := check(filter); err != nil {
+		if err := check(filter, options...); err != nil {
 			t.Errorf("goroutine leak: %v", err)
 		}
 	})
@@ -226,6 +273,9 @@ func interestingGoroutines() ([]*goroutine, error) {
 	for _, g := range strings.Split(string(buf), "\n\n") {
 		gr, err := interestingGoroutine(g)
 		if err != nil {
+			if strings.Contains(err.Error(), "error parsing stack") {
+				log.Errorf("error parsing the following stack:\n%q\nTotal stack:\n%q", g, string(buf))
+			}
 			return nil, err
 		} else if gr == nil {
 			continue

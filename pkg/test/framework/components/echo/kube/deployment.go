@@ -261,11 +261,54 @@ func GenerateDeployment(ctx resource.Context, cfg echo.Config, settings *resourc
 		deploy = getTemplate(vmDeploymentTemplateFile)
 	}
 
-	return tmpl.Execute(deploy, params)
+	deploymentYAML, err := tmpl.Execute(deploy, params)
+	if err != nil {
+		return "", err
+	}
+
+	// Check if any ports are configured as endpoint pickers
+	var eppPorts []int
+	for _, port := range cfg.Ports {
+		if port.EndpointPicker {
+			eppPorts = append(eppPorts, port.ServicePort)
+		}
+	}
+
+	// If there are endpoint picker ports, add a DestinationRule to disable mTLS for those ports
+	if len(eppPorts) > 0 {
+		drYAML := generateDestinationRuleForEPP(cfg.Service, cfg.Namespace.Name(), eppPorts)
+		deploymentYAML += "\n---\n" + drYAML
+	}
+
+	return deploymentYAML, nil
 }
 
-func GenerateService(cfg echo.Config) (string, error) {
-	params := serviceParams(cfg)
+func generateDestinationRuleForEPP(service, namespace string, eppPorts []int) string {
+	var portSettings strings.Builder
+	for i, port := range eppPorts {
+		if i > 0 {
+			portSettings.WriteString("\n")
+		}
+		portSettings.WriteString(fmt.Sprintf(`    - port:
+        number: %d
+      tls:
+        mode: DISABLE`, port))
+	}
+
+	return fmt.Sprintf(`apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: %s-epp-notls
+  namespace: %s
+spec:
+  host: %s.%s.svc.cluster.local
+  trafficPolicy:
+    portLevelSettings:
+%s`, service, namespace, service, namespace, portSettings.String())
+}
+
+func GenerateService(cfg echo.Config, isOpenShift bool) (string, error) {
+	params := serviceParams(cfg, isOpenShift)
 	return tmpl.Execute(getTemplate(serviceTemplateFile), params)
 }
 
@@ -295,13 +338,13 @@ var RevVMImages = func() map[string]echo.VMDistro {
 // istiod via the east-west gateway, even though they are installed on the same cluster as istiod.
 func getVMOverrideForIstiodDNS(ctx resource.Context, cfg echo.Config) (istioHost string, istioIP string) {
 	if ctx == nil {
-		return
+		return istioHost, istioIP
 	}
 
 	ist, err := istio.Get(ctx)
 	if err != nil {
 		log.Warnf("VM config failed to get Istio component for %s: %v", cfg.Cluster.Name(), err)
-		return
+		return istioHost, istioIP
 	}
 
 	// Generate the istiod host the same way as istioctl.
@@ -316,7 +359,7 @@ func getVMOverrideForIstiodDNS(ctx resource.Context, cfg echo.Config) (istioHost
 	} else {
 		istioIP = istioIPAddr.String()
 	}
-	return
+	return istioHost, istioIP
 }
 
 func deploymentParams(ctx resource.Context, cfg echo.Config, settings *resource.Settings) (map[string]any, error) {
@@ -356,6 +399,7 @@ func deploymentParams(ctx resource.Context, cfg echo.Config, settings *resource.
 			"ImageFullPath":  settings.CustomGRPCEchoImage, // This overrides image hub/tag if it's not empty.
 			"ContainerPorts": grpcPorts,
 			"FallbackPort":   grpcFallbackPort,
+			"DisableCAFlag":  "true", // the old cpp image doesn't support this new flag, so we elide it in templating
 		})
 	}
 
@@ -395,6 +439,7 @@ func deploymentParams(ctx resource.Context, cfg echo.Config, settings *resource.
 		"OverlayIstioProxy":       canCreateIstioProxy(settings.Revisions.Minimum()) && !settings.Ambient,
 		"Ambient":                 settings.Ambient,
 		"BindFamily":              cfg.BindFamily,
+		"OpenShift":               settings.OpenShift,
 	}
 
 	vmIstioHost, vmIstioIP := "", ""
@@ -422,7 +467,7 @@ func deploymentParams(ctx resource.Context, cfg echo.Config, settings *resource.
 	return params, nil
 }
 
-func serviceParams(cfg echo.Config) map[string]any {
+func serviceParams(cfg echo.Config, isOpenShift bool) map[string]any {
 	if cfg.ServiceWaypointProxy != "" {
 		if cfg.ServiceLabels == nil {
 			cfg.ServiceLabels = make(map[string]string)
@@ -438,6 +483,8 @@ func serviceParams(cfg echo.Config) map[string]any {
 		"IPFamilies":         cfg.IPFamilies,
 		"IPFamilyPolicy":     cfg.IPFamilyPolicy,
 		"ServiceAnnotations": cfg.ServiceAnnotations,
+		"Namespace":          cfg.Namespace.Name(),
+		"OpenShift":          isOpenShift,
 	}
 }
 
@@ -661,15 +708,26 @@ func getContainerPorts(cfg echo.Config) echoCommon.PortList {
 	var readyPort *echoCommon.Port
 	for _, p := range ports {
 		// Add the port to the set of application ports.
+		portName := p.Name
+		// If a named target port is specified, use it as the container port name
+		// Truncate to 15 chars max (Kubernetes limit)
+		if p.TargetPortName != "" {
+			portName = p.TargetPortName
+			if len(portName) > 15 {
+				portName = portName[:15]
+			}
+		}
 		cport := &echoCommon.Port{
-			Name:          p.Name,
-			Protocol:      p.Protocol,
-			Port:          p.WorkloadPort,
-			TLS:           p.TLS,
-			ServerFirst:   p.ServerFirst,
-			InstanceIP:    p.InstanceIP,
-			LocalhostIP:   p.LocalhostIP,
-			ProxyProtocol: p.ProxyProtocol,
+			Name:              portName,
+			Protocol:          p.Protocol,
+			Port:              p.WorkloadPort,
+			TLS:               p.TLS,
+			RequireClientCert: p.MTLS,
+			ServerFirst:       p.ServerFirst,
+			InstanceIP:        p.InstanceIP,
+			LocalhostIP:       p.LocalhostIP,
+			ProxyProtocol:     p.ProxyProtocol,
+			EndpointPicker:    p.EndpointPicker,
 		}
 		containerPorts = append(containerPorts, cport)
 

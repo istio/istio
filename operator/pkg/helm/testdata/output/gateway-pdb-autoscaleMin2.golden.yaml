@@ -1,0 +1,22 @@
+# a workaround for https://github.com/kubernetes/kubernetes/issues/93476
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: istio-ingress
+  namespace: istio-ingress
+  labels:
+    app.kubernetes.io/name: istio-ingress
+    app.kubernetes.io/managed-by: "Helm"
+    app.kubernetes.io/instance: "istio-ingress"
+    app.kubernetes.io/part-of: "istio"
+    app.kubernetes.io/version: "1.0.0"
+    helm.sh/chart: gateway-1.0.0
+    app: istio-ingress
+    istio: ingress
+    "istio.io/dataplane-mode": "none"
+spec:
+  selector:
+    matchLabels:
+      app: istio-ingress
+      istio: ingress
+  minAvailable: 1

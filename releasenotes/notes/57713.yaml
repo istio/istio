@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+issue:
+ - https://github.com/istio/istio/issues/57713
+
+releaseNotes:
+- |
+  **Fixed** ServiceEntry resolution in ztunnel now matches ServiceEntry port names to pod container ports, aligning behavior with sidecars where there isn't an explicit targetPort

@@ -53,6 +53,9 @@ func (serviceEntry *ProtocolAddressesAnalyzer) Analyze(context analysis.Context)
 		if v, ok := mc.DefaultConfig.ProxyMetadata["ISTIO_META_DNS_AUTO_ALLOCATE"]; ok && v == "true" {
 			autoAllocated = true
 		}
+		if v, ok := mc.DefaultConfig.ProxyMetadata["PILOT_ENABLE_IP_AUTOALLOCATE"]; ok && v == "true" {
+			autoAllocated = true
+		}
 		return true
 	})
 
@@ -64,7 +67,7 @@ func (serviceEntry *ProtocolAddressesAnalyzer) Analyze(context analysis.Context)
 
 func (serviceEntry *ProtocolAddressesAnalyzer) analyzeProtocolAddresses(r *resource.Instance, ctx analysis.Context, metaDNSAutoAllocated bool) {
 	se := r.Message.(*v1alpha3.ServiceEntry)
-	if se.Addresses == nil && !metaDNSAutoAllocated {
+	if se.Addresses == nil && !addressAllocated(r) && !metaDNSAutoAllocated {
 		for index, port := range se.Ports {
 			if port.Protocol == "" || strings.EqualFold(port.Protocol, "TCP") {
 				message := msg.NewServiceEntryAddressesRequired(r)
@@ -77,4 +80,13 @@ func (serviceEntry *ProtocolAddressesAnalyzer) analyzeProtocolAddresses(r *resou
 			}
 		}
 	}
+}
+
+func addressAllocated(r *resource.Instance) bool {
+	if r.Status == nil {
+		return false
+	}
+
+	status := r.Status.(*v1alpha3.ServiceEntryStatus)
+	return len(status.Addresses) > 0
 }

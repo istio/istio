@@ -64,6 +64,10 @@ func MergeCopy[M1 ~map[K]V, M2 ~map[K]V, K comparable, V any](base M1, override 
 	return dst
 }
 
+func Copy[M1 ~map[K]V, M2 ~map[K]V, K comparable, V any](dst M1, src M2) {
+	maps.Copy(dst, src)
+}
+
 // Contains checks if all key-value pairs in 'subset' are present in 'superset'.
 // It returns true only if every key in 'subset' exists in 'superset' and their corresponding values are equal.
 func Contains[M1, M2 ~map[K]V, K comparable, V comparable](superset M1, subset M2) bool {
@@ -82,6 +86,18 @@ func EqualFunc[M1 ~map[K]V1, M2 ~map[K]V2, K comparable, V1, V2 any](m1 M1, m2 M
 }
 
 func SeqStable[M ~map[K]V, K cmp.Ordered, V any](m M) iter.Seq2[K, V] {
+	return func(yield func(K, V) bool) {
+		k := Keys(m)
+		slices.Sort(k)
+		for _, key := range k {
+			if !yield(key, m[key]) {
+				return
+			}
+		}
+	}
+}
+
+func SeqStableBy[M ~map[K]V, K cmp.Ordered, V any](m M) iter.Seq2[K, V] {
 	return func(yield func(K, V) bool) {
 		k := Keys(m)
 		slices.Sort(k)

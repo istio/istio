@@ -24,6 +24,8 @@ type OptionsBuilder struct {
 	debugger   *DebugHandler
 }
 
+type BuilderOption func(opt CollectionOption) OptionsBuilder
+
 func NewOptionsBuilder(stop <-chan struct{}, namePrefix string, debugger *DebugHandler) OptionsBuilder {
 	return OptionsBuilder{
 		namePrefix: namePrefix,

@@ -46,11 +46,11 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/schema/gvk"
 	kubelabels "istio.io/istio/pkg/kube/labels"
 	"istio.io/istio/pkg/log"
 	pm "istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/proto/merge"
-	"istio.io/istio/pkg/util/strcase"
 	"istio.io/istio/pkg/wellknown"
 )
 
@@ -75,6 +75,10 @@ const (
 	// IstioMetadataKey is the key under which metadata is added to a route or cluster
 	// regarding the virtual service or destination rule used for each
 	IstioMetadataKey = "istio"
+
+	// IstioPeerMetadataKey is the key under which metadata for controlling peer metadata
+	// discovery is added to clusters and endpoints
+	IstioPeerMetadataKey = "istio.peer_metadata"
 
 	// EnvoyTransportSocketMetadataKey is the key under which metadata is added to an endpoint
 	// which determines the endpoint level transport socket configuration.
@@ -356,17 +360,21 @@ func BuildConfigInfoMetadata(config config.Meta) *core.Metadata {
 func AddConfigInfoMetadata(metadata *core.Metadata, config config.Meta) *core.Metadata {
 	if metadata == nil {
 		metadata = &core.Metadata{
-			FilterMetadata: map[string]*structpb.Struct{},
+			FilterMetadata: make(map[string]*structpb.Struct, 1),
 		}
 	}
+
 	s := "/apis/" + config.GroupVersionKind.Group + "/" + config.GroupVersionKind.Version + "/namespaces/" + config.Namespace + "/" +
-		strcase.CamelCaseToKebabCase(config.GroupVersionKind.Kind) + "/" + config.Name
-	if _, ok := metadata.FilterMetadata[IstioMetadataKey]; !ok {
-		metadata.FilterMetadata[IstioMetadataKey] = &structpb.Struct{
-			Fields: map[string]*structpb.Value{},
+		gvk.KebabKind(config.GroupVersionKind.Kind) + "/" + config.Name
+
+	istioMeta, ok := metadata.FilterMetadata[IstioMetadataKey]
+	if !ok {
+		istioMeta = &structpb.Struct{
+			Fields: make(map[string]*structpb.Value, 1),
 		}
+		metadata.FilterMetadata[IstioMetadataKey] = istioMeta
 	}
-	metadata.FilterMetadata[IstioMetadataKey].Fields["config"] = &structpb.Value{
+	istioMeta.Fields["config"] = &structpb.Value{
 		Kind: &structpb.Value_StringValue{
 			StringValue: s,
 		},
@@ -456,10 +464,6 @@ func MergeAnyWithAny(dst *anypb.Any, src *anypb.Any) (*anypb.Any, error) {
 // AppendLbEndpointMetadata adds metadata values to a lb endpoint using the passed in metadata as base.
 func AppendLbEndpointMetadata(istioMetadata *model.EndpointMetadata, envoyMetadata *core.Metadata,
 ) {
-	if !features.EndpointTelemetryLabel || !features.EnableTelemetryLabel {
-		return
-	}
-
 	if envoyMetadata.FilterMetadata == nil {
 		envoyMetadata.FilterMetadata = map[string]*structpb.Struct{}
 	}
@@ -477,7 +481,7 @@ func AppendLbEndpointMetadata(istioMetadata *model.EndpointMetadata, envoyMetada
 	// server does not have sidecar injected, and request fails to reach server and thus metadata exchange does not happen.
 	// Due to performance concern, telemetry metadata is compressed into a semicolon separated string:
 	// workload-name;namespace;canonical-service-name;canonical-service-revision;cluster-id.
-	if features.EndpointTelemetryLabel {
+	if features.EnableTelemetryLabel && features.EndpointTelemetryLabel {
 		// allow defaulting for non-injected cases
 		canonicalName, canonicalRevision := kubelabels.CanonicalService(istioMetadata.Labels, istioMetadata.WorkloadName)
 
@@ -723,6 +727,24 @@ func BuildTunnelMetadataStruct(address string, port int, waypoint string) *struc
 	}
 	if waypoint != "" {
 		m["waypoint"] = waypoint
+	}
+	st, _ := structpb.NewStruct(m)
+	return st
+}
+
+func AppendDoubleHBONEMetadata(service string, port int, envoyMetadata *core.Metadata) {
+	if envoyMetadata.FilterMetadata == nil {
+		envoyMetadata.FilterMetadata = map[string]*structpb.Struct{}
+	}
+	target := buildDoubleHBONEMetadataStruct(service, port)
+	addIstioEndpointLabel(envoyMetadata, "double_hbone", structpb.NewStructValue(target))
+}
+
+func buildDoubleHBONEMetadataStruct(service string, port int) *structpb.Struct {
+	m := map[string]interface{}{
+		// the actual service domain name and port that we want to connect to, these are used
+		// in the HTTP2 CONNECT request :authority
+		"hbone_target_address": DomainName(service, port),
 	}
 	st, _ := structpb.NewStruct(m)
 	return st

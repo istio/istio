@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 59209
+releaseNotes:
+  - |
+    **Added** experimental support for agentgateway in istio. Agentgatewy
+    configuration can be enabled through the `EnableAgentGateway` feature flag.
+    Istio supports agentgateway configuration via the gateway API resources.

@@ -194,10 +194,9 @@ func (wp *WorkerPool) maybeAddWorker() {
 			target, perControllerWork := wp.q.Pop(wp.currentlyWorking)
 
 			if target == (Resource{}) {
-				// continue or return?
-				// could have been deleted, or could be no items in queue not currently worked on.  need a way to differentiate.
+				// could have been deleted, or could be no items in queue not currently worked on
 				wp.lock.Unlock()
-				continue
+				return
 			}
 			wp.q.Delete(target)
 			wp.currentlyWorking.Insert(convert(target))

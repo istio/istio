@@ -1,7 +1,6 @@
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
-  creationTimestamp: null
   name: isolation
   namespace: gateway-conformance-infra
 spec: null
@@ -132,10 +131,9 @@ status:
     - group: gateway.networking.k8s.io
       kind: GRPCRoute
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  creationTimestamp: null
   name: attaches-to-abc-foo-example-com-with-hostname-intersection
   namespace: gateway-conformance-infra
 spec: null
@@ -159,10 +157,9 @@ status:
       namespace: gateway-conformance-infra
       sectionName: abc-foo-example-com
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  creationTimestamp: null
   name: attaches-to-empty-hostname-with-hostname-intersection
   namespace: gateway-conformance-infra
 spec: null
@@ -186,10 +183,9 @@ status:
       namespace: gateway-conformance-infra
       sectionName: empty-hostname
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  creationTimestamp: null
   name: attaches-to-wildcard-example-com-with-hostname-intersection
   namespace: gateway-conformance-infra
 spec: null
@@ -213,10 +209,9 @@ status:
       namespace: gateway-conformance-infra
       sectionName: wildcard-example-com
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
-  creationTimestamp: null
   name: attaches-to-wildcard-foo-example-com-with-hostname-intersection
   namespace: gateway-conformance-infra
 spec: null

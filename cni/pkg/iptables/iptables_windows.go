@@ -20,6 +20,7 @@ import (
 	"strconv"
 
 	"github.com/Microsoft/hcsshim/hcn"
+	cniconfig "istio.io/istio/cni/pkg/config"
 	istiolog "istio.io/istio/pkg/log"
 )
 
@@ -28,10 +29,10 @@ type EndpointsFinder interface {
 }
 type WFPConfigurator struct {
 	EndpointsFinder EndpointsFinder
-	Cfg             *IptablesConfig
+	Cfg             *cniconfig.AmbientConfig
 }
 
-func (w *WFPConfigurator) CreateInpodRules(logger *istiolog.Scope, podOverrides PodLevelOverrides, netNsGuid string) error {
+func (w *WFPConfigurator) CreateInpodRules(logger *istiolog.Scope, podOverrides cniconfig.PodLevelOverrides, netNsGuid string) error {
 	endpointIDs, err := w.EndpointsFinder.GetEndpointsForNamespaceGUID(netNsGuid)
 	if err != nil {
 		return fmt.Errorf("failed to get endpoints for namespace guid %s: %v", netNsGuid, err)

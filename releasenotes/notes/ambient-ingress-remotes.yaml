@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management 
+releaseNotes:
+  - |
+    **Fixed** an issue where ingress gateways in ambient multi-cluster did not route requests to exposed remote backends. Also, a new feature flag `AMBIENT_ENABLE_MULTI_NETWORK_INGRESS` has been added and it's `true` by default. If the user wants to keep the old behaviour, it can be set to `false`.

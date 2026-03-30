@@ -20,15 +20,16 @@ import (
 	"strings"
 	"time"
 
+	"google.golang.org/protobuf/types/known/wrapperspb"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	gatewayalpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	gatewayalpha3 "sigs.k8s.io/gateway-api/apis/v1alpha3"
-	k8s "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gw "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayx "sigs.k8s.io/gateway-api/apisx/v1alpha1"
 
 	networking "istio.io/api/networking/v1alpha3"
+	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
+	"istio.io/istio/pilot/pkg/config/kube/gatewaycommon"
 	kubesecrets "istio.io/istio/pilot/pkg/credentials/kube"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model/credentials"
@@ -44,74 +45,113 @@ import (
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/util/sets"
 )
 
-type TypedNamedspacedName struct {
+type TypedNamespacedName struct {
 	types.NamespacedName
 	Kind kind.Kind
 }
 
-func (n TypedNamedspacedName) String() string {
+func (n TypedNamespacedName) String() string {
 	return n.Kind.String() + "/" + n.NamespacedName.String()
 }
 
+type TypedNamespacedNamePerHost struct {
+	Target TypedNamespacedName
+	Host   string
+}
+
+func (t TypedNamespacedNamePerHost) String() string {
+	return t.Target.String() + "/" + t.Host
+}
+
 type BackendPolicy struct {
-	Source       TypedNamedspacedName
+	Source       TypedNamespacedName
 	TargetIndex  int
-	Target       TypedNamedspacedName
+	Target       TypedNamespacedName
+	Host         string
+	SectionName  *string
 	TLS          *networking.ClientTLSSettings
 	LoadBalancer *networking.LoadBalancerSettings
+	RetryBudget  *networking.TrafficPolicy_RetryBudget
 	CreationTime time.Time
 }
 
 func (b BackendPolicy) ResourceName() string {
-	return b.Source.String() + "/" + fmt.Sprint(b.TargetIndex)
+	return b.Source.String() + "/" + fmt.Sprint(b.TargetIndex) + "/" + b.Host
 }
+
+var TypedNamespacedNameIndexCollectionFunc = krt.WithIndexCollectionFromString(func(s string) TypedNamespacedName {
+	parts := strings.Split(s, "/")
+	if len(parts) != 3 {
+		panic("invalid TypedNamespacedName: " + s)
+	}
+	return TypedNamespacedName{
+		NamespacedName: types.NamespacedName{
+			Namespace: parts[1],
+			Name:      parts[2],
+		},
+		Kind: kind.FromString(parts[0]),
+	}
+})
+
+var TypedNamespacedNamePerHostIndexCollectionFunc = krt.WithIndexCollectionFromString(func(s string) TypedNamespacedNamePerHost {
+	parts := strings.Split(s, "/")
+	if len(parts) != 4 {
+		panic("invalid TypedNamespacedNamePerHost: " + s)
+	}
+	return TypedNamespacedNamePerHost{
+		Target: TypedNamespacedName{
+			NamespacedName: types.NamespacedName{
+				Namespace: parts[1],
+				Name:      parts[2],
+			},
+			Kind: kind.FromString(parts[0]),
+		},
+		Host: parts[3],
+	}
+})
 
 func (b BackendPolicy) Equals(other BackendPolicy) bool {
 	return b.Source == other.Source &&
+		ptr.Equal(b.SectionName, other.SectionName) &&
 		protoconv.Equals(b.TLS, other.TLS) &&
-		protoconv.Equals(b.LoadBalancer, other.LoadBalancer)
+		protoconv.Equals(b.LoadBalancer, other.LoadBalancer) &&
+		protoconv.Equals(b.RetryBudget, other.RetryBudget)
 }
 
 // DestinationRuleCollection returns a collection of DestinationRule objects. These are built from a few different
 // policy types that are merged together.
 func DestinationRuleCollection(
 	trafficPolicies krt.Collection[*gatewayx.XBackendTrafficPolicy],
-	tlsPolicies krt.Collection[*gatewayalpha3.BackendTLSPolicy],
-	references *ReferenceSet,
+	tlsPolicies krt.Collection[*gw.BackendTLSPolicy],
+	ancestors krt.Index[TypedNamespacedName, AncestorBackend],
+	references *gatewaycommon.ReferenceSet,
 	domainSuffix string,
 	c *Controller,
+	services krt.Collection[*v1.Service],
 	opts krt.OptionsBuilder,
-) krt.Collection[*config.Config] {
-	trafficPolicyStatus, backendTrafficPolicies := BackendTrafficPolicyCollection(trafficPolicies, references, opts)
-	status.RegisterStatus(c.status, trafficPolicyStatus)
+) krt.Collection[config.Config] {
+	trafficPolicyStatus, backendTrafficPolicies := BackendTrafficPolicyCollection(trafficPolicies, references, domainSuffix, opts)
+	status.RegisterStatus(c.status, trafficPolicyStatus, GetStatus, c.tagWatcher.AccessUnprotected())
 
-	tlsPolicyStatus, backendTLSPolicies := BackendTLSPolicyCollection(tlsPolicies, references, opts)
-	status.RegisterStatus(c.status, tlsPolicyStatus)
+	// TODO: BackendTrafficPolicy should also probably use ancestorCollection. However, its still up for debate in the
+	// Gateway API community if having the Gateway as an ancestor ref is required or not; we would prefer it to not be if possible.
+	// Until conformance requires it, for now we skip it.
+	ancestorCollection := ancestors.AsCollection(append(opts.WithName("AncestorBackend"), TypedNamespacedNameIndexCollectionFunc)...)
+	tlsPolicyStatus, backendTLSPolicies := BackendTLSPolicyCollection(tlsPolicies, ancestorCollection, references, domainSuffix, opts)
+	status.RegisterStatus(c.status, tlsPolicyStatus, GetStatus, c.tagWatcher.AccessUnprotected())
 
 	// We need to merge these by hostname into a single DR
-	allPolicies := krt.JoinCollection([]krt.Collection[BackendPolicy]{backendTrafficPolicies, backendTLSPolicies})
-	byTarget := krt.NewIndex(allPolicies, "target", func(o BackendPolicy) []TypedNamedspacedName {
-		return []TypedNamedspacedName{o.Target}
+	allPolicies := krt.JoinCollection([]krt.Collection[BackendPolicy]{backendTrafficPolicies, backendTLSPolicies}, opts.WithName("AllBackendPolicies")...)
+	byTargetAndHost := krt.NewIndex(allPolicies, "targetAndHost", func(o BackendPolicy) []TypedNamespacedNamePerHost {
+		return []TypedNamespacedNamePerHost{{Target: o.Target, Host: o.Host}}
 	})
-	indexOpts := append(opts.WithName("BackendPolicyByTarget"), krt.WithIndexCollectionFromString(func(s string) TypedNamedspacedName {
-		parts := strings.Split(s, "/")
-		if len(parts) != 3 {
-			panic("invalid TypedNamedspacedName: " + s)
-		}
-		return TypedNamedspacedName{
-			NamespacedName: types.NamespacedName{
-				Namespace: parts[1],
-				Name:      parts[2],
-			},
-			Kind: kind.FromString(parts[0]),
-		}
-	}))
+	indexOpts := append(opts.WithName("BackendPolicyByTarget"), TypedNamespacedNamePerHostIndexCollectionFunc)
 	merged := krt.NewCollection(
-		byTarget.AsCollection(indexOpts...),
-		func(ctx krt.HandlerContext, i krt.IndexObject[TypedNamedspacedName, BackendPolicy]) **config.Config {
-			svc := i.Key
+		byTargetAndHost.AsCollection(indexOpts...),
+		func(ctx krt.HandlerContext, i krt.IndexObject[TypedNamespacedNamePerHost, BackendPolicy]) *config.Config {
 			// Sort so we can pick the oldest, which will win.
 			// Not yet standardized but likely will be (https://github.com/kubernetes-sigs/gateway-api/issues/3516#issuecomment-2684039692)
 			pols := slices.SortFunc(i.Objects, func(a, b BackendPolicy) int {
@@ -125,19 +165,36 @@ func DestinationRuleCollection(
 			})
 			tlsSet := false
 			lbSet := false
+			rbSet := false
+
+			targetWithHost := i.Key
+			host := targetWithHost.Host
 			spec := &networking.DestinationRule{
-				Host:          fmt.Sprintf("%s.%s.svc.%v", svc.Name, svc.Namespace, domainSuffix),
+				Host:          host,
 				TrafficPolicy: &networking.TrafficPolicy{},
 			}
+			portLevelSettings := make(map[string]*networking.TrafficPolicy_PortTrafficPolicy)
 			parents := make([]string, 0, len(pols))
 			for _, pol := range pols {
 				if pol.TLS != nil {
-					if tlsSet {
-						// We only allow 1. TODO: report status if there are multiple
-						continue
+					if pol.SectionName != nil {
+						// Port-specific TLS setting
+						portName := *pol.SectionName
+						if _, exists := portLevelSettings[portName]; !exists {
+							portLevelSettings[portName] = &networking.TrafficPolicy_PortTrafficPolicy{
+								Port: &networking.PortSelector{Number: 0}, // Will be resolved later
+								Tls:  pol.TLS,
+							}
+						}
+					} else {
+						// Service-wide TLS setting
+						if tlsSet {
+							// We only allow 1. TODO: report status if there are multiple
+							continue
+						}
+						tlsSet = true
+						spec.TrafficPolicy.Tls = pol.TLS
 					}
-					tlsSet = true
-					spec.TrafficPolicy.Tls = pol.TLS
 				}
 				if pol.LoadBalancer != nil {
 					if lbSet {
@@ -147,112 +204,248 @@ func DestinationRuleCollection(
 					lbSet = true
 					spec.TrafficPolicy.LoadBalancer = pol.LoadBalancer
 				}
-				parents = append(parents, fmt.Sprintf("%s/%s.%s", pol.Source.Kind, pol.Source.Namespace, pol.Source.Name))
+				if pol.RetryBudget != nil {
+					if rbSet {
+						// We only allow 1. TODO: report status if there are multiple
+						continue
+					}
+					rbSet = true
+					spec.TrafficPolicy.RetryBudget = pol.RetryBudget
+				}
+				parentName := pol.Source.Kind.String() + "/" + pol.Source.Namespace + "." + pol.Source.Name
+				if !slices.Contains(parents, parentName) {
+					parents = append(parents, parentName)
+				}
 			}
-			cfg := &config.Config{
+
+			type servicePort struct {
+				Name   string
+				Number uint32
+			}
+			var servicePorts []servicePort
+
+			target := targetWithHost.Target
+			switch target.Kind {
+			case kind.Service:
+				serviceKey := target.Namespace + "/" + target.Name
+				service := ptr.Flatten(krt.FetchOne(ctx, services, krt.FilterKey(serviceKey)))
+				if service != nil {
+					for _, port := range service.Spec.Ports {
+						servicePorts = append(servicePorts, servicePort{
+							Name:   port.Name,
+							Number: uint32(port.Port),
+						})
+					}
+				}
+			case kind.ServiceEntry:
+				serviceEntryObj, err := references.LocalPolicyTargetRef(ctx, gw.LocalPolicyTargetReference{
+					Group: "networking.istio.io",
+					Kind:  "ServiceEntry",
+					Name:  gw.ObjectName(target.Name),
+				}, target.Namespace)
+				if err == nil {
+					if serviceEntryPtr, ok := serviceEntryObj.(*networkingclient.ServiceEntry); ok {
+						for _, port := range serviceEntryPtr.Spec.Ports {
+							servicePorts = append(servicePorts, servicePort{
+								Name:   port.Name,
+								Number: port.Number,
+							})
+						}
+					}
+				}
+			}
+
+			for portName, portPolicy := range portLevelSettings {
+				for _, port := range servicePorts {
+					if port.Name == portName {
+						portPolicy.Port = &networking.PortSelector{Number: port.Number}
+						break
+					}
+				}
+				spec.TrafficPolicy.PortLevelSettings = append(spec.TrafficPolicy.PortLevelSettings, portPolicy)
+			}
+
+			return &config.Config{
 				Meta: config.Meta{
 					GroupVersionKind: gvk.DestinationRule,
-					Name:             fmt.Sprintf("%s-%s", svc.Name, constants.KubernetesGatewayName),
-					Namespace:        svc.Namespace,
+					Name:             generateDRName(target, host),
+					Namespace:        target.Namespace,
 					Annotations: map[string]string{
 						constants.InternalParentNames: strings.Join(parents, ","),
 					},
 				},
 				Spec: spec,
 			}
-			return &cfg
 		}, opts.WithName("BackendPolicyMerged")...)
 	return merged
 }
 
 func BackendTLSPolicyCollection(
-	tlsPolicies krt.Collection[*gatewayalpha3.BackendTLSPolicy],
-	references *ReferenceSet,
+	tlsPolicies krt.Collection[*gw.BackendTLSPolicy],
+	ancestors krt.IndexCollection[TypedNamespacedName, AncestorBackend],
+	references *gatewaycommon.ReferenceSet,
+	domainSuffix string,
 	opts krt.OptionsBuilder,
-) (krt.StatusCollection[*gatewayalpha3.BackendTLSPolicy, gatewayalpha2.PolicyStatus], krt.Collection[BackendPolicy]) {
-	return krt.NewStatusManyCollection(tlsPolicies, func(ctx krt.HandlerContext, i *gatewayalpha3.BackendTLSPolicy) (
-		*gatewayalpha2.PolicyStatus,
+) (krt.StatusCollection[*gw.BackendTLSPolicy, gw.PolicyStatus], krt.Collection[BackendPolicy]) {
+	return krt.NewStatusManyCollection(tlsPolicies, func(ctx krt.HandlerContext, i *gw.BackendTLSPolicy) (
+		*gw.PolicyStatus,
 		[]BackendPolicy,
 	) {
 		status := i.Status.DeepCopy()
 		res := make([]BackendPolicy, 0, len(i.Spec.TargetRefs))
-		ancestors := make([]gatewayalpha2.PolicyAncestorStatus, 0, len(i.Spec.TargetRefs))
 
 		tls := &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_SIMPLE}
 		s := i.Spec
 
 		conds := map[string]*condition{
-			string(gatewayalpha2.PolicyConditionAccepted): {
-				reason:  string(gatewayalpha2.PolicyReasonAccepted),
+			string(gw.PolicyConditionAccepted): {
+				reason:  string(gw.PolicyReasonAccepted),
+				message: "Configuration is valid",
+			},
+			string(gw.BackendTLSPolicyConditionResolvedRefs): {
+				reason:  string(gw.BackendTLSPolicyReasonResolvedRefs),
 				message: "Configuration is valid",
 			},
 		}
 		tls.Sni = string(s.Validation.Hostname)
-		tls.SubjectAltNames = slices.MapFilter(s.Validation.SubjectAltNames, func(e gatewayalpha3.SubjectAltName) *string {
+		tls.SubjectAltNames = slices.MapFilter(s.Validation.SubjectAltNames, func(e gw.SubjectAltName) *string {
 			switch e.Type {
-			case gatewayalpha3.HostnameSubjectAltNameType:
+			case gw.HostnameSubjectAltNameType:
 				return ptr.Of(string(e.Hostname))
-			case gatewayalpha3.URISubjectAltNameType:
+			case gw.URISubjectAltNameType:
 				return ptr.Of(string(e.URI))
 			}
 			return nil
 		})
-		tls.CredentialName = getBackendTLSCredentialName(s.Validation, i.Namespace, conds, references)
+		tls.CredentialName = getBackendTLSCredentialName(ctx, s.Validation, i.Namespace, conds, references)
+
+		// In ancestor status, we need to report for Service (for mesh) and for each relevant Gateway.
+		// However, there is a max of 16 items we can report.
+		// Reporting per-Gateway has no value (perhaps for anyone, but certainly not for Istio), so we favor the Service attachments
+		// getting to take the 16 slots.
+		// The Gateway API spec says that if there are more than 16, the policy should not be applied. This is a terrible, anti-user, decision
+		// that Istio will not follow, even if it means failing conformance tests.
+		ancestorStatus := make([]gw.PolicyAncestorStatus, 0, len(i.Spec.TargetRefs))
+		uniqueGateways := sets.New[types.NamespacedName]()
 		for idx, t := range i.Spec.TargetRefs {
 			conds = maps.Clone(conds)
-			refo, err := references.LocalPolicyTargetRef(t.LocalPolicyTargetReference, i.Namespace)
+			refo, err := references.LocalPolicyTargetRef(ctx, t.LocalPolicyTargetReference, i.Namespace)
+			var sectionName *string
 			if err == nil {
-				switch refo.(type) {
+				switch refType := refo.(type) {
 				case *v1.Service:
+					if t.SectionName != nil && *t.SectionName != "" {
+						sectionName = ptr.Of(string(*t.SectionName))
+						portExists := false
+						for _, port := range refType.Spec.Ports {
+							if port.Name == *sectionName {
+								portExists = true
+								break
+							}
+						}
+						if !portExists {
+							err = fmt.Errorf("sectionName %q does not exist in Service %s/%s", *sectionName, refType.Namespace, refType.Name)
+						}
+					}
+				case *networkingclient.ServiceEntry:
+					if t.SectionName != nil && *t.SectionName != "" {
+						sectionName = ptr.Of(string(*t.SectionName))
+						portExists := false
+						for _, port := range refType.Spec.Ports {
+							if port.Name == *sectionName {
+								portExists = true
+								break
+							}
+						}
+						if !portExists {
+							err = fmt.Errorf("sectionName %q does not exist in ServiceEntry %s/%s", *sectionName, refType.Namespace, refType.Name)
+						}
+					}
 				default:
 					err = fmt.Errorf("unsupported reference kind: %v", t.Kind)
 				}
 			}
 			if err != nil {
-				conds[string(gatewayalpha2.PolicyConditionAccepted)].error = &ConfigError{
-					Reason:  string(gatewayalpha2.PolicyReasonTargetNotFound),
-					Message: fmt.Sprintf("targetRefs invalid: %v", err),
+				conds[string(gw.PolicyConditionAccepted)].error = &ConfigError{
+					Reason:  string(gw.PolicyReasonTargetNotFound),
+					Message: "targetRefs invalid: " + err.Error(),
 				}
 			} else {
-				// Only create an object if we can resolve the target
-				res = append(res, BackendPolicy{
-					Source: TypedNamedspacedName{
-						NamespacedName: config.NamespacedName(i),
-						Kind:           kind.BackendTLSPolicy,
+				targetKind := gvk.MustToKind(schematypes.GvkFromObject(refo.(controllers.Object)))
+				target := TypedNamespacedName{
+					NamespacedName: types.NamespacedName{
+						Name:      string(t.Name),
+						Namespace: i.Namespace,
 					},
-					TargetIndex: idx,
-					Target: TypedNamedspacedName{
-						NamespacedName: types.NamespacedName{
-							Name:      string(t.Name),
-							Namespace: i.Namespace,
+					Kind: targetKind,
+				}
+				var hosts []string
+				if targetKind == kind.Service {
+					hosts = []string{string(t.Name) + "." + i.Namespace + ".svc." + domainSuffix}
+				} else if targetKind == kind.ServiceEntry {
+					if serviceEntryPtr, ok := refo.(*networkingclient.ServiceEntry); ok {
+						hosts = serviceEntryPtr.Spec.Hosts
+					}
+				}
+
+				for _, host := range hosts {
+					res = append(res, BackendPolicy{
+						Source: TypedNamespacedName{
+							NamespacedName: config.NamespacedName(i),
+							Kind:           kind.BackendTLSPolicy,
 						},
-						Kind: gvk.MustToKind(schematypes.GvkFromObject(refo.(controllers.Object))),
-					},
-					TLS:          tls,
-					CreationTime: i.CreationTimestamp.Time,
-				})
+						TargetIndex:  idx,
+						Target:       target,
+						Host:         host,
+						SectionName:  sectionName,
+						TLS:          tls,
+						CreationTime: i.CreationTimestamp.Time,
+					})
+					ancestorBackends := krt.Fetch(ctx, ancestors, krt.FilterKey(target.String()))
+					for _, gwl := range ancestorBackends {
+						for _, i := range gwl.Objects {
+							uniqueGateways.Insert(i.Gateway)
+						}
+					}
+				}
 			}
-			// TODO: section name
-			ancestors = append(ancestors, setAncestorStatus(t.LocalPolicyTargetReference, status, i.Generation, conds))
+			// We add a status for Service (for mesh), and for each Gateway
+			meshPR := gw.ParentReference{
+				Group:       &t.Group,
+				Kind:        &t.Kind,
+				Name:        t.Name,
+				SectionName: t.SectionName,
+			}
+			ancestorStatus = append(ancestorStatus, setAncestorStatus(meshPR, status, i.Generation, conds, constants.ManagedGatewayMeshController))
 		}
-		status.Ancestors = mergeAncestors(status.Ancestors, ancestors)
+		gwl := slices.SortBy(uniqueGateways.UnsortedList(), types.NamespacedName.String)
+		for _, g := range gwl {
+			pr := gw.ParentReference{
+				Group: ptr.Of(gw.Group(gvk.KubernetesGateway.Group)),
+				Kind:  ptr.Of(gw.Kind(gvk.KubernetesGateway.Kind)),
+				Name:  gw.ObjectName(g.Name),
+			}
+			ancestorStatus = append(ancestorStatus, setAncestorStatus(pr, status, i.Generation, conds, gw.GatewayController(features.ManagedGatewayController)))
+		}
+		status.Ancestors = mergeAncestors(status.Ancestors, ancestorStatus)
 		return status, res
 	}, opts.WithName("BackendTLSPolicy")...)
 }
 
 func getBackendTLSCredentialName(
-	validation gatewayalpha3.BackendTLSPolicyValidation,
+	ctx krt.HandlerContext,
+	validation gw.BackendTLSPolicyValidation,
 	policyNamespace string,
 	conds map[string]*condition,
-	references *ReferenceSet,
+	references *gatewaycommon.ReferenceSet,
 ) string {
 	if wk := validation.WellKnownCACertificates; wk != nil {
 		switch *wk {
-		case gatewayalpha3.WellKnownCACertificatesSystem:
+		case gw.WellKnownCACertificatesSystem:
 			// Already our default, no action needed
 		default:
-			conds[string(gatewayalpha2.PolicyConditionAccepted)].error = &ConfigError{
-				Reason:  string(gatewayalpha2.PolicyReasonInvalid),
+			conds[string(gw.PolicyConditionAccepted)].error = &ConfigError{
+				Reason:  string(gw.PolicyReasonInvalid),
 				Message: fmt.Sprintf("Unknown wellKnownCACertificates: %v", *wk),
 			}
 		}
@@ -266,14 +459,18 @@ func getBackendTLSCredentialName(
 	// We only support 1
 	ref := validation.CACertificateRefs[0]
 	if len(validation.CACertificateRefs) > 1 {
-		conds[string(gatewayalpha2.PolicyConditionAccepted)].message += "; warning: only the first caCertificateRefs will be used"
+		conds[string(gw.PolicyConditionAccepted)].message += "; warning: only the first caCertificateRefs will be used"
 	}
-	refo, err := references.LocalPolicyRef(ref, policyNamespace)
+	refo, err := references.LocalPolicyRef(ctx, ref, policyNamespace)
 	if err == nil {
 		switch to := refo.(type) {
 		case *v1.ConfigMap:
 			if _, rerr := kubesecrets.ExtractRootFromString(to.Data); rerr != nil {
 				err = rerr
+				conds[string(gw.BackendTLSPolicyReasonResolvedRefs)].error = &ConfigError{
+					Reason:  string(gw.BackendTLSPolicyReasonInvalidCACertificateRef),
+					Message: "Certificate invalid: " + err.Error(),
+				}
 			} else {
 				return credentials.KubernetesConfigMapTypeURI + policyNamespace + "/" + string(ref.Name)
 			}
@@ -284,12 +481,28 @@ func getBackendTLSCredentialName(
 		// Additionally, we will need to ensure we don't accidentally authorize them to access the private key, just the ca.crt
 		default:
 			err = fmt.Errorf("unsupported reference kind: %v", ref.Kind)
+			conds[string(gw.BackendTLSPolicyReasonResolvedRefs)].error = &ConfigError{
+				Reason:  string(gw.BackendTLSPolicyReasonInvalidKind),
+				Message: "Certificate reference invalid: " + err.Error(),
+			}
+		}
+	} else {
+		if strings.Contains(err.Error(), "unsupported kind") {
+			conds[string(gw.BackendTLSPolicyReasonResolvedRefs)].error = &ConfigError{
+				Reason:  string(gw.BackendTLSPolicyReasonInvalidKind),
+				Message: "Certificate reference not supported: " + err.Error(),
+			}
+		} else {
+			conds[string(gw.BackendTLSPolicyReasonResolvedRefs)].error = &ConfigError{
+				Reason:  string(gw.BackendTLSPolicyReasonInvalidCACertificateRef),
+				Message: "Certificate reference not found: " + err.Error(),
+			}
 		}
 	}
 	if err != nil {
-		conds[string(gatewayalpha2.PolicyConditionAccepted)].error = &ConfigError{
-			Reason:  string(gatewayalpha2.PolicyReasonInvalid),
-			Message: fmt.Sprintf("Certificate reference invalid: %v", err),
+		conds[string(gw.PolicyConditionAccepted)].error = &ConfigError{
+			Reason:  string(gw.BackendTLSPolicyReasonNoValidCACertificate),
+			Message: "Certificate reference invalid: " + err.Error(),
 		}
 		// Generate an invalid reference. This ensures traffic is blocked.
 		// See https://github.com/kubernetes-sigs/gateway-api/issues/3516 for upstream clarification on desired behavior here.
@@ -300,7 +513,8 @@ func getBackendTLSCredentialName(
 
 func BackendTrafficPolicyCollection(
 	trafficPolicies krt.Collection[*gatewayx.XBackendTrafficPolicy],
-	references *ReferenceSet,
+	references *gatewaycommon.ReferenceSet,
+	domainSuffix string,
 	opts krt.OptionsBuilder,
 ) (krt.StatusCollection[*gatewayx.XBackendTrafficPolicy, gatewayx.PolicyStatus], krt.Collection[BackendPolicy]) {
 	return krt.NewStatusManyCollection(trafficPolicies, func(ctx krt.HandlerContext, i *gatewayx.XBackendTrafficPolicy) (
@@ -309,13 +523,14 @@ func BackendTrafficPolicyCollection(
 	) {
 		status := i.Status.DeepCopy()
 		res := make([]BackendPolicy, 0, len(i.Spec.TargetRefs))
-		ancestors := make([]gatewayalpha2.PolicyAncestorStatus, 0, len(i.Spec.TargetRefs))
+		ancestors := make([]gw.PolicyAncestorStatus, 0, len(i.Spec.TargetRefs))
 
 		lb := &networking.LoadBalancerSettings{}
+		var retryBudget *networking.TrafficPolicy_RetryBudget
 
 		conds := map[string]*condition{
-			string(gatewayalpha2.PolicyConditionAccepted): {
-				reason:  string(gatewayalpha2.PolicyReasonAccepted),
+			string(gw.PolicyConditionAccepted): {
+				reason:  string(gw.PolicyReasonAccepted),
 				message: "Configuration is valid",
 			},
 		}
@@ -325,18 +540,25 @@ func BackendTrafficPolicyCollection(
 		if i.Spec.SessionPersistence != nil {
 			unsupported = append(unsupported, "sessionPersistence")
 		}
-		// TODO(https://github.com/istio/istio/issues/55838): implement i.Spec.RetryConstraint. This doesn't have upstream Envoy support
 		if i.Spec.RetryConstraint != nil {
-			unsupported = append(unsupported, "retryConstraint")
+			// TODO: add support for interval.
+			retryBudget = &networking.TrafficPolicy_RetryBudget{}
+			if i.Spec.RetryConstraint.Budget.Percent != nil {
+				retryBudget.Percent = &wrapperspb.DoubleValue{Value: float64(*i.Spec.RetryConstraint.Budget.Percent)}
+			}
+			retryBudget.MinRetryConcurrency = 10 // Gateway API default
+			if i.Spec.RetryConstraint.MinRetryRate != nil {
+				retryBudget.MinRetryConcurrency = uint32(*i.Spec.RetryConstraint.MinRetryRate.Count)
+			}
 		}
 		if len(unsupported) > 0 {
 			msg := fmt.Sprintf("Configuration is valid, but Istio does not support the following fields: %v", humanReadableJoin(unsupported))
-			conds[string(gatewayalpha2.PolicyConditionAccepted)].message = msg
+			conds[string(gw.PolicyConditionAccepted)].message = msg
 		}
 
 		for idx, t := range i.Spec.TargetRefs {
 			conds = maps.Clone(conds)
-			refo, err := references.LocalPolicyTargetRef(t, i.Namespace)
+			refo, err := references.XLocalPolicyTargetRef(ctx, t, i.Namespace)
 			if err == nil {
 				switch refo.(type) {
 				case *v1.Service:
@@ -345,31 +567,39 @@ func BackendTrafficPolicyCollection(
 				}
 			}
 			if err != nil {
-				conds[string(gatewayalpha2.PolicyConditionAccepted)].error = &ConfigError{
-					Reason:  string(gatewayalpha2.PolicyReasonTargetNotFound),
-					Message: fmt.Sprintf("targetRefs invalid: %v", err),
+				conds[string(gw.PolicyConditionAccepted)].error = &ConfigError{
+					Reason:  string(gw.PolicyReasonTargetNotFound),
+					Message: "targetRefs invalid: " + err.Error(),
 				}
 			} else {
 				// Only create an object if we can resolve the target
 				res = append(res, BackendPolicy{
-					Source: TypedNamedspacedName{
+					Source: TypedNamespacedName{
 						NamespacedName: config.NamespacedName(i),
 						Kind:           kind.XBackendTrafficPolicy,
 					},
 					TargetIndex: idx,
-					Target: TypedNamedspacedName{
+					Target: TypedNamespacedName{
 						NamespacedName: types.NamespacedName{
 							Name:      string(t.Name),
 							Namespace: i.Namespace,
 						},
 						Kind: kind.Service,
 					},
+					Host:         string(t.Name) + "." + i.Namespace + ".svc." + domainSuffix,
 					TLS:          nil,
 					LoadBalancer: lb,
+					RetryBudget:  retryBudget,
 					CreationTime: i.CreationTimestamp.Time,
 				})
 			}
-			ancestors = append(ancestors, setAncestorStatus(t, status, i.Generation, conds))
+
+			pr := gw.ParentReference{
+				Group: &t.Group,
+				Kind:  &t.Kind,
+				Name:  t.Name,
+			}
+			ancestors = append(ancestors, setAncestorStatus(pr, status, i.Generation, conds, constants.ManagedGatewayMeshController))
 		}
 		status.Ancestors = mergeAncestors(status.Ancestors, ancestors)
 		return status, res
@@ -377,31 +607,27 @@ func BackendTrafficPolicyCollection(
 }
 
 func setAncestorStatus(
-	t gatewayalpha2.LocalPolicyTargetReference,
-	status *gatewayalpha2.PolicyStatus,
+	pr gw.ParentReference,
+	status *gw.PolicyStatus,
 	generation int64,
 	conds map[string]*condition,
-) gatewayalpha2.PolicyAncestorStatus {
-	pr := gatewayalpha2.ParentReference{
-		Group: &t.Group,
-		Kind:  &t.Kind,
-		Name:  t.Name,
-	}
-	currentAncestor := slices.FindFunc(status.Ancestors, func(ex gatewayalpha2.PolicyAncestorStatus) bool {
+	controller gw.GatewayController,
+) gw.PolicyAncestorStatus {
+	currentAncestor := slices.FindFunc(status.Ancestors, func(ex gw.PolicyAncestorStatus) bool {
 		return parentRefEqual(ex.AncestorRef, pr)
 	})
 	var currentConds []metav1.Condition
 	if currentAncestor != nil {
 		currentConds = currentAncestor.Conditions
 	}
-	return gatewayalpha2.PolicyAncestorStatus{
+	return gw.PolicyAncestorStatus{
 		AncestorRef:    pr,
-		ControllerName: k8s.GatewayController(features.ManagedGatewayController),
+		ControllerName: controller,
 		Conditions:     setConditions(generation, currentConds, conds),
 	}
 }
 
-func parentRefEqual(a, b gatewayalpha2.ParentReference) bool {
+func parentRefEqual(a, b gw.ParentReference) bool {
 	return ptr.Equal(a.Group, b.Group) &&
 		ptr.Equal(a.Kind, b.Kind) &&
 		a.Name == b.Name &&
@@ -410,19 +636,20 @@ func parentRefEqual(a, b gatewayalpha2.ParentReference) bool {
 		ptr.Equal(a.Port, b.Port)
 }
 
+var outControllers = sets.New(gw.GatewayController(features.ManagedGatewayController), constants.ManagedGatewayMeshController)
+
 // mergeAncestors merges an existing ancestor with in incoming one. We preserve order, prune stale references set by our controller,
 // and add any new references from our controller.
-func mergeAncestors(existing []gatewayalpha2.PolicyAncestorStatus, incoming []gatewayalpha2.PolicyAncestorStatus) []gatewayalpha2.PolicyAncestorStatus {
-	ourController := k8s.GatewayController(features.ManagedGatewayController)
+func mergeAncestors(existing []gw.PolicyAncestorStatus, incoming []gw.PolicyAncestorStatus) []gw.PolicyAncestorStatus {
 	n := 0
 	for _, x := range existing {
-		if x.ControllerName != ourController {
+		if !outControllers.Contains(x.ControllerName) {
 			// Keep it as-is
 			existing[n] = x
 			n++
 			continue
 		}
-		replacement := slices.IndexFunc(incoming, func(status gatewayalpha2.PolicyAncestorStatus) bool {
+		replacement := slices.IndexFunc(incoming, func(status gw.PolicyAncestorStatus) bool {
 			return parentRefEqual(status.AncestorRef, x.AncestorRef)
 		})
 		if replacement != -1 {
@@ -436,5 +663,13 @@ func mergeAncestors(existing []gatewayalpha2.PolicyAncestorStatus, incoming []ga
 	existing = existing[:n]
 	// Add all remaining ones.
 	existing = append(existing, incoming...)
-	return existing
+	// There is a max of 16
+	return existing[:min(len(existing), 16)]
+}
+
+func generateDRName(target TypedNamespacedName, host string) string {
+	if target.Kind == kind.ServiceEntry {
+		return target.Name + "~" + strings.ReplaceAll(host, ".", "-") + "~" + constants.KubernetesGatewayName
+	}
+	return target.Name + "~" + constants.KubernetesGatewayName
 }

@@ -211,7 +211,7 @@ func TestParsePemEncodedCertificateChain(t *testing.T) {
 		},
 		"Invalid certificate string": {
 			pem:    keyRSA,
-			errMsg: "failed to parse X.509 certificate",
+			errMsg: "failed to parse X.509 certificate : x509: malformed tbs certificate",
 		},
 	}
 

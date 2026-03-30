@@ -1,0 +1,45 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  labels:
+    app: istiod
+    app.kubernetes.io/instance: istio
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: istiod
+    app.kubernetes.io/part-of: istio
+    app.kubernetes.io/version: 1.0.0
+    helm.sh/chart: istiod-1.0.0
+    install.operator.istio.io/owning-resource: unknown
+    istio: pilot
+    istio.io/rev: default
+    operator.istio.io/component: Pilot
+    release: istio
+  name: istiod
+  namespace: istio-system
+spec:
+  egress:
+  - {}
+  ingress:
+  - from: []
+    ports:
+    - port: 15017
+      protocol: TCP
+  - from: []
+    ports:
+    - port: 15010
+      protocol: TCP
+    - port: 15011
+      protocol: TCP
+    - port: 15012
+      protocol: TCP
+    - port: 8080
+      protocol: TCP
+    - port: 15014
+      protocol: TCP
+  podSelector:
+    matchLabels:
+      app: istiod
+      istio.io/rev: default
+  policyTypes:
+  - Ingress
+  - Egress

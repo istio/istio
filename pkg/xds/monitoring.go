@@ -74,12 +74,23 @@ var (
 		"Pilot XDS response write timeouts.",
 	)
 
+	// Maximum side XDS request received so far.
+	// This is useful for monitoring that we have not exceeded the hard gRPC recv limit (defaults 4mb).
+	maxXdsRecv = monitoring.NewGauge(
+		"pilot_xds_recv_max",
+		"The maximum size request we have received so far.",
+	)
+
 	sendTime = monitoring.NewDistribution(
 		"pilot_xds_send_time",
 		"Total time in seconds Pilot takes to send generated configuration.",
 		[]float64{.01, .1, 1, 3, 5, 10, 20, 30},
 	)
 )
+
+func RecordRecvSize(s int64) {
+	maxXdsRecv.RecordInt(s)
+}
 
 func IncrementXDSRejects(xdsType string, node, errCode string) {
 	totalXDSRejects.With(typeTag.Value(model.GetMetricType(xdsType))).Increment()

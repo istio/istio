@@ -229,7 +229,7 @@ func makePodLabelMap(pods []*corev1.Pod) (podmap map[string]string) {
 		}
 		podmap[pod.Name] = strings.Trim(podmap[pod.Name], " ,")
 	}
-	return
+	return podmap
 }
 
 func TestLabelPods(t *testing.T) {

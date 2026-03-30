@@ -12,7 +12,7 @@ architecture and a code overview, see [ARCHITECTURE.md](../architecture/environm
 
 ## Introduction
 
-The operator formerly acted as an in-cluster operator, dynamically reconciling and Istio installation.
+The operator formerly acted as an in-cluster operator, dynamically reconciling an Istio installation.
 This mode has now been removed, and it only serves as a client-side CLI tool to install Istio.
 
 The operator uses the [IstioOperator API](https://github.com/istio/api/blob/00671adacbea20f941cb20cce021bc63cbad1840/operator/v1alpha1/operator.proto), which has
@@ -85,19 +85,6 @@ istioctl manifest generate
 
 You can see these sources for the compiled-in profiles and charts in the repo under `manifests/`. These profiles and charts are also included in the Istio release tar.
 
-#### Output to dirs
-
-The output of the manifest is concatenated into a single file. To generate a directory hierarchy with subdirectory
-levels representing a child dependency, use the following command:
-
-```bash
-istioctl manifest generate -o istio_manifests
-```
-
-Use depth first search to traverse the created directory hierarchy when applying your YAML files. This is needed for
-correct sequencing of dependencies. Child manifest directories must wait for their parent directory to be fully applied,
-but not their sibling manifest directories.
-
 #### Just apply it for me
 
 The following command generates the manifests and applies them in the correct dependency order, waiting for the
@@ -124,7 +111,7 @@ istioctl profile dump -f samples/pilot-k8s.yaml
 # show the differences in the generated manifests between the default profile and a customized install
 istioctl manifest generate > 1.yaml
 istioctl manifest generate -f samples/pilot-k8s.yaml > 2.yaml
-istioctl manifest diff 1.yam1 2.yaml
+istioctl manifest diff 1.yaml 2.yaml
 ```
 
 The profile dump sub-command supports a couple of useful flags:

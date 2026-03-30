@@ -43,6 +43,12 @@ const (
 	ecRootKeyFile    = "../testdata/ec-root-key.pem"
 	ecClientCertFile = "../testdata/ec-workload-cert.pem"
 	ecClientKeyFile  = "../testdata/ec-workload-key.pem"
+	crlRootCertFile  = "../testdata/crl/root-cert.pem"
+	crlCertFile      = "../testdata/crl/ca-cert.pem"
+	crlKeyFile       = "../testdata/crl/ca-key.pem"
+	crlCertChainFile = "../testdata/crl/cert-chain.pem"
+	crlFile          = "../testdata/crl/ca-crl.pem"
+	badCrlFile       = "../testdata/crl/bad-ca-crl.pem"
 )
 
 func TestKeyCertBundleWithRootCertFromFile(t *testing.T) {
@@ -185,7 +191,7 @@ func TestCertOptionsAndRetrieveID(t *testing.T) {
 		},
 	}
 	for id, tc := range testCases {
-		k, err := NewVerifiedKeyCertBundleFromFile(tc.caCertFile, tc.caKeyFile, tc.certChainFile, tc.rootCertFile)
+		k, err := NewVerifiedKeyCertBundleFromFile(tc.caCertFile, tc.caKeyFile, tc.certChainFile, tc.rootCertFile, "")
 		if err != nil {
 			t.Fatalf("%s: Unexpected error: %v", id, err)
 		}
@@ -328,7 +334,7 @@ func TestNewVerifiedKeyCertBundleFromFile(t *testing.T) {
 	}
 	for id, tc := range testCases {
 		_, err := NewVerifiedKeyCertBundleFromFile(
-			tc.caCertFile, tc.caKeyFile, tc.certChainFile, tc.rootCertFile)
+			tc.caCertFile, tc.caKeyFile, tc.certChainFile, tc.rootCertFile, "")
 		if err != nil {
 			if tc.expectedErr == "" {
 				t.Errorf("%s: Unexpected error: %v", id, err)
@@ -338,6 +344,50 @@ func TestNewVerifiedKeyCertBundleFromFile(t *testing.T) {
 		} else if tc.expectedErr != "" {
 			t.Errorf("%s: Expected error %s but succeeded", id, tc.expectedErr)
 		}
+	}
+}
+
+// The test of NewVerifiedKeyCertBundleFromPem, VerifyAndSetAll can be covered by this test.
+func TestNewVerifiedKeyCertBundleFromFileWithCrl(t *testing.T) {
+	testCases := map[string]struct {
+		caCertFile    string
+		caKeyFile     string
+		certChainFile []string
+		rootCertFile  string
+		crlFile       string
+		expectedErr   string
+	}{
+		"valid crl": {
+			caCertFile:    crlCertFile,
+			caKeyFile:     crlKeyFile,
+			certChainFile: []string{crlCertChainFile},
+			rootCertFile:  crlRootCertFile,
+			crlFile:       crlFile,
+			expectedErr:   "",
+		},
+		"invalid crl": {
+			caCertFile:    crlCertFile,
+			caKeyFile:     crlKeyFile,
+			certChainFile: []string{crlCertChainFile},
+			rootCertFile:  crlRootCertFile,
+			crlFile:       badCrlFile,
+			expectedErr:   "missing CRL signed by certificates",
+		},
+	}
+	for id, tc := range testCases {
+		t.Run(id, func(t *testing.T) {
+			_, err := NewVerifiedKeyCertBundleFromFile(
+				tc.caCertFile, tc.caKeyFile, tc.certChainFile, tc.rootCertFile, tc.crlFile)
+			if err != nil {
+				if tc.expectedErr == "" {
+					t.Errorf("%s: Unexpected error: %v", id, err)
+				} else if !strings.HasPrefix(err.Error(), tc.expectedErr) {
+					t.Errorf("%s: Unexpected error: %v VS (expected) %s", id, err, tc.expectedErr)
+				}
+			} else if tc.expectedErr != "" {
+				t.Errorf("%s: Expected error %s but succeeded", id, tc.expectedErr)
+			}
+		})
 	}
 }
 
@@ -386,7 +436,7 @@ func TestExtractRootCertExpiryTimestamp(t *testing.T) {
 				t.Errorf("failed to gen cert for Citadel self signed cert %v", err)
 			}
 			// Don't use NewVerifiedKeyCertBundleFromPem because we want to test expired key bundles too
-			kb := NewKeyCertBundleFromPem(cert, key, nil, cert)
+			kb := NewKeyCertBundleFromPem(cert, key, nil, cert, nil)
 			// will return error if expired
 			expiryTimestamp, err := kb.ExtractRootCertExpiryTimestamp()
 			expectedExpiryTimestamp := tc.notBefore.Add(tc.ttl)
@@ -405,7 +455,7 @@ func TestExtractRootCertExpiryTimestamp(t *testing.T) {
 	t.Run("Failure - Malformed Cert", func(t *testing.T) {
 		errorMessage := "failed to parse the root cert: invalid PEM encoded certificate"
 		garbage := []byte{0, 0, 0, 0}
-		kb := NewKeyCertBundleFromPem(garbage, garbage, nil, garbage)
+		kb := NewKeyCertBundleFromPem(garbage, garbage, nil, garbage, nil)
 		// will return error if expired
 		_, err := kb.ExtractRootCertExpiryTimestamp()
 		if err == nil {
@@ -486,7 +536,7 @@ func TestExtractCACertExpiryTimestamp(t *testing.T) {
 			}
 
 			kb := NewKeyCertBundleFromPem(
-				caCertBytes, caCertKeyBytes, caCertBytes, rootCertBytes,
+				caCertBytes, caCertKeyBytes, caCertBytes, rootCertBytes, nil,
 			)
 
 			expiryTimestamp, _ := kb.ExtractCACertExpiryTimestamp()
@@ -506,7 +556,7 @@ func TestExtractCACertExpiryTimestamp(t *testing.T) {
 	t.Run("Failure - Malformed Cert", func(t *testing.T) {
 		errorMessage := "failed to parse the CA cert: invalid PEM encoded certificate"
 		garbage := []byte{0, 0, 0, 0}
-		kb := NewKeyCertBundleFromPem(garbage, garbage, nil, garbage)
+		kb := NewKeyCertBundleFromPem(garbage, garbage, nil, garbage, nil)
 		// will return error if expired
 		_, err := kb.ExtractCACertExpiryTimestamp()
 		if err == nil {

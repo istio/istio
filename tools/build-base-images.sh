@@ -74,11 +74,22 @@ unexpectedFiles="$(
     # Allow all libraries - maybe we should lock down more though
     grep -v '^usr/bin/xtables' | \
     grep -v '^usr/bin/ldconfig$' | \
+    grep -v '^usr/bin/nft' | \
+    grep -v '^usr/share/doc/nftables/examples/.*.nft' | \
     grep -v '^etc/apk/commit_hooks.d/ldconfig-commit.sh$' | \
-    grep -v '.*\.so[0-9\.]*' || true
+    grep -v '.*\.so[0-9\.]*' | \
+    # TODO: Remove the following test files when getting a nftables-slim=1.1.1 package from packages.wolfi.dev/os
+    grep -v '^usr/bin/clear' | \
+    grep -v '^usr/bin/infocmp' | \
+    grep -v '^usr/bin/tabs' | \
+    grep -v '^usr/bin/tic' | \
+    grep -v '^usr/bin/toe' | \
+    grep -v '^usr/bin/tput' | \
+    grep -v '^usr/bin/tset' || true
 )"
 expectedFiles=(
   "usr/bin/xtables-legacy-multi"
+  "usr/bin/nft"
 )
 for want in "${expectedFiles[@]}"; do
   if ! grep -q "${want}" <<<"${exefiles}"; then
@@ -90,7 +101,7 @@ if [[ "${unexpectedFiles}" != "" ]]; then
   echo "Found unexpected binaries: ${unexpectedFiles}"
   exit 1
 fi
-
+popd > /dev/null
 # Now actually build it
 # shellcheck disable=SC2086
 apko publish --arch="${APKO_ARCHES}" docker/iptables.yaml ${APKO_IMAGES}

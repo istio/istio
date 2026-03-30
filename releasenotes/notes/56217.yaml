@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue: []
+releaseNotes:
+  - |
+    **Fixed** injection failure that occurred when `gateway` template was combined with another template, like `spire`,
+    which overrides `workload-socket`, and as a result Kubernetes could not create a volume,
+    which has `emptyDir` and `csi` settings.
