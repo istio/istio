@@ -1,0 +1,22 @@
+apiVersion: release-notes/v2
+kind: security-fix
+area: security
+
+issue:
+  - https://github.com/istio/istio-private/issues/TBD
+
+releaseNotes:
+  - |
+    **Fixed** a critical security vulnerability where Istio's JWKS fallback mechanism leaked an RSA private key, allowing attackers to forge JWT tokens and bypass authentication when JWKS fetch fails.
+
+securityNotes:
+  - |
+    __[ISTIO-SECURITY-TBD](TBD)__: Fixed JWKS private key leakage vulnerability
+
+    When RequestAuthentication JWKS fetch failed (network issues, invalid URLs, rate limits), Istio fell back to a hardcoded `FakeJwks` constant that contained a complete RSA keypair including the private key (d, p, q, dp, dq, qi fields). Attackers could extract this private key from Istio source code or Envoy configuration dumps and forge arbitrary JWT tokens that would be accepted as valid during the failure window.
+
+    The fix replaces the vulnerable `FakeJwks` with a public-only JWKS where the private key was generated once and immediately discarded. Since nobody has the corresponding private key, it is cryptographically impossible to forge JWTs that would validate against this public key, ensuring fail-closed behavior.
+
+    CVSS Score: 8.7 [AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:N](https://nvd.nist.gov/vuln-metrics/cvss/v3-calculator?vector=AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:N&version=3.1)
+
+    **Credit**: This vulnerability was discovered and reported by 1seal (https://github.com/1seal).

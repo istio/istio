@@ -6,3 +6,8 @@ pilot:
   env:
     # 1.29 behavioral changes
     DISABLE_TRACK_REMAINING_CB_METRICS: "false"
+
+cni:
+  ambient:
+    # 1.29 behavioral changes - reconcileIptablesOnStartup was false by default in 1.28
+    reconcileIptablesOnStartup: false

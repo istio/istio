@@ -165,7 +165,7 @@ func (b *EndpointBuilder) populateSubsetInfo() {
 		b.subsetName = strings.TrimPrefix(b.subsetName, "http/")
 		b.subsetName = strings.TrimPrefix(b.subsetName, "tcp/")
 	}
-	b.mtlsChecker = newMtlsChecker(b.push, b.port, b.destinationRule.GetRule(), b.subsetName)
+	b.mtlsChecker = newMtlsChecker(b.push, b.proxy.SidecarScope.AuthnPolicies, b.port, b.destinationRule.GetRule(), b.subsetName)
 	b.subsetLabels = getSubSetLabels(b.DestinationRule(), b.subsetName)
 }
 
@@ -252,8 +252,8 @@ func (b *EndpointBuilder) WriteHash(h hash.Hash) {
 		h.Write(Separator)
 	}
 
-	if b.push != nil && b.push.AuthnPolicies != nil {
-		h.WriteString(b.push.AuthnPolicies.GetVersion())
+	if b.push != nil && b.proxy.SidecarScope.AuthnPolicies != nil {
+		h.WriteString(b.proxy.SidecarScope.AuthnPolicies.GetVersion())
 	}
 	h.Write(Separator)
 
@@ -349,6 +349,14 @@ func (b *EndpointBuilder) FromServiceEndpoints() []*endpoint.LocalityLbEndpoints
 	return ExtractEnvoyEndpoints(b.generate(svcEps, false))
 }
 
+// IstioEndpoints returns IstioEndpoints from the PushContext's snapshotted ServiceIndex.
+func (b *EndpointBuilder) IstioEndpoints() []*model.IstioEndpoint {
+	if b == nil {
+		return nil
+	}
+	return b.push.ServiceEndpointsByPort(b.service, b.port, b.subsetLabels)
+}
+
 // BuildClusterLoadAssignment converts the shards for this EndpointBuilder's Service
 // into a ClusterLoadAssignment. Used for EDS.
 func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.EndpointIndex) *endpoint.ClusterLoadAssignment {
@@ -370,9 +378,14 @@ func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.Endpoi
 
 	svcEps := b.snapshotShards(endpointIndex)
 	svcEps = slices.FilterInPlace(svcEps, func(ep *model.IstioEndpoint) bool {
-		// filter out endpoints that don't match the service port
-		if svcPort.Name != ep.ServicePortName {
-			return false
+		// For InferencePool services, include endpoints from all service ports
+		// They use multiple service ports (54321+i) mapped to different targetPorts
+		// but we want all endpoints in a single cluster so the EPP can load-balance across them
+		if !b.service.UseInferenceSemantics() {
+			// filter out endpoints that don't match the service port
+			if svcPort.Name != ep.ServicePortName {
+				return false
+			}
 		}
 		// filter out endpoint that has invalid ip address, mostly domain name. Because this is generated from ServiceEntry.
 		// There are other two cases that should not be filtered out:
@@ -933,22 +946,7 @@ func (b *EndpointBuilder) snapshotEndpointsForPort(endpointIndex *model.Endpoint
 
 // Duplicated from networking/core/waypoint to avoid circular dependency
 func isEastWestGateway(node *model.Proxy) bool {
-	if node == nil || node.Type != model.Waypoint {
-		return false
-	}
-	controller, isManagedGateway := node.Labels[label.GatewayManaged.Name]
-
-	return isManagedGateway && controller == constants.ManagedGatewayEastWestControllerLabel
-}
-
-// Duplicated from networkin/core/waypoint to avoid circular dependency
-func isWaypointProxy(node *model.Proxy) bool {
-	if node == nil || node.Type != model.Waypoint {
-		return false
-	}
-	controller, isManagedGateway := node.Labels[label.GatewayManaged.Name]
-
-	return isManagedGateway && controller == constants.ManagedGatewayMeshControllerLabel
+	return node.IsAmbientEastWestGateway()
 }
 
 func isSidecarProxy(node *model.Proxy) bool {

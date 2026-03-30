@@ -199,13 +199,14 @@ func (cfg *NftablesConfigurator) AppendInpodRules(podOverrides config.PodLevelOv
 		}
 	}
 
+	// CLI: nft add rule inet istio-ambient-mangle istio-prerouting meta mark & 0xfff == 0x539 counter ct mark set ct mark & 0xfffff000 | 0x111
+	// DESC: If we have a packet mark, set a connmark.
+	cfg.ruleBuilder.AppendRule(IstioPreroutingChain, AmbientMangleTable,
+		"meta mark & 0xfff ==",
+		fmt.Sprintf("0x%x", config.InpodMark), Counter, "ct mark set ct mark & 0xfffff000 | ",
+		fmt.Sprintf("0x%x", config.InpodTProxyMark))
+
 	if !podOverrides.IngressMode {
-		// CLI: nft add rule inet istio-ambient-mangle istio-prerouting meta mark & 0xfff == 0x539 counter ct mark set ct mark & 0xfffff000 | 0x111
-		// DESC: If we have a packet mark, set a connmark.
-		cfg.ruleBuilder.AppendRule(IstioPreroutingChain, AmbientMangleTable,
-			"meta mark & 0xfff ==",
-			fmt.Sprintf("0x%x", config.InpodMark), Counter, "ct mark set ct mark & 0xfffff000 | ",
-			fmt.Sprintf("0x%x", config.InpodTProxyMark))
 
 		// Handle healthcheck probes from the host node. In the host netns, before the packet enters the pod, we SNAT
 		// the healthcheck packet to a fixed IP if the packet is coming from a node-local process with a socket.
@@ -443,7 +444,7 @@ func (cfg *NftablesConfigurator) CreateHostRulesForHealthChecks() error {
 	//
 	// Challenge: In nftables, there is no direct equivalent to "--socket-exists", so we explored multiple alternatives
 	// - Option-1 (UID-based matching): Since kubelet runs as a specific process with a known UID, we can use
-	//   meta skuid to identify traffic originating from kubelet.
+	//   meta skuid to identify traffic originating from kubelet (or kubelite in MicroK8s).
 	//
 	// - Option-2: Match on kubelet’s source IP (node IP). This works in theory but is a bit unsafe as
 	//   other host processes can also send traffic from the node IP, and nodes can have multiple IPs making the

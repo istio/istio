@@ -31,6 +31,7 @@ const (
 	IstioOwnedCNIConfigFilename       = "istio-owned-cni-config-filename"
 	LogLevel                          = "log-level"
 	KubeconfigMode                    = "kubeconfig-mode"
+	CNIConfGroupRead                  = "cni-conf-group-read"
 	KubeCAFile                        = "kube-ca-file"
 	SkipTLSVerify                     = "skip-tls-verify"
 	MonitoringPort                    = "monitoring-port"
@@ -46,6 +47,7 @@ const (
 	AmbientIPv6                       = "ambient-ipv6"
 	AmbientDisableSafeUpgrade         = "ambient-disable-safe-upgrade"
 	AmbientReconcilePodRulesOnStartup = "ambient-reconcile-pod-rules-on-startup"
+	EnableAmbientDetectionRetry       = "enable-ambient-detection-retry"
 
 	NativeNftables = "native-nftables"
 
@@ -68,6 +70,8 @@ const (
 // Internal constants
 const (
 	DefaultKubeconfigMode = 0o600
+	CNIConfModeDefault    = 0o600
+	CNIConfModeGroupRead  = 0o640
 	CNIAgentLogScope      = "cni-agent"
 	CNIPluginLogScope     = "cni-plugin"
 	CNIAddEventPath       = "/cmdadd"

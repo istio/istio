@@ -57,7 +57,7 @@ spec:
         - -d
         - 15090,15021,15020
         - --log_output_level=default:info
-        image: gcr.io/istio-testing/proxyv2:latest
+        image: registry.istio.io/testing/proxyv2:latest
         name: istio-init
         resources:
           limits:
@@ -153,7 +153,7 @@ spec:
           value: cluster.local
         - name: TRUST_DOMAIN
           value: cluster.local
-        image: gcr.io/istio-testing/proxyv2:latest
+        image: registry.istio.io/testing/proxyv2:latest
         lifecycle:
           preStop:
             exec:
@@ -312,7 +312,7 @@ spec:
         - -d
         - 15090,15021,15020
         - --log_output_level=default:info
-        image: gcr.io/istio-testing/proxyv2:latest
+        image: registry.istio.io/testing/proxyv2:latest
         name: istio-init
         resources:
           limits:
@@ -408,7 +408,7 @@ spec:
           value: cluster.local
         - name: TRUST_DOMAIN
           value: cluster.local
-        image: gcr.io/istio-testing/proxyv2:latest
+        image: registry.istio.io/testing/proxyv2:latest
         lifecycle:
           preStop:
             exec:

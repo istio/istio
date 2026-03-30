@@ -69,6 +69,7 @@ type Args struct {
 	BaseVersion       string
 	BaseImageRegistry string
 	ProxyVersion      string
+	AgentgatewayImage string
 	ZtunnelVersion    string
 	IstioVersion      string
 	Tags              []string
@@ -98,6 +99,7 @@ func (a Args) String() string {
 	b.WriteString("BaseImageRegistry: " + fmt.Sprint(a.BaseImageRegistry) + "\n")
 	b.WriteString("ProxyVersion:      " + fmt.Sprint(a.ProxyVersion) + "\n")
 	b.WriteString("ZtunnelVersion:    " + fmt.Sprint(a.ZtunnelVersion) + "\n")
+	b.WriteString("AgentgatewayImage: " + fmt.Sprint(a.AgentgatewayImage) + "\n")
 	b.WriteString("IstioVersion:      " + fmt.Sprint(a.IstioVersion) + "\n")
 	b.WriteString("Tags:              " + fmt.Sprint(a.Tags) + "\n")
 	b.WriteString("Hubs:              " + fmt.Sprint(a.Hubs) + "\n")
@@ -188,8 +190,17 @@ func DefaultArgs() Args {
 	}
 	pv, err := testenv.ReadDepsSHA("PROXY_REPO_SHA")
 	if err != nil {
-		log.Warnf("failed to read proxy sha")
+		log.Warnf("failed to read proxy sha: %v", err)
 		pv = "unknown"
+	}
+	agwImage := os.Getenv("AGENTGATEWAY_IMAGE")
+	if agwImage == "" {
+		agwv, err := testenv.ReadDepsSHA("AGENTGATEWAY_IMAGE")
+		if err != nil {
+			log.Warnf("failed to read agentgateway sha")
+			agwv = "unknown"
+		}
+		agwImage = "cr.agentgateway.dev/agentgateway:" + agwv
 	}
 	zv, err := testenv.ReadDepsSHA("ZTUNNEL_REPO_SHA")
 	if err != nil {
@@ -247,6 +258,7 @@ func DefaultArgs() Args {
 		BaseImageRegistry: fetchIstioBaseReg(),
 		IstioVersion:      fetchIstioVersion(),
 		ProxyVersion:      pv,
+		AgentgatewayImage: agwImage,
 		ZtunnelVersion:    zv,
 		Architectures:     arch,
 		Targets:           targets,

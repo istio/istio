@@ -109,6 +109,8 @@ spec:
 {{- range $i, $p := $appContainer.ContainerPorts }}
 {{- if and $p.XDSServer (eq .Protocol "GRPC") }}
           - --xds-grpc-server={{ $p.Port }}
+{{- else if $p.EndpointPicker }}
+          - --endpoint-picker={{ $p.Port }}
 {{- else if eq .Protocol "GRPC" }}
           - --grpc={{ $p.Port }}
 {{- else if eq .Protocol "TCP" }}
@@ -146,6 +148,12 @@ spec:
 {{- if $.TLSSettings.AcceptAnyALPN}}
           - --disable-alpn
 {{- end }}
+{{- if $.TLSSettings.MinVersion }}
+          - --tls-min-version={{ $.TLSSettings.MinVersion }}
+{{- end }}
+{{- if $.TLSSettings.CurvePreferences }}
+          - --tls-curve-preferences={{ $.TLSSettings.CurvePreferences | join "," }}
+{{- end }}
 {{- else }}
           - --crt=/cert.crt
           - --key=/cert.key
@@ -160,6 +168,8 @@ spec:
           name: tcp-health-port
 {{- else if and ($appContainer.ImageFullPath) (eq .Port 17171) }}
           name: tcp-health-port
+{{- else if and $p.Name (le (len $p.Name) 15) }}
+          name: {{ $p.Name }}
 {{- end }}
 {{- end }}
         env:

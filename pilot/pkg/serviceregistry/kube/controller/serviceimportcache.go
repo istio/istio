@@ -183,7 +183,7 @@ func (ic *serviceImportCacheImpl) onServiceImportEvent(_, obj controllers.Object
 
 		// The service already existed. Treat it as an update.
 		event = model.EventUpdate
-		mcsService = mcsService.DeepCopy()
+		mcsService = mcsService.ShallowCopy()
 		if ic.updateIPs(mcsService, ips) {
 			needsFullPush = true
 		}
@@ -240,7 +240,7 @@ func GetServiceImportIPs(si *unstructured.Unstructured) []string {
 
 // genMCSService generates an MCS service based on the given real k8s service. The list of vips must be non-empty.
 func (ic *serviceImportCacheImpl) genMCSService(realService *model.Service, mcsHost host.Name, vips []string) *model.Service {
-	mcsService := realService.DeepCopy()
+	mcsService := realService.ShallowCopy()
 	mcsService.Hostname = mcsHost
 	mcsService.DefaultAddress = vips[0]
 	mcsService.ClusterVIPs.Addresses = map[cluster.ID][]string{

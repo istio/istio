@@ -22,9 +22,11 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -39,7 +41,7 @@ import (
 
 const (
 	appName     = "zipkin"
-	tracesAPI   = "/api/v2/traces?limit=%d&spanName=%s&annotationQuery=%s"
+	tracesAPI   = "/api/v2/traces?%s"
 	zipkinPort  = 9411
 	httpTimeout = 5 * time.Second
 
@@ -275,7 +277,12 @@ func (c *kubeComponent) QueryTraces(limit int, spanName, annotationQuery, hostDo
 }
 
 func (c *kubeComponent) createHTTPClient(limit int, spanName, annotationQuery, hostDomain string) (string, http.Client, error) {
-	baseURL := fmt.Sprintf(tracesAPI, limit, spanName, annotationQuery)
+	// Encoding the annotationQuery with URL
+	queryParams := url.Values{}
+	queryParams.Add("limit", strconv.Itoa(limit))
+	queryParams.Add("spanName", spanName)
+	queryParams.Add("annotationQuery", annotationQuery)
+	baseURL := fmt.Sprintf(tracesAPI, queryParams.Encode())
 	if hostDomain == "" {
 		url := c.address + baseURL
 		scopes.Framework.Debugf("Making GET call to Zipkin API: %s", url)
@@ -299,7 +306,7 @@ func (c *kubeComponent) createHTTPClient(limit int, spanName, annotationQuery, h
 		},
 	}
 
-	url := fmt.Sprintf("http://%s%s", ip, baseURL)
+	url := fmt.Sprintf("http://%s", net.JoinHostPort(ip, baseURL))
 	scopes.Framework.Debugf("Making GET call to Zipkin API: %s with resolve override: %s", url, hostDomain)
 
 	return url, http.Client{

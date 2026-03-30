@@ -25,8 +25,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/rest"
 	k8sv1 "sigs.k8s.io/gateway-api/apis/v1"
-	k8sbeta "sigs.k8s.io/gateway-api/apis/v1beta1"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/api/annotation"
@@ -40,7 +40,6 @@ import (
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/ambient/multicluster"
 	"istio.io/istio/pilot/pkg/serviceregistry/util/xdsfake"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/activenotifier"
@@ -55,6 +54,7 @@ import (
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
@@ -337,7 +337,6 @@ func TestAmbientIndex_LookupWorkloads(t *testing.T) {
 			s.assertAddresses(t, s.addrXdsName("127.0.0.1"), "pod1")
 			s.assertAddresses(t, s.addrXdsName("127.0.0.2"), "pod2")
 
-			// TODO(jaellio): Add test to lookup by service key
 			for _, key := range []string{s.podXdsName("pod3"), s.addrXdsName("127.0.0.3")} {
 				assert.Equal(t, s.lookup(key), []model.AddressInfo{
 					{
@@ -370,13 +369,13 @@ func TestAmbientIndex_LookupWorkloads(t *testing.T) {
 }
 
 func TestAmbientIndex_ServiceOverlap(t *testing.T) {
-	addServiceEntry := func(s *ambientTestServer, i int, host string) {
+	addServiceEntry := func(s *ambientTestServer, i int, host string, namespace string) {
 		s.addServiceEntry(
 			t,
 			host,
 			[]string{fmt.Sprintf("10.255.0.%d", i)},
 			fmt.Sprintf("se-%d", i),
-			testNS,
+			namespace,
 			map[string]string{},
 			[]string{fmt.Sprintf("10.10.0.%d", i)},
 		)
@@ -399,8 +398,18 @@ func TestAmbientIndex_ServiceOverlap(t *testing.T) {
 	t.Run("serviceentry overlap", func(t *testing.T) {
 		s := newAmbientTestServer(t, testC, testNW, "")
 
-		// initial SE
-		addServiceEntry(s, 1, "foo.com")
+		// initial foo.com created in namespace original, this one should be canonical until deleted
+		// for now we'll just number it "11"
+		addServiceEntry(s, 11, "foo.com", "original")
+		s.assertUnorderedEvent(t, s.xdsNamespacedHostname("foo.com", "original"),
+			s.seIPXdsNameForCluster("se-11", "10.10.0.11", s.ClusterID, "original"),
+		)
+		s.assertAddresses(t, testNW+"/10.255.0.11", "se-11")
+		s.assertCanonicalService(t, "foo.com", "se-11")
+		s.assertNoEvent(t)
+
+		// first SE in testNS
+		addServiceEntry(s, 1, "foo.com", testNS)
 		s.assertUnorderedEvent(t, s.xdsNamespacedHostname("foo.com"),
 			s.seIPXdsName("se-1", "10.10.0.1"),
 		)
@@ -408,25 +417,47 @@ func TestAmbientIndex_ServiceOverlap(t *testing.T) {
 		s.assertNoEvent(t)
 
 		// overlapping SE - the old one takes precedence, new one is not in indexes
-		addServiceEntry(s, 2, "foo.com")
+		addServiceEntry(s, 2, "foo.com", testNS)
 		s.assertNoEvent(t)
 		s.assertAddresses(t, testNW+"/10.255.0.1", "se-1")
 		s.assertAddresses(t, testNW+"/10.255.0.2")
 		s.assertNoEvent(t)
 
-		// the original one goes away, the new one takes over
+		// remove the existing canonical from "original" namespace
+		s.deleteServiceEntry(t, "se-11", "original")
+		// expecting 2 delete events and also an event for marking se-1 canonical
+		s.assertUnorderedEvent(t, s.xdsNamespacedHostname("foo.com", "original"),
+			s.seIPXdsNameForCluster("se-11", "10.10.0.11", s.ClusterID, "original"),
+			s.xdsNamespacedHostname("foo.com", testNS),
+		)
+		s.assertNoEvent(t)
+		// assert that se-1 became canonical
+		s.assertCanonicalService(t, "foo.com", "se-1")
+
+		// the original in testNS goes away, the new one takes over
 		deleteServiceEntry(s, 1)
 		s.assertUnorderedEvent(t, s.xdsNamespacedHostname("foo.com"),
 			s.seIPXdsName("se-2", "10.10.0.2"),
 			s.seIPXdsName("se-1", "10.10.0.1"))
 		s.assertAddresses(t, testNW+"/10.255.0.1")
 		s.assertAddresses(t, testNW+"/10.255.0.2", "se-2")
+		s.assertCanonicalService(t, "foo.com", "se-2")
 	})
 	t.Run("wildcard serviceentry overlap", func(t *testing.T) {
 		s := newAmbientTestServer(t, testC, testNW, "")
 
-		// initial SE
-		addServiceEntry(s, 1, "*.foo.com")
+		// initial *.foo.com created in namespace original, this one should be canonical until deleted
+		// for now we'll just number it "11"
+		addServiceEntry(s, 11, "*.foo.com", "original")
+		s.assertUnorderedEvent(t, s.xdsNamespacedHostname("*.foo.com", "original"),
+			s.seIPXdsNameForCluster("se-11", "10.10.0.11", s.ClusterID, "original"),
+		)
+		s.assertAddresses(t, testNW+"/10.255.0.11", "se-11")
+		s.assertCanonicalService(t, "*.foo.com", "se-11")
+		s.assertNoEvent(t)
+
+		// first SE in testNS
+		addServiceEntry(s, 1, "*.foo.com", testNS)
 		s.assertUnorderedEvent(t, s.xdsNamespacedHostname("*.foo.com"),
 			s.seIPXdsName("se-1", "10.10.0.1"),
 		)
@@ -434,19 +465,31 @@ func TestAmbientIndex_ServiceOverlap(t *testing.T) {
 		s.assertNoEvent(t)
 
 		// overlapping SE - the old one takes precedence, new one is not in indexes
-		addServiceEntry(s, 2, "*.foo.com")
+		addServiceEntry(s, 2, "*.foo.com", testNS)
 		s.assertNoEvent(t)
 		s.assertAddresses(t, testNW+"/10.255.0.1", "se-1")
 		s.assertAddresses(t, testNW+"/10.255.0.2")
 		s.assertNoEvent(t)
 
-		// the original one goes away, the new one takes over
+		// remove the existing canonical from "original" namespace
+		s.deleteServiceEntry(t, "se-11", "original")
+		// expecting 2 delete events and also an event for marking se-1 canonical
+		s.assertUnorderedEvent(t, s.xdsNamespacedHostname("*.foo.com", "original"),
+			s.seIPXdsNameForCluster("se-11", "10.10.0.11", s.ClusterID, "original"),
+			s.xdsNamespacedHostname("*.foo.com", testNS),
+		)
+		s.assertNoEvent(t)
+		// assert that se-1 became canonical
+		s.assertCanonicalService(t, "*.foo.com", "se-1")
+
+		// the original in testNS goes away, the new one takes over
 		deleteServiceEntry(s, 1)
 		s.assertUnorderedEvent(t, s.xdsNamespacedHostname("*.foo.com"),
 			s.seIPXdsName("se-2", "10.10.0.2"),
 			s.seIPXdsName("se-1", "10.10.0.1"))
 		s.assertAddresses(t, testNW+"/10.255.0.1")
 		s.assertAddresses(t, testNW+"/10.255.0.2", "se-2")
+		s.assertCanonicalService(t, "*.foo.com", "se-2")
 	})
 
 	t.Run("serviceentry and service overlap", func(t *testing.T) {
@@ -456,19 +499,24 @@ func TestAmbientIndex_ServiceOverlap(t *testing.T) {
 		addService(s, 1, "svc1")
 		s.assertEvent(t, s.svcXdsName("svc1"))
 		s.assertAddresses(t, testNW+"/10.255.255.1", "svc1")
+		s.assertCanonicalService(t, "svc1.ns1.svc.company.com", "svc1")
 		s.assertNoEvent(t)
 
 		// overlapping SE - the old one takes precedence, new one is not in indexes
-		addServiceEntry(s, 2, "svc1.ns1.svc.company.com")
+		addServiceEntry(s, 2, "svc1.ns1.svc.company.com", testNS)
 		s.assertNoEvent(t) // this should be totally filtered as duplicate with a Kubernetes Service
 		s.assertAddresses(t, testNW+"/10.255.255.1", "svc1")
 		s.assertAddresses(t, testNW+"/10.255.0.2")
+		// the kube service should still be canonical
+		s.assertCanonicalService(t, "svc1.ns1.svc.company.com", "svc1")
 
 		// the original one goes away, the new one takes over
 		s.deleteService(t, "svc1")
 		s.assertUnorderedEvent(t, s.svcXdsName("svc1"), s.seIPXdsName("se-2", "10.10.0.2"))
 		s.assertAddresses(t, testNW+"/10.255.255.1")
 		s.assertAddresses(t, testNW+"/10.255.0.2", "se-2")
+		// with the kubernetes service deleted, se-2 should be canonical
+		s.assertCanonicalService(t, "svc1.ns1.svc.company.com", "se-2")
 		s.assertNoEvent(t)
 	})
 }
@@ -859,7 +907,7 @@ func TestAmbientIndex_WaypointAddressAddedToWorkloads(t *testing.T) {
 
 func TestAmbientIndex_WaypointInboundBinding(t *testing.T) {
 	s := newAmbientTestServer(t, testC, testNW, "")
-	s.gwcls.Update(&k8sbeta.GatewayClass{
+	s.gwcls.Update(&k8sv1.GatewayClass{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: constants.WaypointGatewayClassName,
 			Annotations: map[string]string{
@@ -2114,10 +2162,7 @@ func newAmbientTestServer(t *testing.T, clusterID cluster.ID, networkID network.
 }
 
 func newAmbientTestServerFromOptions(t *testing.T, networkID network.ID, options Options, runClient bool) *ambientTestServer {
-	if options.Client == nil {
-		options.Client = kubeclient.NewFakeClient()
-	}
-	cl := options.Client
+	cl := options.MultiClusterController.ConfigCluster().Client
 	for _, crd := range []schema.GroupVersionResource{
 		gvr.AuthorizationPolicy,
 		gvr.PeerAuthentication,
@@ -2152,13 +2197,6 @@ func newAmbientTestServerFromOptions(t *testing.T, networkID network.ID, options
 		options.DomainSuffix = "company.com"
 	}
 
-	if options.ClientBuilder == nil && features.EnableAmbientMultiNetwork {
-		options.ClientBuilder = testingBuildClientsFromConfig(t)
-	}
-
-	// The index is always for the config cluster
-	options.IsConfigCluster = true
-
 	idx := New(options)
 
 	dumpOnFailure(t, options.Debugger)
@@ -2172,8 +2210,8 @@ func newAmbientTestServerFromOptions(t *testing.T, networkID network.ID, options
 			pc:    clienttest.NewDirectClient[*corev1.Pod, corev1.Pod, *corev1.PodList](t, cl),
 			sc:    clienttest.NewDirectClient[*corev1.Service, corev1.Service, *corev1.ServiceList](t, cl),
 			ns:    clienttest.NewWriter[*corev1.Namespace](t, cl),
-			grc:   clienttest.NewWriter[*k8sbeta.Gateway](t, cl),
-			gwcls: clienttest.NewWriter[*k8sbeta.GatewayClass](t, cl),
+			grc:   clienttest.NewWriter[*k8sv1.Gateway](t, cl),
+			gwcls: clienttest.NewWriter[*k8sv1.GatewayClass](t, cl),
 			se:    clienttest.NewWriter[*apiv1alpha3.ServiceEntry](t, cl),
 			we:    clienttest.NewWriter[*apiv1alpha3.WorkloadEntry](t, cl),
 			pa:    clienttest.NewWriter[*clientsecurityv1beta1.PeerAuthentication](t, cl),
@@ -2183,7 +2221,7 @@ func newAmbientTestServerFromOptions(t *testing.T, networkID network.ID, options
 	}
 
 	// assume this is installed with istio
-	a.gwcls.Create(&k8sbeta.GatewayClass{
+	a.gwcls.Create(&k8sv1.GatewayClass{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: constants.WaypointGatewayClassName,
 		},
@@ -2191,7 +2229,7 @@ func newAmbientTestServerFromOptions(t *testing.T, networkID network.ID, options
 			ControllerName: constants.ManagedGatewayMeshController,
 		},
 	})
-	a.gwcls.Create(&k8sbeta.GatewayClass{
+	a.gwcls.Create(&k8sv1.GatewayClass{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: constants.EastWestGatewayClassName,
 		},
@@ -2220,6 +2258,7 @@ func newAmbientTestServerFromOptions(t *testing.T, networkID network.ID, options
 		t.Cleanup(cl.Shutdown)
 		cl.RunAndWait(test.NewStop(t))
 	}
+
 	return a
 }
 
@@ -2228,25 +2267,37 @@ func newAmbientTestServerWithFlags(t *testing.T, clusterID cluster.ID, networkID
 	up.SplitEvents = true
 	cl := kubeclient.NewFakeClient()
 	t.Cleanup(cl.Shutdown)
-	var clientBuilder multicluster.ClientBuilder
-
 	debugger := krt.GlobalDebugHandler
-	o := Options{
-		Revision:        revision,
+	meshConfig := meshwatcher.NewTestWatcher(nil)
+
+	stop := test.NewStop(t)
+	mcOpts := multicluster.ControllerOptions{
 		Client:          cl,
-		SystemNamespace: systemNS,
-		DomainSuffix:    "company.com",
 		ClusterID:       clusterID,
-		XDSUpdater:      up,
-		StatusNotifier:  activenotifier.New(true),
+		SystemNamespace: systemNS,
+		MeshConfig:      meshConfig,
+		ClientBuilder:   testingBuildClientsFromConfig(t),
 		Debugger:        debugger,
-		Flags:           flags,
-		MeshConfig:      meshwatcher.NewTestWatcher(nil),
-		ClientBuilder:   clientBuilder,
+	}
+
+	o := Options{
+		Revision:               revision,
+		SystemNamespace:        systemNS,
+		DomainSuffix:           "company.com",
+		ClusterID:              clusterID,
+		XDSUpdater:             up,
+		StatusNotifier:         activenotifier.New(true),
+		Debugger:               debugger,
+		Flags:                  flags,
+		MeshConfig:             meshConfig,
+		MultiClusterController: multicluster.NewController(mcOpts),
+	}
+
+	if err := o.MultiClusterController.Run(stop); err != nil {
+		t.Fatalf("failed to run multicluster controller: %v", err)
 	}
 
 	if features.EnableAmbientMultiNetwork {
-		o.ClientBuilder = testingBuildClientsFromConfig(t)
 		o.MeshConfig.Mesh().ServiceScopeConfigs = []*v1alpha1.MeshConfig_ServiceScopeConfigs{
 			{
 				ServicesSelector: &v1alpha1.LabelSelector{
@@ -2279,18 +2330,66 @@ func newAmbientTestServerWithFlags(t *testing.T, clusterID cluster.ID, networkID
 func dumpOnFailure(t *testing.T, debugger *krt.DebugHandler) {
 	t.Cleanup(func() {
 		if t.Failed() {
-			b, _ := yaml.Marshal(debugger)
+			b, err := yaml.Marshal(debugger)
+			// See if we have an error and print it so that Marshal problems are not silent
+			if err != nil {
+				t.Log(err.Error())
+			}
 			t.Log(string(b))
 		}
 	})
 }
 
-func (s *ambientTestServer) deleteNetworkGatewayForClient(t *testing.T, name string, grc clienttest.TestWriter[*k8sbeta.Gateway]) {
+const secretNamespace string = "istio-system"
+
+type clusterCredential struct {
+	clusterID  string
+	kubeconfig []byte
+}
+
+func makeSecret(ns string, secret string, clusterConfigs ...clusterCredential) *corev1.Secret {
+	s := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      secret,
+			Namespace: ns,
+			Labels: map[string]string{
+				multicluster.MultiClusterSecretLabel: "true",
+			},
+		},
+		Data: map[string][]byte{},
+	}
+
+	for _, config := range clusterConfigs {
+		s.Data[config.clusterID] = config.kubeconfig
+	}
+	return s
+}
+
+var kubeconfig = 0
+
+func testingBuildClientsFromConfig(t test.Failer) func([]byte, cluster.ID, ...func(*rest.Config)) (kubeclient.Client, error) {
+	return func(kubeConfig []byte, c cluster.ID, configOverrides ...func(*rest.Config)) (kubeclient.Client, error) {
+		client := kubeclient.NewFakeClient()
+		for _, crd := range []schema.GroupVersionResource{
+			gvr.AuthorizationPolicy,
+			gvr.PeerAuthentication,
+			gvr.KubernetesGateway,
+			gvr.GatewayClass,
+			gvr.WorkloadEntry,
+			gvr.ServiceEntry,
+		} {
+			clienttest.MakeCRD(t, client, crd)
+		}
+		return client, nil
+	}
+}
+
+func (s *ambientTestServer) deleteNetworkGatewayForClient(t *testing.T, name string, grc clienttest.TestWriter[*k8sv1.Gateway]) {
 	t.Helper()
 	grc.Delete(name, testNS)
 }
 
-func (s *ambientTestServer) addNetworkGatewayForClient(t *testing.T, ip, network string, grc clienttest.TestWriter[*k8sbeta.Gateway]) {
+func (s *ambientTestServer) addNetworkGatewayForClient(t *testing.T, ip, network string, grc clienttest.TestWriter[*k8sv1.Gateway]) {
 	s.addNetworkGatewaySpecificAddressForClient(t, ip, "", "east-west", network, true, grc)
 }
 
@@ -2298,17 +2397,17 @@ func (s *ambientTestServer) addNetworkGatewaySpecificAddressForClient(
 	t *testing.T,
 	ip, hostname, name, network string,
 	ready bool,
-	grc clienttest.TestWriter[*k8sbeta.Gateway],
+	grc clienttest.TestWriter[*k8sv1.Gateway],
 ) {
 	t.Helper()
-	gatewaySpec := k8sbeta.GatewaySpec{
+	gatewaySpec := k8sv1.GatewaySpec{
 		GatewayClassName: constants.EastWestGatewayClassName,
-		Listeners: []k8sbeta.Listener{
+		Listeners: []k8sv1.Listener{
 			{
 				Name:     "mesh",
 				Port:     15008,
 				Protocol: "HBONE",
-				TLS: &k8sbeta.ListenerTLSConfig{
+				TLS: &k8sv1.ListenerTLSConfig{
 					Mode: ptr.Of(k8sv1.TLSModeTerminate),
 					Options: map[k8sv1.AnnotationKey]k8sv1.AnnotationValue{
 						"gateway.istio.io/tls-terminate-mode": "ISTIO_MUTUAL",
@@ -2318,7 +2417,7 @@ func (s *ambientTestServer) addNetworkGatewaySpecificAddressForClient(
 		},
 	}
 
-	gateway := k8sbeta.Gateway{
+	gateway := k8sv1.Gateway{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       gvk.KubernetesGateway.Kind,
 			APIVersion: gvk.KubernetesGateway.GroupVersion(),
@@ -2331,18 +2430,18 @@ func (s *ambientTestServer) addNetworkGatewaySpecificAddressForClient(
 			},
 		},
 		Spec:   gatewaySpec,
-		Status: k8sbeta.GatewayStatus{},
+		Status: k8sv1.GatewayStatus{},
 	}
 
 	if ready {
 		addr := []k8sv1.GatewayStatusAddress{}
 		if ip != "" {
-			addr = append(addr, k8sv1.GatewayStatusAddress{Type: ptr.Of(k8sbeta.IPAddressType), Value: ip})
+			addr = append(addr, k8sv1.GatewayStatusAddress{Type: ptr.Of(k8sv1.IPAddressType), Value: ip})
 		}
 		if hostname != "" {
-			addr = append(addr, k8sv1.GatewayStatusAddress{Type: ptr.Of(k8sbeta.HostnameAddressType), Value: hostname})
+			addr = append(addr, k8sv1.GatewayStatusAddress{Type: ptr.Of(k8sv1.HostnameAddressType), Value: hostname})
 		}
-		gateway.Status = k8sbeta.GatewayStatus{
+		gateway.Status = k8sv1.GatewayStatus{
 			Addresses: addr,
 		}
 	}
@@ -2354,7 +2453,7 @@ func (s *ambientTestServer) addWaypoint(t *testing.T, ip, name, trafficType stri
 	s.addWaypointForClient(t, ip, name, trafficType, ready, s.grc)
 }
 
-func (s *ambientTestServer) addWaypointForClient(t *testing.T, ip, name, trafficType string, ready bool, grc clienttest.TestWriter[*k8sbeta.Gateway]) {
+func (s *ambientTestServer) addWaypointForClient(t *testing.T, ip, name, trafficType string, ready bool, grc clienttest.TestWriter[*k8sv1.Gateway]) {
 	s.addWaypointSpecificAddressForClient(t, ip, fmt.Sprintf("%s.%s.svc.%s", name, testNS, s.DomainSuffix), name, trafficType, ready, grc)
 }
 
@@ -2362,19 +2461,19 @@ func (s *ambientTestServer) addWaypointSpecificAddressForClient(
 	t *testing.T,
 	ip, hostname, name, trafficType string,
 	ready bool,
-	grc clienttest.TestWriter[*k8sbeta.Gateway],
+	grc clienttest.TestWriter[*k8sv1.Gateway],
 ) {
 	t.Helper()
 	fromSame := k8sv1.NamespacesFromSame
-	gatewaySpec := k8sbeta.GatewaySpec{
+	gatewaySpec := k8sv1.GatewaySpec{
 		GatewayClassName: constants.WaypointGatewayClassName,
-		Listeners: []k8sbeta.Listener{
+		Listeners: []k8sv1.Listener{
 			{
 				Name:     "mesh",
 				Port:     15008,
 				Protocol: "HBONE",
-				AllowedRoutes: &k8sbeta.AllowedRoutes{
-					Namespaces: &k8sbeta.RouteNamespaces{
+				AllowedRoutes: &k8sv1.AllowedRoutes{
+					Namespaces: &k8sv1.RouteNamespaces{
 						From: &fromSame,
 					},
 				},
@@ -2382,7 +2481,7 @@ func (s *ambientTestServer) addWaypointSpecificAddressForClient(
 		},
 	}
 
-	gateway := k8sbeta.Gateway{
+	gateway := k8sv1.Gateway{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       gvk.KubernetesGateway.Kind,
 			APIVersion: gvk.KubernetesGateway.GroupVersion(),
@@ -2392,7 +2491,7 @@ func (s *ambientTestServer) addWaypointSpecificAddressForClient(
 			Namespace: testNS,
 		},
 		Spec:   gatewaySpec,
-		Status: k8sbeta.GatewayStatus{},
+		Status: k8sv1.GatewayStatus{},
 	}
 	labels := make(map[string]string, 2)
 	if trafficType != "" && validTrafficTypes.Contains(trafficType) {
@@ -2405,12 +2504,12 @@ func (s *ambientTestServer) addWaypointSpecificAddressForClient(
 	if ready {
 		addr := []k8sv1.GatewayStatusAddress{}
 		if ip != "" {
-			addr = append(addr, k8sv1.GatewayStatusAddress{Type: ptr.Of(k8sbeta.IPAddressType), Value: ip})
+			addr = append(addr, k8sv1.GatewayStatusAddress{Type: ptr.Of(k8sv1.IPAddressType), Value: ip})
 		}
 		if hostname != "" {
-			addr = append(addr, k8sv1.GatewayStatusAddress{Type: ptr.Of(k8sbeta.HostnameAddressType), Value: hostname})
+			addr = append(addr, k8sv1.GatewayStatusAddress{Type: ptr.Of(k8sv1.HostnameAddressType), Value: hostname})
 		}
-		gateway.Status = k8sbeta.GatewayStatus{
+		gateway.Status = k8sv1.GatewayStatus{
 			Addresses: addr,
 		}
 	}
@@ -2427,7 +2526,7 @@ func (s *ambientTestServer) deleteWaypoint(t *testing.T, name string) {
 	s.deleteWaypointForClient(t, name, s.grc)
 }
 
-func (s *ambientTestServer) deleteWaypointForClient(t *testing.T, name string, grc clienttest.TestWriter[*k8sbeta.Gateway]) {
+func (s *ambientTestServer) deleteWaypointForClient(t *testing.T, name string, grc clienttest.TestWriter[*k8sv1.Gateway]) {
 	t.Helper()
 	grc.Delete(name, testNS)
 }
@@ -2616,13 +2715,45 @@ func generateServiceEntry(host string, addresses []string, labels map[string]str
 	}
 }
 
-func (s *ambientTestServer) deleteServiceEntry(t *testing.T, name string) {
-	s.deleteServiceEntryForClient(t, name, testNS, s.se)
+func (s *ambientTestServer) deleteServiceEntry(t *testing.T, name string, rest ...string) {
+	l := len(rest)
+	if l > 1 {
+		t.Fatalf("deleteServiceEntry failed, too many args: %d", l)
+	}
+	ns := testNS
+	if l == 1 {
+		ns = rest[0]
+	}
+	s.deleteServiceEntryForClient(t, name, ns, s.se)
 }
 
 func (s *ambientTestServer) deleteServiceEntryForClient(t *testing.T, name, ns string, se clienttest.TestWriter[*apiv1alpha3.ServiceEntry]) {
 	t.Helper()
 	se.Delete(name, ns)
+}
+
+// assert that the one, and only one, canonical service for a given hostname is the desired service (by name of the resource)
+func (s *ambientTestServer) assertCanonicalService(t *testing.T, key, want string) {
+	t.Helper()
+	var have, found string
+	all := s.services.List()
+	for _, si := range all {
+		found = ""
+		if si.Service.Hostname != key {
+			// not the hostname we are looking for
+			continue
+		}
+		if si.Service.Canonical {
+			found = si.Service.Name
+		}
+		if have != "" && found != "" {
+			t.Fatalf("found more that one canonical service for the same key(%s)", key)
+		}
+		if have == "" && found != "" {
+			have = found
+		}
+	}
+	assert.Equal(t, have, want)
 }
 
 func (s *ambientTestServer) assertAddresses(t *testing.T, lookup string, names ...string) {
@@ -2834,8 +2965,12 @@ func (s *ambientTestServer) hostnameForService(serviceName string) string {
 	return fmt.Sprintf("%s.%s.svc.company.com", serviceName, testNS)
 }
 
-func (s *ambientTestServer) xdsNamespacedHostname(hostname string) string {
-	return fmt.Sprintf("%s/%s", testNS, hostname)
+func (s *ambientTestServer) xdsNamespacedHostname(hostname string, rest ...string) string {
+	ns := testNS
+	if len(rest) >= 1 {
+		ns = rest[0]
+	}
+	return fmt.Sprintf("%s/%s", ns, hostname)
 }
 
 // Returns the XDS resource name for the given WorkloadEntry.
@@ -2853,9 +2988,13 @@ func (s *ambientTestServer) seIPXdsName(name string, ip string) string {
 	return s.seIPXdsNameForCluster(name, ip, s.clusterID)
 }
 
-func (s *ambientTestServer) seIPXdsNameForCluster(name string, ip string, clusterID cluster.ID) string {
+func (s *ambientTestServer) seIPXdsNameForCluster(name string, ip string, clusterID cluster.ID, rest ...string) string {
+	ns := testNS
+	if len(rest) >= 1 {
+		ns = rest[0]
+	}
 	return fmt.Sprintf("%s/networking.istio.io/ServiceEntry/%s/%s/%s",
-		clusterID, testNS, name, ip)
+		clusterID, ns, name, ip)
 }
 
 func generatePod(ip, name, namespace, saName, node string, labels map[string]string, annotations map[string]string) *corev1.Pod {

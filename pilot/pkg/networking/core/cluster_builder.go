@@ -38,6 +38,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/core/loadbalancer"
 	"istio.io/istio/pilot/pkg/networking/telemetry"
 	"istio.io/istio/pilot/pkg/networking/util"
 	networkutil "istio.io/istio/pilot/pkg/util/network"
@@ -105,6 +106,11 @@ type clusterWrapper struct {
 	httpProtocolOptions *http.HttpProtocolOptions
 	// isDFPCluster indicates whether the cluster is a dynamic forward proxy cluster
 	isDFPCluster bool
+
+	// dnsWrappedLocalityLbEndpoints are the locality lb endpoints wrapped with IstioEndpoints.
+	// It is used to do failover priority label match with proxy labels.
+	// Only used for DNS type of clusters.
+	dnsWrappedLocalityLbEndpoints *loadbalancer.WrappedLocalityLbEndpoints
 }
 
 // metadataCerts hosts client certificate related metadata specified in proxy metadata.
@@ -248,6 +254,18 @@ func (cb *ClusterBuilder) applyOverrideHostPolicy(cw *clusterWrapper) {
 							},
 						},
 					},
+					// The metadata key to populate with the address of the host which was ultimately selected
+					// to serve the request.
+					SelectedHostKey: &metadatav3.MetadataKey{
+						Key: constants.EnvoySubsetNamespace,
+						Path: []*metadatav3.MetadataKey_PathSegment{
+							{
+								Segment: &metadatav3.MetadataKey_PathSegment_Key{
+									Key: constants.GatewayInferenceExtensionEndpointServedKey,
+								},
+							},
+						},
+					},
 					// The fallback LB policy is triggered in case neither header nor metadata with selected
 					// hosts is present or there were not enough endpoints to satisfy all retry attempts.
 					FallbackPolicy: &cluster.LoadBalancingPolicy{
@@ -275,7 +293,7 @@ func (cb *ClusterBuilder) buildSubsetCluster(
 	opts buildClusterOpts, destRule *config.Config, subset *networking.Subset, service *model.Service,
 	endpointBuilder *endpoints.EndpointBuilder,
 ) *cluster.Cluster {
-	opts.serviceMTLSMode = cb.req.Push.BestEffortInferServiceMTLSMode(subset.GetTrafficPolicy(), service, opts.port)
+	opts.serviceMTLSMode = cb.req.Push.BestEffortInferServiceMTLSMode(cb.sidecarScope.AuthnPolicies, subset.GetTrafficPolicy(), service, opts.port)
 	var subsetClusterName string
 	var defaultSni string
 	if opts.clusterMode == DefaultClusterMode {
@@ -319,6 +337,7 @@ func (cb *ClusterBuilder) buildSubsetCluster(
 	maybeApplyEdsConfig(subsetCluster.cluster)
 
 	cb.applyMetadataExchange(opts.mutable.cluster)
+	cb.maybeApplyBaggageMetadataDiscovery(opts.mutable.cluster)
 
 	// Add the DestinationRule+subsets metadata. Metadata here is generated on a per-cluster
 	// basis in buildCluster, so we can just insert without a copy.
@@ -350,10 +369,13 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *clusterWrapper, clusterMode C
 
 	if clusterMode == DefaultClusterMode {
 		opts.serviceAccounts = serviceAccounts
-		opts.istioMtlsSni = model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
+		// For DFP clusters, we use auto_sni instead of static SNI
+		if !mc.isDFPCluster {
+			opts.istioMtlsSni = model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
+		}
 		opts.meshExternal = service.MeshExternal
 		opts.serviceRegistry = service.Attributes.ServiceRegistry
-		opts.serviceMTLSMode = cb.req.Push.BestEffortInferServiceMTLSMode(destinationRule.GetTrafficPolicy(), service, port)
+		opts.serviceMTLSMode = cb.req.Push.BestEffortInferServiceMTLSMode(cb.sidecarScope.AuthnPolicies, destinationRule.GetTrafficPolicy(), service, port)
 		opts.allInstancesHBONE = cb.req.Push.AllInstancesSupportHBONE(service, port)
 	}
 
@@ -368,6 +390,7 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *clusterWrapper, clusterMode C
 	maybeApplyEdsConfig(mc.cluster)
 
 	cb.applyMetadataExchange(opts.mutable.cluster)
+	cb.maybeApplyBaggageMetadataDiscovery(opts.mutable.cluster)
 
 	if service.MeshExternal || opts.allInstancesHBONE {
 		// Conditionally skips based on config
@@ -388,6 +411,12 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *clusterWrapper, clusterMode C
 		mc.cluster.Metadata = util.AddConfigInfoMetadata(mc.cluster.Metadata, destRule.Meta)
 		mc.cluster.Metadata = util.AddALPNOverrideToMetadata(mc.cluster.Metadata, opts.policy.GetTls().GetMode())
 	}
+
+	// DFP clusters don't support subsets - skip subset cluster creation
+	if service.Hostname.IsWildCarded() && service.Resolution == model.DynamicDNS {
+		return nil
+	}
+
 	subsetClusters := make([]*cluster.Cluster, 0)
 	for _, subset := range destinationRule.GetSubsets() {
 		subsetCluster := cb.buildSubsetCluster(opts, destRule, subset, service, eb)
@@ -401,6 +430,44 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *clusterWrapper, clusterMode C
 func (cb *ClusterBuilder) applyMetadataExchange(c *cluster.Cluster) {
 	if features.MetadataExchange {
 		c.Filters = append(c.Filters, xdsfilters.TCPClusterMx)
+	}
+}
+
+func (cb *ClusterBuilder) maybeApplyBaggageMetadataDiscovery(c *cluster.Cluster) {
+	if cb.sendHbone && c.GetType() == cluster.Cluster_EDS {
+		applyBaggageMetadataDiscovery(c)
+	}
+}
+
+func (cb *ClusterBuilder) maybeDisableBaggageDiscovery(c *cluster.Cluster) {
+	if cb.sendHbone {
+		addDisableBaggageDiscoveryMetadata(c)
+	}
+}
+
+func applyBaggageMetadataDiscovery(c *cluster.Cluster) {
+	if features.EnableAmbientBaggage {
+		c.Filters = append(c.Filters, xdsfilters.WaypointClusterBaggagePeerMetadata)
+	}
+}
+
+func addDisableBaggageDiscoveryMetadata(c *cluster.Cluster) {
+	if features.EnableAmbientBaggage {
+		if c.Metadata == nil {
+			c.Metadata = &core.Metadata{
+				FilterMetadata: map[string]*structpb.Struct{},
+			}
+		}
+		if _, ok := c.Metadata.FilterMetadata[util.IstioPeerMetadataKey]; !ok {
+			c.Metadata.FilterMetadata[util.IstioPeerMetadataKey] = &structpb.Struct{
+				Fields: map[string]*structpb.Value{},
+			}
+		}
+		c.Metadata.FilterMetadata[util.IstioPeerMetadataKey].Fields["disable_baggage_discovery"] = &structpb.Value{
+			Kind: &structpb.Value_BoolValue{
+				BoolValue: true,
+			},
+		}
 	}
 }
 

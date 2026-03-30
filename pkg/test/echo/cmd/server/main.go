@@ -33,28 +33,31 @@ import (
 )
 
 var (
-	httpPorts          []int
-	grpcPorts          []int
-	tcpPorts           []int
-	udpPorts           []int
-	tlsPorts           []int
-	mtlsPorts          []int
-	hbonePorts         []int
-	doubleHbonePorts   []int
-	instanceIPPorts    []int
-	localhostIPPorts   []int
-	serverFirstPorts   []int
-	proxyProtocolPorts []int
-	xdsGRPCServers     []int
-	metricsPort        int
-	uds                string
-	version            string
-	cluster            string
-	crt                string
-	key                string
-	ca                 string
-	istioVersion       string
-	disableALPN        bool
+	httpPorts           []int
+	grpcPorts           []int
+	tcpPorts            []int
+	udpPorts            []int
+	tlsPorts            []int
+	mtlsPorts           []int
+	hbonePorts          []int
+	doubleHbonePorts    []int
+	instanceIPPorts     []int
+	localhostIPPorts    []int
+	serverFirstPorts    []int
+	proxyProtocolPorts  []int
+	xdsGRPCServers      []int
+	endpointPickerPorts []int
+	metricsPort         int
+	uds                 string
+	version             string
+	cluster             string
+	crt                 string
+	key                 string
+	ca                  string
+	istioVersion        string
+	disableALPN         bool
+	tlsMinVersion       string
+	tlsCurvePreferences []string
 
 	loggingOptions = log.DefaultOptions()
 
@@ -66,7 +69,7 @@ var (
 		PersistentPreRunE: configureLogging,
 		Run: func(cmd *cobra.Command, args []string) {
 			shutdown := NewShutdown()
-			ports := make(common.PortList, len(httpPorts)+len(grpcPorts)+len(tcpPorts)+len(udpPorts)+len(hbonePorts)+len(doubleHbonePorts))
+			ports := make(common.PortList, len(httpPorts)+len(grpcPorts)+len(tcpPorts)+len(udpPorts)+len(hbonePorts)+len(doubleHbonePorts)+len(endpointPickerPorts))
 			tlsByPort := map[int]bool{}
 			mtlsByPort := map[int]bool{}
 			for _, p := range tlsPorts {
@@ -88,6 +91,10 @@ var (
 			xdsGRPCByPort := map[int]bool{}
 			for _, p := range xdsGRPCServers {
 				xdsGRPCByPort[p] = true
+			}
+			endpointPickerByPort := map[int]bool{}
+			for _, p := range endpointPickerPorts {
+				endpointPickerByPort[p] = true
 			}
 			portIndex := 0
 			for i, p := range httpPorts {
@@ -151,6 +158,18 @@ var (
 				}
 				portIndex++
 			}
+			for i, p := range endpointPickerPorts {
+				ports[portIndex] = &common.Port{
+					Name:           "endpoint-picker-" + strconv.Itoa(i),
+					Protocol:       protocol.GRPC,
+					Port:           p,
+					TLS:            tlsByPort[p],
+					ServerFirst:    serverFirstByPort[p],
+					ProxyProtocol:  proxyProtocolByPort[p],
+					EndpointPicker: true,
+				}
+				portIndex++
+			}
 
 			instanceIPByPort := map[int]struct{}{}
 			for _, p := range instanceIPPorts {
@@ -175,6 +194,8 @@ var (
 				Namespace:             os.Getenv("NAMESPACE"),
 				UDSServer:             uds,
 				DisableALPN:           disableALPN,
+				TLSMinVersion:         tlsMinVersion,
+				TLSCurvePreferences:   tlsCurvePreferences,
 				ReportRequest:         shutdown.ReportRequest,
 			})
 
@@ -250,6 +271,8 @@ func init() {
 	rootCmd.PersistentFlags().IntSliceVar(&serverFirstPorts, "server-first", []int{}, "Ports that are server first. These must be defined as tcp.")
 	rootCmd.PersistentFlags().IntSliceVar(&proxyProtocolPorts, "proxy-protocol", []int{}, "Ports that are wrapped in HA-PROXY protocol.")
 	rootCmd.PersistentFlags().IntSliceVar(&xdsGRPCServers, "xds-grpc-server", []int{}, "Ports that should rely on XDS configuration to serve.")
+	rootCmd.PersistentFlags().IntSliceVar(&endpointPickerPorts, "endpoint-picker", []int{},
+		"Endpoint picker (ext_proc) ports. These are GRPC ports that implement the Envoy external processor protocol.")
 	rootCmd.PersistentFlags().IntVar(&metricsPort, "metrics", 0, "Metrics port")
 	rootCmd.PersistentFlags().StringVar(&uds, "uds", "", "HTTP server on unix domain socket")
 	rootCmd.PersistentFlags().StringVar(&version, "version", "", "Version string")
@@ -259,6 +282,9 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&ca, "ca", "", "TLS CA certificate")
 	rootCmd.PersistentFlags().StringVar(&istioVersion, "istio-version", "", "Istio sidecar version")
 	rootCmd.PersistentFlags().BoolVar(&disableALPN, "disable-alpn", disableALPN, "disable ALPN negotiation")
+	rootCmd.PersistentFlags().StringVar(&tlsMinVersion, "tls-min-version", "", "Minimum TLS version. Valid values: 1.0, 1.1, 1.2, 1.3")
+	rootCmd.PersistentFlags().StringSliceVar(&tlsCurvePreferences, "tls-curve-preferences", nil,
+		"TLS curve preferences. Valid values: X25519, X25519MLKEM768, P-256, P-384, P-521")
 
 	loggingOptions.AttachCobraFlags(rootCmd)
 

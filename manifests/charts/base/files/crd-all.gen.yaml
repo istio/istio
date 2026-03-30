@@ -724,7 +724,7 @@ spec:
                                   description: This parameter controls the speed of
                                     traffic increase over the warmup duration.
                                   format: double
-                                  minimum: 1
+                                  minimum: 0
                                   nullable: true
                                   type: number
                                 duration:
@@ -1107,7 +1107,7 @@ spec:
                                         description: This parameter controls the speed
                                           of traffic increase over the warmup duration.
                                         format: double
-                                        minimum: 1
+                                        minimum: 0
                                         nullable: true
                                         type: number
                                       duration:
@@ -1656,7 +1656,7 @@ spec:
                             description: This parameter controls the speed of traffic
                               increase over the warmup duration.
                             format: double
-                            minimum: 1
+                            minimum: 0
                             nullable: true
                             type: number
                           duration:
@@ -2030,7 +2030,7 @@ spec:
                                   description: This parameter controls the speed of
                                     traffic increase over the warmup duration.
                                   format: double
-                                  minimum: 1
+                                  minimum: 0
                                   nullable: true
                                   type: number
                                 duration:
@@ -2725,7 +2725,7 @@ spec:
                                   description: This parameter controls the speed of
                                     traffic increase over the warmup duration.
                                   format: double
-                                  minimum: 1
+                                  minimum: 0
                                   nullable: true
                                   type: number
                                 duration:
@@ -3108,7 +3108,7 @@ spec:
                                         description: This parameter controls the speed
                                           of traffic increase over the warmup duration.
                                         format: double
-                                        minimum: 1
+                                        minimum: 0
                                         nullable: true
                                         type: number
                                       duration:
@@ -3657,7 +3657,7 @@ spec:
                             description: This parameter controls the speed of traffic
                               increase over the warmup duration.
                             format: double
-                            minimum: 1
+                            minimum: 0
                             nullable: true
                             type: number
                           duration:
@@ -4031,7 +4031,7 @@ spec:
                                   description: This parameter controls the speed of
                                     traffic increase over the warmup duration.
                                   format: double
-                                  minimum: 1
+                                  minimum: 0
                                   nullable: true
                                   type: number
                                 duration:
@@ -4726,7 +4726,7 @@ spec:
                                   description: This parameter controls the speed of
                                     traffic increase over the warmup duration.
                                   format: double
-                                  minimum: 1
+                                  minimum: 0
                                   nullable: true
                                   type: number
                                 duration:
@@ -5109,7 +5109,7 @@ spec:
                                         description: This parameter controls the speed
                                           of traffic increase over the warmup duration.
                                         format: double
-                                        minimum: 1
+                                        minimum: 0
                                         nullable: true
                                         type: number
                                       duration:
@@ -5658,7 +5658,7 @@ spec:
                             description: This parameter controls the speed of traffic
                               increase over the warmup duration.
                             format: double
-                            minimum: 1
+                            minimum: 0
                             nullable: true
                             type: number
                           duration:
@@ -6032,7 +6032,7 @@ spec:
                                   description: This parameter controls the speed of
                                     traffic increase over the warmup duration.
                                   format: double
-                                  minimum: 1
+                                  minimum: 0
                                   nullable: true
                                   type: number
                                 duration:
@@ -6626,7 +6626,6 @@ spec:
                               type: object
                           type: object
                         waypoint:
-                          description: Match on waypoint attributes.
                           properties:
                             filter:
                               description: The name of a specific filter to apply
@@ -10704,7 +10703,7 @@ spec:
                           properties:
                             bytes:
                               description: response body as base64 encoded bytes.
-                              format: binary
+                              format: byte
                               type: string
                             string:
                               type: string
@@ -11756,7 +11755,7 @@ spec:
                           properties:
                             bytes:
                               description: response body as base64 encoded bytes.
-                              format: binary
+                              format: byte
                               type: string
                             string:
                               type: string
@@ -12808,7 +12807,7 @@ spec:
                           properties:
                             bytes:
                               description: response body as base64 encoded bytes.
-                              format: binary
+                              format: byte
                               type: string
                             string:
                               type: string
@@ -17178,12 +17177,16 @@ spec:
                               - environment
                             - required:
                               - header
+                            - required:
+                              - formatter
                         - required:
                           - literal
                         - required:
                           - environment
                         - required:
                           - header
+                        - required:
+                          - formatter
                         properties:
                           environment:
                             description: Environment adds the value of an environment
@@ -17199,6 +17202,18 @@ spec:
                                 type: string
                             required:
                             - name
+                            type: object
+                          formatter:
+                            description: Formatter adds the value of access logging
+                              substitution formatter.
+                            properties:
+                              value:
+                                description: The formatter tag value to use, same
+                                  formatter as HTTP access logging (e.g.
+                                minLength: 1
+                                type: string
+                            required:
+                            - value
                             type: object
                           header:
                             description: RequestHeader adds the value of an header
@@ -17229,6 +17244,12 @@ spec:
                         type: object
                       description: Optional.
                       type: object
+                    disableContextPropagation:
+                      description: Controls whether trace context headers (e.g., `traceparent`/`tracestate`
+                        for W3C, `X-B3-*` for Zipkin) are propagated in forwarded
+                        requests.
+                      nullable: true
+                      type: boolean
                     disableSpanReporting:
                       description: Controls span reporting.
                       nullable: true
@@ -17626,12 +17647,16 @@ spec:
                               - environment
                             - required:
                               - header
+                            - required:
+                              - formatter
                         - required:
                           - literal
                         - required:
                           - environment
                         - required:
                           - header
+                        - required:
+                          - formatter
                         properties:
                           environment:
                             description: Environment adds the value of an environment
@@ -17647,6 +17672,18 @@ spec:
                                 type: string
                             required:
                             - name
+                            type: object
+                          formatter:
+                            description: Formatter adds the value of access logging
+                              substitution formatter.
+                            properties:
+                              value:
+                                description: The formatter tag value to use, same
+                                  formatter as HTTP access logging (e.g.
+                                minLength: 1
+                                type: string
+                            required:
+                            - value
                             type: object
                           header:
                             description: RequestHeader adds the value of an header
@@ -17677,6 +17714,12 @@ spec:
                         type: object
                       description: Optional.
                       type: object
+                    disableContextPropagation:
+                      description: Controls whether trace context headers (e.g., `traceparent`/`tracestate`
+                        for W3C, `X-B3-*` for Zipkin) are propagated in forwarded
+                        requests.
+                      nullable: true
+                      type: boolean
                     disableSpanReporting:
                       description: Controls span reporting.
                       nullable: true

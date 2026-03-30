@@ -64,6 +64,15 @@ func buildCollectionOptions(opts ...CollectionOption) collectionOptions {
 		o(c)
 	}
 	if c.stop == nil {
+		// TODO: https://github.com/istio/istio/issues/58791
+		// if EnableAssertions {
+		// 	panic("collection " + c.name + " created with no stop channel provided; will likely cause goroutine leaks")
+		// }
+		if len(opts) > 0 {
+			log.Debugf("collection %s did not have a stop channel in opts, creating a default which may cause goroutines to leak", c.name)
+		} else {
+			log.Debugf("collection was created with no opts, creating a default stop channel which may cause goroutines to leak")
+		}
 		c.stop = make(chan struct{})
 	}
 	return *c

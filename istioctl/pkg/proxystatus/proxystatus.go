@@ -121,6 +121,12 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
   # Show the status of a specific proxy in JSON format
   istioctl proxy-status --output json`,
 		Aliases: []string{"ps"},
+		Args: func(cmd *cobra.Command, args []string) error {
+			if err := util.ValidatePort(proxyAdminPort); err != nil {
+				return err
+			}
+			return nil
+		},
 		RunE: func(c *cobra.Command, args []string) error {
 			kubeClient, err := ctx.CLIClientWithRevision(ctx.RevisionOrDefault(opts.Revision))
 			if err != nil {
@@ -188,7 +194,7 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 	statusCmd.PersistentFlags().IntVar(&proxyAdminPort, "proxy-admin-port", util.DefaultProxyAdminPort, "Envoy proxy admin port")
 
 	statusCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", "table",
-		"Output format: table or json")
+		"Output format: one of json|yaml|table")
 	statusCmd.PersistentFlags().IntVarP(&verbosity, "verbosity", "v", 0,
 		"Verbosity level for proxy status output. 0=default, 1=show all xDS types (max verbosity)")
 

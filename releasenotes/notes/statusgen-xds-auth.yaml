@@ -1,0 +1,21 @@
+apiVersion: release-notes/v2
+
+kind: security-fix
+
+area: security
+
+# no public issue for security vulnerability
+issue: []
+
+releaseNotes:
+- |
+  **Fixed** XDS debug endpoints (syncz, config_dump) to require authentication.
+  Previously accessible without authentication on plaintext XDS port 15010.
+  Controlled by ENABLE_DEBUG_ENDPOINT_AUTH (same flag as HTTP debug endpoints).
+
+upgradeNotes:
+- title: XDS debug endpoints now require authentication
+  content: |
+    XDS debug endpoints (syncz, config_dump) on port 15010 now require authentication.
+    This affects istioctl commands using --plaintext flag and custom tooling using plaintext XDS.
+    To restore previous behavior, set ENABLE_DEBUG_ENDPOINT_AUTH=false.

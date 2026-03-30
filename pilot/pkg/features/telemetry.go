@@ -71,5 +71,5 @@ var (
 		"If enabled, publishes metrics for queue depth, latency and processing times.").Get()
 
 	SpawnUpstreamSpanForGateway = env.Register("PILOT_SPAWN_UPSTREAM_SPAN_FOR_GATEWAY", true,
-		"If true, separate tracing span for each upstream request for gateway.").Get()
+		"If true, separate tracing span for each upstream request for gateway. This is only available when using Telemetry API.").Get()
 )

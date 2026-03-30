@@ -2,7 +2,7 @@
 # For instance, instead of `--set _internal_defaults_do_not_set.foo=bar``, just set `--set foo=bar`.
 _internal_defaults_do_not_set:
   # Hub to pull from. Image will be `Hub/Image:Tag-Variant`
-  hub: gcr.io/istio-testing
+  hub: registry.istio.io/testing
   # Tag to pull from. Image will be `Hub/Image:Tag-Variant`
   tag: latest
   # Variant to pull. Options are "debug" or "distroless". Unset will use the default for the given version.
@@ -65,6 +65,11 @@ _internal_defaults_do_not_set:
   resourceQuotas:
     enabled: false
     pods: 5000
+
+  # Certificate Revocation List (CRL) support for plugged-in CAs.
+  # When enabled, ztunnel will check certificates against the CRL
+  peerCaCrl:
+    enabled: false
 
   # List of secret names to add to the service account as image pull secrets
   imagePullSecrets: []
@@ -139,3 +144,11 @@ _internal_defaults_do_not_set:
     rollingUpdate:
       maxSurge: 1
       maxUnavailable: 0
+
+  # DNS policy for the ztunnel pod
+  # https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy
+  dnsPolicy: ""
+
+  # DNS config for the ztunnel pod
+  # https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-dns-config
+  dnsConfig: {}

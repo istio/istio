@@ -74,9 +74,9 @@ func getGvk(obj any) (config.GroupVersionKind, bool) {
 		return gvk.Gateway, true
 	case *apiistioioapinetworkingv1.Gateway:
 		return gvk.Gateway, true
-	case *sigsk8siogatewayapiapisv1beta1.GatewayClass:
+	case *sigsk8siogatewayapiapisv1.GatewayClass:
 		return gvk.GatewayClass, true
-	case *sigsk8siogatewayapiapisv1beta1.HTTPRoute:
+	case *sigsk8siogatewayapiapisv1.HTTPRoute:
 		return gvk.HTTPRoute, true
 	case *k8sioapiautoscalingv2.HorizontalPodAutoscaler:
 		return gvk.HorizontalPodAutoscaler, true
@@ -86,10 +86,12 @@ func getGvk(obj any) (config.GroupVersionKind, bool) {
 		return gvk.Ingress, true
 	case *k8sioapinetworkingv1.IngressClass:
 		return gvk.IngressClass, true
-	case *sigsk8siogatewayapiapisv1beta1.Gateway:
+	case *sigsk8siogatewayapiapisv1.Gateway:
 		return gvk.KubernetesGateway, true
 	case *k8sioapicoordinationv1.Lease:
 		return gvk.Lease, true
+	case *sigsk8siogatewayapiapisv1.ListenerSet:
+		return gvk.ListenerSet, true
 	case *istioioapimeshv1alpha1.MeshConfig:
 		return gvk.MeshConfig, true
 	case *istioioapimeshv1alpha1.MeshNetworks:
@@ -136,7 +138,7 @@ func getGvk(obj any) (config.GroupVersionKind, bool) {
 		return gvk.StatefulSet, true
 	case *sigsk8siogatewayapiapisv1alpha2.TCPRoute:
 		return gvk.TCPRoute, true
-	case *sigsk8siogatewayapiapisv1alpha2.TLSRoute:
+	case *sigsk8siogatewayapiapisv1.TLSRoute:
 		return gvk.TLSRoute, true
 	case *istioioapitelemetryv1alpha1.Telemetry:
 		return gvk.Telemetry, true
@@ -164,8 +166,6 @@ func getGvk(obj any) (config.GroupVersionKind, bool) {
 		return gvk.WorkloadGroup, true
 	case *sigsk8siogatewayapiapisxv1alpha1.XBackendTrafficPolicy:
 		return gvk.XBackendTrafficPolicy, true
-	case *sigsk8siogatewayapiapisxv1alpha1.XListenerSet:
-		return gvk.XListenerSet, true
 	default:
 		return config.GroupVersionKind{}, false
 	}

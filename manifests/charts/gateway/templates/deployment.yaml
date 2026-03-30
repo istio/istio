@@ -84,10 +84,6 @@ spec:
             allowPrivilegeEscalation: false
             privileged: false
             readOnlyRootFilesystem: true
-            {{- if not (eq (.Values.platform | default "") "openshift") }}
-            runAsUser: 1337
-            runAsGroup: 1337
-            {{- end }}
             runAsNonRoot: true
           {{- end }}
           env:
@@ -107,7 +103,7 @@ spec:
             protocol: TCP
             name: http-envoy-prom
           resources:
-            {{- toYaml .Values.resources | nindent 12 }}
+            {{- include "gateway.resources" .Values.resources | trim | nindent 12 }}
           {{- with .Values.volumeMounts }}
           volumeMounts:
             {{- toYaml . | nindent 12 }}

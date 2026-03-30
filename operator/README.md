@@ -85,19 +85,6 @@ istioctl manifest generate
 
 You can see these sources for the compiled-in profiles and charts in the repo under `manifests/`. These profiles and charts are also included in the Istio release tar.
 
-#### Output to dirs
-
-The output of the manifest is concatenated into a single file. To generate a directory hierarchy with subdirectory
-levels representing a child dependency, use the following command:
-
-```bash
-istioctl manifest generate -o istio_manifests
-```
-
-Use depth first search to traverse the created directory hierarchy when applying your YAML files. This is needed for
-correct sequencing of dependencies. Child manifest directories must wait for their parent directory to be fully applied,
-but not their sibling manifest directories.
-
 #### Just apply it for me
 
 The following command generates the manifests and applies them in the correct dependency order, waiting for the

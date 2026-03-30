@@ -104,8 +104,6 @@ type virtualServiceIndex struct {
 	privateByNamespaceAndGateway map[types.NamespacedName][]config.Config
 	// This contains all virtual services whose exportTo is "*", keyed by gateway
 	publicByGateway map[string][]config.Config
-	// root vs namespace/name ->delegate vs virtualservice gvk/namespace/name
-	delegates map[ConfigKey][]ConfigKey
 
 	// This contains destination hosts of virtual services, keyed by gateway's namespace/name,
 	// only used when PILOT_FILTER_GATEWAY_CLUSTER_CONFIG is enabled
@@ -120,7 +118,6 @@ func newVirtualServiceIndex() virtualServiceIndex {
 		publicByGateway:              map[string][]config.Config{},
 		privateByNamespaceAndGateway: map[types.NamespacedName][]config.Config{},
 		exportedToNamespaceByGateway: map[types.NamespacedName][]config.Config{},
-		delegates:                    map[ConfigKey][]ConfigKey{},
 		referencedDestinations:       map[string]sets.String{},
 	}
 	if features.FilterGatewayClusterConfig {
@@ -267,6 +264,9 @@ type PushContext struct {
 
 	// GatewayAPIController holds a reference to the gateway API controller.
 	GatewayAPIController GatewayController
+
+	// AgentgatewayController holds a reference to the agent gateway controller when enabled.
+	AgentgatewayController AgentgatewayController
 
 	// cache gateways addresses for each network
 	// this is mainly used for kubernetes multi-cluster scenario
@@ -1104,41 +1104,37 @@ func (ps *PushContext) IsServiceVisible(service *Service, namespace string) bool
 // listener, we don't call this function to copy configs for performance issues.
 // Instead, we pass the virtualServiceIndex directly into SelectVirtualServices
 // function.
-func (ps *PushContext) VirtualServicesForGateway(proxyNamespace, gateway string) []config.Config {
+func (ps *PushContext) VirtualServicesForGateway(proxyNamespace, gateway string) []*config.Config {
 	name := types.NamespacedName{
 		Namespace: proxyNamespace,
 		Name:      gateway,
 	}
-	res := make([]config.Config, 0, len(ps.virtualServiceIndex.privateByNamespaceAndGateway[name])+
+	res := make([]*config.Config, 0, len(ps.virtualServiceIndex.privateByNamespaceAndGateway[name])+
 		len(ps.virtualServiceIndex.exportedToNamespaceByGateway[name])+
 		len(ps.virtualServiceIndex.publicByGateway[gateway]))
-	res = append(res, ps.virtualServiceIndex.privateByNamespaceAndGateway[name]...)
-	res = append(res, ps.virtualServiceIndex.exportedToNamespaceByGateway[name]...)
+	// Use index-based iteration to get stable pointers to slice elements
+	for i := range ps.virtualServiceIndex.privateByNamespaceAndGateway[name] {
+		res = append(res, &ps.virtualServiceIndex.privateByNamespaceAndGateway[name][i])
+	}
+	for i := range ps.virtualServiceIndex.exportedToNamespaceByGateway[name] {
+		res = append(res, &ps.virtualServiceIndex.exportedToNamespaceByGateway[name][i])
+	}
 	// Favor same-namespace Gateway routes, to give the "consumer override" preference.
 	// We do 2 iterations here to avoid extra allocations.
-	for _, vs := range ps.virtualServiceIndex.publicByGateway[gateway] {
-		if UseGatewaySemantics(vs) && vs.Namespace == proxyNamespace {
+	for i := range ps.virtualServiceIndex.publicByGateway[gateway] {
+		vs := &ps.virtualServiceIndex.publicByGateway[gateway][i]
+		if UseGatewaySemantics(*vs) && vs.Namespace == proxyNamespace {
 			res = append(res, vs)
 		}
 	}
-	for _, vs := range ps.virtualServiceIndex.publicByGateway[gateway] {
-		if !(UseGatewaySemantics(vs) && vs.Namespace == proxyNamespace) {
+	for i := range ps.virtualServiceIndex.publicByGateway[gateway] {
+		vs := &ps.virtualServiceIndex.publicByGateway[gateway][i]
+		if !(UseGatewaySemantics(*vs) && vs.Namespace == proxyNamespace) {
 			res = append(res, vs)
 		}
 	}
 
 	return res
-}
-
-// DelegateVirtualServices lists all the delegate virtual services configkeys associated with the provided virtual services
-func (ps *PushContext) DelegateVirtualServices(vses []config.Config) []ConfigHash {
-	var out []ConfigHash
-	for _, vs := range vses {
-		for _, delegate := range ps.virtualServiceIndex.delegates[ConfigKey{Kind: kind.VirtualService, Namespace: vs.Namespace, Name: vs.Name}] {
-			out = append(out, delegate.HashCode())
-		}
-	}
-	return out
 }
 
 // getSidecarScope returns a SidecarScope object associated with the
@@ -1443,6 +1439,9 @@ func (ps *PushContext) updateContext(
 		ps.initKubernetesGateways(env)
 	} else {
 		ps.GatewayAPIController = oldPushContext.GatewayAPIController
+		if features.EnableAgentgateway {
+			ps.AgentgatewayController = oldPushContext.AgentgatewayController
+		}
 	}
 
 	if virtualServicesChanged {
@@ -1508,7 +1507,7 @@ func (ps *PushContext) updateContext(
 
 	// Must be initialized in the end
 	// Sidecars need to be updated if services, virtual services, destination rules, or the sidecar configs change
-	if servicesChanged || virtualServicesChanged || destinationRulesChanged || sidecarsChanged {
+	if servicesChanged || virtualServicesChanged || destinationRulesChanged || authnChanged || sidecarsChanged {
 		ps.initSidecarScopes(env)
 	} else {
 		// new ADS connection may insert new entry to computedSidecarsByNamespace/gatewayDefaultSidecarsByNamespace.
@@ -1689,9 +1688,9 @@ func resolveServiceAliases(allServices []*Service, configsUpdated sets.Set[Confi
 	for i, s := range allServices {
 		if aliases, f := aliasesForService[s.Hostname]; f {
 			// This service has an alias; set it. We need to make a copy since the underlying Service is shared
-			s = s.DeepCopy()
-			s.Attributes.Aliases = aliases
-			allServices[i] = s
+			ss := s.ShallowCopy()
+			ss.Attributes.Aliases = aliases
+			allServices[i] = ss
 		}
 	}
 }
@@ -1758,18 +1757,9 @@ func (ps *PushContext) initVirtualServices(env *Environment) {
 		ps.virtualServiceIndex.destinationsByGateway = make(map[string]sets.String)
 	}
 
-	virtualServices := env.List(gvk.VirtualService, NamespaceAll)
+	vservices := env.VirtualServiceController.MergedVirtualServices()
 
-	vservices := make([]config.Config, len(virtualServices))
-
-	totalVirtualServices.Record(float64(len(virtualServices)))
-
-	// convert all shortnames in virtual services into FQDNs
-	for i, r := range virtualServices {
-		vservices[i] = resolveVirtualServiceShortnames(r)
-	}
-
-	vservices, ps.virtualServiceIndex.delegates = mergeVirtualServicesIfNeeded(vservices, ps.exportToDefaults.virtualService)
+	totalVirtualServices.Record(float64(len(vservices)))
 
 	for _, virtualService := range vservices {
 		ns := virtualService.Namespace
@@ -2513,7 +2503,10 @@ func (ps *PushContext) AllInstancesSupportHBONE(service *Service, port *Port) bo
 // to compute the correct service mTLS mode without knowing service to workload binding. For now, this
 // function uses only mesh and namespace level PeerAuthentication and ignore workload & port level policies.
 // This function is used to give a hint for auto-mTLS configuration on client side.
-func (ps *PushContext) BestEffortInferServiceMTLSMode(tp *networking.TrafficPolicy, service *Service, port *Port) MutualTLSMode {
+func (ps *PushContext) BestEffortInferServiceMTLSMode(
+	authnPolicies PeerAuthnPolicies, tp *networking.TrafficPolicy,
+	service *Service, port *Port,
+) MutualTLSMode {
 	if service.MeshExternal {
 		// Only need the authentication mTLS mode when service is not external.
 		return MTLSUnknown
@@ -2538,7 +2531,7 @@ func (ps *PushContext) BestEffortInferServiceMTLSMode(tp *networking.TrafficPoli
 
 	// 2. check mTLS settings from beta policy (i.e PeerAuthentication) at namespace / mesh level.
 	// If the mode is not unknown, use it.
-	if serviceMTLSMode := ps.AuthnPolicies.GetNamespaceMutualTLSMode(service.Attributes.Namespace); serviceMTLSMode != MTLSUnknown {
+	if serviceMTLSMode := authnPolicies.GetNamespaceMutualTLSMode(service.Attributes.Namespace); serviceMTLSMode != MTLSUnknown {
 		return serviceMTLSMode
 	}
 
@@ -2549,6 +2542,25 @@ func (ps *PushContext) BestEffortInferServiceMTLSMode(tp *networking.TrafficPoli
 // ServiceEndpointsByPort returns the cached instances by port if it exists.
 func (ps *PushContext) ServiceEndpointsByPort(svc *Service, port int, labels labels.Instance) []*IstioEndpoint {
 	var out []*IstioEndpoint
+
+	// For InferencePool services, return ALL endpoints regardless of port
+	// because they may have different target ports but belong to the same cluster
+	if svc.UseInferenceSemantics() {
+		allPorts := ps.ServiceIndex.instancesByPort[svc.Key()]
+		for _, instances := range allPorts {
+			if len(labels) == 0 {
+				out = append(out, instances...)
+				continue
+			}
+			for _, instance := range instances {
+				if labels.SubsetOf(instance.Labels) {
+					out = append(out, instance)
+				}
+			}
+		}
+		return out
+	}
+
 	if instances, exists := ps.ServiceIndex.instancesByPort[svc.Key()][port]; exists {
 		// Use cached version of instances by port when labels are empty.
 		if len(labels) == 0 {
@@ -2581,8 +2593,14 @@ func (ps *PushContext) initKubernetesGateways(env *Environment) {
 		ps.GatewayAPIController = env.GatewayAPIController
 		env.GatewayAPIController.Reconcile(ps)
 	}
+
+	if env.AgentgatewayController != nil && features.EnableAgentgateway {
+		ps.AgentgatewayController = env.AgentgatewayController
+		env.AgentgatewayController.Reconcile(ps)
+	}
 }
 
+// TODO(jaellio): support for agentgatewaycontroller (?)
 // SecretAllowed determines if a given resource (of type `Secret` and name `resourceName`) can be
 // accessed by `namespace`, based of specific reference policies.
 // Note: this function only determines if a reference is *explicitly* allowed; the reference may not require

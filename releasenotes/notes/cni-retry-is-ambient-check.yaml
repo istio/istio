@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+issues: []
+releaseNotes:
+- |
+  **Added** a retry mechanism when checking if a pod is ambient enabled in istio-cni.
+  This is to address potential transient failures resulting in potential mesh bypassing. This feature
+  is disabled by default and can be enabled by setting `ambient.enableAmbientDetectionRetry` in the
+  `istio-cni` chart.

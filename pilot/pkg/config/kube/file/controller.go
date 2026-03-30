@@ -108,6 +108,14 @@ func (c *Controller) Schemas() collection.Schemas {
 	return c.schemas
 }
 
+func (c *Controller) KrtCollection(gvk config.GroupVersionKind) krt.Collection[config.Config] {
+	if data, ok := c.data[gvk]; ok {
+		return data.collection
+	}
+
+	return nil
+}
+
 func (c *Controller) Get(typ config.GroupVersionKind, name, namespace string) *config.Config {
 	if data, ok := c.data[typ]; ok {
 		if namespace == "" {

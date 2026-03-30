@@ -203,6 +203,7 @@ type TracingSpec struct {
 	CustomTags                   map[string]*tpb.Tracing_CustomTag
 	UseRequestIDForTraceSampling bool
 	EnableIstioTags              bool
+	DisableContextPropagation    bool
 }
 
 type LoggingConfig struct {
@@ -269,7 +270,7 @@ func (t *Telemetries) AccessLogging(push *PushContext, proxy *Proxy, class netwo
 			Disabled: v.Disabled,
 		}
 
-		al := telemetryAccessLog(push, proxy, fp)
+		al := telemetryAccessLog(push, fp)
 		if al == nil {
 			// stackdriver will be handled in HTTPFilters/TCPFilters
 			continue
@@ -361,6 +362,11 @@ func (t *Telemetries) Tracing(proxy *Proxy, svc *Service) *TracingConfig {
 		if m.EnableIstioTags != nil {
 			for _, spec := range specs {
 				spec.EnableIstioTags = m.EnableIstioTags.Value
+			}
+		}
+		if m.DisableContextPropagation != nil {
+			for _, spec := range specs {
+				spec.DisableContextPropagation = m.DisableContextPropagation.GetValue()
 			}
 		}
 	}

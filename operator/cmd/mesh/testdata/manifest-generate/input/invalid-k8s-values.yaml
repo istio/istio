@@ -1,0 +1,9 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  name: istio-operator
+spec:
+  values:
+    global:
+      defaultTolerations:
+        - thats: not-a-real-field

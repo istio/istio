@@ -256,8 +256,8 @@ func (c *ingressImpl) callEcho(opts echo.CallOptions) (echo.CallResult, error) {
 	} else {
 		addrs, ports = c.AddressesForPort(opts.Port.ServicePort)
 	}
-	if addrs == nil || ports == nil {
-		scopes.Framework.Warnf("failed to get host and port for %s/%d", opts.Port.Protocol, opts.Port.ServicePort)
+	if len(addrs) == 0 || len(ports) == 0 {
+		return echo.CallResult{}, fmt.Errorf("ingress: failed to get host and port for %s/%d", opts.Port.Protocol, opts.Port.ServicePort)
 	}
 	addr = addrs[0]
 	port = ports[0]

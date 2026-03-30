@@ -30,7 +30,7 @@ import (
 	"istio.io/istio/security/pkg/server/ca/authenticate/kubeauth"
 )
 
-// MulticlusterNodeAuthorizor is is responsible for maintaining an index of ClusterNodeAuthenticators,
+// MulticlusterNodeAuthorizor is responsible for maintaining an index of ClusterNodeAuthenticators,
 // one per cluster (https://docs.google.com/document/d/10uf4EvUVif4xGeCYQydaKh9Yaz9wpysao7gyLewJY2Q).
 // Node authorizations from one cluster will be forwarded to the ClusterNodeAuthenticators for the same cluster.
 type MulticlusterNodeAuthorizor struct {
@@ -75,6 +75,7 @@ func NewClusterNodeAuthorizer(client kube.Client, trustedNodeAccounts sets.Set[t
 	pods := kclient.NewFiltered[*v1.Pod](client, kclient.Filter{
 		ObjectFilter:    client.ObjectFilter(),
 		ObjectTransform: kube.StripPodUnusedFields,
+		FieldSelector:   "status.phase!=Failed",
 	})
 	// Add an Index on the pods, storing the service account and node. This allows us to later efficiently query.
 	index := kclient.CreateIndex[SaNode, *v1.Pod](pods, "saNode", func(pod *v1.Pod) []SaNode {

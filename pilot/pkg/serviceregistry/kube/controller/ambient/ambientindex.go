@@ -19,11 +19,9 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
-	discovery "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/rest"
-	"sigs.k8s.io/gateway-api/apis/v1beta1"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"istio.io/api/label"
 	"istio.io/api/meta/v1alpha1"
@@ -31,7 +29,6 @@ import (
 	securityclient "istio.io/client-go/pkg/apis/security/v1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/ambient/multicluster"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/ambient/statusqueue"
 	"istio.io/istio/pkg/activenotifier"
 	"istio.io/istio/pkg/cluster"
@@ -45,6 +42,7 @@ import (
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/kube/kubetypes"
+	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/network"
@@ -95,13 +93,22 @@ type servicesCollection struct {
 	ByOwningWaypointIP       krt.Index[networkAddress, model.ServiceInfo]
 }
 
+type Builder struct {
+	DomainSuffix      string
+	ClusterID         cluster.ID
+	NetworkGateways   krt.Collection[NetworkGateway]
+	GatewaysByNetwork krt.Index[network.ID, NetworkGateway]
+	Flags             FeatureFlags
+	Network           func(ctx krt.HandlerContext) network.ID
+}
+
 // index maintains an index of ambient WorkloadInfo objects by various keys.
 // These are intentionally pre-computed based on events such that lookups are efficient.
 type index struct {
 	services  servicesCollection
 	workloads workloadsCollection
 	waypoints waypointsCollection
-	networks  networkCollections
+	networks  NetworkCollections
 
 	namespaces krt.Collection[model.NamespaceInfo]
 
@@ -117,156 +124,110 @@ type index struct {
 	revision        string
 	Debugger        *krt.DebugHandler
 
-	stop chan struct{}
+	mcController *multicluster.Controller
+	meshConfig   meshwatcher.WatcherCollection
+	stop         chan struct{}
 
-	cs                          *multicluster.ClusterStore
-	clientBuilder               multicluster.ClientBuilder
-	secrets                     krt.Collection[*corev1.Secret]
-	remoteClusters              krt.Collection[*multicluster.Cluster]
-	meshConfig                  meshwatcher.WatcherCollection
-	remoteClientConfigOverrides []func(*rest.Config)
+	builder Builder
 }
 
 type FeatureFlags struct {
 	DefaultAllowFromWaypoint              bool
 	EnableK8SServiceSelectWorkloadEntries bool
+	EnableMtlsTransportProtocol           bool
 }
 
 type Options struct {
-	Client kubeclient.Client
-
 	Revision        string
 	SystemNamespace string
 	DomainSuffix    string
 	ClusterID       cluster.ID
-	IsConfigCluster bool
 	XDSUpdater      model.XDSUpdater
 	StatusNotifier  *activenotifier.ActiveNotifier
 	Flags           FeatureFlags
 
 	MeshConfig meshwatcher.WatcherCollection
 
-	Debugger                    *krt.DebugHandler
-	ClientBuilder               multicluster.ClientBuilder
-	RemoteClientConfigOverrides []func(*rest.Config)
+	Debugger               *krt.DebugHandler
+	MultiClusterController *multicluster.Controller
 }
 
 func New(options Options) Index {
 	a := &index{
-		SystemNamespace:             options.SystemNamespace,
-		DomainSuffix:                options.DomainSuffix,
-		ClusterID:                   options.ClusterID,
-		XDSUpdater:                  options.XDSUpdater,
-		Debugger:                    options.Debugger,
-		Flags:                       options.Flags,
-		revision:                    options.Revision,
-		clientBuilder:               options.ClientBuilder,
-		stop:                        make(chan struct{}),
-		cs:                          multicluster.NewClustersStore(),
-		remoteClientConfigOverrides: options.RemoteClientConfigOverrides,
+		SystemNamespace: options.SystemNamespace,
+		DomainSuffix:    options.DomainSuffix,
+		ClusterID:       options.ClusterID,
+		XDSUpdater:      options.XDSUpdater,
+		Debugger:        options.Debugger,
+		Flags:           options.Flags,
+		revision:        options.Revision,
+		mcController:    options.MultiClusterController,
+		meshConfig:      options.MeshConfig,
+		stop:            make(chan struct{}),
 	}
+
+	LocalCluster := a.mcController.ConfigCluster()
+
+	// Get shared collections from the multicluster controller's config cluster.
+	// TODO: Should this go ahead and transform the full ns into some intermediary with just the details we care about?
+	Namespaces := LocalCluster.Namespaces()
+	Pods := LocalCluster.Pods()
+	Services := LocalCluster.Services()
+	EndpointSlices := LocalCluster.EndpointSlices()
+	Nodes := LocalCluster.Nodes()
+	Gateways := LocalCluster.Gateways()
+
+	client := LocalCluster.Client
 	filter := kclient.Filter{
-		ObjectFilter: options.Client.ObjectFilter(),
+		ObjectFilter: client.ObjectFilter(),
 	}
 	configFilter := kclient.Filter{
-		ObjectFilter: kubetypes.ComposeFilters(options.Client.ObjectFilter(), a.inRevision),
+		ObjectFilter: kubetypes.ComposeFilters(client.ObjectFilter(), a.inRevision),
 	}
 	opts := krt.NewOptionsBuilder(a.stop, "ambient", options.Debugger)
 
-	a.meshConfig = options.MeshConfig
-	// First, we're going to build the collections necessary for multicluster ambient in case that feature flag is turned on.
-	// All of these collections need cluster ID metadata stored in krt for merging purposes.
-
-	// TODO: Should this go ahead and transform the full ns into some intermediary with just the details we care about?
-	Namespaces := krt.NewInformer[*corev1.Namespace](options.Client, opts.With(
-		krt.WithName("informer/Namespaces"),
-		krt.WithMetadata(krt.Metadata{
-			multicluster.ClusterKRTMetadataKey: options.ClusterID,
-		}),
-	)...)
-	authzPolicies := kclient.NewDelayedInformer[*securityclient.AuthorizationPolicy](options.Client,
+	// Config-only collections: these are only needed on the config cluster
+	authzPolicies := kclient.NewDelayedInformer[*securityclient.AuthorizationPolicy](client,
 		gvr.AuthorizationPolicy, kubetypes.StandardInformer, configFilter)
+	// Start with a.stop to ensure the informer respects the index's stop channel
+	authzPolicies.Start(a.stop)
 	AuthzPolicies := krt.WrapClient[*securityclient.AuthorizationPolicy](authzPolicies, opts.WithName("informer/AuthorizationPolicies")...)
 
-	peerAuths := kclient.NewDelayedInformer[*securityclient.PeerAuthentication](options.Client,
+	peerAuths := kclient.NewDelayedInformer[*securityclient.PeerAuthentication](client,
 		gvr.PeerAuthentication, kubetypes.StandardInformer, configFilter)
+	// Start with a.stop to ensure the informer respects the index's stop channel
+	peerAuths.Start(a.stop)
 	PeerAuths := krt.WrapClient[*securityclient.PeerAuthentication](peerAuths, opts.WithName("informer/PeerAuthentications")...)
 
-	gatewayClient := kclient.NewDelayedInformer[*v1beta1.Gateway](options.Client, gvr.KubernetesGateway, kubetypes.StandardInformer, filter)
-	Gateways := krt.WrapClient[*v1beta1.Gateway](gatewayClient, opts.With(
-		krt.WithName("informer/Gateways"),
-		krt.WithMetadata(krt.Metadata{
-			multicluster.ClusterKRTMetadataKey: options.ClusterID,
-		}),
-	)...)
+	gatewayClassClient := kclient.NewDelayedInformer[*gatewayv1.GatewayClass](client, gvr.GatewayClass, kubetypes.StandardInformer, filter)
+	// Start with a.stop to ensure the informer respects the index's stop channel
+	gatewayClassClient.Start(a.stop)
+	GatewayClasses := krt.WrapClient[*gatewayv1.GatewayClass](gatewayClassClient, opts.WithName("informer/GatewayClasses")...)
 
-	gatewayClassClient := kclient.NewDelayedInformer[*v1beta1.GatewayClass](options.Client, gvr.GatewayClass, kubetypes.StandardInformer, filter)
-	GatewayClasses := krt.WrapClient[*v1beta1.GatewayClass](gatewayClassClient, opts.WithName("informer/GatewayClasses")...)
-	Pods := krt.NewInformerFiltered[*corev1.Pod](options.Client, kclient.Filter{
-		ObjectFilter:    options.Client.ObjectFilter(),
-		ObjectTransform: kubeclient.StripPodUnusedFields,
-	}, opts.With(
-		krt.WithName("informer/Pods"),
-		krt.WithMetadata(krt.Metadata{
-			multicluster.ClusterKRTMetadataKey: options.ClusterID,
-		}),
-	)...)
-
-	serviceEntries := kclient.NewDelayedInformer[*networkingclient.ServiceEntry](options.Client,
+	serviceEntries := kclient.NewDelayedInformer[*networkingclient.ServiceEntry](client,
 		gvr.ServiceEntry, kubetypes.StandardInformer, configFilter)
+	// Start with a.stop to ensure the informer respects the index's stop channel
+	serviceEntries.Start(a.stop)
 	ServiceEntries := krt.WrapClient[*networkingclient.ServiceEntry](serviceEntries, opts.WithName("informer/ServiceEntries")...)
 
-	workloadEntries := kclient.NewDelayedInformer[*networkingclient.WorkloadEntry](options.Client,
+	workloadEntries := kclient.NewDelayedInformer[*networkingclient.WorkloadEntry](client,
 		gvr.WorkloadEntry, kubetypes.StandardInformer, configFilter)
+	// Start with a.stop to ensure the informer respects the index's stop channel
+	workloadEntries.Start(a.stop)
 	WorkloadEntries := krt.WrapClient[*networkingclient.WorkloadEntry](workloadEntries, opts.WithName("informer/WorkloadEntries")...)
 
-	servicesClient := kclient.NewFiltered[*corev1.Service](options.Client, filter)
-	Services := krt.WrapClient[*corev1.Service](servicesClient, opts.With(
-		krt.WithName("informer/Services"),
-		krt.WithMetadata(krt.Metadata{
-			multicluster.ClusterKRTMetadataKey: options.ClusterID,
-		}),
-	)...)
-	Nodes := krt.NewInformerFiltered[*corev1.Node](options.Client, kclient.Filter{
-		ObjectFilter:    options.Client.ObjectFilter(),
-		ObjectTransform: kubeclient.StripNodeUnusedFields,
-	}, opts.With(
-		krt.WithName("informer/Nodes"),
-		krt.WithMetadata(krt.Metadata{
-			multicluster.ClusterKRTMetadataKey: options.ClusterID,
-		}),
-	)...)
+	// Create servicesClient for status writing — it shares the underlying informer
+	servicesClient := kclient.NewFiltered[*corev1.Service](client, filter)
 
-	EndpointSlices := krt.NewInformerFiltered[*discovery.EndpointSlice](options.Client, kclient.Filter{
-		ObjectFilter: options.Client.ObjectFilter(),
-	}, opts.With(
-		krt.WithName("informer/EndpointSlices"),
-		krt.WithMetadata(krt.Metadata{
-			multicluster.ClusterKRTMetadataKey: options.ClusterID,
-		}),
-	)...)
-
+	a.builder = Builder{
+		DomainSuffix: a.DomainSuffix,
+		ClusterID:    a.ClusterID,
+		Flags:        a.Flags,
+		Network:      a.Network,
+	}
 	// In the multicluster use-case, we populate the collections with global, dynamically changing data.
 	// We only do this if this cluster is the config cluster
-	if features.EnableAmbientMultiNetwork && options.IsConfigCluster {
-		mcCollections := multicluster.NewRemoteClusterCollections(
-			Namespaces,
-			Pods,
-			Services,
-			EndpointSlices,
-			Nodes,
-			Gateways,
-		)
-		LocalCluster := multicluster.NewCluster(
-			options.ClusterID,
-			options.Client,
-			nil,
-			nil,
-			mcCollections,
-		)
-
-		// We can run this in a goroutine because all of the dependent collections will wait for the initial sync
-		go LocalCluster.Run(a.meshConfig, a.Debugger)
+	if features.EnableAmbientMultiNetwork {
 		a.buildGlobalCollections(
 			LocalCluster,
 			AuthzPolicies,
@@ -279,16 +240,17 @@ func New(options Options) Index {
 			authzPolicies,
 			options,
 			opts,
-			a.remoteClientConfigOverrides...,
 		)
 
 		return a
 	}
 
-	Networks := buildNetworkCollections(Namespaces, Gateways, options, opts)
+	Networks := BuildNetworkCollections(Namespaces, Gateways, options, opts)
 	a.networks = Networks
+	a.builder.NetworkGateways = a.networks.NetworkGateways
+	a.builder.GatewaysByNetwork = a.networks.GatewaysByNetwork
 	// N.B Waypoints depends on networks
-	Waypoints := a.WaypointsCollection(options.ClusterID, Gateways, GatewayClasses, Pods, opts)
+	Waypoints := a.builder.WaypointsCollection(options.ClusterID, Gateways, GatewayClasses, Pods, opts)
 
 	AuthorizationPolicies, AllPolicies := a.buildAndRegisterPolicyCollections(
 		AuthzPolicies,
@@ -297,12 +259,12 @@ func New(options Options) Index {
 		opts,
 	)
 	// these are workloadapi-style services combined from kube services and service entries
-	WorkloadServices := a.ServicesCollection(options.ClusterID, Services, ServiceEntries, Waypoints, Namespaces, a.meshConfig, opts, true)
+	WorkloadServices := a.builder.ServicesCollection(options.ClusterID, Services, ServiceEntries, Waypoints, Namespaces, a.meshConfig, opts, true)
 
 	if features.EnableAmbientStatus {
-		serviceEntriesWriter := kclient.NewWriteClient[*networkingclient.ServiceEntry](options.Client)
-		servicesWriter := kclient.NewWriteClient[*corev1.Service](options.Client)
-		authorizationPoliciesWriter := kclient.NewWriteClient[*securityclient.AuthorizationPolicy](options.Client)
+		serviceEntriesWriter := kclient.NewWriteClient[*networkingclient.ServiceEntry](client)
+		servicesWriter := kclient.NewWriteClient[*corev1.Service](client)
+		authorizationPoliciesWriter := kclient.NewWriteClient[*securityclient.AuthorizationPolicy](client)
 
 		WaypointPolicyStatus := WaypointPolicyStatusCollection(
 			AuthzPolicies,
@@ -401,7 +363,7 @@ func New(options Options) Index {
 	}, opts.WithName("NamespacesInfo")...)
 
 	NodeLocality := NodesCollection(Nodes, opts.WithName("NodeLocality")...)
-	Workloads := a.WorkloadsCollection(
+	Workloads := a.builder.WorkloadsCollection(
 		Pods,
 		NodeLocality,
 		a.meshConfig,
@@ -835,10 +797,9 @@ func (a *index) AdditionalPodSubscriptions(
 func LookupNetworkGateway(
 	ctx krt.HandlerContext,
 	id network.ID,
-	networkGateways krt.Collection[NetworkGateway],
 	gatewaysByNetwork krt.Index[network.ID, NetworkGateway],
 ) []NetworkGateway {
-	return krt.Fetch(ctx, networkGateways, krt.FilterIndex(gatewaysByNetwork, id))
+	return gatewaysByNetwork.Fetch(ctx, id)
 }
 
 func LookupAllNetworkGateway(
@@ -849,7 +810,7 @@ func LookupAllNetworkGateway(
 }
 
 func (a *index) LookupNetworkGateway(ctx krt.HandlerContext, id network.ID) []NetworkGateway {
-	return LookupNetworkGateway(ctx, id, a.networks.NetworkGateways, a.networks.GatewaysByNetwork)
+	return LookupNetworkGateway(ctx, id, a.networks.GatewaysByNetwork)
 }
 
 func (a *index) LookupAllNetworkGateway(ctx krt.HandlerContext) []NetworkGateway {

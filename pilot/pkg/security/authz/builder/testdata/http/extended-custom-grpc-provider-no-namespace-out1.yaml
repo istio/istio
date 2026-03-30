@@ -4,7 +4,7 @@ typedConfig:
   shadowRules:
     action: DENY
     policies:
-      istio-ext-authz-ns[foo]-policy[httpbin-1]-rule[0]:
+      istio-ext-authz-default-ns[foo]-policy[httpbin-1]-rule[0]:
         permissions:
         - andRules:
             rules:
@@ -17,7 +17,7 @@ typedConfig:
         - andIds:
             ids:
             - any: true
-      istio-ext-authz-ns[foo]-policy[httpbin-2]-rule[0]:
+      istio-ext-authz-default-ns[foo]-policy[httpbin-2]-rule[0]:
         permissions:
         - andRules:
             rules:

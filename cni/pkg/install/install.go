@@ -160,7 +160,12 @@ func (in *Installer) Cleanup() error {
 			if err != nil {
 				return fmt.Errorf("failed to marshal CNI config map in file %s: %w", in.cniConfigFilepath, err)
 			}
-			if err = file.AtomicWrite(in.cniConfigFilepath, cniConfig, os.FileMode(0o644)); err != nil {
+			// Preserve the existing file permissions when restoring the primary CNI config
+			fileMode := in.cfg.CNIConfFileMode()
+			if info, statErr := os.Stat(in.cniConfigFilepath); statErr == nil {
+				fileMode = info.Mode()
+			}
+			if err = file.AtomicWrite(in.cniConfigFilepath, cniConfig, fileMode); err != nil {
 				return fmt.Errorf("failed to write updated CNI config to file %s: %w", in.cniConfigFilepath, err)
 			}
 		} else {
@@ -304,7 +309,7 @@ func checkValidCNIConfig(ctx context.Context, cfg *config.InstallConfig, cniConf
 	// first call of checkValidCNIConfig and we will return an error so the cni config file can be
 	// created or rewritten
 	if defaultCNIConfigFilepath != cniConfigFilepath {
-		log.Infof("cniConfigFilePath mismatch: expected %s but found %s", defaultCNIConfigFilepath, cniConfigFilepath)
+		log.Debugf("cniConfigFilePath mismatch: expected %s but found %s", defaultCNIConfigFilepath, cniConfigFilepath)
 		if len(cfg.CNIConfName) > 0 || !cfg.ChainedCNIPlugin {
 			// Install was run with overridden CNI config file so don't error out on preempt check
 			// Likely the only use for this is testing the script

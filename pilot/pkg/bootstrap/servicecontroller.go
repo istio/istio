@@ -34,9 +34,12 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 	serviceControllers := s.ServiceController()
 
 	s.serviceEntryController = serviceentry.NewController(
-		s.configController, s.XDSServer,
+		s.configController,
+		s.XDSServer,
+		s.multiclusterController,
 		s.environment.Watcher,
 		serviceentry.WithClusterID(s.clusterID),
+		serviceentry.WithKRTDebugger(s.krtDebugger),
 	)
 	serviceControllers.AddRegistry(s.serviceEntryController)
 

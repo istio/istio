@@ -65,6 +65,9 @@ type ClientGetter interface {
 
 	// Informers returns an informer factory.
 	Informers() informerfactory.InformerFactory
+
+	// IsWatchListSemanticsUnSupported is used by internal client-go libraries to tell if the client is a fake client (more or less)
+	IsWatchListSemanticsUnSupported() bool
 }
 
 // GetInformerFiltered attempts to use type information to setup the informer
@@ -111,7 +114,7 @@ func GetInformerFilteredFromGVR(c ClientGetter, opts ktypes.InformerOptions, g s
 func getInformerFilteredDynamic(c ClientGetter, opts ktypes.InformerOptions, g schema.GroupVersionResource) informerfactory.StartableInformer {
 	return c.Informers().InformerFor(g, opts, func() cache.SharedIndexInformer {
 		inf := cache.NewSharedIndexInformerWithOptions(
-			&cache.ListWatch{
+			cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 				ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 					options.FieldSelector = opts.FieldSelector
 					options.LabelSelector = opts.LabelSelector
@@ -122,7 +125,7 @@ func getInformerFilteredDynamic(c ClientGetter, opts ktypes.InformerOptions, g s
 					options.LabelSelector = opts.LabelSelector
 					return c.Dynamic().Resource(g).Namespace(opts.Namespace).Watch(context.Background(), options)
 				},
-			},
+			}, c.Dynamic()),
 			&unstructured.Unstructured{},
 			cache.SharedIndexInformerOptions{
 				ResyncPeriod:      0,
@@ -138,7 +141,7 @@ func getInformerFilteredDynamic(c ClientGetter, opts ktypes.InformerOptions, g s
 func getInformerFilteredMetadata(c ClientGetter, opts ktypes.InformerOptions, g schema.GroupVersionResource) informerfactory.StartableInformer {
 	return c.Informers().InformerFor(g, opts, func() cache.SharedIndexInformer {
 		inf := cache.NewSharedIndexInformerWithOptions(
-			&cache.ListWatch{
+			cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 				ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 					options.FieldSelector = opts.FieldSelector
 					options.LabelSelector = opts.LabelSelector
@@ -149,7 +152,7 @@ func getInformerFilteredMetadata(c ClientGetter, opts ktypes.InformerOptions, g 
 					options.LabelSelector = opts.LabelSelector
 					return c.Metadata().Resource(g).Namespace(opts.Namespace).Watch(context.Background(), options)
 				},
-			},
+			}, c.Metadata()),
 			&metav1.PartialObjectMetadata{},
 			cache.SharedIndexInformerOptions{
 				ResyncPeriod:      0,
@@ -247,7 +250,7 @@ func (t *internalTypeReg[T]) Write(c ClientGetter, namespace string) ktypes.Writ
 }
 
 func (t *internalTypeReg[T]) ListWatch(c ClientGetter, o ktypes.InformerOptions) cache.ListerWatcher {
-	return &cache.ListWatch{
+	return cache.ToListWatcherWithWatchListSemantics(&cache.ListWatch{
 		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 			options.FieldSelector = o.FieldSelector
 			options.LabelSelector = o.LabelSelector
@@ -258,7 +261,7 @@ func (t *internalTypeReg[T]) ListWatch(c ClientGetter, o ktypes.InformerOptions)
 			options.LabelSelector = o.LabelSelector
 			return t.watch(c, o.Namespace, options)
 		},
-	}
+	}, c)
 }
 
 func (t *internalTypeReg[T]) Object() T {

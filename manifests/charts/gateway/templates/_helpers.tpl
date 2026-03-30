@@ -38,3 +38,28 @@ istio.io/rev: {{ . | quote }}
 {{- .Values.serviceAccount.name | default "default" }}
 {{- end }}
 {{- end }}
+
+{{/*
+Render resource requirements, omitting any nil values.
+*/}}
+{{- define "gateway.resources" -}}
+{{- range $key := list "limits" "requests" }}
+  {{- $resources := index $ $key }}
+  {{- if $resources }}
+    {{- $hasValues := false }}
+    {{- range $name, $value := $resources }}
+      {{- if $value }}
+        {{- $hasValues = true }}
+      {{- end }}
+    {{- end }}
+    {{- if $hasValues }}
+{{ $key }}:
+      {{- range $name, $value := $resources }}
+        {{- if $value }}
+  {{ $name }}: {{ $value }}
+        {{- end }}
+      {{- end }}
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{- end -}}

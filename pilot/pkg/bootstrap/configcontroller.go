@@ -34,9 +34,11 @@ import (
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/autoregistration"
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
+	"istio.io/istio/pilot/pkg/config/kube/agentgateway"
 	"istio.io/istio/pilot/pkg/config/kube/crdclient"
 	"istio.io/istio/pilot/pkg/config/kube/file"
 	"istio.io/istio/pilot/pkg/config/kube/gateway"
+	"istio.io/istio/pilot/pkg/config/kube/gatewaycommon"
 	ingress "istio.io/istio/pilot/pkg/config/kube/ingress"
 	"istio.io/istio/pilot/pkg/config/memory"
 	istioCredentials "istio.io/istio/pilot/pkg/credentials"
@@ -131,14 +133,29 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 	if err != nil {
 		return err
 	}
-	s.configController = aggregateConfigController
 
-	// Create the config store.
+	s.configController = aggregateConfigController
 	s.environment.ConfigStore = aggregateConfigController
 
 	// Defer starting the controller until after the service is created.
 	s.addStartFunc("config controller", func(stop <-chan struct{}) error {
 		go s.configController.Run(stop)
+		return nil
+	})
+
+	s.virtualServiceController = model.NewVirtualServiceController(
+		s.configController,
+		model.VSControllerOptions{
+			KrtDebugger: args.RegistryOptions.KubeOptions.KrtDebugger,
+			XDSUpdater:  s.XDSServer,
+		},
+		s.environment.Watcher,
+	)
+	s.environment.VirtualServiceController = s.virtualServiceController
+
+	// Defer starting the virtual service controller until after the service is created.
+	s.addStartFunc("virtual service controller", func(stop <-chan struct{}) error {
+		go s.virtualServiceController.Run(stop)
 		return nil
 	})
 
@@ -172,6 +189,17 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 		s.environment.GatewayAPIController = gwc
 		s.ConfigStores = append(s.ConfigStores, s.environment.GatewayAPIController)
 
+		// Create the agentgateway controller before the leader election block so it can share the
+		// same status writer activation. Both controllers use separate StatusCollections, so both
+		// need SetStatusWrite called to activate their respective status queues.
+		var agwc *agentgateway.Controller
+		if features.EnableAgentgateway {
+			agwc = agentgateway.NewAgwController(s.kubeClient, s.kubeClient.CrdWatcher().WaitForCRD, args.RegistryOptions.KubeOptions)
+			s.environment.AgentgatewayController = agwc
+			s.agentgatewayController = agwc
+			s.ConfigStores = append(s.ConfigStores, s.environment.AgentgatewayController)
+		}
+
 		// Use a channel to signal activation of per-revision status writer
 		activatePerRevisionStatusWriterCh := make(chan struct{})
 		// This check is for backwards compatibility with older(non per-revision) gateway status leader election.
@@ -193,6 +221,9 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 					<-activatePerRevisionStatusWriterCh
 					log.Infof("Starting gateway status writer for revision: %s", args.Revision)
 					gwc.SetStatusWrite(true, s.statusManager)
+					if agwc != nil {
+						agwc.SetStatusWrite(true, s.statusManager)
+					}
 
 					// Trigger a push so we can recompute status
 					s.XDSServer.ConfigUpdate(&model.PushRequest{
@@ -203,6 +234,9 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 					<-leaderStop
 					log.Infof("Stopping gateway status writer")
 					gwc.SetStatusWrite(false, nil)
+					if agwc != nil {
+						agwc.SetStatusWrite(false, nil)
+					}
 				}).
 				Run(stop)
 			return nil
@@ -215,7 +249,7 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 						// We can only run this if the Gateway CRD is created
 						if s.kubeClient.CrdWatcher().WaitForCRD(gvr.KubernetesGateway, leaderStop) {
 							tagWatcher := revisions.NewTagWatcher(s.kubeClient, args.Revision, args.Namespace)
-							controller := gateway.NewDeploymentController(s.kubeClient, s.clusterID, s.environment,
+							controller := gatewaycommon.NewDeploymentController(s.kubeClient, s.clusterID, s.environment,
 								s.webhookInfo.getWebhookConfig, s.webhookInfo.addHandler, tagWatcher, args.Revision, args.Namespace)
 							// Start informers again. This fixes the case where informers for namespace do not start,
 							// as we create them only after acquiring the leader lock

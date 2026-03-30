@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+issue: []
+
+releaseNotes:
+- |
+  **Fixed** ReferenceGrant `to` field to handle multiple entries; previously only the last entry was effective, causing incorrect `RefNotPermitted` for references that matched an earlier entry.

@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+issue:
+  - 58436
+releaseNotes:
+  - |
+    **Added** support for `app.kubernetes.io/name` and `service.istio.io/canonical-name` labels
+    when populating `source_app` and `destination_app` metric labels. The priority order is:
+    `app` (for backward compatibility), then `app.kubernetes.io/name`, then `service.istio.io/canonical-name`.
+    This allows users who only have `app.kubernetes.io/name` labels to have their metrics properly populated.

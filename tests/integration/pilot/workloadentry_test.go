@@ -63,7 +63,7 @@ func TestWorkloadEntryGateway(t *testing.T) {
 			// we have an imaginary network for each network called {name}-manual-discovery
 			gwTmpl := `
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: remote-gateway-manual-discovery-%s

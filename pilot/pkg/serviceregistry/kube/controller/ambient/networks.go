@@ -21,17 +21,16 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	"sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/ambient/multicluster"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	kubectrl "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/ptr"
@@ -46,7 +45,7 @@ func (n NetworkGateway) ResourceName() string {
 	return n.Source.String() + "/" + n.Addr
 }
 
-type networkCollections struct {
+type NetworkCollections struct {
 	LocalSystemNamespace          krt.Singleton[ClusterNetwork]
 	RemoteSystemNamespaceNetworks krt.Collection[ClusterNetwork]
 	// SystemNamespaceNetworkByCluster is an index of cluster ID to the system namespace network
@@ -65,20 +64,20 @@ func (c ClusterNetwork) ResourceName() string {
 	return fmt.Sprintf("%s/%s", c.ClusterID, c.Network)
 }
 
-func (c networkCollections) HasSynced() bool {
+func (c NetworkCollections) HasSynced() bool {
 	return c.LocalSystemNamespace.AsCollection().HasSynced() &&
 		c.NetworkGateways.HasSynced()
 }
 
 func buildGlobalNetworkCollections(
-	clusters krt.Collection[*multicluster.Cluster],
+	ctrl *multicluster.Controller,
 	localNamespaces krt.Collection[*v1.Namespace],
-	localGateways krt.Collection[*v1beta1.Gateway],
-	gateways krt.Collection[krt.Collection[krt.ObjectWithCluster[*v1beta1.Gateway]]],
-	gatewaysByCluster krt.Index[cluster.ID, krt.Collection[krt.ObjectWithCluster[*v1beta1.Gateway]]],
+	localGateways krt.Collection[*gatewayv1.Gateway],
+	gateways krt.Collection[krt.Collection[krt.ObjectWithCluster[*gatewayv1.Gateway]]],
+	gatewaysByCluster krt.Index[cluster.ID, krt.Collection[krt.ObjectWithCluster[*gatewayv1.Gateway]]],
 	options Options,
 	opts krt.OptionsBuilder,
-) networkCollections {
+) NetworkCollections {
 	LocalSystemNamespaceNetwork := krt.NewSingleton(func(ctx krt.HandlerContext) *ClusterNetwork {
 		ns := ptr.Flatten(krt.FetchOne(ctx, localNamespaces, krt.FilterKey(options.SystemNamespace)))
 		if ns == nil {
@@ -93,7 +92,7 @@ func buildGlobalNetworkCollections(
 			Network:   network.ID(nw),
 		}
 	}, opts.WithName("LocalSystemNamespaceNetwork")...)
-	RemoteSystemNamespaceNetworks := krt.NewCollection(clusters, func(ctx krt.HandlerContext, c *multicluster.Cluster) *ClusterNetwork {
+	RemoteSystemNamespaceNetworks := krt.NewCollection(ctrl.Clusters(), func(ctx krt.HandlerContext, c *multicluster.Cluster) *ClusterNetwork {
 		if !kubectrl.WaitForCacheSync(fmt.Sprintf("remote cluster[%s] namespaces", c.ID), opts.Stop(), c.HasSynced) {
 			log.Errorf("Timed out waiting for cluster %s to sync namespaces", c.ID)
 			return nil
@@ -121,13 +120,13 @@ func buildGlobalNetworkCollections(
 		return []cluster.ID{o.ClusterID}
 	})
 
-	localNetworkGateways := krt.NewManyCollection(localGateways, func(ctx krt.HandlerContext, gw *v1beta1.Gateway) []krt.ObjectWithCluster[NetworkGateway] {
+	localNetworkGateways := krt.NewManyCollection(localGateways, func(ctx krt.HandlerContext, gw *gatewayv1.Gateway) []krt.ObjectWithCluster[NetworkGateway] {
 		return k8sGatewayToNetworkGatewaysWithCluster(options.ClusterID, gw, options.ClusterID)
 	}, opts.WithName("LocalNetworkGateways")...)
 
-	GlobalNetworkGateways := nestedCollectionFromLocalAndRemote(
+	GlobalNetworkGateways := multicluster.NestedCollectionFromLocalAndRemote(
+		ctrl,
 		localNetworkGateways,
-		clusters,
 		func(ctx krt.HandlerContext, c *multicluster.Cluster) *krt.Collection[krt.ObjectWithCluster[NetworkGateway]] {
 			opts := []krt.CollectionOption{
 				krt.WithName(fmt.Sprintf("NetworkGateways[%s]", c.ID)),
@@ -147,7 +146,7 @@ func buildGlobalNetworkCollections(
 			// sync.Once to ensure we only create the collection once and return that same value
 			nwGateways := krt.NewManyCollection(
 				gateways,
-				func(ctx krt.HandlerContext, gw krt.ObjectWithCluster[*v1beta1.Gateway]) []krt.ObjectWithCluster[NetworkGateway] {
+				func(ctx krt.HandlerContext, gw krt.ObjectWithCluster[*gatewayv1.Gateway]) []krt.ObjectWithCluster[NetworkGateway] {
 					innerGw := ptr.Flatten(gw.Object)
 					if innerGw == nil {
 						return nil
@@ -191,7 +190,7 @@ func buildGlobalNetworkCollections(
 		return []network.ID{o.Network}
 	})
 
-	return networkCollections{
+	return NetworkCollections{
 		SystemNamespaceNetworkByCluster: RemoteSystemNamespaceNetworksByCluster,
 		NetworkGateways:                 MergedNetworkGateways,
 		GatewaysByNetwork:               GatewaysByNetwork,
@@ -200,12 +199,12 @@ func buildGlobalNetworkCollections(
 	}
 }
 
-func buildNetworkCollections(
+func BuildNetworkCollections(
 	namespaces krt.Collection[*v1.Namespace],
-	gateways krt.Collection[*v1beta1.Gateway],
+	gateways krt.Collection[*gatewayv1.Gateway],
 	options Options,
 	opts krt.OptionsBuilder,
-) networkCollections {
+) NetworkCollections {
 	SystemNamespaceNetwork := krt.NewSingleton(func(ctx krt.HandlerContext) *ClusterNetwork {
 		ns := ptr.Flatten(krt.FetchOne(ctx, namespaces, krt.FilterKey(options.SystemNamespace)))
 		if ns == nil {
@@ -229,7 +228,7 @@ func buildNetworkCollections(
 		return []network.ID{o.Network}
 	})
 
-	return networkCollections{
+	return NetworkCollections{
 		LocalSystemNamespace: SystemNamespaceNetwork,
 		NetworkGateways:      NetworkGateways,
 		GatewaysByNetwork:    GatewaysByNetwork,
@@ -238,7 +237,7 @@ func buildNetworkCollections(
 
 func k8sGatewayToNetworkGatewaysWithCluster(
 	clusterID cluster.ID,
-	gw *v1beta1.Gateway,
+	gw *gatewayv1.Gateway,
 	localClusterID cluster.ID,
 ) []krt.ObjectWithCluster[NetworkGateway] {
 	gateways := k8sGatewayToNetworkGateways(clusterID, gw, localClusterID)
@@ -253,7 +252,7 @@ func k8sGatewayToNetworkGatewaysWithCluster(
 	return networkGateways
 }
 
-func remoteK8sGatewayToNetworkGateways(clusterID cluster.ID, gw *v1beta1.Gateway) []NetworkGateway {
+func remoteK8sGatewayToNetworkGateways(clusterID cluster.ID, gw *gatewayv1.Gateway) []NetworkGateway {
 	netLabel := gw.GetLabels()[label.TopologyNetwork.Name]
 	if netLabel == "" {
 		return nil
@@ -278,7 +277,7 @@ func remoteK8sGatewayToNetworkGateways(clusterID cluster.ID, gw *v1beta1.Gateway
 		if addr.Type == nil {
 			continue
 		}
-		if addrType := *addr.Type; addrType != v1beta1.IPAddressType && addrType != v1beta1.HostnameAddressType {
+		if addrType := *addr.Type; addrType != gatewayv1.IPAddressType && addrType != gatewayv1.HostnameAddressType {
 			continue
 		}
 		for _, l := range gw.Spec.Listeners {
@@ -297,7 +296,7 @@ func remoteK8sGatewayToNetworkGateways(clusterID cluster.ID, gw *v1beta1.Gateway
 	return gateways
 }
 
-func localK8sGatewayToNetworkGateways(clusterID cluster.ID, gw *v1beta1.Gateway) []NetworkGateway {
+func localK8sGatewayToNetworkGateways(clusterID cluster.ID, gw *gatewayv1.Gateway) []NetworkGateway {
 	netLabel := gw.GetLabels()[label.TopologyNetwork.Name]
 	if netLabel == "" {
 		return nil
@@ -321,7 +320,7 @@ func localK8sGatewayToNetworkGateways(clusterID cluster.ID, gw *v1beta1.Gateway)
 		if addr.Type == nil {
 			continue
 		}
-		if addrType := *addr.Type; addrType != v1beta1.IPAddressType && addrType != v1beta1.HostnameAddressType {
+		if addrType := *addr.Type; addrType != gatewayv1.IPAddressType && addrType != gatewayv1.HostnameAddressType {
 			continue
 		}
 		for _, l := range gw.Spec.Listeners {
@@ -341,7 +340,7 @@ func localK8sGatewayToNetworkGateways(clusterID cluster.ID, gw *v1beta1.Gateway)
 	return gateways
 }
 
-func k8sGatewayToNetworkGateways(clusterID cluster.ID, gw *v1beta1.Gateway, localClusterID cluster.ID) []NetworkGateway {
+func k8sGatewayToNetworkGateways(clusterID cluster.ID, gw *gatewayv1.Gateway, localClusterID cluster.ID) []NetworkGateway {
 	if clusterID != localClusterID {
 		// This is a gateway in a remote cluster, use different logic
 		return remoteK8sGatewayToNetworkGateways(clusterID, gw)
@@ -350,8 +349,8 @@ func k8sGatewayToNetworkGateways(clusterID cluster.ID, gw *v1beta1.Gateway, loca
 	return localK8sGatewayToNetworkGateways(clusterID, gw)
 }
 
-func fromGatewayBuilder(clusterID, localClusterID cluster.ID) krt.TransformationMulti[*v1beta1.Gateway, NetworkGateway] {
-	return func(ctx krt.HandlerContext, gw *v1beta1.Gateway) []NetworkGateway {
+func fromGatewayBuilder(clusterID, localClusterID cluster.ID) krt.TransformationMulti[*gatewayv1.Gateway, NetworkGateway] {
+	return func(ctx krt.HandlerContext, gw *gatewayv1.Gateway) []NetworkGateway {
 		return k8sGatewayToNetworkGateways(clusterID, gw, localClusterID)
 	}
 }

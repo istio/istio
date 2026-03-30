@@ -1,0 +1,14 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+issue:
+- https://github.com/istio/api/pull/1933
+docs:
+- '[usage] https://istio.io/latest/docs/tasks/security/authorization/authz-dry-run/'
+releaseNotes:
+- |
+  **Added** an experimental feature to allow dry-run AuthorizationPolicy in ztunnel. This feature will be disabled by default. See the Upgrade Note for details.
+upgradeNotes:
+  - title: Upgrading in Ambient mode with dry-run AuthorizationPolicy
+    content: |
+      If you make use of dry-run AuthorizationPolicy and wish to enable this new feature the upgrade to 1.29 includes some important considerations. Prior to Istio 1.29, ztunnel did not have any capability to handle dry-run AuthorizationPolicy. As a result, istiod would not send any dry-run policy to ztunnel. Istio 1.29 introduces experimental support for dry-run AuthorizationPolicy in ztunnel. Setting `AMBIENT_ENABLE_DRY_RUN_AUTHORIZATION_POLICY=true` will cause istiod to begin sending dry-run policies to ztunnel, using a new field in xDS. A ztunnel below version 1.29 will not support this field. As a result, older ztunnels will fully enforce these policies which is likely to produce an unexpected result. To ensure a smooth upgrade, it is important to ensure that all ztunnel proxies connecting to an istiod with this feature enabled are new enough to correctly handle these policies.

@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+
+releaseNotes:
+- |
+  **Added** support for TLS passthrough listeners on east-west gateways, allowing
+  non-HBONE ports to be exposed via the Gateway API (e.g., to route traffic to
+  the Kubernetes API server across network boundaries). This requires
+  `AMBIENT_ENABLE_MULTI_NETWORK` to be enabled.

@@ -34,6 +34,8 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/workloadapi"
 )
@@ -357,6 +359,15 @@ func TestFilterIstioEndpoint(t *testing.T) {
 		},
 		Labels: map[string]string{label.GatewayManaged.Name: constants.ManagedGatewayMeshControllerLabel},
 	}
+	ingressGw := &model.Proxy{
+		Type: model.Router,
+		Metadata: &model.NodeMetadata{
+			Namespace: "default",
+			NodeName:  "example",
+			ClusterID: "local",
+		},
+		Labels: map[string]string{label.GatewayManaged.Name: constants.ManagedGatewayControllerLabel},
+	}
 	ep0 := &model.IstioEndpoint{
 		Addresses: []string{"1.1.1.1"},
 		NodeName:  "example",
@@ -451,12 +462,41 @@ func TestFilterIstioEndpoint(t *testing.T) {
 			svcInfo:  localSvc,
 			expected: false,
 		},
+		{
+			name:     "test ambient endpoint in local cluster for global service",
+			proxy:    ingressGw,
+			ep:       localEp,
+			svcInfo:  globalSvc,
+			expected: true,
+		},
+		{
+			name:     "test ambient endpoint in remote cluster for global service",
+			proxy:    ingressGw,
+			ep:       remoteEp,
+			svcInfo:  globalSvc,
+			expected: true,
+		},
+		{
+			name:     "test ambient endpoint in local cluster for local service",
+			proxy:    ingressGw,
+			ep:       localEp,
+			svcInfo:  localSvc,
+			expected: true,
+		},
+		{
+			name:     "test ambient endpoint in remote cluster for local service",
+			proxy:    ingressGw,
+			ep:       remoteEp,
+			svcInfo:  localSvc,
+			expected: false,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			env := model.NewEnvironment()
-			env.ConfigStore = model.NewFakeStore()
+			configStore := model.NewFakeStore()
+			env.ConfigStore = configStore
 			env.Watcher = meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-system"})
 			meshNetworks := meshwatcher.NewFixedNetworksWatcher(nil)
 			env.NetworksWatcher = meshNetworks
@@ -477,6 +517,16 @@ func TestFilterIstioEndpoint(t *testing.T) {
 				}},
 				serviceInfos: svcInfos,
 			}
+			env.VirtualServiceController = model.NewVirtualServiceController(
+				configStore,
+				model.VSControllerOptions{KrtDebugger: krt.GlobalDebugHandler},
+				env.Watcher,
+			)
+			stop := test.NewStop(t)
+			go configStore.Run(stop)
+			go env.VirtualServiceController.Run(stop)
+			kube.WaitForCacheSync("test", stop, configStore.HasSynced)
+			kube.WaitForCacheSync("test", stop, env.VirtualServiceController.HasSynced)
 			env.Init()
 
 			// Init a new push context
@@ -487,6 +537,8 @@ func TestFilterIstioEndpoint(t *testing.T) {
 				t.Fatal("error: NetworkManager should not be nil!")
 			}
 
+			tt.proxy.SetSidecarScope(push)
+
 			builder := NewCDSEndpointBuilder(
 				tt.proxy, push,
 				"outbound||example.ns.svc.cluster.local",
@@ -495,6 +547,134 @@ func TestFilterIstioEndpoint(t *testing.T) {
 			expected := builder.filterIstioEndpoint(tt.ep)
 			if !reflect.DeepEqual(tt.expected, expected) {
 				t.Fatalf("expected  %v but got %v", tt.expected, expected)
+			}
+		})
+	}
+}
+
+func TestBuildClusterLoadAssignment_InferenceServicePortFiltering(t *testing.T) {
+	tests := []struct {
+		name                 string
+		InferencePoolService bool
+		expectedEndpoints    int
+	}{
+		{
+			name:                 "inference service includes endpoints from all ports",
+			InferencePoolService: true,
+			expectedEndpoints:    3,
+		},
+		{
+			name:                 "regular service filters endpoints by port name",
+			InferencePoolService: false,
+			expectedEndpoints:    1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svcLabels := make(map[string]string)
+			if tt.InferencePoolService {
+				svcLabels[constants.InternalServiceSemantics] = constants.ServiceSemanticsInferencePool
+			}
+
+			svc := &model.Service{
+				Hostname: "example.ns.svc.cluster.local",
+				Attributes: model.ServiceAttributes{
+					Name:      "example",
+					Namespace: "ns",
+					Labels:    svcLabels,
+				},
+				Ports: model.PortList{
+					{Port: 80, Protocol: protocol.HTTP, Name: "http-80"},
+					{Port: 8000, Protocol: protocol.HTTP, Name: "http-8000"},
+					{Port: 8001, Protocol: protocol.HTTP, Name: "http-8001"},
+				},
+			}
+
+			proxy := &model.Proxy{
+				Type:        model.SidecarProxy,
+				IPAddresses: []string{"127.0.0.1"},
+				Metadata: &model.NodeMetadata{
+					Namespace: "ns",
+					NodeName:  "example",
+				},
+				ConfigNamespace: "ns",
+			}
+
+			endpointIndex := model.NewEndpointIndex(model.NewXdsCache())
+			shards, _ := endpointIndex.GetOrCreateEndpointShard("example.ns.svc.cluster.local", "ns")
+			shards.Lock()
+			shards.Shards[model.ShardKey{Cluster: "cluster1"}] = []*model.IstioEndpoint{
+				{
+					Addresses:       []string{"10.0.0.1"},
+					ServicePortName: "http-80",
+					EndpointPort:    80,
+					HostName:        "example.ns.svc.cluster.local",
+					Namespace:       "ns",
+				},
+				{
+					Addresses:       []string{"10.0.0.2"},
+					ServicePortName: "http-8000",
+					EndpointPort:    8000,
+					HostName:        "example.ns.svc.cluster.local",
+					Namespace:       "ns",
+				},
+				{
+					Addresses:       []string{"10.0.0.3"},
+					ServicePortName: "http-8001",
+					EndpointPort:    8001,
+					HostName:        "example.ns.svc.cluster.local",
+					Namespace:       "ns",
+				},
+			}
+			shards.Unlock()
+
+			env := model.NewEnvironment()
+			configStore := model.NewFakeStore()
+			env.ConfigStore = configStore
+			env.Watcher = meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-system"})
+			meshNetworks := meshwatcher.NewFixedNetworksWatcher(nil)
+			env.NetworksWatcher = meshNetworks
+			env.ServiceDiscovery = &localServiceDiscovery{
+				services: []*model.Service{svc},
+			}
+			xdsUpdater := xdsfake.NewFakeXDS()
+			if err := env.InitNetworksManager(xdsUpdater); err != nil {
+				t.Fatal(err)
+			}
+			env.VirtualServiceController = model.NewVirtualServiceController(
+				configStore,
+				model.VSControllerOptions{KrtDebugger: krt.GlobalDebugHandler},
+				env.Watcher,
+			)
+			stop := test.NewStop(t)
+			go configStore.Run(stop)
+			go env.VirtualServiceController.Run(stop)
+			kube.WaitForCacheSync("test", stop, configStore.HasSynced)
+			kube.WaitForCacheSync("test", stop, env.VirtualServiceController.HasSynced)
+			env.Init()
+
+			push := model.NewPushContext()
+			push.InitContext(env, nil, nil)
+			env.SetPushContext(push)
+
+			proxy.SetSidecarScope(push)
+
+			builder := NewCDSEndpointBuilder(
+				proxy, push,
+				"outbound|80||example.ns.svc.cluster.local",
+				model.TrafficDirectionOutbound, "", "example.ns.svc.cluster.local", 80,
+				svc, nil)
+
+			cla := builder.BuildClusterLoadAssignment(endpointIndex)
+
+			var totalEndpoints int
+			for _, localityLbEndpoints := range cla.Endpoints {
+				totalEndpoints += len(localityLbEndpoints.LbEndpoints)
+			}
+
+			if totalEndpoints != tt.expectedEndpoints {
+				t.Errorf("expected %d endpoints, got %d", tt.expectedEndpoints, totalEndpoints)
 			}
 		})
 	}

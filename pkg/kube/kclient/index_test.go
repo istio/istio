@@ -78,7 +78,7 @@ func TestIndex(t *testing.T) {
 	}
 	assert.Equal(t, index.Lookup(k1), nil)
 	assert.Equal(t, index.Lookup(k2), nil)
-	pod1 := &corev1.Pod{
+	pod1 := kube.EnsureTypeMeta(&corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "pod",
 			Namespace: "ns",
@@ -87,8 +87,8 @@ func TestIndex(t *testing.T) {
 			ServiceAccountName: "sa",
 			NodeName:           "node",
 		},
-	}
-	pod2 := &corev1.Pod{
+	})
+	pod2 := kube.EnsureTypeMeta(&corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "pod2",
 			Namespace: "ns",
@@ -97,8 +97,8 @@ func TestIndex(t *testing.T) {
 			ServiceAccountName: "sa2",
 			NodeName:           "node",
 		},
-	}
-	pod3 := &corev1.Pod{
+	})
+	pod3 := kube.EnsureTypeMeta(&corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "pod3",
 			Namespace: "ns",
@@ -107,7 +107,7 @@ func TestIndex(t *testing.T) {
 			ServiceAccountName: "sa",
 			NodeName:           "node",
 		},
-	}
+	})
 
 	assertIndex := func(k SaNode, pods ...*corev1.Pod) {
 		t.Helper()

@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"path"
 	"strings"
 	"testing"
 	"time"
@@ -37,6 +38,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/common/scheme"
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -49,6 +51,7 @@ import (
 	kubetest "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -57,7 +60,7 @@ func TestWaypointStatus(t *testing.T) {
 		NewTest(t).
 		Run(func(t framework.TestContext) {
 			t.NewSubTest("gateway class").Run(func(t framework.TestContext) {
-				client := t.Clusters().Default().GatewayAPI().GatewayV1beta1().GatewayClasses()
+				client := t.Clusters().Default().GatewayAPI().GatewayV1().GatewayClasses()
 
 				check := func() error {
 					gwc, _ := client.Get(context.Background(), constants.WaypointGatewayClassName, metav1.GetOptions{})
@@ -238,7 +241,7 @@ spec:
   environmentVariables:
     ISTIO_META_DISABLE_HBONE_SEND: "true"
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: simple-http-waypoint
@@ -284,7 +287,7 @@ spec:
     port: 15008
     protocol: TCP
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: {{.Service}}-httproute
@@ -451,7 +454,7 @@ func TestWaypointDNS(t *testing.T) {
 			})
 			t.NewSubTest("with waypoint").Run(func(t framework.TestContext) {
 				// Update use-waypoint for Captured service
-				SetWaypointServiceEntry(t, "external-service", apps.Namespace.Name(), "waypoint")
+				SetWaypointServiceEntry(t, "external-service", apps.Namespace.Name(), "waypoint-service")
 				runTest(t, check.And(check.OK(), IsL7()))
 			})
 		})
@@ -696,7 +699,48 @@ spec:
 				Check:   check.And(check.OK(), IsL7(), check.Alpn("http/1.1")),
 			})
 
-			tlsOriginationRedirect := tlsOrigination + `
+			rootCert := file.AsStringOrFail(t, path.Join(env.IstioSrc, "tests/testdata/certs/dns/root-cert.pem"))
+			caConfigMap := `apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: external-ca-cert
+data:
+  ca.crt: |
+{{.RootCert | indent 4}}
+`
+			t.ConfigIstio().
+				Eval(egressNamespace.Name(), map[string]any{"RootCert": rootCert}, caConfigMap).
+				ApplyOrFail(t, apply.CleanupConditionally)
+
+			// Test we can do TLS origination, by utilizing ServiceEntry target port
+			backendTLSPolicy := func(portName string) string {
+				return fmt.Sprintf(`apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: fake-egress-tls
+spec:
+  targetRefs:
+  - group: networking.istio.io
+    kind: ServiceEntry
+    name: external
+    sectionName: %s
+  validation:
+    hostname: server.default.svc
+    caCertificateRefs:
+    - kind: ConfigMap
+      name: external-ca-cert
+      group: ""`, portName)
+			}
+
+			runTest(t, "http origination targetPort with BackendTLSPolicy", backendTLSPolicy("http-for-tls"), "", echo.CallOptions{
+				Address: "fake-egress.example.com",
+				Port:    echo.Port{ServicePort: 8080},
+				Scheme:  scheme.HTTP,
+				Count:   1,
+				Check:   check.And(check.OK(), IsL7(), check.Alpn("http/1.1")),
+			})
+
+			httpRoute := `
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
@@ -712,9 +756,17 @@ spec:
     - kind: Hostname
       group: networking.istio.io
       name: fake-egress.example.com
-      port: 443
-`
-			runTest(t, "http origination route", tlsOriginationRedirect, "", echo.CallOptions{
+      port: 443`
+
+			runTest(t, "http origination route", tlsOrigination+httpRoute, "", echo.CallOptions{
+				Address: "fake-egress.example.com",
+				Port:    echo.Port{ServicePort: 80},
+				Scheme:  scheme.HTTP,
+				Count:   1,
+				Check:   check.And(check.OK(), IsL7(), check.Alpn("http/1.1")),
+			})
+
+			runTest(t, "http origination route with BackendTLSPolicy", backendTLSPolicy("https")+httpRoute, "", echo.CallOptions{
 				Address: "fake-egress.example.com",
 				Port:    echo.Port{ServicePort: 80},
 				Scheme:  scheme.HTTP,
@@ -872,6 +924,63 @@ spec:
 					},
 					Scheme: scheme.HTTP,
 					Check:  CheckDeny,
+				})
+			})
+		})
+		t.NewSubTest("ns level ingress-use-waypoint").Run(func(t framework.TestContext) {
+			if t.Settings().AmbientMultiNetwork {
+				t.Skip("https://github.com/istio/istio/issues/54245")
+			}
+			t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
+				"Destination": apps.ServiceAddressedWaypoint.ServiceName(),
+			}, `apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: gateway
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts: ["*"]
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: route
+spec:
+  gateways:
+  - gateway
+  hosts:
+  - "*"
+  http:
+  - route:
+    - destination:
+        host: "{{.Destination}}"
+`).ApplyOrFail(t)
+			ingress := istio.DefaultIngressOrFail(t, t)
+			t.NewSubTest("without ns ingress-use-waypoint label").Run(func(t framework.TestContext) {
+				ingress.CallOrFail(t, echo.CallOptions{
+					Port: echo.Port{
+						Protocol:    protocol.HTTP,
+						ServicePort: 80,
+					},
+					Scheme: scheme.HTTP,
+					Check:  check.OK(), // AuthorizationPolicy should be bypassed since the ns label is not set
+				})
+			})
+			t.NewSubTest("with ns ingress-use-waypoint label").Run(func(t framework.TestContext) {
+				SetNsIngressUseWaypoint(t, apps.Namespace.Name())
+				ingress.CallOrFail(t, echo.CallOptions{
+					Port: echo.Port{
+						Protocol:    protocol.HTTP,
+						ServicePort: 80,
+					},
+					Scheme: scheme.HTTP,
+					Check:  CheckDeny, // AuthorizationPolicy should be enforced since the ns label is set
 				})
 			})
 		})
@@ -1231,26 +1340,34 @@ spec:
 }
 
 func SetIngressUseWaypoint(t framework.TestContext, name, ns string) {
-	for _, c := range t.Clusters() {
-		set := func(service bool) error {
-			var set string
-			if service {
-				set = fmt.Sprintf("%q", "true")
-			} else {
-				set = "null"
-			}
-			label := []byte(fmt.Sprintf(`{"metadata":{"labels":{"%s":%s}}}`,
-				"istio.io/ingress-use-waypoint", set))
-			_, err := c.Kube().CoreV1().Services(ns).Patch(context.TODO(), name, types.MergePatchType, label, metav1.PatchOptions{})
-			return err
-		}
+	setIngressUseWaypoint(t, name, func(c cluster.Cluster, label []byte) error {
+		_, err := c.Kube().CoreV1().Services(ns).Patch(context.TODO(), name, types.MergePatchType, label, metav1.PatchOptions{})
+		return err
+	})
+}
 
-		if err := set(true); err != nil {
+func SetNsIngressUseWaypoint(t framework.TestContext, ns string) {
+	setIngressUseWaypoint(t, ns, func(c cluster.Cluster, label []byte) error {
+		_, err := c.Kube().CoreV1().Namespaces().Patch(context.TODO(), ns, types.MergePatchType, label, metav1.PatchOptions{})
+		return err
+	})
+}
+
+func setIngressUseWaypoint(t framework.TestContext, name string, patcher func(cluster.Cluster, []byte) error) {
+	makeLabel := func(enable bool) []byte {
+		val := "null"
+		if enable {
+			val = fmt.Sprintf("%q", "true")
+		}
+		return []byte(fmt.Sprintf(`{"metadata":{"labels":{"%s":%s}}}`, "istio.io/ingress-use-waypoint", val))
+	}
+	for _, c := range t.Clusters() {
+		if err := patcher(c, makeLabel(true)); err != nil {
 			t.Fatal(err)
 		}
 		t.Cleanup(func() {
-			if err := set(false); err != nil {
-				scopes.Framework.Errorf("failed resetting service-addressed for %s", name)
+			if err := patcher(c, makeLabel(false)); err != nil {
+				scopes.Framework.Errorf("failed resetting ingress-use-waypoint label for %s", name)
 			}
 		})
 	}

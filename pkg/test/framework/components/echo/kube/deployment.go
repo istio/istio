@@ -261,7 +261,50 @@ func GenerateDeployment(ctx resource.Context, cfg echo.Config, settings *resourc
 		deploy = getTemplate(vmDeploymentTemplateFile)
 	}
 
-	return tmpl.Execute(deploy, params)
+	deploymentYAML, err := tmpl.Execute(deploy, params)
+	if err != nil {
+		return "", err
+	}
+
+	// Check if any ports are configured as endpoint pickers
+	var eppPorts []int
+	for _, port := range cfg.Ports {
+		if port.EndpointPicker {
+			eppPorts = append(eppPorts, port.ServicePort)
+		}
+	}
+
+	// If there are endpoint picker ports, add a DestinationRule to disable mTLS for those ports
+	if len(eppPorts) > 0 {
+		drYAML := generateDestinationRuleForEPP(cfg.Service, cfg.Namespace.Name(), eppPorts)
+		deploymentYAML += "\n---\n" + drYAML
+	}
+
+	return deploymentYAML, nil
+}
+
+func generateDestinationRuleForEPP(service, namespace string, eppPorts []int) string {
+	var portSettings strings.Builder
+	for i, port := range eppPorts {
+		if i > 0 {
+			portSettings.WriteString("\n")
+		}
+		portSettings.WriteString(fmt.Sprintf(`    - port:
+        number: %d
+      tls:
+        mode: DISABLE`, port))
+	}
+
+	return fmt.Sprintf(`apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: %s-epp-notls
+  namespace: %s
+spec:
+  host: %s.%s.svc.cluster.local
+  trafficPolicy:
+    portLevelSettings:
+%s`, service, namespace, service, namespace, portSettings.String())
 }
 
 func GenerateService(cfg echo.Config, isOpenShift bool) (string, error) {
@@ -665,8 +708,17 @@ func getContainerPorts(cfg echo.Config) echoCommon.PortList {
 	var readyPort *echoCommon.Port
 	for _, p := range ports {
 		// Add the port to the set of application ports.
+		portName := p.Name
+		// If a named target port is specified, use it as the container port name
+		// Truncate to 15 chars max (Kubernetes limit)
+		if p.TargetPortName != "" {
+			portName = p.TargetPortName
+			if len(portName) > 15 {
+				portName = portName[:15]
+			}
+		}
 		cport := &echoCommon.Port{
-			Name:              p.Name,
+			Name:              portName,
 			Protocol:          p.Protocol,
 			Port:              p.WorkloadPort,
 			TLS:               p.TLS,
@@ -675,6 +727,7 @@ func getContainerPorts(cfg echo.Config) echoCommon.PortList {
 			InstanceIP:        p.InstanceIP,
 			LocalhostIP:       p.LocalhostIP,
 			ProxyProtocol:     p.ProxyProtocol,
+			EndpointPicker:    p.EndpointPicker,
 		}
 		containerPorts = append(containerPorts, cport)
 

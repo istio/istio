@@ -27,10 +27,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cenkalti/backoff/v4"
 	"github.com/containernetworking/cni/pkg/skel"
 	"github.com/containernetworking/cni/pkg/types"
 	cniv1 "github.com/containernetworking/cni/pkg/types/100"
 	"github.com/containernetworking/cni/pkg/version"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
@@ -63,13 +65,14 @@ type Config struct {
 	types.NetConf
 
 	// Add plugin-specific flags here
-	PluginLogLevel      string                    `json:"plugin_log_level"`
-	CNIAgentRunDir      string                    `json:"cni_agent_run_dir"`
-	AmbientEnabled      bool                      `json:"ambient_enabled"`
-	EnablementSelectors []util.EnablementSelector `json:"enablement_selectors"`
-	ExcludeNamespaces   []string                  `json:"exclude_namespaces"`
-	PodNamespace        string                    `json:"pod_namespace"`
-	NativeNftables      bool                      `json:"native_nftables"`
+	PluginLogLevel              string                    `json:"plugin_log_level"`
+	CNIAgentRunDir              string                    `json:"cni_agent_run_dir"`
+	AmbientEnabled              bool                      `json:"ambient_enabled"`
+	EnablementSelectors         []util.EnablementSelector `json:"enablement_selectors"`
+	ExcludeNamespaces           []string                  `json:"exclude_namespaces"`
+	PodNamespace                string                    `json:"pod_namespace"`
+	NativeNftables              bool                      `json:"native_nftables"`
+	EnableAmbientDetectionRetry bool                      `json:"enable_ambient_detection_retry"`
 }
 
 // K8sArgs is the valid CNI_ARGS used for Kubernetes
@@ -238,9 +241,14 @@ func doAddRun(args *skel.CmdArgs, conf *Config, kClient kubernetes.Interface, ru
 	// For ambient pods, this is all the logic we need to run
 	if conf.AmbientEnabled {
 		log.Debugf("istio-cni ambient cmdAdd podName: %s - checking if ambient enabled", podName)
-		podIsAmbient, err := isAmbientPod(kClient, podName, podNamespace, conf.EnablementSelectors)
+		podIsAmbient, err := isAmbientPod(kClient, podName, podNamespace, conf.EnablementSelectors, conf.EnableAmbientDetectionRetry)
 		if err != nil {
-			log.Errorf("istio-cni cmdAdd failed to check ambient: %s", err)
+			log.Errorf("istio-cni cmdAdd failed to check if pod is ambient: %s", err)
+			// Conditionally return the error based on whether istio owned CNI is configured
+			// to support gradual rollout of feature in critical code path
+			if conf.EnableAmbientDetectionRetry {
+				return err
+			}
 		}
 
 		var prevResIps []*cniv1.IPConfig
@@ -383,19 +391,36 @@ func CmdDelete(args *skel.CmdArgs) (err error) {
 	return nil
 }
 
-func isAmbientPod(client kubernetes.Interface, podName, podNamespace string, selectors []util.EnablementSelector) (bool, error) {
+func isAmbientPod(client kubernetes.Interface, podName, podNamespace string, selectors []util.EnablementSelector, enableRetry bool) (bool, error) {
 	compiledSelectors, err := util.NewCompiledEnablementSelectors(selectors)
 	if err != nil {
 		return false, fmt.Errorf("failed to instantiate ambient enablement selector: %v", err)
 	}
 
-	pod, err := client.CoreV1().Pods(podNamespace).Get(context.Background(), podName, metav1.GetOptions{})
-	if err != nil {
-		return false, err
+	maxRetries := 1
+	if enableRetry {
+		maxRetries = podRetrievalMaxRetries
 	}
-	ns, err := client.CoreV1().Namespaces().Get(context.Background(), podNamespace, metav1.GetOptions{})
+
+	var pod *v1.Pod
+	var ns *v1.Namespace
+	var podErr, nsErr error
+
+	err = backoff.Retry(func() error {
+		// attempt to get pod and namespace
+		pod, podErr = client.CoreV1().Pods(podNamespace).Get(context.Background(), podName, metav1.GetOptions{})
+		ns, nsErr = client.CoreV1().Namespaces().Get(context.Background(), podNamespace, metav1.GetOptions{})
+		if podErr != nil || nsErr != nil {
+			errMsg := fmt.Sprintf("failed to get pod or namespace info, retrying: podErr=%v, nsErr=%v", podErr, nsErr)
+			log.Debug(errMsg)
+			// reset pod and ns to force re-get to avoid stale resources
+			pod, ns = nil, nil
+			return errors.New(errMsg)
+		}
+		return nil
+	}, backoff.WithMaxRetries(backoff.NewConstantBackOff(podRetrievalInterval), uint64(maxRetries)))
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("failed to get pod or namespace info: podErr=%v, nsErr=%v", podErr, nsErr)
 	}
 
 	return compiledSelectors.Matches(pod.Labels, pod.Annotations, ns.Labels), nil

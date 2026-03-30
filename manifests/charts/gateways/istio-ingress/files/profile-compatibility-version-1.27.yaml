@@ -10,3 +10,8 @@ pilot:
     PILOT_ENABLE_STRICT_GATEWAY_MERGING: "false"
     # 1.29 behavioral changes
     DISABLE_TRACK_REMAINING_CB_METRICS: "false"
+
+cni:
+  ambient:
+    # 1.29 behavioral changes - reconcileIptablesOnStartup was false by default in 1.27
+    reconcileIptablesOnStartup: false

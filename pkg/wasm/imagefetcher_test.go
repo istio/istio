@@ -629,3 +629,139 @@ func encode(user, pass string) string {
 	delimited := fmt.Sprintf("%s:%s", user, pass)
 	return base64.StdEncoding.EncodeToString([]byte(delimited))
 }
+
+func TestValidateAllRealms(t *testing.T) {
+	tests := []struct {
+		name      string
+		wwwAuth   string
+		expectErr bool
+	}{
+		{
+			name:      "valid https realm",
+			wwwAuth:   `Bearer realm="https://auth.example.com/token",service="registry.example.com"`,
+			expectErr: false,
+		},
+		{
+			name:      "valid http realm",
+			wwwAuth:   `Bearer realm="http://auth.example.com/token",service="registry.example.com"`,
+			expectErr: false,
+		},
+		{
+			name:      "cloud metadata SSRF",
+			wwwAuth:   `Bearer realm="http://169.254.169.254/latest/meta-data/",service="evil.com"`,
+			expectErr: true,
+		},
+		{
+			name:      "link-local IP",
+			wwwAuth:   `Bearer realm="http://169.254.1.1/foo",service="evil.com"`,
+			expectErr: true,
+		},
+		{
+			name:      "gcp metadata SSRF",
+			wwwAuth:   `Bearer realm="http://metadata.google.internal/computeMetadata/v1/",service="evil.com"`,
+			expectErr: true,
+		},
+		{
+			name:      "localhost SSRF",
+			wwwAuth:   `Bearer realm="http://localhost:8080/admin",service="evil.com"`,
+			expectErr: true,
+		},
+		{
+			name:      "loopback SSRF",
+			wwwAuth:   `Bearer realm="http://127.0.0.1/api",service="evil.com"`,
+			expectErr: true,
+		},
+		{
+			name:      "loopback range",
+			wwwAuth:   `Bearer realm="http://127.0.0.5/api",service="evil.com"`,
+			expectErr: true,
+		},
+		{
+			name:      "file scheme",
+			wwwAuth:   `Bearer realm="file:///etc/passwd",service="evil.com"`,
+			expectErr: true,
+		},
+		{
+			name:      "gopher scheme",
+			wwwAuth:   `Bearer realm="gopher://internal:9000/_GET",service="evil.com"`,
+			expectErr: true,
+		},
+		{
+			name:      "dict scheme",
+			wwwAuth:   `Bearer realm="dict://redis:6379/INFO",service="evil.com"`,
+			expectErr: true,
+		},
+		{
+			name:      "private IP 10.x",
+			wwwAuth:   `Bearer realm="http://10.0.0.1/token",service="evil.com"`,
+			expectErr: true,
+		},
+		{
+			name:      "private IP 192.168",
+			wwwAuth:   `Bearer realm="http://192.168.1.1/token",service="evil.com"`,
+			expectErr: true,
+		},
+		{
+			name:      "private IP 172.16-31",
+			wwwAuth:   `Bearer realm="http://172.16.0.1/token",service="evil.com"`,
+			expectErr: true,
+		},
+		{
+			name:      "ipv6 loopback",
+			wwwAuth:   `Bearer realm="http://[::1]/token",service="evil.com"`,
+			expectErr: true,
+		},
+		{
+			name:      "ipv6 link-local",
+			wwwAuth:   `Bearer realm="http://[fe80::1]/token",service="evil.com"`,
+			expectErr: true,
+		},
+		{
+			name:      "aws ipv6 metadata",
+			wwwAuth:   `Bearer realm="http://[fd00:ec2::254]/latest/meta-data/",service="evil.com"`,
+			expectErr: true,
+		},
+		{
+			name:      "ipv6 unique local",
+			wwwAuth:   `Bearer realm="http://[fc00::1]/token",service="evil.com"`,
+			expectErr: true,
+		},
+		{
+			name:      "no realm param",
+			wwwAuth:   `Bearer service="registry.example.com"`,
+			expectErr: false,
+		},
+		{
+			name:      "basic auth no realm",
+			wwwAuth:   `Basic charset="UTF-8"`,
+			expectErr: false,
+		},
+		// multiple realms in one header - safe first, malicious second
+		{
+			name:      "multiple challenges safe then malicious",
+			wwwAuth:   `Bearer realm="https://safe.com/token", Basic realm="http://169.254.169.254/"`,
+			expectErr: true,
+		},
+		// multiple realms - malicious first
+		{
+			name:      "multiple challenges malicious first",
+			wwwAuth:   `Basic realm="http://localhost/", Bearer realm="https://safe.com/token"`,
+			expectErr: true,
+		},
+		// both realms safe
+		{
+			name:      "multiple challenges both safe",
+			wwwAuth:   `Bearer realm="https://auth.example.com/", Basic realm="https://other.example.com/"`,
+			expectErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateAllRealms(tt.wwwAuth)
+			if (err != nil) != tt.expectErr {
+				t.Errorf("validateAllRealms() error = %v, expectErr %v", err, tt.expectErr)
+			}
+		})
+	}
+}

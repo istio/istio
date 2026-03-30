@@ -38,6 +38,7 @@ var (
 		Namespace:    "istio-system",
 		ResourceName: "istio-system.someAuthNFilter",
 		WasmPlugin: &extensions.WasmPlugin{
+			Url:      "oci://",
 			Priority: &wrapperspb.Int32Value{Value: 1},
 		},
 	}
@@ -46,6 +47,7 @@ var (
 		Namespace:    "istio-system",
 		ResourceName: "istio-system.someAuthZFilter",
 		WasmPlugin: &extensions.WasmPlugin{
+			Url:      "oci://",
 			Priority: &wrapperspb.Int32Value{Value: 1000},
 		},
 	}
@@ -54,6 +56,7 @@ var (
 		Namespace:    "istio-system",
 		ResourceName: "istio-system.someNetworkFilter",
 		WasmPlugin: &extensions.WasmPlugin{
+			Url:      "oci://",
 			Priority: &wrapperspb.Int32Value{Value: 1000},
 			Type:     extensions.PluginType_NETWORK,
 		},
@@ -65,6 +68,7 @@ func TestInsertedExtensionConfigurations(t *testing.T) {
 		Config: &wasmextension.PluginConfig{
 			Name:          "istio-system.someAuthNFilter",
 			Configuration: &anypb.Any{},
+			FailurePolicy: wasmextension.FailurePolicy_FAIL_CLOSED,
 			Vm: &wasmextension.PluginConfig_VmConfig{
 				VmConfig: &wasmextension.VmConfig{
 					Runtime: "envoy.wasm.runtime.v8",
@@ -96,6 +100,7 @@ func TestInsertedExtensionConfigurations(t *testing.T) {
 		Config: &wasmextension.PluginConfig{
 			Name:          "istio-system.someNetworkFilter",
 			Configuration: &anypb.Any{},
+			FailurePolicy: wasmextension.FailurePolicy_FAIL_CLOSED,
 			Vm: &wasmextension.PluginConfig_VmConfig{
 				VmConfig: &wasmextension.VmConfig{
 					Runtime: "envoy.wasm.runtime.v8",
@@ -125,25 +130,18 @@ func TestInsertedExtensionConfigurations(t *testing.T) {
 	})
 	testCases := []struct {
 		name        string
-		proxy       *model.Proxy
 		wasmPlugins []*model.WasmPluginWrapper
 		names       []string
 		expectedECs []*core.TypedExtensionConfig
 	}{
 		{
-			name: "empty",
-			proxy: &model.Proxy{
-				IstioVersion: &model.IstioVersion{Major: 1, Minor: 24, Patch: 0},
-			},
+			name:        "empty",
 			wasmPlugins: []*model.WasmPluginWrapper{},
 			names:       []string{someAuthNFilter.Name},
 			expectedECs: []*core.TypedExtensionConfig{},
 		},
 		{
 			name: "authn",
-			proxy: &model.Proxy{
-				IstioVersion: &model.IstioVersion{Major: 1, Minor: 24, Patch: 0},
-			},
 			wasmPlugins: []*model.WasmPluginWrapper{
 				someAuthNFilter,
 				someAuthZFilter,
@@ -158,9 +156,6 @@ func TestInsertedExtensionConfigurations(t *testing.T) {
 		},
 		{
 			name: "network",
-			proxy: &model.Proxy{
-				IstioVersion: &model.IstioVersion{Major: 1, Minor: 24, Patch: 0},
-			},
 			wasmPlugins: []*model.WasmPluginWrapper{
 				someNetworkFilter,
 			},
@@ -176,9 +171,6 @@ func TestInsertedExtensionConfigurations(t *testing.T) {
 		},
 		{
 			name: "combination of http and network",
-			proxy: &model.Proxy{
-				IstioVersion: &model.IstioVersion{Major: 1, Minor: 24, Patch: 0},
-			},
 			wasmPlugins: []*model.WasmPluginWrapper{
 				someAuthNFilter,
 				someNetworkFilter,
@@ -201,7 +193,7 @@ func TestInsertedExtensionConfigurations(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			ecs := InsertedExtensionConfigurations(tc.proxy, tc.wasmPlugins, tc.names, nil)
+			ecs := InsertedExtensionConfigurations(tc.wasmPlugins, tc.names, nil)
 			if diff := cmp.Diff(tc.expectedECs, ecs, protocmp.Transform()); diff != "" {
 				t.Fatal(diff)
 			}

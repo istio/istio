@@ -21,18 +21,17 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sv1 "sigs.k8s.io/gateway-api/apis/v1"
-	k8sbeta "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"istio.io/api/label"
 	apiv1alpha3 "istio.io/client-go/pkg/apis/networking/v1"
 	clientsecurityv1beta1 "istio.io/client-go/pkg/apis/security/v1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/ambient/multicluster"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -45,8 +44,8 @@ type ambientclients struct {
 	sc    clienttest.TestClient[*corev1.Service]
 	sec   clienttest.TestWriter[*corev1.Secret]
 	ns    clienttest.TestWriter[*corev1.Namespace]
-	grc   clienttest.TestWriter[*k8sbeta.Gateway]
-	gwcls clienttest.TestWriter[*k8sbeta.GatewayClass]
+	grc   clienttest.TestWriter[*k8sv1.Gateway]
+	gwcls clienttest.TestWriter[*k8sv1.GatewayClass]
 	se    clienttest.TestWriter[*apiv1alpha3.ServiceEntry]
 	we    clienttest.TestWriter[*apiv1alpha3.WorkloadEntry]
 	pa    clienttest.TestWriter[*clientsecurityv1beta1.PeerAuthentication]
@@ -128,7 +127,7 @@ func TestAmbientMulticlusterIndex_WaypointForWorkloadTraffic(t *testing.T) {
 			s := newAmbientTestServer(t, testC, testNW, "")
 			s.AddSecret("s1", "c1") // overlapping ips
 			s.AddSecret("s2", "c2") // Non-overlapping ips
-			remoteClients := krt.NewCollection(s.remoteClusters, func(_ krt.HandlerContext, c *multicluster.Cluster) **remoteAmbientClients {
+			remoteClients := krt.NewCollection(s.mcController.Clusters(), func(_ krt.HandlerContext, c *multicluster.Cluster) **remoteAmbientClients {
 				cl := c.Client
 				return ptr.Of(&remoteAmbientClients{
 					clusterID: c.ID,
@@ -136,8 +135,8 @@ func TestAmbientMulticlusterIndex_WaypointForWorkloadTraffic(t *testing.T) {
 						pc:    clienttest.NewDirectClient[*corev1.Pod, corev1.Pod, *corev1.PodList](t, cl),
 						sc:    clienttest.NewDirectClient[*corev1.Service, corev1.Service, *corev1.ServiceList](t, cl),
 						ns:    clienttest.NewWriter[*corev1.Namespace](t, cl),
-						grc:   clienttest.NewWriter[*k8sbeta.Gateway](t, cl),
-						gwcls: clienttest.NewWriter[*k8sbeta.GatewayClass](t, cl),
+						grc:   clienttest.NewWriter[*k8sv1.Gateway](t, cl),
+						gwcls: clienttest.NewWriter[*k8sv1.GatewayClass](t, cl),
 						se:    clienttest.NewWriter[*apiv1alpha3.ServiceEntry](t, cl),
 						we:    clienttest.NewWriter[*apiv1alpha3.WorkloadEntry](t, cl),
 						pa:    clienttest.NewWriter[*clientsecurityv1beta1.PeerAuthentication](t, cl),
@@ -209,7 +208,7 @@ func TestAmbientMulticlusterIndex_WaypointForWorkloadTraffic(t *testing.T) {
 							Labels: map[string]string{label.TopologyNetwork.Name: clusterToNetwork[client.clusterID]},
 						},
 					})
-					client.gwcls.Create(&k8sbeta.GatewayClass{
+					client.gwcls.Create(&k8sv1.GatewayClass{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: constants.EastWestGatewayClassName,
 						},
@@ -427,7 +426,7 @@ func TestMulticlusterAmbientIndex_TestServiceMerging(t *testing.T) {
 	test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
 	s := newAmbientTestServer(t, testC, testNW, "")
 	s.AddSecret("s1", "remote-cluster") // overlapping ips
-	remoteClients := krt.NewCollection(s.remoteClusters, func(_ krt.HandlerContext, c *multicluster.Cluster) **remoteAmbientClients {
+	remoteClients := krt.NewCollection(s.mcController.Clusters(), func(_ krt.HandlerContext, c *multicluster.Cluster) **remoteAmbientClients {
 		cl := c.Client
 		return ptr.Of(&remoteAmbientClients{
 			clusterID: c.ID,
@@ -435,8 +434,8 @@ func TestMulticlusterAmbientIndex_TestServiceMerging(t *testing.T) {
 				pc:    clienttest.NewDirectClient[*corev1.Pod, corev1.Pod, *corev1.PodList](t, cl),
 				sc:    clienttest.NewDirectClient[*corev1.Service, corev1.Service, *corev1.ServiceList](t, cl),
 				ns:    clienttest.NewWriter[*corev1.Namespace](t, cl),
-				grc:   clienttest.NewWriter[*k8sbeta.Gateway](t, cl),
-				gwcls: clienttest.NewWriter[*k8sbeta.GatewayClass](t, cl),
+				grc:   clienttest.NewWriter[*k8sv1.Gateway](t, cl),
+				gwcls: clienttest.NewWriter[*k8sv1.GatewayClass](t, cl),
 				se:    clienttest.NewWriter[*apiv1alpha3.ServiceEntry](t, cl),
 				we:    clienttest.NewWriter[*apiv1alpha3.WorkloadEntry](t, cl),
 				pa:    clienttest.NewWriter[*clientsecurityv1beta1.PeerAuthentication](t, cl),
@@ -552,8 +551,10 @@ func TestMulticlusterAmbientIndex_TestServiceMerging(t *testing.T) {
 func TestMulticlusterAmbientIndex_SplitHorizon(t *testing.T) {
 	test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
 	s := newAmbientTestServer(t, testC, testNW, "")
+	// Test that we're propagating the trust domain correctly
+	s.meshConfig.Mesh().TrustDomain = s.DomainSuffix
 	s.AddSecret("s1", "remote-cluster") // overlapping ips
-	remoteClients := krt.NewCollection(s.remoteClusters, func(_ krt.HandlerContext, c *multicluster.Cluster) **remoteAmbientClients {
+	remoteClients := krt.NewCollection(s.mcController.Clusters(), func(_ krt.HandlerContext, c *multicluster.Cluster) **remoteAmbientClients {
 		cl := c.Client
 		return ptr.Of(&remoteAmbientClients{
 			clusterID: c.ID,
@@ -561,8 +562,8 @@ func TestMulticlusterAmbientIndex_SplitHorizon(t *testing.T) {
 				pc:    clienttest.NewDirectClient[*corev1.Pod, corev1.Pod, *corev1.PodList](t, cl),
 				sc:    clienttest.NewDirectClient[*corev1.Service, corev1.Service, *corev1.ServiceList](t, cl),
 				ns:    clienttest.NewWriter[*corev1.Namespace](t, cl),
-				grc:   clienttest.NewWriter[*k8sbeta.Gateway](t, cl),
-				gwcls: clienttest.NewWriter[*k8sbeta.GatewayClass](t, cl),
+				grc:   clienttest.NewWriter[*k8sv1.Gateway](t, cl),
+				gwcls: clienttest.NewWriter[*k8sv1.GatewayClass](t, cl),
 				se:    clienttest.NewWriter[*apiv1alpha3.ServiceEntry](t, cl),
 				we:    clienttest.NewWriter[*apiv1alpha3.WorkloadEntry](t, cl),
 				pa:    clienttest.NewWriter[*clientsecurityv1beta1.PeerAuthentication](t, cl),
@@ -635,6 +636,12 @@ func TestMulticlusterAmbientIndex_SplitHorizon(t *testing.T) {
 		}
 		if len(gwwl.Workload.Addresses) != 1 {
 			return fmt.Errorf("expected network gateway workload to have addresses, got %v", gwwl.Workload.Addresses)
+		}
+		if gwwl.Workload.TrustDomain != s.DomainSuffix {
+			return fmt.Errorf("expected network gateway workload to have trust domain %s, got %s",
+				s.DomainSuffix,
+				gwwl.Workload.TrustDomain,
+			)
 		}
 		expectedAddress := []uint8{172, 0, 1, 2}
 		if !reflect.DeepEqual(gwwl.Workload.Addresses[0], expectedAddress) {

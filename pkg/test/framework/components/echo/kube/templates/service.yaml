@@ -54,7 +54,11 @@ spec:
 {{- range $i, $p := .ServicePorts }}
   - name: {{ $p.Name }}
     port: {{ $p.ServicePort }}
+{{- if $p.TargetPortName }}
+    targetPort: {{ $p.TargetPortName }}
+{{- else }}
     targetPort: {{ $p.WorkloadPort }}
+{{- end }}
 {{- end }}
   selector:
     app: {{ .Service }}

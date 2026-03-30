@@ -90,7 +90,10 @@ func (o *handlerSet[O]) Insert(
 	o.mu.Unlock()
 	l.send(initialEvents, true)
 	if sendSynced {
-		l.addCh <- parentSyncedNotification{}
+		select {
+		case <-l.stop:
+		case l.addCh <- parentSyncedNotification{}:
+		}
 	}
 	reg := handlerRegistration{
 		Syncer: l.Synced(),

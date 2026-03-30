@@ -15,7 +15,10 @@
 package core
 
 import (
+	"fmt"
+	"sort"
 	"testing"
+	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	tracingcfg "github.com/envoyproxy/go-control-plane/envoy/config/trace/v3"
@@ -71,6 +74,12 @@ func TestConfigureTracing(t *testing.T) {
 			name:            "no telemetry api",
 			opts:            fakeOptsNoTelemetryAPI(),
 			want:            fakeTracingConfigNoProvider(55.55, 13, append(defaultTracingTags(), fakeEnvTag)),
+			wantReqIDExtCtx: nil,
+		},
+		{
+			name:            "no telemetry api (waypoint)",
+			opts:            fakeOptsNoTelemetryAPIWaypoint(),
+			want:            fakeTracingConfigNoProvider(55.55, 13, waypointTracingTags(fakeEnvTag)),
 			wantReqIDExtCtx: nil,
 		},
 		{
@@ -227,7 +236,7 @@ func TestConfigureTracing(t *testing.T) {
 		{
 			name:   "basic config (with opentelemetry provider via grpc with initial metadata)",
 			inSpec: fakeTracingSpec(fakeOpenTelemetryGrpcWithInitialMetadata(), 99.999, false, true, true),
-			opts:   fakeOptsOnlyOpenTelemetryGrpcWithInitialMetadataTelemetryAPI(),
+			opts:   fakeOptsOnlyOpenTelemetryGrpcWithInitialMetadataTelemetryAPI(28),
 			want: fakeTracingConfig(fakeOpenTelemetryGrpcWithInitialMetadataProvider(clusterName, authority),
 				99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
 			wantReqIDExtCtx: &defaultUUIDExtensionCtx,
@@ -257,12 +266,44 @@ func TestConfigureTracing(t *testing.T) {
 				99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
 			wantReqIDExtCtx: &defaultUUIDExtensionCtx,
 		},
+		{
+			name:   "with formatter tag",
+			inSpec: fakeTracingSpec(fakeOpenTelemetryGrpcWithInitialMetadata(), 99.999, false, true, true),
+			opts:   fakeOptsOnlyOpenTelemetryGrpcWithInitialMetadataTelemetryAPI(29),
+			want: fakeTracingConfig(fakeOpenTelemetryGrpcWithInitialMetadataProvider(clusterName, authority),
+				99.999, 256, append(defaultTracingTags(), fakeEnvTag, fakeFormatterTag)),
+			wantReqIDExtCtx: &defaultUUIDExtensionCtx,
+		},
+		{
+			name:   "disable context propagation (1.30+ proxy)",
+			inSpec: fakeTracingSpecWithContextPropagation(fakeOpenTelemetryGrpc(), 99.999, false, true, true, true),
+			opts:   fakeOptsOnlyOTelGrpcTelemetryAPIWithVersion(1, 30),
+			want: fakeTracingConfigWithNoContextPropagation(fakeOpenTelemetryGrpcProvider(clusterName, authority),
+				99.999, 256, append(defaultTracingTags(), fakeEnvTag, fakeFormatterTag)),
+			wantReqIDExtCtx: &defaultUUIDExtensionCtx,
+		},
+		{
+			name:   "disable context propagation (old proxy, version gated)",
+			inSpec: fakeTracingSpecWithContextPropagation(fakeOpenTelemetryGrpc(), 99.999, false, true, true, true),
+			opts:   fakeOptsOnlyOTelGrpcTelemetryAPIWithVersion(1, 29),
+			want: fakeTracingConfig(fakeOpenTelemetryGrpcProvider(clusterName, authority),
+				99.999, 256, append(defaultTracingTags(), fakeEnvTag, fakeFormatterTag)),
+			wantReqIDExtCtx: &defaultUUIDExtensionCtx,
+		},
+		{
+			name:   "context propagation enabled (default)",
+			inSpec: fakeTracingSpecWithContextPropagation(fakeOpenTelemetryGrpc(), 99.999, false, true, true, false),
+			opts:   fakeOptsOnlyOTelGrpcTelemetryAPIWithVersion(1, 30),
+			want: fakeTracingConfig(fakeOpenTelemetryGrpcProvider(clusterName, authority),
+				99.999, 256, append(defaultTracingTags(), fakeEnvTag, fakeFormatterTag)),
+			wantReqIDExtCtx: &defaultUUIDExtensionCtx,
+		},
 	}
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 			hcm := &hcm.HttpConnectionManager{}
-			gotReqIDExtCtx := configureTracingFromTelemetry(tc.inSpec, tc.opts.push, tc.opts.proxy, hcm, 0, nil)
+			gotReqIDExtCtx := configureTracingFromTelemetry(tc.inSpec, tc.opts.push, tc.opts.proxy, hcm, 0)
 			if diff := cmp.Diff(tc.want, hcm.Tracing, protocmp.Transform()); diff != "" {
 				t.Fatalf("configureTracing returned unexpected diff (-want +got):\n%s", diff)
 			}
@@ -389,7 +430,7 @@ func TestConfigureDynatraceSampler(t *testing.T) {
 			want := fakeTracingConfig(fakeOtelHTTPAny, 100, 256, append(defaultTracingTags(), fakeEnvTag))
 
 			hcm := &hcm.HttpConnectionManager{}
-			configureTracingFromTelemetry(inSpec, opts.push, opts.proxy, hcm, 0, nil)
+			configureTracingFromTelemetry(inSpec, opts.push, opts.proxy, hcm, 0)
 
 			if diff := cmp.Diff(want, hcm.Tracing, protocmp.Transform()); diff != "" {
 				t.Fatalf("configureTracing returned unexpected diff (-want +got):\n%s", diff)
@@ -533,7 +574,7 @@ func TestConfigureDynatraceSamplerWithCustomHttp(t *testing.T) {
 	want := fakeTracingConfig(fakeOtelHTTPAny, 100, 256, append(defaultTracingTags(), fakeEnvTag))
 
 	hcm := &hcm.HttpConnectionManager{}
-	configureTracingFromTelemetry(inSpec, opts.push, opts.proxy, hcm, 0, nil)
+	configureTracingFromTelemetry(inSpec, opts.push, opts.proxy, hcm, 0)
 
 	if diff := cmp.Diff(want, hcm.Tracing, protocmp.Transform()); diff != "" {
 		t.Fatalf("configureTracing returned unexpected diff (-want +got):\n%s", diff)
@@ -585,6 +626,35 @@ func defaultTracingTags() []*tracing.CustomTag {
 		})
 }
 
+func waypointTracingTags(extra ...*tracing.CustomTag) []*tracing.CustomTag {
+	tags := append([]*tracing.CustomTag{}, defaultTracingTags()...)
+	tags = append(tags,
+		// FIELD accessor tags for waypoint source tracking (uses {downstream,upstream}_peer_obj key)
+		&tracing.CustomTag{Tag: "istio.destination_app", Type: &tracing.CustomTag_Value{Value: "%FILTER_STATE(upstream_peer_obj:FIELD:app)%"}},
+		&tracing.CustomTag{Tag: "istio.destination_app_version", Type: &tracing.CustomTag_Value{Value: "%FILTER_STATE(upstream_peer_obj:FIELD:version)%"}},
+		&tracing.CustomTag{Tag: "istio.destination_canonical_revision", Type: &tracing.CustomTag_Value{Value: "%FILTER_STATE(upstream_peer_obj:FIELD:revision)%"}},
+		&tracing.CustomTag{Tag: "istio.destination_canonical_service", Type: &tracing.CustomTag_Value{Value: "%FILTER_STATE(upstream_peer_obj:FIELD:service)%"}},
+		&tracing.CustomTag{Tag: "istio.destination_cluster_id", Type: &tracing.CustomTag_Value{Value: "%FILTER_STATE(upstream_peer_obj:FIELD:cluster)%"}},
+		&tracing.CustomTag{Tag: "istio.destination_instance_name", Type: &tracing.CustomTag_Value{Value: "%FILTER_STATE(upstream_peer_obj:FIELD:name)%"}},
+		&tracing.CustomTag{Tag: "istio.destination_namespace", Type: &tracing.CustomTag_Value{Value: "%FILTER_STATE(upstream_peer_obj:FIELD:namespace)%"}},
+		&tracing.CustomTag{Tag: "istio.destination_workload", Type: &tracing.CustomTag_Value{Value: "%FILTER_STATE(upstream_peer_obj:FIELD:workload)%"}},
+		&tracing.CustomTag{Tag: "istio.destination_workload_type", Type: &tracing.CustomTag_Value{Value: "%FILTER_STATE(upstream_peer_obj:FIELD:type)%"}},
+
+		&tracing.CustomTag{Tag: "istio.source_app", Type: &tracing.CustomTag_Value{Value: "%FILTER_STATE(downstream_peer_obj:FIELD:app)%"}},
+		&tracing.CustomTag{Tag: "istio.source_app_version", Type: &tracing.CustomTag_Value{Value: "%FILTER_STATE(downstream_peer_obj:FIELD:version)%"}},
+		&tracing.CustomTag{Tag: "istio.source_canonical_revision", Type: &tracing.CustomTag_Value{Value: "%FILTER_STATE(downstream_peer_obj:FIELD:revision)%"}},
+		&tracing.CustomTag{Tag: "istio.source_canonical_service", Type: &tracing.CustomTag_Value{Value: "%FILTER_STATE(downstream_peer_obj:FIELD:service)%"}},
+		&tracing.CustomTag{Tag: "istio.source_cluster_id", Type: &tracing.CustomTag_Value{Value: "%FILTER_STATE(downstream_peer_obj:FIELD:cluster)%"}},
+		&tracing.CustomTag{Tag: "istio.source_instance_name", Type: &tracing.CustomTag_Value{Value: "%FILTER_STATE(downstream_peer_obj:FIELD:name)%"}},
+		&tracing.CustomTag{Tag: "istio.source_namespace", Type: &tracing.CustomTag_Value{Value: "%FILTER_STATE(downstream_peer_obj:FIELD:namespace)%"}},
+		&tracing.CustomTag{Tag: "istio.source_workload", Type: &tracing.CustomTag_Value{Value: "%FILTER_STATE(downstream_peer_obj:FIELD:workload)%"}},
+		&tracing.CustomTag{Tag: "istio.source_workload_type", Type: &tracing.CustomTag_Value{Value: "%FILTER_STATE(downstream_peer_obj:FIELD:type)%"}},
+	)
+	tags = append(tags, extra...)
+	sort.Slice(tags, func(i, j int) bool { return tags[i].Tag < tags[j].Tag })
+	return tags
+}
+
 func fakeOptsWithDefaultProviders() gatewayListenerOpts {
 	var opts gatewayListenerOpts
 	opts.push = &model.PushContext{
@@ -615,7 +685,8 @@ func fakeOptsWithDefaultProviders() gatewayListenerOpts {
 		},
 	}
 	opts.proxy = &model.Proxy{
-		Metadata: &model.NodeMetadata{},
+		IstioVersion: &model.IstioVersion{Major: 1, Minor: 28, Patch: 0},
+		Metadata:     &model.NodeMetadata{},
 	}
 
 	return opts
@@ -646,8 +717,15 @@ func fakeOptsNoTelemetryAPI() gatewayListenerOpts {
 				},
 			},
 		},
+		IstioVersion: &model.IstioVersion{Major: 1, Minor: 28, Patch: 0},
 	}
 
+	return opts
+}
+
+func fakeOptsNoTelemetryAPIWaypoint() gatewayListenerOpts {
+	opts := fakeOptsNoTelemetryAPI()
+	opts.proxy.Type = model.Waypoint
 	return opts
 }
 
@@ -659,6 +737,7 @@ func fakeOptsNoTelemetryAPIWithNilCustomTag() gatewayListenerOpts {
 		},
 	}
 	opts.proxy = &model.Proxy{
+		IstioVersion: &model.IstioVersion{Major: 1, Minor: 28, Patch: 0},
 		Metadata: &model.NodeMetadata{
 			ProxyConfig: &model.NodeMetaProxyConfig{
 				Tracing: &meshconfig.Tracing{
@@ -676,6 +755,10 @@ func fakeOptsNoTelemetryAPIWithNilCustomTag() gatewayListenerOpts {
 }
 
 func fakeOptsOnlyZipkinTelemetryAPI() gatewayListenerOpts {
+	return fakeOptsOnlyZipkinTelemetryAPIWithVersion(1, 28)
+}
+
+func fakeOptsOnlyZipkinTelemetryAPIWithVersion(major, minor int) gatewayListenerOpts {
 	var opts gatewayListenerOpts
 	opts.push = &model.PushContext{
 		Mesh: &meshconfig.MeshConfig{
@@ -697,6 +780,7 @@ func fakeOptsOnlyZipkinTelemetryAPI() gatewayListenerOpts {
 		Metadata: &model.NodeMetadata{
 			ProxyConfig: &model.NodeMetaProxyConfig{},
 		},
+		IstioVersion: &model.IstioVersion{Major: major, Minor: minor, Patch: 0},
 	}
 
 	return opts
@@ -722,6 +806,7 @@ func fakeOptsZipkinTelemetryWithEndpoint() gatewayListenerOpts {
 		},
 	}
 	opts.proxy = &model.Proxy{
+		IstioVersion: &model.IstioVersion{Major: 1, Minor: 28, Patch: 0},
 		Metadata: &model.NodeMetadata{
 			ProxyConfig: &model.NodeMetaProxyConfig{},
 		},
@@ -871,6 +956,7 @@ func fakeOptsOnlyDatadogTelemetryAPI() gatewayListenerOpts {
 		XdsNode: &core.Node{
 			Cluster: "fake-cluster",
 		},
+		IstioVersion: &model.IstioVersion{Major: 1, Minor: 28, Patch: 0},
 	}
 
 	return opts
@@ -913,6 +999,7 @@ func fakeOptsMeshAndTelemetryAPI(enableTracing bool) gatewayListenerOpts {
 				},
 			},
 		},
+		IstioVersion: &model.IstioVersion{Major: 1, Minor: 28, Patch: 0},
 	}
 
 	return opts
@@ -948,6 +1035,7 @@ func fakeOptsOnlySkywalkingTelemetryAPI() gatewayListenerOpts {
 		},
 	}
 	opts.proxy = &model.Proxy{
+		IstioVersion: &model.IstioVersion{Major: 1, Minor: 28, Patch: 0},
 		Metadata: &model.NodeMetadata{
 			ProxyConfig: &model.NodeMetaProxyConfig{},
 		},
@@ -1029,6 +1117,34 @@ func fakeOpenTelemetryResourceDetectors() *meshconfig.MeshConfig_ExtensionProvid
 	return ep
 }
 
+func fakeOptsOnlyOTelGrpcTelemetryAPIWithVersion(major, minor int) gatewayListenerOpts {
+	var opts gatewayListenerOpts
+	opts.push = &model.PushContext{
+		Mesh: &meshconfig.MeshConfig{
+			ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{
+				{
+					Name: "opentelemetry",
+					Provider: &meshconfig.MeshConfig_ExtensionProvider_Opentelemetry{
+						Opentelemetry: &meshconfig.MeshConfig_ExtensionProvider_OpenTelemetryTracingProvider{
+							Service:      "otel-collector",
+							Port:         4317,
+							MaxTagLength: 256,
+						},
+					},
+				},
+			},
+		},
+	}
+	opts.proxy = &model.Proxy{
+		IstioVersion: &model.IstioVersion{Major: major, Minor: minor, Patch: 0},
+		Metadata: &model.NodeMetadata{
+			ProxyConfig: &model.NodeMetaProxyConfig{},
+		},
+	}
+
+	return opts
+}
+
 func fakeOptsOnlyOpenTelemetryGrpcTelemetryAPI() gatewayListenerOpts {
 	var opts gatewayListenerOpts
 	opts.push = &model.PushContext{
@@ -1048,6 +1164,7 @@ func fakeOptsOnlyOpenTelemetryGrpcTelemetryAPI() gatewayListenerOpts {
 		},
 	}
 	opts.proxy = &model.Proxy{
+		IstioVersion: &model.IstioVersion{Major: 1, Minor: 28, Patch: 0},
 		Metadata: &model.NodeMetadata{
 			ProxyConfig: &model.NodeMetaProxyConfig{},
 		},
@@ -1056,7 +1173,7 @@ func fakeOptsOnlyOpenTelemetryGrpcTelemetryAPI() gatewayListenerOpts {
 	return opts
 }
 
-func fakeOptsOnlyOpenTelemetryGrpcWithInitialMetadataTelemetryAPI() gatewayListenerOpts {
+func fakeOptsOnlyOpenTelemetryGrpcWithInitialMetadataTelemetryAPI(minor int) gatewayListenerOpts {
 	var opts gatewayListenerOpts
 	opts.push = &model.PushContext{
 		Mesh: &meshconfig.MeshConfig{
@@ -1086,6 +1203,7 @@ func fakeOptsOnlyOpenTelemetryGrpcWithInitialMetadataTelemetryAPI() gatewayListe
 		},
 	}
 	opts.proxy = &model.Proxy{
+		IstioVersion: &model.IstioVersion{Major: 1, Minor: minor, Patch: 0},
 		Metadata: &model.NodeMetadata{
 			ProxyConfig: &model.NodeMetaProxyConfig{},
 		},
@@ -1125,6 +1243,7 @@ func fakeOptsOnlyOpenTelemetryHTTPTelemetryAPI() gatewayListenerOpts {
 		},
 	}
 	opts.proxy = &model.Proxy{
+		IstioVersion: &model.IstioVersion{Major: 1, Minor: 28, Patch: 0},
 		Metadata: &model.NodeMetadata{
 			ProxyConfig: &model.NodeMetaProxyConfig{},
 		},
@@ -1210,6 +1329,13 @@ func tracingSpec(provider *meshconfig.MeshConfig_ExtensionProvider, sampling flo
 					},
 				},
 			},
+			"test-formatter": {
+				Type: &tpb.Tracing_CustomTag_Formatter{
+					Formatter: &tpb.Tracing_Formatter{
+						Value: "%REQ(fake-header)%",
+					},
+				},
+			},
 		},
 		UseRequestIDForTraceSampling: useRequestIDForTraceSampling,
 		EnableIstioTags:              enableIstioTags,
@@ -1277,14 +1403,44 @@ func fakeTracingConfigForSkywalking(provider *tracingcfg.Tracing_Http, randomSam
 	return cfg
 }
 
-var fakeEnvTag = &tracing.CustomTag{
-	Tag: "test",
-	Type: &tracing.CustomTag_Environment_{
-		Environment: &tracing.CustomTag_Environment{
-			Name: "FOO",
-		},
-	},
+func fakeTracingConfigWithNoContextPropagation(provider *tracingcfg.Tracing_Http, randomSampling float64,
+	maxLen uint32, tags []*tracing.CustomTag,
+) *hcm.HttpConnectionManager_Tracing {
+	cfg := fakeTracingConfig(provider, randomSampling, maxLen, tags)
+	cfg.NoContextPropagation = true
+	return cfg
 }
+
+func fakeTracingSpecWithContextPropagation(provider *meshconfig.MeshConfig_ExtensionProvider, sampling float64, disableReporting bool,
+	useRequestIDForTraceSampling bool,
+	enableIstioTags bool,
+	disableContextPropagation bool,
+) *model.TracingConfig {
+	spec := tracingSpec(provider, sampling, disableReporting, useRequestIDForTraceSampling, enableIstioTags)
+	spec.DisableContextPropagation = disableContextPropagation
+	t := &model.TracingConfig{
+		ClientSpec: spec,
+		ServerSpec: spec,
+	}
+	return t
+}
+
+var (
+	fakeEnvTag = &tracing.CustomTag{
+		Tag: "test",
+		Type: &tracing.CustomTag_Environment_{
+			Environment: &tracing.CustomTag_Environment{
+				Name: "FOO",
+			},
+		},
+	}
+	fakeFormatterTag = &tracing.CustomTag{
+		Tag: "test-formatter",
+		Type: &tracing.CustomTag_Value{
+			Value: "%REQ(fake-header)%",
+		},
+	}
+)
 
 func fakeZipkinProvider(expectClusterName, expectAuthority, expectEndpoint string, enableTraceID bool) *tracingcfg.Tracing_Http {
 	return fakeZipkinProviderWithTraceContext(expectClusterName, expectAuthority, expectEndpoint, enableTraceID, tracingcfg.ZipkinConfig_USE_B3)
@@ -1550,7 +1706,7 @@ func TestZipkinConfig(t *testing.T) {
 			proxy := &model.Proxy{
 				IstioVersion: &model.IstioVersion{Major: 1, Minor: 28, Patch: 0},
 			}
-			result, err := zipkinConfig(tc.hostname, tc.cluster, tc.endpoint, tc.enable128BitTraceID, tc.traceContextOption, proxy)
+			result, err := zipkinConfig(tc.hostname, tc.cluster, tc.endpoint, tc.enable128BitTraceID, tc.traceContextOption, nil, nil, proxy)
 			assert.NoError(t, err)
 
 			// Unmarshal the Any proto to compare the actual ZipkinConfig
@@ -1624,6 +1780,8 @@ func TestZipkinConfigVersionGating(t *testing.T) {
 				"/api/v2/spans",
 				true,
 				tc.traceContextOption,
+				nil,
+				nil,
 				proxy,
 			)
 			assert.NoError(t, err)
@@ -1647,6 +1805,576 @@ func TestZipkinConfigVersionGating(t *testing.T) {
 				assert.Equal(t, tracingcfg.ZipkinConfig_USE_B3, actualConfig.TraceContextOption,
 					"TraceContextOption should default to USE_B3 for proxy version %s", versionStr)
 			}
+		})
+	}
+}
+
+// TestZipkinConfigWithTimeoutAndHeaders tests Zipkin configuration with timeout and custom headers
+func TestZipkinConfigWithTimeoutAndHeaders(t *testing.T) {
+	testcases := []struct {
+		name           string
+		hostname       string
+		cluster        string
+		endpoint       string
+		timeout        *durationpb.Duration
+		headers        []*meshconfig.MeshConfig_ExtensionProvider_HttpHeader
+		expectedConfig *tracingcfg.ZipkinConfig
+	}{
+		{
+			name:     "zipkin with timeout uses HttpService",
+			hostname: "zipkin.istio-system.svc.cluster.local",
+			cluster:  "zipkin-cluster",
+			endpoint: "/api/v2/spans",
+			timeout:  durationpb.New(10 * time.Second), // 10s
+			headers:  nil,
+			expectedConfig: &tracingcfg.ZipkinConfig{
+				CollectorEndpointVersion: tracingcfg.ZipkinConfig_HTTP_JSON,
+				TraceId_128Bit:           true,
+				SharedSpanContext:        wrapperspb.Bool(false),
+				TraceContextOption:       tracingcfg.ZipkinConfig_USE_B3,
+				CollectorService: &core.HttpService{
+					HttpUri: &core.HttpUri{
+						Uri: "http://zipkin.istio-system.svc.cluster.local/api/v2/spans",
+						HttpUpstreamType: &core.HttpUri_Cluster{
+							Cluster: "zipkin-cluster",
+						},
+						Timeout: durationpb.New(10 * time.Second),
+					},
+				},
+			},
+		},
+		{
+			name:     "zipkin with custom headers uses HttpService",
+			hostname: "zipkin.istio-system.svc.cluster.local",
+			cluster:  "zipkin-cluster",
+			endpoint: "/api/v2/spans",
+			timeout:  nil,
+			headers: []*meshconfig.MeshConfig_ExtensionProvider_HttpHeader{
+				{
+					Name: "Authorization",
+					HeaderValue: &meshconfig.MeshConfig_ExtensionProvider_HttpHeader_Value{
+						Value: "Bearer token123",
+					},
+				},
+			},
+			expectedConfig: &tracingcfg.ZipkinConfig{
+				CollectorEndpointVersion: tracingcfg.ZipkinConfig_HTTP_JSON,
+				TraceId_128Bit:           true,
+				SharedSpanContext:        wrapperspb.Bool(false),
+				TraceContextOption:       tracingcfg.ZipkinConfig_USE_B3,
+				CollectorService: &core.HttpService{
+					HttpUri: &core.HttpUri{
+						Uri:     "http://zipkin.istio-system.svc.cluster.local/api/v2/spans",
+						Timeout: durationpb.New(5 * time.Second),
+						HttpUpstreamType: &core.HttpUri_Cluster{
+							Cluster: "zipkin-cluster",
+						},
+					},
+					RequestHeadersToAdd: []*core.HeaderValueOption{
+						{
+							AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
+							Header: &core.HeaderValue{
+								Key:   "Authorization",
+								Value: "Bearer token123",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:     "zipkin with both timeout and headers",
+			hostname: "zipkin.istio-system.svc.cluster.local",
+			cluster:  "zipkin-cluster",
+			endpoint: "/api/v2/spans",
+			timeout:  durationpb.New(5000000000), // 5s
+			headers: []*meshconfig.MeshConfig_ExtensionProvider_HttpHeader{
+				{
+					Name: "X-Custom-Header",
+					HeaderValue: &meshconfig.MeshConfig_ExtensionProvider_HttpHeader_Value{
+						Value: "custom-value",
+					},
+				},
+				{
+					Name: "X-Tenant-ID",
+					HeaderValue: &meshconfig.MeshConfig_ExtensionProvider_HttpHeader_Value{
+						Value: "tenant-123",
+					},
+				},
+			},
+			expectedConfig: &tracingcfg.ZipkinConfig{
+				CollectorEndpointVersion: tracingcfg.ZipkinConfig_HTTP_JSON,
+				TraceId_128Bit:           true,
+				SharedSpanContext:        wrapperspb.Bool(false),
+				TraceContextOption:       tracingcfg.ZipkinConfig_USE_B3,
+				CollectorService: &core.HttpService{
+					HttpUri: &core.HttpUri{
+						Uri: "http://zipkin.istio-system.svc.cluster.local/api/v2/spans",
+						HttpUpstreamType: &core.HttpUri_Cluster{
+							Cluster: "zipkin-cluster",
+						},
+						Timeout: durationpb.New(5000000000),
+					},
+					RequestHeadersToAdd: []*core.HeaderValueOption{
+						{
+							AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
+							Header: &core.HeaderValue{
+								Key:   "X-Custom-Header",
+								Value: "custom-value",
+							},
+						},
+						{
+							AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
+							Header: &core.HeaderValue{
+								Key:   "X-Tenant-ID",
+								Value: "tenant-123",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:     "zipkin without timeout and headers uses HttpService (for 1.29+)",
+			hostname: "zipkin.istio-system.svc.cluster.local",
+			cluster:  "zipkin-cluster",
+			endpoint: "/api/v2/spans",
+			timeout:  nil,
+			headers:  nil,
+			expectedConfig: &tracingcfg.ZipkinConfig{
+				CollectorEndpointVersion: tracingcfg.ZipkinConfig_HTTP_JSON,
+				TraceId_128Bit:           true,
+				SharedSpanContext:        wrapperspb.Bool(false),
+				TraceContextOption:       tracingcfg.ZipkinConfig_USE_B3,
+				CollectorService: &core.HttpService{
+					HttpUri: &core.HttpUri{
+						Uri:     "http://zipkin.istio-system.svc.cluster.local/api/v2/spans",
+						Timeout: durationpb.New(5 * time.Second),
+						HttpUpstreamType: &core.HttpUri_Cluster{
+							Cluster: "zipkin-cluster",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Use 1.29+ proxy to test timeout/headers support
+			proxy := &model.Proxy{
+				IstioVersion: &model.IstioVersion{Major: 1, Minor: 29, Patch: 0},
+			}
+			result, err := zipkinConfig(tc.hostname, tc.cluster, tc.endpoint, true, tracingcfg.ZipkinConfig_USE_B3, tc.timeout, tc.headers, proxy)
+			assert.NoError(t, err)
+
+			var actualConfig tracingcfg.ZipkinConfig
+			err = result.UnmarshalTo(&actualConfig)
+			assert.NoError(t, err)
+
+			if diff := cmp.Diff(tc.expectedConfig, &actualConfig, protocmp.Transform()); diff != "" {
+				t.Fatalf("zipkinConfig returned unexpected diff (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+// TestZipkinConfigTimeoutHeadersVersionGating tests that timeout and headers are only used for proxies that support it
+func TestZipkinConfigTimeoutHeadersVersionGating(t *testing.T) {
+	testcases := []struct {
+		name              string
+		proxyVersion      *model.IstioVersion
+		timeout           *durationpb.Duration
+		headers           []*meshconfig.MeshConfig_ExtensionProvider_HttpHeader
+		expectHTTPService bool
+	}{
+		{
+			name:              "New proxy (1.29+) with timeout should use HttpService",
+			proxyVersion:      &model.IstioVersion{Major: 1, Minor: 29, Patch: 0},
+			timeout:           durationpb.New(10 * time.Second),
+			headers:           nil,
+			expectHTTPService: true,
+		},
+		{
+			name:         "New proxy (1.29+) with headers should use HttpService",
+			proxyVersion: &model.IstioVersion{Major: 1, Minor: 29, Patch: 0},
+			timeout:      nil,
+			headers: []*meshconfig.MeshConfig_ExtensionProvider_HttpHeader{
+				{
+					Name: "Authorization",
+					HeaderValue: &meshconfig.MeshConfig_ExtensionProvider_HttpHeader_Value{
+						Value: "Bearer token",
+					},
+				},
+			},
+			expectHTTPService: true,
+		},
+		{
+			name:              "Old proxy (1.28) with timeout should NOT use HttpService",
+			proxyVersion:      &model.IstioVersion{Major: 1, Minor: 28, Patch: 0},
+			timeout:           durationpb.New(10 * time.Second),
+			headers:           nil,
+			expectHTTPService: false,
+		},
+		{
+			name:         "Old proxy (1.28) with headers should NOT use HttpService",
+			proxyVersion: &model.IstioVersion{Major: 1, Minor: 28, Patch: 0},
+			timeout:      nil,
+			headers: []*meshconfig.MeshConfig_ExtensionProvider_HttpHeader{
+				{
+					Name: "Authorization",
+					HeaderValue: &meshconfig.MeshConfig_ExtensionProvider_HttpHeader_Value{
+						Value: "Bearer token",
+					},
+				},
+			},
+			expectHTTPService: false,
+		},
+		{
+			name:              "New proxy (1.29+) without timeout/headers should use HttpService",
+			proxyVersion:      &model.IstioVersion{Major: 1, Minor: 29, Patch: 0},
+			timeout:           nil,
+			headers:           nil,
+			expectHTTPService: true,
+		},
+		{
+			name:              "Old proxy (1.28) without timeout/headers should NOT use HttpService",
+			proxyVersion:      &model.IstioVersion{Major: 1, Minor: 28, Patch: 0},
+			timeout:           nil,
+			headers:           nil,
+			expectHTTPService: false,
+		},
+		{
+			name:              "Proxy with nil version should NOT use HttpService",
+			proxyVersion:      nil,
+			timeout:           durationpb.New(10000000000),
+			headers:           nil,
+			expectHTTPService: false,
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			proxy := &model.Proxy{
+				IstioVersion: tc.proxyVersion,
+			}
+
+			result, err := zipkinConfig(
+				"zipkin.istio-system.svc.cluster.local",
+				"outbound|9411||zipkin.istio-system.svc.cluster.local",
+				"/api/v2/spans",
+				true,
+				tracingcfg.ZipkinConfig_USE_B3,
+				tc.timeout,
+				tc.headers,
+				proxy,
+			)
+			assert.NoError(t, err)
+
+			var actualConfig tracingcfg.ZipkinConfig
+			err = result.UnmarshalTo(&actualConfig)
+			assert.NoError(t, err)
+
+			versionStr := "nil"
+			if tc.proxyVersion != nil {
+				versionStr = tc.proxyVersion.String()
+			}
+
+			if tc.expectHTTPService {
+				// For new proxies, HttpService should be set
+				if actualConfig.CollectorService == nil {
+					t.Fatalf("CollectorService should be set for proxy version %s", versionStr)
+				}
+				if actualConfig.CollectorCluster != "" {
+					t.Fatalf("CollectorCluster should be empty when using HttpService for proxy version %s, got: %s", versionStr, actualConfig.CollectorCluster)
+				}
+			} else {
+				// For old proxies, legacy fields should be set
+				if actualConfig.CollectorService != nil {
+					t.Fatalf("CollectorService should NOT be set for proxy version %s", versionStr)
+				}
+				if actualConfig.CollectorCluster == "" {
+					t.Fatalf("CollectorCluster should be set when using legacy config for proxy version %s", versionStr)
+				}
+			}
+		})
+	}
+}
+
+func TestOtelServiceName(t *testing.T) {
+	tests := []struct {
+		name     string
+		proxy    *model.Proxy
+		expected string
+	}{
+		{
+			name:     "nil proxy",
+			proxy:    nil,
+			expected: "unknown_service",
+		},
+		{
+			name:     "nil metadata",
+			proxy:    &model.Proxy{},
+			expected: "unknown_service",
+		},
+		{
+			name: "fallback 1: resource.opentelemetry.io/service.name annotation",
+			proxy: &model.Proxy{
+				Labels: map[string]string{"app.kubernetes.io/name": "should-not-use"},
+				Metadata: &model.NodeMetadata{
+					Annotations:  map[string]string{"resource.opentelemetry.io/service.name": "annotated-svc"},
+					WorkloadName: "my-deployment",
+				},
+			},
+			expected: "annotated-svc",
+		},
+		{
+			name: "fallback 2: app.kubernetes.io/instance label",
+			proxy: &model.Proxy{
+				Labels: map[string]string{
+					"app.kubernetes.io/instance": "instance-svc",
+					"app.kubernetes.io/name":     "should-not-use",
+				},
+				Metadata: &model.NodeMetadata{
+					WorkloadName: "my-deployment",
+				},
+			},
+			expected: "instance-svc",
+		},
+		{
+			name: "fallback 3: app.kubernetes.io/name label",
+			proxy: &model.Proxy{
+				Labels: map[string]string{"app.kubernetes.io/name": "labeled-svc"},
+				Metadata: &model.NodeMetadata{
+					WorkloadName: "my-deployment",
+				},
+			},
+			expected: "labeled-svc",
+		},
+		{
+			name: "fallback 4: workload name (owner resource)",
+			proxy: &model.Proxy{
+				ID: "my-pod-abc123.default",
+				Metadata: &model.NodeMetadata{
+					WorkloadName: "my-deployment",
+				},
+			},
+			expected: "my-deployment",
+		},
+		{
+			name: "fallback 5: pod name from proxy ID",
+			proxy: &model.Proxy{
+				ID: "my-pod-abc123.default",
+				Metadata: &model.NodeMetadata{
+					Raw: map[string]any{"APP_CONTAINERS": "container1,container2"},
+				},
+			},
+			expected: "my-pod-abc123",
+		},
+		{
+			name: "fallback 6: single container name",
+			proxy: &model.Proxy{
+				Metadata: &model.NodeMetadata{
+					Raw: map[string]any{"APP_CONTAINERS": "my-container"},
+				},
+			},
+			expected: "my-container",
+		},
+		{
+			name: "fallback 6 skipped: multiple containers",
+			proxy: &model.Proxy{
+				Metadata: &model.NodeMetadata{
+					Raw: map[string]any{"APP_CONTAINERS": "container1,container2"},
+				},
+			},
+			expected: "unknown_service",
+		},
+		{
+			name: "fallback 7: unknown_service",
+			proxy: &model.Proxy{
+				Metadata: &model.NodeMetadata{},
+			},
+			expected: "unknown_service",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := otelServiceName(tt.proxy)
+			assert.Equal(t, tt.expected, got)
+		})
+	}
+}
+
+func TestOtelConfigWithSemanticConventions(t *testing.T) {
+	clusterName := "testcluster"
+	authority := "testhost"
+
+	clusterLookupFn = func(push *model.PushContext, service string, port int) (hostname string, cluster string, err error) {
+		return authority, clusterName, nil
+	}
+	defer func() {
+		clusterLookupFn = model.LookupCluster
+	}()
+
+	defaultUUIDExtensionCtx := requestidextension.UUIDRequestIDExtensionContext{
+		UseRequestIDForTraceSampling: true,
+	}
+
+	// Provider with OTEL_SEMANTIC_CONVENTIONS enabled
+	otelSemConvProvider := &meshconfig.MeshConfig_ExtensionProvider{
+		Name: "opentelemetry",
+		Provider: &meshconfig.MeshConfig_ExtensionProvider_Opentelemetry{
+			Opentelemetry: &meshconfig.MeshConfig_ExtensionProvider_OpenTelemetryTracingProvider{
+				Service:                    "otel-collector",
+				Port:                       4317,
+				MaxTagLength:               256,
+				ServiceAttributeEnrichment: meshconfig.MeshConfig_ExtensionProvider_OTEL_SEMANTIC_CONVENTIONS,
+			},
+		},
+	}
+
+	// Provider with OTEL_SEMANTIC_CONVENTIONS + existing resource detectors
+	otelSemConvWithDetectorsProvider := &meshconfig.MeshConfig_ExtensionProvider{
+		Name: "opentelemetry",
+		Provider: &meshconfig.MeshConfig_ExtensionProvider_Opentelemetry{
+			Opentelemetry: &meshconfig.MeshConfig_ExtensionProvider_OpenTelemetryTracingProvider{
+				Service:                    "otel-collector",
+				Port:                       4317,
+				MaxTagLength:               256,
+				ServiceAttributeEnrichment: meshconfig.MeshConfig_ExtensionProvider_OTEL_SEMANTIC_CONVENTIONS,
+				ResourceDetectors: &meshconfig.MeshConfig_ExtensionProvider_ResourceDetectors{
+					Environment: &meshconfig.MeshConfig_ExtensionProvider_ResourceDetectors_EnvironmentResourceDetector{},
+				},
+			},
+		},
+	}
+
+	envResourceDetector := &core.TypedExtensionConfig{
+		Name:        "envoy.tracers.opentelemetry.resource_detectors.environment",
+		TypedConfig: protoconv.MessageToAny(&resourcedetectors.EnvironmentResourceDetectorConfig{}),
+	}
+
+	// Expected OTel config with service name from OTel conventions (workload name)
+	expectedOtelCfgSemConv := &tracingcfg.OpenTelemetryConfig{
+		ServiceName: "my-deployment",
+		GrpcService: &core.GrpcService{
+			TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+				EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
+					ClusterName: clusterName,
+					Authority:   authority,
+				},
+			},
+		},
+		ResourceDetectors: []*core.TypedExtensionConfig{envResourceDetector},
+	}
+	expectedOtelAnySemConv := protoconv.MessageToAny(expectedOtelCfgSemConv)
+	expectedProviderSemConv := &tracingcfg.Tracing_Http{
+		Name:       envoyOpenTelemetry,
+		ConfigType: &tracingcfg.Tracing_Http_TypedConfig{TypedConfig: expectedOtelAnySemConv},
+	}
+
+	// Expected OTel config with service name from annotation
+	expectedOtelCfgAnnotation := &tracingcfg.OpenTelemetryConfig{
+		ServiceName: "annotated-service",
+		GrpcService: &core.GrpcService{
+			TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+				EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
+					ClusterName: clusterName,
+					Authority:   authority,
+				},
+			},
+		},
+		ResourceDetectors: []*core.TypedExtensionConfig{envResourceDetector},
+	}
+	expectedOtelAnyAnnotation := protoconv.MessageToAny(expectedOtelCfgAnnotation)
+	expectedProviderAnnotation := &tracingcfg.Tracing_Http{
+		Name:       envoyOpenTelemetry,
+		ConfigType: &tracingcfg.Tracing_Http_TypedConfig{TypedConfig: expectedOtelAnyAnnotation},
+	}
+
+	testcases := []struct {
+		name            string
+		inSpec          *model.TracingConfig
+		push            *model.PushContext
+		proxy           *model.Proxy
+		want            *hcm.HttpConnectionManager_Tracing
+		wantReqIDExtCtx *requestidextension.UUIDRequestIDExtensionContext
+	}{
+		{
+			name:   "OTEL_SEMANTIC_CONVENTIONS uses workload name",
+			inSpec: fakeTracingSpec(otelSemConvProvider, 99.999, false, true, true),
+			push: &model.PushContext{
+				Mesh: &meshconfig.MeshConfig{
+					ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{otelSemConvProvider},
+				},
+			},
+			proxy: &model.Proxy{
+				ID: "my-pod-abc123.default",
+				Labels: map[string]string{
+					"app": "myapp",
+				},
+				IstioVersion: &model.IstioVersion{Major: 1, Minor: 28, Patch: 0},
+				Metadata: &model.NodeMetadata{
+					WorkloadName: "my-deployment",
+					Namespace:    "default",
+				},
+			},
+			want:            fakeTracingConfig(expectedProviderSemConv, 99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
+			wantReqIDExtCtx: &defaultUUIDExtensionCtx,
+		},
+		{
+			name:   "OTEL_SEMANTIC_CONVENTIONS uses annotation over workload name",
+			inSpec: fakeTracingSpec(otelSemConvProvider, 99.999, false, true, true),
+			push: &model.PushContext{
+				Mesh: &meshconfig.MeshConfig{
+					ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{otelSemConvProvider},
+				},
+			},
+			proxy: &model.Proxy{
+				ID: "my-pod-abc123.default",
+				Labels: map[string]string{
+					"app.kubernetes.io/name": "labeled-svc",
+				},
+				IstioVersion: &model.IstioVersion{Major: 1, Minor: 28, Patch: 0},
+				Metadata: &model.NodeMetadata{
+					Annotations:  map[string]string{"resource.opentelemetry.io/service.name": "annotated-service"},
+					WorkloadName: "my-deployment",
+					Namespace:    "default",
+				},
+			},
+			want:            fakeTracingConfig(expectedProviderAnnotation, 99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
+			wantReqIDExtCtx: &defaultUUIDExtensionCtx,
+		},
+		{
+			name:   "OTEL_SEMANTIC_CONVENTIONS does not duplicate env resource detector",
+			inSpec: fakeTracingSpec(otelSemConvWithDetectorsProvider, 99.999, false, true, true),
+			push: &model.PushContext{
+				Mesh: &meshconfig.MeshConfig{
+					ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{otelSemConvWithDetectorsProvider},
+				},
+			},
+			proxy: &model.Proxy{
+				ID:           "my-pod-abc123.default",
+				IstioVersion: &model.IstioVersion{Major: 1, Minor: 28, Patch: 0},
+				Metadata: &model.NodeMetadata{
+					WorkloadName: "my-deployment",
+					Namespace:    "default",
+				},
+			},
+			want:            fakeTracingConfig(expectedProviderSemConv, 99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
+			wantReqIDExtCtx: &defaultUUIDExtensionCtx,
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			hcmCfg := &hcm.HttpConnectionManager{}
+			gotReqIDExtCtx := configureTracingFromTelemetry(tc.inSpec, tc.push, tc.proxy, hcmCfg, 0)
+			if diff := cmp.Diff(tc.want, hcmCfg.Tracing, protocmp.Transform()); diff != "" {
+				t.Fatalf("configureTracing returned unexpected diff (-want +got):\n%s", diff)
+			}
+			assert.Equal(t, tc.wantReqIDExtCtx, gotReqIDExtCtx)
 		})
 	}
 }
@@ -1691,6 +2419,88 @@ func TestGetHeaderValue(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			got := getHeaderValue(tc.input)
 			assert.Equal(t, tc.expected, got)
+		})
+	}
+}
+
+func TestConfigureCustomTagsForWaypoint(t *testing.T) {
+	tests := []struct {
+		name       string
+		proxyType  model.NodeType
+		wantSource bool
+	}{
+		{
+			name:       "waypoint proxy should have source tag",
+			proxyType:  model.Waypoint,
+			wantSource: true,
+		},
+		{
+			name:       "sidecar proxy should not have source tag",
+			proxyType:  model.SidecarProxy,
+			wantSource: false,
+		},
+		{
+			name:       "router proxy should not have source tag",
+			proxyType:  model.Router,
+			wantSource: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			proxy := &model.Proxy{
+				Type:     tt.proxyType,
+				Metadata: &model.NodeMetadata{},
+			}
+			proxyCfg := &meshconfig.ProxyConfig{
+				Tracing: &meshconfig.Tracing{},
+			}
+			hcmTracing := &hcm.HttpConnectionManager_Tracing{}
+
+			// Configure custom tags
+			configureCustomTags(nil, hcmTracing, map[string]*tpb.Tracing_CustomTag{}, proxyCfg, proxy)
+
+			// Expected FILTER_STATE tags for waypoint source tracking.
+			// Field names must match WorkloadMetadataObject token constants from:
+			// proxy/extensions/common/metadata_object.h
+			expectedTags := map[string]string{
+				"istio.source_workload":           "workload",
+				"istio.source_namespace":          "namespace",
+				"istio.source_cluster_id":         "cluster",
+				"istio.source_canonical_service":  "service",
+				"istio.source_canonical_revision": "revision",
+				"istio.source_app":                "app",
+				"istio.source_app_version":        "version",
+				"istio.source_workload_type":      "type",
+				"istio.source_instance_name":      "name",
+			}
+			foundTags := make(map[string]bool)
+			for _, tag := range hcmTracing.CustomTags {
+				if expectedField, ok := expectedTags[tag.Tag]; ok {
+					foundTags[tag.Tag] = true
+					// Verify FILTER_STATE format with FIELD accessor
+					value := tag.GetValue()
+					if value == "" {
+						t.Errorf("tag %s should use Value type with FILTER_STATE, but got empty", tag.Tag)
+					} else {
+						expectedValue := fmt.Sprintf("%%FILTER_STATE(downstream_peer_obj:FIELD:%s)%%", expectedField)
+						assert.Equal(t, expectedValue, value,
+							"tag %s should have FILTER_STATE format", tag.Tag)
+					}
+				}
+			}
+
+			if tt.wantSource {
+				for tagName := range expectedTags {
+					if !foundTags[tagName] {
+						t.Errorf("waypoint proxy should have tag %s, but it doesn't", tagName)
+					}
+				}
+			} else {
+				for tagName := range foundTags {
+					t.Errorf("non-waypoint proxy should not have tag %s, but it does", tagName)
+				}
+			}
 		})
 	}
 }

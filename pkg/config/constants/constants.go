@@ -169,6 +169,7 @@ const (
 	ManagedGatewayControllerLabel         = "istio.io-gateway-controller"
 	ManagedGatewayMeshControllerLabel     = "istio.io-mesh-controller"
 	ManagedGatewayMeshController          = "istio.io/mesh-controller"
+	ManagedAgentgatewayController         = "istio.io/agentgateway-controller"
 	ManagedGatewayEastWestController      = "istio.io/eastwest-controller"
 	ManagedGatewayEastWestControllerLabel = "istio.io-eastwest-controller"
 
@@ -178,6 +179,7 @@ const (
 
 	RemoteGatewayClassName   = "istio-remote"
 	WaypointGatewayClassName = "istio-waypoint"
+	AgentgatewayClassName    = "istio-agentgateway"
 	EastWestGatewayClassName = "istio-east-west"
 
 	// TODO formalize this API
@@ -216,6 +218,9 @@ const (
 	EnvoySubsetNamespace string = "envoy.lb"
 	// The metadata key used for endpoint selection. This key is set from the InferencePool EPP (Endpoint Picker)
 	GatewayInferenceExtensionEndpointHintKey string = "x-gateway-destination-endpoint"
+	// The metadata key used for reporting the served endpoint to the Inference Pool EPP (Endpoint Picker).
+	// This key is set from the gateway.
+	GatewayInferenceExtensionEndpointServedKey string = "x-gateway-destination-endpoint-served"
 
 	// config.Config.Extra well-known key values
 

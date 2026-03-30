@@ -170,6 +170,17 @@ func FindPortName(pod *v1.Pod, name string) (int32, bool) {
 			}
 		}
 	}
+	// Also search native sidecar init containers (restartPolicy=Always).
+	for _, container := range pod.Spec.InitContainers {
+		if container.RestartPolicy == nil || *container.RestartPolicy != v1.ContainerRestartPolicyAlways {
+			continue
+		}
+		for _, port := range container.Ports {
+			if port.Name == name && port.Protocol == v1.ProtocolTCP {
+				return port.ContainerPort, true
+			}
+		}
+	}
 	return 0, false
 }
 

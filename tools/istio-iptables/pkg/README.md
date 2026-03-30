@@ -1,8 +1,8 @@
 # istio-iptables
 
-This is an `iptables` wrapper library for Istio. It is similar in basic concept to [](https://github.com/kubernetes-sigs/iptables-wrappers) but Istio needs to invoke `iptables` from a more varied set of contexts than K8s, and so cannot simply rely on "default" binary aliases to `iptables`/`iptables-save`/`iptables-restore`
+This is an `iptables` wrapper library for Istio. It is similar in basic concept to [iptables-wrappers](https://github.com/kubernetes-sigs/iptables-wrappers) but Istio needs to invoke `iptables` from a more varied set of contexts than K8s, and so cannot simply rely on "default" binary aliases to `iptables`/`iptables-save`/`iptables-restore`
 
-This wrapper solves for that by fixing the wrapper lib to have binary detection logic that will work in *all* contexts where we use it, rely fully on binary autodetection in all spots, properly handling `iptables/ip6tables` variants..
+This wrapper solves for that by fixing the wrapper lib to have binary detection logic that will work in *all* contexts where we use it, rely fully on binary autodetection in all spots, properly handling `iptables/ip6tables` variants.
 
 The end result is that if this `istio-iptables` wrapper is used, the correct `iptables` binary should be selected dynamically, regardless of whether the context is a pod, the host, a container, or the host filesystem, or what "default" binary is configured in either the container or the host.
 
@@ -61,12 +61,12 @@ Depending on the value of the flag, different behaviors can be observed:
 - **`Reconcile=true`**: If reconciliation is enabled, then the `istio-iptables` may attempt to reconcile existing iptables. In particular, when the flag is enabled, the following scenario will occur:
   - If no existing rules are found, the wrapper will apply the new rules and chains. This is a typical first-time installation.
   - If existing rules are found and are equivalent to the desired outcome, no new rules will be applied, and the process will successfully terminate.
-  - If existing rules are found but they are not equivalent to the desired outcome (could be partial or simply different), the wrapper will attempt to reconcile them by perform the following operations:
+  - If existing rules are found but they are not equivalent to the desired outcome (could be partial or simply different), the wrapper will attempt to reconcile them by performing the following operations:
     - Sets up guardrails (iptables rules that drop all inbound and outbound traffic to prevent traffic escape during the update)
     - Performs cleanup of existing rules
     - Applies new rules
     - Removes guardrails
-- **`Reconcile=false`**: If reconciliation is disabled, the `istio-iptables` wrapper will not perform existing changes to preexisting rules if found. The following will occur:
+- **`Reconcile=false`**: If reconciliation is disabled, the `istio-iptables` wrapper will not modify preexisting rules if found. The following will occur:
   - If no existing rules are found, the wrapper will apply the new ones.
   - If existing rules are found and are equivalent to the desired outcome, no new rules will be applied, and the process will successfully terminate.
   - If existing rules are found but they are not equivalent to the desired outcome (could be partial or simply different), the wrapper will attempt to apply the new rules but the outcome is not guaranteed.
@@ -96,7 +96,7 @@ For all other use cases, only the first pass is performed, as reruns in `istio-i
 1. **Non-Istio Chain Rules**: Two `iptables` rules snapshots are considered identical if the only difference is that the current snapshot has rules in non-ISTIO chains that are absent in the expected/desired snapshot. This includes jump rules pointing to `ISTIO_*` chains in `OUTPUT`, `INPUT`, etc.
 1. **Cleanup Scope**: Second-pass cleanup can only remove leftover Istio chains and jumps to those chains. Any other non-jump rule in non-Istio chains will remain, as there's no reliable way to determine if it was created by Istio or the user.
 
-To avoid issues with the limitations above, the maintainers needs to keep the following guidelines when reviewing changes regarding `iptables` configurations:
+To avoid issues with the limitations above, the maintainers need to keep the following guidelines when reviewing changes regarding `iptables` configurations:
 1. Istio rules should ALWAYS be added to a chain prefixed with `ISTIO_` - even if it's just for one rule. Istio code should not insert `iptables` rules into main tables, or non-prefixed chains. The sole exception to this are the required JUMP rules from the main tables to the recommended `ISTIO_` prefixed custom chains.
 1. Ensure that differences between configurations involve more than just rules in non-ISTIO chains (including jump rules to `ISTIO_*` chains).
 1. Make sure that configuration differences are more than just the order of the rules.

@@ -69,10 +69,15 @@ func (i *istioImpl) Close() error {
 
 	// Execute External Control Plane Cleanup Script
 	if i.cfg.ControlPlaneInstaller != "" && !i.cfg.DeployIstio {
-		scopes.Framework.Infof("============= Execute Control Plane Cleanup =============")
+		scopes.Framework.Infof("=== BEGIN: Execute Control Plane Cleanup ===")
 		cmd := exec.Command(i.cfg.ControlPlaneInstaller, "cleanup", i.workDir)
-		if err := cmd.Run(); err != nil {
-			scopes.Framework.Errorf("failed to run external control plane installer: %v", err)
+		if output, err := cmd.CombinedOutput(); err != nil {
+			// Display the installer output within the error message, but proceed with the subsequent cleanup without returning an error.
+			scopes.Framework.Errorf("Execute Control Plane Cleanup failed on: %v\nInstaller output:\n%s", err, string(output))
+			scopes.Framework.Infof("=== FAILED: Execute Control Plane Cleanup ===")
+		} else {
+			scopes.Framework.Debugf("Control Plane cleanup output:\n%s", string(output))
+			scopes.Framework.Infof("=== DONE: Execute Control Plane Cleanup ===")
 		}
 	}
 
@@ -171,6 +176,12 @@ func (i *istioImpl) cleanupCluster(c cluster.Cluster, errG *multierror.Group) {
 		}
 		if e := c.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().DeleteCollection(
 			context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{}); e != nil {
+			err = multierror.Append(err, e)
+		}
+		if e := c.Ext().ApiextensionsV1().CustomResourceDefinitions().DeleteCollection(
+			context.Background(), metav1.DeleteOptions{}, metav1.ListOptions{
+				LabelSelector: "app.kubernetes.io/part-of=istio",
+			}); e != nil {
 			err = multierror.Append(err, e)
 		}
 

@@ -17,6 +17,9 @@ package main
 import (
 	"os"
 
+	// Import automemlimit to automatically set GOMEMLIMIT to 90% of cgroup memory limit
+	_ "github.com/KimMachineGun/automemlimit"
+
 	"istio.io/istio/pilot/cmd/pilot-discovery/app"
 	"istio.io/istio/pkg/log"
 )

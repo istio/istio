@@ -33,6 +33,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/klauspost/compress/gzhttp"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/common/expfmt"
@@ -409,7 +410,7 @@ func (s *Server) Run(ctx context.Context) {
 	defer l.Close()
 
 	go func() {
-		if err := http.Serve(l, mux); err != nil {
+		if err := http.Serve(l, gzhttp.GzipHandler(mux)); err != nil {
 			if network.IsUnexpectedListenerError(err) {
 				log.Error(err)
 			}

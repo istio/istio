@@ -44,6 +44,8 @@ _internal_defaults_do_not_set:
     type: LoadBalancer
     # Set to a specific ClusterIP, or "" for automatic assignment
     clusterIP: ""
+    # Additional labels to add to the service selector
+    selectorLabels: {}
     ports:
     - name: status-port
       port: 15021

@@ -35,6 +35,7 @@ import (
 
 	istio "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
+	"istio.io/istio/pilot/pkg/config/kube/gatewaycommon"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core"
@@ -59,6 +60,8 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
+var timestampRegex = regexp.MustCompile(`lastTransitionTime:.*`)
+
 var ports = []*model.Port{
 	{
 		Name:     "http",
@@ -77,12 +80,20 @@ var ports = []*model.Port{
 	},
 }
 
+var inferencePoolPorts = []*model.Port{
+	{
+		Name:     "http",
+		Port:     54321,
+		Protocol: "HTTP",
+	},
+}
+
 var services = []*model.Service{
 	{
 		Attributes: model.ServiceAttributes{
 			Name:      "istio-ingressgateway",
 			Namespace: "istio-system",
-			ClusterExternalAddresses: &model.AddressMap{
+			ClusterExternalAddresses: model.AddressMap{
 				Addresses: map[cluster.ID][]string{
 					constants.DefaultClusterName: {"1.2.3.4"},
 				},
@@ -135,7 +146,7 @@ var services = []*model.Service{
 				InferencePoolExtensionRefFailureMode: "FailClose",
 			},
 		},
-		Ports:    ports,
+		Ports:    inferencePoolPorts,
 		Hostname: host.Name(fmt.Sprintf("%s.default.svc.domain.suffix", firstValue(InferencePoolServiceName("infpool-gen")))),
 	},
 	{
@@ -147,8 +158,32 @@ var services = []*model.Service{
 				InferencePoolExtensionRefFailureMode: "FailClose",
 			},
 		},
-		Ports:    ports,
+		Ports:    inferencePoolPorts,
 		Hostname: host.Name(fmt.Sprintf("%s.default.svc.domain.suffix", firstValue(InferencePoolServiceName("infpool-gen2")))),
+	},
+	{
+		Attributes: model.ServiceAttributes{
+			Namespace: "default",
+			Labels: map[string]string{
+				InferencePoolExtensionRefSvc:         "model1-epp",
+				InferencePoolExtensionRefPort:        "9002",
+				InferencePoolExtensionRefFailureMode: "FailClose",
+			},
+		},
+		Ports:    ports,
+		Hostname: host.Name(fmt.Sprintf("%s.default.svc.domain.suffix", firstValue(InferencePoolServiceName("infpool-model1")))),
+	},
+	{
+		Attributes: model.ServiceAttributes{
+			Namespace: "default",
+			Labels: map[string]string{
+				InferencePoolExtensionRefSvc:         "model2-epp",
+				InferencePoolExtensionRefPort:        "9002",
+				InferencePoolExtensionRefFailureMode: "FailClose",
+			},
+		},
+		Ports:    ports,
+		Hostname: host.Name(fmt.Sprintf("%s.default.svc.domain.suffix", firstValue(InferencePoolServiceName("infpool-model2")))),
 	},
 
 	{
@@ -496,6 +531,26 @@ D2lWusoe2/nEqfDVVWGWlyJ7yOmqaVm/iNUN9B2N2g==
 		},
 		&corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
+				Name:      "bookinfo-secret",
+				Namespace: "bookinfo",
+			},
+			Data: map[string][]byte{
+				"tls.crt": []byte(rsaCertPEM),
+				"tls.key": []byte(rsaKeyPEM),
+			},
+		},
+		&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "another-secret",
+				Namespace: "bookinfo",
+			},
+			Data: map[string][]byte{
+				"tls.crt": []byte(rsaCertPEM),
+				"tls.key": []byte(rsaKeyPEM),
+			},
+		},
+		&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
 				Name:      "malformed",
 				Namespace: "istio-system",
 			},
@@ -560,9 +615,10 @@ func init() {
 	features.EnableAlphaGatewayAPI = true
 	features.EnableAmbientWaypoints = true
 	features.EnableAmbientMultiNetwork = true
+	features.EnableAgentgateway = true
 	// Recompute with ambient enabled
-	classInfos = getClassInfos()
-	builtinClasses = getBuiltinClasses()
+	gatewaycommon.ClassInfos = gatewaycommon.GetClassInfos()
+	gatewaycommon.BuiltinGatewayClasses = gatewaycommon.GetBuiltinGatewayClasses()
 }
 
 type TestStatusQueue struct {
@@ -700,6 +756,7 @@ func TestConvertResources(t *testing.T) {
 		{name: "mix-backend-policy"},
 		{name: "listenerset"},
 		{name: "listenerset-cross-namespace"},
+		{name: "listenerset-same-name-different-ns"},
 		{name: "listenerset-invalid"},
 		{
 			name: "listenerset-empty-listeners",
@@ -713,6 +770,10 @@ func TestConvertResources(t *testing.T) {
 				"default/^valid-invalid-parent-ref-",
 			),
 		},
+		{name: "redirect-only"},
+		{name: "reference-grant-multiple-to"},
+		{name: "http-grpc-same-host"},
+		{name: "empty-backend-refs"},
 	}
 	test.SetForTest(t, &features.EnableGatewayAPIGatewayClassController, false)
 	test.SetForTest(t, &features.EnableGatewayAPIInferenceExtension, true)
@@ -785,7 +846,7 @@ func setupClientCRDs(t *testing.T, kc kube.CLIClient) {
 	for _, crd := range []schema.GroupVersionResource{
 		gvr.KubernetesGateway,
 		gvr.ReferenceGrant,
-		gvr.XListenerSet,
+		gvr.ListenerSet,
 		gvr.GatewayClass,
 		gvr.HTTPRoute,
 		gvr.GRPCRoute,
@@ -1499,6 +1560,32 @@ spec:
 				{"kubernetes-gateway://default/private", "default", false},
 			},
 		},
+		{
+			name: "multiple To with names (OR semantics)",
+			config: `apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+ name: k8s-gateway-secret-grant
+ namespace: default
+spec:
+ from:
+ - group: gateway.networking.k8s.io
+   kind: Gateway
+   namespace: bookinfo-ingress
+ to:
+ - group: ""
+   kind: Secret
+   name: bookinfo-secret
+ - group: ""
+   kind: Secret
+   name: another-secret
+`,
+			expectations: []res{
+				{"kubernetes-gateway://default/bookinfo-secret", "bookinfo-ingress", true},
+				{"kubernetes-gateway://default/another-secret", "bookinfo-ingress", true},
+				{"kubernetes-gateway://default/other-secret", "bookinfo-ingress", false},
+			},
+		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1515,8 +1602,6 @@ spec:
 		})
 	}
 }
-
-var timestampRegex = regexp.MustCompile(`lastTransitionTime:.*`)
 
 func readConfig(t testing.TB, filename string, validator *crdvalidation.Validator, ignorer *crdvalidation.ValidationIgnorer) []runtime.Object {
 	t.Helper()
@@ -1772,7 +1857,7 @@ func TestHumanReadableJoin(t *testing.T) {
 func kubernetesObjectsFromString(s string) ([]runtime.Object, error) {
 	var objects []runtime.Object
 	decode := kube.IstioCodec.UniversalDeserializer().Decode
-	objectStrs := strings.Split(s, "---")
+	objectStrs := strings.Split(s, "\n---\n")
 	for _, s := range objectStrs {
 		if len(strings.TrimSpace(s)) == 0 {
 			continue

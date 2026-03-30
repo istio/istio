@@ -341,6 +341,29 @@ func ProxyImage(values *opconfig.Values, image *proxyConfig.ProxyImage, annotati
 	return imageURL(global.GetHub(), imageName, tag, imageType)
 }
 
+// AgentgatewayImage constructs image url
+func AgentgatewayImage(values *opconfig.Values, image *proxyConfig.ProxyImage, annotations map[string]string) string {
+	imageName := "agentgateway"
+	global := values.GetGlobal()
+
+	tag := ""
+	if global.GetTag() != nil { // Tag is an interface but we need the string form.
+		tag = fmt.Sprintf("%v", global.GetTag().AsInterface())
+	}
+
+	// Agentgateway does not use variants, but we still publish them for consistency so use it
+	imageType := global.GetVariant()
+	if image != nil {
+		imageType = image.ImageType
+	}
+
+	if it, ok := annotations["gateway.istio.io/agentgatewayImage"]; ok {
+		imageType = it
+	}
+
+	return imageURL(global.GetHub(), imageName, tag, imageType)
+}
+
 func InboundTrafficPolicyMode(meshConfig *meshconfig.MeshConfig) string {
 	switch meshConfig.GetInboundTrafficPolicy().GetMode() {
 	case meshconfig.MeshConfig_InboundTrafficPolicy_LOCALHOST:
@@ -354,9 +377,9 @@ func InboundTrafficPolicyMode(meshConfig *meshconfig.MeshConfig) string {
 // imageURL creates url from parts.
 // imageType is appended if not empty
 // if imageType is already present in the tag, then it is replaced.
-// docker.io/istio/proxyv2:1.12-distroless
+// registry.istio.io/release/proxyv2:1.12-distroless
 // gcr.io/gke-release/asm/proxyv2:1.11.2-asm.17-distroless
-// docker.io/istio/proxyv2:1.12
+// registry.istio.io/release/proxyv2:1.12
 func imageURL(hub, imageName, tag, imageType string) string {
 	return hub + "/" + imageName + ":" + updateImageTypeIfPresent(tag, imageType)
 }

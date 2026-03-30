@@ -30,19 +30,6 @@ import (
 )
 
 const (
-	DestinationRuleConfigIstioMutual = `
-apiVersion: networking.istio.io/v1
-kind: DestinationRule
-metadata:
-  name: server
-  namespace: {{.AppNamespace}}
-spec:
-  host: "server.{{.AppNamespace}}.svc.cluster.local"
-  trafficPolicy:
-    tls:
-      mode: ISTIO_MUTUAL
-`
-
 	PeerAuthenticationConfig = `
 apiVersion: security.istio.io/v1
 kind: PeerAuthentication
@@ -62,7 +49,6 @@ func TestStrictMTLS(t *testing.T) {
 			ns := apps.EchoNamespace.Namespace.Name()
 			args := map[string]string{"AppNamespace": ns}
 			t.ConfigIstio().Eval(ns, args, PeerAuthenticationConfig).ApplyOrFail(t, apply.Wait)
-			t.ConfigIstio().Eval(ns, args, DestinationRuleConfigIstioMutual).ApplyOrFail(t, apply.Wait)
 
 			client := apps.EchoNamespace.A[0]
 			server := apps.EchoNamespace.B[0]

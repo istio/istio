@@ -21,6 +21,7 @@ import (
 	"net/http"
 
 	"istio.io/istio/pkg/hbone"
+	"istio.io/istio/pkg/test/echo/common"
 )
 
 var _ Instance = &doubleConnectInstance{}
@@ -55,10 +56,19 @@ func (c doubleConnectInstance) Start(onReady OnReadyFunc) error {
 		if cerr != nil {
 			return fmt.Errorf("could not load TLS keys: %v", cerr)
 		}
+		minVersion, minVerErr := common.ParseTLSVersion(c.TLSMinVersion)
+		if minVerErr != nil {
+			return fmt.Errorf("failed to parse min TLS version: %s", minVerErr)
+		}
+		curvePreferences, curPrefErr := common.ParseTLSCurves(c.TLSCurvePreferences)
+		if curPrefErr != nil {
+			return fmt.Errorf("failed to parse curve preferences: %s", curPrefErr)
+		}
+		// nolint: gosec // test only code, TLS version is configurable for testing
 		config = &tls.Config{
 			Certificates: []tls.Certificate{cert},
 			NextProtos:   []string{"h2"},
-			MinVersion:   tls.VersionTLS12,
+			MinVersion:   minVersion,
 			GetConfigForClient: func(info *tls.ClientHelloInfo) (*tls.Config, error) {
 				// There isn't a way to pass through all ALPNs presented by the client down to the
 				// HTTP server to return in the response. However, for debugging, we can at least log
@@ -66,6 +76,7 @@ func (c doubleConnectInstance) Start(onReady OnReadyFunc) error {
 				epLog.Infof("TLS connection with alpn: %v", info.SupportedProtos)
 				return nil, nil
 			},
+			CurvePreferences: curvePreferences,
 		}
 		// Listen on the given port and update the port if it changed from what was passed in.
 		listener, port, err = listenOnAddressTLS(c.ListenerIP, c.Port.Port, config)
