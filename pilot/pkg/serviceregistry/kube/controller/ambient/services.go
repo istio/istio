@@ -432,7 +432,7 @@ func (a Builder) serviceServiceBuilder(
 		true,
 		features.EnableAmbientMultiNetwork,
 		func(ctx krt.HandlerContext) network.ID {
-			return a.Network(ctx)
+			return FetchLocalNetworkID(ctx, a.Network)
 		},
 		precompute,
 	)
@@ -475,7 +475,7 @@ func (a Builder) serviceEntryServiceBuilder(
 		}
 
 		serviceInfos := serviceEntriesInfo(ctx, s, waypoint, waypointError, nsAnnotations, nsLabels, func(ctx krt.HandlerContext) network.ID {
-			return a.Network(ctx)
+			return FetchLocalNetworkID(ctx, a.Network)
 		})
 		return slices.Map(serviceInfos, func(si model.ServiceInfo) TypedServiceInfo {
 			return TypedServiceInfo{ServiceInfo: si}

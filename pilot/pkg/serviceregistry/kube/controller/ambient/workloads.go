@@ -633,7 +633,7 @@ func (a Builder) workloadEntryWorkloadBuilder(
 	namespaces krt.Collection[*v1.Namespace],
 ) krt.TransformationSingle[*networkingclient.WorkloadEntry, model.WorkloadInfo] {
 	localNetworkGetter := func(ctx krt.HandlerContext) network.ID {
-		return a.Network(ctx)
+		return FetchLocalNetworkID(ctx, a.Network)
 	}
 	return workloadEntryWorkloadBuilder(
 		meshConfig,
@@ -798,7 +798,7 @@ func (a Builder) podWorkloadBuilder(
 	nodes krt.Collection[Node],
 ) krt.TransformationSingle[*v1.Pod, model.WorkloadInfo] {
 	localNetworkGetter := func(ctx krt.HandlerContext) network.ID {
-		return a.Network(ctx)
+		return FetchLocalNetworkID(ctx, a.Network)
 	}
 	return podWorkloadBuilder(
 		meshConfig,
@@ -1062,7 +1062,7 @@ func (a Builder) serviceEntryWorkloadBuilder(
 			return a.ClusterID
 		},
 		func(ctx krt.HandlerContext) network.ID {
-			return a.Network(ctx)
+			return FetchLocalNetworkID(ctx, a.Network)
 		},
 		a.GatewaysByNetwork,
 		a.Flags,
@@ -1220,7 +1220,7 @@ func (a Builder) endpointSlicesBuilder(
 			return a.ClusterID
 		},
 		func(ctx krt.HandlerContext) network.ID {
-			return a.Network(ctx)
+			return FetchLocalNetworkID(ctx, a.Network)
 		},
 	)
 }

@@ -46,7 +46,6 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/network"
-	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/workloadapi"
@@ -99,7 +98,7 @@ type Builder struct {
 	NetworkGateways   krt.Collection[NetworkGateway]
 	GatewaysByNetwork krt.Index[network.ID, NetworkGateway]
 	Flags             FeatureFlags
-	Network           func(ctx krt.HandlerContext) network.ID
+	Network           krt.Singleton[ClusterNetwork]
 }
 
 // index maintains an index of ambient WorkloadInfo objects by various keys.
@@ -127,8 +126,6 @@ type index struct {
 	mcController *multicluster.Controller
 	meshConfig   meshwatcher.WatcherCollection
 	stop         chan struct{}
-
-	builder Builder
 }
 
 type FeatureFlags struct {
@@ -219,12 +216,6 @@ func New(options Options) Index {
 	// Create servicesClient for status writing — it shares the underlying informer
 	servicesClient := kclient.NewFiltered[*corev1.Service](client, filter)
 
-	a.builder = Builder{
-		DomainSuffix: a.DomainSuffix,
-		ClusterID:    a.ClusterID,
-		Flags:        a.Flags,
-		Network:      a.Network,
-	}
 	// In the multicluster use-case, we populate the collections with global, dynamically changing data.
 	// We only do this if this cluster is the config cluster
 	if features.EnableAmbientMultiNetwork {
@@ -247,10 +238,16 @@ func New(options Options) Index {
 
 	Networks := BuildNetworkCollections(Namespaces, Gateways, options, opts)
 	a.networks = Networks
-	a.builder.NetworkGateways = a.networks.NetworkGateways
-	a.builder.GatewaysByNetwork = a.networks.GatewaysByNetwork
+	builder := Builder{
+		DomainSuffix:    a.DomainSuffix,
+		ClusterID:       a.ClusterID,
+		Flags:           a.Flags,
+		Network:         Networks.LocalSystemNamespace,
+		NetworkGateways: Networks.NetworkGateways,
+		GatewaysByNetwork: Networks.GatewaysByNetwork,
+	}
 	// N.B Waypoints depends on networks
-	Waypoints := a.builder.WaypointsCollection(options.ClusterID, Gateways, GatewayClasses, Pods, opts)
+	Waypoints := builder.WaypointsCollection(options.ClusterID, Gateways, GatewayClasses, Pods, opts)
 
 	AuthorizationPolicies, AllPolicies := a.buildAndRegisterPolicyCollections(
 		AuthzPolicies,
@@ -259,7 +256,7 @@ func New(options Options) Index {
 		opts,
 	)
 	// these are workloadapi-style services combined from kube services and service entries
-	WorkloadServices := a.builder.ServicesCollection(options.ClusterID, Services, ServiceEntries, Waypoints, Namespaces, a.meshConfig, opts, true)
+	WorkloadServices := builder.ServicesCollection(options.ClusterID, Services, ServiceEntries, Waypoints, Namespaces, a.meshConfig, opts, true)
 
 	if features.EnableAmbientStatus {
 		serviceEntriesWriter := kclient.NewWriteClient[*networkingclient.ServiceEntry](client)
@@ -363,7 +360,7 @@ func New(options Options) Index {
 	}, opts.WithName("NamespacesInfo")...)
 
 	NodeLocality := NodesCollection(Nodes, opts.WithName("NodeLocality")...)
-	Workloads := a.builder.WorkloadsCollection(
+	Workloads := builder.WorkloadsCollection(
 		Pods,
 		NodeLocality,
 		a.meshConfig,
@@ -809,14 +806,6 @@ func LookupAllNetworkGateway(
 	return krt.Fetch(ctx, networkGateways)
 }
 
-func (a *index) LookupNetworkGateway(ctx krt.HandlerContext, id network.ID) []NetworkGateway {
-	return LookupNetworkGateway(ctx, id, a.networks.GatewaysByNetwork)
-}
-
-func (a *index) LookupAllNetworkGateway(ctx krt.HandlerContext) []NetworkGateway {
-	return LookupAllNetworkGateway(ctx, a.networks.NetworkGateways)
-}
-
 func (a *index) Run(stop <-chan struct{}) {
 	if a.statusQueue != nil {
 		go func() {
@@ -834,11 +823,6 @@ func (a *index) HasSynced() bool {
 		a.waypoints.HasSynced() &&
 		a.authorizationPolicies.HasSynced() &&
 		a.networks.HasSynced()
-}
-
-func (a *index) Network(ctx krt.HandlerContext) network.ID {
-	net := krt.FetchOne(ctx, a.networks.LocalSystemNamespace.AsCollection())
-	return ptr.OrEmpty(net).Network
 }
 
 func PushXds[T any](xds model.XDSUpdater, f func(T) model.ConfigKey) func(events []krt.Event[T]) {

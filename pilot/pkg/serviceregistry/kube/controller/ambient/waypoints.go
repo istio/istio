@@ -333,7 +333,7 @@ func (a Builder) WaypointsCollection(
 			pods,
 			gatewayClasses,
 			func(ctx krt.HandlerContext) network.ID {
-				return a.Network(ctx)
+				return FetchLocalNetworkID(ctx, a.Network)
 			},
 		),
 		append(opts.WithName("Waypoints"), krt.WithMetadata(krt.Metadata{

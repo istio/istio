@@ -834,7 +834,7 @@ func TestPodWorkloads(t *testing.T) {
 			WorkloadServicesNamespaceIndex := krt.NewNamespaceIndex(WorkloadServices)
 			EndpointSlices := krttest.GetMockCollection[*discovery.EndpointSlice](mock)
 			EndpointSlicesAddressIndex := endpointSliceAddressIndex(EndpointSlices)
-			builder := a.builder.podWorkloadBuilder(
+			builder := a.podWorkloadBuilder(
 				GetMeshConfig(mock),
 				krttest.GetMockCollection[model.WorkloadAuthorization](mock),
 				krttest.GetMockCollection[*securityclient.PeerAuthentication](mock),
@@ -1388,7 +1388,7 @@ func TestWorkloadEntryWorkloads(t *testing.T) {
 			a := newAmbientUnitTest(t)
 			WorkloadServices := krttest.GetMockCollection[model.ServiceInfo](mock)
 			WorkloadServicesNamespaceIndex := krt.NewNamespaceIndex(WorkloadServices)
-			builder := a.builder.workloadEntryWorkloadBuilder(
+			builder := a.workloadEntryWorkloadBuilder(
 				GetMeshConfig(mock),
 				krttest.GetMockCollection[model.WorkloadAuthorization](mock),
 				krttest.GetMockCollection[*securityclient.PeerAuthentication](mock),
@@ -1637,7 +1637,7 @@ func TestServiceEntryWorkloads(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mock := krttest.NewMock(t, tt.inputs)
 			a := newAmbientUnitTest(t)
-			builder := a.builder.serviceEntryWorkloadBuilder(
+			builder := a.serviceEntryWorkloadBuilder(
 				GetMeshConfig(mock),
 				krttest.GetMockCollection[model.WorkloadAuthorization](mock),
 				krttest.GetMockCollection[*securityclient.PeerAuthentication](mock),
@@ -1763,7 +1763,7 @@ func TestEndpointSliceWorkloads(t *testing.T) {
 			mock := krttest.NewMock(t, tt.inputs)
 			a := newAmbientUnitTest(t)
 			WorkloadServices := krttest.GetMockCollection[model.ServiceInfo](mock)
-			builder := a.builder.endpointSlicesBuilder(
+			builder := a.endpointSlicesBuilder(
 				GetMeshConfig(mock),
 				WorkloadServices,
 			)
@@ -1828,7 +1828,7 @@ func kubernetesAPIServerEndpoint(ip string) *discovery.EndpointSlice {
 	}
 }
 
-func newAmbientUnitTest(t test.Failer) *index {
+func newAmbientUnitTest(t test.Failer) Builder {
 	// Set up a basic network environment so tests have a default network and some gateways
 	// Note: unlike other collections, networks are stored in the ambientIndex struct since they
 	// are passed in almost everywhere. So we need to construct it here.
@@ -1907,26 +1907,19 @@ func newAmbientUnitTest(t test.Failer) *index {
 			SystemNamespace: systemNS,
 			ClusterID:       testC,
 		}, krt.NewOptionsBuilder(test.NewStop(t), "", krt.GlobalDebugHandler))
-	idx := &index{
-		networks:        networks,
-		SystemNamespace: systemNS,
-		ClusterID:       testC,
-		DomainSuffix:    "domain.suffix",
+	builder := Builder{
+		DomainSuffix:      "domain.suffix",
+		ClusterID:         testC,
+		NetworkGateways:   networks.NetworkGateways,
+		GatewaysByNetwork: networks.GatewaysByNetwork,
 		Flags: FeatureFlags{
 			DefaultAllowFromWaypoint:              features.DefaultAllowFromWaypoint,
 			EnableK8SServiceSelectWorkloadEntries: features.EnableK8SServiceSelectWorkloadEntries,
 		},
+		Network: networks.LocalSystemNamespace,
 	}
-	idx.builder = Builder{
-		DomainSuffix:      idx.DomainSuffix,
-		ClusterID:         idx.ClusterID,
-		NetworkGateways:   idx.networks.NetworkGateways,
-		GatewaysByNetwork: idx.networks.GatewaysByNetwork,
-		Flags:             idx.Flags,
-		Network:           idx.Network,
-	}
-	kube.WaitForCacheSync("test", test.NewStop(t), idx.networks.HasSynced)
-	return idx
+	kube.WaitForCacheSync("test", test.NewStop(t), networks.HasSynced)
+	return builder
 }
 
 var podReady = []v1.PodCondition{
