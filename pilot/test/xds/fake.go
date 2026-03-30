@@ -236,7 +236,6 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	ingr := ingress.NewController(defaultKubeClient, meshwatcher.NewTestWatcher(m), kube.Options{
 		DomainSuffix: "cluster.local",
 	}, xdsUpdater)
-	defaultKubeClient.RunAndWait(stop)
 
 	var gwc *gateway.Controller
 	cg := core.NewConfigGenTest(t, core.TestOptions{
@@ -294,9 +293,11 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 			MeshConfig:      meshWatcher,
 			Debugger:        krt.GlobalDebugHandler,
 		})
-		if err := mcController.Run(stop); err != nil {
-			t.Fatal(err)
-		}
+		// Create the ambient index before starting the multicluster controller.
+		// This matches production ordering where ambient.New() runs during server init (phase 1),
+		// and informers are started later during server.Start() (phase 2). Creating collections
+		// before starting informers ensures no krt event processing races with field assignments
+		// inside ambient.New().
 		ambientIdx = ambient.New(ambient.Options{
 			SystemNamespace:        "istio-system",
 			DomainSuffix:           "cluster.local",
@@ -311,10 +312,17 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 				EnableK8SServiceSelectWorkloadEntries: features.EnableK8SServiceSelectWorkloadEntries,
 			},
 		})
+		if err := mcController.Run(stop); err != nil {
+			t.Fatal(err)
+		}
 		s.Env.AmbientIndexes = ambientIdx
 	} else {
 		s.Env.AmbientIndexes = &model.NoopAmbientIndexes{}
 	}
+
+	// start the default client informers after creating the ambient index,
+	// better matching production startup behavior
+	defaultKubeClient.RunAndWait(stop)
 
 	// Setup config handlers
 	// TODO code re-use from server.go
