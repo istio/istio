@@ -105,7 +105,7 @@ func (m *IptablesTrafficManager) CreateInpodRules(log *istiolog.Scope, podOverri
 	if m.podIptables == nil {
 		return fmt.Errorf("pod iptables configurator not available (this is likely a host-only traffic manager)")
 	}
-	return m.podIptables.CreateInpodRules(log, podOverrides)
+	return m.podIptables.CreateInpodRules(log, podOverrides, "")
 }
 
 // DeleteInpodRules removes iptables rules from a pod's network namespace
@@ -113,7 +113,7 @@ func (m *IptablesTrafficManager) DeleteInpodRules(log *istiolog.Scope, _ string)
 	if m.podIptables == nil {
 		return fmt.Errorf("pod iptables configurator not available (this is likely a host-only traffic manager)")
 	}
-	return m.podIptables.DeleteInpodRules(log)
+	return m.podIptables.DeleteInpodRules(log, "")
 }
 
 // CreateHostRulesForHealthChecks creates host-level iptables rules for health check handling
