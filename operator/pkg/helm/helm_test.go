@@ -266,6 +266,36 @@ func TestRender(t *testing.T) {
 			diffSelect:  "ValidatingWebhookConfiguration:*:istiod-default-validator",
 			isUpgrade:   true,
 		},
+		{
+			desc:        "istiod-webhook-upgrade-ignore",
+			releaseName: "istiod",
+			namespace:   "istio-system",
+			chartName:   "istio-control/istio-discovery",
+			diffSelect:  "ValidatingWebhookConfiguration:*:istio-validator-istio-system",
+			isUpgrade:   true,
+		},
+		{
+			desc:        "base-webhook-upgrade-ignore",
+			releaseName: "istio-base",
+			namespace:   "istio-system",
+			chartName:   "base",
+			diffSelect:  "ValidatingWebhookConfiguration:*:istiod-default-validator",
+			isUpgrade:   true,
+		},
+		{
+			desc:        "istiod-webhook-cabundle-policy",
+			releaseName: "istiod",
+			namespace:   "istio-system",
+			chartName:   "istio-control/istio-discovery",
+			diffSelect:  "ValidatingWebhookConfiguration:*:istio-validator-istio-system",
+		},
+		{
+			desc:        "base-webhook-cabundle-policy",
+			releaseName: "istio-base",
+			namespace:   "istio-system",
+			chartName:   "base",
+			diffSelect:  "ValidatingWebhookConfiguration:*:istiod-default-validator",
+		},
 	}
 
 	for _, tc := range cases {
