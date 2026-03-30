@@ -790,7 +790,7 @@ func (d *DeploymentController) apply(controller string, yml string, input Templa
 	// safeguard: validate object type matches default template
 	// only allow the 5 kinds defined in kube-gateway.yaml
 	kind := us.GetKind()
-	allowedKinds := sets.New("Deployment", "Service", "ServiceAccount", "HorizontalPodAutoscaler", "PodDisruptionBudget")
+	allowedKinds := sets.New("Deployment", "DaemonSet", "Service", "ServiceAccount", "HorizontalPodAutoscaler", "PodDisruptionBudget")
 	if !allowedKinds.Contains(kind) {
 		return fmt.Errorf("unexpected object kind %q, only %v are allowed", kind, allowedKinds.UnsortedList())
 	}
