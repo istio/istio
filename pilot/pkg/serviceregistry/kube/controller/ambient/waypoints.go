@@ -332,9 +332,7 @@ func (a Builder) WaypointsCollection(
 		gatewayToWaypointTransform(
 			pods,
 			gatewayClasses,
-			func(ctx krt.HandlerContext) network.ID {
-				return FetchLocalNetworkID(ctx, a.Network)
-			},
+			a.Networks.FetchLocalNetworkID,
 		),
 		append(opts.WithName("Waypoints"), krt.WithMetadata(krt.Metadata{
 			multicluster.ClusterKRTMetadataKey: clusterID,

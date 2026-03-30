@@ -1908,15 +1908,13 @@ func newAmbientUnitTest(t test.Failer) Builder {
 			ClusterID:       testC,
 		}, krt.NewOptionsBuilder(test.NewStop(t), "", krt.GlobalDebugHandler))
 	builder := Builder{
-		DomainSuffix:      "domain.suffix",
-		ClusterID:         testC,
-		NetworkGateways:   networks.NetworkGateways,
-		GatewaysByNetwork: networks.GatewaysByNetwork,
+		DomainSuffix: "domain.suffix",
+		ClusterID:    testC,
+		Networks:     networks,
 		Flags: FeatureFlags{
 			DefaultAllowFromWaypoint:              features.DefaultAllowFromWaypoint,
 			EnableK8SServiceSelectWorkloadEntries: features.EnableK8SServiceSelectWorkloadEntries,
 		},
-		Network: networks.LocalSystemNamespace,
 	}
 	kube.WaitForCacheSync("test", test.NewStop(t), networks.HasSynced)
 	return builder

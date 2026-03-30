@@ -56,7 +56,6 @@ import (
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/revisions"
 	"istio.io/istio/pkg/slices"
@@ -353,15 +352,11 @@ func (c *Controller) buildAddressCollections(opts krt.OptionsBuilder) krt.Collec
 		ClusterID:       c.cluster,
 	}, opts)
 	builder := ambient.Builder{
-		DomainSuffix:      c.domainSuffix,
-		ClusterID:         c.cluster,
-		NetworkGateways:   Networks.NetworkGateways,
-		GatewaysByNetwork: Networks.GatewaysByNetwork,
+		DomainSuffix: c.domainSuffix,
+		ClusterID:    c.cluster,
+		Networks:     Networks,
 		Flags: ambient.FeatureFlags{
 			EnableK8SServiceSelectWorkloadEntries: true,
-		},
-		Network: func(ctx krt.HandlerContext) network.ID {
-			return ""
 		},
 	}
 	// Dummy empty mesh config

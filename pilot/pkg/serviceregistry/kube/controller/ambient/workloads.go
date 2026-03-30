@@ -116,7 +116,7 @@ func (a Builder) WorkloadsCollection(
 
 	NetworkGatewayWorkloads := krt.NewManyFromNothing[model.WorkloadInfo](func(ctx krt.HandlerContext) []model.WorkloadInfo {
 		meshCfg := krt.FetchOne(ctx, meshConfig.AsCollection())
-		all := LookupAllNetworkGateway(ctx, a.NetworkGateways)
+		all := LookupAllNetworkGateway(ctx, a.Networks.NetworkGateways)
 		return slices.Map(all, convertGateway(meshCfg))
 	}, opts.WithName("NetworkGatewayWorkloads")...)
 
@@ -162,15 +162,11 @@ func MergedGlobalWorkloadsCollection(
 	localClusterGetter := func(_ krt.HandlerContext) cluster.ID {
 		return localCluster.ID
 	}
-	localNetworkGetter := func(ctx krt.HandlerContext) network.ID {
-		nw := ptr.OrEmpty(krt.FetchOne(ctx, globalNetworks.LocalSystemNamespace.AsCollection()))
-		return nw.Network
-	}
 	LocalPodWorkloads := krt.NewCollection(
 		localCluster.Pods(),
 		podWorkloadBuilder(
 			meshConfig,
-			localNetworkGetter,
+			globalNetworks.FetchLocalNetworkID,
 			localAuthorizationPolicies,
 			localPeerAuths,
 			localWaypoints,
@@ -181,7 +177,7 @@ func MergedGlobalWorkloadsCollection(
 			localNodeLocalities,
 			domainSuffix,
 			localClusterGetter,
-			localNetworkGetter,
+			globalNetworks.FetchLocalNetworkID,
 			globalNetworks.GatewaysByNetwork,
 			flags,
 			true, // Remote network workloads will be coalesced; safe to skip precompute
@@ -197,7 +193,7 @@ func MergedGlobalWorkloadsCollection(
 		workloadEntries,
 		workloadEntryWorkloadBuilder(
 			meshConfig,
-			localNetworkGetter,
+			globalNetworks.FetchLocalNetworkID,
 			localAuthorizationPolicies,
 			localPeerAuths,
 			localWaypoints,
@@ -205,7 +201,7 @@ func MergedGlobalWorkloadsCollection(
 			LocalWorkloadServicesNamespaceIndex,
 			localCluster.Namespaces(),
 			localClusterGetter,
-			localNetworkGetter,
+			globalNetworks.FetchLocalNetworkID,
 			globalNetworks.GatewaysByNetwork,
 			flags,
 			true, // Remote network workloads will be coalesced; safe to skip precompute
@@ -229,7 +225,7 @@ func MergedGlobalWorkloadsCollection(
 			localCluster.Namespaces(),
 			localWorkloadServices,
 			localClusterGetter,
-			localNetworkGetter,
+			globalNetworks.FetchLocalNetworkID,
 			globalNetworks.GatewaysByNetwork,
 			flags,
 		),
@@ -251,7 +247,7 @@ func MergedGlobalWorkloadsCollection(
 			localWorkloadServices,
 			domainSuffix,
 			localClusterGetter,
-			localNetworkGetter,
+			globalNetworks.FetchLocalNetworkID,
 		),
 		opts.WithName("LocalEndpointSliceWorkloads")...,
 	)
@@ -342,7 +338,7 @@ func MergedGlobalWorkloadsCollection(
 				pods,
 				podWorkloadBuilder(
 					meshConfig,
-					localNetworkGetter,
+					globalNetworks.FetchLocalNetworkID,
 					localAuthorizationPolicies,
 					localPeerAuths,
 					waypoints,
@@ -392,7 +388,7 @@ func MergedGlobalWorkloadsCollection(
 				workloadEntries,
 				workloadEntryWorkloadBuilder(
 					meshConfig,
-					localNetworkGetter,
+					globalNetworks.FetchLocalNetworkID,
 					localAuthorizationPolicies,
 					localPeerAuths,
 					waypoints,
@@ -632,12 +628,9 @@ func (a Builder) workloadEntryWorkloadBuilder(
 	workloadServicesNamespaceIndex krt.Index[string, model.ServiceInfo],
 	namespaces krt.Collection[*v1.Namespace],
 ) krt.TransformationSingle[*networkingclient.WorkloadEntry, model.WorkloadInfo] {
-	localNetworkGetter := func(ctx krt.HandlerContext) network.ID {
-		return FetchLocalNetworkID(ctx, a.Network)
-	}
 	return workloadEntryWorkloadBuilder(
 		meshConfig,
-		localNetworkGetter,
+		a.Networks.FetchLocalNetworkID,
 		authorizationPolicies,
 		peerAuths,
 		waypoints,
@@ -647,8 +640,8 @@ func (a Builder) workloadEntryWorkloadBuilder(
 		func(ctx krt.HandlerContext) cluster.ID {
 			return a.ClusterID
 		},
-		localNetworkGetter,
-		a.GatewaysByNetwork,
+		a.Networks.FetchLocalNetworkID,
+		a.Networks.GatewaysByNetwork,
 		a.Flags,
 		false, // No coalesced path; always precompute
 	)
@@ -797,12 +790,9 @@ func (a Builder) podWorkloadBuilder(
 	namespaces krt.Collection[*v1.Namespace],
 	nodes krt.Collection[Node],
 ) krt.TransformationSingle[*v1.Pod, model.WorkloadInfo] {
-	localNetworkGetter := func(ctx krt.HandlerContext) network.ID {
-		return FetchLocalNetworkID(ctx, a.Network)
-	}
 	return podWorkloadBuilder(
 		meshConfig,
-		localNetworkGetter,
+		a.Networks.FetchLocalNetworkID,
 		authorizationPolicies,
 		peerAuths,
 		waypoints,
@@ -815,8 +805,8 @@ func (a Builder) podWorkloadBuilder(
 		func(ctx krt.HandlerContext) cluster.ID {
 			return a.ClusterID
 		},
-		localNetworkGetter,
-		a.GatewaysByNetwork,
+		a.Networks.FetchLocalNetworkID,
+		a.Networks.GatewaysByNetwork,
 		a.Flags,
 		false, // No coalesced path; always precompute
 	)
@@ -1061,10 +1051,8 @@ func (a Builder) serviceEntryWorkloadBuilder(
 		func(ctx krt.HandlerContext) cluster.ID {
 			return a.ClusterID
 		},
-		func(ctx krt.HandlerContext) network.ID {
-			return FetchLocalNetworkID(ctx, a.Network)
-		},
-		a.GatewaysByNetwork,
+		a.Networks.FetchLocalNetworkID,
+		a.Networks.GatewaysByNetwork,
 		a.Flags,
 	)
 }
@@ -1219,9 +1207,7 @@ func (a Builder) endpointSlicesBuilder(
 		func(ctx krt.HandlerContext) cluster.ID {
 			return a.ClusterID
 		},
-		func(ctx krt.HandlerContext) network.ID {
-			return FetchLocalNetworkID(ctx, a.Network)
-		},
+		a.Networks.FetchLocalNetworkID,
 	)
 }
 

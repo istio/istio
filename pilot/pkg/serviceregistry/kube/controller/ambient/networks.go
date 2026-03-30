@@ -65,8 +65,8 @@ func (c ClusterNetwork) ResourceName() string {
 }
 
 // FetchLocalNetworkID fetches the local network ID from a ClusterNetwork singleton within a KRT handler context.
-func FetchLocalNetworkID(ctx krt.HandlerContext, network krt.Singleton[ClusterNetwork]) network.ID {
-	return ptr.OrEmpty(krt.FetchOne(ctx, network.AsCollection())).Network
+func (c NetworkCollections) FetchLocalNetworkID(ctx krt.HandlerContext) network.ID {
+	return ptr.OrEmpty(krt.FetchOne(ctx, c.LocalSystemNamespace.AsCollection())).Network
 }
 
 func (c NetworkCollections) HasSynced() bool {

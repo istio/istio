@@ -93,12 +93,10 @@ type servicesCollection struct {
 }
 
 type Builder struct {
-	DomainSuffix      string
-	ClusterID         cluster.ID
-	NetworkGateways   krt.Collection[NetworkGateway]
-	GatewaysByNetwork krt.Index[network.ID, NetworkGateway]
-	Flags             FeatureFlags
-	Network           krt.Singleton[ClusterNetwork]
+	DomainSuffix string
+	ClusterID    cluster.ID
+	Networks     NetworkCollections
+	Flags        FeatureFlags
 }
 
 // index maintains an index of ambient WorkloadInfo objects by various keys.
@@ -239,12 +237,10 @@ func New(options Options) Index {
 	Networks := BuildNetworkCollections(Namespaces, Gateways, options, opts)
 	a.networks = Networks
 	builder := Builder{
-		DomainSuffix:    a.DomainSuffix,
-		ClusterID:       a.ClusterID,
-		Flags:           a.Flags,
-		Network:         Networks.LocalSystemNamespace,
-		NetworkGateways: Networks.NetworkGateways,
-		GatewaysByNetwork: Networks.GatewaysByNetwork,
+		DomainSuffix: a.DomainSuffix,
+		ClusterID:    a.ClusterID,
+		Flags:        a.Flags,
+		Networks:     Networks,
 	}
 	// N.B Waypoints depends on networks
 	Waypoints := builder.WaypointsCollection(options.ClusterID, Gateways, GatewayClasses, Pods, opts)

@@ -163,12 +163,10 @@ func (a *index) buildGlobalCollections(
 	)
 	a.networks = GlobalNetworks
 	builder := Builder{
-		DomainSuffix:      a.DomainSuffix,
-		ClusterID:         a.ClusterID,
-		Flags:             a.Flags,
-		Network:           GlobalNetworks.LocalSystemNamespace,
-		NetworkGateways:   GlobalNetworks.NetworkGateways,
-		GatewaysByNetwork: GlobalNetworks.GatewaysByNetwork,
+		DomainSuffix: a.DomainSuffix,
+		ClusterID:    a.ClusterID,
+		Flags:        a.Flags,
+		Networks:     GlobalNetworks,
 	}
 
 	// we need networks to be initialized before we can build waypoints
@@ -336,7 +334,7 @@ func (a *index) buildGlobalCollections(
 				return nil
 			}
 			networkID := network.ID(parts[0])
-			localNetwork := FetchLocalNetworkID(ctx, GlobalNetworks.LocalSystemNamespace).String()
+			localNetwork := GlobalNetworks.FetchLocalNetworkID(ctx).String()
 			if networkID.String() == localNetwork {
 				// We don't coalesce workloads for the local network
 				return nil
@@ -384,7 +382,7 @@ func (a *index) buildGlobalCollections(
 		if strings.HasPrefix(wi.Workload.Uid, "NetworkGateway/") {
 			return &wi
 		}
-		if wi.Workload.Network != FetchLocalNetworkID(ctx, GlobalNetworks.LocalSystemNamespace).String() {
+		if wi.Workload.Network != GlobalNetworks.FetchLocalNetworkID(ctx).String() {
 			return nil
 		}
 		return &wi
@@ -470,7 +468,7 @@ func (a *index) buildGlobalCollections(
 				log.Errorf("Failed to find mesh config")
 				return nil
 			}
-			localNetwork := FetchLocalNetworkID(ctx, GlobalNetworks.LocalSystemNamespace).String()
+			localNetwork := GlobalNetworks.FetchLocalNetworkID(ctx).String()
 			sans := sets.String{}
 
 			for _, wl := range wls {
