@@ -1,4 +1,4 @@
-//go:build !linux && !windows
+//go:build !linux && !darwin && !windows && !aix && !dragonfly && !freebsd && !netbsd && !openbsd && !solaris
 
 // Copyright Istio Authors
 //
