@@ -175,15 +175,6 @@ type IptablesConfigurator struct {
 	ipt6V  dep.IptablesVersion
 }
 
-// func ipbuildConfig(c *cniconfig.AmbientConfig) *iptablesconfig.Config {
-// 	return &iptablesconfig.Config{
-// 		EnableIPv6:  c.EnableIPv6,
-// 		RedirectDNS: c.RedirectDNS,
-// 		Reconcile:   c.Reconcile,
-// 		ForceApply:  c.ForceApply,
-// 	}
-// }
-
 func NewIptablesConfigurator(
 	hostCfg *cniconfig.AmbientConfig,
 	podCfg *cniconfig.AmbientConfig,
@@ -248,7 +239,7 @@ func NewIptablesConfigurator(
 	return configurator, inPodConfigurator, nil
 }
 
-func (cfg *IptablesConfigurator) DeleteInpodRules(log *istiolog.Scope) error {
+func (cfg *IptablesConfigurator) DeleteInpodRules(log *istiolog.Scope, _ string) error {
 	var inpodErrs []error
 
 	log.Debug("deleting iptables rules")
@@ -297,7 +288,7 @@ func (cfg *IptablesConfigurator) executeDeleteCommands(log *istiolog.Scope) {
 
 // Setup iptables rules for in-pod mode. Ideally this should be an idempotent function.
 // NOTE that this expects to be run from within the pod network namespace!
-func (cfg *IptablesConfigurator) CreateInpodRules(log *istiolog.Scope, podOverrides cniconfig.PodLevelOverrides) error {
+func (cfg *IptablesConfigurator) CreateInpodRules(log *istiolog.Scope, podOverrides cniconfig.PodLevelOverrides, _ string) error {
 	// Append our rules here
 	builder := cfg.AppendInpodRules(podOverrides)
 
