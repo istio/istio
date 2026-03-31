@@ -45,6 +45,7 @@ import (
 	"istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/uds"
 	"istio.io/istio/pkg/wasm"
+	xdspkg "istio.io/istio/pkg/xds"
 	"istio.io/istio/security/pkg/nodeagent/caclient"
 	"istio.io/istio/security/pkg/pki/util"
 )
@@ -596,7 +597,7 @@ func (p *XdsProxy) initDownstreamServer() error {
 	}
 	// TODO: Expose keepalive options to agent cmd line flags.
 	opts := p.downstreamGrpcOptions
-	opts = append(opts, istiogrpc.ServerOptions(istiokeepalive.DefaultOption())...)
+	opts = append(opts, istiogrpc.ServerOptions(istiokeepalive.DefaultOption(), xdspkg.RecordRecvSize)...)
 	grpcs := grpc.NewServer(opts...)
 	discovery.RegisterAggregatedDiscoveryServiceServer(grpcs, p)
 	reflection.Register(grpcs)

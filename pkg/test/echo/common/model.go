@@ -33,6 +33,11 @@ type TLSSettings struct {
 	// Golang doesn't like us doing this (https://github.com/golang/go/issues/46310).
 	// This is useful when the server is simulating Envoy which does unconventional things with ALPN.
 	AcceptAnyALPN bool
+	// MinVersion specifies the minimum TLS version to use (e.g., "1.2", "1.3").
+	MinVersion string
+	// CurvePreferences specifies the elliptic curves to use for ECDHE key exchange,
+	// in order of preference (e.g., "X25519", "P-256").
+	CurvePreferences []string
 }
 
 // Port represents a network port where a service is listening for
@@ -53,6 +58,13 @@ type Port struct {
 
 	// TLS determines if the port will use TLS.
 	TLS bool
+
+	// RequireClientCert determines if the port will be mTLS.
+	RequireClientCert bool
+
+	// EndpointPicker indicates this port should serve as an endpoint picker (ext_proc gRPC service).
+	// Only valid when Protocol is GRPC.
+	EndpointPicker bool
 
 	// ServerFirst if a port will be server first
 	ServerFirst bool

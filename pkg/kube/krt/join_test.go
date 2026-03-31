@@ -15,33 +15,68 @@
 package krt_test
 
 import (
+	"sync"
 	"testing"
 
 	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 
 	istio "istio.io/api/networking/v1alpha3"
 	istioclient "istio.io/client-go/pkg/apis/networking/v1"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/kube/krt"
-	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 )
 
+// NamedValue has the same resource name (from Named) but different values
+// for testing conflict resolution with overlapping keys
+type NamedValue struct {
+	Named
+	Value string
+}
+
 func TestJoinCollection(t *testing.T) {
-	opts := testOptions(t)
-	c1 := krt.NewStatic[Named](nil, true)
-	c2 := krt.NewStatic[Named](nil, true)
-	c3 := krt.NewStatic[Named](nil, true)
+	modes := []struct {
+		name string
+		opts []krt.CollectionOption
+	}{
+		{"checked", nil},
+		{"unchecked", []krt.CollectionOption{krt.WithJoinUnchecked()}},
+	}
+
+	for _, mode := range modes {
+		t.Run(mode.name, func(t *testing.T) {
+			t.Run("basic", func(t *testing.T) {
+				testJoinInner(t, mode.opts...)
+			})
+			t.Run("RegisterBatch", func(t *testing.T) {
+				t.Run("initial state before Join", func(t *testing.T) {
+					testJoinRegisterBatch(t, false, mode.opts...)
+				})
+				t.Run("initial state after Join", func(t *testing.T) {
+					testJoinRegisterBatch(t, true, mode.opts...)
+				})
+			})
+		})
+	}
+}
+
+func testJoinInner(t *testing.T, options ...krt.CollectionOption) {
+	options = append(options, krt.WithName("JoinTest"))
+	opts := testOptions(t).With(options...)
+
+	c1 := krt.NewStatic[Named](nil, true, krt.WithName("c1"))
+	c2 := krt.NewStatic[Named](nil, true, krt.WithName("c2"))
+	c3 := krt.NewStatic[Named](nil, true, krt.WithName("c3"))
 	j := krt.JoinCollection(
 		[]krt.Collection[Named]{c1.AsCollection(), c2.AsCollection(), c3.AsCollection()},
-		opts.WithName("Join")...,
+		opts...,
 	)
 	last := atomic.NewString("")
 	j.Register(func(o krt.Event[Named]) {
@@ -72,6 +107,69 @@ func TestJoinCollection(t *testing.T) {
 			{"c3", "a"},
 		}, sortf),
 	)
+}
+
+// TODO: this test fails with NewStatic[Named]; when the key chaneges we don't get a delete
+// event so our collection's processedState doesn't drop the old value!
+func testJoinRegisterBatch(t *testing.T, eventsAfterCollection bool, options ...krt.CollectionOption) {
+	options = append(options, krt.WithName("JoinTestInitialState"))
+	opts := testOptions(t).With(options...)
+
+	// Use NamedValue so the key (from Named) stays stable while Value changes.
+	// This avoids a StaticCollection bug where key changes aren't handled properly.
+	c1 := krt.NewStatic(&NamedValue{Named{"c1", "a"}, "v1"}, true, krt.WithName("c1"))
+	c2 := krt.NewStatic(&NamedValue{Named{"c2", "a"}, "v1"}, true, krt.WithName("c2"))
+
+	if !eventsAfterCollection {
+		// call Set before registering, otherwise Set will generate events and make
+		// and we won't catch bugs in initial state handling
+		c1.Set(&NamedValue{Named{"c1", "a"}, "v1"})
+		c2.Set(&NamedValue{Named{"c2", "a"}, "v2"})
+	}
+
+	j := krt.JoinCollection(
+		[]krt.Collection[NamedValue]{c1.AsCollection(), c2.AsCollection()},
+		opts...,
+	)
+
+	if eventsAfterCollection {
+		// call Set after registering, to ensure that we don't get duplicate events
+		// from Set being called AFTER the Join is set up
+		c1.Set(&NamedValue{Named{"c1", "a"}, "v1"})
+		c2.Set(&NamedValue{Named{"c2", "a"}, "v2"})
+	}
+
+	t.Run("initial state", func(t *testing.T) {
+		mu := sync.RWMutex{}
+		initialStateEvents := []krt.Event[NamedValue]{}
+		reg := j.RegisterBatch(func(events []krt.Event[NamedValue]) {
+			mu.Lock()
+			defer mu.Unlock()
+			initialStateEvents = append(initialStateEvents, events...)
+		}, true)
+
+		assert.EventuallyEqual(t, func() int {
+			mu.RLock()
+			defer mu.RUnlock()
+			return len(initialStateEvents)
+		}, 2)
+		reg.UnregisterHandler()
+	})
+	t.Run("no initial state", func(t *testing.T) {
+		mu := sync.RWMutex{}
+		events := []krt.Event[NamedValue]{}
+		reg := j.RegisterBatch(func(evts []krt.Event[NamedValue]) {
+			mu.Lock()
+			defer mu.Unlock()
+			events = append(events, evts...)
+		}, false)
+		assert.Consistently(t, func() int {
+			mu.RLock()
+			defer mu.RUnlock()
+			return len(events)
+		}, 0)
+		reg.UnregisterHandler()
+	})
 }
 
 func TestCollectionJoin(t *testing.T) {
@@ -209,142 +307,101 @@ func TestCollectionJoinSync(t *testing.T) {
 	})
 }
 
-func TestJoinWithMergeCollection(t *testing.T) {
+// TestJoinCollectionConflictResolution tests conflict resolution with overlapping keys.
+// Priority order: c1 > c2 > c3 (first collection wins)
+func TestJoinCollectionConflictResolution(t *testing.T) {
 	opts := testOptions(t)
-	svc := &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "svc",
-			Namespace: "namespace",
-		},
-		Spec: corev1.ServiceSpec{
-			Selector: map[string]string{"app": "foo"},
-			Ports: []corev1.ServicePort{
-				{Name: "http", Port: 80, TargetPort: intstr.FromInt(8080)},
-			},
-			ClusterIP: "1.2.3.4",
-		},
+	c1 := krt.NewStatic[NamedValue](nil, true, krt.WithName("c1"))
+	c2 := krt.NewStatic[NamedValue](nil, true, krt.WithName("c2"))
+	c3 := krt.NewStatic[NamedValue](nil, true, krt.WithName("c3"))
+
+	j := krt.JoinCollection(
+		[]krt.Collection[NamedValue]{c1.AsCollection(), c2.AsCollection(), c3.AsCollection()},
+		opts.WithName("Join")...,
+	)
+
+	var mu sync.Mutex
+	events := []krt.Event[NamedValue]{}
+	j.Register(func(o krt.Event[NamedValue]) {
+		mu.Lock()
+		defer mu.Unlock()
+		events = append(events, o)
+	})
+
+	getEventsLen := func() int {
+		mu.Lock()
+		defer mu.Unlock()
+		return len(events)
+	}
+	getEvent := func(i int) krt.Event[NamedValue] {
+		mu.Lock()
+		defer mu.Unlock()
+		return events[i]
+	}
+	clearEvents := func() {
+		mu.Lock()
+		defer mu.Unlock()
+		events = nil
 	}
 
-	svc2 := &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "svc",
-			Namespace: "namespace",
-		},
-		Spec: corev1.ServiceSpec{
-			Selector: map[string]string{"version": "v1"},
-			Ports: []corev1.ServicePort{
-				{Name: "http", Port: 80, TargetPort: intstr.FromInt(8080)},
-			},
-			ClusterIP: "1.2.3.4",
-		},
-	}
+	// Test 1: c2 adds key "a" first - should see ADD
+	c2.Set(&NamedValue{Named{"ns", "a"}, "c2-value"})
+	assert.EventuallyEqual(t, getEventsLen, 1)
+	assert.Equal(t, getEvent(0).Event, controllers.EventAdd)
+	assert.Equal(t, getEvent(0).New.Value, "c2-value")
 
-	c := kube.NewFakeClient(svc)
-	services1 := krt.NewInformer[*corev1.Service](c, opts.WithName("Services")...)
-	SimpleServices := krt.NewCollection(services1, func(ctx krt.HandlerContext, o *corev1.Service) *SimpleService {
-		return &SimpleService{
-			Named:    Named{o.Namespace, o.Name},
-			Selector: o.Spec.Selector,
-		}
-	}, opts.WithName("SimpleServices")...)
-	c.RunAndWait(opts.Stop())
+	// Test 2: c1 adds same key - should see UPDATE (c1 has higher priority)
+	clearEvents()
+	c1.Set(&NamedValue{Named{"ns", "a"}, "c1-value"})
+	assert.EventuallyEqual(t, getEventsLen, 1)
+	assert.Equal(t, getEvent(0).Event, controllers.EventUpdate)
+	assert.Equal(t, getEvent(0).Old.Value, "c2-value")
+	assert.Equal(t, getEvent(0).New.Value, "c1-value")
 
-	c2 := kube.NewFakeClient(svc2)
-	services2 := krt.NewInformer[*corev1.Service](c2, opts.WithName("Services")...)
-	SimpleServices2 := krt.NewCollection(services2, func(ctx krt.HandlerContext, o *corev1.Service) *SimpleService {
-		return &SimpleService{
-			Named:    Named{o.Namespace, o.Name},
-			Selector: o.Spec.Selector,
-		}
-	}, opts.WithName("SimpleServices2")...)
-	c2.RunAndWait(opts.Stop())
+	// Test 3: c3 adds same key - should see NO event (c1 has priority)
+	clearEvents()
+	c3.Set(&NamedValue{Named{"ns", "a"}, "c3-value"})
+	assert.Consistently(t, getEventsLen, 0)
+	assert.Equal(t, j.GetKey("ns/a").Value, "c1-value")
 
-	tt := assert.NewTracker[string](t)
+	// Test 4: c2 updates - should see NO event (c1 still owns it)
+	clearEvents()
+	c2.Set(&NamedValue{Named{"ns", "a"}, "c2-updated"})
+	assert.Consistently(t, getEventsLen, 0)
 
-	AllServices := krt.JoinWithMergeCollection(
-		[]krt.Collection[SimpleService]{SimpleServices, SimpleServices2},
-		func(ts []SimpleService) *SimpleService {
-			if len(ts) == 0 {
-				return nil
-			}
+	// Test 5: c1 deletes - should see UPDATE to c2's version (fallback)
+	clearEvents()
+	c1.Set(nil)
+	assert.EventuallyEqual(t, getEventsLen, 1)
+	assert.Equal(t, getEvent(0).Event, controllers.EventUpdate)
+	assert.Equal(t, getEvent(0).Old.Value, "c1-value")
+	assert.Equal(t, getEvent(0).New.Value, "c2-updated")
 
-			simpleService := ts[0]
+	// Test 6: c2 deletes - should see UPDATE to c3's version
+	clearEvents()
+	c2.Set(nil)
+	assert.EventuallyEqual(t, getEventsLen, 1)
+	assert.Equal(t, getEvent(0).Event, controllers.EventUpdate)
+	assert.Equal(t, getEvent(0).Old.Value, "c2-updated")
+	assert.Equal(t, getEvent(0).New.Value, "c3-value")
 
-			for i, t := range ts {
-				if i == 0 {
-					continue
-				}
-				// Existing labels take precedence
-				newSelector := maps.MergeCopy(t.Selector, simpleService.Selector)
-				simpleService.Selector = newSelector
-			}
+	// Test 7: c3 deletes - should see DELETE (no more fallbacks)
+	clearEvents()
+	c3.Set(nil)
+	assert.EventuallyEqual(t, getEventsLen, 1)
+	assert.Equal(t, getEvent(0).Event, controllers.EventDelete)
+	assert.Equal(t, getEvent(0).Old.Value, "c3-value")
 
-			return &simpleService
-		},
-		opts.With(
-			krt.WithName("AllServices"),
-		)...,
-	)
-	AllServices.Register(TrackerHandler[SimpleService](tt))
-	assert.EventuallyEqual(t, func() bool {
-		return AllServices.WaitUntilSynced(opts.Stop())
-	}, true)
+	// Test 8: Delete from lower priority collection when higher priority owns it - NO event
+	clearEvents()
+	c1.Set(&NamedValue{Named{"ns", "b"}, "c1-b"})
+	assert.EventuallyEqual(t, getEventsLen, 1) // Wait for c1's ADD
 
-	assert.EventuallyEqual(t, func() *SimpleService {
-		return AllServices.GetKey("namespace/svc")
-	}, &SimpleService{
-		Named:    Named{"namespace", "svc"},
-		Selector: map[string]string{"app": "foo", "version": "v1"},
-	})
+	clearEvents()
+	c2.Set(&NamedValue{Named{"ns", "b"}, "c2-b"})
+	assert.Consistently(t, getEventsLen, 0) // c2 adding should be ignored
 
-	// We should see one add event and then an update event since one collection's add
-	// will be handled first (the add) and then the other one will be handled (the update)
-	tt.WaitOrdered("add/namespace/svc", "update/namespace/svc")
-
-	// Update the service selector
-	svc2.Spec.Selector = map[string]string{"version": "v2"}
-	_, err := c2.Kube().CoreV1().Services(svc2.Namespace).Update(t.Context(), svc2, metav1.UpdateOptions{})
-	assert.NoError(t, err)
-	assert.EventuallyEqual(t, func() *SimpleService {
-		return AllServices.GetKey("namespace/svc")
-	}, &SimpleService{
-		Named:    Named{"namespace", "svc"},
-		Selector: map[string]string{"app": "foo", "version": "v2"},
-	})
-	tt.WaitOrdered("update/namespace/svc")
-
-	// Delete the second service
-	err = c2.Kube().CoreV1().Services(svc2.Namespace).Delete(t.Context(), svc2.Name, metav1.DeleteOptions{})
-	assert.NoError(t, err)
-	assert.EventuallyEqual(t, func() *SimpleService {
-		return AllServices.GetKey("namespace/svc")
-	}, &SimpleService{
-		Named:    Named{"namespace", "svc"},
-		Selector: map[string]string{"app": "foo"},
-	})
-	// Removal looks like update with a merge
-	tt.WaitOrdered("update/namespace/svc")
-
-	// Delete the last service
-	err = c.Kube().CoreV1().Services(svc.Namespace).Delete(t.Context(), svc.Name, metav1.DeleteOptions{})
-	assert.NoError(t, err)
-	assert.EventuallyEqual(t, func() *SimpleService {
-		return AllServices.GetKey("namespace/svc")
-	},
-		nil,
-	)
-	tt.WaitOrdered("delete/namespace/svc")
-
-	// Add the service back to confirm that we get a new add event
-	_, err = c.Kube().CoreV1().Services(svc.Namespace).Create(t.Context(), svc, metav1.CreateOptions{})
-	assert.NoError(t, err)
-	assert.EventuallyEqual(t, func() *SimpleService {
-		return AllServices.GetKey("namespace/svc")
-	}, &SimpleService{
-		Named:    Named{"namespace", "svc"},
-		Selector: map[string]string{"app": "foo"},
-	})
-
-	// Should be a fresh add
-	tt.WaitOrdered("add/namespace/svc")
+	c2.Set(nil)                             // c2 deletes but c1 still owns it
+	assert.Consistently(t, getEventsLen, 0) // c2 delete should be ignored
+	assert.Equal(t, j.GetKey("ns/b").Value, "c1-b")
 }

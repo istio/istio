@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 58546
+releaseNotes:
+  - |
+    **Fixed** an issue where setting `ambient.istio.io/bypass-inbound-capture: "true"` causes inbound HBONE traffic to timeout because the iptables rule for tracking the ztunnel mark on connections was not applied. This PR allows inbound HBONE connections to function normally while preserving the expected bypass behavior for inbound "passthrough" connections.

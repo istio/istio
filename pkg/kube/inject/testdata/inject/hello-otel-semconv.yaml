@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hello
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hello
+  template:
+    metadata:
+      labels:
+        app: hello
+        app.kubernetes.io/version: "v1.2.3"
+    spec:
+      containers:
+        - name: hello
+          image: "fake.docker.io/google-samples/hello-go-gke:1.0"
+          ports:
+            - name: http
+              containerPort: 80

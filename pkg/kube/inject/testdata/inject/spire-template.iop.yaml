@@ -1,0 +1,19 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  values:
+    sidecarInjectorWebhook:
+      templates:
+        spire: |
+          spec:
+            containers:
+            - name: istio-proxy
+              volumeMounts:
+              - name: workload-socket
+                mountPath: /var/run/secrets/workload-spiffe-uds
+                readOnly: true
+            volumes:
+            - name: workload-socket
+              csi:
+                driver: "csi.spiffe.io"
+                readOnly: true

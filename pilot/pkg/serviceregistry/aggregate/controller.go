@@ -40,7 +40,8 @@ var (
 
 // Controller aggregates data across different registries and monitors for changes
 type Controller struct {
-	meshHolder mesh.Holder
+	meshHolder      mesh.Holder
+	configClusterID cluster.ID
 
 	// The lock is used to protect the registries and controller's running status.
 	storeLock  sync.RWMutex
@@ -60,6 +61,11 @@ func (c *Controller) ServicesForWaypoint(key model.WaypointKey) []model.ServiceI
 	}
 	var res []model.ServiceInfo
 	for _, p := range c.GetRegistries() {
+		// If this is a kubernetes registry that isn't the local cluster, skip it.
+		if p.Cluster() != c.configClusterID && p.Provider() == provider.Kubernetes {
+			// Only return workloads for the same cluster as the config cluster.
+			continue
+		}
 		res = append(res, p.ServicesForWaypoint(key)...)
 	}
 	return res
@@ -71,6 +77,11 @@ func (c *Controller) ServicesWithWaypoint(key string) []model.ServiceWaypointInf
 	}
 	var res []model.ServiceWaypointInfo
 	for _, p := range c.GetRegistries() {
+		// If this is a kubernetes registry that isn't the local cluster, skip it.
+		if p.Cluster() != c.configClusterID && p.Provider() == provider.Kubernetes {
+			// Only return workloads for the same cluster as the config cluster.
+			continue
+		}
 		res = append(res, p.ServicesWithWaypoint(key)...)
 	}
 	return res
@@ -82,6 +93,11 @@ func (c *Controller) WorkloadsForWaypoint(key model.WaypointKey) []model.Workloa
 	}
 	var res []model.WorkloadInfo
 	for _, p := range c.GetRegistries() {
+		// If this is a kubernetes registry that isn't the local cluster, skip it.
+		if p.Cluster() != c.configClusterID && p.Provider() == provider.Kubernetes {
+			// Only return workloads for the same cluster as the config cluster.
+			continue
+		}
 		res = append(res, p.WorkloadsForWaypoint(key)...)
 	}
 	return res
@@ -93,6 +109,11 @@ func (c *Controller) AdditionalPodSubscriptions(proxy *model.Proxy, addr, cur se
 	}
 	res := sets.New[string]()
 	for _, p := range c.GetRegistries() {
+		// If this is a kubernetes registry that isn't the local cluster, skip it.
+		if p.Cluster() != c.configClusterID && p.Provider() == provider.Kubernetes {
+			// Only return workloads for the same cluster as the config cluster.
+			continue
+		}
 		res = res.Merge(p.AdditionalPodSubscriptions(proxy, addr, cur))
 	}
 	return res
@@ -104,6 +125,11 @@ func (c *Controller) Policies(requested sets.Set[model.ConfigKey]) []model.Workl
 		return res
 	}
 	for _, p := range c.GetRegistries() {
+		// If this is a kubernetes registry that isn't the local cluster, skip it.
+		if p.Cluster() != c.configClusterID && p.Provider() == provider.Kubernetes {
+			// Only return workloads for the same cluster as the config cluster.
+			continue
+		}
 		res = append(res, p.Policies(requested)...)
 	}
 	return res
@@ -117,6 +143,10 @@ func (c *Controller) AddressInformation(addresses sets.String) ([]model.AddressI
 	var removed sets.String
 	foundRegistryCount := 0
 	for _, p := range c.GetRegistries() {
+		// If this is a kubernetes registry that isn't the local cluster, skip it.
+		if p.Cluster() != c.configClusterID && p.Provider() == provider.Kubernetes {
+			continue
+		}
 		wis, r := p.AddressInformation(addresses)
 		if len(wis) == 0 && len(r) == 0 {
 			continue
@@ -144,6 +174,19 @@ func (c *Controller) AddressInformation(addresses sets.String) ([]model.AddressI
 	return i, removed
 }
 
+func (c *Controller) ServiceInfo(key string) *model.ServiceInfo {
+	if !features.EnableAmbientMultiNetwork {
+		return nil
+	}
+	for _, p := range c.GetRegistries() {
+		// When it comes to service info in ambient multicluster setup, only the local cluster matter.
+		if p.Cluster() == c.configClusterID && p.Provider() == provider.Kubernetes {
+			return p.ServiceInfo(key)
+		}
+	}
+	return nil
+}
+
 type registryEntry struct {
 	serviceregistry.Instance
 	// stop if not nil is the per-registry stop chan. If null, the server stop chan should be used to Run the registry.
@@ -151,13 +194,15 @@ type registryEntry struct {
 }
 
 type Options struct {
-	MeshHolder mesh.Holder
+	MeshHolder      mesh.Holder
+	ConfigClusterID cluster.ID
 }
 
 // NewController creates a new Aggregate controller
 func NewController(opt Options) *Controller {
 	return &Controller{
 		registries:        make([]*registryEntry, 0),
+		configClusterID:   opt.ConfigClusterID,
 		meshHolder:        opt.MeshHolder,
 		running:           false,
 		handlersByCluster: map[cluster.ID]*model.ControllerHandlers{},
@@ -238,6 +283,37 @@ func (c *Controller) DeleteRegistry(clusterID cluster.ID, providerID provider.ID
 	log.Infof("%s registry for the cluster %s has been deleted.", providerID, clusterID)
 }
 
+// UpdateRegistry atomically replaces an existing registry with a new one.
+// This is used during credential rotation to avoid service disruption.
+// The new registry is started, then atomically swapped with the old one.
+func (c *Controller) UpdateRegistry(newRegistry serviceregistry.Instance, stop <-chan struct{}) {
+	if stop == nil {
+		log.Warnf("nil stop channel passed to UpdateRegistry for registry %s/%s", newRegistry.Provider(), newRegistry.Cluster())
+	}
+	c.storeLock.Lock()
+	defer c.storeLock.Unlock()
+
+	clusterID := newRegistry.Cluster()
+	providerID := newRegistry.Provider()
+
+	// Find and replace the old registry
+	index, ok := c.getRegistryIndex(clusterID, providerID)
+	if ok {
+		// Replace in place - this is atomic
+		c.registries[index] = &registryEntry{Instance: newRegistry, stop: stop}
+		log.Infof("%s registry for cluster %s has been replaced.", providerID, clusterID)
+	} else {
+		// No existing registry, just add
+		c.addRegistry(newRegistry, stop)
+		log.Infof("%s registry for cluster %s has been added (no previous registry).", providerID, clusterID)
+	}
+
+	// Start the new registry if we're already running
+	if c.running {
+		go newRegistry.Run(stop)
+	}
+}
+
 // GetRegistries returns a copy of all registries
 func (c *Controller) GetRegistries() []serviceregistry.Instance {
 	c.storeLock.RLock()
@@ -290,7 +366,7 @@ func (c *Controller) Services() []*model.Service {
 					if services[previous].ClusterVIPs.Len() < 2 {
 						// Deep copy before merging, otherwise there is a case
 						// a service in remote cluster can be deleted, but the ClusterIP left.
-						services[previous] = services[previous].DeepCopy()
+						services[previous] = services[previous].ShallowCopy()
 					}
 					// If it is seen second time, that means it is from a different cluster, update cluster VIPs.
 					mergeService(services[previous], s, r)
@@ -313,7 +389,7 @@ func (c *Controller) GetService(hostname host.Name) *model.Service {
 			return service
 		}
 		if out == nil {
-			out = service.DeepCopy()
+			out = service.ShallowCopy()
 		} else {
 			// If we are seeing the service for the second time, it means it is available in multiple clusters.
 			mergeService(out, service, r)
@@ -332,6 +408,14 @@ func mergeService(dst, src *model.Service, srcRegistry serviceregistry.Instance)
 	if len(dst.ClusterVIPs.GetAddressesFor(clusterID)) == 0 {
 		newAddresses := src.ClusterVIPs.GetAddressesFor(clusterID)
 		dst.ClusterVIPs.SetAddressesFor(clusterID, newAddresses)
+	}
+	// Merge service accounts from different clusters
+	// Each cluster may have a different trust domain, so we need to collect all unique service accounts
+	if len(src.ServiceAccounts) > 0 {
+		sas := make([]string, 0, len(dst.ServiceAccounts)+len(src.ServiceAccounts))
+		sas = append(sas, dst.ServiceAccounts...)
+		sas = append(sas, src.ServiceAccounts...)
+		dst.ServiceAccounts = slices.FilterDuplicates(sas)
 	}
 }
 
@@ -386,6 +470,11 @@ func (c *Controller) GetProxyServiceTargets(node *model.Proxy) []model.ServiceTa
 		if len(instances) > 0 {
 			out = append(out, instances...)
 		}
+	}
+
+	if len(out) == 0 {
+		log.Debugf("GetProxyServiceTargets(): no service targets found for proxy %s with clusterID %s",
+			node.ID, nodeClusterID.String())
 	}
 
 	return out

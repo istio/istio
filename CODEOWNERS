@@ -6,7 +6,6 @@
 /cmd/istiod/                                                     @istio/wg-environments-maintainers
 /cni/                                                            @istio/wg-networking-maintainers
 /common/                                                         @istio/wg-test-and-release-maintainers
-/common-protos/                                                  @istio/wg-test-and-release-maintainers
 /install/                                                        @istio/wg-environments-maintainers
 /istioctl/                                                       @istio/wg-user-experience-maintainers @istio/wg-networking-maintainers
 Makefile*                                                        @istio/wg-test-and-release-maintainers

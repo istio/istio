@@ -148,7 +148,7 @@ func (s Set[T]) Diff(other Set[T]) (left []T, right []T) {
 			right = append(right, k)
 		}
 	}
-	return
+	return left, right
 }
 
 // Intersection returns a set of objects that are common between s and s2

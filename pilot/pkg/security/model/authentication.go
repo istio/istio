@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/log"
 	pm "istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
@@ -63,9 +64,7 @@ var SDSAdsConfig = &core.ConfigSource{
 
 // ConstructSdsSecretConfigForCredential constructs SDS secret configuration used
 // from certificates referenced by credentialName in DestinationRule or Gateway.
-// Currently this is served by a local SDS server, but in the future replaced by
-// Istiod SDS server.
-func ConstructSdsSecretConfigForCredential(name string, credentialSocketExist bool) *tls.SdsSecretConfig {
+func ConstructSdsSecretConfigForCredential(name string, credentialSocketExist bool, push *model.PushContext) *tls.SdsSecretConfig {
 	if name == "" {
 		return nil
 	}
@@ -75,10 +74,26 @@ func ConstructSdsSecretConfigForCredential(name string, credentialSocketExist bo
 	if name == credentials.BuiltinGatewaySecretTypeURI+SdsCaSuffix {
 		return ConstructSdsSecretConfig(SDSRootResourceName)
 	}
+	if strings.HasPrefix(name, security.SDSExternalCredentialPrefix) {
+		// Check if External SDS is a provider and use its cluster name
+		if sdsName, ok := strings.CutPrefix(name, security.SDSExternalCredentialPrefix); ok {
+			for _, provider := range push.Mesh.ExtensionProviders {
+				if provider.GetSds() != nil && provider.GetSds().Name == sdsName {
+					_, cluster, err := model.LookupCluster(push, provider.GetSds().Service, int(provider.GetSds().Port))
+					if err != nil {
+						model.IncLookupClusterFailures("externalSds")
+						log.Errorf("could not find cluster for external sds provider %q: %v", provider.GetSds(), err)
+						return nil
+					}
+					return ConstructSdsSecretConfigForCredentialSocket(name, cluster)
+				}
+			}
+		}
+	}
 	// if credentialSocketExist exists and credentialName is using SDSExternalCredentialPrefix
 	// SDS will be served via SDSExternalClusterName
 	if credentialSocketExist && strings.HasPrefix(name, security.SDSExternalCredentialPrefix) {
-		return ConstructSdsSecretConfigForCredentialSocket(name)
+		return ConstructSdsSecretConfigForCredentialSocket(name, security.SDSExternalClusterName)
 	}
 
 	return &tls.SdsSecretConfig{
@@ -88,8 +103,7 @@ func ConstructSdsSecretConfigForCredential(name string, credentialSocketExist bo
 }
 
 // ConstructSdsSecretConfigForCredentialSocket constructs SDS Secret Configuration based on CredentialNameSocketPath
-// if CredentialNameSocketPath exists, use a static cluster 'sds-external'
-func ConstructSdsSecretConfigForCredentialSocket(name string) *tls.SdsSecretConfig {
+func ConstructSdsSecretConfigForCredentialSocket(name string, clusterName string) *tls.SdsSecretConfig {
 	return &tls.SdsSecretConfig{
 		Name: name,
 		SdsConfig: &core.ConfigSource{
@@ -101,7 +115,7 @@ func ConstructSdsSecretConfigForCredentialSocket(name string) *tls.SdsSecretConf
 					GrpcServices: []*core.GrpcService{
 						{
 							TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
-								EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: security.SDSExternalClusterName},
+								EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: clusterName},
 							},
 						},
 					},
@@ -200,14 +214,13 @@ func constructSdsSecretConfig(maybeFileName string, fallbackName string, customF
 }
 
 // ApplyCustomSDSToClientCommonTLSContext applies the customized sds to CommonTlsContext
-// Used for building upstream TLS context for egress gateway's TLS/mTLS origination
 func ApplyCustomSDSToClientCommonTLSContext(tlsContext *tls.CommonTlsContext,
 	tlsOpts *networking.ClientTLSSettings, credentialSocketExist bool,
 ) {
 	if tlsOpts.Mode == networking.ClientTLSSettings_MUTUAL {
 		// create SDS config for gateway to fetch key/cert from agent.
 		tlsContext.TlsCertificateSdsSecretConfigs = []*tls.SdsSecretConfig{
-			ConstructSdsSecretConfigForCredential(tlsOpts.CredentialName, credentialSocketExist),
+			ConstructSdsSecretConfigForCredential(tlsOpts.CredentialName, credentialSocketExist, nil),
 		}
 	}
 
@@ -225,7 +238,7 @@ func ApplyCustomSDSToClientCommonTLSContext(tlsContext *tls.CommonTlsContext,
 		CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
 			DefaultValidationContext: defaultValidationContext,
 			ValidationContextSdsSecretConfig: ConstructSdsSecretConfigForCredential(
-				tlsOpts.CredentialName+SdsCaSuffix, credentialSocketExist),
+				tlsOpts.CredentialName+SdsCaSuffix, credentialSocketExist, nil),
 		},
 	}
 }
@@ -233,7 +246,7 @@ func ApplyCustomSDSToClientCommonTLSContext(tlsContext *tls.CommonTlsContext,
 // ApplyCredentialSDSToServerCommonTLSContext applies the credentialName sds (Gateway/DestinationRule) to CommonTlsContext
 // Used for building both gateway/sidecar TLS context
 func ApplyCredentialSDSToServerCommonTLSContext(tlsContext *tls.CommonTlsContext,
-	tlsOpts *networking.ServerTLSSettings, credentialSocketExist bool,
+	tlsOpts *networking.ServerTLSSettings, credentialSocketExist bool, push *model.PushContext,
 ) {
 	// create SDS config for gateway/sidecar to fetch key/cert from agent.
 	caCert := tlsOpts.CredentialName + SdsCaSuffix
@@ -241,15 +254,18 @@ func ApplyCredentialSDSToServerCommonTLSContext(tlsContext *tls.CommonTlsContext
 		// Handle multiple certificates for RSA and ECDSA
 		tlsContext.TlsCertificateSdsSecretConfigs = make([]*tls.SdsSecretConfig, len(tlsOpts.CredentialNames))
 		for i, name := range tlsOpts.CredentialNames {
-			tlsContext.TlsCertificateSdsSecretConfigs[i] = ConstructSdsSecretConfigForCredential(name, credentialSocketExist)
+			tlsContext.TlsCertificateSdsSecretConfigs[i] = ConstructSdsSecretConfigForCredential(name, credentialSocketExist, push)
 		}
 		// If MUTUAL, we only support one CA certificate for all credentialNames. Thus we use the first one as CA.
 		caCert = tlsOpts.CredentialNames[0] + SdsCaSuffix
 	} else {
 		// Handle single certificate
 		tlsContext.TlsCertificateSdsSecretConfigs = []*tls.SdsSecretConfig{
-			ConstructSdsSecretConfigForCredential(tlsOpts.CredentialName, credentialSocketExist),
+			ConstructSdsSecretConfigForCredential(tlsOpts.CredentialName, credentialSocketExist, push),
 		}
+	}
+	if tlsOpts.CaCertCredentialName != "" {
+		caCert = tlsOpts.CaCertCredentialName
 	}
 
 	// If tls mode is MUTUAL/OPTIONAL_MUTUAL, create SDS config for gateway/sidecar to fetch certificate validation context
@@ -263,7 +279,7 @@ func ApplyCredentialSDSToServerCommonTLSContext(tlsContext *tls.CommonTlsContext
 		tlsContext.ValidationContextType = &tls.CommonTlsContext_CombinedValidationContext{
 			CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
 				DefaultValidationContext:         defaultValidationContext,
-				ValidationContextSdsSecretConfig: ConstructSdsSecretConfigForCredential(caCert, credentialSocketExist),
+				ValidationContextSdsSecretConfig: ConstructSdsSecretConfigForCredential(caCert, credentialSocketExist, push),
 			},
 		}
 	} else if len(tlsOpts.SubjectAltNames) > 0 {

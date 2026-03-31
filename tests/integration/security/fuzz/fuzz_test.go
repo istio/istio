@@ -1,5 +1,4 @@
 //go:build integfuzz
-// +build integfuzz
 
 // Copyright Istio Authors
 //

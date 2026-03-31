@@ -62,6 +62,7 @@ resources:
 
   - kind: "EndpointSlice"
     plural: "endpointslices"
+    group: "discovery.k8s.io"
     version: "v1"
     builtin: true
     specless: true
@@ -154,11 +155,11 @@ resources:
   - kind: "ClusterTrustBundle"
     plural: "clustertrustbundles"
     group: "certificates.k8s.io"
-    version: "v1alpha1"
+    version: "v1beta1"
     builtin: true
     clusterScoped: true
-    proto: "k8s.io.api.certificates.v1alpha1.ClusterTrustBundleSpec"
-    protoPackage: "k8s.io/api/certificates/v1alpha1"
+    proto: "k8s.io.api.certificates.v1beta1.ClusterTrustBundleSpec"
+    protoPackage: "k8s.io/api/certificates/v1beta1"
 
   - kind: "Ingress"
     plural: "ingresses"
@@ -216,41 +217,50 @@ resources:
   - kind: "GatewayClass"
     plural: "gatewayclasses"
     group: "gateway.networking.k8s.io"
-    version: "v1beta1"
+    version: "v1"
     versionAliases:
     - "v1alpha2"
-    - "v1"
+    - "v1beta1"
     clusterScoped: true
-    protoPackage: "sigs.k8s.io/gateway-api/apis/v1beta1"
+    protoPackage: "sigs.k8s.io/gateway-api/apis/v1"
     proto: "k8s.io.gateway_api.api.v1alpha1.GatewayClassSpec"
     statusProto: "k8s.io.gateway_api.api.v1alpha1.GatewayClassStatus"
-    statusProtoPackage: "sigs.k8s.io/gateway-api/apis/v1beta1"
+    statusProtoPackage: "sigs.k8s.io/gateway-api/apis/v1"
 
   - kind: "Gateway"
     identifier: KubernetesGateway
     plural: "gateways"
     group: "gateway.networking.k8s.io"
-    version: "v1beta1"
+    version: "v1"
     versionAliases:
     - "v1alpha2"
-    - "v1"
-    protoPackage: "sigs.k8s.io/gateway-api/apis/v1beta1"
+    - "v1beta1"
+    protoPackage: "sigs.k8s.io/gateway-api/apis/v1"
     proto: "k8s.io.gateway_api.api.v1alpha1.GatewaySpec"
     validate: "validation.EmptyValidate"
     statusProto: "k8s.io.gateway_api.api.v1alpha1.GatewayStatus"
-    statusProtoPackage: "sigs.k8s.io/gateway-api/apis/v1beta1"
+    statusProtoPackage: "sigs.k8s.io/gateway-api/apis/v1"
 
   - kind: "HTTPRoute"
     plural: "httproutes"
     group: "gateway.networking.k8s.io"
-    version: "v1beta1"
+    version: "v1"
     versionAliases:
     - "v1alpha2"
-    - "v1"
-    protoPackage: "sigs.k8s.io/gateway-api/apis/v1beta1"
+    - "v1beta1"
+    protoPackage: "sigs.k8s.io/gateway-api/apis/v1"
     proto: "k8s.io.gateway_api.api.v1alpha1.HTTPRouteSpec"
     statusProto: "k8s.io.gateway_api.api.v1alpha1.HTTPRouteStatus"
-    statusProtoPackage: "sigs.k8s.io/gateway-api/apis/v1beta1"
+    statusProtoPackage: "sigs.k8s.io/gateway-api/apis/v1"
+
+  - kind: "InferencePool"
+    plural: "inferencepools"
+    group: "inference.networking.k8s.io"
+    version: "v1"
+    protoPackage: "sigs.k8s.io/gateway-api-inference-extension/api/v1"
+    proto: "x-k8s.io.gateway-api-inference-extension.api.v1.InferencePoolSpec"
+    statusProto: "x-k8s.io.gateway-api-inference-extension.api.v1.InferencePoolStatus"
+    statusProtoPackage: "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 
   - kind: "GRPCRoute"
     plural: "grpcroutes"
@@ -275,11 +285,13 @@ resources:
   - kind: "TLSRoute"
     plural: "tlsroutes"
     group: "gateway.networking.k8s.io"
-    version: "v1alpha2"
-    protoPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2"
-    proto: "k8s.io.gateway_api.api.v1alpha1.TLSRouteSpec"
-    statusProtoPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2"
-    statusProto: "k8s.io.gateway_api.api.v1alpha1.TLSRouteStatus"
+    version: "v1"
+    versionAliases:
+      - "v1alpha2"
+    protoPackage: "sigs.k8s.io/gateway-api/apis/v1"
+    proto: "k8s.io.gateway_api.api.v1.TLSRouteSpec"
+    statusProtoPackage: "sigs.k8s.io/gateway-api/apis/v1"
+    statusProto: "k8s.io.gateway_api.api.v1.TLSRouteStatus"
 
   - kind: "UDPRoute"
     plural: "udproutes"
@@ -311,11 +323,21 @@ resources:
   - kind: "BackendTLSPolicy"
     plural: "backendtlspolicies"
     group: "gateway.networking.k8s.io"
-    version: "v1alpha3"
-    protoPackage: "sigs.k8s.io/gateway-api/apis/v1alpha3"
-    proto: "k8s.io.gateway_api.api.v1alpha3.BackendTLSPolicySpec"
-    statusProtoPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2"
-    statusProto: "k8s.io.gateway_api.api.v1alpha2.PolicyStatus"
+    version: "v1"
+    protoPackage: "sigs.k8s.io/gateway-api/apis/v1"
+    proto: "k8s.io.gateway_api.api.v1.BackendTLSPolicySpec"
+    statusProtoPackage: "sigs.k8s.io/gateway-api/apis/v1"
+    statusProto: "k8s.io.gateway_api.api.v1.PolicyStatus"
+
+  - kind: "ListenerSet"
+    identifier: ListenerSet
+    plural: "listenersets"
+    group: "gateway.networking.k8s.io"
+    version: "v1"
+    protoPackage: "sigs.k8s.io/gateway-api/apis/v1"
+    proto: "ListenerSetSpec"
+    statusProtoPackage: "sigs.k8s.io/gateway-api/apis/v1"
+    statusProto: "ListenerSetStatus"
 
   ## Istio resources
   - kind: "VirtualService"

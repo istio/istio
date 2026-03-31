@@ -13,6 +13,7 @@ trustedRegistries:
   - gcr.io
   - docker.io
   - quay.io
+  - registry.istio.io
   - "*.pkg.dev"
   - "cgr.dev"
   - mcr.microsoft.com

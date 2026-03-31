@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+  - 56328
+releaseNotes:
+  - |
+    **Added** `.Values.istiodRemote.enabledLocalInjectorIstiod` to support sidecar injection in remote clusters.
+    When `profile=remote` & `.Values.istiodRemote.enabledLocalInjectorIstiod=true` & `.Values.global.remotePilotAddress="${DISCOVERY_ADDRESS}"`, 
+    the remote worker cluster installs `istiod` for local sidecar injection, while XDS is still served by the remote primary cluster.

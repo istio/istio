@@ -93,6 +93,7 @@ var (
 	settingsFromCommandline = &Config{
 		SystemNamespace:               DefaultSystemNamespace,
 		TelemetryNamespace:            DefaultSystemNamespace,
+		ZtunnelNamespace:              DefaultSystemNamespace,
 		DeployIstio:                   true,
 		PrimaryClusterIOPFile:         IntegrationTestDefaultsIOP,
 		ConfigClusterIOPFile:          IntegrationTestDefaultsIOP,
@@ -105,6 +106,7 @@ var (
 		EgressGatewayServiceNamespace: DefaultSystemNamespace,
 		EgressGatewayServiceName:      DefaultEgressGatewayServiceName,
 		EgressGatewayIstioLabel:       DefaultEgressGatewayIstioLabel,
+		DeployGatewayAPI:              true,
 	}
 )
 
@@ -115,6 +117,9 @@ type Config struct {
 
 	// The namespace in which kiali, tracing providers, graphana, prometheus are deployed.
 	TelemetryNamespace string
+
+	// The namespace where the ztunnel daemonset resides (default: "istio-system").
+	ZtunnelNamespace string
 
 	// The IstioOperator spec file to be used for Control plane cluster by default
 	PrimaryClusterIOPFile string
@@ -213,6 +218,9 @@ type Config struct {
 	// ControlPlaneInstaller allows installation of custom control planes on istio deployments via an external script
 	// This field should only be set when DeployIstio is false
 	ControlPlaneInstaller string
+
+	// DeployGatewayAPI indicates that the test should deploy Gateway API during tests execution
+	DeployGatewayAPI bool
 }
 
 func (c *Config) OverridesYAML(s *resource.Settings) string {

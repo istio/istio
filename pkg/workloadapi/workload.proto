@@ -89,6 +89,10 @@ message Service {
 
   // Extension provides a mechanism to attach arbitrary additional configuration to an object.
   repeated Extension extensions = 10;
+
+  // canonical marks this Service as taking priority during hostname lookups,
+  // when there is not a match in the namespace of the client.
+  bool canonical = 11;
 }
 
 enum IPFamilies {
@@ -143,6 +147,9 @@ message LoadBalancing {
     // 3. Endpoints matching `[NETWORK]`
     // 4. Any endpoints
     FAILOVER = 2;
+    // In PASSTHROUGH mode, endpoint selection will not be done and traffic passes directly through to the original
+    // desitnation address.
+    PASSTHROUGH = 3;
   }
   enum HealthPolicy {
     // Only select healthy endpoints
@@ -307,6 +314,17 @@ message Port {
   uint32 service_port = 1;
   // Port the service forwards to (backend).
   uint32 target_port = 2;
+  // Application level protocol
+  AppProtocol app_protocol = 3;
+}
+
+enum AppProtocol {
+  UNKNOWN = 0;
+  HTTP11 = 1;
+  HTTP2 = 2;
+  GRPC = 3;
+  TCP = 4;
+  TLS = 5;
 }
 
 // TunnelProtocol indicates the tunneling protocol for requests.
@@ -316,6 +334,9 @@ enum TunnelProtocol {
   // HBONE means requests should be tunneled over HTTP.
   // This does not dictate HTTP/1.1 vs HTTP/2; ALPN should be used for that purpose.
   HBONE = 1;
+  // The workload supports the legacy "istio" mTLS (without HBONE tunnel).
+  // Note: ztunnel does not support sending legacy Istio mTLS.
+  LEGACY_ISTIO_MTLS = 2;
   // Future options may include things like QUIC/HTTP3, etc.
 }
 

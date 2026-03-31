@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+
+releaseNotes:
+  - |
+    **Added** support for `LEAST_REQUEST` load balancing policy in gRPC proxyless clients.
+  - |
+    **Fixed** warning about `CONSISTENT_HASH` load balancing policy in gRPC proxyless clients.
+  - |
+    **Added** support for circuit breaking (`http2MaxRequests`) in gRPC proxyless clients.

@@ -33,8 +33,13 @@ type Collection[T any] interface {
 	// Order of the list is undefined.
 	List() []T
 
+	// EventStream provides event handling capabilities for the collection, allowing clients to subscribe to changes
+	// and receive notifications when objects are added, modified, or removed.
 	EventStream[T]
 
+	// Metadata returns the metadata associated with this collection.
+	// This can be used to store and retrieve arbitrary key-value pairs
+	// that provide additional context or configuration for the collection.
 	Metadata() Metadata
 }
 
@@ -104,6 +109,7 @@ type Singleton[T any] interface {
 	// Register adds an event watcher to the object. Any time it changes, the handler will be called
 	Register(f func(o Event[T])) HandlerRegistration
 	AsCollection() Collection[T]
+	Metadata() Metadata
 }
 
 // Event represents a point in time change for a collection.

@@ -15,28 +15,10 @@
 package iptables
 
 import (
-	"net/netip"
-
 	"istio.io/istio/cni/pkg/scopes"
-	istiolog "istio.io/istio/pkg/log"
 )
 
-// For inpod rules, any runtime/dynamic pod-level
-// config overrides that may need to be taken into account
-// when injecting pod rules
-type PodLevelOverrides struct {
-	VirtualInterfaces []string
-	IngressMode       bool
-	DNSProxy          PodDNSOverride
-}
-
-type PodDNSOverride int
-
-const (
-	PodDNSUnset PodDNSOverride = iota
-	PodDNSEnabled
-	PodDNSDisabled
-)
+var log = scopes.CNIAgent
 
 const (
 	DNSCapturePort              = 15053
@@ -45,29 +27,3 @@ const (
 	ZtunnelInboundPlaintextPort = 15006
 	Localhost                   = "127.0.0.1"
 )
-
-type IptablesConfig struct {
-	TraceLogging           bool       `json:"IPTABLES_TRACE_LOGGING"`
-	EnableIPv6             bool       `json:"ENABLE_INBOUND_IPV6"`
-	RedirectDNS            bool       `json:"REDIRECT_DNS"`
-	HostProbeSNATAddress   netip.Addr `json:"HOST_PROBE_SNAT_ADDRESS"`
-	HostProbeV6SNATAddress netip.Addr `json:"HOST_PROBE_V6_SNAT_ADDRESS"`
-	Reconcile              bool       `json:"RECONCILE"`
-	CleanupOnly            bool       `json:"CLEANUP_ONLY"`
-	ForceApply             bool       `json:"FORCE_APPLY"`
-}
-
-type InPodRouter interface {
-	// by convention use 1st Addr for ipv4 and 2nd for ipv6 SNAT host
-	CreateInpodRules(*istiolog.Scope, PodLevelOverrides, string) error
-	DeleteInpodRules(*istiolog.Scope, string) error
-	ReconcileModeEnabled() bool
-}
-
-type HostRuler interface {
-	// by convention use 1st Addr for ipv4 and 2nd for ipv6 SNAT host
-	CreateHostRulesForHealthChecks() error
-	DeleteHostRules()
-}
-
-var log = scopes.CNIAgent

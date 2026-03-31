@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: skywalking-oap
-          image: apache/skywalking-oap-server:9.7.0
+          image: docker.io/apache/skywalking-oap-server:9.7.0
           env:
             - name: SW_HEALTH_CHECKER
               value: default
@@ -89,7 +89,7 @@ spec:
     spec:
       containers:
         - name: skywalking-ui
-          image: apache/skywalking-ui:9.1.0
+          image: docker.io/apache/skywalking-ui:9.1.0
           env:
             - name: SW_OAP_ADDRESS
               value: http://skywalking-oap:12800

@@ -1,7 +1,7 @@
 spec:
   initContainers:
   - name: istio-init
-    image: docker.io/istio/proxy_init:unittest-{{.Values.global.suffix}}
+    image: registry.istio.io/release/proxy_init:unittest-{{.Values.global.suffix}}
   containers:
   - name: istio-proxy
-    image: docker.io/istio/proxy_debug:unittest
+    image: registry.istio.io/release/proxy_debug:unittest

@@ -16,7 +16,6 @@ package config
 
 import (
 	"fmt"
-	"reflect"
 	"testing"
 	"time"
 
@@ -258,7 +257,7 @@ func TestToJSON(t *testing.T) {
 		// Kubernetes type
 		{
 			input: &corev1.PodSpec{ServiceAccountName: "foobar"},
-			json:  `{"serviceAccountName":"foobar"}`,
+			json:  `{"containers":null,"serviceAccountName":"foobar"}`,
 		},
 		// gateway-api type
 		{
@@ -289,67 +288,6 @@ func TestToJSON(t *testing.T) {
 			}
 			if string(jb) != tt.json {
 				t.Fatalf("got %v want %v", string(jb), tt.json)
-			}
-		})
-	}
-}
-
-func TestToMap(t *testing.T) {
-	cases := []struct {
-		input Spec
-		mp    map[string]any
-	}{
-		// Istio type
-		{
-			input: &networking.VirtualService{Gateways: []string{"foobar"}},
-			mp: map[string]any{
-				"gateways": []any{"foobar"},
-			},
-		},
-		// Kubernetes type
-		{
-			input: &corev1.PodSpec{ServiceAccountName: "foobar"},
-			mp: map[string]any{
-				"serviceAccountName": "foobar",
-			},
-		},
-		// gateway-api type
-		{
-			input: &k8s.GatewayClassSpec{ControllerName: "foobar"},
-			mp: map[string]any{
-				"controllerName": "foobar",
-			},
-		},
-		// mock type
-		{
-			input: &config.MockConfig{Key: "foobar"},
-			mp: map[string]any{
-				"key": "foobar",
-			},
-		},
-		// XDS type, to test golang/proto
-		{
-			input: &cluster.Cluster{Name: "foobar"},
-			mp: map[string]any{
-				"name": "foobar",
-			},
-		},
-		// Random struct
-		{
-			input: &TestStruct{Name: "foobar"},
-			mp: map[string]any{
-				"name": "foobar",
-			},
-		},
-	}
-	for _, tt := range cases {
-		t.Run(fmt.Sprintf("%T", tt.input), func(t *testing.T) {
-			got, err := ToMap(tt.input)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if !reflect.DeepEqual(got, tt.mp) {
-				t.Fatalf("got %+v want %+v", got, tt.mp)
 			}
 		})
 	}

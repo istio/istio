@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -45,25 +46,25 @@ func TestNewInformer(t *testing.T) {
 
 	assert.Equal(t, ConfigMaps.List(), nil)
 
-	cmA := &corev1.ConfigMap{
+	cmA := kube.EnsureTypeMeta(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "a",
 			Namespace: "ns",
 		},
-	}
-	cmA2 := &corev1.ConfigMap{
+	})
+	cmA2 := kube.EnsureTypeMeta(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "a",
 			Namespace: "ns",
 		},
 		Data: map[string]string{"foo": "bar"},
-	}
-	cmB := &corev1.ConfigMap{
+	})
+	cmB := kube.EnsureTypeMeta(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "b",
 			Namespace: "ns",
 		},
-	}
+	})
 	cmt.Create(cmA)
 	tt.WaitOrdered("add/ns/a")
 	assert.Equal(t, ConfigMaps.List(), []*corev1.ConfigMap{cmA})
@@ -106,8 +107,26 @@ func TestUnregisteredTypeCollection(t *testing.T) {
 		func(c kubeclient.ClientGetter, namespace string, o metav1.ListOptions) (watch.Interface, error) {
 			return c.Kube().NetworkingV1().NetworkPolicies(namespace).Watch(context.Background(), o)
 		},
+		func(c kubeclient.ClientGetter, namespace string) kubetypes.WriteAPI[*v1.NetworkPolicy] {
+			return c.Kube().NetworkingV1().NetworkPolicies(namespace)
+		},
 	)
 	npcoll := krt.NewInformer[*v1.NetworkPolicy](c, opts.WithName("NetworkPolicies")...)
 	c.RunAndWait(test.NewStop(t))
-	assert.Equal(t, npcoll.List(), []*v1.NetworkPolicy{np})
+	assert.Equal(t, npcoll.List(), []*v1.NetworkPolicy{kube.EnsureTypeMeta(np)})
+}
+
+func TestInformerCollectionMetadata(t *testing.T) {
+	opts := testOptions(t)
+	c := kube.NewFakeClient()
+	meta := krt.Metadata{
+		"key1": "value1",
+	}
+	ConfigMaps := krt.NewInformer[*corev1.ConfigMap](c, opts.With(
+		krt.WithName("ConfigMaps"),
+		krt.WithMetadata(meta),
+	)...)
+	c.RunAndWait(opts.Stop())
+
+	assert.Equal(t, ConfigMaps.Metadata(), meta)
 }

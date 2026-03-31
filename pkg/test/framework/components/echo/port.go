@@ -43,8 +43,16 @@ type Port struct {
 	// This need not be the same as the ServicePort where the service is accessed.
 	WorkloadPort int
 
+	// TargetPortName is the name of the container port to use as the target port.
+	// If set, this will be used instead of WorkloadPort in the Service targetPort field.
+	// This enables testing services that reference container ports by name rather than number.
+	TargetPortName string
+
 	// TLS determines whether the connection will be plain text or TLS. By default this is false (plain text).
 	TLS bool
+
+	// MTLS determines whether the connection will be mTLS. By default this is false (plain text).
+	MTLS bool
 
 	// ServerFirst determines whether the port will use server first communication, meaning the client will not send the first byte.
 	ServerFirst bool
@@ -57,6 +65,10 @@ type Port struct {
 
 	// ProxyProtocol determines if echo should accept PROXY protocol.
 	ProxyProtocol bool
+
+	// EndpointPicker indicates this port should serve as an endpoint picker (ext_proc gRPC service).
+	// Only valid when Protocol is GRPC.
+	EndpointPicker bool
 }
 
 // IsWorkloadOnly returns true if there is no service port specified for this Port.

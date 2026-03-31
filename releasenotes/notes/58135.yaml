@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 58135
+releaseNotes:
+- |
+  **Fixed** `istio-init` failure when using native nftables with TPROXY mode and empty `traffic.sidecar.istio.io/includeInboundPorts` annotation.

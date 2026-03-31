@@ -374,3 +374,63 @@ func TestPodUpdates(t *testing.T) {
 	// This pod should not be in the cache because it never existed.
 	assert.Equal(t, c.pods.getPodsByIP("128.0.0.128"), nil)
 }
+
+func TestGetPortMapNativeSidecar(t *testing.T) {
+	nativeSidecarRestartPolicy := v1.ContainerRestartPolicyAlways
+	pod := &v1.Pod{
+		Spec: v1.PodSpec{
+			InitContainers: []v1.Container{
+				{
+					Name: "regular-init",
+					Ports: []v1.ContainerPort{
+						{
+							Name:          "init-port",
+							ContainerPort: 9090,
+							Protocol:      v1.ProtocolTCP,
+						},
+					},
+				},
+				{
+					Name:          "native-sidecar",
+					RestartPolicy: &nativeSidecarRestartPolicy,
+					Ports: []v1.ContainerPort{
+						{
+							Name:          "grpc",
+							ContainerPort: 8080,
+							Protocol:      v1.ProtocolTCP,
+						},
+					},
+				},
+			},
+			Containers: []v1.Container{
+				{
+					Name: "main",
+					Ports: []v1.ContainerPort{
+						{
+							Name:          "http",
+							ContainerPort: 80,
+							Protocol:      v1.ProtocolTCP,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	pmap := getPortMap(pod)
+
+	// Regular container port should be included.
+	if port, ok := pmap["http"]; !ok || port != 80 {
+		t.Errorf("expected http port 80, got %d (found=%v)", port, ok)
+	}
+
+	// Native sidecar init container port should be included.
+	if port, ok := pmap["grpc"]; !ok || port != 8080 {
+		t.Errorf("expected grpc port 8080, got %d (found=%v)", port, ok)
+	}
+
+	// Regular init container port should NOT be included.
+	if _, ok := pmap["init-port"]; ok {
+		t.Error("regular init container port should not be in port map")
+	}
+}

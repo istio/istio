@@ -76,7 +76,7 @@ func (s *Store) UpdateHealth(proxyID, entryName, entryNs string, condition *v1al
 	}
 
 	// replace the updated status
-	wle := status.UpdateConfigCondition(*cfg, condition)
+	wle := status.UpdateIstioConfigCondition(*cfg, condition)
 	// update the status
 	_, err := s.store.UpdateStatus(wle)
 	if err != nil {
@@ -89,7 +89,7 @@ func (s *Store) UpdateHealth(proxyID, entryName, entryNs string, condition *v1al
 // DeleteHealthCondition updates WorkloadEntry of a workload that is not using auto-registration
 // to remove information about the health status (since we can no longer be certain about it).
 func (s *Store) DeleteHealthCondition(wle config.Config) error {
-	wle = status.DeleteConfigCondition(wle, status.ConditionHealthy)
+	wle = status.DeleteIstioConfigCondition(wle, status.ConditionHealthy)
 	// update the status
 	_, err := s.store.UpdateStatus(wle)
 	if err != nil && !errors.IsNotFound(err) {

@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 // Copyright Istio Authors
 //
@@ -30,11 +29,12 @@ import (
 )
 
 var (
+	currentVersion           string
 	previousSupportedVersion string
 	nMinusTwoVersion         string
 )
 
-const imageToCheck = "gcr.io/istio-release/pilot"
+const imageToCheck = "registry.istio.io/release/pilot"
 
 func initVersions(ctx resource.Context) error {
 	versionFromFile, err := env.ReadVersion()
@@ -47,6 +47,7 @@ func initVersions(ctx resource.Context) error {
 		return err
 	}
 
+	currentVersion = v.String()
 	previousVersion := semver.New(v.Major(), v.Minor()-1, v.Patch(), v.Prerelease(), v.Metadata())
 
 	// If the previous version is not published yet, use the latest one
@@ -110,4 +111,10 @@ func TestZtunnelFromPreviousMinorRelease(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(upgradeAllButZtunnel(previousSupportedVersion))
+}
+
+func TestAmbientStableRevisionLabelsGatewayStatus(t *testing.T) {
+	framework.
+		NewTest(t).
+		Run(runMultipleTagsFunc(true, true))
 }

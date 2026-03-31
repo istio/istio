@@ -46,7 +46,7 @@ func CreateCertificateForCluster(t framework.TestContext, i Instance, serviceAcc
 		return Cert{}, fmt.Errorf("failed to fetch root cert: %v", err)
 	}
 
-	token, err := GetServiceAccountToken(c.Kube(), "istio-ca", namespace, serviceAccount)
+	token, err := GetServiceAccountToken(c, "istio-ca", namespace, serviceAccount)
 	if err != nil {
 		return Cert{}, err
 	}
@@ -96,12 +96,13 @@ func CreateCertificate(t framework.TestContext, i Instance, serviceAccount, name
 // 7 days
 var saTokenExpiration int64 = 60 * 60 * 24 * 7
 
-func GetServiceAccountToken(c kubernetes.Interface, aud, ns, sa string) (string, error) {
+func GetServiceAccountToken(cluster cluster.Cluster, aud, ns, sa string) (string, error) {
 	san := san(ns, sa)
-
-	if got, f := cachedTokens.Load(san); f {
+	c := cluster.Kube()
+	key := fmt.Sprintf("%s:%s", cluster.Name(), san)
+	if got, f := cachedTokens.Load(key); f {
 		t := got.(token)
-		if t.expiration.After(time.Now().Add(time.Minute)) {
+		if t.expiration.After(time.Now().Add(5 * time.Minute)) {
 			return t.token, nil
 		}
 		// Otherwise, its expired, load a new one
@@ -117,7 +118,7 @@ func GetServiceAccountToken(c kubernetes.Interface, aud, ns, sa string) (string,
 		return "", err
 	}
 	exp := rt.Status.ExpirationTimestamp.Time
-	cachedTokens.Store(san, token{rt.Status.Token, exp})
+	cachedTokens.Store(key, token{rt.Status.Token, exp})
 	return rt.Status.Token, nil
 }
 

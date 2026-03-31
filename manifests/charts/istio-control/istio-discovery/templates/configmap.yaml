@@ -62,7 +62,12 @@
       {{- end }}
       {{- end }}
       {{- if .Values.global.remotePilotAddress }}
+      {{- if and .Values.istiodRemote.enabled .Values.istiodRemote.enabledLocalInjectorIstiod }}
+      #  only primary `istiod` to xds and local `istiod` injection installs.
+      discoveryAddress: {{ printf "istiod-remote.%s.svc" .Release.Namespace }}:15012
+      {{- else }}
       discoveryAddress: {{ printf "istiod.%s.svc" .Release.Namespace }}:15012
+      {{- end }}
       {{- else }}
       discoveryAddress: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{.Release.Namespace}}.svc:15012
       {{- end }}
@@ -73,6 +78,7 @@
 {{- $originalMesh := include "mesh" . | fromYaml }}
 {{- $mesh := mergeOverwrite $originalMesh .Values.meshConfig }}
 
+{{- if or (eq .Values.global.resourceScope "all") (eq .Values.global.resourceScope "namespace") }}
 {{- if .Values.configMap }}
 apiVersion: v1
 kind: ConfigMap
@@ -104,4 +110,5 @@ data:
 {{- include "mesh" . }}
 {{- end }}
 ---
+{{- end }}
 {{- end }}

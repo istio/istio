@@ -19,7 +19,7 @@ route/inbound-vip|8000|http|httpbin.default.svc.cluster.local     inbound|http|8
 
 RESOURCE NAME      TYPE           STATUS     VALID CERT     SERIAL NUMBER                        NOT AFTER                NOT BEFORE
 secret/default     Cert Chain     ACTIVE     false          6fbee254c22900615cb1f74e3d2f1713     2023-05-16T01:32:52Z     2023-05-15T01:30:52Z
-secret/ROOTCA      CA             ACTIVE     true           193a543fe2b0d9cd4847675394dfc54      2033-05-02T03:41:33Z     2023-05-05T03:41:33Z
+secret/ROOTCA      CA             ACTIVE     true           0193a543fe2b0d9cd4847675394dfc54     2033-05-02T03:41:33Z     2023-05-05T03:41:33Z
 
 NAME                                                       STATUS      LOCALITY     CLUSTER
 endpoint/envoy://connect_originate/192.168.195.248:800     HEALTHY                  inbound-vip|8100|http|httpbin.default.svc.cluster.local

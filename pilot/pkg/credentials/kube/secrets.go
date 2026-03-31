@@ -61,9 +61,10 @@ const (
 )
 
 type CredentialsController struct {
-	secrets    kclient.Client[*v1.Secret]
-	configMaps kclient.Client[*v1.ConfigMap]
-	sar        authorizationv1client.SubjectAccessReviewInterface
+	secrets         kclient.Client[*v1.Secret]
+	configMaps      kclient.Client[*v1.ConfigMap]
+	sar             authorizationv1client.SubjectAccessReviewInterface
+	isConfigCluster bool
 
 	mu                 sync.RWMutex
 	authorizationCache map[authorizationKey]authorizationResponse
@@ -90,44 +91,57 @@ var SecretsFieldSelector = fields.AndSelectors(
 	fields.OneTermNotEqualSelector("type", "helm.sh/release.v1"),
 	fields.OneTermNotEqualSelector("type", string(v1.SecretTypeServiceAccountToken))).String()
 
-func NewCredentialsController(kc kube.Client, handlers []func(typ kind.Kind, name string, namespace string)) *CredentialsController {
+func NewCredentialsController(kc kube.Client, handlers []func(typ kind.Kind, name string, namespace string), isConfigCluster bool) *CredentialsController {
 	secrets := kclient.NewFiltered[*v1.Secret](kc, kclient.Filter{
 		FieldSelector: SecretsFieldSelector,
 		ObjectFilter:  kc.ObjectFilter(),
 	})
-	configMaps := kclient.NewFiltered[*v1.ConfigMap](kc, kclient.Filter{
-		ObjectFilter: kc.ObjectFilter(),
-	})
+
+	var configMaps kclient.Client[*v1.ConfigMap]
+	if isConfigCluster {
+		configMaps = kclient.NewFiltered[*v1.ConfigMap](kc, kclient.Filter{
+			ObjectFilter: kc.ObjectFilter(),
+		})
+	}
 
 	for _, h := range handlers {
 		// register handler before informer starts
 		secrets.AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
 			h(kind.Secret, o.GetName(), o.GetNamespace())
 		}))
-		configMaps.AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
-			_, err := ExtractRootFromString(o.(*v1.ConfigMap).Data)
-			if err == nil {
-				// Only trigger updates for ConfigMaps that are actually possibly used
-				h(kind.ConfigMap, o.GetName(), o.GetNamespace())
-			}
-		}))
+		if configMaps != nil {
+			configMaps.AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
+				_, err := ExtractRootFromString(o.(*v1.ConfigMap).Data)
+				if err == nil {
+					// Only trigger updates for ConfigMaps that are actually possibly used
+					h(kind.ConfigMap, o.GetName(), o.GetNamespace())
+				}
+			}))
+		}
 	}
 
 	return &CredentialsController{
 		secrets:            secrets,
 		configMaps:         configMaps,
 		sar:                kc.Kube().AuthorizationV1().SubjectAccessReviews(),
+		isConfigCluster:    isConfigCluster,
 		authorizationCache: make(map[authorizationKey]authorizationResponse),
 	}
 }
 
 func (s *CredentialsController) Close() {
 	s.secrets.ShutdownHandlers()
-	s.configMaps.ShutdownHandlers()
+	if s.configMaps != nil {
+		s.configMaps.ShutdownHandlers()
+	}
 }
 
 func (s *CredentialsController) HasSynced() bool {
-	return s.secrets.HasSynced() && s.configMaps.HasSynced()
+	synced := s.secrets.HasSynced()
+	if s.configMaps != nil {
+		synced = synced && s.configMaps.HasSynced()
+	}
+	return synced
 }
 
 const cacheTTL = time.Minute
@@ -226,6 +240,9 @@ func (s *CredentialsController) GetCaCert(name, namespace string) (certInfo *cre
 }
 
 func (s *CredentialsController) GetConfigMapCaCert(name, namespace string) (certInfo *credentials.CertInfo, err error) {
+	if !s.isConfigCluster {
+		return nil, fmt.Errorf("configmap access not enabled for remote clusters")
+	}
 	strippedName := strings.TrimSuffix(name, securitymodel.SdsCaSuffix)
 	cm := s.configMaps.Get(strippedName, namespace)
 	if cm == nil {

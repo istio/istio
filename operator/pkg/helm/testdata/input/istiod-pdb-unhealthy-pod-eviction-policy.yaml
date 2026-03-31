@@ -1,0 +1,7 @@
+spec:
+  values:
+    # required for PDB to be created
+    autoscaleMin: 2
+    pdb:
+      minAvailable: 1
+      unhealthyPodEvictionPolicy: AlwaysAllow

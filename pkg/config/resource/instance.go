@@ -26,18 +26,3 @@ type Instance struct {
 	Origin   Origin
 	Status   config.Status
 }
-
-// IsEmpty returns true if the resource Instance.Message is nil.
-func (r *Instance) IsEmpty() bool {
-	return r.Message == nil
-}
-
-// Clone returns a deep-copy of this entry. Warning, this is expensive!
-func (r *Instance) Clone() *Instance {
-	result := &Instance{}
-	if r.Message != nil {
-		result.Message = config.DeepCopy(r.Message)
-	}
-	result.Metadata = r.Metadata.Clone()
-	return result
-}

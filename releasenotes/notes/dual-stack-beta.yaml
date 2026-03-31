@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+
+# issue is a list of GitHub issues resolved in this note.
+issue:
+  - https://github.com/istio/istio.io/pull/16863
+
+releaseNotes:
+  - |
+    **Promoted** Istio dual-stack support to Beta

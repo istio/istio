@@ -1357,6 +1357,60 @@ func TestOutboundTLSIPv6Only(t *testing.T) {
 	log.Printf("Listeners: %v", listeners)
 }
 
+// TestOutboundTLSDynamicDNSWildcardServerNames verifies that a DYNAMIC_DNS wildcard ServiceEntry
+// with TLS port gets filter_chain_match.server_names set (e.g. ["*.google.com"]) on the per-VIP listener.
+func TestOutboundTLSDynamicDNSWildcardServerNames(t *testing.T) {
+	const vip = "240.240.0.2"
+	const hostname = "*.google.com"
+	svc := &model.Service{
+		CreationTime:             tnow,
+		Hostname:                 host.Name(hostname),
+		DefaultAddress:           constants.UnspecifiedIP,
+		AutoAllocatedIPv4Address: vip,
+		Ports: model.PortList{
+			{
+				Name:     "https",
+				Port:     443,
+				Protocol: protocol.TLS,
+			},
+		},
+		Resolution: model.DynamicDNS,
+		Attributes: model.ServiceAttributes{
+			Namespace: "default",
+		},
+	}
+
+	proxy := getProxy()
+	proxy.Metadata.DNSCapture = true
+
+	listeners := buildOutboundListeners(t, proxy, nil, nil, svc)
+
+	l := xdstest.ExtractListener(vip+"_443", listeners)
+	if l == nil {
+		t.Fatalf("expected listener %s_443, not found in %d listeners", vip, len(listeners))
+	}
+	if len(l.FilterChains) == 0 {
+		t.Fatal("expected at least one filter chain")
+	}
+	fc := l.FilterChains[0]
+	if fc.FilterChainMatch == nil {
+		t.Fatal("expected filter_chain_match to be set for DYNAMIC_DNS wildcard TLS")
+	}
+	if len(fc.FilterChainMatch.ServerNames) == 0 {
+		t.Fatalf("expected filter_chain_match.server_names (e.g. [%q]), got %v", hostname, fc.FilterChainMatch.ServerNames)
+	}
+	found := false
+	for _, sn := range fc.FilterChainMatch.ServerNames {
+		if sn == hostname {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected server_names to contain %q, got %v", hostname, fc.FilterChainMatch.ServerNames)
+	}
+}
+
 func TestOutboundListenerConfigWithSidecarHTTPProxy(t *testing.T) {
 	sidecarConfig := &config.Config{
 		Meta: config.Meta{
@@ -3107,11 +3161,29 @@ func TestListenerTransportSocketConnectTimeoutForSidecar(t *testing.T) {
 	cases := []struct {
 		name            string
 		expectedTimeout int64
+		timeoutDisabled bool
+		configuredValue time.Duration
 		services        []*model.Service
 	}{
 		{
-			name:            "should set timeout",
+			name:            "should set default timeout",
 			expectedTimeout: durationpb.New(defaultGatewayTransportSocketConnectTimeout).GetSeconds(),
+			services: []*model.Service{
+				buildService("test.com", "1.2.3.4", protocol.TCP, tnow.Add(1*time.Second)),
+			},
+		},
+		{
+			name:            "should set custom timeout",
+			expectedTimeout: 30,
+			configuredValue: 30 * time.Second,
+			services: []*model.Service{
+				buildService("test.com", "1.2.3.4", protocol.TCP, tnow.Add(1*time.Second)),
+			},
+		},
+		{
+			name:            "should disable timeout when set to 0",
+			timeoutDisabled: true,
+			configuredValue: 0,
 			services: []*model.Service{
 				buildService("test.com", "1.2.3.4", protocol.TCP, tnow.Add(1*time.Second)),
 			},
@@ -3119,18 +3191,33 @@ func TestListenerTransportSocketConnectTimeoutForSidecar(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
+			if tt.configuredValue > 0 {
+				test.SetForTest(t, &features.GatewayTransportSocketConnectTimeout, tt.configuredValue)
+			} else if tt.timeoutDisabled {
+				test.SetForTest(t, &features.GatewayTransportSocketConnectTimeout, time.Duration(0))
+			}
 			p := getProxy()
 			listeners := buildOutboundListeners(t, p, nil, nil, tt.services...)
 			for _, l := range listeners {
 				for _, fc := range l.FilterChains {
-					if fc.TransportSocketConnectTimeout == nil || fc.TransportSocketConnectTimeout.Seconds != tt.expectedTimeout {
+					if tt.timeoutDisabled {
+						if fc.TransportSocketConnectTimeout != nil {
+							t.Errorf("expected no transport socket connect timeout for listener %s filter chain %s, got %v",
+								l.Name, fc.Name, fc.TransportSocketConnectTimeout)
+						}
+					} else if fc.TransportSocketConnectTimeout == nil || fc.TransportSocketConnectTimeout.Seconds != tt.expectedTimeout {
 						t.Errorf("expected transport socket connect timeout to be %v for listener %s filter chain %s, got %v",
 							tt.expectedTimeout, l.Name, fc.Name, fc.TransportSocketConnectTimeout)
 					}
 				}
 				if l.DefaultFilterChain != nil {
 					fc := l.DefaultFilterChain
-					if fc.TransportSocketConnectTimeout == nil || fc.TransportSocketConnectTimeout.Seconds != tt.expectedTimeout {
+					if tt.timeoutDisabled {
+						if fc.TransportSocketConnectTimeout != nil {
+							t.Errorf("expected no transport socket connect timeout for listener %s default filter chain, got %v",
+								l.Name, fc.TransportSocketConnectTimeout)
+						}
+					} else if fc.TransportSocketConnectTimeout == nil || fc.TransportSocketConnectTimeout.Seconds != tt.expectedTimeout {
 						t.Errorf("expected transport socket connect timeout to be %v for listener %s default filter chain, got %v",
 							tt.expectedTimeout, l.Name, fc.TransportSocketConnectTimeout)
 					}
@@ -3145,7 +3232,7 @@ func TestBuildListenerTLSContext(t *testing.T) {
 		name                    string
 		serverTLSSettings       *networking.ServerTLSSettings
 		proxy                   *model.Proxy
-		mesh                    *meshconfig.MeshConfig
+		push                    *model.PushContext
 		transportProtocol       istionetworking.TransportProtocol
 		gatewayTCPServerWithTLS bool
 		expectedCertCount       int
@@ -3160,7 +3247,7 @@ func TestBuildListenerTLSContext(t *testing.T) {
 			proxy: &model.Proxy{
 				Metadata: &model.NodeMetadata{},
 			},
-			mesh:                    &meshconfig.MeshConfig{},
+			push:                    &model.PushContext{Mesh: &meshconfig.MeshConfig{}},
 			transportProtocol:       istionetworking.TransportProtocolTCP,
 			gatewayTCPServerWithTLS: false,
 			expectedCertCount:       1,
@@ -3175,7 +3262,7 @@ func TestBuildListenerTLSContext(t *testing.T) {
 			proxy: &model.Proxy{
 				Metadata: &model.NodeMetadata{},
 			},
-			mesh:                    &meshconfig.MeshConfig{},
+			push:                    &model.PushContext{Mesh: &meshconfig.MeshConfig{}},
 			transportProtocol:       istionetworking.TransportProtocolTCP,
 			gatewayTCPServerWithTLS: false,
 			expectedCertCount:       2,
@@ -3191,7 +3278,7 @@ func TestBuildListenerTLSContext(t *testing.T) {
 			proxy: &model.Proxy{
 				Metadata: &model.NodeMetadata{},
 			},
-			mesh:                    &meshconfig.MeshConfig{},
+			push:                    &model.PushContext{Mesh: &meshconfig.MeshConfig{}},
 			transportProtocol:       istionetworking.TransportProtocolTCP,
 			gatewayTCPServerWithTLS: false,
 			expectedCertCount:       2,
@@ -3207,7 +3294,7 @@ func TestBuildListenerTLSContext(t *testing.T) {
 			proxy: &model.Proxy{
 				Metadata: &model.NodeMetadata{},
 			},
-			mesh:                    &meshconfig.MeshConfig{},
+			push:                    &model.PushContext{Mesh: &meshconfig.MeshConfig{}},
 			transportProtocol:       istionetworking.TransportProtocolTCP,
 			gatewayTCPServerWithTLS: false,
 			expectedCertCount:       1,
@@ -3231,7 +3318,7 @@ func TestBuildListenerTLSContext(t *testing.T) {
 			proxy: &model.Proxy{
 				Metadata: &model.NodeMetadata{},
 			},
-			mesh:                    &meshconfig.MeshConfig{},
+			push:                    &model.PushContext{Mesh: &meshconfig.MeshConfig{}},
 			transportProtocol:       istionetworking.TransportProtocolTCP,
 			gatewayTCPServerWithTLS: false,
 			expectedCertCount:       2,
@@ -3248,7 +3335,7 @@ func TestBuildListenerTLSContext(t *testing.T) {
 			proxy: &model.Proxy{
 				Metadata: &model.NodeMetadata{},
 			},
-			mesh:                    &meshconfig.MeshConfig{},
+			push:                    &model.PushContext{Mesh: &meshconfig.MeshConfig{}},
 			transportProtocol:       istionetworking.TransportProtocolTCP,
 			gatewayTCPServerWithTLS: false,
 			expectedCertCount:       1,
@@ -3273,17 +3360,112 @@ func TestBuildListenerTLSContext(t *testing.T) {
 			proxy: &model.Proxy{
 				Metadata: &model.NodeMetadata{},
 			},
-			mesh:                    &meshconfig.MeshConfig{},
+			push:                    &model.PushContext{Mesh: &meshconfig.MeshConfig{}},
 			transportProtocol:       istionetworking.TransportProtocolTCP,
 			gatewayTCPServerWithTLS: false,
 			expectedCertCount:       2,
+			expectedValidation:      true,
+		},
+		{
+			name: "external SDS provider with credential name",
+			serverTLSSettings: &networking.ServerTLSSettings{
+				Mode:           networking.ServerTLSSettings_SIMPLE,
+				CredentialName: "sds://provider-cert",
+			},
+			proxy: &model.Proxy{
+				Metadata: &model.NodeMetadata{},
+			},
+			push: func() *model.PushContext {
+				pc := &model.PushContext{
+					Mesh: &meshconfig.MeshConfig{
+						ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{
+							{
+								Name: "provider-cert",
+								Provider: &meshconfig.MeshConfig_ExtensionProvider_Sds{
+									Sds: &meshconfig.MeshConfig_ExtensionProvider_SDSProvider{
+										Name:    "provider-cert",
+										Service: "sds-provider-service",
+										Port:    8080,
+									},
+								},
+							},
+						},
+					},
+				}
+				pc.ServiceIndex.HostnameAndNamespace = map[host.Name]map[string]*model.Service{
+					"sds-provider-service": {
+						"": &model.Service{
+							Hostname: "sds-provider-service",
+							Ports: []*model.Port{
+								{
+									Name:     "grpc",
+									Port:     8080,
+									Protocol: protocol.GRPC,
+								},
+							},
+						},
+					},
+				}
+				return pc
+			}(),
+			transportProtocol:       istionetworking.TransportProtocolTCP,
+			gatewayTCPServerWithTLS: false,
+			expectedCertCount:       1,
+			expectedValidation:      false,
+		},
+		{
+			name: "external SDS provider with mutual TLS",
+			serverTLSSettings: &networking.ServerTLSSettings{
+				Mode:            networking.ServerTLSSettings_MUTUAL,
+				CredentialName:  "sds://provider-cert",
+				SubjectAltNames: []string{"test.com"},
+			},
+			proxy: &model.Proxy{
+				Metadata: &model.NodeMetadata{},
+			},
+			push: func() *model.PushContext {
+				pc := &model.PushContext{
+					Mesh: &meshconfig.MeshConfig{
+						ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{
+							{
+								Name: "provider-cert",
+								Provider: &meshconfig.MeshConfig_ExtensionProvider_Sds{
+									Sds: &meshconfig.MeshConfig_ExtensionProvider_SDSProvider{
+										Name:    "provider-cert",
+										Service: "sds-provider-service",
+										Port:    8080,
+									},
+								},
+							},
+						},
+					},
+				}
+				pc.ServiceIndex.HostnameAndNamespace = map[host.Name]map[string]*model.Service{
+					"sds-provider-service": {
+						"": &model.Service{
+							Hostname: "sds-provider-service",
+							Ports: []*model.Port{
+								{
+									Name:     "grpc",
+									Port:     8080,
+									Protocol: protocol.GRPC,
+								},
+							},
+						},
+					},
+				}
+				return pc
+			}(),
+			transportProtocol:       istionetworking.TransportProtocolTCP,
+			gatewayTCPServerWithTLS: false,
+			expectedCertCount:       1,
 			expectedValidation:      true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := BuildListenerTLSContext(tt.serverTLSSettings, tt.proxy, tt.mesh, tt.transportProtocol, tt.gatewayTCPServerWithTLS)
+			ctx := BuildListenerTLSContext(tt.serverTLSSettings, tt.proxy, tt.push, tt.transportProtocol, tt.gatewayTCPServerWithTLS)
 
 			// Check certificate count
 			if len(ctx.CommonTlsContext.TlsCertificateSdsSecretConfigs) != tt.expectedCertCount {
@@ -3304,6 +3486,87 @@ func TestBuildListenerTLSContext(t *testing.T) {
 				}
 			} else if ctx.CommonTlsContext.ValidationContextType != nil {
 				t.Error("unexpected validation context")
+			}
+		})
+	}
+}
+
+func TestApplyDownstreamTLSDefaults(t *testing.T) {
+	tests := []struct {
+		name        string
+		tlsDefaults *meshconfig.MeshConfig_TLSConfig
+		expected    *tls.TlsParameters
+	}{
+		{
+			name:        "nil tlsDefaults",
+			tlsDefaults: nil,
+			expected:    nil,
+		},
+		{
+			name: "TLS_AUTO does not set min version",
+			tlsDefaults: &meshconfig.MeshConfig_TLSConfig{
+				MinProtocolVersion: meshconfig.MeshConfig_TLSConfig_TLS_AUTO,
+			},
+			expected: nil,
+		},
+		{
+			name: "TLSV1_2 sets correct min version",
+			tlsDefaults: &meshconfig.MeshConfig_TLSConfig{
+				MinProtocolVersion: meshconfig.MeshConfig_TLSConfig_TLSV1_2,
+			},
+			expected: &tls.TlsParameters{
+				TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
+			},
+		},
+		{
+			name: "TLSV1_3 sets correct min version",
+			tlsDefaults: &meshconfig.MeshConfig_TLSConfig{
+				MinProtocolVersion: meshconfig.MeshConfig_TLSConfig_TLSV1_3,
+			},
+			expected: &tls.TlsParameters{
+				TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_3,
+			},
+		},
+		{
+			name: "EcdhCurves are applied",
+			tlsDefaults: &meshconfig.MeshConfig_TLSConfig{
+				EcdhCurves: []string{"P-256", "P-384"},
+			},
+			expected: &tls.TlsParameters{
+				EcdhCurves: []string{"P-256", "P-384"},
+			},
+		},
+		{
+			name: "CipherSuites are applied",
+			tlsDefaults: &meshconfig.MeshConfig_TLSConfig{
+				CipherSuites: []string{"ECDHE-ECDSA-AES128-GCM-SHA256", "ECDHE-RSA-AES128-GCM-SHA256"},
+			},
+			expected: &tls.TlsParameters{
+				CipherSuites: []string{"ECDHE-ECDSA-AES128-GCM-SHA256", "ECDHE-RSA-AES128-GCM-SHA256"},
+			},
+		},
+		{
+			name: "all settings combined",
+			tlsDefaults: &meshconfig.MeshConfig_TLSConfig{
+				MinProtocolVersion: meshconfig.MeshConfig_TLSConfig_TLSV1_3,
+				EcdhCurves:         []string{"P-256"},
+				CipherSuites:       []string{"ECDHE-ECDSA-AES256-GCM-SHA384"},
+			},
+			expected: &tls.TlsParameters{
+				TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_3,
+				EcdhCurves:                []string{"P-256"},
+				CipherSuites:              []string{"ECDHE-ECDSA-AES256-GCM-SHA384"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := &tls.CommonTlsContext{}
+			applyDownstreamTLSDefaults(tt.tlsDefaults, ctx)
+
+			if diff := cmp.Diff(tt.expected, ctx.TlsParams, protocmp.Transform()); diff != "" {
+				t.Errorf("TlsParams mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}

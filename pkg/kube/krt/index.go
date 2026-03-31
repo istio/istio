@@ -27,11 +27,14 @@ import (
 
 type Index[K comparable, O any] interface {
 	Lookup(k K) []O
-	AsCollection(opts ...CollectionOption) Collection[IndexObject[K, O]]
+	AsCollection(opts ...CollectionOption) IndexCollection[K, O]
+	Fetch(ctx HandlerContext, key K, opts ...FetchOption) []O
 	objectHasKey(obj O, k K) bool
 	extractKeys(o O) []K
 	id() collectionUID
 }
+
+type IndexCollection[K comparable, O any] = Collection[IndexObject[K, O]]
 
 type IndexObject[K comparable, O any] struct {
 	Key     K
@@ -91,11 +94,13 @@ func WithIndexCollectionFromString[K any](f func(string) K) CollectionOption {
 // AsCollection does a best-effort approximation of turning an index into a Collection. This is intended to be used as a
 // primary input with NewCollection or similar transformations.
 // This has some limitations that impact usage *outside* of NewCollection:
-// * List() is not allowed.
+// * List() is not recommended since it is slow.
 // * Building an index is not allowed
 // * Events are not 100% precise; only Add and Delete events are triggered. Updates will be `Add` events.
 // The intended use case for this is to do merging within a collection (like a SQL 'group by').
-func (i index[K, O]) AsCollection(opts ...CollectionOption) Collection[IndexObject[K, O]] {
+// WARNING: when merging, its critical the output key includes the merge key. Otherwise, you may end up with multiple
+// input keys mapping to the same output key, corrupting krt state.
+func (i index[K, O]) AsCollection(opts ...CollectionOption) IndexCollection[K, O] {
 	o := buildCollectionOptions(opts...)
 
 	c := indexCollection[K, O]{
@@ -118,6 +123,11 @@ func (i index[K, O]) AsCollection(opts ...CollectionOption) Collection[IndexObje
 	}
 	maybeRegisterCollectionForDebugging(c, o.debugger)
 	return c
+}
+
+// Fetch fetches all entries from the index with dependency tracking
+func (i index[K, O]) Fetch(ctx HandlerContext, key K, opts ...FetchOption) []O {
+	return Fetch(ctx, i.c, append([]FetchOption{FilterIndex(i, key)}, opts...)...)
 }
 
 // nolint: unused // (not true)
@@ -197,6 +207,9 @@ func (i indexCollection[K, O]) index(name string, extract func(o IndexObject[K, 
 func (i indexCollection[K, O]) GetKey(k string) *IndexObject[K, O] {
 	tk := i.fromKey(k).(K)
 	objs := i.idx.Lookup(tk)
+	if len(objs) == 0 {
+		return nil
+	}
 	return &IndexObject[K, O]{
 		Key:     tk,
 		Objects: objs,
@@ -204,7 +217,16 @@ func (i indexCollection[K, O]) GetKey(k string) *IndexObject[K, O] {
 }
 
 func (i indexCollection[K, O]) List() []IndexObject[K, O] {
-	panic("an index collection cannot be listed")
+	o := i.idx.c.List()
+	keys := sets.New[K]()
+	for _, oo := range o {
+		keys.InsertAll(i.idx.extractKeys(oo)...)
+	}
+	res := make([]IndexObject[K, O], 0, len(keys))
+	for k := range keys {
+		res = append(res, *i.GetKey(toString(k)))
+	}
+	return res
 }
 
 // dumpOutput dumps the current state. This has no synchronization, so it's not perfect.
@@ -262,7 +284,7 @@ func (i indexCollection[K, O]) RegisterBatch(f func(o []Event[IndexObject[K, O]]
 			// However, we don't really need to: simply triggering an Add/Delete is close enough to work.
 			// Building a collection from an indexCollection only uses the events to determine the changed keys, which is
 			// available with this information.
-			if len(v.Objects) == 0 {
+			if v == nil {
 				downstream = append(downstream, Event[IndexObject[K, O]]{
 					Old:   &IndexObject[K, O]{Key: key, Objects: nil},
 					Event: controllers.EventDelete,
@@ -276,4 +298,19 @@ func (i indexCollection[K, O]) RegisterBatch(f func(o []Event[IndexObject[K, O]]
 		}
 		f(downstream)
 	}, runExistingState)
+}
+
+// UnnamedIndex creates a simple index, keyed by key K, over a collection for O. This is similar to
+// Informer.AddIndex, but is easier to use and can be added after an informer has already started.
+//
+// This differs from NewIndex in that it does not require a name. A name can be passed to dedupe indexes by the same name;
+// however, when not intended to dedupe, this can lead to accidental deduping.
+func UnnamedIndex[K comparable, O any](
+	c Collection[O],
+	extract func(o O) []K,
+) Index[K, O] {
+	// We just need some unique key, any will do
+	key := fmt.Sprintf("%p", extract)
+
+	return NewIndex(c, key, extract)
 }

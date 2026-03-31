@@ -1,0 +1,43 @@
+# This file provides some defaults for integration testing.
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  name: install
+spec:
+  meshConfig:
+    # Disable retries. This avoids confusing logs and errors, and allows finer grain control for tests
+    defaultHttpRetryPolicy: {}
+    accessLogFile: "/dev/stdout"
+    defaultConfig:
+      proxyMetadata:
+        ISTIO_META_DNS_CAPTURE: "true"
+  values:
+    pilot:
+      # Lower the reconnect time so we test reconnects. The default of 30min means we almost never trigger in tests.
+      keepaliveMaxServerConnectionAge: 120s
+      autoscaleEnabled: false
+      env:
+        ENABLE_EXTERNAL_NAME_ALIAS: true
+        UNSAFE_ENABLE_ADMIN_ENDPOINTS: true
+        PILOT_REMOTE_CLUSTER_TIMEOUT: 15s
+        PILOT_ENABLE_ALPHA_GATEWAY_API: "true"
+        ENABLE_CLUSTER_TRUST_BUNDLE_API: "true"
+    global:
+      proxy:
+        resources:
+          requests:
+            cpu: 10m
+            memory: 40Mi
+    gateways:
+      istio-ingressgateway:
+        autoscaleEnabled: false
+        resources:
+          requests:
+            cpu: 10m
+            memory: 40Mi
+      istio-egressgateway:
+        autoscaleEnabled: false
+        resources:
+          requests:
+            cpu: 10m
+            memory: 40Mi

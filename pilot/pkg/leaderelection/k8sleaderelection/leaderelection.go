@@ -151,7 +151,7 @@ type LeaderElectionConfig struct {
 	//
 	// It is the responsibility of the caller to ensure that all KeyComparison functions are
 	// logically consistent between all clients participating in the leader election to avoid multiple
-	// clients claiming to have high precedence and constantly pre-empting the existing leader.
+	// clients claiming to have high precedence and constantly preempting the existing leader.
 	//
 	// KeyComparison functions should ensure they handle an empty existingKey, as "key" is not a required field.
 	//
@@ -374,7 +374,7 @@ func (le *LeaderElector) tryAcquireOrRenew(ctx context.Context) bool {
 		!le.IsLeader() {
 		if le.config.KeyComparison != nil && le.config.KeyComparison(oldLeaderElectionRecord.HolderKey) {
 			// Lock is held and not expired, but our key is higher than the existing one.
-			// We will pre-empt the existing leader.
+			// We will preempt the existing leader.
 			// nolint: lll
 			klog.V(4).Infof("lock is held by %v with key %v, but our key (%v) evicts it", oldLeaderElectionRecord.HolderIdentity, oldLeaderElectionRecord.HolderKey, le.config.Lock.Key())
 		} else {

@@ -18,8 +18,6 @@
 // - protoc             (unknown)
 // source: test/echo/proto/echo.proto
 
-// Generate with protoc --go_out=. echo.proto -I /work/common-protos/ -I.
-
 package proto
 
 import (

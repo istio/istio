@@ -20,27 +20,27 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	"istio.io/api/annotation"
-	"istio.io/istio/cni/pkg/iptables"
+	"istio.io/istio/cni/pkg/config"
 	"istio.io/istio/cni/pkg/util"
 )
 
-func getPodLevelTrafficOverrides(pod *corev1.Pod) iptables.PodLevelOverrides {
+func getPodLevelTrafficOverrides(pod *corev1.Pod) config.PodLevelOverrides {
 	// If true, the pod will run in 'ingress mode'. This is intended to be used for "ingress" type workloads which handle
 	// non-mesh traffic on inbound, and send to the mesh on outbound.
 	// Basically, this just disables inbound redirection.
-	podCfg := iptables.PodLevelOverrides{IngressMode: false}
+	podCfg := config.PodLevelOverrides{IngressMode: false}
 
 	if ingressMode, present := util.CheckBooleanAnnotation(pod, annotation.AmbientBypassInboundCapture.Name); present {
 		podCfg.IngressMode = ingressMode
 	}
 
-	podCfg.DNSProxy = iptables.PodDNSUnset
+	podCfg.DNSProxy = config.PodDNSUnset
 
 	if dnsCapture, present := util.CheckBooleanAnnotation(pod, annotation.AmbientDnsCapture.Name); present {
 		if dnsCapture {
-			podCfg.DNSProxy = iptables.PodDNSEnabled
+			podCfg.DNSProxy = config.PodDNSEnabled
 		} else {
-			podCfg.DNSProxy = iptables.PodDNSDisabled
+			podCfg.DNSProxy = config.PodDNSDisabled
 		}
 	}
 

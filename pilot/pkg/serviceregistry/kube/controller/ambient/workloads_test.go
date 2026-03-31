@@ -15,13 +15,15 @@
 package ambient
 
 import (
+	"cmp"
 	"net/netip"
 	"testing"
 
 	v1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/gateway-api/apis/v1beta1"
+	"k8s.io/apimachinery/pkg/types"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"istio.io/api/annotation"
 	"istio.io/api/label"
@@ -306,6 +308,60 @@ func TestPodWorkloads(t *testing.T) {
 							ServicePort: 81,
 							TargetPort:  9090,
 						}},
+					},
+				},
+			},
+		},
+		{
+			name: "pod selected by ServiceEntry honors port name mapping",
+			inputs: []any{
+				model.ServiceInfo{
+					Service: &workloadapi.Service{
+						Name:      "httpbin",
+						Namespace: "httpbin2",
+						Hostname:  "httpbin.httpbin2.mesh.internal",
+						Ports: []*workloadapi.Port{{
+							ServicePort: 8002,
+							TargetPort:  0,
+						}},
+					},
+					PortNames: map[int32]model.ServicePortName{
+						8002: {PortName: "http"},
+					},
+					LabelSelector: model.NewSelector(map[string]string{"app": "httpbin"}),
+					Source:        model.TypedObject{Kind: kind.ServiceEntry},
+				},
+			},
+			pod: &v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "httpbin-123",
+					Namespace: "httpbin2",
+					Labels:    map[string]string{"app": "httpbin"},
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{{Ports: []v1.ContainerPort{{
+						Name:          "http",
+						ContainerPort: 8000,
+						Protocol:      v1.ProtocolTCP,
+					}}}},
+				},
+				Status: v1.PodStatus{Phase: v1.PodRunning, Conditions: podReady, PodIP: "10.1.1.1"},
+			},
+			result: &workloadapi.Workload{
+				Uid:               "cluster0//Pod/httpbin2/httpbin-123",
+				Name:              "httpbin-123",
+				Namespace:         "httpbin2",
+				Addresses:         [][]byte{netip.MustParseAddr("10.1.1.1").AsSlice()},
+				Network:           testNW,
+				CanonicalName:     "httpbin",
+				CanonicalRevision: "latest",
+				WorkloadType:      workloadapi.WorkloadType_POD,
+				WorkloadName:      "httpbin-123",
+				Status:            workloadapi.WorkloadStatus_HEALTHY,
+				ClusterId:         testC,
+				Services: map[string]*workloadapi.PortList{
+					"httpbin2/httpbin.httpbin2.mesh.internal": {
+						Ports: []*workloadapi.Port{{ServicePort: 8002, TargetPort: 8000}},
 					},
 				},
 			},
@@ -778,14 +834,13 @@ func TestPodWorkloads(t *testing.T) {
 			WorkloadServicesNamespaceIndex := krt.NewNamespaceIndex(WorkloadServices)
 			EndpointSlices := krttest.GetMockCollection[*discovery.EndpointSlice](mock)
 			EndpointSlicesAddressIndex := endpointSliceAddressIndex(EndpointSlices)
-			builder := a.podWorkloadBuilder(
+			builder := a.builder.podWorkloadBuilder(
 				GetMeshConfig(mock),
 				krttest.GetMockCollection[model.WorkloadAuthorization](mock),
 				krttest.GetMockCollection[*securityclient.PeerAuthentication](mock),
 				krttest.GetMockCollection[Waypoint](mock),
 				WorkloadServices,
 				WorkloadServicesNamespaceIndex,
-				EndpointSlices,
 				EndpointSlicesAddressIndex,
 				krttest.GetMockCollection[*v1.Namespace](mock),
 				krttest.GetMockCollection[Node](mock),
@@ -965,7 +1020,7 @@ func TestWorkloadEntryWorkloads(t *testing.T) {
 							},
 							{
 								ServicePort: 81,
-								TargetPort:  0,
+								TargetPort:  8081,
 							},
 							{
 								ServicePort: 82,
@@ -981,7 +1036,7 @@ func TestWorkloadEntryWorkloads(t *testing.T) {
 						// Not a named port
 						80: {PortName: "80"},
 						// Named port found in WE
-						81: {PortName: "81", TargetPortName: "81-target"},
+						81: {PortName: "81"},
 						// Named port target found in WE
 						82: {PortName: "82", TargetPortName: "82-target"},
 						// Named port not found in WE
@@ -1026,6 +1081,10 @@ func TestWorkloadEntryWorkloads(t *testing.T) {
 							{
 								ServicePort: 80,
 								TargetPort:  8080,
+							},
+							{
+								ServicePort: 81,
+								TargetPort:  8180,
 							},
 							{
 								ServicePort: 82,
@@ -1329,7 +1388,7 @@ func TestWorkloadEntryWorkloads(t *testing.T) {
 			a := newAmbientUnitTest(t)
 			WorkloadServices := krttest.GetMockCollection[model.ServiceInfo](mock)
 			WorkloadServicesNamespaceIndex := krt.NewNamespaceIndex(WorkloadServices)
-			builder := a.workloadEntryWorkloadBuilder(
+			builder := a.builder.workloadEntryWorkloadBuilder(
 				GetMeshConfig(mock),
 				krttest.GetMockCollection[model.WorkloadAuthorization](mock),
 				krttest.GetMockCollection[*securityclient.PeerAuthentication](mock),
@@ -1356,8 +1415,53 @@ func TestServiceEntryWorkloads(t *testing.T) {
 		result []*workloadapi.Workload
 	}{
 		{
-			name:   "dns without endpoints",
-			inputs: []any{},
+			name: "dns without endpoints",
+			// This is kind of ugly, but we need to add the ServiceInfos to the inputs so that the ServiceEntryWorkloadBuilder can find them
+			// Otherwise, we consider the ServiceEntry to have been deduplicated and we won't generate workloads for it
+			inputs: []any{
+				model.ServiceInfo{
+					Service: &workloadapi.Service{
+						Name:      "name",
+						Namespace: "ns",
+						Hostname:  "a.example.com",
+						Ports: []*workloadapi.Port{{
+							ServicePort: 80,
+							TargetPort:  80,
+						}},
+					},
+					PortNames: map[int32]model.ServicePortName{
+						80: {PortName: "http"},
+					},
+					Source: model.TypedObject{
+						Kind: kind.ServiceEntry,
+						NamespacedName: types.NamespacedName{
+							Namespace: "ns",
+							Name:      "name",
+						},
+					},
+				},
+				model.ServiceInfo{
+					Service: &workloadapi.Service{
+						Name:      "name",
+						Namespace: "ns",
+						Hostname:  "b.example.com",
+						Ports: []*workloadapi.Port{{
+							ServicePort: 80,
+							TargetPort:  80,
+						}},
+					},
+					PortNames: map[int32]model.ServicePortName{
+						80: {PortName: "http"},
+					},
+					Source: model.TypedObject{
+						Kind: kind.ServiceEntry,
+						NamespacedName: types.NamespacedName{
+							Namespace: "ns",
+							Name:      "name",
+						},
+					},
+				},
+			},
 			se: &networkingclient.ServiceEntry{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "name",
@@ -1432,6 +1536,27 @@ func TestServiceEntryWorkloads(t *testing.T) {
 						},
 					},
 					TrafficType: constants.AllTraffic,
+				},
+				model.ServiceInfo{
+					Service: &workloadapi.Service{
+						Name:      "name",
+						Namespace: "ns",
+						Hostname:  "a.example.com",
+						Ports: []*workloadapi.Port{{
+							ServicePort: 80,
+							TargetPort:  80,
+						}},
+					},
+					PortNames: map[int32]model.ServicePortName{
+						80: {PortName: "http"},
+					},
+					Source: model.TypedObject{
+						Kind: kind.ServiceEntry,
+						NamespacedName: types.NamespacedName{
+							Namespace: "ns",
+							Name:      "name",
+						},
+					},
 				},
 			},
 			se: &networkingclient.ServiceEntry{
@@ -1512,16 +1637,20 @@ func TestServiceEntryWorkloads(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mock := krttest.NewMock(t, tt.inputs)
 			a := newAmbientUnitTest(t)
-			builder := a.serviceEntryWorkloadBuilder(
+			builder := a.builder.serviceEntryWorkloadBuilder(
 				GetMeshConfig(mock),
 				krttest.GetMockCollection[model.WorkloadAuthorization](mock),
 				krttest.GetMockCollection[*securityclient.PeerAuthentication](mock),
 				krttest.GetMockCollection[Waypoint](mock),
 				krttest.GetMockCollection[*v1.Namespace](mock),
+				krttest.GetMockCollection[model.ServiceInfo](mock),
 			)
 			res := builder(krt.TestingDummyContext{}, tt.se)
 			wl := slices.Map(res, func(e model.WorkloadInfo) *workloadapi.Workload {
 				return e.Workload
+			})
+			slices.SortFunc(wl, func(a, b *workloadapi.Workload) int {
+				return cmp.Compare(a.Uid, b.Uid)
 			})
 			assert.Equal(t, wl, tt.result)
 		})
@@ -1634,7 +1763,7 @@ func TestEndpointSliceWorkloads(t *testing.T) {
 			mock := krttest.NewMock(t, tt.inputs)
 			a := newAmbientUnitTest(t)
 			WorkloadServices := krttest.GetMockCollection[model.ServiceInfo](mock)
-			builder := a.endpointSlicesBuilder(
+			builder := a.builder.endpointSlicesBuilder(
 				GetMeshConfig(mock),
 				WorkloadServices,
 			)
@@ -1702,7 +1831,7 @@ func kubernetesAPIServerEndpoint(ip string) *discovery.EndpointSlice {
 func newAmbientUnitTest(t test.Failer) *index {
 	// Set up a basic network environment so tests have a default network and some gateways
 	// Note: unlike other collections, networks are stored in the ambientIndex struct since they
-	// are passed in almost everywhere. So we need to constuct it here.
+	// are passed in almost everywhere. So we need to construct it here.
 	mock := krttest.NewMock(t, []any{
 		&v1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
@@ -1710,7 +1839,7 @@ func newAmbientUnitTest(t test.Failer) *index {
 				Labels: map[string]string{label.TopologyNetwork.Name: testNW},
 			},
 		},
-		&v1beta1.Gateway{
+		&gatewayv1.Gateway{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "remote-network-ip",
 				Namespace: "ns-gtw",
@@ -1721,15 +1850,9 @@ func newAmbientUnitTest(t test.Failer) *index {
 					label.TopologyNetwork.Name: "remote-network",
 				},
 			},
-			Spec: v1beta1.GatewaySpec{
+			Spec: gatewayv1.GatewaySpec{
 				GatewayClassName: "istio-remote",
-				Addresses: []v1beta1.GatewaySpecAddress{
-					{
-						Type:  ptr.Of(v1beta1.IPAddressType),
-						Value: "9.9.9.9",
-					},
-				},
-				Listeners: []v1beta1.Listener{
+				Listeners: []gatewayv1.Listener{
 					{
 						Name:     "cross-network",
 						Port:     15008,
@@ -1737,8 +1860,16 @@ func newAmbientUnitTest(t test.Failer) *index {
 					},
 				},
 			},
+			Status: gatewayv1.GatewayStatus{
+				Addresses: []gatewayv1.GatewayStatusAddress{
+					{
+						Type:  ptr.Of(gatewayv1.IPAddressType),
+						Value: "9.9.9.9",
+					},
+				},
+			},
 		},
-		&v1beta1.Gateway{
+		&gatewayv1.Gateway{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "remote-network-hostname",
 				Namespace: "ns-gtw",
@@ -1749,15 +1880,9 @@ func newAmbientUnitTest(t test.Failer) *index {
 					label.TopologyNetwork.Name: "remote-network-hostname",
 				},
 			},
-			Spec: v1beta1.GatewaySpec{
+			Spec: gatewayv1.GatewaySpec{
 				GatewayClassName: "istio-remote",
-				Addresses: []v1beta1.GatewaySpecAddress{
-					{
-						Type:  ptr.Of(v1beta1.HostnameAddressType),
-						Value: "networkgateway.example.com",
-					},
-				},
-				Listeners: []v1beta1.Listener{
+				Listeners: []gatewayv1.Listener{
 					{
 						Name:     "cross-network",
 						Port:     15008,
@@ -1765,11 +1890,19 @@ func newAmbientUnitTest(t test.Failer) *index {
 					},
 				},
 			},
+			Status: gatewayv1.GatewayStatus{
+				Addresses: []gatewayv1.GatewayStatusAddress{
+					{
+						Type:  ptr.Of(gatewayv1.HostnameAddressType),
+						Value: "networkgateway.example.com",
+					},
+				},
+			},
 		},
 	})
-	networks := buildNetworkCollections(
+	networks := BuildNetworkCollections(
 		krttest.GetMockCollection[*v1.Namespace](mock),
-		krttest.GetMockCollection[*v1beta1.Gateway](mock),
+		krttest.GetMockCollection[*gatewayv1.Gateway](mock),
 		Options{
 			SystemNamespace: systemNS,
 			ClusterID:       testC,
@@ -1783,6 +1916,14 @@ func newAmbientUnitTest(t test.Failer) *index {
 			DefaultAllowFromWaypoint:              features.DefaultAllowFromWaypoint,
 			EnableK8SServiceSelectWorkloadEntries: features.EnableK8SServiceSelectWorkloadEntries,
 		},
+	}
+	idx.builder = Builder{
+		DomainSuffix:      idx.DomainSuffix,
+		ClusterID:         idx.ClusterID,
+		NetworkGateways:   idx.networks.NetworkGateways,
+		GatewaysByNetwork: idx.networks.GatewaysByNetwork,
+		Flags:             idx.Flags,
+		Network:           idx.Network,
 	}
 	kube.WaitForCacheSync("test", test.NewStop(t), idx.networks.HasSynced)
 	return idx

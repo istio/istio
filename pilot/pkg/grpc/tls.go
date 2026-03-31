@@ -44,6 +44,7 @@ func getTLSDialOption(opts *TLSOptions) (grpc.DialOption, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	config := tls.Config{
 		GetClientCertificate: func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
 			var certificate tls.Certificate

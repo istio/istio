@@ -49,6 +49,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	common_features "istio.io/istio/pkg/features"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 )
@@ -61,15 +62,15 @@ const (
 	// InjectionPolicyDisabled specifies that the sidecar injector
 	// will not inject the sidecar into resources by default for the
 	// namespace(s) being watched. Resources can enable injection
-	// using the "sidecar.istio.io/inject" annotation with value of
-	// true.
+	// using the "sidecar.istio.io/inject" label with value of
+	// "true".
 	InjectionPolicyDisabled InjectionPolicy = "disabled"
 
 	// InjectionPolicyEnabled specifies that the sidecar injector will
 	// inject the sidecar into resources by default for the
 	// namespace(s) being watched. Resources can disable injection
-	// using the "sidecar.istio.io/inject" annotation with value of
-	// false.
+	// using the "sidecar.istio.io/inject" label with value of
+	// "false".
 	InjectionPolicyEnabled InjectionPolicy = "enabled"
 )
 
@@ -93,7 +94,7 @@ const (
 	ImageTypeDebug = "debug"
 	// ImageTypeDistroless is the suffix of the distroless image.
 	ImageTypeDistroless = "distroless"
-	// ImageTypeDefault is the type name of the default image, sufix is elided.
+	// ImageTypeDefault is the type name of the default image, suffix is elided.
 	ImageTypeDefault = "default"
 )
 
@@ -108,6 +109,7 @@ type SidecarTemplateData struct {
 	MeshConfig               *meshconfig.MeshConfig
 	Values                   map[string]any
 	Revision                 string
+	NativeSidecars           bool
 	ProxyImage               string
 	ProxyUID                 int64
 	ProxyGID                 int64
@@ -123,6 +125,7 @@ type (
 
 type Injector interface {
 	Inject(pod *corev1.Pod, namespace string) ([]byte, error)
+	GetKubeClient() kube.Client
 }
 
 // Config specifies the sidecar injection configuration This includes
@@ -222,11 +225,16 @@ func injectRequired(ignored []string, config *Config, podSpec *corev1.PodSpec, m
 		// The label is the new API; if both are present we prefer the label
 		objectSelector = lbl
 	}
-	switch strings.ToLower(objectSelector) {
-	// http://yaml.org/type/bool.html
-	case "y", "yes", "true", "on":
+	switch objectSelector {
+	case "true":
 		inject = true
+	case "false":
+		inject = false
 	case "":
+		useDefault = true
+	default:
+		log.Warnf("Invalid value for %s: %q. Only 'true' and 'false' are accepted. Falling back to default injection policy.",
+			label.SidecarInject.Name, objectSelector)
 		useDefault = true
 	}
 
@@ -333,6 +341,29 @@ func ProxyImage(values *opconfig.Values, image *proxyConfig.ProxyImage, annotati
 	return imageURL(global.GetHub(), imageName, tag, imageType)
 }
 
+// AgentgatewayImage constructs image url
+func AgentgatewayImage(values *opconfig.Values, image *proxyConfig.ProxyImage, annotations map[string]string) string {
+	imageName := "agentgateway"
+	global := values.GetGlobal()
+
+	tag := ""
+	if global.GetTag() != nil { // Tag is an interface but we need the string form.
+		tag = fmt.Sprintf("%v", global.GetTag().AsInterface())
+	}
+
+	// Agentgateway does not use variants, but we still publish them for consistency so use it
+	imageType := global.GetVariant()
+	if image != nil {
+		imageType = image.ImageType
+	}
+
+	if it, ok := annotations["gateway.istio.io/agentgatewayImage"]; ok {
+		imageType = it
+	}
+
+	return imageURL(global.GetHub(), imageName, tag, imageType)
+}
+
 func InboundTrafficPolicyMode(meshConfig *meshconfig.MeshConfig) string {
 	switch meshConfig.GetInboundTrafficPolicy().GetMode() {
 	case meshconfig.MeshConfig_InboundTrafficPolicy_LOCALHOST:
@@ -346,9 +377,9 @@ func InboundTrafficPolicyMode(meshConfig *meshconfig.MeshConfig) string {
 // imageURL creates url from parts.
 // imageType is appended if not empty
 // if imageType is already present in the tag, then it is replaced.
-// docker.io/istio/proxyv2:1.12-distroless
+// registry.istio.io/release/proxyv2:1.12-distroless
 // gcr.io/gke-release/asm/proxyv2:1.11.2-asm.17-distroless
-// docker.io/istio/proxyv2:1.12
+// registry.istio.io/release/proxyv2:1.12
 func imageURL(hub, imageName, tag, imageType string) string {
 	return hub + "/" + imageName + ":" + updateImageTypeIfPresent(tag, imageType)
 }
@@ -433,6 +464,7 @@ func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod
 		Values:                   params.valuesConfig.asMap,
 		Revision:                 params.revision,
 		ProxyImage:               ProxyImage(params.valuesConfig.asStruct, params.proxyConfig.Image, strippedPod.Annotations),
+		NativeSidecars:           params.nativeSidecar,
 		ProxyUID:                 proxyUID,
 		ProxyGID:                 proxyGID,
 		InboundTrafficPolicyMode: InboundTrafficPolicyMode(meshConfig),
@@ -465,7 +497,7 @@ func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod
 		// So if we see the proxy container in `containers` in the original pod, and in `initContainers` in the template pod,
 		// move the container.
 		// The sidecar.istio.io/nativeSidecar annotation takes precedence over the global feature flag.
-		native := features.EnableNativeSidecars.Get()
+		native := params.nativeSidecar
 		if mergedPod.Annotations["sidecar.istio.io/nativeSidecar"] == "true" {
 			native = true
 		} else if mergedPod.Annotations["sidecar.istio.io/nativeSidecar"] == "false" {
@@ -797,6 +829,16 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig Value
 			warningHandler(warningStr)
 			return out, nil
 		}
+
+		var nativeSidecar bool
+		if injector != nil && injector.GetKubeClient() != nil {
+			nodes := kclient.New[*corev1.Node](injector.GetKubeClient())
+			nativeSidecar = DetectNativeSidecar(nodes, pod.Spec.NodeName)
+		} else {
+			// if injector or client is nil, enable native sidecars if the feature is explicitly enabled
+			nativeSidecar = (features.EnableNativeSidecars == features.NativeSidecarModeEnabled)
+		}
+
 		params := InjectionParameters{
 			pod:        pod,
 			deployMeta: deploymentMetadata,
@@ -807,6 +849,7 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig Value
 			meshConfig:          meshconfig,
 			proxyConfig:         meshconfig.GetDefaultConfig(),
 			valuesConfig:        valuesConfig,
+			nativeSidecar:       nativeSidecar,
 			revision:            revision,
 			proxyEnvs:           map[string]string{},
 			injectedAnnotations: nil,
@@ -910,7 +953,7 @@ func GetProxyIDs(namespace *corev1.Namespace) (uid int64, gid int64) {
 	gid = constants.DefaultProxyUIDInt
 
 	if namespace == nil {
-		return
+		return uid, gid
 	}
 
 	// Check for OpenShift specifics and returns the max number in the range specified in the namespace annotation
@@ -921,5 +964,5 @@ func GetProxyIDs(namespace *corev1.Namespace) (uid int64, gid int64) {
 		gid = groups[0].Max
 	}
 
-	return
+	return uid, gid
 }

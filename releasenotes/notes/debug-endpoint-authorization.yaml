@@ -1,0 +1,21 @@
+apiVersion: release-notes/v2
+
+kind: security-fix
+
+area: security
+
+# no public issue for security vulnerability
+issue: []
+
+releaseNotes:
+- |
+  **Added** namespace-based authorization for debug endpoints on port 15014.
+  Non-system namespaces restricted to config_dump/ndsz/edsz endpoints and same-namespace proxies only.
+  Disable with ENABLE_DEBUG_ENDPOINT_AUTH=false if needed for compatibility.
+
+upgradeNotes:
+- title: Debug endpoint authorization is now enabled by default.
+  content: |
+    Tools accessing debug endpoints from non-system namespaces (such as Kiali or custom monitoring tools)
+    may be affected. Non-system namespaces are now restricted to config_dump, ndsz, and edsz endpoints
+    for same-namespace proxies only. To restore previous behavior, set ENABLE_DEBUG_ENDPOINT_AUTH=false.

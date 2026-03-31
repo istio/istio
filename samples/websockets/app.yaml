@@ -30,7 +30,7 @@ spec:
     spec:
       containers:
       - name: tornado
-        image: hiroakis/tornado-websocket-example
+        image: docker.io/hiroakis/tornado-websocket-example
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8888

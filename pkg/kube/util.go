@@ -34,8 +34,10 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
 
+	"istio.io/api/annotation"
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pkg/config/schema/kubetypes"
 	"istio.io/istio/pkg/util/sets"
 	istioversion "istio.io/istio/pkg/version"
 )
@@ -392,6 +394,8 @@ func StripPodUnusedFields(obj any) (any, error) {
 	}
 	// ManagedFields is large and we never use it
 	t.GetObjectMeta().SetManagedFields(nil)
+	// Proxy overrides are never used in the cache and can be very big
+	delete(t.GetObjectMeta().GetAnnotations(), annotation.ProxyOverrides.Name)
 	// only container ports can be used
 	if pod := obj.(*corev1.Pod); pod != nil {
 		containers := []corev1.Container{}
@@ -402,9 +406,21 @@ func StripPodUnusedFields(obj any) (any, error) {
 				})
 			}
 		}
+		// Preserve native sidecar init containers (restartPolicy=Always) that have ports,
+		// so that their ports can be discovered for inbound listener configuration.
+		initContainers := []corev1.Container{}
+		for _, c := range pod.Spec.InitContainers {
+			if c.RestartPolicy != nil && *c.RestartPolicy == corev1.ContainerRestartPolicyAlways && len(c.Ports) > 0 {
+				initContainers = append(initContainers, corev1.Container{
+					Ports:         c.Ports,
+					RestartPolicy: c.RestartPolicy,
+				})
+			}
+		}
 		oldSpec := pod.Spec
 		newSpec := corev1.PodSpec{
 			Containers:         containers,
+			InitContainers:     initContainers,
 			ServiceAccountName: oldSpec.ServiceAccountName,
 			NodeName:           oldSpec.NodeName,
 			HostNetwork:        oldSpec.HostNetwork,
@@ -490,4 +506,8 @@ func AllSynced[T Syncer](syncers []T) bool {
 		}
 	}
 	return true
+}
+
+func EnsureTypeMeta[T kubetypes.TypeMetaSetGVK](t T) T {
+	return kubetypes.EnsureTypeMeta(t)
 }

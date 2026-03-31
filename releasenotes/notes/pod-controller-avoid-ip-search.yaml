@@ -1,0 +1,14 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+- |
+  **Added** feature ENABLE_PROXY_FIND_POD_BY_IP that allows to enable association of Pods to Proxies by IP address if association by name and namespace fails.
+
+upgradeNodes:
+- title: Change in behaviour of how Istio finds matching Pods for a given Proxy
+  content: |
+    In previous versions, Istio  would search for matching Pods for a given Proxy by IP address when it failed to find
+    them by name and namespace. This behaviour is now disabled by default and can be enabled using the
+    `ENABLE_PROXY_FIND_POD_BY_IP` feature flag. This will only impact users who are customizing the Istio Proxy and that
+    are not correctly setting the Proxy ID and Metadata required to find the worload name. For context see https://github.com/istio/istio/pull/56502

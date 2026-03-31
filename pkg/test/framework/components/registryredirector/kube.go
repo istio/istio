@@ -54,8 +54,9 @@ type kubeComponent struct {
 }
 
 func newKube(ctx resource.Context, cfg Config) (Instance, error) {
+	cluster := ctx.Clusters().GetOrDefault(cfg.Cluster)
 	c := &kubeComponent{
-		cluster: ctx.Clusters().GetOrDefault(cfg.Cluster),
+		cluster: cluster,
 	}
 	c.id = ctx.TrackResource(c)
 	var err error
@@ -96,7 +97,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		return nil, fmt.Errorf("failed to apply rendered %s, err: %v", env.RegistryRedirectorServerInstallFilePath, err)
 	}
 
-	fetchFn := testKube.NewPodFetch(ctx.Clusters().Default(), c.ns.Name(), podSelector)
+	fetchFn := testKube.NewPodFetch(cluster, c.ns.Name(), podSelector)
 	pods, err := testKube.WaitUntilPodsAreReady(fetchFn)
 	if err != nil {
 		return nil, err

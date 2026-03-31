@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+issue:
+  - 57316
+releaseNotes:
+- |
+  **Fixed** the behavior of istio-cni cleanup when the get daemonset command fails due to an error
+  other than "not found". Defaults to not cleaning up the CNI config and binary when it cannot be
+  concluded if an upgrade, delete, or node reboot is in progress. 

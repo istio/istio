@@ -94,7 +94,7 @@ func TestUpdateDataInConfigMap(t *testing.T) {
 				}
 			}
 			fake.ClearActions()
-			err := updateDataInConfigMap(configmaps, tc.existingConfigMap, []byte(caBundle))
+			err := updateDataInConfigMap(configmaps, tc.existingConfigMap, constants.CACertNamespaceConfigMapDataName, []byte(caBundle))
 			if err != nil && err.Error() != tc.expectedErr {
 				t.Errorf("actual error (%s) different from expected error (%s).", err.Error(), tc.expectedErr)
 			}
@@ -226,7 +226,7 @@ func TestInsertDataToConfigMap(t *testing.T) {
 			}
 			kc.RunAndWait(test.NewStop(t))
 			fake.ClearActions()
-			err := InsertDataToConfigMap(configmaps, tc.meta, tc.caBundle)
+			err := InsertDataToConfigMap(configmaps, tc.meta, constants.CACertNamespaceConfigMapDataName, tc.caBundle)
 			if err != nil && err.Error() != tc.expectedErr {
 				t.Errorf("actual error (%s) different from expected error (%s).", err.Error(), tc.expectedErr)
 			}

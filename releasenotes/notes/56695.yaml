@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+releaseNotes:
+- |
+  **Added** Define default GOMEMLIMIT and GOMAXPROCS divisor to fix argo prepetual out-of-sync issue

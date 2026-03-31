@@ -129,7 +129,7 @@ func run(c *cobra.Command, ctx cli.Context, args []string) error {
 		return fmt.Errorf("failure running port forward process: %v", err)
 	}
 
-	// Close the forwarder either when we exit or when an this processes is interrupted.
+	// Close the forwarder either when we exit or when this process is interrupted.
 	defer fw.Close()
 	dashboard.ClosePortForwarderOnInterrupt(fw)
 

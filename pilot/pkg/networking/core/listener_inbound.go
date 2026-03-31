@@ -232,7 +232,7 @@ func (lb *ListenerBuilder) buildInboundListeners() []*listener.Listener {
 			cc.port.Protocol = cc.port.Protocol.AfterTLSTermination()
 			lp := istionetworking.ModelProtocolToListenerProtocol(cc.port.Protocol)
 			opts = getTLSFilterChainMatchOptions(lp)
-			mtls.TCP = BuildListenerTLSContext(cc.tlsSettings, lb.node, lb.push.Mesh, istionetworking.TransportProtocolTCP, false)
+			mtls.TCP = BuildListenerTLSContext(cc.tlsSettings, lb.node, lb.push, istionetworking.TransportProtocolTCP, false)
 			mtls.HTTP = mtls.TCP
 		} else {
 			lp := istionetworking.ModelProtocolToListenerProtocol(cc.port.Protocol)
@@ -308,6 +308,12 @@ func (lb *ListenerBuilder) buildInboundListener(name string, addresses []string,
 	}
 	if !bindToPort && lb.node.GetInterceptionMode() == model.InterceptionTproxy {
 		l.Transparent = proto.BoolTrue
+	}
+	if bindToPort {
+		// This only applies to listeners that actually bind to a port given that only those listeners
+		// interface with the OS.
+		// See https://github.com/envoyproxy/envoy/blob/v1.35.3/source/common/network/tcp_listener_impl.cc#L57
+		l.MaxConnectionsToAcceptPerSocketEvent = maxConnectionsToAcceptPerSocketEvent()
 	}
 
 	accessLogBuilder.setListenerAccessLog(lb.push, lb.node, l, istionetworking.ListenerClassSidecarInbound)
@@ -808,9 +814,9 @@ func buildInboundBlackhole(lb *ListenerBuilder) *listener.FilterChain {
 
 // buildSidecarInboundHTTPOpts sets up HTTP options for a given chain.
 func buildSidecarInboundHTTPOpts(lb *ListenerBuilder, cc inboundChainConfig) *httpListenerOpts {
-	ph := GetProxyHeaders(lb.node, lb.push, istionetworking.ListenerClassSidecarInbound)
+	ph := util.GetProxyHeaders(lb.node, lb.push, istionetworking.ListenerClassSidecarInbound)
 	httpOpts := &httpListenerOpts{
-		routeConfig:      buildSidecarInboundHTTPRouteConfig(lb, cc),
+		routeConfig:      buildSidecarInboundHTTPRouteConfig(nil, lb, cc),
 		rds:              "", // no RDS for inbound traffic
 		useRemoteAddress: false,
 		connectionManager: &hcm.HttpConnectionManager{
@@ -835,6 +841,7 @@ func buildSidecarInboundHTTPOpts(lb *ListenerBuilder, cc inboundChainConfig) *ht
 		statPrefix:                cc.StatPrefix(),
 		hbone:                     cc.hbone,
 	}
+
 	// See https://github.com/grpc/grpc-web/tree/master/net/grpc/gateway/examples/helloworld#configure-the-proxy
 	if cc.port.Protocol.IsHTTP2() {
 		httpOpts.connectionManager.Http2ProtocolOptions = &core.Http2ProtocolOptions{}

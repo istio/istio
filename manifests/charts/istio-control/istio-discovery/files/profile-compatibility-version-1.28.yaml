@@ -1,0 +1,13 @@
+# WARNING: DO NOT EDIT, THIS FILE IS A COPY.
+# The original version of this file is located at /manifests/helm-profiles directory.
+# If you want to make a change in this file, edit the original one and run "make gen".
+
+pilot:
+  env:
+    # 1.29 behavioral changes
+    DISABLE_TRACK_REMAINING_CB_METRICS: "false"
+
+cni:
+  ambient:
+    # 1.29 behavioral changes - reconcileIptablesOnStartup was false by default in 1.28
+    reconcileIptablesOnStartup: false

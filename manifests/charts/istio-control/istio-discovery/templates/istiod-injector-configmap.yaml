@@ -1,3 +1,4 @@
+{{- if or (eq .Values.global.resourceScope "all") (eq .Values.global.resourceScope "namespace") }}
 {{- if not .Values.global.omitSidecarInjectorConfigMap }}
 apiVersion: v1
 kind: ConfigMap
@@ -75,8 +76,13 @@ data:
       kube-gateway: |
 {{ .Files.Get "files/kube-gateway.yaml" | trim | indent 8 }}
 {{- end }}
+{{- if not (hasKey .Values.sidecarInjectorWebhook.templates "agentgateway") }}
+      agentgateway: |
+{{ .Files.Get "files/agentgateway.yaml" | trim | indent 8 }}
+{{- end }}
 {{- with .Values.sidecarInjectorWebhook.templates }}
 {{ toYaml . | trim | indent 6 }}
 {{- end }}
 
+{{- end }}
 {{- end }}

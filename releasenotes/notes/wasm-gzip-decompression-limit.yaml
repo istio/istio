@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: extensibility
+issue: []
+releaseNotes:
+  - |
+    **Fixed** missing size limit on gzip-decompressed WASM binaries fetched over HTTP, consistent with
+    the limits already applied to other fetch paths.

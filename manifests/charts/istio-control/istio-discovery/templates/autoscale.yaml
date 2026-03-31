@@ -1,5 +1,6 @@
+{{- if or (eq .Values.global.resourceScope "all") (eq .Values.global.resourceScope "namespace") }}
 # Not created if istiod is running remotely
-{{- if not .Values.istiodRemote.enabled }}
+{{- if or (not .Values.istiodRemote.enabled) (and .Values.istiodRemote.enabled .Values.istiodRemote.enabledLocalInjectorIstiod) }}
 {{- if and .Values.autoscaleEnabled .Values.autoscaleMin .Values.autoscaleMax }}
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
@@ -40,5 +41,6 @@ spec:
   behavior: {{ toYaml .Values.autoscaleBehavior | nindent 4 }}
   {{- end }}
 ---
+{{- end }}
 {{- end }}
 {{- end }}

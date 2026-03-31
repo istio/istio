@@ -411,3 +411,45 @@ func TestIsRequestFromLocalhost(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateInterfaceNames(t *testing.T) {
+	tests := []struct {
+		name       string
+		interfaces string
+		wantErr    bool
+	}{
+		{"empty string", "", false},
+		{"single valid interface", "eth0", false},
+		{"multiple valid interfaces", "eth0,eth1,lo", false},
+		{"interface with underscore", "eth_0", false},
+		{"interface with hyphen", "eth-0", false},
+		{"interface with dot", "eth0.1", false},
+		{"interface starting with number", "0eth", true},
+		{"interface starting with underscore", "_eth0", true},
+		{"complex valid names", "veth123abc,br-docker0,bond0.100", false},
+		{"max length interface", "a23456789012345", false},
+		{"too long interface name", "1234567890123456", true},
+		{"interface with space", "eth0 -d 10.0.0.50", true},
+		{"iptables injection attempt", "eth0 -d 10.0.0.50 -p tcp --dport 8080", true},
+		{"interface with semicolon", "eth0;echo", true},
+		{"interface with pipe", "eth0|cat", true},
+		{"interface with backtick", "eth0`id`", true},
+		{"interface with dollar sign", "eth0$PATH", true},
+		{"empty interface in list", "eth0,,eth1", true},
+		{"interface with leading space (trimmed)", " eth0", false},
+		{"interface with trailing space (trimmed)", "eth0 ", false},
+		{"spaces around comma (trimmed)", "eth0 , eth1", false},
+		{"interface with slash", "eth0/1", true},
+		{"interface with colon", "eth0:1", true},
+		{"interface with at sign", "veth@if123", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateInterfaceNames(tt.interfaces)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidateInterfaceNames(%q) error = %v, wantErr %v", tt.interfaces, err, tt.wantErr)
+			}
+		})
+	}
+}

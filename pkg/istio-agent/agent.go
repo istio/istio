@@ -516,7 +516,7 @@ func (a *Agent) getWorkloadCerts(st *cache.SecretManagerClient) (sk *security.Se
 		log.Warnf("failed to get root certificate: %v", err)
 		return err
 	})
-	return
+	return sk, err
 }
 
 func (a *Agent) startFileWatcher(ctx context.Context, filePath string, handler func()) {

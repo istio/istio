@@ -1,0 +1,19 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+
+# issue is a list of GitHub issues resolved in this note.
+# If issue is not in the current repo, specify its full URL instead.
+issue:
+- 57530
+
+# releaseNotes is a markdown listing of any user facing changes. This will appear in the
+# release notes.
+releaseNotes:
+  - |
+    **Added** support for "persona-based" installations to our Helm charts based on the scope of generated/applied resources.
+    If no `resourceScope` is set, all resources will be installed. This is the same behavior a user would expect from 1.27 charts.
+    If `resourceScope` is set to `namespace`, only namespace-scoped resources will be installed.
+    If `resourceScope` is set to `cluster`, only cluster-scoped resources will be installed.
+    This can enable a kubernetes administrator to manage the resources in the cluster and the mesh administrator to manage the resources in the mesh.
+    For the ztunnel chart, `resourceScope` is a top-level field. For all other charts, it is a field under `global`.

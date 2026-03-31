@@ -1,3 +1,4 @@
+{{- if or (eq .Values.global.resourceScope "all") (eq .Values.global.resourceScope "cluster") }}
 {{- if and .Values.experimental.stableValidationPolicy (not (eq .Values.defaultRevision "")) }}
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
@@ -50,4 +51,5 @@ metadata:
 spec:
   policyName: "stable-channel-default-policy.istio.io"
   validationActions: [Deny]
+{{- end }}
 {{- end }}

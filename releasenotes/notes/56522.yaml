@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+issue:
+  - 56522
+releaseNotes:
+- |
+  **Added** Support for external SDS providers in Gateway TLS configuration
+
+  Istio now provides improved integration with external Secret Discovery Service (SDS) providers 
+  for TLS certificate management at Gateway.

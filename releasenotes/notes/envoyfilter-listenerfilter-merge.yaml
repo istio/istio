@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+  - |
+    **Added** support for merge operation when applying to `LISTENER_FILTER` in EnvoyFilter.

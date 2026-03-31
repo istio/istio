@@ -39,3 +39,8 @@ spec:
     egressGateways:
       - name: istio-egressgateway
         enabled: true
+  # enable NetworkPolicy creation
+  values:
+    global:
+      networkPolicy:
+        enabled: true

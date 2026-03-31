@@ -35,11 +35,14 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"istio.io/api/annotation"
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
+	netutil "istio.io/istio/pilot/pkg/util/network"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
@@ -125,8 +128,24 @@ type Service struct {
 	ResourceVersion string
 }
 
+// UseInferenceSemantics determines which logic we should use for Service
+// This allows InferencePools and Services to both be represented by Service, but have different
+// semantics.
+func (s *Service) UseInferenceSemantics() bool {
+	return s.Attributes.Labels[constants.InternalServiceSemantics] == constants.ServiceSemanticsInferencePool
+}
+
 func (s *Service) NamespacedName() types.NamespacedName {
 	return types.NamespacedName{Name: s.Attributes.Name, Namespace: s.Attributes.Namespace}
+}
+
+func (s *Service) ResourceName() string {
+	// address and hostname are included in the resource name as for each
+	// ServiceEntry address and hostname a new service is created
+	return s.Attributes.Namespace + "/" +
+		s.Attributes.K8sAttributes.ObjectName + "/" +
+		s.Hostname.String() + "/" +
+		s.DefaultAddress
 }
 
 func (s *Service) Key() string {
@@ -135,12 +154,6 @@ func (s *Service) Key() string {
 	}
 
 	return s.Attributes.Namespace + "/" + string(s.Hostname)
-}
-
-var serviceCmpOpts = []cmp.Option{cmpopts.IgnoreFields(AddressMap{}, "mutex")}
-
-func (s *Service) CmpOpts() []cmp.Option {
-	return serviceCmpOpts
 }
 
 func (s *Service) SupportsDrainingEndpoints() bool {
@@ -179,6 +192,8 @@ const (
 	DNSRoundRobinLB
 	// Alias defines a Service that is an alias for another.
 	Alias
+	// DynamicDNS implies that the proxy will resolve a the address from SNI or host header for wildcard services
+	DynamicDNS
 )
 
 // String converts Resolution in to String.
@@ -196,14 +211,6 @@ func (resolution Resolution) String() string {
 		return fmt.Sprintf("%d", int(resolution))
 	}
 }
-
-const (
-	// LocalityLabel indicates the region/zone/subzone of an instance. It is used to override the native
-	// registry's value.
-	//
-	// Note: because k8s labels does not support `/`, so we use `.` instead in k8s.
-	LocalityLabel = pm.LocalityLabel
-)
 
 const (
 	// TunnelLabel defines the label workloads describe to indicate that they support tunneling.
@@ -293,6 +300,9 @@ const (
 	trafficDirectionOutboundSrvPrefix = string(TrafficDirectionOutbound) + "_"
 	// trafficDirectionInboundSrvPrefix the prefix for a DNS SRV type subset key
 	trafficDirectionInboundSrvPrefix = string(TrafficDirectionInbound) + "_"
+
+	// dnsCacheConfigNameSuffix is the suffix used for DNS cache config names
+	dnsCacheConfigNameSuffix = "_dfp_dns_cache"
 )
 
 // ServiceInstance represents an individual instance of a specific version
@@ -320,10 +330,17 @@ type ServiceInstance struct {
 	Endpoint    *IstioEndpoint `json:"endpoint,omitempty"`
 }
 
+func (instance *ServiceInstance) ResourceName() string {
+	return instance.Service.ResourceName() + "/" + instance.Endpoint.Key() + "/" + strconv.Itoa(instance.ServicePort.Port)
+}
+
+func (instance *ServiceInstance) Equals(other *ServiceInstance) bool {
+	return instance.ServicePort.Equals(other.ServicePort) && instance.Service.Equals(other.Service) && instance.Endpoint.Equals(other.Endpoint)
+}
+
 func (instance *ServiceInstance) CmpOpts() []cmp.Option {
 	res := []cmp.Option{}
 	res = append(res, istioEndpointCmpOpts...)
-	res = append(res, serviceCmpOpts...)
 	return res
 }
 
@@ -354,6 +371,12 @@ func ServiceInstanceToTarget(e *ServiceInstance) ServiceTarget {
 			TargetPort:  e.Endpoint.EndpointPort,
 		},
 	}
+}
+
+// ShallowCopy creates a shallow copy of ServiceInstance.
+func (instance *ServiceInstance) ShallowCopy() *ServiceInstance {
+	cpy := *instance
+	return &cpy
 }
 
 // DeepCopy creates a copy of ServiceInstance.
@@ -400,6 +423,18 @@ type WorkloadInstance struct {
 	DNSServiceEntryOnly bool `json:"dnsServiceEntryOnly,omitempty"`
 }
 
+func (instance *WorkloadInstance) ResourceName() string {
+	return instance.Namespace + "/" + instance.Name
+}
+
+func (instance *WorkloadInstance) GetLabels() map[string]string {
+	return instance.Endpoint.Labels
+}
+
+func (instance *WorkloadInstance) GetNamespace() string {
+	return instance.Namespace
+}
+
 func (instance *WorkloadInstance) CmpOpts() []cmp.Option {
 	return istioEndpointCmpOpts
 }
@@ -412,54 +447,28 @@ func (instance *WorkloadInstance) DeepCopy() *WorkloadInstance {
 	return &out
 }
 
-// WorkloadInstancesEqual is a custom comparison of workload instances based on the fields that we need.
-// Returns true if equal, false otherwise.
-func WorkloadInstancesEqual(first, second *WorkloadInstance) bool {
-	if first.Endpoint == nil || second.Endpoint == nil {
-		return first.Endpoint == second.Endpoint
-	}
-
-	if !slices.EqualUnordered(first.Endpoint.Addresses, second.Endpoint.Addresses) {
+func (instance *WorkloadInstance) Equals(other *WorkloadInstance) bool {
+	eql := instance.Namespace == other.Namespace &&
+		instance.Name == other.Name &&
+		instance.Kind == other.Kind &&
+		instance.DNSServiceEntryOnly == other.DNSServiceEntryOnly
+	if !eql {
 		return false
 	}
 
-	if first.Endpoint.Network != second.Endpoint.Network {
+	if !maps.Equal(instance.PortMap, other.PortMap) {
 		return false
 	}
-	if first.Endpoint.TLSMode != second.Endpoint.TLSMode {
+
+	if instance.Endpoint == nil || other.Endpoint == nil {
+		return instance.Endpoint == other.Endpoint
+	}
+
+	if !instance.Endpoint.Equals(other.Endpoint) {
 		return false
 	}
-	if !first.Endpoint.Labels.Equals(second.Endpoint.Labels) {
-		return false
-	}
-	if first.Endpoint.ServiceAccount != second.Endpoint.ServiceAccount {
-		return false
-	}
-	if first.Endpoint.Locality != second.Endpoint.Locality {
-		return false
-	}
-	if first.Endpoint.GetLoadBalancingWeight() != second.Endpoint.GetLoadBalancingWeight() {
-		return false
-	}
-	if first.Namespace != second.Namespace {
-		return false
-	}
-	if first.Name != second.Name {
-		return false
-	}
-	if first.Kind != second.Kind {
-		return false
-	}
-	if !maps.Equal(first.PortMap, second.PortMap) {
-		return false
-	}
+
 	return true
-}
-
-// GetLocalityLabel returns the locality from the supplied label. Because Kubernetes
-// labels don't support `/`, we replace "." with "/" in the supplied label as a workaround.
-func GetLocalityLabel(label string) string {
-	return pm.GetLocalityLabel(label)
 }
 
 // Locality information for an IstioEndpoint
@@ -642,7 +651,7 @@ func (ep *IstioEndpoint) FirstAddressOrNil() string {
 
 // Key returns a function suitable for usage to distinguish this IstioEndpoint from another
 func (ep *IstioEndpoint) Key() string {
-	return ep.FirstAddressOrNil() + "/" + ep.WorkloadName + "/" + ep.ServicePortName
+	return ep.Namespace + "/" + ep.WorkloadName + "/" + ep.FirstAddressOrNil() + "/" + ep.ServicePortName
 }
 
 // EndpointMetadata represents metadata set on Envoy LbEndpoint used for telemetry purposes.
@@ -744,7 +753,7 @@ type ServiceAttributes struct {
 	// address(es) to access the service from outside the cluster.
 	// Used by the aggregator to aggregate the Attributes.ClusterExternalAddresses
 	// for clusters where the service resides
-	ClusterExternalAddresses *AddressMap
+	ClusterExternalAddresses AddressMap
 
 	// ClusterExternalPorts is a mapping between a cluster name and the service port
 	// to node port mappings for a given service. When accessing the service via
@@ -791,14 +800,60 @@ type TrafficDistribution int
 const (
 	// TrafficDistributionAny allows any destination
 	TrafficDistributionAny TrafficDistribution = iota
-	// TrafficDistributionPreferClose prefers traffic in same region/zone/network if possible, with failover allowed.
-	TrafficDistributionPreferClose TrafficDistribution = iota
+	// TrafficDistributionPreferPreferSameZone prefers traffic in same zone, failing over to same region and then network.
+	TrafficDistributionPreferSameZone
+	// TrafficDistributionPreferNode prefers traffic in same node, failing over to same subzone, then zone, region, and network.
+	TrafficDistributionPreferSameNode
 )
+
+func GetTrafficDistribution(specValue *string, svcAnnotations, nsAnnotations map[string]string) TrafficDistribution {
+	// 1. Check spec field first (highest priority)
+	if specValue != nil {
+		switch *specValue {
+		case corev1.ServiceTrafficDistributionPreferSameZone, corev1.ServiceTrafficDistributionPreferClose:
+			return TrafficDistributionPreferSameZone
+		case corev1.ServiceTrafficDistributionPreferSameNode:
+			return TrafficDistributionPreferSameNode
+		}
+	}
+
+	// 2. Check service annotation (second priority)
+	// The TrafficDistribution field is quite new, so we allow a legacy annotation option as well
+	svcAnnoValue := strings.ToLower(svcAnnotations[annotation.NetworkingTrafficDistribution.Name])
+	if svcAnnoValue != "" {
+		switch svcAnnoValue {
+		case strings.ToLower(corev1.ServiceTrafficDistributionPreferClose), strings.ToLower(corev1.ServiceTrafficDistributionPreferSameZone):
+			return TrafficDistributionPreferSameZone
+		case strings.ToLower(corev1.ServiceTrafficDistributionPreferSameNode):
+			return TrafficDistributionPreferSameNode
+		default:
+			log.Warnf("Unknown traffic distribution annotation on service, defaulting to any")
+			return TrafficDistributionAny
+		}
+	}
+
+	// 3. Check namespace annotation (third priority)
+	if nsAnnotations != nil {
+		nsAnnoValue := strings.ToLower(nsAnnotations[annotation.NetworkingTrafficDistribution.Name])
+		if nsAnnoValue != "" {
+			switch nsAnnoValue {
+			case strings.ToLower(corev1.ServiceTrafficDistributionPreferClose), strings.ToLower(corev1.ServiceTrafficDistributionPreferSameZone):
+				return TrafficDistributionPreferSameZone
+			case strings.ToLower(corev1.ServiceTrafficDistributionPreferSameNode):
+				return TrafficDistributionPreferSameNode
+			default:
+				log.Warnf("Unknown traffic distribution annotation on namespace, defaulting to any")
+				return TrafficDistributionAny
+			}
+		}
+	}
+
+	// 4. Default to Any
+	return TrafficDistributionAny
+}
 
 // DeepCopy creates a deep copy of ServiceAttributes, but skips internal mutexes.
 func (s *ServiceAttributes) DeepCopy() ServiceAttributes {
-	// AddressMap contains a mutex, which is safe to copy in this case.
-	// nolint: govet
 	out := *s
 
 	out.Labels = maps.Clone(s.Labels)
@@ -807,7 +862,7 @@ func (s *ServiceAttributes) DeepCopy() ServiceAttributes {
 	}
 
 	out.LabelSelectors = maps.Clone(s.LabelSelectors)
-	out.ClusterExternalAddresses = s.ClusterExternalAddresses.DeepCopy()
+	out.ClusterExternalAddresses = *s.ClusterExternalAddresses.DeepCopy()
 
 	if s.ClusterExternalPorts != nil {
 		out.ClusterExternalPorts = make(map[cluster.ID]map[uint32]uint32, len(s.ClusterExternalPorts))
@@ -819,18 +874,15 @@ func (s *ServiceAttributes) DeepCopy() ServiceAttributes {
 	out.Aliases = slices.Clone(s.Aliases)
 	out.PassthroughTargetPorts = maps.Clone(out.PassthroughTargetPorts)
 
-	// AddressMap contains a mutex, which is safe to return a copy in this case.
-	// nolint: govet
 	return out
 }
 
 // Equals checks whether the attributes are equal from the passed in service.
 func (s *ServiceAttributes) Equals(other *ServiceAttributes) bool {
-	if s == nil {
-		return other == nil
-	}
-	if other == nil {
-		return s == nil
+	eql := s.Name == other.Name && s.Namespace == other.Namespace &&
+		s.ServiceRegistry == other.ServiceRegistry && s.K8sAttributes == other.K8sAttributes
+	if !eql {
+		return false
 	}
 
 	if !maps.Equal(s.Labels, other.Labels) {
@@ -868,8 +920,8 @@ func (s *ServiceAttributes) Equals(other *ServiceAttributes) bool {
 			return false
 		}
 	}
-	return s.Name == other.Name && s.Namespace == other.Namespace &&
-		s.ServiceRegistry == other.ServiceRegistry && s.K8sAttributes == other.K8sAttributes
+
+	return true
 }
 
 // ServiceDiscovery enumerates Istio service instances.
@@ -921,6 +973,9 @@ type AmbientIndexes interface {
 	Policies(requested sets.Set[ConfigKey]) []WorkloadAuthorization
 	ServicesForWaypoint(WaypointKey) []ServiceInfo
 	WorkloadsForWaypoint(WaypointKey) []WorkloadInfo
+	// ServiceScope returns service information for services matching the key.
+	// The key idenitifies a service and is in form of namespace/hostname string.
+	ServiceInfo(key string) *ServiceInfo
 }
 
 // WaypointKey is a multi-address extension of NetworkAddress which is commonly used for lookups in AmbientIndex
@@ -933,6 +988,8 @@ type WaypointKey struct {
 
 	Network   string
 	Addresses []string
+
+	IsNetworkGateway bool
 }
 
 // WaypointKeyForProxy builds a key from a proxy to lookup
@@ -946,8 +1003,9 @@ func WaypointKeyForNetworkGatewayProxy(node *Proxy) WaypointKey {
 
 func waypointKeyForProxy(node *Proxy, externalAddresses bool) WaypointKey {
 	key := WaypointKey{
-		Namespace: node.ConfigNamespace,
-		Network:   node.Metadata.Network.String(),
+		Namespace:        node.ConfigNamespace,
+		Network:          node.Metadata.Network.String(),
+		IsNetworkGateway: externalAddresses, // true if this is a network gateway proxy, false if it is a regular waypoint proxy
 	}
 	for _, svct := range node.ServiceTargets {
 		key.Hostnames = append(key.Hostnames, svct.Service.Hostname.String())
@@ -1007,6 +1065,10 @@ func (u NoopAmbientIndexes) WorkloadsForWaypoint(WaypointKey) []WorkloadInfo {
 }
 
 func (u NoopAmbientIndexes) ServicesWithWaypoint(string) []ServiceWaypointInfo {
+	return nil
+}
+
+func (u NoopAmbientIndexes) ServiceInfo(key string) *ServiceInfo {
 	return nil
 }
 
@@ -1076,7 +1138,9 @@ type ServiceInfo struct {
 	// PortNames provides a mapping of ServicePort -> port names. Note these are only used internally, not sent over XDS
 	PortNames map[int32]ServicePortName
 	// Source is the type that introduced this service.
-	Source   TypedObject
+	Source TypedObject
+	// Scope of the service - either local or global based on namespace or service label matching
+	Scope    ServiceScope
 	Waypoint WaypointBindingStatus
 	// MarshaledAddress contains the pre-marshaled representation.
 	// Note: this is an Address -- not a Service.
@@ -1084,6 +1148,9 @@ type ServiceInfo struct {
 	// AsAddress contains a pre-created AddressInfo representation. This ensures we do not need repeated conversions on
 	// the hotpath
 	AsAddress AddressInfo
+	// CreationTime is the time when the service was created. Note this is used internally only
+	// for conflict resolution.
+	CreationTime time.Time
 }
 
 func (i ServiceInfo) GetLabelSelector() map[string]string {
@@ -1100,6 +1167,11 @@ const (
 	WaypointBound    ConditionType = "istio.io/WaypointBound"
 	ZtunnelAccepted  ConditionType = "ZtunnelAccepted"
 	WaypointAccepted ConditionType = "WaypointAccepted"
+	// WaypointMissing is set on a ServiceEntry with a wildcard hostname and not bound to a waypoint.
+	// It is used to inform the user that the ServiceEntry will not be active until it is bound to a waypoint.
+	WaypointMissing ConditionType = "istio.io/WaypointMissing"
+
+	NoWaypointForWildcardService string = "NoWaypointForWildcardService"
 )
 
 type ConditionSet = map[ConditionType]*Condition
@@ -1124,6 +1196,10 @@ func (i ServiceInfo) GetConditions() ConditionSet {
 		// This ensures we can properly prune the condition if its no longer needed (such as if there is no waypoint attached at all).
 		WaypointBound: nil,
 	}
+	if host.Name(i.Service.Hostname).IsWildCarded() && i.Source.Kind == kind.ServiceEntry {
+		// Only prune WaypointMissing condition if we have a wildcard service entry
+		set[WaypointMissing] = nil
+	}
 
 	if i.Waypoint.ResourceName != "" {
 		buildMsg := strings.Builder{}
@@ -1141,11 +1217,22 @@ func (i ServiceInfo) GetConditions() ConditionSet {
 			Reason:  string(WaypointAccepted),
 			Message: buildMsg.String(),
 		}
-	} else if i.Waypoint.Error != nil {
-		set[WaypointBound] = &Condition{
-			Status:  false,
-			Reason:  i.Waypoint.Error.Reason,
-			Message: i.Waypoint.Error.Message,
+	} else {
+		if i.Waypoint.Error != nil {
+			set[WaypointBound] = &Condition{
+				Status:  false,
+				Reason:  i.Waypoint.Error.Reason,
+				Message: i.Waypoint.Error.Message,
+			}
+		}
+		if host.Name(i.Service.Hostname).IsWildCarded() && i.Source.Kind == kind.ServiceEntry {
+			buildMsg := strings.Builder{}
+			buildMsg.WriteString("ServiceEntry will not apply until it is bound to a valid waypoint.")
+			set[WaypointMissing] = &Condition{
+				Status:  true,
+				Reason:  NoWaypointForWildcardService,
+				Message: buildMsg.String(),
+			}
 		}
 	}
 
@@ -1179,6 +1266,10 @@ func (i ServiceInfo) NamespacedName() types.NamespacedName {
 	return types.NamespacedName{Name: i.Service.Name, Namespace: i.Service.Namespace}
 }
 
+func (i ServiceInfo) GetName() string {
+	return i.Service.Name
+}
+
 func (i ServiceInfo) GetNamespace() string {
 	return i.Service.Namespace
 }
@@ -1188,6 +1279,7 @@ func (i ServiceInfo) Equals(other ServiceInfo) bool {
 		maps.Equal(i.LabelSelector.Labels, other.LabelSelector.Labels) &&
 		maps.Equal(i.PortNames, other.PortNames) &&
 		i.Source == other.Source &&
+		i.Scope == other.Scope &&
 		i.Waypoint.Equals(other.Waypoint)
 }
 
@@ -1198,6 +1290,19 @@ func (i ServiceInfo) ResourceName() string {
 func serviceResourceName(s *workloadapi.Service) string {
 	return s.Namespace + "/" + s.Hostname
 }
+
+type ServiceScope string
+
+const (
+	// Local ServiceScope specifies that istiod will not automatically expose the matching services' endpoints at the
+	// cluster's east/west gateway. Istio will also not automatically share locolly matching endpoints with the
+	// cluster's local dataplane that are not within the local cluster.
+	Local ServiceScope = "LOCAL"
+	// Global ServiceScope specifies that istiod will automatically expose the matching services' endpoints at the
+	// cluster's east/west gateway. Istio will also automatically share globally matching endpoints with the cluster's
+	// local dataplane that are in the local and remote clusters.
+	Global ServiceScope = "GLOBAL"
+)
 
 type WorkloadInfo struct {
 	Workload *workloadapi.Workload
@@ -1482,12 +1587,6 @@ func (ports PortList) GetByPort(num int) (*Port, bool) {
 }
 
 func (p *Port) Equals(other *Port) bool {
-	if p == nil {
-		return other == nil
-	}
-	if other == nil {
-		return p == nil
-	}
 	return p.Name == other.Name && p.Port == other.Port && p.Protocol == other.Protocol
 }
 
@@ -1527,6 +1626,11 @@ func BuildInboundSubsetKey(port int) string {
 // The DNS Srv format of the cluster is also used as the default SNI string for Istio mTLS connections
 func BuildDNSSrvSubsetKey(direction TrafficDirection, subsetName string, hostname host.Name, port int) string {
 	return string(direction) + "_." + strconv.Itoa(port) + "_." + subsetName + "_." + string(hostname)
+}
+
+// BuildDNSCacheName generates a hostname specific DNS cache config name.
+func BuildDNSCacheName(hostname host.Name) string {
+	return hostname.String() + dnsCacheConfigNameSuffix
 }
 
 // IsValidSubsetKey checks if a string is valid for subset key parsing.
@@ -1571,28 +1675,28 @@ func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, ho
 	// Format: dir|port|subset|hostname
 	dir, s, ok := strings.Cut(s, sep)
 	if !ok {
-		return
+		return direction, subsetName, hostname, port
 	}
 	direction = TrafficDirection(dir)
 
 	p, s, ok := strings.Cut(s, sep)
 	if !ok {
-		return
+		return direction, subsetName, hostname, port
 	}
 	port, _ = strconv.Atoi(p)
 
 	ss, s, ok := strings.Cut(s, sep)
 	if !ok {
-		return
+		return direction, subsetName, hostname, port
 	}
 	subsetName = ss
 
 	// last part. No | remains -- verify this
 	if strings.Contains(s, sep) {
-		return
+		return direction, subsetName, hostname, port
 	}
 	hostname = host.Name(s)
-	return
+	return direction, subsetName, hostname, port
 }
 
 // GetAddressForProxy returns a Service's address specific to the cluster where the node resides
@@ -1600,7 +1704,7 @@ func (s *Service) GetAddressForProxy(node *Proxy) string {
 	if node.Metadata != nil {
 		if node.Metadata.ClusterID != "" {
 			addresses := s.ClusterVIPs.GetAddressesFor(node.Metadata.ClusterID)
-			addresses = filterAddresses(addresses, node.SupportsIPv4(), node.SupportsIPv6())
+			addresses = netutil.FilterAddressesByIPFamily(addresses, node.SupportsIPv4(), node.SupportsIPv6())
 			if len(addresses) > 0 {
 				return addresses[0]
 			}
@@ -1678,12 +1782,11 @@ func nodeUsesAutoallocatedIPs(node *Proxy) bool {
 }
 
 func (s *Service) getAllAddressesForProxy(node *Proxy) []string {
-	addresses := []string{}
+	var addresses []string
 	if node.Metadata != nil && node.Metadata.ClusterID != "" {
 		addresses = s.ClusterVIPs.GetAddressesFor(node.Metadata.ClusterID)
 	}
 	if len(addresses) == 0 && nodeUsesAutoallocatedIPs(node) {
-		// The criteria to use AutoAllocated addresses is met so we should go ahead and use them if they are populated
 		if s.AutoAllocatedIPv4Address != "" {
 			addresses = append(addresses, s.AutoAllocatedIPv4Address)
 		}
@@ -1692,80 +1795,16 @@ func (s *Service) getAllAddressesForProxy(node *Proxy) []string {
 		}
 	}
 	if (!features.EnableDualStack && !features.EnableAmbient) || node.GetIPMode() != Dual {
-		addresses = filterAddresses(addresses, node.SupportsIPv4(), node.SupportsIPv6())
+		addresses = netutil.FilterAddressesByIPFamily(addresses, node.SupportsIPv4(), node.SupportsIPv6())
 	}
 	if len(addresses) > 0 {
 		return addresses
 	}
 
-	// fallback to the default address
 	if a := s.DefaultAddress; len(a) > 0 {
 		return []string{a}
 	}
 	return nil
-}
-
-func filterAddresses(addresses []string, supportsV4, supportsV6 bool) []string {
-	if len(addresses) == 0 {
-		return nil
-	}
-
-	var ipv4Addresses []string
-	var ipv6Addresses []string
-	for _, addr := range addresses {
-		// check if an address is a CIDR range
-		if strings.Contains(addr, "/") {
-			if prefix, err := netip.ParsePrefix(addr); err != nil {
-				log.Warnf("failed to parse prefix address '%s': %s", addr, err)
-				continue
-			} else if supportsV4 && prefix.Addr().Is4() {
-				ipv4Addresses = append(ipv4Addresses, addr)
-			} else if supportsV6 && prefix.Addr().Is6() {
-				ipv6Addresses = append(ipv6Addresses, addr)
-			}
-		} else {
-			if ipAddr, err := netip.ParseAddr(addr); err != nil {
-				log.Warnf("failed to parse address '%s': %s", addr, err)
-				continue
-			} else if supportsV4 && ipAddr.Is4() {
-				ipv4Addresses = append(ipv4Addresses, addr)
-			} else if supportsV6 && ipAddr.Is6() {
-				ipv6Addresses = append(ipv6Addresses, addr)
-			}
-		}
-	}
-
-	if supportsV4 && supportsV6 {
-		firstAddrFamily := ""
-		if strings.Contains(addresses[0], "/") {
-			if prefix, err := netip.ParsePrefix(addresses[0]); err == nil {
-				if prefix.Addr().Is4() {
-					firstAddrFamily = "v4"
-				} else if prefix.Addr().Is6() {
-					firstAddrFamily = "v6"
-				}
-			}
-		} else {
-			if ipAddr, err := netip.ParseAddr(addresses[0]); err == nil {
-				if ipAddr.Is4() {
-					firstAddrFamily = "v4"
-				} else if ipAddr.Is6() {
-					firstAddrFamily = "v6"
-				}
-			}
-		}
-
-		if firstAddrFamily == "v4" {
-			return ipv4Addresses
-		} else if firstAddrFamily == "v6" {
-			return ipv6Addresses
-		}
-	}
-
-	if len(ipv4Addresses) > 0 {
-		return ipv4Addresses
-	}
-	return ipv6Addresses
 }
 
 // GetTLSModeFromEndpointLabels returns the value of the label
@@ -1781,9 +1820,14 @@ func GetTLSModeFromEndpointLabels(labels map[string]string) string {
 	return DisabledTLSModeLabel
 }
 
+// ShallowCopy creates a shallow clone of IstioEndpoint.
+func (s *Service) ShallowCopy() *Service {
+	cpy := *s
+	return &cpy
+}
+
 // DeepCopy creates a clone of Service.
 func (s *Service) DeepCopy() *Service {
-	// nolint: govet
 	out := *s
 	out.Attributes = s.Attributes.DeepCopy()
 	if s.Ports != nil {
@@ -1808,11 +1852,11 @@ func (s *Service) DeepCopy() *Service {
 
 // Equals compares two service objects.
 func (s *Service) Equals(other *Service) bool {
-	if s == nil {
-		return other == nil
-	}
-	if other == nil {
-		return s == nil
+	eql := s.DefaultAddress == other.DefaultAddress && s.AutoAllocatedIPv4Address == other.AutoAllocatedIPv4Address &&
+		s.AutoAllocatedIPv6Address == other.AutoAllocatedIPv6Address && s.Hostname == other.Hostname &&
+		s.Resolution == other.Resolution && s.MeshExternal == other.MeshExternal
+	if !eql {
+		return false
 	}
 
 	if !s.Attributes.Equals(&other.Attributes) {
@@ -1835,9 +1879,7 @@ func (s *Service) Equals(other *Service) bool {
 		}
 	}
 
-	return s.DefaultAddress == other.DefaultAddress && s.AutoAllocatedIPv4Address == other.AutoAllocatedIPv4Address &&
-		s.AutoAllocatedIPv6Address == other.AutoAllocatedIPv6Address && s.Hostname == other.Hostname &&
-		s.Resolution == other.Resolution && s.MeshExternal == other.MeshExternal
+	return true
 }
 
 // DeepCopy creates a clone of IstioEndpoint.
@@ -1855,20 +1897,12 @@ func (ep *IstioEndpoint) DeepCopy() *IstioEndpoint {
 
 // ShallowCopy creates a shallow clone of IstioEndpoint.
 func (ep *IstioEndpoint) ShallowCopy() *IstioEndpoint {
-	// nolint: govet
 	cpy := *ep
 	return &cpy
 }
 
 // Equals checks whether the attributes are equal from the passed in service.
 func (ep *IstioEndpoint) Equals(other *IstioEndpoint) bool {
-	if ep == nil {
-		return other == nil
-	}
-	if other == nil {
-		return ep == nil
-	}
-
 	// Check things we can directly compare...
 	eq := ep.ServicePortName == other.ServicePortName &&
 		ep.LegacyClusterPortKey == other.LegacyClusterPortKey &&

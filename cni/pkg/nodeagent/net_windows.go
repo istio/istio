@@ -20,17 +20,18 @@ import (
 	"fmt"
 	"net/netip"
 
-	"istio.io/istio/cni/pkg/iptables"
-	"istio.io/istio/pkg/slices"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+
+	"istio.io/istio/cni/pkg/trafficmanager"
+	"istio.io/istio/pkg/slices"
 )
 
 // Adapts CNI to ztunnel server. decoupled from k8s for easier integration testing.
 type NetServer struct {
 	ztunnelServer      ZtunnelServer
 	currentPodSnapshot *podNetnsCache
-	podIptables        iptables.InPodRouter
+	trafficManager     trafficmanager.TrafficRuleManager
 	podNs              PodNetnsFinder
 	// allow overriding for tests
 	netnsRunner func(nsable Namespaceable, toRun func() error) error
@@ -40,12 +41,12 @@ var _ MeshDataplane = &NetServer{}
 
 const containerdEndpoint = `\\.\\pipe\\containerd-containerd`
 
-func newNetServer(ztunnelServer ZtunnelServer, podNsMap *podNetnsCache, podIptables iptables.InPodRouter, podNs PodNetnsFinder) *NetServer {
+func newNetServer(ztunnelServer ZtunnelServer, podNsMap *podNetnsCache, tm trafficmanager.TrafficRuleManager, podNs PodNetnsFinder) *NetServer {
 	return &NetServer{
 		ztunnelServer:      ztunnelServer,
 		currentPodSnapshot: podNsMap,
 		podNs:              podNs,
-		podIptables:        podIptables,
+		trafficManager:     tm,
 		netnsRunner:        NetnsDo,
 	}
 }
@@ -126,7 +127,7 @@ func (s *NetServer) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIPs []
 	// On Windows we don't need to enter a namespace like in linux, PodIptables can
 	// just call HCN/HNS directly to apply the needed policies to the right endpoints.
 	podCfg := getPodLevelTrafficOverrides(pod)
-	if err := s.podIptables.CreateInpodRules(log, podCfg, openNetns.Namespace().GUID); err != nil {
+	if err := s.trafficManager.CreateInpodRules(log, podCfg, openNetns.Namespace().GUID); err != nil {
 		log.Errorf("failed to create inpod rules for %s/%s: %v", pod.Namespace, pod.Name, err)
 		return err
 	}
@@ -167,7 +168,7 @@ func (s *NetServer) RemovePodFromMesh(ctx context.Context, pod *corev1.Pod, isDe
 			// pod is removed from the mesh, but is still running. remove iptables rules
 			log.Debugf("calling DeleteInpodRules")
 			if err := s.netnsRunner(openNetns, func() error {
-				return s.podIptables.DeleteInpodRules(log, openNetns.Namespace().GUID)
+				return s.trafficManager.DeleteInpodRules(log, openNetns.Namespace().GUID)
 			}); err != nil {
 				return fmt.Errorf("failed to delete inpod rules: %w", err)
 			}

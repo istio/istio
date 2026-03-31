@@ -1,0 +1,14 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  profile: remote
+  values:
+    global:
+      multiCluster:
+        clusterName: remote0
+      network: network2
+      remotePilotAddress: 169.10.112.88
+      omitSidecarInjectorConfigMap: false
+      configCluster: true
+    base:
+      validationURL: https://xxx:15017/validate

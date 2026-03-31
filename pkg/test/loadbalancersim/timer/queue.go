@@ -154,7 +154,7 @@ func (h *timerHeap) advanceTo(tnow time.Time) (out []func()) {
 			out = append(out, top.handler)
 		} else {
 			// There are no further expired timers.
-			return
+			return out
 		}
 	}
 }

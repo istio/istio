@@ -64,7 +64,7 @@ func NewVersionCommand(ctx cli.Context) *cobra.Command {
 }
 
 func getRemoteInfo(ctx cli.Context, opts clioptions.ControlPlaneOptions) (*istioVersion.MeshInfo, error) {
-	kubeClient, err := ctx.CLIClientWithRevision(opts.Revision)
+	kubeClient, err := ctx.CLIClientWithRevision(ctx.RevisionOrDefault(opts.Revision))
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +95,7 @@ func getRemoteInfoWrapper(ctx cli.Context, pc **cobra.Command, opts *clioptions.
 
 func getProxyInfoWrapper(ctx cli.Context, opts *clioptions.ControlPlaneOptions) func() (*[]istioVersion.ProxyInfo, error) {
 	return func() (*[]istioVersion.ProxyInfo, error) {
-		client, err := ctx.CLIClientWithRevision(opts.Revision)
+		client, err := ctx.CLIClientWithRevision(ctx.RevisionOrDefault(opts.Revision))
 		if err != nil {
 			return nil, err
 		}

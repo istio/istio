@@ -67,7 +67,7 @@ func (i *Instance) ForwardEcho(ctx context.Context, cfg *Config) (*proto.Forward
 		return nil, err
 	}
 
-	// Lookup the protocol.
+	// Lookup the application protocol.
 	p := i.protocolMap[cfg.scheme]
 	if p == nil {
 		return nil, fmt.Errorf("no protocol handler found for scheme %s", cfg.scheme)

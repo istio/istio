@@ -6,6 +6,10 @@ local grid = import 'lib-grid.libsonnet';
 local dashboard = import './dashboard.libsonnet';
 local panels = import './panels.libsonnet';
 local variables = import './variables.libsonnet';
+
+local serviceDashboard  = import './lib/istio-service.libsonnet';
+local workloadDashboard = import './lib/istio-workload.libsonnet';
+
 local queries = (import './queries.libsonnet').queries({
   container: '',
   pod: '',
@@ -49,4 +53,8 @@ dashboard.new('Istio Mesh Dashboard')
     ]),
   ], startY=16+10+16)
 )
++ g.dashboard.withLinks([
+    serviceDashboard.dashboardLink,
+    workloadDashboard.dashboardLink,
+  ])
 + g.dashboard.withUid(std.md5('istio-mesh.json'))

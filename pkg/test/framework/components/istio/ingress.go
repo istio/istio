@@ -125,7 +125,7 @@ func (c *ingressImpl) getAddressesInner(port int) ([]string, []int, error) {
 				return nil, false, fmt.Errorf("the DNS for %q not ready: %v", host, lookupErr)
 			}
 		}
-		return
+		return rawAddrs, completed, err
 	}, getAddressTimeout, getAddressDelay)
 	if err != nil {
 		return nil, nil, err
@@ -191,6 +191,11 @@ func (c *ingressImpl) HTTPSAddresses() ([]string, []int) {
 	return c.AddressesForPort(443)
 }
 
+// HBONEAddresses returns the externally reachable HBONE hosts and port (15008) of the component.
+func (c *ingressImpl) HBONEAddresses() ([]string, []int) {
+	return c.AddressesForPort(15008)
+}
+
 // DiscoveryAddresses returns the externally reachable discovery addresses (15012) of the component.
 func (c *ingressImpl) DiscoveryAddresses() []netip.AddrPort {
 	hosts, ports := c.AddressesForPort(discoveryPort)
@@ -251,8 +256,8 @@ func (c *ingressImpl) callEcho(opts echo.CallOptions) (echo.CallResult, error) {
 	} else {
 		addrs, ports = c.AddressesForPort(opts.Port.ServicePort)
 	}
-	if addrs == nil || ports == nil {
-		scopes.Framework.Warnf("failed to get host and port for %s/%d", opts.Port.Protocol, opts.Port.ServicePort)
+	if len(addrs) == 0 || len(ports) == 0 {
+		return echo.CallResult{}, fmt.Errorf("ingress: failed to get host and port for %s/%d", opts.Port.Protocol, opts.Port.ServicePort)
 	}
 	addr = addrs[0]
 	port = ports[0]

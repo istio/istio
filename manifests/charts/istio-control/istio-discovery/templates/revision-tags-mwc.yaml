@@ -1,0 +1,155 @@
+# Adapted from istio-discovery/templates/mutatingwebhook.yaml
+# Removed paths for legacy and default selectors since a revision tag
+# is inherently created from a specific revision
+# TODO BML istiodRemote.injectionURL is invalid to set if `istiodRemote.enabled` is false, we should express that.
+{{- $whv := dict
+"revision" .Values.revision
+  "injectionPath" .Values.istiodRemote.injectionPath
+  "injectionURL" .Values.istiodRemote.injectionURL
+  "reinvocationPolicy" .Values.sidecarInjectorWebhook.reinvocationPolicy
+  "caBundle" .Values.istiodRemote.injectionCABundle
+  "namespace" .Release.Namespace }}
+{{- define "core" }}
+{{- /* Kubernetes unfortunately requires a unique name for the webhook in some newer versions, so we assign
+a unique prefix to each. */}}
+- name: {{.Prefix}}sidecar-injector.istio.io
+  clientConfig:
+    {{- if .injectionURL }}
+    url: "{{ .injectionURL }}"
+    {{- else }}
+    service:
+      name: istiod{{- if not (eq .revision "") }}-{{ .revision }}{{- end }}
+      namespace: {{ .namespace }}
+      path: "{{ .injectionPath }}"
+      port: 443
+    {{- end }}
+  sideEffects: None
+  rules:
+  - operations: [ "CREATE" ]
+    apiGroups: [""]
+    apiVersions: ["v1"]
+    resources: ["pods"]
+  failurePolicy: Fail
+  reinvocationPolicy: "{{ .reinvocationPolicy }}"
+  admissionReviewVersions: ["v1"]
+{{- end }}
+
+{{- if or (eq .Values.global.resourceScope "all") (eq .Values.global.resourceScope "cluster") }}
+{{- if not .Values.global.operatorManageWebhooks }}
+{{- range $tagName := $.Values.revisionTags }}
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+{{- if eq $.Release.Namespace "istio-system"}}
+  name: istio-revision-tag-{{ $tagName }}
+{{- else }}
+  name: istio-revision-tag-{{ $tagName }}-{{ $.Release.Namespace }}
+{{- end }}
+  labels:
+    istio.io/tag: {{ $tagName }}
+    istio.io/rev: {{ $.Values.revision | default "default" | quote }}
+    install.operator.istio.io/owning-resource: {{ $.Values.ownerName | default "unknown" }}
+    operator.istio.io/component: "Pilot"
+    app: sidecar-injector
+    release: {{ $.Release.Name }}
+    app.kubernetes.io/name: "istiod"
+    {{- include "istio.labels" $ | nindent 4 }}
+{{- if $.Values.sidecarInjectorWebhookAnnotations }}
+  annotations:
+{{ toYaml $.Values.sidecarInjectorWebhookAnnotations | indent 4 }}
+{{- end }}
+webhooks:
+{{- include "core" (mergeOverwrite (deepCopy $whv) (dict "Prefix" "rev.namespace.") ) }}
+  namespaceSelector:
+    matchExpressions:
+    - key: istio.io/rev
+      operator: In
+      values:
+      - "{{ $tagName }}"
+    - key: istio-injection
+      operator: DoesNotExist
+  objectSelector:
+    matchExpressions:
+    - key: sidecar.istio.io/inject
+      operator: NotIn
+      values:
+      - "false"
+{{- include "core" (mergeOverwrite (deepCopy $whv) (dict "Prefix" "rev.object.") ) }}
+  namespaceSelector:
+    matchExpressions:
+    - key: istio.io/rev
+      operator: DoesNotExist
+    - key: istio-injection
+      operator: DoesNotExist
+  objectSelector:
+    matchExpressions:
+    - key: sidecar.istio.io/inject
+      operator: NotIn
+      values:
+      - "false"
+    - key: istio.io/rev
+      operator: In
+      values:
+      - "{{ $tagName }}"
+
+{{- /* When the tag is "default" we want to create webhooks for the default revision */}}
+{{- /* These webhooks should be kept in sync with istio-discovery/templates/mutatingwebhook.yaml */}}
+{{- if (eq $tagName "default") }}
+
+{{- /* Case 1: Namespace selector enabled, and object selector is not injected */}}
+{{- include "core" (mergeOverwrite (deepCopy $whv) (dict "Prefix" "namespace.") ) }}
+  namespaceSelector:
+    matchExpressions:
+    - key: istio-injection
+      operator: In
+      values:
+      - enabled
+  objectSelector:
+    matchExpressions:
+    - key: sidecar.istio.io/inject
+      operator: NotIn
+      values:
+      - "false"
+
+{{- /* Case 2: no namespace label, but object selector is enabled (and revision label is not, which has priority) */}}
+{{- include "core" (mergeOverwrite (deepCopy $whv) (dict "Prefix" "object.") ) }}
+  namespaceSelector:
+    matchExpressions:
+    - key: istio-injection
+      operator: DoesNotExist
+    - key: istio.io/rev
+      operator: DoesNotExist
+  objectSelector:
+    matchExpressions:
+    - key: sidecar.istio.io/inject
+      operator: In
+      values:
+      - "true"
+    - key: istio.io/rev
+      operator: DoesNotExist
+
+{{- if $.Values.sidecarInjectorWebhook.enableNamespacesByDefault }}
+{{- /* Special case 3: no labels at all */}}
+{{- include "core" (mergeOverwrite (deepCopy $whv) (dict "Prefix" "auto.") ) }}
+  namespaceSelector:
+    matchExpressions:
+    - key: istio-injection
+      operator: DoesNotExist
+    - key: istio.io/rev
+      operator: DoesNotExist
+    - key: "kubernetes.io/metadata.name"
+      operator: "NotIn"
+      values: ["kube-system","kube-public","kube-node-lease","local-path-storage"]
+  objectSelector:
+    matchExpressions:
+    - key: sidecar.istio.io/inject
+      operator: DoesNotExist
+    - key: istio.io/rev
+      operator: DoesNotExist
+{{- end }}
+
+{{- end }}
+---
+{{- end }}
+{{- end }}
+{{- end }}

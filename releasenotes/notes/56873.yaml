@@ -1,0 +1,14 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+
+issue:
+  - https://github.com/istio/istio/issues/56873
+
+releaseNotes:
+  - |
+    **Fixed** JWT filter configuration to include custom space-delimited claims
+
+    The JWT filter configuration now correctly includes user-specified custom space-delimited claims in addition to the default claims ("scope" and "permission").
+    This ensures that the Envoy JWT filter treats these claims as space-delimited strings, allowing for proper validation of JWT tokens that include these claims.
+    To set custom space-delimited claims, use the `spaceDelimitedClaims` field in the JWT rule configuration inside the `RequestAuthentication` resource.

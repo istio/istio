@@ -62,6 +62,17 @@ func FindPort(pod *v1.Pod, svcPort *v1.ServicePort) (int, error) {
 				}
 			}
 		}
+		// Also search native sidecar init containers (restartPolicy=Always).
+		for _, container := range pod.Spec.InitContainers {
+			if container.RestartPolicy == nil || *container.RestartPolicy != v1.ContainerRestartPolicyAlways {
+				continue
+			}
+			for _, port := range container.Ports {
+				if port.Name == name && port.Protocol == svcPort.Protocol {
+					return int(port.ContainerPort), nil
+				}
+			}
+		}
 	case intstr.Int:
 		return portName.IntValue(), nil
 	}
@@ -150,9 +161,9 @@ func isNodePortGatewayService(svc *v1.Service) bool {
 
 // Get the pod key of the proxy which can be used to get pod from the informer cache
 func podKeyByProxy(proxy *model.Proxy) types.NamespacedName {
-	parts := strings.Split(proxy.ID, ".")
-	if len(parts) == 2 && proxy.Metadata.Namespace == parts[1] {
-		return types.NamespacedName{Name: parts[0], Namespace: parts[1]}
+	name, namespace, ok := strings.Cut(proxy.ID, ".")
+	if ok && proxy.Metadata.Namespace == namespace {
+		return types.NamespacedName{Name: name, Namespace: namespace}
 	}
 
 	return types.NamespacedName{}

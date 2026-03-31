@@ -15,7 +15,7 @@
 # limitations under the License.
 
 cd "$SRC"
-git clone --depth=1 https://github.com/AdamKorcz/go-118-fuzz-build --branch=include-all-test-files
+git clone --depth=1 https://github.com/AdamKorcz/go-118-fuzz-build --branch=november-backup
 cd go-118-fuzz-build
 go build .
 mv go-118-fuzz-build /root/go/bin/
@@ -25,12 +25,6 @@ set -o nounset
 set -o pipefail
 set -o errexit
 set -x
-
-cd "${SRC}"
-git clone https://github.com/AdamKorcz/instrumentation
-cd instrumentation
-go run main.go --target_dir="${SRC}"/istio --check_io_length=true
-cd "${SRC}"/istio
 
 # Create empty file that imports "github.com/AdamKorcz/go-118-fuzz-build/testing"
 # This is a small hack to install this dependency, since it is not used anywhere,
@@ -52,7 +46,6 @@ compile_native_go_fuzzer istio.io/istio/pkg/bootstrap FuzzWriteTo FuzzWriteTo
 compile_native_go_fuzzer istio.io/istio/pkg/kube/inject FuzzRunTemplate FuzzRunTemplate
 compile_native_go_fuzzer istio.io/istio/pilot/pkg/security/authz/builder FuzzBuildHTTP FuzzBuildHTTP
 compile_native_go_fuzzer istio.io/istio/pilot/pkg/security/authz/builder FuzzBuildTCP FuzzBuildTCP
-compile_native_go_fuzzer istio.io/istio/pilot/pkg/config/kube/gateway FuzzConvertResources FuzzConvertResources
 compile_native_go_fuzzer istio.io/istio/pilot/pkg/model FuzzDeepCopyService FuzzDeepCopyService
 compile_native_go_fuzzer istio.io/istio/pilot/pkg/model FuzzDeepCopyServiceInstance FuzzDeepCopyServiceInstance
 compile_native_go_fuzzer istio.io/istio/pilot/pkg/model FuzzDeepCopyWorkloadInstance FuzzDeepCopyWorkloadInstance
@@ -85,8 +78,6 @@ compile_go_fuzzer istio.io/istio/tests/fuzz FuzzHeaderMatcher fuzz_header_matche
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzHostMatcher fuzz_host_matcher
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzMetadataListMatcher fuzz_metadata_list_matcher
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzGrpcGenGenerate fuzz_grpc_gen_generate
-compile_go_fuzzer istio.io/istio/tests/fuzz FuzzConvertIngressVirtualService fuzz_convert_ingress_virtual_service
-compile_go_fuzzer istio.io/istio/tests/fuzz FuzzConvertIngressV1alpha3 fuzz_convert_ingress_v1alpha3
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzParseInputs fuzz_parse_inputs
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzConfigValidation fuzz_config_validation
 compile_go_fuzzer istio.io/istio/tests/fuzz FuzzConfigValidation2 fuzz_config_validation2

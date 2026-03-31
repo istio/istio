@@ -6,6 +6,8 @@ deployment:
     sidecar.istio.io/inject: "false"
   ingress_enabled: false
   image_pull_policy: IfNotPresent
+  network_policy:
+    enabled: false
 login_token:
   signing_key: CHANGEME00000000
 external_services:

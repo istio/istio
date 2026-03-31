@@ -1,5 +1,5 @@
 # Set up a Service associated with our proxy, which will run as 1.1.1.1 IP
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: waypoint

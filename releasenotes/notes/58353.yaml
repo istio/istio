@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 58353
+releaseNotes:
+- |
+  **Fixed** use cases where upgrading from the iptables backend to the nftables backend in ambient created stale iptables rules on the network. The code now continues to use iptables on the node until it is rebooted.

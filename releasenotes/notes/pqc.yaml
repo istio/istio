@@ -1,0 +1,18 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+issue:
+- 56330
+
+releaseNotes:
+- |
+  **Added** `pqc` (post-quantum cryptography) option to `COMPLIANCE_POLICY`.
+  This policy enforces TLS v1.3, cipher suites `TLS_AES_128_GCM_SHA256` and `TLS_AES_256_GCM_SHA384`,
+  and post-quantum-safe key exchange `X25519MLKEM768`.
+
+  To enable this compliance policy in ambient mode, it must be set in pilot and ztunnel containers.
+  
+  This policy applies to the following data paths:
+  * mTLS communication between Envoy proxies and ztunnels;
+  * regular TLS on the downstream and the upstream of Envoy proxies (e.g. gateway);
+  * Istiod xDS server.

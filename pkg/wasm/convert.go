@@ -37,24 +37,33 @@ import (
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
+const (
+	// DefaultAllowStatPrefix is the stat prefix used for WASM default allow RBAC filters
+	DefaultAllowStatPrefix = "wasm-default-allow"
+	// DefaultDenyStatPrefix is the stat prefix used for WASM default deny RBAC filters
+	DefaultDenyStatPrefix = "wasm-default-deny"
+)
+
 var (
-	allowHTTPTypedConfig = &anypb.Any{
-		TypeUrl: "type.googleapis.com/envoy.extensions.filters.http.rbac.v3.RBAC",
+	allowHTTPTypedConfig, _ = anypb.New(&httprbac.RBAC{
 		// no rules mean allow all.
-	}
+		RulesStatPrefix: DefaultAllowStatPrefix,
+	})
+
 	denyHTTPTypedConfig, _ = anypb.New(&httprbac.RBAC{
 		// empty rule means deny all.
-		Rules: &rbacv3.RBAC{},
+		Rules:           &rbacv3.RBAC{},
+		RulesStatPrefix: DefaultDenyStatPrefix,
 	})
 
 	allowNetworkTypeConfig, _ = anypb.New(&networkrbac.RBAC{
 		// no rules mean allow all.
-		StatPrefix: "wasm-default-allow",
+		StatPrefix: DefaultAllowStatPrefix,
 	})
 	denyNetworkTypedConfig, _ = anypb.New(&networkrbac.RBAC{
 		// empty rule means deny all.
 		Rules:      &rbacv3.RBAC{},
-		StatPrefix: "wasm-default-deny",
+		StatPrefix: DefaultDenyStatPrefix,
 	})
 )
 

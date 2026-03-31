@@ -1,0 +1,22 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+  - |
+    **Added** a new feature flag `DISABLE_TRACK_REMAINING_CB_METRICS` to control circuit breaker remaining metrics tracking.
+    When set to `false` (default), circuit breaker remaining metrics will not be tracked, which can improve performance.
+    When set to `true`, circuit breaker remaining metrics will be tracked (legacy behavior).
+    This feature flag will be removed in a future release.
+
+upgradeNotes:
+  - title: Circuit breaker metrics tracking behavior change
+    content: |
+      The default behavior for circuit breaker remaining metrics tracking has changed. Previously, these metrics
+      were tracked by default. Now, tracking is disabled by default for better proxy memory usage.
+      
+      To maintain the previous behavior where remaining metrics were tracked, you can:
+      
+      1. Set the environment variable `DISABLE_TRACK_REMAINING_CB_METRICS=false` in your Istiod deployment
+      2. Use the compatibility version feature to get the legacy behavior
+      
+      This change affects the `TrackRemaining` field in Envoy's circuit breaker configuration.

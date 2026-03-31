@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/util"
+	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 )
@@ -226,6 +227,12 @@ func createDashCmd(ctx cli.Context, config CreateProxyDashCmdConfig) *cobra.Comm
 		Short:   config.CommandShort,
 		Long:    config.CommandLong,
 		Example: config.CommandExample,
+		Args: func(cmd *cobra.Command, args []string) error {
+			if err := util.ValidatePort(proxyAdminPort); err != nil {
+				return err
+			}
+			return nil
+		},
 		RunE: func(c *cobra.Command, args []string) error {
 			kubeClient, err := ctx.CLIClient()
 			if err != nil {
@@ -338,8 +345,8 @@ func controlZDashCmd(ctx cli.Context) *cobra.Command {
   istioctl dashboard controlz deployment/istiod.istio-system
 
   # with short syntax
-  istioctl dash controlz pilot-123-456.istio-system
-  istioctl d controlz pilot-123-456.istio-system
+  istioctl dash controlz istiod-56dd66799-jfdvs.istio-system
+  istioctl d controlz istiod-56dd66799-jfdvs.istio-system
 `,
 		RunE: func(c *cobra.Command, args []string) error {
 			if labelSelector == "" && opts.Revision == "" && len(args) < 1 {
@@ -412,8 +419,8 @@ func istioDebugDashCmd(ctx cli.Context) *cobra.Command {
   istioctl dashboard istiod-debug deployment/istiod.istio-system
 
   # with short syntax
-  istioctl dash istiod-debug pilot-123-456.istio-system
-  istioctl d istiod-debug pilot-123-456.istio-system
+  istioctl dash istiod-debug istiod-56dd66799-jfdvs.istio-system
+  istioctl d istiod-debug istiod-56dd66799-jfdvs.istio-system
 `,
 		RunE: func(c *cobra.Command, args []string) error {
 			if labelSelector == "" && opts.Revision == "" && len(args) < 1 {
@@ -425,14 +432,15 @@ func istioDebugDashCmd(ctx cli.Context) *cobra.Command {
 				c.Println(c.UsageString())
 				return fmt.Errorf("only one of name, --selector, or --revision can be specified")
 			}
-			client, err := ctx.CLIClientWithRevision(opts.Revision)
+			resolvedRevision := ctx.RevisionOrDefault(opts.Revision)
+			client, err := ctx.CLIClientWithRevision(resolvedRevision)
 			if err != nil {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
 
 			var podName, ns string
-			if opts.Revision != "" {
-				labelSelector = "istio.io/rev=" + opts.Revision + ", app=istiod"
+			if resolvedRevision != "" {
+				labelSelector = "istio.io/rev=" + resolvedRevision + ", app=istiod"
 			}
 
 			if labelSelector != "" {
@@ -649,7 +657,7 @@ func Dashboard(cliContext cli.Context) *cobra.Command {
 	dashboardCmd.AddCommand(proxy)
 
 	controlz := controlZDashCmd(cliContext)
-	controlz.PersistentFlags().IntVar(&controlZport, "ctrlz_port", 9876, "ControlZ port")
+	controlz.PersistentFlags().IntVar(&controlZport, "ctrlz_port", ctrlz.DefaultControlZPort, "ControlZ port")
 	controlz.PersistentFlags().StringVarP(&labelSelector, "selector", "l", "", "Label selector")
 	dashboardCmd.AddCommand(controlz)
 

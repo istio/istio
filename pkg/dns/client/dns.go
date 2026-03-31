@@ -617,7 +617,7 @@ func (table *LookupTable) buildDNSAnswers(altHosts map[string]struct{}, ipv4 []n
 		if len(ipv6) > 0 {
 			table.name6[h] = aaaa(h, ipv6)
 		}
-		if len(searchNamespaces) > 0 {
+		if len(searchNamespaces) > 0 && !strings.HasSuffix(h, searchNamespaces[0]+".") {
 			// NOTE: Right now, rather than storing one expanded host for each one of the search namespace
 			// entries, we are going to store just the first one (assuming that most clients will
 			// do sequential dns resolution, starting with the first search namespace)

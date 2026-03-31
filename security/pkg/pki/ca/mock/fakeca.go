@@ -58,7 +58,7 @@ func (ca *FakeCA) SignWithCertChain(csr []byte, certOpts ca.CertOpts) ([]string,
 // FakeKeyCertBundle.
 func (ca *FakeCA) GetCAKeyCertBundle() *util.KeyCertBundle {
 	if ca.KeyCertBundle == nil {
-		return util.NewKeyCertBundleFromPem([]byte{}, []byte("foo"), []byte("fake"), []byte("fake"))
+		return util.NewKeyCertBundleFromPem([]byte{}, []byte("foo"), []byte("fake"), []byte("fake"), nil)
 	}
 	return ca.KeyCertBundle
 }

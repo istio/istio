@@ -84,7 +84,7 @@ func newKubeServer(ctx resource.Context, ns namespace.Instance) (server *serverI
 			Inject: true,
 		})
 		if err != nil {
-			return
+			return server, err
 		}
 	}
 
@@ -120,12 +120,12 @@ func newKubeServer(ctx resource.Context, ns namespace.Instance) (server *serverI
 
 	// Deploy the authz server.
 	if err = server.deploy(ctx); err != nil {
-		return
+		return server, err
 	}
 
 	// Patch MeshConfig to install the providers.
 	err = server.installProviders(ctx)
-	return
+	return server, err
 }
 
 func readDeploymentYAML(ctx resource.Context) (string, error) {
@@ -151,7 +151,7 @@ func readDeploymentYAML(ctx resource.Context) (string, error) {
 		}
 	}
 
-	oldImage := "gcr.io/istio-testing/ext-authz:latest"
+	oldImage := "registry.istio.io/testing/ext-authz:latest"
 	newImage := fmt.Sprintf("%s/ext-authz:%s", s.Hub, s.Tag)
 	yamlText = strings.ReplaceAll(yamlText, oldImage, newImage)
 

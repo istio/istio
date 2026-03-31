@@ -16,6 +16,7 @@ package core
 
 import (
 	"fmt"
+	"math"
 	"reflect"
 	"sort"
 	"strings"
@@ -29,6 +30,7 @@ import (
 	cares "github.com/envoyproxy/go-control-plane/envoy/extensions/network/dns_resolver/cares/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
+	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -412,6 +414,46 @@ func TestApplyDestinationRule(t *testing.T) {
 			expectedSubsetClusters: []*cluster.Cluster{},
 		},
 		{
+			name:        "destination rule with http2UpgradePolicy and maxConcurrentStreams",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			clusterMode: DefaultClusterMode,
+			service:     service,
+			port:        servicePort[0],
+			proxyView:   model.ProxyViewAll,
+			destRule: &networking.DestinationRule{
+				Host: "foo.default.svc.cluster.local",
+				TrafficPolicy: &networking.TrafficPolicy{
+					ConnectionPool: &networking.ConnectionPoolSettings{
+						Http: &networking.ConnectionPoolSettings_HTTPSettings{
+							MaxConcurrentStreams: 200,
+							H2UpgradePolicy:      networking.ConnectionPoolSettings_HTTPSettings_UPGRADE,
+						},
+					},
+				},
+			},
+			expectedSubsetClusters: []*cluster.Cluster{},
+		},
+		{
+			name:        "destination rule with http2UpgradePolicy on existing http2 cluster and maxConcurrentStreams",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			clusterMode: DefaultClusterMode,
+			service:     http2Service,
+			port:        http2ServicePort[0],
+			proxyView:   model.ProxyViewAll,
+			destRule: &networking.DestinationRule{
+				Host: "foo.default.svc.cluster.local",
+				TrafficPolicy: &networking.TrafficPolicy{
+					ConnectionPool: &networking.ConnectionPoolSettings{
+						Http: &networking.ConnectionPoolSettings_HTTPSettings{
+							MaxConcurrentStreams: 200,
+							H2UpgradePolicy:      networking.ConnectionPoolSettings_HTTPSettings_UPGRADE,
+						},
+					},
+				},
+			},
+			expectedSubsetClusters: []*cluster.Cluster{},
+		},
+		{
 			name:        "subset without labels in both",
 			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STRICT_DNS}},
 			clusterMode: DefaultClusterMode,
@@ -783,6 +825,103 @@ func TestApplyDestinationRule(t *testing.T) {
 				ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS},
 				EdsClusterConfig:     &cluster.Cluster_EdsClusterConfig{ServiceName: "outbound|8080|v1|foo.default.svc.cluster.local"},
 			}},
+		},
+		{
+			name:        "destination rule with empty retry budget",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			clusterMode: DefaultClusterMode,
+			service:     service,
+			port:        servicePort[0],
+			proxyView:   model.ProxyViewAll,
+			destRule: &networking.DestinationRule{
+				Host: "foo.default.svc.cluster.local",
+				Subsets: []*networking.Subset{
+					{
+						Name:   "foobar",
+						Labels: map[string]string{"foo": "bar"},
+						TrafficPolicy: &networking.TrafficPolicy{
+							ConnectionPool: &networking.ConnectionPoolSettings{
+								Http: &networking.ConnectionPoolSettings_HTTPSettings{
+									MaxRetries: 10,
+								},
+							},
+							RetryBudget: &networking.TrafficPolicy_RetryBudget{},
+						},
+					},
+				},
+			},
+			expectedSubsetClusters: []*cluster.Cluster{
+				{
+					Name:                 "outbound|8080|foobar|foo.default.svc.cluster.local",
+					ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS},
+					EdsClusterConfig: &cluster.Cluster_EdsClusterConfig{
+						ServiceName: "outbound|8080|foobar|foo.default.svc.cluster.local",
+					},
+					CircuitBreakers: &cluster.CircuitBreakers{
+						Thresholds: []*cluster.CircuitBreakers_Thresholds{
+							{
+								MaxRetries: &wrappers.UInt32Value{
+									Value: 10,
+								},
+								RetryBudget: &cluster.CircuitBreakers_Thresholds_RetryBudget{
+									BudgetPercent:       &xdstype.Percent{Value: 20.0},
+									MinRetryConcurrency: &wrappers.UInt32Value{Value: 3},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:        "destination rule with retry budget",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			clusterMode: DefaultClusterMode,
+			service:     service,
+			port:        servicePort[0],
+			proxyView:   model.ProxyViewAll,
+			destRule: &networking.DestinationRule{
+				Host: "foo.default.svc.cluster.local",
+				Subsets: []*networking.Subset{
+					{
+						Name:   "foobar",
+						Labels: map[string]string{"foo": "bar"},
+						TrafficPolicy: &networking.TrafficPolicy{
+							ConnectionPool: &networking.ConnectionPoolSettings{
+								Http: &networking.ConnectionPoolSettings_HTTPSettings{
+									MaxRetries: 10,
+								},
+							},
+							RetryBudget: &networking.TrafficPolicy_RetryBudget{
+								Percent:             wrappers.Double(0.3),
+								MinRetryConcurrency: uint32(4),
+							},
+						},
+					},
+				},
+			},
+			expectedSubsetClusters: []*cluster.Cluster{
+				{
+					Name:                 "outbound|8080|foobar|foo.default.svc.cluster.local",
+					ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS},
+					EdsClusterConfig: &cluster.Cluster_EdsClusterConfig{
+						ServiceName: "outbound|8080|foobar|foo.default.svc.cluster.local",
+					},
+					CircuitBreakers: &cluster.CircuitBreakers{
+						Thresholds: []*cluster.CircuitBreakers_Thresholds{
+							{
+								MaxRetries: &wrappers.UInt32Value{
+									Value: 10,
+								},
+								RetryBudget: &cluster.CircuitBreakers_Thresholds_RetryBudget{
+									BudgetPercent:       &xdstype.Percent{Value: 0.3},
+									MinRetryConcurrency: &wrappers.UInt32Value{Value: 4},
+								},
+							},
+						},
+					},
+				},
+			},
 		},
 	}
 
@@ -1665,6 +1804,98 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 							Metadata: buildMetadata("", "", "workload-3", "namespace-3", "cluster-3", map[string]string{}),
 							LoadBalancingWeight: &wrappers.UInt32Value{
 								Value: 40,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "basic with DNS",
+			mesh: testMesh(),
+			instances: []*model.ServiceInstance{
+				{
+					Service:     service,
+					ServicePort: servicePort,
+					Endpoint: &model.IstioEndpoint{
+						Addresses:    []string{"www.foo.com"},
+						EndpointPort: 10001,
+						WorkloadName: "workload-1",
+						Namespace:    "namespace-1",
+						Locality: model.Locality{
+							ClusterID: "cluster-1",
+							Label:     "region1/zone1/subzone1",
+						},
+						LbWeight: 30,
+						Network:  "nw-0",
+					},
+				},
+				{
+					Service:     service,
+					ServicePort: servicePort,
+					Endpoint: &model.IstioEndpoint{
+						Addresses:    []string{"www.bar.com"},
+						EndpointPort: 10001,
+						WorkloadName: "workload-2",
+						Namespace:    "namespace-2",
+						Locality: model.Locality{
+							ClusterID: "cluster-2",
+							Label:     "region1/zone1/subzone1",
+						},
+						LbWeight: 30,
+						Network:  "nw-1",
+					},
+				},
+			},
+			expected: []*endpoint.LocalityLbEndpoints{
+				{
+					Locality: &core.Locality{
+						Region:  "region1",
+						Zone:    "zone1",
+						SubZone: "subzone1",
+					},
+					LoadBalancingWeight: &wrappers.UInt32Value{
+						Value: 60,
+					},
+					LbEndpoints: []*endpoint.LbEndpoint{
+						{
+							HostIdentifier: &endpoint.LbEndpoint_Endpoint{
+								Endpoint: &endpoint.Endpoint{
+									Address: &core.Address{
+										Address: &core.Address_SocketAddress{
+											SocketAddress: &core.SocketAddress{
+												Address: "www.foo.com",
+												PortSpecifier: &core.SocketAddress_PortValue{
+													PortValue: 10001,
+												},
+											},
+										},
+									},
+								},
+							},
+							Metadata: buildMetadata("nw-0", "", "workload-1", "namespace-1", "cluster-1", map[string]string{}),
+							LoadBalancingWeight: &wrappers.UInt32Value{
+								Value: 30,
+							},
+						},
+						{
+							HostIdentifier: &endpoint.LbEndpoint_Endpoint{
+								Endpoint: &endpoint.Endpoint{
+									Address: &core.Address{
+										Address: &core.Address_SocketAddress{
+											SocketAddress: &core.SocketAddress{
+												Address: "www.bar.com",
+												PortSpecifier: &core.SocketAddress_PortValue{
+													PortValue: 10001,
+												},
+											},
+										},
+									},
+								},
+							},
+							Metadata: buildMetadata("nw-1", "", "workload-2", "namespace-2", "cluster-2", map[string]string{}),
+							LoadBalancingWeight: &wrappers.UInt32Value{
+								Value: 30,
 							},
 						},
 					},
@@ -2575,11 +2806,11 @@ func TestIsHttp2Cluster(t *testing.T) {
 		},
 	}
 
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			isHttp2Cluster := isHttp2Cluster(test.cluster) // revive:disable-line
-			if isHttp2Cluster != test.isHttp2Cluster {
-				t.Errorf("got: %t, want: %t", isHttp2Cluster, test.isHttp2Cluster)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			isHttp2Cluster := isHttp2Cluster(tt.cluster) // revive:disable-line
+			if isHttp2Cluster != tt.isHttp2Cluster {
+				t.Errorf("got: %t, want: %t", isHttp2Cluster, tt.isHttp2Cluster)
 			}
 		})
 	}
@@ -2768,7 +2999,7 @@ func TestApplyTCPKeepalive(t *testing.T) {
 				cluster: &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
 			}
 
-			cb.applyConnectionPool(tt.mesh, mc, tt.connectionPool)
+			cb.applyConnectionPool(tt.mesh, mc, tt.connectionPool, nil)
 
 			if !reflect.DeepEqual(tt.wantConnOpts, mc.cluster.UpstreamConnectionOptions) {
 				t.Errorf("unexpected tcp keepalive settings, want %v, got %v", tt.wantConnOpts,
@@ -2780,11 +3011,13 @@ func TestApplyTCPKeepalive(t *testing.T) {
 
 func TestApplyConnectionPool(t *testing.T) {
 	cases := []struct {
-		name                string
-		cluster             *cluster.Cluster
-		httpProtocolOptions *http.HttpProtocolOptions
-		connectionPool      *networking.ConnectionPoolSettings
-		expectedHTTPPOpt    *http.HttpProtocolOptions
+		name                    string
+		cluster                 *cluster.Cluster
+		httpProtocolOptions     *http.HttpProtocolOptions
+		connectionPool          *networking.ConnectionPoolSettings
+		retryBudget             *networking.TrafficPolicy_RetryBudget
+		expectedHTTPPOpt        *http.HttpProtocolOptions
+		expectedCircuitBreakers *cluster.CircuitBreakers
 	}{
 		{
 			name:    "only update IdleTimeout",
@@ -2812,6 +3045,9 @@ func TestApplyConnectionPool(t *testing.T) {
 					MaxRequestsPerConnection: &wrappers.UInt32Value{Value: 10},
 				},
 			},
+			expectedCircuitBreakers: &cluster.CircuitBreakers{
+				Thresholds: []*cluster.CircuitBreakers_Thresholds{getDefaultCircuitBreakerThresholds()},
+			},
 		},
 		{
 			name:    "set TCP idle timeout",
@@ -2838,6 +3074,9 @@ func TestApplyConnectionPool(t *testing.T) {
 					},
 					MaxRequestsPerConnection: &wrappers.UInt32Value{Value: 10},
 				},
+			},
+			expectedCircuitBreakers: &cluster.CircuitBreakers{
+				Thresholds: []*cluster.CircuitBreakers_Thresholds{getDefaultCircuitBreakerThresholds()},
 			},
 		},
 		{
@@ -2868,6 +3107,9 @@ func TestApplyConnectionPool(t *testing.T) {
 					MaxRequestsPerConnection: &wrappers.UInt32Value{Value: 10},
 				},
 			},
+			expectedCircuitBreakers: &cluster.CircuitBreakers{
+				Thresholds: []*cluster.CircuitBreakers_Thresholds{getDefaultCircuitBreakerThresholds()},
+			},
 		},
 		{
 			name:    "only update MaxRequestsPerConnection ",
@@ -2892,6 +3134,9 @@ func TestApplyConnectionPool(t *testing.T) {
 					},
 					MaxRequestsPerConnection: &wrappers.UInt32Value{Value: 22},
 				},
+			},
+			expectedCircuitBreakers: &cluster.CircuitBreakers{
+				Thresholds: []*cluster.CircuitBreakers_Thresholds{getDefaultCircuitBreakerThresholds()},
 			},
 		},
 		{
@@ -2929,6 +3174,94 @@ func TestApplyConnectionPool(t *testing.T) {
 					},
 				},
 			},
+			expectedCircuitBreakers: &cluster.CircuitBreakers{
+				Thresholds: []*cluster.CircuitBreakers_Thresholds{getDefaultCircuitBreakerThresholds()},
+			},
+		},
+		{
+			name:    "default retry budget",
+			cluster: &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			httpProtocolOptions: &http.HttpProtocolOptions{
+				CommonHttpProtocolOptions: &core.HttpProtocolOptions{
+					IdleTimeout: &durationpb.Duration{
+						Seconds: 10,
+					},
+					MaxRequestsPerConnection: &wrappers.UInt32Value{Value: 10},
+				},
+			},
+			connectionPool: &networking.ConnectionPoolSettings{
+				Http: &networking.ConnectionPoolSettings_HTTPSettings{
+					MaxRequestsPerConnection: 22,
+				},
+			},
+			retryBudget: &networking.TrafficPolicy_RetryBudget{},
+			expectedHTTPPOpt: &http.HttpProtocolOptions{
+				CommonHttpProtocolOptions: &core.HttpProtocolOptions{
+					IdleTimeout: &durationpb.Duration{
+						Seconds: 10,
+					},
+					MaxRequestsPerConnection: &wrappers.UInt32Value{Value: 22},
+				},
+			},
+			expectedCircuitBreakers: &cluster.CircuitBreakers{
+				Thresholds: []*cluster.CircuitBreakers_Thresholds{
+					{
+						MaxRetries:         &wrappers.UInt32Value{Value: math.MaxUint32},
+						MaxRequests:        &wrappers.UInt32Value{Value: math.MaxUint32},
+						MaxConnections:     &wrappers.UInt32Value{Value: math.MaxUint32},
+						MaxPendingRequests: &wrappers.UInt32Value{Value: math.MaxUint32},
+						TrackRemaining:     false,
+						RetryBudget: &cluster.CircuitBreakers_Thresholds_RetryBudget{
+							BudgetPercent:       &xdstype.Percent{Value: 20.0},
+							MinRetryConcurrency: &wrappers.UInt32Value{Value: 3},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:    "retry budget",
+			cluster: &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			httpProtocolOptions: &http.HttpProtocolOptions{
+				CommonHttpProtocolOptions: &core.HttpProtocolOptions{
+					IdleTimeout: &durationpb.Duration{
+						Seconds: 10,
+					},
+					MaxRequestsPerConnection: &wrappers.UInt32Value{Value: 10},
+				},
+			},
+			connectionPool: &networking.ConnectionPoolSettings{
+				Http: &networking.ConnectionPoolSettings_HTTPSettings{
+					MaxRequestsPerConnection: 22,
+				},
+			},
+			retryBudget: &networking.TrafficPolicy_RetryBudget{
+				Percent:             wrappers.Double(0.3),
+				MinRetryConcurrency: uint32(4),
+			},
+			expectedHTTPPOpt: &http.HttpProtocolOptions{
+				CommonHttpProtocolOptions: &core.HttpProtocolOptions{
+					IdleTimeout: &durationpb.Duration{
+						Seconds: 10,
+					},
+					MaxRequestsPerConnection: &wrappers.UInt32Value{Value: 22},
+				},
+			},
+			expectedCircuitBreakers: &cluster.CircuitBreakers{
+				Thresholds: []*cluster.CircuitBreakers_Thresholds{
+					{
+						MaxRetries:         &wrappers.UInt32Value{Value: math.MaxUint32},
+						MaxRequests:        &wrappers.UInt32Value{Value: math.MaxUint32},
+						MaxConnections:     &wrappers.UInt32Value{Value: math.MaxUint32},
+						MaxPendingRequests: &wrappers.UInt32Value{Value: math.MaxUint32},
+						TrackRemaining:     false,
+						RetryBudget: &cluster.CircuitBreakers_Thresholds_RetryBudget{
+							BudgetPercent:       &xdstype.Percent{Value: 0.3},
+							MinRetryConcurrency: &wrappers.UInt32Value{Value: 4},
+						},
+					},
+				},
+			},
 		},
 	}
 
@@ -2946,7 +3279,7 @@ func TestApplyConnectionPool(t *testing.T) {
 				mesh:    cb.req.Push.Mesh,
 				mutable: mc,
 			}
-			cb.applyConnectionPool(opts.mesh, opts.mutable, tt.connectionPool)
+			cb.applyConnectionPool(opts.mesh, opts.mutable, tt.connectionPool, tt.retryBudget)
 			// assert httpProtocolOptions
 			assert.Equal(t, opts.mutable.httpProtocolOptions.CommonHttpProtocolOptions.IdleTimeout,
 				tt.expectedHTTPPOpt.CommonHttpProtocolOptions.IdleTimeout)
@@ -2954,6 +3287,7 @@ func TestApplyConnectionPool(t *testing.T) {
 				tt.expectedHTTPPOpt.CommonHttpProtocolOptions.MaxRequestsPerConnection)
 			assert.Equal(t, opts.mutable.httpProtocolOptions.CommonHttpProtocolOptions.MaxConnectionDuration,
 				tt.expectedHTTPPOpt.CommonHttpProtocolOptions.MaxConnectionDuration)
+			assert.Equal(t, opts.mutable.cluster.CircuitBreakers, tt.expectedCircuitBreakers)
 		})
 	}
 }

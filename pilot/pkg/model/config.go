@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/util/hash"
 	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/sets"
@@ -147,10 +148,6 @@ type ConfigStore interface {
 	Update(config config.Config) (newRevision string, err error)
 	UpdateStatus(config config.Config) (newRevision string, err error)
 
-	// Patch applies only the modifications made in the PatchFunc rather than doing a full replace. Useful to avoid
-	// read-modify-write conflicts when there are many concurrent-writers to the same resource.
-	Patch(orig config.Config, patchFn config.PatchFunc) (string, error)
-
 	// Delete removes an object from the store by key
 	// For k8s, resourceVersion must be fulfilled before a deletion is carried out.
 	// If not possible, a 409 Conflict status will be returned.
@@ -185,6 +182,9 @@ type ConfigStoreController interface {
 
 	// HasSynced returns true after initial cache synchronization is complete
 	HasSynced() bool
+
+	// Returns the backing krt collection for the given kind, or nil if the kind is not supported by the controller
+	KrtCollection(kind config.GroupVersionKind) krt.Collection[config.Config]
 }
 
 const (

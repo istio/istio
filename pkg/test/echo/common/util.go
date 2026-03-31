@@ -15,7 +15,9 @@
 package common
 
 import (
+	"crypto/tls"
 	"flag"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -88,4 +90,47 @@ func MicrosToDuration(micros int64) time.Duration {
 // DurationToMicros converts the given duration to microseconds.
 func DurationToMicros(d time.Duration) int64 {
 	return int64(d / time.Microsecond)
+}
+
+// ParseTLSVersion parses a TLS version string and returns the corresponding tls constant.
+func ParseTLSVersion(version string) (uint16, error) {
+	switch version {
+	case "":
+		return tls.VersionTLS12, nil
+	case "1.0":
+		return tls.VersionTLS10, nil
+	case "1.1":
+		return tls.VersionTLS11, nil
+	case "1.2":
+		return tls.VersionTLS12, nil
+	case "1.3":
+		return tls.VersionTLS13, nil
+	default:
+		return 0, fmt.Errorf("unsupported TLS version: %s", version)
+	}
+}
+
+// ParseTLSCurves parses a list of curve names and returns the corresponding tls.CurveID values.
+func ParseTLSCurves(curves []string) ([]tls.CurveID, error) {
+	if len(curves) == 0 {
+		return nil, nil
+	}
+	var result []tls.CurveID
+	for _, curve := range curves {
+		switch curve {
+		case "P-256":
+			result = append(result, tls.CurveP256)
+		case "P-384":
+			result = append(result, tls.CurveP384)
+		case "P-521":
+			result = append(result, tls.CurveP521)
+		case "X25519":
+			result = append(result, tls.X25519)
+		case "X25519MLKEM768":
+			result = append(result, tls.X25519MLKEM768)
+		default:
+			return nil, fmt.Errorf("unsupported TLS curve: %s", curve)
+		}
+	}
+	return result, nil
 }

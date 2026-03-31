@@ -54,7 +54,7 @@ var (
 
 	wasmConfigConversionCount = monitoring.NewSum(
 		"wasm_config_conversion_count",
-		"number of Wasm config conversion count and results, including success, no remote load, marshal failure, remote fetch failure, miss remote fetch hint.",
+		"number of Wasm config conversions and results, including success, no remote load, marshal failure, remote fetch failure, miss remote fetch hint.",
 	)
 
 	wasmConfigConversionDuration = monitoring.NewDistribution(

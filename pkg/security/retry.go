@@ -15,9 +15,10 @@
 package security
 
 import (
+	"context"
 	"time"
 
-	retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
+	retry "github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/retry"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 
@@ -45,8 +46,8 @@ func CARetryInterceptor() grpc.DialOption {
 // grpcretry has no hooks to trigger logic on failure (https://github.com/grpc-ecosystem/go-grpc-middleware/issues/375)
 // Instead, we can wrap the backoff hook to log/increment metrics before returning the backoff result.
 func wrapBackoffWithMetrics(bf retry.BackoffFunc) retry.BackoffFunc {
-	return func(attempt uint) time.Duration {
-		wait := bf(attempt)
+	return func(ctx context.Context, attempt uint) time.Duration {
+		wait := bf(ctx, attempt)
 		caLog.Warnf("ca request failed, starting attempt %d in %v", attempt, wait)
 		monitoring.NumOutgoingRetries.With(monitoring.RequestType.Value(monitoring.CSR)).Increment()
 		return wait

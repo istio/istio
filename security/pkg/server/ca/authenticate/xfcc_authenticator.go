@@ -61,7 +61,7 @@ func buildSecurityCaller(xfccHeader string) (*security.Caller, error) {
 		return nil, fmt.Errorf("error in parsing xfcc header: %v", err)
 	}
 	if len(clientCerts) == 0 {
-		return nil, fmt.Errorf("xfcc header does not have atleast one client certs")
+		return nil, fmt.Errorf("xfcc header does not have at least one client certs")
 	}
 	ids := []string{}
 	for _, cc := range clientCerts {

@@ -16,8 +16,8 @@
 
 # This script builds a multi-arch kind node image
 # Largely copied from https://github.com/kubernetes-sigs/kind/blob/2a1e9df91fd22d6ae5b91648b6c1a606ab4cdf30/hack/release/build/push-node.sh
-# Example usage, without building (preferred): `tools/build-kind-image.sh v1.23.4 gcr.io/istio-testing/kind-node:v1.23.4`
-# Example usage: `tools/build-kind-image.sh ~/go/src/k8s.io/kubernetes gcr.io/istio-testing/kind-node:v1.23.4`
+# Example usage, without building (preferred): `tools/build-kind-image.sh v1.23.4 registry.istio.io/testing/kind-node:v1.23.4`
+# Example usage: `tools/build-kind-image.sh ~/go/src/k8s.io/kubernetes registry.istio.io/testing/kind-node:v1.23.4`
 
 set -uex
 

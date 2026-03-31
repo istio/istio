@@ -12,6 +12,7 @@ RUN apt-get update && \
   ca-certificates \
   curl \
   iptables \
+  nftables \
   iproute2 \
   iputils-ping \
   knot-dnsutils \

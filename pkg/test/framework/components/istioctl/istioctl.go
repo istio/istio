@@ -24,9 +24,6 @@ import (
 
 // Instance represents "istioctl"
 type Instance interface {
-	// WaitForConfig will wait until all passed in config has been distributed
-	WaitForConfig(defaultNamespace string, configs string) error
-
 	// Invoke invokes an istioctl command and returns the output and exception.
 	// stdout and stderr will be returned as different strings
 	Invoke(args []string) (string, string, error)
@@ -39,6 +36,9 @@ type Instance interface {
 type Config struct {
 	// Cluster to be used in a multicluster environment
 	Cluster cluster.Cluster
+
+	// IstioNamespace where istio is deployed
+	IstioNamespace string
 }
 
 // New returns a new instance of "istioctl".

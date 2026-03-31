@@ -28,7 +28,7 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
-func TestClearRDSCacheOnDelegateUpdate(t *testing.T) {
+func TestClearRDSCacheOnVsUpdate(t *testing.T) {
 	xdsCache := model.NewXdsCache()
 	// root virtual service
 	root := config.Config{
@@ -45,13 +45,10 @@ func TestClearRDSCacheOnDelegateUpdate(t *testing.T) {
 			},
 		},
 	}
-	// delegate virtual service
-	delegate := model.ConfigKey{Kind: kind.VirtualService, Name: "delegate", Namespace: "default"}
 	// rds cache entry
 	entry := Cache{
-		VirtualServices:         []config.Config{root},
-		DelegateVirtualServices: []model.ConfigHash{delegate.HashCode()},
-		ListenerPort:            8080,
+		VirtualServices: []*config.Config{&root},
+		ListenerPort:    8080,
 	}
 	resource := &discovery.Resource{Name: "bar"}
 
@@ -61,20 +58,20 @@ func TestClearRDSCacheOnDelegateUpdate(t *testing.T) {
 		t.Fatal("rds cache was not updated")
 	}
 
-	// clear cache when delegate virtual service is updated
+	// clear cache when virtual service is updated
 	// this func is called by `dropCacheForRequest` in `initPushContext`
-	xdsCache.Clear(sets.New(delegate))
+	xdsCache.Clear(sets.New(model.ConfigKey{Kind: kind.VirtualService, Name: "root", Namespace: "default"}))
 	if got := xdsCache.Get(&entry); got != nil {
 		t.Fatal("rds cache was not cleared")
 	}
 
 	// add resource to cache
 	xdsCache.Add(&entry, &model.PushRequest{Start: time.Now()}, resource)
-	irrelevantDelegate := model.ConfigKey{Kind: kind.VirtualService, Name: "foo", Namespace: "default"}
+	irrelevantVs := model.ConfigKey{Kind: kind.VirtualService, Name: "foo", Namespace: "default"}
 
-	// don't clear cache when irrelevant delegate virtual service is updated
-	xdsCache.Clear(sets.New(irrelevantDelegate))
+	// don't clear cache when irrelevant virtual service is updated
+	xdsCache.Clear(sets.New(irrelevantVs))
 	if got := xdsCache.Get(&entry); got == nil || !reflect.DeepEqual(got, resource) {
-		t.Fatal("rds cache was cleared by irrelevant delegate virtual service update")
+		t.Fatal("rds cache was cleared by irrelevant virtual service update")
 	}
 }

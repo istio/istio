@@ -1,5 +1,7 @@
+# Created if cluster resources are not omitted
+{{- if or (eq .Values.global.resourceScope "all") (eq .Values.global.resourceScope "cluster") }}
 # Created if this is not a remote istiod, OR if it is and is also a config cluster
-{{- if or (and .Values.istiodRemote.enabled .Values.global.configCluster) (not .Values.istiodRemote.enabled) }}
+{{- if or (not .Values.istiodRemote.enabled) (and .Values.istiodRemote.enabled (or .Values.global.configCluster .Values.istiodRemote.enabledLocalInjectorIstiod)) }}
 {{ $mcsAPIGroup := or .Values.env.MCS_API_GROUP "multicluster.x-k8s.io" }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -120,7 +122,7 @@ rules:
 {{- if eq (.Values.env).ENABLE_CLUSTER_TRUST_BUNDLE_API true }}
   - apiGroups: ["certificates.k8s.io"]
     resources: ["clustertrustbundles"]
-    verbs: ["update", "create", "delete"]
+    verbs: ["update", "create", "delete", "list", "watch", "get"]
   - apiGroups: ["certificates.k8s.io"]
     resources: ["signers"]
     resourceNames: ["istio.io/istiod-ca"]
@@ -156,10 +158,17 @@ rules:
     - tcproutes/status
     - tlsroutes/status
     - udproutes/status
+    - listenersets/status
     verbs: ["update", "patch"]
   - apiGroups: ["gateway.networking.k8s.io"]
     resources: ["gatewayclasses"]
     verbs: ["create", "update", "patch", "delete"]
+  - apiGroups: ["inference.networking.k8s.io"]
+    resources: ["inferencepools"]
+    verbs: ["get", "watch", "list"]
+  - apiGroups: ["inference.networking.k8s.io"]
+    resources: ["inferencepools/status"]
+    verbs: ["update", "patch"]
 
   # Needed for multicluster secret reading, possibly ingress certs in the future
   - apiGroups: [""]
@@ -202,5 +211,6 @@ rules:
   - apiGroups: [""]
     verbs: [ "get", "watch", "list", "update", "patch", "create", "delete" ]
     resources: [ "serviceaccounts"]
+{{- end }}
 {{- end }}
 {{- end }}

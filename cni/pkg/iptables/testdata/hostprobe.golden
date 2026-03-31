@@ -2,6 +2,6 @@ iptables-save
 ip6tables-save
 * nat
 -N ISTIO_POSTRT
--A POSTROUTING -j ISTIO_POSTRT
+-I POSTROUTING 1 -j ISTIO_POSTRT
 -A ISTIO_POSTRT -m owner --socket-exists -p tcp -m set --match-set istio-inpod-probes-v4 dst -j SNAT --to-source 169.254.7.127
 COMMIT

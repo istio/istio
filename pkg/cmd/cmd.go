@@ -28,7 +28,7 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
-// WaitSignal awaits for SIGINT or SIGTERM and closes the channel
+// WaitSignal waits for SIGINT or SIGTERM and closes the channel
 func WaitSignal(stop chan struct{}) {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
@@ -37,7 +37,7 @@ func WaitSignal(stop chan struct{}) {
 	_ = log.Sync()
 }
 
-// WaitSignalFunc awaits for SIGINT or SIGTERM and calls the cancel function
+// WaitSignalFunc waits for SIGINT or SIGTERM and calls the cancel function
 func WaitSignalFunc(cancel context.CancelCauseFunc) {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)

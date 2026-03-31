@@ -97,7 +97,7 @@ func FuzzCreateCertE2EUsingClientCertAuthenticator(data []byte) int {
 	}
 
 	auth := &authenticate.ClientCertAuthenticator{}
-	kcb := util.NewKeyCertBundleFromPem(nil, nil, certChainBytes, rootCertBytes)
+	kcb := util.NewKeyCertBundleFromPem(nil, nil, certChainBytes, rootCertBytes, nil)
 
 	mockCa := &mockca.FakeCA{
 		SignedCert:    signedCert,

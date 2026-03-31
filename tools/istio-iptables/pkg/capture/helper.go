@@ -49,91 +49,132 @@ func Flatten(lists ...[]string) []string {
 // Note: The order of the rules is not checked and is not used to determine the equivalence of the two states.
 // The function returns two boolean values, the first one indicates whether residues exist,
 // and the second one indicates whether differences were found between the current and expected state.
-func VerifyIptablesState(log *istiolog.Scope, ext dep.Dependencies, ruleBuilder *builder.IptablesRuleBuilder,
+
+func VerifyIptablesState(
+	log *istiolog.Scope,
+	ext dep.Dependencies,
+	ruleBuilder *builder.IptablesRuleBuilder,
 	iptVer, ipt6Ver *dep.IptablesVersion,
 ) (bool, bool) {
-	// These variables track the status of iptables installation
-	residueExists := false // Flag to indicate if iptables residues from previous executions are found
-	deltaExists := false   // Flag to indicate if a difference is found between expected and current state
+	type ipFamilyResult struct {
+		residueExists     bool // Indicates if iptables residues from previous executions are found
+		deltaExists       bool // Indicates if the existing rules are different from the expected ones.
+		plannedIstioRules bool // Indicates if Istio rules are planned
+		versionName       string
+	}
 
-check_loop:
+	var results []ipFamilyResult
+	isEmptyState := func(state map[string]map[string][]string) bool {
+		for _, chains := range state {
+			if len(chains) > 0 {
+				return false
+			}
+		}
+		return true
+	}
+
 	for _, ipCfg := range []struct {
-		ver        *dep.IptablesVersion
-		expected   string
-		checkRules [][]string
+		ver         *dep.IptablesVersion
+		expected    string
+		checkRules  [][]string
+		versionName string
 	}{
-		{iptVer, ruleBuilder.BuildV4Restore(), ruleBuilder.BuildCheckV4()},
-		{ipt6Ver, ruleBuilder.BuildV6Restore(), ruleBuilder.BuildCheckV6()},
+		{iptVer, ruleBuilder.BuildV4Restore(), ruleBuilder.BuildCheckV4(), "IPv4"},
+		{ipt6Ver, ruleBuilder.BuildV6Restore(), ruleBuilder.BuildCheckV6(), "IPv6"},
 	} {
 		if ipCfg.ver == nil {
+			results = append(results, ipFamilyResult{})
 			continue
 		}
+		curResidueExists := false
+		curDeltaExists := false
 		output, err := ext.Run(log, true, constants.IPTablesSave, ipCfg.ver, nil)
-		if err == nil {
+		expectedState := ruleBuilder.GetStateFromSave(ipCfg.expected)
+		emptyExpectedState := isEmptyState(expectedState)
+
+		if err != nil {
+			log.Warnf("[%s] iptables-save failed. Assuming clean state.", ipCfg.versionName, err)
+			curResidueExists = false
+			if !emptyExpectedState {
+				curDeltaExists = true
+			}
+		} else {
 			currentState := ruleBuilder.GetStateFromSave(output.String())
-			log.Debugf("Current iptables state: %#v", currentState)
-			for _, value := range currentState {
-				if residueExists {
-					break
-				}
-				residueExists = len(value) != 0
-			}
-			if !residueExists {
-				continue
-			}
-			expectedState := ruleBuilder.GetStateFromSave(ipCfg.expected)
-			log.Debugf("Expected iptables state: %#v", expectedState)
-			for table, chains := range expectedState {
-				_, ok := currentState[table]
-				if !ok {
-					deltaExists = true
-					log.Debugf("Can't find expected table %s in current state", table)
-					break check_loop
-				}
-				for chain, rules := range chains {
-					currentRules, ok := currentState[table][chain]
-					if !ok || (strings.HasPrefix(chain, "ISTIO_") && len(rules) != len(currentRules)) {
-						deltaExists = true
-						log.Debugf("Mismatching number of rules in chain %s (table: %s) between current and expected state", chain, table)
-						break check_loop
+			log.Debugf("[%s] Current iptables state: %#v", ipCfg.versionName, currentState)
+			log.Debugf("[%s] Expected iptables state: %#v", ipCfg.versionName, expectedState)
+
+			curResidueExists = !isEmptyState(currentState)
+			if !curResidueExists && !emptyExpectedState {
+				curDeltaExists = true
+			} else if curResidueExists {
+				deltaFound := false
+				for table, chains := range expectedState {
+					_, ok := currentState[table]
+					if !ok {
+						deltaFound = true
+						log.Debugf("[%s] Can't find expected table %s in current state", ipCfg.versionName, table)
+						break
 					}
-				}
-			}
-			for table, chains := range currentState {
-				for chain := range chains {
-					if strings.HasPrefix(chain, "ISTIO_") {
-						_, ok := expectedState[table][chain]
-						if !ok {
-							deltaExists = true
-							log.Debugf("Found chain %s (table: %s) in current state which is missing in expected state", chain, table)
-							break check_loop
+					for chain, rules := range chains {
+						currentRules, ok := currentState[table][chain]
+						if !ok || (strings.HasPrefix(chain, "ISTIO_") && len(rules) != len(currentRules)) {
+							deltaFound = true
+							log.Debugf("[%s] Mismatching number of rules in chain %s (table: %s) between current and expected state", ipCfg.versionName, chain, table)
+							break
 						}
 					}
 				}
-			}
-			for _, cmd := range ipCfg.checkRules {
-				if _, err := ext.Run(log, true, constants.IPTables, ipCfg.ver, nil, cmd...); err != nil {
-					deltaExists = true
-					log.Debugf("iptables check rules failed")
-					break
+				if !deltaFound {
+					for table, chains := range currentState {
+						for chain := range chains {
+							if strings.HasPrefix(chain, "ISTIO_") {
+								_, ok := expectedState[table][chain]
+								if !ok {
+									deltaFound = true
+									log.Debugf("[%s] Found chain %s (table: %s) in current state which is missing in expected state", ipCfg.versionName, chain, table)
+									break
+								}
+							}
+						}
+					}
 				}
+				if !deltaFound {
+					for _, cmd := range ipCfg.checkRules {
+						if _, err := ext.Run(log, true, constants.IPTables, ipCfg.ver, nil, cmd...); err != nil {
+							deltaFound = true
+							log.Debugf("[%s] iptables check rules failed", ipCfg.versionName)
+							break
+						}
+					}
+				}
+				curDeltaExists = deltaFound
 			}
 		}
-
+		results = append(results, ipFamilyResult{curResidueExists, curDeltaExists, !emptyExpectedState, ipCfg.versionName})
+	}
+	log.Debugf("iptables state verification summary: %+v", results)
+	var globalResidueExists, globalDeltaExists bool
+	for _, res := range results {
+		globalDeltaExists = globalDeltaExists || res.deltaExists
+		if res.residueExists && res.plannedIstioRules {
+			globalResidueExists = true
+		} else if res.residueExists {
+			log.Infof("Ignoring residues because no rules are planned for %s", res.versionName)
+		}
 	}
 
-	if !residueExists {
+	if !globalResidueExists {
 		log.Info("Clean-state detected, new iptables are needed")
 		return false, true
 	}
 
-	if deltaExists {
+	if globalDeltaExists {
 		log.Info("Found residues of old iptables rules/chains, reconciliation is recommended")
 	} else {
 		log.Info("Found compatible residues of old iptables rules/chains, reconciliation not needed")
 	}
 
-	return residueExists, deltaExists
+	return globalResidueExists, globalDeltaExists
 }
 
 // HasIstioLeftovers checks the given iptables state for any chains or rules related to Istio.

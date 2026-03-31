@@ -1,0 +1,6 @@
+spec:
+  values:
+    autoscaleEnabled: false
+    replicaCount: 2
+    pdb:
+      minAvailable: 1

@@ -52,11 +52,12 @@ func createArgs(args Args, target string, variant string, architecture string) m
 		// Base distribution picks which variant to build
 		"BASE_DISTRIBUTION": baseDist,
 		// Additional metadata injected into some images
-		"proxy_version":    args.ProxyVersion,
-		"ztunnel_version":  args.ZtunnelVersion,
-		"istio_version":    args.IstioVersion,
-		"VM_IMAGE_NAME":    vmImageName(target),
-		"VM_IMAGE_VERSION": vmImageVersion(target),
+		"proxy_version":      args.ProxyVersion,
+		"AGENTGATEWAY_IMAGE": args.AgentgatewayImage,
+		"ztunnel_version":    args.ZtunnelVersion,
+		"istio_version":      args.IstioVersion,
+		"VM_IMAGE_NAME":      vmImageName(target),
+		"VM_IMAGE_VERSION":   vmImageVersion(target),
 	}
 	// Only needed for crane - buildx does it automagically
 	if architecture != "" {

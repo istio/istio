@@ -18,7 +18,6 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	fuzz "github.com/google/gofuzz"
 
 	"istio.io/istio/pilot/pkg/features"
@@ -220,8 +219,8 @@ func TestWorkloadInstanceEqual(t *testing.T) {
 
 	for _, testCase := range cases {
 		t.Run("WorkloadInstancesEqual: "+testCase.name, func(t *testing.T) {
-			isEq := WorkloadInstancesEqual(testCase.comparer, testCase.comparee)
-			isEqReverse := WorkloadInstancesEqual(testCase.comparee, testCase.comparer)
+			isEq := testCase.comparer.Equals(testCase.comparee)
+			isEqReverse := testCase.comparee.Equals(testCase.comparer)
 
 			if isEq != isEqReverse {
 				t.Errorf(
@@ -249,24 +248,6 @@ func TestServicesEqual(t *testing.T) {
 		shouldEq bool
 		name     string
 	}{
-		{
-			first:    nil,
-			other:    &Service{},
-			shouldEq: false,
-			name:     "first nil services",
-		},
-		{
-			first:    &Service{},
-			other:    nil,
-			shouldEq: false,
-			name:     "other nil services",
-		},
-		{
-			first:    nil,
-			other:    nil,
-			shouldEq: true,
-			name:     "both nil services",
-		},
 		{
 			first:    &Service{},
 			other:    &Service{},
@@ -565,7 +546,7 @@ func TestFuzzServiceDeepCopy(t *testing.T) {
 	originalSvc := &Service{}
 	fuzzer.Fuzz(originalSvc)
 	copied := originalSvc.DeepCopy()
-	opts := []cmp.Option{cmp.AllowUnexported(), cmpopts.IgnoreFields(AddressMap{}, "mutex")}
+	opts := []cmp.Option{cmp.AllowUnexported()}
 	if !cmp.Equal(originalSvc, copied, opts...) {
 		diff := cmp.Diff(originalSvc, copied, opts...)
 		t.Errorf("unexpected diff %v", diff)
@@ -878,10 +859,13 @@ func TestWaypointKeyForProxy(t *testing.T) {
 						Service: &Service{
 							Hostname: host.Name("service1.default.svc.cluster.local"),
 							Attributes: ServiceAttributes{
-								ClusterExternalAddresses: &AddressMap{
+								ClusterExternalAddresses: AddressMap{
 									Addresses: map[cluster.ID][]string{
 										"cluster1": {"192.168.0.1"},
 									},
+								},
+								Labels: map[string]string{
+									"istio.io/global": "true",
 								},
 							},
 						},
@@ -890,10 +874,11 @@ func TestWaypointKeyForProxy(t *testing.T) {
 			},
 			externalAddresses: true,
 			expectedKey: WaypointKey{
-				Namespace: "default",
-				Network:   "network1",
-				Hostnames: []string{"service1.default.svc.cluster.local"},
-				Addresses: []string{"192.168.0.1"},
+				Namespace:        "default",
+				Network:          "network1",
+				Hostnames:        []string{"service1.default.svc.cluster.local"},
+				Addresses:        []string{"192.168.0.1"},
+				IsNetworkGateway: true,
 			},
 		},
 		{
@@ -997,5 +982,76 @@ func BenchmarkEndpointDeepCopy(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = ep.DeepCopy()
+	}
+}
+
+func TestGetTrafficDistribution(t *testing.T) {
+	preferClose := "PreferClose"
+
+	tests := []struct {
+		name          string
+		specValue     *string
+		svcAnnotation map[string]string
+		nsAnnotation  map[string]string
+		want          TrafficDistribution
+	}{
+		{
+			name:          "spec value takes precedence",
+			specValue:     &preferClose,
+			svcAnnotation: map[string]string{"networking.istio.io/traffic-distribution": "PreferSameNode"},
+			nsAnnotation:  map[string]string{"networking.istio.io/traffic-distribution": "Any"},
+			want:          TrafficDistributionPreferSameZone,
+		},
+		{
+			name:          "service annotation takes precedence over namespace",
+			specValue:     nil,
+			svcAnnotation: map[string]string{"networking.istio.io/traffic-distribution": "PreferSameNode"},
+			nsAnnotation:  map[string]string{"networking.istio.io/traffic-distribution": "PreferClose"},
+			want:          TrafficDistributionPreferSameNode,
+		},
+		{
+			name:          "namespace annotation used when service has none",
+			specValue:     nil,
+			svcAnnotation: map[string]string{},
+			nsAnnotation:  map[string]string{"networking.istio.io/traffic-distribution": "PreferClose"},
+			want:          TrafficDistributionPreferSameZone,
+		},
+		{
+			name:          "namespace annotation with PreferSameNode",
+			specValue:     nil,
+			svcAnnotation: map[string]string{},
+			nsAnnotation:  map[string]string{"networking.istio.io/traffic-distribution": "PreferSameNode"},
+			want:          TrafficDistributionPreferSameNode,
+		},
+		{
+			name:          "defaults to Any when nothing set",
+			specValue:     nil,
+			svcAnnotation: map[string]string{},
+			nsAnnotation:  map[string]string{},
+			want:          TrafficDistributionAny,
+		},
+		{
+			name:          "defaults to Any when nil namespace annotations",
+			specValue:     nil,
+			svcAnnotation: map[string]string{},
+			nsAnnotation:  nil,
+			want:          TrafficDistributionAny,
+		},
+		{
+			name:          "case insensitive namespace annotation",
+			specValue:     nil,
+			svcAnnotation: map[string]string{},
+			nsAnnotation:  map[string]string{"networking.istio.io/traffic-distribution": "preferclose"},
+			want:          TrafficDistributionPreferSameZone,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := GetTrafficDistribution(tt.specValue, tt.svcAnnotation, tt.nsAnnotation)
+			if got != tt.want {
+				t.Errorf("GetTrafficDistribution() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }

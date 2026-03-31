@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 58139
+releaseNotes:
+- |
+  **Fixed** an issue where EDS generation code does not consider service scope and, as a result, includes in waypoint configuration remote cluster endpoints that should not be accesible.

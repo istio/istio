@@ -1,3 +1,4 @@
+{{- if or (eq .Values.global.resourceScope "all") (eq .Values.global.resourceScope "namespace") }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -18,3 +19,4 @@ data:
 {{- $_ := unset $.Values "_original" }}
   merged-values: |-
 {{ .Values | toPrettyJson | indent 4 }}
+{{- end }}

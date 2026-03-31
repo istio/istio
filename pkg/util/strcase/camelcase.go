@@ -68,6 +68,16 @@ func CamelCaseToKebabCase(s string) string {
 		return "http-route"
 	case "HTTPAPISpecBinding":
 		return "http-api-spec-binding"
+	case "GRPCRoute":
+		return "grpc-route"
+	case "TCPRoute":
+		return "tcp-route"
+	case "TLSRoute":
+		return "tls-route"
+	case "UDPRoute":
+		return "udp-route"
+	case "BackendTLSPolicy":
+		return "backend-tls-policy"
 	default:
 		var out bytes.Buffer
 		for i := range s {

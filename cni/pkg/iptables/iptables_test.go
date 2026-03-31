@@ -22,8 +22,10 @@ import (
 	"strings"
 	"testing"
 
+	"istio.io/istio/cni/pkg/config"
 	"istio.io/istio/cni/pkg/scopes"
 	testutil "istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/test/util/assert"
 	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
 )
 
@@ -47,6 +49,23 @@ func TestIptablesPodOverrides(t *testing.T) {
 			})
 		}
 	}
+}
+
+func TestIPv6NotAvailable(t *testing.T) {
+	setup(t)
+	cfg := constructTestConfig()
+	ext := &dep.DependenciesStub{
+		ForceIPv6DetectionFail: true,
+	}
+
+	// Istio shouldn't fail if we're working with IPv4 interfaces only, and ip6tables is unavailable.
+	cfg.EnableIPv6 = false
+	_, _, err := NewIptablesConfigurator(cfg, cfg, ext, ext, EmptyNlDeps())
+	assert.NoError(t, err)
+
+	cfg.EnableIPv6 = true
+	_, _, err = NewIptablesConfigurator(cfg, cfg, ext, ext, EmptyNlDeps())
+	assert.Error(t, err)
 }
 
 func TestIptablesHostRules(t *testing.T) {
@@ -116,10 +135,10 @@ func compareToGolden(t *testing.T, ipv6 bool, name string, actual []string) {
 	testutil.CompareContent(t, gotBytes, goldenFile)
 }
 
-func constructTestConfig() *IptablesConfig {
+func constructTestConfig() *config.AmbientConfig {
 	probeSNATipv4 := netip.MustParseAddr("169.254.7.127")
 	probeSNATipv6 := netip.MustParseAddr("e9ac:1e77:90ca:399f:4d6d:ece2:2f9b:3164")
-	return &IptablesConfig{
+	return &config.AmbientConfig{
 		HostProbeSNATAddress:   probeSNATipv4,
 		HostProbeV6SNATAddress: probeSNATipv6,
 	}

@@ -1,4 +1,4 @@
-# Ztunnel Lifecyle On Kubernetes
+# Ztunnel Lifecycle On Kubernetes
 
 This document describes the lifecycle of various aspects of Ztunnel, and its relationship to workloads and the CNI, when running
 as a Kubernetes DaemonSet.

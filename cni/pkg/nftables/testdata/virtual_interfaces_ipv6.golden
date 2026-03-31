@@ -1,0 +1,33 @@
+add table inet istio-ambient-nat
+flush table inet istio-ambient-nat
+add chain inet istio-ambient-nat prerouting { type nat hook prerouting priority -100 ; }
+add chain inet istio-ambient-nat output { type nat hook output priority -100 ; }
+add chain inet istio-ambient-nat istio-prerouting
+add chain inet istio-ambient-nat istio-output
+add rule inet istio-ambient-nat output jump istio-output
+add rule inet istio-ambient-nat prerouting jump istio-prerouting
+add rule inet istio-ambient-nat istio-prerouting iifname fake1s0f0 meta l4proto tcp counter redirect to :15001
+add rule inet istio-ambient-nat istio-prerouting iifname fake1s0f0 meta l4proto tcp counter return
+add rule inet istio-ambient-nat istio-prerouting iifname fake1s0f1 meta l4proto tcp counter redirect to :15001
+add rule inet istio-ambient-nat istio-prerouting iifname fake1s0f1 meta l4proto tcp counter return
+add rule inet istio-ambient-nat istio-prerouting meta l4proto tcp ip saddr 169.254.7.127 counter accept
+add rule inet istio-ambient-nat istio-prerouting meta l4proto tcp ip6 saddr e9ac:1e77:90ca:399f:4d6d:ece2:2f9b:3164 counter accept
+add rule inet istio-ambient-nat istio-output meta l4proto tcp ip daddr 169.254.7.127 counter accept
+add rule inet istio-ambient-nat istio-output meta l4proto tcp ip6 daddr e9ac:1e77:90ca:399f:4d6d:ece2:2f9b:3164 counter accept
+add rule inet istio-ambient-nat istio-prerouting ip daddr != 127.0.0.1/32 tcp dport != 15008 mark and 0xfff  != 0x539 counter redirect to :15006
+add rule inet istio-ambient-nat istio-prerouting ip6 daddr != ::1/128 tcp dport != 15008 mark and 0xfff != 0x539 counter redirect to :15006
+add rule inet istio-ambient-nat istio-output meta l4proto tcp mark and 0xfff == 0x111 counter accept
+add rule inet istio-ambient-nat istio-output oifname lo ip daddr != 127.0.0.1/32 counter accept
+add rule inet istio-ambient-nat istio-output oifname lo ip6 daddr != ::1/128 counter accept
+add rule inet istio-ambient-nat istio-output meta l4proto tcp ip daddr != 127.0.0.1/32 mark and 0xfff != 0x539 counter redirect to :15001
+add rule inet istio-ambient-nat istio-output meta l4proto tcp ip6 daddr != ::1/128 mark and 0xfff != 0x539 counter redirect to :15001
+add table inet istio-ambient-mangle
+flush table inet istio-ambient-mangle
+add chain inet istio-ambient-mangle prerouting { type filter hook prerouting priority -150 ; }
+add chain inet istio-ambient-mangle output { type route hook output priority -150 ; }
+add chain inet istio-ambient-mangle istio-prerouting
+add chain inet istio-ambient-mangle istio-output
+add rule inet istio-ambient-mangle prerouting jump istio-prerouting
+add rule inet istio-ambient-mangle output jump istio-output
+add rule inet istio-ambient-mangle istio-prerouting meta mark & 0xfff == 0x539 counter ct mark set ct mark & 0xfffff000 |  0x111
+add rule inet istio-ambient-mangle istio-output ct mark and 0xfff == 0x111 counter meta mark set ct mark

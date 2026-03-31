@@ -701,6 +701,45 @@ func TestValidateTlsOptions(t *testing.T) {
 			"server certificate", "",
 		},
 		{
+			"credential names and certificates",
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_MUTUAL,
+				ServerCertificate: "/etc/istio/certs/server/cert",
+				PrivateKey:        "/etc/istio/certs/server/key",
+				CredentialNames:   []string{"server-certs"},
+			},
+			"one of credential_name, credential_names", "",
+		},
+		{
+			"credential names and tls certificates",
+			&networking.ServerTLSSettings{
+				Mode: networking.ServerTLSSettings_MUTUAL,
+				TlsCertificates: []*networking.ServerTLSSettings_TLSCertificate{
+					{
+						ServerCertificate: "/etc/istio/certs/server/cert",
+						PrivateKey:        "/etc/istio/certs/server/key",
+						CaCertificates:    "/etc/istio/certs/server/cacert2",
+					},
+				},
+				CredentialNames: []string{"server-certs"},
+			},
+			"one of credential_name, credential_names", "",
+		},
+		{
+			"only tls certificates",
+			&networking.ServerTLSSettings{
+				Mode: networking.ServerTLSSettings_MUTUAL,
+				TlsCertificates: []*networking.ServerTLSSettings_TLSCertificate{
+					{
+						ServerCertificate: "/etc/istio/certs/server/cert",
+						PrivateKey:        "/etc/istio/certs/server/key",
+					},
+				},
+				CaCertificates: "/etc/istio/certs/server/cacert2",
+			},
+			"", "",
+		},
+		{
 			"mutual sds no server cert",
 			&networking.ServerTLSSettings{
 				Mode:              networking.ServerTLSSettings_MUTUAL,
@@ -1001,6 +1040,34 @@ func TestValidateTlsOptions(t *testing.T) {
 			},
 			"", "",
 		},
+		{
+			"mutual no server cert",
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_MUTUAL,
+				ServerCertificate: "",
+				PrivateKey:        "Khan Noonien Singh",
+				CaCertificates:    "Commander William T. Riker",
+			},
+			"MUTUAL TLS requires a server certificate", "",
+		},
+		{
+			"mutual no private key",
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_MUTUAL,
+				ServerCertificate: "Khan Noonien Singh",
+				PrivateKey:        "",
+				CaCertificates:    "Commander William T. Riker",
+			},
+			"MUTUAL TLS requires a private key", "",
+		},
+		{
+			"with CredentialNames",
+			&networking.ServerTLSSettings{
+				Mode:            networking.ServerTLSSettings_MUTUAL,
+				CredentialNames: []string{"credential1", "credential2"},
+			},
+			"", "",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1020,6 +1087,7 @@ func TestStrictValidateHTTPHeaderName(t *testing.T) {
 		{name: "X-Requested-With", valid: true},
 		{name: ":authority", valid: false},
 		{name: "", valid: false},
+		{name: "foo_bar", valid: true},
 	}
 
 	for _, tc := range testCases {
@@ -3458,6 +3526,69 @@ func TestValidateLoadBalancer(t *testing.T) {
 			},
 			valid: false,
 		},
+
+		{
+			name: "valid load balancer with consistentHash load balancing and unique cookie attributes", in: &networking.LoadBalancerSettings{
+				LbPolicy: &networking.LoadBalancerSettings_ConsistentHash{
+					ConsistentHash: &networking.LoadBalancerSettings_ConsistentHashLB{
+						HashKey: &networking.LoadBalancerSettings_ConsistentHashLB_HttpCookie{
+							HttpCookie: &networking.LoadBalancerSettings_ConsistentHashLB_HTTPCookie{
+								Name: "test-cookie",
+								Ttl:  &duration,
+								Attributes: []*networking.LoadBalancerSettings_ConsistentHashLB_HTTPCookie_Attribute{
+									{Name: "SameSite", Value: "Strict"},
+									{Name: "Secure", Value: "true"},
+									{Name: "HttpOnly", Value: "true"},
+								},
+							},
+						},
+					},
+				},
+			},
+			valid: true,
+		},
+
+		{
+			name: "invalid load balancer with consistentHash load balancing and duplicate cookie attribute names", in: &networking.LoadBalancerSettings{
+				LbPolicy: &networking.LoadBalancerSettings_ConsistentHash{
+					ConsistentHash: &networking.LoadBalancerSettings_ConsistentHashLB{
+						HashKey: &networking.LoadBalancerSettings_ConsistentHashLB_HttpCookie{
+							HttpCookie: &networking.LoadBalancerSettings_ConsistentHashLB_HTTPCookie{
+								Name: "test-cookie",
+								Ttl:  &duration,
+								Attributes: []*networking.LoadBalancerSettings_ConsistentHashLB_HTTPCookie_Attribute{
+									{Name: "SameSite", Value: "Strict"},
+									{Name: "SameSite", Value: "Lax"}, // Duplicate name
+									{Name: "Secure", Value: "true"},
+								},
+							},
+						},
+					},
+				},
+			},
+			valid: false,
+		},
+
+		{
+			name: "invalid load balancer with consistentHash load balancing and empty cookie attribute name", in: &networking.LoadBalancerSettings{
+				LbPolicy: &networking.LoadBalancerSettings_ConsistentHash{
+					ConsistentHash: &networking.LoadBalancerSettings_ConsistentHashLB{
+						HashKey: &networking.LoadBalancerSettings_ConsistentHashLB_HttpCookie{
+							HttpCookie: &networking.LoadBalancerSettings_ConsistentHashLB_HTTPCookie{
+								Name: "test-cookie",
+								Ttl:  &duration,
+								Attributes: []*networking.LoadBalancerSettings_ConsistentHashLB_HTTPCookie_Attribute{
+									{Name: "SameSite", Value: "Strict"},
+									{Name: "", Value: "some-value"}, // Empty name
+									{Name: "Secure", Value: "true"},
+								},
+							},
+						},
+					},
+				},
+			},
+			valid: false,
+		},
 	}
 
 	for _, c := range cases {
@@ -3547,6 +3678,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		in      *networking.ServiceEntry
 		valid   bool
 		warning bool
+		labels  map[string]string
 	}{
 		{
 			name: "discovery type DNS", in: &networking.ServiceEntry{
@@ -3607,7 +3739,6 @@ func TestValidateServiceEntries(t *testing.T) {
 			valid:   true,
 			warning: false,
 		},
-
 		{
 			name: "discovery type DNS, multi hosts set with IP address and https port",
 			in: &networking.ServiceEntry{
@@ -3623,7 +3754,6 @@ func TestValidateServiceEntries(t *testing.T) {
 			valid:   true,
 			warning: true,
 		},
-
 		{
 			name: "discovery type DNS, IP address set",
 			in: &networking.ServiceEntry{
@@ -3642,7 +3772,6 @@ func TestValidateServiceEntries(t *testing.T) {
 			valid:   true,
 			warning: false,
 		},
-
 		{
 			name: "discovery type DNS, IP in endpoints", in: &networking.ServiceEntry{
 				Hosts: []string{"*.google.com"},
@@ -3658,7 +3787,17 @@ func TestValidateServiceEntries(t *testing.T) {
 			},
 			valid: true,
 		},
-
+		{
+			name: "discovery type DYNAMIC_DNS", in: &networking.ServiceEntry{
+				Hosts: []string{"*.google.com"},
+				Ports: []*networking.ServicePort{
+					{Number: 80, Protocol: "http", Name: "http-valid1"},
+					{Number: 8080, Protocol: "http", Name: "http-valid2"},
+				},
+				Resolution: networking.ServiceEntry_DYNAMIC_DNS,
+			},
+			valid: true,
+		},
 		{
 			name: "empty hosts", in: &networking.ServiceEntry{
 				Ports: []*networking.ServicePort{
@@ -4237,15 +4376,166 @@ func TestValidateServiceEntries(t *testing.T) {
 			valid:   true,
 			warning: true,
 		},
+		{
+			name: "discovery type DYNAMIC_DNS, unsupported TCP protocol", in: &networking.ServiceEntry{
+				Hosts:     []string{"*.google.com"},
+				Addresses: []string{},
+				Ports: []*networking.ServicePort{
+					{Number: 80, Protocol: "http", Name: "http-valid1"},
+					{Number: 81, Protocol: "TCP", Name: "tcp-valid1"},
+				},
+				Resolution: networking.ServiceEntry_DYNAMIC_DNS,
+			},
+			valid: false,
+		},
+		{
+			name: "discovery type DYNAMIC_DNS, GRPC protocol", in: &networking.ServiceEntry{
+				Hosts:     []string{"*.svc.cluster.local"},
+				Addresses: []string{},
+				Ports: []*networking.ServicePort{
+					{Number: 9090, Protocol: "GRPC", Name: "grpc"},
+				},
+				Resolution: networking.ServiceEntry_DYNAMIC_DNS,
+			},
+			valid: true,
+		},
+		{
+			name: "discovery type DYNAMIC_DNS, FQDN host", in: &networking.ServiceEntry{
+				Hosts:     []string{"google.com"},
+				Addresses: []string{},
+				Ports: []*networking.ServicePort{
+					{Number: 80, Protocol: "http", Name: "http-valid"},
+				},
+				Resolution: networking.ServiceEntry_DYNAMIC_DNS,
+			},
+			valid: false,
+		},
+		{
+			name: "discovery type DYNAMIC_DNS, endpoints set", in: &networking.ServiceEntry{
+				Hosts:     []string{"*.google.com"},
+				Addresses: []string{},
+				Ports: []*networking.ServicePort{
+					{Number: 80, Protocol: "http", Name: "http-valid1"},
+				},
+				Endpoints: []*networking.WorkloadEntry{
+					{Address: "in.google.com", Ports: map[string]uint32{"http-valid1": 9080}},
+				},
+				Resolution: networking.ServiceEntry_DYNAMIC_DNS,
+			},
+			valid: false,
+		},
+		{
+			name: "discovery type DYNAMIC_DNS, IP address set",
+			in: &networking.ServiceEntry{
+				Hosts:     []string{"*.google.com"},
+				Addresses: []string{"10.10.10.10"},
+				Ports: []*networking.ServicePort{
+					{Number: 80, Protocol: "http", Name: "http-valid1"},
+					{Number: 8080, Protocol: "http", Name: "http-valid2"},
+				},
+				Resolution: networking.ServiceEntry_DYNAMIC_DNS,
+			},
+			valid: false,
+		},
+		{
+			name: "discovery type DYNAMIC_DNS, empty hosts",
+			in: &networking.ServiceEntry{
+				Hosts:     []string{},
+				Addresses: []string{},
+				Ports: []*networking.ServicePort{
+					{Number: 80, Protocol: "http", Name: "http-valid1"},
+				},
+				Resolution: networking.ServiceEntry_DYNAMIC_DNS,
+			},
+			valid: false,
+		},
+		{
+			name: "discovery type DYNAMIC_DNS, multiple wildcarded hosts",
+			in: &networking.ServiceEntry{
+				Hosts:     []string{"*.google.com", "*.amazon.com"},
+				Addresses: []string{},
+				Ports: []*networking.ServicePort{
+					{Number: 80, Protocol: "http", Name: "http-valid1"},
+				},
+				Resolution: networking.ServiceEntry_DYNAMIC_DNS,
+			},
+			valid: true,
+		},
+		{
+			name: "discovery type DYNAMIC_DNS, internal mesh location",
+			in: &networking.ServiceEntry{
+				Hosts:     []string{"*.google.com"},
+				Addresses: []string{},
+				Ports: []*networking.ServicePort{
+					{Number: 80, Protocol: "http", Name: "http-valid1"},
+				},
+				Resolution: networking.ServiceEntry_DYNAMIC_DNS,
+				Location:   networking.ServiceEntry_MESH_INTERNAL,
+			},
+			valid: true,
+		},
+		{
+			name: "discovery type DYNAMIC_DNS, MESH_INTERNAL with waypoint (invalid)",
+			in: &networking.ServiceEntry{
+				Hosts:     []string{"*.google.com"},
+				Addresses: []string{},
+				Ports: []*networking.ServicePort{
+					{Number: 80, Protocol: "http", Name: "http-valid1"},
+				},
+				Resolution: networking.ServiceEntry_DYNAMIC_DNS,
+				Location:   networking.ServiceEntry_MESH_INTERNAL,
+			},
+			valid:  false,
+			labels: map[string]string{"istio.io/use-waypoint": "my-waypoint"},
+		},
+		{
+			name: "discovery type DYNAMIC_DNS, nil port",
+			in: &networking.ServiceEntry{
+				Hosts:    []string{"*.google.com"},
+				Location: networking.ServiceEntry_MESH_EXTERNAL,
+				Ports: []*networking.ServicePort{
+					nil,
+				},
+				Resolution: networking.ServiceEntry_DYNAMIC_DNS,
+			},
+			valid: false,
+		},
+		{
+			name: "nil port in ports array",
+			in: &networking.ServiceEntry{
+				Hosts: []string{"google.com"},
+				Ports: []*networking.ServicePort{
+					nil,
+				},
+				Resolution: networking.ServiceEntry_NONE,
+			},
+			valid: false,
+		},
+		{
+			name: "discovery type DNS with addresses, nil port",
+			in: &networking.ServiceEntry{
+				Hosts:     []string{"google.com"},
+				Addresses: []string{"1.2.3.4"},
+				Ports: []*networking.ServicePort{
+					nil,
+				},
+				Resolution: networking.ServiceEntry_DNS,
+			},
+			valid: false,
+		},
 	}
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
+			meta := config.Meta{
+				Name:      someName,
+				Namespace: someNamespace,
+			}
+			if c.labels != nil {
+				meta.Labels = c.labels
+			}
 			warning, err := ValidateServiceEntry(config.Config{
-				Meta: config.Meta{
-					Name:      someName,
-					Namespace: someNamespace,
-				},
+				Meta: meta,
 				Spec: c.in,
 			})
 			if (err == nil) != c.valid {
@@ -6650,7 +6940,7 @@ func TestValidateRequestAuthentication(t *testing.T) {
 			valid: false,
 		},
 		{
-			name:       "empty issuer",
+			name:       "empty issuer and jwksUri",
 			configName: "foo",
 			in: &security_beta.RequestAuthentication{
 				JwtRules: []*security_beta.JWTRule{
@@ -6660,6 +6950,19 @@ func TestValidateRequestAuthentication(t *testing.T) {
 				},
 			},
 			valid: false,
+		},
+		{
+			name:       "empty issuer and set jwksUri",
+			configName: "foo",
+			in: &security_beta.RequestAuthentication{
+				JwtRules: []*security_beta.JWTRule{
+					{
+						Issuer:  "",
+						JwksUri: "https://foo.com/cert",
+					},
+				},
+			},
+			valid: true,
 		},
 		{
 			name:       "bad JwksUri - no protocol",

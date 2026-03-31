@@ -42,7 +42,7 @@ type clusterCache struct {
 	locality                *core.Locality // identifies the locality the cluster is generated for
 	preserveHTTP1HeaderCase bool           // indicates whether the original case of HTTP/1.x headers should be preserved
 	proxyClusterID          string         // identifies the kubernetes cluster a proxy is in
-	proxySidecar            bool           // identifies if this proxy is a Sidecar
+	proxyType               model.NodeType // identifies this proxy type
 	hbone                   bool
 	proxyView               model.ProxyView
 	metadataCerts           *metadataCerts // metadata certificates of proxy
@@ -77,7 +77,7 @@ func (t *clusterCache) Key() any {
 	h.Write(Separator)
 	h.WriteString(t.proxyClusterID)
 	h.Write(Separator)
-	h.WriteString(strconv.FormatBool(t.proxySidecar))
+	h.WriteString(string(t.proxyType))
 	h.Write(Separator)
 	h.WriteString(strconv.FormatBool(t.http2))
 	h.Write(Separator)
@@ -181,7 +181,6 @@ func (c cacheStats) merge(other cacheStats) cacheStats {
 func buildClusterKey(service *model.Service, port *model.Port, cb *ClusterBuilder, proxy *model.Proxy, efKeys []string) clusterCache {
 	clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
 	dr := proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, service.Hostname)
-	preserveHeaderCase := cb.proxyMetadata.ProxyConfigOrDefault(cb.req.Push.Mesh.GetDefaultConfig()).GetProxyHeaders().GetPreserveHttp1HeaderCase().GetValue()
 	var eb *endpoints.EndpointBuilder
 	if service.Resolution == model.DNSLB || service.Resolution == model.DNSRoundRobinLB {
 		eb = endpoints.NewCDSEndpointBuilder(
@@ -196,9 +195,9 @@ func buildClusterKey(service *model.Service, port *model.Port, cb *ClusterBuilde
 		clusterName:             clusterName,
 		proxyVersion:            cb.proxyVersion.String(),
 		locality:                cb.locality,
-		preserveHTTP1HeaderCase: preserveHeaderCase,
+		preserveHTTP1HeaderCase: shouldPreserveHeaderCase(cb.proxyMetadata, cb.req.Push),
 		proxyClusterID:          cb.clusterID,
-		proxySidecar:            cb.sidecarProxy(),
+		proxyType:               cb.proxyType,
 		proxyView:               cb.proxyView,
 		hbone:                   cb.sendHbone,
 		http2:                   port.Protocol.IsHTTP2(),
@@ -208,7 +207,7 @@ func buildClusterKey(service *model.Service, port *model.Port, cb *ClusterBuilde
 		destinationRule:         dr,
 		envoyFilterKeys:         efKeys,
 		metadataCerts:           cb.metadataCerts,
-		peerAuthVersion:         cb.req.Push.AuthnPolicies.GetVersion(),
+		peerAuthVersion:         cb.sidecarScope.AuthnPolicies.GetVersion(),
 		serviceAccounts:         cb.req.Push.ServiceAccounts(service.Hostname, service.Attributes.Namespace),
 		endpointBuilder:         eb,
 	}

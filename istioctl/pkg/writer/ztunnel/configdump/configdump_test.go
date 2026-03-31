@@ -66,11 +66,14 @@ func TestConfigWriter_Prime(t *testing.T) {
 
 func TestConfigWriter_PrintSummary(t *testing.T) {
 	tests := []struct {
-		name               string
-		wantOutputSecret   string
-		wantOutputWorkload string
-		wantOutputPolicies string
-		configNamespace    string
+		name                     string
+		wantOutputSecret         string
+		wantOutputWorkload       string
+		wantOutputPolicies       string
+		wantOutputAll            string
+		wantOutputConn           string
+		configNamespace          string
+		wantOutputAllwithHeaders string
 	}{
 		{
 			name:             "secret",
@@ -88,6 +91,18 @@ func TestConfigWriter_PrintSummary(t *testing.T) {
 		{
 			name:               "policies",
 			wantOutputPolicies: "testdata/policies.txt",
+		},
+		{
+			name:           "connections",
+			wantOutputConn: "testdata/connectionsummary.txt",
+		},
+		{
+			name:          "all",
+			wantOutputAll: "testdata/allsummary.txt",
+		},
+		{
+			name:                     "all with headers",
+			wantOutputAllwithHeaders: "testdata/allsummary_withheaders.txt",
 		},
 	}
 	for _, tt := range tests {
@@ -108,6 +123,18 @@ func TestConfigWriter_PrintSummary(t *testing.T) {
 			if tt.wantOutputPolicies != "" {
 				assert.NoError(t, cw.PrintPolicySummary(PolicyFilter{}))
 				util.CompareContent(t, gotOut.Bytes(), tt.wantOutputPolicies)
+			}
+			if tt.wantOutputAll != "" {
+				assert.NoError(t, cw.PrintFullSummary(false))
+				util.CompareContent(t, gotOut.Bytes(), tt.wantOutputAll)
+			}
+			if tt.wantOutputAllwithHeaders != "" {
+				assert.NoError(t, cw.PrintFullSummary(true))
+				util.CompareContent(t, gotOut.Bytes(), tt.wantOutputAllwithHeaders)
+			}
+			if tt.wantOutputConn != "" {
+				assert.NoError(t, cw.PrintConnectionsSummary(ConnectionsFilter{}))
+				util.CompareContent(t, gotOut.Bytes(), tt.wantOutputConn)
 			}
 		})
 	}

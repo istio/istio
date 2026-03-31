@@ -251,7 +251,7 @@ func secretMetaFromCert(rawCert []byte, trustDomain string) (SecretMeta, error) 
 
 	today := time.Now()
 	return SecretMeta{
-		SerialNumber: fmt.Sprintf("%x", cert.SerialNumber),
+		SerialNumber: fmt.Sprintf("%032x", cert.SerialNumber),
 		NotAfter:     cert.NotAfter.Format(time.RFC3339),
 		NotBefore:    cert.NotBefore.Format(time.RFC3339),
 		Type:         certType,

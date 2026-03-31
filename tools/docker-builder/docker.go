@@ -207,16 +207,16 @@ fi`, "{{builder-name}}", WindowsBuilderName)).Run()
 		}
 		matches := regexp.MustCompile(`Driver:\s+(.*)`).FindStringSubmatch(out.String())
 		if len(matches) == 0 || matches[1] != "docker-container" {
-			return "", fmt.Errorf("the docker buildx builder is not using the docker-container driver needed for .save.\n"+
-				"Create a new builder (ex: docker buildx create --driver-opt network=host,image=gcr.io/istio-testing/buildkit:v0.11.0"+
-				" --name %s --driver docker-container --buildkitd-flags=\"--debug\" --use)", LinuxBuilderName)
+			return "", fmt.Errorf("the docker buildx builder is not using the docker-container driver needed for .save.\n" +
+				"Create a new builder (ex: docker buildx create --driver-opt network=host,image=registry.istio.io/testing/buildkit:v0.11.0" +
+				" --name container-builder --driver docker-container --buildkitd-flags=\"--debug\" --use)")
 		}
 		return LinuxBuilderName, nil
 	}
 	return LinuxBuilderName, exec.Command("sh", "-c", strings.ReplaceAll(`
 export DOCKER_CLI_EXPERIMENTAL=enabled
-if ! docker buildx ls | grep -q {{builder-name}}; then
-  docker buildx create --driver-opt network=host,image=gcr.io/istio-testing/buildkit:v0.11.0 --name {{builder-name}} --buildkitd-flags="--debug"
+if ! docker buildx ls | grep -q container-builder; then
+  docker buildx create --driver-opt network=host,image=registry.istio.io/testing/buildkit:v0.11.0 --name container-builder --buildkitd-flags="--debug"
   # Pre-warm the builder. If it fails, fetch logs, but continue
   docker buildx inspect --bootstrap {{builder-name}} || docker logs buildx_buildkit_{{builder-name}}0 || true
 fi`, "{{builder-name}}", LinuxBuilderName)).Run()

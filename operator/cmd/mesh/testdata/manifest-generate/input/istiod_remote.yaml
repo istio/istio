@@ -1,14 +1,8 @@
 apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
-  profile: empty
-  components:
-    base:
-      enabled: true
-    pilot:
-      enabled: true
+  profile: remote
   values:
-    profile: remote
     global:
       multiCluster:
         clusterName: remote0

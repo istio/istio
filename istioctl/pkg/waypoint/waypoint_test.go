@@ -22,6 +22,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/spf13/cobra"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	gateway "sigs.k8s.io/gateway-api/apis/v1"
 
@@ -72,6 +73,7 @@ func TestWaypointList(t *testing.T) {
 				makeGateway("bookinfo-valid", "bookinfo", true, true),
 				makeGateway("no-name-convention", "default", true, true),
 				makeGatewayWithRevision("bookinfo-rev", "bookinfo", true, true, "rev1"),
+				makeGatewayWithTrafficType("bookinfo-traffic-type", "bookinfo", true, true, constants.AllTraffic),
 			},
 			expectedOutFile: "combined-gateway",
 		},
@@ -108,6 +110,89 @@ func TestWaypointList(t *testing.T) {
 			if fErr != nil {
 				t.Fatal(fErr)
 			}
+			output := out.String()
+			if output != expectedOut {
+				t.Fatalf("expected %s, got %s", expectedOut, output)
+			}
+		})
+	}
+}
+
+func TestWaypointStatus(t *testing.T) {
+	cases := []struct {
+		name            string
+		args            []string
+		gateways        []*gateway.Gateway
+		expectedOutFile string
+	}{
+		{
+			name: "waypoint ready",
+			args: strings.Split("status", " "),
+			gateways: []*gateway.Gateway{
+				makeGateway(constants.DefaultNamespaceWaypoint, "default", true, true),
+			},
+			expectedOutFile: "waypoint-status-ready",
+		},
+		{
+			name: "show waypoints status in all namespaces",
+			args: strings.Split("status --all-namespaces", " "),
+			gateways: []*gateway.Gateway{
+				makeGateway(constants.DefaultNamespaceWaypoint, "fake1", true, true),
+				makeGateway(constants.DefaultNamespaceWaypoint, "fake2", true, true),
+				makeGateway(constants.DefaultNamespaceWaypoint, "fake3", true, true),
+			},
+			expectedOutFile: "waypoint-status-all",
+		},
+		{
+			name: "waypoint not ready and without specifying --wait=false flag",
+			args: strings.Split("status --waypoint-timeout 0.5s", " "),
+			gateways: []*gateway.Gateway{
+				makeGateway(constants.DefaultNamespaceWaypoint, "default", false, true),
+			},
+			expectedOutFile: "waypoint-notready-wait",
+		},
+		{
+			name: "waypoint not ready and specifying --wait=false flag",
+			args: strings.Split("status --wait=false --waypoint-timeout 0.5s", " "),
+			gateways: []*gateway.Gateway{
+				makeGateway(constants.DefaultNamespaceWaypoint, "default", false, true),
+			},
+			expectedOutFile: "waypoint-status-notready",
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := cli.NewFakeContext(&cli.NewFakeContextOption{
+				Namespace: "default",
+			})
+			client, err := ctx.CLIClient()
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			for _, gw := range tt.gateways {
+				_, _ = client.GatewayAPI().GatewayV1().Gateways(gw.Namespace).Create(context.Background(), gw, metav1.CreateOptions{})
+			}
+			defaultFile, err := os.ReadFile(fmt.Sprintf("testdata/waypoint/%s", tt.expectedOutFile))
+			if err != nil {
+				t.Fatal(err)
+			}
+			expectedOut := string(defaultFile)
+			if len(expectedOut) == 0 {
+				t.Fatal("expected output is empty")
+			}
+
+			var out bytes.Buffer
+			rootCmd := Cmd(ctx)
+			rootCmd.SetArgs(tt.args)
+			rootCmd.SetOut(&out)
+			rootCmd.SetErr(&out)
+			// disable Usage
+			rootCmd.SetUsageFunc(func(cmd *cobra.Command) error {
+				return nil
+			})
+
+			rootCmd.Execute()
 			output := out.String()
 			if output != expectedOut {
 				t.Fatalf("expected %s, got %s", expectedOut, output)
@@ -153,5 +238,14 @@ func makeGatewayWithRevision(name, namespace string, programmed, isWaypoint bool
 		gw.Labels = make(map[string]string)
 	}
 	gw.Labels[label.IoIstioRev.Name] = rev
+	return gw
+}
+
+func makeGatewayWithTrafficType(name, namespace string, programmed, isWaypoint bool, trafficType string) *gateway.Gateway {
+	gw := makeGateway(name, namespace, programmed, isWaypoint)
+	if gw.Labels == nil {
+		gw.Labels = make(map[string]string)
+	}
+	gw.Labels[label.IoIstioWaypointFor.Name] = trafficType
 	return gw
 }

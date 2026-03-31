@@ -23,6 +23,7 @@ import (
 
 	"istio.io/api/annotation"
 	"istio.io/istio/pkg/log"
+	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/tools/istio-iptables/pkg/cmd"
 )
 
@@ -69,9 +70,9 @@ var (
 		"includeInboundPorts":        {includeInboundPortsKey, defaultIncludeInboundPorts, validatePortListWithWildcard},
 		"excludeOutboundPorts":       {excludeOutboundPortsKey, defaultRedirectExcludePort, validatePortListWithWildcard},
 		"includeOutboundPorts":       {includeOutboundPortsKey, defaultIncludeOutboundPorts, validatePortListWithWildcard},
-		"kubevirtInterfaces":         {kubevirtInterfacesKey, defaultKubevirtInterfaces, alwaysValidFunc}, // DEPRECATED
-		"reroute-virtual-interfaces": {rerouteVirtInterfacesKey, defaultKubevirtInterfaces, alwaysValidFunc},
-		"excludeInterfaces":          {excludeInterfacesKey, defaultExcludeInterfaces, alwaysValidFunc},
+		"kubevirtInterfaces":         {kubevirtInterfacesKey, defaultKubevirtInterfaces, netutil.ValidateInterfaceNames}, // DEPRECATED
+		"reroute-virtual-interfaces": {rerouteVirtInterfacesKey, defaultKubevirtInterfaces, netutil.ValidateInterfaceNames},
+		"excludeInterfaces":          {excludeInterfacesKey, defaultExcludeInterfaces, netutil.ValidateInterfaceNames},
 	}
 )
 
@@ -275,17 +276,19 @@ func NewRedirect(pi *PodInfo) (*Redirect, error) {
 		return nil, fmt.Errorf("annotation value error for value %s; annotationFound = %t: %v",
 			"excludeInterfaces", isFound, valErr)
 	}
-	// kubeVirtInterfaces is deprecated, so check it first, but prefer`reroute-virtual-interfaces`
-	// if both are defined.
-	isFound, redir.rerouteVirtualInterfaces, valErr = getAnnotationOrDefault("kubevirtInterfaces", pi.Annotations)
-	if valErr != nil {
-		return nil, fmt.Errorf("annotation value error for value %s; annotationFound = %t: %v",
-			"kubevirtInterfaces", isFound, valErr)
-	}
+	// kubeVirtInterfaces is deprecated, so prefer`reroute-virtual-interfaces` if both are defined.
 	isFound, redir.rerouteVirtualInterfaces, valErr = getAnnotationOrDefault("reroute-virtual-interfaces", pi.Annotations)
 	if valErr != nil {
 		return nil, fmt.Errorf("annotation value error for value %s; annotationFound = %t: %v",
 			"reroute-virtual-interfaces", isFound, valErr)
+	}
+	// Only check deprecated kubevirtInterfaces if reroute-virtual-interfaces was not found
+	if !isFound {
+		isFound, redir.rerouteVirtualInterfaces, valErr = getAnnotationOrDefault("kubevirtInterfaces", pi.Annotations)
+		if valErr != nil {
+			return nil, fmt.Errorf("annotation value error for value %s; annotationFound = %t: %v",
+				"kubevirtInterfaces", isFound, valErr)
+		}
 	}
 	if v, found := pi.ProxyEnvironments["ISTIO_META_DNS_CAPTURE"]; found {
 		// parse and set the bool value of dnsRedirect

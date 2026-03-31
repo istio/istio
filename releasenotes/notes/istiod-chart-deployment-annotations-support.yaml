@@ -1,0 +1,13 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+releaseNotes:
+- |
+  **Added** support for `deploymentAnnotations` in the istiod Helm chart. Users can now specify custom annotations to be applied to the istiod Deployment object, in addition to the existing `podAnnotations` support. This is useful for integration with monitoring tools, GitOps workflows, and policy enforcement systems that operate at the deployment level.
+  
+  Example usage:
+  ```yaml
+  deploymentAnnotations:
+    example.com/owner: "platform-team"
+    monitoring.cortex.io/scrape: "true"
+  ```

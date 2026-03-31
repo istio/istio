@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"sync/atomic"
 
+	"k8s.io/client-go/tools/cache"
+
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
@@ -143,8 +145,9 @@ func (d *static[T]) Set(now *T) {
 	if old == now {
 		return
 	}
+	events := toEvents(old, now)
 	for _, h := range d.eventHandlers.Get() {
-		h([]Event[T]{toEvent[T](old, now)})
+		h(events)
 	}
 }
 
@@ -179,23 +182,58 @@ func (d *static[T]) index(name string, extract func(o T) []string) indexer[T] {
 	panic("TODO")
 }
 
-func toEvent[T any](old, now *T) Event[T] {
+func toEvents[T any](old, now *T) []Event[T] {
 	if old == nil {
-		return Event[T]{
+		return []Event[T]{{
 			New:   now,
 			Event: controllers.EventAdd,
-		}
+		}}
 	} else if now == nil {
-		return Event[T]{
+		return []Event[T]{{
 			Old:   old,
 			Event: controllers.EventDelete,
+		}}
+	}
+	// Both old and new exist - check if the key changed
+	oldKey, oldOk := tryGetKey(*old)
+	newKey, newOk := tryGetKey(*now)
+	if oldOk && newOk && oldKey != newKey {
+		// Key changed: emit Delete for old key, Add for new key
+		return []Event[T]{
+			{
+				Old:   old,
+				Event: controllers.EventDelete,
+			},
+			{
+				New:   now,
+				Event: controllers.EventAdd,
+			},
 		}
 	}
-	return Event[T]{
+	return []Event[T]{{
 		New:   now,
 		Old:   old,
 		Event: controllers.EventUpdate,
+	}}
+}
+
+// tryGetKey attempts to get a key for the given object.
+// Returns the key and true if successful, or empty string and false if the type doesn't support keys.
+func tryGetKey[T any](a T) (string, bool) {
+	as, ok := any(a).(string)
+	if ok {
+		return as, true
 	}
+	ao, ok := any(a).(controllers.Object)
+	if ok {
+		k, _ := cache.MetaNamespaceKeyFunc(ao)
+		return k, true
+	}
+	arn, ok := any(a).(ResourceNamer)
+	if ok {
+		return arn.ResourceName(), true
+	}
+	return "", false
 }
 
 var _ Collection[dummyValue] = &static[dummyValue]{}
@@ -221,6 +259,11 @@ func (c collectionAdapter[T]) Get() *T {
 	return &res[0]
 }
 
+func (c collectionAdapter[T]) Metadata() Metadata {
+	// The metadata is passed to the internal dummy collection so just return that
+	return c.c.Metadata()
+}
+
 func (c collectionAdapter[T]) Register(f func(o Event[T])) HandlerRegistration {
 	return c.c.Register(f)
 }
@@ -229,7 +272,15 @@ func (c collectionAdapter[T]) AsCollection() Collection[T] {
 	return c.c
 }
 
-var _ Singleton[any] = &collectionAdapter[any]{}
+// Every thing that collectionAdapter adapts has a uid so this is safe
+func (c collectionAdapter[T]) uid() collectionUID {
+	return c.c.(uidable).uid()
+}
+
+var (
+	_ Singleton[any] = &collectionAdapter[any]{}
+	_ uidable        = &collectionAdapter[any]{}
+)
 
 func NewSingleton[O any](hf TransformationEmpty[O], opts ...CollectionOption) Singleton[O] {
 	// dummyCollection provides a trivial collection implementation that always provides a single dummyValue.

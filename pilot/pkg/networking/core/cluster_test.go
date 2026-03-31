@@ -26,9 +26,11 @@ import (
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	overridehost "github.com/envoyproxy/go-control-plane/envoy/extensions/load_balancing_policies/override_host/v3"
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	"github.com/google/go-cmp/cmp"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -45,6 +47,7 @@ import (
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -299,6 +302,96 @@ func TestConnectionPoolSettings(t *testing.T) {
 	}
 }
 
+func TestBuildClustersForInferencePoolServices(t *testing.T) {
+	cases := []struct {
+		testName             string
+		clusterName          string
+		proxyType            model.NodeType
+		InferencePoolService bool
+	}{
+		// Add testcase for inbound clusters as well?
+		{
+			testName:             "InferencePool service should have override_host load_balancing policy",
+			clusterName:          "outbound|8080||*.example.org",
+			proxyType:            model.Router,
+			InferencePoolService: true,
+		},
+		{
+			testName:             "Regular service should NOT have override_host load_balancing policy",
+			clusterName:          "outbound|8080||*.example.org",
+			proxyType:            model.Router,
+			InferencePoolService: false,
+		},
+		// TODO(liorlieberman) change this once we make it work for sidecars as well
+		{
+			testName:             "Sidecar proxy should not have config",
+			clusterName:          "outbound|8080||*.example.org",
+			proxyType:            model.SidecarProxy,
+			InferencePoolService: true,
+		},
+		{
+			testName:             "InferencePool service creates single cluster for multiple ports",
+			clusterName:          "outbound|8080||*.example.org",
+			proxyType:            model.Router,
+			InferencePoolService: true,
+		},
+		{
+			testName:             "Regular service creates one cluster per port",
+			clusterName:          "outbound|8080||*.example.org",
+			proxyType:            model.Router,
+			InferencePoolService: false,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.testName, func(t *testing.T) {
+			g := NewWithT(t)
+			clusters := buildTestClusters(clusterTest{
+				t:                    t,
+				serviceHostname:      "*.example.org",
+				nodeType:             tc.proxyType,
+				mesh:                 testMesh(),
+				istioVersion:         model.MaxIstioVersion,
+				inferencePoolCluster: tc.InferencePoolService,
+			})
+			c := xdstest.ExtractCluster("outbound|8080||*.example.org", clusters)
+			if !tc.InferencePoolService || tc.InferencePoolService && tc.proxyType != model.Router {
+				if c.GetLoadBalancingPolicy() != nil && c.GetLoadBalancingPolicy().GetPolicies() != nil {
+					g.Expect(c.GetLoadBalancingPolicy().GetPolicies()).To(Not(ContainElement(
+						MatchFields(IgnoreExtras, Fields{
+							"TypedExtensionConfig": MatchFields(IgnoreExtras, Fields{
+								"Name": Equal("envoy.load_balancing_policies.override_host"),
+							}),
+						}),
+					)))
+				}
+			} else if tc.InferencePoolService {
+				g.Expect(c.LoadBalancingPolicy).NotTo(BeNil())
+				g.Expect(c.LoadBalancingPolicy.Policies).NotTo(BeEmpty())
+				overrideHostPolicy := new(overridehost.OverrideHost)
+				if err := c.LoadBalancingPolicy.Policies[0].GetTypedExtensionConfig().GetTypedConfig().UnmarshalTo(overrideHostPolicy); err != nil {
+					t.Errorf("couldn't unmarshal overrideHost proto: %v \n", err)
+				}
+				g.Expect(overrideHostPolicy.GetOverrideHostSources()).NotTo(BeEmpty())
+				g.Expect(overrideHostPolicy.GetOverrideHostSources()[0].GetMetadata().GetKey()).To(Equal("envoy.lb"))
+				g.Expect(overrideHostPolicy.GetOverrideHostSources()[0].GetMetadata().GetPath()[0].GetKey()).To(Equal("x-gateway-destination-endpoint"))
+				g.Expect(overrideHostPolicy.GetSelectedHostKey()).NotTo(BeNil())
+				g.Expect(overrideHostPolicy.GetSelectedHostKey().GetKey()).To(Equal("envoy.lb"))
+				g.Expect(overrideHostPolicy.GetSelectedHostKey().GetPath()[0].GetKey()).To(Equal("x-gateway-destination-endpoint-served"))
+				var serviceClusters []string
+				for _, c := range clusters {
+					if strings.Contains(c.Name, "*.example.org") && strings.HasPrefix(c.Name, "outbound|") {
+						serviceClusters = append(serviceClusters, c.Name)
+					}
+				}
+				g.Expect(len(serviceClusters)).To(Equal(1),
+					"expected single cluster but got %d: %v", len(serviceClusters), serviceClusters)
+				g.Expect(serviceClusters[0]).To(ContainSubstring("|8080|"),
+					"expected cluster to use first port 8080 but got %s", serviceClusters[0])
+			}
+		})
+	}
+}
+
 func TestCommonHttpProtocolOptions(t *testing.T) {
 	cases := []struct {
 		clusterName           string
@@ -405,6 +498,8 @@ type clusterTest struct {
 	meta         *model.NodeMetadata
 	istioVersion *model.IstioVersion
 	proxyIps     []string
+
+	inferencePoolCluster bool
 }
 
 func (c clusterTest) fillDefaults() clusterTest {
@@ -443,7 +538,12 @@ func buildTestClusters(c clusterTest) []*cluster.Cluster {
 		MeshExternal: c.externalService,
 		Attributes: model.ServiceAttributes{
 			Namespace: TestServiceNamespace,
+			Labels:    map[string]string{},
 		},
+	}
+
+	if c.inferencePoolCluster {
+		service.Attributes.Labels[constants.InternalServiceSemantics] = "inferencepool"
 	}
 
 	instances := []*model.ServiceInstance{
@@ -1895,7 +1995,7 @@ func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
 				MaxRequests:        &wrappers.UInt32Value{Value: math.MaxUint32},
 				MaxConnections:     &wrappers.UInt32Value{Value: 100},
 				MaxPendingRequests: &wrappers.UInt32Value{Value: math.MaxUint32},
-				TrackRemaining:     true,
+				TrackRemaining:     false,
 			},
 		},
 		{
@@ -1928,7 +2028,7 @@ func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
 				MaxRequests:        &wrappers.UInt32Value{Value: math.MaxUint32},
 				MaxConnections:     &wrappers.UInt32Value{Value: 1000},
 				MaxPendingRequests: &wrappers.UInt32Value{Value: math.MaxUint32},
-				TrackRemaining:     true,
+				TrackRemaining:     false,
 			},
 		},
 	}
@@ -2387,6 +2487,8 @@ func TestApplyLoadBalancer(t *testing.T) {
 		discoveryType                      cluster.Cluster_DiscoveryType
 		port                               *model.Port
 		sendUnhealthyEndpoints             bool
+		proxyLabels                        map[string]string
+		outlierDetection                   bool
 		expectedLbPolicy                   cluster.Cluster_LbPolicy
 		expectedLocalityWeightedConfig     bool
 		expectClusterLoadAssignmenttoBeNil bool
@@ -2443,6 +2545,27 @@ func TestApplyLoadBalancer(t *testing.T) {
 			expectedLbPolicy:               defaultLBAlgorithm(),
 			expectedLocalityWeightedConfig: false,
 		},
+		{
+			name: "Failover priority with nil wrapped endpoints should not panic",
+			lbSettings: &networking.LoadBalancerSettings{
+				LocalityLbSetting: &networking.LocalityLoadBalancerSetting{
+					Enabled: &wrappers.BoolValue{Value: true},
+					FailoverPriority: []string{
+						"topology.kubernetes.io/region",
+						"topology.kubernetes.io/zone",
+					},
+				},
+			},
+			discoveryType: cluster.Cluster_EDS,
+			port:          &model.Port{Protocol: protocol.HTTP},
+			proxyLabels: map[string]string{
+				"topology.kubernetes.io/region": "region1",
+				"topology.kubernetes.io/zone":   "zone1",
+			},
+			outlierDetection:               true,
+			expectedLbPolicy:               defaultLBAlgorithm(),
+			expectedLocalityWeightedConfig: true,
+		},
 		// TODO: add more to cover all cases
 	}
 
@@ -2461,6 +2584,10 @@ func TestApplyLoadBalancer(t *testing.T) {
 				CommonLbConfig:       &cluster.Cluster_CommonLbConfig{},
 			}
 
+			if tt.outlierDetection {
+				c.OutlierDetection = &cluster.OutlierDetection{}
+			}
+
 			if tt.discoveryType == cluster.Cluster_ORIGINAL_DST {
 				c.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
 			}
@@ -2469,14 +2596,14 @@ func TestApplyLoadBalancer(t *testing.T) {
 				test.SetForTest(t, &features.EnableRedisFilter, true)
 			}
 
-			applyLoadBalancer(nil, c, tt.lbSettings, tt.port, proxy.Locality, nil, &meshconfig.MeshConfig{})
+			applyLoadBalancer(nil, c, tt.lbSettings, tt.port, proxy.Locality, tt.proxyLabels, &meshconfig.MeshConfig{}, nil)
 
 			if c.LbPolicy != tt.expectedLbPolicy {
 				t.Errorf("cluster LbPolicy %s != expected %s", c.LbPolicy, tt.expectedLbPolicy)
 			}
 
 			if tt.sendUnhealthyEndpoints && c.CommonLbConfig.HealthyPanicThreshold.GetValue() != 0 {
-				t.Errorf("panic threshold should be disabled when sendHealthyEndpoints is enabeld")
+				t.Errorf("panic threshold should be disabled when sendHealthyEndpoints is enabled")
 			}
 
 			if tt.expectedLocalityWeightedConfig && c.CommonLbConfig.GetLocalityWeightedLbConfig() == nil {

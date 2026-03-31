@@ -24,27 +24,28 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/config/schema/kind"
-	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/maps"
-	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
 )
 
 // SelectVirtualServices selects the virtual services by matching given services' host names.
 // This function is used by sidecar converter.
-func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, hostsByNamespace map[string]hostClassification) []config.Config {
-	importedVirtualServices := make([]config.Config, 0)
+// Returns pointers to configs in the index to avoid copying config.Config structs.
+func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, hostsByNamespace map[string]hostClassification) []*config.Config {
+	n := types.NamespacedName{Namespace: configNamespace, Name: constants.IstioMeshGateway}
+	estimatedCap := len(vsidx.privateByNamespaceAndGateway[n]) +
+		len(vsidx.exportedToNamespaceByGateway[n]) +
+		len(vsidx.publicByGateway[constants.IstioMeshGateway])
+	importedVirtualServices := make([]*config.Config, 0, estimatedCap)
 	vsset := sets.New[types.NamespacedName]()
 
-	addVirtualService := func(vs config.Config, hc hostClassification) {
+	addVirtualService := func(vs *config.Config, hc hostClassification, useGatewaySemantics bool) {
 		key := vs.NamespacedName()
 		if vsset.Contains(key) {
 			return
 		}
 
 		rule := vs.Spec.(*networking.VirtualService)
-		useGatewaySemantics := UseGatewaySemantics(vs)
 		for _, vh := range rule.Hosts {
 			if hc.VSMatches(host.Name(vh), useGatewaySemantics) {
 				importedVirtualServices = append(importedVirtualServices, vs)
@@ -59,25 +60,27 @@ func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, ho
 	if features.UnifiedSidecarScoping {
 		loopAndAdd = func(vses []config.Config) {
 			for _, gwMatch := range []bool{true, false} {
-				for _, c := range vses {
-					gwExact := UseGatewaySemantics(c) && c.Namespace == configNamespace
+				for i := range vses {
+					c := &vses[i]
+					useGatewaySemantics := UseGatewaySemantics(*c)
+					gwExact := useGatewaySemantics && c.Namespace == configNamespace
 					if gwMatch != gwExact {
 						continue
 					}
-					configNamespace := c.Namespace
+					vsNamespace := c.Namespace
 					// Selection algorithm:
 					// virtualservices have a list of hosts in the API spec
 					// if any host in the list matches one service hostname, select the virtual service
 					// and break out of the loop.
 
 					// Check if there is an explicit import of form ns/* or ns/host
-					if importedHosts, nsFound := hostsByNamespace[configNamespace]; nsFound {
-						addVirtualService(c, importedHosts)
+					if importedHosts, nsFound := hostsByNamespace[vsNamespace]; nsFound {
+						addVirtualService(c, importedHosts, useGatewaySemantics)
 					}
 
 					// Check if there is an import of form */host or */*
 					if wnsFound {
-						addVirtualService(c, wnsImportedHosts)
+						addVirtualService(c, wnsImportedHosts, useGatewaySemantics)
 					}
 				}
 			}
@@ -85,27 +88,28 @@ func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, ho
 	} else {
 		// Legacy path
 		loopAndAdd = func(vses []config.Config) {
-			for _, c := range vses {
-				configNamespace := c.Namespace
+			for i := range vses {
+				c := &vses[i]
+				vsNamespace := c.Namespace
+				useGatewaySemantics := UseGatewaySemantics(*c)
 				// Selection algorithm:
 				// virtualservices have a list of hosts in the API spec
 				// if any host in the list matches one service hostname, select the virtual service
 				// and break out of the loop.
 
 				// Check if there is an explicit import of form ns/* or ns/host
-				if importedHosts, nsFound := hostsByNamespace[configNamespace]; nsFound {
-					addVirtualService(c, importedHosts)
+				if importedHosts, nsFound := hostsByNamespace[vsNamespace]; nsFound {
+					addVirtualService(c, importedHosts, useGatewaySemantics)
 				}
 
 				// Check if there is an import of form */host or */*
 				if wnsFound {
-					addVirtualService(c, wnsImportedHosts)
+					addVirtualService(c, wnsImportedHosts, useGatewaySemantics)
 				}
 			}
 		}
 	}
 
-	n := types.NamespacedName{Namespace: configNamespace, Name: constants.IstioMeshGateway}
 	loopAndAdd(vsidx.privateByNamespaceAndGateway[n])
 	loopAndAdd(vsidx.exportedToNamespaceByGateway[n])
 	loopAndAdd(vsidx.publicByGateway[constants.IstioMeshGateway])
@@ -113,12 +117,7 @@ func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, ho
 	return importedVirtualServices
 }
 
-func resolveVirtualServiceShortnames(config config.Config) config.Config {
-	// Kubernetes Gateway API semantics do not support shortnames
-	if UseGatewaySemantics(config) {
-		return config
-	}
-
+func ResolveVirtualServiceShortnames(config config.Config) config.Config {
 	// values returned from ConfigStore.List are immutable.
 	// Therefore, we make a copy
 	r := config.DeepCopy()
@@ -191,115 +190,9 @@ func resolveVirtualServiceShortnames(config config.Config) config.Config {
 	return r
 }
 
-// Return merged virtual services and the root->delegate vs map
-func mergeVirtualServicesIfNeeded(
-	vServices []config.Config,
-	defaultExportTo sets.Set[visibility.Instance],
-) ([]config.Config, map[ConfigKey][]ConfigKey) {
-	out := make([]config.Config, 0, len(vServices))
-	delegatesMap := map[types.NamespacedName]config.Config{}
-	delegatesExportToMap := make(map[types.NamespacedName]sets.Set[visibility.Instance])
-	// root virtualservices with delegate
-	var rootVses []config.Config
-
-	// 1. classify virtualservices
-	for _, vs := range vServices {
-		rule := vs.Spec.(*networking.VirtualService)
-		// it is delegate, add it to the indexer cache along with the exportTo for the delegate
-		if len(rule.Hosts) == 0 {
-			delegatesMap[vs.NamespacedName()] = vs
-			var exportToSet sets.Set[visibility.Instance]
-			if len(rule.ExportTo) == 0 {
-				// No exportTo in virtualService. Use the global default
-				exportToSet = sets.NewWithLength[visibility.Instance](defaultExportTo.Len())
-				for v := range defaultExportTo {
-					if v == visibility.Private {
-						exportToSet.Insert(visibility.Instance(vs.Namespace))
-					} else {
-						exportToSet.Insert(v)
-					}
-				}
-			} else {
-				exportToSet = sets.NewWithLength[visibility.Instance](len(rule.ExportTo))
-				for _, e := range rule.ExportTo {
-					if e == string(visibility.Private) {
-						exportToSet.Insert(visibility.Instance(vs.Namespace))
-					} else {
-						exportToSet.Insert(visibility.Instance(e))
-					}
-				}
-			}
-			delegatesExportToMap[vs.NamespacedName()] = exportToSet
-
-			continue
-		}
-
-		// root vs
-		if isRootVs(rule) {
-			rootVses = append(rootVses, vs)
-			continue
-		}
-
-		// the others are normal vs without delegate
-		out = append(out, vs)
-	}
-
-	delegatesByRoot := make(map[ConfigKey][]ConfigKey, len(rootVses))
-
-	// 2. merge delegates and root
-	for _, root := range rootVses {
-		rootConfigKey := ConfigKey{Kind: kind.VirtualService, Name: root.Name, Namespace: root.Namespace}
-		rootVs := root.Spec.(*networking.VirtualService)
-		mergedRoutes := []*networking.HTTPRoute{}
-		for _, route := range rootVs.Http {
-			// it is root vs with delegate
-			if delegate := route.Delegate; delegate != nil {
-				delegateNamespace := delegate.Namespace
-				if delegateNamespace == "" {
-					delegateNamespace = root.Namespace
-				}
-				delegateConfigKey := ConfigKey{Kind: kind.VirtualService, Name: delegate.Name, Namespace: delegateNamespace}
-				delegatesByRoot[rootConfigKey] = append(delegatesByRoot[rootConfigKey], delegateConfigKey)
-				delegateVS, ok := delegatesMap[types.NamespacedName{Namespace: delegateNamespace, Name: delegate.Name}]
-				if !ok {
-					log.Warnf("delegate virtual service %s/%s of %s/%s not found",
-						delegateNamespace, delegate.Name, root.Namespace, root.Name)
-					// delegate not found, ignore only the current HTTP route
-					continue
-				}
-				// make sure that the delegate is visible to root virtual service's namespace
-				exportTo := delegatesExportToMap[types.NamespacedName{Namespace: delegateNamespace, Name: delegate.Name}]
-				if !exportTo.Contains(visibility.Public) && !exportTo.Contains(visibility.Instance(root.Namespace)) {
-					log.Warnf("delegate virtual service %s/%s of %s/%s is not exported to %s",
-						delegateNamespace, delegate.Name, root.Namespace, root.Name, root.Namespace)
-					continue
-				}
-				// DeepCopy to prevent mutate the original delegate, it can conflict
-				// when multiple routes delegate to one single VS.
-				copiedDelegate := config.DeepCopy(delegateVS.Spec)
-				vs := copiedDelegate.(*networking.VirtualService)
-				merged := mergeHTTPRoutes(route, vs.Http)
-				mergedRoutes = append(mergedRoutes, merged...)
-			} else {
-				mergedRoutes = append(mergedRoutes, route)
-			}
-		}
-		rootVs.Http = mergedRoutes
-		if log.DebugEnabled() {
-			vsString, _ := protomarshal.ToJSONWithIndent(rootVs, "   ")
-			log.Debugf("merged virtualService: %s", vsString)
-		}
-		out = append(out, root)
-	}
-
-	sortConfigByCreationTime(out)
-
-	return out, delegatesByRoot
-}
-
 // merge root's route with delegate's and the merged route number equals the delegate's.
 // if there is a conflict with root, the route is ignored
-func mergeHTTPRoutes(root *networking.HTTPRoute, delegate []*networking.HTTPRoute) []*networking.HTTPRoute {
+func MergeHTTPRoutes(root *networking.HTTPRoute, delegate []*networking.HTTPRoute) []*networking.HTTPRoute {
 	root.Delegate = nil
 
 	out := make([]*networking.HTTPRoute, 0, len(delegate))
@@ -395,7 +288,7 @@ func mergeHTTPMatchRequests(root, delegate []*networking.HTTPMatchRequest) (out 
 	if len(out) == 0 {
 		conflict = true
 	}
-	return
+	return out, conflict
 }
 
 func mergeHTTPMatchRequest(root, delegate *networking.HTTPMatchRequest) *networking.HTTPMatchRequest {

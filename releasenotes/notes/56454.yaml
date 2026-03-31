@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+  - 56453
+releaseNotes:
+- |
+  **Added** support for customizing the timeout of `istioctl waypoint status` and `istioctl waypoint apply`.

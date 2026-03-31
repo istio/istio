@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+  - 57037
+releaseNotes:
+  - |
+    **Updated** the istiod helm chart to create EndpointSlice resources instead of Endpoints for remote istiod installs due to Endpoints' deprecation as of Kubernetes 1.33.
+

@@ -1,0 +1,63 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: istio
+spec:
+  controllerName: istio.io/gateway-controller
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: gateway
+  namespace: istio-system
+spec:
+  addresses:
+  - value: istio-ingressgateway
+    type: Hostname
+  gatewayClassName: istio
+  listeners:
+  - name: default
+    hostname: "*.domain.example"
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: All
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: http
+  namespace: default
+spec:
+  parentRefs:
+  - name: gateway
+    namespace: istio-system
+  hostnames: ["my.domain.example"]
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api
+    backendRefs:
+    - name: httpbin
+      port: 80
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: GRPCRoute
+metadata:
+  name: grpc
+  namespace: default
+spec:
+  parentRefs:
+  - name: gateway
+    namespace: istio-system
+  hostnames: ["my.domain.example"]
+  rules:
+  - matches:
+    - method:
+        service: "foo.FooService"
+        type: Exact
+    backendRefs:
+    - name: grpcbin
+      port: 9090

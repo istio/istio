@@ -56,7 +56,8 @@ type ServiceDiscovery struct {
 	// Used by GetProxyWorkloadLabels
 	ip2workloadLabels map[string]labels.Instance
 
-	addresses map[string]model.AddressInfo
+	addresses        map[string]model.AddressInfo
+	serviceInfoByKey map[string]*model.ServiceInfo
 
 	// XDSUpdater will push EDS changes to the ADS model.
 	XdsUpdater model.XDSUpdater
@@ -83,6 +84,7 @@ func NewServiceDiscovery(services ...*model.Service) *ServiceDiscovery {
 		ip2instance:         map[string][]*model.ServiceInstance{},
 		ip2workloadLabels:   map[string]labels.Instance{},
 		addresses:           map[string]model.AddressInfo{},
+		serviceInfoByKey:    map[string]*model.ServiceInfo{},
 	}
 }
 
@@ -388,6 +390,12 @@ func (sd *ServiceDiscovery) WorkloadsForWaypoint(model.WaypointKey) []model.Work
 	return nil
 }
 
+func (sd *ServiceDiscovery) ServiceInfo(key string) *model.ServiceInfo {
+	sd.mutex.Lock()
+	defer sd.mutex.Unlock()
+	return sd.serviceInfoByKey[key]
+}
+
 func (sd *ServiceDiscovery) AddWorkloadInfo(infos ...*model.WorkloadInfo) {
 	sd.mutex.Lock()
 	defer sd.mutex.Unlock()
@@ -407,6 +415,8 @@ func (sd *ServiceDiscovery) AddServiceInfo(infos ...*model.ServiceInfo) {
 	defer sd.mutex.Unlock()
 	for _, info := range infos {
 		sd.addresses[info.ResourceName()] = serviceToAddressInfo(info.Service)
+		key := fmt.Sprintf("%s/%s", info.Service.Namespace, info.Service.Hostname)
+		sd.serviceInfoByKey[key] = info
 	}
 }
 
@@ -414,6 +424,8 @@ func (sd *ServiceDiscovery) RemoveServiceInfo(info *model.ServiceInfo) {
 	sd.mutex.Lock()
 	defer sd.mutex.Unlock()
 	delete(sd.addresses, info.ResourceName())
+	key := fmt.Sprintf("%s/%s", info.Service.Namespace, info.Service.Hostname)
+	delete(sd.serviceInfoByKey, key)
 }
 
 func workloadToAddressInfo(w *workloadapi.Workload) model.AddressInfo {

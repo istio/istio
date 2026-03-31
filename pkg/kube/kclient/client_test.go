@@ -215,7 +215,10 @@ func TestDelayedClientWithRegisteredType(t *testing.T) {
 			}, nil
 		},
 		func(c kubeclient.ClientGetter, namespace string, o metav1.ListOptions) (watch.Interface, error) {
-			return c.Istio().NetworkingV1beta1().DestinationRules(namespace).Watch(context.Background(), o)
+			return c.Istio().NetworkingV1alpha3().DestinationRules(namespace).Watch(context.Background(), o)
+		},
+		func(c kubeclient.ClientGetter, namespace string) kubetypes.WriteAPI[*oldistionetclient.DestinationRule] {
+			return c.Istio().NetworkingV1alpha3().DestinationRules(namespace)
 		},
 	)
 
@@ -284,18 +287,18 @@ func TestClient(t *testing.T) {
 	tester := clienttest.Wrap(t, deployments)
 
 	c.RunAndWait(test.NewStop(t))
-	obj1 := &appsv1.Deployment{
+	obj1 := kube.EnsureTypeMeta(&appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{Name: "1", Namespace: "default"},
 		Spec:       appsv1.DeploymentSpec{MinReadySeconds: 1},
-	}
-	obj2 := &appsv1.Deployment{
+	})
+	obj2 := kube.EnsureTypeMeta(&appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{Name: "2", Namespace: "default"},
 		Spec:       appsv1.DeploymentSpec{MinReadySeconds: 10},
-	}
-	obj3 := &appsv1.Deployment{
+	})
+	obj3 := kube.EnsureTypeMeta(&appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{Name: "3", Namespace: "default"},
 		Spec:       appsv1.DeploymentSpec{MinReadySeconds: 100},
-	}
+	})
 
 	// Create object, make sure we can see it
 	tester.Create(obj1)

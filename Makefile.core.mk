@@ -49,7 +49,7 @@ endif
 export VERSION
 
 # Base version of Istio image to use
-BASE_VERSION ?= master-2025-04-07T19-01-16
+BASE_VERSION ?= master-2026-03-19T19-01-52
 ISTIO_BASE_REGISTRY ?= gcr.io/istio-release
 
 export GO111MODULE ?= on
@@ -245,7 +245,8 @@ RELEASE_SIZE_TEST_BINARIES:=pilot-discovery pilot-agent istioctl envoy ztunnel c
 # agent: enables agent-specific files. Usually this is used to trim dependencies where they would be hard to trim through standard refactoring
 # disable_pgv: disables protoc-gen-validation. This is not used buts adds many MB to Envoy protos
 # not set vtprotobuf: this adds some performance improvement, but at a binary cost increase that is not worth it for the agent
-AGENT_TAGS=agent,disable_pgv
+# notrace: helps with https://github.com/istio/istio/issues/56636 and reduces binary size
+AGENT_TAGS=agent,disable_pgv,grpcnotrace,retrynotrace
 # disable_pgv: disables protoc-gen-validation. This is not used buts adds many MB to Envoy protos
 # vtprotobuf: enables optimized protobuf marshalling.
 STANDARD_TAGS=vtprotobuf,disable_pgv
@@ -365,12 +366,19 @@ copy-templates:
 
 	# gateway charts
 	cp -r manifests/charts/gateways/istio-ingress/templates/* manifests/charts/gateways/istio-egress/templates
-	find ./manifests/charts/gateways/istio-egress/templates -type f -exec sed -i -e 's/ingress/egress/g' {} \;
-	find ./manifests/charts/gateways/istio-egress/templates -type f -exec sed -i -e 's/Ingress/Egress/g' {} \;
+	find ./manifests/charts/gateways/istio-egress/templates -type f \( -name "*.yaml" -o -name "*.tpl" \) ! -name "networkpolicy.yaml" -exec sed -i -e 's/ingress/egress/g' {} \;
+	find ./manifests/charts/gateways/istio-egress/templates -type f \( -name "*.yaml" -o -name "*.tpl" \) ! -name "networkpolicy.yaml" -exec sed -i -e 's/Ingress/Egress/g' {} \;
+	if [ -f ./manifests/charts/gateways/istio-egress/templates/networkpolicy.yaml ]; then \
+		sed -i -e 's/"IngressGateways"/"EgressGateways"/g' ./manifests/charts/gateways/istio-egress/templates/networkpolicy.yaml; \
+		sed -i -e 's/istio-ingress/istio-egress/g' ./manifests/charts/gateways/istio-egress/templates/networkpolicy.yaml; \
+		sed -i -e 's/app: istio-ingress/app: istio-egress/g' ./manifests/charts/gateways/istio-egress/templates/networkpolicy.yaml; \
+		sed -i -e 's/istio: ingressgateway/istio: egressgateway/g' ./manifests/charts/gateways/istio-egress/templates/networkpolicy.yaml; \
+	fi
 
 	# copy istio-discovery values, but apply some local customizations
 	warning=$$(cat manifests/helm-profiles/warning-edit.txt | sed ':a;N;$$!ba;s/\n/\\n/g') ; \
 	for chart in $(CHARTS) ; do \
+	    rm -rf manifests/charts/$$chart/files/profile-*.yaml ; \
 		for profile in manifests/helm-profiles/*.yaml ; do \
 			sed "1s|^|$${warning}\n\n|" $$profile > manifests/charts/$$chart/files/profile-$$(basename $$profile) ; \
 		done; \
@@ -449,7 +457,7 @@ BENCH_TARGETS ?= ./pilot/...
 PKG ?= ./...
 .PHONY: racetest
 racetest: $(JUNIT_REPORT)
-	go test ${GOBUILDFLAGS} ${T} -race $(PKG) 2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
+	go test ${GOBUILDFLAGS} ${T} -tags=assert -race $(PKG) 2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
 .PHONY: benchtest
 benchtest: $(JUNIT_REPORT) ## Runs all benchmarks

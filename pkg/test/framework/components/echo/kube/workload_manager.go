@@ -102,7 +102,7 @@ func (m *workloadManager) WaitForReadyWorkloads() (out echo.Workloads, err error
 		m.mutex.Unlock()
 		return err
 	}, retry.Timeout(m.cfg.ReadinessTimeout), startDelay)
-	return
+	return out, err
 }
 
 func (m *workloadManager) readyWorkloads() (echo.Workloads, error) {
@@ -257,5 +257,5 @@ func (m *workloadManager) Close() (err error) {
 	for _, w := range workloads {
 		err = multierror.Append(err, w.Close()).ErrorOrNil()
 	}
-	return
+	return err
 }

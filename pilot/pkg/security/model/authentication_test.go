@@ -26,9 +26,11 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/model/credentials"
+	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
 )
@@ -646,16 +648,76 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 }
 
 func TestConstructSdsSecretConfigForCredential(t *testing.T) {
-	testCases := []struct {
-		credentialSocketExists bool
+	cases := []struct {
 		name                   string
+		credentialSocketExists bool
+		push                   *model.PushContext
 		expected               *auth.SdsSecretConfig
 	}{
 		{
-			credentialSocketExists: true,
-			name:                   "sds://test-credential-uds",
+			name:                   "",
+			credentialSocketExists: false,
+			push:                   &model.PushContext{Mesh: &meshconfig.MeshConfig{}},
+			expected:               nil,
+		},
+		{
+			name:                   "builtin://",
+			credentialSocketExists: false,
+			push:                   &model.PushContext{Mesh: &meshconfig.MeshConfig{}},
 			expected: &auth.SdsSecretConfig{
-				Name: "sds://test-credential-uds",
+				Name: SDSDefaultResourceName,
+				SdsConfig: &core.ConfigSource{
+					ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+						ApiConfigSource: &core.ApiConfigSource{
+							ApiType:                   core.ApiConfigSource_GRPC,
+							SetNodeOnFirstMessageOnly: true,
+							TransportApiVersion:       core.ApiVersion_V3,
+							GrpcServices: []*core.GrpcService{
+								{
+									TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+										EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: SDSClusterName},
+									},
+								},
+							},
+						},
+					},
+					ResourceApiVersion:  core.ApiVersion_V3,
+					InitialFetchTimeout: durationpb.New(time.Second * 0),
+				},
+			},
+		},
+		{
+			name:                   "builtin://-cacert",
+			credentialSocketExists: false,
+			push:                   &model.PushContext{Mesh: &meshconfig.MeshConfig{}},
+			expected: &auth.SdsSecretConfig{
+				Name: SDSRootResourceName,
+				SdsConfig: &core.ConfigSource{
+					ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+						ApiConfigSource: &core.ApiConfigSource{
+							ApiType:                   core.ApiConfigSource_GRPC,
+							SetNodeOnFirstMessageOnly: true,
+							TransportApiVersion:       core.ApiVersion_V3,
+							GrpcServices: []*core.GrpcService{
+								{
+									TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+										EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: SDSClusterName},
+									},
+								},
+							},
+						},
+					},
+					ResourceApiVersion:  core.ApiVersion_V3,
+					InitialFetchTimeout: durationpb.New(time.Second * 0),
+				},
+			},
+		},
+		{
+			name:                   "sds://external-cert",
+			credentialSocketExists: true,
+			push:                   &model.PushContext{Mesh: &meshconfig.MeshConfig{}},
+			expected: &auth.SdsSecretConfig{
+				Name: "sds://external-cert",
 				SdsConfig: &core.ConfigSource{
 					ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 						ApiConfigSource: &core.ApiConfigSource{
@@ -676,35 +738,103 @@ func TestConstructSdsSecretConfigForCredential(t *testing.T) {
 			},
 		},
 		{
+			name:                   "test-cert",
 			credentialSocketExists: false,
-			name:                   "test-credential",
+			push:                   &model.PushContext{Mesh: &meshconfig.MeshConfig{}},
 			expected: &auth.SdsSecretConfig{
-				Name:      credentials.ToResourceName("test-credential"),
+				Name:      "kubernetes://test-cert",
 				SdsConfig: SDSAdsConfig,
 			},
 		},
 		{
+			name:                   "sds://provider-cert",
 			credentialSocketExists: false,
-			name:                   "test-credential-no-prefix-with-socket",
+			push: func() *model.PushContext {
+				pc := &model.PushContext{
+					Mesh: &meshconfig.MeshConfig{
+						ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{
+							{
+								Name: "provider-cert",
+								Provider: &meshconfig.MeshConfig_ExtensionProvider_Sds{
+									Sds: &meshconfig.MeshConfig_ExtensionProvider_SDSProvider{
+										Name:    "provider-cert",
+										Service: "sds-provider-service",
+										Port:    8080,
+									},
+								},
+							},
+						},
+					},
+				}
+				pc.ServiceIndex.HostnameAndNamespace = map[host.Name]map[string]*model.Service{
+					"sds-provider-service": {
+						"": &model.Service{
+							Hostname: "sds-provider-service",
+							Ports: []*model.Port{
+								{
+									Name:     "grpc",
+									Port:     8080,
+									Protocol: protocol.GRPC,
+								},
+							},
+						},
+					},
+				}
+				return pc
+			}(),
 			expected: &auth.SdsSecretConfig{
-				Name:      credentials.ToResourceName("test-credential-no-prefix-with-socket"),
-				SdsConfig: SDSAdsConfig,
+				Name: "sds://provider-cert",
+				SdsConfig: &core.ConfigSource{
+					ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
+						ApiConfigSource: &core.ApiConfigSource{
+							ApiType:                   core.ApiConfigSource_GRPC,
+							SetNodeOnFirstMessageOnly: true,
+							TransportApiVersion:       core.ApiVersion_V3,
+							GrpcServices: []*core.GrpcService{
+								{
+									TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+										EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: "outbound|8080||sds-provider-service"},
+									},
+								},
+							},
+						},
+					},
+					ResourceApiVersion: core.ApiVersion_V3,
+				},
 			},
 		},
 		{
-			credentialSocketExists: true,
-			name:                   "test-credential-no-prefix",
-			expected: &auth.SdsSecretConfig{
-				Name:      credentials.ToResourceName("test-credential-no-prefix"),
-				SdsConfig: SDSAdsConfig,
-			},
+			name:                   "sds://provider-cert",
+			credentialSocketExists: false,
+			push: func() *model.PushContext {
+				pc := &model.PushContext{
+					Mesh: &meshconfig.MeshConfig{
+						ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{
+							{
+								Name: "provider-cert",
+								Provider: &meshconfig.MeshConfig_ExtensionProvider_Sds{
+									Sds: &meshconfig.MeshConfig_ExtensionProvider_SDSProvider{
+										Name:    "provider-cert",
+										Service: "missing-service",
+										Port:    8080,
+									},
+								},
+							},
+						},
+					},
+				}
+				// ServiceIndex is empty, so LookupCluster will fail
+				pc.ServiceIndex.HostnameAndNamespace = map[host.Name]map[string]*model.Service{}
+				return pc
+			}(),
+			expected: nil,
 		},
 	}
 
-	for _, c := range testCases {
+	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := ConstructSdsSecretConfigForCredential(c.name, c.credentialSocketExists); !cmp.Equal(got, c.expected, protocmp.Transform()) {
-				t.Errorf("ConstructSdsSecretConfigForSDSEndpoint: got(%#v), want(%#v)\n", got, c.expected)
+			if got := ConstructSdsSecretConfigForCredential(c.name, c.credentialSocketExists, c.push); !cmp.Equal(got, c.expected, protocmp.Transform()) {
+				t.Errorf("ConstructSdsSecretConfigForCredential() = %v, want %v", got, c.expected)
 			}
 		})
 	}
@@ -718,6 +848,8 @@ func TestApplyCredentialSDSToServerCommonTLSContext(t *testing.T) {
 		expectedCertCount      int
 		expectedValidation     bool
 		expectedValidationType string
+		expectedCaCert         string
+		push                   *model.PushContext
 	}{
 		{
 			name: "single certificate with credential name",
@@ -729,6 +861,7 @@ func TestApplyCredentialSDSToServerCommonTLSContext(t *testing.T) {
 			expectedCertCount:      1,
 			expectedValidation:     false,
 			expectedValidationType: "",
+			push:                   &model.PushContext{Mesh: &meshconfig.MeshConfig{}},
 		},
 		{
 			name: "multiple certificates with credential names",
@@ -740,60 +873,78 @@ func TestApplyCredentialSDSToServerCommonTLSContext(t *testing.T) {
 			expectedCertCount:      2,
 			expectedValidation:     false,
 			expectedValidationType: "",
+			push:                   &model.PushContext{Mesh: &meshconfig.MeshConfig{}},
 		},
 		{
-			name: "multiple certificates with mutual TLS",
+			name: "credential name with validation context",
+			tlsOpts: &networking.ServerTLSSettings{
+				Mode:            networking.ServerTLSSettings_SIMPLE,
+				CredentialName:  "test-cert",
+				SubjectAltNames: []string{"test.com"},
+			},
+			credentialSocketExist:  false,
+			expectedCertCount:      1,
+			expectedValidation:     true,
+			expectedValidationType: "ValidationContext",
+			push:                   &model.PushContext{Mesh: &meshconfig.MeshConfig{}},
+		},
+		{
+			name: "CA certificates with credential name",
+			tlsOpts: &networking.ServerTLSSettings{
+				Mode:           networking.ServerTLSSettings_MUTUAL,
+				CredentialName: "rsa-cert",
+			},
+			credentialSocketExist:  false,
+			expectedCertCount:      1,
+			expectedValidation:     true,
+			expectedValidationType: "CombinedValidationContext",
+			expectedCaCert:         "kubernetes://rsa-cert-cacert",
+		},
+		{
+			name: "CA certificates with credential names",
 			tlsOpts: &networking.ServerTLSSettings{
 				Mode:            networking.ServerTLSSettings_MUTUAL,
+				CredentialName:  "ecdsa-cert",
 				CredentialNames: []string{"rsa-cert", "ecdsa-cert"},
-				SubjectAltNames: []string{"test.com"},
 			},
 			credentialSocketExist:  false,
 			expectedCertCount:      2,
 			expectedValidation:     true,
 			expectedValidationType: "CombinedValidationContext",
+			expectedCaCert:         "kubernetes://rsa-cert-cacert",
 		},
 		{
-			name: "multiple certificates with subject alt names only",
+			name: "CA certificates with CA cert credential name",
 			tlsOpts: &networking.ServerTLSSettings{
-				Mode:            networking.ServerTLSSettings_SIMPLE,
-				CredentialNames: []string{"rsa-cert", "ecdsa-cert"},
-				SubjectAltNames: []string{"test.com"},
+				Mode:                 networking.ServerTLSSettings_MUTUAL,
+				CredentialName:       "ecdsa-cert",
+				CredentialNames:      []string{"rsa-cert", "ecdsa-cert"},
+				CaCertCredentialName: "cacert",
 			},
 			credentialSocketExist:  false,
 			expectedCertCount:      2,
 			expectedValidation:     true,
-			expectedValidationType: "ValidationContext",
+			expectedValidationType: "CombinedValidationContext",
+			expectedCaCert:         "kubernetes://cacert",
 		},
 		{
-			name: "prefer credential names over credential name",
+			name: "credential name with socket",
 			tlsOpts: &networking.ServerTLSSettings{
-				Mode:            networking.ServerTLSSettings_SIMPLE,
-				CredentialName:  "old-cert",
-				CredentialNames: []string{"rsa-cert", "ecdsa-cert"},
-			},
-			credentialSocketExist:  false,
-			expectedCertCount:      2,
-			expectedValidation:     false,
-			expectedValidationType: "",
-		},
-		{
-			name: "external credential socket",
-			tlsOpts: &networking.ServerTLSSettings{
-				Mode:            networking.ServerTLSSettings_SIMPLE,
-				CredentialNames: []string{"external-cert"},
+				Mode:           networking.ServerTLSSettings_SIMPLE,
+				CredentialName: "sds://external-cert",
 			},
 			credentialSocketExist:  true,
 			expectedCertCount:      1,
 			expectedValidation:     false,
 			expectedValidationType: "",
+			push:                   &model.PushContext{Mesh: &meshconfig.MeshConfig{}},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tlsContext := &auth.CommonTlsContext{}
-			ApplyCredentialSDSToServerCommonTLSContext(tlsContext, tt.tlsOpts, tt.credentialSocketExist)
+			ApplyCredentialSDSToServerCommonTLSContext(tlsContext, tt.tlsOpts, tt.credentialSocketExist, tt.push)
 
 			// Check certificate count
 			if len(tlsContext.TlsCertificateSdsSecretConfigs) != tt.expectedCertCount {
@@ -814,6 +965,10 @@ func TestApplyCredentialSDSToServerCommonTLSContext(t *testing.T) {
 					if combinedCtx.CombinedValidationContext == nil {
 						t.Error("expected CombinedValidationContext to be set")
 					}
+					caCert := combinedCtx.CombinedValidationContext.ValidationContextSdsSecretConfig.Name
+					if tt.expectedCaCert != "" && tt.expectedCaCert != caCert {
+						t.Errorf("expected CA cert %s, got %s", tt.expectedCaCert, caCert)
+					}
 				case "ValidationContext":
 					validationCtx, ok := tlsContext.ValidationContextType.(*auth.CommonTlsContext_ValidationContext)
 					if !ok {
@@ -822,18 +977,11 @@ func TestApplyCredentialSDSToServerCommonTLSContext(t *testing.T) {
 					if validationCtx.ValidationContext == nil {
 						t.Error("expected ValidationContext to be set")
 					}
+				default:
+					t.Errorf("unexpected validation type: %s", tt.expectedValidationType)
 				}
 			} else if tlsContext.ValidationContextType != nil {
 				t.Error("unexpected validation context")
-			}
-
-			// Check certificate names
-			if tt.expectedCertCount > 0 {
-				for i, cert := range tlsContext.TlsCertificateSdsSecretConfigs {
-					if cert.Name == "" {
-						t.Errorf("certificate %d has empty name", i)
-					}
-				}
 			}
 		})
 	}

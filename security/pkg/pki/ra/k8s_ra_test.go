@@ -327,7 +327,7 @@ func initFakeKubeClient(t test.Failer, certificate []byte) kube.CLIClient {
 func createFakeK8sRA(client kube.Client, caCertFile string) (*KubernetesRA, error) {
 	defaultCertTTL := 30 * time.Minute
 	maxCertTTL := time.Hour
-	caSigner := "kubernates.io/kube-apiserver-client"
+	caSigner := "kubernetes.io/kube-apiserver-client"
 	raOpts := &IstioRAOptions{
 		ExternalCAType: ExtCAK8s,
 		DefaultCertTTL: defaultCertTTL,

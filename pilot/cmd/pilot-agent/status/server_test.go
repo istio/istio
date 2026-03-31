@@ -32,6 +32,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/expfmt"
+	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/model/labels"
 	"github.com/prometheus/prometheus/model/textparse"
 	"go.uber.org/atomic"
@@ -141,7 +142,7 @@ func TestNewServer(t *testing.T) {
 		// A valid input.
 		{
 			probe: `{"/app-health/hello-world/readyz": {"httpGet": {"path": "/hello/sunnyvale", "port": 8080}},` +
-				`"/app-health/business/livez": {"httpGet": {"path": "/buisiness/live", "port": 9090}}}`,
+				`"/app-health/business/livez": {"httpGet": {"path": "/business/live", "port": 9090}}}`,
 		},
 		// long request timeout
 		{
@@ -377,7 +378,7 @@ my_metric{app="bar"} 0
 				t.Fatalf("handleStats() => %v; want %v", rec.Body.String(), tt.output)
 			}
 
-			parser := expfmt.TextParser{}
+			parser := expfmt.NewTextParser(model.LegacyValidation)
 			mfMap, err := parser.TextToMetricFamilies(strings.NewReader(rec.Body.String()))
 			if err != nil && !tt.expectParseError {
 				t.Fatalf("failed to parse metrics: %v", err)
@@ -428,6 +429,103 @@ func TestNegotiateMetricsFormat(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			assert.Equal(t, negotiateMetricsFormat(tt.contentType), tt.expected)
+		})
+	}
+}
+
+func generateEnvoyMetrics(size int) string {
+	envoy := strings.Builder{}
+	envoy.Grow(size << 10 * 100)
+	envoy.WriteString(`# TYPE my_metric counter
+my_metric{} 0
+# TYPE my_other_metric counter
+my_other_metric{} 0
+`)
+	for i := 0; envoy.Len() < size<<10; i++ {
+		envoy.WriteString("#TYPE my_other_metric_" + strconv.Itoa(i) + " counter\nmy_other_metric_" + strconv.Itoa(i) + " 0\n")
+	}
+
+	return envoy.String()
+}
+
+func TestHTTPCompressionOnStats(t *testing.T) {
+	cases := []struct {
+		name                  string
+		acceptEncodingHeader  string
+		expectContentEncoding string
+	}{
+		{
+			name:                  "no accept encoding header",
+			acceptEncodingHeader:  "",
+			expectContentEncoding: "",
+		},
+		{
+			name:                  "gzip",
+			acceptEncodingHeader:  "gzip",
+			expectContentEncoding: "gzip",
+		},
+		{
+			name:                  "zstd",
+			acceptEncodingHeader:  "zstd",
+			expectContentEncoding: "zstd",
+		},
+		{
+			name:                  "prefer zstd over gzip",
+			acceptEncodingHeader:  "gzip, zstd",
+			expectContentEncoding: "zstd",
+		},
+		{
+			name:                  "client likes gzip more than zstd",
+			acceptEncodingHeader:  "deflate, gzip;q=1.0, zstd;q=0.5",
+			expectContentEncoding: "gzip",
+		},
+		{
+			name:                  "ignore unsupported encodings",
+			acceptEncodingHeader:  "br, lz4",
+			expectContentEncoding: "",
+		},
+	}
+
+	// Start an Envoy server to provide a big chunk of stats
+	envoyMetricBytes := generateEnvoyMetrics(1 << 11) // 10 MiB
+	envoyServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		if _, err := w.Write([]byte(envoyMetricBytes)); err != nil {
+			t.Errorf("write failed: %v", err)
+		}
+	}))
+	t.Cleanup(envoyServer.Close)
+	envoyPort, err := strconv.Atoi(strings.Split(envoyServer.URL, ":")[2])
+	if err != nil {
+		t.Error(err)
+	}
+
+	// Starts the pilot agent status server.
+	server := NewTestServer(t, Options{EnvoyPrometheusPort: envoyPort})
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			client := http.Client{}
+			req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://localhost:%v/stats/prometheus", server.statusPort), nil)
+			if err != nil {
+				t.Fatalf("[%v] failed to create request", err)
+			}
+
+			req.Header = make(http.Header)
+			req.Header.Set("Accept", "text/plain")
+			if tt.acceptEncodingHeader != "" {
+				req.Header.Add("Accept-Encoding", tt.acceptEncodingHeader)
+			}
+			resp, err := client.Do(req)
+			if err != nil {
+				t.Fatal("request failed: ", err)
+			}
+			if resp.StatusCode != http.StatusOK {
+				t.Errorf("[%v] unexpected status code, want = %v, got = %v", "/stats/prometheus", http.StatusOK, resp.StatusCode)
+			}
+			if resp.Header.Get("Content-Encoding") != tt.expectContentEncoding {
+				t.Errorf("[%v] unexpected content encoding, want = %v, got = %v", "/stats/prometheus", tt.expectContentEncoding, resp.Header.Get("Content-Encoding"))
+			}
 		})
 	}
 }
@@ -520,7 +618,7 @@ my_other_metric{} 0
 			}
 
 			if negotiateMetricsFormat(rec.Header().Get("Content-Type")) == FmtText {
-				textParser := expfmt.TextParser{}
+				textParser := expfmt.NewTextParser(model.LegacyValidation)
 				_, err := textParser.TextToMetricFamilies(strings.NewReader(rec.Body.String()))
 				if err != nil {
 					t.Fatalf("failed to parse text metrics: %v", err)
@@ -1097,30 +1195,30 @@ func TestGRPCAppProbe(t *testing.T) {
 {
     "/app-health/foo/livez": {
         "grpc": {
-            "port": %v, 
+            "port": %v,
             "service": null
-        }, 
+        },
         "timeoutSeconds": 1
-    }, 
+    },
     "/app-health/foo/readyz": {
         "grpc": {
-            "port": %v, 
+            "port": %v,
             "service": "not-serving-svc"
-        }, 
+        },
         "timeoutSeconds": 1
-    }, 
+    },
     "/app-health/bar/livez": {
         "grpc": {
-            "port": %v, 
+            "port": %v,
             "service": "serving-svc"
-        }, 
+        },
         "timeoutSeconds": 10
-    }, 
+    },
     "/app-health/bar/readyz": {
         "grpc": {
-            "port": %v, 
+            "port": %v,
             "service": "unknown-svc"
-        }, 
+        },
         "timeoutSeconds": 10
     }
 }`, appPort, appPort, appPort, appPort),
@@ -1202,30 +1300,30 @@ func TestGRPCAppProbeWithIPV6(t *testing.T) {
 {
     "/app-health/foo/livez": {
         "grpc": {
-            "port": %v, 
+            "port": %v,
             "service": null
-        }, 
+        },
         "timeoutSeconds": 1
-    }, 
+    },
     "/app-health/foo/readyz": {
         "grpc": {
-            "port": %v, 
+            "port": %v,
             "service": "not-serving-svc"
-        }, 
+        },
         "timeoutSeconds": 1
-    }, 
+    },
     "/app-health/bar/livez": {
         "grpc": {
-            "port": %v, 
+            "port": %v,
             "service": "serving-svc"
-        }, 
+        },
         "timeoutSeconds": 10
-    }, 
+    },
     "/app-health/bar/readyz": {
         "grpc": {
-            "port": %v, 
+            "port": %v,
             "service": "unknown-svc"
-        }, 
+        },
         "timeoutSeconds": 10
     }
 }`, appPort, appPort, appPort, appPort),

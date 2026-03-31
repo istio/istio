@@ -1,0 +1,26 @@
+# Not created if istiod is running remotely
+# a workaround for https://github.com/kubernetes/kubernetes/issues/93476
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: istiod
+  namespace: istio-system
+  labels:
+    app: istiod
+    istio.io/rev: "default"
+    install.operator.istio.io/owning-resource: unknown
+    operator.istio.io/component: "Pilot"
+    release: istiod
+    istio: pilot
+    app.kubernetes.io/name: "istiod"
+    app.kubernetes.io/managed-by: "Helm"
+    app.kubernetes.io/instance: "istiod"
+    app.kubernetes.io/part-of: "istio"
+    app.kubernetes.io/version: "1.0.0"
+    helm.sh/chart: istiod-1.0.0
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: istiod
+      istio: pilot

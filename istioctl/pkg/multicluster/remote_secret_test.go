@@ -77,7 +77,7 @@ func makeServiceAccount(secrets ...string) *v1.ServiceAccount {
 }
 
 func makeSecret(name, caData, token string) *v1.Secret {
-	out := &v1.Secret{
+	out := kube.EnsureTypeMeta(&v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        name,
 			Namespace:   testNamespace,
@@ -85,7 +85,7 @@ func makeSecret(name, caData, token string) *v1.Secret {
 		},
 		Data: map[string][]byte{},
 		Type: v1.SecretTypeServiceAccountToken,
-	}
+	})
 	if len(caData) > 0 {
 		out.Data[v1.ServiceAccountRootCAKey] = []byte(caData)
 	}
@@ -118,7 +118,6 @@ kind: Secret
 metadata:
   annotations:
     networking.istio.io/cluster: %[1]s
-  creationTimestamp: null
   labels:
     istio/multiCluster: "true"
   name: %[2]s
@@ -138,7 +137,6 @@ stringData:
       name: %[1]s
     current-context: %[1]s
     kind: Config
-    preferences: {}
     users:
     - name: %[1]s
       user:
@@ -153,7 +151,6 @@ kind: Secret
 metadata:
   annotations:
     networking.istio.io/cluster: %[1]s
-  creationTimestamp: null
   labels:
     istio/multiCluster: "true"
   name: %[2]s
@@ -174,7 +171,6 @@ stringData:
       name: %[1]s
     current-context: %[1]s
     kind: Config
-    preferences: {}
     users:
     - name: %[1]s
       user:
@@ -503,7 +499,6 @@ contexts:
   name: {cluster}
 current-context: {cluster}
 kind: Config
-preferences: {}
 users:
 - name: {cluster}
   user:
@@ -650,7 +645,6 @@ func TestWriteEncodedSecret(t *testing.T) {
 apiVersion: v1
 kind: Secret
 metadata:
-  creationTimestamp: null
   name: foo
 ---
 `
@@ -674,7 +668,6 @@ contexts:
   name: {cluster}
 current-context: {cluster}
 kind: Config
-preferences: {}
 users:
 - name: {cluster}
   user:

@@ -15,6 +15,7 @@
 package endpoints
 
 import (
+	"fmt"
 	"math"
 	"net"
 	"sort"
@@ -82,6 +83,7 @@ type EndpointBuilder struct {
 	push         *model.PushContext
 	proxy        *model.Proxy
 	dir          model.TrafficDirection
+	serviceInfo  *model.ServiceInfo
 
 	mtlsChecker *mtlsChecker
 }
@@ -129,6 +131,9 @@ func NewCDSEndpointBuilder(
 	}
 	b.populateSubsetInfo()
 	b.populateFailoverPriorityLabels()
+	if features.EnableAmbientMultiNetwork {
+		b.populateAmbientServiceInfo()
+	}
 	return &b
 }
 
@@ -160,7 +165,7 @@ func (b *EndpointBuilder) populateSubsetInfo() {
 		b.subsetName = strings.TrimPrefix(b.subsetName, "http/")
 		b.subsetName = strings.TrimPrefix(b.subsetName, "tcp/")
 	}
-	b.mtlsChecker = newMtlsChecker(b.push, b.port, b.destinationRule.GetRule(), b.subsetName)
+	b.mtlsChecker = newMtlsChecker(b.push, b.proxy.SidecarScope.AuthnPolicies, b.port, b.destinationRule.GetRule(), b.subsetName)
 	b.subsetLabels = getSubSetLabels(b.DestinationRule(), b.subsetName)
 }
 
@@ -172,6 +177,18 @@ func (b *EndpointBuilder) populateFailoverPriorityLabels() {
 			len(lbSetting.FailoverPriority) > 0 && (lbSetting.Enabled == nil || lbSetting.Enabled.Value) {
 			b.failoverPriorityLabels = util.GetFailoverPriorityLabels(b.proxy.Labels, lbSetting.FailoverPriority)
 		}
+	}
+}
+
+func (b *EndpointBuilder) populateAmbientServiceInfo() {
+	if !b.ServiceFound() {
+		return
+	}
+
+	svc := fmt.Sprintf("%s/%s", b.service.Attributes.Namespace, b.hostname)
+	b.serviceInfo = b.push.ServiceInfo(svc)
+	if b.serviceInfo == nil {
+		log.Debugf("can not find ServiceInfo for %s while operating with ambient multicluster enabled", svc)
 	}
 }
 
@@ -235,8 +252,8 @@ func (b *EndpointBuilder) WriteHash(h hash.Hash) {
 		h.Write(Separator)
 	}
 
-	if b.push != nil && b.push.AuthnPolicies != nil {
-		h.WriteString(b.push.AuthnPolicies.GetVersion())
+	if b.push != nil && b.proxy.SidecarScope.AuthnPolicies != nil {
+		h.WriteString(b.proxy.SidecarScope.AuthnPolicies.GetVersion())
 	}
 	h.Write(Separator)
 
@@ -332,6 +349,14 @@ func (b *EndpointBuilder) FromServiceEndpoints() []*endpoint.LocalityLbEndpoints
 	return ExtractEnvoyEndpoints(b.generate(svcEps, false))
 }
 
+// IstioEndpoints returns IstioEndpoints from the PushContext's snapshotted ServiceIndex.
+func (b *EndpointBuilder) IstioEndpoints() []*model.IstioEndpoint {
+	if b == nil {
+		return nil
+	}
+	return b.push.ServiceEndpointsByPort(b.service, b.port, b.subsetLabels)
+}
+
 // BuildClusterLoadAssignment converts the shards for this EndpointBuilder's Service
 // into a ClusterLoadAssignment. Used for EDS.
 func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.EndpointIndex) *endpoint.ClusterLoadAssignment {
@@ -340,19 +365,10 @@ func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.Endpoi
 		return buildEmptyClusterLoadAssignment(b.clusterName)
 	}
 
-	if features.EnableIngressWaypointRouting {
-		if waypointEps, f := b.findServiceWaypoint(endpointIndex); f {
-			// endpoints are from waypoint service but the envoy endpoint is different envoy cluster
-			locLbEps := b.generate(waypointEps, true)
-			return b.createClusterLoadAssignment(locLbEps)
-		}
-	}
-
-	// If we're an east west gateway, then we also want to send to waypoints
-	// TODO: depending on the final design, there will be times we DON'T want
-	// the e/w gateway to send to waypoints. That conditional logic will either live
-	// here or in the listener logic.
-	if features.EnableAmbientMultiNetwork && isEastWestGateway(b.proxy) {
+	// features.EnableIngressWaypointRouting only makes sense for ingress gateways and for E/W gateways
+	// we don't want this behavior, so additionally check that we are not generating endpoints for the
+	// E/W gateway.
+	if features.EnableIngressWaypointRouting && !isEastWestGateway(b.proxy) {
 		if waypointEps, f := b.findServiceWaypoint(endpointIndex); f {
 			// endpoints are from waypoint service but the envoy endpoint is different envoy cluster
 			locLbEps := b.generate(waypointEps, true)
@@ -362,9 +378,14 @@ func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.Endpoi
 
 	svcEps := b.snapshotShards(endpointIndex)
 	svcEps = slices.FilterInPlace(svcEps, func(ep *model.IstioEndpoint) bool {
-		// filter out endpoints that don't match the service port
-		if svcPort.Name != ep.ServicePortName {
-			return false
+		// For InferencePool services, include endpoints from all service ports
+		// They use multiple service ports (54321+i) mapped to different targetPorts
+		// but we want all endpoints in a single cluster so the EPP can load-balance across them
+		if !b.service.UseInferenceSemantics() {
+			// filter out endpoints that don't match the service port
+			if svcPort.Name != ep.ServicePortName {
+				return false
+			}
 		}
 		// filter out endpoint that has invalid ip address, mostly domain name. Because this is generated from ServiceEntry.
 		// There are other two cases that should not be filtered out:
@@ -537,6 +558,12 @@ func (b *EndpointBuilder) filterIstioEndpoint(ep *model.IstioEndpoint) bool {
 			return false
 		}
 	}
+	// If we are in ambient mode, the service is not global and the endpoint is in a different cluster
+	// we filter it out.
+	if b.serviceInfo != nil && b.serviceInfo.Scope != model.Global && b.clusterID != ep.Locality.ClusterID {
+		return false
+	}
+
 	return true
 }
 
@@ -919,10 +946,9 @@ func (b *EndpointBuilder) snapshotEndpointsForPort(endpointIndex *model.Endpoint
 
 // Duplicated from networking/core/waypoint to avoid circular dependency
 func isEastWestGateway(node *model.Proxy) bool {
-	if node == nil || node.Type != model.Waypoint {
-		return false
-	}
-	controller, isManagedGateway := node.Labels[label.GatewayManaged.Name]
+	return node.IsAmbientEastWestGateway()
+}
 
-	return isManagedGateway && controller == constants.ManagedGatewayEastWestControllerLabel
+func isSidecarProxy(node *model.Proxy) bool {
+	return node != nil && node.Type == model.SidecarProxy
 }

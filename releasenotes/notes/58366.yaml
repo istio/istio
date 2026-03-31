@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 58366
+releaseNotes:
+- |
+  **Added** an option, `gateway.istio.io/tls-cipher-suites`, to specify the custom cipher suites on a Gateway. The value is a comma separated list of cipher suites.

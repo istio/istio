@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+issue:
+- 14400
+releaseNotes:
+- |
+    **Added** support for omitting the issuer claim in JWT tokens. Either the issuer claim or a JWKSUri is required,
+    but not both. This allows for more flexible configurations when using JWT tokens for authentication, particularly
+    in scenarios where the issuer claim may be dynamic.

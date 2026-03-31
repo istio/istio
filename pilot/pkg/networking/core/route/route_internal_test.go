@@ -29,10 +29,12 @@ import (
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	authzmatcher "istio.io/istio/pilot/pkg/security/authz/matcher"
 	authz "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -644,6 +646,71 @@ func TestTranslateFault(t *testing.T) {
 			tf := TranslateFault(tt.fault)
 			if !reflect.DeepEqual(tf, tt.want) {
 				t.Errorf("Unexpected translate fault want %v, got %v", tt.want, tf)
+			}
+		})
+	}
+}
+
+func TestTranslateRequestMirrorPolicy(t *testing.T) {
+	cases := []struct {
+		name                    string
+		cluster                 string
+		runtimeFraction         *core.RuntimeFractionalPercent
+		disableShadowHostSuffix bool
+		want                    *route.RouteAction_RequestMirrorPolicy
+	}{
+		{
+			name:    "mirror policy with shadow host suffix enabled",
+			cluster: "outbound|8080||service.namespace.svc.cluster.local",
+			runtimeFraction: &core.RuntimeFractionalPercent{
+				DefaultValue: &xdstype.FractionalPercent{
+					Numerator:   100,
+					Denominator: xdstype.FractionalPercent_HUNDRED,
+				},
+			},
+			disableShadowHostSuffix: false,
+			want: &route.RouteAction_RequestMirrorPolicy{
+				Cluster: "outbound|8080||service.namespace.svc.cluster.local",
+				RuntimeFraction: &core.RuntimeFractionalPercent{
+					DefaultValue: &xdstype.FractionalPercent{
+						Numerator:   100,
+						Denominator: xdstype.FractionalPercent_HUNDRED,
+					},
+				},
+				TraceSampled:                  &wrapperspb.BoolValue{Value: false},
+				DisableShadowHostSuffixAppend: false,
+			},
+		},
+		{
+			name:    "mirror policy with shadow host suffix disabled",
+			cluster: "outbound|8080||service.namespace.svc.cluster.local",
+			runtimeFraction: &core.RuntimeFractionalPercent{
+				DefaultValue: &xdstype.FractionalPercent{
+					Numerator:   50,
+					Denominator: xdstype.FractionalPercent_HUNDRED,
+				},
+			},
+			disableShadowHostSuffix: true,
+			want: &route.RouteAction_RequestMirrorPolicy{
+				Cluster: "outbound|8080||service.namespace.svc.cluster.local",
+				RuntimeFraction: &core.RuntimeFractionalPercent{
+					DefaultValue: &xdstype.FractionalPercent{
+						Numerator:   50,
+						Denominator: xdstype.FractionalPercent_HUNDRED,
+					},
+				},
+				TraceSampled:                  &wrapperspb.BoolValue{Value: false},
+				DisableShadowHostSuffixAppend: true,
+			},
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			test.SetForTest(t, &features.DisableShadowHostSuffix, tt.disableShadowHostSuffix)
+			got := TranslateRequestMirrorPolicy(tt.cluster, tt.runtimeFraction)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("TranslateRequestMirrorPolicy() = %v, want %v", got, tt.want)
 			}
 		})
 	}

@@ -1,5 +1,6 @@
+{{- if or (eq .Values.global.resourceScope "all") (eq .Values.global.resourceScope "cluster") }}
 # Created if this is not a remote istiod, OR if it is and is also a config cluster
-{{- if or (and .Values.istiodRemote.enabled .Values.global.configCluster) (not .Values.istiodRemote.enabled) }}
+{{- if or (not .Values.istiodRemote.enabled) (and .Values.istiodRemote.enabled (or .Values.global.configCluster .Values.istiodRemote.enabledLocalInjectorIstiod)) }}
 {{- if .Values.global.configValidation }}
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingWebhookConfiguration
@@ -45,7 +46,9 @@ webhooks:
     {{- if .Values.base.validationCABundle }}
     # Disable webhook controller in Pilot to stop patching it
     failurePolicy: Fail
-    {{- else }}
+    {{- else if .Values.base.validationFailurePolicy }}
+    failurePolicy: {{ .Values.base.validationFailurePolicy }}
+    {{- else if not .Release.IsUpgrade }}
     # Fail open until the validation webhook is ready. The webhook controller
     # will update this to `Fail` and patch in the `caBundle` when the webhook
     # endpoint is ready.
@@ -64,5 +67,6 @@ webhooks:
           - "{{ .Values.revision }}"
           {{- end }}
 ---
+{{- end }}
 {{- end }}
 {{- end }}

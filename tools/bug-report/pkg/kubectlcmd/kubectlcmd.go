@@ -113,14 +113,14 @@ func (r *Runner) Logs(namespace, pod, container string, previous, dryRun bool) (
 }
 
 // EnvoyGet sends a GET request for the URL in the Envoy container in the given namespace/pod and returns the result.
-func (r *Runner) EnvoyGet(namespace, pod, url string, dryRun bool) (string, error) {
+func (r *Runner) EnvoyGet(namespace, pod, url string, dryRun bool, proxyAdminPort int) (string, error) {
 	if dryRun {
-		return fmt.Sprintf("Dry run: would be running client.EnvoyDo(%s, %s, %s)", pod, namespace, url), nil
+		return fmt.Sprintf("Dry run: would be running client.EnvoyDoWithPort(%s, %s, %s, %d)", pod, namespace, url, proxyAdminPort), nil
 	}
 	task := fmt.Sprintf("ProxyGet %s/%s:%s", namespace, pod, url)
 	r.addRunningTask(task)
 	defer r.removeRunningTask(task)
-	out, err := r.Client.EnvoyDo(context.TODO(), pod, namespace, "GET", url)
+	out, err := r.Client.EnvoyDoWithPort(context.TODO(), pod, namespace, "GET", url, proxyAdminPort)
 	return string(out), err
 }
 

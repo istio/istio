@@ -1,5 +1,4 @@
 //go:build integ
-// +build integ
 
 // Copyright Istio Authors
 //
@@ -57,23 +56,10 @@ var (
 const (
 	ambientControlPlaneValues = `
 values:
-  cni:
-    # The CNI repair feature is disabled for these tests because this is a controlled environment,
-    # and it is important to catch issues that might otherwise be automatically fixed.
-    # Refer to issue #49207 for more context.
-    repair:
-      enabled: false
-  ztunnel:
-    terminationGracePeriodSeconds: 5
-    env:
-      SECRET_TTL: 5m
-`
-
-	ambientMultiNetworkControlPlaneValues = `
-values:
   pilot:
     env:
-      AMBIENT_ENABLE_MULTI_NETWORK: "true"
+      # Note: support is alpha and env var is tightly scoped
+      ENABLE_WILDCARD_HOST_SERVICE_ENTRIES_FOR_TLS: "true"
   cni:
     # The CNI repair feature is disabled for these tests because this is a controlled environment,
     # and it is important to catch issues that might otherwise be automatically fixed.
@@ -84,6 +70,8 @@ values:
     terminationGracePeriodSeconds: 5
     env:
       SECRET_TTL: 5m
+    podLabels:
+      networking.istio.io/tunnel: "http"
 `
 )
 
@@ -115,7 +103,7 @@ type EchoDeployments struct {
 	MockExternal echo.Instances
 
 	// WaypointProxies by
-	WaypointProxies map[string]ambient.WaypointProxy
+	WaypointProxies map[string]ambient.Waypoints
 }
 
 // TestMain defines the entrypoint for pilot tests using a standard Istio installation.
@@ -136,11 +124,19 @@ func TestMain(m *testing.M) {
 			cfg.EnableCNI = true
 			cfg.DeployEastWestGW = false
 			cfg.ControlPlaneValues = ambientControlPlaneValues
+
+			if ctx.Settings().NativeNftables {
+				scopes.Framework.Infof("Running the integration tests with nativeNftables enabled")
+				cfg.Values["global.nativeNftables"] = "true"
+			}
+
 			if ctx.Settings().AmbientMultiNetwork {
-				cfg.ControlPlaneValues = ambientMultiNetworkControlPlaneValues
-				// TODO: Remove once we're actually ready to test the multi-cluster
-				// features
-				cfg.SkipDeployCrossClusterSecrets = true
+				cfg.DeployEastWestGW = true
+				cfg.DeployGatewayAPI = true
+				cfg.SkipDeployCrossClusterSecrets = false
+				cfg.Values["pilot.env.AMBIENT_ENABLE_MULTI_NETWORK"] = "true"
+				cfg.Values["pilot.env.AMBIENT_ENABLE_MULTI_NETWORK_INGRESS"] = "true"
+				cfg.Values["pilot.env.AMBIENT_ENABLE_BAGGAGE"] = "true"
 			}
 		}, cert.CreateCASecretAlt)).
 		Setup(func(t resource.Context) error {
@@ -160,7 +156,7 @@ func TestMain(m *testing.M) {
 				if err != nil {
 					return err
 				}
-				return
+				return err
 			},
 		).
 		Run()
@@ -172,6 +168,9 @@ const (
 	Captured                  = "captured"
 	Uncaptured                = "uncaptured"
 	Sidecar                   = "sidecar"
+	Global                    = "global"
+	Local                     = "local"
+	EastWestGateway           = "eastwest-gateway"
 )
 
 var inMesh = match.Matcher(func(instance echo.Instance) bool {
@@ -214,7 +213,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 			Namespace:             apps.Namespace,
 			Ports:                 ports.All(),
 			ServiceAccount:        true,
-			WorkloadWaypointProxy: "waypoint",
+			WorkloadWaypointProxy: "waypoint-workload",
 			Subsets: []echo.SubsetConfig{
 				{
 					Replicas: 1,
@@ -222,7 +221,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 					Labels: map[string]string{
 						"app":                         WorkloadAddressedWaypoint,
 						"version":                     "v1",
-						label.IoIstioUseWaypoint.Name: "waypoint",
+						label.IoIstioUseWaypoint.Name: "waypoint-workload",
 					},
 				},
 				{
@@ -231,7 +230,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 					Labels: map[string]string{
 						"app":                         WorkloadAddressedWaypoint,
 						"version":                     "v2",
-						label.IoIstioUseWaypoint.Name: "waypoint",
+						label.IoIstioUseWaypoint.Name: "waypoint-workload",
 					},
 				},
 			},
@@ -240,9 +239,9 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 			Service:              ServiceAddressedWaypoint,
 			Namespace:            apps.Namespace,
 			Ports:                ports.All(),
-			ServiceLabels:        map[string]string{label.IoIstioUseWaypoint.Name: "waypoint"},
+			ServiceLabels:        map[string]string{label.IoIstioUseWaypoint.Name: "waypoint-service"},
 			ServiceAccount:       true,
-			ServiceWaypointProxy: "waypoint",
+			ServiceWaypointProxy: "waypoint-service",
 			Subsets: []echo.SubsetConfig{
 				{
 					Replicas: 1,
@@ -364,29 +363,31 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 	}
 
 	if apps.WaypointProxies == nil {
-		apps.WaypointProxies = make(map[string]ambient.WaypointProxy)
+		apps.WaypointProxies = make(map[string]ambient.Waypoints)
 	}
 
-	for _, echo := range echos {
-		svcwp := echo.Config().ServiceWaypointProxy
-		wlwp := echo.Config().WorkloadWaypointProxy
-		if svcwp != "" {
-			if _, found := apps.WaypointProxies[svcwp]; !found {
-				apps.WaypointProxies[svcwp], err = ambient.NewWaypointProxy(t, apps.Namespace, svcwp)
-				if err != nil {
-					return err
-				}
-			}
-		}
-		if wlwp != "" {
-			if _, found := apps.WaypointProxies[wlwp]; !found {
-				apps.WaypointProxies[wlwp], err = ambient.NewWaypointProxy(t, apps.Namespace, wlwp)
-				if err != nil {
-					return err
-				}
-			}
-		}
+	// Create separate waypoint instances with specific traffic types.
+	// https://github.com/istio/istio/issues/55420
+	apps.WaypointProxies["waypoint-workload"], err = ambient.NewWaypointProxyWithTrafficType(
+		t,
+		apps.Namespace,
+		"waypoint-workload",
+		constants.WorkloadTraffic,
+	)
+	if err != nil {
+		return err
+	}
 
+	// Create service waypoint (--for service)
+	// This enables server-first protocols to work correctly with service-addressed traffic
+	apps.WaypointProxies["waypoint-service"], err = ambient.NewWaypointProxyWithTrafficType(
+		t,
+		apps.Namespace,
+		"waypoint-service",
+		constants.ServiceTraffic,
+	)
+	if err != nil {
+		return err
 	}
 
 	return nil

@@ -71,7 +71,7 @@ var rootCmd = &cobra.Command{
 
 		var cfg *config.Config
 		if cfg, err = constructConfig(); err != nil {
-			return
+			return err
 		}
 		log.Infof("CNI version: %v", version.Info.String())
 		log.Infof("CNI logging level: %+v", istiolog.LevelToString(log.GetOutputLevel()))
@@ -85,7 +85,7 @@ var rootCmd = &cobra.Command{
 		udsLogger := udsLog.NewUDSLogger(log.GetOutputLevel())
 		if err = udsLogger.StartUDSLogServer(filepath.Join(cfg.InstallConfig.CNIAgentRunDir, constants.LogUDSSocketName), ctx.Done()); err != nil {
 			log.Errorf("Failed to start up UDS Log Server: %v", err)
-			return
+			return err
 		}
 
 		// Creates a basic health endpoint server that reports health status
@@ -112,6 +112,11 @@ var rootCmd = &cobra.Command{
 			if err != nil {
 				return fmt.Errorf("failed to instantiate ambient enablement selector: %v", err)
 			}
+
+			if cfg.InstallConfig.NativeNftables && cfg.InstallConfig.ForceIptablesBinary != "" {
+				log.Warn("NativeNftables is enabled along with ForceIptablesBinary. Using native nftables and ignoring iptables")
+			}
+
 			ambientAgent, err := nodeagent.NewServer(ctx, watchServerReady, cniEventAddr,
 				nodeagent.AmbientArgs{
 					SystemNamespace:            nodeagent.SystemNamespace,
@@ -121,6 +126,8 @@ var rootCmd = &cobra.Command{
 					DNSCapture:                 cfg.InstallConfig.AmbientDNSCapture,
 					EnableIPv6:                 cfg.InstallConfig.AmbientIPv6,
 					ReconcilePodRulesOnStartup: cfg.InstallConfig.AmbientReconcilePodRulesOnStartup,
+					NativeNftables:             cfg.InstallConfig.NativeNftables,
+					ForceIptablesBinary:        cfg.InstallConfig.ForceIptablesBinary,
 				})
 			if err != nil {
 				return fmt.Errorf("failed to create ambient nodeagent service: %v", err)
@@ -132,25 +139,27 @@ var rootCmd = &cobra.Command{
 			// if it is, we do NOT remove the plugin, and do
 			// NOT do ambient watch server cleanup
 			defer func() {
-				var isUpgrade bool
+				var shouldStopCleanup bool
 				if cfg.InstallConfig.AmbientDisableSafeUpgrade {
 					log.Info("Ambient node agent safe upgrade explicitly disabled via env")
-					isUpgrade = false
+					shouldStopCleanup = false
 				} else {
-					isUpgrade = ambientAgent.ShouldStopForUpgrade("istio-cni", nodeagent.PodNamespace)
+					shouldStopCleanup = ambientAgent.ShouldStopCleanup("istio-cni", nodeagent.PodNamespace, cfg.InstallConfig.IstioOwnedCNIConfig)
 				}
-				log.Infof("Ambient node agent shutting down - is upgrade shutdown? %t", isUpgrade)
+				log.Infof("Ambient node agent shutting down - should stop cleanup? %t", shouldStopCleanup)
+
+				// TODO(jaellio) - do we want to add support for a partial cleanup
 				// if we are doing an "upgrade shutdown", then
 				// we do NOT want to remove/cleanup the CNI plugin.
 				//
 				// This is important - we want it to remain in place to "stall"
 				// new ambient-enabled pods while our replacement spins up.
-				if !isUpgrade {
+				if !shouldStopCleanup {
 					if cleanErr := installer.Cleanup(); cleanErr != nil {
 						log.Error(cleanErr.Error())
 					}
 				}
-				ambientAgent.Stop(isUpgrade)
+				ambientAgent.Stop(shouldStopCleanup)
 			}()
 
 			ambientAgent.Start()
@@ -190,7 +199,7 @@ var rootCmd = &cobra.Command{
 			}
 		}
 
-		return
+		return err
 	},
 }
 
@@ -216,6 +225,8 @@ func init() {
 	registerStringParameter(constants.CNIConfName, "", "Name of the CNI configuration file")
 	registerBooleanParameter(constants.ChainedCNIPlugin, true, "Whether to install CNI plugin as a chained or standalone")
 	registerStringParameter(constants.CNINetworkConfig, "", "CNI configuration template as a string")
+	registerStringParameter(constants.IstioOwnedCNIConfigFilename, "", "Filename for Istio owned CNI configuration")
+	registerBooleanParameter(constants.IstioOwnedCNIConfig, false, "Whether an Istio owned CNI configuration is enabled")
 	registerStringParameter(constants.LogLevel, "warn", "Fallback value for log level in CNI config file, if not specified in helm template")
 
 	// Not configurable in CNI helm charts
@@ -225,11 +236,13 @@ func init() {
 	registerStringParameter(constants.CNIAgentRunDir, "/var/run/istio-cni", "Location of the node agent writable path on the node (used for sockets, etc)")
 	registerStringParameter(constants.CNINetworkConfigFile, "", "CNI config template as a file")
 	registerIntegerParameter(constants.KubeconfigMode, constants.DefaultKubeconfigMode, "File mode of the kubeconfig file")
+	registerBooleanParameter(constants.CNIConfGroupRead, false, "Whether to enable group read on the CNI config file (0640 instead of default 0600)")
 	registerStringParameter(constants.KubeCAFile, "", "CA file for kubeconfig. Defaults to the same as install-cni pod")
 	registerBooleanParameter(constants.SkipTLSVerify, false, "Whether to use insecure TLS in kubeconfig file")
 	registerIntegerParameter(constants.MonitoringPort, 15014, "HTTP port to serve prometheus metrics")
 	registerStringParameter(constants.ZtunnelUDSAddress, "/var/run/ztunnel/ztunnel.sock", "The UDS server address which ztunnel will connect to")
 	registerBooleanParameter(constants.AmbientEnabled, false, "Whether ambient controller is enabled")
+	registerBooleanParameter(constants.EnableAmbientDetectionRetry, false, "Whether or not is ambient check is retried on error in the cni plugin")
 	// Repair
 	registerBooleanParameter(constants.RepairEnabled, true, "Whether to enable race condition repair or not")
 	registerBooleanParameter(constants.RepairDeletePods, false, "Controller will delete pods when detecting pod broken by race condition")
@@ -286,16 +299,19 @@ func bindViper(name string) {
 
 func constructConfig() (*config.Config, error) {
 	installCfg := config.InstallConfig{
-		MountedCNINetDir: viper.GetString(constants.MountedCNINetDir),
-		CNIConfName:      viper.GetString(constants.CNIConfName),
-		ChainedCNIPlugin: viper.GetBool(constants.ChainedCNIPlugin),
-		CNIAgentRunDir:   viper.GetString(constants.CNIAgentRunDir),
+		MountedCNINetDir:            viper.GetString(constants.MountedCNINetDir),
+		CNIConfName:                 viper.GetString(constants.CNIConfName),
+		ChainedCNIPlugin:            viper.GetBool(constants.ChainedCNIPlugin),
+		CNIAgentRunDir:              viper.GetString(constants.CNIAgentRunDir),
+		IstioOwnedCNIConfigFilename: viper.GetString(constants.IstioOwnedCNIConfigFilename),
+		IstioOwnedCNIConfig:         viper.GetBool(constants.IstioOwnedCNIConfig),
 
 		// Whatever user has set (with --log_output_level) for 'cni-plugin', pass it down to the plugin. It will use this to determine
 		// what level to use for itself.
 		// This masks the fact we are doing this weird log-over-UDS to users, and allows them to configure it the same way.
 		PluginLogLevel:        istiolog.LevelToString(istiolog.FindScope(constants.CNIPluginLogScope).GetOutputLevel()),
 		KubeconfigMode:        viper.GetInt(constants.KubeconfigMode),
+		CNIConfGroupRead:      viper.GetBool(constants.CNIConfGroupRead),
 		KubeCAFile:            viper.GetString(constants.KubeCAFile),
 		SkipTLSVerify:         viper.GetBool(constants.SkipTLSVerify),
 		K8sServiceProtocol:    os.Getenv("KUBERNETES_SERVICE_PROTOCOL"),
@@ -318,6 +334,10 @@ func constructConfig() (*config.Config, error) {
 		AmbientIPv6:                       viper.GetBool(constants.AmbientIPv6),
 		AmbientDisableSafeUpgrade:         viper.GetBool(constants.AmbientDisableSafeUpgrade),
 		AmbientReconcilePodRulesOnStartup: viper.GetBool(constants.AmbientReconcilePodRulesOnStartup),
+		EnableAmbientDetectionRetry:       viper.GetBool(constants.EnableAmbientDetectionRetry),
+
+		NativeNftables:      viper.GetBool(constants.NativeNftables),
+		ForceIptablesBinary: os.Getenv("FORCE_IPTABLES_BINARY"),
 	}
 
 	if len(installCfg.K8sNodeName) == 0 {
@@ -336,20 +356,28 @@ func constructConfig() (*config.Config, error) {
 		installCfg.CNIBinSourceDir = filepath.Join(mountPoint, installCfg.CNIBinSourceDir)
 	}
 
+	if installCfg.IstioOwnedCNIConfig && len(installCfg.IstioOwnedCNIConfigFilename) == 0 {
+		// If Istio owned CNI config is enabled, but no filename is specified, use the default one.
+		// The filename is not set to the default value if Istio owned CNI config is not enabled.
+		installCfg.IstioOwnedCNIConfigFilename = constants.DefaultIstioOwnedCNIConfigFilename
+	}
+
 	repairCfg := config.RepairConfig{
-		Enabled:            viper.GetBool(constants.RepairEnabled),
-		RepairPods:         viper.GetBool(constants.RepairRepairPods),
-		DeletePods:         viper.GetBool(constants.RepairDeletePods),
-		LabelPods:          viper.GetBool(constants.RepairLabelPods),
-		LabelKey:           viper.GetString(constants.RepairLabelKey),
-		LabelValue:         viper.GetString(constants.RepairLabelValue),
-		NodeName:           viper.GetString(constants.RepairNodeName),
-		SidecarAnnotation:  viper.GetString(constants.RepairSidecarAnnotation),
-		InitContainerName:  viper.GetString(constants.RepairInitContainerName),
-		InitTerminationMsg: viper.GetString(constants.RepairInitTerminationMsg),
-		InitExitCode:       viper.GetInt(constants.RepairInitExitCode),
-		LabelSelectors:     viper.GetString(constants.RepairLabelSelectors),
-		FieldSelectors:     viper.GetString(constants.RepairFieldSelectors),
+		Enabled:             viper.GetBool(constants.RepairEnabled),
+		RepairPods:          viper.GetBool(constants.RepairRepairPods),
+		DeletePods:          viper.GetBool(constants.RepairDeletePods),
+		LabelPods:           viper.GetBool(constants.RepairLabelPods),
+		LabelKey:            viper.GetString(constants.RepairLabelKey),
+		LabelValue:          viper.GetString(constants.RepairLabelValue),
+		NodeName:            viper.GetString(constants.RepairNodeName),
+		SidecarAnnotation:   viper.GetString(constants.RepairSidecarAnnotation),
+		InitContainerName:   viper.GetString(constants.RepairInitContainerName),
+		InitTerminationMsg:  viper.GetString(constants.RepairInitTerminationMsg),
+		InitExitCode:        viper.GetInt(constants.RepairInitExitCode),
+		LabelSelectors:      viper.GetString(constants.RepairLabelSelectors),
+		FieldSelectors:      viper.GetString(constants.RepairFieldSelectors),
+		NativeNftables:      viper.GetBool(constants.NativeNftables),
+		ForceIptablesBinary: os.Getenv("FORCE_IPTABLES_BINARY"),
 	}
 
 	return &config.Config{InstallConfig: installCfg, RepairConfig: repairCfg}, nil

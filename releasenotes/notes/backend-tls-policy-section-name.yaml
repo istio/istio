@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+
+releaseNotes:
+  - |
+    **Added** support for `sectionName` in Gateway API `BackendTLSPolicy` to enable port-specific TLS configuration.
+    This allows targeting specific ports of a Service by name, enabling different TLS settings per port.
+    For example, you can now configure TLS settings for only the `https` port of a Service while leaving other ports unaffected.

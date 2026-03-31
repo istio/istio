@@ -72,15 +72,13 @@ func TestDependencies(t *testing.T) {
 				`^github\.com/envoyproxy`,
 				`^istio\.io/api`,
 				`^sigs\.k8s\.io/controller-runtime`,
-			},
-			wantToDeny: []string{
 				`^testing$`,
 			},
+			wantToDeny: []string{},
 		},
 		{
 			entrypoint: "pilot/cmd/pilot-discovery",
 			tag:        "vtprotobuf,disable_pgv",
-			exceptions: []string{},
 			denied: []string{
 				// Deps meant only for other components; if we import them, something may be wrong
 				`^github\.com/containernetworking/`,
@@ -92,15 +90,15 @@ func TestDependencies(t *testing.T) {
 				`^github\.com/AdaLogics/go-fuzz-headers`,
 				`^github\.com/google/shlex`,
 				`^github\.com/howardjohn/unshare-go`,
-				`^github\.com/pmezard/go-difflib`,
+				`^testing$`,
 			},
 			wantToDeny: []string{
-				`^testing$`,
+				// Ideally only used for testing, but client-go uses it
+				`^github\.com/pmezard/go-difflib`,
 			},
 		},
 		{
 			entrypoint: "istioctl/cmd/istioctl",
-			exceptions: []string{},
 			denied: []string{
 				// Deps meant only for other components; if we import them, something may be wrong
 				`^github\.com/containernetworking/`,
@@ -109,10 +107,9 @@ func TestDependencies(t *testing.T) {
 				// Testing deps
 				`^github\.com/AdaLogics/go-fuzz-headers`,
 				`^github\.com/howardjohn/unshare-go`,
-			},
-			wantToDeny: []string{
 				`^testing$`,
 			},
+			wantToDeny: []string{},
 		},
 	}
 	allDenials := []*regexp.Regexp{}

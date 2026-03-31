@@ -116,7 +116,6 @@ var (
 			LogFormat: &core.SubstitutionFormatString{
 				Formatters: []*core.TypedExtensionConfig{
 					reqWithoutQueryFormatter,
-					metadataFormatter,
 				},
 				Format: &core.SubstitutionFormatString_JsonFormat{
 					JsonFormat: &structpb.Struct{
@@ -139,7 +138,6 @@ var (
 			LogFormat: &core.SubstitutionFormatString{
 				Formatters: []*core.TypedExtensionConfig{
 					reqWithoutQueryFormatter,
-					metadataFormatter,
 				},
 				Format: &core.SubstitutionFormatString_TextFormatSource{
 					TextFormatSource: &core.DataSource{
@@ -325,7 +323,7 @@ func TestTracing(t *testing.T) {
 			},
 		},
 	}
-	nonExistant := &tpb.Telemetry{
+	nonExistent := &tpb.Telemetry{
 		Tracing: []*tpb.Tracing{
 			{
 				Providers: []*tpb.ProviderRef{
@@ -358,6 +356,13 @@ func TestTracing(t *testing.T) {
 					Mode: tpb.WorkloadMode_SERVER,
 				},
 				DisableSpanReporting: &wrappers.BoolValue{Value: true},
+			},
+		},
+	}
+	disableContextPropagation := &tpb.Telemetry{
+		Tracing: []*tpb.Tracing{
+			{
+				DisableContextPropagation: &wrappers.BoolValue{Value: true},
 			},
 		},
 	}
@@ -427,7 +432,7 @@ func TestTracing(t *testing.T) {
 		},
 		{
 			"non existing",
-			[]config.Config{newTelemetry("default", nonExistant)},
+			[]config.Config{newTelemetry("default", nonExistent)},
 			sidecar,
 			[]string{"envoy"},
 			&TracingConfig{
@@ -557,6 +562,26 @@ func TestTracing(t *testing.T) {
 					Disabled:                     true,
 					UseRequestIDForTraceSampling: true,
 					EnableIstioTags:              true,
+				},
+			},
+		},
+		{
+			"disable context propagation",
+			[]config.Config{newTelemetry("istio-system", envoy), newTelemetry("default", disableContextPropagation)},
+			sidecar,
+			nil,
+			&TracingConfig{
+				ClientSpec: TracingSpec{
+					Provider:                     &meshconfig.MeshConfig_ExtensionProvider{Name: "envoy"},
+					UseRequestIDForTraceSampling: true,
+					EnableIstioTags:              true,
+					DisableContextPropagation:    true,
+				},
+				ServerSpec: TracingSpec{
+					Provider:                     &meshconfig.MeshConfig_ExtensionProvider{Name: "envoy"},
+					UseRequestIDForTraceSampling: true,
+					EnableIstioTags:              true,
+					DisableContextPropagation:    true,
 				},
 			},
 		},

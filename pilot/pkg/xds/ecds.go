@@ -189,13 +189,13 @@ func referencedSecrets(proxy *model.Proxy, push *model.PushContext, watched sets
 func parseSecretName(resourceName string, proxyCluster cluster.ID) (SecretResource, error) {
 	// The secret resource name must be formatted as kubernetes://secret-namespace/secret-name.
 	if !strings.HasPrefix(resourceName, credentials.KubernetesSecretTypeURI) {
-		return SecretResource{}, fmt.Errorf("misformed Wasm pull secret resource name %v", resourceName)
+		return SecretResource{}, fmt.Errorf("malformed Wasm pull secret resource name %v", resourceName)
 	}
 	res := strings.TrimPrefix(resourceName, credentials.KubernetesSecretTypeURI)
 	sep := "/"
 	split := strings.Split(res, sep)
 	if len(split) != 2 {
-		return SecretResource{}, fmt.Errorf("misformed Wasm pull secret resource name %v", resourceName)
+		return SecretResource{}, fmt.Errorf("malformed Wasm pull secret resource name %v", resourceName)
 	}
 	return SecretResource{
 		SecretResource: credentials.SecretResource{

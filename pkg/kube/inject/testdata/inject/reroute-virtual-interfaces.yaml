@@ -13,6 +13,7 @@ spec:
     metadata:
       annotations:
         istio.io/reroute-virtual-interfaces: "net0ps2"
+        traffic.sidecar.istio.io/kubevirtInterfaces: "net1"
       labels:
         app: hello
         tier: backend

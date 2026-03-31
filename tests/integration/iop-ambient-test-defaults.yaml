@@ -17,3 +17,6 @@ spec:
       - matchExpressions:
         - key: istio.io/test-exclude-namespace
           operator: DoesNotExist
+    global:
+      networkPolicy:
+        enabled: true

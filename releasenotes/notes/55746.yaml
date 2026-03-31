@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+- |
+  **Added** a feature flag `EnableGatewayAPICopyLabelsAnnotations` to allow
+  users to choose whether the deployment resources will inherit attributes from
+  the parent Gateway API resource. This feature is enabled by default.

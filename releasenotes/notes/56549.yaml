@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+issue:
+  - 43966
+docs:
+  - '[usage] https://istio.io/latest/docs/tasks/traffic-management/ingress/secure-ingress/#key-formats'
+  - '[reference] https://istio.io/latest/docs/reference/config/networking/gateway/#ServerTLSSettings-ca_cert_credential_name'
+releaseNotes:
+  - |
+    **Added** `caCertCredentialName` field in `ServerTLSSettings` to reference a Secret/ConfigMap that holds CA certificates for mTLS

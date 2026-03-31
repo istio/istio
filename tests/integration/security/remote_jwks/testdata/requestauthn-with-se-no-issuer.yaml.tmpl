@@ -1,0 +1,30 @@
+---
+apiVersion: security.istio.io/v1
+kind: RequestAuthentication
+metadata:
+  name: request-authn
+spec:
+  selector:
+    matchLabels:
+      app: {{ .dst }}
+  jwtRules:
+  - jwksUri: "http://example.com:8000/jwks"
+    outputPayloadToHeader: "x-test-payload"
+    forwardOriginalToken: true
+---
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: jwt-server-se
+spec:
+  hosts:
+  - example.com
+  location: MESH_INTERNAL
+  ports:
+  - number: 8000
+    name: http
+    protocol: HTTP
+  resolution: DNS
+  endpoints:
+  - address: jwt-server.istio-system.svc.cluster.local
+---

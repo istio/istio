@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+
+releaseNotes:
+- |
+  **Updated** `istiod` to set `GOMEMLIMIT` to 90% of the memory limit (previously 100%) to reduce the risk of OOM kills.
+  This is now handled automatically via the `automemlimit` library. Users can override by setting the `GOMEMLIMIT`
+  environment variable directly, or adjust the ratio using the `AUTOMEMLIMIT` environment variable (e.g., `AUTOMEMLIMIT=0.85` for 85%).

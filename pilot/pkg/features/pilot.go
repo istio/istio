@@ -15,12 +15,14 @@
 package features
 
 import (
+	"net"
 	"strings"
 	"time"
 
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/jwt"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -98,6 +100,18 @@ var (
 	EnableUnsafeAdminEndpoints = env.Register("UNSAFE_ENABLE_ADMIN_ENDPOINTS", false,
 		"If this is set to true, dangerous admin endpoints will be exposed on the debug interface. Not recommended for production.").Get()
 
+	EnableDebugEndpointAuth = env.Register("ENABLE_DEBUG_ENDPOINT_AUTH", true,
+		"Enforce namespace-based authorization on debug endpoints. Non-system namespaces restricted to config_dump/ndsz/edsz for same-namespace proxies only.").Get()
+
+	DebugEndpointAuthAllowedNamespaces = func() sets.String {
+		v := env.Register(
+			"DEBUG_ENDPOINT_AUTH_ALLOWED_NAMESPACES",
+			"",
+			"Comma separated list of namespaces to allow access to debug endpoints. Only used if ENABLE_DEBUG_ENDPOINT_AUTH is enabled. The system namespace"+
+				"is always authorized.").Get()
+		return sets.New(strings.Split(v, ",")...)
+	}()
+
 	EnableServiceEntrySelectPods = env.Register("PILOT_ENABLE_SERVICEENTRY_SELECT_PODS", true,
 		"If enabled, service entries with selectors will select pods from the cluster. "+
 			"It is safe to disable it if you are quite sure you don't need this feature").Get()
@@ -161,6 +175,18 @@ var (
 		true,
 		"If enabled, pilot will start a controller that assigns IP addresses to ServiceEntry which do not have a user-supplied IP. "+
 			"This, when combined with DNS capture allows for tcp routing of traffic sent to the ServiceEntry.").Get()
+
+	IPAutoallocateIPv4Prefix = env.Register(
+		"PILOT_IP_AUTOALLOCATE_IPV4_PREFIX",
+		"240.240.0.0/16",
+		"The CIDR range/prefix to use for auto-allocated IPv4 addresses. "+
+			"This should be a private range, and not conflict with any other IPs in the cluster.").Get()
+
+	IPAutoallocateIPv6Prefix = env.Register(
+		"PILOT_IP_AUTOALLOCATE_IPV6_PREFIX",
+		"2001:2::/48",
+		"The CIDR range/prefix to use for auto-allocated IPv6 addresses. "+
+			"This should be a private range, and not conflict with any other IPs in the cluster.").Get()
 
 	// EnableUnsafeAssertions enables runtime checks to test assertions in our code. This should never be enabled in
 	// production; when assertions fail Istio will panic.
@@ -275,9 +301,96 @@ var (
 			" (e.g., my-service.my-ns.svc.cluster.local.) to the domains"+
 			" list for VirtualHost entries.",
 	).Get()
+
+	EnableProxyFindPodByIP = env.Register("ENABLE_PROXY_FIND_POD_BY_IP", false,
+		"If enabled, the pod controller will allow finding pods matching proxies by IP if it fails to find them by name.").Get()
+
+	EnableLazySidecarEvaluation = env.Register("ENABLE_LAZY_SIDECAR_EVALUATION", true,
+		"If enabled, pilot will only compute sidecar resources when actually used").Get()
+
+	// EnableCACRL ToDo (nilekh): remove this feature flag once it's stable
+	EnableCACRL = env.Register(
+		"PILOT_ENABLE_CA_CRL",
+		true, // Default value (true = feature enabled by default)
+		"If set to false, Istio will not watch for the ca-crl.pem file in the /etc/cacerts directory "+
+			"and will not distribute CRL data to namespaces for proxies to consume.",
+	).Get()
+
+	EnableNativeSidecars = func() NativeSidecarMode {
+		v := env.Register("ENABLE_NATIVE_SIDECARS", "auto",
+			"If set to true, use Kubernetes native sidecar container support. Requires SidecarContainer feature flag. "+
+				"Set to true to unconditionally enable, false to unconditionally disable. "+
+				"Set to auto to automatically enable for supported scenarios").Get()
+		switch v {
+		case "false":
+			return NativeSidecarModeDisabled
+		case "true":
+			return NativeSidecarModeEnabled
+		case "auto":
+			return NativeSidecarModeAuto
+		default:
+			log.Warnf("Unknown value for ENABLE_NATIVE_SIDECARS: %s, defaulting to false", v)
+			return NativeSidecarModeDisabled
+		}
+	}()
+
+	DisableShadowHostSuffix = env.Register("DISABLE_SHADOW_HOST_SUFFIX", true,
+		"If disabled, the shadow host suffix will be added to the hostnames of the mirrored requests.").Get()
+
+	DisableTrackRemainingMetrics = env.Register("DISABLE_TRACK_REMAINING_CB_METRICS", true,
+		"If disabled, the remaining metrics for circuit breakers will not be tracked.").Get()
+
+	BlockedCIDRsInJWKURIs = func() []*net.IPNet {
+		v := env.Register(
+			"BLOCKED_CIDRS_IN_JWKS_URIS",
+			"",
+			"Comma separated list of CIDR ranges that are blocked in JWKS URIs (e.g., 10.0.0.0/8,192.168.1.0/24).").Get()
+		if v == "" {
+			return nil
+		}
+		cidrs := strings.Split(v, ",")
+		var blockedCIDRs []*net.IPNet
+		for _, cidr := range cidrs {
+			cidr = strings.TrimSpace(cidr)
+			if cidr == "" {
+				continue
+			}
+			_, ipNet, err := net.ParseCIDR(cidr)
+			if err != nil {
+				log.Warnf("Failed to parse CIDR range %q: %v", cidr, err)
+				continue
+			}
+			blockedCIDRs = append(blockedCIDRs, ipNet)
+		}
+		return blockedCIDRs
+	}()
+
+	// GatewayTransportSocketConnectTimeout specifies the timeout for transport socket (e.g., TLS
+	// handshake) connections on gateway listeners. This protects against slow or incomplete TLS
+	// handshakes consuming resources. Set to 0s to disable the timeout entirely.
+	GatewayTransportSocketConnectTimeout = env.Register(
+		"PILOT_GATEWAY_TRANSPORT_SOCKET_CONNECT_TIMEOUT",
+		15*time.Second,
+		"The timeout for transport socket (e.g., TLS handshake) connections on gateway listeners. "+
+			"This helps protect against slow TLS handshake attacks. Set to 0s to disable.",
+	).Get()
+
+	MaxWasmBinarySizeBytes = env.Register[int64](
+		"ISTIO_WASM_MAX_BINARY_SIZE_BYTES",
+		1024*1024*256,
+		"Maximum size of a Wasm binary in bytes. Default is 256MB.",
+	).Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.
 func UnsafeFeaturesEnabled() bool {
 	return EnableUnsafeAdminEndpoints || EnableUnsafeAssertions || EnableUnsafeDeltaTest
 }
+
+type NativeSidecarMode int
+
+const (
+	NativeSidecarModeEnabled  NativeSidecarMode = iota
+	NativeSidecarModeDisabled                   = iota
+	NativeSidecarModeAuto                       = iota
+)

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package env makes it possible to track use of environment variables within a procress
+// Package env makes it possible to track use of environment variables within a process
 // in order to generate documentation for these uses.
 package env
 
@@ -128,7 +128,7 @@ type GenericVar[T Parseable] struct {
 func Register[T Parseable](name string, defaultValue T, description string) GenericVar[T] {
 	// Specialized cases
 	// In the future, once only Register() remains, we can likely drop most of these.
-	// however, time.Duration is needed still as it doesn't implement json
+	// However, time.Duration is needed still as it doesn't implement json.
 	switch d := any(defaultValue).(type) {
 	case time.Duration:
 		v := RegisterDurationVar(name, d, description)

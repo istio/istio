@@ -16,6 +16,7 @@
 package ambient
 
 import (
+	"fmt"
 	"net/netip"
 	"strconv"
 	"strings"
@@ -25,14 +26,16 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	"sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"istio.io/api/annotation"
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/workloadapi"
@@ -65,6 +68,11 @@ type Waypoint struct {
 	// the ServiceAccounts directly on a Gateway resource.
 	ServiceAccounts []string
 	AllowedRoutes   WaypointSelector
+}
+
+type ClusteredNamespace struct {
+	ClusterID cluster.ID
+	Namespace string
 }
 
 func (w Waypoint) Equals(other Waypoint) bool {
@@ -105,7 +113,7 @@ func fetchWaypointForTarget(
 	if wp != nil {
 		// plausible the object has a waypoint defined but that waypoint's underlying gateway is not ready, in this case we'd return nil here even if
 		// the namespace-defined waypoint is ready and would not be nil... is this OK or should we handle that? Could lead to odd behavior when
-		// o was reliant on the namespace waypoint and then get's a use-waypoint label added before that gateway is ready.
+		// o was reliant on the namespace waypoint and then gets a use-waypoint label added before that gateway is ready.
 		// goes from having a waypoint to having no waypoint and then eventually gets a waypoint back
 		w := krt.FetchOne[Waypoint](ctx, waypoints, krt.FilterKey(wp.ResourceName()))
 		if w != nil {
@@ -207,23 +215,22 @@ func (w Waypoint) ResourceName() string {
 	return w.GetNamespace() + "/" + w.GetName()
 }
 
-func (a *index) WaypointsCollection(
-	gateways krt.Collection[*v1beta1.Gateway],
-	gatewayClasses krt.Collection[*v1beta1.GatewayClass],
+func gatewayToWaypointTransform(
 	pods krt.Collection[*v1.Pod],
-	opts krt.OptionsBuilder,
-) krt.Collection[Waypoint] {
+	gatewayClasses krt.Collection[*gatewayv1.GatewayClass],
+	networkGetter func(ctx krt.HandlerContext) network.ID,
+) func(ctx krt.HandlerContext, gateway *gatewayv1.Gateway) *Waypoint {
 	podsByNamespace := krt.NewNamespaceIndex(pods)
-	return krt.NewCollection(gateways, func(ctx krt.HandlerContext, gateway *v1beta1.Gateway) *Waypoint {
+	return func(ctx krt.HandlerContext, gateway *gatewayv1.Gateway) *Waypoint {
 		if len(gateway.Status.Addresses) == 0 {
 			// gateway.Status.Addresses should only be populated once the Waypoint's deployment has at least 1 ready pod, it should never be removed after going ready
 			// ignore Kubernetes Gateways which aren't waypoints
 			return nil
 		}
 
-		instances := krt.Fetch(ctx, pods, krt.FilterLabel(map[string]string{
+		instances := podsByNamespace.Fetch(ctx, gateway.Namespace, krt.FilterLabel(map[string]string{
 			label.IoK8sNetworkingGatewayGatewayName.Name: gateway.Name,
-		}), krt.FilterIndex(podsByNamespace, gateway.Namespace))
+		}))
 
 		serviceAccounts := slices.Map(instances, func(p *v1.Pod) string {
 			return p.Spec.ServiceAccountName
@@ -245,11 +252,97 @@ func (a *index) WaypointsCollection(
 			trafficType = tt
 		}
 
-		return a.makeWaypoint(ctx, gateway, gatewayClass, serviceAccounts, trafficType)
-	}, opts.WithName("Waypoints")...)
+		return makeWaypoint(gateway, gatewayClass, serviceAccounts, trafficType, networkGetter(ctx))
+	}
 }
 
-func makeInboundBinding(gateway *v1beta1.Gateway, gatewayClass *v1beta1.GatewayClass) *InboundBinding {
+func GlobalWaypointsCollection(
+	localCluster *multicluster.Cluster,
+	localWaypoints krt.Collection[Waypoint],
+	ctrl *multicluster.Controller,
+	gatewayClasses krt.Collection[*gatewayv1.GatewayClass],
+	globalNetworks NetworkCollections,
+	opts krt.OptionsBuilder,
+) krt.Collection[krt.Collection[Waypoint]] {
+	return multicluster.NestedCollectionFromLocalAndRemote(ctrl, localWaypoints, func(ctx krt.HandlerContext, c *multicluster.Cluster) *krt.Collection[Waypoint] {
+		opts := []krt.CollectionOption{
+			krt.WithName(fmt.Sprintf("Waypoints[%s]", c.ID)),
+			krt.WithDebugging(opts.Debugger()),
+			krt.WithStop(c.GetStop()),
+			krt.WithMetadata(krt.Metadata{multicluster.ClusterKRTMetadataKey: c.ID}),
+		}
+		pods := c.Pods()
+		podsByNamespace := krt.NewNamespaceIndex(pods)
+		gateways := c.Gateways()
+
+		clusterWaypoints := krt.NewCollection(gateways, func(ctx krt.HandlerContext, gateway *gatewayv1.Gateway) *Waypoint {
+			if len(gateway.Status.Addresses) == 0 {
+				// gateway.Status.Addresses should only be populated once the Waypoint's deployment has at least 1 ready pod, it should never be removed after going ready
+				// ignore Kubernetes Gateways which aren't waypoints
+				return nil
+			}
+
+			instances := podsByNamespace.Fetch(ctx, gateway.Namespace, krt.FilterLabel(map[string]string{
+				label.IoK8sNetworkingGatewayGatewayName.Name: gateway.Name,
+			}))
+
+			serviceAccounts := slices.Map(instances, func(p *v1.Pod) string {
+				return p.Spec.ServiceAccountName
+			})
+
+			// default traffic type if neither GatewayClass nor Gateway specify a type
+			trafficType := constants.ServiceTraffic
+
+			gatewayClass := ptr.OrEmpty(krt.FetchOne(ctx, gatewayClasses, krt.FilterKey(string(gateway.Spec.GatewayClassName))))
+			if gatewayClass == nil {
+				log.Warnf("could not find GatewayClass %s in local cluster for Gateway %s/%s", gateway.Spec.GatewayClassName, gateway.Namespace, gateway.Name)
+			} else if tt, found := gatewayClass.Labels[label.IoIstioWaypointFor.Name]; found {
+				// Check for a declared traffic type that is allowed to pass through the Waypoint's GatewayClass
+				trafficType = tt
+			}
+
+			// Check for a declared traffic type that is allowed to pass through the Waypoint
+			if tt, found := gateway.Labels[label.IoIstioWaypointFor.Name]; found {
+				trafficType = tt
+			}
+
+			nw := krt.FetchOne(ctx, globalNetworks.RemoteSystemNamespaceNetworks, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, c.ID))
+			if nw == nil {
+				log.Warnf("Cluster %s does not have a network, skipping global workloads", c.ID)
+				return nil
+			}
+			clusterNetwork := nw.Network
+
+			return makeWaypoint(gateway, gatewayClass, serviceAccounts, trafficType, clusterNetwork)
+		}, opts...)
+
+		return ptr.Of(clusterWaypoints)
+	}, "Waypoints", opts)
+}
+
+func (a Builder) WaypointsCollection(
+	clusterID cluster.ID,
+	gateways krt.Collection[*gatewayv1.Gateway],
+	gatewayClasses krt.Collection[*gatewayv1.GatewayClass],
+	pods krt.Collection[*v1.Pod],
+	opts krt.OptionsBuilder,
+) krt.Collection[Waypoint] {
+	return krt.NewCollection(
+		gateways,
+		gatewayToWaypointTransform(
+			pods,
+			gatewayClasses,
+			func(ctx krt.HandlerContext) network.ID {
+				return a.Network(ctx)
+			},
+		),
+		append(opts.WithName("Waypoints"), krt.WithMetadata(krt.Metadata{
+			multicluster.ClusterKRTMetadataKey: clusterID,
+		}))...,
+	)
+}
+
+func makeInboundBinding(gateway *gatewayv1.Gateway, gatewayClass *gatewayv1.GatewayClass) *InboundBinding {
 	ann, ok := getGatewayOrGatewayClassAnnotation(gateway, gatewayClass)
 	if !ok {
 		return nil
@@ -291,7 +384,7 @@ func makeInboundBinding(gateway *v1beta1.Gateway, gatewayClass *v1beta1.GatewayC
 	}
 }
 
-func getGatewayOrGatewayClassAnnotation(gateway *v1beta1.Gateway, class *v1beta1.GatewayClass) (string, bool) {
+func getGatewayOrGatewayClassAnnotation(gateway *gatewayv1.Gateway, class *gatewayv1.GatewayClass) (string, bool) {
 	// Gateway > GatewayClass
 	an, ok := gateway.Annotations[annotation.AmbientWaypointInboundBinding.Name]
 	if ok {
@@ -306,17 +399,17 @@ func getGatewayOrGatewayClassAnnotation(gateway *v1beta1.Gateway, class *v1beta1
 	return "", false
 }
 
-func (a *index) makeWaypoint(
-	ctx krt.HandlerContext,
-	gateway *v1beta1.Gateway,
-	gatewayClass *v1beta1.GatewayClass,
+func makeWaypoint(
+	gateway *gatewayv1.Gateway,
+	gatewayClass *gatewayv1.GatewayClass,
 	serviceAccounts []string,
 	trafficType string,
+	netw network.ID,
 ) *Waypoint {
 	binding := makeInboundBinding(gateway, gatewayClass)
 	return &Waypoint{
 		Named:           krt.NewNamed(gateway),
-		Address:         a.getGatewayAddress(ctx, gateway),
+		Address:         getGatewayAddress(gateway, netw),
 		DefaultBinding:  binding,
 		AllowedRoutes:   makeAllowedRoutes(gateway, binding),
 		TrafficType:     trafficType,
@@ -325,7 +418,7 @@ func (a *index) makeWaypoint(
 }
 
 type WaypointSelector struct {
-	FromNamespaces v1beta1.FromNamespaces
+	FromNamespaces gatewayv1.FromNamespaces
 	Selector       labels.Selector
 }
 
@@ -382,7 +475,7 @@ func (w *Waypoint) GetAddress() *workloadapi.GatewayAddress {
 // makeAllowedRoutes returns a WaypointSelector that matches the listener with the given binding
 // if we don't have a binding we use the default HBONE listener
 // if we have a binding we use the protocol and port defined in the binding
-func makeAllowedRoutes(gateway *v1beta1.Gateway, binding *InboundBinding) WaypointSelector {
+func makeAllowedRoutes(gateway *gatewayv1.Gateway, binding *InboundBinding) WaypointSelector {
 	// First see if we can find a bound listener
 	if listener, found := findBoundListener(gateway, binding); found {
 		return makeWaypointSelector(listener)
@@ -402,17 +495,17 @@ func makeAllowedRoutes(gateway *v1beta1.Gateway, binding *InboundBinding) Waypoi
 	}
 }
 
-func findBoundListener(gateway *v1beta1.Gateway, binding *InboundBinding) (v1beta1.Listener, bool) {
+func findBoundListener(gateway *gatewayv1.Gateway, binding *InboundBinding) (gatewayv1.Listener, bool) {
 	if binding == nil {
-		return v1beta1.Listener{}, false
+		return gatewayv1.Listener{}, false
 	}
-	var match func(l v1beta1.Listener) bool
+	var match func(l gatewayv1.Listener) bool
 	if binding.Port != 0 {
-		match = func(l v1beta1.Listener) bool {
+		match = func(l gatewayv1.Listener) bool {
 			return l.Port == gatewayv1.PortNumber(binding.Port)
 		}
 	} else if binding.Protocol == workloadapi.ApplicationTunnel_PROXY {
-		match = func(l v1beta1.Listener) bool {
+		match = func(l gatewayv1.Listener) bool {
 			return l.Protocol == constants.WaypointSandwichListenerProxyProtocol
 		}
 	}
@@ -421,10 +514,10 @@ func findBoundListener(gateway *v1beta1.Gateway, binding *InboundBinding) (v1bet
 			return l, true
 		}
 	}
-	return v1beta1.Listener{}, false
+	return gatewayv1.Listener{}, false
 }
 
-func makeWaypointSelector(l v1beta1.Listener) WaypointSelector {
+func makeWaypointSelector(l gatewayv1.Listener) WaypointSelector {
 	if l.AllowedRoutes == nil || l.AllowedRoutes.Namespaces == nil {
 		return WaypointSelector{
 			FromNamespaces: gatewayv1.NamespacesFromSame,
@@ -439,9 +532,9 @@ func makeWaypointSelector(l v1beta1.Listener) WaypointSelector {
 	}
 }
 
-func (a *index) getGatewayAddress(ctx krt.HandlerContext, gw *v1beta1.Gateway) *workloadapi.GatewayAddress {
+func getGatewayAddress(gw *gatewayv1.Gateway, netw network.ID) *workloadapi.GatewayAddress {
 	for _, addr := range gw.Status.Addresses {
-		if addr.Type != nil && *addr.Type == v1beta1.HostnameAddressType {
+		if addr.Type != nil && *addr.Type == gatewayv1.HostnameAddressType {
 			// Prefer hostname from status, if we can find it.
 			// Hostnames are a more reliable lookup key than IP; hostname is already the unique key for services, and IPs can be re-allocated.
 			// Additionally, a destination can have multiple IPs, which makes handling more challenging. For example, was the IPv4 address
@@ -460,7 +553,7 @@ func (a *index) getGatewayAddress(ctx krt.HandlerContext, gw *v1beta1.Gateway) *
 	}
 	// Fallback to IP address
 	for _, addr := range gw.Status.Addresses {
-		if addr.Type != nil && *addr.Type == v1beta1.IPAddressType {
+		if addr.Type != nil && *addr.Type == gatewayv1.IPAddressType {
 			ip, err := netip.ParseAddr(addr.Value)
 			if err != nil {
 				log.Warnf("parsed invalid IP address %q: %v", addr.Value, err)
@@ -470,7 +563,7 @@ func (a *index) getGatewayAddress(ctx krt.HandlerContext, gw *v1beta1.Gateway) *
 			return &workloadapi.GatewayAddress{
 				Destination: &workloadapi.GatewayAddress_Address{
 					// probably use from Cidr instead?
-					Address: a.toNetworkAddressFromIP(ctx, ip),
+					Address: toNetworkAddressFromIP(ip, netw),
 				},
 				// TODO: look up the HBONE port instead of hardcoding it
 				HboneMtlsPort: 15008,

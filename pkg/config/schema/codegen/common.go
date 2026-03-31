@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/schema/ast"
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/util/strcase"
 )
 
 func Run() error {
@@ -43,6 +44,9 @@ func Run() error {
 		},
 		{
 			Resource: &ast.Resource{Identifier: "DNSName", Kind: "DNSName", Version: "internal", Group: "internal"},
+		},
+		{
+			Resource: &ast.Resource{Identifier: "TypeUrl", Kind: "TypeUrl", Version: "internal", Group: "internal"},
 		},
 	}, inp.Entries...)
 
@@ -65,9 +69,21 @@ func Run() error {
 		{Resource: &ast.Resource{Identifier: "ServiceImport", Plural: "serviceimports", Version: features.MCSAPIVersion, Group: features.MCSAPIGroup}},
 	}, inp.Entries...)
 
+	// Build a deduplicated list of Kind names for KebabKind function
+	seenKinds := make(map[string]bool)
+	var uniqueKinds []string
+	for _, e := range inp.Entries {
+		if !seenKinds[e.Resource.Kind] {
+			seenKinds[e.Resource.Kind] = true
+			uniqueKinds = append(uniqueKinds, e.Resource.Kind)
+		}
+	}
+	sort.Strings(uniqueKinds)
+
 	return errors.Join(
 		writeTemplate("pkg/config/schema/gvk/resources.gen.go", gvkTemplate, map[string]any{
 			"Entries":     inp.Entries,
+			"UniqueKinds": uniqueKinds,
 			"PackageName": "gvk",
 		}),
 		writeTemplate("pkg/config/schema/gvr/resources.gen.go", gvrTemplate, map[string]any{
@@ -97,14 +113,14 @@ func Run() error {
 			"Entries":      inp.Entries,
 			"Packages":     inp.Packages,
 			"PackageName":  "collections",
-			"FilePrefix":   "// +build !agent",
+			"FilePrefix":   "//go:build !agent",
 			"CustomImport": `  "istio.io/istio/pkg/config/validation/envoyfilter"`,
 		}),
 		writeTemplate("pkg/config/schema/collections/collections.agent.gen.go", collectionsTemplate, map[string]any{
 			"Entries":      agentEntries,
 			"Packages":     inp.Packages,
 			"PackageName":  "collections",
-			"FilePrefix":   "// +build agent",
+			"FilePrefix":   "//go:build agent",
 			"CustomImport": "",
 		}),
 	)
@@ -125,9 +141,15 @@ func writeTemplate(path, tmpl string, i any) error {
 	return c.Run()
 }
 
+// camelCaseToKebabCase wraps strcase.CamelCaseToKebabCase for use in templates.
+func camelCaseToKebabCase(s string) string {
+	return strcase.CamelCaseToKebabCase(s)
+}
+
 func applyTemplate(tmpl string, i any) (string, error) {
 	t := template.New("tmpl").Funcs(template.FuncMap{
-		"contains": strings.Contains,
+		"contains":  strings.Contains,
+		"kebabcase": camelCaseToKebabCase,
 	})
 
 	t2 := template.Must(t.Parse(tmpl))

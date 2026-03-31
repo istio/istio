@@ -34,7 +34,7 @@ import (
 )
 
 var (
-	proxy = &model.Proxy{Metadata: &model.NodeMetadata{}}
+	proxy = &model.Proxy{Metadata: &model.NodeMetadata{}, SidecarScope: &model.SidecarScope{AuthnPolicies: &model.AuthenticationPolicies{}}}
 	any1  = &discovery.Resource{Resource: &anypb.Any{TypeUrl: "foo"}}
 	any2  = &discovery.Resource{Resource: &anypb.Any{TypeUrl: "bar"}}
 )

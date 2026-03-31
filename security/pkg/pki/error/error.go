@@ -30,7 +30,7 @@ const (
 	CertGenError
 	// CAIllegalConfig means the configuration/deployment parameters for CA are incorrect
 	CAIllegalConfig
-	// CAInitFail means some other unexpected and fatal initilization failure
+	// CAInitFail means some other unexpected and fatal initialization failure
 	CAInitFail
 )
 

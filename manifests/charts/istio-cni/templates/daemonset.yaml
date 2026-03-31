@@ -1,3 +1,4 @@
+{{- if or (eq .Values.global.resourceScope "all") (eq .Values.global.resourceScope "namespace") }}
 # This manifest installs the Istio install-cni container, as well
 # as the Istio CNI plugin and config on
 # each master and worker node in a Kubernetes cluster.
@@ -28,6 +29,7 @@ metadata:
     operator.istio.io/component: "Cni"
     app.kubernetes.io/name: {{ template "name" . }}
     {{- include "istio.labels" . | nindent 4 }}
+    {{ with .Values.daemonSetLabels -}}{{ toYaml . | nindent 4}}{{ end }}
 spec:
   selector:
     matchLabels:
@@ -44,6 +46,7 @@ spec:
         istio.io/dataplane-mode: none
         app.kubernetes.io/name: {{ template "name" . }}
         {{- include "istio.labels" . | nindent 8 }}
+        {{ with .Values.podLabels -}}{{ toYaml . | nindent 8}}{{ end }}
       annotations:
         sidecar.istio.io/inject: "false"
         # Add Prometheus Scrape annotations
@@ -55,7 +58,9 @@ spec:
         # privileged pod capabilities.
         # Required for Kubernetes 1.29 which does not support setting appArmorProfile in the
         # securityContext which is otherwise preferred.
+        {{- if .Values.useAppArmorAnnotation }}
         container.apparmor.security.beta.kubernetes.io/install-cni: unconfined
+        {{- end }}
         # Custom annotations
         {{- if .Values.podAnnotations }}
 {{ toYaml .Values.podAnnotations | indent 8 }}
@@ -78,9 +83,9 @@ spec:
       {{- end }}
       priorityClassName: system-node-critical
       serviceAccountName: {{ template "name" . }}
-      # Minimize downtime during a rolling upgrade or deletion; tell Kubernetes to do a "force
-      # deletion": https://kubernetes.io/docs/concepts/workloads/pods/pod/#termination-of-pods.
-      terminationGracePeriodSeconds: 5
+      # Time to allow for graceful CNI cleanup during pod termination.
+      # Configurable via values.yaml to prevent race conditions during rolling updates.
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
       containers:
         # This container installs the Istio CNI binaries
         # and CNI network config file on each node.
@@ -102,6 +107,14 @@ spec:
               path: /readyz
               port: 8000
           securityContext:
+            # This is required to avoid conflicts with AppArmor profiles which block certain
+            # privileged pod capabilities.
+            # For Kubernetes >= 1.30 appArmorProfile should be used, for earlier versions this is set
+            # with container.apparmor.security.beta.kubernetes.io annotation
+            {{- if not .Values.useAppArmorAnnotation }}
+            appArmorProfile:
+              type: Unconfined
+            {{- end }}
             privileged: false
             runAsGroup: 0
             runAsUser: 0
@@ -172,10 +185,12 @@ spec:
               valueFrom:
                 resourceFieldRef:
                   resource: limits.memory
+                  divisor: "1"
             - name: GOMAXPROCS
               valueFrom:
                 resourceFieldRef:
                   resource: limits.cpu
+                  divisor: "1"
             - name: POD_NAME
               valueFrom:
                 fieldRef:
@@ -184,6 +199,12 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
+            {{- if .Values.env }}
+            {{- range $key, $val := .Values.env }}
+            - name: {{ $key }}
+              value: "{{ $val }}"
+            {{- end }}
+            {{- end }}
           volumeMounts:
             - mountPath: /host/opt/cni/bin
               name: cni-bin-dir
@@ -205,9 +226,9 @@ spec:
             {{ end }}
           resources:
 {{- if .Values.resources }}
-{{ toYaml .Values.resources | trim | indent 12 }}
+{{ include "istio-cni.resources" .Values.resources | trim | indent 12 }}
 {{- else }}
-{{ toYaml .Values.global.defaultResources | trim | indent 12 }}
+{{ include "istio-cni.resources" .Values.global.defaultResources | trim | indent 12 }}
 {{- end }}
       volumes:
         # Used to install CNI.
@@ -239,3 +260,4 @@ spec:
             type: DirectoryOrCreate # DirectoryOrCreate instead of Directory for the following reason - CNI may not bind mount this until a non-hostnetwork pod is scheduled on the node,
             # and we don't want to block CNI agent pod creation on waiting for the first non-hostnetwork pod.
             # Once the CNI does mount this, it will get populated and we're good.
+{{- end }}

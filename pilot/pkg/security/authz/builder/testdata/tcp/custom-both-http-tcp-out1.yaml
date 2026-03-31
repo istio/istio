@@ -4,7 +4,7 @@ typedConfig:
   shadowRules:
     action: DENY
     policies:
-      istio-ext-authz-ns[foo]-policy[httpbin-deny]-rule[0]:
+      istio-ext-authz-default-ns[foo]-policy[httpbin-deny]-rule[0]:
         permissions:
         - andRules:
             rules:
@@ -13,7 +13,7 @@ typedConfig:
         - andIds:
             ids:
             - any: true
-      istio-ext-authz-ns[foo]-policy[httpbin-deny]-rule[1]:
+      istio-ext-authz-default-ns[foo]-policy[httpbin-deny]-rule[1]:
         permissions:
         - andRules:
             rules:
@@ -26,7 +26,7 @@ typedConfig:
                 - directRemoteIp:
                     addressPrefix: 1.2.3.4
                     prefixLen: 32
-      istio-ext-authz-ns[foo]-policy[httpbin-deny]-rule[2]:
+      istio-ext-authz-default-ns[foo]-policy[httpbin-deny]-rule[2]:
         permissions:
         - andRules:
             rules:
@@ -41,7 +41,7 @@ typedConfig:
                 - directRemoteIp:
                     addressPrefix: 1.2.3.4
                     prefixLen: 32
-      istio-ext-authz-ns[foo]-policy[httpbin-deny]-rule[3]:
+      istio-ext-authz-default-ns[foo]-policy[httpbin-deny]-rule[3]:
         permissions:
         - andRules:
             rules:
@@ -50,7 +50,7 @@ typedConfig:
         - andIds:
             ids:
             - any: true
-      istio-ext-authz-ns[foo]-policy[httpbin-deny]-rule[4]:
+      istio-ext-authz-default-ns[foo]-policy[httpbin-deny]-rule[4]:
         permissions:
         - andRules:
             rules:
@@ -61,7 +61,7 @@ typedConfig:
         - andIds:
             ids:
             - any: true
-      istio-ext-authz-ns[foo]-policy[httpbin-deny]-rule[5]:
+      istio-ext-authz-default-ns[foo]-policy[httpbin-deny]-rule[5]:
         permissions:
         - andRules:
             rules:

@@ -1,0 +1,9 @@
+WORKLOAD                                DIRECTION LOCAL               REMOTE              REMOTE TARGET                PROTOCOL
+details-v1-7f85d59cff-bmpln.bookinfo    Inbound   10.233.97.136:9080  10.233.97.129:55018 details.am.svc.cluster.local HBONE
+productpage-v1-796f87b58-97bjk.bookinfo Inbound   10.233.97.129:9080  10.233.97.150:35078                              HBONE
+productpage-v1-796f87b58-97bjk.bookinfo Inbound   10.233.97.129:9080  10.233.97.150:35068                              HBONE
+productpage-v1-796f87b58-97bjk.bookinfo Outbound  10.233.97.129:35380 10.233.97.136:15008 10.233.25.246:9080           HBONE
+ratings-v1-779dfc6dc5-5q5wz.bookinfo    Inbound   10.233.97.188:9080  10.233.97.141:40780 ratings.am.svc.cluster.local HBONE
+ratings-v1-779dfc6dc5-5q5wz.bookinfo    Inbound   10.233.97.188:9080  10.233.97.144:50504 ratings.am.svc.cluster.local HBONE
+reviews-v2-76c648db77-lrkkx.bookinfo    Outbound  10.233.97.144:43960 10.233.97.188:15008 10.233.52.25:9080            HBONE
+reviews-v3-b84b7f64f-vdnsx.bookinfo     Outbound  10.233.97.141:52898 10.233.97.188:15008 10.233.52.25:9080            HBONE

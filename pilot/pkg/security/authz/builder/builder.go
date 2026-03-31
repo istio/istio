@@ -16,6 +16,7 @@ package builder
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
@@ -26,6 +27,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/api/annotation"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	authzmodel "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pilot/pkg/security/trustdomain"
@@ -142,6 +144,9 @@ type builtRule struct {
 	rules       *rbacpb.RBAC
 	shadowRules *rbacpb.RBAC
 	providers   []string
+	// For CUSTOM policies, rules grouped by provider to support multiple providers per workload
+	providerRules       map[string]*rbacpb.RBAC
+	providerShadowRules map[string]*rbacpb.RBAC
 }
 
 func isDryRun(policy model.AuthorizationPolicy, logger *AuthzLogger) bool {
@@ -167,41 +172,102 @@ func shadowRuleStatPrefix(rule *rbacpb.RBAC) string {
 	}
 }
 
+// selectProviderRuleSet initializes and selects the appropriate RBAC rule set for a provider.
+// For CUSTOM policies, each provider maintains separate enforce and dry-run rule sets.
+// Returns: (selectedRuleSet, hasEnforcePolicy, hasDryRunPolicy)
+func selectProviderRuleSet(
+	providerName string,
+	action rbacpb.RBAC_Action,
+	policy model.AuthorizationPolicy,
+	logger *AuthzLogger,
+	providerRules map[string]*rbacpb.RBAC,
+	providerShadowRules map[string]*rbacpb.RBAC,
+) (*rbacpb.RBAC, bool, bool) {
+	// Initialize provider-specific rules if needed
+	if _, ok := providerRules[providerName]; !ok {
+		providerRules[providerName] = &rbacpb.RBAC{
+			Action:   action,
+			Policies: map[string]*rbacpb.Policy{},
+		}
+		providerShadowRules[providerName] = &rbacpb.RBAC{
+			Action:   action,
+			Policies: map[string]*rbacpb.Policy{},
+		}
+	}
+
+	// Select appropriate rule set based on dry-run annotation
+	if isDryRun(policy, logger) {
+		return providerShadowRules[providerName], false, true
+	}
+	return providerRules[providerName], true, false
+}
+
 func (b Builder) build(policies []model.AuthorizationPolicy, action rbacpb.RBAC_Action, forTCP bool, logger *AuthzLogger) *builtRule {
 	if len(policies) == 0 {
 		return nil
 	}
+	// Use var block for cleaner variable declarations (reviewer suggestion)
+	var (
+		enforceRules = &rbacpb.RBAC{
+			Action:   action,
+			Policies: map[string]*rbacpb.Policy{},
+		}
+		shadowRules = &rbacpb.RBAC{
+			Action:   action,
+			Policies: map[string]*rbacpb.Policy{},
+		}
+		// For CUSTOM policies, track provider-specific rules
+		providerRules       = map[string]*rbacpb.RBAC{}
+		providerShadowRules = map[string]*rbacpb.RBAC{}
 
-	enforceRules := &rbacpb.RBAC{
-		Action:   action,
-		Policies: map[string]*rbacpb.Policy{},
-	}
-	shadowRules := &rbacpb.RBAC{
-		Action:   action,
-		Policies: map[string]*rbacpb.Policy{},
-	}
+		providers                         []string
+		hasEnforcePolicy, hasDryRunPolicy = false, false
+	)
 
-	var providers []string
 	filterType := "HTTP"
 	if forTCP {
 		filterType = "TCP"
 	}
-	hasEnforcePolicy, hasDryRunPolicy := false, false
+
 	for _, policy := range policies {
-		var currentRule *rbacpb.RBAC
-		if isDryRun(policy, logger) {
-			currentRule = shadowRules
-			hasDryRunPolicy = true
-		} else {
-			currentRule = enforceRules
-			hasEnforcePolicy = true
+		var (
+			currentRule  *rbacpb.RBAC
+			providerName string
+		)
+
+		// Use switch statement for clearer control flow (reviewer suggestion)
+		switch {
+		case b.option.IsCustomBuilder:
+			providerName = policy.Spec.GetProvider().GetName()
+			providers = append(providers, providerName)
+
+			// Ensure provider-specific rule sets exist and select the appropriate one
+			var hasEnforce, hasDryRun bool
+			currentRule, hasEnforce, hasDryRun = selectProviderRuleSet(
+				providerName, action, policy, logger,
+				providerRules, providerShadowRules)
+
+			if hasEnforce {
+				hasEnforcePolicy = true
+			}
+			if hasDryRun {
+				hasDryRunPolicy = true
+			}
+
+		default: // Non-CUSTOM policies (ALLOW/DENY/AUDIT)
+			switch {
+			case isDryRun(policy, logger):
+				currentRule = shadowRules
+				hasDryRunPolicy = true
+			default:
+				currentRule = enforceRules
+				hasEnforcePolicy = true
+			}
 		}
-		if b.option.IsCustomBuilder {
-			providers = append(providers, policy.Spec.GetProvider().GetName())
-		}
+
 		for i, rule := range policy.Spec.Rules {
 			// The name will later be used by ext_authz filter to get the evaluation result from dynamic metadata.
-			name := policyName(policy.Namespace, policy.Name, i, b.option)
+			name := policyName(policy.Namespace, policy.Name, i, providerName, b.option)
 			if rule == nil {
 				logger.AppendError(fmt.Errorf("skipped nil rule %s", name))
 				continue
@@ -227,7 +293,7 @@ func (b Builder) build(policies []model.AuthorizationPolicy, action rbacpb.RBAC_
 		}
 		if len(policy.Spec.Rules) == 0 {
 			// Generate an explicit policy that never matches.
-			name := policyName(policy.Namespace, policy.Name, 0, b.option)
+			name := policyName(policy.Namespace, policy.Name, 0, providerName, b.option)
 			logger.AppendDebugf("generated config from policy %s on %s filter chain successfully", name, filterType)
 			currentRule.Policies[name] = rbacPolicyMatchNever
 		}
@@ -240,16 +306,17 @@ func (b Builder) build(policies []model.AuthorizationPolicy, action rbacpb.RBAC_
 		shadowRules = nil
 	}
 	return &builtRule{
-		rules:       enforceRules,
-		shadowRules: shadowRules,
-		providers:   providers,
+		rules:               enforceRules,
+		shadowRules:         shadowRules,
+		providers:           providers,
+		providerRules:       providerRules,
+		providerShadowRules: providerShadowRules,
 	}
 }
 
 func (b Builder) buildHTTP(rule *builtRule, logger *AuthzLogger) []*hcm.HttpFilter {
 	rules := rule.rules
 	shadowRules := rule.shadowRules
-	providers := rule.providers
 	if !b.option.IsCustomBuilder {
 		rbac := &rbachttp.RBAC{
 			Rules:                 rules,
@@ -264,42 +331,100 @@ func (b Builder) buildHTTP(rule *builtRule, logger *AuthzLogger) []*hcm.HttpFilt
 		}
 	}
 
-	extauthz, err := getExtAuthz(b.extensions, providers)
-	if err != nil {
-		logger.AppendError(multierror.Prefix(err, "failed to process CUSTOM action, will generate deny configs for the specified rules:"))
-		rbac := &rbachttp.RBAC{Rules: getBadCustomDenyRules(rules)}
-		return []*hcm.HttpFilter{
-			{
+	// For CUSTOM policies, generate filter pairs for each unique provider
+	var filters []*hcm.HttpFilter
+
+	// Get unique providers from both enforce and shadow rules to ensure
+	// providers with only dry-run policies are not skipped
+	providerSet := make(map[string]struct{})
+	for provider := range rule.providerRules {
+		providerSet[provider] = struct{}{}
+	}
+	for provider := range rule.providerShadowRules {
+		providerSet[provider] = struct{}{}
+	}
+	uniqueProviders := maps.Keys(providerSet)
+	sort.Strings(uniqueProviders)
+
+	// Check if multiple providers are used without the feature flag enabled
+	if len(uniqueProviders) > 1 && !features.EnableMultipleCustomAuthzProviders {
+		logger.AppendError(fmt.Errorf("multiple CUSTOM authorization providers per workload requires "+
+			"PILOT_ENABLE_MULTIPLE_CUSTOM_AUTHZ_PROVIDERS feature flag, found %d providers: %v", len(uniqueProviders), uniqueProviders))
+		// Generate deny rules for all policies since we can't safely pick one provider
+		for _, provider := range uniqueProviders {
+			providerRules := rule.providerRules[provider]
+			rbac := &rbachttp.RBAC{Rules: getBadCustomDenyRules(providerRules)}
+			filters = append(filters, &hcm.HttpFilter{
+				Name:       wellknown.HTTPRoleBasedAccessControl,
+				ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(rbac)},
+			})
+		}
+		return filters
+	}
+
+	for _, provider := range uniqueProviders {
+		providerRules := rule.providerRules[provider]
+		providerShadowRules := rule.providerShadowRules[provider]
+
+		extauthz, err := getExtAuthz(b.extensions, []string{provider})
+		if err != nil {
+			logger.AppendError(multierror.Prefix(err, fmt.Sprintf("failed to process CUSTOM action for provider %s, will generate deny configs:", provider)))
+			rbac := &rbachttp.RBAC{Rules: getBadCustomDenyRules(providerRules)}
+			filters = append(filters, &hcm.HttpFilter{
+				Name:       wellknown.HTTPRoleBasedAccessControl,
+				ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(rbac)},
+			})
+			continue
+		}
+
+		// Add the RBAC filter in shadow mode so that it only evaluates the matching rules for CUSTOM action but not enforce it.
+		// The evaluation result is stored in the dynamic metadata keyed by the policy name. And then the ext_authz filter
+		// can utilize these metadata to trigger the enforcement conditionally.
+		// See https://docs.google.com/document/d/1V4mCQCw7mlGp0zSQQXYoBdbKMDnkPOjeyUb85U07iSI/edit#bookmark=kix.jdq8u0an2r6s
+		// for more details.
+		//
+		// For CUSTOM action, the RBAC filter never enforces - it only evaluates and stores results in metadata:
+		// - providerRules (non-dry-run policies) → ShadowRules with "istio_ext_authz_" prefix
+		//   - RBAC evaluates and stores metadata with policy name: "istio-ext-authz-{provider}-..."
+		//   - ext_authz checks for this metadata prefix and calls the authorization service
+		//   - ext_authz enforces the decision (allow/deny)
+		//
+		// - providerShadowRules (dry-run policies) → Rules with same metadata prefix
+		//   - RBAC evaluates and stores metadata with same policy name format
+		//   - ext_authz sees the metadata and triggers (limitation: dry-run CUSTOM policies still call ext_authz)
+		//   - TODO: Future improvement could use different prefix to distinguish dry-run from enforce
+		//
+		// Note: Both Rules and ShadowRules in RBAC can be evaluated simultaneously. For CUSTOM action,
+		// neither enforces - they only populate metadata for ext_authz to check.
+		rbac := &rbachttp.RBAC{
+			ShadowRules:           providerRules,
+			ShadowRulesStatPrefix: authzmodel.RBACExtAuthzShadowRulesStatPrefix,
+		}
+		if providerShadowRules != nil && len(providerShadowRules.Policies) > 0 {
+			rbac.Rules = providerShadowRules
+		}
+
+		// Use provider-specific metadata matcher
+		extauthz.http.FilterEnabledMetadata = generateFilterMatcherForProvider(wellknown.HTTPRoleBasedAccessControl, provider)
+
+		filters = append(filters,
+			&hcm.HttpFilter{
 				Name:       wellknown.HTTPRoleBasedAccessControl,
 				ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(rbac)},
 			},
-		}
+			&hcm.HttpFilter{
+				Name:       wellknown.HTTPExternalAuthorization,
+				ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(extauthz.http)},
+			},
+		)
 	}
-	// Add the RBAC filter in shadow mode so that it only evaluates the matching rules for CUSTOM action but not enforce it.
-	// The evaluation result is stored in the dynamic metadata keyed by the policy name. And then the ext_authz filter
-	// can utilize these metadata to trigger the enforcement conditionally.
-	// See https://docs.google.com/document/d/1V4mCQCw7mlGp0zSQQXYoBdbKMDnkPOjeyUb85U07iSI/edit#bookmark=kix.jdq8u0an2r6s
-	// for more details.
-	rbac := &rbachttp.RBAC{
-		ShadowRules:           rules,
-		ShadowRulesStatPrefix: authzmodel.RBACExtAuthzShadowRulesStatPrefix,
-	}
-	return []*hcm.HttpFilter{
-		{
-			Name:       wellknown.HTTPRoleBasedAccessControl,
-			ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(rbac)},
-		},
-		{
-			Name:       wellknown.HTTPExternalAuthorization,
-			ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(extauthz.http)},
-		},
-	}
+
+	return filters
 }
 
 func (b Builder) buildTCP(rule *builtRule, logger *AuthzLogger) []*listener.Filter {
 	rules := rule.rules
 	shadowRules := rule.shadowRules
-	providers := rule.providers
 	if !b.option.IsCustomBuilder {
 		rbac := &rbactcp.RBAC{
 			Rules:                 rules,
@@ -315,39 +440,91 @@ func (b Builder) buildTCP(rule *builtRule, logger *AuthzLogger) []*listener.Filt
 		}
 	}
 
-	extauthz, err := getExtAuthz(b.extensions, providers)
-	if err != nil {
-		logger.AppendError(multierror.Prefix(err, "failed to process CUSTOM action, will generate deny configs for the specified rules:"))
-		rbac := &rbactcp.RBAC{
-			Rules:      getBadCustomDenyRules(rules),
-			StatPrefix: authzmodel.RBACTCPFilterStatPrefix,
+	// For CUSTOM policies, generate filter pairs for each unique provider
+	var filters []*listener.Filter
+
+	// Get unique providers from both enforce and shadow rules to ensure
+	// providers with only dry-run policies are not skipped
+	providerSet := make(map[string]struct{})
+	for provider := range rule.providerRules {
+		providerSet[provider] = struct{}{}
+	}
+	for provider := range rule.providerShadowRules {
+		providerSet[provider] = struct{}{}
+	}
+	uniqueProviders := maps.Keys(providerSet)
+	sort.Strings(uniqueProviders)
+
+	// Check if multiple providers are used without the feature flag enabled
+	if len(uniqueProviders) > 1 && !features.EnableMultipleCustomAuthzProviders {
+		logger.AppendError(fmt.Errorf("multiple CUSTOM authorization providers per workload requires "+
+			"PILOT_ENABLE_MULTIPLE_CUSTOM_AUTHZ_PROVIDERS feature flag, found %d providers: %v", len(uniqueProviders), uniqueProviders))
+		// Generate deny rules for all policies since we can't safely pick one provider
+		for _, provider := range uniqueProviders {
+			providerRules := rule.providerRules[provider]
+			rbac := &rbactcp.RBAC{
+				Rules:      getBadCustomDenyRules(providerRules),
+				StatPrefix: authzmodel.RBACTCPFilterStatPrefix,
+			}
+			filters = append(filters, &listener.Filter{
+				Name:       wellknown.RoleBasedAccessControl,
+				ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(rbac)},
+			})
 		}
-		return []*listener.Filter{
-			{
+		return filters
+	}
+
+	for _, provider := range uniqueProviders {
+		providerRules := rule.providerRules[provider]
+		providerShadowRules := rule.providerShadowRules[provider]
+
+		extauthz, err := getExtAuthz(b.extensions, []string{provider})
+		if err != nil {
+			logger.AppendError(multierror.Prefix(err, fmt.Sprintf("failed to process CUSTOM action for provider %s, will generate deny configs:", provider)))
+			rbac := &rbactcp.RBAC{
+				Rules:      getBadCustomDenyRules(providerRules),
+				StatPrefix: authzmodel.RBACTCPFilterStatPrefix,
+			}
+			filters = append(filters, &listener.Filter{
+				Name:       wellknown.RoleBasedAccessControl,
+				ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(rbac)},
+			})
+			continue
+		} else if extauthz.tcp == nil {
+			logger.AppendDebugf("ignored CUSTOM action with HTTP provider on TCP filter chain for provider %s", provider)
+			continue
+		}
+
+		// For CUSTOM action on TCP, same logic as HTTP:
+		// - RBAC filter evaluates but doesn't enforce
+		// - Results stored in metadata for ext_authz to check
+		// - providerRules (enforce) → ShadowRules
+		// - providerShadowRules (dry-run) → Rules (see HTTP comment for limitation)
+		rbac := &rbactcp.RBAC{
+			ShadowRules:           providerRules,
+			StatPrefix:            authzmodel.RBACTCPFilterStatPrefix,
+			ShadowRulesStatPrefix: authzmodel.RBACExtAuthzShadowRulesStatPrefix,
+		}
+		if providerShadowRules != nil && len(providerShadowRules.Policies) > 0 {
+			rbac.Rules = providerShadowRules
+		}
+
+		// Use provider-specific metadata matcher
+		extauthz.tcp.FilterEnabledMetadata = generateFilterMatcherForProvider(wellknown.RoleBasedAccessControl, provider)
+
+		filters = append(filters,
+			&listener.Filter{
 				Name:       wellknown.RoleBasedAccessControl,
 				ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(rbac)},
 			},
-		}
-	} else if extauthz.tcp == nil {
-		logger.AppendDebugf("ignored CUSTOM action with HTTP provider on TCP filter chain")
-		return nil
+			&listener.Filter{
+				Name:       wellknown.ExternalAuthorization,
+				ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(extauthz.tcp)},
+			},
+		)
 	}
 
-	rbac := &rbactcp.RBAC{
-		ShadowRules:           rules,
-		StatPrefix:            authzmodel.RBACTCPFilterStatPrefix,
-		ShadowRulesStatPrefix: authzmodel.RBACExtAuthzShadowRulesStatPrefix,
-	}
-	return []*listener.Filter{
-		{
-			Name:       wellknown.RoleBasedAccessControl,
-			ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(rbac)},
-		},
-		{
-			Name:       wellknown.ExternalAuthorization,
-			ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(extauthz.tcp)},
-		},
-	}
+	return filters
 }
 
 func getBadCustomDenyRules(rules *rbacpb.RBAC) *rbacpb.RBAC {
@@ -361,10 +538,15 @@ func getBadCustomDenyRules(rules *rbacpb.RBAC) *rbacpb.RBAC {
 	return rbac
 }
 
-func policyName(namespace, name string, rule int, option Option) string {
+func policyName(namespace, name string, rule int, provider string, option Option) string {
 	prefix := ""
 	if option.IsCustomBuilder {
-		prefix = extAuthzMatchPrefix + "-"
+		// Include provider in prefix to allow multiple providers per workload
+		if provider != "" {
+			prefix = fmt.Sprintf("%s-%s-", extAuthzMatchPrefix, provider)
+		} else {
+			prefix = extAuthzMatchPrefix + "-"
+		}
 	}
 	return fmt.Sprintf("%sns[%s]-policy[%s]-rule[%d]", prefix, namespace, name, rule)
 }

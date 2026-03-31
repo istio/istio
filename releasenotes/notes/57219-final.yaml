@@ -1,0 +1,15 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+- 57219
+
+releaseNotes:
+- |
+  **Removed** support for InferencePool v1.0.0-rc.2.
+  **Added** support for InferencePool v1.0.0.
+upgradeNotes:
+- title: InferencePool
+  content: |
+    The InferencePool API v1.0.0-rc.2 has been replaced with v1.0.0. No API changes exist
+    between rc2 and v1.0.0.

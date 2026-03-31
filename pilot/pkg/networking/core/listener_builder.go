@@ -24,8 +24,10 @@ import (
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
+	"k8s.io/apimachinery/pkg/types"
 
 	extensions "istio.io/api/extensions/v1alpha1"
+	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
@@ -319,14 +321,20 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 		connectionManager.CodecType = hcm.HttpConnectionManager_AUTO
 	}
 
+	ph := lb.node.Metadata.ProxyConfigOrDefault(lb.push.Mesh.GetDefaultConfig()).GetProxyHeaders()
+
 	// Preserve HTTP/1.x traffic header case
-	if lb.node.Metadata.ProxyConfigOrDefault(lb.push.Mesh.GetDefaultConfig()).GetProxyHeaders().GetPreserveHttp1HeaderCase().GetValue() {
+	if shouldPreserveHeaderCase(lb.node.Metadata, lb.push) {
 		// This value only affects HTTP/1.x traffic
-		connectionManager.HttpProtocolOptions = preserveCaseFormatterConfig
+		if connectionManager.HttpProtocolOptions == nil {
+			connectionManager.HttpProtocolOptions = &core.Http1ProtocolOptions{}
+		}
+		connectionManager.HttpProtocolOptions.HeaderKeyFormat = preserveCaseFormatterConfig.HeaderKeyFormat
 	}
 
 	connectionManager.AccessLog = []*accesslog.AccessLog{}
 	connectionManager.StatPrefix = httpOpts.statPrefix
+	connectionManager.AppendXForwardedPort = ph.GetXForwardedPort().GetEnabled().GetValue()
 
 	// Setup normalization
 	connectionManager.PathWithEscapedSlashesAction = hcm.HttpConnectionManager_KEEP_UNCHANGED
@@ -403,6 +411,12 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 		// TODO: these feel like the wrong place to insert, but this retains backwards compatibility with the original implementation
 		filters = extension.PopAppendHTTP(filters, wasm, extensions.PluginPhase_STATS)
 		filters = extension.PopAppendHTTP(filters, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
+		// Add ExtProc per listener only if the Gateway has any inferencePool attached to it
+		if kubeGwName, ok := lb.node.Labels[label.IoK8sNetworkingGatewayGatewayName.Name]; ok {
+			if lb.push.GatewayAPIController.HasInferencePool(types.NamespacedName{Name: kubeGwName, Namespace: lb.node.GetNamespace()}) {
+				filters = append(filters, xdsfilters.InferencePoolExtProc)
+			}
+		}
 	}
 
 	if httpOpts.protocol == protocol.GRPCWeb {
@@ -429,6 +443,23 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 	if features.EnablePersistentSessionFilter.Load() && httpOpts.class != istionetworking.ListenerClassSidecarInbound {
 		filters = append(filters, xdsfilters.EmptySessionFilter)
 	}
+
+	// Create DFP filter for wildcard hosts in waypoint inbound for ambient mode
+	if httpOpts.policySvc != nil && httpOpts.policySvc.Hostname.IsWildCarded() && httpOpts.class == istionetworking.ListenerClassSidecarInbound {
+		dfpCacheName := model.BuildDNSCacheName(httpOpts.policySvc.Hostname)
+		filters = append(filters, xdsfilters.BuildWaypointInboundDFPFilter(dfpCacheName))
+	}
+
+	// Create DFP filter for wildcard hosts in sidecar outbound for DYNAMIC_DNS ServiceEntries
+	if httpOpts.policySvc != nil &&
+		httpOpts.policySvc.Hostname.IsWildCarded() &&
+		httpOpts.policySvc.Resolution == model.DynamicDNS &&
+		httpOpts.class == istionetworking.ListenerClassSidecarOutbound {
+		dfpCacheName := model.BuildDNSCacheName(httpOpts.policySvc.Hostname)
+		filters = append(filters, xdsfilters.BuildSidecarOutboundDynamicForwardProxyFilter(dfpCacheName))
+	}
+
+	// Router filter must be last
 	filters = append(filters, xdsfilters.BuildRouterFilter(xdsfilters.RouterFilterContext{
 		SuppressDebugHeaders: httpOpts.suppressEnvoyDebugHeaders,
 	}))

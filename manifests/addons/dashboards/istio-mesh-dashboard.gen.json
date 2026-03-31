@@ -1,5 +1,27 @@
 {
    "graphTooltip": 1,
+   "links": [
+      {
+         "asDropdown": false,
+         "includeVars": true,
+         "keepTime": true,
+         "tags": [
+            "3ce50c812b834468cea4e52a35e02f35"
+         ],
+         "title": "Service Dashboard",
+         "type": "dashboards"
+      },
+      {
+         "asDropdown": false,
+         "includeVars": true,
+         "keepTime": true,
+         "tags": [
+            "fe06a478395b51cc61c8d7d7e83e2f22"
+         ],
+         "title": "Workload Dashboard",
+         "type": "dashboards"
+      }
+   ],
    "panels": [
       {
          "collapsed": false,

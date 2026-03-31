@@ -44,6 +44,8 @@ const (
 	CACertFile = "ca-cert.pem"
 	// CAPrivateKeyFile is the private key file of CA.
 	CAPrivateKeyFile = "ca-key.pem"
+	// CACRLFile is the CA CRL file.
+	CACRLFile = "ca-crl.pem"
 	// CASecret stores the key/cert of self-signed CA for persistency purpose.
 	CASecret = "istio-ca-secret"
 	// CertChainFile is the ID/name for the certificate chain file.
@@ -72,6 +74,7 @@ type SigningCAFileBundle struct {
 	CertChainFiles  []string
 	SigningCertFile string
 	SigningKeyFile  string
+	CRLFile         string
 }
 
 var pkiCaLog = log.RegisterScope("pkica", "Citadel CA log")
@@ -189,7 +192,13 @@ func NewSelfSignedIstioCAOptions(ctx context.Context,
 				pkiCaLog.Warnf("failed to append root certificates (%v)", err)
 				return fmt.Errorf("failed to append root certificates (%v)", err)
 			}
-			if caOpts.KeyCertBundle, err = util.NewVerifiedKeyCertBundleFromPem(pemCert, pemKey, nil, rootCerts); err != nil {
+			if caOpts.KeyCertBundle, err = util.NewVerifiedKeyCertBundleFromPem(
+				pemCert,
+				pemKey,
+				nil,
+				rootCerts,
+				nil,
+			); err != nil {
 				pkiCaLog.Warnf("failed to create CA KeyCertBundle (%v)", err)
 				return fmt.Errorf("failed to create CA KeyCertBundle (%v)", err)
 			}
@@ -218,8 +227,13 @@ func loadSelfSignedCaSecret(client corev1.CoreV1Interface, namespace string, caC
 		if err != nil {
 			return fmt.Errorf("failed to append root certificates (%v)", err)
 		}
-		if caOpts.KeyCertBundle, err = util.NewVerifiedKeyCertBundleFromPem(caSecret.Data[CACertFile],
-			caSecret.Data[CAPrivateKeyFile], nil, rootCerts); err != nil {
+		if caOpts.KeyCertBundle, err = util.NewVerifiedKeyCertBundleFromPem(
+			caSecret.Data[CACertFile],
+			caSecret.Data[CAPrivateKeyFile],
+			nil,
+			rootCerts,
+			nil,
+		); err != nil {
 			return fmt.Errorf("failed to create CA KeyCertBundle (%v)", err)
 		}
 		pkiCaLog.Infof("Using existing public key: %v", string(rootCerts))
@@ -257,7 +271,13 @@ func NewSelfSignedDebugIstioCAOptions(rootCertFile string, caCertTTL, defaultCer
 		return nil, fmt.Errorf("failed to append root certificates (%v)", err)
 	}
 
-	if caOpts.KeyCertBundle, err = util.NewVerifiedKeyCertBundleFromPem(pemCert, pemKey, nil, rootCerts); err != nil {
+	if caOpts.KeyCertBundle, err = util.NewVerifiedKeyCertBundleFromPem(
+		pemCert,
+		pemKey,
+		nil,
+		rootCerts,
+		nil,
+	); err != nil {
 		return nil, fmt.Errorf("failed to create CA KeyCertBundle (%v)", err)
 	}
 
@@ -276,7 +296,12 @@ func NewPluggedCertIstioCAOptions(fileBundle SigningCAFileBundle,
 	}
 
 	if caOpts.KeyCertBundle, err = util.NewVerifiedKeyCertBundleFromFile(
-		fileBundle.SigningCertFile, fileBundle.SigningKeyFile, fileBundle.CertChainFiles, fileBundle.RootCertFile); err != nil {
+		fileBundle.SigningCertFile,
+		fileBundle.SigningKeyFile,
+		fileBundle.CertChainFiles,
+		fileBundle.RootCertFile,
+		fileBundle.CRLFile,
+	); err != nil {
 		return nil, fmt.Errorf("failed to create CA KeyCertBundle (%v)", err)
 	}
 

@@ -25,14 +25,21 @@ import (
 )
 
 type Tracker[T comparable] struct {
-	t      test.Failer
-	mu     sync.Mutex
-	events []T
+	t         test.Failer
+	mu        sync.Mutex
+	events    []T
+	retryOpts []retry.Option
 }
 
-// NewTracker builds a tracker which records events that occur
-func NewTracker[T comparable](t test.Failer) *Tracker[T] {
-	return &Tracker[T]{t: t}
+// NewTracker builds a tracker which records events that occur.
+// Optional retry.Option values override the default retry behavior (1s timeout, 1ms backoff)
+// used by WaitOrdered, WaitUnordered, and WaitCompare.
+func NewTracker[T comparable](t test.Failer, opts ...retry.Option) *Tracker[T] {
+	retryOpts := []retry.Option{retry.Timeout(time.Second), retry.BackoffDelay(time.Millisecond)}
+	if len(opts) > 0 {
+		retryOpts = opts
+	}
+	return &Tracker[T]{t: t, retryOpts: retryOpts}
 }
 
 // Record that an event occurred.
@@ -72,7 +79,7 @@ func (t *Tracker[T]) WaitOrdered(events ...T) {
 			t.events[0] = ptr.Empty[T]()
 			t.events = t.events[1:]
 			return nil
-		}, retry.Timeout(time.Second), retry.BackoffDelay(time.Millisecond))
+		}, t.retryOpts...)
 		if err != nil {
 			t.t.Fatal(err)
 		}
@@ -115,7 +122,7 @@ func (t *Tracker[T]) WaitUnordered(events ...T) {
 			return fmt.Errorf("still waiting for %v", want)
 		}
 		return nil
-	}, retry.Timeout(time.Second), retry.BackoffDelay(time.Millisecond))
+	}, t.retryOpts...)
 	if err != nil {
 		t.t.Fatal(err)
 	}
@@ -142,7 +149,7 @@ func (t *Tracker[T]) WaitCompare(f func(T) bool) {
 		t.events[0] = ptr.Empty[T]()
 		t.events = t.events[1:]
 		return nil
-	}, retry.Timeout(time.Second), retry.BackoffDelay(time.Millisecond))
+	}, t.retryOpts...)
 	if err != nil {
 		t.t.Fatal(err)
 	}

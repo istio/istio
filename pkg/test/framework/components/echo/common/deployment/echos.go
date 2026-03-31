@@ -479,7 +479,7 @@ func New(ctx resource.Context, cfg Config) (*Echos, error) {
 
 	if ctx.Settings().Ambient {
 
-		waypointProxies := make(map[string]ambient.WaypointProxy)
+		waypointProxies := make(map[string]ambient.Waypoints)
 
 		for _, echo := range echos {
 			svcwp := echo.Config().ServiceWaypointProxy

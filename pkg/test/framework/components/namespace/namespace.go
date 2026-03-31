@@ -125,7 +125,7 @@ func GetAll(ctx resource.Context) ([]Instance, error) {
 func Setup(ns *Instance, cfg Config) resource.SetupFn {
 	return func(ctx resource.Context) (err error) {
 		*ns, err = New(ctx, cfg)
-		return
+		return err
 	}
 }
 

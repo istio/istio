@@ -79,7 +79,8 @@ func (i Installer) InstallManifests(manifests []manifest.ManifestSet) error {
 	}
 
 	// We may need to manually deploy some webhooks out-of-band from the install, making this th
-	webhooks, err := webhook.WebhooksToDeploy(i.Values, i.Kube, i.DryRun)
+	ownerLabels := getOwnerLabels(i.Values, "")
+	webhooks, err := webhook.WebhooksToDeploy(i.Values, i.Kube, ownerLabels, i.DryRun)
 	if err != nil {
 		return fmt.Errorf("failed generating webhooks: %v", err)
 	}
@@ -292,11 +293,11 @@ func (i Installer) prune(manifests []manifest.ManifestSet) error {
 
 var componentDependencies = map[component.Name][]component.Name{
 	component.PilotComponentName: {
-		component.CNIComponentName,
 		component.IngressComponentName,
 		component.EgressComponentName,
 	},
 	component.BaseComponentName: {
+		component.CNIComponentName,
 		component.PilotComponentName,
 	},
 	component.CNIComponentName: {

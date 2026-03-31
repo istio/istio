@@ -43,6 +43,7 @@ _internal_defaults_do_not_set:
   # It should be noted that cluster operator/owner is responsible for having the taint set by their infrastructure provider when new nodes are added to the cluster; the untaint controller does not taint nodes
   taint:
     # Controls whether or not the untaint controller is active
+    # When enabled, this automatically sets PILOT_ENABLE_NODE_UNTAINT_CONTROLLERS environment variable to true in the istiod deployment.
     enabled: false
     # What namespace the untaint controller should watch for istio-cni pods. This is only required when istio-cni is running in a different namespace than istiod
     namespace: ""
@@ -86,6 +87,9 @@ _internal_defaults_do_not_set:
 
   # Additional labels to apply to the deployment.
   deploymentLabels: {}
+
+  # Annotations to apply to the istiod deployment.
+  deploymentAnnotations: {}
 
   ## Mesh config settings
 
@@ -175,6 +179,11 @@ _internal_defaults_do_not_set:
     # and istiod itself will NOT be installed in this cluster - only the support resources necessary
     # to utilize a remote instance.
     enabled: false
+
+    # If `true`, indicates that this cluster/install should consume a "local istiod" installation,
+    # local istiod inject sidecars
+    enabledLocalInjectorIstiod: false
+
     # Sidecar injector mutating webhook configuration clientConfig.url value.
     # For example: https://$remotePilotAddress:15017/inject
     # The host should not refer to a service running in the cluster; use a service reference by specifying
@@ -244,8 +253,8 @@ _internal_defaults_do_not_set:
 
     # Default hub for Istio images.
     # Releases are published to docker hub under 'istio' project.
-    # Dev builds from prow are on gcr.io
-    hub: gcr.io/istio-testing
+    # Dev builds from prow are on registry.istio.io/testing.
+    hub: registry.istio.io/testing
     # Default tag for Istio images.
     tag: latest
     # Variant of the image to use.
@@ -271,13 +280,28 @@ _internal_defaults_do_not_set:
     # To output all istio components logs in json format by adding --log_as_json argument to each container argument
     logAsJson: false
 
+    # In order to use native nftable rules instead of iptable rules, set this flag to true.
+    nativeNftables: false
+
     # Comma-separated minimum per-scope logging level of messages to output, in the form of <scope>:<level>,<scope>:<level>
     # The control plane has different scopes depending on component, but can configure default log level across all components
     # If empty, default scope and level will be used as configured in code
     logging:
       level: "default:info"
 
+    # When enabled, default NetworkPolicy resources will be created
+    networkPolicy:
+      enabled: false
+
     omitSidecarInjectorConfigMap: false
+
+    # resourceScope controls what resources will be processed by helm.
+    # This is useful when installing Istio on a cluster where some resources need to be owned by a cluster administrator and some can be owned by the mesh administrator.
+    # It can be one of:
+    # - all: all resources are processed
+    # - cluster: only cluster-scoped resources are processed
+    # - namespace: only namespace-scoped resources are processed
+    resourceScope: all
 
     # Configure whether Operator manages webhook configurations. The current behavior
     # of Istiod is to manage its own webhook configurations.
@@ -345,6 +369,8 @@ _internal_defaults_do_not_set:
 
       #If set to true, istio-proxy container will have privileged securityContext
       privileged: false
+
+      seccompProfile: {}
 
       # The number of successive failed probes before indicating readiness failure.
       readinessFailureThreshold: 4
@@ -469,11 +495,6 @@ _internal_defaults_do_not_set:
     mountMtlsCerts: false
 
     multiCluster:
-      # Set to true to connect two kubernetes clusters via their respective
-      # ingressgateway services when pods in each cluster cannot directly
-      # talk to one another. All clusters should be using Istio mTLS and must
-      # have a shared root CA for this model to work.
-      enabled: false
       # Should be set to the name of the cluster this installation will run in. This is required for sidecar injection
       # to properly label proxies
       clusterName: ""
@@ -532,6 +553,11 @@ _internal_defaults_do_not_set:
   base:
     # For istioctl usage to disable istio config crds in base
     enableIstioConfigCRDs: true
+    # Override the failurePolicy for the validation webhook.
+    # By default, the webhook starts with "Ignore" and istiod flips it to "Fail" once ready.
+    # Set to "Fail" to avoid the flip-flop, which is useful for server-side apply tools
+    # that do not support .Release.IsUpgrade (e.g. helm template | kubectl apply --server-side).
+    # validationFailurePolicy: Fail
 
   # Gateway Settings
   gateways:
@@ -552,3 +578,13 @@ _internal_defaults_do_not_set:
   #         type: ClusterIP
   # Per-Gateway configuration can also be set in the `Gateway.spec.infrastructure.parametersRef` field.
   gatewayClasses: {}
+
+  pdb:
+    # -- Minimum available pods set in PodDisruptionBudget.
+    # Define either 'minAvailable' or 'maxUnavailable', never both.
+    minAvailable: 1
+    # -- Maximum unavailable pods set in PodDisruptionBudget. If set, 'minAvailable' is ignored.
+    # maxUnavailable: 1
+    # -- Eviction policy for unhealthy pods guarded by PodDisruptionBudget.
+    # Ref: https://kubernetes.io/blog/2023/01/06/unhealthy-pod-eviction-policy-for-pdbs/
+    unhealthyPodEvictionPolicy: ""

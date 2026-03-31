@@ -64,7 +64,7 @@ type ValidationIgnorer struct {
 	patternsByNamespace map[string]sets.String
 }
 
-// NewValidationIgnorer initializes the ignorer for the validatior, pairs are in namespace/namePattern format.
+// NewValidationIgnorer initializes the ignorer for the validator, pairs are in namespace/namePattern format.
 func NewValidationIgnorer(pairs ...string) *ValidationIgnorer {
 	vi := &ValidationIgnorer{
 		patternsByNamespace: make(map[string]sets.String),
@@ -183,7 +183,7 @@ func NewValidatorFromFiles(files ...string) (*Validator, error) {
 		yamlDecoder := kubeyaml.NewYAMLOrJSONDecoder(data, 512*1024)
 		for {
 			un := &unstructured.Unstructured{}
-			err = yamlDecoder.Decode(&un)
+			err = yamlDecoder.Decode(un)
 			if err == io.EOF {
 				break
 			}
@@ -218,6 +218,21 @@ func NewValidatorFromFiles(files ...string) (*Validator, error) {
 				if err := apiextensionsv1beta1.Convert_v1beta1_CustomResourceDefinition_To_apiextensions_CustomResourceDefinition(&crdv1beta1, &crd, nil); err != nil {
 					return nil, err
 				}
+			case schema.GroupVersionKind{
+				Group:   "admissionregistration.k8s.io",
+				Version: "v1",
+				Kind:    "ValidatingAdmissionPolicyBinding",
+			}:
+				continue
+			case schema.GroupVersionKind{
+				Group:   "admissionregistration.k8s.io",
+				Version: "v1",
+				Kind:    "ValidatingAdmissionPolicy",
+			}:
+				continue
+			case schema.GroupVersionKind{}:
+				// Not a CRD, skip. Sometimes people put empty objects in YAML files.
+				continue
 			default:
 				return nil, fmt.Errorf("unknown CRD type: %v", un.GroupVersionKind())
 			}
@@ -283,6 +298,7 @@ func NewValidatorFromCRDs(crds ...apiextensions.CustomResourceDefinition) (*Vali
 
 func NewIstioValidator(t test.Failer) *Validator {
 	v, err := NewValidatorFromFiles(
+		filepath.Join(env.IstioSrc, "tests/integration/pilot/testdata/gateway-api-inference-extension-crd.yaml"),
 		filepath.Join(env.IstioSrc, "tests/integration/pilot/testdata/gateway-api-crd.yaml"),
 		filepath.Join(env.IstioSrc, "manifests/charts/base/files/crd-all.gen.yaml"),
 	)

@@ -16,7 +16,6 @@ items:
 - apiVersion: apps.openshift.io/v1
   kind: DeploymentConfig
   metadata:
-    creationTimestamp: null
     name: hello
   spec:
     replicas: 7
@@ -33,8 +32,7 @@ items:
           prometheus.io/path: /stats/prometheus
           prometheus.io/port: "15020"
           prometheus.io/scrape: "true"
-          sidecar.istio.io/status: '{"initContainers":["istio-init"],"containers":["istio-proxy"],"volumes":["workload-socket","credential-socket","workload-certs","istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert"],"imagePullSecrets":null,"revision":"default"}'
-        creationTimestamp: null
+          sidecar.istio.io/status: '{"initContainers":["istio-init","istio-proxy"],"containers":null,"volumes":["workload-socket","credential-socket","workload-certs","istio-envoy","istio-data","istio-podinfo","istio-token","istiod-ca-cert","istio-ca-crl"],"imagePullSecrets":null,"revision":"default"}'
         labels:
           app: hello
           security.istio.io/tlsMode: istio
@@ -50,6 +48,48 @@ items:
           - containerPort: 80
             name: http
           resources: {}
+        initContainers:
+        - args:
+          - istio-iptables
+          - -p
+          - "15001"
+          - -z
+          - "15006"
+          - -u
+          - "1337"
+          - -m
+          - REDIRECT
+          - -i
+          - '*'
+          - -x
+          - ""
+          - -b
+          - '*'
+          - -d
+          - 15090,15021,15020
+          - --log_output_level=default:info
+          image: registry.istio.io/testing/proxyv2:latest
+          name: istio-init
+          resources:
+            limits:
+              cpu: "2"
+              memory: 1Gi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              add:
+              - NET_ADMIN
+              - NET_RAW
+              drop:
+              - ALL
+            privileged: false
+            readOnlyRootFilesystem: false
+            runAsGroup: 0
+            runAsNonRoot: false
+            runAsUser: 0
         - args:
           - proxy
           - sidecar
@@ -86,7 +126,7 @@ items:
           - name: ISTIO_CPU_LIMIT
             valueFrom:
               resourceFieldRef:
-                divisor: "0"
+                divisor: "1"
                 resource: limits.cpu
           - name: PROXY_CONFIG
             value: |
@@ -101,12 +141,12 @@ items:
           - name: GOMEMLIMIT
             valueFrom:
               resourceFieldRef:
-                divisor: "0"
+                divisor: "1"
                 resource: limits.memory
           - name: GOMAXPROCS
             valueFrom:
               resourceFieldRef:
-                divisor: "0"
+                divisor: "1"
                 resource: limits.cpu
           - name: ISTIO_META_CLUSTER_ID
             value: Kubernetes
@@ -124,7 +164,16 @@ items:
             value: cluster.local
           - name: TRUST_DOMAIN
             value: cluster.local
-          image: gcr.io/istio-testing/proxyv2:latest
+          image: registry.istio.io/testing/proxyv2:latest
+          lifecycle:
+            preStop:
+              exec:
+                command:
+                - pilot-agent
+                - request
+                - --debug-port=15020
+                - POST
+                - drain
           name: istio-proxy
           ports:
           - containerPort: 15090
@@ -144,6 +193,7 @@ items:
             requests:
               cpu: 100m
               memory: 128Mi
+          restartPolicy: Always
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -170,6 +220,8 @@ items:
             name: workload-certs
           - mountPath: /var/run/secrets/istio
             name: istiod-ca-cert
+          - mountPath: /var/run/secrets/istio/crl
+            name: istio-ca-crl
           - mountPath: /var/lib/istio/data
             name: istio-data
           - mountPath: /etc/istio/proxy
@@ -178,48 +230,6 @@ items:
             name: istio-token
           - mountPath: /etc/istio/pod
             name: istio-podinfo
-        initContainers:
-        - args:
-          - istio-iptables
-          - -p
-          - "15001"
-          - -z
-          - "15006"
-          - -u
-          - "1337"
-          - -m
-          - REDIRECT
-          - -i
-          - '*'
-          - -x
-          - ""
-          - -b
-          - '*'
-          - -d
-          - 15090,15021,15020
-          - --log_output_level=default:info
-          image: gcr.io/istio-testing/proxyv2:latest
-          name: istio-init
-          resources:
-            limits:
-              cpu: "2"
-              memory: 1Gi
-            requests:
-              cpu: 100m
-              memory: 128Mi
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              add:
-              - NET_ADMIN
-              - NET_RAW
-              drop:
-              - ALL
-            privileged: false
-            readOnlyRootFilesystem: false
-            runAsGroup: 0
-            runAsNonRoot: false
-            runAsUser: 0
         volumes:
         - name: workload-socket
         - name: credential-socket
@@ -248,6 +258,10 @@ items:
         - configMap:
             name: istio-ca-root-cert
           name: istiod-ca-cert
+        - configMap:
+            name: istio-ca-crl
+            optional: true
+          name: istio-ca-crl
     test: false
     triggers:
     - type: ConfigChange

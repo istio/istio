@@ -1,0 +1,13 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+releaseNotes:
+  - |
+    **Upgraded** Gateway API support to v1.4. This introduces support for `BackendTLSPolicy` `v1`.
+upgradeNotes:
+  - title: "`BackendTLSPolicy` alpha removal"
+    content: |
+      The support for the `v1alpha3 version of `BackendTLSPolicy` has been removed. Only `v1` `BackendTLSPolicy` is supported.
+
+      Please note that, prior to this release, `BackendTLSPolicy` was ignored by Istio unless the `PILOT_ENABLE_ALPHA_GATEWAY_API=true` option
+      was explicitly enabled. As the policy is now `v1`, this setting is no longer required.

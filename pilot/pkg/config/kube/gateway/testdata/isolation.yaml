@@ -1,4 +1,4 @@
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: isolation
@@ -34,7 +34,7 @@ spec:
         namespaces:
           from: All
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: attaches-to-empty-hostname-with-hostname-intersection
@@ -58,7 +58,7 @@ spec:
         - name: infra-backend-v1
           port: 8080
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: attaches-to-wildcard-example-com-with-hostname-intersection
@@ -82,7 +82,7 @@ spec:
         - name: infra-backend-v1
           port: 8080
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: attaches-to-wildcard-foo-example-com-with-hostname-intersection
@@ -106,7 +106,7 @@ spec:
         - name: infra-backend-v1
           port: 8080
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: attaches-to-abc-foo-example-com-with-hostname-intersection

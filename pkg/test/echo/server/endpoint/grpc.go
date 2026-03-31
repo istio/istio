@@ -17,6 +17,7 @@ package endpoint
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -106,11 +107,27 @@ func (s *grpcInstance) Start(onReady OnReadyFunc) error {
 	}
 	if s.Port.TLS {
 		epLog.Infof("Listening GRPC (over TLS) on %v", p)
-		// Create the TLS credentials
-		creds, errCreds := credentials.NewServerTLSFromFile(s.TLSCert, s.TLSKey)
+		// Create the TLS credentials with configurable TLS settings
+		cert, errCreds := tls.LoadX509KeyPair(s.TLSCert, s.TLSKey)
 		if errCreds != nil {
 			epLog.Errorf("could not load TLS keys: %s", errCreds)
+			return errCreds
 		}
+		minVersion, err := common.ParseTLSVersion(s.TLSMinVersion)
+		if err != nil {
+			return fmt.Errorf("failed to parse min TLS version: %s", err)
+		}
+		curvePreferences, err := common.ParseTLSCurves(s.TLSCurvePreferences)
+		if err != nil {
+			return fmt.Errorf("failed to parse curve preferences: %s", err)
+		}
+		// nolint: gosec // test only code, TLS version is configurable for testing
+		tlsConfig := &tls.Config{
+			Certificates:     []tls.Certificate{cert},
+			MinVersion:       minVersion,
+			CurvePreferences: curvePreferences,
+		}
+		creds := credentials.NewTLS(tlsConfig)
 		opts = append(opts, grpc.Creds(creds))
 	} else if s.Port.XDSServer {
 		epLog.Infof("Listening GRPC (over xDS-configured mTLS) on %v", p)
@@ -194,7 +211,7 @@ func (s *grpcInstance) awaitReady(onReady OnReadyFunc, listener net.Listener) {
 // we could send traffic to another instance. Instead we look into gRPC internals to authenticate with ourself.
 func (s *grpcInstance) certsFromBootstrapForReady() (cert string, key string, ca string, err error) {
 	if !s.Port.XDSServer {
-		return
+		return cert, key, ca, err
 	}
 
 	var bootstrapData []byte
@@ -208,17 +225,17 @@ func (s *grpcInstance) certsFromBootstrapForReady() (cert string, key string, ca
 	var bootstrap Bootstrap
 	if uerr := json.Unmarshal(bootstrapData, &bootstrap); uerr != nil {
 		err = uerr
-		return
+		return cert, key, ca, err
 	}
 	certs := bootstrap.FileWatcherProvider()
 	if certs == nil {
 		err = fmt.Errorf("no certs found in bootstrap")
-		return
+		return cert, key, ca, err
 	}
 	cert = certs.CertificateFile
 	key = certs.PrivateKeyFile
 	ca = certs.CACertificateFile
-	return
+	return cert, key, ca, err
 }
 
 func (s *grpcInstance) Close() error {

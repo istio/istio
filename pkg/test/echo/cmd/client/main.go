@@ -63,6 +63,9 @@ var (
 
 	caFile string
 
+	tlsMinVersion       string
+	tlsCurvePreferences []string
+
 	hboneAddress                 string
 	hboneHeaders                 []string
 	doubleHboneAddress           string
@@ -115,7 +118,7 @@ where the network configuration doesn't support gRPC to the source pod.'
 				fmt.Println(line)
 			}
 
-			log.Infof("All requests succeeded")
+			log.Infof("All %d requests succeeded", len(response.Output))
 		},
 	}
 )
@@ -163,6 +166,9 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&clientKey, "client-key", "", "client certificate key file to use for request")
 	rootCmd.PersistentFlags().StringSliceVarP(&alpn, "alpn", "", nil, "alpn to set")
 	rootCmd.PersistentFlags().StringVarP(&serverName, "server-name", "", serverName, "server name to set")
+	rootCmd.PersistentFlags().StringVar(&tlsMinVersion, "tls-min-version", "", "minimum TLS version to use (1.0, 1.1, 1.2, 1.3)")
+	rootCmd.PersistentFlags().StringSliceVar(&tlsCurvePreferences, "tls-curve-preferences", nil,
+		"TLS curve preferences. Valid values: X25519, X25519MLKEM768, P-256, P-384, P-521")
 
 	rootCmd.PersistentFlags().StringVar(&hboneAddress, "hbone", "", "address to send HBONE request to")
 	rootCmd.PersistentFlags().StringVar(&doubleHboneAddress, "double-hbone", "", "address to send double HBONE request to")
@@ -210,6 +216,8 @@ func getRequest(url string) (*proto.ForwardEchoRequest, error) {
 		InsecureSkipVerify:      insecureSkipVerify,
 		NewConnectionPerRequest: newConnectionPerRequest,
 		ForceDNSLookup:          forceDNSLookup,
+		TlsMinVersion:           tlsMinVersion,
+		TlsCurvePreferences:     tlsCurvePreferences,
 	}
 	if v4Only && v6Only {
 		return nil, fmt.Errorf("--v4-only and --v6-only are mutually exclusive")
@@ -283,16 +291,14 @@ func getRequest(url string) (*proto.ForwardEchoRequest, error) {
 	}
 
 	for _, header := range headers {
-		parts := strings.Split(header, ":")
-
-		// require name:value format
-		if len(parts) != 2 {
+		headerKey, headerVal, colonFound := strings.Cut(header, ":")
+		if !colonFound {
 			return nil, fmt.Errorf("invalid header format: %q (want name:value)", header)
 		}
 
 		request.Headers = append(request.Headers, &proto.Header{
-			Key:   parts[0],
-			Value: strings.Trim(parts[1], " "),
+			Key:   headerKey,
+			Value: strings.TrimSpace(headerVal),
 		})
 	}
 
