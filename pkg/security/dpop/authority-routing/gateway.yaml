@@ -1,0 +1,50 @@
+##############################################################################
+# Gateway + catch-all VirtualService
+#
+# The Gateway opens port 80 for all hosts ("*").
+# The VirtualService routes everything to a placeholder destination — the
+# actual cluster is overridden at request time by the cluster_header EnvoyFilter.
+#
+# You do NOT need one VirtualService per service. This single VS is enough.
+##############################################################################
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: short-name-gateway
+  namespace: default
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+    - port:
+        number: 80
+        name: http
+        protocol: HTTP
+      hosts:
+        - "*"   # accept all :authority values; Lua filter handles resolution
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: short-name-catchall
+  namespace: default
+spec:
+  hosts:
+    - "*"
+  gateways:
+    - short-name-gateway
+  http:
+    - name: dynamic-cluster-route
+      match:
+        - uri:
+            prefix: "/"
+      # Destination here is a placeholder — cluster_header EnvoyFilter
+      # overrides the actual cluster at request time using the header
+      # written by the Lua filter.
+      route:
+        - destination:
+            # Use any real service as the placeholder; it will never be
+            # reached because cluster_header takes precedence.
+            host: placeholder.default.svc.cluster.local
+            port:
+              number: 80

@@ -1,0 +1,53 @@
+##############################################################################
+# Companion EnvoyFilter: enables cluster_header routing on the gateway's
+# route configuration so Envoy reads the cluster name from the header that
+# the Lua filter wrote, and strips it before forwarding upstream.
+#
+# Why a separate file: the Lua filter (INSERT_BEFORE on HTTP_FILTER) and the
+# route-config MERGE are different applyTo targets and are cleaner split.
+##############################################################################
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: cluster-header-route
+  namespace: istio-system
+spec:
+  workloadSelector:
+    labels:
+      istio: ingressgateway
+
+  configPatches:
+    # Merge cluster_header into the catch-all virtual host on the gateway.
+    # This tells Envoy: "for any route in this vhost, read the cluster name
+    # from the x-envoy-upstream-rq-cluster header at request time."
+    - applyTo: VIRTUAL_HOST
+      match:
+        context: GATEWAY
+        routeConfiguration:
+          vhost:
+            # "*" matches the catch-all virtual host Istio generates for the
+            # gateway listener.  Adjust if you have a named vhost.
+            name: "*:80"
+      patch:
+        operation: MERGE
+        value:
+          # Strip our internal routing header before it reaches the upstream.
+          request_headers_to_remove:
+            - x-envoy-upstream-rq-cluster
+
+    # Also patch the route action inside that vhost to use cluster_header.
+    - applyTo: HTTP_ROUTE
+      match:
+        context: GATEWAY
+        routeConfiguration:
+          vhost:
+            name: "*:80"
+            route:
+              name: "default"
+      patch:
+        operation: MERGE
+        value:
+          route:
+            # cluster_header: Envoy reads this header value as the cluster name.
+            # The Lua filter already wrote the exact "outbound|port||fqdn" string.
+            cluster_header: "x-envoy-upstream-rq-cluster"

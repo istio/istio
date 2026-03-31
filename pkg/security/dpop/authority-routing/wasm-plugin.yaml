@@ -1,0 +1,30 @@
+##############################################################################
+# WasmPlugin — production alternative to the Lua EnvoyFilter.
+# Requires Istio 1.12+ and a built .wasm binary pushed to an OCI registry.
+#
+# Build steps:
+#   cd wasm
+#   tinygo build -o authority-rewrite.wasm -scheduler=none -target=wasi ./main.go
+#   crane push authority-rewrite.wasm your-registry/authority-rewrite:v1.0.0
+##############################################################################
+apiVersion: extensions.istio.io/v1alpha1
+kind: WasmPlugin
+metadata:
+  name: short-name-authority-rewrite
+  namespace: istio-system
+spec:
+  # No selector = applies to all sidecar proxies mesh-wide.
+  # Add a selector to scope to specific workloads:
+  #   selector:
+  #     matchLabels:
+  #       app: my-app
+  url: oci://your-registry/authority-rewrite:v1.0.0
+  # AUTHN phase runs before JWT/mTLS checks so the authority is already
+  # correct when authentication policies evaluate the request.
+  phase: AUTHN
+  # pluginConfig is passed as JSON to the WASM plugin.
+  # Keys must match what OnPluginStart parses in main.go.
+  pluginConfig:
+    namespace: "default"
+    clusterDomain: "svc.cluster.local"
+    defaultPort: "80"
