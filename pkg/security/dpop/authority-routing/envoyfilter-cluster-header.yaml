@@ -1,10 +1,21 @@
 ##############################################################################
-# Companion EnvoyFilter: enables cluster_header routing on the gateway's
-# route configuration so Envoy reads the cluster name from the header that
-# the Lua filter wrote, and strips it before forwarding upstream.
+# Fix for: https://github.com/istio/istio/issues/59669
 #
-# Why a separate file: the Lua filter (INSERT_BEFORE on HTTP_FILTER) and the
-# route-config MERGE are different applyTo targets and are cleaner split.
+# This EnvoyFilter does two things:
+#
+# 1. REPLACE the route action on our catch-all route with cluster_header
+#    routing so Envoy reads the cluster name from the header written by
+#    the Lua filter (envoyfilter-lua.yaml) at request time.
+#
+# 2. Strip x-envoy-upstream-rq-cluster from the request before it reaches
+#    the upstream service.
+#
+# Why REPLACE instead of MERGE for the route action:
+#   The route action's ClusterSpecifier is a protobuf oneof.  While Istio's
+#   merge.Merge does handle oneof replacement correctly (src.Range only
+#   iterates set fields), using REPLACE on the whole route is safer and
+#   more explicit — it avoids any interaction with the existing destination
+#   cluster field.
 ##############################################################################
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
@@ -17,37 +28,32 @@ spec:
       istio: ingressgateway
 
   configPatches:
-    # Merge cluster_header into the catch-all virtual host on the gateway.
-    # This tells Envoy: "for any route in this vhost, read the cluster name
-    # from the x-envoy-upstream-rq-cluster header at request time."
-    - applyTo: VIRTUAL_HOST
-      match:
-        context: GATEWAY
-        routeConfiguration:
-          vhost:
-            # "*" matches the catch-all virtual host Istio generates for the
-            # gateway listener.  Adjust if you have a named vhost.
-            name: "*:80"
-      patch:
-        operation: MERGE
-        value:
-          # Strip our internal routing header before it reaches the upstream.
-          request_headers_to_remove:
-            - x-envoy-upstream-rq-cluster
-
-    # Also patch the route action inside that vhost to use cluster_header.
+    # -------------------------------------------------------------------------
+    # Replace the catch-all route with a cluster_header route.
+    # The route name "dynamic-cluster-route" matches the name: field in
+    # the VirtualService in gateway.yaml.
+    # -------------------------------------------------------------------------
     - applyTo: HTTP_ROUTE
       match:
         context: GATEWAY
         routeConfiguration:
           vhost:
+            # Vhost name format from pilot/pkg/networking/util DomainName():
+            #   net.JoinHostPort(host, port) = "*:80" for wildcard on port 80
             name: "*:80"
             route:
-              name: "default"
+              name: "dynamic-cluster-route"
       patch:
-        operation: MERGE
+        operation: REPLACE
         value:
+          name: dynamic-cluster-route
+          match:
+            prefix: "/"
           route:
-            # cluster_header: Envoy reads this header value as the cluster name.
-            # The Lua filter already wrote the exact "outbound|port||fqdn" string.
+            # cluster_header: Envoy reads this header value as the exact
+            # cluster name to route to.  The Lua filter writes:
+            #   outbound|<port>||<svc>.<ns>.svc.cluster.local
             cluster_header: "x-envoy-upstream-rq-cluster"
+          # Strip the internal routing header before it reaches upstream.
+          request_headers_to_remove:
+            - "x-envoy-upstream-rq-cluster"
