@@ -17,7 +17,6 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/cheggaaa/pb/v3 v3.1.7
 	github.com/cncf/xds/go v0.0.0-20260202195803-dba9d589def2
-	github.com/containerd/containerd v1.7.30
 	github.com/containernetworking/cni v1.3.0
 	github.com/containernetworking/plugins v1.9.1
 	github.com/coreos/go-oidc/v3 v3.17.0
@@ -54,6 +53,7 @@ require (
 	github.com/mitchellh/copystructure v1.2.0
 	github.com/moby/buildkit v0.28.0
 	github.com/onsi/gomega v1.39.1
+	github.com/opencontainers/runtime-spec v1.3.0
 	github.com/openshift/api v0.0.0-20260320151444-324a1bcb9f55
 	github.com/pires/go-proxyproto v0.11.0
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240409071808-615f978279ca
@@ -123,42 +123,12 @@ require (
 )
 
 require (
-	cyphar.com/go-pathrs v0.2.1 // indirect
-	github.com/AdamKorcz/go-118-fuzz-build v0.0.0-20231105174938-2b5cbb29f3e2 // indirect
 	github.com/containerd/cgroups/v3 v3.1.2 // indirect
-	github.com/containerd/containerd/api v1.10.0 // indirect
-	github.com/containerd/continuity v0.4.5 // indirect
 	github.com/containerd/errdefs v1.0.0 // indirect
 	github.com/containerd/errdefs/pkg v0.3.0 // indirect
-	github.com/containerd/fifo v1.1.0 // indirect
-	github.com/containerd/go-cni v1.1.13 // indirect
-	github.com/containerd/log v0.1.0 // indirect
-	github.com/containerd/nri v0.11.0 // indirect
-	github.com/containerd/platforms v1.0.0-rc.2 // indirect
-	github.com/containerd/ttrpc v1.2.7 // indirect
-	github.com/distribution/reference v0.6.0 // indirect
-	github.com/docker/go-events v0.0.0-20190806004212-e31b211e4f1c // indirect
 	github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8 // indirect
-	github.com/moby/locker v1.0.1 // indirect
-	github.com/moby/sys/capability v0.4.0 // indirect
-	github.com/moby/sys/mountinfo v0.7.2 // indirect
-	github.com/moby/sys/sequential v0.6.0 // indirect
-	github.com/moby/sys/signal v0.7.1 // indirect
-	github.com/moby/sys/symlink v0.3.0 // indirect
-	github.com/moby/sys/user v0.4.0 // indirect
-	github.com/moby/sys/userns v0.1.0 // indirect
-	github.com/opencontainers/runtime-spec v1.3.0 // indirect
-	github.com/opencontainers/runtime-tools v0.9.1-0.20251114084447-edf4cb3d2116 // indirect
-	github.com/opencontainers/selinux v1.13.1 // indirect
-	github.com/pelletier/go-toml v1.9.5 // indirect
-	github.com/petermattis/goid v0.0.0-20240813172612-4fcff4a6cae7 // indirect
-	github.com/sasha-s/go-deadlock v0.3.5 // indirect
-	github.com/tchap/go-patricia/v2 v2.3.3 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.63.0 // indirect
-	google.golang.org/genproto v0.0.0-20240227224415-6ceb2ff114de // indirect
-	tags.cncf.io/container-device-interface v1.1.0 // indirect
-	tags.cncf.io/container-device-interface/specs-go v1.1.0 // indirect
 )
 
 require (
