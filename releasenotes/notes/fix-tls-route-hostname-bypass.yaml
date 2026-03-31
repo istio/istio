@@ -1,0 +1,15 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+# issue is a list of GitHub issues resolved in this note.
+issue:
+  - "59229"
+# releaseNotes is a markdown listing of any user facing changes. This will appear in the
+# release notes.
+releaseNotes:
+- |
+  **Fixed** TLSRoute hostnames not being constrained to the intersection with the Gateway listener hostname.
+  Previously, a TLSRoute with a broad hostname (e.g. `*.com`) attached to a listener with a narrower hostname
+  (e.g. `*.example.com`) would incorrectly match the full route hostname instead of only the intersection
+  (`*.example.com`), as required by the Gateway API spec.
