@@ -1,0 +1,103 @@
+##############################################################################
+# Fix for: https://github.com/istio/istio/issues/59669
+#
+# Problem: :authority header carries a short service name (e.g. "my-service")
+#          but Envoy cluster lookup requires the full name
+#          "outbound|80||my-service.namespace.svc.cluster.local".
+#
+# Solution: Lua HTTP filter on the INGRESS GATEWAY rewrites :authority to the
+#           full FQDN and injects the exact Envoy cluster name into the
+#           "x-envoy-upstream-rq-cluster" header so Envoy can route without
+#           any static VirtualService per service.
+#
+# Cluster name format (from pilot/pkg/model/service.go BuildSubsetKey):
+#   <direction>|<port>|<subset>|<hostname>
+#   e.g.  outbound|80||my-service.default.svc.cluster.local
+##############################################################################
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: short-name-authority-rewrite
+  namespace: istio-system
+spec:
+  # Target the ingress gateway pods specifically.
+  # Remove workloadSelector to apply mesh-wide (sidecars too).
+  workloadSelector:
+    labels:
+      istio: ingressgateway
+
+  configPatches:
+    - applyTo: HTTP_FILTER
+      match:
+        # GATEWAY context = ingress/egress gateway listeners
+        context: GATEWAY
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.filters.network.http_connection_manager"
+              subFilter:
+                name: "envoy.filters.http.router"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.lua
+          typed_config:
+            "@type": "type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua"
+            inlineCode: |
+              -- ----------------------------------------------------------------
+              -- Configuration — edit to match your cluster
+              -- ----------------------------------------------------------------
+              local DEFAULT_NAMESPACE  = "default"
+              local CLUSTER_DOMAIN     = "svc.cluster.local"
+              local DEFAULT_PORT       = "80"
+              -- Pattern that identifies a "short" service name.
+              -- Matches names like "my-service", "auth-backend", "foo-bar-baz".
+              -- Adjust if your naming convention differs.
+              local SHORT_NAME_PATTERN = "^[%a%d][%a%d%-]*[%a%d]$"
+              -- ----------------------------------------------------------------
+
+              -- Split "host:port" → host, port.  Returns DEFAULT_PORT if absent.
+              local function split_host_port(authority)
+                local h, p = authority:match("^(.+):(%d+)$")
+                if h and p then return h, p end
+                return authority, DEFAULT_PORT
+              end
+
+              function envoy_on_request(request_handle)
+                local authority = request_handle:headers():get(":authority")
+                if not authority or authority == "" then return end
+
+                local svc_name, port = split_host_port(authority)
+
+                -- Only rewrite names that look like short service names.
+                -- Names with dots are already FQDNs — leave them alone.
+                if not svc_name:match(SHORT_NAME_PATTERN) then return end
+
+                -- Allow per-request namespace override via a hint header.
+                -- Strip the hint so it never reaches the upstream.
+                local ns = request_handle:headers():get("x-target-namespace")
+                if not ns or ns == "" then
+                  ns = DEFAULT_NAMESPACE
+                end
+                request_handle:headers():remove("x-target-namespace")
+
+                -- Build FQDN and the exact Envoy cluster name.
+                -- Format: outbound|<port>|<subset>|<hostname>  (subset="" for default)
+                local fqdn    = svc_name .. "." .. ns .. "." .. CLUSTER_DOMAIN
+                local cluster = "outbound|" .. port .. "||" .. fqdn
+
+                -- 1. Rewrite :authority so the upstream sees the correct Host.
+                request_handle:headers():replace(":authority", fqdn)
+
+                -- 2. Tell Envoy which cluster to use — bypasses route-based selection.
+                --    This header is consumed by Envoy internally and stripped before
+                --    the request reaches the upstream (see ROUTE_CONFIGURATION patch
+                --    in envoyfilter-cluster-header.yaml).
+                request_handle:headers():replace(
+                  "x-envoy-upstream-rq-cluster", cluster)
+
+                request_handle:logInfo(
+                  "[authority-rewrite] " .. authority ..
+                  " -> fqdn=" .. fqdn ..
+                  " cluster=" .. cluster)
+              end
