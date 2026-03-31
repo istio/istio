@@ -742,6 +742,11 @@ func precomputeServicePtr(w *model.ServiceInfo) *model.ServiceInfo {
 }
 
 func precomputeService(w model.ServiceInfo) model.ServiceInfo {
+	if w.Waypoint.IngressLabelPresent {
+		svc := protomarshal.ShallowClone(w.Service)
+		svc.IngressUseWaypoint = w.Waypoint.IngressUseWaypoint
+		w.Service = svc
+	}
 	addr := serviceToAddress(w.Service)
 	w.MarshaledAddress = protoconv.MessageToAny(addr)
 	w.AsAddress = model.AddressInfo{

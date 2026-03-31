@@ -1214,6 +1214,124 @@ func TestServiceServices(t *testing.T) {
 			},
 		},
 		{
+			name: "ingress-use-waypoint label true sets WDS field",
+			inputs: []any{
+				Waypoint{
+					Named: krt.Named{
+						Name:      "waypoint",
+						Namespace: "waypoint-ns",
+					},
+					TrafficType: constants.AllTraffic,
+					Address:     waypointAddr,
+					AllowedRoutes: WaypointSelector{
+						FromNamespaces: gatewayv1.NamespacesFromSelector,
+						Selector:       labels.ValidatedSetSelector(map[string]string{v1.LabelMetadataName: "ns"}),
+					},
+				},
+				&v1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "ns",
+						Labels: map[string]string{
+							v1.LabelMetadataName: "ns",
+						},
+					},
+				},
+			},
+			svc: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "name",
+					Namespace: "ns",
+					Labels: map[string]string{
+						label.IoIstioUseWaypoint.Name:          "waypoint",
+						label.IoIstioUseWaypointNamespace.Name: "waypoint-ns",
+						label.IoIstioIngressUseWaypoint.Name:   "true",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					ClusterIP: "1.2.3.4",
+					Ports: []v1.ServicePort{{
+						Port: 80,
+						Name: "http",
+					}},
+				},
+			},
+			result: &workloadapi.Service{
+				Name:      "name",
+				Namespace: "ns",
+				Hostname:  "name.ns.svc.domain.suffix",
+				Addresses: []*workloadapi.NetworkAddress{{
+					Network: testNW,
+					Address: netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice(),
+				}},
+				Waypoint:           waypointAddr,
+				IngressUseWaypoint: true,
+				Ports: []*workloadapi.Port{{
+					ServicePort: 80,
+					AppProtocol: workloadapi.AppProtocol_HTTP11,
+				}},
+				Canonical: true,
+			},
+		},
+		{
+			name: "ingress-use-waypoint label false does not set WDS field",
+			inputs: []any{
+				Waypoint{
+					Named: krt.Named{
+						Name:      "waypoint",
+						Namespace: "waypoint-ns",
+					},
+					TrafficType: constants.AllTraffic,
+					Address:     waypointAddr,
+					AllowedRoutes: WaypointSelector{
+						FromNamespaces: gatewayv1.NamespacesFromSelector,
+						Selector:       labels.ValidatedSetSelector(map[string]string{v1.LabelMetadataName: "ns"}),
+					},
+				},
+				&v1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "ns",
+						Labels: map[string]string{
+							v1.LabelMetadataName: "ns",
+						},
+					},
+				},
+			},
+			svc: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "name",
+					Namespace: "ns",
+					Labels: map[string]string{
+						label.IoIstioUseWaypoint.Name:          "waypoint",
+						label.IoIstioUseWaypointNamespace.Name: "waypoint-ns",
+						label.IoIstioIngressUseWaypoint.Name:   "false",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					ClusterIP: "1.2.3.4",
+					Ports: []v1.ServicePort{{
+						Port: 80,
+						Name: "http",
+					}},
+				},
+			},
+			result: &workloadapi.Service{
+				Name:      "name",
+				Namespace: "ns",
+				Hostname:  "name.ns.svc.domain.suffix",
+				Addresses: []*workloadapi.NetworkAddress{{
+					Network: testNW,
+					Address: netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice(),
+				}},
+				Waypoint:           waypointAddr,
+				IngressUseWaypoint: false,
+				Ports: []*workloadapi.Port{{
+					ServicePort: 80,
+					AppProtocol: workloadapi.AppProtocol_HTTP11,
+				}},
+				Canonical: true,
+			},
+		},
+		{
 			name: "namespace annotation inheritance",
 			inputs: []any{
 				&v1.Namespace{

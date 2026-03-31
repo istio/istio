@@ -93,6 +93,11 @@ message Service {
   // canonical marks this Service as taking priority during hostname lookups,
   // when there is not a match in the namespace of the client.
   bool canonical = 11;
+
+  // ingress_use_waypoint indicates that ingress gateways should send traffic destined
+  // for this service through the service's waypoint proxy.
+  // This is controlled by the istio.io/ingress-use-waypoint label on the Service or its namespace.
+  bool ingress_use_waypoint = 12;
 }
 
 enum IPFamilies {

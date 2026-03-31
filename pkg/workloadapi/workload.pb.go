@@ -731,9 +731,13 @@ type Service struct {
 	Extensions []*Extension `protobuf:"bytes,10,rep,name=extensions,proto3" json:"extensions,omitempty"`
 	// canonical marks this Service as taking priority during hostname lookups,
 	// when there is not a match in the namespace of the client.
-	Canonical     bool `protobuf:"varint,11,opt,name=canonical,proto3" json:"canonical,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Canonical bool `protobuf:"varint,11,opt,name=canonical,proto3" json:"canonical,omitempty"`
+	// ingress_use_waypoint indicates that ingress gateways should send traffic destined
+	// for this service through the service's waypoint proxy.
+	// This is controlled by the istio.io/ingress-use-waypoint label on the Service or its namespace.
+	IngressUseWaypoint bool `protobuf:"varint,12,opt,name=ingress_use_waypoint,json=ingressUseWaypoint,proto3" json:"ingress_use_waypoint,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *Service) Reset() {
@@ -839,6 +843,13 @@ func (x *Service) GetExtensions() []*Extension {
 func (x *Service) GetCanonical() bool {
 	if x != nil {
 		return x.Canonical
+	}
+	return false
+}
+
+func (x *Service) GetIngressUseWaypoint() bool {
+	if x != nil {
+		return x.IngressUseWaypoint
 	}
 	return false
 }
@@ -1711,7 +1722,7 @@ const file_workloadapi_workload_proto_rawDesc = "" +
 	"\aAddress\x126\n" +
 	"\bworkload\x18\x01 \x01(\v2\x18.istio.workload.WorkloadH\x00R\bworkload\x123\n" +
 	"\aservice\x18\x02 \x01(\v2\x17.istio.workload.ServiceH\x00R\aserviceB\x06\n" +
-	"\x04type\"\x85\x04\n" +
+	"\x04type\"\xb7\x04\n" +
 	"\aService\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1c\n" +
 	"\tnamespace\x18\x02 \x01(\tR\tnamespace\x12\x1a\n" +
@@ -1727,7 +1738,8 @@ const file_workloadapi_workload_proto_rawDesc = "" +
 	"extensions\x18\n" +
 	" \x03(\v2\x19.istio.workload.ExtensionR\n" +
 	"extensions\x12\x1c\n" +
-	"\tcanonical\x18\v \x01(\bR\tcanonical\"\xcd\x03\n" +
+	"\tcanonical\x18\v \x01(\bR\tcanonical\x120\n" +
+	"\x14ingress_use_waypoint\x18\f \x01(\bR\x12ingressUseWaypoint\"\xcd\x03\n" +
 	"\rLoadBalancing\x12R\n" +
 	"\x12routing_preference\x18\x01 \x03(\x0e2#.istio.workload.LoadBalancing.ScopeR\x11routingPreference\x126\n" +
 	"\x04mode\x18\x02 \x01(\x0e2\".istio.workload.LoadBalancing.ModeR\x04mode\x12O\n" +
