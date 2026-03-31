@@ -63,11 +63,8 @@ func TestZtunnelCRL(t *testing.T) {
 			// revoke the intermediate certificate
 			util.RevokeIntermediate(t, certBundle)
 
-			// wait for ztunnel to reload the CRL
-			waitForZtunnelCRLReload(t)
-
-			// deploy NEW apps and test (should fail)
-			// create new namespaces for post-revocation apps
+			// deploy revoked apps while CRL reloads in parallel —
+			// this should give ztunnel time to both reload the CRL and enroll the new workloads
 			revokedClientNS := namespace.NewOrFail(t, namespace.Config{
 				Prefix: "ambient-client-revoked",
 				Inject: false,
@@ -82,9 +79,14 @@ func TestZtunnelCRL(t *testing.T) {
 					label.IoIstioDataplaneMode.Name: "ambient",
 				},
 			})
-
-			// deploy revoked apps
 			revokedClient, revokedServer := deployRevokedApps(t, revokedClientNS, revokedServerNS)
+
+			// wait for ztunnel to reload the CRL (workloads should be enrolled by now too)
+			waitForZtunnelCRLReload(t)
+
+			// for confidence - wait for ztunnel to enroll the revoked server before testing
+			// before enrollment, traffic bypasses ztunnel and CRL is never checked
+			waitForWorkloadEnrollment(t, revokedServerNS.Name())
 
 			// test should fail due to revoked cert
 			revokedOpts := echo.CallOptions{
@@ -141,6 +143,43 @@ func waitForZtunnelCRLReload(t framework.TestContext) {
 	}, retry.Timeout(3*time.Minute), retry.Delay(5*time.Second))
 
 	t.Logf("ztunnel CRL reload confirmed via logs")
+}
+
+// waitForWorkloadEnrollment waits for ztunnel to enroll a workload from the given namespace
+// by checking ztunnel logs for the pod start message.
+func waitForWorkloadEnrollment(t framework.TestContext, ns string) {
+	t.Helper()
+	t.Logf("waiting for ztunnel to enroll workload in namespace %s...", ns)
+
+	systemNS, err := istio.ClaimSystemNamespace(t)
+	if err != nil {
+		t.Fatalf("failed to get system namespace: %v", err)
+	}
+
+	retry.UntilSuccessOrFail(t, func() error {
+		for _, c := range t.AllClusters() {
+			pods, err := c.Kube().CoreV1().Pods(systemNS.Name()).List(
+				t.Context(),
+				metav1.ListOptions{LabelSelector: "app=ztunnel"},
+			)
+			if err != nil {
+				return fmt.Errorf("failed to list ztunnel pods: %w", err)
+			}
+
+			for _, pod := range pods.Items {
+				logs, err := c.PodLogs(t.Context(), pod.Name, systemNS.Name(), "istio-proxy", false)
+				if err != nil {
+					return fmt.Errorf("failed to get logs from %s: %w", pod.Name, err)
+				}
+				if strings.Contains(logs, fmt.Sprintf("namespace: \"%s\"", ns)) {
+					return nil
+				}
+			}
+		}
+		return fmt.Errorf("no ztunnel has enrolled a workload from namespace %s yet", ns)
+	}, retry.Timeout(3*time.Minute), retry.Delay(5*time.Second))
+
+	t.Logf("ztunnel workload enrollment confirmed for namespace %s", ns)
 }
 
 // deployRevokedApps deploys new echo apps in the given namespaces
