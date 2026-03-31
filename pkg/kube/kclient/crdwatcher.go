@@ -55,7 +55,7 @@ func newCrdWatcher(client kube.Client) kubetypes.CrdWatcher {
 		callbacks: map[string][]func(){},
 	}
 
-	filters := []filterFunction{minimumVersionFilter}
+	filters := []filterFunction{minimumVersionFilter, maximumVersionFilter}
 
 	pilotIgnoreResources := fetchResourceFilter(features.PilotIgnoreResourcesEnv)
 	if len(pilotIgnoreResources) > 0 {
@@ -76,6 +76,23 @@ func newCrdWatcher(client kube.Client) kubetypes.CrdWatcher {
 var minimumCRDVersions = map[string]*semver.Version{
 	"grpcroutes.gateway.networking.k8s.io":         semver.New(1, 1, 0, "", ""),
 	"backendtlspolicies.gateway.networking.k8s.io": semver.New(1, 4, 0, "", ""),
+}
+
+// MaximumCRDVersions specifies an inclusive upper bound on bundle versions for CRDs.
+// A CRD whose bundle-version annotation is > the specified maximum will be filtered out.
+// This is used when a Go client type targets an older API version that is no longer served
+// by newer CRD bundles, preventing watch errors on startup.
+//
+// When bumping the gateway-api dependency in go.mod, update this map as follows:
+//  1. For each entry in minimumCRDVersions, look up the resource in the gateway-api release CRDs
+//     (e.g. https://github.com/kubernetes-sigs/gateway-api/tree/<tag>/config/crd) and check
+//     which API versions have served:true in the CRD spec.versions list.
+//  2. Cross-reference with the GVR version istiod watches in pkg/config/schema/gvr/resources.gen.go.
+//  3. If the watched version is still served at the new bundle version, update the maximum here
+//     to match the new bundle version. If the watched version is no longer served, the GVR must
+//     be updated to the new served version instead (and the minimum updated accordingly).
+var MaximumCRDVersions = map[string]*semver.Version{
+	"tlsroutes.gateway.networking.k8s.io": semver.New(1, 4, 0, "", ""),
 }
 
 // resourceFilterConfig contains a filter definition parsed from the flags. In case
@@ -199,6 +216,39 @@ func minimumVersionFilter(t any) bool {
 	fv = &nv
 	if fv.LessThan(mv) {
 		log.Infof("CRD %v version %v is below minimum version %v, ignoring", crd.Name, fv, mv)
+		return false
+	}
+	return true
+}
+
+// maximumVersionFilter filters CRDs whose bundle-version annotation is above a specified maximum version.
+// This is the complement of minimumVersionFilter: it rejects CRDs whose bundle version > the maximum,
+// which is useful when a Go client type targets an older API version no longer served by newer CRD bundles.
+func maximumVersionFilter(t any) bool {
+	crd := t.(*metav1.PartialObjectMetadata)
+	mv, f := MaximumCRDVersions[crd.Name]
+	if !f {
+		return true
+	}
+	bv, f := crd.Annotations[consts.BundleVersionAnnotation]
+	if !f {
+		log.Debugf("CRD %v expected to have a %v annotation, but none found; ignoring", crd.Name, consts.BundleVersion)
+		return false
+	}
+	fv, err := semver.NewVersion(bv)
+	if err != nil {
+		log.Debugf("CRD %v version %v invalid; ignoring: %v", crd.Name, bv, err)
+		return false
+	}
+	// Ignore RC tags, etc. We 'round up' those.
+	nv, err := fv.SetPrerelease("")
+	if err != nil {
+		log.Debugf("CRD %v version %v invalid; ignoring: %v", crd.Name, bv, err)
+		return false
+	}
+	fv = &nv
+	if fv.GreaterThan(mv) {
+		log.Warnf("CRD %v version %v is above maximum version %v, ignoring", crd.Name, fv, mv)
 		return false
 	}
 	return true
