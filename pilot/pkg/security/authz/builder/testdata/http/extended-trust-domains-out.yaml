@@ -15,12 +15,10 @@ typedConfig:
                 ids:
                 - authenticated:
                     principalName:
-                      safeRegex:
-                        regex: spiffe://cluster.local/.*
+                      prefix: spiffe://cluster.local/
                 - authenticated:
                     principalName:
-                      safeRegex:
-                        regex: spiffe://another.local/.*
+                      prefix: spiffe://another.local/
         - andIds:
             ids:
             - notId:
@@ -32,6 +30,5 @@ typedConfig:
                           regex: spiffe://bad[^/]*/.*
                   - authenticated:
                       principalName:
-                        safeRegex:
-                          regex: spiffe://untrusted/.*
+                        prefix: spiffe://untrusted/
   shadowRulesStatPrefix: istio_dry_run_allow_
