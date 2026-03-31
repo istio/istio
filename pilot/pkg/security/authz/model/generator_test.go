@@ -351,8 +351,7 @@ func TestGenerator(t *testing.T) {
          filter_state:
            key: io.istio.peer_principal
            string_match:
-            safeRegex:
-              regex: spiffe://cluster.local/.*`),
+            prefix: spiffe://cluster.local/`),
 		},
 		{
 			name:  "srcTrustDomainGenerator-wildcard",
@@ -362,8 +361,7 @@ func TestGenerator(t *testing.T) {
          filter_state:
            key: io.istio.peer_principal
            string_match:
-            safeRegex:
-              regex: spiffe://[^/]*/.*`),
+            prefix: spiffe://`),
 		},
 		{
 			name:  "srcTrustDomainGenerator-prefix-wildcard",
@@ -374,7 +372,7 @@ func TestGenerator(t *testing.T) {
            key: io.istio.peer_principal
            string_match:
             safeRegex:
-              regex: spiffe://cluster.[^/]*/.*`),
+              regex: spiffe://cluster\.[^/]*/.*`),
 		},
 		{
 			name:  "srcTrustDomainGenerator-suffix-wildcard",
