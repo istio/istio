@@ -196,7 +196,7 @@ spec:
           - name: PILOT_ENABLE_NODE_UNTAINT_CONTROLLERS
             value: "true"
           - name: PILOT_NODE_UNTAINT_CONTROLLERS_TAINT_NAME
-            value: {{ .Values.taint.name }}
+            value: "{{ .Values.taint.name }}"
 {{- end }}
 # If externalIstiod is set via Values.Global, then enable the pilot env variable. However, if it's set via Values.pilot.env, then
 # don't set it here to avoid duplication.
