@@ -56,13 +56,14 @@ func rdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
 	for config := range req.ConfigsUpdated {
 		switch proxy.Type {
 		case model.Router:
-			if routerRdsAffectingConfigs.Contains(config.Kind) {
+			return routerRdsAffectingConfigs.Contains(config.Kind)
+		case model.Waypoint:
+			if config.Kind == kind.Gateway && proxy.IsAmbientEastWestGateway() {
 				return true
 			}
+			fallthrough
 		default:
-			if rdsAffectingConfigs.Contains(config.Kind) {
-				return true
-			}
+			return rdsAffectingConfigs.Contains(config.Kind)
 		}
 	}
 	return false
