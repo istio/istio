@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pkg/config/gateway"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/util/protomarshal"
@@ -109,6 +110,13 @@ func (g *MergedGateway) HasAutoPassthroughGateways() bool {
 	return false
 }
 
+func (g *MergedGateway) GetGatewayNames() []string {
+	if g != nil {
+		return maps.Values(g.GatewayNameForServer)
+	}
+	return nil
+}
+
 // PrevMergedGateway describes previous state of the gateway.
 // Currently, it only contains information relevant for auto passthrough gateways
 // and gateway names used by CDS.
@@ -130,6 +138,13 @@ func (g *PrevMergedGateway) GetAutoPassthroughSNIHosts() sets.Set[string] {
 		return g.AutoPassthroughSNIHosts
 	}
 	return sets.Set[string]{}
+}
+
+func (g *PrevMergedGateway) GetGatewayNames() []string {
+	if g != nil {
+		return maps.Values(g.GatewayNameForServer)
+	}
+	return nil
 }
 
 var (
