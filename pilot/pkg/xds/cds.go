@@ -20,7 +20,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/jwt"
-	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -96,7 +95,8 @@ func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) (*model.PushReques
 	if checkGateway {
 		autoPassthroughModeChanged := proxy.MergedGateway.HasAutoPassthroughGateways() != proxy.PrevMergedGateway.HasAutoPassthroughGateway()
 		autoPassthroughHostsChanged := !proxy.MergedGateway.GetAutoPassthroughGatewaySNIHosts().Equals(proxy.PrevMergedGateway.GetAutoPassthroughSNIHosts())
-		if autoPassthroughModeChanged || autoPassthroughHostsChanged || gatewayNamesChanged(proxy) {
+		gatewayNamesChanged := !slices.EqualUnordered(proxy.MergedGateway.GetGatewayNames(), proxy.PrevMergedGateway.GetGatewayNames())
+		if autoPassthroughModeChanged || autoPassthroughHostsChanged || gatewayNamesChanged {
 			needsPush = true
 		}
 	}
@@ -108,17 +108,6 @@ func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) (*model.PushReques
 	}
 
 	return req, needsPush || len(req.ConfigsUpdated) > 0
-}
-
-func gatewayNamesChanged(proxy *model.Proxy) bool {
-	if proxy.MergedGateway == nil {
-		return true
-	}
-
-	return proxy.PrevMergedGateway != nil && !slices.EqualUnordered(
-		maps.Values(proxy.MergedGateway.GatewayNameForServer),
-		maps.Values(proxy.PrevMergedGateway.GatewayNameForServer),
-	)
 }
 
 func (c CdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
