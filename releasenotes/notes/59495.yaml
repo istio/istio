@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+issue:
+  - 59495
+releaseNotes:
+  - |
+    **Fixed** an issue that istioctl falsely reported error on EnvoyFilter with `REPLACE`` operation on `VIRTUAL_HOST`.
