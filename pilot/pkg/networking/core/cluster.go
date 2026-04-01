@@ -273,11 +273,15 @@ func (configgen *ConfigGeneratorImpl) deltaFromServiceDiff(
 		return services, deletedClusters
 	}
 
-	var allServices []*model.Service
+	var allServices map[host.Name]*model.Service
 	if features.FilterGatewayClusterConfig && proxy.Type == model.Router {
-		allServices = push.GatewayServices(proxy, nil)
+		svcs := push.GatewayServices(proxy, nil)
+		allServices = make(map[host.Name]*model.Service, len(svcs))
+		for _, svc := range svcs {
+			allServices[svc.Hostname] = svc
+		}
 	} else {
-		allServices = proxy.SidecarScope.Services()
+		allServices = proxy.SidecarScope.ServicesByHostname()
 	}
 
 	for _, service := range allServices {
@@ -289,15 +293,8 @@ func (configgen *ConfigGeneratorImpl) deltaFromServiceDiff(
 
 	for h, clusters := range serviceClusters {
 		hostname := host.Name(h)
-		found := false
-		for _, service := range allServices {
-			if service.Hostname == hostname {
-				found = true
-				break
-			}
-		}
-		// a service we had is no longer present, we have to delete it
-		if !found {
+		if _, ok := allServices[hostname]; !ok {
+			// a service we had is no longer present, we have to delete it
 			deletedClusters = append(deletedClusters, clusters.UnsortedList()...)
 			deletedClusters = append(deletedClusters, subsetClusters[h].UnsortedList()...)
 		}
