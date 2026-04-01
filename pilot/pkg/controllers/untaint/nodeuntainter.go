@@ -150,7 +150,7 @@ func (n *NodeUntainter) reconcileNode(key types.NamespacedName) error {
 
 	err := removeReadinessTaint(n.nodesClient, node, n.taintName)
 	if err != nil {
-		log.Errorf("failed to remove readiness taint from node %v: %v", node.Name, err)
+		log.Errorf("failed to remove readiness taint '%v' from node %v: %v", n.taintName, node.Name, err)
 	}
 	return err
 }
