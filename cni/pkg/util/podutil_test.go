@@ -256,8 +256,11 @@ func TestSplitExcludeNamespaces(t *testing.T) {
 		want  []string
 	}{
 		{name: "empty string", input: "", want: []string{}},
+		{name: "string of spaces", input: "  ", want: []string{}},
 		{name: "single namespace", input: "kube-system", want: []string{"kube-system"}},
+		{name: "single namespace with spaces", input: " kube-system ", want: []string{"kube-system"}},
 		{name: "two namespaces", input: "kube-system,istio-system", want: []string{"kube-system", "istio-system"}},
+		{name: "two namespaces with spaces", input: " kube-system , istio-system ", want: []string{"kube-system", "istio-system"}},
 		{name: "trailing comma", input: "kube-system,", want: []string{"kube-system"}},
 		{name: "leading comma", input: ",kube-system", want: []string{"kube-system"}},
 		{name: "embedded empty", input: "kube-system,,istio-system", want: []string{"kube-system", "istio-system"}},

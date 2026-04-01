@@ -232,7 +232,7 @@ func doAddRun(args *skel.CmdArgs, conf *Config, kClient kubernetes.Interface, ru
 	}
 
 	if slices.Contains(conf.ExcludeNamespaces, podNamespace) {
-		log.Infof("pod namespace excluded")
+		log.Infof("pod namespace %s excluded", podNamespace)
 		return nil
 	}
 
