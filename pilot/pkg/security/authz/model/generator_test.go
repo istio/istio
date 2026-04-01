@@ -459,74 +459,81 @@ func TestGenerator(t *testing.T) {
 }
 
 func TestServiceAccount(t *testing.T) {
-	input := "my-ns/my-sa"
 	cases := []struct {
 		Name     string
+		Input    string
 		Identity string
 		Match    bool
 	}{
 		{
 			Name:     "standard",
+			Input:    "my-ns/my-sa",
 			Identity: "spiffe://cluster.local/ns/my-ns/sa/my-sa",
 			Match:    true,
 		},
 		{
 			Name:     "suffix attributes",
+			Input:    "my-ns/my-sa",
 			Identity: "spiffe://cluster.local/ns/my-ns/sa/my-sa/k/v",
 			Match:    true,
 		},
 		{
 			Name:     "prefix attributes",
+			Input:    "my-ns/my-sa",
 			Identity: "spiffe://cluster.local/k/v/ns/my-ns/sa/my-sa",
 			Match:    true,
 		},
 		{
 			Name:     "middle attributes",
+			Input:    "my-ns/my-sa",
 			Identity: "spiffe://cluster.local/ns/my-ns/k/v/sa/my-sa",
 			Match:    true,
 		},
 		{
 			Name:     "all attributes",
+			Input:    "my-ns/my-sa",
 			Identity: "spiffe://cluster.local/k1/v1/ns/my-ns/k2/v2/sa/my-sa/k3/v3",
 			Match:    true,
 		},
 		{
 			Name:     "sa suffix string",
+			Input:    "my-ns/my-sa",
 			Identity: "spiffe://cluster.local/ns/my-ns/sa/my-sa-suffix",
 			Match:    false,
 		},
 		{
 			Name:     "ns suffix string",
+			Input:    "my-ns/my-sa",
 			Identity: "spiffe://cluster.local/ns/my-ns-suffix/sa/my-sa",
 			Match:    false,
 		},
 		{
 			Name:     "not spiffe",
+			Input:    "my-ns/my-sa",
 			Identity: "cluster.local/ns/my-ns/sa/my-sa",
 			Match:    false,
 		},
 		{
 			Name:     "invalid spiffe",
+			Input:    "my-ns/my-sa",
 			Identity: "spiffe://ns/my-ns/sa/my-sa",
 			Match:    false,
 		},
 		{
 			Name:     "missing sa",
+			Input:    "my-ns/my-sa",
 			Identity: "spiffe://cluster.local/ns/my-ns",
 			Match:    false,
 		},
 		{
 			Name:     "missing ns",
+			Input:    "my-ns/my-sa",
 			Identity: "spiffe://cluster.local/sa/my-sa",
 			Match:    false,
 		},
 		{
-			Name:     "missing ns",
-			Identity: "spiffe://cluster.local/sa/my-sa",
-			Match:    false,
-		},
-		{
-			Name: "weird keys",
+			Name:  "weird keys",
+			Input: "my-ns/my-sa",
 			// This test case matches when it shouldn't ideally.
 			// Spiffe is a set of k/v pairs. Here we are accidentally matching
 			// on previous value + next key when we shouldn't.
@@ -539,10 +546,28 @@ func TestServiceAccount(t *testing.T) {
 			}, "/"),
 			Match: true,
 		},
+		{
+			Name:     "regex metachars - exact match with dots",
+			Input:    "my.ns/my.sa",
+			Identity: "spiffe://cluster.local/ns/my.ns/sa/my.sa",
+			Match:    true,
+		},
+		{
+			Name:     "regex metachars - dot should not match arbitrary char in ns",
+			Input:    "my.ns/my.sa",
+			Identity: "spiffe://cluster.local/ns/myXns/sa/my.sa",
+			Match:    false,
+		},
+		{
+			Name:     "regex metachars - dot should not match arbitrary char in sa",
+			Input:    "my.ns/my.sa",
+			Identity: "spiffe://cluster.local/ns/my.ns/sa/myXsa",
+			Match:    false,
+		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.Name, func(t *testing.T) {
-			r := serviceAccountRegex("", input)
+			r := serviceAccountRegex("", tt.Input)
 			// Parse as regex. Envoy does a full string match, so handle that
 			rgx, err := regexp.Compile("^" + r + "$")
 			if err != nil {
@@ -574,4 +599,7 @@ func yamlPrincipal(t *testing.T, yaml string) *rbacpb.Principal {
 func TestServiceAccountRegex(t *testing.T) {
 	assert.Equal(t, serviceAccountRegex("", "my-ns/my-sa"), `spiffe://.+/ns/my-ns/(.+/|)sa/my-sa(/.+)?`)
 	assert.Equal(t, serviceAccountRegex("my-ns", "my-sa"), `spiffe://.+/ns/my-ns/(.+/|)sa/my-sa(/.+)?`)
+	// Regex metacharacters in namespace and SA name should be escaped
+	assert.Equal(t, serviceAccountRegex("", "my.ns/my.sa"), `spiffe://.+/ns/my\.ns/(.+/|)sa/my\.sa(/.+)?`)
+	assert.Equal(t, serviceAccountRegex("ns+foo", "sa(bar)"), `spiffe://.+/ns/ns\+foo/(.+/|)sa/sa\(bar\)(/.+)?`)
 }
