@@ -121,7 +121,8 @@ func TestNodeUntainterWithCustomTaintName(t *testing.T) {
 	s.addCniPod(t, "node2", true)
 
 	s.assertNodeUntainted(t, "node1")
-	// node2 still has the `cni.istio.io/not-ready` taint rather than the `custom.io/not-ready` one. The untaint controller should not remove it, as it only manages the `custom.io/not-ready` taint.
+	// node2 still has the `cni.istio.io/not-ready` taint rather than the `custom.io/not-ready` one.
+	// The untaint controller should not remove it, as it only manages the `custom.io/not-ready` taint.
 	s.assertNodeHasTaintKey(t, "node2", "cni.istio.io/not-ready")
 }
 
