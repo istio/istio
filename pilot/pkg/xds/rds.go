@@ -61,7 +61,7 @@ func rdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
 			if config.Kind == kind.Gateway && proxy.IsAmbientEastWestGateway() {
 				return true
 			}
-			fallthrough
+			return rdsAffectingConfigs.Contains(config.Kind)
 		default:
 			return rdsAffectingConfigs.Contains(config.Kind)
 		}
