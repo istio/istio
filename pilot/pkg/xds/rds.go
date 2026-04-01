@@ -37,15 +37,6 @@ var rdsAffectingConfigs = sets.New(
 	kind.Sidecar,
 )
 
-var routerRdsAffectingConfigs = sets.New(
-	kind.VirtualService,
-	kind.ServiceEntry,
-	kind.DestinationRule,
-	kind.EnvoyFilter,
-	kind.Sidecar,
-	kind.Gateway,
-)
-
 func rdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
 	if res, ok := xdsNeedsPush(req, proxy); ok {
 		return res
@@ -56,14 +47,16 @@ func rdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
 	for config := range req.ConfigsUpdated {
 		switch proxy.Type {
 		case model.Router:
-			return routerRdsAffectingConfigs.Contains(config.Kind)
+			if config.Kind == kind.Gateway {
+				return true
+			}
 		case model.Waypoint:
 			if config.Kind == kind.Gateway && proxy.IsAmbientEastWestGateway() {
 				return true
 			}
-			return rdsAffectingConfigs.Contains(config.Kind)
-		default:
-			return rdsAffectingConfigs.Contains(config.Kind)
+		}
+		if rdsAffectingConfigs.Contains(config.Kind) {
+			return true
 		}
 	}
 	return false
