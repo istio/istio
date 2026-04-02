@@ -29,11 +29,9 @@ import (
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	testlabel "istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tests/integration/security/crl/util"
 )
@@ -45,7 +43,6 @@ import (
 //  3. Calls between new apps fail due to revoked certificate
 func TestZtunnelCRL(t *testing.T) {
 	framework.NewTest(t).
-		Label(testlabel.IPv4). // CRL enforcement doesn't work in dual-stack yet
 		Run(func(t framework.TestContext) {
 			// test pre-revocation apps (should succeed)
 			opts := echo.CallOptions{
@@ -90,7 +87,9 @@ func TestZtunnelCRL(t *testing.T) {
 			// before enrollment, traffic bypasses ztunnel and CRL is never checked
 			waitForWorkloadEnrollment(t, revokedServerNS.Name())
 
-			// test should fail due to revoked cert
+			// test should fail due to revoked cert; retry because CRL is only
+			// checked during new TLS handshakes and the k8s secret volume update
+			// may not have propagated to this ztunnel's node yet
 			revokedOpts := echo.CallOptions{
 				To: revokedServer,
 				Port: echo.Port{
@@ -99,13 +98,15 @@ func TestZtunnelCRL(t *testing.T) {
 				Scheme:                  scheme.HTTP,
 				NewConnectionPerRequest: true,
 				Count:                   1,
-				Check:                   check.Error(),
 			}
 			t.Logf("testing call with revoked apps, expecting failure")
 			retry.UntilSuccessOrFail(t, func() error {
-				revokedClient.CallOrFail(t, revokedOpts)
+				_, err := revokedClient.Call(revokedOpts)
+				if err == nil {
+					return fmt.Errorf("expected error but call succeeded, CRL may not have propagated yet")
+				}
 				return nil
-			})
+			}, retry.Timeout(5*time.Minute), retry.Delay(5*time.Second))
 			t.Logf("call correctly failed with revoked apps")
 		})
 }
