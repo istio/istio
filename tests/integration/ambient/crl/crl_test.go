@@ -18,11 +18,8 @@ package crl
 
 import (
 	"fmt"
-	"strings"
 	"testing"
 	"time"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/api/label"
 	"istio.io/istio/pkg/config/protocol"
@@ -30,7 +27,6 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
-	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tests/integration/security/crl/util"
@@ -62,8 +58,8 @@ func TestZtunnelCRL(t *testing.T) {
 			// revoke the intermediate certificate
 			util.RevokeIntermediate(t, certBundle)
 
-			// deploy revoked apps while CRL reloads in parallel —
-			// this should give ztunnel time to both reload the CRL and enroll the new workloads
+			// deploy NEW apps and test (should fail)
+			// create new namespaces for post-revocation apps
 			revokedClientNS := namespace.NewOrFail(t, namespace.Config{
 				Prefix: "ambient-client-revoked",
 				Inject: false,
@@ -78,18 +74,11 @@ func TestZtunnelCRL(t *testing.T) {
 					label.IoIstioDataplaneMode.Name: "ambient",
 				},
 			})
+
 			revokedClient, revokedServer := deployRevokedApps(t, revokedClientNS, revokedServerNS)
 
-			// wait for ztunnel to reload the CRL (workloads should be enrolled by now too)
-			waitForZtunnelCRLReload(t)
-
-			// for confidence - wait for ztunnel to enroll the revoked server before testing
-			// before enrollment, traffic bypasses ztunnel and CRL is never checked
-			waitForWorkloadEnrollment(t, revokedServerNS.Name())
-
-			// test should fail due to revoked cert; retry because CRL is only
-			// checked during new TLS handshakes and the k8s secret volume update
-			// may not have propagated to this ztunnel's node yet
+			// test should fail due to revoked cert; each retry restarts the client
+			// to force a new HBONE connection with a fresh TLS handshake
 			revokedOpts := echo.CallOptions{
 				To: revokedServer,
 				Port: echo.Port{
@@ -98,9 +87,14 @@ func TestZtunnelCRL(t *testing.T) {
 				Scheme:                  scheme.HTTP,
 				NewConnectionPerRequest: true,
 				Count:                   1,
+				Retry:                   echo.Retry{NoRetry: true},
 			}
 			t.Logf("testing call with revoked apps, expecting failure")
 			retry.UntilSuccessOrFail(t, func() error {
+				t.Logf("restarting revoked client to force new HBONE connection")
+				if err := revokedClient.Restart(); err != nil {
+					return fmt.Errorf("failed to restart revoked client: %v", err)
+				}
 				_, err := revokedClient.Call(revokedOpts)
 				if err == nil {
 					return fmt.Errorf("expected error but call succeeded, CRL may not have propagated yet")
@@ -109,76 +103,6 @@ func TestZtunnelCRL(t *testing.T) {
 			}, retry.Timeout(5*time.Minute), retry.Delay(5*time.Second))
 			t.Logf("call correctly failed with revoked apps")
 		})
-}
-
-// waitForZtunnelCRLReload waits for ztunnel to log that it has reloaded the CRL.
-func waitForZtunnelCRLReload(t framework.TestContext) {
-	t.Helper()
-	t.Logf("waiting for ztunnel to reload CRL...")
-
-	ztunnelNS := istio.GetOrFail(t).Settings().ZtunnelNamespace
-
-	retry.UntilSuccessOrFail(t, func() error {
-		for _, c := range t.AllClusters() {
-			pods, err := c.Kube().CoreV1().Pods(ztunnelNS).List(
-				t.Context(),
-				metav1.ListOptions{LabelSelector: "app=ztunnel"},
-			)
-			if err != nil {
-				return fmt.Errorf("failed to list ztunnel pods: %w", err)
-			}
-
-			for _, pod := range pods.Items {
-				logs, err := c.PodLogs(t.Context(), pod.Name, ztunnelNS, "istio-proxy", false)
-				if err != nil {
-					return fmt.Errorf("failed to get logs from %s: %w", pod.Name, err)
-				}
-
-				if !strings.Contains(logs, "crl reloaded successfully") {
-					return fmt.Errorf("ztunnel %s has not reloaded CRL yet", pod.Name)
-				}
-			}
-		}
-		return nil
-	}, retry.Timeout(3*time.Minute), retry.Delay(5*time.Second))
-
-	t.Logf("ztunnel CRL reload confirmed via logs")
-}
-
-// waitForWorkloadEnrollment waits for ztunnel to enroll a workload from the given namespace
-// by checking ztunnel logs for the pod start message.
-func waitForWorkloadEnrollment(t framework.TestContext, ns string) {
-	t.Helper()
-	t.Logf("waiting for ztunnel to enroll workload in namespace %s...", ns)
-
-	ztunnelNS := istio.GetOrFail(t).Settings().ZtunnelNamespace
-
-	retry.UntilSuccessOrFail(t, func() error {
-		for _, c := range t.AllClusters() {
-			pods, err := c.Kube().CoreV1().Pods(ztunnelNS).List(
-				t.Context(),
-				metav1.ListOptions{LabelSelector: "app=ztunnel"},
-			)
-			if err != nil {
-				return fmt.Errorf("failed to list ztunnel pods: %w", err)
-			}
-
-			// only one ztunnel pod (on the same node as the server) will enroll
-			// the workload; the others won't have an AddWorkload for this namespace
-			for _, pod := range pods.Items {
-				logs, err := c.PodLogs(t.Context(), pod.Name, ztunnelNS, "istio-proxy", false)
-				if err != nil {
-					return fmt.Errorf("failed to get logs from %s: %w", pod.Name, err)
-				}
-				if strings.Contains(logs, fmt.Sprintf("namespace: \"%s\"", ns)) {
-					return nil
-				}
-			}
-		}
-		return fmt.Errorf("no ztunnel has enrolled a workload from namespace %s yet", ns)
-	}, retry.Timeout(3*time.Minute), retry.Delay(5*time.Second))
-
-	t.Logf("ztunnel workload enrollment confirmed for namespace %s", ns)
 }
 
 // deployRevokedApps deploys new echo apps in the given namespaces
