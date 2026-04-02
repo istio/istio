@@ -38,17 +38,17 @@ import (
 
 	"istio.io/api/annotation"
 	"istio.io/api/label"
+	meshapi "istio.io/api/mesh/v1alpha1"
 	istioio_networking_v1beta1 "istio.io/api/networking/v1beta1"
 	istio_type_v1beta1 "istio.io/api/type/v1beta1"
+	istioclientv1beta1 "istio.io/client-go/pkg/apis/networking/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/cluster"
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/mesh/meshwatcher"
-	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
@@ -119,14 +119,12 @@ func TestConfigureIstioGateway(t *testing.T) {
 	}
 
 	defaultObjects := []runtime.Object{defaultNamespace}
-	store := model.NewFakeStore()
-	if _, err := store.Create(config.Config{
-		Meta: config.Meta{
-			GroupVersionKind: gvk.ProxyConfig,
-			Name:             "test",
-			Namespace:        "default",
+	proxyConfigCRD := &istioclientv1beta1.ProxyConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test",
+			Namespace: "default",
 		},
-		Spec: &istioio_networking_v1beta1.ProxyConfig{
+		Spec: istioio_networking_v1beta1.ProxyConfig{
 			Selector: &istio_type_v1beta1.WorkloadSelector{
 				MatchLabels: map[string]string{
 					label.IoK8sNetworkingGatewayGatewayName.Name: "default",
@@ -136,15 +134,12 @@ func TestConfigureIstioGateway(t *testing.T) {
 				ImageType: "distroless",
 			},
 		},
-	}); err != nil {
-		t.Fatalf("failed to create ProxyConfigs: %s", err)
 	}
-	proxyConfig := model.GetProxyConfigs(store, mesh.DefaultMeshConfig())
 	tests := []struct {
 		name                     string
 		gw                       k8s.Gateway
 		objects                  []runtime.Object
-		pcs                      *model.ProxyConfigs
+		proxyConfigCRDs          []*istioclientv1beta1.ProxyConfig
 		values                   string
 		discoveryNamespaceFilter kubetypes.DynamicObjectFilter
 		ignore                   bool
@@ -439,8 +434,8 @@ func TestConfigureIstioGateway(t *testing.T) {
 					GatewayClassName: k8s.ObjectName(features.GatewayAPIDefaultGatewayClass),
 				},
 			},
-			objects: defaultObjects,
-			pcs:     proxyConfig,
+			objects:         defaultObjects,
+			proxyConfigCRDs: []*istioclientv1beta1.ProxyConfig{proxyConfigCRD},
 		},
 		{
 			name: "custom-class",
@@ -673,11 +668,13 @@ metadata:
 			kclient.NewWriteClient[*appsv1.Deployment](client).Create(upgradeDeployment)
 			stop := test.NewStop(t)
 			env := newTestEnv()
-			env.PushContext().ProxyConfigs = tt.pcs
 			tw := revisions.NewTagWatcher(client, "", "istio-system")
 			go tw.Run(stop)
 			d := NewDeploymentController(client, cluster.ID(features.ClusterName), env, testInjectionConfig(t, tt.values), func(fn func()) {
 			}, tw, "", "")
+			for _, pc := range tt.proxyConfigCRDs {
+				kclient.NewWriteClient[*istioclientv1beta1.ProxyConfig](client).Create(pc)
+			}
 			d.patcher = func(gvr schema.GroupVersionResource, name string, namespace string, data []byte, subresources ...string) error {
 				b, err := yaml.JSONToYAML(data)
 				if err != nil {
@@ -782,6 +779,166 @@ func TestMeshGatewayReconciliation(t *testing.T) {
 	assert.ChannelHasItem(t, writes)
 	expectReconciled()
 	assert.ChannelIsEmpty(t, writes)
+}
+
+// TestProxyConfigReconciliation verifies that the deployment controller correctly
+// picks up ProxyConfig CRDs and mesh config for gateway reconciliation, and that
+// all pre-existing resources are synced before the first reconcile (no partial state).
+func TestProxyConfigReconciliation(t *testing.T) {
+	defaultNs := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "default"}}
+	defaultGateway := &k8s.Gateway{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "gw",
+			Namespace: "default",
+		},
+		Spec: k8s.GatewaySpec{
+			GatewayClassName: k8s.ObjectName(features.GatewayAPIDefaultGatewayClass),
+		},
+	}
+
+	makeProxyConfigCRD := func() *istioclientv1beta1.ProxyConfig {
+		return &istioclientv1beta1.ProxyConfig{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "gw-pc",
+				Namespace: "default",
+			},
+			Spec: istioio_networking_v1beta1.ProxyConfig{
+				Selector: &istio_type_v1beta1.WorkloadSelector{
+					MatchLabels: map[string]string{
+						label.IoK8sNetworkingGatewayGatewayName.Name: "gw",
+					},
+				},
+				Image: &istioio_networking_v1beta1.ProxyImage{
+					ImageType: "distroless",
+				},
+			},
+		}
+	}
+
+	// helper: start the controller, create the gateway, and return channels + controls
+	type testHarness struct {
+		deploymentImages chan string // receives the image string from each Deployment patch
+		reconciles       *atomic.Int32
+		gws              clienttest.TestClient[*k8s.Gateway]
+		watch            meshwatcher.TestWatcher
+		client           kube.Client
+		stop             chan struct{}
+	}
+
+	setup := func(t *testing.T, meshCfg *meshapi.MeshConfig, proxyConfigCRDs []*istioclientv1beta1.ProxyConfig) *testHarness {
+		t.Helper()
+		c := kube.NewFakeClient(defaultNs)
+
+		watch := meshwatcher.NewTestWatcher(meshCfg)
+		env := model.NewEnvironment()
+		env.Watcher = watch
+		tw := revisions.NewTagWatcher(c, "default", "istio-system")
+		// Build injection config that dynamically reads the mesh watcher's current config,
+		// mirroring the production setup where webhookInfo.getWebhookConfig does the same.
+		injCfg := testInjectionConfig(t, "")
+		dynamicInjCfg := func() inject.WebhookConfig {
+			cfg := injCfg()
+			cfg.MeshConfig = watch.Mesh()
+			return cfg
+		}
+		d := NewDeploymentController(c, "", env, dynamicInjCfg, func(fn func()) {}, tw, "", "")
+
+		// create ProxyConfig CRDs before starting informers so they are visible on initial list
+		pcWriter := kclient.NewWriteClient[*istioclientv1beta1.ProxyConfig](c)
+		for _, pc := range proxyConfigCRDs {
+			pcWriter.Create(pc)
+		}
+
+		deploymentImages := make(chan string, 10)
+		reconciles := atomic.NewInt32(0)
+		d.patcher = func(g schema.GroupVersionResource, name string, namespace string, data []byte, subresources ...string) error {
+			if g == gvr.Service {
+				reconciles.Inc()
+			}
+			if g == gvr.Deployment {
+				b, err := yaml.JSONToYAML(data)
+				if err != nil {
+					return err
+				}
+				// extract image line
+				for _, line := range strings.Split(string(b), "\n") {
+					trimmed := strings.TrimSpace(line)
+					if strings.HasPrefix(trimmed, "image:") && strings.Contains(trimmed, "proxyv2") {
+						deploymentImages <- strings.TrimSpace(strings.TrimPrefix(trimmed, "image:"))
+						break
+					}
+				}
+			}
+			return nil
+		}
+
+		stop := test.NewStop(t)
+		gws := clienttest.Wrap(t, d.gateways)
+		go tw.Run(stop)
+		c.RunAndWait(stop)
+		go d.Run(stop)
+		kube.WaitForCacheSync("test", stop, d.queue.HasSynced)
+
+		return &testHarness{
+			deploymentImages: deploymentImages,
+			reconciles:       reconciles,
+			gws:              gws,
+			watch:            watch,
+			client:           c,
+			stop:             stop,
+		}
+	}
+
+	expectImage := func(t *testing.T, h *testHarness, wantSuffix string) {
+		t.Helper()
+		img := assert.ChannelHasItem(t, h.deploymentImages)
+		if !strings.HasSuffix(img, wantSuffix) {
+			t.Fatalf("expected image ending with %q, got %q", wantSuffix, img)
+		}
+	}
+
+	t.Run("nothing at start, add proxyconfig then meshconfig later", func(t *testing.T) {
+		h := setup(t, mesh.DefaultMeshConfig(), nil)
+
+		// create gateway — first reconcile should use default image (no distroless)
+		h.gws.Create(defaultGateway.DeepCopy())
+		expectImage(t, h, "test/proxyv2:test")
+
+		// add a ProxyConfig CRD — should re-reconcile with distroless
+		kclient.NewWriteClient[*istioclientv1beta1.ProxyConfig](h.client).Create(makeProxyConfigCRD())
+		expectImage(t, h, "test/proxyv2:test-distroless")
+
+		// now update mesh config with a different image type — the workload-scoped
+		// ProxyConfig CRD has higher precedence so distroless should stick
+		m := mesh.DefaultMeshConfig()
+		m.DefaultConfig.Image = &istioio_networking_v1beta1.ProxyImage{ImageType: "debug"}
+		h.watch.Set(m)
+		expectImage(t, h, "test/proxyv2:test-distroless")
+	})
+
+	t.Run("meshconfig with custom image at start", func(t *testing.T) {
+		m := mesh.DefaultMeshConfig()
+		m.DefaultConfig.Image = &istioio_networking_v1beta1.ProxyImage{ImageType: "distroless"}
+		h := setup(t, m, nil)
+
+		// create gateway — first reconcile should already have distroless from mesh config
+		h.gws.Create(defaultGateway.DeepCopy())
+		expectImage(t, h, "test/proxyv2:test-distroless")
+	})
+
+	t.Run("everything at start", func(t *testing.T) {
+		m := mesh.DefaultMeshConfig()
+		m.DefaultConfig.Image = &istioio_networking_v1beta1.ProxyImage{ImageType: "debug"}
+		h := setup(t, m, []*istioclientv1beta1.ProxyConfig{makeProxyConfigCRD()})
+
+		// create gateway — first reconcile should see both mesh config and ProxyConfig CRD.
+		// The workload-scoped ProxyConfig (distroless) takes precedence over mesh default (debug).
+		h.gws.Create(defaultGateway.DeepCopy())
+		expectImage(t, h, "test/proxyv2:test-distroless")
+
+		// verify no spurious re-reconcile with wrong image
+		assert.ChannelIsEmpty(t, h.deploymentImages)
+	})
 }
 
 func buildFilter(allowedNamespace string) kubetypes.DynamicObjectFilter {

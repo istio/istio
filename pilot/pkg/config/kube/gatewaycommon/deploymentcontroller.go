@@ -39,6 +39,8 @@ import (
 	"istio.io/api/annotation"
 	"istio.io/api/label"
 	meshapi "istio.io/api/mesh/v1alpha1"
+	networkingv1beta1 "istio.io/api/networking/v1beta1"
+	istioclient "istio.io/client-go/pkg/apis/networking/v1beta1"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -53,6 +55,7 @@ import (
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/kube/kubetypes"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
@@ -98,18 +101,20 @@ type DeploymentController struct {
 	listenerSets        kclient.Informer[*gateway.ListenerSet]
 	listenerSetByParent kclient.Index[types.NamespacedName, *gateway.ListenerSet]
 
-	clients         map[schema.GroupVersionResource]getter
-	injectConfig    func() inject.WebhookConfig
-	deployments     kclient.Client[*appsv1.Deployment]
-	services        kclient.Client[*corev1.Service]
-	hpas            kclient.Client[*autoscalingv2.HorizontalPodAutoscaler]
-	pdbs            kclient.Client[*policyv1.PodDisruptionBudget]
-	configMaps      kclient.Client[*corev1.ConfigMap]
-	serviceAccounts kclient.Client[*corev1.ServiceAccount]
-	namespaces      kclient.Client[*corev1.Namespace]
-	tagWatcher      revisions.TagWatcher
-	revision        string
-	systemNamespace string
+	clients          map[schema.GroupVersionResource]getter
+	injectConfig     func() inject.WebhookConfig
+	deployments      kclient.Client[*appsv1.Deployment]
+	services         kclient.Client[*corev1.Service]
+	hpas             kclient.Client[*autoscalingv2.HorizontalPodAutoscaler]
+	pdbs             kclient.Client[*policyv1.PodDisruptionBudget]
+	configMaps       kclient.Client[*corev1.ConfigMap]
+	serviceAccounts  kclient.Client[*corev1.ServiceAccount]
+	namespaces       kclient.Client[*corev1.Namespace]
+	proxyConfigs     kclient.Client[*istioclient.ProxyConfig]
+	proxyConfigsByNs krt.Index[string, *istioclient.ProxyConfig]
+	tagWatcher       revisions.TagWatcher
+	revision         string
+	systemNamespace  string
 }
 
 // Patcher is a function that abstracts patching logic. This is largely because client-go fakes do not handle patching
@@ -222,6 +227,31 @@ func NewDeploymentController(
 		}
 	}))
 
+	dc.proxyConfigs = kclient.New[*istioclient.ProxyConfig](client)
+	proxyConfigCol := krt.WrapClient(dc.proxyConfigs, krt.WithName("ProxyConfigs"))
+	dc.proxyConfigsByNs = krt.NewIndex(proxyConfigCol, "namespace", func(pc *istioclient.ProxyConfig) []string {
+		return []string{pc.Namespace}
+	})
+	// ProxyConfig matching is indirect (it matches labels on the generated pod template,
+	// not on the Gateway itself), so we requeue all gateways in the affected namespace.
+	// If the ProxyConfig is in the root namespace, it could affect any gateway.
+	proxyConfigCol.Register(func(o krt.Event[*istioclient.ProxyConfig]) {
+		var ns string
+		pc := o.Latest()
+		if pc != nil {
+			ns = pc.Namespace
+		}
+		// Use the current mesh config's root namespace to decide if this ProxyConfig
+		// is global. If rootNamespace itself changes, the mesh Watcher's handler
+		// already requeues all gateways, so we don't need to react to that here.
+		if ns == dc.env.Watcher.Mesh().GetRootNamespace() {
+			ns = metav1.NamespaceAll
+		}
+		for _, gw := range dc.gateways.List(ns, klabels.Everything()) {
+			dc.queue.AddObject(gw)
+		}
+	})
+
 	dc.env.Watcher.AddMeshHandler(func() {
 		// if there is a change to the meshconfig we need to reprocess all gateways
 		// to reconcile things like the deployment image
@@ -301,6 +331,7 @@ func (d *DeploymentController) Run(stop <-chan struct{}) {
 		d.pdbs.HasSynced,
 		d.gateways.HasSynced,
 		d.gatewayClasses.HasSynced,
+		d.proxyConfigs.HasSynced,
 		d.tagWatcher.HasSynced,
 		d.env.Watcher.AsCollection().HasSynced,
 	)
@@ -315,6 +346,7 @@ func (d *DeploymentController) Run(stop <-chan struct{}) {
 		d.pdbs,
 		d.gateways,
 		d.gatewayClasses,
+		d.proxyConfigs,
 	)
 }
 
@@ -621,7 +653,7 @@ func (d *DeploymentController) render(templateName string, mi TemplateInput) ([]
 	}
 
 	labelToMatch := map[string]string{label.IoK8sNetworkingGatewayGatewayName.Name: mi.Name}
-	proxyConfig := d.env.GetProxyConfigOrDefault(mi.Namespace, labelToMatch, nil, cfg.MeshConfig)
+	proxyConfig := d.effectiveProxyConfig(mi.Namespace, labelToMatch, cfg.MeshConfig)
 	input := derivedInput{
 		TemplateInput: mi,
 		ProxyImage: inject.ProxyImage(
@@ -655,6 +687,40 @@ func (d *DeploymentController) render(templateName string, mi TemplateInput) ([]
 		}
 	}
 	return transformedOutput, nil
+}
+
+// effectiveProxyConfig computes the merged ProxyConfig for a gateway directly from ProxyConfig CRDs
+// and mesh config, without going through PushContext. This ensures the deployment controller has
+// a direct, reactive data path for proxy configuration.
+func (d *DeploymentController) effectiveProxyConfig(namespace string, gwLabels map[string]string, mc *meshapi.MeshConfig) *meshapi.ProxyConfig {
+	rootNamespace := mc.GetRootNamespace()
+
+	// Build the namespace→specs map from krt index lookups, sorted by creation time
+	nsToPCs := map[string][]*networkingv1beta1.ProxyConfig{}
+	for _, ns := range []string{rootNamespace, namespace} {
+		if ns == "" {
+			continue
+		}
+		if _, done := nsToPCs[ns]; done {
+			continue
+		}
+		crdList := d.proxyConfigsByNs.Lookup(ns)
+		sorted := slices.Clone(crdList)
+		slices.SortFunc(sorted, func(a, b *istioclient.ProxyConfig) int {
+			return a.CreationTimestamp.Time.Compare(b.CreationTimestamp.Time)
+		})
+		specs := make([]*networkingv1beta1.ProxyConfig, 0, len(sorted))
+		for _, pc := range sorted {
+			specs = append(specs, &pc.Spec)
+		}
+		nsToPCs[ns] = specs
+	}
+
+	pcs := model.NewProxyConfigs(nsToPCs, rootNamespace)
+	return pcs.EffectiveProxyConfig(&model.NodeMetadata{
+		Namespace: namespace,
+		Labels:    gwLabels,
+	}, mc)
 }
 
 var supportedOverlays = sets.New(

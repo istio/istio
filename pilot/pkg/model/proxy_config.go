@@ -81,6 +81,16 @@ func GetProxyConfigs(store ConfigStore, mc *meshconfig.MeshConfig) *ProxyConfigs
 	return proxyconfigs
 }
 
+// NewProxyConfigs constructs a ProxyConfigs directly from a pre-sorted (by creation time)
+// map of namespace → ProxyConfig specs. This allows callers that already have the CRDs
+// (e.g. from krt collections) to build a ProxyConfigs without going through ConfigStore.
+func NewProxyConfigs(namespaceToConfigs map[string][]*v1beta1.ProxyConfig, rootNamespace string) *ProxyConfigs {
+	return &ProxyConfigs{
+		namespaceToProxyConfigs: namespaceToConfigs,
+		rootNamespace:           rootNamespace,
+	}
+}
+
 func (p *ProxyConfigs) mergedGlobalConfig() *meshconfig.ProxyConfig {
 	return p.mergedNamespaceConfig(p.rootNamespace)
 }
