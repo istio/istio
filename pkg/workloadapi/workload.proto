@@ -19,7 +19,7 @@ package istio.workload;
 import "google/protobuf/wrappers.proto";
 import "google/protobuf/any.proto";
 
-option go_package="pkg/workloadapi";
+option go_package="istio.io/istio/pkg/workloadapi";
 
 // Address represents a unique address.
 //

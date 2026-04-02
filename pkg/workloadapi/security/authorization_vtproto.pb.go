@@ -13,7 +13,7 @@ import (
 	proto "google.golang.org/protobuf/proto"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
-	workloadapi "pkg/workloadapi"
+	workloadapi "istio.io/istio/pkg/workloadapi"
 )
 
 const (

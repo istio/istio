@@ -1845,7 +1845,7 @@ const file_workloadapi_workload_proto_rawDesc = "" +
 	"\x0eTunnelProtocol\x12\b\n" +
 	"\x04NONE\x10\x00\x12\t\n" +
 	"\x05HBONE\x10\x01\x12\x15\n" +
-	"\x11LEGACY_ISTIO_MTLS\x10\x02B\x11Z\x0fpkg/workloadapib\x06proto3"
+	"\x11LEGACY_ISTIO_MTLS\x10\x02B Z\x1eistio.io/istio/pkg/workloadapib\x06proto3"
 
 var (
 	file_workloadapi_workload_proto_rawDescOnce sync.Once

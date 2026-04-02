@@ -24,7 +24,7 @@ import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
-	workloadapi "pkg/workloadapi"
+	workloadapi "istio.io/istio/pkg/workloadapi"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -757,7 +757,7 @@ const file_workloadapi_security_authorization_proto_rawDesc = "" +
 	"\x11WORKLOAD_SELECTOR\x10\x02*\x1d\n" +
 	"\x06Action\x12\t\n" +
 	"\x05ALLOW\x10\x00\x12\b\n" +
-	"\x04DENY\x10\x01B\x1aZ\x18pkg/workloadapi/securityb\x06proto3"
+	"\x04DENY\x10\x01B)Z'istio.io/istio/pkg/workloadapi/securityb\x06proto3"
 
 var (
 	file_workloadapi_security_authorization_proto_rawDescOnce sync.Once
