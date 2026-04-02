@@ -731,6 +731,49 @@ func TestServiceEntryServices(t *testing.T) {
 			},
 		},
 		{
+			name:   "ingress-use-waypoint label true sets WDS field on service entry",
+			inputs: []any{waypoint, ns},
+			se: &networkingclient.ServiceEntry{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "name",
+					Namespace: "ns",
+					Labels: map[string]string{
+						label.IoIstioUseWaypoint.Name:          "waypoint",
+						label.IoIstioUseWaypointNamespace.Name: "ns",
+						label.IoIstioIngressUseWaypoint.Name:   "true",
+					},
+				},
+				Spec: networking.ServiceEntry{
+					Addresses: []string{"1.2.3.4"},
+					Hosts:     []string{"a.example.com"},
+					Ports: []*networking.ServicePort{{
+						Number:   80,
+						Name:     "http",
+						Protocol: "HTTP",
+					}},
+					Resolution: networking.ServiceEntry_STATIC,
+				},
+			},
+			result: []*workloadapi.Service{
+				{
+					Name:      "name",
+					Namespace: "ns",
+					Hostname:  "a.example.com",
+					Addresses: []*workloadapi.NetworkAddress{{
+						Network: testNW,
+						Address: netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice(),
+					}},
+					Waypoint:           waypointAddr,
+					IngressUseWaypoint: true,
+					Ports: []*workloadapi.Port{{
+						ServicePort: 80,
+						TargetPort:  80,
+						AppProtocol: workloadapi.AppProtocol_HTTP11,
+					}},
+				},
+			},
+		},
+		{
 			name: "serviceentry annotation overrides namespace",
 			inputs: []any{
 				&v1.Namespace{
