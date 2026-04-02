@@ -36,6 +36,8 @@ import (
 	gateway "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/yaml"
 
+	"google.golang.org/protobuf/proto"
+
 	"istio.io/api/annotation"
 	"istio.io/api/label"
 	meshapi "istio.io/api/mesh/v1alpha1"
@@ -47,6 +49,7 @@ import (
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/gvr"
@@ -101,20 +104,21 @@ type DeploymentController struct {
 	listenerSets        kclient.Informer[*gateway.ListenerSet]
 	listenerSetByParent kclient.Index[types.NamespacedName, *gateway.ListenerSet]
 
-	clients          map[schema.GroupVersionResource]getter
-	injectConfig     func() inject.WebhookConfig
-	deployments      kclient.Client[*appsv1.Deployment]
-	services         kclient.Client[*corev1.Service]
-	hpas             kclient.Client[*autoscalingv2.HorizontalPodAutoscaler]
-	pdbs             kclient.Client[*policyv1.PodDisruptionBudget]
-	configMaps       kclient.Client[*corev1.ConfigMap]
-	serviceAccounts  kclient.Client[*corev1.ServiceAccount]
-	namespaces       kclient.Client[*corev1.Namespace]
-	proxyConfigs     kclient.Client[*istioclient.ProxyConfig]
-	proxyConfigsByNs krt.Index[string, *istioclient.ProxyConfig]
-	tagWatcher       revisions.TagWatcher
-	revision         string
-	systemNamespace  string
+	clients              map[schema.GroupVersionResource]getter
+	injectConfig         func() inject.WebhookConfig
+	deployments          kclient.Client[*appsv1.Deployment]
+	services             kclient.Client[*corev1.Service]
+	hpas                 kclient.Client[*autoscalingv2.HorizontalPodAutoscaler]
+	pdbs                 kclient.Client[*policyv1.PodDisruptionBudget]
+	configMaps           kclient.Client[*corev1.ConfigMap]
+	serviceAccounts      kclient.Client[*corev1.ServiceAccount]
+	namespaces           kclient.Client[*corev1.Namespace]
+	proxyConfigs         kclient.Client[*istioclient.ProxyConfig]
+	proxyConfigsByNs     krt.Index[string, *istioclient.ProxyConfig]
+	effectiveProxyConfig krt.Collection[gwProxyConfig]
+	tagWatcher           revisions.TagWatcher
+	revision             string
+	systemNamespace      string
 }
 
 // Patcher is a function that abstracts patching logic. This is largely because client-go fakes do not handle patching
@@ -229,32 +233,25 @@ func NewDeploymentController(
 
 	dc.proxyConfigs = kclient.New[*istioclient.ProxyConfig](client)
 	proxyConfigCol := krt.WrapClient(dc.proxyConfigs, krt.WithName("ProxyConfigs"))
-	dc.proxyConfigsByNs = krt.NewIndex(proxyConfigCol, "namespace", func(pc *istioclient.ProxyConfig) []string {
-		return []string{pc.Namespace}
-	})
-	// ProxyConfig matching is indirect (it matches labels on the generated pod template,
-	// not on the Gateway itself), so we requeue all gateways in the affected namespace.
-	// If the ProxyConfig is in the root namespace, it could affect any gateway.
-	proxyConfigCol.Register(func(o krt.Event[*istioclient.ProxyConfig]) {
-		var ns string
-		pc := o.Latest()
-		if pc != nil {
-			ns = pc.Namespace
+	dc.proxyConfigsByNs = krt.NewNamespaceIndex(proxyConfigCol)
+	gwCol := krt.WrapClient(gateways, krt.WithName("Gateways"))
+	dc.effectiveProxyConfig = buildEffectiveProxyConfigs(gwCol, proxyConfigCol, dc.proxyConfigsByNs, dc.env.Watcher)
+	// When the effective proxy config for a gateway changes (due to ProxyConfig CRD or MeshConfig changes),
+	// requeue just that gateway. Skip Add events since the gateway event handler already queues new gateways.
+	dc.effectiveProxyConfig.Register(func(o krt.Event[gwProxyConfig]) {
+		if o.Event == controllers.EventAdd {
+			return
 		}
-		// Use the current mesh config's root namespace to decide if this ProxyConfig
-		// is global. If rootNamespace itself changes, the mesh Watcher's handler
-		// already requeues all gateways, so we don't need to react to that here.
-		if ns == dc.env.Watcher.Mesh().GetRootNamespace() {
-			ns = metav1.NamespaceAll
-		}
-		for _, gw := range dc.gateways.List(ns, klabels.Everything()) {
+		epc := o.Latest()
+		gw := dc.gateways.Get(epc.Name, epc.Namespace)
+		if gw != nil {
 			dc.queue.AddObject(gw)
 		}
 	})
 
 	dc.env.Watcher.AddMeshHandler(func() {
-		// if there is a change to the meshconfig we need to reprocess all gateways
-		// to reconcile things like the deployment image
+		// Mesh config affects rendering beyond just proxy config (e.g. image hub/tag, injection templates).
+		// Requeue all gateways on any mesh config change.
 		for _, gw := range dc.gateways.List(corev1.NamespaceAll, klabels.Everything()) {
 			dc.queue.AddObject(gw)
 		}
@@ -332,6 +329,7 @@ func (d *DeploymentController) Run(stop <-chan struct{}) {
 		d.gateways.HasSynced,
 		d.gatewayClasses.HasSynced,
 		d.proxyConfigs.HasSynced,
+		d.effectiveProxyConfig.HasSynced,
 		d.tagWatcher.HasSynced,
 		d.env.Watcher.AsCollection().HasSynced,
 	)
@@ -652,8 +650,7 @@ func (d *DeploymentController) render(templateName string, mi TemplateInput) ([]
 		templateOverlays = append(templateOverlays, cm.Data)
 	}
 
-	labelToMatch := map[string]string{label.IoK8sNetworkingGatewayGatewayName.Name: mi.Name}
-	proxyConfig := d.effectiveProxyConfig(mi.Namespace, labelToMatch, cfg.MeshConfig)
+	proxyConfig := d.computeEffectiveProxyConfig(mi.Namespace, mi.Name, cfg.MeshConfig)
 	input := derivedInput{
 		TemplateInput: mi,
 		ProxyImage: inject.ProxyImage(
@@ -689,23 +686,43 @@ func (d *DeploymentController) render(templateName string, mi TemplateInput) ([]
 	return transformedOutput, nil
 }
 
-// effectiveProxyConfig computes the merged ProxyConfig for a gateway directly from ProxyConfig CRDs
-// and mesh config, without going through PushContext. This ensures the deployment controller has
-// a direct, reactive data path for proxy configuration.
-func (d *DeploymentController) effectiveProxyConfig(namespace string, gwLabels map[string]string, mc *meshapi.MeshConfig) *meshapi.ProxyConfig {
-	rootNamespace := mc.GetRootNamespace()
+// gwProxyConfig holds the effective merged ProxyConfig for a specific gateway.
+// It is produced by a krt collection derived from Gateway × ProxyConfig × MeshConfig.
+type gwProxyConfig struct {
+	krt.Named
+	config *meshapi.ProxyConfig
+}
 
-	// Build the namespace→specs map from krt index lookups, sorted by creation time
+func (g gwProxyConfig) Equals(other gwProxyConfig) bool {
+	return proto.Equal(g.config, other.config)
+}
+
+// mergeProxyConfigs computes the effective ProxyConfig for a gateway by looking up
+// ProxyConfig CRDs from the given namespace index and merging them with mesh config.
+func mergeProxyConfigs(
+	namespace, gwName string,
+	proxyConfigsByNs krt.Index[string, *istioclient.ProxyConfig],
+	mc *meshapi.MeshConfig,
+) *meshapi.ProxyConfig {
+	rootNamespace := mc.GetRootNamespace()
+	gwLabels := map[string]string{label.IoK8sNetworkingGatewayGatewayName.Name: gwName}
+
+	nsConfigs := proxyConfigsByNs.Lookup(namespace)
+	var rootConfigs []*istioclient.ProxyConfig
+	if rootNamespace != "" && rootNamespace != namespace {
+		rootConfigs = proxyConfigsByNs.Lookup(rootNamespace)
+	}
+
+	// Build the namespace→specs map, sorted by creation time for deterministic precedence.
 	nsToPCs := map[string][]*networkingv1beta1.ProxyConfig{}
-	for _, ns := range []string{rootNamespace, namespace} {
-		if ns == "" {
+	for ns, configs := range map[string][]*istioclient.ProxyConfig{
+		namespace:     nsConfigs,
+		rootNamespace: rootConfigs,
+	} {
+		if ns == "" || len(configs) == 0 {
 			continue
 		}
-		if _, done := nsToPCs[ns]; done {
-			continue
-		}
-		crdList := d.proxyConfigsByNs.Lookup(ns)
-		sorted := slices.Clone(crdList)
+		sorted := slices.Clone(configs)
 		slices.SortFunc(sorted, func(a, b *istioclient.ProxyConfig) int {
 			return a.CreationTimestamp.Time.Compare(b.CreationTimestamp.Time)
 		})
@@ -721,6 +738,42 @@ func (d *DeploymentController) effectiveProxyConfig(namespace string, gwLabels m
 		Namespace: namespace,
 		Labels:    gwLabels,
 	}, mc)
+}
+
+// computeEffectiveProxyConfig computes the merged ProxyConfig for a gateway during rendering.
+func (d *DeploymentController) computeEffectiveProxyConfig(namespace, gwName string, mc *meshapi.MeshConfig) *meshapi.ProxyConfig {
+	return mergeProxyConfigs(namespace, gwName, d.proxyConfigsByNs, mc)
+}
+
+// buildEffectiveProxyConfigs creates a krt collection that tracks the effective ProxyConfig
+// for each gateway. When a ProxyConfig CRD changes, only the affected gateways are recomputed.
+// This is used for change detection via Register to precisely requeue only gateways whose
+// effective proxy config has actually changed.
+// Note: mesh config changes are handled separately by the mesh handler, not through this collection.
+func buildEffectiveProxyConfigs(
+	gateways krt.Collection[*gateway.Gateway],
+	proxyConfigs krt.Collection[*istioclient.ProxyConfig],
+	proxyConfigsByNs krt.Index[string, *istioclient.ProxyConfig],
+	meshCfgGetter mesh.Holder,
+) krt.Collection[gwProxyConfig] {
+	return krt.NewCollection(gateways, func(ctx krt.HandlerContext, gw *gateway.Gateway) *gwProxyConfig {
+		mc := meshCfgGetter.Mesh()
+		if mc == nil {
+			mc = mesh.DefaultMeshConfig()
+		}
+
+		// Fetch ProxyConfigs from the gateway's namespace and root namespace to establish krt dependencies.
+		rootNamespace := mc.GetRootNamespace()
+		krt.Fetch(ctx, proxyConfigs, krt.FilterIndex(proxyConfigsByNs, gw.Namespace))
+		if rootNamespace != "" && rootNamespace != gw.Namespace {
+			krt.Fetch(ctx, proxyConfigs, krt.FilterIndex(proxyConfigsByNs, rootNamespace))
+		}
+
+		return &gwProxyConfig{
+			Named:  krt.NewNamed(gw),
+			config: mergeProxyConfigs(gw.Namespace, gw.Name, proxyConfigsByNs, mc),
+		}
+	}, krt.WithName("GatewayEffectiveProxyConfig"))
 }
 
 var supportedOverlays = sets.New(
