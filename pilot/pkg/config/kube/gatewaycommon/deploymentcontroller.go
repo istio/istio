@@ -22,6 +22,7 @@ import (
 	"strconv"
 	"strings"
 
+	"google.golang.org/protobuf/proto"
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
@@ -35,8 +36,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	gateway "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/yaml"
-
-	"google.golang.org/protobuf/proto"
 
 	"istio.io/api/annotation"
 	"istio.io/api/label"
