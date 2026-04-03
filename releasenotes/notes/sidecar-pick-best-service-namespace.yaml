@@ -1,0 +1,22 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue: []
+releaseNotes:
+  - |
+    **Improved** sidecar proxy service namespace selection. When configuring sidecar proxies if a hostname exists
+    in multiple namespaces, Istio now prefers Kubernetes services and falls back to the oldest non-Kubernetes
+    service (e.g. `ServiceEntry`) by creation time. Previously, the first visible namespace alphabetically was
+    chosen. 
+upgradeNotes:
+  - title: Sidecar proxy service namespace selection changed
+    content: |
+      When configuring sidecar proxies if a hostname exists in multiple namespaces, Istio now prefers Kubernetes
+      services and falls back to the oldest non-Kubernetes service by creation time. Previously, the first visible
+      namespace alphabetically was chosen.
+
+      This may cause traffic to route to a different service instance if you have the same hostname across multiple
+      namespaces with mixed service types (e.g. a Kubernetes service and a `ServiceEntry`).
+
+      If this is not desired, set the `PILOT_SIDECAR_PICK_BEST_SERVICE_NAMESPACE` environment variable to `false`
+      in Istiod, or use `compatibilityVersion` 1.28 or earlier to restore the previous behavior.
