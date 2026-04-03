@@ -16,15 +16,20 @@ This folder contains Istio integration tests that use the test framework checked
     1. [Test Parallelism and Kubernetes](#test-parallelism-and-kubernetes)
     1. [Test Selection](#test-selection)
     1. [Running Tests on CI](#running-tests-on-ci)
+    1. [Running Tests on Custom Deployment](#running-tests-on-custom-deployment)
+        1. [External Installation Executable API](#external-installation-executable-api)
+            1. ['install' command](#install-command)
+            1. ['cleanup' command](#cleanup-command)
 1. [Environments](#environments)
+    1. [KinD Cluster Environment Variables](#kind-cluster-environment-variables)
 1. [Diagnosing Failures](#diagnosing-failures)
     1. [Working Directory](#working-directory)
     1. [Enabling CI Mode](#enabling-ci-mode)
     1. [Preserving State (No Cleanup)](#preserving-state-no-cleanup)
     1. [Additional Logging](#additional-logging)
-    1. [Running Tests Under Debugger](#running-tests-under-debugger-goland)
+    1. [Running Tests Under Debugger (GoLand)](#running-tests-under-debugger-goland)
 1. [Reference](#reference)
-    1. [Commandline Flags](#command-line-flags)
+    1. [Command-Line Flags](#command-line-flags)
 1. [Notes](#notes)
     1. [Running on a Mac](#running-on-a-mac)
 
@@ -484,6 +489,15 @@ If not specified, `~/.kube/config` will be used by default.
 **Be aware that any existing content will be altered and/or removed from the cluster**.
 
 Note that the HUB and TAG environment variables **must** be set when running tests in the Kubernetes environment.
+
+### KinD Cluster Environment Variables
+
+The following environment variables can be used to configure the KinD cluster setup when running tests via `prow/integ-suite-kind.sh`:
+
+| Name | Description |
+|---|---|
+| `SKIP_SETUP` | Skip KinD cluster setup entirely if set. Useful when reusing an existing cluster. |
+| `NOMETALBINSTALL` | Skip MetalLB installation if set. Useful when using [cloud-provider-kind](https://github.com/kubernetes-sigs/cloud-provider-kind). |
 
 ## Diagnosing Failures
 

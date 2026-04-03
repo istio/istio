@@ -750,6 +750,7 @@ func TestMeshGatewayReconciliation(t *testing.T) {
 
 	stop := test.NewStop(t)
 	gws := clienttest.Wrap(t, d.gateways)
+	env.PushContext().InitDone.Store(true)
 	go tw.Run(stop)
 	go d.Run(stop)
 	c.RunAndWait(stop)
@@ -992,6 +993,7 @@ func TestVersionManagement(t *testing.T) {
 	}
 	stop := test.NewStop(t)
 	gws := clienttest.Wrap(t, d.gateways)
+	env.PushContext().InitDone.Store(true)
 	go tw.Run(stop)
 	go d.Run(stop)
 	c.RunAndWait(stop)

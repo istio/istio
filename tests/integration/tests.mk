@@ -97,8 +97,9 @@ check-go-tag:
 	@go list ./tests/integration/... 2>/dev/null | xargs -r -I{} sh -c 'echo "Detected a file in tests/integration/ without a build tag set. Add // +build integ to the files: {}"; exit 2'
 
 # Generate integration test targets for kubernetes environment.
+# Set SINGLE_PACKAGE=true to not include sub-packages (/... suffix).
 test.integration.%.kube: | $(JUNIT_REPORT) check-go-tag
-	$(call run-test,./tests/integration/$(subst .,/,$*)/...)
+	$(call run-test,./tests/integration/$(subst .,/,$*)/$(if $(SINGLE_PACKAGE),,...))
 
 # Generate integration fuzz test targets for kubernetes environment.
 test.integration-fuzz.%.kube: | $(JUNIT_REPORT) check-go-tag

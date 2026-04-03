@@ -154,7 +154,7 @@ function setup_kind_cluster() {
   local NAME="${1:-istio-testing}"
   local IMAGE="${2:-"${DEFAULT_KIND_IMAGE}"}"
   local CONFIG="${3:-}"
-  local NOMETALBINSTALL="${4:-}"
+  local NOMETALBINSTALL="${4:-${NOMETALBINSTALL:-}}"
   local CLEANUP="${5:-true}"
 
   check_default_cluster_yaml
@@ -345,7 +345,9 @@ EOF
   for CLUSTER_NAME in "${CLUSTER_NAMES[@]}"; do
     KUBECONFIG_FILE="${KUBECONFIG_DIR}/${CLUSTER_NAME}"
     if [[ ${NUM_CLUSTERS} -gt 1 ]]; then
-      retry install_metallb "${KUBECONFIG_FILE}"
+      if [[ -z "${NOMETALBINSTALL}" ]]; then
+        retry install_metallb "${KUBECONFIG_FILE}"
+      fi
     fi
     KUBECONFIGS+=("${KUBECONFIG_FILE}")
   done

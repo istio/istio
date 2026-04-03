@@ -286,6 +286,7 @@ func serviceServiceBuilder(
 		}
 
 		svc := constructService(ctx, s, waypoint, domainSuffix, nsAnnotations, networkGetter)
+		svc.IngressUseWaypoint = waypointStatus.IngressUseWaypoint
 
 		svcInfo := &model.ServiceInfo{
 			Service:       svc,
@@ -511,6 +512,7 @@ func serviceEntriesInfo(
 	}
 
 	return slices.Map(constructServiceEntries(ctx, s, w, nsAnnotations, networkGetter), func(e *workloadapi.Service) model.ServiceInfo {
+		e.IngressUseWaypoint = waypoint.IngressUseWaypoint
 		return precomputeService(model.ServiceInfo{
 			Service:       e,
 			PortNames:     portNames,

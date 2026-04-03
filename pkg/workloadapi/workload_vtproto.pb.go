@@ -185,6 +185,9 @@ func (this *Service) EqualVT(that *Service) bool {
 	if this.Canonical != that.Canonical {
 		return false
 	}
+	if this.IngressUseWaypoint != that.IngressUseWaypoint {
+		return false
+	}
 	return string(this.unknownFields) == string(that.unknownFields)
 }
 
@@ -737,6 +740,16 @@ func (m *Service) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
 	if m.unknownFields != nil {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
+	}
+	if m.IngressUseWaypoint {
+		i--
+		if m.IngressUseWaypoint {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x60
 	}
 	if m.Canonical {
 		i--
@@ -1706,6 +1719,9 @@ func (m *Service) SizeVT() (n int) {
 		}
 	}
 	if m.Canonical {
+		n += 2
+	}
+	if m.IngressUseWaypoint {
 		n += 2
 	}
 	n += len(m.unknownFields)
