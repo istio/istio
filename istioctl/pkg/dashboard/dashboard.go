@@ -248,10 +248,6 @@ func createDashCmd(ctx cli.Context, config CreateProxyDashCmdConfig) *cobra.Comm
 				return fmt.Errorf("name cannot be provided when a selector is specified")
 			}
 
-			if err != nil {
-				return fmt.Errorf("failed to create k8s client: %v", err)
-			}
-
 			var podName, ns string
 			if labelSelector != "" {
 				pl, err := kubeClient.PodsForSelector(context.TODO(), ctx.NamespaceOrDefault(ctx.Namespace()), labelSelector)
