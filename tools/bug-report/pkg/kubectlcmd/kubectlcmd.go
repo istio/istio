@@ -72,12 +72,10 @@ func (r *Runner) SetClient(client kube.CLIClient) {
 }
 
 func (r *Runner) ReportRunningTasks() {
-	go func() {
-		time.Sleep(reportInterval)
-		for range r.runningTasksTicker.C {
-			r.printRunningTasks()
-		}
-	}()
+	time.Sleep(reportInterval)
+	for range r.runningTasksTicker.C {
+		r.printRunningTasks()
+	}
 }
 
 // Options contains the Run options.

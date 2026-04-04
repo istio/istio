@@ -101,7 +101,7 @@ var (
 
 func runBugReportCommand(ctx cli.Context, _ *cobra.Command, logOpts *log.Options) error {
 	runner := kubectlcmd.NewRunner(gConfig.RequestConcurrency)
-	runner.ReportRunningTasks()
+	go runner.ReportRunningTasks()
 	if err := configLogs(logOpts); err != nil {
 		return err
 	}

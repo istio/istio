@@ -544,7 +544,7 @@ func portForward(podName, namespace, flavor, urlFormat, localAddress string, rem
 		}
 
 		// Close the port forwarder when the command is terminated.
-		ClosePortForwarderOnInterrupt(fw)
+		go ClosePortForwarderOnInterrupt(fw)
 
 		log.Debugf(fmt.Sprintf("port-forward to %s pod ready", flavor))
 		openBrowser(fmt.Sprintf(urlFormat, fw.Address()), writer, browser)
@@ -559,13 +559,11 @@ func portForward(podName, namespace, flavor, urlFormat, localAddress string, rem
 }
 
 func ClosePortForwarderOnInterrupt(fw kube.PortForwarder) {
-	go func() {
-		signals := make(chan os.Signal, 1)
-		signal.Notify(signals, os.Interrupt)
-		defer signal.Stop(signals)
-		<-signals
-		fw.Close()
-	}()
+	signals := make(chan os.Signal, 1)
+	signal.Notify(signals, os.Interrupt)
+	defer signal.Stop(signals)
+	<-signals
+	fw.Close()
 }
 
 func openBrowser(url string, writer io.Writer, browser bool) {
