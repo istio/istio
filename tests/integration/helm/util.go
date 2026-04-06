@@ -25,6 +25,7 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"golang.org/x/sync/errgroup"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	v1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -209,6 +210,54 @@ func GetValuesOverrides(ctx framework.TestContext, hub, tag, variant, revision s
 	overrideValuesFile := filepath.Join(workDir, "values.yaml")
 	if err := os.WriteFile(overrideValuesFile, overrideValues, os.ModePerm); err != nil {
 		ctx.Fatalf("failed to write iop cr file: %v", err)
+	}
+
+	return overrideValuesFile
+}
+
+// GetValuesOverridesWithBase is like GetValuesOverrides but also merges in extra base chart values
+// (e.g. base.validationFailurePolicy).
+func GetValuesOverridesWithBase(ctx framework.TestContext, hub, tag, variant, revision string, isAmbient bool,
+	baseValues map[string]interface{},
+) string {
+	workDir := ctx.CreateTmpDirectoryOrFail("helm")
+
+	values := map[string]interface{}{
+		"global": map[string]interface{}{
+			"hub":     hub,
+			"variant": variant,
+		},
+		"revision": revision,
+	}
+
+	globalValues := values["global"].(map[string]interface{})
+	if tag != "" {
+		globalValues["tag"] = tag
+	}
+
+	if ctx.Settings().OpenShift {
+		globalValues["platform"] = "openshift"
+		values["platform"] = "openshift"
+	} else {
+		globalValues["platform"] = ""
+	}
+
+	if isAmbient {
+		values["profile"] = "ambient"
+	}
+
+	if baseValues != nil {
+		values["base"] = baseValues
+	}
+
+	overrideValues, err := yaml.Marshal(values)
+	if err != nil {
+		ctx.Fatalf("failed to marshal override values to YAML: %v", err)
+	}
+
+	overrideValuesFile := filepath.Join(workDir, "values.yaml")
+	if err := os.WriteFile(overrideValuesFile, overrideValues, os.ModePerm); err != nil {
+		ctx.Fatalf("failed to write values override file: %v", err)
 	}
 
 	return overrideValuesFile
@@ -560,6 +609,35 @@ func VerifyValidatingWebhookConfigurations(ctx framework.TestContext, cs cluster
 		ctx.Fatalf("Not all validating webhook configurations were installed. Expected [%v]", names)
 	}
 	scopes.Framework.Infof("=== succeeded ===")
+}
+
+// VerifyValidatingWebhookFailurePolicy verifies that the named validating webhook has the expected failurePolicy.
+func VerifyValidatingWebhookFailurePolicy(ctx framework.TestContext, cs cluster.Cluster, webhookName string,
+	expected admissionregistrationv1.FailurePolicyType,
+) {
+	ctx.Helper()
+	scopes.Framework.Infof("=== verifying failurePolicy on %s === ", webhookName)
+	retry.UntilSuccessOrFail(ctx, func() error {
+		vwc, err := cs.Kube().AdmissionregistrationV1().ValidatingWebhookConfigurations().Get(
+			context.TODO(), webhookName, metav1.GetOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to get ValidatingWebhookConfiguration %s: %v", webhookName, err)
+		}
+		if len(vwc.Webhooks) == 0 {
+			return fmt.Errorf("no webhooks found in ValidatingWebhookConfiguration %s", webhookName)
+		}
+		for _, wh := range vwc.Webhooks {
+			if wh.FailurePolicy == nil {
+				return fmt.Errorf("webhook %s in %s has nil failurePolicy, expected %s", wh.Name, webhookName, expected)
+			}
+			if *wh.FailurePolicy != expected {
+				return fmt.Errorf("webhook %s in %s has failurePolicy %s, expected %s",
+					wh.Name, webhookName, *wh.FailurePolicy, expected)
+			}
+		}
+		scopes.Framework.Infof("=== succeeded ===")
+		return nil
+	}, retry.Timeout(2*time.Minute))
 }
 
 // verifyValidation verifies that Istio resource validation is active on the cluster.
