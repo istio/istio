@@ -1213,6 +1213,34 @@ var (
 		},
 	}
 
+	services28 = []*Service{
+		{
+			Hostname: "foo.svc.cluster.local",
+			Ports:    port7443,
+			Attributes: ServiceAttributes{
+				Name:      "foo",
+				Namespace: "ns1",
+			},
+			CreationTime: time.Unix(1000, 0),
+		},
+		{
+			Hostname: "foo.svc.cluster.local",
+			Ports:    port8000,
+			Attributes: ServiceAttributes{
+				Name:      "foo",
+				Namespace: "ns2",
+			},
+			CreationTime: time.Unix(2000, 0),
+		},
+		{
+			Hostname: "baz.svc.cluster.local",
+			Ports:    port7443,
+			Attributes: ServiceAttributes{
+				Name:      "baz",
+				Namespace: "ns3",
+			},
+		},
+	}
 	virtualServices1 = []config.Config{
 		{
 			Meta: config.Meta{
@@ -2053,11 +2081,11 @@ func TestCreateSidecarScope(t *testing.T) {
 			nil,
 		},
 		{
-			"virtual-service-pick-alphabetical",
+			"virtual-service-pick-by-creation-time",
 			configs11,
 			// Ambiguous; same hostname in ns1 and ns2, neither is config namespace
-			// ns1 should always win
-			services12,
+			// older namespace (ns1) should always win (older service creation time)
+			services28,
 			virtualServices1,
 			[]*Service{
 				{
@@ -2075,6 +2103,7 @@ func TestCreateSidecarScope(t *testing.T) {
 						Name:      "foo",
 						Namespace: "ns1",
 					},
+					CreationTime: time.Unix(1000, 0),
 				},
 			},
 			nil,
