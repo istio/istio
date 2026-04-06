@@ -19,7 +19,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/agentgateway/agentgateway/go/api"
+	"github.com/agentgateway/agentgateway/api"
 	"google.golang.org/protobuf/types/known/durationpb"
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"

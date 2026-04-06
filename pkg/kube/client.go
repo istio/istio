@@ -325,8 +325,8 @@ func NewErroringFakeClient(objects ...runtime.Object) CLIClient {
 	c.metadata = metadatafake.NewSimpleMetadataClient(s)
 	c.dynamic = dynamicfake.NewSimpleDynamicClient(s)
 	c.istio = setupFakeClient(istiofake.NewSimpleClientset(), "istio", objects)
-	c.gatewayapi = setupFakeClient(gatewayapifake.NewSimpleClientset(), "gateway", objects) //nolint:staticcheck // SA1019: as NewSimpleClientset breaks
-	c.gatewayapiinference = setupFakeClient(gatewayapiinferencefake.NewSimpleClientset(), "inference", objects)
+	c.gatewayapi = setupFakeClient(gatewayapifake.NewSimpleClientset(), "gateway", objects)                     //nolint:staticcheck,lll // SA1019: as NewSimpleClientset breaks
+	c.gatewayapiinference = setupFakeClient(gatewayapiinferencefake.NewSimpleClientset(), "inference", objects) //nolint:staticcheck,lll // SA1019: as NewSimpleClientset breaks
 	c.extSet = extfake.NewClientset()
 
 	listReactor := func(action clienttesting.Action) (handled bool, ret runtime.Object, err error) {
@@ -394,8 +394,8 @@ func NewFakeClient(objects ...runtime.Object) CLIClient {
 	c.metadata = metadatafake.NewSimpleMetadataClient(s)
 	c.dynamic = dynamicfake.NewSimpleDynamicClient(s)
 	c.istio = setupFakeClient(istiofake.NewSimpleClientset(), "istio", objects)
-	c.gatewayapi = setupFakeClient(gatewayapifake.NewSimpleClientset(), "gateway", objects) //nolint:staticcheck // SA1019: as NewSimpleClientset breaks
-	c.gatewayapiinference = setupFakeClient(gatewayapiinferencefake.NewSimpleClientset(), "inference", objects)
+	c.gatewayapi = setupFakeClient(gatewayapifake.NewSimpleClientset(), "gateway", objects)                     //nolint:staticcheck,lll // SA1019: as NewSimpleClientset breaks
+	c.gatewayapiinference = setupFakeClient(gatewayapiinferencefake.NewSimpleClientset(), "inference", objects) //nolint:staticcheck,lll // SA1019: as NewSimpleClientset breaks
 	c.extSet = extfake.NewClientset()
 
 	// https://github.com/kubernetes/kubernetes/issues/95372
