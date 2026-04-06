@@ -224,8 +224,26 @@ func performInPlaceUpgradeWithFailurePolicyFunc(previousVersion string) func(fra
 		baseValues := map[string]interface{}{
 			"validationFailurePolicy": "Fail",
 		}
-		overrideValuesFile = helmtest.GetValuesOverridesWithBase(t, s.Image.Hub, s.Image.Tag, s.Image.Variant, "", false, baseValues)
-		upgradeCharts(t, h, overrideValuesFile, nsConfig, false)
+		baseOverrideValuesFile := helmtest.GetValuesOverridesWithBase(t, s.Image.Hub, s.Image.Tag, s.Image.Variant, "", false, baseValues)
+		gatewayOverrideValuesFile := helmtest.GetValuesOverrides(t, s.Image.Hub, s.Image.Tag, s.Image.Variant, "", false)
+
+		// Upgrade base and istiod with the base-values file (includes validationFailurePolicy).
+		err := h.UpgradeChart(helmtest.BaseReleaseName, filepath.Join(helmtest.ManifestsChartPath, helmtest.BaseChart),
+			nsConfig.Get(helmtest.BaseReleaseName), baseOverrideValuesFile, helmtest.Timeout)
+		if err != nil {
+			t.Fatalf("failed to upgrade istio %s chart", helmtest.BaseReleaseName)
+		}
+		err = h.UpgradeChart(helmtest.IstiodReleaseName, filepath.Join(helmtest.ManifestsChartPath, helmtest.ControlChartsDir, helmtest.DiscoveryChartsDir),
+			nsConfig.Get(helmtest.IstiodReleaseName), baseOverrideValuesFile, helmtest.Timeout)
+		if err != nil {
+			t.Fatalf("failed to upgrade istio %s chart", helmtest.IstiodReleaseName)
+		}
+		// Upgrade gateway separately without the base values to avoid schema validation failure.
+		err = h.UpgradeChart(helmtest.IngressReleaseName, filepath.Join(helmtest.ManifestsChartPath, helmtest.GatewayChartsDir),
+			nsConfig.Get(helmtest.IngressReleaseName), gatewayOverrideValuesFile, helmtest.Timeout)
+		if err != nil {
+			t.Fatalf("failed to upgrade istio %s chart", helmtest.IngressReleaseName)
+		}
 		helmtest.VerifyInstallation(t, cs, nsConfig, true, false, "")
 
 		// After upgrade with explicit validationFailurePolicy, failurePolicy must be Fail.
