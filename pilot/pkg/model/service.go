@@ -975,6 +975,7 @@ type AmbientIndexes interface {
 	// ServiceScope returns service information for services matching the key.
 	// The key idenitifies a service and is in form of namespace/hostname string.
 	ServiceInfo(key string) *ServiceInfo
+	SupportsTunnel(n network.ID, ip string) bool
 }
 
 // WaypointKey is a multi-address extension of NetworkAddress which is commonly used for lookups in AmbientIndex
@@ -1037,6 +1038,10 @@ type NoopAmbientIndexes struct{}
 
 func (u NoopAmbientIndexes) AddressInformation(sets.String) ([]AddressInfo, sets.String) {
 	return nil, nil
+}
+
+func (u NoopAmbientIndexes) SupportsTunnel(n network.ID, ip string) bool {
+	return false
 }
 
 func (u NoopAmbientIndexes) AdditionalPodSubscriptions(

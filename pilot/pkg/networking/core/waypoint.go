@@ -63,13 +63,13 @@ func findWaypointResources(node *model.Proxy, push *model.PushContext) ([]model.
 		key = model.WaypointKeyForProxy(node)
 	}
 
-	workloads := push.WorkloadsForWaypoint(key)
-	serviceInfos := push.ServicesForWaypoint(key)
+	workloads := push.AmbientIndex().WorkloadsForWaypoint(key)
+	serviceInfos := push.AmbientIndex().ServicesForWaypoint(key)
 
 	waypointServices := &waypointServices{}
 	for _, s := range serviceInfos {
 		hostName := host.Name(s.Service.Hostname)
-		svc, ok := push.ServiceIndex.HostnameAndNamespace[hostName][s.Service.Namespace]
+		svc, ok := push.Services().HostnameAndNamespace[hostName][s.Service.Namespace]
 		if !ok {
 			continue
 		}

@@ -840,7 +840,7 @@ func TestApplyRouteConfigurationPatches(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			efw := tt.args.push.EnvoyFilters(tt.args.proxy)
+			efw := tt.args.push.EnvoyFilters().EnvoyFilters(tt.args.proxy, tt.args.push.Mesh.RootNamespace)
 			got := ApplyRouteConfigurationPatches(tt.args.patchContext, tt.args.proxy,
 				efw, tt.args.routeConfiguration)
 			if diff := cmp.Diff(tt.want, got, protocmp.Transform()); diff != "" {
@@ -961,7 +961,7 @@ func TestReplaceVhost(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			efw := tt.args.push.EnvoyFilters(tt.args.proxy)
+			efw := tt.args.push.EnvoyFilters().EnvoyFilters(tt.args.proxy, tt.args.push.Mesh.RootNamespace)
 			got := ApplyRouteConfigurationPatches(tt.args.patchContext, tt.args.proxy,
 				efw, tt.args.routeConfiguration)
 			if diff := cmp.Diff(tt.want, got, protocmp.Transform()); diff != "" {

@@ -95,7 +95,7 @@ func TestInsertedExtensionConfig(t *testing.T) {
 
 	for _, c := range testCases {
 		t.Run(c.name, func(t *testing.T) {
-			gotConfigs := InsertedExtensionConfigurations(push.EnvoyFilters(&model.Proxy{Type: model.SidecarProxy, ConfigNamespace: "not-default"}),
+			gotConfigs := InsertedExtensionConfigurations(push.EnvoyFilters().EnvoyFilters(&model.Proxy{Type: model.SidecarProxy, ConfigNamespace: "not-default"}, push.Mesh.RootNamespace),
 				c.requestedNames)
 			if len(gotConfigs) != len(c.wantExtensionConfig) {
 				t.Fatalf("number of extension config got %v want %v", len(gotConfigs), len(c.wantExtensionConfig))

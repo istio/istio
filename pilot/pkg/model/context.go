@@ -84,6 +84,7 @@ const (
 )
 
 var _ mesh.Holder = &Environment{}
+var _ ProxyInfo = &Proxy{}
 
 func NewEnvironment() *Environment {
 	var cache XdsCache
@@ -245,8 +246,8 @@ func (e *Environment) ClusterLocal() ClusterLocalProvider {
 
 func (e *Environment) GetProxyConfigOrDefault(ns string, labels, annotations map[string]string, meshConfig *meshconfig.MeshConfig) *meshconfig.ProxyConfig {
 	push := e.PushContext()
-	if push != nil && push.ProxyConfigs != nil {
-		if generatedProxyConfig := push.ProxyConfigs.EffectiveProxyConfig(
+	if push != nil && push.ProxyConfigs() != nil {
+		if generatedProxyConfig := push.ProxyConfigs().EffectiveProxyConfig(
 			&NodeMetadata{
 				Namespace:   ns,
 				Labels:      labels,
@@ -925,6 +926,22 @@ func (node *Proxy) GetID() string {
 	return node.ID
 }
 
+func (node *Proxy) GetConfigNamespace() string {
+	return node.ConfigNamespace
+}
+
+func (node *Proxy) GetType() NodeType {
+	return node.Type
+}
+
+func (node *Proxy) GetLabels() map[string]string {
+	return node.Labels
+}
+
+func (node *Proxy) GetMetadata() *NodeMetadata {
+	return node.Metadata
+}
+
 func (node *Proxy) FuzzValidate() bool {
 	if node.Metadata == nil {
 		return false
@@ -1121,20 +1138,20 @@ func OutboundListenerClass(t NodeType) istionetworking.ListenerClass {
 	return istionetworking.ListenerClassSidecarOutbound
 }
 
-func IsIngressGateway(proxy *Proxy) bool {
-	if proxy == nil || proxy.Type != Router {
+func IsIngressGateway(proxy ProxyInfo) bool {
+	if proxy == nil || proxy.GetType() != Router {
 		return false
 	}
 
-	return proxy.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayControllerLabel ||
-		proxy.Labels[constants.IstioLabel] == constants.IstioIngressLabelValue // This is a legacy label
+	return proxy.GetLabels()[label.GatewayManaged.Name] == constants.ManagedGatewayControllerLabel ||
+		proxy.GetLabels()[constants.IstioLabel] == constants.IstioIngressLabelValue // This is a legacy label
 }
 
-func IsWaypointProxy(node *Proxy) bool {
-	if node == nil || node.Type != Waypoint {
+func IsWaypointProxy(node ProxyInfo) bool {
+	if node == nil || node.GetType() != Waypoint {
 		return false
 	}
-	controller, isManagedGateway := node.Labels[label.GatewayManaged.Name]
+	controller, isManagedGateway := node.GetLabels()[label.GatewayManaged.Name]
 
 	return isManagedGateway && controller == constants.ManagedGatewayMeshControllerLabel
 }
@@ -1148,4 +1165,18 @@ func ShouldCreateDoubleHBONEResources(p *Proxy) bool {
 	return features.EnableAmbientMultiNetwork &&
 		(IsIngressGateway(p) && features.EnableAmbientIngressMultiNetwork && isHBONESendEnabled) ||
 		(IsWaypointProxy(p) && features.EnableAmbientWaypointMultiNetwork)
+}
+
+type ProxyInfo interface {
+	GetMetadata() *NodeMetadata
+	GetLabels() map[string]string
+	GetType() NodeType
+	GetID() string
+	GetConfigNamespace() string
+
+	IsWaypointProxy() bool
+	IsZTunnel() bool
+	IsAmbient() bool
+	IsAgentgateway() bool
+	EnableHBONEListen() bool
 }

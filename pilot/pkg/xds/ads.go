@@ -556,7 +556,7 @@ func AdsPushAll(s *DiscoveryServer) {
 
 // AdsPushAll will send updates to all nodes.
 func (s *DiscoveryServer) AdsPushAll(req *model.PushRequest) {
-	totalService := len(req.Push.GetAllServices())
+	totalService := req.Push.Services().GetServiceCount()
 	log.Infof("XDS: Pushing Services:%d ConnectedEndpoints:%d Version:%s",
 		totalService, s.adsClientCount(), req.Push.PushVersion)
 	monServices.Record(float64(totalService))

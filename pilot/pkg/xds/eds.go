@@ -213,7 +213,7 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 		}
 
 		dir, subsetName, hostname, port := model.ParseSubsetKey(clusterName)
-		svc := req.Push.ServiceForHostname(proxy, hostname)
+		svc := req.Push.Services().ServiceForHostname(proxy, hostname)
 
 		// In delta mode, if a service is not found, it means the cluster is removed
 		if delta && svc == nil {

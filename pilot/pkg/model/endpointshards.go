@@ -93,8 +93,6 @@ func (es *EndpointShards) Keys() []ShardKey {
 // CopyEndpoints takes a snapshot of all endpoints. As input, it takes a map of port name to number, to allow it to group
 // the results by service port number. This is a bit weird, but lets us efficiently construct the format the caller needs.
 func (es *EndpointShards) CopyEndpoints(portMap map[string]int, ports sets.Set[int]) map[int][]*IstioEndpoint {
-	es.RLock()
-	defer es.RUnlock()
 	res := map[int][]*IstioEndpoint{}
 	for _, v := range es.Shards {
 		for _, ep := range v {

@@ -178,7 +178,7 @@ func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
 	switch {
 	case serverTLSSettings.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL:
 		authnmodel.ApplyToCommonTLSContext(
-			ctx.CommonTlsContext, proxy, serverTLSSettings.SubjectAltNames, serverTLSSettings.CaCrl,
+			ctx.CommonTlsContext, proxy.Metadata, serverTLSSettings.SubjectAltNames, serverTLSSettings.CaCrl,
 			[]string{}, validateClient, nil)
 	// If credential name(s) are specified at gateway config, create SDS config for gateway to fetch key/cert from Istiod.
 	case len(serverTLSSettings.GetCredentialNames()) > 0 || serverTLSSettings.CredentialName != "":
@@ -194,7 +194,7 @@ func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
 		}
 
 		authnmodel.ApplyToCommonTLSContext(
-			ctx.CommonTlsContext, certProxy, serverTLSSettings.SubjectAltNames, serverTLSSettings.CaCrl,
+			ctx.CommonTlsContext, certProxy.Metadata, serverTLSSettings.SubjectAltNames, serverTLSSettings.CaCrl,
 			[]string{}, validateClient, serverTLSSettings.TlsCertificates)
 	}
 
@@ -502,7 +502,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 					// wildcard route match to get to the appropriate IP through original dst clusters.
 					if bind.Primary() == "" && service.Resolution == model.Passthrough &&
 						saddress == constants.UnspecifiedIP && (servicePort.Protocol.IsTCP() || servicePort.Protocol.IsUnsupported()) {
-						instances := push.ServiceEndpointsByPort(service, servicePort.Port, nil)
+						instances := push.Services().ServiceEndpointsByPort(service, servicePort.Port, nil)
 						if service.Attributes.ServiceRegistry != provider.Kubernetes && len(instances) == 0 && service.Attributes.LabelSelectors == nil {
 							// A Kubernetes service with no endpoints means there are no endpoints at
 							// all, so don't bother sending, as traffic will never work. If we did
@@ -628,10 +628,15 @@ func buildListenerFromEntry(builder *ListenerBuilder, le *outboundListenerEntry,
 		// Otherwise, do not have a timeout at all
 		l.ListenerFiltersTimeout = durationpb.New(0)
 	}
-	trafficExtensions := builder.push.TrafficExtensionsByListenerInfo(builder.node, model.ListenerInfo{
-		Port:  le.servicePort.Port,
-		Class: istionetworking.ListenerClassSidecarOutbound,
-	}, model.FilterChainTypeNetwork)
+	trafficExtensions := builder.push.TrafficExtensions().TrafficExtensionsByListenerInfo(
+		builder.node,
+		builder.push.Mesh,
+		model.ListenerInfo{
+			Port:  le.servicePort.Port,
+			Class: istionetworking.ListenerClassSidecarOutbound,
+		},
+		model.FilterChainTypeNetwork,
+	)
 	for _, opt := range le.chains {
 		chain := &listener.FilterChain{
 			Metadata:        opt.metadata,

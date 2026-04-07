@@ -732,9 +732,9 @@ func TestInjection(t *testing.T) {
 			// kube-inject. Instead, we just compare the desired/actual pod specs.
 			t.Run("webhook", func(t *testing.T) {
 				env := &model.Environment{}
-				env.SetPushContext(&model.PushContext{
-					ProxyConfigs: &model.ProxyConfigs{},
-				})
+				pc := &model.PushContext{}
+				pc.SetProxyConfigs(&model.ProxyConfigs{})
+				env.SetPushContext(pc)
 
 				webhook := &Webhook{
 					Config:       sidecarTemplate,
@@ -957,9 +957,9 @@ func TestInjectionOlderVersion(t *testing.T) {
 			// kube-inject. Instead, we just compare the desired/actual pod specs.
 			t.Run("webhook", func(t *testing.T) {
 				env := &model.Environment{}
-				env.SetPushContext(&model.PushContext{
-					ProxyConfigs: &model.ProxyConfigs{},
-				})
+				pc := &model.PushContext{}
+				pc.SetProxyConfigs(&model.ProxyConfigs{})
+				env.SetPushContext(pc)
 
 				webhook := &Webhook{
 					Config:       sidecarTemplate,
@@ -991,9 +991,9 @@ func testInjectionTemplate(t *testing.T, template, input, expected string) {
 		t.Fatal(err)
 	}
 	env := &model.Environment{}
-	env.SetPushContext(&model.PushContext{
-		ProxyConfigs: &model.ProxyConfigs{},
-	})
+	pc := &model.PushContext{}
+	pc.SetProxyConfigs(&model.ProxyConfigs{})
+	env.SetPushContext(pc)
 	vc, err := NewValuesConfig("{}")
 	assert.NoError(t, err)
 	webhook := &Webhook{
@@ -1027,9 +1027,9 @@ spec:
 		t.Fatal(err)
 	}
 	env := &model.Environment{}
-	env.SetPushContext(&model.PushContext{
-		ProxyConfigs: &model.ProxyConfigs{},
-	})
+	pc := &model.PushContext{}
+	pc.SetProxyConfigs(&model.ProxyConfigs{})
+	env.SetPushContext(pc)
 	vc, err := NewValuesConfig("{}")
 	assert.NoError(t, err)
 	webhook := &Webhook{
@@ -1602,9 +1602,9 @@ func BenchmarkInjection(b *testing.B) {
 			// Preload default settings. Computation here is expensive, so this speeds the tests up substantially
 			sidecarTemplate, valuesConfig, mc := getInjectionSettings(b, nil, "")
 			env := &model.Environment{}
-			env.SetPushContext(&model.PushContext{
-				ProxyConfigs: &model.ProxyConfigs{},
-			})
+			pc := &model.PushContext{}
+			pc.SetProxyConfigs(&model.ProxyConfigs{})
+			env.SetPushContext(pc)
 			webhook := &Webhook{
 				Config:       sidecarTemplate,
 				meshConfig:   mc,

@@ -90,12 +90,12 @@ spec:
 
 	// Get IstioEndpoints from the push context to build WrappedLocalityLbEndpoints
 	push := s.PushContext()
-	svc := push.ServiceForHostname(proxy, "dns-service.example.org")
+	svc := push.Services().ServiceForHostname(proxy, "dns-service.example.org")
 	if svc == nil {
 		t.Fatal("service not found")
 	}
 
-	istioEndpoints := push.ServiceEndpointsByPort(svc, 443, nil)
+	istioEndpoints := push.Services().ServiceEndpointsByPort(svc, 443, nil)
 	g.Expect(istioEndpoints).To(HaveLen(2))
 
 	// Build WrappedLocalityLbEndpoints matching how it's done in cluster.go for DNS clusters

@@ -38,6 +38,7 @@ import (
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	extensions "istio.io/api/extensions/v1alpha1"
+	"istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -77,7 +78,7 @@ const (
 )
 
 func (lb *ListenerBuilder) serviceForHostname(name host.Name) *model.Service {
-	return lb.push.ServiceForHostname(lb.node, name)
+	return lb.push.Services().ServiceForHostname(lb.node, name)
 }
 
 func (lb *ListenerBuilder) buildEastWestTLSPassthroughListeners() []*listener.Listener {
@@ -285,7 +286,7 @@ func (lb *ListenerBuilder) buildConnectTerminateListener(routes []*route.Route) 
 				TransportSocket: &core.TransportSocket{
 					Name: "tls",
 					ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&tls.DownstreamTlsContext{
-						CommonTlsContext:         buildCommonConnectTLSContext(lb.node, lb.push),
+						CommonTlsContext:         buildCommonConnectTLSContext(lb.node.Metadata, lb.push.Mesh),
 						RequireClientCertificate: &wrappers.BoolValue{Value: true},
 					})},
 				},
@@ -330,7 +331,7 @@ func (lb *ListenerBuilder) buildWaypointInboundConnectTerminate() *listener.List
 }
 
 func (lb *ListenerBuilder) findServiceWaypoint(svc *model.Service) host.Name {
-	ws := lb.push.ServicesWithWaypoint(svc.Attributes.Namespace + "/" + string(svc.Hostname))
+	ws := lb.push.AmbientIndex().ServicesWithWaypoint(svc.Attributes.Namespace + "/" + string(svc.Hostname))
 	if len(ws) == 0 {
 		return ""
 	}
@@ -825,7 +826,9 @@ func (lb *ListenerBuilder) buildWaypointHTTPFilters(svc *model.Service) (pre []*
 
 	// TODO: consider dedicated listener class for waypoint filters
 	cls := istionetworking.ListenerClassSidecarInbound
-	trafficExtensions := lb.push.TrafficExtensionsByListenerInfo(lb.node,
+	trafficExtensions := lb.push.TrafficExtensions().TrafficExtensionsByListenerInfo(
+		lb.node,
+		lb.push.Mesh,
 		model.ListenerInfo{Class: cls}.WithService(svc),
 		model.FilterChainTypeHTTP,
 	)
@@ -840,7 +843,7 @@ func (lb *ListenerBuilder) buildWaypointHTTPFilters(svc *model.Service) (pre []*
 	post = extension.PopAppendHTTPTrafficExtension(post, trafficExtensions, extensions.TrafficExtension_STATS)
 	post = extension.PopAppendHTTPTrafficExtension(post, trafficExtensions, extensions.TrafficExtension_UNSPECIFIED)
 	post = append(post, xdsfilters.GenerateWaypointUpstreamMetadataFilter())
-	post = append(post, lb.push.Telemetry.HTTPFilters(lb.node, cls, svc)...)
+	post = append(post, lb.push.Telemetries().HTTPFilters(lb.node, cls, svc)...)
 	return pre, post
 }
 
@@ -926,7 +929,7 @@ func (lb *ListenerBuilder) buildWaypointNetworkFilters(svc *model.Service, fcc i
 
 		if len(routes) == 1 {
 			route := routes[0]
-			service := lb.push.ServiceForHostname(lb.node, host.Name(route.Destination.Host))
+			service := lb.push.Services().ServiceForHostname(lb.node, host.Name(route.Destination.Host))
 			clusterName := lb.getWaypointDestinationCluster(route.Destination, service, fcc.port.Port)
 			tcpProxy.ClusterSpecifier = &tcp.TcpProxy_Cluster{Cluster: clusterName}
 		} else if len(routes) > 1 {
@@ -934,7 +937,7 @@ func (lb *ListenerBuilder) buildWaypointNetworkFilters(svc *model.Service, fcc i
 				WeightedClusters: &tcp.TcpProxy_WeightedCluster{},
 			}
 			for _, route := range routes {
-				service := lb.push.ServiceForHostname(lb.node, host.Name(route.Destination.Host))
+				service := lb.push.Services().ServiceForHostname(lb.node, host.Name(route.Destination.Host))
 				if route.Weight > 0 {
 					clusterName := lb.getWaypointDestinationCluster(route.Destination, service, fcc.port.Port)
 					clusterSpecifier.WeightedClusters.Clusters = append(clusterSpecifier.WeightedClusters.Clusters, &tcp.TcpProxy_WeightedCluster_ClusterWeight{
@@ -1249,10 +1252,10 @@ func portToSubset(service *model.Service, port int, destination *networking.Dest
 }
 
 // NB: Un-typed SAN validation is ignored when typed is used, so only typed version must be used with this function.
-func buildCommonConnectTLSContext(proxy *model.Proxy, push *model.PushContext) *tls.CommonTlsContext {
+func buildCommonConnectTLSContext(proxyMetadata *model.NodeMetadata, mesh *v1alpha1.MeshConfig) *tls.CommonTlsContext {
 	ctx := &tls.CommonTlsContext{}
-	security.ApplyToCommonTLSContext(ctx, proxy, nil, "", nil, true, nil)
-	aliases := authn.TrustDomainsForValidation(push.Mesh)
+	security.ApplyToCommonTLSContext(ctx, proxyMetadata, nil, "", nil, true, nil)
+	aliases := authn.TrustDomainsForValidation(mesh)
 	validationCtx := ctx.GetCombinedValidationContext().DefaultValidationContext
 	if len(aliases) > 0 {
 		matchers := util.StringToPrefixMatch(security.AppendURIPrefixToTrustDomain(aliases))
@@ -1284,7 +1287,7 @@ func (lb *ListenerBuilder) globalServiceVIPs(svc *model.Service) []string {
 	}
 
 	key := fmt.Sprintf("%s/%s", svc.Attributes.Namespace, svc.Hostname)
-	svcInfo := lb.push.ServiceInfo(key)
+	svcInfo := lb.push.AmbientIndex().ServiceInfo(key)
 	// If the service is not globally-scoped, return an empty list.
 	if svcInfo == nil || svcInfo.Scope != model.Global {
 		return addresses

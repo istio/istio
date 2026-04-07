@@ -673,7 +673,7 @@ metadata:
 			kclient.NewWriteClient[*appsv1.Deployment](client).Create(upgradeDeployment)
 			stop := test.NewStop(t)
 			env := newTestEnv()
-			env.PushContext().ProxyConfigs = tt.pcs
+			env.PushContext().SetProxyConfigs(tt.pcs)
 			env.PushContext().InitDone.Store(true)
 			tw := revisions.NewTagWatcher(client, "", "istio-system")
 			go tw.Run(stop)

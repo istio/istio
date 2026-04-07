@@ -918,9 +918,9 @@ func createWebhook(t testing.TB, cfg *Config, pcResources int) *Webhook {
 		Watcher:     meshwatcher.NewTestWatcher(m),
 		ConfigStore: store,
 	}
-	env.SetPushContext(&model.PushContext{
-		ProxyConfigs: pcs,
-	})
+	pc := &model.PushContext{}
+	pc.SetProxyConfigs(pcs)
+	env.SetPushContext(pc)
 	watcher, err := NewFileWatcher(configFile, valuesFile)
 	if err != nil {
 		t.Fatalf("NewFileWatcher() failed: %v", err)

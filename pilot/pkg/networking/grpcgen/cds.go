@@ -102,7 +102,7 @@ func newClusterBuilder(node *model.Proxy, push *model.PushContext, defaultCluste
 
 	// try to resolve the service and port
 	var port *model.Port
-	svc := push.ServiceForHostname(node, hostname)
+	svc := push.Services().ServiceForHostname(node, hostname)
 	if svc == nil {
 		return nil, fmt.Errorf("cds gen for %s: did not find service for cluster %s", node.ID, defaultClusterName)
 	}
@@ -275,7 +275,7 @@ func (b *clusterBuilder) applyTLS(c *cluster.Cluster, policy *networking.Traffic
 	case networking.ClientTLSSettings_MUTUAL:
 		// TODO support this
 	case networking.ClientTLSSettings_ISTIO_MUTUAL:
-		tlsCtx := buildUpstreamTLSContext(b.push.ServiceAccounts(b.hostname, b.svc.Attributes.Namespace))
+		tlsCtx := buildUpstreamTLSContext(b.push.Services().ServiceAccounts(b.hostname, b.svc.Attributes.Namespace))
 		c.TransportSocket = &core.TransportSocket{
 			Name:       transportSocketName,
 			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(tlsCtx)},

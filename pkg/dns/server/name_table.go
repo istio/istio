@@ -67,7 +67,7 @@ func BuildNameTable(cfg Config) *dnsProto.NameTable {
 					localAddresses := make(map[string][]string)
 					remoteAddresses := make(map[string][]string)
 					hostMetadata := make(map[string]types.NamespacedName)
-					for _, instance := range cfg.Push.ServiceEndpointsByPort(svc, svc.Ports[0].Port, nil) {
+					for _, instance := range cfg.Push.Services().ServiceEndpointsByPort(svc, svc.Ports[0].Port, nil) {
 						// addresses may be empty or invalid here
 						isValidInstance := true
 						for _, addr := range instance.Addresses {

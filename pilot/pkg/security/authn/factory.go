@@ -51,9 +51,9 @@ type MtlsPolicy interface {
 func NewPolicyApplier(push *model.PushContext, proxy *model.Proxy, svc *model.Service) PolicyApplier {
 	forWorkload := model.PolicyMatcherForProxy(proxy).WithService(svc)
 	return newPolicyApplier(
-		push.AuthnPolicies.GetRootNamespace(),
-		push.AuthnPolicies.GetJwtPoliciesForWorkload(forWorkload),
-		push.AuthnPolicies.GetPeerAuthenticationsForWorkload(forWorkload), push)
+		push.AuthnPolicies().GetRootNamespace(),
+		push.AuthnPolicies().GetJwtPoliciesForWorkload(forWorkload),
+		push.AuthnPolicies().GetPeerAuthenticationsForWorkload(forWorkload), push)
 }
 
 // NewMtlsPolicy returns a checker used to detect proxy mtls mode.

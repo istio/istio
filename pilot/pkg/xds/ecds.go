@@ -20,12 +20,15 @@ import (
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
+	extensions "istio.io/api/extensions/v1alpha1"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	credscontroller "istio.io/istio/pilot/pkg/credentials"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -163,7 +166,7 @@ func referencedSecrets(proxy *model.Proxy, push *model.PushContext, watched sets
 	// TODO: we get the TrafficExtensions here to get the secrets reference in order to decide whether ECDS push is needed,
 	//       and we will get it again at extension config build. Avoid getting it twice if this becomes a problem.
 	referencedSecrets := sets.String{}
-	trafficExtensions := push.TrafficExtensions(proxy)
+	trafficExtensions := trafficExtensions(proxy, push.TrafficExtensions(), push.AmbientIndex(), push.Services(), push.Mesh)
 	for _, efs := range trafficExtensions {
 		for _, ef := range efs {
 			if watched.Contains(ef.ResourceName) && ef.GetWasm() != nil && ef.GetWasm().ImagePullSecret != "" {
@@ -207,4 +210,31 @@ func parseSecretName(resourceName string, proxyCluster cluster.ID) (SecretResour
 			Cluster:      proxyCluster,
 		},
 	}, nil
+}
+
+// TrafficExtensions return the TrafficExtensionWrappers of a proxy.
+// For most proxy types, we include only the root namespace and same-namespace objects.
+// However, waypoints allow cross-namespace access based on attached Service objects.
+// In this case, include all referenced services in the selection criteria
+func trafficExtensions(
+	proxy *model.Proxy,
+	trafficExtensionIndex model.TrafficExtensionIndex,
+	ambientIndex model.AmbientIndexes,
+	serviceIndex *model.ServiceIndex,
+	mesh *meshconfig.MeshConfig,
+) map[extensions.TrafficExtension_ExecutionPhase][]*model.TrafficExtensionWrapper {
+	listenerInfo := model.ListenerInfo{}
+	if proxy.IsWaypointProxy() {
+		servicesInfo := ambientIndex.ServicesForWaypoint(model.WaypointKeyForProxy(proxy))
+		for _, si := range servicesInfo {
+			s := si.Service
+			svc, exist := serviceIndex.HostnameAndNamespace[host.Name(s.Hostname)][s.Namespace]
+			if !exist {
+				log.Warnf("cannot find waypoint service in serviceindex, namespace/hostname: %s/%s", s.Namespace, s.Hostname)
+				continue
+			}
+			listenerInfo = listenerInfo.WithService(svc)
+		}
+	}
+	return trafficExtensionIndex.TrafficExtensionsByListenerInfo(proxy, mesh, listenerInfo, model.FilterChainTypeAny)
 }

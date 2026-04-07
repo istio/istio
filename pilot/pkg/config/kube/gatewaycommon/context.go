@@ -80,10 +80,10 @@ func (gc GatewayContext) ResolveGatewayInstances(
 	foundUnusable := false
 	log.Debugf("Resolving gateway instances for %v in namespace %s", gwsvcs, namespace)
 	for _, g := range gwsvcs {
-		svc, f := gc.ps.ServiceIndex.HostnameAndNamespace[host.Name(g)][namespace]
+		svc, f := gc.ps.Services().HostnameAndNamespace[host.Name(g)][namespace]
 		if !f {
 			otherNamespaces := []string{}
-			for ns := range gc.ps.ServiceIndex.HostnameAndNamespace[host.Name(g)] {
+			for ns := range gc.ps.Services().HostnameAndNamespace[host.Name(g)] {
 				otherNamespaces = append(otherNamespaces, `"`+ns+`"`) // Wrap in quotes for output
 			}
 			if len(otherNamespaces) > 0 {
@@ -98,7 +98,7 @@ func (gc GatewayContext) ResolveGatewayInstances(
 		}
 		svcKey := svc.Key()
 		for port := range ports {
-			instances := gc.ps.ServiceEndpointsByPort(svc, port, nil)
+			instances := gc.ps.Services().ServiceEndpointsByPort(svc, port, nil)
 			if len(instances) > 0 {
 				foundInternal.Insert(g + ":" + strconv.Itoa(port))
 				dummyProxy := &model.Proxy{Metadata: &model.NodeMetadata{ClusterID: gc.cluster}}
@@ -116,7 +116,7 @@ func (gc GatewayContext) ResolveGatewayInstances(
 					}
 				}
 			} else {
-				instancesByPort := gc.ps.ServiceEndpoints(svcKey)
+				instancesByPort := gc.ps.Services().ServiceEndpoints(svcKey)
 				if InstancesEmpty(instancesByPort) {
 					warnings = append(warnings, fmt.Sprintf("no instances found for hostname %q", g))
 				} else {
@@ -160,7 +160,7 @@ func (gc GatewayContext) ResolveGatewayInstances(
 }
 
 func (gc GatewayContext) GetService(hostname, namespace string) *model.Service {
-	return gc.ps.ServiceIndex.HostnameAndNamespace[host.Name(hostname)][namespace]
+	return gc.ps.Services().HostnameAndNamespace[host.Name(hostname)][namespace]
 }
 
 // InstancesEmpty returns true if there are no instances in any port.

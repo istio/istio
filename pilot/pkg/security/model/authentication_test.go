@@ -638,7 +638,7 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
 			tlsContext := &auth.CommonTlsContext{}
-			ApplyToCommonTLSContext(tlsContext, test.node, []string{}, test.crl, test.trustDomainAliases, test.validateClient, test.tlsCertificates)
+			ApplyToCommonTLSContext(tlsContext, test.node.Metadata, []string{}, test.crl, test.trustDomainAliases, test.validateClient, test.tlsCertificates)
 
 			if !cmp.Equal(tlsContext, test.expected, protocmp.Transform()) {
 				t.Errorf("got(%#v), want(%#v)\n", spew.Sdump(tlsContext), spew.Sdump(test.expected))
@@ -766,7 +766,8 @@ func TestConstructSdsSecretConfigForCredential(t *testing.T) {
 						},
 					},
 				}
-				pc.ServiceIndex.HostnameAndNamespace = map[host.Name]map[string]*model.Service{
+				si := pc.Services()
+				si.HostnameAndNamespace = map[host.Name]map[string]*model.Service{
 					"sds-provider-service": {
 						"": &model.Service{
 							Hostname: "sds-provider-service",
@@ -824,7 +825,8 @@ func TestConstructSdsSecretConfigForCredential(t *testing.T) {
 					},
 				}
 				// ServiceIndex is empty, so LookupCluster will fail
-				pc.ServiceIndex.HostnameAndNamespace = map[host.Name]map[string]*model.Service{}
+				si := pc.Services()
+				si.HostnameAndNamespace = map[host.Name]map[string]*model.Service{}
 				return pc
 			}(),
 			expected: nil,

@@ -60,7 +60,7 @@ func buildMetadataExchangeNetworkFilters() []*listener.Filter {
 }
 
 func buildMetricsNetworkFilters(push *model.PushContext, proxy *model.Proxy, class istionetworking.ListenerClass, svc *model.Service) []*listener.Filter {
-	return push.Telemetry.TCPFilters(proxy, class, svc)
+	return push.Telemetries().TCPFilters(proxy, class, svc)
 }
 
 // setAccessLogAndBuildTCPFilter sets the AccessLog configuration in the given
@@ -140,8 +140,10 @@ func (lb *ListenerBuilder) buildCompleteNetworkFilters(
 	}
 
 	var filters []*listener.Filter
-	trafficExtensions := lb.push.TrafficExtensionsByListenerInfo(
-		lb.node, model.ListenerInfo{Port: port, Class: class}.WithService(policySvc),
+	trafficExtensions := lb.push.TrafficExtensions().TrafficExtensionsByListenerInfo(
+		lb.node,
+		lb.push.Mesh,
+		model.ListenerInfo{Port: port, Class: class}.WithService(policySvc),
 		model.FilterChainTypeNetwork,
 	)
 
@@ -201,7 +203,7 @@ func (lb *ListenerBuilder) buildOutboundNetworkFiltersWithWeightedClusters(route
 	}
 
 	for _, route := range routes {
-		service := lb.push.ServiceForHostname(lb.node, host.Name(route.Destination.Host))
+		service := lb.push.Services().ServiceForHostname(lb.node, host.Name(route.Destination.Host))
 		if route.Weight > 0 {
 			clusterName := istioroute.GetDestinationCluster(route.Destination, service, port.Port)
 			clusterSpecifier.WeightedClusters.Clusters = append(clusterSpecifier.WeightedClusters.Clusters, &tcp.TcpProxy_WeightedCluster_ClusterWeight{
@@ -291,7 +293,7 @@ func (lb *ListenerBuilder) buildOutboundNetworkFilters(
 	port *model.Port, configMeta config.Meta, includeMx bool,
 ) []*listener.Filter {
 	push, node := lb.push, lb.node
-	service := push.ServiceForHostname(node, host.Name(routes[0].Destination.Host))
+	service := push.Services().ServiceForHostname(node, host.Name(routes[0].Destination.Host))
 	var destinationRule *networking.DestinationRule
 	if service != nil {
 		destinationRule = CastDestinationRule(node.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, node, service.Hostname).GetRule())

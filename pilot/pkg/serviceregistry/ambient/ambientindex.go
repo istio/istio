@@ -672,6 +672,22 @@ func (a *index) AddressInformation(addresses sets.String) ([]model.AddressInfo, 
 	return res, sets.New(removed...)
 }
 
+// SupportsTunnel checks if a given IP address supports tunneling.
+// This currently only accepts workload IPs as arguments; services will always return "false".
+func (a *index) SupportsTunnel(n network.ID, ip string) bool {
+	// There should be a 1:1 relationship between IP and Workload but the interface doesn't allow this lookup.
+	// We should get 0 or 1 workloads, so just return the first.
+	infos, _ := a.AddressInformation(sets.New(n.String() + "/" + ip))
+	for _, wl := range infos {
+		if _, ok := wl.Type.(*workloadapi.Address_Workload); ok {
+			if wl.GetWorkload().TunnelProtocol == workloadapi.TunnelProtocol_HBONE {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func (a *index) ServicesForWaypoint(key model.WaypointKey) []model.ServiceInfo {
 	if key.IsNetworkGateway && features.EnableAmbientMultiNetwork {
 		// If this is a network gateway waypoint, we only return the global services

@@ -250,10 +250,15 @@ func (configgen *ConfigGeneratorImpl) buildGatewayTCPBasedFilterChains(
 	tlsHostsByPort map[uint32]map[string]string,
 ) {
 	// Add network level extension filters if any configured.
-	trafficExtensions := builder.push.TrafficExtensionsByListenerInfo(builder.node, model.ListenerInfo{
-		Port:  opts.port,
-		Class: istionetworking.ListenerClassGateway,
-	}, model.FilterChainTypeNetwork)
+	trafficExtensions := builder.push.TrafficExtensions().TrafficExtensionsByListenerInfo(
+		builder.node,
+		builder.push.Mesh,
+		model.ListenerInfo{
+			Port:  opts.port,
+			Class: istionetworking.ListenerClassGateway,
+		},
+		model.FilterChainTypeNetwork,
+	)
 	if p.IsHTTP() {
 		// We have a list of HTTP servers on this port. Build a single listener for the server port.
 		port := &networking.Port{Number: port.Number, Protocol: port.Protocol}
@@ -348,17 +353,17 @@ func buildNameToServiceMapForHTTPRoutes(node *model.Proxy, push *model.PushConte
 
 		var service *model.Service
 		// First, we obtain the service which has the same namespace as virtualService
-		s, exist := push.ServiceIndex.HostnameAndNamespace[hostname][virtualService.Namespace]
+		s, exist := push.Services().HostnameAndNamespace[hostname][virtualService.Namespace]
 		if exist {
 			// We should check whether the selected service is visible to the proxy node.
-			if push.IsServiceVisible(s, node.ConfigNamespace) {
+			if push.ExportToDefaults().IsServiceVisible(s, node.ConfigNamespace) {
 				service = s
 			}
 		}
 		// If we find no service for the namespace of virtualService or the selected service is not visible to the proxy node,
 		// we should fallback to pick one service which is visible to the ConfigNamespace of node.
 		if service == nil {
-			service = push.ServiceForHostname(node, hostname)
+			service = push.Services().ServiceForHostname(node, hostname)
 		}
 		nameToServiceMap[hostname] = service
 	}
@@ -431,7 +436,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 		var exists bool
 
 		if virtualServices, exists = gatewayVirtualServices[gatewayName]; !exists {
-			virtualServices = push.VirtualServicesForGateway(node.ConfigNamespace, gatewayName)
+			virtualServices = push.VirtualServices().VirtualServicesForGateway(node.ConfigNamespace, gatewayName)
 			gatewayVirtualServices[gatewayName] = virtualServices
 		}
 
@@ -758,8 +763,8 @@ func buildGatewayConnectionManager(proxyConfig *meshconfig.ProxyConfig, node *mo
 	// the default was all private IPs. To preserve internal headers, we must set ENABLE_HCM_INTERNAL_NETWORKS
 	// to true and explicitly set MeshNetworks to configure Envoy's internal_address_config.
 	// MeshNetwork configuration docs can be found here: https://istio.io/latest/docs/reference/config/istio.mesh.v1alpha1/#MeshNetworks
-	if features.EnableHCMInternalNetworks && push.Networks != nil {
-		httpConnManager.InternalAddressConfig = util.MeshNetworksToEnvoyInternalAddressConfig(push.Networks)
+	if features.EnableHCMInternalNetworks && push.Networks() != nil {
+		httpConnManager.InternalAddressConfig = util.MeshNetworksToEnvoyInternalAddressConfig(push.Networks())
 	}
 
 	return httpConnManager
@@ -857,7 +862,7 @@ func (lb *ListenerBuilder) buildGatewayNetworkFiltersFromTCPRoutes(server *netwo
 		gatewayServerHosts.Insert(host.Name(hostname))
 	}
 
-	virtualServices := lb.push.VirtualServicesForGateway(lb.node.ConfigNamespace, gateway)
+	virtualServices := lb.push.VirtualServices().VirtualServicesForGateway(lb.node.ConfigNamespace, gateway)
 	if len(virtualServices) == 0 {
 		log.Warnf("no virtual service bound to gateway: %v", gateway)
 	}
@@ -909,7 +914,7 @@ func (lb *ListenerBuilder) buildGatewayNetworkFiltersFromTLSRoutes(server *netwo
 	if server.Tls.Mode == networking.ServerTLSSettings_AUTO_PASSTHROUGH {
 		filterChains = append(filterChains, builtAutoPassthroughFilterChains(lb.push, lb.node, lb.node.MergedGateway.TLSServerInfo[server].SNIHosts)...)
 	} else {
-		virtualServices := lb.push.VirtualServicesForGateway(lb.node.ConfigNamespace, gatewayName)
+		virtualServices := lb.push.VirtualServices().VirtualServicesForGateway(lb.node.ConfigNamespace, gatewayName)
 		for _, v := range virtualServices {
 			vsvc := v.Spec.(*networking.VirtualService)
 			// We have two cases here:

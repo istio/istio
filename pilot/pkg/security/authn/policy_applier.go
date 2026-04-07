@@ -222,7 +222,7 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 					},
 				}
 			} else if features.JwksFetchMode == jwt.Hybrid {
-				provider.JwksSourceSpecifier = push.JwtKeyResolver.BuildLocalJwks(jwtRule.JwksUri, jwtRule.Issuer, "", timeout.AsDuration())
+				provider.JwksSourceSpecifier = push.JwtKeyResolver().BuildLocalJwks(jwtRule.JwksUri, jwtRule.Issuer, "", timeout.AsDuration())
 			} else {
 				model.IncLookupClusterFailures("jwks")
 				// Log error and create remote JWKs with fake cluster
@@ -244,7 +244,7 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 			}
 		} else {
 			// Use inline jwks as existing flow, either jwtRule.jwks is empty or let istiod to fetch the jwtRule.jwksUri
-			provider.JwksSourceSpecifier = push.JwtKeyResolver.BuildLocalJwks(jwtRule.JwksUri, jwtRule.Issuer, jwtRule.Jwks, timeout.AsDuration())
+			provider.JwksSourceSpecifier = push.JwtKeyResolver().BuildLocalJwks(jwtRule.JwksUri, jwtRule.Issuer, jwtRule.Jwks, timeout.AsDuration())
 		}
 
 		name := fmt.Sprintf("origins-%d", i)

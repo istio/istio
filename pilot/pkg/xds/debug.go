@@ -494,7 +494,7 @@ type AuthorizationDebug struct {
 // authorizationz dumps the internal authorization policies.
 func (s *DiscoveryServer) authorizationz(w http.ResponseWriter, req *http.Request) {
 	info := AuthorizationDebug{
-		AuthorizationPolicies: s.globalPushContext().AuthzPolicies,
+		AuthorizationPolicies: s.globalPushContext().AuthzPolicies(),
 	}
 	writeJSON(w, info, req)
 }
@@ -515,12 +515,12 @@ func (s *DiscoveryServer) telemetryz(w http.ResponseWriter, req *http.Request) {
 	}
 	if con == nil {
 		info := TelemetryDebug{
-			Telemetries: s.globalPushContext().Telemetry,
+			Telemetries: s.globalPushContext().Telemetries(),
 		}
 		writeJSON(w, info, req)
 		return
 	}
-	writeJSON(w, s.globalPushContext().Telemetry.Debug(con.proxy), req)
+	writeJSON(w, s.globalPushContext().Telemetries().Debug(con.proxy), req)
 }
 
 // connectionsHandler implements interface for displaying current connections.
@@ -918,7 +918,7 @@ func (s *DiscoveryServer) pushContextHandler(w http.ResponseWriter, req *http.Re
 	if pc == nil {
 		return
 	}
-	push.AuthorizationPolicies = pc.AuthzPolicies
+	push.AuthorizationPolicies = pc.AuthzPolicies()
 	if pc.NetworkManager() != nil {
 		push.NetworkGateways = pc.NetworkManager().AllGateways()
 		push.UnresolvedGateways = pc.NetworkManager().Unresolved.AllGateways()

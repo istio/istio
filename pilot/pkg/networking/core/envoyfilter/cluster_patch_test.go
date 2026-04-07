@@ -611,7 +611,7 @@ func TestClusterPatching(t *testing.T) {
 	push.InitContext(env, nil, nil)
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			efw := push.EnvoyFilters(tc.proxy)
+			efw := push.EnvoyFilters().EnvoyFilters(tc.proxy, push.Mesh.RootNamespace)
 			output := []*cluster.Cluster{}
 			for _, c := range tc.input {
 				if pc := ApplyClusterMerge(tc.patchContext, efw, c, []host.Name{host.Name(tc.host)}); pc != nil {

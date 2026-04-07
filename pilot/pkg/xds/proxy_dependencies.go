@@ -77,18 +77,20 @@ func proxyDependentOnConfig(proxy *model.Proxy, config model.ConfigKey, push *mo
 	if UnAffectedConfigKinds[proxy.Type].Contains(config.Kind) {
 		return false
 	}
+	rootNamespace := push.Mesh.RootNamespace
 	// Detailed config dependencies check.
 	switch proxy.Type {
 	case model.SidecarProxy:
-		if proxy.SidecarScope.DependsOnConfig(config, push.Mesh.RootNamespace) {
+		if proxy.SidecarScope.DependsOnConfig(config, rootNamespace) {
 			return true
-		} else if proxy.PrevSidecarScope != nil && proxy.PrevSidecarScope.DependsOnConfig(config, push.Mesh.RootNamespace) {
+		} else if proxy.PrevSidecarScope != nil && proxy.PrevSidecarScope.DependsOnConfig(config, rootNamespace) {
 			return true
 		}
 	case model.Router:
 		if config.Kind == kind.ServiceEntry {
 			// If config is ServiceEntry, name of the config is service's FQDN
-			if features.FilterGatewayClusterConfig && !push.ServiceAttachedToGateway(config.Name, config.Namespace, proxy) {
+			if features.FilterGatewayClusterConfig &&
+				!push.VirtualServices().ServiceAttachedToGateway(config.Name, config.Namespace, proxy, push.EnvoyFilters(), push.Mesh, push.AuthnPolicies()) {
 				return false
 			}
 

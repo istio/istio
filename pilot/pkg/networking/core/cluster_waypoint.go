@@ -109,7 +109,7 @@ func (configgen *ConfigGeneratorImpl) buildWaypointInboundClusters(
 		// Creates "blackhole" cluster to avoid failures if no globally scoped services exist
 		clusters = append(clusters, cb.buildWaypointForwardInnerConnect(), cb.buildBlackHoleCluster())
 	} else {
-		clusters = append(clusters, cb.buildWaypointConnectOriginate(proxy, push))
+		clusters = append(clusters, cb.buildWaypointConnectOriginate(push.Mesh))
 	}
 
 	// This bit creates clusters needed to handle requests going to a remote network.
@@ -122,8 +122,8 @@ func (configgen *ConfigGeneratorImpl) buildWaypointInboundClusters(
 	if model.ShouldCreateDoubleHBONEResources(proxy) {
 		clusters = append(
 			clusters,
-			cb.buildInnerConnectOriginateCluster(proxy, push),
-			cb.buildOuterConnectOriginateCluster(proxy, push),
+			cb.buildInnerConnectOriginateCluster(),
+			cb.buildOuterConnectOriginateCluster(),
 		)
 	}
 
@@ -362,13 +362,13 @@ func (cb *ClusterBuilder) buildWaypointInboundVIP(proxy *model.Proxy, svcs map[h
 // buildInnerConnectOriginateCluster creates a cluster that innitiate inner HBONE tunnel of double-HBONE.
 // InnerConnectOrigiante cluster is responsible for creating the inner CONNECT tunnel and forwarding to an internal listener that
 // will wrap the traffic into outer HBONE tunnel.
-func (cb *ClusterBuilder) buildInnerConnectOriginateCluster(proxy *model.Proxy, push *model.PushContext) *cluster.Cluster {
+func (cb *ClusterBuilder) buildInnerConnectOriginateCluster() *cluster.Cluster {
 	// Normally for clusters that just redirect to internal listeners we would use util.DefaultInternalUpstreamTransportSocket.
 	// util.DefaultInternalUpstreamTransportSocket is a InternalUpstreamTransport socket wrapping a RawBufferTransport socket.
 	// For double HBONE we want something slightly different - we still need to use InternalUpstreamTransport socket because
 	// we redirect to an internal listener, but instead of keeping data as-is we want to encrypt it using TLS, so instead of the
 	// RawBufferTransport we want to wrap a TLS transport socket.
-	tlsCtx := buildCommonConnectTLSContext(proxy, push)
+	tlsCtx := buildCommonConnectTLSContext(cb.proxyMetadata, cb.req.Push.Mesh)
 	sec_model.EnforceCompliance(tlsCtx)
 	transportSocket := util.InternalUpstreamTransportSocket("internal_upstream_with_tls", &core.TransportSocket{
 		Name: "tls",
@@ -399,8 +399,8 @@ func (cb *ClusterBuilder) buildInnerConnectOriginateCluster(proxy *model.Proxy, 
 // buildOuterConnectOriginateCluster creates a cluster that finishes wrapping traffic in double HBONE by finalizing outer HBONE tunnel.
 // It's basically equivalent to the regular waypoint ConnectOriginate cluster and does the same thing, the only real difference is that
 // it wraps the data already wrapped into a CONNECT once.
-func (cb *ClusterBuilder) buildOuterConnectOriginateCluster(proxy *model.Proxy, push *model.PushContext) *cluster.Cluster {
-	ctx := buildCommonConnectTLSContext(proxy, push)
+func (cb *ClusterBuilder) buildOuterConnectOriginateCluster() *cluster.Cluster {
+	ctx := buildCommonConnectTLSContext(cb.proxyMetadata, cb.req.Push.Mesh)
 	sec_model.EnforceCompliance(ctx)
 	c := &cluster.Cluster{
 		Name:                          DoubleHBONEOuterConnectOriginate,
@@ -430,18 +430,18 @@ func (cb *ClusterBuilder) buildOuterConnectOriginateCluster(proxy *model.Proxy, 
 	return c
 }
 
-func (cb *ClusterBuilder) buildWaypointConnectOriginate(proxy *model.Proxy, push *model.PushContext) *cluster.Cluster {
+func (cb *ClusterBuilder) buildWaypointConnectOriginate(mesh *meshconfig.MeshConfig) *cluster.Cluster {
 	// needed to enable cross-namespace waypoints when SkipValidateTrustDomain is set
 	// this ensures the match_typed_subject_alt_names list for the envoy config cluster is always empty
 	if features.SkipValidateTrustDomain {
-		return cb.buildConnectOriginate(ConnectOriginate, proxy, push, nil)
+		return cb.buildConnectOriginate(ConnectOriginate, nil)
 	}
 	m := &matcher.StringMatcher{}
 
 	m.MatchPattern = &matcher.StringMatcher_Prefix{
-		Prefix: spiffe.URIPrefix + push.Mesh.GetTrustDomain() + "/ns/" + proxy.Metadata.Namespace + "/sa/",
+		Prefix: spiffe.URIPrefix + mesh.GetTrustDomain() + "/ns/" + cb.proxyMetadata.Namespace + "/sa/",
 	}
-	return cb.buildConnectOriginate(ConnectOriginate, proxy, push, m)
+	return cb.buildConnectOriginate(ConnectOriginate, m)
 }
 
 func (cb *ClusterBuilder) buildWaypointForwardInnerConnect() *cluster.Cluster {
@@ -482,11 +482,9 @@ func (cb *ClusterBuilder) buildForwardInnerConnect() *cluster.Cluster {
 
 func (cb *ClusterBuilder) buildConnectOriginate(
 	name string,
-	proxy *model.Proxy,
-	push *model.PushContext,
 	uriSanMatchers ...*matcher.StringMatcher,
 ) *cluster.Cluster {
-	ctx := buildCommonConnectTLSContext(proxy, push)
+	ctx := buildCommonConnectTLSContext(cb.proxyMetadata, cb.req.Push.Mesh)
 	validationCtx := ctx.GetCombinedValidationContext().DefaultValidationContext
 	for _, uriSanMatcher := range uriSanMatchers {
 		if uriSanMatcher != nil {

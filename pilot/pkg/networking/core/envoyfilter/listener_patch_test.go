@@ -2365,7 +2365,7 @@ func TestApplyListenerPatches(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := ApplyListenerPatches(tt.args.patchContext, tt.args.push.EnvoyFilters(tt.args.proxy),
+			got := ApplyListenerPatches(tt.args.patchContext, tt.args.push.EnvoyFilters().EnvoyFilters(tt.args.proxy, tt.args.push.Mesh.RootNamespace),
 				tt.args.listeners, tt.args.skipAdds)
 			if diff := cmp.Diff(tt.want, got, protocmp.Transform()); diff != "" {
 				t.Errorf("ApplyListenerPatches(): %s mismatch (-want +got):\n%s", tt.name, diff)
