@@ -87,11 +87,9 @@ var skippedTests = map[string]string{
 	"ListenerSetAllowedNamespaceNone":        "TODO",
 	"ListenerSetAllowedNamespaceSame":        "TODO",
 	"ListenerSetAllowedNamespaceSelector":    "TODO",
-	"ListenerSetAllowedRoutesNamespaces":     "TODO",
 	"ListenerSetAllowedRoutesSupportedKinds": "TODO",
 	"ListenerSetDefaultNotAllowed":           "TODO",
 	"ListenerSetHostnameConflict":            "TODO",
-	"ListenerSetHTTPRouting":                 "TODO",
 	"ListenerSetProtocolConflict":            "TODO",
 	"ListenerSetReferenceGrant":              "TODO",
 
