@@ -1,6 +1,6 @@
 apiVersion: release-notes/v2
 kind: bug-fix
-area: pilot
+area: security
 
 issue:
   - https://github.com/istio/istio/issues/59768
