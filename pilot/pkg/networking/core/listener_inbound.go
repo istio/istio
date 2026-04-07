@@ -861,10 +861,15 @@ func buildSidecarInboundHTTPOpts(lb *ListenerBuilder, cc inboundChainConfig) *ht
 func (lb *ListenerBuilder) buildInboundNetworkFiltersForHTTP(cc inboundChainConfig) []*listener.Filter {
 	// Add network level extension filters if any configured.
 	httpOpts := buildSidecarInboundHTTPOpts(lb, cc)
-	trafficExtensions := lb.push.TrafficExtensionsByListenerInfo(lb.node, model.ListenerInfo{
-		Port:  httpOpts.port,
-		Class: httpOpts.class,
-	}, model.FilterChainTypeNetwork)
+	trafficExtensions := lb.push.TrafficExtensions().TrafficExtensionsByListenerInfo(
+		lb.node,
+		lb.push.Mesh,
+		model.ListenerInfo{
+			Port:  httpOpts.port,
+			Class: httpOpts.class,
+		},
+		model.FilterChainTypeNetwork,
+	)
 
 	var filters []*listener.Filter
 	// Metadata exchange goes first, so RBAC failures, etc can access the state. See https://github.com/istio/istio/issues/41066

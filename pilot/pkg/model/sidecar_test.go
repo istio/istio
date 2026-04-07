@@ -3045,7 +3045,7 @@ func TestContainsEgressDependencies(t *testing.T) {
 					},
 				},
 			}
-			ps.ServiceIndex.public = append(ps.ServiceIndex.public, services...)
+			ps.serviceIndex.public = append(ps.serviceIndex.public, services...)
 			// nolint lll
 			ps.virtualServiceIndex.publicByGateway[constants.IstioMeshGateway] = append(ps.virtualServiceIndex.publicByGateway[constants.IstioMeshGateway], virtualServices...)
 			ps.setDestinationRules(destinationRules)
@@ -3224,7 +3224,7 @@ func TestSidecarScopeAuthnPolicies(t *testing.T) {
 			Attributes: ServiceAttributes{Namespace: svcNs},
 		},
 	}
-	ps.ServiceIndex.public = append(ps.ServiceIndex.public, services...)
+	ps.serviceIndex.public = append(ps.serviceIndex.public, services...)
 
 	sidecarCfg := &config.Config{
 		Meta: config.Meta{
@@ -3641,7 +3641,7 @@ func benchmarkConvertIstioListenerToWrapper(b *testing.B, vsNum int, hostNum int
 			Hostname:   host.Name("host-" + strconv.Itoa(i) + ".com"),
 		})
 	}
-	ps.ServiceIndex.public = svcList
+	ps.serviceIndex.public = svcList
 
 	hosts := make([]string, 0)
 	if matchAll {

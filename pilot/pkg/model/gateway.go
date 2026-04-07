@@ -251,7 +251,7 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 						if s.GetTls().GetMode() == networking.ServerTLSSettings_MUTUAL {
 							verifiedCertificateReferences.Insert(rn + credentials.SdsCaSuffix)
 						}
-					} else if ps.SecretAllowed(gwKind, rn, lookupNamespace) {
+					} else if secretAllowed(ps.GatewayAPIController(), gwKind, rn, lookupNamespace) {
 						// Explicitly allowed by some policy
 						verifiedCertificateReferences.Insert(rn)
 						if s.GetTls().GetMode() == networking.ServerTLSSettings_MUTUAL {
@@ -691,4 +691,14 @@ func getTargetPortMap(serversByRouteName map[string][]*networking.Server) Gatewa
 		}
 	}
 	return pm
+}
+
+// TODO(jaellio): support for agentgatewaycontroller (?)
+// SecretAllowed determines if a given resource (of type `Secret` and name `resourceName`) can be
+// accessed by `namespace`, based of specific reference policies.
+// Note: this function only determines if a reference is *explicitly* allowed; the reference may not require
+// explicit authorization to be made at all in most cases. Today, this only is for allowing cross-namespace
+// secret access.
+func secretAllowed(gwCtrl GatewayController, ourKind config.GroupVersionKind, resourceName string, namespace string) bool {
+	return gwCtrl.SecretAllowed(ourKind, resourceName, namespace)
 }

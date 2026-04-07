@@ -295,16 +295,18 @@ func TestEnvoyFilters(t *testing.T) {
 		Mesh: &meshconfig.MeshConfig{
 			RootNamespace: "istio-system",
 		},
-		envoyFiltersByNamespace: map[string][]*EnvoyFilterWrapper{
-			"istio-system": append(envoyFilters, rootEnvoyFilters...),
-			"test-ns":      envoyFilters,
+		envoyFilterIndex: EnvoyFilterIndex{
+			envoyFiltersByNamespace: map[string][]*EnvoyFilterWrapper{
+				"istio-system": append(envoyFilters, rootEnvoyFilters...),
+				"test-ns":      envoyFilters,
+			},
 		},
 	}
 
-	if !push.HasEnvoyFilters("ef1", "test-ns") {
+	if !push.envoyFilterIndex.HasEnvoyFilters("ef1", "test-ns") {
 		t.Errorf("Check presence of EnvoyFilter ef1 at test-ns got false, want true")
 	}
-	if push.HasEnvoyFilters("ef3", "test-ns") {
+	if push.envoyFilterIndex.HasEnvoyFilters("ef3", "test-ns") {
 		t.Errorf("Check presence of EnvoyFilter ef3 at test-ns got true, want false")
 	}
 
@@ -409,7 +411,7 @@ func TestEnvoyFilters(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			filter := push.EnvoyFilters(tt.proxy)
+			filter := push.envoyFilterIndex.EnvoyFilters(tt.proxy, push.Mesh.RootNamespace)
 			if filter == nil {
 				if tt.expectedClusterPatches != 0 || tt.expectedListenerPatches != 0 || tt.expectedHTTPFilterPatches != 0 {
 					t.Errorf("Got no envoy filter")
@@ -593,13 +595,13 @@ func TestEnvoyFilterOrder(t *testing.T) {
 
 	// Init a new push context
 	pc := NewPushContext()
-	pc.initEnvoyFilters(env, nil, nil)
+	pc.initEnvoyFilters(env, nil, EnvoyFilterIndex{})
 	gotns := make([]string, 0)
-	for _, filter := range pc.envoyFiltersByNamespace["testns"] {
+	for _, filter := range pc.envoyFilterIndex.envoyFiltersByNamespace["testns"] {
 		gotns = append(gotns, filter.Keys()...)
 	}
 	gotns1 := make([]string, 0)
-	for _, filter := range pc.envoyFiltersByNamespace["testns-1"] {
+	for _, filter := range pc.envoyFilterIndex.envoyFiltersByNamespace["testns-1"] {
 		gotns1 = append(gotns1, filter.Keys()...)
 	}
 	if !reflect.DeepEqual(expectedns, gotns) {
@@ -678,9 +680,9 @@ func TestEnvoyFilterOrderAcrossNamespaces(t *testing.T) {
 	// Init a new push context
 	pc := NewPushContext()
 	pc.Mesh = m
-	pc.initEnvoyFilters(env, nil, nil)
+	pc.initEnvoyFilters(env, nil, EnvoyFilterIndex{})
 	got := make([]string, 0)
-	efs := pc.EnvoyFilters(proxy)
+	efs := pc.envoyFilterIndex.EnvoyFilters(proxy, pc.Mesh.RootNamespace)
 	for _, filter := range efs.Patches[networking.EnvoyFilter_HTTP_FILTER] {
 		got = append(got, filter.Namespace+"/"+filter.Name)
 	}
@@ -1010,7 +1012,7 @@ func TestEnvoyFilterUpdate(t *testing.T) {
 
 			// Init a new push context
 			pc1 := NewPushContext()
-			pc1.initEnvoyFilters(env, nil, nil)
+			pc1.initEnvoyFilters(env, nil, EnvoyFilterIndex{})
 
 			// Update store with incoming changes
 			creates := map[ConfigKey]config.Config{}
@@ -1038,14 +1040,14 @@ func TestEnvoyFilterUpdate(t *testing.T) {
 			changes := deletes.Union(createSet).Union(updateSet)
 
 			pc2 := NewPushContext()
-			pc2.initEnvoyFilters(env, changes, pc1.envoyFiltersByNamespace)
+			pc2.initEnvoyFilters(env, changes, pc1.envoyFilterIndex)
 
 			total2 := 0
-			for ns, envoyFilters := range pc2.envoyFiltersByNamespace {
+			for ns, envoyFilters := range pc2.envoyFilterIndex.envoyFiltersByNamespace {
 				total2 += len(envoyFilters)
 				for _, ef := range envoyFilters {
 					key := ConfigKey{Kind: kind.EnvoyFilter, Namespace: ns, Name: ef.Name}
-					previousVersion := slices.FindFunc(pc1.envoyFiltersByNamespace[ns], func(e *EnvoyFilterWrapper) bool {
+					previousVersion := slices.FindFunc(pc1.envoyFilterIndex.envoyFiltersByNamespace[ns], func(e *EnvoyFilterWrapper) bool {
 						return e.Name == ef.Name
 					})
 					switch {
@@ -1096,7 +1098,7 @@ func TestEnvoyFilterUpdate(t *testing.T) {
 
 			total1 := 0
 			// Validate that empty namespace is deleted when all filters in that namespace are deleted.
-			for ns, envoyFilters := range pc1.envoyFiltersByNamespace {
+			for ns, envoyFilters := range pc1.envoyFilterIndex.envoyFiltersByNamespace {
 				total1 += len(envoyFilters)
 				deleted := 0
 				for _, ef := range envoyFilters {
@@ -1107,7 +1109,7 @@ func TestEnvoyFilterUpdate(t *testing.T) {
 				}
 
 				if deleted == len(envoyFilters) {
-					if _, ok := pc2.envoyFiltersByNamespace[ns]; ok {
+					if _, ok := pc2.envoyFilterIndex.envoyFiltersByNamespace[ns]; ok {
 						t.Errorf("Empty Namespace %s was not deleted", ns)
 					}
 				}
@@ -1449,7 +1451,7 @@ func TestTrafficExtensions(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result := pc.TrafficExtensionsByListenerInfo(tc.node, tc.listenerInfo, tc.chainType)
+			result := pc.trafficExtensionIndex.TrafficExtensionsByListenerInfo(tc.node, pc.Mesh, tc.listenerInfo, tc.chainType)
 			if !reflect.DeepEqual(tc.expectedExtensions, result) {
 				t.Errorf("TrafficExtensions did not match expectations\n\ngot: %v\n\nexpected: %v", result, tc.expectedExtensions)
 			}
@@ -1538,7 +1540,7 @@ func TestServiceIndex(t *testing.T) {
 	// Init a new push context
 	pc := NewPushContext()
 	pc.InitContext(env, nil, nil)
-	si := pc.ServiceIndex
+	si := pc.serviceIndex
 
 	// Should have all 5 services
 	g.Expect(si.instancesByPort).To(HaveLen(5))
@@ -1566,7 +1568,7 @@ func TestIsServiceVisible(t *testing.T) {
 		{
 			name: "service whose namespace is foo has no exportTo map with global private",
 			pushContext: &PushContext{
-				exportToDefaults: exportToDefaults{
+				exportToDefaults: ExportToDefaults{
 					service: sets.New(visibility.Private),
 				},
 			},
@@ -1580,7 +1582,7 @@ func TestIsServiceVisible(t *testing.T) {
 		{
 			name: "service whose namespace is bar has no exportTo map with global private",
 			pushContext: &PushContext{
-				exportToDefaults: exportToDefaults{
+				exportToDefaults: ExportToDefaults{
 					service: sets.New(visibility.Private),
 				},
 			},
@@ -1594,7 +1596,7 @@ func TestIsServiceVisible(t *testing.T) {
 		{
 			name: "service whose namespace is bar has no exportTo map with global public",
 			pushContext: &PushContext{
-				exportToDefaults: exportToDefaults{
+				exportToDefaults: ExportToDefaults{
 					service: sets.New(visibility.Public),
 				},
 			},
@@ -1703,7 +1705,7 @@ func TestIsServiceVisible(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			isVisible := c.pushContext.IsServiceVisible(c.service, targetNamespace)
+			isVisible := c.pushContext.exportToDefaults.IsServiceVisible(c.service, targetNamespace)
 
 			g := NewWithT(t)
 			g.Expect(isVisible).To(Equal(c.expect))
@@ -1839,10 +1841,10 @@ func TestInitPushContext(t *testing.T) {
 	// There is probably a better way to do this.
 	diff := cmp.Diff(old, newPush,
 		// Allow looking into exported fields for parts of push context
-		cmp.AllowUnexported(PushContext{}, exportToDefaults{}, serviceIndex{}, virtualServiceIndex{},
-			destinationRuleIndex{}, gatewayIndex{}, consolidatedDestRules{}, IstioEgressListenerWrapper{}, SidecarScope{},
+		cmp.AllowUnexported(PushContext{}, ExportToDefaults{}, ServiceIndex{}, VirtualServiceIndex{},
+			DestinationRuleIndex{}, gatewayIndex{}, consolidatedDestRules{}, IstioEgressListenerWrapper{}, SidecarScope{},
 			AuthenticationPolicies{}, NetworkManager{}, sidecarIndex{}, Telemetries{}, ProxyConfigs{}, ConsolidatedDestRule{},
-			ClusterLocalHosts{}),
+			ClusterLocalHosts{}, EnvoyFilterIndex{}, TrafficExtensionIndex{}),
 		// These are not feasible/worth comparing
 		cmpopts.IgnoreTypes(sync.RWMutex{}, localServiceDiscovery{}, FakeStore{}, atomic.Bool{}, sync.Mutex{}, func() {}),
 		cmpopts.IgnoreUnexported(IstioEndpoint{}),
@@ -1859,9 +1861,9 @@ func TestSidecarScope(t *testing.T) {
 	ps := NewPushContext()
 	env := &Environment{Watcher: meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-system"})}
 	ps.Mesh = env.Mesh()
-	ps.ServiceIndex.HostnameAndNamespace["svc1.default.cluster.local"] = map[string]*Service{"default": nil}
-	ps.ServiceIndex.HostnameAndNamespace["svc2.nosidecar.cluster.local"] = map[string]*Service{"nosidecar": nil}
-	ps.ServiceIndex.HostnameAndNamespace["svc3.istio-system.cluster.local"] = map[string]*Service{"istio-system": nil}
+	ps.serviceIndex.HostnameAndNamespace["svc1.default.cluster.local"] = map[string]*Service{"default": nil}
+	ps.serviceIndex.HostnameAndNamespace["svc2.nosidecar.cluster.local"] = map[string]*Service{"nosidecar": nil}
+	ps.serviceIndex.HostnameAndNamespace["svc3.istio-system.cluster.local"] = map[string]*Service{"istio-system": nil}
 
 	configStore := NewFakeStore()
 	sidecarWithWorkloadSelector := &networking.Sidecar{
@@ -2159,10 +2161,10 @@ func TestBestEffortInferServiceMTLSMode(t *testing.T) {
 			port := &Port{
 				Port: tc.servicePort,
 			}
-			if got := ps.BestEffortInferServiceMTLSMode(ps.AuthnPolicies, nil, service, port); got != tc.wanted {
+			if got := ps.serviceIndex.BestEffortInferServiceMTLSMode(ps.authnPolicies, nil, service, port); got != tc.wanted {
 				t.Fatalf("want %s, but got %s", tc.wanted, got)
 			}
-			if got := ps.BestEffortInferServiceMTLSMode(ps.AuthnPolicies, nil, externalService, port); got != MTLSUnknown {
+			if got := ps.serviceIndex.BestEffortInferServiceMTLSMode(ps.authnPolicies, nil, externalService, port); got != MTLSUnknown {
 				t.Fatalf("MTLS mode for external service should always be %s, but got %s", MTLSUnknown, got)
 			}
 		})
@@ -2346,7 +2348,9 @@ func TestSetDestinationRuleWithWorkloadSelector(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
-			drList := ps.destinationRule(tt.proxyNs,
+			drList := ps.destinationRuleIndex.destinationRule(ps.serviceIndex,
+				ps.Mesh.RootNamespace,
+				tt.proxyNs,
 				&Service{
 					Hostname: host.Name(tt.serviceHostname),
 					Attributes: ServiceAttributes{
@@ -2774,7 +2778,9 @@ func TestSetDestinationRuleWithExportTo(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(fmt.Sprintf("%s-%s", tt.proxyNs, tt.serviceNs), func(t *testing.T) {
-			out := ps.destinationRule(tt.proxyNs,
+			out := ps.destinationRuleIndex.destinationRule(ps.serviceIndex,
+				ps.Mesh.RootNamespace,
+				tt.proxyNs,
 				&Service{
 					Hostname: host.Name(tt.host),
 					Attributes: ServiceAttributes{
@@ -2951,7 +2957,7 @@ func TestVirtualServiceWithExportTo(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(fmt.Sprintf("%s-%s", tt.proxyNs, tt.gateway), func(t *testing.T) {
-			rules := ps.VirtualServicesForGateway(tt.proxyNs, tt.gateway)
+			rules := ps.virtualServiceIndex.VirtualServicesForGateway(tt.proxyNs, tt.gateway)
 			gotHosts := make([]string, 0)
 			for _, r := range rules {
 				vs := r.Spec.(*networking.VirtualService)
@@ -3234,7 +3240,7 @@ func TestInitVirtualService(t *testing.T) {
 		ps.initVirtualServices(env)
 
 		t.Run("resolve shortname", func(t *testing.T) {
-			rules := ps.VirtualServicesForGateway("ns1", gatewayName)
+			rules := ps.virtualServiceIndex.VirtualServicesForGateway("ns1", gatewayName)
 			if len(rules) != 6 {
 				t.Fatalf("wanted 6 virtualservice for gateway %s, actually got %d", gatewayName, len(rules))
 			}
@@ -3336,7 +3342,7 @@ func TestServiceWithExportTo(t *testing.T) {
 	}
 	ps.initDefaultExportMaps()
 	ps.initServiceRegistry(env, nil)
-	assert.Equal(t, ps.ServiceIndex.HostnameAndNamespace[svc4.Hostname][svc4.Attributes.Namespace].Attributes.ServiceRegistry, provider.Kubernetes)
+	assert.Equal(t, ps.serviceIndex.HostnameAndNamespace[svc4.Hostname][svc4.Attributes.Namespace].Attributes.ServiceRegistry, provider.Kubernetes)
 	cases := []struct {
 		proxyNs   string
 		wantHosts []string
@@ -3359,7 +3365,7 @@ func TestServiceWithExportTo(t *testing.T) {
 		},
 	}
 	for _, tt := range cases {
-		services := ps.servicesExportedToNamespace(tt.proxyNs)
+		services := ps.serviceIndex.servicesExportedToNamespace(tt.proxyNs)
 		gotHosts := make([]string, 0)
 		for _, r := range services {
 			gotHosts = append(gotHosts, string(r.Hostname))
@@ -3429,7 +3435,7 @@ func TestInstancesByPort(t *testing.T) {
 	}
 
 	ps.initServiceRegistry(env, nil)
-	instancesByPort := ps.ServiceIndex.instancesByPort[svc5_1.Key()]
+	instancesByPort := ps.serviceIndex.instancesByPort[svc5_1.Key()]
 	assert.Equal(t, len(instancesByPort), 2)
 }
 
@@ -3581,13 +3587,13 @@ func TestGetHostsFromMeshConfig(t *testing.T) {
 		},
 	}
 	ps.initDefaultExportMaps()
-	ps.initEnvoyFilters(env, nil, nil)
+	ps.initEnvoyFilters(env, nil, EnvoyFilterIndex{})
 	ps.initServiceRegistry(env, nil)
 	proxy := &Proxy{Type: Router}
 	proxy.SetSidecarScope(ps)
 	proxy.SetGatewaysForProxy(ps)
-	patches := ps.EnvoyFilters(proxy)
-	got := sets.New(slices.Map(ps.GatewayServices(proxy, patches), func(e *Service) string {
+	patches := ps.envoyFilterIndex.EnvoyFilters(proxy, ps.Mesh.RootNamespace)
+	got := sets.New(slices.Map(ps.virtualServiceIndex.GatewayServices(proxy, patches, ps.Mesh, ps.authnPolicies), func(e *Service) string {
 		return e.Hostname.String()
 	})...)
 	// Should match 2 of the 3 providers; one has a mismatched namespace though
@@ -3772,67 +3778,5 @@ func TestResolveServiceAliases(t *testing.T) {
 			})
 			assert.Equal(t, tt.output, out)
 		})
-	}
-}
-
-func BenchmarkInitServiceAccounts(b *testing.B) {
-	ps := NewPushContext()
-	index := NewEndpointIndex(DisabledCache{})
-	env := &Environment{EndpointIndex: index}
-	ps.Mesh = &meshconfig.MeshConfig{TrustDomainAliases: []string{"td1", "td2"}}
-
-	services := []*Service{
-		{
-			Hostname: "svc-unset",
-			Ports:    allPorts,
-			Attributes: ServiceAttributes{
-				Namespace: "test1",
-			},
-		},
-		{
-			Hostname: "svc-public",
-			Ports:    allPorts,
-			Attributes: ServiceAttributes{
-				Namespace: "test1",
-				ExportTo:  sets.New(visibility.Public),
-			},
-		},
-		{
-			Hostname: "svc-private",
-			Ports:    allPorts,
-			Attributes: ServiceAttributes{
-				Namespace: "test1",
-				ExportTo:  sets.New(visibility.Private),
-			},
-		},
-		{
-			Hostname: "svc-none",
-			Ports:    allPorts,
-			Attributes: ServiceAttributes{
-				Namespace: "test1",
-				ExportTo:  sets.New(visibility.None),
-			},
-		},
-		{
-			Hostname: "svc-namespace",
-			Ports:    allPorts,
-			Attributes: ServiceAttributes{
-				Namespace: "test1",
-				ExportTo:  sets.New(visibility.Instance("namespace")),
-			},
-		},
-	}
-
-	for _, svc := range services {
-		if index.shardsBySvc[string(svc.Hostname)] == nil {
-			index.shardsBySvc[string(svc.Hostname)] = map[string]*EndpointShards{}
-		}
-		index.shardsBySvc[string(svc.Hostname)][svc.Attributes.Namespace] = &EndpointShards{
-			ServiceAccounts: sets.New("spiffe://cluster.local/ns/def/sa/sa1", "spiffe://cluster.local/ns/def/sa/sa2"),
-		}
-	}
-	b.ResetTimer()
-	for n := 0; n < b.N; n++ {
-		ps.initServiceAccounts(env, services)
 	}
 }

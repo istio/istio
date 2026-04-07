@@ -207,18 +207,18 @@ func convertToEnvoyFilterWrapper(local *config.Config) *EnvoyFilterWrapper {
 	return out
 }
 
-func proxyMatch(proxy *Proxy, cp *EnvoyFilterConfigPatchWrapper) bool {
+func proxyMatch(proxyMetadata *NodeMetadata, cp *EnvoyFilterConfigPatchWrapper) bool {
 	if cp.Match.Proxy == nil {
 		return true
 	}
 
 	if cp.ProxyPrefixMatch != "" {
-		if !strings.HasPrefix(proxy.Metadata.IstioVersion, cp.ProxyPrefixMatch) {
+		if !strings.HasPrefix(proxyMetadata.IstioVersion, cp.ProxyPrefixMatch) {
 			return false
 		}
 	}
 	if cp.ProxyVersionRegex != nil {
-		ver := proxy.Metadata.IstioVersion
+		ver := proxyMetadata.IstioVersion
 		if ver == "" {
 			// we do not have a proxy version but the user has a regex. so this is a mismatch
 			return false
@@ -229,7 +229,7 @@ func proxyMatch(proxy *Proxy, cp *EnvoyFilterConfigPatchWrapper) bool {
 	}
 
 	for k, v := range cp.Match.Proxy.Metadata {
-		if proxy.Metadata.Raw[k] != v {
+		if proxyMetadata.Raw[k] != v {
 			return false
 		}
 	}

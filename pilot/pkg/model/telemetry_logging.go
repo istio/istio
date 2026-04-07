@@ -551,13 +551,13 @@ func LookupCluster(push *PushContext, service string, port int) (hostname string
 	// TODO(yangminzhu): Verify the service and its cluster is supported, e.g. resolution type is not OriginalDst.
 	if parts := strings.Split(service, "/"); len(parts) == 2 {
 		namespace, name := parts[0], parts[1]
-		if svc := push.ServiceIndex.HostnameAndNamespace[host.Name(name)][namespace]; svc != nil {
+		if svc := push.Services().HostnameAndNamespace[host.Name(name)][namespace]; svc != nil {
 			hostname = string(svc.Hostname)
 			cluster = BuildSubsetKey(TrafficDirectionOutbound, "", svc.Hostname, port)
 			return hostname, cluster, err
 		}
 	} else {
-		namespaceToServices := push.ServiceIndex.HostnameAndNamespace[host.Name(service)]
+		namespaceToServices := push.Services().HostnameAndNamespace[host.Name(service)]
 		var namespaces []string
 		for k := range namespaceToServices {
 			namespaces = append(namespaces, k)

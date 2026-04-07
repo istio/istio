@@ -126,7 +126,7 @@ func TestInboundNetworkFilterOrder(t *testing.T) {
 			port:        model.ServiceInstancePort{ServicePort: &model.Port{}},
 		}
 		push := cg.PushContext()
-		push.AuthzPolicies = getAuthorizationPolicies()
+		push.SetAuthzPolicies(getAuthorizationPolicies())
 		proxy := node(nil)
 		listenerFilters := NewListenerBuilder(proxy, push).buildInboundNetworkFilters(fcc)
 

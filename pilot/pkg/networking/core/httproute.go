@@ -59,7 +59,7 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(
 ) ([]*discovery.Resource, model.XdsLogDetails) {
 	var routeConfigurations model.Resources
 
-	efw := req.Push.EnvoyFilters(node)
+	efw := req.Push.EnvoyFilters().EnvoyFilters(node, req.Push.Mesh.RootNamespace)
 	hit, miss := 0, 0
 	switch node.Type {
 	case model.SidecarProxy, model.Waypoint:
@@ -126,7 +126,7 @@ func buildSidecarInboundHTTPRouteConfig(svc *model.Service, lb *ListenerBuilder,
 		VirtualHosts:     []*route.VirtualHost{inboundVHost},
 		ValidateClusters: proto.BoolFalse,
 	}
-	efw := lb.push.EnvoyFilters(lb.node)
+	efw := lb.push.EnvoyFilters().EnvoyFilters(lb.node, lb.push.Mesh.RootNamespace)
 	r = envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_SIDECAR_INBOUND, lb.node, efw, r)
 	return r
 }

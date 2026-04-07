@@ -293,7 +293,7 @@ func (cb *ClusterBuilder) buildSubsetCluster(
 	opts buildClusterOpts, destRule *config.Config, subset *networking.Subset, service *model.Service,
 	endpointBuilder *endpoints.EndpointBuilder,
 ) *cluster.Cluster {
-	opts.serviceMTLSMode = cb.req.Push.BestEffortInferServiceMTLSMode(cb.sidecarScope.AuthnPolicies, subset.GetTrafficPolicy(), service, opts.port)
+	opts.serviceMTLSMode = cb.req.Push.Services().BestEffortInferServiceMTLSMode(cb.sidecarScope.AuthnPolicies, subset.GetTrafficPolicy(), service, opts.port)
 	var subsetClusterName string
 	var defaultSni string
 	if opts.clusterMode == DefaultClusterMode {
@@ -375,8 +375,8 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *clusterWrapper, clusterMode C
 		}
 		opts.meshExternal = service.MeshExternal
 		opts.serviceRegistry = service.Attributes.ServiceRegistry
-		opts.serviceMTLSMode = cb.req.Push.BestEffortInferServiceMTLSMode(cb.sidecarScope.AuthnPolicies, destinationRule.GetTrafficPolicy(), service, port)
-		opts.allInstancesHBONE = cb.req.Push.AllInstancesSupportHBONE(service, port)
+		opts.serviceMTLSMode = cb.req.Push.Services().BestEffortInferServiceMTLSMode(cb.sidecarScope.AuthnPolicies, destinationRule.GetTrafficPolicy(), service, port)
+		opts.allInstancesHBONE = allInstancesSupportHBONE(cb.req.Push.Services(), cb.req.Push.AmbientIndex(), service, port)
 	}
 
 	if destRule != nil {
@@ -1061,4 +1061,37 @@ func addTelemetryMetadata(cluster *cluster.Cluster,
 		// For outbound cluster, add telemetry metadata based on the service that the cluster is built for.
 		svcMetaList.Values = append(svcMetaList.Values, buildServiceMetadata(service))
 	}
+}
+
+// AllInstancesSupportHBONE checks whether all instances of a service support HBONE. This is used in cases where we need
+// to decide if we are always going to send HBONE, so we can set service-level properties.
+// Mostly this works around limitations in the dataplane that don't support per-endpoint properties we would want to be
+// per-endpoint.
+func allInstancesSupportHBONE(
+	serviceIndex *model.ServiceIndex,
+	ambientIndex model.AmbientIndexes,
+	service *model.Service,
+	port *model.Port,
+) bool {
+	instances := serviceIndex.ServiceEndpointsByPort(service, port.Port, nil)
+	if len(instances) == 0 {
+		return false
+	}
+	for _, e := range instances {
+		addressSupportsTunnel := false
+		if model.SupportsTunnel(e.Labels, model.TunnelHTTP) {
+			addressSupportsTunnel = true
+		} else {
+			for _, addr := range e.Addresses {
+				if ambientIndex.SupportsTunnel(e.Network, addr) {
+					addressSupportsTunnel = true
+					break
+				}
+			}
+		}
+		if !addressSupportsTunnel {
+			return false
+		}
+	}
+	return true
 }

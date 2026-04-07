@@ -4572,7 +4572,8 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 				Configs:    tt.configs,
 				MeshConfig: mc,
 			})
-			cg.PushContext().ServiceIndex.HostnameAndNamespace = map[host.Name]map[string]*pilot_model.Service{
+			si := cg.PushContext().Services()
+			si.HostnameAndNamespace = map[host.Name]map[string]*pilot_model.Service{
 				"example.local": {
 					"foo": &pilot_model.Service{
 						Hostname: "example.local",
@@ -4806,7 +4807,7 @@ func TestGatewayHCMInternalAddressConfig(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			push.Networks = tt.networks
+			push.SetNetworks(tt.networks)
 			httpConnManager := buildGatewayConnectionManager(&meshconfig.ProxyConfig{}, proxy, false, push)
 			if !reflect.DeepEqual(tt.expectedconfig, httpConnManager.InternalAddressConfig) {
 				t.Errorf("unexpected internal address config, expected: %v, got :%v", tt.expectedconfig, httpConnManager.InternalAddressConfig)
@@ -4862,7 +4863,8 @@ func TestListenerTransportSocketConnectTimeoutForGateway(t *testing.T) {
 				Configs:    tt.configs,
 				MeshConfig: mesh.DefaultMeshConfig(),
 			})
-			cg.PushContext().ServiceIndex.HostnameAndNamespace = map[host.Name]map[string]*pilot_model.Service{
+			si := cg.PushContext().Services()
+			si.HostnameAndNamespace = map[host.Name]map[string]*pilot_model.Service{
 				"example.local": {
 					"foo": &pilot_model.Service{
 						Hostname: "example.local",

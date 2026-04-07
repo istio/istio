@@ -949,14 +949,15 @@ func TestJwtFilter(t *testing.T) {
 		},
 	}
 	push := model.NewPushContext()
-	push.JwtKeyResolver = model.NewJwksResolver(
+	push.SetJwtKeyResolvers(model.NewJwksResolver(
 		model.JwtPubKeyEvictionDuration, model.JwtPubKeyRefreshInterval,
-		model.JwtPubKeyRefreshIntervalOnFailure, 10*time.Millisecond)
+		model.JwtPubKeyRefreshIntervalOnFailure, 10*time.Millisecond))
 
-	defer push.JwtKeyResolver.Close()
+	defer push.JwtKeyResolver().Close()
 
-	push.ServiceIndex.HostnameAndNamespace[host.Name("jwt-token-issuer.mesh")] = map[string]*model.Service{}
-	push.ServiceIndex.HostnameAndNamespace[host.Name("jwt-token-issuer.mesh")]["mesh"] = &model.Service{
+	si := push.Services()
+	si.HostnameAndNamespace[host.Name("jwt-token-issuer.mesh")] = map[string]*model.Service{}
+	si.HostnameAndNamespace[host.Name("jwt-token-issuer.mesh")]["mesh"] = &model.Service{
 		Hostname: "jwt-token-issuer.mesh.svc.cluster.local",
 	}
 	for _, c := range cases {
@@ -1343,10 +1344,10 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 	}
 
 	push := &model.PushContext{}
-	push.JwtKeyResolver = model.NewJwksResolver(
+	push.SetJwtKeyResolvers(model.NewJwksResolver(
 		model.JwtPubKeyEvictionDuration, model.JwtPubKeyRefreshInterval,
-		model.JwtPubKeyRefreshIntervalOnFailure, 10*time.Millisecond)
-	defer push.JwtKeyResolver.Close()
+		model.JwtPubKeyRefreshIntervalOnFailure, 10*time.Millisecond))
+	defer push.JwtKeyResolver().Close()
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

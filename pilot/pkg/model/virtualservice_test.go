@@ -1624,7 +1624,7 @@ func TestSelectVirtualService(t *testing.T) {
 		Spec: virtualServiceSpec9,
 	}
 
-	index := virtualServiceIndex{
+	index := VirtualServiceIndex{
 		publicByGateway: map[string][]config.Config{
 			constants.IstioMeshGateway: {
 				virtualService1,
@@ -1789,7 +1789,7 @@ func BenchmarkSelectVirtualServices(b *testing.B) {
 				virtualServices = append(virtualServices, vs)
 			}
 
-			index := virtualServiceIndex{
+			index := VirtualServiceIndex{
 				publicByGateway: map[string][]config.Config{
 					constants.IstioMeshGateway: virtualServices,
 				},

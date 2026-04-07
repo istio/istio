@@ -79,7 +79,7 @@ func BuildInboundTLS(mTLSMode model.MutualTLSMode, node *model.Proxy,
 		TlsMinimumProtocolVersion: minTLSVersion,
 		TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
 	}
-	authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, node, []string{}, /*subjectAltNames*/
+	authn_model.ApplyToCommonTLSContext(ctx.CommonTlsContext, node.Metadata, []string{}, /*subjectAltNames*/
 		"", /*crl*/
 		trustDomainAliases, ctx.RequireClientCertificate.Value, nil)
 

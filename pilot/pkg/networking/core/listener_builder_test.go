@@ -913,7 +913,7 @@ func TestHCMInternalAddressConfig(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			push.Networks = tt.networks
+			push.SetNetworks(tt.networks)
 			lb := &ListenerBuilder{
 				push:               push,
 				node:               sidecarProxy,
@@ -982,7 +982,7 @@ func TestUseRemoteAddressInternalAddressConfig(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			push.Networks = tt.networks
+			push.SetNetworks(tt.networks)
 			lb := &ListenerBuilder{
 				push:               push,
 				node:               sidecarProxy,
@@ -1022,7 +1022,7 @@ func TestExtProcExistForInferencePoolEnabledGateway(t *testing.T) {
 	fakeGatewayController := model.FakeController{
 		GatewaysWithInferencePools: sets.New(types.NamespacedName{Name: "foo-gateway", Namespace: "not-default"}),
 	}
-	cg.env.PushContext().GatewayAPIController = fakeGatewayController
+	cg.env.PushContext().SetGatewayAPIController(fakeGatewayController)
 
 	lstnrs := cg.Listeners(proxy)
 	vo := xdstest.ExtractListener("0.0.0.0_8080", lstnrs)

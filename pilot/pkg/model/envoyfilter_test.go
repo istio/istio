@@ -112,7 +112,7 @@ func TestEnvoyFilterMatch(t *testing.T) {
 				t.Errorf("unexpected prefix: got %v wanted %v", filter.ProxyPrefixMatch, tt.expectedVersionPrefix)
 			}
 			for ver, match := range tt.matches {
-				got := proxyMatch(&Proxy{Metadata: &NodeMetadata{IstioVersion: ver}}, filter)
+				got := proxyMatch(&NodeMetadata{IstioVersion: ver}, filter)
 				if got != match {
 					t.Errorf("expected %v to match %v, got %v", ver, match, got)
 				}

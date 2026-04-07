@@ -173,7 +173,7 @@ func (lb *ListenerBuilder) patchOneListener(l *listener.Listener, ctx networking
 }
 
 func (lb *ListenerBuilder) patchListeners() {
-	lb.envoyFilterWrapper = lb.push.EnvoyFilters(lb.node)
+	lb.envoyFilterWrapper = lb.push.EnvoyFilters().EnvoyFilters(lb.node, lb.push.Mesh.RootNamespace)
 	if lb.envoyFilterWrapper == nil {
 		return
 	}
@@ -394,10 +394,15 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 
 	filters := []*hcm.HttpFilter{}
 	if !httpOpts.isWaypoint {
-		trafficExtensions := lb.push.TrafficExtensionsByListenerInfo(lb.node, model.ListenerInfo{
-			Port:  httpOpts.port,
-			Class: httpOpts.class,
-		}, model.FilterChainTypeHTTP)
+		trafficExtensions := lb.push.TrafficExtensions().TrafficExtensionsByListenerInfo(
+			lb.node,
+			lb.push.Mesh,
+			model.ListenerInfo{
+				Port:  httpOpts.port,
+				Class: httpOpts.class,
+			},
+			model.FilterChainTypeHTTP,
+		)
 
 		// Metadata exchange filter needs to be added before any other HTTP filters are added. This is done to
 		// ensure that mx filter comes before HTTP RBAC filter. This is related to https://github.com/istio/istio/issues/41066
@@ -413,7 +418,7 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 		filters = extension.PopAppendHTTPTrafficExtension(filters, trafficExtensions, extensions.TrafficExtension_UNSPECIFIED)
 		// Add ExtProc per listener only if the Gateway has any inferencePool attached to it
 		if kubeGwName, ok := lb.node.Labels[label.IoK8sNetworkingGatewayGatewayName.Name]; ok {
-			if lb.push.GatewayAPIController.HasInferencePool(types.NamespacedName{Name: kubeGwName, Namespace: lb.node.GetNamespace()}) {
+			if lb.push.GatewayAPIController().HasInferencePool(types.NamespacedName{Name: kubeGwName, Namespace: lb.node.GetNamespace()}) {
 				filters = append(filters, xdsfilters.InferencePoolExtProc)
 			}
 		}
@@ -437,7 +442,7 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 	// TypedPerFilterConfig in route needs these filters.
 	filters = append(filters, xdsfilters.Fault, xdsfilters.Cors)
 	if !httpOpts.isWaypoint {
-		filters = append(filters, lb.push.Telemetry.HTTPFilters(lb.node, httpOpts.class, nil)...)
+		filters = append(filters, lb.push.Telemetries().HTTPFilters(lb.node, httpOpts.class, nil)...)
 	}
 	// Add EmptySessionFilter so that it can be overridden at route level per service.
 	if features.EnablePersistentSessionFilter.Load() && httpOpts.class != istionetworking.ListenerClassSidecarInbound {
@@ -472,8 +477,8 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 	// the default was all private IPs. To preserve internal headers when useRemoteAddress is set, we must
 	// explicitly set MeshNetworks to configure Envoy's internal_address_config.
 	// MeshNetwork configuration docs can be found here: https://istio.io/latest/docs/reference/config/istio.mesh.v1alpha1/#MeshNetworks
-	if (features.EnableHCMInternalNetworks || httpOpts.useRemoteAddress) && lb.push.Networks != nil {
-		connectionManager.InternalAddressConfig = util.MeshNetworksToEnvoyInternalAddressConfig(lb.push.Networks)
+	if (features.EnableHCMInternalNetworks || httpOpts.useRemoteAddress) && lb.push.Networks() != nil {
+		connectionManager.InternalAddressConfig = util.MeshNetworksToEnvoyInternalAddressConfig(lb.push.Networks())
 	}
 	connectionManager.Proxy_100Continue = features.Enable100ContinueHeaders
 	return connectionManager

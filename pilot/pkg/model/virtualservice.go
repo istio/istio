@@ -31,7 +31,7 @@ import (
 // SelectVirtualServices selects the virtual services by matching given services' host names.
 // This function is used by sidecar converter.
 // Returns pointers to configs in the index to avoid copying config.Config structs.
-func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, hostsByNamespace map[string]hostClassification) []*config.Config {
+func SelectVirtualServices(vsidx VirtualServiceIndex, configNamespace string, hostsByNamespace map[string]hostClassification) []*config.Config {
 	n := types.NamespacedName{Namespace: configNamespace, Name: constants.IstioMeshGateway}
 	estimatedCap := len(vsidx.privateByNamespaceAndGateway[n]) +
 		len(vsidx.exportedToNamespaceByGateway[n]) +

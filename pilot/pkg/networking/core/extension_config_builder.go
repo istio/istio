@@ -31,9 +31,9 @@ import (
 func (configgen *ConfigGeneratorImpl) BuildExtensionConfiguration(
 	proxy *model.Proxy, push *model.PushContext, extensionConfigNames []string, pullSecrets map[string][]byte,
 ) []*core.TypedExtensionConfig {
-	envoyFilterPatches := push.EnvoyFilters(proxy)
+	envoyFilterPatches := push.EnvoyFilters().EnvoyFilters(proxy, push.Mesh.RootNamespace)
 	extensions := envoyfilter.InsertedExtensionConfigurations(envoyFilterPatches, extensionConfigNames)
-	trafficExtensions := push.TrafficExtensionsByName(proxy, parseExtensionName(extensionConfigNames, model.TrafficExtensionResourceNamePrefix))
+	trafficExtensions := push.TrafficExtensions().TrafficExtensionsByName(proxy, push.Mesh.RootNamespace, parseExtensionName(extensionConfigNames, model.TrafficExtensionResourceNamePrefix))
 	extensions = append(extensions, extension.InsertedTrafficExtensionConfigurations(trafficExtensions, extensionConfigNames, pullSecrets)...)
 	return extensions
 }

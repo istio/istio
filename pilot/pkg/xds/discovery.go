@@ -538,7 +538,7 @@ func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQu
 func (s *DiscoveryServer) initPushContext(req *model.PushRequest, oldPushContext *model.PushContext, version string) *model.PushContext {
 	push := model.NewPushContext()
 	push.PushVersion = version
-	push.JwtKeyResolver = s.JwtKeyResolver
+	push.SetJwtKeyResolvers(s.JwtKeyResolver)
 	push.InitContext(s.Env, oldPushContext, req)
 
 	s.dropCacheForRequest(req)

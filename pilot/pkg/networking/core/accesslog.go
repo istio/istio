@@ -93,7 +93,7 @@ func (b *AccessLogBuilder) setTCPAccessLogWithFilter(
 	filter *accesslog.AccessLogFilter,
 ) {
 	mesh := push.Mesh
-	cfgs := push.Telemetry.AccessLogging(push, proxy, class, svc)
+	cfgs := push.Telemetries().AccessLogging(push, proxy, class, svc)
 
 	if len(cfgs) == 0 {
 		// No Telemetry API configured, fall back to legacy mesh config setting
@@ -119,7 +119,7 @@ func (b *AccessLogBuilder) setTCPAccessLog(push *model.PushContext, proxy *model
 
 func (b *AccessLogBuilder) setHboneOriginationAccessLog(push *model.PushContext, proxy *model.Proxy, tcp *tcp.TcpProxy, class networking.ListenerClass) {
 	mesh := push.Mesh
-	cfgs := push.Telemetry.AccessLogging(push, proxy, class, nil)
+	cfgs := push.Telemetries().AccessLogging(push, proxy, class, nil)
 
 	if len(cfgs) == 0 {
 		// No Telemetry API configured, fall back to legacy mesh config setting
@@ -138,7 +138,7 @@ func (b *AccessLogBuilder) setHboneTerminationAccessLog(push *model.PushContext,
 	connectionManager *hcm.HttpConnectionManager, class networking.ListenerClass,
 ) {
 	mesh := push.Mesh
-	cfgs := push.Telemetry.AccessLogging(push, proxy, class, nil)
+	cfgs := push.Telemetries().AccessLogging(push, proxy, class, nil)
 	if len(cfgs) == 0 {
 		// No Telemetry API configured, fall back to legacy mesh config setting
 		if mesh.AccessLogFile != "" {
@@ -201,7 +201,7 @@ func (b *AccessLogBuilder) setHTTPAccessLog(push *model.PushContext, proxy *mode
 	connectionManager *hcm.HttpConnectionManager, class networking.ListenerClass, svc *model.Service,
 ) {
 	mesh := push.Mesh
-	cfgs := push.Telemetry.AccessLogging(push, proxy, class, svc)
+	cfgs := push.Telemetries().AccessLogging(push, proxy, class, svc)
 	if len(cfgs) == 0 {
 		// No Telemetry API configured, fall back to legacy mesh config setting
 		if mesh.AccessLogFile != "" {
@@ -227,7 +227,7 @@ func (b *AccessLogBuilder) setListenerAccessLog(push *model.PushContext, proxy *
 		return
 	}
 
-	cfgs := push.Telemetry.AccessLogging(push, proxy, class, nil)
+	cfgs := push.Telemetries().AccessLogging(push, proxy, class, nil)
 
 	if len(cfgs) == 0 {
 		// No Telemetry API configured, fall back to legacy mesh config setting

@@ -3436,7 +3436,8 @@ func TestBuildListenerTLSContext(t *testing.T) {
 						},
 					},
 				}
-				pc.ServiceIndex.HostnameAndNamespace = map[host.Name]map[string]*model.Service{
+				si := pc.Services()
+				si.HostnameAndNamespace = map[host.Name]map[string]*model.Service{
 					"sds-provider-service": {
 						"": &model.Service{
 							Hostname: "sds-provider-service",
@@ -3484,7 +3485,8 @@ func TestBuildListenerTLSContext(t *testing.T) {
 						},
 					},
 				}
-				pc.ServiceIndex.HostnameAndNamespace = map[host.Name]map[string]*model.Service{
+				si := pc.Services()
+				si.HostnameAndNamespace = map[host.Name]map[string]*model.Service{
 					"sds-provider-service": {
 						"": &model.Service{
 							Hostname: "sds-provider-service",

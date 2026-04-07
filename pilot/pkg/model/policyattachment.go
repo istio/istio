@@ -61,10 +61,10 @@ func PolicyMatcherFor(workloadNamespace string, labels labels.Instance, isWaypoi
 	}
 }
 
-func PolicyMatcherForProxy(proxy *Proxy) WorkloadPolicyMatcher {
+func PolicyMatcherForProxy(proxy ProxyInfo) WorkloadPolicyMatcher {
 	return WorkloadPolicyMatcher{
-		WorkloadNamespace: proxy.ConfigNamespace,
-		WorkloadLabels:    proxy.Labels,
+		WorkloadNamespace: proxy.GetConfigNamespace(),
+		WorkloadLabels:    proxy.GetLabels(),
 		IsWaypoint:        proxy.IsWaypointProxy(),
 	}
 }

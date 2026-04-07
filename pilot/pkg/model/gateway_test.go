@@ -509,9 +509,9 @@ func makeProxy(fn func() *spiffe.Identity) *Proxy {
 }
 
 func makePushContext() *PushContext {
-	return &PushContext{
-		GatewayAPIController: FakeController{},
-	}
+	pc := &PushContext{}
+	pc.SetGatewayAPIController(FakeController{})
+	return pc
 }
 
 func BenchmarkParseGatewayRDSRouteName(b *testing.B) {

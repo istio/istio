@@ -260,7 +260,7 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 				push := push(t, baseDir+tc.input, tc.meshConfig)
 				proxy := node(tc.version)
 				selectionOpts := model.PolicyMatcherForProxy(proxy)
-				policies := push.AuthzPolicies.ListAuthorizationPolicies(selectionOpts)
+				policies := push.AuthzPolicies().ListAuthorizationPolicies(selectionOpts)
 				g := New(tc.tdBundle, push, policies, option)
 				if g == nil {
 					t.Fatal("failed to create generator")
@@ -334,7 +334,7 @@ func TestGenerator_GenerateTCP(t *testing.T) {
 			push := push(t, baseDir+tc.input, tc.meshConfig)
 			proxy := node(nil)
 			selectionOpts := model.PolicyMatcherForProxy(proxy)
-			policies := push.AuthzPolicies.ListAuthorizationPolicies(selectionOpts)
+			policies := push.AuthzPolicies().ListAuthorizationPolicies(selectionOpts)
 			g := New(tc.tdBundle, push, policies, option)
 			if g == nil {
 				t.Fatal("failed to create generator")
@@ -442,10 +442,11 @@ func newAuthzPolicies(t *testing.T, policies []*config.Config) *model.Authorizat
 func push(t *testing.T, input string, mc *meshconfig.MeshConfig) *model.PushContext {
 	t.Helper()
 	p := &model.PushContext{
-		AuthzPolicies: yamlPolicy(t, basePath+input),
-		Mesh:          mc,
+		Mesh: mc,
 	}
-	p.ServiceIndex.HostnameAndNamespace = map[host.Name]map[string]*model.Service{
+	p.SetAuthzPolicies(yamlPolicy(t, basePath+input))
+	si := p.Services()
+	si.HostnameAndNamespace = map[host.Name]map[string]*model.Service{
 		"my-custom-ext-authz.foo.svc.cluster.local": {
 			"foo": &model.Service{
 				Hostname: "my-custom-ext-authz.foo.svc.cluster.local",

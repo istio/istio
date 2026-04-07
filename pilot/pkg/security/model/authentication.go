@@ -140,15 +140,15 @@ func AppendURIPrefixToTrustDomain(trustDomainAliases []string) []string {
 }
 
 // ApplyToCommonTLSContext completes the commonTlsContext
-func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, proxy *model.Proxy,
+func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, proxyMetadata *model.NodeMetadata,
 	subjectAltNames []string, crl string, trustDomainAliases []string, validateClient bool,
 	tlsCertificates []*networking.ServerTLSSettings_TLSCertificate,
 ) {
 	sdsSecretConfigs := make([]*tls.SdsSecretConfig, 0)
-	customFileSDSServer := proxy.Metadata.Raw[security.CredentialFileMetaDataName] == "true"
+	customFileSDSServer := proxyMetadata.Raw[security.CredentialFileMetaDataName] == "true"
 	// Envoy does not support client validation using multiple CA certificates when multiple certificates are provided.
 	// So we only use what's provided in the ServerTLSSettings.
-	caCert := proxy.Metadata.TLSServerRootCert
+	caCert := proxyMetadata.TLSServerRootCert
 
 	// These are certs being mounted from within the pod. Rather than reading directly in Envoy,
 	// which does not support rotation, we will serve them over SDS by reading the files.
@@ -164,8 +164,8 @@ func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, proxy *model.Prox
 		}
 	} else {
 		res := security.SdsCertificateConfig{
-			CertificatePath:   proxy.Metadata.TLSServerCertChain,
-			PrivateKeyPath:    proxy.Metadata.TLSServerKey,
+			CertificatePath:   proxyMetadata.TLSServerCertChain,
+			PrivateKeyPath:    proxyMetadata.TLSServerKey,
 			CaCertificatePath: caCert,
 		}
 		sdsSecretConfigs = append(sdsSecretConfigs, constructSdsSecretConfig(res.GetResourceName(), SDSDefaultResourceName, customFileSDSServer))

@@ -91,7 +91,7 @@ type EndpointBuilder struct {
 func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.PushContext) EndpointBuilder {
 	dir, subsetName, hostname, port := model.ParseSubsetKey(clusterName)
 
-	svc := push.ServiceForHostname(proxy, hostname)
+	svc := push.Services().ServiceForHostname(proxy, hostname)
 	var dr *model.ConsolidatedDestRule
 	if svc != nil {
 		dr = proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, svc.Hostname)
@@ -111,6 +111,10 @@ func NewCDSEndpointBuilder(
 	dir model.TrafficDirection, subsetName string, hostname host.Name, port int,
 	service *model.Service, dr *model.ConsolidatedDestRule,
 ) *EndpointBuilder {
+	clusterLocal := false
+	if push != nil && service != nil {
+		clusterLocal = push.ClusterLocalHosts().IsClusterLocal(service.Hostname)
+	}
 	b := EndpointBuilder{
 		clusterName:     clusterName,
 		network:         proxy.Metadata.Network,
@@ -119,7 +123,7 @@ func NewCDSEndpointBuilder(
 		locality:        proxy.Locality,
 		destinationRule: dr,
 		service:         service,
-		clusterLocal:    push.IsClusterLocal(service),
+		clusterLocal:    clusterLocal,
 		nodeType:        proxy.Type,
 
 		subsetName: subsetName,
@@ -186,7 +190,7 @@ func (b *EndpointBuilder) populateAmbientServiceInfo() {
 	}
 
 	svc := fmt.Sprintf("%s/%s", b.service.Attributes.Namespace, b.hostname)
-	b.serviceInfo = b.push.ServiceInfo(svc)
+	b.serviceInfo = b.push.AmbientIndex().ServiceInfo(svc)
 	if b.serviceInfo == nil {
 		log.Debugf("can not find ServiceInfo for %s while operating with ambient multicluster enabled", svc)
 	}
@@ -343,7 +347,7 @@ func (b *EndpointBuilder) FromServiceEndpoints() []*endpoint.LocalityLbEndpoints
 	if b == nil {
 		return nil
 	}
-	svcEps := b.push.ServiceEndpointsByPort(b.service, b.port, b.subsetLabels)
+	svcEps := b.push.Services().ServiceEndpointsByPort(b.service, b.port, b.subsetLabels)
 	// don't use the pre-computed endpoints for CDS to preserve previous behavior
 	// CDS is always toServiceWaypoint=false. We do not yet support calling waypoints for CDS (DNS type)
 	return ExtractEnvoyEndpoints(b.generate(svcEps, false))
@@ -354,7 +358,7 @@ func (b *EndpointBuilder) IstioEndpoints() []*model.IstioEndpoint {
 	if b == nil {
 		return nil
 	}
-	return b.push.ServiceEndpointsByPort(b.service, b.port, b.subsetLabels)
+	return b.push.Services().ServiceEndpointsByPort(b.service, b.port, b.subsetLabels)
 }
 
 // BuildClusterLoadAssignment converts the shards for this EndpointBuilder's Service
@@ -822,7 +826,7 @@ func supportTunnel(b *EndpointBuilder, e *model.IstioEndpoint) bool {
 	// Otherwise has ambient enabled. Note: this is a synthetic label, not existing in the real Pod.
 	// Check all addresses and return true if there is any IP address that supports tunneling when current endpoint has multiple addresses
 	for _, addr := range e.Addresses {
-		if b.push.SupportsTunnel(e.Network, addr) {
+		if b.push.AmbientIndex().SupportsTunnel(e.Network, addr) {
 			return true
 		}
 	}
@@ -900,7 +904,7 @@ func (b *EndpointBuilder) findServiceWaypoint(endpointIndex *model.EndpointIndex
 		return nil, false
 	}
 
-	svcs := b.push.ServicesWithWaypoint(b.service.Attributes.Namespace + "/" + string(b.hostname))
+	svcs := b.push.AmbientIndex().ServicesWithWaypoint(b.service.Attributes.Namespace + "/" + string(b.hostname))
 	if len(svcs) == 0 {
 		// Service isn't captured by a waypoint
 		return nil, false

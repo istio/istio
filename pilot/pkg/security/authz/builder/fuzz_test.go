@@ -28,7 +28,7 @@ func FuzzBuildHTTP(f *testing.F) {
 		push := fuzz.Struct[*model.PushContext](fg, validatePush)
 		node := fuzz.Struct[*model.Proxy](fg)
 		selectionOpts := model.PolicyMatcherForProxy(node)
-		policies := push.AuthzPolicies.ListAuthorizationPolicies(selectionOpts)
+		policies := push.AuthzPolicies().ListAuthorizationPolicies(selectionOpts)
 		option := fuzz.Struct[Option](fg)
 		b := New(bundle, push, policies, option)
 		if b == nil {
@@ -45,7 +45,7 @@ func FuzzBuildTCP(f *testing.F) {
 		push := fuzz.Struct[*model.PushContext](fg, validatePush)
 		node := fuzz.Struct[*model.Proxy](fg)
 		selectionOpts := model.PolicyMatcherForProxy(node)
-		policies := push.AuthzPolicies.ListAuthorizationPolicies(selectionOpts)
+		policies := push.AuthzPolicies().ListAuthorizationPolicies(selectionOpts)
 		option := fuzz.Struct[Option](fg)
 		b := New(bundle, push, policies, option)
 		if b == nil {
@@ -60,7 +60,7 @@ func validatePush(in *model.PushContext) bool {
 	if in == nil {
 		return false
 	}
-	if in.AuthzPolicies == nil {
+	if in.AuthzPolicies() == nil {
 		return false
 	}
 	return true

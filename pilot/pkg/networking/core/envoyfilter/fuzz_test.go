@@ -40,7 +40,7 @@ func FuzzApplyClusterMerge(f *testing.F) {
 		env := newTestEnvironment(t, serviceDiscovery, mesh, buildEnvoyFilterConfigStore(patches))
 		push := model.NewPushContext()
 		push.InitContext(env, nil, nil)
-		efw := push.EnvoyFilters(proxy)
+		efw := push.EnvoyFilters().EnvoyFilters(proxy, push.Mesh.RootNamespace)
 		ApplyClusterMerge(networking.EnvoyFilter_GATEWAY, efw, c, []host.Name{host.Name(hostname)})
 	})
 }

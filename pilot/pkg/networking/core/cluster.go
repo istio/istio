@@ -62,11 +62,11 @@ var deltaConfigTypes = sets.New(
 // Cluster type based on resolution
 // For inbound (sidecar only): Cluster for each inbound endpoint port and for each service port
 func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, req *model.PushRequest) ([]*discovery.Resource, model.XdsLogDetails) {
-	envoyFilterPatches := req.Push.EnvoyFilters(proxy)
+	envoyFilterPatches := req.Push.EnvoyFilters().EnvoyFilters(proxy, req.Push.Mesh.RootNamespace)
 	// In Sotw, we care about all services.
 	var services []*model.Service
 	if features.FilterGatewayClusterConfig && proxy.Type == model.Router {
-		services = req.Push.GatewayServices(proxy, envoyFilterPatches)
+		services = req.Push.VirtualServices().GatewayServices(proxy, envoyFilterPatches, req.Push.Mesh, req.Push.AuthnPolicies())
 	} else {
 		services = proxy.SidecarScope.Services()
 	}
@@ -75,7 +75,9 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, req *mod
 
 // BuildDeltaClusters generates the deltas (add and delete) for a given proxy. Currently, only service changes are reflected with deltas.
 // Otherwise, we fall back onto generating everything.
-func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, updates *model.PushRequest,
+func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(
+	proxy *model.Proxy,
+	updates *model.PushRequest,
 	watched *model.WatchedResource,
 ) ([]*discovery.Resource, []string, model.XdsLogDetails, bool) {
 	// if we can't use delta, fall back to generate all
@@ -147,7 +149,7 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 
 		deletedClusters.InsertAll(deleted...)
 	}
-	envoyFilterPatches := updates.Push.EnvoyFilters(proxy)
+	envoyFilterPatches := updates.Push.EnvoyFilters().EnvoyFilters(proxy, updates.Push.Mesh.RootNamespace)
 	clusters, log := configgen.buildClusters(proxy, updates, services, envoyFilterPatches)
 	// DeletedClusters contains list of all subset clusters for the deleted DR or updated DR.
 	// When clusters are rebuilt, we rebuild the subset clusters as well. So, we know what
@@ -167,7 +169,7 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 func gatewayHasDestination(push *model.PushContext, proxy *model.Proxy, host string) bool {
 	if proxy.MergedGateway != nil {
 		for _, gw := range proxy.MergedGateway.GatewayNameForServer {
-			if push.GatewayHasDestination(gw, host) {
+			if push.VirtualServices().GatewayHasDestination(gw, host) {
 				return true
 			}
 		}
@@ -182,7 +184,7 @@ func (configgen *ConfigGeneratorImpl) deltaFromServices(key model.ConfigKey, pro
 ) ([]*model.Service, []string) {
 	var deletedClusters []string
 	var services []*model.Service
-	service := push.ServiceForHostname(proxy, host.Name(key.Name))
+	service := push.Services().ServiceForHostname(proxy, host.Name(key.Name))
 	// push.ServiceForHostname will return nil if the proxy doesn't care about the service OR it was deleted.
 	// we can cross-reference with WatchedResources to figure out which services were deleted.
 	if service == nil {
@@ -275,7 +277,7 @@ func (configgen *ConfigGeneratorImpl) deltaFromServiceDiff(
 
 	var allServices map[host.Name]*model.Service
 	if features.FilterGatewayClusterConfig && proxy.Type == model.Router {
-		svcs := push.GatewayServices(proxy, nil)
+		svcs := push.VirtualServices().GatewayServices(proxy, nil, push.Mesh, push.AuthnPolicies())
 		allServices = make(map[host.Name]*model.Service, len(svcs))
 		for _, svc := range svcs {
 			allServices[svc.Hostname] = svc
@@ -316,7 +318,7 @@ func (configgen *ConfigGeneratorImpl) deltaFromPeerAuthentication(
 
 	var allServices []*model.Service
 	if features.FilterGatewayClusterConfig && proxy.Type == model.Router {
-		allServices = push.GatewayServices(proxy, nil)
+		allServices = push.VirtualServices().GatewayServices(proxy, nil, push.Mesh, push.AuthnPolicies())
 	} else {
 		allServices = proxy.SidecarScope.Services()
 	}
@@ -362,9 +364,9 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 		_, wps := findWaypointResources(proxy, req.Push)
 		// Waypoint proxies do not need outbound clusters in most cases, unless we have a route pointing to something
 		outboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_OUTBOUND}
-		extraNamespacedHosts, extraHosts := req.Push.ExtraWaypointServices(proxy, envoyFilterPatches)
+		extraNamespacedHosts, extraHosts := model.ExtraServicesForProxy(proxy, envoyFilterPatches, req.Push.Mesh, req.Push.AuthnPolicies())
 		outboundServices := filterWaypointOutboundServices(
-			req.Push.ServicesAttachedToMesh(), wps.services, extraNamespacedHosts, extraHosts, services)
+			req.Push.VirtualServices().ServicesAttachedToMesh(), wps.services, extraNamespacedHosts, extraHosts, services)
 		// For E/W gateways that also expose non-HBONE ports via the Gateway API (e.g., TLS passthrough
 		// to the Kubernetes API server), include services referenced by those gateway servers.
 		if isAmbientEastWestGateway(proxy) && proxy.MergedGateway != nil {
@@ -395,15 +397,15 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 		if model.ShouldCreateDoubleHBONEResources(proxy) {
 			clusters = append(
 				clusters,
-				cb.buildInnerConnectOriginateCluster(proxy, req.Push),
-				cb.buildOuterConnectOriginateCluster(proxy, req.Push),
+				cb.buildInnerConnectOriginateCluster(),
+				cb.buildOuterConnectOriginateCluster(),
 			)
 		}
 	}
 
 	// OutboundTunnel cluster is needed for sidecar and gateway.
 	if features.EnableHBONESend && proxy.Type != model.Waypoint && bool(!proxy.Metadata.DisableHBONESend) {
-		clusters = append(clusters, cb.buildConnectOriginate(ConnectOriginate, proxy, req.Push, nil))
+		clusters = append(clusters, cb.buildConnectOriginate(ConnectOriginate, nil))
 	}
 
 	// if credential socket exists, create a cluster for it
@@ -453,7 +455,7 @@ func appendGatewayReferencedServices(push *model.PushContext, proxy *model.Proxy
 	// Collect all destination hostnames referenced by TLS/TCP routes on this gateway's VirtualServices.
 	gwHosts := sets.New[string]()
 	for _, gwName := range proxy.MergedGateway.GatewayNameForServer {
-		for _, vs := range push.VirtualServicesForGateway(proxy.ConfigNamespace, gwName) {
+		for _, vs := range push.VirtualServices().VirtualServicesForGateway(proxy.ConfigNamespace, gwName) {
 			rule := vs.Spec.(*networking.VirtualService)
 			for _, tls := range rule.Tls {
 				for _, route := range tls.Route {

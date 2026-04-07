@@ -255,7 +255,7 @@ const defaultSidecar = "default-sidecar"
 
 // DefaultSidecarScopeForGateway builds a SidecarScope contains services and destinationRules for a given gateway/waypoint.
 func DefaultSidecarScopeForGateway(ps *PushContext, configNamespace string) *SidecarScope {
-	services := ps.servicesExportedToNamespace(configNamespace)
+	services := ps.Services().servicesExportedToNamespace(configNamespace)
 	out := &SidecarScope{
 		Name:                    defaultSidecar,
 		Namespace:               configNamespace,
@@ -275,7 +275,7 @@ func DefaultSidecarScopeForGateway(ps *PushContext, configNamespace string) *Sid
 
 	// waypoint need to get vses from the egress listener
 	defaultEgressListener := &IstioEgressListenerWrapper{
-		virtualServices: ps.VirtualServicesForGateway(configNamespace, constants.IstioMeshGateway),
+		virtualServices: ps.virtualServiceIndex.VirtualServicesForGateway(configNamespace, constants.IstioMeshGateway),
 	}
 	out.EgressListeners = []*IstioEgressListenerWrapper{defaultEgressListener}
 	out.initFunc = func() {}
@@ -381,7 +381,7 @@ func (sc *SidecarScope) collectImportedServices(ps *PushContext, configNamespace
 			}.HashCode())
 			v := vs.Spec.(*networking.VirtualService)
 			for h, ports := range virtualServiceDestinationsFilteredBySourceNamespace(v, configNamespace) {
-				byNamespace := ps.ServiceIndex.HostnameAndNamespace[host.Name(h)]
+				byNamespace := ps.Services().HostnameAndNamespace[host.Name(h)]
 				// Default to this hostname in our config namespace
 				if s, ok := byNamespace[configNamespace]; ok {
 					// This won't overwrite hostnames that have already been found eg because they were requested in hosts
@@ -414,17 +414,17 @@ func (sc *SidecarScope) collectImportedServices(ps *PushContext, configNamespace
 }
 
 func (sc *SidecarScope) selectAuthnPolicies(ps *PushContext, configNamespace string) {
-	if ps.AuthnPolicies == nil {
+	if ps.AuthnPolicies() == nil {
 		return
 	}
 
 	// Collect relevant namespaces: root namespace + config namespace + namespaces of all imported services.
-	relevantNamespaces := sets.New(configNamespace, ps.AuthnPolicies.GetRootNamespace())
+	relevantNamespaces := sets.New(configNamespace, ps.AuthnPolicies().GetRootNamespace())
 	for _, svc := range sc.services {
 		relevantNamespaces.Insert(svc.Attributes.Namespace)
 	}
 
-	sc.AuthnPolicies = ps.AuthnPolicies.FilterPeerAuthenticationNamespaces(relevantNamespaces)
+	sc.AuthnPolicies = ps.AuthnPolicies().FilterPeerAuthenticationNamespaces(relevantNamespaces)
 
 	// Add all selected PeerAuthentication policies as config dependencies
 	for _, configs := range sc.AuthnPolicies.GetPeerAuthentications() {
@@ -442,7 +442,7 @@ func (sc *SidecarScope) selectDestinationRules(ps *PushContext, configNamespace 
 	sc.destinationRules = make(map[host.Name][]*ConsolidatedDestRule)
 	sc.destinationRulesByNames = make(map[types.NamespacedName]*config.Config)
 	for _, s := range sc.services {
-		drList := ps.destinationRule(configNamespace, s)
+		drList := ps.destinationRuleIndex.destinationRule(ps.Services(), ps.Mesh.RootNamespace, configNamespace, s)
 		if drList != nil {
 			sc.destinationRules[s.Hostname] = drList
 			for _, dr := range drList {
@@ -502,7 +502,7 @@ func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 	}
 
 	out.virtualServices = SelectVirtualServices(ps.virtualServiceIndex, configNamespace, hostsByNamespace)
-	svces := ps.servicesExportedToNamespace(configNamespace)
+	svces := ps.Services().servicesExportedToNamespace(configNamespace)
 	out.services = out.selectServices(svces, configNamespace, hostsByNamespace)
 	out.mostSpecificWildcardVsIndex = computeWildcardHostVirtualServiceIndex(out.virtualServices, out.services)
 
@@ -1054,7 +1054,7 @@ func canMergeServices(s1, s2 *Service) bool {
 func pickFirstVisibleNamespace(ps *PushContext, byNamespace map[string]*Service, configNamespace string) string {
 	nss := make([]string, 0, len(byNamespace))
 	for ns := range byNamespace {
-		if ps.IsServiceVisible(byNamespace[ns], configNamespace) {
+		if ps.ExportToDefaults().IsServiceVisible(byNamespace[ns], configNamespace) {
 			nss = append(nss, ns)
 		}
 	}
@@ -1075,7 +1075,7 @@ func pickFirstVisibleNamespace(ps *PushContext, byNamespace map[string]*Service,
 func pickBestVisibleNamespace(ps *PushContext, byNamespace map[string]*Service, configNamespace string) string {
 	var currentBestService *Service
 	for _, svc := range byNamespace {
-		if ps.IsServiceVisible(svc, configNamespace) {
+		if ps.ExportToDefaults().IsServiceVisible(svc, configNamespace) {
 			// if we have a visible kube service, use it
 			if svc.Attributes.ServiceRegistry == provider.Kubernetes {
 				return svc.NamespacedName().Namespace
