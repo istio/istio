@@ -141,11 +141,11 @@ func buildDataSource(u *url.URL, urlString string, sha256 string) *core.AsyncDat
 }
 
 // FilterType defines whether a TrafficExtension is Lua or WASM based
-type FilterType int
+type FilterType string
 
 const (
-	FilterTypeWasm FilterType = iota
-	FilterTypeLua
+	FilterTypeWasm FilterType = "wasm"
+	FilterTypeLua  FilterType = "lua"
 )
 
 // FilterChainType describes which Envoy filter chain type an extension applies to
