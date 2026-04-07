@@ -126,7 +126,8 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 				if len(reachableGateways) == 0 {
 					// We have an endpoint on a remote network, but no reachable E/W gateway (either none
 					// configured or none matching this proxy's IP family).
-					log.Warnf("Workload %s belongs to a different network (%s), but no reachable E/W gateway for this proxy, skipping it.", istioEndpoint.WorkloadName, epNetwork)
+					log.Warnf("Workload %s on network %s has no reachable E/W gateway for this proxy, skipping",
+						istioEndpoint.WorkloadName, epNetwork)
 					continue
 				}
 			}
@@ -356,7 +357,7 @@ func (b *EndpointBuilder) filterGatewaysByIPFamily(gws []model.NetworkGateway) [
 	supportsV4 := b.proxy.SupportsIPv4()
 	supportsV6 := b.proxy.SupportsIPv6()
 
-	// 1. Unknown IP mode: preserve existing behaviour of no filter.
+	// 1. Unknown IP mode: preserve existing behavior of no filter.
 	// 2. Dualstack proxies: can reach all gateways, no filtering needed.
 	if (!supportsV4 && !supportsV6) || (supportsV4 && supportsV6) {
 		return gws
