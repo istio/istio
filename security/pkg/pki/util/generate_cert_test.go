@@ -1016,9 +1016,9 @@ func TestGenCertFromCSRWithTTLClamping(t *testing.T) {
 	subjectIDs := []string{"spiffe://cluster.local/leaf"}
 
 	cases := []struct {
-		name           string
-		ttl            time.Duration
-		expectClamped  bool
+		name          string
+		ttl           time.Duration
+		expectClamped bool
 	}{
 		{
 			name:          "TTL shorter than signing cert - no clamping",

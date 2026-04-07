@@ -669,8 +669,7 @@ func TestSignCSR(t *testing.T) {
 
 // TestSignCSRWithTTLClamping verifies that the full IstioCA.Sign() path correctly clamps
 // leaf certificate TTL to the signing certificate's remaining validity when using a
-// short-lived CA. This is an integration test that exercises the complete signing flow,
-// not just the generate_cert utility functions.
+// short-lived CA.
 func TestSignCSRWithTTLClamping(t *testing.T) {
 	// Create a root CA with long TTL
 	rootCAOpts := util.CertOptions{
@@ -762,11 +761,6 @@ func TestSignCSRWithTTLClamping(t *testing.T) {
 	intermediateCACert, err := util.ParsePemEncodedCertificate(intermediateCert)
 	if err != nil {
 		t.Fatalf("failed to parse intermediate CA certificate: %v", err)
-	}
-
-	// Verify that the leaf cert NotAfter does not exceed the intermediate CA cert NotAfter
-	if leafCert.NotAfter.After(intermediateCACert.NotAfter) {
-		t.Errorf("leaf cert NotAfter (%v) exceeds intermediate CA cert NotAfter (%v)", leafCert.NotAfter, intermediateCACert.NotAfter)
 	}
 
 	// Verify that the leaf cert NotAfter was actually clamped (equals intermediate CA NotAfter)
