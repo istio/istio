@@ -1,0 +1,32 @@
+apiVersion: security.istio.io/v1
+kind: RequestAuthentication
+metadata:
+  name: jwt-auth
+  namespace: default
+spec:
+  jwtRules:
+    - issuer: "https://example.com"
+      jwksUri: "https://example.com/.well-known/jwks.json"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: istiod
+  namespace: istio-system
+  labels:
+    app: istiod
+spec:
+  selector:
+    matchLabels:
+      app: istiod
+  template:
+    metadata:
+      labels:
+        app: istiod
+    spec:
+      containers:
+        - name: discovery
+          image: gcr.io/istio-testing/pilot:latest
+          env:
+            - name: BLOCKED_CIDRS_IN_JWKS_URIS
+              value: "10.0.0.0/8,192.168.0.0/16,172.16.0.0/12"
