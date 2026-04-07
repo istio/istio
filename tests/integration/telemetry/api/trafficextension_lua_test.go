@@ -39,7 +39,7 @@ func applyLuaTrafficExtensionConfig(ctx framework.TestContext, ns string, args m
 func installLuaTrafficExtension(ctx framework.TestContext, filterName, targetAppName, path string) error {
 	args := map[string]any{
 		"TrafficExtensionName": filterName,
-		"TargetAppName":       targetAppName,
+		"TargetAppName":        targetAppName,
 	}
 
 	if err := applyLuaTrafficExtensionConfig(ctx, apps.Namespace.Name(), args, path); err != nil {

@@ -428,16 +428,16 @@ func TestTrafficExtensionWrapper_MatchType(t *testing.T) {
 
 func TestMatchListener(t *testing.T) {
 	cases := []struct {
-		desc            string
+		desc             string
 		trafficExtension *TrafficExtensionWrapper
-		proxyLabels     map[string]string
-		listenerInfo    ListenerInfo
-		want            bool
+		proxyLabels      map[string]string
+		listenerInfo     ListenerInfo
+		want             bool
 	}{
 		{
-			desc:            "match and selector are nil",
+			desc:             "match and selector are nil",
 			trafficExtension: &TrafficExtensionWrapper{TrafficExtension: &extensions.TrafficExtension{Selector: nil, Match: nil}},
-			proxyLabels:     map[string]string{"a": "b", "c": "d"},
+			proxyLabels:      map[string]string{"a": "b", "c": "d"},
 			listenerInfo: ListenerInfo{
 				Port:  1234,
 				Class: networking.ListenerClassSidecarInbound,
