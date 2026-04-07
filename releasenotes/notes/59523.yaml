@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+  - 59523
+releaseNotes:
+- |
+  **Added** an `istioctl analyze` warning (IST0175) when RequestAuthentication resources exist
+  but `BLOCKED_CIDRS_IN_JWKS_URIS` is not configured on istiod.
