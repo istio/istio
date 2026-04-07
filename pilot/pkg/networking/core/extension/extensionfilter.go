@@ -95,8 +95,7 @@ func toEnvoyHTTPTrafficExtension(filter *model.TrafficExtensionWrapper) *hcm.Htt
 		return nil
 	}
 
-	switch filter.FilterType {
-	case model.FilterTypeLua:
+	if filter.GetLua() != nil {
 		// Lua filters are inlined directly
 		luaConfig := BuildHTTPLuaFilter(filter)
 		if luaConfig == nil {
@@ -108,7 +107,7 @@ func toEnvoyHTTPTrafficExtension(filter *model.TrafficExtensionWrapper) *hcm.Htt
 				TypedConfig: protoconv.MessageToAny(luaConfig),
 			},
 		}
-	case model.FilterTypeWasm:
+	} else if filter.GetWasm() != nil {
 		// WASM filters use ECDS
 		return &hcm.HttpFilter{
 			Name: filter.ResourceName,
@@ -122,10 +121,9 @@ func toEnvoyHTTPTrafficExtension(filter *model.TrafficExtensionWrapper) *hcm.Htt
 				},
 			},
 		}
-	default:
-		log.Warnf("unknown filter type for TrafficExtension %s", filter.ResourceName)
-		return nil
 	}
+	log.Warnf("unknown filter type for TrafficExtension %s", filter.ResourceName)
+	return nil
 }
 
 // toEnvoyNetworkTrafficExtension converts a TrafficExtensionWrapper to an Envoy network filter.
@@ -136,12 +134,11 @@ func toEnvoyNetworkTrafficExtension(filter *model.TrafficExtensionWrapper) *list
 		return nil
 	}
 
-	switch filter.FilterType {
-	case model.FilterTypeLua:
+	if filter.GetLua() != nil {
 		// Lua filters do not support network (L4) filtering
 		log.Warnf("Lua filters do not support network filtering, skipping TrafficExtension %s", filter.ResourceName)
 		return nil
-	case model.FilterTypeWasm:
+	} else if filter.GetWasm() != nil {
 		// WASM filters use ECDS
 		return &listener.Filter{
 			Name: filter.ResourceName,
@@ -155,10 +152,9 @@ func toEnvoyNetworkTrafficExtension(filter *model.TrafficExtensionWrapper) *list
 				},
 			},
 		}
-	default:
-		log.Warnf("unknown filter type for TrafficExtension %s", filter.ResourceName)
-		return nil
 	}
+	log.Warnf("unknown filter type for TrafficExtension %s", filter.ResourceName)
+	return nil
 }
 
 // InsertedTrafficExtensionConfigurations builds ECDS configurations for TrafficExtensions.
@@ -177,11 +173,11 @@ func InsertedTrafficExtensionConfigurations(
 			continue
 		}
 		// Skip Lua filters - they are inlined directly, not via ECDS
-		if filter.FilterType == model.FilterTypeLua {
+		if filter.GetLua() != nil {
 			continue
 		}
 		// Only WASM filters use ECDS
-		switch filter.Wasm.Type {
+		switch filter.GetWasm().Type {
 		case extensions.PluginType_NETWORK:
 			wasmExtensionConfig := filter.BuildNetworkWasmFilter()
 			if wasmExtensionConfig == nil {

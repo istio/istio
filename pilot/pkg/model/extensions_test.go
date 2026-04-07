@@ -232,7 +232,6 @@ func TestConvertToTrafficExtensionWrapper(t *testing.T) {
 	cases := []struct {
 		desc       string
 		config     config.Config
-		wantType   FilterType
 		wantNil    bool
 		wantErrLog string
 	}{
@@ -250,8 +249,7 @@ func TestConvertToTrafficExtensionWrapper(t *testing.T) {
 					}},
 				},
 			},
-			wantType: FilterTypeLua,
-			wantNil:  false,
+			wantNil: false,
 		},
 		{
 			desc: "valid wasm config",
@@ -267,8 +265,7 @@ func TestConvertToTrafficExtensionWrapper(t *testing.T) {
 					}},
 				},
 			},
-			wantType: FilterTypeWasm,
-			wantNil:  false,
+			wantNil: false,
 		},
 		{
 			desc: "neither wasm nor lua set",
@@ -343,9 +340,6 @@ func TestConvertToTrafficExtensionWrapper(t *testing.T) {
 				if got == nil {
 					t.Fatalf("expected non-nil wrapper")
 				}
-				if got.FilterType != tc.wantType {
-					t.Errorf("got FilterType %v, want %v", got.FilterType, tc.wantType)
-				}
 				if got.Name != tc.config.Name {
 					t.Errorf("got Name %v, want %v", got.Name, tc.config.Name)
 				}
@@ -371,7 +365,11 @@ func TestTrafficExtensionWrapper_MatchType(t *testing.T) {
 		{
 			desc: "lua matches HTTP",
 			wrapper: &TrafficExtensionWrapper{
-				FilterType: FilterTypeLua,
+				TrafficExtension: &extensions.TrafficExtension{
+					FilterConfig: &extensions.TrafficExtension_Lua{Lua: &extensions.LuaConfig{
+						InlineCode: "function envoy_on_request() end",
+					}},
+				},
 			},
 			chainType: FilterChainTypeHTTP,
 			want:      true,
@@ -379,7 +377,11 @@ func TestTrafficExtensionWrapper_MatchType(t *testing.T) {
 		{
 			desc: "lua matches Any",
 			wrapper: &TrafficExtensionWrapper{
-				FilterType: FilterTypeLua,
+				TrafficExtension: &extensions.TrafficExtension{
+					FilterConfig: &extensions.TrafficExtension_Lua{Lua: &extensions.LuaConfig{
+						InlineCode: "function envoy_on_request() end",
+					}},
+				},
 			},
 			chainType: FilterChainTypeAny,
 			want:      true,
@@ -387,7 +389,11 @@ func TestTrafficExtensionWrapper_MatchType(t *testing.T) {
 		{
 			desc: "lua does not match Network",
 			wrapper: &TrafficExtensionWrapper{
-				FilterType: FilterTypeLua,
+				TrafficExtension: &extensions.TrafficExtension{
+					FilterConfig: &extensions.TrafficExtension_Lua{Lua: &extensions.LuaConfig{
+						InlineCode: "function envoy_on_request() end",
+					}},
+				},
 			},
 			chainType: FilterChainTypeNetwork,
 			want:      false,
@@ -395,9 +401,11 @@ func TestTrafficExtensionWrapper_MatchType(t *testing.T) {
 		{
 			desc: "wasm HTTP matches HTTP",
 			wrapper: &TrafficExtensionWrapper{
-				FilterType: FilterTypeWasm,
-				Wasm: &extensions.WasmConfig{
-					Type: extensions.PluginType_HTTP,
+				TrafficExtension: &extensions.TrafficExtension{
+					FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
+						Url:  "oci://test.com/wasm:v1",
+						Type: extensions.PluginType_HTTP,
+					}},
 				},
 			},
 			chainType: FilterChainTypeHTTP,
@@ -406,9 +414,11 @@ func TestTrafficExtensionWrapper_MatchType(t *testing.T) {
 		{
 			desc: "wasm Network matches Network",
 			wrapper: &TrafficExtensionWrapper{
-				FilterType: FilterTypeWasm,
-				Wasm: &extensions.WasmConfig{
-					Type: extensions.PluginType_NETWORK,
+				TrafficExtension: &extensions.TrafficExtension{
+					FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
+						Url:  "oci://test.com/wasm:v1",
+						Type: extensions.PluginType_NETWORK,
+					}},
 				},
 			},
 			chainType: FilterChainTypeNetwork,

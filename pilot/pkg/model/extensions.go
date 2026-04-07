@@ -140,14 +140,6 @@ func buildDataSource(u *url.URL, urlString string, sha256 string) *core.AsyncDat
 	}
 }
 
-// FilterType defines whether a TrafficExtension is Lua or WASM based
-type FilterType string
-
-const (
-	FilterTypeWasm FilterType = "wasm"
-	FilterTypeLua  FilterType = "lua"
-)
-
 // FilterChainType describes which Envoy filter chain type an extension applies to
 type FilterChainType int
 
@@ -174,15 +166,10 @@ func filterChainTypeFromPluginType(pluginType extensions.PluginType) FilterChain
 type TrafficExtensionWrapper struct {
 	*extensions.TrafficExtension
 
-	// Wasm and Lua are extracted from the oneof FilterConfig at construction time for convenience.
-	Wasm *extensions.WasmConfig
-	Lua  *extensions.LuaConfig
-
 	Name            string
 	Namespace       string
 	ResourceName    string
 	ResourceVersion string
-	FilterType      FilterType
 }
 
 // GetTargetRef returns nil; TrafficExtension uses GetTargetRefs (plural) only.
@@ -203,20 +190,20 @@ func (e *TrafficExtensionWrapper) NamespacedName() types.NamespacedName {
 }
 
 func (e *TrafficExtensionWrapper) MatchType(chainType FilterChainType) bool {
-	if e.FilterType == FilterTypeLua {
+	if e.GetLua() != nil {
 		// Lua only supports HTTP filters
 		return chainType == FilterChainTypeAny || chainType == FilterChainTypeHTTP
 	}
 	// For WASM, check the type field
-	wasmType := filterChainTypeFromPluginType(e.Wasm.Type)
+	wasmType := filterChainTypeFromPluginType(e.GetWasm().GetType())
 	return chainType == FilterChainTypeAny || chainType == wasmType
 }
 
 func (e *TrafficExtensionWrapper) BuildHTTPWasmFilter() *httpwasm.Wasm {
-	if e.FilterType != FilterTypeWasm || e.Wasm == nil {
+	if e.GetWasm() == nil {
 		return nil
 	}
-	if !(e.Wasm.Type == extensions.PluginType_HTTP || e.Wasm.Type == extensions.PluginType_UNSPECIFIED_PLUGIN_TYPE) {
+	if !(e.GetWasm().Type == extensions.PluginType_HTTP || e.GetWasm().Type == extensions.PluginType_UNSPECIFIED_PLUGIN_TYPE) {
 		return nil
 	}
 	return &httpwasm.Wasm{
@@ -225,10 +212,10 @@ func (e *TrafficExtensionWrapper) BuildHTTPWasmFilter() *httpwasm.Wasm {
 }
 
 func (e *TrafficExtensionWrapper) BuildNetworkWasmFilter() *networkwasm.Wasm {
-	if e.FilterType != FilterTypeWasm || e.Wasm == nil {
+	if e.GetWasm() == nil {
 		return nil
 	}
-	if e.Wasm.Type != extensions.PluginType_NETWORK {
+	if e.GetWasm().Type != extensions.PluginType_NETWORK {
 		return nil
 	}
 	return &networkwasm.Wasm{
@@ -238,8 +225,8 @@ func (e *TrafficExtensionWrapper) BuildNetworkWasmFilter() *networkwasm.Wasm {
 
 func (e *TrafficExtensionWrapper) buildWasmConfig() *wasmextensions.PluginConfig {
 	cfg := &anypb.Any{}
-	if e.Wasm.PluginConfig != nil && len(e.Wasm.PluginConfig.Fields) > 0 {
-		cfgJSON, err := protomarshal.ToJSON(e.Wasm.PluginConfig)
+	if e.GetWasm().PluginConfig != nil && len(e.GetWasm().PluginConfig.Fields) > 0 {
+		cfgJSON, err := protomarshal.ToJSON(e.GetWasm().PluginConfig)
 		if err != nil {
 			log.Warnf("trafficextension %v/%v discarded due to json marshaling error: %s", e.Namespace, e.Name, err)
 			return nil
@@ -249,7 +236,7 @@ func (e *TrafficExtensionWrapper) buildWasmConfig() *wasmextensions.PluginConfig
 		})
 	}
 
-	u, err := url.Parse(e.Wasm.Url)
+	u, err := url.Parse(e.GetWasm().Url)
 	if err != nil {
 		log.Warnf("trafficextension %v/%v discarded due to failure to parse URL: %s", e.Namespace, e.Name, err)
 		return nil
@@ -259,18 +246,18 @@ func (e *TrafficExtensionWrapper) buildWasmConfig() *wasmextensions.PluginConfig
 		u.Scheme = ociScheme
 	}
 
-	datasource := buildDataSource(u, e.Wasm.Url, e.Wasm.Sha256)
+	datasource := buildDataSource(u, e.GetWasm().Url, e.GetWasm().Sha256)
 	resourceName := e.Namespace + "." + e.Name
 
 	wasmConfig := &wasmextensions.PluginConfig{
 		Name:          resourceName,
-		RootId:        e.Wasm.PluginName,
+		RootId:        e.GetWasm().PluginName,
 		Configuration: cfg,
 		Vm: buildVMConfig(datasource, e.ResourceVersion,
-			e.Wasm.ImagePullSecret, e.Wasm.ImagePullPolicy, e.Wasm.VmConfig),
+			e.GetWasm().ImagePullSecret, e.GetWasm().ImagePullPolicy, e.GetWasm().VmConfig),
 	}
 
-	switch e.Wasm.FailStrategy {
+	switch e.GetWasm().FailStrategy {
 	case extensions.FailStrategy_FAIL_OPEN:
 		wasmConfig.FailurePolicy = wasmextensions.FailurePolicy_FAIL_OPEN
 	case extensions.FailStrategy_FAIL_CLOSE:
@@ -305,10 +292,7 @@ func convertToTrafficExtensionWrapper(originConfig config.Config) *TrafficExtens
 	wasm := trafficExt.GetWasm()
 	lua := trafficExt.GetLua()
 
-	// Determine filter type based on which oneof variant is set
-	var filterType FilterType
 	if wasm != nil {
-		filterType = FilterTypeWasm
 		// Validate WASM config
 		if wasm.Url == "" {
 			log.Warnf("trafficextension %v/%v discarded: wasm.url is required", plugin.Namespace, plugin.Name)
@@ -348,7 +332,6 @@ func convertToTrafficExtensionWrapper(originConfig config.Config) *TrafficExtens
 			}
 		}
 	} else if lua != nil {
-		filterType = FilterTypeLua
 		// Validate Lua config
 		if len(lua.InlineCode) == 0 {
 			log.Warnf("trafficextension %v/%v discarded: lua.inlineCode cannot be empty", plugin.Namespace, plugin.Name)
@@ -368,10 +351,7 @@ func convertToTrafficExtensionWrapper(originConfig config.Config) *TrafficExtens
 		Namespace:        plugin.Namespace,
 		ResourceName:     TrafficExtensionResourceNamePrefix + plugin.Namespace + "." + plugin.Name,
 		TrafficExtension: trafficExt,
-		Wasm:             wasm,
-		Lua:              lua,
 		ResourceVersion:  plugin.ResourceVersion,
-		FilterType:       filterType,
 	}
 }
 
