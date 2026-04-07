@@ -253,9 +253,8 @@ func NewController(
 		c.tagWatcher,
 		opts,
 	)
-	status.RegisterStatus(c.status, ListenerSetStatus, GetStatus, c.tagWatcher.AccessUnprotected())
 
-	// GatewaysStatus is not fully complete until its join with route attachments to report attachedRoutes.
+	// GatewaysStatus and ListenerSetStatus is not fully complete until its join with route attachments to report attachedRoutes.
 	// Do not register yet.
 	GatewaysStatus, Gateways := GatewayCollection(
 		inputs.Gateways,
@@ -365,8 +364,20 @@ func NewController(
 		opts,
 	)
 
-	GatewayFinalStatus := FinalGatewayStatusCollection(GatewaysStatus, RouteAttachments, RouteAttachmentsIndex, opts)
+	GatewayFinalStatus := FinalGatewayStatusCollection(GatewaysStatus, RouteAttachmentsIndex, opts)
 	status.RegisterStatus(c.status, GatewayFinalStatus, GetStatus, c.tagWatcher.AccessUnprotected())
+
+	ListenerSetRouteAttachments := krt.JoinCollection([]krt.Collection[RouteAttachment]{
+		tcpRoutes.ListenerSetAttachments,
+		tlsRoutes.ListenerSetAttachments,
+		httpRoutes.ListenerSetAttachments,
+		grpcRoutes.ListenerSetAttachments,
+	}, opts.WithName("ListenerSetRouteAttachments")...)
+	ListenerSetAttachmentsIndex := krt.NewIndex(ListenerSetRouteAttachments, "to", func(o RouteAttachment) []types.NamespacedName {
+		return []types.NamespacedName{o.To}
+	})
+	ListenerSetFinalStatus := FinalListenerSetStatusCollection(ListenerSetStatus, ListenerSetAttachmentsIndex, opts)
+	status.RegisterStatus(c.status, ListenerSetFinalStatus, GetStatus, c.tagWatcher.AccessUnprotected())
 
 	// Merge HTTP and gRPC base VirtualServices together so routes on the same
 	// gateway+hostname are combined into a single VirtualService, allowing

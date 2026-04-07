@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+releaseNotes:
+- |
+  **Fixed** `ListenerSet` status `listeners[].attachedRoutes` always reporting `0`
+  when routes attach via a `ListenerSet` `parentRef`. The counter now correctly
+  reflects the number of accepted routes on each listener.

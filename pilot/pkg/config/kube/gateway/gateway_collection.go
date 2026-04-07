@@ -371,7 +371,6 @@ func GatewayCollection(
 // the attachedRoute count.
 func FinalGatewayStatusCollection(
 	gatewayStatuses krt.StatusCollection[*gatewayv1.Gateway, gatewayv1.GatewayStatus],
-	routeAttachments krt.Collection[RouteAttachment],
 	routeAttachmentsIndex krt.Index[types.NamespacedName, RouteAttachment],
 	opts krt.OptionsBuilder,
 ) krt.StatusCollection[*gatewayv1.Gateway, gatewayv1.GatewayStatus] {
@@ -380,21 +379,46 @@ func FinalGatewayStatusCollection(
 		func(
 			ctx krt.HandlerContext, i krt.ObjectWithStatus[*gatewayv1.Gateway, gatewayv1.GatewayStatus],
 		) *krt.ObjectWithStatus[*gatewayv1.Gateway, gatewayv1.GatewayStatus] {
-			tcpRoutes := routeAttachmentsIndex.Fetch(ctx, config.NamespacedName(i.Obj))
 			counts := map[string]int32{}
-			for _, r := range tcpRoutes {
+			for _, r := range routeAttachmentsIndex.Fetch(ctx, config.NamespacedName(i.Obj)) {
 				counts[r.ListenerName]++
 			}
 			status := i.Status.DeepCopy()
 			for i, s := range status.Listeners {
-				s.AttachedRoutes = counts[string(s.Name)]
-				status.Listeners[i] = s
+				status.Listeners[i].AttachedRoutes = counts[string(s.Name)]
 			}
 			return &krt.ObjectWithStatus[*gatewayv1.Gateway, gatewayv1.GatewayStatus]{
 				Obj:    i.Obj,
 				Status: *status,
 			}
 		}, opts.WithName("GatewayFinalStatus")...)
+}
+
+// FinalListenerSetStatusCollection finalizes a ListenerSet status with the attachedRoutes count,
+// using the same two-phase pattern as FinalGatewayStatusCollection.
+func FinalListenerSetStatusCollection(
+	listenerSetStatuses krt.StatusCollection[*gatewayv1.ListenerSet, gatewayv1.ListenerSetStatus],
+	routeAttachmentsIndex krt.Index[types.NamespacedName, RouteAttachment],
+	opts krt.OptionsBuilder,
+) krt.StatusCollection[*gatewayv1.ListenerSet, gatewayv1.ListenerSetStatus] {
+	return krt.NewCollection(
+		listenerSetStatuses,
+		func(
+			ctx krt.HandlerContext, i krt.ObjectWithStatus[*gatewayv1.ListenerSet, gatewayv1.ListenerSetStatus],
+		) *krt.ObjectWithStatus[*gatewayv1.ListenerSet, gatewayv1.ListenerSetStatus] {
+			counts := map[string]int32{}
+			for _, r := range routeAttachmentsIndex.Fetch(ctx, config.NamespacedName(i.Obj)) {
+				counts[r.ListenerName]++
+			}
+			status := i.Status.DeepCopy()
+			for i, s := range status.Listeners {
+				status.Listeners[i].AttachedRoutes = counts[string(s.Name)]
+			}
+			return &krt.ObjectWithStatus[*gatewayv1.ListenerSet, gatewayv1.ListenerSetStatus]{
+				Obj:    i.Obj,
+				Status: *status,
+			}
+		}, opts.WithName("ListenerSetFinalStatus")...)
 }
 
 // RouteParents holds information about things routes can reference as parents.

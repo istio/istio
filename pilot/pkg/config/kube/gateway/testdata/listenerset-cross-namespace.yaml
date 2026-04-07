@@ -126,3 +126,22 @@ spec:
   to:
     - group: ""
       kind: Secret
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: cross-ns-route
+  namespace: ns1
+spec:
+  parentRefs:
+    - name: single-entry-http
+      namespace: ns1
+      kind: ListenerSet
+      group: gateway.networking.k8s.io
+  rules:
+    - matches:
+        - path:
+            value: /cross
+      backendRefs:
+        - name: httpbin
+          port: 80

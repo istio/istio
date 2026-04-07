@@ -64,7 +64,7 @@ func HTTPRouteCollection(
 	inputs RouteContextInputs,
 	opts krt.OptionsBuilder,
 ) RouteResult[*gatewayv1.HTTPRoute, gatewayv1.HTTPRouteStatus] {
-	routeCount := gatewayRouteAttachmentCountCollection(inputs, httpRoutes, gvk.HTTPRoute, opts)
+	routeCount, listenerSetRouteCount := routeAttachmentCountCollections(inputs, httpRoutes, gvk.HTTPRoute, opts)
 	ancestorBackends := krt.NewManyCollection(httpRoutes, func(krtctx krt.HandlerContext, obj *gatewayv1.HTTPRoute) []AncestorBackend {
 		return extractAncestorBackends(
 			obj.ObjectMeta,
@@ -215,11 +215,12 @@ func HTTPRouteCollection(
 
 	finalVirtualServices := mergeHTTPRoutes(baseVirtualServices, opts.WithName("HTTPRouteMerged")...)
 	return RouteResult[*gatewayv1.HTTPRoute, gatewayv1.HTTPRouteStatus]{
-		VirtualServices:     finalVirtualServices,
-		BaseVirtualServices: baseVirtualServices,
-		RouteAttachments:    routeCount,
-		Status:              status,
-		Ancestors:           ancestorBackends,
+		VirtualServices:        finalVirtualServices,
+		BaseVirtualServices:    baseVirtualServices,
+		RouteAttachments:       routeCount,
+		ListenerSetAttachments: listenerSetRouteCount,
+		Status:                 status,
+		Ancestors:              ancestorBackends,
 	}
 }
 
@@ -292,7 +293,7 @@ func GRPCRouteCollection(
 	inputs RouteContextInputs,
 	opts krt.OptionsBuilder,
 ) RouteResult[*gatewayv1.GRPCRoute, gatewayv1.GRPCRouteStatus] {
-	routeCount := gatewayRouteAttachmentCountCollection(inputs, grpcRoutes, gvk.GRPCRoute, opts)
+	routeCount, listenerSetRouteCount := routeAttachmentCountCollections(inputs, grpcRoutes, gvk.GRPCRoute, opts)
 	ancestorBackends := krt.NewManyCollection(grpcRoutes, func(krtctx krt.HandlerContext, obj *gatewayv1.GRPCRoute) []AncestorBackend {
 		return extractAncestorBackends(
 			obj.ObjectMeta,
@@ -430,11 +431,12 @@ func GRPCRouteCollection(
 
 	finalVirtualServices := mergeHTTPRoutes(baseVirtualServices, opts.WithName("GRPCRouteMerged")...)
 	return RouteResult[*gatewayv1.GRPCRoute, gatewayv1.GRPCRouteStatus]{
-		VirtualServices:     finalVirtualServices,
-		BaseVirtualServices: baseVirtualServices,
-		RouteAttachments:    routeCount,
-		Status:              status,
-		Ancestors:           ancestorBackends,
+		VirtualServices:        finalVirtualServices,
+		BaseVirtualServices:    baseVirtualServices,
+		RouteAttachments:       routeCount,
+		ListenerSetAttachments: listenerSetRouteCount,
+		Status:                 status,
+		Ancestors:              ancestorBackends,
 	}
 }
 
@@ -443,7 +445,7 @@ func TCPRouteCollection(
 	inputs RouteContextInputs,
 	opts krt.OptionsBuilder,
 ) RouteResult[*gatewayalpha.TCPRoute, gatewayalpha.TCPRouteStatus] {
-	routeCount := gatewayRouteAttachmentCountCollection(inputs, tcpRoutes, gvk.TCPRoute, opts)
+	routeCount, listenerSetRouteCount := routeAttachmentCountCollections(inputs, tcpRoutes, gvk.TCPRoute, opts)
 	ancestorBackends := krt.NewManyCollection(tcpRoutes, func(krtctx krt.HandlerContext, obj *gatewayalpha.TCPRoute) []AncestorBackend {
 		return extractAncestorBackends(
 			obj.ObjectMeta,
@@ -528,10 +530,11 @@ func TCPRouteCollection(
 	}, opts.WithName("TCPRoute")...)
 
 	return RouteResult[*gatewayalpha.TCPRoute, gatewayalpha.TCPRouteStatus]{
-		VirtualServices:  virtualServices,
-		RouteAttachments: routeCount,
-		Status:           status,
-		Ancestors:        ancestorBackends,
+		VirtualServices:        virtualServices,
+		RouteAttachments:       routeCount,
+		ListenerSetAttachments: listenerSetRouteCount,
+		Status:                 status,
+		Ancestors:              ancestorBackends,
 	}
 }
 
@@ -540,7 +543,7 @@ func TLSRouteCollection(
 	inputs RouteContextInputs,
 	opts krt.OptionsBuilder,
 ) RouteResult[*gatewayv1.TLSRoute, gatewayv1.TLSRouteStatus] {
-	routeCount := gatewayRouteAttachmentCountCollection(inputs, tlsRoutes, gvk.TLSRoute, opts)
+	routeCount, listenerSetRouteCount := routeAttachmentCountCollections(inputs, tlsRoutes, gvk.TLSRoute, opts)
 	ancestorBackends := krt.NewManyCollection(tlsRoutes, func(krtctx krt.HandlerContext, obj *gatewayv1.TLSRoute) []AncestorBackend {
 		return extractAncestorBackends(
 			obj.ObjectMeta,
@@ -632,10 +635,11 @@ func TLSRouteCollection(
 		return status, vs
 	}, opts.WithName("TLSRoute")...)
 	return RouteResult[*gatewayv1.TLSRoute, gatewayv1.TLSRouteStatus]{
-		VirtualServices:  virtualServices,
-		RouteAttachments: routeCount,
-		Status:           status,
-		Ancestors:        ancestorBackends,
+		VirtualServices:        virtualServices,
+		RouteAttachments:       routeCount,
+		ListenerSetAttachments: listenerSetRouteCount,
+		Status:                 status,
+		Ancestors:              ancestorBackends,
 	}
 }
 
@@ -746,8 +750,10 @@ type RouteResult[I controllers.Object, IStatus any] struct {
 	VirtualServices krt.Collection[config.Config]
 	// BaseVirtualServices are the pre-merge VirtualServices, used for cross-route-type merging
 	BaseVirtualServices krt.Collection[RouteWithKey]
-	// RouteAttachments holds information about parent attachment to routes, used for computed the `attachedRoutes` count.
+	// RouteAttachments holds information about Gateway parent attachment, used for computing the `attachedRoutes` count on Gateways.
 	RouteAttachments krt.Collection[RouteAttachment]
+	// ListenerSetAttachments holds information about ListenerSet parent attachment, used for computing the `attachedRoutes` count on ListenerSets.
+	ListenerSetAttachments krt.Collection[RouteAttachment]
 	// Status stores the status reports for the incoming object
 	Status krt.StatusCollection[I, IStatus]
 	// Ancestors stores information about Gateway --> Backend references
@@ -769,12 +775,13 @@ func (r RouteAttachment) Equals(other RouteAttachment) bool {
 	return r.From == other.From && r.To == other.To && r.ListenerName == other.ListenerName
 }
 
-// gatewayRouteAttachmentCountCollection holds the generic logic to determine the parents a route is attached to, used for
-// computing the aggregated `attachedRoutes` status in Gateway.
-func gatewayRouteAttachmentCountCollection[T controllers.Object](
+// routeAttachmentCountCollection returns a collection tracking which accepted parent refs of the given
+// parentKind a route is attached to, used for computing `attachedRoutes` on Gateway and ListenerSet status.
+func routeAttachmentCountCollection[T controllers.Object](
 	inputs RouteContextInputs,
 	col krt.Collection[T],
 	kind config.GroupVersionKind,
+	parentKind config.GroupVersionKind,
 	opts krt.OptionsBuilder,
 ) krt.Collection[RouteAttachment] {
 	return krt.NewManyCollection(col, func(krtctx krt.HandlerContext, obj T) []RouteAttachment {
@@ -786,7 +793,7 @@ func gatewayRouteAttachmentCountCollection[T controllers.Object](
 
 		parentRefs := extractParentReferenceInfo(ctx, inputs.RouteParents, obj)
 		return slices.MapFilter(filteredReferences(parentRefs), func(e routeParentReference) *RouteAttachment {
-			if e.ParentKey.Kind != gvk.KubernetesGateway {
+			if e.ParentKey.Kind != parentKind {
 				return nil
 			}
 			return &RouteAttachment{
@@ -798,7 +805,18 @@ func gatewayRouteAttachmentCountCollection[T controllers.Object](
 				ListenerName: string(e.ParentSection),
 			}
 		})
-	}, opts.WithName(kind.Kind+"/count")...)
+	}, opts.WithName(kind.Kind+"/"+parentKind.Kind+"/count")...)
+}
+
+// routeAttachmentCountCollections returns RouteAttachment collections for both Gateway and ListenerSet parents in one call.
+func routeAttachmentCountCollections[T controllers.Object](
+	inputs RouteContextInputs,
+	col krt.Collection[T],
+	kind config.GroupVersionKind,
+	opts krt.OptionsBuilder,
+) (gateway krt.Collection[RouteAttachment], listenerSet krt.Collection[RouteAttachment]) {
+	return routeAttachmentCountCollection(inputs, col, kind, gvk.KubernetesGateway, opts),
+		routeAttachmentCountCollection(inputs, col, kind, gvk.ListenerSet, opts)
 }
 
 // mergeHTTPRoutes merges HTTProutes by key. Gateway API has semantics for the ordering of `match` rules, that merges across resource.

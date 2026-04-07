@@ -94,7 +94,7 @@ status:
     status: "True"
     type: Programmed
   listeners:
-  - attachedRoutes: 0
+  - attachedRoutes: 2
     conditions:
     - lastTransitionTime: fake
       message: No errors found
