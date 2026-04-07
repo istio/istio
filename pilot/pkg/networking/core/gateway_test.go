@@ -4270,7 +4270,7 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 			},
 		},
 		{
-			name: "mTLS, RBAC, WASM, ExtensionFilter, and Stats",
+			name: "mTLS, RBAC, WASM, TrafficExtension, and Stats",
 			configs: []config.Config{
 				{
 					Meta: config.Meta{Name: "gateway", Namespace: "testns", GroupVersionKind: gvk.Gateway},
@@ -4370,11 +4370,11 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 							// Ext auth makes 2 filters
 							wellknown.RoleBasedAccessControl,
 							wellknown.ExternalAuthorization,
-							"extensions.istio.io/extensionfilter/istio-system.extension-wasm-network-authn",
-							"extensions.istio.io/extensionfilter/istio-system.extension-wasm-network-authz",
+							"extensions.istio.io/trafficextension/istio-system.extension-wasm-network-authn",
+							"extensions.istio.io/trafficextension/istio-system.extension-wasm-network-authz",
 							wellknown.RoleBasedAccessControl,
-							"extensions.istio.io/extensionfilter/istio-system.extension-wasm-network-stats",
-							"extensions.istio.io/extensionfilter/istio-system.extension-wasm-unspecified",
+							"extensions.istio.io/trafficextension/istio-system.extension-wasm-network-stats",
+							"extensions.istio.io/trafficextension/istio-system.extension-wasm-unspecified",
 							xds.StatsFilterName,
 							wellknown.TCPProxy,
 						},
@@ -4383,7 +4383,7 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 			},
 		},
 		{
-			name: "HTTP RBAC, WASM, ExtensionFilter, and Stats",
+			name: "HTTP RBAC, WASM, TrafficExtension, and Stats",
 			configs: []config.Config{
 				{
 					Meta: config.Meta{Name: "gateway", Namespace: "testns", GroupVersionKind: gvk.Gateway},
@@ -4526,10 +4526,10 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 					{
 						TotalMatch: true,
 						NetworkFilters: []string{
-							"extensions.istio.io/extensionfilter/istio-system.extension-wasm-network-authn",
-							"extensions.istio.io/extensionfilter/istio-system.extension-wasm-network-authz",
-							"extensions.istio.io/extensionfilter/istio-system.extension-wasm-network-stats",
-							"extensions.istio.io/extensionfilter/istio-system.extension-wasm-network-unspecified",
+							"extensions.istio.io/trafficextension/istio-system.extension-wasm-network-authn",
+							"extensions.istio.io/trafficextension/istio-system.extension-wasm-network-authz",
+							"extensions.istio.io/trafficextension/istio-system.extension-wasm-network-stats",
+							"extensions.istio.io/trafficextension/istio-system.extension-wasm-network-unspecified",
 							wellknown.HTTPConnectionManager,
 						},
 						HTTPFilters: []string{
@@ -4537,12 +4537,12 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 							// Ext auth makes 2 filters
 							wellknown.HTTPRoleBasedAccessControl,
 							wellknown.HTTPExternalAuthorization,
-							"extensions.istio.io/extensionfilter/istio-system.extension-wasm-authn",
-							"extensions.istio.io/extensionfilter/istio-system.extension-lua-authn",
-							"extensions.istio.io/extensionfilter/istio-system.extension-wasm-authz",
-							"extensions.istio.io/extensionfilter/istio-system.extension-lua-authz",
+							"extensions.istio.io/trafficextension/istio-system.extension-wasm-authn",
+							"extensions.istio.io/trafficextension/istio-system.extension-lua-authn",
+							"extensions.istio.io/trafficextension/istio-system.extension-wasm-authz",
+							"extensions.istio.io/trafficextension/istio-system.extension-lua-authz",
 							wellknown.HTTPRoleBasedAccessControl,
-							"extensions.istio.io/extensionfilter/istio-system.extension-wasm-stats",
+							"extensions.istio.io/trafficextension/istio-system.extension-wasm-stats",
 							wellknown.HTTPGRPCStats,
 							xdsfilters.Alpn.Name,
 							xdsfilters.Fault.Name,

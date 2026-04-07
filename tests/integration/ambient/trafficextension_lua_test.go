@@ -43,7 +43,7 @@ type luaTestConfig struct {
 func applyAndTestLuaTrafficExtension(ctx framework.TestContext, c luaTestConfig, path, targetType, targetName, expectedHeader, expectedValue string) {
 	ctx.NewSubTest(c.desc).Run(func(t framework.TestContext) {
 		if err := installLuaTrafficExtension(t, c.name, targetType, targetName, path); err != nil {
-			t.Fatalf("failed to install ExtensionFilter: %v", err)
+			t.Fatalf("failed to install TrafficExtension: %v", err)
 		}
 		if c.testHostname != "" {
 			sendTrafficToHostname(t, check.ResponseHeader(expectedHeader, expectedValue), c.testHostname)
@@ -71,7 +71,7 @@ func installLuaTrafficExtension(ctx framework.TestContext, filterName, targetTyp
 	kind, group, name := getTargetRefValues(targetType, targetName)
 
 	args := map[string]any{
-		"ExtensionFilterName": filterName,
+		"TrafficExtensionName": filterName,
 		"TargetKind":          kind,
 		"TargetGroup":         group,
 		"TargetName":          name,
@@ -86,7 +86,7 @@ func installLuaTrafficExtension(ctx framework.TestContext, filterName, targetTyp
 
 func uninstallLuaTrafficExtension(ctx framework.TestContext, filterName, path string) error {
 	args := map[string]any{
-		"ExtensionFilterName": filterName,
+		"TrafficExtensionName": filterName,
 	}
 	if err := ctx.ConfigIstio().EvalFile(apps.Namespace.Name(), args, path).Delete(); err != nil {
 		return err
@@ -156,7 +156,7 @@ func TestLuaTrafficExtension_ResponseModification(t *testing.T) {
 
 			// Install the response modifier filter
 			if err := installLuaTrafficExtension(t, filterName, targetType, targetName, luaResponseModifierFile); err != nil {
-				t.Fatalf("failed to install ExtensionFilter: %v", err)
+				t.Fatalf("failed to install TrafficExtension: %v", err)
 			}
 
 			// Verify the response header is added

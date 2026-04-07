@@ -81,7 +81,7 @@ func TestTranslation(t *testing.T) {
 	}, retry.Timeout(retry.DefaultTimeout))
 
 	if err != nil || len(translated) != 1 {
-		t.Fatalf("expected 1 translated ExtensionFilter, got %d", len(translated))
+		t.Fatalf("expected 1 translated TrafficExtension, got %d", len(translated))
 	}
 
 	// Verify the translated config
@@ -93,6 +93,6 @@ func TestTranslation(t *testing.T) {
 		t.Errorf("expected namespace default, got %s", ef.Namespace)
 	}
 	if ef.GroupVersionKind != gvk.TrafficExtension {
-		t.Errorf("expected GVK ExtensionFilter, got %v", ef.GroupVersionKind)
+		t.Errorf("expected GVK TrafficExtension, got %v", ef.GroupVersionKind)
 	}
 }

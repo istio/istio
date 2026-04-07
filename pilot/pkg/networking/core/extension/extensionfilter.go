@@ -57,14 +57,14 @@ func updatePluginConfig(pluginConfig *wasmextensions.PluginConfig, pullSecrets m
 	}
 }
 
-// PopAppendHTTPExtensionFilter takes a list of HTTP filters and a set of ExtensionFilters, keyed by phase.
-// It will remove all filters of the provided phase from the ExtensionFilter set and append them to the list of filters.
-func PopAppendHTTPExtensionFilter(list []*hcm.HttpFilter,
-	filterMap map[extensions.TrafficExtension_ExecutionPhase][]*model.ExtensionFilterWrapper,
+// PopAppendHTTPTrafficExtension takes a list of HTTP filters and a set of TrafficExtensions, keyed by phase.
+// It will remove all filters of the provided phase from the TrafficExtension set and append them to the list of filters.
+func PopAppendHTTPTrafficExtension(list []*hcm.HttpFilter,
+	filterMap map[extensions.TrafficExtension_ExecutionPhase][]*model.TrafficExtensionWrapper,
 	phase extensions.TrafficExtension_ExecutionPhase,
 ) []*hcm.HttpFilter {
 	for _, ext := range filterMap[phase] {
-		if filter := toEnvoyHTTPExtensionFilter(ext); filter != nil {
+		if filter := toEnvoyHTTPTrafficExtension(ext); filter != nil {
 			list = append(list, filter)
 		}
 	}
@@ -72,14 +72,14 @@ func PopAppendHTTPExtensionFilter(list []*hcm.HttpFilter,
 	return list
 }
 
-// PopAppendNetworkExtensionFilter takes a list of network filters and a set of ExtensionFilters, keyed by phase.
-// It will remove all filters of the provided phase from the ExtensionFilter set and append them to the list of filters.
-func PopAppendNetworkExtensionFilter(list []*listener.Filter,
-	filterMap map[extensions.TrafficExtension_ExecutionPhase][]*model.ExtensionFilterWrapper,
+// PopAppendNetworkTrafficExtension takes a list of network filters and a set of TrafficExtensions, keyed by phase.
+// It will remove all filters of the provided phase from the TrafficExtension set and append them to the list of filters.
+func PopAppendNetworkTrafficExtension(list []*listener.Filter,
+	filterMap map[extensions.TrafficExtension_ExecutionPhase][]*model.TrafficExtensionWrapper,
 	phase extensions.TrafficExtension_ExecutionPhase,
 ) []*listener.Filter {
 	for _, ext := range filterMap[phase] {
-		if filter := toEnvoyNetworkExtensionFilter(ext); filter != nil {
+		if filter := toEnvoyNetworkTrafficExtension(ext); filter != nil {
 			list = append(list, filter)
 		}
 	}
@@ -87,10 +87,10 @@ func PopAppendNetworkExtensionFilter(list []*listener.Filter,
 	return list
 }
 
-// toEnvoyHTTPExtensionFilter converts an ExtensionFilterWrapper to an Envoy HTTP filter.
+// toEnvoyHTTPTrafficExtension converts a TrafficExtensionWrapper to an Envoy HTTP filter.
 // For Lua filters, it inlines the code directly using TypedConfig.
 // For WASM filters, it uses ConfigDiscovery (ECDS).
-func toEnvoyHTTPExtensionFilter(filter *model.ExtensionFilterWrapper) *hcm.HttpFilter {
+func toEnvoyHTTPTrafficExtension(filter *model.TrafficExtensionWrapper) *hcm.HttpFilter {
 	if filter == nil {
 		return nil
 	}
@@ -123,15 +123,15 @@ func toEnvoyHTTPExtensionFilter(filter *model.ExtensionFilterWrapper) *hcm.HttpF
 			},
 		}
 	default:
-		log.Warnf("unknown filter type for ExtensionFilter %s", filter.ResourceName)
+		log.Warnf("unknown filter type for TrafficExtension %s", filter.ResourceName)
 		return nil
 	}
 }
 
-// toEnvoyNetworkExtensionFilter converts an ExtensionFilterWrapper to an Envoy network filter.
+// toEnvoyNetworkTrafficExtension converts a TrafficExtensionWrapper to an Envoy network filter.
 // Only WASM filters are supported for network (L4) filtering.
 // Lua filters do not support network filtering and will return nil with a warning.
-func toEnvoyNetworkExtensionFilter(filter *model.ExtensionFilterWrapper) *listener.Filter {
+func toEnvoyNetworkTrafficExtension(filter *model.TrafficExtensionWrapper) *listener.Filter {
 	if filter == nil {
 		return nil
 	}
@@ -139,7 +139,7 @@ func toEnvoyNetworkExtensionFilter(filter *model.ExtensionFilterWrapper) *listen
 	switch filter.FilterType {
 	case model.FilterTypeLua:
 		// Lua filters do not support network (L4) filtering
-		log.Warnf("Lua filters do not support network filtering, skipping ExtensionFilter %s", filter.ResourceName)
+		log.Warnf("Lua filters do not support network filtering, skipping TrafficExtension %s", filter.ResourceName)
 		return nil
 	case model.FilterTypeWasm:
 		// WASM filters use ECDS
@@ -156,23 +156,23 @@ func toEnvoyNetworkExtensionFilter(filter *model.ExtensionFilterWrapper) *listen
 			},
 		}
 	default:
-		log.Warnf("unknown filter type for ExtensionFilter %s", filter.ResourceName)
+		log.Warnf("unknown filter type for TrafficExtension %s", filter.ResourceName)
 		return nil
 	}
 }
 
-// InsertedExtensionFilterConfigurations builds ECDS configurations for ExtensionFilters.
+// InsertedTrafficExtensionConfigurations builds ECDS configurations for TrafficExtensions.
 // Only WASM filters are included; Lua filters are already inlined in listeners.
-func InsertedExtensionFilterConfigurations(
-	extensionFilters []*model.ExtensionFilterWrapper,
+func InsertedTrafficExtensionConfigurations(
+	trafficExtensions []*model.TrafficExtensionWrapper,
 	names []string, pullSecrets map[string][]byte,
 ) []*core.TypedExtensionConfig {
 	result := make([]*core.TypedExtensionConfig, 0)
-	if len(extensionFilters) == 0 {
+	if len(trafficExtensions) == 0 {
 		return result
 	}
 	hasName := sets.New(names...)
-	for _, filter := range extensionFilters {
+	for _, filter := range trafficExtensions {
 		if !hasName.Contains(filter.ResourceName) {
 			continue
 		}

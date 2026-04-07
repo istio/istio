@@ -140,7 +140,7 @@ func (lb *ListenerBuilder) buildCompleteNetworkFilters(
 	}
 
 	var filters []*listener.Filter
-	extensionFilters := lb.push.ExtensionFiltersByListenerInfo(
+	trafficExtensions := lb.push.TrafficExtensionsByListenerInfo(
 		lb.node, model.ListenerInfo{Port: port, Class: class}.WithService(policySvc),
 		model.FilterChainTypeNetwork,
 	)
@@ -153,15 +153,15 @@ func (lb *ListenerBuilder) buildCompleteNetworkFilters(
 	filters = append(filters, authzCustomBuilder.BuildTCP()...)
 
 	// Authn
-	filters = extension.PopAppendNetworkExtensionFilter(filters, extensionFilters, extensions.TrafficExtension_AUTHN)
+	filters = extension.PopAppendNetworkTrafficExtension(filters, trafficExtensions, extensions.TrafficExtension_AUTHN)
 
 	// Authz
-	filters = extension.PopAppendNetworkExtensionFilter(filters, extensionFilters, extensions.TrafficExtension_AUTHZ)
+	filters = extension.PopAppendNetworkTrafficExtension(filters, trafficExtensions, extensions.TrafficExtension_AUTHZ)
 	filters = append(filters, authzBuilder.BuildTCP()...)
 
 	// Stats
-	filters = extension.PopAppendNetworkExtensionFilter(filters, extensionFilters, extensions.TrafficExtension_STATS)
-	filters = extension.PopAppendNetworkExtensionFilter(filters, extensionFilters, extensions.TrafficExtension_UNSPECIFIED)
+	filters = extension.PopAppendNetworkTrafficExtension(filters, trafficExtensions, extensions.TrafficExtension_STATS)
+	filters = extension.PopAppendNetworkTrafficExtension(filters, trafficExtensions, extensions.TrafficExtension_UNSPECIFIED)
 	filters = append(filters, buildMetricsNetworkFilters(lb.push, lb.node, class, policySvc)...)
 
 	// Add SNI DFP filter for sidecar outbound with DYNAMIC_DNS wildcard ServiceEntries (TLS traffic)

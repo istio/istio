@@ -235,7 +235,7 @@ type PushContext struct {
 	envoyFiltersByNamespace map[string][]*EnvoyFilterWrapper
 
 	// extension filters for each namespace including global config namespace
-	extensionFiltersByNamespace map[string][]*ExtensionFilterWrapper
+	trafficExtensionsByNamespace map[string][]*TrafficExtensionWrapper
 
 	// AuthnPolicies contains Authn policies by namespace.
 	AuthnPolicies *AuthenticationPolicies `json:"-"`
@@ -1374,7 +1374,7 @@ func (ps *PushContext) createNewContext(env *Environment) {
 	ps.initAuthorizationPolicies(env)
 	ps.initTelemetry(env)
 	ps.initProxyConfigs(env)
-	ps.initExtensionFilters(env)
+	ps.initTrafficExtensions(env)
 	ps.initEnvoyFilters(env, nil, nil)
 	ps.initGateways(env)
 	ps.initAmbient(env)
@@ -1390,7 +1390,7 @@ func (ps *PushContext) updateContext(
 ) {
 	var servicesChanged, virtualServicesChanged, destinationRulesChanged, gatewayChanged,
 		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged, telemetryChanged,
-		extensionFiltersChanged, proxyConfigsChanged bool
+		trafficExtensionsChanged, proxyConfigsChanged bool
 
 	changedEnvoyFilters := sets.New[ConfigKey]()
 
@@ -1409,7 +1409,7 @@ func (ps *PushContext) updateContext(
 		case kind.Sidecar:
 			sidecarsChanged = true
 		case kind.TrafficExtension:
-			extensionFiltersChanged = true
+			trafficExtensionsChanged = true
 		case kind.EnvoyFilter:
 			envoyFiltersChanged = true
 			changedEnvoyFilters.Insert(conf)
@@ -1485,10 +1485,10 @@ func (ps *PushContext) updateContext(
 		ps.ProxyConfigs = oldPushContext.ProxyConfigs
 	}
 
-	if extensionFiltersChanged {
-		ps.initExtensionFilters(env)
+	if trafficExtensionsChanged {
+		ps.initTrafficExtensions(env)
 	} else {
-		ps.extensionFiltersByNamespace = oldPushContext.extensionFiltersByNamespace
+		ps.trafficExtensionsByNamespace = oldPushContext.trafficExtensionsByNamespace
 	}
 
 	if envoyFiltersChanged {
@@ -2126,20 +2126,20 @@ func (ps *PushContext) initProxyConfigs(env *Environment) {
 	ps.ProxyConfigs = GetProxyConfigs(env.ConfigStore, env.Mesh())
 }
 
-func (ps *PushContext) initExtensionFilters(env *Environment) {
+func (ps *PushContext) initTrafficExtensions(env *Environment) {
 	extensionfilters := env.List(gvk.TrafficExtension, NamespaceAll)
 
 	sortConfigByCreationTime(extensionfilters)
-	ps.extensionFiltersByNamespace = map[string][]*ExtensionFilterWrapper{}
+	ps.trafficExtensionsByNamespace = map[string][]*TrafficExtensionWrapper{}
 	for _, filter := range extensionfilters {
-		if filterWrapper := convertToExtensionFilterWrapper(filter); filterWrapper != nil {
-			ps.extensionFiltersByNamespace[filter.Namespace] = append(ps.extensionFiltersByNamespace[filter.Namespace], filterWrapper)
+		if filterWrapper := convertToTrafficExtensionWrapper(filter); filterWrapper != nil {
+			ps.trafficExtensionsByNamespace[filter.Namespace] = append(ps.trafficExtensionsByNamespace[filter.Namespace], filterWrapper)
 		}
 	}
 }
 
 // sortByPriority sorts a map of slices by priority (highest first).
-func sortByPriority(items map[extensions.TrafficExtension_ExecutionPhase][]*ExtensionFilterWrapper) {
+func sortByPriority(items map[extensions.TrafficExtension_ExecutionPhase][]*TrafficExtensionWrapper) {
 	for phase, slice := range items {
 		sort.SliceStable(slice, func(i, j int) bool {
 			iPriority := int32(math.MinInt32)
@@ -2156,11 +2156,11 @@ func sortByPriority(items map[extensions.TrafficExtension_ExecutionPhase][]*Exte
 	}
 }
 
-// ExtensionFilters return the ExtensionFilterWrappers of a proxy.
+// TrafficExtensions return the TrafficExtensionWrappers of a proxy.
 // For most proxy types, we include only the root namespace and same-namespace objects.
 // However, waypoints allow cross-namespace access based on attached Service objects.
 // In this case, include all referenced services in the selection criteria
-func (ps *PushContext) ExtensionFilters(proxy *Proxy) map[extensions.TrafficExtension_ExecutionPhase][]*ExtensionFilterWrapper {
+func (ps *PushContext) TrafficExtensions(proxy *Proxy) map[extensions.TrafficExtension_ExecutionPhase][]*TrafficExtensionWrapper {
 	listenerInfo := ListenerInfo{}
 	if proxy.IsWaypointProxy() {
 		servicesInfo := ps.ServicesForWaypoint(WaypointKeyForProxy(proxy))
@@ -2174,17 +2174,17 @@ func (ps *PushContext) ExtensionFilters(proxy *Proxy) map[extensions.TrafficExte
 			listenerInfo = listenerInfo.WithService(svc)
 		}
 	}
-	return ps.ExtensionFiltersByListenerInfo(proxy, listenerInfo, FilterChainTypeAny)
+	return ps.TrafficExtensionsByListenerInfo(proxy, listenerInfo, FilterChainTypeAny)
 }
 
-func (ps *PushContext) ExtensionFiltersByName(proxy *Proxy, names []types.NamespacedName) []*ExtensionFilterWrapper {
-	res := make([]*ExtensionFilterWrapper, 0, len(names))
+func (ps *PushContext) TrafficExtensionsByName(proxy *Proxy, names []types.NamespacedName) []*TrafficExtensionWrapper {
+	res := make([]*TrafficExtensionWrapper, 0, len(names))
 	for _, n := range names {
 		if n.Namespace != proxy.ConfigNamespace && n.Namespace != ps.Mesh.RootNamespace {
-			log.Warnf("proxy requested invalid ExtensionFilter configuration: %v", n)
+			log.Warnf("proxy requested invalid TrafficExtension configuration: %v", n)
 			continue
 		}
-		for _, filter := range ps.extensionFiltersByNamespace[n.Namespace] {
+		for _, filter := range ps.trafficExtensionsByNamespace[n.Namespace] {
 			if filter.Name == n.Name {
 				res = append(res, filter)
 				break
@@ -2194,23 +2194,23 @@ func (ps *PushContext) ExtensionFiltersByName(proxy *Proxy, names []types.Namesp
 	return res
 }
 
-// ExtensionFiltersByListenerInfo return the ExtensionFilterWrappers which are matched with TrafficSelector in the given proxy.
-func (ps *PushContext) ExtensionFiltersByListenerInfo(proxy *Proxy, info ListenerInfo,
+// TrafficExtensionsByListenerInfo return the TrafficExtensionWrappers which are matched with TrafficSelector in the given proxy.
+func (ps *PushContext) TrafficExtensionsByListenerInfo(proxy *Proxy, info ListenerInfo,
 	chainType FilterChainType,
-) map[extensions.TrafficExtension_ExecutionPhase][]*ExtensionFilterWrapper {
+) map[extensions.TrafficExtension_ExecutionPhase][]*TrafficExtensionWrapper {
 	if proxy == nil {
 		return nil
 	}
 
-	matchedFilters := make(map[extensions.TrafficExtension_ExecutionPhase][]*ExtensionFilterWrapper)
+	matchedFilters := make(map[extensions.TrafficExtension_ExecutionPhase][]*TrafficExtensionWrapper)
 	lookupInNamespaces := []string{proxy.ConfigNamespace, ps.Mesh.RootNamespace}
 	for i := range info.Services {
 		lookupInNamespaces = append(lookupInNamespaces, info.Services[i].NamespacedName().Namespace)
 	}
 	selectionOpts := PolicyMatcherForProxy(proxy).WithServices(info.Services).WithRootNamespace(ps.Mesh.GetRootNamespace())
 	for _, ns := range slices.FilterDuplicates(lookupInNamespaces) {
-		if extensionFilters, ok := ps.extensionFiltersByNamespace[ns]; ok {
-			for _, filter := range extensionFilters {
+		if trafficExtensions, ok := ps.trafficExtensionsByNamespace[ns]; ok {
+			for _, filter := range trafficExtensions {
 				if filter.MatchType(chainType) && filter.MatchListener(selectionOpts, info) {
 					matchedFilters[filter.Phase] = append(matchedFilters[filter.Phase], filter)
 				}

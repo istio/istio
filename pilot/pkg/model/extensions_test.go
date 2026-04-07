@@ -212,7 +212,7 @@ func TestFailurePolicy(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.desc, func(t *testing.T) {
-			out := convertToExtensionFilterWrapper(config.Config{Spec: tc.in})
+			out := convertToTrafficExtensionWrapper(config.Config{Spec: tc.in})
 			if out == nil {
 				t.Fatal("must not get nil")
 			}
@@ -228,7 +228,7 @@ func TestFailurePolicy(t *testing.T) {
 	}
 }
 
-func TestConvertToExtensionFilterWrapper(t *testing.T) {
+func TestConvertToTrafficExtensionWrapper(t *testing.T) {
 	cases := []struct {
 		desc       string
 		config     config.Config
@@ -334,7 +334,7 @@ func TestConvertToExtensionFilterWrapper(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.desc, func(t *testing.T) {
-			got := convertToExtensionFilterWrapper(tc.config)
+			got := convertToTrafficExtensionWrapper(tc.config)
 			if tc.wantNil {
 				if got != nil {
 					t.Errorf("expected nil, got %+v", got)
@@ -352,7 +352,7 @@ func TestConvertToExtensionFilterWrapper(t *testing.T) {
 				if got.Namespace != tc.config.Namespace {
 					t.Errorf("got Namespace %v, want %v", got.Namespace, tc.config.Namespace)
 				}
-				expectedResourceName := ExtensionFilterResourceNamePrefix + tc.config.Namespace + "." + tc.config.Name
+				expectedResourceName := TrafficExtensionResourceNamePrefix + tc.config.Namespace + "." + tc.config.Name
 				if got.ResourceName != expectedResourceName {
 					t.Errorf("got ResourceName %v, want %v", got.ResourceName, expectedResourceName)
 				}
@@ -361,16 +361,16 @@ func TestConvertToExtensionFilterWrapper(t *testing.T) {
 	}
 }
 
-func TestExtensionFilterWrapper_MatchType(t *testing.T) {
+func TestTrafficExtensionWrapper_MatchType(t *testing.T) {
 	cases := []struct {
 		desc      string
-		wrapper   *ExtensionFilterWrapper
+		wrapper   *TrafficExtensionWrapper
 		chainType FilterChainType
 		want      bool
 	}{
 		{
 			desc: "lua matches HTTP",
-			wrapper: &ExtensionFilterWrapper{
+			wrapper: &TrafficExtensionWrapper{
 				FilterType: FilterTypeLua,
 			},
 			chainType: FilterChainTypeHTTP,
@@ -378,7 +378,7 @@ func TestExtensionFilterWrapper_MatchType(t *testing.T) {
 		},
 		{
 			desc: "lua matches Any",
-			wrapper: &ExtensionFilterWrapper{
+			wrapper: &TrafficExtensionWrapper{
 				FilterType: FilterTypeLua,
 			},
 			chainType: FilterChainTypeAny,
@@ -386,7 +386,7 @@ func TestExtensionFilterWrapper_MatchType(t *testing.T) {
 		},
 		{
 			desc: "lua does not match Network",
-			wrapper: &ExtensionFilterWrapper{
+			wrapper: &TrafficExtensionWrapper{
 				FilterType: FilterTypeLua,
 			},
 			chainType: FilterChainTypeNetwork,
@@ -394,7 +394,7 @@ func TestExtensionFilterWrapper_MatchType(t *testing.T) {
 		},
 		{
 			desc: "wasm HTTP matches HTTP",
-			wrapper: &ExtensionFilterWrapper{
+			wrapper: &TrafficExtensionWrapper{
 				FilterType: FilterTypeWasm,
 				Wasm: &extensions.WasmConfig{
 					Type: extensions.PluginType_HTTP,
@@ -405,7 +405,7 @@ func TestExtensionFilterWrapper_MatchType(t *testing.T) {
 		},
 		{
 			desc: "wasm Network matches Network",
-			wrapper: &ExtensionFilterWrapper{
+			wrapper: &TrafficExtensionWrapper{
 				FilterType: FilterTypeWasm,
 				Wasm: &extensions.WasmConfig{
 					Type: extensions.PluginType_NETWORK,
@@ -429,14 +429,14 @@ func TestExtensionFilterWrapper_MatchType(t *testing.T) {
 func TestMatchListener(t *testing.T) {
 	cases := []struct {
 		desc            string
-		extensionFilter *ExtensionFilterWrapper
+		trafficExtension *TrafficExtensionWrapper
 		proxyLabels     map[string]string
 		listenerInfo    ListenerInfo
 		want            bool
 	}{
 		{
 			desc:            "match and selector are nil",
-			extensionFilter: &ExtensionFilterWrapper{TrafficExtension: &extensions.TrafficExtension{Selector: nil, Match: nil}},
+			trafficExtension: &TrafficExtensionWrapper{TrafficExtension: &extensions.TrafficExtension{Selector: nil, Match: nil}},
 			proxyLabels:     map[string]string{"a": "b", "c": "d"},
 			listenerInfo: ListenerInfo{
 				Port:  1234,
@@ -446,7 +446,7 @@ func TestMatchListener(t *testing.T) {
 		},
 		{
 			desc: "only the workload selector is given",
-			extensionFilter: &ExtensionFilterWrapper{TrafficExtension: &extensions.TrafficExtension{
+			trafficExtension: &TrafficExtensionWrapper{TrafficExtension: &extensions.TrafficExtension{
 				Selector: &v1beta1.WorkloadSelector{
 					MatchLabels: map[string]string{"a": "b"},
 				},
@@ -461,7 +461,7 @@ func TestMatchListener(t *testing.T) {
 		},
 		{
 			desc: "mismatched selector",
-			extensionFilter: &ExtensionFilterWrapper{TrafficExtension: &extensions.TrafficExtension{
+			trafficExtension: &TrafficExtensionWrapper{TrafficExtension: &extensions.TrafficExtension{
 				Selector: &v1beta1.WorkloadSelector{
 					MatchLabels: map[string]string{"e": "f"},
 				},
@@ -476,7 +476,7 @@ func TestMatchListener(t *testing.T) {
 		},
 		{
 			desc: "default traffic selector value is matched with all the traffics",
-			extensionFilter: &ExtensionFilterWrapper{TrafficExtension: &extensions.TrafficExtension{
+			trafficExtension: &TrafficExtensionWrapper{TrafficExtension: &extensions.TrafficExtension{
 				Selector: nil,
 				Match: []*extensions.TrafficSelector{
 					{},
@@ -491,7 +491,7 @@ func TestMatchListener(t *testing.T) {
 		},
 		{
 			desc: "only workloadMode of the traffic selector is given",
-			extensionFilter: &ExtensionFilterWrapper{TrafficExtension: &extensions.TrafficExtension{
+			trafficExtension: &TrafficExtensionWrapper{TrafficExtension: &extensions.TrafficExtension{
 				Selector: nil,
 				Match: []*extensions.TrafficSelector{
 					{
@@ -509,7 +509,7 @@ func TestMatchListener(t *testing.T) {
 		},
 		{
 			desc: "workloadMode of the traffic selector and empty list of ports are given",
-			extensionFilter: &ExtensionFilterWrapper{TrafficExtension: &extensions.TrafficExtension{
+			trafficExtension: &TrafficExtensionWrapper{TrafficExtension: &extensions.TrafficExtension{
 				Selector: nil,
 				Match: []*extensions.TrafficSelector{
 					{
@@ -527,7 +527,7 @@ func TestMatchListener(t *testing.T) {
 		},
 		{
 			desc: "workloadMode of the traffic selector and numbered port are given",
-			extensionFilter: &ExtensionFilterWrapper{TrafficExtension: &extensions.TrafficExtension{
+			trafficExtension: &TrafficExtensionWrapper{TrafficExtension: &extensions.TrafficExtension{
 				Selector: nil,
 				Match: []*extensions.TrafficSelector{
 					{
@@ -545,7 +545,7 @@ func TestMatchListener(t *testing.T) {
 		},
 		{
 			desc: "workloadMode of the traffic selector and mismatched ports are given",
-			extensionFilter: &ExtensionFilterWrapper{TrafficExtension: &extensions.TrafficExtension{
+			trafficExtension: &TrafficExtensionWrapper{TrafficExtension: &extensions.TrafficExtension{
 				Selector: nil,
 				Match: []*extensions.TrafficSelector{
 					{
@@ -563,7 +563,7 @@ func TestMatchListener(t *testing.T) {
 		},
 		{
 			desc: "traffic selector is matched, but workload selector is not matched",
-			extensionFilter: &ExtensionFilterWrapper{TrafficExtension: &extensions.TrafficExtension{
+			trafficExtension: &TrafficExtensionWrapper{TrafficExtension: &extensions.TrafficExtension{
 				Selector: &v1beta1.WorkloadSelector{
 					MatchLabels: map[string]string{"e": "f"},
 				},
@@ -583,7 +583,7 @@ func TestMatchListener(t *testing.T) {
 		},
 		{
 			desc: "outbound traffic is matched with workloadMode CLIENT",
-			extensionFilter: &ExtensionFilterWrapper{TrafficExtension: &extensions.TrafficExtension{
+			trafficExtension: &TrafficExtensionWrapper{TrafficExtension: &extensions.TrafficExtension{
 				Selector: nil,
 				Match: []*extensions.TrafficSelector{
 					{
@@ -601,7 +601,7 @@ func TestMatchListener(t *testing.T) {
 		},
 		{
 			desc: "any traffic is matched with workloadMode CLIENT_AND_SERVER",
-			extensionFilter: &ExtensionFilterWrapper{TrafficExtension: &extensions.TrafficExtension{
+			trafficExtension: &TrafficExtensionWrapper{TrafficExtension: &extensions.TrafficExtension{
 				Selector: nil,
 				Match: []*extensions.TrafficSelector{
 					{
@@ -619,7 +619,7 @@ func TestMatchListener(t *testing.T) {
 		},
 		{
 			desc: "gateway is matched with workloadMode CLIENT",
-			extensionFilter: &ExtensionFilterWrapper{TrafficExtension: &extensions.TrafficExtension{
+			trafficExtension: &TrafficExtensionWrapper{TrafficExtension: &extensions.TrafficExtension{
 				Selector: nil,
 				Match: []*extensions.TrafficSelector{
 					{
@@ -637,7 +637,7 @@ func TestMatchListener(t *testing.T) {
 		},
 		{
 			desc: "gateway is not matched with workloadMode SERVER",
-			extensionFilter: &ExtensionFilterWrapper{TrafficExtension: &extensions.TrafficExtension{
+			trafficExtension: &TrafficExtensionWrapper{TrafficExtension: &extensions.TrafficExtension{
 				Selector: nil,
 				Match: []*extensions.TrafficSelector{
 					{
@@ -663,7 +663,7 @@ func TestMatchListener(t *testing.T) {
 				IsWaypoint:        false,
 				RootNamespace:     "istio-system",
 			}
-			got := tc.extensionFilter.MatchListener(opts, tc.listenerInfo)
+			got := tc.trafficExtension.MatchListener(opts, tc.listenerInfo)
 			if tc.want != got {
 				t.Errorf("MatchListener got %v want %v", got, tc.want)
 			}

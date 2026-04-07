@@ -50,7 +50,7 @@ func applyAndTestTrafficExtensionWasmWithOCI(ctx framework.TestContext, c traffi
 		mapTagToVersionOrFail(t, "latest", "0.0.1")
 		wasmModuleURL := fmt.Sprintf("oci://%v/%v:%v", registry.Address(), teWasmImageName, "latest")
 		if err := installTrafficExtensionWasm(t, c.name, wasmModuleURL, "", fmt.Sprintf("g-%d", teWasmGeneration), targetType, targetName, path); err != nil {
-			t.Fatalf("failed to install ExtensionFilter: %v", err)
+			t.Fatalf("failed to install TrafficExtension: %v", err)
 		}
 		if c.testHostname != "" {
 			sendTrafficToHostname(t, check.ResponseHeader(teWasmInjectedHeader, "0.0.1"), c.testHostname)
@@ -77,7 +77,7 @@ func installTrafficExtensionWasm(ctx framework.TestContext, filterName, wasmModu
 	kind, group, name := getTargetRefValues(targetType, targetName)
 
 	args := map[string]any{
-		"ExtensionFilterName": filterName,
+		"TrafficExtensionName": filterName,
 		"TestWasmModuleURL":   wasmModuleURL,
 		"FilterVersion":       filterVersion,
 		"TargetKind":          kind,
@@ -98,7 +98,7 @@ func installTrafficExtensionWasm(ctx framework.TestContext, filterName, wasmModu
 
 func uninstallTrafficExtensionWasm(ctx framework.TestContext, filterName, path string) error {
 	args := map[string]any{
-		"ExtensionFilterName": filterName,
+		"TrafficExtensionName": filterName,
 	}
 	if err := ctx.ConfigIstio().EvalFile(apps.Namespace.Name(), args, path).Delete(); err != nil {
 		return err
@@ -106,7 +106,7 @@ func uninstallTrafficExtensionWasm(ctx framework.TestContext, filterName, path s
 	return nil
 }
 
-// TestTrafficExtension_WasmConfigurations tests WASM ExtensionFilter on different targets in ambient mode
+// TestTrafficExtension_WasmConfigurations tests WASM TrafficExtension on different targets in ambient mode
 func TestTrafficExtension_WasmConfigurations(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {

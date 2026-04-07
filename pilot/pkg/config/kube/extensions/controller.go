@@ -66,7 +66,7 @@ func NewController(inputStore model.ConfigStoreController, xdsUpdater model.XDSU
 		WasmPlugins: inputStore.KrtCollection(gvk.WasmPlugin),
 	}
 
-	extensionFilters := krt.NewCollection(inputs.WasmPlugins,
+	trafficExtensions := krt.NewCollection(inputs.WasmPlugins,
 		func(_ krt.HandlerContext, obj config.Config) *config.Config {
 			return translateWasmPlugin(obj)
 		},
@@ -75,7 +75,7 @@ func NewController(inputStore model.ConfigStoreController, xdsUpdater model.XDSU
 
 	c := &Controller{
 		outputs: Outputs{
-			TrafficExtensions: extensionFilters,
+			TrafficExtensions: trafficExtensions,
 		},
 		schema:     collection.SchemasFor(collections.TrafficExtension),
 		xdsUpdater: xdsUpdater,
@@ -83,7 +83,7 @@ func NewController(inputStore model.ConfigStoreController, xdsUpdater model.XDSU
 	}
 
 	// Register a batch handler so changes to translated TrafficExtensions trigger XDS pushes.
-	handler := extensionFilters.RegisterBatch(func(events []krt.Event[config.Config]) {
+	handler := trafficExtensions.RegisterBatch(func(events []krt.Event[config.Config]) {
 		if xdsUpdater == nil {
 			return
 		}

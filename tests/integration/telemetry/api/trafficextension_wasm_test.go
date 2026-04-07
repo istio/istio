@@ -64,7 +64,7 @@ func applyAndTestTrafficExtensionWithOCI(ctx framework.TestContext, c trafficExt
 		mapWasmTagToVersionOrFail(t, c.tag, c.upstreamVersion)
 		wasmModuleURL := fmt.Sprintf("oci://%v/%v:%v", registry.Address(), wasmImageName, c.tag)
 		if err := installWasmTrafficExtension(t, c.name, wasmModuleURL, c.policy, fmt.Sprintf("g-%d", teGeneration), trafficExtensionWasmFile); err != nil {
-			t.Fatalf("failed to install ExtensionFilter: %v", err)
+			t.Fatalf("failed to install TrafficExtension: %v", err)
 		}
 		sendTraffic(t, check.ResponseHeader(wasmInjectedHeader, c.expectedVersion))
 	})
@@ -85,7 +85,7 @@ func applyTrafficExtensionWasmConfig(ctx framework.TestContext, ns string, args 
 
 func installWasmTrafficExtension(ctx framework.TestContext, filterName, wasmModuleURL, imagePullPolicy, filterVersion, path string) error {
 	args := map[string]any{
-		"ExtensionFilterName": filterName,
+		"TrafficExtensionName": filterName,
 		"TestWasmModuleURL":   wasmModuleURL,
 		"FilterVersion":       filterVersion,
 		"TargetAppName":       GetTarget().(echo.Instances).NamespacedName().Name,
@@ -104,7 +104,7 @@ func installWasmTrafficExtension(ctx framework.TestContext, filterName, wasmModu
 
 func uninstallWasmTrafficExtension(ctx framework.TestContext, filterName, path string) error {
 	args := map[string]any{
-		"ExtensionFilterName": filterName,
+		"TrafficExtensionName": filterName,
 	}
 	if err := ctx.ConfigIstio().EvalFile(apps.Namespace.Name(), args, path).Delete(); err != nil {
 		return err
@@ -112,7 +112,7 @@ func uninstallWasmTrafficExtension(ctx framework.TestContext, filterName, path s
 	return nil
 }
 
-// TestTrafficExtension_ImagePullPolicy tests WASM image pull policies with ExtensionFilter
+// TestTrafficExtension_ImagePullPolicy tests WASM image pull policies with TrafficExtension
 func TestTrafficExtension_ImagePullPolicy(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
@@ -158,7 +158,7 @@ func TestTrafficExtension_ImagePullPolicy(t *testing.T) {
 		})
 }
 
-// TestTrafficExtension_ImagePullPolicyWithHTTP tests WASM HTTP URLs with ExtensionFilter
+// TestTrafficExtension_ImagePullPolicyWithHTTP tests WASM HTTP URLs with TrafficExtension
 func TestTrafficExtension_ImagePullPolicyWithHTTP(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
@@ -183,7 +183,7 @@ func applyAndTestTrafficExtensionWithHTTP(ctx framework.TestContext, c trafficEx
 		mapWasmTagToVersionOrFail(t, c.tag, c.upstreamVersion)
 		wasmModuleURL := fmt.Sprintf("http://%v/wasm/%v/%v.wasm", registry.Address(), wasmImageName, c.tag)
 		if err := installWasmTrafficExtension(t, c.name, wasmModuleURL, "", fmt.Sprintf("g-%d", teGeneration), trafficExtensionWasmHTTPFile); err != nil {
-			t.Fatalf("failed to install ExtensionFilter: %v", err)
+			t.Fatalf("failed to install TrafficExtension: %v", err)
 		}
 		sendTraffic(t, check.ResponseHeader(wasmInjectedHeader, c.expectedVersion))
 	})
@@ -198,14 +198,14 @@ func resetTrafficExtensionWasmHTTP(ctx framework.TestContext, filterName string)
 	})
 }
 
-// TestTrafficExtension_BadWasmRemoteLoad tests WASM load failures with ExtensionFilter
+// TestTrafficExtension_BadWasmRemoteLoad tests WASM load failures with TrafficExtension
 func TestTrafficExtension_BadWasmRemoteLoad(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
 			// This test verifies that a bad WASM module fails to load
 			// Using a non-existent OCI image should cause the filter to fail
 			if err := installWasmTrafficExtension(t, "bad-wasm-filter", "oci://invalid-registry.example.com/nonexistent:latest", "", "v1", trafficExtensionWasmFile); err != nil {
-				t.Fatalf("failed to install ExtensionFilter: %v", err)
+				t.Fatalf("failed to install TrafficExtension: %v", err)
 			}
 
 			// Traffic should still work (fail open by default)
@@ -228,7 +228,7 @@ func TestTrafficExtension_SelectorMatching(t *testing.T) {
 
 			// Install filter targeting specific app via selector
 			if err := installWasmTrafficExtension(t, "wasm-selector-test", wasmModuleURL, "", "v1", trafficExtensionWasmFile); err != nil {
-				t.Fatalf("failed to install ExtensionFilter: %v", err)
+				t.Fatalf("failed to install TrafficExtension: %v", err)
 			}
 
 			// Traffic to the target app should have the header
@@ -239,7 +239,7 @@ func TestTrafficExtension_SelectorMatching(t *testing.T) {
 		})
 }
 
-// TestTrafficExtension_GatewaySelection tests ExtensionFilter targeting a Gateway resource
+// TestTrafficExtension_GatewaySelection tests TrafficExtension targeting a Gateway resource
 func TestTrafficExtension_GatewaySelection(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
@@ -254,14 +254,14 @@ func TestTrafficExtension_GatewaySelection(t *testing.T) {
 			wasmModuleURL := fmt.Sprintf("oci://%v/%v:%v", registry.Address(), wasmImageName, tag)
 
 			gatewayArgs := map[string]any{
-				"ExtensionFilterName": "gateway-wasm-filter",
+				"TrafficExtensionName": "gateway-wasm-filter",
 				"TestWasmModuleURL":   wasmModuleURL,
 				"FilterVersion":       "v1",
 				"TargetGatewayName":   GetTarget().(echo.Instances).ServiceName() + "-gateway",
 			}
 
 			if err := applyTrafficExtensionWasmConfig(t, apps.Namespace.Name(), gatewayArgs, "testdata/trafficextension-gateway-wasm.yaml"); err != nil {
-				t.Fatalf("failed to install Gateway ExtensionFilter: %v", err)
+				t.Fatalf("failed to install Gateway TrafficExtension: %v", err)
 			}
 
 			// Test with gateway hostname

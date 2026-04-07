@@ -21,9 +21,9 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 )
 
-// BuildHTTPLuaFilter converts an ExtensionFilterWrapper with Lua config to an Envoy Lua filter configuration.
+// BuildHTTPLuaFilter converts a TrafficExtensionWrapper with Lua config to an Envoy Lua filter configuration.
 // Returns nil if the filter is not a Lua filter.
-func BuildHTTPLuaFilter(filter *model.ExtensionFilterWrapper) *lua.Lua {
+func BuildHTTPLuaFilter(filter *model.TrafficExtensionWrapper) *lua.Lua {
 	if filter == nil || filter.FilterType != model.FilterTypeLua {
 		return nil
 	}

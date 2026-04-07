@@ -170,9 +170,9 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 	configController := s.makeKubeConfigController(args)
 	s.ConfigStores = append(s.ConfigStores, configController)
 
-	// Register the WasmPlugin → ExtensionFilter translation controller.
-	// This converts WasmPlugin resources into synthetic ExtensionFilter configs so
-	// the rest of Pilot only ever needs to handle ExtensionFilter.
+	// Register the WasmPlugin → TrafficExtension translation controller.
+	// This converts WasmPlugin resources into synthetic TrafficExtension configs so
+	// the rest of Pilot only ever needs to handle TrafficExtension.
 	extensionController := extensions.NewController(configController, s.XDSServer, args.KrtDebugger)
 	s.ConfigStores = append(s.ConfigStores, extensionController)
 

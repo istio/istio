@@ -33,7 +33,7 @@ import (
 func TestBuildHTTPLuaFilter(t *testing.T) {
 	tests := []struct {
 		name     string
-		filter   *model.ExtensionFilterWrapper
+		filter   *model.TrafficExtensionWrapper
 		expected *lua.Lua
 	}{
 		{
@@ -43,14 +43,14 @@ func TestBuildHTTPLuaFilter(t *testing.T) {
 		},
 		{
 			name: "non-lua filter",
-			filter: &model.ExtensionFilterWrapper{
+			filter: &model.TrafficExtensionWrapper{
 				FilterType: model.FilterTypeWasm,
 			},
 			expected: nil,
 		},
 		{
 			name: "valid lua filter",
-			filter: &model.ExtensionFilterWrapper{
+			filter: &model.TrafficExtensionWrapper{
 				FilterType: model.FilterTypeLua,
 				Lua: &extensions.LuaConfig{
 					InlineCode: "function envoy_on_request(request_handle)\n  request_handle:headers():add('x-test', 'value')\nend",
@@ -76,10 +76,10 @@ func TestBuildHTTPLuaFilter(t *testing.T) {
 	}
 }
 
-func TestToEnvoyHTTPExtensionFilter(t *testing.T) {
+func TestToEnvoyHTTPTrafficExtension(t *testing.T) {
 	tests := []struct {
 		name          string
-		filter        *model.ExtensionFilterWrapper
+		filter        *model.TrafficExtensionWrapper
 		expectTyped   bool // true if TypedConfig expected, false if ConfigDiscovery
 		expectNil     bool
 		expectLuaCode string
@@ -91,7 +91,7 @@ func TestToEnvoyHTTPExtensionFilter(t *testing.T) {
 		},
 		{
 			name: "lua filter - inlined",
-			filter: &model.ExtensionFilterWrapper{
+			filter: &model.TrafficExtensionWrapper{
 				ResourceName: "test-lua-filter",
 				FilterType:   model.FilterTypeLua,
 				Lua: &extensions.LuaConfig{
@@ -103,7 +103,7 @@ func TestToEnvoyHTTPExtensionFilter(t *testing.T) {
 		},
 		{
 			name: "wasm filter - ECDS",
-			filter: &model.ExtensionFilterWrapper{
+			filter: &model.TrafficExtensionWrapper{
 				ResourceName: "test-wasm-filter",
 				FilterType:   model.FilterTypeWasm,
 				Wasm: &extensions.WasmConfig{
@@ -116,7 +116,7 @@ func TestToEnvoyHTTPExtensionFilter(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := toEnvoyHTTPExtensionFilter(tt.filter)
+			got := toEnvoyHTTPTrafficExtension(tt.filter)
 			if tt.expectNil {
 				assert.Equal(t, got, nil)
 				return
@@ -143,10 +143,10 @@ func TestToEnvoyHTTPExtensionFilter(t *testing.T) {
 	}
 }
 
-func TestToEnvoyNetworkExtensionFilter(t *testing.T) {
+func TestToEnvoyNetworkTrafficExtension(t *testing.T) {
 	tests := []struct {
 		name       string
-		filter     *model.ExtensionFilterWrapper
+		filter     *model.TrafficExtensionWrapper
 		expectNil  bool
 		expectECDS bool
 	}{
@@ -157,7 +157,7 @@ func TestToEnvoyNetworkExtensionFilter(t *testing.T) {
 		},
 		{
 			name: "lua filter - not supported for network",
-			filter: &model.ExtensionFilterWrapper{
+			filter: &model.TrafficExtensionWrapper{
 				ResourceName: "test-lua-filter",
 				FilterType:   model.FilterTypeLua,
 				Lua: &extensions.LuaConfig{
@@ -168,7 +168,7 @@ func TestToEnvoyNetworkExtensionFilter(t *testing.T) {
 		},
 		{
 			name: "wasm filter - ECDS",
-			filter: &model.ExtensionFilterWrapper{
+			filter: &model.TrafficExtensionWrapper{
 				ResourceName: "test-wasm-filter",
 				FilterType:   model.FilterTypeWasm,
 				Wasm: &extensions.WasmConfig{
@@ -182,7 +182,7 @@ func TestToEnvoyNetworkExtensionFilter(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := toEnvoyNetworkExtensionFilter(tt.filter)
+			got := toEnvoyNetworkTrafficExtension(tt.filter)
 			if tt.expectNil {
 				assert.Equal(t, got, nil)
 				return
@@ -198,8 +198,8 @@ func TestToEnvoyNetworkExtensionFilter(t *testing.T) {
 	}
 }
 
-func TestPopAppendHTTPExtensionFilter(t *testing.T) {
-	luaFilter := &model.ExtensionFilterWrapper{
+func TestPopAppendHTTPTrafficExtension(t *testing.T) {
+	luaFilter := &model.TrafficExtensionWrapper{
 		ResourceName: "lua-authn",
 		FilterType:   model.FilterTypeLua,
 		TrafficExtension: &extensions.TrafficExtension{
@@ -210,7 +210,7 @@ func TestPopAppendHTTPExtensionFilter(t *testing.T) {
 		},
 	}
 
-	wasmFilter := &model.ExtensionFilterWrapper{
+	wasmFilter := &model.TrafficExtensionWrapper{
 		ResourceName: "wasm-authz",
 		FilterType:   model.FilterTypeWasm,
 		TrafficExtension: &extensions.TrafficExtension{
@@ -221,7 +221,7 @@ func TestPopAppendHTTPExtensionFilter(t *testing.T) {
 		},
 	}
 
-	filterMap := map[extensions.TrafficExtension_ExecutionPhase][]*model.ExtensionFilterWrapper{
+	filterMap := map[extensions.TrafficExtension_ExecutionPhase][]*model.TrafficExtensionWrapper{
 		extensions.TrafficExtension_AUTHN: {luaFilter},
 		extensions.TrafficExtension_AUTHZ: {wasmFilter},
 	}
@@ -230,7 +230,7 @@ func TestPopAppendHTTPExtensionFilter(t *testing.T) {
 	filters := []*hcm.HttpFilter{}
 
 	// Append AUTHN phase filters
-	filters = PopAppendHTTPExtensionFilter(filters, filterMap, extensions.TrafficExtension_AUTHN)
+	filters = PopAppendHTTPTrafficExtension(filters, filterMap, extensions.TrafficExtension_AUTHN)
 	assert.Equal(t, len(filters), 1)
 	assert.Equal(t, filters[0].Name, "lua-authn")
 
@@ -239,7 +239,7 @@ func TestPopAppendHTTPExtensionFilter(t *testing.T) {
 	assert.Equal(t, exists, false, "AUTHN phase should be removed from map after pop")
 
 	// Append AUTHZ phase filters
-	filters = PopAppendHTTPExtensionFilter(filters, filterMap, extensions.TrafficExtension_AUTHZ)
+	filters = PopAppendHTTPTrafficExtension(filters, filterMap, extensions.TrafficExtension_AUTHZ)
 	assert.Equal(t, len(filters), 2)
 	assert.Equal(t, filters[1].Name, "wasm-authz")
 
@@ -252,8 +252,8 @@ func TestPopAppendHTTPExtensionFilter(t *testing.T) {
 	assert.Equal(t, filters[1].GetConfigDiscovery() != nil, true, "WASM filter should have ConfigDiscovery")
 }
 
-func TestPopAppendNetworkExtensionFilter(t *testing.T) {
-	luaFilter := &model.ExtensionFilterWrapper{
+func TestPopAppendNetworkTrafficExtension(t *testing.T) {
+	luaFilter := &model.TrafficExtensionWrapper{
 		ResourceName: "lua-filter",
 		FilterType:   model.FilterTypeLua,
 		TrafficExtension: &extensions.TrafficExtension{
@@ -264,7 +264,7 @@ func TestPopAppendNetworkExtensionFilter(t *testing.T) {
 		},
 	}
 
-	wasmFilter := &model.ExtensionFilterWrapper{
+	wasmFilter := &model.TrafficExtensionWrapper{
 		ResourceName: "wasm-filter",
 		FilterType:   model.FilterTypeWasm,
 		TrafficExtension: &extensions.TrafficExtension{
@@ -276,7 +276,7 @@ func TestPopAppendNetworkExtensionFilter(t *testing.T) {
 		},
 	}
 
-	filterMap := map[extensions.TrafficExtension_ExecutionPhase][]*model.ExtensionFilterWrapper{
+	filterMap := map[extensions.TrafficExtension_ExecutionPhase][]*model.TrafficExtensionWrapper{
 		extensions.TrafficExtension_AUTHN: {luaFilter, wasmFilter},
 	}
 
@@ -284,7 +284,7 @@ func TestPopAppendNetworkExtensionFilter(t *testing.T) {
 	filters := []*listener.Filter{}
 
 	// Append AUTHN phase filters
-	filters = PopAppendNetworkExtensionFilter(filters, filterMap, extensions.TrafficExtension_AUTHN)
+	filters = PopAppendNetworkTrafficExtension(filters, filterMap, extensions.TrafficExtension_AUTHN)
 
 	// Only WASM filter should be added (Lua is skipped for network)
 	assert.Equal(t, len(filters), 1)
@@ -294,17 +294,17 @@ func TestPopAppendNetworkExtensionFilter(t *testing.T) {
 	assert.Equal(t, filters[0].GetConfigDiscovery() != nil, true, "WASM network filter should have ConfigDiscovery")
 }
 
-func TestInsertedExtensionFilterConfigurations(t *testing.T) {
-	luaFilter := &model.ExtensionFilterWrapper{
-		ResourceName: "extensions.istio.io/extensionfilter/default.lua-filter",
+func TestInsertedTrafficExtensionConfigurations(t *testing.T) {
+	luaFilter := &model.TrafficExtensionWrapper{
+		ResourceName: "extensions.istio.io/trafficextension/default.lua-filter",
 		FilterType:   model.FilterTypeLua,
 		Lua: &extensions.LuaConfig{
 			InlineCode: "function envoy_on_request() end",
 		},
 	}
 
-	wasmHTTPFilter := &model.ExtensionFilterWrapper{
-		ResourceName: "extensions.istio.io/extensionfilter/default.wasm-http",
+	wasmHTTPFilter := &model.TrafficExtensionWrapper{
+		ResourceName: "extensions.istio.io/trafficextension/default.wasm-http",
 		FilterType:   model.FilterTypeWasm,
 		Wasm: &extensions.WasmConfig{
 			Url:  "oci://test.com/filter:v1",
@@ -312,8 +312,8 @@ func TestInsertedExtensionFilterConfigurations(t *testing.T) {
 		},
 	}
 
-	wasmNetworkFilter := &model.ExtensionFilterWrapper{
-		ResourceName: "extensions.istio.io/extensionfilter/default.wasm-network",
+	wasmNetworkFilter := &model.TrafficExtensionWrapper{
+		ResourceName: "extensions.istio.io/trafficextension/default.wasm-network",
 		FilterType:   model.FilterTypeWasm,
 		Wasm: &extensions.WasmConfig{
 			Url:  "oci://test.com/filter:v1",
@@ -324,15 +324,15 @@ func TestInsertedExtensionFilterConfigurations(t *testing.T) {
 	// Mock BuildHTTPWasmFilter and BuildNetworkWasmFilter to return non-nil values
 	// In real implementation these are already implemented
 
-	filters := []*model.ExtensionFilterWrapper{luaFilter, wasmHTTPFilter, wasmNetworkFilter}
+	filters := []*model.TrafficExtensionWrapper{luaFilter, wasmHTTPFilter, wasmNetworkFilter}
 	names := []string{
-		"extensions.istio.io/extensionfilter/default.lua-filter",
-		"extensions.istio.io/extensionfilter/default.wasm-http",
-		"extensions.istio.io/extensionfilter/default.wasm-network",
+		"extensions.istio.io/trafficextension/default.lua-filter",
+		"extensions.istio.io/trafficextension/default.wasm-http",
+		"extensions.istio.io/trafficextension/default.wasm-network",
 	}
 	pullSecrets := map[string][]byte{}
 
-	configs := InsertedExtensionFilterConfigurations(filters, names, pullSecrets)
+	configs := InsertedTrafficExtensionConfigurations(filters, names, pullSecrets)
 
 	// Lua filter should be skipped (already inlined)
 	// Only WASM filters should be in ECDS configs
@@ -344,14 +344,14 @@ func TestInsertedExtensionFilterConfigurations(t *testing.T) {
 		configNames[cfg.Name] = true
 	}
 
-	assert.Equal(t, configNames["extensions.istio.io/extensionfilter/default.wasm-http"], true)
-	assert.Equal(t, configNames["extensions.istio.io/extensionfilter/default.wasm-network"], true)
-	assert.Equal(t, configNames["extensions.istio.io/extensionfilter/default.lua-filter"], false, "Lua filter should not be in ECDS")
+	assert.Equal(t, configNames["extensions.istio.io/trafficextension/default.wasm-http"], true)
+	assert.Equal(t, configNames["extensions.istio.io/trafficextension/default.wasm-network"], true)
+	assert.Equal(t, configNames["extensions.istio.io/trafficextension/default.lua-filter"], false, "Lua filter should not be in ECDS")
 }
 
 func TestMixedLuaWasmFilters(t *testing.T) {
 	// Test that Lua and WASM filters can coexist in the same phase
-	luaFilter := &model.ExtensionFilterWrapper{
+	luaFilter := &model.TrafficExtensionWrapper{
 		ResourceName: "lua-filter",
 		FilterType:   model.FilterTypeLua,
 		TrafficExtension: &extensions.TrafficExtension{
@@ -362,7 +362,7 @@ func TestMixedLuaWasmFilters(t *testing.T) {
 		},
 	}
 
-	wasmFilter := &model.ExtensionFilterWrapper{
+	wasmFilter := &model.TrafficExtensionWrapper{
 		ResourceName: "wasm-filter",
 		FilterType:   model.FilterTypeWasm,
 		TrafficExtension: &extensions.TrafficExtension{
@@ -373,12 +373,12 @@ func TestMixedLuaWasmFilters(t *testing.T) {
 		},
 	}
 
-	filterMap := map[extensions.TrafficExtension_ExecutionPhase][]*model.ExtensionFilterWrapper{
+	filterMap := map[extensions.TrafficExtension_ExecutionPhase][]*model.TrafficExtensionWrapper{
 		extensions.TrafficExtension_STATS: {luaFilter, wasmFilter},
 	}
 
 	filters := []*hcm.HttpFilter{}
-	filters = PopAppendHTTPExtensionFilter(filters, filterMap, extensions.TrafficExtension_STATS)
+	filters = PopAppendHTTPTrafficExtension(filters, filterMap, extensions.TrafficExtension_STATS)
 
 	// Both filters should be added
 	assert.Equal(t, len(filters), 2)
@@ -396,7 +396,7 @@ func TestLuaFilterInlining(t *testing.T) {
 	// Verify that Lua filters are fully inlined with code, not using ECDS
 	luaCode := "function envoy_on_request(request_handle)\n  request_handle:headers():add('x-lua', 'true')\nend"
 
-	filter := &model.ExtensionFilterWrapper{
+	filter := &model.TrafficExtensionWrapper{
 		ResourceName: "inline-lua",
 		FilterType:   model.FilterTypeLua,
 		Lua: &extensions.LuaConfig{
@@ -404,7 +404,7 @@ func TestLuaFilterInlining(t *testing.T) {
 		},
 	}
 
-	envoyFilter := toEnvoyHTTPExtensionFilter(filter)
+	envoyFilter := toEnvoyHTTPTrafficExtension(filter)
 
 	// Should have TypedConfig, not ConfigDiscovery
 	assert.Equal(t, envoyFilter.GetConfigDiscovery(), (*core.ExtensionConfigSource)(nil), "Lua should not use ECDS")
@@ -419,12 +419,12 @@ func TestLuaFilterInlining(t *testing.T) {
 func TestBuildHTTPWasmFilter(t *testing.T) {
 	tests := []struct {
 		name      string
-		filter    *model.ExtensionFilterWrapper
+		filter    *model.TrafficExtensionWrapper
 		expectNil bool
 	}{
 		{
 			name: "valid HTTP WASM filter",
-			filter: &model.ExtensionFilterWrapper{
+			filter: &model.TrafficExtensionWrapper{
 				Name:       "test-wasm",
 				Namespace:  "default",
 				FilterType: model.FilterTypeWasm,
@@ -437,7 +437,7 @@ func TestBuildHTTPWasmFilter(t *testing.T) {
 		},
 		{
 			name: "WASM filter with UNSPECIFIED type defaults to HTTP",
-			filter: &model.ExtensionFilterWrapper{
+			filter: &model.TrafficExtensionWrapper{
 				Name:       "test-wasm",
 				Namespace:  "default",
 				FilterType: model.FilterTypeWasm,
@@ -450,7 +450,7 @@ func TestBuildHTTPWasmFilter(t *testing.T) {
 		},
 		{
 			name: "NETWORK type returns nil for HTTP filter",
-			filter: &model.ExtensionFilterWrapper{
+			filter: &model.TrafficExtensionWrapper{
 				Name:       "test-wasm",
 				Namespace:  "default",
 				FilterType: model.FilterTypeWasm,
@@ -463,7 +463,7 @@ func TestBuildHTTPWasmFilter(t *testing.T) {
 		},
 		{
 			name: "Lua filter returns nil",
-			filter: &model.ExtensionFilterWrapper{
+			filter: &model.TrafficExtensionWrapper{
 				FilterType: model.FilterTypeLua,
 				Lua: &extensions.LuaConfig{
 					InlineCode: "function envoy_on_request() end",
@@ -489,12 +489,12 @@ func TestBuildHTTPWasmFilter(t *testing.T) {
 func TestBuildNetworkWasmFilter(t *testing.T) {
 	tests := []struct {
 		name      string
-		filter    *model.ExtensionFilterWrapper
+		filter    *model.TrafficExtensionWrapper
 		expectNil bool
 	}{
 		{
 			name: "valid NETWORK WASM filter",
-			filter: &model.ExtensionFilterWrapper{
+			filter: &model.TrafficExtensionWrapper{
 				Name:       "test-wasm",
 				Namespace:  "default",
 				FilterType: model.FilterTypeWasm,
@@ -507,7 +507,7 @@ func TestBuildNetworkWasmFilter(t *testing.T) {
 		},
 		{
 			name: "HTTP type returns nil for network filter",
-			filter: &model.ExtensionFilterWrapper{
+			filter: &model.TrafficExtensionWrapper{
 				Name:       "test-wasm",
 				Namespace:  "default",
 				FilterType: model.FilterTypeWasm,
@@ -520,7 +520,7 @@ func TestBuildNetworkWasmFilter(t *testing.T) {
 		},
 		{
 			name: "UNSPECIFIED type returns nil for network filter",
-			filter: &model.ExtensionFilterWrapper{
+			filter: &model.TrafficExtensionWrapper{
 				Name:       "test-wasm",
 				Namespace:  "default",
 				FilterType: model.FilterTypeWasm,
@@ -533,7 +533,7 @@ func TestBuildNetworkWasmFilter(t *testing.T) {
 		},
 		{
 			name: "Lua filter returns nil",
-			filter: &model.ExtensionFilterWrapper{
+			filter: &model.TrafficExtensionWrapper{
 				FilterType: model.FilterTypeLua,
 				Lua: &extensions.LuaConfig{
 					InlineCode: "function envoy_on_request() end",
@@ -556,7 +556,7 @@ func TestBuildNetworkWasmFilter(t *testing.T) {
 	}
 }
 
-func TestInsertedExtensionFilterConfigurations_WasmURLs(t *testing.T) {
+func TestInsertedTrafficExtensionConfigurations_WasmURLs(t *testing.T) {
 	tests := []struct {
 		name   string
 		url    string
@@ -591,8 +591,8 @@ func TestInsertedExtensionFilterConfigurations_WasmURLs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			filter := &model.ExtensionFilterWrapper{
-				ResourceName: "extensions.istio.io/extensionfilter/default.wasm-test",
+			filter := &model.TrafficExtensionWrapper{
+				ResourceName: "extensions.istio.io/trafficextension/default.wasm-test",
 				Name:         "wasm-test",
 				Namespace:    "default",
 				FilterType:   model.FilterTypeWasm,
@@ -602,9 +602,9 @@ func TestInsertedExtensionFilterConfigurations_WasmURLs(t *testing.T) {
 				},
 			}
 
-			configs := InsertedExtensionFilterConfigurations(
-				[]*model.ExtensionFilterWrapper{filter},
-				[]string{"extensions.istio.io/extensionfilter/default.wasm-test"},
+			configs := InsertedTrafficExtensionConfigurations(
+				[]*model.TrafficExtensionWrapper{filter},
+				[]string{"extensions.istio.io/trafficextension/default.wasm-test"},
 				map[string][]byte{},
 			)
 
@@ -616,12 +616,12 @@ func TestInsertedExtensionFilterConfigurations_WasmURLs(t *testing.T) {
 	}
 }
 
-func TestInsertedExtensionFilterConfigurations_PullSecrets(t *testing.T) {
+func TestInsertedTrafficExtensionConfigurations_PullSecrets(t *testing.T) {
 	secretName := "test-secret"
 	secretValue := []byte("my-docker-secret")
 
-	filter := &model.ExtensionFilterWrapper{
-		ResourceName: "extensions.istio.io/extensionfilter/default.wasm-auth",
+	filter := &model.TrafficExtensionWrapper{
+		ResourceName: "extensions.istio.io/trafficextension/default.wasm-auth",
 		Name:         "wasm-auth",
 		Namespace:    "default",
 		FilterType:   model.FilterTypeWasm,
@@ -636,9 +636,9 @@ func TestInsertedExtensionFilterConfigurations_PullSecrets(t *testing.T) {
 		secretName: secretValue,
 	}
 
-	configs := InsertedExtensionFilterConfigurations(
-		[]*model.ExtensionFilterWrapper{filter},
-		[]string{"extensions.istio.io/extensionfilter/default.wasm-auth"},
+	configs := InsertedTrafficExtensionConfigurations(
+		[]*model.TrafficExtensionWrapper{filter},
+		[]string{"extensions.istio.io/trafficextension/default.wasm-auth"},
 		pullSecrets,
 	)
 
@@ -647,9 +647,9 @@ func TestInsertedExtensionFilterConfigurations_PullSecrets(t *testing.T) {
 	// This is tested indirectly through the ECDS generation
 }
 
-func TestInsertedExtensionFilterConfigurations_HTTPAndNetwork(t *testing.T) {
-	httpFilter := &model.ExtensionFilterWrapper{
-		ResourceName: "extensions.istio.io/extensionfilter/default.http-wasm",
+func TestInsertedTrafficExtensionConfigurations_HTTPAndNetwork(t *testing.T) {
+	httpFilter := &model.TrafficExtensionWrapper{
+		ResourceName: "extensions.istio.io/trafficextension/default.http-wasm",
 		Name:         "http-wasm",
 		Namespace:    "default",
 		FilterType:   model.FilterTypeWasm,
@@ -659,8 +659,8 @@ func TestInsertedExtensionFilterConfigurations_HTTPAndNetwork(t *testing.T) {
 		},
 	}
 
-	networkFilter := &model.ExtensionFilterWrapper{
-		ResourceName: "extensions.istio.io/extensionfilter/default.network-wasm",
+	networkFilter := &model.TrafficExtensionWrapper{
+		ResourceName: "extensions.istio.io/trafficextension/default.network-wasm",
 		Name:         "network-wasm",
 		Namespace:    "default",
 		FilterType:   model.FilterTypeWasm,
@@ -670,11 +670,11 @@ func TestInsertedExtensionFilterConfigurations_HTTPAndNetwork(t *testing.T) {
 		},
 	}
 
-	configs := InsertedExtensionFilterConfigurations(
-		[]*model.ExtensionFilterWrapper{httpFilter, networkFilter},
+	configs := InsertedTrafficExtensionConfigurations(
+		[]*model.TrafficExtensionWrapper{httpFilter, networkFilter},
 		[]string{
-			"extensions.istio.io/extensionfilter/default.http-wasm",
-			"extensions.istio.io/extensionfilter/default.network-wasm",
+			"extensions.istio.io/trafficextension/default.http-wasm",
+			"extensions.istio.io/trafficextension/default.network-wasm",
 		},
 		map[string][]byte{},
 	)
@@ -687,16 +687,16 @@ func TestInsertedExtensionFilterConfigurations_HTTPAndNetwork(t *testing.T) {
 		configNames[cfg.Name] = true
 	}
 
-	assert.Equal(t, configNames["extensions.istio.io/extensionfilter/default.http-wasm"], true)
-	assert.Equal(t, configNames["extensions.istio.io/extensionfilter/default.network-wasm"], true)
+	assert.Equal(t, configNames["extensions.istio.io/trafficextension/default.http-wasm"], true)
+	assert.Equal(t, configNames["extensions.istio.io/trafficextension/default.network-wasm"], true)
 }
 
-func TestToEnvoyNetworkExtensionFilter_LuaReturnsNil(t *testing.T) {
+func TestToEnvoyNetworkTrafficExtension_LuaReturnsNil(t *testing.T) {
 	// Lua filters do not support network (L4) filtering - they only work with HTTP.
 	// When attempting to use a Lua filter for network filtering, the function should
 	// return nil (and log a warning, though we don't test the log here).
-	luaFilter := &model.ExtensionFilterWrapper{
-		ResourceName: "extensions.istio.io/extensionfilter/default.lua-network-attempt",
+	luaFilter := &model.TrafficExtensionWrapper{
+		ResourceName: "extensions.istio.io/trafficextension/default.lua-network-attempt",
 		Name:         "lua-network-attempt",
 		Namespace:    "default",
 		FilterType:   model.FilterTypeLua,
@@ -708,17 +708,17 @@ func TestToEnvoyNetworkExtensionFilter_LuaReturnsNil(t *testing.T) {
 		},
 	}
 
-	// Attempt to create a network filter from a Lua ExtensionFilter
-	result := toEnvoyNetworkExtensionFilter(luaFilter)
+	// Attempt to create a network filter from a Lua TrafficExtension
+	result := toEnvoyNetworkTrafficExtension(luaFilter)
 
 	// Should return nil because Lua doesn't support network filtering
 	assert.Equal(t, result, (*listener.Filter)(nil), "Lua filter should return nil for network filtering")
 }
 
-func TestPopAppendNetworkExtensionFilter_LuaSkipped(t *testing.T) {
+func TestPopAppendNetworkTrafficExtension_LuaSkipped(t *testing.T) {
 	// Test that when processing network filters, Lua filters are silently skipped
 	// while WASM filters are properly added
-	luaFilter := &model.ExtensionFilterWrapper{
+	luaFilter := &model.TrafficExtensionWrapper{
 		ResourceName: "lua-filter",
 		FilterType:   model.FilterTypeLua,
 		TrafficExtension: &extensions.TrafficExtension{
@@ -729,7 +729,7 @@ func TestPopAppendNetworkExtensionFilter_LuaSkipped(t *testing.T) {
 		},
 	}
 
-	wasmFilter := &model.ExtensionFilterWrapper{
+	wasmFilter := &model.TrafficExtensionWrapper{
 		ResourceName: "wasm-filter",
 		FilterType:   model.FilterTypeWasm,
 		TrafficExtension: &extensions.TrafficExtension{
@@ -741,12 +741,12 @@ func TestPopAppendNetworkExtensionFilter_LuaSkipped(t *testing.T) {
 		},
 	}
 
-	filterMap := map[extensions.TrafficExtension_ExecutionPhase][]*model.ExtensionFilterWrapper{
+	filterMap := map[extensions.TrafficExtension_ExecutionPhase][]*model.TrafficExtensionWrapper{
 		extensions.TrafficExtension_AUTHN: {luaFilter, wasmFilter},
 	}
 
 	filters := []*listener.Filter{}
-	filters = PopAppendNetworkExtensionFilter(filters, filterMap, extensions.TrafficExtension_AUTHN)
+	filters = PopAppendNetworkTrafficExtension(filters, filterMap, extensions.TrafficExtension_AUTHN)
 
 	// Only WASM filter should be added (Lua is not supported for network)
 	assert.Equal(t, len(filters), 1, "only WASM filter should be added for network filtering")
@@ -757,7 +757,7 @@ func TestPopAppendNetworkExtensionFilter_LuaSkipped(t *testing.T) {
 func TestMixedWasmLuaPriorityOrdering(t *testing.T) {
 	// Test that when WASM and Lua filters have the same priority,
 	// the ordering is stable (preserves insertion order)
-	luaFilter1 := &model.ExtensionFilterWrapper{
+	luaFilter1 := &model.TrafficExtensionWrapper{
 		ResourceName: "lua-filter-1",
 		FilterType:   model.FilterTypeLua,
 		TrafficExtension: &extensions.TrafficExtension{
@@ -768,7 +768,7 @@ func TestMixedWasmLuaPriorityOrdering(t *testing.T) {
 		},
 	}
 
-	wasmFilter := &model.ExtensionFilterWrapper{
+	wasmFilter := &model.TrafficExtensionWrapper{
 		ResourceName: "wasm-filter",
 		FilterType:   model.FilterTypeWasm,
 		TrafficExtension: &extensions.TrafficExtension{
@@ -779,7 +779,7 @@ func TestMixedWasmLuaPriorityOrdering(t *testing.T) {
 		},
 	}
 
-	luaFilter2 := &model.ExtensionFilterWrapper{
+	luaFilter2 := &model.TrafficExtensionWrapper{
 		ResourceName: "lua-filter-2",
 		FilterType:   model.FilterTypeLua,
 		TrafficExtension: &extensions.TrafficExtension{
@@ -791,12 +791,12 @@ func TestMixedWasmLuaPriorityOrdering(t *testing.T) {
 	}
 
 	// All filters have same priority (nil = MinInt32), order should be preserved
-	filterMap := map[extensions.TrafficExtension_ExecutionPhase][]*model.ExtensionFilterWrapper{
+	filterMap := map[extensions.TrafficExtension_ExecutionPhase][]*model.TrafficExtensionWrapper{
 		extensions.TrafficExtension_AUTHN: {luaFilter1, wasmFilter, luaFilter2},
 	}
 
 	filters := []*hcm.HttpFilter{}
-	filters = PopAppendHTTPExtensionFilter(filters, filterMap, extensions.TrafficExtension_AUTHN)
+	filters = PopAppendHTTPTrafficExtension(filters, filterMap, extensions.TrafficExtension_AUTHN)
 
 	// All three filters should be added in insertion order
 	assert.Equal(t, len(filters), 3, "all filters should be added")
@@ -811,13 +811,13 @@ func TestMixedWasmLuaPriorityOrdering(t *testing.T) {
 }
 
 func TestMixedWasmLuaPriorityOrdering_PreservesSortedOrder(t *testing.T) {
-	// Test that PopAppendHTTPExtensionFilter preserves the input order.
-	// Note: Priority sorting is done by ExtensionFiltersByListenerInfo in push_context.go
-	// BEFORE the filters are passed to PopAppendHTTPExtensionFilter. This test verifies
-	// that PopAppendHTTPExtensionFilter maintains the pre-sorted order.
+	// Test that PopAppendHTTPTrafficExtension preserves the input order.
+	// Note: Priority sorting is done by TrafficExtensionsByListenerInfo in push_context.go
+	// BEFORE the filters are passed to PopAppendHTTPTrafficExtension. This test verifies
+	// that PopAppendHTTPTrafficExtension maintains the pre-sorted order.
 
 	// Simulate filters that have already been sorted by priority (highest first)
-	wasmHighPrio := &model.ExtensionFilterWrapper{
+	wasmHighPrio := &model.TrafficExtensionWrapper{
 		ResourceName: "wasm-high-prio",
 		FilterType:   model.FilterTypeWasm,
 		TrafficExtension: &extensions.TrafficExtension{
@@ -829,7 +829,7 @@ func TestMixedWasmLuaPriorityOrdering_PreservesSortedOrder(t *testing.T) {
 		},
 	}
 
-	luaMedPrio := &model.ExtensionFilterWrapper{
+	luaMedPrio := &model.TrafficExtensionWrapper{
 		ResourceName: "lua-med-prio",
 		FilterType:   model.FilterTypeLua,
 		TrafficExtension: &extensions.TrafficExtension{
@@ -841,7 +841,7 @@ func TestMixedWasmLuaPriorityOrdering_PreservesSortedOrder(t *testing.T) {
 		},
 	}
 
-	luaLowPrio := &model.ExtensionFilterWrapper{
+	luaLowPrio := &model.TrafficExtensionWrapper{
 		ResourceName: "lua-low-prio",
 		FilterType:   model.FilterTypeLua,
 		TrafficExtension: &extensions.TrafficExtension{
@@ -853,7 +853,7 @@ func TestMixedWasmLuaPriorityOrdering_PreservesSortedOrder(t *testing.T) {
 		},
 	}
 
-	wasmNoPrio := &model.ExtensionFilterWrapper{
+	wasmNoPrio := &model.TrafficExtensionWrapper{
 		ResourceName: "wasm-no-prio",
 		FilterType:   model.FilterTypeWasm,
 		TrafficExtension: &extensions.TrafficExtension{
@@ -865,14 +865,14 @@ func TestMixedWasmLuaPriorityOrdering_PreservesSortedOrder(t *testing.T) {
 		},
 	}
 
-	// Input is pre-sorted by priority (as ExtensionFiltersByListenerInfo would do)
+	// Input is pre-sorted by priority (as TrafficExtensionsByListenerInfo would do)
 	// Priority order: wasmHighPrio(100) > luaMedPrio(50) > luaLowPrio(10) > wasmNoPrio(MinInt32)
-	filterMap := map[extensions.TrafficExtension_ExecutionPhase][]*model.ExtensionFilterWrapper{
+	filterMap := map[extensions.TrafficExtension_ExecutionPhase][]*model.TrafficExtensionWrapper{
 		extensions.TrafficExtension_AUTHN: {wasmHighPrio, luaMedPrio, luaLowPrio, wasmNoPrio},
 	}
 
 	filters := []*hcm.HttpFilter{}
-	filters = PopAppendHTTPExtensionFilter(filters, filterMap, extensions.TrafficExtension_AUTHN)
+	filters = PopAppendHTTPTrafficExtension(filters, filterMap, extensions.TrafficExtension_AUTHN)
 
 	// Verify the pre-sorted order is preserved
 	assert.Equal(t, len(filters), 4, "all filters should be added")

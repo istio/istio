@@ -42,7 +42,7 @@ func ecdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
 	if res, ok := xdsNeedsPush(req, proxy); ok {
 		return res
 	}
-	// Only push if config updates is triggered by EnvoyFilter, ExtensionFilter, or Secret.
+	// Only push if config updates is triggered by EnvoyFilter, TrafficExtension, or Secret.
 	for config := range req.ConfigsUpdated {
 		switch config.Kind {
 		case kind.EnvoyFilter:
@@ -58,7 +58,7 @@ func ecdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
 
 // onlyReferencedConfigsUpdated indicates whether the PushRequest
 // has ONLY referenced resource in ConfigUpdates. For example ONLY
-// secret is updated that may be referred by ExtensionFilter.
+// secret is updated that may be referred by TrafficExtension.
 func onlyReferencedConfigsUpdated(req *model.PushRequest) bool {
 	referencedConfigUpdated := false
 	for config := range req.ConfigsUpdated {
@@ -159,12 +159,12 @@ func (e *EcdsGenerator) SetCredController(creds credscontroller.MulticlusterCont
 func referencedSecrets(proxy *model.Proxy, push *model.PushContext, watched sets.String) []SecretResource {
 	// The requirement for the Wasm pull secret:
 	// * Wasm pull secrets must be of type `kubernetes.io/dockerconfigjson`.
-	// * Secrets are referenced by an ExtensionFilter which applies to this proxy.
-	// TODO: we get the ExtensionFilters here to get the secrets reference in order to decide whether ECDS push is needed,
+	// * Secrets are referenced by a TrafficExtension which applies to this proxy.
+	// TODO: we get the TrafficExtensions here to get the secrets reference in order to decide whether ECDS push is needed,
 	//       and we will get it again at extension config build. Avoid getting it twice if this becomes a problem.
 	referencedSecrets := sets.String{}
-	extensionFilters := push.ExtensionFilters(proxy)
-	for _, efs := range extensionFilters {
+	trafficExtensions := push.TrafficExtensions(proxy)
+	for _, efs := range trafficExtensions {
 		for _, ef := range efs {
 			if watched.Contains(ef.ResourceName) && ef.Wasm != nil && ef.Wasm.ImagePullSecret != "" {
 				referencedSecrets.Insert(ef.Wasm.ImagePullSecret)

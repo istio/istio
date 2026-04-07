@@ -48,9 +48,9 @@ const (
 	WasmPolicyEnv          = pm.WasmPolicyEnv
 	WasmResourceVersionEnv = pm.WasmResourceVersionEnv
 
-	// ExtensionFilterResourceNamePrefix is the prefix of the resource name of ExtensionFilter,
+	// TrafficExtensionResourceNamePrefix is the prefix of the resource name of TrafficExtension,
 	// preventing the name collision with other resources.
-	ExtensionFilterResourceNamePrefix = "extensions.istio.io/extensionfilter/"
+	TrafficExtensionResourceNamePrefix = "extensions.istio.io/trafficextension/"
 )
 
 func workloadModeForListenerClass(class istionetworking.ListenerClass) typeapi.WorkloadMode {
@@ -72,7 +72,7 @@ type ListenerInfo struct {
 	Port  int
 	Class istionetworking.ListenerClass
 
-	// Service that ExtensionFilters can attach to via targetRefs (optional)
+	// Service that TrafficExtensions can attach to via targetRefs (optional)
 	Services []*Service
 }
 
@@ -140,7 +140,7 @@ func buildDataSource(u *url.URL, urlString string, sha256 string) *core.AsyncDat
 	}
 }
 
-// FilterType defines whether an ExtensionFilter is Lua or WASM based
+// FilterType defines whether a TrafficExtension is Lua or WASM based
 type FilterType int
 
 const (
@@ -170,8 +170,8 @@ func filterChainTypeFromPluginType(pluginType extensions.PluginType) FilterChain
 	return FilterChainTypeHTTP
 }
 
-// ExtensionFilterWrapper is a wrapper for extensions.TrafficExtension with additional runtime information
-type ExtensionFilterWrapper struct {
+// TrafficExtensionWrapper is a wrapper for extensions.TrafficExtension with additional runtime information
+type TrafficExtensionWrapper struct {
 	*extensions.TrafficExtension
 
 	// Wasm and Lua are extracted from the oneof FilterConfig at construction time for convenience.
@@ -187,22 +187,22 @@ type ExtensionFilterWrapper struct {
 
 // GetTargetRef returns nil; TrafficExtension uses GetTargetRefs (plural) only.
 // This satisfies the TargetablePolicy interface.
-func (e *ExtensionFilterWrapper) GetTargetRef() *typeapi.PolicyTargetReference {
+func (e *TrafficExtensionWrapper) GetTargetRef() *typeapi.PolicyTargetReference {
 	return nil
 }
 
-func (e *ExtensionFilterWrapper) MatchListener(matcher WorkloadPolicyMatcher, li ListenerInfo) bool {
+func (e *TrafficExtensionWrapper) MatchListener(matcher WorkloadPolicyMatcher, li ListenerInfo) bool {
 	if matcher.ShouldAttachPolicy(gvk.TrafficExtension, e.NamespacedName(), e) {
-		return matchExtensionFilterTrafficSelectors(e.Match, li)
+		return matchTrafficExtensionSelectors(e.Match, li)
 	}
 	return false
 }
 
-func (e *ExtensionFilterWrapper) NamespacedName() types.NamespacedName {
+func (e *TrafficExtensionWrapper) NamespacedName() types.NamespacedName {
 	return types.NamespacedName{Name: e.Name, Namespace: e.Namespace}
 }
 
-func (e *ExtensionFilterWrapper) MatchType(chainType FilterChainType) bool {
+func (e *TrafficExtensionWrapper) MatchType(chainType FilterChainType) bool {
 	if e.FilterType == FilterTypeLua {
 		// Lua only supports HTTP filters
 		return chainType == FilterChainTypeAny || chainType == FilterChainTypeHTTP
@@ -212,7 +212,7 @@ func (e *ExtensionFilterWrapper) MatchType(chainType FilterChainType) bool {
 	return chainType == FilterChainTypeAny || chainType == wasmType
 }
 
-func (e *ExtensionFilterWrapper) BuildHTTPWasmFilter() *httpwasm.Wasm {
+func (e *TrafficExtensionWrapper) BuildHTTPWasmFilter() *httpwasm.Wasm {
 	if e.FilterType != FilterTypeWasm || e.Wasm == nil {
 		return nil
 	}
@@ -224,7 +224,7 @@ func (e *ExtensionFilterWrapper) BuildHTTPWasmFilter() *httpwasm.Wasm {
 	}
 }
 
-func (e *ExtensionFilterWrapper) BuildNetworkWasmFilter() *networkwasm.Wasm {
+func (e *TrafficExtensionWrapper) BuildNetworkWasmFilter() *networkwasm.Wasm {
 	if e.FilterType != FilterTypeWasm || e.Wasm == nil {
 		return nil
 	}
@@ -236,7 +236,7 @@ func (e *ExtensionFilterWrapper) BuildNetworkWasmFilter() *networkwasm.Wasm {
 	}
 }
 
-func (e *ExtensionFilterWrapper) buildWasmConfig() *wasmextensions.PluginConfig {
+func (e *TrafficExtensionWrapper) buildWasmConfig() *wasmextensions.PluginConfig {
 	cfg := &anypb.Any{}
 	if e.Wasm.PluginConfig != nil && len(e.Wasm.PluginConfig.Fields) > 0 {
 		cfgJSON, err := protomarshal.ToJSON(e.Wasm.PluginConfig)
@@ -281,7 +281,7 @@ func (e *ExtensionFilterWrapper) buildWasmConfig() *wasmextensions.PluginConfig 
 	return wasmConfig
 }
 
-func matchExtensionFilterTrafficSelectors(ts []*extensions.TrafficSelector, li ListenerInfo) bool {
+func matchTrafficExtensionSelectors(ts []*extensions.TrafficSelector, li ListenerInfo) bool {
 	if (li.Class == istionetworking.ListenerClassUndefined && li.Port == 0) || len(ts) == 0 {
 		return true
 	}
@@ -294,7 +294,7 @@ func matchExtensionFilterTrafficSelectors(ts []*extensions.TrafficSelector, li L
 	return false
 }
 
-func convertToExtensionFilterWrapper(originConfig config.Config) *ExtensionFilterWrapper {
+func convertToTrafficExtensionWrapper(originConfig config.Config) *TrafficExtensionWrapper {
 	plugin := originConfig.DeepCopy()
 	var trafficExt *extensions.TrafficExtension
 	var ok bool
@@ -363,10 +363,10 @@ func convertToExtensionFilterWrapper(originConfig config.Config) *ExtensionFilte
 		return nil
 	}
 
-	return &ExtensionFilterWrapper{
+	return &TrafficExtensionWrapper{
 		Name:             plugin.Name,
 		Namespace:        plugin.Namespace,
-		ResourceName:     ExtensionFilterResourceNamePrefix + plugin.Namespace + "." + plugin.Name,
+		ResourceName:     TrafficExtensionResourceNamePrefix + plugin.Namespace + "." + plugin.Name,
 		TrafficExtension: trafficExt,
 		Wasm:             wasm,
 		Lua:              lua,

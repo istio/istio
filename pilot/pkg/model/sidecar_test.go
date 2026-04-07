@@ -3091,13 +3091,13 @@ func TestRootNsSidecarDependencies(t *testing.T) {
 		{"WasmPlugin in the root namespace", []string{"*/*"}, map[ConfigKey]bool{
 			{kind.WasmPlugin, "wasm", constants.IstioSystemNamespace}: true,
 		}},
-		{"ExtensionFilter in same ns as workload", []string{"*/*"}, map[ConfigKey]bool{
+		{"TrafficExtension in same ns as workload", []string{"*/*"}, map[ConfigKey]bool{
 			{kind.TrafficExtension, "extension", "default"}: true,
 		}},
-		{"ExtensionFilter in different ns from workload", []string{"*/*"}, map[ConfigKey]bool{
+		{"TrafficExtension in different ns from workload", []string{"*/*"}, map[ConfigKey]bool{
 			{kind.TrafficExtension, "extension", "ns1"}: false,
 		}},
-		{"ExtensionFilter in the root namespace", []string{"*/*"}, map[ConfigKey]bool{
+		{"TrafficExtension in the root namespace", []string{"*/*"}, map[ConfigKey]bool{
 			{kind.TrafficExtension, "extension", constants.IstioSystemNamespace}: true,
 		}},
 	}

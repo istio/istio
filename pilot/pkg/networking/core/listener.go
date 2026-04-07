@@ -628,7 +628,7 @@ func buildListenerFromEntry(builder *ListenerBuilder, le *outboundListenerEntry,
 		// Otherwise, do not have a timeout at all
 		l.ListenerFiltersTimeout = durationpb.New(0)
 	}
-	extensionFilters := builder.push.ExtensionFiltersByListenerInfo(builder.node, model.ListenerInfo{
+	trafficExtensions := builder.push.TrafficExtensionsByListenerInfo(builder.node, model.ListenerInfo{
 		Port:  le.servicePort.Port,
 		Class: istionetworking.ListenerClassSidecarOutbound,
 	}, model.FilterChainTypeNetwork)
@@ -652,10 +652,10 @@ func buildListenerFromEntry(builder *ListenerBuilder, le *outboundListenerEntry,
 				Name:       wellknown.HTTPConnectionManager,
 				ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(hcm)},
 			}
-			opt.networkFilters = extension.PopAppendNetworkExtensionFilter(opt.networkFilters, extensionFilters, extensions.TrafficExtension_AUTHN)
-			opt.networkFilters = extension.PopAppendNetworkExtensionFilter(opt.networkFilters, extensionFilters, extensions.TrafficExtension_AUTHZ)
-			opt.networkFilters = extension.PopAppendNetworkExtensionFilter(opt.networkFilters, extensionFilters, extensions.TrafficExtension_STATS)
-			opt.networkFilters = extension.PopAppendNetworkExtensionFilter(opt.networkFilters, extensionFilters, extensions.TrafficExtension_UNSPECIFIED)
+			opt.networkFilters = extension.PopAppendNetworkTrafficExtension(opt.networkFilters, trafficExtensions, extensions.TrafficExtension_AUTHN)
+			opt.networkFilters = extension.PopAppendNetworkTrafficExtension(opt.networkFilters, trafficExtensions, extensions.TrafficExtension_AUTHZ)
+			opt.networkFilters = extension.PopAppendNetworkTrafficExtension(opt.networkFilters, trafficExtensions, extensions.TrafficExtension_STATS)
+			opt.networkFilters = extension.PopAppendNetworkTrafficExtension(opt.networkFilters, trafficExtensions, extensions.TrafficExtension_UNSPECIFIED)
 			chain.Filters = append(chain.Filters, opt.networkFilters...)
 			chain.Filters = append(chain.Filters, filter)
 		}

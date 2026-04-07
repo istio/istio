@@ -250,7 +250,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayTCPBasedFilterChains(
 	tlsHostsByPort map[uint32]map[string]string,
 ) {
 	// Add network level extension filters if any configured.
-	extensionFilters := builder.push.ExtensionFiltersByListenerInfo(builder.node, model.ListenerInfo{
+	trafficExtensions := builder.push.TrafficExtensionsByListenerInfo(builder.node, model.ListenerInfo{
 		Port:  opts.port,
 		Class: istionetworking.ListenerClassGateway,
 	}, model.FilterChainTypeNetwork)
@@ -260,14 +260,14 @@ func (configgen *ConfigGeneratorImpl) buildGatewayTCPBasedFilterChains(
 		httpFilterChainOpts := configgen.createGatewayHTTPFilterChainOpts(builder.node, port, nil, serversForPort.RouteName,
 			proxyConfig, istionetworking.ListenerProtocolTCP, builder.push)
 		// In HTTP, we need to have RBAC, etc. upfront so that they can enforce policies immediately
-		httpFilterChainOpts.networkFilters = extension.PopAppendNetworkExtensionFilter(
-			httpFilterChainOpts.networkFilters, extensionFilters, extensions.TrafficExtension_AUTHN)
-		httpFilterChainOpts.networkFilters = extension.PopAppendNetworkExtensionFilter(
-			httpFilterChainOpts.networkFilters, extensionFilters, extensions.TrafficExtension_AUTHZ)
-		httpFilterChainOpts.networkFilters = extension.PopAppendNetworkExtensionFilter(
-			httpFilterChainOpts.networkFilters, extensionFilters, extensions.TrafficExtension_STATS)
-		httpFilterChainOpts.networkFilters = extension.PopAppendNetworkExtensionFilter(
-			httpFilterChainOpts.networkFilters, extensionFilters, extensions.TrafficExtension_UNSPECIFIED)
+		httpFilterChainOpts.networkFilters = extension.PopAppendNetworkTrafficExtension(
+			httpFilterChainOpts.networkFilters, trafficExtensions, extensions.TrafficExtension_AUTHN)
+		httpFilterChainOpts.networkFilters = extension.PopAppendNetworkTrafficExtension(
+			httpFilterChainOpts.networkFilters, trafficExtensions, extensions.TrafficExtension_AUTHZ)
+		httpFilterChainOpts.networkFilters = extension.PopAppendNetworkTrafficExtension(
+			httpFilterChainOpts.networkFilters, trafficExtensions, extensions.TrafficExtension_STATS)
+		httpFilterChainOpts.networkFilters = extension.PopAppendNetworkTrafficExtension(
+			httpFilterChainOpts.networkFilters, trafficExtensions, extensions.TrafficExtension_UNSPECIFIED)
 		opts.filterChainOpts = []*filterChainOpts{httpFilterChainOpts}
 	} else {
 		// build http connection manager with TLS context, for HTTPS servers using simple/mutual TLS
@@ -282,14 +282,14 @@ func (configgen *ConfigGeneratorImpl) buildGatewayTCPBasedFilterChains(
 				httpFilterChainOpts := configgen.createGatewayHTTPFilterChainOpts(builder.node, server.Port, server,
 					routeName, proxyConfig, istionetworking.TransportProtocolTCP, builder.push)
 				// In HTTP, we need to have RBAC, etc. upfront so that they can enforce policies immediately
-				httpFilterChainOpts.networkFilters = extension.PopAppendNetworkExtensionFilter(
-					httpFilterChainOpts.networkFilters, extensionFilters, extensions.TrafficExtension_AUTHN)
-				httpFilterChainOpts.networkFilters = extension.PopAppendNetworkExtensionFilter(
-					httpFilterChainOpts.networkFilters, extensionFilters, extensions.TrafficExtension_AUTHZ)
-				httpFilterChainOpts.networkFilters = extension.PopAppendNetworkExtensionFilter(
-					httpFilterChainOpts.networkFilters, extensionFilters, extensions.TrafficExtension_STATS)
-				httpFilterChainOpts.networkFilters = extension.PopAppendNetworkExtensionFilter(
-					httpFilterChainOpts.networkFilters, extensionFilters, extensions.TrafficExtension_UNSPECIFIED)
+				httpFilterChainOpts.networkFilters = extension.PopAppendNetworkTrafficExtension(
+					httpFilterChainOpts.networkFilters, trafficExtensions, extensions.TrafficExtension_AUTHN)
+				httpFilterChainOpts.networkFilters = extension.PopAppendNetworkTrafficExtension(
+					httpFilterChainOpts.networkFilters, trafficExtensions, extensions.TrafficExtension_AUTHZ)
+				httpFilterChainOpts.networkFilters = extension.PopAppendNetworkTrafficExtension(
+					httpFilterChainOpts.networkFilters, trafficExtensions, extensions.TrafficExtension_STATS)
+				httpFilterChainOpts.networkFilters = extension.PopAppendNetworkTrafficExtension(
+					httpFilterChainOpts.networkFilters, trafficExtensions, extensions.TrafficExtension_UNSPECIFIED)
 				opts.filterChainOpts = append(opts.filterChainOpts, httpFilterChainOpts)
 			} else {
 				// we are building a network filter chain (no http connection manager) for this filter chain

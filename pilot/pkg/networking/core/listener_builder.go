@@ -394,7 +394,7 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 
 	filters := []*hcm.HttpFilter{}
 	if !httpOpts.isWaypoint {
-		extensionFilters := lb.push.ExtensionFiltersByListenerInfo(lb.node, model.ListenerInfo{
+		trafficExtensions := lb.push.TrafficExtensionsByListenerInfo(lb.node, model.ListenerInfo{
 			Port:  httpOpts.port,
 			Class: httpOpts.class,
 		}, model.FilterChainTypeHTTP)
@@ -404,13 +404,13 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 		filters = appendMxFilter(httpOpts, filters)
 		// TODO: how to deal with ext-authz? It will be in the ordering twice
 		filters = append(filters, lb.authzCustomBuilder.BuildHTTP(httpOpts.class)...)
-		filters = extension.PopAppendHTTPExtensionFilter(filters, extensionFilters, extensions.TrafficExtension_AUTHN)
+		filters = extension.PopAppendHTTPTrafficExtension(filters, trafficExtensions, extensions.TrafficExtension_AUTHN)
 		filters = append(filters, lb.authnBuilder.BuildHTTP(httpOpts.class)...)
-		filters = extension.PopAppendHTTPExtensionFilter(filters, extensionFilters, extensions.TrafficExtension_AUTHZ)
+		filters = extension.PopAppendHTTPTrafficExtension(filters, trafficExtensions, extensions.TrafficExtension_AUTHZ)
 		filters = append(filters, lb.authzBuilder.BuildHTTP(httpOpts.class)...)
 		// TODO: these feel like the wrong place to insert, but this retains backwards compatibility with the original implementation
-		filters = extension.PopAppendHTTPExtensionFilter(filters, extensionFilters, extensions.TrafficExtension_STATS)
-		filters = extension.PopAppendHTTPExtensionFilter(filters, extensionFilters, extensions.TrafficExtension_UNSPECIFIED)
+		filters = extension.PopAppendHTTPTrafficExtension(filters, trafficExtensions, extensions.TrafficExtension_STATS)
+		filters = extension.PopAppendHTTPTrafficExtension(filters, trafficExtensions, extensions.TrafficExtension_UNSPECIFIED)
 		// Add ExtProc per listener only if the Gateway has any inferencePool attached to it
 		if kubeGwName, ok := lb.node.Labels[label.IoK8sNetworkingGatewayGatewayName.Name]; ok {
 			if lb.push.GatewayAPIController.HasInferencePool(types.NamespacedName{Name: kubeGwName, Namespace: lb.node.GetNamespace()}) {

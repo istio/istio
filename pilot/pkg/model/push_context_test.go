@@ -1120,11 +1120,11 @@ func TestEnvoyFilterUpdate(t *testing.T) {
 	}
 }
 
-func TestExtensionFilters(t *testing.T) {
+func TestTrafficExtensions(t *testing.T) {
 	env := &Environment{}
 	store := NewFakeStore()
 
-	extensionFilters := map[string]config.Config{
+	trafficExtensions := map[string]config.Config{
 		"invalid-type": {
 			Meta: config.Meta{Name: "invalid-type", Namespace: constants.IstioSystemNamespace, GroupVersionKind: gvk.TrafficExtension},
 			Spec: &networking.DestinationRule{},
@@ -1264,7 +1264,7 @@ func TestExtensionFilters(t *testing.T) {
 		node               *Proxy
 		listenerInfo       ListenerInfo
 		chainType          FilterChainType
-		expectedExtensions map[extensions.TrafficExtension_ExecutionPhase][]*ExtensionFilterWrapper
+		expectedExtensions map[extensions.TrafficExtension_ExecutionPhase][]*TrafficExtensionWrapper
 	}{
 		{
 			name:               "nil proxy",
@@ -1281,7 +1281,7 @@ func TestExtensionFilters(t *testing.T) {
 			},
 			listenerInfo:       ListenerInfo{},
 			chainType:          FilterChainTypeHTTP,
-			expectedExtensions: map[extensions.TrafficExtension_ExecutionPhase][]*ExtensionFilterWrapper{},
+			expectedExtensions: map[extensions.TrafficExtension_ExecutionPhase][]*TrafficExtensionWrapper{},
 		},
 		{
 			name: "ingress",
@@ -1298,9 +1298,9 @@ func TestExtensionFilters(t *testing.T) {
 			},
 			listenerInfo: ListenerInfo{},
 			chainType:    FilterChainTypeHTTP,
-			expectedExtensions: map[extensions.TrafficExtension_ExecutionPhase][]*ExtensionFilterWrapper{
+			expectedExtensions: map[extensions.TrafficExtension_ExecutionPhase][]*TrafficExtensionWrapper{
 				extensions.TrafficExtension_AUTHN: {
-					convertToExtensionFilterWrapper(extensionFilters["global-authn-lua-low-prio-ingress"]),
+					convertToTrafficExtensionWrapper(trafficExtensions["global-authn-lua-low-prio-ingress"]),
 				},
 			},
 		},
@@ -1319,12 +1319,12 @@ func TestExtensionFilters(t *testing.T) {
 			},
 			listenerInfo: ListenerInfo{},
 			chainType:    FilterChainTypeHTTP,
-			expectedExtensions: map[extensions.TrafficExtension_ExecutionPhase][]*ExtensionFilterWrapper{
+			expectedExtensions: map[extensions.TrafficExtension_ExecutionPhase][]*TrafficExtensionWrapper{
 				extensions.TrafficExtension_AUTHN: {
-					convertToExtensionFilterWrapper(extensionFilters["authn-lua-med-prio-all"]),
-					convertToExtensionFilterWrapper(extensionFilters["authn-lua-low-prio-all"]),
-					convertToExtensionFilterWrapper(extensionFilters["authn-wasm-low-prio-all"]),
-					convertToExtensionFilterWrapper(extensionFilters["global-authn-lua-low-prio-ingress"]),
+					convertToTrafficExtensionWrapper(trafficExtensions["authn-lua-med-prio-all"]),
+					convertToTrafficExtensionWrapper(trafficExtensions["authn-lua-low-prio-all"]),
+					convertToTrafficExtensionWrapper(trafficExtensions["authn-wasm-low-prio-all"]),
+					convertToTrafficExtensionWrapper(trafficExtensions["global-authn-lua-low-prio-ingress"]),
 				},
 			},
 		},
@@ -1343,9 +1343,9 @@ func TestExtensionFilters(t *testing.T) {
 			},
 			listenerInfo: ListenerInfo{},
 			chainType:    FilterChainTypeNetwork,
-			expectedExtensions: map[extensions.TrafficExtension_ExecutionPhase][]*ExtensionFilterWrapper{
+			expectedExtensions: map[extensions.TrafficExtension_ExecutionPhase][]*TrafficExtensionWrapper{
 				extensions.TrafficExtension_AUTHN: {
-					convertToExtensionFilterWrapper(extensionFilters["authn-wasm-low-prio-all-network"]),
+					convertToTrafficExtensionWrapper(trafficExtensions["authn-wasm-low-prio-all-network"]),
 				},
 			},
 		},
@@ -1364,13 +1364,13 @@ func TestExtensionFilters(t *testing.T) {
 			},
 			listenerInfo: ListenerInfo{},
 			chainType:    FilterChainTypeAny,
-			expectedExtensions: map[extensions.TrafficExtension_ExecutionPhase][]*ExtensionFilterWrapper{
+			expectedExtensions: map[extensions.TrafficExtension_ExecutionPhase][]*TrafficExtensionWrapper{
 				extensions.TrafficExtension_AUTHN: {
-					convertToExtensionFilterWrapper(extensionFilters["authn-lua-med-prio-all"]),
-					convertToExtensionFilterWrapper(extensionFilters["authn-lua-low-prio-all"]),
-					convertToExtensionFilterWrapper(extensionFilters["authn-wasm-low-prio-all"]),
-					convertToExtensionFilterWrapper(extensionFilters["authn-wasm-low-prio-all-network"]),
-					convertToExtensionFilterWrapper(extensionFilters["global-authn-lua-low-prio-ingress"]),
+					convertToTrafficExtensionWrapper(trafficExtensions["authn-lua-med-prio-all"]),
+					convertToTrafficExtensionWrapper(trafficExtensions["authn-lua-low-prio-all"]),
+					convertToTrafficExtensionWrapper(trafficExtensions["authn-wasm-low-prio-all"]),
+					convertToTrafficExtensionWrapper(trafficExtensions["authn-wasm-low-prio-all-network"]),
+					convertToTrafficExtensionWrapper(trafficExtensions["global-authn-lua-low-prio-ingress"]),
 				},
 			},
 		},
@@ -1389,13 +1389,13 @@ func TestExtensionFilters(t *testing.T) {
 			},
 			listenerInfo: ListenerInfo{},
 			chainType:    FilterChainTypeHTTP,
-			expectedExtensions: map[extensions.TrafficExtension_ExecutionPhase][]*ExtensionFilterWrapper{
+			expectedExtensions: map[extensions.TrafficExtension_ExecutionPhase][]*TrafficExtensionWrapper{
 				extensions.TrafficExtension_AUTHN: {
-					convertToExtensionFilterWrapper(extensionFilters["global-authn-wasm-high-prio-app"]),
+					convertToTrafficExtensionWrapper(trafficExtensions["global-authn-wasm-high-prio-app"]),
 				},
 				extensions.TrafficExtension_AUTHZ: {
-					convertToExtensionFilterWrapper(extensionFilters["authz-wasm-high-prio-ingress"]),
-					convertToExtensionFilterWrapper(extensionFilters["global-authz-lua-med-prio-app"]),
+					convertToTrafficExtensionWrapper(trafficExtensions["authz-wasm-high-prio-ingress"]),
+					convertToTrafficExtensionWrapper(trafficExtensions["global-authz-lua-med-prio-app"]),
 				},
 			},
 		},
@@ -1423,18 +1423,18 @@ func TestExtensionFilters(t *testing.T) {
 				Class: istionetworking.ListenerClassSidecarInbound,
 			},
 			chainType: FilterChainTypeHTTP,
-			expectedExtensions: map[extensions.TrafficExtension_ExecutionPhase][]*ExtensionFilterWrapper{
+			expectedExtensions: map[extensions.TrafficExtension_ExecutionPhase][]*TrafficExtensionWrapper{
 				extensions.TrafficExtension_AUTHN: {
-					convertToExtensionFilterWrapper(extensionFilters["global-authn-wasm-high-prio-app"]),
+					convertToTrafficExtensionWrapper(trafficExtensions["global-authn-wasm-high-prio-app"]),
 				},
 				extensions.TrafficExtension_AUTHZ: {
-					convertToExtensionFilterWrapper(extensionFilters["authz-wasm-high-prio-ingress"]),
+					convertToTrafficExtensionWrapper(trafficExtensions["authz-wasm-high-prio-ingress"]),
 				},
 			},
 		},
 	}
 
-	for _, config := range extensionFilters {
+	for _, config := range trafficExtensions {
 		store.Create(config)
 	}
 	env.ConfigStore = store
@@ -1445,13 +1445,13 @@ func TestExtensionFilters(t *testing.T) {
 	// Init a new push context
 	pc := NewPushContext()
 	pc.Mesh = m
-	pc.initExtensionFilters(env)
+	pc.initTrafficExtensions(env)
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result := pc.ExtensionFiltersByListenerInfo(tc.node, tc.listenerInfo, tc.chainType)
+			result := pc.TrafficExtensionsByListenerInfo(tc.node, tc.listenerInfo, tc.chainType)
 			if !reflect.DeepEqual(tc.expectedExtensions, result) {
-				t.Errorf("ExtensionFilters did not match expectations\n\ngot: %v\n\nexpected: %v", result, tc.expectedExtensions)
+				t.Errorf("TrafficExtensions did not match expectations\n\ngot: %v\n\nexpected: %v", result, tc.expectedExtensions)
 			}
 		})
 	}

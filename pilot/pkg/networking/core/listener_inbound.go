@@ -861,7 +861,7 @@ func buildSidecarInboundHTTPOpts(lb *ListenerBuilder, cc inboundChainConfig) *ht
 func (lb *ListenerBuilder) buildInboundNetworkFiltersForHTTP(cc inboundChainConfig) []*listener.Filter {
 	// Add network level extension filters if any configured.
 	httpOpts := buildSidecarInboundHTTPOpts(lb, cc)
-	extensionFilters := lb.push.ExtensionFiltersByListenerInfo(lb.node, model.ListenerInfo{
+	trafficExtensions := lb.push.TrafficExtensionsByListenerInfo(lb.node, model.ListenerInfo{
 		Port:  httpOpts.port,
 		Class: httpOpts.class,
 	}, model.FilterChainTypeNetwork)
@@ -873,12 +873,12 @@ func (lb *ListenerBuilder) buildInboundNetworkFiltersForHTTP(cc inboundChainConf
 	}
 
 	// Authn
-	filters = extension.PopAppendNetworkExtensionFilter(filters, extensionFilters, extensions.TrafficExtension_AUTHN)
+	filters = extension.PopAppendNetworkTrafficExtension(filters, trafficExtensions, extensions.TrafficExtension_AUTHN)
 
 	// Authz. Since this is HTTP, we only add network filters -- not TCP RBAC, stats, etc.
-	filters = extension.PopAppendNetworkExtensionFilter(filters, extensionFilters, extensions.TrafficExtension_AUTHZ)
-	filters = extension.PopAppendNetworkExtensionFilter(filters, extensionFilters, extensions.TrafficExtension_STATS)
-	filters = extension.PopAppendNetworkExtensionFilter(filters, extensionFilters, extensions.TrafficExtension_UNSPECIFIED)
+	filters = extension.PopAppendNetworkTrafficExtension(filters, trafficExtensions, extensions.TrafficExtension_AUTHZ)
+	filters = extension.PopAppendNetworkTrafficExtension(filters, trafficExtensions, extensions.TrafficExtension_STATS)
+	filters = extension.PopAppendNetworkTrafficExtension(filters, trafficExtensions, extensions.TrafficExtension_UNSPECIFIED)
 
 	h := lb.buildHTTPConnectionManager(httpOpts)
 	filters = append(filters, &listener.Filter{

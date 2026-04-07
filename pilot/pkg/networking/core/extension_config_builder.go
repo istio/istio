@@ -33,8 +33,8 @@ func (configgen *ConfigGeneratorImpl) BuildExtensionConfiguration(
 ) []*core.TypedExtensionConfig {
 	envoyFilterPatches := push.EnvoyFilters(proxy)
 	extensions := envoyfilter.InsertedExtensionConfigurations(envoyFilterPatches, extensionConfigNames)
-	extensionFilters := push.ExtensionFiltersByName(proxy, parseExtensionName(extensionConfigNames, model.ExtensionFilterResourceNamePrefix))
-	extensions = append(extensions, extension.InsertedExtensionFilterConfigurations(extensionFilters, extensionConfigNames, pullSecrets)...)
+	trafficExtensions := push.TrafficExtensionsByName(proxy, parseExtensionName(extensionConfigNames, model.TrafficExtensionResourceNamePrefix))
+	extensions = append(extensions, extension.InsertedTrafficExtensionConfigurations(trafficExtensions, extensionConfigNames, pullSecrets)...)
 	return extensions
 }
 

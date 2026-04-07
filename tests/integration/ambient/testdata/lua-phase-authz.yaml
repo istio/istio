@@ -1,7 +1,7 @@
 apiVersion: extensions.istio.io/v1alpha1
 kind: TrafficExtension
 metadata:
-  name: {{ .ExtensionFilterName }}-authz
+  name: {{ .TrafficExtensionName }}-authz
 spec:
   phase: AUTHZ
   targetRefs:
