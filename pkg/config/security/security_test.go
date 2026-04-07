@@ -112,6 +112,30 @@ func TestCheckWildcardValues(t *testing.T) {
 	}
 }
 
+func TestCheckTrustDomainValues(t *testing.T) {
+	cases := []struct {
+		name      string
+		values    []string
+		wantError bool
+	}{
+		{name: "exact", values: []string{"cluster.local"}},
+		{name: "presence wildcard", values: []string{"*"}},
+		{name: "prefix wildcard", values: []string{"cluster-*"}},
+		{name: "suffix wildcard", values: []string{"*-cluster"}},
+		{name: "empty", values: []string{""}, wantError: true},
+		{name: "slash", values: []string{"cluster.local/ns/foo"}, wantError: true},
+		{name: "spiffe uri", values: []string{"spiffe://cluster.local"}, wantError: true},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			err := security.CheckTrustDomainValues("key", c.values)
+			if c.wantError == (err == nil) {
+				t.Fatalf("CheckTrustDomainValues(%v): want error (%v) but got (%v)", c.values, c.wantError, err)
+			}
+		})
+	}
+}
+
 func TestValidateCondition(t *testing.T) {
 	cases := []struct {
 		key       string
