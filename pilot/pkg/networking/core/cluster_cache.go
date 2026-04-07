@@ -178,14 +178,15 @@ func (c cacheStats) merge(other cacheStats) cacheStats {
 	}
 }
 
-func buildClusterKey(service *model.Service, port *model.Port, cb *ClusterBuilder, proxy *model.Proxy, efKeys []string) clusterCache {
+func buildClusterKey(service *model.Service, port *model.Port, cb *ClusterBuilder, proxy model.ProxyInfo, efKeys []string) clusterCache {
 	clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
-	dr := proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, service.Hostname)
+	dr := cb.sidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, service.Hostname)
 	var eb *endpoints.EndpointBuilder
 	if service.Resolution == model.DNSLB || service.Resolution == model.DNSRoundRobinLB {
 		eb = endpoints.NewCDSEndpointBuilder(
 			proxy,
-			cb.req.Push,
+			cb.sidecarScope,
+			cb.configs,
 			clusterName,
 			model.TrafficDirectionOutbound, "", service.Hostname, port.Port,
 			service, dr,
@@ -195,7 +196,7 @@ func buildClusterKey(service *model.Service, port *model.Port, cb *ClusterBuilde
 		clusterName:             clusterName,
 		proxyVersion:            cb.proxyVersion.String(),
 		locality:                cb.locality,
-		preserveHTTP1HeaderCase: shouldPreserveHeaderCase(cb.proxyMetadata, cb.req.Push),
+		preserveHTTP1HeaderCase: shouldPreserveHeaderCase(cb.proxyMetadata, cb.configs),
 		proxyClusterID:          cb.clusterID,
 		proxyType:               cb.proxyType,
 		proxyView:               cb.proxyView,
@@ -207,8 +208,8 @@ func buildClusterKey(service *model.Service, port *model.Port, cb *ClusterBuilde
 		destinationRule:         dr,
 		envoyFilterKeys:         efKeys,
 		metadataCerts:           cb.metadataCerts,
-		peerAuthVersion:         cb.sidecarScope.AuthnPolicies.GetVersion(),
-		serviceAccounts:         cb.req.Push.Services().ServiceAccounts(service.Hostname, service.Attributes.Namespace),
+		peerAuthVersion:         cb.sidecarScope.PeerAuthnPolicies().GetVersion(),
+		serviceAccounts:         cb.configs.Services().ServiceAccounts(service.Hostname, service.Attributes.Namespace),
 		endpointBuilder:         eb,
 	}
 }

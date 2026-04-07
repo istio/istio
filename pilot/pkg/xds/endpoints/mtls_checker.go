@@ -26,15 +26,13 @@ import (
 
 // TODO this logic is probably done elsewhere in XDS, possible code-reuse + perf improvements
 type mtlsChecker struct {
-	push            *model.PushContext
 	authnPolicies   model.PeerAuthnPolicies
 	svcPort         int
 	destinationRule *networkingapi.ClientTLSSettings_TLSmode
 }
 
-func newMtlsChecker(push *model.PushContext, authnPolicies model.PeerAuthnPolicies, svcPort int, dr *config.Config, subset string) *mtlsChecker {
+func newMtlsChecker(authnPolicies model.PeerAuthnPolicies, svcPort int, dr *config.Config, subset string) *mtlsChecker {
 	return &mtlsChecker{
-		push:            push,
 		authnPolicies:   authnPolicies,
 		svcPort:         svcPort,
 		destinationRule: tlsModeForDestinationRule(dr, subset, svcPort),
@@ -61,7 +59,7 @@ func (c *mtlsChecker) checkMtlsEnabled(ep *model.IstioEndpoint, isWaypoint bool)
 	}
 
 	return authn.
-		NewMtlsPolicy(c.push, c.authnPolicies, ep.Namespace, ep.Labels, isWaypoint).
+		NewMtlsPolicy(c.authnPolicies, ep.Namespace, ep.Labels, isWaypoint).
 		GetMutualTLSModeForPort(ep.EndpointPort) != model.MTLSDisable
 }
 

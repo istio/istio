@@ -302,7 +302,7 @@ func TestPopulateFailoverPriorityLabels(t *testing.T) {
 						"b":   "b",
 					},
 				},
-				push: &model.PushContext{
+				configs: &model.PushContext{
 					Mesh: tt.mesh,
 				},
 			}
@@ -544,7 +544,7 @@ func TestFilterIstioEndpoint(t *testing.T) {
 			tt.proxy.SetSidecarScope(push)
 
 			builder := NewCDSEndpointBuilder(
-				tt.proxy, push,
+				tt.proxy, tt.proxy.SidecarScope, push,
 				"outbound||example.ns.svc.cluster.local",
 				model.TrafficDirectionOutbound, "", "example.ns.svc.cluster.local", 80,
 				svc, nil)
@@ -665,7 +665,7 @@ func TestBuildClusterLoadAssignment_InferenceServicePortFiltering(t *testing.T) 
 			proxy.SetSidecarScope(push)
 
 			builder := NewCDSEndpointBuilder(
-				proxy, push,
+				proxy, proxy.SidecarScope, push,
 				"outbound|80||example.ns.svc.cluster.local",
 				model.TrafficDirectionOutbound, "", "example.ns.svc.cluster.local", 80,
 				svc, nil)

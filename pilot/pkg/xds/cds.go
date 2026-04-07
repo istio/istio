@@ -115,7 +115,7 @@ func (c CdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req
 	if !needsPush {
 		return nil, model.DefaultXdsLogDetails, nil
 	}
-	clusters, logs := c.ConfigGenerator.BuildClusters(proxy, req)
+	clusters, logs := c.ConfigGenerator.BuildClusters(req, proxy, proxy.SidecarScope, req.Push)
 	return clusters, logs, nil
 }
 
@@ -127,6 +127,6 @@ func (c CdsGenerator) GenerateDeltas(proxy *model.Proxy, req *model.PushRequest,
 	if !needsPush {
 		return nil, nil, model.DefaultXdsLogDetails, false, nil
 	}
-	updatedClusters, removedClusters, logs, usedDelta := c.ConfigGenerator.BuildDeltaClusters(proxy, req, w)
+	updatedClusters, removedClusters, logs, usedDelta := c.ConfigGenerator.BuildDeltaClusters(req, proxy, proxy.SidecarScope, proxy.PrevSidecarScope, req.Push, w)
 	return updatedClusters, removedClusters, logs, usedDelta, nil
 }

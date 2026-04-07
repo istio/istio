@@ -175,7 +175,7 @@ func tcpGrpcAccessLogFromTelemetry(push *PushContext,
 		filterObjects = prov.FilterStateObjectsToLog
 	}
 
-	hostname, cluster, err := clusterLookupFn(push, prov.Service, int(prov.Port))
+	hostname, cluster, err := clusterLookupFn(push.Services(), prov.Service, int(prov.Port))
 	if err != nil {
 		IncLookupClusterFailures("envoyTCPAls")
 		log.Errorf("could not find cluster for tcp grpc provider %q: %v", prov, err)
@@ -324,7 +324,7 @@ func httpGrpcAccessLogFromTelemetry(push *PushContext,
 		filterObjects = prov.FilterStateObjectsToLog
 	}
 
-	hostname, cluster, err := clusterLookupFn(push, prov.Service, int(prov.Port))
+	hostname, cluster, err := clusterLookupFn(push.Services(), prov.Service, int(prov.Port))
 	if err != nil {
 		IncLookupClusterFailures("envoyHTTPAls")
 		log.Errorf("could not find cluster for http grpc provider %q: %v", prov, err)
@@ -427,7 +427,7 @@ func FileAccessLogFromMeshConfig(path string, mesh *meshconfig.MeshConfig) *acce
 func openTelemetryLog(pushCtx *PushContext,
 	provider *meshconfig.MeshConfig_ExtensionProvider_EnvoyOpenTelemetryLogProvider,
 ) *accesslog.AccessLog {
-	hostname, cluster, err := clusterLookupFn(pushCtx, provider.Service, int(provider.Port))
+	hostname, cluster, err := clusterLookupFn(pushCtx.Services(), provider.Service, int(provider.Port))
 	if err != nil {
 		IncLookupClusterFailures("envoyOtelAls")
 		log.Errorf("could not find cluster for open telemetry provider %q: %v", provider, err)
@@ -542,7 +542,7 @@ func ConvertStructToAttributeKeyValues(labels map[string]*structpb.Value) []*otl
 	return attrList
 }
 
-func LookupCluster(push *PushContext, service string, port int) (hostname string, cluster string, err error) {
+func LookupCluster(serviceIndex *ServiceIndex, service string, port int) (hostname string, cluster string, err error) {
 	if service == "" {
 		err = fmt.Errorf("service must not be empty")
 		return hostname, cluster, err
@@ -551,13 +551,13 @@ func LookupCluster(push *PushContext, service string, port int) (hostname string
 	// TODO(yangminzhu): Verify the service and its cluster is supported, e.g. resolution type is not OriginalDst.
 	if parts := strings.Split(service, "/"); len(parts) == 2 {
 		namespace, name := parts[0], parts[1]
-		if svc := push.Services().HostnameAndNamespace[host.Name(name)][namespace]; svc != nil {
+		if svc := serviceIndex.HostnameAndNamespace[host.Name(name)][namespace]; svc != nil {
 			hostname = string(svc.Hostname)
 			cluster = BuildSubsetKey(TrafficDirectionOutbound, "", svc.Hostname, port)
 			return hostname, cluster, err
 		}
 	} else {
-		namespaceToServices := push.Services().HostnameAndNamespace[host.Name(service)]
+		namespaceToServices := serviceIndex.HostnameAndNamespace[host.Name(service)]
 		var namespaces []string
 		for k := range namespaceToServices {
 			namespaces = append(namespaces, k)

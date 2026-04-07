@@ -1292,7 +1292,7 @@ func TestTelemetryAccessLog(t *testing.T) {
 		},
 	}
 
-	clusterLookupFn = func(push *PushContext, service string, port int) (hostname string, cluster string, err error) {
+	clusterLookupFn = func(serviceIndex *ServiceIndex, service string, port int) (hostname string, cluster string, err error) {
 		return grpcBackendAuthority, grpcBackendClusterName, nil
 	}
 

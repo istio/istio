@@ -77,7 +77,7 @@ var (
 		return buildInternalUpstreamCluster(MainInternalName, MainInternalName, true)
 	}
 
-	GetEncapCluster = func(p *model.Proxy) *cluster.Cluster {
+	GetEncapCluster = func(p ClusterAffectingProxy) *cluster.Cluster {
 		if isAmbientEastWestGateway(p) {
 			return buildInternalUpstreamCluster(EncapClusterName, ForwardInnerConnect, false)
 		}
@@ -93,8 +93,8 @@ func (configgen *ConfigGeneratorImpl) buildInboundHBONEClusters() *cluster.Clust
 
 func (configgen *ConfigGeneratorImpl) buildWaypointInboundClusters(
 	cb *ClusterBuilder,
-	proxy *model.Proxy,
-	push *model.PushContext,
+	proxy ClusterAffectingProxy,
+	configs ClusterAffectingConfigs,
 	svcs map[host.Name]*model.Service,
 ) []*cluster.Cluster {
 	clusters := make([]*cluster.Cluster, 0)
@@ -102,14 +102,14 @@ func (configgen *ConfigGeneratorImpl) buildWaypointInboundClusters(
 	// Creates "encap" cluster to route to the encap listener.
 	clusters = append(clusters, GetMainInternalCluster(), GetEncapCluster(proxy))
 	// Creates per-VIP load balancing upstreams.
-	clusters = append(clusters, cb.buildWaypointInboundVIP(proxy, svcs, push.Mesh)...)
+	clusters = append(clusters, cb.buildWaypointInboundVIP(proxy, svcs, configs.MeshConfig())...)
 
 	// Upstream of the "encap" listener.
 	if features.EnableAmbientMultiNetwork && isAmbientEastWestGateway(proxy) {
 		// Creates "blackhole" cluster to avoid failures if no globally scoped services exist
 		clusters = append(clusters, cb.buildWaypointForwardInnerConnect(), cb.buildBlackHoleCluster())
 	} else {
-		clusters = append(clusters, cb.buildWaypointConnectOriginate(push.Mesh))
+		clusters = append(clusters, cb.buildWaypointConnectOriginate(configs.MeshConfig()))
 	}
 
 	// This bit creates clusters needed to handle requests going to a remote network.
@@ -137,7 +137,7 @@ func (configgen *ConfigGeneratorImpl) buildWaypointInboundClusters(
 
 // `inbound-vip||hostname|port`. EDS routing to the internal listener for each pod in the VIP.
 func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
-	proxy *model.Proxy,
+	proxy ClusterAffectingProxy,
 	svc *model.Service,
 	port model.Port,
 	subset string,
@@ -159,7 +159,8 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 		if discoveryType == cluster.Cluster_STRICT_DNS || discoveryType == cluster.Cluster_LOGICAL_DNS {
 			endpointBuilder = endpoints.NewCDSEndpointBuilder(
 				proxy,
-				cb.req.Push,
+				cb.sidecarScope,
+				cb.configs,
 				clusterName,
 				model.TrafficDirectionInboundVIP, subset, svc.Hostname, port.Port,
 				svc, nil,
@@ -235,7 +236,7 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 
 	// TLS and PROXY are more involved, since these impact the transport socket which is customized for HBONE.
 	opts := &buildClusterOpts{
-		mesh:           cb.req.Push.Mesh,
+		mesh:           cb.configs.MeshConfig(),
 		mutable:        localCluster,
 		policy:         policy,
 		port:           &port,
@@ -312,7 +313,11 @@ func buildWaypointTLSContext(opts *buildClusterOpts, tls *networking.ClientTLSSe
 }
 
 // `inbound-vip|protocol|hostname|port`. EDS routing to the internal listener for each pod in the VIP.
-func (cb *ClusterBuilder) buildWaypointInboundVIP(proxy *model.Proxy, svcs map[host.Name]*model.Service, mesh *meshconfig.MeshConfig) []*cluster.Cluster {
+func (cb *ClusterBuilder) buildWaypointInboundVIP(
+	proxy ClusterAffectingProxy,
+	svcs map[host.Name]*model.Service,
+	mesh *meshconfig.MeshConfig,
+) []*cluster.Cluster {
 	clusters := []*cluster.Cluster{}
 	for _, svc := range svcs {
 		for _, port := range svc.Ports {
@@ -368,7 +373,7 @@ func (cb *ClusterBuilder) buildInnerConnectOriginateCluster() *cluster.Cluster {
 	// For double HBONE we want something slightly different - we still need to use InternalUpstreamTransport socket because
 	// we redirect to an internal listener, but instead of keeping data as-is we want to encrypt it using TLS, so instead of the
 	// RawBufferTransport we want to wrap a TLS transport socket.
-	tlsCtx := buildCommonConnectTLSContext(cb.proxyMetadata, cb.req.Push.Mesh)
+	tlsCtx := buildCommonConnectTLSContext(cb.proxyMetadata, cb.configs.MeshConfig())
 	sec_model.EnforceCompliance(tlsCtx)
 	transportSocket := util.InternalUpstreamTransportSocket("internal_upstream_with_tls", &core.TransportSocket{
 		Name: "tls",
@@ -400,13 +405,13 @@ func (cb *ClusterBuilder) buildInnerConnectOriginateCluster() *cluster.Cluster {
 // It's basically equivalent to the regular waypoint ConnectOriginate cluster and does the same thing, the only real difference is that
 // it wraps the data already wrapped into a CONNECT once.
 func (cb *ClusterBuilder) buildOuterConnectOriginateCluster() *cluster.Cluster {
-	ctx := buildCommonConnectTLSContext(cb.proxyMetadata, cb.req.Push.Mesh)
+	ctx := buildCommonConnectTLSContext(cb.proxyMetadata, cb.configs.MeshConfig())
 	sec_model.EnforceCompliance(ctx)
 	c := &cluster.Cluster{
 		Name:                          DoubleHBONEOuterConnectOriginate,
 		ClusterDiscoveryType:          &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
 		LbPolicy:                      cluster.Cluster_CLUSTER_PROVIDED,
-		ConnectTimeout:                protomarshal.Clone(cb.req.Push.Mesh.ConnectTimeout),
+		ConnectTimeout:                protomarshal.Clone(cb.configs.MeshConfig().ConnectTimeout),
 		CleanupInterval:               durationpb.New(60 * time.Second),
 		CircuitBreakers:               &cluster.CircuitBreakers{Thresholds: []*cluster.CircuitBreakers_Thresholds{getDefaultCircuitBreakerThresholds()}},
 		TypedExtensionProtocolOptions: cb.h2connectUpgradeWithNoPooling(),
@@ -454,7 +459,7 @@ func (cb *ClusterBuilder) buildForwardInnerConnect() *cluster.Cluster {
 		Name:                 ForwardInnerConnect,
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
 		LbPolicy:             cluster.Cluster_CLUSTER_PROVIDED,
-		ConnectTimeout:       protomarshal.Clone(cb.req.Push.Mesh.ConnectTimeout),
+		ConnectTimeout:       protomarshal.Clone(cb.configs.MeshConfig().ConnectTimeout),
 		CleanupInterval:      durationpb.New(60 * time.Second),
 		CircuitBreakers:      &cluster.CircuitBreakers{Thresholds: []*cluster.CircuitBreakers_Thresholds{getDefaultCircuitBreakerThresholds()}},
 		LbConfig: &cluster.Cluster_OriginalDstLbConfig_{
@@ -484,7 +489,7 @@ func (cb *ClusterBuilder) buildConnectOriginate(
 	name string,
 	uriSanMatchers ...*matcher.StringMatcher,
 ) *cluster.Cluster {
-	ctx := buildCommonConnectTLSContext(cb.proxyMetadata, cb.req.Push.Mesh)
+	ctx := buildCommonConnectTLSContext(cb.proxyMetadata, cb.configs.MeshConfig())
 	validationCtx := ctx.GetCombinedValidationContext().DefaultValidationContext
 	for _, uriSanMatcher := range uriSanMatchers {
 		if uriSanMatcher != nil {
@@ -500,7 +505,7 @@ func (cb *ClusterBuilder) buildConnectOriginate(
 		Name:                          name,
 		ClusterDiscoveryType:          &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
 		LbPolicy:                      cluster.Cluster_CLUSTER_PROVIDED,
-		ConnectTimeout:                protomarshal.Clone(cb.req.Push.Mesh.ConnectTimeout),
+		ConnectTimeout:                protomarshal.Clone(cb.configs.MeshConfig().ConnectTimeout),
 		CleanupInterval:               durationpb.New(60 * time.Second),
 		CircuitBreakers:               &cluster.CircuitBreakers{Thresholds: []*cluster.CircuitBreakers_Thresholds{getDefaultCircuitBreakerThresholds()}},
 		TypedExtensionProtocolOptions: cb.h2connectUpgrade(),
@@ -535,8 +540,8 @@ func (cb *ClusterBuilder) buildConnectOriginate(
 
 func (cb *ClusterBuilder) getHBONEIdleTimeout() *durationpb.Duration {
 	// Use configured HBONE idle timeout from MeshConfig, or default to 1 hour if not set
-	if cb.req.Push.Mesh.HboneIdleTimeout != nil {
-		return cb.req.Push.Mesh.HboneIdleTimeout
+	if cb.configs.MeshConfig().HboneIdleTimeout != nil {
+		return cb.configs.MeshConfig().HboneIdleTimeout
 	}
 	return durationpb.New(3600 * time.Second)
 }

@@ -40,7 +40,7 @@ type XdsCache interface {
 	// If the cache has been updated to a newer push context, the write will be dropped silently.
 	// This ensures stale data does not overwrite fresh data when dealing with concurrent
 	// writers.
-	Add(entry XdsCacheEntry, pushRequest *PushRequest, value *discovery.Resource)
+	Add(entry XdsCacheEntry, pushStart time.Time, value *discovery.Resource)
 	// Get retrieves the cached value if it exists.
 	Get(entry XdsCacheEntry) *discovery.Resource
 	// Clear removes the cache entries that are dependent on the configs passed.
@@ -115,7 +115,7 @@ func (x XdsCacheImpl) Run(stop <-chan struct{}) {
 	}()
 }
 
-func (x XdsCacheImpl) Add(entry XdsCacheEntry, pushRequest *PushRequest, value *discovery.Resource) {
+func (x XdsCacheImpl) Add(entry XdsCacheEntry, pushStart time.Time, value *discovery.Resource) {
 	if !entry.Cacheable() {
 		return
 	}
@@ -123,16 +123,16 @@ func (x XdsCacheImpl) Add(entry XdsCacheEntry, pushRequest *PushRequest, value *
 	switch entry.Type() {
 	case CDSType:
 		key := k.(uint64)
-		x.cds.Add(key, entry, pushRequest, value)
+		x.cds.Add(key, entry, pushStart, value)
 	case EDSType:
 		key := k.(uint64)
-		x.eds.Add(key, entry, pushRequest, value)
+		x.eds.Add(key, entry, pushStart, value)
 	case SDSType:
 		key := k.(string)
-		x.sds.Add(key, entry, pushRequest, value)
+		x.sds.Add(key, entry, pushStart, value)
 	case RDSType:
 		key := k.(uint64)
-		x.rds.Add(key, entry, pushRequest, value)
+		x.rds.Add(key, entry, pushStart, value)
 	default:
 		log.Errorf("unknown type %s", entry.Type())
 	}
@@ -224,7 +224,7 @@ type DisabledCache struct{}
 func (d DisabledCache) Run(stop <-chan struct{}) {
 }
 
-func (d DisabledCache) Add(entry XdsCacheEntry, pushRequest *PushRequest, value *discovery.Resource) {
+func (d DisabledCache) Add(entry XdsCacheEntry, pushStart time.Time, value *discovery.Resource) {
 }
 
 func (d DisabledCache) Get(entry XdsCacheEntry) *discovery.Resource {

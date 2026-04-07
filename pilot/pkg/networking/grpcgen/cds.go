@@ -102,7 +102,7 @@ func newClusterBuilder(node *model.Proxy, push *model.PushContext, defaultCluste
 
 	// try to resolve the service and port
 	var port *model.Port
-	svc := push.Services().ServiceForHostname(node, hostname)
+	svc := node.SidecarScope.ServiceForHostname(hostname)
 	if svc == nil {
 		return nil, fmt.Errorf("cds gen for %s: did not find service for cluster %s", node.ID, defaultClusterName)
 	}

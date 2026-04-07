@@ -32,12 +32,23 @@ type ConfigGenerator interface {
 	BuildListeners(node *model.Proxy, push *model.PushContext) []*listener.Listener
 
 	// BuildClusters returns the list of clusters for the given proxy. This is the CDS output
-	BuildClusters(node *model.Proxy, req *model.PushRequest) ([]*discovery.Resource, model.XdsLogDetails)
+	BuildClusters(
+		updates model.PushInfo,
+		proxy ClusterAffectingProxy,
+		sidecarScope ClusterScopedSidecarScope,
+		configs ClusterAffectingConfigs,
+	) ([]*discovery.Resource, model.XdsLogDetails)
 
 	// BuildDeltaClusters returns both a list of resources that need to be pushed for a given proxy and a list of resources
 	// that have been deleted and should be removed from a given proxy. This is Delta CDS output.
-	BuildDeltaClusters(proxy *model.Proxy, updates *model.PushRequest,
-		watched *model.WatchedResource) ([]*discovery.Resource, []string, model.XdsLogDetails, bool)
+	BuildDeltaClusters(
+		updates model.PushInfo,
+		proxy ClusterAffectingProxy,
+		sidecarScope ClusterScopedSidecarScope,
+		prevSidecarScope ClusterScopedSidecarScope,
+		configs ClusterAffectingConfigs,
+		watched *model.WatchedResource,
+	) ([]*discovery.Resource, []string, model.XdsLogDetails, bool)
 
 	// BuildHTTPRoutes returns the list of HTTP routes for the given proxy. This is the RDS output
 	BuildHTTPRoutes(node *model.Proxy, req *model.PushRequest, routeNames []string) ([]*discovery.Resource, model.XdsLogDetails)

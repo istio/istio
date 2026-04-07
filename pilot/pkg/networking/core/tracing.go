@@ -181,7 +181,7 @@ func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 		maxTagLength = provider.Zipkin.GetMaxTagLength()
 		providerName = envoyZipkin
 		providerConfig = func() (*anypb.Any, error) {
-			hostname, cluster, err := clusterLookupFn(pushCtx, provider.Zipkin.GetService(), int(provider.Zipkin.GetPort()))
+			hostname, cluster, err := clusterLookupFn(pushCtx.Services(), provider.Zipkin.GetService(), int(provider.Zipkin.GetPort()))
 			if err != nil {
 				model.IncLookupClusterFailures("zipkin")
 				return nil, fmt.Errorf("could not find cluster for tracing provider %q: %v", provider, err)
@@ -194,7 +194,7 @@ func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 		maxTagLength = provider.Datadog.GetMaxTagLength()
 		providerName = envoyDatadog
 		providerConfig = func() (*anypb.Any, error) {
-			hostname, cluster, err := clusterLookupFn(pushCtx, provider.Datadog.GetService(), int(provider.Datadog.GetPort()))
+			hostname, cluster, err := clusterLookupFn(pushCtx.Services(), provider.Datadog.GetService(), int(provider.Datadog.GetPort()))
 			if err != nil {
 				model.IncLookupClusterFailures("datadog")
 				return nil, fmt.Errorf("could not find cluster for tracing provider %q: %v", provider, err)
@@ -207,7 +207,7 @@ func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 		maxTagLength = 0
 		providerName = envoySkywalking
 		providerConfig = func() (*anypb.Any, error) {
-			hostname, clusterName, err := clusterLookupFn(pushCtx, provider.Skywalking.GetService(), int(provider.Skywalking.GetPort()))
+			hostname, clusterName, err := clusterLookupFn(pushCtx.Services(), provider.Skywalking.GetService(), int(provider.Skywalking.GetPort()))
 			if err != nil {
 				model.IncLookupClusterFailures("skywalking")
 				return nil, fmt.Errorf("could not find cluster for tracing provider %q: %v", provider, err)
@@ -337,7 +337,7 @@ func datadogConfig(serviceName, hostname, cluster string) (*anypb.Any, error) {
 func otelConfig(serviceName string, otelProvider *meshconfig.MeshConfig_ExtensionProvider_OpenTelemetryTracingProvider,
 	pushCtx *model.PushContext, proxy *model.Proxy,
 ) (*anypb.Any, bool, error) {
-	hostname, cluster, err := clusterLookupFn(pushCtx, otelProvider.GetService(), int(otelProvider.GetPort()))
+	hostname, cluster, err := clusterLookupFn(pushCtx.Services(), otelProvider.GetService(), int(otelProvider.GetPort()))
 	if err != nil {
 		model.IncLookupClusterFailures("opentelemetry")
 		return nil, false, fmt.Errorf("could not find cluster for tracing provider %q: %v", otelProvider, err)
@@ -497,7 +497,7 @@ func configureDynatraceSampler(hostname, cluster string,
 		dtapi := sampler.DynatraceSampler.HttpService
 
 		// use Dynatrace API to configure the sampler
-		dtHost, dtCluster, err := clusterLookupFn(pushCtx, dtapi.GetService(), int(dtapi.GetPort()))
+		dtHost, dtCluster, err := clusterLookupFn(pushCtx.Services(), dtapi.GetService(), int(dtapi.GetPort()))
 		if err != nil {
 			model.IncLookupClusterFailures("dynatrace")
 			return nil, fmt.Errorf("could not find cluster for dynatrace sampler %v", err)

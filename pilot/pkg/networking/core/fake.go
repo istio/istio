@@ -300,7 +300,7 @@ func (f *ConfigGenTest) Listeners(p *model.Proxy) []*listener.Listener {
 }
 
 func (f *ConfigGenTest) Clusters(p *model.Proxy) []*cluster.Cluster {
-	raw, _ := f.ConfigGen.BuildClusters(p, &model.PushRequest{Push: f.PushContext()})
+	raw, _ := f.ConfigGen.BuildClusters(&model.PushRequest{}, p, p.SidecarScope, f.PushContext())
 	res := make([]*cluster.Cluster, 0, len(raw))
 	for _, r := range raw {
 		c := &cluster.Cluster{}
@@ -317,10 +317,15 @@ func (f *ConfigGenTest) DeltaClusters(
 	configUpdated sets.Set[model.ConfigKey],
 	watched *model.WatchedResource,
 ) ([]*cluster.Cluster, []string, bool) {
-	raw, removed, _, delta := f.ConfigGen.BuildDeltaClusters(p,
+	raw, removed, _, delta := f.ConfigGen.BuildDeltaClusters(
 		&model.PushRequest{
-			Push: f.PushContext(), ConfigsUpdated: configUpdated,
-		}, watched)
+			ConfigsUpdated: configUpdated,
+		},
+		p,
+		p.SidecarScope,
+		p.PrevSidecarScope,
+		f.PushContext(),
+		watched)
 	res := make([]*cluster.Cluster, 0, len(raw))
 	for _, r := range raw {
 		c := &cluster.Cluster{}

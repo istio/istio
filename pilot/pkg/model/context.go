@@ -83,8 +83,10 @@ const (
 	Dual = pm.Dual
 )
 
-var _ mesh.Holder = &Environment{}
-var _ ProxyInfo = &Proxy{}
+var (
+	_ mesh.Holder = &Environment{}
+	_ ProxyInfo   = &Proxy{}
+)
 
 func NewEnvironment() *Environment {
 	var cache XdsCache
@@ -942,6 +944,22 @@ func (node *Proxy) GetMetadata() *NodeMetadata {
 	return node.Metadata
 }
 
+func (node *Proxy) GetMergedGateway() *MergedGateway {
+	return node.MergedGateway
+}
+
+func (node *Proxy) GetServiceTargets() []ServiceTarget {
+	return node.ServiceTargets
+}
+
+func (node *Proxy) GetIPAddresses() []string {
+	return node.IPAddresses
+}
+
+func (node *Proxy) GetLocality() *core.Locality {
+	return node.Locality
+}
+
 func (node *Proxy) FuzzValidate() bool {
 	if node.Metadata == nil {
 		return false
@@ -1156,8 +1174,8 @@ func IsWaypointProxy(node ProxyInfo) bool {
 	return isManagedGateway && controller == constants.ManagedGatewayMeshControllerLabel
 }
 
-func ShouldCreateDoubleHBONEResources(p *Proxy) bool {
-	isHBONESendEnabled := bool(!p.Metadata.DisableHBONESend) && features.EnableHBONESend
+func ShouldCreateDoubleHBONEResources(p ProxyInfo) bool {
+	isHBONESendEnabled := bool(!p.GetMetadata().DisableHBONESend) && features.EnableHBONESend
 
 	// Note that we only consider EnableHBONESend for ingress gateway, as traditionally
 	// that flag has been ignored for waypoints when generating endpoint/cluster discovery
@@ -1173,7 +1191,20 @@ type ProxyInfo interface {
 	GetType() NodeType
 	GetID() string
 	GetConfigNamespace() string
+	GetClusterID() cluster.ID
+	GetIPMode() IPMode
+	SupportsIPv4() bool
+	SupportsIPv6() bool
+	GetView() ProxyView
+	GetLocality() *core.Locality
+	GetIPAddresses() []string
+	GetInterceptionMode() TrafficInterceptionMode
+	GetNodeName() string
 
+	InNetwork(network.ID) bool
+	InCluster(cluster.ID) bool
+	IsProxylessGrpc() bool
+	IsAmbientEastWestGateway() bool
 	IsWaypointProxy() bool
 	IsZTunnel() bool
 	IsAmbient() bool

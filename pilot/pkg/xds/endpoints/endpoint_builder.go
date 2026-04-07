@@ -28,6 +28,7 @@ import (
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"istio.io/api/label"
+	"istio.io/api/mesh/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -39,6 +40,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/kind"
 	istiolog "istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
@@ -62,6 +64,23 @@ const connectOriginate = "connect_originate"
 // Duplicated from networking/core/waypoint.go to avoid import cycle
 const forwardInnerConnect = "forward_inner_connect"
 
+type EndpointScopedSidecarScope interface {
+	ServiceForHostname(host.Name) *model.Service
+	DestinationRule(model.TrafficDirection, model.ProxyInfo, host.Name) *model.ConsolidatedDestRule
+	PeerAuthnPolicies() model.PeerAuthnPolicies
+}
+
+type EndpointAffectingConfigs interface {
+	Services() *model.ServiceIndex
+	AmbientIndex() model.AmbientIndexes
+
+	ClusterLocalHosts() model.ClusterLocalHosts
+	MeshConfig() *v1alpha1.MeshConfig
+	NetworkManager() *model.NetworkManager
+
+	AddMetric(metric monitoring.Metric, key string, proxyID, msg string)
+}
+
 type EndpointBuilder struct {
 	// These fields define the primary key for an endpoint, and can be used as a cache key
 	clusterName            string
@@ -80,25 +99,31 @@ type EndpointBuilder struct {
 	subsetLabels labels.Instance
 	hostname     host.Name
 	port         int
-	push         *model.PushContext
-	proxy        *model.Proxy
+	configs      EndpointAffectingConfigs
+	proxy        model.ProxyInfo
+	sidecarScope EndpointScopedSidecarScope
 	dir          model.TrafficDirection
 	serviceInfo  *model.ServiceInfo
 
 	mtlsChecker *mtlsChecker
 }
 
-func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.PushContext) EndpointBuilder {
+func NewEndpointBuilder(
+	clusterName string,
+	proxy model.ProxyInfo,
+	sidecarScope EndpointScopedSidecarScope,
+	configs EndpointAffectingConfigs,
+) EndpointBuilder {
 	dir, subsetName, hostname, port := model.ParseSubsetKey(clusterName)
 
-	svc := push.Services().ServiceForHostname(proxy, hostname)
+	svc := sidecarScope.ServiceForHostname(hostname)
 	var dr *model.ConsolidatedDestRule
 	if svc != nil {
-		dr = proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, svc.Hostname)
+		dr = sidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, svc.Hostname)
 	}
 
 	return *NewCDSEndpointBuilder(
-		proxy, push, clusterName,
+		proxy, sidecarScope, configs, clusterName,
 		dir, subsetName, hostname, port,
 		svc, dr,
 	)
@@ -107,31 +132,33 @@ func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.Push
 // NewCDSEndpointBuilder allows setting some fields directly when we already
 // have the Service and DestinationRule.
 func NewCDSEndpointBuilder(
-	proxy *model.Proxy, push *model.PushContext, clusterName string,
+	proxy model.ProxyInfo, sidecarScope EndpointScopedSidecarScope,
+	configs EndpointAffectingConfigs, clusterName string,
 	dir model.TrafficDirection, subsetName string, hostname host.Name, port int,
 	service *model.Service, dr *model.ConsolidatedDestRule,
 ) *EndpointBuilder {
 	clusterLocal := false
-	if push != nil && service != nil {
-		clusterLocal = push.ClusterLocalHosts().IsClusterLocal(service.Hostname)
+	if configs != nil && service != nil {
+		clusterLocal = configs.ClusterLocalHosts().IsClusterLocal(service.Hostname)
 	}
 	b := EndpointBuilder{
 		clusterName:     clusterName,
-		network:         proxy.Metadata.Network,
+		network:         proxy.GetMetadata().Network,
 		proxyView:       proxy.GetView(),
-		clusterID:       proxy.Metadata.ClusterID,
-		locality:        proxy.Locality,
+		clusterID:       proxy.GetMetadata().ClusterID,
+		locality:        proxy.GetLocality(),
 		destinationRule: dr,
 		service:         service,
 		clusterLocal:    clusterLocal,
-		nodeType:        proxy.Type,
+		nodeType:        proxy.GetType(),
 
-		subsetName: subsetName,
-		hostname:   hostname,
-		port:       port,
-		push:       push,
-		proxy:      proxy,
-		dir:        dir,
+		subsetName:   subsetName,
+		hostname:     hostname,
+		port:         port,
+		configs:      configs,
+		proxy:        proxy,
+		sidecarScope: sidecarScope,
+		dir:          dir,
 	}
 	b.populateSubsetInfo()
 	b.populateFailoverPriorityLabels()
@@ -169,17 +196,17 @@ func (b *EndpointBuilder) populateSubsetInfo() {
 		b.subsetName = strings.TrimPrefix(b.subsetName, "http/")
 		b.subsetName = strings.TrimPrefix(b.subsetName, "tcp/")
 	}
-	b.mtlsChecker = newMtlsChecker(b.push, b.proxy.SidecarScope.AuthnPolicies, b.port, b.destinationRule.GetRule(), b.subsetName)
+	b.mtlsChecker = newMtlsChecker(b.sidecarScope.PeerAuthnPolicies(), b.port, b.destinationRule.GetRule(), b.subsetName)
 	b.subsetLabels = getSubSetLabels(b.DestinationRule(), b.subsetName)
 }
 
 func (b *EndpointBuilder) populateFailoverPriorityLabels() {
 	enableFailover, lb := getOutlierDetectionAndLoadBalancerSettings(b.DestinationRule(), b.port, b.subsetName)
 	if enableFailover {
-		lbSetting, _ := loadbalancer.GetLocalityLbSetting(b.push.Mesh.GetLocalityLbSetting(), lb.GetLocalityLbSetting(), b.service)
+		lbSetting, _ := loadbalancer.GetLocalityLbSetting(b.configs.MeshConfig().GetLocalityLbSetting(), lb.GetLocalityLbSetting(), b.service)
 		if lbSetting != nil && lbSetting.Distribute == nil &&
 			len(lbSetting.FailoverPriority) > 0 && (lbSetting.Enabled == nil || lbSetting.Enabled.Value) {
-			b.failoverPriorityLabels = util.GetFailoverPriorityLabels(b.proxy.Labels, lbSetting.FailoverPriority)
+			b.failoverPriorityLabels = util.GetFailoverPriorityLabels(b.proxy.GetLabels(), lbSetting.FailoverPriority)
 		}
 	}
 }
@@ -190,7 +217,7 @@ func (b *EndpointBuilder) populateAmbientServiceInfo() {
 	}
 
 	svc := fmt.Sprintf("%s/%s", b.service.Attributes.Namespace, b.hostname)
-	b.serviceInfo = b.push.AmbientIndex().ServiceInfo(svc)
+	b.serviceInfo = b.configs.AmbientIndex().ServiceInfo(svc)
 	if b.serviceInfo == nil {
 		log.Debugf("can not find ServiceInfo for %s while operating with ambient multicluster enabled", svc)
 	}
@@ -242,7 +269,7 @@ func (b *EndpointBuilder) WriteHash(h hash.Hash) {
 	if b.proxy != nil {
 		h.WriteString(strconv.FormatBool(b.proxy.IsProxylessGrpc()))
 		h.Write(Separator)
-		h.WriteString(strconv.FormatBool(bool(b.proxy.Metadata.DisableHBONESend)))
+		h.WriteString(strconv.FormatBool(bool(b.proxy.GetMetadata().DisableHBONESend)))
 		h.Write(Separator)
 	}
 	h.WriteString(util.LocalityToString(b.locality))
@@ -256,8 +283,8 @@ func (b *EndpointBuilder) WriteHash(h hash.Hash) {
 		h.Write(Separator)
 	}
 
-	if b.push != nil && b.proxy.SidecarScope.AuthnPolicies != nil {
-		h.WriteString(b.proxy.SidecarScope.AuthnPolicies.GetVersion())
+	if b.configs != nil && b.sidecarScope.PeerAuthnPolicies() != nil {
+		h.WriteString(b.sidecarScope.PeerAuthnPolicies().GetVersion())
 	}
 	h.Write(Separator)
 
@@ -347,7 +374,7 @@ func (b *EndpointBuilder) FromServiceEndpoints() []*endpoint.LocalityLbEndpoints
 	if b == nil {
 		return nil
 	}
-	svcEps := b.push.Services().ServiceEndpointsByPort(b.service, b.port, b.subsetLabels)
+	svcEps := b.configs.Services().ServiceEndpointsByPort(b.service, b.port, b.subsetLabels)
 	// don't use the pre-computed endpoints for CDS to preserve previous behavior
 	// CDS is always toServiceWaypoint=false. We do not yet support calling waypoints for CDS (DNS type)
 	return ExtractEnvoyEndpoints(b.generate(svcEps, false))
@@ -358,7 +385,7 @@ func (b *EndpointBuilder) IstioEndpoints() []*model.IstioEndpoint {
 	if b == nil {
 		return nil
 	}
-	return b.push.Services().ServiceEndpointsByPort(b.service, b.port, b.subsetLabels)
+	return b.configs.Services().ServiceEndpointsByPort(b.service, b.port, b.subsetLabels)
 }
 
 // BuildClusterLoadAssignment converts the shards for this EndpointBuilder's Service
@@ -416,7 +443,7 @@ func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.Endpoi
 	// Failover should only be enabled when there is an outlier detection, otherwise Envoy
 	// will never detect the hosts are unhealthy and redirect traffic.
 	enableFailover, lb := getOutlierDetectionAndLoadBalancerSettings(b.DestinationRule(), b.port, b.subsetName)
-	lbSetting, forceFailover := loadbalancer.GetLocalityLbSetting(b.push.Mesh.GetLocalityLbSetting(), lb.GetLocalityLbSetting(), b.service)
+	lbSetting, forceFailover := loadbalancer.GetLocalityLbSetting(b.configs.MeshConfig().GetLocalityLbSetting(), lb.GetLocalityLbSetting(), b.service)
 	enableFailover = enableFailover || forceFailover
 	if lbSetting != nil {
 		// Make a shallow copy of the cla as we are mutating the endpoints with priorities/weights relative to the calling proxy
@@ -428,7 +455,7 @@ func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.Endpoi
 				LocalityLbEndpoints: l.Endpoints[i],
 			}
 		}
-		loadbalancer.ApplyLocalityLoadBalancer(l, wrappedLocalityLbEndpoints, b.locality, b.proxy.Labels, lbSetting, enableFailover)
+		loadbalancer.ApplyLocalityLoadBalancer(l, wrappedLocalityLbEndpoints, b.locality, b.proxy.GetLabels(), lbSetting, enableFailover)
 	}
 	return l
 }
@@ -490,7 +517,7 @@ func (b *EndpointBuilder) generate(eps []*model.IstioEndpoint, toServiceWaypoint
 	}
 
 	if len(locEps) == 0 {
-		b.push.AddMetric(model.ProxyStatusClusterNoInstances, b.clusterName, "", "")
+		b.configs.AddMetric(model.ProxyStatusClusterNoInstances, b.clusterName, "", "")
 	}
 
 	// Apply the Split Horizon EDS filter, if applicable.
@@ -649,9 +676,9 @@ func buildEmptyClusterLoadAssignment(clusterName string) *endpoint.ClusterLoadAs
 
 func (b *EndpointBuilder) gateways() *model.NetworkGateways {
 	if b.IsDNSCluster() {
-		return b.push.NetworkManager().Unresolved
+		return b.configs.NetworkManager().Unresolved
 	}
-	return b.push.NetworkManager().NetworkGateways
+	return b.configs.NetworkManager().NetworkGateways
 }
 
 func ExtractEnvoyEndpoints(locEps []*LocalityEndpoints) []*endpoint.LocalityLbEndpoints {
@@ -712,7 +739,7 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 	if supportsMtls && !features.PreferHBONESend && b.dir != model.TrafficDirectionInboundVIP {
 		tunnel = false
 	}
-	if b.proxy.Metadata.DisableHBONESend {
+	if b.proxy.GetMetadata().DisableHBONESend {
 		tunnel = false
 	}
 	// Waypoints always use HBONE
@@ -826,7 +853,7 @@ func supportTunnel(b *EndpointBuilder, e *model.IstioEndpoint) bool {
 	// Otherwise has ambient enabled. Note: this is a synthetic label, not existing in the real Pod.
 	// Check all addresses and return true if there is any IP address that supports tunneling when current endpoint has multiple addresses
 	for _, addr := range e.Addresses {
-		if b.push.AmbientIndex().SupportsTunnel(e.Network, addr) {
+		if b.configs.AmbientIndex().SupportsTunnel(e.Network, addr) {
 			return true
 		}
 	}
@@ -899,12 +926,12 @@ func (b *EndpointBuilder) findServiceWaypoint(endpointIndex *model.EndpointIndex
 		// Currently only ingress and e/w gateway will call waypoints
 		return nil, false
 	}
-	if !b.service.HasAddressOrAssigned(b.proxy.Metadata.ClusterID) {
+	if !b.service.HasAddressOrAssigned(b.proxy.GetMetadata().ClusterID) {
 		// No VIP, so skip this. Currently, waypoints can only accept VIP traffic
 		return nil, false
 	}
 
-	svcs := b.push.AmbientIndex().ServicesWithWaypoint(b.service.Attributes.Namespace + "/" + string(b.hostname))
+	svcs := b.configs.AmbientIndex().ServicesWithWaypoint(b.service.Attributes.Namespace + "/" + string(b.hostname))
 	if len(svcs) == 0 {
 		// Service isn't captured by a waypoint
 		return nil, false
@@ -923,7 +950,7 @@ func (b *EndpointBuilder) findServiceWaypoint(endpointIndex *model.EndpointIndex
 		host.Name(svc.WaypointHostname),
 		int(svc.Service.GetWaypoint().GetHboneMtlsPort()),
 	)
-	endpointBuilder := NewEndpointBuilder(waypointClusterName, b.proxy, b.push)
+	endpointBuilder := NewEndpointBuilder(waypointClusterName, b.proxy, b.sidecarScope, b.configs)
 	waypointEndpoints, _ := endpointBuilder.snapshotEndpointsForPort(endpointIndex)
 	return waypointEndpoints, true
 }
@@ -949,10 +976,10 @@ func (b *EndpointBuilder) snapshotEndpointsForPort(endpointIndex *model.Endpoint
 }
 
 // Duplicated from networking/core/waypoint to avoid circular dependency
-func isEastWestGateway(node *model.Proxy) bool {
+func isEastWestGateway(node model.ProxyInfo) bool {
 	return node.IsAmbientEastWestGateway()
 }
 
-func isSidecarProxy(node *model.Proxy) bool {
-	return node != nil && node.Type == model.SidecarProxy
+func isSidecarProxy(node model.ProxyInfo) bool {
+	return node != nil && node.GetType() == model.SidecarProxy
 }

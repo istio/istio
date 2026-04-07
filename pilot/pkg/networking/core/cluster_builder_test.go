@@ -978,7 +978,7 @@ func TestApplyDestinationRule(t *testing.T) {
 				MeshConfig:     tt.meshConfig,
 			})
 			proxy := cg.SetupProxy(nil)
-			cb := NewClusterBuilder(proxy, &model.PushRequest{Push: cg.PushContext()}, nil)
+			cb := NewClusterBuilder(proxy, proxy.SidecarScope, cg.PushContext(), nil)
 
 			tt.cluster.CommonLbConfig = &cluster.Cluster_CommonLbConfig{}
 
@@ -988,7 +988,7 @@ func TestApplyDestinationRule(t *testing.T) {
 				setH2Options(ec)
 			}
 			destRule := proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, tt.service.Hostname)
-			eb := endpoints.NewCDSEndpointBuilder(proxy, cb.req.Push, tt.cluster.Name,
+			eb := endpoints.NewCDSEndpointBuilder(proxy, cb.sidecarScope, cb.configs, tt.cluster.Name,
 				model.TrafficDirectionOutbound, "", tt.service.Hostname, tt.port.Port,
 				tt.service, destRule)
 			subsetClusters := cb.applyDestinationRule(ec, tt.clusterMode, tt.service, tt.port, eb, destRule.GetRule(), nil)
@@ -1389,7 +1389,7 @@ func TestBuildDefaultCluster(t *testing.T) {
 			mesh := testMesh()
 			cg := NewConfigGenTest(t, TestOptions{MeshConfig: mesh})
 			proxy := cg.SetupProxy(nil)
-			cb := NewClusterBuilder(proxy, &model.PushRequest{Push: cg.PushContext()}, nil)
+			cb := NewClusterBuilder(proxy, proxy.SidecarScope, cg.PushContext(), nil)
 			service := &model.Service{
 				Ports: model.PortList{
 					servicePort,
@@ -1399,7 +1399,7 @@ func TestBuildDefaultCluster(t *testing.T) {
 				Attributes:   model.ServiceAttributes{Name: "svc", Namespace: "default"},
 			}
 			defaultCluster := cb.buildCluster(tt.clusterName, tt.discovery, tt.endpoints, tt.direction, servicePort, service, nil, "")
-			eb := endpoints.NewCDSEndpointBuilder(proxy, cb.req.Push, tt.clusterName,
+			eb := endpoints.NewCDSEndpointBuilder(proxy, cb.sidecarScope, cb.configs, tt.clusterName,
 				tt.direction, "", service.Hostname, servicePort.Port,
 				service, nil)
 			if defaultCluster != nil {
@@ -1466,7 +1466,7 @@ func TestClusterDnsConfig(t *testing.T) {
 			test.SetForTest(t, &features.PilotDNSJitterDurationEnv, tt.dnsJitter)
 			mesh := testMesh()
 			cg := NewConfigGenTest(t, TestOptions{MeshConfig: mesh})
-			cb := NewClusterBuilder(cg.SetupProxy(tt.proxy), &model.PushRequest{Push: cg.PushContext()}, nil)
+			cb := NewClusterBuilder(cg.SetupProxy(tt.proxy), tt.proxy.SidecarScope, cg.PushContext(), nil)
 			service := &model.Service{
 				Ports: model.PortList{
 					servicePort,
@@ -1577,7 +1577,7 @@ func TestClusterDnsLookupFamily(t *testing.T) {
 			test.SetForTest(t, &features.EnableDualStack, tt.dualStack)
 			mesh := testMesh()
 			cg := NewConfigGenTest(t, TestOptions{MeshConfig: mesh})
-			cb := NewClusterBuilder(cg.SetupProxy(tt.proxy), &model.PushRequest{Push: cg.PushContext()}, nil)
+			cb := NewClusterBuilder(cg.SetupProxy(tt.proxy), tt.proxy.SidecarScope, cg.PushContext(), nil)
 			service := &model.Service{
 				Ports: model.PortList{
 					servicePort,
@@ -2116,9 +2116,9 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 					Instances:  tt.instances,
 				})
 
-				cb := NewClusterBuilder(cg.SetupProxy(proxy), &model.PushRequest{Push: cg.PushContext()}, nil)
+				cb := NewClusterBuilder(cg.SetupProxy(proxy), proxy.SidecarScope, cg.PushContext(), nil)
 				eb := endpoints.NewCDSEndpointBuilder(
-					proxy, cb.req.Push,
+					proxy, cb.sidecarScope, cb.configs,
 					"outbound|8080|v1|foo.com",
 					model.TrafficDirectionOutbound, "v1", "foo.com", 8080,
 					service, drWithLabels(tt.labels),
@@ -2326,7 +2326,7 @@ func TestConcurrentBuildLocalityLbEndpoints(t *testing.T) {
 		Instances:  instances,
 	})
 
-	cb := NewClusterBuilder(cg.SetupProxy(proxy), &model.PushRequest{Push: cg.PushContext()}, nil)
+	cb := NewClusterBuilder(cg.SetupProxy(proxy), proxy.SidecarScope, cg.PushContext(), nil)
 	wg := sync.WaitGroup{}
 	wg.Add(5)
 	var actual []*endpoint.LocalityLbEndpoints
@@ -2334,7 +2334,7 @@ func TestConcurrentBuildLocalityLbEndpoints(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		go func() {
 			eb := endpoints.NewCDSEndpointBuilder(
-				proxy, cb.req.Push,
+				proxy, cb.sidecarScope, cb.configs,
 				"outbound|8080|v1|foo.com",
 				model.TrafficDirectionOutbound, "v1", "foo.com", 8080,
 				service, dr,
@@ -2549,7 +2549,7 @@ func TestConcurrentBuildLocalityLbEndpointsWithMulAddrs(t *testing.T) {
 		Instances:  instances,
 	})
 
-	cb := NewClusterBuilder(cg.SetupProxy(proxy), &model.PushRequest{Push: cg.PushContext()}, nil)
+	cb := NewClusterBuilder(cg.SetupProxy(proxy), proxy.SidecarScope, cg.PushContext(), nil)
 	wg := sync.WaitGroup{}
 	wg.Add(5)
 	var actual []*endpoint.LocalityLbEndpoints
@@ -2557,7 +2557,7 @@ func TestConcurrentBuildLocalityLbEndpointsWithMulAddrs(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		go func() {
 			eb := endpoints.NewCDSEndpointBuilder(
-				proxy, cb.req.Push,
+				proxy, cb.sidecarScope, cb.configs,
 				"outbound|8080|v1|foo.com",
 				model.TrafficDirectionOutbound, "v1", "foo.com", 8080,
 				service, dr,
@@ -2607,7 +2607,7 @@ func TestBuildPassthroughClusters(t *testing.T) {
 			proxy := &model.Proxy{IPAddresses: tt.ips}
 			cg := NewConfigGenTest(t, TestOptions{})
 
-			cb := NewClusterBuilder(cg.SetupProxy(proxy), &model.PushRequest{Push: cg.PushContext()}, nil)
+			cb := NewClusterBuilder(cg.SetupProxy(proxy), proxy.SidecarScope, cg.PushContext(), nil)
 			passthrough := cb.buildInboundPassthroughCluster()
 			ips := sets.New[string]()
 			ips.Insert(passthrough.GetUpstreamBindConfig().GetSourceAddress().Address)
@@ -2645,7 +2645,8 @@ func newH2TestCluster() *clusterWrapper {
 }
 
 func newDownstreamTestCluster() *clusterWrapper {
-	cb := NewClusterBuilder(newSidecarProxy(), nil, model.DisabledCache{})
+	proxy := newSidecarProxy()
+	cb := NewClusterBuilder(proxy, proxy.SidecarScope, nil, model.DisabledCache{})
 	mc := newClusterWrapper(&cluster.Cluster{
 		Name: "test-cluster",
 	})
@@ -2994,7 +2995,7 @@ func TestApplyTCPKeepalive(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			cg := NewConfigGenTest(t, TestOptions{})
 			proxy := cg.SetupProxy(nil)
-			cb := NewClusterBuilder(proxy, &model.PushRequest{Push: cg.PushContext()}, nil)
+			cb := NewClusterBuilder(proxy, proxy.SidecarScope, cg.PushContext(), nil)
 			mc := &clusterWrapper{
 				cluster: &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
 			}
@@ -3269,14 +3270,14 @@ func TestApplyConnectionPool(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			cg := NewConfigGenTest(t, TestOptions{})
 			proxy := cg.SetupProxy(nil)
-			cb := NewClusterBuilder(proxy, &model.PushRequest{Push: cg.PushContext()}, nil)
+			cb := NewClusterBuilder(proxy, proxy.SidecarScope, cg.PushContext(), nil)
 			mc := &clusterWrapper{
 				cluster:             tt.cluster,
 				httpProtocolOptions: tt.httpProtocolOptions,
 			}
 
 			opts := buildClusterOpts{
-				mesh:    cb.req.Push.Mesh,
+				mesh:    cb.configs.MeshConfig(),
 				mutable: mc,
 			}
 			cb.applyConnectionPool(opts.mesh, opts.mutable, tt.connectionPool, tt.retryBudget)
@@ -3315,7 +3316,7 @@ func TestBuildExternalSDSClusters(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			cg := NewConfigGenTest(t, TestOptions{})
-			cb := NewClusterBuilder(cg.SetupProxy(proxy), &model.PushRequest{Push: cg.PushContext()}, nil)
+			cb := NewClusterBuilder(cg.SetupProxy(proxy), proxy.SidecarScope, cg.PushContext(), nil)
 			cluster := cb.buildExternalSDSCluster(security.CredentialNameSocketPath)
 			path := cluster.LoadAssignment.Endpoints[0].LbEndpoints[0].GetEndpoint().Address.GetPipe().Path
 			anyOptions := cluster.TypedExtensionProtocolOptions[v3.HttpProtocolOptionsType]
@@ -3898,11 +3899,11 @@ func TestInsecureSkipVerify(t *testing.T) {
 
 			cg.MemRegistry.WantGetProxyServiceTargets = targets
 			proxy := cg.SetupProxy(nil)
-			cb := NewClusterBuilder(proxy, &model.PushRequest{Push: cg.PushContext()}, nil)
+			cb := NewClusterBuilder(proxy, proxy.SidecarScope, cg.PushContext(), nil)
 			ec := newClusterWrapper(tc.cluster)
 			tc.cluster.CommonLbConfig = &cluster.Cluster_CommonLbConfig{}
 			destRule := proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, tc.service.Hostname)
-			eb := endpoints.NewCDSEndpointBuilder(proxy, cb.req.Push, tc.cluster.Name,
+			eb := endpoints.NewCDSEndpointBuilder(proxy, cb.sidecarScope, cb.configs, tc.cluster.Name,
 				model.TrafficDirectionOutbound, "", service.Hostname, tc.port.Port,
 				service, destRule)
 

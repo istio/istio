@@ -79,7 +79,7 @@ func ConstructSdsSecretConfigForCredential(name string, credentialSocketExist bo
 		if sdsName, ok := strings.CutPrefix(name, security.SDSExternalCredentialPrefix); ok {
 			for _, provider := range push.Mesh.ExtensionProviders {
 				if provider.GetSds() != nil && provider.GetSds().Name == sdsName {
-					_, cluster, err := model.LookupCluster(push, provider.GetSds().Service, int(provider.GetSds().Port))
+					_, cluster, err := model.LookupCluster(push.Services(), provider.GetSds().Service, int(provider.GetSds().Port))
 					if err != nil {
 						model.IncLookupClusterFailures("externalSds")
 						log.Errorf("could not find cluster for external sds provider %q: %v", provider.GetSds(), err)

@@ -92,7 +92,7 @@ type typedXdsCache[K comparable] interface {
 	// If the cache has been updated to a newer push context, the write will be dropped silently.
 	// This ensures stale data does not overwrite fresh data when dealing with concurrent
 	// writers.
-	Add(key K, entry dependents, pushRequest *PushRequest, value *discovery.Resource)
+	Add(key K, entry dependents, pushStart time.Time, value *discovery.Resource)
 	// Get retrieves the cached value if it exists.
 	Get(key K) *discovery.Resource
 	// Clear removes the cache entries that are dependent on the configs passed.
@@ -234,12 +234,12 @@ func (l *lruCache[K]) assertUnchanged(key K, existing *discovery.Resource, repla
 	}
 }
 
-func (l *lruCache[K]) Add(k K, entry dependents, pushReq *PushRequest, value *discovery.Resource) {
-	if pushReq == nil || pushReq.Start.Equal(time.Time{}) {
+func (l *lruCache[K]) Add(k K, entry dependents, pushStart time.Time, value *discovery.Resource) {
+	if pushStart.IsZero() || pushStart.Equal(time.Time{}) {
 		return
 	}
 	// It will not overflow until year 2262
-	token := CacheToken(pushReq.Start.UnixNano())
+	token := CacheToken(pushStart.UnixNano())
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	if token < l.token {
@@ -383,7 +383,7 @@ var _ typedXdsCache[uint64] = &disabledCache[uint64]{}
 func (d disabledCache[K]) Flush() {
 }
 
-func (d disabledCache[K]) Add(k K, entry dependents, pushReq *PushRequest, value *discovery.Resource) {
+func (d disabledCache[K]) Add(k K, entry dependents, pushStart time.Time, value *discovery.Resource) {
 }
 
 func (d disabledCache[K]) Get(k K) *discovery.Resource {

@@ -715,7 +715,7 @@ func BenchmarkCache(b *testing.B) {
 			key := makeCacheKey(n)
 			keys = append(keys, key)
 			req := &model.PushRequest{Start: zeroTime.Add(time.Duration(n))}
-			c.Add(key, req, res)
+			c.Add(key, req.Start, res)
 		}
 		workers := 100
 		chans := []chan struct{}{}
@@ -760,7 +760,7 @@ func BenchmarkCache(b *testing.B) {
 		for n := 0; n < b.N; n++ {
 			key := makeCacheKey(n)
 			req := &model.PushRequest{Start: zeroTime.Add(time.Duration(n))}
-			c.Add(key, req, res)
+			c.Add(key, req.Start, res)
 		}
 	})
 	// to trigger clear index on old dependents
@@ -773,20 +773,20 @@ func BenchmarkCache(b *testing.B) {
 		for i := 0; i < features.XDSCacheMaxSize; i++ {
 			key := makeCacheKey(i)
 			req := &model.PushRequest{Start: zeroTime.Add(time.Duration(i))}
-			c.Add(key, req, res)
+			c.Add(key, req.Start, res)
 		}
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
 			key := makeCacheKey(1)
 			req := &model.PushRequest{Start: zeroTime.Add(time.Duration(features.XDSCacheMaxSize + n))}
-			c.Add(key, req, res)
+			c.Add(key, req.Start, res)
 		}
 	})
 	b.Run("get", func(b *testing.B) {
 		c := model.NewXdsCache()
 		key := makeCacheKey(1)
 		req := &model.PushRequest{Start: zeroTime.Add(time.Duration(1))}
-		c.Add(key, req, res)
+		c.Add(key, req.Start, res)
 		for n := 0; n < b.N; n++ {
 			c.Get(key)
 		}
@@ -801,13 +801,13 @@ func BenchmarkCache(b *testing.B) {
 		for i := 0; i < features.XDSCacheMaxSize; i++ {
 			key := makeCacheKey(i)
 			req := &model.PushRequest{Start: zeroTime.Add(time.Duration(i))}
-			c.Add(key, req, res)
+			c.Add(key, req.Start, res)
 		}
 		b.ResetTimer()
 		for n := 0; n < b.N; n++ {
 			key := makeCacheKey(n)
 			req := &model.PushRequest{Start: zeroTime.Add(time.Duration(features.XDSCacheMaxSize + n))}
-			c.Add(key, req, res)
+			c.Add(key, req.Start, res)
 			c.Get(key)
 		}
 	})

@@ -355,10 +355,13 @@ func (lb *ListenerBuilder) inboundChainForOpts(cc inboundChainConfig, mtls authn
 	return chains
 }
 
-func getSidecarIngressPortList(node *model.Proxy) sets.Set[int] {
-	sidecarScope := node.SidecarScope
+type sidecarScopeSidecarGetter interface {
+	GetSidecar() *networking.Sidecar
+}
+
+func getSidecarIngressPortList(sidecarScope sidecarScopeSidecarGetter) sets.Set[int] {
 	ingressPortListSet := sets.New[int]()
-	for _, ingressListener := range sidecarScope.Sidecar.Ingress {
+	for _, ingressListener := range sidecarScope.GetSidecar().Ingress {
 		ingressPortListSet.Insert(int(ingressListener.Port.Number))
 	}
 	return ingressPortListSet
@@ -370,7 +373,7 @@ func (lb *ListenerBuilder) getFilterChainsByServicePort() map[uint32]inboundChai
 	sidecarScope := lb.node.SidecarScope
 	mergeServicePorts := features.EnableSidecarServiceInboundListenerMerge && sidecarScope.HasIngressListener()
 	if mergeServicePorts {
-		ingressPortListSet = getSidecarIngressPortList(lb.node)
+		ingressPortListSet = getSidecarIngressPortList(sidecarScope)
 	}
 	actualWildcards, _ := getWildcardsAndLocalHost(lb.node.GetIPMode())
 	for _, i := range lb.node.ServiceTargets {

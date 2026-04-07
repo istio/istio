@@ -253,7 +253,7 @@ func shouldH2Upgrade(clusterName string, port *model.Port, mesh *meshconfig.Mesh
 }
 
 func (cb *ClusterBuilder) applyDefaultConnectionPool(cluster *cluster.Cluster) {
-	cluster.ConnectTimeout = protomarshal.Clone(cb.req.Push.Mesh.ConnectTimeout)
+	cluster.ConnectTimeout = protomarshal.Clone(cb.configs.MeshConfig().ConnectTimeout)
 }
 
 func applyLoadBalancer(

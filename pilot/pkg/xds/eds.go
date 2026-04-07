@@ -206,7 +206,7 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 		}
 
 		dir, subsetName, hostname, port := model.ParseSubsetKey(clusterName)
-		svc := req.Push.Services().ServiceForHostname(proxy, hostname)
+		svc := proxy.SidecarScope.ServiceForHostname(hostname)
 
 		// In delta mode, if a service is not found, it means the cluster is removed
 		if delta && svc == nil {
@@ -228,7 +228,7 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 			}
 		}
 
-		builder := *endpoints.NewCDSEndpointBuilder(proxy, req.Push, clusterName, dir, subsetName, hostname, port, svc, dr)
+		builder := *endpoints.NewCDSEndpointBuilder(proxy, proxy.SidecarScope, req.Push, clusterName, dir, subsetName, hostname, port, svc, dr)
 
 		// We skip cache if assertions are enabled, so that the cache will assert our eviction logic is correct
 		if !features.EnableUnsafeAssertions {
@@ -257,7 +257,7 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 			Resource: protoconv.MessageToAny(l),
 		}
 		resources = append(resources, resource)
-		eds.Cache.Add(&builder, req, resource)
+		eds.Cache.Add(&builder, req.Start, resource)
 	}
 	return resources, removed, model.XdsLogDetails{
 		Incremental:    len(edsUpdatedServices) != 0,

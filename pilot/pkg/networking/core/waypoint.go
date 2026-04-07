@@ -54,13 +54,18 @@ type waypointServices struct {
 	orderedServices []*model.Service
 }
 
+type waypointResourcesIndexes interface {
+	AmbientIndex() model.AmbientIndexes
+	Services() *model.ServiceIndex
+}
+
 // findWaypointResources returns workloads and services associated with the waypoint proxy
-func findWaypointResources(node *model.Proxy, push *model.PushContext) ([]model.WorkloadInfo, *waypointServices) {
+func findWaypointResources(node ClusterAffectingProxy, push waypointResourcesIndexes) ([]model.WorkloadInfo, *waypointServices) {
 	var key model.WaypointKey
 	if isAmbientEastWestGateway(node) {
-		key = model.WaypointKeyForNetworkGatewayProxy(node)
+		key = model.WaypointKeyForNetworkGatewayProxy(node, node.GetServiceTargets())
 	} else {
-		key = model.WaypointKeyForProxy(node)
+		key = model.WaypointKeyForProxy(node, node.GetServiceTargets())
 	}
 
 	workloads := push.AmbientIndex().WorkloadsForWaypoint(key)
@@ -132,6 +137,6 @@ func filterWaypointOutboundServices(
 	return res
 }
 
-func isAmbientEastWestGateway(node *model.Proxy) bool {
+func isAmbientEastWestGateway(node model.ProxyInfo) bool {
 	return node.IsAmbientEastWestGateway()
 }

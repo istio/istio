@@ -166,7 +166,7 @@ func TestApplyUpstreamProxyProtocol(t *testing.T) {
 	push := model.NewPushContext()
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			cb := NewClusterBuilder(proxy, &model.PushRequest{Push: push}, model.DisabledCache{})
+			cb := NewClusterBuilder(proxy, proxy.SidecarScope, push, model.DisabledCache{})
 			opts := &buildClusterOpts{
 				mutable: newClusterWrapper(&cluster.Cluster{
 					ClusterDiscoveryType: &cluster.Cluster_Type{Type: test.discoveryType},

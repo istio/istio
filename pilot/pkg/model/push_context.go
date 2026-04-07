@@ -18,7 +18,6 @@ import (
 	"cmp"
 	"encoding/json"
 	"fmt"
-	"maps"
 	"math"
 	"sort"
 	"strings"
@@ -44,6 +43,7 @@ import (
 	"istio.io/istio/pkg/config/security"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/jwt"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
@@ -82,8 +82,8 @@ type ServiceIndex struct {
 	serviceAccounts map[serviceAccountKey][]string
 }
 
-func newServiceIndex() *ServiceIndex {
-	return &ServiceIndex{
+func newServiceIndex() ServiceIndex {
+	return ServiceIndex{
 		public:               []*Service{},
 		privateByNamespace:   map[string][]*Service{},
 		exportedToNamespace:  map[string][]*Service{},
@@ -236,7 +236,7 @@ type PushContext struct {
 	exportToDefaults ExportToDefaults
 
 	// serviceIndex is the index of services by various fields.
-	serviceIndex *ServiceIndex
+	serviceIndex ServiceIndex
 
 	// virtualServiceIndex is the index of virtual services by various fields.
 	virtualServiceIndex VirtualServiceIndex
@@ -258,17 +258,17 @@ type PushContext struct {
 	trafficExtensionIndex TrafficExtensionIndex
 
 	// authnPolicies contains Authn policies by namespace.
-	authnPolicies *AuthenticationPolicies `json:"-"`
+	authnPolicies *AuthenticationPolicies
 
 	// authzPolicies stores the existing authorization policies in the cluster. Could be nil if there
 	// are no authorization policies in the cluster.
-	authzPolicies *AuthorizationPolicies `json:"-"`
+	authzPolicies *AuthorizationPolicies
 
 	// telemetry stores the existing telemetry resources for the cluster.
-	telemetry *Telemetries `json:"-"`
+	telemetry *Telemetries
 
 	// ProxyConfig stores the existing ProxyConfig resources for the cluster.
-	proxyConfigs *ProxyConfigs `json:"-"`
+	proxyConfigs *ProxyConfigs
 
 	// The following data is either a global index or used in the inbound path.
 	// Namespace specific views do not apply here.
@@ -619,6 +619,24 @@ func (pr *PushRequest) PushReason() string {
 	return ""
 }
 
+type PushInfo interface {
+	IsForced() bool
+	UpdatedConfigs() sets.Set[ConfigKey]
+	StartTime() time.Time
+}
+
+func (pr *PushRequest) IsForced() bool {
+	return pr.Forced
+}
+
+func (pr *PushRequest) UpdatedConfigs() sets.Set[ConfigKey] {
+	return pr.ConfigsUpdated
+}
+
+func (pr *PushRequest) StartTime() time.Time {
+	return pr.Start
+}
+
 // ProxyPushStatus represents an event captured during config push to proxies.
 // It may contain additional message and the affected proxy.
 type ProxyPushStatus struct {
@@ -883,43 +901,6 @@ func virtualServiceDestinationsFilteredBySourceNamespace(v *networking.VirtualSe
 	return out
 }
 
-// GatewayServices returns the set of services which are referred from the proxy gateways.
-func (vsi VirtualServiceIndex) GatewayServices(
-	proxy *Proxy,
-	patches *MergedEnvoyFilterWrapper,
-	mesh *meshconfig.MeshConfig,
-	authnPolicies *AuthenticationPolicies,
-) []*Service {
-	svcs := proxy.SidecarScope.services
-
-	// host set.
-	namespacedHostsFromGateways, hostsFromGateways := ExtraServicesForProxy(proxy, patches, mesh, authnPolicies)
-	// MergedGateway will be nil when there are no configs in the
-	// system during initial installation.
-	if proxy.MergedGateway != nil {
-		for _, gw := range proxy.MergedGateway.GatewayNameForServer {
-			hostsFromGateways.Merge(vsi.destinationsByGateway[gw])
-		}
-	}
-	log.Debugf("GatewayServices: gateway %v is exposing these hosts:%v", proxy.ID, hostsFromGateways)
-
-	gwSvcs := make([]*Service, 0, len(svcs))
-
-	for _, s := range svcs {
-		svcHost := string(s.Hostname)
-		if hostsFromGateways.Contains(svcHost) || namespacedHostsFromGateways.Contains(NamespacedHostname{
-			Hostname:  s.Hostname,
-			Namespace: s.Attributes.Namespace,
-		}) {
-			gwSvcs = append(gwSvcs, s)
-		}
-	}
-
-	log.Debugf("GatewayServices: gateways len(services)=%d, len(filtered)=%d", len(svcs), len(gwSvcs))
-
-	return gwSvcs
-}
-
 // GatewayHasDestination returns true if the gateway has a destination matching the host.
 func (vsi VirtualServiceIndex) GatewayHasDestination(gw, host string) bool {
 	if dst, ok := vsi.destinationsByGateway[gw]; ok {
@@ -998,7 +979,7 @@ const addHostsFromMeshConfigProvidersHandled = 15
 // 2. RequestAuthentication.JwtRules.JwksUri
 // 3. EnvoyFilters with explicitly annotated references
 func ExtraServicesForProxy(
-	proxy *Proxy,
+	proxy ProxyInfo,
 	patches *MergedEnvoyFilterWrapper,
 	mesh *meshconfig.MeshConfig,
 	authnPolicies *AuthenticationPolicies,
@@ -1100,22 +1081,6 @@ func (si ServiceIndex) servicesExportedToNamespace(ns string) []*Service {
 // Note: per proxy services should use SidecarScope.Services.
 func (si ServiceIndex) GetAllServices() []*Service {
 	return si.servicesExportedToNamespace(NamespaceAll)
-}
-
-// ServiceForHostname returns the service associated with a given hostname following SidecarScope
-func (si ServiceIndex) ServiceForHostname(proxy *Proxy, hostname host.Name) *Service {
-	if proxy != nil && proxy.SidecarScope != nil {
-		return proxy.SidecarScope.servicesByHostname[hostname]
-	}
-
-	// SidecarScope shouldn't be null here. If it is, we can't disambiguate the hostname to use for a namespace,
-	// so the selection must be undefined.
-	for _, service := range si.HostnameAndNamespace[hostname] {
-		return service
-	}
-
-	// No service found
-	return nil
 }
 
 // IsServiceVisible returns true if the input service is visible to the given namespace.
@@ -1346,7 +1311,9 @@ func (dri DestinationRuleIndex) destinationRule(
 	return nil
 }
 
-func (dri DestinationRuleIndex) getExportedDestinationRuleFromNamespace(owningNamespace string, hostname host.Name, clientNamespace string) []*ConsolidatedDestRule {
+func (dri DestinationRuleIndex) getExportedDestinationRuleFromNamespace(
+	owningNamespace string, hostname host.Name, clientNamespace string,
+) []*ConsolidatedDestRule {
 	if dri.exportedByNamespace[owningNamespace] != nil {
 		if _, drs, ok := MostSpecificHostMatch(hostname,
 			dri.exportedByNamespace[owningNamespace].specificDestRules,
@@ -2258,18 +2225,18 @@ func (ps *PushContext) initEnvoyFilters(env *Environment, changed sets.Set[Confi
 		return in < jn
 	})
 
-	for _, envoyFilterConfig := range envoyFilterConfigs {
+	for _, ef := range envoyFilterConfigs {
 		var efw *EnvoyFilterWrapper
-		key := ConfigKey{Kind: kind.EnvoyFilter, Namespace: envoyFilterConfig.Namespace, Name: envoyFilterConfig.Name}
+		key := ConfigKey{Kind: kind.EnvoyFilter, Namespace: ef.Namespace, Name: ef.Name}
 		if prev, ok := previous[key]; ok && !changed.Contains(key) {
 			// Reuse the previous EnvoyFilterWrapper if it exists and hasn't changed when optimized config rebuild is enabled
 			efw = prev
 		}
 		// Rebuild the envoy filter in all other cases.
 		if efw == nil {
-			efw = convertToEnvoyFilterWrapper(&envoyFilterConfig)
+			efw = convertToEnvoyFilterWrapper(&ef)
 		}
-		ps.envoyFilterIndex.envoyFiltersByNamespace[envoyFilterConfig.Namespace] = append(ps.envoyFilterIndex.envoyFiltersByNamespace[envoyFilterConfig.Namespace], efw)
+		ps.envoyFilterIndex.envoyFiltersByNamespace[ef.Namespace] = append(ps.envoyFilterIndex.envoyFiltersByNamespace[ef.Namespace], efw)
 	}
 }
 
@@ -2457,7 +2424,7 @@ func (ps *PushContext) NetworkManager() *NetworkManager {
 }
 
 func (ps *PushContext) Services() *ServiceIndex {
-	return ps.serviceIndex
+	return &ps.serviceIndex
 }
 
 func (ps *PushContext) AmbientIndex() AmbientIndexes {
