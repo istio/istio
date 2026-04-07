@@ -260,6 +260,19 @@ func (s *meshDataplane) addPodToHostAddrSet(pod *corev1.Pod, podIPs []netip.Addr
 			} else {
 				addedIps = append(addedIps, pip)
 			}
+
+			// Detect branch ENI pods (AWS VPC CNI with Security Groups for Pods).
+			// These pods route through VPC fabric by default, which cannot handle
+			// the link-local SNAT address used for probe identification.
+			// Fix: add ip rules to route probe traffic via the existing veth pair.
+			if EnableAWSBranchENIProbe {
+				if info := detectBranchENI(pip); info != nil {
+					checkTCPEarlyDemux()
+					if err := addBranchENIRules(pip, info); err != nil {
+						log.Errorf("failed to add branch ENI rules for pod %s: %v", pip, err)
+					}
+				}
+			}
 		}
 		return nil
 	})
@@ -286,6 +299,13 @@ func removePodFromHostAddrSet(pod *corev1.Pod, hostsideProbeSet set.AddressSetMa
 				log.Warnf("pod ip %s could not be removed from addressSet, found entry with pod UID %s instead", pip, uidMismatch)
 			}
 			log.Debugf("removed pod from host addressSet by ip %s", pip)
+
+			// Clean up branch ENI rules if they were added
+			if EnableAWSBranchENIProbe {
+				if info := detectBranchENI(pip); info != nil {
+					delBranchENIRules(pip, info)
+				}
+			}
 		}
 		return nil
 	})
