@@ -40,7 +40,8 @@ func (c *ConfigWriter) PrintConnectionsDump(filter ConnectionsFilter, outputForm
 		if r := cmp.Compare(a.Info.Namespace, b.Info.Namespace); r != 0 {
 			return r
 		}
-		return cmp.Compare(a.Info.Namespace, b.Info.Namespace)
+		// Compare name if namespaces are the same
+		return cmp.Compare(a.Info.Name, b.Info.Name)
 	})
 	workloads = slices.FilterInPlace(workloads, func(state WorkloadState) bool {
 		if filter.Namespace != "" && filter.Namespace != state.Info.Namespace {
