@@ -94,21 +94,6 @@ type EdsGenerator struct {
 
 var _ model.XdsDeltaResourceGenerator = &EdsGenerator{}
 
-// Map of all configs that do not impact EDS
-var skippedEdsConfigs = sets.New(
-	kind.Gateway,
-	kind.VirtualService,
-	kind.WorkloadGroup,
-	kind.AuthorizationPolicy,
-	kind.RequestAuthentication,
-	kind.Secret,
-	kind.Telemetry,
-	kind.WasmPlugin,
-	kind.ProxyConfig,
-	kind.DNSName,
-	kind.Sidecar,
-)
-
 var deltaAwareEdsConfigs = sets.New(
 	kind.Endpoints,
 	kind.ServiceEntry,
@@ -125,7 +110,7 @@ func edsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
 		return true
 	}
 	for config := range req.ConfigsUpdated {
-		if !skippedEdsConfigs.Contains(config.Kind) {
+		if endpoints.EndpointAffectingConfig(config.Kind) {
 			return true
 		}
 	}
@@ -137,7 +122,10 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, 
 		return nil, model.DefaultXdsLogDetails, nil
 	}
 
-	resources, _, logDetails := eds.buildEndpoints(proxy, req, w, false, canSendPartialFullPushes(req))
+	resources, _, logDetails := eds.buildEndpoints(
+		proxy, proxy.SidecarScope, proxy.PrevSidecarScope,
+		req.Push, req, w, false, canSendPartialFullPushes(req),
+	)
 	return resources, logDetails, nil
 }
 
@@ -149,7 +137,10 @@ func (eds *EdsGenerator) GenerateDeltas(proxy *model.Proxy, req *model.PushReque
 	}
 
 	partialPush := canSendPartialFullPushes(req)
-	resources, removed, logs := eds.buildEndpoints(proxy, req, w, partialPush, partialPush)
+	resources, removed, logs := eds.buildEndpoints(
+		proxy, proxy.SidecarScope, proxy.PrevSidecarScope,
+		req.Push, req, w, partialPush, partialPush,
+	)
 	return resources, removed, logs, partialPush, nil
 }
 
@@ -172,8 +163,12 @@ func canSendPartialFullPushes(req *model.PushRequest) bool {
 	return true
 }
 
-func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
-	req *model.PushRequest,
+func (eds *EdsGenerator) buildEndpoints(
+	proxy model.ProxyInfo,
+	sidecarScope endpoints.EndpointAffectingSidecarScope,
+	prevSidecarScope endpoints.EndpointAffectingSidecarScope,
+	configs endpoints.EndpointAffectingConfigs,
+	updates model.PushInfo,
 	w *model.WatchedResource,
 	delta bool,
 	partialPush bool,
@@ -186,7 +181,7 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 		edsUpdatedServices = sets.New[string]()
 		changedDrs = sets.New[types.NamespacedName]()
 		changedAuthnNs = sets.New[string]()
-		for cfg := range req.ConfigsUpdated {
+		for cfg := range updates.UpdatedConfigs() {
 			switch cfg.Kind {
 			case kind.DestinationRule:
 				changedDrs.Insert(types.NamespacedName{Name: cfg.Name, Namespace: cfg.Namespace})
@@ -213,7 +208,7 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 		}
 
 		dir, subsetName, hostname, port := model.ParseSubsetKey(clusterName)
-		svc := req.Push.Services().ServiceForHostname(proxy, hostname)
+		svc := sidecarScope.ServiceForHostname(hostname)
 
 		// In delta mode, if a service is not found, it means the cluster is removed
 		if delta && svc == nil {
@@ -223,19 +218,19 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 
 		var dr *model.ConsolidatedDestRule
 		if svc != nil {
-			dr = proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, svc.Hostname)
+			dr = sidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, svc.Hostname)
 		}
 
 		// if we can do a partial push, check if the cluster is affected by the changed destination rules or peer authentication policies
 		// to avoid recomputing the cluster if it is not affected
 		if partialPush && svc != nil && !affectedService {
-			if !clusterAffectedByChangedAuthn(svc, changedAuthnNs, req.Push.Mesh.RootNamespace) &&
-				!clusterAffectedByChangedDrs(proxy, dr, hostname, changedDrs) {
+			if !clusterAffectedByChangedAuthn(svc, changedAuthnNs, configs.MeshConfig().RootNamespace) &&
+				!clusterAffectedByChangedDrs(proxy, prevSidecarScope, dr, hostname, changedDrs) {
 				continue
 			}
 		}
 
-		builder := *endpoints.NewCDSEndpointBuilder(proxy, req.Push, clusterName, dir, subsetName, hostname, port, svc, dr)
+		builder := *endpoints.NewCDSEndpointBuilder(proxy, sidecarScope, configs, clusterName, dir, subsetName, hostname, port, svc, dr)
 
 		// We skip cache if assertions are enabled, so that the cache will assert our eviction logic is correct
 		if !features.EnableUnsafeAssertions {
@@ -264,7 +259,7 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 			Resource: protoconv.MessageToAny(l),
 		}
 		resources = append(resources, resource)
-		eds.Cache.Add(&builder, req, resource)
+		eds.Cache.Add(&builder, updates.StartTime(), resource)
 	}
 	return resources, removed, model.XdsLogDetails{
 		Incremental:    len(edsUpdatedServices) != 0,
@@ -274,7 +269,8 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 
 // clusterAffectedByChangedDrs checks if the service is affected by the changed destination rules
 func clusterAffectedByChangedDrs(
-	proxy *model.Proxy,
+	proxy model.ProxyInfo,
+	prevSidecarScope endpoints.EndpointAffectingSidecarScope,
 	currentDr *model.ConsolidatedDestRule,
 	hostname host.Name,
 	changedDrs sets.Set[types.NamespacedName],
@@ -289,8 +285,8 @@ func clusterAffectedByChangedDrs(
 		}
 	}
 
-	if proxy.PrevSidecarScope != nil {
-		if dr := proxy.PrevSidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, hostname); dr != nil {
+	if prevSidecarScope != nil {
+		if dr := prevSidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, hostname); dr != nil {
 			if slices.ContainsFunc(dr.GetFrom(), changedDrs.Contains) {
 				return true
 			}

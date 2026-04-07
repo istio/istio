@@ -762,7 +762,7 @@ func TestEndpointsByNetworkFilter_ProxyWithEmptyNetwork(t *testing.T) {
 		},
 	})
 	cn := "outbound|80||example.ns.svc.cluster.local"
-	b := endpoints.NewEndpointBuilder(cn, proxy, ds.PushContext())
+	b := endpoints.NewEndpointBuilder(cn, proxy, proxy.SidecarScope, ds.PushContext())
 	filtered := b.BuildClusterLoadAssignment(shards).Endpoints
 
 	want := []xdstest.LocLbEpInfo{
@@ -1014,12 +1014,12 @@ func TestEndpointsByNetworkFilter_GatewayIPFamily(t *testing.T) {
 				tt.after(proxy)
 			}
 			cn := "outbound|80||example.ns.svc.cluster.local"
-			b := endpoints.NewEndpointBuilder(cn, proxy, ds.PushContext())
+			b := endpoints.NewEndpointBuilder(cn, proxy, proxy.SidecarScope, ds.PushContext())
 			filtered := b.BuildClusterLoadAssignment(shards).Endpoints
 			xdstest.CompareEndpointsOrFail(t, cn, filtered, tt.want)
 
 			// Verify determinism (consistent with existing test patterns).
-			b2 := endpoints.NewEndpointBuilder(cn, proxy, ds.PushContext())
+			b2 := endpoints.NewEndpointBuilder(cn, proxy, proxy.SidecarScope, ds.PushContext())
 			filtered2 := b2.BuildClusterLoadAssignment(shards).Endpoints
 			if diff := cmp.Diff(filtered2, filtered, protocmp.Transform(), cmpopts.IgnoreUnexported(endpoints.LocalityEndpoints{})); diff != "" {
 				t.Fatalf("output of EndpointsByNetworkFilter is non-deterministic: %v", diff)
@@ -1067,7 +1067,7 @@ func TestEndpointsByNetworkFilter_GatewayIPFamily_Ambient(t *testing.T) {
 	// IPv4-only waypoint proxy should only get IPv4 HBONE gateway.
 	proxy := ds.SetupProxy(makeWaypointProxy("network1", "cluster1"))
 	cn := "outbound|80||example.ns.svc.cluster.local"
-	b := endpoints.NewEndpointBuilder(cn, proxy, ds.PushContext())
+	b := endpoints.NewEndpointBuilder(cn, proxy, proxy.SidecarScope, ds.PushContext())
 	filtered := b.BuildClusterLoadAssignment(shards).Endpoints
 
 	// The waypoint should see only the IPv4 HBONE gateway for network2.
@@ -1084,7 +1084,7 @@ func TestEndpointsByNetworkFilter_GatewayIPFamily_Ambient(t *testing.T) {
 		t.Fatalf("unexpected HBONE gateway hosts (-want +got): %s", diff)
 	}
 
-	b2 := endpoints.NewEndpointBuilder(cn, proxy, ds.PushContext())
+	b2 := endpoints.NewEndpointBuilder(cn, proxy, proxy.SidecarScope, ds.PushContext())
 	filtered2 := b2.BuildClusterLoadAssignment(shards).Endpoints
 	if diff := cmp.Diff(filtered2, filtered, protocmp.Transform(), cmpopts.IgnoreUnexported(endpoints.LocalityEndpoints{})); diff != "" {
 		t.Fatalf("output of EndpointsByNetworkFilter is non-deterministic: %v", diff)
@@ -1105,7 +1105,7 @@ func runNetworkFilterTest(t *testing.T, ds *xds.FakeDiscoveryServer, tests []net
 		t.Run(tt.name, func(t *testing.T) {
 			cn := fmt.Sprintf("outbound|80|%s|example.ns.svc.cluster.local", subset)
 			proxy := ds.SetupProxy(tt.proxy)
-			b := endpoints.NewEndpointBuilder(cn, proxy, ds.PushContext())
+			b := endpoints.NewEndpointBuilder(cn, proxy, proxy.SidecarScope, ds.PushContext())
 			filtered := b.BuildClusterLoadAssignment(testShards()).Endpoints
 			xdstest.CompareEndpointsOrFail(t, cn, filtered, tt.want)
 			// check workload metadata
@@ -1120,7 +1120,7 @@ func runNetworkFilterTest(t *testing.T, ds *xds.FakeDiscoveryServer, tests []net
 				t.Errorf("incorrect workload metadata: got %v, want %v", gotWorkloadMetadata, tt.wantWorkloadMetadata)
 			}
 
-			b2 := endpoints.NewEndpointBuilder(cn, proxy, ds.PushContext())
+			b2 := endpoints.NewEndpointBuilder(cn, proxy, proxy.SidecarScope, ds.PushContext())
 			filtered2 := b2.BuildClusterLoadAssignment(testShards()).Endpoints
 			if diff := cmp.Diff(filtered2, filtered, protocmp.Transform(), cmpopts.IgnoreUnexported(endpoints.LocalityEndpoints{})); diff != "" {
 				t.Fatalf("output of EndpointsByNetworkFilter is non-deterministic: %v", diff)
@@ -1188,11 +1188,11 @@ func runMTLSFilterTest(t *testing.T, ds *xds.FakeDiscoveryServer, tests []networ
 		t.Run(tt.name, func(t *testing.T) {
 			proxy := ds.SetupProxy(tt.proxy)
 			cn := fmt.Sprintf("outbound_.80_.%s_.example.ns.svc.cluster.local", subset)
-			b := endpoints.NewEndpointBuilder(cn, proxy, ds.PushContext())
+			b := endpoints.NewEndpointBuilder(cn, proxy, proxy.SidecarScope, ds.PushContext())
 			filtered := b.BuildClusterLoadAssignment(testShards()).Endpoints
 			xdstest.CompareEndpointsOrFail(t, cn, filtered, tt.want)
 
-			b2 := endpoints.NewEndpointBuilder(cn, proxy, ds.PushContext())
+			b2 := endpoints.NewEndpointBuilder(cn, proxy, proxy.SidecarScope, ds.PushContext())
 			filtered2 := b2.BuildClusterLoadAssignment(testShards()).Endpoints
 			if diff := cmp.Diff(filtered2, filtered, protocmp.Transform(), cmpopts.IgnoreUnexported(endpoints.LocalityEndpoints{})); diff != "" {
 				t.Fatalf("output of EndpointsByNetworkFilter is non-deterministic: %v", diff)

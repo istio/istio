@@ -78,7 +78,7 @@ const (
 )
 
 func (lb *ListenerBuilder) serviceForHostname(name host.Name) *model.Service {
-	return lb.push.Services().ServiceForHostname(lb.node, name)
+	return lb.node.SidecarScope.ServiceForHostname(name)
 }
 
 func (lb *ListenerBuilder) buildEastWestTLSPassthroughListeners() []*listener.Listener {
@@ -929,7 +929,7 @@ func (lb *ListenerBuilder) buildWaypointNetworkFilters(svc *model.Service, fcc i
 
 		if len(routes) == 1 {
 			route := routes[0]
-			service := lb.push.Services().ServiceForHostname(lb.node, host.Name(route.Destination.Host))
+			service := lb.node.SidecarScope.ServiceForHostname(host.Name(route.Destination.Host))
 			clusterName := lb.getWaypointDestinationCluster(route.Destination, service, fcc.port.Port)
 			tcpProxy.ClusterSpecifier = &tcp.TcpProxy_Cluster{Cluster: clusterName}
 		} else if len(routes) > 1 {
@@ -937,7 +937,7 @@ func (lb *ListenerBuilder) buildWaypointNetworkFilters(svc *model.Service, fcc i
 				WeightedClusters: &tcp.TcpProxy_WeightedCluster{},
 			}
 			for _, route := range routes {
-				service := lb.push.Services().ServiceForHostname(lb.node, host.Name(route.Destination.Host))
+				service := lb.node.SidecarScope.ServiceForHostname(host.Name(route.Destination.Host))
 				if route.Weight > 0 {
 					clusterName := lb.getWaypointDestinationCluster(route.Destination, service, fcc.port.Port)
 					clusterSpecifier.WeightedClusters.Clusters = append(clusterSpecifier.WeightedClusters.Clusters, &tcp.TcpProxy_WeightedCluster_ClusterWeight{

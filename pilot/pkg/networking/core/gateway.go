@@ -363,7 +363,7 @@ func buildNameToServiceMapForHTTPRoutes(node *model.Proxy, push *model.PushConte
 		// If we find no service for the namespace of virtualService or the selected service is not visible to the proxy node,
 		// we should fallback to pick one service which is visible to the ConfigNamespace of node.
 		if service == nil {
-			service = push.Services().ServiceForHostname(node, hostname)
+			service = node.SidecarScope.ServiceForHostname(hostname)
 		}
 		nameToServiceMap[hostname] = service
 	}

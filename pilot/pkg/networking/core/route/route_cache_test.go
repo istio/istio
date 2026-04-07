@@ -53,7 +53,7 @@ func TestClearRDSCacheOnVsUpdate(t *testing.T) {
 	resource := &discovery.Resource{Name: "bar"}
 
 	// add resource to cache
-	xdsCache.Add(&entry, &model.PushRequest{Start: time.Now()}, resource)
+	xdsCache.Add(&entry, time.Now(), resource)
 	if got := xdsCache.Get(&entry); got == nil || !reflect.DeepEqual(got, resource) {
 		t.Fatal("rds cache was not updated")
 	}
@@ -66,7 +66,7 @@ func TestClearRDSCacheOnVsUpdate(t *testing.T) {
 	}
 
 	// add resource to cache
-	xdsCache.Add(&entry, &model.PushRequest{Start: time.Now()}, resource)
+	xdsCache.Add(&entry, time.Now(), resource)
 	irrelevantVs := model.ConfigKey{Kind: kind.VirtualService, Name: "foo", Namespace: "default"}
 
 	// don't clear cache when irrelevant virtual service is updated

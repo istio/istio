@@ -167,7 +167,7 @@ func buildExtAuthzHTTP(push *model.PushContext,
 	if err != nil {
 		errs = multierror.Append(errs, err)
 	}
-	hostname, cluster, err := model.LookupCluster(push, config.Service, port)
+	hostname, cluster, err := model.LookupCluster(push.Services(), config.Service, port)
 	if err != nil {
 		model.IncLookupClusterFailures("authz")
 		errs = multierror.Append(errs, err)
@@ -213,7 +213,7 @@ func buildExtAuthzGRPC(push *model.PushContext,
 	if err != nil {
 		errs = multierror.Append(errs, err)
 	}
-	hostname, cluster, err := model.LookupCluster(push, config.Service, port)
+	hostname, cluster, err := model.LookupCluster(push.Services(), config.Service, port)
 	if err != nil {
 		errs = multierror.Append(errs, err)
 	}

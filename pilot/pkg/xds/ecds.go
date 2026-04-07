@@ -225,7 +225,7 @@ func trafficExtensions(
 ) map[extensions.TrafficExtension_ExecutionPhase][]*model.TrafficExtensionWrapper {
 	listenerInfo := model.ListenerInfo{}
 	if proxy.IsWaypointProxy() {
-		servicesInfo := ambientIndex.ServicesForWaypoint(model.WaypointKeyForProxy(proxy))
+		servicesInfo := ambientIndex.ServicesForWaypoint(model.WaypointKeyForProxy(proxy, proxy.GetServiceTargets()))
 		for _, si := range servicesInfo {
 			s := si.Service
 			svc, exist := serviceIndex.HostnameAndNamespace[host.Name(s.Hostname)][s.Namespace]

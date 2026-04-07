@@ -90,7 +90,7 @@ func proxyDependentOnConfig(proxy *model.Proxy, config model.ConfigKey, push *mo
 		if config.Kind == kind.ServiceEntry {
 			// If config is ServiceEntry, name of the config is service's FQDN
 			if features.FilterGatewayClusterConfig &&
-				!push.VirtualServices().ServiceAttachedToGateway(config.Name, config.Namespace, proxy, push.EnvoyFilters(), push.Mesh, push.AuthnPolicies()) {
+				!serviceAttachedToGateway(config.Name, config.Namespace, proxy, push) {
 				return false
 			}
 
@@ -126,4 +126,12 @@ func DefaultProxyNeedsPush(proxy *model.Proxy, req *model.PushRequest) (*model.P
 
 	req = filterRelevantUpdates(proxy, req)
 	return req, len(req.ConfigsUpdated) > 0
+}
+
+func serviceAttachedToGateway(hostname string, namespace string, proxy *model.Proxy, configs *model.PushContext) bool {
+	return configs.VirtualServices().ServiceAttachedToGateway(
+		hostname, namespace, proxy,
+		proxy.GetMergedGateway(), configs.EnvoyFilters(),
+		configs.MeshConfig(), configs.AuthnPolicies(),
+	)
 }

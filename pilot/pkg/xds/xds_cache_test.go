@@ -49,7 +49,7 @@ func TestXdsCacheToken(t *testing.T) {
 		return &discovery.Resource{Resource: &anypb.Any{TypeUrl: fmt.Sprint(n)}}
 	}
 	k := endpoints.NewCDSEndpointBuilder(
-		proxy, nil,
+		proxy, proxy.SidecarScope, nil,
 		"outbound||foo.com",
 		model.TrafficDirectionOutbound, "", "foo.com", 80,
 		&model.Service{Hostname: "foo.com"}, nil)
@@ -57,7 +57,7 @@ func TestXdsCacheToken(t *testing.T) {
 		v := mkv(n)
 		time.Sleep(time.Millisecond * time.Duration(rand.Intn(100)))
 		req := &model.PushRequest{Start: start}
-		c.Add(k, req, v)
+		c.Add(k, req.Start, v)
 	}
 	// 5 round of xds push
 	for vals := 0; vals < 5; vals++ {
@@ -88,7 +88,7 @@ func TestXdsCache(t *testing.T) {
 	makeEp := func(subset string, dr *model.ConsolidatedDestRule) *endpoints.EndpointBuilder {
 		svc := &model.Service{Hostname: "foo.com"}
 		b := endpoints.NewCDSEndpointBuilder(
-			proxy, nil,
+			proxy, proxy.SidecarScope, nil,
 			fmt.Sprintf("outbound|%s|foo.com", subset),
 			model.TrafficDirectionOutbound, subset, "foo.com", 80,
 			svc, dr)
@@ -99,14 +99,14 @@ func TestXdsCache(t *testing.T) {
 
 	t.Run("simple", func(t *testing.T) {
 		c := model.NewXdsCache()
-		c.Add(ep1, &model.PushRequest{Start: time.Now()}, any1)
+		c.Add(ep1, time.Now(), any1)
 		if !reflect.DeepEqual(c.Keys(model.EDSType), []any{ep1.Key()}) {
 			t.Fatalf("unexpected keys: %v, want %v", c.Keys(model.EDSType), ep1.Key())
 		}
 		if got := c.Get(ep1); got != any1 {
 			t.Fatalf("unexpected result: %v, want %v", got, any1)
 		}
-		c.Add(ep1, &model.PushRequest{Start: time.Now()}, any2)
+		c.Add(ep1, time.Now(), any2)
 		if got := c.Get(ep1); got != any2 {
 			t.Fatalf("unexpected result: %v, want %v", got, any2)
 		}
@@ -120,8 +120,8 @@ func TestXdsCache(t *testing.T) {
 	t.Run("multiple hostnames", func(t *testing.T) {
 		c := model.NewXdsCache()
 		start := time.Now()
-		c.Add(ep1, &model.PushRequest{Start: start}, any1)
-		c.Add(ep2, &model.PushRequest{Start: start}, any2)
+		c.Add(ep1, start, any1)
+		c.Add(ep2, start, any2)
 
 		if got := c.Get(ep1); got != any1 {
 			t.Fatalf("unexpected result: %v, want %v", got, any1)
@@ -145,8 +145,8 @@ func TestXdsCache(t *testing.T) {
 		ep2 := makeEp("2", model.ConvertConsolidatedDestRule(&config.Config{Meta: config.Meta{Name: "b", Namespace: "b"}}, nil))
 
 		start := time.Now()
-		c.Add(ep1, &model.PushRequest{Start: start}, any1)
-		c.Add(ep2, &model.PushRequest{Start: start}, any2)
+		c.Add(ep1, start, any1)
+		c.Add(ep2, start, any2)
 		if got := c.Get(ep1); got != any1 {
 			t.Fatalf("unexpected result: %v, want %v", got, any1)
 		}
@@ -172,8 +172,8 @@ func TestXdsCache(t *testing.T) {
 	t.Run("clear all", func(t *testing.T) {
 		c := model.NewXdsCache()
 		start := time.Now()
-		c.Add(ep1, &model.PushRequest{Start: start}, any1)
-		c.Add(ep2, &model.PushRequest{Start: start}, any2)
+		c.Add(ep1, start, any1)
+		c.Add(ep2, start, any2)
 
 		c.ClearAll()
 		if len(c.Keys(model.EDSType)) != 0 {
@@ -189,7 +189,7 @@ func TestXdsCache(t *testing.T) {
 
 	t.Run("write without token does nothing", func(t *testing.T) {
 		c := model.NewXdsCache()
-		c.Add(ep1, &model.PushRequest{}, any1)
+		c.Add(ep1, time.Time{}, any1)
 		if got := c.Get(ep1); got != nil {
 			t.Fatalf("unexpected result: %v, want none", got)
 		}
@@ -199,8 +199,8 @@ func TestXdsCache(t *testing.T) {
 		c := model.NewXdsCache()
 		t1 := time.Now()
 		t2 := t1.Add(1 * time.Nanosecond)
-		c.Add(ep1, &model.PushRequest{Start: t2}, any1)
-		c.Add(ep1, &model.PushRequest{Start: t1}, any2)
+		c.Add(ep1, t2, any1)
+		c.Add(ep1, t1, any2)
 		if len(c.Keys(model.EDSType)) != 1 {
 			t.Fatalf("expected 1 keys, got: %v", c.Keys(model.EDSType))
 		}
@@ -214,10 +214,10 @@ func TestXdsCache(t *testing.T) {
 		t1 := time.Now()
 		t2 := t1.Add(-1 * time.Nanosecond)
 
-		c.Add(ep1, &model.PushRequest{Start: t1}, any1)
+		c.Add(ep1, t1, any1)
 		c.ClearAll()
 		// prevented, this is stale token
-		c.Add(ep1, &model.PushRequest{Start: t2}, any2)
+		c.Add(ep1, t2, any2)
 		if got := c.Get(ep1); got != nil {
 			t.Fatalf("expected no cache, but got %v", got)
 		}
@@ -227,16 +227,16 @@ func TestXdsCache(t *testing.T) {
 		c := model.NewXdsCache()
 		t1 := time.Now()
 
-		c.Add(ep1, &model.PushRequest{Start: t1}, any1)
+		c.Add(ep1, t1, any1)
 		c.ClearAll()
 		// prevented, this can be stale data after `disallowCacheSameToken`
-		c.Add(ep1, &model.PushRequest{Start: t1}, any2)
+		c.Add(ep1, t1, any2)
 		if got := c.Get(ep1); got != nil {
 			t.Fatalf("expected no cache, but got %v", got)
 		}
 
 		// cache with newer token
-		c.Add(ep1, &model.PushRequest{Start: time.Now()}, any1)
+		c.Add(ep1, time.Now(), any1)
 		if got := c.Get(ep1); got != any1 {
 			t.Fatalf("unexpected result: %v, want %v", got, any1)
 		}

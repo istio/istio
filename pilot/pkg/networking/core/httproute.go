@@ -206,7 +206,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(
 	}
 
 	if features.EnableRDSCaching && routeCache != nil {
-		configgen.Cache.Add(routeCache, req, resource)
+		configgen.Cache.Add(routeCache, req.Start, resource)
 	}
 
 	return resource, false

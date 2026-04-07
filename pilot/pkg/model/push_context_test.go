@@ -2344,7 +2344,7 @@ func TestSetDestinationRuleWithWorkloadSelector(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
-			drList := ps.destinationRuleIndex.destinationRule(ps.serviceIndex,
+			drList := ps.destinationRuleIndex.destinationRule(ps.Services(),
 				ps.Mesh.RootNamespace,
 				tt.proxyNs,
 				&Service{
@@ -2774,7 +2774,7 @@ func TestSetDestinationRuleWithExportTo(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(fmt.Sprintf("%s-%s", tt.proxyNs, tt.serviceNs), func(t *testing.T) {
-			out := ps.destinationRuleIndex.destinationRule(ps.serviceIndex,
+			out := ps.destinationRuleIndex.destinationRule(ps.Services(),
 				ps.Mesh.RootNamespace,
 				tt.proxyNs,
 				&Service{
@@ -3589,7 +3589,12 @@ func TestGetHostsFromMeshConfig(t *testing.T) {
 	proxy.SetSidecarScope(ps)
 	proxy.SetGatewaysForProxy(ps)
 	patches := ps.envoyFilterIndex.EnvoyFilters(proxy, ps.Mesh.RootNamespace)
-	got := sets.New(slices.Map(ps.virtualServiceIndex.GatewayServices(proxy, patches, ps.Mesh, ps.authnPolicies), func(e *Service) string {
+	gwServices := proxy.SidecarScope.GatewayServices(
+		proxy, proxy.MergedGateway,
+		ps.VirtualServices(), patches,
+		ps.Mesh, ps.authnPolicies,
+	)
+	got := sets.New(slices.Map(gwServices, func(e *Service) string {
 		return e.Hostname.String()
 	})...)
 	// Should match 2 of the 3 providers; one has a mismatched namespace though

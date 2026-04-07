@@ -90,7 +90,7 @@ spec:
 
 	// Get IstioEndpoints from the push context to build WrappedLocalityLbEndpoints
 	push := s.PushContext()
-	svc := push.Services().ServiceForHostname(proxy, "dns-service.example.org")
+	svc := proxy.SidecarScope.ServiceForHostname("dns-service.example.org")
 	if svc == nil {
 		t.Fatal("service not found")
 	}

@@ -159,7 +159,7 @@ func (s *SecretGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req *
 		regenerated++
 		res := s.generate(sr, configClusterSecrets, proxyClusterSecrets, proxy)
 		if res != nil {
-			s.cache.Add(sr, req, res)
+			s.cache.Add(sr, req.Start, res)
 			results = append(results, res)
 		}
 	}

@@ -602,7 +602,7 @@ func (ep *IstioEndpoint) GetLoadBalancingWeight() uint32 {
 }
 
 // IsDiscoverableFromProxy indicates whether this endpoint is discoverable from the given Proxy.
-func (ep *IstioEndpoint) IsDiscoverableFromProxy(p *Proxy) bool {
+func (ep *IstioEndpoint) IsDiscoverableFromProxy(p ProxyInfo) bool {
 	if ep == nil || ep.DiscoverabilityPolicy == nil {
 		// If no policy was assigned, default to discoverable mesh-wide.
 		// TODO(nmittler): Will need to re-think this default when cluster.local is actually cluster-local.
@@ -678,7 +678,7 @@ type EndpointMetadata struct {
 // EndpointDiscoverabilityPolicy determines the discoverability of an endpoint throughout the mesh.
 type EndpointDiscoverabilityPolicy interface {
 	// IsDiscoverableFromProxy indicates whether an endpoint is discoverable from the given Proxy.
-	IsDiscoverableFromProxy(*IstioEndpoint, *Proxy) bool
+	IsDiscoverableFromProxy(*IstioEndpoint, ProxyInfo) bool
 
 	// String returns name of this policy.
 	String() string
@@ -686,10 +686,10 @@ type EndpointDiscoverabilityPolicy interface {
 
 type endpointDiscoverabilityPolicyImpl struct {
 	name string
-	f    func(*IstioEndpoint, *Proxy) bool
+	f    func(*IstioEndpoint, ProxyInfo) bool
 }
 
-func (p *endpointDiscoverabilityPolicyImpl) IsDiscoverableFromProxy(ep *IstioEndpoint, proxy *Proxy) bool {
+func (p *endpointDiscoverabilityPolicyImpl) IsDiscoverableFromProxy(ep *IstioEndpoint, proxy ProxyInfo) bool {
 	return p.f(ep, proxy)
 }
 
@@ -708,7 +708,7 @@ func (p *endpointDiscoverabilityPolicyImpl) CmpOpts() []cmp.Option {
 // AlwaysDiscoverable is an EndpointDiscoverabilityPolicy that allows an endpoint to be discoverable throughout the mesh.
 var AlwaysDiscoverable EndpointDiscoverabilityPolicy = &endpointDiscoverabilityPolicyImpl{
 	name: "AlwaysDiscoverable",
-	f: func(*IstioEndpoint, *Proxy) bool {
+	f: func(*IstioEndpoint, ProxyInfo) bool {
 		return true
 	},
 }
@@ -717,7 +717,7 @@ var AlwaysDiscoverable EndpointDiscoverabilityPolicy = &endpointDiscoverabilityP
 // from proxies within the same cluster.
 var DiscoverableFromSameCluster EndpointDiscoverabilityPolicy = &endpointDiscoverabilityPolicyImpl{
 	name: "DiscoverableFromSameCluster",
-	f: func(ep *IstioEndpoint, p *Proxy) bool {
+	f: func(ep *IstioEndpoint, p ProxyInfo) bool {
 		return p.InCluster(ep.Locality.ClusterID)
 	},
 }
@@ -993,21 +993,21 @@ type WaypointKey struct {
 }
 
 // WaypointKeyForProxy builds a key from a proxy to lookup
-func WaypointKeyForProxy(node *Proxy) WaypointKey {
-	return waypointKeyForProxy(node, false)
+func WaypointKeyForProxy(node ProxyInfo, serviceTargets []ServiceTarget) WaypointKey {
+	return waypointKeyForProxy(node, serviceTargets, false)
 }
 
-func WaypointKeyForNetworkGatewayProxy(node *Proxy) WaypointKey {
-	return waypointKeyForProxy(node, true)
+func WaypointKeyForNetworkGatewayProxy(node ProxyInfo, serviceTargets []ServiceTarget) WaypointKey {
+	return waypointKeyForProxy(node, serviceTargets, true)
 }
 
-func waypointKeyForProxy(node *Proxy, externalAddresses bool) WaypointKey {
+func waypointKeyForProxy(node ProxyInfo, serviceTargets []ServiceTarget, externalAddresses bool) WaypointKey {
 	key := WaypointKey{
-		Namespace:        node.ConfigNamespace,
-		Network:          node.Metadata.Network.String(),
+		Namespace:        node.GetConfigNamespace(),
+		Network:          node.GetMetadata().Network.String(),
 		IsNetworkGateway: externalAddresses, // true if this is a network gateway proxy, false if it is a regular waypoint proxy
 	}
-	for _, svct := range node.ServiceTargets {
+	for _, svct := range serviceTargets {
 		key.Hostnames = append(key.Hostnames, svct.Service.Hostname.String())
 
 		var ips []string

@@ -22,6 +22,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/types"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
@@ -603,6 +604,28 @@ func (ilw *IstioEgressListenerWrapper) MostSpecificWildcardVirtualServiceIndex()
 	return ilw.mostSpecificWildcardVsIndex
 }
 
+func (sc *SidecarScope) GetName() string {
+	if sc == nil {
+		return ""
+	}
+	return sc.Name
+}
+
+func (sc *SidecarScope) GetNamespace() string {
+	if sc == nil {
+		return ""
+	}
+	return sc.Namespace
+}
+
+// GetSidecar returns the underlying Sidecar configuration.
+func (sc *SidecarScope) GetSidecar() *networking.Sidecar {
+	if sc == nil {
+		return nil
+	}
+	return sc.Sidecar
+}
+
 // DependsOnConfig determines if the proxy depends on the given config.
 // Returns whether depends on this config or this kind of config is not scoped(unknown to be depended) here.
 func (sc *SidecarScope) DependsOnConfig(config ConfigKey, rootNs string) bool {
@@ -644,7 +667,7 @@ func (sc *SidecarScope) AddConfigDependencies(dependencies ...ConfigHash) {
 }
 
 // DestinationRule returns a destinationrule for a svc.
-func (sc *SidecarScope) DestinationRule(direction TrafficDirection, proxy *Proxy, svc host.Name) *ConsolidatedDestRule {
+func (sc *SidecarScope) DestinationRule(direction TrafficDirection, proxy ProxyInfo, svc host.Name) *ConsolidatedDestRule {
 	destinationRules := sc.destinationRules[svc]
 	var catchAllDr *ConsolidatedDestRule
 	for _, destRule := range destinationRules {
@@ -659,7 +682,7 @@ func (sc *SidecarScope) DestinationRule(direction TrafficDirection, proxy *Proxy
 			destinationRule.GetWorkloadSelector() != nil && direction == TrafficDirectionOutbound {
 			workloadSelector := labels.Instance(destinationRule.GetWorkloadSelector().GetMatchLabels())
 			// return destination rule if workload selector matches
-			if workloadSelector.SubsetOf(proxy.Labels) {
+			if workloadSelector.SubsetOf(proxy.GetLabels()) {
 				return destRule
 			}
 		}
@@ -688,6 +711,45 @@ func (sc *SidecarScope) Services() []*Service {
 // Services returns the list of services that are visible to a sidecar.
 func (sc *SidecarScope) ServicesByHostname() map[host.Name]*Service {
 	return sc.servicesByHostname
+}
+
+// GatewayServices returns the set of services which are referred from the proxy gateways.
+func (sc *SidecarScope) GatewayServices(
+	proxy ProxyInfo,
+	mergedGw *MergedGateway,
+	virtualServices VirtualServiceIndex,
+	patches *MergedEnvoyFilterWrapper,
+	mesh *meshconfig.MeshConfig,
+	authnPolicies *AuthenticationPolicies,
+) []*Service {
+	svcs := sc.services
+
+	// host set.
+	namespacedHostsFromGateways, hostsFromGateways := ExtraServicesForProxy(proxy, patches, mesh, authnPolicies)
+	// MergedGateway will be nil when there are no configs in the
+	// system during initial installation.
+	if mergedGw != nil {
+		for _, gw := range mergedGw.GatewayNameForServer {
+			hostsFromGateways.Merge(virtualServices.destinationsByGateway[gw])
+		}
+	}
+	log.Debugf("GatewayServices: gateway %v is exposing these hosts:%v", proxy.GetID(), hostsFromGateways)
+
+	gwSvcs := make([]*Service, 0, len(svcs))
+
+	for _, s := range svcs {
+		svcHost := string(s.Hostname)
+		if hostsFromGateways.Contains(svcHost) || namespacedHostsFromGateways.Contains(NamespacedHostname{
+			Hostname:  s.Hostname,
+			Namespace: s.Attributes.Namespace,
+		}) {
+			gwSvcs = append(gwSvcs, s)
+		}
+	}
+
+	log.Debugf("GatewayServices: gateways len(services)=%d, len(filtered)=%d", len(svcs), len(gwSvcs))
+
+	return gwSvcs
 }
 
 // Testing Only. This allows tests to inject a config without having the mock.
@@ -724,6 +786,15 @@ func (sc *SidecarScope) ServicesForHostname(hostname host.Name) []*Service {
 		}
 	}
 	return services
+}
+
+// ServiceForHostname returns .
+func (sc *SidecarScope) ServiceForHostname(hostname host.Name) *Service {
+	return sc.servicesByHostname[hostname]
+}
+
+func (sc *SidecarScope) PeerAuthnPolicies() PeerAuthnPolicies {
+	return sc.AuthnPolicies
 }
 
 // Return filtered services through the hosts field in the egress portion of the Sidecar config.
@@ -1100,4 +1171,40 @@ func pickBestVisibleNamespace(ps *PushContext, byNamespace map[string]*Service, 
 		return currentBestService.NamespacedName().Namespace
 	}
 	return ""
+}
+
+type SidecarScopeBase interface {
+	// Sidecar dependencies
+	GetName() string
+	GetNamespace() string
+	HasIngressListener() bool
+	GetSidecar() *networking.Sidecar
+	InboundConnectionPoolForPort(port int) *networking.ConnectionPoolSettings
+}
+
+type SidecarScopeServices interface {
+	// Service dependencies
+	Services() []*Service
+	ServicesByHostname() map[host.Name]*Service
+	ServicesForHostname(hostname host.Name) []*Service
+	ServiceForHostname(hostname host.Name) *Service
+	GatewayServices(
+		proxy ProxyInfo,
+		mergedGw *MergedGateway,
+		virtualServices VirtualServiceIndex,
+		patches *MergedEnvoyFilterWrapper,
+		mesh *meshconfig.MeshConfig,
+		authnPolicies *AuthenticationPolicies,
+	) []*Service
+}
+
+type SidecarScopeDestinationRules interface {
+	// DestinationRule dependencies
+	DestinationRuleByName(name, namespace string) *config.Config
+	DestinationRule(direction TrafficDirection, proxy ProxyInfo, svc host.Name) *ConsolidatedDestRule
+}
+
+type SidecarScopePeerAuthentications interface {
+	// PeerAuthentication dependencies
+	PeerAuthnPolicies() PeerAuthnPolicies
 }

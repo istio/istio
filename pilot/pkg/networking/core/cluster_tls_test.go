@@ -237,7 +237,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 	push := model.NewPushContext()
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			cb := NewClusterBuilder(proxy, &model.PushRequest{Push: push}, model.DisabledCache{})
+			cb := NewClusterBuilder(proxy, proxy.SidecarScope, push, model.DisabledCache{})
 			opts := &buildClusterOpts{
 				mutable: newClusterWrapper(&cluster.Cluster{
 					ClusterDiscoveryType: &cluster.Cluster_Type{Type: test.discoveryType},
@@ -380,7 +380,7 @@ func TestApplyUpstreamTLSSettingsHBONE(t *testing.T) {
 	push := model.NewPushContext()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cb := NewClusterBuilder(tt.proxy, &model.PushRequest{Push: push}, model.DisabledCache{})
+			cb := NewClusterBuilder(tt.proxy, tt.proxy.SidecarScope, push, model.DisabledCache{})
 			cb.sendHbone = true
 			opts := &buildClusterOpts{
 				mutable: newClusterWrapper(&cluster.Cluster{
@@ -1743,7 +1743,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			} else {
 				proxy = newSidecarProxy()
 			}
-			cb := NewClusterBuilder(proxy, nil, model.DisabledCache{})
+			cb := NewClusterBuilder(proxy, proxy.SidecarScope, nil, model.DisabledCache{})
 			if tc.h2 {
 				setH2Options(tc.opts.mutable)
 			}
@@ -1955,7 +1955,7 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cb := NewClusterBuilder(tt.proxy, nil, nil)
+			cb := NewClusterBuilder(tt.proxy, tt.proxy.SidecarScope, nil, nil)
 			gotTLS, gotCtxType := cb.buildUpstreamTLSSettings(tt.tls, tt.sans, tt.sni, tt.autoMTLSEnabled, tt.meshExternal, tt.serviceMTLSMode)
 			if !reflect.DeepEqual(gotTLS, tt.want) {
 				t.Errorf("cluster TLS does not match expected result want %#v, got %#v", tt.want, gotTLS)

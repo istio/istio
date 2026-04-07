@@ -68,7 +68,7 @@ func TestAddTwoEntries(t *testing.T) {
 	assert.Equal(t, cache.indexLength(), 0)
 
 	// adding the entry populates the indexes
-	c.Add(firstEntry.Key(), firstEntry, req, res)
+	c.Add(firstEntry.Key(), firstEntry, req.Start, res)
 
 	assert.Equal(t, cache.store.Len(), 1)
 	assert.Equal(t, cache.indexLength(), 2)
@@ -88,7 +88,7 @@ func TestAddTwoEntries(t *testing.T) {
 	}
 
 	// after adding an index with a different key, indexes are populated with both dependencies
-	c.Add(secondEntry.Key(), secondEntry, req, res)
+	c.Add(secondEntry.Key(), secondEntry, req.Start, res)
 
 	assert.Equal(t, cache.store.Len(), 2)
 	assert.Equal(t, cache.indexLength(), 3)
@@ -117,7 +117,7 @@ func TestCleanIndexesOnAddExistant(t *testing.T) {
 	assert.Equal(t, cache.indexLength(), 0)
 
 	// adding the entry populates the indexes
-	c.Add(firstEntry.Key(), firstEntry, req, res)
+	c.Add(firstEntry.Key(), firstEntry, req.Start, res)
 
 	assert.Equal(t, cache.store.Len(), 1)
 	assert.Equal(t, cache.indexLength(), 1)
@@ -133,7 +133,7 @@ func TestCleanIndexesOnAddExistant(t *testing.T) {
 	}
 	req = &PushRequest{Start: zeroTime.Add(time.Duration(2))}
 	// after adding an entry with the same key, previous indexes are correctly cleaned
-	c.Add(secondEntry.Key(), secondEntry, req, res)
+	c.Add(secondEntry.Key(), secondEntry, req.Start, res)
 
 	assert.Equal(t, cache.store.Len(), 1)
 
@@ -168,7 +168,7 @@ func TestCleanIndexesOnEvict(t *testing.T) {
 	assert.Equal(t, cache.indexLength(), 0)
 
 	// adding the entry populates the indexes
-	c.Add(firstEntry.Key(), firstEntry, req, res)
+	c.Add(firstEntry.Key(), firstEntry, req.Start, res)
 
 	assert.Equal(t, cache.store.Len(), 1)
 	assert.Equal(t, cache.indexLength(), 2)
@@ -188,7 +188,7 @@ func TestCleanIndexesOnEvict(t *testing.T) {
 	}
 
 	// after adding an index with a different key, first key is evicted, idexes should contain only secondEntry
-	c.Add(secondEntry.Key(), secondEntry, req, res)
+	c.Add(secondEntry.Key(), secondEntry, req.Start, res)
 
 	assert.Equal(t, cache.store.Len(), 1)
 
@@ -234,8 +234,8 @@ func TestCleanIndexesOnCacheClear(t *testing.T) {
 	c := newTypedXdsCache[uint64]()
 	cache := c.(*lruCache[uint64])
 
-	c.Add(firstEntry.Key(), firstEntry, req1, res)
-	c.Add(secondEntry.Key(), secondEntry, req2, res)
+	c.Add(firstEntry.Key(), firstEntry, req1.Start, res)
+	c.Add(secondEntry.Key(), secondEntry, req2.Start, res)
 
 	// indexes populated
 	assert.Equal(t, cache.store.Len(), 2)
@@ -280,7 +280,7 @@ func TestCleanIndexesOnCacheClear(t *testing.T) {
 	})
 
 	// add firstEntry again
-	c.Add(firstEntry.Key(), firstEntry, &PushRequest{Start: zeroTime.Add(time.Duration(3))}, res)
+	c.Add(firstEntry.Key(), firstEntry, zeroTime.Add(time.Duration(3)), res)
 
 	assert.Equal(t, cache.store.Len(), 2)
 
@@ -313,7 +313,7 @@ func TestCleanIndexesOnCacheClear(t *testing.T) {
 	})
 
 	// add secondEntry again
-	c.Add(secondEntry.Key(), secondEntry, &PushRequest{Start: zeroTime.Add(time.Duration(4))}, res)
+	c.Add(secondEntry.Key(), secondEntry, zeroTime.Add(time.Duration(4)), res)
 
 	assert.Equal(t, cache.store.Len(), 2)
 
@@ -371,8 +371,8 @@ func TestCacheClearAll(t *testing.T) {
 	c := newTypedXdsCache[uint64]()
 	cache := c.(*lruCache[uint64])
 
-	c.Add(firstEntry.Key(), firstEntry, req1, res)
-	c.Add(secondEntry.Key(), secondEntry, req2, res)
+	c.Add(firstEntry.Key(), firstEntry, req1.Start, res)
+	c.Add(secondEntry.Key(), secondEntry, req2.Start, res)
 
 	// indexes populated
 	assert.Equal(t, cache.indexLength(), 6)
@@ -422,8 +422,8 @@ func testEvictQueueMemoryLeak(t *testing.T, f string) {
 
 	// build xds cache
 	c := newTypedXdsCache[uint64]()
-	c.Add(entry1.Key(), entry1, push1, value)
-	c.Add(entry2.Key(), entry2, push2, value)
+	c.Add(entry1.Key(), entry1, push1.Start, value)
+	c.Add(entry2.Key(), entry2, push2.Start, value)
 
 	// When Flush (or ClearAll) is called, the length of `cache.evictQueue` becomes 0, and we
 	// cannot use it to check whether the elements referenced by the underlying array are released.

@@ -48,20 +48,20 @@ type MtlsPolicy interface {
 
 // NewPolicyApplier returns the appropriate (policy) applier, depends on the versions of the policy exists
 // for the given service innstance.
-func NewPolicyApplier(push *model.PushContext, proxy *model.Proxy, svc *model.Service) PolicyApplier {
+func NewPolicyApplier(configs policyAffectingConfigs, proxy *model.Proxy, svc *model.Service) PolicyApplier {
 	forWorkload := model.PolicyMatcherForProxy(proxy).WithService(svc)
 	return newPolicyApplier(
-		push.AuthnPolicies().GetRootNamespace(),
-		push.AuthnPolicies().GetJwtPoliciesForWorkload(forWorkload),
-		push.AuthnPolicies().GetPeerAuthenticationsForWorkload(forWorkload), push)
+		configs.AuthnPolicies().GetRootNamespace(),
+		configs.AuthnPolicies().GetJwtPoliciesForWorkload(forWorkload),
+		configs.AuthnPolicies().GetPeerAuthenticationsForWorkload(forWorkload),
+		configs,
+	)
 }
 
 // NewMtlsPolicy returns a checker used to detect proxy mtls mode.
-func NewMtlsPolicy(push *model.PushContext, authnPolicies model.PeerAuthnPolicies, namespace string, labels labels.Instance, isWaypoint bool) MtlsPolicy {
-	return newPolicyApplier(
+func NewMtlsPolicy(authnPolicies model.PeerAuthnPolicies, namespace string, labels labels.Instance, isWaypoint bool) MtlsPolicy {
+	return newMtlsPolicyApplier(
 		authnPolicies.GetRootNamespace(),
-		nil,
 		authnPolicies.GetPeerAuthenticationsForWorkload(model.PolicyMatcherFor(namespace, labels, isWaypoint)),
-		push,
 	)
 }

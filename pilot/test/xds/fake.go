@@ -536,7 +536,7 @@ func (f *FakeDiscoveryServer) Connect(p *model.Proxy, watch []string, wait []str
 func (f *FakeDiscoveryServer) Endpoints(p *model.Proxy) []*endpoint.ClusterLoadAssignment {
 	loadAssignments := make([]*endpoint.ClusterLoadAssignment, 0)
 	for _, c := range xdstest.ExtractEdsClusterNames(f.Clusters(p)) {
-		builder := endpoints.NewEndpointBuilder(c, p, f.PushContext())
+		builder := endpoints.NewEndpointBuilder(c, p, p.SidecarScope, f.PushContext())
 		loadAssignments = append(loadAssignments, builder.BuildClusterLoadAssignment(f.Discovery.Env.EndpointIndex))
 	}
 	return loadAssignments

@@ -21,6 +21,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/schema/kind"
 	dnsProto "istio.io/istio/pkg/dns/proto"
 )
 
@@ -31,13 +32,26 @@ type ConfigGenerator interface {
 	// once and shared across multiple invocations of this function.
 	BuildListeners(node *model.Proxy, push *model.PushContext) []*listener.Listener
 
+	ClusterAffectingConfig(proxyType model.NodeType, k kind.Kind) bool
+
 	// BuildClusters returns the list of clusters for the given proxy. This is the CDS output
-	BuildClusters(node *model.Proxy, req *model.PushRequest) ([]*discovery.Resource, model.XdsLogDetails)
+	BuildClusters(
+		updates model.PushInfo,
+		proxy ClusterAffectingProxy,
+		sidecarScope ClusterAffectingSidecarScope,
+		configs ClusterAffectingConfigs,
+	) ([]*discovery.Resource, model.XdsLogDetails)
 
 	// BuildDeltaClusters returns both a list of resources that need to be pushed for a given proxy and a list of resources
 	// that have been deleted and should be removed from a given proxy. This is Delta CDS output.
-	BuildDeltaClusters(proxy *model.Proxy, updates *model.PushRequest,
-		watched *model.WatchedResource) ([]*discovery.Resource, []string, model.XdsLogDetails, bool)
+	BuildDeltaClusters(
+		updates model.PushInfo,
+		proxy ClusterAffectingProxy,
+		sidecarScope ClusterAffectingSidecarScope,
+		prevSidecarScope ClusterAffectingSidecarScope,
+		configs ClusterAffectingConfigs,
+		watched *model.WatchedResource,
+	) ([]*discovery.Resource, []string, model.XdsLogDetails, bool)
 
 	// BuildHTTPRoutes returns the list of HTTP routes for the given proxy. This is the RDS output
 	BuildHTTPRoutes(node *model.Proxy, req *model.PushRequest, routeNames []string) ([]*discovery.Resource, model.XdsLogDetails)

@@ -1033,7 +1033,7 @@ func TestWaypointKeyForProxy(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			key := waypointKeyForProxy(tt.proxy, tt.externalAddresses)
+			key := waypointKeyForProxy(tt.proxy, tt.proxy.ServiceTargets, tt.externalAddresses)
 			if !cmp.Equal(key, tt.expectedKey) {
 				t.Errorf("waypointKeyForProxy() = %v, want %v", key, tt.expectedKey)
 			}

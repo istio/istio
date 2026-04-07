@@ -52,7 +52,7 @@ func TestConfigureTracing(t *testing.T) {
 	clusterName := "testcluster"
 	authority := "testhost"
 
-	clusterLookupFn = func(push *model.PushContext, service string, port int) (hostname string, cluster string, err error) {
+	clusterLookupFn = func(serviceIndex *model.ServiceIndex, service string, port int) (hostname string, cluster string, err error) {
 		return authority, clusterName, nil
 	}
 	defer func() {
@@ -318,7 +318,7 @@ func TestConfigureDynatraceSampler(t *testing.T) {
 	authority := "testhost"
 	dtTenant := "abc"
 	var dtClusterID int32 = 123
-	clusterLookupFn = func(push *model.PushContext, service string, port int) (hostname string, cluster string, err error) {
+	clusterLookupFn = func(serviceIndex *model.ServiceIndex, service string, port int) (hostname string, cluster string, err error) {
 		return authority, clusterName, nil
 	}
 	defer func() {
@@ -451,7 +451,7 @@ func TestConfigureDynatraceSamplerWithCustomHttp(t *testing.T) {
 	expectedHeader := "sampler-custom"
 	expectedToken := "sampler-value"
 
-	clusterLookupFn = func(push *model.PushContext, service string, port int) (hostname string, cluster string, err error) {
+	clusterLookupFn = func(serviceIndex *model.ServiceIndex, service string, port int) (hostname string, cluster string, err error) {
 		if service == dtAuthority {
 			return dtAuthority, dtClusterName, nil
 		}
@@ -2210,7 +2210,7 @@ func TestOtelConfigWithSemanticConventions(t *testing.T) {
 	clusterName := "testcluster"
 	authority := "testhost"
 
-	clusterLookupFn = func(push *model.PushContext, service string, port int) (hostname string, cluster string, err error) {
+	clusterLookupFn = func(serviceIndex *model.ServiceIndex, service string, port int) (hostname string, cluster string, err error) {
 		return authority, clusterName, nil
 	}
 	defer func() {
