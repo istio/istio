@@ -118,7 +118,7 @@ func TestZtunnelFromPreviousMinorRelease(t *testing.T) {
 func TestInPlaceUpgradeWebhookFailurePolicy(t *testing.T) {
 	framework.
 		NewTest(t).
-		Run(performInPlaceUpgradeWithFailurePolicyFunc(previousSupportedVersion))
+		Run(performInPlaceUpgradeWithFailurePolicy(previousSupportedVersion))
 }
 
 func TestAmbientStableRevisionLabelsGatewayStatus(t *testing.T) {
