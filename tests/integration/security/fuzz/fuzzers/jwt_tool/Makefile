@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-HUB ?= "gcr.io/istio-testing/jwttool"
+HUB ?= "registry.istio.io/testing/jwttool"
 TAG ?= "0.1"
 
 push: Dockerfile

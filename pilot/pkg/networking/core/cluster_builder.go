@@ -254,6 +254,18 @@ func (cb *ClusterBuilder) applyOverrideHostPolicy(cw *clusterWrapper) {
 							},
 						},
 					},
+					// The metadata key to populate with the address of the host which was ultimately selected
+					// to serve the request.
+					SelectedHostKey: &metadatav3.MetadataKey{
+						Key: constants.EnvoySubsetNamespace,
+						Path: []*metadatav3.MetadataKey_PathSegment{
+							{
+								Segment: &metadatav3.MetadataKey_PathSegment_Key{
+									Key: constants.GatewayInferenceExtensionEndpointServedKey,
+								},
+							},
+						},
+					},
 					// The fallback LB policy is triggered in case neither header nor metadata with selected
 					// hosts is present or there were not enough endpoints to satisfy all retry attempts.
 					FallbackPolicy: &cluster.LoadBalancingPolicy{

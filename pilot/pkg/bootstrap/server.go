@@ -40,6 +40,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/security/v1beta1"
+	"istio.io/istio/pilot/pkg/config/kube/agentgateway"
 	"istio.io/istio/pilot/pkg/controllers/ipallocate"
 	"istio.io/istio/pilot/pkg/controllers/untaint"
 	kubecredentials "istio.io/istio/pilot/pkg/credentials/kube"
@@ -52,6 +53,7 @@ import (
 	sec_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/server"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
+	"istio.io/istio/pilot/pkg/serviceregistry/ambient"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pilot/pkg/status"
@@ -116,6 +118,8 @@ type Server struct {
 	virtualServiceController *model.VirtualServiceController
 	ConfigStores             []model.ConfigStoreController
 	serviceEntryController   *serviceentry.Controller
+	agentgatewayController   *agentgateway.Controller
+	ambientIndex             ambient.Index
 
 	httpServer  *http.Server // debug, monitoring and readiness Server.
 	httpAddr    string
@@ -334,8 +338,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 
 	if features.EnableAgentgateway {
 		// Must occur after initControllers
-		// TODO(jaellio): pass registrations
-		s.XDSServer.InitCollections()
+		s.XDSServer.InitCollections(s.agentgatewayController.Registrations...)
 	}
 
 	// Initialize workloadTrustBundle after CA has been initialized
@@ -885,6 +888,9 @@ func (s *Server) pushContextReady(expected int64) bool {
 // cachesSynced checks whether caches have been synced.
 func (s *Server) cachesSynced() bool {
 	if s.multiclusterController != nil && !s.multiclusterController.HasSynced() {
+		return false
+	}
+	if s.ambientIndex != nil && !s.ambientIndex.HasSynced() {
 		return false
 	}
 	if !s.ServiceController().HasSynced() {

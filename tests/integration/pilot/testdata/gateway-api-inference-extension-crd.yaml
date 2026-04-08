@@ -1,9 +1,245 @@
-# Generated with `kubectl kustomize "https://github.com/kubernetes-sigs/gateway-api-inference-extension/config/crd/?ref=0a3bb20107519af18c2fecb6706c3ff59148a645"`
+# Generated with `kubectl kustomize "https://github.com/kubernetes-sigs/gateway-api-inference-extension/config/crd/?ref=v1.4.0"`
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    inference.networking.k8s.io/bundle-version: main-dev
+    inference.networking.k8s.io/bundle-version: v1.4.0
+  name: inferencemodelrewrites.inference.networking.x-k8s.io
+spec:
+  group: inference.networking.x-k8s.io
+  names:
+    kind: InferenceModelRewrite
+    listKind: InferenceModelRewriteList
+    plural: inferencemodelrewrites
+    singular: inferencemodelrewrite
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.poolRef.name
+      name: Inference Pool
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha2
+    schema:
+      openAPIV3Schema:
+        description: InferenceModelRewrite is the Schema for the InferenceModelRewrite
+          API.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: InferenceModelRewriteSpec defines the desired state of InferenceModelRewrite.
+            properties:
+              poolRef:
+                description: PoolRef is a reference to the inference pool.
+                properties:
+                  group:
+                    default: inference.networking.k8s.io
+                    description: Group is the group of the referent.
+                    maxLength: 253
+                    pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                    type: string
+                  kind:
+                    default: InferencePool
+                    description: Kind is kind of the referent. For example "InferencePool".
+                    maxLength: 63
+                    minLength: 1
+                    pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
+                    type: string
+                  name:
+                    description: Name is the name of the referent.
+                    maxLength: 253
+                    minLength: 1
+                    type: string
+                required:
+                - name
+                type: object
+              rules:
+                items:
+                  description: |-
+                    InferenceModelRewriteRule defines the match criteria and corresponding action.
+                    For details on how precedence is determined across multiple rules and
+                    InferenceModelRewrite resources, see the "Precedence and Conflict Resolution"
+                    section in InferenceModelRewriteSpec.
+                  properties:
+                    matches:
+                      items:
+                        description: Match defines the criteria for matching the LLM
+                          requests.
+                        properties:
+                          model:
+                            description: |-
+                              Model specifies the criteria for matching the 'model' field
+                              within the JSON request body.
+                            properties:
+                              type:
+                                default: Exact
+                                description: |-
+                                  Type specifies the kind of string matching to use.
+                                  Supported value is "Exact". Defaults to "Exact".
+                                enum:
+                                - Exact
+                                type: string
+                              value:
+                                description: Value is the model name string to match
+                                  against.
+                                minLength: 1
+                                type: string
+                            required:
+                            - value
+                            type: object
+                        required:
+                        - model
+                        type: object
+                      type: array
+                    targets:
+                      items:
+                        description: TargetModel defines a weighted model destination
+                          for traffic distribution.
+                        properties:
+                          modelRewrite:
+                            type: string
+                          weight:
+                            description: |-
+                              (The following comment is copied from the original targetModel)
+                              Weight is used to determine the proportion of traffic that should be
+                              sent to this model when multiple target models are specified.
+
+                              Weight defines the proportion of requests forwarded to the specified
+                              model. This is computed as weight/(sum of all weights in this
+                              TargetModels list). For non-zero values, there may be some epsilon from
+                              the exact proportion defined here depending on the precision an
+                              implementation supports. Weight is not a percentage and the sum of
+                              weights does not need to equal 100.
+
+                              If a weight is set for any targetModel, it must be set for all targetModels.
+                              Conversely weights are optional, so long as ALL targetModels do not specify a weight.
+                            format: int32
+                            maximum: 1000000
+                            minimum: 1
+                            type: integer
+                        required:
+                        - modelRewrite
+                        type: object
+                      minItems: 1
+                      type: array
+                  type: object
+                type: array
+            required:
+            - poolRef
+            - rules
+            type: object
+          status:
+            description: InferenceModelRewriteStatus defines the observed state of
+              InferenceModelRewrite.
+            properties:
+              conditions:
+                default:
+                - lastTransitionTime: "1970-01-01T00:00:00Z"
+                  message: Waiting for controller
+                  reason: Pending
+                  status: Unknown
+                  type: Accepted
+                description: |-
+                  Conditions track the state of the InferenceModelRewrite.
+
+                  Known condition types are:
+
+                  * "Accepted"
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                maxItems: 8
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: null
+  storedVersions: null
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    inference.networking.k8s.io/bundle-version: v1.4.0
   name: inferenceobjectives.inference.networking.x-k8s.io
 spec:
   group: inference.networking.x-k8s.io
@@ -194,8 +430,339 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
+    inference.networking.k8s.io/bundle-version: v1.4.0
+  name: inferencepoolimports.inference.networking.x-k8s.io
+spec:
+  group: inference.networking.x-k8s.io
+  names:
+    kind: InferencePoolImport
+    listKind: InferencePoolImportList
+    plural: inferencepoolimports
+    shortNames:
+    - infpimp
+    singular: inferencepoolimport
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: InferencePoolImport is the Schema for the InferencePoolImports
+          API.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          status:
+            description: Status defines the observed state of the InferencePoolImport.
+            properties:
+              controllers:
+                description: Controllers is a list of controllers that are responsible
+                  for managing the InferencePoolImport.
+                items:
+                  description: ImportController defines a controller that is responsible
+                    for managing the InferencePoolImport.
+                  properties:
+                    conditions:
+                      description: |-
+                        Conditions track the state of the InferencePoolImport.
+
+                        Known condition types are:
+
+                         * "Accepted"
+                      items:
+                        description: Condition contains details for one aspect of
+                          the current state of this API Resource.
+                        properties:
+                          lastTransitionTime:
+                            description: |-
+                              lastTransitionTime is the last time the condition transitioned from one status to another.
+                              This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                            format: date-time
+                            type: string
+                          message:
+                            description: |-
+                              message is a human readable message indicating details about the transition.
+                              This may be an empty string.
+                            maxLength: 32768
+                            type: string
+                          observedGeneration:
+                            description: |-
+                              observedGeneration represents the .metadata.generation that the condition was set based upon.
+                              For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                              with respect to the current state of the instance.
+                            format: int64
+                            minimum: 0
+                            type: integer
+                          reason:
+                            description: |-
+                              reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                              Producers of specific condition types may define expected values and meanings for this field,
+                              and whether the values are considered a guaranteed API.
+                              The value should be a CamelCase string.
+                              This field may not be empty.
+                            maxLength: 1024
+                            minLength: 1
+                            pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                            type: string
+                          status:
+                            description: status of the condition, one of True, False,
+                              Unknown.
+                            enum:
+                            - "True"
+                            - "False"
+                            - Unknown
+                            type: string
+                          type:
+                            description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                            maxLength: 316
+                            pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                            type: string
+                        required:
+                        - lastTransitionTime
+                        - message
+                        - reason
+                        - status
+                        - type
+                        type: object
+                      maxItems: 8
+                      type: array
+                      x-kubernetes-list-map-keys:
+                      - type
+                      x-kubernetes-list-type: map
+                    exportingClusters:
+                      description: |-
+                        ExportingClusters is a list of clusters that exported the InferencePool(s) that back the
+                        InferencePoolImport. Required when the controller is responsible for CRUD'ing the InferencePoolImport
+                        from the exported InferencePool(s).
+                      items:
+                        description: ExportingCluster defines a cluster that exported
+                          the InferencePool that backs this InferencePoolImport.
+                        properties:
+                          name:
+                            description: Name of the exporting cluster (must be unique
+                              within the list).
+                            maxLength: 253
+                            minLength: 1
+                            type: string
+                        required:
+                        - name
+                        type: object
+                      type: array
+                    name:
+                      description: |-
+                        Name is a domain/path string that indicates the name of the controller that manages the
+                        InferencePoolImport. Name corresponds to the GatewayClass controllerName field when the
+                        controller will manage parents of type "Gateway". Otherwise, the name is implementation-specific.
+
+                        Example: "example.net/import-controller".
+
+                        The format of this field is DOMAIN "/" PATH, where DOMAIN and PATH are valid Kubernetes
+                        names (https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names).
+
+                        A controller MUST populate this field when writing status and ensure that entries to status
+                        populated with their controller name are removed when they are no longer necessary.
+                      maxLength: 253
+                      minLength: 1
+                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\/[A-Za-z0-9\/\-._~%!$&'()*+,;=:]+$
+                      type: string
+                    parents:
+                      description: |-
+                        Parents is a list of parent resources, typically Gateways, that are associated with the
+                        InferencePoolImport, and the status of the InferencePoolImport with respect to each parent.
+
+                        Ancestor would be a more accurate name, but Parent is consistent with InferencePool terminology.
+
+                        Required when the controller manages the InferencePoolImport as an HTTPRoute backendRef. The controller
+                        must add an entry for each parent it manages and remove the parent entry when the controller no longer
+                        considers the InferencePoolImport to be associated with that parent.
+                      items:
+                        description: ParentStatus defines the observed state of InferencePool
+                          from a Parent, i.e. Gateway.
+                        properties:
+                          conditions:
+                            description: |-
+                              Conditions is a list of status conditions that provide information about the observed
+                              state of the InferencePool. This field is required to be set by the controller that
+                              manages the InferencePool.
+
+                              Supported condition types are:
+
+                              * "Accepted"
+                              * "ResolvedRefs"
+                            items:
+                              description: Condition contains details for one aspect
+                                of the current state of this API Resource.
+                              properties:
+                                lastTransitionTime:
+                                  description: |-
+                                    lastTransitionTime is the last time the condition transitioned from one status to another.
+                                    This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                                  format: date-time
+                                  type: string
+                                message:
+                                  description: |-
+                                    message is a human readable message indicating details about the transition.
+                                    This may be an empty string.
+                                  maxLength: 32768
+                                  type: string
+                                observedGeneration:
+                                  description: |-
+                                    observedGeneration represents the .metadata.generation that the condition was set based upon.
+                                    For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                                    with respect to the current state of the instance.
+                                  format: int64
+                                  minimum: 0
+                                  type: integer
+                                reason:
+                                  description: |-
+                                    reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                                    Producers of specific condition types may define expected values and meanings for this field,
+                                    and whether the values are considered a guaranteed API.
+                                    The value should be a CamelCase string.
+                                    This field may not be empty.
+                                  maxLength: 1024
+                                  minLength: 1
+                                  pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                                  type: string
+                                status:
+                                  description: status of the condition, one of True,
+                                    False, Unknown.
+                                  enum:
+                                  - "True"
+                                  - "False"
+                                  - Unknown
+                                  type: string
+                                type:
+                                  description: type of condition in CamelCase or in
+                                    foo.example.com/CamelCase.
+                                  maxLength: 316
+                                  pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                                  type: string
+                              required:
+                              - lastTransitionTime
+                              - message
+                              - reason
+                              - status
+                              - type
+                              type: object
+                            maxItems: 8
+                            type: array
+                            x-kubernetes-list-map-keys:
+                            - type
+                            x-kubernetes-list-type: map
+                          controllerName:
+                            description: |-
+                              ControllerName is a domain/path string that indicates the name of the controller that
+                              wrote this status. This corresponds with the GatewayClass controllerName field when the
+                              parentRef references a Gateway kind.
+
+                              Example: "example.net/gateway-controller".
+
+                              The format of this field is DOMAIN "/" PATH, where DOMAIN and PATH are valid Kubernetes names:
+
+                               https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+
+                              Controllers MAY populate this field when writing status. When populating this field, controllers
+                              should ensure that entries to status populated with their ControllerName are cleaned up when they
+                              are no longer necessary.
+                            maxLength: 253
+                            minLength: 1
+                            pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\/[A-Za-z0-9\/\-._~%!$&'()*+,;=:]+$
+                            type: string
+                          parentRef:
+                            description: |-
+                              ParentRef is used to identify the parent resource that this status
+                              is associated with. It is used to match the InferencePool with the parent
+                              resource, such as a Gateway.
+                            properties:
+                              group:
+                                default: gateway.networking.k8s.io
+                                description: |-
+                                  Group is the group of the referent API object. When unspecified, the referent is assumed
+                                  to be in the "gateway.networking.k8s.io" API group.
+                                maxLength: 253
+                                minLength: 0
+                                pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                                type: string
+                              kind:
+                                default: Gateway
+                                description: |-
+                                  Kind is the kind of the referent API object. When unspecified, the referent is assumed
+                                  to be a "Gateway" kind.
+                                maxLength: 63
+                                minLength: 1
+                                pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
+                                type: string
+                              name:
+                                description: Name is the name of the referent API
+                                  object.
+                                maxLength: 253
+                                minLength: 1
+                                type: string
+                              namespace:
+                                description: |-
+                                  Namespace is the namespace of the referenced object. When unspecified, the local
+                                  namespace is inferred.
+
+                                  Note that when a namespace different than the local namespace is specified,
+                                  a ReferenceGrant object is required in the referent namespace to allow that
+                                  namespace's owner to accept the reference. See the ReferenceGrant
+                                  documentation for details: https://gateway-api.sigs.k8s.io/api-types/referencegrant/
+                                maxLength: 63
+                                minLength: 1
+                                pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                                type: string
+                            required:
+                            - name
+                            type: object
+                        required:
+                        - parentRef
+                        type: object
+                      type: array
+                      x-kubernetes-list-type: atomic
+                  required:
+                  - name
+                  type: object
+                maxItems: 8
+                type: array
+                x-kubernetes-list-map-keys:
+                - name
+                x-kubernetes-list-type: map
+            required:
+            - controllers
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: null
+  storedVersions: null
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
     api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api-inference-extension/pull/1173
-    inference.networking.k8s.io/bundle-version: main-dev
+    inference.networking.k8s.io/bundle-version: v1.4.0
   name: inferencepools.inference.networking.k8s.io
 spec:
   group: inference.networking.k8s.io
@@ -234,6 +801,20 @@ spec:
           spec:
             description: Spec defines the desired state of the InferencePool.
             properties:
+              appProtocol:
+                default: http
+                description: |-
+                  AppProtocol describes the application protocol for all the target ports.
+
+                  If unspecified, the protocol defaults to HTTP/1.1.
+
+                  Supported values include:
+                  * "http": HTTP/1.1. This is the default.
+                  * "kubernetes.io/h2c": HTTP/2 over cleartext.
+                enum:
+                - http
+                - kubernetes.io/h2c
+                type: string
               endpointPickerRef:
                 description: |-
                   EndpointPickerRef is a reference to the Endpoint Picker extension and its
@@ -339,6 +920,8 @@ spec:
                       MatchLabels contains a set of required {key,value} pairs.
                       An object must match every label in this map to be selected.
                       The matching logic is an AND operation on all entries.
+                    maxProperties: 64
+                    minProperties: 1
                     type: object
                 required:
                 - matchLabels
@@ -463,6 +1046,25 @@ spec:
                       x-kubernetes-list-map-keys:
                       - type
                       x-kubernetes-list-type: map
+                    controllerName:
+                      description: |-
+                        ControllerName is a domain/path string that indicates the name of the controller that
+                        wrote this status. This corresponds with the GatewayClass controllerName field when the
+                        parentRef references a Gateway kind.
+
+                        Example: "example.net/gateway-controller".
+
+                        The format of this field is DOMAIN "/" PATH, where DOMAIN and PATH are valid Kubernetes names:
+
+                         https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+
+                        Controllers MAY populate this field when writing status. When populating this field, controllers
+                        should ensure that entries to status populated with their ControllerName are cleaned up when they
+                        are no longer necessary.
+                      maxLength: 253
+                      minLength: 1
+                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\/[A-Za-z0-9\/\-._~%!$&'()*+,;=:]+$
+                      type: string
                     parentRef:
                       description: |-
                         ParentRef is used to identify the parent resource that this status
@@ -534,7 +1136,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     api-approved.kubernetes.io: unapproved, experimental-only
-    inference.networking.k8s.io/bundle-version: main-dev
+    inference.networking.k8s.io/bundle-version: v1.4.0
   name: inferencepools.inference.networking.x-k8s.io
 spec:
   group: inference.networking.x-k8s.io

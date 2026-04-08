@@ -222,9 +222,16 @@ func convertHTTPRoute(ctx RouteContext, r k8s.HTTPRouteRule,
 		}
 	}
 	if weightSum(r.BackendRefs) == 0 && vs.Redirect == nil {
-		// The spec requires us to return 500 when there are no >0 weight backends
-		vs.DirectResponse = &istio.HTTPDirectResponse{
-			Status: 500,
+		if len(r.BackendRefs) == 0 {
+			// No backends specified at all; per the Gateway API spec return 404
+			vs.DirectResponse = &istio.HTTPDirectResponse{
+				Status: 404,
+			}
+		} else {
+			// Backends exist but all have zero weight; per the Gateway API spec return 500
+			vs.DirectResponse = &istio.HTTPDirectResponse{
+				Status: 500,
+			}
 		}
 	} else {
 		route, ipCfg, backendErr, err := buildHTTPDestination(ctx, r.BackendRefs, obj.Namespace, enforceRefGrant)
@@ -403,6 +410,37 @@ func compatibleRoutesForHost(routes []*istio.TLSRoute, parentHost string) []*ist
 			r.Match[0].SniHosts = sniHosts
 		}
 		res = append(res, r)
+	}
+	return res
+}
+
+// constrainTLSRoutesToListenerHost constrains TLS route SniHosts to only include the
+// intersection with the listener hostname. This ensures that a TLSRoute with a broader
+// hostname (e.g. *.com) attached to a listener with a narrower hostname (e.g. *.example.com)
+// only matches the intersection (*.example.com), not the full route hostname.
+func constrainTLSRoutesToListenerHost(routes []*istio.TLSRoute, listenerHost string) []*istio.TLSRoute {
+	if listenerHost == "" {
+		return routes
+	}
+	listenerNames := host.NewNames([]string{listenerHost})
+	res := make([]*istio.TLSRoute, 0, len(routes))
+	for _, r := range routes {
+		r = r.DeepCopy()
+		for _, m := range r.Match {
+			routeNames := host.NewNames(m.SniHosts)
+			m.SniHosts = slices.Map(routeNames.Intersection(listenerNames), func(n host.Name) string { return string(n) })
+		}
+		// Only include the route if at least one match still has hosts
+		hasHosts := false
+		for _, m := range r.Match {
+			if len(m.SniHosts) > 0 {
+				hasHosts = true
+				break
+			}
+		}
+		if hasHosts || len(r.Match) == 0 {
+			res = append(res, r)
+		}
 	}
 	return res
 }
@@ -2067,7 +2105,9 @@ func listenerProtocolToIstio(name k8s.GatewayController, p k8s.ProtocolType) (st
 		return string(p), nil
 	case k8s.HTTPSProtocolType:
 		return string(p), nil
-	case k8s.TLSProtocolType, k8s.TCPProtocolType:
+	case k8s.TLSProtocolType:
+		return string(p), nil
+	case k8s.TCPProtocolType:
 		if !features.EnableAlphaGatewayAPI {
 			return "", fmt.Errorf("protocol %q is supported, but only when %v=true is configured", p, features.EnableAlphaGatewayAPIName)
 		}

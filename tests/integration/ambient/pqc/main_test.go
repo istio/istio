@@ -135,6 +135,9 @@ spec:
     mode: STRICT`
 			return ctx.ConfigIstio().YAML(i.Settings().SystemNamespace, peerAuthYaml).Apply(apply.Wait)
 		}).
+		SkipIf("K8s < 1.34 doesn't support PQC", func(ctx resource.Context) bool {
+			return !ctx.Clusters().Default().MinKubeVersion(34)
+		}).
 		Run()
 }
 
@@ -170,6 +173,7 @@ func setupAppsConfig(_ resource.Context) error {
 func TestIngress(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
+			t.Skip("https://github.com/istio/istio/issues/59520")
 			credName := "ingress-pqc-credential"
 			host := "ingress-pqc.example.com"
 			gatewayName := "ingress-pqc-credential"
@@ -257,6 +261,7 @@ spec:
 func TestWaypoint(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
+			t.Skip("https://github.com/istio/istio/issues/59520")
 			serviceEntryYaml := `
 apiVersion: networking.istio.io/v1
 kind: ServiceEntry

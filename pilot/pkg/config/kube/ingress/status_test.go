@@ -286,7 +286,6 @@ func testRunningAddressesWithService(t *testing.T) {
 		informers.mesh,
 		informers.services,
 		informers.nodes,
-		informers.pods,
 		informers.podsByNamespace,
 	)
 
@@ -303,7 +302,6 @@ func testRunningAddressesWithHostname(t *testing.T) {
 		informers.mesh,
 		informers.services,
 		informers.nodes,
-		informers.pods,
 		informers.podsByNamespace,
 	)
 
@@ -320,7 +318,6 @@ func testRunningAddressesWithPod(t *testing.T) {
 		informers.mesh,
 		informers.services,
 		informers.nodes,
-		informers.pods,
 		informers.podsByNamespace,
 	)
 

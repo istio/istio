@@ -959,7 +959,6 @@ type ServiceDiscovery interface {
 	// Kubernetes Multi-Cluster Services (MCS) ServiceExport API. Only applies to services in
 	// Kubernetes clusters.
 	MCSServices() []MCSServiceInfo
-	AmbientIndexes
 }
 
 type AmbientIndexes interface {
@@ -1357,7 +1356,7 @@ const (
 	WaypointPolicyReasonTargetNotFound   = "TargetNotFound"
 )
 
-// impl pilot/pkg/serviceregistry/kube/controller/ambient/statusqueue/StatusWriter
+// impl pilot/pkg/serviceregistry/ambient/statusqueue/StatusWriter
 func (i WaypointPolicyStatus) GetStatusTarget() TypedObject {
 	return i.Source
 }
@@ -1458,7 +1457,7 @@ type WorkloadAuthorization struct {
 	Binding PolicyBindingStatus
 }
 
-// impl pilot/pkg/serviceregistry/kube/controller/ambient/statusqueue/StatusWriter
+// impl pilot/pkg/serviceregistry/ambient/statusqueue/StatusWriter
 func (i WorkloadAuthorization) GetStatusTarget() TypedObject {
 	return i.Source
 }
@@ -1802,6 +1801,21 @@ func (s *Service) getAllAddressesForProxy(node *Proxy) []string {
 	}
 
 	if a := s.DefaultAddress; len(a) > 0 {
+		// If the service has ClusterVIPs (from a K8s service) but none for this proxy's cluster, the
+		// DefaultAddress is a remote cluster's ClusterIP. Filter it by IP family to avoid returning an
+		// unreachable address (e.g. IPv6 ClusterIP to an IPv4-only proxy).
+		//
+		// Conversely, ServiceEntries with explicit addresses have empty ClusterVIPs and rely on
+		// DefaultAddress for routing (Envoy matches on the VIP regardless of IP family), so leave them
+		// alone.
+		if s.ClusterVIPs.Len() > 0 {
+			if filtered := netutil.FilterAddressesByIPFamily(
+				[]string{a}, node.SupportsIPv4(), node.SupportsIPv6(),
+			); len(filtered) > 0 {
+				return filtered
+			}
+			return nil
+		}
 		return []string{a}
 	}
 	return nil

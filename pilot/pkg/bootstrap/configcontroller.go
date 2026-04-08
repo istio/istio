@@ -34,6 +34,7 @@ import (
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/autoregistration"
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
+	"istio.io/istio/pilot/pkg/config/kube/agentgateway"
 	"istio.io/istio/pilot/pkg/config/kube/crdclient"
 	"istio.io/istio/pilot/pkg/config/kube/file"
 	"istio.io/istio/pilot/pkg/config/kube/gateway"
@@ -188,6 +189,17 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 		s.environment.GatewayAPIController = gwc
 		s.ConfigStores = append(s.ConfigStores, s.environment.GatewayAPIController)
 
+		// Create the agentgateway controller before the leader election block so it can share the
+		// same status writer activation. Both controllers use separate StatusCollections, so both
+		// need SetStatusWrite called to activate their respective status queues.
+		var agwc *agentgateway.Controller
+		if features.EnableAgentgateway {
+			agwc = agentgateway.NewAgwController(s.kubeClient, s.kubeClient.CrdWatcher().WaitForCRD, args.RegistryOptions.KubeOptions)
+			s.environment.AgentgatewayController = agwc
+			s.agentgatewayController = agwc
+			s.ConfigStores = append(s.ConfigStores, s.environment.AgentgatewayController)
+		}
+
 		// Use a channel to signal activation of per-revision status writer
 		activatePerRevisionStatusWriterCh := make(chan struct{})
 		// This check is for backwards compatibility with older(non per-revision) gateway status leader election.
@@ -209,6 +221,9 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 					<-activatePerRevisionStatusWriterCh
 					log.Infof("Starting gateway status writer for revision: %s", args.Revision)
 					gwc.SetStatusWrite(true, s.statusManager)
+					if agwc != nil {
+						agwc.SetStatusWrite(true, s.statusManager)
+					}
 
 					// Trigger a push so we can recompute status
 					s.XDSServer.ConfigUpdate(&model.PushRequest{
@@ -219,6 +234,9 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 					<-leaderStop
 					log.Infof("Stopping gateway status writer")
 					gwc.SetStatusWrite(false, nil)
+					if agwc != nil {
+						agwc.SetStatusWrite(false, nil)
+					}
 				}).
 				Run(stop)
 			return nil

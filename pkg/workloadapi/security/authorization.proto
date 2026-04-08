@@ -15,9 +15,10 @@
 syntax = "proto3";
 
 package istio.security;
-option go_package="pkg/workloadapi/security";
+option go_package="istio.io/istio/pkg/workloadapi/security";
 
 import "google/protobuf/empty.proto";
+import "workloadapi/workload.proto";
 
 message Authorization {
   string name = 1;
@@ -38,6 +39,9 @@ message Authorization {
   // Whether or not this is a dry run policy.
   // Dry run policies are not enforced, but their matches are logged
   bool dry_run = 6;
+
+  // Extension provides a mechanism to attach arbitrary additional configuration to an object.
+  repeated istio.workload.Extension extensions = 7;
 }
 
 message Group {
@@ -75,6 +79,9 @@ message Match {
 
   repeated uint32 destination_ports = 9;
   repeated uint32 not_destination_ports = 10;
+
+  // Extension provides a mechanism to attach arbitrary additional configuration to an object.
+  repeated istio.workload.Extension extensions = 13;
 }
 
 message Address {

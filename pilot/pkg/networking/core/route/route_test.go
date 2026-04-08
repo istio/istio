@@ -691,6 +691,157 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(routes[0].GetRoute().GetHashPolicy()).To(ConsistOf(hashPolicy))
 	})
 
+	// Test for issue #58708: portLevelSettings port must match destination port
+	t.Run("for virtual service with port level settings matching service port", func(t *testing.T) {
+		g := NewWithT(t)
+		// VirtualService with destination port 8484 (service port)
+		virtualService := config.Config{
+			Meta: config.Meta{
+				GroupVersionKind: gvk.VirtualService,
+				Name:             "acme",
+			},
+			Spec: &networking.VirtualService{
+				Hosts:    []string{},
+				Gateways: []string{"some-gateway"},
+				Http: []*networking.HTTPRoute{
+					{
+						Route: []*networking.HTTPRouteDestination{
+							{
+								Destination: &networking.Destination{
+									Host: "*.example.org",
+									Port: &networking.PortSelector{
+										Number: 8484, // Service port
+									},
+								},
+								Weight: 100,
+							},
+						},
+					},
+				},
+			},
+		}
+		cg := core.NewConfigGenTest(t, core.TestOptions{
+			Services: exampleService,
+			Configs: []config.Config{
+				virtualService,
+				{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.DestinationRule,
+						Name:             "acme",
+						Namespace:        "istio-system",
+					},
+					Spec: &networking.DestinationRule{
+						Host: "*.example.org",
+						TrafficPolicy: &networking.TrafficPolicy{
+							PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
+								{
+									Port: &networking.PortSelector{
+										Number: 8484, // Matches service port - should work
+									},
+									LoadBalancer: &networking.LoadBalancerSettings{
+										LbPolicy: loadBalancerPolicy("matching-port-cookie"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		})
+
+		proxy := node(cg)
+		hashByDestination := route.GetConsistentHashForVirtualService(cg.PushContext(), proxy, virtualService)
+		routeOpts := buildRouteOpts(serviceRegistry, hashByDestination)
+		routes, err := route.BuildHTTPRoutesForVirtualService(proxy, virtualService, 8080, gatewayNames, routeOpts)
+		xdstest.ValidateRoutes(t, routes)
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(len(routes)).To(Equal(1))
+
+		// Hash policy should be applied because ports match
+		hashPolicy := &envoyroute.RouteAction_HashPolicy{
+			PolicySpecifier: &envoyroute.RouteAction_HashPolicy_Cookie_{
+				Cookie: &envoyroute.RouteAction_HashPolicy_Cookie{
+					Name: "matching-port-cookie",
+					Ttl:  nil,
+				},
+			},
+		}
+		g.Expect(routes[0].GetRoute().GetHashPolicy()).To(ConsistOf(hashPolicy))
+	})
+
+	// Test for issue #58708: portLevelSettings with mismatched port (e.g., gateway listener port vs service port)
+	t.Run("for virtual service with port level settings mismatched port", func(t *testing.T) {
+		g := NewWithT(t)
+		// VirtualService with destination port 8484 (service port)
+		// but DestinationRule portLevelSettings uses port 443 (gateway listener port)
+		virtualService := config.Config{
+			Meta: config.Meta{
+				GroupVersionKind: gvk.VirtualService,
+				Name:             "acme",
+			},
+			Spec: &networking.VirtualService{
+				Hosts:    []string{},
+				Gateways: []string{"some-gateway"},
+				Http: []*networking.HTTPRoute{
+					{
+						Route: []*networking.HTTPRouteDestination{
+							{
+								Destination: &networking.Destination{
+									Host: "*.example.org",
+									Port: &networking.PortSelector{
+										Number: 8484, // Service port
+									},
+								},
+								Weight: 100,
+							},
+						},
+					},
+				},
+			},
+		}
+		cg := core.NewConfigGenTest(t, core.TestOptions{
+			Services: exampleService,
+			Configs: []config.Config{
+				virtualService,
+				{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.DestinationRule,
+						Name:             "acme",
+						Namespace:        "istio-system",
+					},
+					Spec: &networking.DestinationRule{
+						Host: "*.example.org",
+						TrafficPolicy: &networking.TrafficPolicy{
+							PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
+								{
+									Port: &networking.PortSelector{
+										Number: 443, // Gateway listener port - does NOT match service port
+									},
+									LoadBalancer: &networking.LoadBalancerSettings{
+										LbPolicy: loadBalancerPolicy("mismatched-port-cookie"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		})
+
+		proxy := node(cg)
+		hashByDestination := route.GetConsistentHashForVirtualService(cg.PushContext(), proxy, virtualService)
+		routeOpts := buildRouteOpts(serviceRegistry, hashByDestination)
+		routes, err := route.BuildHTTPRoutesForVirtualService(proxy, virtualService, 8080, gatewayNames, routeOpts)
+		xdstest.ValidateRoutes(t, routes)
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(len(routes)).To(Equal(1))
+
+		// Hash policy should NOT be applied because ports don't match
+		// This is the expected behavior - portLevelSettings must match destination port
+		g.Expect(routes[0].GetRoute().GetHashPolicy()).To(BeEmpty(),
+			"Hash policy should not be applied when portLevelSettings port (443) doesn't match destination port (8484)")
+	})
+
 	t.Run("for virtual service with cookie hash policy with attributes", func(t *testing.T) {
 		g := NewWithT(t)
 		ttl := durationpb.Duration{Nanos: 100}

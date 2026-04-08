@@ -151,7 +151,7 @@ func readDeploymentYAML(ctx resource.Context) (string, error) {
 		}
 	}
 
-	oldImage := "gcr.io/istio-testing/ext-authz:latest"
+	oldImage := "registry.istio.io/testing/ext-authz:latest"
 	newImage := fmt.Sprintf("%s/ext-authz:%s", s.Hub, s.Tag)
 	yamlText = strings.ReplaceAll(yamlText, oldImage, newImage)
 

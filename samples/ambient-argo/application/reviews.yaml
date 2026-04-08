@@ -44,7 +44,7 @@ spec:
       serviceAccountName: bookinfo-reviews
       containers:
       - name: reviews
-        image: docker.io/istio/examples-bookinfo-reviews-v1:1.18.0
+        image: registry.istio.io/release/examples-bookinfo-reviews-v1:1.18.0
         imagePullPolicy: IfNotPresent
         env:
         - name: LOG_DIR
@@ -84,7 +84,7 @@ spec:
       serviceAccountName: bookinfo-reviews
       containers:
       - name: reviews
-        image: docker.io/istio/examples-bookinfo-reviews-v2:1.18.0
+        image: registry.istio.io/release/examples-bookinfo-reviews-v2:1.18.0
         imagePullPolicy: IfNotPresent
         env:
         - name: LOG_DIR
@@ -124,7 +124,7 @@ spec:
       serviceAccountName: bookinfo-reviews
       containers:
       - name: reviews
-        image: docker.io/istio/examples-bookinfo-reviews-v3:1.18.0
+        image: registry.istio.io/release/examples-bookinfo-reviews-v3:1.18.0
         imagePullPolicy: IfNotPresent
         env:
         - name: LOG_DIR

@@ -222,7 +222,7 @@ spec:
     kind: Gateway
     group: gateway.networking.k8s.io
     name: gateway
-  url: oci://127.0.0.1/istio-testing/wasm/invalid-wasm:latest
+  url: oci://127.0.0.1/testing/wasm/invalid-wasm:latest
   failStrategy: FAIL_CLOSE
 `).ApplyOrFail(t)
 

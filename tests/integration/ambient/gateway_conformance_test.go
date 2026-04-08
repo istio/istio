@@ -99,7 +99,7 @@ var skippedTests = map[string]string{
 	"MeshHTTPRoute307Redirect": "TODO",
 	"MeshHTTPRoute308Redirect": "TODO",
 
-	"TLSRouteHostnameIntersection":                 "TODO",
+	// "TLSRouteHostnameIntersection":                 "TODO",  // unskipped — fix implemented
 	"TLSRouteInvalidBackendRefNonexistent":         "TODO",
 	"TLSRouteInvalidBackendRefUnknownKind":         "TODO",
 	"TLSRouteInvalidNoMatchingListenerHostname":    "TODO",

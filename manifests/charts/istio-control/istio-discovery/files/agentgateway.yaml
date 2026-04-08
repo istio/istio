@@ -162,6 +162,12 @@ spec:
         {{- end }}
         - name: XDS_ADDRESS
           value: {{ .ProxyConfig.DiscoveryAddress | quote }}
+        - name: CA_ADDRESS
+        {{- if .Values.global.caAddress }}
+          value: {{ .Values.global.caAddress }}
+        {{- else }}
+          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.istioNamespace }}.svc:15012
+        {{- end }}
         startupProbe:
           failureThreshold: 30
           httpGet:
@@ -186,17 +192,28 @@ spec:
         - mountPath: /var/run/secrets/xds
           name: istiod-ca-cert
         - mountPath: /var/run/secrets/xds-tokens
-          name: istio-token
+          name: xds-token
         - mountPath: /tmp
           name: tmp
+        - mountPath: /var/run/secrets/istio
+          name: istiod-ca-cert
+        - mountPath: /var/run/secrets/tokens
+          name: istio-token
       volumes:
       - emptyDir: {}
         name: tmp
-      - name: istio-token
+      - name: xds-token
         projected:
           sources:
           - serviceAccountToken:
               path: xds-token
+              expirationSeconds: 43200
+              audience: {{ .Values.global.sds.token.aud }}
+      - name: istio-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              path: istio-token
               expirationSeconds: 43200
               audience: {{ .Values.global.sds.token.aud }}
       {{- if eq .Values.global.pilotCertProvider "istiod" }}

@@ -72,6 +72,7 @@ func TestConfigWriter_PrintSummary(t *testing.T) {
 		wantOutputPolicies       string
 		wantOutputAll            string
 		wantOutputConn           string
+		wantOutputConnDump       string
 		configNamespace          string
 		workloadName             string
 		connWorkload             string
@@ -116,6 +117,10 @@ func TestConfigWriter_PrintSummary(t *testing.T) {
 			wantOutputConn:  "testdata/connectionsummary_workload.txt",
 		},
 		{
+			name:               "connections dump",
+			wantOutputConnDump: "testdata/connectionsdump.json",
+		},
+		{
 			name:          "all",
 			wantOutputAll: "testdata/allsummary.txt",
 		},
@@ -154,6 +159,10 @@ func TestConfigWriter_PrintSummary(t *testing.T) {
 			if tt.wantOutputConn != "" {
 				assert.NoError(t, cw.PrintConnectionsSummary(ConnectionsFilter{Workload: tt.connWorkload, Namespace: tt.configNamespace}))
 				util.CompareContent(t, gotOut.Bytes(), tt.wantOutputConn)
+			}
+			if tt.wantOutputConnDump != "" {
+				assert.NoError(t, cw.PrintConnectionsDump(ConnectionsFilter{}, "json"))
+				util.CompareContent(t, gotOut.Bytes(), tt.wantOutputConnDump)
 			}
 		})
 	}

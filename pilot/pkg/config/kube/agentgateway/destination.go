@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/agentgateway/agentgateway/go/api"
+	"github.com/agentgateway/agentgateway/api"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
@@ -235,7 +235,7 @@ func buildAgwHTTPDestination(
 	for _, fwd := range forwardTo {
 		dst, err := buildAgwDestination(ctx, fwd, ns, gvk.HTTPRoute)
 		if err != nil {
-			log.Errorf("erroring building agent gateway destination", "error", err, "error message", err.error.Message)
+			log.Errorf("erroring building agent gateway destination. error: %v, error message: %s", err, err.error.Message)
 			if isInvalidBackend(err) {
 				invalidBackendErr = err
 				// keep going, we will gracefully drop invalid backends
@@ -273,7 +273,7 @@ func buildAgwTCPDestination(
 			Filters:    nil, // TCP Routes don't have per-backend filters?
 		}, ns, gvk.TCPRoute)
 		if err != nil {
-			log.Errorf("error building agent gateway destination", "error", err)
+			log.Errorf("error building agent gateway destination. error: %v, error message: %s", err, err.error.Message)
 			if isInvalidBackend(err) {
 				invalidBackendErr = err
 				// keep going, we will gracefully drop invalid backends
@@ -304,7 +304,7 @@ func buildAgwTLSDestination(
 			Filters:    nil, // TLS Routes don't have per-backend filters
 		}, ns, gvk.TLSRoute)
 		if err != nil {
-			log.Errorf("error building agent gateway destination", "error", err)
+			log.Errorf("error building agent gateway destination. error: %v, error message: %s", err, err.error.Message)
 			if isInvalidBackend(err) {
 				invalidBackendErr = err
 				// keep going, we will gracefully drop invalid backends

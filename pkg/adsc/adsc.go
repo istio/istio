@@ -793,10 +793,6 @@ func (a *ADSC) Save(base string) error {
 		return err
 	}
 	err = os.WriteFile(base+"_eds.json", byteJSONResponse, 0o644)
-	if err != nil {
-		return err
-	}
-
 	return err
 }
 

@@ -109,7 +109,7 @@ func InferencePoolCollection(
 			pool *inferencev1.InferencePool,
 		) (*inferencev1.InferencePoolStatus, *InferencePool) {
 			// Fetch HTTPRoutes that reference this InferencePool once and reuse
-			routeList := krt.Fetch(ctx, httpRoutes, krt.FilterIndex(routesByInferencePool, pool.Namespace+"/"+pool.Name))
+			routeList := routesByInferencePool.Fetch(ctx, pool.Namespace+"/"+pool.Name)
 
 			// Find gateway parents that reference this InferencePool through HTTPRoutes
 			gatewayParents := findGatewayParents(pool, routeList)
