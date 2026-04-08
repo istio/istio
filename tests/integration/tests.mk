@@ -117,7 +117,7 @@ test.integration.kube: test.integration.kube.presubmit
 # Presubmit integration tests targeting Kubernetes environment. Really used for postsubmit on different k8s versions.
 .PHONY: test.integration.kube.presubmit
 test.integration.kube.presubmit: | $(JUNIT_REPORT) check-go-tag
-	$(call run-test,./tests/integration/...)
+	$(call run-test,./tests/integration/...)p
 
 # Defines a target to run a standard set of tests in various different environments (IPv6, distroless, ARM, etc)
 # In presubmit, this target runs a minimal set. In postsubmit, all tests are run

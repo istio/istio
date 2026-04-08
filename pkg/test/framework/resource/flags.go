@@ -242,6 +242,9 @@ func init() {
 	flag.BoolVar(&settingsFromCommandLine.NativeNftables, "istio.test.nativeNftables", settingsFromCommandLine.NativeNftables,
 		"If set, native nftable rules will be used instead of iptable rules for traffic redirection.")
 
+	flag.BoolVar(&settingsFromCommandLine.Agentgateway, "istio.test.agentgateway", settingsFromCommandLine.Agentgateway,
+		"Indicate the support of agentgateway.")
+
 	initGatewayConformanceTimeouts()
 }
 

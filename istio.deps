@@ -18,6 +18,6 @@
     "name": "AGENTGATEWAY_IMAGE",
     "repoName": "agentgateway",
     "file": "",
-    "lastStableSHA": "0.11.0"
+    "lastStableSHA": "v1.0.1"
   }
 ]

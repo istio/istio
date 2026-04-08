@@ -190,7 +190,6 @@ func ConvertHTTPRouteToAgw(ctx RouteContext, r gatewayv1.HTTPRouteRule,
 
 	if err := processRouteMatches(&r, res); err != nil {
 		return nil, &Condition{
-			status: "False",
 			error: &ConfigError{
 				Reason:  "InvalidMatch",
 				Message: fmt.Sprintf("failed to process route matches: %v", err),
@@ -203,7 +202,6 @@ func ConvertHTTPRouteToAgw(ctx RouteContext, r gatewayv1.HTTPRouteRule,
 
 	if err := ApplyTimeouts(&r, res); err != nil {
 		return nil, &Condition{
-			status: "False",
 			error: &ConfigError{
 				Reason:  "TranslationError",
 				Message: fmt.Sprintf("failed to apply builtin route timeout: %v", err),
@@ -212,7 +210,6 @@ func ConvertHTTPRouteToAgw(ctx RouteContext, r gatewayv1.HTTPRouteRule,
 	}
 	if err := ApplyRetries(&r, res); err != nil {
 		return nil, &Condition{
-			status: "False",
 			error: &ConfigError{
 				Reason:  "TranslationError",
 				Message: fmt.Sprintf("failed to apply builtin route retries: %v", err),
@@ -222,13 +219,10 @@ func ConvertHTTPRouteToAgw(ctx RouteContext, r gatewayv1.HTTPRouteRule,
 
 	backends, backendErr, err := buildAgwHTTPDestination(ctx, r.BackendRefs, obj.Namespace)
 	if err != nil {
-		return nil, &Condition{
-			status: "False",
-			error: &ConfigError{
-				Reason:  "BackendError",
-				Message: fmt.Sprintf("failed to build backend destination: %v", err),
-			},
-		}
+		// Still attach the route (with no backends) so the data plane returns 5xx
+		// instead of 404 for requests matching this route.
+		res.Backends = nil
+		return res, err
 	}
 	res.Backends = backends
 
@@ -300,7 +294,8 @@ func ConvertGRPCRouteToAgw(ctx RouteContext, r gatewayv1.GRPCRouteRule,
 	route, backendErr, err := buildAgwGRPCDestination(ctx, r.BackendRefs, obj.Namespace)
 	if err != nil {
 		log.Errorf("failed to translate grpc destination", "err", err, "route_name", obj.Name, "route_ns", obj.Namespace)
-		return nil, err
+		res.Backends = nil
+		return res, err
 	}
 	res.Backends = route
 	res.Hostnames = slices.Map(obj.Spec.Hostnames, func(e gatewayv1.Hostname) string {
@@ -325,7 +320,8 @@ func ConvertTCPRouteToAgw(ctx RouteContext, r gatewayalpha.TCPRouteRule,
 	route, backendErr, err := buildAgwTCPDestination(ctx, r.BackendRefs, obj.Namespace)
 	if err != nil {
 		log.Errorf("failed to translate tcp destination", "err", err)
-		return nil, err
+		res.Backends = nil
+		return res, err
 	}
 	res.Backends = route
 
@@ -333,8 +329,8 @@ func ConvertTCPRouteToAgw(ctx RouteContext, r gatewayalpha.TCPRouteRule,
 }
 
 // ConvertTLSRouteToAgw converts a TLSRouteRule to an agentgateway TCPRoute
-func ConvertTLSRouteToAgw(ctx RouteContext, r gatewayalpha.TLSRouteRule,
-	obj *gatewayalpha.TLSRoute, pos int,
+func ConvertTLSRouteToAgw(ctx RouteContext, r gatewayv1.TLSRouteRule,
+	obj *gatewayv1.TLSRoute, pos int,
 ) (*api.TCPRoute, *Condition) {
 	routeRuleKey := strconv.Itoa(pos)
 	res := &api.TCPRoute{
@@ -348,7 +344,8 @@ func ConvertTLSRouteToAgw(ctx RouteContext, r gatewayalpha.TLSRouteRule,
 	route, backendErr, err := buildAgwTLSDestination(ctx, r.BackendRefs, obj.Namespace)
 	if err != nil {
 		log.Errorf("failed to translate tls destination", "err", err, "route_name", obj.Name, "route_ns", obj.Namespace)
-		return nil, err
+		res.Backends = nil
+		return res, err
 	}
 	res.Backends = route
 
@@ -365,7 +362,7 @@ func GetStatus[I, IS any](spec I) IS {
 	switch t := any(spec).(type) {
 	case *gatewayalpha.TCPRoute:
 		return any(t.Status).(IS)
-	case *gatewayalpha.TLSRoute:
+	case *gatewayv1.TLSRoute:
 		return any(t.Status).(IS)
 	case *gatewayv1.HTTPRoute:
 		return any(t.Status).(IS)
@@ -394,7 +391,7 @@ func GetCommonRouteInfo(spec any) ([]gatewayv1.ParentReference, []gatewayv1.Host
 	switch t := spec.(type) {
 	case *gatewayalpha.TCPRoute:
 		return t.Spec.ParentRefs, nil, gvk.TCPRoute
-	case *gatewayalpha.TLSRoute:
+	case *gatewayv1.TLSRoute:
 		return t.Spec.ParentRefs, t.Spec.Hostnames, gvk.TLSRoute
 	case *gatewayv1.HTTPRoute:
 		return t.Spec.ParentRefs, t.Spec.Hostnames, gvk.HTTPRoute
@@ -438,7 +435,6 @@ func createAgwExtensionRefFilter(
 
 	// Unsupported ExtensionRef
 	return &Condition{
-		status: "False",
 		error: &ConfigError{
 			Reason:  ConfigErrorReason(gatewayv1.RouteReasonIncompatibleFilters),
 			Message: fmt.Sprintf("unsupported ExtensionRef: %s/%s", extensionRef.Group, extensionRef.Kind),
