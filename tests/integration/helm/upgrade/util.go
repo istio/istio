@@ -183,9 +183,9 @@ func performInPlaceUpgradeFunc(previousVersion string, isAmbient bool) func(fram
 	}
 }
 
-// performInPlaceUpgradeWithFailurePolicyFunc tests that webhook failurePolicy is set correctly
+// performInPlaceUpgradeWithFailurePolicy tests that webhook failurePolicy is set correctly
 // after an in-place upgrade when base.validationFailurePolicy is explicitly configured.
-func performInPlaceUpgradeWithFailurePolicyFunc(previousVersion string) func(framework.TestContext) {
+func performInPlaceUpgradeWithFailurePolicy(previousVersion string) func(framework.TestContext) {
 	return func(t framework.TestContext) {
 		cs := t.Clusters().Default().(*kubecluster.Cluster)
 		h := helm.New(cs.Filename())
