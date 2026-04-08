@@ -589,7 +589,19 @@ type portKey struct {
 
 type simpleNetworkAddress struct {
 	network string
-	ip      netip.Addr
+	ip      netip.Prefix
+}
+
+func networkAddressToSimple(a *workloadapi.NetworkAddress) simpleNetworkAddress {
+	addr, _ := netip.AddrFromSlice(a.Address)
+	prefix := netip.PrefixFrom(addr, addr.BitLen())
+	if a.Length != nil {
+		prefix = netip.PrefixFrom(addr, int(*a.Length))
+	}
+	return simpleNetworkAddress{
+		network: a.Network,
+		ip:      prefix,
+	}
 }
 
 func mergeServiceInfosWithCluster(
@@ -656,14 +668,7 @@ func mergeServiceInfosWithCluster(
 			}] = sets.New(slices.Map(obj.Object.Service.Ports, workloadPortsToSimplePort)...)
 			// This flat merge is ok because the VIPs themselves are per-network and we require
 			// VIP uniqueness within a network
-			vips.InsertAll(slices.Map(obj.Object.Service.GetAddresses(), func(a *workloadapi.NetworkAddress) simpleNetworkAddress {
-				// We can ignore the err because we know the address is valid
-				addr, _ := netip.AddrFromSlice(a.Address)
-				return simpleNetworkAddress{
-					network: a.Network,
-					ip:      addr,
-				}
-			})...)
+			vips.InsertAll(slices.Map(obj.Object.Service.GetAddresses(), networkAddressToSimple)...)
 			sans.InsertAll(obj.Object.Service.GetSubjectAltNames()...)
 
 		}
@@ -685,10 +690,14 @@ func mergeServiceInfosWithCluster(
 			return a.network + "/" + a.ip.String()
 		})
 		base.Object.Service.Addresses = slices.Map(orderedVips, func(a simpleNetworkAddress) *workloadapi.NetworkAddress {
-			return &workloadapi.NetworkAddress{
+			na := &workloadapi.NetworkAddress{
 				Network: a.network,
-				Address: a.ip.AsSlice(),
+				Address: a.ip.Addr().AsSlice(),
 			}
+			if !a.ip.IsSingleIP() {
+				na.Length = ptr.Of(uint32(a.ip.Bits()))
+			}
+			return na
 		})
 		base.Object.Service.SubjectAltNames = sans.UnsortedList()
 

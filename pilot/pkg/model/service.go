@@ -1096,7 +1096,11 @@ func (i AddressInfo) Aliases() []string {
 		aliases := make([]string, 0, len(addr.Service.Addresses))
 		for _, networkAddr := range addr.Service.Addresses {
 			ip, _ := netip.AddrFromSlice(networkAddr.Address)
-			aliases = append(aliases, networkAddr.Network+"/"+ip.String())
+			if networkAddr.Length != nil {
+				aliases = append(aliases, fmt.Sprintf("%s/%s/%d", networkAddr.Network, ip.String(), *networkAddr.Length))
+			} else {
+				aliases = append(aliases, networkAddr.Network+"/"+ip.String())
+			}
 		}
 		return aliases
 	}

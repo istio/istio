@@ -536,7 +536,6 @@ func constructServiceEntries(
 		return toNetworkAddressFromCidr(e, networkGetter(ctx))
 	})
 	if err != nil {
-		// TODO: perhaps we should support CIDR in the future?
 		return nil
 	}
 	// if this se has autoallocation we can se autoallocated IP, otherwise it will remain an empty slice

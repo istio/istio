@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/workloadapi"
 )
 
@@ -92,30 +93,36 @@ func toNetworkAddressFromIP(ip netip.Addr, netw network.ID) *workloadapi.Network
 }
 
 func toNetworkAddressFromCidr(vip string, nw network.ID) (*workloadapi.NetworkAddress, error) {
-	ip, err := parseCidrOrIP(vip)
+	prefix, err := parseCidrOrIP(vip)
 	if err != nil {
 		return nil, err
 	}
-	return &workloadapi.NetworkAddress{
+	na := &workloadapi.NetworkAddress{
 		Network: nw.String(),
-		Address: ip.AsSlice(),
-	}, nil
+		Address: prefix.Addr().AsSlice(),
+	}
+	if !prefix.IsSingleIP() {
+		na.Length = ptr.Of(uint32(prefix.Bits()))
+	}
+	return na, nil
 }
 
-// parseCidrOrIP parses an IP or a CIDR of a exactly 1 IP (e.g. /32).
-// This is to support ServiceEntry which supports CIDRs, but we don't currently support more than 1 IP
-func parseCidrOrIP(ip string) (netip.Addr, error) {
+// parseCidrOrIP parses an IP address or a CIDR prefix.
+// Plain IPs are returned as host prefixes (/32 or /128).
+// CIDRs are masked to their canonical form (e.g. 10.0.0.5/24 → 10.0.0.0/24).
+func parseCidrOrIP(ip string) (netip.Prefix, error) {
 	if strings.Contains(ip, "/") {
 		prefix, err := netip.ParsePrefix(ip)
 		if err != nil {
-			return netip.Addr{}, err
+			return netip.Prefix{}, err
 		}
-		if !prefix.IsSingleIP() {
-			return netip.Addr{}, fmt.Errorf("only single IP CIDR is allowed")
-		}
-		return prefix.Addr(), nil
+		return prefix.Masked(), nil
 	}
-	return netip.ParseAddr(ip)
+	addr, err := netip.ParseAddr(ip)
+	if err != nil {
+		return netip.Prefix{}, err
+	}
+	return netip.PrefixFrom(addr, addr.BitLen()), nil
 }
 
 func AppendNonNil[T any](data []T, i *T) []T {

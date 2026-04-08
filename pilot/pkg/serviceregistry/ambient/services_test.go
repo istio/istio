@@ -832,6 +832,124 @@ func TestServiceEntryServices(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:   "Service entry with CIDR address",
+			inputs: []any{},
+			se: &networkingclient.ServiceEntry{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cidr-se",
+					Namespace: "ns",
+				},
+				Spec: networking.ServiceEntry{
+					Addresses: []string{"10.0.0.0/24"},
+					Hosts:     []string{"cidr.example.com"},
+					Ports: []*networking.ServicePort{{
+						Number:   80,
+						Name:     "http",
+						Protocol: "HTTP",
+					}},
+					Resolution: networking.ServiceEntry_NONE,
+				},
+			},
+			result: []*workloadapi.Service{
+				{
+					Name:      "cidr-se",
+					Namespace: "ns",
+					Hostname:  "cidr.example.com",
+					Addresses: []*workloadapi.NetworkAddress{{
+						Network: testNW,
+						Address: netip.MustParseAddr("10.0.0.0").AsSlice(),
+						Length:  ptr.Of(uint32(24)),
+					}},
+					Ports: []*workloadapi.Port{{
+						ServicePort: 80,
+						TargetPort:  80,
+						AppProtocol: workloadapi.AppProtocol_HTTP11,
+					}},
+					LoadBalancing: &workloadapi.LoadBalancing{
+						Mode:         workloadapi.LoadBalancing_PASSTHROUGH,
+						HealthPolicy: workloadapi.LoadBalancing_ALLOW_ALL,
+					},
+				},
+			},
+		},
+		{
+			name:   "Service entry with non-canonical CIDR address is normalized",
+			inputs: []any{},
+			se: &networkingclient.ServiceEntry{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "noncanonical-cidr-se",
+					Namespace: "ns",
+				},
+				Spec: networking.ServiceEntry{
+					Addresses: []string{"10.0.0.5/24"},
+					Hosts:     []string{"noncanonical.example.com"},
+					Ports: []*networking.ServicePort{{
+						Number:   80,
+						Name:     "http",
+						Protocol: "HTTP",
+					}},
+					Resolution: networking.ServiceEntry_NONE,
+				},
+			},
+			result: []*workloadapi.Service{
+				{
+					Name:      "noncanonical-cidr-se",
+					Namespace: "ns",
+					Hostname:  "noncanonical.example.com",
+					Addresses: []*workloadapi.NetworkAddress{{
+						Network: testNW,
+						Address: netip.MustParseAddr("10.0.0.0").AsSlice(),
+						Length:  ptr.Of(uint32(24)),
+					}},
+					Ports: []*workloadapi.Port{{
+						ServicePort: 80,
+						TargetPort:  80,
+						AppProtocol: workloadapi.AppProtocol_HTTP11,
+					}},
+					LoadBalancing: &workloadapi.LoadBalancing{
+						Mode:         workloadapi.LoadBalancing_PASSTHROUGH,
+						HealthPolicy: workloadapi.LoadBalancing_ALLOW_ALL,
+					},
+				},
+			},
+		},
+		{
+			name:   "Service entry with single-IP CIDR address",
+			inputs: []any{},
+			se: &networkingclient.ServiceEntry{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "single-cidr-se",
+					Namespace: "ns",
+				},
+				Spec: networking.ServiceEntry{
+					Addresses: []string{"1.2.3.4/32"},
+					Hosts:     []string{"single.example.com"},
+					Ports: []*networking.ServicePort{{
+						Number:   80,
+						Name:     "http",
+						Protocol: "HTTP",
+					}},
+					Resolution: networking.ServiceEntry_DNS,
+				},
+			},
+			result: []*workloadapi.Service{
+				{
+					Name:      "single-cidr-se",
+					Namespace: "ns",
+					Hostname:  "single.example.com",
+					Addresses: []*workloadapi.NetworkAddress{{
+						Network: testNW,
+						Address: netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice(),
+					}},
+					Ports: []*workloadapi.Port{{
+						ServicePort: 80,
+						TargetPort:  80,
+						AppProtocol: workloadapi.AppProtocol_HTTP11,
+					}},
+				},
+			},
+		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
