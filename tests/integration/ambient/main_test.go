@@ -138,6 +138,11 @@ func TestMain(m *testing.M) {
 				cfg.Values["pilot.env.AMBIENT_ENABLE_MULTI_NETWORK_INGRESS"] = "true"
 				cfg.Values["pilot.env.AMBIENT_ENABLE_BAGGAGE"] = "true"
 			}
+
+			if ctx.Settings().Agentgateway {
+				cfg.DeployGatewayAPI = true
+				cfg.Values["pilot.env.PILOT_ENABLE_AGENTGATEWAY"] = "true"
+			}
 		}, cert.CreateCASecretAlt)).
 		Setup(func(t resource.Context) error {
 			gatewayConformanceInputs.Cluster = t.Clusters().Default()

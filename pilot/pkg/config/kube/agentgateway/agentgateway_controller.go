@@ -134,7 +134,7 @@ type AgwInputs struct {
 	HTTPRoutes           krt.Collection[*gatewayv1.HTTPRoute]
 	GRPCRoutes           krt.Collection[*gatewayv1.GRPCRoute]
 	TCPRoutes            krt.Collection[*gatewayalpha.TCPRoute]
-	TLSRoutes            krt.Collection[*gatewayalpha.TLSRoute]
+	TLSRoutes            krt.Collection[*gatewayv1.TLSRoute]
 	ListenerSets         krt.Collection[*gatewayv1.ListenerSet]
 	ReferenceGrants      krt.Collection[*gateway.ReferenceGrant]
 	BackendTrafficPolicy krt.Collection[*gatewayx.XBackendTrafficPolicy]
@@ -225,13 +225,13 @@ func (c *Controller) initializeInputs(kc kube.Client, opts krt.OptionsBuilder) {
 
 	if features.EnableAlphaGatewayAPI {
 		inputs.TCPRoutes = buildClient[*gatewayalpha.TCPRoute](c, kc, gvr.TCPRoute, opts, "informer/TCPRoutes")
-		inputs.TLSRoutes = buildClient[*gatewayalpha.TLSRoute](c, kc, gvr.TLSRoute, opts, "informer/TLSRoutes")
+		inputs.TLSRoutes = buildClient[*gatewayv1.TLSRoute](c, kc, gvr.TLSRoute, opts, "informer/TLSRoutes")
 		inputs.BackendTrafficPolicy = buildClient[*gatewayx.XBackendTrafficPolicy](c, kc, gvr.XBackendTrafficPolicy, opts, "informer/XBackendTrafficPolicy")
 		inputs.ListenerSets = buildClient[*gatewayv1.ListenerSet](c, kc, gvr.ListenerSet, opts, "informer/ListenerSets")
 	} else {
 		// If disabled, still build a collection but make it always empty
 		inputs.TCPRoutes = krt.NewStaticCollection[*gatewayalpha.TCPRoute](nil, nil, opts.WithName("disable/TCPRoutes")...)
-		inputs.TLSRoutes = krt.NewStaticCollection[*gatewayalpha.TLSRoute](nil, nil, opts.WithName("disable/TLSRoutes")...)
+		inputs.TLSRoutes = krt.NewStaticCollection[*gatewayv1.TLSRoute](nil, nil, opts.WithName("disable/TLSRoutes")...)
 		inputs.BackendTrafficPolicy = krt.NewStaticCollection[*gatewayx.XBackendTrafficPolicy](nil, nil, opts.WithName("disable/XBackendTrafficPolicy")...)
 		inputs.ListenerSets = krt.NewStaticCollection[*gatewayv1.ListenerSet](nil, nil, opts.WithName("disable/ListenerSets")...)
 	}
@@ -286,7 +286,25 @@ func (c *Controller) buildResourceCollections(opts krt.OptionsBuilder) {
 
 	// Build agw resources for gateway
 	inferencePolicies := InferencePolicyCollection(c.inputs.InferencePools, c.domainSuffix, opts)
-	agwResources, routeAttachments := c.buildAgwResources(gateways, referenceGrants, inferencePolicies, opts)
+
+	// Build ancestor backends (backend→gateway mapping) for BackendTLSPolicy status
+	ancestorBackends := BuildAncestorBackends(c.inputs.HTTPRoutes, c.inputs.GRPCRoutes, opts)
+
+	// Build BackendTLS policies
+	backendTLSInputs := BackendTLSPolicyInputs{
+		BackendTLSPolicies: c.inputs.BackendTLSPolicies,
+		ConfigMaps:         c.inputs.ConfigMaps,
+		Secrets:            c.inputs.Secrets,
+		Services:           c.inputs.Services,
+		Gateways:           c.inputs.Gateways,
+		AncestorBackends:   ancestorBackends,
+		ControllerName:     constants.ManagedAgentgatewayController,
+		DomainSuffix:       c.domainSuffix,
+	}
+	backendTLSStatus, backendTLSPolicies := BackendTLSPolicyCollection(backendTLSInputs, opts)
+	status.RegisterStatus(c.status, backendTLSStatus, GetStatus, c.tagWatcher.AccessUnprotected())
+
+	agwResources, routeAttachments := c.buildAgwResources(gateways, referenceGrants, inferencePolicies, backendTLSPolicies, opts)
 
 	gatewayFinalStatus := c.buildFinalGatewayStatus(gatewayInitialStatus, routeAttachments, opts)
 	status.RegisterStatus(c.status, gatewayFinalStatus, GetStatus, c.tagWatcher.AccessUnprotected())
@@ -563,6 +581,7 @@ func (c *Controller) buildAgwResources(
 	gateways krt.Collection[*GatewayListener],
 	refGrants gatewaycommon.ReferenceGrants,
 	inferencePolicies krt.Collection[AgwResource],
+	backendTLSPolicies krt.Collection[AgwResource],
 	opts krt.OptionsBuilder,
 ) (
 	krt.Collection[AgwResource],
@@ -642,7 +661,7 @@ func (c *Controller) buildAgwResources(
 	)
 
 	// Join all Agw resources
-	allAgwResources := krt.JoinCollection([]krt.Collection[AgwResource]{binds, listeners, agwRoutes, inferencePolicies}, opts.WithName("Resources")...)
+	allAgwResources := krt.JoinCollection([]krt.Collection[AgwResource]{binds, listeners, agwRoutes, inferencePolicies, backendTLSPolicies}, opts.WithName("Resources")...)
 
 	return allAgwResources, routeAttachments
 }

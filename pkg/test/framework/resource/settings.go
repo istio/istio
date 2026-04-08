@@ -202,6 +202,9 @@ type Settings struct {
 
 	// If enabled, native nftable rules will be used for traffic redirection instead of iptable rules.
 	NativeNftables bool
+
+	// Agentgateway indicates experimental support for agentgateway
+	Agentgateway bool
 }
 
 // SkipVMs changes the skip settings at runtime

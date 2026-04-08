@@ -127,7 +127,7 @@ func AgwRouteCollection(
 	httpRouteCol krt.Collection[*gatewayv1.HTTPRoute],
 	grpcRouteCol krt.Collection[*gatewayv1.GRPCRoute],
 	tcpRouteCol krt.Collection[*gatewayalpha.TCPRoute],
-	tlsRouteCol krt.Collection[*gatewayalpha.TLSRoute],
+	tlsRouteCol krt.Collection[*gatewayv1.TLSRoute],
 	inputs RouteContextInputs,
 	tagWatcher krt.RecomputeProtected[revisions.TagWatcher],
 	krtopts krt.OptionsBuilder,
@@ -197,7 +197,7 @@ func AgwRouteCollection(
 
 	// Create TLSRoutes collection
 	tlsRouteStatus, tlsRoutes := createTCPRouteCollection(tlsRouteCol, inputs, krtopts, "TLSRoutes",
-		func(ctx RouteContext, obj *gatewayalpha.TLSRoute) (RouteContext, iter.Seq2[AgwTCPRoute, *Condition]) {
+		func(ctx RouteContext, obj *gatewayv1.TLSRoute) (RouteContext, iter.Seq2[AgwTCPRoute, *Condition]) {
 			route := obj.Spec
 			return ctx, func(yield func(AgwTCPRoute, *Condition) bool) {
 				for n, r := range route.Rules {
@@ -208,8 +208,8 @@ func AgwRouteCollection(
 					}
 				}
 			}
-		}, func(status gatewayv1.RouteStatus) gatewayalpha.TLSRouteStatus {
-			return gatewayalpha.TLSRouteStatus{RouteStatus: status}
+		}, func(status gatewayv1.RouteStatus) gatewayv1.TLSRouteStatus {
+			return gatewayv1.TLSRouteStatus{RouteStatus: status}
 		})
 	status.RegisterStatus(queue, tlsRouteStatus, GetStatus, tagWatcher.AccessUnprotected())
 

@@ -134,6 +134,11 @@ func TestGatewayConformance(t *testing.T) {
 				t.Fatal(err)
 			}
 
+			gatewayClassName := "istio"
+			if ctx.Settings().Agentgateway {
+				gatewayClassName = "istio-agentgateway"
+			}
+
 			hostnameType := v1.AddressType("Hostname")
 			istioVersion, _ := env.ReadVersion()
 			supported := gateway.SupportedFeatures.Clone().Delete(gwfeatures.MeshConsumerRouteFeature)
@@ -142,7 +147,7 @@ func TestGatewayConformance(t *testing.T) {
 				ClientOptions:            clientOptions,
 				Clientset:                gatewayConformanceInputs.Client.Kube(),
 				RestConfig:               gatewayConformanceInputs.Client.RESTConfig(),
-				GatewayClassName:         "istio",
+				GatewayClassName:         gatewayClassName,
 				Debug:                    scopes.Framework.DebugEnabled(),
 				CleanupBaseResources:     gatewayConformanceInputs.Cleanup,
 				ManifestFS:               []fs.FS{&conformance.Manifests},
@@ -218,6 +223,9 @@ func TestGatewayConformance(t *testing.T) {
 			reportb, err := yaml.Marshal(report)
 			assert.NoError(t, err)
 			fp := filepath.Join(ctx.Settings().BaseDir, "conformance.yaml")
+			if ctx.Settings().Agentgateway {
+				fp = filepath.Join(ctx.Settings().BaseDir, "agentgateway_conformance.yaml")
+			}
 			t.Logf("writing conformance test to %v (%v)", fp, prow.ArtifactsURL(fp))
 			assert.NoError(t, os.WriteFile(fp, reportb, 0o644))
 		})
