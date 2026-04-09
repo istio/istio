@@ -464,6 +464,7 @@ func btlsMergeAncestors(
 // BuildAncestorBackends extracts backend→gateway relationships from routes.
 // This is used to determine which gateways reference a given backend Service,
 // which is needed for BackendTLSPolicy status reporting.
+// TODO(jaellio): support TCPRoute
 func BuildAncestorBackends(
 	httpRoutes krt.Collection[*gatewayv1.HTTPRoute],
 	grpcRoutes krt.Collection[*gatewayv1.GRPCRoute],
