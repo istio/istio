@@ -162,13 +162,9 @@ func translateBackendTLSPolicy(
 		serviceHostname := fmt.Sprintf("%s.%s.svc.%s", target.Name, btls.Namespace, inputs.DomainSuffix)
 		switch string(target.Kind) {
 		case gvk.Service.Kind:
-			policyTarget = &api.PolicyTarget{
-				Kind: &api.PolicyTarget_Service{
-					Service: &api.PolicyTarget_ServiceTarget{
-						Namespace: btls.Namespace,
-						Hostname:  serviceHostname,
-					},
-				},
+			svcTarget := &api.PolicyTarget_ServiceTarget{
+				Namespace: btls.Namespace,
+				Hostname:  serviceHostname,
 			}
 			// Handle named port sectionName
 			if sn := target.SectionName; sn != nil {
@@ -180,20 +176,17 @@ func translateBackendTLSPolicy(
 						for _, p := range svc.Spec.Ports {
 							if p.Name == string(*sn) {
 								port := uint32(p.Port) //nolint:gosec
-								policyTarget = &api.PolicyTarget{
-									Kind: &api.PolicyTarget_Service{
-										Service: &api.PolicyTarget_ServiceTarget{
-											Namespace: btls.Namespace,
-											Hostname:  serviceHostname,
-											Port:      &port,
-										},
-									},
-								}
+								svcTarget.Port = &port
 								break
 							}
 						}
 					}
 				}
+			}
+			policyTarget = &api.PolicyTarget{
+				Kind: &api.PolicyTarget_Service{
+					Service: svcTarget,
+				},
 			}
 		case gvk.InferencePool.Kind:
 			var portNum *uint32
@@ -248,10 +241,8 @@ func translateBackendTLSPolicy(
 		}
 
 		policyKey := btls.Namespace + "/" + btls.Name + backendTLSPolicySuffix
-		if policyTarget != nil {
-			if svc := policyTarget.GetService(); svc != nil {
-				policyKey += ":" + svc.Namespace + "/" + svc.Hostname
-			}
+		if svc := policyTarget.GetService(); svc != nil {
+			policyKey += ":" + svc.Namespace + "/" + svc.Hostname
 		}
 
 		policy := &api.Policy{

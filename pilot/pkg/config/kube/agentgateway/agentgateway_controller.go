@@ -661,7 +661,9 @@ func (c *Controller) buildAgwResources(
 	)
 
 	// Join all Agw resources
-	allAgwResources := krt.JoinCollection([]krt.Collection[AgwResource]{binds, listeners, agwRoutes, inferencePolicies, backendTLSPolicies}, opts.WithName("Resources")...)
+	allAgwResources := krt.JoinCollection([]krt.Collection[AgwResource]{
+		binds, listeners, agwRoutes, inferencePolicies, backendTLSPolicies,
+	}, opts.WithName("Resources")...)
 
 	return allAgwResources, routeAttachments
 }
