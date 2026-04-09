@@ -74,6 +74,10 @@ type TypedResource struct {
 	Name types.NamespacedName
 }
 
+func (n TypedResource) String() string {
+	return n.Kind.String() + "/" + n.Name.String()
+}
+
 type RouteAttachment struct {
 	From TypedResource
 	// To is assumed to be a Gateway
