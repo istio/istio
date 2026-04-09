@@ -176,7 +176,7 @@ func (configgen *ConfigGeneratorImpl) deltaFromServices(key model.ConfigKey, pro
 		deletedClusters = append(deletedClusters, subsetClusters[key.Name].UnsortedList()...)
 	} else {
 		if features.FilterGatewayClusterConfig && proxy.Type == model.Router {
-			if !push.ServiceAttachedToGateway(key.Name, service.Attributes.Namespace, proxy) {
+			if !push.ServiceAttachedToGateway(key.Name, key.Namespace, proxy) {
 				return services, deletedClusters
 			}
 		}
