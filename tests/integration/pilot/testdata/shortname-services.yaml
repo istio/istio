@@ -1,0 +1,43 @@
+# Test services for short name resolution testing
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: myservice
+  namespace: default
+spec:
+  selector:
+    app: myservice
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8080
+    protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: default
+spec:
+  selector:
+    app: backend
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080
+    protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: other-ns
+spec:
+  selector:
+    app: backend
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080
+    protocol: TCP
