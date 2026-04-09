@@ -19,7 +19,7 @@ package agentgateway
 import (
 	"fmt"
 
-	"github.com/agentgateway/agentgateway/go/api"
+	"github.com/agentgateway/agentgateway/api"
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 
 	"istio.io/istio/pkg/kube/krt"

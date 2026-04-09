@@ -243,7 +243,7 @@ func (refs ReferenceGrants) BackendAllowed(ctx krt.HandlerContext,
 	from := Reference{Kind: k, Namespace: gatewayv1.Namespace(routeNamespace)}
 	to := Reference{Kind: toGVK, Namespace: backendNamespace}
 	pair := ReferencePair{From: from, To: to}
-	grants := krt.Fetch(ctx, refs.Collection, krt.FilterIndex(refs.Index, pair))
+	grants := refs.Index.Fetch(ctx, pair)
 	for _, g := range grants {
 		if g.AllowAll || g.AllowedName == string(backendName) {
 			return true

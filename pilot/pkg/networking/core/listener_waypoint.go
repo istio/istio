@@ -825,20 +825,20 @@ func (lb *ListenerBuilder) buildWaypointHTTPFilters(svc *model.Service) (pre []*
 
 	// TODO: consider dedicated listener class for waypoint filters
 	cls := istionetworking.ListenerClassSidecarInbound
-	wasm := lb.push.WasmPluginsByListenerInfo(lb.node,
-		model.WasmPluginListenerInfo{Class: cls}.WithService(svc),
-		model.WasmPluginTypeHTTP,
+	trafficExtensions := lb.push.TrafficExtensionsByListenerInfo(lb.node,
+		model.ListenerInfo{Class: cls}.WithService(svc),
+		model.FilterChainTypeHTTP,
 	)
 	// TODO: how to deal with ext-authz? It will be in the ordering twice
 	// TODO policies here will need to be different per-chain (service attached)
 	pre = append(pre, authzCustomBuilder.BuildHTTP(cls)...)
-	pre = extension.PopAppendHTTP(pre, wasm, extensions.PluginPhase_AUTHN)
+	pre = extension.PopAppendHTTPTrafficExtension(pre, trafficExtensions, extensions.TrafficExtension_AUTHN)
 	pre = append(pre, authnBuilder.BuildHTTP(cls)...)
-	pre = extension.PopAppendHTTP(pre, wasm, extensions.PluginPhase_AUTHZ)
+	pre = extension.PopAppendHTTPTrafficExtension(pre, trafficExtensions, extensions.TrafficExtension_AUTHZ)
 	pre = append(pre, authzBuilder.BuildHTTP(cls)...)
 	// TODO: these feel like the wrong place to insert, but this retains backwards compatibility with the original implementation
-	post = extension.PopAppendHTTP(post, wasm, extensions.PluginPhase_STATS)
-	post = extension.PopAppendHTTP(post, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
+	post = extension.PopAppendHTTPTrafficExtension(post, trafficExtensions, extensions.TrafficExtension_STATS)
+	post = extension.PopAppendHTTPTrafficExtension(post, trafficExtensions, extensions.TrafficExtension_UNSPECIFIED)
 	post = append(post, xdsfilters.GenerateWaypointUpstreamMetadataFilter())
 	post = append(post, lb.push.Telemetry.HTTPFilters(lb.node, cls, svc)...)
 	return pre, post
@@ -1053,19 +1053,24 @@ func buildWaypointInboundHTTPRouteConfig(lb *ListenerBuilder, svc *model.Service
 	}
 
 	virtualServices := getVirtualServiceForWaypoint(lb.node.ConfigNamespace, svc, lb.node.SidecarScope.EgressListeners[0].VirtualServices())
-	vs := slices.FindFunc(virtualServices, func(c *config.Config) bool {
-		// Find the first HTTP virtual service
-		return c.Spec.(*networking.VirtualService).Http != nil
-	})
-	if vs == nil {
-		return buildSidecarInboundHTTPRouteConfig(svc, lb, cc)
-	}
 
 	// Typically we setup routes with the Host header match. However, for waypoint inbound we are actually using
 	// hostname purely to match to the Service VIP. So we only need a single VHost, with routes compute based on the VS.
 	// For destinations, we need to hit the inbound clusters if it is an internal destination, otherwise outbound.
-	routes, err := lb.waypointInboundRoute(**vs, cc.port.Port)
-	if err != nil {
+	// Iterate all matching VirtualServices and merge their routes, consistent with gateway.go behavior.
+	var routes []*route.Route
+	for _, vs := range virtualServices {
+		if vs.Spec.(*networking.VirtualService).Http == nil {
+			continue
+		}
+		vsRoutes, err := lb.waypointInboundRoute(*vs, cc.port.Port)
+		if err != nil {
+			log.Debugf("omitting routes for virtual service %v/%v due to error: %v", vs.Namespace, vs.Name, err)
+			continue
+		}
+		routes = append(routes, vsRoutes...)
+	}
+	if len(routes) == 0 {
 		return buildSidecarInboundHTTPRouteConfig(svc, lb, cc)
 	}
 

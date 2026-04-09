@@ -660,7 +660,7 @@ func SetInstances(apps echo.Services) error {
 // Some cloud platform may throw the following error during creation of the service with mixed TCP/UDP protocols:
 // "Error syncing load balancer: failed to ensure load balancer: mixed protocol is not supported for LoadBalancer".
 // Make sure the service is up and running before proceeding with the test.
-func WaitForIngressQUICService(t framework.TestContext, ns string) error {
+func WaitForIngressQUICService(t framework.TestContext, ns, serviceName string) error {
 	_, err := retry.UntilComplete(func() (any, bool, error) {
 		services, err := t.Clusters().Default().Kube().CoreV1().Services(ns).List(context.TODO(), metav1.ListOptions{})
 		if err != nil {
@@ -671,7 +671,7 @@ func WaitForIngressQUICService(t framework.TestContext, ns string) error {
 		}
 
 		// Fetch events to check for the service status
-		fieldSelector := fmt.Sprintf("involvedObject.kind=Service,involvedObject.name=%s", "istio-ingressgateway")
+		fieldSelector := fmt.Sprintf("involvedObject.kind=Service,involvedObject.name=%s", serviceName)
 		events, err := t.Clusters().Default().Kube().CoreV1().Events(ns).List(context.TODO(), metav1.ListOptions{
 			FieldSelector: fieldSelector,
 		})
@@ -679,7 +679,7 @@ func WaitForIngressQUICService(t framework.TestContext, ns string) error {
 			return nil, false, err
 		}
 
-		// Verify that "instio-ingressgateway" service is not stuck with creation error
+		// Verify that the ingress gateway service is not stuck with creation error
 		for _, ev := range events.Items {
 			if strings.Contains(ev.Message, "mixed protocol is not supported for LoadBalancer") {
 				return nil, true, fmt.Errorf("the QUIC mixed service is not supported")

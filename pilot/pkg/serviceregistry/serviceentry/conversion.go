@@ -511,7 +511,6 @@ func services(
 	serviceEntries krt.Collection[config.Config],
 	meshConfig krt.Collection[meshwatcher.MeshConfigResource],
 	namespaces krt.Collection[*v1.Namespace],
-	workloads krt.Collection[*model.WorkloadInstance],
 	workloadsByNamespace krt.Index[string, *model.WorkloadInstance],
 	clusterID cluster.ID,
 	networkIDFn networkIDCallback,
@@ -540,10 +539,9 @@ func services(
 		}
 
 		dnsService := isDNSTypeService(services[0])
-		selectedWorkloads := krt.Fetch(
+		selectedWorkloads := workloadsByNamespace.Fetch(
 			ctx,
-			workloads,
-			krt.FilterIndex(workloadsByNamespace, cfg.Namespace),
+			cfg.Namespace,
 			krt.FilterLabel(se.WorkloadSelector.Labels),
 			krt.FilterGeneric(func(o any) bool {
 				wi := o.(*model.WorkloadInstance)

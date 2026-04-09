@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+issue:
+- 59700
+releaseNotes:
+- |
+    **Fixed** serivceAccount matcher regex in AuthorizationPolicy to properly quote the service account name, allowing for correct matching of service accounts with special characters in their names.
