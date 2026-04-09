@@ -57,14 +57,15 @@ type BackendTLSPolicyInputs struct {
 type AncestorBackend struct {
 	Gateway types.NamespacedName
 	Backend types.NamespacedName
+	Source  TypedResource
 }
 
 func (a AncestorBackend) ResourceName() string {
-	return a.Gateway.String() + "/" + a.Backend.String()
+	return a.Source.String() + "/" + a.Gateway.String() + "/" + a.Backend.String()
 }
 
 func (a AncestorBackend) Equals(other AncestorBackend) bool {
-	return a.Gateway == other.Gateway && a.Backend == other.Backend
+	return a.Gateway == other.Gateway && a.Backend == other.Backend && a.Source == other.Source
 }
 
 // BackendTLSPolicyCollection creates a krt collection that translates BackendTLSPolicy resources
@@ -471,6 +472,13 @@ func BuildAncestorBackends(
 	opts krt.OptionsBuilder,
 ) krt.Collection[*AncestorBackend] {
 	httpAncestors := krt.NewManyCollection(httpRoutes, func(_ krt.HandlerContext, obj *gatewayv1.HTTPRoute) []*AncestorBackend {
+		source := TypedResource{
+			Kind: gvk.HTTPRoute,
+			Name: types.NamespacedName{
+				Namespace: obj.Namespace,
+				Name:      obj.Name,
+			},
+		}
 		gateways := extractGatewayRefs(obj.Namespace, obj.Spec.ParentRefs)
 		backends := sets.New[types.NamespacedName]()
 		for _, rule := range obj.Spec.Rules {
@@ -485,10 +493,17 @@ func BuildAncestorBackends(
 				backends.Insert(types.NamespacedName{Namespace: ns, Name: string(ref.Name)})
 			}
 		}
-		return buildAncestorPairs(gateways, backends)
+		return buildAncestorPairs(gateways, backends, source)
 	}, opts.WithName("HTTPRouteAncestorBackends")...)
 
 	grpcAncestors := krt.NewManyCollection(grpcRoutes, func(_ krt.HandlerContext, obj *gatewayv1.GRPCRoute) []*AncestorBackend {
+		source := TypedResource{
+			Kind: gvk.HTTPRoute,
+			Name: types.NamespacedName{
+				Namespace: obj.Namespace,
+				Name:      obj.Name,
+			},
+		}
 		gateways := extractGatewayRefs(obj.Namespace, obj.Spec.ParentRefs)
 		backends := sets.New[types.NamespacedName]()
 		for _, rule := range obj.Spec.Rules {
@@ -503,7 +518,7 @@ func BuildAncestorBackends(
 				backends.Insert(types.NamespacedName{Namespace: ns, Name: string(ref.Name)})
 			}
 		}
-		return buildAncestorPairs(gateways, backends)
+		return buildAncestorPairs(gateways, backends, source)
 	}, opts.WithName("GRPCRouteAncestorBackends")...)
 
 	return krt.JoinCollection([]krt.Collection[*AncestorBackend]{httpAncestors, grpcAncestors},
@@ -528,11 +543,11 @@ func extractGatewayRefs(defaultNS string, refs []gatewayv1.ParentReference) sets
 	return gateways
 }
 
-func buildAncestorPairs(gateways, backends sets.Set[types.NamespacedName]) []*AncestorBackend {
+func buildAncestorPairs(gateways, backends sets.Set[types.NamespacedName], source TypedResource) []*AncestorBackend {
 	result := make([]*AncestorBackend, 0, gateways.Len()*backends.Len())
 	for gw := range gateways {
 		for be := range backends {
-			result = append(result, &AncestorBackend{Gateway: gw, Backend: be})
+			result = append(result, &AncestorBackend{Source: source, Gateway: gw, Backend: be})
 		}
 	}
 	return result
