@@ -30,15 +30,18 @@ type CdsGenerator struct {
 
 var _ model.XdsDeltaResourceGenerator = &CdsGenerator{}
 
-// Map of all configs that impact CDS
-// CDS is also affected by other global resources, but these always trigger a Forced push.
-var cdsAffectingConfigs = sets.New(
-	kind.ServiceEntry,
-	kind.DestinationRule,
-	kind.PeerAuthentication,
-	kind.VirtualService,
-	kind.EnvoyFilter,
-	kind.Sidecar,
+// Map of all configs that do not impact CDS
+var skippedCdsConfigs = sets.New(
+	kind.Gateway,
+	kind.WorkloadEntry,
+	kind.WorkloadGroup,
+	kind.AuthorizationPolicy,
+	kind.RequestAuthentication,
+	kind.Secret,
+	kind.Telemetry,
+	kind.WasmPlugin,
+	kind.ProxyConfig,
+	kind.DNSName,
 )
 
 // Map all aditional configs that impact CDS for gateways.
@@ -82,7 +85,7 @@ func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) (*model.PushReques
 			}
 		}
 
-		if cdsAffectingConfigs.Contains(config.Kind) {
+		if !skippedCdsConfigs.Contains(config.Kind) {
 			relevantUpdates.Insert(config)
 		} else {
 			// we filtered a config

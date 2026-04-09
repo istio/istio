@@ -91,16 +91,19 @@ type EdsGenerator struct {
 
 var _ model.XdsDeltaResourceGenerator = &EdsGenerator{}
 
-// Map of all configs that impact EDS
-// EDS is also affected by MeshConfig changes, but these always trigger a Forced push.
-// Sidecar only impacts CDS cluster selection, so it doesn't impact EDS directly, proxy will transparently
-// request EDS for new cluster and unsubscribe from old clusters.
-var edsAffectingConfigs = sets.New(
-	kind.ServiceEntry,
-	kind.DestinationRule,
-	kind.PeerAuthentication,
-	// EnvoyFilter cannot impact EDS directly, but it can modify clusters in-place and this requires we trigger a push
-	kind.EnvoyFilter,
+// Map of all configs that do not impact EDS
+var skippedEdsConfigs = sets.New(
+	kind.Gateway,
+	kind.VirtualService,
+	kind.WorkloadGroup,
+	kind.AuthorizationPolicy,
+	kind.RequestAuthentication,
+	kind.Secret,
+	kind.Telemetry,
+	kind.WasmPlugin,
+	kind.ProxyConfig,
+	kind.DNSName,
+	kind.Sidecar,
 )
 
 var deltaAwareEdsConfigs = sets.New(
@@ -118,7 +121,7 @@ func edsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
 		return true
 	}
 	for config := range req.ConfigsUpdated {
-		if edsAffectingConfigs.Contains(config.Kind) {
+		if !skippedEdsConfigs.Contains(config.Kind) {
 			return true
 		}
 	}

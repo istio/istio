@@ -30,45 +30,31 @@ type LdsGenerator struct {
 
 var _ model.XdsResourceGenerator = &LdsGenerator{}
 
-// Map of all configs that impact LDS
-var ldsAffectingConfigs = map[model.NodeType]sets.Set[kind.Kind]{
+// Map of all configs that do not impact LDS
+var skippedLdsConfigs = map[model.NodeType]sets.Set[kind.Kind]{
 	model.Router: sets.New(
-		kind.Gateway,
-		kind.ServiceEntry,
-		kind.DestinationRule,
-		kind.PeerAuthentication,
-		kind.RequestAuthentication,
-		kind.AuthorizationPolicy,
-		kind.VirtualService,
-		kind.WasmPlugin,
-		kind.Telemetry,
-		kind.EnvoyFilter,
-		kind.Sidecar,
+		// for autopassthrough gateways, we build filterchains per-dr subset
+		kind.WorkloadGroup,
+		kind.WorkloadEntry,
+		kind.Secret,
+		kind.ProxyConfig,
+		kind.DNSName,
 	),
 	model.SidecarProxy: sets.New(
-		kind.ServiceEntry,
-		kind.DestinationRule,
-		kind.PeerAuthentication,
-		kind.RequestAuthentication,
-		kind.AuthorizationPolicy,
-		kind.VirtualService,
-		kind.WasmPlugin,
-		kind.Telemetry,
-		kind.EnvoyFilter,
-		kind.Sidecar,
+		kind.Gateway,
+		kind.WorkloadGroup,
+		kind.WorkloadEntry,
+		kind.Secret,
+		kind.ProxyConfig,
+		kind.DNSName,
 	),
 	model.Waypoint: sets.New(
-		kind.ServiceEntry,
-		kind.DestinationRule,
-		kind.PeerAuthentication,
-		kind.RequestAuthentication,
-		kind.AuthorizationPolicy,
-		kind.VirtualService,
-		kind.WasmPlugin,
-		kind.Telemetry,
-		kind.EnvoyFilter,
-		kind.Sidecar,
-		kind.Address,
+		kind.Gateway,
+		kind.WorkloadGroup,
+		kind.WorkloadEntry,
+		kind.Secret,
+		kind.ProxyConfig,
+		kind.DNSName,
 	),
 }
 
@@ -83,7 +69,7 @@ func ldsNeedsPush(proxy *model.Proxy, req *model.PushRequest) bool {
 		return false
 	}
 	for config := range req.ConfigsUpdated {
-		if ldsAffectingConfigs[proxy.Type].Contains(config.Kind) {
+		if !skippedLdsConfigs[proxy.Type].Contains(config.Kind) {
 			if config.Kind == kind.PeerAuthentication && config.Namespace != proxy.ConfigNamespace &&
 				config.Namespace != req.Push.Mesh.RootNamespace {
 				// PeerAuthentication of the configNamespace or rootNamespace can only impact lds
