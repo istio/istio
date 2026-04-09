@@ -902,6 +902,195 @@ func TestEndpointsByNetworkFilter_AmbientMuiltiNetwork(t *testing.T) {
 	runNetworkFilterTest(t, env, ambientNetworkFiltered, "")
 }
 
+func TestEndpointsByNetworkFilter_GatewayIPFamily(t *testing.T) {
+	test.SetForTest(t, &features.MultiNetworkGatewayAPI, true)
+	test.SetForTest(t, &features.PreferHBONESend, true)
+
+	// Local network1 with an IPv4 gateway, remote network2 with dualstack gateways.
+	newEnv := func(t *testing.T, gateways []model.NetworkGateway) (*xds.FakeDiscoveryServer, *model.EndpointIndex) {
+		ds := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+			Services: []*model.Service{{
+				Hostname:   "example.ns.svc.cluster.local",
+				Attributes: model.ServiceAttributes{Name: "example", Namespace: "ns"},
+				Ports:      model.PortList{{Port: 80, Protocol: protocol.HTTP, Name: "http"}},
+			}},
+			Gateways: gateways,
+		})
+		ds.Env().InitNetworksManager(ds.Discovery)
+
+		shards := model.NewEndpointIndex(model.NewXdsCache())
+		svc, _ := shards.GetOrCreateEndpointShard("example.ns.svc.cluster.local", "ns")
+		svc.Lock()
+		svc.Shards[model.ShardKey{Cluster: "cluster2"}] = []*model.IstioEndpoint{
+			{
+				Network: "network2", Addresses: []string{"20.0.0.1"},
+				ServicePortName: "http", Namespace: "ns",
+				HostName: "example.ns.svc.cluster.local", EndpointPort: 8080,
+				TLSMode: "istio", Labels: map[string]string{"app": "example"},
+				Locality: model.Locality{ClusterID: "cluster2"},
+			},
+		}
+		svc.Unlock()
+		return ds, shards
+	}
+
+	dualstackGateways := []model.NetworkGateway{
+		{Network: "network1", Cluster: "cluster1", Addr: "1.1.1.1", Port: 80},
+		{Network: "network2", Cluster: "cluster2", Addr: "2.2.2.2", Port: 80},
+		{Network: "network2", Cluster: "cluster2", Addr: "2001:db8:2::1", Port: 80},
+	}
+
+	cases := []struct {
+		name     string
+		proxy    *model.Proxy
+		gateways []model.NetworkGateway
+		after    func(*model.Proxy)
+		want     []xdstest.LocLbEpInfo
+	}{
+		{
+			name:     "ipv4_proxy_gets_only_ipv4_gateway",
+			proxy:    makeProxy("network1", "cluster1"),
+			gateways: dualstackGateways,
+			want: []xdstest.LocLbEpInfo{{
+				LbEps:  []xdstest.LbEpInfo{{Address: "2.2.2.2", Weight: 2}},
+				Weight: 2,
+			}},
+		},
+		{
+			name:     "ipv6_proxy_gets_only_ipv6_gateway",
+			proxy:    makeIPv6Proxy("network1", "cluster1"),
+			gateways: dualstackGateways,
+			want: []xdstest.LocLbEpInfo{{
+				LbEps:  []xdstest.LbEpInfo{{Address: "2001:db8:2::1", Weight: 2}},
+				Weight: 2,
+			}},
+		},
+		{
+			name:     "dualstack_proxy_gets_both_gateways",
+			proxy:    makeDualStackProxy("network1", "cluster1"),
+			gateways: dualstackGateways,
+			want: []xdstest.LocLbEpInfo{{
+				LbEps: []xdstest.LbEpInfo{
+					{Address: "2.2.2.2", Weight: 1},
+					{Address: "2001:db8:2::1", Weight: 1},
+				},
+				Weight: 2,
+			}},
+		},
+		{
+			name:  "ipv4_proxy_all_incompatible_gateways_drops_endpoint",
+			proxy: makeProxy("network1", "cluster1"),
+			gateways: []model.NetworkGateway{
+				{Network: "network1", Cluster: "cluster1", Addr: "1.1.1.1", Port: 80},
+				{Network: "network2", Cluster: "cluster2", Addr: "2001:db8:2::1", Port: 80},
+			},
+			want: []xdstest.LocLbEpInfo{{
+				LbEps:  []xdstest.LbEpInfo{},
+				Weight: 0,
+			}},
+		},
+		{
+			name:     "unknown_ip_mode_preserves_all_gateways",
+			proxy:    makeProxy("network1", "cluster1"),
+			gateways: dualstackGateways,
+			after: func(p *model.Proxy) {
+				p.SetIPMode(model.IPMode(0))
+			},
+			want: []xdstest.LocLbEpInfo{{
+				LbEps: []xdstest.LbEpInfo{
+					{Address: "2.2.2.2", Weight: 1},
+					{Address: "2001:db8:2::1", Weight: 1},
+				},
+				Weight: 2,
+			}},
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			ds, shards := newEnv(t, tt.gateways)
+			proxy := ds.SetupProxy(tt.proxy)
+			if tt.after != nil {
+				tt.after(proxy)
+			}
+			cn := "outbound|80||example.ns.svc.cluster.local"
+			b := endpoints.NewEndpointBuilder(cn, proxy, ds.PushContext())
+			filtered := b.BuildClusterLoadAssignment(shards).Endpoints
+			xdstest.CompareEndpointsOrFail(t, cn, filtered, tt.want)
+
+			// Verify determinism (consistent with existing test patterns).
+			b2 := endpoints.NewEndpointBuilder(cn, proxy, ds.PushContext())
+			filtered2 := b2.BuildClusterLoadAssignment(shards).Endpoints
+			if diff := cmp.Diff(filtered2, filtered, protocmp.Transform(), cmpopts.IgnoreUnexported(endpoints.LocalityEndpoints{})); diff != "" {
+				t.Fatalf("output of EndpointsByNetworkFilter is non-deterministic: %v", diff)
+			}
+		})
+	}
+}
+
+func TestEndpointsByNetworkFilter_GatewayIPFamily_Ambient(t *testing.T) {
+	test.SetForTest(t, &features.MultiNetworkGatewayAPI, true)
+	test.SetForTest(t, &features.PreferHBONESend, true)
+	test.SetForTest(t, &features.EnableAmbient, true)
+	test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
+	test.SetForTest(t, &features.EnableAmbientWaypointMultiNetwork, true)
+
+	// Dualstack HBONE gateways for network2.
+	ds := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+		Services: []*model.Service{{
+			Hostname:   "example.ns.svc.cluster.local",
+			Attributes: model.ServiceAttributes{Name: "example", Namespace: "ns"},
+			Ports:      model.PortList{{Port: 80, Protocol: protocol.HTTP, Name: "http"}},
+		}},
+		Gateways: []model.NetworkGateway{
+			{Network: "network1", Cluster: "cluster1", Addr: "1.1.1.1", Port: 80, HBONEPort: 15008},
+			{Network: "network2", Cluster: "cluster2", Addr: "2.2.2.2", Port: 80, HBONEPort: 15008},
+			{Network: "network2", Cluster: "cluster2", Addr: "2001:db8:2::1", Port: 80, HBONEPort: 15008},
+		},
+	})
+	ds.Env().InitNetworksManager(ds.Discovery)
+
+	shards := model.NewEndpointIndex(model.NewXdsCache())
+	svc, _ := shards.GetOrCreateEndpointShard("example.ns.svc.cluster.local", "ns")
+	svc.Lock()
+	svc.Shards[model.ShardKey{Cluster: "cluster2"}] = []*model.IstioEndpoint{
+		{
+			Network: "network2", Addresses: []string{"20.0.0.1"},
+			ServicePortName: "http", Namespace: "ns",
+			HostName: "example.ns.svc.cluster.local", EndpointPort: 8080,
+			TLSMode: "istio", Labels: map[string]string{"app": "example"},
+			Locality: model.Locality{ClusterID: "cluster2"},
+		},
+	}
+	svc.Unlock()
+
+	// IPv4-only waypoint proxy should only get IPv4 HBONE gateway.
+	proxy := ds.SetupProxy(makeWaypointProxy("network1", "cluster1"))
+	cn := "outbound|80||example.ns.svc.cluster.local"
+	b := endpoints.NewEndpointBuilder(cn, proxy, ds.PushContext())
+	filtered := b.BuildClusterLoadAssignment(shards).Endpoints
+
+	// The waypoint should see only the IPv4 HBONE gateway for network2.
+	// The IPv6 gateway is filtered out by IP family, and the endpoint is
+	// rendered as an internal address (HBONE tunnel) rather than a direct
+	// socket address.
+	var gwHosts []string
+	for _, llb := range filtered {
+		for _, ep := range llb.LbEndpoints {
+			gwHosts = append(gwHosts, util.GetEndpointHost(ep))
+		}
+	}
+	if diff := cmp.Diff([]string{"2.2.2.2"}, gwHosts); diff != "" {
+		t.Fatalf("unexpected HBONE gateway hosts (-want +got): %s", diff)
+	}
+
+	b2 := endpoints.NewEndpointBuilder(cn, proxy, ds.PushContext())
+	filtered2 := b2.BuildClusterLoadAssignment(shards).Endpoints
+	if diff := cmp.Diff(filtered2, filtered, protocmp.Transform(), cmpopts.IgnoreUnexported(endpoints.LocalityEndpoints{})); diff != "" {
+		t.Fatalf("output of EndpointsByNetworkFilter is non-deterministic: %v", diff)
+	}
+}
+
 type networkFilterCase struct {
 	name                 string
 	proxy                *model.Proxy
@@ -1014,6 +1203,26 @@ func runMTLSFilterTest(t *testing.T, ds *xds.FakeDiscoveryServer, tests []networ
 
 func makeProxy(nw network.ID, c cluster.ID) *model.Proxy {
 	return &model.Proxy{
+		Metadata: &model.NodeMetadata{
+			Network:   nw,
+			ClusterID: c,
+		},
+	}
+}
+
+func makeIPv6Proxy(nw network.ID, c cluster.ID) *model.Proxy {
+	return &model.Proxy{
+		IPAddresses: []string{"2001:db8::10"},
+		Metadata: &model.NodeMetadata{
+			Network:   nw,
+			ClusterID: c,
+		},
+	}
+}
+
+func makeDualStackProxy(nw network.ID, c cluster.ID) *model.Proxy {
+	return &model.Proxy{
+		IPAddresses: []string{"1.1.1.10", "2001:db8::10"},
 		Metadata: &model.NodeMetadata{
 			Network:   nw,
 			ClusterID: c,

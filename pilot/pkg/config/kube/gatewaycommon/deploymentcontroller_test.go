@@ -674,6 +674,7 @@ metadata:
 			stop := test.NewStop(t)
 			env := newTestEnv()
 			env.PushContext().ProxyConfigs = tt.pcs
+			env.PushContext().InitDone.Store(true)
 			tw := revisions.NewTagWatcher(client, "", "istio-system")
 			go tw.Run(stop)
 			d := NewDeploymentController(client, cluster.ID(features.ClusterName), env, testInjectionConfig(t, tt.values), func(fn func()) {
@@ -753,6 +754,7 @@ func TestMeshGatewayReconciliation(t *testing.T) {
 
 	stop := test.NewStop(t)
 	gws := clienttest.Wrap(t, d.gateways)
+	env.PushContext().InitDone.Store(true)
 	go tw.Run(stop)
 	go d.Run(stop)
 	c.RunAndWait(stop)
@@ -835,6 +837,7 @@ func TestVersionManagement(t *testing.T) {
 	}
 	stop := test.NewStop(t)
 	gws := clienttest.Wrap(t, d.gateways)
+	env.PushContext().InitDone.Store(true)
 	go tw.Run(stop)
 	go d.Run(stop)
 	c.RunAndWait(stop)

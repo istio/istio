@@ -23,9 +23,7 @@
       "dns": {},
       "enable_ambient_detection_retry": false,
       "enablement_selectors": [],
-      "exclude_namespaces": [
-        ""
-      ],
+      "exclude_namespaces": null,
       "ipam": {},
       "name": "istio-cni",
       "native_nftables": false,

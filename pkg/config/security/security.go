@@ -45,7 +45,7 @@ const (
 	attrSrcNamespace      = "source.namespace"       // e.g. "default".
 	attrSrcServiceAccount = "source.serviceAccount"  // e.g. "default/productpage".
 	attrSrcPrincipal      = "source.principal"       // source identity, e,g, "cluster.local/ns/default/sa/productpage".
-	attrSrcTrustDomain    = "source.trustDomain"     // e.g. "cluster.local".
+	attrSrcTrustDomain    = "source.trustDomain"     // trust domain of the source identity, e.g. "cluster.local".
 	attrRequestPrincipal  = "request.auth.principal" // authenticated principal of the request.
 	attrRequestAudiences  = "request.auth.audiences" // intended audience(s) for this authentication information.
 	attrRequestPresenter  = "request.auth.presenter" // authorized presenter of the credential.

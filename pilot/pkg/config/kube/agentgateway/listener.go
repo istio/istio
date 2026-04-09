@@ -155,7 +155,9 @@ func listenerProtocolToIstio(name gatewayv1.GatewayController, p gatewayv1.Proto
 		return string(p), nil
 	case gatewayv1.HTTPSProtocolType:
 		return string(p), nil
-	case gatewayv1.TLSProtocolType, gatewayv1.TCPProtocolType:
+	case gatewayv1.TLSProtocolType:
+		return string(p), nil
+	case gatewayv1.TCPProtocolType:
 		if !features.EnableAlphaGatewayAPI {
 			return "", fmt.Errorf("protocol %q is supported, but only when %v=true is configured", p, features.EnableAlphaGatewayAPIName)
 		}

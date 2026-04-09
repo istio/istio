@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+
+issue:
+  - 58302
+  - 59367
+
+releaseNotes:
+  - |
+    **Added** Helm v4 (server-side apply) support. Fixed a webhook `failurePolicy` field ownership
+    conflict that caused `helm upgrade` with SSA to fail.

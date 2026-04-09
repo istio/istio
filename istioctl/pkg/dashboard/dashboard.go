@@ -248,10 +248,6 @@ func createDashCmd(ctx cli.Context, config CreateProxyDashCmdConfig) *cobra.Comm
 				return fmt.Errorf("name cannot be provided when a selector is specified")
 			}
 
-			if err != nil {
-				return fmt.Errorf("failed to create k8s client: %v", err)
-			}
-
 			var podName, ns string
 			if labelSelector != "" {
 				pl, err := kubeClient.PodsForSelector(context.TODO(), ctx.NamespaceOrDefault(ctx.Namespace()), labelSelector)
@@ -544,7 +540,7 @@ func portForward(podName, namespace, flavor, urlFormat, localAddress string, rem
 		}
 
 		// Close the port forwarder when the command is terminated.
-		ClosePortForwarderOnInterrupt(fw)
+		go ClosePortForwarderOnInterrupt(fw)
 
 		log.Debugf(fmt.Sprintf("port-forward to %s pod ready", flavor))
 		openBrowser(fmt.Sprintf(urlFormat, fw.Address()), writer, browser)
@@ -559,13 +555,11 @@ func portForward(podName, namespace, flavor, urlFormat, localAddress string, rem
 }
 
 func ClosePortForwarderOnInterrupt(fw kube.PortForwarder) {
-	go func() {
-		signals := make(chan os.Signal, 1)
-		signal.Notify(signals, os.Interrupt)
-		defer signal.Stop(signals)
-		<-signals
-		fw.Close()
-	}()
+	signals := make(chan os.Signal, 1)
+	signal.Notify(signals, os.Interrupt)
+	defer signal.Stop(signals)
+	<-signals
+	fw.Close()
 }
 
 func openBrowser(url string, writer io.Writer, browser bool) {

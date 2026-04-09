@@ -6,6 +6,8 @@ pilot:
   env:
     # 1.29 behavioral changes
     DISABLE_TRACK_REMAINING_CB_METRICS: "false"
+    # 1.30 behavioral changes
+    PILOT_SIDECAR_PICK_BEST_SERVICE_NAMESPACE: "false"
 
 cni:
   ambient:

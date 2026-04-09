@@ -210,7 +210,7 @@ func serviceAccountRegex(defaultNamespace string, value string) string {
 	// optional arbitrary k/v pairs
 	// '/sa/<serviceAccount>'
 	// Either end of string OR / + arbitrary k/v pairs (the / ensures we do not match <service account>-some-junk)
-	return fmt.Sprintf("spiffe://.+/ns/%s/(.+/|)sa/%s(/.+)?", ns, sa)
+	return fmt.Sprintf("spiffe://.+/ns/%s/(.+/|)sa/%s(/.+)?", regexp.QuoteMeta(ns), regexp.QuoteMeta(sa))
 }
 
 type srcTrustDomainGenerator struct{}

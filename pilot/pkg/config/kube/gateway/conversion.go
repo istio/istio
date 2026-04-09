@@ -2105,7 +2105,9 @@ func listenerProtocolToIstio(name k8s.GatewayController, p k8s.ProtocolType) (st
 		return string(p), nil
 	case k8s.HTTPSProtocolType:
 		return string(p), nil
-	case k8s.TLSProtocolType, k8s.TCPProtocolType:
+	case k8s.TLSProtocolType:
+		return string(p), nil
+	case k8s.TCPProtocolType:
 		if !features.EnableAlphaGatewayAPI {
 			return "", fmt.Errorf("protocol %q is supported, but only when %v=true is configured", p, features.EnableAlphaGatewayAPIName)
 		}

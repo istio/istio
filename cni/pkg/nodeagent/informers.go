@@ -53,6 +53,7 @@ type InformerHandlers struct {
 	dataplane          MeshDataplane
 	systemNamespace    string
 	enablementSelector *util.CompiledEnablementSelectors
+	excludeNamespaces  map[string]struct{}
 
 	queue      controllers.Queue
 	pods       kclient.Client[*corev1.Pod]
@@ -60,9 +61,19 @@ type InformerHandlers struct {
 }
 
 func setupHandlers(ctx context.Context, kubeClient kube.Client, dataplane MeshDataplane,
-	systemNamespace string, enablementSelector *util.CompiledEnablementSelectors,
+	systemNamespace string, enablementSelector *util.CompiledEnablementSelectors, excludeNamespaces []string,
 ) *InformerHandlers {
-	s := &InformerHandlers{ctx: ctx, dataplane: dataplane, systemNamespace: systemNamespace, enablementSelector: enablementSelector}
+	nsExcludeSet := make(map[string]struct{}, len(excludeNamespaces))
+	for _, ns := range excludeNamespaces {
+		nsExcludeSet[ns] = struct{}{}
+	}
+	s := &InformerHandlers{
+		ctx:                ctx,
+		dataplane:          dataplane,
+		systemNamespace:    systemNamespace,
+		enablementSelector: enablementSelector,
+		excludeNamespaces:  nsExcludeSet,
+	}
 	s.queue = controllers.NewQueue("ambient",
 		controllers.WithGenericReconciler(s.reconcile),
 		// Effectively uncapped max attempts.
@@ -172,7 +183,9 @@ func (s *InformerHandlers) enqueueNamespace(o controllers.Object) {
 	namespace := o.GetName()
 	labels := o.GetLabels()
 	matchAmbient := s.enablementSelector.MatchesNamespace(labels)
-	if matchAmbient {
+	if matchAmbient && s.isNamespaceExcluded(namespace) {
+		log.Warnf("Namespace %s is labeled for ambient mesh but is excluded by excludeNamespaces configuration; pods will not be enrolled", namespace)
+	} else if matchAmbient {
 		log.Infof("Namespace %s is enabled in ambient mesh", namespace)
 	} else {
 		log.Infof("Namespace %s is disabled from ambient mesh", namespace)
@@ -190,6 +203,11 @@ func (s *InformerHandlers) enqueueNamespace(o controllers.Object) {
 			})
 		}
 	}
+}
+
+func (s *InformerHandlers) isNamespaceExcluded(namespace string) bool {
+	_, excluded := s.excludeNamespaces[namespace]
+	return excluded
 }
 
 func (s *InformerHandlers) reconcile(input any) error {
@@ -270,10 +288,22 @@ func (s *InformerHandlers) reconcilePod(input any) error {
 		oldPod := event.Old.(*corev1.Pod)
 		isEnrolled := util.PodFullyEnrolled(currentPod)
 		isPartiallyEnrolled := util.PodPartiallyEnrolled(currentPod)
-		shouldBeEnabled := s.enablementSelector.Matches(currentPod.Labels, currentPod.Annotations, ns.Labels)
+		matchesSelector := s.enablementSelector.Matches(currentPod.Labels, currentPod.Annotations, ns.Labels)
+		namespaceExcluded := s.isNamespaceExcluded(currentPod.Namespace)
+		shouldBeEnabled := matchesSelector && !namespaceExcluded
 		isTerminated := kube.CheckPodTerminal(currentPod)
 		// Check intent (labels) versus status (annotation) - is there a delta we need to fix?
 		changeNeeded := (isEnrolled != shouldBeEnabled) || isPartiallyEnrolled
+
+		if matchesSelector && namespaceExcluded {
+			if isEnrolled || isPartiallyEnrolled {
+				log.Warnf("pod is enrolled in ambient mesh but namespace %s is excluded by excludeNamespaces configuration; pod will be removed from mesh",
+					currentPod.Namespace)
+			} else {
+				log.Debugf("pod (or its ns) is labeled for ambient mesh but namespace %s is excluded by excludeNamespaces configuration; skipping enrollment",
+					currentPod.Namespace)
+			}
+		}
 
 		// nolint: lll
 		log.Debugf("pod update: isEnrolled=%v isPartiallyEnrolled=%v shouldBeEnabled=%v changeNeeded=%v isTerminated=%v, oldPod=%+v, newPod=%+v",
