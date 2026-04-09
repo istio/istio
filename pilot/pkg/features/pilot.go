@@ -380,6 +380,10 @@ var (
 		1024*1024*256,
 		"Maximum size of a Wasm binary in bytes. Default is 256MB.",
 	).Get()
+
+	EnableShortNameResolution = env.Register("PILOT_ENABLE_SHORT_NAME_RESOLUTION", false,
+		"If enabled, Pilot will automatically resolve short service names to FQDNs in VirtualService destinations. "+
+			"Short names are resolved to {name}.{namespace}.svc.cluster.local. This feature is opt-in for backwards compatibility.").Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.

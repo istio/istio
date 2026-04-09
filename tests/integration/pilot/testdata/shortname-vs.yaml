@@ -1,0 +1,31 @@
+# VirtualService with short service names for testing
+# This demonstrates the short name resolution feature
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: short-name-example
+  namespace: default
+spec:
+  # Short names that will be resolved to FQDNs
+  hosts:
+  - myservice
+  http:
+  - match:
+    - uri:
+        prefix: /api
+    route:
+    - destination:
+        # Short name destination
+        host: backend
+        port:
+          number: 8080
+        weight: 100
+    timeout: 30s
+    retries:
+      attempts: 3
+      perTryTimeout: 10s
+  - route:
+    - destination:
+        host: backend
+        port:
+          number: 8080
