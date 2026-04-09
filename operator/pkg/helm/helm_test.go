@@ -200,6 +200,27 @@ func TestRender(t *testing.T) {
 			diffSelect:  "PodDisruptionBudget:*:istio-ingress",
 		},
 		{
+			desc:        "gateway-service-default",
+			releaseName: "istio-ingress",
+			namespace:   "istio-ingress",
+			chartName:   "gateway",
+			diffSelect:  "Service:*:istio-ingress",
+		},
+		{
+			desc:        "gateway-network-gateway-default",
+			releaseName: "istio-eastwest",
+			namespace:   "istio-system",
+			chartName:   "gateway",
+			diffSelect:  "Service:*:istio-eastwest",
+		},
+		{
+			desc:        "gateway-network-gateway-port-override",
+			releaseName: "istio-eastwest",
+			namespace:   "istio-system",
+			chartName:   "gateway",
+			diffSelect:  "Service:*:istio-eastwest",
+		},
+		{
 			desc:        "ztunnel-dns-config",
 			releaseName: "ztunnel",
 			namespace:   "istio-system",

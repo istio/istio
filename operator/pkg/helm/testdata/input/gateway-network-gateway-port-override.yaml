@@ -1,0 +1,16 @@
+spec:
+  values:
+    networkGateway: network-1
+    networkGatewayPorts:
+      status-port:
+        port: 15021
+        targetPort: 15021
+      tls:
+        port: 443
+        targetPort: 15443
+      tls-istiod:
+        port: 15012
+        targetPort: 15012
+      tls-webhook:
+        port: 15017
+        targetPort: 15017

@@ -1,0 +1,40 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-eastwest
+  namespace: istio-system
+  labels:
+    app.kubernetes.io/name: istio-eastwest
+    app.kubernetes.io/managed-by: "Helm"
+    app.kubernetes.io/instance: "istio-eastwest"
+    app.kubernetes.io/part-of: "istio"
+    app.kubernetes.io/version: "1.0.0"
+    helm.sh/chart: gateway-1.0.0
+    app: istio-eastwest
+    istio: eastwest
+    "istio.io/dataplane-mode": "none"
+    topology.istio.io/network: "network-1"
+  annotations:
+    {}
+spec:
+  type: LoadBalancer
+  ports:
+  - name: status-port
+    port: 15021
+    targetPort: 15021
+    protocol: TCP
+  - name: tls
+    port: 15443
+    targetPort: 15443
+    protocol: TCP
+  - name: tls-istiod
+    port: 15012
+    targetPort: 15012
+    protocol: TCP
+  - name: tls-webhook
+    port: 15017
+    targetPort: 15017
+    protocol: TCP
+  selector:
+    app: istio-eastwest
+    istio: eastwest
