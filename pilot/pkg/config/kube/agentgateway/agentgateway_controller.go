@@ -213,6 +213,7 @@ func (c *Controller) initializeInputs(kc kube.Client, opts krt.OptionsBuilder) {
 		Gateways:           buildClient[*gatewayv1.Gateway](c, kc, gvr.KubernetesGateway, opts, "informer/Gateways"),
 		HTTPRoutes:         buildClient[*gatewayv1.HTTPRoute](c, kc, gvr.HTTPRoute, opts, "informer/HTTPRoutes"),
 		GRPCRoutes:         buildClient[*gatewayv1.GRPCRoute](c, kc, gvr.GRPCRoute, opts, "informer/GRPCRoutes"),
+		TLSRoutes:          buildClient[*gatewayv1.TLSRoute](c, kc, gvr.TLSRoute, opts, "informer/TLSRoutes"),
 		BackendTLSPolicies: buildClient[*gatewayv1.BackendTLSPolicy](c, kc, gvr.BackendTLSPolicy, opts, "informer/BackendTLSPolicies"),
 
 		ReferenceGrants: buildClient[*gateway.ReferenceGrant](c, kc, gvr.ReferenceGrant, opts, "informer/ReferenceGrants"),
@@ -225,13 +226,11 @@ func (c *Controller) initializeInputs(kc kube.Client, opts krt.OptionsBuilder) {
 
 	if features.EnableAlphaGatewayAPI {
 		inputs.TCPRoutes = buildClient[*gatewayalpha.TCPRoute](c, kc, gvr.TCPRoute, opts, "informer/TCPRoutes")
-		inputs.TLSRoutes = buildClient[*gatewayv1.TLSRoute](c, kc, gvr.TLSRoute, opts, "informer/TLSRoutes")
 		inputs.BackendTrafficPolicy = buildClient[*gatewayx.XBackendTrafficPolicy](c, kc, gvr.XBackendTrafficPolicy, opts, "informer/XBackendTrafficPolicy")
 		inputs.ListenerSets = buildClient[*gatewayv1.ListenerSet](c, kc, gvr.ListenerSet, opts, "informer/ListenerSets")
 	} else {
 		// If disabled, still build a collection but make it always empty
 		inputs.TCPRoutes = krt.NewStaticCollection[*gatewayalpha.TCPRoute](nil, nil, opts.WithName("disable/TCPRoutes")...)
-		inputs.TLSRoutes = krt.NewStaticCollection[*gatewayv1.TLSRoute](nil, nil, opts.WithName("disable/TLSRoutes")...)
 		inputs.BackendTrafficPolicy = krt.NewStaticCollection[*gatewayx.XBackendTrafficPolicy](nil, nil, opts.WithName("disable/XBackendTrafficPolicy")...)
 		inputs.ListenerSets = krt.NewStaticCollection[*gatewayv1.ListenerSet](nil, nil, opts.WithName("disable/ListenerSets")...)
 	}
