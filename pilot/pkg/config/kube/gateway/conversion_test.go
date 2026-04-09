@@ -773,6 +773,7 @@ func TestConvertResources(t *testing.T) {
 		{name: "redirect-only"},
 		{name: "reference-grant-multiple-to"},
 		{name: "http-grpc-same-host"},
+		{name: "empty-backend-refs"},
 	}
 	test.SetForTest(t, &features.EnableGatewayAPIGatewayClassController, false)
 	test.SetForTest(t, &features.EnableGatewayAPIInferenceExtension, true)

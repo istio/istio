@@ -37,7 +37,7 @@ func FuzzApplyClusterMerge(f *testing.F) {
 		c := fuzz.Struct[*cluster.Cluster](fg)
 
 		serviceDiscovery := memory.NewServiceDiscovery()
-		env := newTestEnvironment(serviceDiscovery, mesh, buildEnvoyFilterConfigStore(patches))
+		env := newTestEnvironment(t, serviceDiscovery, mesh, buildEnvoyFilterConfigStore(patches))
 		push := model.NewPushContext()
 		push.InitContext(env, nil, nil)
 		efw := push.EnvoyFilters(proxy)

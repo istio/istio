@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+releaseNotes:
+  - |
+    **Fixed** istiod pushing unreachable IPv6 gateway endpoints to IPv4-only proxies (and vice
+    versa) in multi-network meshes with dualstack east-west gateway load balancers.

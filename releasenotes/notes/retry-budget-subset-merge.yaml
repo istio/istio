@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+Issue:
+  - 59667
+releaseNotes:
+  - |
+    **Fixed** a bug where `retryBudget` set in a DestinationRule's top-level `trafficPolicy`
+    was silently dropped when the destination also had a subset with its own `trafficPolicy`.
+    Additionally, the `retryBudget` defined at the subset level was also ignored.

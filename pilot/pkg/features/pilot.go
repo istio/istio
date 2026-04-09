@@ -384,6 +384,12 @@ var (
 	EnableShortNameResolution = env.Register("PILOT_ENABLE_SHORT_NAME_RESOLUTION", false,
 		"If enabled, Pilot will automatically resolve short service names to FQDNs in VirtualService destinations. "+
 			"Short names are resolved to {name}.{namespace}.svc.cluster.local. This feature is opt-in for backwards compatibility.").Get()
+	SidecarPickBestServiceNamespace = env.Register(
+		"PILOT_SIDECAR_PICK_BEST_SERVICE_NAMESPACE",
+		true,
+		"If enabled, when a sidecar needs to pick a service namespace for a hostname, it will prefer Kubernetes services "+
+			"and fall back to the oldest non-Kubernetes service. When disabled, the first visible namespace alphabetically is used.",
+	).Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.

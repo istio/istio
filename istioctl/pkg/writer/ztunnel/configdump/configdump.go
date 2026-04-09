@@ -25,11 +25,21 @@ import (
 	"istio.io/istio/pkg/maps"
 )
 
+// TargetWorkload identifies a specific workload pod that was targeted by the user.
+// When set, commands should filter output to only show data relevant to this workload.
+type TargetWorkload struct {
+	Name      string
+	Namespace string
+}
+
 // ConfigWriter is a writer for processing responses from the Ztunnel Admin config_dump endpoint
 type ConfigWriter struct {
 	Stdout      io.Writer
 	ztunnelDump *ZtunnelDump
 	FullDump    []byte
+	// TargetWorkload is set when the user targeted a workload pod (not a ztunnel pod).
+	// Commands use this to filter output to only the targeted workload.
+	TargetWorkload *TargetWorkload
 }
 
 type rawDump struct {

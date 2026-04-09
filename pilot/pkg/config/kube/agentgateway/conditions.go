@@ -15,62 +15,24 @@
 package agentgateway
 
 import (
+	"fmt"
+	"sort"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8s "sigs.k8s.io/gateway-api/apis/v1"
+	k8salpha "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/util/sets"
 )
-
-type ConfigErrorReason = string
-
-const (
-	// InvalidDestination indicates an issue with the destination
-	InvalidDestination ConfigErrorReason = "InvalidDestination"
-	InvalidAddress     ConfigErrorReason = ConfigErrorReason(k8s.GatewayReasonUnsupportedAddress)
-	// InvalidDestinationPermit indicates a destination was not permitted
-	InvalidDestinationPermit ConfigErrorReason = ConfigErrorReason(k8s.RouteReasonRefNotPermitted)
-	// InvalidDestinationKind indicates an issue with the destination kind
-	InvalidDestinationKind ConfigErrorReason = ConfigErrorReason(k8s.RouteReasonInvalidKind)
-	// InvalidDestinationNotFound indicates a destination does not exist
-	InvalidDestinationNotFound ConfigErrorReason = ConfigErrorReason(k8s.RouteReasonBackendNotFound)
-	// InvalidFilter indicates an issue with the filters
-	InvalidFilter ConfigErrorReason = "InvalidFilter"
-	// InvalidTLS indicates an issue with TLS settings
-	InvalidTLS ConfigErrorReason = ConfigErrorReason(k8s.ListenerReasonInvalidCertificateRef)
-	// InvalidListenerRefNotPermitted indicates a listener reference was not permitted
-	InvalidListenerRefNotPermitted ConfigErrorReason = ConfigErrorReason(k8s.ListenerReasonRefNotPermitted)
-	// InvalidConfiguration indicates a generic error for all other invalid configurations
-	InvalidConfiguration ConfigErrorReason = "InvalidConfiguration"
-	DeprecateFieldUsage  ConfigErrorReason = "DeprecatedField"
-)
-
-// ConfigError represents an invalid configuration that will be reported back to the user.
-type ConfigError struct {
-	Reason  ConfigErrorReason
-	Message string
-}
-
-type condition struct {
-	// reason defines the reason to report on success. Ignored if error is set
-	reason string
-	// message defines the message to report on success. Ignored if error is set
-	message string
-	// status defines the status to report on success. The inverse will be set if error is set
-	// If not set, will default to StatusTrue
-	status metav1.ConditionStatus
-	// error defines an error state; the reason and message will be replaced with that of the error and
-	// the status inverted
-	error *ConfigError
-	// setOnce, if enabled, will only set the condition if it is not yet present or set to this reason
-	setOnce string
-}
 
 // setConditions sets the existingConditions with the new conditions
-func setConditions(generation int64, existingConditions []metav1.Condition, conditions map[string]*condition) []metav1.Condition {
+func setConditions(generation int64, existingConditions []metav1.Condition, conditions map[string]*Condition) []metav1.Condition {
 	// Sort keys for deterministic ordering
 	for _, k := range slices.Sort(maps.Keys(conditions)) {
 		cond := conditions[k]
@@ -114,7 +76,7 @@ func setConditions(generation int64, existingConditions []metav1.Condition, cond
 	return existingConditions
 }
 
-// generateSupportKinds generates the supported kinds for a listener based on its protocol and allowedRoutes.
+// generateSupportedKinds generates the supported kinds for a listener based on its protocol and allowedRoutes.
 // The boolean return indicates whether all allowed routes were supported.
 func generateSupportedKinds(l k8s.Listener) ([]k8s.RouteGroupKind, bool) {
 	supported := []k8s.RouteGroupKind{}
@@ -152,7 +114,7 @@ func generateSupportedKinds(l k8s.Listener) ([]k8s.RouteGroupKind, bool) {
 }
 
 func reportListenerCondition(index int, l k8s.Listener, obj controllers.Object,
-	statusListeners []k8s.ListenerStatus, conditions map[string]*condition,
+	statusListeners []k8s.ListenerStatus, conditions map[string]*Condition,
 ) []k8s.ListenerStatus {
 	for index >= len(statusListeners) {
 		statusListeners = append(statusListeners, k8s.ListenerStatus{})
@@ -160,7 +122,7 @@ func reportListenerCondition(index int, l k8s.Listener, obj controllers.Object,
 	cond := statusListeners[index].Conditions
 	supported, valid := generateSupportedKinds(l)
 	if !valid {
-		conditions[string(k8s.ListenerConditionResolvedRefs)] = &condition{
+		conditions[string(k8s.ListenerConditionResolvedRefs)] = &Condition{
 			reason:  string(k8s.ListenerReasonInvalidRouteKinds),
 			status:  metav1.ConditionFalse,
 			message: "Invalid route kinds",
@@ -173,4 +135,218 @@ func reportListenerCondition(index int, l k8s.Listener, obj controllers.Object,
 		Conditions:     setConditions(obj.GetGeneration(), cond, conditions),
 	}
 	return statusListeners
+}
+
+func FilterInPlaceByIndex[E any](s []E, keep func(int) bool) []E {
+	i := 0
+	for j := 0; j < len(s); j++ {
+		if keep(j) {
+			s[i] = s[j]
+			i++
+		}
+	}
+
+	clear(s[i:]) // zero/nil out the obsolete elements, for GC
+	return s[:i]
+}
+
+// RouteParentResult holds the result of a route for a specific parent
+type RouteParentResult struct {
+	// OriginalReference contains the original reference
+	OriginalReference k8s.ParentReference
+	// DeniedReason, if present, indicates why the reference was not valid
+	DeniedReason *ParentError
+	// RouteError, if present, indicates a route-level error (e.g. unresolved backend refs)
+	RouteError *Condition
+}
+
+// createRouteStatus builds the RouteParentStatus slice from route parent results.
+// It deduplicates parents by OriginalReference, ranks errors by severity,
+// merges with existing status, and produces deterministic output.
+func createRouteStatus(
+	parentResults []RouteParentResult,
+	objectNamespace string,
+	generation int64,
+	controllerName string,
+	currentParents []k8s.RouteParentStatus,
+) []k8s.RouteParentStatus {
+	parents := slices.Clone(currentParents)
+	parentIndexes := map[string]int{}
+	for idx, p := range parents {
+		// Only consider our own
+		if p.ControllerName != k8s.GatewayController(controllerName) {
+			continue
+		}
+		rs := parentRefStringWithNS(p.ParentRef, objectNamespace)
+		if _, f := parentIndexes[rs]; f {
+			log.Warnf("invalid route detected: duplicate parent: %v", rs)
+		} else {
+			parentIndexes[rs] = idx
+		}
+	}
+
+	// Collect unique parent references. There may be multiple when a route without section name
+	// references a parent with multiple sections.
+	seen := map[k8s.ParentReference][]RouteParentResult{}
+	successCount := map[k8s.ParentReference]int{}
+	for _, incoming := range parentResults {
+		if incoming.DeniedReason == nil {
+			successCount[incoming.OriginalReference]++
+		}
+		seen[incoming.OriginalReference] = append(seen[incoming.OriginalReference], incoming)
+	}
+
+	const (
+		rankNoErrors = iota
+		rankNotAllowed
+		rankNoHostname
+		rankParentRefConflict
+		rankNotAccepted
+	)
+
+	rankError := func(result RouteParentResult) int {
+		if result.DeniedReason == nil {
+			return rankNoErrors
+		}
+		switch result.DeniedReason.Reason {
+		case ParentErrorNotAllowed:
+			return rankNotAllowed
+		case ParentErrorNoHostname:
+			return rankNoHostname
+		case ParentErrorParentRefConflict:
+			return rankParentRefConflict
+		case ParentErrorNotAccepted:
+			return rankNotAccepted
+		}
+		return rankNoErrors
+	}
+
+	// Collapse to one result per parent ref, keeping the most severe error.
+	report := map[k8s.ParentReference]RouteParentResult{}
+	for ref, results := range seen {
+		if len(results) == 0 {
+			continue
+		}
+		toReport := results[0]
+		mostSevere := rankError(toReport)
+		for _, result := range results[1:] {
+			rank := rankError(result)
+			if rank < mostSevere {
+				mostSevere = rank
+				toReport = result
+			} else if rank == mostSevere && toReport.DeniedReason != nil && result.DeniedReason != nil {
+				toReport.DeniedReason.Message += "; " + result.DeniedReason.Message
+			}
+		}
+		report[ref] = toReport
+	}
+
+	// Build status for our parents
+	var toAppend []k8s.RouteParentStatus
+	for k, gw := range report {
+		msg := "Route was valid"
+		if successCount[k] > 1 {
+			msg = fmt.Sprintf("Route was valid, bound to %d parents", successCount[k])
+		}
+		conds := map[string]*Condition{
+			string(k8s.RouteConditionAccepted): {
+				reason:  string(k8s.RouteReasonAccepted),
+				message: msg,
+			},
+			string(k8s.RouteConditionResolvedRefs): {
+				reason:  string(k8s.RouteReasonResolvedRefs),
+				message: "All references resolved",
+			},
+		}
+		if gw.RouteError != nil {
+			conds[string(k8s.RouteConditionResolvedRefs)] = gw.RouteError
+		}
+		if gw.DeniedReason != nil {
+			conds[string(k8s.RouteConditionAccepted)].error = &ConfigError{
+				Reason:  ConfigErrorReason(gw.DeniedReason.Reason),
+				Message: gw.DeniedReason.Message,
+			}
+		}
+
+		myRef := parentRefStringWithNS(gw.OriginalReference, objectNamespace)
+		var currentConditions []metav1.Condition
+		cs := slices.FindFunc(currentParents, func(s k8s.RouteParentStatus) bool {
+			return parentRefStringWithNS(s.ParentRef, objectNamespace) == myRef &&
+				s.ControllerName == k8s.GatewayController(controllerName)
+		})
+		if cs != nil {
+			currentConditions = cs.Conditions
+		}
+		ns := k8s.RouteParentStatus{
+			ParentRef:      gw.OriginalReference,
+			ControllerName: k8s.GatewayController(controllerName),
+			Conditions:     setConditions(generation, currentConditions, conds),
+		}
+		if idx, f := parentIndexes[myRef]; f {
+			parents[idx] = ns
+			delete(parentIndexes, myRef)
+		} else {
+			toAppend = append(toAppend, ns)
+		}
+	}
+
+	// Sort for deterministic output
+	sort.SliceStable(toAppend, func(i, j int) bool {
+		return parentRefStringWithNS(toAppend[i].ParentRef, objectNamespace) > parentRefStringWithNS(toAppend[j].ParentRef, objectNamespace)
+	})
+	parents = append(parents, toAppend...)
+
+	// Remove stale entries that we previously owned but no longer report
+	toDelete := sets.New(maps.Values(parentIndexes)...)
+	parents = FilterInPlaceByIndex(parents, func(i int) bool {
+		_, f := toDelete[i]
+		return !f
+	})
+
+	if parents == nil {
+		return []k8s.RouteParentStatus{}
+	}
+	return parents
+}
+
+// parentRefStringWithNS generates a unique key for a ParentReference, defaulting namespace.
+func parentRefStringWithNS(ref k8s.ParentReference, objectNamespace string) string {
+	ns := objectNamespace
+	if ref.Namespace != nil {
+		ns = string(*ref.Namespace)
+	}
+	g := gvk.KubernetesGateway.Group
+	if ref.Group != nil {
+		g = string(*ref.Group)
+	}
+	k := gvk.KubernetesGateway.Kind
+	if ref.Kind != nil {
+		k = string(*ref.Kind)
+	}
+	var sn string
+	if ref.SectionName != nil {
+		sn = string(*ref.SectionName)
+	}
+	var port int
+	if ref.Port != nil {
+		port = int(*ref.Port)
+	}
+	return fmt.Sprintf("%s/%s/%s/%s/%d.%s", g, k, ref.Name, sn, port, ns)
+}
+
+// GetCommonRouteStateParents extracts the current status parents from a route object.
+func GetCommonRouteStateParents(spec any) []k8s.RouteParentStatus {
+	switch t := spec.(type) {
+	case *k8salpha.TCPRoute:
+		return t.Status.Parents
+	case *k8salpha.TLSRoute:
+		return t.Status.Parents
+	case *k8s.HTTPRoute:
+		return t.Status.Parents
+	case *k8s.GRPCRoute:
+		return t.Status.Parents
+	default:
+		log.Fatalf("unknown type %T", t)
+		return nil
+	}
 }

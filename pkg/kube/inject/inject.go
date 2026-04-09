@@ -377,9 +377,9 @@ func InboundTrafficPolicyMode(meshConfig *meshconfig.MeshConfig) string {
 // imageURL creates url from parts.
 // imageType is appended if not empty
 // if imageType is already present in the tag, then it is replaced.
-// docker.io/istio/proxyv2:1.12-distroless
+// registry.istio.io/release/proxyv2:1.12-distroless
 // gcr.io/gke-release/asm/proxyv2:1.11.2-asm.17-distroless
-// docker.io/istio/proxyv2:1.12
+// registry.istio.io/release/proxyv2:1.12
 func imageURL(hub, imageName, tag, imageType string) string {
 	return hub + "/" + imageName + ":" + updateImageTypeIfPresent(tag, imageType)
 }

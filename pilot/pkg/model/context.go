@@ -93,9 +93,10 @@ func NewEnvironment() *Environment {
 		cache = DisabledCache{}
 	}
 	return &Environment{
-		pushContext:   NewPushContext(),
-		Cache:         cache,
-		EndpointIndex: NewEndpointIndex(cache),
+		pushContext:    NewPushContext(),
+		Cache:          cache,
+		EndpointIndex:  NewEndpointIndex(cache),
+		AmbientIndexes: &NoopAmbientIndexes{},
 	}
 }
 
@@ -112,6 +113,9 @@ type Environment struct {
 
 	// Watcher is the watcher for the mesh config (to be merged into the config store)
 	Watcher
+
+	// AmbientIndexes provides access to ambient mesh data (workloads, services, policies).
+	AmbientIndexes
 
 	// NetworksWatcher (loaded from a config map) provides information about the
 	// set of networks inside a mesh and how to route to endpoints in each
@@ -144,12 +148,17 @@ type Environment struct {
 
 	GatewayAPIController GatewayController
 
+	// AgentgatewayController is the controller for agentgateway.
+	AgentgatewayController AgentgatewayController
+
 	// EndpointShards for a service. This is a global (per-server) list, built from
 	// incremental updates. This is keyed by service and namespace
 	EndpointIndex *EndpointIndex
 
 	// Cache for XDS resources.
 	Cache XdsCache
+
+	VirtualServiceController *VirtualServiceController
 }
 
 func (e *Environment) Mesh() *meshconfig.MeshConfig {
@@ -432,6 +441,11 @@ func (node *Proxy) IsZTunnel() bool {
 // IsAmbient returns true if the proxy is acting as either a ztunnel or a waypoint proxy in an ambient mesh.
 func (node *Proxy) IsAmbient() bool {
 	return node.IsWaypointProxy() || node.IsZTunnel()
+}
+
+// IsAgentgateway returns true if the proxy is acting as an agentgateway.
+func (node *Proxy) IsAgentgateway() bool {
+	return node.Type == Agentgateway
 }
 
 var NodeTypes = [...]NodeType{SidecarProxy, Router, Waypoint, Ztunnel}
@@ -1088,6 +1102,14 @@ type GatewayController interface {
 	// For example, for resourceName of `kubernetes-gateway://ns-name/secret-name` and namespace of `ingress-ns`,
 	// this would return true only if there was a policy allowing `ingress-ns` to access Secrets in the `ns-name` namespace.
 	SecretAllowed(ourKind config.GroupVersionKind, resourceName string, namespace string) bool
+}
+
+type AgentgatewayController interface {
+	ConfigStoreController
+	// Reconcile updates the internal state of the agentgateway controller for a given input. This should be
+	// called before any List/Get calls if the state has changed
+	// Required for current status implementation
+	Reconcile(ctx *PushContext)
 }
 
 // OutboundListenerClass is a helper to turn a NodeType for outbound to a ListenerClass.

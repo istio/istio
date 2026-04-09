@@ -110,6 +110,11 @@ _internal_defaults_do_not_set:
   # SELinux options to set in the istio-cni-node pods. You may need to set this to `type: spc_t` for some platforms.
   seLinuxOptions: {}
 
+  # Use `useAppArmorAnnotation: true` to set up appArmor profile via `container.apparmor.security.beta.kubernetes.io` annotation.
+  # This is required for Kubernetes 1.29 (and earlier) which does not support setting appArmorProfile in the
+  # securityContext. Otherwise, appArmor profile will be set via appArmorProfile setting in securityContext.
+  useAppArmorAnnotation: true
+
   resources:
     requests:
       cpu: 100m
@@ -151,8 +156,8 @@ _internal_defaults_do_not_set:
   global:
     # Default hub for Istio images.
     # Releases are published to docker hub under 'istio' project.
-    # Dev builds from prow are on gcr.io
-    hub: gcr.io/istio-testing
+    # Dev builds from prow are on registry.istio.io/testing
+    hub: registry.istio.io/testing
 
     # Default tag for Istio images.
     tag: latest

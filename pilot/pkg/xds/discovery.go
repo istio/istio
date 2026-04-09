@@ -138,6 +138,9 @@ type DiscoveryServer struct {
 	DiscoveryStartTime time.Time
 
 	krtDebugger *krt.DebugHandler
+
+	// registrations is the list of collection registrations for agentgateway, used to initialize the Collections map.
+	registrations []CollectionRegistration
 }
 
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
@@ -174,13 +177,15 @@ func NewDiscoveryServer(env *model.Environment, clusterAliases map[string]string
 	return out
 }
 
-// TODO(jaellio): Complete implementation
 func (s *DiscoveryServer) InitCollections(reg ...Registration) {
 	if s.Collections != nil {
 		log.Debug("skipping collection initialization since Collections is already set")
 		return
 	}
 	s.Collections = make(map[string]CollectionGenerator)
+	for _, r := range reg {
+		s.registrations = append(s.registrations, r(s.Collections, s.pushChannel))
+	}
 }
 
 // initJwkResolver initializes the JWT key resolver to be used.
@@ -220,6 +225,13 @@ func (s *DiscoveryServer) CachesSynced() {
 }
 
 func (s *DiscoveryServer) IsServerReady() bool {
+	if features.EnableAgentgateway {
+		for _, r := range s.registrations {
+			if !r.HasSynced() {
+				return false
+			}
+		}
+	}
 	return s.serverReady.Load()
 }
 
@@ -229,6 +241,12 @@ func (s *DiscoveryServer) Start(stopCh <-chan struct{}) {
 	go s.periodicRefreshMetrics(stopCh)
 	go s.sendPushes(stopCh)
 	go s.Cache.Run(stopCh)
+
+	if features.EnableAgentgateway {
+		for _, reg := range s.registrations {
+			go reg.Start(stopCh)
+		}
+	}
 }
 
 // Push metrics are updated periodically (10s default)

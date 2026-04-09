@@ -254,6 +254,18 @@ func (cb *ClusterBuilder) applyOverrideHostPolicy(cw *clusterWrapper) {
 							},
 						},
 					},
+					// The metadata key to populate with the address of the host which was ultimately selected
+					// to serve the request.
+					SelectedHostKey: &metadatav3.MetadataKey{
+						Key: constants.EnvoySubsetNamespace,
+						Path: []*metadatav3.MetadataKey_PathSegment{
+							{
+								Segment: &metadatav3.MetadataKey_PathSegment_Key{
+									Key: constants.GatewayInferenceExtensionEndpointServedKey,
+								},
+							},
+						},
+					},
 					// The fallback LB policy is triggered in case neither header nor metadata with selected
 					// hosts is present or there were not enough endpoints to satisfy all retry attempts.
 					FallbackPolicy: &cluster.LoadBalancingPolicy{
@@ -281,7 +293,7 @@ func (cb *ClusterBuilder) buildSubsetCluster(
 	opts buildClusterOpts, destRule *config.Config, subset *networking.Subset, service *model.Service,
 	endpointBuilder *endpoints.EndpointBuilder,
 ) *cluster.Cluster {
-	opts.serviceMTLSMode = cb.req.Push.BestEffortInferServiceMTLSMode(subset.GetTrafficPolicy(), service, opts.port)
+	opts.serviceMTLSMode = cb.req.Push.BestEffortInferServiceMTLSMode(cb.sidecarScope.AuthnPolicies, subset.GetTrafficPolicy(), service, opts.port)
 	var subsetClusterName string
 	var defaultSni string
 	if opts.clusterMode == DefaultClusterMode {
@@ -363,7 +375,7 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *clusterWrapper, clusterMode C
 		}
 		opts.meshExternal = service.MeshExternal
 		opts.serviceRegistry = service.Attributes.ServiceRegistry
-		opts.serviceMTLSMode = cb.req.Push.BestEffortInferServiceMTLSMode(destinationRule.GetTrafficPolicy(), service, port)
+		opts.serviceMTLSMode = cb.req.Push.BestEffortInferServiceMTLSMode(cb.sidecarScope.AuthnPolicies, destinationRule.GetTrafficPolicy(), service, port)
 		opts.allInstancesHBONE = cb.req.Push.AllInstancesSupportHBONE(service, port)
 	}
 
