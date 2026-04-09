@@ -271,6 +271,24 @@
         "networkGateway": {
           "type": "string"
         },
+        "networkGatewayPorts": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "port": {
+                "type": "integer"
+              },
+              "targetPort": {
+                "type": "integer"
+              },
+              "protocol": {
+                "type": "string"
+              }
+            },
+            "required": ["port"]
+          }
+        },
         "imagePullPolicy": {
           "type": "string",
           "enum": [

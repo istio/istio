@@ -50,19 +50,14 @@ spec:
 {{- end }}
   ports:
 {{- if .Values.networkGateway }}
-  - name: status-port
-    port: 15021
-    targetPort: 15021
-  - name: tls
-    port: 15443
-    targetPort: 15443
-  - name: tls-istiod
-    port: 15012
-    targetPort: 15012
-  - name: tls-webhook
-    port: 15017
-    targetPort: 15017
+  {{- include "gateway.networkGatewayPort" (dict "ports" .Values.networkGatewayPorts "name" "status-port" "defaultTargetPort" 15021) | nindent 2 }}
+  {{- include "gateway.networkGatewayPort" (dict "ports" .Values.networkGatewayPorts "name" "tls" "defaultTargetPort" 15443) | nindent 2 }}
+  {{- include "gateway.networkGatewayPort" (dict "ports" .Values.networkGatewayPorts "name" "tls-istiod" "defaultTargetPort" 15012) | nindent 2 }}
+  {{- include "gateway.networkGatewayPort" (dict "ports" .Values.networkGatewayPorts "name" "tls-webhook" "defaultTargetPort" 15017) | nindent 2 }}
 {{- else }}
+  {{- if not .Values.service.ports }}
+    {{- fail "service.ports must not be empty when networkGateway is not set" }}
+  {{- end }}
 {{ .Values.service.ports | toYaml | indent 4 }}
 {{- end }}
 {{- if .Values.service.externalIPs }}
