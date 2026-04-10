@@ -1081,9 +1081,7 @@ func pickBestVisibleNamespace(ps *PushContext, byNamespace map[string]*Service, 
 				return svc.NamespacedName().Namespace
 			}
 			// if this is the first visible service, or it's older than our current best, then it is the new best that we have seen
-			// when creation times are equal, tie-break by namespace name for deterministic selection
-			if currentBestService == nil || svc.CreationTime.Before(currentBestService.CreationTime) ||
-				(svc.CreationTime.Equal(currentBestService.CreationTime) && svc.NamespacedName().Namespace < currentBestService.NamespacedName().Namespace) {
+			if currentBestService == nil || svc.CreationTime.Before(currentBestService.CreationTime) {
 				currentBestService = svc
 			}
 		}
