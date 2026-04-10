@@ -20,6 +20,7 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -461,6 +462,115 @@ func TestMergeGatewaysHttpsFirstBug(t *testing.T) {
 			t.Errorf("HTTPS route %s not found in ServersByRouteName", httpsRoute)
 		}
 	})
+}
+
+func makeInternalConfig(name, namespace, host, portName, portProtocol string, portNumber uint32, gw, bind string,
+	mode networking.ServerTLSSettings_TLSmode, credNames []string, sa string,
+) config.Config {
+	c := makeConfig(name, namespace, host, portName, portProtocol, portNumber, gw, bind, mode, credNames, sa)
+	c.Meta.Annotations[constants.InternalGatewaySemantics] = constants.GatewaySemanticsGateway
+	return c
+}
+
+func TestFilterStrictGatewayMerging(t *testing.T) {
+	// Istio gateways (no InternalGatewaySemantics annotation)
+	istioGwNsA := makeConfig("istio-gw1", "ns-a", "foo.example.com", "http", "HTTP", 80, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE, []string{}, "sa")
+	istioGwNsB := makeConfig("istio-gw2", "ns-b", "bar.example.com", "http", "HTTP", 80, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE, []string{}, "sa")
+
+	// Managed GatewayAPI gateway (has InternalGatewaySemantics + non-empty service account)
+	managedGwapiNsA := makeInternalConfig("gwapi-gw1", "ns-a", "baz.example.com", "http", "HTTP", 80, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE, []string{}, "sa")
+
+	// Unmanaged GatewayAPI gateway (has InternalGatewaySemantics but empty service account = manual deployment)
+	unmanagedGwapiNsB := makeInternalConfig("gwapi-gw2", "ns-b", "qux.example.com", "http", "HTTP", 80, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE, []string{}, "")
+
+	// Managed GatewayAPI gateway in ns-b
+	managedGwapiNsB := makeInternalConfig("gwapi-gw3", "ns-b", "quux.example.com", "http", "HTTP", 80, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE, []string{}, "sa")
+
+	toInstances := func(configs ...config.Config) []gatewayWithInstances {
+		var out []gatewayWithInstances
+		for _, c := range configs {
+			out = append(out, gatewayWithInstances{gateway: c, legacyGatewaySelector: true})
+		}
+		return out
+	}
+
+	names := func(instances []gatewayWithInstances) []string {
+		var out []string
+		for _, gwi := range instances {
+			out = append(out, gwi.gateway.Namespace+"/"+gwi.gateway.Name)
+		}
+		return out
+	}
+
+	tests := []struct {
+		name     string
+		input    []gatewayWithInstances
+		expected []string
+	}{
+		{
+			name:     "no gwapi gateways - no filtering",
+			input:    toInstances(istioGwNsA, istioGwNsB),
+			expected: []string{"ns-a/istio-gw1", "ns-b/istio-gw2"},
+		},
+		{
+			name:     "only unmanaged gwapi - no filtering",
+			input:    toInstances(istioGwNsA, istioGwNsB, unmanagedGwapiNsB),
+			expected: []string{"ns-a/istio-gw1", "ns-b/istio-gw2", "ns-b/gwapi-gw2"},
+		},
+		{
+			name:     "managed gwapi in ns-a - keep istio in ns-a, drop istio in ns-b",
+			input:    toInstances(managedGwapiNsA, istioGwNsA, istioGwNsB),
+			expected: []string{"ns-a/gwapi-gw1", "ns-a/istio-gw1"},
+		},
+		{
+			name:     "managed gwapi in ns-a - keep all gwapi regardless of namespace",
+			input:    toInstances(managedGwapiNsA, unmanagedGwapiNsB, istioGwNsA, istioGwNsB),
+			expected: []string{"ns-a/gwapi-gw1", "ns-b/gwapi-gw2", "ns-a/istio-gw1"},
+		},
+		{
+			name:     "managed gwapi in both namespaces - keep all",
+			input:    toInstances(managedGwapiNsA, managedGwapiNsB, istioGwNsA, istioGwNsB),
+			expected: []string{"ns-a/gwapi-gw1", "ns-b/gwapi-gw3", "ns-a/istio-gw1", "ns-b/istio-gw2"},
+		},
+		{
+			name:     "only managed gwapi - keep all",
+			input:    toInstances(managedGwapiNsA, managedGwapiNsB),
+			expected: []string{"ns-a/gwapi-gw1", "ns-b/gwapi-gw3"},
+		},
+		{
+			name:     "order does not matter",
+			input:    toInstances(istioGwNsB, istioGwNsA, managedGwapiNsA),
+			expected: []string{"ns-a/istio-gw1", "ns-a/gwapi-gw1"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := filterStrictGatewayMerging(tt.input)
+			got := names(result)
+			if len(got) != len(tt.expected) {
+				t.Fatalf("expected %v gateways, got %v: %v", len(tt.expected), len(got), got)
+			}
+			expectedSet := sets.New(tt.expected...)
+			for _, name := range got {
+				if !expectedSet.Contains(name) {
+					t.Errorf("unexpected gateway in result: %s", name)
+				}
+			}
+			for _, name := range tt.expected {
+				found := false
+				for _, g := range got {
+					if g == name {
+						found = true
+						break
+					}
+				}
+				if !found {
+					t.Errorf("expected gateway %s not found in result", name)
+				}
+			}
+		})
+	}
 }
 
 // sa controls which service account names are allowed to get secrets
