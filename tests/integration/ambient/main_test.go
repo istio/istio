@@ -124,6 +124,9 @@ func TestMain(m *testing.M) {
 			cfg.EnableCNI = true
 			cfg.DeployEastWestGW = false
 			cfg.ControlPlaneValues = ambientControlPlaneValues
+			// impact of agentgateway logic is minimal without deploying the
+			// gatewayclass "istio-agentgateway"
+			cfg.Values["pilot.env.PILOT_ENABLE_AGENTGATEWAY"] = "true"
 
 			if ctx.Settings().NativeNftables {
 				scopes.Framework.Infof("Running the integration tests with nativeNftables enabled")
@@ -137,11 +140,6 @@ func TestMain(m *testing.M) {
 				cfg.Values["pilot.env.AMBIENT_ENABLE_MULTI_NETWORK"] = "true"
 				cfg.Values["pilot.env.AMBIENT_ENABLE_MULTI_NETWORK_INGRESS"] = "true"
 				cfg.Values["pilot.env.AMBIENT_ENABLE_BAGGAGE"] = "true"
-			}
-
-			if ctx.Settings().Agentgateway {
-				cfg.DeployGatewayAPI = true
-				cfg.Values["pilot.env.PILOT_ENABLE_AGENTGATEWAY"] = "true"
 			}
 		}, cert.CreateCASecretAlt)).
 		Setup(func(t resource.Context) error {

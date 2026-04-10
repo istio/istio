@@ -17,6 +17,7 @@
 package pilot
 
 import (
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -46,7 +47,7 @@ import (
 
 // GatewayConformanceInputs defines inputs to the gateway conformance test.
 // The upstream build requires using `testing.T` types, which we cannot pass using our framework.
-// To workaround this, we set up the inputs it TestMain.
+// To workaround this, we set up the inputs in TestMain.
 type GatewayConformanceInputs struct {
 	Client  kube.CLIClient
 	Cleanup bool
@@ -110,6 +111,14 @@ var skippedTests = map[string]string{
 }
 
 func TestGatewayConformance(t *testing.T) {
+	testConformance(i.Settings().GatewayClassName, t)
+}
+
+func TestAgentgatewayConformance(t *testing.T) {
+	testConformance("istio-agentgateway", t)
+}
+
+func testConformance(gatewayClassName string, t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
@@ -141,11 +150,6 @@ func TestGatewayConformance(t *testing.T) {
 						supportedFeatures.Delete(f)
 					}
 				}
-			}
-
-			gatewayClassName := i.Settings().GatewayClassName
-			if ctx.Settings().Agentgateway {
-				gatewayClassName = "istio-agentgateway"
 			}
 
 			hostnameType := v1.AddressType("Hostname")
@@ -209,10 +213,7 @@ func TestGatewayConformance(t *testing.T) {
 			assert.NoError(t, err)
 			reportb, err := yaml.Marshal(report)
 			assert.NoError(t, err)
-			fp := filepath.Join(ctx.Settings().BaseDir, "conformance.yaml")
-			if ctx.Settings().Agentgateway {
-				fp = filepath.Join(ctx.Settings().BaseDir, "agentgateway_conformance.yaml")
-			}
+			fp := filepath.Join(ctx.Settings().BaseDir, fmt.Sprintf("%s-conformance.yaml", gatewayClassName))
 			t.Logf("writing conformance test to %v (%v)", fp, prow.ArtifactsURL(fp))
 			assert.NoError(t, os.WriteFile(fp, reportb, 0o644))
 		})
