@@ -525,6 +525,9 @@ func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQu
 				case <-closed: // grpc stream was closed
 					doneFunc()
 					log.Infof("Client closed connection %v", client.ID())
+				case <-stopCh: // unblock goroutines already in-flight so outer loop can unblock and select on stopCh to exit
+					doneFunc()
+					log.Infof("Push to client %v aborted due to server shutdown", client.ID())
 				}
 			}()
 		}
