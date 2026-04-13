@@ -246,7 +246,7 @@ var (
 								},
 							},
 						},
-						FactoryKey:         "envoy.string",
+						FactoryKey:         "istio.hashable_string",
 						SharedWithUpstream: sfsvalue.FilterStateValue_ONCE,
 					},
 				},
@@ -290,7 +290,7 @@ var (
 								},
 							},
 						},
-						FactoryKey:         "envoy.string",
+						FactoryKey:         "istio.hashable_string",
 						SharedWithUpstream: sfsvalue.FilterStateValue_ONCE,
 					}, {
 						Key: &sfsvalue.FilterStateValue_ObjectKey{
@@ -312,7 +312,7 @@ var (
 						Key: &sfsvalue.FilterStateValue_ObjectKey{
 							ObjectKey: "io.istio.peer_principal",
 						},
-						FactoryKey: "envoy.string",
+						FactoryKey: "istio.hashable_string",
 						Value: &sfsvalue.FilterStateValue_FormatString{
 							FormatString: &core.SubstitutionFormatString{
 								Format: &core.SubstitutionFormatString_TextFormatSource{
@@ -329,7 +329,7 @@ var (
 						Key: &sfsvalue.FilterStateValue_ObjectKey{
 							ObjectKey: "io.istio.local_principal",
 						},
-						FactoryKey: "envoy.string",
+						FactoryKey: "istio.hashable_string",
 						Value: &sfsvalue.FilterStateValue_FormatString{
 							FormatString: &core.SubstitutionFormatString{
 								Format: &core.SubstitutionFormatString_TextFormatSource{

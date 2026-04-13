@@ -216,9 +216,6 @@ func checkControlPlane(ctx cli.Context) (diag.Messages, error) {
 		resource.Namespace(ctx.IstioNamespace()),
 		nil,
 	)
-	if err != nil {
-		return nil, err
-	}
 	sa.AddRunningKubeSource(cli)
 	cancel := make(chan struct{})
 	result, err := sa.Analyze(cancel)

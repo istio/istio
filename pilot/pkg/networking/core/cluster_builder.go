@@ -254,6 +254,18 @@ func (cb *ClusterBuilder) applyOverrideHostPolicy(cw *clusterWrapper) {
 							},
 						},
 					},
+					// The metadata key to populate with the address of the host which was ultimately selected
+					// to serve the request.
+					SelectedHostKey: &metadatav3.MetadataKey{
+						Key: constants.EnvoySubsetNamespace,
+						Path: []*metadatav3.MetadataKey_PathSegment{
+							{
+								Segment: &metadatav3.MetadataKey_PathSegment_Key{
+									Key: constants.GatewayInferenceExtensionEndpointServedKey,
+								},
+							},
+						},
+					},
 					// The fallback LB policy is triggered in case neither header nor metadata with selected
 					// hosts is present or there were not enough endpoints to satisfy all retry attempts.
 					FallbackPolicy: &cluster.LoadBalancingPolicy{
@@ -281,7 +293,7 @@ func (cb *ClusterBuilder) buildSubsetCluster(
 	opts buildClusterOpts, destRule *config.Config, subset *networking.Subset, service *model.Service,
 	endpointBuilder *endpoints.EndpointBuilder,
 ) *cluster.Cluster {
-	opts.serviceMTLSMode = cb.req.Push.BestEffortInferServiceMTLSMode(subset.GetTrafficPolicy(), service, opts.port)
+	opts.serviceMTLSMode = cb.req.Push.BestEffortInferServiceMTLSMode(cb.sidecarScope.AuthnPolicies, subset.GetTrafficPolicy(), service, opts.port)
 	var subsetClusterName string
 	var defaultSni string
 	if opts.clusterMode == DefaultClusterMode {
@@ -363,7 +375,7 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *clusterWrapper, clusterMode C
 		}
 		opts.meshExternal = service.MeshExternal
 		opts.serviceRegistry = service.Attributes.ServiceRegistry
-		opts.serviceMTLSMode = cb.req.Push.BestEffortInferServiceMTLSMode(destinationRule.GetTrafficPolicy(), service, port)
+		opts.serviceMTLSMode = cb.req.Push.BestEffortInferServiceMTLSMode(cb.sidecarScope.AuthnPolicies, destinationRule.GetTrafficPolicy(), service, port)
 		opts.allInstancesHBONE = cb.req.Push.AllInstancesSupportHBONE(service, port)
 	}
 
@@ -514,6 +526,10 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 		c.DnsJitter = durationpb.New(features.PilotDNSJitterDurationEnv) //nolint:staticcheck // DnsJitter is deprecated
 		c.DnsRefreshRate = cb.req.Push.Mesh.DnsRefreshRate               //nolint:staticcheck // DnsRefreshRate is deprecated
 		c.RespectDnsTtl = true                                           //nolint:staticcheck // RespectDnsTtl is deprecated
+		// Applies only to STRICT_DNS/LOGICAL_DNS clusters in this switch branch.
+		if service != nil && service.Attributes.K8sAttributes.DNSConnectStrategy == model.DNSConnectStrategyRaceFirstTCPConnect {
+			c.DnsLookupFamily = cluster.Cluster_ALL
+		}
 		// we want to run all the STATIC parts as well to build the load assignment
 		fallthrough
 	case cluster.Cluster_STATIC:
@@ -569,6 +585,8 @@ func (cb *ClusterBuilder) buildDFPCluster(name string, service *model.Service, p
 			}),
 		}},
 	}
+
+	// TODO(keithmattix): Use figure out how to do happy eyeballs with dfp clusters
 	c.AltStatName = util.DelimitedStatsPrefix(name)
 	ec := newDFPClusterWrapper(c)
 	cb.setUpstreamProtocol(ec, port)

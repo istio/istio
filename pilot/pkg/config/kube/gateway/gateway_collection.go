@@ -348,7 +348,7 @@ func GatewayCollection(
 			}
 			result = append(result, res)
 		}
-		listenersFromSets := krt.Fetch(ctx, listenerSets, krt.FilterIndex(listenerIndex, config.NamespacedName(obj)))
+		listenersFromSets := listenerIndex.Fetch(ctx, config.NamespacedName(obj))
 		for _, ls := range listenersFromSets {
 			servers = append(servers, ls.Config.Spec.(*istio.Gateway).Servers...)
 			result = append(result, Gateway{
@@ -380,7 +380,7 @@ func FinalGatewayStatusCollection(
 		func(
 			ctx krt.HandlerContext, i krt.ObjectWithStatus[*gatewayv1.Gateway, gatewayv1.GatewayStatus],
 		) *krt.ObjectWithStatus[*gatewayv1.Gateway, gatewayv1.GatewayStatus] {
-			tcpRoutes := krt.Fetch(ctx, routeAttachments, krt.FilterIndex(routeAttachmentsIndex, config.NamespacedName(i.Obj)))
+			tcpRoutes := routeAttachmentsIndex.Fetch(ctx, config.NamespacedName(i.Obj))
 			counts := map[string]int32{}
 			for _, r := range tcpRoutes {
 				counts[r.ListenerName]++
@@ -419,7 +419,7 @@ func (p RouteParents) fetch(ctx krt.HandlerContext, pk parentKey) []*parentInfo 
 			},
 		}
 	}
-	return slices.Map(krt.Fetch(ctx, p.gateways, krt.FilterIndex(p.gatewayIndex, pk)), func(gw Gateway) *parentInfo {
+	return slices.Map(p.gatewayIndex.Fetch(ctx, pk), func(gw Gateway) *parentInfo {
 		return &gw.ParentInfo
 	})
 }

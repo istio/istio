@@ -15,8 +15,10 @@
 package xds_test
 
 import (
+	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	udpa "github.com/cncf/xds/go/udpa/type/v1"
 	clusterv3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
@@ -36,6 +38,7 @@ import (
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/wellknown"
 )
@@ -522,15 +525,36 @@ spec:
 		waypointGateway, waypointSvc, waypointInstance,
 		appServiceEntry, notSelectedAppServiceEntry, requestAuthn)
 
-	l := xdstest.ExtractListener("main_internal", d.Listeners(proxy))
+	var app, notApp *hcm.HttpConnectionManager
+	retry.UntilSuccessOrFail(t, func() error {
+		l := xdstest.ExtractListener("main_internal", d.Listeners(proxy))
+		if l == nil {
+			return fmt.Errorf("listener not found")
+		}
 
-	app := xdstest.ExtractHTTPConnectionManager(t,
-		xdstest.ExtractFilterChain(model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "http", "app.com", 80), l))
+		appFc := xdstest.ExtractFilterChain(model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "http", "app.com", 80), l)
+		if appFc == nil {
+			return fmt.Errorf("app filter chain not found")
+		}
+		app = xdstest.ExtractHTTPConnectionManager(t, appFc)
+		if app == nil {
+			return fmt.Errorf("app hcm not found")
+		}
+
+		notAppFc := xdstest.ExtractFilterChain(model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "http", "not-app.com", 80), l)
+		if notAppFc == nil {
+			return fmt.Errorf("notApp filter chain not found")
+		}
+		notApp = xdstest.ExtractHTTPConnectionManager(t, notAppFc)
+		if notApp == nil {
+			return fmt.Errorf("notApp hcm not found")
+		}
+		return nil
+	}, retry.Timeout(time.Second*10))
+
 	assert.Equal(t, sets.New(slices.Map(app.HttpFilters, (*hcm.HttpFilter).GetName)...).Contains("envoy.filters.http.jwt_authn"), true)
 
 	// assert not-app.com has not gotten config from the req authn
-	notApp := xdstest.ExtractHTTPConnectionManager(t,
-		xdstest.ExtractFilterChain(model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "http", "not-app.com", 80), l))
 	assert.Equal(t, sets.New(slices.Map(notApp.HttpFilters, (*hcm.HttpFilter).GetName)...).Contains("envoy.filters.http.jwt_authn"), false)
 }
 
@@ -589,6 +613,39 @@ spec:
 		To(Equal("type.googleapis.com/envoy.extensions.clusters.dynamic_forward_proxy.v3.ClusterConfig"))
 	po := cluster.TypedExtensionProtocolOptions["envoy.extensions.upstreams.http.v3.HttpProtocolOptions"]
 	g.Expect(po).To(BeNil())
+}
+
+func TestWaypointClusterDNSConnectStrategyHappyEyeballs(t *testing.T) {
+	g := NewWithT(t)
+	DNSConnectStrategyServiceEntry := `apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: race-target
+  namespace: default
+  labels:
+    istio.io/use-waypoint: waypoint
+    istio.io/use-waypoint-namespace: default
+  annotations:
+    istio.io/connect-strategy: RACE_FIRST_TCP_CONNECT
+spec:
+  hosts: ["sql.example.com"]
+  ports:
+  - number: 1433
+    name: tcp-sql
+    protocol: TCP
+  resolution: DNS`
+	d, p := setupWaypointTest(t,
+		waypointGateway,
+		waypointSvc,
+		waypointInstance,
+		DNSConnectStrategyServiceEntry)
+
+	clusters := xdstest.ExtractClusters(d.Clusters(p))
+	c := clusters["inbound-vip|1433|tcp|sql.example.com"]
+	g.Expect(c).NotTo(BeNil(), "expected inbound-vip cluster for sql.example.com")
+	g.Expect(c.DnsLookupFamily).To(Equal(clusterv3.Cluster_ALL),
+		"connect strategy RACE_FIRST_TCP_CONNECT should set DnsLookupFamily=ALL for happy eyeballs")
+	g.Expect(c.GetType()).To(Equal(clusterv3.Cluster_LOGICAL_DNS), "connect strategy RACE_FIRST_TCP_CONNECT should be a LOGICAL_DNS cluster")
 }
 
 func TestWaypointClusterWithDynamicDNSWithoutWaypoint(t *testing.T) {
@@ -944,6 +1001,67 @@ func TestWaypointPeerMetadataFilters(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestWaypointMultipleVirtualServices(t *testing.T) {
+	// Test that multiple VirtualServices targeting the same host at a waypoint
+	// have all their routes merged into the inbound VirtualHost.
+	vs1 := `apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: vs-route-a
+  namespace: default
+spec:
+  hosts: [app.com]
+  http:
+  - match:
+    - uri:
+        prefix: /route-a
+    route:
+    - destination:
+        host: app.com
+        port:
+          number: 80
+`
+	vs2 := `apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: vs-route-b
+  namespace: default
+spec:
+  hosts: [app.com]
+  http:
+  - match:
+    - uri:
+        prefix: /route-b
+    route:
+    - destination:
+        host: app.com
+        port:
+          number: 80
+`
+	d, proxy := setupWaypointTest(t,
+		waypointGateway, waypointSvc, waypointInstance,
+		appServiceEntry, appWorkloadEntry,
+		vs1, vs2)
+
+	l := xdstest.ExtractListener("main_internal", d.Listeners(proxy))
+	fc := xdstest.ExtractFilterChain(model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "http", "app.com", 80), l)
+	hcmCfg := xdstest.ExtractHTTPConnectionManager(t, fc)
+	routeConfig := hcmCfg.GetRouteConfig()
+
+	// Collect all route prefixes across all virtual hosts
+	var prefixes []string
+	for _, vh := range routeConfig.GetVirtualHosts() {
+		for _, r := range vh.Routes {
+			if prefix := r.GetMatch().GetPrefix(); prefix != "" {
+				prefixes = append(prefixes, prefix)
+			}
+		}
+	}
+	// Both VS routes must be present — prior to the fix, only the first VS's routes appeared
+	assert.Equal(t, sets.New(prefixes...).Contains("/route-a"), true)
+	assert.Equal(t, sets.New(prefixes...).Contains("/route-b"), true)
 }
 
 func setupWaypointTest(t *testing.T, configs ...string) (*xds.FakeDiscoveryServer, *model.Proxy) {

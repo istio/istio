@@ -37,6 +37,7 @@ import (
 func TestXdsStatusWriter_PrintAll(t *testing.T) {
 	tests := []struct {
 		name      string
+		namespace string
 		format    string
 		input     map[string]*discovery.DiscoveryResponse
 		wantFile  string
@@ -189,11 +190,45 @@ func TestXdsStatusWriter_PrintAll(t *testing.T) {
 			wantFile:  "testdata/multiXdsStatusSinglePilot.yaml",
 			verbosity: 0,
 		},
+		{
+			name:      "prints output in YAML format for a single namespace",
+			format:    "yaml",
+			namespace: "foo",
+			input: map[string]*discovery.DiscoveryResponse{
+				"istiod1": xdsResponseInput("istiod1", []clientConfigInput{
+					{
+						proxyID:        "proxy1",
+						clusterID:      "cluster1",
+						version:        "1.20",
+						namespace:      "foo",
+						cdsSyncStatus:  status.ConfigStatus_STALE,
+						ldsSyncStatus:  status.ConfigStatus_SYNCED,
+						rdsSyncStatus:  status.ConfigStatus_NOT_SENT,
+						edsSyncStatus:  status.ConfigStatus_SYNCED,
+						ecdsSyncStatus: status.ConfigStatus_SYNCED,
+					},
+					{
+						proxyID:        "proxy2",
+						clusterID:      "cluster1",
+						version:        "1.20",
+						namespace:      "bar",
+						cdsSyncStatus:  status.ConfigStatus_STALE,
+						ldsSyncStatus:  status.ConfigStatus_SYNCED,
+						rdsSyncStatus:  status.ConfigStatus_NOT_SENT,
+						edsSyncStatus:  status.ConfigStatus_SYNCED,
+						ecdsSyncStatus: status.ConfigStatus_SYNCED,
+					},
+				},
+				),
+			},
+			wantFile:  "testdata/multiXdsStatusSingleNamespace.yaml",
+			verbosity: 0,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := &bytes.Buffer{}
-			sw := XdsStatusWriter{Writer: got, Verbosity: tt.verbosity, OutputFormat: tt.format}
+			sw := XdsStatusWriter{Writer: got, Verbosity: tt.verbosity, OutputFormat: tt.format, Namespace: tt.namespace}
 			input := map[string]*discovery.DiscoveryResponse{}
 			for key, ss := range tt.input {
 				input[key] = ss
@@ -217,6 +252,7 @@ type clientConfigInput struct {
 	proxyID   string
 	clusterID string
 	version   string
+	namespace string
 
 	cdsSyncStatus  status.ConfigStatus
 	ldsSyncStatus  status.ConfigStatus
@@ -229,6 +265,7 @@ func newXdsClientConfig(config clientConfigInput) *status.ClientConfig {
 	meta := model.NodeMetadata{
 		ClusterID:    cluster.ID(config.clusterID),
 		IstioVersion: config.version,
+		Namespace:    config.namespace,
 	}
 	return &status.ClientConfig{
 		Node: &core.Node{

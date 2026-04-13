@@ -18,6 +18,7 @@ package ambient
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -927,6 +928,63 @@ spec:
 				})
 			})
 		})
+		t.NewSubTest("ns level ingress-use-waypoint").Run(func(t framework.TestContext) {
+			if t.Settings().AmbientMultiNetwork {
+				t.Skip("https://github.com/istio/istio/issues/54245")
+			}
+			t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
+				"Destination": apps.ServiceAddressedWaypoint.ServiceName(),
+			}, `apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: gateway
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts: ["*"]
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: route
+spec:
+  gateways:
+  - gateway
+  hosts:
+  - "*"
+  http:
+  - route:
+    - destination:
+        host: "{{.Destination}}"
+`).ApplyOrFail(t)
+			ingress := istio.DefaultIngressOrFail(t, t)
+			t.NewSubTest("without ns ingress-use-waypoint label").Run(func(t framework.TestContext) {
+				ingress.CallOrFail(t, echo.CallOptions{
+					Port: echo.Port{
+						Protocol:    protocol.HTTP,
+						ServicePort: 80,
+					},
+					Scheme: scheme.HTTP,
+					Check:  check.OK(), // AuthorizationPolicy should be bypassed since the ns label is not set
+				})
+			})
+			t.NewSubTest("with ns ingress-use-waypoint label").Run(func(t framework.TestContext) {
+				SetNsIngressUseWaypoint(t, apps.Namespace.Name())
+				ingress.CallOrFail(t, echo.CallOptions{
+					Port: echo.Port{
+						Protocol:    protocol.HTTP,
+						ServicePort: 80,
+					},
+					Scheme: scheme.HTTP,
+					Check:  CheckDeny, // AuthorizationPolicy should be enforced since the ns label is set
+				})
+			})
+		})
 		t.NewSubTest("ingress-workload").Run(func(t framework.TestContext) {
 			t.Skip("not implemented")
 			t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
@@ -1283,29 +1341,277 @@ spec:
 }
 
 func SetIngressUseWaypoint(t framework.TestContext, name, ns string) {
-	for _, c := range t.Clusters() {
-		set := func(service bool) error {
-			var set string
-			if service {
-				set = fmt.Sprintf("%q", "true")
-			} else {
-				set = "null"
-			}
-			label := []byte(fmt.Sprintf(`{"metadata":{"labels":{"%s":%s}}}`,
-				"istio.io/ingress-use-waypoint", set))
-			_, err := c.Kube().CoreV1().Services(ns).Patch(context.TODO(), name, types.MergePatchType, label, metav1.PatchOptions{})
-			return err
-		}
+	setIngressUseWaypoint(t, name, func(c cluster.Cluster, label []byte) error {
+		_, err := c.Kube().CoreV1().Services(ns).Patch(context.TODO(), name, types.MergePatchType, label, metav1.PatchOptions{})
+		return err
+	})
+}
 
-		if err := set(true); err != nil {
+func SetNsIngressUseWaypoint(t framework.TestContext, ns string) {
+	setIngressUseWaypoint(t, ns, func(c cluster.Cluster, label []byte) error {
+		_, err := c.Kube().CoreV1().Namespaces().Patch(context.TODO(), ns, types.MergePatchType, label, metav1.PatchOptions{})
+		return err
+	})
+}
+
+func setIngressUseWaypoint(t framework.TestContext, name string, patcher func(cluster.Cluster, []byte) error) {
+	makeLabel := func(enable bool) []byte {
+		val := "null"
+		if enable {
+			val = fmt.Sprintf("%q", "true")
+		}
+		return []byte(fmt.Sprintf(`{"metadata":{"labels":{"%s":%s}}}`, "istio.io/ingress-use-waypoint", val))
+	}
+	for _, c := range t.Clusters() {
+		if err := patcher(c, makeLabel(true)); err != nil {
 			t.Fatal(err)
 		}
 		t.Cleanup(func() {
-			if err := set(false); err != nil {
-				scopes.Framework.Errorf("failed resetting service-addressed for %s", name)
+			if err := patcher(c, makeLabel(false)); err != nil {
+				scopes.Framework.Errorf("failed resetting ingress-use-waypoint label for %s", name)
 			}
 		})
 	}
+}
+
+func TestWaypointDNSConnectStrategy(t *testing.T) {
+	framework.
+		NewTest(t).
+		Run(func(t framework.TestContext) {
+			egressNamespace, err := namespace.Claim(t, namespace.Config{
+				Prefix: "connect-strategy-egress",
+				Inject: false,
+			})
+			assert.NoError(t, err)
+
+			waypointSpec := `apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: connect-strategy-gw
+spec:
+  gatewayClassName: istio-waypoint
+  listeners:
+  - name: mesh
+    port: 15008
+    protocol: HBONE
+    allowedRoutes:
+      namespaces:
+        from: Selector
+        selector:
+          matchLabels:
+            kubernetes.io/metadata.name: "{{.}}"`
+			t.ConfigIstio().
+				Eval(egressNamespace.Name(), apps.Namespace.Name(), waypointSpec).
+				ApplyOrFail(t, apply.CleanupConditionally)
+
+			serviceEntry := `apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: connect-strategy-se
+  labels:
+    istio.io/use-waypoint: connect-strategy-gw
+    istio.io/use-waypoint-namespace: {{.EgressNamespace}}
+  annotations:
+    istio.io/connect-strategy: RACE_FIRST_TCP_CONNECT
+spec:
+  hosts:
+  - fake-connect-strategy.example.com
+  ports:
+  - name: http
+    number: 80
+    protocol: HTTP
+  location: MESH_EXTERNAL
+  resolution: DNS
+  endpoints:
+  - address: external.{{.ExternalNamespace}}.svc.cluster.local`
+			t.ConfigIstio().
+				Eval(apps.Namespace.Name(), map[string]string{
+					"ExternalNamespace": apps.ExternalNamespace.Name(),
+					"EgressNamespace":   egressNamespace.Name(),
+				}, serviceEntry).
+				ApplyOrFail(t, apply.CleanupConditionally)
+
+			// Subtest 1: Verify waypoint cluster config has DnsLookupFamily=ALL (happy eyeballs)
+			t.NewSubTest("envoy cluster config").Run(func(t framework.TestContext) {
+				waypointLabel := label.IoK8sNetworkingGatewayGatewayName.Name + "=connect-strategy-gw"
+				fetchFn := kubetest.NewSinglePodFetch(t.Clusters().Default(), egressNamespace.Name(), waypointLabel)
+				pods, err := kubetest.WaitUntilPodsAreReady(fetchFn)
+				if err != nil {
+					t.Fatalf("failed to find waypoint pod: %v", err)
+				}
+				waypointPod := fmt.Sprintf("%s.%s", pods[0].Name, egressNamespace.Name())
+
+				retry.UntilSuccessOrFail(t, func() error {
+					output, _ := istioctl.NewOrFail(t, istioctl.Config{}).InvokeOrFail(t,
+						[]string{"proxy-config", "cluster", waypointPod, "-o", "json"})
+
+					var clusters []json.RawMessage
+					if err := json.Unmarshal([]byte(output), &clusters); err != nil {
+						return fmt.Errorf("failed to parse cluster dump: %v", err)
+					}
+
+					for _, raw := range clusters {
+						var c map[string]any
+						if err := json.Unmarshal(raw, &c); err != nil {
+							continue
+						}
+						name, _ := c["name"].(string)
+						if !strings.Contains(name, "fake-connect-strategy.example.com") {
+							continue
+						}
+						// Verify DnsLookupFamily is ALL (enables happy eyeballs)
+						dnsFamily, _ := c["dnsLookupFamily"].(string)
+						if dnsFamily != "ALL" {
+							return fmt.Errorf("expected dnsLookupFamily=ALL for cluster %s, got %q", name, dnsFamily)
+						}
+						// Verify cluster type is LOGICAL_DNS (required for happy eyeballs)
+						clusterType, _ := c["type"].(string)
+						if clusterType != "LOGICAL_DNS" {
+							return fmt.Errorf("expected type=LOGICAL_DNS for cluster %s, got %q", name, clusterType)
+						}
+						return nil
+					}
+					return fmt.Errorf("cluster for fake-connect-strategy.example.com not found in config dump")
+				}, retry.Timeout(30*time.Second))
+			})
+
+			// Subtest 2: Verify traffic flows through the waypoint with L7 processing
+			t.NewSubTest("traffic through waypoint").Run(func(t framework.TestContext) {
+				for _, src := range apps.All {
+					if !hboneClient(src) {
+						continue
+					}
+					t.NewSubTestf("from %s", src.ServiceName()).Run(func(t framework.TestContext) {
+						if src.Config().HasSidecar() {
+							t.Skip("TODO: sidecars don't properly handle use-waypoint")
+						}
+						src.CallOrFail(t, echo.CallOptions{
+							Address: "fake-connect-strategy.example.com",
+							Port:    echo.Port{ServicePort: 80},
+							Scheme:  scheme.HTTP,
+							Count:   1,
+							Check:   check.And(check.OK(), IsL7()),
+						})
+					})
+				}
+			})
+
+			// Subtest 3: Verify status condition when connect strategy is set without waypoint
+			t.NewSubTest("status condition without waypoint").Run(func(t framework.TestContext) {
+				noWaypointSE := `apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: connect-strategy-no-wp
+  annotations:
+    istio.io/connect-strategy: RACE_FIRST_TCP_CONNECT
+spec:
+  hosts:
+  - fake-no-waypoint.example.com
+  ports:
+  - name: http
+    number: 80
+    protocol: HTTP
+  location: MESH_EXTERNAL
+  resolution: DNS
+  endpoints:
+  - address: external.{{.ExternalNamespace}}.svc.cluster.local`
+				t.ConfigIstio().
+					Eval(apps.Namespace.Name(), map[string]string{
+						"ExternalNamespace": apps.ExternalNamespace.Name(),
+					}, noWaypointSE).
+					ApplyOrFail(t, apply.CleanupConditionally)
+
+				retry.UntilSuccessOrFail(t, func() error {
+					se, err := t.Clusters().Default().Istio().NetworkingV1().ServiceEntries(apps.Namespace.Name()).
+						Get(context.TODO(), "connect-strategy-no-wp", metav1.GetOptions{})
+					if err != nil {
+						return err
+					}
+					for _, cond := range se.Status.Conditions {
+						if cond.Type == string(model.WaypointMissing) {
+							if cond.Status == "True" {
+								return nil
+							}
+							return fmt.Errorf("expected condition status %q, got %q", "True", cond.Status)
+						}
+					}
+					return fmt.Errorf("condition %s not found on ServiceEntry", model.WaypointMissing)
+				}, retry.Timeout(1*time.Minute))
+			})
+			// Subtest 4: Verify status condition clears when switching back to default strategy
+			t.NewSubTest("status condition clears on strategy reset").Run(func(t framework.TestContext) {
+				patchRemoveAnnotation := func(name string) error {
+					se, err := t.Clusters().Default().Istio().NetworkingV1().ServiceEntries(apps.Namespace.Name()).
+						Get(context.TODO(), name, metav1.GetOptions{})
+					if err != nil {
+						return err
+					}
+					delete(se.Annotations, "istio.io/connect-strategy")
+					_, err = t.Clusters().Default().Istio().NetworkingV1().ServiceEntries(apps.Namespace.Name()).Update(context.TODO(), se, metav1.UpdateOptions{})
+					return err
+				}
+
+				// Apply ServiceEntry without waypoint and with connect strategy
+				noWaypointSE := `apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: connect-strategy-reset-test
+  annotations:
+    istio.io/connect-strategy: RACE_FIRST_TCP_CONNECT
+spec:
+  hosts:
+  - fake-reset-test.example.com
+  ports:
+  - name: http
+    number: 80
+    protocol: HTTP
+  location: MESH_EXTERNAL
+  resolution: DNS
+  endpoints:
+  - address: external.{{.ExternalNamespace}}.svc.cluster.local`
+				t.ConfigIstio().
+					Eval(apps.Namespace.Name(), map[string]string{
+						"ExternalNamespace": apps.ExternalNamespace.Name(),
+					}, noWaypointSE).
+					ApplyOrFail(t, apply.CleanupConditionally)
+
+				// Verify condition exists
+				retry.UntilSuccessOrFail(t, func() error {
+					se, err := t.Clusters().Default().Istio().NetworkingV1().ServiceEntries(apps.Namespace.Name()).
+						Get(context.TODO(), "connect-strategy-reset-test", metav1.GetOptions{})
+					if err != nil {
+						return err
+					}
+					for _, cond := range se.Status.Conditions {
+						if cond.Type == string(model.WaypointMissing) && cond.Status == "True" {
+							return nil
+						}
+					}
+					return fmt.Errorf("condition %s not found or not set correctly", model.WaypointMissing)
+				}, retry.Timeout(1*time.Minute))
+
+				// Remove annotation to reset to default strategy
+				var err error
+				retry.UntilSuccessOrFail(t, func() error {
+					return patchRemoveAnnotation("connect-strategy-reset-test")
+				}, retry.Timeout(1*time.Second), retry.Message(fmt.Sprintf("failed to remove connect-strategy annotation: %v", err)))
+
+				// Verify condition is cleared
+				retry.UntilSuccessOrFail(t, func() error {
+					se, err := t.Clusters().Default().Istio().NetworkingV1().ServiceEntries(apps.Namespace.Name()).
+						Get(context.TODO(), "connect-strategy-reset-test", metav1.GetOptions{})
+					if err != nil {
+						return err
+					}
+					for _, cond := range se.Status.Conditions {
+						if cond.Type == string(model.WaypointMissing) {
+							return fmt.Errorf("condition %s should have been cleared after strategy reset", model.WaypointMissing)
+						}
+					}
+					return nil
+				}, retry.Timeout(1*time.Minute))
+			})
+		})
 }
 
 func GetCondition(conditions []metav1.Condition, condition string) *metav1.Condition {

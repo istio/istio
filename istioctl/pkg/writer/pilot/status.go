@@ -24,6 +24,8 @@ import (
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	xdsstatus "github.com/envoyproxy/go-control-plane/envoy/service/status/v3"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 	"k8s.io/apimachinery/pkg/util/duration"
 	"sigs.k8s.io/yaml"
 
@@ -95,7 +97,34 @@ func (s *XdsStatusWriter) PrintAll(statuses map[string]*discovery.DiscoveryRespo
 
 func (s *XdsStatusWriter) printMachineReadable(statuses map[string]*discovery.DiscoveryResponse) error {
 	for _, status := range statuses {
-		out, err := protomarshal.ToJSONWithIndent(status, "    ")
+		outStatus := status
+		if s.Namespace != "" {
+			validResources := []*anypb.Any{}
+			for _, resource := range status.Resources {
+
+				clientConfig := xdsstatus.ClientConfig{}
+				if err := resource.UnmarshalTo(&clientConfig); err != nil {
+					return fmt.Errorf("could not unmarshal ClientConfig: %w", err)
+				}
+
+				meta, err := model.ParseMetadata(clientConfig.GetNode().GetMetadata())
+				if err != nil {
+					return fmt.Errorf("could not parse node metadata: %w", err)
+				}
+
+				if meta.Namespace == s.Namespace {
+					validResources = append(validResources, resource)
+				}
+			}
+			clonedStatus := proto.Clone(status)
+			filtered, ok := clonedStatus.(*discovery.DiscoveryResponse)
+			if !ok {
+				return fmt.Errorf("failed to cast cloned message to DiscoveryResponse")
+			}
+			filtered.Resources = validResources
+			outStatus = filtered
+		}
+		out, err := protomarshal.ToJSONWithIndent(outStatus, "    ")
 		if err != nil {
 			return err
 		}

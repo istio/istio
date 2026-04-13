@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+releaseNotes:
+- |
+  **Fixed** missing `ReadHeaderTimeout` and `IdleTimeout` on the istiod webhook HTTPS server (port 15017),
+  aligning it with the existing timeouts on the HTTP server (port 8080).

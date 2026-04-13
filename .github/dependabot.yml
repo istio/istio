@@ -3,7 +3,7 @@ updates:
   - package-ecosystem: "gomod"
     directories:
       - "/"
-      - "!/samples"
+      - "!/samples/**"
     schedule:
       interval: "daily"
     labels:
@@ -35,7 +35,7 @@ updates:
   - package-ecosystem: "gomod"
     directories:
       - "/"
-      - "!/samples"
+      - "!/samples/**"
     schedule:
       interval: "daily"
     labels:
@@ -60,7 +60,7 @@ updates:
   - package-ecosystem: "gomod"
     directories:
       - "/"
-      - "!/samples"
+      - "!/samples/**"
     schedule:
       interval: "daily"
     labels:
@@ -85,7 +85,7 @@ updates:
   - package-ecosystem: "gomod"
     directories:
       - "/"
-      - "!/samples"
+      - "!/samples/**"
     schedule:
       interval: "daily"
     labels:

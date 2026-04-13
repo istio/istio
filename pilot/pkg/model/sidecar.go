@@ -48,6 +48,7 @@ var (
 		kind.VirtualService,
 		kind.DestinationRule,
 		kind.Sidecar,
+		kind.PeerAuthentication,
 	)
 
 	// clusterScopedKnownConfigTypes includes configs when they are in root namespace,
@@ -56,8 +57,8 @@ var (
 		kind.EnvoyFilter,
 		kind.AuthorizationPolicy,
 		kind.RequestAuthentication,
-		kind.PeerAuthentication,
 		kind.WasmPlugin,
+		kind.TrafficExtension,
 		kind.Telemetry,
 	)
 )
@@ -171,6 +172,11 @@ type SidecarScope struct {
 	destinationRules        map[host.Name][]*ConsolidatedDestRule
 	destinationRulesByNames map[types.NamespacedName]*config.Config
 
+	// AuthnPolicies contains the PeerAuthentication policies relevant to this sidecar scope.
+	// It only includes policies from the root namespace, the config namespace, and namespaces
+	// from which services have been imported.
+	AuthnPolicies PeerAuthnPolicies
+
 	// OutboundTrafficPolicy defines the outbound traffic policy for this sidecar.
 	// If OutboundTrafficPolicy is ALLOW_ANY traffic to unknown destinations will
 	// be forwarded.
@@ -265,6 +271,8 @@ func DefaultSidecarScopeForGateway(ps *PushContext, configNamespace string) *Sid
 	}
 	out.selectDestinationRules(ps, configNamespace)
 
+	out.selectAuthnPolicies(ps, configNamespace)
+
 	// waypoint need to get vses from the egress listener
 	defaultEgressListener := &IstioEgressListenerWrapper{
 		virtualServices: ps.VirtualServicesForGateway(configNamespace, constants.IstioMeshGateway),
@@ -325,6 +333,10 @@ func initSidecarScopeInternalIndexes(ps *PushContext, sidecarScope *SidecarScope
 	// this sidecar crd. This is needed to generate CDS output
 	sidecarScope.collectImportedServices(ps, configNamespace)
 
+	// Select PeerAuthentication policies from namespaces relevant to this sidecar:
+	// root namespace, config namespace, and namespaces of imported services.
+	sidecarScope.selectAuthnPolicies(ps, configNamespace)
+
 	// Now that we have all the services that sidecars using this scope (in
 	// this config namespace) will see, identify all the destinationRules
 	// that these services need
@@ -356,15 +368,12 @@ func (sc *SidecarScope) collectImportedServices(ps *PushContext, configNamespace
 			sc.appendSidecarServices(servicesAdded, s)
 		}
 
-		// add dependencies on delegate virtual services
-		delegates := ps.DelegateVirtualServices(ilw.virtualServices)
-		sc.AddConfigDependencies(delegates...)
-
 		// Infer more possible destinations from virtual services
 		// Services chosen here will not override services explicitly requested in ilw.services.
 		// That way, if there is ambiguity around what hostname to pick, a user can specify the one they
 		// want in the hosts field, and the potentially random choice below won't matter
 		for _, vs := range ilw.virtualServices {
+			// we don't need to add dependencies on delegate virtual services because they are handled by the virtual service controller
 			sc.AddConfigDependencies(ConfigKey{
 				Kind:      kind.VirtualService,
 				Namespace: vs.Namespace,
@@ -389,13 +398,42 @@ func (sc *SidecarScope) collectImportedServices(ps *PushContext, configNamespace
 						continue
 					}
 					// This won't overwrite hostnames that have already been found eg because they were requested in hosts
-					if ns := pickFirstVisibleNamespace(ps, byNamespace, configNamespace); ns != "" {
+					pickNamespace := pickFirstVisibleNamespace
+					if features.SidecarPickBestServiceNamespace {
+						pickNamespace = pickBestVisibleNamespace
+					}
+					if ns := pickNamespace(ps, byNamespace, configNamespace); ns != "" {
 						if matchedSvc := serviceMatchingPort(byNamespace[ns], ilw, ports); matchedSvc != nil {
 							sc.appendSidecarServices(servicesAdded, matchedSvc)
 						}
 					}
 				}
 			}
+		}
+	}
+}
+
+func (sc *SidecarScope) selectAuthnPolicies(ps *PushContext, configNamespace string) {
+	if ps.AuthnPolicies == nil {
+		return
+	}
+
+	// Collect relevant namespaces: root namespace + config namespace + namespaces of all imported services.
+	relevantNamespaces := sets.New(configNamespace, ps.AuthnPolicies.GetRootNamespace())
+	for _, svc := range sc.services {
+		relevantNamespaces.Insert(svc.Attributes.Namespace)
+	}
+
+	sc.AuthnPolicies = ps.AuthnPolicies.FilterPeerAuthenticationNamespaces(relevantNamespaces)
+
+	// Add all selected PeerAuthentication policies as config dependencies
+	for _, configs := range sc.AuthnPolicies.GetPeerAuthentications() {
+		for _, cfg := range configs {
+			sc.AddConfigDependencies(ConfigKey{
+				Kind:      kind.PeerAuthentication,
+				Name:      cfg.Name,
+				Namespace: cfg.Namespace,
+			}.HashCode())
 		}
 	}
 }
@@ -556,7 +594,7 @@ func (ilw *IstioEgressListenerWrapper) MostSpecificWildcardVirtualServiceIndex()
 }
 
 // DependsOnConfig determines if the proxy depends on the given config.
-// Returns whether depends on this config or this kind of config is not scopeZd(unknown to be depended) here.
+// Returns whether depends on this config or this kind of config is not scoped(unknown to be depended) here.
 func (sc *SidecarScope) DependsOnConfig(config ConfigKey, rootNs string) bool {
 	if sc == nil {
 		return true
@@ -635,6 +673,11 @@ func (sc *SidecarScope) DestinationRuleConfig(direction TrafficDirection, proxy 
 // Services returns the list of services that are visible to a sidecar.
 func (sc *SidecarScope) Services() []*Service {
 	return sc.services
+}
+
+// Services returns the list of services that are visible to a sidecar.
+func (sc *SidecarScope) ServicesByHostname() map[host.Name]*Service {
+	return sc.servicesByHostname
 }
 
 // Testing Only. This allows tests to inject a config without having the mock.
@@ -1018,6 +1061,33 @@ func pickFirstVisibleNamespace(ps *PushContext, byNamespace map[string]*Service,
 	if len(nss) > 0 {
 		sort.Strings(nss)
 		return nss[0]
+	}
+	return ""
+}
+
+// Pick the best Service namespace visible to the configNamespace namespace.
+// If it does not exist, return an empty string.
+// Best is defined as:
+// 1. contains a Kubernetes service and is visible to configNamespace
+// 2. contains the oldest non-Kubernetes service which is visible to configNamespace
+// This does not consider whether a svc is in the configNamespace,
+// the calling logic has already attempted a direct lookup of byNamespace[configNamespace]
+func pickBestVisibleNamespace(ps *PushContext, byNamespace map[string]*Service, configNamespace string) string {
+	var currentBestService *Service
+	for _, svc := range byNamespace {
+		if ps.IsServiceVisible(svc, configNamespace) {
+			// if we have a visible kube service, use it
+			if svc.Attributes.ServiceRegistry == provider.Kubernetes {
+				return svc.NamespacedName().Namespace
+			}
+			// if this is the first visible service, or it's older than our current best, then it is the new best that we have seen
+			if currentBestService == nil || svc.CreationTime.Before(currentBestService.CreationTime) {
+				currentBestService = svc
+			}
+		}
+	}
+	if currentBestService != nil {
+		return currentBestService.NamespacedName().Namespace
 	}
 	return ""
 }

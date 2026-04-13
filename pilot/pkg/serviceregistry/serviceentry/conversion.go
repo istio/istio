@@ -225,6 +225,7 @@ func convertServices(cfg config.Config, nsAnnotations map[string]string) []*mode
 	}
 
 	trafficDistribution := model.GetTrafficDistribution(nil, cfg.Annotations, nsAnnotations)
+	dnsConnectStrategy := model.GetDNSConnectStrategy(cfg.Annotations)
 
 	svcPorts := make(model.PortList, 0, len(serviceEntry.Ports))
 	var portOverrides map[uint32]uint32
@@ -304,7 +305,7 @@ func convertServices(cfg config.Config, nsAnnotations map[string]string) []*mode
 				Labels:                 labels,
 				ExportTo:               exportTo,
 				LabelSelectors:         labelSelectors,
-				K8sAttributes:          model.K8sAttributes{ObjectName: cfg.Name, TrafficDistribution: trafficDistribution},
+				K8sAttributes:          model.K8sAttributes{ObjectName: cfg.Name, TrafficDistribution: trafficDistribution, DNSConnectStrategy: dnsConnectStrategy},
 			},
 			ServiceAccounts: serviceEntry.SubjectAltNames,
 		}
@@ -511,7 +512,6 @@ func services(
 	serviceEntries krt.Collection[config.Config],
 	meshConfig krt.Collection[meshwatcher.MeshConfigResource],
 	namespaces krt.Collection[*v1.Namespace],
-	workloads krt.Collection[*model.WorkloadInstance],
 	workloadsByNamespace krt.Index[string, *model.WorkloadInstance],
 	clusterID cluster.ID,
 	networkIDFn networkIDCallback,
@@ -540,10 +540,9 @@ func services(
 		}
 
 		dnsService := isDNSTypeService(services[0])
-		selectedWorkloads := krt.Fetch(
+		selectedWorkloads := workloadsByNamespace.Fetch(
 			ctx,
-			workloads,
-			krt.FilterIndex(workloadsByNamespace, cfg.Namespace),
+			cfg.Namespace,
 			krt.FilterLabel(se.WorkloadSelector.Labels),
 			krt.FilterGeneric(func(o any) bool {
 				wi := o.(*model.WorkloadInstance)

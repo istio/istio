@@ -12,7 +12,7 @@ They are `tar`ed to avoid developer confusion and accidental edits.
 apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
-  hub: gcr.io/istio-release
+  hub: registry.istio.io/release
   revision: 1-x-y
   components:
     base:
@@ -40,7 +40,7 @@ spec:
 apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
-  hub: gcr.io/istio-release
+  hub: registry.istio.io/release
   profile: empty
   components:
     cni:

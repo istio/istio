@@ -342,7 +342,7 @@ func genCertTemplateFromCSR(csr *x509.CertificateRequest, subjectIDs []string, t
 	}, nil
 }
 
-// genCertTemplateFromoptions generates a certificate template with the given options.
+// genCertTemplateFromOptions generates a certificate template with the given options.
 func genCertTemplateFromOptions(options CertOptions) (*x509.Certificate, error) {
 	var keyUsage x509.KeyUsage
 	if options.IsCA {

@@ -876,6 +876,9 @@ func mergeTrafficPolicy(mergedPolicy, subsetPolicy *networking.TrafficPolicy, ha
 	if subsetPolicy.ProxyProtocol != nil {
 		mergedPolicy.ProxyProtocol = subsetPolicy.ProxyProtocol
 	}
+	if subsetPolicy.RetryBudget != nil {
+		mergedPolicy.RetryBudget = subsetPolicy.RetryBudget
+	}
 	return mergedPolicy
 }
 
@@ -903,6 +906,7 @@ func ShallowCopyTrafficPolicy(original *networking.TrafficPolicy) *networking.Tr
 	ret.Tls = original.Tls
 	ret.Tunnel = original.Tunnel
 	ret.ProxyProtocol = original.ProxyProtocol
+	ret.RetryBudget = original.RetryBudget
 	return ret
 }
 

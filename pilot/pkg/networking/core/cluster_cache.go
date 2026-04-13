@@ -207,7 +207,7 @@ func buildClusterKey(service *model.Service, port *model.Port, cb *ClusterBuilde
 		destinationRule:         dr,
 		envoyFilterKeys:         efKeys,
 		metadataCerts:           cb.metadataCerts,
-		peerAuthVersion:         cb.req.Push.AuthnPolicies.GetVersion(),
+		peerAuthVersion:         cb.sidecarScope.AuthnPolicies.GetVersion(),
 		serviceAccounts:         cb.req.Push.ServiceAccounts(service.Hostname, service.Attributes.Namespace),
 		endpointBuilder:         eb,
 	}

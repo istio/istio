@@ -731,9 +731,13 @@ type Service struct {
 	Extensions []*Extension `protobuf:"bytes,10,rep,name=extensions,proto3" json:"extensions,omitempty"`
 	// canonical marks this Service as taking priority during hostname lookups,
 	// when there is not a match in the namespace of the client.
-	Canonical     bool `protobuf:"varint,11,opt,name=canonical,proto3" json:"canonical,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Canonical bool `protobuf:"varint,11,opt,name=canonical,proto3" json:"canonical,omitempty"`
+	// ingress_use_waypoint indicates that ingress gateways should send traffic destined
+	// for this service through the service's waypoint proxy.
+	// This is controlled by the istio.io/ingress-use-waypoint label on the Service or its namespace.
+	IngressUseWaypoint bool `protobuf:"varint,12,opt,name=ingress_use_waypoint,json=ingressUseWaypoint,proto3" json:"ingress_use_waypoint,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *Service) Reset() {
@@ -839,6 +843,13 @@ func (x *Service) GetExtensions() []*Extension {
 func (x *Service) GetCanonical() bool {
 	if x != nil {
 		return x.Canonical
+	}
+	return false
+}
+
+func (x *Service) GetIngressUseWaypoint() bool {
+	if x != nil {
+		return x.IngressUseWaypoint
 	}
 	return false
 }
@@ -1542,7 +1553,10 @@ type NetworkAddress struct {
 	// Network represents the network this address is on.
 	Network string `protobuf:"bytes,1,opt,name=network,proto3" json:"network,omitempty"`
 	// Address presents the IP (v4 or v6).
-	Address       []byte `protobuf:"bytes,2,opt,name=address,proto3" json:"address,omitempty"`
+	Address []byte `protobuf:"bytes,2,opt,name=address,proto3" json:"address,omitempty"`
+	// CIDR prefix length. If absent, this is a host address (/32 or /128).
+	// If present, this represents a CIDR range (e.g., 24 for /24).
+	Length        *uint32 `protobuf:"varint,3,opt,name=length,proto3,oneof" json:"length,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1589,6 +1603,13 @@ func (x *NetworkAddress) GetAddress() []byte {
 		return x.Address
 	}
 	return nil
+}
+
+func (x *NetworkAddress) GetLength() uint32 {
+	if x != nil && x.Length != nil {
+		return *x.Length
+	}
+	return 0
 }
 
 // NamespacedHostname represents a service bound to a specific namespace.
@@ -1711,7 +1732,7 @@ const file_workloadapi_workload_proto_rawDesc = "" +
 	"\aAddress\x126\n" +
 	"\bworkload\x18\x01 \x01(\v2\x18.istio.workload.WorkloadH\x00R\bworkload\x123\n" +
 	"\aservice\x18\x02 \x01(\v2\x17.istio.workload.ServiceH\x00R\aserviceB\x06\n" +
-	"\x04type\"\x85\x04\n" +
+	"\x04type\"\xb7\x04\n" +
 	"\aService\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1c\n" +
 	"\tnamespace\x18\x02 \x01(\tR\tnamespace\x12\x1a\n" +
@@ -1727,7 +1748,8 @@ const file_workloadapi_workload_proto_rawDesc = "" +
 	"extensions\x18\n" +
 	" \x03(\v2\x19.istio.workload.ExtensionR\n" +
 	"extensions\x12\x1c\n" +
-	"\tcanonical\x18\v \x01(\bR\tcanonical\"\xcd\x03\n" +
+	"\tcanonical\x18\v \x01(\bR\tcanonical\x120\n" +
+	"\x14ingress_use_waypoint\x18\f \x01(\bR\x12ingressUseWaypoint\"\xcd\x03\n" +
 	"\rLoadBalancing\x12R\n" +
 	"\x12routing_preference\x18\x01 \x03(\x0e2#.istio.workload.LoadBalancing.ScopeR\x11routingPreference\x126\n" +
 	"\x04mode\x18\x02 \x01(\x0e2\".istio.workload.LoadBalancing.ModeR\x04mode\x12O\n" +
@@ -1806,10 +1828,12 @@ const file_workloadapi_workload_proto_rawDesc = "" +
 	"\bhostname\x18\x01 \x01(\v2\".istio.workload.NamespacedHostnameH\x00R\bhostname\x12:\n" +
 	"\aaddress\x18\x02 \x01(\v2\x1e.istio.workload.NetworkAddressH\x00R\aaddress\x12&\n" +
 	"\x0fhbone_mtls_port\x18\x03 \x01(\rR\rhboneMtlsPortB\r\n" +
-	"\vdestinationJ\x04\b\x04\x10\x05R\x15hbone_single_tls_port\"D\n" +
+	"\vdestinationJ\x04\b\x04\x10\x05R\x15hbone_single_tls_port\"l\n" +
 	"\x0eNetworkAddress\x12\x18\n" +
 	"\anetwork\x18\x01 \x01(\tR\anetwork\x12\x18\n" +
-	"\aaddress\x18\x02 \x01(\fR\aaddress\"N\n" +
+	"\aaddress\x18\x02 \x01(\fR\aaddress\x12\x1b\n" +
+	"\x06length\x18\x03 \x01(\rH\x00R\x06length\x88\x01\x01B\t\n" +
+	"\a_length\"N\n" +
 	"\x12NamespacedHostname\x12\x1c\n" +
 	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x1a\n" +
 	"\bhostname\x18\x02 \x01(\tR\bhostname\"M\n" +
@@ -1845,7 +1869,7 @@ const file_workloadapi_workload_proto_rawDesc = "" +
 	"\x0eTunnelProtocol\x12\b\n" +
 	"\x04NONE\x10\x00\x12\t\n" +
 	"\x05HBONE\x10\x01\x12\x15\n" +
-	"\x11LEGACY_ISTIO_MTLS\x10\x02B\x11Z\x0fpkg/workloadapib\x06proto3"
+	"\x11LEGACY_ISTIO_MTLS\x10\x02B Z\x1eistio.io/istio/pkg/workloadapib\x06proto3"
 
 var (
 	file_workloadapi_workload_proto_rawDescOnce sync.Once
@@ -1938,6 +1962,7 @@ func file_workloadapi_workload_proto_init() {
 		(*GatewayAddress_Hostname)(nil),
 		(*GatewayAddress_Address)(nil),
 	}
+	file_workloadapi_workload_proto_msgTypes[9].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

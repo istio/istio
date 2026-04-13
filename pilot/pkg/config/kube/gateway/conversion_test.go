@@ -511,6 +511,16 @@ D2lWusoe2/nEqfDVVWGWlyJ7yOmqaVm/iNUN9B2N2g==
 		},
 		&corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-cert",
+				Namespace: "istio-system",
+			},
+			Data: map[string][]byte{
+				"tls.crt": []byte(rsaCertPEM),
+				"tls.key": []byte(rsaKeyPEM),
+			},
+		},
+		&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
 				Name:      "my-cert-http2",
 				Namespace: "istio-system",
 			},
@@ -699,6 +709,7 @@ func TestConvertResources(t *testing.T) {
 		{name: "http"},
 		{name: "tcp"},
 		{name: "tls"},
+		{name: "tls-terminate"},
 		{name: "grpc"},
 		{name: "mismatch"},
 		{name: "weighted"},
@@ -773,6 +784,7 @@ func TestConvertResources(t *testing.T) {
 		{name: "redirect-only"},
 		{name: "reference-grant-multiple-to"},
 		{name: "http-grpc-same-host"},
+		{name: "empty-backend-refs"},
 	}
 	test.SetForTest(t, &features.EnableGatewayAPIGatewayClassController, false)
 	test.SetForTest(t, &features.EnableGatewayAPIInferenceExtension, true)

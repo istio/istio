@@ -111,6 +111,11 @@ func ErrorContains(expected string) echo.Checker {
 	}
 }
 
+// TLSHandshakeFailure checks that the call failed with a TLS handshake error.
+func TLSHandshakeFailure() echo.Checker {
+	return ErrorContains("tls: handshake failure")
+}
+
 func ErrorOrStatus(expected int) echo.Checker {
 	return Or(Error(), Status(expected))
 }

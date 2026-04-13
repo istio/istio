@@ -144,6 +144,10 @@ func getGvk(obj any) (config.GroupVersionKind, bool) {
 		return gvk.Telemetry, true
 	case *apiistioioapitelemetryv1.Telemetry:
 		return gvk.Telemetry, true
+	case *istioioapiextensionsv1alpha1.TrafficExtension:
+		return gvk.TrafficExtension, true
+	case *apiistioioapiextensionsv1alpha1.TrafficExtension:
+		return gvk.TrafficExtension, true
 	case *sigsk8siogatewayapiapisv1alpha2.UDPRoute:
 		return gvk.UDPRoute, true
 	case *k8sioapiadmissionregistrationv1.ValidatingWebhookConfiguration:

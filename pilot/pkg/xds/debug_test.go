@@ -433,3 +433,44 @@ func TestStatusGenRequiresAuth(t *testing.T) {
 		}
 	})
 }
+
+// TestDebugGenPassesNamespaceContext verifies that DebugGen passes the caller namespace
+// to the internal HTTP handler via CallerNamespaceKey context.
+// This test FAILS without the fix (CallerNamespaceKey empty) and PASSES with the fix.
+func TestDebugGenPassesNamespaceContext(t *testing.T) {
+	var capturedNS string
+	var handlerCalled bool
+	mux := http.NewServeMux()
+	mux.HandleFunc("/debug/", func(w http.ResponseWriter, r *http.Request) {
+		handlerCalled = true
+		capturedNS, _ = r.Context().Value(xds.CallerNamespaceKey{}).(string)
+		// Simulate what getDebugConnection does: if CallerNamespaceKey is empty,
+		// the namespace check is skipped (security bug we're fixing)
+		if capturedNS == "" {
+			t.Fatal("CallerNamespaceKey not set in context - cross-namespace access would be allowed")
+		}
+		w.WriteHeader(http.StatusOK)
+	})
+
+	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
+	gen := xds.NewDebugGen(s.Discovery, "istio-system", mux)
+
+	proxy := &model.Proxy{
+		ID:               "test.production",
+		VerifiedIdentity: &spiffe.Identity{Namespace: "production"},
+	}
+	watchedRes := &model.WatchedResource{
+		TypeUrl:       v3.DebugType,
+		ResourceNames: sets.New("config_dump"),
+	}
+
+	_, _, err := gen.Generate(proxy, watchedRes, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !handlerCalled {
+		t.Fatal("handler was not called")
+	}
+	assert.Equal(t, "production", capturedNS, "caller namespace should be passed to handler")
+}

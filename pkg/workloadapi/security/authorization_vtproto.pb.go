@@ -13,6 +13,7 @@ import (
 	proto "google.golang.org/protobuf/proto"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
+	workloadapi "istio.io/istio/pkg/workloadapi"
 )
 
 const (
@@ -59,6 +60,29 @@ func (this *Authorization) EqualVT(that *Authorization) bool {
 	}
 	if this.DryRun != that.DryRun {
 		return false
+	}
+	if len(this.Extensions) != len(that.Extensions) {
+		return false
+	}
+	for i, vx := range this.Extensions {
+		vy := that.Extensions[i]
+		if p, q := vx, vy; p != q {
+			if p == nil {
+				p = &workloadapi.Extension{}
+			}
+			if q == nil {
+				q = &workloadapi.Extension{}
+			}
+			if equal, ok := interface{}(p).(interface {
+				EqualVT(*workloadapi.Extension) bool
+			}); ok {
+				if !equal.EqualVT(q) {
+					return false
+				}
+			} else if !proto.Equal(p, q) {
+				return false
+			}
+		}
 	}
 	return string(this.unknownFields) == string(that.unknownFields)
 }
@@ -330,6 +354,29 @@ func (this *Match) EqualVT(that *Match) bool {
 			}
 		}
 	}
+	if len(this.Extensions) != len(that.Extensions) {
+		return false
+	}
+	for i, vx := range this.Extensions {
+		vy := that.Extensions[i]
+		if p, q := vx, vy; p != q {
+			if p == nil {
+				p = &workloadapi.Extension{}
+			}
+			if q == nil {
+				q = &workloadapi.Extension{}
+			}
+			if equal, ok := interface{}(p).(interface {
+				EqualVT(*workloadapi.Extension) bool
+			}); ok {
+				if !equal.EqualVT(q) {
+					return false
+				}
+			} else if !proto.Equal(p, q) {
+				return false
+			}
+		}
+	}
 	return string(this.unknownFields) == string(that.unknownFields)
 }
 
@@ -518,6 +565,30 @@ func (m *Authorization) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
+	if len(m.Extensions) > 0 {
+		for iNdEx := len(m.Extensions) - 1; iNdEx >= 0; iNdEx-- {
+			if vtmsg, ok := interface{}(m.Extensions[iNdEx]).(interface {
+				MarshalToSizedBufferVTStrict([]byte) (int, error)
+			}); ok {
+				size, err := vtmsg.MarshalToSizedBufferVTStrict(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+			} else {
+				encoded, err := proto.Marshal(m.Extensions[iNdEx])
+				if err != nil {
+					return 0, err
+				}
+				i -= len(encoded)
+				copy(dAtA[i:], encoded)
+				i = protohelpers.EncodeVarint(dAtA, i, uint64(len(encoded)))
+			}
+			i--
+			dAtA[i] = 0x3a
+		}
+	}
 	if m.DryRun {
 		i--
 		if m.DryRun {
@@ -686,6 +757,30 @@ func (m *Match) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
 	if m.unknownFields != nil {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
+	}
+	if len(m.Extensions) > 0 {
+		for iNdEx := len(m.Extensions) - 1; iNdEx >= 0; iNdEx-- {
+			if vtmsg, ok := interface{}(m.Extensions[iNdEx]).(interface {
+				MarshalToSizedBufferVTStrict([]byte) (int, error)
+			}); ok {
+				size, err := vtmsg.MarshalToSizedBufferVTStrict(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+			} else {
+				encoded, err := proto.Marshal(m.Extensions[iNdEx])
+				if err != nil {
+					return 0, err
+				}
+				i -= len(encoded)
+				copy(dAtA[i:], encoded)
+				i = protohelpers.EncodeVarint(dAtA, i, uint64(len(encoded)))
+			}
+			i--
+			dAtA[i] = 0x6a
+		}
 	}
 	if len(m.NotServiceAccounts) > 0 {
 		for iNdEx := len(m.NotServiceAccounts) - 1; iNdEx >= 0; iNdEx-- {
@@ -1097,6 +1192,18 @@ func (m *Authorization) SizeVT() (n int) {
 	if m.DryRun {
 		n += 2
 	}
+	if len(m.Extensions) > 0 {
+		for _, e := range m.Extensions {
+			if size, ok := interface{}(e).(interface {
+				SizeVT() int
+			}); ok {
+				l = size.SizeVT()
+			} else {
+				l = proto.Size(e)
+			}
+			n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+		}
+	}
 	n += len(m.unknownFields)
 	return n
 }
@@ -1210,6 +1317,18 @@ func (m *Match) SizeVT() (n int) {
 	if len(m.NotServiceAccounts) > 0 {
 		for _, e := range m.NotServiceAccounts {
 			l = e.SizeVT()
+			n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+		}
+	}
+	if len(m.Extensions) > 0 {
+		for _, e := range m.Extensions {
+			if size, ok := interface{}(e).(interface {
+				SizeVT() int
+			}); ok {
+				l = size.SizeVT()
+			} else {
+				l = proto.Size(e)
+			}
 			n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 		}
 	}

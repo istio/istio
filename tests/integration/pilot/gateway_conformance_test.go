@@ -96,19 +96,6 @@ var skippedTests = map[string]string{
 	"MeshHTTPRoute307Redirect": "TODO",
 	"MeshHTTPRoute308Redirect": "TODO",
 
-	"TLSRouteHostnameIntersection":                 "TODO",
-	"TLSRouteInvalidBackendRefNonexistent":         "TODO",
-	"TLSRouteInvalidBackendRefUnknownKind":         "TODO",
-	"TLSRouteInvalidNoMatchingListenerHostname":    "TODO",
-	"TLSRouteInvalidNoMatchingListener":            "TODO",
-	"TLSRouteListenerMixedTerminationNotSupported": "TODO",
-	"TLSRouteListenerPassthroughSupportedKinds":    "TODO",
-	"TLSRouteListenerTerminateNotSupported":        "TODO",
-	"TLSRouteListenerTerminateSupportedKinds":      "TODO",
-	"TLSRouteMixedTerminationSameNamespace":        "TODO",
-	"TLSRouteSimpleSameNamespace":                  "TODO",
-	"TLSRouteTerminateSimpleSameNamespace":         "TODO",
-
 	// The following tests were modified between v1.4.0 && v1.5.0
 	"BackendTLSPolicy": "TODO",
 
@@ -162,7 +149,7 @@ func TestGatewayConformance(t *testing.T) {
 				Clientset:                gatewayConformanceInputs.Client.Kube(),
 				ClientOptions:            clientOptions,
 				RestConfig:               gatewayConformanceInputs.Client.RESTConfig(),
-				GatewayClassName:         "istio",
+				GatewayClassName:         i.Settings().GatewayClassName,
 				Debug:                    scopes.Framework.DebugEnabled(),
 				CleanupBaseResources:     gatewayConformanceInputs.Cleanup,
 				ManifestFS:               []fs.FS{&conformance.Manifests},

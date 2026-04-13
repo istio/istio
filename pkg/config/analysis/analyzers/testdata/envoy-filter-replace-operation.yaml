@@ -161,3 +161,26 @@ spec:
                     protocol: TCP
                     address: "internal.org.net"
                     port_value: 8888
+  - applyTo: VIRTUAL_HOST
+    match:
+      context: SIDECAR_INBOUND
+      routeConfiguration:
+        vhost:
+          name: inbound|http|9080
+    patch:
+      operation: REPLACE
+      value:
+        domains:
+          - '*'
+        name: inbound|http|9080
+        routes:
+          - decorator:
+              operation: reviews.bookinfo.svc.cluster.local:9080/*
+            match:
+              prefix: /
+            name: default
+            route:
+              cluster: inbound|9080||
+              maxStreamDuration:
+                grpcTimeoutHeaderMax: 0s
+                maxStreamDuration: 0s

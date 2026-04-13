@@ -19,7 +19,7 @@ package istio.workload;
 import "google/protobuf/wrappers.proto";
 import "google/protobuf/any.proto";
 
-option go_package="pkg/workloadapi";
+option go_package="istio.io/istio/pkg/workloadapi";
 
 // Address represents a unique address.
 //
@@ -93,6 +93,11 @@ message Service {
   // canonical marks this Service as taking priority during hostname lookups,
   // when there is not a match in the namespace of the client.
   bool canonical = 11;
+
+  // ingress_use_waypoint indicates that ingress gateways should send traffic destined
+  // for this service through the service's waypoint proxy.
+  // This is controlled by the istio.io/ingress-use-waypoint label on the Service or its namespace.
+  bool ingress_use_waypoint = 12;
 }
 
 enum IPFamilies {
@@ -382,6 +387,9 @@ message NetworkAddress {
   string network = 1;
   // Address presents the IP (v4 or v6).
   bytes address = 2;
+  // CIDR prefix length. If absent, this is a host address (/32 or /128).
+  // If present, this represents a CIDR range (e.g., 24 for /24).
+  optional uint32 length = 3;
 }
 
 // NamespacedHostname represents a service bound to a specific namespace.
