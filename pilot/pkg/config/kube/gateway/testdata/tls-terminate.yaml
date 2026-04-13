@@ -1,0 +1,138 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: istio
+spec:
+  controllerName: istio.io/gateway-controller
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: gateway
+  namespace: istio-system
+spec:
+  addresses:
+  - value: istio-ingressgateway
+    type: Hostname
+  gatewayClassName: istio
+  listeners:
+  - name: tls-terminate
+    hostname: "example.com"
+    port: 443
+    protocol: TLS
+    allowedRoutes:
+      namespaces:
+        from: All
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - name: my-cert
+  - name: tls-passthrough
+    port: 443
+    protocol: TLS
+    allowedRoutes:
+      namespaces:
+        from: All
+    tls:
+      mode: Passthrough
+  # Hostname intersection: listener hostname is a wildcard, route hostname is specific
+  - name: tls-wildcard
+    hostname: "*.wild.example.com"
+    port: 9443
+    protocol: TLS
+    allowedRoutes:
+      namespaces:
+        from: All
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - name: my-cert
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: TLSRoute
+metadata:
+  name: tls-terminate-route
+  namespace: default
+spec:
+  parentRefs:
+  - name: gateway
+    namespace: istio-system
+    sectionName: tls-terminate
+  hostnames:
+  - "example.com"
+  rules:
+  - backendRefs:
+    - name: backend-terminate
+      port: 8080
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: TLSRoute
+metadata:
+  name: tls-passthrough-route
+  namespace: default
+spec:
+  parentRefs:
+  - name: gateway
+    namespace: istio-system
+    sectionName: tls-passthrough
+  hostnames:
+  - "passthrough.example.com"
+  rules:
+  - backendRefs:
+    - name: backend-passthrough
+      port: 443
+---
+# Hostname intersection: route hostname is specific, listener is wildcard
+apiVersion: gateway.networking.k8s.io/v1
+kind: TLSRoute
+metadata:
+  name: tls-hostname-intersection-route
+  namespace: default
+spec:
+  parentRefs:
+  - name: gateway
+    namespace: istio-system
+    sectionName: tls-wildcard
+  hostnames:
+  - "foo.wild.example.com"
+  - "bar.wild.example.com"
+  rules:
+  - backendRefs:
+    - name: backend-wildcard
+      port: 8080
+---
+# Invalid: TLSRoute referencing a non-existent listener sectionName
+apiVersion: gateway.networking.k8s.io/v1
+kind: TLSRoute
+metadata:
+  name: tls-no-matching-listener-route
+  namespace: default
+spec:
+  parentRefs:
+  - name: gateway
+    namespace: istio-system
+    sectionName: nonexistent-listener
+  hostnames:
+  - "nomatch.example.com"
+  rules:
+  - backendRefs:
+    - name: backend-nomatch
+      port: 8080
+---
+# Invalid: TLSRoute hostname doesn't match listener hostname
+apiVersion: gateway.networking.k8s.io/v1
+kind: TLSRoute
+metadata:
+  name: tls-no-matching-hostname-route
+  namespace: default
+spec:
+  parentRefs:
+  - name: gateway
+    namespace: istio-system
+    sectionName: tls-terminate
+  hostnames:
+  - "wrong-hostname.example.com"
+  rules:
+  - backendRefs:
+    - name: backend-wrong
+      port: 8080

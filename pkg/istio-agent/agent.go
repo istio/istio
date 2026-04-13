@@ -161,6 +161,8 @@ type AgentOptions struct {
 	DNSAddr string
 	// DNSForwardParallel indicates whether the agent should send parallel DNS queries to all upstream nameservers.
 	DNSForwardParallel bool
+	// DNSForwardTimeout is the timeout for upstream DNS queries.
+	DNSForwardTimeout time.Duration
 	// ProxyType is the type of proxy we are configured to handle
 	ProxyType model.NodeType
 	// ProxyNamespace to use for local dns resolution
@@ -541,8 +543,13 @@ func (a *Agent) startFileWatcher(ctx context.Context, filePath string, handler f
 
 func (a *Agent) initLocalDNSServer() (err error) {
 	if a.isDNSServerEnabled() {
-		if a.localDNSServer, err = dnsClient.NewLocalDNSServer(a.cfg.ProxyNamespace, a.cfg.ProxyDomain, a.cfg.DNSAddr,
-			a.cfg.DNSForwardParallel); err != nil {
+		if a.localDNSServer, err = dnsClient.NewLocalDNSServer(
+			a.cfg.ProxyNamespace,
+			a.cfg.ProxyDomain,
+			a.cfg.DNSAddr,
+			dnsClient.WithParallelForwarding(a.cfg.DNSForwardParallel),
+			dnsClient.WithUpstreamTimeout(a.cfg.DNSForwardTimeout),
+		); err != nil {
 			return err
 		}
 		a.localDNSServer.StartDNS()

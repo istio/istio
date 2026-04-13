@@ -387,6 +387,9 @@ message NetworkAddress {
   string network = 1;
   // Address presents the IP (v4 or v6).
   bytes address = 2;
+  // CIDR prefix length. If absent, this is a host address (/32 or /128).
+  // If present, this represents a CIDR range (e.g., 24 for /24).
+  optional uint32 length = 3;
 }
 
 // NamespacedHostname represents a service bound to a specific namespace.

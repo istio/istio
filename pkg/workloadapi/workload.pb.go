@@ -1553,7 +1553,10 @@ type NetworkAddress struct {
 	// Network represents the network this address is on.
 	Network string `protobuf:"bytes,1,opt,name=network,proto3" json:"network,omitempty"`
 	// Address presents the IP (v4 or v6).
-	Address       []byte `protobuf:"bytes,2,opt,name=address,proto3" json:"address,omitempty"`
+	Address []byte `protobuf:"bytes,2,opt,name=address,proto3" json:"address,omitempty"`
+	// CIDR prefix length. If absent, this is a host address (/32 or /128).
+	// If present, this represents a CIDR range (e.g., 24 for /24).
+	Length        *uint32 `protobuf:"varint,3,opt,name=length,proto3,oneof" json:"length,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1600,6 +1603,13 @@ func (x *NetworkAddress) GetAddress() []byte {
 		return x.Address
 	}
 	return nil
+}
+
+func (x *NetworkAddress) GetLength() uint32 {
+	if x != nil && x.Length != nil {
+		return *x.Length
+	}
+	return 0
 }
 
 // NamespacedHostname represents a service bound to a specific namespace.
@@ -1818,10 +1828,12 @@ const file_workloadapi_workload_proto_rawDesc = "" +
 	"\bhostname\x18\x01 \x01(\v2\".istio.workload.NamespacedHostnameH\x00R\bhostname\x12:\n" +
 	"\aaddress\x18\x02 \x01(\v2\x1e.istio.workload.NetworkAddressH\x00R\aaddress\x12&\n" +
 	"\x0fhbone_mtls_port\x18\x03 \x01(\rR\rhboneMtlsPortB\r\n" +
-	"\vdestinationJ\x04\b\x04\x10\x05R\x15hbone_single_tls_port\"D\n" +
+	"\vdestinationJ\x04\b\x04\x10\x05R\x15hbone_single_tls_port\"l\n" +
 	"\x0eNetworkAddress\x12\x18\n" +
 	"\anetwork\x18\x01 \x01(\tR\anetwork\x12\x18\n" +
-	"\aaddress\x18\x02 \x01(\fR\aaddress\"N\n" +
+	"\aaddress\x18\x02 \x01(\fR\aaddress\x12\x1b\n" +
+	"\x06length\x18\x03 \x01(\rH\x00R\x06length\x88\x01\x01B\t\n" +
+	"\a_length\"N\n" +
 	"\x12NamespacedHostname\x12\x1c\n" +
 	"\tnamespace\x18\x01 \x01(\tR\tnamespace\x12\x1a\n" +
 	"\bhostname\x18\x02 \x01(\tR\bhostname\"M\n" +
@@ -1950,6 +1962,7 @@ func file_workloadapi_workload_proto_init() {
 		(*GatewayAddress_Hostname)(nil),
 		(*GatewayAddress_Address)(nil),
 	}
+	file_workloadapi_workload_proto_msgTypes[9].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

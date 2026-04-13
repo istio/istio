@@ -54,7 +54,7 @@ func initRoundTrip() {
 	clienttelemetry.AddToScheme(scheme)
 }
 
-// FuzzRoundtrip tests whether the pilot CRDs
+// FuzzCRDRoundtrip tests whether the pilot CRDs
 // can be encoded and decoded.
 func FuzzCRDRoundtrip(data []byte) int {
 	initter.Do(initRoundTrip)
