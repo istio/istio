@@ -49,7 +49,7 @@ endif
 export VERSION
 
 # Base version of Istio image to use
-BASE_VERSION ?= master-2026-03-19T19-01-52
+BASE_VERSION ?= master-2026-04-09T19-02-13
 ISTIO_BASE_REGISTRY ?= gcr.io/istio-release
 
 export GO111MODULE ?= on
@@ -299,7 +299,7 @@ refresh-goldens:
 		./pkg/kube/inject/... \
 		./pilot/pkg/config/kube/gateway/... \
 		./pilot/pkg/security/authz/builder/... \
-		./pilot/pkg/serviceregistry/kube/controller/ambient/... \
+		./pilot/pkg/serviceregistry/ambient/... \
 		./cni/pkg/iptables/... \
 		./cni/pkg/plugin/... \
 		./istioctl/pkg/workload/... \

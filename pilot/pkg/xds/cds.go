@@ -20,6 +20,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/jwt"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -43,10 +44,10 @@ var skippedCdsConfigs = sets.New(
 	kind.DNSName,
 )
 
-// Map all configs that impact CDS for gateways when `PILOT_FILTER_GATEWAY_CLUSTER_CONFIG = true`.
+// Map all aditional configs that impact CDS for gateways.
+// Gateway resources can impact VirtualService selection and so should need a push.
 var pushCdsGatewayConfig = func() sets.Set[kind.Kind] {
 	s := sets.New(
-		kind.VirtualService,
 		kind.Gateway,
 	)
 	if features.JwksFetchMode != jwt.Istiod {
@@ -77,22 +78,14 @@ func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) (*model.PushReques
 				// Do the check outside of the loop since its slow; just trigger we need it
 				checkGateway = true
 			}
-			if features.FilterGatewayClusterConfig {
-				if _, f := pushCdsGatewayConfig[config.Kind]; f {
-					relevantUpdates.Insert(config)
-					continue
-				}
-			}
-			if config.Kind == kind.VirtualService {
-				// We largely don't use VirtualService for CDS building. However, we do use it as part of Sidecar scoping, which
-				// implicitly includes VS destinations.
-				// Since Routers do not use Sidecar, though, we can skip for Router.
-				filtered = true
+
+			if _, f := pushCdsGatewayConfig[config.Kind]; f {
+				relevantUpdates.Insert(config)
 				continue
 			}
 		}
 
-		if _, f := skippedCdsConfigs[config.Kind]; !f {
+		if !skippedCdsConfigs.Contains(config.Kind) {
 			relevantUpdates.Insert(config)
 		} else {
 			// we filtered a config
@@ -105,7 +98,8 @@ func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) (*model.PushReques
 	if checkGateway {
 		autoPassthroughModeChanged := proxy.MergedGateway.HasAutoPassthroughGateways() != proxy.PrevMergedGateway.HasAutoPassthroughGateway()
 		autoPassthroughHostsChanged := !proxy.MergedGateway.GetAutoPassthroughGatewaySNIHosts().Equals(proxy.PrevMergedGateway.GetAutoPassthroughSNIHosts())
-		if autoPassthroughModeChanged || autoPassthroughHostsChanged {
+		gatewayNamesChanged := proxy.MergedGateway == nil || !slices.EqualUnordered(proxy.MergedGateway.GetGatewayNames(), proxy.PrevMergedGateway.GetGatewayNames())
+		if autoPassthroughModeChanged || autoPassthroughHostsChanged || gatewayNamesChanged {
 			needsPush = true
 		}
 	}

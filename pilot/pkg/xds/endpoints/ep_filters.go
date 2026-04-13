@@ -17,6 +17,7 @@ package endpoints
 import (
 	"math"
 	"net"
+	"net/netip"
 	"strconv"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -111,6 +112,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 			epNetwork := istioEndpoint.Network
 			epCluster := istioEndpoint.Locality.ClusterID
 			gateways := b.selectNetworkGateways(epNetwork, epCluster)
+			reachableGateways := b.filterGatewaysByIPFamily(gateways)
 
 			// We are generating endpoints for an ambient waypoint and we encountered an endpoint on a remote network.
 			// Check if we allow waypoints to talk across networks (EnableAmbientWaypointMultiNetwork feature flag)
@@ -121,10 +123,11 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 					!features.EnableAmbientIngressMultiNetwork && model.IsIngressGateway(b.proxy) {
 					continue
 				}
-				if len(gateways) == 0 {
-					// We have an endpoint on a remote network, but no E/W gateway configured? Seems like a
-					// misconfiguration, let's log it for visibility
-					log.Warnf("Workload %s belongs to a different network (%s), but no E/W gateway configured, skipping it.", istioEndpoint.WorkloadName, epNetwork)
+				if len(reachableGateways) == 0 {
+					// We have an endpoint on a remote network, but no reachable E/W gateway (either none
+					// configured or none matching this proxy's IP family).
+					log.Warnf("Workload %s on network %s has no reachable E/W gateway for this proxy, skipping",
+						istioEndpoint.WorkloadName, epNetwork)
 					continue
 				}
 			}
@@ -159,6 +162,13 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 				continue
 			}
 
+			// Gateways are configured for this network but none are reachable by this proxy's IP family.
+			// Skip the endpoint entirely rather than falling back to the raw remote workload IP (which
+			// would also be unreachable or bypass the gateway).
+			if len(reachableGateways) == 0 {
+				continue
+			}
+
 			// Cross-network traffic relies on mTLS for SNI routing in sidecar mode.
 			// So if we are not in ambient multi-network mode and mTLS is not enabled for the target endpoint on a remote
 			// network we skip it altogether.
@@ -168,7 +178,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 			}
 
 			// Apply the weight for this endpoint to the network gateways.
-			splitWeightAmongGateways(weight, gateways, gatewayWeights)
+			splitWeightAmongGateways(weight, reachableGateways, gatewayWeights)
 		}
 
 		// Sort the gateways into an ordered list so that the generated endpoints are deterministic.
@@ -339,6 +349,36 @@ func splitWeightAmongGateways(weight uint32, gateways []model.NetworkGateway, ga
 	for _, gateway := range gateways {
 		gatewayWeights[gateway] += weightPerGateway
 	}
+}
+
+// filterGatewaysByIPFamily filters the provided gateways to only those whose address family is
+// supported by the proxy. If the proxy's IP mode is unknown, all gateways are returned.
+func (b *EndpointBuilder) filterGatewaysByIPFamily(gws []model.NetworkGateway) []model.NetworkGateway {
+	supportsV4 := b.proxy.SupportsIPv4()
+	supportsV6 := b.proxy.SupportsIPv6()
+
+	// 1. Unknown IP mode: preserve existing behavior of no filter.
+	// 2. Dualstack proxies: can reach all gateways, no filtering needed.
+	if (!supportsV4 && !supportsV6) || (supportsV4 && supportsV6) {
+		return gws
+	}
+
+	out := make([]model.NetworkGateway, 0, len(gws))
+	for _, gw := range gws {
+		addr, err := netip.ParseAddr(gw.Addr)
+		if err != nil {
+			// Non-IP address (shouldn't happen for resolved gateways, but be safe).
+			continue
+		}
+
+		// Normalize IPv4-mapped IPv6 addresses (e.g. ::ffff:1.2.3.4) to plain IPv4.
+		addr = addr.Unmap()
+		if (addr.Is4() && supportsV4) || (addr.Is6() && supportsV6) {
+			out = append(out, gw)
+		}
+	}
+
+	return out
 }
 
 // EndpointsWithMTLSFilter removes all endpoints that do not handle mTLS. This is determined by looking at

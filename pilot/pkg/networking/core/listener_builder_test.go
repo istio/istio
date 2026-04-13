@@ -53,6 +53,22 @@ import (
 	workloadapi "istio.io/istio/pkg/workloadapi"
 )
 
+// mockAmbientIndex is a test implementation of AmbientIndexes that returns mock service info
+type mockAmbientIndex struct {
+	model.NoopAmbientIndexes
+	serviceInfos []*model.ServiceInfo
+}
+
+func (m *mockAmbientIndex) ServiceInfo(key string) *model.ServiceInfo {
+	for _, info := range m.serviceInfos {
+		svcKey := fmt.Sprintf("%s/%s", info.GetNamespace(), info.Service.GetHostname())
+		if key == svcKey {
+			return info
+		}
+	}
+	return nil
+}
+
 func TestVirtualListenerBuilder(t *testing.T) {
 	cg := NewConfigGenTest(t, TestOptions{Services: testServices})
 	proxy := cg.SetupProxy(nil)
@@ -1136,27 +1152,29 @@ func TestWaypointInternalMultiNetworkAddresses(t *testing.T) {
 				svc.ClusterVIPs.SetAddressesFor("cluster-1", tc.localVIPs)
 			}
 
-			svcDiscovery := memory.NewServiceDiscovery(svc)
-			svcDiscovery.AddServiceInfo(&model.ServiceInfo{
-				Service: &workloadapi.Service{
-					Name:      svc.Attributes.Name,
-					Namespace: svc.Attributes.Namespace,
-					Hostname:  svc.Hostname.String(),
-					Addresses: tc.addresses,
-				},
-				Scope: tc.scope,
-			})
-
 			cg := NewConfigGenTest(t, TestOptions{
 				ClusterID: "cluster-1",
 				ServiceRegistries: []serviceregistry.Instance{
 					serviceregistry.Simple{
 						ProviderID:          provider.Kubernetes,
 						ClusterID:           "cluster-1",
-						DiscoveryController: svcDiscovery,
+						DiscoveryController: memory.NewServiceDiscovery(svc),
 					},
 				},
 			})
+			cg.env.AmbientIndexes = &mockAmbientIndex{
+				serviceInfos: []*model.ServiceInfo{
+					{
+						Service: &workloadapi.Service{
+							Name:      svc.Attributes.Name,
+							Namespace: svc.Attributes.Namespace,
+							Hostname:  svc.Hostname.String(),
+							Addresses: tc.addresses,
+						},
+						Scope: tc.scope,
+					},
+				},
+			}
 
 			proxy := &model.Proxy{
 				Type:            model.Waypoint,

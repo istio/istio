@@ -36,11 +36,11 @@ type Instance interface {
 type Config struct {
 	// Cluster to be used in a multicluster environment
 	Cluster cluster.Cluster
-	// Upstream registry. Default is "gcr.io".
+	// Upstream registry. Default is "registry.istio.io".
 	TargetRegistry string
 	// URL scheme for the registry. Default is "https".
 	Scheme string
-	// Docker image location of the fake registry. Default is "gcr.io/istio-testing/fake-registry:x.x".
+	// Docker image location of the fake registry. Default is "registry.istio.io/testing/fake-registry:x.x".
 	// Please refer to registry_redirector_server.yaml for the exact default image.
 	Image string
 }

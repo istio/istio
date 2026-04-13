@@ -107,7 +107,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
-        image: gcr.io/istio-testing/mynewproxy:latest
+        image: registry.istio.io/testing/mynewproxy:latest
         name: istio-proxy
         ports:
         - containerPort: 15021

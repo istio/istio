@@ -277,6 +277,10 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 		cb.maybeDisableBaggageDiscovery(localCluster.cluster)
 	}
 
+	if svc.Attributes.K8sAttributes.DNSConnectStrategy == model.DNSConnectStrategyRaceFirstTCPConnect {
+		localCluster.cluster.DnsLookupFamily = cluster.Cluster_ALL
+	}
+
 	return localCluster.build()
 }
 

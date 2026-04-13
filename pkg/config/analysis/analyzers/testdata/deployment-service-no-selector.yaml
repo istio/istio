@@ -34,7 +34,7 @@ spec:
     spec:
       containers:
         - name: helloworld
-          image: docker.io/istio/examples-helloworld-v2
+          image: registry.istio.io/release/examples-helloworld-v2
           resources:
             requests:
               cpu: "100m"

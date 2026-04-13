@@ -67,7 +67,7 @@ spec:
         - cluster.local
       containers:
       - name: istio-proxy
-        image: "gcr.io/istio-testing/ztunnel:latest"
+        image: "registry.istio.io/testing/ztunnel:latest"
         ports:
         - containerPort: 15020
           name: ztunnel-stats

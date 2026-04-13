@@ -199,13 +199,14 @@ func VerifyOtelIngressTraces(t framework.TestContext, namespace, path string, tr
 }
 
 func WantOtelIngressTraceRoot(namespace, path string) (root zipkin.Span) {
+	ingressServiceFQDN := fmt.Sprintf("%s.%s", ingInst.ServiceName(), ingInst.Namespace())
 	return zipkin.Span{
-		ServiceName: "istio-ingressgateway.istio-system",
+		ServiceName: ingressServiceFQDN,
 		Name:        fmt.Sprintf("server.%s.svc.cluster.local:80%s", namespace, path),
 		ChildSpans: []*zipkin.Span{
 			{
 				Name:        fmt.Sprintf("router outbound|80||server.%s.svc.cluster.local; egress", namespace),
-				ServiceName: "istio-ingressgateway.istio-system",
+				ServiceName: ingressServiceFQDN,
 				ChildSpans: []*zipkin.Span{
 					{
 						Name:        fmt.Sprintf("server.%s.svc.cluster.local:80%s", namespace, path),

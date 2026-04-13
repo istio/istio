@@ -47,7 +47,7 @@ spec:
         sidecar.istio.io/inject: "false" # do not inject the sidecar
     spec:
       containers:
-      - image: gcr.io/istio-testing/ext-authz:latest
+      - image: registry.istio.io/testing/ext-authz:latest
         imagePullPolicy: Always
         name: ext-authz
         ports:

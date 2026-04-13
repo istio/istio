@@ -1,0 +1,42 @@
+apiVersion: security.istio.io/v1
+kind: RequestAuthentication
+metadata:
+  name: jwt-auth
+  namespace: default
+spec:
+  jwtRules:
+    - issuer: "https://example.com"
+      jwksUri: "https://example.com/.well-known/jwks.json"
+---
+apiVersion: security.istio.io/v1
+kind: RequestAuthentication
+metadata:
+  name: jwt-auth-2
+  namespace: istio-system
+spec:
+  jwtRules:
+    - issuer: "https://other.example.com"
+      jwksUri: "https://other.example.com/.well-known/jwks.json"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: istiod
+  namespace: istio-system
+  labels:
+    app: istiod
+spec:
+  selector:
+    matchLabels:
+      app: istiod
+  template:
+    metadata:
+      labels:
+        app: istiod
+    spec:
+      containers:
+        - name: discovery
+          image: gcr.io/istio-testing/pilot:latest
+          env:
+            - name: PILOT_ENABLE_ANALYSIS
+              value: "true"

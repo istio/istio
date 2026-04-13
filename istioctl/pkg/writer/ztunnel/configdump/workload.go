@@ -28,12 +28,20 @@ type WorkloadFilter struct {
 	Address   string
 	Node      string
 	Namespace string
+	// Name filters to a specific workload by pod name
+	Name string
 }
 
 // Verify returns true if the passed workload matches the filter fields
 func (wf *WorkloadFilter) Verify(workload *ZtunnelWorkload) bool {
-	if wf.Address == "" && wf.Node == "" && wf.Namespace == "" {
+	if wf.Address == "" && wf.Node == "" && wf.Namespace == "" && wf.Name == "" {
 		return true
+	}
+
+	if wf.Name != "" {
+		if !strings.EqualFold(workload.Name, wf.Name) {
+			return false
+		}
 	}
 
 	if wf.Namespace != "" {
