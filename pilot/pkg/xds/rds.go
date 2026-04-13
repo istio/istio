@@ -28,7 +28,7 @@ type RdsGenerator struct {
 var _ model.XdsResourceGenerator = &RdsGenerator{}
 
 // Map of all configs that do not impact RDS
-var skippedRdsConfigs = sets.New[kind.Kind](
+var skippedRdsConfigs = sets.New(
 	kind.WorkloadEntry,
 	kind.WorkloadGroup,
 	kind.AuthorizationPolicy,
@@ -50,6 +50,12 @@ func rdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
 	}
 	for config := range req.ConfigsUpdated {
 		if !skippedRdsConfigs.Contains(config.Kind) {
+			if config.Kind == kind.Gateway {
+				if proxy.Type == model.Router || proxy.IsAmbientEastWestGateway() {
+					return true
+				}
+				continue
+			}
 			return true
 		}
 	}

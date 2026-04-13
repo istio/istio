@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 59498
+releaseNotes:
+  - |
+    **Fixed** gateway deployment controller rejecting DaemonSet kind during reconciliation.

@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/annotations"
+	"istio.io/istio/pkg/config/analysis/analyzers/authn"
 	"istio.io/istio/pkg/config/analysis/analyzers/authz"
 	"istio.io/istio/pkg/config/analysis/analyzers/conditions"
 	"istio.io/istio/pkg/config/analysis/analyzers/deployment"
@@ -529,6 +530,32 @@ var testGrid = []testCase{
 			{msg.UnknownMeshNetworksServiceRegistry, "MeshNetworks istio-system/meshnetworks"},
 			{msg.UnknownMeshNetworksServiceRegistry, "MeshNetworks istio-system/meshnetworks"},
 		},
+	},
+	{
+		name: "blockedCIDRsMissing",
+		inputFiles: []string{
+			"testdata/blocked-cidrs-missing.yaml",
+		},
+		analyzer: &authn.BlockedCIDRsAnalyzer{},
+		expected: []message{
+			{msg.JwksUriFetchUnrestricted, "Deployment istio-system/istiod"},
+		},
+	},
+	{
+		name: "blockedCIDRsConfigured",
+		inputFiles: []string{
+			"testdata/blocked-cidrs-configured.yaml",
+		},
+		analyzer: &authn.BlockedCIDRsAnalyzer{},
+		expected: []message{},
+	},
+	{
+		name: "blockedCIDRsNoRA",
+		inputFiles: []string{
+			"testdata/blocked-cidrs-no-ra.yaml",
+		},
+		analyzer: &authn.BlockedCIDRsAnalyzer{},
+		expected: []message{},
 	},
 	{
 		name: "authorizationpolicies",

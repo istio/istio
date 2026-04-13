@@ -51,6 +51,7 @@ export DEVCONTAINER="${DEVCONTAINER:-}"
 if [[ "${DEVCONTAINER}" ]]; then
   export ISTIO_DOCKER_BUILDER=docker
 fi
+export NOMETALBINSTALL="${NOMETALBINSTALL:-}"
 
 PARAMS=()
 

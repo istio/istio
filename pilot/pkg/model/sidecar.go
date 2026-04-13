@@ -58,6 +58,7 @@ var (
 		kind.AuthorizationPolicy,
 		kind.RequestAuthentication,
 		kind.WasmPlugin,
+		kind.TrafficExtension,
 		kind.Telemetry,
 	)
 )
@@ -397,7 +398,11 @@ func (sc *SidecarScope) collectImportedServices(ps *PushContext, configNamespace
 						continue
 					}
 					// This won't overwrite hostnames that have already been found eg because they were requested in hosts
-					if ns := pickFirstVisibleNamespace(ps, byNamespace, configNamespace); ns != "" {
+					pickNamespace := pickFirstVisibleNamespace
+					if features.SidecarPickBestServiceNamespace {
+						pickNamespace = pickBestVisibleNamespace
+					}
+					if ns := pickNamespace(ps, byNamespace, configNamespace); ns != "" {
 						if matchedSvc := serviceMatchingPort(byNamespace[ns], ilw, ports); matchedSvc != nil {
 							sc.appendSidecarServices(servicesAdded, matchedSvc)
 						}
@@ -668,6 +673,11 @@ func (sc *SidecarScope) DestinationRuleConfig(direction TrafficDirection, proxy 
 // Services returns the list of services that are visible to a sidecar.
 func (sc *SidecarScope) Services() []*Service {
 	return sc.services
+}
+
+// Services returns the list of services that are visible to a sidecar.
+func (sc *SidecarScope) ServicesByHostname() map[host.Name]*Service {
+	return sc.servicesByHostname
 }
 
 // Testing Only. This allows tests to inject a config without having the mock.
@@ -1051,6 +1061,33 @@ func pickFirstVisibleNamespace(ps *PushContext, byNamespace map[string]*Service,
 	if len(nss) > 0 {
 		sort.Strings(nss)
 		return nss[0]
+	}
+	return ""
+}
+
+// Pick the best Service namespace visible to the configNamespace namespace.
+// If it does not exist, return an empty string.
+// Best is defined as:
+// 1. contains a Kubernetes service and is visible to configNamespace
+// 2. contains the oldest non-Kubernetes service which is visible to configNamespace
+// This does not consider whether a svc is in the configNamespace,
+// the calling logic has already attempted a direct lookup of byNamespace[configNamespace]
+func pickBestVisibleNamespace(ps *PushContext, byNamespace map[string]*Service, configNamespace string) string {
+	var currentBestService *Service
+	for _, svc := range byNamespace {
+		if ps.IsServiceVisible(svc, configNamespace) {
+			// if we have a visible kube service, use it
+			if svc.Attributes.ServiceRegistry == provider.Kubernetes {
+				return svc.NamespacedName().Namespace
+			}
+			// if this is the first visible service, or it's older than our current best, then it is the new best that we have seen
+			if currentBestService == nil || svc.CreationTime.Before(currentBestService.CreationTime) {
+				currentBestService = svc
+			}
+		}
+	}
+	if currentBestService != nil {
+		return currentBestService.NamespacedName().Namespace
 	}
 	return ""
 }

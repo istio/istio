@@ -21,42 +21,35 @@ spec:
   - Egress
   ingress:
   # Readiness probe
-  - from: []
-    ports:
+  - ports:
     - protocol: TCP
       port: 15021
   # Monitoring/prometheus
-  - from: []
-    ports:
+  - ports:
     - protocol: TCP
       port: 15020  # Metrics
   # Admin interface
-  - from: []
-    ports:
+  - ports:
     - protocol: TCP
       port: 15000  # Admin interface
   # HBONE traffic
-  - from: []
-    ports:
+  - ports:
     - protocol: TCP
       port: 15008
   # Outbound traffic endpoint
-  - from: []
-    ports:
+  - ports:
     - protocol: TCP
       port: 15001
   # Traffic endpoint for inbound plaintext
-  - from: []
-    ports:
+  - ports:
     - protocol: TCP
       port: 15006
   # DNS Captures
-  - from: [ ]
-    ports:
-      - protocol: TCP
-        port: 15053
-      - protocol: UDP
-        port: 15053
+  - ports:
+    - protocol: TCP
+      port: 15053
+    - protocol: UDP
+      port: 15053
   egress:
   # Allow all egress
   - {}

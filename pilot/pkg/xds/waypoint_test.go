@@ -615,6 +615,39 @@ spec:
 	g.Expect(po).To(BeNil())
 }
 
+func TestWaypointClusterDNSConnectStrategyHappyEyeballs(t *testing.T) {
+	g := NewWithT(t)
+	DNSConnectStrategyServiceEntry := `apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: race-target
+  namespace: default
+  labels:
+    istio.io/use-waypoint: waypoint
+    istio.io/use-waypoint-namespace: default
+  annotations:
+    istio.io/connect-strategy: RACE_FIRST_TCP_CONNECT
+spec:
+  hosts: ["sql.example.com"]
+  ports:
+  - number: 1433
+    name: tcp-sql
+    protocol: TCP
+  resolution: DNS`
+	d, p := setupWaypointTest(t,
+		waypointGateway,
+		waypointSvc,
+		waypointInstance,
+		DNSConnectStrategyServiceEntry)
+
+	clusters := xdstest.ExtractClusters(d.Clusters(p))
+	c := clusters["inbound-vip|1433|tcp|sql.example.com"]
+	g.Expect(c).NotTo(BeNil(), "expected inbound-vip cluster for sql.example.com")
+	g.Expect(c.DnsLookupFamily).To(Equal(clusterv3.Cluster_ALL),
+		"connect strategy RACE_FIRST_TCP_CONNECT should set DnsLookupFamily=ALL for happy eyeballs")
+	g.Expect(c.GetType()).To(Equal(clusterv3.Cluster_LOGICAL_DNS), "connect strategy RACE_FIRST_TCP_CONNECT should be a LOGICAL_DNS cluster")
+}
+
 func TestWaypointClusterWithDynamicDNSWithoutWaypoint(t *testing.T) {
 	g := NewWithT(t)
 	dynamicDNSServiceEntry := `apiVersion: networking.istio.io/v1
@@ -968,6 +1001,67 @@ func TestWaypointPeerMetadataFilters(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestWaypointMultipleVirtualServices(t *testing.T) {
+	// Test that multiple VirtualServices targeting the same host at a waypoint
+	// have all their routes merged into the inbound VirtualHost.
+	vs1 := `apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: vs-route-a
+  namespace: default
+spec:
+  hosts: [app.com]
+  http:
+  - match:
+    - uri:
+        prefix: /route-a
+    route:
+    - destination:
+        host: app.com
+        port:
+          number: 80
+`
+	vs2 := `apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: vs-route-b
+  namespace: default
+spec:
+  hosts: [app.com]
+  http:
+  - match:
+    - uri:
+        prefix: /route-b
+    route:
+    - destination:
+        host: app.com
+        port:
+          number: 80
+`
+	d, proxy := setupWaypointTest(t,
+		waypointGateway, waypointSvc, waypointInstance,
+		appServiceEntry, appWorkloadEntry,
+		vs1, vs2)
+
+	l := xdstest.ExtractListener("main_internal", d.Listeners(proxy))
+	fc := xdstest.ExtractFilterChain(model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "http", "app.com", 80), l)
+	hcmCfg := xdstest.ExtractHTTPConnectionManager(t, fc)
+	routeConfig := hcmCfg.GetRouteConfig()
+
+	// Collect all route prefixes across all virtual hosts
+	var prefixes []string
+	for _, vh := range routeConfig.GetVirtualHosts() {
+		for _, r := range vh.Routes {
+			if prefix := r.GetMatch().GetPrefix(); prefix != "" {
+				prefixes = append(prefixes, prefix)
+			}
+		}
+	}
+	// Both VS routes must be present — prior to the fix, only the first VS's routes appeared
+	assert.Equal(t, sets.New(prefixes...).Contains("/route-a"), true)
+	assert.Equal(t, sets.New(prefixes...).Contains("/route-b"), true)
 }
 
 func setupWaypointTest(t *testing.T, configs ...string) (*xds.FakeDiscoveryServer, *model.Proxy) {

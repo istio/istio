@@ -33,7 +33,7 @@ import (
 
 var (
 	port             = flag.Int("port", 1338, "port to run registry on")
-	registry         = flag.String("registry", "gcr.io", "name of registry to redirect registry request to")
+	registry         = flag.String("registry", "registry.istio.io", "name of registry to redirect registry request to")
 	scheme           = flag.String("scheme", "https", "scheme of the URL to the image registry")
 	regexForManifest = regexp.MustCompile(`(?P<Prefix>/v\d+)?/(?P<ImageName>.+)/manifests/(?P<Tag>[^:]*)$`)
 	regexForLayer    = regexp.MustCompile(`/layer/v1/(?P<ImageName>[^:]+):(?P<Tag>[^:]+)`)

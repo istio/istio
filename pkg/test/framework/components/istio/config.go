@@ -84,6 +84,9 @@ const (
 
 	// DefaultEgressGatewayServiceName is the default service name for the egress gateway.
 	DefaultEgressGatewayServiceName = "istio-egressgateway"
+
+	// DefaultGatewayClassName is the default name of the GatewayClass for created by istio.
+	DefaultGatewayClassName = "istio"
 )
 
 var (
@@ -107,6 +110,7 @@ var (
 		EgressGatewayServiceName:      DefaultEgressGatewayServiceName,
 		EgressGatewayIstioLabel:       DefaultEgressGatewayIstioLabel,
 		DeployGatewayAPI:              true,
+		GatewayClassName:              DefaultGatewayClassName,
 	}
 )
 
@@ -221,6 +225,10 @@ type Config struct {
 
 	// DeployGatewayAPI indicates that the test should deploy Gateway API during tests execution
 	DeployGatewayAPI bool
+
+	// GatewayClassName is the name of the GatewayClass to use for Gateway API tests.
+	// This sets the PILOT_GATEWAY_API_DEFAULT_GATEWAYCLASS_NAME environment variable for istiod.
+	GatewayClassName string
 }
 
 func (c *Config) OverridesYAML(s *resource.Settings) string {

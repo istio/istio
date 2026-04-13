@@ -544,10 +544,6 @@ func TestExtractCACertExpiryTimestamp(t *testing.T) {
 			expectedExpiryTimestamp := tc.notBefore.Add(tc.ttl)
 			// One second toleration because x509 cert times have one second of precision
 			tol := time.Second
-			if err != nil {
-				t.Errorf("Did not expect error, got %v", err)
-				t.FailNow()
-			}
 			if expiryTimestamp.Sub(expectedExpiryTimestamp).Abs() > tol {
 				t.Errorf("Expected %d and %d to be almost equal", expiryTimestamp.Unix(), expectedExpiryTimestamp.Unix())
 			}

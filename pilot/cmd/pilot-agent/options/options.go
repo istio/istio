@@ -21,6 +21,7 @@ import (
 
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pkg/config/constants"
+	dnsClient "istio.io/istio/pkg/dns/client"
 	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/security"
@@ -109,6 +110,9 @@ var (
 
 	DNSForwardParallel = env.Register("DNS_FORWARD_PARALLEL", false,
 		"If set to true, agent will send parallel DNS queries to all upstream nameservers")
+
+	DNSForwardTimeout = env.Register("DNS_FORWARD_TIMEOUT", dnsClient.DefaultUpstreamTimeout,
+		"Timeout for upstream DNS queries. Defaults to 5 seconds")
 
 	// Ability of istio-agent to retrieve proxyConfig via XDS for dynamic configuration updates
 	enableProxyConfigXdsEnv = env.Register("PROXY_CONFIG_XDS_AGENT", false,
