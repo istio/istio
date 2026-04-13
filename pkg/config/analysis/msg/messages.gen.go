@@ -267,6 +267,10 @@ var (
 	// UnknownDestinationRuleHost defines a diag.MessageType for message "UnknownDestinationRuleHost".
 	// Description: Host defined in destination rule does not match any services in the mesh.
 	UnknownDestinationRuleHost = diag.NewMessageType(diag.Warning, "IST0174", "The host %s defined in the DestinationRule does not match any services in the mesh.")
+
+	// JwksUriFetchUnrestricted defines a diag.MessageType for message "JwksUriFetchUnrestricted".
+	// Description: RequestAuthentication resources exist but BLOCKED_CIDRS_IN_JWKS_URIS is not configured on istiod.
+	JwksUriFetchUnrestricted = diag.NewMessageType(diag.Warning, "IST0175", "BLOCKED_CIDRS_IN_JWKS_URIS is not configured but %d RequestAuthentication resource(s) exist (%s). Consider configuring it to restrict JWKS URI fetches to trusted networks.")
 )
 
 // All returns a list of all known message types.
@@ -337,6 +341,7 @@ func All() []*diag.MessageType {
 		NegativeConditionStatus,
 		DestinationRuleSubsetNotSelectPods,
 		UnknownDestinationRuleHost,
+		JwksUriFetchUnrestricted,
 	}
 }
 
@@ -976,5 +981,15 @@ func NewUnknownDestinationRuleHost(r *resource.Instance, host string) diag.Messa
 		UnknownDestinationRuleHost,
 		r,
 		host,
+	)
+}
+
+// NewJwksUriFetchUnrestricted returns a new diag.Message based on JwksUriFetchUnrestricted.
+func NewJwksUriFetchUnrestricted(r *resource.Instance, count int, names string) diag.Message {
+	return diag.NewMessage(
+		JwksUriFetchUnrestricted,
+		r,
+		count,
+		names,
 	)
 }

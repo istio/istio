@@ -675,6 +675,11 @@ func (sc *SidecarScope) Services() []*Service {
 	return sc.services
 }
 
+// Services returns the list of services that are visible to a sidecar.
+func (sc *SidecarScope) ServicesByHostname() map[host.Name]*Service {
+	return sc.servicesByHostname
+}
+
 // Testing Only. This allows tests to inject a config without having the mock.
 func (sc *SidecarScope) SetDestinationRulesForTesting(configs []config.Config) {
 	sc.destinationRulesByNames = make(map[types.NamespacedName]*config.Config)

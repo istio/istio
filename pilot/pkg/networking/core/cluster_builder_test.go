@@ -1516,12 +1516,13 @@ func TestClusterDnsLookupFamily(t *testing.T) {
 	}
 
 	cases := []struct {
-		name           string
-		clusterName    string
-		discovery      cluster.Cluster_DiscoveryType
-		proxy          *model.Proxy
-		dualStack      bool
-		expectedFamily cluster.Cluster_DnsLookupFamily
+		name            string
+		clusterName     string
+		discovery       cluster.Cluster_DiscoveryType
+		proxy           *model.Proxy
+		dualStack       bool
+		connectStrategy model.DNSConnectStrategy
+		expectedFamily  cluster.Cluster_DnsLookupFamily
 	}{
 		{
 			name:           "all ipv4, dual stack disabled",
@@ -1571,6 +1572,15 @@ func TestClusterDnsLookupFamily(t *testing.T) {
 			dualStack:      true,
 			expectedFamily: cluster.Cluster_ALL,
 		},
+		{
+			name:            "connect strategy forces all for ipv4 sidecar",
+			clusterName:     "foo",
+			discovery:       cluster.Cluster_STRICT_DNS,
+			proxy:           getProxy(),
+			dualStack:       false,
+			connectStrategy: model.DNSConnectStrategyRaceFirstTCPConnect,
+			expectedFamily:  cluster.Cluster_ALL,
+		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1584,7 +1594,13 @@ func TestClusterDnsLookupFamily(t *testing.T) {
 				},
 				Hostname:     "host",
 				MeshExternal: false,
-				Attributes:   model.ServiceAttributes{Name: "svc", Namespace: "default"},
+				Attributes: model.ServiceAttributes{
+					Name:      "svc",
+					Namespace: "default",
+					K8sAttributes: model.K8sAttributes{
+						DNSConnectStrategy: tt.connectStrategy,
+					},
+				},
 			}
 			defaultCluster := cb.buildCluster(tt.clusterName, tt.discovery, endpoints, model.TrafficDirectionOutbound, servicePort, service, nil, "")
 			c := defaultCluster.build()

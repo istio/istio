@@ -70,6 +70,11 @@ func ldsNeedsPush(proxy *model.Proxy, req *model.PushRequest) bool {
 	}
 	for config := range req.ConfigsUpdated {
 		if !skippedLdsConfigs[proxy.Type].Contains(config.Kind) {
+			if config.Kind == kind.PeerAuthentication && config.Namespace != proxy.ConfigNamespace &&
+				config.Namespace != req.Push.Mesh.RootNamespace {
+				// PeerAuthentication of the configNamespace or rootNamespace can only impact lds
+				continue
+			}
 			return true
 		}
 	}

@@ -341,9 +341,12 @@ func New(options Options) Index {
 		return []networkAddress{netaddr}
 	})
 	WorkloadServices.RegisterBatch(krt.BatchedEventFilter(
-		func(a model.ServiceInfo) *workloadapi.Service {
+		func(a model.ServiceInfo) *model.XDSServiceInfo {
 			// Only trigger push if the XDS object changed; the rest is just for computation of others
-			return a.Service
+			return &model.XDSServiceInfo{
+				Service:            a.Service,
+				DNSConnectStrategy: a.DNSConnectStrategy,
+			}
 		},
 		PushXdsAddress(a.XDSUpdater, model.ServiceInfo.ResourceName),
 	), false)
