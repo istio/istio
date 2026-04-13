@@ -29,6 +29,7 @@ function printHelp() {
   echo "    --service-subnet   - the service subnet to specify. Default is 10.96.0.0/16 for IPv4 and fd00:10:96::/112 for IPv6"
   echo "    -i|--ip-family     - ip family to be supported, default is ipv4 only. Value should be ipv4, ipv6, or dual"
   echo "    --ipv6gw           - set ipv6 as the gateway, necessary for dual-stack IPv6-preferred clusters"
+  echo "    --kind-registry    - create a local registry for kind nodes"
   echo "    -h|--help          - print the usage of this script"
 }
 
@@ -43,6 +44,10 @@ PODSUBNET=""
 SERVICESUBNET=""
 IPV6GW=false
 API_SERVER_ADDRESS=""
+KIND_REGISTRY=false
+KIND_REGISTRY_NAME="kind-registry"
+KIND_REGISTRY_PORT="5000"
+KIND_REGISTRY_DIR="/etc/containerd/certs.d/localhost:${KIND_REGISTRY_PORT}"
 
 # Handling parameters
 while [[ $# -gt 0 ]]; do
@@ -66,6 +71,8 @@ while [[ $# -gt 0 ]]; do
       IPFAMILY="${2,,}";shift 2;;
     --ipv6gw)
       IPV6GW=true; shift;;
+    --kind-registry)
+      KIND_REGISTRY=true; shift;;
     -h|--help)
       printHelp; exit 0;;
     *) # unknown option
@@ -73,11 +80,10 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# This block is to setup kind to have a local image repo to push
-# images using localhost:5000, to use this feature, start up
-# a registry container such as registry.istio.io/testing/registry, then
-# connect it to the docker network where kind nodes are running on
-# which normally will be called kind
+# This block is to setup kind with containerd registry config dir enabled.
+# When running this script with parameter --kind-registry,
+# it creates a local registry for kind nodes to pull images from,
+# and for a local image repo to push images using localhost:5000
 FEATURES=$(cat << EOF
 kubeadmConfigPatches:
   - |
@@ -274,3 +280,49 @@ while : ; do
 done
 
 echo "Kubernetes cluster ${CLUSTERNAME} was created successfully!"
+
+# Creates a local registry for kind nodes. Expects that the "kind" network already exists.
+function setup_kind_registry() {
+  # create a registry container if it not running already
+  running="$(docker inspect -f '{{.State.Running}}' "${KIND_REGISTRY_NAME}" 2>/dev/null || true)"
+  if [[ "${running}" != 'true' ]]; then
+      docker run \
+        -d --restart=always -p "${KIND_REGISTRY_PORT}:5000" --name "${KIND_REGISTRY_NAME}" \
+        registry.istio.io/testing/registry:2
+
+    # Allow kind nodes to reach the registry
+    docker network connect "kind" "${KIND_REGISTRY_NAME}"
+  fi
+
+  # https://docs.tilt.dev/choosing_clusters.html#discovering-the-registry
+  for cluster in $(kind get clusters); do
+    # TODO get context/config from existing variables
+    kind export kubeconfig --name="${cluster}"
+    for node in $(kind get nodes --name="${cluster}"); do
+      docker exec "${node}" mkdir -p "${KIND_REGISTRY_DIR}"
+      cat <<EOF | docker exec -i "${node}" cp /dev/stdin "${KIND_REGISTRY_DIR}/hosts.toml"
+[host."http://${KIND_REGISTRY_NAME}:5000"]
+EOF
+
+      kubectl annotate node "${node}" "kind.x-k8s.io/registry=kind-registry:${KIND_REGISTRY_PORT}" --overwrite;
+    done
+
+    # Document the local registry
+    cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: local-registry-hosting
+  namespace: kube-public
+data:
+  localRegistryHosting.v1: |
+    host: "localhost:${KIND_REGISTRY_PORT}"
+    help: "https://kind.sigs.k8s.io/docs/user/local-registry/"
+EOF
+  done
+}
+
+if [[ "${KIND_REGISTRY}" == "true" ]]; then
+  setup_kind_registry
+  echo "Registry ${KIND_REGISTRY_NAME} was created successfully!"
+fi
