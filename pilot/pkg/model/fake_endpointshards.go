@@ -37,6 +37,10 @@ func (f *FakeEndpointIndexUpdater) ConfigUpdate(*PushRequest) {}
 
 func (f *FakeEndpointIndexUpdater) EDSUpdate(shard ShardKey, serviceName string, namespace string, eps []*IstioEndpoint) {
 	pushType := f.Index.UpdateServiceEndpoints(shard, serviceName, namespace, eps, true)
+	if pushType == NoPush {
+		return
+	}
+
 	if f.ConfigUpdateFunc != nil {
 		configKind := kind.Endpoints
 		if pushType == FullPush {
