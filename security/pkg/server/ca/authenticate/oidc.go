@@ -40,7 +40,7 @@ type JwtAuthenticator struct {
 
 var _ security.Authenticator = &JwtAuthenticator{}
 
-// newJwtAuthenticator is used when running istiod outside of a cluster, to validate the tokens using OIDC
+// NewJwtAuthenticator is used when running istiod outside of a cluster, to validate the tokens using OIDC
 // K8S is created with --service-account-issuer, service-account-signing-key-file and service-account-api-audiences
 // which enable OIDC.
 func NewJwtAuthenticator(jwtRule *v1beta1.JWTRule, meshWatcher mesh.Watcher) (*JwtAuthenticator, error) {
