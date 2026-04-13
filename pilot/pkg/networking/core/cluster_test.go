@@ -3229,6 +3229,53 @@ func TestTelemetryMetadata(t *testing.T) {
 	}
 }
 
+// applyConfigDiff applies the difference between prevConfigs and configs to the store.
+func applyConfigDiff(t *testing.T, cg *ConfigGenTest, prevConfigs, configs []config.Config) {
+	t.Helper()
+	type key struct {
+		gvk       config.GroupVersionKind
+		name      string
+		namespace string
+	}
+	prevMap := make(map[key]config.Config, len(prevConfigs))
+	for _, cfg := range prevConfigs {
+		prevMap[key{cfg.GroupVersionKind, cfg.Name, cfg.Namespace}] = cfg
+	}
+	for _, cfg := range configs {
+		key := key{cfg.GroupVersionKind, cfg.Name, cfg.Namespace}
+		if prevCfg, exists := prevMap[key]; !exists {
+			cg.Store().Create(cfg)
+		} else if !prevCfg.Equals(&cfg) {
+			cg.Store().Update(cfg)
+		}
+		delete(prevMap, key)
+	}
+	for _, cfg := range prevMap {
+		cg.Store().Delete(cfg.GroupVersionKind, cfg.Name, cfg.Namespace, nil)
+	}
+
+	// Wait for VS controller to process changes
+	hasVses := false
+	for _, cfg := range configs {
+		if cfg.GroupVersionKind == gvk.VirtualService {
+			hasVses = true
+			// ensure VS Controller is up to date
+			assert.EventuallyEqual(t, func() config.Spec {
+				c := cg.env.VirtualServiceController.Collection().GetKey(cfg.NamespacedName().String())
+				if c == nil {
+					return config.Config{}
+				}
+				return c.Spec
+			}, cfg.Spec)
+		}
+	}
+	if !hasVses {
+		assert.EventuallyEqual(t, func() int {
+			return len(cg.env.VirtualServiceController.MergedVirtualServices())
+		}, 0)
+	}
+}
+
 func TestBuildDeltaClusters(t *testing.T) {
 	proxyNamespace := "foo"
 	testService1 := &model.Service{
@@ -4115,31 +4162,7 @@ func TestBuildDeltaClusters(t *testing.T) {
 				ConfigNamespace: proxyNamespace,
 			})
 			if tc.prevConfigs != nil {
-				for _, cfg := range tc.prevConfigs {
-					cg.Store().Delete(cfg.GroupVersionKind, cfg.Name, cfg.Namespace, nil)
-				}
-				for _, cfg := range tc.configs {
-					cg.Store().Create(cfg)
-				}
-				hasVses := false
-				for _, cfg := range tc.configs {
-					if cfg.GroupVersionKind == gvk.VirtualService {
-						hasVses = true
-						// ensure VS Controller is up to date
-						assert.EventuallyEqual(t, func() config.Spec {
-							c := cg.env.VirtualServiceController.Collection().GetKey(cfg.NamespacedName().String())
-							if c == nil {
-								return config.Config{}
-							}
-							return c.Spec
-						}, cfg.Spec)
-					}
-				}
-				if !hasVses {
-					assert.EventuallyEqual(t, func() int {
-						return len(cg.env.VirtualServiceController.MergedVirtualServices())
-					}, 0)
-				}
+				applyConfigDiff(t, cg, tc.prevConfigs, tc.configs)
 				pc := model.NewPushContext()
 				pc.InitContext(cg.env, nil, nil)
 				cg.env.SetPushContext(pc)
@@ -4921,31 +4944,7 @@ func TestBuildDeltaClustersForFilteredGateway(t *testing.T) {
 				Labels:          map[string]string{"istio": "ingressgateway"},
 			})
 			if tc.prevConfigs != nil {
-				for _, cfg := range tc.prevConfigs {
-					cg.Store().Delete(cfg.GroupVersionKind, cfg.Name, cfg.Namespace, nil)
-				}
-				for _, cfg := range tc.configs {
-					cg.Store().Create(cfg)
-				}
-				hasVses := false
-				for _, cfg := range tc.configs {
-					if cfg.GroupVersionKind == gvk.VirtualService {
-						hasVses = true
-						// ensure VS Controller is up to date
-						assert.EventuallyEqual(t, func() config.Spec {
-							c := cg.env.VirtualServiceController.Collection().GetKey(cfg.NamespacedName().String())
-							if c == nil {
-								return config.Config{}
-							}
-							return c.Spec
-						}, cfg.Spec)
-					}
-				}
-				if !hasVses {
-					assert.EventuallyEqual(t, func() int {
-						return len(cg.env.VirtualServiceController.MergedVirtualServices())
-					}, 0)
-				}
+				applyConfigDiff(t, cg, tc.prevConfigs, tc.configs)
 				pc := model.NewPushContext()
 				pc.InitContext(cg.env, nil, nil)
 				cg.env.SetPushContext(pc)
