@@ -71,7 +71,7 @@ components:
 func TestMultiRevision(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
-			if t.Settings().Meshless {
+			if t.Settings().GatewayAPIOnly {
 				t.Skip("TestMultiRevision requires full Istio mesh with revision support")
 			}
 			stable := namespace.NewOrFail(t, namespace.Config{
@@ -140,7 +140,7 @@ func TestMultiRevision(t *testing.T) {
 func TestMultiRevisionRouteStatusHandling(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
-			if t.Settings().Meshless {
+			if t.Settings().GatewayAPIOnly {
 				t.Skip("TestMultiRevisionRouteStatusHandling requires full Istio mesh with revision support")
 			}
 			if err := crd.DeployGatewayAPI(t); err != nil {
