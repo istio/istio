@@ -43,7 +43,8 @@ var skippedCdsConfigs = sets.New(
 	kind.ProxyConfig,
 	kind.DNSName,
 	kind.Endpoints,
-	// we can skip Address here since it's already checked in waypointNeedsPush
+	// we can skip Address here to avoid pushing Sidecars and Gateways on Address changes,
+	// it's already checked in waypointNeedsPush
 	kind.Address,
 )
 
