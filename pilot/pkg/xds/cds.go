@@ -43,6 +43,8 @@ var skippedCdsConfigs = sets.New(
 	kind.ProxyConfig,
 	kind.DNSName,
 	kind.Endpoints,
+	// we can skip Address here since it's already checked in waypointNeedsPush
+	kind.Address,
 )
 
 // Map all aditional configs that impact CDS for gateways.

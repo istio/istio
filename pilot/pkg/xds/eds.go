@@ -53,7 +53,7 @@ func (s *DiscoveryServer) EDSUpdate(shard model.ShardKey, serviceName string, na
 	inboundEDSUpdates.Increment()
 	// Update the endpoint shards
 	pushType := s.Env.EndpointIndex.UpdateServiceEndpoints(shard, serviceName, namespace, istioEndpoints, true)
-	if pushType == model.IncrementalPush || pushType == model.FullPush {
+	if pushType != model.NoPush {
 		configKind := kind.Endpoints
 		if pushType == model.FullPush {
 			configKind = kind.ServiceEntry
@@ -107,6 +107,8 @@ var skippedEdsConfigs = sets.New(
 	kind.ProxyConfig,
 	kind.DNSName,
 	kind.Sidecar,
+	// we can skip Address here since it's already checked in waypointNeedsPush
+	kind.Address,
 )
 
 var deltaAwareEdsConfigs = sets.New(
