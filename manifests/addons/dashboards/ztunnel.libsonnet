@@ -47,6 +47,10 @@ dashboard.new('Istio Ztunnel Dashboard')
       |||
       ),
     ]),
+    row.new('Network Resources')
+    + row.withPanels([
+      panels.timeSeries.short('Resource Usage', queries.socketResources, 'Active TCP connections, open file descriptors, and open sockets per instance'),
+    ]),
   ], panelHeight=8)
 )
 + g.dashboard.withUid(std.md5('ztunnel.json'))

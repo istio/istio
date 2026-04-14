@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+- |
+  **Added** support for loading multicluster remote secrets from a local filesystem path specified by
+  `PILOT_MULTICLUSTER_KUBECONFIG_PATH`. When set, Istiod watches the mounted directory (for
+  `.yaml` or `.yml` keys) and dynamically updates remote cluster registrations. If both
+  `PILOT_MULTICLUSTER_KUBECONFIG_PATH` and `LOCAL_CLUSTER_SECRET_WATCHER` are set,
+  `PILOT_MULTICLUSTER_KUBECONFIG_PATH` takes precedence.

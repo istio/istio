@@ -53,6 +53,8 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	kubeclient "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/maps"
 	pm "istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/slices"
@@ -84,7 +86,15 @@ func setupTest(t *testing.T) (model.ConfigStoreController, kubernetes.Interface,
 	stop := istiotest.NewStop(t)
 	go configController.Run(stop)
 
-	se := serviceentry.NewController(configController, xdsUpdater, meshWatcher)
+	multiclusterController := multicluster.NewController(multicluster.ControllerOptions{
+		Client:          client,
+		ClusterID:       client.ClusterID(),
+		SystemNamespace: meshWatcher.Mesh().RootNamespace,
+		MeshConfig:      meshWatcher,
+		Debugger:        krt.GlobalDebugHandler,
+	})
+	assert.NoError(t, multiclusterController.Run(stop))
+	se := serviceentry.NewController(configController, xdsUpdater, multiclusterController, meshWatcher)
 	client.RunAndWait(stop)
 
 	kc.AppendWorkloadHandler(se.WorkloadInstanceHandler)

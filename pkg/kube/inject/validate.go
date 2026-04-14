@@ -19,14 +19,17 @@ import (
 	"net/netip"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/hashicorp/go-multierror"
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/validation/agent"
+	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
@@ -45,8 +48,15 @@ var (
 		annotation.SidecarTrafficIncludeInboundPorts.Name:         ValidateIncludeInboundPorts,
 		annotation.SidecarTrafficExcludeInboundPorts.Name:         ValidateExcludeInboundPorts,
 		annotation.SidecarTrafficExcludeOutboundPorts.Name:        ValidateExcludeOutboundPorts,
+		annotation.SidecarTrafficExcludeInterfaces.Name:           ValidateExcludeInterfaces,
+		annotation.SidecarTrafficKubevirtInterfaces.Name:          ValidateExcludeInterfaces,
+		annotation.IoIstioRerouteVirtualInterfaces.Name:           ValidateExcludeInterfaces,
 		annotation.PrometheusMergeMetrics.Name:                    validateBool,
 		annotation.ProxyConfig.Name:                               validateProxyConfig,
+		annotation.SidecarProxyCPU.Name:                           validateResourceQuantity,
+		annotation.SidecarProxyMemory.Name:                        validateResourceQuantity,
+		annotation.SidecarProxyCPULimit.Name:                      validateResourceQuantity,
+		annotation.SidecarProxyMemoryLimit.Name:                   validateResourceQuantity,
 	}
 )
 
@@ -145,6 +155,17 @@ func validateBool(value string) error {
 	return err
 }
 
+// validateResourceQuantity validates Kubernetes resource quantity - rejects control chars, validates format
+func validateResourceQuantity(value string) error {
+	for _, r := range value {
+		if unicode.IsControl(r) {
+			return fmt.Errorf("value contains control characters")
+		}
+	}
+	_, err := resource.ParseQuantity(value)
+	return err
+}
+
 func validateCIDRList(cidrs string) error {
 	if len(cidrs) > 0 {
 		for _, cidr := range strings.Split(cidrs, ",") {
@@ -181,4 +202,9 @@ func parsePorts(portsString string) ([]int, error) {
 		}
 	}
 	return ports, nil
+}
+
+// ValidateExcludeInterfaces validates the excludeInterfaces parameter
+func ValidateExcludeInterfaces(interfaces string) error {
+	return netutil.ValidateInterfaceNames(interfaces)
 }

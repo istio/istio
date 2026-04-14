@@ -24,6 +24,7 @@ import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
+	workloadapi "istio.io/istio/pkg/workloadapi"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -156,7 +157,9 @@ type Authorization struct {
 	Groups []*Group `protobuf:"bytes,5,rep,name=groups,proto3" json:"groups,omitempty"`
 	// Whether or not this is a dry run policy.
 	// Dry run policies are not enforced, but their matches are logged
-	DryRun        bool `protobuf:"varint,6,opt,name=dry_run,json=dryRun,proto3" json:"dry_run,omitempty"`
+	DryRun bool `protobuf:"varint,6,opt,name=dry_run,json=dryRun,proto3" json:"dry_run,omitempty"`
+	// Extension provides a mechanism to attach arbitrary additional configuration to an object.
+	Extensions    []*workloadapi.Extension `protobuf:"bytes,7,rep,name=extensions,proto3" json:"extensions,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -231,6 +234,13 @@ func (x *Authorization) GetDryRun() bool {
 		return x.DryRun
 	}
 	return false
+}
+
+func (x *Authorization) GetExtensions() []*workloadapi.Extension {
+	if x != nil {
+		return x.Extensions
+	}
+	return nil
 }
 
 type Group struct {
@@ -338,8 +348,10 @@ type Match struct {
 	NotDestinationIps   []*Address             `protobuf:"bytes,8,rep,name=not_destination_ips,json=notDestinationIps,proto3" json:"not_destination_ips,omitempty"`
 	DestinationPorts    []uint32               `protobuf:"varint,9,rep,packed,name=destination_ports,json=destinationPorts,proto3" json:"destination_ports,omitempty"`
 	NotDestinationPorts []uint32               `protobuf:"varint,10,rep,packed,name=not_destination_ports,json=notDestinationPorts,proto3" json:"not_destination_ports,omitempty"`
-	unknownFields       protoimpl.UnknownFields
-	sizeCache           protoimpl.SizeCache
+	// Extension provides a mechanism to attach arbitrary additional configuration to an object.
+	Extensions    []*workloadapi.Extension `protobuf:"bytes,13,rep,name=extensions,proto3" json:"extensions,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Match) Reset() {
@@ -452,6 +464,13 @@ func (x *Match) GetDestinationPorts() []uint32 {
 func (x *Match) GetNotDestinationPorts() []uint32 {
 	if x != nil {
 		return x.NotDestinationPorts
+	}
+	return nil
+}
+
+func (x *Match) GetExtensions() []*workloadapi.Extension {
+	if x != nil {
+		return x.Extensions
 	}
 	return nil
 }
@@ -681,18 +700,21 @@ var File_workloadapi_security_authorization_proto protoreflect.FileDescriptor
 
 const file_workloadapi_security_authorization_proto_rawDesc = "" +
 	"\n" +
-	"(workloadapi/security/authorization.proto\x12\x0eistio.security\x1a\x1bgoogle/protobuf/empty.proto\"\xe6\x01\n" +
+	"(workloadapi/security/authorization.proto\x12\x0eistio.security\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1aworkloadapi/workload.proto\"\xa1\x02\n" +
 	"\rAuthorization\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1c\n" +
 	"\tnamespace\x18\x02 \x01(\tR\tnamespace\x12+\n" +
 	"\x05scope\x18\x03 \x01(\x0e2\x15.istio.security.ScopeR\x05scope\x12.\n" +
 	"\x06action\x18\x04 \x01(\x0e2\x16.istio.security.ActionR\x06action\x12-\n" +
 	"\x06groups\x18\x05 \x03(\v2\x15.istio.security.GroupR\x06groups\x12\x17\n" +
-	"\adry_run\x18\x06 \x01(\bR\x06dryRun\"4\n" +
+	"\adry_run\x18\x06 \x01(\bR\x06dryRun\x129\n" +
+	"\n" +
+	"extensions\x18\a \x03(\v2\x19.istio.workload.ExtensionR\n" +
+	"extensions\"4\n" +
 	"\x05Group\x12+\n" +
 	"\x05rules\x18\x01 \x03(\v2\x15.istio.security.RulesR\x05rules\"8\n" +
 	"\x05Rules\x12/\n" +
-	"\amatches\x18\x02 \x03(\v2\x15.istio.security.MatchR\amatches\"\x93\x06\n" +
+	"\amatches\x18\x02 \x03(\v2\x15.istio.security.MatchR\amatches\"\xce\x06\n" +
 	"\x05Match\x12;\n" +
 	"\n" +
 	"namespaces\x18\x01 \x03(\v2\x1b.istio.security.StringMatchR\n" +
@@ -711,7 +733,10 @@ const file_workloadapi_security_authorization_proto_rawDesc = "" +
 	"\x13not_destination_ips\x18\b \x03(\v2\x17.istio.security.AddressR\x11notDestinationIps\x12+\n" +
 	"\x11destination_ports\x18\t \x03(\rR\x10destinationPorts\x122\n" +
 	"\x15not_destination_ports\x18\n" +
-	" \x03(\rR\x13notDestinationPorts\";\n" +
+	" \x03(\rR\x13notDestinationPorts\x129\n" +
+	"\n" +
+	"extensions\x18\r \x03(\v2\x19.istio.workload.ExtensionR\n" +
+	"extensions\";\n" +
 	"\aAddress\x12\x18\n" +
 	"\aaddress\x18\x01 \x01(\fR\aaddress\x12\x16\n" +
 	"\x06length\x18\x02 \x01(\rR\x06length\"[\n" +
@@ -732,7 +757,7 @@ const file_workloadapi_security_authorization_proto_rawDesc = "" +
 	"\x11WORKLOAD_SELECTOR\x10\x02*\x1d\n" +
 	"\x06Action\x12\t\n" +
 	"\x05ALLOW\x10\x00\x12\b\n" +
-	"\x04DENY\x10\x01B\x1aZ\x18pkg/workloadapi/securityb\x06proto3"
+	"\x04DENY\x10\x01B)Z'istio.io/istio/pkg/workloadapi/securityb\x06proto3"
 
 var (
 	file_workloadapi_security_authorization_proto_rawDescOnce sync.Once
@@ -749,39 +774,42 @@ func file_workloadapi_security_authorization_proto_rawDescGZIP() []byte {
 var file_workloadapi_security_authorization_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
 var file_workloadapi_security_authorization_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
 var file_workloadapi_security_authorization_proto_goTypes = []any{
-	(Scope)(0),                  // 0: istio.security.Scope
-	(Action)(0),                 // 1: istio.security.Action
-	(*Authorization)(nil),       // 2: istio.security.Authorization
-	(*Group)(nil),               // 3: istio.security.Group
-	(*Rules)(nil),               // 4: istio.security.Rules
-	(*Match)(nil),               // 5: istio.security.Match
-	(*Address)(nil),             // 6: istio.security.Address
-	(*ServiceAccountMatch)(nil), // 7: istio.security.ServiceAccountMatch
-	(*StringMatch)(nil),         // 8: istio.security.StringMatch
-	(*emptypb.Empty)(nil),       // 9: google.protobuf.Empty
+	(Scope)(0),                    // 0: istio.security.Scope
+	(Action)(0),                   // 1: istio.security.Action
+	(*Authorization)(nil),         // 2: istio.security.Authorization
+	(*Group)(nil),                 // 3: istio.security.Group
+	(*Rules)(nil),                 // 4: istio.security.Rules
+	(*Match)(nil),                 // 5: istio.security.Match
+	(*Address)(nil),               // 6: istio.security.Address
+	(*ServiceAccountMatch)(nil),   // 7: istio.security.ServiceAccountMatch
+	(*StringMatch)(nil),           // 8: istio.security.StringMatch
+	(*workloadapi.Extension)(nil), // 9: istio.workload.Extension
+	(*emptypb.Empty)(nil),         // 10: google.protobuf.Empty
 }
 var file_workloadapi_security_authorization_proto_depIdxs = []int32{
 	0,  // 0: istio.security.Authorization.scope:type_name -> istio.security.Scope
 	1,  // 1: istio.security.Authorization.action:type_name -> istio.security.Action
 	3,  // 2: istio.security.Authorization.groups:type_name -> istio.security.Group
-	4,  // 3: istio.security.Group.rules:type_name -> istio.security.Rules
-	5,  // 4: istio.security.Rules.matches:type_name -> istio.security.Match
-	8,  // 5: istio.security.Match.namespaces:type_name -> istio.security.StringMatch
-	8,  // 6: istio.security.Match.not_namespaces:type_name -> istio.security.StringMatch
-	7,  // 7: istio.security.Match.service_accounts:type_name -> istio.security.ServiceAccountMatch
-	7,  // 8: istio.security.Match.not_service_accounts:type_name -> istio.security.ServiceAccountMatch
-	8,  // 9: istio.security.Match.principals:type_name -> istio.security.StringMatch
-	8,  // 10: istio.security.Match.not_principals:type_name -> istio.security.StringMatch
-	6,  // 11: istio.security.Match.source_ips:type_name -> istio.security.Address
-	6,  // 12: istio.security.Match.not_source_ips:type_name -> istio.security.Address
-	6,  // 13: istio.security.Match.destination_ips:type_name -> istio.security.Address
-	6,  // 14: istio.security.Match.not_destination_ips:type_name -> istio.security.Address
-	9,  // 15: istio.security.StringMatch.presence:type_name -> google.protobuf.Empty
-	16, // [16:16] is the sub-list for method output_type
-	16, // [16:16] is the sub-list for method input_type
-	16, // [16:16] is the sub-list for extension type_name
-	16, // [16:16] is the sub-list for extension extendee
-	0,  // [0:16] is the sub-list for field type_name
+	9,  // 3: istio.security.Authorization.extensions:type_name -> istio.workload.Extension
+	4,  // 4: istio.security.Group.rules:type_name -> istio.security.Rules
+	5,  // 5: istio.security.Rules.matches:type_name -> istio.security.Match
+	8,  // 6: istio.security.Match.namespaces:type_name -> istio.security.StringMatch
+	8,  // 7: istio.security.Match.not_namespaces:type_name -> istio.security.StringMatch
+	7,  // 8: istio.security.Match.service_accounts:type_name -> istio.security.ServiceAccountMatch
+	7,  // 9: istio.security.Match.not_service_accounts:type_name -> istio.security.ServiceAccountMatch
+	8,  // 10: istio.security.Match.principals:type_name -> istio.security.StringMatch
+	8,  // 11: istio.security.Match.not_principals:type_name -> istio.security.StringMatch
+	6,  // 12: istio.security.Match.source_ips:type_name -> istio.security.Address
+	6,  // 13: istio.security.Match.not_source_ips:type_name -> istio.security.Address
+	6,  // 14: istio.security.Match.destination_ips:type_name -> istio.security.Address
+	6,  // 15: istio.security.Match.not_destination_ips:type_name -> istio.security.Address
+	9,  // 16: istio.security.Match.extensions:type_name -> istio.workload.Extension
+	10, // 17: istio.security.StringMatch.presence:type_name -> google.protobuf.Empty
+	18, // [18:18] is the sub-list for method output_type
+	18, // [18:18] is the sub-list for method input_type
+	18, // [18:18] is the sub-list for extension type_name
+	18, // [18:18] is the sub-list for extension extendee
+	0,  // [0:18] is the sub-list for field type_name
 }
 
 func init() { file_workloadapi_security_authorization_proto_init() }

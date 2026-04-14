@@ -91,6 +91,19 @@ spec:
       mode: Terminate
       certificateRefs:
       - name: my-cert-http
+  - name: terminate-optional-mtls-frontendvalidation
+    hostname: "optional-mtls.example"
+    port: 34000
+    protocol: HTTPS
+    allowedRoutes:
+      namespaces:
+        from: All
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - name: my-cert-http
+      options:
+        gateway.istio.io/tls-terminate-mode: OPTIONAL_MUTUAL
   - name: terminate-istio-mtls
     hostname: "egress.example"
     port: 34000
@@ -134,7 +147,7 @@ spec:
     tls:
       mode: Passthrough
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: gateway-valid-ciphers
@@ -156,7 +169,7 @@ spec:
       options:
         gateway.istio.io/tls-cipher-suites: "ECDHE-ECDSA-AES128-GCM-SHA256, ECDHE-RSA-AES128-GCM-SHA256"
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: gateway-invalid-ciphers
@@ -178,7 +191,7 @@ spec:
       options:
         gateway.istio.io/tls-cipher-suites: "bogus,bad"
 ---
-apiVersion: gateway.networking.k8s.io/v1beta1
+apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: gateway-mixed-ciphers
@@ -200,7 +213,7 @@ spec:
       options:
         gateway.istio.io/tls-cipher-suites: "bad, ECDHE-RSA-AES128-GCM-SHA256"
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: TLSRoute
 metadata:
   name: tls
@@ -211,12 +224,14 @@ spec:
     namespace: istio-system
   - name: gateway2
     namespace: istio-system
+  hostnames:
+  - "*.example.com"
   rules:
   - backendRefs:
     - name: httpbin
       port: 443
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: TLSRoute
 metadata:
   name: tls-match

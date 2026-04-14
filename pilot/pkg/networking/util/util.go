@@ -76,6 +76,10 @@ const (
 	// regarding the virtual service or destination rule used for each
 	IstioMetadataKey = "istio"
 
+	// IstioPeerMetadataKey is the key under which metadata for controlling peer metadata
+	// discovery is added to clusters and endpoints
+	IstioPeerMetadataKey = "istio.peer_metadata"
+
 	// EnvoyTransportSocketMetadataKey is the key under which metadata is added to an endpoint
 	// which determines the endpoint level transport socket configuration.
 	EnvoyTransportSocketMetadataKey = "envoy.transport_socket_match"
@@ -872,6 +876,9 @@ func mergeTrafficPolicy(mergedPolicy, subsetPolicy *networking.TrafficPolicy, ha
 	if subsetPolicy.ProxyProtocol != nil {
 		mergedPolicy.ProxyProtocol = subsetPolicy.ProxyProtocol
 	}
+	if subsetPolicy.RetryBudget != nil {
+		mergedPolicy.RetryBudget = subsetPolicy.RetryBudget
+	}
 	return mergedPolicy
 }
 
@@ -899,6 +906,7 @@ func ShallowCopyTrafficPolicy(original *networking.TrafficPolicy) *networking.Tr
 	ret.Tls = original.Tls
 	ret.Tunnel = original.Tunnel
 	ret.ProxyProtocol = original.ProxyProtocol
+	ret.RetryBudget = original.RetryBudget
 	return ret
 }
 

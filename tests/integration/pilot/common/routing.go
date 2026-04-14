@@ -1736,7 +1736,7 @@ func gatewayCases(t TrafficContext) {
 		}
 	}
 
-	// clears the To to avoid echo internals trying to match the protocol with the port on echo.Config
+	// clears the To field to avoid echo internals trying to match the protocol with the port on echo.Config
 	noTarget := func(_ echo.Caller, opts *echo.CallOptions) {
 		opts.To = nil
 	}
@@ -1977,6 +1977,7 @@ spec:
 		// See https://github.com/istio/istio/issues/27315
 		// See https://github.com/istio/istio/issues/34609
 		name:             "http return 400 with with x-forwarded-proto https when vs port specify https",
+		skip:             skip{skip: true, reason: "https://github.com/istio/istio/issues/59833"},
 		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,

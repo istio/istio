@@ -24,8 +24,8 @@ spec:
     targetPort: 15017
     name: tcp-webhook
     protocol: TCP
-  {{- if and .Values.global.remotePilotAddress (not (regexMatch "^([0-9]*\\.){3}[0-9]*$" .Values.global.remotePilotAddress)) }}
-  # if the remotePilotAddress is not an IP addr, we use ExternalName
+  {{- if and .Values.global.remotePilotAddress (not (or (regexMatch "^([0-9]*\\.){3}[0-9]*$" .Values.global.remotePilotAddress) (regexMatch "^([0-9a-fA-F]*:)+[0-9a-fA-F]*$" .Values.global.remotePilotAddress))) }}
+  # if the remotePilotAddress is not an IP addr (IPv4 or IPv6), we use ExternalName
   type: ExternalName
   externalName: {{ .Values.global.remotePilotAddress }}
   {{- end }}

@@ -28,18 +28,24 @@ import (
 
 	"istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	securityBeta "istio.io/api/security/v1beta1"
 	"istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/mesh/meshwatcher"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
+	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -1207,6 +1213,34 @@ var (
 		},
 	}
 
+	services28 = []*Service{
+		{
+			Hostname: "foo.svc.cluster.local",
+			Ports:    port7443,
+			Attributes: ServiceAttributes{
+				Name:      "foo",
+				Namespace: "ns1",
+			},
+			CreationTime: time.Unix(1000, 0),
+		},
+		{
+			Hostname: "foo.svc.cluster.local",
+			Ports:    port8000,
+			Attributes: ServiceAttributes{
+				Name:      "foo",
+				Namespace: "ns2",
+			},
+			CreationTime: time.Unix(2000, 0),
+		},
+		{
+			Hostname: "baz.svc.cluster.local",
+			Ports:    port7443,
+			Attributes: ServiceAttributes{
+				Name:      "baz",
+				Namespace: "ns3",
+			},
+		},
+	}
 	virtualServices1 = []config.Config{
 		{
 			Meta: config.Meta{
@@ -1497,9 +1531,11 @@ func TestCreateSidecarScope(t *testing.T) {
 		// list of services expected to be in the listener
 		expectedServices []*Service
 		expectedDr       *config.Config
+		setupFunc        func(t *testing.T)
 	}{
 		{
 			"no-sidecar-config",
+			nil,
 			nil,
 			nil,
 			nil,
@@ -1517,6 +1553,7 @@ func TestCreateSidecarScope(t *testing.T) {
 				},
 			},
 			nil,
+			nil,
 		},
 		{
 			"no-sidecar-config-not-merge-service-in-diff-namespaces",
@@ -1524,6 +1561,7 @@ func TestCreateSidecarScope(t *testing.T) {
 			services23,
 			nil,
 			[]*Service{services23[2]},
+			nil,
 			nil,
 		},
 		{
@@ -1543,6 +1581,7 @@ func TestCreateSidecarScope(t *testing.T) {
 				},
 			},
 			nil,
+			nil,
 		},
 		{
 			"no-sidecar-config-k8s-service-take-precedence",
@@ -1561,10 +1600,12 @@ func TestCreateSidecarScope(t *testing.T) {
 				},
 			},
 			nil,
+			nil,
 		},
 		{
 			"sidecar-with-multiple-egress",
 			configs1,
+			nil,
 			nil,
 			nil,
 			nil,
@@ -1582,6 +1623,7 @@ func TestCreateSidecarScope(t *testing.T) {
 				},
 			},
 			nil,
+			nil,
 		},
 		{
 			"sidecar-with-multiple-egress-with-service-on-same-port",
@@ -1589,6 +1631,7 @@ func TestCreateSidecarScope(t *testing.T) {
 			services3,
 			nil,
 			services3,
+			nil,
 			nil,
 		},
 		{
@@ -1605,10 +1648,12 @@ func TestCreateSidecarScope(t *testing.T) {
 				},
 			},
 			nil,
+			nil,
 		},
 		{
 			"sidecar-with-zero-egress",
 			configs2,
+			nil,
 			nil,
 			nil,
 			nil,
@@ -1628,10 +1673,12 @@ func TestCreateSidecarScope(t *testing.T) {
 				},
 			},
 			nil,
+			nil,
 		},
 		{
 			"sidecar-with-multiple-egress-noport",
 			configs3,
+			nil,
 			nil,
 			nil,
 			nil,
@@ -1643,6 +1690,7 @@ func TestCreateSidecarScope(t *testing.T) {
 			services2,
 			nil,
 			services2,
+			nil,
 			nil,
 		},
 		{
@@ -1659,6 +1707,7 @@ func TestCreateSidecarScope(t *testing.T) {
 				},
 			},
 			nil,
+			nil,
 		},
 		{
 			"sidecar-with-egress-port-match-with-services-with-and-without-port",
@@ -1666,6 +1715,7 @@ func TestCreateSidecarScope(t *testing.T) {
 			services5,
 			nil,
 			[]*Service{services5[0]},
+			nil,
 			nil,
 		},
 		{
@@ -1684,6 +1734,7 @@ func TestCreateSidecarScope(t *testing.T) {
 				},
 			},
 			nil,
+			nil,
 		},
 		{
 			"sidecar-with-egress-port-merges-service-ports",
@@ -1691,6 +1742,7 @@ func TestCreateSidecarScope(t *testing.T) {
 			services6,
 			nil,
 			services6,
+			nil,
 			nil,
 		},
 		{
@@ -1725,6 +1777,7 @@ func TestCreateSidecarScope(t *testing.T) {
 				},
 			},
 			nil,
+			nil,
 		},
 		{
 			"two-egresslisteners-one-with-port-and-without-port",
@@ -1732,6 +1785,7 @@ func TestCreateSidecarScope(t *testing.T) {
 			services8,
 			nil,
 			services8,
+			nil,
 			nil,
 		},
 		// Validates when service is scoped to Sidecar, it uses service port rather than listener port.
@@ -1741,6 +1795,7 @@ func TestCreateSidecarScope(t *testing.T) {
 			services9,
 			nil,
 			services9,
+			nil,
 			nil,
 		},
 		{
@@ -1774,6 +1829,7 @@ func TestCreateSidecarScope(t *testing.T) {
 					},
 				},
 			},
+			nil,
 			nil,
 		},
 		{
@@ -1824,6 +1880,7 @@ func TestCreateSidecarScope(t *testing.T) {
 				},
 			},
 			nil,
+			nil,
 		},
 		{
 			"wild-card-egress-listener-match-with-two-ports",
@@ -1856,6 +1913,7 @@ func TestCreateSidecarScope(t *testing.T) {
 					},
 				},
 			},
+			nil,
 			nil,
 		},
 		{
@@ -1890,6 +1948,7 @@ func TestCreateSidecarScope(t *testing.T) {
 				},
 			},
 			nil,
+			nil,
 		},
 		{
 			"virtual-service",
@@ -1916,6 +1975,7 @@ func TestCreateSidecarScope(t *testing.T) {
 				},
 			},
 			nil,
+			nil,
 		},
 		{
 			"virtual-service-destinations-matching-ports",
@@ -1932,6 +1992,7 @@ func TestCreateSidecarScope(t *testing.T) {
 					},
 				},
 			},
+			nil,
 			nil,
 		},
 		{
@@ -1958,6 +2019,7 @@ func TestCreateSidecarScope(t *testing.T) {
 				},
 			},
 			nil,
+			nil,
 		},
 		{
 			"virtual-service-destinations-matching-tcp-virtual-service-ports",
@@ -1975,6 +2037,7 @@ func TestCreateSidecarScope(t *testing.T) {
 				},
 			},
 			nil,
+			nil,
 		},
 		{
 			"virtual-service-destinations-matching-tls-virtual-service-ports",
@@ -1991,6 +2054,7 @@ func TestCreateSidecarScope(t *testing.T) {
 					},
 				},
 			},
+			nil,
 			nil,
 		},
 		{
@@ -2019,6 +2083,7 @@ func TestCreateSidecarScope(t *testing.T) {
 				},
 			},
 			nil,
+			nil,
 		},
 		{
 			"virtual-service-prefer-config-namespace",
@@ -2045,12 +2110,42 @@ func TestCreateSidecarScope(t *testing.T) {
 				},
 			},
 			nil,
+			nil,
+		},
+		{
+			"virtual-service-pick-by-creation-time",
+			configs11,
+			// Ambiguous; same hostname in ns1 and ns2, neither is config namespace
+			// older namespace (ns1) should always win (older service creation time)
+			services28,
+			virtualServices1,
+			[]*Service{
+				{
+					Hostname: "baz.svc.cluster.local",
+					Ports:    port7443,
+					Attributes: ServiceAttributes{
+						Name:      "baz",
+						Namespace: "ns3",
+					},
+				},
+				{
+					Hostname: "foo.svc.cluster.local",
+					Ports:    port7443,
+					Attributes: ServiceAttributes{
+						Name:      "foo",
+						Namespace: "ns1",
+					},
+					CreationTime: time.Unix(1000, 0),
+				},
+			},
+			nil,
+			nil,
 		},
 		{
 			"virtual-service-pick-alphabetical",
 			configs11,
 			// Ambiguous; same hostname in ns1 and ns2, neither is config namespace
-			// ns1 should always win
+			// with SidecarPickBestServiceNamespace disabled, ns1 wins alphabetically
 			services12,
 			virtualServices1,
 			[]*Service{
@@ -2072,6 +2167,11 @@ func TestCreateSidecarScope(t *testing.T) {
 				},
 			},
 			nil,
+			// disable SidecarPickBestServiceNamespace
+			// to use alphabetical order of ns for deconfliction method
+			func(t *testing.T) {
+				test.SetForTest(t, &features.SidecarPickBestServiceNamespace, false)
+			},
 		},
 		{
 			"virtual-service-pick-public",
@@ -2099,6 +2199,7 @@ func TestCreateSidecarScope(t *testing.T) {
 				},
 			},
 			nil,
+			nil,
 		},
 		{
 			"virtual-service-bad-host",
@@ -2107,6 +2208,7 @@ func TestCreateSidecarScope(t *testing.T) {
 			virtualServices1,
 			services9,
 			nil,
+			nil,
 		},
 		{
 			"virtual-service-destination-port-missing-from-service",
@@ -2114,6 +2216,7 @@ func TestCreateSidecarScope(t *testing.T) {
 			services22,
 			virtualServices3,
 			[]*Service{},
+			nil,
 			nil,
 		},
 		{
@@ -2140,6 +2243,7 @@ func TestCreateSidecarScope(t *testing.T) {
 				},
 			},
 			nil,
+			nil,
 		},
 		{
 			"virtual-service-2-match-service-and-domain",
@@ -2164,6 +2268,7 @@ func TestCreateSidecarScope(t *testing.T) {
 					},
 				},
 			},
+			nil,
 			nil,
 		},
 		{
@@ -2190,6 +2295,7 @@ func TestCreateSidecarScope(t *testing.T) {
 				},
 			},
 			nil,
+			nil,
 		},
 		{
 			"virtual-service-6-match-source-namespace",
@@ -2215,6 +2321,7 @@ func TestCreateSidecarScope(t *testing.T) {
 				},
 			},
 			nil,
+			nil,
 		},
 		{
 			"sidecar-scope-with-illegal-host",
@@ -2222,6 +2329,7 @@ func TestCreateSidecarScope(t *testing.T) {
 			services14,
 			nil,
 			services14,
+			nil,
 			nil,
 		},
 		{
@@ -2238,6 +2346,7 @@ func TestCreateSidecarScope(t *testing.T) {
 					},
 				},
 			},
+			nil,
 			nil,
 		},
 		{
@@ -2262,6 +2371,7 @@ func TestCreateSidecarScope(t *testing.T) {
 				},
 			},
 			nil,
+			nil,
 		},
 		{
 			"sidecar-scope-with-matching-workloadselector-dr",
@@ -2277,6 +2387,7 @@ func TestCreateSidecarScope(t *testing.T) {
 				},
 			},
 			&destinationRule2,
+			nil,
 		},
 		{
 			"sidecar-scope-with-non-matching-workloadselector-dr",
@@ -2292,6 +2403,7 @@ func TestCreateSidecarScope(t *testing.T) {
 				},
 			},
 			&nonWorkloadSelectorDr,
+			nil,
 		},
 		{
 			"sidecar-scope-same-workloadselector-labels-drs-should-be-merged",
@@ -2307,6 +2419,7 @@ func TestCreateSidecarScope(t *testing.T) {
 				},
 			},
 			&mergedDr1and3,
+			nil,
 		},
 		{
 			name: "multi-service-merge",
@@ -2729,17 +2842,32 @@ func TestCreateSidecarScope(t *testing.T) {
 			env.Watcher = meshwatcher.NewTestWatcher(meshConfig)
 			ps.Mesh = env.Mesh()
 
+			if tt.setupFunc != nil {
+				tt.setupFunc(t)
+			}
+
 			env.ServiceDiscovery = &localServiceDiscovery{services: tt.services}
 			ps.initDefaultExportMaps()
 			ps.initServiceRegistry(env, nil)
 			ps.setDestinationRules([]config.Config{destinationRule1, destinationRule2, destinationRule3, nonWorkloadSelectorDr})
-			configStore := NewFakeStore()
+			fakeStore := NewFakeStore()
+			var controller ConfigStoreController = fakeStore
 			for _, c := range tt.virtualServices {
-				if _, err := configStore.Create(c); err != nil {
+				if _, err := controller.Create(c); err != nil {
 					t.Fatalf("could not create %v", c.Name)
 				}
 			}
-			env.ConfigStore = configStore
+			env.VirtualServiceController = NewVirtualServiceController(
+				controller,
+				VSControllerOptions{KrtDebugger: krt.GlobalDebugHandler},
+				env.Watcher,
+			)
+			stop := test.NewStop(t)
+			go controller.Run(stop)
+			go env.VirtualServiceController.Run(stop)
+			kube.WaitForCacheSync("test", stop, controller.HasSynced)
+			kube.WaitForCacheSync("test", stop, env.VirtualServiceController.HasSynced)
+			env.ConfigStore = controller
 			ps.initVirtualServices(env)
 			sidecarConfig := tt.sidecarConfig
 			configuredListeneres := 1
@@ -3074,6 +3202,15 @@ func TestRootNsSidecarDependencies(t *testing.T) {
 		{"WasmPlugin in the root namespace", []string{"*/*"}, map[ConfigKey]bool{
 			{kind.WasmPlugin, "wasm", constants.IstioSystemNamespace}: true,
 		}},
+		{"TrafficExtension in same ns as workload", []string{"*/*"}, map[ConfigKey]bool{
+			{kind.TrafficExtension, "extension", "default"}: true,
+		}},
+		{"TrafficExtension in different ns from workload", []string{"*/*"}, map[ConfigKey]bool{
+			{kind.TrafficExtension, "extension", "ns1"}: false,
+		}},
+		{"TrafficExtension in the root namespace", []string{"*/*"}, map[ConfigKey]bool{
+			{kind.TrafficExtension, "extension", constants.IstioSystemNamespace}: true,
+		}},
 	}
 
 	for _, tt := range cases {
@@ -3108,6 +3245,157 @@ func TestRootNsSidecarDependencies(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestSidecarScopeAuthnPolicies(t *testing.T) {
+	const (
+		svcName       = "svc1.com"
+		configNs      = "default"
+		svcNs         = "ns"
+		unrelatedNs   = "other-ns"
+		rootNs        = "istio-system"
+		peerAuthName  = "pa-default"
+		peerAuthName2 = "pa-svc-ns"
+		peerAuthName3 = "pa-unrelated"
+		peerAuthName4 = "pa-root"
+	)
+
+	peerAuthnConfigs := []config.Config{
+		{
+			Meta: config.Meta{
+				GroupVersionKind: gvk.PeerAuthentication,
+				Name:             peerAuthName,
+				Namespace:        configNs,
+			},
+			Spec: &securityBeta.PeerAuthentication{
+				Mtls: &securityBeta.PeerAuthentication_MutualTLS{
+					Mode: securityBeta.PeerAuthentication_MutualTLS_STRICT,
+				},
+			},
+		},
+		{
+			Meta: config.Meta{
+				GroupVersionKind: gvk.PeerAuthentication,
+				Name:             peerAuthName2,
+				Namespace:        svcNs,
+			},
+			Spec: &securityBeta.PeerAuthentication{
+				Mtls: &securityBeta.PeerAuthentication_MutualTLS{
+					Mode: securityBeta.PeerAuthentication_MutualTLS_PERMISSIVE,
+				},
+			},
+		},
+		{
+			Meta: config.Meta{
+				GroupVersionKind: gvk.PeerAuthentication,
+				Name:             peerAuthName3,
+				Namespace:        unrelatedNs,
+			},
+			Spec: &securityBeta.PeerAuthentication{
+				Mtls: &securityBeta.PeerAuthentication_MutualTLS{
+					Mode: securityBeta.PeerAuthentication_MutualTLS_DISABLE,
+				},
+			},
+		},
+		{
+			Meta: config.Meta{
+				GroupVersionKind: gvk.PeerAuthentication,
+				Name:             peerAuthName4,
+				Namespace:        rootNs,
+			},
+			Spec: &securityBeta.PeerAuthentication{
+				Mtls: &securityBeta.PeerAuthentication_MutualTLS{
+					Mode: securityBeta.PeerAuthentication_MutualTLS_UNSET,
+				},
+			},
+		},
+	}
+
+	configStore := NewFakeStore()
+	for _, cfg := range peerAuthnConfigs {
+		if _, err := configStore.Create(cfg); err != nil {
+			t.Fatalf("failed to create config: %v", err)
+		}
+	}
+
+	meshConfig := mesh.DefaultMeshConfig()
+	meshConfig.RootNamespace = rootNs
+	env := NewEnvironment()
+	env.Watcher = meshwatcher.NewTestWatcher(meshConfig)
+	env.ConfigStore = configStore
+
+	ps := NewPushContext()
+	ps.Mesh = env.Mesh()
+	ps.initAuthnPolicies(env)
+
+	services := []*Service{
+		{
+			Hostname:   svcName,
+			Attributes: ServiceAttributes{Namespace: svcNs},
+		},
+	}
+	ps.ServiceIndex.public = append(ps.ServiceIndex.public, services...)
+
+	sidecarCfg := &config.Config{
+		Meta: config.Meta{
+			Name:      "test-sidecar",
+			Namespace: configNs,
+		},
+		Spec: &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*"},
+				},
+			},
+		},
+	}
+
+	sidecarScope := convertToSidecarScope(ps, sidecarCfg, configNs)
+	if features.EnableLazySidecarEvaluation {
+		sidecarScope.initFunc()
+	}
+
+	// AuthnPolicies should be populated
+	if sidecarScope.AuthnPolicies == nil {
+		t.Fatal("expected AuthnPolicies to be set on SidecarScope")
+	}
+
+	// Should have policies from configNs, svcNs, and rootNs
+	for _, ns := range []string{configNs, svcNs, rootNs} {
+		if _, ok := sidecarScope.AuthnPolicies.GetPeerAuthentications()[ns]; !ok {
+			t.Errorf("expected PeerAuthentication policies in namespace %q", ns)
+		}
+	}
+
+	// Should NOT have policies from unrelatedNs
+	if _, ok := sidecarScope.AuthnPolicies.GetPeerAuthentications()[unrelatedNs]; ok {
+		t.Errorf("unexpected PeerAuthentication policies in namespace %q", unrelatedNs)
+	}
+
+	// PeerAuthentication in configNs should be a dependency
+	if !sidecarScope.DependsOnConfig(ConfigKey{kind.PeerAuthentication, peerAuthName, configNs}, rootNs) {
+		t.Error("expected sidecar to depend on PeerAuthentication in config namespace")
+	}
+
+	// PeerAuthentication in svcNs (imported service namespace) should be a dependency
+	if !sidecarScope.DependsOnConfig(ConfigKey{kind.PeerAuthentication, peerAuthName2, svcNs}, rootNs) {
+		t.Error("expected sidecar to depend on PeerAuthentication in imported service namespace")
+	}
+
+	// PeerAuthentication in rootNs should be a dependency
+	if !sidecarScope.DependsOnConfig(ConfigKey{kind.PeerAuthentication, peerAuthName4, rootNs}, rootNs) {
+		t.Error("expected sidecar to depend on PeerAuthentication in root namespace")
+	}
+
+	// PeerAuthentication in unrelatedNs should NOT be a dependency
+	if sidecarScope.DependsOnConfig(ConfigKey{kind.PeerAuthentication, peerAuthName3, unrelatedNs}, rootNs) {
+		t.Error("expected sidecar NOT to depend on PeerAuthentication in unrelated namespace")
+	}
+
+	// Verify version is non-empty
+	if sidecarScope.AuthnPolicies.GetVersion() == "" {
+		t.Error("expected non-empty AuthnPolicies version")
 	}
 }
 
@@ -3562,13 +3850,13 @@ func TestComputeWildcardHostVirtualServiceIndex(t *testing.T) {
 
 	tests := []struct {
 		name            string
-		virtualServices []config.Config
+		virtualServices []*config.Config
 		services        []*Service
 		expectedIndex   map[host.Name]types.NamespacedName
 	}{
 		{
 			name:            "most specific",
-			virtualServices: virtualServices,
+			virtualServices: configsToPointers(virtualServices),
 			services:        services,
 			expectedIndex: map[host.Name]types.NamespacedName{
 				"foo.example.com":     {Name: "foo", Namespace: "default"},
@@ -3587,4 +3875,113 @@ func TestComputeWildcardHostVirtualServiceIndex(t *testing.T) {
 			}
 		})
 	}
+}
+
+// createBenchmarkService creates a service with realistic attributes for benchmarking
+func createBenchmarkService(numPorts int, numAliases int) *Service {
+	ports := make([]*Port, numPorts)
+	for i := 0; i < numPorts; i++ {
+		ports[i] = &Port{
+			Name:     "http-" + string(rune('0'+i)),
+			Port:     8080 + i,
+			Protocol: protocol.HTTP,
+		}
+	}
+
+	aliases := make([]NamespacedHostname, numAliases)
+	for i := 0; i < numAliases; i++ {
+		aliases[i] = NamespacedHostname{
+			Hostname:  host.Name("alias" + string(rune('0'+i)) + ".example.com"),
+			Namespace: "default",
+		}
+	}
+
+	labels := map[string]string{
+		"app":     "test",
+		"version": "v1",
+		"env":     "prod",
+	}
+
+	labelSelectors := map[string]string{
+		"app": "test",
+	}
+
+	clusterVIPs := AddressMap{
+		Addresses: map[cluster.ID][]string{
+			"cluster-1": {"10.0.0.1"},
+			"cluster-2": {"10.0.0.2"},
+		},
+	}
+
+	return &Service{
+		Hostname: "test.default.svc.cluster.local",
+		Ports:    ports,
+		Attributes: ServiceAttributes{
+			ServiceRegistry: provider.Kubernetes,
+			Name:            "test",
+			Namespace:       "default",
+			Labels:          labels,
+			LabelSelectors:  labelSelectors,
+			Aliases:         aliases,
+		},
+		ServiceAccounts: []string{
+			"spiffe://cluster.local/ns/default/sa/test",
+		},
+		ClusterVIPs: *clusterVIPs.DeepCopy(),
+	}
+}
+
+// variables to avoid the compiler from optimizing out the copies
+var (
+	deepCopySink    *Service
+	shallowCopySink *Service
+)
+
+// Benchmark comparison between old DeepCopy approach and new shallow copy approach
+func BenchmarkServiceCopyComparison(b *testing.B) {
+	benchmarks := []struct {
+		name       string
+		numPorts   int
+		numAliases int
+	}{
+		{"tiny-service", 1, 0},
+		{"small-service", 3, 5},
+		{"medium-service", 10, 10},
+		{"large-service", 20, 30},
+	}
+
+	for _, bm := range benchmarks {
+		b.Run(bm.name+"-DeepCopy", func(b *testing.B) {
+			svc := createBenchmarkService(bm.numPorts, bm.numAliases)
+			b.ResetTimer()
+			b.ReportAllocs()
+			for b.Loop() {
+				deepCopySink = svc.DeepCopy()
+				if deepCopySink == nil {
+					b.Fatal("expected non-nil copy")
+				}
+			}
+		})
+
+		b.Run(bm.name+"-ShallowCopy", func(b *testing.B) {
+			svc := createBenchmarkService(bm.numPorts, bm.numAliases)
+			b.ResetTimer()
+			b.ReportAllocs()
+			for b.Loop() {
+				shallowCopySink = svc.ShallowCopy()
+				if shallowCopySink == nil {
+					b.Fatal("expected non-nil copy")
+				}
+			}
+		})
+	}
+}
+
+// helper function to convert []config.Config to []*config.Config for tests
+func configsToPointers(configs []config.Config) []*config.Config {
+	result := make([]*config.Config, len(configs))
+	for i := range configs {
+		result[i] = &configs[i]
+	}
+	return result
 }

@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"sync"
 
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/kube/controllers"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
@@ -34,10 +33,10 @@ const (
 	unknownIndexType indexedDependencyType = iota
 	indexType        indexedDependencyType = iota
 	getKeyType       indexedDependencyType = iota
+	// doNotIndex signals we should not attempt to do an optimized index lookup
+	// This can happen when we fetch the same collection with an index and without an index
+	doNotIndex indexedDependencyType = iota
 )
-
-// EnableAssertions, if true, will enable assertions. These typically are violations of the krt collection requirements.
-var EnableAssertions = features.EnableUnsafeAssertions
 
 type dependencyState[I any] struct {
 	// collectionDependencies specifies the set of collections we depend on from within the transformation functions (via Fetch).
@@ -82,6 +81,12 @@ func (i dependencyState[I]) update(key Key[I], deps []*dependency) {
 				}
 				i.indexedDependenciesExtractor[kk] = extractor
 			}
+		} else {
+			kk := extractorKey{
+				uid: d.id,
+				typ: doNotIndex,
+			}
+			i.indexedDependenciesExtractor[kk] = nil
 		}
 	}
 }
@@ -108,6 +113,20 @@ func (i dependencyState[I]) delete(key Key[I]) {
 
 func (i dependencyState[I]) changedInputKeys(sourceCollection collectionUID, events []Event[any]) sets.Set[Key[I]] {
 	changedInputKeys := sets.Set[Key[I]]{}
+
+	// find all the reverse indexes related to the sourceCollection
+	// N here is usually going to be small (the number of FilterKey/FilterIndex)
+	extractorKeys := []extractorKey{}
+	for k := range i.indexedDependenciesExtractor {
+		if k.typ == doNotIndex && k.uid == sourceCollection {
+			extractorKeys = nil
+			break
+		}
+		if k.typ != unknownIndexType && k.uid == sourceCollection {
+			extractorKeys = append(extractorKeys, k)
+		}
+	}
+
 	// Check old and new
 	for _, ev := range events {
 		// We have a possibly dependent object changed. For each input object, see if it depends on the object.
@@ -115,15 +134,6 @@ func (i dependencyState[I]) changedInputKeys(sourceCollection collectionUID, eve
 		// inefficient, especially when the dependency changes frequently and the collection is large.
 		// Where possible, we utilize the reverse-indexing to get the precise list of potentially changed objects.
 		foundAny := false
-
-		// find all the reverse indexes related to the sourceCollection
-		// N here is usually going to be small (the number of FilterKey/FilterIndex)
-		extractorKeys := []extractorKey{}
-		for k := range i.indexedDependenciesExtractor {
-			if k.typ != unknownIndexType && k.uid == sourceCollection {
-				extractorKeys = append(extractorKeys, k)
-			}
-		}
 
 		for _, ekey := range extractorKeys {
 			if extractor, f := i.indexedDependenciesExtractor[ekey]; f {
@@ -504,7 +514,7 @@ func (h *manyCollection[I, O]) handleChangedPrimaryInputEvents(items []Event[I])
 					h.collectionState.outputs[key] = newRes
 				} else {
 					if !oldExists && EnableAssertions {
-						panic(fmt.Sprintf("!oldExists and !newExists, how did we get here? for output key %v input key %v", key, iKey))
+						panic(fmt.Sprintf("!oldExists and !newExists in %s(%T), how did we get here? for output key %v input key %v", h.collectionName, h, key, iKey))
 					}
 					e.Event = controllers.EventDelete
 					e.Old = &oldRes
@@ -755,15 +765,15 @@ func (h *manyCollection[I, O]) assertIndexConsistency() {
 	oToI := map[Key[O]]Key[I]{}
 	for i, os := range h.collectionState.mappings {
 		if _, f := h.collectionState.inputs[i]; !f {
-			panic(fmt.Sprintf("for mapping key %v, no input found", i))
+			panic(fmt.Sprintf("for mapping key %v in %s(%T), no input found", i, h.collectionName, h))
 		}
 		for o := range os {
 			if ci, f := oToI[o]; f {
-				panic(fmt.Sprintf("duplicate mapping %v: input %v and %v both map to it", o, ci, i))
+				panic(fmt.Sprintf("duplicate mapping %v in %s(%T): input %v and %v both map to it", o, h.collectionName, h, ci, i))
 			}
 			oToI[o] = i
 			if _, f := h.collectionState.outputs[o]; !f {
-				panic(fmt.Sprintf("for mapping key %v->%v, no output found", i, o))
+				panic(fmt.Sprintf("for mapping key %v->%v in %s(%T), no output found", i, o, h.collectionName, h))
 			}
 		}
 	}

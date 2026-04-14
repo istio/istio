@@ -27,4 +27,4 @@ spec:
     spec:
       containers:
         - name: jwttool
-          image: gcr.io/istio-testing/jwttool:0.1
+          image: registry.istio.io/testing/jwttool:0.1

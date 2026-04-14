@@ -26,15 +26,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/rest"
 
+	"istio.io/api/annotation"
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/ambient"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	"istio.io/istio/pilot/pkg/serviceregistry/util/workloadinstances"
@@ -143,6 +142,10 @@ type Options struct {
 	// MeshWatcher observes changes to the mesh config
 	MeshWatcher meshwatcher.WatcherCollection
 
+	// ConfigClusterMeshWatcher is the mesh watcher from the config (local) cluster.
+	// Used as a fallback when the per-cluster MeshWatcher cannot read the remote meshconfig.
+	ConfigClusterMeshWatcher meshwatcher.WatcherCollection
+
 	// Maximum QPS when communicating with kubernetes API
 	KubernetesAPIQPS float32
 
@@ -164,6 +167,10 @@ type Options struct {
 	StatusWritingEnabled *activenotifier.ActiveNotifier
 
 	KrtDebugger *krt.DebugHandler
+
+	// MultiClusterController is the unified multicluster controller providing both
+	// callback-based and KRT-based cluster lifecycle management.
+	MultiClusterController *multicluster.Controller
 }
 
 // kubernetesNode represents a kubernetes node that is reachable externally
@@ -181,8 +188,6 @@ var (
 	_ controllerInterface      = &Controller{}
 	_ serviceregistry.Instance = &Controller{}
 )
-
-type ambientIndex = ambient.Index
 
 // Controller is a collection of synchronized resource watchers
 // Caches are thread-safe
@@ -229,15 +234,11 @@ type Controller struct {
 
 	*networkManager
 
-	ambientIndex
-
 	// initialSyncTimedout is set to true after performing an initial processing timed out.
 	initialSyncTimedout *atomic.Bool
 	meshWatcher         mesh.RestrictedConfigWatcher
 
 	podsClient kclient.Client[*v1.Pod]
-
-	configCluster bool
 
 	networksHandlerRegistration *mesh.WatcherHandlerRegistration
 }
@@ -254,8 +255,6 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		nodeInfoMap:              make(map[string]kubernetesNode),
 		workloadInstancesIndex:   workloadinstances.NewIndex(),
 		initialSyncTimedout:      atomic.NewBool(false),
-
-		configCluster: options.ConfigCluster,
 	}
 	c.networkManager = initNetworkManager(c, options)
 
@@ -279,6 +278,25 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		)
 	}
 
+	// Namespace annotation handler for traffic-distribution inheritance
+	// When namespace annotations change, reprocess all services in that namespace
+	registerHandlers[*v1.Namespace](
+		c,
+		c.namespaces,
+		"Namespaces-TrafficDistribution",
+		func(old *v1.Namespace, cur *v1.Namespace, event model.Event) error {
+			if event == model.EventUpdate && old != nil {
+				oldTrafficDist := old.Annotations[annotation.NetworkingTrafficDistribution.Name]
+				curTrafficDist := cur.Annotations[annotation.NetworkingTrafficDistribution.Name]
+				if oldTrafficDist != curTrafficDist {
+					c.reprocessServicesInNamespace(cur.Name)
+				}
+			}
+			return nil
+		},
+		nil,
+	)
+
 	c.services = kclient.NewFiltered[*v1.Service](kubeClient, kclient.Filter{ObjectFilter: kubeClient.ObjectFilter()})
 
 	registerHandlers(c, c.services, "Services", c.onServiceEvent, nil)
@@ -301,36 +319,14 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	})
 	registerHandlers[*v1.Pod](c, c.podsClient, "Pods", c.pods.onEvent, nil)
 
-	if features.EnableAmbient && options.ConfigCluster {
-		c.ambientIndex = ambient.New(ambient.Options{
-			Client:          kubeClient,
-			SystemNamespace: options.SystemNamespace,
-			DomainSuffix:    options.DomainSuffix,
-			ClusterID:       options.ClusterID,
-			IsConfigCluster: options.ConfigCluster,
-			Revision:        options.Revision,
-			XDSUpdater:      options.XDSUpdater,
-			MeshConfig:      options.MeshWatcher,
-			StatusNotifier:  options.StatusWritingEnabled,
-			Debugger:        options.KrtDebugger,
-			Flags: ambient.FeatureFlags{
-				DefaultAllowFromWaypoint:              features.DefaultAllowFromWaypoint,
-				EnableK8SServiceSelectWorkloadEntries: features.EnableK8SServiceSelectWorkloadEntries,
-			},
-			ClientBuilder: multicluster.DefaultBuildClientsFromConfig,
-			RemoteClientConfigOverrides: []func(*rest.Config){
-				func(r *rest.Config) {
-					r.QPS = options.KubernetesAPIQPS
-					r.Burst = options.KubernetesAPIBurst
-				},
-			},
-		})
-	}
-
 	c.exports = newServiceExportCache(c)
 	c.imports = newServiceImportCache(c)
 
-	c.meshWatcher = mesh.NewRestrictedConfigWatcher(options.MeshWatcher)
+	if options.ConfigClusterMeshWatcher != nil {
+		c.meshWatcher = mesh.NewRestrictedConfigWatcher(options.MeshWatcher, options.ConfigClusterMeshWatcher)
+	} else {
+		c.meshWatcher = mesh.NewRestrictedConfigWatcher(options.MeshWatcher)
+	}
 	if c.opts.MeshNetworksWatcher != nil {
 		c.networksHandlerRegistration = c.opts.MeshNetworksWatcher.AddNetworksHandler(func() {
 			c.reloadMeshNetworks()
@@ -418,8 +414,15 @@ func (c *Controller) Cleanup() error {
 func (c *Controller) onServiceEvent(pre, curr *v1.Service, event model.Event) error {
 	log.Debugf("Handle event %s for service %s in namespace %s", event, curr.Name, curr.Namespace)
 
+	// Get namespace annotations for traffic distribution inheritance
+	var nsAnnotations map[string]string
+	ns := c.namespaces.Get(curr.Namespace, "")
+	if ns != nil {
+		nsAnnotations = ns.Annotations
+	}
+
 	// Create the standard (cluster.local) service.
-	svcConv := kube.ConvertService(*curr, c.opts.DomainSuffix, c.Cluster(), c.meshWatcher.TrustDomain())
+	svcConv := kube.ConvertService(*curr, nsAnnotations, c.opts.DomainSuffix, c.Cluster(), c.meshWatcher.TrustDomain())
 
 	switch event {
 	case model.EventDelete:
@@ -429,6 +432,16 @@ func (c *Controller) onServiceEvent(pre, curr *v1.Service, event model.Event) er
 	}
 
 	return nil
+}
+
+// reprocessServicesInNamespace triggers an update event for all services in a namespace.
+func (c *Controller) reprocessServicesInNamespace(namespace string) {
+	allServices := c.services.List(namespace, klabels.Everything())
+	for _, svc := range allServices {
+		if err := c.onServiceEvent(svc, svc, model.EventUpdate); err != nil {
+			log.Warnf("failed to reprocess service %s/%s: %v", namespace, svc.Name, err)
+		}
+	}
 }
 
 func (c *Controller) deleteService(svc *model.Service) {
@@ -647,9 +660,6 @@ func (c *Controller) HasSynced() bool {
 	if c.initialSyncTimedout.Load() {
 		return true
 	}
-	if c.ambientIndex != nil && !c.ambientIndex.HasSynced() {
-		return false
-	}
 	return c.queue.HasSynced()
 }
 
@@ -696,9 +706,6 @@ func (c *Controller) Run(stop <-chan struct{}) {
 
 	go c.imports.Run(stop)
 	go c.exports.Run(stop)
-	if c.ambientIndex != nil {
-		go c.ambientIndex.Run(stop)
-	}
 	kubelib.WaitForCacheSync("kube controller", stop, c.informersSynced)
 	log.Infof("kube controller for %s synced after %v", c.opts.ClusterID, time.Since(st))
 

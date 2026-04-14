@@ -101,7 +101,7 @@ var (
 
 func runBugReportCommand(ctx cli.Context, _ *cobra.Command, logOpts *log.Options) error {
 	runner := kubectlcmd.NewRunner(gConfig.RequestConcurrency)
-	runner.ReportRunningTasks()
+	go runner.ReportRunningTasks()
 	if err := configLogs(logOpts); err != nil {
 		return err
 	}
@@ -120,25 +120,25 @@ func runBugReportCommand(ctx cli.Context, _ *cobra.Command, logOpts *log.Options
 		clusterCtxStr = config.Context
 	}
 
-	common.LogAndPrintf("\nTarget cluster context: %s\n", clusterCtxStr)
-	common.LogAndPrintf("Running with the following config: \n\n%s\n\n", config)
+	common.LogAndPrintf("\n✅ Target cluster context: %s\n", clusterCtxStr)
+	common.LogAndPrintf("✅ Running with the following config: \n\n%s\n\n", config)
 
 	restConfig, clientset, err := kubeclient.New(config.KubeConfigPath, config.Context)
 	if err != nil {
-		return fmt.Errorf("could not initialize k8s client: %s ", err)
+		return fmt.Errorf("⚠️ could not initialize k8s client: %s ", err)
 	}
 	client, err := kube.NewCLIClient(kube.NewClientConfigForRestConfig(restConfig))
 	if err != nil {
 		return err
 	}
-	common.LogAndPrintf("\nCluster endpoint: %s\n", client.RESTConfig().Host)
+	common.LogAndPrintf("\n✅ Cluster endpoint: %s\n", client.RESTConfig().Host)
 	runner.SetClient(client)
 
 	clusterResourcesCtx, getClusterResourcesCancel := context.WithTimeout(context.Background(), commandTimeout)
 	curTime := time.Now()
 	defer func() {
 		if time.Until(curTime.Add(commandTimeout)) < 0 {
-			message := "Timeout when running bug report command, please using --include or --exclude to filter"
+			message := "⚠️ Timeout when running bug report command, please using --include or --exclude to filter"
 			common.LogAndPrintf("%s", message)
 		}
 		getClusterResourcesCancel()
@@ -157,7 +157,7 @@ func runBugReportCommand(ctx cli.Context, _ *cobra.Command, logOpts *log.Options
 		return err
 	}
 
-	common.LogAndPrintf("\n\nFetching logs for the following containers:\n\n%s\n", strings.Join(paths, "\n"))
+	common.LogAndPrintf("\n\n✅ Fetching logs for the following containers:\n\n%s\n", strings.Join(paths, "\n"))
 
 	gatherInfo(runner, config, resources, paths)
 	if len(gErrors) != 0 {
@@ -187,25 +187,25 @@ func runBugReportCommand(ctx cli.Context, _ *cobra.Command, logOpts *log.Options
 	outPath := filepath.Join(outDir, "bug-report.tar.gz")
 
 	if !config.DryRun {
-		common.LogAndPrintf("Creating an archive at %s.\n", outPath)
+		common.LogAndPrintf("✅ Creating an archive at %s.\n", outPath)
 		archiveDir := archive.DirToArchive(tempDir)
 		if tempDir != "" {
 			archiveDir = tempDir
 		}
 		curTime = time.Now()
 		err := archive.Create(archiveDir, outPath)
-		fmt.Printf("Time used for creating the tar file is %v.\n", time.Since(curTime))
+		fmt.Printf("✅ Time used for creating the tar file is %v.\n", time.Since(curTime))
 		if err != nil {
 			return err
 		}
-		common.LogAndPrintf("Cleaning up temporary files in %s.\n", archiveDir)
+		common.LogAndPrintf("✅ Cleaning up temporary files in %s.\n", archiveDir)
 		if err := os.RemoveAll(archiveDir); err != nil {
 			return err
 		}
 	} else {
-		common.LogAndPrintf("Dry run, skipping archive creation at %s.\n", outPath)
+		common.LogAndPrintf("✅ Dry run, skipping archive creation at %s.\n", outPath)
 	}
-	common.LogAndPrintf("Done.\n")
+	common.LogAndPrintf("✅ Done.\n")
 	return nil
 }
 
@@ -217,11 +217,11 @@ func dumpRevisionsAndVersions(ctx cli.Context, resources *cluster2.Resources, is
 
 	revisions := getIstioRevisions(resources)
 	istioVersions, proxyVersions := getIstioVersions(ctx, istioNamespace, revisions)
-	text += "The following Istio control plane revisions/versions were found in the cluster:\n"
+	text += "✅ The following Istio control plane revisions/versions were found in the cluster:\n"
 	for rev, ver := range istioVersions {
 		text += fmt.Sprintf("Revision %s:\n%s\n\n", rev, ver)
 	}
-	text += "The following proxy revisions/versions were found in the cluster:\n"
+	text += "✅ The following proxy revisions/versions were found in the cluster:\n"
 	for rev, ver := range proxyVersions {
 		text += fmt.Sprintf("Revision %s: Versions {%s}\n", rev, strings.Join(ver, ", "))
 	}
@@ -304,21 +304,24 @@ func gatherInfo(runner *kubectlcmd.Runner, config *config.BugReportConfig, resou
 	clusterDir := archive.ClusterInfoPath(tempDir)
 
 	params := &content.Params{
-		Runner:      runner,
-		DryRun:      config.DryRun,
-		KubeConfig:  config.KubeConfigPath,
-		KubeContext: config.Context,
+		Runner:             runner,
+		DryRun:             config.DryRun,
+		KubeConfig:         config.KubeConfigPath,
+		KubeContext:        config.Context,
+		IncludedNamespaces: cluster2.ExtractIncludedNamespaces(config),
 	}
-	common.LogAndPrintf("\nFetching Istio control plane information from cluster.\n\n")
-	getFromCluster(content.GetK8sResources, params, clusterDir, &mandatoryWg)
-	getFromCluster(content.GetCRs, params, clusterDir, &mandatoryWg)
-	getFromCluster(content.GetEvents, params, clusterDir, &mandatoryWg)
+	common.LogAndPrintf("\n✅ Fetching Istio control plane information from cluster.\n\n")
+	if !config.SkipClusterDump {
+		getFromCluster(content.GetK8sResources, params, clusterDir, &mandatoryWg)
+		getFromCluster(content.GetCRs, params, clusterDir, &mandatoryWg)
+		getFromCluster(content.GetNodeInfo, params, clusterDir, &mandatoryWg)
+		getFromCluster(content.GetSecrets, params.SetVerbose(config.FullSecrets), clusterDir, &mandatoryWg)
+		getFromCluster(content.GetEvents, params, clusterDir, &mandatoryWg)
+	}
 	getFromCluster(content.GetClusterInfo, params, clusterDir, &mandatoryWg)
-	getFromCluster(content.GetNodeInfo, params, clusterDir, &mandatoryWg)
-	getFromCluster(content.GetSecrets, params.SetVerbose(config.FullSecrets), clusterDir, &mandatoryWg)
 	getFromCluster(content.GetPodInfo, params.SetIstioNamespace(config.IstioNamespace), clusterDir, &mandatoryWg)
 
-	common.LogAndPrintf("\nFetching CNI logs from cluster.\n\n")
+	common.LogAndPrintf("\n✅ Fetching CNI logs from cluster.\n\n")
 	for _, cniPod := range resources.CniPod {
 		getCniLogs(runner, config, resources, cniPod.Namespace, cniPod.Name, &mandatoryWg)
 	}
@@ -337,13 +340,23 @@ func gatherInfo(runner *kubectlcmd.Runner, config *config.BugReportConfig, resou
 		switch {
 		case common.IsProxyContainer(params.ClusterVersion, container):
 			if !ambient.IsZtunnelPod(client, pod, namespace) {
-				getFromCluster(content.GetCoredumps, cp, filepath.Join(proxyDir, "cores"), &mandatoryWg)
-				getFromCluster(content.GetNetstat, cp, proxyDir, &mandatoryWg)
-				getFromCluster(content.GetProxyInfo, cp.SetProxyAdminPort(config.ProxyAdminPort), archive.ProxyOutputPath(tempDir, namespace, pod), &optionalWg)
+				if !config.SkipCoredumps {
+					getFromCluster(content.GetCoredumps, cp, filepath.Join(proxyDir, "cores"), &mandatoryWg)
+				}
+				if !config.SkipNetstat {
+					getFromCluster(content.GetNetstat, cp, proxyDir, &mandatoryWg)
+				}
+				if !config.SkipProxyDebug {
+					getFromCluster(content.GetProxyInfo, cp.SetProxyAdminPort(config.ProxyAdminPort), archive.ProxyOutputPath(tempDir, namespace, pod), &optionalWg)
+				}
 				getProxyLogs(runner, config, resources, p, namespace, pod, container, &optionalWg)
 			} else {
-				getFromCluster(content.GetNetstat, cp, proxyDir, &mandatoryWg)
-				getFromCluster(content.GetZtunnelInfo, cp.SetProxyAdminPort(config.ProxyAdminPort), archive.ProxyOutputPath(tempDir, namespace, pod), &optionalWg)
+				if !config.SkipNetstat {
+					getFromCluster(content.GetNetstat, cp, proxyDir, &mandatoryWg)
+				}
+				if !config.SkipProxyDebug {
+					getFromCluster(content.GetZtunnelInfo, cp.SetProxyAdminPort(config.ProxyAdminPort), archive.ProxyOutputPath(tempDir, namespace, pod), &optionalWg)
+				}
 				getProxyLogs(runner, config, resources, p, namespace, pod, container, &optionalWg)
 			}
 		case resources.IsDiscoveryContainer(params.ClusterVersion, namespace, pod, container):
@@ -371,7 +384,9 @@ func gatherInfo(runner *kubectlcmd.Runner, config *config.BugReportConfig, resou
 	analyzeTimeout := time.Until(beginTime.Add(time.Duration(config.CommandTimeout)))
 
 	// Analyze runs many queries internally, so run these queries sequentially and after everything else has finished.
-	runAnalyze(config, params, analyzeTimeout)
+	if !config.SkipAnalyze {
+		runAnalyze(config, params, analyzeTimeout)
+	}
 }
 
 // getFromCluster runs a cluster info fetching function f against the cluster and writes the results to fileName.
@@ -502,12 +517,22 @@ func getLog(runner *kubectlcmd.Runner, resources *cluster2.Resources, config *co
 	defer logRuntime(time.Now(), "Done getting logs only for %v/%v/%v", namespace, pod, container)
 
 	log.Infof("Getting logs for %s/%s/%s...", namespace, pod, container)
-	clog, err := runner.Logs(namespace, pod, container, false, config.DryRun)
+
+	var tailLines *int64
+	if config.TailLines > 0 {
+		tailLines = &config.TailLines
+	}
+	var sinceTime *time.Time
+	if config.TimeFilterApplied && !config.StartTime.IsZero() {
+		sinceTime = &config.StartTime
+	}
+
+	clog, err := runner.LogsWithOptions(namespace, pod, container, false, config.DryRun, tailLines, sinceTime)
 	if err != nil {
 		return "", nil, 0, err
 	}
 	if resources.ContainerRestarts(namespace, pod, container, common.IsCniPod(pod)) > 0 {
-		pclog, err := runner.Logs(namespace, pod, container, true, config.DryRun)
+		pclog, err := runner.LogsWithOptions(namespace, pod, container, true, config.DryRun, tailLines, sinceTime)
 		if err != nil {
 			return "", nil, 0, err
 		}
@@ -524,13 +549,13 @@ func runAnalyze(config *config.BugReportConfig, params *content.Params, analyzeT
 
 	defer logRuntime(time.Now(), "Done running Istio analyze on all namespaces and report")
 
-	common.LogAndPrintf("Running Istio analyze on all namespaces and report as below:")
+	common.LogAndPrintf("✅ Running Istio analyze on all namespaces and report as below:")
 	out, err := content.GetAnalyze(newParam.SetIstioNamespace(config.IstioNamespace), analyzeTimeout)
 	if err != nil {
 		log.Error(err.Error())
 		return
 	}
-	common.LogAndPrintf("\nAnalysis Report:\n")
+	common.LogAndPrintf("\n✅ Analysis Report:\n")
 	common.LogAndPrintf("%s", out[common.StrNamespaceAll])
 	common.LogAndPrintf("\n")
 	writeFiles(archive.AnalyzePath(tempDir, common.StrNamespaceAll), out, config.DryRun)

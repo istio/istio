@@ -70,7 +70,7 @@ func SettingsFromCommandLine(testID string) (*Settings, error) {
 	s.IPFamilies = normalizedIPFamilies
 
 	if s.Image.Hub == "" {
-		s.Image.Hub = env.HUB.ValueOrDefault("gcr.io/istio-testing")
+		s.Image.Hub = env.HUB.ValueOrDefault("registry.istio.io/testing")
 	}
 
 	if s.Image.Tag == "" {

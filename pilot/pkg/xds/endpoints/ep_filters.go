@@ -17,6 +17,7 @@ package endpoints
 import (
 	"math"
 	"net"
+	"net/netip"
 	"strconv"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -63,9 +64,10 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 	// After discussing it in the WG meeting, the preference was to change the behavior in ambient mode to not
 	// generate EDS endpoints for remote networks, so that's why the logic between ambient and sidecar mode here
 	// is different.
-	isAmbientWaypoint := features.EnableAmbientMultiNetwork && isWaypointProxy(b.proxy)
 
-	if !b.gateways().IsMultiNetworkEnabled() && !isAmbientWaypoint {
+	// If we don't have multiple networks, we just return the plain endpoints. Otherwise we only return plain
+	// endpoints when ambient multi network is disabled or it's a sidecar proxy.
+	if !b.gateways().IsMultiNetworkEnabled() && (!features.EnableAmbientMultiNetwork || isSidecarProxy(b.proxy)) {
 		// Multi-network is not configured (this is the case by default). Just access all endpoints directly.
 		return endpoints
 	}
@@ -110,19 +112,22 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 			epNetwork := istioEndpoint.Network
 			epCluster := istioEndpoint.Locality.ClusterID
 			gateways := b.selectNetworkGateways(epNetwork, epCluster)
+			reachableGateways := b.filterGatewaysByIPFamily(gateways)
 
 			// We are generating endpoints for an ambient waypoint and we encountered an endpoint on a remote network.
 			// Check if we allow waypoints to talk across networks (EnableAmbientWaypointMultiNetwork feature flag)
 			// and whether we have an E/W gateway we can use. If neither is true, then just ignore the endpoint
 			// completely.
-			if isAmbientWaypoint && !b.proxy.InNetwork(epNetwork) {
-				if !features.EnableAmbientWaypointMultiNetwork {
+			if !b.proxy.InNetwork(epNetwork) && features.EnableAmbientMultiNetwork {
+				if !features.EnableAmbientWaypointMultiNetwork && model.IsWaypointProxy(b.proxy) ||
+					!features.EnableAmbientIngressMultiNetwork && model.IsIngressGateway(b.proxy) {
 					continue
 				}
-				if len(gateways) == 0 {
-					// We have an endpoint on a remote network, but no E/W gateway configured? Seems like a
-					// misconfiguration, let's log it for visibility
-					log.Warnf("Workload %s belongs to a different network (%s), but no E/W gateway configured, skipping it.", istioEndpoint.WorkloadName, epNetwork)
+				if len(reachableGateways) == 0 {
+					// We have an endpoint on a remote network, but no reachable E/W gateway (either none
+					// configured or none matching this proxy's IP family).
+					log.Warnf("Workload %s on network %s has no reachable E/W gateway for this proxy, skipping",
+						istioEndpoint.WorkloadName, epNetwork)
 					continue
 				}
 			}
@@ -141,7 +146,13 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 			// Check if the endpoint is directly reachable. It's considered directly reachable if
 			// the endpoint is either on the local network or on a remote network that can be reached
 			// directly from the local network.
-			if b.proxy.InNetwork(epNetwork) || len(gateways) == 0 {
+			// However, when the proxy's network is not set (empty) but the endpoint has a specific
+			// network and gateways are configured for that network, we should route through
+			// the gateway rather than treating the endpoint as directly reachable. This handles
+			// the case where ISTIO_META_NETWORK is not configured on the sidecar but multi-network
+			// routing is still desired.
+			forceGateway := b.network == "" && epNetwork != "" && len(gateways) > 0
+			if !forceGateway && (b.proxy.InNetwork(epNetwork) || len(gateways) == 0) {
 				// The endpoint is directly reachable - just add it.
 				// If there is no gateway, the address must not be empty
 				if util.GetEndpointHost(lbEp) != "" {
@@ -151,16 +162,23 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 				continue
 			}
 
-			// Cross-network traffic relies on double-HBONE in ambient mode and on mTLS for SNI routing in sidecar mode.
+			// Gateways are configured for this network but none are reachable by this proxy's IP family.
+			// Skip the endpoint entirely rather than falling back to the raw remote workload IP (which
+			// would also be unreachable or bypass the gateway).
+			if len(reachableGateways) == 0 {
+				continue
+			}
+
+			// Cross-network traffic relies on mTLS for SNI routing in sidecar mode.
 			// So if we are not in ambient multi-network mode and mTLS is not enabled for the target endpoint on a remote
 			// network we skip it altogether.
 			// TODO BTS may allow us to work around this
-			if !isAmbientWaypoint && !isMtlsEnabled(lbEp) {
+			if (!features.EnableAmbientMultiNetwork || isSidecarProxy(b.proxy)) && !isMtlsEnabled(lbEp) {
 				continue
 			}
 
 			// Apply the weight for this endpoint to the network gateways.
-			splitWeightAmongGateways(weight, gateways, gatewayWeights)
+			splitWeightAmongGateways(weight, reachableGateways, gatewayWeights)
 		}
 
 		// Sort the gateways into an ordered list so that the generated endpoints are deterministic.
@@ -188,7 +206,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 			// gateways differently as we use somewhat different protocols in those two distinct cases.
 			var gwEp *endpoint.LbEndpoint
 
-			if isAmbientWaypoint {
+			if features.EnableAmbientMultiNetwork && !isSidecarProxy(b.proxy) {
 				gwAddr := gw.Addr
 				gwPort := int(gw.HBONEPort)
 
@@ -285,7 +303,7 @@ func (b *EndpointBuilder) selectNetworkGateways(nw network.ID, c cluster.ID) []m
 	}
 
 	// If we operate in ambient multi-network mode skip gateways that don't have HBONE port
-	if features.EnableAmbientMultiNetwork && isWaypointProxy(b.proxy) {
+	if features.EnableAmbientMultiNetwork && !isSidecarProxy(b.proxy) {
 		var ambientGws []model.NetworkGateway
 		for _, gw := range gws {
 			if gw.HBONEPort == 0 {
@@ -331,6 +349,36 @@ func splitWeightAmongGateways(weight uint32, gateways []model.NetworkGateway, ga
 	for _, gateway := range gateways {
 		gatewayWeights[gateway] += weightPerGateway
 	}
+}
+
+// filterGatewaysByIPFamily filters the provided gateways to only those whose address family is
+// supported by the proxy. If the proxy's IP mode is unknown, all gateways are returned.
+func (b *EndpointBuilder) filterGatewaysByIPFamily(gws []model.NetworkGateway) []model.NetworkGateway {
+	supportsV4 := b.proxy.SupportsIPv4()
+	supportsV6 := b.proxy.SupportsIPv6()
+
+	// 1. Unknown IP mode: preserve existing behavior of no filter.
+	// 2. Dualstack proxies: can reach all gateways, no filtering needed.
+	if (!supportsV4 && !supportsV6) || (supportsV4 && supportsV6) {
+		return gws
+	}
+
+	out := make([]model.NetworkGateway, 0, len(gws))
+	for _, gw := range gws {
+		addr, err := netip.ParseAddr(gw.Addr)
+		if err != nil {
+			// Non-IP address (shouldn't happen for resolved gateways, but be safe).
+			continue
+		}
+
+		// Normalize IPv4-mapped IPv6 addresses (e.g. ::ffff:1.2.3.4) to plain IPv4.
+		addr = addr.Unmap()
+		if (addr.Is4() && supportsV4) || (addr.Is6() && supportsV6) {
+			out = append(out, gw)
+		}
+	}
+
+	return out
 }
 
 // EndpointsWithMTLSFilter removes all endpoints that do not handle mTLS. This is determined by looking at

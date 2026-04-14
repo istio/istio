@@ -28,6 +28,7 @@ const (
 	IngressClass
 	KubernetesGateway
 	Lease
+	ListenerSet
 	MeshConfig
 	MeshNetworks
 	MutatingWebhookConfiguration
@@ -48,6 +49,8 @@ const (
 	TCPRoute
 	TLSRoute
 	Telemetry
+	TrafficExtension
+	TypeUrl
 	UDPRoute
 	ValidatingWebhookConfiguration
 	VirtualService
@@ -55,7 +58,6 @@ const (
 	WorkloadEntry
 	WorkloadGroup
 	XBackendTrafficPolicy
-	XListenerSet
 )
 
 func (k Kind) String() string {
@@ -108,6 +110,8 @@ func (k Kind) String() string {
 		return "KubernetesGateway"
 	case Lease:
 		return "Lease"
+	case ListenerSet:
+		return "ListenerSet"
 	case MeshConfig:
 		return "MeshConfig"
 	case MeshNetworks:
@@ -148,6 +152,10 @@ func (k Kind) String() string {
 		return "TLSRoute"
 	case Telemetry:
 		return "Telemetry"
+	case TrafficExtension:
+		return "TrafficExtension"
+	case TypeUrl:
+		return "TypeUrl"
 	case UDPRoute:
 		return "UDPRoute"
 	case ValidatingWebhookConfiguration:
@@ -162,8 +170,6 @@ func (k Kind) String() string {
 		return "WorkloadGroup"
 	case XBackendTrafficPolicy:
 		return "XBackendTrafficPolicy"
-	case XListenerSet:
-		return "XListenerSet"
 	default:
 		return "Unknown"
 	}
@@ -219,6 +225,8 @@ func FromString(s string) Kind {
 		return KubernetesGateway
 	case "Lease":
 		return Lease
+	case "ListenerSet":
+		return ListenerSet
 	case "MeshConfig":
 		return MeshConfig
 	case "MeshNetworks":
@@ -259,6 +267,10 @@ func FromString(s string) Kind {
 		return TLSRoute
 	case "Telemetry":
 		return Telemetry
+	case "TrafficExtension":
+		return TrafficExtension
+	case "TypeUrl":
+		return TypeUrl
 	case "UDPRoute":
 		return UDPRoute
 	case "ValidatingWebhookConfiguration":
@@ -273,8 +285,6 @@ func FromString(s string) Kind {
 		return WorkloadGroup
 	case "XBackendTrafficPolicy":
 		return XBackendTrafficPolicy
-	case "XListenerSet":
-		return XListenerSet
 	default:
 		return Unknown
 	}

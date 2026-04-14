@@ -630,6 +630,132 @@ func TestIstiodCipherSuites(t *testing.T) {
 				close(stop)
 				s.WaitUntilCompletion()
 			}()
+
+			httpsReadyClient := &http.Client{
+				Timeout: time.Second,
+				Transport: &http.Transport{
+					TLSClientConfig: &tls.Config{
+						InsecureSkipVerify: true, //nolint:gosec
+						CipherSuites:       c.clientCipherSuites,
+						MinVersion:         tls.VersionTLS12,
+						MaxVersion:         tls.VersionTLS12,
+					},
+				},
+			}
+
+			retry.UntilSuccessOrFail(t, func() error {
+				response, err := httpsReadyClient.Get("https://" + s.httpsAddr + "/ready")
+				if response != nil {
+					defer response.Body.Close()
+				}
+				if c.expectSuccess && err != nil {
+					return fmt.Errorf("expect success but got err %v", err)
+				}
+				if !c.expectSuccess && err == nil {
+					return fmt.Errorf("expect failure but succeeded")
+				}
+				return nil
+			})
+		})
+	}
+}
+
+func TestIstiodMinTLSVersion(t *testing.T) {
+	cases := []struct {
+		name                string
+		serverMinTLSVersion uint16
+		clientMinTLSVersion uint16
+		clientMaxTLSVersion uint16
+		expectSuccess       bool
+	}{
+		{
+			name:          "default TLS version",
+			expectSuccess: true,
+		},
+		{
+			name:                "client and server TLS versions compatible",
+			serverMinTLSVersion: tls.VersionTLS12,
+			clientMinTLSVersion: tls.VersionTLS12,
+			clientMaxTLSVersion: tls.VersionTLS13,
+			expectSuccess:       true,
+		},
+		{
+			name:                "server requires TLS 1.3, client supports it",
+			serverMinTLSVersion: tls.VersionTLS13,
+			clientMinTLSVersion: tls.VersionTLS12,
+			clientMaxTLSVersion: tls.VersionTLS13,
+			expectSuccess:       true,
+		},
+		{
+			name:                "server requires TLS 1.3, client only supports TLS 1.2",
+			serverMinTLSVersion: tls.VersionTLS13,
+			clientMinTLSVersion: tls.VersionTLS12,
+			clientMaxTLSVersion: tls.VersionTLS12,
+			expectSuccess:       false,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			configDir := t.TempDir()
+			args := NewPilotArgs(func(p *PilotArgs) {
+				p.Namespace = "istio-system"
+				p.ServerOptions = DiscoveryServerOptions{
+					// Dynamically assign all ports.
+					HTTPAddr:       ":0",
+					MonitoringAddr: ":0",
+					GRPCAddr:       ":0",
+					HTTPSAddr:      ":0",
+					TLSOptions: TLSOptions{
+						MinVersion: c.serverMinTLSVersion,
+					},
+				}
+				p.RegistryOptions = RegistryOptions{
+					KubeConfig: "config",
+					FileDir:    configDir,
+				}
+
+				// Include all of the default plugins
+				p.ShutdownDuration = 1 * time.Millisecond
+			})
+
+			g := NewWithT(t)
+			s, err := NewServer(args, func(s *Server) {
+				s.kubeClient = kube.NewFakeClient()
+			})
+			g.Expect(err).To(Succeed())
+
+			stop := make(chan struct{})
+			g.Expect(s.Start(stop)).To(Succeed())
+			defer func() {
+				close(stop)
+				s.WaitUntilCompletion()
+			}()
+
+			httpsReadyClient := &http.Client{
+				Timeout: time.Second,
+				Transport: &http.Transport{
+					TLSClientConfig: &tls.Config{
+						InsecureSkipVerify: true, //nolint:gosec
+						MinVersion:         c.clientMinTLSVersion,
+						MaxVersion:         c.clientMaxTLSVersion,
+					},
+				},
+			}
+
+			retry.UntilSuccessOrFail(t, func() error {
+				response, err := httpsReadyClient.Get("https://" + s.httpsAddr + "/ready")
+				if response != nil {
+					defer response.Body.Close()
+				}
+				if c.expectSuccess && err != nil {
+					return fmt.Errorf("expect success but got err %v", err)
+				}
+				if !c.expectSuccess && err == nil {
+					return fmt.Errorf("expect failure but succeeded")
+				}
+				return nil
+			})
 		})
 	}
 }

@@ -78,8 +78,8 @@ func matchTCP(match *v1alpha3.L4MatchAttributes, proxyLabels labels.Instance, ga
 }
 
 // Select the config pertaining to the service being processed.
-func getConfigsForHost(filterNamespace string, hostname host.Name, configs []config.Config) []config.Config {
-	svcConfigs := make([]config.Config, 0)
+func getConfigsForHost(filterNamespace string, hostname host.Name, configs []*config.Config) []*config.Config {
+	svcConfigs := make([]*config.Config, 0)
 	for _, cfg := range configs {
 		virtualService := cfg.Spec.(*v1alpha3.VirtualService)
 		for _, vsHost := range virtualService.Hosts {
@@ -102,7 +102,7 @@ func hashRuntimeTLSMatchPredicates(match *v1alpha3.TLSMatchAttributes) string {
 
 func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushContext, destinationCIDRs []string,
 	service *model.Service, bind string, listenPort *model.Port,
-	gateways sets.String, configs []config.Config,
+	gateways sets.String, configs []*config.Config,
 ) []*filterChainOpts {
 	if !listenPort.Protocol.IsTLS() {
 		return nil
@@ -189,7 +189,8 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 		// 1) if the destination is a CIDR;
 		// 2) or if we have an empty destination VIP (i.e. which we should never get in case some platform adapter improper handlings);
 		// 3) or if the destination is a wildcard destination VIP with the listener bound to the wildcard as well.
-		// In the above cited cases, the listener will be bound to 0.0.0.0. So SNI match is the only way to distinguish different
+		// 4) or if DYNAMIC_DNS wildcard ServiceEntry with a per-VIP listener (e.g. 240.240.0.2_443 for *.google.com).
+		// In the above cited cases except (4), the listener will be bound to 0.0.0.0. So SNI match is the only way to distinguish different
 		// target services. If we have a VIP, then we know the destination. Or if we do not have an VIP, but have
 		// `PILOT_ENABLE_HEADLESS_SERVICE_POD_LISTENERS` enabled (by default) and applicable to all that's needed, pilot will generate
 		// an outbound listener for each pod in a headless service. There is thus no need to do a SNI match. It saves us from having to
@@ -206,7 +207,8 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 			svcListenAddress = constants.UnspecifiedIPv6
 		}
 
-		if len(destinationCIDRs) > 0 || len(svcListenAddress) == 0 || (svcListenAddress == actualWildcard && bind == actualWildcard) {
+		if len(destinationCIDRs) > 0 || len(svcListenAddress) == 0 || (svcListenAddress == actualWildcard && bind == actualWildcard) ||
+			(service.Hostname.IsWildCarded() && service.Resolution == model.DynamicDNS) {
 			sniHosts = []string{string(service.Hostname)}
 			for _, a := range service.Attributes.Aliases {
 				alt := GenerateAltVirtualHosts(a.Hostname.String(), 0, node.DNSDomain)
@@ -220,7 +222,7 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 			sniHosts:         sniHosts,
 			destinationCIDRs: destinationCIDRs,
 			networkFilters: lb.buildOutboundNetworkFiltersWithSingleDestination(statPrefix, clusterName, "",
-				listenPort, destinationRule, tunnelingconfig.Apply, false),
+				listenPort, destinationRule, tunnelingconfig.Apply, false, service),
 		})
 	}
 
@@ -229,7 +231,7 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 
 func buildSidecarOutboundTCPFilterChainOpts(node *model.Proxy, push *model.PushContext, destinationCIDRs []string,
 	service *model.Service, listenPort *model.Port,
-	gateways sets.String, configs []config.Config,
+	gateways sets.String, configs []*config.Config,
 ) []*filterChainOpts {
 	if listenPort.Protocol.IsTLS() {
 		return nil
@@ -326,7 +328,7 @@ TcpLoop:
 		out = append(out, &filterChainOpts{
 			destinationCIDRs: destinationCIDRs,
 			networkFilters: lb.buildOutboundNetworkFiltersWithSingleDestination(statPrefix, clusterName, "",
-				listenPort, destinationRule, tunnelingconfig.Apply, false),
+				listenPort, destinationRule, tunnelingconfig.Apply, false, service),
 		})
 	}
 

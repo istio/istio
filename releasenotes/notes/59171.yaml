@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 59171
+releaseNotes:
+  - |
+    **Fixed** a nil pointer dereference in ServiceEntry validation for DYNAMIC_DNS resolution that could crash istiod.

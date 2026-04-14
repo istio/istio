@@ -98,7 +98,7 @@ func buildSNIDFPFilter(port int, svc *model.Service) *listener.Filter {
 // and builds a stack of network filters.
 func (lb *ListenerBuilder) buildOutboundNetworkFiltersWithSingleDestination(
 	statPrefix, clusterName, subsetName string, port *model.Port, destinationRule *networking.DestinationRule, applyTunnelingConfig tunnelingconfig.ApplyFunc,
-	includeMx bool,
+	includeMx bool, service *model.Service,
 ) []*listener.Filter {
 	idleTimeout := destinationRule.GetTrafficPolicy().GetConnectionPool().GetTcp().GetIdleTimeout()
 	if idleTimeout == nil {
@@ -117,6 +117,10 @@ func (lb *ListenerBuilder) buildOutboundNetworkFiltersWithSingleDestination(
 	tcpFilter := setAccessLogAndBuildTCPFilter(lb.push, lb.node, tcpProxy, class, nil)
 	networkFilterStack := buildNetworkFiltersStack(port.Protocol, tcpFilter, statPrefix, clusterName)
 
+	// Only pass service for DYNAMIC_DNS wildcard services that need SNI DFP filtering
+	if service != nil && service.Hostname.IsWildCarded() && service.Resolution == model.DynamicDNS {
+		return lb.buildCompleteNetworkFilters(class, port.Port, networkFilterStack, includeMx, service)
+	}
 	return lb.buildCompleteNetworkFilters(class, port.Port, networkFilterStack, includeMx, nil)
 }
 
@@ -136,9 +140,9 @@ func (lb *ListenerBuilder) buildCompleteNetworkFilters(
 	}
 
 	var filters []*listener.Filter
-	wasm := lb.push.WasmPluginsByListenerInfo(
-		lb.node, model.WasmPluginListenerInfo{Port: port, Class: class}.WithService(policySvc),
-		model.WasmPluginTypeNetwork,
+	trafficExtensions := lb.push.TrafficExtensionsByListenerInfo(
+		lb.node, model.ListenerInfo{Port: port, Class: class}.WithService(policySvc),
+		model.FilterChainTypeNetwork,
 	)
 
 	// Metadata exchange goes first, so RBAC failures, etc can access the state. See https://github.com/istio/istio/issues/41066
@@ -149,16 +153,25 @@ func (lb *ListenerBuilder) buildCompleteNetworkFilters(
 	filters = append(filters, authzCustomBuilder.BuildTCP()...)
 
 	// Authn
-	filters = extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_AUTHN)
+	filters = extension.PopAppendNetworkTrafficExtension(filters, trafficExtensions, extensions.TrafficExtension_AUTHN)
 
 	// Authz
-	filters = extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_AUTHZ)
+	filters = extension.PopAppendNetworkTrafficExtension(filters, trafficExtensions, extensions.TrafficExtension_AUTHZ)
 	filters = append(filters, authzBuilder.BuildTCP()...)
 
 	// Stats
-	filters = extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_STATS)
-	filters = extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
+	filters = extension.PopAppendNetworkTrafficExtension(filters, trafficExtensions, extensions.TrafficExtension_STATS)
+	filters = extension.PopAppendNetworkTrafficExtension(filters, trafficExtensions, extensions.TrafficExtension_UNSPECIFIED)
 	filters = append(filters, buildMetricsNetworkFilters(lb.push, lb.node, class, policySvc)...)
+
+	// Add SNI DFP filter for sidecar outbound with DYNAMIC_DNS wildcard ServiceEntries (TLS traffic)
+	if class == istionetworking.ListenerClassSidecarOutbound &&
+		policySvc != nil &&
+		policySvc.Hostname.IsWildCarded() &&
+		policySvc.Resolution == model.DynamicDNS {
+		sniDFPFilter := buildSNIDFPFilter(port, policySvc)
+		filters = append(filters, sniDFPFilter)
+	}
 
 	// Terminal filters
 	filters = append(filters, networkFilterStack...)
@@ -293,7 +306,7 @@ func (lb *ListenerBuilder) buildOutboundNetworkFilters(
 		}
 
 		return lb.buildOutboundNetworkFiltersWithSingleDestination(
-			statPrefix, clusterName, routes[0].Destination.Subset, port, destinationRule, tunnelingconfig.Apply, includeMx)
+			statPrefix, clusterName, routes[0].Destination.Subset, port, destinationRule, tunnelingconfig.Apply, includeMx, nil)
 	}
 	return lb.buildOutboundNetworkFiltersWithWeightedClusters(routes, port, configMeta, destinationRule, includeMx)
 }

@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+
+kind: security-fix
+
+area: security
+
+issue: []
+
+releaseNotes:
+- |
+  **Fixed** potential SSRF in WasmPlugin image fetching by validating bearer token realm URLs.

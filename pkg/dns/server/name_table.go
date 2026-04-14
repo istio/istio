@@ -113,7 +113,6 @@ func BuildNameTable(cfg Config) *dnsProto.NameTable {
 							// This ends up matching the behavior of Kubernetes DNS.
 							continue
 						}
-						// TODO: should we skip the node's own IP like we do in listener?
 						addressList = append(addressList, instance.Addresses...)
 					}
 					// Write local cluster entries first

@@ -44,6 +44,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/gateway"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
@@ -230,6 +231,12 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 		return builder
 	}
 
+	if model.ShouldCreateDoubleHBONEResources(builder.node) {
+		listeners = append(listeners,
+			buildInnerConnectOriginateListener(builder.push, builder.node),
+			buildOuterConnectOriginateListener(builder.push, builder.node))
+	}
+
 	builder.gatewayListeners = listeners
 	return builder
 }
@@ -243,21 +250,25 @@ func (configgen *ConfigGeneratorImpl) buildGatewayTCPBasedFilterChains(
 	mergedGateway *model.MergedGateway,
 	tlsHostsByPort map[uint32]map[string]string,
 ) {
-	// Add network level WASM filters if any configured.
-	wasm := builder.push.WasmPluginsByListenerInfo(builder.node, model.WasmPluginListenerInfo{
+	// Add network level extension filters if any configured.
+	trafficExtensions := builder.push.TrafficExtensionsByListenerInfo(builder.node, model.ListenerInfo{
 		Port:  opts.port,
 		Class: istionetworking.ListenerClassGateway,
-	}, model.WasmPluginTypeNetwork)
+	}, model.FilterChainTypeNetwork)
 	if p.IsHTTP() {
 		// We have a list of HTTP servers on this port. Build a single listener for the server port.
 		port := &networking.Port{Number: port.Number, Protocol: port.Protocol}
 		httpFilterChainOpts := configgen.createGatewayHTTPFilterChainOpts(builder.node, port, nil, serversForPort.RouteName,
 			proxyConfig, istionetworking.ListenerProtocolTCP, builder.push)
 		// In HTTP, we need to have RBAC, etc. upfront so that they can enforce policies immediately
-		httpFilterChainOpts.networkFilters = extension.PopAppendNetwork(httpFilterChainOpts.networkFilters, wasm, extensions.PluginPhase_AUTHN)
-		httpFilterChainOpts.networkFilters = extension.PopAppendNetwork(httpFilterChainOpts.networkFilters, wasm, extensions.PluginPhase_AUTHZ)
-		httpFilterChainOpts.networkFilters = extension.PopAppendNetwork(httpFilterChainOpts.networkFilters, wasm, extensions.PluginPhase_STATS)
-		httpFilterChainOpts.networkFilters = extension.PopAppendNetwork(httpFilterChainOpts.networkFilters, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
+		httpFilterChainOpts.networkFilters = extension.PopAppendNetworkTrafficExtension(
+			httpFilterChainOpts.networkFilters, trafficExtensions, extensions.TrafficExtension_AUTHN)
+		httpFilterChainOpts.networkFilters = extension.PopAppendNetworkTrafficExtension(
+			httpFilterChainOpts.networkFilters, trafficExtensions, extensions.TrafficExtension_AUTHZ)
+		httpFilterChainOpts.networkFilters = extension.PopAppendNetworkTrafficExtension(
+			httpFilterChainOpts.networkFilters, trafficExtensions, extensions.TrafficExtension_STATS)
+		httpFilterChainOpts.networkFilters = extension.PopAppendNetworkTrafficExtension(
+			httpFilterChainOpts.networkFilters, trafficExtensions, extensions.TrafficExtension_UNSPECIFIED)
 		opts.filterChainOpts = []*filterChainOpts{httpFilterChainOpts}
 	} else {
 		// build http connection manager with TLS context, for HTTPS servers using simple/mutual TLS
@@ -272,10 +283,14 @@ func (configgen *ConfigGeneratorImpl) buildGatewayTCPBasedFilterChains(
 				httpFilterChainOpts := configgen.createGatewayHTTPFilterChainOpts(builder.node, server.Port, server,
 					routeName, proxyConfig, istionetworking.TransportProtocolTCP, builder.push)
 				// In HTTP, we need to have RBAC, etc. upfront so that they can enforce policies immediately
-				httpFilterChainOpts.networkFilters = extension.PopAppendNetwork(httpFilterChainOpts.networkFilters, wasm, extensions.PluginPhase_AUTHN)
-				httpFilterChainOpts.networkFilters = extension.PopAppendNetwork(httpFilterChainOpts.networkFilters, wasm, extensions.PluginPhase_AUTHZ)
-				httpFilterChainOpts.networkFilters = extension.PopAppendNetwork(httpFilterChainOpts.networkFilters, wasm, extensions.PluginPhase_STATS)
-				httpFilterChainOpts.networkFilters = extension.PopAppendNetwork(httpFilterChainOpts.networkFilters, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
+				httpFilterChainOpts.networkFilters = extension.PopAppendNetworkTrafficExtension(
+					httpFilterChainOpts.networkFilters, trafficExtensions, extensions.TrafficExtension_AUTHN)
+				httpFilterChainOpts.networkFilters = extension.PopAppendNetworkTrafficExtension(
+					httpFilterChainOpts.networkFilters, trafficExtensions, extensions.TrafficExtension_AUTHZ)
+				httpFilterChainOpts.networkFilters = extension.PopAppendNetworkTrafficExtension(
+					httpFilterChainOpts.networkFilters, trafficExtensions, extensions.TrafficExtension_STATS)
+				httpFilterChainOpts.networkFilters = extension.PopAppendNetworkTrafficExtension(
+					httpFilterChainOpts.networkFilters, trafficExtensions, extensions.TrafficExtension_UNSPECIFIED)
 				opts.filterChainOpts = append(opts.filterChainOpts, httpFilterChainOpts)
 			} else {
 				// we are building a network filter chain (no http connection manager) for this filter chain
@@ -407,13 +422,13 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 	isH3DiscoveryNeeded := merged.HTTP3AdvertisingRoutes.Contains(routeName)
 
 	gatewayRoutes := make(map[string]map[string][]*route.Route)
-	gatewayVirtualServices := make(map[string][]config.Config)
+	gatewayVirtualServices := make(map[string][]*config.Config)
 	vHostDedupMap := make(map[host.Name]*route.VirtualHost)
 	for _, server := range servers {
 		gatewayName := merged.GatewayNameForServer[server]
 		port := int(server.Port.Number)
 
-		var virtualServices []config.Config
+		var virtualServices []*config.Config
 		var exists bool
 
 		if virtualServices, exists = gatewayVirtualServices[gatewayName]; !exists {
@@ -434,7 +449,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 			}
 
 			// Make sure we can obtain services which are visible to this virtualService as much as possible.
-			nameToServiceMap := buildNameToServiceMapForHTTPRoutes(node, push, virtualService)
+			nameToServiceMap := buildNameToServiceMapForHTTPRoutes(node, push, *virtualService)
 
 			var routes []*route.Route
 			var exists bool
@@ -443,12 +458,12 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 				gatewayRoutes[gatewayName] = make(map[string][]*route.Route)
 			}
 
-			infPoolConfigs := istio_route.CheckAndGetInferencePoolConfigs(virtualService)
+			infPoolConfigs := istio_route.CheckAndGetInferencePoolConfigs(*virtualService)
 
 			vskey := virtualService.Name + "/" + virtualService.Namespace
 
 			if routes, exists = gatewayRoutes[gatewayName][vskey]; !exists {
-				hashByDestination := istio_route.GetConsistentHashForVirtualService(push, node, virtualService)
+				hashByDestination := istio_route.GetConsistentHashForVirtualService(push, node, *virtualService)
 				opts := istio_route.RouteOptions{
 					IsTLS:                     server.Tls != nil,
 					IsHTTP3AltSvcHeaderNeeded: isH3DiscoveryNeeded,
@@ -463,7 +478,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 					},
 					InferencePoolExtensionRefs: infPoolConfigs,
 				}
-				routes, err = istio_route.BuildHTTPRoutesForVirtualService(node, virtualService, port, sets.New(gatewayName), opts)
+				routes, err = istio_route.BuildHTTPRoutesForVirtualService(node, *virtualService, port, sets.New(gatewayName), opts)
 				if err != nil {
 					log.Debugf("%s omitting routes for virtual service %v/%v due to error: %v", node.ID, virtualService.Namespace, virtualService.Name, err)
 					continue
@@ -831,7 +846,7 @@ func (lb *ListenerBuilder) createGatewayTCPFilterChainOpts(
 // buildGatewayNetworkFiltersFromTCPRoutes builds tcp proxy routes for all VirtualServices with TCP blocks.
 // It first obtains all virtual services bound to the set of Gateways for this workload, filters them by this
 // server's port and hostnames, and produces network filters for each destination from the filtered services.
-func (lb *ListenerBuilder) buildGatewayNetworkFiltersFromTCPRoutes(server *networking.Server, gateway string) []*listener.Filter {
+func (lb *ListenerBuilder) buildGatewayNetworkFiltersFromTCPRoutes(server *networking.Server, gatewayName string) []*listener.Filter {
 	port := &model.Port{
 		Name:     server.Port.Name,
 		Port:     int(server.Port.Number),
@@ -843,10 +858,11 @@ func (lb *ListenerBuilder) buildGatewayNetworkFiltersFromTCPRoutes(server *netwo
 		gatewayServerHosts.Insert(host.Name(hostname))
 	}
 
-	virtualServices := lb.push.VirtualServicesForGateway(lb.node.ConfigNamespace, gateway)
+	virtualServices := lb.push.VirtualServicesForGateway(lb.node.ConfigNamespace, gatewayName)
 	if len(virtualServices) == 0 {
-		log.Warnf("no virtual service bound to gateway: %v", gateway)
+		log.Warnf("no virtual service bound to gateway: %v", gatewayName)
 	}
+
 	for _, v := range virtualServices {
 		vsvc := v.Spec.(*networking.VirtualService)
 		// We have two cases here:
@@ -863,13 +879,28 @@ func (lb *ListenerBuilder) buildGatewayNetworkFiltersFromTCPRoutes(server *netwo
 		// For the moment, there can be only one match that succeeds
 		// based on the match port/server port and the gateway name
 		for _, tcp := range vsvc.Tcp {
-			if l4MultiMatch(tcp.Match, server, gateway) {
+			if l4MultiMatch(tcp.Match, server, gatewayName) {
 				includeMx := server.GetTls().GetMode() == networking.ServerTLSSettings_ISTIO_MUTUAL
 				return lb.buildOutboundNetworkFilters(tcp.Route, port, v.Meta, includeMx)
 			}
 		}
-	}
 
+		// Fallback to TLS blocks for TLSRoute with TLS termination.
+		// TLSRoute-sourced VirtualServices always have Tls blocks (not Tcp blocks),
+		// so we need to handle them here when the server is in terminate mode.
+		if parentName, ok := v.Annotations[constants.InternalParentNames]; ok &&
+			strings.HasPrefix(parentName, "TLSRoute/") &&
+			!gateway.IsPassThroughServer(server) {
+			includeMx := server.GetTls().GetMode() == networking.ServerTLSSettings_ISTIO_MUTUAL
+			for _, tls := range vsvc.Tls {
+				for _, match := range tls.Match {
+					if l4SingleMatch(convertTLSMatchToL4Match(match), server, gatewayName) {
+						return lb.buildOutboundNetworkFilters(tls.Route, port, v.Meta, includeMx)
+					}
+				}
+			}
+		}
+	}
 	return nil
 }
 
@@ -992,7 +1023,7 @@ func builtAutoPassthroughFilterChains(push *model.PushContext, proxy *model.Prox
 				applicationProtocols: allIstioMtlsALPNs,
 				tlsContext:           nil, // NO TLS context because this is passthrough
 				networkFilters: lb.buildOutboundNetworkFiltersWithSingleDestination(
-					statPrefix, clusterName, "", port, destinationRule, tunnelingconfig.Skip, false),
+					statPrefix, clusterName, "", port, destinationRule, tunnelingconfig.Skip, false, nil),
 			})
 
 			// Do the same, but for each subset
@@ -1008,7 +1039,7 @@ func builtAutoPassthroughFilterChains(push *model.PushContext, proxy *model.Prox
 					applicationProtocols: allIstioMtlsALPNs,
 					tlsContext:           nil, // NO TLS context because this is passthrough
 					networkFilters: lb.buildOutboundNetworkFiltersWithSingleDestination(
-						subsetStatPrefix, subsetClusterName, subset.Name, port, destinationRule, tunnelingconfig.Skip, false),
+						subsetStatPrefix, subsetClusterName, subset.Name, port, destinationRule, tunnelingconfig.Skip, false, nil),
 				})
 			}
 		}
@@ -1018,7 +1049,7 @@ func builtAutoPassthroughFilterChains(push *model.PushContext, proxy *model.Prox
 
 // Select the virtualService's hosts that match the ones specified in the gateway server's hosts
 // based on the wildcard hostname match and the namespace match
-func pickMatchingGatewayHosts(gatewayServerHosts sets.Set[host.Name], virtualService config.Config) map[string]host.Name {
+func pickMatchingGatewayHosts(gatewayServerHosts sets.Set[host.Name], virtualService *config.Config) map[string]host.Name {
 	matchingHosts := make(map[string]host.Name)
 	virtualServiceHosts := virtualService.Spec.(*networking.VirtualService).Hosts
 	for _, vsvcHost := range virtualServiceHosts {

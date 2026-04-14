@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+
+releaseNotes:
+  - |
+    **Added** support for filtering `istioctl ztunnel-config workload` and `istioctl ztunnel-config connections` output by workload pod name.

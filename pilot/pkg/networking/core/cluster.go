@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/envoyfilter"
+	"istio.io/istio/pilot/pkg/networking/core/loadbalancer"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/util/protoconv"
@@ -41,13 +42,20 @@ import (
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/pkg/slices"
 	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/sets"
 )
 
 // deltaConfigTypes are used to detect changes and trigger delta calculations. When config updates has ONLY entries
 // in this map, then delta calculation is triggered.
-var deltaConfigTypes = sets.New(kind.ServiceEntry.String(), kind.DestinationRule.String())
+var deltaConfigTypes = sets.New(
+	kind.ServiceEntry,
+	kind.DestinationRule,
+	kind.VirtualService,
+	kind.PeerAuthentication,
+	kind.Sidecar,
+)
 
 // BuildClusters returns the list of clusters for the given proxy. This is the CDS output
 // For outbound: Cluster for each service/subset hostname or cidr with SNI set to service hostname
@@ -70,12 +78,6 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, req *mod
 func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, updates *model.PushRequest,
 	watched *model.WatchedResource,
 ) ([]*discovery.Resource, []string, model.XdsLogDetails, bool) {
-	// If FilterGatewayClusterConfig is enabled, we need to generate subset of clusters for the gateway.
-	if features.FilterGatewayClusterConfig && proxy.Type == model.Router {
-		cl, lg := configgen.BuildClusters(proxy, updates)
-		return cl, nil, lg, false
-	}
-
 	// if we can't use delta, fall back to generate all
 	if !shouldUseDelta(updates) {
 		cl, lg := configgen.BuildClusters(proxy, updates)
@@ -115,6 +117,7 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 		}
 	}
 	have := sets.String{}
+	servicesDiffed := false
 	for key := range updates.ConfigsUpdated {
 		// deleted clusters for this config.
 		var deleted []string
@@ -124,7 +127,16 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 			svcs, deleted = configgen.deltaFromServices(key, proxy, updates.Push, serviceClusters,
 				servicePortClusters, subsetClusters)
 		case kind.DestinationRule:
-			svcs, deleted = configgen.deltaFromDestinationRules(key, proxy, subsetClusters)
+			svcs, deleted = configgen.deltaFromDestinationRules(key, proxy, updates.Push, subsetClusters)
+		case kind.PeerAuthentication:
+			svcs = configgen.deltaFromPeerAuthentication(key, proxy, updates.Push)
+		case kind.VirtualService, kind.Sidecar:
+			if servicesDiffed {
+				continue
+			}
+
+			svcs, deleted = configgen.deltaFromServiceDiff(proxy, updates.Push, serviceClusters, subsetClusters)
+			servicesDiffed = true
 		}
 		// Service and Destination Rule can select the same service. So we need to dedup the services.
 		for _, svc := range svcs {
@@ -163,6 +175,11 @@ func (configgen *ConfigGeneratorImpl) deltaFromServices(key model.ConfigKey, pro
 		deletedClusters = append(deletedClusters, serviceClusters[key.Name].UnsortedList()...)
 		deletedClusters = append(deletedClusters, subsetClusters[key.Name].UnsortedList()...)
 	} else {
+		if features.FilterGatewayClusterConfig && proxy.Type == model.Router {
+			if !push.ServiceAttachedToGateway(key.Name, key.Namespace, proxy) {
+				return services, deletedClusters
+			}
+		}
 		// Service exists. If the service update has port change, we need to the corresponding port clusters.
 		services = append(services, service)
 		for port, cluster := range servicePortClusters[service.Hostname.String()] {
@@ -176,7 +193,10 @@ func (configgen *ConfigGeneratorImpl) deltaFromServices(key model.ConfigKey, pro
 }
 
 // deltaFromDestinationRules computes the delta clusters from the updated destination rules.
-func (configgen *ConfigGeneratorImpl) deltaFromDestinationRules(updatedDr model.ConfigKey, proxy *model.Proxy,
+func (configgen *ConfigGeneratorImpl) deltaFromDestinationRules(
+	updatedDr model.ConfigKey,
+	proxy *model.Proxy,
+	push *model.PushContext,
 	subsetClusters map[string]sets.String,
 ) ([]*model.Service, []string) {
 	var deletedClusters []string
@@ -205,6 +225,12 @@ func (configgen *ConfigGeneratorImpl) deltaFromDestinationRules(updatedDr model.
 		}
 	}
 
+	if features.FilterGatewayClusterConfig && proxy.Type == model.Router {
+		services = slices.FilterInPlace(services, func(s *model.Service) bool {
+			return push.ServiceAttachedToGateway(string(s.Hostname), s.Attributes.Namespace, proxy)
+		})
+	}
+
 	// Remove all matched service subsets. When we rebuild clusters, we will rebuild the subset clusters as well.
 	// We can reconcile the actual subsets that are needed when we rebuild the clusters.
 	for _, matchedSvc := range services {
@@ -213,6 +239,80 @@ func (configgen *ConfigGeneratorImpl) deltaFromDestinationRules(updatedDr model.
 		}
 	}
 	return services, deletedClusters
+}
+
+// deltaFromServiceDiff computes the delta clusters by diffing the current
+// and previous SidecarScope services. Newly added services need their clusters built, and
+// services that were removed need their clusters deleted.
+func (configgen *ConfigGeneratorImpl) deltaFromServiceDiff(
+	proxy *model.Proxy,
+	push *model.PushContext,
+	serviceClusters map[string]sets.String,
+	subsetClusters map[string]sets.String,
+) ([]*model.Service, []string) {
+	var deletedClusters []string
+	var services []*model.Service
+
+	// this case should never really happen except in tests, this means the proxy never had sidecar scope recomputed
+	if proxy.PrevSidecarScope == nil {
+		return services, deletedClusters
+	}
+
+	var allServices map[host.Name]*model.Service
+	if features.FilterGatewayClusterConfig && proxy.Type == model.Router {
+		svcs := push.GatewayServices(proxy, nil)
+		allServices = make(map[host.Name]*model.Service, len(svcs))
+		for _, svc := range svcs {
+			allServices[svc.Hostname] = svc
+		}
+	} else {
+		allServices = proxy.SidecarScope.ServicesByHostname()
+	}
+
+	for _, service := range allServices {
+		if _, ok := serviceClusters[service.Hostname.String()]; !ok {
+			// this is a service we don't currently have and we should
+			services = append(services, service)
+		}
+	}
+
+	for h, clusters := range serviceClusters {
+		hostname := host.Name(h)
+		if _, ok := allServices[hostname]; !ok {
+			// a service we had is no longer present, we have to delete it
+			deletedClusters = append(deletedClusters, clusters.UnsortedList()...)
+			deletedClusters = append(deletedClusters, subsetClusters[h].UnsortedList()...)
+		}
+	}
+
+	return services, deletedClusters
+}
+
+// deltaFromPeerAuthentication computes the delta clusters when a PeerAuthentication changes.
+// A PeerAuthentication change can affect the mTLS mode for services in its namespace, so we mark all
+// services in that namespace as modified.
+// We don't need to return the deleted clusters because subsets haven't changed and the caller will rebuild all clusters.
+func (configgen *ConfigGeneratorImpl) deltaFromPeerAuthentication(
+	key model.ConfigKey,
+	proxy *model.Proxy,
+	push *model.PushContext,
+) []*model.Service {
+	var services []*model.Service
+
+	var allServices []*model.Service
+	if features.FilterGatewayClusterConfig && proxy.Type == model.Router {
+		allServices = push.GatewayServices(proxy, nil)
+	} else {
+		allServices = proxy.SidecarScope.Services()
+	}
+
+	for _, svc := range allServices {
+		if svc.Attributes.Namespace == key.Namespace {
+			services = append(services, svc)
+		}
+	}
+
+	return services
 }
 
 // buildClusters builds clusters for the proxy with the services passed.
@@ -248,8 +348,14 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 		// Waypoint proxies do not need outbound clusters in most cases, unless we have a route pointing to something
 		outboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_OUTBOUND}
 		extraNamespacedHosts, extraHosts := req.Push.ExtraWaypointServices(proxy, envoyFilterPatches)
-		ob, cs := configgen.buildOutboundClusters(cb, proxy, outboundPatcher, filterWaypointOutboundServices(
-			req.Push.ServicesAttachedToMesh(), wps.services, extraNamespacedHosts, extraHosts, services))
+		outboundServices := filterWaypointOutboundServices(
+			req.Push.ServicesAttachedToMesh(), wps.services, extraNamespacedHosts, extraHosts, services)
+		// For E/W gateways that also expose non-HBONE ports via the Gateway API (e.g., TLS passthrough
+		// to the Kubernetes API server), include services referenced by those gateway servers.
+		if isAmbientEastWestGateway(proxy) && proxy.MergedGateway != nil {
+			outboundServices = appendGatewayReferencedServices(req.Push, proxy, outboundServices, services)
+		}
+		ob, cs := configgen.buildOutboundClusters(cb, proxy, outboundPatcher, outboundServices)
 		cacheStats = cacheStats.merge(cs)
 		resources = append(resources, ob...)
 		// Setup inbound clusters
@@ -267,6 +373,17 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 			clusters = append(clusters, configgen.buildOutboundSniDnatClusters(proxy, req, patcher)...)
 		}
 		clusters = append(clusters, patcher.insertedClusters()...)
+		// Ingress gateway needs the clusters necessary for Double HBONE communications
+		// that happen cross cluster. A request arrives at the ingress and the LB
+		// configuration may straightaway redirect the request to a backend in a
+		// remote cluster/network.
+		if model.ShouldCreateDoubleHBONEResources(proxy) {
+			clusters = append(
+				clusters,
+				cb.buildInnerConnectOriginateCluster(proxy, req.Push),
+				cb.buildOuterConnectOriginateCluster(proxy, req.Push),
+			)
+		}
 	}
 
 	// OutboundTunnel cluster is needed for sidecar and gateway.
@@ -291,17 +408,64 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 }
 
 func shouldUseDelta(updates *model.PushRequest) bool {
-	return updates != nil && !updates.Forced && deltaAwareConfigTypes(updates.ConfigsUpdated)
+	return updates != nil && !updates.Forced && deltaAwareConfigTypes(updates.ConfigsUpdated, updates.Push.Mesh.RootNamespace)
 }
 
 // deltaAwareConfigTypes returns true if all updated configs are delta enabled.
-func deltaAwareConfigTypes(cfgs sets.Set[model.ConfigKey]) bool {
+func deltaAwareConfigTypes(cfgs sets.Set[model.ConfigKey], rootNamespace string) bool {
 	for k := range cfgs {
-		if !deltaConfigTypes.Contains(k.Kind.String()) {
+		if !deltaConfigTypes.Contains(k.Kind) {
+			return false
+		}
+		// If a global PeerAuthentication is updated, we need to rebuild all clusters.
+		if k.Kind == kind.PeerAuthentication && k.Namespace == rootNamespace {
 			return false
 		}
 	}
 	return true
+}
+
+// appendGatewayReferencedServices extends the outbound service list for an E/W gateway by adding
+// services that are referenced by the gateway's VirtualServices (e.g., TLS passthrough backends).
+// This ensures that the required outbound clusters exist for non-HBONE traffic the E/W gateway routes.
+// Note: we do NOT rely on ServiceAttachedToGateway / destinationsByGateway because those are only
+// populated when PILOT_FILTER_GATEWAY_CLUSTER_CONFIG=true. Instead we read VirtualServices directly.
+func appendGatewayReferencedServices(push *model.PushContext, proxy *model.Proxy, existing []*model.Service, allServices []*model.Service) []*model.Service {
+	if proxy.MergedGateway == nil {
+		return existing
+	}
+
+	// Collect all destination hostnames referenced by TLS/TCP routes on this gateway's VirtualServices.
+	gwHosts := sets.New[string]()
+	for _, gwName := range proxy.MergedGateway.GatewayNameForServer {
+		for _, vs := range push.VirtualServicesForGateway(proxy.ConfigNamespace, gwName) {
+			rule := vs.Spec.(*networking.VirtualService)
+			for _, tls := range rule.Tls {
+				for _, route := range tls.Route {
+					if route.Destination != nil {
+						gwHosts.Insert(route.Destination.Host)
+					}
+				}
+			}
+		}
+	}
+
+	if gwHosts.IsEmpty() {
+		return existing
+	}
+
+	existingSet := sets.New[string]()
+	for _, s := range existing {
+		existingSet.Insert(s.Hostname.String())
+	}
+	for _, svc := range allServices {
+		h := svc.Hostname.String()
+		if !existingSet.Contains(h) && gwHosts.Contains(h) {
+			existingSet.Insert(h)
+			existing = append(existing, svc)
+		}
+	}
+	return existing
 }
 
 // buildOutboundClusters generates all outbound (including subsets) clusters for a given proxy.
@@ -312,9 +476,36 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 	efKeys := cp.efw.KeysApplyingTo(networking.EnvoyFilter_CLUSTER)
 	hit, miss := 0, 0
 	for _, service := range services {
-		if service.Resolution == model.Alias || service.Resolution == model.DynamicDNS {
+		if service.Resolution == model.Alias {
 			continue
 		}
+
+		// DYNAMIC_DNS: Use Dynamic Forward Proxy for wildcard hostnames
+		if service.Hostname.IsWildCarded() && service.Resolution == model.DynamicDNS {
+			for _, port := range service.Ports {
+				if port.Protocol == protocol.UDP {
+					continue
+				}
+				// DFP supports HTTP, TLS, GRPC, and HTTP2. GRPC/HTTP2 get http2_protocol_options via setUpstreamProtocol.
+				if port.Protocol != protocol.HTTP && port.Protocol != protocol.TLS &&
+					port.Protocol != protocol.GRPC && port.Protocol != protocol.HTTP2 {
+					log.Debugf("skipping DFP cluster for unsupported protocol %s for service %s", port.Protocol, service.Hostname)
+					continue
+				}
+				clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
+				dfpCluster := cb.buildDFPCluster(clusterName, service, port)
+
+				// Apply DestinationRule settings
+				destRule := proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, service.Hostname)
+				cb.applyDestinationRule(dfpCluster, DefaultClusterMode, service, port, nil, destRule.GetRule(), nil)
+
+				if patched := cp.patch([]host.Name{service.Hostname}, dfpCluster.build()); patched != nil {
+					resources = append(resources, patched)
+				}
+			}
+			continue
+		}
+
 		for i, port := range service.Ports {
 			if port.Protocol == protocol.UDP {
 				continue
@@ -335,8 +526,19 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 
 			// We have a cache miss, so we will re-generate the cluster and later store it in the cache.
 			var lbEndpoints []*endpoint.LocalityLbEndpoints
+			var dnsWrappedLocalityLbEndpoints *loadbalancer.WrappedLocalityLbEndpoints
 			if clusterKey.endpointBuilder != nil {
+				// This is set only for DNS clusters.
 				lbEndpoints = clusterKey.endpointBuilder.FromServiceEndpoints()
+				if len(lbEndpoints) > 0 {
+					istioEndpoints := clusterKey.endpointBuilder.IstioEndpoints()
+					dnsWrappedLocalityLbEndpoints = &loadbalancer.WrappedLocalityLbEndpoints{
+						IstioEndpoints: istioEndpoints,
+						// For DNS clusters, we only have one locality lb endpoint
+						// with multiple LbEndpoints.
+						LocalityLbEndpoints: lbEndpoints[0],
+					}
+				}
 			}
 
 			// create default cluster
@@ -345,6 +547,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 			if defaultCluster == nil {
 				continue
 			}
+			defaultCluster.dnsWrappedLocalityLbEndpoints = dnsWrappedLocalityLbEndpoints
 
 			// if the service uses persistent sessions, override status allows
 			// DRAINING endpoints to be kept as 'UNHEALTHY' coarse status in envoy.
@@ -706,6 +909,9 @@ func convertResolution(proxyType model.NodeType, service *model.Service) cluster
 	case model.ClientSideLB:
 		return cluster.Cluster_EDS
 	case model.DNSLB:
+		if service.Attributes.K8sAttributes.DNSConnectStrategy == model.DNSConnectStrategyRaceFirstTCPConnect {
+			return cluster.Cluster_LOGICAL_DNS
+		}
 		return cluster.Cluster_STRICT_DNS
 	case model.DNSRoundRobinLB:
 		return cluster.Cluster_LOGICAL_DNS

@@ -91,12 +91,14 @@ func (c *Controller) Run(stop <-chan struct{}) {
 		})
 	}
 	oldmsgs := map[string]diag.Messages{}
+	previouslyLogged := sets.New[string]()
 	pushFn := func(combinedKinds sets.Set[config.GroupVersionKind]) {
 		res, err := c.analyzer.ReAnalyzeSubset(combinedKinds, stop)
 		if err != nil {
 			log.Errorf("In-cluster analysis has failed: %s", err)
 			return
 		}
+		previouslyLogged = logNewAnalysisMessages(res.Messages, previouslyLogged)
 		// reorganize messages to map
 		index := map[status.Resource]diag.Messages{}
 		for _, m := range res.Messages {
@@ -126,4 +128,35 @@ func (c *Controller) Run(stop <-chan struct{}) {
 		log.Debugf("finished enqueueing all statuses")
 	}
 	db.Run(chKind, stop, 1*time.Second, features.AnalysisInterval, pushFn)
+}
+
+// logNewAnalysisMessages logs only new configuration analysis messages that
+// were not present in the previous analysis cycle. This avoids repeated
+// logging of persistent issues in environments with many resources or
+// frequent config changes. It returns the current set of message keys for
+// use in the next cycle.
+func logNewAnalysisMessages(msgs diag.Messages, previouslyLogged sets.Set[string]) sets.Set[string] {
+	current := sets.New[string]()
+	for _, m := range msgs {
+		key := m.String()
+		current.Insert(key)
+		if previouslyLogged.Contains(key) {
+			continue
+		}
+		switch m.Type.Level() {
+		case diag.Error:
+			log.Errorf("Configuration analysis: %s", key)
+		case diag.Warning:
+			log.Warnf("Configuration analysis: %s", key)
+		default:
+			log.Debugf("Configuration analysis: %s", key)
+		}
+	}
+	// Log resolved issues at info level
+	for key := range previouslyLogged {
+		if !current.Contains(key) {
+			log.Infof("Configuration analysis resolved: %s", key)
+		}
+	}
+	return current
 }

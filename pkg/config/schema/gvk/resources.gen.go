@@ -45,6 +45,7 @@ var (
 	KubernetesGateway_v1alpha2     = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1alpha2", Kind: "Gateway"}
 	KubernetesGateway_v1beta1      = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1beta1", Kind: "Gateway"}
 	Lease                          = config.GroupVersionKind{Group: "coordination.k8s.io", Version: "v1", Kind: "Lease"}
+	ListenerSet                    = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1", Kind: "ListenerSet"}
 	MeshConfig                     = config.GroupVersionKind{Group: "", Version: "v1alpha1", Kind: "MeshConfig"}
 	MeshNetworks                   = config.GroupVersionKind{Group: "", Version: "v1alpha1", Kind: "MeshNetworks"}
 	MutatingWebhookConfiguration   = config.GroupVersionKind{Group: "admissionregistration.k8s.io", Version: "v1", Kind: "MutatingWebhookConfiguration"}
@@ -70,9 +71,11 @@ var (
 	Sidecar_v1beta1                = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1beta1", Kind: "Sidecar"}
 	StatefulSet                    = config.GroupVersionKind{Group: "apps", Version: "v1", Kind: "StatefulSet"}
 	TCPRoute                       = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1alpha2", Kind: "TCPRoute"}
-	TLSRoute                       = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1alpha2", Kind: "TLSRoute"}
+	TLSRoute                       = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1", Kind: "TLSRoute"}
+	TLSRoute_v1alpha2              = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1alpha2", Kind: "TLSRoute"}
 	Telemetry                      = config.GroupVersionKind{Group: "telemetry.istio.io", Version: "v1", Kind: "Telemetry"}
 	Telemetry_v1alpha1             = config.GroupVersionKind{Group: "telemetry.istio.io", Version: "v1alpha1", Kind: "Telemetry"}
+	TrafficExtension               = config.GroupVersionKind{Group: "extensions.istio.io", Version: "v1alpha1", Kind: "TrafficExtension"}
 	UDPRoute                       = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1alpha2", Kind: "UDPRoute"}
 	ValidatingWebhookConfiguration = config.GroupVersionKind{Group: "admissionregistration.k8s.io", Version: "v1", Kind: "ValidatingWebhookConfiguration"}
 	VirtualService                 = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1", Kind: "VirtualService"}
@@ -86,7 +89,6 @@ var (
 	WorkloadGroup_v1alpha3         = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1alpha3", Kind: "WorkloadGroup"}
 	WorkloadGroup_v1beta1          = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1beta1", Kind: "WorkloadGroup"}
 	XBackendTrafficPolicy          = config.GroupVersionKind{Group: "gateway.networking.x-k8s.io", Version: "v1alpha1", Kind: "XBackendTrafficPolicy"}
-	XListenerSet                   = config.GroupVersionKind{Group: "gateway.networking.x-k8s.io", Version: "v1alpha1", Kind: "XListenerSet"}
 )
 
 // ToGVR converts a GVK to a GVR.
@@ -160,6 +162,8 @@ func ToGVR(g config.GroupVersionKind) (schema.GroupVersionResource, bool) {
 		return gvr.KubernetesGateway_v1beta1, true
 	case Lease:
 		return gvr.Lease, true
+	case ListenerSet:
+		return gvr.ListenerSet, true
 	case MeshConfig:
 		return gvr.MeshConfig, true
 	case MeshNetworks:
@@ -212,10 +216,14 @@ func ToGVR(g config.GroupVersionKind) (schema.GroupVersionResource, bool) {
 		return gvr.TCPRoute, true
 	case TLSRoute:
 		return gvr.TLSRoute, true
+	case TLSRoute_v1alpha2:
+		return gvr.TLSRoute_v1alpha2, true
 	case Telemetry:
 		return gvr.Telemetry, true
 	case Telemetry_v1alpha1:
 		return gvr.Telemetry_v1alpha1, true
+	case TrafficExtension:
+		return gvr.TrafficExtension, true
 	case UDPRoute:
 		return gvr.UDPRoute, true
 	case ValidatingWebhookConfiguration:
@@ -242,8 +250,6 @@ func ToGVR(g config.GroupVersionKind) (schema.GroupVersionResource, bool) {
 		return gvr.WorkloadGroup_v1beta1, true
 	case XBackendTrafficPolicy:
 		return gvr.XBackendTrafficPolicy, true
-	case XListenerSet:
-		return gvr.XListenerSet, true
 	}
 
 	return schema.GroupVersionResource{}, false
@@ -295,6 +301,8 @@ func ToKind(g config.GroupVersionKind) (kind.Kind, bool) {
 		return kind.KubernetesGateway, true
 	case Lease:
 		return kind.Lease, true
+	case ListenerSet:
+		return kind.ListenerSet, true
 	case MeshConfig:
 		return kind.MeshConfig, true
 	case MeshNetworks:
@@ -335,6 +343,8 @@ func ToKind(g config.GroupVersionKind) (kind.Kind, bool) {
 		return kind.TLSRoute, true
 	case Telemetry:
 		return kind.Telemetry, true
+	case TrafficExtension:
+		return kind.TrafficExtension, true
 	case UDPRoute:
 		return kind.UDPRoute, true
 	case ValidatingWebhookConfiguration:
@@ -349,8 +359,6 @@ func ToKind(g config.GroupVersionKind) (kind.Kind, bool) {
 		return kind.WorkloadGroup, true
 	case XBackendTrafficPolicy:
 		return kind.XBackendTrafficPolicy, true
-	case XListenerSet:
-		return kind.XListenerSet, true
 	}
 
 	return kind.Unknown, false
@@ -421,6 +429,8 @@ func FromGVR(g schema.GroupVersionResource) (config.GroupVersionKind, bool) {
 		return KubernetesGateway, true
 	case gvr.Lease:
 		return Lease, true
+	case gvr.ListenerSet:
+		return ListenerSet, true
 	case gvr.MeshConfig:
 		return MeshConfig, true
 	case gvr.MeshNetworks:
@@ -461,6 +471,8 @@ func FromGVR(g schema.GroupVersionResource) (config.GroupVersionKind, bool) {
 		return TLSRoute, true
 	case gvr.Telemetry:
 		return Telemetry, true
+	case gvr.TrafficExtension:
+		return TrafficExtension, true
 	case gvr.UDPRoute:
 		return UDPRoute, true
 	case gvr.ValidatingWebhookConfiguration:
@@ -475,8 +487,6 @@ func FromGVR(g schema.GroupVersionResource) (config.GroupVersionKind, bool) {
 		return WorkloadGroup, true
 	case gvr.XBackendTrafficPolicy:
 		return XBackendTrafficPolicy, true
-	case gvr.XListenerSet:
-		return XListenerSet, true
 	}
 
 	return config.GroupVersionKind{}, false
@@ -538,6 +548,8 @@ func KebabKind(k string) string {
 		return "ingress-class"
 	case "Lease":
 		return "lease"
+	case "ListenerSet":
+		return "listener-set"
 	case "MeshConfig":
 		return "mesh-config"
 	case "MeshNetworks":
@@ -578,6 +590,8 @@ func KebabKind(k string) string {
 		return "tls-route"
 	case "Telemetry":
 		return "telemetry"
+	case "TrafficExtension":
+		return "traffic-extension"
 	case "UDPRoute":
 		return "udp-route"
 	case "ValidatingWebhookConfiguration":
@@ -592,8 +606,6 @@ func KebabKind(k string) string {
 		return "workload-group"
 	case "XBackendTrafficPolicy":
 		return "x-backend-traffic-policy"
-	case "XListenerSet":
-		return "x-listener-set"
 	}
 	return ""
 }

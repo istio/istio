@@ -31,6 +31,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"k8s.io/apimachinery/pkg/types"
 
+	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/credentials"
 	"istio.io/istio/pilot/pkg/features"
@@ -75,6 +76,7 @@ const (
 	Router       = pm.Router
 	Waypoint     = pm.Waypoint
 	Ztunnel      = pm.Ztunnel
+	Agentgateway = pm.Agentgateway
 
 	IPv4 = pm.IPv4
 	IPv6 = pm.IPv6
@@ -91,9 +93,10 @@ func NewEnvironment() *Environment {
 		cache = DisabledCache{}
 	}
 	return &Environment{
-		pushContext:   NewPushContext(),
-		Cache:         cache,
-		EndpointIndex: NewEndpointIndex(cache),
+		pushContext:    NewPushContext(),
+		Cache:          cache,
+		EndpointIndex:  NewEndpointIndex(cache),
+		AmbientIndexes: &NoopAmbientIndexes{},
 	}
 }
 
@@ -110,6 +113,9 @@ type Environment struct {
 
 	// Watcher is the watcher for the mesh config (to be merged into the config store)
 	Watcher
+
+	// AmbientIndexes provides access to ambient mesh data (workloads, services, policies).
+	AmbientIndexes
 
 	// NetworksWatcher (loaded from a config map) provides information about the
 	// set of networks inside a mesh and how to route to endpoints in each
@@ -142,12 +148,17 @@ type Environment struct {
 
 	GatewayAPIController GatewayController
 
+	// AgentgatewayController is the controller for agentgateway.
+	AgentgatewayController AgentgatewayController
+
 	// EndpointShards for a service. This is a global (per-server) list, built from
 	// incremental updates. This is keyed by service and namespace
 	EndpointIndex *EndpointIndex
 
 	// Cache for XDS resources.
 	Cache XdsCache
+
+	VirtualServiceController *VirtualServiceController
 }
 
 func (e *Environment) Mesh() *meshconfig.MeshConfig {
@@ -432,6 +443,11 @@ func (node *Proxy) IsAmbient() bool {
 	return node.IsWaypointProxy() || node.IsZTunnel()
 }
 
+// IsAgentgateway returns true if the proxy is acting as an agentgateway.
+func (node *Proxy) IsAgentgateway() bool {
+	return node.Type == Agentgateway
+}
+
 var NodeTypes = [...]NodeType{SidecarProxy, Router, Waypoint, Ztunnel}
 
 // SetSidecarScope identifies the sidecar scope object associated with this
@@ -537,13 +553,21 @@ func (node *Proxy) VersionGreaterOrEqual(inv *IstioVersion) bool {
 	return node.IstioVersion.Compare(inv) >= 0
 }
 
+func (node *Proxy) IsAmbientEastWestGateway() bool {
+	if node == nil || node.Type != Waypoint {
+		return false
+	}
+	controller, ok := node.Labels[label.GatewayManaged.Name]
+	return ok && controller == constants.ManagedGatewayEastWestControllerLabel
+}
+
 // SetGatewaysForProxy merges the Gateway objects associated with this
 // proxy and caches the merged object in the proxy Node. This is a convenience hack so that
 // callers can simply call push.MergedGateways(node) instead of having to
 // fetch all the gateways and invoke the merge call in multiple places (lds/rds).
 // Must be called after ServiceTargets are set
 func (node *Proxy) SetGatewaysForProxy(ps *PushContext) {
-	if node.Type != Router {
+	if node.Type != Router && !node.IsAmbientEastWestGateway() {
 		return
 	}
 	var prevMergedGateway MergedGateway
@@ -554,6 +578,7 @@ func (node *Proxy) SetGatewaysForProxy(ps *PushContext) {
 	node.PrevMergedGateway = &PrevMergedGateway{
 		ContainsAutoPassthroughGateways: prevMergedGateway.ContainsAutoPassthroughGateways,
 		AutoPassthroughSNIHosts:         prevMergedGateway.GetAutoPassthroughGatewaySNIHosts(),
+		GatewayNameForServer:            prevMergedGateway.GatewayNameForServer,
 	}
 }
 
@@ -1080,10 +1105,47 @@ type GatewayController interface {
 	SecretAllowed(ourKind config.GroupVersionKind, resourceName string, namespace string) bool
 }
 
+type AgentgatewayController interface {
+	ConfigStoreController
+	// Reconcile updates the internal state of the agentgateway controller for a given input. This should be
+	// called before any List/Get calls if the state has changed
+	// Required for current status implementation
+	Reconcile(ctx *PushContext)
+}
+
 // OutboundListenerClass is a helper to turn a NodeType for outbound to a ListenerClass.
 func OutboundListenerClass(t NodeType) istionetworking.ListenerClass {
 	if t == Router {
 		return istionetworking.ListenerClassGateway
 	}
 	return istionetworking.ListenerClassSidecarOutbound
+}
+
+func IsIngressGateway(proxy *Proxy) bool {
+	if proxy == nil || proxy.Type != Router {
+		return false
+	}
+
+	return proxy.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayControllerLabel ||
+		proxy.Labels[constants.IstioLabel] == constants.IstioIngressLabelValue // This is a legacy label
+}
+
+func IsWaypointProxy(node *Proxy) bool {
+	if node == nil || node.Type != Waypoint {
+		return false
+	}
+	controller, isManagedGateway := node.Labels[label.GatewayManaged.Name]
+
+	return isManagedGateway && controller == constants.ManagedGatewayMeshControllerLabel
+}
+
+func ShouldCreateDoubleHBONEResources(p *Proxy) bool {
+	isHBONESendEnabled := bool(!p.Metadata.DisableHBONESend) && features.EnableHBONESend
+
+	// Note that we only consider EnableHBONESend for ingress gateway, as traditionally
+	// that flag has been ignored for waypoints when generating endpoint/cluster discovery
+	// information.
+	return features.EnableAmbientMultiNetwork &&
+		(IsIngressGateway(p) && features.EnableAmbientIngressMultiNetwork && isHBONESendEnabled) ||
+		(IsWaypointProxy(p) && features.EnableAmbientWaypointMultiNetwork)
 }

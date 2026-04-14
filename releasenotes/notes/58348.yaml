@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+issue:
+  - 58348
+releaseNotes:
+  - |
+    **Added** source and destination workload identification to waypoint proxy traces.
+    Waypoint proxies now include `istio.source_workload`, `istio.source_namespace`, `istio.destination_workload`, `istio.destination_namespace` and
+    other source peer tags in trace spans, matching the observability capabilities of sidecar proxies.

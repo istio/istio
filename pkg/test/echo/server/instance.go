@@ -52,6 +52,8 @@ type Config struct {
 	IstioVersion          string
 	Namespace             string
 	DisableALPN           bool
+	TLSMinVersion         string
+	TLSCurvePreferences   []string
 	ReportRequest         func()
 }
 
@@ -69,6 +71,8 @@ func (c Config) String() string {
 	b.WriteString(fmt.Sprintf("Cluster:               %v\n", c.Cluster))
 	b.WriteString(fmt.Sprintf("IstioVersion:          %v\n", c.IstioVersion))
 	b.WriteString(fmt.Sprintf("Namespace:             %v\n", c.Namespace))
+	b.WriteString(fmt.Sprintf("TLSMinVersion:         %v\n", c.TLSMinVersion))
+	b.WriteString(fmt.Sprintf("TLSCurvePreferences:   %v\n", c.TLSCurvePreferences))
 
 	return b.String()
 }
@@ -234,19 +238,21 @@ func (s *Instance) getListenerIPs(port *common.Port) ([]string, error) {
 
 func (s *Instance) newEndpoint(port *common.Port, listenerIP string, udsServer string) (endpoint.Instance, error) {
 	epConfig := endpoint.Config{
-		Port:          port,
-		UDSServer:     udsServer,
-		IsServerReady: s.isReady,
-		ReportRequest: s.ReportRequest,
-		Version:       s.Version,
-		Cluster:       s.Cluster,
-		TLSCert:       s.TLSCert,
-		TLSKey:        s.TLSKey,
-		TLSCACert:     s.TLSCACert,
-		Dialer:        s.Dialer,
-		ListenerIP:    listenerIP,
-		DisableALPN:   s.DisableALPN,
-		IstioVersion:  s.IstioVersion,
+		Port:                port,
+		UDSServer:           udsServer,
+		IsServerReady:       s.isReady,
+		ReportRequest:       s.ReportRequest,
+		Version:             s.Version,
+		Cluster:             s.Cluster,
+		TLSCert:             s.TLSCert,
+		TLSKey:              s.TLSKey,
+		TLSCACert:           s.TLSCACert,
+		Dialer:              s.Dialer,
+		ListenerIP:          listenerIP,
+		DisableALPN:         s.DisableALPN,
+		TLSMinVersion:       s.TLSMinVersion,
+		TLSCurvePreferences: s.TLSCurvePreferences,
+		IstioVersion:        s.IstioVersion,
 	}
 	if port != nil && port.EndpointPicker {
 		epConfig.EndpointPicker = true

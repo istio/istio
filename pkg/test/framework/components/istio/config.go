@@ -96,6 +96,7 @@ var (
 	settingsFromCommandline = &Config{
 		SystemNamespace:               DefaultSystemNamespace,
 		TelemetryNamespace:            DefaultSystemNamespace,
+		ZtunnelNamespace:              DefaultSystemNamespace,
 		DeployIstio:                   true,
 		PrimaryClusterIOPFile:         IntegrationTestDefaultsIOP,
 		ConfigClusterIOPFile:          IntegrationTestDefaultsIOP,
@@ -120,6 +121,9 @@ type Config struct {
 
 	// The namespace in which kiali, tracing providers, graphana, prometheus are deployed.
 	TelemetryNamespace string
+
+	// The namespace where the ztunnel daemonset resides (default: "istio-system").
+	ZtunnelNamespace string
 
 	// The IstioOperator spec file to be used for Control plane cluster by default
 	PrimaryClusterIOPFile string

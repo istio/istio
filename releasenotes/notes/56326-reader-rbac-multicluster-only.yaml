@@ -1,0 +1,13 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+  - 56326
+releaseNotes:
+  - |
+    **Added** `values.global.enableReaderRBAC` (default: `true`) to control installation of
+    `istio-reader-service-account` and its related `istio-reader` ClusterRole/ClusterRoleBinding
+    for multicluster remote-secret workflows. Set it to `false` to disable installing these
+    resources. When installing with Helm, set `global.enableReaderRBAC=false` on both the base and
+    istiod charts, since the ServiceAccount is rendered by the base chart while the related
+    ClusterRole/ClusterRoleBinding are rendered by the istiod chart.

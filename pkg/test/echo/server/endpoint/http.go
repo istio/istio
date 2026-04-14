@@ -99,6 +99,15 @@ func (s *httpInstance) Start(onReady OnReadyFunc) error {
 		if s.DisableALPN {
 			nextProtos = nil
 		}
+		minVersion, err := common.ParseTLSVersion(s.TLSMinVersion)
+		if err != nil {
+			return fmt.Errorf("failed to parse min TLS version: %s", err)
+		}
+		curvePreferences, err := common.ParseTLSCurves(s.TLSCurvePreferences)
+		if err != nil {
+			return fmt.Errorf("failed to parse curve preferences: %s", err)
+		}
+		// nolint: gosec // test only code, TLS version is configurable for testing
 		config := &tls.Config{
 			Certificates: []tls.Certificate{cert},
 			NextProtos:   nextProtos,
@@ -109,7 +118,8 @@ func (s *httpInstance) Start(onReady OnReadyFunc) error {
 				epLog.Infof("TLS connection with alpn: %v", info.SupportedProtos)
 				return nil, nil
 			},
-			MinVersion: tls.VersionTLS12,
+			MinVersion:       minVersion,
+			CurvePreferences: curvePreferences,
 		}
 		if s.Port.RequireClientCert {
 			config.ClientAuth = tls.RequireAndVerifyClientCert

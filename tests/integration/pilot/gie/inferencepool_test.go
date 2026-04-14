@@ -149,7 +149,11 @@ spec:
 
 			// Enable access logging for all proxies in the namespace BEFORE creating gateway
 			// This ensures the gateway pods start with logging enabled (only needed with mesh)
+<<<<<<< HEAD
 			if !ctx.Settings().GatewayAPIOnly {
+=======
+			if !ctx.Settings().Meshless {
+>>>>>>> 87ce8cf1472ef41272ce908f41faed58937bc231
 				telemetryManifest := `
 apiVersion: telemetry.istio.io/v1
 kind: Telemetry

@@ -90,7 +90,10 @@ func (o *handlerSet[O]) Insert(
 	o.mu.Unlock()
 	l.send(initialEvents, true)
 	if sendSynced {
-		l.addCh <- parentSyncedNotification{}
+		select {
+		case <-l.stop:
+		case l.addCh <- parentSyncedNotification{}:
+		}
 	}
 	reg := handlerRegistration{
 		Syncer: l.Synced(),
@@ -315,6 +318,7 @@ func (t *countingTracker) Finished(count int) {
 	}
 	if !t.hasSynced && t.upstreamHasSyncedButEventsPending && result == 0 && count != 0 {
 		close(t.synced)
+		t.hasSynced = true
 	}
 }
 

@@ -24,11 +24,15 @@ import (
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	xdsstatus "github.com/envoyproxy/go-control-plane/envoy/service/status/v3"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 	"k8s.io/apimachinery/pkg/util/duration"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/istioctl/pkg/multixds"
 	"istio.io/istio/pilot/pkg/model"
 	xdsresource "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 // XdsStatusWriter enables printing of sync status using multiple xdsapi.DiscoveryResponse Istiod responses
@@ -51,8 +55,17 @@ type xdsWriterStatus struct {
 
 const ignoredStatus = "IGNORED"
 
-// PrintAll takes a slice of Istiod syncz responses and outputs them using a tabwriter
+// PrintAll takes a slice of Istiod syncz responses and outputs them using the configured `OutputFormat`
 func (s *XdsStatusWriter) PrintAll(statuses map[string]*discovery.DiscoveryResponse) error {
+	switch s.OutputFormat {
+	case "json", "yaml":
+		return s.printMachineReadable(statuses)
+	case "table":
+		break
+	default:
+		return fmt.Errorf("output format %q not supported", s.OutputFormat)
+	}
+
 	if s.Verbosity > 0 {
 		return s.printAllVerbose(statuses)
 	}
@@ -78,6 +91,51 @@ func (s *XdsStatusWriter) PrintAll(statuses map[string]*discovery.DiscoveryRespo
 		if err := w.Flush(); err != nil {
 			return fmt.Errorf("failed to flush tabwriter: %w", err)
 		}
+	}
+	return nil
+}
+
+func (s *XdsStatusWriter) printMachineReadable(statuses map[string]*discovery.DiscoveryResponse) error {
+	for _, status := range statuses {
+		outStatus := status
+		if s.Namespace != "" {
+			validResources := []*anypb.Any{}
+			for _, resource := range status.Resources {
+
+				clientConfig := xdsstatus.ClientConfig{}
+				if err := resource.UnmarshalTo(&clientConfig); err != nil {
+					return fmt.Errorf("could not unmarshal ClientConfig: %w", err)
+				}
+
+				meta, err := model.ParseMetadata(clientConfig.GetNode().GetMetadata())
+				if err != nil {
+					return fmt.Errorf("could not parse node metadata: %w", err)
+				}
+
+				if meta.Namespace == s.Namespace {
+					validResources = append(validResources, resource)
+				}
+			}
+			clonedStatus := proto.Clone(status)
+			filtered, ok := clonedStatus.(*discovery.DiscoveryResponse)
+			if !ok {
+				return fmt.Errorf("failed to cast cloned message to DiscoveryResponse")
+			}
+			filtered.Resources = validResources
+			outStatus = filtered
+		}
+		out, err := protomarshal.ToJSONWithIndent(outStatus, "    ")
+		if err != nil {
+			return err
+		}
+		if s.OutputFormat == "yaml" {
+			outyaml, err := yaml.JSONToYAML([]byte(out))
+			if err != nil {
+				return err
+			}
+			out = string(outyaml)
+		}
+		_, _ = fmt.Fprintln(s.Writer, out)
 	}
 	return nil
 }

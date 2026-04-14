@@ -40,6 +40,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/security/v1beta1"
+	"istio.io/istio/pilot/pkg/config/kube/agentgateway"
 	"istio.io/istio/pilot/pkg/controllers/ipallocate"
 	"istio.io/istio/pilot/pkg/controllers/untaint"
 	kubecredentials "istio.io/istio/pilot/pkg/credentials/kube"
@@ -52,6 +53,7 @@ import (
 	sec_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/server"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
+	"istio.io/istio/pilot/pkg/serviceregistry/ambient"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pilot/pkg/status"
@@ -112,9 +114,12 @@ type Server struct {
 
 	multiclusterController *multicluster.Controller
 
-	configController       model.ConfigStoreController
-	ConfigStores           []model.ConfigStoreController
-	serviceEntryController *serviceentry.Controller
+	configController         model.ConfigStoreController
+	virtualServiceController *model.VirtualServiceController
+	ConfigStores             []model.ConfigStoreController
+	serviceEntryController   *serviceentry.Controller
+	agentgatewayController   *agentgateway.Controller
+	ambientIndex             ambient.Index
 
 	httpServer  *http.Server // debug, monitoring and readiness Server.
 	httpAddr    string
@@ -330,6 +335,11 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	}
 
 	InitGenerators(s.XDSServer, configGen, args.Namespace, s.clusterID, s.internalDebugMux)
+
+	if features.EnableAgentgateway {
+		// Must occur after initControllers
+		s.XDSServer.InitCollections(s.agentgatewayController.Registrations...)
+	}
 
 	// Initialize workloadTrustBundle after CA has been initialized
 	if err := s.initWorkloadTrustBundle(args); err != nil {
@@ -797,6 +807,9 @@ func (s *Server) initSecureDiscoveryService(args *PilotArgs, trustDomain string)
 		MinVersion:   tls.VersionTLS12,
 		CipherSuites: args.ServerOptions.TLSOptions.CipherSuites,
 	}
+	if args.ServerOptions.TLSOptions.MinVersion != 0 {
+		cfg.MinVersion = args.ServerOptions.TLSOptions.MinVersion
+	}
 	// Compliance for xDS server TLS.
 	sec_model.EnforceGoCompliance(cfg)
 
@@ -877,10 +890,16 @@ func (s *Server) cachesSynced() bool {
 	if s.multiclusterController != nil && !s.multiclusterController.HasSynced() {
 		return false
 	}
+	if s.ambientIndex != nil && !s.ambientIndex.HasSynced() {
+		return false
+	}
 	if !s.ServiceController().HasSynced() {
 		return false
 	}
 	if !s.configController.HasSynced() {
+		return false
+	}
+	if s.virtualServiceController != nil && !s.virtualServiceController.HasSynced() {
 		return false
 	}
 	return true
@@ -932,6 +951,10 @@ func (s *Server) initRegistryEventHandlers() {
 			}
 			// Already handled by gateway controller
 			if schema.GroupVersionKind().Group == gvk.KubernetesGateway.Group {
+				continue
+			}
+			// Already handled by virtual service controller
+			if schema.GroupVersionKind() == gvk.VirtualService {
 				continue
 			}
 
@@ -1200,9 +1223,18 @@ func (s *Server) initMulticluster(args *PilotArgs) {
 	if s.kubeClient == nil {
 		return
 	}
-	s.multiclusterController = multicluster.NewController(s.kubeClient, args.Namespace, s.clusterID, s.environment.Watcher, func(r *rest.Config) {
-		r.QPS = args.RegistryOptions.KubeOptions.KubernetesAPIQPS
-		r.Burst = args.RegistryOptions.KubeOptions.KubernetesAPIBurst
+	s.multiclusterController = multicluster.NewController(multicluster.ControllerOptions{
+		Client:          s.kubeClient,
+		ClusterID:       s.clusterID,
+		SystemNamespace: args.Namespace,
+		MeshConfig:      s.environment.Watcher,
+		ConfigOverrides: []func(*rest.Config){
+			func(r *rest.Config) {
+				r.QPS = args.RegistryOptions.KubeOptions.KubernetesAPIQPS
+				r.Burst = args.RegistryOptions.KubeOptions.KubernetesAPIBurst
+			},
+		},
+		Debugger: args.KrtDebugger,
 	})
 	s.XDSServer.ListRemoteClusters = s.multiclusterController.ListRemoteClusters
 	s.addStartFunc("multicluster controller", func(stop <-chan struct{}) error {

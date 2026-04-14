@@ -549,6 +549,31 @@ func TestInjection(t *testing.T) {
 			},
 		},
 		{
+			in:         "proxy-resources-null.yaml",
+			want:       "proxy-resources-null.yaml.injected",
+			inFilePath: "proxy-resources-null.iop.yaml",
+		},
+		{
+			in:         "proxy-resources-null-no-init.yaml",
+			want:       "proxy-resources-null-no-init.yaml.injected",
+			inFilePath: "proxy-resources-null.iop.yaml",
+		},
+		{
+			in:         "proxy-resources-zero.yaml",
+			want:       "proxy-resources-zero.yaml.injected",
+			inFilePath: "proxy-resources-zero.iop.yaml",
+		},
+		{
+			in:         "proxy-resources-memory-null.yaml",
+			want:       "proxy-resources-memory-null.yaml.injected",
+			inFilePath: "proxy-resources-memory-null.iop.yaml",
+		},
+		{
+			in:         "proxy-resources-mixed-null.yaml",
+			want:       "proxy-resources-mixed-null.yaml.injected",
+			inFilePath: "proxy-resources-mixed-null.iop.yaml",
+		},
+		{
 			in:         "sidecar-spire.yaml",
 			want:       "sidecar-spire.yaml.injected",
 			inFilePath: "spire-template.iop.yaml",
@@ -557,6 +582,23 @@ func TestInjection(t *testing.T) {
 			in:         "gateway-spire.yaml",
 			want:       "gateway-spire.yaml.injected",
 			inFilePath: "spire-template.iop.yaml",
+		},
+		{
+			// Verifies that OTel semantic conventions inject POD_NAME and OTEL_RESOURCE_ATTRIBUTES env vars
+			in:   "hello-otel-semconv.yaml",
+			want: "hello-otel-semconv.yaml.injected",
+			mesh: func(m *meshapi.MeshConfig) {
+				m.ExtensionProviders = append(m.ExtensionProviders, &meshapi.MeshConfig_ExtensionProvider{
+					Name: "otel",
+					Provider: &meshapi.MeshConfig_ExtensionProvider_Opentelemetry{
+						Opentelemetry: &meshapi.MeshConfig_ExtensionProvider_OpenTelemetryTracingProvider{
+							Service:                    "otel-collector.observability.svc.cluster.local",
+							Port:                       4317,
+							ServiceAttributeEnrichment: meshapi.MeshConfig_ExtensionProvider_OTEL_SEMANTIC_CONVENTIONS,
+						},
+					},
+				})
+			},
 		},
 	}
 	// Keep track of tests we add options above
@@ -1438,14 +1480,14 @@ func TestProxyImage(t *testing.T) {
 	}{
 		{
 			desc: "vals-only-int-tag",
-			v:    val("docker.io/istio", 11),
-			want: "docker.io/istio/proxyv2:11",
+			v:    val("registry.istio.io/release", 11),
+			want: "registry.istio.io/release/proxyv2:11",
 		},
 		{
 			desc: "pc overrides imageType - float tag",
-			v:    val("docker.io/istio", 1.12),
+			v:    val("registry.istio.io/release", 1.12),
 			pc:   pc("distroless"),
-			want: "docker.io/istio/proxyv2:1.12-distroless",
+			want: "registry.istio.io/release/proxyv2:1.12-distroless",
 		},
 		{
 			desc: "annotation overrides imageType",
@@ -1481,15 +1523,15 @@ func TestProxyImage(t *testing.T) {
 		},
 		{
 			desc: "pc overrides imageType, tag also has image type",
-			v:    val("docker.io/istio", "1.12-debug"),
+			v:    val("registry.istio.io/release", "1.12-debug"),
 			pc:   pc("distroless"),
-			want: "docker.io/istio/proxyv2:1.12-distroless",
+			want: "registry.istio.io/release/proxyv2:1.12-distroless",
 		},
 		{
 			desc: "annotation overrides imageType, tag also has the same image type",
-			v:    val("docker.io/istio", "1.12-distroless"),
+			v:    val("registry.istio.io/release", "1.12-distroless"),
 			ann:  ann("distroless"),
-			want: "docker.io/istio/proxyv2:1.12-distroless",
+			want: "registry.istio.io/release/proxyv2:1.12-distroless",
 		},
 		{
 			desc: "unusual tag should work",

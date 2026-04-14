@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"testing"
+	"time"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -30,7 +31,13 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/file"
+	"istio.io/istio/pkg/test/util/retry"
 )
+
+// fileEventOpts uses a longer timeout than the default 1s for the event tracker,
+// since file watcher events pass through fsnotify debouncing (50ms) and multiple
+// levels of async krt event processing before reaching the handler.
+var fileEventOpts = []retry.Option{retry.Timeout(5 * time.Second), retry.BackoffDelay(50 * time.Millisecond)}
 
 func TestController(t *testing.T) {
 	stop := test.NewStop(t)
@@ -41,7 +48,7 @@ func TestController(t *testing.T) {
 	})
 	assert.NoError(t, err)
 	go controller.Run(stop)
-	tt := assert.NewTracker[string](t)
+	tt := assert.NewTracker[string](t, fileEventOpts...)
 	controller.RegisterEventHandler(gvk.Gateway, TrackerHandler(tt, kind.Gateway))
 	controller.RegisterEventHandler(gvk.VirtualService, TrackerHandler(tt, kind.VirtualService))
 
@@ -165,7 +172,7 @@ func TestControllerGet(t *testing.T) {
 	})
 	assert.NoError(t, err)
 	go controller.Run(stop)
-	tt := assert.NewTracker[string](t)
+	tt := assert.NewTracker[string](t, fileEventOpts...)
 	controller.RegisterEventHandler(gvk.Gateway, TrackerHandler(tt, kind.Gateway))
 
 	file.WriteOrFail(t, filepath.Join(root, "gw.yaml"), []byte(`
@@ -228,7 +235,7 @@ func TestControllerList(t *testing.T) {
 	})
 	assert.NoError(t, err)
 	go controller.Run(stop)
-	tt := assert.NewTracker[string](t)
+	tt := assert.NewTracker[string](t, fileEventOpts...)
 	controller.RegisterEventHandler(gvk.ServiceEntry, TrackerHandler(tt, kind.ServiceEntry))
 	controller.RegisterEventHandler(gvk.WorkloadEntry, TrackerHandler(tt, kind.WorkloadEntry))
 

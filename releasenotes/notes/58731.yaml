@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+issue:
+ - https://github.com/istio/istio/pull/58731
+
+releaseNotes:
+- |
+  **Fixed** an unreported bug where BackendTLSPolicy status could lose track of the Gateway ancestorRef due to internal index corruption.

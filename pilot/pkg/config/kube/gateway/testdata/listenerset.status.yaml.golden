@@ -1,5 +1,5 @@
-apiVersion: gateway.networking.x-k8s.io/v1alpha1
-kind: XListenerSet
+apiVersion: gateway.networking.k8s.io/v1
+kind: ListenerSet
 metadata:
   name: multi-entry
   namespace: istio-system
@@ -41,7 +41,6 @@ status:
       status: "True"
       type: ResolvedRefs
     name: third
-    port: 443
     supportedKinds:
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
@@ -70,15 +69,14 @@ status:
       status: "True"
       type: ResolvedRefs
     name: forth
-    port: 443
     supportedKinds:
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
     - group: gateway.networking.k8s.io
       kind: GRPCRoute
 ---
-apiVersion: gateway.networking.x-k8s.io/v1alpha1
-kind: XListenerSet
+apiVersion: gateway.networking.k8s.io/v1
+kind: ListenerSet
 metadata:
   name: single-entry-http
   namespace: istio-system
@@ -119,15 +117,14 @@ status:
       status: "True"
       type: ResolvedRefs
     name: first
-    port: 80
     supportedKinds:
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
     - group: gateway.networking.k8s.io
       kind: GRPCRoute
 ---
-apiVersion: gateway.networking.x-k8s.io/v1alpha1
-kind: XListenerSet
+apiVersion: gateway.networking.k8s.io/v1
+kind: ListenerSet
 metadata:
   name: single-entry-tls
   namespace: istio-system
@@ -168,7 +165,6 @@ status:
       status: "True"
       type: ResolvedRefs
     name: second
-    port: 443
     supportedKinds:
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
@@ -198,17 +194,13 @@ status:
   addresses:
   - type: IPAddress
     value: 1.2.3.4
+  attachedListenerSets: 4
   conditions:
   - lastTransitionTime: fake
     message: Resource accepted
     reason: Accepted
     status: "True"
     type: Accepted
-  - lastTransitionTime: fake
-    message: At least one ListenerSet is attached
-    reason: ListenersAttached
-    status: "True"
-    type: AttachedListenerSets
   - lastTransitionTime: fake
     message: Resource programmed, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:443
       and istio-ingressgateway.istio-system.svc.domain.suffix:80
@@ -266,8 +258,8 @@ status:
       type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:
-      group: gateway.networking.x-k8s.io
-      kind: XListenerSet
+      group: gateway.networking.k8s.io
+      kind: ListenerSet
       name: single-entry-http
       namespace: istio-system
   - conditions:
@@ -329,8 +321,8 @@ status:
       type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:
-      group: gateway.networking.x-k8s.io
-      kind: XListenerSet
+      group: gateway.networking.k8s.io
+      kind: ListenerSet
       name: single-entry-http
       namespace: istio-system
 ---

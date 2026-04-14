@@ -379,6 +379,11 @@ func (c *Controller) changeWorkloadEntryStateToConnected(entryName string, proxy
 	if conTime.Before(lastConTime) {
 		return false, nil
 	}
+	// Already connected to this controller at this time; skip redundant update to avoid
+	// racing with concurrent status updates (e.g. health condition writes).
+	if wle.Annotations[annotation.IoIstioWorkloadController.Name] == c.instanceID && !conTime.After(lastConTime) {
+		return false, nil
+	}
 	// Try to update, if it fails we retry all the above logic since the WLE changed
 	updated := wle.DeepCopy()
 	setConnectMeta(&updated, c.instanceID, conTime)

@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -386,10 +387,11 @@ func generateSupportedKinds(l k8s.Listener) ([]k8s.RouteGroupKind, bool) {
 	case k8s.TCPProtocolType:
 		supported = []k8s.RouteGroupKind{toRouteKind(gvk.TCPRoute)}
 	case k8s.TLSProtocolType:
-		if l.TLS != nil && l.TLS.Mode != nil && *l.TLS.Mode == k8s.TLSModePassthrough {
-			supported = []k8s.RouteGroupKind{toRouteKind(gvk.TLSRoute)}
-		} else {
-			supported = []k8s.RouteGroupKind{toRouteKind(gvk.TCPRoute)}
+		supported = []k8s.RouteGroupKind{toRouteKind(gvk.TLSRoute)}
+		// Per Gateway API spec, when a listener is of type TLS they MUST specify what is
+		// the desired mode
+		if l.TLS != nil && ptr.OrEmpty(l.TLS.Mode) == k8s.TLSModeTerminate {
+			supported = append(supported, toRouteKind(gvk.TCPRoute))
 		}
 		// UDP route not support
 	}

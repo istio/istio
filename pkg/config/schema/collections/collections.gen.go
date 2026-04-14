@@ -394,6 +394,21 @@ var (
 		ValidateProto: validation.EmptyValidate,
 	}.MustBuild()
 
+	ListenerSet = resource.Builder{
+		Identifier: "ListenerSet",
+		Group:      "gateway.networking.k8s.io",
+		Kind:       "ListenerSet",
+		Plural:     "listenersets",
+		Version:    "v1",
+		Proto:      "ListenerSetSpec", StatusProto: "ListenerSetStatus",
+		ReflectType: reflect.TypeOf(&sigsk8siogatewayapiapisv1.ListenerSetSpec{}).Elem(), StatusType: reflect.TypeOf(&sigsk8siogatewayapiapisv1.ListenerSetStatus{}).Elem(),
+		ProtoPackage: "sigs.k8s.io/gateway-api/apis/v1", StatusPackage: "sigs.k8s.io/gateway-api/apis/v1",
+		ClusterScoped: false,
+		Synthetic:     false,
+		Builtin:       false,
+		ValidateProto: validation.EmptyValidate,
+	}.MustBuild()
+
 	MeshConfig = resource.Builder{
 		Identifier:    "MeshConfig",
 		Group:         "",
@@ -686,10 +701,13 @@ var (
 		Group:      "gateway.networking.k8s.io",
 		Kind:       "TLSRoute",
 		Plural:     "tlsroutes",
-		Version:    "v1alpha2",
-		Proto:      "k8s.io.gateway_api.api.v1alpha1.TLSRouteSpec", StatusProto: "k8s.io.gateway_api.api.v1alpha1.TLSRouteStatus",
-		ReflectType: reflect.TypeOf(&sigsk8siogatewayapiapisv1alpha2.TLSRouteSpec{}).Elem(), StatusType: reflect.TypeOf(&sigsk8siogatewayapiapisv1alpha2.TLSRouteStatus{}).Elem(),
-		ProtoPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2", StatusPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2",
+		Version:    "v1",
+		VersionAliases: []string{
+			"v1alpha2",
+		},
+		Proto: "k8s.io.gateway_api.api.v1.TLSRouteSpec", StatusProto: "k8s.io.gateway_api.api.v1.TLSRouteStatus",
+		ReflectType: reflect.TypeOf(&sigsk8siogatewayapiapisv1.TLSRouteSpec{}).Elem(), StatusType: reflect.TypeOf(&sigsk8siogatewayapiapisv1.TLSRouteStatus{}).Elem(),
+		ProtoPackage: "sigs.k8s.io/gateway-api/apis/v1", StatusPackage: "sigs.k8s.io/gateway-api/apis/v1",
 		ClusterScoped: false,
 		Synthetic:     false,
 		Builtin:       false,
@@ -712,6 +730,21 @@ var (
 		Synthetic:     false,
 		Builtin:       false,
 		ValidateProto: validation.ValidateTelemetry,
+	}.MustBuild()
+
+	TrafficExtension = resource.Builder{
+		Identifier: "TrafficExtension",
+		Group:      "extensions.istio.io",
+		Kind:       "TrafficExtension",
+		Plural:     "trafficextensions",
+		Version:    "v1alpha1",
+		Proto:      "istio.extensions.v1alpha1.TrafficExtension", StatusProto: "istio.meta.v1alpha1.IstioStatus",
+		ReflectType: reflect.TypeOf(&istioioapiextensionsv1alpha1.TrafficExtension{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
+		ProtoPackage: "istio.io/api/extensions/v1alpha1", StatusPackage: "istio.io/api/meta/v1alpha1",
+		ClusterScoped: false,
+		Synthetic:     false,
+		Builtin:       false,
+		ValidateProto: validation.ValidateTrafficExtension,
 	}.MustBuild()
 
 	UDPRoute = resource.Builder{
@@ -831,21 +864,6 @@ var (
 		ValidateProto: validation.EmptyValidate,
 	}.MustBuild()
 
-	XListenerSet = resource.Builder{
-		Identifier: "XListenerSet",
-		Group:      "gateway.networking.x-k8s.io",
-		Kind:       "XListenerSet",
-		Plural:     "xlistenersets",
-		Version:    "v1alpha1",
-		Proto:      "ListenerSetSpec", StatusProto: "ListenerSetStatus",
-		ReflectType: reflect.TypeOf(&sigsk8siogatewayapiapisxv1alpha1.ListenerSetSpec{}).Elem(), StatusType: reflect.TypeOf(&sigsk8siogatewayapiapisxv1alpha1.ListenerSetStatus{}).Elem(),
-		ProtoPackage: "sigs.k8s.io/gateway-api/apisx/v1alpha1", StatusPackage: "sigs.k8s.io/gateway-api/apisx/v1alpha1",
-		ClusterScoped: false,
-		Synthetic:     false,
-		Builtin:       false,
-		ValidateProto: validation.EmptyValidate,
-	}.MustBuild()
-
 	// All contains all collections in the system.
 	All = collection.NewSchemasBuilder().
 		MustAdd(AuthorizationPolicy).
@@ -870,6 +888,7 @@ var (
 		MustAdd(IngressClass).
 		MustAdd(KubernetesGateway).
 		MustAdd(Lease).
+		MustAdd(ListenerSet).
 		MustAdd(MeshConfig).
 		MustAdd(MeshNetworks).
 		MustAdd(MutatingWebhookConfiguration).
@@ -890,6 +909,7 @@ var (
 		MustAdd(TCPRoute).
 		MustAdd(TLSRoute).
 		MustAdd(Telemetry).
+		MustAdd(TrafficExtension).
 		MustAdd(UDPRoute).
 		MustAdd(ValidatingWebhookConfiguration).
 		MustAdd(VirtualService).
@@ -897,7 +917,6 @@ var (
 		MustAdd(WorkloadEntry).
 		MustAdd(WorkloadGroup).
 		MustAdd(XBackendTrafficPolicy).
-		MustAdd(XListenerSet).
 		Build()
 
 	// Kube contains only kubernetes collections.
@@ -920,6 +939,7 @@ var (
 		MustAdd(IngressClass).
 		MustAdd(KubernetesGateway).
 		MustAdd(Lease).
+		MustAdd(ListenerSet).
 		MustAdd(MutatingWebhookConfiguration).
 		MustAdd(Namespace).
 		MustAdd(Node).
@@ -935,7 +955,6 @@ var (
 		MustAdd(UDPRoute).
 		MustAdd(ValidatingWebhookConfiguration).
 		MustAdd(XBackendTrafficPolicy).
-		MustAdd(XListenerSet).
 		Build()
 
 	// Pilot contains only collections used by Pilot.
@@ -950,6 +969,7 @@ var (
 		MustAdd(ServiceEntry).
 		MustAdd(Sidecar).
 		MustAdd(Telemetry).
+		MustAdd(TrafficExtension).
 		MustAdd(VirtualService).
 		MustAdd(WasmPlugin).
 		MustAdd(WorkloadEntry).
@@ -967,6 +987,7 @@ var (
 			MustAdd(GatewayClass).
 			MustAdd(HTTPRoute).
 			MustAdd(KubernetesGateway).
+			MustAdd(ListenerSet).
 			MustAdd(PeerAuthentication).
 			MustAdd(ProxyConfig).
 			MustAdd(ReferenceGrant).
@@ -976,13 +997,13 @@ var (
 			MustAdd(TCPRoute).
 			MustAdd(TLSRoute).
 			MustAdd(Telemetry).
+			MustAdd(TrafficExtension).
 			MustAdd(UDPRoute).
 			MustAdd(VirtualService).
 			MustAdd(WasmPlugin).
 			MustAdd(WorkloadEntry).
 			MustAdd(WorkloadGroup).
 			MustAdd(XBackendTrafficPolicy).
-			MustAdd(XListenerSet).
 			Build()
 
 	// PilotStableGatewayAPI contains only collections used by Pilot, including beta+ Gateway API.
@@ -996,13 +1017,16 @@ var (
 				MustAdd(GatewayClass).
 				MustAdd(HTTPRoute).
 				MustAdd(KubernetesGateway).
+				MustAdd(ListenerSet).
 				MustAdd(PeerAuthentication).
 				MustAdd(ProxyConfig).
 				MustAdd(ReferenceGrant).
 				MustAdd(RequestAuthentication).
 				MustAdd(ServiceEntry).
 				MustAdd(Sidecar).
+				MustAdd(TLSRoute).
 				MustAdd(Telemetry).
+				MustAdd(TrafficExtension).
 				MustAdd(VirtualService).
 				MustAdd(WasmPlugin).
 				MustAdd(WorkloadEntry).

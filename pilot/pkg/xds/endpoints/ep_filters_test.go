@@ -654,7 +654,7 @@ func TestEndpointsByNetworkFilter_SkipLBWithHostname(t *testing.T) {
 	ds.MemRegistry.AddService(&model.Service{
 		Hostname: "istio-ingressgateway.istio-system.svc.cluster.local",
 		Attributes: model.ServiceAttributes{
-			ClusterExternalAddresses: &model.AddressMap{
+			ClusterExternalAddresses: model.AddressMap{
 				Addresses: map[cluster.ID][]string{
 					"cluster2a": {""},
 					"cluster2b": {""},
@@ -677,10 +677,113 @@ func TestEndpointsByNetworkFilter_SkipLBWithHostname(t *testing.T) {
 	runNetworkFilterTest(t, ds, networkFiltered, "")
 }
 
+func TestEndpointsByNetworkFilter_ProxyWithEmptyNetwork(t *testing.T) {
+	network1 := network.ID("network-1")
+	network1IP := "1.1.1.1"
+	network2 := network.ID("network-2")
+	network2IP := "2.2.2.2"
+	workloadIP := "3.3.3.3"
+
+	ds := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+		Services: []*model.Service{{
+			Hostname:   "example.ns.svc.cluster.local",
+			Attributes: model.ServiceAttributes{Name: "example", Namespace: "ns"},
+			Ports:      model.PortList{{Port: 80, Protocol: protocol.HTTP, Name: "http"}},
+		}},
+		Gateways: []model.NetworkGateway{
+			{
+				Network: network1,
+				Addr:    network1IP,
+				Port:    15443,
+			},
+			{
+				Network: network2,
+				Addr:    network2IP,
+				Port:    15443,
+			},
+		},
+	})
+	ds.Env().InitNetworksManager(ds.Discovery)
+
+	shards := model.NewEndpointIndex(model.NewXdsCache())
+	svc, _ := shards.GetOrCreateEndpointShard("example.ns.svc.cluster.local", "ns")
+	svc.Lock()
+	svc.Shards[model.ShardKey{Cluster: constants.DefaultClusterName}] = []*model.IstioEndpoint{
+		// Case 1: Endpoint with an address in an unknown network
+		{
+			Network:         "network-without-gateway",
+			Addresses:       []string{workloadIP},
+			ServicePortName: "http",
+			Namespace:       "ns",
+			HostName:        "example.ns.svc.cluster.local",
+			EndpointPort:    8080,
+			TLSMode:         "istio",
+			Labels:          map[string]string{"app": "example"},
+		},
+		// Case 2: Endpoint with an address on network with gateway
+		{
+			Network:         network1,
+			Addresses:       []string{"10.10.10.10"},
+			ServicePortName: "http",
+			Namespace:       "ns",
+			HostName:        "example.ns.svc.cluster.local",
+			EndpointPort:    8080,
+			TLSMode:         "istio",
+			Labels:          map[string]string{"app": "example"},
+		},
+		// Case 3: Endpoint without addresses on a known network
+		{
+			Network:         network2,
+			Addresses:       []string{""},
+			ServicePortName: "http",
+			Namespace:       "ns",
+			HostName:        "example.ns.svc.cluster.local",
+			EndpointPort:    8080,
+			TLSMode:         "istio",
+			Labels:          map[string]string{"app": "example"},
+		},
+		// Case 4: Endpoint without addresses on an unknown network
+		{
+			Network:         "network-without-gateway",
+			Addresses:       []string{""},
+			ServicePortName: "http",
+			Namespace:       "ns",
+			HostName:        "example.ns.svc.cluster.local",
+			EndpointPort:    8080,
+			TLSMode:         "istio",
+			Labels:          map[string]string{"app": "example"},
+		},
+	}
+	svc.Unlock()
+
+	proxy := ds.SetupProxy(&model.Proxy{
+		Metadata: &model.NodeMetadata{
+			Network: "",
+		},
+	})
+	cn := "outbound|80||example.ns.svc.cluster.local"
+	b := endpoints.NewEndpointBuilder(cn, proxy, ds.PushContext())
+	filtered := b.BuildClusterLoadAssignment(shards).Endpoints
+
+	want := []xdstest.LocLbEpInfo{
+		{
+			LbEps: []xdstest.LbEpInfo{
+				{Address: workloadIP, Weight: 1}, // Case 1
+				{Address: network1IP, Weight: 1}, // Case 2
+				{Address: network2IP, Weight: 1}, // Case 3
+				// Case 4 not included
+			},
+			Weight: 3,
+		},
+	}
+	xdstest.CompareEndpointsOrFail(t, cn, filtered, want)
+}
+
 func TestEndpointsByNetworkFilter_AmbientMuiltiNetwork(t *testing.T) {
 	test.SetForTest(t, &features.EnableAmbient, true)
 	test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
 	test.SetForTest(t, &features.EnableAmbientWaypointMultiNetwork, true)
+	test.SetForTest(t, &features.EnableAmbientIngressMultiNetwork, true)
 	env := environment(t)
 	env.Env().InitNetworksManager(env.Discovery)
 	ambientNetworkFiltered := []networkFilterCase{
@@ -764,10 +867,228 @@ func TestEndpointsByNetworkFilter_AmbientMuiltiNetwork(t *testing.T) {
 				";ns;example;;cluster2b",
 			},
 		},
+		{
+			name:  "ingress_in_cluster1",
+			proxy: makeIngressGatewayProxy("network1", "cluster1"),
+			want: []xdstest.LocLbEpInfo{
+				{
+					LbEps: []xdstest.LbEpInfo{
+						// Local endpoints
+						{Address: "10.0.0.1", Weight: 6},
+						{Address: "10.0.0.2", Weight: 6},
+						{Address: "10.0.0.3", Weight: 6},
+						// 3 EW gateways in network2
+						{Address: "2.2.2.2", Weight: 6},
+						{Address: "2.2.2.20", Weight: 6},
+						{Address: "2.2.2.21", Weight: 6},
+						// network3 has no endpoints
+						// network4 has no EW gateway
+					},
+					Weight: 36,
+				},
+			},
+			wantWorkloadMetadata: []string{
+				";ns;example;;cluster1a",
+				";ns;example;;cluster1a",
+				";ns;example;;cluster1b",
+				";;;;cluster2a",
+				";;;;cluster2b",
+				";;;;cluster2b",
+			},
+		},
 	}
 	// The tests below are calling the endpoints filter from each one of the
 	// networks and examines the returned filtered endpoints
 	runNetworkFilterTest(t, env, ambientNetworkFiltered, "")
+}
+
+func TestEndpointsByNetworkFilter_GatewayIPFamily(t *testing.T) {
+	test.SetForTest(t, &features.MultiNetworkGatewayAPI, true)
+	test.SetForTest(t, &features.PreferHBONESend, true)
+
+	// Local network1 with an IPv4 gateway, remote network2 with dualstack gateways.
+	newEnv := func(t *testing.T, gateways []model.NetworkGateway) (*xds.FakeDiscoveryServer, *model.EndpointIndex) {
+		ds := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+			Services: []*model.Service{{
+				Hostname:   "example.ns.svc.cluster.local",
+				Attributes: model.ServiceAttributes{Name: "example", Namespace: "ns"},
+				Ports:      model.PortList{{Port: 80, Protocol: protocol.HTTP, Name: "http"}},
+			}},
+			Gateways: gateways,
+		})
+		ds.Env().InitNetworksManager(ds.Discovery)
+
+		shards := model.NewEndpointIndex(model.NewXdsCache())
+		svc, _ := shards.GetOrCreateEndpointShard("example.ns.svc.cluster.local", "ns")
+		svc.Lock()
+		svc.Shards[model.ShardKey{Cluster: "cluster2"}] = []*model.IstioEndpoint{
+			{
+				Network: "network2", Addresses: []string{"20.0.0.1"},
+				ServicePortName: "http", Namespace: "ns",
+				HostName: "example.ns.svc.cluster.local", EndpointPort: 8080,
+				TLSMode: "istio", Labels: map[string]string{"app": "example"},
+				Locality: model.Locality{ClusterID: "cluster2"},
+			},
+		}
+		svc.Unlock()
+		return ds, shards
+	}
+
+	dualstackGateways := []model.NetworkGateway{
+		{Network: "network1", Cluster: "cluster1", Addr: "1.1.1.1", Port: 80},
+		{Network: "network2", Cluster: "cluster2", Addr: "2.2.2.2", Port: 80},
+		{Network: "network2", Cluster: "cluster2", Addr: "2001:db8:2::1", Port: 80},
+	}
+
+	cases := []struct {
+		name     string
+		proxy    *model.Proxy
+		gateways []model.NetworkGateway
+		after    func(*model.Proxy)
+		want     []xdstest.LocLbEpInfo
+	}{
+		{
+			name:     "ipv4_proxy_gets_only_ipv4_gateway",
+			proxy:    makeProxy("network1", "cluster1"),
+			gateways: dualstackGateways,
+			want: []xdstest.LocLbEpInfo{{
+				LbEps:  []xdstest.LbEpInfo{{Address: "2.2.2.2", Weight: 2}},
+				Weight: 2,
+			}},
+		},
+		{
+			name:     "ipv6_proxy_gets_only_ipv6_gateway",
+			proxy:    makeIPv6Proxy("network1", "cluster1"),
+			gateways: dualstackGateways,
+			want: []xdstest.LocLbEpInfo{{
+				LbEps:  []xdstest.LbEpInfo{{Address: "2001:db8:2::1", Weight: 2}},
+				Weight: 2,
+			}},
+		},
+		{
+			name:     "dualstack_proxy_gets_both_gateways",
+			proxy:    makeDualStackProxy("network1", "cluster1"),
+			gateways: dualstackGateways,
+			want: []xdstest.LocLbEpInfo{{
+				LbEps: []xdstest.LbEpInfo{
+					{Address: "2.2.2.2", Weight: 1},
+					{Address: "2001:db8:2::1", Weight: 1},
+				},
+				Weight: 2,
+			}},
+		},
+		{
+			name:  "ipv4_proxy_all_incompatible_gateways_drops_endpoint",
+			proxy: makeProxy("network1", "cluster1"),
+			gateways: []model.NetworkGateway{
+				{Network: "network1", Cluster: "cluster1", Addr: "1.1.1.1", Port: 80},
+				{Network: "network2", Cluster: "cluster2", Addr: "2001:db8:2::1", Port: 80},
+			},
+			want: []xdstest.LocLbEpInfo{{
+				LbEps:  []xdstest.LbEpInfo{},
+				Weight: 0,
+			}},
+		},
+		{
+			name:     "unknown_ip_mode_preserves_all_gateways",
+			proxy:    makeProxy("network1", "cluster1"),
+			gateways: dualstackGateways,
+			after: func(p *model.Proxy) {
+				p.SetIPMode(model.IPMode(0))
+			},
+			want: []xdstest.LocLbEpInfo{{
+				LbEps: []xdstest.LbEpInfo{
+					{Address: "2.2.2.2", Weight: 1},
+					{Address: "2001:db8:2::1", Weight: 1},
+				},
+				Weight: 2,
+			}},
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			ds, shards := newEnv(t, tt.gateways)
+			proxy := ds.SetupProxy(tt.proxy)
+			if tt.after != nil {
+				tt.after(proxy)
+			}
+			cn := "outbound|80||example.ns.svc.cluster.local"
+			b := endpoints.NewEndpointBuilder(cn, proxy, ds.PushContext())
+			filtered := b.BuildClusterLoadAssignment(shards).Endpoints
+			xdstest.CompareEndpointsOrFail(t, cn, filtered, tt.want)
+
+			// Verify determinism (consistent with existing test patterns).
+			b2 := endpoints.NewEndpointBuilder(cn, proxy, ds.PushContext())
+			filtered2 := b2.BuildClusterLoadAssignment(shards).Endpoints
+			if diff := cmp.Diff(filtered2, filtered, protocmp.Transform(), cmpopts.IgnoreUnexported(endpoints.LocalityEndpoints{})); diff != "" {
+				t.Fatalf("output of EndpointsByNetworkFilter is non-deterministic: %v", diff)
+			}
+		})
+	}
+}
+
+func TestEndpointsByNetworkFilter_GatewayIPFamily_Ambient(t *testing.T) {
+	test.SetForTest(t, &features.MultiNetworkGatewayAPI, true)
+	test.SetForTest(t, &features.PreferHBONESend, true)
+	test.SetForTest(t, &features.EnableAmbient, true)
+	test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
+	test.SetForTest(t, &features.EnableAmbientWaypointMultiNetwork, true)
+
+	// Dualstack HBONE gateways for network2.
+	ds := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+		Services: []*model.Service{{
+			Hostname:   "example.ns.svc.cluster.local",
+			Attributes: model.ServiceAttributes{Name: "example", Namespace: "ns"},
+			Ports:      model.PortList{{Port: 80, Protocol: protocol.HTTP, Name: "http"}},
+		}},
+		Gateways: []model.NetworkGateway{
+			{Network: "network1", Cluster: "cluster1", Addr: "1.1.1.1", Port: 80, HBONEPort: 15008},
+			{Network: "network2", Cluster: "cluster2", Addr: "2.2.2.2", Port: 80, HBONEPort: 15008},
+			{Network: "network2", Cluster: "cluster2", Addr: "2001:db8:2::1", Port: 80, HBONEPort: 15008},
+		},
+	})
+	ds.Env().InitNetworksManager(ds.Discovery)
+
+	shards := model.NewEndpointIndex(model.NewXdsCache())
+	svc, _ := shards.GetOrCreateEndpointShard("example.ns.svc.cluster.local", "ns")
+	svc.Lock()
+	svc.Shards[model.ShardKey{Cluster: "cluster2"}] = []*model.IstioEndpoint{
+		{
+			Network: "network2", Addresses: []string{"20.0.0.1"},
+			ServicePortName: "http", Namespace: "ns",
+			HostName: "example.ns.svc.cluster.local", EndpointPort: 8080,
+			TLSMode: "istio", Labels: map[string]string{"app": "example"},
+			Locality: model.Locality{ClusterID: "cluster2"},
+		},
+	}
+	svc.Unlock()
+
+	// IPv4-only waypoint proxy should only get IPv4 HBONE gateway.
+	proxy := ds.SetupProxy(makeWaypointProxy("network1", "cluster1"))
+	cn := "outbound|80||example.ns.svc.cluster.local"
+	b := endpoints.NewEndpointBuilder(cn, proxy, ds.PushContext())
+	filtered := b.BuildClusterLoadAssignment(shards).Endpoints
+
+	// The waypoint should see only the IPv4 HBONE gateway for network2.
+	// The IPv6 gateway is filtered out by IP family, and the endpoint is
+	// rendered as an internal address (HBONE tunnel) rather than a direct
+	// socket address.
+	var gwHosts []string
+	for _, llb := range filtered {
+		for _, ep := range llb.LbEndpoints {
+			gwHosts = append(gwHosts, util.GetEndpointHost(ep))
+		}
+	}
+	if diff := cmp.Diff([]string{"2.2.2.2"}, gwHosts); diff != "" {
+		t.Fatalf("unexpected HBONE gateway hosts (-want +got): %s", diff)
+	}
+
+	b2 := endpoints.NewEndpointBuilder(cn, proxy, ds.PushContext())
+	filtered2 := b2.BuildClusterLoadAssignment(shards).Endpoints
+	if diff := cmp.Diff(filtered2, filtered, protocmp.Transform(), cmpopts.IgnoreUnexported(endpoints.LocalityEndpoints{})); diff != "" {
+		t.Fatalf("output of EndpointsByNetworkFilter is non-deterministic: %v", diff)
+	}
 }
 
 type networkFilterCase struct {
@@ -889,6 +1210,26 @@ func makeProxy(nw network.ID, c cluster.ID) *model.Proxy {
 	}
 }
 
+func makeIPv6Proxy(nw network.ID, c cluster.ID) *model.Proxy {
+	return &model.Proxy{
+		IPAddresses: []string{"2001:db8::10"},
+		Metadata: &model.NodeMetadata{
+			Network:   nw,
+			ClusterID: c,
+		},
+	}
+}
+
+func makeDualStackProxy(nw network.ID, c cluster.ID) *model.Proxy {
+	return &model.Proxy{
+		IPAddresses: []string{"1.1.1.10", "2001:db8::10"},
+		Metadata: &model.NodeMetadata{
+			Network:   nw,
+			ClusterID: c,
+		},
+	}
+}
+
 func makeWaypointProxy(nw network.ID, c cluster.ID) *model.Proxy {
 	proxy := makeProxy(nw, c)
 	if proxy.Labels == nil {
@@ -896,6 +1237,16 @@ func makeWaypointProxy(nw network.ID, c cluster.ID) *model.Proxy {
 	}
 	proxy.Labels[label.GatewayManaged.Name] = constants.ManagedGatewayMeshControllerLabel
 	proxy.Type = model.Waypoint
+	return proxy
+}
+
+func makeIngressGatewayProxy(nw network.ID, c cluster.ID) *model.Proxy {
+	proxy := makeProxy(nw, c)
+	if proxy.Labels == nil {
+		proxy.Labels = make(map[string]string)
+	}
+	proxy.Labels[label.GatewayManaged.Name] = constants.ManagedGatewayControllerLabel
+	proxy.Type = model.Router
 	return proxy
 }
 

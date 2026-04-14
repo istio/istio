@@ -243,10 +243,12 @@ func TestInboundListenerConfig(t *testing.T) {
 			// Ext auth makes 2 filters
 			wellknown.HTTPRoleBasedAccessControl,
 			wellknown.HTTPExternalAuthorization,
-			"extensions.istio.io/wasmplugin/istio-system.wasm-authn",
-			"extensions.istio.io/wasmplugin/istio-system.wasm-authz",
+			"extensions.istio.io/trafficextension/istio-system.extension-wasm-authn",
+			"extensions.istio.io/trafficextension/istio-system.extension-lua-authn",
+			"extensions.istio.io/trafficextension/istio-system.extension-wasm-authz",
+			"extensions.istio.io/trafficextension/istio-system.extension-lua-authz",
 			wellknown.HTTPRoleBasedAccessControl,
-			"extensions.istio.io/wasmplugin/istio-system.wasm-stats",
+			"extensions.istio.io/trafficextension/istio-system.extension-wasm-stats",
 			wellknown.HTTPGRPCStats,
 			xdsfilters.Fault.Name,
 			xdsfilters.Cors.Name,
@@ -255,9 +257,9 @@ func TestInboundListenerConfig(t *testing.T) {
 		}
 		httpNetworkFilters := []string{
 			xdsfilters.MxFilterName,
-			"extensions.istio.io/wasmplugin/istio-system.wasm-network-authn",
-			"extensions.istio.io/wasmplugin/istio-system.wasm-network-authz",
-			"extensions.istio.io/wasmplugin/istio-system.wasm-network-stats",
+			"extensions.istio.io/trafficextension/istio-system.extension-wasm-network-authn",
+			"extensions.istio.io/trafficextension/istio-system.extension-wasm-network-authz",
+			"extensions.istio.io/trafficextension/istio-system.extension-wasm-network-stats",
 			wellknown.HTTPConnectionManager,
 		}
 		tcpNetworkFilters := []string{
@@ -265,10 +267,10 @@ func TestInboundListenerConfig(t *testing.T) {
 			// Ext auth makes 2 filters
 			wellknown.RoleBasedAccessControl,
 			wellknown.ExternalAuthorization,
-			"extensions.istio.io/wasmplugin/istio-system.wasm-network-authn",
-			"extensions.istio.io/wasmplugin/istio-system.wasm-network-authz",
+			"extensions.istio.io/trafficextension/istio-system.extension-wasm-network-authn",
+			"extensions.istio.io/trafficextension/istio-system.extension-wasm-network-authz",
 			wellknown.RoleBasedAccessControl,
-			"extensions.istio.io/wasmplugin/istio-system.wasm-network-stats",
+			"extensions.istio.io/trafficextension/istio-system.extension-wasm-network-stats",
 			xds.StatsFilterName,
 			wellknown.TCPProxy,
 		}
@@ -1092,42 +1094,82 @@ func TestOutboundTlsTrafficWithoutTimeout(t *testing.T) {
 
 var filterTestConfigs = []config.Config{
 	{
-		Meta: config.Meta{Name: "wasm-network-authz", Namespace: "istio-system", GroupVersionKind: gvk.WasmPlugin},
-		Spec: &extensions.WasmPlugin{
-			Phase: extensions.PluginPhase_AUTHZ,
-			Type:  extensions.PluginType_NETWORK,
+		Meta: config.Meta{Name: "extension-wasm-network-authz", Namespace: "istio-system", GroupVersionKind: gvk.TrafficExtension},
+		Spec: &extensions.TrafficExtension{
+			Phase: extensions.TrafficExtension_AUTHZ,
+			FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
+				Url:  "file:///etc/istio/filters/authz.wasm",
+				Type: extensions.PluginType_NETWORK,
+			}},
 		},
 	},
 	{
-		Meta: config.Meta{Name: "wasm-network-authn", Namespace: "istio-system", GroupVersionKind: gvk.WasmPlugin},
-		Spec: &extensions.WasmPlugin{
-			Phase: extensions.PluginPhase_AUTHN,
-			Type:  extensions.PluginType_NETWORK,
+		Meta: config.Meta{Name: "extension-wasm-network-authn", Namespace: "istio-system", GroupVersionKind: gvk.TrafficExtension},
+		Spec: &extensions.TrafficExtension{
+			Phase: extensions.TrafficExtension_AUTHN,
+			FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
+				Url:  "file:///etc/istio/filters/authn.wasm",
+				Type: extensions.PluginType_NETWORK,
+			}},
 		},
 	},
 	{
-		Meta: config.Meta{Name: "wasm-network-stats", Namespace: "istio-system", GroupVersionKind: gvk.WasmPlugin},
-		Spec: &extensions.WasmPlugin{
-			Phase: extensions.PluginPhase_STATS,
-			Type:  extensions.PluginType_NETWORK,
+		Meta: config.Meta{Name: "extension-wasm-network-stats", Namespace: "istio-system", GroupVersionKind: gvk.TrafficExtension},
+		Spec: &extensions.TrafficExtension{
+			Phase: extensions.TrafficExtension_STATS,
+			FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
+				Url:  "file:///etc/istio/filters/stats.wasm",
+				Type: extensions.PluginType_NETWORK,
+			}},
 		},
 	},
 	{
-		Meta: config.Meta{Name: "wasm-authz", Namespace: "istio-system", GroupVersionKind: gvk.WasmPlugin},
-		Spec: &extensions.WasmPlugin{
-			Phase: extensions.PluginPhase_AUTHZ,
+		Meta: config.Meta{Name: "extension-wasm-authz", Namespace: "istio-system", GroupVersionKind: gvk.TrafficExtension},
+		Spec: &extensions.TrafficExtension{
+			Phase: extensions.TrafficExtension_AUTHZ,
+			FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
+				Url:  "oci://example.com/http-authz:v1",
+				Type: extensions.PluginType_HTTP,
+			}},
 		},
 	},
 	{
-		Meta: config.Meta{Name: "wasm-authn", Namespace: "istio-system", GroupVersionKind: gvk.WasmPlugin},
-		Spec: &extensions.WasmPlugin{
-			Phase: extensions.PluginPhase_AUTHN,
+		Meta: config.Meta{Name: "extension-wasm-authn", Namespace: "istio-system", GroupVersionKind: gvk.TrafficExtension},
+		Spec: &extensions.TrafficExtension{
+			Phase: extensions.TrafficExtension_AUTHN,
+			FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
+				Url:  "oci://example.com/http-authn:v1",
+				Type: extensions.PluginType_HTTP,
+			}},
 		},
 	},
 	{
-		Meta: config.Meta{Name: "wasm-stats", Namespace: "istio-system", GroupVersionKind: gvk.WasmPlugin},
-		Spec: &extensions.WasmPlugin{
-			Phase: extensions.PluginPhase_STATS,
+		Meta: config.Meta{Name: "extension-wasm-stats", Namespace: "istio-system", GroupVersionKind: gvk.TrafficExtension},
+		Spec: &extensions.TrafficExtension{
+			Phase: extensions.TrafficExtension_STATS,
+			FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
+				Url:  "oci://example.com/http-stats:v1",
+				Type: extensions.PluginType_HTTP,
+			}},
+		},
+	},
+	// Additional Lua filters
+	{
+		Meta: config.Meta{Name: "extension-lua-authz", Namespace: "istio-system", GroupVersionKind: gvk.TrafficExtension},
+		Spec: &extensions.TrafficExtension{
+			Phase: extensions.TrafficExtension_AUTHZ,
+			FilterConfig: &extensions.TrafficExtension_Lua{Lua: &extensions.LuaConfig{
+				InlineCode: "function envoy_on_request(request_handle) end",
+			}},
+		},
+	},
+	{
+		Meta: config.Meta{Name: "extension-lua-authn", Namespace: "istio-system", GroupVersionKind: gvk.TrafficExtension},
+		Spec: &extensions.TrafficExtension{
+			Phase: extensions.TrafficExtension_AUTHN,
+			FilterConfig: &extensions.TrafficExtension_Lua{Lua: &extensions.LuaConfig{
+				InlineCode: "function envoy_on_request(request_handle) end",
+			}},
 		},
 	},
 	{
@@ -1180,9 +1222,11 @@ func TestOutboundFilters(t *testing.T) {
 					TotalMatch: true,
 					HTTPFilters: []string{
 						xdsfilters.MxFilterName,
-						"extensions.istio.io/wasmplugin/istio-system.wasm-authn",
-						"extensions.istio.io/wasmplugin/istio-system.wasm-authz",
-						"extensions.istio.io/wasmplugin/istio-system.wasm-stats",
+						"extensions.istio.io/trafficextension/istio-system.extension-wasm-authn",
+						"extensions.istio.io/trafficextension/istio-system.extension-lua-authn",
+						"extensions.istio.io/trafficextension/istio-system.extension-wasm-authz",
+						"extensions.istio.io/trafficextension/istio-system.extension-lua-authz",
+						"extensions.istio.io/trafficextension/istio-system.extension-wasm-stats",
 						wellknown.HTTPGRPCStats,
 						xdsfilters.AlpnFilterName,
 						xdsfilters.Fault.Name,
@@ -1191,9 +1235,9 @@ func TestOutboundFilters(t *testing.T) {
 						wellknown.Router,
 					},
 					NetworkFilters: []string{
-						"extensions.istio.io/wasmplugin/istio-system.wasm-network-authn",
-						"extensions.istio.io/wasmplugin/istio-system.wasm-network-authz",
-						"extensions.istio.io/wasmplugin/istio-system.wasm-network-stats",
+						"extensions.istio.io/trafficextension/istio-system.extension-wasm-network-authn",
+						"extensions.istio.io/trafficextension/istio-system.extension-wasm-network-authz",
+						"extensions.istio.io/trafficextension/istio-system.extension-wasm-network-stats",
 						wellknown.HTTPConnectionManager,
 					},
 				},
@@ -1216,9 +1260,9 @@ func TestOutboundFilters(t *testing.T) {
 				{
 					TotalMatch: true,
 					NetworkFilters: []string{
-						"extensions.istio.io/wasmplugin/istio-system.wasm-network-authn",
-						"extensions.istio.io/wasmplugin/istio-system.wasm-network-authz",
-						"extensions.istio.io/wasmplugin/istio-system.wasm-network-stats",
+						"extensions.istio.io/trafficextension/istio-system.extension-wasm-network-authn",
+						"extensions.istio.io/trafficextension/istio-system.extension-wasm-network-authz",
+						"extensions.istio.io/trafficextension/istio-system.extension-wasm-network-stats",
 						xds.StatsFilterName,
 						wellknown.TCPProxy,
 					},
@@ -1355,6 +1399,60 @@ func TestOutboundTLSIPv6Only(t *testing.T) {
 		}
 	}
 	log.Printf("Listeners: %v", listeners)
+}
+
+// TestOutboundTLSDynamicDNSWildcardServerNames verifies that a DYNAMIC_DNS wildcard ServiceEntry
+// with TLS port gets filter_chain_match.server_names set (e.g. ["*.google.com"]) on the per-VIP listener.
+func TestOutboundTLSDynamicDNSWildcardServerNames(t *testing.T) {
+	const vip = "240.240.0.2"
+	const hostname = "*.google.com"
+	svc := &model.Service{
+		CreationTime:             tnow,
+		Hostname:                 host.Name(hostname),
+		DefaultAddress:           constants.UnspecifiedIP,
+		AutoAllocatedIPv4Address: vip,
+		Ports: model.PortList{
+			{
+				Name:     "https",
+				Port:     443,
+				Protocol: protocol.TLS,
+			},
+		},
+		Resolution: model.DynamicDNS,
+		Attributes: model.ServiceAttributes{
+			Namespace: "default",
+		},
+	}
+
+	proxy := getProxy()
+	proxy.Metadata.DNSCapture = true
+
+	listeners := buildOutboundListeners(t, proxy, nil, nil, svc)
+
+	l := xdstest.ExtractListener(vip+"_443", listeners)
+	if l == nil {
+		t.Fatalf("expected listener %s_443, not found in %d listeners", vip, len(listeners))
+	}
+	if len(l.FilterChains) == 0 {
+		t.Fatal("expected at least one filter chain")
+	}
+	fc := l.FilterChains[0]
+	if fc.FilterChainMatch == nil {
+		t.Fatal("expected filter_chain_match to be set for DYNAMIC_DNS wildcard TLS")
+	}
+	if len(fc.FilterChainMatch.ServerNames) == 0 {
+		t.Fatalf("expected filter_chain_match.server_names (e.g. [%q]), got %v", hostname, fc.FilterChainMatch.ServerNames)
+	}
+	found := false
+	for _, sn := range fc.FilterChainMatch.ServerNames {
+		if sn == hostname {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected server_names to contain %q, got %v", hostname, fc.FilterChainMatch.ServerNames)
+	}
 }
 
 func TestOutboundListenerConfigWithSidecarHTTPProxy(t *testing.T) {
@@ -3107,11 +3205,29 @@ func TestListenerTransportSocketConnectTimeoutForSidecar(t *testing.T) {
 	cases := []struct {
 		name            string
 		expectedTimeout int64
+		timeoutDisabled bool
+		configuredValue time.Duration
 		services        []*model.Service
 	}{
 		{
-			name:            "should set timeout",
+			name:            "should set default timeout",
 			expectedTimeout: durationpb.New(defaultGatewayTransportSocketConnectTimeout).GetSeconds(),
+			services: []*model.Service{
+				buildService("test.com", "1.2.3.4", protocol.TCP, tnow.Add(1*time.Second)),
+			},
+		},
+		{
+			name:            "should set custom timeout",
+			expectedTimeout: 30,
+			configuredValue: 30 * time.Second,
+			services: []*model.Service{
+				buildService("test.com", "1.2.3.4", protocol.TCP, tnow.Add(1*time.Second)),
+			},
+		},
+		{
+			name:            "should disable timeout when set to 0",
+			timeoutDisabled: true,
+			configuredValue: 0,
 			services: []*model.Service{
 				buildService("test.com", "1.2.3.4", protocol.TCP, tnow.Add(1*time.Second)),
 			},
@@ -3119,18 +3235,33 @@ func TestListenerTransportSocketConnectTimeoutForSidecar(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
+			if tt.configuredValue > 0 {
+				test.SetForTest(t, &features.GatewayTransportSocketConnectTimeout, tt.configuredValue)
+			} else if tt.timeoutDisabled {
+				test.SetForTest(t, &features.GatewayTransportSocketConnectTimeout, time.Duration(0))
+			}
 			p := getProxy()
 			listeners := buildOutboundListeners(t, p, nil, nil, tt.services...)
 			for _, l := range listeners {
 				for _, fc := range l.FilterChains {
-					if fc.TransportSocketConnectTimeout == nil || fc.TransportSocketConnectTimeout.Seconds != tt.expectedTimeout {
+					if tt.timeoutDisabled {
+						if fc.TransportSocketConnectTimeout != nil {
+							t.Errorf("expected no transport socket connect timeout for listener %s filter chain %s, got %v",
+								l.Name, fc.Name, fc.TransportSocketConnectTimeout)
+						}
+					} else if fc.TransportSocketConnectTimeout == nil || fc.TransportSocketConnectTimeout.Seconds != tt.expectedTimeout {
 						t.Errorf("expected transport socket connect timeout to be %v for listener %s filter chain %s, got %v",
 							tt.expectedTimeout, l.Name, fc.Name, fc.TransportSocketConnectTimeout)
 					}
 				}
 				if l.DefaultFilterChain != nil {
 					fc := l.DefaultFilterChain
-					if fc.TransportSocketConnectTimeout == nil || fc.TransportSocketConnectTimeout.Seconds != tt.expectedTimeout {
+					if tt.timeoutDisabled {
+						if fc.TransportSocketConnectTimeout != nil {
+							t.Errorf("expected no transport socket connect timeout for listener %s default filter chain, got %v",
+								l.Name, fc.TransportSocketConnectTimeout)
+						}
+					} else if fc.TransportSocketConnectTimeout == nil || fc.TransportSocketConnectTimeout.Seconds != tt.expectedTimeout {
 						t.Errorf("expected transport socket connect timeout to be %v for listener %s default filter chain, got %v",
 							tt.expectedTimeout, l.Name, fc.TransportSocketConnectTimeout)
 					}
@@ -3399,6 +3530,87 @@ func TestBuildListenerTLSContext(t *testing.T) {
 				}
 			} else if ctx.CommonTlsContext.ValidationContextType != nil {
 				t.Error("unexpected validation context")
+			}
+		})
+	}
+}
+
+func TestApplyDownstreamTLSDefaults(t *testing.T) {
+	tests := []struct {
+		name        string
+		tlsDefaults *meshconfig.MeshConfig_TLSConfig
+		expected    *tls.TlsParameters
+	}{
+		{
+			name:        "nil tlsDefaults",
+			tlsDefaults: nil,
+			expected:    nil,
+		},
+		{
+			name: "TLS_AUTO does not set min version",
+			tlsDefaults: &meshconfig.MeshConfig_TLSConfig{
+				MinProtocolVersion: meshconfig.MeshConfig_TLSConfig_TLS_AUTO,
+			},
+			expected: nil,
+		},
+		{
+			name: "TLSV1_2 sets correct min version",
+			tlsDefaults: &meshconfig.MeshConfig_TLSConfig{
+				MinProtocolVersion: meshconfig.MeshConfig_TLSConfig_TLSV1_2,
+			},
+			expected: &tls.TlsParameters{
+				TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_2,
+			},
+		},
+		{
+			name: "TLSV1_3 sets correct min version",
+			tlsDefaults: &meshconfig.MeshConfig_TLSConfig{
+				MinProtocolVersion: meshconfig.MeshConfig_TLSConfig_TLSV1_3,
+			},
+			expected: &tls.TlsParameters{
+				TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_3,
+			},
+		},
+		{
+			name: "EcdhCurves are applied",
+			tlsDefaults: &meshconfig.MeshConfig_TLSConfig{
+				EcdhCurves: []string{"P-256", "P-384"},
+			},
+			expected: &tls.TlsParameters{
+				EcdhCurves: []string{"P-256", "P-384"},
+			},
+		},
+		{
+			name: "CipherSuites are applied",
+			tlsDefaults: &meshconfig.MeshConfig_TLSConfig{
+				CipherSuites: []string{"ECDHE-ECDSA-AES128-GCM-SHA256", "ECDHE-RSA-AES128-GCM-SHA256"},
+			},
+			expected: &tls.TlsParameters{
+				CipherSuites: []string{"ECDHE-ECDSA-AES128-GCM-SHA256", "ECDHE-RSA-AES128-GCM-SHA256"},
+			},
+		},
+		{
+			name: "all settings combined",
+			tlsDefaults: &meshconfig.MeshConfig_TLSConfig{
+				MinProtocolVersion: meshconfig.MeshConfig_TLSConfig_TLSV1_3,
+				EcdhCurves:         []string{"P-256"},
+				CipherSuites:       []string{"ECDHE-ECDSA-AES256-GCM-SHA384"},
+			},
+			expected: &tls.TlsParameters{
+				TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_3,
+				EcdhCurves:                []string{"P-256"},
+				CipherSuites:              []string{"ECDHE-ECDSA-AES256-GCM-SHA384"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := &tls.CommonTlsContext{}
+			applyDownstreamTLSDefaults(tt.tlsDefaults, ctx)
+
+			if diff := cmp.Diff(tt.expected, ctx.TlsParams, protocmp.Transform()); diff != "" {
+				t.Errorf("TlsParams mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}

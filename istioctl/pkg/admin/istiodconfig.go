@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/completion"
+	"istio.io/istio/istioctl/pkg/util"
 	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/log"
 )
@@ -472,6 +473,9 @@ func istiodLogCmd(ctx cli.Context) *cobra.Command {
 			if istiodReset && stackTraceReset && stackTraceLevel != "" {
 				logCmd.Println(logCmd.UsageString())
 				return fmt.Errorf("--stack-trace-level cannot be combined with --reset, --stack-trace-reset")
+			}
+			if err := util.ValidatePort(controlzPort); err != nil {
+				return err
 			}
 			return nil
 		},

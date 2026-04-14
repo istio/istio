@@ -43,6 +43,7 @@ _internal_defaults_do_not_set:
   # It should be noted that cluster operator/owner is responsible for having the taint set by their infrastructure provider when new nodes are added to the cluster; the untaint controller does not taint nodes
   taint:
     # Controls whether or not the untaint controller is active
+    # When enabled, this automatically sets PILOT_ENABLE_NODE_UNTAINT_CONTROLLERS environment variable to true in the istiod deployment.
     enabled: false
     # What namespace the untaint controller should watch for istio-cni pods. This is only required when istio-cni is running in a different namespace than istiod
     namespace: ""
@@ -251,8 +252,8 @@ _internal_defaults_do_not_set:
 
     # Default hub for Istio images.
     # Releases are published to docker hub under 'istio' project.
-    # Dev builds from prow are on gcr.io
-    hub: gcr.io/istio-testing
+    # Dev builds from prow are on registry.istio.io/testing.
+    hub: registry.istio.io/testing
     # Default tag for Istio images.
     tag: latest
     # Variant of the image to use.
@@ -367,7 +368,7 @@ _internal_defaults_do_not_set:
 
       #If set to true, istio-proxy container will have privileged securityContext
       privileged: false
-      
+
       seccompProfile: {}
 
       # The number of successive failed probes before indicating readiness failure.
@@ -551,6 +552,11 @@ _internal_defaults_do_not_set:
   base:
     # For istioctl usage to disable istio config crds in base
     enableIstioConfigCRDs: true
+    # Override the failurePolicy for the validation webhook.
+    # By default, the webhook starts with "Ignore" and istiod flips it to "Fail" once ready.
+    # Set to "Fail" to avoid the flip-flop, which is useful for server-side apply tools
+    # that do not support .Release.IsUpgrade (e.g. helm template | kubectl apply --server-side).
+    # validationFailurePolicy: Fail
 
   # Gateway Settings
   gateways:
@@ -571,7 +577,7 @@ _internal_defaults_do_not_set:
   #         type: ClusterIP
   # Per-Gateway configuration can also be set in the `Gateway.spec.infrastructure.parametersRef` field.
   gatewayClasses: {}
-  
+
   pdb:
     # -- Minimum available pods set in PodDisruptionBudget.
     # Define either 'minAvailable' or 'maxUnavailable', never both.

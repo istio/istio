@@ -708,8 +708,17 @@ func getContainerPorts(cfg echo.Config) echoCommon.PortList {
 	var readyPort *echoCommon.Port
 	for _, p := range ports {
 		// Add the port to the set of application ports.
+		portName := p.Name
+		// If a named target port is specified, use it as the container port name
+		// Truncate to 15 chars max (Kubernetes limit)
+		if p.TargetPortName != "" {
+			portName = p.TargetPortName
+			if len(portName) > 15 {
+				portName = portName[:15]
+			}
+		}
 		cport := &echoCommon.Port{
-			Name:              p.Name,
+			Name:              portName,
 			Protocol:          p.Protocol,
 			Port:              p.WorkloadPort,
 			TLS:               p.TLS,

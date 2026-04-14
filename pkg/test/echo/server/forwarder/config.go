@@ -276,11 +276,21 @@ func getHBONEClientConfig(r *proto.HBONE) (func(info *tls.CertificateRequestInfo
 
 func newTLSConfig(c *Config) (*tls.Config, error) {
 	r := c.Request
+	minVersion, err := common.ParseTLSVersion(r.TlsMinVersion)
+	if err != nil {
+		return nil, err
+	}
+	curvePreferences, err := common.ParseTLSCurves(r.TlsCurvePreferences)
+	if err != nil {
+		return nil, err
+	}
+	// nolint: gosec // test only code, TLS version is configurable for testing
 	tlsConfig := &tls.Config{
 		GetClientCertificate: c.getClientCertificate,
 		NextProtos:           r.GetAlpn().GetValue(),
 		ServerName:           r.ServerName,
-		MinVersion:           tls.VersionTLS12,
+		MinVersion:           minVersion,
+		CurvePreferences:     curvePreferences,
 	}
 	if r.CaCertFile != "" {
 		certData, err := os.ReadFile(r.CaCertFile)

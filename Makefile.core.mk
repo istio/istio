@@ -49,7 +49,7 @@ endif
 export VERSION
 
 # Base version of Istio image to use
-BASE_VERSION ?= master-2026-01-14T19-02-16
+BASE_VERSION ?= master-2026-04-09T19-02-13
 ISTIO_BASE_REGISTRY ?= gcr.io/istio-release
 
 export GO111MODULE ?= on
@@ -299,7 +299,7 @@ refresh-goldens:
 		./pkg/kube/inject/... \
 		./pilot/pkg/config/kube/gateway/... \
 		./pilot/pkg/security/authz/builder/... \
-		./pilot/pkg/serviceregistry/kube/controller/ambient/... \
+		./pilot/pkg/serviceregistry/ambient/... \
 		./cni/pkg/iptables/... \
 		./cni/pkg/plugin/... \
 		./istioctl/pkg/workload/... \
@@ -330,8 +330,8 @@ copy-templates:
 
 	# gateway charts
 	cp -r manifests/charts/gateways/istio-ingress/templates/* manifests/charts/gateways/istio-egress/templates
-	find ./manifests/charts/gateways/istio-egress/templates -type f -name "*.yaml" ! -name "networkpolicy.yaml" -exec sed -i -e 's/ingress/egress/g' {} \;
-	find ./manifests/charts/gateways/istio-egress/templates -type f -name "*.yaml" ! -name "networkpolicy.yaml" -exec sed -i -e 's/Ingress/Egress/g' {} \;
+	find ./manifests/charts/gateways/istio-egress/templates -type f \( -name "*.yaml" -o -name "*.tpl" \) ! -name "networkpolicy.yaml" -exec sed -i -e 's/ingress/egress/g' {} \;
+	find ./manifests/charts/gateways/istio-egress/templates -type f \( -name "*.yaml" -o -name "*.tpl" \) ! -name "networkpolicy.yaml" -exec sed -i -e 's/Ingress/Egress/g' {} \;
 	if [ -f ./manifests/charts/gateways/istio-egress/templates/networkpolicy.yaml ]; then \
 		sed -i -e 's/"IngressGateways"/"EgressGateways"/g' ./manifests/charts/gateways/istio-egress/templates/networkpolicy.yaml; \
 		sed -i -e 's/istio-ingress/istio-egress/g' ./manifests/charts/gateways/istio-egress/templates/networkpolicy.yaml; \
@@ -421,7 +421,7 @@ BENCH_TARGETS ?= ./pilot/...
 PKG ?= ./...
 .PHONY: racetest
 racetest: $(JUNIT_REPORT)
-	go test ${GOBUILDFLAGS} ${T} -race $(PKG) 2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
+	go test ${GOBUILDFLAGS} ${T} -tags=assert -race $(PKG) 2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
 
 .PHONY: benchtest
 benchtest: $(JUNIT_REPORT) ## Runs all benchmarks

@@ -25,6 +25,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
@@ -98,6 +99,7 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/sleep"
 	"istio.io/istio/pkg/test/util/yml"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/version"
 )
 
@@ -199,6 +201,9 @@ type CLIClient interface {
 
 	// PodLogs retrieves the logs for the given pod.
 	PodLogs(ctx context.Context, podName string, podNamespace string, container string, previousLog bool) (string, error)
+
+	// PodLogsWithOptions retrieves the logs for the given pod with additional options like tail lines and since time.
+	PodLogsWithOptions(ctx context.Context, podName string, podNamespace string, opts *v1.PodLogOptions) (string, error)
 
 	// PodLogsFollow retrieves the logs for the given pod, following until the pod log stream is interrupted
 	PodLogsFollow(ctx context.Context, podName string, podNamespace string, container string) (string, error)
@@ -320,8 +325,8 @@ func NewErroringFakeClient(objects ...runtime.Object) CLIClient {
 	c.metadata = metadatafake.NewSimpleMetadataClient(s)
 	c.dynamic = dynamicfake.NewSimpleDynamicClient(s)
 	c.istio = setupFakeClient(istiofake.NewSimpleClientset(), "istio", objects)
-	c.gatewayapi = setupFakeClient(gatewayapifake.NewSimpleClientset(), "gateway", objects)
-	c.gatewayapiinference = setupFakeClient(gatewayapiinferencefake.NewSimpleClientset(), "inference", objects)
+	c.gatewayapi = setupFakeClient(gatewayapifake.NewSimpleClientset(), "gateway", objects)                     //nolint:staticcheck,lll // SA1019: as NewSimpleClientset breaks
+	c.gatewayapiinference = setupFakeClient(gatewayapiinferencefake.NewSimpleClientset(), "inference", objects) //nolint:staticcheck,lll // SA1019: as NewSimpleClientset breaks
 	c.extSet = extfake.NewClientset()
 
 	listReactor := func(action clienttesting.Action) (handled bool, ret runtime.Object, err error) {
@@ -389,8 +394,8 @@ func NewFakeClient(objects ...runtime.Object) CLIClient {
 	c.metadata = metadatafake.NewSimpleMetadataClient(s)
 	c.dynamic = dynamicfake.NewSimpleDynamicClient(s)
 	c.istio = setupFakeClient(istiofake.NewSimpleClientset(), "istio", objects)
-	c.gatewayapi = setupFakeClient(gatewayapifake.NewSimpleClientset(), "gateway", objects)
-	c.gatewayapiinference = setupFakeClient(gatewayapiinferencefake.NewSimpleClientset(), "inference", objects)
+	c.gatewayapi = setupFakeClient(gatewayapifake.NewSimpleClientset(), "gateway", objects)                     //nolint:staticcheck,lll // SA1019: as NewSimpleClientset breaks
+	c.gatewayapiinference = setupFakeClient(gatewayapiinferencefake.NewSimpleClientset(), "inference", objects) //nolint:staticcheck,lll // SA1019: as NewSimpleClientset breaks
 	c.extSet = extfake.NewClientset()
 
 	// https://github.com/kubernetes/kubernetes/issues/95372
@@ -459,6 +464,49 @@ func NewFakeClient(objects ...runtime.Object) CLIClient {
 func NewFakeClientWithVersion(minor string, objects ...runtime.Object) CLIClient {
 	c := NewFakeClient(objects...).(*client)
 	c.Kube().Discovery().(*fakediscovery.FakeDiscovery).FakedServerVersion = &kubeVersion.Info{Major: "1", Minor: minor, GitVersion: fmt.Sprintf("v1.%v.0", minor)}
+	return c
+}
+
+// NewFakeClientWithNFailures creates a fake client that fails for get operations on the specified
+// resource kinds for the first failureCount attempts, then succeeds.
+// failingResources is a set of resource (e.g., "pods", "namespaces") that should fail.
+func NewFakeClientWithNFailures(failureCount int, failingResources sets.Set[schema.GroupVersionResource], objects ...runtime.Object) CLIClient {
+	c := NewFakeClient(objects...).(*client)
+
+	// Track retry attempts per resource
+	attempts := &sync.Map{}
+
+	// Create a reactor that fails initially then succeeds
+	retryReactor := func(action clienttesting.Action) (handled bool, ret runtime.Object, err error) {
+		// Only handle Get actions for failingResources
+		if action.GetVerb() != "get" {
+			return false, nil, nil
+		}
+		resource := action.GetResource()
+		if !failingResources.Contains(resource) {
+			return false, nil, nil
+		}
+
+		getAction := action.(clienttesting.GetAction)
+		key := fmt.Sprintf("%s/%s/%s", resource, action.GetNamespace(), getAction.GetName())
+
+		val, _ := attempts.LoadOrStore(key, atomic.NewInt32(0))
+		attemptCounter := val.(*atomic.Int32)
+
+		currentAttempt := attemptCounter.Inc()
+
+		if int(currentAttempt) <= failureCount {
+			return true, nil, kerrors.NewServiceUnavailable(fmt.Sprintf("transient error: attempt %d/%d", currentAttempt, failureCount))
+		}
+
+		return false, nil, nil
+	}
+
+	// Prepend the reactor for each failing kind
+	for resource := range failingResources {
+		c.kube.(*fake.Clientset).PrependReactor("get", resource.Resource, retryReactor)
+	}
+
 	return c
 }
 
@@ -943,6 +991,10 @@ func (c *client) PodLogs(ctx context.Context, podName, podNamespace, container s
 		Container: container,
 		Previous:  previousLog,
 	}
+	return c.PodLogsWithOptions(ctx, podName, podNamespace, opts)
+}
+
+func (c *client) PodLogsWithOptions(ctx context.Context, podName, podNamespace string, opts *v1.PodLogOptions) (string, error) {
 	res, err := c.kube.CoreV1().Pods(podNamespace).GetLogs(podName, opts).Stream(ctx)
 	if err != nil {
 		return "", err
@@ -963,18 +1015,7 @@ func (c *client) PodLogsFollow(ctx context.Context, podName, podNamespace, conta
 		Previous:  false,
 		Follow:    true,
 	}
-	res, err := c.kube.CoreV1().Pods(podNamespace).GetLogs(podName, opts).Stream(ctx)
-	if err != nil {
-		return "", err
-	}
-	defer closeQuietly(res)
-
-	builder := &strings.Builder{}
-	if _, err = io.Copy(builder, res); err != nil {
-		return "", err
-	}
-
-	return builder.String(), nil
+	return c.PodLogsWithOptions(ctx, podName, podNamespace, opts)
 }
 
 func (c *client) AllDiscoveryDo(ctx context.Context, istiodNamespace, path string) (map[string][]byte, error) {

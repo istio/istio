@@ -78,13 +78,12 @@ var (
 	}
 
 	GetEncapCluster = func(p *model.Proxy) *cluster.Cluster {
-		name := ConnectOriginate
-		h2 := true
-		if isEastWestGateway(p) {
-			name = ForwardInnerConnect
-			h2 = false
+		if isAmbientEastWestGateway(p) {
+			return buildInternalUpstreamCluster(EncapClusterName, ForwardInnerConnect, false)
 		}
-		return buildInternalUpstreamCluster(EncapClusterName, name, h2)
+		c := buildInternalUpstreamCluster(EncapClusterName, ConnectOriginate, true)
+		applyBaggageMetadataDiscovery(c)
+		return c
 	}
 )
 
@@ -106,7 +105,7 @@ func (configgen *ConfigGeneratorImpl) buildWaypointInboundClusters(
 	clusters = append(clusters, cb.buildWaypointInboundVIP(proxy, svcs, push.Mesh)...)
 
 	// Upstream of the "encap" listener.
-	if features.EnableAmbientMultiNetwork && isEastWestGateway(proxy) {
+	if features.EnableAmbientMultiNetwork && isAmbientEastWestGateway(proxy) {
 		// Creates "blackhole" cluster to avoid failures if no globally scoped services exist
 		clusters = append(clusters, cb.buildWaypointForwardInnerConnect(), cb.buildBlackHoleCluster())
 	} else {
@@ -120,11 +119,11 @@ func (configgen *ConfigGeneratorImpl) buildWaypointInboundClusters(
 	// For context, ambient E/W gateway will terminiate the outer HBONE tunnel and will redirect the inner
 	// HBONE tunnel to either a waypoint or service backend as an opaque stream of bytes - E/W gateway does
 	// not know that the data is actually an HBONE tunnel.
-	if features.EnableAmbientMultiNetwork && features.EnableAmbientWaypointMultiNetwork && isWaypointProxy(proxy) {
+	if model.ShouldCreateDoubleHBONEResources(proxy) {
 		clusters = append(
 			clusters,
-			cb.buildWaypointInnerConnectOriginate(proxy, push),
-			cb.buildWaypointOuterConnectOriginate(proxy, push),
+			cb.buildInnerConnectOriginateCluster(proxy, push),
+			cb.buildOuterConnectOriginateCluster(proxy, push),
 		)
 	}
 
@@ -147,23 +146,25 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 	drConfig *config.Config,
 ) *cluster.Cluster {
 	// TODO: is this enough? Probably since we validate no extra listeners are present in the conversion layer
-	terminate := isEastWestGateway(proxy)
+	terminate := isAmbientEastWestGateway(proxy)
 	clusterName := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, subset, svc.Hostname, port.Port)
 
 	var localCluster *clusterWrapper
+	var endpointBuilder *endpoints.EndpointBuilder
 	// All non custom DiscoveryTypes use the same cluster creation logic
 	// DynamicDNS uses a custom DiscoveryType
 	if svc.Resolution != model.DynamicDNS {
 		discoveryType := convertResolution(cb.proxyType, svc)
 		var lbEndpoints []*endpoint.LocalityLbEndpoints
 		if discoveryType == cluster.Cluster_STRICT_DNS || discoveryType == cluster.Cluster_LOGICAL_DNS {
-			lbEndpoints = endpoints.NewCDSEndpointBuilder(
+			endpointBuilder = endpoints.NewCDSEndpointBuilder(
 				proxy,
 				cb.req.Push,
 				clusterName,
 				model.TrafficDirectionInboundVIP, subset, svc.Hostname, port.Port,
 				svc, nil,
-			).FromServiceEndpoints()
+			)
+			lbEndpoints = endpointBuilder.FromServiceEndpoints()
 		}
 		localCluster = cb.buildCluster(clusterName, discoveryType, lbEndpoints,
 			model.TrafficDirectionInboundVIP, &port, svc, nil, subset)
@@ -203,7 +204,7 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 		connectionPool.Http = nil
 		cb.applyConnectionPool(mesh, localCluster, connectionPool, retryBudget)
 		applyOutlierDetection(nil, localCluster.cluster, outlierDetection)
-		applyLoadBalancer(svc, localCluster.cluster, loadBalancer, &port, cb.locality, cb.proxyLabels, mesh)
+		applyLoadBalancer(svc, localCluster.cluster, loadBalancer, &port, cb.locality, cb.proxyLabels, mesh, nil)
 		// TODO: Decide if we want to support this
 		if localCluster.cluster.GetType() == cluster.Cluster_ORIGINAL_DST {
 			log.Warnf("Passthrough on the east/west gateway isn't expected")
@@ -223,7 +224,7 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 
 	// Unless the svc resolution type is DynamicDNS, we apply the LB settings
 	if svc.Resolution != model.DynamicDNS {
-		applyLoadBalancer(svc, localCluster.cluster, loadBalancer, &port, cb.locality, cb.proxyLabels, mesh)
+		applyLoadBalancer(svc, localCluster.cluster, loadBalancer, &port, cb.locality, cb.proxyLabels, mesh, nil)
 	}
 
 	// Setup EDS config after apply LoadBalancer, since it can impact the result
@@ -243,11 +244,13 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 		direction:      model.TrafficDirectionInboundVIP,
 	}
 	transportSocket := util.RawBufferTransport()
+	disableBaggageDiscovery := false
 	if tlsContext := buildWaypointTLSContext(opts, tls); tlsContext != nil {
 		transportSocket = &core.TransportSocket{
 			Name:       wellknown.TransportSocketTLS,
 			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(tlsContext)},
 		}
+		disableBaggageDiscovery = true
 	}
 	if proxyProtocol != nil {
 		// Wrap the existing transport socket. Note this could be RawBuffer or TLS, depending on other config
@@ -261,12 +264,22 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 				),
 			},
 		}
+		disableBaggageDiscovery = true
 	}
 	// no TLS, we are just going to internal address
 	localCluster.cluster.TransportSocketMatches = nil
 
 	// Wrap the transportSocket with internal listener upstream. Note this could be a raw buffer, PROXY, TLS, etc
 	localCluster.cluster.TransportSocket = util.WaypointInternalUpstreamTransportSocket(transportSocket)
+
+	cb.maybeApplyBaggageMetadataDiscovery(localCluster.cluster)
+	if disableBaggageDiscovery {
+		cb.maybeDisableBaggageDiscovery(localCluster.cluster)
+	}
+
+	if svc.Attributes.K8sAttributes.DNSConnectStrategy == model.DNSConnectStrategyRaceFirstTCPConnect {
+		localCluster.cluster.DnsLookupFamily = cluster.Cluster_ALL
+	}
 
 	return localCluster.build()
 }
@@ -321,7 +334,7 @@ func (cb *ClusterBuilder) buildWaypointInboundVIP(proxy *model.Proxy, svcs map[h
 				log.Warnf("skipping waypoint VIP cluster for TLS protocol for service %s with DynamicDNS resolution since the feature is disabled", svc.Hostname)
 				continue
 			}
-			if isEastWestGateway(proxy) {
+			if isAmbientEastWestGateway(proxy) {
 				// East-west gateways don't respect DestinationRule, so don't read it here
 				// TODO: Confirm this decision
 				clusters = append(clusters, cb.buildWaypointInboundVIPCluster(proxy, svc, *port, "tcp", mesh, nil, nil))
@@ -350,10 +363,10 @@ func (cb *ClusterBuilder) buildWaypointInboundVIP(proxy *model.Proxy, svcs map[h
 	return clusters
 }
 
-// buildWaypointInnerConnectOriginate creates a cluster that innitiate inner HBONE tunnel of double-HBONE.
+// buildInnerConnectOriginateCluster creates a cluster that innitiate inner HBONE tunnel of double-HBONE.
 // InnerConnectOrigiante cluster is responsible for creating the inner CONNECT tunnel and forwarding to an internal listener that
 // will wrap the traffic into outer HBONE tunnel.
-func (cb *ClusterBuilder) buildWaypointInnerConnectOriginate(proxy *model.Proxy, push *model.PushContext) *cluster.Cluster {
+func (cb *ClusterBuilder) buildInnerConnectOriginateCluster(proxy *model.Proxy, push *model.PushContext) *cluster.Cluster {
 	// Normally for clusters that just redirect to internal listeners we would use util.DefaultInternalUpstreamTransportSocket.
 	// util.DefaultInternalUpstreamTransportSocket is a InternalUpstreamTransport socket wrapping a RawBufferTransport socket.
 	// For double HBONE we want something slightly different - we still need to use InternalUpstreamTransport socket because
@@ -387,10 +400,10 @@ func (cb *ClusterBuilder) buildWaypointInnerConnectOriginate(proxy *model.Proxy,
 	return c
 }
 
-// buildWaypointOuterConnectOriginate creates a cluster that finishes wrapping traffic in double HBONE by finalizing outer HBONE tunnel.
+// buildOuterConnectOriginateCluster creates a cluster that finishes wrapping traffic in double HBONE by finalizing outer HBONE tunnel.
 // It's basically equivalent to the regular waypoint ConnectOriginate cluster and does the same thing, the only real difference is that
 // it wraps the data already wrapped into a CONNECT once.
-func (cb *ClusterBuilder) buildWaypointOuterConnectOriginate(proxy *model.Proxy, push *model.PushContext) *cluster.Cluster {
+func (cb *ClusterBuilder) buildOuterConnectOriginateCluster(proxy *model.Proxy, push *model.PushContext) *cluster.Cluster {
 	ctx := buildCommonConnectTLSContext(proxy, push)
 	sec_model.EnforceCompliance(ctx)
 	c := &cluster.Cluster{

@@ -34,17 +34,33 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/workloadapi"
 )
+
+// mockAmbientIndex is a test implementation of AmbientIndexes that returns mock service info
+type mockAmbientIndex struct {
+	model.NoopAmbientIndexes
+	serviceInfos []*model.ServiceInfo
+}
+
+func (m *mockAmbientIndex) ServiceInfo(key string) *model.ServiceInfo {
+	for _, info := range m.serviceInfos {
+		svcKey := fmt.Sprintf("%s/%s", info.GetNamespace(), info.Service.GetHostname())
+		if key == svcKey {
+			return info
+		}
+	}
+	return nil
+}
 
 // MockDiscovery is an in-memory ServiceDiscover with mock services
 type localServiceDiscovery struct {
 	services         []*model.Service
 	serviceInstances []*model.ServiceInstance
-	serviceInfos     []*model.ServiceInfo
 
-	model.NoopAmbientIndexes
 	model.NetworkGatewaysHandler
 }
 
@@ -82,16 +98,6 @@ func (l *localServiceDiscovery) NetworkGateways() []model.NetworkGateway {
 }
 
 func (l *localServiceDiscovery) MCSServices() []model.MCSServiceInfo {
-	return nil
-}
-
-func (l *localServiceDiscovery) ServiceInfo(key string) *model.ServiceInfo {
-	for _, info := range l.serviceInfos {
-		svcKey := fmt.Sprintf("%s/%s", info.GetNamespace(), info.Service.GetHostname())
-		if key == svcKey {
-			return info
-		}
-	}
 	return nil
 }
 
@@ -357,6 +363,15 @@ func TestFilterIstioEndpoint(t *testing.T) {
 		},
 		Labels: map[string]string{label.GatewayManaged.Name: constants.ManagedGatewayMeshControllerLabel},
 	}
+	ingressGw := &model.Proxy{
+		Type: model.Router,
+		Metadata: &model.NodeMetadata{
+			Namespace: "default",
+			NodeName:  "example",
+			ClusterID: "local",
+		},
+		Labels: map[string]string{label.GatewayManaged.Name: constants.ManagedGatewayControllerLabel},
+	}
 	ep0 := &model.IstioEndpoint{
 		Addresses: []string{"1.1.1.1"},
 		NodeName:  "example",
@@ -451,12 +466,41 @@ func TestFilterIstioEndpoint(t *testing.T) {
 			svcInfo:  localSvc,
 			expected: false,
 		},
+		{
+			name:     "test ambient endpoint in local cluster for global service",
+			proxy:    ingressGw,
+			ep:       localEp,
+			svcInfo:  globalSvc,
+			expected: true,
+		},
+		{
+			name:     "test ambient endpoint in remote cluster for global service",
+			proxy:    ingressGw,
+			ep:       remoteEp,
+			svcInfo:  globalSvc,
+			expected: true,
+		},
+		{
+			name:     "test ambient endpoint in local cluster for local service",
+			proxy:    ingressGw,
+			ep:       localEp,
+			svcInfo:  localSvc,
+			expected: true,
+		},
+		{
+			name:     "test ambient endpoint in remote cluster for local service",
+			proxy:    ingressGw,
+			ep:       remoteEp,
+			svcInfo:  localSvc,
+			expected: false,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			env := model.NewEnvironment()
-			env.ConfigStore = model.NewFakeStore()
+			configStore := model.NewFakeStore()
+			env.ConfigStore = configStore
 			env.Watcher = meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-system"})
 			meshNetworks := meshwatcher.NewFixedNetworksWatcher(nil)
 			env.NetworksWatcher = meshNetworks
@@ -465,9 +509,10 @@ func TestFilterIstioEndpoint(t *testing.T) {
 			if err := env.InitNetworksManager(xdsUpdater); err != nil {
 				t.Fatal(err)
 			}
-			var svcInfos []*model.ServiceInfo
 			if tt.svcInfo != nil {
-				svcInfos = []*model.ServiceInfo{tt.svcInfo}
+				env.AmbientIndexes = &mockAmbientIndex{
+					serviceInfos: []*model.ServiceInfo{tt.svcInfo},
+				}
 				test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
 			}
 			env.ServiceDiscovery = &localServiceDiscovery{
@@ -475,8 +520,17 @@ func TestFilterIstioEndpoint(t *testing.T) {
 				serviceInstances: []*model.ServiceInstance{{
 					Endpoint: tt.ep,
 				}},
-				serviceInfos: svcInfos,
 			}
+			env.VirtualServiceController = model.NewVirtualServiceController(
+				configStore,
+				model.VSControllerOptions{KrtDebugger: krt.GlobalDebugHandler},
+				env.Watcher,
+			)
+			stop := test.NewStop(t)
+			go configStore.Run(stop)
+			go env.VirtualServiceController.Run(stop)
+			kube.WaitForCacheSync("test", stop, configStore.HasSynced)
+			kube.WaitForCacheSync("test", stop, env.VirtualServiceController.HasSynced)
 			env.Init()
 
 			// Init a new push context
@@ -486,6 +540,8 @@ func TestFilterIstioEndpoint(t *testing.T) {
 			if push.NetworkManager() == nil {
 				t.Fatal("error: NetworkManager should not be nil!")
 			}
+
+			tt.proxy.SetSidecarScope(push)
 
 			builder := NewCDSEndpointBuilder(
 				tt.proxy, push,
@@ -578,7 +634,8 @@ func TestBuildClusterLoadAssignment_InferenceServicePortFiltering(t *testing.T) 
 			shards.Unlock()
 
 			env := model.NewEnvironment()
-			env.ConfigStore = model.NewFakeStore()
+			configStore := model.NewFakeStore()
+			env.ConfigStore = configStore
 			env.Watcher = meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-system"})
 			meshNetworks := meshwatcher.NewFixedNetworksWatcher(nil)
 			env.NetworksWatcher = meshNetworks
@@ -589,11 +646,23 @@ func TestBuildClusterLoadAssignment_InferenceServicePortFiltering(t *testing.T) 
 			if err := env.InitNetworksManager(xdsUpdater); err != nil {
 				t.Fatal(err)
 			}
+			env.VirtualServiceController = model.NewVirtualServiceController(
+				configStore,
+				model.VSControllerOptions{KrtDebugger: krt.GlobalDebugHandler},
+				env.Watcher,
+			)
+			stop := test.NewStop(t)
+			go configStore.Run(stop)
+			go env.VirtualServiceController.Run(stop)
+			kube.WaitForCacheSync("test", stop, configStore.HasSynced)
+			kube.WaitForCacheSync("test", stop, env.VirtualServiceController.HasSynced)
 			env.Init()
 
 			push := model.NewPushContext()
 			push.InitContext(env, nil, nil)
 			env.SetPushContext(push)
+
+			proxy.SetSidecarScope(push)
 
 			builder := NewCDSEndpointBuilder(
 				proxy, push,

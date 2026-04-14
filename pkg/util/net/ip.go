@@ -15,9 +15,12 @@
 package net
 
 import (
+	"fmt"
 	"net"
 	"net/http"
 	"net/netip"
+	"regexp"
+	"strings"
 
 	"istio.io/istio/pkg/log"
 )
@@ -96,4 +99,26 @@ func IsRequestFromLocalhost(r *http.Request) bool {
 
 	userIP := net.ParseIP(ip)
 	return userIP.IsLoopback()
+}
+
+var interfaceNameRegex = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_.\-]*$`)
+
+// ValidateInterfaceNames validates a comma-separated list of Linux interface names.
+func ValidateInterfaceNames(interfaces string) error {
+	if len(interfaces) == 0 {
+		return nil
+	}
+	for _, iface := range strings.Split(interfaces, ",") {
+		iface = strings.TrimSpace(iface)
+		if len(iface) == 0 {
+			return fmt.Errorf("empty interface name")
+		}
+		if len(iface) > 15 {
+			return fmt.Errorf("interface name %q too long (max 15 chars)", iface)
+		}
+		if !interfaceNameRegex.MatchString(iface) {
+			return fmt.Errorf("interface name %q contains invalid characters", iface)
+		}
+	}
+	return nil
 }

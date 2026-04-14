@@ -197,16 +197,9 @@ func NewController(
 		),
 	}
 
+	// we don't need to register the virtual services here because they are handled by the virtual service controller
 	c.handlers = append(
 		c.handlers,
-		c.outputs.VirtualServices.RegisterBatch(pushXds(c.xdsUpdater,
-			func(t config.Config) model.ConfigKey {
-				return model.ConfigKey{
-					Kind:      kind.VirtualService,
-					Name:      t.Name,
-					Namespace: t.Namespace,
-				}
-			}), false),
 		c.outputs.Gateways.RegisterBatch(pushXds(c.xdsUpdater,
 			func(t config.Config) model.ConfigKey {
 				return model.ConfigKey{
@@ -265,6 +258,18 @@ func (c *Controller) HasSynced() bool {
 
 func (c *Controller) Schemas() collection.Schemas {
 	return schemas
+}
+
+func (c *Controller) KrtCollection(kind config.GroupVersionKind) krt.Collection[config.Config] {
+	if kind == gvk.Gateway {
+		return c.outputs.Gateways
+	}
+
+	if kind == gvk.VirtualService {
+		return c.outputs.VirtualServices
+	}
+
+	return nil
 }
 
 func (c *Controller) Get(typ config.GroupVersionKind, name, namespace string) *config.Config {

@@ -186,9 +186,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(
 
 	if !useSniffing {
 		ph := util.GetProxyHeaders(node, req.Push, istionetworking.ListenerClassSidecarOutbound)
-		appendXForwardedHost := ph.XForwardedHost
-		includeRequestAttemptCount := ph.IncludeRequestAttemptCount
-		virtualHosts = append(virtualHosts, buildCatchAllVirtualHost(node, includeRequestAttemptCount, appendXForwardedHost))
+		virtualHosts = append(virtualHosts, buildCatchAllVirtualHost(node, ph.IncludeRequestAttemptCount, ph.XForwardedHost))
 	}
 
 	out := &route.RouteConfiguration{
@@ -228,8 +226,8 @@ func extractListenerPort(routeName string) (int, bool, error) {
 
 // TODO: merge with IstioEgressListenerWrapper.selectVirtualServices
 // selectVirtualServices selects the virtual services by matching given services' host names.
-func selectVirtualServices(virtualServices []config.Config, servicesByName map[host.Name]*model.Service) []config.Config {
-	out := make([]config.Config, 0)
+func selectVirtualServices(virtualServices []*config.Config, servicesByName map[host.Name]*model.Service) []*config.Config {
+	out := make([]*config.Config, 0)
 	// As a performance optimization, find out wildcard service hosts first, so that
 	// if non wildcard vs hosts can't be looked up directly in the service map, only need to
 	// loop through wildcard service hosts instead of all.
@@ -333,7 +331,7 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 			servicesByName[h] = &model.Service{
 				Hostname:       h,
 				DefaultAddress: svc.GetAddressForProxy(node),
-				ClusterVIPs:    *svc.ClusterVIPs.DeepCopy(),
+				ClusterVIPs:    model.AddressMap{Addresses: svc.ClusterVIPs.Addresses},
 				MeshExternal:   svc.MeshExternal,
 				Resolution:     svc.Resolution,
 				Ports:          []*model.Port{svcPort},
@@ -359,18 +357,17 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 			return services[i].Hostname <= services[j].Hostname
 		})
 		routeCache = &istio_route.Cache{
-			RouteName:               routeName,
-			ProxyVersion:            node.Metadata.IstioVersion,
-			ClusterID:               string(node.Metadata.ClusterID),
-			DNSDomain:               node.DNSDomain,
-			DNSCapture:              bool(node.Metadata.DNSCapture),
-			DNSAutoAllocate:         bool(node.Metadata.DNSAutoAllocate),
-			AllowAny:                util.IsAllowAnyOutbound(node),
-			ListenerPort:            listenerPort,
-			Services:                services,
-			VirtualServices:         virtualServices,
-			DelegateVirtualServices: push.DelegateVirtualServices(virtualServices),
-			EnvoyFilterKeys:         efKeys,
+			RouteName:       routeName,
+			ProxyVersion:    node.Metadata.IstioVersion,
+			ClusterID:       string(node.Metadata.ClusterID),
+			DNSDomain:       node.DNSDomain,
+			DNSCapture:      bool(node.Metadata.DNSCapture),
+			DNSAutoAllocate: bool(node.Metadata.DNSAutoAllocate),
+			AllowAny:        util.IsAllowAnyOutbound(node),
+			ListenerPort:    listenerPort,
+			Services:        services,
+			VirtualServices: virtualServices,
+			EnvoyFilterKeys: efKeys,
 		}
 	}
 
@@ -554,6 +551,7 @@ func generateVirtualHostDomains(service *model.Service, listenerPort int, port i
 		// Indicate we do not need port, as we will set IgnorePortInHostMatching
 		port = portNoAppendPortSuffix
 	}
+
 	domains := []string{}
 	allAltHosts := []string{}
 	all := []string{string(service.Hostname)}

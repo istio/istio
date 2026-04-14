@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+
+kind: feature
+
+area: installation
+
+releaseNotes:
+- |
+  **Added** `dnsPolicy` and `dnsConfig` fields to ztunnel Helm chart for custom DNS configuration in environments with non-standard DNS requirements.

@@ -359,6 +359,13 @@ func TestTracing(t *testing.T) {
 			},
 		},
 	}
+	disableContextPropagation := &tpb.Telemetry{
+		Tracing: []*tpb.Tracing{
+			{
+				DisableContextPropagation: &wrappers.BoolValue{Value: true},
+			},
+		},
+	}
 
 	tests := []struct {
 		name             string
@@ -555,6 +562,26 @@ func TestTracing(t *testing.T) {
 					Disabled:                     true,
 					UseRequestIDForTraceSampling: true,
 					EnableIstioTags:              true,
+				},
+			},
+		},
+		{
+			"disable context propagation",
+			[]config.Config{newTelemetry("istio-system", envoy), newTelemetry("default", disableContextPropagation)},
+			sidecar,
+			nil,
+			&TracingConfig{
+				ClientSpec: TracingSpec{
+					Provider:                     &meshconfig.MeshConfig_ExtensionProvider{Name: "envoy"},
+					UseRequestIDForTraceSampling: true,
+					EnableIstioTags:              true,
+					DisableContextPropagation:    true,
+				},
+				ServerSpec: TracingSpec{
+					Provider:                     &meshconfig.MeshConfig_ExtensionProvider{Name: "envoy"},
+					UseRequestIDForTraceSampling: true,
+					EnableIstioTags:              true,
+					DisableContextPropagation:    true,
 				},
 			},
 		},
