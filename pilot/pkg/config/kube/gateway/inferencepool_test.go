@@ -41,6 +41,7 @@ func TestReconcileInferencePool(t *testing.T) {
 		expectedLabels      map[string]string
 		expectedServiceName string
 		expectedTargetPorts []int32
+		expectedAppProtocol string
 	}{
 		{
 			name: "basic shadow service creation",
@@ -209,6 +210,40 @@ func TestReconcileInferencePool(t *testing.T) {
 			},
 			expectedTargetPorts: []int32{8000, 8001, 8002},
 		},
+		{
+			name: "shadow service with h2c appProtocol",
+			inferencePool: &inferencev1.InferencePool{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "h2c-pool",
+					Namespace: "default",
+				},
+				Spec: inferencev1.InferencePoolSpec{
+					AppProtocol: "kubernetes.io/h2c",
+					TargetPorts: []inferencev1.Port{
+						{
+							Number: inferencev1.PortNumber(8080),
+						},
+					},
+					Selector: inferencev1.LabelSelector{
+						MatchLabels: map[inferencev1.LabelKey]inferencev1.LabelValue{
+							"app": "test",
+						},
+					},
+					EndpointPickerRef: inferencev1.EndpointPickerRef{
+						Name: "dummy",
+						Port: &inferencev1.Port{
+							Number: inferencev1.PortNumber(5421),
+						},
+					},
+				},
+			},
+			expectedLabels: map[string]string{
+				constants.InternalServiceSemantics: constants.ServiceSemanticsInferencePool,
+				InferencePoolRefLabel:              "h2c-pool",
+			},
+			expectedTargetPorts: []int32{8080},
+			expectedAppProtocol: "kubernetes.io/h2c",
+		},
 	}
 
 	for _, tc := range testCases {
@@ -258,10 +293,16 @@ func TestReconcileInferencePool(t *testing.T) {
 			expectedPortCount := len(tc.inferencePool.Spec.TargetPorts)
 			assert.Equal(t, len(service.Spec.Ports), expectedPortCount, fmt.Sprintf("Shadow service should have %d ports", expectedPortCount))
 
-			for i := 1; i < len(service.Spec.Ports); i++ {
+			for i := 0; i < len(service.Spec.Ports); i++ {
 				assert.Equal(t, service.Spec.Ports[i].Port, int32(54321+i))
 				assert.Equal(t, service.Spec.Ports[i].TargetPort.IntVal, tc.expectedTargetPorts[i])
 				assert.Equal(t, service.Spec.Ports[i].Name, fmt.Sprintf("http-%d", i))
+				
+				expectedAppProto := tc.expectedAppProtocol
+				if expectedAppProto == "" {
+					expectedAppProto = "http"
+				}
+				assert.Equal(t, *service.Spec.Ports[i].AppProtocol, expectedAppProto)
 			}
 
 			assert.Equal(t, service.OwnerReferences[0].Name, tc.inferencePool.Name)

@@ -65,10 +65,11 @@ func getSupportedControllers() sets.Set[gatewayv1.GatewayController] {
 }
 
 type shadowServiceInfo struct {
-	key      types.NamespacedName
-	selector map[string]string
-	poolName string
-	poolUID  types.UID
+	key         types.NamespacedName
+	selector    map[string]string
+	poolName    string
+	poolUID     types.UID
+	appProtocol string
 	// targetPorts is the port number on the pods selected by the selector.
 	// Currently, inference extension only supports a single target port.
 	targetPorts []targetPort
@@ -164,6 +165,7 @@ func createInferencePoolObject(pool *inferencev1.InferencePool, gatewayParents s
 		poolName:    pool.GetName(),
 		targetPorts: make([]targetPort, 0, len(pool.Spec.TargetPorts)),
 		poolUID:     pool.GetUID(),
+		appProtocol: string(pool.Spec.AppProtocol),
 	}
 
 	for k, v := range pool.Spec.Selector.MatchLabels {
@@ -514,11 +516,16 @@ func translateShadowServiceToService(shadow shadowServiceInfo, extRef extRefInfo
 
 	for i, tp := range shadow.targetPorts {
 		portName := fmt.Sprintf("http-%d", i)
+		appProtocolStr := shadow.appProtocol
+		if appProtocolStr == "" {
+			appProtocolStr = string(inferencev1.AppProtocolHTTP)
+		}
 		ports = append(ports, corev1.ServicePort{
-			Name:       portName,
-			Protocol:   corev1.ProtocolTCP,
-			Port:       baseDummyPort + int32(i),
-			TargetPort: intstr.FromInt(int(tp.port)),
+			Name:        portName,
+			Protocol:    corev1.ProtocolTCP,
+			Port:        baseDummyPort + int32(i),
+			TargetPort:  intstr.FromInt(int(tp.port)),
+			AppProtocol: ptr.Of(appProtocolStr),
 		})
 	}
 
@@ -597,6 +604,7 @@ func (c *Controller) applyShadowService(kubeClient kube.Client, service *corev1.
 	if err != nil {
 		return fmt.Errorf("failed to marshal service for SSA: %v", err)
 	}
+	log.Infof("Applying shadow service: %s", string(data))
 
 	ctx := context.Background()
 	_, err = kubeClient.Kube().CoreV1().Services(service.Namespace).Patch(
