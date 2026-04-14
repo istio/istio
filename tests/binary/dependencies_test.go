@@ -84,7 +84,7 @@ func TestDependencies(t *testing.T) {
 				`^github\.com/containernetworking/`,
 				`^github\.com/fatih/color`,
 				`^github\.com/vishvananda/`,
-				`^helm\.sh/helm/v3`,
+				`^helm\.sh/helm/v4`,
 				`^sigs\.k8s\.io/controller-runtime`,
 				// Testing deps
 				`^testing$`,
