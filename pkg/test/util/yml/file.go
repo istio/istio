@@ -69,7 +69,7 @@ func (w *writerImpl) WriteYAML(filenamePrefix string, contents ...string) ([]str
 	return out, nil
 }
 
-// WriteYAMLOrFial calls WriteYAML and fails the test if an error occurs.
+// WriteYAMLOrFail calls WriteYAML and fails the test if an error occurs.
 func (w *writerImpl) WriteYAMLOrFail(t test.Failer, filenamePrefix string, contents ...string) []string {
 	t.Helper()
 	out, err := w.WriteYAML(filenamePrefix, contents...)

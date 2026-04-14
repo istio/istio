@@ -96,19 +96,6 @@ var skippedTests = map[string]string{
 	"MeshHTTPRoute307Redirect": "TODO",
 	"MeshHTTPRoute308Redirect": "TODO",
 
-	// "TLSRouteHostnameIntersection":                 "TODO",  // unskipped — fix implemented
-	"TLSRouteInvalidBackendRefNonexistent":         "TODO",
-	"TLSRouteInvalidBackendRefUnknownKind":         "TODO",
-	"TLSRouteInvalidNoMatchingListenerHostname":    "TODO",
-	"TLSRouteInvalidNoMatchingListener":            "TODO",
-	"TLSRouteListenerMixedTerminationNotSupported": "TODO",
-	"TLSRouteListenerPassthroughSupportedKinds":    "TODO",
-	"TLSRouteListenerTerminateNotSupported":        "TODO",
-	"TLSRouteListenerTerminateSupportedKinds":      "TODO",
-	"TLSRouteMixedTerminationSameNamespace":        "TODO",
-	"TLSRouteSimpleSameNamespace":                  "TODO",
-	"TLSRouteTerminateSimpleSameNamespace":         "TODO",
-
 	// The following tests were modified between v1.4.0 && v1.5.0
 	"BackendTLSPolicy": "TODO",
 

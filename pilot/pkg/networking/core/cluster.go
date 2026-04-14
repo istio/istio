@@ -226,7 +226,7 @@ func (configgen *ConfigGeneratorImpl) deltaFromDestinationRules(
 	}
 
 	if features.FilterGatewayClusterConfig && proxy.Type == model.Router {
-		slices.FilterInPlace(services, func(s *model.Service) bool {
+		services = slices.FilterInPlace(services, func(s *model.Service) bool {
 			return push.ServiceAttachedToGateway(string(s.Hostname), s.Attributes.Namespace, proxy)
 		})
 	}
@@ -909,6 +909,9 @@ func convertResolution(proxyType model.NodeType, service *model.Service) cluster
 	case model.ClientSideLB:
 		return cluster.Cluster_EDS
 	case model.DNSLB:
+		if service.Attributes.K8sAttributes.DNSConnectStrategy == model.DNSConnectStrategyRaceFirstTCPConnect {
+			return cluster.Cluster_LOGICAL_DNS
+		}
 		return cluster.Cluster_STRICT_DNS
 	case model.DNSRoundRobinLB:
 		return cluster.Cluster_LOGICAL_DNS

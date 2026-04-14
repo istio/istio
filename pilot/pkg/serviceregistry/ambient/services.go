@@ -514,12 +514,13 @@ func serviceEntriesInfo(
 	return slices.Map(constructServiceEntries(ctx, s, w, nsAnnotations, networkGetter), func(e *workloadapi.Service) model.ServiceInfo {
 		e.IngressUseWaypoint = waypoint.IngressUseWaypoint
 		return precomputeService(model.ServiceInfo{
-			Service:       e,
-			PortNames:     portNames,
-			LabelSelector: sel,
-			Source:        MakeSource(s),
-			Waypoint:      waypoint,
-			CreationTime:  s.CreationTimestamp.Time,
+			Service:            e,
+			PortNames:          portNames,
+			LabelSelector:      sel,
+			Source:             MakeSource(s),
+			Waypoint:           waypoint,
+			DNSConnectStrategy: model.GetDNSConnectStrategy(s.Annotations),
+			CreationTime:       s.CreationTimestamp.Time,
 		})
 	})
 }
@@ -536,7 +537,6 @@ func constructServiceEntries(
 		return toNetworkAddressFromCidr(e, networkGetter(ctx))
 	})
 	if err != nil {
-		// TODO: perhaps we should support CIDR in the future?
 		return nil
 	}
 	// if this se has autoallocation we can se autoallocated IP, otherwise it will remain an empty slice
@@ -754,15 +754,16 @@ func setCanonical(se *model.ServiceInfo) model.ServiceInfo {
 	wdsSvc := protomarshal.ShallowClone(se.Service)
 	wdsSvc.Canonical = true
 	return precomputeService(model.ServiceInfo{
-		Service:          wdsSvc,
-		LabelSelector:    se.LabelSelector,
-		PortNames:        se.PortNames,
-		Source:           se.Source,
-		Scope:            se.Scope,
-		Waypoint:         se.Waypoint,
-		MarshaledAddress: se.MarshaledAddress,
-		AsAddress:        se.AsAddress,
-		CreationTime:     se.CreationTime,
+		Service:            wdsSvc,
+		LabelSelector:      se.LabelSelector,
+		PortNames:          se.PortNames,
+		Source:             se.Source,
+		Scope:              se.Scope,
+		Waypoint:           se.Waypoint,
+		MarshaledAddress:   se.MarshaledAddress,
+		AsAddress:          se.AsAddress,
+		DNSConnectStrategy: se.DNSConnectStrategy,
+		CreationTime:       se.CreationTime,
 	})
 }
 

@@ -52,7 +52,7 @@ func (s serviceStatus) ResourceName() string {
 	return s.Target.String()
 }
 
-func (s serviceStatus) GetConditions() model.ConditionSet {
+func (s serviceStatus) GetConditions(_currentConditions map[string]model.Condition) model.ConditionSet {
 	return s.Conditions
 }
 
