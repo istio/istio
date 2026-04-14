@@ -226,7 +226,7 @@ func (configgen *ConfigGeneratorImpl) deltaFromDestinationRules(
 	}
 
 	if features.FilterGatewayClusterConfig && proxy.Type == model.Router {
-		slices.FilterInPlace(services, func(s *model.Service) bool {
+		services = slices.FilterInPlace(services, func(s *model.Service) bool {
 			return push.ServiceAttachedToGateway(string(s.Hostname), s.Attributes.Namespace, proxy)
 		})
 	}
