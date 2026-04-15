@@ -1004,12 +1004,12 @@ func TestBuildSecret(t *testing.T) {
 }
 
 func createCA(maxTTL time.Duration, ecSigAlg util.SupportedECSignatureAlgorithms) (*IstioCA, error) {
-	// Generate root CA key and cert. Use a 2-year TTL so the signing cert's validity does not
-	// artificially cap leaf certificate TTLs during testing.
+	// Generate root CA key and cert. Use a TTL longer than the max leaf cert TTL
+	// requested in tests (30 days) so that TTL clamping does not interfere.
 	rootCAOpts := util.CertOptions{
 		IsCA:         true,
 		IsSelfSigned: true,
-		TTL:          2 * 365 * 24 * time.Hour,
+		TTL:          60 * 24 * time.Hour,
 		Org:          "Root CA",
 		RSAKeySize:   2048,
 		ECSigAlg:     ecSigAlg,
@@ -1033,7 +1033,7 @@ func createCA(maxTTL time.Duration, ecSigAlg util.SupportedECSignatureAlgorithms
 	intermediateCAOpts := util.CertOptions{
 		IsCA:         true,
 		IsSelfSigned: false,
-		TTL:          2 * 365 * 24 * time.Hour,
+		TTL:          60 * 24 * time.Hour,
 		Org:          "Intermediate CA",
 		RSAKeySize:   2048,
 		SignerCert:   rootCert,
