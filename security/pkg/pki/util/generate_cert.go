@@ -335,8 +335,10 @@ func genCertTemplateFromCSR(csr *x509.CertificateRequest, subjectIDs []string, t
 		return nil, fmt.Errorf("signing certificate has expired at %v", signingCert.NotAfter)
 	}
 
+	// notAfter and notBefore are both derived from the same 'now' captured above.
 	notAfter := now.Add(ttl)
 	if signingCert != nil && !notAfter.Before(signingCert.NotAfter) {
+		log.Debugf("clamping leaf cert TTL from %v to signing cert NotAfter %v", ttl, signingCert.NotAfter)
 		notAfter = signingCert.NotAfter
 	}
 

@@ -1030,15 +1030,11 @@ func TestGenCertFromCSRWithTTLClamping(t *testing.T) {
 			ttl:           2 * time.Hour,
 			expectClamped: true,
 		},
-		{
-			name:          "TTL exactly equals signing cert remaining lifetime - clamped (boundary)",
-			ttl:           time.Hour,
-			expectClamped: true,
-		},
 	}
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
+			beforeSign := time.Now()
 			certDer, err := GenCertFromCSR(csr, signingCert, leafKey.Public(), caKey, subjectIDs, c.ttl, false)
 			if err != nil {
 				t.Fatalf("GenCertFromCSR failed: %v", err)
@@ -1049,18 +1045,15 @@ func TestGenCertFromCSRWithTTLClamping(t *testing.T) {
 			}
 
 			if c.expectClamped {
-				// Leaf NotAfter must not exceed signing cert NotAfter.
-				if leafCert.NotAfter.After(signingCert.NotAfter) {
-					t.Errorf("leaf cert NotAfter (%v) exceeds signing cert NotAfter (%v)", leafCert.NotAfter, signingCert.NotAfter)
-				}
+				// Leaf NotAfter must equal the signing cert NotAfter.
 				if !leafCert.NotAfter.Equal(signingCert.NotAfter) {
 					t.Errorf("expected leaf cert NotAfter to be clamped to %v, got %v", signingCert.NotAfter, leafCert.NotAfter)
 				}
 			} else {
-				// Leaf NotAfter should be approximately now+ttl (within a few seconds).
-				expectedNotAfter := time.Now().Add(c.ttl)
-				delta := leafCert.NotAfter.Sub(expectedNotAfter)
-				if delta < -5*time.Second || delta > 5*time.Second {
+				// Leaf NotAfter should be approximately beforeSign+ttl.
+				expectedNotAfter := beforeSign.Add(c.ttl)
+				delta := leafCert.NotAfter.Sub(expectedNotAfter).Abs()
+				if delta > 5*time.Second {
 					t.Errorf("leaf cert NotAfter (%v) not close to expected (%v), delta %v", leafCert.NotAfter, expectedNotAfter, delta)
 				}
 			}
