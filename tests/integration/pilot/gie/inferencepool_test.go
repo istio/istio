@@ -372,10 +372,26 @@ func TestInferencePoolAppProtocol(t *testing.T) {
 			crd.DeployGatewayAPIOrSkip(ctx)
 			crd.DeployGatewayAPIInferenceExtensionOrSkip(ctx)
 
+			cfg := istio.DefaultConfigOrFail(t, ctx)
+
 			ns := namespace.NewOrFail(ctx, namespace.Config{
 				Prefix: "inferencepool-appproto",
 				Inject: true,
 			})
+
+			// Create a dummy service for EPP to satisfy ResolvedRefs
+			dummySvc := fmt.Sprintf(`
+apiVersion: v1
+kind: Service
+metadata:
+  name: dummy-epp
+  namespace: %s
+spec:
+  ports:
+  - port: 9002
+    name: grpc
+`, ns.Name())
+			ctx.ConfigIstio().YAML(ns.Name(), dummySvc).ApplyOrFail(ctx)
 
 			inferencePoolManifest := fmt.Sprintf(`
 apiVersion: inference.networking.k8s.io/v1
@@ -396,6 +412,42 @@ spec:
       number: 9002
 `, ns.Name())
 			ctx.ConfigIstio().YAML(ns.Name(), inferencePoolManifest).ApplyOrFail(ctx)
+
+			// Deploy Gateway and HTTPRoute
+			gatewayManifest := fmt.Sprintf(`
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: appproto-gateway
+  namespace: %s
+spec:
+  gatewayClassName: %s
+  listeners:
+  - name: http
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: Same
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: appproto-route
+  namespace: %s
+spec:
+  parentRefs:
+  - name: appproto-gateway
+  hostnames:
+  - "appproto.example.com"
+  rules:
+  - backendRefs:
+    - group: inference.networking.k8s.io
+      kind: InferencePool
+      name: appproto-pool
+      port: 80
+`, ns.Name(), cfg.GatewayClassName, ns.Name())
+			ctx.ConfigIstio().YAML(ns.Name(), gatewayManifest).ApplyOrFail(ctx)
 
 			// Verify shadow service was created with correct AppProtocol
 			retry.UntilSuccessOrFail(ctx, func() error {
@@ -425,5 +477,49 @@ spec:
 				ctx.Logf("Shadow service AppProtocol verified successfully: %s", *appProto)
 				return nil
 			})
+
+			// Wait for Gateway resource to be ready
+			retry.UntilSuccessOrFail(ctx, func() error {
+				// Get the Gateway resource and check its status
+				gw, err := ctx.Clusters().Default().Dynamic().Resource(schema.GroupVersionResource{
+					Group:    "gateway.networking.k8s.io",
+					Version:  "v1",
+					Resource: "gateways",
+				}).Namespace(ns.Name()).Get(context.TODO(), "appproto-gateway", metav1.GetOptions{})
+				if err != nil {
+					return fmt.Errorf("gateway resource not found: %v", err)
+				}
+
+				// Check Gateway status conditions for Accepted and Programmed
+				status, found, err := unstructured.NestedSlice(gw.Object, "status", "conditions")
+				if err != nil || !found {
+					return fmt.Errorf("gateway status conditions not found")
+				}
+
+				accepted := false
+				programmed := false
+				for _, cond := range status {
+					condition := cond.(map[string]interface{})
+					condType := condition["type"].(string)
+					condStatus := condition["status"].(string)
+
+					if condType == "Accepted" && condStatus == "True" {
+						accepted = true
+					}
+					if condType == "Programmed" && condStatus == "True" {
+						programmed = true
+					}
+				}
+
+				if !accepted {
+					return fmt.Errorf("gateway not accepted yet")
+				}
+				if !programmed {
+					return fmt.Errorf("gateway not programmed yet")
+				}
+
+				ctx.Logf("Gateway is ready (Accepted and Programmed)")
+				return nil
+			}, retry.Timeout(60*time.Second))
 		})
 }
