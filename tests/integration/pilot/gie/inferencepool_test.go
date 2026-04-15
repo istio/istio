@@ -476,7 +476,7 @@ spec:
 
 				ctx.Logf("Shadow service AppProtocol verified successfully: %s", *appProto)
 				return nil
-			})
+			}, retry.Timeout(60*time.Second))
 
 			// Wait for Gateway resource to be ready
 			retry.UntilSuccessOrFail(ctx, func() error {

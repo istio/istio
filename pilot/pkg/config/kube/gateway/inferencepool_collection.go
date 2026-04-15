@@ -604,7 +604,6 @@ func (c *Controller) applyShadowService(kubeClient kube.Client, service *corev1.
 	if err != nil {
 		return fmt.Errorf("failed to marshal service for SSA: %v", err)
 	}
-	log.Infof("Applying shadow service: %s", string(data))
 
 	ctx := context.Background()
 	_, err = kubeClient.Kube().CoreV1().Services(service.Namespace).Patch(
