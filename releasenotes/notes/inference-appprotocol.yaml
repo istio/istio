@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+- |
+  **Added** support for specifying `AppProtocol` in `InferencePool` to configure the application protocol of the generated shadow service.
