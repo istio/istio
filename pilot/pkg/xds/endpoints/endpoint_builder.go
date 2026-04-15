@@ -411,6 +411,9 @@ func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.Endpoi
 	// If locality aware routing is enabled, prioritize endpoints or set their lb weight.
 	// Failover should only be enabled when there is an outlier detection, otherwise Envoy
 	// will never detect the hosts are unhealthy and redirect traffic.
+	// Note: the default mesh config enables LocalityLbSetting (Enabled:true), so enabling
+	// outlier detection in a DestinationRule will automatically activate locality LB failover
+	// even when no explicit localityLbSetting is configured in the DR.
 	enableFailover, lb := getOutlierDetectionAndLoadBalancerSettings(b.DestinationRule(), b.port, b.subsetName)
 	lbSetting, forceFailover := loadbalancer.GetLocalityLbSetting(b.push.Mesh.GetLocalityLbSetting(), lb.GetLocalityLbSetting(), b.service)
 	enableFailover = enableFailover || forceFailover
