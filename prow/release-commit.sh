@@ -31,7 +31,7 @@ export GO111MODULE=on
 DOCKER_HUB=${DOCKER_HUB:-registry.istio.io/testing}
 HELM_HUB=${HELM_HUB:-gcr.io/istio-testing/charts}
 GCS_BUCKET=${GCS_BUCKET:-istio-build/dev}
-GCS_BUCKET=${R2_BUCKET:-istio-build/dev}
+R2_BUCKET=${R2_BUCKET:-istio-build/dev}
 
 # Enable emulation required for cross compiling a few images (VMs)
 docker run --rm --privileged "${DOCKER_HUB}/qemu-user-static" --reset -p yes
