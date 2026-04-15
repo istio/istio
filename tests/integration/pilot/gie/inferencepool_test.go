@@ -362,3 +362,68 @@ spec:
 			}
 		})
 }
+
+// TestInferencePoolAppProtocol verifies that InferencePool with appProtocol set
+// creates a shadow service with the correct AppProtocol.
+func TestInferencePoolAppProtocol(t *testing.T) {
+	framework.
+		NewTest(t).
+		Run(func(ctx framework.TestContext) {
+			crd.DeployGatewayAPIOrSkip(ctx)
+			crd.DeployGatewayAPIInferenceExtensionOrSkip(ctx)
+
+			ns := namespace.NewOrFail(ctx, namespace.Config{
+				Prefix: "inferencepool-appproto",
+				Inject: true,
+			})
+
+			inferencePoolManifest := fmt.Sprintf(`
+apiVersion: inference.networking.k8s.io/v1
+kind: InferencePool
+metadata:
+  name: appproto-pool
+  namespace: %s
+spec:
+  appProtocol: kubernetes.io/h2c
+  targetPorts:
+  - number: 8080
+  selector:
+    matchLabels:
+      app: inference-workload
+  endpointPickerRef:
+    name: dummy-epp
+    port:
+      number: 9002
+`, ns.Name())
+			ctx.ConfigIstio().YAML(ns.Name(), inferencePoolManifest).ApplyOrFail(ctx)
+
+			// Verify shadow service was created with correct AppProtocol
+			retry.UntilSuccessOrFail(ctx, func() error {
+				client := ctx.Clusters().Default().Kube()
+				services, err := client.CoreV1().Services(ns.Name()).List(context.TODO(), metav1.ListOptions{
+					LabelSelector: "istio.io/inferencepool-name=appproto-pool",
+				})
+				if err != nil || len(services.Items) == 0 {
+					return fmt.Errorf("failed to list services: %v", err)
+				}
+
+				svc := services.Items[0]
+
+				if len(svc.Spec.Ports) == 0 {
+					return fmt.Errorf("shadow service has no ports")
+				}
+
+				appProto := svc.Spec.Ports[0].AppProtocol
+				if appProto == nil {
+					return fmt.Errorf("shadow service port AppProtocol is nil")
+				}
+
+				if *appProto != "kubernetes.io/h2c" {
+					return fmt.Errorf("expected AppProtocol kubernetes.io/h2c, got %s", *appProto)
+				}
+
+				ctx.Logf("Shadow service AppProtocol verified successfully: %s", *appProto)
+				return nil
+			})
+		})
+}
