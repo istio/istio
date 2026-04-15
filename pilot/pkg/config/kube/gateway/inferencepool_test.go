@@ -297,7 +297,7 @@ func TestReconcileInferencePool(t *testing.T) {
 				assert.Equal(t, service.Spec.Ports[i].Port, int32(54321+i))
 				assert.Equal(t, service.Spec.Ports[i].TargetPort.IntVal, tc.expectedTargetPorts[i])
 				assert.Equal(t, service.Spec.Ports[i].Name, fmt.Sprintf("http-%d", i))
-				
+
 				expectedAppProto := tc.expectedAppProtocol
 				if expectedAppProto == "" {
 					expectedAppProto = "http"
