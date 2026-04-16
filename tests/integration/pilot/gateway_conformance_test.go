@@ -113,10 +113,7 @@ var skippedTests = map[string]string{
 	"BackendTLSPolicy": "TODO",
 
 	"GatewayClassObservedGenerationBump":    "TODO",
-	"GatewayWithAttachedRoutes":             "TODO",
 	"GatewayWithAttachedRoutesWithPort8080": "TODO",
-
-	"HTTPRouteHostnameIntersection": "TODO",
 
 	"MeshGRPCRouteWeight": "TODO",
 	"MeshHTTPRouteWeight": "TODO",
