@@ -101,8 +101,8 @@ func TestDependencies(t *testing.T) {
 		{
 			entrypoint: "istioctl/cmd/istioctl",
 			exceptions: []string{
-				// Temporary workaround for helm v4 importing stdlib testing in non-test code.
-				// Remove once upstream helm drops this import.
+				// TODO: helm v4 imports stdlib testing in non-test code.
+				// Remove once upstream fixes: https://github.com/helm/helm/issues/32047
 				`^testing$`,
 			},
 			denied: []string{
