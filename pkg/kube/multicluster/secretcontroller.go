@@ -79,6 +79,7 @@ type handler interface {
 	clusterAdded(cluster *Cluster) ComponentConstraint
 	clusterUpdated(cluster *Cluster) ComponentConstraint
 	clusterDeleted(clusterID cluster.ID)
+	clusterClosing(clusterID cluster.ID)
 	HasSynced() bool
 }
 
@@ -361,6 +362,9 @@ func (c *Controller) addSecret(name types.NamespacedName, s *corev1.Secret) erro
 			}
 			// stop previous remote cluster
 			prev.Stop()
+			for _, h := range c.handlers {
+				h.clusterClosing(prev.ID)
+			}
 			prev.Client.Shutdown() // Shutdown all of the informers so that the goroutines won't leak
 		} else if c.cs.Contains(cluster.ID(clusterID)) {
 			// if the cluster has been registered before by another secret, ignore the new one.

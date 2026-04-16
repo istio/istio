@@ -84,6 +84,15 @@ func (m *Component[T]) clusterDeleted(cluster cluster.ID) {
 	delete(m.clusters, cluster)
 }
 
+func (m *Component[T]) clusterClosing(cluster cluster.ID) {
+	m.mu.RLock()
+	old, f := m.clusters[cluster]
+	m.mu.RUnlock()
+	if f {
+		old.Close()
+	}
+}
+
 func (m *Component[T]) HasSynced() bool {
 	for _, c := range m.All() {
 		if !c.HasSynced() {

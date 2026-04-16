@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue: [59875]
+releaseNotes:
+- |
+  **Fixed** a deadlock in the multicluster secret controller that could occur during remote cluster updates.
