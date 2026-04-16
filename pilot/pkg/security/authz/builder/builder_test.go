@@ -248,6 +248,11 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 			input:    "td-aliases-source-principal-in.yaml",
 			want:     []string{"td-aliases-source-principal-out.yaml"},
 		},
+		{
+			name:  "trust-domains-field",
+			input: "trust-domains-in.yaml",
+			want:  []string{"trust-domains-out.yaml"},
+		},
 	}
 
 	baseDir := "http/"

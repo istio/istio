@@ -87,6 +87,7 @@ func TestDependencies(t *testing.T) {
 				`^helm\.sh/helm/v3`,
 				`^sigs\.k8s\.io/controller-runtime`,
 				// Testing deps
+				`^testing$`,
 				`^github\.com/AdaLogics/go-fuzz-headers`,
 				`^github\.com/google/shlex`,
 				`^github\.com/howardjohn/unshare-go`,
@@ -105,9 +106,9 @@ func TestDependencies(t *testing.T) {
 				`^github\.com/vishvananda/`,
 				`^sigs\.k8s\.io/controller-runtime`,
 				// Testing deps
+				`^testing$`,
 				`^github\.com/AdaLogics/go-fuzz-headers`,
 				`^github\.com/howardjohn/unshare-go`,
-				`^testing$`,
 			},
 			wantToDeny: []string{},
 		},

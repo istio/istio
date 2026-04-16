@@ -15,7 +15,10 @@
 package multicluster
 
 import (
+	"crypto/sha256"
 	"fmt"
+	"os"
+	"path/filepath"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -41,6 +44,7 @@ import (
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -108,6 +112,202 @@ func TestKubeConfigOverride(t *testing.T) {
 			Burst: expectedBurst,
 		})
 	})
+}
+
+// TestControllerFileSource verifies that creating one kubeconfig file adds a cluster
+// and deleting that file removes the cluster.
+func TestControllerFileSource(t *testing.T) {
+	root := t.TempDir()
+	controller := buildTestFileSourceController(t, root)
+
+	remotePath := filepath.Join(root, "remote.yaml")
+	file.WriteOrFail(t, remotePath, kubeconfigFileYAML("remote-1"))
+	retry.UntilOrFail(t, func() bool {
+		return controller.cs.GetByID("remote-1") != nil
+	}, retry.Timeout(2*time.Second))
+
+	if err := os.Remove(remotePath); err != nil {
+		t.Fatalf("failed to remove kubeconfig file: %v", err)
+	}
+	retry.UntilOrFail(t, func() bool {
+		return controller.cs.GetByID("remote-1") == nil
+	}, retry.Timeout(2*time.Second))
+}
+
+// TestControllerFileSourceClusterIDChange verifies that rewriting one file from
+// cluster A to cluster B deletes the old cluster and adds the new one.
+func TestControllerFileSourceClusterIDChange(t *testing.T) {
+	root := t.TempDir()
+	controller := buildTestFileSourceController(t, root)
+
+	remotePath := filepath.Join(root, "remote.yaml")
+	file.WriteOrFail(t, remotePath, kubeconfigFileYAML("remote-1"))
+	retry.UntilOrFail(t, func() bool {
+		return controller.cs.GetByID("remote-1") != nil
+	}, retry.Timeout(2*time.Second))
+
+	file.WriteOrFail(t, remotePath, kubeconfigFileYAML("remote-2"))
+	retry.UntilOrFail(t, func() bool {
+		return controller.cs.GetByID("remote-1") == nil && controller.cs.GetByID("remote-2") != nil && controller.cs.Len() == 1
+	}, retry.Timeout(2*time.Second))
+}
+
+// TestControllerFileSourceSameClusterIDUpdate verifies that rewriting one file
+// for the same cluster ID swaps in the updated kubeconfig.
+func TestControllerFileSourceSameClusterIDUpdate(t *testing.T) {
+	root := t.TempDir()
+	controller := buildTestFileSourceController(t, root)
+
+	remotePath := filepath.Join(root, "remote.yaml")
+	file.WriteOrFail(t, remotePath, kubeconfigFileYAMLWithToken("remote-1", "token-1"))
+
+	var initial *Cluster
+	retry.UntilOrFail(t, func() bool {
+		initial = controller.cs.GetByID("remote-1")
+		return initial != nil
+	}, retry.Timeout(2*time.Second))
+	initialHash := initial.kubeConfigSha
+
+	updatedKubeconfig := kubeconfigFileYAMLWithToken("remote-1", "token-2")
+	updatedHash := sha256.Sum256(updatedKubeconfig)
+	file.WriteOrFail(t, remotePath, updatedKubeconfig)
+
+	var updated *Cluster
+	retry.UntilOrFail(t, func() bool {
+		updated = controller.cs.GetByID("remote-1")
+		return updated != nil && updated.kubeConfigSha == updatedHash && updated.kubeConfigSha != initialHash && controller.cs.Len() == 1
+	}, retry.Timeout(2*time.Second))
+
+	assert.Equal(t, updated != initial, true)
+	retry.UntilOrFail(t, func() bool {
+		return initial.Closed()
+	}, retry.Timeout(2*time.Second))
+}
+
+// TestControllerFileSourceMalformedReloadKeepsExistingCluster verifies that if a
+// valid file is rewritten with malformed content, the last good cluster remains.
+func TestControllerFileSourceMalformedReloadKeepsExistingCluster(t *testing.T) {
+	root := t.TempDir()
+	controller := buildTestFileSourceController(t, root)
+
+	remotePath := filepath.Join(root, "remote.yaml")
+	file.WriteOrFail(t, remotePath, kubeconfigFileYAMLWithToken("remote-1", "token-1"))
+
+	var existing *Cluster
+	retry.UntilOrFail(t, func() bool {
+		existing = controller.cs.GetByID("remote-1")
+		return existing != nil
+	}, retry.Timeout(2*time.Second))
+	existingHash := existing.kubeConfigSha
+
+	file.WriteOrFail(t, remotePath, []byte("::not yaml::"))
+	// Give the watcher time to attempt the reload before asserting the last good snapshot is still active.
+	time.Sleep(200 * time.Millisecond)
+
+	current := controller.cs.GetByID("remote-1")
+	if current == nil {
+		t.Fatal("expected last good cluster to remain after malformed reload")
+	}
+	assert.Equal(t, current.kubeConfigSha, existingHash)
+	assert.Equal(t, controller.cs.Len(), 1)
+
+	file.WriteOrFail(t, remotePath, kubeconfigFileYAMLWithToken("remote-1", "token-2"))
+	retry.UntilOrFail(t, func() bool {
+		current = controller.cs.GetByID("remote-1")
+		return current != nil && current.kubeConfigSha != existingHash && controller.cs.Len() == 1
+	}, retry.Timeout(2*time.Second))
+}
+
+// TestControllerFileSourceDuplicateClusterIDKeepsExistingCluster verifies that two
+// files for the same cluster ID do not replace the existing cluster.
+func TestControllerFileSourceDuplicateClusterIDKeepsExistingCluster(t *testing.T) {
+	root := t.TempDir()
+	controller := buildTestFileSourceController(t, root)
+
+	primaryPath := filepath.Join(root, "remote.yaml")
+	file.WriteOrFail(t, primaryPath, kubeconfigFileYAML("remote-1"))
+
+	var existing *Cluster
+	retry.UntilOrFail(t, func() bool {
+		existing = controller.cs.GetByID("remote-1")
+		return existing != nil
+	}, retry.Timeout(2*time.Second))
+	existingHash := existing.kubeConfigSha
+
+	dupPath := filepath.Join(root, "duplicate.yaml")
+	file.WriteOrFail(t, dupPath, kubeconfigFileYAMLWithToken("remote-1", "token-2"))
+
+	retry.UntilOrFail(t, func() bool {
+		current := controller.cs.GetByID("remote-1")
+		// The conflicting file should be rejected, leaving the original cluster intact.
+		return current != nil && current.kubeConfigSha == existingHash && controller.cs.Len() == 1
+	}, retry.Timeout(2*time.Second))
+
+	if err := os.Remove(dupPath); err != nil {
+		t.Fatalf("failed to remove duplicate kubeconfig file: %v", err)
+	}
+
+	retry.UntilOrFail(t, func() bool {
+		current := controller.cs.GetByID("remote-1")
+		return current != nil && current.kubeConfigSha == existingHash && controller.cs.Len() == 1
+	}, retry.Timeout(2*time.Second))
+}
+
+// TestControllerFileSourceDuplicateClusterIDAtStartup verifies that if two files
+// for the same cluster ID exist before startup, no cluster is added until the
+// conflict is removed.
+func TestControllerFileSourceDuplicateClusterIDAtStartup(t *testing.T) {
+	root := t.TempDir()
+	primaryKubeconfig := kubeconfigFileYAMLWithToken("remote-1", "token-1")
+	file.WriteOrFail(t, filepath.Join(root, "a.yaml"), primaryKubeconfig)
+	file.WriteOrFail(t, filepath.Join(root, "b.yaml"), kubeconfigFileYAMLWithToken("remote-1", "token-2"))
+	primaryHash := sha256.Sum256(primaryKubeconfig)
+
+	controller := buildTestFileSourceController(t, root)
+	retry.UntilOrFail(t, controller.HasSynced, retry.Timeout(2*time.Second))
+
+	// Duplicate file-backed kubeconfigs for the same cluster ID make Get() return
+	// a conflicted error. Since at startup there is no existing cluster to preserve,
+	// the controller leaves the store empty.
+	assert.Equal(t, controller.cs.GetByID("remote-1") == nil, true)
+	assert.Equal(t, controller.cs.Len(), 0)
+
+	assert.NoError(t, os.Remove(filepath.Join(root, "b.yaml")))
+	retry.UntilOrFail(t, func() bool {
+		current := controller.cs.GetByID("remote-1")
+		return current != nil && current.kubeConfigSha == primaryHash && controller.cs.Len() == 1
+	}, retry.Timeout(2*time.Second))
+}
+
+func buildTestFileSourceController(t *testing.T, root string) *Controller {
+	t.Helper()
+	test.SetForTest(t, &features.MulticlusterKubeconfigPath, root)
+	test.SetForTest(t, &features.LocalClusterSecretWatcher, false)
+	test.SetForTest(t, &features.ExternalIstiod, false)
+	t.Setenv("KUBERNETES_SERVICE_HOST", "")
+	t.Setenv("KUBERNETES_SERVICE_PORT", "")
+
+	client := kube.NewFakeClient()
+	stopCh := test.NewStop(t)
+	controller := NewController(ControllerOptions{
+		Client:          client,
+		SystemNamespace: secretNamespace,
+		ClusterID:       "config",
+		MeshConfig:      meshwatcher.NewTestWatcher(nil),
+	})
+	if controller == nil {
+		t.Fatal("expected controller to be created")
+	}
+	controller.ClientBuilder = TestingBuildClientsFromConfig
+	client.RunAndWait(stopCh)
+	assert.NoError(t, controller.Run(stopCh))
+	// Run() initializes the file-backed source asynchronously. Wait until the source
+	// has installed its watcher and the controller queue is running before mutating files,
+	// otherwise a write can land between the initial directory scan and fsnotify setup.
+	retry.UntilOrFail(t, func() bool {
+		return controller.source.HasSynced() && controller.queue.HasSynced()
+	}, retry.Timeout(2*time.Second))
+	return controller
 }
 
 func TestingBuildClientsFromConfig(kubeConfig []byte, c cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {

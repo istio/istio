@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/crd"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
+	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/util/file"
 )
 
@@ -46,12 +47,13 @@ func TestPilotResourceFilter(t *testing.T) {
 }
 
 func GatewayTest(t framework.TestContext) {
-	t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: gateway.networking.k8s.io/v1
+	i := istio.DefaultConfigOrFail(t, t)
+	t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{"gatewayClass": i.GatewayClassName}, `apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: gateway
 spec:
-  gatewayClassName: istio
+  gatewayClassName: {{.gatewayClass}}
   allowedListeners:
     namespaces:
       from: All
@@ -114,7 +116,7 @@ spec:
 			HTTP: echo.HTTP{
 				Headers: headers.New().WithHost("btlspolicy.example.com").Build(),
 			},
-			Address: fmt.Sprintf("gateway-istio.%s.svc.cluster.local", apps.Namespace.Name()),
+			Address: fmt.Sprintf("gateway-%s.%s.svc.cluster.local", i.GatewayClassName, apps.Namespace.Name()),
 			Check:   check.And(check.Status(200)),
 		})
 	})
@@ -186,7 +188,7 @@ spec:
 				Headers: headers.New().WithHost("changeheader.example.com").Build(),
 				Path:    "/path",
 			},
-			Address: fmt.Sprintf("gateway-istio.%s.svc.cluster.local", apps.Namespace.Name()),
+			Address: fmt.Sprintf("gateway-%s.%s.svc.cluster.local", i.GatewayClassName, apps.Namespace.Name()),
 			Check: check.And(
 				check.OK(),
 				check.RequestHeader("My-Added-Header", "added-value")),
@@ -238,7 +240,7 @@ spec:
 				Headers: headers.New().WithHost("wasmplugin.example.com").Build(),
 				Path:    "/",
 			},
-			Address: fmt.Sprintf("gateway-istio.%s.svc.cluster.local", apps.Namespace.Name()),
+			Address: fmt.Sprintf("gateway-%s.%s.svc.cluster.local", i.GatewayClassName, apps.Namespace.Name()),
 			Check:   check.Status(403), // WASMPlugin with error means a 403 here
 		})
 	})
