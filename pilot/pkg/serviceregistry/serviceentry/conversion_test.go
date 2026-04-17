@@ -613,7 +613,7 @@ func makeService(hostname host.Name, configName, configNamespace string, address
 		svc.AutoAllocatedIPv6Address = autoV6
 	}
 
-	if external && features.CanonicalServiceForMeshExternalServiceEntry {
+	if external && features.CanonicalServiceForMeshExternalServiceEntry.Load() {
 		if svc.Attributes.Labels == nil {
 			svc.Attributes.Labels = make(map[string]string)
 		}
@@ -737,7 +737,7 @@ func makeInstance(cfg *config.Config, workloadName string, addresses []string, p
 
 func TestConvertService(t *testing.T) {
 	testConvertServiceBody(t)
-	test.SetForTest(t, &features.CanonicalServiceForMeshExternalServiceEntry, true)
+	test.SetAtomicBoolForTest(t, features.CanonicalServiceForMeshExternalServiceEntry, true)
 	testConvertServiceBody(t)
 }
 

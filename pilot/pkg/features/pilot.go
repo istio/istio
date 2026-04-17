@@ -19,6 +19,8 @@ import (
 	"strings"
 	"time"
 
+	"go.uber.org/atomic"
+
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/jwt"
@@ -237,9 +239,9 @@ var (
 		return sets.New(strings.Split(v, ",")...)
 	}()
 
-	CanonicalServiceForMeshExternalServiceEntry = env.Register("LABEL_CANONICAL_SERVICES_FOR_MESH_EXTERNAL_SERVICE_ENTRIES", false,
+	CanonicalServiceForMeshExternalServiceEntry = atomic.NewBool(env.Register("LABEL_CANONICAL_SERVICES_FOR_MESH_EXTERNAL_SERVICE_ENTRIES", false,
 		"If enabled, metadata representing canonical services for ServiceEntry resources with a location of mesh_external will be populated"+
-			"in the cluster metadata for those endpoints.").Get()
+			"in the cluster metadata for those endpoints.").Get())
 
 	LocalClusterSecretWatcher = env.Register("LOCAL_CLUSTER_SECRET_WATCHER", false,
 		"If enabled, the cluster secret watcher will watch the namespace of the external cluster instead of config cluster").Get()
