@@ -296,7 +296,7 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 					if current, exists := plainTextServers[resolvedPort]; exists {
 						if !canMergeProtocols(serverProtocol, protocol.Parse(current.Protocol)) && current.Bind == serverPort.Bind {
 							log.Infof("skipping server on gateway %s port %s.%d.%s: conflict with existing server %d.%s",
-								gatewayConfig.Name, s.Port.Name, resolvedPort, s.Port.Protocol, serverPort.Number, serverPort.Protocol)
+								gatewayConfig.Name, s.Port.Name, resolvedPort, s.Port.Protocol, current.Number, current.Protocol)
 							RecordRejectedConfig(gatewayName)
 							continue
 						}
