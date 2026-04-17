@@ -231,9 +231,16 @@ func TestPemBundleHasSubsetRelation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	certC, err := readSampleCertFromFile("ca-cert-alt.pem")
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	bundleAB := append(append([]byte{}, certA...), certB...)
 	bundleBA := append(append([]byte{}, certB...), certA...)
+	bundleABC := append(append(append([]byte{}, certA...), certB...), certC...)
+	bundleCBA := append(append(append([]byte{}, certC...), certB...), certA...)
+	bundleAC := append(append([]byte{}, certA...), certC...)
 
 	cases := []struct {
 		name     string
@@ -293,6 +300,30 @@ func TestPemBundleHasSubsetRelation(t *testing.T) {
 			name:     "invalid pem",
 			a:        []byte("not a pem"),
 			b:        certA,
+			expected: false,
+		},
+		{
+			name:     "three certs rotation adds one",
+			a:        bundleABC,
+			b:        bundleAB,
+			expected: true,
+		},
+		{
+			name:     "three certs rotation removes one",
+			a:        bundleAB,
+			b:        bundleABC,
+			expected: true,
+		},
+		{
+			name:     "three certs reordered",
+			a:        bundleCBA,
+			b:        bundleABC,
+			expected: true,
+		},
+		{
+			name:     "three certs partial overlap not subset",
+			a:        bundleAC,
+			b:        bundleAB,
 			expected: false,
 		},
 	}
