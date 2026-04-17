@@ -26,6 +26,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"regexp"
 
 	"github.com/fsnotify/fsnotify"
 
@@ -46,6 +47,9 @@ var (
 	cacheLog = istiolog.RegisterScope("cache", "cache debugging")
 	// The total timeout for any credential retrieval process, default value of 10s is used.
 	totalTimeout = time.Second * 10
+	// kubeTimestampedDir matches kubelet timestamped staging directories used during secret
+	// rotation, e.g. ..2026_04_17_07_17_21.2769404793.
+	kubeTimestampedDir = regexp.MustCompile(`^\.\.[0-9]`)
 )
 
 const (
@@ -955,7 +959,8 @@ func (sc *SecretManagerClient) handleFileEvent(event fsnotify.Event, resources m
 		// Process symlinks (those with TargetPath set)
 		// Check if the event is for the symlink itself, its target file, or its directory
 		symlinkDir := filepath.Dir(fc.Filename)
-		if fc.Filename == event.Name || fc.TargetPath == event.Name || symlinkDir == event.Name {
+		kubeSecretMetadataEvent := isKubernetesSecretMetadataPath(event.Name, symlinkDir)
+		if fc.Filename == event.Name || fc.TargetPath == event.Name || symlinkDir == event.Name || kubeSecretMetadataEvent {
 			// If the symlink itself changed (removed/recreated), we need to re-resolve it
 			if fc.Filename == event.Name && (isRemove(event) || isCreate(event)) {
 				sc.handleSymlinkChange(fc)
@@ -977,6 +982,19 @@ func (sc *SecretManagerClient) handleFileEvent(event fsnotify.Event, resources m
 			if symlinkDir == event.Name {
 				// Always trigger for directory changes (including removal)
 				shouldTriggerUpdate = true
+			}
+
+			if kubeSecretMetadataEvent {
+				// Kubernetes secret volume rotation works by atomically swapping the ..data symlink
+				// to a new timestamped directory (e.g. ..2026_04_17_07_17_21.x). On second and
+				// subsequent rotations, only these metadata paths fire, not the cert files directly.
+				// Treat them as cert changes and trigger proxy updates.
+				shouldTriggerUpdate = true
+
+				// Keep target watcher path in sync when ..data link itself changes.
+				if filepath.Base(event.Name) == "..data" {
+					sc.handleSymlinkChange(fc)
+				}
 			}
 
 			if shouldTriggerUpdate {
@@ -1077,6 +1095,17 @@ func (sc *SecretManagerClient) handleSymlinkChange(fc FileCert) {
 
 func isWrite(event fsnotify.Event) bool {
 	return event.Has(fsnotify.Write)
+}
+
+// isKubernetesSecretMetadataPath reports whether eventPath is a kubelet secret
+// rotation metadata path inside symlinkDir (..data, ..data_tmp, or a timestamped
+// staging directory like ..2026_04_17_07_17_21.2769404793).
+func isKubernetesSecretMetadataPath(eventPath, symlinkDir string) bool {
+	if filepath.Dir(eventPath) != symlinkDir {
+		return false
+	}
+	base := filepath.Base(eventPath)
+	return base == "..data" || base == "..data_tmp" || kubeTimestampedDir.MatchString(base)
 }
 
 func isCreate(event fsnotify.Event) bool {
