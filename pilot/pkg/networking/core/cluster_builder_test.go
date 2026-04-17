@@ -2162,7 +2162,7 @@ func drWithLabels(lbls labels.Instance) *model.ConsolidatedDestRule {
 }
 
 func TestConcurrentBuildLocalityLbEndpoints(t *testing.T) {
-	test.SetForTest(t, &features.CanonicalServiceForMeshExternalServiceEntry, true)
+	test.SetAtomicBoolForTest(t, features.CanonicalServiceForMeshExternalServiceEntry, true)
 	proxy := &model.Proxy{
 		Metadata: &model.NodeMetadata{
 			ClusterID:            "cluster-1",
@@ -2370,7 +2370,7 @@ func TestConcurrentBuildLocalityLbEndpoints(t *testing.T) {
 }
 
 func TestConcurrentBuildLocalityLbEndpointsWithMulAddrs(t *testing.T) {
-	test.SetForTest(t, &features.CanonicalServiceForMeshExternalServiceEntry, true)
+	test.SetAtomicBoolForTest(t, features.CanonicalServiceForMeshExternalServiceEntry, true)
 	test.SetForTest(t, &features.EnableDualStack, true)
 	proxy := &model.Proxy{
 		Metadata: &model.NodeMetadata{
