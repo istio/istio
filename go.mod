@@ -95,9 +95,9 @@ require (
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
-	helm.sh/helm/v3 v3.20.2
-	istio.io/api v1.29.0-alpha.0.0.20260408154259-7cbe7cd4fb17
-	istio.io/client-go v1.29.0-alpha.0.0.20260408155302-51be81f3bac8
+	helm.sh/helm/v4 v4.1.3
+	istio.io/api v1.30.0-alpha.1.0.20260415171154-7fa57afdea51
+	istio.io/client-go v1.30.0-alpha.1.0.20260415171554-0d069047cd3c
 	k8s.io/api v0.35.3
 	k8s.io/apiextensions-apiserver v0.35.3
 	k8s.io/apimachinery v0.35.3
@@ -135,7 +135,6 @@ require (
 	github.com/containerd/typeurl/v2 v2.2.3 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.7 // indirect
 	github.com/creack/pty v1.1.24 // indirect
-	github.com/cyphar/filepath-securejoin v0.6.1 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.0 // indirect
 	github.com/dlclark/regexp2 v1.11.5 // indirect
 	github.com/docker/distribution v2.8.3+incompatible // indirect

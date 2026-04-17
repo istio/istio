@@ -25,8 +25,9 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
-	"helm.sh/helm/v3/pkg/chartutil"
-	"helm.sh/helm/v3/pkg/engine"
+	"helm.sh/helm/v4/pkg/chart/common"
+	commonutil "helm.sh/helm/v4/pkg/chart/common/util"
+	"helm.sh/helm/v4/pkg/engine"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/istioctl/pkg/install/k8sversion"
@@ -58,18 +59,18 @@ func renderWithOptions(releaseName, namespace, directory string, iop values.Map,
 		return nil, nil, fmt.Errorf("load chart: %v", err)
 	}
 
-	options := chartutil.ReleaseOptions{
+	options := common.ReleaseOptions{
 		Name:      releaseName,
 		Namespace: namespace,
 		IsUpgrade: isUpgrade,
 		IsInstall: !isUpgrade,
 	}
 
-	caps := *chartutil.DefaultCapabilities
-	operatorVersion, _ := chartutil.ParseKubeVersion("1." + strconv.Itoa(k8sversion.MinK8SVersion) + ".0")
+	caps := *common.DefaultCapabilities
+	operatorVersion, _ := common.ParseKubeVersion("1." + strconv.Itoa(k8sversion.MinK8SVersion) + ".0")
 	caps.KubeVersion = *operatorVersion
 
-	helmVals, err := chartutil.ToRenderValues(chrt, vals, options, &caps)
+	helmVals, err := commonutil.ToRenderValues(chrt, vals, options, &caps)
 	if err != nil {
 		return nil, nil, fmt.Errorf("converting values: %v", err)
 	}
