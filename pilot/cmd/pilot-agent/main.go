@@ -17,6 +17,9 @@ package main
 import (
 	"os"
 
+	// Import automemlimit to automatically set GOMEMLIMIT to 90% of cgroup memory limit
+	_ "github.com/KimMachineGun/automemlimit"
+
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd/pilot-agent/app"
 	istioagent "istio.io/istio/pkg/istio-agent"
