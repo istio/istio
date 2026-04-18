@@ -75,7 +75,7 @@ spec:
     spec:
       containers:
       - name: primary
-        image: busybox
+        image: busybox:1.28
         command: ["httpd", "-f", "-p", "8080", "-h", "/www"]
         ports:
         - containerPort: 8080
@@ -83,7 +83,7 @@ spec:
         - name: primary-metrics
           mountPath: /www
       - name: secondary
-        image: busybox
+        image: busybox:1.28
         command: ["httpd", "-f", "-p", "9100", "-h", "/www"]
         ports:
         - containerPort: 9100
@@ -120,7 +120,7 @@ spec:
     spec:
       containers:
       - name: primary
-        image: busybox
+        image: busybox:1.28
         command: ["httpd", "-f", "-p", "8080", "-h", "/www"]
         ports:
         - containerPort: 8080
@@ -128,7 +128,7 @@ spec:
         - name: primary-metrics
           mountPath: /www
       - name: noop
-        image: busybox
+        image: busybox:1.28
         command: ["sleep", "infinity"]
       volumes:
       - name: primary-metrics
@@ -178,7 +178,7 @@ func TestMultiPortMetricsMerge(t *testing.T) {
 
 // TestMultiPortMetricsMergePartialFailure verifies that when one of the scrape
 // targets is unreachable the pilot-agent still serves metrics from the healthy
-// target and increments the AppScrapeErrors counter exactly once per scrape.
+// target and increments the AppScrapeErrors counter at least once.
 func TestMultiPortMetricsMergePartialFailure(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
