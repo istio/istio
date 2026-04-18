@@ -665,8 +665,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 			format, appBodies = s.scrapeMultipleApps(r)
 		} else {
 			var contentType string
-			url := fmt.Sprintf("http://localhost:%s%s", s.prometheus.Port, s.prometheus.Path)
-			if application, appCancel, contentType, err = s.scrape(url, r.Header); err != nil {
+			if application, appCancel, contentType, err = s.scrape(appMetricsURL(s.prometheus.Port, s.prometheus.Path), r.Header); err != nil {
 				log.Errorf("failed scraping application metrics: %v", err)
 				metrics.AppScrapeErrors.Increment()
 			}
@@ -746,20 +745,19 @@ func (s *Server) scrapeMultipleApps(r *http.Request) (expfmt.Format, [][]byte) {
 		wg.Add(1)
 		go func(idx int, tgt ScrapeTarget) {
 			defer wg.Done()
-			url := fmt.Sprintf("http://localhost:%s%s", tgt.Port, tgt.Path)
-			body, cancel, contentType, err := s.scrape(url, r.Header)
+			body, cancel, contentType, err := s.scrape(appMetricsURL(tgt.Port, tgt.Path), r.Header)
 			if cancel != nil {
 				defer cancel()
 			}
 			if err != nil {
-				log.Errorf("failed scraping application metrics from %s: %v", url, err)
+				log.Errorf("failed scraping application metrics from %s:%s: %v", tgt.Port, tgt.Path, err)
 				metrics.AppScrapeErrors.Increment()
 				return
 			}
 			defer body.Close()
 			buf, readErr := io.ReadAll(body)
 			if readErr != nil {
-				log.Errorf("failed reading application metrics from %s: %v", url, readErr)
+				log.Errorf("failed reading application metrics from %s:%s: %v", tgt.Port, tgt.Path, readErr)
 				metrics.AppScrapeErrors.Increment()
 				return
 			}
@@ -777,6 +775,10 @@ func (s *Server) scrapeMultipleApps(r *http.Request) (expfmt.Format, [][]byte) {
 		}
 	}
 	return format, bodies
+}
+
+func appMetricsURL(port, path string) string {
+	return fmt.Sprintf("http://localhost:%s%s", port, path)
 }
 
 // stripOpenMetricsEOF removes the trailing "# EOF" line from an OpenMetrics exposition,
