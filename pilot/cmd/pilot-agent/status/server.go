@@ -15,6 +15,7 @@
 package status
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"encoding/json"
@@ -648,16 +649,24 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Scrape app metrics if defined and capture their format
+	// Scrape app metrics if defined and capture their format.
+	// Single-target case keeps the streaming io.Copy hot path. Multi-target case fans out
+	// one scrape per entry in s.prometheus.Targets concurrently, buffers each response so
+	// we can strip redundant OpenMetrics # EOF trailers, and writes them in Targets order.
 	var format expfmt.Format
+	var appBodies [][]byte
 	if s.prometheus != nil {
-		var contentType string
-		url := fmt.Sprintf("http://localhost:%s%s", s.prometheus.Port, s.prometheus.Path)
-		if application, appCancel, contentType, err = s.scrape(url, r.Header); err != nil {
-			log.Errorf("failed scraping application metrics: %v", err)
-			metrics.AppScrapeErrors.Increment()
+		if len(s.prometheus.Targets) > 1 {
+			format, appBodies = s.scrapeMultipleApps(r)
+		} else {
+			var contentType string
+			url := fmt.Sprintf("http://localhost:%s%s", s.prometheus.Port, s.prometheus.Path)
+			if application, appCancel, contentType, err = s.scrape(url, r.Header); err != nil {
+				log.Errorf("failed scraping application metrics: %v", err)
+				metrics.AppScrapeErrors.Increment()
+			}
+			format = negotiateMetricsFormat(contentType)
 		}
-		format = negotiateMetricsFormat(contentType)
 	} else {
 		// Without app metrics format use a default
 		format = FmtText
@@ -688,6 +697,90 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 			metrics.AppScrapeErrors.Increment()
 		}
 	}
+	if appBodies != nil {
+		// Multi-target path: write each target's buffered body in Targets order.
+		// EOF-handling rule:
+		//   - When the negotiated response format is OpenMetrics, keep exactly one "# EOF" at
+		//     the very end: strip it from every body except the final successful one.
+		//   - When the response is text, strip "# EOF" from every body unconditionally because
+		//     a text exposition does not carry OpenMetrics-specific terminators.
+		openMetrics := strings.HasPrefix(string(format), expfmt.OpenMetricsType)
+		lastSuccess := -1
+		for i, body := range appBodies {
+			if body != nil {
+				lastSuccess = i
+			}
+		}
+		for i, body := range appBodies {
+			if body == nil {
+				continue
+			}
+			out := body
+			if !openMetrics || i != lastSuccess {
+				out = stripOpenMetricsEOF(body)
+			}
+			if _, werr := w.Write(out); werr != nil {
+				log.Errorf("failed writing application metrics from target %d: %v", i, werr)
+				metrics.AppScrapeErrors.Increment()
+			}
+		}
+	}
+}
+
+// scrapeMultipleApps fans out one scrape per entry in s.prometheus.Targets concurrently and
+// returns the bodies indexed by Targets position. Failed targets are represented by nil entries;
+// each failure increments metrics.AppScrapeErrors once. The returned format is the first successful
+// target's negotiated format (which matches Targets[0] when Targets[0] succeeds), falling back to
+// FmtText when no target succeeds.
+func (s *Server) scrapeMultipleApps(r *http.Request) (expfmt.Format, [][]byte) {
+	bodies := make([][]byte, len(s.prometheus.Targets))
+	contentTypes := make([]string, len(s.prometheus.Targets))
+	var wg sync.WaitGroup
+	for i, t := range s.prometheus.Targets {
+		wg.Add(1)
+		go func(idx int, tgt ScrapeTarget) {
+			defer wg.Done()
+			url := fmt.Sprintf("http://localhost:%s%s", tgt.Port, tgt.Path)
+			body, cancel, contentType, err := s.scrape(url, r.Header)
+			if cancel != nil {
+				defer cancel()
+			}
+			if err != nil {
+				log.Errorf("failed scraping application metrics from %s: %v", url, err)
+				metrics.AppScrapeErrors.Increment()
+				return
+			}
+			defer body.Close()
+			buf, readErr := io.ReadAll(body)
+			if readErr != nil {
+				log.Errorf("failed reading application metrics from %s: %v", url, readErr)
+				metrics.AppScrapeErrors.Increment()
+				return
+			}
+			bodies[idx] = buf
+			contentTypes[idx] = contentType
+		}(i, t)
+	}
+	wg.Wait()
+
+	var format expfmt.Format = FmtText
+	for i := range bodies {
+		if bodies[i] != nil {
+			format = negotiateMetricsFormat(contentTypes[i])
+			break
+		}
+	}
+	return format, bodies
+}
+
+// stripOpenMetricsEOF removes the trailing "# EOF" line from an OpenMetrics exposition,
+// leaving the rest of the body intact. Tolerant of trailing whitespace and \r\n line endings.
+func stripOpenMetricsEOF(body []byte) []byte {
+	trimmed := bytes.TrimRight(body, " \t\r\n")
+	if bytes.HasSuffix(trimmed, []byte("# EOF")) {
+		return trimmed[:len(trimmed)-len("# EOF")]
+	}
+	return body
 }
 
 const (

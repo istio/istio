@@ -686,6 +686,224 @@ func TestStatsError(t *testing.T) {
 	}
 }
 
+// TestStatsMultiTarget exercises the concurrent fan-out path in handleStats when
+// s.prometheus.Targets contains more than one entry. The single-target path is covered
+// by TestStats above and must remain byte-for-byte unchanged.
+func TestStatsMultiTarget(t *testing.T) {
+	// Each target's response is defined by body + optional content-type + fail flag.
+	type targetSpec struct {
+		body        string
+		contentType string // empty → default text/plain
+		fail        bool   // when true, handler returns 500
+	}
+	cases := []struct {
+		name             string
+		envoy            string
+		targets          []targetSpec
+		containsOrdered  []string // substrings that must appear in output in this exact order
+		mustNotContain   []string
+		mustContain      []string
+		expectEOFCount   int  // expected count of "# EOF" lines in the merged output; -1 = don't check
+		expectParseOM    bool // if true, parse merged output as OpenMetrics
+		expectParseText  bool // if true, parse merged output as text
+		expectParseError bool
+	}{
+		{
+			name: "two text targets with disjoint metrics merge in target order",
+			targets: []targetSpec{
+				{body: "# TYPE metric_a counter\nmetric_a{} 1\n"},
+				{body: "# TYPE metric_b counter\nmetric_b{} 2\n"},
+			},
+			containsOrdered: []string{"metric_a{} 1", "metric_b{} 2"},
+			expectEOFCount:  0,
+			expectParseText: true,
+		},
+		{
+			name: "three text targets preserve Targets-slice order even when goroutines race",
+			targets: []targetSpec{
+				{body: "# TYPE metric_zero counter\nmetric_zero{} 0\n"},
+				{body: "# TYPE metric_one counter\nmetric_one{} 1\n"},
+				{body: "# TYPE metric_two counter\nmetric_two{} 2\n"},
+			},
+			containsOrdered: []string{"metric_zero", "metric_one", "metric_two"},
+			expectEOFCount:  0,
+			expectParseText: true,
+		},
+		{
+			name: "two OpenMetrics targets emit exactly one # EOF at the end",
+			targets: []targetSpec{
+				{
+					body:        "# TYPE metric_a counter\n# HELP metric_a desc\nmetric_a_total 1\n# EOF\n",
+					contentType: string(FmtOpenMetrics_1_0_0),
+				},
+				{
+					body:        "# TYPE metric_b counter\n# HELP metric_b desc\nmetric_b_total 2\n# EOF\n",
+					contentType: string(FmtOpenMetrics_1_0_0),
+				},
+			},
+			containsOrdered: []string{"metric_a", "metric_b"},
+			mustContain:     []string{"# EOF"},
+			expectEOFCount:  1,
+			expectParseOM:   true,
+		},
+		{
+			name: "one failing target does not prevent successful targets from appearing",
+			targets: []targetSpec{
+				{body: "# TYPE metric_ok counter\nmetric_ok{} 7\n"},
+				{fail: true},
+			},
+			mustContain:     []string{"metric_ok{} 7"},
+			expectEOFCount:  0,
+			expectParseText: true,
+		},
+		{
+			name: "all failing targets still return 200 with envoy + agent metrics",
+			envoy: `# TYPE envoy_metric counter
+envoy_metric{} 9
+`,
+			targets: []targetSpec{
+				{fail: true},
+				{fail: true},
+			},
+			mustContain: []string{"envoy_metric{} 9"},
+			// agent metric baked into the agent registry
+			expectEOFCount:  0,
+			expectParseText: true,
+		},
+		{
+			name: "Targets[0] failure falls back to first successful target's format",
+			targets: []targetSpec{
+				{fail: true},
+				{
+					body:        "# TYPE metric_fallback counter\nmetric_fallback_total 3\n# EOF\n",
+					contentType: string(FmtOpenMetrics_1_0_0),
+				},
+			},
+			mustContain:    []string{"metric_fallback_total 3", "# EOF"},
+			expectEOFCount: 1,
+			expectParseOM:  true,
+		},
+		{
+			name: "mixed formats — Targets[0] is text so response is text and OM target's EOF is stripped",
+			targets: []targetSpec{
+				{body: "# TYPE metric_text counter\nmetric_text{} 4\n"},
+				{
+					body:        "# TYPE metric_om counter\n# HELP metric_om desc\nmetric_om_total 5\n# EOF\n",
+					contentType: string(FmtOpenMetrics_1_0_0),
+				},
+			},
+			mustContain:     []string{"metric_text{} 4", "metric_om_total 5"},
+			mustNotContain:  []string{"# EOF"},
+			expectEOFCount:  0,
+			expectParseText: true,
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			envoyServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if _, err := w.Write([]byte(tt.envoy)); err != nil {
+					t.Fatalf("envoy write failed: %v", err)
+				}
+			}))
+			defer envoyServer.Close()
+
+			targets := make([]ScrapeTarget, 0, len(tt.targets))
+			for _, spec := range tt.targets {
+				spec := spec
+				srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					if spec.fail {
+						w.WriteHeader(http.StatusInternalServerError)
+						return
+					}
+					if spec.contentType != "" {
+						w.Header().Set("Content-Type", spec.contentType)
+					}
+					if _, err := w.Write([]byte(spec.body)); err != nil {
+						t.Fatalf("target write failed: %v", err)
+					}
+				}))
+				defer srv.Close()
+				port := strings.Split(srv.URL, ":")[2]
+				targets = append(targets, ScrapeTarget{Port: port, Path: "/metrics"})
+			}
+
+			envoyPort, err := strconv.Atoi(strings.Split(envoyServer.URL, ":")[2])
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// Mirror the first target into legacy Port/Path so the hot path would also work,
+			// matching what NewServer() produces after PR 1 normalization.
+			server := &Server{
+				prometheus: &PrometheusScrapeConfiguration{
+					Port:    targets[0].Port,
+					Path:    targets[0].Path,
+					Targets: targets,
+				},
+				envoyStatsPort: envoyPort,
+				http:           &http.Client{},
+				registry:       TestingRegistry(t),
+			}
+
+			rec := httptest.NewRecorder()
+			server.handleStats(rec, &http.Request{})
+			if rec.Code != 200 {
+				t.Fatalf("handleStats() => %v; want 200", rec.Code)
+			}
+
+			body := rec.Body.String()
+
+			for _, s := range tt.mustContain {
+				if !strings.Contains(body, s) {
+					t.Errorf("body missing %q; body:\n%s", s, body)
+				}
+			}
+			for _, s := range tt.mustNotContain {
+				if strings.Contains(body, s) {
+					t.Errorf("body must not contain %q; body:\n%s", s, body)
+				}
+			}
+			// Assert Targets-order preservation via ascending substring indices.
+			lastIdx := -1
+			for _, s := range tt.containsOrdered {
+				idx := strings.Index(body, s)
+				if idx < 0 {
+					t.Errorf("body missing ordered substring %q; body:\n%s", s, body)
+					continue
+				}
+				if idx < lastIdx {
+					t.Errorf("substring %q at index %d appeared before earlier target (last index %d); body:\n%s", s, idx, lastIdx, body)
+				}
+				lastIdx = idx
+			}
+			if tt.expectEOFCount >= 0 {
+				if got := strings.Count(body, "# EOF"); got != tt.expectEOFCount {
+					t.Errorf("# EOF count = %d, want %d; body:\n%s", got, tt.expectEOFCount, body)
+				}
+			}
+			if tt.expectParseText {
+				parser := expfmt.NewTextParser(model.LegacyValidation)
+				if _, err := parser.TextToMetricFamilies(strings.NewReader(body)); err != nil && !tt.expectParseError {
+					t.Fatalf("text parse failed: %v; body:\n%s", err, body)
+				}
+			}
+			if tt.expectParseOM {
+				omp := textparse.NewOpenMetricsParser(rec.Body.Bytes(), labels.NewSymbolTable())
+				for {
+					_, perr := omp.Next()
+					if perr == io.EOF {
+						break
+					}
+					if perr != nil {
+						t.Fatalf("openmetrics parse failed: %v; body:\n%s", perr, body)
+					}
+				}
+			}
+		})
+	}
+}
+
 // initServerWithSize size is kB
 func initServerWithSize(t *testing.B, size int) *Server {
 	appText := `# TYPE jvm info

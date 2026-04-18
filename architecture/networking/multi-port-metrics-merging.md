@@ -126,60 +126,83 @@ app endpoint   →  scrape() → io.Copy
 
 All sequential. The response writer is the only synchronization point. `handleStats` never returns an HTTP error; any scrape failure is logged and skipped.
 
-### Proposed behavior (N≥1)
+### Proposed behavior (N > 1)
 
-Fan out app endpoint scrapes concurrently, then stream results into the response writer in deterministic order:
-
-```go
-type scraped struct {
-    body        io.ReadCloser
-    contentType string
-    err         error
-}
-
-results := make([]scraped, len(targets))
-var wg sync.WaitGroup
-for i, target := range targets {
-    wg.Add(1)
-    go func(i int, t ScrapeTarget) {
-        defer wg.Done()
-        url := fmt.Sprintf("http://localhost:%s%s", t.Port, t.Path)
-        body, cancel, ct, err := s.scrape(url, r.Header)
-        results[i] = scraped{body, ct, err}
-        if cancel != nil { defer cancel() }  // lifetime tied to handleStats return
-    }(i, target)
-}
-wg.Wait()
-```
-
-Then stream in order after Envoy stats:
+When `len(s.prometheus.Targets) > 1`, `handleStats` dispatches to a fan-out helper that scrapes every target concurrently, buffers each response, and writes them into the response in `Targets` order. The single-target case (`len(Targets) <= 1`) keeps the existing streaming `io.Copy` hot path byte-for-byte unchanged, so legacy pods pay no concurrency or buffering overhead.
 
 ```go
-for i, res := range results {
-    if res.err != nil {
-        appScrapeErrors.Increment()
-        log.Warnf("failed to scrape app target %d: %v", i, res.err)
-        continue
+func (s *Server) scrapeMultipleApps(r *http.Request) (expfmt.Format, [][]byte) {
+    bodies := make([][]byte, len(s.prometheus.Targets))
+    contentTypes := make([]string, len(s.prometheus.Targets))
+    var wg sync.WaitGroup
+    for i, t := range s.prometheus.Targets {
+        wg.Add(1)
+        go func(idx int, tgt ScrapeTarget) {
+            defer wg.Done()
+            url := fmt.Sprintf("http://localhost:%s%s", tgt.Port, tgt.Path)
+            body, cancel, ct, err := s.scrape(url, r.Header)
+            if cancel != nil { defer cancel() }
+            if err != nil {
+                metrics.AppScrapeErrors.Increment()
+                return
+            }
+            defer body.Close()
+            buf, readErr := io.ReadAll(body)
+            if readErr != nil {
+                metrics.AppScrapeErrors.Increment()
+                return
+            }
+            bodies[idx] = buf
+            contentTypes[idx] = ct
+        }(i, t)
     }
-    if i < len(results)-1 || format == FmtText {
-        // strip # EOF so it only appears on the final write
-        io.Copy(w, newEOFStrippingReader(res.body))
-    } else {
-        io.Copy(w, res.body)
+    wg.Wait()
+    // Pick the first successful target's format. With Targets[0] typically succeeding, this
+    // reduces to Targets[0]'s format and preserves single-target semantics.
+    format := FmtText
+    for i := range bodies {
+        if bodies[i] != nil {
+            format = negotiateMetricsFormat(contentTypes[i])
+            break
+        }
     }
-    res.body.Close()
+    return format, bodies
 }
 ```
 
-**`newEOFStrippingReader`** is a thin `io.Reader` wrapper that drops lines equal to `# EOF\n` during streaming — no buffering of the full body required.
+After agent-internal and Envoy metrics are written, the buffered app bodies are written in `Targets` order:
 
-**Per-endpoint timeout:** The incoming `X-Prometheus-Scrape-Timeout-Seconds` value is already forwarded in `scrape()`. With N concurrent goroutines all sharing the same context derived from the header, each endpoint gets the same wall-clock deadline. This matches how Prometheus handles parallel scrapes across targets — total timeout, not per-target.
+```go
+openMetrics := strings.HasPrefix(string(format), expfmt.OpenMetricsType)
+lastSuccess := -1
+for i, b := range appBodies {
+    if b != nil { lastSuccess = i }
+}
+for i, body := range appBodies {
+    if body == nil { continue }
+    out := body
+    if !openMetrics || i != lastSuccess {
+        out = stripOpenMetricsEOF(body)
+    }
+    w.Write(out)
+}
+```
 
-**Best-effort semantics:** A failed endpoint increments `metrics.AppScrapeErrors` and is skipped. Other endpoints are unaffected. This is consistent with the existing philosophy ("we do not return any errors here; if we do, we will drop metrics").
+**Ordering:** Results are written by `Targets` position (indexed slice, not completion order), so the response is deterministic regardless of which goroutine finishes first.
 
-**Format negotiation:** If any endpoint returns `application/openmetrics-text`, the response `Content-Type` is set to openmetrics. The `# EOF` stripping only applies to non-terminal endpoints; the last successfully scraped app endpoint writes its body as-is (preserving EOF if present). If all app endpoints fail, falls back to the existing behavior (text/plain, Envoy + agent only).
+**Buffering vs. streaming:** Each body is read into memory because (a) the `# EOF` stripping rule below needs to inspect the trailer, and (b) writing in `Targets` order requires waiting for all goroutines anyway. `N` is expected to be small (≤10 in practice); memory cost is bounded by `N × response size`.
 
-**Metric family name conflicts:** Two app containers advertising the same metric family name will still produce a Prometheus parse error — same behavior as today with Envoy vs. app conflicts. Deduplication is out of scope for this change; the existing `TestStats` conflict test cases document this.
+**Per-endpoint timeout:** The incoming `X-Prometheus-Scrape-Timeout-Seconds` value is forwarded per-goroutine via `scrape()`. Each target gets its own context and cancel function.
+
+**Best-effort semantics:** A failed target (scrape error or read error) leaves `bodies[i] == nil`, increments `metrics.AppScrapeErrors` once, and does not abort the response. The merged output still returns 200 with partial data, consistent with the existing "we do not return any errors here" philosophy.
+
+**Format negotiation:** The response `Content-Type` is the negotiated format of the first successful target. Because `Targets[0]` is treated as the primary endpoint (matching the legacy single-port contract), this equals `Targets[0]`'s format when `Targets[0]` succeeds, and falls back to the first successful target otherwise, or `FmtText` if every target fails.
+
+**OpenMetrics `# EOF` handling:**
+- When the negotiated response format is OpenMetrics, keep exactly one `# EOF` at the end: `stripOpenMetricsEOF` removes it from every body except the final successful one.
+- When the response is text, strip `# EOF` from every body unconditionally; a text exposition must not carry OpenMetrics-specific terminators.
+
+**Metric family name conflicts:** Two targets advertising the same metric family name will still produce a Prometheus parse error at the consumer, same as today's Envoy vs. app conflict behavior. Deduplication is out of scope; users are responsible for keeping target metric namespaces disjoint. The existing `TestStats` conflict test cases document this contract.
 
 ---
 
