@@ -275,17 +275,22 @@ func NewServer(config Options) (*Server, error) {
 					s.prometheus.Path = s.prometheus.Targets[0].Path
 				}
 			}
-			// Default path and validate every target port.
-			statusPortStr := strconv.Itoa(int(config.StatusPort))
+			// Default path and validate every target port numerically to catch leading-zero
+			// representations (e.g. "015020" dials 15020 at runtime but != "15020" as a string).
 			for i, t := range s.prometheus.Targets {
 				if t.Path == "" {
 					s.prometheus.Targets[i].Path = "/metrics"
 				}
-				if t.Port == statusPortStr {
+				portNum, atoiErr := strconv.Atoi(t.Port)
+				if atoiErr != nil || portNum < 1 || portNum > 65535 {
+					return nil, fmt.Errorf("invalid prometheus scrape configuration: "+
+						"invalid target port %q", t.Port)
+				}
+				if portNum == int(config.StatusPort) {
 					return nil, fmt.Errorf("invalid prometheus scrape configuration: "+
 						"target port %s is the same as agent port, which may lead to a recursive loop", t.Port)
 				}
-				if reason, reserved := IstioReservedPortReason(t.Port); reserved {
+				if reason, reserved := IstioReservedPortReason(strconv.Itoa(portNum)); reserved {
 					return nil, fmt.Errorf("invalid prometheus scrape configuration: "+
 						"target port %s is reserved for Istio (%s) and cannot be scraped", t.Port, reason)
 				}
@@ -700,27 +705,28 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	if appBodies != nil {
 		// Multi-target path: write each target's buffered body in Targets order.
 		// EOF-handling rule:
-		//   - When the negotiated response format is OpenMetrics, keep exactly one "# EOF" at
-		//     the very end: strip it from every body except the final successful one.
-		//   - When the response is text, strip "# EOF" from every body unconditionally because
-		//     a text exposition does not carry OpenMetrics-specific terminators.
+		//   - Strip "# EOF" from every body unconditionally.
+		//   - When the negotiated format is OpenMetrics, append a single "# EOF\n" after
+		//     all bodies. When the format is text, no terminator is appended.
+		// Newline rule: ensure a "\n" separates concatenated bodies in case a target
+		// response does not end with one.
 		openMetrics := strings.HasPrefix(string(format), expfmt.OpenMetricsType)
-		lastSuccess := -1
-		for i, body := range appBodies {
-			if body != nil {
-				lastSuccess = i
-			}
-		}
 		for i, body := range appBodies {
 			if body == nil {
 				continue
 			}
-			out := body
-			if !openMetrics || i != lastSuccess {
-				out = stripOpenMetricsEOF(body)
+			out := stripOpenMetricsEOF(body)
+			if len(out) > 0 && out[len(out)-1] != '\n' {
+				out = append(out, '\n')
 			}
 			if _, werr := w.Write(out); werr != nil {
 				log.Errorf("failed writing application metrics from target %d: %v", i, werr)
+				metrics.AppScrapeErrors.Increment()
+			}
+		}
+		if openMetrics {
+			if _, werr := w.Write([]byte("# EOF\n")); werr != nil {
+				log.Errorf("failed writing application metrics EOF marker: %v", werr)
 				metrics.AppScrapeErrors.Increment()
 			}
 		}

@@ -810,7 +810,6 @@ envoy_metric{} 9
 
 			targets := make([]ScrapeTarget, 0, len(tt.targets))
 			for _, spec := range tt.targets {
-				spec := spec
 				srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					if spec.fail {
 						w.WriteHeader(http.StatusInternalServerError)
@@ -824,11 +823,18 @@ envoy_metric{} 9
 					}
 				}))
 				defer srv.Close()
-				port := strings.Split(srv.URL, ":")[2]
+				_, port, err := net.SplitHostPort(strings.TrimPrefix(srv.URL, "http://"))
+				if err != nil {
+					t.Fatalf("split host port: %v", err)
+				}
 				targets = append(targets, ScrapeTarget{Port: port, Path: "/metrics"})
 			}
 
-			envoyPort, err := strconv.Atoi(strings.Split(envoyServer.URL, ":")[2])
+			_, envoyPortStr, err := net.SplitHostPort(strings.TrimPrefix(envoyServer.URL, "http://"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			envoyPort, err := strconv.Atoi(envoyPortStr)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -2058,6 +2064,21 @@ func TestNewServerPrometheusNormalization(t *testing.T) {
 			envJSON:     `{"scrape":"true","targets":[{"port":"8080","path":"/metrics"}]}`,
 			wantPort:    "8080",
 			wantTargets: []ScrapeTarget{{Port: "8080", Path: "/metrics"}},
+		},
+		{
+			name:    "leading-zero port equal to status port is rejected by numeric comparison",
+			envJSON: `{"scrape":"true","targets":[{"port":"015020","path":"/metrics"}]}`,
+			wantErr: true,
+		},
+		{
+			name:    "leading-zero reserved port is rejected by numeric comparison",
+			envJSON: `{"scrape":"true","targets":[{"port":"015000","path":"/metrics"}]}`,
+			wantErr: true,
+		},
+		{
+			name:    "non-numeric port is rejected",
+			envJSON: `{"scrape":"true","targets":[{"port":"abc","path":"/metrics"}]}`,
+			wantErr: true,
 		},
 	}
 	for _, tt := range cases {

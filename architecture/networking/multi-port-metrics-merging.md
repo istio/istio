@@ -249,7 +249,7 @@ This PR is purely additive; with `Targets` populated but `handleStats` still onl
 
 **PR 2 — Concurrent fan-out in `handleStats`**
 - Replace single-endpoint block with goroutine fan-out
-- `newEOFStrippingReader` for OpenMetrics interop
+- `stripOpenMetricsEOF` helper for OpenMetrics interop
 - Update `handleStats` to read from `s.prometheus.Targets`
 - Unit tests: multi-endpoint happy path, partial failure, format negotiation
 - This PR requires PR 1 to be merged first (depends on `Targets` field)
