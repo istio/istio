@@ -93,7 +93,7 @@ Replace the single-endpoint block with a concurrent fan-out (see Merge Strategy 
 After reading the existing three `prometheus.io/*` annotations, also check `prometheus.istio.io/scrape-targets`:
 
 ```go
-const prometheusIstioTargetsAnnotation = "prometheus_istio_io_scrape-targets"
+const prometheusIstioTargetsAnnotation = "prometheus_istio_io_scrape_targets"
 
 // in switch:
 case prometheusIstioTargetsAnnotation:

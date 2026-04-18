@@ -250,20 +250,29 @@ func NewServer(config Options) (*Server, error) {
 		log.Infof("Prometheus scraping configuration: %v", prom)
 		if prom.Scrape != "false" {
 			s.prometheus = &prom
-			if s.prometheus.Path == "" {
-				s.prometheus.Path = "/metrics"
-			}
-			if s.prometheus.Port == "" {
-				s.prometheus.Port = "80"
-			}
-			if s.prometheus.Port == strconv.Itoa(int(config.StatusPort)) {
-				return nil, fmt.Errorf("invalid prometheus scrape configuration: "+
-					"application port is the same as agent port, which may lead to a recursive loop. "+
-					"Ensure pod does not have prometheus.io/port=%d label, or that injection is not happening multiple times", config.StatusPort)
-			}
-			// Synthesize Targets from legacy Port/Path when not already populated.
-			if len(s.prometheus.Targets) == 0 && s.prometheus.Port != "" {
+			if len(s.prometheus.Targets) == 0 {
+				// Legacy path: apply defaults and synthesize a single Targets entry.
+				if s.prometheus.Path == "" {
+					s.prometheus.Path = "/metrics"
+				}
+				if s.prometheus.Port == "" {
+					s.prometheus.Port = "80"
+				}
+				if s.prometheus.Port == strconv.Itoa(int(config.StatusPort)) {
+					return nil, fmt.Errorf("invalid prometheus scrape configuration: "+
+						"application port is the same as agent port, which may lead to a recursive loop. "+
+						"Ensure pod does not have prometheus.io/port=%d label, or that injection is not happening multiple times", config.StatusPort)
+				}
 				s.prometheus.Targets = []ScrapeTarget{{Port: s.prometheus.Port, Path: s.prometheus.Path}}
+			} else {
+				// New-format path: populate legacy Port/Path from Targets[0] if absent so that
+				// handleStats (which reads Port/Path directly) scrapes the primary endpoint correctly.
+				if s.prometheus.Port == "" {
+					s.prometheus.Port = s.prometheus.Targets[0].Port
+				}
+				if s.prometheus.Path == "" {
+					s.prometheus.Path = s.prometheus.Targets[0].Path
+				}
 			}
 			// Default path and validate every target port.
 			statusPortStr := strconv.Itoa(int(config.StatusPort))

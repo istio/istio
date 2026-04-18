@@ -1835,6 +1835,12 @@ func TestNewServerPrometheusNormalization(t *testing.T) {
 			wantPort:    "8080",
 			wantTargets: []ScrapeTarget{{Port: "9100", Path: "/custom"}},
 		},
+		{
+			name:        "new-format JSON with targets but no top-level port syncs Port from Targets[0]",
+			envJSON:     `{"scrape":"true","targets":[{"port":"8080","path":"/metrics"}]}`,
+			wantPort:    "8080",
+			wantTargets: []ScrapeTarget{{Port: "8080", Path: "/metrics"}},
+		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {

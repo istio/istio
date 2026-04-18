@@ -1717,6 +1717,39 @@ func TestApplyPrometheusMergeScrapeTargets(t *testing.T) {
 		}
 	})
 
+	t.Run("legacy port equal to agent port triggers no-op via early-return guard", func(t *testing.T) {
+		// When prometheus.io/port already points at the agent (15020), applyPrometheusMerge treats
+		// the pod as already-injected and returns nil without rewriting annotations. This is the
+		// existing re-injection guard; no error is expected or desired.
+		agentPort := strconv.Itoa(int(meshCfg.GetDefaultConfig().GetStatusPort()))
+		pod := newPod(map[string]string{
+			"prometheus.io/scrape": "true",
+			"prometheus.io/port":   agentPort,
+		})
+		err := applyPrometheusMerge(pod, meshCfg)
+		if err != nil {
+			t.Fatalf("expected nil (no-op early return), got %v", err)
+		}
+		// Pod annotations must NOT be rewritten by the merge.
+		if got := pod.Annotations["prometheus.io/port"]; got != agentPort {
+			t.Errorf("prometheus.io/port = %q, want %q (unchanged)", got, agentPort)
+		}
+	})
+
+	t.Run("legacy reserved port rejected at injection time", func(t *testing.T) {
+		pod := newPod(map[string]string{
+			"prometheus.io/scrape": "true",
+			"prometheus.io/port":   "15000",
+		})
+		err := applyPrometheusMerge(pod, meshCfg)
+		if err == nil {
+			t.Fatal("expected error for reserved port 15000 in legacy annotation, got nil")
+		}
+		if !strings.Contains(err.Error(), "15000") || !strings.Contains(err.Error(), "reserved for Istio") {
+			t.Errorf("error = %v, want one mentioning port 15000 and Istio-reserved", err)
+		}
+	})
+
 	t.Run("happy path strips prometheus.istio.io/scrape-targets annotation", func(t *testing.T) {
 		pod := newPod(map[string]string{
 			"prometheus.io/scrape":               "true",

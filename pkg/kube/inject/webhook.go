@@ -908,6 +908,14 @@ func applyPrometheusMerge(pod *corev1.Pod, mesh *meshconfig.MeshConfig) error {
 					return fmt.Errorf("invalid prometheus scrape targets: target port %s is reserved for Istio (%s) and cannot be scraped", t.Port, reason)
 				}
 			}
+		} else if scrape.Port != "" {
+			// Validate legacy prometheus.io/port annotation when the new scrape-targets annotation is not used.
+			if scrape.Port == targetPort {
+				return fmt.Errorf("invalid prometheus scrape configuration: port %s conflicts with agent port", scrape.Port)
+			}
+			if reason, reserved := status.IstioReservedPortReason(scrape.Port); reserved {
+				return fmt.Errorf("invalid prometheus scrape configuration: port %s is reserved for Istio (%s) and cannot be scraped", scrape.Port, reason)
+			}
 		}
 		sidecar := FindSidecar(pod)
 		if sidecar != nil && !scrape.IsEmpty() {
