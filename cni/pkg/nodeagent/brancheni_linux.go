@@ -258,4 +258,3 @@ func delBranchENIRules(podIP netip.Addr, info *branchENIRoute) {
 
 	log.Debugf("removed branch ENI rules for pod %s veth %s", podIP, info.vethName)
 }
-
