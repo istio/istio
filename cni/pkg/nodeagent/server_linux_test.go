@@ -460,7 +460,8 @@ func TestMeshDataplaneRemovePodIPFromHostNSIPSets(t *testing.T) {
 		string(pod.ObjectMeta.UID),
 	).Return("", nil)
 
-	err := removePodFromHostAddrSet(pod, setWrapper)
+	dp := &meshDataplane{hostAddrSet: setWrapper}
+	err := dp.removePodFromHostAddrSet(pod)
 	assert.NoError(t, err)
 	fakeIPSetDeps.AssertExpectations(t)
 }
@@ -484,7 +485,8 @@ func TestMeshDataplaneRemovePodIPFromHostNSIPSetsIgnoresEntriesWithMismatchedUID
 		string(pod.ObjectMeta.UID),
 	).Return("mismatched-uid", nil)
 
-	err := removePodFromHostAddrSet(pod, setWrapper)
+	dp := &meshDataplane{hostAddrSet: setWrapper}
+	err := dp.removePodFromHostAddrSet(pod)
 	assert.NoError(t, err)
 	fakeIPSetDeps.AssertExpectations(t)
 }
