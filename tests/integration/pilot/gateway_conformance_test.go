@@ -23,6 +23,9 @@ import (
 	"path/filepath"
 	"testing"
 
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8ssets "k8s.io/apimachinery/pkg/util/sets" //nolint: depguard
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	v1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -40,6 +43,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/crd"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	testkube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/prow"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/assert"
@@ -118,11 +122,39 @@ func TestAgentgatewayConformance(t *testing.T) {
 	testConformance("istio-agentgateway", t)
 }
 
+// waitForTerminatingConformanceNamespaces blocks until any conformance namespace
+// currently in the Terminating phase has been fully deleted. This avoids races
+// between back-to-back conformance tests that share the same namespaces.
+func waitForTerminatingConformanceNamespaces(ctx framework.TestContext, t *testing.T) {
+	kc := gatewayConformanceInputs.Client.Kube()
+	for _, ns := range conformanceNamespaces {
+		nsObj, err := kc.CoreV1().Namespaces().Get(ctx.Context(), ns, metav1.GetOptions{})
+		if err != nil {
+			if errors.IsNotFound(err) {
+				continue
+			}
+			t.Fatalf("failed to get namespace %q: %v", ns, err)
+		}
+		if nsObj.Status.Phase != corev1.NamespaceTerminating {
+			continue
+		}
+		if err := testkube.WaitForNamespaceDeletion(kc, ns); err != nil {
+			t.Fatalf("namespace %q is stuck terminating: %v", ns, err)
+		}
+	}
+}
+
 func testConformance(gatewayClassName string, t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
 			crd.DeployGatewayAPIOrSkip(ctx)
+
+			// A previous conformance test (e.g. TestGatewayConformance) may have left the
+			// shared conformance namespaces in a Terminating state. Wait for deletion to
+			// complete before proceeding so that resource creation does not fail with
+			// "namespace is being terminated".
+			waitForTerminatingConformanceNamespaces(ctx, t)
 
 			// Precreate the GatewayConformance namespaces, and apply the Image Pull Secret to them.
 			if ctx.Settings().Image.PullSecret != "" {
