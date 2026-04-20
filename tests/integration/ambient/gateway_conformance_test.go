@@ -23,7 +23,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8ssets "k8s.io/apimachinery/pkg/util/sets" //nolint: depguard
@@ -42,7 +41,6 @@ import (
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
-	testkube "istio.io/istio/pkg/test/kube"
 	ambientComponent "istio.io/istio/pkg/test/framework/components/ambient"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -124,24 +122,15 @@ func TestAgentgatewayConformance(t *testing.T) {
 	testConformance("istio-agentgateway", t)
 }
 
-// waitForTerminatingConformanceNamespaces blocks until any conformance namespace
-// currently in the Terminating phase has been fully deleted. This avoids races
-// between back-to-back conformance tests that share the same namespaces.
-func waitForTerminatingConformanceNamespaces(ctx framework.TestContext, t *testing.T) {
-	kc := gatewayConformanceInputs.Client.Kube()
+func resetConformanceNamespaces(ctx framework.TestContext, t *testing.T) {
+	c := gatewayConformanceInputs.Client.Kube()
 	for _, ns := range conformanceNamespaces {
-		nsObj, err := kc.CoreV1().Namespaces().Get(ctx.Context(), ns, metav1.GetOptions{})
+		err := c.CoreV1().Namespaces().Delete(ctx.Context(), ns, metav1.DeleteOptions{})
 		if err != nil {
 			if errors.IsNotFound(err) {
 				continue
 			}
-			t.Fatalf("failed to get namespace %q: %v", ns, err)
-		}
-		if nsObj.Status.Phase != corev1.NamespaceTerminating {
-			continue
-		}
-		if err := testkube.WaitForNamespaceDeletion(kc, ns); err != nil {
-			t.Fatalf("namespace %q is stuck terminating: %v", ns, err)
+			t.Fatalf("failed to delete namespace %v: %v", ns, err)
 		}
 	}
 }
@@ -150,7 +139,7 @@ func testConformance(gatewayClassName string, t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
-			waitForTerminatingConformanceNamespaces(ctx, t)
+			resetConformanceNamespaces(ctx, t)
 
 			// Precreate the GatewayConformance namespaces, and apply the Image Pull Secret to them.
 			if ctx.Settings().Image.PullSecret != "" {
