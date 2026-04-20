@@ -584,11 +584,12 @@ spec:
 
 			external := apps.MockExternal.Instances()[0]
 
-			if len(external.WorkloadsOrFail(t)) < 1 {
-				t.Skip("not enough external service instances")
-			}
-
 			subsetServices := servicesForSubsets(t, external)
+
+			if len(subsetServices) < 2 {
+				// don't quietly skip if cluster doesn't have enough mock external services available
+				t.Fatal("expected at least 2 subset services for waypoint egress testing")
+			}
 
 			hostHeader := http.Header{}
 			hostHeader.Set("Host", "fake-passthrough.example.com")
@@ -649,9 +650,6 @@ spec:
 			// Test CIDR-based ServiceEntry routing through the waypoint.
 			// Uses the second subset service so its ClusterIP is not claimed by
 			// the bare-IP ServiceEntry above — traffic can only match via CIDR.
-			if len(subsetServices) < 2 {
-				t.Fatal("expected at least 2 subset services for CIDR test")
-			}
 			cidrService := subsetServices[1]
 			ip, err := netip.ParseAddr(cidrService.ClusterIP)
 			if err != nil {
