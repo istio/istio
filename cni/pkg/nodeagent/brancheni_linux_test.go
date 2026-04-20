@@ -24,11 +24,20 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+// forceEarlyDemuxDisabled sets the one-shot sysctl gate to "disabled"
+// so tests can exercise detection without depending on the host sysctl.
+func forceEarlyDemuxDisabled(t *testing.T) {
+	t.Helper()
+	earlyDemuxOnce = sync.Once{}
+	earlyDemuxOnce.Do(func() {})
+	earlyDemuxDisabled = true
+}
+
 func TestDetectBranchENI_NoBranchENI(t *testing.T) {
 	// When there are no iif rules, detectBranchENI should return nil.
 	// This test verifies that on a system without branch ENI pods,
 	// the detection is a no-op.
-	// Note: this test runs on the test host which won't have branch ENI rules.
+	forceEarlyDemuxDisabled(t)
 	podIP := netip.MustParseAddr("10.0.0.1")
 	result := detectBranchENI(podIP)
 	if result != nil {
@@ -37,6 +46,7 @@ func TestDetectBranchENI_NoBranchENI(t *testing.T) {
 }
 
 func TestDetectBranchENI_IPv6NoBranchENI(t *testing.T) {
+	forceEarlyDemuxDisabled(t)
 	podIP := netip.MustParseAddr("fd00::1")
 	result := detectBranchENI(podIP)
 	if result != nil {
@@ -174,17 +184,20 @@ func TestAddDelBranchENIRules_IPv6(t *testing.T) {
 	}
 }
 
-func TestCheckTCPEarlyDemux(t *testing.T) {
-	// Just verify it doesn't panic. The actual sysctl check is best tested
-	// in integration since it depends on /proc.
-	earlyDemuxOnce = sync.Once{} // reset for test
-	checkTCPEarlyDemux()
+func TestTCPEarlyDemuxIsDisabled(t *testing.T) {
+	// On a stock host, tcp_early_demux defaults to 1, so detection should skip.
+	// This mainly verifies the gate returns without panicking; the actual sysctl
+	// value is host-dependent, so we don't assert a specific result.
+	earlyDemuxOnce = sync.Once{}
+	earlyDemuxDisabled = false
+	_ = tcpEarlyDemuxIsDisabled()
 }
 
 func TestDetectBranchENI_WithIIFRule(t *testing.T) {
 	if unix.Getuid() != 0 {
 		t.Skip("requires root for netlink operations")
 	}
+	forceEarlyDemuxDisabled(t)
 
 	// Set up a fake branch ENI environment:
 	// 1. Create a route in table 197 for a test IP via loopback
