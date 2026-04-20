@@ -34,11 +34,42 @@ type branchENIRoute struct {
 	iifPriority int // priority of aws-vpc-cni's "iif <veth> lookup <table>" rule
 }
 
-var earlyDemuxOnce sync.Once
+var (
+	earlyDemuxOnce     sync.Once
+	earlyDemuxDisabled bool // true if net.ipv4.tcp_early_demux=0 (prerequisite for SGP)
+)
+
+// tcpEarlyDemuxIsDisabled returns true if net.ipv4.tcp_early_demux=0, which AWS
+// requires operators to set on every node running Security Groups for Pods.
+// Since the kernel default is 1, this sysctl being 0 is an explicit operator
+// signal that the node is prepared for SGP - we use it as a gate so branch ENI
+// detection is fully inert on any other node.
+// See https://docs.aws.amazon.com/eks/latest/userguide/security-groups-pods-deployment.html
+func tcpEarlyDemuxIsDisabled() bool {
+	earlyDemuxOnce.Do(func() {
+		const path = "/proc/sys/net/ipv4/tcp_early_demux"
+		data, err := os.ReadFile(path)
+		if err != nil {
+			log.Debugf("could not read %s, assuming default (enabled): %v", path, err)
+			return
+		}
+		earlyDemuxDisabled = len(data) > 0 && data[0] == '0'
+		if earlyDemuxDisabled {
+			log.Infof("net.ipv4.tcp_early_demux=0; AWS branch ENI probe detection enabled")
+		} else {
+			log.Debugf("net.ipv4.tcp_early_demux=1 (default); AWS branch ENI probe detection skipped")
+		}
+	})
+	return earlyDemuxDisabled
+}
 
 // detectBranchENI checks if a pod IP is routed via a branch ENI (i.e., the route
 // exists only in a non-main routing table, indicating aws-vpc-cni SGP setup).
 // Returns nil if the pod uses standard veth routing (route in main table).
+//
+// Gated on net.ipv4.tcp_early_demux=0, which is required by AWS for SGP. On any
+// node without that sysctl set, we return nil immediately - there's no SGP
+// configuration to find and no rules we could meaningfully add.
 //
 // Detection: scan ip rules for iif-based entries whose routing table
 // contains a host route to the pod IP. If found, this is a branch ENI pod.
@@ -50,6 +81,10 @@ var earlyDemuxOnce sync.Once
 // This approach avoids hardcoding table ranges or priorities and works for
 // both IPv4 and IPv6.
 func detectBranchENI(podIP netip.Addr) *branchENIRoute {
+	if !tcpEarlyDemuxIsDisabled() {
+		return nil
+	}
+
 	ip := net.IP(podIP.AsSlice())
 
 	family := unix.AF_INET
@@ -133,10 +168,6 @@ func detectBranchENI(podIP netip.Addr) *branchENIRoute {
 //     instead of being hijacked by aws-vpc-cni's iif rule that routes it back to VPC.
 //     Priority is set to one less than aws-vpc-cni's iif rule priority.
 func addBranchENIRules(podIP netip.Addr, info *branchENIRoute) error {
-	// Warn once per process if tcp_early_demux is enabled, since we are about
-	// to add rules that only work correctly when it is disabled.
-	checkTCPEarlyDemux()
-
 	ip := net.IP(podIP.AsSlice())
 	family := unix.AF_INET
 	bits := 32
@@ -228,19 +259,3 @@ func delBranchENIRules(podIP netip.Addr, info *branchENIRoute) {
 	log.Debugf("removed branch ENI rules for pod %s veth %s", podIP, info.vethName)
 }
 
-// checkTCPEarlyDemux warns if net.ipv4.tcp_early_demux is enabled, which
-// breaks kubelet connectivity to pods on branch ENIs.
-// See https://docs.aws.amazon.com/eks/latest/userguide/security-groups-pods-deployment.html
-func checkTCPEarlyDemux() {
-	earlyDemuxOnce.Do(func() {
-		const path = "/proc/sys/net/ipv4/tcp_early_demux"
-		data, err := os.ReadFile(path)
-		if err != nil {
-			return
-		}
-		if len(data) > 0 && data[0] == '1' {
-			log.Warnf("net.ipv4.tcp_early_demux is enabled; this must be disabled for health probes " +
-				"to work with AWS Security Groups for Pods. Set DISABLE_TCP_EARLY_DEMUX=true on the aws-node daemonset.")
-		}
-	})
-}
