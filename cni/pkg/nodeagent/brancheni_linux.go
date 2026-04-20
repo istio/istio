@@ -15,6 +15,7 @@
 package nodeagent
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"net/netip"
@@ -25,11 +26,10 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// branchENIRoute holds the routing table, veth info, and the priority of aws-vpc-cni's
+// branchENIRoute holds the routing table, veth name, and the priority of aws-vpc-cni's
 // iif rule for a branch ENI pod.
 type branchENIRoute struct {
 	table       int
-	vethIndex   int
 	vethName    string
 	iifPriority int // priority of aws-vpc-cni's "iif <veth> lookup <table>" rule
 }
@@ -106,11 +106,10 @@ func detectBranchENI(podIP netip.Addr) *branchENIRoute {
 
 			for _, ir := range iifRules {
 				if ir.iifName == routeDevName {
-					log.Infof("detected branch ENI pod %s: veth=%s table=%d iifPriority=%d",
+					log.Debugf("detected branch ENI pod %s: veth=%s table=%d iifPriority=%d",
 						podIP, routeDevName, table, ir.priority)
 					return &branchENIRoute{
 						table:       table,
-						vethIndex:   r.LinkIndex,
 						vethName:    routeDevName,
 						iifPriority: ir.priority,
 					}
@@ -134,6 +133,10 @@ func detectBranchENI(podIP netip.Addr) *branchENIRoute {
 //     instead of being hijacked by aws-vpc-cni's iif rule that routes it back to VPC.
 //     Priority is set to one less than aws-vpc-cni's iif rule priority.
 func addBranchENIRules(podIP netip.Addr, info *branchENIRoute) error {
+	// Warn once per process if tcp_early_demux is enabled, since we are about
+	// to add rules that only work correctly when it is disabled.
+	checkTCPEarlyDemux()
+
 	ip := net.IP(podIP.AsSlice())
 	family := unix.AF_INET
 	bits := 32
@@ -149,12 +152,15 @@ func addBranchENIRules(podIP netip.Addr, info *branchENIRoute) error {
 	fwdRule.Table = info.table
 	fwdRule.Priority = 512
 
+	fwdAdded := false
 	if err := netlink.RuleAdd(fwdRule); err != nil {
-		if !os.IsExist(err) {
+		if !errors.Is(err, unix.EEXIST) {
 			return fmt.Errorf("failed to add forward ip rule for branch ENI pod %s: %w", podIP, err)
 		}
+	} else {
+		fwdAdded = true
 	}
-	log.Infof("added branch ENI forward rule: to %s lookup %d priority 512", podIP, info.table)
+	log.Debugf("added branch ENI forward rule: to %s lookup %d priority 512", podIP, info.table)
 
 	// Return path: deliver locally before aws-vpc-cni's iif rule.
 	// Insert at priority one less than the existing iif rule so we run first.
@@ -170,11 +176,17 @@ func addBranchENIRules(podIP netip.Addr, info *branchENIRoute) error {
 	retRule.Priority = retPriority
 
 	if err := netlink.RuleAdd(retRule); err != nil {
-		if !os.IsExist(err) {
+		if !errors.Is(err, unix.EEXIST) {
+			// Rollback the forward rule so we don't leave a stale entry on the host.
+			if fwdAdded {
+				if delErr := netlink.RuleDel(fwdRule); delErr != nil {
+					log.Warnf("failed to rollback forward ip rule for branch ENI pod %s: %v", podIP, delErr)
+				}
+			}
 			return fmt.Errorf("failed to add return ip rule for branch ENI veth %s: %w", info.vethName, err)
 		}
 	}
-	log.Infof("added branch ENI return rule: iif %s lookup local priority %d", info.vethName, retPriority)
+	log.Debugf("added branch ENI return rule: iif %s lookup local priority %d", info.vethName, retPriority)
 
 	return nil
 }
@@ -213,7 +225,7 @@ func delBranchENIRules(podIP netip.Addr, info *branchENIRoute) {
 		log.Debugf("failed to remove branch ENI return rule for %s: %v", info.vethName, err)
 	}
 
-	log.Infof("removed branch ENI rules for pod %s veth %s", podIP, info.vethName)
+	log.Debugf("removed branch ENI rules for pod %s veth %s", podIP, info.vethName)
 }
 
 // checkTCPEarlyDemux warns if net.ipv4.tcp_early_demux is enabled, which
