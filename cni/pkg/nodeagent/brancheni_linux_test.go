@@ -53,7 +53,6 @@ func TestAddDelBranchENIRules_IPv4(t *testing.T) {
 	podIP := netip.MustParseAddr("10.99.99.99")
 	info := &branchENIRoute{
 		table:       199,
-		vethIndex:   1,
 		vethName:    "lo", // use loopback as a stand-in
 		iifPriority: 10,
 	}
@@ -121,7 +120,6 @@ func TestAddDelBranchENIRules_IPv6(t *testing.T) {
 	podIP := netip.MustParseAddr("fd99::1")
 	info := &branchENIRoute{
 		table:       198,
-		vethIndex:   1,
 		vethName:    "lo",
 		iifPriority: 10,
 	}
