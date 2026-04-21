@@ -366,8 +366,8 @@ func TestWriteMulticlusterStatus(t *testing.T) {
 			istiodRevisionMap: map[string]string{
 				"istiod-6d8f97c8d9-abc123": "default",
 			},
-			expectedOutput: "NAME\tSECRET\tSTATUS\tISTIOD\tREVISION\n" +
-				"cluster-1\tcluster-1-secret\tSYNCED\tistiod-6d8f97c8d9-abc123\tdefault\n",
+			expectedOutput: "NAME          SECRET               STATUS     ISTIOD                       REVISION\n" +
+				"cluster-1     cluster-1-secret     SYNCED     istiod-6d8f97c8d9-abc123     default\n",
 			expectError: false,
 		},
 		{
@@ -380,9 +380,9 @@ func TestWriteMulticlusterStatus(t *testing.T) {
 				"istiod-default-abc123": "default",
 				"istiod-canary-def456":  "canary",
 			},
-			expectedOutput: "NAME\tSECRET\tSTATUS\tISTIOD\tREVISION\n" +
-				"cluster-1\tcluster-1-secret\tSYNCED\tistiod-default-abc123\tdefault\n" +
-				"cluster-2\tcluster-2-secret\tSYNCED\tistiod-canary-def456\tcanary\n",
+			expectedOutput: "NAME          SECRET               STATUS     ISTIOD                    REVISION\n" +
+				"cluster-1     cluster-1-secret     SYNCED     istiod-default-abc123     default\n" +
+				"cluster-2     cluster-2-secret     SYNCED     istiod-canary-def456      canary\n",
 			expectError: false,
 		},
 		{
@@ -391,8 +391,8 @@ func TestWriteMulticlusterStatus(t *testing.T) {
 				"istiod-6d8f97c8d9-abc123": []byte(`[{"id":"cluster-1","secretName":"cluster-1-secret","syncStatus":"SYNCED"}]`),
 			},
 			istiodRevisionMap: map[string]string{},
-			expectedOutput: "NAME\tSECRET\tSTATUS\tISTIOD\tREVISION\n" +
-				"cluster-1\tcluster-1-secret\tSYNCED\tistiod-6d8f97c8d9-abc123\t\n",
+			expectedOutput: "NAME          SECRET               STATUS     ISTIOD                       REVISION\n" +
+				"cluster-1     cluster-1-secret     SYNCED     istiod-6d8f97c8d9-abc123     \n",
 			expectError: false,
 		},
 		{
@@ -404,9 +404,9 @@ func TestWriteMulticlusterStatus(t *testing.T) {
 			istiodRevisionMap: map[string]string{
 				"istiod-6d8f97c8d9-abc123": "stable",
 			},
-			expectedOutput: "NAME\tSECRET\tSTATUS\tISTIOD\tREVISION\n" +
-				"cluster-1\tcluster-1-secret\tSYNCED\tistiod-6d8f97c8d9-abc123\tstable\n" +
-				"cluster-2\tcluster-2-secret\tSYNCED\tistiod-6d8f97c8d9-abc123\tstable\n",
+			expectedOutput: "NAME          SECRET               STATUS     ISTIOD                       REVISION\n" +
+				"cluster-1     cluster-1-secret     SYNCED     istiod-6d8f97c8d9-abc123     stable\n" +
+				"cluster-2     cluster-2-secret     SYNCED     istiod-6d8f97c8d9-abc123     stable\n",
 			expectError: false,
 		},
 		{
@@ -424,7 +424,7 @@ func TestWriteMulticlusterStatus(t *testing.T) {
 			name:              "empty input",
 			input:             map[string][]byte{},
 			istiodRevisionMap: map[string]string{},
-			expectedOutput:    "NAME\tSECRET\tSTATUS\tISTIOD\tREVISION\n",
+			expectedOutput:    "NAME     SECRET     STATUS     ISTIOD     REVISION\n",
 			expectError:       false,
 		},
 	}
@@ -446,8 +446,11 @@ func TestWriteMulticlusterStatus(t *testing.T) {
 				return
 			}
 
-			if err := assert.Compare(out.String(), tt.expectedOutput); err != nil {
-				t.Errorf("output mismatch:\n got: %q\nwant: %q\nerror: %v", out.String(), tt.expectedOutput, err)
+			actualOutput := out.String()
+			expectedOutput := tt.expectedOutput
+
+			if actualOutput != expectedOutput {
+				t.Errorf("output mismatch:\n got:\n%s\n\nwant:\n%s", actualOutput, expectedOutput)
 			}
 		})
 	}
