@@ -42,6 +42,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/crd"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	testkube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/prow"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/assert"
@@ -128,7 +129,10 @@ func resetConformanceNamespaces(ctx framework.TestContext, t *testing.T) {
 			if errors.IsNotFound(err) {
 				continue
 			}
-			t.Logf("failed to delete namespace %v: %v", ns, err)
+			t.Fatalf("failed to delete namespace %v: %v", ns, err)
+		}
+		if err := testkube.WaitForNamespaceDeletion(c, ns); err != nil {
+			t.Fatalf("namespace %v was not deleted: %v", ns, err)
 		}
 	}
 }
