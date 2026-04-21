@@ -22,7 +22,9 @@ import (
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"istio.io/api/label"
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/pkg/cluster"
@@ -39,27 +41,45 @@ func ClustersCommand(ctx cli.Context) *cobra.Command {
 			if err != nil {
 				return err
 			}
+
+			// Get all istiod pods to retrieve revision information
+			istiodPods, err := kubeClient.Kube().CoreV1().Pods(ctx.IstioNamespace()).List(context.Background(), metav1.ListOptions{
+				LabelSelector: "app=istiod",
+			})
+			if err != nil {
+				return err
+			}
+
+			// Build a map of istiod pod name to revision
+			istiodRevisionMap := make(map[string]string)
+			for _, pod := range istiodPods.Items {
+				if revision, ok := pod.Labels[label.IoIstioRev.Name]; ok {
+					istiodRevisionMap[pod.Name] = revision
+				}
+			}
+
 			res, err := kubeClient.AllDiscoveryDo(context.Background(), ctx.IstioNamespace(), "debug/clusterz")
 			if err != nil {
 				return err
 			}
-			return writeMulticlusterStatus(cmd.OutOrStdout(), res)
+			return writeMulticlusterStatus(cmd.OutOrStdout(), res, istiodRevisionMap)
 		},
 	}
 	opts.AttachControlPlaneFlags(cmd)
 	return cmd
 }
 
-func writeMulticlusterStatus(out io.Writer, input map[string][]byte) error {
+func writeMulticlusterStatus(out io.Writer, input map[string][]byte, istiodRevisionMap map[string]string) error {
 	statuses, err := parseClusterStatuses(input)
 	if err != nil {
 		return err
 	}
 	w := new(tabwriter.Writer).Init(out, 0, 8, 5, ' ', 0)
-	_, _ = fmt.Fprintln(w, "NAME\tSECRET\tSTATUS\tISTIOD")
+	_, _ = fmt.Fprintln(w, "NAME\tSECRET\tSTATUS\tISTIOD\tREVISION")
 	for istiod, clusters := range statuses {
+		revision := istiodRevisionMap[istiod]
 		for _, c := range clusters {
-			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", c.ID, c.SecretName, c.SyncStatus, istiod)
+			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", c.ID, c.SecretName, c.SyncStatus, istiod, revision)
 		}
 	}
 	_ = w.Flush()
