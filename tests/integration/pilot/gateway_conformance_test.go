@@ -23,8 +23,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8ssets "k8s.io/apimachinery/pkg/util/sets" //nolint: depguard
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	v1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -42,7 +40,6 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/crd"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	testkube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/prow"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/assert"
@@ -113,28 +110,12 @@ var skippedTests = map[string]string{
 	"MeshHTTPRouteWeight": "TODO",
 }
 
-func TestGatewayConformance(t *testing.T) {
+func TestGatewayConformanceNormal(t *testing.T) {
 	testConformance(i.Settings().GatewayClassName, t)
 }
 
-func TestAgentgatewayConformance(t *testing.T) {
+func TestGatewayConformanceAgentgateway(t *testing.T) {
 	testConformance("istio-agentgateway", t)
-}
-
-func resetConformanceNamespaces(ctx framework.TestContext, t *testing.T) {
-	c := gatewayConformanceInputs.Client.Kube()
-	for _, ns := range conformanceNamespaces {
-		err := c.CoreV1().Namespaces().Delete(ctx.Context(), ns, metav1.DeleteOptions{})
-		if err != nil {
-			if errors.IsNotFound(err) {
-				continue
-			}
-			t.Fatalf("failed to delete namespace %v: %v", ns, err)
-		}
-		if err := testkube.WaitForNamespaceDeletion(c, ns); err != nil {
-			t.Fatalf("namespace %v was not deleted: %v", ns, err)
-		}
-	}
 }
 
 func testConformance(gatewayClassName string, t *testing.T) {
@@ -142,8 +123,6 @@ func testConformance(gatewayClassName string, t *testing.T) {
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
 			crd.DeployGatewayAPIOrSkip(ctx)
-
-			resetConformanceNamespaces(ctx, t)
 
 			// Precreate the GatewayConformance namespaces, and apply the Image Pull Secret to them.
 			if ctx.Settings().Image.PullSecret != "" {
