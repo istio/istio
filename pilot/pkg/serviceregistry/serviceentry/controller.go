@@ -71,6 +71,8 @@ type Controller struct {
 	// Indicates whether this controller is for workload entries.
 	workloadEntryController bool
 
+	canonicalServiceForMeshExternal bool
+
 	model.NetworkGatewaysHandler
 }
 
@@ -199,11 +201,12 @@ func newController(
 ) *Controller {
 	stop := make(chan struct{})
 	s := &Controller{
-		workloadEntryController: workloadEntryController,
-		multiclusterController:  multiclusterController,
-		XdsUpdater:              xdsUpdater,
-		store:                   store,
-		stop:                    stop,
+		workloadEntryController:         workloadEntryController,
+		multiclusterController:          multiclusterController,
+		XdsUpdater:                      xdsUpdater,
+		store:                           store,
+		stop:                            stop,
+		canonicalServiceForMeshExternal: features.CanonicalServiceForMeshExternalServiceEntry,
 	}
 	for _, o := range options {
 		o(s)
@@ -262,6 +265,7 @@ func (s *Controller) buildCollections() {
 			workloadsByNamespace,
 			s.clusterID,
 			s.networkIDCallback,
+			s.canonicalServiceForMeshExternal,
 			s.opts,
 		)
 
