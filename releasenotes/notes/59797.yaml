@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 59797
+releaseNotes:
+  - |
+    **Added** CIDR address support for ServiceEntry in ambient mode. ServiceEntries with CIDR
+    addresses (e.g., `10.0.0.0/24`) are now propagated to ztunnel, enabling longest-prefix-match
+    routing for traffic destined to IP ranges.
