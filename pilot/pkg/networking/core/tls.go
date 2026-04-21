@@ -137,6 +137,9 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 	for _, cfg := range configs {
 		virtualService := cfg.Spec.(*v1alpha3.VirtualService)
 		for _, tls := range virtualService.Tls {
+			if len(tls.Route) == 0 {
+				continue
+			}
 			for _, match := range tls.Match {
 				if matchTLS(match, node.Labels, gateways, listenPort.Port, node.Metadata.Namespace) {
 					// Use the service's CIDRs.
@@ -248,6 +251,10 @@ TcpLoop:
 	for _, cfg := range configs {
 		virtualService := cfg.Spec.(*v1alpha3.VirtualService)
 		for _, tcp := range virtualService.Tcp {
+			if len(tcp.Route) == 0 {
+				// no routes, skip (validated at admission but config may still arrive without routes)
+				continue
+			}
 			if len(tcp.Match) == 0 {
 				// implicit match
 				out = append(out, &filterChainOpts{

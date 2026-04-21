@@ -3649,6 +3649,73 @@ func TestBuildGatewayListeners(t *testing.T) {
 			// With QUIC enabled: []string{"10.0.0.1_443", "10.0.0.2_443", "udp_10.0.0.1_443", "udp_10.0.0.2_443"}
 			[]string{"10.0.0.1_443", "10.0.0.2_443"},
 		},
+		{
+			"gateway TCP server with VS TCP empty route",
+			&pilot_model.Proxy{},
+			[]config.Config{
+				{
+					Meta: config.Meta{Name: "gateway1", Namespace: "testns", GroupVersionKind: gvk.Gateway},
+					Spec: &networking.Gateway{
+						Servers: []*networking.Server{
+							{
+								Port:  &networking.Port{Name: "tcp", Number: 9000, Protocol: "TCP"},
+								Hosts: []string{"tcp.example.com"},
+							},
+						},
+					},
+				},
+			},
+			[]config.Config{
+				{
+					Meta: config.Meta{Name: uuid.NewString(), Namespace: "testns", GroupVersionKind: gvk.VirtualService},
+					Spec: &networking.VirtualService{
+						Gateways: []string{"testns/gateway1"},
+						Hosts:    []string{"tcp.example.com"},
+						Tcp: []*networking.TCPRoute{
+							{
+								Match: []*networking.L4MatchAttributes{{Port: 9000}},
+								// Route intentionally left empty
+							},
+						},
+					},
+				},
+			},
+			[]string{},
+		},
+		{
+			"gateway TLS terminate server with VS TCP empty route",
+			&pilot_model.Proxy{},
+			[]config.Config{
+				{
+					Meta: config.Meta{Name: "gateway1", Namespace: "testns", GroupVersionKind: gvk.Gateway},
+					Spec: &networking.Gateway{
+						Servers: []*networking.Server{
+							{
+								Port:  &networking.Port{Name: "tls", Number: 9443, Protocol: "TLS"},
+								Hosts: []string{"tcp.example.com"},
+								Tls:   &networking.ServerTLSSettings{CredentialName: "test", Mode: networking.ServerTLSSettings_SIMPLE},
+							},
+						},
+					},
+				},
+			},
+			[]config.Config{
+				{
+					Meta: config.Meta{Name: uuid.NewString(), Namespace: "testns", GroupVersionKind: gvk.VirtualService},
+					Spec: &networking.VirtualService{
+						Gateways: []string{"testns/gateway1"},
+						Hosts:    []string{"tcp.example.com"},
+						Tcp: []*networking.TCPRoute{
+							{
+								Match: []*networking.L4MatchAttributes{{Port: 9443}},
+								// Route intentionally left empty
+							},
+						},
+					},
+				},
+			},
+			[]string{},
+		},
 	}
 
 	for _, tt := range cases {
