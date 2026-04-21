@@ -357,8 +357,8 @@ func handleEvent(s *Server) {
 			return
 		}
 
-		// in order to support root ca rotation, or we are removing the old ca,
-		// we need to make the new CA bundle contain both old and new CA certs
+		// allow the update when one CA bundle is a subset of the other,
+		// which covers both adding CA certs (rotation) and removing old CA certs
 		if pemBundleHasSubsetRelation(currentCABundle, newCABundle) {
 			log.Info("Updating new ROOT-CA")
 		} else {
