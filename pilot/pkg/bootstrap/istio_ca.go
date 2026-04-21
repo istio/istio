@@ -741,6 +741,10 @@ func pemBundleHasSubsetRelation(a []byte, b []byte) bool {
 }
 
 // pemToRawCertSet decodes PEM data and returns a set of DER-encoded certificate bytes.
+// Only standard "CERTIFICATE" PEM blocks are considered; other block types (e.g.,
+// "TRUSTED CERTIFICATE", "X509 CERTIFICATE") are ignored. This is consistent with
+// existing CA bundle handling in Istio (see VerifyCABundle in pkg/webhooks/util and
+// readCACert in security/pkg/k8s/chiron), which reject non-"CERTIFICATE" blocks.
 func pemToRawCertSet(pemData []byte) sets.String {
 	certs := sets.New[string]()
 	for {
