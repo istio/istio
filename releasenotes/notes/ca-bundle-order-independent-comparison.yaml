@@ -7,3 +7,5 @@ issue:
 releaseNotes:
 - |
   **Fixed** a bug where CA bundle rotation would not occur when certificates appeared in different orders.
+  Only standard `CERTIFICATE` PEM blocks are considered during comparison; other block types
+  (e.g., `TRUSTED CERTIFICATE`) are ignored, consistent with existing CA bundle handling in Istio.
