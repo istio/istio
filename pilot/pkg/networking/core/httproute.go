@@ -42,7 +42,6 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
@@ -78,7 +77,6 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(
 				hit++
 			} else {
 				miss++
-				log.Debugf("Building route configuration for %s with routeName %s", node.ID, routeName)
 			}
 			if rc == nil {
 				emptyRoute := &route.RouteConfiguration{
@@ -200,11 +198,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(
 		IgnorePortInHostMatching:       true,
 	}
 
-	// apply envoy filter patches
-	if useSniffing && cacheHit {
-		// do nothing if useSniffing and cache hit, as the virtual hosts have already been patched with EnvoyFilter
-		log.Debugf("Skipping to apply EnvoyFilter for route %s because of cache hit", routeName)
-	} else {
+	// apply envoy filter patches only when cache is not hit, as the cache result is already applied with envoy filter patches.
+	// This is to prevent double applying envoy filter patches which may cause unexpected behavior.
+	if !cacheHit {
 		out = envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_SIDECAR_OUTBOUND, node, efw, out)
 	}
 
