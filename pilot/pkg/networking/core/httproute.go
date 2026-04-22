@@ -72,7 +72,6 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(
 			networking.EnvoyFilter_VIRTUAL_HOST,
 			networking.EnvoyFilter_HTTP_ROUTE,
 		)
-		sort.Strings(routeNames)
 		for _, routeName := range routeNames {
 			rc, cached := configgen.buildSidecarOutboundHTTPRouteConfig(node, req, routeName, vHostCache, efw, envoyfilterKeys)
 			if cached && !features.EnableUnsafeAssertions {
