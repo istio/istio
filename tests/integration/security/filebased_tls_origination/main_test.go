@@ -23,10 +23,11 @@ import (
 	"path"
 	"testing"
 
-	"istio.io/api/annotation"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"istio.io/api/annotation"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/env"
@@ -155,8 +156,11 @@ func setupApps(ctx resource.Context, appNs namespace.Getter,
 		Subsets: []echo.SubsetConfig{{
 			Version: "v1",
 			Annotations: map[string]string{
-				annotation.SidecarUserVolume.Name:      `{"client-secret":{"secret":{"secretName":"` + secretClientCredentialName + `"}},"ca-secret":{"secret":{"secretName":"` + secretClientCACertName + `"}}}`,
-				annotation.SidecarUserVolumeMount.Name: `{"client-secret":{"mountPath":"/etc/secret-client/client_certs/client.example.com","readOnly":true},"ca-secret":{"mountPath":"/etc/secret-client/ca_certs/example.com","readOnly":true}}`,
+				annotation.SidecarUserVolume.Name: `{"client-secret":{"secret":{"secretName":"` +
+					secretClientCredentialName + `"}},"ca-secret":{"secret":{"secretName":"` + secretClientCACertName + `"}}}`,
+				annotation.SidecarUserVolumeMount.Name: `{"client-secret":{"mountPath":` +
+					`"/etc/secret-client/client_certs/client.example.com","readOnly":true},` +
+					`"ca-secret":{"mountPath":"/etc/secret-client/ca_certs/example.com","readOnly":true}}`,
 			},
 		}},
 		Cluster: ctx.Clusters().Default(),
@@ -303,7 +307,6 @@ func updateSecretClientCertsFromInline(ctx resource.Context, ns namespace.Instan
 }
 
 func applySecretClientCerts(ctx resource.Context, ns namespace.Instance, clientCert, clientKey, rootCert []byte) error {
-
 	for _, c := range ctx.AllClusters() {
 		credential := &v1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
