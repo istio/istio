@@ -1403,15 +1403,25 @@ func createRedirectFilter(filter *k8s.HTTPRequestRedirectFilter) *istio.HTTPRedi
 	return resp
 }
 
+func isValidHeaderValue(v string) bool {
+	for _, c := range []byte(v) {
+		if c == 0x09 || c >= 0x20 {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
 func createHeadersFilter(filter *k8s.HTTPHeaderFilter) (*istio.Headers_HeaderOperations, *ConfigError) {
 	if filter == nil {
 		return nil, nil
 	}
 	for _, h := range append(filter.Set, filter.Add...) {
-		if strings.ContainsAny(h.Value, "\r\n") {
+		if !isValidHeaderValue(h.Value) {
 			return nil, &ConfigError{
 				Reason:  InvalidFilter,
-				Message: fmt.Sprintf("header %q value contains invalid characters (\\r or \\n)", h.Name),
+				Message: fmt.Sprintf("header %q value contains invalid characters", h.Name),
 			}
 		}
 	}

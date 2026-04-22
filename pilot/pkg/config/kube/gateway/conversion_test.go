@@ -1674,6 +1674,29 @@ func TestCreateHeadersFilter(t *testing.T) {
 			wantErr:   true,
 			errReason: InvalidFilter,
 		},
+		{
+			name: "null byte in header value",
+			filter: &k8s.HTTPHeaderFilter{
+				Set: []k8s.HTTPHeader{{Name: "x-foo", Value: "bar\x00baz"}},
+			},
+			wantErr:   true,
+			errReason: InvalidFilter,
+		},
+		{
+			name: "control character in header value",
+			filter: &k8s.HTTPHeaderFilter{
+				Set: []k8s.HTTPHeader{{Name: "x-foo", Value: "bar\x01baz"}},
+			},
+			wantErr:   true,
+			errReason: InvalidFilter,
+		},
+		{
+			name: "tab in header value is valid",
+			filter: &k8s.HTTPHeaderFilter{
+				Set: []k8s.HTTPHeader{{Name: "x-foo", Value: "bar\tbaz"}},
+			},
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
