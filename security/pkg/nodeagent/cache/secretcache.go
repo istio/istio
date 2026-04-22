@@ -957,7 +957,7 @@ func (sc *SecretManagerClient) handleFileEvent(event fsnotify.Event, resources m
 		symlinkDir := filepath.Dir(fc.Filename)
 		kubeDataPublish := isKubeDataPublish(event, symlinkDir)
 		if fc.Filename == event.Name || fc.TargetPath == event.Name || symlinkDir == event.Name || kubeDataPublish {
-			cacheLog.Infof("file event matched for %s: event=%s op=%v", fc.ResourceName, event.Name, event.Op)
+			cacheLog.Debugf("file event matched for %s: event=%s op=%v", fc.ResourceName, event.Name, event.Op)
 			// If the symlink itself changed (removed/recreated), we need to re-resolve it
 			if fc.Filename == event.Name && (isRemove(event) || isCreate(event)) {
 				sc.handleSymlinkChange(fc)
@@ -984,7 +984,6 @@ func (sc *SecretManagerClient) handleFileEvent(event fsnotify.Event, resources m
 			if kubeDataPublish {
 				// Kubelet atomically publishes new secret files via MOVED_TO on ..data.
 				// Re-resolve the symlink so the watcher picks up the new target.
-				cacheLog.Infof("kubernetes secret rotation detected: ..data publish event for %s, re-resolving symlink", fc.ResourceName)
 				sc.handleSymlinkChange(fc)
 				shouldTriggerUpdate = true
 			}
@@ -992,8 +991,6 @@ func (sc *SecretManagerClient) handleFileEvent(event fsnotify.Event, resources m
 			if shouldTriggerUpdate {
 				updatedResources[fc.ResourceName] = struct{}{}
 			}
-		} else {
-			cacheLog.Infof("FASEELA:file event ignored for %s: event=%s op=%v (not ..data publish, not cert file)", fc.ResourceName, event.Name, event.Op)
 		}
 	}
 
