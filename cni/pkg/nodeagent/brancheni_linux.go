@@ -24,6 +24,8 @@ import (
 
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
+
+	pconstants "istio.io/istio/cni/pkg/constants"
 )
 
 // branchENIRoute holds the routing table, veth name, and the priority of aws-vpc-cni's
@@ -47,7 +49,7 @@ var (
 // See https://docs.aws.amazon.com/eks/latest/userguide/security-groups-pods-deployment.html
 func tcpEarlyDemuxIsDisabled() bool {
 	earlyDemuxOnce.Do(func() {
-		const path = "/proc/sys/net/ipv4/tcp_early_demux"
+		path := pconstants.HostMountsPath + "/proc/sys/net/ipv4/tcp_early_demux"
 		data, err := os.ReadFile(path)
 		if err != nil {
 			log.Debugf("could not read %s, assuming default (enabled): %v", path, err)
