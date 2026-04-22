@@ -78,6 +78,7 @@ type ZtunnelService struct {
 	Endpoints       map[string]*ZtunnelEndpoint `json:"endpoints"`
 	SubjectAltNames []string                    `json:"subjectAltNames,omitempty"`
 	IPFamilies      string                      `json:"ipFamilies"`
+	Canonical       bool                        `json:"canonical,omitempty"`
 }
 
 type PolicyMatch struct {
