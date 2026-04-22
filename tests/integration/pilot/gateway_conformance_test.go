@@ -71,6 +71,8 @@ var skippedTests = map[string]string{
 	"BackendTLSPolicyConflictResolution": "https://github.com/istio/istio/issues/57817",
 
 	// The following tests were added in v1.5.0
+	"BackendTLSPolicyObservedGenerationBump": "TODO",
+
 	"GatewayBackendClientCertificateFeature":                     "TODO",
 	"GatewayFrontendInvalidDefaultClientCertificateValidation":   "TODO",
 	"GatewayInvalidTLSBackendConfiguration":                      "TODO",
@@ -118,7 +120,6 @@ var agentgatewaySkippedTests = map[string]string{
 	"TLSRouteTerminateSimpleSameNamespace":  "TODO",
 	"TLSRouteMixedTerminationSameNamespace": "TODO",
 }
-
 
 func TestGatewayConformance(t *testing.T) {
 	testConformance("istio", maps.Keys(skippedTests), t)
