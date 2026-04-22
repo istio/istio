@@ -5,4 +5,4 @@ issue:
   - 59912
 releaseNotes:
   - |
-    - **Fixed** pilot-agent handling of file-mounted certificate rotations when Kubernetes emits metadata-only secret update events (`..data`, `..data_tmp`, timestamped staging directories), which could otherwise miss updates on second and subsequent rotations.
+    - **Fixed** pilot-agent missing certificate reloads on second and subsequent Kubernetes secret rotations for file-mounted certs.
