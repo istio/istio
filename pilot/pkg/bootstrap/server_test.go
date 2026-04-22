@@ -832,7 +832,7 @@ func TestIstiodCurvePreferences(t *testing.T) {
 				Timeout: time.Second,
 				Transport: &http.Transport{
 					TLSClientConfig: &tls.Config{
-						InsecureSkipVerify: true,
+						InsecureSkipVerify: true, //nolint:gosec
 						CurvePreferences:   c.clientCurvePreferences,
 						MinVersion:         tls.VersionTLS12,
 						MaxVersion:         tls.VersionTLS12,
