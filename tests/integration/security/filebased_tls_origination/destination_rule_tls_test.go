@@ -116,8 +116,8 @@ spec:
 			call := func(expected int) func() error {
 				return func() error {
 					_, err := secretClient[0].Call(echo.CallOptions{
-						To:    server,
-						Count: 1,
+						To:                      server,
+						Count:                   1,
 						NewConnectionPerRequest: true,
 						Port: echo.Port{
 							Name: "http",
