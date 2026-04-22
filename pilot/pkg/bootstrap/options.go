@@ -17,8 +17,6 @@ package bootstrap
 import (
 	"crypto/tls"
 	"fmt"
-	"maps"
-	"slices"
 	"time"
 
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
@@ -27,6 +25,7 @@ import (
 	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/keepalive"
 	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -232,7 +231,7 @@ var curveNamesToIDs = map[string]tls.CurveID{
 
 // TLSCurveNames returns the list of supported TLS curve names.
 func TLSCurveNames() []string {
-	return slices.Collect(maps.Keys(curveNamesToIDs))
+	return maps.Keys(curveNamesToIDs)
 }
 
 // TLSCurvePreferences returns a list of curve IDs from the curve names passed.
