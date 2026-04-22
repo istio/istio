@@ -16,6 +16,7 @@ package configdump
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"testing"
 
@@ -166,4 +167,52 @@ func TestConfigWriter_PrintSummary(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestConfigWriter_PrintServiceDumpPreservesCanonical(t *testing.T) {
+	configDump := []byte(`{
+		"services": {
+			"/10.0.0.1": {
+				"name": "svc",
+				"namespace": "ns",
+				"hostname": "svc.ns.svc.cluster.local",
+				"vips": [
+					"/10.0.0.1"
+				],
+				"ports": {
+					"80": 8080
+				},
+				"endpoints": {},
+				"subjectAltNames": [],
+				"canonical": true
+			}
+		},
+		"workloads": {},
+		"policies": {},
+		"certificates": {}
+	}`)
+
+	want := []*ZtunnelService{
+		{
+			Name:            "svc",
+			Namespace:       "ns",
+			Hostname:        "svc.ns.svc.cluster.local",
+			Addresses:       []string{"/10.0.0.1"},
+			Ports:           map[string]int{"80": 8080},
+			Endpoints:       map[string]*ZtunnelEndpoint{},
+			SubjectAltNames: []string{},
+			Canonical:       true,
+		},
+	}
+
+	gotOut := &bytes.Buffer{}
+	cw := &ConfigWriter{Stdout: gotOut}
+	assert.NoError(t, cw.Prime(configDump))
+
+	assert.Equal(t, want, cw.ztunnelDump.Services)
+	assert.NoError(t, cw.PrintServiceDump(ServiceFilter{}, "json"))
+
+	var got []*ZtunnelService
+	assert.NoError(t, json.Unmarshal(gotOut.Bytes(), &got))
+	assert.Equal(t, want, got)
 }
