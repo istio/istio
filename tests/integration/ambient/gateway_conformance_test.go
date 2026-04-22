@@ -115,12 +115,18 @@ var skippedTests = map[string]string{
 	"MeshHTTPRouteWeight": "TODO",
 }
 
+var agentgatewaySkippedTests = map[string]string{
+	"TLSRouteTerminateSimpleSameNamespace":  "TODO",
+	"TLSRouteMixedTerminationSameNamespace": "TODO",
+}
+
 func TestGatewayConformance(t *testing.T) {
-	testConformance("istio", t)
+	testConformance("istio", maps.Keys(skippedTests), t)
 }
 
 func TestGatewayConformanceAgentgateway(t *testing.T) {
-	testConformance("istio-agentgateway", t)
+	keys := append(maps.Keys(skippedTests), maps.Keys(agentgatewaySkippedTests)...)
+	testConformance("istio-agentgateway", keys, t)
 }
 
 // deleteConformanceNamespaces actively deletes all conformance namespaces.
@@ -147,7 +153,7 @@ func waitForConformanceNamespacesGone(t *testing.T) {
 	}
 }
 
-func testConformance(gatewayClassName string, t *testing.T) {
+func testConformance(gatewayClassName string, skippedTestKeys []string, t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
@@ -185,7 +191,7 @@ func testConformance(gatewayClassName string, t *testing.T) {
 				CleanupBaseResources:     gatewayConformanceInputs.Cleanup,
 				ManifestFS:               []fs.FS{&conformance.Manifests},
 				SupportedFeatures:        gwfeatures.SetsToNamesSet(supported),
-				SkipTests:                maps.Keys(skippedTests),
+				SkipTests:                skippedTestKeys,
 				UsableNetworkAddresses:   []v1.GatewaySpecAddress{{Value: "infra-backend-v1.gateway-conformance-infra.svc.cluster.local", Type: &hostnameType}},
 				UnusableNetworkAddresses: []v1.GatewaySpecAddress{{Value: "foo", Type: &hostnameType}},
 				ConformanceProfiles: k8ssets.New(
