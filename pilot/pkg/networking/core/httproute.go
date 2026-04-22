@@ -24,6 +24,7 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	statefulsession "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/stateful_session/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	pb "google.golang.org/protobuf/proto"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 
@@ -41,6 +42,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
@@ -70,12 +72,14 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(
 			networking.EnvoyFilter_VIRTUAL_HOST,
 			networking.EnvoyFilter_HTTP_ROUTE,
 		)
+		sort.Strings(routeNames)
 		for _, routeName := range routeNames {
 			rc, cached := configgen.buildSidecarOutboundHTTPRouteConfig(node, req, routeName, vHostCache, efw, envoyfilterKeys)
 			if cached && !features.EnableUnsafeAssertions {
 				hit++
 			} else {
 				miss++
+				log.Debugf("Building route configuration for %s with routeName %s", node.ID, routeName)
 			}
 			if rc == nil {
 				emptyRoute := &route.RouteConfiguration{
@@ -198,7 +202,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(
 	}
 
 	// apply envoy filter patches
-	out = envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_SIDECAR_OUTBOUND, node, efw, out)
+	if useSniffing && cacheHit {
+		// do nothing if useSniffing and cache hit, as the virtual hosts have already been patched with EnvoyFilter
+		log.Debugf("Skipping to apply EnvoyFilter for route %s because of cache hit", routeName)
+	} else {
+		out = envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_SIDECAR_OUTBOUND, node, efw, out)
+	}
 
 	resource = &discovery.Resource{
 		Name:     out.Name,
@@ -531,6 +540,8 @@ func getVirtualHostsForSniffedServicePort(vhosts []*route.VirtualHost, routeName
 		return virtualHosts
 	}
 	if len(virtualHosts) == 1 {
+		// Clone before mutating to avoid affecting cached objects
+		virtualHosts[0] = pb.Clone(virtualHosts[0]).(*route.VirtualHost)
 		virtualHosts[0].Domains = []string{"*"}
 		return virtualHosts
 	}
