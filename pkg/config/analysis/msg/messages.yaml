@@ -700,3 +700,14 @@ messages:
     args:
     - name: host
       type: string
+
+  - name: "JwksUriFetchUnrestricted"
+    code: IST0175
+    level: Warning
+    description: "RequestAuthentication resources exist but BLOCKED_CIDRS_IN_JWKS_URIS is not configured on istiod."
+    template: "BLOCKED_CIDRS_IN_JWKS_URIS is not configured but %d RequestAuthentication resource(s) exist (%s). Consider configuring it to restrict JWKS URI fetches to trusted networks."
+    args:
+    - name: count
+      type: int
+    - name: names
+      type: string
