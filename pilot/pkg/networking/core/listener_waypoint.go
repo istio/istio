@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net/netip"
 	"strconv"
+	"strings"
 	"time"
 
 	xds "github.com/cncf/xds/go/xds/core/v3"
@@ -74,7 +75,25 @@ const (
 	// applied already.
 	downstreamSourceHeader        = "x-istio-source"
 	downstreamOriginNetworkHeader = "x-forwarded-network"
+
+	// xfccClientIdentityAnnotation opts a waypoint in to synthesizing an
+	// x-forwarded-client-cert entry from the ztunnel-provided source workload
+	// identity. When set to "true" on the Gateway (propagated to the waypoint
+	// pod via infrastructureAnnotations), the waypoint overwrites XFCC on the
+	// main_internal HCM so upstream apps see the originating client identity.
+	// TODO(https://github.com/istio/istio/issues/54995): promote to istio.io/api
+	// once the feature stabilizes.
+	xfccClientIdentityAnnotation = "ambient.istio.io/xfcc-include-client-identity"
 )
+
+// xfccIncludeClientIdentityEnabled reports whether the waypoint has opted in to
+// synthesizing XFCC from filter state via xfccClientIdentityAnnotation.
+func xfccIncludeClientIdentityEnabled(node *model.Proxy) bool {
+	if node == nil || node.Metadata == nil {
+		return false
+	}
+	return strings.EqualFold(node.Metadata.Annotations[xfccClientIdentityAnnotation], "true")
+}
 
 func (lb *ListenerBuilder) serviceForHostname(name host.Name) *model.Service {
 	return lb.push.ServiceForHostname(lb.node, name)
@@ -831,6 +850,12 @@ func (lb *ListenerBuilder) buildWaypointHTTPFilters(svc *model.Service) (pre []*
 	)
 	// TODO: how to deal with ext-authz? It will be in the ordering twice
 	// TODO policies here will need to be different per-chain (service attached)
+	// If the waypoint has opted in via annotation, synthesize XFCC from the
+	// ztunnel-provided source workload identity kept in filter state. Runs before
+	// authn/authz so any XFCC-consuming policies see the synthesized value.
+	if xfccIncludeClientIdentityEnabled(lb.node) {
+		pre = append(pre, xdsfilters.WaypointXFCCClientIdentityFilter)
+	}
 	pre = append(pre, authzCustomBuilder.BuildHTTP(cls)...)
 	pre = extension.PopAppendHTTPTrafficExtension(pre, trafficExtensions, extensions.TrafficExtension_AUTHN)
 	pre = append(pre, authnBuilder.BuildHTTP(cls)...)
@@ -876,6 +901,14 @@ func (lb *ListenerBuilder) buildWaypointInboundHTTPFilters(svc *model.Service, c
 		httpOpts.connectionManager.HttpProtocolOptions = &core.Http1ProtocolOptions{
 			AcceptHttp_10: true,
 		}
+	}
+	// When XFCC is synthesized from filter state via header_mutation, default
+	// ForwardClientCertDetails on the main_internal HCM is SANITIZE, which would
+	// strip the synthesized header before forwarding. ALWAYS_FORWARD_ONLY passes
+	// it through; the ALWAYS_ variant is required because main_internal has no
+	// peer mTLS cert.
+	if xfccIncludeClientIdentityEnabled(lb.node) {
+		httpOpts.connectionManager.ForwardClientCertDetails = hcm.HttpConnectionManager_ALWAYS_FORWARD_ONLY
 	}
 	h := lb.buildHTTPConnectionManager(httpOpts)
 
