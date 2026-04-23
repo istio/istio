@@ -188,7 +188,8 @@ func (c *Controller) initializeInputs(kc kube.Client, opts krt.OptionsBuilder) {
 	inputs := &AgwInputs{
 		Namespaces: krt.NewInformer[*corev1.Namespace](kc, opts.WithName("informer/Namespaces")...),
 		Nodes: krt.NewFilteredInformer[*corev1.Node](kc, kclient.Filter{
-			ObjectFilter: kc.ObjectFilter(),
+			ObjectTransform: kube.StripNodeUnusedFields,
+			ObjectFilter:    kc.ObjectFilter(),
 		}, opts.WithName("informer/Nodes")...),
 		Pods: krt.NewFilteredInformer[*corev1.Pod](kc, kclient.Filter{
 			ObjectTransform: kube.StripPodUnusedFields,
