@@ -92,7 +92,7 @@ var minimumCRDVersions = map[string]*semver.Version{
 //     to match the new bundle version. If the watched version is no longer served, the GVR must
 //     be updated to the new served version instead (and the minimum updated accordingly).
 var MaximumCRDVersions = map[string]*semver.Version{
-	"tlsroutes.gateway.networking.k8s.io": semver.New(1, 4, 0, "", ""),
+	"tlsroutes.gateway.networking.k8s.io": semver.New(1, 4, 1, "", ""),
 }
 
 // resourceFilterConfig contains a filter definition parsed from the flags. In case
