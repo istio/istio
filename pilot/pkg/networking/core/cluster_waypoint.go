@@ -523,7 +523,9 @@ func h2connectUpgrade() map[string]*anypb.Any {
 			UpstreamProtocolOptions: &http.HttpProtocolOptions_ExplicitHttpConfig_{ExplicitHttpConfig: &http.HttpProtocolOptions_ExplicitHttpConfig{
 				ProtocolConfig: &http.HttpProtocolOptions_ExplicitHttpConfig_Http2ProtocolOptions{
 					Http2ProtocolOptions: &core.Http2ProtocolOptions{
-						AllowConnect: true,
+						AllowConnect:                true,
+						InitialStreamWindowSize:     features.HBONEInitialStreamWindowSize,
+						InitialConnectionWindowSize: features.HBONEInitialConnectionWindowSize,
 					},
 				},
 			}},
@@ -549,7 +551,9 @@ func h2connectUpgradeWithNoPooling() map[string]*anypb.Any {
 			UpstreamProtocolOptions: &http.HttpProtocolOptions_ExplicitHttpConfig_{ExplicitHttpConfig: &http.HttpProtocolOptions_ExplicitHttpConfig{
 				ProtocolConfig: &http.HttpProtocolOptions_ExplicitHttpConfig_Http2ProtocolOptions{
 					Http2ProtocolOptions: &core.Http2ProtocolOptions{
-						AllowConnect: true,
+						AllowConnect:                true,
+						InitialStreamWindowSize:     features.HBONEInitialStreamWindowSize,
+						InitialConnectionWindowSize: features.HBONEInitialConnectionWindowSize,
 					},
 				},
 			}},
