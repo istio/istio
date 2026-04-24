@@ -64,6 +64,12 @@ func TestStringMatcherWithPrefix(t *testing.T) {
 			want:   StringMatcherRegex("abc.*-suffix"),
 		},
 		{
+			name:   "suffix-with-dot",
+			v:      "*admin.example",
+			prefix: "spiffe://cluster.local/ns/foo/sa/",
+			want:   StringMatcherRegex("spiffe://cluster.local/ns/foo/sa/.*admin\\.example"),
+		},
+		{
 			name:   "exact",
 			v:      "-exact",
 			prefix: "abc",
