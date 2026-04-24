@@ -1036,9 +1036,12 @@ func TestEnvoyFilterUpdate(t *testing.T) {
 			createSet := sets.New(maps.Keys(creates)...)
 			updateSet := sets.New(maps.Keys(updates)...)
 			changes := deletes.Union(createSet).Union(updateSet)
+			changedKeys := sets.New(slices.Map(changes.UnsortedList(), func(key ConfigKey) types.NamespacedName {
+				return types.NamespacedName{Namespace: key.Namespace, Name: key.Name}
+			})...)
 
 			pc2 := NewPushContext()
-			pc2.initEnvoyFilters(env, changes, pc1.envoyFiltersByNamespace)
+			pc2.initEnvoyFilters(env, changedKeys, pc1.envoyFiltersByNamespace)
 
 			total2 := 0
 			for ns, envoyFilters := range pc2.envoyFiltersByNamespace {

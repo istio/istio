@@ -43,6 +43,7 @@ import (
 	"istio.io/istio/pkg/config/security"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/jwt"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/ptr"
@@ -1392,7 +1393,7 @@ func (ps *PushContext) updateContext(
 		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged, telemetryChanged,
 		trafficExtensionsChanged, proxyConfigsChanged bool
 
-	changedEnvoyFilters := sets.New[ConfigKey]()
+	changedEnvoyFilters := sets.New[types.NamespacedName]()
 
 	// We do not need to watch Ingress or Gateway API changes. Both of these have their own controllers which will send
 	// events for Istio types (Gateway and VirtualService).
@@ -1412,7 +1413,7 @@ func (ps *PushContext) updateContext(
 			trafficExtensionsChanged = true
 		case kind.EnvoyFilter:
 			envoyFiltersChanged = true
-			changedEnvoyFilters.Insert(conf)
+			changedEnvoyFilters.Insert(types.NamespacedName{Namespace: conf.Namespace, Name: conf.Name})
 		case kind.AuthorizationPolicy:
 			authzChanged = true
 		case kind.RequestAuthentication,
@@ -2223,46 +2224,67 @@ func (ps *PushContext) TrafficExtensionsByListenerInfo(proxy *Proxy, info Listen
 }
 
 // pre computes envoy filters per namespace
-func (ps *PushContext) initEnvoyFilters(env *Environment, changed sets.Set[ConfigKey], previousIndex map[string][]*EnvoyFilterWrapper) {
-	envoyFilterConfigs := env.List(gvk.EnvoyFilter, NamespaceAll)
-	previous := make(map[ConfigKey]*EnvoyFilterWrapper)
-	for namespace, nsEnvoyFilters := range previousIndex {
-		for _, envoyFilter := range nsEnvoyFilters {
-			previous[ConfigKey{Kind: kind.EnvoyFilter, Namespace: namespace, Name: envoyFilter.Name}] = envoyFilter
+func (ps *PushContext) initEnvoyFilters(env *Environment, changed sets.Set[types.NamespacedName], previousIndex map[string][]*EnvoyFilterWrapper) {
+	if changed == nil || previousIndex == nil {
+		envoyFilterConfigs := env.List(gvk.EnvoyFilter, NamespaceAll)
+		for _, envoyFilterConfig := range envoyFilterConfigs {
+			efw := convertToEnvoyFilterWrapper(&envoyFilterConfig)
+			ps.envoyFiltersByNamespace[envoyFilterConfig.Namespace] = append(ps.envoyFiltersByNamespace[envoyFilterConfig.Namespace], efw)
 		}
+
+		// sorting each namespace should be less expensive than sorting the entire list together
+		for _, filters := range ps.envoyFiltersByNamespace {
+			sortEnvoyFilters(filters)
+		}
+		return
 	}
 
-	sort.Slice(envoyFilterConfigs, func(i, j int) bool {
-		ifilter := envoyFilterConfigs[i].Spec.(*networking.EnvoyFilter)
-		jfilter := envoyFilterConfigs[j].Spec.(*networking.EnvoyFilter)
-		if ifilter.Priority != jfilter.Priority {
-			return ifilter.Priority < jfilter.Priority
+	changedNamespaces := sets.New[string]()
+	for ck := range changed {
+		changedNamespaces.Insert(ck.Namespace)
+	}
+
+	ps.envoyFiltersByNamespace = maps.Clone(previousIndex)
+
+	for ns := range changedNamespaces {
+		envoyFilterConfigs := env.List(gvk.EnvoyFilter, ns)
+		if len(envoyFilterConfigs) == 0 {
+			delete(ps.envoyFiltersByNamespace, ns)
+			continue
 		}
-		// If priority is same fallback to name and creation timestamp, else use priority.
-		// If creation time is the same, then behavior is nondeterministic. In this case, we can
-		// pick an arbitrary but consistent ordering based on name and namespace, which is unique.
-		// CreationTimestamp is stored in seconds, so this is not uncommon.
-		if envoyFilterConfigs[i].CreationTimestamp != envoyFilterConfigs[j].CreationTimestamp {
-			return envoyFilterConfigs[i].CreationTimestamp.Before(envoyFilterConfigs[j].CreationTimestamp)
+
+		prevNs, ok := previousIndex[ns]
+		efws := make([]*EnvoyFilterWrapper, 0, len(envoyFilterConfigs))
+		for _, envoyFilterConfig := range envoyFilterConfigs {
+			if ok && !changed.Contains(envoyFilterConfig.NamespacedName()) {
+				// this is a changed namespace, but this specific config is not changed, we can reuse the previous
+				f := slices.FindFunc(prevNs, func(efw *EnvoyFilterWrapper) bool {
+					return efw.Name == envoyFilterConfig.Name
+				})
+				if f != nil {
+					efws = append(efws, *f)
+					continue
+				}
+			}
+			// Rebuild the envoy filter in all other cases.
+			efws = append(efws, convertToEnvoyFilterWrapper(&envoyFilterConfig))
 		}
-		in := envoyFilterConfigs[i].Name + "." + envoyFilterConfigs[i].Namespace
-		jn := envoyFilterConfigs[j].Name + "." + envoyFilterConfigs[j].Namespace
-		return in < jn
+
+		sortEnvoyFilters(efws)
+		ps.envoyFiltersByNamespace[ns] = efws
+	}
+}
+
+func sortEnvoyFilters(filters []*EnvoyFilterWrapper) {
+	slices.SortFunc(filters, func(a, b *EnvoyFilterWrapper) int {
+		if c := cmp.Compare(a.Priority, b.Priority); c != 0 {
+			return c
+		}
+		if c := a.creationTime.Compare(b.creationTime); c != 0 {
+			return c
+		}
+		return strings.Compare(a.Name, b.Name)
 	})
-
-	for _, envoyFilterConfig := range envoyFilterConfigs {
-		var efw *EnvoyFilterWrapper
-		key := ConfigKey{Kind: kind.EnvoyFilter, Namespace: envoyFilterConfig.Namespace, Name: envoyFilterConfig.Name}
-		if prev, ok := previous[key]; ok && !changed.Contains(key) {
-			// Reuse the previous EnvoyFilterWrapper if it exists and hasn't changed when optimized config rebuild is enabled
-			efw = prev
-		}
-		// Rebuild the envoy filter in all other cases.
-		if efw == nil {
-			efw = convertToEnvoyFilterWrapper(&envoyFilterConfig)
-		}
-		ps.envoyFiltersByNamespace[envoyFilterConfig.Namespace] = append(ps.envoyFiltersByNamespace[envoyFilterConfig.Namespace], efw)
-	}
 }
 
 type MergedEnvoyFilterWrapper struct {
