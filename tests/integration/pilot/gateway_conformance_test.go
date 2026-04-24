@@ -105,7 +105,6 @@ var skippedTests = map[string]string{
 	// The following tests were modified between v1.4.0 && v1.5.0
 	"BackendTLSPolicy": "TODO",
 
-	"GatewayClassObservedGenerationBump":    "TODO",
 	"GatewayWithAttachedRoutes":             "TODO",
 	"GatewayWithAttachedRoutesWithPort8080": "TODO",
 
