@@ -316,18 +316,29 @@ func TestManifestGenerateGateways(t *testing.T) {
 	})
 }
 
-// TestManifestGenerateGatewayHPAPDB verifies that setting k8s.hpaSpec.minReplicas
-// on a gateway causes a PodDisruptionBudget to be generated, without requiring
-// the user to also set values.gateways.istio-ingressgateway.autoscaleMin.
-func TestManifestGenerateGatewayHPAPDB(t *testing.T) {
-	g := NewWithT(t)
-	objss := runManifestCommands(t, "gateway_hpa_pdb", "", liveCharts, nil)
-	for _, objs := range objss {
-		g.Expect(objs.kind(manifest.PodDisruptionBudget).size()).Should(Equal(1))
-		g.Expect(objs.kind(manifest.HorizontalPodAutoscaler).size()).Should(Equal(1))
-		for _, o := range objs.kind(manifest.HorizontalPodAutoscaler).objSlice {
-			g.Expect(o.Unstructured.Object).Should(HavePathValueEqual(PathValue{"spec.minReplicas", int64(2)}))
-		}
+// TestManifestGenerateHPAPDB verifies that setting k8s.hpaSpec.minReplicas causes
+// a PodDisruptionBudget to be generated without requiring the user to also set the
+// component's autoscaleMin Helm value directly.
+func TestManifestGenerateHPAPDB(t *testing.T) {
+	cases := []struct {
+		name     string
+		testCase string
+	}{
+		{"gateway", "gateway_hpa_pdb"},
+		{"pilot", "pilot_hpa_pdb"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			g := NewWithT(t)
+			objss := runManifestCommands(t, tc.testCase, "", liveCharts, nil)
+			for _, objs := range objss {
+				g.Expect(objs.kind(manifest.PodDisruptionBudget).size()).Should(Equal(1))
+				g.Expect(objs.kind(manifest.HorizontalPodAutoscaler).size()).Should(Equal(1))
+				for _, o := range objs.kind(manifest.HorizontalPodAutoscaler).objSlice {
+					g.Expect(o.Unstructured.Object).Should(HavePathValueEqual(PathValue{"spec.minReplicas", int64(2)}))
+				}
+			}
+		})
 	}
 }
 
