@@ -172,11 +172,11 @@ func testConformance(gatewayClassName string, skippedTestKeys []string, t *testi
 			clientOptions := client.Options{
 				Scheme: kube.IstioScheme,
 			}
-			// Copy the REST config so each conformance run gets a fresh rate
-			// limiter. Without this, back-to-back runs share the same token
-			// bucket and the second run can starve on API calls.
+			// Copy the REST config so the conformance suite gets its own rate limiter
+			// with enough headroom for the suite's rapid polling (~10 req/sec)
 			restConfig := rest.CopyConfig(gatewayConformanceInputs.Client.RESTConfig())
-			restConfig.RateLimiter = nil
+			restConfig.QPS = 20
+			restConfig.Burst = 40
 			c, err := client.New(restConfig, clientOptions)
 			if err != nil {
 				t.Fatal(err)
