@@ -2021,25 +2021,23 @@ func (ps *PushContext) SetDestinationRulesForTesting(configs []config.Config) {
 
 // sortConfigBySelectorAndCreationTime sorts the list of config objects based on priority and creation time.
 func sortConfigBySelectorAndCreationTime(configs []config.Config) []config.Config {
-	sort.Slice(configs, func(i, j int) bool {
-		// check if one of the configs has priority
-		idr := configs[i].Spec.(*networking.DestinationRule)
-		jdr := configs[j].Spec.(*networking.DestinationRule)
+	slices.SortFunc(configs, func(a, b config.Config) int {
+		// check if one of the configs has workload selector
+		idr := a.Spec.(*networking.DestinationRule)
+		jdr := b.Spec.(*networking.DestinationRule)
 		if idr.GetWorkloadSelector() != nil && jdr.GetWorkloadSelector() == nil {
-			return true
+			return -1
 		}
 		if idr.GetWorkloadSelector() == nil && jdr.GetWorkloadSelector() != nil {
-			return false
+			return +1
 		}
 
-		// If priority is the same or neither has priority, fallback to creation time ordering
-		if r := configs[i].CreationTimestamp.Compare(configs[j].CreationTimestamp); r != 0 {
-			return r == -1 // -1 means i is older than j, so it should be before than j, so return true.
-		}
-		if r := cmp.Compare(configs[i].Name, configs[j].Name); r != 0 {
-			return r == -1
-		}
-		return cmp.Compare(configs[i].Namespace, configs[j].Namespace) == -1
+		// ordered by creation time, name, namespace
+		return cmp.Or(
+            a.CreationTimestamp.Compare(b.CreationTimestamp),
+            cmp.Compare(a.Name, b.Name),
+            cmp.Compare(a.Namespace, b.Namespace),
+        )
 	})
 	return configs
 }
