@@ -8,7 +8,7 @@ require (
 	github.com/KimMachineGun/automemlimit v0.7.5
 	github.com/Masterminds/semver/v3 v3.4.0
 	github.com/Masterminds/sprig/v3 v3.3.0
-	github.com/agentgateway/agentgateway/api v0.0.0-20260402214108-cf5ade8a4960
+	github.com/agentgateway/agentgateway/api v0.0.0-20260408212224-34871c59e328
 	github.com/alecholmes/xfccparser v0.4.0
 	github.com/cbeuw/connutil v1.0.1
 	github.com/cenkalti/backoff/v4 v4.3.0
@@ -20,8 +20,8 @@ require (
 	github.com/coreos/go-oidc/v3 v3.17.0
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/docker/cli v29.3.0+incompatible
-	github.com/envoyproxy/go-control-plane/contrib v1.36.1-0.20260409083702-98966259b99a
-	github.com/envoyproxy/go-control-plane/envoy v1.37.1-0.20260409083702-98966259b99a
+	github.com/envoyproxy/go-control-plane/contrib v1.36.1-0.20260425030550-64b2e46d9ebf
+	github.com/envoyproxy/go-control-plane/envoy v1.37.1-0.20260425030550-64b2e46d9ebf
 	github.com/evanphx/json-patch/v5 v5.9.11
 	github.com/fatih/color v1.19.0
 	github.com/felixge/fgprof v0.9.5

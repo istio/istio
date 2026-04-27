@@ -221,3 +221,119 @@ func createCASecret(t test.Failer, client kube.Client) {
 func readSampleCertFromFile(f string) ([]byte, error) {
 	return os.ReadFile(path.Join(env.IstioSrc, "samples/certs", f))
 }
+
+func TestPemBundleHasSubsetRelation(t *testing.T) {
+	certA, err := readSampleCertFromFile("root-cert.pem")
+	if err != nil {
+		t.Fatal(err)
+	}
+	certB, err := readSampleCertFromFile("ca-cert.pem")
+	if err != nil {
+		t.Fatal(err)
+	}
+	certC, err := readSampleCertFromFile("ca-cert-alt.pem")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	bundleAB := append(append([]byte{}, certA...), certB...)
+	bundleBA := append(append([]byte{}, certB...), certA...)
+	bundleABC := append(append(append([]byte{}, certA...), certB...), certC...)
+	bundleCBA := append(append(append([]byte{}, certC...), certB...), certA...)
+	bundleAC := append(append([]byte{}, certA...), certC...)
+
+	cases := []struct {
+		name     string
+		a        []byte
+		b        []byte
+		expected bool
+	}{
+		{
+			name:     "identical single cert",
+			a:        certA,
+			b:        certA,
+			expected: true,
+		},
+		{
+			name:     "identical bundle",
+			a:        bundleAB,
+			b:        bundleAB,
+			expected: true,
+		},
+		{
+			name:     "superset and subset",
+			a:        bundleAB,
+			b:        certA,
+			expected: true,
+		},
+		{
+			name:     "subset and superset",
+			a:        certA,
+			b:        bundleAB,
+			expected: true,
+		},
+		{
+			name:     "reordered bundle",
+			a:        bundleBA,
+			b:        bundleAB,
+			expected: true,
+		},
+		{
+			name:     "disjoint certs",
+			a:        certA,
+			b:        certB,
+			expected: false,
+		},
+		{
+			name:     "empty a",
+			a:        []byte{},
+			b:        certA,
+			expected: false,
+		},
+		{
+			name:     "empty b",
+			a:        certA,
+			b:        []byte{},
+			expected: false,
+		},
+		{
+			name:     "invalid pem",
+			a:        []byte("not a pem"),
+			b:        certA,
+			expected: false,
+		},
+		{
+			name:     "three certs rotation adds one",
+			a:        bundleABC,
+			b:        bundleAB,
+			expected: true,
+		},
+		{
+			name:     "three certs rotation removes one",
+			a:        bundleAB,
+			b:        bundleABC,
+			expected: true,
+		},
+		{
+			name:     "three certs reordered",
+			a:        bundleCBA,
+			b:        bundleABC,
+			expected: true,
+		},
+		{
+			name:     "three certs partial overlap not subset",
+			a:        bundleAC,
+			b:        bundleAB,
+			expected: false,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := pemBundleHasSubsetRelation(tc.a, tc.b)
+			if result != tc.expected {
+				t.Errorf("pemBundleHasSubsetRelation() = %v, want %v", result, tc.expected)
+			}
+		})
+	}
+}

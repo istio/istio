@@ -17,12 +17,17 @@
 package filebasedtlsorigination
 
 import (
+	"net/http"
 	"testing"
+	"time"
 
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
+	"istio.io/istio/pkg/test/framework/resource/config/apply"
+	"istio.io/istio/pkg/test/util/retry"
+	sdsutil "istio.io/istio/tests/integration/security/sds_ingress/util"
 )
 
 // TestDestinationRuleTls tests that MUTUAL tls mode is respected in DestinationRule.
@@ -67,5 +72,87 @@ spec:
 					client[0].CallOrFail(t, opts)
 				})
 			}
+		})
+}
+
+// TestDestinationRuleTlsSecretRotation verifies that pilot-agent correctly reloads
+// file-mounted certificates referenced in a DestinationRule when the underlying
+// Kubernetes secret is rotated. Two rotations are tested:
+//   - rotate to incompatible cert set: traffic must fail (503)
+//   - rotate back to original cert set: traffic must recover (200)
+func TestDestinationRuleTlsSecretRotation(t *testing.T) {
+	framework.
+		NewTest(t).
+		Run(func(t framework.TestContext) {
+			ns := appNS
+
+			t.ConfigIstio().YAML(ns.Name(), `
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: db-mtls-secret-client
+spec:
+  exportTo: ["."]
+  host: server
+  trafficPolicy:
+    connectionPool:
+      http:
+        maxRequestsPerConnection: 1
+    tls:
+      mode: MUTUAL
+      clientCertificate: /etc/secret-client/client_certs/client.example.com/tls.crt
+      privateKey: /etc/secret-client/client_certs/client.example.com/tls.key
+      caCertificates: /etc/secret-client/ca_certs/example.com/cacert
+      sni: server
+`).ApplyOrFail(t, apply.CleanupConditionally)
+
+			t.CleanupConditionally(func() {
+				_ = updateSecretClientCertsFromInline(t, ns,
+					mustReadCert("cert-chain.pem"),
+					mustReadCert("key.pem"),
+					mustReadCert("root-cert.pem"))
+			})
+
+			call := func(expected int) func() error {
+				return func() error {
+					_, err := secretClient[0].Call(echo.CallOptions{
+						To:                      server,
+						Count:                   1,
+						NewConnectionPerRequest: true,
+						Port: echo.Port{
+							Name: "http",
+						},
+						Check: check.And(check.NoError(), check.Status(expected)),
+					})
+					return err
+				}
+			}
+
+			// Verify baseline connectivity with original certs.
+			retry.UntilSuccessOrFail(t, call(http.StatusOK), retry.Delay(time.Second), retry.Timeout(2*time.Minute))
+
+			// Rotate to an incompatible cert set (different CA). pilot-agent should detect the
+			// change via inotify and push updated certs to Envoy, causing TLS verification to fail (503).
+			t.NewSubTest("rotate to wrong cert: traffic fails").Run(func(t framework.TestContext) {
+				if err := updateSecretClientCertsFromInline(t, ns,
+					sdsutil.TLSClientCertB,
+					sdsutil.TLSClientKeyB,
+					sdsutil.CaCertB); err != nil {
+					t.Fatalf("failed rotating secret-client to set B: %v", err)
+				}
+				retry.UntilSuccessOrFail(t, call(http.StatusServiceUnavailable), retry.Delay(5*time.Second), retry.Timeout(2*time.Minute))
+			})
+
+			// Rotate back to the original certs. pilot-agent must detect the symlink swap and
+			// push reloaded certs to Envoy so traffic recovers (200).
+			t.NewSubTest("rotate back to original cert: traffic recovers").Run(func(t framework.TestContext) {
+				if err := updateSecretClientCertsFromInline(t, ns,
+					mustReadCert("cert-chain.pem"),
+					mustReadCert("key.pem"),
+					mustReadCert("root-cert.pem")); err != nil {
+					t.Fatalf("failed rotating secret-client back to original: %v", err)
+				}
+				retry.UntilSuccessOrFail(t, call(http.StatusOK), retry.Delay(5*time.Second), retry.Timeout(2*time.Minute))
+			})
 		})
 }

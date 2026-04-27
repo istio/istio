@@ -19,7 +19,6 @@ import (
 	"strings"
 
 	"github.com/agentgateway/agentgateway/api"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"istio.io/istio/pkg/config"
@@ -53,7 +52,6 @@ func buildAgwDestination(
 			msg := fmt.Sprintf("backendRef %v/%v not accessible to a %s in namespace %q (missing a ReferenceGrant?)", to.Name, *toNs, k.Kind, ns)
 			log.Debug(msg)
 			return nil, &Condition{
-				status: metav1.ConditionFalse,
 				error: &ConfigError{
 					Reason:  ConfigErrorReason(gatewayv1.RouteReasonRefNotPermitted),
 					Message: msg,
@@ -83,7 +81,6 @@ func buildAgwDestination(
 			msg := fmt.Sprintf("service name invalid; the name of the InferencePool must be used, not the hostname. Got %q", to.Name)
 			log.Debug(msg)
 			return nil, &Condition{
-				status: metav1.ConditionFalse,
 				error: &ConfigError{
 					Reason:  ConfigErrorReason(gatewayv1.RouteReasonUnsupportedValue),
 					Message: msg,
@@ -98,7 +95,6 @@ func buildAgwDestination(
 			msg := fmt.Sprintf("backendRef %s not found", key)
 			log.Debug(msg)
 			invalidBackendErr = &Condition{
-				status: metav1.ConditionFalse,
 				error: &ConfigError{
 					Reason:  ConfigErrorReason(gatewayv1.RouteReasonBackendNotFound),
 					Message: fmt.Sprintf("backendRef %s  not found", key),
@@ -125,7 +121,6 @@ func buildAgwDestination(
 			msg := fmt.Sprintf("port is required in backendRef for Hostname kind when referencing %q", to.Name)
 			log.Debug(msg)
 			return nil, &Condition{
-				status: metav1.ConditionFalse,
 				error: &ConfigError{
 					Reason:  ConfigErrorReason(gatewayv1.RouteReasonUnsupportedValue),
 					Message: "port is required in backendRef for Hostname kind",
@@ -136,7 +131,6 @@ func buildAgwDestination(
 			msg := fmt.Sprintf("namespace may not be set with Hostname type when referencing %q", to.Name)
 			log.Debug(msg)
 			return nil, &Condition{
-				status: metav1.ConditionFalse,
 				error: &ConfigError{
 					Reason:  ConfigErrorReason(gatewayv1.RouteReasonUnsupportedValue),
 					Message: "namespace may not be set with Hostname type",
@@ -162,7 +156,6 @@ func buildAgwDestination(
 			msg := fmt.Sprintf("service name invalid; the name of the Service must be used, not the hostname. Got %q", to.Name)
 			log.Debug(msg)
 			return nil, &Condition{
-				status: metav1.ConditionFalse,
 				error: &ConfigError{
 					Reason:  ConfigErrorReason(gatewayv1.RouteReasonUnsupportedValue),
 					Message: msg,
@@ -176,7 +169,6 @@ func buildAgwDestination(
 			msg := fmt.Sprintf("backend(%s) not found", hostname)
 			log.Debug(msg)
 			invalidBackendErr = &Condition{
-				status: metav1.ConditionFalse,
 				error: &ConfigError{
 					Reason:  ConfigErrorReason(gatewayv1.RouteReasonBackendNotFound),
 					Message: msg,
@@ -190,7 +182,6 @@ func buildAgwDestination(
 			msg := fmt.Sprintf("port is required in backendRef when referencing service %q", hostname)
 			log.Debug(msg)
 			return nil, &Condition{
-				status: metav1.ConditionFalse,
 				error: &ConfigError{
 					Reason:  ConfigErrorReason(gatewayv1.RouteReasonUnsupportedValue),
 					Message: "port is required in backendRef",
@@ -210,7 +201,6 @@ func buildAgwDestination(
 		msg := fmt.Sprintf("unsupported backendRef kind %q with group %q", ptr.OrEmpty(to.Group), ptr.OrEmpty(to.Kind))
 		log.Debug(msg)
 		return nil, &Condition{
-			status: metav1.ConditionFalse,
 			error: &ConfigError{
 				Reason:  ConfigErrorReason(gatewayv1.RouteReasonInvalidKind),
 				Message: fmt.Sprintf("referencing unsupported backendRef: group %q kind %q", ptr.OrEmpty(to.Group), ptr.OrEmpty(to.Kind)),

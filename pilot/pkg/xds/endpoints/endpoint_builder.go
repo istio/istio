@@ -86,6 +86,8 @@ type EndpointBuilder struct {
 	serviceInfo  *model.ServiceInfo
 
 	mtlsChecker *mtlsChecker
+
+	canonicalServiceForMeshExternal bool
 }
 
 func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.PushContext) EndpointBuilder {
@@ -128,6 +130,8 @@ func NewCDSEndpointBuilder(
 		push:       push,
 		proxy:      proxy,
 		dir:        dir,
+
+		canonicalServiceForMeshExternal: features.CanonicalServiceForMeshExternalServiceEntry,
 	}
 	b.populateSubsetInfo()
 	b.populateFailoverPriorityLabels()
@@ -680,7 +684,7 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 	// Istio endpoint level tls transport socket configuration depends on this logic
 	// Do not remove
 	var meta *model.EndpointMetadata
-	if features.CanonicalServiceForMeshExternalServiceEntry && b.service.MeshExternal {
+	if b.canonicalServiceForMeshExternal && b.service.MeshExternal {
 		svcLabels := b.service.Attributes.Labels
 		if _, ok := svcLabels[model.IstioCanonicalServiceLabelName]; ok {
 			meta = e.MetadataClone()

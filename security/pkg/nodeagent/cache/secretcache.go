@@ -955,7 +955,9 @@ func (sc *SecretManagerClient) handleFileEvent(event fsnotify.Event, resources m
 		// Process symlinks (those with TargetPath set)
 		// Check if the event is for the symlink itself, its target file, or its directory
 		symlinkDir := filepath.Dir(fc.Filename)
-		if fc.Filename == event.Name || fc.TargetPath == event.Name || symlinkDir == event.Name {
+		kubeDataPublish := isKubeDataPublish(event, symlinkDir)
+		if fc.Filename == event.Name || fc.TargetPath == event.Name || symlinkDir == event.Name || kubeDataPublish {
+			cacheLog.Debugf("file event matched for %s: event=%s op=%v", fc.ResourceName, event.Name, event.Op)
 			// If the symlink itself changed (removed/recreated), we need to re-resolve it
 			if fc.Filename == event.Name && (isRemove(event) || isCreate(event)) {
 				sc.handleSymlinkChange(fc)
@@ -976,6 +978,13 @@ func (sc *SecretManagerClient) handleFileEvent(event fsnotify.Event, resources m
 			}
 			if symlinkDir == event.Name {
 				// Always trigger for directory changes (including removal)
+				shouldTriggerUpdate = true
+			}
+
+			if kubeDataPublish {
+				// Kubelet atomically publishes new secret files via MOVED_TO on ..data.
+				// Re-resolve the symlink so the watcher picks up the new target.
+				sc.handleSymlinkChange(fc)
 				shouldTriggerUpdate = true
 			}
 
@@ -1077,6 +1086,15 @@ func (sc *SecretManagerClient) handleSymlinkChange(fc FileCert) {
 
 func isWrite(event fsnotify.Event) bool {
 	return event.Has(fsnotify.Write)
+}
+
+// isKubeDataPublish reports whether event is a kubelet secret volume publish:
+// MOVED_TO on the "..data" symlink (fsnotify.Create), which is the final atomic
+// step kubelet performs after staging new files in a private timestamped directory.
+func isKubeDataPublish(event fsnotify.Event, symlinkDir string) bool {
+	return isCreate(event) &&
+		filepath.Dir(event.Name) == symlinkDir &&
+		filepath.Base(event.Name) == "..data"
 }
 
 func isCreate(event fsnotify.Event) bool {

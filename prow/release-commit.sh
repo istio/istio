@@ -41,10 +41,10 @@ export ISTIO_DOCKER_QEMU=true
 BUILDER_SHA=762cf9b80f28efad2cd3d418a34d90ec64b925a4
 
 # Reference to the next minor version of Istio
-# This will create a version like 1.4-alpha.sha
+# This will create a version like 1.30.0-alpha.<sha>
 NEXT_VERSION=$(cat "${ROOT}/VERSION")
 TAG=$(git rev-parse HEAD)
-VERSION="${NEXT_VERSION}-alpha.${TAG}"
+VERSION="${NEXT_VERSION}.0-alpha.${TAG}"
 
 # In CI we want to store the outputs to artifacts, which will preserve the build
 # If not specified, we can just create a temporary directory
