@@ -2797,7 +2797,7 @@ spec:
 var CheckDeny = check.Or(
 	check.ErrorContains("rpc error: code = PermissionDenied"), // gRPC
 	check.ErrorContains("EOF"),                                // TCP envoy
-	check.ErrorContains("read: connection reset by peer"),     // TCP ztunnel
+	check.ConnectionResetByPeer(),                             // TCP ztunnel
 	check.NoErrorAndStatus(http.StatusForbidden),              // HTTP
 	check.NoErrorAndStatus(http.StatusServiceUnavailable),     // HTTP client, TCP server
 )
