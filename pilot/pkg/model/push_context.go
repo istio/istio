@@ -2032,12 +2032,14 @@ func sortConfigBySelectorAndCreationTime(configs []config.Config) []config.Confi
 			return +1
 		}
 
-		// ordered by creation time, name, namespace
-		return cmp.Or(
-            a.CreationTimestamp.Compare(b.CreationTimestamp),
-            cmp.Compare(a.Name, b.Name),
-            cmp.Compare(a.Namespace, b.Namespace),
-        )
+		// If priority is the same or neither has priority, fallback to creation time ordering
+		if r := a.CreationTimestamp.Compare(b.CreationTimestamp); r != 0 {
+			return r // -1 means i is older than j, so it should be before than j, so return -1.
+		}
+		if r := cmp.Compare(a.Name, b.Name); r != 0 {
+			return r
+		}
+		return cmp.Compare(a.Namespace, b.Namespace)
 	})
 	return configs
 }
