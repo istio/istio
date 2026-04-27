@@ -66,7 +66,7 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 	//   where PRIME is the max prime number below MAXIPS.
 	// - Calculate new hash iteratively till we find an empty slot with (h1(k) + i*h2(k)) % MAXIPS
 	j := 0
-	for i, svc := range services {
+	for idx, svc := range services {
 		// we can allocate IPs only if
 		// 1. the service has resolution set to static/dns. We cannot allocate
 		//   for NONE because we will not know the original DST IP that the application requested.
@@ -87,7 +87,7 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 				// make a shallow copy because the service will be modified
 				svcCopy := svc.ShallowCopy()
 				hashedServices[firstHash] = svcCopy
-				services[i] = svcCopy
+				services[idx] = svcCopy
 			} else {
 				// This means we have a collision. Resolve collision by "DoubleHashing".
 				i := uint32(1)
@@ -98,7 +98,7 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 						// make a shallow copy because the service will be modified
 						svcCopy := svc.ShallowCopy()
 						hashedServices[nh] = svcCopy
-						services[i] = svcCopy
+						services[idx] = svcCopy
 						break
 					}
 					i++

@@ -3777,4 +3777,3 @@ func TestResolveServiceAliases(t *testing.T) {
 		})
 	}
 }
-
