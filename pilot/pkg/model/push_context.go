@@ -2037,7 +2037,7 @@ func sortConfigBySelectorAndCreationTime(configs []config.Config) []config.Confi
 			return r // -1 means i is older than j, so it should be before than j, so return -1.
 		}
 		if r := strings.Compare(a.Name, b.Name); r != 0 {
-			return -r
+			return r
 		}
 		return strings.Compare(a.Namespace, b.Namespace)
 	})
