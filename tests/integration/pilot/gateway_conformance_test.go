@@ -26,6 +26,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8ssets "k8s.io/apimachinery/pkg/util/sets" //nolint: depguard
+	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	v1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/conformance"
@@ -171,7 +172,12 @@ func testConformance(gatewayClassName string, skippedTestKeys []string, t *testi
 			clientOptions := client.Options{
 				Scheme: kube.IstioScheme,
 			}
-			c, err := client.New(gatewayConformanceInputs.Client.RESTConfig(), clientOptions)
+			// Copy the REST config so each conformance run gets a fresh rate
+			// limiter. Without this, back-to-back runs share the same token
+			// bucket and the second run can starve on API calls.
+			restConfig := rest.CopyConfig(gatewayConformanceInputs.Client.RESTConfig())
+			restConfig.RateLimiter = nil
+			c, err := client.New(restConfig, clientOptions)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -192,7 +198,7 @@ func testConformance(gatewayClassName string, skippedTestKeys []string, t *testi
 				Client:                   c,
 				Clientset:                gatewayConformanceInputs.Client.Kube(),
 				ClientOptions:            clientOptions,
-				RestConfig:               gatewayConformanceInputs.Client.RESTConfig(),
+				RestConfig:               restConfig,
 				GatewayClassName:         gatewayClassName,
 				Debug:                    scopes.Framework.DebugEnabled(),
 				CleanupBaseResources:     gatewayConformanceInputs.Cleanup,
