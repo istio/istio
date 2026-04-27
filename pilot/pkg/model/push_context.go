@@ -2034,7 +2034,7 @@ func sortConfigBySelectorAndCreationTime(configs []config.Config) []config.Confi
 
 		// If priority is the same or neither has priority, fallback to creation time ordering
 		if r := configs[i].CreationTimestamp.Compare(configs[j].CreationTimestamp); r != 0 {
-			return r == -1 // -1 means i is less than j, so return true.
+			return r == -1 // -1 means i is older than j, so it should be before than j, so return true.
 		}
 		if r := cmp.Compare(configs[i].Name, configs[j].Name); r != 0 {
 			return r == -1
