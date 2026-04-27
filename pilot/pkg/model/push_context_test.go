@@ -1547,15 +1547,16 @@ func TestServiceIndex(t *testing.T) {
 	g.Expect(si.instancesByPort).To(HaveLen(5))
 	g.Expect(si.HostnameAndNamespace).To(HaveLen(5))
 
-	// Should just have "namespace"
-	g.Expect(si.exportedToNamespace).To(HaveLen(1))
+	// Should have exported and private services in the right namespaces
+	g.Expect(si.exportedToNamespace).To(HaveLen(2))
 	g.Expect(serviceNames(*si.exportedToNamespace["namespace"])).To(Equal([]string{"svc-namespace"}))
+	g.Expect(serviceNames(*si.exportedToNamespace["test1"])).To(Equal([]string{"svc-private"}))
 
 	g.Expect(serviceNames(si.public)).To(Equal([]string{"svc-public", "svc-unset"}))
 
 	// Should just have "test1"
-	g.Expect(si.privateByNamespace).To(HaveLen(1))
-	g.Expect(serviceNames(*si.privateByNamespace["test1"])).To(Equal([]string{"svc-private"}))
+	g.Expect(si.private).To(HaveLen(1))
+	g.Expect(serviceNames(si.private)).To(Equal([]string{"svc-private"}))
 }
 
 func TestIsServiceVisible(t *testing.T) {

@@ -64,12 +64,12 @@ var _ Metrics = &PushContext{}
 
 // serviceIndex is an index of all services by various fields for easy access during push.
 type serviceIndex struct {
-	// privateByNamespace are services that can reachable within the same namespace, with exportTo "."
-	privateByNamespace map[string]*[]*Service
+	// private are services that are reachable within the same namespace, with exportTo "."
+	private []*Service
 	// public are services reachable within the mesh with exportTo "*"
 	public []*Service
 	// exportedToNamespace are services that were made visible to this namespace
-	// by an exportTo explicitly specifying this namespace.
+	// by an exportTo explicitly specifying this namespace or because they are private to the namespace.
 	exportedToNamespace map[string]*[]*Service
 
 	// HostnameAndNamespace has all services, indexed by hostname then namespace.
@@ -84,7 +84,7 @@ type serviceIndex struct {
 func newServiceIndex() serviceIndex {
 	return serviceIndex{
 		public:               []*Service{},
-		privateByNamespace:   map[string]*[]*Service{},
+		private:              []*Service{},
 		exportedToNamespace:  map[string]*[]*Service{},
 		HostnameAndNamespace: map[host.Name]map[string]*Service{},
 		instancesByPort:      map[string]map[int][]*IstioEndpoint{},
@@ -1038,15 +1038,11 @@ func (ps *PushContext) servicesExportedToNamespace(ns string) []*Service {
 
 	// First add private services and explicitly exportedTo services
 	if ns == NamespaceAll {
-		out = make([]*Service, 0, len(ps.ServiceIndex.privateByNamespace)+len(ps.ServiceIndex.public))
-		for _, privateServices := range ps.ServiceIndex.privateByNamespace {
-			out = append(out, *privateServices...)
-		}
+		out = make([]*Service, 0, len(ps.ServiceIndex.private)+len(ps.ServiceIndex.public))
+		out = append(out, ps.ServiceIndex.private...)
 	} else {
-		privateServices := ptr.OrEmpty(ps.ServiceIndex.privateByNamespace[ns])
 		exportedServices := ptr.OrEmpty(ps.ServiceIndex.exportedToNamespace[ns])
-		out = make([]*Service, 0, len(privateServices)+len(exportedServices)+len(ps.ServiceIndex.public))
-		out = append(out, privateServices...)
+		out = make([]*Service, 0, len(exportedServices)+len(ps.ServiceIndex.public))
 		out = append(out, exportedServices...)
 	}
 
@@ -1578,12 +1574,13 @@ func (ps *PushContext) initServiceRegistry(env *Environment, configsUpdate sets.
 		ns := s.Attributes.Namespace
 		if s.Attributes.ExportTo.IsEmpty() {
 			if ps.exportToDefaults.service.Contains(visibility.Private) {
-				privateServices, ok := ps.ServiceIndex.privateByNamespace[ns]
+				ps.ServiceIndex.private = append(ps.ServiceIndex.private, s)
+				exportedServices, ok := ps.ServiceIndex.exportedToNamespace[ns]
 				if !ok {
-					privateServices = &[]*Service{}
-					ps.ServiceIndex.privateByNamespace[ns] = privateServices
+					exportedServices = &[]*Service{}
+					ps.ServiceIndex.exportedToNamespace[ns] = exportedServices
 				}
-				*privateServices = append(*privateServices, s)
+				*exportedServices = append(*exportedServices, s)
 			} else if ps.exportToDefaults.service.Contains(visibility.Public) {
 				ps.ServiceIndex.public = append(ps.ServiceIndex.public, s)
 			}
@@ -1599,23 +1596,20 @@ func (ps *PushContext) initServiceRegistry(env *Environment, configsUpdate sets.
 			}
 			// . or other namespaces
 			for exportTo := range s.Attributes.ExportTo {
-				if exportTo == visibility.Private || string(exportTo) == ns {
+				key := string(exportTo)
+				if exportTo == visibility.Private || key == ns {
 					// exportTo with same namespace is effectively private
-					privateServices, ok := ps.ServiceIndex.privateByNamespace[ns]
-					if !ok {
-						privateServices = &[]*Service{}
-						ps.ServiceIndex.privateByNamespace[ns] = privateServices
-					}
-					*privateServices = append(*privateServices, s)
-				} else {
-					// exportTo is a specific target namespace
-					exportedServices, ok := ps.ServiceIndex.exportedToNamespace[string(exportTo)]
-					if !ok {
-						exportedServices = &[]*Service{}
-						ps.ServiceIndex.exportedToNamespace[string(exportTo)] = exportedServices
-					}
-					*exportedServices = append(*exportedServices, s)
+					key = ns
+					ps.ServiceIndex.private = append(ps.ServiceIndex.private, s)
 				}
+
+				// exportTo is a specific target namespace
+				exportedServices, ok := ps.ServiceIndex.exportedToNamespace[key]
+				if !ok {
+					exportedServices = &[]*Service{}
+					ps.ServiceIndex.exportedToNamespace[key] = exportedServices
+				}
+				*exportedServices = append(*exportedServices, s)
 			}
 		}
 	}
