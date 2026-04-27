@@ -105,13 +105,9 @@ var skippedTests = map[string]string{
 	// The following tests were modified between v1.4.0 && v1.5.0
 	"BackendTLSPolicy": "TODO",
 
-	"GatewayWithAttachedRoutes":             "TODO",
 	"GatewayWithAttachedRoutesWithPort8080": "TODO",
 
-	"HTTPRouteHostnameIntersection": "TODO",
-
 	"MeshGRPCRouteWeight": "TODO",
-	"MeshHTTPRouteWeight": "TODO",
 }
 
 var agentgatewaySkippedTests = map[string]string{
