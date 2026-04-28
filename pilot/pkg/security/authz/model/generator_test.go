@@ -648,10 +648,10 @@ func TestServiceAccountRegex(t *testing.T) {
 
 func TestNamespaceMatcherRegex_Match(t *testing.T) {
 	testCases := []struct {
-		name     string
-		v        string
-		match    string
-		noMatch  string
+		name    string
+		v       string
+		match   string
+		noMatch string
 	}{
 		{
 			name:    "exact-match-with-dot",
