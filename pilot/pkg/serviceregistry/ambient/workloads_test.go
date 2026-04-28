@@ -1515,6 +1515,120 @@ func TestWorkloadEntryConditions(t *testing.T) {
 				model.WaypointBound: nil,
 			},
 		},
+		{
+			name: "workload entry with namespace-inherited service-only waypoint produces no condition",
+			inputs: []any{
+				Waypoint{
+					Named: krt.Named{
+						Name:      "service-waypoint",
+						Namespace: "ns",
+					},
+					TrafficType: constants.ServiceTraffic,
+					Address:     waypointAddr,
+					AllowedRoutes: WaypointSelector{
+						FromNamespaces: gatewayv1.NamespacesFromSame,
+					},
+				},
+				&v1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "ns",
+						Labels: map[string]string{
+							v1.LabelMetadataName:          "ns",
+							label.IoIstioUseWaypoint.Name: "service-waypoint",
+						},
+					},
+				},
+			},
+			we: &networkingclient.WorkloadEntry{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "name",
+					Namespace: "ns",
+				},
+				Spec: networking.WorkloadEntry{
+					Address: "1.2.3.4",
+				},
+			},
+			conditions: model.ConditionSet{
+				model.WaypointBound: nil,
+			},
+		},
+		{
+			name: "workload entry with direct service-only waypoint label produces error",
+			inputs: []any{
+				Waypoint{
+					Named: krt.Named{
+						Name:      "service-waypoint",
+						Namespace: "ns",
+					},
+					TrafficType: constants.ServiceTraffic,
+					Address:     waypointAddr,
+					AllowedRoutes: WaypointSelector{
+						FromNamespaces: gatewayv1.NamespacesFromSame,
+					},
+				},
+				ns,
+			},
+			we: &networkingclient.WorkloadEntry{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "name",
+					Namespace: "ns",
+					Labels: map[string]string{
+						label.IoIstioUseWaypoint.Name: "service-waypoint",
+					},
+				},
+				Spec: networking.WorkloadEntry{
+					Address: "1.2.3.4",
+				},
+			},
+			conditions: model.ConditionSet{
+				model.WaypointBound: {
+					Status:  false,
+					Reason:  "UnsupportedTrafficType",
+					Message: `attempting to bind to traffic type "workload" which the waypoint "ns/service-waypoint" does not support`,
+				},
+			},
+		},
+		{
+			name: "workload entry with namespace-inherited all-traffic waypoint binds successfully",
+			inputs: []any{
+				Waypoint{
+					Named: krt.Named{
+						Name:      "all-waypoint",
+						Namespace: "ns",
+					},
+					TrafficType: constants.AllTraffic,
+					Address:     waypointAddr,
+					AllowedRoutes: WaypointSelector{
+						FromNamespaces: gatewayv1.NamespacesFromSame,
+					},
+				},
+				&v1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "ns",
+						Labels: map[string]string{
+							v1.LabelMetadataName:          "ns",
+							label.IoIstioUseWaypoint.Name: "all-waypoint",
+						},
+					},
+				},
+			},
+			we: &networkingclient.WorkloadEntry{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "name",
+					Namespace: "ns",
+				},
+				Spec: networking.WorkloadEntry{
+					Address: "1.2.3.4",
+				},
+			},
+			conditions: model.ConditionSet{
+				model.WaypointBound: {
+					Status:  true,
+					Reason:  string(model.WaypointAccepted),
+					Message: "Successfully attached to waypoint ns/all-waypoint",
+				},
+			},
+		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {

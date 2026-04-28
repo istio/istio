@@ -185,6 +185,11 @@ func fetchWaypointForWorkload(ctx krt.HandlerContext, Waypoints krt.Collection[W
 	// Waypoint does not support Workload traffic
 	log.Debugf("Unable to add workload waypoint %s/%s; traffic type %s not supported for %s/%s",
 		w.Namespace, w.Name, w.TrafficType, o.Namespace, o.Name)
+	// If the binding was inherited from the namespace (workload has no direct label),
+	// this is not an error — the waypoint is for services, not workloads.
+	if _, hasLabel := o.Labels[label.IoIstioUseWaypoint.Name]; !hasLabel {
+		return nil, nil
+	}
 	return nil, ReportWaypointUnsupportedTrafficType(w.ResourceName(), constants.WorkloadTraffic)
 }
 
