@@ -169,7 +169,7 @@ func TestConfigWriter_PrintSummary(t *testing.T) {
 	}
 }
 
-func TestConfigWriter_PrintServiceDumpPreservesCanonical(t *testing.T) {
+func TestConfigWriter_PrintServiceDumpPreservesServiceFields(t *testing.T) {
 	configDump := []byte(`{
 		"services": {
 			"/10.0.0.1": {
@@ -178,6 +178,15 @@ func TestConfigWriter_PrintServiceDumpPreservesCanonical(t *testing.T) {
 				"hostname": "svc.ns.svc.cluster.local",
 				"vips": [
 					"/10.0.0.1"
+				],
+				"cidrVips": [
+					{
+						"cidr": "240.240.0.0/16"
+					},
+					{
+						"cidr": "2001:db8::/64",
+						"network": "network1"
+					}
 				],
 				"ports": {
 					"80": 8080
@@ -198,6 +207,7 @@ func TestConfigWriter_PrintServiceDumpPreservesCanonical(t *testing.T) {
 			Namespace:       "ns",
 			Hostname:        "svc.ns.svc.cluster.local",
 			Addresses:       []string{"/10.0.0.1"},
+			CIDRVIPs:        []CIDRVIP{{CIDR: "240.240.0.0/16"}, {CIDR: "2001:db8::/64", Network: "network1"}},
 			Ports:           map[string]int{"80": 8080},
 			Endpoints:       map[string]*ZtunnelEndpoint{},
 			SubjectAltNames: []string{},
@@ -212,7 +222,21 @@ func TestConfigWriter_PrintServiceDumpPreservesCanonical(t *testing.T) {
 	assert.Equal(t, want, cw.ztunnelDump.Services)
 	assert.NoError(t, cw.PrintServiceDump(ServiceFilter{}, "json"))
 
-	var got []*ZtunnelService
+	var got []struct {
+		Name      string   `json:"name"`
+		CIDRVIPs  []string `json:"cidrVips"`
+		Canonical bool     `json:"canonical"`
+	}
 	assert.NoError(t, json.Unmarshal(gotOut.Bytes(), &got))
-	assert.Equal(t, want, got)
+	assert.Equal(t, []struct {
+		Name      string   `json:"name"`
+		CIDRVIPs  []string `json:"cidrVips"`
+		Canonical bool     `json:"canonical"`
+	}{
+		{
+			Name:      "svc",
+			CIDRVIPs:  []string{"/240.240.0.0/16", "network1/2001:db8::/64"},
+			Canonical: true,
+		},
+	}, got)
 }
