@@ -15,7 +15,6 @@
 package files
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -55,8 +54,6 @@ func NewFolderWatch[T any](fileDir string, parse func([]byte) ([]T, error), stop
 
 var supportedExtensions = sets.New(".yaml", ".yml")
 
-var errEmptyFile = errors.New("file empty, deferring reload")
-
 func (f *FolderWatch[T]) get() []T {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
@@ -78,11 +75,10 @@ func (f *FolderWatch[T]) readOnce() error {
 			return err
 		}
 		if len(data) == 0 {
-			// the file may  be empty if:
-			// the file was just created and has not yet been written to, or
-			// the file was truncated and in the process of being re-written
-			// in either case, defer the reload until the file has data
-			return errEmptyFile
+			// The file may be empty because the write is not atomic: the file can
+			// be created (firing a fsnotify event) before the writer has written
+			// its contents. Skip; another event will fire once content lands.
+			return nil
 		}
 		parsed, err := f.parse(data)
 		if err != nil {
@@ -92,11 +88,11 @@ func (f *FolderWatch[T]) readOnce() error {
 		result = append(result, parsed...)
 		return nil
 	})
-	if errors.Is(err, errEmptyFile) {
-		return nil
-	}
 	if err != nil {
 		log.Warnf("failure during filepath.Walk: %v", err)
+	}
+
+	if err != nil {
 		return err
 	}
 
