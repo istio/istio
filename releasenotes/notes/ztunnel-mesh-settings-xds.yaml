@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+
+kind: feature
+
+area: security
+
+releaseNotes:
+- |
+  **Added** xDS-based delivery of mesh-wide TLS and trust domain configuration to ztunnel. MeshConfig settings (`meshMTLS`, `trustDomain`, `trustDomainAliases`) are now pushed to ztunnel at runtime, enabling dynamic updates without pod restarts.
