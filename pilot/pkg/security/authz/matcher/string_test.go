@@ -252,11 +252,11 @@ func TestStringMatcherExact(t *testing.T) {
 
 func TestStringMatcherRegex_Match(t *testing.T) {
 	testCases := []struct {
-		name     string
-		v        string
-		prefix   string
-		match    string
-		noMatch  string
+		name    string
+		v       string
+		prefix  string
+		match   string
+		noMatch string
 	}{
 		{
 			name:    "suffix-with-dot",
