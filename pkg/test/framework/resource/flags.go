@@ -282,11 +282,13 @@ func initGatewayConformanceTimeouts() {
 		"istio.test.gatewayConformance.tlsRouteMustHaveConditionTimeout", defaults.TLSRouteMustHaveCondition,
 		"Gateway conformance test timeout for waiting for an TLSRoute to have a certain condition.")
 	flag.DurationVar(&settingsFromCommandLine.GatewayConformanceTimeoutConfig.RouteMustHaveParents, "istio.test.gatewayConformance.routeMustHaveParentsTimeout",
-		defaults.RouteMustHaveParents, "Maximum time in the Gateway conformance test for an xRoute to have parents in status that match the expected parents before timing out.")
+		defaults.RouteMustHaveParents,
+		"Maximum time in the Gateway conformance test for an xRoute to have parents in status that match the expected parents before timing out.")
 	flag.DurationVar(&settingsFromCommandLine.GatewayConformanceTimeoutConfig.ManifestFetchTimeout, "istio.test.gatewayConformance.manifestFetchTimeout",
 		defaults.ManifestFetchTimeout, "Gateway conformance test timeout for the maximum time for getting content from a https:// URL.")
 	flag.DurationVar(&settingsFromCommandLine.GatewayConformanceTimeoutConfig.MaxTimeToConsistency, "istio.test.gatewayConformance.maxTimeToConsistency",
-		defaults.MaxTimeToConsistency, "Gateway conformance test setting for the maximum time for requiredConsecutiveSuccesses (default 3) requests to succeed in a row before failing the test.")
+		defaults.MaxTimeToConsistency,
+		"Gateway conformance test setting for the maximum time for requiredConsecutiveSuccesses (default 3) requests to succeed in a row before failing the test.")
 	flag.DurationVar(&settingsFromCommandLine.GatewayConformanceTimeoutConfig.NamespacesMustBeReady,
 		"istio.test.gatewayConformance.namespacesMustBeReadyTimeout", defaults.NamespacesMustBeReady,
 		"Gateway conformance test timeout for waiting for namespaces to be ready.")
