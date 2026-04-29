@@ -202,6 +202,10 @@ type Settings struct {
 
 	// If enabled, native nftable rules will be used for traffic redirection instead of iptable rules.
 	NativeNftables bool
+
+	// If enabled, the pilot agentgateway gw api conformance tests will be run. This is gated behind a separate flag since
+	// agentgateway support is experimental.
+	AgentgatewayConformance bool
 }
 
 // SkipVMs changes the skip settings at runtime

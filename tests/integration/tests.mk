@@ -126,5 +126,11 @@ test.integration.kube.environment: | $(JUNIT_REPORT) check-go-tag
 ifeq (${JOB_TYPE},postsubmit)
 	$(call run-test,./tests/integration/...)
 else
-	$(call run-test,./tests/integration/security/ ./tests/integration/pilot,-run="TestReachability|TestTraffic|TestGatewayConformance")
+	$(call run-test,./tests/integration/security/ ./tests/integration/pilot/,-run="TestReachability|TestTraffic|TestGatewayConformance")
 endif
+
+# Agentgateway support is currently experimental. Only used to run agentgateway gw api conformance tests as optional
+# in postsubmit.
+.PHONY: test.integration.kube.agentgateway.conformance
+test.integration.kube.agentgateway.conformance: | $(JUNIT_REPORT) check-go-tag
+	$(call run-test,./tests/integration/pilot/agentgateway/)
