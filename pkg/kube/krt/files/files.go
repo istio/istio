@@ -128,7 +128,7 @@ func (f *FolderWatch[T]) watch(stop <-chan struct{}) {
 	}()
 }
 
-const watchDebounceDelay = 50 * time.Millisecond
+const watchDebounceDelay = 250 * time.Millisecond
 
 // Trigger notifications when a file is mutated
 func (f *FolderWatch[T]) fileTrigger(events chan struct{}, stop <-chan struct{}) error {
