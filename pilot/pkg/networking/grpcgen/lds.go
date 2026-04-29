@@ -74,7 +74,7 @@ func buildInboundListeners(node *model.Proxy, push *model.PushContext, names []s
 		return nil
 	}
 	var out model.Resources
-	mtlsPolicy := authn.NewMtlsPolicy(push, node.Metadata.Namespace, node.Labels, node.IsWaypointProxy())
+	mtlsPolicy := authn.NewMtlsPolicy(push, node.SidecarScope.AuthnPolicies, node.Metadata.Namespace, node.Labels, node.IsWaypointProxy())
 	serviceInstancesByPort := map[uint32]model.ServiceTarget{}
 	for _, si := range node.ServiceTargets {
 		serviceInstancesByPort[si.Port.TargetPort] = si

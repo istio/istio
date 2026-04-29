@@ -16,6 +16,7 @@ package model
 
 import (
 	"fmt"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -670,17 +671,12 @@ func TestJwtPubKeyRefreshedWhenErrorsGettingOtherURLs(t *testing.T) {
 		}
 	}()
 
-	// Ensure that the good URL is still refreshed, and updated to JwtPubKey2
-	time.Sleep(2 * refreshInterval)
-
-	pk, err = r.GetPublicKey("", mockCertURL, testRequestTimeout)
-	if err != nil {
-		t.Fatalf("GetPublicKey(\"\", %+v) fails: expected no error, got (%v)", mockCertURL, err)
-	}
-	// Mock server returns JwtPubKey2 for later calls
-	if test.JwtPubKey2 != pk {
-		t.Fatalf("GetPublicKey(\"\", %+v): expected (%s), got (%s)", mockCertURL, test.JwtPubKey2, pk)
-	}
+	// Ensure that the good URL is still refreshed, and updated to JwtPubKey2.
+	// Poll instead of sleeping to avoid a fixed, arbitrary delay.
+	retry.UntilOrFail(t, func() bool {
+		pk, err = r.GetPublicKey("", mockCertURL, testRequestTimeout)
+		return err == nil && test.JwtPubKey2 == pk
+	}, retry.Delay(time.Millisecond*5), retry.Timeout(time.Second*5))
 }
 
 func startMockServer(t *testing.T) *test.MockOpenIDDiscoveryServer {
@@ -734,16 +730,43 @@ func verifyKeyLastRefreshedTime(t *testing.T, r *JwksResolver, ms *test.MockOpen
 	}
 	oldRefreshedTime := e.(jwtPubKeyEntry).lastRefreshedTime
 
-	time.Sleep(200 * time.Millisecond)
+	// Capture the current refresh-cycle counts so we can wait until at least one
+	// new cycle has completed before drawing a conclusion.
+	baseChanged := atomic.LoadUint64(&r.refreshJobKeyChangedCount)
+	baseFailed := atomic.LoadUint64(&r.refreshJobFetchFailedCount)
 
-	e, found = r.keyEntries.Load(key)
-	if !found {
-		t.Fatalf("No cached public key for %+v", key)
-	}
-	newRefreshedTime := e.(jwtPubKeyEntry).lastRefreshedTime
+	if wantChanged {
+		// Wait until the cached timestamp is actually updated.
+		retry.UntilSuccessOrFail(t, func() error {
+			e, found = r.keyEntries.Load(key)
+			if !found {
+				return fmt.Errorf("no cached public key for %+v", key)
+			}
+			newRefreshedTime := e.(jwtPubKeyEntry).lastRefreshedTime
+			if oldRefreshedTime == newRefreshedTime {
+				return fmt.Errorf("want lastRefreshedTime changed but it has not changed yet")
+			}
+			return nil
+		}, retry.Delay(time.Millisecond*5), retry.Timeout(time.Second*5))
+	} else {
+		// Wait until at least one refresh cycle has run (key-changed or fetch-failed),
+		// then assert the timestamp did not change.
+		retry.UntilSuccessOrFail(t, func() error {
+			if atomic.LoadUint64(&r.refreshJobKeyChangedCount) == baseChanged &&
+				atomic.LoadUint64(&r.refreshJobFetchFailedCount) == baseFailed {
+				return fmt.Errorf("waiting for a refresh cycle to complete")
+			}
+			return nil
+		}, retry.Delay(time.Millisecond*5), retry.Timeout(time.Second*5))
 
-	if actualChanged := oldRefreshedTime != newRefreshedTime; actualChanged != wantChanged {
-		t.Errorf("Want changed: %t but got %t", wantChanged, actualChanged)
+		e, found = r.keyEntries.Load(key)
+		if !found {
+			t.Fatalf("No cached public key for %+v", key)
+		}
+		newRefreshedTime := e.(jwtPubKeyEntry).lastRefreshedTime
+		if oldRefreshedTime != newRefreshedTime {
+			t.Errorf("Want changed: false but lastRefreshedTime changed")
+		}
 	}
 }
 
@@ -786,5 +809,29 @@ func TestCompareJWKSResponse(t *testing.T) {
 				t.Errorf("compareJWKSResponse() got = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestBuildLocalJwksFailsClosed(t *testing.T) {
+	r := NewJwksResolver(JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval, JwtPubKeyRefreshIntervalOnFailure, testRetryInterval)
+	defer r.Close()
+
+	// test with invalid jwks uri that will fail
+	invalidJwksURI := "http://127.0.0.1:1/invalid"
+	issuer := "test-issuer"
+
+	// build local jwks with failed fetch
+	localJwks := r.BuildLocalJwks(invalidJwksURI, issuer, "", testRequestTimeout)
+
+	// should get public-only jwks (fail closed)
+	expected := PublicOnlyJwks
+	if localJwks.LocalJwks.GetInlineString() != expected {
+		t.Errorf("BuildLocalJwks() with fetch failure: expected %q, got %q", expected, localJwks.LocalJwks.GetInlineString())
+	}
+
+	// verify no private key fields in jwks
+	jwksStr := localJwks.LocalJwks.GetInlineString()
+	if strings.Contains(jwksStr, `"d":`) || strings.Contains(jwksStr, `"p":`) || strings.Contains(jwksStr, `"q":`) {
+		t.Errorf("BuildLocalJwks() contains private key fields - security vulnerability! JWKS: %s", jwksStr)
 	}
 }

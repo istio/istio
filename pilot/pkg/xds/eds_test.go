@@ -68,7 +68,8 @@ const (
 func TestIncrementalPush(t *testing.T) {
 	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{
 		ConfigString: mustReadFile(t, "tests/testdata/config/destination-rule-all.yaml") +
-			mustReadFile(t, "tests/testdata/config/static-weighted-se.yaml"),
+			mustReadFile(t, "tests/testdata/config/static-weighted-se.yaml") +
+			mustReadFile(t, "tests/testdata/config/peer-authn-strict.yaml"),
 	})
 	ads := s.Connect(nil, nil, watchAll)
 	t.Run("Full Push", func(t *testing.T) {
@@ -101,6 +102,18 @@ func TestIncrementalPush(t *testing.T) {
 			t.Fatalf("Expected a partial EDS update, but got: %v", xdstest.MapKeys(ads.GetEndpoints()))
 		}
 	})
+	t.Run("Full Push with updated unrelated services", func(t *testing.T) {
+		ads.WaitClear()
+
+		s.Discovery.Push(&model.PushRequest{
+			Full:           true,
+			ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: "weighted.static.svc.cluster.local", Namespace: "otherns"}),
+		})
+		upd, _ := ads.Wait(time.Millisecond*100, watchAll...)
+		if slices.Contains(upd, v3.EndpointType) {
+			t.Fatalf("Expected no EDS push, got %v", upd)
+		}
+	})
 	t.Run("Full Push with updated services and virtual services", func(t *testing.T) {
 		ads.WaitClear()
 		s.Discovery.Push(&model.PushRequest{
@@ -117,19 +130,48 @@ func TestIncrementalPush(t *testing.T) {
 			t.Fatalf("Expected a partial EDS update, but got: %v", xdstest.MapKeys(ads.GetEndpoints()))
 		}
 	})
-	t.Run("Full Push with updated services and destination rules", func(t *testing.T) {
+	t.Run("Full Push with updated destination rules", func(t *testing.T) {
 		ads.WaitClear()
+		fmt.Println("start test with drs update")
 		s.Discovery.Push(&model.PushRequest{
 			Full: true,
 			ConfigsUpdated: sets.New(
-				model.ConfigKey{Kind: kind.ServiceEntry, Name: "destall.default.svc.cluster.local", Namespace: "default"},
 				model.ConfigKey{Kind: kind.DestinationRule, Name: "destall", Namespace: "testns"}),
 		})
 		if _, err := ads.Wait(time.Second*5, watchAll...); err != nil {
 			t.Fatal(err)
 		}
-		if len(ads.GetEndpoints()) != 4 {
-			t.Fatalf("Expected a full EDS update, but got: %v", xdstest.MapKeys(ads.GetEndpoints()))
+		if len(ads.GetEndpoints()) != 3 {
+			t.Fatalf("Expected an incremental EDS update, but got: %v", xdstest.MapKeys(ads.GetEndpoints()))
+		}
+	})
+	t.Run("Full Push with updated unrelated destination rules", func(t *testing.T) {
+		ads.WaitClear()
+		fmt.Println("start test with drs update")
+		s.Discovery.Push(&model.PushRequest{
+			Full: true,
+			ConfigsUpdated: sets.New(
+				model.ConfigKey{Kind: kind.DestinationRule, Name: "destall", Namespace: "otherns"}),
+		})
+		upd, _ := ads.Wait(time.Millisecond*100, watchAll...)
+		if slices.Contains(upd, v3.EndpointType) {
+			t.Fatalf("Expected no EDS push, got %v", upd)
+		}
+	})
+	t.Run("Full Push with updated services and destination rules", func(t *testing.T) {
+		ads.WaitClear()
+		fmt.Println("start test with drs update")
+		s.Discovery.Push(&model.PushRequest{
+			Full: true,
+			ConfigsUpdated: sets.New(
+				model.ConfigKey{Kind: kind.ServiceEntry, Name: "destall.default.svc.cluster.local", Namespace: "testns"},
+				model.ConfigKey{Kind: kind.DestinationRule, Name: "destall", Namespace: "testns"}),
+		})
+		if _, err := ads.Wait(time.Second*5, watchAll...); err != nil {
+			t.Fatal(err)
+		}
+		if len(ads.GetEndpoints()) != 3 {
+			t.Fatalf("Expected an incremental EDS update, but got: %v", xdstest.MapKeys(ads.GetEndpoints()))
 		}
 	})
 	t.Run("Full Push with multiple updates", func(t *testing.T) {
@@ -144,8 +186,8 @@ func TestIncrementalPush(t *testing.T) {
 		if _, err := ads.Wait(time.Second*5, watchAll...); err != nil {
 			t.Fatal(err)
 		}
-		if len(ads.GetEndpoints()) != 4 {
-			t.Fatalf("Expected a full EDS update, but got: %v", xdstest.MapKeys(ads.GetEndpoints()))
+		if len(ads.GetEndpoints()) != 3 {
+			t.Fatalf("Expected an incremental EDS update, but got: %v", xdstest.MapKeys(ads.GetEndpoints()))
 		}
 	})
 	t.Run("Full Push without updated services", func(t *testing.T) {
@@ -159,6 +201,30 @@ func TestIncrementalPush(t *testing.T) {
 		}
 		if len(ads.GetEndpoints()) < 3 {
 			t.Fatalf("Expected a full EDS update, but got: %v", ads.GetEndpoints())
+		}
+	})
+	t.Run("Full Push with updated peer authentication", func(t *testing.T) {
+		ads.WaitClear()
+		s.Discovery.Push(&model.PushRequest{
+			Full:           true,
+			ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.PeerAuthentication, Name: "default", Namespace: "testns"}),
+		})
+		if _, err := ads.Wait(time.Second*5, v3.ClusterType, v3.EndpointType); err != nil {
+			t.Fatal(err)
+		}
+		if len(ads.GetEndpoints()) != 3 {
+			t.Fatalf("Expected a partial EDS update, but got: %v", xdstest.MapKeys(ads.GetEndpoints()))
+		}
+	})
+	t.Run("Full Push with updated unrelated peer authentication", func(t *testing.T) {
+		ads.WaitClear()
+		s.Discovery.Push(&model.PushRequest{
+			Full:           true,
+			ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.PeerAuthentication, Name: "default", Namespace: "otherns"}),
+		})
+		upd, _ := ads.Wait(time.Second*5, watchAll...)
+		if slices.Contains(upd, v3.EndpointType) {
+			t.Fatalf("Expected no EDS push, got %v", upd)
 		}
 	})
 }

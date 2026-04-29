@@ -17,6 +17,10 @@ package inject
 import (
 	"reflect"
 	"testing"
+
+	corev1 "k8s.io/api/core/v1"
+
+	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
 func TestOmitNil(t *testing.T) {
@@ -88,6 +92,214 @@ func TestOmitNil(t *testing.T) {
 			got := omitNil(tt.in)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("got %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func otelSemConvMeshConfig() *meshconfig.MeshConfig {
+	return &meshconfig.MeshConfig{
+		ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{
+			{
+				Name: "otel",
+				Provider: &meshconfig.MeshConfig_ExtensionProvider_Opentelemetry{
+					Opentelemetry: &meshconfig.MeshConfig_ExtensionProvider_OpenTelemetryTracingProvider{
+						Service:                    "otel-collector",
+						Port:                       4317,
+						ServiceAttributeEnrichment: meshconfig.MeshConfig_ExtensionProvider_OTEL_SEMANTIC_CONVENTIONS,
+					},
+				},
+			},
+		},
+	}
+}
+
+func TestOtelResourceAttributes(t *testing.T) {
+	tests := []struct {
+		name        string
+		mc          *meshconfig.MeshConfig
+		annotations map[string]string
+		labels      map[string]string
+		namespace   string
+		containers  []corev1.Container
+		want        string
+	}{
+		{
+			name:      "no OTel semantic conventions provider returns empty",
+			mc:        &meshconfig.MeshConfig{},
+			namespace: "default",
+			want:      "",
+		},
+		{
+			name: "ISTIO_CANONICAL provider returns empty",
+			mc: &meshconfig.MeshConfig{
+				ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{
+					{
+						Name: "otel",
+						Provider: &meshconfig.MeshConfig_ExtensionProvider_Opentelemetry{
+							Opentelemetry: &meshconfig.MeshConfig_ExtensionProvider_OpenTelemetryTracingProvider{
+								Service:                    "otel-collector",
+								Port:                       4317,
+								ServiceAttributeEnrichment: meshconfig.MeshConfig_ExtensionProvider_ISTIO_CANONICAL,
+							},
+						},
+					},
+				},
+			},
+			namespace: "default",
+			want:      "",
+		},
+		{
+			name:      "defaults: namespace only (no containers)",
+			mc:        otelSemConvMeshConfig(),
+			namespace: "my-namespace",
+			want:      "service.namespace=my-namespace",
+		},
+		{
+			name:      "defaults: namespace + instance.id with container",
+			mc:        otelSemConvMeshConfig(),
+			namespace: "my-namespace",
+			containers: []corev1.Container{
+				{Name: "myapp", Image: "myapp"},
+			},
+			want: "service.namespace=my-namespace,service.instance.id=my-namespace.$(POD_NAME).myapp",
+		},
+		{
+			name:      "all annotations override defaults",
+			mc:        otelSemConvMeshConfig(),
+			namespace: "my-namespace",
+			annotations: map[string]string{
+				"resource.opentelemetry.io/service.namespace":   "custom-ns",
+				"resource.opentelemetry.io/service.version":     "v2.0",
+				"resource.opentelemetry.io/service.instance.id": "custom-id",
+			},
+			labels: map[string]string{
+				"app.kubernetes.io/version": "should-not-use",
+			},
+			containers: []corev1.Container{
+				{Name: "myapp", Image: "myapp"},
+			},
+			want: "service.namespace=custom-ns,service.version=v2.0,service.instance.id=custom-id",
+		},
+		{
+			name:      "service.version from label",
+			mc:        otelSemConvMeshConfig(),
+			namespace: "default",
+			labels: map[string]string{
+				"app.kubernetes.io/version": "v1.2.3",
+			},
+			containers: []corev1.Container{
+				{Name: "myapp", Image: "myapp"},
+			},
+			want: "service.namespace=default,service.version=v1.2.3,service.instance.id=default.$(POD_NAME).myapp",
+		},
+		{
+			name:      "service.namespace annotation overrides k8s namespace",
+			mc:        otelSemConvMeshConfig(),
+			namespace: "actual-namespace",
+			annotations: map[string]string{
+				"resource.opentelemetry.io/service.namespace": "annotated-ns",
+			},
+			containers: []corev1.Container{
+				{Name: "myapp", Image: "myapp"},
+			},
+			want: "service.namespace=annotated-ns,service.instance.id=actual-namespace.$(POD_NAME).myapp",
+		},
+		{
+			name:      "service.version annotation overrides label",
+			mc:        otelSemConvMeshConfig(),
+			namespace: "default",
+			annotations: map[string]string{
+				"resource.opentelemetry.io/service.version": "annotated-v1",
+			},
+			labels: map[string]string{
+				"app.kubernetes.io/version": "label-v2",
+			},
+			containers: []corev1.Container{
+				{Name: "myapp", Image: "myapp"},
+			},
+			want: "service.namespace=default,service.version=annotated-v1,service.instance.id=default.$(POD_NAME).myapp",
+		},
+		{
+			name:      "empty namespace no containers",
+			mc:        otelSemConvMeshConfig(),
+			namespace: "",
+			want:      "",
+		},
+		{
+			name:      "service.version from single container image tag",
+			mc:        otelSemConvMeshConfig(),
+			namespace: "default",
+			containers: []corev1.Container{
+				{Name: "nginx", Image: "nginx:1.21"},
+			},
+			want: "service.namespace=default,service.version=1.21,service.instance.id=default.$(POD_NAME).nginx",
+		},
+		{
+			name:      "service.version from single container image digest",
+			mc:        otelSemConvMeshConfig(),
+			namespace: "default",
+			containers: []corev1.Container{
+				{Name: "nginx", Image: "nginx@sha256:abc123"},
+			},
+			want: "service.namespace=default,service.version=sha256:abc123,service.instance.id=default.$(POD_NAME).nginx",
+		},
+		{
+			name:      "service.version from single container image tag+digest",
+			mc:        otelSemConvMeshConfig(),
+			namespace: "default",
+			containers: []corev1.Container{
+				{Name: "nginx", Image: "nginx:1.21@sha256:abc123"},
+			},
+			want: "service.namespace=default,service.version=1.21@sha256:abc123,service.instance.id=default.$(POD_NAME).nginx",
+		},
+		{
+			name:      "service.version from image with registry port",
+			mc:        otelSemConvMeshConfig(),
+			namespace: "default",
+			containers: []corev1.Container{
+				{Name: "nginx", Image: "registry:5000/nginx:1.21"},
+			},
+			want: "service.namespace=default,service.version=1.21,service.instance.id=default.$(POD_NAME).nginx",
+		},
+		{
+			name:      "service.version skipped for multiple containers",
+			mc:        otelSemConvMeshConfig(),
+			namespace: "default",
+			containers: []corev1.Container{
+				{Name: "nginx", Image: "nginx:1.21"},
+				{Name: "sidecar", Image: "sidecar:2.0"},
+			},
+			want: "service.namespace=default,service.instance.id=default.$(POD_NAME).nginx",
+		},
+		{
+			name:      "service.version skipped for image without tag or digest",
+			mc:        otelSemConvMeshConfig(),
+			namespace: "default",
+			containers: []corev1.Container{
+				{Name: "nginx", Image: "nginx"},
+			},
+			want: "service.namespace=default,service.instance.id=default.$(POD_NAME).nginx",
+		},
+		{
+			name:      "service.version label takes priority over image",
+			mc:        otelSemConvMeshConfig(),
+			namespace: "default",
+			labels: map[string]string{
+				"app.kubernetes.io/version": "v1.2.3",
+			},
+			containers: []corev1.Container{
+				{Name: "nginx", Image: "nginx:1.21"},
+			},
+			want: "service.namespace=default,service.version=v1.2.3,service.instance.id=default.$(POD_NAME).nginx",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := otelResourceAttributes(tt.mc, tt.annotations, tt.labels, tt.namespace, tt.containers)
+			if got != tt.want {
+				t.Errorf("otelResourceAttributes() = %q, want %q", got, tt.want)
 			}
 		})
 	}

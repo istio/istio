@@ -394,23 +394,23 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 
 	filters := []*hcm.HttpFilter{}
 	if !httpOpts.isWaypoint {
-		wasm := lb.push.WasmPluginsByListenerInfo(lb.node, model.WasmPluginListenerInfo{
+		trafficExtensions := lb.push.TrafficExtensionsByListenerInfo(lb.node, model.ListenerInfo{
 			Port:  httpOpts.port,
 			Class: httpOpts.class,
-		}, model.WasmPluginTypeHTTP)
+		}, model.FilterChainTypeHTTP)
 
 		// Metadata exchange filter needs to be added before any other HTTP filters are added. This is done to
 		// ensure that mx filter comes before HTTP RBAC filter. This is related to https://github.com/istio/istio/issues/41066
 		filters = appendMxFilter(httpOpts, filters)
 		// TODO: how to deal with ext-authz? It will be in the ordering twice
 		filters = append(filters, lb.authzCustomBuilder.BuildHTTP(httpOpts.class)...)
-		filters = extension.PopAppendHTTP(filters, wasm, extensions.PluginPhase_AUTHN)
+		filters = extension.PopAppendHTTPTrafficExtension(filters, trafficExtensions, extensions.TrafficExtension_AUTHN)
 		filters = append(filters, lb.authnBuilder.BuildHTTP(httpOpts.class)...)
-		filters = extension.PopAppendHTTP(filters, wasm, extensions.PluginPhase_AUTHZ)
+		filters = extension.PopAppendHTTPTrafficExtension(filters, trafficExtensions, extensions.TrafficExtension_AUTHZ)
 		filters = append(filters, lb.authzBuilder.BuildHTTP(httpOpts.class)...)
 		// TODO: these feel like the wrong place to insert, but this retains backwards compatibility with the original implementation
-		filters = extension.PopAppendHTTP(filters, wasm, extensions.PluginPhase_STATS)
-		filters = extension.PopAppendHTTP(filters, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
+		filters = extension.PopAppendHTTPTrafficExtension(filters, trafficExtensions, extensions.TrafficExtension_STATS)
+		filters = extension.PopAppendHTTPTrafficExtension(filters, trafficExtensions, extensions.TrafficExtension_UNSPECIFIED)
 		// Add ExtProc per listener only if the Gateway has any inferencePool attached to it
 		if kubeGwName, ok := lb.node.Labels[label.IoK8sNetworkingGatewayGatewayName.Name]; ok {
 			if lb.push.GatewayAPIController.HasInferencePool(types.NamespacedName{Name: kubeGwName, Namespace: lb.node.GetNamespace()}) {
@@ -444,10 +444,19 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 		filters = append(filters, xdsfilters.EmptySessionFilter)
 	}
 
-	// Create DFP filter for wildcard hosts
+	// Create DFP filter for wildcard hosts in waypoint inbound for ambient mode
 	if httpOpts.policySvc != nil && httpOpts.policySvc.Hostname.IsWildCarded() && httpOpts.class == istionetworking.ListenerClassSidecarInbound {
 		dfpCacheName := model.BuildDNSCacheName(httpOpts.policySvc.Hostname)
 		filters = append(filters, xdsfilters.BuildWaypointInboundDFPFilter(dfpCacheName))
+	}
+
+	// Create DFP filter for wildcard hosts in sidecar outbound for DYNAMIC_DNS ServiceEntries
+	if httpOpts.policySvc != nil &&
+		httpOpts.policySvc.Hostname.IsWildCarded() &&
+		httpOpts.policySvc.Resolution == model.DynamicDNS &&
+		httpOpts.class == istionetworking.ListenerClassSidecarOutbound {
+		dfpCacheName := model.BuildDNSCacheName(httpOpts.policySvc.Hostname)
+		filters = append(filters, xdsfilters.BuildSidecarOutboundDynamicForwardProxyFilter(dfpCacheName))
 	}
 
 	// Router filter must be last

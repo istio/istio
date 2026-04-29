@@ -16,6 +16,7 @@ package model
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
@@ -209,7 +210,31 @@ func serviceAccountRegex(defaultNamespace string, value string) string {
 	// optional arbitrary k/v pairs
 	// '/sa/<serviceAccount>'
 	// Either end of string OR / + arbitrary k/v pairs (the / ensures we do not match <service account>-some-junk)
-	return fmt.Sprintf("spiffe://.+/ns/%s/(.+/|)sa/%s(/.+)?", ns, sa)
+	return fmt.Sprintf("spiffe://.+/ns/%s/(.+/|)sa/%s(/.+)?", regexp.QuoteMeta(ns), regexp.QuoteMeta(sa))
+}
+
+type srcTrustDomainGenerator struct{}
+
+func (srcTrustDomainGenerator) permission(_, _ string, _ bool) (*rbacpb.Permission, error) {
+	return nil, fmt.Errorf("unimplemented")
+}
+
+func (srcTrustDomainGenerator) principal(_, value string, _ bool, useAuthenticated bool) (*rbacpb.Principal, error) {
+	var m *matcherpb.StringMatcher
+	switch {
+	case value == "*":
+		// Presence match - any trust domain is accepted
+		m = matcher.StringMatcherPrefix("spiffe://", false)
+	case !strings.Contains(value, "*"):
+		// Exact match — no regex needed
+		m = matcher.StringMatcherPrefix("spiffe://"+value+"/", false)
+	default:
+		// Prefix/Suffix match - need regex, but escape metacharacters first
+		parts := strings.SplitN(value, "*", 2)
+		escaped := regexp.QuoteMeta(parts[0]) + "[^/]*" + regexp.QuoteMeta(parts[1])
+		m = matcher.StringMatcherRegex(fmt.Sprintf("spiffe://%s/.*", escaped))
+	}
+	return principalAuthenticated(m, useAuthenticated), nil
 }
 
 type srcPrincipalGenerator struct{}

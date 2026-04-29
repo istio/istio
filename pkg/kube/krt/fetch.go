@@ -36,6 +36,21 @@ func FetchOrList[T any](ctx HandlerContext, cc Collection[T], opts ...FetchOptio
 	return fetch[T](ctx, cc, true, opts...)
 }
 
+// PartialFetch is a wrapper around Fetch + withUnsafeSuppressChange to safely fetch a subset of an object, without trigger
+// recomputation when the unused part of the object changes
+func PartialFetch[T any, S any](ctx HandlerContext, cc Collection[T], xfm func(T) S, equality func(S, S) bool, opts ...FetchOption) []S {
+	t := fetch[T](ctx, cc, false, append(opts, withUnsafeSuppressChange(func(a T, b T) bool {
+		return equality(xfm(a), xfm(b))
+	}))...)
+	return slices.Map(t, xfm)
+}
+
+func PartialFetchComparable[T any, S comparable](ctx HandlerContext, cc Collection[T], xfm func(T) S, opts ...FetchOption) []S {
+	return PartialFetch(ctx, cc, xfm, func(s S, s2 S) bool {
+		return s == s2
+	}, opts...)
+}
+
 // Fetch runs a query against the provided collection and subscribes to updates.
 func Fetch[T any](ctx HandlerContext, cc Collection[T], opts ...FetchOption) []T {
 	return fetch[T](ctx, cc, false, opts...)

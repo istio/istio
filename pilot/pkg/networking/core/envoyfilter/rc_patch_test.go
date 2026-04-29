@@ -779,7 +779,7 @@ func TestApplyRouteConfigurationPatches(t *testing.T) {
 	}
 
 	serviceDiscovery := memory.NewServiceDiscovery()
-	env := newTestEnvironment(serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(configPatches))
+	env := newTestEnvironment(t, serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(configPatches))
 	push := model.NewPushContext()
 	push.InitContext(env, nil, nil)
 
@@ -930,7 +930,7 @@ func TestReplaceVhost(t *testing.T) {
 	}
 
 	serviceDiscovery := memory.NewServiceDiscovery()
-	env := newTestEnvironment(serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(configPatches))
+	env := newTestEnvironment(t, serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(configPatches))
 	push := model.NewPushContext()
 	push.InitContext(env, nil, nil)
 

@@ -64,6 +64,9 @@ var (
 func klogVerboseFlag() *goflag.Flag {
 	klogFlagSetOnce.Do(func() {
 		klog.InitFlags(klogFlagSet)
+		// Opt into fixed stderrthreshold behavior (kubernetes/klog#212).
+		_ = klogFlagSet.Set("legacy_stderr_threshold_behavior", "false")
+		_ = klogFlagSet.Set("stderrthreshold", "INFO")
 	})
 	// --v= flag of klog.
 	return klogFlagSet.Lookup("v")

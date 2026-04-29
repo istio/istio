@@ -53,7 +53,7 @@ func (cb *ClusterBuilder) applyTrafficPolicy(service *model.Service, opts buildC
 	cb.applyConnectionPool(opts.mesh, opts.mutable, connectionPool, retryBudget)
 	if opts.direction != model.TrafficDirectionInbound {
 		applyOutlierDetection(service, opts.mutable.cluster, outlierDetection)
-		applyLoadBalancer(service, opts.mutable.cluster, loadBalancer, opts.port, cb.locality, cb.proxyLabels, opts.mesh)
+		applyLoadBalancer(service, opts.mutable.cluster, loadBalancer, opts.port, cb.locality, cb.proxyLabels, opts.mesh, opts.mutable.dnsWrappedLocalityLbEndpoints)
 		if opts.clusterMode != SniDnatClusterMode {
 			autoMTLSEnabled := opts.mesh.GetEnableAutoMtls().Value
 			tls, mtlsCtxType := cb.buildUpstreamTLSSettings(tls, opts.serviceAccounts, opts.istioMtlsSni,
@@ -187,7 +187,7 @@ func applyRetryBudget(
 		return
 	}
 
-	percent := &xdstype.Percent{Value: 0.2} // default to 20%
+	percent := &xdstype.Percent{Value: 20.0} // default to 20%
 	if retryBudget.Percent != nil {
 		percent = &xdstype.Percent{Value: retryBudget.Percent.Value}
 	}
@@ -264,7 +264,12 @@ func applyLoadBalancer(
 	locality *core.Locality,
 	proxyLabels map[string]string,
 	meshConfig *meshconfig.MeshConfig,
+	wrappedLocalityLbEndpoints *loadbalancer.WrappedLocalityLbEndpoints,
 ) {
+	// DFP clusters (DYNAMIC_DNS ServiceEntries) use CLUSTER_PROVIDED LB policy
+	if c.LbPolicy == cluster.Cluster_CLUSTER_PROVIDED {
+		return
+	}
 	// Disable panic threshold when SendUnhealthyEndpoints is enabled as enabling it "may" send traffic to unready
 	// end points when load balancer is in panic mode.
 	if svc.SupportsUnhealthyEndpoints() {
@@ -272,7 +277,7 @@ func applyLoadBalancer(
 	}
 	// Use locality lb settings from load balancer settings if present, else use mesh wide locality lb settings
 	localityLbSetting, forceFailover := loadbalancer.GetLocalityLbSetting(meshConfig.GetLocalityLbSetting(), lb.GetLocalityLbSetting(), svc)
-	applyLocalityLoadBalancer(locality, proxyLabels, c, localityLbSetting, forceFailover)
+	applyLocalityLoadBalancer(locality, proxyLabels, c, wrappedLocalityLbEndpoints, localityLbSetting, forceFailover)
 
 	if c.GetType() == cluster.Cluster_ORIGINAL_DST {
 		c.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
@@ -310,10 +315,14 @@ func applyLocalityLoadBalancer(
 	locality *core.Locality,
 	proxyLabels map[string]string,
 	c *cluster.Cluster,
+	wrappedLocalityLbEndpoints *loadbalancer.WrappedLocalityLbEndpoints,
 	localityLB *networking.LocalityLoadBalancerSetting,
 	failover bool,
 ) {
 	// Failover should only be applied with outlier detection, or traffic will never failover.
+	// Conversely, because the default mesh config enables LocalityLbSetting (Enabled:true),
+	// enabling outlier detection in a DestinationRule will automatically activate locality LB
+	// failover behavior even when no explicit localityLbSetting is configured in the DR.
 	enableFailover := failover || c.OutlierDetection != nil
 	// set locality weighted lb config when locality lb is enabled, otherwise it will influence the result of LBPolicy like `least request`
 	if features.EnableLocalityWeightedLbConfig ||
@@ -325,8 +334,12 @@ func applyLocalityLoadBalancer(
 	}
 
 	if c.LoadAssignment != nil {
-		// TODO: enable failoverPriority for `STRICT_DNS` cluster type
-		loadbalancer.ApplyLocalityLoadBalancer(c.LoadAssignment, nil, locality, proxyLabels, localityLB, enableFailover)
+		var wrapped []*loadbalancer.WrappedLocalityLbEndpoints
+		if wrappedLocalityLbEndpoints != nil {
+			wrapped = []*loadbalancer.WrappedLocalityLbEndpoints{wrappedLocalityLbEndpoints}
+		}
+		loadbalancer.ApplyLocalityLoadBalancer(c.LoadAssignment,
+			wrapped, locality, proxyLabels, localityLB, enableFailover)
 	}
 }
 
@@ -564,6 +577,8 @@ func (cb *ClusterBuilder) applyUpstreamProxyProtocol(
 		return
 	}
 	c := opts.mutable
+
+	cb.maybeDisableBaggageDiscovery(c.cluster)
 
 	// No existing transport; wrap RawBuffer.
 	if c.cluster.TransportSocket == nil && len(c.cluster.TransportSocketMatches) == 0 {

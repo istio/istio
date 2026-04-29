@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: istiod
+  namespace: istio-system
+  labels:
+    app: istiod
+spec:
+  selector:
+    matchLabels:
+      app: istiod
+  template:
+    metadata:
+      labels:
+        app: istiod
+    spec:
+      containers:
+        - name: discovery
+          image: gcr.io/istio-testing/pilot:latest

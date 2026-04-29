@@ -1,0 +1,13 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 54995
+releaseNotes:
+  - |
+    **Added** opt-in synthesis of `x-forwarded-client-cert` at ambient waypoints. Setting the
+    annotation `ambient.istio.io/xfcc-include-client-identity: "true"` on a waypoint `Gateway`
+    (or its `GatewayClass`) causes the waypoint to overwrite XFCC on forwarded requests with an
+    entry populated from the ztunnel-provided source workload SPIFFE identity, so upstream apps
+    can see the originating client. Any inbound XFCC value is replaced. Waypoints without the
+    annotation are unaffected.

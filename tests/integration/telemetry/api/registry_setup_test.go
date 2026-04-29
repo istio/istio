@@ -37,7 +37,7 @@ func testRegistrySetup(ctx resource.Context) (err error) {
 
 	isKind := ctx.Clusters().IsKindCluster()
 
-	// By default, for any platform, the test will pull the test image from public "gcr.io" registry.
+	// By default, for any platform, the test will pull the test image from public "registry.istio.io" registry.
 	// For "Kind" environment, it will pull the images from the "kind-registry".
 	// For "Kind", this is due to DNS issues in IPv6 cluster
 	if isKind {

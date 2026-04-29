@@ -66,8 +66,8 @@ status:
   - attachedRoutes: 0
     conditions:
     - lastTransitionTime: fake
-      message: Expected a single listener on port 15008 with protocol "HBONE" and
-        TLS.Mode == Terminate
+      message: East-west gateway listeners must be either port 15008 with protocol
+        "HBONE" and TLS.Mode == Terminate, or TLS with TLS.Mode == Passthrough
       reason: UnsupportedProtocol
       status: "False"
       type: Accepted
@@ -88,4 +88,75 @@ status:
       type: ResolvedRefs
     name: mesh
     supportedKinds: []
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: with-tls-passthrough
+  namespace: istio-system
+spec: null
+status:
+  conditions:
+  - lastTransitionTime: fake
+    message: Resource accepted
+    reason: Accepted
+    status: "True"
+    type: Accepted
+  - lastTransitionTime: fake
+    message: 'Failed to assign to any requested addresses: hostname "with-tls-passthrough.istio-system.svc.domain.suffix"
+      not found'
+    reason: AddressNotUsable
+    status: "False"
+    type: Programmed
+  listeners:
+  - attachedRoutes: 0
+    conditions:
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: NoConflicts
+      status: "False"
+      type: Conflicted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Programmed
+      status: "True"
+      type: Programmed
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    name: mesh
+    supportedKinds: []
+  - attachedRoutes: 0
+    conditions:
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: NoConflicts
+      status: "False"
+      type: Conflicted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Programmed
+      status: "True"
+      type: Programmed
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    name: tls-passthrough
+    supportedKinds:
+    - group: gateway.networking.k8s.io
+      kind: TLSRoute
 ---

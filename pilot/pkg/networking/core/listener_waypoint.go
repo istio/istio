@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net/netip"
 	"strconv"
+	"strings"
 	"time"
 
 	xds "github.com/cncf/xds/go/xds/core/v3"
@@ -51,6 +52,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/telemetry"
 	"istio.io/istio/pilot/pkg/networking/util"
 	security "istio.io/istio/pilot/pkg/security/model"
+	netutil "istio.io/istio/pilot/pkg/util/network"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config"
@@ -73,10 +75,97 @@ const (
 	// applied already.
 	downstreamSourceHeader        = "x-istio-source"
 	downstreamOriginNetworkHeader = "x-forwarded-network"
+
+	// xfccClientIdentityAnnotation opts a waypoint in to synthesizing an
+	// x-forwarded-client-cert entry from the ztunnel-provided source workload
+	// identity. When set to "true" on the Gateway (propagated to the waypoint
+	// pod via infrastructureAnnotations), the waypoint overwrites XFCC on the
+	// main_internal HCM so upstream apps see the originating client identity.
+	// TODO(https://github.com/istio/istio/issues/54995): promote to istio.io/api
+	// once the feature stabilizes.
+	xfccClientIdentityAnnotation = "ambient.istio.io/xfcc-include-client-identity"
 )
+
+// xfccIncludeClientIdentityEnabled reports whether the waypoint has opted in to
+// synthesizing XFCC from filter state via xfccClientIdentityAnnotation.
+func xfccIncludeClientIdentityEnabled(node *model.Proxy) bool {
+	if node == nil || node.Metadata == nil {
+		return false
+	}
+	return strings.EqualFold(node.Metadata.Annotations[xfccClientIdentityAnnotation], "true")
+}
 
 func (lb *ListenerBuilder) serviceForHostname(name host.Name) *model.Service {
 	return lb.push.ServiceForHostname(lb.node, name)
+}
+
+func (lb *ListenerBuilder) buildEastWestTLSPassthroughListeners() []*listener.Listener {
+	if !isAmbientEastWestGateway(lb.node) || lb.node.MergedGateway == nil {
+		return nil
+	}
+	mergedGateway := lb.node.MergedGateway
+	actualWildcards, _ := getWildcardsAndLocalHost(lb.node.GetIPMode())
+	tlsHostsByPort := map[uint32]map[string]string{}
+	mutableopts := make(map[string]mutableListenerOpts)
+
+	for _, port := range mergedGateway.ServerPorts {
+		if port.Number == 15008 {
+			continue // HBONE handled by buildWaypointInboundConnectTerminate
+		}
+		serversForPort := mergedGateway.MergedServers[port]
+		if serversForPort == nil {
+			continue
+		}
+		bind := actualWildcards[0]
+		// Does it make sense to have IPv6 here?
+		var extraBind []string
+		if features.EnableDualStack && len(actualWildcards) > 1 {
+			extraBind = actualWildcards[1:]
+		}
+		if len(port.Bind) > 0 {
+			bind = port.Bind
+			extraBind = nil
+		}
+		opts := &gatewayListenerOpts{
+			push:       lb.push,
+			proxy:      lb.node,
+			bind:       bind,
+			extraBind:  extraBind,
+			port:       int(port.Number),
+			bindToPort: true,
+		}
+		for _, server := range serversForPort.Servers {
+			chainOpts := lb.createGatewayTCPFilterChainOpts(
+				server, port.Number, mergedGateway.GatewayNameForServer[server], tlsHostsByPort)
+			opts.filterChainOpts = append(opts.filterChainOpts, chainOpts...)
+		}
+		if len(opts.filterChainOpts) == 0 {
+			continue
+		}
+		lname := getListenerName(bind, int(port.Number), istionetworking.TransportProtocolTCP)
+		if mopts, exists := mutableopts[lname]; !exists {
+			mutableopts[lname] = mutableListenerOpts{
+				mutable:   &MutableGatewayListener{},
+				opts:      opts,
+				transport: istionetworking.TransportProtocolTCP,
+			}
+		} else {
+			mopts.opts.filterChainOpts = append(mopts.opts.filterChainOpts, opts.filterChainOpts...)
+		}
+	}
+
+	listeners := make([]*listener.Listener, 0, len(mutableopts))
+	for _, ml := range mutableopts {
+		ml.mutable.Listener = buildGatewayListener(*ml.opts, ml.transport)
+		if err := ml.mutable.build(lb, *ml.opts); err != nil {
+			log.Warnf("east-west gateway: omitting TLS passthrough listener %q: %v", ml.mutable.Listener.Name, err)
+			continue
+		}
+		l := ml.mutable.Listener
+		l.TrafficDirection = core.TrafficDirection_INBOUND
+		listeners = append(listeners, l)
+	}
+	return listeners
 }
 
 func (lb *ListenerBuilder) buildWaypointInbound() []*listener.Listener {
@@ -90,6 +179,9 @@ func (lb *ListenerBuilder) buildWaypointInbound() []*listener.Listener {
 	// In case where we need to support multiple networks, we need to support double-HBONE
 	// and for that we need two additional listeners to encapsulate the traffic into HBONE
 	// twice - we only need that in waypoints, so we skip generating those in E/W gateway.
+	//
+	// For E/W gateways, we also might need TLS passthrough, so that internal services (eg.
+	// the Kubernetes API Server) can be exposed through the E/W gateways.
 	var orderedWPS []*model.Service
 	wls, wps := findWaypointResources(lb.node, lb.push)
 	if wps != nil {
@@ -101,8 +193,9 @@ func (lb *ListenerBuilder) buildWaypointInbound() []*listener.Listener {
 		lb.buildWaypointInternal(wls, orderedWPS),
 	}
 
-	if features.EnableAmbientMultiNetwork && isEastWestGateway(lb.node) {
+	if features.EnableAmbientMultiNetwork && isAmbientEastWestGateway(lb.node) {
 		listeners = append(listeners, buildWaypointForwardInnerConnectListener(lb.push, lb.node))
+		listeners = append(listeners, lb.buildEastWestTLSPassthroughListeners()...)
 	} else {
 		listeners = append(listeners, buildWaypointConnectOriginateListener(lb.push, lb.node))
 	}
@@ -181,7 +274,7 @@ func (lb *ListenerBuilder) buildHCMConnectTerminateChain(routes []*route.Route) 
 	// This filter checks whether the request went through a waypoint already and thefore whether L7 policies have
 	// been applied already. We put that information into filter state for later use when we decide whether to
 	// send the request to a waypoint or skip it.
-	if features.EnableAmbientMultiNetwork && isEastWestGateway(lb.node) {
+	if features.EnableAmbientMultiNetwork && isAmbientEastWestGateway(lb.node) {
 		filters = append(filters, xdsfilters.RequestSourceFilter)
 	}
 
@@ -269,7 +362,7 @@ func (lb *ListenerBuilder) findServiceWaypoint(svc *model.Service) host.Name {
 
 // This is the regular waypoint flow, where we terminate the tunnel, and then re-encap.
 func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs []*model.Service) *listener.Listener {
-	isEastWestGateway := isEastWestGateway(lb.node)
+	isAmbientEastWestGateway := isAmbientEastWestGateway(lb.node)
 	ipMatcher := &matcher.IPMatcher{}
 	svcHostnameMap := &matcher.Matcher_MatcherTree_MatchMap{
 		Map: make(map[string]*matcher.Matcher_OnMatch),
@@ -323,11 +416,15 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 
 	for _, svc := range svcs {
 		var waypoint host.Name
-		if isEastWestGateway && features.EnableAmbientMultiNetwork {
+		if isAmbientEastWestGateway && features.EnableAmbientMultiNetwork {
 			waypoint = lb.findServiceWaypoint(svc)
 		}
 
-		svcAddresses := svc.GetAllAddressesForProxy(lb.node)
+		svcAddresses := sets.SortedList(sets.New(append(
+			svc.GetAllAddressesForProxy(lb.node),
+			lb.globalServiceVIPs(svc)...,
+		)...))
+
 		portMapper := match.NewDestinationPort()
 		for _, port := range svc.Ports {
 			if port.Protocol == protocol.UDP {
@@ -357,7 +454,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 			origDst := svc.GetAddressForProxy(lb.node) + ":" + portString
 			httpClusterName := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "http", svc.Hostname, port.Port)
 			var filters []*listener.Filter
-			if len(svcAddresses) > 0 && features.EnableAmbientMultiNetwork && !isEastWestGateway {
+			if len(svcAddresses) > 0 && features.EnableAmbientMultiNetwork && !isAmbientEastWestGateway {
 				filters = []*listener.Filter{getOrigDstSfs(origDst, false)}
 			}
 			tcpChain = &listener.FilterChain{
@@ -369,7 +466,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 				Filters: append(slices.Clone(filters), lb.buildWaypointInboundHTTPFilters(svc, cc)...),
 				Name:    cc.clusterName,
 			}
-			if isEastWestGateway && features.EnableAmbientMultiNetwork {
+			if isAmbientEastWestGateway && features.EnableAmbientMultiNetwork {
 				// If the service has a waypoint, in ambient multi-network we have to account for the possibility that L7
 				// policies have been applied already, and if so, we need to skip the waypoint. So if the service has a
 				// waypoint we check it here and generate a somewhat different filter chain matching rule.
@@ -474,7 +571,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 	}
 
 	// TODO: remove when e/w gateway supports workload addressing
-	if !isEastWestGateway {
+	if !isAmbientEastWestGateway {
 		// Direct pod access chain.
 		cc := inboundChainConfig{
 			clusterName: EncapClusterName,
@@ -633,7 +730,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 		l.ListenerFilters = append(l.ListenerFilters, tlsInspector)
 	}
 
-	if features.EnableAmbientMultiNetwork && isEastWestGateway {
+	if features.EnableAmbientMultiNetwork && isAmbientEastWestGateway {
 		// If there are no filter chains, populate a dummy one that never matches
 		if len(l.FilterChains) == 0 {
 			l.FilterChains = []*listener.FilterChain{{
@@ -747,20 +844,26 @@ func (lb *ListenerBuilder) buildWaypointHTTPFilters(svc *model.Service) (pre []*
 
 	// TODO: consider dedicated listener class for waypoint filters
 	cls := istionetworking.ListenerClassSidecarInbound
-	wasm := lb.push.WasmPluginsByListenerInfo(lb.node,
-		model.WasmPluginListenerInfo{Class: cls}.WithService(svc),
-		model.WasmPluginTypeHTTP,
+	trafficExtensions := lb.push.TrafficExtensionsByListenerInfo(lb.node,
+		model.ListenerInfo{Class: cls}.WithService(svc),
+		model.FilterChainTypeHTTP,
 	)
 	// TODO: how to deal with ext-authz? It will be in the ordering twice
 	// TODO policies here will need to be different per-chain (service attached)
+	// If the waypoint has opted in via annotation, synthesize XFCC from the
+	// ztunnel-provided source workload identity kept in filter state. Runs before
+	// authn/authz so any XFCC-consuming policies see the synthesized value.
+	if xfccIncludeClientIdentityEnabled(lb.node) {
+		pre = append(pre, xdsfilters.WaypointXFCCClientIdentityFilter)
+	}
 	pre = append(pre, authzCustomBuilder.BuildHTTP(cls)...)
-	pre = extension.PopAppendHTTP(pre, wasm, extensions.PluginPhase_AUTHN)
+	pre = extension.PopAppendHTTPTrafficExtension(pre, trafficExtensions, extensions.TrafficExtension_AUTHN)
 	pre = append(pre, authnBuilder.BuildHTTP(cls)...)
-	pre = extension.PopAppendHTTP(pre, wasm, extensions.PluginPhase_AUTHZ)
+	pre = extension.PopAppendHTTPTrafficExtension(pre, trafficExtensions, extensions.TrafficExtension_AUTHZ)
 	pre = append(pre, authzBuilder.BuildHTTP(cls)...)
 	// TODO: these feel like the wrong place to insert, but this retains backwards compatibility with the original implementation
-	post = extension.PopAppendHTTP(post, wasm, extensions.PluginPhase_STATS)
-	post = extension.PopAppendHTTP(post, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
+	post = extension.PopAppendHTTPTrafficExtension(post, trafficExtensions, extensions.TrafficExtension_STATS)
+	post = extension.PopAppendHTTPTrafficExtension(post, trafficExtensions, extensions.TrafficExtension_UNSPECIFIED)
 	post = append(post, xdsfilters.GenerateWaypointUpstreamMetadataFilter())
 	post = append(post, lb.push.Telemetry.HTTPFilters(lb.node, cls, svc)...)
 	return pre, post
@@ -798,6 +901,14 @@ func (lb *ListenerBuilder) buildWaypointInboundHTTPFilters(svc *model.Service, c
 		httpOpts.connectionManager.HttpProtocolOptions = &core.Http1ProtocolOptions{
 			AcceptHttp_10: true,
 		}
+	}
+	// When XFCC is synthesized from filter state via header_mutation, default
+	// ForwardClientCertDetails on the main_internal HCM is SANITIZE, which would
+	// strip the synthesized header before forwarding. ALWAYS_FORWARD_ONLY passes
+	// it through; the ALWAYS_ variant is required because main_internal has no
+	// peer mTLS cert.
+	if xfccIncludeClientIdentityEnabled(lb.node) {
+		httpOpts.connectionManager.ForwardClientCertDetails = hcm.HttpConnectionManager_ALWAYS_FORWARD_ONLY
 	}
 	h := lb.buildHTTPConnectionManager(httpOpts)
 
@@ -975,19 +1086,24 @@ func buildWaypointInboundHTTPRouteConfig(lb *ListenerBuilder, svc *model.Service
 	}
 
 	virtualServices := getVirtualServiceForWaypoint(lb.node.ConfigNamespace, svc, lb.node.SidecarScope.EgressListeners[0].VirtualServices())
-	vs := slices.FindFunc(virtualServices, func(c *config.Config) bool {
-		// Find the first HTTP virtual service
-		return c.Spec.(*networking.VirtualService).Http != nil
-	})
-	if vs == nil {
-		return buildSidecarInboundHTTPRouteConfig(svc, lb, cc)
-	}
 
 	// Typically we setup routes with the Host header match. However, for waypoint inbound we are actually using
 	// hostname purely to match to the Service VIP. So we only need a single VHost, with routes compute based on the VS.
 	// For destinations, we need to hit the inbound clusters if it is an internal destination, otherwise outbound.
-	routes, err := lb.waypointInboundRoute(**vs, cc.port.Port)
-	if err != nil {
+	// Iterate all matching VirtualServices and merge their routes, consistent with gateway.go behavior.
+	var routes []*route.Route
+	for _, vs := range virtualServices {
+		if vs.Spec.(*networking.VirtualService).Http == nil {
+			continue
+		}
+		vsRoutes, err := lb.waypointInboundRoute(*vs, cc.port.Port)
+		if err != nil {
+			log.Debugf("omitting routes for virtual service %v/%v due to error: %v", vs.Namespace, vs.Name, err)
+			continue
+		}
+		routes = append(routes, vsRoutes...)
+	}
+	if len(routes) == 0 {
 		return buildSidecarInboundHTTPRouteConfig(svc, lb, cc)
 	}
 
@@ -1189,4 +1305,37 @@ func buildCommonConnectTLSContext(proxy *model.Proxy, push *model.PushContext) *
 	// Compliance for Envoy tunnel TLS contexts.
 	security.EnforceCompliance(ctx)
 	return ctx
+}
+
+// globalServiceVIPs returns network-filtered and IP-family-filtered VIP addresses
+// from a globally-scoped service.
+func (lb *ListenerBuilder) globalServiceVIPs(svc *model.Service) []string {
+	var addresses []string
+
+	if !features.EnableAmbientMultiNetwork {
+		return addresses
+	}
+
+	key := fmt.Sprintf("%s/%s", svc.Attributes.Namespace, svc.Hostname)
+	svcInfo := lb.push.ServiceInfo(key)
+	// If the service is not globally-scoped, return an empty list.
+	if svcInfo == nil || svcInfo.Scope != model.Global {
+		return addresses
+	}
+
+	proxyNetwork := lb.node.Metadata.Network.String()
+	for _, addr := range svcInfo.Service.GetAddresses() {
+		if proxyNetwork != "" && addr.Network != proxyNetwork {
+			continue
+		}
+		ip, ok := netip.AddrFromSlice(addr.Address)
+		if !ok {
+			continue
+		}
+		addresses = append(addresses, ip.String())
+	}
+	if lb.node.GetIPMode() != model.Dual {
+		addresses = netutil.FilterAddressesByIPFamily(addresses, lb.node.SupportsIPv4(), lb.node.SupportsIPv6())
+	}
+	return addresses
 }

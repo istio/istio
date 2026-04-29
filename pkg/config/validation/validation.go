@@ -33,6 +33,7 @@ import (
 
 	"istio.io/api/annotation"
 	extensions "istio.io/api/extensions/v1alpha1"
+	"istio.io/api/label"
 	networking "istio.io/api/networking/v1alpha3"
 	networkingv1beta1 "istio.io/api/networking/v1beta1"
 	security_beta "istio.io/api/security/v1beta1"
@@ -1439,6 +1440,8 @@ var ValidateAuthorizationPolicy = RegisterValidateFunc("ValidateAuthorizationPol
 						errs = appendErrors(errs, check(len(src.NotNamespaces) != 0, "From.NotNamespaces"))
 						errs = appendErrors(errs, check(len(src.ServiceAccounts) != 0, "From.ServiceAccounts"))
 						errs = appendErrors(errs, check(len(src.NotServiceAccounts) != 0, "From.NotServiceAccounts"))
+						errs = appendErrors(errs, check(len(src.TrustDomains) != 0, "From.TrustDomains"))
+						errs = appendErrors(errs, check(len(src.NotTrustDomains) != 0, "From.NotTrustDomains"))
 						errs = appendErrors(errs, check(len(src.Principals) != 0, "From.Principals"))
 						errs = appendErrors(errs, check(len(src.NotPrincipals) != 0, "From.NotPrincipals"))
 						errs = appendErrors(errs, check(len(src.RequestPrincipals) != 0, "From.RequestPrincipals"))
@@ -1452,6 +1455,7 @@ var ValidateAuthorizationPolicy = RegisterValidateFunc("ValidateAuthorizationPol
 					}
 					errs = appendErrors(errs, check(when.Key == "source.namespace", when.Key))
 					errs = appendErrors(errs, check(when.Key == "source.serviceAccount", when.Key))
+					errs = appendErrors(errs, check(when.Key == "source.trustDomain", when.Key))
 					errs = appendErrors(errs, check(when.Key == "source.principal", when.Key))
 					errs = appendErrors(errs, check(strings.HasPrefix(when.Key, "request.auth."), when.Key))
 				}
@@ -1494,7 +1498,8 @@ var ValidateAuthorizationPolicy = RegisterValidateFunc("ValidateAuthorizationPol
 					}
 					if len(src.Principals) == 0 && len(src.RequestPrincipals) == 0 && len(src.Namespaces) == 0 && len(src.IpBlocks) == 0 &&
 						len(src.RemoteIpBlocks) == 0 && len(src.NotPrincipals) == 0 && len(src.NotRequestPrincipals) == 0 && len(src.NotNamespaces) == 0 &&
-						len(src.NotIpBlocks) == 0 && len(src.NotRemoteIpBlocks) == 0 && len(src.ServiceAccounts) == 0 && len(src.NotServiceAccounts) == 0 {
+						len(src.NotIpBlocks) == 0 && len(src.NotRemoteIpBlocks) == 0 && len(src.ServiceAccounts) == 0 && len(src.NotServiceAccounts) == 0 &&
+						len(src.TrustDomains) == 0 && len(src.NotTrustDomains) == 0 {
 						errs = appendErrors(errs, fmt.Errorf("`from.source` must not be empty, found at rule %d", i))
 					}
 					errs = appendErrors(errs, security.ValidateIPs(from.Source.GetIpBlocks()))
@@ -1505,12 +1510,14 @@ var ValidateAuthorizationPolicy = RegisterValidateFunc("ValidateAuthorizationPol
 					errs = appendErrors(errs, security.CheckEmptyValues("RequestPrincipals", src.RequestPrincipals))
 					errs = appendErrors(errs, security.CheckEmptyValues("Namespaces", src.Namespaces))
 					errs = appendErrors(errs, security.CheckServiceAccount("ServiceAccounts", src.ServiceAccounts))
+					errs = appendErrors(errs, security.CheckTrustDomainValues("TrustDomains", src.TrustDomains))
 					errs = appendErrors(errs, security.CheckEmptyValues("IpBlocks", src.IpBlocks))
 					errs = appendErrors(errs, security.CheckEmptyValues("RemoteIpBlocks", src.RemoteIpBlocks))
 					errs = appendErrors(errs, security.CheckEmptyValues("NotPrincipals", src.NotPrincipals))
 					errs = appendErrors(errs, security.CheckEmptyValues("NotRequestPrincipals", src.NotRequestPrincipals))
 					errs = appendErrors(errs, security.CheckEmptyValues("NotNamespaces", src.NotNamespaces))
 					errs = appendErrors(errs, security.CheckServiceAccount("NotServiceAccounts", src.NotServiceAccounts))
+					errs = appendErrors(errs, security.CheckTrustDomainValues("NotTrustDomains", src.NotTrustDomains))
 					errs = appendErrors(errs, security.CheckEmptyValues("NotIpBlocks", src.NotIpBlocks))
 					errs = appendErrors(errs, security.CheckEmptyValues("NotRemoteIpBlocks", src.NotRemoteIpBlocks))
 					if src.NotPrincipals != nil || src.Principals != nil || src.IpBlocks != nil ||
@@ -3041,7 +3048,6 @@ var ValidateServiceEntry = RegisterValidateFunc("ValidateServiceEntry",
 					}
 				}
 			}
-		// Only supported by ztunnel and waypoints
 		case networking.ServiceEntry_DYNAMIC_DNS:
 			if len(serviceEntry.Hosts) == 0 {
 				errs = AppendValidation(errs, fmt.Errorf("at least one wildcard host must be provided for resolution type %s", serviceEntry.Resolution))
@@ -3065,12 +3071,17 @@ var ValidateServiceEntry = RegisterValidateFunc("ValidateServiceEntry",
 					continue
 				}
 				proto := protocol.Parse(port.Protocol)
-				if proto != protocol.HTTP && proto != protocol.TLS {
-					errs = AppendValidation(errs, fmt.Errorf("only HTTP and TLS protocol is supported for resolution type %s", serviceEntry.Resolution))
+				// DFP supports HTTP, TLS, GRPC, and HTTP2 (aligned with pilot cluster buildOutboundClusters).
+				if proto != protocol.HTTP && proto != protocol.TLS && proto != protocol.GRPC && proto != protocol.HTTP2 {
+					errs = AppendValidation(errs, fmt.Errorf("only HTTP, TLS, GRPC, and HTTP2 protocols are supported for resolution type %s", serviceEntry.Resolution))
 				}
 			}
-			if serviceEntry.Location != networking.ServiceEntry_MESH_EXTERNAL {
-				errs = AppendValidation(errs, fmt.Errorf("location must be MESH_EXTERNAL for resolution type %s", serviceEntry.Resolution))
+			// DYNAMIC_DNS supports MESH_EXTERNAL for both sidecar and waypoint mode; MESH_INTERNAL only when the ServiceEntry has no waypoint.
+			if serviceEntry.Location != networking.ServiceEntry_MESH_EXTERNAL && serviceEntry.Location != networking.ServiceEntry_MESH_INTERNAL {
+				errs = AppendValidation(errs, fmt.Errorf("location must be MESH_EXTERNAL or MESH_INTERNAL for resolution type %s", serviceEntry.Resolution))
+			}
+			if serviceEntry.Location == networking.ServiceEntry_MESH_INTERNAL && usesWaypoint(cfg) {
+				errs = AppendValidation(errs, fmt.Errorf("location MESH_INTERNAL with resolution type %s is not supported when using waypoints", serviceEntry.Resolution))
 			}
 		default:
 			errs = AppendValidation(errs, fmt.Errorf("unsupported resolution type %s",
@@ -3101,6 +3112,17 @@ var ValidateServiceEntry = RegisterValidateFunc("ValidateServiceEntry",
 		errs = AppendValidation(errs, validateExportTo(cfg.Namespace, serviceEntry.ExportTo, true, false))
 		return errs.Unwrap()
 	})
+
+// usesWaypoint returns true if the config has the use-waypoint label set to a waypoint (i.e. not "none").
+func usesWaypoint(cfg config.Config) bool {
+	if cfg.Labels == nil {
+		return false
+	}
+	if val, ok := cfg.Labels[label.IoIstioUseWaypoint.Name]; ok && val != "" && !strings.EqualFold(val, "none") {
+		return true
+	}
+	return false
+}
 
 // ValidatePortName validates a port name to DNS-1123
 func ValidatePortName(name string) error {
@@ -3411,6 +3433,107 @@ func validateWasmPluginVMConfig(vm *extensions.VmConfig) error {
 }
 
 func validateWasmPluginMatch(selectors []*extensions.WasmPlugin_TrafficSelector) error {
+	if len(selectors) == 0 {
+		return nil
+	}
+	for selIdx, sel := range selectors {
+		if sel == nil {
+			return fmt.Errorf("spec.Match[%d] is nil", selIdx)
+		}
+		for portIdx, port := range sel.Ports {
+			if port == nil {
+				return fmt.Errorf("spec.Match[%d].Ports[%d] is nil", selIdx, portIdx)
+			}
+			if port.GetNumber() <= 0 || port.GetNumber() > 65535 {
+				return fmt.Errorf("spec.Match[%d].Ports[%d] is out of range: %d", selIdx, portIdx, port.GetNumber())
+			}
+		}
+	}
+	return nil
+}
+
+// ValidateTrafficExtension validates a TrafficExtension.
+var ValidateTrafficExtension = RegisterValidateFunc("ValidateTrafficExtension",
+	func(cfg config.Config) (Warning, error) {
+		spec, ok := cfg.Spec.(*extensions.TrafficExtension)
+		if !ok {
+			return nil, fmt.Errorf("cannot cast to trafficextension")
+		}
+
+		errs := Validation{}
+
+		wasm := spec.GetWasm()
+		lua := spec.GetLua()
+
+		// Validate exactly one of wasm or lua is set
+		if (wasm != nil && lua != nil) || (wasm == nil && lua == nil) {
+			errs = AppendValidation(errs, fmt.Errorf("exactly one of wasm or lua must be set"))
+		}
+
+		// Validate selector type
+		errs = AppendValidation(errs,
+			validateOneOfSelectorType(spec.GetSelector(), nil, spec.GetTargetRefs()),
+			validateWorkloadSelector(spec.GetSelector()),
+			validatePolicyTargetReferences(spec.GetTargetRefs()),
+		)
+
+		// Validate Lua config if present
+		if lua != nil {
+			errs = AppendValidation(errs, validateLuaConfig(lua))
+		}
+
+		// Validate WASM config if present
+		if wasm != nil {
+			errs = AppendValidation(errs,
+				validateWasmPluginURL(wasm.Url),
+				validateWasmConfigSHA(wasm),
+				validateWasmConfigImagePullSecret(wasm),
+				validateWasmConfigName(wasm),
+				validateWasmPluginVMConfig(wasm.VmConfig),
+			)
+		}
+
+		// Validate match selectors
+		errs = AppendValidation(errs, validateTrafficExtensionMatch(spec.Match))
+
+		return errs.Unwrap()
+	})
+
+func validateLuaConfig(lua *extensions.LuaConfig) error {
+	if lua == nil {
+		return fmt.Errorf("lua config cannot be nil")
+	}
+	if len(lua.InlineCode) == 0 {
+		return fmt.Errorf("lua.inlineCode cannot be empty")
+	}
+	if len(lua.InlineCode) > 65536 {
+		return fmt.Errorf("lua.inlineCode exceeds maximum size of 64KB")
+	}
+	return nil
+}
+
+func validateWasmConfigSHA(wasm *extensions.WasmConfig) error {
+	if wasm.Sha256 == "" {
+		return nil
+	}
+	return validateWasmPluginSHA(&extensions.WasmPlugin{Sha256: wasm.Sha256})
+}
+
+func validateWasmConfigImagePullSecret(wasm *extensions.WasmConfig) error {
+	if wasm.ImagePullSecret == "" {
+		return nil
+	}
+	return validateWasmPluginImagePullSecret(&extensions.WasmPlugin{ImagePullSecret: wasm.ImagePullSecret})
+}
+
+func validateWasmConfigName(wasm *extensions.WasmConfig) error {
+	if len(wasm.PluginName) > 256 {
+		return fmt.Errorf("pluginName field must be less than 256 characters long")
+	}
+	return nil
+}
+
+func validateTrafficExtensionMatch(selectors []*extensions.TrafficSelector) error {
 	if len(selectors) == 0 {
 		return nil
 	}

@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+releaseNotes:
+- |
+  **Improved** the `istioctl bug-report` command's performance.
+  **Added** `--skip-cluster-dump`, `--skip-analyze`,  `--skip-proxy-debug`, `--skip-netstat`, and `--skip-coredumps` flags to the `istioctl bug-report` command to allow skipping expensive sections of the report.
+  **Fixed** log fetching with support for include and exclude filtering for pod selection.
+  **Added** `--tail` flag to set the maximum number of log lines to fetch per container. The default is still unlimited.

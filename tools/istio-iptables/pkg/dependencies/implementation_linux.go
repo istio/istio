@@ -19,7 +19,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"syscall"
@@ -170,8 +172,16 @@ func runInSandbox(lockFile string, f func() error) error {
 		}
 		// Remount / as a private mount so that our mounts do not impact outside the namespace
 		// (see https://unix.stackexchange.com/questions/246312/why-is-my-bind-mount-visible-outside-its-mount-namespace).
+		// MS_PRIVATE is preferred because it completely stops mount event propagation in both directions.
+		// However, on some systems (for example Bottlerocket on EKS), seccomp or LSM policies may block
+		// mount() calls that use MS_PRIVATE, even when running inside a new mount namespace. If that
+		// happens, we fall back to MS_SLAVE. For our use case this still achieves the main goal as it
+		// prevents our bind mounts from propagating back to the parent namespace, while being less likely
+		// to be blocked by stricter security policies.
 		if err := unix.Mount("", "/", "", unix.MS_PRIVATE|unix.MS_REC, ""); err != nil {
-			return fmt.Errorf("failed to remount /: %v", err)
+			if slaveErr := unix.Mount("", "/", "", unix.MS_SLAVE|unix.MS_REC, ""); slaveErr != nil {
+				return fmt.Errorf("failed to remount /: (MS_PRIVATE returned: %v; MS_SLAVE returned: %v)", err, slaveErr)
+			}
 		}
 		// In CNI, we are running the pod network namespace, but the host filesystem. Locking the host is both useless and harmful,
 		// as it opens the risk of lock contention with other node actors (such as kube-proxy), and isn't actually needed at all.
@@ -235,6 +245,44 @@ func mount(src, dst string) error {
 	return syscall.Mount(src, dst, "", syscall.MS_BIND|syscall.MS_RDONLY, "")
 }
 
+// build fd /proc path to use for nsenter
+func buildProcFdPath(fd int) string {
+	return fmt.Sprintf("/proc/%d/fd/%d", os.Getpid(), fd)
+}
+
+// retrieves the internal namespace id of the kernel for the given fd namespace path
+func getNsID(nsPath string) (int, error) {
+	fd, err := unix.Open(nsPath, unix.O_RDONLY, 0)
+	if err != nil {
+		return 0, err
+	}
+	defer unix.Close(fd)
+
+	var stat unix.Stat_t
+	err = unix.Fstat(fd, &stat)
+	if err != nil {
+		return 0, err
+	}
+
+	return int(stat.Ino), nil
+}
+
+// retrieves on success the parent user ns fd and return the fd
+func getParentUserNsByNsPath(nsPath string) (int, error) {
+	fd, err := unix.Open(nsPath, unix.O_RDONLY, 0)
+	if err != nil {
+		return 0, err
+	}
+	defer unix.Close(fd)
+
+	nsFd, err := unix.IoctlRetInt(fd, unix.NS_GET_USERNS)
+	if err != nil {
+		return 0, err
+	}
+
+	return nsFd, nil
+}
+
 func (r *RealDependencies) executeXTables(log *log.Scope, cmd constants.IptablesCmd, iptVer *IptablesVersion,
 	silenceErrors bool, stdin io.ReadSeeker, args ...string,
 ) (*bytes.Buffer, error) {
@@ -258,6 +306,38 @@ func (r *RealDependencies) executeXTables(log *log.Scope, cmd constants.Iptables
 		// But a container netns is just a file, and like any Linux file,
 		// we can't guarantee no other process has it locked.
 		args = append(args, "--wait=30")
+	}
+
+	// Check if we need to switch into the User Namespace for hostUsers: false
+	executable, errName := os.Executable()
+	// check only in istio-cni mode for backwards compatibility
+	if errName == nil && filepath.Base(executable) == "istio-cni" {
+		parentNs, errParent := getParentUserNsByNsPath(r.NetworkNamespace)
+		defer unix.Close(parentNs)
+		grandParentNs, errGrandParent := getParentUserNsByNsPath(buildProcFdPath(parentNs))
+		defer unix.Close(grandParentNs)
+
+		if errParent == nil && errGrandParent == nil {
+			// retrieve nsID for comparison, if grandParentNsID is 0 (access denied)
+			// it means it's already kernel base user namepace or we don't have the permissions
+			// in that case ignore it
+			netNsID, errNsID := getNsID(r.NetworkNamespace)
+			parentNsID, errParentNsID := getNsID(buildProcFdPath(parentNs))
+			grandParentNsID, errGrandParentNsID := getNsID(buildProcFdPath(grandParentNs))
+			// we successfully retrieved parentNs and grandParentNs if they do not match the net ns is inside a linux user ns
+			if errNsID == nil && errParentNsID == nil && errGrandParentNsID == nil && parentNsID != grandParentNsID {
+				log.Debugf("k8s user namespaces relationship detected linux base %d -> %d -> %d", grandParentNsID, parentNsID, netNsID)
+				log.Debugf("using nsenter with --user=%s --net=%s %s", buildProcFdPath(parentNs), r.NetworkNamespace, cmdBin)
+				// check if nsenter is available otherwise inform user about that fact and k8s user namespace detection
+				_, errNsBinaryPath := exec.LookPath("nsenter")
+				if errNsBinaryPath != nil {
+					log.Errorf("k8s user namespace / hostUsers: false pod network namespace %s detected, but no nsenter binary found", r.NetworkNamespace)
+				} else {
+					args = append([]string{fmt.Sprintf("--user=%s", buildProcFdPath(parentNs)), fmt.Sprintf("--net=%s", r.NetworkNamespace), cmdBin}, args...)
+					cmdBin = "nsenter"
+				}
+			}
+		}
 	}
 
 	if r.UsePodScopedXtablesLock {

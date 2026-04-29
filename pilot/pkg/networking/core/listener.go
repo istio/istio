@@ -602,6 +602,13 @@ func buildListenerFromEntry(builder *ListenerBuilder, le *outboundListenerEntry,
 		if len(chain.sniHosts) > 0 || needsALPN {
 			needTLSInspector = true
 		}
+		// SNI DFP filter needs TLS inspector to get requested server name from ClientHello for DNS resolution.
+		for _, f := range chain.networkFilters {
+			if f.Name == wellknown.SNIDynamicForwardProxy {
+				needTLSInspector = true
+				break
+			}
+		}
 		needHTTP := len(chain.applicationProtocols) > 0
 		if needHTTP {
 			needHTTPInspector = true
@@ -621,10 +628,10 @@ func buildListenerFromEntry(builder *ListenerBuilder, le *outboundListenerEntry,
 		// Otherwise, do not have a timeout at all
 		l.ListenerFiltersTimeout = durationpb.New(0)
 	}
-	wasm := builder.push.WasmPluginsByListenerInfo(builder.node, model.WasmPluginListenerInfo{
+	trafficExtensions := builder.push.TrafficExtensionsByListenerInfo(builder.node, model.ListenerInfo{
 		Port:  le.servicePort.Port,
 		Class: istionetworking.ListenerClassSidecarOutbound,
-	}, model.WasmPluginTypeNetwork)
+	}, model.FilterChainTypeNetwork)
 	for _, opt := range le.chains {
 		chain := &listener.FilterChain{
 			Metadata:        opt.metadata,
@@ -645,10 +652,10 @@ func buildListenerFromEntry(builder *ListenerBuilder, le *outboundListenerEntry,
 				Name:       wellknown.HTTPConnectionManager,
 				ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(hcm)},
 			}
-			opt.networkFilters = extension.PopAppendNetwork(opt.networkFilters, wasm, extensions.PluginPhase_AUTHN)
-			opt.networkFilters = extension.PopAppendNetwork(opt.networkFilters, wasm, extensions.PluginPhase_AUTHZ)
-			opt.networkFilters = extension.PopAppendNetwork(opt.networkFilters, wasm, extensions.PluginPhase_STATS)
-			opt.networkFilters = extension.PopAppendNetwork(opt.networkFilters, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
+			opt.networkFilters = extension.PopAppendNetworkTrafficExtension(opt.networkFilters, trafficExtensions, extensions.TrafficExtension_AUTHN)
+			opt.networkFilters = extension.PopAppendNetworkTrafficExtension(opt.networkFilters, trafficExtensions, extensions.TrafficExtension_AUTHZ)
+			opt.networkFilters = extension.PopAppendNetworkTrafficExtension(opt.networkFilters, trafficExtensions, extensions.TrafficExtension_STATS)
+			opt.networkFilters = extension.PopAppendNetworkTrafficExtension(opt.networkFilters, trafficExtensions, extensions.TrafficExtension_UNSPECIFIED)
 			chain.Filters = append(chain.Filters, opt.networkFilters...)
 			chain.Filters = append(chain.Filters, filter)
 		}
@@ -767,6 +774,7 @@ func buildSidecarOutboundHTTPListenerOpts(
 		skipIstioMXHeaders:        ph.SkipIstioMXHeaders,
 		protocol:                  opts.port.Protocol,
 		class:                     istionetworking.ListenerClassSidecarOutbound,
+		policySvc:                 opts.service,
 	}
 
 	if features.HTTP10 || enableHTTP10(opts.proxy.Metadata.HTTP10) {
@@ -1445,7 +1453,7 @@ func buildInnerConnectOriginateListener(push *model.PushContext, proxy *model.Pr
 						},
 					},
 				},
-				FactoryKey:         "envoy.string",
+				FactoryKey:         "istio.hashable_string",
 				SharedWithUpstream: sfsvalue.FilterStateValue_TRANSITIVE,
 			},
 		},

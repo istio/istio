@@ -103,6 +103,15 @@ var (
 	EnableDebugEndpointAuth = env.Register("ENABLE_DEBUG_ENDPOINT_AUTH", true,
 		"Enforce namespace-based authorization on debug endpoints. Non-system namespaces restricted to config_dump/ndsz/edsz for same-namespace proxies only.").Get()
 
+	DebugEndpointAuthAllowedNamespaces = func() sets.String {
+		v := env.Register(
+			"DEBUG_ENDPOINT_AUTH_ALLOWED_NAMESPACES",
+			"",
+			"Comma separated list of namespaces to allow access to debug endpoints. Only used if ENABLE_DEBUG_ENDPOINT_AUTH is enabled. The system namespace"+
+				"is always authorized.").Get()
+		return sets.New(strings.Split(v, ",")...)
+	}()
+
 	EnableServiceEntrySelectPods = env.Register("PILOT_ENABLE_SERVICEENTRY_SELECT_PODS", true,
 		"If enabled, service entries with selectors will select pods from the cluster. "+
 			"It is safe to disable it if you are quite sure you don't need this feature").Get()
@@ -235,6 +244,11 @@ var (
 	LocalClusterSecretWatcher = env.Register("LOCAL_CLUSTER_SECRET_WATCHER", false,
 		"If enabled, the cluster secret watcher will watch the namespace of the external cluster instead of config cluster").Get()
 
+	MulticlusterKubeconfigPath = env.Register("PILOT_MULTICLUSTER_KUBECONFIG_PATH", "",
+		"If set, istiod reads remote cluster kubeconfigs from this local directory. "+
+			"If both `PILOT_MULTICLUSTER_KUBECONFIG_PATH` and `LOCAL_CLUSTER_SECRET_WATCHER` are set, "+
+			"`PILOT_MULTICLUSTER_KUBECONFIG_PATH` takes precedence.").Get()
+
 	InformerWatchNamespace = env.Register("ISTIO_WATCH_NAMESPACE", "",
 		"If set, limit Kubernetes watches to a single namespace. "+
 			"Warning: only a single namespace can be set.").Get()
@@ -364,6 +378,25 @@ var (
 		15*time.Second,
 		"The timeout for transport socket (e.g., TLS handshake) connections on gateway listeners. "+
 			"This helps protect against slow TLS handshake attacks. Set to 0s to disable.",
+	).Get()
+
+	MaxWasmBinarySizeBytes = env.Register[int64](
+		"ISTIO_WASM_MAX_BINARY_SIZE_BYTES",
+		1024*1024*256,
+		"Maximum size of a Wasm binary in bytes. Default is 256MB.",
+	).Get()
+
+	SidecarPickBestServiceNamespace = env.Register(
+		"PILOT_SIDECAR_PICK_BEST_SERVICE_NAMESPACE",
+		true,
+		"If enabled, when a sidecar needs to pick a service namespace for a hostname, it will prefer Kubernetes services "+
+			"and fall back to the oldest non-Kubernetes service. When disabled, the first visible namespace alphabetically is used.",
+	).Get()
+
+	EnableRemoteCredentialsController = env.RegisterBoolVar(
+		"PILOT_ENABLE_REMOTE_CREDENTIALS_CONTROLLER",
+		true,
+		"If enabled, pilot will start the credentials controller for remote clusters. Default is true.",
 	).Get()
 )
 

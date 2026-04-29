@@ -16,6 +16,7 @@ package filters
 
 import (
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	mutation_rulesv3 "github.com/envoyproxy/go-control-plane/envoy/config/common/mutation_rules/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
@@ -27,6 +28,7 @@ import (
 	fault "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/fault/v3"
 	grpcstats "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/grpc_stats/v3"
 	grpcweb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/grpc_web/v3"
+	header_mutationv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/header_mutation/v3"
 	router "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/router/v3"
 	sfs "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/set_filter_state/v3"
 	statefulsession "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/stateful_session/v3"
@@ -246,7 +248,7 @@ var (
 								},
 							},
 						},
-						FactoryKey:         "envoy.string",
+						FactoryKey:         "istio.hashable_string",
 						SharedWithUpstream: sfsvalue.FilterStateValue_ONCE,
 					},
 				},
@@ -290,7 +292,7 @@ var (
 								},
 							},
 						},
-						FactoryKey:         "envoy.string",
+						FactoryKey:         "istio.hashable_string",
 						SharedWithUpstream: sfsvalue.FilterStateValue_ONCE,
 					}, {
 						Key: &sfsvalue.FilterStateValue_ObjectKey{
@@ -312,7 +314,7 @@ var (
 						Key: &sfsvalue.FilterStateValue_ObjectKey{
 							ObjectKey: "io.istio.peer_principal",
 						},
-						FactoryKey: "envoy.string",
+						FactoryKey: "istio.hashable_string",
 						Value: &sfsvalue.FilterStateValue_FormatString{
 							FormatString: &core.SubstitutionFormatString{
 								Format: &core.SubstitutionFormatString_TextFormatSource{
@@ -329,7 +331,7 @@ var (
 						Key: &sfsvalue.FilterStateValue_ObjectKey{
 							ObjectKey: "io.istio.local_principal",
 						},
-						FactoryKey: "envoy.string",
+						FactoryKey: "istio.hashable_string",
 						Value: &sfsvalue.FilterStateValue_FormatString{
 							FormatString: &core.SubstitutionFormatString{
 								Format: &core.SubstitutionFormatString_TextFormatSource{
@@ -369,6 +371,33 @@ var (
 					},
 					SharedWithUpstream: sfsvalue.FilterStateValue_ONCE,
 				}},
+			}),
+		},
+	}
+
+	// WaypointXFCCClientIdentityFilter synthesizes an x-forwarded-client-cert header
+	// on the waypoint main_internal HCM, populated from the ztunnel-provided source
+	// workload identity kept in filter state. mTLS is terminated on the outer
+	// CONNECT listener, so Envoy's native XFCC handling on main_internal has no peer
+	// cert and cannot populate the header. Any existing XFCC on the request is
+	// replaced to avoid forwarding values the waypoint has not verified.
+	WaypointXFCCClientIdentityFilter = &hcm.HttpFilter{
+		Name: "istio.waypoint.xfcc_client_identity",
+		ConfigType: &hcm.HttpFilter_TypedConfig{
+			TypedConfig: protoconv.MessageToAny(&header_mutationv3.HeaderMutation{
+				Mutations: &header_mutationv3.Mutations{
+					RequestMutations: []*mutation_rulesv3.HeaderMutation{{
+						Action: &mutation_rulesv3.HeaderMutation_Append{
+							Append: &core.HeaderValueOption{
+								Header: &core.HeaderValue{
+									Key:   "x-forwarded-client-cert",
+									Value: `By=%FILTER_STATE(io.istio.local_principal:PLAIN)%;URI=%FILTER_STATE(io.istio.peer_principal:PLAIN)%`,
+								},
+								AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
+							},
+						},
+					}},
+				},
 			}),
 		},
 	}
@@ -648,6 +677,18 @@ func additionalLabels(cfg map[string]any) {
 // using the specified DNS cache config name. This name must match the name used in the corresponding
 // dynamic forward proxy cluster.
 func BuildWaypointInboundDFPFilter(dnsCacheConfigName string) *hcm.HttpFilter {
+	return buildDynamicForwardProxyFilter(dnsCacheConfigName)
+}
+
+// BuildSidecarOutboundDynamicForwardProxyFilter builds a dynamic forward proxy filter for sidecar outbound listeners
+// using the specified DNS cache config name. This name must match the name used in the corresponding
+// dynamic forward proxy cluster.
+func BuildSidecarOutboundDynamicForwardProxyFilter(dnsCacheConfigName string) *hcm.HttpFilter {
+	return buildDynamicForwardProxyFilter(dnsCacheConfigName)
+}
+
+// buildDynamicForwardProxyFilter builds a DFP HTTP filter using the specified DNS cache config name.
+func buildDynamicForwardProxyFilter(dnsCacheConfigName string) *hcm.HttpFilter {
 	return &hcm.HttpFilter{
 		Name: "envoy.filters.http.dynamic_forward_proxy",
 		ConfigType: &hcm.HttpFilter_TypedConfig{

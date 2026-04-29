@@ -303,7 +303,7 @@ func TestConfigureTracing(t *testing.T) {
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 			hcm := &hcm.HttpConnectionManager{}
-			gotReqIDExtCtx := configureTracingFromTelemetry(tc.inSpec, tc.opts.push, tc.opts.proxy, hcm, 0, nil)
+			gotReqIDExtCtx := configureTracingFromTelemetry(tc.inSpec, tc.opts.push, tc.opts.proxy, hcm, 0)
 			if diff := cmp.Diff(tc.want, hcm.Tracing, protocmp.Transform()); diff != "" {
 				t.Fatalf("configureTracing returned unexpected diff (-want +got):\n%s", diff)
 			}
@@ -430,7 +430,7 @@ func TestConfigureDynatraceSampler(t *testing.T) {
 			want := fakeTracingConfig(fakeOtelHTTPAny, 100, 256, append(defaultTracingTags(), fakeEnvTag))
 
 			hcm := &hcm.HttpConnectionManager{}
-			configureTracingFromTelemetry(inSpec, opts.push, opts.proxy, hcm, 0, nil)
+			configureTracingFromTelemetry(inSpec, opts.push, opts.proxy, hcm, 0)
 
 			if diff := cmp.Diff(want, hcm.Tracing, protocmp.Transform()); diff != "" {
 				t.Fatalf("configureTracing returned unexpected diff (-want +got):\n%s", diff)
@@ -574,7 +574,7 @@ func TestConfigureDynatraceSamplerWithCustomHttp(t *testing.T) {
 	want := fakeTracingConfig(fakeOtelHTTPAny, 100, 256, append(defaultTracingTags(), fakeEnvTag))
 
 	hcm := &hcm.HttpConnectionManager{}
-	configureTracingFromTelemetry(inSpec, opts.push, opts.proxy, hcm, 0, nil)
+	configureTracingFromTelemetry(inSpec, opts.push, opts.proxy, hcm, 0)
 
 	if diff := cmp.Diff(want, hcm.Tracing, protocmp.Transform()); diff != "" {
 		t.Fatalf("configureTracing returned unexpected diff (-want +got):\n%s", diff)
@@ -2097,6 +2097,284 @@ func TestZipkinConfigTimeoutHeadersVersionGating(t *testing.T) {
 					t.Fatalf("CollectorCluster should be set when using legacy config for proxy version %s", versionStr)
 				}
 			}
+		})
+	}
+}
+
+func TestOtelServiceName(t *testing.T) {
+	tests := []struct {
+		name     string
+		proxy    *model.Proxy
+		expected string
+	}{
+		{
+			name:     "nil proxy",
+			proxy:    nil,
+			expected: "unknown_service",
+		},
+		{
+			name:     "nil metadata",
+			proxy:    &model.Proxy{},
+			expected: "unknown_service",
+		},
+		{
+			name: "fallback 1: resource.opentelemetry.io/service.name annotation",
+			proxy: &model.Proxy{
+				Labels: map[string]string{"app.kubernetes.io/name": "should-not-use"},
+				Metadata: &model.NodeMetadata{
+					Annotations:  map[string]string{"resource.opentelemetry.io/service.name": "annotated-svc"},
+					WorkloadName: "my-deployment",
+				},
+			},
+			expected: "annotated-svc",
+		},
+		{
+			name: "fallback 2: app.kubernetes.io/instance label",
+			proxy: &model.Proxy{
+				Labels: map[string]string{
+					"app.kubernetes.io/instance": "instance-svc",
+					"app.kubernetes.io/name":     "should-not-use",
+				},
+				Metadata: &model.NodeMetadata{
+					WorkloadName: "my-deployment",
+				},
+			},
+			expected: "instance-svc",
+		},
+		{
+			name: "fallback 3: app.kubernetes.io/name label",
+			proxy: &model.Proxy{
+				Labels: map[string]string{"app.kubernetes.io/name": "labeled-svc"},
+				Metadata: &model.NodeMetadata{
+					WorkloadName: "my-deployment",
+				},
+			},
+			expected: "labeled-svc",
+		},
+		{
+			name: "fallback 4: workload name (owner resource)",
+			proxy: &model.Proxy{
+				ID: "my-pod-abc123.default",
+				Metadata: &model.NodeMetadata{
+					WorkloadName: "my-deployment",
+				},
+			},
+			expected: "my-deployment",
+		},
+		{
+			name: "fallback 5: pod name from proxy ID",
+			proxy: &model.Proxy{
+				ID: "my-pod-abc123.default",
+				Metadata: &model.NodeMetadata{
+					Raw: map[string]any{"APP_CONTAINERS": "container1,container2"},
+				},
+			},
+			expected: "my-pod-abc123",
+		},
+		{
+			name: "fallback 6: single container name",
+			proxy: &model.Proxy{
+				Metadata: &model.NodeMetadata{
+					Raw: map[string]any{"APP_CONTAINERS": "my-container"},
+				},
+			},
+			expected: "my-container",
+		},
+		{
+			name: "fallback 6 skipped: multiple containers",
+			proxy: &model.Proxy{
+				Metadata: &model.NodeMetadata{
+					Raw: map[string]any{"APP_CONTAINERS": "container1,container2"},
+				},
+			},
+			expected: "unknown_service",
+		},
+		{
+			name: "fallback 7: unknown_service",
+			proxy: &model.Proxy{
+				Metadata: &model.NodeMetadata{},
+			},
+			expected: "unknown_service",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := otelServiceName(tt.proxy)
+			assert.Equal(t, tt.expected, got)
+		})
+	}
+}
+
+func TestOtelConfigWithSemanticConventions(t *testing.T) {
+	clusterName := "testcluster"
+	authority := "testhost"
+
+	clusterLookupFn = func(push *model.PushContext, service string, port int) (hostname string, cluster string, err error) {
+		return authority, clusterName, nil
+	}
+	defer func() {
+		clusterLookupFn = model.LookupCluster
+	}()
+
+	defaultUUIDExtensionCtx := requestidextension.UUIDRequestIDExtensionContext{
+		UseRequestIDForTraceSampling: true,
+	}
+
+	// Provider with OTEL_SEMANTIC_CONVENTIONS enabled
+	otelSemConvProvider := &meshconfig.MeshConfig_ExtensionProvider{
+		Name: "opentelemetry",
+		Provider: &meshconfig.MeshConfig_ExtensionProvider_Opentelemetry{
+			Opentelemetry: &meshconfig.MeshConfig_ExtensionProvider_OpenTelemetryTracingProvider{
+				Service:                    "otel-collector",
+				Port:                       4317,
+				MaxTagLength:               256,
+				ServiceAttributeEnrichment: meshconfig.MeshConfig_ExtensionProvider_OTEL_SEMANTIC_CONVENTIONS,
+			},
+		},
+	}
+
+	// Provider with OTEL_SEMANTIC_CONVENTIONS + existing resource detectors
+	otelSemConvWithDetectorsProvider := &meshconfig.MeshConfig_ExtensionProvider{
+		Name: "opentelemetry",
+		Provider: &meshconfig.MeshConfig_ExtensionProvider_Opentelemetry{
+			Opentelemetry: &meshconfig.MeshConfig_ExtensionProvider_OpenTelemetryTracingProvider{
+				Service:                    "otel-collector",
+				Port:                       4317,
+				MaxTagLength:               256,
+				ServiceAttributeEnrichment: meshconfig.MeshConfig_ExtensionProvider_OTEL_SEMANTIC_CONVENTIONS,
+				ResourceDetectors: &meshconfig.MeshConfig_ExtensionProvider_ResourceDetectors{
+					Environment: &meshconfig.MeshConfig_ExtensionProvider_ResourceDetectors_EnvironmentResourceDetector{},
+				},
+			},
+		},
+	}
+
+	envResourceDetector := &core.TypedExtensionConfig{
+		Name:        "envoy.tracers.opentelemetry.resource_detectors.environment",
+		TypedConfig: protoconv.MessageToAny(&resourcedetectors.EnvironmentResourceDetectorConfig{}),
+	}
+
+	// Expected OTel config with service name from OTel conventions (workload name)
+	expectedOtelCfgSemConv := &tracingcfg.OpenTelemetryConfig{
+		ServiceName: "my-deployment",
+		GrpcService: &core.GrpcService{
+			TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+				EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
+					ClusterName: clusterName,
+					Authority:   authority,
+				},
+			},
+		},
+		ResourceDetectors: []*core.TypedExtensionConfig{envResourceDetector},
+	}
+	expectedOtelAnySemConv := protoconv.MessageToAny(expectedOtelCfgSemConv)
+	expectedProviderSemConv := &tracingcfg.Tracing_Http{
+		Name:       envoyOpenTelemetry,
+		ConfigType: &tracingcfg.Tracing_Http_TypedConfig{TypedConfig: expectedOtelAnySemConv},
+	}
+
+	// Expected OTel config with service name from annotation
+	expectedOtelCfgAnnotation := &tracingcfg.OpenTelemetryConfig{
+		ServiceName: "annotated-service",
+		GrpcService: &core.GrpcService{
+			TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+				EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
+					ClusterName: clusterName,
+					Authority:   authority,
+				},
+			},
+		},
+		ResourceDetectors: []*core.TypedExtensionConfig{envResourceDetector},
+	}
+	expectedOtelAnyAnnotation := protoconv.MessageToAny(expectedOtelCfgAnnotation)
+	expectedProviderAnnotation := &tracingcfg.Tracing_Http{
+		Name:       envoyOpenTelemetry,
+		ConfigType: &tracingcfg.Tracing_Http_TypedConfig{TypedConfig: expectedOtelAnyAnnotation},
+	}
+
+	testcases := []struct {
+		name            string
+		inSpec          *model.TracingConfig
+		push            *model.PushContext
+		proxy           *model.Proxy
+		want            *hcm.HttpConnectionManager_Tracing
+		wantReqIDExtCtx *requestidextension.UUIDRequestIDExtensionContext
+	}{
+		{
+			name:   "OTEL_SEMANTIC_CONVENTIONS uses workload name",
+			inSpec: fakeTracingSpec(otelSemConvProvider, 99.999, false, true, true),
+			push: &model.PushContext{
+				Mesh: &meshconfig.MeshConfig{
+					ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{otelSemConvProvider},
+				},
+			},
+			proxy: &model.Proxy{
+				ID: "my-pod-abc123.default",
+				Labels: map[string]string{
+					"app": "myapp",
+				},
+				IstioVersion: &model.IstioVersion{Major: 1, Minor: 28, Patch: 0},
+				Metadata: &model.NodeMetadata{
+					WorkloadName: "my-deployment",
+					Namespace:    "default",
+				},
+			},
+			want:            fakeTracingConfig(expectedProviderSemConv, 99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
+			wantReqIDExtCtx: &defaultUUIDExtensionCtx,
+		},
+		{
+			name:   "OTEL_SEMANTIC_CONVENTIONS uses annotation over workload name",
+			inSpec: fakeTracingSpec(otelSemConvProvider, 99.999, false, true, true),
+			push: &model.PushContext{
+				Mesh: &meshconfig.MeshConfig{
+					ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{otelSemConvProvider},
+				},
+			},
+			proxy: &model.Proxy{
+				ID: "my-pod-abc123.default",
+				Labels: map[string]string{
+					"app.kubernetes.io/name": "labeled-svc",
+				},
+				IstioVersion: &model.IstioVersion{Major: 1, Minor: 28, Patch: 0},
+				Metadata: &model.NodeMetadata{
+					Annotations:  map[string]string{"resource.opentelemetry.io/service.name": "annotated-service"},
+					WorkloadName: "my-deployment",
+					Namespace:    "default",
+				},
+			},
+			want:            fakeTracingConfig(expectedProviderAnnotation, 99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
+			wantReqIDExtCtx: &defaultUUIDExtensionCtx,
+		},
+		{
+			name:   "OTEL_SEMANTIC_CONVENTIONS does not duplicate env resource detector",
+			inSpec: fakeTracingSpec(otelSemConvWithDetectorsProvider, 99.999, false, true, true),
+			push: &model.PushContext{
+				Mesh: &meshconfig.MeshConfig{
+					ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{otelSemConvWithDetectorsProvider},
+				},
+			},
+			proxy: &model.Proxy{
+				ID:           "my-pod-abc123.default",
+				IstioVersion: &model.IstioVersion{Major: 1, Minor: 28, Patch: 0},
+				Metadata: &model.NodeMetadata{
+					WorkloadName: "my-deployment",
+					Namespace:    "default",
+				},
+			},
+			want:            fakeTracingConfig(expectedProviderSemConv, 99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
+			wantReqIDExtCtx: &defaultUUIDExtensionCtx,
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			hcmCfg := &hcm.HttpConnectionManager{}
+			gotReqIDExtCtx := configureTracingFromTelemetry(tc.inSpec, tc.push, tc.proxy, hcmCfg, 0)
+			if diff := cmp.Diff(tc.want, hcmCfg.Tracing, protocmp.Transform()); diff != "" {
+				t.Fatalf("configureTracing returned unexpected diff (-want +got):\n%s", diff)
+			}
+			assert.Equal(t, tc.wantReqIDExtCtx, gotReqIDExtCtx)
 		})
 	}
 }

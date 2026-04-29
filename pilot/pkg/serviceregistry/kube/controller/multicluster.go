@@ -121,6 +121,7 @@ func NewMulticluster(
 
 		options := opts
 		options.ClusterID = cluster.ID
+		options.MultiClusterController = controller
 		if !configCluster {
 			options.SyncTimeout = features.RemoteClusterTimeout
 		}
@@ -130,6 +131,9 @@ func NewMulticluster(
 		// Create per-cluster mesh watcher for remote clusters
 		// This allows controllers to detect cluster-specific settings that may be relevant for the local proxies, e.g. trust domain.
 		if !configCluster {
+			// Save the config cluster's mesh watcher as fallback for when the remote meshconfig is unreadable
+			// (e.g. during upgrades before RBAC rules are applied to the remote cluster).
+			options.ConfigClusterMeshWatcher = opts.MeshWatcher
 			meshConfigMapName := mc.getMeshConfigMapName()
 			meshSource := kubemesh.NewConfigMapSource(
 				client,
@@ -147,6 +151,18 @@ func NewMulticluster(
 		}
 
 		kubeRegistry := NewController(client, options)
+
+		// When the remote meshconfig changes (e.g. trust domain becomes readable after RBAC is applied),
+		// trigger a full push so services and endpoints are rebuilt with the correct trust domain.
+		if !configCluster && options.XDSUpdater != nil {
+			options.MeshWatcher.AddMeshHandler(func() {
+				kubeRegistry.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
+					Full:   true,
+					Reason: model.NewReasonStats(model.GlobalUpdate),
+					Forced: true,
+				})
+			})
+		}
 		kubeController := &kubeController{
 			MeshServiceController: opts.MeshServiceController,
 			Controller:            kubeRegistry,
@@ -179,11 +195,6 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeCont
 		kubeRegistry.AppendWorkloadHandler(m.serviceEntryController.WorkloadInstanceHandler)
 	}
 
-	// Set namespace client for traffic distribution inheritance (config cluster only)
-	if m.serviceEntryController != nil && configCluster {
-		m.serviceEntryController.SetNamespaces(kubeRegistry.namespaces)
-	}
-
 	// TODO implement deduping in aggregate registry to allow multiple k8s registries to handle WorkloadEntry
 	if features.EnableK8SServiceSelectWorkloadEntries {
 		if m.serviceEntryController != nil && configCluster {
@@ -194,9 +205,11 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeCont
 			configStore := createWleConfigStore(client, m.revision, options)
 			kubeController.workloadEntryController = serviceentry.NewWorkloadEntryController(
 				configStore, options.XDSUpdater,
+				options.MultiClusterController,
 				m.opts.MeshWatcher,
 				serviceentry.WithClusterID(cluster.ID),
-				serviceentry.WithNetworkIDCb(kubeRegistry.Network))
+				serviceentry.WithNetworkIDCb(kubeRegistry.Network),
+				serviceentry.WithKRTDebugger(m.opts.KrtDebugger))
 			// Services can select WorkloadEntry from the same cluster. We only duplicate the Service to configure kube-dns.
 			kubeController.workloadEntryController.AppendWorkloadHandler(kubeRegistry.WorkloadInstanceHandler)
 			// ServiceEntry selects WorkloadEntry from remote cluster

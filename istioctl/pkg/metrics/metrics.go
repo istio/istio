@@ -131,7 +131,7 @@ func run(c *cobra.Command, ctx cli.Context, args []string) error {
 
 	// Close the forwarder either when we exit or when this process is interrupted.
 	defer fw.Close()
-	dashboard.ClosePortForwarderOnInterrupt(fw)
+	go dashboard.ClosePortForwarderOnInterrupt(fw)
 
 	log.Debugf("port-forward to prometheus pod ready")
 

@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+  - |
+    **Enabled** `protocol: TLS` Gateway listeners by default.** Gateway listeners with `protocol: 
+    TLS` (used for TLS passthrough via `TLSRoute`) are now accepted without requiring 
+    `PILOT_ENABLE_ALPHA_GATEWAY_API=true`, since TLSRoute graduated to GA in Gateway API v1.5.0.

@@ -245,7 +245,7 @@ func MergeCertOptions(defaultOpts, deltaOpts CertOptions) CertOptions {
 func GenCertFromCSR(csr *x509.CertificateRequest, signingCert *x509.Certificate, publicKey any,
 	signingKey crypto.PrivateKey, subjectIDs []string, ttl time.Duration, isCA bool,
 ) (cert []byte, err error) {
-	tmpl, err := genCertTemplateFromCSR(csr, subjectIDs, ttl, isCA)
+	tmpl, err := genCertTemplateFromCSR(csr, subjectIDs, ttl, isCA, signingCert)
 	if err != nil {
 		return nil, err
 	}
@@ -286,7 +286,9 @@ const ClockSkewGracePeriod = time.Minute * 2
 
 // genCertTemplateFromCSR generates a certificate template with the given CSR.
 // The NotBefore value of the cert is set to current time.
-func genCertTemplateFromCSR(csr *x509.CertificateRequest, subjectIDs []string, ttl time.Duration, isCA bool) (
+// If signingCert is provided, the template's NotAfter is clamped to the signing cert's NotAfter
+// to prevent leaf certificates from outliving their signing certificate.
+func genCertTemplateFromCSR(csr *x509.CertificateRequest, subjectIDs []string, ttl time.Duration, isCA bool, signingCert *x509.Certificate) (
 	*x509.Certificate, error,
 ) {
 	subjectIDsInString := strings.Join(subjectIDs, ",")
@@ -327,13 +329,26 @@ func genCertTemplateFromCSR(csr *x509.CertificateRequest, subjectIDs []string, t
 	if err != nil {
 		return nil, err
 	}
+
+	// Reject expired signing certificates to prevent issuing already-expired leaf certificates
+	if signingCert != nil && !now.Before(signingCert.NotAfter) {
+		return nil, fmt.Errorf("signing certificate has expired at %v", signingCert.NotAfter)
+	}
+
+	// notAfter and notBefore are both derived from the same 'now' captured above.
+	notAfter := now.Add(ttl)
+	if signingCert != nil && !notAfter.Before(signingCert.NotAfter) {
+		log.Debugf("clamping leaf cert TTL from %v to signing cert NotAfter %v", ttl, signingCert.NotAfter)
+		notAfter = signingCert.NotAfter
+	}
+
 	// SignatureAlgorithm will use the default algorithm.
 	// See https://golang.org/src/crypto/x509/x509.go?s=5131:5158#L1965 .
 	return &x509.Certificate{
 		SerialNumber:          serialNum,
 		Subject:               subject,
 		NotBefore:             now.Add(-ClockSkewGracePeriod),
-		NotAfter:              now.Add(ttl),
+		NotAfter:              notAfter,
 		KeyUsage:              keyUsage,
 		ExtKeyUsage:           extKeyUsages,
 		IsCA:                  isCA,
@@ -342,7 +357,7 @@ func genCertTemplateFromCSR(csr *x509.CertificateRequest, subjectIDs []string, t
 	}, nil
 }
 
-// genCertTemplateFromoptions generates a certificate template with the given options.
+// genCertTemplateFromOptions generates a certificate template with the given options.
 func genCertTemplateFromOptions(options CertOptions) (*x509.Certificate, error) {
 	var keyUsage x509.KeyUsage
 	if options.IsCA {

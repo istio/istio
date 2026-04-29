@@ -115,8 +115,7 @@ function build_images() {
   SELECT_TEST="${1}"
 
   # Build just the images needed for tests
-  # TODO: add agentgateway once tests are added
-  targets="docker.pilot docker.proxyv2 "
+  targets="docker.pilot docker.proxyv2 docker.agentgateway "
 
   # use ubuntu:jammy to test vms by default
   nonDistrolessTargets="docker.app docker.app_sidecar_ubuntu_noble docker.ext-authz "
@@ -148,7 +147,7 @@ function setup_kind_registry() {
   if [[ "${running}" != 'true' ]]; then
       docker run \
         -d --restart=always -p "${KIND_REGISTRY_PORT}:5000" --name "${KIND_REGISTRY_NAME}" \
-        gcr.io/istio-testing/registry:2
+        registry.istio.io/testing/registry:2
 
     # Allow kind nodes to reach the registry
     docker network connect "kind" "${KIND_REGISTRY_NAME}"

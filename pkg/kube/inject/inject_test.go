@@ -583,6 +583,23 @@ func TestInjection(t *testing.T) {
 			want:       "gateway-spire.yaml.injected",
 			inFilePath: "spire-template.iop.yaml",
 		},
+		{
+			// Verifies that OTel semantic conventions inject POD_NAME and OTEL_RESOURCE_ATTRIBUTES env vars
+			in:   "hello-otel-semconv.yaml",
+			want: "hello-otel-semconv.yaml.injected",
+			mesh: func(m *meshapi.MeshConfig) {
+				m.ExtensionProviders = append(m.ExtensionProviders, &meshapi.MeshConfig_ExtensionProvider{
+					Name: "otel",
+					Provider: &meshapi.MeshConfig_ExtensionProvider_Opentelemetry{
+						Opentelemetry: &meshapi.MeshConfig_ExtensionProvider_OpenTelemetryTracingProvider{
+							Service:                    "otel-collector.observability.svc.cluster.local",
+							Port:                       4317,
+							ServiceAttributeEnrichment: meshapi.MeshConfig_ExtensionProvider_OTEL_SEMANTIC_CONVENTIONS,
+						},
+					},
+				})
+			},
+		},
 	}
 	// Keep track of tests we add options above
 	// We will search for all test files and skip these ones
@@ -1463,14 +1480,14 @@ func TestProxyImage(t *testing.T) {
 	}{
 		{
 			desc: "vals-only-int-tag",
-			v:    val("docker.io/istio", 11),
-			want: "docker.io/istio/proxyv2:11",
+			v:    val("registry.istio.io/release", 11),
+			want: "registry.istio.io/release/proxyv2:11",
 		},
 		{
 			desc: "pc overrides imageType - float tag",
-			v:    val("docker.io/istio", 1.12),
+			v:    val("registry.istio.io/release", 1.12),
 			pc:   pc("distroless"),
-			want: "docker.io/istio/proxyv2:1.12-distroless",
+			want: "registry.istio.io/release/proxyv2:1.12-distroless",
 		},
 		{
 			desc: "annotation overrides imageType",
@@ -1506,15 +1523,15 @@ func TestProxyImage(t *testing.T) {
 		},
 		{
 			desc: "pc overrides imageType, tag also has image type",
-			v:    val("docker.io/istio", "1.12-debug"),
+			v:    val("registry.istio.io/release", "1.12-debug"),
 			pc:   pc("distroless"),
-			want: "docker.io/istio/proxyv2:1.12-distroless",
+			want: "registry.istio.io/release/proxyv2:1.12-distroless",
 		},
 		{
 			desc: "annotation overrides imageType, tag also has the same image type",
-			v:    val("docker.io/istio", "1.12-distroless"),
+			v:    val("registry.istio.io/release", "1.12-distroless"),
 			ann:  ann("distroless"),
-			want: "docker.io/istio/proxyv2:1.12-distroless",
+			want: "registry.istio.io/release/proxyv2:1.12-distroless",
 		},
 		{
 			desc: "unusual tag should work",

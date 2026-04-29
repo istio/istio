@@ -30,10 +30,12 @@ import (
 
 	istio "istio.io/api/networking/v1alpha3"
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
+	"istio.io/istio/pilot/pkg/config/kube/gatewaycommon"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/gateway/kube"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube/controllers"
@@ -213,10 +215,11 @@ func HTTPRouteCollection(
 
 	finalVirtualServices := mergeHTTPRoutes(baseVirtualServices, opts.WithName("HTTPRouteMerged")...)
 	return RouteResult[*gatewayv1.HTTPRoute, gatewayv1.HTTPRouteStatus]{
-		VirtualServices:  finalVirtualServices,
-		RouteAttachments: routeCount,
-		Status:           status,
-		Ancestors:        ancestorBackends,
+		VirtualServices:     finalVirtualServices,
+		BaseVirtualServices: baseVirtualServices,
+		RouteAttachments:    routeCount,
+		Status:              status,
+		Ancestors:           ancestorBackends,
 	}
 }
 
@@ -237,7 +240,7 @@ func extractAncestorBackends[RT, BT any](
 	}
 	gateways := sets.Set[types.NamespacedName]{}
 	for _, r := range prefs {
-		ref := normalizeReference(r.Group, r.Kind, gvk.KubernetesGateway)
+		ref := gatewaycommon.NormalizeReference(r.Group, r.Kind, gvk.KubernetesGateway)
 		if ref != gvk.KubernetesGateway {
 			continue
 		}
@@ -427,10 +430,11 @@ func GRPCRouteCollection(
 
 	finalVirtualServices := mergeHTTPRoutes(baseVirtualServices, opts.WithName("GRPCRouteMerged")...)
 	return RouteResult[*gatewayv1.GRPCRoute, gatewayv1.GRPCRouteStatus]{
-		VirtualServices:  finalVirtualServices,
-		RouteAttachments: routeCount,
-		Status:           status,
-		Ancestors:        ancestorBackends,
+		VirtualServices:     finalVirtualServices,
+		BaseVirtualServices: baseVirtualServices,
+		RouteAttachments:    routeCount,
+		Status:              status,
+		Ancestors:           ancestorBackends,
 	}
 }
 
@@ -532,31 +536,31 @@ func TCPRouteCollection(
 }
 
 func TLSRouteCollection(
-	tlsRoutes krt.Collection[*gatewayalpha.TLSRoute],
+	tlsRoutes krt.Collection[*gatewayv1.TLSRoute],
 	inputs RouteContextInputs,
 	opts krt.OptionsBuilder,
-) RouteResult[*gatewayalpha.TLSRoute, gatewayalpha.TLSRouteStatus] {
+) RouteResult[*gatewayv1.TLSRoute, gatewayv1.TLSRouteStatus] {
 	routeCount := gatewayRouteAttachmentCountCollection(inputs, tlsRoutes, gvk.TLSRoute, opts)
-	ancestorBackends := krt.NewManyCollection(tlsRoutes, func(krtctx krt.HandlerContext, obj *gatewayalpha.TLSRoute) []AncestorBackend {
+	ancestorBackends := krt.NewManyCollection(tlsRoutes, func(krtctx krt.HandlerContext, obj *gatewayv1.TLSRoute) []AncestorBackend {
 		return extractAncestorBackends(
 			obj.ObjectMeta,
 			kind.FromString(obj.Kind),
 			obj.Spec.ParentRefs,
 			obj.Spec.Rules,
-			func(r gatewayalpha.TLSRouteRule) []gatewayv1.BackendRef {
+			func(r gatewayv1.TLSRouteRule) []gatewayv1.BackendRef {
 				return r.BackendRefs
 			},
 		)
 	}, opts.WithName("TLSAncestors")...)
-	status, virtualServices := krt.NewStatusManyCollection(tlsRoutes, func(krtctx krt.HandlerContext, obj *gatewayalpha.TLSRoute) (
-		*gatewayalpha.TLSRouteStatus,
+	status, virtualServices := krt.NewStatusManyCollection(tlsRoutes, func(krtctx krt.HandlerContext, obj *gatewayv1.TLSRoute) (
+		*gatewayv1.TLSRouteStatus,
 		[]config.Config,
 	) {
 		ctx := inputs.WithCtx(krtctx)
 		status := obj.Status.DeepCopy()
 		route := obj.Spec
 		parentStatus, parentRefs, meshResult, gwResult := computeRoute(ctx,
-			obj, func(mesh bool, obj *gatewayalpha.TLSRoute) iter.Seq2[*istio.TLSRoute, *ConfigError] {
+			obj, func(mesh bool, obj *gatewayv1.TLSRoute) iter.Seq2[*istio.TLSRoute, *ConfigError] {
 				return func(yield func(*istio.TLSRoute, *ConfigError) bool) {
 					for _, r := range route.Rules {
 						if !yield(convertTLSRoute(ctx, r, obj, !mesh)) {
@@ -590,12 +594,20 @@ func TLSRouteCollection(
 					vsHosts = []string{fmt.Sprintf("%s.%s.svc.%s", ref.Name, ref.Namespace, ctx.DomainSuffix)}
 				}
 				routes = augmentTLSPortMatch(routes, parent.OriginalReference.Port, vsHosts)
+			} else if parent.Hostname != "" {
+				// For gateway parents with a listener hostname constraint, intersect the route
+				// hostnames with the listener hostname per the Gateway API spec.
+				// e.g. route hostnames [*.com] ∩ listener hostname *.example.com = [*.example.com]
+				routeNames := host.NewNames(vsHosts)
+				listenerNames := host.NewNames([]string{parent.Hostname})
+				vsHosts = slices.Map(routeNames.Intersection(listenerNames), func(n host.Name) string { return string(n) })
+				routes = constrainTLSRoutesToListenerHost(routes, parent.Hostname)
 			}
-			for _, host := range vsHosts {
+			for _, vsHost := range vsHosts {
 				name := fmt.Sprintf("%s~tls~%d~%s", obj.Name, count, constants.KubernetesGatewayName)
 				filteredRoutes := routes
 				if parent.IsMesh() {
-					filteredRoutes = compatibleRoutesForHost(routes, host)
+					filteredRoutes = compatibleRoutesForHost(routes, vsHost)
 				}
 				// Create one VS per hostname with a single hostname.
 				// This ensures we can treat each hostname independently, as the spec requires
@@ -609,7 +621,7 @@ func TLSRouteCollection(
 						Domain:            ctx.DomainSuffix,
 					},
 					Spec: &istio.VirtualService{
-						Hosts:    []string{host},
+						Hosts:    []string{vsHost},
 						Gateways: []string{parent.InternalName},
 						Tls:      filteredRoutes,
 					},
@@ -619,7 +631,7 @@ func TLSRouteCollection(
 		}
 		return status, vs
 	}, opts.WithName("TLSRoute")...)
-	return RouteResult[*gatewayalpha.TLSRoute, gatewayalpha.TLSRouteStatus]{
+	return RouteResult[*gatewayv1.TLSRoute, gatewayv1.TLSRouteStatus]{
 		VirtualServices:  virtualServices,
 		RouteAttachments: routeCount,
 		Status:           status,
@@ -685,14 +697,14 @@ func (r RouteContext) LookupHostname(hostname string, namespace string) *model.S
 }
 
 type RouteContextInputs struct {
-	Grants          ReferenceGrants
+	Grants          gatewaycommon.ReferenceGrants
 	RouteParents    RouteParents
 	DomainSuffix    string
 	Services        krt.Collection[*corev1.Service]
 	Namespaces      krt.Collection[*corev1.Namespace]
 	ServiceEntries  krt.Collection[*networkingclient.ServiceEntry]
 	InferencePools  krt.Collection[*inferencev1.InferencePool]
-	internalContext krt.RecomputeProtected[*atomic.Pointer[GatewayContext]]
+	internalContext krt.RecomputeProtected[*atomic.Pointer[gatewaycommon.GatewayContext]]
 }
 
 func (i RouteContextInputs) WithCtx(krtctx krt.HandlerContext) RouteContext {
@@ -732,6 +744,8 @@ func buildMeshAndGatewayRoutes[T any](parentRefs []routeParentReference, convert
 type RouteResult[I controllers.Object, IStatus any] struct {
 	// VirtualServices are the primary output that configures the internal routing logic
 	VirtualServices krt.Collection[config.Config]
+	// BaseVirtualServices are the pre-merge VirtualServices, used for cross-route-type merging
+	BaseVirtualServices krt.Collection[RouteWithKey]
 	// RouteAttachments holds information about parent attachment to routes, used for computed the `attachedRoutes` count.
 	RouteAttachments krt.Collection[RouteAttachment]
 	// Status stores the status reports for the incoming object

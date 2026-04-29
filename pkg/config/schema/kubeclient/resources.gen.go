@@ -96,6 +96,8 @@ func GetWriteClient[T runtime.Object](c ClientGetter, namespace string) ktypes.W
 		return c.GatewayAPI().GatewayV1().Gateways(namespace).(ktypes.WriteAPI[T])
 	case *k8sioapicoordinationv1.Lease:
 		return c.Kube().CoordinationV1().Leases(namespace).(ktypes.WriteAPI[T])
+	case *sigsk8siogatewayapiapisv1.ListenerSet:
+		return c.GatewayAPI().GatewayV1().ListenerSets(namespace).(ktypes.WriteAPI[T])
 	case *k8sioapiadmissionregistrationv1.MutatingWebhookConfiguration:
 		return c.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().(ktypes.WriteAPI[T])
 	case *k8sioapicorev1.Namespace:
@@ -128,10 +130,12 @@ func GetWriteClient[T runtime.Object](c ClientGetter, namespace string) ktypes.W
 		return c.Kube().AppsV1().StatefulSets(namespace).(ktypes.WriteAPI[T])
 	case *sigsk8siogatewayapiapisv1alpha2.TCPRoute:
 		return c.GatewayAPI().GatewayV1alpha2().TCPRoutes(namespace).(ktypes.WriteAPI[T])
-	case *sigsk8siogatewayapiapisv1alpha2.TLSRoute:
-		return c.GatewayAPI().GatewayV1alpha2().TLSRoutes(namespace).(ktypes.WriteAPI[T])
+	case *sigsk8siogatewayapiapisv1.TLSRoute:
+		return c.GatewayAPI().GatewayV1().TLSRoutes(namespace).(ktypes.WriteAPI[T])
 	case *apiistioioapitelemetryv1.Telemetry:
 		return c.Istio().TelemetryV1().Telemetries(namespace).(ktypes.WriteAPI[T])
+	case *apiistioioapiextensionsv1alpha1.TrafficExtension:
+		return c.Istio().ExtensionsV1alpha1().TrafficExtensions(namespace).(ktypes.WriteAPI[T])
 	case *sigsk8siogatewayapiapisv1alpha2.UDPRoute:
 		return c.GatewayAPI().GatewayV1alpha2().UDPRoutes(namespace).(ktypes.WriteAPI[T])
 	case *k8sioapiadmissionregistrationv1.ValidatingWebhookConfiguration:
@@ -146,8 +150,6 @@ func GetWriteClient[T runtime.Object](c ClientGetter, namespace string) ktypes.W
 		return c.Istio().NetworkingV1().WorkloadGroups(namespace).(ktypes.WriteAPI[T])
 	case *sigsk8siogatewayapiapisxv1alpha1.XBackendTrafficPolicy:
 		return c.GatewayAPI().ExperimentalV1alpha1().XBackendTrafficPolicies(namespace).(ktypes.WriteAPI[T])
-	case *sigsk8siogatewayapiapisxv1alpha1.XListenerSet:
-		return c.GatewayAPI().ExperimentalV1alpha1().XListenerSets(namespace).(ktypes.WriteAPI[T])
 	default:
 		panic(fmt.Sprintf("Unknown type %T", ptr.Empty[T]()))
 	}
@@ -199,6 +201,8 @@ func GetClient[T, TL runtime.Object](c ClientGetter, namespace string) ktypes.Re
 		return c.GatewayAPI().GatewayV1().Gateways(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *k8sioapicoordinationv1.Lease:
 		return c.Kube().CoordinationV1().Leases(namespace).(ktypes.ReadWriteAPI[T, TL])
+	case *sigsk8siogatewayapiapisv1.ListenerSet:
+		return c.GatewayAPI().GatewayV1().ListenerSets(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *k8sioapiadmissionregistrationv1.MutatingWebhookConfiguration:
 		return c.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().(ktypes.ReadWriteAPI[T, TL])
 	case *k8sioapicorev1.Namespace:
@@ -231,10 +235,12 @@ func GetClient[T, TL runtime.Object](c ClientGetter, namespace string) ktypes.Re
 		return c.Kube().AppsV1().StatefulSets(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *sigsk8siogatewayapiapisv1alpha2.TCPRoute:
 		return c.GatewayAPI().GatewayV1alpha2().TCPRoutes(namespace).(ktypes.ReadWriteAPI[T, TL])
-	case *sigsk8siogatewayapiapisv1alpha2.TLSRoute:
-		return c.GatewayAPI().GatewayV1alpha2().TLSRoutes(namespace).(ktypes.ReadWriteAPI[T, TL])
+	case *sigsk8siogatewayapiapisv1.TLSRoute:
+		return c.GatewayAPI().GatewayV1().TLSRoutes(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *apiistioioapitelemetryv1.Telemetry:
 		return c.Istio().TelemetryV1().Telemetries(namespace).(ktypes.ReadWriteAPI[T, TL])
+	case *apiistioioapiextensionsv1alpha1.TrafficExtension:
+		return c.Istio().ExtensionsV1alpha1().TrafficExtensions(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *sigsk8siogatewayapiapisv1alpha2.UDPRoute:
 		return c.GatewayAPI().GatewayV1alpha2().UDPRoutes(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *k8sioapiadmissionregistrationv1.ValidatingWebhookConfiguration:
@@ -249,8 +255,6 @@ func GetClient[T, TL runtime.Object](c ClientGetter, namespace string) ktypes.Re
 		return c.Istio().NetworkingV1().WorkloadGroups(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *sigsk8siogatewayapiapisxv1alpha1.XBackendTrafficPolicy:
 		return c.GatewayAPI().ExperimentalV1alpha1().XBackendTrafficPolicies(namespace).(ktypes.ReadWriteAPI[T, TL])
-	case *sigsk8siogatewayapiapisxv1alpha1.XListenerSet:
-		return c.GatewayAPI().ExperimentalV1alpha1().XListenerSets(namespace).(ktypes.ReadWriteAPI[T, TL])
 	default:
 		panic(fmt.Sprintf("Unknown type %T", ptr.Empty[T]()))
 	}
@@ -302,6 +306,8 @@ func gvrToObject(g schema.GroupVersionResource) runtime.Object {
 		return &sigsk8siogatewayapiapisv1.Gateway{}
 	case gvr.Lease:
 		return &k8sioapicoordinationv1.Lease{}
+	case gvr.ListenerSet:
+		return &sigsk8siogatewayapiapisv1.ListenerSet{}
 	case gvr.MutatingWebhookConfiguration:
 		return &k8sioapiadmissionregistrationv1.MutatingWebhookConfiguration{}
 	case gvr.Namespace:
@@ -335,9 +341,11 @@ func gvrToObject(g schema.GroupVersionResource) runtime.Object {
 	case gvr.TCPRoute:
 		return &sigsk8siogatewayapiapisv1alpha2.TCPRoute{}
 	case gvr.TLSRoute:
-		return &sigsk8siogatewayapiapisv1alpha2.TLSRoute{}
+		return &sigsk8siogatewayapiapisv1.TLSRoute{}
 	case gvr.Telemetry:
 		return &apiistioioapitelemetryv1.Telemetry{}
+	case gvr.TrafficExtension:
+		return &apiistioioapiextensionsv1alpha1.TrafficExtension{}
 	case gvr.UDPRoute:
 		return &sigsk8siogatewayapiapisv1alpha2.UDPRoute{}
 	case gvr.ValidatingWebhookConfiguration:
@@ -352,8 +360,6 @@ func gvrToObject(g schema.GroupVersionResource) runtime.Object {
 		return &apiistioioapinetworkingv1.WorkloadGroup{}
 	case gvr.XBackendTrafficPolicy:
 		return &sigsk8siogatewayapiapisxv1alpha1.XBackendTrafficPolicy{}
-	case gvr.XListenerSet:
-		return &sigsk8siogatewayapiapisxv1alpha1.XListenerSet{}
 	default:
 		panic(fmt.Sprintf("Unknown type %v", g))
 	}
@@ -518,6 +524,13 @@ func getInformerFiltered(c ClientGetter, opts ktypes.InformerOptions, g schema.G
 		w = func(options metav1.ListOptions) (watch.Interface, error) {
 			return c.Kube().CoordinationV1().Leases(opts.Namespace).Watch(context.Background(), options)
 		}
+	case gvr.ListenerSet:
+		l = func(options metav1.ListOptions) (runtime.Object, error) {
+			return c.GatewayAPI().GatewayV1().ListenerSets(opts.Namespace).List(context.Background(), options)
+		}
+		w = func(options metav1.ListOptions) (watch.Interface, error) {
+			return c.GatewayAPI().GatewayV1().ListenerSets(opts.Namespace).Watch(context.Background(), options)
+		}
 	case gvr.MutatingWebhookConfiguration:
 		l = func(options metav1.ListOptions) (runtime.Object, error) {
 			return c.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.Background(), options)
@@ -632,10 +645,10 @@ func getInformerFiltered(c ClientGetter, opts ktypes.InformerOptions, g schema.G
 		}
 	case gvr.TLSRoute:
 		l = func(options metav1.ListOptions) (runtime.Object, error) {
-			return c.GatewayAPI().GatewayV1alpha2().TLSRoutes(opts.Namespace).List(context.Background(), options)
+			return c.GatewayAPI().GatewayV1().TLSRoutes(opts.Namespace).List(context.Background(), options)
 		}
 		w = func(options metav1.ListOptions) (watch.Interface, error) {
-			return c.GatewayAPI().GatewayV1alpha2().TLSRoutes(opts.Namespace).Watch(context.Background(), options)
+			return c.GatewayAPI().GatewayV1().TLSRoutes(opts.Namespace).Watch(context.Background(), options)
 		}
 	case gvr.Telemetry:
 		l = func(options metav1.ListOptions) (runtime.Object, error) {
@@ -643,6 +656,13 @@ func getInformerFiltered(c ClientGetter, opts ktypes.InformerOptions, g schema.G
 		}
 		w = func(options metav1.ListOptions) (watch.Interface, error) {
 			return c.Istio().TelemetryV1().Telemetries(opts.Namespace).Watch(context.Background(), options)
+		}
+	case gvr.TrafficExtension:
+		l = func(options metav1.ListOptions) (runtime.Object, error) {
+			return c.Istio().ExtensionsV1alpha1().TrafficExtensions(opts.Namespace).List(context.Background(), options)
+		}
+		w = func(options metav1.ListOptions) (watch.Interface, error) {
+			return c.Istio().ExtensionsV1alpha1().TrafficExtensions(opts.Namespace).Watch(context.Background(), options)
 		}
 	case gvr.UDPRoute:
 		l = func(options metav1.ListOptions) (runtime.Object, error) {
@@ -692,13 +712,6 @@ func getInformerFiltered(c ClientGetter, opts ktypes.InformerOptions, g schema.G
 		}
 		w = func(options metav1.ListOptions) (watch.Interface, error) {
 			return c.GatewayAPI().ExperimentalV1alpha1().XBackendTrafficPolicies(opts.Namespace).Watch(context.Background(), options)
-		}
-	case gvr.XListenerSet:
-		l = func(options metav1.ListOptions) (runtime.Object, error) {
-			return c.GatewayAPI().ExperimentalV1alpha1().XListenerSets(opts.Namespace).List(context.Background(), options)
-		}
-		w = func(options metav1.ListOptions) (watch.Interface, error) {
-			return c.GatewayAPI().ExperimentalV1alpha1().XListenerSets(opts.Namespace).Watch(context.Background(), options)
 		}
 	default:
 		panic(fmt.Sprintf("Unknown type %v", g))

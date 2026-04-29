@@ -59,3 +59,10 @@ func Confirm(msg string, writer io.Writer) bool {
 		}
 	}
 }
+
+func ValidatePort(port int) error {
+	if 1 <= port && port <= 65535 {
+		return nil
+	}
+	return fmt.Errorf("port number %d must be in the range 1..65535", port)
+}

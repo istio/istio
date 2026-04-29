@@ -86,6 +86,8 @@ type EndpointBuilder struct {
 	serviceInfo  *model.ServiceInfo
 
 	mtlsChecker *mtlsChecker
+
+	canonicalServiceForMeshExternal bool
 }
 
 func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.PushContext) EndpointBuilder {
@@ -128,6 +130,8 @@ func NewCDSEndpointBuilder(
 		push:       push,
 		proxy:      proxy,
 		dir:        dir,
+
+		canonicalServiceForMeshExternal: features.CanonicalServiceForMeshExternalServiceEntry,
 	}
 	b.populateSubsetInfo()
 	b.populateFailoverPriorityLabels()
@@ -165,7 +169,7 @@ func (b *EndpointBuilder) populateSubsetInfo() {
 		b.subsetName = strings.TrimPrefix(b.subsetName, "http/")
 		b.subsetName = strings.TrimPrefix(b.subsetName, "tcp/")
 	}
-	b.mtlsChecker = newMtlsChecker(b.push, b.port, b.destinationRule.GetRule(), b.subsetName)
+	b.mtlsChecker = newMtlsChecker(b.push, b.proxy.SidecarScope.AuthnPolicies, b.port, b.destinationRule.GetRule(), b.subsetName)
 	b.subsetLabels = getSubSetLabels(b.DestinationRule(), b.subsetName)
 }
 
@@ -252,8 +256,8 @@ func (b *EndpointBuilder) WriteHash(h hash.Hash) {
 		h.Write(Separator)
 	}
 
-	if b.push != nil && b.push.AuthnPolicies != nil {
-		h.WriteString(b.push.AuthnPolicies.GetVersion())
+	if b.push != nil && b.proxy.SidecarScope.AuthnPolicies != nil {
+		h.WriteString(b.proxy.SidecarScope.AuthnPolicies.GetVersion())
 	}
 	h.Write(Separator)
 
@@ -349,6 +353,14 @@ func (b *EndpointBuilder) FromServiceEndpoints() []*endpoint.LocalityLbEndpoints
 	return ExtractEnvoyEndpoints(b.generate(svcEps, false))
 }
 
+// IstioEndpoints returns IstioEndpoints from the PushContext's snapshotted ServiceIndex.
+func (b *EndpointBuilder) IstioEndpoints() []*model.IstioEndpoint {
+	if b == nil {
+		return nil
+	}
+	return b.push.ServiceEndpointsByPort(b.service, b.port, b.subsetLabels)
+}
+
 // BuildClusterLoadAssignment converts the shards for this EndpointBuilder's Service
 // into a ClusterLoadAssignment. Used for EDS.
 func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.EndpointIndex) *endpoint.ClusterLoadAssignment {
@@ -403,6 +415,9 @@ func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.Endpoi
 	// If locality aware routing is enabled, prioritize endpoints or set their lb weight.
 	// Failover should only be enabled when there is an outlier detection, otherwise Envoy
 	// will never detect the hosts are unhealthy and redirect traffic.
+	// Note: the default mesh config enables LocalityLbSetting (Enabled:true), so enabling
+	// outlier detection in a DestinationRule will automatically activate locality LB failover
+	// even when no explicit localityLbSetting is configured in the DR.
 	enableFailover, lb := getOutlierDetectionAndLoadBalancerSettings(b.DestinationRule(), b.port, b.subsetName)
 	lbSetting, forceFailover := loadbalancer.GetLocalityLbSetting(b.push.Mesh.GetLocalityLbSetting(), lb.GetLocalityLbSetting(), b.service)
 	enableFailover = enableFailover || forceFailover
@@ -669,7 +684,7 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 	// Istio endpoint level tls transport socket configuration depends on this logic
 	// Do not remove
 	var meta *model.EndpointMetadata
-	if features.CanonicalServiceForMeshExternalServiceEntry && b.service.MeshExternal {
+	if b.canonicalServiceForMeshExternal && b.service.MeshExternal {
 		svcLabels := b.service.Attributes.Labels
 		if _, ok := svcLabels[model.IstioCanonicalServiceLabelName]; ok {
 			meta = e.MetadataClone()
@@ -938,12 +953,7 @@ func (b *EndpointBuilder) snapshotEndpointsForPort(endpointIndex *model.Endpoint
 
 // Duplicated from networking/core/waypoint to avoid circular dependency
 func isEastWestGateway(node *model.Proxy) bool {
-	if node == nil || node.Type != model.Waypoint {
-		return false
-	}
-	controller, isManagedGateway := node.Labels[label.GatewayManaged.Name]
-
-	return isManagedGateway && controller == constants.ManagedGatewayEastWestControllerLabel
+	return node.IsAmbientEastWestGateway()
 }
 
 func isSidecarProxy(node *model.Proxy) bool {

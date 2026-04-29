@@ -121,6 +121,7 @@ func NewFakeControllerWithOptions(t test.Failer, opts FakeControllerOptions) (*F
 		StatusWritingEnabled:  activenotifier.New(false),
 		KrtDebugger:           new(krt.DebugHandler),
 	}
+
 	c := NewController(opts.Client, options)
 	meshServiceController.AddRegistry(c)
 

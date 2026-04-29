@@ -18,6 +18,7 @@ import (
 	"sync"
 
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -26,8 +27,11 @@ import (
 type ClusterStore struct {
 	sync.RWMutex
 	// keyed by secret key(ns/name)->clusterID
-	remoteClusters map[string]map[cluster.ID]*Cluster
-	clusters       sets.String
+	remoteClusters       map[string]map[cluster.ID]*Cluster
+	clusters             sets.String
+	clustersAwaitingSync sets.Set[cluster.ID]
+	casMu                sync.Mutex
+	*krt.RecomputeTrigger
 }
 
 // PendingClusterSwap manages the make-before-break swap of a cluster.
@@ -47,22 +51,32 @@ func (p *PendingClusterSwap) Complete() {
 	}
 }
 
-// newClustersStore initializes data struct to store clusters information
-func newClustersStore() *ClusterStore {
+// NewClustersStore initializes data struct to store clusters information
+func NewClustersStore() *ClusterStore {
 	return &ClusterStore{
-		remoteClusters: make(map[string]map[cluster.ID]*Cluster),
-		clusters:       sets.New[string](),
+		remoteClusters:       make(map[string]map[cluster.ID]*Cluster),
+		clusters:             sets.New[string](),
+		RecomputeTrigger:     krt.NewRecomputeTrigger(false),
+		clustersAwaitingSync: sets.New[cluster.ID](),
 	}
 }
 
 func (c *ClusterStore) Store(secretKey string, clusterID cluster.ID, value *Cluster) {
 	c.Lock()
 	defer c.Unlock()
+	c.casMu.Lock()
+	defer c.casMu.Unlock()
 	if _, ok := c.remoteClusters[secretKey]; !ok {
 		c.remoteClusters[secretKey] = make(map[cluster.ID]*Cluster)
 	}
 	c.remoteClusters[secretKey][clusterID] = value
-	c.clusters.Insert(string(clusterID))
+	exists := c.clusters.InsertContains(string(clusterID))
+	if exists && c.clustersAwaitingSync.Contains(clusterID) {
+		// If there was an old version of this cluster that existed and was waiting for sync,
+		// we can remove it from the awaiting set since we have a new version now.
+		c.clustersAwaitingSync.Delete(clusterID)
+	}
+	c.TriggerRecomputation()
 }
 
 // Swap stores a new cluster and returns a PendingClusterSwap that manages
@@ -71,12 +85,18 @@ func (c *ClusterStore) Store(secretKey string, clusterID cluster.ID, value *Clus
 func (c *ClusterStore) Swap(secretKey string, clusterID cluster.ID, value *Cluster) *PendingClusterSwap {
 	c.Lock()
 	defer c.Unlock()
+	c.casMu.Lock()
+	defer c.casMu.Unlock()
 	if _, ok := c.remoteClusters[secretKey]; !ok {
 		c.remoteClusters[secretKey] = make(map[cluster.ID]*Cluster)
 	}
 	prev := c.remoteClusters[secretKey][clusterID]
 	c.remoteClusters[secretKey][clusterID] = value
-	c.clusters.Insert(string(clusterID))
+	exists := c.clusters.InsertContains(string(clusterID))
+	if exists && c.clustersAwaitingSync.Contains(clusterID) {
+		c.clustersAwaitingSync.Delete(clusterID)
+	}
+	c.TriggerRecomputation()
 
 	return &PendingClusterSwap{
 		clusterID: clusterID,
@@ -87,11 +107,17 @@ func (c *ClusterStore) Swap(secretKey string, clusterID cluster.ID, value *Clust
 func (c *ClusterStore) Delete(secretKey string, clusterID cluster.ID) {
 	c.Lock()
 	defer c.Unlock()
+	c.casMu.Lock()
+	defer c.casMu.Unlock()
 	delete(c.remoteClusters[secretKey], clusterID)
 	c.clusters.Delete(string(clusterID))
+	if c.clustersAwaitingSync.Contains(clusterID) {
+		c.clustersAwaitingSync.Delete(clusterID)
+	}
 	if len(c.remoteClusters[secretKey]) == 0 {
 		delete(c.remoteClusters, secretKey)
 	}
+	c.TriggerRecomputation()
 }
 
 func (c *ClusterStore) Get(secretKey string, clusterID cluster.ID) *Cluster {
@@ -121,7 +147,37 @@ func (c *ClusterStore) GetByID(clusterID cluster.ID) *Cluster {
 	return nil
 }
 
-// All returns a snapshot of the current remote clusters.
+// AllReady returns a copy of the current remote clusters that are ready (synced and not closed/timed out).
+func (c *ClusterStore) AllReady() map[string]map[cluster.ID]*Cluster {
+	if c == nil {
+		return nil
+	}
+	c.RLock()
+	defer c.RUnlock()
+	out := make(map[string]map[cluster.ID]*Cluster)
+	for secret, clusters := range c.remoteClusters {
+		for cid, cl := range clusters {
+			if cl.Closed() || cl.SyncDidTimeout() {
+				log.Warnf("remote cluster %s is closed or timed out, omitting it from the clusters collection", cl.ID)
+				continue
+			}
+			if !cl.HasSynced() {
+				log.Debugf("remote cluster %s registered informers have not been synced up yet. Skipping and will recompute on sync", cl.ID)
+				c.triggerRecomputeOnSync(cl.ID)
+				continue
+			}
+			outCluster := *cl
+			if _, ok := out[secret]; !ok {
+				out[secret] = make(map[cluster.ID]*Cluster)
+			}
+			out[secret][cid] = &outCluster
+		}
+	}
+	return out
+}
+
+// All returns a snapshot of the current remote clusters, including those that may not
+// be ready for use. In most cases outside of this package, you should use AllReady().
 func (c *ClusterStore) All() map[string]map[cluster.ID]*Cluster {
 	if c == nil {
 		return nil
@@ -151,8 +207,8 @@ func (c *ClusterStore) GetExistingClustersFor(secretKey string) []*Cluster {
 }
 
 func (c *ClusterStore) Len() int {
-	c.Lock()
-	defer c.Unlock()
+	c.RLock()
+	defer c.RUnlock()
 	out := 0
 	for _, clusterMap := range c.remoteClusters {
 		out += len(clusterMap)
@@ -173,4 +229,38 @@ func (c *ClusterStore) HasSynced() bool {
 	}
 
 	return true
+}
+
+// triggerRecomputeOnSync sets up a goroutine to wait for the cluster to be synced,
+// and then triggers a recompute when it is.
+func (c *ClusterStore) triggerRecomputeOnSync(id cluster.ID) {
+	c.casMu.Lock()
+	defer c.casMu.Unlock()
+	cluster := c.GetByID(id)
+	if cluster == nil {
+		log.Debugf("cluster %s not found in store to trigger recompute", id)
+		return
+	}
+	exists := c.clustersAwaitingSync.InsertContains(id)
+	if exists {
+		// Already waiting for sync
+		log.Debugf("cluster %s is already awaiting sync, not setting up another recompute trigger", id)
+		return
+	}
+
+	go func() {
+		// Wait until the cluster is synced. If it's deleted from the store before
+		// it's fully synced, this will return because of the stop.
+		// Double check to make sure this cluster is still in the store
+		// and that it wasn't closed/timed out (we don't want to send an event for bad clusters)
+		if cluster.WaitUntilSynced(cluster.stop) && !cluster.Closed() && !cluster.SyncDidTimeout() && c.GetByID(id) != nil {
+			// Let dependent krt collections know that this cluster is ready to use
+			c.TriggerRecomputation()
+			// And clean up our tracking set
+			c.casMu.Lock()
+			c.clustersAwaitingSync.Delete(id)
+			c.casMu.Unlock()
+			log.Debugf("remote cluster %s informers synced, triggering recompute", id)
+		}
+	}()
 }

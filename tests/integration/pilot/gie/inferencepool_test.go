@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
+	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -47,6 +48,7 @@ func TestInferencePoolMultipleTargetPorts(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
+			cfg := istio.DefaultConfigOrFail(t, ctx)
 			crd.DeployGatewayAPIOrSkip(ctx)
 			crd.DeployGatewayAPIInferenceExtensionOrSkip(ctx)
 
@@ -92,6 +94,11 @@ func TestInferencePoolMultipleTargetPorts(t *testing.T) {
 			// Deploy the endpoint picker (EPP) service as an echo instance
 			// This is an external processor that selects endpoints based on request headers
 			var epp echo.Instance
+			// Only add sidecar annotation when running with mesh (it has no effect in meshless mode)
+			eppAnnotations := map[string]string{}
+			if !ctx.Settings().Meshless {
+				eppAnnotations["traffic.sidecar.istio.io/excludeInboundPorts"] = "9002"
+			}
 			eppConfig := echo.Config{
 				Service:   "mock-epp",
 				Namespace: ns,
@@ -106,12 +113,8 @@ func TestInferencePoolMultipleTargetPorts(t *testing.T) {
 				},
 				Subsets: []echo.SubsetConfig{
 					{
-						Version: "v1",
-						Annotations: map[string]string{
-							// Exclude the endpoint picker port from Istio's traffic interception
-							// to allow direct ext_proc gRPC connections from the gateway
-							"traffic.sidecar.istio.io/excludeInboundPorts": "9002",
-						},
+						Version:     "v1",
+						Annotations: eppAnnotations,
 					},
 				},
 			}
@@ -145,8 +148,9 @@ spec:
 			ctx.ConfigIstio().YAML(ns.Name(), inferencePoolManifest).ApplyOrFail(ctx)
 
 			// Enable access logging for all proxies in the namespace BEFORE creating gateway
-			// This ensures the gateway pods start with logging enabled
-			telemetryManifest := `
+			// This ensures the gateway pods start with logging enabled (only needed with mesh)
+			if !ctx.Settings().Meshless {
+				telemetryManifest := `
 apiVersion: telemetry.istio.io/v1
 kind: Telemetry
 metadata:
@@ -156,7 +160,8 @@ spec:
   - providers:
     - name: envoy
 `
-			ctx.ConfigIstio().YAML(ns.Name(), telemetryManifest).ApplyOrFail(ctx)
+				ctx.ConfigIstio().YAML(ns.Name(), telemetryManifest).ApplyOrFail(ctx)
+			}
 
 			// Deploy Gateway and HTTPRoute
 			gatewayManifest := fmt.Sprintf(`
@@ -168,7 +173,7 @@ metadata:
   annotations:
     sidecar.istio.io/componentLogLevel: "ext_proc:debug,connection:debug,filter:debug,router:debug"
 spec:
-  gatewayClassName: istio
+  gatewayClassName: %s
   listeners:
   - name: http
     port: 80
@@ -193,7 +198,7 @@ spec:
       kind: InferencePool
       name: test-pool
       port: 80
-`, ns.Name(), ns.Name())
+`, ns.Name(), cfg.GatewayClassName, ns.Name())
 			ctx.ConfigIstio().YAML(ns.Name(), gatewayManifest).ApplyOrFail(ctx)
 
 			// Verify shadow service was created with correct properties
@@ -305,7 +310,7 @@ spec:
 
 			// Send request through the gateway with x-endpoint header
 			// This tests the EPP protocol end-to-end
-			gatewayAddr := fmt.Sprintf("inference-gateway-istio.%s.svc.cluster.local", ns.Name())
+			gatewayAddr := fmt.Sprintf("inference-gateway-%s.%s.svc.cluster.local", cfg.GatewayClassName, ns.Name())
 			ctx.Logf("Sending request to gateway: %s", gatewayAddr)
 
 			// Test routing to each of the three ports to verify EPP can select different endpoints

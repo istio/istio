@@ -40,31 +40,32 @@ var InjectionFuncmap = createInjectionFuncmap()
 
 func createInjectionFuncmap() template.FuncMap {
 	return template.FuncMap{
-		"formatDuration":      formatDuration,
-		"isset":               isset,
-		"excludeInboundPort":  excludeInboundPort,
-		"includeInboundPorts": includeInboundPorts,
-		"kubevirtInterfaces":  kubevirtInterfaces,
-		"excludeInterfaces":   excludeInterfaces,
-		"applicationPorts":    applicationPorts,
-		"annotation":          getAnnotation,
-		"valueOrDefault":      valueOrDefault,
-		"toJSON":              toJSON,
-		"fromJSON":            fromJSON,
-		"structToJSON":        structToJSON,
-		"protoToJSON":         protoToJSON,
-		"toYaml":              toYaml,
-		"indent":              indent,
-		"directory":           directory,
-		"contains":            flippedContains,
-		"toLower":             strings.ToLower,
-		"appendMultusNetwork": appendMultusNetwork,
-		"env":                 env,
-		"omit":                omit,
-		"strdict":             strdict,
-		"toJsonMap":           toJSONMap,
-		"mergeMaps":           mergeMaps,
-		"omitNil":             omitNil,
+		"formatDuration":         formatDuration,
+		"isset":                  isset,
+		"excludeInboundPort":     excludeInboundPort,
+		"includeInboundPorts":    includeInboundPorts,
+		"kubevirtInterfaces":     kubevirtInterfaces,
+		"excludeInterfaces":      excludeInterfaces,
+		"applicationPorts":       applicationPorts,
+		"annotation":             getAnnotation,
+		"valueOrDefault":         valueOrDefault,
+		"toJSON":                 toJSON,
+		"fromJSON":               fromJSON,
+		"structToJSON":           structToJSON,
+		"protoToJSON":            protoToJSON,
+		"toYaml":                 toYaml,
+		"indent":                 indent,
+		"directory":              directory,
+		"contains":               flippedContains,
+		"toLower":                strings.ToLower,
+		"appendMultusNetwork":    appendMultusNetwork,
+		"env":                    env,
+		"omit":                   omit,
+		"strdict":                strdict,
+		"toJsonMap":              toJSONMap,
+		"mergeMaps":              mergeMaps,
+		"omitNil":                omitNil,
+		"otelResourceAttributes": otelResourceAttributes,
 	}
 }
 
@@ -410,6 +411,100 @@ func mergeMaps(maps ...map[string]string) map[string]string {
 		}
 	}
 	return res
+}
+
+// otelResourceAttributes computes the OTEL_RESOURCE_ATTRIBUTES env var value
+// when any OpenTelemetry tracing provider has ServiceAttributeEnrichment set to
+// OTEL_SEMANTIC_CONVENTIONS. It follows the OTel K8s service attributes spec:
+// https://opentelemetry.io/docs/specs/semconv/non-normative/k8s-attributes/#service-attributes
+//
+// Returns an empty string if no provider has OTEL_SEMANTIC_CONVENTIONS enabled.
+// For service.instance.id, uses $(POD_NAME) placeholder for Kubernetes env var
+// substitution since the pod name is not known at injection time.
+func otelResourceAttributes(mc *meshconfig.MeshConfig, annotations map[string]string,
+	labels map[string]string, namespace string, containers []corev1.Container,
+) string {
+	hasOtelSemConv := false
+	for _, ep := range mc.GetExtensionProviders() {
+		if otel := ep.GetOpentelemetry(); otel != nil {
+			if otel.GetServiceAttributeEnrichment() == meshconfig.MeshConfig_ExtensionProvider_OTEL_SEMANTIC_CONVENTIONS {
+				hasOtelSemConv = true
+				break
+			}
+		}
+	}
+	if !hasOtelSemConv {
+		return ""
+	}
+
+	var attrs []string
+
+	// service.namespace:
+	//   1. resource.opentelemetry.io/service.namespace annotation
+	//   2. Kubernetes namespace
+	if v, ok := annotations["resource.opentelemetry.io/service.namespace"]; ok && v != "" {
+		attrs = append(attrs, "service.namespace="+v)
+	} else if namespace != "" {
+		attrs = append(attrs, "service.namespace="+namespace)
+	}
+
+	// service.version:
+	//   1. resource.opentelemetry.io/service.version annotation
+	//   2. app.kubernetes.io/version label
+	//   3. Container image tag/digest (if single container)
+	if v, ok := annotations["resource.opentelemetry.io/service.version"]; ok && v != "" {
+		attrs = append(attrs, "service.version="+v)
+	} else if v, ok := labels["app.kubernetes.io/version"]; ok && v != "" {
+		attrs = append(attrs, "service.version="+v)
+	} else if len(containers) == 1 {
+		tag, digest := parseImageTagDigest(containers[0].Image)
+		if tag != "" && digest != "" {
+			attrs = append(attrs, "service.version="+tag+"@"+digest)
+		} else if digest != "" {
+			attrs = append(attrs, "service.version="+digest)
+		} else if tag != "" {
+			attrs = append(attrs, "service.version="+tag)
+		}
+	}
+
+	// service.instance.id:
+	//   1. resource.opentelemetry.io/service.instance.id annotation
+	//   2. concat(k8s.namespace.name, k8s.pod.name, k8s.container.name, '.')
+	//      Pod name uses $(POD_NAME) for Kubernetes env var substitution since the
+	//      pod name is not known at injection time for controller-created pods.
+	if v, ok := annotations["resource.opentelemetry.io/service.instance.id"]; ok && v != "" {
+		attrs = append(attrs, "service.instance.id="+v)
+	} else if len(containers) > 0 {
+		attrs = append(attrs, "service.instance.id="+namespace+".$(POD_NAME)."+containers[0].Name)
+	}
+
+	return strings.Join(attrs, ",")
+}
+
+// parseImageTagDigest extracts the tag and digest from a container image reference.
+// Image format: [registry[:port]/]name[:tag][@digest]
+// Examples:
+//
+//	"nginx:1.21"                        → tag="1.21", digest=""
+//	"nginx@sha256:abc123"               → tag="",     digest="sha256:abc123"
+//	"nginx:1.21@sha256:abc123"          → tag="1.21", digest="sha256:abc123"
+//	"registry:5000/nginx:1.21"          → tag="1.21", digest=""
+//	"nginx"                             → tag="",     digest=""
+func parseImageTagDigest(image string) (tag, digest string) {
+	// Split off digest
+	if i := strings.Index(image, "@"); i >= 0 {
+		digest = image[i+1:]
+		image = image[:i]
+	}
+
+	// Find tag: it's the part after the last ":" that comes after the last "/"
+	lastSlash := strings.LastIndex(image, "/")
+	lastColon := strings.LastIndex(image, ":")
+	if lastColon > lastSlash {
+		tag = image[lastColon+1:]
+	}
+
+	return tag, digest
 }
 
 // omitNil recursively removes nil values from maps and slices.

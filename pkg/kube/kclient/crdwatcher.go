@@ -76,6 +76,7 @@ func newCrdWatcher(client kube.Client) kubetypes.CrdWatcher {
 var minimumCRDVersions = map[string]*semver.Version{
 	"grpcroutes.gateway.networking.k8s.io":         semver.New(1, 1, 0, "", ""),
 	"backendtlspolicies.gateway.networking.k8s.io": semver.New(1, 4, 0, "", ""),
+	"tlsroutes.gateway.networking.k8s.io":          semver.New(1, 5, 0, "", ""),
 }
 
 // resourceFilterConfig contains a filter definition parsed from the flags. In case

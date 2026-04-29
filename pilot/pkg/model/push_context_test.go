@@ -49,6 +49,8 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
+	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/slices"
@@ -1034,9 +1036,12 @@ func TestEnvoyFilterUpdate(t *testing.T) {
 			createSet := sets.New(maps.Keys(creates)...)
 			updateSet := sets.New(maps.Keys(updates)...)
 			changes := deletes.Union(createSet).Union(updateSet)
+			changedKeys := sets.New(slices.Map(changes.UnsortedList(), func(key ConfigKey) types.NamespacedName {
+				return types.NamespacedName{Namespace: key.Namespace, Name: key.Name}
+			})...)
 
 			pc2 := NewPushContext()
-			pc2.initEnvoyFilters(env, changes, pc1.envoyFiltersByNamespace)
+			pc2.initEnvoyFilters(env, changedKeys, pc1.envoyFiltersByNamespace)
 
 			total2 := 0
 			for ns, envoyFilters := range pc2.envoyFiltersByNamespace {
@@ -1118,116 +1123,141 @@ func TestEnvoyFilterUpdate(t *testing.T) {
 	}
 }
 
-func TestWasmPlugins(t *testing.T) {
+func TestTrafficExtensions(t *testing.T) {
 	env := &Environment{}
 	store := NewFakeStore()
 
-	wasmPlugins := map[string]config.Config{
+	trafficExtensions := map[string]config.Config{
 		"invalid-type": {
-			Meta: config.Meta{Name: "invalid-type", Namespace: constants.IstioSystemNamespace, GroupVersionKind: gvk.WasmPlugin},
+			Meta: config.Meta{Name: "invalid-type", Namespace: constants.IstioSystemNamespace, GroupVersionKind: gvk.TrafficExtension},
 			Spec: &networking.DestinationRule{},
 		},
-		"invalid-url": {
-			Meta: config.Meta{Name: "invalid-url", Namespace: constants.IstioSystemNamespace, GroupVersionKind: gvk.WasmPlugin},
-			Spec: &extensions.WasmPlugin{
-				Phase:    extensions.PluginPhase_AUTHN,
+		"both-wasm-and-lua": {
+			Meta: config.Meta{Name: "both-wasm-and-lua", Namespace: constants.IstioSystemNamespace, GroupVersionKind: gvk.TrafficExtension},
+			Spec: &extensions.TrafficExtension{
+				Phase:    extensions.TrafficExtension_AUTHN,
 				Priority: &wrapperspb.Int32Value{Value: 5},
-				Url:      "notavalid%%Url;",
+				// Note: oneof FilterConfig cannot hold both Wasm and Lua; use empty URL to test invalid config rejection
+				FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
+					Url: "", // Empty URL makes this invalid and should be rejected
+				}},
 			},
 		},
-		"authn-low-prio-all": {
-			Meta: config.Meta{Name: "authn-low-prio-all", Namespace: "testns-1", GroupVersionKind: gvk.WasmPlugin},
-			Spec: &extensions.WasmPlugin{
-				Phase:    extensions.PluginPhase_AUTHN,
+		"authn-lua-low-prio-all": {
+			Meta: config.Meta{Name: "authn-lua-low-prio-all", Namespace: "testns-1", GroupVersionKind: gvk.TrafficExtension},
+			Spec: &extensions.TrafficExtension{
+				Phase:    extensions.TrafficExtension_AUTHN,
 				Priority: &wrapperspb.Int32Value{Value: 10},
-				Url:      "file:///etc/istio/filters/authn.wasm",
-				PluginConfig: &structpb.Struct{
-					Fields: map[string]*structpb.Value{
-						"test": {
-							Kind: &structpb.Value_StringValue{StringValue: "test"},
+				FilterConfig: &extensions.TrafficExtension_Lua{Lua: &extensions.LuaConfig{
+					InlineCode: "function envoy_on_request(request_handle) end",
+				}},
+			},
+		},
+		"authn-wasm-low-prio-all": {
+			Meta: config.Meta{Name: "authn-wasm-low-prio-all", Namespace: "testns-1", GroupVersionKind: gvk.TrafficExtension},
+			Spec: &extensions.TrafficExtension{
+				Phase:    extensions.TrafficExtension_AUTHN,
+				Priority: &wrapperspb.Int32Value{Value: 10},
+				FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
+					Url: "file:///etc/istio/filters/authn.wasm",
+					PluginConfig: &structpb.Struct{
+						Fields: map[string]*structpb.Value{
+							"test": {
+								Kind: &structpb.Value_StringValue{StringValue: "test"},
+							},
 						},
 					},
-				},
-				Sha256: "f2ca1bb6c7e907d06dafe4687e579fce76b37e4e93b7605022da52e6ccc26fd2",
+					Sha256: "f2ca1bb6c7e907d06dafe4687e579fce76b37e4e93b7605022da52e6ccc26fd2",
+				}},
 			},
 		},
-		"authn-low-prio-all-network": {
-			Meta: config.Meta{Name: "authn-low-prio-all-network", Namespace: "testns-1", GroupVersionKind: gvk.WasmPlugin},
-			Spec: &extensions.WasmPlugin{
-				Type:     extensions.PluginType_NETWORK,
-				Phase:    extensions.PluginPhase_AUTHN,
+		"authn-wasm-low-prio-all-network": {
+			Meta: config.Meta{Name: "authn-wasm-low-prio-all-network", Namespace: "testns-1", GroupVersionKind: gvk.TrafficExtension},
+			Spec: &extensions.TrafficExtension{
+				Phase:    extensions.TrafficExtension_AUTHN,
 				Priority: &wrapperspb.Int32Value{Value: 10},
-				Url:      "file:///etc/istio/filters/authn.wasm",
-				PluginConfig: &structpb.Struct{
-					Fields: map[string]*structpb.Value{
-						"test": {
-							Kind: &structpb.Value_StringValue{StringValue: "test"},
-						},
-					},
-				},
-				Sha256: "f2ca1bb6c7e907d06dafe4687e579fce76b37e4e93b7605022da52e6ccc26fd2",
+				FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
+					Type:   extensions.PluginType_NETWORK,
+					Url:    "file:///etc/istio/filters/authn.wasm",
+					Sha256: "f2ca1bb6c7e907d06dafe4687e579fce76b37e4e93b7605022da52e6ccc26fd2",
+				}},
 			},
 		},
-		"global-authn-low-prio-ingress": {
-			Meta: config.Meta{Name: "global-authn-low-prio-ingress", Namespace: constants.IstioSystemNamespace, GroupVersionKind: gvk.WasmPlugin},
-			Spec: &extensions.WasmPlugin{
-				Phase:    extensions.PluginPhase_AUTHN,
+		"global-authn-lua-low-prio-ingress": {
+			Meta: config.Meta{Name: "global-authn-lua-low-prio-ingress", Namespace: constants.IstioSystemNamespace, GroupVersionKind: gvk.TrafficExtension},
+			Spec: &extensions.TrafficExtension{
+				Phase:    extensions.TrafficExtension_AUTHN,
 				Priority: &wrapperspb.Int32Value{Value: 5},
 				Selector: &selectorpb.WorkloadSelector{
 					MatchLabels: map[string]string{
 						"istio": "ingressgateway",
 					},
 				},
+				FilterConfig: &extensions.TrafficExtension_Lua{Lua: &extensions.LuaConfig{
+					InlineCode: "function envoy_on_request(request_handle) end",
+				}},
 			},
 		},
-		"authn-med-prio-all": {
-			Meta: config.Meta{Name: "authn-med-prio-all", Namespace: "testns-1", GroupVersionKind: gvk.WasmPlugin},
-			Spec: &extensions.WasmPlugin{
-				Phase:    extensions.PluginPhase_AUTHN,
+		"authn-lua-med-prio-all": {
+			Meta: config.Meta{Name: "authn-lua-med-prio-all", Namespace: "testns-1", GroupVersionKind: gvk.TrafficExtension},
+			Spec: &extensions.TrafficExtension{
+				Phase:    extensions.TrafficExtension_AUTHN,
 				Priority: &wrapperspb.Int32Value{Value: 50},
+				FilterConfig: &extensions.TrafficExtension_Lua{Lua: &extensions.LuaConfig{
+					InlineCode: "function envoy_on_request(request_handle) end",
+				}},
 			},
 		},
-		"global-authn-high-prio-app": {
-			Meta: config.Meta{Name: "global-authn-high-prio-app", Namespace: constants.IstioSystemNamespace, GroupVersionKind: gvk.WasmPlugin},
-			Spec: &extensions.WasmPlugin{
-				Phase:    extensions.PluginPhase_AUTHN,
+		"global-authn-wasm-high-prio-app": {
+			Meta: config.Meta{Name: "global-authn-wasm-high-prio-app", Namespace: constants.IstioSystemNamespace, GroupVersionKind: gvk.TrafficExtension},
+			Spec: &extensions.TrafficExtension{
+				Phase:    extensions.TrafficExtension_AUTHN,
 				Priority: &wrapperspb.Int32Value{Value: 1000},
 				Selector: &selectorpb.WorkloadSelector{
 					MatchLabels: map[string]string{
 						"app": "productpage",
 					},
 				},
-				Match: []*extensions.WasmPlugin_TrafficSelector{
+				Match: []*extensions.TrafficSelector{
 					{
 						Mode:  selectorpb.WorkloadMode_SERVER,
 						Ports: []*selectorpb.PortSelector{{Number: 1234}},
 					},
 				},
+				FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
+					Url: "oci://example.com/filter:v1",
+				}},
 			},
 		},
-		"global-authz-med-prio-app": {
-			Meta: config.Meta{Name: "global-authz-med-prio-app", Namespace: constants.IstioSystemNamespace, GroupVersionKind: gvk.WasmPlugin},
-			Spec: &extensions.WasmPlugin{
-				Phase:    extensions.PluginPhase_AUTHZ,
+		"global-authz-lua-med-prio-app": {
+			Meta: config.Meta{Name: "global-authz-lua-med-prio-app", Namespace: constants.IstioSystemNamespace, GroupVersionKind: gvk.TrafficExtension},
+			Spec: &extensions.TrafficExtension{
+				Phase:    extensions.TrafficExtension_AUTHZ,
 				Priority: &wrapperspb.Int32Value{Value: 50},
 				Selector: &selectorpb.WorkloadSelector{
 					MatchLabels: map[string]string{
 						"app": "productpage",
 					},
 				},
-				Match: []*extensions.WasmPlugin_TrafficSelector{
+				Match: []*extensions.TrafficSelector{
 					{
 						Mode:  selectorpb.WorkloadMode_SERVER,
 						Ports: []*selectorpb.PortSelector{{Number: 1235}},
 					},
 				},
+				FilterConfig: &extensions.TrafficExtension_Lua{Lua: &extensions.LuaConfig{
+					InlineCode: "function envoy_on_request(request_handle) end",
+				}},
 			},
 		},
-		"authz-high-prio-ingress": {
-			Meta: config.Meta{Name: "authz-high-prio-ingress", Namespace: "testns-2", GroupVersionKind: gvk.WasmPlugin},
-			Spec: &extensions.WasmPlugin{
-				Phase:    extensions.PluginPhase_AUTHZ,
+		"authz-wasm-high-prio-ingress": {
+			Meta: config.Meta{Name: "authz-wasm-high-prio-ingress", Namespace: "testns-2", GroupVersionKind: gvk.TrafficExtension},
+			Spec: &extensions.TrafficExtension{
+				Phase:    extensions.TrafficExtension_AUTHZ,
 				Priority: &wrapperspb.Int32Value{Value: 1000},
+				FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
+					Url: "oci://example.com/authz:v1",
+				}},
 			},
 		},
 	}
@@ -1235,15 +1265,15 @@ func TestWasmPlugins(t *testing.T) {
 	testCases := []struct {
 		name               string
 		node               *Proxy
-		listenerInfo       WasmPluginListenerInfo
-		pluginType         WasmPluginType
-		expectedExtensions map[extensions.PluginPhase][]*WasmPluginWrapper
+		listenerInfo       ListenerInfo
+		chainType          FilterChainType
+		expectedExtensions map[extensions.TrafficExtension_ExecutionPhase][]*TrafficExtensionWrapper
 	}{
 		{
 			name:               "nil proxy",
 			node:               nil,
-			listenerInfo:       anyListener,
-			pluginType:         WasmPluginTypeHTTP,
+			listenerInfo:       ListenerInfo{},
+			chainType:          FilterChainTypeHTTP,
 			expectedExtensions: nil,
 		},
 		{
@@ -1252,9 +1282,9 @@ func TestWasmPlugins(t *testing.T) {
 				ConfigNamespace: "other",
 				Metadata:        &NodeMetadata{},
 			},
-			listenerInfo:       anyListener,
-			pluginType:         WasmPluginTypeHTTP,
-			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{},
+			listenerInfo:       ListenerInfo{},
+			chainType:          FilterChainTypeHTTP,
+			expectedExtensions: map[extensions.TrafficExtension_ExecutionPhase][]*TrafficExtensionWrapper{},
 		},
 		{
 			name: "ingress",
@@ -1269,11 +1299,11 @@ func TestWasmPlugins(t *testing.T) {
 					},
 				},
 			},
-			listenerInfo: anyListener,
-			pluginType:   WasmPluginTypeHTTP,
-			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{
-				extensions.PluginPhase_AUTHN: {
-					convertToWasmPluginWrapper(wasmPlugins["global-authn-low-prio-ingress"]),
+			listenerInfo: ListenerInfo{},
+			chainType:    FilterChainTypeHTTP,
+			expectedExtensions: map[extensions.TrafficExtension_ExecutionPhase][]*TrafficExtensionWrapper{
+				extensions.TrafficExtension_AUTHN: {
+					convertToTrafficExtensionWrapper(trafficExtensions["global-authn-lua-low-prio-ingress"]),
 				},
 			},
 		},
@@ -1290,13 +1320,14 @@ func TestWasmPlugins(t *testing.T) {
 					},
 				},
 			},
-			listenerInfo: anyListener,
-			pluginType:   WasmPluginTypeHTTP,
-			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{
-				extensions.PluginPhase_AUTHN: {
-					convertToWasmPluginWrapper(wasmPlugins["authn-med-prio-all"]),
-					convertToWasmPluginWrapper(wasmPlugins["authn-low-prio-all"]),
-					convertToWasmPluginWrapper(wasmPlugins["global-authn-low-prio-ingress"]),
+			listenerInfo: ListenerInfo{},
+			chainType:    FilterChainTypeHTTP,
+			expectedExtensions: map[extensions.TrafficExtension_ExecutionPhase][]*TrafficExtensionWrapper{
+				extensions.TrafficExtension_AUTHN: {
+					convertToTrafficExtensionWrapper(trafficExtensions["authn-lua-med-prio-all"]),
+					convertToTrafficExtensionWrapper(trafficExtensions["authn-lua-low-prio-all"]),
+					convertToTrafficExtensionWrapper(trafficExtensions["authn-wasm-low-prio-all"]),
+					convertToTrafficExtensionWrapper(trafficExtensions["global-authn-lua-low-prio-ingress"]),
 				},
 			},
 		},
@@ -1313,11 +1344,11 @@ func TestWasmPlugins(t *testing.T) {
 					},
 				},
 			},
-			listenerInfo: anyListener,
-			pluginType:   WasmPluginTypeNetwork,
-			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{
-				extensions.PluginPhase_AUTHN: {
-					convertToWasmPluginWrapper(wasmPlugins["authn-low-prio-all-network"]),
+			listenerInfo: ListenerInfo{},
+			chainType:    FilterChainTypeNetwork,
+			expectedExtensions: map[extensions.TrafficExtension_ExecutionPhase][]*TrafficExtensionWrapper{
+				extensions.TrafficExtension_AUTHN: {
+					convertToTrafficExtensionWrapper(trafficExtensions["authn-wasm-low-prio-all-network"]),
 				},
 			},
 		},
@@ -1334,14 +1365,15 @@ func TestWasmPlugins(t *testing.T) {
 					},
 				},
 			},
-			listenerInfo: anyListener,
-			pluginType:   WasmPluginTypeAny,
-			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{
-				extensions.PluginPhase_AUTHN: {
-					convertToWasmPluginWrapper(wasmPlugins["authn-med-prio-all"]),
-					convertToWasmPluginWrapper(wasmPlugins["authn-low-prio-all"]),
-					convertToWasmPluginWrapper(wasmPlugins["authn-low-prio-all-network"]),
-					convertToWasmPluginWrapper(wasmPlugins["global-authn-low-prio-ingress"]),
+			listenerInfo: ListenerInfo{},
+			chainType:    FilterChainTypeAny,
+			expectedExtensions: map[extensions.TrafficExtension_ExecutionPhase][]*TrafficExtensionWrapper{
+				extensions.TrafficExtension_AUTHN: {
+					convertToTrafficExtensionWrapper(trafficExtensions["authn-lua-med-prio-all"]),
+					convertToTrafficExtensionWrapper(trafficExtensions["authn-lua-low-prio-all"]),
+					convertToTrafficExtensionWrapper(trafficExtensions["authn-wasm-low-prio-all"]),
+					convertToTrafficExtensionWrapper(trafficExtensions["authn-wasm-low-prio-all-network"]),
+					convertToTrafficExtensionWrapper(trafficExtensions["global-authn-lua-low-prio-ingress"]),
 				},
 			},
 		},
@@ -1358,25 +1390,25 @@ func TestWasmPlugins(t *testing.T) {
 					},
 				},
 			},
-			listenerInfo: anyListener,
-			pluginType:   WasmPluginTypeHTTP,
-			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{
-				extensions.PluginPhase_AUTHN: {
-					convertToWasmPluginWrapper(wasmPlugins["global-authn-high-prio-app"]),
+			listenerInfo: ListenerInfo{},
+			chainType:    FilterChainTypeHTTP,
+			expectedExtensions: map[extensions.TrafficExtension_ExecutionPhase][]*TrafficExtensionWrapper{
+				extensions.TrafficExtension_AUTHN: {
+					convertToTrafficExtensionWrapper(trafficExtensions["global-authn-wasm-high-prio-app"]),
 				},
-				extensions.PluginPhase_AUTHZ: {
-					convertToWasmPluginWrapper(wasmPlugins["authz-high-prio-ingress"]),
-					convertToWasmPluginWrapper(wasmPlugins["global-authz-med-prio-app"]),
+				extensions.TrafficExtension_AUTHZ: {
+					convertToTrafficExtensionWrapper(trafficExtensions["authz-wasm-high-prio-ingress"]),
+					convertToTrafficExtensionWrapper(trafficExtensions["global-authz-lua-med-prio-app"]),
 				},
 			},
 		},
 		{
 			// Detailed tests regarding TrafficSelector are in extension_test.go
 			// Just test the integrity here.
-			// This testcase is identical with "testns-2", but `listenerInfo`` is specified.
-			// 1. `global-authn-high-prio-app` matched, because it has a port matching clause with "1234"
-			// 2. `authz-high-prio-ingress` matched, because it does not have any `match` clause
-			// 3. `global-authz-med-prio-app` not matched, because it has a port matching clause with "1235"
+			// This testcase is identical with "testns-2", but `listenerInfo` is specified.
+			// 1. `global-authn-wasm-high-prio-app` matched, because it has a port matching clause with "1234"
+			// 2. `authz-wasm-high-prio-ingress` matched, because it does not have any `match` clause
+			// 3. `global-authz-lua-med-prio-app` not matched, because it has a port matching clause with "1235"
 			name: "testns-2-with-port-match",
 			node: &Proxy{
 				ConfigNamespace: "testns-2",
@@ -1389,23 +1421,23 @@ func TestWasmPlugins(t *testing.T) {
 					},
 				},
 			},
-			listenerInfo: WasmPluginListenerInfo{
+			listenerInfo: ListenerInfo{
 				Port:  1234,
 				Class: istionetworking.ListenerClassSidecarInbound,
 			},
-			pluginType: WasmPluginTypeHTTP,
-			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{
-				extensions.PluginPhase_AUTHN: {
-					convertToWasmPluginWrapper(wasmPlugins["global-authn-high-prio-app"]),
+			chainType: FilterChainTypeHTTP,
+			expectedExtensions: map[extensions.TrafficExtension_ExecutionPhase][]*TrafficExtensionWrapper{
+				extensions.TrafficExtension_AUTHN: {
+					convertToTrafficExtensionWrapper(trafficExtensions["global-authn-wasm-high-prio-app"]),
 				},
-				extensions.PluginPhase_AUTHZ: {
-					convertToWasmPluginWrapper(wasmPlugins["authz-high-prio-ingress"]),
+				extensions.TrafficExtension_AUTHZ: {
+					convertToTrafficExtensionWrapper(trafficExtensions["authz-wasm-high-prio-ingress"]),
 				},
 			},
 		},
 	}
 
-	for _, config := range wasmPlugins {
+	for _, config := range trafficExtensions {
 		store.Create(config)
 	}
 	env.ConfigStore = store
@@ -1416,13 +1448,13 @@ func TestWasmPlugins(t *testing.T) {
 	// Init a new push context
 	pc := NewPushContext()
 	pc.Mesh = m
-	pc.initWasmPlugins(env)
+	pc.initTrafficExtensions(env)
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result := pc.WasmPluginsByListenerInfo(tc.node, tc.listenerInfo, tc.pluginType)
+			result := pc.TrafficExtensionsByListenerInfo(tc.node, tc.listenerInfo, tc.chainType)
 			if !reflect.DeepEqual(tc.expectedExtensions, result) {
-				t.Errorf("WasmPlugins did not match expectations\n\ngot: %v\n\nexpected: %v", result, tc.expectedExtensions)
+				t.Errorf("TrafficExtensions did not match expectations\n\ngot: %v\n\nexpected: %v", result, tc.expectedExtensions)
 			}
 		})
 	}
@@ -1431,7 +1463,8 @@ func TestWasmPlugins(t *testing.T) {
 func TestServiceIndex(t *testing.T) {
 	g := NewWithT(t)
 	env := NewEnvironment()
-	env.ConfigStore = NewFakeStore()
+	configController := NewFakeStore()
+	env.ConfigStore = configController
 	env.ServiceDiscovery = &localServiceDiscovery{
 		services: []*Service{
 			{
@@ -1493,6 +1526,16 @@ func TestServiceIndex(t *testing.T) {
 	}
 	m := mesh.DefaultMeshConfig()
 	env.Watcher = meshwatcher.NewTestWatcher(m)
+	stop := test.NewStop(t)
+	env.VirtualServiceController = NewVirtualServiceController(
+		configController,
+		VSControllerOptions{KrtDebugger: krt.GlobalDebugHandler},
+		env.Watcher,
+	)
+	go configController.Run(stop)
+	go env.VirtualServiceController.Run(stop)
+	kube.WaitForCacheSync("test", stop, configController.HasSynced)
+	kube.WaitForCacheSync("test", stop, env.VirtualServiceController.HasSynced)
 	env.Init()
 
 	// Init a new push context
@@ -1682,8 +1725,11 @@ func serviceNames(svcs []*Service) []string {
 
 func TestInitPushContext(t *testing.T) {
 	env := NewEnvironment()
-	configStore := NewFakeStore()
-	_, _ = configStore.Create(config.Config{
+	m := mesh.DefaultMeshConfig()
+	env.Watcher = meshwatcher.NewTestWatcher(m)
+	fakeStore := NewFakeStore()
+	var controller ConfigStoreController = fakeStore
+	_, _ = controller.Create(config.Config{
 		Meta: config.Meta{
 			Name:             "rule1",
 			Namespace:        "test1",
@@ -1694,7 +1740,7 @@ func TestInitPushContext(t *testing.T) {
 			ExportTo: []string{".", "ns1"},
 		},
 	})
-	_, _ = configStore.Create(config.Config{
+	_, _ = controller.Create(config.Config{
 		Meta: config.Meta{
 			Name:             "rule1",
 			Namespace:        "test1",
@@ -1704,7 +1750,7 @@ func TestInitPushContext(t *testing.T) {
 			ExportTo: []string{".", "ns1"},
 		},
 	})
-	_, _ = configStore.Create(config.Config{
+	_, _ = controller.Create(config.Config{
 		Meta: config.Meta{
 			Name:             "default",
 			Namespace:        "istio-system",
@@ -1717,7 +1763,19 @@ func TestInitPushContext(t *testing.T) {
 		},
 	})
 
-	env.ConfigStore = configStore
+	env.VirtualServiceController = NewVirtualServiceController(
+		controller,
+		VSControllerOptions{KrtDebugger: krt.GlobalDebugHandler},
+		env.Watcher,
+	)
+
+	stop := test.NewStop(t)
+	go controller.Run(stop)
+	go env.VirtualServiceController.Run(stop)
+	kube.WaitForCacheSync("test", stop, controller.HasSynced)
+	kube.WaitForCacheSync("test", stop, env.VirtualServiceController.HasSynced)
+
+	env.ConfigStore = controller
 	env.ServiceDiscovery = &localServiceDiscovery{
 		services: []*Service{
 			{
@@ -1753,8 +1811,6 @@ func TestInitPushContext(t *testing.T) {
 			},
 		},
 	}
-	m := mesh.DefaultMeshConfig()
-	env.Watcher = meshwatcher.NewTestWatcher(m)
 	env.Init()
 
 	// Init a new push context
@@ -1918,10 +1974,14 @@ func TestRootSidecarScopePropagation(t *testing.T) {
 	}
 
 	env := NewEnvironment()
-	configStore := NewFakeStore()
-
 	m := mesh.DefaultMeshConfig()
 	env.Watcher = meshwatcher.NewTestWatcher(m)
+	configStore := NewFakeStore()
+	virtualServiceController := NewVirtualServiceController(
+		configStore,
+		VSControllerOptions{KrtDebugger: krt.GlobalDebugHandler},
+		env.Watcher,
+	)
 
 	env.ServiceDiscovery = &localServiceDiscovery{
 		services: []*Service{
@@ -1979,6 +2039,12 @@ func TestRootSidecarScopePropagation(t *testing.T) {
 
 	_, _ = configStore.Create(rootConfig)
 	env.ConfigStore = configStore
+	env.VirtualServiceController = virtualServiceController
+	stop := test.NewStop(t)
+	go configStore.Run(stop)
+	go virtualServiceController.Run(stop)
+	kube.WaitForCacheSync("test", stop, configStore.HasSynced)
+	kube.WaitForCacheSync("test", stop, virtualServiceController.HasSynced)
 
 	testDesc := "Testing root SidecarScope for ns:%v enabled when %v is called."
 	when := "createNewContext"
@@ -2096,10 +2162,10 @@ func TestBestEffortInferServiceMTLSMode(t *testing.T) {
 			port := &Port{
 				Port: tc.servicePort,
 			}
-			if got := ps.BestEffortInferServiceMTLSMode(nil, service, port); got != tc.wanted {
+			if got := ps.BestEffortInferServiceMTLSMode(ps.AuthnPolicies, nil, service, port); got != tc.wanted {
 				t.Fatalf("want %s, but got %s", tc.wanted, got)
 			}
-			if got := ps.BestEffortInferServiceMTLSMode(nil, externalService, port); got != MTLSUnknown {
+			if got := ps.BestEffortInferServiceMTLSMode(ps.AuthnPolicies, nil, externalService, port); got != MTLSUnknown {
 				t.Fatalf("MTLS mode for external service should always be %s, but got %s", MTLSUnknown, got)
 			}
 		})
@@ -2745,7 +2811,8 @@ func TestVirtualServiceWithExportTo(t *testing.T) {
 	ps := NewPushContext()
 	env := &Environment{Watcher: meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{RootNamespace: "zzz"})}
 	ps.Mesh = env.Mesh()
-	configStore := NewFakeStore()
+	fakeStore := NewFakeStore()
+	var controller ConfigStoreController = fakeStore
 	gatewayName := "default/gateway"
 
 	rule1 := config.Config{
@@ -2818,12 +2885,24 @@ func TestVirtualServiceWithExportTo(t *testing.T) {
 	}
 
 	for _, c := range []config.Config{rule1, rule2, rule3, rule2Gw, rule3Gw, rootNS} {
-		if _, err := configStore.Create(c); err != nil {
+		if _, err := controller.Create(c); err != nil {
 			t.Fatalf("could not create %v", c.Name)
 		}
 	}
 
-	env.ConfigStore = configStore
+	env.VirtualServiceController = NewVirtualServiceController(
+		controller,
+		VSControllerOptions{KrtDebugger: krt.GlobalDebugHandler},
+		env.Watcher,
+	)
+
+	stop := test.NewStop(t)
+	go controller.Run(stop)
+	go env.VirtualServiceController.Run(stop)
+	kube.WaitForCacheSync("test", stop, controller.HasSynced)
+	kube.WaitForCacheSync("test", stop, env.VirtualServiceController.HasSynced)
+
+	env.ConfigStore = controller
 	ps.initDefaultExportMaps()
 	ps.initVirtualServices(env)
 
@@ -2895,7 +2974,9 @@ func TestInitVirtualService(t *testing.T) {
 		ps := NewPushContext()
 		env := &Environment{Watcher: meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-system"})}
 		ps.Mesh = env.Mesh()
-		configStore := NewFakeStore()
+		fakeStore := NewFakeStore()
+		var controller ConfigStoreController = fakeStore
+
 		gatewayName := "ns1/gateway"
 		root := config.Config{
 			Meta: config.Meta{
@@ -3134,12 +3215,24 @@ func TestInitVirtualService(t *testing.T) {
 			sourceNamespaceMatchWithoutGatewayNamespace,
 			sourceNamespaceNotMatch,
 		} {
-			if _, err := configStore.Create(c); err != nil {
+			if _, err := controller.Create(c); err != nil {
 				t.Fatalf("could not create %v", c.Name)
 			}
 		}
 
-		env.ConfigStore = configStore
+		env.VirtualServiceController = NewVirtualServiceController(
+			controller,
+			VSControllerOptions{KrtDebugger: krt.GlobalDebugHandler},
+			env.Watcher,
+		)
+
+		stop := test.NewStop(t)
+		go controller.Run(stop)
+		go env.VirtualServiceController.Run(stop)
+		kube.WaitForCacheSync("test", stop, controller.HasSynced)
+		kube.WaitForCacheSync("test", stop, env.VirtualServiceController.HasSynced)
+
+		env.ConfigStore = controller
 		ps.initDefaultExportMaps()
 		ps.initVirtualServices(env)
 
@@ -3169,7 +3262,7 @@ func TestInitVirtualService(t *testing.T) {
 				"ns5/gateway": ns5GatewayExpectedDestinations,
 			}
 			if !reflect.DeepEqual(got, want) {
-				t.Errorf("destinationsByGateway: got %+v", got)
+				t.Errorf("destinationsByGateway: got %+v, want: %+v", got, want)
 			}
 		})
 	}
@@ -3382,7 +3475,8 @@ func TestGetHostsFromMeshConfig(t *testing.T) {
 		},
 	})
 	ps.Mesh = env.Mesh()
-	configStore := NewFakeStore()
+	fakeStore := NewFakeStore()
+	var controller ConfigStoreController = fakeStore
 	gatewayName := "ns1/gateway"
 
 	vs1 := config.Config{
@@ -3443,12 +3537,24 @@ func TestGetHostsFromMeshConfig(t *testing.T) {
 	}
 
 	for _, c := range []config.Config{vs1, vs2, ef} {
-		if _, err := configStore.Create(c); err != nil {
+		if _, err := controller.Create(c); err != nil {
 			t.Fatalf("could not create %v", c.Name)
 		}
 	}
 
-	env.ConfigStore = configStore
+	env.VirtualServiceController = NewVirtualServiceController(
+		controller,
+		VSControllerOptions{KrtDebugger: krt.GlobalDebugHandler},
+		env.Watcher,
+	)
+
+	stop := test.NewStop(t)
+	go controller.Run(stop)
+	go env.VirtualServiceController.Run(stop)
+	kube.WaitForCacheSync("test", stop, controller.HasSynced)
+	kube.WaitForCacheSync("test", stop, env.VirtualServiceController.HasSynced)
+
+	env.ConfigStore = controller
 	test.SetForTest(t, &features.FilterGatewayClusterConfig, true)
 	ps.initTelemetry(env)
 	ps.initDefaultExportMaps()
@@ -3543,7 +3649,6 @@ type localServiceDiscovery struct {
 	services         []*Service
 	serviceInstances []*ServiceInstance
 
-	NoopAmbientIndexes
 	NetworkGatewaysHandler
 }
 

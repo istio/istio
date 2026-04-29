@@ -43,6 +43,7 @@ import (
 	"istio.io/istio/pkg/config/security"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/jwt"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/ptr"
@@ -104,8 +105,6 @@ type virtualServiceIndex struct {
 	privateByNamespaceAndGateway map[types.NamespacedName][]config.Config
 	// This contains all virtual services whose exportTo is "*", keyed by gateway
 	publicByGateway map[string][]config.Config
-	// root vs namespace/name ->delegate vs virtualservice gvk/namespace/name
-	delegates map[ConfigKey][]ConfigKey
 
 	// This contains destination hosts of virtual services, keyed by gateway's namespace/name,
 	// only used when PILOT_FILTER_GATEWAY_CLUSTER_CONFIG is enabled
@@ -120,7 +119,6 @@ func newVirtualServiceIndex() virtualServiceIndex {
 		publicByGateway:              map[string][]config.Config{},
 		privateByNamespaceAndGateway: map[types.NamespacedName][]config.Config{},
 		exportedToNamespaceByGateway: map[types.NamespacedName][]config.Config{},
-		delegates:                    map[ConfigKey][]ConfigKey{},
 		referencedDestinations:       map[string]sets.String{},
 	}
 	if features.FilterGatewayClusterConfig {
@@ -237,8 +235,8 @@ type PushContext struct {
 	// envoy filters for each namespace including global config namespace
 	envoyFiltersByNamespace map[string][]*EnvoyFilterWrapper
 
-	// wasm plugins for each namespace including global config namespace
-	wasmPluginsByNamespace map[string][]*WasmPluginWrapper
+	// extension filters for each namespace including global config namespace
+	trafficExtensionsByNamespace map[string][]*TrafficExtensionWrapper
 
 	// AuthnPolicies contains Authn policies by namespace.
 	AuthnPolicies *AuthenticationPolicies `json:"-"`
@@ -267,6 +265,9 @@ type PushContext struct {
 
 	// GatewayAPIController holds a reference to the gateway API controller.
 	GatewayAPIController GatewayController
+
+	// AgentgatewayController holds a reference to the agent gateway controller when enabled.
+	AgentgatewayController AgentgatewayController
 
 	// cache gateways addresses for each network
 	// this is mainly used for kubernetes multi-cluster scenario
@@ -1137,17 +1138,6 @@ func (ps *PushContext) VirtualServicesForGateway(proxyNamespace, gateway string)
 	return res
 }
 
-// DelegateVirtualServices lists all the delegate virtual services configkeys associated with the provided virtual services
-func (ps *PushContext) DelegateVirtualServices(vses []*config.Config) []ConfigHash {
-	var out []ConfigHash
-	for _, vs := range vses {
-		for _, delegate := range ps.virtualServiceIndex.delegates[ConfigKey{Kind: kind.VirtualService, Namespace: vs.Namespace, Name: vs.Name}] {
-			out = append(out, delegate.HashCode())
-		}
-	}
-	return out
-}
-
 // getSidecarScope returns a SidecarScope object associated with the
 // proxy. The SidecarScope object is a semi-processed view of the service
 // registry, and config state associated with the sidecar crd. The scope contains
@@ -1385,7 +1375,7 @@ func (ps *PushContext) createNewContext(env *Environment) {
 	ps.initAuthorizationPolicies(env)
 	ps.initTelemetry(env)
 	ps.initProxyConfigs(env)
-	ps.initWasmPlugins(env)
+	ps.initTrafficExtensions(env)
 	ps.initEnvoyFilters(env, nil, nil)
 	ps.initGateways(env)
 	ps.initAmbient(env)
@@ -1401,9 +1391,9 @@ func (ps *PushContext) updateContext(
 ) {
 	var servicesChanged, virtualServicesChanged, destinationRulesChanged, gatewayChanged,
 		authnChanged, authzChanged, envoyFiltersChanged, sidecarsChanged, telemetryChanged,
-		wasmPluginsChanged, proxyConfigsChanged bool
+		trafficExtensionsChanged, proxyConfigsChanged bool
 
-	changedEnvoyFilters := sets.New[ConfigKey]()
+	changedEnvoyFilters := sets.New[types.NamespacedName]()
 
 	// We do not need to watch Ingress or Gateway API changes. Both of these have their own controllers which will send
 	// events for Istio types (Gateway and VirtualService).
@@ -1419,11 +1409,11 @@ func (ps *PushContext) updateContext(
 			gatewayChanged = true
 		case kind.Sidecar:
 			sidecarsChanged = true
-		case kind.WasmPlugin:
-			wasmPluginsChanged = true
+		case kind.TrafficExtension:
+			trafficExtensionsChanged = true
 		case kind.EnvoyFilter:
 			envoyFiltersChanged = true
-			changedEnvoyFilters.Insert(conf)
+			changedEnvoyFilters.Insert(types.NamespacedName{Namespace: conf.Namespace, Name: conf.Name})
 		case kind.AuthorizationPolicy:
 			authzChanged = true
 		case kind.RequestAuthentication,
@@ -1450,6 +1440,9 @@ func (ps *PushContext) updateContext(
 		ps.initKubernetesGateways(env)
 	} else {
 		ps.GatewayAPIController = oldPushContext.GatewayAPIController
+		if features.EnableAgentgateway {
+			ps.AgentgatewayController = oldPushContext.AgentgatewayController
+		}
 	}
 
 	if virtualServicesChanged {
@@ -1493,10 +1486,10 @@ func (ps *PushContext) updateContext(
 		ps.ProxyConfigs = oldPushContext.ProxyConfigs
 	}
 
-	if wasmPluginsChanged {
-		ps.initWasmPlugins(env)
+	if trafficExtensionsChanged {
+		ps.initTrafficExtensions(env)
 	} else {
-		ps.wasmPluginsByNamespace = oldPushContext.wasmPluginsByNamespace
+		ps.trafficExtensionsByNamespace = oldPushContext.trafficExtensionsByNamespace
 	}
 
 	if envoyFiltersChanged {
@@ -1515,7 +1508,7 @@ func (ps *PushContext) updateContext(
 
 	// Must be initialized in the end
 	// Sidecars need to be updated if services, virtual services, destination rules, or the sidecar configs change
-	if servicesChanged || virtualServicesChanged || destinationRulesChanged || sidecarsChanged {
+	if servicesChanged || virtualServicesChanged || destinationRulesChanged || authnChanged || sidecarsChanged {
 		ps.initSidecarScopes(env)
 	} else {
 		// new ADS connection may insert new entry to computedSidecarsByNamespace/gatewayDefaultSidecarsByNamespace.
@@ -1765,18 +1758,9 @@ func (ps *PushContext) initVirtualServices(env *Environment) {
 		ps.virtualServiceIndex.destinationsByGateway = make(map[string]sets.String)
 	}
 
-	virtualServices := env.List(gvk.VirtualService, NamespaceAll)
+	vservices := env.VirtualServiceController.MergedVirtualServices()
 
-	vservices := make([]config.Config, len(virtualServices))
-
-	totalVirtualServices.Record(float64(len(virtualServices)))
-
-	// convert all shortnames in virtual services into FQDNs
-	for i, r := range virtualServices {
-		vservices[i] = resolveVirtualServiceShortnames(r)
-	}
-
-	vservices, ps.virtualServiceIndex.delegates = mergeVirtualServicesIfNeeded(vservices, ps.exportToDefaults.virtualService)
+	totalVirtualServices.Record(float64(len(vservices)))
 
 	for _, virtualService := range vservices {
 		ns := virtualService.Namespace
@@ -2037,25 +2021,25 @@ func (ps *PushContext) SetDestinationRulesForTesting(configs []config.Config) {
 
 // sortConfigBySelectorAndCreationTime sorts the list of config objects based on priority and creation time.
 func sortConfigBySelectorAndCreationTime(configs []config.Config) []config.Config {
-	sort.Slice(configs, func(i, j int) bool {
-		// check if one of the configs has priority
-		idr := configs[i].Spec.(*networking.DestinationRule)
-		jdr := configs[j].Spec.(*networking.DestinationRule)
+	slices.SortFunc(configs, func(a, b config.Config) int {
+		// check if one of the configs has workload selector
+		idr := a.Spec.(*networking.DestinationRule)
+		jdr := b.Spec.(*networking.DestinationRule)
 		if idr.GetWorkloadSelector() != nil && jdr.GetWorkloadSelector() == nil {
-			return true
+			return -1
 		}
 		if idr.GetWorkloadSelector() == nil && jdr.GetWorkloadSelector() != nil {
-			return false
+			return +1
 		}
 
 		// If priority is the same or neither has priority, fallback to creation time ordering
-		if r := configs[i].CreationTimestamp.Compare(configs[j].CreationTimestamp); r != 0 {
-			return r == -1 // -1 means i is less than j, so return true.
+		if r := a.CreationTimestamp.Compare(b.CreationTimestamp); r != 0 {
+			return r
 		}
-		if r := cmp.Compare(configs[i].Name, configs[j].Name); r != 0 {
-			return r == -1
+		if r := strings.Compare(a.Name, b.Name); r != 0 {
+			return r
 		}
-		return cmp.Compare(configs[i].Namespace, configs[j].Namespace) == -1
+		return strings.Compare(a.Namespace, b.Namespace)
 	})
 	return configs
 }
@@ -2143,25 +2127,42 @@ func (ps *PushContext) initProxyConfigs(env *Environment) {
 	ps.ProxyConfigs = GetProxyConfigs(env.ConfigStore, env.Mesh())
 }
 
-// pre computes WasmPlugins per namespace
-func (ps *PushContext) initWasmPlugins(env *Environment) {
-	wasmplugins := env.List(gvk.WasmPlugin, NamespaceAll)
+func (ps *PushContext) initTrafficExtensions(env *Environment) {
+	extensionfilters := env.List(gvk.TrafficExtension, NamespaceAll)
 
-	sortConfigByCreationTime(wasmplugins)
-	ps.wasmPluginsByNamespace = map[string][]*WasmPluginWrapper{}
-	for _, plugin := range wasmplugins {
-		if pluginWrapper := convertToWasmPluginWrapper(plugin); pluginWrapper != nil {
-			ps.wasmPluginsByNamespace[plugin.Namespace] = append(ps.wasmPluginsByNamespace[plugin.Namespace], pluginWrapper)
+	sortConfigByCreationTime(extensionfilters)
+	ps.trafficExtensionsByNamespace = map[string][]*TrafficExtensionWrapper{}
+	for _, filter := range extensionfilters {
+		if filterWrapper := convertToTrafficExtensionWrapper(filter); filterWrapper != nil {
+			ps.trafficExtensionsByNamespace[filter.Namespace] = append(ps.trafficExtensionsByNamespace[filter.Namespace], filterWrapper)
 		}
 	}
 }
 
-// WasmPlugins return the WasmPluginWrappers of a proxy.
+// sortByPriority sorts a map of slices by priority (highest first).
+func sortByPriority(items map[extensions.TrafficExtension_ExecutionPhase][]*TrafficExtensionWrapper) {
+	for phase, slice := range items {
+		sort.SliceStable(slice, func(i, j int) bool {
+			iPriority := int32(math.MinInt32)
+			if prio := slice[i].Priority; prio != nil {
+				iPriority = prio.Value
+			}
+			jPriority := int32(math.MinInt32)
+			if prio := slice[j].Priority; prio != nil {
+				jPriority = prio.Value
+			}
+			return iPriority > jPriority
+		})
+		items[phase] = slice
+	}
+}
+
+// TrafficExtensions return the TrafficExtensionWrappers of a proxy.
 // For most proxy types, we include only the root namespace and same-namespace objects.
 // However, waypoints allow cross-namespace access based on attached Service objects.
 // In this case, include all referenced services in the selection criteria
-func (ps *PushContext) WasmPlugins(proxy *Proxy) map[extensions.PluginPhase][]*WasmPluginWrapper {
-	listenerInfo := WasmPluginListenerInfo{}
+func (ps *PushContext) TrafficExtensions(proxy *Proxy) map[extensions.TrafficExtension_ExecutionPhase][]*TrafficExtensionWrapper {
+	listenerInfo := ListenerInfo{}
 	if proxy.IsWaypointProxy() {
 		servicesInfo := ps.ServicesForWaypoint(WaypointKeyForProxy(proxy))
 		for _, si := range servicesInfo {
@@ -2174,19 +2175,19 @@ func (ps *PushContext) WasmPlugins(proxy *Proxy) map[extensions.PluginPhase][]*W
 			listenerInfo = listenerInfo.WithService(svc)
 		}
 	}
-	return ps.WasmPluginsByListenerInfo(proxy, listenerInfo, WasmPluginTypeAny)
+	return ps.TrafficExtensionsByListenerInfo(proxy, listenerInfo, FilterChainTypeAny)
 }
 
-func (ps *PushContext) WasmPluginsByName(proxy *Proxy, names []types.NamespacedName) []*WasmPluginWrapper {
-	res := make([]*WasmPluginWrapper, 0, len(names))
+func (ps *PushContext) TrafficExtensionsByName(proxy *Proxy, names []types.NamespacedName) []*TrafficExtensionWrapper {
+	res := make([]*TrafficExtensionWrapper, 0, len(names))
 	for _, n := range names {
 		if n.Namespace != proxy.ConfigNamespace && n.Namespace != ps.Mesh.RootNamespace {
-			log.Warnf("proxy requested invalid WASM configuration: %v", n)
+			log.Warnf("proxy requested invalid TrafficExtension configuration: %v", n)
 			continue
 		}
-		for _, wsm := range ps.wasmPluginsByNamespace[n.Namespace] {
-			if wsm.Name == n.Name {
-				res = append(res, wsm)
+		for _, filter := range ps.trafficExtensionsByNamespace[n.Namespace] {
+			if filter.Name == n.Name {
+				res = append(res, filter)
 				break
 			}
 		}
@@ -2194,90 +2195,96 @@ func (ps *PushContext) WasmPluginsByName(proxy *Proxy, names []types.NamespacedN
 	return res
 }
 
-// WasmPluginsByListenerInfo return the WasmPluginWrappers which are matched with TrafficSelector in the given proxy.
-func (ps *PushContext) WasmPluginsByListenerInfo(proxy *Proxy, info WasmPluginListenerInfo,
-	pluginType WasmPluginType,
-) map[extensions.PluginPhase][]*WasmPluginWrapper {
+// TrafficExtensionsByListenerInfo return the TrafficExtensionWrappers which are matched with TrafficSelector in the given proxy.
+func (ps *PushContext) TrafficExtensionsByListenerInfo(proxy *Proxy, info ListenerInfo,
+	chainType FilterChainType,
+) map[extensions.TrafficExtension_ExecutionPhase][]*TrafficExtensionWrapper {
 	if proxy == nil {
 		return nil
 	}
 
-	matchedPlugins := make(map[extensions.PluginPhase][]*WasmPluginWrapper)
+	matchedFilters := make(map[extensions.TrafficExtension_ExecutionPhase][]*TrafficExtensionWrapper)
 	lookupInNamespaces := []string{proxy.ConfigNamespace, ps.Mesh.RootNamespace}
 	for i := range info.Services {
 		lookupInNamespaces = append(lookupInNamespaces, info.Services[i].NamespacedName().Namespace)
 	}
 	selectionOpts := PolicyMatcherForProxy(proxy).WithServices(info.Services).WithRootNamespace(ps.Mesh.GetRootNamespace())
 	for _, ns := range slices.FilterDuplicates(lookupInNamespaces) {
-		if wasmPlugins, ok := ps.wasmPluginsByNamespace[ns]; ok {
-			for _, plugin := range wasmPlugins {
-				if plugin.MatchType(pluginType) && plugin.MatchListener(selectionOpts, info) {
-					matchedPlugins[plugin.Phase] = append(matchedPlugins[plugin.Phase], plugin)
+		if trafficExtensions, ok := ps.trafficExtensionsByNamespace[ns]; ok {
+			for _, filter := range trafficExtensions {
+				if filter.MatchType(chainType) && filter.MatchListener(selectionOpts, info) {
+					matchedFilters[filter.Phase] = append(matchedFilters[filter.Phase], filter)
 				}
 			}
 		}
 	}
 
-	// sort slices by priority
-	for i, slice := range matchedPlugins {
-		sort.SliceStable(slice, func(i, j int) bool {
-			iPriority := int32(math.MinInt32)
-			if prio := slice[i].Priority; prio != nil {
-				iPriority = prio.Value
-			}
-			jPriority := int32(math.MinInt32)
-			if prio := slice[j].Priority; prio != nil {
-				jPriority = prio.Value
-			}
-			return iPriority > jPriority
-		})
-		matchedPlugins[i] = slice
-	}
-
-	return matchedPlugins
+	sortByPriority(matchedFilters)
+	return matchedFilters
 }
 
 // pre computes envoy filters per namespace
-func (ps *PushContext) initEnvoyFilters(env *Environment, changed sets.Set[ConfigKey], previousIndex map[string][]*EnvoyFilterWrapper) {
-	envoyFilterConfigs := env.List(gvk.EnvoyFilter, NamespaceAll)
-	previous := make(map[ConfigKey]*EnvoyFilterWrapper)
-	for namespace, nsEnvoyFilters := range previousIndex {
-		for _, envoyFilter := range nsEnvoyFilters {
-			previous[ConfigKey{Kind: kind.EnvoyFilter, Namespace: namespace, Name: envoyFilter.Name}] = envoyFilter
+func (ps *PushContext) initEnvoyFilters(env *Environment, changed sets.Set[types.NamespacedName], previousIndex map[string][]*EnvoyFilterWrapper) {
+	if changed == nil || previousIndex == nil {
+		envoyFilterConfigs := env.List(gvk.EnvoyFilter, NamespaceAll)
+		for _, envoyFilterConfig := range envoyFilterConfigs {
+			efw := convertToEnvoyFilterWrapper(&envoyFilterConfig)
+			ps.envoyFiltersByNamespace[envoyFilterConfig.Namespace] = append(ps.envoyFiltersByNamespace[envoyFilterConfig.Namespace], efw)
 		}
+
+		// sorting each namespace should be less expensive than sorting the entire list together
+		for _, filters := range ps.envoyFiltersByNamespace {
+			sortEnvoyFilters(filters)
+		}
+		return
 	}
 
-	sort.Slice(envoyFilterConfigs, func(i, j int) bool {
-		ifilter := envoyFilterConfigs[i].Spec.(*networking.EnvoyFilter)
-		jfilter := envoyFilterConfigs[j].Spec.(*networking.EnvoyFilter)
-		if ifilter.Priority != jfilter.Priority {
-			return ifilter.Priority < jfilter.Priority
+	changedNamespaces := sets.New[string]()
+	for ck := range changed {
+		changedNamespaces.Insert(ck.Namespace)
+	}
+
+	ps.envoyFiltersByNamespace = maps.Clone(previousIndex)
+
+	for ns := range changedNamespaces {
+		envoyFilterConfigs := env.List(gvk.EnvoyFilter, ns)
+		if len(envoyFilterConfigs) == 0 {
+			delete(ps.envoyFiltersByNamespace, ns)
+			continue
 		}
-		// If priority is same fallback to name and creation timestamp, else use priority.
-		// If creation time is the same, then behavior is nondeterministic. In this case, we can
-		// pick an arbitrary but consistent ordering based on name and namespace, which is unique.
-		// CreationTimestamp is stored in seconds, so this is not uncommon.
-		if envoyFilterConfigs[i].CreationTimestamp != envoyFilterConfigs[j].CreationTimestamp {
-			return envoyFilterConfigs[i].CreationTimestamp.Before(envoyFilterConfigs[j].CreationTimestamp)
+
+		prevNs, ok := previousIndex[ns]
+		efws := make([]*EnvoyFilterWrapper, 0, len(envoyFilterConfigs))
+		for _, envoyFilterConfig := range envoyFilterConfigs {
+			if ok && !changed.Contains(envoyFilterConfig.NamespacedName()) {
+				// this is a changed namespace, but this specific config is not changed, we can reuse the previous
+				f := slices.FindFunc(prevNs, func(efw *EnvoyFilterWrapper) bool {
+					return efw.Name == envoyFilterConfig.Name
+				})
+				if f != nil {
+					efws = append(efws, *f)
+					continue
+				}
+			}
+			// Rebuild the envoy filter in all other cases.
+			efws = append(efws, convertToEnvoyFilterWrapper(&envoyFilterConfig))
 		}
-		in := envoyFilterConfigs[i].Name + "." + envoyFilterConfigs[i].Namespace
-		jn := envoyFilterConfigs[j].Name + "." + envoyFilterConfigs[j].Namespace
-		return in < jn
+
+		sortEnvoyFilters(efws)
+		ps.envoyFiltersByNamespace[ns] = efws
+	}
+}
+
+func sortEnvoyFilters(filters []*EnvoyFilterWrapper) {
+	slices.SortFunc(filters, func(a, b *EnvoyFilterWrapper) int {
+		if c := cmp.Compare(a.Priority, b.Priority); c != 0 {
+			return c
+		}
+		if c := a.creationTime.Compare(b.creationTime); c != 0 {
+			return c
+		}
+		return strings.Compare(a.Name, b.Name)
 	})
-
-	for _, envoyFilterConfig := range envoyFilterConfigs {
-		var efw *EnvoyFilterWrapper
-		key := ConfigKey{Kind: kind.EnvoyFilter, Namespace: envoyFilterConfig.Namespace, Name: envoyFilterConfig.Name}
-		if prev, ok := previous[key]; ok && !changed.Contains(key) {
-			// Reuse the previous EnvoyFilterWrapper if it exists and hasn't changed when optimized config rebuild is enabled
-			efw = prev
-		}
-		// Rebuild the envoy filter in all other cases.
-		if efw == nil {
-			efw = convertToEnvoyFilterWrapper(&envoyFilterConfig)
-		}
-		ps.envoyFiltersByNamespace[envoyFilterConfig.Namespace] = append(ps.envoyFiltersByNamespace[envoyFilterConfig.Namespace], efw)
-	}
 }
 
 type MergedEnvoyFilterWrapper struct {
@@ -2497,7 +2504,10 @@ func (ps *PushContext) AllInstancesSupportHBONE(service *Service, port *Port) bo
 // to compute the correct service mTLS mode without knowing service to workload binding. For now, this
 // function uses only mesh and namespace level PeerAuthentication and ignore workload & port level policies.
 // This function is used to give a hint for auto-mTLS configuration on client side.
-func (ps *PushContext) BestEffortInferServiceMTLSMode(tp *networking.TrafficPolicy, service *Service, port *Port) MutualTLSMode {
+func (ps *PushContext) BestEffortInferServiceMTLSMode(
+	authnPolicies PeerAuthnPolicies, tp *networking.TrafficPolicy,
+	service *Service, port *Port,
+) MutualTLSMode {
 	if service.MeshExternal {
 		// Only need the authentication mTLS mode when service is not external.
 		return MTLSUnknown
@@ -2522,7 +2532,7 @@ func (ps *PushContext) BestEffortInferServiceMTLSMode(tp *networking.TrafficPoli
 
 	// 2. check mTLS settings from beta policy (i.e PeerAuthentication) at namespace / mesh level.
 	// If the mode is not unknown, use it.
-	if serviceMTLSMode := ps.AuthnPolicies.GetNamespaceMutualTLSMode(service.Attributes.Namespace); serviceMTLSMode != MTLSUnknown {
+	if serviceMTLSMode := authnPolicies.GetNamespaceMutualTLSMode(service.Attributes.Namespace); serviceMTLSMode != MTLSUnknown {
 		return serviceMTLSMode
 	}
 
@@ -2584,8 +2594,14 @@ func (ps *PushContext) initKubernetesGateways(env *Environment) {
 		ps.GatewayAPIController = env.GatewayAPIController
 		env.GatewayAPIController.Reconcile(ps)
 	}
+
+	if env.AgentgatewayController != nil && features.EnableAgentgateway {
+		ps.AgentgatewayController = env.AgentgatewayController
+		env.AgentgatewayController.Reconcile(ps)
+	}
 }
 
+// TODO(jaellio): support for agentgatewaycontroller (?)
 // SecretAllowed determines if a given resource (of type `Secret` and name `resourceName`) can be
 // accessed by `namespace`, based of specific reference policies.
 // Note: this function only determines if a reference is *explicitly* allowed; the reference may not require

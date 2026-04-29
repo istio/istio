@@ -10,6 +10,18 @@ prometheus-node-exporter:
 server:
   podLabels:
     sidecar.istio.io/inject: "false"
+  # To enable TLS scraping of application metrics with Strict mTLS, change
+  # sidecar.istio.io/inject above to "true" and uncomment the podAnnotations below.
+  # This injects a lightweight sidecar (pilot-agent only, no Envoy) which provisions
+  # Istio certificates for Prometheus to use when scraping over mTLS.
+  # podAnnotations:
+  #   traffic.sidecar.istio.io/includeInboundPorts: ""
+  #   traffic.sidecar.istio.io/includeOutboundIPRanges: ""
+  #   proxy.istio.io/config: |
+  #     proxyMetadata:
+  #       OUTPUT_CERTS: /etc/istio-output-certs
+  #       DISABLE_ENVOY: "true"
+  #   sidecar.istio.io/userVolumeMount: '[{"name": "istio-certs", "mountPath": "/etc/istio-output-certs"}]'
   persistentVolume:
     enabled: false
   # Use port 9090 to match Istio documentation

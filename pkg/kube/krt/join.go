@@ -379,12 +379,14 @@ func JoinCollection[T any](cs []Collection[T], opts ...CollectionOption) Collect
 	if o.stop == nil {
 		panic("no stop channel")
 	}
+	// if only one collection, no need to check for overlap
+	uncheckedOverlap := o.joinUnchecked || len(c) == 1
 	j := &join[T]{
 		collectionName:   o.name,
 		id:               nextUID(),
 		synced:           synced,
 		collections:      c,
-		uncheckedOverlap: o.joinUnchecked,
+		uncheckedOverlap: uncheckedOverlap,
 		stop:             o.stop,
 		syncer: channelSyncer{
 			name:   o.name,
@@ -398,7 +400,7 @@ func JoinCollection[T any](cs []Collection[T], opts ...CollectionOption) Collect
 
 	// For unchecked mode, we don't need the centralized event handling infrastructure.
 	// Handlers register directly with sub-collections in RegisterBatch.
-	if o.joinUnchecked {
+	if j.uncheckedOverlap {
 		// for unchecked, we waitn for the sub-collections to sync here
 		go func() {
 			for _, c := range c {
