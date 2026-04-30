@@ -15,6 +15,7 @@
 package matcher
 
 import (
+	"regexp"
 	"strings"
 
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
@@ -106,7 +107,7 @@ func StringMatcherWithPrefix(v, prefix string) *matcher.StringMatcher {
 		if prefix == "" {
 			return StringMatcherSuffix(strings.TrimPrefix(v, "*"), false)
 		}
-		return StringMatcherRegex(prefix + ".*" + strings.TrimPrefix(v, "*"))
+		return StringMatcherRegex(prefix + ".*" + regexp.QuoteMeta(strings.TrimPrefix(v, "*")))
 	case strings.HasSuffix(v, "*"):
 		return StringMatcherPrefix(prefix+strings.TrimSuffix(v, "*"), false)
 	default:

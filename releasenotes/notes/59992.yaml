@@ -1,0 +1,13 @@
+apiVersion: release-notes/v2
+kind: security-fix
+area: security
+issue:
+  - 59992
+releaseNotes:
+  - |
+    **Fixed** an authorization bypass in `AuthorizationPolicy` matching for SPIFFE identities and namespaces. Regex metacharacters in fields like `source.principals` (suffix matching) and `source.namespaces` were not properly escaped in the generated Envoy configuration, potentially allowing unintended identities to match policy rules.
+securityNotes:
+  - |
+    Fixed an authorization bypass in `AuthorizationPolicy` where regex metacharacters in certain identity fields were embedded in the generated Envoy `SafeRegex` without escaping. As a result, legal Kubernetes names containing characters like `.` or `[` could be treated as regex wildcards, admitting identities beyond the policy author's intent. This issue affected `source.principals` (specifically suffix matches starting with `*`) and `source.namespaces`.
+
+    **Credit**: This vulnerability was discovered and reported by Alex (https://github.com/Alex0Young).
