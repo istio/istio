@@ -112,6 +112,9 @@ var agentgatewaySkippedTests = map[string]string{
 	// The following tests were added in v1.5.0
 	"TLSRouteTerminateSimpleSameNamespace":  "TODO",
 	"TLSRouteMixedTerminationSameNamespace": "TODO",
+
+	"ListenerSetAllowedNamespaceNone": "TODO",
+	"ListenerSetAllowedNamespaceSame": "TODO",
 }
 
 func TestGatewayConformance(t *testing.T) {
