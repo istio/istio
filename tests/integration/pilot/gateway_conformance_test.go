@@ -112,8 +112,8 @@ var agentgatewaySkippedTests = map[string]string{
 	"TLSRouteTerminateSimpleSameNamespace":  "TODO",
 	"TLSRouteMixedTerminationSameNamespace": "TODO",
 
-	"ListenerSetAllowedNamespaceNone": "TODO",
-	"ListenerSetAllowedNamespaceSame": "TODO",
+	"ListenerSetAllowedNamespaceNone":     "TODO",
+	"ListenerSetAllowedNamespaceSame":     "TODO",
 	"ListenerSetAllowedNamespaceSelector": "TODO",
 }
 
