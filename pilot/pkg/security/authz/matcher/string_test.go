@@ -15,6 +15,7 @@
 package matcher
 
 import (
+	"regexp"
 	"testing"
 
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
@@ -62,6 +63,12 @@ func TestStringMatcherWithPrefix(t *testing.T) {
 			v:      "*-suffix",
 			prefix: "abc",
 			want:   StringMatcherRegex("abc.*-suffix"),
+		},
+		{
+			name:   "suffix-with-dot",
+			v:      "*admin.example",
+			prefix: "spiffe://cluster.local/ns/foo/sa/",
+			want:   StringMatcherRegex("spiffe://cluster.local/ns/foo/sa/.*admin\\.example"),
 		},
 		{
 			name:   "exact",
@@ -238,6 +245,48 @@ func TestStringMatcherExact(t *testing.T) {
 			got := StringMatcherExact(tc.str, tc.ignoreCase)
 			if !cmp.Equal(got, tc.want, protocmp.Transform()) {
 				t.Errorf("want %v but got %v", tc.want, got)
+			}
+		})
+	}
+}
+
+func TestStringMatcherRegex_Match(t *testing.T) {
+	testCases := []struct {
+		name    string
+		v       string
+		prefix  string
+		match   string
+		noMatch string
+	}{
+		{
+			name:    "suffix-with-dot",
+			v:       "*admin.example",
+			prefix:  "spiffe://cluster.local/ns/foo/sa/",
+			match:   "spiffe://cluster.local/ns/foo/sa/some-admin.example",
+			noMatch: "spiffe://cluster.local/ns/foo/sa/some-adminXexample",
+		},
+		{
+			name:    "suffix-with-bracket",
+			v:       "*rule[0]",
+			prefix:  "spiffe://cluster.local/ns/foo/sa/",
+			match:   "spiffe://cluster.local/ns/foo/sa/some-rule[0]",
+			noMatch: "spiffe://cluster.local/ns/foo/sa/some-rule0",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			m := StringMatcherWithPrefix(tc.v, tc.prefix)
+			regexStr := m.GetSafeRegex().GetRegex()
+			re, err := regexp.Compile(regexStr)
+			if err != nil {
+				t.Fatalf("failed to compile regex %q: %v", regexStr, err)
+			}
+			if !re.MatchString(tc.match) {
+				t.Errorf("expected %q to match %q", regexStr, tc.match)
+			}
+			if re.MatchString(tc.noMatch) {
+				t.Errorf("expected %q NOT to match %q", regexStr, tc.noMatch)
 			}
 		})
 	}
