@@ -96,9 +96,10 @@ status:
   - attachedRoutes: 0
     conditions:
     - lastTransitionTime: fake
-      message: No errors found
-      reason: Accepted
-      status: "True"
+      message: certificateRef ns4-cert/ns4 not accessible to a Gateway in namespace
+        "ns2" (missing a ReferenceGrant?)
+      reason: NoValidCACertificate
+      status: "False"
       type: Accepted
     - lastTransitionTime: fake
       message: No errors found
@@ -207,6 +208,11 @@ status:
     reason: Programmed
     status: "True"
     type: Programmed
+  - lastTransitionTime: fake
+    message: All references resolved
+    reason: ResolvedRefs
+    status: "True"
+    type: ResolvedRefs
   listeners:
   - attachedRoutes: 0
     conditions:

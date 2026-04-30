@@ -14,7 +14,7 @@ status:
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
-  name: gateway
+  name: invalid-frontend-ca-kind
   namespace: istio-system
 spec: null
 status:
@@ -28,7 +28,7 @@ status:
     status: "True"
     type: Accepted
   - lastTransitionTime: fake
-    message: Resource programmed, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:34000
+    message: Resource programmed, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:443
     reason: Programmed
     status: "True"
     type: Programmed
@@ -38,12 +38,13 @@ status:
     status: "True"
     type: ResolvedRefs
   listeners:
-  - attachedRoutes: 1
+  - attachedRoutes: 0
     conditions:
     - lastTransitionTime: fake
-      message: No errors found
-      reason: Accepted
-      status: "True"
+      message: invalid CA certificate reference /Service/some-service., only secret
+        and configmap are allowed
+      reason: NoValidCACertificate
+      status: "False"
       type: Accepted
     - lastTransitionTime: fake
       message: No errors found
@@ -51,24 +52,27 @@ status:
       status: "False"
       type: Conflicted
     - lastTransitionTime: fake
-      message: No errors found
-      reason: Programmed
-      status: "True"
+      message: Bad TLS configuration
+      reason: Invalid
+      status: "False"
       type: Programmed
     - lastTransitionTime: fake
-      message: No errors found
-      reason: ResolvedRefs
-      status: "True"
+      message: invalid CA certificate reference /Service/some-service., only secret
+        and configmap are allowed
+      reason: InvalidCACertificateKind
+      status: "False"
       type: ResolvedRefs
-    name: default
+    name: https
     supportedKinds:
     - group: gateway.networking.k8s.io
-      kind: TCPRoute
+      kind: HTTPRoute
+    - group: gateway.networking.k8s.io
+      kind: GRPCRoute
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
-  name: gateway2
+  name: invalid-frontend-ca-ref
   namespace: istio-system
 spec: null
 status:
@@ -82,7 +86,8 @@ status:
     status: "True"
     type: Accepted
   - lastTransitionTime: fake
-    message: Resource programmed, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:34000
+    message: Resource programmed, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:443
+      and istio-ingressgateway.istio-system.svc.domain.suffix:80
     reason: Programmed
     status: "True"
     type: Programmed
@@ -92,7 +97,37 @@ status:
     status: "True"
     type: ResolvedRefs
   listeners:
-  - attachedRoutes: 1
+  - attachedRoutes: 0
+    conditions:
+    - lastTransitionTime: fake
+      message: invalid CA certificate reference /ConfigMap/does-not-exist., configmap
+        istio-system/does-not-exist not found
+      reason: NoValidCACertificate
+      status: "False"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: NoConflicts
+      status: "False"
+      type: Conflicted
+    - lastTransitionTime: fake
+      message: Bad TLS configuration
+      reason: Invalid
+      status: "False"
+      type: Programmed
+    - lastTransitionTime: fake
+      message: invalid CA certificate reference /ConfigMap/does-not-exist., configmap
+        istio-system/does-not-exist not found
+      reason: InvalidCACertificateRef
+      status: "False"
+      type: ResolvedRefs
+    name: https
+    supportedKinds:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+    - group: gateway.networking.k8s.io
+      kind: GRPCRoute
+  - attachedRoutes: 0
     conditions:
     - lastTransitionTime: fake
       message: No errors found
@@ -114,47 +149,10 @@ status:
       reason: ResolvedRefs
       status: "True"
       type: ResolvedRefs
-    name: default
+    name: http
     supportedKinds:
     - group: gateway.networking.k8s.io
-      kind: TCPRoute
----
-apiVersion: gateway.networking.k8s.io/v1alpha2
-kind: TCPRoute
-metadata:
-  name: tcp
-  namespace: default
-spec: null
-status:
-  parents:
-  - conditions:
-    - lastTransitionTime: fake
-      message: Route was valid
-      reason: Accepted
-      status: "True"
-      type: Accepted
-    - lastTransitionTime: fake
-      message: All references resolved
-      reason: ResolvedRefs
-      status: "True"
-      type: ResolvedRefs
-    controllerName: istio.io/gateway-controller
-    parentRef:
-      name: gateway2
-      namespace: istio-system
-  - conditions:
-    - lastTransitionTime: fake
-      message: Route was valid
-      reason: Accepted
-      status: "True"
-      type: Accepted
-    - lastTransitionTime: fake
-      message: All references resolved
-      reason: ResolvedRefs
-      status: "True"
-      type: ResolvedRefs
-    controllerName: istio.io/gateway-controller
-    parentRef:
-      name: gateway
-      namespace: istio-system
+      kind: HTTPRoute
+    - group: gateway.networking.k8s.io
+      kind: GRPCRoute
 ---

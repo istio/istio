@@ -274,7 +274,8 @@ func GatewayCollection(
 		gatewayServices, err := extractGatewayServices(domainSuffix, obj, classInfo)
 		if len(gatewayServices) == 0 && err != nil {
 			// Short circuit if its a hard failure
-			reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, 0, err)
+			backendTLSErr := validateBackendClientCertificateRef(ctx, obj, secrets, grants)
+			reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, 0, err, backendTLSErr)
 			return status, nil
 		}
 
@@ -363,7 +364,8 @@ func GatewayCollection(
 			})
 		}
 
-		reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, len(listenerSets), err)
+		backendTLSErr := validateBackendClientCertificateRef(ctx, obj, secrets, grants)
+		reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, len(listenerSets), err, backendTLSErr)
 		return status, result
 	}, opts.WithName("KubernetesGateway")...)
 

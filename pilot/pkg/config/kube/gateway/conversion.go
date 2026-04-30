@@ -1739,6 +1739,7 @@ func reportGatewayStatus(
 	servers []*istio.Server,
 	listenerSetCount int,
 	gatewayErr *ConfigError,
+	backendTLSErr *ConfigError,
 ) {
 	// TODO: we lose address if servers is empty due to an error
 	internal, internalIP, external, pending, warnings, allUsable := r.ResolveGatewayInstances(obj.Namespace, gatewayServices, servers)
@@ -1757,9 +1758,16 @@ func reportGatewayStatus(
 			reason:  string(k8s.GatewayReasonProgrammed),
 			message: "Resource programmed",
 		},
+		string(k8s.GatewayConditionResolvedRefs): {
+			reason:  string(k8s.GatewayReasonResolvedRefs),
+			message: "All references resolved",
+		},
 	}
 	if gatewayErr != nil {
 		gatewayConditions[string(k8s.GatewayConditionAccepted)].error = gatewayErr
+	}
+	if backendTLSErr != nil {
+		gatewayConditions[string(k8s.GatewayConditionResolvedRefs)].error = backendTLSErr
 	}
 
 	if listenerSetCount != 0 {
@@ -2039,6 +2047,12 @@ func buildListener(
 			Reason:  string(k8s.GatewayReasonInvalid),
 			Message: "Bad TLS configuration",
 		}
+		if err.Reason == InvalidCACertificateRef || err.Reason == InvalidCACertificateKind || err.Reason == InvalidListenerRefNotPermitted {
+			listenerConditions[string(k8s.ListenerConditionAccepted)].error = &ConfigError{
+				Reason:  string(k8s.ListenerReasonNoValidCACertificate),
+				Message: err.Message,
+			}
+		}
 		ok = false
 	}
 	hostnames := buildHostnameMatch(ctx, obj.GetNamespace(), namespaces, l)
@@ -2123,6 +2137,68 @@ func listenerProtocolToIstio(name k8s.GatewayController, p k8s.ProtocolType) (st
 	}
 	// Note: the k8s.UDPProtocolType is explicitly left to hit this path
 	return "", fmt.Errorf("protocol %q is unsupported", p)
+}
+
+// validateBackendClientCertificateRef validates the spec.tls.backend.clientCertificateRef
+// field on a Gateway. It returns nil if the field is not set or the reference is valid.
+func validateBackendClientCertificateRef(
+	ctx krt.HandlerContext,
+	gw *k8s.Gateway,
+	secrets krt.Collection[*corev1.Secret],
+	grants gatewaycommon.ReferenceGrants,
+) *ConfigError {
+	if gw.Spec.TLS == nil || gw.Spec.TLS.Backend == nil || gw.Spec.TLS.Backend.ClientCertificateRef == nil {
+		return nil
+	}
+	ref := *gw.Spec.TLS.Backend.ClientCertificateRef
+	namespace := gw.GetNamespace()
+
+	if gatewaycommon.NormalizeReference(ref.Group, ref.Kind, gvk.Secret) != gvk.Secret {
+		return &ConfigError{
+			Reason:  InvalidClientCertificateRef,
+			Message: fmt.Sprintf("invalid clientCertificateRef %v, only secret is allowed", secretObjectReferenceString(ref)),
+		}
+	}
+
+	key := ptr.OrDefault((*string)(ref.Namespace), namespace) + "/" + string(ref.Name)
+	scrt := ptr.Flatten(krt.FetchOne(ctx, secrets, krt.FilterKey(key)))
+	if scrt == nil {
+		return &ConfigError{
+			Reason:  InvalidClientCertificateRef,
+			Message: fmt.Sprintf("invalid clientCertificateRef %v, secret %v not found", secretObjectReferenceString(ref), key),
+		}
+	}
+
+	certInfo, err := kubecreds.ExtractCertInfo(scrt)
+	if err != nil {
+		return &ConfigError{
+			Reason:  InvalidClientCertificateRef,
+			Message: fmt.Sprintf("invalid clientCertificateRef %v, %v", secretObjectReferenceString(ref), err),
+		}
+	}
+	if _, err = tls.X509KeyPair(certInfo.Cert, certInfo.Key); err != nil {
+		return &ConfigError{
+			Reason:  InvalidClientCertificateRef,
+			Message: fmt.Sprintf("invalid clientCertificateRef %v, the certificate is malformed: %v", secretObjectReferenceString(ref), err),
+		}
+	}
+
+	credNs := ptr.OrDefault((*string)(ref.Namespace), namespace)
+	if credNs != namespace {
+		cred := creds.ToKubernetesGatewayResource(credNs, string(ref.Name))
+		objectKind := schematypes.GvkFromObject(gw)
+		if !grants.SecretAllowed(ctx, objectKind, cred, namespace) {
+			return &ConfigError{
+				Reason: ConfigErrorReason(k8s.GatewayReasonRefNotPermitted),
+				Message: fmt.Sprintf(
+					"clientCertificateRef %v/%v not accessible to a Gateway in namespace %q (missing a ReferenceGrant?)",
+					ref.Name, credNs, namespace,
+				),
+			}
+		}
+	}
+
+	return nil
 }
 
 func resolveGatewayTLS(port k8s.PortNumber, gw *k8s.GatewayTLSConfig) *k8s.TLSConfig {
@@ -2227,7 +2303,7 @@ func buildTLS(
 			// TODO: add 'Mode'
 			if len(gatewayTLS.Validation.CACertificateRefs) > 1 {
 				return out, &ConfigError{
-					Reason:  InvalidTLS,
+					Reason:  InvalidCACertificateRef,
 					Message: "only one caCertificateRef is supported",
 				}
 			}
@@ -2338,7 +2414,7 @@ func buildCaCertificateReference(
 		cm := ptr.Flatten(krt.FetchOne(ctx, configMaps, krt.FilterKey(key)))
 		if cm == nil {
 			return nil, &ConfigError{
-				Reason:  InvalidTLS,
+				Reason:  InvalidCACertificateRef,
 				Message: fmt.Sprintf("invalid CA certificate reference %v, configmap %v not found", objectReferenceString(ref), key),
 			}
 		}
@@ -2351,26 +2427,26 @@ func buildCaCertificateReference(
 		scrt := ptr.Flatten(krt.FetchOne(ctx, secrets, krt.FilterKey(key)))
 		if scrt == nil {
 			return nil, &ConfigError{
-				Reason:  InvalidTLS,
+				Reason:  InvalidCACertificateRef,
 				Message: fmt.Sprintf("invalid CA certificate reference %v, secret %v not found", objectReferenceString(ref), key),
 			}
 		}
 		certInfo, certInfoErr = kubecreds.ExtractRoot(scrt.Data)
 	default:
 		return nil, &ConfigError{
-			Reason:  InvalidTLS,
+			Reason:  InvalidCACertificateKind,
 			Message: fmt.Sprintf("invalid CA certificate reference %v, only secret and configmap are allowed", objectReferenceString(ref)),
 		}
 	}
 	if certInfoErr != nil {
 		return nil, &ConfigError{
-			Reason:  InvalidTLS,
+			Reason:  InvalidCACertificateRef,
 			Message: fmt.Sprintf("invalid CA certificate reference %v, %v", objectReferenceString(ref), certInfoErr),
 		}
 	}
 	if !x509.NewCertPool().AppendCertsFromPEM(certInfo.Cert) {
 		return nil, &ConfigError{
-			Reason:  InvalidTLS,
+			Reason:  InvalidCACertificateRef,
 			Message: fmt.Sprintf("invalid CA certificate reference %v, the bundle is malformed", objectReferenceString(ref)),
 		}
 	}
