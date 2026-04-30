@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+
+releaseNotes:
+  - |
+    **Added** `xdsUnhealthyThreshold` to the ztunnel Helm chart to configure the `XDS_UNHEALTHY_THRESHOLD` readiness re-arm setting.

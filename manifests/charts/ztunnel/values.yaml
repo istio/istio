@@ -113,6 +113,12 @@ _internal_defaults_do_not_set:
   # By default, it is istiod.istio-system.svc:15012 if revision is not set, or istiod-<revision>.<istioNamespace>.svc:15012
   xdsAddress: ""
 
+  # Duration after xDS disconnect before ztunnel readiness reports unhealthy.
+  # Leave empty to preserve the existing behavior where readiness is not re-armed after initial sync.
+  # Valid examples: "5m", "300s", "1h".
+  # This renders XDS_UNHEALTHY_THRESHOLD; env.XDS_UNHEALTHY_THRESHOLD takes precedence if set.
+  xdsUnhealthyThreshold: ""
+
   # Used to locate the XDS and CA, if caAddress or xdsAddress are not set.
   istioNamespace: istio-system
 

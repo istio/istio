@@ -366,3 +366,52 @@ func TestRender(t *testing.T) {
 		})
 	}
 }
+
+func renderManifestString(t *testing.T, releaseName, namespace, chartName string, vals values.Map, diffSelect string) string {
+	t.Helper()
+	m, _, err := renderWithOptions(releaseName, namespace, chartName, vals, false)
+	require.NoError(t, err)
+
+	b := strings.Builder{}
+	for _, mf := range m {
+		b.WriteString(mf.Content)
+		b.WriteString("\n---\n")
+	}
+	got := b.String()
+	if diffSelect != "" {
+		got = operatortest.FilterManifest(t, got, diffSelect)
+	}
+	return got
+}
+
+func TestZtunnelXdsUnhealthyThreshold(t *testing.T) {
+	data := []byte(`
+spec:
+  values:
+    xdsUnhealthyThreshold: 5m
+`)
+	var vals values.Map
+	require.NoError(t, yaml.Unmarshal(data, &vals))
+
+	got := renderManifestString(t, "ztunnel", "istio-system", "ztunnel", vals, "DaemonSet:*:ztunnel")
+
+	require.Contains(t, got, "- name: XDS_UNHEALTHY_THRESHOLD\n          value: \"5m\"")
+}
+
+func TestZtunnelXdsUnhealthyThresholdEnvOverride(t *testing.T) {
+	data := []byte(`
+spec:
+  values:
+    xdsUnhealthyThreshold: 5m
+    env:
+      XDS_UNHEALTHY_THRESHOLD: 10m
+`)
+	var vals values.Map
+	require.NoError(t, yaml.Unmarshal(data, &vals))
+
+	got := renderManifestString(t, "ztunnel", "istio-system", "ztunnel", vals, "DaemonSet:*:ztunnel")
+
+	require.Contains(t, got, "- name: XDS_UNHEALTHY_THRESHOLD\n          value: \"10m\"")
+	require.NotContains(t, got, "- name: XDS_UNHEALTHY_THRESHOLD\n          value: \"5m\"")
+	require.Equal(t, 1, strings.Count(got, "name: XDS_UNHEALTHY_THRESHOLD"))
+}
