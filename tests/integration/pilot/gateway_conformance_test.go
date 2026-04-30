@@ -87,7 +87,6 @@ var skippedTests = map[string]string{
 	"HTTPRouteCORS":                                   "TODO",
 	"HTTPRouteHTTPSListenerDetectMisdirectedRequests": "TODO",
 
-	"ListenerSetAllowedNamespaceSelector":    "TODO",
 	"ListenerSetAllowedRoutesNamespaces":     "TODO",
 	"ListenerSetAllowedRoutesSupportedKinds": "TODO",
 	"ListenerSetDefaultNotAllowed":           "TODO",
