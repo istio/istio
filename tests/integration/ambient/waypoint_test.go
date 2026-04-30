@@ -1691,6 +1691,100 @@ spec:
 		})
 }
 
+// TestWaypointHTTPRouteToMeshInternalServiceEntry verifies that a waypoint generates an
+// inbound-vip cluster (not an outbound cluster) for a MESH_INTERNAL ServiceEntry backend
+// that has no local K8s Service.
+func TestWaypointHTTPRouteToMeshInternalServiceEntry(t *testing.T) {
+	framework.
+		NewTest(t).
+		Run(func(t framework.TestContext) {
+			ns := apps.Namespace.Name()
+			seHost := fmt.Sprintf("mesh-internal-only.%s.svc.cluster.local", ns)
+
+			// Create a MESH_INTERNAL ServiceEntry with a unique hostname (no K8s Service exists for
+			// this hostname). Its endpoint resolves to the Captured service so we have a real backend.
+			config := `
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: mesh-internal-only
+spec:
+  hosts:
+  - mesh-internal-only.{{.Namespace}}.svc.cluster.local
+  ports:
+  - name: http
+    number: 80
+    protocol: HTTP
+  resolution: DNS
+  location: MESH_INTERNAL
+  endpoints:
+  - address: {{.BackendHost}}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: waypoint-to-mesh-internal-se
+spec:
+  parentRefs:
+  - group: ""
+    kind: Service
+    name: {{.Service}}
+    sectionName: "80"
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /se-backend
+    backendRefs:
+    - group: networking.istio.io
+      kind: Hostname
+      name: mesh-internal-only.{{.Namespace}}.svc.cluster.local
+      port: 80
+`
+			t.ConfigIstio().
+				Eval(ns, map[string]any{
+					"Namespace":   ns,
+					"Service":     ServiceAddressedWaypoint,
+					"BackendHost": fmt.Sprintf("%s.%s.svc.cluster.local", Captured, ns),
+				}, config).
+				ApplyOrFail(t, apply.CleanupConditionally)
+
+			waypointLabel := label.IoK8sNetworkingGatewayGatewayName.Name + "=waypoint-service"
+			fetchFn := kubetest.NewSinglePodFetch(t.Clusters().Default(), ns, waypointLabel)
+			pods, err := kubetest.WaitUntilPodsAreReady(fetchFn)
+			if err != nil {
+				t.Fatalf("failed to find waypoint pod: %v", err)
+			}
+			waypointPod := fmt.Sprintf("%s.%s", pods[0].Name, ns)
+
+			inboundVIPPrefix := string(model.TrafficDirectionInboundVIP) + "|"
+			retry.UntilSuccessOrFail(t, func() error {
+				output, _ := istioctl.NewOrFail(t, istioctl.Config{}).InvokeOrFail(t,
+					[]string{"proxy-config", "cluster", waypointPod, "-o", "json"})
+
+				var clusters []json.RawMessage
+				if err := json.Unmarshal([]byte(output), &clusters); err != nil {
+					return fmt.Errorf("failed to parse cluster dump: %v", err)
+				}
+				for _, raw := range clusters {
+					var c map[string]any
+					if err := json.Unmarshal(raw, &c); err != nil {
+						continue
+					}
+					name, _ := c["name"].(string)
+					if !strings.Contains(name, seHost) {
+						continue
+					}
+					if strings.HasPrefix(name, inboundVIPPrefix) {
+						return nil
+					}
+					return fmt.Errorf("expected %s cluster for %s, got %q", inboundVIPPrefix, seHost, name)
+				}
+				return fmt.Errorf("no cluster found for %s", seHost)
+			}, retry.Timeout(30*time.Second))
+		})
+}
+
 func GetCondition(conditions []metav1.Condition, condition string) *metav1.Condition {
 	for _, cond := range conditions {
 		if cond.Type == condition {

@@ -84,10 +84,24 @@ func findWaypointResources(node *model.Proxy, push *model.PushContext) ([]model.
 		waypointServices.services[hostName] = svc
 	}
 
-	unorderedServices := maps.Values(waypointServices.services)
-	if len(serviceInfos) > 0 {
-		waypointServices.orderedServices = model.SortServicesByCreationTime(unorderedServices)
+	// Also include mesh-internal services referenced by waypoint-owned services' routes.
+	// These may have no local K8s Service, but need inbound-vip treatment so that
+	// traffic routes through main_internal rather than an outbound cluster.
+	referencedServices := push.ServicesAttachedToMesh()
+	for waypointSvcHost := range waypointServices.services {
+		for referencedHost := range referencedServices[string(waypointSvcHost)] {
+			refHostName := host.Name(referencedHost)
+			if _, ok := waypointServices.services[refHostName]; ok {
+				continue
+			}
+			svc := push.ServiceForHostname(node, refHostName)
+			if svc != nil && !svc.MeshExternal {
+				waypointServices.services[refHostName] = svc
+			}
+		}
 	}
+
+	waypointServices.orderedServices = model.SortServicesByCreationTime(maps.Values(waypointServices.services))
 	return workloads, waypointServices
 }
 
