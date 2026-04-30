@@ -71,13 +71,9 @@ var skippedTests = map[string]string{
 
 	// The following tests were added in v1.5.0
 
-	// "GatewayBackendClientCertificateFeature":                     "hypothesis: spec.tls.backend.clientCertificateRef not implemented",
-	// "GatewayFrontendInvalidDefaultClientCertificateValidation":   "TODO",
-	// "GatewayInvalidTLSBackendConfiguration":                      "TODO",
-	// "GatewayTLSBackendClientCertificate":                         "TODO",
-	// "GatewayFrontendClientCertificateValidationInsecureFallback": "TODO",
-	// "GatewayFrontendClientCertificateValidation":                 "TODO",
-	// "GatewayInvalidFrontendClientCertificateValidation":          "TODO",
+	"GatewayBackendClientCertificateFeature":                     "TODO",
+	"GatewayTLSBackendClientCertificate":                         "TODO",
+	"GatewayFrontendClientCertificateValidationInsecureFallback": "TODO",
 
 	"HTTPRouteHTTPSListenerDetectMisdirectedRequests": "TODO",
 
@@ -144,10 +140,6 @@ func TestGatewayConformance(t *testing.T) {
 					label.IoIstioDataplaneMode.Name: "ambient",
 				},
 				TimeoutConfig: ctx.Settings().GatewayConformanceTimeoutConfig,
-				// RunTest:       "GatewayBackendClientCertificateFeature", // PASS
-				// RunTest: "GatewayFrontendClientCertificateValidation", // FAIL
-				// RunTest: "GatewayFrontendInvalidDefaultClientCertificateValidation" // PASS,
-				// RunTest: "GatewayInvalidTLSBackendConfiguration",
 			}
 			if ctx.Settings().GatewayConformanceAllowCRDsMismatch {
 				opts.AllowCRDsMismatch = true
