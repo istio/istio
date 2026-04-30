@@ -543,6 +543,37 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 		}
 	}
 
+	// Inject fallback virtual hosts that return 421 Misdirected Request for hostnames
+	// served by sibling HTTPS listeners on the same port. This implements the Gateway API
+	// requirement that an HTTPS request whose Host header would match a different listener
+	// be rejected rather than processed by the listener selected via SNI.
+	misdirectedPort := int(servers[0].Port.Number)
+	for _, server := range servers {
+		for _, mh := range merged.MisdirectedHostsForServer[server] {
+			hn := host.Name(strings.ToLower(mh))
+			if _, exists := vHostDedupMap[hn]; exists {
+				// Real routes (or HttpsRedirect entries) already cover this host on
+				// this listener; do not override them.
+				continue
+			}
+			vHostDedupMap[hn] = &route.VirtualHost{
+				Name:    util.DomainName(string(hn), misdirectedPort),
+				Domains: []string{string(hn)},
+				Routes: []*route.Route{{
+					Match: &route.RouteMatch{
+						PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"},
+					},
+					Action: &route.Route_DirectResponse{
+						DirectResponse: &route.DirectResponseAction{
+							Status: 421,
+						},
+					},
+				}},
+				IncludeRequestAttemptCount: ph.IncludeRequestAttemptCount,
+			}
+		}
+	}
+
 	var virtualHosts []*route.VirtualHost
 	if len(vHostDedupMap) == 0 {
 		port := int(servers[0].Port.Number)

@@ -85,6 +85,11 @@ type MergedGateway struct {
 	// TLSServerInfo maps from server to a corresponding TLS information like TLS Routename and SNIHosts.
 	TLSServerInfo map[*networking.Server]*TLSServerInfo
 
+	// MisdirectedHostsForServer maps from a server to a list of sibling listener hostnames
+	// (sharing the same port on the same Kubernetes Gateway) that should produce a 421
+	// Misdirected Request response when received on this server.
+	MisdirectedHostsForServer map[*networking.Server][]string
+
 	// ContainsAutoPassthroughGateways determines if there are any type AUTO_PASSTHROUGH Gateways, requiring additional
 	// clusters to be sent to the workload
 	ContainsAutoPassthroughGateways bool
@@ -187,6 +192,7 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 	serversByRouteName := make(map[string][]*networking.Server)
 	tlsServerInfo := make(map[*networking.Server]*TLSServerInfo)
 	gatewayNameForServer := make(map[*networking.Server]string)
+	misdirectedHostsForServer := make(map[*networking.Server][]string)
 	verifiedCertificateReferences := sets.New[string]()
 	http3AdvertisingRoutes := sets.New[string]()
 	tlsHostsByPort := map[uint32]map[string]string{} // port -> host/bind map
@@ -214,6 +220,9 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 			}
 			s := sanitizeServerHostNamespace(s, gatewayConfig.Namespace)
 			gatewayNameForServer[s] = gatewayName
+			if raw := gatewayConfig.Annotations[constants.InternalGatewayMisdirectedHosts]; raw != "" {
+				misdirectedHostsForServer[s] = strings.Split(raw, ",")
+			}
 			log.Debugf("mergeGateways: gateway %q processing server %s :%v", gatewayName, s.Name, s.Hosts)
 
 			expectedSA := gatewayConfig.Annotations[constants.InternalServiceAccount]
@@ -448,6 +457,7 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 		ServerPorts:                     serverPorts,
 		GatewayNameForServer:            gatewayNameForServer,
 		TLSServerInfo:                   tlsServerInfo,
+		MisdirectedHostsForServer:       misdirectedHostsForServer,
 		ServersByRouteName:              serversByRouteName,
 		HTTP3AdvertisingRoutes:          http3AdvertisingRoutes,
 		ContainsAutoPassthroughGateways: autoPassthrough,

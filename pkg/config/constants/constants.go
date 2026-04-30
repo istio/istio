@@ -135,14 +135,20 @@ const (
 	// The service account name that gateway workloads are running at. Used to verify that
 	// only service accounts associated with gateway workloads can query secrets.
 	// Empty means any service account name within the namespace.
-	InternalServiceAccount        = "internal.istio.io/service-account-name"
-	InternalRouteSemantics        = "internal.istio.io/route-semantics"
-	RouteSemanticsIngress         = "ingress"
-	RouteSemanticsGateway         = "gateway"
-	InternalGatewaySemantics      = "internal.istio.io/gateway-semantics"
-	GatewaySemanticsGateway       = "gateway"
-	InternalServiceSemantics      = "internal.istio.io/service-semantics"
-	ServiceSemanticsInferencePool = "inferencepool"
+	InternalServiceAccount = "internal.istio.io/service-account-name"
+	// InternalGatewayMisdirectedHosts contains, for an internally-generated istio Gateway
+	// derived from a Kubernetes Gateway HTTPS listener, a comma-separated list of sibling
+	// listener hostnames that should produce a 421 Misdirected Request response when received
+	// on this listener. A "*" entry means "any host" (a sibling listener with no hostname constraint
+	// exists on the same port). See Gateway API HTTPRouteHTTPSListenerDetectMisdirectedRequests.
+	InternalGatewayMisdirectedHosts = "internal.istio.io/misdirected-hosts"
+	InternalRouteSemantics          = "internal.istio.io/route-semantics"
+	RouteSemanticsIngress           = "ingress"
+	RouteSemanticsGateway           = "gateway"
+	InternalGatewaySemantics        = "internal.istio.io/gateway-semantics"
+	GatewaySemanticsGateway         = "gateway"
+	InternalServiceSemantics        = "internal.istio.io/service-semantics"
+	ServiceSemanticsInferencePool   = "inferencepool"
 
 	// ThirdPartyJwtPath is the default 3P token to authenticate with third party services
 	ThirdPartyJwtPath = "./var/run/secrets/tokens/istio-token"
