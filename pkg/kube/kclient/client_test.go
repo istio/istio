@@ -32,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
+	"k8s.io/client-go/tools/cache"
 
 	ext "istio.io/api/extensions/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -202,6 +203,47 @@ func TestSwappingClient(t *testing.T) {
 	})
 }
 
+func TestDelayedClientHandlerHasSyncedChecker(t *testing.T) {
+	t.Run("syncs without CRD", func(t *testing.T) {
+		stop := test.NewStop(t)
+		c := kube.NewFakeClient()
+		wasm := kclient.NewDelayedInformer[controllers.Object](c, gvr.WasmPlugin, kubetypes.StandardInformer, kubetypes.Filter{})
+		registration := wasm.AddEventHandler(cache.ResourceEventHandlerFuncs{})
+		checker := registration.HasSyncedChecker()
+		done := checker.Done()
+
+		if checker.Done() != done {
+			t.Fatal("expected Done to return a stable channel")
+		}
+		assertChannelOpen(t, done)
+		c.RunAndWait(stop)
+		assertChannelClosed(t, done)
+	})
+	t.Run("waits for real handler sync", func(t *testing.T) {
+		stop := test.NewStop(t)
+		c := kube.NewFakeClient()
+		wasm := kclient.NewDelayedInformer[controllers.Object](c, gvr.WasmPlugin, kubetypes.StandardInformer, kubetypes.Filter{})
+		handled := make(chan struct{})
+		registration := wasm.AddEventHandler(cache.ResourceEventHandlerFuncs{
+			AddFunc: func(any) {
+				close(handled)
+			},
+		})
+		done := registration.HasSyncedChecker().Done()
+
+		clienttest.MakeCRD(t, c, gvr.WasmPlugin)
+		wt := clienttest.NewWriter[*istioclient.WasmPlugin](t, c)
+		wt.Create(&istioclient.WasmPlugin{
+			ObjectMeta: metav1.ObjectMeta{Name: "name", Namespace: "default"},
+		})
+
+		assertChannelOpen(t, done)
+		c.RunAndWait(stop)
+		assertChannelClosed(t, done)
+		assertChannelClosed(t, handled)
+	})
+}
+
 func TestDelayedClientWithRegisteredType(t *testing.T) {
 	kubeclient.Register[*oldistionetclient.DestinationRule](
 		gvr.DestinationRule_v1beta1,
@@ -254,6 +296,24 @@ func constantlyAccessForRaceDetection(stop chan struct{}, wt kclient.Untyped) {
 			return
 		}
 		_ = wt.List("", klabels.Everything())
+	}
+}
+
+func assertChannelOpen(t *testing.T, ch <-chan struct{}) {
+	t.Helper()
+	select {
+	case <-ch:
+		t.Fatal("expected channel to remain open")
+	default:
+	}
+}
+
+func assertChannelClosed(t *testing.T, ch <-chan struct{}) {
+	t.Helper()
+	select {
+	case <-ch:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for channel to close")
 	}
 }
 

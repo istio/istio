@@ -198,6 +198,20 @@ func (a neverReady) HasSynced() bool {
 	return false
 }
 
+func (a neverReady) HasSyncedChecker() cache.DoneChecker {
+	return neverReadyDoneChecker{}
+}
+
+type neverReadyDoneChecker struct{}
+
+func (neverReadyDoneChecker) Name() string {
+	return "never ready"
+}
+
+func (neverReadyDoneChecker) Done() <-chan struct{} {
+	return nil
+}
+
 func (n *informerClient[T]) AddEventHandler(h cache.ResourceEventHandler) cache.ResourceEventHandlerRegistration {
 	fh := cache.FilteringResourceEventHandler{
 		FilterFunc: func(obj interface{}) bool {

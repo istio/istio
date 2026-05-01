@@ -16,6 +16,7 @@ package controllers
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"go.uber.org/atomic"
@@ -33,6 +34,8 @@ type ReconcilerFn func(key types.NamespacedName) error
 type Queue struct {
 	queue       workqueue.TypedRateLimitingInterface[any]
 	initialSync *atomic.Bool
+	synced      chan struct{}
+	syncedOnce  *sync.Once
 	name        string
 	maxAttempts int
 	workFn      func(key any) error
@@ -84,6 +87,8 @@ func NewQueue(name string, options ...func(*Queue)) Queue {
 	q := Queue{
 		name:        name,
 		closed:      make(chan struct{}),
+		synced:      make(chan struct{}),
+		syncedOnce:  new(sync.Once),
 		initialSync: atomic.NewBool(false),
 	}
 	for _, o := range options {
@@ -153,6 +158,11 @@ func (q Queue) HasSynced() bool {
 	return q.initialSync.Load()
 }
 
+// Synced returns a chan that is closed once the queue has processed all events added prior to Run().
+func (q Queue) Synced() <-chan struct{} {
+	return q.synced
+}
+
 // Closed returns a chan that will be signaled when the Instance has stopped processing tasks.
 func (q Queue) Closed() <-chan struct{} {
 	return q.closed
@@ -170,7 +180,10 @@ func (q Queue) processNextItem() bool {
 	// We got the sync signal. This is not a real event, so we exit early after signaling we are synced
 	if key == defaultSyncSignal {
 		q.log.Debugf("synced")
-		q.initialSync.Store(true)
+		q.syncedOnce.Do(func() {
+			q.initialSync.Store(true)
+			close(q.synced)
+		})
 		return true
 	}
 

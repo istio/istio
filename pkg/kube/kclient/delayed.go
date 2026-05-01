@@ -49,13 +49,75 @@ type delayedHandler struct {
 
 type delayedHandlerRegistration struct {
 	hasSynced *atomic.Pointer[func() bool]
+	real      *atomic.Bool
+	done      chan struct{}
+	doneOnce  *sync.Once
 }
 
 func (r delayedHandlerRegistration) HasSynced() bool {
 	if s := r.hasSynced.Load(); s != nil {
-		return (*s)()
+		synced := (*s)()
+		if synced {
+			r.markSynced()
+		}
+		return synced
 	}
 	return false
+}
+
+func (r delayedHandlerRegistration) HasSyncedChecker() cache.DoneChecker {
+	return delayedHandlerDoneChecker{registration: r}
+}
+
+func (r delayedHandlerRegistration) watchDelayed(checker cache.DoneChecker) {
+	r.watchWithCondition(checker, func() bool {
+		return !r.real.Load()
+	})
+}
+
+func (r delayedHandlerRegistration) watch(checker cache.DoneChecker) {
+	r.watchWithCondition(checker, func() bool {
+		return true
+	})
+}
+
+func (r delayedHandlerRegistration) watchWithCondition(checker cache.DoneChecker, shouldMarkSynced func() bool) {
+	if checker == nil {
+		return
+	}
+	if cache.IsDone(checker) {
+		if shouldMarkSynced() {
+			r.markSynced()
+		}
+		return
+	}
+	go func() {
+		select {
+		case <-checker.Done():
+			if shouldMarkSynced() {
+				r.markSynced()
+			}
+		case <-r.done:
+		}
+	}()
+}
+
+func (r delayedHandlerRegistration) markSynced() {
+	r.doneOnce.Do(func() {
+		close(r.done)
+	})
+}
+
+type delayedHandlerDoneChecker struct {
+	registration delayedHandlerRegistration
+}
+
+func (delayedHandlerDoneChecker) Name() string {
+	return "delayed handler"
+}
+
+func (d delayedHandlerDoneChecker) Done() <-chan struct{} {
+	return d.registration.done
 }
 
 type delayedIndex[T any] struct {
@@ -111,8 +173,14 @@ func (s *delayedClient[T]) AddEventHandler(h cache.ResourceEventHandler) cache.R
 	s.hm.Lock()
 	defer s.hm.Unlock()
 
-	hasSynced := delayedHandlerRegistration{hasSynced: new(atomic.Pointer[func() bool])}
+	hasSynced := delayedHandlerRegistration{
+		hasSynced: new(atomic.Pointer[func() bool]),
+		real:      new(atomic.Bool),
+		done:      make(chan struct{}),
+		doneOnce:  new(sync.Once),
+	}
 	hasSynced.hasSynced.Store(ptr.Of(s.delayed.HasSynced))
+	hasSynced.watchDelayed(s.delayed.HasSyncedChecker())
 	s.handlers = append(s.handlers, delayedHandler{
 		ResourceEventHandler: h,
 		hasSynced:            hasSynced,
@@ -180,7 +248,9 @@ func (s *delayedClient[T]) set(inf Informer[T]) {
 		defer s.hm.Unlock()
 		for _, h := range s.handlers {
 			reg := inf.AddEventHandler(h)
+			h.hasSynced.real.Store(true)
 			h.hasSynced.hasSynced.Store(ptr.Of(reg.HasSynced))
+			h.hasSynced.watch(reg.HasSyncedChecker())
 		}
 		s.handlers = nil
 		for _, i := range s.indexers {
@@ -201,6 +271,10 @@ type delayedFilter struct {
 
 func (d *delayedFilter) HasSynced() bool {
 	return d.Watcher.HasSynced()
+}
+
+func (d *delayedFilter) HasSyncedChecker() cache.DoneChecker {
+	return d.Watcher.HasSyncedChecker()
 }
 
 func (d *delayedFilter) KnownOrCallback(f func(stop <-chan struct{})) bool {

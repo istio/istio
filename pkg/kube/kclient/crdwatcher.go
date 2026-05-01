@@ -23,6 +23,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/cache"
 	"sigs.k8s.io/gateway-api/pkg/consts"
 
 	"istio.io/istio/pilot/pkg/features"
@@ -208,6 +209,22 @@ func minimumVersionFilter(t any) bool {
 // HasSynced returns whether the underlying cache has synced and the callback has been called at least once.
 func (c *crdWatcher) HasSynced() bool {
 	return c.queue.HasSynced()
+}
+
+func (c *crdWatcher) HasSyncedChecker() cache.DoneChecker {
+	return crdWatcherDoneChecker{done: c.queue.Synced()}
+}
+
+type crdWatcherDoneChecker struct {
+	done <-chan struct{}
+}
+
+func (crdWatcherDoneChecker) Name() string {
+	return "crd watcher"
+}
+
+func (c crdWatcherDoneChecker) Done() <-chan struct{} {
+	return c.done
 }
 
 // Run starts the controller. This must be called.

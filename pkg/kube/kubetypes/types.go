@@ -22,6 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/slices"
@@ -137,6 +138,8 @@ func ComposeFilters(filter DynamicObjectFilter, extra ...func(obj any) bool) Dyn
 type CrdWatcher interface {
 	// HasSynced returns true once all existing state has been synced.
 	HasSynced() bool
+	// HasSyncedChecker returns a checker that completes once all existing state has been synced.
+	HasSyncedChecker() cache.DoneChecker
 	// KnownOrCallback returns `true` immediately if the resource is known.
 	// If it is not known, `false` is returned. If the resource is later added, the callback will be triggered.
 	KnownOrCallback(s schema.GroupVersionResource, f func(stop <-chan struct{})) bool
@@ -152,6 +155,7 @@ type CrdWatcher interface {
 // once the underlying resource is available. See kclient.NewDelayedInformer.
 type DelayedFilter interface {
 	HasSynced() bool
+	HasSyncedChecker() cache.DoneChecker
 	KnownOrCallback(f func(stop <-chan struct{})) bool
 }
 
