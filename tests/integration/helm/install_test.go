@@ -58,7 +58,7 @@ func TestRevisionedInstall(t *testing.T) {
 		NewTest(t).
 		Run(baseSetup(values, false, DefaultNamespaceConfig, func(t framework.TestContext) {
 			// Install gateway API CRDs
-			crd.DeployGatewayAPI(t)
+			crd.DeployGatewayAPIOrSkip(t)
 			// Verify we can create a Gateway successfully
 			sampleGateway := `
 apiVersion: gateway.networking.k8s.io/v1

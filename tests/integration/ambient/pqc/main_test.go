@@ -261,28 +261,6 @@ spec:
 func TestWaypoint(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
-			serviceEntryYaml := `
-apiVersion: networking.istio.io/v1
-kind: ServiceEntry
-metadata:
-  name: external
-spec:
-  hosts:
-  - server.{{.ExternalNamespace}}.svc.cluster.local
-  ports:
-  - name: https
-    number: 8443
-    protocol: HTTPS
-  location: MESH_EXTERNAL
-  resolution: DNS
-  endpoints:
-  - address: server.{{.ExternalNamespace}}.svc.cluster.local`
-			t.ConfigIstio().
-				Eval(internalNs.Name(), map[string]string{
-					"ExternalNamespace": externalNs.Name(),
-				}, serviceEntryYaml).
-				ApplyOrFail(t, apply.CleanupConditionally)
-
 			t.NewSubTest("TLS connection with PQC-compliant settings should succeed").Run(func(t framework.TestContext) {
 				a.CallOrFail(t, echo.CallOptions{
 					To: server,
