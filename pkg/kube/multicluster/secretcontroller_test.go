@@ -870,9 +870,12 @@ func TestClusterUpdateHotSwap(t *testing.T) {
 	}, true)
 	<-events // drain "created" event
 
-	// Get the initial handler
-	initialHandler := component.ForCluster("c0")
-	assert.Equal(t, initialHandler != nil, true)
+	// Get the initial handler (may not be stored yet even though the event was drained)
+	var initialHandler *testHandler
+	assert.EventuallyEqual(t, func() bool {
+		initialHandler = component.ForCluster("c0")
+		return initialHandler != nil
+	}, true, retry.Timeout(10*time.Second))
 	initialIter := initialHandler.Iter
 
 	// Update the secret (credential rotation)
@@ -897,8 +900,11 @@ func TestClusterUpdateHotSwap(t *testing.T) {
 	assert.Equal(t, newCreatedEvent.iter > initialIter, true)
 
 	// The new handler should now be in place
-	newHandler := component.ForCluster("c0")
-	assert.Equal(t, newHandler != nil, true)
+	var newHandler *testHandler
+	assert.EventuallyEqual(t, func() bool {
+		newHandler = component.ForCluster("c0")
+		return newHandler != nil
+	}, true)
 	assert.Equal(t, newHandler.Iter, newCreatedEvent.iter)
 
 	// Wait a bit and verify the old component was closed (via pendingSwap.HasSynced)

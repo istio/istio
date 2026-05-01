@@ -645,3 +645,46 @@ func TestServiceAccountRegex(t *testing.T) {
 	assert.Equal(t, serviceAccountRegex("", "my.ns/my.sa"), `spiffe://.+/ns/my\.ns/(.+/|)sa/my\.sa(/.+)?`)
 	assert.Equal(t, serviceAccountRegex("ns+foo", "sa(bar)"), `spiffe://.+/ns/ns\+foo/(.+/|)sa/sa\(bar\)(/.+)?`)
 }
+
+func TestNamespaceMatcherRegex_Match(t *testing.T) {
+	testCases := []struct {
+		name    string
+		v       string
+		match   string
+		noMatch string
+	}{
+		{
+			name:    "exact-match-with-dot",
+			v:       "ns.prod",
+			match:   "spiffe://cluster.local/ns/ns.prod/sa/admin",
+			noMatch: "spiffe://cluster.local/ns/nsXprod/sa/admin",
+		},
+		{
+			name:    "wildcard-match-with-dot",
+			v:       "ns.*.prod",
+			match:   "spiffe://cluster.local/ns/ns.any.prod/sa/admin",
+			noMatch: "spiffe://cluster.local/ns/nsXanyXprod/sa/admin",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			g := srcNamespaceGenerator{}
+			p, err := g.principal("", tc.v, false, true)
+			if err != nil {
+				t.Fatalf("failed to generate principal: %v", err)
+			}
+			regexStr := p.GetAuthenticated().GetPrincipalName().GetSafeRegex().GetRegex()
+			re, err := regexp.Compile(regexStr)
+			if err != nil {
+				t.Fatalf("failed to compile regex %q: %v", regexStr, err)
+			}
+			if !re.MatchString(tc.match) {
+				t.Errorf("expected %q to match %q", regexStr, tc.match)
+			}
+			if re.MatchString(tc.noMatch) {
+				t.Errorf("expected %q NOT to match %q", regexStr, tc.noMatch)
+			}
+		})
+	}
+}
