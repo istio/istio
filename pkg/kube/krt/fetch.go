@@ -15,6 +15,9 @@
 package krt
 
 import (
+	"k8s.io/apimachinery/pkg/types"
+
+	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/slices"
 )
 
@@ -49,6 +52,17 @@ func PartialFetchComparable[T any, S comparable](ctx HandlerContext, cc Collecti
 	return PartialFetch(ctx, cc, xfm, func(s S, s2 S) bool {
 		return s == s2
 	}, opts...)
+}
+
+func extractNamespacedName[T controllers.ComparableObject](t T) types.NamespacedName {
+	return types.NamespacedName{
+		Namespace: t.GetNamespace(),
+		Name:      t.GetName(),
+	}
+}
+
+func ResourceExists[T controllers.ComparableObject](ctx HandlerContext, cc Collection[T], key string) bool {
+	return len(PartialFetchComparable(ctx, cc, extractNamespacedName, FilterKey(key))) > 0
 }
 
 // Fetch runs a query against the provided collection and subscribes to updates.
