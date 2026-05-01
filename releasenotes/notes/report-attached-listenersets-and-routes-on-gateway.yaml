@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+  - |
+    **Fixed**: status reporting for Gateway and ListenerSet resources to comply with the Gateway API specification v1.5.0.
+    It changes Gateway status reporting to report the number of ListenerSets to be reported in AttachedListenerSets field
+    of the Gateway resource, instead of the number of Listeners. It also changes status reporting for ListenerSets to
+    report the number of routes attached to each listener in the ListenerSet.
