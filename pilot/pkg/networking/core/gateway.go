@@ -543,22 +543,39 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 		}
 	}
 
-	// Inject fallback virtual hosts that return 421 Misdirected Request for hostnames
-	// served by sibling HTTPS listeners on the same port. This implements the Gateway API
-	// requirement that an HTTPS request whose Host header would match a different listener
-	// be rejected rather than processed by the listener selected via SNI.
-	misdirectedPort := int(servers[0].Port.Number)
+	// Collect fallback hostnames that should return 421 Misdirected Request because
+	// they are served by sibling HTTPS listeners on the same port. Per the Gateway API
+	// spec, an HTTPS request whose Host header would match a different listener must be
+	// rejected rather than processed by the listener selected via SNI.
+	misdirectedDomains := sets.New[string]()
 	for _, server := range servers {
 		for _, mh := range merged.MisdirectedHostsForServer[server] {
-			hn := host.Name(strings.ToLower(mh))
-			if _, exists := vHostDedupMap[hn]; exists {
-				// Real routes (or HttpsRedirect entries) already cover this host on
-				// this listener; do not override them.
-				continue
-			}
-			vHostDedupMap[hn] = &route.VirtualHost{
-				Name:    util.DomainName(string(hn), misdirectedPort),
-				Domains: []string{string(hn)},
+			misdirectedDomains.Insert(strings.ToLower(mh))
+		}
+	}
+
+	var virtualHosts []*route.VirtualHost
+	if len(vHostDedupMap) == 0 && misdirectedDomains.Len() == 0 {
+		port := int(servers[0].Port.Number)
+		log.Warnf("constructed http route config for route %s on port %d with no vhosts; Setting up a default 404 vhost", routeName, port)
+		virtualHosts = []*route.VirtualHost{{
+			Name:    util.DomainName("blackhole", port),
+			Domains: []string{"*"},
+			// Empty route list will cause Envoy to 404 NR any requests
+			Routes: []*route.Route{},
+		}}
+	} else {
+		virtualHosts = make([]*route.VirtualHost, 0, len(vHostDedupMap)+1)
+		vHostDedupMap = collapseDuplicateRoutes(vHostDedupMap)
+		for _, v := range vHostDedupMap {
+			v.Routes = istio_route.SortVHostRoutes(v.Routes)
+			virtualHosts = append(virtualHosts, v)
+		}
+		if misdirectedDomains.Len() > 0 {
+			port := int(servers[0].Port.Number)
+			virtualHosts = append(virtualHosts, &route.VirtualHost{
+				Name:    util.DomainName("misdirected", port),
+				Domains: sets.SortedList(misdirectedDomains),
 				Routes: []*route.Route{{
 					Match: &route.RouteMatch{
 						PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"},
@@ -570,26 +587,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 					},
 				}},
 				IncludeRequestAttemptCount: ph.IncludeRequestAttemptCount,
-			}
-		}
-	}
-
-	var virtualHosts []*route.VirtualHost
-	if len(vHostDedupMap) == 0 {
-		port := int(servers[0].Port.Number)
-		log.Warnf("constructed http route config for route %s on port %d with no vhosts; Setting up a default 404 vhost", routeName, port)
-		virtualHosts = []*route.VirtualHost{{
-			Name:    util.DomainName("blackhole", port),
-			Domains: []string{"*"},
-			// Empty route list will cause Envoy to 404 NR any requests
-			Routes: []*route.Route{},
-		}}
-	} else {
-		virtualHosts = make([]*route.VirtualHost, 0, len(vHostDedupMap))
-		vHostDedupMap = collapseDuplicateRoutes(vHostDedupMap)
-		for _, v := range vHostDedupMap {
-			v.Routes = istio_route.SortVHostRoutes(v.Routes)
-			virtualHosts = append(virtualHosts, v)
+			})
 		}
 	}
 
