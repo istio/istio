@@ -2,6 +2,7 @@ apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   annotations:
+    internal.istio.io/gateway-parent: istio-system/default
     internal.istio.io/gateway-semantics: gateway
     internal.istio.io/gateway-service: istio-ingressgateway.istio-system.svc.domain.suffix
     internal.istio.io/parents: Gateway/default/http.istio-system
@@ -21,6 +22,7 @@ apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   annotations:
+    internal.istio.io/gateway-parent: istio-system/default
     internal.istio.io/gateway-semantics: gateway
     internal.istio.io/gateway-service: istio-ingressgateway.istio-system.svc.domain.suffix
     internal.istio.io/parents: Gateway/default/https.istio-system

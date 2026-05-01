@@ -192,7 +192,12 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 	serversByRouteName := make(map[string][]*networking.Server)
 	tlsServerInfo := make(map[*networking.Server]*TLSServerInfo)
 	gatewayNameForServer := make(map[*networking.Server]string)
-	misdirectedHostsForServer := make(map[*networking.Server][]string)
+	// misdirectedParentForServer records, for each HTTPS-terminating server originating
+	// from a Kubernetes Gateway listener (parent Gateway or any ListenerSet), the
+	// "<namespace>/<name>" key of the parent Kubernetes Gateway resource. Servers sharing
+	// the same parent (and the same port + bind) are sibling listeners selected via SNI,
+	// and feed the per-server MisdirectedHostsForServer computation below.
+	misdirectedParentForServer := make(map[*networking.Server]string)
 	verifiedCertificateReferences := sets.New[string]()
 	http3AdvertisingRoutes := sets.New[string]()
 	tlsHostsByPort := map[uint32]map[string]string{} // port -> host/bind map
@@ -220,8 +225,8 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 			}
 			s := sanitizeServerHostNamespace(s, gatewayConfig.Namespace)
 			gatewayNameForServer[s] = gatewayName
-			if raw := gatewayConfig.Annotations[constants.InternalGatewayMisdirectedHosts]; raw != "" {
-				misdirectedHostsForServer[s] = strings.Split(raw, ",")
+			if parent := gatewayConfig.Annotations[constants.InternalGatewayParent]; parent != "" && gateway.IsHTTPSServerWithTLSTermination(s) {
+				misdirectedParentForServer[s] = parent
 			}
 			log.Debugf("mergeGateways: gateway %q processing server %s :%v", gatewayName, s.Name, s.Hosts)
 
@@ -451,6 +456,7 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 			}
 		}
 	}
+	misdirectedHostsForServer := computeMisdirectedHosts(misdirectedParentForServer)
 	return &MergedGateway{
 		MergedServers:                   mergedServers,
 		MergedQUICTransportServers:      mergedQUICServers,
@@ -656,6 +662,79 @@ func ParseGatewayRDSRouteName(name string) (portNumber int, portName, gatewayNam
 		gatewayName = gwNs + "/" + gwName
 	}
 	return portNumber, portName, gatewayName
+}
+
+// computeMisdirectedHosts produces, for each HTTPS-terminating server originating from a
+// Kubernetes Gateway listener, the list of sibling listener hostnames on the same
+// (Kubernetes Gateway parent, port, bind) tuple that should produce a 421 Misdirected Request
+// response. A "*" entry means "any host other than my own" — emitted when at least one sibling
+// listener is a catch-all (no hostname constraint) and this listener has a hostname constraint.
+func computeMisdirectedHosts(parentForServer map[*networking.Server]string) map[*networking.Server][]string {
+	if len(parentForServer) == 0 {
+		return nil
+	}
+	type bucketKey struct {
+		parent string
+		port   uint32
+		bind   string
+	}
+	type bucket struct {
+		hostnames sets.Set[string]
+		catchAll  bool
+	}
+	buckets := map[bucketKey]*bucket{}
+	// Pass 1: collect each server's hostname-set (namespace stripped) into its bucket.
+	for s, parent := range parentForServer {
+		k := bucketKey{parent: parent, port: s.Port.Number, bind: s.Bind}
+		b, ok := buckets[k]
+		if !ok {
+			b = &bucket{hostnames: sets.New[string]()}
+			buckets[k] = b
+		}
+		for _, h := range s.Hosts {
+			h = stripHostNamespace(h)
+			if h == "*" {
+				b.catchAll = true
+				continue
+			}
+			b.hostnames.Insert(h)
+		}
+	}
+	// Pass 2: per server, compute siblings = bucket - own hostnames (+ "*" if a sibling is catch-all).
+	out := make(map[*networking.Server][]string, len(parentForServer))
+	for s, parent := range parentForServer {
+		k := bucketKey{parent: parent, port: s.Port.Number, bind: s.Bind}
+		b := buckets[k]
+		ownHostnames := sets.New[string]()
+		ownIsCatchAll := false
+		for _, h := range s.Hosts {
+			h = stripHostNamespace(h)
+			if h == "*" {
+				ownIsCatchAll = true
+				continue
+			}
+			ownHostnames.Insert(h)
+		}
+		siblings := b.hostnames.Difference(ownHostnames)
+		if b.catchAll && !ownIsCatchAll {
+			siblings.Insert("*")
+		}
+		if siblings.Len() > 0 {
+			out[s] = sets.SortedList(siblings)
+		}
+	}
+	return out
+}
+
+// stripHostNamespace removes a leading "<namespace>/" prefix from a server host entry,
+// leaving the bare hostname (or "*" for full wildcards). Server hosts arrive in the
+// "<namespace>/<host>" form after sanitizeServerHostNamespace; this strips the namespace
+// for sibling-hostname comparisons that are namespace-agnostic.
+func stripHostNamespace(h string) string {
+	if i := strings.Index(h, "/"); i >= 0 {
+		return h[i+1:]
+	}
+	return h
 }
 
 // convert ./host to currentNamespace/Host

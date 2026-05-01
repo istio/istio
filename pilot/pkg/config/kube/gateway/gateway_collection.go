@@ -35,7 +35,6 @@ import (
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/revisions"
 	"istio.io/istio/pkg/slices"
-	"istio.io/istio/pkg/util/sets"
 )
 
 type Gateway struct {
@@ -170,6 +169,7 @@ func ListenerSetCollection(
 				meta[constants.InternalGatewaySemantics] = constants.GatewaySemanticsGateway
 				meta[model.InternalGatewayServiceAnnotation] = strings.Join(gatewayServices, ",")
 				meta[constants.InternalParentNamespace] = parentGwObj.Namespace
+				meta[constants.InternalGatewayParent] = parentGwObj.Namespace + "/" + parentGwObj.Name
 				serviceAccountName := model.GetOrDefault(
 					parentGwObj.GetAnnotations()[annotation.GatewayServiceAccount.Name],
 					gatewaycommon.GetDefaultName(parentGwObj.GetName(), &parentGwObj.Spec, classInfo.DisableNameSuffix),
@@ -271,8 +271,6 @@ func GatewayCollection(
 		}
 		servers := []*istio.Server{}
 
-		misdirectedHosts := computeMisdirectedHosts(kgw.Listeners)
-
 		// Extract the addresses. A gateway will bind to a specific Service
 		gatewayServices, err := extractGatewayServices(domainSuffix, obj, classInfo)
 		if len(gatewayServices) == 0 && err != nil {
@@ -311,10 +309,7 @@ func GatewayCollection(
 			meta[model.InternalGatewayServiceAnnotation] = strings.Join(gatewayServices, ",")
 
 			meta[constants.InternalServiceAccount] = serviceAccountName
-
-			if mh := misdirectedHosts[string(l.Name)]; len(mh) > 0 {
-				meta[constants.InternalGatewayMisdirectedHosts] = strings.Join(mh, ",")
-			}
+			meta[constants.InternalGatewayParent] = obj.Namespace + "/" + obj.Name
 
 			// Each listener generates an Istio Gateway with a single Server. This allows binding to a specific listener.
 			gatewayConfig := config.Config{
@@ -464,44 +459,4 @@ func convertStandardStatusToListenerSetStatus(l gatewayv1.ListenerEntry) func(e 
 
 func convertListenerSetStatusToStandardStatus(e gatewayv1.ListenerEntryStatus) gatewayv1.ListenerStatus {
 	return gatewayv1.ListenerStatus(e)
-}
-
-// computeMisdirectedHosts returns, for each HTTPS listener (keyed by listener Name),
-// the sorted list of sibling listener hostnames on the same port that should produce
-// a 421 Misdirected Request response when the request's Host header matches them.
-func computeMisdirectedHosts(listeners []gatewayv1.Listener) map[string][]string {
-	out := map[string][]string{}
-	for i, l := range listeners {
-		if l.Protocol != gatewayv1.HTTPSProtocolType {
-			continue
-		}
-		myHost := string(ptr.OrEmpty(l.Hostname))
-		seen := sets.New[string]()
-		for j, sib := range listeners {
-			if i == j || sib.Protocol != gatewayv1.HTTPSProtocolType {
-				continue
-			}
-			if sib.Port != l.Port {
-				continue
-			}
-			sibHost := string(ptr.OrEmpty(sib.Hostname))
-			if sibHost == "" {
-				// Sibling is a catch-all: any host belongs to it, so we must
-				// 421 anything not matching our own hostname constraint. This is
-				// only meaningful if we have a hostname constraint ourselves.
-				if myHost != "" {
-					seen.Insert("*")
-				}
-				continue
-			}
-			if sibHost == myHost {
-				continue
-			}
-			seen.Insert(sibHost)
-		}
-		if len(seen) > 0 {
-			out[string(l.Name)] = sets.SortedList(seen)
-		}
-	}
-	return out
 }

@@ -136,19 +136,19 @@ const (
 	// only service accounts associated with gateway workloads can query secrets.
 	// Empty means any service account name within the namespace.
 	InternalServiceAccount = "internal.istio.io/service-account-name"
-	// InternalGatewayMisdirectedHosts contains, for an internally-generated istio Gateway
-	// derived from a Kubernetes Gateway HTTPS listener, a comma-separated list of sibling
-	// listener hostnames that should produce a 421 Misdirected Request response when received
-	// on this listener. A "*" entry means "any host" (a sibling listener with no hostname constraint
-	// exists on the same port). See Gateway API HTTPRouteHTTPSListenerDetectMisdirectedRequests.
-	InternalGatewayMisdirectedHosts = "internal.istio.io/misdirected-hosts"
-	InternalRouteSemantics          = "internal.istio.io/route-semantics"
-	RouteSemanticsIngress           = "ingress"
-	RouteSemanticsGateway           = "gateway"
-	InternalGatewaySemantics        = "internal.istio.io/gateway-semantics"
-	GatewaySemanticsGateway         = "gateway"
-	InternalServiceSemantics        = "internal.istio.io/service-semantics"
-	ServiceSemanticsInferencePool   = "inferencepool"
+	// InternalGatewayParent identifies, for an internally-generated istio Gateway derived from
+	// a Kubernetes Gateway listener (whether on the parent Gateway or via a ListenerSet), the
+	// "<namespace>/<name>" of the parent Kubernetes Gateway resource. Servers across all istio
+	// Gateways sharing the same value belong to the same logical Kubernetes Gateway and are
+	// considered siblings for HTTPS sibling-listener semantics (e.g. 421 Misdirected Request).
+	InternalGatewayParent         = "internal.istio.io/gateway-parent"
+	InternalRouteSemantics        = "internal.istio.io/route-semantics"
+	RouteSemanticsIngress         = "ingress"
+	RouteSemanticsGateway         = "gateway"
+	InternalGatewaySemantics      = "internal.istio.io/gateway-semantics"
+	GatewaySemanticsGateway       = "gateway"
+	InternalServiceSemantics      = "internal.istio.io/service-semantics"
+	ServiceSemanticsInferencePool = "inferencepool"
 
 	// ThirdPartyJwtPath is the default 3P token to authenticate with third party services
 	ThirdPartyJwtPath = "./var/run/secrets/tokens/istio-token"
