@@ -392,6 +392,12 @@ var (
 		"If enabled, when a sidecar needs to pick a service namespace for a hostname, it will prefer Kubernetes services "+
 			"and fall back to the oldest non-Kubernetes service. When disabled, the first visible namespace alphabetically is used.",
 	).Get()
+
+	EnableRemoteCredentialsController = env.RegisterBoolVar(
+		"PILOT_ENABLE_REMOTE_CREDENTIALS_CONTROLLER",
+		true,
+		"If enabled, pilot will start the credentials controller for remote clusters. Default is true.",
+	).Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.

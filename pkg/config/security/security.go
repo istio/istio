@@ -112,6 +112,37 @@ func CheckEmptyValues(key string, values []string) error {
 	return nil
 }
 
+// CheckWildcardValues checks that values are non-empty and that any wildcard is only
+// at the start or end (exact, prefix foo*, suffix *foo, or presence *).
+func CheckWildcardValues(key string, values []string) error {
+	if err := CheckEmptyValues(key, values); err != nil {
+		return err
+	}
+	for _, value := range values {
+		count := strings.Count(value, "*")
+		if count > 1 {
+			return fmt.Errorf("at most one wildcard is allowed, found in %s: %q", key, value)
+		}
+		if count == 1 && value != "*" && !strings.HasPrefix(value, "*") && !strings.HasSuffix(value, "*") {
+			return fmt.Errorf("wildcard is only allowed at the start or end, found in %s: %q", key, value)
+		}
+	}
+	return nil
+}
+
+// CheckTrustDomainValues checks that trust domain values are valid wildcard values and do not contain '/'.
+func CheckTrustDomainValues(key string, values []string) error {
+	if err := CheckWildcardValues(key, values); err != nil {
+		return err
+	}
+	for _, value := range values {
+		if strings.Contains(value, "/") {
+			return fmt.Errorf("trust domain must not contain '/', found in %s: %q", key, value)
+		}
+	}
+	return nil
+}
+
 func CheckServiceAccount(key string, values []string) error {
 	if len(values) > 16 {
 		// Arbitrary limit to avoid unbounded configuration sizes
@@ -213,6 +244,7 @@ func ValidateAttribute(key string, values []string) error {
 		return CheckServiceAccount(key, values)
 	case isEqual(key, attrSrcPrincipal):
 	case isEqual(key, attrSrcTrustDomain):
+		return CheckWildcardValues(key, values)
 	case isEqual(key, attrRequestPrincipal):
 	case isEqual(key, attrRequestAudiences):
 	case isEqual(key, attrRequestPresenter):

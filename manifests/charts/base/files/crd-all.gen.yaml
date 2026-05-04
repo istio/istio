@@ -7011,7 +7011,7 @@ spec:
                               type: integer
                               x-kubernetes-validations:
                               - message: port must be between 1-65535
-                                rule: 0 < self && self <= 6553
+                                rule: 0 < self && self <= 65535
                             route:
                               description: Match a specific route.
                               properties:

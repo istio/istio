@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+releaseNotes:
+  - |
+    **Fixed** kubelet health probe failures for ambient mesh pods on AWS EKS when using
+    Security Groups for Pods (branch ENI). istio-cni now detects branch ENI pods and
+    adds ip rules to route probe traffic via the veth pair instead of VPC fabric.
+    Gated behind `AMBIENT_ENABLE_AWS_BRANCH_ENI_PROBE` (enabled by default).

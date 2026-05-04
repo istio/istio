@@ -1085,8 +1085,7 @@ func buildDestination(ctx RouteContext, to k8s.BackendRef, ns string,
 		}
 		hostname = string(to.Name) + "." + namespace + ".svc." + ctx.DomainSuffix
 		key := namespace + "/" + string(to.Name)
-		svc := ptr.Flatten(krt.FetchOne(ctx.Krt, ctx.Services, krt.FilterKey(key)))
-		if svc == nil {
+		if !krt.ResourceExists(ctx.Krt, ctx.Services, key) {
 			invalidBackendErr = &ConfigError{Reason: InvalidDestinationNotFound, Message: fmt.Sprintf("backend(%s) not found", hostname)}
 		}
 	case config.GroupVersionKind{Group: gvk.ServiceEntry.Group, Kind: "Hostname"}:
@@ -1106,8 +1105,7 @@ func buildDestination(ctx RouteContext, to k8s.BackendRef, ns string,
 		}
 		// TODO: currently we are always looking for Service. We should be looking for ServiceImport when features.EnableMCSHost
 		key := namespace + "/" + string(to.Name)
-		svc := ptr.Flatten(krt.FetchOne(ctx.Krt, ctx.Services, krt.FilterKey(key)))
-		if svc == nil {
+		if !krt.ResourceExists(ctx.Krt, ctx.Services, key) {
 			invalidBackendErr = &ConfigError{Reason: InvalidDestinationNotFound, Message: fmt.Sprintf("backend(%s) not found", hostname)}
 		}
 	case gvk.InferencePool:

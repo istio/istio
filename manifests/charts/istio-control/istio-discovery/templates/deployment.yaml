@@ -185,6 +185,10 @@ spec:
             value: "{{ $val }}"
           {{- end }}
           {{- end }}
+          {{- if and .Values.env (eq (.Values.env.COMPLIANCE_POLICY | default "") "fips-140-3") }}
+          - name: GODEBUG
+            value: "fips140=only"
+          {{- end }}
           {{- with .Values.envVarFrom }}
           {{- toYaml . | nindent 10 }}
           {{- end }}

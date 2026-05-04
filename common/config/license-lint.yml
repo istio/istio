@@ -80,6 +80,7 @@ allowlisted_modules:
 # Helm is Apache 2.0: https://github.com/helm/helm/blob/master/LICENSE
 # However, it has a bunch of LICENSE test files that our linter fails to understand
 - helm.sh/helm/v3
+- helm.sh/helm/v4
 
 # https://github.com/pelletier/go-toml/blob/master/LICENSE
 # Uses MIT for everything, except a few files copied from

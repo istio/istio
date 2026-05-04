@@ -70,6 +70,8 @@ var skippedTests = map[string]string{
 	"BackendTLSPolicyConflictResolution": "https://github.com/istio/istio/issues/57817",
 
 	// The following tests were added in v1.5.0
+	"BackendTLSPolicyObservedGenerationBump": "TODO",
+
 	"GatewayBackendClientCertificateFeature":                     "TODO",
 	"GatewayFrontendInvalidDefaultClientCertificateValidation":   "TODO",
 	"GatewayInvalidTLSBackendConfiguration":                      "TODO",
@@ -84,16 +86,9 @@ var skippedTests = map[string]string{
 	"HTTPRouteCORS":                                   "TODO",
 	"HTTPRouteHTTPSListenerDetectMisdirectedRequests": "TODO",
 
-	"ListenerSetAllowedNamespaceNone":        "TODO",
-	"ListenerSetAllowedNamespaceSame":        "TODO",
-	"ListenerSetAllowedNamespaceSelector":    "TODO",
-	"ListenerSetAllowedRoutesNamespaces":     "TODO",
-	"ListenerSetAllowedRoutesSupportedKinds": "TODO",
-	"ListenerSetDefaultNotAllowed":           "TODO",
-	"ListenerSetHostnameConflict":            "TODO",
-	"ListenerSetHTTPRouting":                 "TODO",
-	"ListenerSetProtocolConflict":            "TODO",
-	"ListenerSetReferenceGrant":              "TODO",
+	"ListenerSetHostnameConflict": "TODO",
+	"ListenerSetProtocolConflict": "TODO",
+	"ListenerSetReferenceGrant":   "TODO",
 
 	"MeshHTTPRoute303Redirect": "TODO",
 	"MeshHTTPRoute307Redirect": "TODO",
@@ -102,14 +97,9 @@ var skippedTests = map[string]string{
 	// The following tests were modified between v1.4.0 && v1.5.0
 	"BackendTLSPolicy": "TODO",
 
-	"GatewayClassObservedGenerationBump":    "TODO",
-	"GatewayWithAttachedRoutes":             "TODO",
 	"GatewayWithAttachedRoutesWithPort8080": "TODO",
 
-	"HTTPRouteHostnameIntersection": "TODO",
-
 	"MeshGRPCRouteWeight": "TODO",
-	"MeshHTTPRouteWeight": "TODO",
 }
 
 func TestGatewayConformance(t *testing.T) {
@@ -168,7 +158,9 @@ func TestGatewayConformance(t *testing.T) {
 				},
 				TimeoutConfig: ctx.Settings().GatewayConformanceTimeoutConfig,
 			}
-
+			if ctx.Settings().GatewayConformanceAllowCRDsMismatch {
+				opts.AllowCRDsMismatch = true
+			}
 			ctx.Cleanup(func() {
 				if !ctx.Failed() {
 					return
@@ -217,7 +209,7 @@ func TestGatewayConformance(t *testing.T) {
 			assert.NoError(t, err)
 			reportb, err := yaml.Marshal(report)
 			assert.NoError(t, err)
-			fp := filepath.Join(ctx.Settings().BaseDir, "conformance.yaml")
+			fp := filepath.Join(ctx.Settings().BaseDir, "istio-conformance.yaml")
 			t.Logf("writing conformance test to %v (%v)", fp, prow.ArtifactsURL(fp))
 			assert.NoError(t, os.WriteFile(fp, reportb, 0o644))
 		})

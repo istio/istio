@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/pkg/http/headers"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/crd"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/util/retry"
@@ -34,6 +35,9 @@ func TestHTTPRouteAndGRPCRouteCoexistence(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(t framework.TestContext) {
+			if !crd.SupportsGatewayAPI(t) {
+				t.Skip("requires Gateway API support (k8s >= 1.31)")
+			}
 			t.ConfigIstio().YAML(apps.Namespace.Name(), `
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway

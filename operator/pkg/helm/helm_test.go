@@ -25,8 +25,9 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
-	"helm.sh/helm/v3/pkg/chartutil"
-	"helm.sh/helm/v3/pkg/engine"
+	"helm.sh/helm/v4/pkg/chart/common"
+	commonutil "helm.sh/helm/v4/pkg/chart/common/util"
+	"helm.sh/helm/v4/pkg/engine"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/istioctl/pkg/install/k8sversion"
@@ -58,18 +59,18 @@ func renderWithOptions(releaseName, namespace, directory string, iop values.Map,
 		return nil, nil, fmt.Errorf("load chart: %v", err)
 	}
 
-	options := chartutil.ReleaseOptions{
+	options := common.ReleaseOptions{
 		Name:      releaseName,
 		Namespace: namespace,
 		IsUpgrade: isUpgrade,
 		IsInstall: !isUpgrade,
 	}
 
-	caps := *chartutil.DefaultCapabilities
-	operatorVersion, _ := chartutil.ParseKubeVersion("1." + strconv.Itoa(k8sversion.MinK8SVersion) + ".0")
+	caps := *common.DefaultCapabilities
+	operatorVersion, _ := common.ParseKubeVersion("1." + strconv.Itoa(k8sversion.MinK8SVersion) + ".0")
 	caps.KubeVersion = *operatorVersion
 
-	helmVals, err := chartutil.ToRenderValues(chrt, vals, options, &caps)
+	helmVals, err := commonutil.ToRenderValues(chrt, vals, options, &caps)
 	if err != nil {
 		return nil, nil, fmt.Errorf("converting values: %v", err)
 	}
@@ -200,6 +201,27 @@ func TestRender(t *testing.T) {
 			diffSelect:  "PodDisruptionBudget:*:istio-ingress",
 		},
 		{
+			desc:        "gateway-service-default",
+			releaseName: "istio-ingress",
+			namespace:   "istio-ingress",
+			chartName:   "gateway",
+			diffSelect:  "Service:*:istio-ingress",
+		},
+		{
+			desc:        "gateway-network-gateway-default",
+			releaseName: "istio-eastwest",
+			namespace:   "istio-system",
+			chartName:   "gateway",
+			diffSelect:  "Service:*:istio-eastwest",
+		},
+		{
+			desc:        "gateway-network-gateway-port-override",
+			releaseName: "istio-eastwest",
+			namespace:   "istio-system",
+			chartName:   "gateway",
+			diffSelect:  "Service:*:istio-eastwest",
+		},
+		{
 			desc:        "ztunnel-dns-config",
 			releaseName: "ztunnel",
 			namespace:   "istio-system",
@@ -229,6 +251,14 @@ func TestRender(t *testing.T) {
 			diffSelect:  "ValidatingWebhookConfiguration:*:istio-validator-istio-system",
 		},
 		{
+			desc:        "istiod-webhook-upgrade-failure-policy",
+			releaseName: "istiod",
+			namespace:   "istio-system",
+			chartName:   "istio-control/istio-discovery",
+			diffSelect:  "ValidatingWebhookConfiguration:*:istio-validator-istio-system",
+			isUpgrade:   true,
+		},
+		{
 			desc:        "base-webhook-install",
 			releaseName: "istio-base",
 			namespace:   "istio-system",
@@ -245,6 +275,44 @@ func TestRender(t *testing.T) {
 		},
 		{
 			desc:        "base-webhook-failure-policy",
+			releaseName: "istio-base",
+			namespace:   "istio-system",
+			chartName:   "base",
+			diffSelect:  "ValidatingWebhookConfiguration:*:istiod-default-validator",
+		},
+		{
+			desc:        "base-webhook-upgrade-failure-policy",
+			releaseName: "istio-base",
+			namespace:   "istio-system",
+			chartName:   "base",
+			diffSelect:  "ValidatingWebhookConfiguration:*:istiod-default-validator",
+			isUpgrade:   true,
+		},
+		{
+			desc:        "istiod-webhook-upgrade-ignore",
+			releaseName: "istiod",
+			namespace:   "istio-system",
+			chartName:   "istio-control/istio-discovery",
+			diffSelect:  "ValidatingWebhookConfiguration:*:istio-validator-istio-system",
+			isUpgrade:   true,
+		},
+		{
+			desc:        "base-webhook-upgrade-ignore",
+			releaseName: "istio-base",
+			namespace:   "istio-system",
+			chartName:   "base",
+			diffSelect:  "ValidatingWebhookConfiguration:*:istiod-default-validator",
+			isUpgrade:   true,
+		},
+		{
+			desc:        "istiod-webhook-cabundle-policy",
+			releaseName: "istiod",
+			namespace:   "istio-system",
+			chartName:   "istio-control/istio-discovery",
+			diffSelect:  "ValidatingWebhookConfiguration:*:istio-validator-istio-system",
+		},
+		{
+			desc:        "base-webhook-cabundle-policy",
 			releaseName: "istio-base",
 			namespace:   "istio-system",
 			chartName:   "base",

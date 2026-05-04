@@ -303,6 +303,10 @@ spec:
     {{- if .CompliancePolicy }}
     - name: COMPLIANCE_POLICY
       value: "{{ .CompliancePolicy }}"
+    {{- if eq .CompliancePolicy "fips-140-3" }}
+    - name: GODEBUG
+      value: "fips140=only"
+    {{- end }}
     {{- end }}
     - name: ISTIO_META_CLUSTER_ID
       value: "{{ valueOrDefault .Values.global.multiCluster.clusterName `Kubernetes` }}"

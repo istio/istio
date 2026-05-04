@@ -22,6 +22,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -167,11 +168,92 @@ func performInPlaceUpgradeFunc(previousVersion string, isAmbient bool) func(fram
 		upgradeCharts(t, h, overrideValuesFile, nsConfig, isAmbient)
 		helmtest.VerifyInstallation(t, cs, nsConfig, true, isAmbient, "")
 
+		// After upgrade without explicit validationFailurePolicy, the controller-set
+		// failurePolicy: Fail should be preserved (the template omits the field on upgrade).
+		helmtest.VerifyValidatingWebhookFailurePolicy(t, cs, "istiod-default-validator",
+			admissionregistrationv1.Fail)
+
 		_, newClient, newServer := sanitycheck.SetupTrafficTest(t, "")
 		sanitycheck.RunTrafficTestClientServer(t, newClient, newServer)
 
 		// now check that we are compatible with N-1 proxy with N proxy
 		sanitycheck.RunTrafficTestClientServer(t, oldClient, newServer)
+	}
+}
+
+// performInPlaceUpgradeWithFailurePolicy tests that webhook failurePolicy is set correctly
+// after an in-place upgrade when base.validationFailurePolicy is explicitly configured.
+func performInPlaceUpgradeWithFailurePolicy(previousVersion string) func(framework.TestContext) {
+	return func(t framework.TestContext) {
+		cs := t.Clusters().Default().(*kubecluster.Cluster)
+		h := helm.New(cs.Filename())
+		nsConfig := helmtest.DefaultNamespaceConfig
+		t.CleanupConditionally(func() {
+			helmtest.DeleteIstio(t, h, cs, nsConfig, false)
+		})
+		t.Cleanup(func() {
+			if !t.Failed() {
+				return
+			}
+			if t.Settings().CIMode {
+				for _, ns := range nsConfig.AllNamespaces() {
+					namespace.Dump(t, ns)
+				}
+				namespace.Dump(t, helmtest.IstioNamespace)
+			}
+		})
+
+		s := t.Settings()
+
+		// Install previous version without explicit failurePolicy.
+		// The webhook controller will eventually flip failurePolicy to Fail.
+		overrideValuesFile := helmtest.GetValuesOverrides(t, gcrHub, "", s.Image.Variant, "", false)
+		helmtest.InstallIstio(t, cs, h, overrideValuesFile, previousVersion, true, false, nsConfig)
+		helmtest.VerifyInstallation(t, cs, nsConfig, true, false, "")
+
+		// After install, the webhook controller should have set failurePolicy to Fail.
+		helmtest.VerifyValidatingWebhookFailurePolicy(t, cs, "istiod-default-validator",
+			admissionregistrationv1.Fail)
+
+		// Upgrade with explicit validationFailurePolicy: Fail set.
+		// This tests the scenario described in #59518 and #59488 where SSA-based tools
+		// need the failurePolicy to be explicitly rendered in the template on upgrade.
+		baseValues := map[string]interface{}{
+			"validationFailurePolicy": "Fail",
+		}
+		baseOverrideValuesFile := helmtest.GetValuesOverridesWithBase(t, s.Image.Hub, s.Image.Tag, s.Image.Variant, "", false, baseValues)
+		gatewayOverrideValuesFile := helmtest.GetValuesOverrides(t, s.Image.Hub, s.Image.Tag, s.Image.Variant, "", false)
+
+		// Upgrade base and istiod with the base-values file (includes validationFailurePolicy).
+		err := h.UpgradeChart(helmtest.BaseReleaseName, filepath.Join(helmtest.ManifestsChartPath, helmtest.BaseChart),
+			nsConfig.Get(helmtest.BaseReleaseName), baseOverrideValuesFile, helmtest.Timeout)
+		if err != nil {
+			t.Fatalf("failed to upgrade istio %s chart", helmtest.BaseReleaseName)
+		}
+		err = h.UpgradeChart(helmtest.IstiodReleaseName, filepath.Join(helmtest.ManifestsChartPath, helmtest.ControlChartsDir, helmtest.DiscoveryChartsDir),
+			nsConfig.Get(helmtest.IstiodReleaseName), baseOverrideValuesFile, helmtest.Timeout)
+		if err != nil {
+			t.Fatalf("failed to upgrade istio %s chart", helmtest.IstiodReleaseName)
+		}
+		// Upgrade gateway separately without the base values to avoid schema validation failure.
+		err = h.UpgradeChart(helmtest.IngressReleaseName, filepath.Join(helmtest.ManifestsChartPath, helmtest.GatewayChartsDir),
+			nsConfig.Get(helmtest.IngressReleaseName), gatewayOverrideValuesFile, helmtest.Timeout)
+		if err != nil {
+			t.Fatalf("failed to upgrade istio %s chart", helmtest.IngressReleaseName)
+		}
+		helmtest.VerifyInstallation(t, cs, nsConfig, true, false, "")
+
+		// After upgrade with explicit validationFailurePolicy, failurePolicy must be Fail.
+		helmtest.VerifyValidatingWebhookFailurePolicy(t, cs, "istiod-default-validator",
+			admissionregistrationv1.Fail)
+
+		// Also verify the per-revision webhook.
+		helmtest.VerifyValidatingWebhookFailurePolicy(t, cs, "istio-validator-istio-system",
+			admissionregistrationv1.Fail)
+
+		// Verify traffic still works after upgrade.
+		_, client, server := sanitycheck.SetupTrafficTest(t, "")
+		sanitycheck.RunTrafficTestClientServer(t, client, server)
 	}
 }
 

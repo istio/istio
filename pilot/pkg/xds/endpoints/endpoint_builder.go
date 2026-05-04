@@ -86,6 +86,8 @@ type EndpointBuilder struct {
 	serviceInfo  *model.ServiceInfo
 
 	mtlsChecker *mtlsChecker
+
+	canonicalServiceForMeshExternal bool
 }
 
 func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.PushContext) EndpointBuilder {
@@ -128,6 +130,8 @@ func NewCDSEndpointBuilder(
 		push:       push,
 		proxy:      proxy,
 		dir:        dir,
+
+		canonicalServiceForMeshExternal: features.CanonicalServiceForMeshExternalServiceEntry,
 	}
 	b.populateSubsetInfo()
 	b.populateFailoverPriorityLabels()
@@ -418,6 +422,9 @@ func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.Endpoi
 	// If locality aware routing is enabled, prioritize endpoints or set their lb weight.
 	// Failover should only be enabled when there is an outlier detection, otherwise Envoy
 	// will never detect the hosts are unhealthy and redirect traffic.
+	// Note: the default mesh config enables LocalityLbSetting (Enabled:true), so enabling
+	// outlier detection in a DestinationRule will automatically activate locality LB failover
+	// even when no explicit localityLbSetting is configured in the DR.
 	enableFailover, lb := getOutlierDetectionAndLoadBalancerSettings(b.DestinationRule(), b.port, b.subsetName)
 	lbSetting, forceFailover := loadbalancer.GetLocalityLbSetting(b.push.Mesh.GetLocalityLbSetting(), lb.GetLocalityLbSetting(), b.service)
 	enableFailover = enableFailover || forceFailover
@@ -684,7 +691,7 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 	// Istio endpoint level tls transport socket configuration depends on this logic
 	// Do not remove
 	var meta *model.EndpointMetadata
-	if features.CanonicalServiceForMeshExternalServiceEntry && b.service.MeshExternal {
+	if b.canonicalServiceForMeshExternal && b.service.MeshExternal {
 		svcLabels := b.service.Attributes.Labels
 		if _, ok := svcLabels[model.IstioCanonicalServiceLabelName]; ok {
 			meta = e.MetadataClone()

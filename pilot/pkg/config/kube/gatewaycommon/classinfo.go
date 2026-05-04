@@ -145,6 +145,7 @@ func GetClassInfos() map[gateway.GatewayController]ClassInfo {
 			Controller:          constants.ManagedAgentgatewayController,
 			Description:         "Istio with Agentgateway",
 			Templates:           "agentgateway",
+			DisableNameSuffix:   true,
 			DefaultServiceType:  corev1.ServiceTypeLoadBalancer,
 			AddressType:         gateway.HostnameAddressType,
 			ControllerLabel:     constants.ManagedGatewayControllerLabel,

@@ -227,6 +227,7 @@ func New(options Options) Index {
 			serviceEntries,
 			servicesClient,
 			authzPolicies,
+			workloadEntries,
 			options,
 			opts,
 		)
@@ -373,6 +374,16 @@ func New(options Options) Index {
 		Namespaces,
 		opts,
 	)
+	if features.EnableAmbientStatus {
+		workloadEntriesWriter := kclient.NewWriteClient[*networkingclient.WorkloadEntry](client)
+		statusqueue.Register(a.statusQueue, "istio-ambient-workloadentry", Workloads,
+			func(info model.WorkloadInfo) (kclient.Patcher, map[string]model.Condition) {
+				if info.Source.Kind != kind.WorkloadEntry {
+					return nil, nil
+				}
+				return kclient.ToPatcher(workloadEntriesWriter), getConditions(info.Source.NamespacedName, workloadEntries)
+			})
+	}
 
 	WorkloadAddressIndex := krt.NewIndex[networkAddress, model.WorkloadInfo](Workloads, "networkAddress", networkAddressFromWorkload)
 	WorkloadServiceIndex := krt.NewIndex[string, model.WorkloadInfo](Workloads, "service", func(o model.WorkloadInfo) []string {
@@ -499,6 +510,8 @@ func getConditions[T controllers.ComparableObject](name types.NamespacedName, i 
 	case *networkingclient.ServiceEntry:
 		return translateIstioCondition(t.Status.Conditions)
 	case *securityclient.AuthorizationPolicy:
+		return translateIstioCondition(t.Status.Conditions)
+	case *networkingclient.WorkloadEntry:
 		return translateIstioCondition(t.Status.Conditions)
 	default:
 		log.Fatalf("unknown type %T; cannot write status", o)

@@ -13,7 +13,7 @@ metadata:
     gateway.networking.k8s.io/gateway-class-name: istio-agentgateway
     gateway.networking.k8s.io/gateway-name: namespace
     istio.io/dataplane-mode: none
-  name: namespace-istio-agentgateway
+  name: namespace
   namespace: default
   ownerReferences:
   - apiVersion: gateway.networking.k8s.io/v1
@@ -30,7 +30,7 @@ metadata:
     gateway.networking.k8s.io/gateway-class-name: istio-agentgateway
     gateway.networking.k8s.io/gateway-name: namespace
     istio.io/dataplane-mode: none
-  name: namespace-istio-agentgateway
+  name: namespace
   namespace: default
   ownerReferences:
   - apiVersion: gateway.networking.k8s.io/v1
@@ -53,7 +53,7 @@ spec:
         gateway.networking.k8s.io/gateway-class-name: istio-agentgateway
         gateway.networking.k8s.io/gateway-name: namespace
         istio.io/dataplane-mode: none
-        service.istio.io/canonical-name: namespace-istio-agentgateway
+        service.istio.io/canonical-name: namespace
         service.istio.io/canonical-revision: latest
         sidecar.istio.io/inject: "false"
     spec:
@@ -152,7 +152,7 @@ spec:
         sysctls:
         - name: net.ipv4.ip_unprivileged_port_start
           value: "0"
-      serviceAccountName: namespace-istio-agentgateway
+      serviceAccountName: namespace
       volumes:
       - emptyDir: {}
         name: tmp
@@ -173,7 +173,7 @@ metadata:
     gateway.networking.k8s.io/gateway-class-name: istio-agentgateway
     gateway.networking.k8s.io/gateway-name: namespace
     istio.io/dataplane-mode: none
-  name: namespace-istio-agentgateway
+  name: namespace
   namespace: default
   ownerReferences:
   - apiVersion: gateway.networking.k8s.io/v1

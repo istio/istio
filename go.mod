@@ -8,7 +8,7 @@ require (
 	github.com/KimMachineGun/automemlimit v0.7.5
 	github.com/Masterminds/semver/v3 v3.4.0
 	github.com/Masterminds/sprig/v3 v3.3.0
-	github.com/agentgateway/agentgateway/api v0.0.0-20260402214108-cf5ade8a4960
+	github.com/agentgateway/agentgateway/api v0.0.0-20260408212224-34871c59e328
 	github.com/alecholmes/xfccparser v0.4.0
 	github.com/cbeuw/connutil v1.0.1
 	github.com/cenkalti/backoff/v4 v4.3.0
@@ -20,8 +20,8 @@ require (
 	github.com/coreos/go-oidc/v3 v3.17.0
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/docker/cli v29.3.0+incompatible
-	github.com/envoyproxy/go-control-plane/contrib v1.36.1-0.20260409083702-98966259b99a
-	github.com/envoyproxy/go-control-plane/envoy v1.37.1-0.20260409083702-98966259b99a
+	github.com/envoyproxy/go-control-plane/contrib v1.36.1-0.20260425030550-64b2e46d9ebf
+	github.com/envoyproxy/go-control-plane/envoy v1.37.1-0.20260425030550-64b2e46d9ebf
 	github.com/evanphx/json-patch/v5 v5.9.11
 	github.com/fatih/color v1.19.0
 	github.com/felixge/fgprof v0.9.5
@@ -95,9 +95,9 @@ require (
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
-	helm.sh/helm/v3 v3.20.1
-	istio.io/api v1.29.0-alpha.0.0.20260408154259-7cbe7cd4fb17
-	istio.io/client-go v1.29.0-alpha.0.0.20260408155302-51be81f3bac8
+	helm.sh/helm/v4 v4.1.3
+	istio.io/api v1.30.0-alpha.1.0.20260502131558-7b73f01a2cfb
+	istio.io/client-go v1.30.0-alpha.1.0.20260502131957-7307deff563c
 	k8s.io/api v0.35.3
 	k8s.io/apiextensions-apiserver v0.35.3
 	k8s.io/apimachinery v0.35.3
@@ -135,7 +135,6 @@ require (
 	github.com/containerd/typeurl/v2 v2.2.3 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.7 // indirect
 	github.com/creack/pty v1.1.24 // indirect
-	github.com/cyphar/filepath-securejoin v0.6.1 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.0 // indirect
 	github.com/dlclark/regexp2 v1.11.5 // indirect
 	github.com/docker/distribution v2.8.3+incompatible // indirect
