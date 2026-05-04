@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package pilot
+package agentgateway
 
 import (
 	"testing"
@@ -40,7 +40,9 @@ var (
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
-		Setup(istio.Setup(&i, nil)).
+		Setup(istio.Setup(&i, func(ctx resource.Context, cfg *istio.Config) {
+			cfg.Values["pilot.env.PILOT_ENABLE_AGENTGATEWAY"] = "true"
+		})).
 		Setup(deployment.SetupSingleNamespace(&apps, deployment.Config{})).
 		Setup(func(t resource.Context) error {
 			gatewayConformanceInputs.Client = t.Clusters().Default()
