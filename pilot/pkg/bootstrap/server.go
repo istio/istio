@@ -1320,9 +1320,10 @@ func (s *Server) initMeshHandlers(changeHandler func(_ *meshconfig.MeshConfig)) 
 	s.environment.AddMeshHandler(func() {
 		changeHandler(s.environment.Mesh())
 		s.XDSServer.ConfigUpdate(&model.PushRequest{
-			Full:   true,
-			Reason: model.NewReasonStats(model.GlobalUpdate),
-			Forced: true,
+			Full:           true,
+			Reason:         model.NewReasonStats(model.GlobalUpdate),
+			Forced:         true,
+			ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.MeshConfig}),
 		})
 	})
 }

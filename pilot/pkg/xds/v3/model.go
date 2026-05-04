@@ -33,6 +33,7 @@ const (
 	AddressType                = model.AddressType
 	WorkloadType               = model.WorkloadType
 	WorkloadAuthorizationType  = model.WorkloadAuthorizationType
+	WorkloadMeshSettingsType   = model.WorkloadMeshSettingsType
 
 	// nolint
 	HttpProtocolOptionsType = "envoy.extensions.upstreams.http.v3.HttpProtocolOptions"

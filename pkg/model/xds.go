@@ -38,6 +38,7 @@ const (
 	AddressType               = APITypePrefix + "istio.workload.Address"
 	WorkloadType              = APITypePrefix + "istio.workload.Workload"
 	WorkloadAuthorizationType = APITypePrefix + "istio.security.Authorization"
+	WorkloadMeshSettingsType  = APITypePrefix + "istio.workload.MeshSettings"
 
 	// AgentGateway
 	AgwResourceType = APITypePrefix + "agentgateway.dev.resource.Resource"
@@ -66,6 +67,8 @@ func GetShortType(typeURL string) string {
 		return "WDS"
 	case WorkloadAuthorizationType:
 		return "WADS"
+	case WorkloadMeshSettingsType:
+		return "WMDS"
 	default:
 		return typeURL
 	}
@@ -96,6 +99,8 @@ func GetMetricType(typeURL string) string {
 		return "wds"
 	case WorkloadAuthorizationType:
 		return "wads"
+	case WorkloadMeshSettingsType:
+		return "wmds"
 	default:
 		return typeURL
 	}
@@ -125,6 +130,8 @@ func GetResourceType(shortType string) string {
 		return AddressType
 	case "WADS":
 		return WorkloadAuthorizationType
+	case "WMDS":
+		return WorkloadMeshSettingsType
 	default:
 		return shortType
 	}

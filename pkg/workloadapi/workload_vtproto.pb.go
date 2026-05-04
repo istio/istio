@@ -621,6 +621,74 @@ func (this *Extension) EqualMessageVT(thatMsg proto.Message) bool {
 	}
 	return this.EqualVT(that)
 }
+func (this *TlsConfig) EqualVT(that *TlsConfig) bool {
+	if this == that {
+		return true
+	} else if this == nil || that == nil {
+		return false
+	}
+	if this.MinProtocolVersion != that.MinProtocolVersion {
+		return false
+	}
+	if len(this.CipherSuites) != len(that.CipherSuites) {
+		return false
+	}
+	for i, vx := range this.CipherSuites {
+		vy := that.CipherSuites[i]
+		if vx != vy {
+			return false
+		}
+	}
+	if len(this.EcdhCurves) != len(that.EcdhCurves) {
+		return false
+	}
+	for i, vx := range this.EcdhCurves {
+		vy := that.EcdhCurves[i]
+		if vx != vy {
+			return false
+		}
+	}
+	return string(this.unknownFields) == string(that.unknownFields)
+}
+
+func (this *TlsConfig) EqualMessageVT(thatMsg proto.Message) bool {
+	that, ok := thatMsg.(*TlsConfig)
+	if !ok {
+		return false
+	}
+	return this.EqualVT(that)
+}
+func (this *MeshSettings) EqualVT(that *MeshSettings) bool {
+	if this == that {
+		return true
+	} else if this == nil || that == nil {
+		return false
+	}
+	if this.TrustDomain != that.TrustDomain {
+		return false
+	}
+	if len(this.TrustDomainAliases) != len(that.TrustDomainAliases) {
+		return false
+	}
+	for i, vx := range this.TrustDomainAliases {
+		vy := that.TrustDomainAliases[i]
+		if vx != vy {
+			return false
+		}
+	}
+	if !this.Tls.EqualVT(that.Tls) {
+		return false
+	}
+	return string(this.unknownFields) == string(that.unknownFields)
+}
+
+func (this *MeshSettings) EqualMessageVT(thatMsg proto.Message) bool {
+	that, ok := thatMsg.(*MeshSettings)
+	if !ok {
+		return false
+	}
+	return this.EqualVT(that)
+}
 func (m *Address) MarshalVTStrict() (dAtA []byte, err error) {
 	if m == nil {
 		return nil, nil
@@ -1632,6 +1700,121 @@ func (m *Extension) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
+func (m *TlsConfig) MarshalVTStrict() (dAtA []byte, err error) {
+	if m == nil {
+		return nil, nil
+	}
+	size := m.SizeVT()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBufferVTStrict(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *TlsConfig) MarshalToVTStrict(dAtA []byte) (int, error) {
+	size := m.SizeVT()
+	return m.MarshalToSizedBufferVTStrict(dAtA[:size])
+}
+
+func (m *TlsConfig) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
+	if m == nil {
+		return 0, nil
+	}
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.unknownFields != nil {
+		i -= len(m.unknownFields)
+		copy(dAtA[i:], m.unknownFields)
+	}
+	if len(m.EcdhCurves) > 0 {
+		for iNdEx := len(m.EcdhCurves) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.EcdhCurves[iNdEx])
+			copy(dAtA[i:], m.EcdhCurves[iNdEx])
+			i = protohelpers.EncodeVarint(dAtA, i, uint64(len(m.EcdhCurves[iNdEx])))
+			i--
+			dAtA[i] = 0x1a
+		}
+	}
+	if len(m.CipherSuites) > 0 {
+		for iNdEx := len(m.CipherSuites) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.CipherSuites[iNdEx])
+			copy(dAtA[i:], m.CipherSuites[iNdEx])
+			i = protohelpers.EncodeVarint(dAtA, i, uint64(len(m.CipherSuites[iNdEx])))
+			i--
+			dAtA[i] = 0x12
+		}
+	}
+	if m.MinProtocolVersion != 0 {
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(m.MinProtocolVersion))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *MeshSettings) MarshalVTStrict() (dAtA []byte, err error) {
+	if m == nil {
+		return nil, nil
+	}
+	size := m.SizeVT()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBufferVTStrict(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MeshSettings) MarshalToVTStrict(dAtA []byte) (int, error) {
+	size := m.SizeVT()
+	return m.MarshalToSizedBufferVTStrict(dAtA[:size])
+}
+
+func (m *MeshSettings) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
+	if m == nil {
+		return 0, nil
+	}
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.unknownFields != nil {
+		i -= len(m.unknownFields)
+		copy(dAtA[i:], m.unknownFields)
+	}
+	if m.Tls != nil {
+		size, err := m.Tls.MarshalToSizedBufferVTStrict(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+		i--
+		dAtA[i] = 0x1a
+	}
+	if len(m.TrustDomainAliases) > 0 {
+		for iNdEx := len(m.TrustDomainAliases) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.TrustDomainAliases[iNdEx])
+			copy(dAtA[i:], m.TrustDomainAliases[iNdEx])
+			i = protohelpers.EncodeVarint(dAtA, i, uint64(len(m.TrustDomainAliases[iNdEx])))
+			i--
+			dAtA[i] = 0x12
+		}
+	}
+	if len(m.TrustDomain) > 0 {
+		i -= len(m.TrustDomain)
+		copy(dAtA[i:], m.TrustDomain)
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(len(m.TrustDomain)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
 func (m *Address) SizeVT() (n int) {
 	if m == nil {
 		return 0
@@ -2051,6 +2234,55 @@ func (m *Extension) SizeVT() (n int) {
 	}
 	if m.Config != nil {
 		l = (*anypb.Any)(m.Config).SizeVT()
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	n += len(m.unknownFields)
+	return n
+}
+
+func (m *TlsConfig) SizeVT() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.MinProtocolVersion != 0 {
+		n += 1 + protohelpers.SizeOfVarint(uint64(m.MinProtocolVersion))
+	}
+	if len(m.CipherSuites) > 0 {
+		for _, s := range m.CipherSuites {
+			l = len(s)
+			n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+		}
+	}
+	if len(m.EcdhCurves) > 0 {
+		for _, s := range m.EcdhCurves {
+			l = len(s)
+			n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+		}
+	}
+	n += len(m.unknownFields)
+	return n
+}
+
+func (m *MeshSettings) SizeVT() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.TrustDomain)
+	if l > 0 {
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	if len(m.TrustDomainAliases) > 0 {
+		for _, s := range m.TrustDomainAliases {
+			l = len(s)
+			n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+		}
+	}
+	if m.Tls != nil {
+		l = m.Tls.SizeVT()
 		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 	}
 	n += len(m.unknownFields)

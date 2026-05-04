@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"istio.io/api/annotation"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/security/v1beta1"
 	metav1beta1 "istio.io/api/type/v1beta1"
 	securityclient "istio.io/client-go/pkg/apis/security/v1"
@@ -36,14 +37,19 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xds"
+	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/workloadapi"
 )
 
 func init() {
@@ -549,4 +555,92 @@ func TestPeerAuthenticationUpdate(t *testing.T) {
 	})
 	assert.NoError(t, err)
 	ads.ExpectNoResponse()
+}
+
+func TestWorkloadMeshSettings(t *testing.T) {
+	meshCfg := mesh.DefaultMeshConfig()
+	meshCfg.TrustDomain = "test.example.com"
+	meshCfg.TrustDomainAliases = []string{"alias1.example.com"}
+	meshCfg.MeshMTLS = &meshconfig.MeshConfig_TLSConfig{
+		MinProtocolVersion: meshconfig.MeshConfig_TLSConfig_TLSV1_3,
+		CipherSuites:       []string{"TLS_AES_256_GCM_SHA384"},
+	}
+
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+		MeshConfig: meshCfg,
+	})
+	ads := s.ConnectDeltaADS().WithType(v3.WorkloadMeshSettingsType).WithTimeout(time.Second * 10).WithNodeType(model.Ztunnel)
+
+	// Initial subscription should return MeshSettings
+	resp := ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{
+		ResourceNamesSubscribe: []string{"*"},
+	})
+	if len(resp.Resources) != 1 {
+		t.Fatalf("expected 1 resource, got %d", len(resp.Resources))
+	}
+	if resp.Resources[0].Name != "mesh" {
+		t.Fatalf("expected resource name 'mesh', got %q", resp.Resources[0].Name)
+	}
+	settings := xdstest.UnmarshalAny[workloadapi.MeshSettings](t, resp.Resources[0].Resource)
+	assert.Equal(t, settings.TrustDomain, "test.example.com")
+	assert.Equal(t, settings.TrustDomainAliases, []string{"alias1.example.com"})
+	assert.Equal(t, settings.Tls.MinProtocolVersion, workloadapi.TlsVersion_TLS_1_3)
+	assert.Equal(t, settings.Tls.CipherSuites, []string{"TLS_AES_256_GCM_SHA384"})
+
+	// Irrelevant push (pod creation) should not trigger MeshSettings update
+	createPod(s, "pod", "sa", "127.0.0.1", "node")
+	ads.ExpectNoResponse()
+
+	// Generic forced push (e.g. startup) should NOT trigger duplicate MeshSettings
+	s.Discovery.ConfigUpdate(&model.PushRequest{
+		Full:   true,
+		Forced: true,
+	})
+	ads.ExpectNoResponse()
+
+	// MeshConfig change should trigger update
+	newMeshCfg := mesh.DefaultMeshConfig()
+	newMeshCfg.TrustDomain = "updated.example.com"
+	newMeshCfg.TrustDomainAliases = []string{"old.example.com", "other.example.com"}
+	newMeshCfg.MeshMTLS = &meshconfig.MeshConfig_TLSConfig{
+		MinProtocolVersion: meshconfig.MeshConfig_TLSConfig_TLSV1_2,
+		CipherSuites:       []string{"TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384"},
+	}
+	s.Env().Watcher.(meshwatcher.TestWatcher).Set(newMeshCfg)
+	s.Discovery.ConfigUpdate(&model.PushRequest{
+		Full:           true,
+		Reason:         model.NewReasonStats(model.GlobalUpdate),
+		ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.MeshConfig}),
+	})
+	resp = ads.ExpectResponse()
+	if len(resp.Resources) != 1 {
+		t.Fatalf("expected 1 resource, got %d", len(resp.Resources))
+	}
+	settings = xdstest.UnmarshalAny[workloadapi.MeshSettings](t, resp.Resources[0].Resource)
+	assert.Equal(t, settings.TrustDomain, "updated.example.com")
+	assert.Equal(t, settings.TrustDomainAliases, []string{"old.example.com", "other.example.com"})
+	assert.Equal(t, settings.Tls.MinProtocolVersion, workloadapi.TlsVersion_TLS_1_2)
+	assert.Equal(t, settings.Tls.CipherSuites, []string{"TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384"})
+}
+
+func TestWorkloadMeshSettingsNoTLS(t *testing.T) {
+	meshCfg := mesh.DefaultMeshConfig()
+	meshCfg.TrustDomain = "notls.example.com"
+
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+		MeshConfig: meshCfg,
+	})
+	ads := s.ConnectDeltaADS().WithType(v3.WorkloadMeshSettingsType).WithTimeout(time.Second * 10).WithNodeType(model.Ztunnel)
+
+	resp := ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{
+		ResourceNamesSubscribe: []string{"*"},
+	})
+	if len(resp.Resources) != 1 {
+		t.Fatalf("expected 1 resource, got %d", len(resp.Resources))
+	}
+	settings := xdstest.UnmarshalAny[workloadapi.MeshSettings](t, resp.Resources[0].Resource)
+	assert.Equal(t, settings.TrustDomain, "notls.example.com")
+	if settings.Tls != nil {
+		t.Fatalf("expected nil TLS config when meshMTLS is not set, got %v", settings.Tls)
+	}
 }
