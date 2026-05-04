@@ -13,9 +13,10 @@ local variables = import './variables.libsonnet';
 
 {
   queries(names):
-    local containerLabels = { container: names.container, pod: '~' + names.pod };
-    local appLabels = { app: names.app };
-    local podLabels = { pod: '~' + names.pod };
+    local clusterLabel = { cluster: '~$cluster' };
+    local containerLabels = { cluster: '~$cluster', container: names.container, pod: '~' + names.pod };
+    local appLabels = { cluster: '~$cluster', app: names.app };
+    local podLabels = { cluster: '~$cluster', pod: '~' + names.pod };
     {
       query(legend, query):
         self.rawQuery(query)
@@ -30,13 +31,13 @@ local variables = import './variables.libsonnet';
       allIstioBuild:
         self.query(
           '{{component}} ({{tag}})',
-          sum('istio_build', by=['component', 'tag'])
+          sum(labels('istio_build', clusterLabel), by=['component', 'tag'])
         ),
 
       istioBuild:
         self.query(
           'Version ({{tag}})',
-          sum(labels('istio_build', { component: names.component }), by=['tag'])
+          sum(labels('istio_build', clusterLabel { component: names.component }), by=['tag'])
         ),
 
       cpuUsage:
@@ -149,81 +150,77 @@ local variables = import './variables.libsonnet';
       xdsPushes:
         self.query(
           '{{type}}',
-          sum(irate('pilot_xds_pushes'), by=['type'])
+          sum(irate(labels('pilot_xds_pushes', clusterLabel)), by=['type'])
         ),
 
       xdsErrors: [
         self.query(
           'Rejected Config ({{type}})',
-          sum('pilot_total_xds_rejects', by=['type'])
+          sum(labels('pilot_total_xds_rejects', clusterLabel), by=['type'])
         ),
         self.query(
           'Internal Errors',
-          'pilot_total_xds_internal_errors'
+          sum(labels('pilot_total_xds_internal_errors', clusterLabel))
         ),
       ],
 
       xdsConnections: [
         self.query(
           'Connections (client reported)',
-          'sum(envoy_cluster_upstream_cx_active{cluster_name="xds-grpc"})'
+          sum(labels('envoy_cluster_upstream_cx_active', clusterLabel { cluster_name: 'xds-grpc' }))
         ),
         self.query(
           'Connections (server reported)',
-          sum('pilot_xds')
+          sum(labels('pilot_xds', clusterLabel))
         ),
       ],
 
       pushTime:
         self.query(
           '{{le}}',
-          |||
-            sum(rate(pilot_xds_push_time_bucket{}[$__rate_interval])) by (le)
-          |||
+          'sum(rate(' + labels('pilot_xds_push_time_bucket', clusterLabel) + '[$__rate_interval])) by (le)'
         ) + q.withFormat('heatmap'),
 
       pushSize:
         self.query(
           '{{le}}',
-          |||
-            sum(rate(pilot_xds_config_size_bytes_bucket{}[$__rate_interval])) by (le)
-          |||
+          'sum(rate(' + labels('pilot_xds_config_size_bytes_bucket', clusterLabel) + '[$__rate_interval])) by (le)'
         ) + q.withFormat('heatmap'),
 
       pilotEvents: [
         self.query(
           '{{event}} {{type}}',
-          sum(rate('pilot_k8s_reg_events'), by=['type', 'event'])
+          sum(rate(labels('pilot_k8s_reg_events', clusterLabel)), by=['type', 'event'])
         ),
         self.query(
           '{{event}} {{type}}',
-          sum(rate('pilot_k8s_cfg_events'), by=['type', 'event'])
+          sum(rate(labels('pilot_k8s_cfg_events', clusterLabel)), by=['type', 'event'])
         ),
         self.query(
           'Push {{type}}',
-          sum(rate('pilot_push_triggers'), by=['type'])
+          sum(rate(labels('pilot_push_triggers', clusterLabel)), by=['type'])
         ),
       ],
 
       validateWebhook: [
         self.query(
           'Success',
-          sum(rate('galley_validation_passed'))
+          sum(rate(labels('galley_validation_passed', clusterLabel)))
         ),
         self.query(
           'Failure',
-          sum(rate('galley_validation_failed'))
+          sum(rate(labels('galley_validation_failed', clusterLabel)))
         ),
       ],
 
       injectionWebhook: [
         self.query(
           'Success',
-          sum(rate('sidecar_injection_success_total'))
+          sum(rate(labels('sidecar_injection_success_total', clusterLabel)))
         ),
         self.query(
           'Failure',
-          sum(rate('sidecar_injection_failure_total'))
+          sum(rate(labels('sidecar_injection_failure_total', clusterLabel)))
         ),
       ],
 
@@ -240,20 +237,20 @@ local variables = import './variables.libsonnet';
       ],
 
       globalRequest: self.rawQuery(
-        round(sum(rate(labels('istio_requests_total', { reporter: '~source|waypoint' }))))
+        round(sum(rate(labels('istio_requests_total', clusterLabel { reporter: '~source|waypoint' }))))
       ),
 
       globalRequestSuccessRate: self.rawQuery(
-        sum(rate(labels('istio_requests_total', { reporter: '~source|waypoint', response_code: '!~5..' }))) + ' / ' +
-        sum(rate(labels('istio_requests_total', { reporter: '~source|waypoint' })))
+        sum(rate(labels('istio_requests_total', clusterLabel { reporter: '~source|waypoint', response_code: '!~5..' }))) + ' / ' +
+        sum(rate(labels('istio_requests_total', clusterLabel { reporter: '~source|waypoint' })))
       ),
 
       globalRequest4xx: self.rawQuery(
-        round(sum(rate(labels('istio_requests_total', { reporter: '~source|waypoint', response_code: '~4..' })))) + 'or vector(0)'
+        round(sum(rate(labels('istio_requests_total', clusterLabel { reporter: '~source|waypoint', response_code: '~4..' })))) + 'or vector(0)'
       ),
 
       globalRequest5xx: self.rawQuery(
-        round(sum(rate(labels('istio_requests_total', { reporter: '~source|waypoint', response_code: '~5..' })))) + 'or vector(0)'
+        round(sum(rate(labels('istio_requests_total', clusterLabel { reporter: '~source|waypoint', response_code: '~5..' })))) + 'or vector(0)'
       ),
 
       local tableLabelJoin = function(query)
@@ -266,7 +263,7 @@ local variables = import './variables.libsonnet';
         self.query(
           '{{ destination_workload}}.{{ destination_workload_namespace }}',
           tableLabelJoin(sum(
-            rate(labels('istio_requests_total', { reporter: '~source|waypoint' })),
+            rate(labels('istio_requests_total', clusterLabel { reporter: '~source|waypoint' })),
             by=['destination_workload', 'destination_workload_namespace', 'destination_service']
           ))
         ) + q.withFormat('table') + q.withRefId('requests') + q.withInstant(),
@@ -277,7 +274,7 @@ local variables = import './variables.libsonnet';
             quantile(
               '0.5',
               sum(
-                rate(labels('istio_request_duration_milliseconds_bucket', { reporter: '~source|waypoint' })),
+                rate(labels('istio_request_duration_milliseconds_bucket', clusterLabel { reporter: '~source|waypoint' })),
                 by=['le', 'destination_workload', 'destination_workload_namespace']
               )
             )
@@ -290,7 +287,7 @@ local variables = import './variables.libsonnet';
             quantile(
               '0.9',
               sum(
-                rate(labels('istio_request_duration_milliseconds_bucket', { reporter: '~source|waypoint' })),
+                rate(labels('istio_request_duration_milliseconds_bucket', clusterLabel { reporter: '~source|waypoint' })),
                 by=['le', 'destination_workload', 'destination_workload_namespace']
               )
             )
@@ -303,7 +300,7 @@ local variables = import './variables.libsonnet';
             quantile(
               '0.99',
               sum(
-                rate(labels('istio_request_duration_milliseconds_bucket', { reporter: '~source|waypoint' })),
+                rate(labels('istio_request_duration_milliseconds_bucket', clusterLabel { reporter: '~source|waypoint' })),
                 by=['le', 'destination_workload', 'destination_workload_namespace']
               )
             )
@@ -314,12 +311,12 @@ local variables = import './variables.libsonnet';
           '{{ destination_workload}}.{{ destination_workload_namespace }}',
           tableLabelJoin(
             sum(
-              rate(labels('istio_requests_total', { reporter: '~source|waypoint', response_code: '!~5..' })),
+              rate(labels('istio_requests_total', clusterLabel { reporter: '~source|waypoint', response_code: '!~5..' })),
               by=['destination_workload', 'destination_workload_namespace']
             )
             + '/' +
             sum(
-              rate(labels('istio_requests_total', { reporter: '~source|waypoint' })),
+              rate(labels('istio_requests_total', clusterLabel { reporter: '~source|waypoint' })),
               by=['destination_workload', 'destination_workload_namespace']
             )
           )
@@ -330,14 +327,14 @@ local variables = import './variables.libsonnet';
         self.query(
           '{{ destination_workload}}.{{ destination_workload_namespace }}',
           tableLabelJoin(sum(
-            rate(labels('istio_tcp_received_bytes_total', { reporter: '~source|waypoint' })),
+            rate(labels('istio_tcp_received_bytes_total', clusterLabel { reporter: '~source|waypoint' })),
             by=['destination_workload', 'destination_workload_namespace', 'destination_service']
           ))
         ) + q.withFormat('table') + q.withRefId('recv') + q.withInstant(),
         self.query(
           '{{ destination_workload}}.{{ destination_workload_namespace }}',
           tableLabelJoin(sum(
-            rate(labels('istio_tcp_sent_bytes_total', { reporter: '~source|waypoint' })),
+            rate(labels('istio_tcp_sent_bytes_total', clusterLabel { reporter: '~source|waypoint' })),
             by=['destination_workload', 'destination_workload_namespace', 'destination_service']
           ))
         ) + q.withFormat('table') + q.withRefId('sent') + q.withInstant(),
