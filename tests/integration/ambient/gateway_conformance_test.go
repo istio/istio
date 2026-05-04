@@ -89,9 +89,6 @@ var skippedTests = map[string]string{
 	"HTTPRouteCORS":                                   "TODO",
 	"HTTPRouteHTTPSListenerDetectMisdirectedRequests": "TODO",
 
-	"ListenerSetAllowedNamespaceNone":        "TODO",
-	"ListenerSetAllowedNamespaceSame":        "TODO",
-	"ListenerSetAllowedNamespaceSelector":    "TODO",
 	"ListenerSetAllowedRoutesNamespaces":     "TODO",
 	"ListenerSetAllowedRoutesSupportedKinds": "TODO",
 	"ListenerSetDefaultNotAllowed":           "TODO",
@@ -115,6 +112,10 @@ var skippedTests = map[string]string{
 var agentgatewaySkippedTests = map[string]string{
 	"TLSRouteTerminateSimpleSameNamespace":  "TODO",
 	"TLSRouteMixedTerminationSameNamespace": "TODO",
+
+	"ListenerSetAllowedNamespaceNone":     "TODO",
+	"ListenerSetAllowedNamespaceSame":     "TODO",
+	"ListenerSetAllowedNamespaceSelector": "TODO",
 }
 
 func TestGatewayConformance(t *testing.T) {
