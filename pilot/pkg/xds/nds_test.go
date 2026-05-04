@@ -131,7 +131,7 @@ func TestGenerate(t *testing.T) {
 			nameTable: emptyNameTable,
 		},
 		{
-			name:      "full push",
+			name:      "forced push",
 			proxy:     &model.Proxy{Type: model.SidecarProxy},
 			request:   &model.PushRequest{Forced: true},
 			nameTable: emptyNameTable,
@@ -139,8 +139,8 @@ func TestGenerate(t *testing.T) {
 		{
 			name:      "partial push with no headless endpoint update",
 			proxy:     &model.Proxy{Type: model.SidecarProxy},
-			request:   &model.PushRequest{Forced: true},
-			nameTable: emptyNameTable,
+			request:   &model.PushRequest{},
+			nameTable: nil,
 		},
 	}
 	for _, tt := range cases {

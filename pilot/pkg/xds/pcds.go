@@ -22,6 +22,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	tb "istio.io/istio/pilot/pkg/trustbundle"
 	"istio.io/istio/pilot/pkg/util/protoconv"
+	"istio.io/istio/pkg/config/schema/kind"
 )
 
 // PcdsGenerator generates proxy configuration for proxies to consume
@@ -45,7 +46,7 @@ func pcdsNeedsPush(req *model.PushRequest) bool {
 		return true
 	}
 
-	if model.OnlyHasEndpointUpdates(req.ConfigsUpdated) {
+	if model.OnlyHasConfigsOfKind(req.ConfigsUpdated, kind.Endpoints) {
 		return false
 	}
 

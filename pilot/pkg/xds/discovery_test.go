@@ -33,18 +33,6 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
-func onlyHasConfigsOfKind(configs sets.Set[model.ConfigKey], k kind.Kind) bool {
-	if len(configs) == 0 {
-		return false
-	}
-	for c := range configs {
-		if c.Kind != k {
-			return false
-		}
-	}
-	return true
-}
-
 func createProxies(n int) []*Connection {
 	proxies := make([]*Connection, 0, n)
 	for p := 0; p < n; p++ {
@@ -307,7 +295,7 @@ func TestDebounce(t *testing.T) {
 			wg := sync.WaitGroup{}
 
 			fakePush := func(req *model.PushRequest) {
-				if !onlyHasConfigsOfKind(req.ConfigsUpdated, kind.Endpoints) {
+				if !model.OnlyHasConfigsOfKind(req.ConfigsUpdated, kind.Endpoints) {
 					select {
 					case pushingCh <- struct{}{}:
 					default:

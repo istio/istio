@@ -175,13 +175,21 @@ func (s *DiscoveryServer) pushXds(con *Connection, w *model.WatchedResource, req
 		return err
 	}
 
-	debug := ""
-	if log.DebugEnabled() {
-		// Add additional information to logs when debug mode enabled.
-		debug = " nonce:" + resp.Nonce + " version:" + resp.VersionInfo
+	switch {
+	case model.OnlyHasConfigsOfKind(req.ConfigsUpdated, kind.Endpoints):
+		if log.DebugEnabled() {
+			log.Debugf("%s: %s%s for node:%s resources:%d size:%s%s",
+				v3.GetShortType(w.TypeUrl), ptype, req.PushReason(), con.proxy.ID, len(res), util.ByteCount(configSize), info)
+		}
+	default:
+		debug := ""
+		if log.DebugEnabled() {
+			// Add additional information to logs when debug mode enabled.
+			debug = " nonce:" + resp.Nonce + " version:" + resp.VersionInfo
+		}
+		log.Infof("%s: %s%s for node:%s resources:%d size:%v%s%s", v3.GetShortType(w.TypeUrl), ptype, req.PushReason(), con.proxy.ID, len(res),
+			util.ByteCount(ResourceSize(res)), info, debug)
 	}
-	log.Infof("%s: %s%s for node:%s resources:%d size:%v%s%s", v3.GetShortType(w.TypeUrl), ptype, req.PushReason(), con.proxy.ID, len(res),
-		util.ByteCount(ResourceSize(res)), info, debug)
 
 	return nil
 }

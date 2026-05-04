@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/config/schema/kind"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/slices"
 	_ "istio.io/istio/pkg/util/protomarshal" // Ensure we get the more efficient vtproto gRPC encoder
@@ -569,14 +570,22 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, w *model.WatchedResource
 		return err
 	}
 
-	debug := ""
-	if deltaLog.DebugEnabled() {
-		// Add additional information to logs when debug mode enabled.
-		debug = " nonce:" + resp.Nonce + " version:" + resp.SystemVersionInfo
+	switch {
+	case model.OnlyHasConfigsOfKind(req.ConfigsUpdated, kind.Endpoints):
+		if deltaLog.DebugEnabled() {
+			deltaLog.Debugf("%s: %s%s for node:%s resources:%d size:%s%s",
+				v3.GetShortType(w.TypeUrl), ptype, req.PushReason(), con.proxy.ID, len(res), util.ByteCount(configSize), info)
+		}
+	default:
+		debug := ""
+		if deltaLog.DebugEnabled() {
+			// Add additional information to logs when debug mode enabled.
+			debug = " nonce:" + resp.Nonce + " version:" + resp.SystemVersionInfo
+		}
+		deltaLog.Infof("%s: %s%s for node:%s resources:%d removed:%d size:%v%s%s",
+			v3.GetShortType(w.TypeUrl), ptype, req.PushReason(), con.proxy.ID, len(res), len(resp.RemovedResources),
+			util.ByteCount(ResourceSize(res)), info, debug)
 	}
-	deltaLog.Infof("%s: %s%s for node:%s resources:%d removed:%d size:%v%s%s",
-		v3.GetShortType(w.TypeUrl), ptype, req.PushReason(), con.proxy.ID, len(res), len(resp.RemovedResources),
-		util.ByteCount(ResourceSize(res)), info, debug)
 
 	return nil
 }

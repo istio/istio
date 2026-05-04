@@ -334,7 +334,7 @@ func (s *DiscoveryServer) ConfigUpdate(req *model.PushRequest) {
 	}
 	inboundConfigUpdates.Increment()
 	s.InboundUpdates.Inc()
-	if pushLog.DebugEnabled() {
+	if pushLog.DebugEnabled() && !model.OnlyHasConfigsOfKind(req.ConfigsUpdated, kind.Endpoints) {
 		configs := slices.Sort(slices.Map(req.ConfigsUpdated.UnsortedList(), model.ConfigKey.String))
 		reasons := maps.Keys(req.Reason)
 		pushLog.Debugf("push triggered configs=%v reasons=%v", configs, reasons)
@@ -409,7 +409,7 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, opts DebounceO
 			if len(r.Reason) == 0 {
 				r.Reason = model.NewReasonStats(model.UnknownTrigger)
 			}
-			if !opts.enableEDSDebounce && model.OnlyHasEndpointUpdates(r.ConfigsUpdated) {
+			if !opts.enableEDSDebounce && model.OnlyHasConfigsOfKind(r.ConfigsUpdated, kind.Endpoints) {
 				// trigger push now, just for EDS
 				go func(req *model.PushRequest) {
 					pushFn(req)
