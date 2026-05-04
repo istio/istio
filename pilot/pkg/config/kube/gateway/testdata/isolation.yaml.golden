@@ -2,6 +2,7 @@ apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   annotations:
+    internal.istio.io/gateway-parent: gateway-conformance-infra/isolation
     internal.istio.io/gateway-semantics: gateway
     internal.istio.io/gateway-service: isolation-istio.gateway-conformance-infra.svc.domain.suffix
     internal.istio.io/parents: Gateway/isolation/abc-foo-example-com.gateway-conformance-infra
@@ -21,6 +22,7 @@ apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   annotations:
+    internal.istio.io/gateway-parent: gateway-conformance-infra/isolation
     internal.istio.io/gateway-semantics: gateway
     internal.istio.io/gateway-service: isolation-istio.gateway-conformance-infra.svc.domain.suffix
     internal.istio.io/parents: Gateway/isolation/empty-hostname.gateway-conformance-infra
@@ -40,6 +42,7 @@ apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   annotations:
+    internal.istio.io/gateway-parent: gateway-conformance-infra/isolation
     internal.istio.io/gateway-semantics: gateway
     internal.istio.io/gateway-service: isolation-istio.gateway-conformance-infra.svc.domain.suffix
     internal.istio.io/parents: Gateway/isolation/wildcard-example-com.gateway-conformance-infra
@@ -59,6 +62,7 @@ apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   annotations:
+    internal.istio.io/gateway-parent: gateway-conformance-infra/isolation
     internal.istio.io/gateway-semantics: gateway
     internal.istio.io/gateway-service: isolation-istio.gateway-conformance-infra.svc.domain.suffix
     internal.istio.io/parents: Gateway/isolation/wildcard-foo-example-com.gateway-conformance-infra

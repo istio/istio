@@ -2,6 +2,7 @@ apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   annotations:
+    internal.istio.io/gateway-parent: istio-system/gateway-invalid-ciphers
     internal.istio.io/gateway-semantics: gateway
     internal.istio.io/gateway-service: istio-ingressgateway.istio-system.svc.domain.suffix
     internal.istio.io/parents: Gateway/gateway-invalid-ciphers/passthrough.istio-system
@@ -22,6 +23,7 @@ apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   annotations:
+    internal.istio.io/gateway-parent: istio-system/gateway-mixed-ciphers
     internal.istio.io/gateway-semantics: gateway
     internal.istio.io/gateway-service: istio-ingressgateway.istio-system.svc.domain.suffix
     internal.istio.io/parents: Gateway/gateway-mixed-ciphers/passthrough.istio-system
@@ -44,6 +46,7 @@ apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   annotations:
+    internal.istio.io/gateway-parent: istio-system/gateway-valid-ciphers
     internal.istio.io/gateway-semantics: gateway
     internal.istio.io/gateway-service: istio-ingressgateway.istio-system.svc.domain.suffix
     internal.istio.io/parents: Gateway/gateway-valid-ciphers/passthrough.istio-system
@@ -67,6 +70,7 @@ apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   annotations:
+    internal.istio.io/gateway-parent: istio-system/gateway2
     internal.istio.io/gateway-semantics: gateway
     internal.istio.io/gateway-service: istio-ingressgateway.istio-system.svc.domain.suffix
     internal.istio.io/parents: Gateway/gateway2/passthrough.istio-system
@@ -87,6 +91,7 @@ apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   annotations:
+    internal.istio.io/gateway-parent: istio-system/gateway
     internal.istio.io/gateway-semantics: gateway
     internal.istio.io/gateway-service: istio-ingressgateway.istio-system.svc.domain.suffix
     internal.istio.io/parents: Gateway/gateway/passthrough.istio-system
@@ -107,6 +112,7 @@ apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   annotations:
+    internal.istio.io/gateway-parent: istio-system/gateway
     internal.istio.io/gateway-semantics: gateway
     internal.istio.io/gateway-service: istio-ingressgateway.istio-system.svc.domain.suffix
     internal.istio.io/parents: Gateway/gateway/terminate.istio-system
@@ -130,6 +136,7 @@ apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   annotations:
+    internal.istio.io/gateway-parent: istio-system/gateway
     internal.istio.io/gateway-semantics: gateway
     internal.istio.io/gateway-service: istio-ingressgateway.istio-system.svc.domain.suffix
     internal.istio.io/parents: Gateway/gateway/terminate-istio-builtin.istio-system
@@ -152,6 +159,7 @@ apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   annotations:
+    internal.istio.io/gateway-parent: istio-system/gateway
     internal.istio.io/gateway-semantics: gateway
     internal.istio.io/gateway-service: istio-ingressgateway.istio-system.svc.domain.suffix
     internal.istio.io/parents: Gateway/gateway/terminate-istio-mtls.istio-system
@@ -173,6 +181,7 @@ apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   annotations:
+    internal.istio.io/gateway-parent: istio-system/gateway
     internal.istio.io/gateway-semantics: gateway
     internal.istio.io/gateway-service: istio-ingressgateway.istio-system.svc.domain.suffix
     internal.istio.io/parents: Gateway/gateway/terminate-mtls.istio-system
@@ -196,6 +205,7 @@ apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   annotations:
+    internal.istio.io/gateway-parent: istio-system/gateway
     internal.istio.io/gateway-semantics: gateway
     internal.istio.io/gateway-service: istio-ingressgateway.istio-system.svc.domain.suffix
     internal.istio.io/parents: Gateway/gateway/terminate-mtls-frontendvalidation-configmap.istio-system
@@ -219,6 +229,7 @@ apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   annotations:
+    internal.istio.io/gateway-parent: istio-system/gateway
     internal.istio.io/gateway-semantics: gateway
     internal.istio.io/gateway-service: istio-ingressgateway.istio-system.svc.domain.suffix
     internal.istio.io/parents: Gateway/gateway/terminate-mtls-frontendvalidation-secret.istio-system
@@ -242,6 +253,7 @@ apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   annotations:
+    internal.istio.io/gateway-parent: istio-system/gateway
     internal.istio.io/gateway-semantics: gateway
     internal.istio.io/gateway-service: istio-ingressgateway.istio-system.svc.domain.suffix
     internal.istio.io/parents: Gateway/gateway/terminate-multi.istio-system
@@ -267,6 +279,7 @@ apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   annotations:
+    internal.istio.io/gateway-parent: istio-system/gateway
     internal.istio.io/gateway-semantics: gateway
     internal.istio.io/gateway-service: istio-ingressgateway.istio-system.svc.domain.suffix
     internal.istio.io/parents: Gateway/gateway/terminate-optional-mtls-frontendvalidation.istio-system

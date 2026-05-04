@@ -169,6 +169,7 @@ func ListenerSetCollection(
 				meta[constants.InternalGatewaySemantics] = constants.GatewaySemanticsGateway
 				meta[model.InternalGatewayServiceAnnotation] = strings.Join(gatewayServices, ",")
 				meta[constants.InternalParentNamespace] = parentGwObj.Namespace
+				meta[constants.InternalGatewayParent] = parentGwObj.Namespace + "/" + parentGwObj.Name
 				serviceAccountName := model.GetOrDefault(
 					parentGwObj.GetAnnotations()[annotation.GatewayServiceAccount.Name],
 					gatewaycommon.GetDefaultName(parentGwObj.GetName(), &parentGwObj.Spec, classInfo.DisableNameSuffix),
@@ -308,6 +309,7 @@ func GatewayCollection(
 			meta[model.InternalGatewayServiceAnnotation] = strings.Join(gatewayServices, ",")
 
 			meta[constants.InternalServiceAccount] = serviceAccountName
+			meta[constants.InternalGatewayParent] = obj.Namespace + "/" + obj.Name
 
 			// Each listener generates an Istio Gateway with a single Server. This allows binding to a specific listener.
 			gatewayConfig := config.Config{

@@ -135,7 +135,13 @@ const (
 	// The service account name that gateway workloads are running at. Used to verify that
 	// only service accounts associated with gateway workloads can query secrets.
 	// Empty means any service account name within the namespace.
-	InternalServiceAccount        = "internal.istio.io/service-account-name"
+	InternalServiceAccount = "internal.istio.io/service-account-name"
+	// InternalGatewayParent identifies, for an internally-generated istio Gateway derived from
+	// a Kubernetes Gateway listener (whether on the parent Gateway or via a ListenerSet), the
+	// "<namespace>/<name>" of the parent Kubernetes Gateway resource. Servers across all istio
+	// Gateways sharing the same value belong to the same logical Kubernetes Gateway and are
+	// considered siblings for HTTPS sibling-listener semantics (e.g. 421 Misdirected Request).
+	InternalGatewayParent         = "internal.istio.io/gateway-parent"
 	InternalRouteSemantics        = "internal.istio.io/route-semantics"
 	RouteSemanticsIngress         = "ingress"
 	RouteSemanticsGateway         = "gateway"

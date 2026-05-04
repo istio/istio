@@ -81,11 +81,10 @@ var skippedTests = map[string]string{
 	"GatewayFrontendClientCertificateValidation":                 "TODO",
 	"GatewayInvalidFrontendClientCertificateValidation":          "TODO",
 
-	"HTTPRoute303Redirect":                            "TODO",
-	"HTTPRoute307Redirect":                            "TODO",
-	"HTTPRoute308Redirect":                            "TODO",
-	"HTTPRouteCORS":                                   "TODO",
-	"HTTPRouteHTTPSListenerDetectMisdirectedRequests": "TODO",
+	"HTTPRoute303Redirect": "TODO",
+	"HTTPRoute307Redirect": "TODO",
+	"HTTPRoute308Redirect": "TODO",
+	"HTTPRouteCORS":        "TODO",
 
 	"ListenerSetHostnameConflict": "TODO",
 	"ListenerSetProtocolConflict": "TODO",

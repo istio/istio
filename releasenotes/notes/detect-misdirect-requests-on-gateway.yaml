@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+  - |
+    **Added** support for the Gateway API conformance behaviour
+    `HTTPRouteHTTPSListenerDetectMisdirectedRequests`. When multiple HTTPS
+    listeners share a port on a Kubernetes `Gateway`, requests whose `Host`
+    header would be served by a different listener now receive HTTP 421
+    (Misdirected Request) instead of being processed by the listener that
+    SNI selected.
