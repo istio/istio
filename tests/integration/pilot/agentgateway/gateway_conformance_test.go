@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package pilot
+package agentgateway
 
 import (
 	"io/fs"
@@ -83,6 +83,9 @@ var skippedTests = map[string]string{
 	"HTTPRouteCORS":                                   "TODO",
 	"HTTPRouteHTTPSListenerDetectMisdirectedRequests": "TODO",
 
+	"ListenerSetAllowedNamespaceNone":        "TODO",
+	"ListenerSetAllowedNamespaceSame":        "TODO",
+	"ListenerSetAllowedNamespaceSelector":    "TODO",
 	"ListenerSetAllowedRoutesNamespaces":     "TODO",
 	"ListenerSetAllowedRoutesSupportedKinds": "TODO",
 	"ListenerSetDefaultNotAllowed":           "TODO",
@@ -101,12 +104,19 @@ var skippedTests = map[string]string{
 	"GatewayWithAttachedRoutesWithPort8080": "TODO",
 
 	"MeshGRPCRouteWeight": "TODO",
+
+	// The following tests were added in v1.5.0
+	"TLSRouteTerminateSimpleSameNamespace":  "TODO",
+	"TLSRouteMixedTerminationSameNamespace": "TODO",
 }
 
-func TestGatewayConformance(t *testing.T) {
+func TestGatewayConformanceAgentgateway(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
+			if !ctx.Settings().Agentgateway {
+				ctx.Skip("Only run agentgateway conformance tests when explicitly enabled")
+			}
 			crd.DeployGatewayAPIOrSkip(ctx)
 
 			// Precreate the GatewayConformance namespaces, and apply the Image Pull Secret to them.
@@ -144,7 +154,7 @@ func TestGatewayConformance(t *testing.T) {
 				Clientset:                gatewayConformanceInputs.Client.Kube(),
 				ClientOptions:            clientOptions,
 				RestConfig:               gatewayConformanceInputs.Client.RESTConfig(),
-				GatewayClassName:         "istio",
+				GatewayClassName:         "istio-agentgateway",
 				Debug:                    scopes.Framework.DebugEnabled(),
 				CleanupBaseResources:     gatewayConformanceInputs.Cleanup,
 				ManifestFS:               []fs.FS{&conformance.Manifests},
@@ -198,7 +208,7 @@ func TestGatewayConformance(t *testing.T) {
 			assert.NoError(t, err)
 			reportb, err := yaml.Marshal(report)
 			assert.NoError(t, err)
-			fp := filepath.Join(ctx.Settings().BaseDir, "istio-conformance.yaml")
+			fp := filepath.Join(ctx.Settings().BaseDir, "istio-agentgateway-conformance.yaml")
 			t.Logf("writing conformance test to %v (%v)", fp, prow.ArtifactsURL(fp))
 			assert.NoError(t, os.WriteFile(fp, reportb, 0o644))
 		})
