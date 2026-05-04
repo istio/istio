@@ -94,7 +94,7 @@ status:
     status: "True"
     type: Programmed
   listeners:
-  - attachedRoutes: 0
+  - attachedRoutes: 2
     conditions:
     - lastTransitionTime: fake
       message: No errors found
@@ -194,7 +194,7 @@ status:
   addresses:
   - type: IPAddress
     value: 1.2.3.4
-  attachedListenerSets: 4
+  attachedListenerSets: 3
   conditions:
   - lastTransitionTime: fake
     message: Resource accepted
