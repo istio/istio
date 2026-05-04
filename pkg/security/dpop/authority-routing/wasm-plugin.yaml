@@ -1,0 +1,32 @@
+##############################################################################
+# WasmPlugin — production alternative to the Lua EnvoyFilter.
+# Requires Istio 1.12+ and a built .wasm binary in an OCI registry.
+#
+# Build:
+#   cd wasm
+#   tinygo build -o authority-rewrite.wasm -scheduler=none -target=wasi ./main.go
+#   crane push authority-rewrite.wasm your-registry/authority-rewrite:v1.0.0
+#
+# Then apply:
+#   kubectl apply -f wasm-plugin.yaml
+#   kubectl apply -f envoyfilter-cluster-header.yaml
+#   kubectl apply -f gateway.yaml
+##############################################################################
+apiVersion: extensions.istio.io/v1alpha1
+kind: WasmPlugin
+metadata:
+  name: short-name-authority-rewrite
+  namespace: istio-system
+spec:
+  selector:
+    matchLabels:
+      istio: ingressgateway
+  url: oci://your-registry/authority-rewrite:v1.0.0
+  # UNSPECIFIED_PHASE = runs before routing, which is what we need.
+  # Do NOT use AUTHN here — that phase is for sidecar JWT/mTLS checks.
+  phase: UNSPECIFIED_PHASE
+  # pluginConfig is passed as JSON to OnPluginStart in main.go.
+  pluginConfig:
+    namespace: "default"
+    clusterDomain: "svc.cluster.local"
+    defaultPort: "80"

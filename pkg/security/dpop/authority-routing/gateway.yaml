@@ -1,0 +1,74 @@
+##############################################################################
+# Fix for: https://github.com/istio/istio/issues/59669
+#
+# Gateway: accepts all hosts on port 80.
+# VirtualService: single catch-all route — no placeholder service needed.
+#
+# The EnvoyFilter in envoyfilter-cluster-header.yaml replaces the route
+# action with cluster_header routing at xDS generation time, so the
+# destination below is never actually used for cluster selection.
+# We use the Kubernetes API server service as the destination because it
+# is guaranteed to exist in every cluster and satisfies Istio's service
+# registry validation.
+##############################################################################
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: short-name-gateway
+  namespace: istio-system
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+    - port:
+        number: 80
+        name: http
+        protocol: HTTP
+      hosts:
+        - "*"
+---
+##############################################################################
+# ServiceEntry: synthetic "blackhole" service used only to satisfy Istio's
+# VirtualService destination validation.  Traffic never actually reaches it
+# because the cluster_header EnvoyFilter overrides the cluster at runtime.
+##############################################################################
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: dynamic-routing-placeholder
+  namespace: istio-system
+spec:
+  hosts:
+    - dynamic-routing.istio-system.svc.cluster.local
+  ports:
+    - number: 80
+      name: http
+      protocol: HTTP
+  location: MESH_INTERNAL
+  resolution: STATIC
+  endpoints:
+    - address: "127.0.0.2"   # unreachable loopback — cluster_header takes over
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: short-name-catchall
+  namespace: istio-system
+spec:
+  hosts:
+    - "*"
+  gateways:
+    - short-name-gateway
+  http:
+    - name: dynamic-cluster-route
+      match:
+        - uri:
+            prefix: "/"
+      route:
+        - destination:
+            # Points to the ServiceEntry above — only used to pass Istio
+            # validation.  The cluster_header EnvoyFilter replaces this
+            # cluster specifier at xDS time with cluster_header routing.
+            host: dynamic-routing.istio-system.svc.cluster.local
+            port:
+              number: 80
