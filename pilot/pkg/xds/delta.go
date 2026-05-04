@@ -152,8 +152,10 @@ func (s *DiscoveryServer) StreamDeltas(stream DeltaDiscoveryStream) error {
 func (s *DiscoveryServer) pushConnectionDelta(con *Connection, pushEv *Event) error {
 	pushRequest := pushEv.pushRequest
 
-	// Update Proxy with current information.
-	s.computeProxyState(con.proxy, pushRequest)
+	if !model.OnlyHasConfigsOfKind(pushRequest.ConfigsUpdated, kind.Endpoints) {
+		// Update Proxy with current information.
+		s.computeProxyState(con.proxy, pushRequest)
+	}
 
 	pushRequest, needsPush := s.ProxyNeedsPush(con.proxy, pushRequest)
 	if !needsPush {

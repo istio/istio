@@ -472,8 +472,10 @@ func (s *DiscoveryServer) DeltaAggregatedResources(stream discovery.AggregatedDi
 func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 	pushRequest := pushEv.pushRequest
 
-	// Update Proxy with current information.
-	s.computeProxyState(con.proxy, pushRequest)
+	if !model.OnlyHasConfigsOfKind(pushRequest.ConfigsUpdated, kind.Endpoints) {
+		// Update Proxy with current information.
+		s.computeProxyState(con.proxy, pushRequest)
+	}
 
 	pushRequest, needsPush := s.ProxyNeedsPush(con.proxy, pushRequest)
 	if !needsPush {
