@@ -53,7 +53,7 @@ func TestApplyProxyConfig(t *testing.T) {
 			t.Fatalf("expected discoveryAddress: %q, got %q", defaultDiscovery, mc.DefaultConfig.DiscoveryAddress)
 		}
 		if mc.DefaultConfig.DrainDuration.Seconds != 5 {
-			t.Fatalf("expected drainDuration: 5s, got %q", mc.DefaultConfig.DrainDuration.Seconds)
+			t.Fatalf("expected drainDuration: 5s, got %d", mc.DefaultConfig.DrainDuration.Seconds)
 		}
 	})
 

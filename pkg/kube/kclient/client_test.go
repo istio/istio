@@ -223,9 +223,13 @@ func TestDelayedClientHandlerHasSyncedChecker(t *testing.T) {
 		stop := test.NewStop(t)
 		c := kube.NewFakeClient()
 		wasm := kclient.NewDelayedInformer[controllers.Object](c, gvr.WasmPlugin, kubetypes.StandardInformer, kubetypes.Filter{})
+		handlerStarted := make(chan struct{})
+		releaseHandler := make(chan struct{})
 		handled := make(chan struct{})
 		registration := wasm.AddEventHandler(cache.ResourceEventHandlerFuncs{
 			AddFunc: func(any) {
+				close(handlerStarted)
+				<-releaseHandler
 				close(handled)
 			},
 		})
@@ -238,7 +242,16 @@ func TestDelayedClientHandlerHasSyncedChecker(t *testing.T) {
 		})
 
 		assertChannelOpen(t, done)
-		c.RunAndWait(stop)
+		runDone := make(chan struct{})
+		go func() {
+			c.RunAndWait(stop)
+			close(runDone)
+		}()
+		assertChannelClosed(t, handlerStarted)
+		assertChannelOpen(t, done)
+		assertChannelOpen(t, runDone)
+		close(releaseHandler)
+		assertChannelClosed(t, runDone)
 		assertChannelClosed(t, done)
 		assertChannelClosed(t, handled)
 	})

@@ -40,6 +40,8 @@ type delayedClient[T controllers.ComparableObject] struct {
 	handlers []delayedHandler
 	indexers []delayedIndex[T]
 	started  <-chan struct{}
+
+	realStarting atomic.Bool
 }
 
 type delayedHandler struct {
@@ -69,9 +71,9 @@ func (r delayedHandlerRegistration) HasSyncedChecker() cache.DoneChecker {
 	return delayedHandlerDoneChecker{registration: r}
 }
 
-func (r delayedHandlerRegistration) watchDelayed(checker cache.DoneChecker) {
+func (r delayedHandlerRegistration) watchDelayed(checker cache.DoneChecker, realStarting *atomic.Bool) {
 	r.watchWithCondition(checker, func() bool {
-		return !r.real.Load()
+		return !r.real.Load() && !realStarting.Load()
 	})
 }
 
@@ -179,8 +181,8 @@ func (s *delayedClient[T]) AddEventHandler(h cache.ResourceEventHandler) cache.R
 		done:      make(chan struct{}),
 		doneOnce:  new(sync.Once),
 	}
-	hasSynced.hasSynced.Store(ptr.Of(s.delayed.HasSynced))
-	hasSynced.watchDelayed(s.delayed.HasSyncedChecker())
+	hasSynced.hasSynced.Store(ptr.Of(s.delayedSynced))
+	hasSynced.watchDelayed(s.delayed.HasSyncedChecker(), &s.realStarting)
 	s.handlers = append(s.handlers, delayedHandler{
 		ResourceEventHandler: h,
 		hasSynced:            hasSynced,
@@ -194,8 +196,7 @@ func (s *delayedClient[T]) HasSynced() bool {
 	}
 	// If we haven't loaded the informer yet, we want to check if the delayed filter is synced.
 	// This ensures that at startup, we only return HasSynced=true if we are sure the CRD is not ready.
-	hs := s.delayed.HasSynced()
-	return hs
+	return s.delayedSynced()
 }
 
 func (s *delayedClient[T]) HasSyncedIgnoringHandlers() bool {
@@ -204,8 +205,14 @@ func (s *delayedClient[T]) HasSyncedIgnoringHandlers() bool {
 	}
 	// If we haven't loaded the informer yet, we want to check if the delayed filter is synced.
 	// This ensures that at startup, we only return HasSynced=true if we are sure the CRD is not ready.
-	hs := s.delayed.HasSynced()
-	return hs
+	return s.delayedSynced()
+}
+
+func (s *delayedClient[T]) delayedSynced() bool {
+	if s.realStarting.Load() {
+		return false
+	}
+	return s.delayed.HasSynced()
 }
 
 func (s *delayedClient[T]) ShutdownHandlers() {

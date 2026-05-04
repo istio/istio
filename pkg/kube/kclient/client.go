@@ -395,6 +395,7 @@ func newDelayedInformer[T controllers.ComparableObject](
 	// When the resource is later loaded, the callback will trigger and swap our dummy delayedClient
 	// with a full client
 	readyNow := delay.KnownOrCallback(func(stop <-chan struct{}) {
+		delayedClient.realStarting.Store(true)
 		// The inf() call is responsible for starting the informer
 		inf := getInf()
 		fc := &informerClient[T]{
