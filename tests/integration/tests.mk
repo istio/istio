@@ -129,8 +129,7 @@ else
 	$(call run-test,./tests/integration/security/ ./tests/integration/pilot/,-run="TestReachability|TestTraffic|TestGatewayConformance")
 endif
 
-# Agentgateway support is currently experimental. Only used to run agentgateway gw api conformance tests as optional
-# in postsubmit.
-.PHONY: test.integration.kube.agentgateway.conformance
-test.integration.kube.agentgateway.conformance: | $(JUNIT_REPORT) check-go-tag
+# Agentgateway support is currently experimental. Only used to run agentgateway tests as optional
+.PHONY: test.integration.kube.agentgateway
+test.integration.kube.agentgateway: | $(JUNIT_REPORT) check-go-tag
 	$(call run-test,./tests/integration/pilot/agentgateway/)

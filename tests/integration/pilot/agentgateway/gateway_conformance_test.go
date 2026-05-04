@@ -114,7 +114,7 @@ func TestGatewayConformanceAgentgateway(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
-			if !ctx.Settings().AgentgatewayConformance {
+			if !ctx.Settings().Agentgateway {
 				ctx.Skip("Only run agentgateway conformance tests when explicitly enabled")
 			}
 			crd.DeployGatewayAPIOrSkip(ctx)
