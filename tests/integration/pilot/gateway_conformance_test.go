@@ -107,9 +107,6 @@ var agentgatewaySkippedTests = map[string]string{
 	"ListenerSetAllowedNamespaceNone":     "TODO",
 	"ListenerSetAllowedNamespaceSame":     "TODO",
 	"ListenerSetAllowedNamespaceSelector": "TODO",
-	"ListenerSetHostnameConflict":         "TODO",
-	"ListenerSetProtocolConflict":         "TODO",
-	"ListenerSetReferenceGrant":           "TODO",
 }
 
 func TestGatewayConformance(t *testing.T) {
