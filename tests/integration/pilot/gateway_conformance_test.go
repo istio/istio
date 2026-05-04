@@ -78,6 +78,9 @@ var skippedTests = map[string]string{
 	"ListenerSetHostnameConflict": "TODO",
 	"ListenerSetProtocolConflict": "TODO",
 	"ListenerSetReferenceGrant":   "TODO",
+
+	// Fixed upstream, waiting for new gateway api release to pick up fix
+	"MeshHTTPRoute307Redirect": "TODO",
 }
 
 func TestGatewayConformance(t *testing.T) {
