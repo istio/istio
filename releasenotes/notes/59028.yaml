@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 59024
+releaseNotes:
+  - |
+    **Fixed** an issue where waypoints failed to add the TLS inspector
+    listener filter when only TLS ports existed, causing SNI-based routing
+    to fail for wildcard ServiceEntry with `resolution: DYNAMIC_DNS`.
