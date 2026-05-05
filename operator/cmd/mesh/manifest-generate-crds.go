@@ -22,6 +22,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/istioctl/pkg/cli"
+	istioctlutil "istio.io/istio/istioctl/pkg/util"
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/render"
 	"istio.io/istio/operator/pkg/util/clog"
@@ -33,7 +34,8 @@ const (
 	crdKind  = "CustomResourceDefinition"
 )
 
-// ManifestGenerateCRDsArgs holds args for the `manifest generate-crds` subcommand.
+// ManifestGenerateCRDsArgs holds args for the `experimental manifest-generate-crds`
+// subcommand.
 //
 // This is intentionally a strict subset of ManifestGenerateArgs: the only
 // supported output is the rendered set of CustomResourceDefinitions. It exists
@@ -80,43 +82,48 @@ func addManifestGenerateCRDsFlags(cmd *cobra.Command, args *ManifestGenerateCRDs
 		"Path of the file to write the rendered CRDs to. If empty, writes to stdout.")
 }
 
-// ManifestGenerateCRDsCmd creates the `istioctl manifest generate-crds` subcommand.
-func ManifestGenerateCRDsCmd(ctx cli.Context, _ *RootArgs, mgArgs *ManifestGenerateCRDsArgs) *cobra.Command {
-	return &cobra.Command{
-		Use:   "generate-crds",
+// ManifestGenerateCRDsCmd creates the `istioctl experimental manifest-generate-crds`
+// subcommand. The command takes a cli.Context for parity with other experimental
+// commands but does not currently need a kube client: CRDs are static and the
+// same regardless of the target cluster, so the command works without a
+// kubeconfig present.
+func ManifestGenerateCRDsCmd(_ cli.Context) *cobra.Command {
+	mgArgs := &ManifestGenerateCRDsArgs{}
+	cmd := &cobra.Command{
+		Use:   "manifest-generate-crds",
 		Short: "Generates only the Istio CRDs portion of the install manifest",
-		Long: "The generate-crds subcommand renders only the CustomResourceDefinition objects from the Istio install " +
-			"manifest. This is intended for use cases where CRDs need to be installed independently from the rest of " +
-			"the control plane (for example, a sidecar in a multi-container pod sharing a volume with the distroless " +
-			"istioctl image, applying just the CRDs ahead of time).",
+		Long: "The manifest-generate-crds subcommand renders only the CustomResourceDefinition objects from the Istio " +
+			"install manifest. This is intended for use cases where CRDs need to be installed independently from the " +
+			"rest of the control plane (for example, a sidecar in a multi-container pod sharing a volume with the " +
+			"distroless istioctl image, applying just the CRDs ahead of time).",
 		// nolint: lll
 		Example: `  # Write all default Istio CRDs to a shared volume
-  istioctl manifest generate-crds -o /shared/istio-crds.yaml
+  istioctl experimental manifest-generate-crds -o /shared/istio-crds.yaml
 
   # Print CRDs to stdout (matches 'manifest generate' behavior)
-  istioctl manifest generate-crds
+  istioctl experimental manifest-generate-crds
 
   # Exclude specific CRDs (honored by the base chart)
-  istioctl manifest generate-crds --set 'base.excludedCRDs={envoyfilters.networking.istio.io}' -o /shared/istio-crds.yaml
+  istioctl experimental manifest-generate-crds --set 'base.excludedCRDs={envoyfilters.networking.istio.io}' -o /shared/istio-crds.yaml
 
   # Use a custom IstioOperator file
-  istioctl manifest generate-crds -f my-iop.yaml -o /shared/istio-crds.yaml
+  istioctl experimental manifest-generate-crds -f my-iop.yaml -o /shared/istio-crds.yaml
 `,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 0 {
-				return fmt.Errorf("generate-crds accepts no positional arguments, got %#v", args)
+				return fmt.Errorf("manifest-generate-crds accepts no positional arguments, got %#v", args)
 			}
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), installerScope)
-			// generate-crds never needs cluster-specific values: CRDs are static
-			// and the same regardless of the target cluster. Avoid a kube client
-			// round-trip so the command works with no kubeconfig present.
 			var kubeClient kube.CLIClient
 			return ManifestGenerateCRDs(kubeClient, mgArgs, l)
 		},
 	}
+	addManifestGenerateCRDsFlags(cmd, mgArgs)
+	cmd.Long += "\n\n" + istioctlutil.ExperimentalMsg
+	return cmd
 }
 
 // ManifestGenerateCRDs renders the install manifest and emits only the

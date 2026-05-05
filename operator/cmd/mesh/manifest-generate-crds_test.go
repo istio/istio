@@ -22,22 +22,23 @@ import (
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
+	istioctlutil "istio.io/istio/istioctl/pkg/util"
 	"istio.io/istio/operator/pkg/manifest"
 )
 
-// runManifestGenerateCRDs invokes `istioctl manifest generate-crds` with the
-// given input file (may be empty), additional flags, and chart source. The
-// chart source is passed via -d so it is not subject to the legacy
+// runManifestGenerateCRDs invokes `istioctl experimental manifest-generate-crds`
+// with the given input file (may be empty), additional flags, and chart source.
+// The chart source is passed via -d so it is not subject to the legacy
 // installPackagePath alias used by other helpers.
 func runManifestGenerateCRDs(inFile, flags string, chartSource chartSourceType) (string, error) {
-	args := "generate-crds -d " + string(chartSource)
+	args := "-d " + string(chartSource)
 	if inFile != "" {
 		args += " -f " + inFile
 	}
 	if flags != "" {
 		args += " " + flags
 	}
-	return runCommand(ManifestCmd, args)
+	return runCommand(ManifestGenerateCRDsCmd, args)
 }
 
 // parseCRDManifests parses a multi-document YAML string into Manifests, skipping
@@ -244,7 +245,7 @@ func TestManifestGenerateCRDsCmd_OutputFileWriteError(t *testing.T) {
 }
 
 func TestManifestGenerateCRDsCmd_RejectsPositionalArgs(t *testing.T) {
-	out, err := runCommand(ManifestCmd, "generate-crds extra-arg -d "+string(liveCharts))
+	out, err := runManifestGenerateCRDs("", "extra-arg", liveCharts)
 	if err == nil {
 		t.Fatalf("expected error for positional args, got nil; out=%s", out)
 	}
@@ -266,12 +267,9 @@ func TestManifestGenerateCRDsCmd_NoCRDsError(t *testing.T) {
 }
 
 func TestManifestGenerateCRDsCmd_FlagsRegistered(t *testing.T) {
-	// Build the cobra command in isolation so we can introspect the flag set
-	// without running it.
-	cmd := ManifestCmd(nil)
-	gen, _, err := cmd.Find([]string{"generate-crds"})
-	if err != nil {
-		t.Fatalf("find generate-crds subcommand: %v", err)
+	cmd := ManifestGenerateCRDsCmd(nil)
+	if cmd.Use != "manifest-generate-crds" {
+		t.Errorf("unexpected Use: got %q, want %q", cmd.Use, "manifest-generate-crds")
 	}
 
 	wantFlags := []struct {
@@ -286,7 +284,7 @@ func TestManifestGenerateCRDsCmd_FlagsRegistered(t *testing.T) {
 		{name: "output", shorthand: "o"},
 	}
 	for _, wf := range wantFlags {
-		f := gen.Flag(wf.name)
+		f := cmd.Flag(wf.name)
 		if f == nil {
 			t.Errorf("flag --%s is not registered", wf.name)
 			continue
@@ -294,5 +292,23 @@ func TestManifestGenerateCRDsCmd_FlagsRegistered(t *testing.T) {
 		if f.Shorthand != wf.shorthand {
 			t.Errorf("flag --%s: got shorthand %q, want %q", wf.name, f.Shorthand, wf.shorthand)
 		}
+	}
+}
+
+func TestManifestGenerateCRDsCmd_NotInManifestGroup(t *testing.T) {
+	// The command must not be registered as `istioctl manifest generate-crds`
+	// while it is still experimental; it lives under `istioctl experimental`.
+	mc := ManifestCmd(nil)
+	for _, sub := range mc.Commands() {
+		if sub.Name() == "generate-crds" || sub.Name() == "manifest-generate-crds" {
+			t.Errorf("manifest cmd unexpectedly contains %q subcommand", sub.Name())
+		}
+	}
+}
+
+func TestManifestGenerateCRDsCmd_LongIncludesExperimentalMsg(t *testing.T) {
+	cmd := ManifestGenerateCRDsCmd(nil)
+	if !strings.Contains(cmd.Long, istioctlutil.ExperimentalMsg) {
+		t.Errorf("Long help should include ExperimentalMsg, got:\n%s", cmd.Long)
 	}
 }

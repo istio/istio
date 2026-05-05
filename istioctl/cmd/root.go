@@ -199,6 +199,7 @@ debug and diagnose their Istio mesh.
 	experimentalCmd.AddCommand(precheck.Cmd(ctx))
 	experimentalCmd.AddCommand(proxyconfig.StatsConfigCmd(ctx))
 	experimentalCmd.AddCommand(checkinject.Cmd(ctx))
+	experimentalCmd.AddCommand(mesh.ManifestGenerateCRDsCmd(ctx))
 	rootCmd.AddCommand(waypoint.Cmd(ctx))
 	rootCmd.AddCommand(ztunnelconfig.ZtunnelConfig(ctx))
 
