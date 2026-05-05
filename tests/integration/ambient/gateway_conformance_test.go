@@ -70,36 +70,20 @@ var skippedTests = map[string]string{
 	"BackendTLSPolicyConflictResolution": "https://github.com/istio/istio/issues/57817",
 
 	// The following tests were added in v1.5.0
-	"BackendTLSPolicyObservedGenerationBump": "TODO",
-
 	"GatewayBackendClientCertificateFeature":                     "TODO",
-	"GatewayFrontendInvalidDefaultClientCertificateValidation":   "TODO",
-	"GatewayInvalidTLSBackendConfiguration":                      "TODO",
-	"GatewayTLSBackendClientCertificate":                         "TODO",
 	"GatewayFrontendClientCertificateValidationInsecureFallback": "TODO",
-	"GatewayFrontendClientCertificateValidation":                 "TODO",
+	"GatewayFrontendInvalidDefaultClientCertificateValidation":   "TODO",
 	"GatewayInvalidFrontendClientCertificateValidation":          "TODO",
+	"GatewayInvalidTLSBackendConfiguration":                      "TODO",
 
-	"HTTPRoute303Redirect":                            "TODO",
-	"HTTPRoute307Redirect":                            "TODO",
-	"HTTPRoute308Redirect":                            "TODO",
-	"HTTPRouteCORS":                                   "TODO",
 	"HTTPRouteHTTPSListenerDetectMisdirectedRequests": "TODO",
 
 	"ListenerSetHostnameConflict": "TODO",
 	"ListenerSetProtocolConflict": "TODO",
 	"ListenerSetReferenceGrant":   "TODO",
 
-	"MeshHTTPRoute303Redirect": "TODO",
+	// Fixed upstream, waiting for new gateway api release to pick up fix
 	"MeshHTTPRoute307Redirect": "TODO",
-	"MeshHTTPRoute308Redirect": "TODO",
-
-	// The following tests were modified between v1.4.0 && v1.5.0
-	"BackendTLSPolicy": "TODO",
-
-	"GatewayWithAttachedRoutesWithPort8080": "TODO",
-
-	"MeshGRPCRouteWeight": "TODO",
 }
 
 func TestGatewayConformance(t *testing.T) {
