@@ -72,7 +72,6 @@ var skippedTests = map[string]string{
 	// The following tests were added in v1.5.0
 
 	"GatewayBackendClientCertificateFeature":                     "TODO",
-	"GatewayTLSBackendClientCertificate":                         "TODO",
 	"GatewayFrontendClientCertificateValidationInsecureFallback": "TODO",
 
 	"HTTPRouteHTTPSListenerDetectMisdirectedRequests": "TODO",
