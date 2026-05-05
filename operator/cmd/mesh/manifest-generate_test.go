@@ -320,26 +320,20 @@ func TestManifestGenerateGateways(t *testing.T) {
 // a PodDisruptionBudget to be generated without requiring the user to also set the
 // component's autoscaleMin Helm value directly.
 func TestManifestGenerateHPAPDB(t *testing.T) {
-	cases := []struct {
-		name     string
-		testCase string
-	}{
-		{"gateway", "gateway_hpa_pdb"},
-		{"pilot", "pilot_hpa_pdb"},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			g := NewWithT(t)
-			objss := runManifestCommands(t, tc.testCase, "", liveCharts, nil)
-			for _, objs := range objss {
-				g.Expect(objs.kind(manifest.PodDisruptionBudget).size()).Should(Equal(1))
-				g.Expect(objs.kind(manifest.HorizontalPodAutoscaler).size()).Should(Equal(1))
-				for _, o := range objs.kind(manifest.HorizontalPodAutoscaler).objSlice {
-					g.Expect(o.Unstructured.Object).Should(HavePathValueEqual(PathValue{"spec.minReplicas", int64(2)}))
-				}
-			}
-		})
-	}
+	runTestGroup(t, testGroup{
+		{
+			desc:        "gateway_hpa_pdb",
+			diffSelect:  "HorizontalPodAutoscaler:*:istio-ingressgateway,PodDisruptionBudget:*:istio-ingressgateway",
+			fileSelect:  []string{"templates/autoscale.yaml", "templates/poddisruptionbudget.yaml"},
+			chartSource: liveCharts,
+		},
+		{
+			desc:        "pilot_hpa_pdb",
+			diffSelect:  "HorizontalPodAutoscaler:*:istiod,PodDisruptionBudget:*:istiod",
+			fileSelect:  []string{"templates/autoscale.yaml", "templates/poddisruptionbudget.yaml"},
+			chartSource: liveCharts,
+		},
+	})
 }
 
 func TestManifestGenerateWithDuplicateMutatingWebhookConfig(t *testing.T) {
