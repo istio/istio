@@ -170,6 +170,7 @@ func (q Queue) processNextItem() bool {
 	// We got the sync signal. This is not a real event, so we exit early after signaling we are synced
 	if key == defaultSyncSignal {
 		q.log.Debugf("synced")
+		q.initialSync.Store(true)
 		return true
 	}
 
