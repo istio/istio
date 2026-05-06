@@ -29,6 +29,7 @@ import (
 	grpcstats "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/grpc_stats/v3"
 	grpcweb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/grpc_web/v3"
 	header_mutationv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/header_mutation/v3"
+	ondemand "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/on_demand/v3"
 	router "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/router/v3"
 	sfs "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/set_filter_state/v3"
 	statefulsession "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/stateful_session/v3"
@@ -85,6 +86,8 @@ const (
 	// for incoming HBONE connections. This header when set to waypoint indicates that request has been processed
 	// by a waypoint already and therfore L7 policies have been applied already and we should skip them.
 	RequestSourceFilterStateKey = "io.istio.source"
+
+	OnDemandHTTPFilterTypeURL = "type.googleapis.com/envoy.extensions.filters.http.on_demand.v3.OnDemand"
 )
 
 // Define static filters to be reused across the codebase. This avoids duplicate marshaling/unmarshaling
@@ -648,6 +651,21 @@ var (
 						},
 					},
 				}),
+		},
+	}
+
+	OnDemandHTTPFilter = &hcm.HttpFilter{
+		Name: "envoy.filters.http.on_demand",
+		ConfigType: &hcm.HttpFilter_TypedConfig{
+			TypedConfig: protoconv.MessageToAny(&ondemand.OnDemand{
+				Odcds: &ondemand.OnDemandCds{
+					Source: &core.ConfigSource{
+						ConfigSourceSpecifier: &core.ConfigSource_Ads{
+							Ads: &core.AggregatedConfigSource{},
+						},
+					},
+				},
+			}),
 		},
 	}
 )

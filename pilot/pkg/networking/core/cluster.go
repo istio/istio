@@ -63,8 +63,12 @@ var deltaConfigTypes = sets.New(
 // For inbound (sidecar only): Cluster for each inbound endpoint port and for each service port
 func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, req *model.PushRequest) ([]*discovery.Resource, model.XdsLogDetails) {
 	envoyFilterPatches := req.Push.EnvoyFilters(proxy)
-	// In Sotw, we care about all services.
 	var services []*model.Service
+	if features.EnableCDSLazyLoad {
+		// If CDS lazy load enabled, we don't send all the service form the beginning
+		return configgen.buildClusters(proxy, req, services, envoyFilterPatches)
+	}
+	// In Sotw, we care about all services.
 	if features.FilterGatewayClusterConfig && proxy.Type == model.Router {
 		services = req.Push.GatewayServices(proxy, envoyFilterPatches)
 	} else {
@@ -118,6 +122,17 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 	}
 	have := sets.String{}
 	servicesDiffed := false
+	if len(updates.ConfigsUpdated) == 0 {
+		// If we have no config updates, it means this's a push only care about the service in the watched resource.
+		// So we can directly compute the delta from the service in the watched resource.
+		svcs := configgen.deltaFromService(proxy, updates.Push, serviceClusters)
+		for _, svc := range svcs {
+			if !have.InsertContains(svc.Hostname.String()) {
+				services = append(services, svc)
+			}
+		}
+	}
+
 	for key := range updates.ConfigsUpdated {
 		// deleted clusters for this config.
 		var deleted []string
@@ -148,7 +163,7 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 		deletedClusters.InsertAll(deleted...)
 	}
 	envoyFilterPatches := updates.Push.EnvoyFilters(proxy)
-	clusters, log := configgen.buildClusters(proxy, updates, services, envoyFilterPatches)
+	clusters, logDetail := configgen.buildClusters(proxy, updates, services, envoyFilterPatches)
 	// DeletedClusters contains list of all subset clusters for the deleted DR or updated DR.
 	// When clusters are rebuilt, we rebuild the subset clusters as well. So, we know what
 	// subset clusters are really needed. So if deleted cluster is not rebuilt, then it is really deleted.
@@ -158,7 +173,7 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 	}
 	// Remove anything we built from the deleted list
 	deletedClusters = deletedClusters.DifferenceInPlace(builtClusters)
-	return clusters, sets.SortedList(deletedClusters), log, true
+	return clusters, sets.SortedList(deletedClusters), logDetail, true
 }
 
 // deltaFromServices computes the delta clusters from the updated services.
@@ -288,6 +303,39 @@ func (configgen *ConfigGeneratorImpl) deltaFromServiceDiff(
 	return services, deletedClusters
 }
 
+func (configgen *ConfigGeneratorImpl) deltaFromService(
+	proxy *model.Proxy,
+	push *model.PushContext,
+	serviceClusters map[string]sets.String,
+) []*model.Service {
+	var services []*model.Service
+
+	// this case should never really happen except in tests, this means the proxy never had sidecar scope recomputed
+	if proxy.PrevSidecarScope == nil {
+		return services
+	}
+
+	var allServices map[host.Name]*model.Service
+	if features.FilterGatewayClusterConfig && proxy.Type == model.Router {
+		svcs := push.GatewayServices(proxy, nil)
+		allServices = make(map[host.Name]*model.Service, len(svcs))
+		for _, svc := range svcs {
+			allServices[svc.Hostname] = svc
+		}
+	} else {
+		allServices = proxy.SidecarScope.ServicesByHostname()
+	}
+
+	for _, service := range allServices {
+		if _, ok := serviceClusters[service.Hostname.String()]; ok {
+			// this is a service we currently have and we should
+			services = append(services, service)
+		}
+	}
+
+	return services
+}
+
 // deltaFromPeerAuthentication computes the delta clusters when a PeerAuthentication changes.
 // A PeerAuthentication change can affect the mTLS mode for services in its namespace, so we mark all
 // services in that namespace as modified.
@@ -408,6 +456,10 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 }
 
 func shouldUseDelta(updates *model.PushRequest) bool {
+	if features.EnableCDSLazyLoad {
+		return true
+	}
+
 	return updates != nil && !updates.Forced && deltaAwareConfigTypes(updates.ConfigsUpdated, updates.Push.Mesh.RootNamespace)
 }
 

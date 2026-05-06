@@ -460,6 +460,9 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 	}
 
 	// Router filter must be last
+	if features.EnableCDSLazyLoad {
+		filters = append(filters, xdsfilters.OnDemandHTTPFilter)
+	}
 	filters = append(filters, xdsfilters.BuildRouterFilter(xdsfilters.RouterFilterContext{
 		SuppressDebugHeaders: httpOpts.suppressEnvoyDebugHeaders,
 	}))
