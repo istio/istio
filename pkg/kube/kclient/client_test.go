@@ -257,24 +257,6 @@ func constantlyAccessForRaceDetection(stop chan struct{}, wt kclient.Untyped) {
 	}
 }
 
-func assertChannelOpen(t *testing.T, ch <-chan struct{}) {
-	t.Helper()
-	select {
-	case <-ch:
-		t.Fatal("expected channel to remain open")
-	default:
-	}
-}
-
-func assertChannelClosed(t *testing.T, ch <-chan struct{}) {
-	t.Helper()
-	select {
-	case <-ch:
-	case <-time.After(time.Second):
-		t.Fatal("timed out waiting for channel to close")
-	}
-}
-
 func TestHasSynced(t *testing.T) {
 	handled := atomic.NewInt64(0)
 	c := kube.NewFakeClient()
