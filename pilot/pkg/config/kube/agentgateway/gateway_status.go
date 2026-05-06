@@ -246,7 +246,6 @@ func reportUnsupportedListenerSet(class string, status *gatewayv1.ListenerSetSta
 func reportNotAllowedListenerSet(status *gatewayv1.ListenerSetStatus, obj *gatewayv1.ListenerSet) {
 	gatewayConditions := map[string]*Condition{
 		string(gatewayv1.GatewayConditionAccepted): {
-			status: metav1.ConditionFalse,
 			reason: string(gatewayv1.GatewayReasonAccepted),
 			error: &ConfigError{
 				Reason:  string(gatewayv1.ListenerSetReasonNotAllowed),
@@ -254,7 +253,6 @@ func reportNotAllowedListenerSet(status *gatewayv1.ListenerSetStatus, obj *gatew
 			},
 		},
 		string(gatewayv1.GatewayConditionProgrammed): {
-			status: metav1.ConditionFalse,
 			reason: string(gatewayv1.GatewayReasonProgrammed),
 			error: &ConfigError{
 				Reason:  string(gatewayv1.ListenerSetReasonNotAllowed),
