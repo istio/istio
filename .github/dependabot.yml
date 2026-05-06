@@ -21,6 +21,7 @@ updates:
       - dependency-name: "k8s.io/*"
       - dependency-name: "sigs.k8s.io/*"
       - dependency-name: "github.com/envoyproxy/go-control-plane/*"
+      - dependency-name: "github.com/prometheus/prometheus"
     groups:
       all-dependencies:
         patterns:
@@ -31,6 +32,7 @@ updates:
           - "k8s.io/*"
           - "sigs.k8s.io/*"
           - "github.com/envoyproxy/go-control-plane/*"
+          - "github.com/prometheus/prometheus"
 
   - package-ecosystem: "gomod"
     directories:
@@ -47,6 +49,7 @@ updates:
       - dependency-name: "k8s.io/*"
       - dependency-name: "sigs.k8s.io/*"
       - dependency-name: "github.com/envoyproxy/go-control-plane/*"
+      - dependency-name: "github.com/prometheus/prometheus"
     groups:
       all-dependencies:
         patterns:
@@ -56,6 +59,7 @@ updates:
           - "k8s.io/*"
           - "sigs.k8s.io/*"
           - "github.com/envoyproxy/go-control-plane/*"
+          - "github.com/prometheus/prometheus"
 
   - package-ecosystem: "gomod"
     directories:
@@ -72,6 +76,7 @@ updates:
       - dependency-name: "k8s.io/*"
       - dependency-name: "sigs.k8s.io/*"
       - dependency-name: "github.com/envoyproxy/go-control-plane/*"
+      - dependency-name: "github.com/prometheus/prometheus"
     groups:
       all-dependencies:
         patterns:
@@ -81,6 +86,7 @@ updates:
           - "k8s.io/*"
           - "sigs.k8s.io/*"
           - "github.com/envoyproxy/go-control-plane/*"
+          - "github.com/prometheus/prometheus"
 
   - package-ecosystem: "gomod"
     directories:
@@ -97,6 +103,7 @@ updates:
       - dependency-name: "k8s.io/*"
       - dependency-name: "sigs.k8s.io/*"
       - dependency-name: "github.com/envoyproxy/go-control-plane/*"
+      - dependency-name: "github.com/prometheus/prometheus"
     groups:
       all-dependencies:
         patterns:
@@ -106,6 +113,7 @@ updates:
           - "k8s.io/*"
           - "sigs.k8s.io/*"
           - "github.com/envoyproxy/go-control-plane/*"
+          - "github.com/prometheus/prometheus"
 
   - package-ecosystem: "gomod"
     directories:
@@ -122,6 +130,7 @@ updates:
       - dependency-name: "k8s.io/*"
       - dependency-name: "sigs.k8s.io/*"
       - dependency-name: "github.com/envoyproxy/go-control-plane/*"
+      - dependency-name: "github.com/prometheus/prometheus"
     groups:
       all-dependencies:
         patterns:
@@ -131,6 +140,7 @@ updates:
           - "k8s.io/*"
           - "sigs.k8s.io/*"
           - "github.com/envoyproxy/go-control-plane/*"
+          - "github.com/prometheus/prometheus"
 
   # Ignore all dependency updates in samples/
   # We do not care about the dependencies in the samples/ directory as they are not meant
