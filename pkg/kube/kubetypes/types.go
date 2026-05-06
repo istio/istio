@@ -155,7 +155,6 @@ type CrdWatcher interface {
 // once the underlying resource is available. See kclient.NewDelayedInformer.
 type DelayedFilter interface {
 	HasSynced() bool
-	HasSyncedChecker() cache.DoneChecker
 	KnownOrCallback(f func(stop <-chan struct{})) bool
 }
 

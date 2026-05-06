@@ -40,8 +40,6 @@ type delayedClient[T controllers.ComparableObject] struct {
 	handlers []delayedHandler
 	indexers []delayedIndex[T]
 	started  <-chan struct{}
-
-	realStarting atomic.Bool
 }
 
 type delayedHandler struct {
@@ -51,75 +49,17 @@ type delayedHandler struct {
 
 type delayedHandlerRegistration struct {
 	hasSynced *atomic.Pointer[func() bool]
-	real      *atomic.Bool
-	done      chan struct{}
-	doneOnce  *sync.Once
+}
+
+func (r delayedHandlerRegistration) HasSyncedChecker() cache.DoneChecker {
+	panic("not implemented; use HasSynced")
 }
 
 func (r delayedHandlerRegistration) HasSynced() bool {
 	if s := r.hasSynced.Load(); s != nil {
-		synced := (*s)()
-		if synced {
-			r.markSynced()
-		}
-		return synced
+		return (*s)()
 	}
 	return false
-}
-
-func (r delayedHandlerRegistration) HasSyncedChecker() cache.DoneChecker {
-	return delayedHandlerDoneChecker{registration: r}
-}
-
-func (r delayedHandlerRegistration) watchDelayed(checker cache.DoneChecker, realStarting *atomic.Bool) {
-	r.watchWithCondition(checker, func() bool {
-		return !r.real.Load() && !realStarting.Load()
-	})
-}
-
-func (r delayedHandlerRegistration) watch(checker cache.DoneChecker) {
-	r.watchWithCondition(checker, func() bool {
-		return true
-	})
-}
-
-func (r delayedHandlerRegistration) watchWithCondition(checker cache.DoneChecker, shouldMarkSynced func() bool) {
-	if checker == nil {
-		return
-	}
-	if cache.IsDone(checker) {
-		if shouldMarkSynced() {
-			r.markSynced()
-		}
-		return
-	}
-	go func() {
-		select {
-		case <-checker.Done():
-			if shouldMarkSynced() {
-				r.markSynced()
-			}
-		case <-r.done:
-		}
-	}()
-}
-
-func (r delayedHandlerRegistration) markSynced() {
-	r.doneOnce.Do(func() {
-		close(r.done)
-	})
-}
-
-type delayedHandlerDoneChecker struct {
-	registration delayedHandlerRegistration
-}
-
-func (delayedHandlerDoneChecker) Name() string {
-	return "delayed handler"
-}
-
-func (d delayedHandlerDoneChecker) Done() <-chan struct{} {
-	return d.registration.done
 }
 
 type delayedIndex[T any] struct {
@@ -175,14 +115,8 @@ func (s *delayedClient[T]) AddEventHandler(h cache.ResourceEventHandler) cache.R
 	s.hm.Lock()
 	defer s.hm.Unlock()
 
-	hasSynced := delayedHandlerRegistration{
-		hasSynced: new(atomic.Pointer[func() bool]),
-		real:      new(atomic.Bool),
-		done:      make(chan struct{}),
-		doneOnce:  new(sync.Once),
-	}
-	hasSynced.hasSynced.Store(ptr.Of(s.delayedSynced))
-	hasSynced.watchDelayed(s.delayed.HasSyncedChecker(), &s.realStarting)
+	hasSynced := delayedHandlerRegistration{hasSynced: new(atomic.Pointer[func() bool])}
+	hasSynced.hasSynced.Store(ptr.Of(s.delayed.HasSynced))
 	s.handlers = append(s.handlers, delayedHandler{
 		ResourceEventHandler: h,
 		hasSynced:            hasSynced,
@@ -196,7 +130,8 @@ func (s *delayedClient[T]) HasSynced() bool {
 	}
 	// If we haven't loaded the informer yet, we want to check if the delayed filter is synced.
 	// This ensures that at startup, we only return HasSynced=true if we are sure the CRD is not ready.
-	return s.delayedSynced()
+	hs := s.delayed.HasSynced()
+	return hs
 }
 
 func (s *delayedClient[T]) HasSyncedIgnoringHandlers() bool {
@@ -205,14 +140,8 @@ func (s *delayedClient[T]) HasSyncedIgnoringHandlers() bool {
 	}
 	// If we haven't loaded the informer yet, we want to check if the delayed filter is synced.
 	// This ensures that at startup, we only return HasSynced=true if we are sure the CRD is not ready.
-	return s.delayedSynced()
-}
-
-func (s *delayedClient[T]) delayedSynced() bool {
-	if s.realStarting.Load() {
-		return false
-	}
-	return s.delayed.HasSynced()
+	hs := s.delayed.HasSynced()
+	return hs
 }
 
 func (s *delayedClient[T]) ShutdownHandlers() {
@@ -255,9 +184,7 @@ func (s *delayedClient[T]) set(inf Informer[T]) {
 		defer s.hm.Unlock()
 		for _, h := range s.handlers {
 			reg := inf.AddEventHandler(h)
-			h.hasSynced.real.Store(true)
 			h.hasSynced.hasSynced.Store(ptr.Of(reg.HasSynced))
-			h.hasSynced.watch(reg.HasSyncedChecker())
 		}
 		s.handlers = nil
 		for _, i := range s.indexers {
@@ -278,10 +205,6 @@ type delayedFilter struct {
 
 func (d *delayedFilter) HasSynced() bool {
 	return d.Watcher.HasSynced()
-}
-
-func (d *delayedFilter) HasSyncedChecker() cache.DoneChecker {
-	return d.Watcher.HasSyncedChecker()
 }
 
 func (d *delayedFilter) KnownOrCallback(f func(stop <-chan struct{})) bool {

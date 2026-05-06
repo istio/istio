@@ -212,6 +212,7 @@ func (c *crdWatcher) HasSynced() bool {
 }
 
 func (c *crdWatcher) HasSyncedChecker() cache.DoneChecker {
+	panic("not implemented; use HasSynced")
 	return crdWatcherDoneChecker{done: c.queue.Synced()}
 }
 
