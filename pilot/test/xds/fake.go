@@ -32,7 +32,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
-	"k8s.io/client-go/tools/cache"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/autoregistration"
@@ -403,14 +402,9 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	}
 	// Now that handlers are added, get everything started
 	cg.Run()
-	syncFns := []cache.InformerSynced{
+	kubelib.WaitForCacheSync("fake", stop,
 		cg.Registry.HasSynced,
-		cg.Store().HasSynced,
-	}
-	if ambientIdx != nil {
-		syncFns = append(syncFns, ambientIdx.HasSynced)
-	}
-	kubelib.WaitForCacheSync("fake", stop, syncFns...)
+		cg.Store().HasSynced)
 	cg.ServiceEntryRegistry.ResyncEDS()
 
 	// Send an update. This ensures that even if there are no configs provided, the push context is
