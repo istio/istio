@@ -165,10 +165,17 @@ func ListenerSetCollection(
 				meta[constants.InternalGatewaySemantics] = constants.GatewaySemanticsGateway
 				meta[model.InternalGatewayServiceAnnotation] = strings.Join(gatewayServices, ",")
 				meta[constants.InternalParentNamespace] = parentGwObj.Namespace
-				serviceAccountName := model.GetOrDefault(
-					parentGwObj.GetAnnotations()[annotation.GatewayServiceAccount.Name],
-					getDefaultName(parentGwObj.GetName(), &parentGwObj.Spec, classInfo.disableNameSuffix),
-				)
+
+				// For unmanaged (manual deployment) parent Gateways, we have no idea what service accounts
+				// the gateway workloads will use, so we must not enforce service account restrictions.
+				// See: https://istio.io/latest/docs/tasks/traffic-management/ingress/gateway-api/#manual-deployment
+				serviceAccountName := ""
+				if IsManaged(&parentGwObj.Spec) {
+					serviceAccountName = model.GetOrDefault(
+						parentGwObj.GetAnnotations()[annotation.GatewayServiceAccount.Name],
+						getDefaultName(parentGwObj.GetName(), &parentGwObj.Spec, classInfo.disableNameSuffix),
+					)
+				}
 				meta[constants.InternalServiceAccount] = serviceAccountName
 
 				// Each listener generates an Istio Gateway with a single Server. This allows binding to a specific listener.
