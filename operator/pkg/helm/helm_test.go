@@ -318,6 +318,13 @@ func TestRender(t *testing.T) {
 			chartName:   "base",
 			diffSelect:  "ValidatingWebhookConfiguration:*:istiod-default-validator",
 		},
+		{
+			desc:        "istiod-waypoint-workload-socket",
+			releaseName: "istiod",
+			namespace:   "istio-system",
+			chartName:   "istio-control/istio-discovery",
+			diffSelect:  "ConfigMap:*:istio-sidecar-injector",
+		},
 	}
 
 	for _, tc := range cases {
