@@ -30,6 +30,8 @@ import (
 	"istio.io/istio/pkg/cluster"
 )
 
+const RunningStatus = "status.phase=Running"
+
 // TODO move to multicluster package; requires exposing some private funcs/vars in this package
 func ClustersCommand(ctx cli.Context) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
@@ -45,6 +47,7 @@ func ClustersCommand(ctx cli.Context) *cobra.Command {
 			// Get all istiod pods to retrieve revision information
 			istiodPods, err := kubeClient.Kube().CoreV1().Pods(ctx.IstioNamespace()).List(context.Background(), metav1.ListOptions{
 				LabelSelector: "app=istiod",
+				FieldSelector: RunningStatus,
 			})
 			if err != nil {
 				return err
