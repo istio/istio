@@ -63,7 +63,7 @@ function download_ztunnel_if_necessary () {
 
   # Download and make the binary executable
   echo "Downloading ztunnel: $1 to $2"
-  time ${DOWNLOAD_COMMAND} --header "${AUTH_HEADER:-}" "$1" > "$2"
+  time ${DOWNLOAD_COMMAND} "$1" > "$2"
   chmod +x "$2"
 
   # Make a copy named just "ztunnel" in the same directory (overwrite if necessary).
@@ -117,12 +117,6 @@ function maybe_build_ztunnel() {
 
 # ztunnel binary vars (TODO handle debug builds, arm, darwin etc.)
 ISTIO_ZTUNNEL_BASE_URL="${ISTIO_ZTUNNEL_BASE_URL:-https://blob.istio.io/istio-build/ztunnel}"
-
-# If we are not using the default, assume its private and we need to authenticate
-if [[ "${ISTIO_ZTUNNEL_BASE_URL}" != "https://blob.istio.io/istio-build/ztunnel" ]]; then
-  AUTH_HEADER="Authorization: Bearer $(gcloud auth print-access-token)"
-  export AUTH_HEADER
-fi
 
 ZTUNNEL_REPO_SHA="${ZTUNNEL_REPO_SHA:-$(grep ZTUNNEL_REPO_SHA istio.deps  -A 4 | grep lastStableSHA | cut -f 4 -d '"')}"
 ISTIO_ZTUNNEL_VERSION="${ISTIO_ZTUNNEL_VERSION:-${ZTUNNEL_REPO_SHA}}"
