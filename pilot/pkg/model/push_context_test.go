@@ -1549,8 +1549,8 @@ func TestServiceIndex(t *testing.T) {
 
 	// Should have exported and private services in the right namespaces
 	g.Expect(si.exportedToNamespace).To(HaveLen(2))
-	g.Expect(serviceNames(*si.exportedToNamespace["namespace"])).To(Equal([]string{"svc-namespace"}))
-	g.Expect(serviceNames(*si.exportedToNamespace["test1"])).To(Equal([]string{"svc-private"}))
+	g.Expect(serviceNames(si.exportedToNamespace["namespace"])).To(Equal([]string{"svc-namespace"}))
+	g.Expect(serviceNames(si.exportedToNamespace["test1"])).To(Equal([]string{"svc-private"}))
 
 	g.Expect(serviceNames(si.public)).To(Equal([]string{"svc-public", "svc-unset"}))
 

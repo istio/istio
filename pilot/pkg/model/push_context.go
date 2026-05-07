@@ -70,7 +70,7 @@ type serviceIndex struct {
 	public []*Service
 	// exportedToNamespace are services that were made visible to this namespace
 	// by an exportTo explicitly specifying this namespace or because they are private to the namespace.
-	exportedToNamespace map[string]*[]*Service
+	exportedToNamespace map[string][]*Service
 
 	// HostnameAndNamespace has all services, indexed by hostname then namespace.
 	HostnameAndNamespace map[host.Name]map[string]*Service `json:"-"`
@@ -85,7 +85,7 @@ func newServiceIndex() serviceIndex {
 	return serviceIndex{
 		public:               []*Service{},
 		private:              []*Service{},
-		exportedToNamespace:  map[string]*[]*Service{},
+		exportedToNamespace:  map[string][]*Service{},
 		HostnameAndNamespace: map[host.Name]map[string]*Service{},
 		instancesByPort:      map[string]map[int][]*IstioEndpoint{},
 	}
@@ -1041,7 +1041,7 @@ func (ps *PushContext) servicesExportedToNamespace(ns string) []*Service {
 		out = make([]*Service, 0, len(ps.ServiceIndex.private)+len(ps.ServiceIndex.public))
 		out = append(out, ps.ServiceIndex.private...)
 	} else {
-		exportedServices := ptr.OrEmpty(ps.ServiceIndex.exportedToNamespace[ns])
+		exportedServices := ps.ServiceIndex.exportedToNamespace[ns]
 		out = make([]*Service, 0, len(exportedServices)+len(ps.ServiceIndex.public))
 		out = append(out, exportedServices...)
 	}
@@ -1577,10 +1577,9 @@ func (ps *PushContext) initServiceRegistry(env *Environment, configsUpdate sets.
 				ps.ServiceIndex.private = append(ps.ServiceIndex.private, s)
 				exportedServices, ok := ps.ServiceIndex.exportedToNamespace[ns]
 				if !ok {
-					exportedServices = &[]*Service{}
-					ps.ServiceIndex.exportedToNamespace[ns] = exportedServices
+					exportedServices = make([]*Service, 0)
 				}
-				*exportedServices = append(*exportedServices, s)
+				ps.ServiceIndex.exportedToNamespace[ns] = append(exportedServices, s)
 			} else if ps.exportToDefaults.service.Contains(visibility.Public) {
 				ps.ServiceIndex.public = append(ps.ServiceIndex.public, s)
 			}
@@ -1606,10 +1605,9 @@ func (ps *PushContext) initServiceRegistry(env *Environment, configsUpdate sets.
 				// exportTo is a specific target namespace
 				exportedServices, ok := ps.ServiceIndex.exportedToNamespace[key]
 				if !ok {
-					exportedServices = &[]*Service{}
-					ps.ServiceIndex.exportedToNamespace[key] = exportedServices
+					exportedServices = make([]*Service, 0)
 				}
-				*exportedServices = append(*exportedServices, s)
+				ps.ServiceIndex.exportedToNamespace[key] = append(exportedServices, s)
 			}
 		}
 	}
