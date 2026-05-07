@@ -20,11 +20,17 @@ import (
 
 // TODO: Fix skipped tests and reenable these features.
 var skippedExtendedFeatures = []features.Feature{
-	features.GatewayBackendClientCertificateFeature,                            // GatewayBackendClientCertificateFeature, GatewayInvalidTLSBackendConfiguration
-	features.GatewayFrontendClientCertificateValidationFeature,                 // GatewayFrontendInvalidDefaultClientCertificateValidation, GatewayInvalidFrontendClientCertificateValidation, GatewayFrontendClientCertificateValidationInsecureFallback
-	features.GatewayFrontendClientCertificateValidationInsecureFallbackFeature, // GatewayFrontendClientCertificateValidationInsecureFallback
-	features.GatewayHTTPSListenerDetectMisdirectedRequestsFeature,              // HTTPRouteHTTPSListenerDetectMisdirectedRequests
-	features.ListenerSetFeature,                                                // ListenerSetHostnameConflict, ListenerSetProtocolConflict, ListenerSetReferenceGrant
+	// GatewayBackendClientCertificateFeature, GatewayInvalidTLSBackendConfiguration
+	features.GatewayBackendClientCertificateFeature,
+	// GatewayFrontendInvalidDefaultClientCertificateValidation, GatewayInvalidFrontendClientCertificateValidation,
+	// GatewayFrontendClientCertificateValidationInsecureFallback
+	features.GatewayFrontendClientCertificateValidationFeature,
+	// GatewayFrontendClientCertificateValidationInsecureFallback
+	features.GatewayFrontendClientCertificateValidationInsecureFallbackFeature,
+	// HTTPRouteHTTPSListenerDetectMisdirectedRequests
+	features.GatewayHTTPSListenerDetectMisdirectedRequestsFeature,
+	// ListenerSetHostnameConflict, ListenerSetProtocolConflict, ListenerSetReferenceGrant
+	features.ListenerSetFeature,
 }
 
 var SupportedFeatures = features.AllFeatures.Clone().Delete(skippedExtendedFeatures...)
