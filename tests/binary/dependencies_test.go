@@ -72,8 +72,6 @@ func TestDependencies(t *testing.T) {
 				`^github\.com/envoyproxy`,
 				`^istio\.io/api`,
 				`^sigs\.k8s\.io/controller-runtime`,
-			},
-			wantToDeny: []string{
 				`^testing$`,
 			},
 		},
@@ -91,9 +89,9 @@ func TestDependencies(t *testing.T) {
 				`^github\.com/AdaLogics/go-fuzz-headers`,
 				`^github\.com/google/shlex`,
 				`^github\.com/howardjohn/unshare-go`,
+				`^testing$`,
 			},
 			wantToDeny: []string{
-				`^testing$`,
 				// Ideally only used for testing, but client-go uses it
 				`^github\.com/pmezard/go-difflib`,
 			},
@@ -108,8 +106,6 @@ func TestDependencies(t *testing.T) {
 				// Testing deps
 				`^github\.com/AdaLogics/go-fuzz-headers`,
 				`^github\.com/howardjohn/unshare-go`,
-			},
-			wantToDeny: []string{
 				`^testing$`,
 			},
 		},
