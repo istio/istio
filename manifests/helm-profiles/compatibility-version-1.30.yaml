@@ -1,0 +1,4 @@
+pilot:
+  env:
+    # 1.31 behavioral changes
+    PILOT_ENABLE_STRICT_GATEWAY_MERGING: "false"
