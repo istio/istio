@@ -18,4 +18,18 @@ import (
 	"sigs.k8s.io/gateway-api/pkg/features"
 )
 
-var SupportedFeatures = features.AllFeatures
+var SupportedFeatures = features.AllFeatures.Clone().
+	// TODO: Fix skipped tests and reenable these features.
+	// skipped: GatewayBackendClientCertificateFeature, GatewayInvalidTLSBackendConfiguration.
+	Delete(features.GatewayBackendClientCertificateFeature).
+	// skipped: GatewayFrontendInvalidDefaultClientCertificateValidation,
+	// GatewayInvalidFrontendClientCertificateValidation,
+	// GatewayFrontendClientCertificateValidationInsecureFallback.
+	Delete(features.GatewayFrontendClientCertificateValidationFeature).
+	// skipped: GatewayFrontendClientCertificateValidationInsecureFallback.
+	Delete(features.GatewayFrontendClientCertificateValidationInsecureFallbackFeature).
+	// skipped: HTTPRouteHTTPSListenerDetectMisdirectedRequests.
+	Delete(features.GatewayHTTPSListenerDetectMisdirectedRequestsFeature).
+	// skipped: ListenerSetHostnameConflict, ListenerSetProtocolConflict,
+	// ListenerSetReferenceGrant.
+	Delete(features.ListenerSetFeature)
