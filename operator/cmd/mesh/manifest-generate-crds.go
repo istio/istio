@@ -26,7 +26,6 @@ import (
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/render"
 	"istio.io/istio/operator/pkg/util/clog"
-	"istio.io/istio/pkg/kube"
 )
 
 const (
@@ -83,10 +82,9 @@ func addManifestGenerateCRDsFlags(cmd *cobra.Command, args *ManifestGenerateCRDs
 }
 
 // ManifestGenerateCRDsCmd creates the `istioctl experimental manifest-generate-crds`
-// subcommand. The command takes a cli.Context for parity with other experimental
-// commands but does not currently need a kube client: CRDs are static and the
-// same regardless of the target cluster, so the command works without a
-// kubeconfig present.
+// subcommand. It takes a cli.Context for parity with other experimental commands
+// but does not need a kube client: CRDs are static and the same regardless of
+// the target cluster, so the command works without a kubeconfig present.
 func ManifestGenerateCRDsCmd(_ cli.Context) *cobra.Command {
 	mgArgs := &ManifestGenerateCRDsArgs{}
 	cmd := &cobra.Command{
@@ -117,8 +115,7 @@ func ManifestGenerateCRDsCmd(_ cli.Context) *cobra.Command {
 		},
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), installerScope)
-			var kubeClient kube.CLIClient
-			return ManifestGenerateCRDs(kubeClient, mgArgs, l)
+			return ManifestGenerateCRDs(mgArgs, l)
 		},
 	}
 	addManifestGenerateCRDsFlags(cmd, mgArgs)
@@ -128,9 +125,9 @@ func ManifestGenerateCRDsCmd(_ cli.Context) *cobra.Command {
 
 // ManifestGenerateCRDs renders the install manifest and emits only the
 // CustomResourceDefinition objects.
-func ManifestGenerateCRDs(kubeClient kube.CLIClient, mgArgs *ManifestGenerateCRDsArgs, l clog.Logger) error {
+func ManifestGenerateCRDs(mgArgs *ManifestGenerateCRDsArgs, l clog.Logger) error {
 	setFlags := applyFlagAliases(mgArgs.Set, mgArgs.ManifestsPath, mgArgs.Revision)
-	manifests, _, err := render.GenerateManifest(mgArgs.InFilenames, setFlags, mgArgs.Force, kubeClient, nil)
+	manifests, _, err := render.GenerateManifest(mgArgs.InFilenames, setFlags, mgArgs.Force, nil, nil)
 	if err != nil {
 		return err
 	}
@@ -153,7 +150,7 @@ func ManifestGenerateCRDs(kubeClient kube.CLIClient, mgArgs *ManifestGenerateCRD
 		return nil
 	}
 	if err := os.WriteFile(mgArgs.Output, []byte(out), 0o644); err != nil {
-		return fmt.Errorf("write CRDs to %q: %v", mgArgs.Output, err)
+		return fmt.Errorf("write CRDs to %q: %w", mgArgs.Output, err)
 	}
 	return nil
 }

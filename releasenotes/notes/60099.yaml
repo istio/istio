@@ -1,8 +1,6 @@
 apiVersion: release-notes/v2
 kind: feature
 area: installation
-issue:
-  - 60099
 releaseNotes:
   - |
     **Added** an experimental `istioctl experimental manifest-generate-crds`
