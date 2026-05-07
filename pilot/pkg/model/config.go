@@ -82,6 +82,19 @@ func HasConfigsOfKind(configs sets.Set[ConfigKey], kind kind.Kind) bool {
 	return false
 }
 
+// OnlyHasConfigsOfKind returns true if configs is non-empty and all configs are of the specified kind.
+func OnlyHasConfigsOfKind(configs sets.Set[ConfigKey], k kind.Kind) bool {
+	if len(configs) == 0 {
+		return false
+	}
+	for c := range configs {
+		if c.Kind != k {
+			return false
+		}
+	}
+	return true
+}
+
 // ConfigNamesOfKind extracts config names of the specified kind.
 func ConfigNamesOfKind(configs sets.Set[ConfigKey], kind kind.Kind) sets.String {
 	ret := sets.New[string]()

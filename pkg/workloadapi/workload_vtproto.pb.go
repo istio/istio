@@ -564,6 +564,9 @@ func (this *NetworkAddress) EqualVT(that *NetworkAddress) bool {
 	if string(this.Address) != string(that.Address) {
 		return false
 	}
+	if p, q := this.Length, that.Length; (p == nil && q != nil) || (p != nil && (q == nil || *p != *q)) {
+		return false
+	}
 	return string(this.unknownFields) == string(that.unknownFields)
 }
 
@@ -1510,6 +1513,11 @@ func (m *NetworkAddress) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) 
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
 	}
+	if m.Length != nil {
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(*m.Length))
+		i--
+		dAtA[i] = 0x18
+	}
 	if len(m.Address) > 0 {
 		i -= len(m.Address)
 		copy(dAtA[i:], m.Address)
@@ -2005,6 +2013,9 @@ func (m *NetworkAddress) SizeVT() (n int) {
 	l = len(m.Address)
 	if l > 0 {
 		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	if m.Length != nil {
+		n += 1 + protohelpers.SizeOfVarint(uint64(*m.Length))
 	}
 	n += len(m.unknownFields)
 	return n

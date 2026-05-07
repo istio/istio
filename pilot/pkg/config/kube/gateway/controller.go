@@ -253,7 +253,6 @@ func NewController(
 		c.tagWatcher,
 		opts,
 	)
-	status.RegisterStatus(c.status, ListenerSetStatus, GetStatus, c.tagWatcher.AccessUnprotected())
 
 	// GatewaysStatus is not fully complete until its join with route attachments to report attachedRoutes.
 	// Do not register yet.
@@ -367,6 +366,9 @@ func NewController(
 
 	GatewayFinalStatus := FinalGatewayStatusCollection(GatewaysStatus, RouteAttachments, RouteAttachmentsIndex, opts)
 	status.RegisterStatus(c.status, GatewayFinalStatus, GetStatus, c.tagWatcher.AccessUnprotected())
+
+	ListenerSetFinalStatus := FinalListenerSetStatusCollection(ListenerSetStatus, RouteAttachments, RouteAttachmentsIndex, opts)
+	status.RegisterStatus(c.status, ListenerSetFinalStatus, GetStatus, c.tagWatcher.AccessUnprotected())
 
 	// Merge HTTP and gRPC base VirtualServices together so routes on the same
 	// gateway+hostname are combined into a single VirtualService, allowing
@@ -621,7 +623,6 @@ func pushXds[T any](xds model.XDSUpdater, f func(T) model.ConfigKey) func(events
 			return
 		}
 		xds.ConfigUpdate(&model.PushRequest{
-			Full:           true,
 			ConfigsUpdated: cu,
 			Reason:         model.NewReasonStats(model.ConfigUpdate),
 		})

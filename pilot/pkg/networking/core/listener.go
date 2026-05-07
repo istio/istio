@@ -628,10 +628,10 @@ func buildListenerFromEntry(builder *ListenerBuilder, le *outboundListenerEntry,
 		// Otherwise, do not have a timeout at all
 		l.ListenerFiltersTimeout = durationpb.New(0)
 	}
-	wasm := builder.push.WasmPluginsByListenerInfo(builder.node, model.WasmPluginListenerInfo{
+	trafficExtensions := builder.push.TrafficExtensionsByListenerInfo(builder.node, model.ListenerInfo{
 		Port:  le.servicePort.Port,
 		Class: istionetworking.ListenerClassSidecarOutbound,
-	}, model.WasmPluginTypeNetwork)
+	}, model.FilterChainTypeNetwork)
 	for _, opt := range le.chains {
 		chain := &listener.FilterChain{
 			Metadata:        opt.metadata,
@@ -652,10 +652,10 @@ func buildListenerFromEntry(builder *ListenerBuilder, le *outboundListenerEntry,
 				Name:       wellknown.HTTPConnectionManager,
 				ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(hcm)},
 			}
-			opt.networkFilters = extension.PopAppendNetwork(opt.networkFilters, wasm, extensions.PluginPhase_AUTHN)
-			opt.networkFilters = extension.PopAppendNetwork(opt.networkFilters, wasm, extensions.PluginPhase_AUTHZ)
-			opt.networkFilters = extension.PopAppendNetwork(opt.networkFilters, wasm, extensions.PluginPhase_STATS)
-			opt.networkFilters = extension.PopAppendNetwork(opt.networkFilters, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
+			opt.networkFilters = extension.PopAppendNetworkTrafficExtension(opt.networkFilters, trafficExtensions, extensions.TrafficExtension_AUTHN)
+			opt.networkFilters = extension.PopAppendNetworkTrafficExtension(opt.networkFilters, trafficExtensions, extensions.TrafficExtension_AUTHZ)
+			opt.networkFilters = extension.PopAppendNetworkTrafficExtension(opt.networkFilters, trafficExtensions, extensions.TrafficExtension_STATS)
+			opt.networkFilters = extension.PopAppendNetworkTrafficExtension(opt.networkFilters, trafficExtensions, extensions.TrafficExtension_UNSPECIFIED)
 			chain.Filters = append(chain.Filters, opt.networkFilters...)
 			chain.Filters = append(chain.Filters, filter)
 		}
@@ -1279,15 +1279,7 @@ func (chain *filterChainOpts) toFilterChainMatch() *listener.FilterChainMatch {
 		TransportProtocol:    chain.transportProtocol,
 	}
 	if len(chain.sniHosts) > 0 {
-		fullWildcardFound := false
-		for _, h := range chain.sniHosts {
-			if h == "*" {
-				fullWildcardFound = true
-				// If we have a host with *, it effectively means match anything, i.e.
-				// no SNI based matching for this host.
-				break
-			}
-		}
+		fullWildcardFound := slices.Contains(chain.sniHosts, "*")
 		if !fullWildcardFound {
 			chain.sniHosts = append([]string{}, chain.sniHosts...)
 			sort.Stable(sort.StringSlice(chain.sniHosts))

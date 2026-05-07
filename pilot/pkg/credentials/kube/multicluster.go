@@ -15,9 +15,11 @@
 package kube
 
 import (
+	"errors"
 	"fmt"
 
 	"istio.io/istio/pilot/pkg/credentials"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube/multicluster"
@@ -38,8 +40,14 @@ func NewMulticluster(configCluster cluster.ID, controller multicluster.Component
 	}
 
 	m.component = multicluster.BuildMultiClusterComponent(controller, func(cluster *multicluster.Cluster) *CredentialsController {
-		// Only enable ConfigMaps for the config cluster, not for remote clusters
 		isConfigCluster := cluster.ID == m.configCluster
+
+		// If it's a remote cluster and the user explicitly opted out, do not start the controller.
+		if !isConfigCluster && !features.EnableRemoteCredentialsController {
+			return nil
+		}
+
+		// Only enable ConfigMaps for the config cluster, not for remote clusters
 		return NewCredentialsController(cluster.Client, m.secretHandlers, isConfigCluster)
 	})
 	return m
@@ -50,18 +58,38 @@ func (m *Multicluster) ForCluster(clusterID cluster.ID) (credentials.Controller,
 	if cc == nil {
 		return nil, fmt.Errorf("cluster %v is not configured", clusterID)
 	}
-	agg := &AggregateController{}
-	agg.controllers = []*CredentialsController{}
-	agg.authController = *cc
-	if clusterID != m.configCluster {
-		// If the request cluster is not the config cluster, we will append it and use it for auth
-		// This means we will prioritize the proxy cluster, then the config cluster for credential lookup
-		// Authorization will always use the proxy cluster.
-		agg.controllers = append(agg.controllers, *cc)
+
+	agg := &AggregateController{
+		controllers: []*CredentialsController{},
 	}
-	if cc := m.component.ForCluster(m.configCluster); cc != nil {
-		agg.controllers = append(agg.controllers, *cc)
+
+	// cc is a **CredentialsController. We must dereference it to get the actual *CredentialsController.
+	remoteController := *cc
+
+	if remoteController != nil {
+		agg.authController = remoteController
+		if clusterID != m.configCluster {
+			// If the request cluster is not the config cluster, we will append it and use it for auth
+			// This means we will prioritize the proxy cluster, then the config cluster for credential lookup
+			// Authorization will always use the proxy cluster.
+			agg.controllers = append(agg.controllers, remoteController)
+		}
+	} else {
+		// Explicitly set to nil if the remote controller is disabled
+		agg.authController = nil
 	}
+
+	if configClusterCC := m.component.ForCluster(m.configCluster); configClusterCC != nil {
+		configController := *configClusterCC
+		if configController != nil {
+			agg.controllers = append(agg.controllers, configController)
+		}
+	}
+
+	if len(agg.controllers) == 0 && agg.authController == nil {
+		return nil, fmt.Errorf("cluster %v has no credential controllers configured", clusterID)
+	}
+
 	return agg, nil
 }
 
@@ -127,7 +155,12 @@ func (a *AggregateController) GetConfigMapCaCert(name, namespace string) (certIn
 	return nil, firstError
 }
 
+var ErrNoAuthController = errors.New("no auth controller")
+
 func (a *AggregateController) Authorize(serviceAccount, namespace string) error {
+	if a.authController == nil {
+		return ErrNoAuthController
+	}
 	return a.authController.Authorize(serviceAccount, namespace)
 }
 

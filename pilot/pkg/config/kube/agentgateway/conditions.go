@@ -90,10 +90,9 @@ func generateSupportedKinds(l k8s.Listener) ([]k8s.RouteGroupKind, bool) {
 	case k8s.TCPProtocolType:
 		supported = []k8s.RouteGroupKind{toRouteKind(gvk.TCPRoute)}
 	case k8s.TLSProtocolType:
-		if l.TLS != nil && l.TLS.Mode != nil && *l.TLS.Mode == k8s.TLSModePassthrough {
-			supported = []k8s.RouteGroupKind{toRouteKind(gvk.TLSRoute)}
-		} else {
-			supported = []k8s.RouteGroupKind{toRouteKind(gvk.TCPRoute)}
+		supported = []k8s.RouteGroupKind{toRouteKind(gvk.TLSRoute)}
+		if l.TLS != nil && l.TLS.Mode != nil && *l.TLS.Mode == k8s.TLSModeTerminate {
+			supported = append(supported, toRouteKind(gvk.TCPRoute))
 		}
 		// UDP route not support
 	}
@@ -339,7 +338,7 @@ func GetCommonRouteStateParents(spec any) []k8s.RouteParentStatus {
 	switch t := spec.(type) {
 	case *k8salpha.TCPRoute:
 		return t.Status.Parents
-	case *k8salpha.TLSRoute:
+	case *k8s.TLSRoute:
 		return t.Status.Parents
 	case *k8s.HTTPRoute:
 		return t.Status.Parents

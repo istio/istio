@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -249,6 +250,12 @@ const (
 	InvalidFilter ConfigErrorReason = "InvalidFilter"
 	// InvalidTLS indicates an issue with TLS settings
 	InvalidTLS ConfigErrorReason = ConfigErrorReason(k8s.ListenerReasonInvalidCertificateRef)
+	// InvalidCACertificateRef indicates an issue with a CA certificate reference
+	InvalidCACertificateRef ConfigErrorReason = ConfigErrorReason(k8s.ListenerReasonInvalidCACertificateRef)
+	// InvalidCACertificateKind indicates an issue with the kind of a CA certificate reference
+	InvalidCACertificateKind ConfigErrorReason = ConfigErrorReason(k8s.ListenerReasonInvalidCACertificateKind)
+	// InvalidClientCertificateRef indicates an issue with a client certificate reference
+	InvalidClientCertificateRef ConfigErrorReason = ConfigErrorReason(k8s.GatewayReasonInvalidClientCertificateRef)
 	// InvalidListenerRefNotPermitted indicates a listener reference was not permitted
 	InvalidListenerRefNotPermitted ConfigErrorReason = ConfigErrorReason(k8s.ListenerReasonRefNotPermitted)
 	// InvalidConfiguration indicates a generic error for all other invalid configurations
@@ -386,10 +393,11 @@ func generateSupportedKinds(l k8s.Listener) ([]k8s.RouteGroupKind, bool) {
 	case k8s.TCPProtocolType:
 		supported = []k8s.RouteGroupKind{toRouteKind(gvk.TCPRoute)}
 	case k8s.TLSProtocolType:
-		if l.TLS != nil && l.TLS.Mode != nil && *l.TLS.Mode == k8s.TLSModePassthrough {
-			supported = []k8s.RouteGroupKind{toRouteKind(gvk.TLSRoute)}
-		} else {
-			supported = []k8s.RouteGroupKind{toRouteKind(gvk.TCPRoute)}
+		supported = []k8s.RouteGroupKind{toRouteKind(gvk.TLSRoute)}
+		// Per Gateway API spec, when a listener is of type TLS they MUST specify what is
+		// the desired mode
+		if l.TLS != nil && ptr.OrEmpty(l.TLS.Mode) == k8s.TLSModeTerminate {
+			supported = append(supported, toRouteKind(gvk.TCPRoute))
 		}
 		// UDP route not support
 	}

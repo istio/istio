@@ -192,7 +192,7 @@ spec:
           value: "0"
       serviceAccountName: custom-sa
       volumes:
-      - emptyDir: {}
+      - emptyDir: null
         name: workload-socket
       - emptyDir: {}
         name: credential-socket

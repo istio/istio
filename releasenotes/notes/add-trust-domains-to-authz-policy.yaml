@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+
+releaseNotes:
+- |
+  **Added** `trustDomains` and `notTrustDomains` fields to the `Source` in `AuthorizationPolicy`,
+  allowing users to match or exclude requests based on the trust domain derived from the peer certificate.

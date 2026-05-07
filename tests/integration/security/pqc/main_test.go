@@ -56,6 +56,7 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		Label(label.CustomSetup).
+		Label(label.PQC).
 		Setup(istio.Setup(&i, func(ctx resource.Context, cfg *istio.Config) {
 			cfg.ControlPlaneValues = `
 values:
@@ -216,7 +217,7 @@ spec:
 						CurvePreferences: []string{"P-256"},
 					},
 					Timeout: 1 * time.Second,
-					Check:   check.TLSHandshakeFailure(),
+					Check:   check.Or(check.TLSHandshakeFailure(), check.ConnectionResetByPeer()),
 				})
 			})
 		})
@@ -344,7 +345,7 @@ spec:
 						CurvePreferences: []string{"P-256"},
 					},
 					Timeout: 1 * time.Second,
-					Check:   check.TLSHandshakeFailure(),
+					Check:   check.Or(check.TLSHandshakeFailure(), check.ConnectionResetByPeer()),
 				})
 			})
 

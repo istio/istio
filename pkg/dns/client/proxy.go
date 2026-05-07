@@ -32,15 +32,15 @@ type dnsProxy struct {
 	resolver       *LocalDNSServer
 }
 
-func newDNSProxy(protocol, addr string, resolver *LocalDNSServer) (*dnsProxy, error) {
+func newDNSProxy(protocol, addr string, resolver *LocalDNSServer, timeout time.Duration) (*dnsProxy, error) {
 	p := &dnsProxy{
 		serveMux: dns.NewServeMux(),
 		server:   &dns.Server{},
 		upstreamClient: &dns.Client{
 			Net:          protocol,
-			DialTimeout:  5 * time.Second,
-			ReadTimeout:  5 * time.Second,
-			WriteTimeout: 5 * time.Second,
+			DialTimeout:  timeout,
+			ReadTimeout:  timeout,
+			WriteTimeout: timeout,
 		},
 		protocol: protocol,
 		resolver: resolver,

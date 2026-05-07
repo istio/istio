@@ -44,6 +44,7 @@ const (
 
 var (
 	sidecarScopedKnownConfigTypes = sets.New(
+		kind.Endpoints,
 		kind.ServiceEntry,
 		kind.VirtualService,
 		kind.DestinationRule,
@@ -58,6 +59,7 @@ var (
 		kind.AuthorizationPolicy,
 		kind.RequestAuthentication,
 		kind.WasmPlugin,
+		kind.TrafficExtension,
 		kind.Telemetry,
 	)
 )
@@ -456,11 +458,20 @@ func (sc *SidecarScope) selectDestinationRules(ps *PushContext, configNamespace 
 				}
 			}
 		}
-		sc.AddConfigDependencies(ConfigKey{
-			Kind:      kind.ServiceEntry,
-			Name:      string(s.Hostname),
-			Namespace: s.Attributes.Namespace,
-		}.HashCode())
+		sc.AddConfigDependencies(
+			ConfigKey{
+				Kind:      kind.ServiceEntry,
+				Name:      string(s.Hostname),
+				Namespace: s.Attributes.Namespace,
+			}.HashCode(),
+			// we do not directly depend on endpoints, but this is needed
+			// to only filter service endpoint updates for services we care about
+			ConfigKey{
+				Kind:      kind.Endpoints,
+				Name:      string(s.Hostname),
+				Namespace: s.Attributes.Namespace,
+			}.HashCode(),
+		)
 	}
 }
 
@@ -672,6 +683,11 @@ func (sc *SidecarScope) DestinationRuleConfig(direction TrafficDirection, proxy 
 // Services returns the list of services that are visible to a sidecar.
 func (sc *SidecarScope) Services() []*Service {
 	return sc.services
+}
+
+// Services returns the list of services that are visible to a sidecar.
+func (sc *SidecarScope) ServicesByHostname() map[host.Name]*Service {
+	return sc.servicesByHostname
 }
 
 // Testing Only. This allows tests to inject a config without having the mock.

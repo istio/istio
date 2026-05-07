@@ -113,6 +113,14 @@ func TestZtunnelFromPreviousMinorRelease(t *testing.T) {
 		Run(upgradeAllButZtunnel(previousSupportedVersion))
 }
 
+// TestInPlaceUpgradeWebhookFailurePolicy verifies that webhook failurePolicy is set correctly
+// after an in-place helm upgrade when validationFailurePolicy is explicitly configured.
+func TestInPlaceUpgradeWebhookFailurePolicy(t *testing.T) {
+	framework.
+		NewTest(t).
+		Run(performInPlaceUpgradeWithFailurePolicy(previousSupportedVersion))
+}
+
 func TestAmbientStableRevisionLabelsGatewayStatus(t *testing.T) {
 	framework.
 		NewTest(t).

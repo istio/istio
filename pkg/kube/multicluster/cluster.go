@@ -206,9 +206,9 @@ func (c *Cluster) Run(mesh meshwatcher.WatcherCollection, handlers []handler, ac
 				timeouts.With(clusterLabel.Value(string(c.ID))).Increment()
 				// Signal that sync is complete (timed out)
 				c.closeSyncedCh()
+				c.initialSyncTimeout.Store(true)
+				c.reportStatus(SyncStatusTimeout)
 			}
-			c.initialSyncTimeout.Store(true)
-			c.reportStatus(SyncStatusTimeout)
 		})
 	}
 

@@ -76,7 +76,7 @@ func TestAdsReconnectRequests(t *testing.T) {
 	eres := ads.RequestResponseAck(t, &discovery.DiscoveryRequest{TypeUrl: v3.EndpointType, ResourceNames: []string{"my-resource"}})
 
 	// A push should get a response for both
-	s.Discovery.ConfigUpdate(&model.PushRequest{Full: true, Forced: true})
+	s.Discovery.ConfigUpdate(&model.PushRequest{Forced: true})
 	ads.ExpectResponse(t)
 	ads.ExpectResponse(t)
 	// Close the connection and reconnect
@@ -209,7 +209,7 @@ func TestAdsPushScoping(t *testing.T) {
 			})
 		}
 
-		s.Discovery.ConfigUpdate(&model.PushRequest{Full: true, ConfigsUpdated: configsUpdated})
+		s.Discovery.ConfigUpdate(&model.PushRequest{ConfigsUpdated: configsUpdated})
 	}
 	removeService := func(ns string, indexes ...int) {
 		var names []string
@@ -247,7 +247,7 @@ func TestAdsPushScoping(t *testing.T) {
 			})
 		}
 
-		s.Discovery.ConfigUpdate(&model.PushRequest{Full: true, ConfigsUpdated: configsUpdated})
+		s.Discovery.ConfigUpdate(&model.PushRequest{ConfigsUpdated: configsUpdated})
 	}
 	addService := func(ns string, indexes ...int) {
 		var hostnames []string
@@ -262,7 +262,7 @@ func TestAdsPushScoping(t *testing.T) {
 			s.MemRegistry.AddEndpoint(hostname, "http-main", 2080, "192.168.1.10", i)
 		}
 
-		s.Discovery.ConfigUpdate(&model.PushRequest{Full: false, ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: string(hostname), Namespace: testConfigNamespace})})
+		s.Discovery.ConfigUpdate(&model.PushRequest{ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: string(hostname), Namespace: testConfigNamespace})})
 	}
 
 	addVirtualService := func(i int, hosts []string, dest string) {
@@ -396,14 +396,16 @@ func TestAdsPushScoping(t *testing.T) {
 	scc := config.Config{
 		Meta: config.Meta{
 			GroupVersionKind: gvk.Sidecar,
-			Name:             "sc", Namespace: testConfigNamespace,
+			Name:             "sc",
+			Namespace:        testConfigNamespace,
 		},
 		Spec: sc,
 	}
 	notMatchedScc := config.Config{
 		Meta: config.Meta{
 			GroupVersionKind: gvk.Sidecar,
-			Name:             "notMatchedSc", Namespace: testConfigNamespace,
+			Name:             "notMatchedSc",
+			Namespace:        testConfigNamespace,
 		},
 		Spec: &networking.Sidecar{
 			WorkloadSelector: &networking.WorkloadSelector{
@@ -659,7 +661,7 @@ func TestAdsPushScoping(t *testing.T) {
 			ev:              model.EventUpdate,
 			cfgs:            []config.Config{scc},
 			ns:              testConfigNamespace,
-			expectedUpdates: []string{v3.ListenerType, v3.RouteType, v3.ClusterType, v3.EndpointType},
+			expectedUpdates: []string{v3.ListenerType, v3.RouteType, v3.ClusterType},
 		},
 	}
 
@@ -781,7 +783,7 @@ func TestAdsUpdate(t *testing.T) {
 			Namespace: "default",
 		},
 	})
-	s.Discovery.ConfigUpdate(&model.PushRequest{Full: true, Forced: true})
+	s.Discovery.ConfigUpdate(&model.PushRequest{Forced: true})
 	time.Sleep(time.Millisecond * 200)
 	s.MemRegistry.SetEndpoints("adsupdate.default.svc.cluster.local", "default",
 		newEndpointWithAccount("10.2.0.1", "hello-sa", "v1"))

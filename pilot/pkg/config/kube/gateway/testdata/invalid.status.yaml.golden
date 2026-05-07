@@ -29,6 +29,11 @@ status:
     reason: UnsupportedAddress
     status: "False"
     type: Programmed
+  - lastTransitionTime: fake
+    message: All references resolved
+    reason: ResolvedRefs
+    status: "True"
+    type: ResolvedRefs
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
@@ -51,6 +56,11 @@ status:
     reason: Programmed
     status: "True"
     type: Programmed
+  - lastTransitionTime: fake
+    message: All references resolved
+    reason: ResolvedRefs
+    status: "True"
+    type: ResolvedRefs
   listeners:
   - attachedRoutes: 4
     conditions:
@@ -102,6 +112,11 @@ status:
     reason: Programmed
     status: "True"
     type: Programmed
+  - lastTransitionTime: fake
+    message: All references resolved
+    reason: ResolvedRefs
+    status: "True"
+    type: ResolvedRefs
   listeners:
   - attachedRoutes: 0
     conditions:
@@ -152,6 +167,11 @@ status:
     reason: AddressNotUsable
     status: "False"
     type: Programmed
+  - lastTransitionTime: fake
+    message: All references resolved
+    reason: ResolvedRefs
+    status: "True"
+    type: ResolvedRefs
   listeners:
   - attachedRoutes: 0
     conditions:
@@ -204,6 +224,11 @@ status:
     reason: Programmed
     status: "True"
     type: Programmed
+  - lastTransitionTime: fake
+    message: All references resolved
+    reason: ResolvedRefs
+    status: "True"
+    type: ResolvedRefs
   listeners:
   - attachedRoutes: 0
     conditions:
@@ -256,13 +281,18 @@ status:
     reason: Programmed
     status: "True"
     type: Programmed
+  - lastTransitionTime: fake
+    message: All references resolved
+    reason: ResolvedRefs
+    status: "True"
+    type: ResolvedRefs
   listeners:
   - attachedRoutes: 0
     conditions:
     - lastTransitionTime: fake
-      message: No errors found
-      reason: Accepted
-      status: "True"
+      message: only one caCertificateRef is supported
+      reason: NoValidCACertificate
+      status: "False"
       type: Accepted
     - lastTransitionTime: fake
       message: No errors found
@@ -276,7 +306,7 @@ status:
       type: Programmed
     - lastTransitionTime: fake
       message: only one caCertificateRef is supported
-      reason: InvalidCertificateRef
+      reason: InvalidCACertificateRef
       status: "False"
       type: ResolvedRefs
     name: default
@@ -307,13 +337,19 @@ status:
     reason: Programmed
     status: "True"
     type: Programmed
+  - lastTransitionTime: fake
+    message: All references resolved
+    reason: ResolvedRefs
+    status: "True"
+    type: ResolvedRefs
   listeners:
   - attachedRoutes: 0
     conditions:
     - lastTransitionTime: fake
-      message: No errors found
-      reason: Accepted
-      status: "True"
+      message: caCertificateRef default/auth-cert not accessible to a Gateway in namespace
+        "istio-system" (missing a ReferenceGrant?)
+      reason: NoValidCACertificate
+      status: "False"
       type: Accepted
     - lastTransitionTime: fake
       message: No errors found
@@ -359,13 +395,19 @@ status:
     reason: Programmed
     status: "True"
     type: Programmed
+  - lastTransitionTime: fake
+    message: All references resolved
+    reason: ResolvedRefs
+    status: "True"
+    type: ResolvedRefs
   listeners:
   - attachedRoutes: 0
     conditions:
     - lastTransitionTime: fake
-      message: No errors found
-      reason: Accepted
-      status: "True"
+      message: invalid CA certificate reference /ConfigMap/nonexistent., configmap
+        istio-system/nonexistent not found
+      reason: NoValidCACertificate
+      status: "False"
       type: Accepted
     - lastTransitionTime: fake
       message: No errors found
@@ -380,7 +422,7 @@ status:
     - lastTransitionTime: fake
       message: invalid CA certificate reference /ConfigMap/nonexistent., configmap
         istio-system/nonexistent not found
-      reason: InvalidCertificateRef
+      reason: InvalidCACertificateRef
       status: "False"
       type: ResolvedRefs
     name: default
@@ -411,13 +453,19 @@ status:
     reason: Programmed
     status: "True"
     type: Programmed
+  - lastTransitionTime: fake
+    message: All references resolved
+    reason: ResolvedRefs
+    status: "True"
+    type: ResolvedRefs
   listeners:
   - attachedRoutes: 0
     conditions:
     - lastTransitionTime: fake
-      message: No errors found
-      reason: Accepted
-      status: "True"
+      message: invalid CA certificate reference core/unknown/my-cert-http., only secret
+        and configmap are allowed
+      reason: NoValidCACertificate
+      status: "False"
       type: Accepted
     - lastTransitionTime: fake
       message: No errors found
@@ -432,7 +480,7 @@ status:
     - lastTransitionTime: fake
       message: invalid CA certificate reference core/unknown/my-cert-http., only secret
         and configmap are allowed
-      reason: InvalidCertificateRef
+      reason: InvalidCACertificateKind
       status: "False"
       type: ResolvedRefs
     name: default
@@ -461,6 +509,11 @@ status:
     reason: AddressNotUsable
     status: "False"
     type: Programmed
+  - lastTransitionTime: fake
+    message: All references resolved
+    reason: ResolvedRefs
+    status: "True"
+    type: ResolvedRefs
   listeners:
   - attachedRoutes: 0
     conditions:
@@ -510,6 +563,11 @@ status:
     reason: AddressNotUsable
     status: "False"
     type: Programmed
+  - lastTransitionTime: fake
+    message: All references resolved
+    reason: ResolvedRefs
+    status: "True"
+    type: ResolvedRefs
   listeners:
   - attachedRoutes: 0
     conditions:
@@ -557,6 +615,11 @@ status:
     reason: AddressNotUsable
     status: "False"
     type: Programmed
+  - lastTransitionTime: fake
+    message: All references resolved
+    reason: ResolvedRefs
+    status: "True"
+    type: ResolvedRefs
   listeners:
   - attachedRoutes: 0
     conditions:
@@ -606,6 +669,11 @@ status:
     reason: AddressNotUsable
     status: "False"
     type: Programmed
+  - lastTransitionTime: fake
+    message: All references resolved
+    reason: ResolvedRefs
+    status: "True"
+    type: ResolvedRefs
   listeners:
   - attachedRoutes: 0
     conditions:
@@ -651,6 +719,11 @@ status:
     reason: AddressNotUsable
     status: "False"
     type: Programmed
+  - lastTransitionTime: fake
+    message: All references resolved
+    reason: ResolvedRefs
+    status: "True"
+    type: ResolvedRefs
   listeners:
   - attachedRoutes: 0
     conditions:

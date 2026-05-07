@@ -142,6 +142,11 @@ type Settings struct {
 	// Ambient mesh is being used
 	Ambient bool
 
+	// Meshless indicates tests are running against a cluster without Istio mesh capabilities.
+	// When true, echo apps will be deployed without the istio-proxy sidecar container overlay,
+	// as there is no injection webhook to transform the "image: auto" placeholder.
+	Meshless bool
+
 	// Use ambient instead of sidecars
 	AmbientEverywhere bool
 
@@ -197,6 +202,10 @@ type Settings struct {
 
 	// If enabled, native nftable rules will be used for traffic redirection instead of iptable rules.
 	NativeNftables bool
+
+	// Agentgateway indicates that the agentgateway tests should be run. This is gated behind a separate flag since
+	// agentgateway support is experimental.
+	Agentgateway bool
 }
 
 // SkipVMs changes the skip settings at runtime

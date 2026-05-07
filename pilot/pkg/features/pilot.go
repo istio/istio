@@ -244,6 +244,11 @@ var (
 	LocalClusterSecretWatcher = env.Register("LOCAL_CLUSTER_SECRET_WATCHER", false,
 		"If enabled, the cluster secret watcher will watch the namespace of the external cluster instead of config cluster").Get()
 
+	MulticlusterKubeconfigPath = env.Register("PILOT_MULTICLUSTER_KUBECONFIG_PATH", "",
+		"If set, istiod reads remote cluster kubeconfigs from this local directory. "+
+			"If both `PILOT_MULTICLUSTER_KUBECONFIG_PATH` and `LOCAL_CLUSTER_SECRET_WATCHER` are set, "+
+			"`PILOT_MULTICLUSTER_KUBECONFIG_PATH` takes precedence.").Get()
+
 	InformerWatchNamespace = env.Register("ISTIO_WATCH_NAMESPACE", "",
 		"If set, limit Kubernetes watches to a single namespace. "+
 			"Warning: only a single namespace can be set.").Get()
@@ -391,6 +396,12 @@ var (
 		true,
 		"If enabled, when a sidecar needs to pick a service namespace for a hostname, it will prefer Kubernetes services "+
 			"and fall back to the oldest non-Kubernetes service. When disabled, the first visible namespace alphabetically is used.",
+	).Get()
+
+	EnableRemoteCredentialsController = env.RegisterBoolVar(
+		"PILOT_ENABLE_REMOTE_CREDENTIALS_CONTROLLER",
+		true,
+		"If enabled, pilot will start the credentials controller for remote clusters. Default is true.",
 	).Get()
 )
 

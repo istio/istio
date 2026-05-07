@@ -74,7 +74,7 @@ func TestGatewayHostnames(t *testing.T) {
 				Port: 15443,
 			}}},
 		}})
-		xdsUpdater.WaitOrFail(t, "xds full")
+		xdsUpdater.WaitOrFail(t, "xds forced")
 		gateways = env.NetworkManager.AllGateways()
 		// A and AAAA
 		if len(gateways) != 2 {
@@ -89,7 +89,7 @@ func TestGatewayHostnames(t *testing.T) {
 		// after the update, we should see the next gateway. Since TTL is low we don't know the exact IP, but we know it should change from
 		// the original
 		assert.EventuallyEqual(t, env.NetworkManager.AllGateways, gateways)
-		xdsUpdater.WaitOrFail(t, "xds full")
+		xdsUpdater.WaitOrFail(t, "xds forced")
 	})
 
 	workingDNSServer.setFailure(true)
@@ -112,7 +112,7 @@ func TestGatewayHostnames(t *testing.T) {
 		retry.UntilOrFail(t, func() bool {
 			return !reflect.DeepEqual(env.NetworkManager.AllGateways(), gateways)
 		}, retry.Timeout(10*model.MinGatewayTTL), retry.Delay(time.Millisecond*10))
-		xdsUpdater.WaitOrFail(t, "xds full")
+		xdsUpdater.WaitOrFail(t, "xds forced")
 	})
 
 	workingDNSServer.setHosts(make(sets.String))
@@ -120,7 +120,7 @@ func TestGatewayHostnames(t *testing.T) {
 		assert.EventuallyEqual(t, func() int {
 			return len(env.NetworkManager.AllGateways())
 		}, 0, retry.Timeout(10*model.MinGatewayTTL))
-		xdsUpdater.WaitOrFail(t, "xds full")
+		xdsUpdater.WaitOrFail(t, "xds forced")
 		if env.NetworkManager.IsMultiNetworkEnabled() {
 			t.Fatal("multi network should not be enabled when there are no gateways")
 		}
@@ -132,12 +132,12 @@ func TestGatewayHostnames(t *testing.T) {
 			return len(env.NetworkManager.AllGateways()) != 0 &&
 				!reflect.DeepEqual(env.NetworkManager.AllGateways(), gateways)
 		}, retry.Timeout(10*model.MinGatewayTTL), retry.Delay(time.Millisecond*10))
-		xdsUpdater.WaitOrFail(t, "xds full")
+		xdsUpdater.WaitOrFail(t, "xds forced")
 	})
 
 	t.Run("forget", func(t *testing.T) {
 		meshNetworks.SetNetworks(nil)
-		xdsUpdater.WaitOrFail(t, "xds full")
+		xdsUpdater.WaitOrFail(t, "xds forced")
 		if len(env.NetworkManager.AllGateways()) > 0 {
 			t.Fatal("expected no gateways")
 		}

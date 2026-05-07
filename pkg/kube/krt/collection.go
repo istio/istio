@@ -174,6 +174,9 @@ func objectChanged(dependencies []*dependency, sourceCollection collectionUID, e
 		if id != sourceCollection {
 			continue
 		}
+		if dep.filter.SuppressChange(ev) {
+			continue
+		}
 		// For each input, we will check if it depends on this event.
 		// We use Items() to check both the old and new object; we will recompute if either matched
 		for _, item := range ev.Items() {

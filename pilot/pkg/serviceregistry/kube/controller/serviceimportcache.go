@@ -147,8 +147,8 @@ func (ic *serviceImportCacheImpl) onServiceImportEvent(_, obj controllers.Object
 		return nil
 	}
 
-	// We need a full push if the cluster VIP changes.
-	needsFullPush := false
+	// We need a push if the cluster VIP changes.
+	vipChanged := false
 
 	// Get the updated MCS service.
 	mcsHost := serviceClusterSetLocalHostnameForKR(si)
@@ -185,7 +185,7 @@ func (ic *serviceImportCacheImpl) onServiceImportEvent(_, obj controllers.Object
 		event = model.EventUpdate
 		mcsService = mcsService.ShallowCopy()
 		if ic.updateIPs(mcsService, ips) {
-			needsFullPush = true
+			vipChanged = true
 		}
 	}
 
@@ -193,9 +193,9 @@ func (ic *serviceImportCacheImpl) onServiceImportEvent(_, obj controllers.Object
 	// a change to the discoverability policy.
 	ic.addOrUpdateService(nil, nil, mcsService, event, true)
 
-	// TODO: do we really need a full push, we should do it in `addOrUpdateService`.
-	if needsFullPush {
-		ic.doFullPush(mcsHost, si.GetNamespace())
+	// TODO: do we really need this push, we should do it in `addOrUpdateService`.
+	if vipChanged {
+		ic.pushServiceUpdate(mcsHost, si.GetNamespace())
 	}
 
 	return nil
@@ -211,9 +211,8 @@ func (ic *serviceImportCacheImpl) updateIPs(mcsService *model.Service, ips []str
 	return updated
 }
 
-func (ic *serviceImportCacheImpl) doFullPush(mcsHost host.Name, ns string) {
+func (ic *serviceImportCacheImpl) pushServiceUpdate(mcsHost host.Name, ns string) {
 	pushReq := &model.PushRequest{
-		Full:           true,
 		ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: mcsHost.String(), Namespace: ns}),
 		Reason:         model.NewReasonStats(model.ServiceUpdate),
 	}

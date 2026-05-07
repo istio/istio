@@ -34,7 +34,6 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/ambient"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	"istio.io/istio/pilot/pkg/serviceregistry/util/workloadinstances"
@@ -190,8 +189,6 @@ var (
 	_ serviceregistry.Instance = &Controller{}
 )
 
-type ambientIndex = ambient.Index
-
 // Controller is a collection of synchronized resource watchers
 // Caches are thread-safe
 type Controller struct {
@@ -237,15 +234,11 @@ type Controller struct {
 
 	*networkManager
 
-	ambientIndex
-
 	// initialSyncTimedout is set to true after performing an initial processing timed out.
 	initialSyncTimedout *atomic.Bool
 	meshWatcher         mesh.RestrictedConfigWatcher
 
 	podsClient kclient.Client[*v1.Pod]
-
-	configCluster bool
 
 	networksHandlerRegistration *mesh.WatcherHandlerRegistration
 }
@@ -262,8 +255,6 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		nodeInfoMap:              make(map[string]kubernetesNode),
 		workloadInstancesIndex:   workloadinstances.NewIndex(),
 		initialSyncTimedout:      atomic.NewBool(false),
-
-		configCluster: options.ConfigCluster,
 	}
 	c.networkManager = initNetworkManager(c, options)
 
@@ -327,24 +318,6 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		})
 	})
 	registerHandlers[*v1.Pod](c, c.podsClient, "Pods", c.pods.onEvent, nil)
-
-	if features.EnableAmbient && options.ConfigCluster {
-		c.ambientIndex = ambient.New(ambient.Options{
-			SystemNamespace:        options.SystemNamespace,
-			DomainSuffix:           options.DomainSuffix,
-			ClusterID:              options.ClusterID,
-			Revision:               options.Revision,
-			XDSUpdater:             options.XDSUpdater,
-			MeshConfig:             options.MeshWatcher,
-			StatusNotifier:         options.StatusWritingEnabled,
-			Debugger:               options.KrtDebugger,
-			MultiClusterController: options.MultiClusterController,
-			Flags: ambient.FeatureFlags{
-				DefaultAllowFromWaypoint:              features.DefaultAllowFromWaypoint,
-				EnableK8SServiceSelectWorkloadEntries: features.EnableK8SServiceSelectWorkloadEntries,
-			},
-		})
-	}
 
 	c.exports = newServiceExportCache(c)
 	c.imports = newServiceImportCache(c)
@@ -485,7 +458,7 @@ func (c *Controller) deleteService(svc *model.Service) {
 		c.NotifyGatewayHandlers()
 		// TODO trigger push via handler
 		// networks are different, we need to update all eds endpoints
-		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: model.NewReasonStats(model.NetworksTrigger), Forced: true})
+		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{Reason: model.NewReasonStats(model.NetworksTrigger), Forced: true})
 	}
 
 	shard := model.ShardKeyFromRegistry(c)
@@ -518,14 +491,13 @@ func (c *Controller) recomputeServiceForPod(pod *v1.Pod) {
 			c.opts.XDSUpdater.EDSCacheUpdate(shard, string(hostname), svc.Namespace, endpoints)
 		}
 		cu.Insert(model.ConfigKey{
-			Kind:      kind.ServiceEntry,
+			Kind:      kind.Endpoints,
 			Name:      string(hostname),
 			Namespace: svc.Namespace,
 		})
 	}
 	if len(cu) > 0 {
 		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
-			Full:           false,
 			ConfigsUpdated: cu,
 			Reason:         model.NewReasonStats(model.EndpointUpdate),
 		})
@@ -533,11 +505,11 @@ func (c *Controller) recomputeServiceForPod(pod *v1.Pod) {
 }
 
 func (c *Controller) addOrUpdateService(pre, curr *v1.Service, currConv *model.Service, event model.Event, updateEDSCache bool) {
-	needsFullPush := false
+	networksChanged := false
 	// First, process nodePort gateway service, whose externalIPs specified
 	// and loadbalancer gateway service
 	if currConv.Attributes.ClusterExternalAddresses.Len() > 0 {
-		needsFullPush = c.extractGatewaysFromService(currConv)
+		networksChanged = c.extractGatewaysFromService(currConv)
 	} else if isNodePortGatewayService(curr) {
 		// We need to know which services are using node selectors because during node events,
 		// we have to update all the node port services accordingly.
@@ -546,18 +518,18 @@ func (c *Controller) addOrUpdateService(pre, curr *v1.Service, currConv *model.S
 		// only add when it is nodePort gateway service
 		c.nodeSelectorsForServices[currConv.Hostname] = nodeSelector
 		c.Unlock()
-		needsFullPush = c.updateServiceNodePortAddresses(currConv)
+		networksChanged = c.updateServiceNodePortAddresses(currConv)
 	}
 
 	c.Lock()
 	prevConv := c.servicesMap[currConv.Hostname]
 	c.servicesMap[currConv.Hostname] = currConv
 	c.Unlock()
-	// This full push needed to update all endpoints, even though we do a full push on service add/update
-	// as that full push is only triggered for the specific service.
-	if needsFullPush {
+	// This forced push is needed to update all endpoints when networks change, even though we push on
+	// service add/update, as that push is only triggered for the specific service.
+	if networksChanged {
 		// networks are different, we need to update all eds endpoints
-		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: model.NewReasonStats(model.NetworksTrigger), Forced: true})
+		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{Reason: model.NewReasonStats(model.NetworksTrigger), Forced: true})
 	}
 
 	shard := model.ShardKeyFromRegistry(c)
@@ -621,7 +593,6 @@ func (c *Controller) onNodeEvent(_, node *v1.Node, event model.Event) error {
 	// update all related services
 	if updatedNeeded && c.updateServiceNodePortAddresses() {
 		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
-			Full:   true,
 			Reason: model.NewReasonStats(model.ServiceUpdate),
 			Forced: true,
 		})
@@ -687,9 +658,6 @@ func (c *Controller) HasSynced() bool {
 	if c.initialSyncTimedout.Load() {
 		return true
 	}
-	if c.ambientIndex != nil && !c.ambientIndex.HasSynced() {
-		return false
-	}
 	return c.queue.HasSynced()
 }
 
@@ -736,9 +704,6 @@ func (c *Controller) Run(stop <-chan struct{}) {
 
 	go c.imports.Run(stop)
 	go c.exports.Run(stop)
-	if c.ambientIndex != nil {
-		go c.ambientIndex.Run(stop)
-	}
 	kubelib.WaitForCacheSync("kube controller", stop, c.informersSynced)
 	log.Infof("kube controller for %s synced after %v", c.opts.ClusterID, time.Since(st))
 

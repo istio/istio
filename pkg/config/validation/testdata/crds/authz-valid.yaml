@@ -19,6 +19,8 @@ spec:
             notNamespaces: ["not-ns", "not-ns-prefix-*", "*-not-ns-suffix", "*"]
             notIpBlocks: ["9.0.0.1", "9.2.0.0/16"]
             notRemoteIpBlocks: ["9.0.0.1", "9.2.0.0/16"]
+            trustDomains: ["cluster.local", "cluster-prefix-*", "*-suffix-cluster", "*"]
+            notTrustDomains: ["not-cluster.local", "not-cluster-prefix-*", "*-not-suffix-cluster", "*"]
       to:
         - operation:
             methods: ["method", "method-prefix-*", "*-suffix-method", "*"]
@@ -69,6 +71,9 @@ spec:
         - key: "connection.sni"
           values: ["exact.com", "*.suffix.com", "prefix.*", "*"]
           notValues: ["not-exact.com", "*.not-suffix.com", "not-prefix.*", "*"]
+        - key: "source.trustDomain"
+          values: ["cluster.local", "cluster-prefix-*", "*-suffix-cluster", "*"]
+          notValues: ["not-cluster.local", "not-cluster-prefix-*", "*-not-suffix-cluster", "*"]
         - key: "experimental.envoy.filters.a.b[c]"
           values: ["exact", "prefix-*", "*-suffix", "*"]
           notValues: ["not-exact", "not-prefix-*", "*-not-suffix", "*"]
