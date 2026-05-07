@@ -77,6 +77,8 @@ updates:
       - dependency-name: "sigs.k8s.io/*"
       - dependency-name: "github.com/envoyproxy/go-control-plane/*"
       - dependency-name: "github.com/prometheus/prometheus"
+      - dependency-name: "helm.sh/helm/v3"
+      - dependency-name: "google.golang.org/grpc"
     groups:
       all-dependencies:
         patterns:
@@ -87,6 +89,8 @@ updates:
           - "sigs.k8s.io/*"
           - "github.com/envoyproxy/go-control-plane/*"
           - "github.com/prometheus/prometheus"
+          - "helm.sh/helm/v3"
+          - "google.golang.org/grpc"
 
   - package-ecosystem: "gomod"
     directories:
