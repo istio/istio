@@ -143,14 +143,17 @@ func ListenerSetCollection(
 	krt.StatusCollection[*gatewayv1.ListenerSet, gatewayv1.ListenerSetStatus],
 	krt.Collection[ListenerSet],
 ) {
+	// Note: tagWatcher.IsMine() is intentionally not filtered at this config-emission layer. Filtering
+	// here caused a temporary outage when a Gateway's or ListenerSet's istio.io/rev label was changed:
+	// the prior owning control plane immediately dropped the resource and pushed empty xDS config to
+	// pods still running on the old revision (see https://github.com/istio/istio/issues/59959). Status
+	// writes are filtered to the owning revision via RegisterStatus in pilot/pkg/status/collections.go,
+	// and Deployment management is filtered in pilot/pkg/config/kube/gatewaycommon/deploymentcontroller.go.
 	statusCol, gw := krt.NewStatusManyCollection(listenerSets,
 		func(ctx krt.HandlerContext, obj *gatewayv1.ListenerSet) (*gatewayv1.ListenerSetStatus, []ListenerSet) {
 			// We currently depend on service discovery information not known to krt; mark we depend on it.
 			context := gatewayContext.Get(ctx).Load()
 			if context == nil {
-				return nil, nil
-			}
-			if !tagWatcher.Get(ctx).IsMine(obj.ObjectMeta) {
 				return nil, nil
 			}
 			result := []ListenerSet{}
@@ -311,12 +314,11 @@ func GatewayCollection(
 	listenerIndex := krt.NewIndex(listenerSets, "gatewayParent", func(o ListenerSet) []types.NamespacedName {
 		return []types.NamespacedName{o.GatewayParent}
 	})
+	// Note: tagWatcher.IsMine() is intentionally not filtered at this config-emission layer. See the
+	// comment in ListenerSetCollection above for the rationale.
 	gwstatus, gw := krt.NewStatusManyCollection(gateways, func(ctx krt.HandlerContext, obj *gatewayv1.Gateway) (*gatewayv1.GatewayStatus, []*GatewayListener) {
 		context := gatewayContext.Get(ctx).Load()
 		if context == nil {
-			return nil, nil
-		}
-		if !tagWatcher.Get(ctx).IsMine(obj.ObjectMeta) {
 			return nil, nil
 		}
 		result := []*GatewayListener{}
