@@ -1405,7 +1405,7 @@ func createRedirectFilter(filter *k8s.HTTPRequestRedirectFilter) *istio.HTTPRedi
 
 func isValidHeaderValue(v string) bool {
 	for _, c := range []byte(v) {
-		if c == 0x09 || c >= 0x20 {
+		if c == 0x09 || c >= 0x20 && c != 0x7F {
 			continue
 		}
 		return false

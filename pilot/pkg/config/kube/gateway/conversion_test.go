@@ -1691,6 +1691,14 @@ func TestCreateHeadersFilter(t *testing.T) {
 			errReason: InvalidFilter,
 		},
 		{
+			name: "DEL character in header value",
+			filter: &k8s.HTTPHeaderFilter{
+				Set: []k8s.HTTPHeader{{Name: "x-foo", Value: "bar\x7Fbaz"}},
+			},
+			wantErr:   true,
+			errReason: InvalidFilter,
+		},
+		{
 			name: "tab in header value is valid",
 			filter: &k8s.HTTPHeaderFilter{
 				Set: []k8s.HTTPHeader{{Name: "x-foo", Value: "bar\tbaz"}},
