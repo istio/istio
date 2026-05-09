@@ -1518,7 +1518,6 @@ func buildInnerConnectOriginateListener(push *model.PushContext, proxy *model.Pr
 // tunnel, but unlike the inner_connect_originate it does not need to capture any metadata - it uses what
 // inner_connect_originate already captured and put in the filter state.
 func buildOuterConnectOriginateListener(push *model.PushContext, proxy *model.Proxy) *listener.Listener {
-
 	// the e/w gateway uses the x-istio-source header to determine whether we require L7 processing on that side
 	var source string
 	switch proxy.Type {
