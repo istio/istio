@@ -5,7 +5,7 @@ issue:
   - 59117 
 releaseNotes:
   - |
-    **Fixed** an issue where baggage-based peer metadata discovery interferred with TLS or
+    **Fixed** an issue where baggage-based peer metadata discovery interfered with TLS or
     PROXY traffic policies. As a short term fix we disable baggage-based metadata discovery
     for routes with TLS or PROXY traffic policies configured which may result in incomplete
     telemetry in multicluster deployments. We are working on addressing this limitation in
