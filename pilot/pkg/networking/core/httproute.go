@@ -655,7 +655,7 @@ func GenerateAltVirtualHosts(hostname string, port int, proxyDomain string) []st
 const portNoAppendPortSuffix = 0
 
 func generateAltVirtualHostsForKubernetesService(hostname string, port int, proxyDomain string) []string {
-	id := strings.Index(proxyDomain, ".svc.")
+	before, _, _ := strings.Cut(proxyDomain, ".svc.")
 	ih := strings.Index(hostname, ".svc.")
 	if ih > 0 { // Proxy and service hostname are in kube
 		ns := strings.Index(hostname, ".")
@@ -663,7 +663,7 @@ func generateAltVirtualHostsForKubernetesService(hostname string, port int, prox
 			// Invalid domain
 			return nil
 		}
-		if hostname[ns+1:ih] == proxyDomain[:id] {
+		if hostname[ns+1:ih] == before {
 			// Same namespace
 			if port == portNoAppendPortSuffix {
 				return []string{

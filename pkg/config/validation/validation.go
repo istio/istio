@@ -513,8 +513,8 @@ func validateServerPort(port *networking.Port, bind string) (errs Validation) {
 }
 
 func validateServerBind(port *networking.Port, bind string) (errs error) {
-	if strings.HasPrefix(bind, UnixAddressPrefix) {
-		errs = appendErrors(errs, ValidateUnixAddress(strings.TrimPrefix(bind, UnixAddressPrefix)))
+	if after, ok := strings.CutPrefix(bind, UnixAddressPrefix); ok {
+		errs = appendErrors(errs, ValidateUnixAddress(after))
 		if port != nil && port.Number != 0 {
 			errs = appendErrors(errs, fmt.Errorf("port number must be 0 for unix domain socket: %v", port))
 		}
@@ -823,8 +823,8 @@ var ValidateSidecar = RegisterValidateFunc("ValidateSidecar",
 			portMap.Insert(i.Port.Number)
 
 			if len(i.DefaultEndpoint) != 0 {
-				if strings.HasPrefix(i.DefaultEndpoint, UnixAddressPrefix) {
-					errs = AppendValidation(errs, ValidateUnixAddress(strings.TrimPrefix(i.DefaultEndpoint, UnixAddressPrefix)))
+				if after, ok0 := strings.CutPrefix(i.DefaultEndpoint, UnixAddressPrefix); ok0 {
+					errs = AppendValidation(errs, ValidateUnixAddress(after))
 				} else {
 					// format should be 127.0.0.1:port, [::1]:port or :port
 					sHost, sPort, sErr := net.SplitHostPort(i.DefaultEndpoint)

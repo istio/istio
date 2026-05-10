@@ -79,9 +79,9 @@ type state struct {
 	shlex *shell.Lex
 }
 
-func cut(s, sep string) (before, after string) {
-	if i := strings.Index(s, sep); i >= 0 {
-		return s[:i], s[i+len(sep):]
+func cut(s, sep string) (string, string) {
+	if before, after, ok := strings.Cut(s, sep); ok {
+		return before, after
 	}
 	return s, ""
 }

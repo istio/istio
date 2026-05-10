@@ -670,16 +670,11 @@ func convertToStringMap(s []string) map[string]string {
 // splitEqual splits key=value string into key,value. if no = is found
 // the whole string is the key and value is empty.
 func splitEqual(str string) (string, string) {
-	idx := strings.Index(str, "=")
-	var k string
-	var v string
-	if idx >= 0 {
-		k = str[:idx]
-		v = str[idx+1:]
-	} else {
-		k = str
+	if k, v, ok := strings.Cut(str, "="); ok {
+		return k, v
 	}
-	return k, v
+
+	return str, ""
 }
 
 // validateFlagIsSetManuallyOrNot can validate that a persistent flag is set manually or not by user for given command
