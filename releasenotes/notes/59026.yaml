@@ -3,4 +3,4 @@ kind: bug-fix
 area: traffic-management
 releaseNotes:
   - |
-    - **Fixed** On Gateway API, make Origin parsing stricter
+    **Fixed** Gateway API to apply stricter Origin header parsing.
