@@ -268,7 +268,7 @@ spec:
         - mountPath: /etc/istio/pod
           name: istio-podinfo
       volumes:
-      - emptyDir: {}
+      - emptyDir:
         name: workload-socket
       - emptyDir:
           medium: Memory

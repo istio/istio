@@ -15,7 +15,7 @@
 package serviceentry
 
 import (
-	"cmp"
+	"strings"
 
 	v1 "k8s.io/api/core/v1"
 
@@ -389,13 +389,9 @@ func (s *Controller) Services() []*model.Service {
 	}
 
 	allServices := s.outputs.Services.List()
-	copySvcs := make([]*model.Service, len(allServices))
-	for i, svc := range allServices {
-		// shallow copy, copy `AutoAllocatedIPv4Address` and `AutoAllocatedIPv6Address`
-		// if return the pointer directly, there will be a race with `BuildNameTable`
-		copySvcs[i] = svc.Service.ShallowCopy()
-	}
-	return autoAllocateIPs(copySvcs)
+	return autoAllocateIPs(slices.Map(allServices, func(s ServiceWithInstances) *model.Service {
+		return s.Service
+	}))
 }
 
 // GetService retrieves a service by host name if it exists.
@@ -525,16 +521,16 @@ func sortServicesByCreationTime(services []ServiceWithInstances) {
 		// If creation time is the same, then behavior is nondeterministic. In this case, we can
 		// pick an arbitrary but consistent ordering based on name and namespace, which is unique.
 		// CreationTimestamp is stored in seconds, so this is not uncommon.
-		if r := cmp.Compare(i.Service.Attributes.Name, j.Service.Attributes.Name); r != 0 {
+		if r := strings.Compare(i.Service.Attributes.Name, j.Service.Attributes.Name); r != 0 {
 			return r
 		}
 
-		if r := cmp.Compare(i.Service.Attributes.Namespace, j.Service.Attributes.Namespace); r != 0 {
+		if r := strings.Compare(i.Service.Attributes.Namespace, j.Service.Attributes.Namespace); r != 0 {
 			return r
 		}
 
 		// Fallback on Attributes.K8sAttributes.ObjectName because Attributes.Name is actually the hostname
 		// and we can have multiple services with the same hostname in the same namespace.
-		return cmp.Compare(i.Service.Attributes.K8sAttributes.ObjectName, j.Service.Attributes.K8sAttributes.ObjectName)
+		return strings.Compare(i.Service.Attributes.K8sAttributes.ObjectName, j.Service.Attributes.K8sAttributes.ObjectName)
 	})
 }

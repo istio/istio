@@ -1443,14 +1443,7 @@ func TestOutboundTLSDynamicDNSWildcardServerNames(t *testing.T) {
 	if len(fc.FilterChainMatch.ServerNames) == 0 {
 		t.Fatalf("expected filter_chain_match.server_names (e.g. [%q]), got %v", hostname, fc.FilterChainMatch.ServerNames)
 	}
-	found := false
-	for _, sn := range fc.FilterChainMatch.ServerNames {
-		if sn == hostname {
-			found = true
-			break
-		}
-	}
-	if !found {
+	if !slices.Contains(fc.FilterChainMatch.ServerNames, hostname) {
 		t.Fatalf("expected server_names to contain %q, got %v", hostname, fc.FilterChainMatch.ServerNames)
 	}
 }
@@ -2992,12 +2985,7 @@ func buildOutboundListeners(t *testing.T, proxy *model.Proxy, sidecarConfig *con
 }
 
 func isHTTPListener(listener *listener.Listener) bool {
-	for _, fc := range listener.GetFilterChains() {
-		if isHTTPFilterChain(fc) {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(listener.GetFilterChains(), isHTTPFilterChain)
 }
 
 func isMysqlListener(listener *listener.Listener) bool {

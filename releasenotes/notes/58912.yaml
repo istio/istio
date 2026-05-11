@@ -1,6 +1,8 @@
 apiVersion: release-notes/v2
 kind: bug-fix
 area: security
+issue:
+  - 58912
 releaseNotes:
   - |
-    - **Fixed** incorrect mapping of `meshConfig.tlsDefaults.minProtocolVersion` to `tls_minimum_protocol_version` in downstream TLS context.
+    **Fixed** incorrect mapping of `meshConfig.tlsDefaults.minProtocolVersion` to `tls_minimum_protocol_version` in downstream TLS context.

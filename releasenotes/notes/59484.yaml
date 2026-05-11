@@ -5,4 +5,4 @@ issue:
   - 59483
 releaseNotes:
   - |
-    - **Fixed** applying multiple VirtualService for the same hostname to waypoints.
+    **Fixed** applying multiple VirtualService for the same hostname to waypoints.
