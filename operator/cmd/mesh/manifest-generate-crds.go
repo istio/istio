@@ -102,7 +102,7 @@ func ManifestGenerateCRDsCmd(_ cli.Context) *cobra.Command {
   istioctl experimental manifest-generate-crds
 
   # Exclude specific CRDs (honored by the base chart)
-  istioctl experimental manifest-generate-crds --set 'base.excludedCRDs={envoyfilters.networking.istio.io}' -o /shared/istio-crds.yaml
+  istioctl experimental manifest-generate-crds --set 'values.base.excludedCRDs[0]=envoyfilters.networking.istio.io' -o /shared/istio-crds.yaml
 
   # Use a custom IstioOperator file
   istioctl experimental manifest-generate-crds -f my-iop.yaml -o /shared/istio-crds.yaml
@@ -135,7 +135,7 @@ func ManifestGenerateCRDs(mgArgs *ManifestGenerateCRDsArgs, l clog.Logger) error
 	crds := filterCRDs(manifests)
 	if len(crds) == 0 {
 		return fmt.Errorf("no CustomResourceDefinitions were rendered; check that the base component is enabled " +
-			"and base.enableCRDTemplates is true")
+			"and values.global.resourceScope includes cluster-scoped resources (all or cluster)")
 	}
 
 	sorted := sortManifests(crds)
