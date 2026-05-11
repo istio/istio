@@ -111,10 +111,22 @@ func (ps *PushContext) mergeDestinationRule(p *consolidatedDestRules, destRuleCo
 				}
 			}
 
-			// If there is no top level policy and the incoming rule has top level
-			// traffic policy, use the one from the incoming rule.
-			if mergedRule.TrafficPolicy == nil && rule.TrafficPolicy != nil {
-				mergedRule.TrafficPolicy = rule.TrafficPolicy
+			if rule.TrafficPolicy != nil {
+				// If there is no top level policy and the incoming rule has top level
+				// traffic policy, use the one from the incoming rule.
+				if mergedRule.TrafficPolicy == nil {
+					mergedRule.TrafficPolicy = rule.TrafficPolicy
+				} else {
+					// If there is already a top level traffic policy, we merge
+					//the port level traffic policies if there are any in the incoming rule.
+					if len(rule.TrafficPolicy.PortLevelSettings) > 0 {
+						for _, portLevelSetting := range rule.TrafficPolicy.PortLevelSettings {
+							// TODO: check if there are any duplicate port level settings and log if there are any.
+							mergedRule.TrafficPolicy.PortLevelSettings = append(
+								mergedRule.TrafficPolicy.PortLevelSettings, portLevelSetting)
+						}
+					}
+				}
 			}
 		}
 		if appendSeparately {
