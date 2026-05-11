@@ -72,7 +72,7 @@ spec:
 apiVersion: gateway.networking.k8s.io/v1
 kind: BackendTLSPolicy
 metadata:
-  name: xxx-tls-upstream-echo
+  name: xtls-upstream-echo # The xprefix here makes this policy has lower priority and be conflicting
   namespace: default
   uid: "12345" # We MUST set a different uid to be sure conflict management will consider it different
 spec:

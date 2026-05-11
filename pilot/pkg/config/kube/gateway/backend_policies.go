@@ -684,6 +684,7 @@ func mergeAncestors(existing []gw.PolicyAncestorStatus, incoming []gw.PolicyAnce
 	return existing[:min(len(existing), 16)]
 }
 
+// btlsIsConflicted checks if this BackendTLSPolicy is conflicted by a higher-priority policy targeting the same backend.
 func btlsIsConflicted(
 	btls *gw.BackendTLSPolicy,
 	target gw.LocalPolicyTargetReferenceWithSectionName,
@@ -710,15 +711,16 @@ func btlsIsConflicted(
 	return false
 }
 
+// btlsHasHigherPriority returns true if a has higher priority than b.
+// a higher priority means:
+// - policy 'a' is older than policy 'b'
+// - in case they have the same age, policy 'a' is alphabetically lower than policy 'b'
 func btlsHasHigherPriority(a, b metav1.Object) bool {
 	ts := a.GetCreationTimestamp().Compare(b.GetCreationTimestamp().Time)
 	if ts != 0 {
 		return ts < 0
 	}
-	ns := cmp.Compare(a.GetNamespace(), b.GetNamespace())
-	if ns != 0 {
-		return ns < 0
-	}
+
 	return a.GetName() < b.GetName()
 }
 
