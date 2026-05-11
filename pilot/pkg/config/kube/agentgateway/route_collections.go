@@ -342,41 +342,6 @@ func EnsureZeroes(
 	}
 }
 
-// buildAttachedRoutesMapAllowed is the same as buildAttachedRoutesMap,
-// but only for already-evaluated, allowed parentRefs.
-func buildAttachedRoutesMapAllowed(
-	allowedParents []RouteParentReference,
-	routeNN types.NamespacedName,
-) map[types.NamespacedName]map[string]uint {
-	attached := make(map[types.NamespacedName]map[string]uint)
-	type attachKey struct {
-		gw       types.NamespacedName
-		listener string
-		route    types.NamespacedName
-	}
-	seen := make(map[attachKey]struct{})
-
-	for _, parent := range allowedParents {
-		if parent.ParentKey.Kind != schema.GroupVersionKind(gvk.Gateway) {
-			continue
-		}
-		gw := types.NamespacedName{Namespace: parent.ParentKey.Namespace, Name: parent.ParentKey.Name}
-		lis := string(parent.ParentSection)
-
-		k := attachKey{gw: gw, listener: lis, route: routeNN}
-		if _, ok := seen[k]; ok {
-			continue
-		}
-		seen[k] = struct{}{}
-
-		if attached[gw] == nil {
-			attached[gw] = make(map[string]uint)
-		}
-		attached[gw][lis]++
-	}
-	return attached
-}
-
 func ToResourceForGateway(gw types.NamespacedName, resource any) AgwResource {
 	return AgwResource{
 		Resource: ToAgwResource(resource),
