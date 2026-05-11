@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/revisions"
 	"istio.io/istio/pkg/slices"
@@ -110,7 +111,7 @@ func gatewayRouteAttachmentCountCollection[T controllers.Object](
 
 		parentRefs := extractParentReferenceInfo(ctx, inputs.RouteParents, obj)
 		return slices.MapFilter(FilteredReferences(parentRefs), func(e RouteParentReference) **RouteAttachment {
-			if e.ParentKey.Kind != gvk.KubernetesGateway.Kubernetes() {
+			if e.ParentKey.Kind != gvk.KubernetesGateway.Kubernetes() && e.ParentKey.Kind != gvk.ListenerSet.Kubernetes() {
 				return nil
 			}
 			return ptr.Of(&RouteAttachment{
@@ -306,12 +307,12 @@ func computeRoute[T controllers.Object, O comparable](ctx RouteContext, obj T, t
 	return parentRefs, gwResult
 }
 
-// ListenersPerGateway returns the set of listener sectionNames referenced for each parent Gateway,
+// ListenersPerGateway returns the set of listener sectionNames referenced for each parent Gateway or ListenerSet,
 // regardless of whether they are allowed.
 func ListenersPerGateway(parentRefs []RouteParentReference) map[types.NamespacedName]map[string]struct{} {
 	l := make(map[types.NamespacedName]map[string]struct{})
 	for _, p := range parentRefs {
-		if p.ParentKey.Kind != gvk.Gateway.Kubernetes() {
+		if p.ParentKey.Kind != gvk.Gateway.Kubernetes() && p.ParentKey.Kind != gvk.ListenerSet.Kubernetes() {
 			continue
 		}
 		gw := types.NamespacedName{Namespace: p.ParentKey.Namespace, Name: p.ParentKey.Name}
@@ -482,13 +483,9 @@ func createRouteCollectionGeneric[T controllers.Object, R comparable, ST any](
 			return translatorSeq
 		})
 
-		// gateway -> section name -> route count
-		routeNN := types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}
-		ln := ListenersPerGateway(parentRefs)
-		allowedParents := FilteredReferences(parentRefs)
-		attachedRoutes := buildAttachedRoutesMapAllowed(allowedParents, routeNN)
-		EnsureZeroes(attachedRoutes, ln)
+		log.Errorf("krinkin: for route %+v got the following parent refs: %+v", obj, parentRefs)
 
+		routeNN := types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}
 		resources := ProcessParentReferences[R](
 			parentRefs,
 			gwResult,
