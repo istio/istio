@@ -339,7 +339,7 @@ status:
 apiVersion: gateway.networking.k8s.io/v1
 kind: BackendTLSPolicy
 metadata:
-  name: xxx-tls-upstream-echo
+  name: xtls-upstream-echo
   namespace: default
 spec: null
 status:
