@@ -1,7 +1,8 @@
 apiVersion: release-notes/v2
 kind: bug-fix
 area: traffic-management
+issue:
+  - 59018
 releaseNotes:
   - |
-    - **Fixed** properly parse Gateway API Cors origin when wildcard is used, and 
-    ignore unmatched preflights.
+    **Fixed** Gateway API CORS origin parsing to properly handle wildcard origins and ignore unmatched preflights.
