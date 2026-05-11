@@ -19,13 +19,13 @@ require (
 	github.com/containernetworking/plugins v1.9.1
 	github.com/coreos/go-oidc/v3 v3.18.0
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
-	github.com/docker/cli v29.4.2+incompatible
+	github.com/docker/cli v29.4.3+incompatible
 	github.com/envoyproxy/go-control-plane/contrib v1.36.1-0.20260425030550-64b2e46d9ebf
 	github.com/envoyproxy/go-control-plane/envoy v1.37.1-0.20260425030550-64b2e46d9ebf
 	github.com/evanphx/json-patch/v5 v5.9.11
 	github.com/fatih/color v1.19.0
 	github.com/felixge/fgprof v0.9.5
-	github.com/fsnotify/fsnotify v1.10.0
+	github.com/fsnotify/fsnotify v1.10.1
 	github.com/go-jose/go-jose/v4 v4.1.4
 	github.com/go-logr/logr v1.4.3
 	github.com/gogo/protobuf v1.3.2
@@ -90,7 +90,7 @@ require (
 	gomodules.xyz/jsonpatch/v2 v2.5.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20260427160629-7cedc36a6bc4
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260427160629-7cedc36a6bc4
-	google.golang.org/grpc v1.80.0
+	google.golang.org/grpc v1.81.0
 	google.golang.org/protobuf v1.36.12-0.20260120151049-f2248ac996af
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 	gopkg.in/yaml.v2 v2.4.0
