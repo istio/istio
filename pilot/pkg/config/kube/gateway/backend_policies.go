@@ -395,12 +395,12 @@ func BackendTLSPolicyCollection(
 
 				tgtKey := fmt.Sprintf("%s/%s/%s", i.Namespace, t.Kind, t.Name)
 				allPoliciesForTarget := btlsTargetIdx.Fetch(ctx, tgtKey)
-				conflicted := btlsIsConflicted(i, t, allPoliciesForTarget)
+				conflicted, highPriorityPolicy := btlsIsConflicted(i, t, allPoliciesForTarget)
 
 				if conflicted {
 					conds[string(gw.PolicyConditionAccepted)].error = &ConfigError{
 						Reason:  string(gw.PolicyReasonConflicted),
-						Message: "Conflicts with an older BackendTLSPolicy targeting the same backend",
+						Message: fmt.Sprintf("Conflicts with BackendTLSPolicy %q targeting the same backend", highPriorityPolicy),
 					}
 				} else {
 					for _, host := range hosts {
@@ -685,11 +685,12 @@ func mergeAncestors(existing []gw.PolicyAncestorStatus, incoming []gw.PolicyAnce
 }
 
 // btlsIsConflicted checks if this BackendTLSPolicy is conflicted by a higher-priority policy targeting the same backend.
+// In case it is conflicted, it also returns the policy name with higher priority
 func btlsIsConflicted(
 	btls *gw.BackendTLSPolicy,
 	target gw.LocalPolicyTargetReferenceWithSectionName,
 	allPolicies []*gw.BackendTLSPolicy,
-) bool {
+) (bool, string) {
 	for _, other := range allPolicies {
 		if other.UID == btls.UID {
 			continue
@@ -705,10 +706,10 @@ func btlsIsConflicted(
 			continue
 		}
 		if btlsHasHigherPriority(other, btls) {
-			return true
+			return true, other.GetName()
 		}
 	}
-	return false
+	return false, ""
 }
 
 // btlsHasHigherPriority returns true if a has higher priority than b.
