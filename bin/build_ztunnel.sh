@@ -57,13 +57,28 @@ function download_ztunnel_if_necessary () {
   if [[ -f "$2" ]]; then
     return
   fi
+  # If $1 is an s3:// URL, get a presigned URL
+  if [[ "$1" == s3://* ]]; then
+    echo "Getting presigned URL for $1"
+    # Use AWS CLI to get a presigned URL that is valid for 1 minute
+    if ! URL=$(aws s3 presign "$1" --expires-in 60 --endpoint-url "${AWS_ENDPOINT_URL:-}"); then
+      echo "Error: Failed to get presigned URL for $1"
+      exit 1
+    fi
+  fi
+
+
   # Enter the output directory.
   mkdir -p "$(dirname "$2")"
   pushd "$(dirname "$2")"
 
   # Download and make the binary executable
   echo "Downloading ztunnel: $1 to $2"
-  time ${DOWNLOAD_COMMAND} --header "${AUTH_HEADER:-}" "$1" > "$2"
+
+  # Don't leak the presigned url
+  set +x
+  time ${DOWNLOAD_COMMAND} "${URL}" > "$2"
+  set -x
   chmod +x "$2"
 
   # Make a copy named just "ztunnel" in the same directory (overwrite if necessary).

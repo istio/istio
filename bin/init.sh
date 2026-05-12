@@ -103,6 +103,16 @@ function set_download_command () {
 #   $2: The full path of the output binary.
 #   $3: Non-versioned name to use
 function download_envoy_if_necessary () {
+  # If $1 is an s3:// URL, get a presigned URL
+  if [[ "$1" == s3://* ]]; then
+    echo "Getting presigned URL for $1"
+    # Use AWS CLI to get a presigned URL that is valid for 60 secs
+    if ! URL=$(aws s3 presign "$1" --expires-in 60 --endpoint-url "${AWS_ENDPOINT_URL:-}"); then
+      echo "Error: Failed to get presigned URL for $1"
+      exit 1
+    fi
+    # Update $1 to use the presigned URL for downloading
+  fi
   if [[ ! -f "$2" ]] ; then
     # Enter the output directory.
     mkdir -p "$(dirname "$2")"
@@ -110,8 +120,12 @@ function download_envoy_if_necessary () {
 
     # Download and extract the binary to the output directory.
     echo "Downloading ${SIDECAR}: $1 to $2"
-    time ${DOWNLOAD_COMMAND} --header "${AUTH_HEADER:-}" "$1" |\
+
+    # Don't leak the presigned url
+    set +x
+    time ${DOWNLOAD_COMMAND} "${URL}" |\
       tar --extract --gzip --strip-components=3 --to-stdout > "$2"
+    set -x
     chmod +x "$2"
 
     # Make a copy named just "envoy" in the same directory (overwrite if necessary).
@@ -127,6 +141,8 @@ mkdir -p "${TARGET_OUT}"
 set_download_command
 
 if [[ -n "${DEBUG_IMAGE:-}" ]]; then
+
+
   # Download and extract the Envoy linux debug binary.
   download_envoy_if_necessary "${ISTIO_ENVOY_LINUX_DEBUG_URL}" "$ISTIO_ENVOY_LINUX_DEBUG_PATH" "${SIDECAR}"
 else
@@ -134,6 +150,8 @@ else
 fi
 
 # Download and extract the Envoy linux release binary.
+
+# If ISTIO_ENVOY_LINUX_RELEASE_URL starts with s3://, get a presigned URL
 download_envoy_if_necessary "${ISTIO_ENVOY_LINUX_RELEASE_URL}" "$ISTIO_ENVOY_LINUX_RELEASE_PATH" "${SIDECAR}"
 ISTIO_ENVOY_NATIVE_PATH=${ISTIO_ENVOY_LINUX_RELEASE_PATH}
 
