@@ -350,7 +350,8 @@ status:
       name: echo
     conditions:
     - lastTransitionTime: fake
-      message: Conflicts with an older BackendTLSPolicy targeting the same backend
+      message: Conflicts with BackendTLSPolicy "tls-upstream-echo" targeting the same
+        backend
       reason: Conflicted
       status: "False"
       type: Accepted
