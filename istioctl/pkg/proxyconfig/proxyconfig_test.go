@@ -373,16 +373,16 @@ func TestWriteMulticlusterStatus(t *testing.T) {
 		{
 			name: "multiple clusters with different revisions",
 			input: map[string][]byte{
-				"istiod-default-abc123": []byte(`[{"id":"cluster-1","secretName":"cluster-1-secret","syncStatus":"SYNCED"}]`),
-				"istiod-canary-def456":  []byte(`[{"id":"cluster-2","secretName":"cluster-2-secret","syncStatus":"SYNCED"}]`),
+				"istiod-canary-abc123":  []byte(`[{"id":"cluster-1","secretName":"cluster-1-secret","syncStatus":"SYNCED"}]`),
+				"istiod-default-def456": []byte(`[{"id":"cluster-2","secretName":"cluster-2-secret","syncStatus":"SYNCED"}]`),
 			},
 			istiodRevisionMap: map[string]string{
-				"istiod-default-abc123": "default",
-				"istiod-canary-def456":  "canary",
+				"istiod-default-def456": "default",
+				"istiod-canary-abc123":  "canary",
 			},
 			expectedOutput: "NAME          SECRET               STATUS     ISTIOD                    REVISION\n" +
-				"cluster-1     cluster-1-secret     SYNCED     istiod-default-abc123     default\n" +
-				"cluster-2     cluster-2-secret     SYNCED     istiod-canary-def456      canary\n",
+				"cluster-1     cluster-1-secret     SYNCED     istiod-canary-abc123      canary\n" +
+				"cluster-2     cluster-2-secret     SYNCED     istiod-default-def456     default\n",
 			expectError: false,
 		},
 		{

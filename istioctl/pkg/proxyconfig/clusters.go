@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"sort"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
@@ -28,9 +29,8 @@ import (
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/kube"
 )
-
-const RunningStatus = "status.phase=Running"
 
 // TODO move to multicluster package; requires exposing some private funcs/vars in this package
 func ClustersCommand(ctx cli.Context) *cobra.Command {
@@ -47,7 +47,7 @@ func ClustersCommand(ctx cli.Context) *cobra.Command {
 			// Get all istiod pods to retrieve revision information
 			istiodPods, err := kubeClient.Kube().CoreV1().Pods(ctx.IstioNamespace()).List(context.Background(), metav1.ListOptions{
 				LabelSelector: "app=istiod",
-				FieldSelector: RunningStatus,
+				FieldSelector: kube.RunningStatus,
 			})
 			if err != nil {
 				return err
@@ -77,9 +77,14 @@ func writeMulticlusterStatus(out io.Writer, input map[string][]byte, istiodRevis
 	if err != nil {
 		return err
 	}
+
+	// determine the output order
+	sortedClusters := getSortedKeys(statuses)
+
 	w := new(tabwriter.Writer).Init(out, 0, 8, 5, ' ', 0)
 	_, _ = fmt.Fprintln(w, "NAME\tSECRET\tSTATUS\tISTIOD\tREVISION")
-	for istiod, clusters := range statuses {
+	for _, istiod := range sortedClusters {
+		clusters := statuses[istiod]
 		revision := istiodRevisionMap[istiod]
 		for _, c := range clusters {
 			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", c.ID, c.SecretName, c.SyncStatus, istiod, revision)
@@ -87,6 +92,15 @@ func writeMulticlusterStatus(out io.Writer, input map[string][]byte, istiodRevis
 	}
 	_ = w.Flush()
 	return nil
+}
+
+func getSortedKeys(m map[string][]cluster.DebugInfo) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 func parseClusterStatuses(input map[string][]byte) (map[string][]cluster.DebugInfo, error) {
