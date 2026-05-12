@@ -35,7 +35,6 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/krt"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/revisions"
 	"istio.io/istio/pkg/slices"
@@ -306,23 +305,6 @@ func computeRoute[T controllers.Object, O comparable](ctx RouteContext, obj T, t
 	return parentRefs, gwResult
 }
 
-// ListenersPerGateway returns the set of listener sectionNames referenced for each parent Gateway or ListenerSet,
-// regardless of whether they are allowed.
-func ListenersPerGateway(parentRefs []RouteParentReference) map[types.NamespacedName]map[string]struct{} {
-	l := make(map[types.NamespacedName]map[string]struct{})
-	for _, p := range parentRefs {
-		if p.ParentKey.Kind != gvk.Gateway.Kubernetes() && p.ParentKey.Kind != gvk.ListenerSet.Kubernetes() {
-			continue
-		}
-		gw := types.NamespacedName{Namespace: p.ParentKey.Namespace, Name: p.ParentKey.Name}
-		if l[gw] == nil {
-			l[gw] = make(map[string]struct{})
-		}
-		l[gw][string(p.ParentSection)] = struct{}{}
-	}
-	return l
-}
-
 // EnsureZeroes pre-populates AttachedRoutes with explicit 0 entries for every referenced listener,
 // so writers that "replace" rather than "merge" will correctly set zero.
 func EnsureZeroes(
@@ -446,8 +428,6 @@ func createRouteCollectionGeneric[T controllers.Object, R comparable, ST any](
 		parentRefs, gwResult := computeRoute(ctx, obj, func(obj T) iter.Seq2[R, *Condition] {
 			return translatorSeq
 		})
-
-		log.Errorf("krinkin: for route %+v got the following parent refs: %+v", obj, parentRefs)
 
 		routeNN := types.NamespacedName{Namespace: obj.GetNamespace(), Name: obj.GetName()}
 		resources := ProcessParentReferences[R](

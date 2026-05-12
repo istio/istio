@@ -363,13 +363,13 @@ func (c *Controller) buildFinalListenerSetStatus(
 			ctx krt.HandlerContext, i krt.ObjectWithStatus[*gatewayv1.ListenerSet, gatewayv1.ListenerSetStatus],
 		) *krt.ObjectWithStatus[*gatewayv1.ListenerSet, gatewayv1.ListenerSetStatus] {
 			routes := routeAttachmentsIndex.Fetch(ctx, config.NamespacedName(i.Obj))
-			counts := map[string]int32{}
+			routesPerListener := map[string]int32{}
 			for _, r := range routes {
-				counts[r.ListenerName]++
+				routesPerListener[r.ListenerName]++
 			}
 			status := i.Status.DeepCopy()
 			for i, l := range status.Listeners {
-				l.AttachedRoutes = counts[string(l.Name)]
+				l.AttachedRoutes = routesPerListener[string(l.Name)]
 				status.Listeners[i] = l
 			}
 			return &krt.ObjectWithStatus[*gatewayv1.ListenerSet, gatewayv1.ListenerSetStatus]{
