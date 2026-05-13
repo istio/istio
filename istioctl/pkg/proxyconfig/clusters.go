@@ -45,7 +45,7 @@ func ClustersCommand(ctx cli.Context) *cobra.Command {
 			}
 
 			// Get all istiod pods to retrieve revision information
-			istiodPods, err := kubeClient.Kube().CoreV1().Pods(ctx.IstioNamespace()).List(context.Background(), metav1.ListOptions{
+			istiodPods, err := kubeClient.GetIstioPods(context.Background(), ctx.IstioNamespace(), metav1.ListOptions{
 				LabelSelector: "app=istiod",
 				FieldSelector: kube.RunningStatus,
 			})
@@ -55,7 +55,7 @@ func ClustersCommand(ctx cli.Context) *cobra.Command {
 
 			// Build a map of istiod pod name to revision
 			istiodRevisionMap := make(map[string]string)
-			for _, pod := range istiodPods.Items {
+			for _, pod := range istiodPods {
 				if revision, ok := pod.Labels[label.IoIstioRev.Name]; ok {
 					istiodRevisionMap[pod.Name] = revision
 				}
