@@ -49,7 +49,7 @@ require (
 	github.com/mattn/go-isatty v0.0.22
 	github.com/miekg/dns v1.1.72
 	github.com/mitchellh/copystructure v1.2.0
-	github.com/moby/buildkit v0.29.0
+	github.com/moby/buildkit v0.30.0
 	github.com/onsi/gomega v1.40.0
 	github.com/openshift/api v0.0.0-20260501191448-a49973eaef53
 	github.com/pires/go-proxyproto v0.12.0
@@ -150,15 +150,15 @@ require (
 	github.com/go-logr/zapr v1.3.0 // indirect
 	github.com/go-openapi/jsonpointer v0.22.5 // indirect
 	github.com/go-openapi/jsonreference v0.21.5 // indirect
-	github.com/go-openapi/swag v0.25.4 // indirect
-	github.com/go-openapi/swag/cmdutils v0.25.4 // indirect
+	github.com/go-openapi/swag v0.25.5 // indirect
+	github.com/go-openapi/swag/cmdutils v0.25.5 // indirect
 	github.com/go-openapi/swag/conv v0.25.5 // indirect
 	github.com/go-openapi/swag/fileutils v0.25.5 // indirect
 	github.com/go-openapi/swag/jsonname v0.25.5 // indirect
 	github.com/go-openapi/swag/jsonutils v0.25.5 // indirect
 	github.com/go-openapi/swag/loading v0.25.5 // indirect
 	github.com/go-openapi/swag/mangling v0.25.5 // indirect
-	github.com/go-openapi/swag/netutils v0.25.4 // indirect
+	github.com/go-openapi/swag/netutils v0.25.5 // indirect
 	github.com/go-openapi/swag/stringutils v0.25.5 // indirect
 	github.com/go-openapi/swag/typeutils v0.25.5 // indirect
 	github.com/go-openapi/swag/yamlutils v0.25.5 // indirect
@@ -215,7 +215,7 @@ require (
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xlab/treeprint v1.2.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
-	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.67.0 // indirect
+	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.68.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.4 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
