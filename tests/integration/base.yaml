@@ -11,6 +11,8 @@ spec:
     defaultConfig:
       proxyMetadata:
         ISTIO_META_DNS_CAPTURE: "true"
+        # TODO: remove this later
+        PILOT_ENABLE_CDS_LAZY_LOAD: "true"
   values:
     pilot:
       # Lower the reconnect time so we test reconnects. The default of 30min means we almost never trigger in tests.
