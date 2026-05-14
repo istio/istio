@@ -250,7 +250,7 @@ func NewLeaderElectionMulticluster(namespace, name, electionID, revision string,
 func newLeaderElection(namespace, name, electionID, revision string, perRevision bool, remote bool, leaseLock bool, client kube.Client) *LeaderElection {
 	var watcher revisions.DefaultWatcher
 	if features.EnableLeaderElection {
-		watcher = revisions.NewDefaultWatcher(client, revision)
+		watcher = revisions.NewDefaultWatcher(client, revision, "")
 	}
 	// Default revision for consistency. Note that on Kubernetes, there is ~always a revision set.
 	if revision == "" {
