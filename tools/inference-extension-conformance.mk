@@ -17,6 +17,7 @@ CONTACT ?= @istio/maintainers
 RUN_TEST ?=
 
 # Directory variables
+# Path to your local clone of gateway-api-inference-extension/conformance.
 TEST_BASE_DIR ?= 
 REPORT_BASE_DIR ?= 
 
