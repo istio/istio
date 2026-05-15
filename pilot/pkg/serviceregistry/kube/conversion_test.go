@@ -193,7 +193,7 @@ func TestServiceConversion(t *testing.T) {
 
 	ips := service.ClusterVIPs.GetAddressesFor(clusterID)
 	if len(ips) != 1 {
-		t.Fatalf("number of ips incorrect => %q, want 1", len(ips))
+		t.Fatalf("number of ips incorrect => %d, want 1", len(ips))
 	}
 
 	if ips[0] != ip {

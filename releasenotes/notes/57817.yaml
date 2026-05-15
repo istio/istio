@@ -2,7 +2,7 @@ apiVersion: release-notes/v2
 kind: bug-fix
 area: traffic-management
 issue:
-  - 59483
+  - 57817
 releaseNotes:
   - |
-    **Fixed** applying multiple VirtualService for the same hostname to waypoints.
+    - **Fixed** On Gateway API, implement BackendTLSPolicyConflictResolution
