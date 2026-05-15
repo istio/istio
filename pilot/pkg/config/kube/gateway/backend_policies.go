@@ -48,7 +48,11 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
-const IgnorePolicyAttachment = "istio.io/ignore-policy-attachment"
+const (
+	IgnorePolicyAttachment    = "istio.io/ignore-policy-attachment"
+	PolicyIgnoredMessage      = "Ignored by Istio due to annotation " + IgnorePolicyAttachment + "=true"
+	PolicyIgnoredStatusReason = "IgnoredByIstio"
+)
 
 type TypedNamespacedName struct {
 	types.NamespacedName
@@ -300,10 +304,17 @@ func BackendTLSPolicyCollection(
 			return fmt.Sprintf("%s/%s/%s", o.Namespace, e.Kind, e.Name)
 		})
 	})
-	return krt.NewStatusManyCollection(filteredTLSPolicies, func(ctx krt.HandlerContext, i *gw.BackendTLSPolicy) (
+
+	return krt.NewStatusManyCollection(tlsPolicies, func(ctx krt.HandlerContext, i *gw.BackendTLSPolicy) (
 		*gw.PolicyStatus,
 		[]BackendPolicy,
 	) {
+		if i.GetAnnotations()[IgnorePolicyAttachment] == "true" {
+			parents := slices.Map(i.Spec.TargetRefs, func(t gw.LocalPolicyTargetReferenceWithSectionName) gw.ParentReference {
+				return gw.ParentReference{Group: &t.Group, Kind: &t.Kind, Name: t.Name, SectionName: t.SectionName}
+			})
+			return ignoredPolicyStatus(&i.Status, i.Generation, parents), nil
+		}
 		status := i.Status.DeepCopy()
 		res := make([]BackendPolicy, 0, len(i.Spec.TargetRefs))
 
@@ -542,16 +553,16 @@ func BackendTrafficPolicyCollection(
 	domainSuffix string,
 	opts krt.OptionsBuilder,
 ) (krt.StatusCollection[*gatewayx.XBackendTrafficPolicy, gatewayx.PolicyStatus], krt.Collection[BackendPolicy]) {
-	filteredTrafficPolicies := krt.NewCollection(trafficPolicies, func(_ krt.HandlerContext, i *gatewayx.XBackendTrafficPolicy) **gatewayx.XBackendTrafficPolicy {
-		if i.GetAnnotations()[IgnorePolicyAttachment] == "true" {
-			return nil
-		}
-		return &i
-	}, opts.WithName("FilteredBackendTrafficPolicy")...)
-	return krt.NewStatusManyCollection(filteredTrafficPolicies, func(ctx krt.HandlerContext, i *gatewayx.XBackendTrafficPolicy) (
+	return krt.NewStatusManyCollection(trafficPolicies, func(ctx krt.HandlerContext, i *gatewayx.XBackendTrafficPolicy) (
 		*gatewayx.PolicyStatus,
 		[]BackendPolicy,
 	) {
+		if i.GetAnnotations()[IgnorePolicyAttachment] == "true" {
+			parents := slices.Map(i.Spec.TargetRefs, func(t gatewayx.LocalPolicyTargetReference) gw.ParentReference {
+				return gw.ParentReference{Group: &t.Group, Kind: &t.Kind, Name: t.Name}
+			})
+			return ignoredPolicyStatus(&i.Status, i.Generation, parents), nil
+		}
 		status := i.Status.DeepCopy()
 		res := make([]BackendPolicy, 0, len(i.Spec.TargetRefs))
 		ancestors := make([]gw.PolicyAncestorStatus, 0, len(i.Spec.TargetRefs))
@@ -635,6 +646,33 @@ func BackendTrafficPolicyCollection(
 		status.Ancestors = mergeAncestors(status.Ancestors, ancestors)
 		return status, res
 	}, opts.WithName("BackendTrafficPolicy")...)
+}
+
+// ignoredPolicyStatus returns a PolicyStatus reporting that Istio has excluded
+// a Direct Attached Policy because it carries the
+// istio.io/ignore-policy-attachment="true" annotation.
+// One ancestor entry is emitted per supplied ParentReference, mirroring the shape of the normal translation
+// path so that mergeAncestors will replace any prior entries set by Istio's
+// controllers.
+func ignoredPolicyStatus(existing *gw.PolicyStatus, generation int64, parents []gw.ParentReference) *gw.PolicyStatus {
+	status := existing.DeepCopy()
+	conditions := map[string]*condition{
+		string(gw.PolicyConditionAccepted): {
+			reason:  string(gw.PolicyReasonAccepted),
+			message: "Configuration is valid",
+			error: &ConfigError{
+				Reason:  PolicyIgnoredStatusReason,
+				Message: PolicyIgnoredMessage,
+			},
+		},
+	}
+	ancestors := make([]gw.PolicyAncestorStatus, 0, len(parents))
+	for _, pr := range parents {
+		ancestors = append(ancestors,
+			setAncestorStatus(pr, status, generation, conditions, constants.ManagedGatewayMeshController))
+	}
+	status.Ancestors = mergeAncestors(status.Ancestors, ancestors)
+	return status
 }
 
 func setAncestorStatus(
