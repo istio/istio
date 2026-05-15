@@ -20,6 +20,6 @@ subjects:
     namespace: {{ dig "global" "readerServiceAccount" "namespace" "" .Values }}
 {{- else }}
     name: istio-reader-service-account
-    namespace: {{ .Values.global.istioNamespace }}
+    namespace: {{ .Values.global.istioNamespace | quote }}
 {{- end }}
 {{- end }}

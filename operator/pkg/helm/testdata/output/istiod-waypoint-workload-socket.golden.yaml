@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: istio-sidecar-injector
-  namespace: istio-system
+  namespace: "istio-system"
   labels:
     istio.io/rev: "default"
     install.operator.istio.io/owning-resource: unknown
