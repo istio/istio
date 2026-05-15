@@ -40,7 +40,14 @@ var (
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
-		Setup(istio.Setup(&i, nil)).
+		Setup(istio.Setup(&i, func(_ resource.Context, cfg *istio.Config) {
+			cfg.ControlPlaneValues = `
+values:
+  pilot:
+    env:
+      PILOT_ENABLE_CDS_LAZY_LOAD: true
+`
+		})).
 		Setup(deployment.SetupSingleNamespace(&apps, deployment.Config{})).
 		Setup(func(t resource.Context) error {
 			gatewayConformanceInputs.Client = t.Clusters().Default()
