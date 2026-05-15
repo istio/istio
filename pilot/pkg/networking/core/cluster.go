@@ -82,6 +82,8 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, req *mod
 func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, updates *model.PushRequest,
 	watched *model.WatchedResource,
 ) ([]*discovery.Resource, []string, model.XdsLogDetails, bool) {
+	log.Infof("BuildDeltaClusters for node %s with resources: %v, updates: %v",
+		proxy.ID, sets.SortedList(watched.ResourceNames), updates.ConfigsUpdated)
 	// if we can't use delta, fall back to generate all
 	if !shouldUseDelta(updates) {
 		cl, lg := configgen.BuildClusters(proxy, updates)

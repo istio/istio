@@ -144,7 +144,6 @@ func TestGatewayConformance(t *testing.T) {
 					Contact:      []string{"@istio/maintainers"},
 				},
 				TimeoutConfig: ctx.Settings().GatewayConformanceTimeoutConfig,
-				FailFast:      true,
 			}
 			if rev := ctx.Settings().Revisions.Default(); rev != "" {
 				opts.NamespaceLabels = map[string]string{
