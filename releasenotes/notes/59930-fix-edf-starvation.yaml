@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: networking
+issue:
+  - 59666
+releaseNotes:
+  - |
+    **Fixed** an issue where endpoints would occasionally receive no traffic during warmup when the slow start `minimumPercent` was set to 0. The webhook validation has been updated to strictly require `minimumPercent > 0` to prevent Envoy Earliest Deadline First (EDF) scheduler starvation.
