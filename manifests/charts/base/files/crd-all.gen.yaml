@@ -37,7 +37,7 @@ spec:
         properties:
           spec:
             description: 'Extend the functionality provided by the Istio proxy through
-              WebAssembly or Lua filters. See more details at: https://istio.io/docs/reference/config/proxy_extensions/v1alpha1/traffic_extension.html'
+              WebAssembly or Lua filters. See more details at: https://istio.io/docs/reference/config/proxy_extensions/traffic_extension.html'
             oneOf:
             - not:
                 anyOf:

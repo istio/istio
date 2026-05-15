@@ -16,7 +16,7 @@ package kube
 
 import (
 	"context"
-	"time"
+	"sync"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -41,6 +41,7 @@ type podHandlers struct {
 type podController struct {
 	q        queue.Instance
 	informer cache.Controller
+	synced   <-chan struct{}
 }
 
 func newPodController(cfg echo.Config, handlers podHandlers) *podController {
@@ -54,7 +55,13 @@ func newPodController(cfg echo.Config, handlers podHandlers) *podController {
 			}
 			options.LabelSelector += s.String()
 		})
-	q := queue.NewQueue(1 * time.Second)
+	synced := make(chan struct{})
+	var syncedOnce sync.Once
+	q := queue.NewWithSync(func() {
+		syncedOnce.Do(func() {
+			close(synced)
+		})
+	}, "pod controller")
 	// nolint: staticcheck
 	_, informer := cache.NewInformer(podListWatch, &corev1.Pod{}, 0, controllers.EventHandler[*corev1.Pod]{
 		AddFunc: func(pod *corev1.Pod) {
@@ -80,6 +87,7 @@ func newPodController(cfg echo.Config, handlers podHandlers) *podController {
 	return &podController{
 		q:        q,
 		informer: informer,
+		synced:   synced,
 	}
 }
 
@@ -97,6 +105,22 @@ func (c *podController) Run(stop <-chan struct{}) {
 
 func (c *podController) HasSynced() bool {
 	return c.q.HasSynced()
+}
+
+func (c *podController) HasSyncedChecker() cache.DoneChecker {
+	return podControllerDoneChecker{done: c.synced}
+}
+
+type podControllerDoneChecker struct {
+	done <-chan struct{}
+}
+
+func (podControllerDoneChecker) Name() string {
+	return "pod controller"
+}
+
+func (c podControllerDoneChecker) Done() <-chan struct{} {
+	return c.done
 }
 
 func (c *podController) WaitForSync(stopCh <-chan struct{}) bool {

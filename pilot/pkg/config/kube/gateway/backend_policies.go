@@ -287,6 +287,11 @@ func BackendTLSPolicyCollection(
 	domainSuffix string,
 	opts krt.OptionsBuilder,
 ) (krt.StatusCollection[*gw.BackendTLSPolicy, gw.PolicyStatus], krt.Collection[BackendPolicy]) {
+	btlsTargetIdx := krt.NewIndex(tlsPolicies, "btls-targets", func(o *gw.BackendTLSPolicy) []string {
+		return slices.Map(o.Spec.TargetRefs, func(e gw.LocalPolicyTargetReferenceWithSectionName) string {
+			return fmt.Sprintf("%s/%s/%s", o.Namespace, e.Kind, e.Name)
+		})
+	})
 	return krt.NewStatusManyCollection(tlsPolicies, func(ctx krt.HandlerContext, i *gw.BackendTLSPolicy) (
 		*gw.PolicyStatus,
 		[]BackendPolicy,
@@ -388,24 +393,36 @@ func BackendTLSPolicyCollection(
 					}
 				}
 
-				for _, host := range hosts {
-					res = append(res, BackendPolicy{
-						Source: TypedNamespacedName{
-							NamespacedName: config.NamespacedName(i),
-							Kind:           kind.BackendTLSPolicy,
-						},
-						TargetIndex:  idx,
-						Target:       target,
-						Host:         host,
-						SectionName:  sectionName,
-						TLS:          tls,
-						CreationTime: i.CreationTimestamp.Time,
-					})
-					ancestorBackends := krt.Fetch(ctx, ancestors, krt.FilterKey(target.String()))
-					for _, gwl := range ancestorBackends {
-						for _, i := range gwl.Objects {
-							uniqueGateways.Insert(i.Gateway)
-						}
+				tgtKey := fmt.Sprintf("%s/%s/%s", i.Namespace, t.Kind, t.Name)
+				allPoliciesForTarget := btlsTargetIdx.Fetch(ctx, tgtKey)
+				conflicted, highPriorityPolicy := btlsIsConflicted(i, t, allPoliciesForTarget)
+
+				if conflicted {
+					conds[string(gw.PolicyConditionAccepted)].error = &ConfigError{
+						Reason:  string(gw.PolicyReasonConflicted),
+						Message: fmt.Sprintf("Conflicts with BackendTLSPolicy %q targeting the same backend", highPriorityPolicy),
+					}
+				} else {
+					for _, host := range hosts {
+						res = append(res, BackendPolicy{
+							Source: TypedNamespacedName{
+								NamespacedName: config.NamespacedName(i),
+								Kind:           kind.BackendTLSPolicy,
+							},
+							TargetIndex:  idx,
+							Target:       target,
+							Host:         host,
+							SectionName:  sectionName,
+							TLS:          tls,
+							CreationTime: i.CreationTimestamp.Time,
+						})
+					}
+				}
+
+				ancestorBackends := krt.Fetch(ctx, ancestors, krt.FilterKey(target.String()))
+				for _, gwl := range ancestorBackends {
+					for _, ab := range gwl.Objects {
+						uniqueGateways.Insert(ab.Gateway)
 					}
 				}
 			}
@@ -665,6 +682,54 @@ func mergeAncestors(existing []gw.PolicyAncestorStatus, incoming []gw.PolicyAnce
 	existing = append(existing, incoming...)
 	// There is a max of 16
 	return existing[:min(len(existing), 16)]
+}
+
+// btlsIsConflicted checks if this BackendTLSPolicy is conflicted by a higher-priority policy targeting the same backend.
+// In case it is conflicted, it also returns the policy name with higher priority
+func btlsIsConflicted(
+	btls *gw.BackendTLSPolicy,
+	target gw.LocalPolicyTargetReferenceWithSectionName,
+	allPolicies []*gw.BackendTLSPolicy,
+) (bool, string) {
+	for _, other := range allPolicies {
+		if other.UID == btls.UID {
+			continue
+		}
+		hasMatchingTarget := false
+		for _, t := range other.Spec.TargetRefs {
+			if btlsTargetRefEqual(target, t) {
+				hasMatchingTarget = true
+				break
+			}
+		}
+		if !hasMatchingTarget {
+			continue
+		}
+		if btlsHasHigherPriority(other, btls) {
+			return true, other.GetName()
+		}
+	}
+	return false, ""
+}
+
+// btlsHasHigherPriority returns true if a has higher priority than b.
+// a higher priority means:
+// - policy 'a' is older than policy 'b'
+// - in case they have the same age, policy 'a' is alphabetically lower than policy 'b'
+func btlsHasHigherPriority(a, b metav1.Object) bool {
+	ts := a.GetCreationTimestamp().Compare(b.GetCreationTimestamp().Time)
+	if ts != 0 {
+		return ts < 0
+	}
+
+	return a.GetName() < b.GetName()
+}
+
+func btlsTargetRefEqual(a, b gw.LocalPolicyTargetReferenceWithSectionName) bool {
+	return a.Group == b.Group &&
+		a.Kind == b.Kind &&
+		a.Name == b.Name &&
+		ptr.Equal(a.SectionName, b.SectionName)
 }
 
 func generateDRName(target TypedNamespacedName, host string) string {

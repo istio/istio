@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 57817
+releaseNotes:
+  - |
+    - **Fixed** On Gateway API, implement BackendTLSPolicyConflictResolution

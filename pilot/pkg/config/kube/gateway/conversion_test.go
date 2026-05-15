@@ -1695,6 +1695,104 @@ func marshalYaml(t test.Failer, cl []config.Config) []byte {
 	return result
 }
 
+func TestCreateHeadersFilter(t *testing.T) {
+	tests := []struct {
+		name      string
+		filter    *k8s.HTTPHeaderFilter
+		wantErr   bool
+		errReason ConfigErrorReason
+	}{
+		{
+			name:    "nil filter",
+			filter:  nil,
+			wantErr: false,
+		},
+		{
+			name: "valid headers",
+			filter: &k8s.HTTPHeaderFilter{
+				Set: []k8s.HTTPHeader{{Name: "x-foo", Value: "bar"}},
+				Add: []k8s.HTTPHeader{{Name: "x-baz", Value: "qux"}},
+			},
+			wantErr: false,
+		},
+		{
+			name: "newline in set header value",
+			filter: &k8s.HTTPHeaderFilter{
+				Set: []k8s.HTTPHeader{{Name: "content-security-policy", Value: "default-src 'self';\nscript-src 'self';"}},
+			},
+			wantErr:   true,
+			errReason: InvalidFilter,
+		},
+		{
+			name: "carriage return in set header value",
+			filter: &k8s.HTTPHeaderFilter{
+				Set: []k8s.HTTPHeader{{Name: "x-foo", Value: "bar\rbaz"}},
+			},
+			wantErr:   true,
+			errReason: InvalidFilter,
+		},
+		{
+			name: "newline in add header value",
+			filter: &k8s.HTTPHeaderFilter{
+				Add: []k8s.HTTPHeader{{Name: "x-foo", Value: "bar\nbaz"}},
+			},
+			wantErr:   true,
+			errReason: InvalidFilter,
+		},
+		{
+			name: "null byte in header value",
+			filter: &k8s.HTTPHeaderFilter{
+				Set: []k8s.HTTPHeader{{Name: "x-foo", Value: "bar\x00baz"}},
+			},
+			wantErr:   true,
+			errReason: InvalidFilter,
+		},
+		{
+			name: "control character in header value",
+			filter: &k8s.HTTPHeaderFilter{
+				Set: []k8s.HTTPHeader{{Name: "x-foo", Value: "bar\x01baz"}},
+			},
+			wantErr:   true,
+			errReason: InvalidFilter,
+		},
+		{
+			name: "DEL character in header value",
+			filter: &k8s.HTTPHeaderFilter{
+				Set: []k8s.HTTPHeader{{Name: "x-foo", Value: "bar\x7Fbaz"}},
+			},
+			wantErr:   true,
+			errReason: InvalidFilter,
+		},
+		{
+			name: "tab in header value is valid",
+			filter: &k8s.HTTPHeaderFilter{
+				Set: []k8s.HTTPHeader{{Name: "x-foo", Value: "bar\tbaz"}},
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := createHeadersFilter(tt.filter)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("expected error but got none")
+				}
+				if err.Reason != tt.errReason {
+					t.Errorf("got reason %q, want %q", err.Reason, tt.errReason)
+				}
+			} else {
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+				if tt.filter != nil && got == nil {
+					t.Errorf("expected non-nil result for non-nil filter")
+				}
+			}
+		})
+	}
+}
+
 func TestHumanReadableJoin(t *testing.T) {
 	tests := []struct {
 		input []string

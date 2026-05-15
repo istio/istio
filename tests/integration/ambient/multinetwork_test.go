@@ -24,6 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/api/label"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/ambient"
@@ -240,6 +241,79 @@ func TestMultinetworkFailover(t *testing.T) {
 			deployWaypointsOrFail(t, local, waypointName, ns1)
 			deployWaypointsOrFail(t, local, waypointName, ns2)
 			runTest(t, local, remote, ns1, ns2)
+
+			t.NewSubTest("ingress-use-waypoint").Run(func(t framework.TestContext) {
+				SetNsIngressUseWaypoint(t, ns1.Name())
+
+				t.ConfigIstio().Eval(ns1.Name(), map[string]string{
+					"Service": brokenService1,
+					"Port":    fmt.Sprintf("%d", ports.HTTP.ServicePort),
+				}, `apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: tag-via-waypoint
+spec:
+  parentRefs:
+  - group: ""
+    kind: Service
+    name: {{.Service}}
+  rules:
+  - filters:
+    - type: ResponseHeaderModifier
+      responseHeaderModifier:
+        add:
+        - name: x-traversed-waypoint
+          value: "true"
+    backendRefs:
+    - group: ""
+      kind: Service
+      name: {{.Service}}
+      port: {{.Port}}
+`).ApplyOrFail(t)
+
+				t.ConfigIstio().Eval(ns1.Name(), map[string]string{
+					"Destination": fmt.Sprintf("%s.%s.svc.cluster.local", brokenService1, ns1.Name()),
+				}, `apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: gateway
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts: ["*"]
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: route
+spec:
+  gateways:
+  - gateway
+  hosts:
+  - "*"
+  http:
+  - route:
+    - destination:
+        host: "{{.Destination}}"
+`).ApplyOrFail(t)
+
+				i.IngressFor(local).CallOrFail(t, echo.CallOptions{
+					Port: echo.Port{
+						Protocol:    protocol.HTTP,
+						ServicePort: 80,
+					},
+					Scheme: scheme.HTTP,
+					Check: check.And(
+						check.OK(),
+						check.ResponseHeader("x-traversed-waypoint", "true"),
+					),
+				})
+			})
 		})
 	})
 }
@@ -291,13 +365,13 @@ func scaleDeploymentOrFail(t framework.TestContext, c cluster.Cluster, namespace
 
 	s, err := c.Kube().AppsV1().Deployments(namespace).GetScale(t.Context(), name, metav1.GetOptions{})
 	if err != nil {
-		t.Fatalf("failed to find deployment %s in namespace %s: %w", name, namespace, err)
+		t.Fatalf("failed to find deployment %s in namespace %s: %v", name, namespace, err)
 	}
 
 	s.Spec.Replicas = scale
 	_, err = c.Kube().AppsV1().Deployments(namespace).UpdateScale(t.Context(), name, s, metav1.UpdateOptions{})
 	if err != nil {
-		t.Fatalf("failed to scale deployment %s in namespace %s to %d replicas: %w", name, namespace, scale, err)
+		t.Fatalf("failed to scale deployment %s in namespace %s to %d replicas: %v", name, namespace, scale, err)
 	}
 
 	retry.UntilSuccessOrFail(t, func() error {
