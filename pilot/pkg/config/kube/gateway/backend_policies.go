@@ -294,7 +294,7 @@ func BackendTLSPolicyCollection(
 	opts krt.OptionsBuilder,
 ) (krt.StatusCollection[*gw.BackendTLSPolicy, gw.PolicyStatus], krt.Collection[BackendPolicy]) {
 	filteredTLSPolicies := krt.NewCollection(tlsPolicies, func(_ krt.HandlerContext, i *gw.BackendTLSPolicy) **gw.BackendTLSPolicy {
-		if i.GetAnnotations()[IgnorePolicyAttachment] == "true" {
+		if strings.EqualFold(i.GetAnnotations()[IgnorePolicyAttachment], "true") {
 			return nil
 		}
 		return &i
@@ -309,7 +309,7 @@ func BackendTLSPolicyCollection(
 		*gw.PolicyStatus,
 		[]BackendPolicy,
 	) {
-		if i.GetAnnotations()[IgnorePolicyAttachment] == "true" {
+		if strings.EqualFold(i.GetAnnotations()[IgnorePolicyAttachment], "true") {
 			parents := slices.Map(i.Spec.TargetRefs, func(t gw.LocalPolicyTargetReferenceWithSectionName) gw.ParentReference {
 				return gw.ParentReference{Group: &t.Group, Kind: &t.Kind, Name: t.Name, SectionName: t.SectionName}
 			})
@@ -557,7 +557,7 @@ func BackendTrafficPolicyCollection(
 		*gatewayx.PolicyStatus,
 		[]BackendPolicy,
 	) {
-		if i.GetAnnotations()[IgnorePolicyAttachment] == "true" {
+		if strings.EqualFold(i.GetAnnotations()[IgnorePolicyAttachment], "true") {
 			parents := slices.Map(i.Spec.TargetRefs, func(t gatewayx.LocalPolicyTargetReference) gw.ParentReference {
 				return gw.ParentReference{Group: &t.Group, Kind: &t.Kind, Name: t.Name}
 			})
