@@ -1,0 +1,52 @@
+# Verifies the istio.io/ignore-policy-attachment annotation on
+# XBackendTrafficPolicy. When set to "true" the policy must be excluded from
+# translation, so it produces no DestinationRule and is not merged with
+# sibling policies targeting the same backend.
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: istio
+spec:
+  controllerName: istio.io/gateway-controller
+---
+# Carries the opt-out annotation. Without filtering, it would merge with
+# `lb-active` into a single DestinationRule on `echo` and contribute its
+# unsupported sessionPersistence field to the Accepted message.
+apiVersion: gateway.networking.x-k8s.io/v1alpha1
+kind: XBackendTrafficPolicy
+metadata:
+  name: lb-ignored
+  namespace: default
+  annotations:
+    istio.io/ignore-policy-attachment: "true"
+spec:
+  targetRefs:
+  - group: ""
+    kind: Service
+    name: echo
+  sessionPersistence:
+    sessionName: foo
+    absoluteTimeout: 1h
+    type: Cookie
+    cookieConfig:
+      lifetimeType: Permanent
+---
+# Active sibling targeting the same Service. Should translate to a
+# DestinationRule listing only itself in `internal.istio.io/parents`.
+apiVersion: gateway.networking.x-k8s.io/v1alpha1
+kind: XBackendTrafficPolicy
+metadata:
+  name: lb-active
+  namespace: default
+spec:
+  targetRefs:
+  - group: ""
+    kind: Service
+    name: echo
+  retryConstraint:
+    minRetryRate:
+      interval: "1s"
+      count: 5
+    budget:
+      percent: 30
+      interval: "10s"
