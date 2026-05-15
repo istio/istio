@@ -3,7 +3,7 @@ apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: {{ include "gateway.name" . }}
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ .Release.Namespace | quote }}
   labels:
     app.kubernetes.io/name: {{ include "gateway.name" . }}
     {{- include "istio.labels" . | nindent 4}}
