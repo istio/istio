@@ -122,12 +122,14 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 	}
 	have := sets.String{}
 	servicesDiffed := false
+	svcHostnames := []string{}
 	if len(updates.ConfigsUpdated) == 0 {
 		// If we have no config updates, it means this's a push only care about the service in the watched resource.
 		// So we can directly compute the delta from the service in the watched resource.
 		svcs := configgen.deltaFromService(proxy, updates.Push, serviceClusters)
 		for _, svc := range svcs {
 			if !have.InsertContains(svc.Hostname.String()) {
+				svcHostnames = append(svcHostnames, svc.Hostname.String())
 				services = append(services, svc)
 			}
 		}
@@ -173,6 +175,10 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 	}
 	// Remove anything we built from the deleted list
 	deletedClusters = deletedClusters.DifferenceInPlace(builtClusters)
+	if len(svcHostnames) > 0 {
+		log.Infof("BuildDeltaClusters for node %s with services: %v, deleted clusters: %v, clusters: %v",
+			proxy.ID, svcHostnames, sets.SortedList(deletedClusters), sets.SortedList(builtClusters))
+	}
 	return clusters, sets.SortedList(deletedClusters), logDetail, true
 }
 
