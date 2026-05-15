@@ -16,5 +16,5 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: istio-reader-service-account
-    namespace: {{ .Values.global.istioNamespace }}
+    namespace: {{ .Values.global.istioNamespace | quote }}
 {{- end }}
