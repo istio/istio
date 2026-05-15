@@ -48,6 +48,8 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
+const IgnorePolicyAttachment = "istio.io/ignore-policy-attachment"
+
 type TypedNamespacedName struct {
 	types.NamespacedName
 	Kind kind.Kind
@@ -287,12 +289,18 @@ func BackendTLSPolicyCollection(
 	domainSuffix string,
 	opts krt.OptionsBuilder,
 ) (krt.StatusCollection[*gw.BackendTLSPolicy, gw.PolicyStatus], krt.Collection[BackendPolicy]) {
-	btlsTargetIdx := krt.NewIndex(tlsPolicies, "btls-targets", func(o *gw.BackendTLSPolicy) []string {
+	filteredTLSPolicies := krt.NewCollection(tlsPolicies, func(_ krt.HandlerContext, i *gw.BackendTLSPolicy) **gw.BackendTLSPolicy {
+		if i.GetAnnotations()[IgnorePolicyAttachment] == "true" {
+			return nil
+		}
+		return &i
+	}, opts.WithName("FilteredBackendTLSPolicy")...)
+	btlsTargetIdx := krt.NewIndex(filteredTLSPolicies, "btls-targets", func(o *gw.BackendTLSPolicy) []string {
 		return slices.Map(o.Spec.TargetRefs, func(e gw.LocalPolicyTargetReferenceWithSectionName) string {
 			return fmt.Sprintf("%s/%s/%s", o.Namespace, e.Kind, e.Name)
 		})
 	})
-	return krt.NewStatusManyCollection(tlsPolicies, func(ctx krt.HandlerContext, i *gw.BackendTLSPolicy) (
+	return krt.NewStatusManyCollection(filteredTLSPolicies, func(ctx krt.HandlerContext, i *gw.BackendTLSPolicy) (
 		*gw.PolicyStatus,
 		[]BackendPolicy,
 	) {
@@ -534,7 +542,13 @@ func BackendTrafficPolicyCollection(
 	domainSuffix string,
 	opts krt.OptionsBuilder,
 ) (krt.StatusCollection[*gatewayx.XBackendTrafficPolicy, gatewayx.PolicyStatus], krt.Collection[BackendPolicy]) {
-	return krt.NewStatusManyCollection(trafficPolicies, func(ctx krt.HandlerContext, i *gatewayx.XBackendTrafficPolicy) (
+	filteredTrafficPolicies := krt.NewCollection(trafficPolicies, func(_ krt.HandlerContext, i *gatewayx.XBackendTrafficPolicy) **gatewayx.XBackendTrafficPolicy {
+		if i.GetAnnotations()[IgnorePolicyAttachment] == "true" {
+			return nil
+		}
+		return &i
+	}, opts.WithName("FilteredBackendTrafficPolicy")...)
+	return krt.NewStatusManyCollection(filteredTrafficPolicies, func(ctx krt.HandlerContext, i *gatewayx.XBackendTrafficPolicy) (
 		*gatewayx.PolicyStatus,
 		[]BackendPolicy,
 	) {
