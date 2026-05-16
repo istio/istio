@@ -79,13 +79,6 @@ type state struct {
 	shlex *shell.Lex
 }
 
-func cut(s, sep string) (string, string) {
-	if before, after, ok := strings.Cut(s, sep); ok {
-		return before, after
-	}
-	return s, ""
-}
-
 // Parse parses the provided Dockerfile with the given args
 func Parse(f string, opts ...Option) (builder.Args, error) {
 	empty := builder.Args{}
@@ -118,7 +111,7 @@ func Parse(f string, opts ...Option) (builder.Args, error) {
 	for _, c := range cmds {
 		switch c.Cmd {
 		case "ARG":
-			k, v := cut(c.Value[0], "=")
+			k, v, _ := strings.Cut(c.Value[0], "=")
 			_, f := s.args[k]
 			if !f {
 				s.args[k] = v
