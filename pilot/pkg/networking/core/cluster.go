@@ -124,17 +124,16 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 	}
 	have := sets.String{}
 	servicesDiffed := false
-	svcHostnames := []string{}
 	if len(updates.ConfigsUpdated) == 0 {
 		// If we have no config updates, it means this's a push only care about the service in the watched resource.
 		// So we can directly compute the delta from the service in the watched resource.
-		svcs := configgen.deltaFromService(proxy, updates.Push, serviceClusters)
+		svcs, deleted := configgen.deltaFromService(proxy, updates.Push, serviceClusters, subsetClusters)
 		for _, svc := range svcs {
 			if !have.InsertContains(svc.Hostname.String()) {
-				svcHostnames = append(svcHostnames, svc.Hostname.String())
 				services = append(services, svc)
 			}
 		}
+		deletedClusters.InsertAll(deleted...)
 	}
 
 	for key := range updates.ConfigsUpdated {
@@ -177,10 +176,6 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 	}
 	// Remove anything we built from the deleted list
 	deletedClusters = deletedClusters.DifferenceInPlace(builtClusters)
-	if len(svcHostnames) > 0 {
-		log.Infof("BuildDeltaClusters for node %s with services: %v, deleted clusters: %v, clusters: %v",
-			proxy.ID, svcHostnames, sets.SortedList(deletedClusters), sets.SortedList(builtClusters))
-	}
 	return clusters, sets.SortedList(deletedClusters), logDetail, true
 }
 
@@ -315,12 +310,14 @@ func (configgen *ConfigGeneratorImpl) deltaFromService(
 	proxy *model.Proxy,
 	push *model.PushContext,
 	serviceClusters map[string]sets.String,
-) []*model.Service {
+	subsetClusters map[string]sets.String,
+) ([]*model.Service, []string) {
+	var deletedClusters []string
 	var services []*model.Service
 
 	// this case should never really happen except in tests, this means the proxy never had sidecar scope recomputed
-	if proxy.PrevSidecarScope == nil {
-		return services
+	if !features.EnableCDSLazyLoad && proxy.PrevSidecarScope == nil {
+		return services, deletedClusters
 	}
 
 	var allServices map[host.Name]*model.Service
@@ -341,7 +338,16 @@ func (configgen *ConfigGeneratorImpl) deltaFromService(
 		}
 	}
 
-	return services
+	for h, clusters := range serviceClusters {
+		hostname := host.Name(h)
+		if _, ok := allServices[hostname]; !ok {
+			// a service we had is no longer present, we have to delete it
+			deletedClusters = append(deletedClusters, clusters.UnsortedList()...)
+			deletedClusters = append(deletedClusters, subsetClusters[h].UnsortedList()...)
+		}
+	}
+
+	return services, deletedClusters
 }
 
 // deltaFromPeerAuthentication computes the delta clusters when a PeerAuthentication changes.
