@@ -44,6 +44,7 @@ const (
 
 var (
 	sidecarScopedKnownConfigTypes = sets.New(
+		kind.Endpoints,
 		kind.ServiceEntry,
 		kind.VirtualService,
 		kind.DestinationRule,
@@ -457,11 +458,20 @@ func (sc *SidecarScope) selectDestinationRules(ps *PushContext, configNamespace 
 				}
 			}
 		}
-		sc.AddConfigDependencies(ConfigKey{
-			Kind:      kind.ServiceEntry,
-			Name:      string(s.Hostname),
-			Namespace: s.Attributes.Namespace,
-		}.HashCode())
+		sc.AddConfigDependencies(
+			ConfigKey{
+				Kind:      kind.ServiceEntry,
+				Name:      string(s.Hostname),
+				Namespace: s.Attributes.Namespace,
+			}.HashCode(),
+			// we do not directly depend on endpoints, but this is needed
+			// to only filter service endpoint updates for services we care about
+			ConfigKey{
+				Kind:      kind.Endpoints,
+				Name:      string(s.Hostname),
+				Namespace: s.Attributes.Namespace,
+			}.HashCode(),
+		)
 	}
 }
 

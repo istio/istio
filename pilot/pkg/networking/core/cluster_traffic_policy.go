@@ -320,6 +320,9 @@ func applyLocalityLoadBalancer(
 	failover bool,
 ) {
 	// Failover should only be applied with outlier detection, or traffic will never failover.
+	// Conversely, because the default mesh config enables LocalityLbSetting (Enabled:true),
+	// enabling outlier detection in a DestinationRule will automatically activate locality LB
+	// failover behavior even when no explicit localityLbSetting is configured in the DR.
 	enableFailover := failover || c.OutlierDetection != nil
 	// set locality weighted lb config when locality lb is enabled, otherwise it will influence the result of LBPolicy like `least request`
 	if features.EnableLocalityWeightedLbConfig ||

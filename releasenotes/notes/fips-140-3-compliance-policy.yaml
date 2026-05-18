@@ -1,0 +1,19 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+releaseNotes:
+  - |
+    **Added** support for `fips-140-3` as a new value for the `COMPLIANCE_POLICY` environment variable.
+    This enforces TLS 1.2 or 1.3 with FIPS-compliant cipher suites
+    (ECDHE_[RSA|ECDSA]_WITH_AES_*_GCM_SHA* for TLS 1.2, AES-GCM for TLS 1.3)
+    and restricts key agreement to P-256 or P-384 curves. On the Envoy proxy side,
+    this uses the native `FIPS_202205` compliance policy.
+    Go components (istiod, istio-agent) must be built with Go 1.24+ using
+    `GOFIPS140=v1.0.0` (or later validated version) to enable the native Go FIPS 140-3
+    cryptographic module. The `GODEBUG=fips140=only` environment variable is automatically
+    injected at runtime for sidecars, gateways, and the istiod control plane when
+    `COMPLIANCE_POLICY` is configured via the Helm `env` value
+    (e.g., `--set pilot.env.COMPLIANCE_POLICY=fips-140-3`).
+    Note: `GOEXPERIMENT=boringcrypto` (used for FIPS 140-2) is incompatible with this
+    policy and must not be used. BoringCrypto targets FIPS 140-2 only and conflicts with
+    Go's native FIPS 140-3 module.

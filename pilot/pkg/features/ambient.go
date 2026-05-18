@@ -15,6 +15,8 @@
 package features
 
 import (
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
+
 	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/log"
 )
@@ -88,6 +90,32 @@ var (
 		"If enabled, ztunnel will be configured with dry-run authorizationPolicies. "+
 			"Ensure ztunnel is 1.29 or above before enabling this feature. "+
 			"Older ztunnel will accept dry-run policies, but enforce them instead of only logging.")
+
+	HBONEInitialStreamWindowSize = func() *wrappers.UInt32Value {
+		v := registerAmbient(
+			"PILOT_HBONE_INITIAL_STREAM_WINDOW_SIZE",
+			uint32(0), uint32(0),
+			"Sets the HTTP/2 initial_stream_window_size on HBONE CONNECT upstream clusters generated for "+
+				"waypoints and east-west gateways. If 0 (the default), the field is left unset so Envoy's "+
+				"built-in default applies.")
+		if v == 0 {
+			return nil
+		}
+		return &wrappers.UInt32Value{Value: v}
+	}()
+
+	HBONEInitialConnectionWindowSize = func() *wrappers.UInt32Value {
+		v := registerAmbient(
+			"PILOT_HBONE_INITIAL_CONNECTION_WINDOW_SIZE",
+			uint32(0), uint32(0),
+			"Sets the HTTP/2 initial_connection_window_size on HBONE CONNECT upstream clusters generated for "+
+				"waypoints and east-west gateways. If 0 (the default), the field is left unset so Envoy's "+
+				"built-in default applies.")
+		if v == 0 {
+			return nil
+		}
+		return &wrappers.UInt32Value{Value: v}
+	}()
 )
 
 // registerAmbient registers a variable that is allowed only if EnableAmbient is set

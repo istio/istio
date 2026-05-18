@@ -545,7 +545,7 @@ func workloadEntryWorkloadBuilder(
 		meshCfg := krt.FetchOne(ctx, meshConfig.AsCollection())
 		policies := buildWorkloadPolicies(ctx, authorizationPolicies, peerAuths, meshCfg, wle.Labels, wle.Namespace)
 
-		appTunnel, targetWaypoint := computeWaypoint(ctx, waypoints, namespaces, wle.ObjectMeta)
+		appTunnel, targetWaypoint, waypointErr := computeWaypoint(ctx, waypoints, namespaces, wle.ObjectMeta)
 
 		fo := []krt.FetchOption{krt.FilterIndex(workloadServicesNamespaceIndex, wle.Namespace), krt.FilterSelectsNonEmpty(wle.GetLabels())}
 		if !flags.EnableK8SServiceSelectWorkloadEntries {
@@ -593,11 +593,18 @@ func workloadEntryWorkloadBuilder(
 		w.CanonicalName, w.CanonicalRevision = kubelabels.CanonicalService(wle.Labels, w.WorkloadName)
 
 		setTunnelProtocol(wle.Labels, wle.Annotations, w, flags)
+		var waypointStatus model.WaypointBindingStatus
+		if targetWaypoint != nil {
+			waypointStatus.ResourceName = targetWaypoint.ResourceName()
+		} else if waypointErr != nil {
+			waypointStatus.Error = waypointErr
+		}
 		wi := &model.WorkloadInfo{
 			Workload:     w,
 			Labels:       wle.Labels,
-			Source:       kind.WorkloadEntry,
+			Source:       model.TypedObject{NamespacedName: types.NamespacedName{Name: wle.Name, Namespace: wle.Namespace}, Kind: kind.WorkloadEntry},
 			CreationTime: wle.CreationTimestamp.Time,
+			Waypoint:     waypointStatus,
 		}
 		if canSkipPrecompute && network != localNetworkGetter(ctx).String() {
 			// Remote network workload that will be coalesced into a split-horizon workload; skip precompute
@@ -638,9 +645,10 @@ func computeWaypoint(
 	waypoints krt.Collection[Waypoint],
 	namespaces krt.Collection[*v1.Namespace],
 	workloadMeta metav1.ObjectMeta,
-) (*workloadapi.ApplicationTunnel, *Waypoint) {
+) (*workloadapi.ApplicationTunnel, *Waypoint, *model.StatusMessage) {
 	var appTunnel *workloadapi.ApplicationTunnel
 	var targetWaypoint *Waypoint
+	var waypointErr *model.StatusMessage
 	if instancedWaypoint := fetchWaypointForInstance(ctx, waypoints, workloadMeta); instancedWaypoint != nil {
 		// we're an instance of a waypoint, set inbound tunnel info if needed
 		if db := instancedWaypoint.DefaultBinding; db != nil {
@@ -651,10 +659,11 @@ func computeWaypoint(
 		}
 	} else if waypoint, err := fetchWaypointForWorkload(ctx, waypoints, namespaces, workloadMeta); err == nil {
 		// there is a workload-attached waypoint, point there with a GatewayAddress
-		// TODO: report status for workload-attached waypoints
 		targetWaypoint = waypoint
+	} else {
+		waypointErr = err
 	}
-	return appTunnel, targetWaypoint
+	return appTunnel, targetWaypoint, waypointErr
 }
 
 func podWorkloadBuilder(
@@ -716,7 +725,7 @@ func podWorkloadBuilder(
 		// We only check the network of the first IP. This should be fine; it is not supported for a single pod to span multiple networks
 		network := networkGetter(ctx).String()
 
-		appTunnel, targetWaypoint := computeWaypoint(ctx, waypoints, namespaces, p.ObjectMeta)
+		appTunnel, targetWaypoint, _ := computeWaypoint(ctx, waypoints, namespaces, p.ObjectMeta)
 
 		// enforce traversing waypoints
 		policies = append(policies, implicitWaypointPolicies(flags, ctx, waypoints, targetWaypoint, services)...)
@@ -752,7 +761,7 @@ func podWorkloadBuilder(
 		wi := &model.WorkloadInfo{
 			Workload:     w,
 			Labels:       p.Labels,
-			Source:       kind.Pod,
+			Source:       model.TypedObject{NamespacedName: types.NamespacedName{Name: p.Name, Namespace: p.Namespace}, Kind: kind.Pod},
 			CreationTime: p.CreationTimestamp.Time,
 		}
 		if canSkipPrecompute && network != localNetworkGetter(ctx).String() {
@@ -964,7 +973,7 @@ func serviceEntryWorkloadBuilder(
 					Namespace: se.Namespace,
 					Labels:    wle.Labels,
 				}
-				appTunnel, targetWaypoint = computeWaypoint(ctx, waypoints, namespaces, objMeta)
+				appTunnel, targetWaypoint, _ = computeWaypoint(ctx, waypoints, namespaces, objMeta)
 			}
 
 			// enforce traversing waypoints
@@ -1006,7 +1015,7 @@ func serviceEntryWorkloadBuilder(
 			res = append(res, precomputeWorkload(model.WorkloadInfo{
 				Workload:     w,
 				Labels:       se.Labels,
-				Source:       kind.WorkloadEntry,
+				Source:       model.TypedObject{Kind: kind.WorkloadEntry},
 				CreationTime: se.CreationTimestamp.Time,
 			}))
 		}
@@ -1165,7 +1174,7 @@ func endpointSlicesBuilder(
 			res = append(res, precomputeWorkload(model.WorkloadInfo{
 				Workload:     w,
 				Labels:       nil,
-				Source:       kind.EndpointSlice,
+				Source:       model.TypedObject{Kind: kind.EndpointSlice},
 				CreationTime: es.CreationTimestamp.Time,
 			}))
 		}

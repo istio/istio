@@ -126,7 +126,7 @@ func RegisterEdsShim(
 	ServiceEds.RegisterBatch(
 		PushXds(xdsUpdater, func(svc serviceEDS) model.ConfigKey {
 			ns, hostname, _ := strings.Cut(svc.ServiceKey, "/")
-			return model.ConfigKey{Kind: kind.ServiceEntry, Name: hostname, Namespace: ns}
+			return model.ConfigKey{Kind: kind.Endpoints, Name: hostname, Namespace: ns}
 		}), false)
 }
 

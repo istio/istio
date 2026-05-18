@@ -786,7 +786,7 @@ func gatewayRouteAttachmentCountCollection[T controllers.Object](
 
 		parentRefs := extractParentReferenceInfo(ctx, inputs.RouteParents, obj)
 		return slices.MapFilter(filteredReferences(parentRefs), func(e routeParentReference) *RouteAttachment {
-			if e.ParentKey.Kind != gvk.KubernetesGateway {
+			if e.ParentKey.Kind != gvk.KubernetesGateway && e.ParentKey.Kind != gvk.ListenerSet {
 				return nil
 			}
 			return &RouteAttachment{

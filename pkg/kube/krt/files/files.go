@@ -74,6 +74,12 @@ func (f *FolderWatch[T]) readOnce() error {
 			log.Warnf("Failed to readOnce %s: %v", path, err)
 			return err
 		}
+		if len(data) == 0 {
+			// The file may be empty because the write is not atomic: the file can
+			// be created (firing a fsnotify event) before the writer has written
+			// its contents. Skip; another event will fire once content lands.
+			return nil
+		}
 		parsed, err := f.parse(data)
 		if err != nil {
 			log.Warnf("Failed to parse %s: %v", path, err)
@@ -122,7 +128,7 @@ func (f *FolderWatch[T]) watch(stop <-chan struct{}) {
 	}()
 }
 
-const watchDebounceDelay = 50 * time.Millisecond
+const watchDebounceDelay = 250 * time.Millisecond
 
 // Trigger notifications when a file is mutated
 func (f *FolderWatch[T]) fileTrigger(events chan struct{}, stop <-chan struct{}) error {

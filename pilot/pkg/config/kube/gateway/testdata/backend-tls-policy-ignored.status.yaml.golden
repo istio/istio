@@ -1,0 +1,58 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: tls-active
+  namespace: default
+spec: null
+status:
+  ancestors:
+  - ancestorRef:
+      group: ""
+      kind: Service
+      name: echo
+    conditions:
+    - lastTransitionTime: fake
+      message: Configuration is valid
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: Configuration is valid
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/mesh-controller
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: tls-ignored
+  namespace: default
+spec: null
+status:
+  ancestors:
+  - ancestorRef:
+      group: ""
+      kind: Service
+      name: echo
+    conditions:
+    - lastTransitionTime: fake
+      message: Ignored by Istio due to annotation istio.io/ignore-policy-attachment=true
+      reason: IgnoredByIstio
+      status: "False"
+      type: Accepted
+    controllerName: istio.io/mesh-controller
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: istio
+spec: null
+status:
+  conditions:
+  - lastTransitionTime: fake
+    message: Handled by Istio controller
+    reason: Accepted
+    status: "True"
+    type: Accepted
+---

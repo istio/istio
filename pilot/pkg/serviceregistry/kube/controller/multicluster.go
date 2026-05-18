@@ -67,7 +67,7 @@ func (k *kubeController) Close() {
 		log.Warnf("failed cleaning up services in %s: %v", clusterID, err)
 	}
 	if k.opts.XDSUpdater != nil {
-		k.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: model.NewReasonStats(model.ClusterUpdate), Forced: true})
+		k.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{Reason: model.NewReasonStats(model.ClusterUpdate), Forced: true})
 	}
 }
 
@@ -157,7 +157,6 @@ func NewMulticluster(
 		if !configCluster && options.XDSUpdater != nil {
 			options.MeshWatcher.AddMeshHandler(func() {
 				kubeRegistry.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
-					Full:   true,
 					Reason: model.NewReasonStats(model.GlobalUpdate),
 					Forced: true,
 				})

@@ -41,6 +41,7 @@ func (c *ConditionAnalyzer) Metadata() analysis.Metadata {
 		Inputs: []config.GroupVersionKind{
 			groupVersionKind.Service,
 			groupVersionKind.ServiceEntry,
+			groupVersionKind.WorkloadEntry,
 			groupVersionKind.AuthorizationPolicy,
 			groupVersionKind.KubernetesGateway,
 			groupVersionKind.HTTPRoute,
@@ -55,6 +56,7 @@ func (c *ConditionAnalyzer) Analyze(ctx analysis.Context) {
 	for _, gvk := range []config.GroupVersionKind{
 		groupVersionKind.Service,
 		groupVersionKind.ServiceEntry,
+		groupVersionKind.WorkloadEntry,
 		groupVersionKind.AuthorizationPolicy,
 		groupVersionKind.KubernetesGateway,
 		groupVersionKind.HTTPRoute, groupVersionKind.GRPCRoute,
@@ -93,6 +95,9 @@ var negativeConditionsToReport = map[config.GroupVersionKind]map[string]metav1.C
 		"istio.io/WaypointBound": metav1.ConditionFalse,
 	},
 	groupVersionKind.ServiceEntry: {
+		"istio.io/WaypointBound": metav1.ConditionFalse,
+	},
+	groupVersionKind.WorkloadEntry: {
 		"istio.io/WaypointBound": metav1.ConditionFalse,
 	},
 	groupVersionKind.AuthorizationPolicy: {

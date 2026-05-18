@@ -349,3 +349,109 @@ func init() {
 		return tf
 	}
 }
+
+func TestWriteMulticlusterStatus(t *testing.T) {
+	tests := []struct {
+		name              string
+		input             map[string][]byte
+		istiodRevisionMap map[string]string
+		expectedOutput    string
+		expectError       bool
+	}{
+		{
+			name: "single cluster with revision",
+			input: map[string][]byte{
+				"istiod-6d8f97c8d9-abc123": []byte(`[{"id":"cluster-1","secretName":"cluster-1-secret","syncStatus":"SYNCED"}]`),
+			},
+			istiodRevisionMap: map[string]string{
+				"istiod-6d8f97c8d9-abc123": "default",
+			},
+			expectedOutput: "NAME          SECRET               STATUS     ISTIOD                       REVISION\n" +
+				"cluster-1     cluster-1-secret     SYNCED     istiod-6d8f97c8d9-abc123     default\n",
+			expectError: false,
+		},
+		{
+			name: "multiple clusters with different revisions",
+			input: map[string][]byte{
+				"istiod-canary-abc123":  []byte(`[{"id":"cluster-1","secretName":"cluster-1-secret","syncStatus":"SYNCED"}]`),
+				"istiod-default-def456": []byte(`[{"id":"cluster-2","secretName":"cluster-2-secret","syncStatus":"SYNCED"}]`),
+			},
+			istiodRevisionMap: map[string]string{
+				"istiod-default-def456": "default",
+				"istiod-canary-abc123":  "canary",
+			},
+			expectedOutput: "NAME          SECRET               STATUS     ISTIOD                    REVISION\n" +
+				"cluster-1     cluster-1-secret     SYNCED     istiod-canary-abc123      canary\n" +
+				"cluster-2     cluster-2-secret     SYNCED     istiod-default-def456     default\n",
+			expectError: false,
+		},
+		{
+			name: "cluster without revision label",
+			input: map[string][]byte{
+				"istiod-6d8f97c8d9-abc123": []byte(`[{"id":"cluster-1","secretName":"cluster-1-secret","syncStatus":"SYNCED"}]`),
+			},
+			istiodRevisionMap: map[string]string{},
+			expectedOutput: "NAME          SECRET               STATUS     ISTIOD                       REVISION\n" +
+				"cluster-1     cluster-1-secret     SYNCED     istiod-6d8f97c8d9-abc123     \n",
+			expectError: false,
+		},
+		{
+			name: "multiple clusters per istiod",
+			input: map[string][]byte{
+				// nolint: lll
+				"istiod-6d8f97c8d9-abc123": []byte(`[{"id":"cluster-1","secretName":"cluster-1-secret","syncStatus":"SYNCED"},{"id":"cluster-2","secretName":"cluster-2-secret","syncStatus":"SYNCED"}]`),
+			},
+			istiodRevisionMap: map[string]string{
+				"istiod-6d8f97c8d9-abc123": "stable",
+			},
+			expectedOutput: "NAME          SECRET               STATUS     ISTIOD                       REVISION\n" +
+				"cluster-1     cluster-1-secret     SYNCED     istiod-6d8f97c8d9-abc123     stable\n" +
+				"cluster-2     cluster-2-secret     SYNCED     istiod-6d8f97c8d9-abc123     stable\n",
+			expectError: false,
+		},
+		{
+			name: "invalid JSON input",
+			input: map[string][]byte{
+				"istiod-6d8f97c8d9-abc123": []byte(`invalid json`),
+			},
+			istiodRevisionMap: map[string]string{
+				"istiod-6d8f97c8d9-abc123": "default",
+			},
+			expectedOutput: "",
+			expectError:    true,
+		},
+		{
+			name:              "empty input",
+			input:             map[string][]byte{},
+			istiodRevisionMap: map[string]string{},
+			expectedOutput:    "NAME     SECRET     STATUS     ISTIOD     REVISION\n",
+			expectError:       false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var out bytes.Buffer
+			err := writeMulticlusterStatus(&out, tt.input, tt.istiodRevisionMap)
+
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("expected error but got none")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+				return
+			}
+
+			actualOutput := out.String()
+			expectedOutput := tt.expectedOutput
+
+			if actualOutput != expectedOutput {
+				t.Errorf("output mismatch:\n got:\n%s\n\nwant:\n%s", actualOutput, expectedOutput)
+			}
+		})
+	}
+}

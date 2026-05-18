@@ -52,14 +52,12 @@ var skippedNdsConfigs = sets.New(
 	kind.WasmPlugin,
 	kind.ProxyConfig,
 	kind.MeshConfig,
+	kind.Endpoints,
 )
 
 func ndsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
 	if res, ok := xdsNeedsPush(req, proxy); ok {
 		return res
-	}
-	if !req.Full {
-		return false
 	}
 	for config := range req.ConfigsUpdated {
 		if _, f := skippedNdsConfigs[config.Kind]; !f {

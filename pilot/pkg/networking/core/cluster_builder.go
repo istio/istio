@@ -128,23 +128,22 @@ type ClusterBuilder struct {
 	// Proxy related information used to build clusters.
 	// The fields below that influence cluster configuration must be reflected in clusterCache
 	// to ensure accurate differentiation and caching of clusters.
-	serviceTargets     []model.ServiceTarget // Service targets of Proxy.
-	metadataCerts      *metadataCerts        // Client certificates specified in metadata.
-	clusterID          string                // Cluster in which proxy is running.
-	proxyID            string                // Identifier that uniquely identifies a proxy.
-	proxyMetadata      *model.NodeMetadata   // Metadata of the proxy.
-	proxyVersion       *model.IstioVersion   // Version of Proxy.
-	proxyType          model.NodeType        // Indicates whether the proxy is sidecar or gateway.
-	sidecarScope       *model.SidecarScope   // Computed sidecar for the proxy.
-	passThroughBindIPs []string              // Passthrough IPs to be used while building clusters.
-	supportsIPv4       bool                  // Whether Proxy IPs has IPv4 address.
-	supportsIPv6       bool                  // Whether Proxy IPs has IPv6 address.
-	sendHbone          bool                  // Does the proxy support HBONE
-	locality           *core.Locality        // Locality information of proxy.
-	proxyLabels        map[string]string     // Proxy labels.
-	proxyView          model.ProxyView       // Proxy view of endpoints.
-	proxyIPAddresses   []string              // IP addresses on which proxy is listening on.
-	configNamespace    string                // Proxy config namespace.
+	metadataCerts      *metadataCerts      // Client certificates specified in metadata.
+	clusterID          string              // Cluster in which proxy is running.
+	proxyID            string              // Identifier that uniquely identifies a proxy.
+	proxyMetadata      *model.NodeMetadata // Metadata of the proxy.
+	proxyVersion       *model.IstioVersion // Version of Proxy.
+	proxyType          model.NodeType      // Indicates whether the proxy is sidecar or gateway.
+	sidecarScope       *model.SidecarScope // Computed sidecar for the proxy.
+	passThroughBindIPs []string            // Passthrough IPs to be used while building clusters.
+	supportsIPv4       bool                // Whether Proxy IPs has IPv4 address.
+	supportsIPv6       bool                // Whether Proxy IPs has IPv6 address.
+	sendHbone          bool                // Does the proxy support HBONE
+	locality           *core.Locality      // Locality information of proxy.
+	proxyLabels        map[string]string   // Proxy labels.
+	proxyView          model.ProxyView     // Proxy view of endpoints.
+	proxyIPAddresses   []string            // IP addresses on which proxy is listening on.
+	configNamespace    string              // Proxy config namespace.
 	// PushRequest to look for updates.
 	req                       *model.PushRequest
 	cache                     model.XdsCache
@@ -155,7 +154,6 @@ type ClusterBuilder struct {
 // NewClusterBuilder builds an instance of ClusterBuilder.
 func NewClusterBuilder(proxy *model.Proxy, req *model.PushRequest, cache model.XdsCache) *ClusterBuilder {
 	cb := &ClusterBuilder{
-		serviceTargets:     proxy.ServiceTargets,
 		proxyID:            proxy.ID,
 		proxyMetadata:      proxy.Metadata,
 		proxyType:          proxy.Type,
@@ -357,7 +355,6 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *clusterWrapper, clusterMode C
 	trafficPolicy, _ := util.GetPortLevelTrafficPolicy(destinationRule.GetTrafficPolicy(), port)
 	opts := buildClusterOpts{
 		mesh:                      cb.req.Push.Mesh,
-		serviceTargets:            cb.serviceTargets,
 		mutable:                   mc,
 		policy:                    trafficPolicy,
 		port:                      port,
@@ -634,7 +631,6 @@ func (cb *ClusterBuilder) buildInboundCluster(clusterPort int, bind string,
 		policy:          nil,
 		port:            instance.Port.ServicePort,
 		serviceAccounts: nil,
-		serviceTargets:  cb.serviceTargets,
 		istioMtlsSni:    "",
 		clusterMode:     DefaultClusterMode,
 		direction:       model.TrafficDirectionInbound,

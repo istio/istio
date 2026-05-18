@@ -169,10 +169,17 @@ func ListenerSetCollection(
 				meta[constants.InternalGatewaySemantics] = constants.GatewaySemanticsGateway
 				meta[model.InternalGatewayServiceAnnotation] = strings.Join(gatewayServices, ",")
 				meta[constants.InternalParentNamespace] = parentGwObj.Namespace
-				serviceAccountName := model.GetOrDefault(
-					parentGwObj.GetAnnotations()[annotation.GatewayServiceAccount.Name],
-					gatewaycommon.GetDefaultName(parentGwObj.GetName(), &parentGwObj.Spec, classInfo.DisableNameSuffix),
-				)
+
+				// For unmanaged (manual deployment) parent Gateways, we have no idea what service accounts
+				// the gateway workloads will use, so we must not enforce service account restrictions.
+				// See: https://istio.io/latest/docs/tasks/traffic-management/ingress/gateway-api/#manual-deployment
+				serviceAccountName := ""
+				if gatewaycommon.IsManaged(&parentGwObj.Spec) {
+					serviceAccountName = model.GetOrDefault(
+						parentGwObj.GetAnnotations()[annotation.GatewayServiceAccount.Name],
+						gatewaycommon.GetDefaultName(parentGwObj.GetName(), &parentGwObj.Spec, classInfo.DisableNameSuffix),
+					)
+				}
 				meta[constants.InternalServiceAccount] = serviceAccountName
 
 				// Each listener generates an Istio Gateway with a single Server. This allows binding to a specific listener.
@@ -274,7 +281,8 @@ func GatewayCollection(
 		gatewayServices, err := extractGatewayServices(domainSuffix, obj, classInfo)
 		if len(gatewayServices) == 0 && err != nil {
 			// Short circuit if its a hard failure
-			reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, 0, err)
+			backendTLSErr := validateBackendClientCertificateRef(ctx, obj, secrets, grants)
+			reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, 0, err, backendTLSErr)
 			return status, nil
 		}
 
@@ -349,7 +357,11 @@ func GatewayCollection(
 			result = append(result, res)
 		}
 		listenersFromSets := listenerIndex.Fetch(ctx, config.NamespacedName(obj))
+		// When reporting gateway status, we need to count the actual ListenerSets attached to the gateway
+		// and not the listeners.
+		listenerSets := make(map[parentKey]bool)
 		for _, ls := range listenersFromSets {
+			listenerSets[ls.Parent] = true
 			servers = append(servers, ls.Config.Spec.(*istio.Gateway).Servers...)
 			result = append(result, Gateway{
 				Config:     ls.Config,
@@ -359,7 +371,8 @@ func GatewayCollection(
 			})
 		}
 
-		reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, len(listenersFromSets), err)
+		backendTLSErr := validateBackendClientCertificateRef(ctx, obj, secrets, grants)
+		reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, len(listenerSets), err, backendTLSErr)
 		return status, result
 	}, opts.WithName("KubernetesGateway")...)
 
@@ -395,6 +408,39 @@ func FinalGatewayStatusCollection(
 				Status: *status,
 			}
 		}, opts.WithName("GatewayFinalStatus")...)
+}
+
+// FinalListenerSetStatusCollection finalizes a ListenerSet status similarly to how FinalGatewayStatusCollection does it for gateways.
+// In a nutshell for conformance with Gateway API we need to report for each Listener in a ListenerSet to report how many
+// routes have been attached to that listener. That's what this function does, it takes a ListenerSet status collection
+// that container almost everything we need in the status already and just updates AttachedRoutes filed on each listener
+// after we actually constructed all the route collections.
+func FinalListenerSetStatusCollection(
+	listenerSetStatuses krt.StatusCollection[*gatewayv1.ListenerSet, gatewayv1.ListenerSetStatus],
+	routeAttachments krt.Collection[RouteAttachment],
+	routeAttachmentsIndex krt.Index[types.NamespacedName, RouteAttachment],
+	opts krt.OptionsBuilder,
+) krt.StatusCollection[*gatewayv1.ListenerSet, gatewayv1.ListenerSetStatus] {
+	return krt.NewCollection(
+		listenerSetStatuses,
+		func(
+			ctx krt.HandlerContext, i krt.ObjectWithStatus[*gatewayv1.ListenerSet, gatewayv1.ListenerSetStatus],
+		) *krt.ObjectWithStatus[*gatewayv1.ListenerSet, gatewayv1.ListenerSetStatus] {
+			routes := routeAttachmentsIndex.Fetch(ctx, config.NamespacedName(i.Obj))
+			counts := map[string]int32{}
+			for _, r := range routes {
+				counts[r.ListenerName]++
+			}
+			status := i.Status.DeepCopy()
+			for i, s := range status.Listeners {
+				s.AttachedRoutes = counts[string(s.Name)]
+				status.Listeners[i] = s
+			}
+			return &krt.ObjectWithStatus[*gatewayv1.ListenerSet, gatewayv1.ListenerSetStatus]{
+				Obj:    i.Obj,
+				Status: *status,
+			}
+		}, opts.WithName("ListenerSetFinalStatus")...)
 }
 
 // RouteParents holds information about things routes can reference as parents.

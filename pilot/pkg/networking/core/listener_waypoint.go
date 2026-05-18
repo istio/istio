@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net/netip"
 	"strconv"
+	"strings"
 	"time"
 
 	xds "github.com/cncf/xds/go/xds/core/v3"
@@ -74,7 +75,37 @@ const (
 	// applied already.
 	downstreamSourceHeader        = "x-istio-source"
 	downstreamOriginNetworkHeader = "x-forwarded-network"
+
+	// downstreamSourceWaypoint indicates the request was emitted by a waypoint, so L7 policies
+	// have already been applied. The receiving E/W gateway can skip the waypoint hop.
+	downstreamSourceWaypoint = "waypoint"
+	// downstreamSourceGateway indicates the request was emitted by an ingress gateway. The
+	// receiving E/W gateway honors the per-service IngressUseWaypoint setting to decide whether
+	// to insert the waypoint or route directly to the service.
+	downstreamSourceGateway = "gateway"
+	// downstreamSourceSidecar indicates the request was emitted by a sidecar proxy. The
+	// receiving E/W gateway treats this as L7-not-yet-applied (matcher OnNoMatch) and inserts
+	// the waypoint as it would for a ztunnel-originated request.
+	downstreamSourceSidecar = "sidecar"
+
+	// xfccClientIdentityAnnotation opts a waypoint in to synthesizing an
+	// x-forwarded-client-cert entry from the ztunnel-provided source workload
+	// identity. When set to "true" on the Gateway (propagated to the waypoint
+	// pod via infrastructureAnnotations), the waypoint overwrites XFCC on the
+	// main_internal HCM so upstream apps see the originating client identity.
+	// TODO(https://github.com/istio/istio/issues/54995): promote to istio.io/api
+	// once the feature stabilizes.
+	xfccClientIdentityAnnotation = "ambient.istio.io/xfcc-include-client-identity"
 )
+
+// xfccIncludeClientIdentityEnabled reports whether the waypoint has opted in to
+// synthesizing XFCC from filter state via xfccClientIdentityAnnotation.
+func xfccIncludeClientIdentityEnabled(node *model.Proxy) bool {
+	if node == nil || node.Metadata == nil {
+		return false
+	}
+	return strings.EqualFold(node.Metadata.Annotations[xfccClientIdentityAnnotation], "true")
+}
 
 func (lb *ListenerBuilder) serviceForHostname(name host.Name) *model.Service {
 	return lb.push.ServiceForHostname(lb.node, name)
@@ -329,16 +360,18 @@ func (lb *ListenerBuilder) buildWaypointInboundConnectTerminate() *listener.List
 	return lb.buildConnectTerminateListener(routes)
 }
 
-func (lb *ListenerBuilder) findServiceWaypoint(svc *model.Service) host.Name {
+// findServiceWaypoint returns the waypoint for the given service, and whether it should
+// be used for from-ingress traffic.
+func (lb *ListenerBuilder) findServiceWaypoint(svc *model.Service) (host.Name, bool) {
 	ws := lb.push.ServicesWithWaypoint(svc.Attributes.Namespace + "/" + string(svc.Hostname))
 	if len(ws) == 0 {
-		return ""
+		return "", false
 	}
 	if len(ws) > 1 {
 		log.Warnf("unexpected multiple waypoint services for %s", svc.Hostname)
 	}
 	waypoint := ws[0]
-	return host.Name(waypoint.WaypointHostname)
+	return host.Name(waypoint.WaypointHostname), waypoint.IngressUseWaypoint
 }
 
 // This is the regular waypoint flow, where we terminate the tunnel, and then re-encap.
@@ -397,8 +430,9 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 
 	for _, svc := range svcs {
 		var waypoint host.Name
+		var ingressUseWaypoint bool
 		if isAmbientEastWestGateway && features.EnableAmbientMultiNetwork {
-			waypoint = lb.findServiceWaypoint(svc)
+			waypoint, ingressUseWaypoint = lb.findServiceWaypoint(svc)
 		}
 
 		svcAddresses := sets.SortedList(sets.New(append(
@@ -472,8 +506,17 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 					// this loop would generate a cluster and corresponding filter chain for the waypoint service.
 					waypointClusterName := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "tcp", waypoint, hbonePort)
 
+					// x-istio-source dispatch:
+					//   "waypoint" - L7 policies already applied upstream; skip the waypoint.
+					//   "gateway"  - request came from an ingress gateway; honor the ingress-use-waypoint
+					//   no match   - assume L7 has not been processed and send to the waypoint
 					m := match.NewRequestSource()
-					m.Map["waypoint"] = match.ToChain(tcpChain.Name)
+					m.Map[downstreamSourceWaypoint] = match.ToChain(tcpChain.Name)
+					if ingressUseWaypoint {
+						m.Map[downstreamSourceGateway] = match.ToChain(waypointClusterName)
+					} else {
+						m.Map[downstreamSourceGateway] = match.ToChain(tcpChain.Name)
+					}
 					m.OnNoMatch = match.ToChain(waypointClusterName)
 
 					requestSourceMatcher := match.ToMatcher(m.BuildMatcher())
@@ -831,6 +874,12 @@ func (lb *ListenerBuilder) buildWaypointHTTPFilters(svc *model.Service) (pre []*
 	)
 	// TODO: how to deal with ext-authz? It will be in the ordering twice
 	// TODO policies here will need to be different per-chain (service attached)
+	// If the waypoint has opted in via annotation, synthesize XFCC from the
+	// ztunnel-provided source workload identity kept in filter state. Runs before
+	// authn/authz so any XFCC-consuming policies see the synthesized value.
+	if xfccIncludeClientIdentityEnabled(lb.node) {
+		pre = append(pre, xdsfilters.WaypointXFCCClientIdentityFilter)
+	}
 	pre = append(pre, authzCustomBuilder.BuildHTTP(cls)...)
 	pre = extension.PopAppendHTTPTrafficExtension(pre, trafficExtensions, extensions.TrafficExtension_AUTHN)
 	pre = append(pre, authnBuilder.BuildHTTP(cls)...)
@@ -876,6 +925,14 @@ func (lb *ListenerBuilder) buildWaypointInboundHTTPFilters(svc *model.Service, c
 		httpOpts.connectionManager.HttpProtocolOptions = &core.Http1ProtocolOptions{
 			AcceptHttp_10: true,
 		}
+	}
+	// When XFCC is synthesized from filter state via header_mutation, default
+	// ForwardClientCertDetails on the main_internal HCM is SANITIZE, which would
+	// strip the synthesized header before forwarding. ALWAYS_FORWARD_ONLY passes
+	// it through; the ALWAYS_ variant is required because main_internal has no
+	// peer mTLS cert.
+	if xfccIncludeClientIdentityEnabled(lb.node) {
+		httpOpts.connectionManager.ForwardClientCertDetails = hcm.HttpConnectionManager_ALWAYS_FORWARD_ONLY
 	}
 	h := lb.buildHTTPConnectionManager(httpOpts)
 

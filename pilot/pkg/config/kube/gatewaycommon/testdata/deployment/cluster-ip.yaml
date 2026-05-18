@@ -195,7 +195,7 @@ spec:
           value: "0"
       serviceAccountName: default-istio
       volumes:
-      - emptyDir: {}
+      - emptyDir: null
         name: workload-socket
       - emptyDir: {}
         name: credential-socket

@@ -101,7 +101,6 @@ func NewController(inputStore model.ConfigStoreController, xdsUpdater model.XDSU
 			return
 		}
 		xdsUpdater.ConfigUpdate(&model.PushRequest{
-			Full:           true,
 			ConfigsUpdated: cu,
 			Reason:         model.NewReasonStats(model.ConfigUpdate),
 		})

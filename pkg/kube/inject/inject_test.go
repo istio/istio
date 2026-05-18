@@ -42,6 +42,7 @@ import (
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
+	common_features "istio.io/istio/pkg/features"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/kube/multicluster"
@@ -598,6 +599,13 @@ func TestInjection(t *testing.T) {
 						},
 					},
 				})
+			},
+		},
+		{
+			in:   "hello.yaml",
+			want: "hello-fips-140-3.yaml.injected",
+			setup: func(t test.Failer) {
+				test.SetForTest(t, &common_features.CompliancePolicy, "fips-140-3")
 			},
 		},
 	}

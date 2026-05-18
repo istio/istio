@@ -28,6 +28,7 @@ import (
 	"istio.io/api/label"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/crd"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	common_deploy "istio.io/istio/pkg/test/framework/components/echo/common/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
@@ -225,6 +226,9 @@ func TestTrafficWithEstablishedPodsIfCNIMissing(t *testing.T) {
 	framework.NewTest(t).
 		TopLevel().
 		Run(func(t framework.TestContext) {
+			if !crd.SupportsGatewayAPI(t) {
+				t.Skip("requires Gateway API support (k8s >= 1.31)")
+			}
 			apps := common_deploy.NewOrFail(t, common_deploy.Config{
 				NoExternalNamespace: true,
 				IncludeExtAuthz:     false,
@@ -248,7 +252,11 @@ func TestTrafficWithEstablishedPodsIfCNIMissing(t *testing.T) {
 
 				// Our echo instances have already been deployed/configured by the CNI,
 				// so the CNI being removed should not disrupt them.
-				common.RunAllTrafficTests(t, i, apps.SingleNamespaceView())
+				// Skip consistent-hash: after CNI deletion, host health-check rules are
+				// removed which can eventually cause pod restarts. Consistent hashing
+				// pins all traffic from a given source to one backend, so if that
+				// backend is disrupted all retries fail deterministically.
+				common.RunAllTrafficTests(t, i, apps.SingleNamespaceView(), "consistent-hash")
 
 				// put it back
 				util.DeployCNIDaemonset(t, c, origDS)

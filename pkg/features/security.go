@@ -23,6 +23,10 @@ const (
 	// nolint: revive, stylecheck
 	FIPS_140_2 = "fips-140-2"
 
+	// FIPS_140_3 compliance policy.
+	// nolint: revive, stylecheck
+	FIPS_140_3 = "fips-140-3"
+
 	PQC = "pqc"
 )
 
@@ -33,9 +37,15 @@ var (
 settings, including in-mesh mTLS and external TLS. Valid values are:
 
 * '' or unset places no additional restrictions.
-* 'fips-140-2' which enforces a version of the TLS protocol and a subset
-of cipher suites overriding any user preferences or defaults for all runtime
-components, including Envoy, gRPC Go SDK, and gRPC C++ SDK.
+* 'fips-140-2' which enforces TLS v1.2 and a subset of cipher suites
+overriding any user preferences or defaults for all runtime components,
+including Envoy, gRPC Go SDK, and gRPC C++ SDK.
+* 'fips-140-3' which enforces TLS v1.2 or v1.3, FIPS-compliant cipher
+suites (ECDHE_[RSA|ECDSA]_WITH_AES_*_GCM_SHA* for TLS 1.2, AES-GCM for
+TLS 1.3), and P-256 or P-384 curves. On the Envoy proxy side, this uses
+the native FIPS_202205 compliance policy. Overrides any user preferences
+or defaults for all runtime components, including Envoy, gRPC Go SDK,
+and gRPC C++ SDK.
 * 'pqc' which enforces post-quantum-safe key exchange X25519MLKEM768, TLS v1.3
 and cipher suites TLS_AES_128_GCM_SHA256 and TLS_AES_256_GCM_SHA384 overriding
 any user preferences or defaults for all runtime components, including Envoy,

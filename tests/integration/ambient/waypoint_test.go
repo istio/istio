@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/netip"
 	"path"
 	"strings"
 	"testing"
@@ -583,12 +584,29 @@ spec:
 
 			external := apps.MockExternal.Instances()[0]
 
-			if len(external.WorkloadsOrFail(t)) < 1 {
-				t.Skip("not enough external service instances")
+			subsetServices := servicesForSubsets(t, external)
+
+			if len(subsetServices) < 2 {
+				// don't quietly skip if cluster doesn't have enough mock external services available
+				t.Fatal("expected at least 2 subset services for waypoint egress testing")
 			}
 
-			// Use the first subset service for testing consistency
-			subsetService := servicesForSubsets(t, external)[0]
+			hostHeader := http.Header{}
+			hostHeader.Set("Host", "fake-passthrough.example.com")
+
+			// Before applying the ServiceEntry, verify traffic to the ClusterIP
+			// is not routed through the waypoint.
+			runTest(t, fmt.Sprintf("before SE %s", subsetServices[0].ClusterIP), "",
+				"relies on unmeshed ClusterIPs as a simulated external service IP",
+				echo.CallOptions{
+					Address: subsetServices[0].ClusterIP,
+					HTTP:    echo.HTTP{Headers: hostHeader},
+					Port:    echo.Port{ServicePort: 8080},
+					Scheme:  scheme.HTTP,
+					Count:   1,
+					Check:   check.And(check.OK(), IsL4()),
+				})
+
 			resolutionNoneServiceEntry := `apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
@@ -611,32 +629,91 @@ spec:
 			t.ConfigIstio().
 				Eval(apps.Namespace.Name(), map[string]any{
 					"EgressNamespace": egressNamespace.Name(),
-					"IP":              subsetService.ClusterIP,
+					"IP":              subsetServices[0].ClusterIP,
 				}, resolutionNoneServiceEntry).
 				ApplyOrFail(t, apply.CleanupConditionally)
 
-			hostHeader := http.Header{}
-			hostHeader.Set("Host", "fake-passthrough.example.com")
-
-			// Test that we send traffic through the waypoint successfully
-			// The setup for this testing would be tricky in multi-network because the VIPs being used
-			// are not in the mesh, but they are in a cluster.
-			// This means each cluster's VIPs would need to be unique.
-			// That isn't useful for testing though because it's just turning the multi-cluster
-			// tests into multiple single-cluster tests.
-			// Arguably, egress gateways should never be accessed across a cluster-boundary,
-			// so perhaps the skips need not be removed as even in multi-cluster testing we expect egress
-			// to behave as though it is single-cluster.
-			testName := fmt.Sprintf("resolution none %s", subsetService.ClusterIP)
+			// After applying the ServiceEntry, traffic to the same ClusterIP
+			// should now be routed through the egress waypoint.
+			testName := fmt.Sprintf("resolution none %s", subsetServices[0].ClusterIP)
 			runTest(t, testName, "",
 				"relies on unmeshed ClusterIPs as a simulated external service IP",
 				echo.CallOptions{
-					Address: subsetService.ClusterIP,
+					Address: subsetServices[0].ClusterIP,
 					HTTP:    echo.HTTP{Headers: hostHeader},
 					Port:    echo.Port{ServicePort: 8080},
 					Scheme:  scheme.HTTP,
 					Count:   1,
-					Check:   check.And(check.OK(), IsL7(), check.Hostname(subsetService.Hostname)),
+					Check:   check.And(check.OK(), IsL7(), check.Hostname(subsetServices[0].Hostname)),
+				})
+
+			// Test CIDR-based ServiceEntry routing through the waypoint.
+			// Uses the second subset service so its ClusterIP is not claimed by
+			// the bare-IP ServiceEntry above — traffic can only match via CIDR.
+			cidrService := subsetServices[1]
+			ip, err := netip.ParseAddr(cidrService.ClusterIP)
+			if err != nil {
+				t.Fatalf("failed to parse ClusterIP %q: %v", cidrService.ClusterIP, err)
+			}
+			var cidr string
+			if ip.Is4() {
+				cidr = fmt.Sprintf("%s/24", cidrService.ClusterIP)
+			} else {
+				cidr = fmt.Sprintf("%s/112", cidrService.ClusterIP)
+			}
+
+			cidrHostHeader := http.Header{}
+			cidrHostHeader.Set("Host", "fake-cidr-passthrough.example.com")
+
+			// Before applying the CIDR ServiceEntry, verify traffic to the
+			// second subset's ClusterIP is NOT routed through the waypoint.
+			// This proves the CIDR SE is what causes waypoint routing below.
+			runTest(t, fmt.Sprintf("before CIDR SE %s", cidrService.ClusterIP), "",
+				"relies on unmeshed ClusterIPs as a simulated external service IP",
+				echo.CallOptions{
+					Address: cidrService.ClusterIP,
+					HTTP:    echo.HTTP{Headers: cidrHostHeader},
+					Port:    echo.Port{ServicePort: 8080},
+					Scheme:  scheme.HTTP,
+					Count:   1,
+					Check:   check.And(check.OK(), IsL4()),
+				})
+
+			resolutionNoneCIDRServiceEntry := `apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: external-resolution-none-cidr
+  labels:
+    istio.io/use-waypoint: egress-gateway
+    istio.io/use-waypoint-namespace: {{.EgressNamespace}}
+spec:
+  hosts:
+  - fake-cidr-passthrough.example.com
+  ports:
+  - name: http
+    number: 8080
+    protocol: HTTP
+  resolution: NONE
+  location: MESH_EXTERNAL
+  addresses:
+  - {{.CIDR}}
+`
+			t.ConfigIstio().
+				Eval(apps.Namespace.Name(), map[string]any{
+					"EgressNamespace": egressNamespace.Name(),
+					"CIDR":            cidr,
+				}, resolutionNoneCIDRServiceEntry).
+				ApplyOrFail(t, apply.CleanupConditionally)
+
+			runTest(t, fmt.Sprintf("resolution none CIDR %s", cidr), "",
+				"relies on unmeshed ClusterIPs as a simulated external service IP",
+				echo.CallOptions{
+					Address: cidrService.ClusterIP,
+					HTTP:    echo.HTTP{Headers: cidrHostHeader},
+					Port:    echo.Port{ServicePort: 8080},
+					Scheme:  scheme.HTTP,
+					Count:   1,
+					Check:   check.And(check.OK(), IsL7(), check.Hostname(cidrService.Hostname)),
 				})
 
 			service := `apiVersion: networking.istio.io/v1

@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+  - |
+    **Fixed** multi-network ambient now routes to the waypoint when the ingress
+    on one network calls a service on a different network, and only if the
+    Service is configured with `istio.io/ingress-use-waypoint`.

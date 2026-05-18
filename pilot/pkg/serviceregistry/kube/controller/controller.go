@@ -458,7 +458,7 @@ func (c *Controller) deleteService(svc *model.Service) {
 		c.NotifyGatewayHandlers()
 		// TODO trigger push via handler
 		// networks are different, we need to update all eds endpoints
-		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: model.NewReasonStats(model.NetworksTrigger), Forced: true})
+		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{Reason: model.NewReasonStats(model.NetworksTrigger), Forced: true})
 	}
 
 	shard := model.ShardKeyFromRegistry(c)
@@ -491,14 +491,13 @@ func (c *Controller) recomputeServiceForPod(pod *v1.Pod) {
 			c.opts.XDSUpdater.EDSCacheUpdate(shard, string(hostname), svc.Namespace, endpoints)
 		}
 		cu.Insert(model.ConfigKey{
-			Kind:      kind.ServiceEntry,
+			Kind:      kind.Endpoints,
 			Name:      string(hostname),
 			Namespace: svc.Namespace,
 		})
 	}
 	if len(cu) > 0 {
 		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
-			Full:           false,
 			ConfigsUpdated: cu,
 			Reason:         model.NewReasonStats(model.EndpointUpdate),
 		})
@@ -506,11 +505,11 @@ func (c *Controller) recomputeServiceForPod(pod *v1.Pod) {
 }
 
 func (c *Controller) addOrUpdateService(pre, curr *v1.Service, currConv *model.Service, event model.Event, updateEDSCache bool) {
-	needsFullPush := false
+	networksChanged := false
 	// First, process nodePort gateway service, whose externalIPs specified
 	// and loadbalancer gateway service
 	if currConv.Attributes.ClusterExternalAddresses.Len() > 0 {
-		needsFullPush = c.extractGatewaysFromService(currConv)
+		networksChanged = c.extractGatewaysFromService(currConv)
 	} else if isNodePortGatewayService(curr) {
 		// We need to know which services are using node selectors because during node events,
 		// we have to update all the node port services accordingly.
@@ -519,18 +518,18 @@ func (c *Controller) addOrUpdateService(pre, curr *v1.Service, currConv *model.S
 		// only add when it is nodePort gateway service
 		c.nodeSelectorsForServices[currConv.Hostname] = nodeSelector
 		c.Unlock()
-		needsFullPush = c.updateServiceNodePortAddresses(currConv)
+		networksChanged = c.updateServiceNodePortAddresses(currConv)
 	}
 
 	c.Lock()
 	prevConv := c.servicesMap[currConv.Hostname]
 	c.servicesMap[currConv.Hostname] = currConv
 	c.Unlock()
-	// This full push needed to update all endpoints, even though we do a full push on service add/update
-	// as that full push is only triggered for the specific service.
-	if needsFullPush {
+	// This forced push is needed to update all endpoints when networks change, even though we push on
+	// service add/update, as that push is only triggered for the specific service.
+	if networksChanged {
 		// networks are different, we need to update all eds endpoints
-		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: model.NewReasonStats(model.NetworksTrigger), Forced: true})
+		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{Reason: model.NewReasonStats(model.NetworksTrigger), Forced: true})
 	}
 
 	shard := model.ShardKeyFromRegistry(c)
@@ -594,7 +593,6 @@ func (c *Controller) onNodeEvent(_, node *v1.Node, event model.Event) error {
 	// update all related services
 	if updatedNeeded && c.updateServiceNodePortAddresses() {
 		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
-			Full:   true,
 			Reason: model.NewReasonStats(model.ServiceUpdate),
 			Forced: true,
 		})

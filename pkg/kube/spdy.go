@@ -21,9 +21,8 @@ import (
 	"os"
 	"strings"
 
-	spdyStream "k8s.io/apimachinery/pkg/util/httpstream/spdy"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/transport/spdy"
+	spdyStream "k8s.io/streaming/pkg/httpstream/spdy"
 )
 
 // kubeFeatureGate is a small fork of the 'cmdutil' library in kubectl, which has too many dependencies
@@ -49,7 +48,7 @@ func (f kubeFeatureGate) IsDisabled() bool {
 }
 
 // roundTripperFor creates a SPDY upgrader that will work over custom transports.
-func roundTripperFor(restConfig *rest.Config) (http.RoundTripper, spdy.Upgrader, error) {
+func roundTripperFor(restConfig *rest.Config) (http.RoundTripper, *spdyStream.SpdyRoundTripper, error) {
 	// Get the TLS config.
 	tlsConfig, err := rest.TLSConfigFor(restConfig)
 	if err != nil {

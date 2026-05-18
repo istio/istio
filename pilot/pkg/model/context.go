@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"net"
 	"regexp"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -51,6 +50,7 @@ import (
 	pm "istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/identifier"
 	netutil "istio.io/istio/pkg/util/net"
@@ -597,15 +597,15 @@ func (node *Proxy) SetServiceTargets(serviceDiscovery ServiceDiscovery) {
 	instances := serviceDiscovery.GetProxyServiceTargets(node)
 
 	// Keep service instances in order of creation/hostname.
-	sort.SliceStable(instances, func(i, j int) bool {
-		if instances[i].Service != nil && instances[j].Service != nil {
-			if !instances[i].Service.CreationTime.Equal(instances[j].Service.CreationTime) {
-				return instances[i].Service.CreationTime.Before(instances[j].Service.CreationTime)
+	slices.SortStableFunc(instances, func(a, b ServiceTarget) int {
+		if a.Service != nil && b.Service != nil {
+			if c := a.Service.CreationTime.Compare(b.Service.CreationTime); c != 0 {
+				return c
 			}
 			// Additionally, sort by hostname just in case services created automatically at the same second.
-			return instances[i].Service.Hostname < instances[j].Service.Hostname
+			return strings.Compare(string(a.Service.Hostname), string(b.Service.Hostname))
 		}
-		return true
+		return -1
 	})
 
 	node.ServiceTargets = instances

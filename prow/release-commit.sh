@@ -18,7 +18,8 @@ WD=$(dirname "$0")
 WD=$(cd "$WD"; pwd)
 ROOT=$(dirname "$WD")
 
-set -eux
+set -eu
+set +x
 
 # shellcheck source=prow/lib.sh
 source "${ROOT}/prow/lib.sh"
@@ -31,19 +32,20 @@ export GO111MODULE=on
 DOCKER_HUB=${DOCKER_HUB:-registry.istio.io/testing}
 HELM_HUB=${HELM_HUB:-gcr.io/istio-testing/charts}
 GCS_BUCKET=${GCS_BUCKET:-istio-build/dev}
+R2_BUCKET=${R2_BUCKET:-istio-build/dev}
 
 # Enable emulation required for cross compiling a few images (VMs)
 docker run --rm --privileged "${DOCKER_HUB}/qemu-user-static" --reset -p yes
 export ISTIO_DOCKER_QEMU=true
 
 # Use a pinned version in case breaking changes are needed
-BUILDER_SHA=2a166a509fc3651fe08fb06975501765e4b2d865
+BUILDER_SHA=664c072ac90f6c1918f450eaae8550ee15b768b0
 
 # Reference to the next minor version of Istio
-# This will create a version like 1.4-alpha.sha
+# This will create a version like 1.30.0-alpha.<sha>
 NEXT_VERSION=$(cat "${ROOT}/VERSION")
 TAG=$(git rev-parse HEAD)
-VERSION="${NEXT_VERSION}-alpha.${TAG}"
+VERSION="${NEXT_VERSION}.0-alpha.${TAG}"
 
 # In CI we want to store the outputs to artifacts, which will preserve the build
 # If not specified, we can just create a temporary directory
@@ -105,7 +107,13 @@ release-builder build --manifest <(echo "${MANIFEST}")
 release-builder validate --release "${WORK_DIR}/out"
 
 if [[ -z "${DRY_RUN:-}" ]]; then
-  release-builder publish --release "${WORK_DIR}/out" \
-    --gcsbucket "${GCS_BUCKET}" --gcsaliases "${TAG},${NEXT_VERSION}-dev,latest" \
-    --dockerhub "gcr.io/istio-testing" --helmhub "${HELM_HUB}" --dockertags "${TAG},${VERSION},${NEXT_VERSION}-dev,latest"
+  ENDPOINT="$(echo "${CF_CREDENTIALS}" | jq -r '.endpoint' | tr -d '\n')"
+  AWS_ACCESS_KEY_ID="$(echo "${CF_CREDENTIALS}" | jq -r '.access_key' | tr -d '\n')" \
+    AWS_SECRET_ACCESS_KEY="$(echo "${CF_CREDENTIALS}" | jq -r '.secret_key' | tr -d '\n')" \
+    AWS_REGION="$(echo "${CF_CREDENTIALS}" | jq -r '.region' | tr -d '\n')" \
+    AWS_SESSION_TOKEN="$(echo "${CF_CREDENTIALS}" | jq -r '.session_token' | tr -d '\n')" \
+    release-builder publish --release "${WORK_DIR}/out" \
+      --gcsbucket "${GCS_BUCKET}" --gcsaliases "${TAG},${NEXT_VERSION}-dev,latest" \
+      --s3bucket "${R2_BUCKET}" --s3aliases "${TAG},${NEXT_VERSION}-dev,latest" --s3-base-endpoint "${ENDPOINT}" \
+      --dockerhub "gcr.io/istio-testing" --helmhub "${HELM_HUB}" --dockertags "${TAG},${VERSION},${NEXT_VERSION}-dev,latest"
 fi

@@ -1,0 +1,16 @@
+apiVersion: release-notes/v2
+
+kind: security-fix
+
+area: security
+
+# no public issue for security vulnerability
+issue: []
+
+releaseNotes:
+- |
+  **Fixed** XDS debug endpoints (`istio.io/debug/syncz`, `istio.io/debug/config_dump`) served by StatusGen to enforce
+  same-namespace authorization for non-system callers. Previously an authenticated workload from any namespace could
+  enumerate proxies and retrieve config dumps for workloads in other namespaces.
+
+  **Credit**: This vulnerability was discovered and reported by 1seal (https://github.com/1seal).

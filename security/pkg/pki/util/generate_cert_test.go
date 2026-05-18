@@ -969,3 +969,134 @@ func TestMergeCertOptions(t *testing.T) {
 			mergedCertOptions.IsDualUse, deltaCertOptions.IsDualUse)
 	}
 }
+
+// TestGenCertFromCSRWithTTLClamping verifies that leaf certificates are clamped to the signing
+// certificate's NotAfter when the requested TTL would extend beyond that boundary.
+func TestGenCertFromCSRWithTTLClamping(t *testing.T) {
+	// Generate a CA cert with 1-hour validity; use ECSigAlg so GenCertKeyFromOptions returns the EC private key.
+	caCertOptions := CertOptions{
+		Host:         "test-ca.example.com",
+		TTL:          time.Hour,
+		Org:          "TestOrg",
+		IsCA:         true,
+		IsSelfSigned: true,
+		ECSigAlg:     EcdsaSigAlg,
+	}
+	caCertPemBytes, caKeyPemBytes, err := GenCertKeyFromOptions(caCertOptions)
+	if err != nil {
+		t.Fatalf("failed to generate CA cert: %v", err)
+	}
+	signingCert, err := ParsePemEncodedCertificate(caCertPemBytes)
+	if err != nil {
+		t.Fatalf("failed to parse CA cert: %v", err)
+	}
+	caKey, err := ParsePemEncodedKey(caKeyPemBytes)
+	if err != nil {
+		t.Fatalf("failed to parse CA key: %v", err)
+	}
+
+	// Generate a leaf key and CSR.
+	leafKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatalf("failed to generate leaf key: %v", err)
+	}
+	csrTemplate := &x509.CertificateRequest{
+		Subject:            pkix.Name{CommonName: "leaf.example.com"},
+		SignatureAlgorithm: x509.ECDSAWithSHA256,
+	}
+	csrDer, err := x509.CreateCertificateRequest(rand.Reader, csrTemplate, leafKey)
+	if err != nil {
+		t.Fatalf("failed to create CSR: %v", err)
+	}
+	csr, err := x509.ParseCertificateRequest(csrDer)
+	if err != nil {
+		t.Fatalf("failed to parse CSR: %v", err)
+	}
+
+	subjectIDs := []string{"spiffe://cluster.local/leaf"}
+
+	cases := []struct {
+		name          string
+		ttl           time.Duration
+		expectClamped bool
+	}{
+		{
+			name:          "TTL shorter than signing cert - no clamping",
+			ttl:           30 * time.Minute,
+			expectClamped: false,
+		},
+		{
+			name:          "TTL longer than signing cert - clamped",
+			ttl:           2 * time.Hour,
+			expectClamped: true,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			beforeSign := time.Now()
+			certDer, err := GenCertFromCSR(csr, signingCert, leafKey.Public(), caKey, subjectIDs, c.ttl, false)
+			if err != nil {
+				t.Fatalf("GenCertFromCSR failed: %v", err)
+			}
+			leafCert, err := x509.ParseCertificate(certDer)
+			if err != nil {
+				t.Fatalf("failed to parse leaf cert: %v", err)
+			}
+
+			if c.expectClamped {
+				// Leaf NotAfter must equal the signing cert NotAfter.
+				if !leafCert.NotAfter.Equal(signingCert.NotAfter) {
+					t.Errorf("expected leaf cert NotAfter to be clamped to %v, got %v", signingCert.NotAfter, leafCert.NotAfter)
+				}
+			} else {
+				// Leaf NotAfter should be approximately beforeSign+ttl.
+				expectedNotAfter := beforeSign.Add(c.ttl)
+				delta := leafCert.NotAfter.Sub(expectedNotAfter).Abs()
+				if delta > 5*time.Second {
+					t.Errorf("leaf cert NotAfter (%v) not close to expected (%v), delta %v", leafCert.NotAfter, expectedNotAfter, delta)
+				}
+			}
+
+			// In all cases, leaf cert must not outlive signing cert.
+			if leafCert.NotAfter.After(signingCert.NotAfter) {
+				t.Errorf("leaf cert NotAfter (%v) must not exceed signing cert NotAfter (%v)", leafCert.NotAfter, signingCert.NotAfter)
+			}
+		})
+	}
+
+	// Test expired signing certificate
+	t.Run("Expired signing certificate - error", func(t *testing.T) {
+		// Create an expired signing cert (NotAfter is in the past)
+		expiredSigningCertOpts := CertOptions{
+			Host:         "CA",
+			NotBefore:    time.Now().Add(-2 * time.Hour),
+			TTL:          1 * time.Hour, // Expired 1 hour ago
+			RSAKeySize:   2048,
+			IsSelfSigned: true,
+			IsCA:         true,
+			Org:          "Expired CA",
+		}
+		expiredCertPEM, expiredKeyPEM, err := GenCertKeyFromOptions(expiredSigningCertOpts)
+		if err != nil {
+			t.Fatalf("failed to generate expired signing cert: %v", err)
+		}
+		expiredCert, err := ParsePemEncodedCertificate(expiredCertPEM)
+		if err != nil {
+			t.Fatalf("failed to parse expired signing cert: %v", err)
+		}
+		expiredKey, err := ParsePemEncodedKey(expiredKeyPEM)
+		if err != nil {
+			t.Fatalf("failed to parse expired signing key: %v", err)
+		}
+
+		// Attempt to issue a leaf cert using the expired signing cert
+		_, err = GenCertFromCSR(csr, expiredCert, leafKey.Public(), expiredKey, subjectIDs, 30*time.Minute, false)
+		if err == nil {
+			t.Fatalf("expected error when using expired signing cert, got nil")
+		}
+		if !strings.Contains(err.Error(), "signing certificate has expired") {
+			t.Errorf("expected error message to contain 'signing certificate has expired', got: %v", err)
+		}
+	})
+}

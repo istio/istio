@@ -37,13 +37,7 @@ fi
 PROXY_REPO_SHA="${PROXY_REPO_SHA:-$(grep PROXY_REPO_SHA istio.deps  -A 4 | grep lastStableSHA | cut -f 4 -d '"')}"
 
 # Envoy binary variables
-ISTIO_ENVOY_BASE_URL="${ISTIO_ENVOY_BASE_URL:-https://storage.googleapis.com/istio-build/proxy}"
-
-# If we are not using the default, assume its private and we need to authenticate
-if [[ "${ISTIO_ENVOY_BASE_URL}" != "https://storage.googleapis.com/istio-build/proxy" ]]; then
-  AUTH_HEADER="Authorization: Bearer $(gcloud auth print-access-token)"
-  export AUTH_HEADER
-fi
+ISTIO_ENVOY_BASE_URL="${ISTIO_ENVOY_BASE_URL:-https://blob.istio.io/istio-build/proxy}"
 
 SIDECAR="${SIDECAR:-envoy}"
 
@@ -110,7 +104,7 @@ function download_envoy_if_necessary () {
 
     # Download and extract the binary to the output directory.
     echo "Downloading ${SIDECAR}: $1 to $2"
-    time ${DOWNLOAD_COMMAND} --header "${AUTH_HEADER:-}" "$1" |\
+    time ${DOWNLOAD_COMMAND} "$1" |\
       tar --extract --gzip --strip-components=3 --to-stdout > "$2"
     chmod +x "$2"
 

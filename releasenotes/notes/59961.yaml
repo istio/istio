@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 59961
+releaseNotes:
+  - |
+    **Added** Initial HTTP/2 stream and connection window sizes for HBONE CONNECT upstream clusters (generated for
+    waypoints and east-west gateways) can be configured using feature flags 
+    PILOT_HBONE_INITIAL_STREAM_WINDOW_SIZE and PILOT_HBONE_INITIAL_CONNECTION_WINDOW_SIZE. These may be used to
+    reduce unwanted buffering.

@@ -84,7 +84,7 @@ func TestDependencies(t *testing.T) {
 				`^github\.com/containernetworking/`,
 				`^github\.com/fatih/color`,
 				`^github\.com/vishvananda/`,
-				`^helm\.sh/helm/v3`,
+				`^helm\.sh/helm/v4`,
 				`^sigs\.k8s\.io/controller-runtime`,
 				// Testing deps
 				`^testing$`,
@@ -100,6 +100,11 @@ func TestDependencies(t *testing.T) {
 		},
 		{
 			entrypoint: "istioctl/cmd/istioctl",
+			exceptions: []string{
+				// TODO: helm v4 imports stdlib testing in non-test code.
+				// Remove once upstream fixes: https://github.com/helm/helm/issues/32047
+				`^testing$`,
+			},
 			denied: []string{
 				// Deps meant only for other components; if we import them, something may be wrong
 				`^github\.com/containernetworking/`,
@@ -166,14 +171,7 @@ func TestDependencies(t *testing.T) {
 		all, err := getDependencies(env.IstioSrc+"/...", "integ", true)
 		assert.NoError(t, err)
 		for _, d := range allDenials {
-			found := false
-			for _, dep := range all {
-				if d.MatchString(dep) {
-					found = true
-					break
-				}
-			}
-			if !found {
+			if !slices.ContainsFunc(all, d.MatchString) {
 				t.Errorf("Had a deny rule %q, but it doesn't match *any* dependency in the repo. This is likely a bug.", d)
 			}
 		}

@@ -241,7 +241,7 @@ spec:
 The K8s settings are defined in detail in the
 [operator API](https://github.com/istio/api/blob/00671adacbea20f941cb20cce021bc63cbad1840/operator/v1alpha1/operator.proto).
 The settings are the same for all components, so a user can configure pilot K8s settings in exactly the same, consistent
-way as galley settings. Supported K8s settings currently include:
+way as other component settings. Supported K8s settings currently include:
 
 - [resources](https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container)
 - [readiness probes](https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/)
@@ -276,7 +276,7 @@ profile. Here's an example of overriding some global level default values ([samp
 apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
-  profile: sds
+  profile: demo
   values:
     global:
       logging:

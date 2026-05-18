@@ -149,7 +149,7 @@ func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *C
 	if strings.HasPrefix(req.TypeUrl, v3.DebugType) {
 		return s.pushXds(con,
 			&model.WatchedResource{TypeUrl: req.TypeUrl, ResourceNames: sets.New(req.ResourceNames...)},
-			&model.PushRequest{Full: true, Push: con.proxy.LastPushContext, Forced: true})
+			&model.PushRequest{Push: con.proxy.LastPushContext, Forced: true})
 	}
 
 	shouldRespond, delta := xds.ShouldRespond(con.proxy, con.ID(), req)
@@ -158,7 +158,6 @@ func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *C
 	}
 
 	request := &model.PushRequest{
-		Full:   true,
 		Push:   con.proxy.LastPushContext,
 		Reason: model.NewReasonStats(model.ProxyRequest),
 
@@ -267,7 +266,7 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection, ident
 	// this and initializeProxy important. While registering for pushes *after* initialization is complete seems like
 	// a better choice, it introduces a race condition; If we complete initialization of a new push
 	// context between initializeProxy and addCon, we would not get any pushes triggered for the new
-	// push context, leading the proxy to have a stale state until the next full push.
+	// push context, leading the proxy to have a stale state until the next push.
 	s.addCon(con.ID(), con)
 	// Register that initialization is complete. This triggers to calls that it is safe to access the
 	// proxy
@@ -418,6 +417,7 @@ func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.P
 		}
 		for conf := range request.ConfigsUpdated {
 			switch conf.Kind {
+			// we intentionally skip kind.Endpoints here, as endpoints do not trigger sidecar scope computation.
 			case kind.ServiceEntry, kind.DestinationRule, kind.VirtualService, kind.PeerAuthentication, kind.Sidecar:
 				shouldResetSidecarScope = true
 			case kind.Gateway:
@@ -472,7 +472,7 @@ func (s *DiscoveryServer) DeltaAggregatedResources(stream discovery.AggregatedDi
 func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 	pushRequest := pushEv.pushRequest
 
-	if pushRequest.Full {
+	if !model.OnlyHasConfigsOfKind(pushRequest.ConfigsUpdated, kind.Endpoints) {
 		// Update Proxy with current information.
 		s.computeProxyState(con.proxy, pushRequest)
 	}
@@ -539,7 +539,6 @@ func (s *DiscoveryServer) ProxyUpdate(clusterID cluster.ID, ip string) {
 	}
 
 	s.pushQueue.Enqueue(connection, &model.PushRequest{
-		Full:   true,
 		Push:   s.globalPushContext(),
 		Start:  time.Now(),
 		Reason: model.NewReasonStats(model.ProxyUpdate),
@@ -547,32 +546,26 @@ func (s *DiscoveryServer) ProxyUpdate(clusterID cluster.ID, ip string) {
 	})
 }
 
-// AdsPushAll will send updates to all nodes, with a full push.
+// AdsPushAll will send updates to all nodes.
 // Mainly used in Debug interface.
 func AdsPushAll(s *DiscoveryServer) {
 	s.AdsPushAll(&model.PushRequest{
-		Full:   true,
 		Push:   s.globalPushContext(),
 		Reason: model.NewReasonStats(model.DebugTrigger),
 		Forced: true,
 	})
 }
 
-// AdsPushAll will send updates to all nodes, for a full config or incremental EDS.
+// AdsPushAll will send updates to all nodes.
 func (s *DiscoveryServer) AdsPushAll(req *model.PushRequest) {
-	if !req.Full {
-		log.Infof("XDS: Incremental Pushing ConnectedEndpoints:%d Version:%s",
-			s.adsClientCount(), req.Push.PushVersion)
-	} else {
-		totalService := len(req.Push.GetAllServices())
-		log.Infof("XDS: Pushing Services:%d ConnectedEndpoints:%d Version:%s",
-			totalService, s.adsClientCount(), req.Push.PushVersion)
-		monServices.Record(float64(totalService))
+	totalService := len(req.Push.GetAllServices())
+	log.Infof("XDS: Pushing Services:%d ConnectedEndpoints:%d Version:%s",
+		totalService, s.adsClientCount(), req.Push.PushVersion)
+	monServices.Record(float64(totalService))
 
-		// Make sure the ConfigsUpdated map exists
-		if req.ConfigsUpdated == nil {
-			req.ConfigsUpdated = make(sets.Set[model.ConfigKey])
-		}
+	// Make sure the ConfigsUpdated map exists
+	if req.ConfigsUpdated == nil {
+		req.ConfigsUpdated = make(sets.Set[model.ConfigKey])
 	}
 
 	s.StartPush(req)

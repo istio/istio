@@ -25,7 +25,6 @@ import (
 	"istio.io/api/label"
 	networking "istio.io/api/networking/v1alpha3"
 	clientnetworking "istio.io/client-go/pkg/apis/networking/v1"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/status"
 	"istio.io/istio/pilot/pkg/networking/serviceentry"
@@ -198,7 +197,7 @@ func ConvertWorkloadEntry(cfg config.Config) *networking.WorkloadEntry {
 
 // convertServices transforms a ServiceEntry config to a list of internal Service objects.
 // nsAnnotations are the namespace annotations for traffic distribution inheritance.
-func convertServices(cfg config.Config, nsAnnotations map[string]string) []*model.Service {
+func convertServices(cfg config.Config, nsAnnotations map[string]string, canonicalServiceForMeshExternal bool) []*model.Service {
 	serviceEntry := cfg.Spec.(*networking.ServiceEntry)
 	// ShouldV2AutoAllocateIP already checks that there are no addresses in the spec however this is critical enough to likely be worth checking
 	// explicitly as well in case the logic changes. We never want to overwrite addresses in the spec if there are any
@@ -285,7 +284,7 @@ func convertServices(cfg config.Config, nsAnnotations map[string]string) []*mode
 
 	out := make([]*model.Service, 0, len(hostAddresses))
 	labels := cfg.Labels
-	if features.CanonicalServiceForMeshExternalServiceEntry && serviceEntry.Location == networking.ServiceEntry_MESH_EXTERNAL {
+	if canonicalServiceForMeshExternal && serviceEntry.Location == networking.ServiceEntry_MESH_EXTERNAL {
 		labels = ensureCanonicalServiceLabels(cfg.Name, cfg.Labels)
 	}
 
@@ -515,6 +514,7 @@ func services(
 	workloadsByNamespace krt.Index[string, *model.WorkloadInstance],
 	clusterID cluster.ID,
 	networkIDFn networkIDCallback,
+	canonicalServiceForMeshExternal bool,
 	opts krt.OptionsBuilder,
 ) (krt.Collection[ServiceWithInstances], krt.Index[string, ServiceWithInstances], krt.Index[string, ServiceWithInstances]) {
 	collection := krt.NewManyCollection(serviceEntries, func(ctx krt.HandlerContext, cfg config.Config) []ServiceWithInstances {
@@ -525,7 +525,7 @@ func services(
 			namespaceAnnotations = (*namespace).Annotations
 		}
 
-		services := convertServices(cfg, namespaceAnnotations)
+		services := convertServices(cfg, namespaceAnnotations, canonicalServiceForMeshExternal)
 		if se.WorkloadSelector == nil {
 			// No selector: endpoints from SE directly
 			return slices.Map(services, func(ss *model.Service) ServiceWithInstances {

@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/config/schema/kind"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/slices"
 	_ "istio.io/istio/pkg/util/protomarshal" // Ensure we get the more efficient vtproto gRPC encoder
@@ -151,7 +152,7 @@ func (s *DiscoveryServer) StreamDeltas(stream DeltaDiscoveryStream) error {
 func (s *DiscoveryServer) pushConnectionDelta(con *Connection, pushEv *Event) error {
 	pushRequest := pushEv.pushRequest
 
-	if pushRequest.Full {
+	if !model.OnlyHasConfigsOfKind(pushRequest.ConfigsUpdated, kind.Endpoints) {
 		// Update Proxy with current information.
 		s.computeProxyState(con.proxy, pushRequest)
 	}
@@ -275,7 +276,7 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 	if strings.HasPrefix(req.TypeUrl, v3.DebugType) {
 		return s.pushDeltaXds(con,
 			&model.WatchedResource{TypeUrl: req.TypeUrl, ResourceNames: sets.New(req.ResourceNamesSubscribe...)},
-			&model.PushRequest{Full: true, Push: con.proxy.LastPushContext, Forced: true})
+			&model.PushRequest{Push: con.proxy.LastPushContext, Forced: true})
 	}
 
 	shouldRespond := shouldRespondDelta(con, req)
@@ -285,7 +286,6 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 
 	subs, _, _ := deltaWatchedResources(nil, req)
 	request := &model.PushRequest{
-		Full:   true,
 		Push:   con.proxy.LastPushContext,
 		Reason: model.NewReasonStats(model.ProxyRequest),
 
@@ -336,7 +336,6 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 func (s *DiscoveryServer) forceEDSPush(con *Connection) error {
 	if dwr := con.proxy.GetWatchedResource(v3.EndpointType); dwr != nil {
 		request := &model.PushRequest{
-			Full:   true,
 			Push:   con.proxy.LastPushContext,
 			Reason: model.NewReasonStats(model.DependentResource),
 			Start:  con.proxy.LastPushTime,
@@ -517,7 +516,7 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, w *model.WatchedResource
 	}
 	if usedDelta {
 		resp.RemovedResources = deletedRes
-	} else if req.Full {
+	} else if !logdata.Incremental {
 		// similar to sotw
 		removed := w.ResourceNames.Copy()
 		for _, r := range res {
@@ -574,7 +573,7 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, w *model.WatchedResource
 	}
 
 	switch {
-	case !req.Full:
+	case model.OnlyHasConfigsOfKind(req.ConfigsUpdated, kind.Endpoints):
 		if deltaLog.DebugEnabled() {
 			deltaLog.Debugf("%s: %s%s for node:%s resources:%d size:%s%s",
 				v3.GetShortType(w.TypeUrl), ptype, req.PushReason(), con.proxy.ID, len(res), util.ByteCount(configSize), info)
