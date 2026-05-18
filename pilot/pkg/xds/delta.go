@@ -414,10 +414,6 @@ func shouldRespondDelta(con *Connection, request *discovery.DeltaDiscoveryReques
 	// Per xDS delta protocol, subscription changes should be processed independently of ACK/NACK.
 	con.proxy.UpdateWatchedResource(request.TypeUrl, func(wr *model.WatchedResource) *model.WatchedResource {
 		wr.ResourceNames, _, subChanged = deltaWatchedResources(wr.ResourceNames, request)
-		if !spontaneousReq {
-			// Only update ACK info if nonce is valid (checked below)
-			// For now, just preserve the existing state
-		}
 		alwaysRespond = wr.AlwaysRespond
 		wr.AlwaysRespond = false
 		return wr

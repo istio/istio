@@ -61,11 +61,13 @@ var deltaConfigTypes = sets.New(
 // For outbound: Cluster for each service/subset hostname or cidr with SNI set to service hostname
 // Cluster type based on resolution
 // For inbound (sidecar only): Cluster for each inbound endpoint port and for each service port
-func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, req *model.PushRequest, watched *model.WatchedResource) ([]*discovery.Resource, model.XdsLogDetails) {
-	log.Debugf("BuildClusters for node %s with watched: %d", proxy.ID, len(watched.ResourceNames))
+func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy,
+	req *model.PushRequest, watched *model.WatchedResource,
+) ([]*discovery.Resource, model.XdsLogDetails) {
+	log.Debugf("BuildClusters for node %s with watched: %v", proxy.ID, watched)
 	envoyFilterPatches := req.Push.EnvoyFilters(proxy)
 	var services []*model.Service
-	if features.EnableCDSLazyLoad && len(watched.ResourceNames) > 0 {
+	if features.EnableCDSLazyLoad && watched != nil && len(watched.ResourceNames) > 0 {
 		// If CDS lazy load enabled, we don't send all the service form the beginning
 		resources, _, details, _ := configgen.BuildDeltaClusters(proxy, req, watched)
 		return resources, details
