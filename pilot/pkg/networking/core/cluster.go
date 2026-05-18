@@ -61,13 +61,14 @@ var deltaConfigTypes = sets.New(
 // For outbound: Cluster for each service/subset hostname or cidr with SNI set to service hostname
 // Cluster type based on resolution
 // For inbound (sidecar only): Cluster for each inbound endpoint port and for each service port
-func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, req *model.PushRequest) ([]*discovery.Resource, model.XdsLogDetails) {
-	log.Debugf("BuildClusters for node %s with configs: %d", proxy.ID, len(req.ConfigsUpdated))
+func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, req *model.PushRequest, watched *model.WatchedResource) ([]*discovery.Resource, model.XdsLogDetails) {
+	log.Debugf("BuildClusters for node %s with watched: %d", proxy.ID, len(watched.ResourceNames))
 	envoyFilterPatches := req.Push.EnvoyFilters(proxy)
 	var services []*model.Service
-	if features.EnableCDSLazyLoad {
+	if features.EnableCDSLazyLoad && len(watched.ResourceNames) > 0 {
 		// If CDS lazy load enabled, we don't send all the service form the beginning
-		return configgen.buildClusters(proxy, req, services, envoyFilterPatches)
+		resources, _, details, _ := configgen.BuildDeltaClusters(proxy, req, watched)
+		return resources, details
 	}
 	// In Sotw, we care about all services.
 	if features.FilterGatewayClusterConfig && proxy.Type == model.Router {
@@ -87,7 +88,7 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 		proxy.ID, sets.SortedList(watched.ResourceNames), updates.ConfigsUpdated)
 	// if we can't use delta, fall back to generate all
 	if !shouldUseDelta(updates) {
-		cl, lg := configgen.BuildClusters(proxy, updates)
+		cl, lg := configgen.BuildClusters(proxy, updates, watched)
 		return cl, nil, lg, false
 	}
 
