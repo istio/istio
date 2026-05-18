@@ -401,15 +401,6 @@ func shouldRespondDelta(con *Connection, request *discovery.DeltaDiscoveryReques
 		return true
 	}
 
-	// If there is mismatch in the nonce, that is a case of expired/stale nonce.
-	// A nonce becomes stale following a newer nonce being sent to Envoy.
-	if request.ResponseNonce != "" && request.ResponseNonce != previousInfo.NonceSent {
-		deltaLog.Debugf("ADS:%s: REQ %s Expired nonce received %s, sent %s", stype,
-			con.ID(), request.ResponseNonce, previousInfo.NonceSent)
-		xds.ExpiredNonce.With(typeTag.Value(v3.GetMetricType(request.TypeUrl))).Increment()
-		return false
-	}
-
 	// Spontaneous DeltaDiscoveryRequests from the client.
 	// This can be done to dynamically add or remove elements from the tracked resource_names set.
 	// In this case response_nonce is empty.
@@ -417,20 +408,49 @@ func shouldRespondDelta(con *Connection, request *discovery.DeltaDiscoveryReques
 
 	var alwaysRespond bool
 	var subChanged bool
+	var expiredNonce bool
 
-	// Update resource names, and record ACK if required.
+	// Update resource names first, before checking nonce validity.
+	// Per xDS delta protocol, subscription changes should be processed independently of ACK/NACK.
 	con.proxy.UpdateWatchedResource(request.TypeUrl, func(wr *model.WatchedResource) *model.WatchedResource {
 		wr.ResourceNames, _, subChanged = deltaWatchedResources(wr.ResourceNames, request)
 		if !spontaneousReq {
-			// Clear last error, we got an ACK.
-			// Otherwise, this is just a change in resource subscription, so leave the last ACK info in place.
-			wr.LastError = ""
-			wr.NonceAcked = request.ResponseNonce
+			// Only update ACK info if nonce is valid (checked below)
+			// For now, just preserve the existing state
 		}
 		alwaysRespond = wr.AlwaysRespond
 		wr.AlwaysRespond = false
 		return wr
 	})
+
+	// If there is mismatch in the nonce, that is a case of expired/stale nonce.
+	// A nonce becomes stale following a newer nonce being sent to Envoy.
+	// Note: We still process subscription changes above, but don't ACK an expired nonce.
+	if request.ResponseNonce != "" && request.ResponseNonce != previousInfo.NonceSent {
+		deltaLog.Debugf("ADS:%s: REQ %s Expired nonce received %s, sent %s", stype,
+			con.ID(), request.ResponseNonce, previousInfo.NonceSent)
+		xds.ExpiredNonce.With(typeTag.Value(v3.GetMetricType(request.TypeUrl))).Increment()
+		expiredNonce = true
+		// If there are subscription changes, we should still respond
+		if !subChanged {
+			return false
+		}
+	}
+
+	// Update ACK info only if nonce was valid
+	if !expiredNonce && !spontaneousReq {
+		con.proxy.UpdateWatchedResource(request.TypeUrl, func(wr *model.WatchedResource) *model.WatchedResource {
+			// Clear last error, we got an ACK.
+			wr.LastError = ""
+			wr.NonceAcked = request.ResponseNonce
+			return wr
+		})
+	}
+
+	// Treat expired nonce with subscription changes as spontaneous request for validation purposes
+	if expiredNonce && subChanged {
+		spontaneousReq = true
+	}
 
 	// It is invalid in the below two cases:
 	// 1. no subscribed resources change from spontaneous delta request.
@@ -486,7 +506,7 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, w *model.WatchedResource
 			ResourceNames: req.Delta.Subscribed,
 		}
 	}
-
+	log.Debugf("PushDeltaXds for node %s with watched resources: %v", con.proxy.ID, w.ResourceNames)
 	var res model.Resources
 	var deletedRes model.DeletedResources
 	var logdata model.XdsLogDetails

@@ -62,6 +62,7 @@ var deltaConfigTypes = sets.New(
 // Cluster type based on resolution
 // For inbound (sidecar only): Cluster for each inbound endpoint port and for each service port
 func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, req *model.PushRequest) ([]*discovery.Resource, model.XdsLogDetails) {
+	log.Debugf("BuildClusters for node %s with configs: %d", proxy.ID, len(req.ConfigsUpdated))
 	envoyFilterPatches := req.Push.EnvoyFilters(proxy)
 	var services []*model.Service
 	if features.EnableCDSLazyLoad {
@@ -314,12 +315,6 @@ func (configgen *ConfigGeneratorImpl) deltaFromService(
 ) ([]*model.Service, []string) {
 	var deletedClusters []string
 	var services []*model.Service
-
-	// this case should never really happen except in tests, this means the proxy never had sidecar scope recomputed
-	if !features.EnableCDSLazyLoad && proxy.PrevSidecarScope == nil {
-		return services, deletedClusters
-	}
-
 	var allServices map[host.Name]*model.Service
 	if features.FilterGatewayClusterConfig && proxy.Type == model.Router {
 		svcs := push.GatewayServices(proxy, nil)
