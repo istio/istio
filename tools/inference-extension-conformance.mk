@@ -21,7 +21,7 @@ RUN_TEST ?=
 TEST_BASE_DIR ?= 
 REPORT_BASE_DIR ?= 
 
-# Kubernetes version (shared between kind and minikube)
+# Kubernetes version
 KUBERNETES_VERSION ?= v1.31.9
 
 # Internal variables (derived from KUBERNETES_VERSION)
@@ -154,7 +154,7 @@ For instructions on how to reproduce these test results and run the conformance 
 For detailed information about conformance testing, report generation, and requirements, see the [main conformance README](../../../../../README.md).
 endef
 
-.PHONY: setup-env-minikube setup-env-kind setup-env-openshift setup-minikube setup-kind setup-openshift setup-istio setup-istio-minikube setup-istio-kind setup-istio-openshift setup-gateway-api-crds setup-inference-extension-crds setup-crds setup-tls run-tests readme-update clean clean-reports help ensure-report-dir check-test-base-dir check-report-base-dir
+.PHONY: setup-env-kind setup-kind setup-istio setup-istio-kind setup-gateway-api-crds setup-inference-extension-crds setup-crds setup-tls run-tests readme-update clean clean-reports help ensure-report-dir check-test-base-dir check-report-base-dir
 
 # Show help information
 help:
@@ -163,27 +163,13 @@ help:
 	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 	@echo "📋 QUICK SETUP - All-in-one targets"
 	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-	@echo "  setup-env-minikube               - Setup complete environment with minikube"
 	@echo "  setup-env-kind                   - Setup complete environment with kind"
-	@echo "  setup-env-openshift              - Setup complete environment with OpenShift"
-	@echo ""
-	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-	@echo "🚀 MINIKUBE ENVIRONMENT - For local development with VMs"
-	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-	@echo "  setup-minikube                   - Setup minikube with metallb"
-	@echo "  setup-istio-minikube             - Install Istio for minikube environment"
 	@echo ""
 	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 	@echo "🐳 KIND ENVIRONMENT - For local development with containers"
 	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 	@echo "  setup-kind                       - Setup kind cluster with metallb"
 	@echo "  setup-istio-kind                 - Install Istio for kind environment"
-	@echo ""
-	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-	@echo "🏢 OPENSHIFT ENVIRONMENT - For enterprise deployments"
-	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-	@echo "  setup-openshift                  - Setup OpenShift environment"
-	@echo "  setup-istio-openshift            - Install Istio for OpenShift environment"
 	@echo ""
 	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 	@echo "⚙️  COMMON SETUP - Environment-agnostic targets"
@@ -209,7 +195,7 @@ help:
 	@echo "Main variables (can be overridden):"
 	@echo "  GATEWAY_API_VERSION              - Gateway API version (current: $(GATEWAY_API_VERSION))"
 	@echo "  INFERENCE_EXTENSION_VERSION      - Inference Extension version (current: $(INFERENCE_EXTENSION_VERSION))"
-	@echo "  KUBERNETES_VERSION               - Kubernetes version for kind/minikube (current: $(KUBERNETES_VERSION))"
+	@echo "  KUBERNETES_VERSION               - Kubernetes version for kind (current: $(KUBERNETES_VERSION))"
 	@echo "  ISTIO_VERSION                    - Istio version (current: $(ISTIO_VERSION))"
 	@echo "  PROFILE                          - Conformance profile (current: $(PROFILE))"
 	@echo "  PROJECT                          - Project name (current: $(PROJECT))"
@@ -221,8 +207,8 @@ help:
 	@echo "📥 Automatic istioctl Management:"
 	@echo "  • istioctl binary will be automatically downloaded based on ISTIO_VERSION"
 	@echo "  • Hub (container registry) will be auto-detected from download source:"
-	@echo "    - GitHub release → gcr.io/istio-release"
-	@echo "    - Container extraction → gcr.io/istio-testing"
+	@echo "    - GitHub release → registry.istio.io/release"
+	@echo "    - Container extraction → registry.istio.io/testing"
 	@echo "  • Override with ISTIO_HUB if needed for custom registries"
 	@echo ""
 	@echo "Conformance test variables (can be overridden):"
@@ -249,28 +235,17 @@ help:
 	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 	@echo ""
 	@echo "📋 Quick Setup Examples:"
-	@echo "  make setup-env-minikube                    - Use default versions with minikube"
 	@echo "  make setup-env-kind                        - Use default versions with kind"
-	@echo "  make setup-env-openshift                   - Use default versions with OpenShift"
-	@echo "  make setup-env-minikube ISTIO_VERSION=1.28.0 - Override Istio version"
-	@echo "  make setup-env-minikube KUBERNETES_VERSION=v1.31.9 - Override Kubernetes version"
-	@echo ""
-	@echo "🚀 Minikube Examples:"
-	@echo "  make setup-minikube                        - Setup minikube cluster with metallb"
-	@echo "  make setup-istio-minikube                  - Install Istio for minikube environment"
-	@echo "  make setup-minikube KUBERNETES_VERSION=v1.31.9 - Use Kubernetes 1.31.9"
+	@echo "  make setup-env-kind ISTIO_VERSION=1.28.0 - Override Istio version"
+	@echo "  make setup-env-kind KUBERNETES_VERSION=v1.31.9 - Override Kubernetes version"
 	@echo ""
 	@echo "🐳 Kind Examples:"
 	@echo "  make setup-kind                            - Setup kind cluster with metallb"
 	@echo "  make setup-istio-kind                      - Install Istio for kind environment"
 	@echo "  make setup-kind KUBERNETES_VERSION=v1.31.9 - Use Kubernetes 1.31.9"
 	@echo ""
-	@echo "🏢 OpenShift Examples:"
-	@echo "  make setup-openshift                       - Setup OpenShift environment"
-	@echo "  make setup-istio-openshift                 - Install Istio for OpenShift environment"
-	@echo ""
 	@echo "⚙️  Common Setup Examples:"
-	@echo "  make setup-istio ISTIO_PROFILE=openshift   - Install Istio with specific profile"
+	@echo "  make setup-istio ISTIO_PROFILE=ambient   - Install Istio with specific profile"
 	@echo "  make setup-istio ISTIO_HUB=docker.io/istio - Install Istio from custom registry"
 	@echo "  make setup-crds                            - Install all CRDs"
 	@echo ""
@@ -296,35 +271,13 @@ check-report-base-dir:
 		exit 1; \
 	fi
 
-# Setup complete environment with minikube
-setup-env-minikube: setup-minikube setup-istio-minikube setup-gateway-api-crds setup-inference-extension-crds setup-tls
-
 # Setup complete environment with kind
 setup-env-kind: setup-kind setup-istio-kind setup-gateway-api-crds setup-inference-extension-crds setup-tls
-
-# Setup complete environment with OpenShift
-setup-env-openshift: setup-openshift setup-istio-openshift setup-gateway-api-crds setup-inference-extension-crds setup-tls
-
 
 # Ensure report directory exists
 ensure-report-dir: check-report-base-dir
 	@echo "Ensuring report directory exists: $(REPORT_BASE_DIR)"
 	@mkdir -p $(REPORT_BASE_DIR)
-
-# Setup minikube with metallb
-setup-minikube:
-	@echo "Setting up minikube with metallb..."
-	@echo "Starting minikube with Kubernetes $(KUBERNETES_VERSION)..."
-	minikube start --kubernetes-version=$(MINIKUBE_K8S_VERSION)
-	minikube addons enable metallb
-	@echo "Configuring metallb address pool..."
-	$(file >/tmp/metallb-config.yaml,$(METALLB_CONFIG))
-	@MINIKUBE_IP=$$(minikube ip | grep -oE '([0-9]+\.){3}[0-9]+' | head -1); \
-	NETWORK_PREFIX=$${MINIKUBE_IP%.*}; \
-	echo "Using IP range: $${NETWORK_PREFIX}.100-$${NETWORK_PREFIX}.200"; \
-	sed -i.bak "s/NETWORK_PREFIX/$${NETWORK_PREFIX}/g" /tmp/metallb-config.yaml && rm -f /tmp/metallb-config.yaml.bak
-	kubectl apply -f /tmp/metallb-config.yaml
-	@rm -f /tmp/metallb-config.yaml
 
 # Setup kind with metallb
 setup-kind:
@@ -349,14 +302,6 @@ setup-kind:
 	sed -i.bak "s/NETWORK_PREFIX/$${NETWORK_PREFIX}/g" /tmp/metallb-kind-config.yaml && rm -f /tmp/metallb-kind-config.yaml.bak
 	kubectl apply -f /tmp/metallb-kind-config.yaml
 	@rm -f /tmp/metallb-kind-config.yaml
-
-# Setup OpenShift (alternative to minikube)
-setup-openshift:
-	@echo "Setting up OpenShift environment..."
-	@echo "Assuming OpenShift cluster is already running and kubectl/oc is configured"
-	@echo "Verifying cluster connection..."
-	kubectl cluster-info
-	@echo "OpenShift environment ready"
 
 # Download istioctl binary for the specific version (file target)
 $(ISTIOCTL_BIN):
@@ -391,7 +336,7 @@ $(ISTIOCTL_BIN):
 	fi; \
 	if [ "$$SUCCESS" = "false" ]; then \
 		echo "Binary download failed, trying container-based extraction..."; \
-		CONTAINER_IMAGE="gcr.io/istio-testing/istioctl:$(ISTIO_VERSION)"; \
+		CONTAINER_IMAGE="registry.istio.io/testing/istioctl:$(ISTIO_VERSION)"; \
 		echo "Pulling container image: $$CONTAINER_IMAGE"; \
 		if docker pull "$$CONTAINER_IMAGE" 2>/dev/null; then \
 			echo "Extracting istioctl binary from container..."; \
@@ -439,34 +384,26 @@ setup-istio: $(ISTIOCTL_BIN)
 	elif [ -f "$(ISTIOCTL_BIN).source" ]; then \
 		SOURCE=$$(cat $(ISTIOCTL_BIN).source); \
 		if [ "$$SOURCE" = "github" ]; then \
-			HUB="gcr.io/istio-release"; \
+			HUB="registry.istio.io/release"; \
 			echo "Using hub for GitHub release: $$HUB"; \
 		elif [ "$$SOURCE" = "container" ]; then \
-			HUB="gcr.io/istio-testing"; \
+			HUB="registry.istio.io/testing"; \
 			echo "Using hub for container image: $$HUB"; \
 		else \
-			HUB="gcr.io/istio-testing"; \
+			HUB="registry.istio.io/testing"; \
 			echo "Unknown source, defaulting to testing hub: $$HUB"; \
 		fi; \
 	else \
-		HUB="gcr.io/istio-release"; \
+		HUB="registry.istio.io/release"; \
 		echo "WARNING: Could not detect istioctl source, defaulting to release hub: $$HUB"; \
 		echo "If this is incorrect, specify ISTIO_HUB manually"; \
 	fi; \
 	echo "Installing Istio from $$HUB..."; \
 	$(ISTIOCTL_BIN) install -y --set profile=$(ISTIO_PROFILE) --set values.global.hub=$$HUB --set values.global.tag=$(ISTIO_VERSION) --set values.pilot.env.SUPPORT_GATEWAY_API_INFERENCE_EXTENSION=true --set values.pilot.env.ENABLE_GATEWAY_API_INFERENCE_EXTENSION=true
 
-# Install Istio for minikube environment
-setup-istio-minikube: ISTIO_PROFILE := ambient
-setup-istio-minikube: setup-istio
-
 # Install Istio for kind environment
 setup-istio-kind: ISTIO_PROFILE := ambient
 setup-istio-kind: setup-istio
-
-# Install Istio for OpenShift environment
-setup-istio-openshift: ISTIO_PROFILE := openshift
-setup-istio-openshift: setup-istio
 
 # Apply Gateway API CRDs
 setup-gateway-api-crds:
@@ -521,9 +458,7 @@ clean:
 	kubectl delete namespace inference-conformance-app-backend --ignore-not-found=true
 	@echo "Cleaning up downloaded istioctl binaries..."
 	@rm -f $(ISTIOCTL_DIR)/istioctl-*
-	@echo "Note: If using minikube, run 'minikube delete' to completely clean up"
 	@echo "Note: If using kind, run 'kind delete cluster' to completely clean up"
-	@echo "Note: If using OpenShift, additional cleanup may be needed depending on your cluster setup"
 	@echo "Note: Run 'make clean-reports' to clean up generated reports and README table"
 
 # Clean up generated conformance reports
