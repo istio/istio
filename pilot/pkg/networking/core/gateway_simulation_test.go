@@ -2500,5 +2500,4 @@ spec:
 	if clusterName != expectedCluster {
 		t.Errorf("expected cluster %q, got %q", expectedCluster, clusterName)
 	}
-
 }
