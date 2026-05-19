@@ -73,6 +73,18 @@ const (
 	// applied already.
 	downstreamSourceHeader        = "x-istio-source"
 	downstreamOriginNetworkHeader = "x-forwarded-network"
+
+	// downstreamSourceWaypoint indicates the request was emitted by a waypoint, so L7 policies
+	// have already been applied. The receiving E/W gateway can skip the waypoint hop.
+	downstreamSourceWaypoint = "waypoint"
+	// downstreamSourceGateway indicates the request was emitted by an ingress gateway. The
+	// receiving E/W gateway honors the per-service IngressUseWaypoint setting to decide whether
+	// to insert the waypoint or route directly to the service.
+	downstreamSourceGateway = "gateway"
+	// downstreamSourceSidecar indicates the request was emitted by a sidecar proxy. The
+	// receiving E/W gateway treats this as L7-not-yet-applied (matcher OnNoMatch) and inserts
+	// the waypoint as it would for a ztunnel-originated request.
+	downstreamSourceSidecar = "sidecar"
 )
 
 func (lb *ListenerBuilder) serviceForHostname(name host.Name) *model.Service {
@@ -255,16 +267,18 @@ func (lb *ListenerBuilder) buildWaypointInboundConnectTerminate() *listener.List
 	return lb.buildConnectTerminateListener(routes)
 }
 
-func (lb *ListenerBuilder) findServiceWaypoint(svc *model.Service) host.Name {
+// findServiceWaypoint returns the waypoint for the given service, and whether it should
+// be used for from-ingress traffic.
+func (lb *ListenerBuilder) findServiceWaypoint(svc *model.Service) (host.Name, bool) {
 	ws := lb.push.ServicesWithWaypoint(svc.Attributes.Namespace + "/" + string(svc.Hostname))
 	if len(ws) == 0 {
-		return ""
+		return "", false
 	}
 	if len(ws) > 1 {
 		log.Warnf("unexpected multiple waypoint services for %s", svc.Hostname)
 	}
 	waypoint := ws[0]
-	return host.Name(waypoint.WaypointHostname)
+	return host.Name(waypoint.WaypointHostname), waypoint.IngressUseWaypoint
 }
 
 // This is the regular waypoint flow, where we terminate the tunnel, and then re-encap.
@@ -323,8 +337,9 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 
 	for _, svc := range svcs {
 		var waypoint host.Name
+		var ingressUseWaypoint bool
 		if isEastWestGateway && features.EnableAmbientMultiNetwork {
-			waypoint = lb.findServiceWaypoint(svc)
+			waypoint, ingressUseWaypoint = lb.findServiceWaypoint(svc)
 		}
 
 		svcAddresses := svc.GetAllAddressesForProxy(lb.node)
@@ -394,8 +409,17 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 					// this loop would generate a cluster and corresponding filter chain for the waypoint service.
 					waypointClusterName := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "tcp", waypoint, hbonePort)
 
+					// x-istio-source dispatch:
+					//   "waypoint" - L7 policies already applied upstream; skip the waypoint.
+					//   "gateway"  - request came from an ingress gateway; honor the ingress-use-waypoint
+					//   no match   - assume L7 has not been processed and send to the waypoint
 					m := match.NewRequestSource()
-					m.Map["waypoint"] = match.ToChain(tcpChain.Name)
+					m.Map[downstreamSourceWaypoint] = match.ToChain(tcpChain.Name)
+					if ingressUseWaypoint {
+						m.Map[downstreamSourceGateway] = match.ToChain(waypointClusterName)
+					} else {
+						m.Map[downstreamSourceGateway] = match.ToChain(tcpChain.Name)
+					}
 					m.OnNoMatch = match.ToChain(waypointClusterName)
 
 					requestSourceMatcher := match.ToMatcher(m.BuildMatcher())

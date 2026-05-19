@@ -1308,6 +1308,32 @@ func SetIngressUseWaypoint(t framework.TestContext, name, ns string) {
 	}
 }
 
+func SetNsIngressUseWaypoint(t framework.TestContext, ns string) {
+	for _, c := range t.Clusters() {
+		set := func(enable bool) error {
+			var val string
+			if enable {
+				val = fmt.Sprintf("%q", "true")
+			} else {
+				val = "null"
+			}
+			label := []byte(fmt.Sprintf(`{"metadata":{"labels":{"%s":%s}}}`,
+				"istio.io/ingress-use-waypoint", val))
+			_, err := c.Kube().CoreV1().Namespaces().Patch(context.TODO(), ns, types.MergePatchType, label, metav1.PatchOptions{})
+			return err
+		}
+
+		if err := set(true); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() {
+			if err := set(false); err != nil {
+				scopes.Framework.Errorf("failed resetting ingress-use-waypoint label for namespace %s", ns)
+			}
+		})
+	}
+}
+
 func GetCondition(conditions []metav1.Condition, condition string) *metav1.Condition {
 	for _, cond := range conditions {
 		if cond.Type == condition {
