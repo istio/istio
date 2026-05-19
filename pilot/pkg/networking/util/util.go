@@ -522,8 +522,10 @@ func addIstioEndpointLabel(metadata *core.Metadata, key string, val *structpb.Va
 }
 
 // IsAllowAnyDynamicDNSOutbound checks if ALLOW_ANY_DYNAMIC_DNS mode is enabled for outbound traffic.
+// This mode is scoped to sidecar proxies only — gateways are not eligible.
 func IsAllowAnyDynamicDNSOutbound(node *model.Proxy) bool {
-	return node.SidecarScope != nil &&
+	return node.Type == model.SidecarProxy &&
+		node.SidecarScope != nil &&
 		node.SidecarScope.OutboundTrafficPolicy != nil &&
 		meshconfig.MeshConfig_OutboundTrafficPolicy_Mode(node.SidecarScope.OutboundTrafficPolicy.Mode) ==
 			meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY_DYNAMIC_DNS

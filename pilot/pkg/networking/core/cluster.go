@@ -334,7 +334,7 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 		// Add a blackhole and passthrough cluster for catching traffic to unresolved routes
 		clusters = outboundPatcher.conditionallyAppend(clusters, nil, cb.buildBlackHoleCluster(), cb.buildDefaultPassthroughCluster())
 		if util.IsAllowAnyDynamicDNSOutbound(proxy) {
-			dfpCluster := cb.buildAllowAnyDFPCluster(proxy.SidecarScope.OutboundTrafficPolicyTLS)
+			dfpCluster := cb.buildAllowAnyDFPCluster(req.Push.Mesh.GetOutboundTrafficPolicy().GetTls())
 			clusters = outboundPatcher.conditionallyAppend(clusters, nil, dfpCluster.build())
 		}
 		clusters = append(clusters, outboundPatcher.insertedClusters()...)

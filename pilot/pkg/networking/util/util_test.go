@@ -864,12 +864,13 @@ func TestIsAllowAnyDynamicDNSOutbound(t *testing.T) {
 	}{
 		{
 			name:   "NilSidecarScope",
-			node:   &model.Proxy{},
+			node:   &model.Proxy{Type: model.SidecarProxy},
 			result: false,
 		},
 		{
 			name: "AllowAny",
 			node: &model.Proxy{
+				Type: model.SidecarProxy,
 				SidecarScope: &model.SidecarScope{
 					OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
 						Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,
@@ -881,6 +882,7 @@ func TestIsAllowAnyDynamicDNSOutbound(t *testing.T) {
 		{
 			name: "RegistryOnly",
 			node: &model.Proxy{
+				Type: model.SidecarProxy,
 				SidecarScope: &model.SidecarScope{
 					OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
 						Mode: networking.OutboundTrafficPolicy_REGISTRY_ONLY,
@@ -890,8 +892,9 @@ func TestIsAllowAnyDynamicDNSOutbound(t *testing.T) {
 			result: false,
 		},
 		{
-			name: "AllowAnyDynamicDNS",
+			name: "AllowAnyDynamicDNS_Sidecar",
 			node: &model.Proxy{
+				Type: model.SidecarProxy,
 				SidecarScope: &model.SidecarScope{
 					OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
 						Mode: networking.OutboundTrafficPolicy_Mode(meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY_DYNAMIC_DNS),
@@ -899,6 +902,18 @@ func TestIsAllowAnyDynamicDNSOutbound(t *testing.T) {
 				},
 			},
 			result: true,
+		},
+		{
+			name: "AllowAnyDynamicDNS_Gateway_NotEligible",
+			node: &model.Proxy{
+				Type: model.Router,
+				SidecarScope: &model.SidecarScope{
+					OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
+						Mode: networking.OutboundTrafficPolicy_Mode(meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY_DYNAMIC_DNS),
+					},
+				},
+			},
+			result: false,
 		},
 	}
 	for i := range tests {
