@@ -30,7 +30,6 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/ptr"
 	testenv "istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/util/image"
 	"istio.io/istio/pkg/util/sets"
@@ -232,8 +231,8 @@ func ConstructBakeFile(a Args) (map[string]string, error) {
 			}
 			p := filepath.Join(testenv.LocalOut, "dockerx_build", fmt.Sprintf("build.docker.%s", target))
 			t := Target{
-				Context:    ptr.Of(p),
-				Dockerfile: ptr.Of(filepath.Base(bp.Dockerfile)),
+				Context:    new(p),
+				Dockerfile: new(filepath.Base(bp.Dockerfile)),
 				Args:       createArgs(a, target, variant, ""),
 				Platforms:  a.Architectures,
 			}

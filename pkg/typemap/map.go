@@ -16,8 +16,6 @@ package typemap
 
 import (
 	"reflect"
-
-	"istio.io/istio/pkg/ptr"
 )
 
 // TypeMap provides a map that holds a map of Type -> Value. There can be only a single value per type.
@@ -37,7 +35,7 @@ func Set[T any](t TypeMap, v T) {
 func Get[T any](t TypeMap) *T {
 	v, f := t.inner[reflect.TypeFor[T]()]
 	if f {
-		return ptr.Of(v.(T))
+		return new(v.(T))
 	}
 	return nil
 }

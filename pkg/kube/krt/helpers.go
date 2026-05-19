@@ -159,7 +159,7 @@ func GetApplyConfigKey[O any](a O) *string {
 	}
 	meta := specField.Interface().(*acmetav1.ObjectMetaApplyConfiguration)
 	if meta.Namespace != nil && len(*meta.Namespace) > 0 {
-		return ptr.Of(*meta.Namespace + "/" + *meta.Name)
+		return new(*meta.Namespace + "/" + *meta.Name)
 	}
 	return meta.Name
 }

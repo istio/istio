@@ -57,7 +57,6 @@ import (
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/kube/kubetypes"
 	istiolog "istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/revisions"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
@@ -414,7 +413,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 						Port:     k8s.PortNumber(15008),
 						Protocol: "ALL",
 						TLS: &k8s.ListenerTLSConfig{
-							Mode: ptr.Of(k8s.TLSModeTerminate),
+							Mode: new(k8s.TLSModeTerminate),
 							Options: map[k8s.AnnotationKey]k8s.AnnotationValue{
 								GatewayTLSTerminateModeKey: "ISTIO_MUTUAL",
 							},

@@ -23,7 +23,6 @@ import (
 
 	"istio.io/api/annotation"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/test/util/assert"
 )
 
@@ -90,7 +89,7 @@ func TestMakeAllowedRoutes(t *testing.T) {
 							Port:     15008,
 							AllowedRoutes: &gatewayv1.AllowedRoutes{
 								Namespaces: &gatewayv1.RouteNamespaces{
-									From: ptr.Of(gatewayv1.NamespacesFromAll),
+									From: new(gatewayv1.NamespacesFromAll),
 								},
 							},
 						},
@@ -112,7 +111,7 @@ func TestMakeAllowedRoutes(t *testing.T) {
 							Port:     15008,
 							AllowedRoutes: &gatewayv1.AllowedRoutes{
 								Namespaces: &gatewayv1.RouteNamespaces{
-									From: ptr.Of(gatewayv1.NamespacesFromSelector),
+									From: new(gatewayv1.NamespacesFromSelector),
 									Selector: &metav1.LabelSelector{
 										MatchLabels: map[string]string{"app": "test"},
 									},
@@ -167,7 +166,7 @@ func TestMakeAllowedRoutes(t *testing.T) {
 							Port:     15089,
 							AllowedRoutes: &gatewayv1.AllowedRoutes{
 								Namespaces: &gatewayv1.RouteNamespaces{
-									From: ptr.Of(gatewayv1.NamespacesFromSame),
+									From: new(gatewayv1.NamespacesFromSame),
 								},
 							},
 						},
@@ -177,7 +176,7 @@ func TestMakeAllowedRoutes(t *testing.T) {
 							Port:     15088,
 							AllowedRoutes: &gatewayv1.AllowedRoutes{
 								Namespaces: &gatewayv1.RouteNamespaces{
-									From: ptr.Of(gatewayv1.NamespacesFromAll),
+									From: new(gatewayv1.NamespacesFromAll),
 								},
 							},
 						},
@@ -212,7 +211,7 @@ func TestMakeAllowedRoutes(t *testing.T) {
 							Port:     15088,
 							AllowedRoutes: &gatewayv1.AllowedRoutes{
 								Namespaces: &gatewayv1.RouteNamespaces{
-									From: ptr.Of(gatewayv1.NamespacesFromAll),
+									From: new(gatewayv1.NamespacesFromAll),
 								},
 							},
 						},
@@ -242,7 +241,7 @@ func TestMakeAllowedRoutes(t *testing.T) {
 							Port:     15015,
 							AllowedRoutes: &gatewayv1.AllowedRoutes{
 								Namespaces: &gatewayv1.RouteNamespaces{
-									From: ptr.Of(gatewayv1.NamespacesFromAll),
+									From: new(gatewayv1.NamespacesFromAll),
 								},
 							},
 						},

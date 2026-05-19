@@ -42,7 +42,6 @@ import (
 	"istio.io/istio/pkg/kube/labels"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/model"
-	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/version"
@@ -100,7 +99,7 @@ func (cfg Config) toTemplateParams() (map[string]any, error) {
 	metadataDiscovery := cfg.Metadata.MetadataDiscovery
 	if strings.HasPrefix(cfg.ID, "waypoint~") {
 		xdsType = "DELTA_GRPC"
-		metadataDiscovery = ptr.Of(model.StringBool(true))
+		metadataDiscovery = new(model.StringBool(true))
 	}
 
 	var mDiscovery bool
@@ -717,7 +716,7 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 	if options.MetadataDiscovery == nil {
 		meta.MetadataDiscovery = nil
 	} else {
-		meta.MetadataDiscovery = ptr.Of(model.StringBool(*options.MetadataDiscovery))
+		meta.MetadataDiscovery = new(model.StringBool(*options.MetadataDiscovery))
 	}
 	meta.EnvoySkipDeprecatedLogs = model.StringBool(options.EnvoySkipDeprecatedLogs)
 
@@ -797,7 +796,7 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 
 	if meta.MetadataDiscovery == nil {
 		// If it's disabled, set it if ambient is enabled
-		meta.MetadataDiscovery = ptr.Of(meta.EnableHBONE)
+		meta.MetadataDiscovery = new(meta.EnableHBONE)
 		log.Debugf("metadata discovery is disabled, setting it to %s based on if ambient HBONE is enabled", meta.EnableHBONE)
 	}
 

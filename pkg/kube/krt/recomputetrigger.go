@@ -16,8 +16,6 @@ package krt
 
 import (
 	"go.uber.org/atomic"
-
-	"istio.io/istio/pkg/ptr"
 )
 
 type RecomputeProtected[T any] struct {
@@ -78,14 +76,14 @@ type RecomputeTrigger struct {
 }
 
 func NewRecomputeTrigger(startSynced bool, opts ...CollectionOption) *RecomputeTrigger {
-	inner := NewStatic[int32](ptr.Of(int32(0)), startSynced, opts...)
+	inner := NewStatic[int32](new(int32(0)), startSynced, opts...)
 	return &RecomputeTrigger{inner: inner, i: atomic.NewInt32(0)}
 }
 
 // TriggerRecomputation tells all dependants to recompute
 func (r *RecomputeTrigger) TriggerRecomputation() {
 	v := r.i.Inc()
-	r.inner.Set(ptr.Of(v))
+	r.inner.Set(new(v))
 }
 
 // MarkDependant marks the given context as depending on this trigger. This registers it to be recomputed when TriggerRecomputation

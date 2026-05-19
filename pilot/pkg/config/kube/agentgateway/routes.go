@@ -54,7 +54,7 @@ func InternalRouteRuleKey(routeNamespace, routeName, ruleName string) string {
 func RouteName[T ~string](kind string, namespace, name string, routeRule *T) *api.RouteName {
 	var ls *string
 	if routeRule != nil {
-		ls = ptr.Of(string(*routeRule))
+		ls = new(string(*routeRule))
 	}
 	return &api.RouteName{
 		Name:      name,

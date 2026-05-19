@@ -28,7 +28,6 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
-	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/revisions"
 	"istio.io/istio/pkg/slices"
 )
@@ -92,15 +91,15 @@ func newKubeClientWithRevision(
 func NewCLIContext(rootFlags *RootFlags) Context {
 	if rootFlags == nil {
 		rootFlags = &RootFlags{
-			kubeconfig:       ptr.Of[string](""),
-			configContext:    ptr.Of[string](""),
-			impersonate:      ptr.Of[string](""),
-			impersonateUID:   ptr.Of[string](""),
+			kubeconfig:       new(string("")),
+			configContext:    new(string("")),
+			impersonate:      new(string("")),
+			impersonateUID:   new(string("")),
 			impersonateGroup: nil,
-			namespace:        ptr.Of[string](""),
-			istioNamespace:   ptr.Of[string](""),
+			namespace:        new(string("")),
+			istioNamespace:   new(string("")),
 			defaultNamespace: "",
-			kubeTimeout:      ptr.Of[string](""),
+			kubeTimeout:      new(string("")),
 		}
 	}
 	return &instance{
@@ -351,12 +350,12 @@ func NewFakeContext(opts *NewFakeContextOption) Context {
 	return &fakeInstance{
 		clients: map[string]kube.CLIClient{},
 		rootFlags: &RootFlags{
-			kubeconfig:       ptr.Of[string](""),
-			configContext:    ptr.Of[string](""),
+			kubeconfig:       new(string("")),
+			configContext:    new(string("")),
 			namespace:        &ns,
 			istioNamespace:   &ins,
-			impersonate:      ptr.Of[string](""),
-			impersonateUID:   ptr.Of[string](""),
+			impersonate:      new(string("")),
+			impersonateUID:   new(string("")),
 			impersonateGroup: nil,
 			defaultNamespace: "",
 		},

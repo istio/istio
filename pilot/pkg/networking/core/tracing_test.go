@@ -37,7 +37,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pilot/pkg/xds/requestidextension"
-	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test/util/assert"
 )
@@ -1320,7 +1319,7 @@ func tracingSpec(provider *meshconfig.MeshConfig_ExtensionProvider, sampling flo
 	return model.TracingSpec{
 		Provider:                 provider,
 		Disabled:                 disableReporting,
-		RandomSamplingPercentage: ptr.Of(sampling),
+		RandomSamplingPercentage: new(sampling),
 		CustomTags: map[string]*tpb.Tracing_CustomTag{
 			"test": {
 				Type: &tpb.Tracing_CustomTag_Environment{
@@ -1349,7 +1348,7 @@ func fakeTracingSpecWithNilCustomTag(provider *meshconfig.MeshConfig_ExtensionPr
 		ClientSpec: model.TracingSpec{
 			Provider:                 provider,
 			Disabled:                 disableReporting,
-			RandomSamplingPercentage: ptr.Of(sampling),
+			RandomSamplingPercentage: new(sampling),
 			CustomTags: map[string]*tpb.Tracing_CustomTag{
 				"test": nil,
 			},
@@ -1359,7 +1358,7 @@ func fakeTracingSpecWithNilCustomTag(provider *meshconfig.MeshConfig_ExtensionPr
 		ServerSpec: model.TracingSpec{
 			Provider:                 provider,
 			Disabled:                 disableReporting,
-			RandomSamplingPercentage: ptr.Of(sampling),
+			RandomSamplingPercentage: new(sampling),
 			CustomTags: map[string]*tpb.Tracing_CustomTag{
 				"test": nil,
 			},

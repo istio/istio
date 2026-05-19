@@ -35,7 +35,6 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/krt"
-	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/revisions"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/protomarshal"
@@ -112,7 +111,7 @@ func gatewayRouteAttachmentCountCollection[T controllers.Object](
 			if e.ParentKey.Kind != gvk.KubernetesGateway.Kubernetes() && e.ParentKey.Kind != gvk.ListenerSet.Kubernetes() {
 				return nil
 			}
-			return ptr.Of(&RouteAttachment{
+			return new(&RouteAttachment{
 				From: from,
 				To: types.NamespacedName{
 					Name:      e.ParentKey.Name,
@@ -447,7 +446,7 @@ func createRouteCollectionGeneric[T controllers.Object, R comparable, ST any](
 		})
 		parents := createRouteStatus(rpResults, obj.GetNamespace(), obj.GetGeneration(), inputs.ControllerName, GetCommonRouteStateParents(obj))
 		routeStatus := gatewayv1.RouteStatus{Parents: parents}
-		return ptr.Of(buildStatus(routeStatus)), resources
+		return new(buildStatus(routeStatus)), resources
 	}, krtopts.WithName(collectionName)...)
 }
 

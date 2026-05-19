@@ -33,7 +33,6 @@ import (
 	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/kube/krt/krttest"
-	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/workloadapi"
@@ -859,7 +858,7 @@ func TestServiceEntryServices(t *testing.T) {
 					Addresses: []*workloadapi.NetworkAddress{{
 						Network: testNW,
 						Address: netip.MustParseAddr("10.0.0.0").AsSlice(),
-						Length:  ptr.Of(uint32(24)),
+						Length:  new(uint32(24)),
 					}},
 					Ports: []*workloadapi.Port{{
 						ServicePort: 80,
@@ -900,7 +899,7 @@ func TestServiceEntryServices(t *testing.T) {
 					Addresses: []*workloadapi.NetworkAddress{{
 						Network: testNW,
 						Address: netip.MustParseAddr("10.0.0.0").AsSlice(),
-						Length:  ptr.Of(uint32(24)),
+						Length:  new(uint32(24)),
 					}},
 					Ports: []*workloadapi.Port{{
 						ServicePort: 80,
@@ -1110,7 +1109,7 @@ func TestServiceServices(t *testing.T) {
 					Namespace: "ns",
 				},
 				Spec: v1.ServiceSpec{
-					TrafficDistribution: ptr.Of(v1.ServiceTrafficDistributionPreferClose),
+					TrafficDistribution: new(v1.ServiceTrafficDistributionPreferClose),
 					ClusterIP:           "1.2.3.4",
 					Ports: []v1.ServicePort{{
 						Port: 80,
@@ -1151,7 +1150,7 @@ func TestServiceServices(t *testing.T) {
 					Namespace: "ns",
 				},
 				Spec: v1.ServiceSpec{
-					TrafficDistribution: ptr.Of(v1.ServiceTrafficDistributionPreferSameZone),
+					TrafficDistribution: new(v1.ServiceTrafficDistributionPreferSameZone),
 					ClusterIP:           "1.2.3.4",
 					Ports: []v1.ServicePort{{
 						Port: 80,
@@ -1192,7 +1191,7 @@ func TestServiceServices(t *testing.T) {
 					Namespace: "ns",
 				},
 				Spec: v1.ServiceSpec{
-					TrafficDistribution: ptr.Of(v1.ServiceTrafficDistributionPreferSameNode),
+					TrafficDistribution: new(v1.ServiceTrafficDistributionPreferSameNode),
 					ClusterIP:           "1.2.3.4",
 					Ports: []v1.ServicePort{{
 						Port: 80,

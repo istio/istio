@@ -26,7 +26,6 @@ import (
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 )
@@ -244,7 +243,7 @@ func TestReconcileInferencePool(t *testing.T) {
 				InferencePoolRefLabel:              "h2c-pool",
 			},
 			expectedTargetPorts: []int32{8080, 8081},
-			expectedAppProtocol: ptr.Of(string(inferencev1.AppProtocolH2C)),
+			expectedAppProtocol: new(string(inferencev1.AppProtocolH2C)),
 		},
 		{
 			// Verifies that omitting AppProtocol on the InferencePool leaves

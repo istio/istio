@@ -43,7 +43,6 @@ import (
 	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/protomarshal"
 )
@@ -448,7 +447,7 @@ func TestTracing(t *testing.T) {
 			&TracingConfig{
 				ClientSpec: TracingSpec{
 					Provider:                 &meshconfig.MeshConfig_ExtensionProvider{Name: "envoy"},
-					RandomSamplingPercentage: ptr.Of(50.0),
+					RandomSamplingPercentage: new(50.0),
 					CustomTags: map[string]*tpb.Tracing_CustomTag{
 						"foo": {},
 						"bar": {},
@@ -456,7 +455,7 @@ func TestTracing(t *testing.T) {
 					UseRequestIDForTraceSampling: false,
 				}, ServerSpec: TracingSpec{
 					Provider:                 &meshconfig.MeshConfig_ExtensionProvider{Name: "envoy"},
-					RandomSamplingPercentage: ptr.Of(50.0),
+					RandomSamplingPercentage: new(50.0),
 					CustomTags: map[string]*tpb.Tracing_CustomTag{
 						"foo": {},
 						"bar": {},
@@ -502,7 +501,7 @@ func TestTracing(t *testing.T) {
 			&TracingConfig{
 				ClientSpec: TracingSpec{
 					Provider:                 &meshconfig.MeshConfig_ExtensionProvider{Name: "envoy"},
-					RandomSamplingPercentage: ptr.Of(80.0),
+					RandomSamplingPercentage: new(80.0),
 					CustomTags: map[string]*tpb.Tracing_CustomTag{
 						"foo": {},
 						"baz": {},
@@ -512,7 +511,7 @@ func TestTracing(t *testing.T) {
 				},
 				ServerSpec: TracingSpec{
 					Provider:                 &meshconfig.MeshConfig_ExtensionProvider{Name: "envoy"},
-					RandomSamplingPercentage: ptr.Of(80.0),
+					RandomSamplingPercentage: new(80.0),
 					CustomTags: map[string]*tpb.Tracing_CustomTag{
 						"foo": {},
 						"baz": {},
@@ -535,7 +534,7 @@ func TestTracing(t *testing.T) {
 							Stackdriver: &meshconfig.MeshConfig_ExtensionProvider_StackdriverProvider{},
 						},
 					},
-					RandomSamplingPercentage:     ptr.Of(99.9),
+					RandomSamplingPercentage:     new(99.9),
 					UseRequestIDForTraceSampling: true,
 					EnableIstioTags:              true,
 				},

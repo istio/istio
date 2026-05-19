@@ -47,7 +47,6 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/network"
-	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/workloadapi"
@@ -221,7 +220,7 @@ func GlobalNestedWorkloadServicesCollection(
 					krt.WithName(fmt.Sprintf("ServiceServiceInfosWithCluster[%s]", cluster.ID)),
 				)...,
 			)
-			return ptr.Of(servicesInfoWithCluster)
+			return new(servicesInfoWithCluster)
 		},
 		"ServiceInfosWithCluster",
 		opts,
@@ -749,7 +748,7 @@ func getVIPs(svc *v1.Service) []string {
 }
 
 func precomputeServicePtr(w *model.ServiceInfo) *model.ServiceInfo {
-	return ptr.Of(precomputeService(*w))
+	return new(precomputeService(*w))
 }
 
 func precomputeService(w model.ServiceInfo) model.ServiceInfo {

@@ -27,7 +27,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/clientcmd/api"
 
-	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -254,7 +253,7 @@ func TestDeployMeta(t *testing.T) {
 					GenerateName: "name-6dc78b855c-",
 					OwnerReferences: []metav1.OwnerReference{{
 						APIVersion: "v1",
-						Controller: ptr.Of(true),
+						Controller: new(true),
 						Kind:       "ReplicaSet",
 						Name:       "name-6dc78b855c",
 					}},

@@ -30,7 +30,6 @@ import (
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/sets"
@@ -86,7 +85,7 @@ func TestSAN(t *testing.T) {
 				Name:      pod.Name,
 			},
 		}},
-		Ports: []discoveryv1.EndpointPort{{Name: ptr.Of("http"), Port: ptr.Of(int32(80))}},
+		Ports: []discoveryv1.EndpointPort{{Name: new("http"), Port: new(int32(80))}},
 	}
 	dr := config.Config{
 		Meta: config.Meta{
