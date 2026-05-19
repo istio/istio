@@ -16,16 +16,26 @@ package echo
 
 import (
 	"flag"
+	"runtime"
 	"time"
 
 	"istio.io/istio/pkg/test/util/retry"
 )
 
+// scaleForArch returns d, scaled up on slower architectures (arm64) to account
+// for slower CPU-per-core on the prow arm64 worker pool. amd64 unchanged.
+func scaleForArch(d time.Duration) time.Duration {
+	if runtime.GOARCH == "arm64" {
+		return 3 * d
+	}
+	return d
+}
+
 var (
-	callTimeout      = 30 * time.Second
+	callTimeout      = scaleForArch(30 * time.Second)
 	callDelay        = 20 * time.Millisecond
 	callConverge     = 3
-	readinessTimeout = 10 * time.Minute
+	readinessTimeout = scaleForArch(10 * time.Minute)
 	callsPerWorkload = 3
 )
 

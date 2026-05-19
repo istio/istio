@@ -18,6 +18,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"runtime"
 	"strings"
 
 	gwConformanceConfig "sigs.k8s.io/gateway-api/conformance/utils/config"
@@ -27,6 +28,31 @@ import (
 	"istio.io/istio/pkg/test/framework/config"
 	"istio.io/istio/pkg/test/framework/label"
 )
+
+// scaleGwConformanceTimeoutsForArch bumps the gateway-conformance suite
+// timeouts on arm64 since the prow arm64 worker pool is markedly slower than
+// amd64. Per-RPC timeouts (Get/Delete/Request) are left alone since they don't
+// suffer from CPU speed, only from controller reconcile lag.
+func scaleGwConformanceTimeoutsForArch(c *gwConformanceConfig.TimeoutConfig) {
+	if runtime.GOARCH != "arm64" {
+		return
+	}
+	const mult = 3
+	c.CreateTimeout *= mult
+	c.GatewayMustHaveAddress *= mult
+	c.GatewayMustHaveCondition *= mult
+	c.GatewayStatusMustHaveListeners *= mult
+	c.GatewayListenersMustHaveConditions *= mult
+	c.GWCMustBeAccepted *= mult
+	c.HTTPRouteMustNotHaveParents *= mult
+	c.HTTPRouteMustHaveCondition *= mult
+	c.TLSRouteMustHaveCondition *= mult
+	c.RouteMustHaveParents *= mult
+	c.MaxTimeToConsistency *= mult
+	c.NamespacesMustBeReady *= mult
+	c.LatestObservedGenerationSet *= mult
+	c.DefaultTestTimeout *= mult
+}
 
 var settingsFromCommandLine = DefaultSettings()
 
@@ -251,6 +277,7 @@ func init() {
 
 func initGatewayConformanceTimeouts() {
 	defaults := gwConformanceConfig.DefaultTimeoutConfig()
+	scaleGwConformanceTimeoutsForArch(&defaults)
 	settingsFromCommandLine.GatewayConformanceTimeoutConfig = defaults
 
 	flag.DurationVar(&settingsFromCommandLine.GatewayConformanceTimeoutConfig.CreateTimeout, "istio.test.gatewayConformance.createTimeout",
