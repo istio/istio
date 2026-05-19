@@ -53,19 +53,24 @@ type tagWatcher struct {
 	revision string
 	handlers []TagHandler
 
-	namespaces    kclient.Client[*corev1.Namespace]
-	queue         controllers.Queue
-	webhooks      kclient.Client[*admissionregistrationv1.MutatingWebhookConfiguration]
-	vWebhooks     kclient.Client[*admissionregistrationv1.ValidatingWebhookConfiguration]
-	services      kclient.Client[*corev1.Service]
-	webhooksIndex kclient.Index[string, *admissionregistrationv1.MutatingWebhookConfiguration]
-	servicesIndex kclient.Index[string, *corev1.Service]
+	namespaces                    kclient.Client[*corev1.Namespace]
+	queue                         controllers.Queue
+	webhooks                      kclient.Client[*admissionregistrationv1.MutatingWebhookConfiguration]
+	vWebhooks                     kclient.Client[*admissionregistrationv1.ValidatingWebhookConfiguration]
+	services                      kclient.Client[*corev1.Service]
+	webhooksIndex                 kclient.Index[string, *admissionregistrationv1.MutatingWebhookConfiguration]
+	servicesIndex                 kclient.Index[string, *corev1.Service]
+	defaultTagMutatingWebhookName string
 }
 
 func NewTagWatcher(client kube.Client, revision string, systemNamespace string) TagWatcher {
 	log.Debugf("Creating tag watcher for revision %s in namespace %s", revision, systemNamespace)
 	p := &tagWatcher{
-		revision: revision,
+		revision:                      revision,
+		defaultTagMutatingWebhookName: defaultTagMutatingWebhookName,
+	}
+	if systemNamespace != "" && systemNamespace != "istio-system" {
+		p.defaultTagMutatingWebhookName += "-" + systemNamespace
 	}
 	p.queue = controllers.NewQueue("tag", controllers.WithReconciler(func(key types.NamespacedName) error {
 		p.notifyHandlers()
@@ -143,7 +148,7 @@ func (p *tagWatcher) IsMine(obj metav1.ObjectMeta) bool {
 	// Figure out if there is a default tag that doesn't point to us
 	var otherDefaultTagExists bool
 	if !myTags.Contains("default") {
-		defaultTag := p.webhooks.Get(defaultTagMutatingWebhookName, "")
+		defaultTag := p.webhooks.Get(p.defaultTagMutatingWebhookName, "")
 		otherDefaultTagExists = defaultTag != nil
 	}
 	var weAreDefaultRevision bool
@@ -187,7 +192,7 @@ func (p *tagWatcher) notifyHandlers() {
 		if !myTags.Contains("default") && currentDefaultRevision.Labels[label.IoIstioRev.Name] == p.revision {
 			// Check and see if there is a tag named "default" that doesn't point to us
 			// This isn't valid (except maybe for a short time during a transition), so log a warning
-			defaultTag := p.webhooks.Get(defaultTagMutatingWebhookName, "")
+			defaultTag := p.webhooks.Get(p.defaultTagMutatingWebhookName, "")
 			if defaultTag != nil {
 				log.Warnf("Default revision is %s, but there is a tag named 'default' pointing to revision %s. " +
 					"If using a default tag, do not set the default revision to a different value")
