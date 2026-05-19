@@ -1157,6 +1157,8 @@ func (s *Server) initControllers(args *PilotArgs) error {
 		s.initIPAutoallocateController(args)
 	}
 
+	s.initKubeOptions(args)
+
 	if err := s.initConfigController(args); err != nil {
 		return fmt.Errorf("error initializing config controller: %v", err)
 	}
