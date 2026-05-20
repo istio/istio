@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+releaseNotes:
+- |
+  **Fixed** `istioctl bug-report` dropping pods in the Istio control plane namespace (ztunnel, istiod, CNI, gateways) when `--include` was scoped to workload namespaces. Control plane pods are now always captured; explicit `--exclude` still applies.
