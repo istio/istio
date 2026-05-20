@@ -4903,6 +4903,7 @@ func TestGatewayExternalSDSProvider(t *testing.T) {
 		providerPort        uint32
 		expectedClusterName string
 		expectSDS           bool
+		expectADSFallback   bool
 		noSDSProvider       bool
 	}{
 		{
@@ -4926,7 +4927,7 @@ func TestGatewayExternalSDSProvider(t *testing.T) {
 			expectSDS:           true,
 		},
 		{
-			name:                "sds:// prefix without any SDS provider returns nil",
+			name:                "sds:// prefix without any SDS provider falls back to ADS",
 			credentialName:      "sds://some-credential",
 			tlsMode:             networking.ServerTLSSettings_SIMPLE,
 			providerName:        "",
@@ -4934,6 +4935,7 @@ func TestGatewayExternalSDSProvider(t *testing.T) {
 			providerPort:        0,
 			expectedClusterName: "",
 			expectSDS:           false,
+			expectADSFallback:   true,
 			noSDSProvider:       true,
 		},
 	}
@@ -5048,9 +5050,14 @@ func TestGatewayExternalSDSProvider(t *testing.T) {
 				if clusterName != tt.expectedClusterName {
 					t.Errorf("expected cluster name %q, got %q", tt.expectedClusterName, clusterName)
 				}
-			} else if len(sdsConfigs) > 0 && sdsConfigs[0].GetName() != "" {
-				// When no SDS provider is found and no UDS socket, the SDS config entry should have no name
-				t.Errorf("expected empty SDS config name when no provider found, got %q", sdsConfigs[0].GetName())
+			} else if tt.expectADSFallback {
+				if len(sdsConfigs) == 0 {
+					t.Fatal("expected SDS secret configs for ADS fallback")
+				}
+				expectedName := "kubernetes://" + strings.TrimPrefix(tt.credentialName, "sds://")
+				if sdsConfigs[0].GetName() != expectedName {
+					t.Errorf("expected ADS fallback SDS name %q, got %q", expectedName, sdsConfigs[0].GetName())
+				}
 			}
 
 			if tt.tlsMode == networking.ServerTLSSettings_MUTUAL {

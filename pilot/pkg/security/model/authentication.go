@@ -81,7 +81,7 @@ func ConstructSdsSecretConfigForCredential(name string, credentialSocketExist bo
 	// Priority order:
 	//   1. UDS socket (credential metadata on the proxy) — local SDS agent on the gateway pod
 	//   2. SDS extension provider in meshConfig — remote SDS server referenced by service/port
-	//   3. nil — no SDS configuration available
+	//   3. ADS fallback — treat resource name as a Kubernetes Secret reference via istiod
 	//
 	// Currently only a single SDS extension provider is supported; the first one found is used.
 	// To support multiple providers in the future, the format could be extended to
@@ -104,7 +104,8 @@ func ConstructSdsSecretConfigForCredential(name string, credentialSocketExist bo
 				}
 			}
 		}
-		return nil
+		// No UDS socket or extension provider — fall back to ADS (Kubernetes Secret via istiod)
+		name = resourceName
 	}
 
 	return &tls.SdsSecretConfig{
