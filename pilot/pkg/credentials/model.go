@@ -42,4 +42,5 @@ type Controller interface {
 type MulticlusterController interface {
 	ForCluster(cluster cluster.ID) (Controller, error)
 	AddSecretHandler(func(k kind.Kind, name, namespace string))
+	HasSynced() bool
 }

@@ -98,6 +98,10 @@ func (m *Multicluster) AddSecretHandler(h func(k kind.Kind, name string, namespa
 	m.secretHandlers = append(m.secretHandlers, h)
 }
 
+func (m *Multicluster) HasSynced() bool {
+	return m.component.HasSynced()
+}
+
 type AggregateController struct {
 	// controllers to use to look up certs. Generally this will consistent of the primary (config) cluster
 	// and a single remote cluster where the proxy resides

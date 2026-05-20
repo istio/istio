@@ -268,6 +268,7 @@ func filterAuthorizedResources(resources []SecretResource, proxy *model.Proxy, s
 	// Unverified same namespace. Allowed if authorized.
 	allowedResources := make([]SecretResource, 0, len(resources))
 	deniedResources := make([]string, 0)
+	invalidResources := make([]string, 0)
 	for _, r := range resources {
 		sameNamespace := r.Namespace == proxy.VerifiedIdentity.Namespace
 		verified := proxy.MergedGateway != nil && proxy.MergedGateway.VerifiedCertificateReferences.Contains(r.ResourceName)
@@ -301,7 +302,7 @@ func filterAuthorizedResources(resources []SecretResource, proxy *model.Proxy, s
 				deniedResources = append(deniedResources, r.Name)
 			}
 		case credentials.InvalidSecretType:
-			// Do nothing. We return nothing, and logs for why an invalid resource was generated are handled elsewhere.
+			invalidResources = append(invalidResources, r.ResourceName)
 		default:
 			// Should never happen
 			log.Warnf("unknown credential type %q", r.Type())
@@ -317,6 +318,10 @@ func filterAuthorizedResources(resources []SecretResource, proxy *model.Proxy, s
 			errMessage = fmt.Errorf("cross namespace secret reference requires ReferenceGrant")
 		}
 		log.Warnf("proxy %s attempted to access unauthorized certificates %s: %v", proxy.ID, atMostNJoin(deniedResources, 3), errMessage)
+		pilotSDSCertificateErrors.Increment()
+	}
+	if len(invalidResources) > 0 {
+		log.Warnf("proxy %s requested invalid certificates %s", proxy.ID, atMostNJoin(invalidResources, 3))
 		pilotSDSCertificateErrors.Increment()
 	}
 

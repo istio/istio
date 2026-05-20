@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+issue:
+- https://github.com/istio/istio/issues/60197
+
+releaseNotes:
+- |
+  **Fixed** `BackendTLSPolicy` ConfigMap CA references so istiod waits for credential Secret and ConfigMap caches before serving XDS, avoiding startup SDS lookups against unsynced credential state.
