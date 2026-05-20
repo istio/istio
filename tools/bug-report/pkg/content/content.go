@@ -50,6 +50,7 @@ type Params struct {
 	KubeConfig         string
 	KubeContext        string
 	ProxyAdminPort     int
+	ZtunnelStatsPort   int
 	IncludedNamespaces []string
 }
 
@@ -68,6 +69,12 @@ func (p *Params) SetVerbose(verbose bool) *Params {
 func (p *Params) SetProxyAdminPort(proxyAdminPort int) *Params {
 	out := *p
 	out.ProxyAdminPort = proxyAdminPort
+	return &out
+}
+
+func (p *Params) SetZtunnelStatsPort(ztunnelStatsPort int) *Params {
+	out := *p
+	out.ZtunnelStatsPort = ztunnelStatsPort
 	return &out
 }
 
@@ -265,6 +272,31 @@ func GetZtunnelInfo(p *Params) (map[string]string, error) {
 	ret := make(map[string]string)
 	for _, url := range common.ZtunnelDebugURLs(p.ClusterVersion) {
 		out, err := p.Runner.EnvoyGet(p.Namespace, p.Pod, url, p.DryRun, p.ProxyAdminPort)
+		if err != nil {
+			errs = multierror.Append(errs, err)
+			continue
+		}
+		ret[url] = out
+	}
+	if errs.ErrorOrNil() != nil {
+		return nil, errs
+	}
+	return ret, nil
+}
+
+// GetZtunnelStats returns ztunnel Prometheus metrics. Ztunnel serves these on a stats
+// port that is distinct from its admin port, so we cannot reuse ProxyAdminPort here.
+func GetZtunnelStats(p *Params) (map[string]string, error) {
+	if p.Namespace == "" || p.Pod == "" {
+		return nil, fmt.Errorf("getZtunnelStats requires namespace and pod")
+	}
+	if p.ZtunnelStatsPort == 0 {
+		return nil, fmt.Errorf("getZtunnelStats requires a ztunnel stats port")
+	}
+	errs := istiomultierror.New()
+	ret := make(map[string]string)
+	for _, url := range common.ZtunnelStatsURLs(p.ClusterVersion) {
+		out, err := p.Runner.EnvoyGet(p.Namespace, p.Pod, url, p.DryRun, p.ZtunnelStatsPort)
 		if err != nil {
 			errs = multierror.Append(errs, err)
 			continue

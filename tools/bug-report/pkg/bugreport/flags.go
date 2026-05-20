@@ -56,6 +56,10 @@ func addFlags(cmd *cobra.Command, args *config2.BugReportConfig) {
 	cmd.PersistentFlags().IntVar(&args.ProxyAdminPort, "proxy-admin-port", util.DefaultProxyAdminPort,
 		"Envoy proxy admin port")
 
+	cmd.PersistentFlags().IntVar(&args.ZtunnelStatsPort, "ztunnel-stats-port", 15020,
+		"Ztunnel stats (Prometheus metrics) port. Ztunnel serves metrics on this port separately "+
+			"from the admin port used for config_dump.")
+
 	// full secrets
 	cmd.PersistentFlags().BoolVarP(&args.FullSecrets, "full-secrets", "", false,
 		"If set, secret contents are included in output.")

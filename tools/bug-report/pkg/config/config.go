@@ -144,6 +144,10 @@ type BugReportConfig struct {
 	// ProxyAdminPort is envoy proxy admin port
 	ProxyAdminPort int `json:"proxyAdminPort,omitempty"`
 
+	// ZtunnelStatsPort is the ztunnel stats (metrics) port. Distinct from ProxyAdminPort
+	// because ztunnel serves Prometheus metrics on a separate listener.
+	ZtunnelStatsPort int `json:"ztunnelStatsPort,omitempty"`
+
 	// CommandTimeout is the maximum amount of time running the command
 	// before giving up, even if not all logs are captured. Upon timeout,
 	// the command creates an archive with only the logs captured so far.

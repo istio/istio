@@ -46,6 +46,7 @@ type resourceNames struct {
 	istioDebugURLs   []string
 	proxyDebugURLs   []string
 	ztunnelDebugURLs []string
+	ztunnelStatsURLs []string
 }
 
 var versionMap = map[string]*resourceNames{
@@ -88,6 +89,11 @@ var versionMap = map[string]*resourceNames{
 		ztunnelDebugURLs: []string{
 			"config_dump",
 		},
+		// Ztunnel serves Prometheus metrics on a separate stats port (default 15020) rather
+		// than the admin port used for config_dump. See ztunnel src/config.rs DEFAULT_STATS_PORT.
+		ztunnelStatsURLs: []string{
+			"stats/prometheus",
+		},
 	},
 }
 
@@ -101,9 +107,16 @@ func ProxyDebugURLs(clusterVersion string) []string {
 	return versionMap[getVersionKey(clusterVersion)].proxyDebugURLs
 }
 
-// ZtunnelDebugURLs returns a list of ztunnel debug URLs for the given version.
+// ZtunnelDebugURLs returns a list of ztunnel debug URLs for the given version. These are
+// served on the ztunnel admin port.
 func ZtunnelDebugURLs(clusterVersion string) []string {
 	return versionMap[getVersionKey(clusterVersion)].ztunnelDebugURLs
+}
+
+// ZtunnelStatsURLs returns a list of ztunnel stats URLs for the given version. These are
+// served on the ztunnel stats port, which is distinct from the admin port.
+func ZtunnelStatsURLs(clusterVersion string) []string {
+	return versionMap[getVersionKey(clusterVersion)].ztunnelStatsURLs
 }
 
 // IsDiscoveryContainer reports whether the given container is an Istio discovery container for the given version.

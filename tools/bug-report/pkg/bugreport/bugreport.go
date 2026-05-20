@@ -355,7 +355,11 @@ func gatherInfo(runner *kubectlcmd.Runner, config *config.BugReportConfig, resou
 					getFromCluster(content.GetNetstat, cp, proxyDir, &mandatoryWg)
 				}
 				if !config.SkipProxyDebug {
-					getFromCluster(content.GetZtunnelInfo, cp.SetProxyAdminPort(config.ProxyAdminPort), archive.ProxyOutputPath(tempDir, namespace, pod), &optionalWg)
+					ztunnelParams := cp.SetProxyAdminPort(config.ProxyAdminPort).SetZtunnelStatsPort(config.ZtunnelStatsPort)
+					getFromCluster(content.GetZtunnelInfo, ztunnelParams, archive.ProxyOutputPath(tempDir, namespace, pod), &optionalWg)
+					if config.ZtunnelStatsPort != 0 {
+						getFromCluster(content.GetZtunnelStats, ztunnelParams, archive.ProxyOutputPath(tempDir, namespace, pod), &optionalWg)
+					}
 				}
 				getProxyLogs(runner, config, resources, p, namespace, pod, container, &optionalWg)
 			}

@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+releaseNotes:
+- |
+  **Fixed** `istioctl bug-report` to always capture pods in the Istio control plane namespace (ztunnel, istiod, CNI, gateways) even when `--include` is scoped to workload namespaces. Explicit `--exclude` still applies.
+- |
+  **Added** ztunnel Prometheus metrics collection to `istioctl bug-report`. Ztunnel serves stats on a separate port from its admin endpoint, so a new `--ztunnel-stats-port` flag (default 15020) controls where `stats/prometheus` is fetched. Metrics are written to the existing per-pod `proxies/<ns>/<pod>/` directory.

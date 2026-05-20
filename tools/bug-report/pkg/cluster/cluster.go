@@ -84,6 +84,13 @@ func shouldSkipPod(pod *corev1.Pod, config *config2.BugReportConfig) bool {
 		}
 	}
 
+	// Pods in the Istio control plane namespace are always captured once they pass the
+	// --exclude checks above, so users scoping --include to workload namespaces still get
+	// ztunnel, istiod, CNI, and gateway logs/debug.
+	if config.IstioNamespace != "" && pod.Namespace == config.IstioNamespace {
+		return false
+	}
+
 	for _, ild := range config.Include {
 		if len(ild.Namespaces) > 0 {
 			if !isIncludeOrExcludeEntriesMatched(ild.Namespaces, pod.Namespace) {
@@ -145,12 +152,8 @@ func shouldSkipPod(pod *corev1.Pod, config *config2.BugReportConfig) bool {
 }
 
 func shouldSkipDeployment(deployment string, config *config2.BugReportConfig) bool {
-	for _, eld := range config.Exclude {
-		if len(eld.Deployments) > 0 {
-			if isIncludeOrExcludeEntriesMatched(eld.Deployments, deployment) {
-				return true
-			}
-		}
+	if shouldExcludeDeployment(deployment, config) {
+		return true
 	}
 
 	for _, ild := range config.Include {
@@ -164,18 +167,41 @@ func shouldSkipDeployment(deployment string, config *config2.BugReportConfig) bo
 	return false
 }
 
-func shouldSkipDaemonSet(daemonSet string, config *config2.BugReportConfig) bool {
+// shouldExcludeDeployment evaluates only the --exclude side of the deployment filter.
+// Used when a pod is unconditionally captured (e.g. control plane pods) but the user
+// has explicitly excluded its owning deployment.
+func shouldExcludeDeployment(deployment string, config *config2.BugReportConfig) bool {
 	for _, eld := range config.Exclude {
-		if len(eld.Daemonsets) > 0 {
-			if isIncludeOrExcludeEntriesMatched(eld.Daemonsets, daemonSet) {
+		if len(eld.Deployments) > 0 {
+			if isIncludeOrExcludeEntriesMatched(eld.Deployments, deployment) {
 				return true
 			}
 		}
+	}
+	return false
+}
+
+func shouldSkipDaemonSet(daemonSet string, config *config2.BugReportConfig) bool {
+	if shouldExcludeDaemonSet(daemonSet, config) {
+		return true
 	}
 
 	for _, ild := range config.Include {
 		if len(ild.Daemonsets) > 0 {
 			if !isIncludeOrExcludeEntriesMatched(ild.Daemonsets, daemonSet) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// shouldExcludeDaemonSet evaluates only the --exclude side of the daemonset filter.
+// See shouldExcludeDeployment.
+func shouldExcludeDaemonSet(daemonSet string, config *config2.BugReportConfig) bool {
+	for _, eld := range config.Exclude {
+		if len(eld.Daemonsets) > 0 {
+			if isIncludeOrExcludeEntriesMatched(eld.Daemonsets, daemonSet) {
 				return true
 			}
 		}
@@ -265,14 +291,27 @@ func GetClusterResources(ctx context.Context, clientset kubernetes.Interface, co
 			continue
 		}
 
+		// Pods in the Istio control plane namespace bypass the deployment/daemonset include
+		// filters so a user scoping --include to a workload deployment still gets ztunnel,
+		// istiod, and gateways. Exclude filters still apply.
+		isControlPlanePod := config.IstioNamespace != "" && p.Namespace == config.IstioNamespace
+
 		// Resolve the pod's owning deployment or daemonset via the pre-built lookup maps,
 		// and apply deployment/daemonset-level include/exclude filters.
 		deployment := getOwnerDeployment(&p, rsOwnerMap)
-		if skip := shouldSkipDeployment(deployment, config); skip {
+		if !isControlPlanePod {
+			if skip := shouldSkipDeployment(deployment, config); skip {
+				continue
+			}
+		} else if shouldExcludeDeployment(deployment, config) {
 			continue
 		}
 		daemonset := getOwnerDaemonSet(&p, dsNameMap)
-		if skip := shouldSkipDaemonSet(daemonset, config); skip {
+		if !isControlPlanePod {
+			if skip := shouldSkipDaemonSet(daemonset, config); skip {
+				continue
+			}
+		} else if shouldExcludeDaemonSet(daemonset, config) {
 			continue
 		}
 

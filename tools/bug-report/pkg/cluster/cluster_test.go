@@ -503,6 +503,188 @@ func TestShouldSkipPod(t *testing.T) {
 	}
 }
 
+// TestShouldSkipPod_IstioNamespaceAlwaysIncluded covers the implicit-include behavior for
+// pods in the configured Istio control plane namespace. Users scoping --include to workload
+// namespaces should still capture ztunnel / istiod / gateway pods.
+func TestShouldSkipPod_IstioNamespaceAlwaysIncluded(t *testing.T) {
+	istioNS := "istio-system"
+	cases := []struct {
+		name     string
+		pod      *v1.Pod
+		config   *config2.BugReportConfig
+		expected bool
+	}{
+		{
+			"ztunnel pod survives include scoped to workload namespace",
+			&v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: istioNS,
+					Name:      "ztunnel-abcde",
+					Labels:    map[string]string{"app": "ztunnel"},
+				},
+			},
+			&config2.BugReportConfig{
+				IstioNamespace: istioNS,
+				Include: []*config2.SelectionSpec{
+					{Namespaces: []string{"workload-ns"}},
+				},
+			},
+			false,
+		},
+		{
+			"istiod pod survives include scoped to workload namespace",
+			&v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: istioNS,
+					Name:      "istiod-1",
+					Labels:    map[string]string{"app": "istiod"},
+				},
+			},
+			&config2.BugReportConfig{
+				IstioNamespace: istioNS,
+				Include: []*config2.SelectionSpec{
+					{Namespaces: []string{"workload-ns"}},
+				},
+			},
+			false,
+		},
+		{
+			"explicit exclude of istio namespace still applies",
+			&v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: istioNS,
+					Name:      "ztunnel-abcde",
+				},
+			},
+			&config2.BugReportConfig{
+				IstioNamespace: istioNS,
+				Include: []*config2.SelectionSpec{
+					{Namespaces: []string{"workload-ns"}},
+				},
+				Exclude: []*config2.SelectionSpec{
+					{Namespaces: []string{istioNS}},
+				},
+			},
+			true,
+		},
+		{
+			"explicit exclude of ztunnel pod still applies",
+			&v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: istioNS,
+					Name:      "ztunnel-abcde",
+				},
+			},
+			&config2.BugReportConfig{
+				IstioNamespace: istioNS,
+				Exclude: []*config2.SelectionSpec{
+					{Pods: []string{"ztunnel-*"}},
+				},
+			},
+			true,
+		},
+		{
+			"unset IstioNamespace falls back to existing include behavior",
+			&v1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: istioNS,
+					Name:      "ztunnel-abcde",
+				},
+			},
+			&config2.BugReportConfig{
+				IstioNamespace: "",
+				Include: []*config2.SelectionSpec{
+					{Namespaces: []string{"workload-ns"}},
+				},
+			},
+			true,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			skip := shouldSkipPod(c.pod, c.config)
+			if skip != c.expected {
+				t.Errorf("shouldSkipPod() for %q return= %v, want %v", c.name, skip, c.expected)
+			}
+		})
+	}
+}
+
+func TestShouldExcludeDeployment(t *testing.T) {
+	cases := []struct {
+		name       string
+		deployment string
+		config     *config2.BugReportConfig
+		expected   bool
+	}{
+		{
+			"deployment excluded",
+			"istiod",
+			&config2.BugReportConfig{
+				Exclude: []*config2.SelectionSpec{
+					{Deployments: []string{"istiod"}},
+				},
+			},
+			true,
+		},
+		{
+			"include filter is ignored",
+			"",
+			&config2.BugReportConfig{
+				Include: []*config2.SelectionSpec{
+					{Deployments: []string{"some-deploy"}},
+				},
+			},
+			false,
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := shouldExcludeDeployment(c.deployment, c.config); got != c.expected {
+				t.Errorf("shouldExcludeDeployment() = %v, want %v", got, c.expected)
+			}
+		})
+	}
+}
+
+func TestShouldExcludeDaemonSet(t *testing.T) {
+	cases := []struct {
+		name      string
+		daemonSet string
+		config    *config2.BugReportConfig
+		expected  bool
+	}{
+		{
+			"daemonset excluded",
+			"ztunnel",
+			&config2.BugReportConfig{
+				Exclude: []*config2.SelectionSpec{
+					{Daemonsets: []string{"ztunnel"}},
+				},
+			},
+			true,
+		},
+		{
+			"include filter is ignored",
+			"ztunnel",
+			&config2.BugReportConfig{
+				Include: []*config2.SelectionSpec{
+					{Daemonsets: []string{"some-ds"}},
+				},
+			},
+			false,
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := shouldExcludeDaemonSet(c.daemonSet, c.config); got != c.expected {
+				t.Errorf("shouldExcludeDaemonSet() = %v, want %v", got, c.expected)
+			}
+		})
+	}
+}
+
 func TestShouldSkipDeployment(t *testing.T) {
 	cases := []struct {
 		name       string
