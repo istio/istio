@@ -250,16 +250,44 @@ func NewServer(config Options) (*Server, error) {
 		log.Infof("Prometheus scraping configuration: %v", prom)
 		if prom.Scrape != "false" {
 			s.prometheus = &prom
-			if s.prometheus.Path == "" {
-				s.prometheus.Path = "/metrics"
+			if len(s.prometheus.Targets) == 0 {
+				// Legacy path: apply defaults and synthesize a single Targets entry.
+				if s.prometheus.Path == "" {
+					s.prometheus.Path = "/metrics"
+				}
+				if s.prometheus.Port == "" {
+					s.prometheus.Port = "80"
+				}
+				if s.prometheus.Port == strconv.Itoa(int(config.StatusPort)) {
+					return nil, fmt.Errorf("invalid prometheus scrape configuration: "+
+						"application port is the same as agent port, which may lead to a recursive loop. "+
+						"Ensure pod does not have prometheus.io/port=%d label, or that injection is not happening multiple times", config.StatusPort)
+				}
+				s.prometheus.Targets = []ScrapeTarget{{Port: s.prometheus.Port, Path: s.prometheus.Path}}
+			} else {
+				// New-format path: populate legacy Port/Path from Targets[0] if absent so that
+				// handleStats (which reads Port/Path directly) scrapes the primary endpoint correctly.
+				if s.prometheus.Port == "" {
+					s.prometheus.Port = s.prometheus.Targets[0].Port
+				}
+				if s.prometheus.Path == "" {
+					s.prometheus.Path = s.prometheus.Targets[0].Path
+				}
 			}
-			if s.prometheus.Port == "" {
-				s.prometheus.Port = "80"
-			}
-			if s.prometheus.Port == strconv.Itoa(int(config.StatusPort)) {
-				return nil, fmt.Errorf("invalid prometheus scrape configuration: "+
-					"application port is the same as agent port, which may lead to a recursive loop. "+
-					"Ensure pod does not have prometheus.io/port=%d label, or that injection is not happening multiple times", config.StatusPort)
+			// Default path and validate every target port.
+			statusPortStr := strconv.Itoa(int(config.StatusPort))
+			for i, t := range s.prometheus.Targets {
+				if t.Path == "" {
+					s.prometheus.Targets[i].Path = "/metrics"
+				}
+				if t.Port == statusPortStr {
+					return nil, fmt.Errorf("invalid prometheus scrape configuration: "+
+						"target port %s is the same as agent port, which may lead to a recursive loop", t.Port)
+				}
+				if reason, reserved := IstioReservedPortReason(t.Port); reserved {
+					return nil, fmt.Errorf("invalid prometheus scrape configuration: "+
+						"target port %s is reserved for Istio (%s) and cannot be scraped", t.Port, reason)
+				}
 			}
 		}
 	}
@@ -504,10 +532,71 @@ func (s *Server) isReady() error {
 	return nil
 }
 
+// ScrapeTarget represents a single application metrics endpoint to scrape.
+type ScrapeTarget struct {
+	Port string `json:"port"`
+	Path string `json:"path"`
+}
+
 type PrometheusScrapeConfiguration struct {
-	Scrape string `json:"scrape"`
-	Path   string `json:"path"`
-	Port   string `json:"port"`
+	Scrape  string         `json:"scrape"`
+	Path    string         `json:"path"`
+	Port    string         `json:"port"`
+	Targets []ScrapeTarget `json:"targets,omitempty"`
+}
+
+// IsEmpty reports whether no scrape configuration is set.
+func (p PrometheusScrapeConfiguration) IsEmpty() bool {
+	return p.Scrape == "" && p.Path == "" && p.Port == "" && len(p.Targets) == 0
+}
+
+// istioReservedPorts are data-plane ports the Istio sidecar/agent owns. Users must
+// not point metrics-merging scrape targets at any of these: they either hit a
+// non-application surface (admin, tunnel, traffic capture, DNS) or would create a
+// recursive / double-counted scrape (15020 is the merged endpoint itself; 15090 is
+// Envoy's raw Prom output, already merged).
+var istioReservedPorts = map[string]string{
+	"15000": "Envoy admin",
+	"15001": "outbound traffic capture",
+	"15004": "pilot debug",
+	"15006": "inbound traffic capture",
+	"15008": "HBONE tunnel",
+	"15020": "pilot-agent status / merged Prometheus",
+	"15021": "Envoy health",
+	"15053": "DNS proxy",
+	"15090": "Envoy Prometheus (already merged)",
+}
+
+// IstioReservedPortReason returns the human-readable reason port is reserved by the
+// Istio data plane, along with whether it is reserved. Callers should surface the
+// reason to users; the error message is more actionable when users see *why*.
+func IstioReservedPortReason(port string) (string, bool) {
+	reason, ok := istioReservedPorts[port]
+	return reason, ok
+}
+
+// ParseScrapeTargets parses a comma-separated list of "port:path" pairs into ScrapeTargets.
+// Whitespace is trimmed from each entry. An empty path defaults to "/metrics".
+// Returns an error if any entry has an empty port.
+func ParseScrapeTargets(raw string) ([]ScrapeTarget, error) {
+	var targets []ScrapeTarget
+	for _, entry := range strings.Split(raw, ",") {
+		entry = strings.TrimSpace(entry)
+		if entry == "" {
+			continue
+		}
+		parts := strings.SplitN(entry, ":", 2)
+		port := strings.TrimSpace(parts[0])
+		if port == "" {
+			return nil, fmt.Errorf("empty port in scrape target %q", entry)
+		}
+		path := "/metrics"
+		if len(parts) == 2 && strings.TrimSpace(parts[1]) != "" {
+			path = strings.TrimSpace(parts[1])
+		}
+		targets = append(targets, ScrapeTarget{Port: port, Path: path})
+	}
+	return targets, nil
 }
 
 // handleStats handles prometheus stats scraping. This will scrape envoy metrics, and, if configured,

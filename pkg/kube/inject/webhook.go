@@ -85,9 +85,10 @@ const (
 	// prometheus will convert annotation to this format
 	// `prometheus.io/scrape` `prometheus.io.scrape` `prometheus-io/scrape` have the same meaning in Prometheus
 	// for more details, please checkout [here](https://github.com/prometheus/prometheus/blob/71a0f42331566a8849863d77078083edbb0b3bc4/util/strutil/strconv.go#L40)
-	prometheusScrapeAnnotation = "prometheus_io_scrape"
-	prometheusPortAnnotation   = "prometheus_io_port"
-	prometheusPathAnnotation   = "prometheus_io_path"
+	prometheusScrapeAnnotation             = "prometheus_io_scrape"
+	prometheusPortAnnotation               = "prometheus_io_port"
+	prometheusPathAnnotation               = "prometheus_io_path"
+	prometheusIstioScrapeTargetsAnnotation = "prometheus_istio_io_scrape_targets"
 
 	watchDebounceDelay = 100 * time.Millisecond
 )
@@ -879,8 +880,6 @@ func mergeOrAppendProbers(previouslyInjected bool, envVars []corev1.EnvVar, newP
 	return append(envVars, corev1.EnvVar{Name: status.KubeAppProberEnvName, Value: newProbers})
 }
 
-var emptyScrape = status.PrometheusScrapeConfiguration{}
-
 // applyPrometheusMerge configures prometheus scraping annotations for the "metrics merge" feature.
 // This moves the current prometheus.io annotations into an environment variable and replaces them
 // pointing to the agent.
@@ -896,8 +895,30 @@ func applyPrometheusMerge(pod *corev1.Pod, mesh *meshconfig.MeshConfig) error {
 			}
 		}
 		scrape := getPrometheusScrapeConfiguration(pod)
+		// When scrape-targets are present, set legacy Port/Path from the first target so that
+		// old agents (which don't know about Targets) can still scrape the primary endpoint.
+		if len(scrape.Targets) > 0 {
+			scrape.Port = scrape.Targets[0].Port
+			scrape.Path = scrape.Targets[0].Path
+			for _, t := range scrape.Targets {
+				if t.Port == targetPort {
+					return fmt.Errorf("invalid prometheus scrape targets: target port %s conflicts with agent port", t.Port)
+				}
+				if reason, reserved := status.IstioReservedPortReason(t.Port); reserved {
+					return fmt.Errorf("invalid prometheus scrape targets: target port %s is reserved for Istio (%s) and cannot be scraped", t.Port, reason)
+				}
+			}
+		} else if scrape.Port != "" {
+			// Validate legacy prometheus.io/port annotation when the new scrape-targets annotation is not used.
+			if scrape.Port == targetPort {
+				return fmt.Errorf("invalid prometheus scrape configuration: port %s conflicts with agent port", scrape.Port)
+			}
+			if reason, reserved := status.IstioReservedPortReason(scrape.Port); reserved {
+				return fmt.Errorf("invalid prometheus scrape configuration: port %s is reserved for Istio (%s) and cannot be scraped", scrape.Port, reason)
+			}
+		}
 		sidecar := FindSidecar(pod)
-		if sidecar != nil && scrape != emptyScrape {
+		if sidecar != nil && !scrape.IsEmpty() {
 			by, err := json.Marshal(scrape)
 			if err != nil {
 				return err
@@ -940,6 +961,7 @@ var prometheusAnnotations = sets.New(
 	prometheusPathAnnotation,
 	prometheusPortAnnotation,
 	prometheusScrapeAnnotation,
+	prometheusIstioScrapeTargetsAnnotation,
 )
 
 func clearPrometheusAnnotations(pod *corev1.Pod) {
@@ -968,6 +990,13 @@ func getPrometheusScrapeConfiguration(pod *corev1.Pod) status.PrometheusScrapeCo
 			cfg.Scrape = val
 		case prometheusPathAnnotation:
 			cfg.Path = val
+		case prometheusIstioScrapeTargetsAnnotation:
+			targets, err := status.ParseScrapeTargets(val)
+			if err != nil {
+				log.Warnf("failed to parse %s annotation: %v", k, err)
+			} else {
+				cfg.Targets = targets
+			}
 		}
 	}
 

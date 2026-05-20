@@ -24,6 +24,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -1589,4 +1590,183 @@ func TestDetectNativeSidecar(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestGetPrometheusScrapeConfigurationMultiTarget(t *testing.T) {
+	cases := []struct {
+		name        string
+		annotations map[string]string
+		wantPort    string
+		wantPath    string
+		wantTargets []status.ScrapeTarget
+	}{
+		{
+			name: "scrape-targets only",
+			annotations: map[string]string{
+				"prometheus.istio.io/scrape-targets": "8080:/metrics,9100:/custom",
+			},
+			wantTargets: []status.ScrapeTarget{
+				{Port: "8080", Path: "/metrics"},
+				{Port: "9100", Path: "/custom"},
+			},
+		},
+		{
+			name: "scrape-targets with legacy port annotation",
+			annotations: map[string]string{
+				"prometheus.io/port":                 "8080",
+				"prometheus.io/path":                 "/metrics",
+				"prometheus.istio.io/scrape-targets": "8080:/metrics,9100:/custom",
+			},
+			wantPort: "8080",
+			wantPath: "/metrics",
+			wantTargets: []status.ScrapeTarget{
+				{Port: "8080", Path: "/metrics"},
+				{Port: "9100", Path: "/custom"},
+			},
+		},
+		{
+			name: "legacy only, no targets",
+			annotations: map[string]string{
+				"prometheus.io/port": "8080",
+				"prometheus.io/path": "/health",
+			},
+			wantPort:    "8080",
+			wantPath:    "/health",
+			wantTargets: nil,
+		},
+		{
+			name: "whitespace trimmed in scrape-targets",
+			annotations: map[string]string{
+				"prometheus.istio.io/scrape-targets": " 8080:/metrics , 9100:/custom ",
+			},
+			wantTargets: []status.ScrapeTarget{
+				{Port: "8080", Path: "/metrics"},
+				{Port: "9100", Path: "/custom"},
+			},
+		},
+		{
+			name: "malformed scrape-targets is logged and Targets left nil",
+			annotations: map[string]string{
+				"prometheus.istio.io/scrape-targets": ":/metrics",
+			},
+			wantTargets: nil,
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			pod := &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: tt.annotations,
+				},
+			}
+			got := getPrometheusScrapeConfiguration(pod)
+			if got.Port != tt.wantPort {
+				t.Errorf("Port = %q, want %q", got.Port, tt.wantPort)
+			}
+			if got.Path != tt.wantPath {
+				t.Errorf("Path = %q, want %q", got.Path, tt.wantPath)
+			}
+			if !reflect.DeepEqual(got.Targets, tt.wantTargets) {
+				t.Errorf("Targets = %v, want %v", got.Targets, tt.wantTargets)
+			}
+		})
+	}
+}
+
+// TestApplyPrometheusMergeScrapeTargets covers the two webhook-side changes for
+// multi-port metrics merging: rejecting reserved Istio ports and stripping the
+// new prometheus.istio.io/scrape-targets annotation from the injected pod.
+func TestApplyPrometheusMergeScrapeTargets(t *testing.T) {
+	meshCfg := mesh.DefaultMeshConfig()
+	meshCfg.EnablePrometheusMerge = &wrapperspb.BoolValue{Value: true}
+
+	newPod := func(ann map[string]string) *corev1.Pod {
+		return &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{Annotations: ann},
+			Spec: corev1.PodSpec{
+				Containers: []corev1.Container{
+					{Name: "app"},
+					{Name: "istio-proxy"},
+				},
+			},
+		}
+	}
+
+	t.Run("reserved port rejected at injection time", func(t *testing.T) {
+		pod := newPod(map[string]string{
+			"prometheus.io/scrape":               "true",
+			"prometheus.istio.io/scrape-targets": "8080:/metrics,15000:/metrics",
+		})
+		err := applyPrometheusMerge(pod, meshCfg)
+		if err == nil {
+			t.Fatal("expected error for reserved port 15000, got nil")
+		}
+		if !strings.Contains(err.Error(), "15000") || !strings.Contains(err.Error(), "reserved for Istio") {
+			t.Errorf("error = %v, want one mentioning port 15000 and Istio-reserved", err)
+		}
+	})
+
+	t.Run("agent port rejected independently of reserved check", func(t *testing.T) {
+		pod := newPod(map[string]string{
+			"prometheus.io/scrape":               "true",
+			"prometheus.istio.io/scrape-targets": "15020:/metrics",
+		})
+		err := applyPrometheusMerge(pod, meshCfg)
+		if err == nil {
+			t.Fatal("expected error for target == agent port, got nil")
+		}
+	})
+
+	t.Run("legacy port equal to agent port triggers no-op via early-return guard", func(t *testing.T) {
+		// When prometheus.io/port already points at the agent (15020), applyPrometheusMerge treats
+		// the pod as already-injected and returns nil without rewriting annotations. This is the
+		// existing re-injection guard; no error is expected or desired.
+		agentPort := strconv.Itoa(int(meshCfg.GetDefaultConfig().GetStatusPort()))
+		pod := newPod(map[string]string{
+			"prometheus.io/scrape": "true",
+			"prometheus.io/port":   agentPort,
+		})
+		err := applyPrometheusMerge(pod, meshCfg)
+		if err != nil {
+			t.Fatalf("expected nil (no-op early return), got %v", err)
+		}
+		// Pod annotations must NOT be rewritten by the merge.
+		if got := pod.Annotations["prometheus.io/port"]; got != agentPort {
+			t.Errorf("prometheus.io/port = %q, want %q (unchanged)", got, agentPort)
+		}
+	})
+
+	t.Run("legacy reserved port rejected at injection time", func(t *testing.T) {
+		pod := newPod(map[string]string{
+			"prometheus.io/scrape": "true",
+			"prometheus.io/port":   "15000",
+		})
+		err := applyPrometheusMerge(pod, meshCfg)
+		if err == nil {
+			t.Fatal("expected error for reserved port 15000 in legacy annotation, got nil")
+		}
+		if !strings.Contains(err.Error(), "15000") || !strings.Contains(err.Error(), "reserved for Istio") {
+			t.Errorf("error = %v, want one mentioning port 15000 and Istio-reserved", err)
+		}
+	})
+
+	t.Run("happy path strips prometheus.istio.io/scrape-targets annotation", func(t *testing.T) {
+		pod := newPod(map[string]string{
+			"prometheus.io/scrape":               "true",
+			"prometheus.istio.io/scrape-targets": "8080:/metrics,9100:/custom",
+		})
+		if err := applyPrometheusMerge(pod, meshCfg); err != nil {
+			t.Fatalf("applyPrometheusMerge returned %v, want nil", err)
+		}
+		if _, ok := pod.Annotations["prometheus.istio.io/scrape-targets"]; ok {
+			t.Error("prometheus.istio.io/scrape-targets must be stripped after injection, but is still present")
+		}
+		// Legacy annotations must be rewritten to point at the agent.
+		if got := pod.Annotations["prometheus.io/port"]; got != strconv.Itoa(int(meshCfg.GetDefaultConfig().GetStatusPort())) {
+			t.Errorf("prometheus.io/port = %q, want agent status port", got)
+		}
+		if got := pod.Annotations["prometheus.io/path"]; got != "/stats/prometheus" {
+			t.Errorf("prometheus.io/path = %q, want /stats/prometheus", got)
+		}
+	})
 }

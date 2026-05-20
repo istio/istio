@@ -1664,3 +1664,207 @@ func TestingRegistry(t test.Failer) prometheus.Gatherer {
 	}
 	return r
 }
+
+func TestParseScrapeTargets(t *testing.T) {
+	cases := []struct {
+		name    string
+		input   string
+		want    []ScrapeTarget
+		wantErr bool
+	}{
+		{
+			name:  "single target",
+			input: "8080:/metrics",
+			want:  []ScrapeTarget{{Port: "8080", Path: "/metrics"}},
+		},
+		{
+			name:  "two targets",
+			input: "8080:/metrics,9100:/custom",
+			want:  []ScrapeTarget{{Port: "8080", Path: "/metrics"}, {Port: "9100", Path: "/custom"}},
+		},
+		{
+			name:  "no path defaults to /metrics",
+			input: "8080",
+			want:  []ScrapeTarget{{Port: "8080", Path: "/metrics"}},
+		},
+		{
+			name:  "empty path component defaults to /metrics",
+			input: "8080:,9100:/custom",
+			want:  []ScrapeTarget{{Port: "8080", Path: "/metrics"}, {Port: "9100", Path: "/custom"}},
+		},
+		{
+			name:  "whitespace trimmed",
+			input: " 8080:/metrics , 9100:/custom ",
+			want:  []ScrapeTarget{{Port: "8080", Path: "/metrics"}, {Port: "9100", Path: "/custom"}},
+		},
+		{
+			name:  "empty string returns nil",
+			input: "",
+			want:  nil,
+		},
+		{
+			name:  "only commas returns nil",
+			input: ",,,",
+			want:  nil,
+		},
+		{
+			name:    "empty port is an error",
+			input:   ":/metrics",
+			wantErr: true,
+		},
+		{
+			name:    "mixed valid and invalid stops at first empty port",
+			input:   "8080:/metrics,:/bad,9100:/custom",
+			wantErr: true,
+		},
+		{
+			name:  "duplicate ports accepted (dedup is not this layer's job)",
+			input: "8080:/metrics,8080:/other",
+			want:  []ScrapeTarget{{Port: "8080", Path: "/metrics"}, {Port: "8080", Path: "/other"}},
+		},
+		{
+			name:  "path with query string preserved verbatim",
+			input: "8080:/metrics?foo=bar",
+			want:  []ScrapeTarget{{Port: "8080", Path: "/metrics?foo=bar"}},
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ParseScrapeTargets(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("ParseScrapeTargets(%q) error = %v, wantErr %v", tt.input, err, tt.wantErr)
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("ParseScrapeTargets(%q) = %v, want %v", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIstioReservedPortReason(t *testing.T) {
+	reserved := []string{"15000", "15001", "15004", "15006", "15008", "15020", "15021", "15053", "15090"}
+	for _, p := range reserved {
+		t.Run("reserved/"+p, func(t *testing.T) {
+			reason, ok := IstioReservedPortReason(p)
+			if !ok {
+				t.Errorf("IstioReservedPortReason(%q) = _, false; want reserved", p)
+			}
+			if reason == "" {
+				t.Errorf("IstioReservedPortReason(%q) returned empty reason", p)
+			}
+		})
+	}
+	nonReserved := []string{"80", "8080", "9090", "15002", "15007", "15091", "15099", ""}
+	for _, p := range nonReserved {
+		t.Run("non-reserved/"+p, func(t *testing.T) {
+			if _, ok := IstioReservedPortReason(p); ok {
+				t.Errorf("IstioReservedPortReason(%q) returned reserved=true; want false", p)
+			}
+		})
+	}
+	// Ports are compared as opaque strings so annotation-layer values round-trip
+	// verbatim; canonical integer equality (15020 == 015020) is intentionally NOT
+	// applied here.
+	t.Run("boundary/leading-zero not matched", func(t *testing.T) {
+		if _, ok := IstioReservedPortReason("015020"); ok {
+			t.Errorf("IstioReservedPortReason(%q) matched; want string-equality only", "015020")
+		}
+	})
+}
+
+func TestNewServerPrometheusNormalization(t *testing.T) {
+	const statusPort = 15020
+	cases := []struct {
+		name        string
+		envJSON     string
+		wantTargets []ScrapeTarget
+		wantPort    string
+		wantErr     bool
+	}{
+		{
+			name:        "legacy single-port JSON synthesizes one target",
+			envJSON:     `{"scrape":"true","port":"8080","path":"/metrics"}`,
+			wantPort:    "8080",
+			wantTargets: []ScrapeTarget{{Port: "8080", Path: "/metrics"}},
+		},
+		{
+			name:        "new-format JSON with targets field is preserved",
+			envJSON:     `{"scrape":"true","port":"8080","path":"/metrics","targets":[{"port":"8080","path":"/metrics"},{"port":"9100","path":"/custom"}]}`,
+			wantPort:    "8080",
+			wantTargets: []ScrapeTarget{{Port: "8080", Path: "/metrics"}, {Port: "9100", Path: "/custom"}},
+		},
+		{
+			name:    "target port equal to status port is an error",
+			envJSON: `{"scrape":"true","targets":[{"port":"15020","path":"/metrics"}]}`,
+			wantErr: true,
+		},
+		{
+			name:        "empty port defaults to 80 and synthesizes one target",
+			envJSON:     `{"scrape":"true"}`,
+			wantPort:    "80",
+			wantTargets: []ScrapeTarget{{Port: "80", Path: "/metrics"}},
+		},
+		{
+			name:        "empty path in target defaults to /metrics",
+			envJSON:     `{"scrape":"true","targets":[{"port":"8080","path":""}]}`,
+			wantTargets: []ScrapeTarget{{Port: "8080", Path: "/metrics"}},
+		},
+		{
+			name:    "target on reserved Envoy admin port is rejected",
+			envJSON: `{"scrape":"true","targets":[{"port":"15000","path":"/metrics"}]}`,
+			wantErr: true,
+		},
+		{
+			name:    "target on reserved Envoy Prometheus port is rejected",
+			envJSON: `{"scrape":"true","targets":[{"port":"15090","path":"/metrics"}]}`,
+			wantErr: true,
+		},
+		{
+			name:    "target on reserved inbound redirect port is rejected",
+			envJSON: `{"scrape":"true","targets":[{"port":"15006","path":"/metrics"}]}`,
+			wantErr: true,
+		},
+		{
+			name:    "one good target plus one reserved target is rejected",
+			envJSON: `{"scrape":"true","targets":[{"port":"8080","path":"/metrics"},{"port":"15000","path":"/metrics"}]}`,
+			wantErr: true,
+		},
+		{
+			name:        "both legacy Port and Targets present — Targets are preserved verbatim, legacy Port is not overwritten",
+			envJSON:     `{"scrape":"true","port":"8080","path":"/metrics","targets":[{"port":"9100","path":"/custom"}]}`,
+			wantPort:    "8080",
+			wantTargets: []ScrapeTarget{{Port: "9100", Path: "/custom"}},
+		},
+		{
+			name:        "new-format JSON with targets but no top-level port syncs Port from Targets[0]",
+			envJSON:     `{"scrape":"true","targets":[{"port":"8080","path":"/metrics"}]}`,
+			wantPort:    "8080",
+			wantTargets: []ScrapeTarget{{Port: "8080", Path: "/metrics"}},
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv(PrometheusScrapingConfig.Name, tt.envJSON)
+			s, err := NewServer(Options{
+				NodeType:           "sidecar",
+				StatusPort:         statusPort,
+				PrometheusRegistry: TestingRegistry(t),
+			})
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("NewServer() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if tt.wantErr {
+				return
+			}
+			if s.prometheus == nil {
+				t.Fatal("expected s.prometheus to be set")
+			}
+			if tt.wantPort != "" && s.prometheus.Port != tt.wantPort {
+				t.Errorf("Port = %q, want %q", s.prometheus.Port, tt.wantPort)
+			}
+			if !reflect.DeepEqual(s.prometheus.Targets, tt.wantTargets) {
+				t.Errorf("Targets = %v, want %v", s.prometheus.Targets, tt.wantTargets)
+			}
+		})
+	}
+}
