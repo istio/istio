@@ -15,8 +15,9 @@
 package common
 
 import (
-	"slices"
 	"testing"
+
+	"istio.io/istio/pkg/slices"
 )
 
 func TestZtunnelStatsURLs(t *testing.T) {
