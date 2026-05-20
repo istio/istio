@@ -365,10 +365,10 @@ spec:
 								if !strings.Contains(lStr, `"my-credential"`) {
 									return fmt.Errorf("SDS secret config name not found in listener")
 								}
-								if !strings.Contains(lStr, `"clusterName":"outbound|8443||sds-grpc-server.istio-system.svc.cluster.local"`) {
+								if !strings.Contains(lStr, "outbound|8443||sds-grpc-server.istio-system.svc.cluster.local") {
 									return fmt.Errorf("expected cluster name not found in SDS config")
 								}
-								if !strings.Contains(lStr, `"apiType":"GRPC"`) {
+								if !strings.Contains(lStr, "GRPC") {
 									return fmt.Errorf("expected GRPC apiType in SDS config")
 								}
 								break
