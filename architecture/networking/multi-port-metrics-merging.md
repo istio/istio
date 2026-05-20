@@ -147,8 +147,11 @@ func (s *Server) scrapeMultipleApps(r *http.Request) (expfmt.Format, [][]byte) {
                 return
             }
             defer body.Close()
-            buf, readErr := io.ReadAll(body)
-            if readErr != nil {
+            // Cap per-target body at 10 MiB to bound agent memory across N concurrent
+            // targets; treat saturation as a target failure rather than returning a
+            // truncated half-line that downstream parsers would error on.
+            buf, readErr := io.ReadAll(io.LimitReader(body, int64(maxAppMetricsBodyBytes)+1))
+            if readErr != nil || len(buf) > maxAppMetricsBodyBytes {
                 metrics.AppScrapeErrors.Increment()
                 return
             }
@@ -157,14 +160,20 @@ func (s *Server) scrapeMultipleApps(r *http.Request) (expfmt.Format, [][]byte) {
         }(i, t)
     }
     wg.Wait()
-    // Pick the first successful target's format. With Targets[0] typically succeeding, this
-    // reduces to Targets[0]'s format and preserves single-target semantics.
+
+    // First successful target's format wins, EXCEPT when successful targets disagree:
+    // mixed-format bodies in a single response are invalid, so we downgrade to text.
     format := FmtText
-    for i := range bodies {
-        if bodies[i] != nil {
-            format = negotiateMetricsFormat(contentTypes[i])
-            break
-        }
+    firstFmt := ""
+    allMatch := true
+    for i, ct := range contentTypes {
+        if bodies[i] == nil { continue }
+        f := string(negotiateMetricsFormat(ct))
+        if firstFmt == "" { firstFmt = f; continue }
+        if f != firstFmt { allMatch = false; break }
+    }
+    if allMatch && firstFmt != "" {
+        format = expfmt.Format(firstFmt)
     }
     return format, bodies
 }
@@ -173,18 +182,21 @@ func (s *Server) scrapeMultipleApps(r *http.Request) (expfmt.Format, [][]byte) {
 After agent-internal and Envoy metrics are written, the buffered app bodies are written in `Targets` order:
 
 ```go
+// Strip "# EOF" from every body unconditionally; append a single "# EOF\n" once at
+// the very end only if the negotiated format is OpenMetrics. This keeps exactly one
+// "# EOF" terminator in every OpenMetrics response and zero in every text response,
+// regardless of how many targets succeeded or what their bodies looked like.
 openMetrics := strings.HasPrefix(string(format), expfmt.OpenMetricsType)
-lastSuccess := -1
-for i, b := range appBodies {
-    if b != nil { lastSuccess = i }
-}
-for i, body := range appBodies {
+for _, body := range appBodies {
     if body == nil { continue }
-    out := body
-    if !openMetrics || i != lastSuccess {
-        out = stripOpenMetricsEOF(body)
+    out := stripOpenMetricsEOF(body)
+    if len(out) > 0 && out[len(out)-1] != '\n' {
+        out = append(out, '\n')
     }
     w.Write(out)
+}
+if openMetrics {
+    w.Write([]byte("# EOF\n"))
 }
 ```
 
@@ -196,11 +208,9 @@ for i, body := range appBodies {
 
 **Best-effort semantics:** A failed target (scrape error or read error) leaves `bodies[i] == nil`, increments `metrics.AppScrapeErrors` once, and does not abort the response. The merged output still returns 200 with partial data, consistent with the existing "we do not return any errors here" philosophy.
 
-**Format negotiation:** The response `Content-Type` is the negotiated format of the first successful target. Because `Targets[0]` is treated as the primary endpoint (matching the legacy single-port contract), this equals `Targets[0]`'s format when `Targets[0]` succeeds, and falls back to the first successful target otherwise, or `FmtText` if every target fails.
+**Format negotiation:** The response `Content-Type` is the negotiated format of the first successful target, **downgraded to `text/plain` if any other successful target disagrees on format**. A single response body must commit to one structural format — wedging an OpenMetrics body and a text body under one Content-Type produces invalid output for the consumer's parser. In the common case `Targets[0]` is the primary endpoint and the rest agree, so the negotiated format matches `Targets[0]`'s and operators see no behavioral change. `FmtText` is also the fall-back when every target fails.
 
-**OpenMetrics `# EOF` handling:**
-- When the negotiated response format is OpenMetrics, keep exactly one `# EOF` at the end: `stripOpenMetricsEOF` removes it from every body except the final successful one.
-- When the response is text, strip `# EOF` from every body unconditionally; a text exposition must not carry OpenMetrics-specific terminators.
+**OpenMetrics `# EOF` handling:** `stripOpenMetricsEOF` runs on every body unconditionally. The merged response then receives a single `# EOF\n` appended at the very end only when the negotiated format is OpenMetrics. Text responses (including the mixed-format downgrade case above) carry no terminator. This keeps exactly one `# EOF` at the end of every OpenMetrics response and zero in every text response.
 
 **Metric family name conflicts:** Two targets advertising the same metric family name will still produce a Prometheus parse error at the consumer, same as today's Envoy vs. app conflict behavior. Deduplication is out of scope; users are responsible for keeping target metric namespaces disjoint. The existing `TestStats` conflict test cases document this contract.
 

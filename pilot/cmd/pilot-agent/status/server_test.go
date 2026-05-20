@@ -697,16 +697,17 @@ func TestStatsMultiTarget(t *testing.T) {
 		fail        bool   // when true, handler returns 500
 	}
 	cases := []struct {
-		name             string
-		envoy            string
-		targets          []targetSpec
-		containsOrdered  []string // substrings that must appear in output in this exact order
-		mustNotContain   []string
-		mustContain      []string
-		expectEOFCount   int  // expected count of "# EOF" lines in the merged output; -1 = don't check
-		expectParseOM    bool // if true, parse merged output as OpenMetrics
-		expectParseText  bool // if true, parse merged output as text
-		expectParseError bool
+		name                       string
+		envoy                      string
+		targets                    []targetSpec
+		containsOrdered            []string // substrings that must appear in output in this exact order
+		mustNotContain             []string
+		mustContain                []string
+		expectEOFCount             int     // expected count of "# EOF" lines in the merged output; -1 = don't check
+		expectParseOM              bool    // if true, parse merged output as OpenMetrics
+		expectParseText            bool    // if true, parse merged output as text
+		expectParseError           bool    // if true, an expected parse failure must occur; absence is itself a failure
+		expectAppScrapeErrorsDelta float64 // expected delta of istio_agent_scrape_failures_total{type="application"}
 	}{
 		{
 			name: "two text targets with disjoint metrics merge in target order",
@@ -752,9 +753,10 @@ func TestStatsMultiTarget(t *testing.T) {
 				{body: "# TYPE metric_ok counter\nmetric_ok{} 7\n"},
 				{fail: true},
 			},
-			mustContain:     []string{"metric_ok{} 7"},
-			expectEOFCount:  0,
-			expectParseText: true,
+			mustContain:                []string{"metric_ok{} 7"},
+			expectEOFCount:             0,
+			expectParseText:            true,
+			expectAppScrapeErrorsDelta: 1,
 		},
 		{
 			name: "all failing targets still return 200 with envoy + agent metrics",
@@ -767,8 +769,9 @@ envoy_metric{} 9
 			},
 			mustContain: []string{"envoy_metric{} 9"},
 			// agent metric baked into the agent registry
-			expectEOFCount:  0,
-			expectParseText: true,
+			expectEOFCount:             0,
+			expectParseText:            true,
+			expectAppScrapeErrorsDelta: 2,
 		},
 		{
 			name: "Targets[0] failure falls back to first successful target's format",
@@ -779,9 +782,10 @@ envoy_metric{} 9
 					contentType: string(FmtOpenMetrics_1_0_0),
 				},
 			},
-			mustContain:    []string{"metric_fallback_total 3", "# EOF"},
-			expectEOFCount: 1,
-			expectParseOM:  true,
+			mustContain:                []string{"metric_fallback_total 3", "# EOF"},
+			expectEOFCount:             1,
+			expectParseOM:              true,
+			expectAppScrapeErrorsDelta: 1,
 		},
 		{
 			name: "mixed formats — Targets[0] is text so response is text and OM target's EOF is stripped",
@@ -796,6 +800,40 @@ envoy_metric{} 9
 			mustNotContain:  []string{"# EOF"},
 			expectEOFCount:  0,
 			expectParseText: true,
+		},
+		{
+			// D3 — the OM-first counterpart of the case above. Without the format-mismatch
+			// downgrade, this response would claim OpenMetrics but contain a text body
+			// without "# EOF", producing invalid OpenMetrics. Fix B coerces to text.
+			name: "mixed formats — Targets[0] is OpenMetrics and Targets[1] is text; response downgrades to text and emits no # EOF",
+			targets: []targetSpec{
+				{
+					body:        "# TYPE metric_om counter\n# HELP metric_om desc\nmetric_om_total 1\n# EOF\n",
+					contentType: string(FmtOpenMetrics_1_0_0),
+				},
+				{
+					body:        "# TYPE metric_text counter\nmetric_text{} 2\n",
+					contentType: string(FmtText),
+				},
+			},
+			mustContain:     []string{"metric_om_total 1", "metric_text{} 2"},
+			mustNotContain:  []string{"# EOF"},
+			expectEOFCount:  0,
+			expectParseText: true,
+		},
+		{
+			// D1 — two targets advertising the same metric family. The agent does not
+			// dedupe across targets (out of scope per design); both blocks appear in the
+			// merged body, and the consumer's parser fails on the duplicate # TYPE.
+			name: "two targets emit the same metric family name; merged body contains both blocks (consumer parses-errors per design contract)",
+			targets: []targetSpec{
+				{body: "# TYPE metric_x counter\nmetric_x 1\n"},
+				{body: "# TYPE metric_x counter\nmetric_x 2\n"},
+			},
+			mustContain:      []string{"metric_x 1", "metric_x 2"},
+			expectEOFCount:   0,
+			expectParseText:  true,
+			expectParseError: true,
 		},
 	}
 
@@ -853,9 +891,13 @@ envoy_metric{} 9
 			}
 
 			rec := httptest.NewRecorder()
+			beforeErrors := appScrapeErrorCount(t, server.registry)
 			server.handleStats(rec, &http.Request{})
 			if rec.Code != 200 {
 				t.Fatalf("handleStats() => %v; want 200", rec.Code)
+			}
+			if got := appScrapeErrorCount(t, server.registry) - beforeErrors; got != tt.expectAppScrapeErrorsDelta {
+				t.Errorf("AppScrapeErrors delta = %v, want %v", got, tt.expectAppScrapeErrorsDelta)
 			}
 
 			body := rec.Body.String()
@@ -890,23 +932,105 @@ envoy_metric{} 9
 			}
 			if tt.expectParseText {
 				parser := expfmt.NewTextParser(model.LegacyValidation)
-				if _, err := parser.TextToMetricFamilies(strings.NewReader(body)); err != nil && !tt.expectParseError {
+				_, err := parser.TextToMetricFamilies(strings.NewReader(body))
+				switch {
+				case err != nil && !tt.expectParseError:
 					t.Fatalf("text parse failed: %v; body:\n%s", err, body)
+				case err == nil && tt.expectParseError:
+					t.Fatalf("expected text parse error, got none; body:\n%s", body)
 				}
 			}
 			if tt.expectParseOM {
 				omp := textparse.NewOpenMetricsParser(rec.Body.Bytes(), labels.NewSymbolTable())
+				var parseErr error
 				for {
 					_, perr := omp.Next()
 					if perr == io.EOF {
 						break
 					}
 					if perr != nil {
-						t.Fatalf("openmetrics parse failed: %v; body:\n%s", perr, body)
+						parseErr = perr
+						break
 					}
+				}
+				switch {
+				case parseErr != nil && !tt.expectParseError:
+					t.Fatalf("openmetrics parse failed: %v; body:\n%s", parseErr, body)
+				case parseErr == nil && tt.expectParseError:
+					t.Fatalf("expected openmetrics parse error, got none; body:\n%s", body)
 				}
 			}
 		})
+	}
+}
+
+// TestScrapeMultipleAppsBodyCap verifies that scrapeMultipleApps drops target responses
+// that exceed maxAppMetricsBodyBytes (Fix A regression). The cap is shrunk to a tractable
+// size for the test; one target returns exactly cap bytes (accepted, present in the
+// merged response) and another returns cap+1 bytes (dropped, absent from the response,
+// AppScrapeErrors incremented).
+func TestScrapeMultipleAppsBodyCap(t *testing.T) {
+	prev := maxAppMetricsBodyBytes
+	maxAppMetricsBodyBytes = 100
+	t.Cleanup(func() { maxAppMetricsBodyBytes = prev })
+
+	atCap := strings.Repeat("a", 100)
+	overCap := strings.Repeat("b", 101)
+
+	targets := make([]ScrapeTarget, 0, 2)
+	for _, body := range []string{atCap, overCap} {
+		body := body
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if _, err := w.Write([]byte(body)); err != nil {
+				t.Fatalf("target write failed: %v", err)
+			}
+		}))
+		defer srv.Close()
+		_, port, err := net.SplitHostPort(strings.TrimPrefix(srv.URL, "http://"))
+		if err != nil {
+			t.Fatalf("split host port: %v", err)
+		}
+		targets = append(targets, ScrapeTarget{Port: port, Path: "/metrics"})
+	}
+
+	envoyServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Empty envoy body — we only care about app target behavior here.
+	}))
+	defer envoyServer.Close()
+	_, envoyPortStr, err := net.SplitHostPort(strings.TrimPrefix(envoyServer.URL, "http://"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	envoyPort, err := strconv.Atoi(envoyPortStr)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	server := &Server{
+		prometheus: &PrometheusScrapeConfiguration{
+			Port:    targets[0].Port,
+			Path:    targets[0].Path,
+			Targets: targets,
+		},
+		envoyStatsPort: envoyPort,
+		http:           &http.Client{},
+		registry:       TestingRegistry(t),
+	}
+
+	rec := httptest.NewRecorder()
+	before := appScrapeErrorCount(t, server.registry)
+	server.handleStats(rec, &http.Request{})
+	after := appScrapeErrorCount(t, server.registry)
+
+	body := rec.Body.String()
+	if !strings.Contains(body, atCap) {
+		t.Errorf("at-cap body (100 bytes of 'a') should be present in merged response; len(body)=%d", len(body))
+	}
+	if strings.Contains(body, overCap) {
+		t.Errorf("over-cap body (101 bytes of 'b') should NOT be present; len(body)=%d", len(body))
+	}
+	if got := after - before; got != 1 {
+		t.Errorf("AppScrapeErrors delta = %v, want 1 (only the over-cap target should fail)", got)
 	}
 }
 
@@ -1887,6 +2011,31 @@ func TestingRegistry(t test.Failer) prometheus.Gatherer {
 		t.Fatal(err)
 	}
 	return r
+}
+
+// appScrapeErrorCount reads istio_agent_scrape_failures_total{type="application"} from the
+// test registry. The agent wraps the registry with the "istio_agent_" prefix at startup
+// (server.go: WrapRegistererWithPrefix), so the bare "scrape_failures_total" name will not
+// match. Tests should capture this value before and after handleStats, then assert on the
+// delta — the registry is process-global and accumulates across tests in the package.
+func appScrapeErrorCount(t test.Failer, g prometheus.Gatherer) float64 {
+	families, err := g.Gather()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, mf := range families {
+		if mf.GetName() != "istio_agent_scrape_failures_total" {
+			continue
+		}
+		for _, m := range mf.GetMetric() {
+			for _, lp := range m.GetLabel() {
+				if lp.GetName() == "type" && lp.GetValue() == "application" {
+					return m.GetCounter().GetValue()
+				}
+			}
+		}
+	}
+	return 0
 }
 
 func TestParseScrapeTargets(t *testing.T) {

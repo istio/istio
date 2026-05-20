@@ -755,9 +755,15 @@ func (s *Server) scrapeMultipleApps(r *http.Request) (expfmt.Format, [][]byte) {
 				return
 			}
 			defer body.Close()
-			buf, readErr := io.ReadAll(body)
+			buf, readErr := io.ReadAll(io.LimitReader(body, int64(maxAppMetricsBodyBytes)+1))
 			if readErr != nil {
 				log.Errorf("failed reading application metrics from %s:%s: %v", tgt.Port, tgt.Path, readErr)
+				metrics.AppScrapeErrors.Increment()
+				return
+			}
+			if len(buf) > maxAppMetricsBodyBytes {
+				log.Warnf("application metrics response from %s:%s exceeds %d bytes; dropping target",
+					tgt.Port, tgt.Path, maxAppMetricsBodyBytes)
 				metrics.AppScrapeErrors.Increment()
 				return
 			}
@@ -767,12 +773,29 @@ func (s *Server) scrapeMultipleApps(r *http.Request) (expfmt.Format, [][]byte) {
 	}
 	wg.Wait()
 
+	// Coerce to text when successful targets disagree on Content-Type format: an OpenMetrics
+	// response containing a text body (or vice versa) is invalid, so when the targets do
+	// not agree we fall back to the lowest-common-denominator format. Single-format
+	// scrapes (all-text or all-OM) keep their format and EOF semantics.
 	var format expfmt.Format = FmtText
-	for i := range bodies {
-		if bodies[i] != nil {
-			format = negotiateMetricsFormat(contentTypes[i])
+	firstFmt := ""
+	allMatch := true
+	for i, ct := range contentTypes {
+		if bodies[i] == nil {
+			continue
+		}
+		f := string(negotiateMetricsFormat(ct))
+		if firstFmt == "" {
+			firstFmt = f
+			continue
+		}
+		if f != firstFmt {
+			allMatch = false
 			break
 		}
+	}
+	if allMatch && firstFmt != "" {
+		format = expfmt.Format(firstFmt)
 	}
 	return format, bodies
 }
@@ -780,6 +803,12 @@ func (s *Server) scrapeMultipleApps(r *http.Request) (expfmt.Format, [][]byte) {
 func appMetricsURL(port, path string) string {
 	return fmt.Sprintf("http://localhost:%s%s", port, path)
 }
+
+// maxAppMetricsBodyBytes caps the per-target app metrics body to bound agent memory
+// across N concurrent scrape targets. Reads above the cap are dropped as failures and
+// incremented on AppScrapeErrors. Declared as a var (not a const) only so tests can
+// shrink it to a tractable size; do not mutate at runtime.
+var maxAppMetricsBodyBytes = 10 * 1024 * 1024 // 10 MiB
 
 // stripOpenMetricsEOF removes the trailing "# EOF" line from an OpenMetrics exposition,
 // leaving the rest of the body intact. Tolerant of trailing whitespace and \r\n line endings.
