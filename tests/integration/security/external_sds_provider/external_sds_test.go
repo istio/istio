@@ -34,7 +34,7 @@ import (
 )
 
 func gatewayLabel() string {
-	label := gatewayLabel()
+	label := inst.Settings().IngressGatewayIstioLabel
 	if label == "" {
 		return "ingressgateway"
 	}
