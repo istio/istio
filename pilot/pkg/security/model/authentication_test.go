@@ -833,7 +833,10 @@ func TestConstructSdsSecretConfigForCredential(t *testing.T) {
 			name:                   "sds://no-provider-no-socket",
 			credentialSocketExists: false,
 			push:                   &model.PushContext{Mesh: &meshconfig.MeshConfig{}},
-			expected:               nil,
+			expected: &auth.SdsSecretConfig{
+				Name:      "kubernetes://no-provider-no-socket",
+				SdsConfig: SDSAdsConfig,
+			},
 		},
 	}
 
