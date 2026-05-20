@@ -17,6 +17,7 @@ package core
 import (
 	"reflect"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -4902,10 +4903,11 @@ func TestGatewayExternalSDSProvider(t *testing.T) {
 		providerPort        uint32
 		expectedClusterName string
 		expectSDS           bool
+		noSDSProvider       bool
 	}{
 		{
 			name:                "external SDS provider with SIMPLE TLS",
-			credentialName:      "sds://my-sds-provider",
+			credentialName:      "sds://my-credential",
 			tlsMode:             networking.ServerTLSSettings_SIMPLE,
 			providerName:        "my-sds-provider",
 			providerService:     "sds-service.sds-ns.svc.cluster.local",
@@ -4915,39 +4917,42 @@ func TestGatewayExternalSDSProvider(t *testing.T) {
 		},
 		{
 			name:                "external SDS provider with MUTUAL TLS",
-			credentialName:      "sds://mutual-sds-provider",
+			credentialName:      "sds://mutual-credential",
 			tlsMode:             networking.ServerTLSSettings_MUTUAL,
-			providerName:        "mutual-sds-provider",
+			providerName:        "my-sds-provider",
 			providerService:     "sds-mutual.sds-ns.svc.cluster.local",
 			providerPort:        9443,
 			expectedClusterName: "outbound|9443||sds-mutual.sds-ns.svc.cluster.local",
 			expectSDS:           true,
 		},
 		{
-			name:                "sds:// prefix without matching provider falls back to ADS",
-			credentialName:      "sds://unknown-provider",
+			name:                "sds:// prefix without any SDS provider returns nil",
+			credentialName:      "sds://some-credential",
 			tlsMode:             networking.ServerTLSSettings_SIMPLE,
-			providerName:        "different-provider",
-			providerService:     "sds-service.sds-ns.svc.cluster.local",
-			providerPort:        8443,
+			providerName:        "",
+			providerService:     "",
+			providerPort:        0,
 			expectedClusterName: "",
 			expectSDS:           false,
+			noSDSProvider:       true,
 		},
 	}
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			mc := mesh.DefaultMeshConfig()
-			mc.ExtensionProviders = append(mc.ExtensionProviders, &meshconfig.MeshConfig_ExtensionProvider{
-				Name: tt.providerName,
-				Provider: &meshconfig.MeshConfig_ExtensionProvider_Sds{
-					Sds: &meshconfig.MeshConfig_ExtensionProvider_SDSProvider{
-						Name:    tt.providerName,
-						Service: tt.providerService,
-						Port:    tt.providerPort,
+			if !tt.noSDSProvider {
+				mc.ExtensionProviders = append(mc.ExtensionProviders, &meshconfig.MeshConfig_ExtensionProvider{
+					Name: tt.providerName,
+					Provider: &meshconfig.MeshConfig_ExtensionProvider_Sds{
+						Sds: &meshconfig.MeshConfig_ExtensionProvider_SDSProvider{
+							Name:    tt.providerName,
+							Service: tt.providerService,
+							Port:    tt.providerPort,
+						},
 					},
-				},
-			})
+				})
+			}
 
 			gatewayConfig := config.Config{
 				Meta: config.Meta{Name: "tls-gateway", Namespace: "testns", GroupVersionKind: gvk.Gateway},
@@ -5025,15 +5030,15 @@ func TestGatewayExternalSDSProvider(t *testing.T) {
 
 			tlsContext := xdstest.UnmarshalAny[auth.DownstreamTlsContext](t, fc.GetTransportSocket().GetTypedConfig())
 			sdsConfigs := tlsContext.GetCommonTlsContext().GetTlsCertificateSdsSecretConfigs()
-			if len(sdsConfigs) == 0 {
-				t.Fatal("expected SDS secret configs to be set")
-			}
-
-			sdsConfig := sdsConfigs[0]
 
 			if tt.expectSDS {
-				if sdsConfig.GetName() != tt.credentialName {
-					t.Errorf("expected SDS secret name %q, got %q", tt.credentialName, sdsConfig.GetName())
+				if len(sdsConfigs) == 0 {
+					t.Fatal("expected SDS secret configs to be set")
+				}
+				sdsConfig := sdsConfigs[0]
+				expectedResourceName := strings.TrimPrefix(tt.credentialName, "sds://")
+				if sdsConfig.GetName() != expectedResourceName {
+					t.Errorf("expected SDS secret name %q, got %q", expectedResourceName, sdsConfig.GetName())
 				}
 				grpcServices := sdsConfig.GetSdsConfig().GetApiConfigSource().GetGrpcServices()
 				if len(grpcServices) == 0 {
@@ -5044,13 +5049,9 @@ func TestGatewayExternalSDSProvider(t *testing.T) {
 					t.Errorf("expected cluster name %q, got %q", tt.expectedClusterName, clusterName)
 				}
 			} else {
-				// When provider is not found, falls back to ADS with kubernetes:// prefix
-				expectedName := "kubernetes://" + tt.credentialName
-				if sdsConfig.GetName() != expectedName {
-					t.Errorf("expected fallback SDS secret name %q, got %q", expectedName, sdsConfig.GetName())
-				}
-				if sdsConfig.GetSdsConfig().GetAds() == nil {
-					t.Error("expected ADS config source for fallback case")
+				// When no SDS provider is found and no UDS socket, the SDS config entry should have no name
+				if len(sdsConfigs) > 0 && sdsConfigs[0].GetName() != "" {
+					t.Errorf("expected empty SDS config name when no provider found, got %q", sdsConfigs[0].GetName())
 				}
 			}
 

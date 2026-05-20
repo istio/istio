@@ -33,6 +33,14 @@ import (
 	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
 )
 
+func gatewayLabel() string {
+	label := gatewayLabel()
+	if label == "" {
+		return "ingressgateway"
+	}
+	return label
+}
+
 // TestExternalSDSProvider verifies that configuring a Gateway with credentialName
 // using the sds:// prefix correctly generates Envoy listener config pointing to the
 // external SDS provider's cluster (as defined in meshConfig.extensionProviders).
@@ -80,7 +88,7 @@ spec:
       protocol: HTTPS
     tls:
       mode: SIMPLE
-      credentialName: "sds://my-sds-provider"
+      credentialName: "sds://my-credential"
     hosts:
     - "external-sds.example.com"
 ---
@@ -99,7 +107,7 @@ spec:
         host: a
         port:
           number: 80
-`, inst.Settings().IngressGatewayIstioLabel)
+`, gatewayLabel())
 					t.ConfigIstio().YAML(echoNS.Name(), gatewayConfig).ApplyOrFail(t)
 					return nil
 				}).
@@ -127,8 +135,8 @@ spec:
 							return fmt.Errorf("istioctl error output: %s", errOutput)
 						}
 
-						if !strings.Contains(output, "sds://my-sds-provider") {
-							return fmt.Errorf("listener config does not contain SDS credential name 'sds://my-sds-provider'")
+						if !strings.Contains(output, `"my-credential"`) {
+							return fmt.Errorf("listener config does not contain SDS resource name 'my-credential'")
 						}
 
 						if !strings.Contains(output, "outbound|8443||sds-grpc-server.istio-system.svc.cluster.local") {
@@ -187,7 +195,7 @@ spec:
       protocol: HTTPS
     tls:
       mode: MUTUAL
-      credentialName: "sds://my-sds-provider"
+      credentialName: "sds://my-credential"
     hosts:
     - "external-sds-mtls.example.com"
 ---
@@ -206,7 +214,7 @@ spec:
         host: a
         port:
           number: 80
-`, inst.Settings().IngressGatewayIstioLabel)
+`, gatewayLabel())
 					t.ConfigIstio().YAML(echoNS.Name(), gatewayConfig).ApplyOrFail(t)
 					return nil
 				}).
@@ -233,8 +241,8 @@ spec:
 							return fmt.Errorf("istioctl error output: %s", errOutput)
 						}
 
-						if !strings.Contains(output, "sds://my-sds-provider") {
-							return fmt.Errorf("listener config does not contain SDS credential name 'sds://my-sds-provider'")
+						if !strings.Contains(output, `"my-credential"`) {
+							return fmt.Errorf("listener config does not contain SDS resource name 'my-credential'")
 						}
 
 						if !strings.Contains(output, "outbound|8443||sds-grpc-server.istio-system.svc.cluster.local") {
@@ -242,8 +250,8 @@ spec:
 						}
 
 						// For MUTUAL TLS, verify that the validation context references the CA cert SDS config.
-						if !strings.Contains(output, "sds://my-sds-provider-cacert") {
-							return fmt.Errorf("listener config does not contain CA cert SDS name 'sds://my-sds-provider-cacert'")
+						if !strings.Contains(output, `"my-credential-cacert"`) {
+							return fmt.Errorf("listener config does not contain CA cert SDS name 'my-credential-cacert'")
 						}
 
 						return nil
@@ -297,7 +305,7 @@ spec:
       protocol: HTTPS
     tls:
       mode: SIMPLE
-      credentialName: "sds://my-sds-provider"
+      credentialName: "sds://my-credential"
     hosts:
     - "external-sds-details.example.com"
 ---
@@ -316,7 +324,7 @@ spec:
         host: a
         port:
           number: 80
-`, inst.Settings().IngressGatewayIstioLabel)
+`, gatewayLabel())
 					t.ConfigIstio().YAML(echoNS.Name(), gatewayConfig).ApplyOrFail(t)
 					return nil
 				}).
@@ -354,7 +362,7 @@ spec:
 							if strings.Contains(lStr, "external-sds-details.example.com") {
 								found = true
 								// Verify SDS config structure
-								if !strings.Contains(lStr, `"name":"sds://my-sds-provider"`) {
+								if !strings.Contains(lStr, `"my-credential"`) {
 									return fmt.Errorf("SDS secret config name not found in listener")
 								}
 								if !strings.Contains(lStr, `"clusterName":"outbound|8443||sds-grpc-server.istio-system.svc.cluster.local"`) {
