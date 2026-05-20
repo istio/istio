@@ -2408,7 +2408,7 @@ spec:
       protocol: HTTPS
     tls:
       mode: SIMPLE
-      credentialName: "sds://my-sds-provider"
+      credentialName: "sds://my-credential"
     hosts:
     - "secure.example.com"
 ---
@@ -2486,8 +2486,8 @@ spec:
 	}
 
 	sdsConfig := sdsConfigs[0]
-	if sdsConfig.GetName() != "sds://my-sds-provider" {
-		t.Errorf("expected SDS name %q, got %q", "sds://my-sds-provider", sdsConfig.GetName())
+	if sdsConfig.GetName() != "my-credential" {
+		t.Errorf("expected SDS name %q, got %q", "my-credential", sdsConfig.GetName())
 	}
 
 	grpcServices := sdsConfig.GetSdsConfig().GetApiConfigSource().GetGrpcServices()

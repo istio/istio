@@ -3402,7 +3402,7 @@ func TestBuildListenerTLSContext(t *testing.T) {
 			name: "external SDS provider with credential name",
 			serverTLSSettings: &networking.ServerTLSSettings{
 				Mode:           networking.ServerTLSSettings_SIMPLE,
-				CredentialName: "sds://provider-cert",
+				CredentialName: "sds://my-credential",
 			},
 			proxy: &model.Proxy{
 				Metadata: &model.NodeMetadata{},
@@ -3412,10 +3412,10 @@ func TestBuildListenerTLSContext(t *testing.T) {
 					Mesh: &meshconfig.MeshConfig{
 						ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{
 							{
-								Name: "provider-cert",
+								Name: "my-sds-provider",
 								Provider: &meshconfig.MeshConfig_ExtensionProvider_Sds{
 									Sds: &meshconfig.MeshConfig_ExtensionProvider_SDSProvider{
-										Name:    "provider-cert",
+										Name:    "my-sds-provider",
 										Service: "sds-provider-service",
 										Port:    8080,
 									},
@@ -3449,7 +3449,7 @@ func TestBuildListenerTLSContext(t *testing.T) {
 			name: "external SDS provider with mutual TLS",
 			serverTLSSettings: &networking.ServerTLSSettings{
 				Mode:            networking.ServerTLSSettings_MUTUAL,
-				CredentialName:  "sds://provider-cert",
+				CredentialName:  "sds://my-credential",
 				SubjectAltNames: []string{"test.com"},
 			},
 			proxy: &model.Proxy{
@@ -3460,10 +3460,10 @@ func TestBuildListenerTLSContext(t *testing.T) {
 					Mesh: &meshconfig.MeshConfig{
 						ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{
 							{
-								Name: "provider-cert",
+								Name: "my-sds-provider",
 								Provider: &meshconfig.MeshConfig_ExtensionProvider_Sds{
 									Sds: &meshconfig.MeshConfig_ExtensionProvider_SDSProvider{
-										Name:    "provider-cert",
+										Name:    "my-sds-provider",
 										Service: "sds-provider-service",
 										Port:    8080,
 									},
