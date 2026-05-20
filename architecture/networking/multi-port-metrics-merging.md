@@ -1,6 +1,6 @@
 # Design Proposal: Multi-Port Metrics Merging
 
-**Issue:** https://github.com/istio/istio/issues/59567
+**Issue:** <https://github.com/istio/istio/issues/59567>
 
 ---
 
@@ -38,7 +38,7 @@ It's an Istio-owned namespace, already used for other Istio-specific hints, and 
 
 ### 1. `pilot/cmd/pilot-agent/status/server.go`
 
-**`PrometheusScrapeConfiguration` (line ~507)**
+#### `PrometheusScrapeConfiguration` (line ~507)
 
 Add a `Targets` slice alongside the existing fields:
 
@@ -58,7 +58,7 @@ type PrometheusScrapeConfiguration struct {
 
 Old JSON (`{"scrape":"true","port":"8080","path":"/metrics"}`) unmarshals cleanly with `Targets == nil`. No breaking change.
 
-**`NewServer()` (line ~245)**
+#### `NewServer()` (line ~245)
 
 After unmarshaling `ISTIO_PROMETHEUS_ANNOTATIONS`, normalize to the `Targets` representation:
 
@@ -80,7 +80,7 @@ for i, t := range prom.Targets {
 
 `Server.prometheus` type stays as `*PrometheusScrapeConfiguration`; no field type change needed.
 
-**`handleStats()` (line ~513)**
+#### `handleStats()` (line ~513)
 
 Replace the single-endpoint block with a concurrent fan-out (see Merge Strategy below). The existing serial `io.Copy` for Envoy stats and agent metrics is unchanged.
 
@@ -88,7 +88,7 @@ Replace the single-endpoint block with a concurrent fan-out (see Merge Strategy 
 
 ### 2. `pkg/kube/inject/webhook.go`
 
-**`getPrometheusScrapeConfiguration()` (line ~959)**
+#### `getPrometheusScrapeConfiguration()` (line ~959)
 
 After reading the existing three `prometheus.io/*` annotations, also check `prometheus.istio.io/scrape-targets`:
 
@@ -102,7 +102,7 @@ case prometheusIstioTargetsAnnotation:
 
 Parse `RawTargets` into `[]ScrapeTarget` here or in `applyPrometheusMerge`.
 
-**`applyPrometheusMerge()` (line ~884)**
+#### `applyPrometheusMerge()` (line ~884)
 
 Build the `Targets` slice:
 1. If `RawTargets` is set, parse it; each entry overrides/augments the single `Port`/`Path` fields.
@@ -118,7 +118,7 @@ No change to the annotation rewrite block — `prometheus.io/port` is still set 
 
 ### Current behavior (N=1)
 
-```
+```text
 agent metrics  →  io.Copy
 Envoy stats    →  io.Copy
 app endpoint   →  scrape() → io.Copy
