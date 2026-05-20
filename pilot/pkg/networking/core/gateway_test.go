@@ -5048,11 +5048,9 @@ func TestGatewayExternalSDSProvider(t *testing.T) {
 				if clusterName != tt.expectedClusterName {
 					t.Errorf("expected cluster name %q, got %q", tt.expectedClusterName, clusterName)
 				}
-			} else {
+			} else if len(sdsConfigs) > 0 && sdsConfigs[0].GetName() != "" {
 				// When no SDS provider is found and no UDS socket, the SDS config entry should have no name
-				if len(sdsConfigs) > 0 && sdsConfigs[0].GetName() != "" {
-					t.Errorf("expected empty SDS config name when no provider found, got %q", sdsConfigs[0].GetName())
-				}
+				t.Errorf("expected empty SDS config name when no provider found, got %q", sdsConfigs[0].GetName())
 			}
 
 			if tt.tlsMode == networking.ServerTLSSettings_MUTUAL {
