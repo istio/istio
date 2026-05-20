@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 60110
+releaseNotes:
+  - |
+    **Fixed** an istiod panic when processing a `VirtualService` with TCP or TLS routes that have no destinations, which could occur when the validating webhook is not installed (e.g. deployments without a default revision).
