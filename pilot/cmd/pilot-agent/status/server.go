@@ -591,7 +591,9 @@ func IstioReservedPortReason(port string) (string, bool) {
 }
 
 // ParseScrapeTargets parses a comma-separated list of "port:path" pairs into ScrapeTargets.
-// Whitespace is trimmed from each entry. An empty path defaults to "/metrics".
+// Whitespace is trimmed from each entry. An empty path defaults to "/metrics"; a non-empty
+// path without a leading slash has one prepended, so "8080:metrics" yields path "/metrics"
+// rather than building a malformed scrape URL like "http://localhost:8080metrics".
 // Returns an error if any entry has an empty port.
 func ParseScrapeTargets(raw string) ([]ScrapeTarget, error) {
 	var targets []ScrapeTarget
@@ -608,6 +610,9 @@ func ParseScrapeTargets(raw string) ([]ScrapeTarget, error) {
 		path := "/metrics"
 		if len(parts) == 2 && strings.TrimSpace(parts[1]) != "" {
 			path = strings.TrimSpace(parts[1])
+		}
+		if !strings.HasPrefix(path, "/") {
+			path = "/" + path
 		}
 		targets = append(targets, ScrapeTarget{Port: port, Path: path})
 	}

@@ -2152,6 +2152,16 @@ func TestParseScrapeTargets(t *testing.T) {
 			input: "8080:/metrics?foo=bar",
 			want:  []ScrapeTarget{{Port: "8080", Path: "/metrics?foo=bar"}},
 		},
+		{
+			name:  "path missing leading slash is normalized",
+			input: "8080:metrics",
+			want:  []ScrapeTarget{{Port: "8080", Path: "/metrics"}},
+		},
+		{
+			name:  "mixed valid paths with and without leading slash are normalized",
+			input: "8080:custom,9100:/other",
+			want:  []ScrapeTarget{{Port: "8080", Path: "/custom"}, {Port: "9100", Path: "/other"}},
+		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
