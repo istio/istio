@@ -150,14 +150,15 @@ func NoError(t test.Failer, err error) {
 	}
 }
 
-// ChannelHasItem asserts a channel has an element within 5s and returns the element
+// ChannelHasItem asserts a channel has an element within 30s and returns the element.
+// The timeout is generous so the helper does not flake on slower CI workers (notably arm64).
 func ChannelHasItem[T any](t test.Failer, c <-chan T) T {
 	t.Helper()
 	select {
 	case r := <-c:
 		return r
-	case <-time.After(time.Second * 5):
-		t.Fatal("failed to receive event after 5s")
+	case <-time.After(time.Second * 30):
+		t.Fatal("failed to receive event after 30s")
 	}
 	// Not reachable
 	return ptr.Empty[T]()

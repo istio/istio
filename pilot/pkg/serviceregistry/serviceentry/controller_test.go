@@ -1435,16 +1435,22 @@ func TestServiceDiscoveryWorkloadInstance(t *testing.T) {
 		expectServiceInstances(t, sd, selector, 0, instances)
 		expectEvents(t, events, Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace, EndpointCount: 2})
 
-		// Validate we have exactly 1 instance for selector host in outputs
-		countForSelector := 0
-		for _, si := range sd.outputs.ServiceInstances.List() {
-			if si.Service.Attributes.Namespace == selector.Namespace && string(si.Service.Hostname) == "selector.com" {
-				countForSelector++
+		// Validate we have exactly 2 instances for selector host in outputs.
+		// expectEvents above waits for the eds event; the ServiceInstances output
+		// collection is updated by a separate handler chain that may not have
+		// drained yet, so retry until it has.
+		retry.UntilSuccessOrFail(t, func() error {
+			countForSelector := 0
+			for _, si := range sd.outputs.ServiceInstances.List() {
+				if si.Service.Attributes.Namespace == selector.Namespace && string(si.Service.Hostname) == "selector.com" {
+					countForSelector++
+				}
 			}
-		}
-		if countForSelector != 2 {
-			t.Fatalf("service instances count mismatch for selector.com, expect 2, got %d", countForSelector)
-		}
+			if countForSelector != 2 {
+				return fmt.Errorf("service instances count mismatch for selector.com, expect 2, got %d", countForSelector)
+			}
+			return nil
+		}, retry.Timeout(time.Second*5))
 
 		// The following sections mimic this scenario:
 		// f1 starts terminating, f3 picks up the IP, f3 delete event (pod
@@ -1462,16 +1468,20 @@ func TestServiceDiscoveryWorkloadInstance(t *testing.T) {
 		expectServiceInstances(t, sd, selector, 0, instances)
 		expectEvents(t, events, Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace, EndpointCount: 0})
 
-		// After deletions, ensure we have zero instances for selector host
-		countForSelector = 0
-		for _, si := range sd.outputs.ServiceInstances.List() {
-			if si.Service.Attributes.Namespace == selector.Namespace && string(si.Service.Hostname) == "selector.com" {
-				countForSelector++
+		// After deletions, ensure we have zero instances for selector host.
+		// Retry to let the ServiceInstances output collection drain after the eds event.
+		retry.UntilSuccessOrFail(t, func() error {
+			countForSelector := 0
+			for _, si := range sd.outputs.ServiceInstances.List() {
+				if si.Service.Attributes.Namespace == selector.Namespace && string(si.Service.Hostname) == "selector.com" {
+					countForSelector++
+				}
 			}
-		}
-		if countForSelector != 0 {
-			t.Fatalf("service instances count mismatch for selector.com, expect 0, got %d", countForSelector)
-		}
+			if countForSelector != 0 {
+				return fmt.Errorf("service instances count mismatch for selector.com, expect 0, got %d", countForSelector)
+			}
+			return nil
+		}, retry.Timeout(time.Second*5))
 
 		// Add f3 event
 		callInstanceHandlers([]*model.WorkloadInstance{fi3}, sd, model.EventAdd, t)
