@@ -89,7 +89,9 @@ func ConstructSdsSecretConfigForCredential(name string, credentialSocketExist bo
 	if strings.HasPrefix(name, security.SDSExternalCredentialPrefix) {
 		resourceName, _ := strings.CutPrefix(name, security.SDSExternalCredentialPrefix)
 		if credentialSocketExist {
-			return ConstructSdsSecretConfigForCredentialSocket(resourceName, security.SDSExternalClusterName)
+			// Preserve full name (including sds:// prefix) for backward compatibility —
+			// existing UDS-based SDS agents expect the complete credentialName as the resource name.
+			return ConstructSdsSecretConfigForCredentialSocket(name, security.SDSExternalClusterName)
 		}
 		if push != nil {
 			for _, provider := range push.Mesh.ExtensionProviders {
