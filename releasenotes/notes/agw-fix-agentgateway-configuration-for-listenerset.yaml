@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+  - |
+    **Fixed**: when pilot generated configuration for the agentgateway, due to a number of
+    issues, it basically ignored ListenerSets and routes attached to them. Now, when pilot
+    generates configuration for the agentgateway it does not filter out ListenerSets and
+    routes attached to them, enabling agentgateway in Istio to handle ListenerSets properly.
