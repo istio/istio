@@ -49,6 +49,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
@@ -248,11 +249,23 @@ func (c *Controller) initializeInputs(kc kube.Client, opts krt.OptionsBuilder) {
 // TODO(jaellio): Consider refactoring so actual collection creation happen in a common BaseGatewayController type so
 // collections are only built once across controller and agentgateway_controller
 func (c *Controller) buildResourceCollections(opts krt.OptionsBuilder) {
-	gatewayClassStatus, gatewayClasses := gatewaycommon.GatewayClassesCollection(c.inputs.GatewayClasses, opts)
+	agwGatewayClasses := krt.NewCollection(c.inputs.GatewayClasses, func(ctx krt.HandlerContext, class *gatewayv1.GatewayClass) **gatewayv1.GatewayClass {
+		controller, builtInClass := gatewaycommon.AgentgatewayClasses[gatewayv1.ObjectName(class.Name)]
+		if !builtInClass {
+			return nil
+		}
+		if controller != constants.ManagedAgentgatewayController {
+			return nil
+		}
+		agwClass := class.DeepCopy()
+		return &agwClass
+	}, opts.WithName("AgentgatewayGatewayClasses")...)
+
+	gatewayClassStatus, gatewayClasses := gatewaycommon.GatewayClassesCollection(agwGatewayClasses, opts)
 	status.RegisterStatus(c.status, gatewayClassStatus, GetStatus, c.tagWatcher.AccessUnprotected())
 
 	referenceGrants := gatewaycommon.BuildReferenceGrants(gatewaycommon.ReferenceGrantsCollection(c.inputs.ReferenceGrants, opts))
-	listenerSetStatus, listenerSets := ListenerSetCollection(
+	listenerSetIntialStatus, listenerSets := ListenerSetCollection(
 		c.inputs.ListenerSets,
 		c.inputs.Gateways,
 		gatewayClasses,
@@ -265,7 +278,7 @@ func (c *Controller) buildResourceCollections(opts krt.OptionsBuilder) {
 		c.tagWatcher,
 		opts,
 	)
-	status.RegisterStatus(c.status, listenerSetStatus, GetStatus, c.tagWatcher.AccessUnprotected())
+
 	// GatewaysStatus is not fully complete until its join with route attachments to report attachedRoutes.
 	// Do not register yet.
 	// GatewayAPI uses status - how you know what
@@ -308,6 +321,9 @@ func (c *Controller) buildResourceCollections(opts krt.OptionsBuilder) {
 	gatewayFinalStatus := c.buildFinalGatewayStatus(gatewayInitialStatus, routeAttachments, opts)
 	status.RegisterStatus(c.status, gatewayFinalStatus, GetStatus, c.tagWatcher.AccessUnprotected())
 
+	listenerSetFinalStatus := c.buildFinalListenerSetStatus(listenerSetIntialStatus, routeAttachments, opts)
+	status.RegisterStatus(c.status, listenerSetFinalStatus, GetStatus, c.tagWatcher.AccessUnprotected())
+
 	httpRoutesByInferencePool := krt.NewIndex(c.inputs.HTTPRoutes, "inferencepool-route", indexHTTPRouteByInferencePool)
 	inferencePoolStatus, _ := InferencePoolCollection(
 		c.inputs.InferencePools,
@@ -331,6 +347,36 @@ func (c *Controller) buildResourceCollections(opts krt.OptionsBuilder) {
 
 	c.outputs.Resources = agwResources
 	c.outputs.Addresses = addresses
+}
+
+func (c *Controller) buildFinalListenerSetStatus(
+	listenerSetStatuses krt.StatusCollection[*gatewayv1.ListenerSet, gatewayv1.ListenerSetStatus],
+	routeAttachments krt.Collection[*RouteAttachment],
+	opts krt.OptionsBuilder,
+) krt.StatusCollection[*gatewayv1.ListenerSet, gatewayv1.ListenerSetStatus] {
+	routeAttachmentsIndex := krt.NewIndex(routeAttachments, "to", func(o *RouteAttachment) []types.NamespacedName {
+		return []types.NamespacedName{o.To}
+	})
+	return krt.NewCollection(
+		listenerSetStatuses,
+		func(
+			ctx krt.HandlerContext, i krt.ObjectWithStatus[*gatewayv1.ListenerSet, gatewayv1.ListenerSetStatus],
+		) *krt.ObjectWithStatus[*gatewayv1.ListenerSet, gatewayv1.ListenerSetStatus] {
+			routes := routeAttachmentsIndex.Fetch(ctx, config.NamespacedName(i.Obj))
+			routesPerListener := map[string]int32{}
+			for _, r := range routes {
+				routesPerListener[r.ListenerName]++
+			}
+			status := i.Status.DeepCopy()
+			for i, l := range status.Listeners {
+				l.AttachedRoutes = routesPerListener[string(l.Name)]
+				status.Listeners[i] = l
+			}
+			return &krt.ObjectWithStatus[*gatewayv1.ListenerSet, gatewayv1.ListenerSetStatus]{
+				Obj:    i.Obj,
+				Status: *status,
+			}
+		}, opts.WithName("ListenerSetFinalStatus")...)
 }
 
 func (c *Controller) buildFinalGatewayStatus(
@@ -586,20 +632,8 @@ func (c *Controller) buildAgwResources(
 	krt.Collection[AgwResource],
 	krt.Collection[*RouteAttachment],
 ) {
-	// filter gateway collections to only include gateways which use a built-in gateway class
-	// (resources for additional gateway classes should be created by the downstream providing them)
-	filteredGateways := krt.NewCollection(gateways, func(ctx krt.HandlerContext, gw *GatewayListener) **GatewayListener {
-		// Note: This filtering logic is opposite of kgateway which uses additionalGatewayClasses
-		if _, builtInClass := gatewaycommon.AgentgatewayClasses[gatewayv1.ObjectName(gw.ParentInfo.ParentGatewayClassName)]; !builtInClass {
-			return nil
-		}
-		return &gw
-	}, opts.WithName("FilteredGateways")...)
-
-	filteredGateways.List()
-
 	// Build ports and binds
-	ports := krt.UnnamedIndex(filteredGateways, func(l *GatewayListener) []string {
+	ports := krt.UnnamedIndex(gateways, func(l *GatewayListener) []string {
 		return []string{fmt.Sprint(l.ParentInfo.Port)}
 	}).AsCollection(opts.WithName("PortBindings")...)
 
@@ -608,10 +642,7 @@ func (c *Controller) buildAgwResources(
 		uniq := sets.New[types.NamespacedName]()
 		protocol := api.Bind_Protocol(0)
 		for _, gw := range object.Objects {
-			uniq.Insert(types.NamespacedName{
-				Namespace: gw.ParentGateway.Namespace,
-				Name:      gw.ParentGateway.Name,
-			})
+			uniq.Insert(gw.ParentGateway)
 			// TODO: better handle conflicts of protocols. For now, we arbitrarily treat TLS > plain
 			if gw.Valid {
 				protocol = max(protocol, c.getBindProtocol(gw))
@@ -630,12 +661,12 @@ func (c *Controller) buildAgwResources(
 	}, opts.WithName("Binds")...)
 
 	// Build listeners
-	listeners := krt.NewCollection(filteredGateways, func(ctx krt.HandlerContext, obj *GatewayListener) *AgwResource {
+	listeners := krt.NewCollection(gateways, func(ctx krt.HandlerContext, obj *GatewayListener) *AgwResource {
 		return c.buildListenerFromGateway(obj)
 	}, opts.WithName("Listeners")...)
 
 	// Build routes
-	routeParents := BuildRouteParents(filteredGateways)
+	routeParents := BuildRouteParents(gateways)
 
 	routeInputs := RouteContextInputs{
 		Grants:         refGrants,
@@ -667,13 +698,24 @@ func (c *Controller) buildAgwResources(
 	return allAgwResources, routeAttachments
 }
 
-// Taken from kgateway utils.go
-func ListenerName(namespace, name string, listener string) *api.ListenerName {
+func listenerName(listener *GatewayListener) *api.ListenerName {
+	gatewayName := listener.ParentGateway.Name
+	gatewayNamespace := listener.ParentGateway.Namespace
+	name := string(listener.ParentInfo.SectionName)
+
+	var listenerSet *api.ResourceName
+	if listener.ParentObject.Kind == gvk.ListenerSet.Kubernetes() {
+		listenerSet = &api.ResourceName{
+			Name:      listener.ParentObject.Name,
+			Namespace: listener.ParentObject.Namespace,
+		}
+	}
+
 	return &api.ListenerName{
-		GatewayName:      name,
-		GatewayNamespace: namespace,
-		ListenerName:     listener,
-		ListenerSet:      nil,
+		GatewayName:      gatewayName,
+		GatewayNamespace: gatewayNamespace,
+		ListenerName:     name,
+		ListenerSet:      listenerSet,
 	}
 }
 
@@ -681,8 +723,8 @@ func ListenerName(namespace, name string, listener string) *api.ListenerName {
 func (c *Controller) buildListenerFromGateway(obj *GatewayListener) *AgwResource {
 	l := &api.Listener{
 		Key:      obj.ResourceName(),
-		Name:     ListenerName(obj.ParentObject.Namespace, obj.ParentObject.Name, string(obj.ParentInfo.SectionName)),
-		BindKey:  fmt.Sprint(obj.ParentInfo.Port) + "/" + obj.ParentObject.Namespace + "/" + obj.ParentObject.Name,
+		Name:     listenerName(obj),
+		BindKey:  fmt.Sprint(obj.ParentInfo.Port) + "/" + obj.ParentGateway.String(),
 		Hostname: obj.ParentInfo.OriginalHostname,
 	}
 
@@ -695,10 +737,7 @@ func (c *Controller) buildListenerFromGateway(obj *GatewayListener) *AgwResource
 	l.Protocol = protocol
 	l.Tls = tlsConfig
 
-	return ptr.Of(ToResourceForGateway(types.NamespacedName{
-		Namespace: obj.ParentObject.Namespace,
-		Name:      obj.ParentObject.Name,
-	}, AgwListener{Listener: l}))
+	return ptr.Of(ToResourceForGateway(obj.ParentGateway, AgwListener{Listener: l}))
 }
 
 // getProtocolAndTLSConfig extracts protocol and TLS configuration from a gateway

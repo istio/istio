@@ -396,7 +396,11 @@ func GatewayCollection(
 			result = append(result, res)
 		}
 		listenersFromSets := listenerIndex.Fetch(ctx, config.NamespacedName(obj))
+		// When reporting gateway status, we need to count the actual ListenerSets attached to the gateway
+		// and not the listeners
+		listenerSets := make(map[types.NamespacedName]bool)
 		for _, ls := range listenersFromSets {
+			listenerSets[ls.Parent] = true
 			result = append(result, &GatewayListener{
 				Name:          ls.Name,
 				ParentGateway: config.NamespacedName(obj),
@@ -411,7 +415,7 @@ func GatewayCollection(
 			})
 		}
 
-		reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, len(listenersFromSets), gatewayErr)
+		reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, len(listenerSets), gatewayErr)
 		return status, result
 	}, opts.WithName("KubernetesGateway")...)
 
