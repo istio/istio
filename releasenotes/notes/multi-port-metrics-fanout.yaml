@@ -1,0 +1,17 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+issue:
+  - 59567
+
+releaseNotes:
+  - |
+    **Improved** the pilot-agent's `/stats/prometheus` endpoint to concurrently scrape
+    multiple targets declared by the `prometheus.istio.io/scrape-targets` annotation and
+    merge the output in the declared order. Single-target pods keep the existing
+    streaming code path byte-for-byte. For multi-target pods, OpenMetrics responses are
+    rewritten so the merged output contains exactly one `# EOF` terminator. Individual
+    target metrics responses are capped at 10 MiB to bound agent memory; responses
+    exceeding this limit are dropped and counted as scrape failures. Per-target scrape
+    failures are non-blocking and increment
+    `istio_agent_scrape_failures_total{type="application"}`.
