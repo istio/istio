@@ -710,25 +710,32 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		// EOF-handling rule:
 		//   - Strip "# EOF" from every body unconditionally.
 		//   - When the negotiated format is OpenMetrics, append a single "# EOF\n" after
-		//     all bodies. When the format is text, no terminator is appended.
+		//     all bodies via expfmt.FinalizeOpenMetrics. When the format is text, no
+		//     terminator is appended.
 		// Newline rule: ensure a "\n" separates concatenated bodies in case a target
-		// response does not end with one.
-		openMetrics := strings.HasPrefix(string(format), expfmt.OpenMetricsType)
+		// response does not end with one. Split into a second w.Write so the stripped
+		// sub-slice does not trigger a body-sized append+realloc.
+		openMetrics := format.FormatType() == expfmt.TypeOpenMetrics
 		for i, body := range appBodies {
 			if body == nil {
 				continue
 			}
 			out := stripOpenMetricsEOF(body)
-			if len(out) > 0 && out[len(out)-1] != '\n' {
-				out = append(out, '\n')
-			}
 			if _, werr := w.Write(out); werr != nil {
 				log.Errorf("failed writing application metrics from target %d: %v", i, werr)
 				metrics.AppScrapeErrors.Increment()
+			} else if len(out) > 0 && out[len(out)-1] != '\n' {
+				if _, werr := w.Write([]byte{'\n'}); werr != nil {
+					log.Errorf("failed writing newline separator for target %d: %v", i, werr)
+					metrics.AppScrapeErrors.Increment()
+				}
 			}
+			// Release the body for GC before the next iteration; the merged response is
+			// already on the wire (or in the buffered ResponseWriter) at this point.
+			appBodies[i] = nil
 		}
 		if openMetrics {
-			if _, werr := w.Write([]byte("# EOF\n")); werr != nil {
+			if _, werr := expfmt.FinalizeOpenMetrics(w); werr != nil {
 				log.Errorf("failed writing application metrics EOF marker: %v", werr)
 				metrics.AppScrapeErrors.Increment()
 			}
@@ -754,57 +761,65 @@ func (s *Server) scrapeMultipleApps(r *http.Request) (expfmt.Format, [][]byte) {
 		wg.Add(1)
 		go func(idx int, tgt ScrapeTarget) {
 			defer wg.Done()
+			// fail* dedup the log+counter+return shape across the three failure paths.
+			// Path is %q-quoted to neutralize CWE-117 log injection via newline-containing
+			// annotation values (the path comes from prometheus.istio.io/scrape-targets).
+			failErr := func(format string, args ...any) {
+				log.Errorf("scrape target %q:%q: "+format, append([]any{tgt.Port, tgt.Path}, args...)...)
+				metrics.AppScrapeErrors.Increment()
+			}
+			failWarn := func(format string, args ...any) {
+				log.Warnf("scrape target %q:%q: "+format, append([]any{tgt.Port, tgt.Path}, args...)...)
+				metrics.AppScrapeErrors.Increment()
+			}
 			body, cancel, contentType, err := s.scrape(appMetricsURL(tgt.Port, tgt.Path), r.Header)
 			if cancel != nil {
 				defer cancel()
 			}
 			if err != nil {
-				log.Errorf("failed scraping application metrics from %s:%s: %v", tgt.Port, tgt.Path, err)
-				metrics.AppScrapeErrors.Increment()
+				failErr("scrape failed: %v", err)
 				return
 			}
 			defer body.Close()
-			buf, readErr := io.ReadAll(io.LimitReader(body, int64(s.maxAppBodyBytes)+1))
-			if readErr != nil {
-				log.Errorf("failed reading application metrics from %s:%s: %v", tgt.Port, tgt.Path, readErr)
-				metrics.AppScrapeErrors.Increment()
+			// Pre-size the read buffer to 64 KiB so io.ReadAll's power-of-two growth does
+			// not allocate ~14 times for a 10 MiB body. cap+1 lets us distinguish at-cap
+			// (legitimate boundary) from saturation (cap+1 or more bytes consumed).
+			buf := bytes.NewBuffer(make([]byte, 0, 64*1024))
+			if _, readErr := buf.ReadFrom(io.LimitReader(body, int64(s.maxAppBodyBytes)+1)); readErr != nil {
+				failErr("read failed: %v", readErr)
 				return
 			}
-			if len(buf) > s.maxAppBodyBytes {
-				log.Warnf("application metrics response from %s:%s exceeds %d bytes; dropping target",
-					tgt.Port, tgt.Path, s.maxAppBodyBytes)
-				metrics.AppScrapeErrors.Increment()
+			if buf.Len() > s.maxAppBodyBytes {
+				failWarn("response exceeds %d bytes; dropping target", s.maxAppBodyBytes)
 				return
 			}
-			bodies[idx] = buf
+			bodies[idx] = buf.Bytes()
 			contentTypes[idx] = contentType
 		}(i, t)
 	}
 	wg.Wait()
 
-	// Coerce to text when successful targets disagree on Content-Type format: an OpenMetrics
-	// response containing a text body (or vice versa) is invalid, so when the targets do
-	// not agree we fall back to the lowest-common-denominator format. Single-format
-	// scrapes (all-text or all-OM) keep their format and EOF semantics.
-	var format expfmt.Format = FmtText
-	firstFmt := ""
-	allMatch := true
+	// Format selection: first successful target's format wins, unless any later successful
+	// target disagrees — in which case we downgrade to text. An OpenMetrics-claimed
+	// response containing a text body (or vice versa) is invalid. Single-format scrapes
+	// (all-text or all-OM) keep their format and EOF semantics.
+	var format expfmt.Format
 	for i, ct := range contentTypes {
 		if bodies[i] == nil {
 			continue
 		}
-		f := string(negotiateMetricsFormat(ct))
-		if firstFmt == "" {
-			firstFmt = f
+		f := negotiateMetricsFormat(ct)
+		if format == "" {
+			format = f
 			continue
 		}
-		if f != firstFmt {
-			allMatch = false
+		if f != format {
+			format = FmtText
 			break
 		}
 	}
-	if allMatch && firstFmt != "" {
-		format = expfmt.Format(firstFmt)
+	if format == "" {
+		format = FmtText
 	}
 	return format, bodies
 }
@@ -813,12 +828,15 @@ func appMetricsURL(port, path string) string {
 	return fmt.Sprintf("http://localhost:%s%s", port, path)
 }
 
+// openMetricsEOF is the OpenMetrics exposition terminator without trailing newline.
+var openMetricsEOF = []byte("# EOF")
+
 // stripOpenMetricsEOF removes the trailing "# EOF" line from an OpenMetrics exposition,
 // leaving the rest of the body intact. Tolerant of trailing whitespace and \r\n line endings.
 func stripOpenMetricsEOF(body []byte) []byte {
 	trimmed := bytes.TrimRight(body, " \t\r\n")
-	if bytes.HasSuffix(trimmed, []byte("# EOF")) {
-		return trimmed[:len(trimmed)-len("# EOF")]
+	if bytes.HasSuffix(trimmed, openMetricsEOF) {
+		return trimmed[:len(trimmed)-len(openMetricsEOF)]
 	}
 	return body
 }
