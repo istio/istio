@@ -165,7 +165,15 @@ type Server struct {
 	shutdown              context.CancelCauseFunc
 	drain                 func()
 	disableDrain          func()
+
+	// maxAppBodyBytes caps the per-target app metrics body to bound agent memory
+	// across N concurrent scrape targets. Reads above the cap are dropped as failures
+	// and incremented on AppScrapeErrors. Defaults to defaultMaxAppMetricsBodyBytes;
+	// tests may override via the struct literal.
+	maxAppBodyBytes int
 }
+
+const defaultMaxAppMetricsBodyBytes = 10 * 1024 * 1024 // 10 MiB
 
 func initializeMonitoring() (prometheus.Gatherer, error) {
 	registry := prometheus.NewRegistry()
@@ -233,6 +241,7 @@ func NewServer(config Options) (*Server, error) {
 		shutdown:              config.Shutdown,
 		drain:                 config.TriggerDrain,
 		disableDrain:          config.DisableDrain,
+		maxAppBodyBytes:       defaultMaxAppMetricsBodyBytes,
 	}
 	if LegacyLocalhostProbeDestination.Get() {
 		s.appProbersDestination = "localhost"
@@ -693,14 +702,9 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// App metrics must go last because if they are FmtOpenMetrics,
-	// they will have a trailing "# EOF" which terminates the full exposition
-	if application != nil {
-		_, err = io.Copy(w, application)
-		if err != nil {
-			log.Errorf("failed to scraping and writing application metrics: %v", err)
-			metrics.AppScrapeErrors.Increment()
-		}
-	}
+	// they will have a trailing "# EOF" which terminates the full exposition.
+	// The two branches are mutually exclusive: the dispatcher above sets exactly
+	// one of `application` (single-target streaming) or `appBodies` (multi-target buffered).
 	if appBodies != nil {
 		// Multi-target path: write each target's buffered body in Targets order.
 		// EOF-handling rule:
@@ -729,6 +733,11 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 				metrics.AppScrapeErrors.Increment()
 			}
 		}
+	} else if application != nil {
+		if _, err = io.Copy(w, application); err != nil {
+			log.Errorf("failed to scraping and writing application metrics: %v", err)
+			metrics.AppScrapeErrors.Increment()
+		}
 	}
 }
 
@@ -755,15 +764,15 @@ func (s *Server) scrapeMultipleApps(r *http.Request) (expfmt.Format, [][]byte) {
 				return
 			}
 			defer body.Close()
-			buf, readErr := io.ReadAll(io.LimitReader(body, int64(maxAppMetricsBodyBytes)+1))
+			buf, readErr := io.ReadAll(io.LimitReader(body, int64(s.maxAppBodyBytes)+1))
 			if readErr != nil {
 				log.Errorf("failed reading application metrics from %s:%s: %v", tgt.Port, tgt.Path, readErr)
 				metrics.AppScrapeErrors.Increment()
 				return
 			}
-			if len(buf) > maxAppMetricsBodyBytes {
+			if len(buf) > s.maxAppBodyBytes {
 				log.Warnf("application metrics response from %s:%s exceeds %d bytes; dropping target",
-					tgt.Port, tgt.Path, maxAppMetricsBodyBytes)
+					tgt.Port, tgt.Path, s.maxAppBodyBytes)
 				metrics.AppScrapeErrors.Increment()
 				return
 			}
@@ -803,12 +812,6 @@ func (s *Server) scrapeMultipleApps(r *http.Request) (expfmt.Format, [][]byte) {
 func appMetricsURL(port, path string) string {
 	return fmt.Sprintf("http://localhost:%s%s", port, path)
 }
-
-// maxAppMetricsBodyBytes caps the per-target app metrics body to bound agent memory
-// across N concurrent scrape targets. Reads above the cap are dropped as failures and
-// incremented on AppScrapeErrors. Declared as a var (not a const) only so tests can
-// shrink it to a tractable size; do not mutate at runtime.
-var maxAppMetricsBodyBytes = 10 * 1024 * 1024 // 10 MiB
 
 // stripOpenMetricsEOF removes the trailing "# EOF" line from an OpenMetrics exposition,
 // leaving the rest of the body intact. Tolerant of trailing whitespace and \r\n line endings.
