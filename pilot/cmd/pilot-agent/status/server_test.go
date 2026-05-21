@@ -727,7 +727,6 @@ func newMultiTargetTestServer(t *testing.T, envoyBody string, specs []targetSpec
 
 	targets := make([]ScrapeTarget, 0, len(specs))
 	for _, spec := range specs {
-		spec := spec
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			if spec.fail {
 				w.WriteHeader(http.StatusInternalServerError)
@@ -1061,15 +1060,15 @@ envoy_metric{} 9
 // present in the merged response) and another returns cap+1 bytes (dropped, absent from
 // the response, AppScrapeErrors incremented).
 func TestScrapeMultipleAppsBodyCap(t *testing.T) {
-	const cap = 100
-	atCap := strings.Repeat("a", cap)
-	overCap := strings.Repeat("b", cap+1)
+	const bodyCap = 100
+	atCap := strings.Repeat("a", bodyCap)
+	overCap := strings.Repeat("b", bodyCap+1)
 
 	server, rec, req := newMultiTargetTestServer(t, "", []targetSpec{
 		{body: atCap},
 		{body: overCap},
 	})
-	server.maxAppBodyBytes = cap
+	server.maxAppBodyBytes = bodyCap
 
 	before := appScrapeErrorCount(t, server.registry)
 	server.handleStats(rec, req)
@@ -1077,10 +1076,10 @@ func TestScrapeMultipleAppsBodyCap(t *testing.T) {
 
 	body := rec.Body.String()
 	if !strings.Contains(body, atCap) {
-		t.Errorf("at-cap body (%d bytes of 'a') should be present in merged response; len(body)=%d", cap, len(body))
+		t.Errorf("at-cap body (%d bytes of 'a') should be present in merged response; len(body)=%d", bodyCap, len(body))
 	}
 	if strings.Contains(body, overCap) {
-		t.Errorf("over-cap body (%d bytes of 'b') should NOT be present; len(body)=%d", cap+1, len(body))
+		t.Errorf("over-cap body (%d bytes of 'b') should NOT be present; len(body)=%d", bodyCap+1, len(body))
 	}
 	if got := after - before; got != 1 {
 		t.Errorf("AppScrapeErrors delta = %v, want 1 (only the over-cap target should fail)", got)
