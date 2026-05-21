@@ -699,9 +699,10 @@ type targetSpec struct {
 // "what the request looked like" (envoy, targets) from "what the response should be."
 type wantStats struct {
 	ordered, contains, notContains []string
-	eofCount                       *int // nil = don't check
+	eofCount                       *int // nil = don't check count
 	parseOM, parseText, parseError bool
 	appScrapeErrorsDelta           float64
+	contentType                    expfmt.Format // empty = don't check
 }
 
 // intPtr is a one-line helper for building *int literals inside wantStats.
@@ -791,9 +792,10 @@ func TestStatsMultiTarget(t *testing.T) {
 				{body: "# TYPE metric_b counter\nmetric_b{} 2\n"},
 			},
 			want: wantStats{
-				ordered:   []string{"metric_a{} 1", "metric_b{} 2"},
-				eofCount:  intPtr(0),
-				parseText: true,
+				ordered:     []string{"metric_a{} 1", "metric_b{} 2"},
+				eofCount:    intPtr(0),
+				parseText:   true,
+				contentType: FmtText,
 			},
 		},
 		{
@@ -804,9 +806,10 @@ func TestStatsMultiTarget(t *testing.T) {
 				{body: "# TYPE metric_two counter\nmetric_two{} 2\n"},
 			},
 			want: wantStats{
-				ordered:   []string{"metric_zero", "metric_one", "metric_two"},
-				eofCount:  intPtr(0),
-				parseText: true,
+				ordered:     []string{"metric_zero", "metric_one", "metric_two"},
+				eofCount:    intPtr(0),
+				parseText:   true,
+				contentType: FmtText,
 			},
 		},
 		{
@@ -822,10 +825,11 @@ func TestStatsMultiTarget(t *testing.T) {
 				},
 			},
 			want: wantStats{
-				ordered:  []string{"metric_a", "metric_b"},
-				contains: []string{"# EOF"},
-				eofCount: intPtr(1),
-				parseOM:  true,
+				ordered:     []string{"metric_a", "metric_b"},
+				contains:    []string{"# EOF"},
+				eofCount:    intPtr(1),
+				parseOM:     true,
+				contentType: FmtOpenMetrics_1_0_0,
 			},
 		},
 		{
@@ -839,6 +843,7 @@ func TestStatsMultiTarget(t *testing.T) {
 				eofCount:             intPtr(0),
 				parseText:            true,
 				appScrapeErrorsDelta: 1,
+				contentType:          FmtText,
 			},
 		},
 		{
@@ -855,6 +860,7 @@ envoy_metric{} 9
 				eofCount:             intPtr(0),
 				parseText:            true,
 				appScrapeErrorsDelta: 2,
+				contentType:          FmtText,
 			},
 		},
 		{
@@ -871,6 +877,7 @@ envoy_metric{} 9
 				eofCount:             intPtr(1),
 				parseOM:              true,
 				appScrapeErrorsDelta: 1,
+				contentType:          FmtOpenMetrics_1_0_0,
 			},
 		},
 		{
@@ -887,6 +894,7 @@ envoy_metric{} 9
 				notContains: []string{"# EOF"},
 				eofCount:    intPtr(0),
 				parseText:   true,
+				contentType: FmtText,
 			},
 		},
 		{
@@ -909,6 +917,7 @@ envoy_metric{} 9
 				notContains: []string{"# EOF"},
 				eofCount:    intPtr(0),
 				parseText:   true,
+				contentType: FmtText,
 			},
 		},
 		{
@@ -921,10 +930,34 @@ envoy_metric{} 9
 				{body: "# TYPE metric_x counter\nmetric_x 2\n"},
 			},
 			want: wantStats{
-				contains:   []string{"metric_x 1", "metric_x 2"},
-				eofCount:   intPtr(0),
-				parseText:  true,
-				parseError: true,
+				contains:    []string{"metric_x 1", "metric_x 2"},
+				eofCount:    intPtr(0),
+				parseText:   true,
+				parseError:  true,
+				contentType: FmtText,
+			},
+		},
+		{
+			// D-CRLF — verifies stripOpenMetricsEOF tolerates "\r\n# EOF\r\n" trailers as
+			// documented. The merged OpenMetrics response should contain one terminator
+			// at the very end (FinalizeOpenMetrics writes "# EOF\n", no CR in output).
+			name: "OpenMetrics targets with CRLF EOF trailers — strip + reappend exactly once",
+			targets: []targetSpec{
+				{
+					body:        "# TYPE metric_crlf_a counter\nmetric_crlf_a_total 1\n# EOF\r\n",
+					contentType: string(FmtOpenMetrics_1_0_0),
+				},
+				{
+					body:        "# TYPE metric_crlf_b counter\nmetric_crlf_b_total 2\n# EOF\r\n",
+					contentType: string(FmtOpenMetrics_1_0_0),
+				},
+			},
+			want: wantStats{
+				ordered:     []string{"metric_crlf_a", "metric_crlf_b"},
+				contains:    []string{"# EOF"},
+				eofCount:    intPtr(1),
+				parseOM:     true,
+				contentType: FmtOpenMetrics_1_0_0,
 			},
 		},
 	}
@@ -970,6 +1003,22 @@ envoy_metric{} 9
 			if tt.want.eofCount != nil {
 				if got := strings.Count(body, "# EOF"); got != *tt.want.eofCount {
 					t.Errorf("# EOF count = %d, want %d; body:\n%s", got, *tt.want.eofCount, body)
+				}
+				// When an OpenMetrics response carries exactly one EOF, the terminator
+				// must land at the very end of the response (design contract). This
+				// catches regressions that emit "# EOF" mid-response while still
+				// satisfying the count.
+				if *tt.want.eofCount == 1 && tt.want.parseOM && !strings.HasSuffix(body, "# EOF\n") {
+					tail := body
+					if len(body) > 32 {
+						tail = body[len(body)-32:]
+					}
+					t.Errorf("OpenMetrics response must end with %q; body tail: %q", "# EOF\n", tail)
+				}
+			}
+			if tt.want.contentType != "" {
+				if got := rec.Header().Get("Content-Type"); got != string(tt.want.contentType) {
+					t.Errorf("Content-Type = %q, want %q", got, string(tt.want.contentType))
 				}
 			}
 			if tt.want.parseText {

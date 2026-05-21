@@ -663,10 +663,8 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Scrape app metrics if defined and capture their format.
-	// Single-target case keeps the streaming io.Copy hot path. Multi-target case fans out
-	// one scrape per entry in s.prometheus.Targets concurrently, buffers each response so
-	// we can strip redundant OpenMetrics # EOF trailers, and writes them in Targets order.
+	// Scrape app metrics. Multi-target buffers each response so we can rewrite the
+	// OpenMetrics "# EOF" trailer; single-target streams via io.Copy.
 	var format expfmt.Format
 	var appBodies [][]byte
 	if s.prometheus != nil {
@@ -681,7 +679,6 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 			format = negotiateMetricsFormat(contentType)
 		}
 	} else {
-		// Without app metrics format use a default
 		format = FmtText
 	}
 
@@ -831,8 +828,10 @@ func appMetricsURL(port, path string) string {
 // openMetricsEOF is the OpenMetrics exposition terminator without trailing newline.
 var openMetricsEOF = []byte("# EOF")
 
-// stripOpenMetricsEOF removes the trailing "# EOF" line from an OpenMetrics exposition,
-// leaving the rest of the body intact. Tolerant of trailing whitespace and \r\n line endings.
+// stripOpenMetricsEOF returns body without its trailing "# EOF" line if present,
+// or the body unchanged if not. Trailing whitespace and "\r\n" line endings around
+// the terminator are tolerated. This is the "strip" half of the OpenMetrics merge
+// rule; the matching reappend uses expfmt.FinalizeOpenMetrics.
 func stripOpenMetricsEOF(body []byte) []byte {
 	trimmed := bytes.TrimRight(body, " \t\r\n")
 	if bytes.HasSuffix(trimmed, openMetricsEOF) {

@@ -147,33 +147,36 @@ func (s *Server) scrapeMultipleApps(r *http.Request) (expfmt.Format, [][]byte) {
                 return
             }
             defer body.Close()
-            // Cap per-target body at 10 MiB to bound agent memory across N concurrent
-            // targets; treat saturation as a target failure rather than returning a
-            // truncated half-line that downstream parsers would error on.
-            buf, readErr := io.ReadAll(io.LimitReader(body, int64(maxAppMetricsBodyBytes)+1))
-            if readErr != nil || len(buf) > maxAppMetricsBodyBytes {
+            // Cap per-target body at s.maxAppBodyBytes (10 MiB default) to bound agent
+            // memory across N concurrent targets. Read errors are logged at Errorf;
+            // exceeding the cap is logged at Warnf (avoids log-flood under attack).
+            // Both increment AppScrapeErrors and drop the target.
+            buf := bytes.NewBuffer(make([]byte, 0, 64*1024))
+            if _, readErr := buf.ReadFrom(io.LimitReader(body, int64(s.maxAppBodyBytes)+1)); readErr != nil {
                 metrics.AppScrapeErrors.Increment()
                 return
             }
-            bodies[idx] = buf
+            if buf.Len() > s.maxAppBodyBytes {
+                metrics.AppScrapeErrors.Increment()
+                return
+            }
+            bodies[idx] = buf.Bytes()
             contentTypes[idx] = ct
         }(i, t)
     }
     wg.Wait()
 
-    // First successful target's format wins, EXCEPT when successful targets disagree:
+    // First successful target's format wins, unless any later successful target disagrees:
     // mixed-format bodies in a single response are invalid, so we downgrade to text.
-    format := FmtText
-    firstFmt := ""
-    allMatch := true
+    var format expfmt.Format
     for i, ct := range contentTypes {
         if bodies[i] == nil { continue }
-        f := string(negotiateMetricsFormat(ct))
-        if firstFmt == "" { firstFmt = f; continue }
-        if f != firstFmt { allMatch = false; break }
+        f := negotiateMetricsFormat(ct)
+        if format == "" { format = f; continue }
+        if f != format { format = FmtText; break }
     }
-    if allMatch && firstFmt != "" {
-        format = expfmt.Format(firstFmt)
+    if format == "" {
+        format = FmtText
     }
     return format, bodies
 }
