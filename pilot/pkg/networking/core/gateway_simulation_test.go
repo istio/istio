@@ -17,6 +17,9 @@ package core_test
 import (
 	"testing"
 
+	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/simulation"
@@ -24,6 +27,7 @@ import (
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/test/util/tmpl"
@@ -2373,4 +2377,127 @@ spec:
 			},
 		})
 	})
+}
+
+func TestGatewayExternalSDSProviderSimulation(t *testing.T) {
+	mc := mesh.DefaultMeshConfig()
+	mc.ExtensionProviders = append(mc.ExtensionProviders, &meshconfig.MeshConfig_ExtensionProvider{
+		Name: "my-sds-provider",
+		Provider: &meshconfig.MeshConfig_ExtensionProvider_Sds{
+			Sds: &meshconfig.MeshConfig_ExtensionProvider_SDSProvider{
+				Name:    "my-sds-provider",
+				Service: "sds-provider.sds-system.svc.cluster.local",
+				Port:    8443,
+			},
+		},
+	})
+
+	configStr := `
+apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: external-sds-gateway
+  namespace: istio-system
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    tls:
+      mode: SIMPLE
+      credentialName: "sds://my-credential"
+    hosts:
+    - "secure.example.com"
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: secure-vs
+  namespace: istio-system
+spec:
+  hosts:
+  - "secure.example.com"
+  gateways:
+  - external-sds-gateway
+  http:
+  - route:
+    - destination:
+        host: backend.default.svc.cluster.local
+        port:
+          number: 80
+---
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: sds-provider
+  namespace: istio-system
+spec:
+  hosts:
+  - "sds-provider.sds-system.svc.cluster.local"
+  ports:
+  - number: 8443
+    name: grpc
+    protocol: GRPC
+  resolution: STATIC
+  location: MESH_INTERNAL
+  endpoints:
+  - address: 10.0.0.100
+`
+
+	proxy := &model.Proxy{
+		Labels: map[string]string{"istio": "ingressgateway"},
+		Metadata: &model.NodeMetadata{
+			Labels:    map[string]string{"istio": "ingressgateway"},
+			Namespace: "istio-system",
+		},
+		Type: model.Router,
+	}
+
+	o := xds.FakeOptions{
+		ConfigString: configStr,
+		MeshConfig:   mc,
+	}
+
+	s := xds.NewFakeDiscoveryServer(t, o)
+	sim := simulation.NewSimulation(t, s, s.SetupProxy(proxy))
+
+	// Verify the listener was created
+	l := xdstest.ExtractListener("0.0.0.0_443", sim.Listeners)
+	if l == nil {
+		t.Fatal("expected listener 0.0.0.0_443 to be created")
+	}
+
+	if len(l.FilterChains) == 0 {
+		t.Fatal("expected at least one filter chain")
+	}
+
+	fc := l.FilterChains[0]
+	if fc.GetTransportSocket() == nil {
+		t.Fatal("expected transport socket for TLS")
+	}
+
+	tlsContext := xdstest.UnmarshalAny[auth.DownstreamTlsContext](t, fc.GetTransportSocket().GetTypedConfig())
+	sdsConfigs := tlsContext.GetCommonTlsContext().GetTlsCertificateSdsSecretConfigs()
+	if len(sdsConfigs) == 0 {
+		t.Fatal("expected SDS secret configs")
+	}
+
+	sdsConfig := sdsConfigs[0]
+	if sdsConfig.GetName() != "my-credential" {
+		t.Errorf("expected SDS name %q, got %q", "my-credential", sdsConfig.GetName())
+	}
+
+	grpcServices := sdsConfig.GetSdsConfig().GetApiConfigSource().GetGrpcServices()
+	if len(grpcServices) == 0 {
+		t.Fatal("expected gRPC services in SDS config")
+	}
+
+	clusterName := grpcServices[0].GetEnvoyGrpc().GetClusterName()
+	expectedCluster := "outbound|8443||sds-provider.sds-system.svc.cluster.local"
+	if clusterName != expectedCluster {
+		t.Errorf("expected cluster %q, got %q", expectedCluster, clusterName)
+	}
 }
