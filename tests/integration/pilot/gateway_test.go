@@ -478,7 +478,7 @@ spec:
 }
 
 func TaggedGatewayTest(t framework.TestContext) {
-	if t.Settings().Meshless {
+	if t.Settings().GatewayAPIOnly {
 		t.Skip("TaggedGatewayTest requires full Istio mesh with revision support")
 	}
 	revision := t.Settings().Revisions.Default()
@@ -605,7 +605,7 @@ spec:
 }
 
 func UnmanagedGatewayTest(t framework.TestContext) {
-	if t.Settings().Meshless {
+	if t.Settings().GatewayAPIOnly {
 		t.Skip("UnmanagedGatewayTest requires pre-deployed ingress gateway")
 	}
 	i := istio.DefaultConfigOrFail(t, t)
@@ -962,7 +962,7 @@ func TestGatewayReadinessProbes(t *testing.T) {
 		RequiresSingleCluster().
 		RequiresLocalControlPlane().
 		Run(func(t framework.TestContext) {
-			if t.Settings().Meshless {
+			if t.Settings().GatewayAPIOnly {
 				t.Skip("TestGatewayReadinessProbes requires pre-deployed ingress gateway")
 			}
 			c := t.Clusters().Default()
@@ -998,7 +998,7 @@ func TestGatewayMetricsEndpoints(t *testing.T) {
 		RequiresSingleCluster().
 		RequiresLocalControlPlane().
 		Run(func(t framework.TestContext) {
-			if t.Settings().Meshless {
+			if t.Settings().GatewayAPIOnly {
 				t.Skip("TestGatewayMetricsEndpoints requires pre-deployed ingress gateway")
 			}
 			c := t.Clusters().Default()

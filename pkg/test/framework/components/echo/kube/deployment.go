@@ -436,7 +436,7 @@ func deploymentParams(ctx resource.Context, cfg echo.Config, settings *resource.
 		"Revisions":               settings.Revisions.TemplateMap(),
 		"Compatibility":           settings.Compatibility,
 		"WorkloadClass":           cfg.WorkloadClass(),
-		"OverlayIstioProxy":       canCreateIstioProxy(settings.Revisions.Minimum()) && !settings.Ambient && !settings.Meshless,
+		"OverlayIstioProxy":       canCreateIstioProxy(settings.Revisions.Minimum()) && !settings.Ambient && !settings.GatewayAPIOnly,
 		"Ambient":                 settings.Ambient,
 		"BindFamily":              cfg.BindFamily,
 		"OpenShift":               settings.OpenShift,
