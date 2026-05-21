@@ -717,7 +717,7 @@ func TestConstructSdsSecretConfigForCredential(t *testing.T) {
 			credentialSocketExists: true,
 			push:                   &model.PushContext{Mesh: &meshconfig.MeshConfig{}},
 			expected: &auth.SdsSecretConfig{
-				Name: "my-credential",
+				Name: "sds://my-credential",
 				SdsConfig: &core.ConfigSource{
 					ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 						ApiConfigSource: &core.ApiConfigSource{
