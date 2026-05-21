@@ -163,7 +163,7 @@ func (c *ClusterStore) AllReady() map[string]map[cluster.ID]*Cluster {
 			}
 			if !cl.HasSynced() {
 				log.Debugf("remote cluster %s registered informers have not been synced up yet. Skipping and will recompute on sync", cl.ID)
-				c.triggerRecomputeOnSync(cl.ID)
+				c.triggerRecomputeOnSync(cl)
 				continue
 			}
 			outCluster := *cl
@@ -232,15 +232,14 @@ func (c *ClusterStore) HasSynced() bool {
 }
 
 // triggerRecomputeOnSync sets up a goroutine to wait for the cluster to be synced,
-// and then triggers a recompute when it is.
-func (c *ClusterStore) triggerRecomputeOnSync(id cluster.ID) {
+// and then triggers a recompute when it is. Callers must pass the cluster directly
+// rather than its ID: AllReady holds the store RLock when calling this, and looking
+// the cluster up here would attempt a recursive RLock that can deadlock against a
+// concurrent writer waiting on the same RWMutex.
+func (c *ClusterStore) triggerRecomputeOnSync(cl *Cluster) {
 	c.casMu.Lock()
 	defer c.casMu.Unlock()
-	cluster := c.GetByID(id)
-	if cluster == nil {
-		log.Debugf("cluster %s not found in store to trigger recompute", id)
-		return
-	}
+	id := cl.ID
 	exists := c.clustersAwaitingSync.InsertContains(id)
 	if exists {
 		// Already waiting for sync
@@ -252,8 +251,10 @@ func (c *ClusterStore) triggerRecomputeOnSync(id cluster.ID) {
 		// Wait until the cluster is synced. If it's deleted from the store before
 		// it's fully synced, this will return because of the stop.
 		// Double check to make sure this cluster is still in the store
-		// and that it wasn't closed/timed out (we don't want to send an event for bad clusters)
-		if cluster.WaitUntilSynced(cluster.stop) && !cluster.Closed() && !cluster.SyncDidTimeout() && c.GetByID(id) != nil {
+		// and that it wasn't closed/timed out (we don't want to send an event for bad clusters).
+		// The GetByID call below runs without holding the caller's RLock, so it does not
+		// reintroduce the recursive-lock hazard.
+		if cl.WaitUntilSynced(cl.stop) && !cl.Closed() && !cl.SyncDidTimeout() && c.GetByID(id) != nil {
 			// Let dependent krt collections know that this cluster is ready to use
 			c.TriggerRecomputation()
 			// And clean up our tracking set
