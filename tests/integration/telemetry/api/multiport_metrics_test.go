@@ -17,9 +17,10 @@
 package api
 
 import (
+	"context"
 	"fmt"
+	"strings"
 	"testing"
-	"time"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
@@ -154,6 +155,36 @@ func TestMultiPortMetricsMerge(t *testing.T) {
 
 			cluster := t.Clusters().Default()
 
+			// Phase 1: direct pod-exec assertion against :15020/stats/prometheus. Hitting the
+			// agent endpoint directly distinguishes "the agent didn't merge" (a fast failure,
+			// observable here) from "Prometheus hasn't scraped yet" (a slow path observed in
+			// phase 2). The merged-metrics endpoint is reachable from any container in the pod
+			// because they share the network namespace; the primary busybox container has wget
+			// natively, so we exec there.
+			retry.UntilSuccessOrFail(t, func() error {
+				pods, err := cluster.PodsForSelector(context.TODO(), ns, "app=multiport-metrics-app")
+				if err != nil {
+					return fmt.Errorf("listing multiport-metrics-app pods: %w", err)
+				}
+				if len(pods.Items) == 0 {
+					return fmt.Errorf("no multiport-metrics-app pods yet")
+				}
+				stdout, _, err := cluster.PodExec(pods.Items[0].Name, ns, "primary",
+					"wget -qO- http://localhost:15020/stats/prometheus")
+				if err != nil {
+					return fmt.Errorf("PodExec wget against :15020/stats/prometheus failed: %w", err)
+				}
+				if !strings.Contains(stdout, "primary_metric_total") {
+					return fmt.Errorf("merged response missing primary_metric_total; got:\n%s", stdout)
+				}
+				if !strings.Contains(stdout, "secondary_metric_total") {
+					return fmt.Errorf("merged response missing secondary_metric_total; got:\n%s", stdout)
+				}
+				return nil
+			}, retry.Delay(framework.TelemetryRetryDelay), retry.Timeout(framework.TelemetryRetryTimeout))
+
+			// Phase 2: full pipeline via Prometheus. Validates the scrape-to-Prometheus path
+			// once the agent-side behavior is confirmed.
 			retry.UntilSuccessOrFail(t, func() error {
 				v, err := promInst.RawQuery(cluster, fmt.Sprintf(`primary_metric_total{namespace=%q}`, ns))
 				if err != nil {
@@ -172,7 +203,7 @@ func TestMultiPortMetricsMerge(t *testing.T) {
 				}
 
 				return nil
-			}, retry.Delay(5*time.Second), retry.Timeout(5*time.Minute))
+			}, retry.Delay(framework.TelemetryRetryDelay), retry.Timeout(framework.TelemetryRetryTimeout))
 		})
 }
 
@@ -192,6 +223,28 @@ func TestMultiPortMetricsMergePartialFailure(t *testing.T) {
 
 			cluster := t.Clusters().Default()
 
+			// Phase 1: direct pod-exec assertion. Confirms the agent serves primary metrics
+			// even when the secondary target is unreachable, without waiting on Prometheus.
+			retry.UntilSuccessOrFail(t, func() error {
+				pods, err := cluster.PodsForSelector(context.TODO(), ns, "app=multiport-failing-app")
+				if err != nil {
+					return fmt.Errorf("listing multiport-failing-app pods: %w", err)
+				}
+				if len(pods.Items) == 0 {
+					return fmt.Errorf("no multiport-failing-app pods yet")
+				}
+				stdout, _, err := cluster.PodExec(pods.Items[0].Name, ns, "primary",
+					"wget -qO- http://localhost:15020/stats/prometheus")
+				if err != nil {
+					return fmt.Errorf("PodExec wget against :15020/stats/prometheus failed: %w", err)
+				}
+				if !strings.Contains(stdout, "primary_metric_total") {
+					return fmt.Errorf("primary_metric_total missing from merged response despite healthy port 8080; got:\n%s", stdout)
+				}
+				return nil
+			}, retry.Delay(framework.TelemetryRetryDelay), retry.Timeout(framework.TelemetryRetryTimeout))
+
+			// Phase 2: full pipeline via Prometheus.
 			retry.UntilSuccessOrFail(t, func() error {
 				// Primary metrics from port 8080 must still be present.
 				v, err := promInst.RawQuery(cluster, fmt.Sprintf(`primary_metric_total{namespace=%q}`, ns))
@@ -202,9 +255,13 @@ func TestMultiPortMetricsMergePartialFailure(t *testing.T) {
 					return fmt.Errorf("primary_metric_total absent despite port 8080 being healthy: %w", err)
 				}
 
-				// At least one app scrape error must be recorded.
-				// Metric name: monitoring.NewSum("scrape_failures_total", ...) → istio_agent_scrape_failures_total
-				v, err = promInst.RawQuery(cluster, `istio_agent_scrape_failures_total{type="application"}`)
+				// At least one app scrape error must be recorded against THIS deployment.
+				// The pod-label filter `pod=~"multiport-failing-app-.*"` scopes the cumulative
+				// counter so a stray failure from any other sidecar in the namespace cannot
+				// satisfy the >= 1 assertion. AppScrapeErrors counter is exported by
+				// pilot-agent as istio_agent_scrape_failures_total{type="application"}.
+				v, err = promInst.RawQuery(cluster, fmt.Sprintf(
+					`sum(istio_agent_scrape_failures_total{type="application",namespace=%q,pod=~"multiport-failing-app-.*"})`, ns))
 				if err != nil {
 					return fmt.Errorf("querying istio_agent_scrape_failures_total: %w", err)
 				}
@@ -213,10 +270,10 @@ func TestMultiPortMetricsMergePartialFailure(t *testing.T) {
 					return fmt.Errorf("istio_agent_scrape_failures_total absent: %w", err)
 				}
 				if total < 1 {
-					return fmt.Errorf("expected >= 1 app scrape error, got %v", total)
+					return fmt.Errorf("expected >= 1 app scrape error from multiport-failing-app, got %v", total)
 				}
 
 				return nil
-			}, retry.Delay(5*time.Second), retry.Timeout(5*time.Minute))
+			}, retry.Delay(framework.TelemetryRetryDelay), retry.Timeout(framework.TelemetryRetryTimeout))
 		})
 }
