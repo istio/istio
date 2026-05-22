@@ -38,7 +38,11 @@ const (
 	keySize = 2048
 )
 
-var certWatchTimeout = 60 * time.Second
+// certWatchTimeout bounds how long SignCSRK8s waits for a signed CSR result.
+// Bumped from 60s to handle slower CI environments (notably arm64) and slow
+// real-world k8s control planes; the previous value flaked tests like
+// TestK8sSign and TestGenKeyCertK8sCA on arm64 prow workers.
+var certWatchTimeout = 120 * time.Second
 
 // GenKeyCertK8sCA : Generates a key pair and gets public certificate signed by K8s_CA
 // Options are meant to sign DNS certs

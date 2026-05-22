@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+
+releaseNotes:
+  - |
+    **Fixed** flakes in K8s CA backed signing on slower control planes by raising the `SignCSRK8s` cert watch timeout from 60s to 120s. The previous value occasionally timed out before the signer returned the issued certificate.
