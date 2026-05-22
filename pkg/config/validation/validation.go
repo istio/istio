@@ -1636,9 +1636,23 @@ func validateJwtRule(rule *security_beta.JWTRule) (errs error) {
 	}
 
 	if rule.Jwks != "" {
-		_, err := jwk.Parse([]byte(rule.Jwks))
+		set, err := jwk.Parse([]byte(rule.Jwks))
 		if err != nil {
 			errs = multierror.Append(errs, fmt.Errorf("jwks parse error: %v", err))
+		} else {
+			// Reject any JWKS that contains private key material. The inline
+			// Jwks field is consumed by envoy for token *verification*, so it
+			// only ever needs public keys. A JWKS containing private RSA, EC,
+			// OKP or symmetric components is either a misuse (accidental leak
+			// of a signing key into a CR) or an attempt to make envoy treat
+			// known-private keys as authoritative.
+			for i := 0; i < set.Len(); i++ {
+				key, _ := set.Get(i)
+				switch key.(type) {
+				case jwk.RSAPrivateKey, jwk.ECDSAPrivateKey, jwk.OKPPrivateKey, jwk.SymmetricKey:
+					errs = multierror.Append(errs, fmt.Errorf("jwks key at index %d contains private key material; only public keys are allowed", i))
+				}
+			}
 		}
 	}
 
