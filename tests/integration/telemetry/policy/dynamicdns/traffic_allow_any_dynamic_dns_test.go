@@ -152,6 +152,56 @@ func TestAllowAnyDynamicDNSPolicy(t *testing.T) {
 	})
 }
 
+// TestAllowAnyDynamicDNSWithTLS verifies that when outboundTrafficPolicy.tls is configured with
+// mode SIMPLE, the proxy originates TLS to unknown external destinations via the DFP cluster.
+// A plain HTTP request to www.google.com is resolved by DFP and forwarded over TLS to :443.
+func TestAllowAnyDynamicDNSWithTLS(t *testing.T) {
+	framework.NewTest(t).Run(func(t framework.TestContext) {
+		ist.PatchMeshConfigOrFail(t, `
+outboundTrafficPolicy:
+  mode: ALLOW_ANY_DYNAMIC_DNS
+  tls:
+    mode: SIMPLE
+`)
+		appsNS := namespace.NewOrFail(t, namespace.Config{Prefix: "app-tls", Inject: true})
+
+		var client echo.Instance
+		deployment.New(t).
+			With(&client, echo.Config{
+				Service:   "client",
+				Namespace: appsNS,
+				Subsets: []echo.SubsetConfig{{
+					Annotations: map[string]string{
+						annotation.SidecarStatsInclusionPrefixes.Name: "cluster.AllowAnyDynamicDNSCluster,cluster.PassthroughCluster,cluster.BlackHoleCluster",
+					},
+				}},
+			}).BuildOrFail(t)
+
+		t.NewSubTest("http-to-external-with-tls-origination").Run(func(t framework.TestContext) {
+			baseline := clusterUpstreamRqTotal(t, client, "AllowAnyDynamicDNSCluster")
+
+			client.CallOrFail(t, echo.CallOptions{
+				Address: "www.google.com",
+				Port: echo.Port{
+					Name:        "http",
+					ServicePort: 80,
+					Protocol:    protocol.HTTP,
+				},
+				Count: 1,
+				Check: check.OK(),
+			})
+
+			retry.UntilSuccessOrFail(t, func() error {
+				got := clusterUpstreamRqTotal(t, client, "AllowAnyDynamicDNSCluster")
+				if got <= baseline {
+					return fmt.Errorf("AllowAnyDynamicDNSCluster.upstream_rq_total did not increase: baseline=%d got=%d", baseline, got)
+				}
+				return nil
+			}, retry.Delay(time.Second), retry.Timeout(20*time.Second))
+		})
+	})
+}
+
 func mustReadCert(t framework.TestContext, f string) string {
 	t.Helper()
 	b, err := os.ReadFile(path.Join(env.IstioSrc, "tests/testdata/certs", f))

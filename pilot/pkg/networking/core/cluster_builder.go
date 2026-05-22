@@ -566,8 +566,7 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 
 // buildAllowAnyDFPCluster builds the DFP cluster for ALLOW_ANY_DYNAMIC_DNS mode.
 // Plaintext HTTP traffic is routed here via the HTTP DFP filter which resolves hostnames
-// from the Host/:authority header. Optional TLS origination is applied when OutboundTrafficPolicyTLS
-// is configured.
+// from the Host/:authority header. Optional TLS origination is applied when OutboundTrafficPolicy tls is configured.
 func (cb *ClusterBuilder) buildAllowAnyDFPCluster(tls *networking.ClientTLSSettings) *clusterWrapper {
 	c := &cluster.Cluster{
 		Name:     util.AllowAnyDynamicDNSCluster,

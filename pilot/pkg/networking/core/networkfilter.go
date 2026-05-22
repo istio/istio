@@ -51,6 +51,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/wellknown"
 )
 
@@ -116,6 +117,7 @@ func buildAllowAnyDynamicDNSDNSCacheConfig(meta *model.NodeMetadata) *dfp.DnsCac
 	addr := meta.DNSProxyAddr
 	host, portStr, err := net.SplitHostPort(addr)
 	if err != nil {
+		log.Warnf("failed to parse DNSProxyAddr %q, falling back to 127.0.0.1:15053: %v", addr, err)
 		host, portStr = "127.0.0.1", "15053"
 	}
 	if host == "localhost" {
