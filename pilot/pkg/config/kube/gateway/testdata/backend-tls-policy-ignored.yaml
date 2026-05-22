@@ -1,0 +1,46 @@
+# Verifies the istio.io/ignore-policy-attachment annotation on BackendTLSPolicy.
+# When set to "true" the policy must be excluded from translation, so it
+# produces no DestinationRule and does not push sibling policies targeting
+# the same backend into the Conflicted condition.
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: istio
+spec:
+  controllerName: istio.io/gateway-controller
+---
+# Older sibling that carries the opt-out annotation. Without filtering, this
+# policy would win conflict resolution and push tls-active into Conflicted.
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: tls-ignored
+  namespace: default
+  annotations:
+    istio.io/ignore-policy-attachment: "true"
+  creationTimestamp: "2024-01-01T00:00:00Z"
+spec:
+  targetRefs:
+  - kind: Service
+    name: echo
+    group: ""
+  validation:
+    wellKnownCACertificates: System
+    hostname: echo.example.com
+---
+# Newer sibling targeting the same Service. Should translate to a
+# DestinationRule with Accepted=True since the older sibling is filtered out.
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: tls-active
+  namespace: default
+  creationTimestamp: "2025-01-01T00:00:00Z"
+spec:
+  targetRefs:
+  - kind: Service
+    name: echo
+    group: ""
+  validation:
+    wellKnownCACertificates: System
+    hostname: echo.example.com

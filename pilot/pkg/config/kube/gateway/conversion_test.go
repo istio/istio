@@ -765,6 +765,8 @@ func TestConvertResources(t *testing.T) {
 			),
 		},
 		{name: "mix-backend-policy"},
+		{name: "backend-tls-policy-ignored"},
+		{name: "backend-traffic-policy-ignored"},
 		{name: "listenerset"},
 		{name: "listenerset-cross-namespace"},
 		{name: "listenerset-same-name-different-ns"},
