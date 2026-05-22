@@ -236,6 +236,7 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 	// TLS and PROXY are more involved, since these impact the transport socket which is customized for HBONE.
 	opts := &buildClusterOpts{
 		mesh:        cb.req.Push.Mesh,
+		push:        cb.req.Push,
 		mutable:     localCluster,
 		policy:      policy,
 		port:        &port,

@@ -203,9 +203,9 @@ func constructUpstreamTLS(opts *buildClusterOpts, tls *networking.ClientTLSSetti
 		tls.SubjectAltNames = opts.serviceAccounts
 	}
 	if tls.CredentialName != "" {
-		// If credential name is specified at Destination Rule config and originating node is egress gateway, create
-		// SDS config for egress gateway to fetch key/cert at gateway agent.
-		sec_model.ApplyCustomSDSToClientCommonTLSContext(tlsContext.CommonTlsContext, tls, opts.credentialSocketExist)
+		// If credential name is specified at Destination Rule config, create
+		// SDS config to fetch key/cert.
+		sec_model.ApplyCustomSDSToClientCommonTLSContext(tlsContext.CommonTlsContext, tls, opts.credentialSocketExist, opts.push)
 	} else {
 		// These are certs being mounted from within the pod and specified in Destination Rules.
 		// Rather than reading directly in Envoy, which does not support rotation, we will

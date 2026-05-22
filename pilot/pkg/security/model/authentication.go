@@ -229,12 +229,12 @@ func constructSdsSecretConfig(maybeFileName string, fallbackName string, customF
 
 // ApplyCustomSDSToClientCommonTLSContext applies the customized sds to CommonTlsContext
 func ApplyCustomSDSToClientCommonTLSContext(tlsContext *tls.CommonTlsContext,
-	tlsOpts *networking.ClientTLSSettings, credentialSocketExist bool,
+	tlsOpts *networking.ClientTLSSettings, credentialSocketExist bool, push *model.PushContext,
 ) {
 	if tlsOpts.Mode == networking.ClientTLSSettings_MUTUAL {
 		// create SDS config for gateway to fetch key/cert from agent.
 		tlsContext.TlsCertificateSdsSecretConfigs = []*tls.SdsSecretConfig{
-			ConstructSdsSecretConfigForCredential(tlsOpts.CredentialName, credentialSocketExist, nil),
+			ConstructSdsSecretConfigForCredential(tlsOpts.CredentialName, credentialSocketExist, push),
 		}
 	}
 
@@ -252,7 +252,7 @@ func ApplyCustomSDSToClientCommonTLSContext(tlsContext *tls.CommonTlsContext,
 		CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
 			DefaultValidationContext: defaultValidationContext,
 			ValidationContextSdsSecretConfig: ConstructSdsSecretConfigForCredential(
-				tlsOpts.CredentialName+SdsCaSuffix, credentialSocketExist, nil),
+				tlsOpts.CredentialName+SdsCaSuffix, credentialSocketExist, push),
 		},
 	}
 }

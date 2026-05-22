@@ -941,6 +941,7 @@ const (
 
 type buildClusterOpts struct {
 	mesh            *meshconfig.MeshConfig
+	push            *model.PushContext
 	mutable         *clusterWrapper
 	policy          *networking.TrafficPolicy
 	port            *model.Port

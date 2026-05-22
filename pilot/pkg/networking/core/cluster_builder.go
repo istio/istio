@@ -355,6 +355,7 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *clusterWrapper, clusterMode C
 	trafficPolicy, _ := util.GetPortLevelTrafficPolicy(destinationRule.GetTrafficPolicy(), port)
 	opts := buildClusterOpts{
 		mesh:                      cb.req.Push.Mesh,
+		push:                      cb.req.Push,
 		mutable:                   mc,
 		policy:                    trafficPolicy,
 		port:                      port,
@@ -627,6 +628,7 @@ func (cb *ClusterBuilder) buildInboundCluster(clusterPort int, bind string,
 
 	opts := buildClusterOpts{
 		mesh:            cb.req.Push.Mesh,
+		push:            cb.req.Push,
 		mutable:         localCluster,
 		policy:          nil,
 		port:            instance.Port.ServicePort,
