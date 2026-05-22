@@ -1210,7 +1210,19 @@ func TestHandlerEnqueueFunction(t *testing.T) {
 			}
 			kube.WaitForCacheSync("test", stop, d.queue.HasSynced)
 
-			assert.EventuallyEqual(t, reconciles.Load, tt.reconciles, retry.Timeout(time.Second*5), retry.Message("reconciliations count check"))
+			// Tie the assertion to the in-band reconcile signal rather than a
+			// wall-clock retry. EventuallyEqual depended on a 5s budget for the
+			// reconcile worker to drain the queue, which is racy on slower
+			// runners. For non-zero cases, block on reconcileDone (the same
+			// channel the prep-Create/Delete already uses above) then check
+			// the count once. For zero cases, use Consistently to confirm no
+			// spurious reconcile is enqueued.
+			if tt.reconciles == 0 {
+				assert.Consistently(t, reconciles.Load, int32(0))
+			} else {
+				<-reconcileDone
+				assert.Equal(t, reconciles.Load(), tt.reconciles)
+			}
 		})
 	}
 }
