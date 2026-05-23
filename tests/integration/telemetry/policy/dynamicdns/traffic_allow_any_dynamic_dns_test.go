@@ -28,7 +28,9 @@ import (
 	"istio.io/api/annotation"
 	"istio.io/istio/istioctl/pkg/util"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/http/headers"
 	"istio.io/istio/pkg/test/echo/common"
+	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -154,7 +156,8 @@ func TestAllowAnyDynamicDNSPolicy(t *testing.T) {
 
 // TestAllowAnyDynamicDNSWithTLS verifies that when outboundTrafficPolicy.tls is configured with
 // mode SIMPLE, the proxy originates TLS to unknown external destinations via the DFP cluster.
-// A plain HTTP request to www.google.com is resolved by DFP and forwarded over TLS to :443.
+// An external echo instance (no sidecar) serves TLS. The client sends plaintext HTTP; the
+// proxy's DFP cluster resolves the host and originates TLS to the external destination.
 func TestAllowAnyDynamicDNSWithTLS(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
 		ist.PatchMeshConfigOrFail(t, `
@@ -162,10 +165,16 @@ outboundTrafficPolicy:
   mode: ALLOW_ANY_DYNAMIC_DNS
   tls:
     mode: SIMPLE
+    insecureSkipVerify: true
 `)
 		appsNS := namespace.NewOrFail(t, namespace.Config{Prefix: "app-tls", Inject: true})
+		serviceNS := namespace.NewOrFail(t, namespace.Config{Prefix: "service-tls", Inject: true})
+		externalNS := namespace.NewOrFail(t, namespace.Config{Prefix: "external-tls", Inject: false})
 
-		var client echo.Instance
+		args := map[string]string{"ImportNamespace": serviceNS.Name()}
+		t.ConfigIstio().Eval(appsNS.Name(), args, sidecarScope).ApplyOrFail(t)
+
+		var client, external echo.Instance
 		deployment.New(t).
 			With(&client, echo.Config{
 				Service:   "client",
@@ -175,17 +184,40 @@ outboundTrafficPolicy:
 						annotation.SidecarStatsInclusionPrefixes.Name: "cluster.AllowAnyDynamicDNSCluster,cluster.PassthroughCluster,cluster.BlackHoleCluster",
 					},
 				}},
+			}).
+			With(&external, echo.Config{
+				Service:   "external-tls",
+				Namespace: externalNS,
+				Subsets: []echo.SubsetConfig{{
+					Annotations: map[string]string{annotation.SidecarInject.Name: "false"},
+				}},
+				Ports: []echo.Port{
+					{
+						Name:         "https",
+						Protocol:     protocol.HTTPS,
+						ServicePort:  443,
+						WorkloadPort: 8443,
+						TLS:          true,
+					},
+				},
+				TLSSettings: &common.TLSSettings{
+					ClientCert: mustReadCert(t, "cert.crt"),
+					Key:        mustReadCert(t, "cert.key"),
+				},
 			}).BuildOrFail(t)
 
 		t.NewSubTest("http-to-external-with-tls-origination").Run(func(t framework.TestContext) {
 			baseline := clusterUpstreamRqTotal(t, client, "AllowAnyDynamicDNSCluster")
 
 			client.CallOrFail(t, echo.CallOptions{
-				Address: "www.google.com",
+				Address: "external-tls." + externalNS.Name() + ".svc.cluster.local",
 				Port: echo.Port{
-					Name:        "http",
-					ServicePort: 80,
+					ServicePort: 443,
 					Protocol:    protocol.HTTP,
+				},
+				Scheme: scheme.HTTP,
+				HTTP: echo.HTTP{
+					Headers: headers.New().WithHost("external-tls." + externalNS.Name() + ".svc.cluster.local").Build(),
 				},
 				Count: 1,
 				Check: check.OK(),
