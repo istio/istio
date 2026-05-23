@@ -968,6 +968,93 @@ func TestServiceEntryServices(t *testing.T) {
 	}
 }
 
+func TestServiceEntryServicesScope(t *testing.T) {
+	cases := []struct {
+		name string
+		se   *networkingclient.ServiceEntry
+	}{
+		{
+			name: "DNS resolution ServiceEntry has global scope",
+			se: &networkingclient.ServiceEntry{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "dns-se",
+					Namespace: "ns",
+				},
+				Spec: networking.ServiceEntry{
+					Addresses: []string{"1.2.3.4"},
+					Hosts:     []string{"example.com"},
+					Ports: []*networking.ServicePort{{
+						Number:   443,
+						Name:     "https",
+						Protocol: "HTTPS",
+					}},
+					Resolution: networking.ServiceEntry_DNS,
+					Location:   networking.ServiceEntry_MESH_EXTERNAL,
+				},
+			},
+		},
+		{
+			name: "STATIC resolution ServiceEntry has global scope",
+			se: &networkingclient.ServiceEntry{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "static-se",
+					Namespace: "ns",
+				},
+				Spec: networking.ServiceEntry{
+					Addresses: []string{"1.2.3.4"},
+					Hosts:     []string{"static.example.com"},
+					Ports: []*networking.ServicePort{{
+						Number:   80,
+						Name:     "http",
+						Protocol: "HTTP",
+					}},
+					Resolution: networking.ServiceEntry_STATIC,
+					Location:   networking.ServiceEntry_MESH_EXTERNAL,
+					Endpoints: []*networking.WorkloadEntry{{
+						Address: "2.2.2.2",
+					}},
+				},
+			},
+		},
+		{
+			name: "NONE resolution ServiceEntry has global scope",
+			se: &networkingclient.ServiceEntry{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "none-se",
+					Namespace: "ns",
+				},
+				Spec: networking.ServiceEntry{
+					Hosts: []string{"none.example.com"},
+					Ports: []*networking.ServicePort{{
+						Number:   80,
+						Name:     "http",
+						Protocol: "HTTP",
+					}},
+					Resolution: networking.ServiceEntry_NONE,
+					Location:   networking.ServiceEntry_MESH_EXTERNAL,
+				},
+			},
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			mock := krttest.NewMock(t, []any{})
+			a := newAmbientUnitTest(t)
+			builder := a.serviceEntryServiceBuilder(
+				krttest.GetMockCollection[Waypoint](mock),
+				krttest.GetMockCollection[*v1.Namespace](mock),
+			)
+			wrapper := builder(krt.TestingDummyContext{}, tt.se)
+			for _, tsi := range wrapper {
+				if tsi.Scope != model.Global {
+					t.Errorf("ServiceEntry %s/%s: expected Scope=%q, got Scope=%q",
+						tt.se.Namespace, tt.se.Name, model.Global, tsi.Scope)
+				}
+			}
+		})
+	}
+}
+
 func TestServiceServices(t *testing.T) {
 	waypointAddr := &workloadapi.GatewayAddress{
 		Destination: &workloadapi.GatewayAddress_Hostname{

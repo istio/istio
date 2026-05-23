@@ -519,6 +519,7 @@ func serviceEntriesInfo(
 			LabelSelector:      sel,
 			Source:             MakeSource(s),
 			Waypoint:           waypoint,
+			Scope:              model.Global,
 			DNSConnectStrategy: model.GetDNSConnectStrategy(s.Annotations),
 			CreationTime:       s.CreationTimestamp.Time,
 		})

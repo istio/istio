@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue: [60343]
+releaseNotes:
+- |
+  **Fixed** an issue where DNS-resolution `ServiceEntry` clusters were not generated for sidecar
+  proxies in remote clusters when `AMBIENT_ENABLE_MULTI_NETWORK=true`. The ambient multi-network
+  endpoint filter incorrectly dropped cross-cluster endpoints for ServiceEntries because their
+  scope was unset, causing `STRICT_DNS` clusters to be omitted from CDS pushes.

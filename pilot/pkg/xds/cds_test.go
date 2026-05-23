@@ -24,14 +24,17 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pilot/test/xdstest"
+	istiocluster "istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -325,4 +328,86 @@ spec:
 			"example.com:80",
 		},
 	})
+}
+
+// TestDNSServiceEntryCrossClusterWithAmbientMultiNetwork verifies that DNS-resolution
+// ServiceEntries produce CDS clusters for sidecar proxies in remote clusters when
+// AMBIENT_ENABLE_MULTI_NETWORK is true. Regression test for
+// https://github.com/istio/istio/issues/60343
+func TestDNSServiceEntryCrossClusterWithAmbientMultiNetwork(t *testing.T) {
+	test.SetForTest(t, &features.EnableAmbient, true)
+	test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
+
+	seYAML := `
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: dns-se
+  namespace: default
+spec:
+  hosts:
+  - repro-dns.example.invalid
+  exportTo: ["*"]
+  ports:
+  - number: 443
+    protocol: HTTPS
+    name: https-443
+  resolution: DNS
+  location: MESH_EXTERNAL
+  endpoints:
+  - address: dns-endpoint.example.invalid
+`
+
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+		DefaultClusterName: "cluster1",
+		KubernetesObjectsByCluster: map[istiocluster.ID][]runtime.Object{
+			"cluster1": {},
+			"cluster2": {},
+		},
+		// ConfigString feeds the serviceentry controller (creates model.Service + endpoints)
+		ConfigString: seYAML,
+		// KubernetesObjectString feeds the kube informers (ambient index picks it up for ServiceInfo)
+		KubernetesObjectString: seYAML,
+	})
+
+	// Sidecar proxy in cluster2 (the remote cluster)
+	remoteProxy := s.SetupProxy(&model.Proxy{
+		Metadata: &model.NodeMetadata{
+			ClusterID: "cluster2",
+			Namespace: "default",
+		},
+		ConfigNamespace: "default",
+	})
+
+	// Sidecar proxy in cluster1 (the primary/config cluster)
+	localProxy := s.SetupProxy(&model.Proxy{
+		Metadata: &model.NodeMetadata{
+			ClusterID: "cluster1",
+			Namespace: "default",
+		},
+		ConfigNamespace: "default",
+	})
+
+	clusterName := "outbound|443||repro-dns.example.invalid"
+
+	// The local proxy should always see the cluster
+	localClusters := xdstest.ExtractClusters(s.Clusters(localProxy))
+	if localClusters[clusterName] == nil {
+		t.Fatalf("expected cluster %q for local proxy in cluster1, but it was missing", clusterName)
+	}
+
+	// The remote proxy must also see the cluster — this is the regression case.
+	// Without the fix, the DNS cluster is dropped because cross-cluster endpoints are
+	// filtered out when ServiceEntry scope is unset, leaving zero endpoints which causes
+	// STRICT_DNS clusters to be omitted from CDS.
+	remoteClusters := xdstest.ExtractClusters(s.Clusters(remoteProxy))
+	if remoteClusters[clusterName] == nil {
+		t.Fatalf("expected cluster %q for remote proxy in cluster2, but it was missing", clusterName)
+	}
+
+	// Verify the cluster has endpoints (DNS address inlined in LoadAssignment)
+	remoteEps := xdstest.ExtractClusterEndpoints(s.Clusters(remoteProxy))
+	if eps := remoteEps[clusterName]; len(eps) == 0 {
+		t.Fatalf("expected endpoints in cluster %q for remote proxy, got none", clusterName)
+	}
 }

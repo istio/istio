@@ -354,6 +354,18 @@ func TestFilterIstioEndpoint(t *testing.T) {
 		},
 		ConfigNamespace: "not-default",
 	}
+	remoteSidecar := &model.Proxy{
+		Type:        model.SidecarProxy,
+		IPAddresses: []string{"111.111.111.111"},
+		ID:          "v0.test-app",
+		DNSDomain:   "example.org",
+		Metadata: &model.NodeMetadata{
+			Namespace: "test-app",
+			NodeName:  "example",
+			ClusterID: "remote",
+		},
+		ConfigNamespace: "test-app",
+	}
 	waypoint := &model.Proxy{
 		Type: model.Waypoint,
 		Metadata: &model.NodeMetadata{
@@ -491,6 +503,20 @@ func TestFilterIstioEndpoint(t *testing.T) {
 			name:     "test ambient endpoint in remote cluster for local service",
 			proxy:    ingressGw,
 			ep:       remoteEp,
+			svcInfo:  localSvc,
+			expected: false,
+		},
+		{
+			name:     "test sidecar in remote cluster with ServiceEntry (global scope) should see cross-cluster endpoints",
+			proxy:    remoteSidecar,
+			ep:       localEp,
+			svcInfo:  globalSvc,
+			expected: true,
+		},
+		{
+			name:     "test sidecar in remote cluster with local service should not see cross-cluster endpoints",
+			proxy:    remoteSidecar,
+			ep:       localEp,
 			svcInfo:  localSvc,
 			expected: false,
 		},
