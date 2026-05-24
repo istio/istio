@@ -7,4 +7,4 @@ issue:
 
 releaseNotes:
 - |
-  **Fixed** `BackendTLSPolicy` ConfigMap CA references so istiod waits for credential Secret and ConfigMap caches before serving XDS, avoiding startup SDS lookups against unsynced credential state.
+  **Fixed** `BackendTLSPolicy` ConfigMap CA references to keep recoverable SDS resource names when the referenced ConfigMap is temporarily missing or invalid, allowing recovery after the ConfigMap syncs or is updated.

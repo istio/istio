@@ -497,6 +497,12 @@ func getBackendTLSCredentialName(
 	if len(validation.CACertificateRefs) > 1 {
 		conds[string(gw.PolicyConditionAccepted)].message += "; warning: only the first caCertificateRefs will be used"
 	}
+	// Keep ConfigMap-backed SDS resources addressable even when the initial
+	// reference validation fails, so later ConfigMap syncs or updates can recover.
+	configMapSDSName := ""
+	if isBackendTLSConfigMapRef(ref) {
+		configMapSDSName = backendTLSConfigMapCredentialName(policyNamespace, ref)
+	}
 	refo, err := references.LocalPolicyRef(ctx, ref, policyNamespace)
 	if err == nil {
 		switch to := refo.(type) {
@@ -508,7 +514,7 @@ func getBackendTLSCredentialName(
 					Message: "Certificate invalid: " + err.Error(),
 				}
 			} else {
-				return credentials.KubernetesConfigMapTypeURI + policyNamespace + "/" + string(ref.Name)
+				return configMapSDSName
 			}
 		// TODO: for now we do not support Secret references.
 		// Core requires only ConfigMap
@@ -540,11 +546,22 @@ func getBackendTLSCredentialName(
 			Reason:  string(gw.BackendTLSPolicyReasonNoValidCACertificate),
 			Message: "Certificate reference invalid: " + err.Error(),
 		}
+		if configMapSDSName != "" {
+			return configMapSDSName
+		}
 		// Generate an invalid reference. This ensures traffic is blocked.
 		// See https://github.com/kubernetes-sigs/gateway-api/issues/3516 for upstream clarification on desired behavior here.
 		return credentials.InvalidSecretTypeURI
 	}
 	return ""
+}
+
+func isBackendTLSConfigMapRef(ref gw.LocalObjectReference) bool {
+	return gatewaycommon.NormalizeReference(&ref.Group, &ref.Kind, config.GroupVersionKind{}) == gvk.ConfigMap
+}
+
+func backendTLSConfigMapCredentialName(policyNamespace string, ref gw.LocalObjectReference) string {
+	return credentials.KubernetesConfigMapTypeURI + policyNamespace + "/" + string(ref.Name)
 }
 
 func BackendTrafficPolicyCollection(

@@ -30,16 +30,11 @@ import (
 	cert "k8s.io/api/certificates/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"istio.io/istio/pilot/pkg/credentials"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/keycertbundle"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/server"
-	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
-	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/filewatcher"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test"
@@ -48,21 +43,6 @@ import (
 	"istio.io/istio/pkg/testcerts"
 	"istio.io/istio/security/pkg/pki/util"
 )
-
-type fakeCredentialsMulticluster struct {
-	synced bool
-}
-
-func (f fakeCredentialsMulticluster) ForCluster(cluster.ID) (credentials.Controller, error) {
-	return nil, nil
-}
-
-func (f fakeCredentialsMulticluster) AddSecretHandler(func(kind.Kind, string, string)) {
-}
-
-func (f fakeCredentialsMulticluster) HasSynced() bool {
-	return f.synced
-}
 
 func loadCertFilesAtPaths(t TLSFSLoadPaths) error {
 	// create cert directories if not existing
@@ -105,29 +85,6 @@ func cleanupCertFileSystemFiles(t TLSFSLoadPaths) error {
 		return fmt.Errorf("Test cleanup failed, could not delete %s", t.testCaCertFilePath)
 	}
 	return nil
-}
-
-func TestCachesSyncedWaitsForCredentialsController(t *testing.T) {
-	g := NewWithT(t)
-
-	stop := test.NewStop(t)
-	configStore := model.NewFakeStore()
-	go configStore.Run(stop)
-	retry.UntilOrFail(t, configStore.HasSynced)
-
-	env := &model.Environment{
-		ServiceDiscovery:      aggregate.NewController(aggregate.Options{}),
-		CredentialsController: fakeCredentialsMulticluster{},
-	}
-	s := &Server{
-		environment:      env,
-		configController: configStore,
-	}
-
-	g.Expect(s.cachesSynced()).To(BeFalse())
-
-	env.CredentialsController = fakeCredentialsMulticluster{synced: true}
-	g.Expect(s.cachesSynced()).To(BeTrue())
 }
 
 // This struct will indicate for each test case
