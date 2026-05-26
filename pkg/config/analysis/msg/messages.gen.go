@@ -271,6 +271,10 @@ var (
 	// JwksUriFetchUnrestricted defines a diag.MessageType for message "JwksUriFetchUnrestricted".
 	// Description: RequestAuthentication resources exist but BLOCKED_CIDRS_IN_JWKS_URIS is not configured on istiod.
 	JwksUriFetchUnrestricted = diag.NewMessageType(diag.Warning, "IST0175", "BLOCKED_CIDRS_IN_JWKS_URIS is not configured but %d RequestAuthentication resource(s) exist (%s). Consider configuring it to restrict JWKS URI fetches to trusted networks.")
+
+	// GatewayAPICRDVersionBelowMinimum defines a diag.MessageType for message "GatewayAPICRDVersionBelowMinimum".
+	// Description: A Gateway API CRD is installed at a version below the minimum required by this Istio version. Resources of this kind will not be processed.
+	GatewayAPICRDVersionBelowMinimum = diag.NewMessageType(diag.Warning, "IST0176", "Gateway API CRD %q is at version %q but Istio requires at least %q; resources of this kind will not be processed. Upgrade the Gateway API CRDs to satisfy the minimum version.")
 )
 
 // All returns a list of all known message types.
@@ -342,6 +346,7 @@ func All() []*diag.MessageType {
 		DestinationRuleSubsetNotSelectPods,
 		UnknownDestinationRuleHost,
 		JwksUriFetchUnrestricted,
+		GatewayAPICRDVersionBelowMinimum,
 	}
 }
 
@@ -991,5 +996,16 @@ func NewJwksUriFetchUnrestricted(r *resource.Instance, count int, names string) 
 		r,
 		count,
 		names,
+	)
+}
+
+// NewGatewayAPICRDVersionBelowMinimum returns a new diag.Message based on GatewayAPICRDVersionBelowMinimum.
+func NewGatewayAPICRDVersionBelowMinimum(r *resource.Instance, crd string, installedVersion string, minimumVersion string) diag.Message {
+	return diag.NewMessage(
+		GatewayAPICRDVersionBelowMinimum,
+		r,
+		crd,
+		installedVersion,
+		minimumVersion,
 	)
 }
