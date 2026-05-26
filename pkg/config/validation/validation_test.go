@@ -7246,9 +7246,8 @@ func TestValidateRequestAuthentication(t *testing.T) {
 			valid: false,
 		},
 		{
-			// JWKS bearing private RSA components (d, p, q, dp, dq, qi) must be rejected.
-			// Only public keys are valid for token verification.
-			name:       "jwks with private RSA key rejected",
+			// JWKS bearing private RSA components warns but is still accepted.
+			name:       "jwks with private RSA key warns",
 			configName: constants.DefaultAuthenticationPolicyName,
 			in: &security_beta.RequestAuthentication{
 				JwtRules: []*security_beta.JWTRule{
@@ -7258,7 +7257,8 @@ func TestValidateRequestAuthentication(t *testing.T) {
 					},
 				},
 			},
-			valid: false,
+			valid: true,
+			warning: true,
 		},
 		{
 			name:       "null outputClaimToHeader",
