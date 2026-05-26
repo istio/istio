@@ -26,6 +26,7 @@ import (
 	"sigs.k8s.io/gateway-api/pkg/consts"
 
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pkg/config/schema/gatewayapi"
 	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
@@ -71,12 +72,6 @@ func newCrdWatcher(client kube.Client) kubetypes.CrdWatcher {
 	})
 	c.crds.AddEventHandler(controllers.ObjectHandler(c.queue.AddObject))
 	return c
-}
-
-var minimumCRDVersions = map[string]*semver.Version{
-	"grpcroutes.gateway.networking.k8s.io":         semver.New(1, 1, 0, "", ""),
-	"backendtlspolicies.gateway.networking.k8s.io": semver.New(1, 4, 0, "", ""),
-	"tlsroutes.gateway.networking.k8s.io":          semver.New(1, 5, 0, "", ""),
 }
 
 // resourceFilterConfig contains a filter definition parsed from the flags. In case
@@ -177,7 +172,7 @@ func resourceMatchFilters(name string, filters []resourceFilterConfig) bool {
 func minimumVersionFilter(t any) bool {
 	// Setup a filter
 	crd := t.(*metav1.PartialObjectMetadata)
-	mv, f := minimumCRDVersions[crd.Name]
+	mv, f := gatewayapi.MinimumCRDVersions[crd.Name]
 	if !f {
 		return true
 	}
