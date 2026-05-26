@@ -1001,6 +1001,14 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name:       "GatewayAPICRDVersionBelowMinimum",
+		inputFiles: []string{"testdata/gateway-api-crd-version-old.yaml"},
+		analyzer:   &k8sgateway.CRDVersionAnalyzer{},
+		expected: []message{
+			{msg.GatewayAPICRDVersionBelowMinimum, "CustomResourceDefinition tlsroutes.gateway.networking.k8s.io"},
+		},
+	},
+	{
 		name:       "ServiceEntry Addresses Required Lowercase Protocol",
 		inputFiles: []string{"testdata/serviceentry-address-required-lowercase.yaml"},
 		analyzer:   &serviceentry.ProtocolAddressesAnalyzer{},
