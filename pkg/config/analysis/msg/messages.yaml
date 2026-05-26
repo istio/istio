@@ -711,3 +711,16 @@ messages:
       type: int
     - name: names
       type: string
+
+  - name: "GatewayAPICRDVersionBelowMinimum"
+    code: IST0176
+    level: Warning
+    description: "A Gateway API CRD is installed at a version below the minimum required by this Istio version. Resources of this kind will not be processed."
+    template: "Gateway API CRD %q is at version %q but Istio requires at least %q; resources of this kind will not be processed. Upgrade the Gateway API CRDs to satisfy the minimum version."
+    args:
+    - name: crd
+      type: string
+    - name: installedVersion
+      type: string
+    - name: minimumVersion
+      type: string

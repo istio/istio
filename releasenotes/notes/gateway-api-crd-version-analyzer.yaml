@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+releaseNotes:
+- |
+  **Added** `istioctl analyze` check `IST0176` that flags Gateway API CRDs installed at a
+  version below the minimum required by the current Istio version. Resources backed by such
+  CRDs are silently filtered by istiod, which previously made TLS passthrough breakage after
+  upgrading to Istio 1.30 with stale Gateway API CRDs hard to discover.
