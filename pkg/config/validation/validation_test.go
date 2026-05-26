@@ -7257,7 +7257,7 @@ func TestValidateRequestAuthentication(t *testing.T) {
 					},
 				},
 			},
-			valid: true,
+			valid:   true,
 			warning: true,
 		},
 		{
