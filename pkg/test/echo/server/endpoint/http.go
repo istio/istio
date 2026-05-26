@@ -32,9 +32,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/pires/go-proxyproto"
-	"golang.org/x/net/http2"
 
-	"istio.io/istio/pkg/h2c"
 	"istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/util/retry"
@@ -70,15 +68,16 @@ func (s *httpInstance) GetConfig() Config {
 }
 
 func (s *httpInstance) Start(onReady OnReadyFunc) error {
-	h2s := &http2.Server{
-		IdleTimeout: idleTimeout,
-	}
+	protocols := new(http.Protocols)
+	protocols.SetHTTP1(true)
+	protocols.SetUnencryptedHTTP2(true)
 
 	s.server = &http.Server{
 		IdleTimeout: idleTimeout,
-		Handler: h2c.NewHandler(&httpHandler{
+		Handler: &httpHandler{
 			Config: s.Config,
-		}, h2s),
+		},
+		Protocols: protocols,
 		ConnContext: func(ctx context.Context, c net.Conn) context.Context {
 			return context.WithValue(ctx, ConnContextKey, c)
 		},
