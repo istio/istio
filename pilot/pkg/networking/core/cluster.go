@@ -336,6 +336,23 @@ func (configgen *ConfigGeneratorImpl) deltaFromService(
 		}
 	}
 
+	// Add extra services:
+	// 1. MeshConfig.ExtensionProviders
+	// 2. RequestAuthentication.JwtRules.JwksUri
+	// 3. EnvoyFilters with explicitly annotated references
+	//
+	// TODO: we should not send all the ports for these services, but only the ports that are actually referenced.
+	// This is a larger change as we need to track port references in the config store and push context.
+	envoyFilters := push.EnvoyFilters(proxy)
+	extraNamespacedHosts, extraHosts := push.ExtraWaypointServices(proxy, envoyFilters)
+	for _, service := range allServices {
+		if extraHosts.Contains(string(service.Hostname)) || extraNamespacedHosts.Contains(
+			model.NamespacedHostname{Namespace: service.Attributes.Namespace, Hostname: service.Hostname},
+		) {
+			services = append(services, service)
+		}
+	}
+
 	for h, clusters := range serviceClusters {
 		hostname := host.Name(h)
 		if _, ok := allServices[hostname]; !ok {
