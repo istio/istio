@@ -201,16 +201,19 @@ func (cfg *IptablesConfigurator) AppendInpodRules(podOverrides config.PodLevelOv
 	inpodMark := fmt.Sprintf("0x%x", config.InpodMark) + "/" + fmt.Sprintf("0x%x", config.InpodMask)
 	inpodTproxyMark := fmt.Sprintf("0x%x", config.InpodTProxyMark) + "/" + fmt.Sprintf("0x%x", config.InpodTProxyMask)
 
-	kataTapInterface := "tap0_kata"
-	hasKataTapInterface := false
-	for _, virtInterface := range podOverrides.VirtualInterfaces {
-		if virtInterface == kataTapInterface {
-			hasKataTapInterface = true
-			break
-		}
-	}
-	if !hasKataTapInterface {
-		podOverrides.VirtualInterfaces = append(podOverrides.VirtualInterfaces, kataTapInterface)
+	// For pods running under kata-containers, the pod IP is forwarded into a
+	// guest VM over a tap interface (e.g. tap0_kata) instead of being locally
+	// bound in the pod netns. We need extra rules so that ztunnel can capture
+	// inbound traffic and so that VM-originated outbound is redirected to
+	// ztunnel. Inject the tap interface name into VirtualInterfaces so the
+	// existing nat REDIRECT-from-virt block fires for it.
+	//
+	// Note: at the time these rules are installed, tap0_kata may not yet
+	// exist in the netns -- it is created later when the kata sandbox VM
+	// boots. iptables rules referencing the interface by name are evaluated
+	// per-packet, so installing them up-front is fine.
+	if podOverrides.KataMode {
+		podOverrides.VirtualInterfaces = append(podOverrides.VirtualInterfaces, "tap0_kata")
 	}
 
 	iptablesBuilder := builder.NewIptablesRuleBuilder(config.GetConfig(cfg.cfg))
@@ -287,6 +290,53 @@ func (cfg *IptablesConfigurator) AppendInpodRules(podOverrides config.PodLevelOv
 		}
 	}
 
+	// For VM-style runtimes (kata L3-forwarding, kubevirt bridge) the pod IP
+	// is not in the netns's local table -- it's forwarded/proxied to the VM
+	// over a tap interface -- so traffic destined to the pod IP on inbound
+	// ports (15006 plaintext capture, 15008 HBONE) would be routed onto the
+	// virtual interface and RST'd by the VM instead of being delivered to
+	// ztunnel's wildcard listeners on lo.
+	//
+	// Solution: mark every packet that enters on eth0 (other than ztunnel-
+	// originated, mark 0x539) with 0x111. The pod netns already has an
+	// `ip rule fwmark 0x111 lookup 100` plus table 100 = `local default dev
+	// lo`, so any marked packet is delivered locally. This relies on
+	// ztunnel's wildcard listeners (*:15006, *:15008) accepting the rewritten
+	// or original destination.
+	//
+	// We also need to handle the *reply* path for traffic that ztunnel
+	// originated outbound from the netns (e.g. an HBONE connect to the
+	// backend). Replies come back on tap0 (not eth0), so we add a socket-
+	// match rule that marks any packet owned by an existing local socket.
+	//
+	//   1. `-i eth0 ! --mark 0x539 -j MARK 0x111`  : inbound from outside
+	//   2. `-m socket -j MARK 0x111`               : replies to ztunnel sockets
+	//   3. `-m mark 0x111 -j ACCEPT`               : exit chain so fwmark rule fires
+	if podOverrides.KataMode {
+		iptablesBuilder.AppendRule(ChainInpodPrerouting, "mangle",
+			"-i", "eth0",
+			"-p", "tcp",
+			"-m", "mark", "!",
+			"--mark", inpodMark,
+			"-j", "MARK",
+			"--set-xmark", inpodTproxyMark,
+		)
+		// CLI: -t mangle -A ISTIO_PRERT -p tcp -m socket -j MARK --set-xmark 0x111/0xfff
+		iptablesBuilder.AppendRule(ChainInpodPrerouting, "mangle",
+			"-p", "tcp",
+			"-m", "socket",
+			"-j", "MARK",
+			"--set-xmark", inpodTproxyMark,
+		)
+		// CLI: -t mangle -A ISTIO_PRERT -p tcp -m mark --mark 0x111/0xfff -j ACCEPT
+		iptablesBuilder.AppendRule(ChainInpodPrerouting, "mangle",
+			"-p", "tcp",
+			"-m", "mark",
+			"--mark", inpodTproxyMark,
+			"-j", "ACCEPT",
+		)
+	}
+
 	// CLI: -A ISTIO_PRERT -m mark --mark 0x539/0xfff -j CONNMARK --set-xmark 0x111/0xfff
 	//
 	// DESC: If we have a packet mark, set a connmark.
@@ -307,7 +357,7 @@ func (cfg *IptablesConfigurator) AppendInpodRules(podOverrides config.PodLevelOv
 		//
 		// DESC: If this is one of our node-probe ports and is from our SNAT-ed/"special" hostside IP, short-circuit out here
 		iptablesBuilder.AppendVersionedRule(cfg.cfg.HostProbeSNATAddress.String(), cfg.cfg.HostProbeV6SNATAddress.String(),
-			ChainInpodPrerouting, "mangle",
+			ChainInpodPrerouting, "nat",
 			"-s", iptablesconstants.IPVersionSpecific,
 			"-p", "tcp",
 			"-m", "tcp",
@@ -328,70 +378,20 @@ func (cfg *IptablesConfigurator) AppendInpodRules(podOverrides config.PodLevelOv
 		"-j", "ACCEPT",
 	)
 
-	// CLI: -A ISTIO_PRERT -m connmark --mark 0x111/0xfff -j CONNMARK --restore-mark --nfmask 0xffffffff --ctmask 0xffffffff
-	//
-	// DESC: Propagate/restore connmark (if we had one) for inbound TPROXY handling.
-	iptablesBuilder.AppendRule(
-		ChainInpodPrerouting, "mangle",
-		"-m", "connmark",
-		"--mark", inpodTproxyMark,
-		"-j", "CONNMARK",
-		"--restore-mark",
-		"--nfmask", fmt.Sprintf("0x%x", config.InpodRestoreMask),
-		"--ctmask", fmt.Sprintf("0x%x", config.InpodRestoreMask),
-	)
-
 	if !podOverrides.IngressMode {
-		// CLI: -A ISTIO_PRERT ! -d 127.0.0.1/32 -p tcp --dport 15008 -m mark ! --mark 0x539/0xfff -j TPROXY --tproxy-mark 0x111/0xfff --on-port 15008 --on-ip 127.0.0.1
+		// CLI: -A ISTIO_PRERT ! -d 127.0.0.1/32 -p tcp ! --dport 15008 -m mark ! --mark 0x539/0xfff -j REDIRECT --to-ports <INPLAINPORT>
 		//
-		// DESC: HBONE inbound traffic goes directly to ztunnel's HBONE listener without changing the original destination.
-		iptablesBuilder.AppendRuleV4(ChainInpodPrerouting, "mangle",
-			"!", "-d", "127.0.0.1/32",
-			"-p", "tcp",
-			"--dport", fmt.Sprint(config.ZtunnelInboundPort),
-			"-m", "mark", "!",
-			"--mark", inpodMark,
-			"-j", "TPROXY",
-			"--tproxy-mark", inpodTproxyMark,
-			"--on-port", fmt.Sprint(config.ZtunnelInboundPort),
-			"--on-ip", "127.0.0.1",
-		)
-		iptablesBuilder.AppendRuleV6(ChainInpodPrerouting, "mangle",
-			"!", "-d", "::1/128",
-			"-p", "tcp",
-			"--dport", fmt.Sprint(config.ZtunnelInboundPort),
-			"-m", "mark", "!",
-			"--mark", inpodMark,
-			"-j", "TPROXY",
-			"--tproxy-mark", inpodTproxyMark,
-			"--on-port", fmt.Sprint(config.ZtunnelInboundPort),
-			"--on-ip", "::1",
-		)
-
-		// CLI: -A ISTIO_PRERT ! -d 127.0.0.1/32 -p tcp ! --dport 15008 -m mark ! --mark 0x539/0xfff -j TPROXY --tproxy-mark 0x111/0xfff --on-port <INPLAINPORT> --on-ip 127.0.0.1
-		//
-		// DESC: Anything that is not bound for localhost and does not have the mark, TPROXY to ztunnel inbound plaintext port <INPLAINPORT>.
-		iptablesBuilder.AppendRuleV4(ChainInpodPrerouting, "mangle",
-			"!", "-d", "127.0.0.1/32",
+		// DESC: Anything that is not bound for localhost and does not have the mark, REDIRECT to ztunnel inbound plaintext port <INPLAINPORT>
+		// Skip 15008, which will go direct without redirect needed.
+		iptablesBuilder.AppendVersionedRule("127.0.0.1/32", "::1/128",
+			ChainInpodPrerouting, "nat",
+			"!", "-d", iptablesconstants.IPVersionSpecific,
 			"-p", "tcp",
 			"!", "--dport", fmt.Sprint(config.ZtunnelInboundPort),
 			"-m", "mark", "!",
 			"--mark", inpodMark,
-			"-j", "TPROXY",
-			"--tproxy-mark", inpodTproxyMark,
-			"--on-port", fmt.Sprint(config.ZtunnelInboundPlaintextPort),
-			"--on-ip", "127.0.0.1",
-		)
-		iptablesBuilder.AppendRuleV6(ChainInpodPrerouting, "mangle",
-			"!", "-d", "::1/128",
-			"-p", "tcp",
-			"!", "--dport", fmt.Sprint(config.ZtunnelInboundPort),
-			"-m", "mark", "!",
-			"--mark", inpodMark,
-			"-j", "TPROXY",
-			"--tproxy-mark", inpodTproxyMark,
-			"--on-port", fmt.Sprint(config.ZtunnelInboundPlaintextPort),
-			"--on-ip", "::1",
+			"-j", "REDIRECT",
+			"--to-ports", fmt.Sprint(config.ZtunnelInboundPlaintextPort),
 		)
 	}
 
