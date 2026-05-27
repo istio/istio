@@ -57,6 +57,13 @@ type PodLevelOverrides struct {
 	VirtualInterfaces []string
 	IngressMode       bool
 	DNSProxy          PodDNSOverride
+	// KataMode is set when the pod runs under a kata-containers (or any
+	// VM-style) RuntimeClass, where the pod IP is forwarded into a guest VM
+	// over a tap interface and is therefore not locally bound in the pod
+	// netns. Inbound traffic to ztunnel must be steered to lo via fwmark
+	// instead of relying on the local route, and VM-originated outbound
+	// must be REDIRECTed to ztunnel's outbound port.
+	KataMode bool
 }
 
 // AmbientConfig represents the "global"/per-instance configuration for Ambient mode traffic management
