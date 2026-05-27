@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 60375
+releaseNotes:
+  - |
+    - **Fixed** On Gateway API, support HTTPRoute retries when the
+    backend issues a connection reset

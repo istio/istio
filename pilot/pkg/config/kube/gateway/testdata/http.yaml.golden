@@ -363,7 +363,7 @@ spec:
     retries:
       attempts: 3
       backoff: 0.003s
-      retryOn: connect-failure,refused-stream,unavailable,cancelled,503,429
+      retryOn: connect-failure,refused-stream,unavailable,cancelled,reset,503,429
     route:
     - destination:
         host: httpbin.default.svc.domain.suffix
@@ -385,7 +385,7 @@ spec:
     name: default.http-retry-request.1
     retries:
       attempts: 2
-      retryOn: connect-failure,refused-stream,unavailable,cancelled
+      retryOn: connect-failure,refused-stream,unavailable,cancelled,reset
     route:
     - destination:
         host: httpbin.default.svc.domain.suffix

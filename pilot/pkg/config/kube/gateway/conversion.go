@@ -186,7 +186,7 @@ func convertHTTPRoute(ctx RouteContext, r k8s.HTTPRouteRule,
 	if r.Retry != nil {
 		// "Implementations SHOULD retry on connection errors (disconnect, reset, timeout,
 		// TCP failure) if a retry stanza is configured."
-		retryOn := []string{"connect-failure", "refused-stream", "unavailable", "cancelled"}
+		retryOn := []string{"connect-failure", "refused-stream", "unavailable", "cancelled", "reset"}
 		for _, codes := range r.Retry.Codes {
 			retryOn = append(retryOn, strconv.Itoa(int(codes)))
 		}
