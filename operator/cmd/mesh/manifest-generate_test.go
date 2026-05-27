@@ -316,6 +316,26 @@ func TestManifestGenerateGateways(t *testing.T) {
 	})
 }
 
+// TestManifestGenerateHPAPDB verifies that setting k8s.hpaSpec.minReplicas causes
+// a PodDisruptionBudget to be generated without requiring the user to also set the
+// component's autoscaleMin Helm value directly.
+func TestManifestGenerateHPAPDB(t *testing.T) {
+	runTestGroup(t, testGroup{
+		{
+			desc:        "gateway_hpa_pdb",
+			diffSelect:  "HorizontalPodAutoscaler:*:istio-ingressgateway,PodDisruptionBudget:*:istio-ingressgateway",
+			fileSelect:  []string{"templates/autoscale.yaml", "templates/poddisruptionbudget.yaml"},
+			chartSource: liveCharts,
+		},
+		{
+			desc:        "pilot_hpa_pdb",
+			diffSelect:  "HorizontalPodAutoscaler:*:istiod,PodDisruptionBudget:*:istiod",
+			fileSelect:  []string{"templates/autoscale.yaml", "templates/poddisruptionbudget.yaml"},
+			chartSource: liveCharts,
+		},
+	})
+}
+
 func TestManifestGenerateWithDuplicateMutatingWebhookConfig(t *testing.T) {
 	testResourceFile := "duplicate_mwc"
 
