@@ -24,10 +24,10 @@ func TestDetectNftJSONSupport(t *testing.T) {
 	t.Cleanup(func() { nftJSONProbeCommandFn = original })
 
 	cases := []struct {
-		name     string
-		cmd      *exec.Cmd
-		wantOK   bool
-		wantErr  bool
+		name    string
+		cmd     *exec.Cmd
+		wantOK  bool
+		wantErr bool
 	}{
 		{
 			name:   "json supported, exit 0",
