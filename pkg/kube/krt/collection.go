@@ -57,6 +57,21 @@ type extractorKey struct {
 }
 
 func (i dependencyState[I]) update(key Key[I], deps []*dependency) {
+	if old, f := i.objectDependencies[key]; f {
+		for _, d := range old {
+			if depKeys, typ, _, _, ok := d.filter.reverseIndexKey(); ok {
+				for _, depKey := range depKeys {
+					k := indexedDependency{
+						id:  d.id,
+						key: depKey,
+						typ: typ,
+					}
+					sets.DeleteCleanupLast(i.indexedDependencies, k, key)
+				}
+			}
+		}
+	}
+
 	// Update the I -> Dependency mapping
 	i.objectDependencies[key] = deps
 	for _, d := range deps {
