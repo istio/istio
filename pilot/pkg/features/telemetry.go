@@ -72,4 +72,7 @@ var (
 
 	SpawnUpstreamSpanForGateway = env.Register("PILOT_SPAWN_UPSTREAM_SPAN_FOR_GATEWAY", true,
 		"If true, separate tracing span for each upstream request for gateway. This is only available when using Telemetry API.").Get()
+
+	AgentMergeEnvoyStats = env.Register("AGENT_MERGE_ENVOY_STATS", true,
+		"If false, pilot agent will not merge Envoy stats in the agent stats endpoint.").Get()
 )
