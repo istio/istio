@@ -60,11 +60,12 @@ var nftProviderVar NftProviderFunc
 // Defaults to the real implementation
 var kubeletUIDProvider = getKubeletUIDFromPath
 
-// NftablesConfigurator handles nftables rule management for Ambient mode
+// NftablesConfigurator handles nftables rule management for Ambient mode.
+// Shared across concurrent pod-add goroutines; rule builders are scoped
+// per-call and passed through, not held on the struct.
 type NftablesConfigurator struct {
 	nlDeps      iptables.NetlinkDependencies
 	cfg         *config.AmbientConfig
-	ruleBuilder *builder.NftablesRuleBuilder
 	nftProvider NftProviderFunc
 }
 
@@ -131,7 +132,7 @@ func (cfg *NftablesConfigurator) CreateInpodRules(log *istiolog.Scope, podOverri
 }
 
 func (cfg *NftablesConfigurator) AppendInpodRules(podOverrides config.PodLevelOverrides) (*knftables.Transaction, error) {
-	cfg.ruleBuilder = builder.NewNftablesRuleBuilder(config.GetConfig(cfg.cfg))
+	rb := builder.NewNftablesRuleBuilder(config.GetConfig(cfg.cfg))
 
 	var redirectDNS bool
 
@@ -144,33 +145,33 @@ func (cfg *NftablesConfigurator) AppendInpodRules(podOverrides config.PodLevelOv
 		redirectDNS = false
 	}
 
-	cfg.ruleBuilder.AppendRule(
+	rb.AppendRule(
 		PreroutingChain, AmbientMangleTable,
 		"jump", IstioPreroutingChain,
 	)
 
-	cfg.ruleBuilder.AppendRule(
+	rb.AppendRule(
 		OutputChain, AmbientMangleTable,
 		"jump", IstioOutputChain,
 	)
 
-	cfg.ruleBuilder.AppendRule(
+	rb.AppendRule(
 		OutputChain, AmbientNatTable,
 		"jump", IstioOutputChain,
 	)
 
 	if redirectDNS {
-		cfg.ruleBuilder.AppendRule(
+		rb.AppendRule(
 			PreroutingChain, AmbientRawTable,
 			"jump", IstioPreroutingChain,
 		)
-		cfg.ruleBuilder.AppendRule(
+		rb.AppendRule(
 			OutputChain, AmbientRawTable,
 			"jump", IstioOutputChain,
 		)
 	}
 
-	cfg.ruleBuilder.AppendRule(
+	rb.AppendRule(
 		PreroutingChain, AmbientNatTable,
 		"jump", IstioPreroutingChain,
 	)
@@ -184,14 +185,14 @@ func (cfg *NftablesConfigurator) AppendInpodRules(podOverrides config.PodLevelOv
 			// and just shunt it directly to the outbound port of the proxy.
 			// Note that for now this explicitly excludes UDP traffic, as we can't proxy arbitrary UDP stuff,
 			// and this is a difference from the old sidecar `traffic.sidecar.istio.io/kubevirtInterfaces` annotation.
-			cfg.ruleBuilder.AppendRule(IstioPreroutingChain, AmbientNatTable,
+			rb.AppendRule(IstioPreroutingChain, AmbientNatTable,
 				"iifname", fmt.Sprint(virtInterface),
 				"meta l4proto tcp", Counter,
 				"redirect to", ":"+fmt.Sprint(config.ZtunnelOutboundPort),
 			)
 
 			// CLI: nft add rule inet istio-ambient-nat istio-prerouting iifname <iface> meta l4proto tcp counter return
-			cfg.ruleBuilder.AppendRule(IstioPreroutingChain, AmbientNatTable,
+			rb.AppendRule(IstioPreroutingChain, AmbientNatTable,
 				"iifname", fmt.Sprint(virtInterface),
 				"meta l4proto tcp", Counter,
 				"return",
@@ -201,7 +202,7 @@ func (cfg *NftablesConfigurator) AppendInpodRules(podOverrides config.PodLevelOv
 
 	// CLI: nft add rule inet istio-ambient-mangle istio-prerouting meta mark & 0xfff == 0x539 counter ct mark set ct mark & 0xfffff000 | 0x111
 	// DESC: If we have a packet mark, set a connmark.
-	cfg.ruleBuilder.AppendRule(IstioPreroutingChain, AmbientMangleTable,
+	rb.AppendRule(IstioPreroutingChain, AmbientMangleTable,
 		"meta mark & 0xfff ==",
 		fmt.Sprintf("0x%x", config.InpodMark), Counter, "ct mark set ct mark & 0xfffff000 | ",
 		fmt.Sprintf("0x%x", config.InpodTProxyMark))
@@ -217,7 +218,7 @@ func (cfg *NftablesConfigurator) AppendInpodRules(podOverrides config.PodLevelOv
 		// CLI: nft add rule inet istio-ambient-nat istio-prerouting meta l4proto tcp ip saddr 169.254.7.127 counter accept
 		//
 		// DESC: If this is one of our node-probe ports and is from our SNAT-ed/"special" hostside IP, short-circuit out here
-		cfg.ruleBuilder.AppendRule(IstioPreroutingChain, AmbientNatTable,
+		rb.AppendRule(IstioPreroutingChain, AmbientNatTable,
 			"meta l4proto tcp",
 			"ip saddr", cfg.cfg.HostProbeSNATAddress.String(), Counter,
 			"accept",
@@ -225,7 +226,7 @@ func (cfg *NftablesConfigurator) AppendInpodRules(podOverrides config.PodLevelOv
 
 		// CLI: nft add rule inet istio-ambient-nat istio-prerouting meta l4proto tcp ip6 saddr
 		// fd16:9254:7127:1337:ffff:ffff:ffff:ffff counter accept
-		cfg.ruleBuilder.AppendV6RuleIfSupported(IstioPreroutingChain, AmbientNatTable,
+		rb.AppendV6RuleIfSupported(IstioPreroutingChain, AmbientNatTable,
 			"meta l4proto tcp",
 			"ip6 saddr", cfg.cfg.HostProbeV6SNATAddress.String(), Counter,
 			"accept",
@@ -234,14 +235,14 @@ func (cfg *NftablesConfigurator) AppendInpodRules(podOverrides config.PodLevelOv
 
 	// CLI: nft add rule inet istio-ambient-nat istio-output meta l4proto tcp ip daddr 169.254.7.127 counter accept
 	// DESC: Anything coming BACK from the pod healthcheck port with a dest of our SNAT-ed hostside IP we also short-circuit.
-	cfg.ruleBuilder.AppendRule(IstioOutputChain, AmbientNatTable,
+	rb.AppendRule(IstioOutputChain, AmbientNatTable,
 		"meta l4proto tcp",
 		"ip daddr", cfg.cfg.HostProbeSNATAddress.String(), Counter,
 		"accept",
 	)
 
 	// CLI: nft add rule inet istio-ambient-nat istio-output meta l4proto tcp ip6 daddr fd16:9254:7127:1337:ffff:ffff:ffff:ffff counter accept
-	cfg.ruleBuilder.AppendV6RuleIfSupported(IstioOutputChain, AmbientNatTable,
+	rb.AppendV6RuleIfSupported(IstioOutputChain, AmbientNatTable,
 		"meta l4proto tcp",
 		"ip6 daddr", cfg.cfg.HostProbeV6SNATAddress.String(), Counter,
 		"accept",
@@ -253,14 +254,14 @@ func (cfg *NftablesConfigurator) AppendInpodRules(podOverrides config.PodLevelOv
 		//
 		// DESC: Anything that is not bound for localhost and does not have the mark, REDIRECT to ztunnel inbound plaintext port <INPLAINPORT>
 		// Skip 15008, which will go direct without redirect needed.
-		cfg.ruleBuilder.AppendRule(IstioPreroutingChain, AmbientNatTable,
+		rb.AppendRule(IstioPreroutingChain, AmbientNatTable,
 			"ip daddr", "!=", "127.0.0.1/32",
 			"tcp dport", "!=", fmt.Sprint(config.ZtunnelInboundPort),
 			"mark and 0xfff ", "!=", fmt.Sprintf("0x%x", config.InpodMark), Counter,
 			"redirect to", ":"+fmt.Sprint(config.ZtunnelInboundPlaintextPort),
 		)
 
-		cfg.ruleBuilder.AppendV6RuleIfSupported(IstioPreroutingChain, AmbientNatTable,
+		rb.AppendV6RuleIfSupported(IstioPreroutingChain, AmbientNatTable,
 			"ip6 daddr", "!=", "::1/128",
 			"tcp dport", "!=", fmt.Sprint(config.ZtunnelInboundPort),
 			"mark and 0xfff", "!=", fmt.Sprintf("0x%x", config.InpodMark), Counter,
@@ -271,7 +272,7 @@ func (cfg *NftablesConfigurator) AppendInpodRules(podOverrides config.PodLevelOv
 	// CLI: nft add rule inet istio-ambient-mangle istio-output ct mark and 0xfff == 0x111 counter meta mark set ct mark
 	//
 	// DESC: Propagate/restore connmark (if we had one) for outbound
-	cfg.ruleBuilder.AppendRule(
+	rb.AppendRule(
 		IstioOutputChain, AmbientMangleTable,
 		"ct mark and", fmt.Sprintf("0x%x", config.InpodTProxyMask),
 		"==", fmt.Sprintf("0x%x", config.InpodTProxyMark), Counter,
@@ -282,7 +283,7 @@ func (cfg *NftablesConfigurator) AppendInpodRules(podOverrides config.PodLevelOv
 		// CLI: nft add rule inet istio-ambient-nat istio-output oifname != "lo" mark and 0xfff != 0x539 udp dport 53 counter redirect to :15053
 		//
 		// DESC: If this is a UDP DNS request to a non-localhost resolver, send it to ztunnel DNS proxy port
-		cfg.ruleBuilder.AppendRule(
+		rb.AppendRule(
 			IstioOutputChain, AmbientNatTable,
 			"oifname", "!=", "lo",
 			"mark and", fmt.Sprintf("0x%x", config.InpodMask),
@@ -292,7 +293,7 @@ func (cfg *NftablesConfigurator) AppendInpodRules(podOverrides config.PodLevelOv
 		)
 
 		// CLI: nft add rule inet istio-ambient-nat istio-output ip daddr != 127.0.0.1/32 tcp dport 53 mark and 0xfff != 0x539 counter redirect to :15053
-		cfg.ruleBuilder.AppendRule(
+		rb.AppendRule(
 			IstioOutputChain, AmbientNatTable,
 			"ip daddr", "!=", "127.0.0.1/32",
 			"tcp dport", "53",
@@ -302,7 +303,7 @@ func (cfg *NftablesConfigurator) AppendInpodRules(podOverrides config.PodLevelOv
 		)
 
 		// CLI: nft add rule inet istio-ambient-nat istio-output ip6 daddr != ::1/128 tcp dport 53 mark and 0xfff != 0x539 counter redirect to :15053
-		cfg.ruleBuilder.AppendV6RuleIfSupported(
+		rb.AppendV6RuleIfSupported(
 			IstioOutputChain, AmbientNatTable,
 			"ip6 daddr", "!=", "::1/128",
 			"tcp dport", "53",
@@ -315,7 +316,7 @@ func (cfg *NftablesConfigurator) AppendInpodRules(podOverrides config.PodLevelOv
 		// See https://github.com/istio/istio/issues/33469
 		// CLI: nft add rule inet istio-ambient-raw istio-output udp dport 53 meta mark and 0xfff == 0x539 counter ct zone set 1
 		// Proxy --> Upstream
-		cfg.ruleBuilder.AppendRule(
+		rb.AppendRule(
 			IstioOutputChain, AmbientRawTable,
 			"udp dport", "53",
 			"meta mark and", fmt.Sprintf("0x%x", config.InpodMask),
@@ -325,7 +326,7 @@ func (cfg *NftablesConfigurator) AppendInpodRules(podOverrides config.PodLevelOv
 
 		// CLI: nft add rule inet istio-ambient-raw istio-prerouting udp sport 53 meta mark and 0xfff != 0x539 counter ct zone set 1
 		// Upstream --> Proxy return packets
-		cfg.ruleBuilder.AppendRule(
+		rb.AppendRule(
 			IstioPreroutingChain, AmbientRawTable,
 			"udp sport", "53",
 			"meta mark and", fmt.Sprintf("0x%x", config.InpodMask),
@@ -337,7 +338,7 @@ func (cfg *NftablesConfigurator) AppendInpodRules(podOverrides config.PodLevelOv
 	// CLI: nft add rule inet istio-ambient-nat istio-output meta l4proto tcp mark and 0xfff == 0x111 counter accept
 	//
 	// DESC: If this is outbound and has our mark, let it go.
-	cfg.ruleBuilder.AppendRule(
+	rb.AppendRule(
 		IstioOutputChain, AmbientNatTable,
 		"meta l4proto tcp",
 		"mark and", fmt.Sprintf("0x%x", config.InpodTProxyMask),
@@ -348,7 +349,7 @@ func (cfg *NftablesConfigurator) AppendInpodRules(podOverrides config.PodLevelOv
 	// Do not redirect app calls to back itself via Ztunnel when using the endpoint address
 	// e.g. appN => appN by lo
 	// CLI: nft add rule inet istio-ambient-nat istio-output oifname "lo" ip daddr != 127.0.0.1 counter accept
-	cfg.ruleBuilder.AppendRule(
+	rb.AppendRule(
 		IstioOutputChain, AmbientNatTable,
 		"oifname", "lo",
 		"ip daddr",
@@ -357,7 +358,7 @@ func (cfg *NftablesConfigurator) AppendInpodRules(podOverrides config.PodLevelOv
 	)
 
 	// CLI: nft add rule inet istio-ambient-nat istio-output oifname "lo" ip6 daddr != ::1/128 counter accept
-	cfg.ruleBuilder.AppendV6RuleIfSupported(
+	rb.AppendV6RuleIfSupported(
 		IstioOutputChain, AmbientNatTable,
 		"oifname", "lo",
 		"ip6 daddr",
@@ -368,7 +369,7 @@ func (cfg *NftablesConfigurator) AppendInpodRules(podOverrides config.PodLevelOv
 	// CLI: nft add rule inet istio-ambient-nat istio-output meta l4proto tcp ip daddr != 127.0.0.1 mark and 0xfff != 0x539 counter redirect to :15001
 	//
 	// DESC: If this is outbound, not bound for localhost, and does not have our packet mark, redirect to ztunnel proxy <OUTPORT>
-	cfg.ruleBuilder.AppendRule(
+	rb.AppendRule(
 		IstioOutputChain, AmbientNatTable,
 		"meta l4proto tcp",
 		"ip daddr",
@@ -378,7 +379,7 @@ func (cfg *NftablesConfigurator) AppendInpodRules(podOverrides config.PodLevelOv
 		"redirect to", ":"+fmt.Sprintf("%d", config.ZtunnelOutboundPort),
 	)
 
-	cfg.ruleBuilder.AppendV6RuleIfSupported(
+	rb.AppendV6RuleIfSupported(
 		IstioOutputChain, AmbientNatTable,
 		"meta l4proto tcp",
 		"ip6 daddr",
@@ -388,7 +389,7 @@ func (cfg *NftablesConfigurator) AppendInpodRules(podOverrides config.PodLevelOv
 		"redirect to", ":"+fmt.Sprintf("%d", config.ZtunnelOutboundPort),
 	)
 
-	return cfg.executeCommands()
+	return cfg.executeCommands(rb)
 }
 
 // DeleteInpodRules removes nftables rules from a pod's network namespace
@@ -429,7 +430,7 @@ func (cfg *NftablesConfigurator) CreateHostRulesForHealthChecks() error {
 	log := log.WithLabels("component", "host")
 	log.Info("Adding nftable rules on the host network namespace")
 
-	cfg.ruleBuilder = builder.NewNftablesRuleBuilder(config.GetConfig(cfg.cfg))
+	rb := builder.NewNftablesRuleBuilder(config.GetConfig(cfg.cfg))
 
 	kubeletUID, err := kubeletUIDProvider(filepath.Join(constants.HostMountsPath, "proc"))
 	if err != nil {
@@ -470,15 +471,15 @@ func (cfg *NftablesConfigurator) CreateHostRulesForHealthChecks() error {
 	//	It is portable across cgroup versions and k8s distributions. Also, it's slightly stricter than
 	//  iptables "--socket-exists" match which only checks for host-originated sockets.
 
-	cfg.ruleBuilder.AppendRule(PostroutingChain, AmbientNatTable, "meta l4proto tcp", "skuid", kubeletUID,
+	rb.AppendRule(PostroutingChain, AmbientNatTable, "meta l4proto tcp", "skuid", kubeletUID,
 		"ip", "daddr", fmt.Sprintf("@%s-v4", config.ProbeIPSet), Counter, "snat", "to", cfg.cfg.HostProbeSNATAddress.String())
 
 	// For V6 we have to use a different set and a different SNAT IP
-	cfg.ruleBuilder.AppendV6RuleIfSupported(PostroutingChain, AmbientNatTable, "meta l4proto tcp", "skuid", kubeletUID,
+	rb.AppendV6RuleIfSupported(PostroutingChain, AmbientNatTable, "meta l4proto tcp", "skuid", kubeletUID,
 		"ip6", "daddr", fmt.Sprintf("@%s-v6", config.ProbeIPSet), Counter, "snat", "to", cfg.cfg.HostProbeV6SNATAddress.String())
 
 	return util.RunAsHost(func() error {
-		tx, err := cfg.executeHostCommands()
+		tx, err := cfg.executeHostCommands(rb)
 		if err != nil {
 			log.Errorf("failed to program nftable rules in the host network namespace: %v", err)
 			return err
@@ -546,16 +547,16 @@ func (cfg *NftablesConfigurator) delInpodMarkIPRule() error {
 }
 
 // executeCommands creates a transaction including all needed modifications and runs it.
-func (cfg *NftablesConfigurator) executeCommands() (*knftables.Transaction, error) {
+func (cfg *NftablesConfigurator) executeCommands(rb *builder.NftablesRuleBuilder) (*knftables.Transaction, error) {
 	nft, err := cfg.nftProvider("", "")
 	if err != nil {
 		return nil, err
 	}
 
 	tx := nft.NewTransaction()
-	tx = cfg.addIstioNatTableRules(tx)
-	tx = cfg.addIstioMangleTableRules(tx)
-	tx = cfg.addIstioRawTableRules(tx)
+	tx = cfg.addIstioNatTableRules(tx, rb)
+	tx = cfg.addIstioMangleTableRules(tx, rb)
+	tx = cfg.addIstioRawTableRules(tx, rb)
 
 	// If there are any transactions to apply, run them in a batch.
 	if tx.NumOperations() > 0 {
@@ -566,8 +567,8 @@ func (cfg *NftablesConfigurator) executeCommands() (*knftables.Transaction, erro
 	return tx, nil
 }
 
-// executeCommands creates a transaction including all needed modifications and runs it.
-func (cfg *NftablesConfigurator) executeHostCommands() (*knftables.Transaction, error) {
+// executeHostCommands creates a transaction with the host rules and runs it.
+func (cfg *NftablesConfigurator) executeHostCommands(rb *builder.NftablesRuleBuilder) (*knftables.Transaction, error) {
 	nft, err := cfg.nftProvider("", "")
 	if err != nil {
 		return nil, err
@@ -575,7 +576,7 @@ func (cfg *NftablesConfigurator) executeHostCommands() (*knftables.Transaction, 
 
 	tx := nft.NewTransaction()
 
-	if len(cfg.ruleBuilder.Rules[AmbientNatTable]) == 0 {
+	if len(rb.Rules[AmbientNatTable]) == 0 {
 		return tx, nil
 	}
 
@@ -590,7 +591,7 @@ func (cfg *NftablesConfigurator) executeHostCommands() (*knftables.Transaction, 
 		},
 	}
 
-	rules := cfg.ruleBuilder.Rules[AmbientNatTable]
+	rules := rb.Rules[AmbientNatTable]
 	tx = cfg.addIstioTableRules(tx, AmbientNatTable, chains, rules)
 	if tx.NumOperations() > 0 {
 		if err := nft.Run(context.TODO(), tx); err != nil {
@@ -602,8 +603,8 @@ func (cfg *NftablesConfigurator) executeHostCommands() (*knftables.Transaction, 
 
 // addIstioNatTableRules updates a transaction to include the nftables rules for the AmbientNatTable table.
 // It makes sure the table and the necessary chains exist, then adds rules from the rule builder.
-func (cfg *NftablesConfigurator) addIstioNatTableRules(tx *knftables.Transaction) *knftables.Transaction {
-	if len(cfg.ruleBuilder.Rules[AmbientNatTable]) == 0 {
+func (cfg *NftablesConfigurator) addIstioNatTableRules(tx *knftables.Transaction, rb *builder.NftablesRuleBuilder) *knftables.Transaction {
+	if len(rb.Rules[AmbientNatTable]) == 0 {
 		return tx
 	}
 
@@ -628,15 +629,15 @@ func (cfg *NftablesConfigurator) addIstioNatTableRules(tx *knftables.Transaction
 		{Name: IstioOutputChain, Table: AmbientNatTable, Family: knftables.InetFamily},
 	}
 
-	rules := cfg.ruleBuilder.Rules[AmbientNatTable]
+	rules := rb.Rules[AmbientNatTable]
 
 	return cfg.addIstioTableRules(tx, AmbientNatTable, chains, rules)
 }
 
 // addIstioMangleTableRules updates a transaction to include the nftables rules for the AmbientMangleTable table.
 // It makes sure the table and the necessary chains exist, then adds rules from the rule builder.
-func (cfg *NftablesConfigurator) addIstioMangleTableRules(tx *knftables.Transaction) *knftables.Transaction {
-	if len(cfg.ruleBuilder.Rules[AmbientMangleTable]) == 0 {
+func (cfg *NftablesConfigurator) addIstioMangleTableRules(tx *knftables.Transaction, rb *builder.NftablesRuleBuilder) *knftables.Transaction {
+	if len(rb.Rules[AmbientMangleTable]) == 0 {
 		return tx
 	}
 
@@ -661,15 +662,15 @@ func (cfg *NftablesConfigurator) addIstioMangleTableRules(tx *knftables.Transact
 		{Name: IstioOutputChain, Table: AmbientMangleTable, Family: knftables.InetFamily},
 	}
 
-	rules := cfg.ruleBuilder.Rules[AmbientMangleTable]
+	rules := rb.Rules[AmbientMangleTable]
 
 	return cfg.addIstioTableRules(tx, AmbientMangleTable, chains, rules)
 }
 
 // addIstioRawTableRules updates a transaction to include the nftables rules for the AmbientRawTable table.
 // It makes sure the table and the necessary chains exist, then adds rules from the rule builder.
-func (cfg *NftablesConfigurator) addIstioRawTableRules(tx *knftables.Transaction) *knftables.Transaction {
-	if len(cfg.ruleBuilder.Rules[AmbientRawTable]) == 0 {
+func (cfg *NftablesConfigurator) addIstioRawTableRules(tx *knftables.Transaction, rb *builder.NftablesRuleBuilder) *knftables.Transaction {
+	if len(rb.Rules[AmbientRawTable]) == 0 {
 		return tx
 	}
 
@@ -694,7 +695,7 @@ func (cfg *NftablesConfigurator) addIstioRawTableRules(tx *knftables.Transaction
 		{Name: IstioOutputChain, Table: AmbientRawTable, Family: knftables.InetFamily},
 	}
 
-	rules := cfg.ruleBuilder.Rules[AmbientRawTable]
+	rules := rb.Rules[AmbientRawTable]
 
 	return cfg.addIstioTableRules(tx, AmbientRawTable, chains, rules)
 }

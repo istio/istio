@@ -1,0 +1,18 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 60328
+
+releaseNotes:
+  - |
+    **Fixed** a fatal `concurrent map writes` panic in the istio-cni agent when
+    two pods were added to the ambient mesh on the same node at the same time.
+    The native nftables rule builder was held on a shared field of the
+    `NftablesConfigurator` and mutated without synchronization; the builder is
+    now scoped per-call and passed through the rule programming path.
+  - |
+    **Added** a startup probe that verifies the bundled `nft` binary supports
+    JSON output. On hosts whose nft was built without libjansson, the ambient
+    CNI agent now falls back to the iptables backend instead of failing every
+    pod removal in an infinite retry loop.
