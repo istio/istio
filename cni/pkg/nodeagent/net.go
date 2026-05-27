@@ -54,5 +54,15 @@ func getPodLevelTrafficOverrides(pod *corev1.Pod) config.PodLevelOverrides {
 		}
 	}
 
+	// Detect kata-containers (and other VM-style runtimes that follow the
+	// `kata` RuntimeClass convention) so that iptables setup can install the
+	// extra rules needed when the pod IP isn't locally bound in the netns.
+	if rc := pod.Spec.RuntimeClassName; rc != nil {
+		name := *rc
+		if name == "kata" || strings.HasPrefix(name, "kata-") {
+			podCfg.KataMode = true
+		}
+	}
+
 	return podCfg
 }
