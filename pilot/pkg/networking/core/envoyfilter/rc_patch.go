@@ -61,7 +61,8 @@ func ApplyRouteConfigurationPatches(
 func ApplyMergeRouteConfiguration(patchContext networking.EnvoyFilter_PatchContext,
 	proxy *model.Proxy,
 	efw *model.MergedEnvoyFilterWrapper,
-	routeConfiguration *route.RouteConfiguration) (out *route.RouteConfiguration) {
+	routeConfiguration *route.RouteConfiguration,
+) (out *route.RouteConfiguration) {
 	defer runtime.HandleCrash(runtime.LogPanic, func(any) {
 		IncrementEnvoyFilterErrorMetric(Route)
 		log.Errorf("route patch caused panic, so the patches did not take effect")
