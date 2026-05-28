@@ -141,6 +141,12 @@ var (
 	envoyPrometheusPortEnv = env.Register("ENVOY_PROMETHEUS_PORT", 15090,
 		"Envoy prometheus redirection port value").Get()
 
+	envoySecureMetricsPortEnv = env.Register("ENVOY_SECURE_METRICS_PORT", 0,
+		"Envoy mTLS metrics port value (Envoy stats only)").Get()
+
+	envoySecureMergedMetricsPortEnv = env.Register("ENVOY_SECURE_MERGED_METRICS_PORT", 0,
+		"Envoy mTLS merged metrics port value (Envoy + app + agent stats)").Get()
+
 	// Defined by https://github.com/grpc/proposal/blob/c5722a35e71f83f07535c6c7c890cf0c58ec90c0/A27-xds-global-load-balancing.md#xdsclient-and-bootstrap-file
 	grpcBootstrapEnv = env.Register("GRPC_XDS_BOOTSTRAP", filepath.Join(constants.ConfigPathDir, "grpc-bootstrap.json"),
 		"Path where gRPC expects to read a bootstrap file. Agent will generate one if set.").Get()

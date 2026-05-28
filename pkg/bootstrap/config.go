@@ -128,6 +128,8 @@ func (cfg Config) toTemplateParams() (map[string]any, error) {
 		option.XdsType(xdsType),
 		option.MetadataDiscovery(mDiscovery),
 		option.MetricsLocalhostAccessOnly(cfg.Metadata.ProxyConfig.ProxyMetadata),
+		option.SecureMetricsPort(cfg.Metadata.EnvoySecureMetricsPort),
+		option.SecureMergedMetricsPort(cfg.Metadata.EnvoySecureMergedMetricsPort),
 	)
 
 	// Add GCPProjectNumber to access in bootstrap template.
@@ -649,6 +651,8 @@ type MetadataOptions struct {
 	annotationFilePath          string
 	EnvoyStatusPort             int
 	EnvoyPrometheusPort         int
+	EnvoySecureMetricsPort      int
+	EnvoySecureMergedMetricsPort int
 	ExitOnZeroActiveConnections bool
 	MetadataDiscovery           *bool
 	EnvoySkipDeprecatedLogs     bool
@@ -707,6 +711,8 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 	}
 	meta.EnvoyStatusPort = options.EnvoyStatusPort
 	meta.EnvoyPrometheusPort = options.EnvoyPrometheusPort
+	meta.EnvoySecureMetricsPort = options.EnvoySecureMetricsPort
+	meta.EnvoySecureMergedMetricsPort = options.EnvoySecureMergedMetricsPort
 	meta.ExitOnZeroActiveConnections = model.StringBool(options.ExitOnZeroActiveConnections)
 	if options.MetadataDiscovery == nil {
 		meta.MetadataDiscovery = nil

@@ -54,6 +54,8 @@ func NewAgentOptions(proxy *ProxyArgs, cfg *meshconfig.ProxyConfig, sds istioage
 		ServiceNode:                 proxy.ServiceNode(),
 		EnvoyStatusPort:             envoyStatusPortEnv,
 		EnvoyPrometheusPort:         envoyPrometheusPortEnv,
+		EnvoySecureMetricsPort:      envoySecureMetricsPortEnv,
+		EnvoySecureMergedMetricsPort: envoySecureMergedMetricsPortEnv,
 		MinimumDrainDuration:        minimumDrainDurationEnv,
 		ExitOnZeroActiveConnections: exitOnZeroActiveConnectionsEnv,
 		Platform:                    platform.Discover(proxy.SupportsIPv6()),
