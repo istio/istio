@@ -202,6 +202,9 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(
 	// This is to prevent double applying envoy filter patches which may cause unexpected behavior.
 	if !cacheHit {
 		out = envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_SIDECAR_OUTBOUND, node, efw, out)
+	} else {
+		// This's a little tricky, we need to always apply envoyfilters for ROUTE_CONFIGURATION.
+		out = envoyfilter.ApplyMergeRouteConfiguration(networking.EnvoyFilter_SIDECAR_OUTBOUND, node, efw, out)
 	}
 
 	resource = &discovery.Resource{

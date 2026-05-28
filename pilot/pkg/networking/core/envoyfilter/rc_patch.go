@@ -52,6 +52,30 @@ func ApplyRouteConfigurationPatches(
 		portMap = proxy.MergedGateway.PortMap
 	}
 
+	routeConfiguration = ApplyMergeRouteConfiguration(patchContext, proxy, efw, routeConfiguration)
+	patchVirtualHosts(patchContext, efw.Patches, out, portMap)
+
+	return routeConfiguration
+}
+
+func ApplyMergeRouteConfiguration(patchContext networking.EnvoyFilter_PatchContext,
+	proxy *model.Proxy,
+	efw *model.MergedEnvoyFilterWrapper,
+	routeConfiguration *route.RouteConfiguration) (out *route.RouteConfiguration) {
+	defer runtime.HandleCrash(runtime.LogPanic, func(any) {
+		IncrementEnvoyFilterErrorMetric(Route)
+		log.Errorf("route patch caused panic, so the patches did not take effect")
+	})
+	// In case the patches cause panic, use the route generated before to reduce the influence.
+	out = routeConfiguration
+	if efw == nil {
+		return out
+	}
+
+	var portMap model.GatewayPortMap
+	if proxy.MergedGateway != nil {
+		portMap = proxy.MergedGateway.PortMap
+	}
 	// only merge is applicable for route configuration.
 	for _, rp := range efw.Patches[networking.EnvoyFilter_ROUTE_CONFIGURATION] {
 		if rp.Operation != networking.EnvoyFilter_Patch_MERGE {
@@ -65,8 +89,6 @@ func ApplyRouteConfigurationPatches(
 			IncrementEnvoyFilterMetric(rp.Key(), Route, false)
 		}
 	}
-	patchVirtualHosts(patchContext, efw.Patches, routeConfiguration, portMap)
-
 	return routeConfiguration
 }
 
