@@ -82,12 +82,10 @@ func initMeshDataplane(client kube.Client, args AmbientArgs) (*meshDataplane, er
 			log.Warnf("nft JSON support could not be probed (%v). "+
 				"Proceeding with nftables backend as configured.", err)
 		case !jsonOK:
-			log.Warnf("nft binary does not support JSON output (built without libjansson). " +
-				"Overriding nftables configuration and continuing with iptables backend. " +
-				"Without JSON support the agent cannot list set elements and pod removal would fail in a retry loop.")
+			log.Warn("nft binary built without libjansson; falling back to iptables backend.")
 			useNftables = false
 		default:
-			log.Info("nft JSON support confirmed, proceeding with nftables backend")
+			log.Debug("nft JSON support confirmed, proceeding with nftables backend")
 		}
 	}
 

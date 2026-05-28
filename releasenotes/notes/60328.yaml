@@ -13,6 +13,11 @@ releaseNotes:
     now scoped per-call and passed through the rule programming path.
   - |
     **Added** a startup probe that verifies the bundled `nft` binary supports
-    JSON output. On hosts whose nft was built without libjansson, the ambient
-    CNI agent now falls back to the iptables backend instead of failing every
-    pod removal in an infinite retry loop.
+    JSON output. The native nftables backend uses `nft --json list ...` to read
+    set membership during pod removal. On hosts whose `nft` was built without
+    libjansson those calls fail with `Error: JSON support not compiled-in` on
+    every removal, the CNI agent retries indefinitely, and pod IPs leak into
+    the `istio-inpod-probes-v4`/`-v6` sets. The probe now detects this at
+    startup and falls back to the iptables backend, which talks to the kernel
+    via `iptables-nft` on modern distros so the data path still uses the
+    nftables kernel subsystem.
