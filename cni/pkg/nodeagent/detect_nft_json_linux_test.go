@@ -15,6 +15,7 @@
 package nodeagent
 
 import (
+	"context"
 	"os/exec"
 	"testing"
 )
@@ -57,7 +58,7 @@ func TestDetectNftJSONSupport(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			cmd := tc.cmd
-			nftJSONProbeCommandFn = func() *exec.Cmd { return cmd }
+			nftJSONProbeCommandFn = func(ctx context.Context) *exec.Cmd { return cmd }
 			ok, err := detectNftJSONSupport()
 			if ok != tc.wantOK {
 				t.Errorf("got ok=%v, want %v", ok, tc.wantOK)

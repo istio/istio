@@ -15,30 +15,37 @@
 package nodeagent
 
 import (
+	"context"
 	"fmt"
 	"os/exec"
 	"strings"
+	"time"
 )
 
-// Stable nft stderr string when built without libjansson.
+// nft exits non-zero for many transient reasons (EPERM, module not loaded, etc.).
+// Only this specific string identifies a build-time omission of libjansson,
+// which is permanent and requires a backend switch. All other non-zero exits are
+// treated as probe failures and handled with a warning, leaving nftables selected.
 const nftJSONNotCompiledMarker = "JSON support not compiled-in"
 
 // Overridable by tests.
-var nftJSONProbeCommandFn = func() *exec.Cmd {
-	return exec.Command("nft", "--json", "list", "tables")
+var nftJSONProbeCommandFn = func(ctx context.Context) *exec.Cmd {
+	return exec.CommandContext(ctx, "nft", "--json", "list", "tables")
 }
 
 // detectNftJSONSupport returns false if the nft binary lacks JSON output,
 // in which case the ambient CNI agent should fall back to iptables.
 func detectNftJSONSupport() (bool, error) {
-	cmd := nftJSONProbeCommandFn()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	cmd := nftJSONProbeCommandFn(ctx)
 	out, err := cmd.CombinedOutput()
 	outStr := string(out)
 	if strings.Contains(outStr, nftJSONNotCompiledMarker) {
 		return false, nil
 	}
 	if err != nil {
-		return false, fmt.Errorf("nft JSON probe failed: %w (output: %q)", err, strings.TrimSpace(outStr))
+		return false, fmt.Errorf("nft JSON probe failed (output: %q): %w", strings.TrimSpace(outStr), err)
 	}
 	return true, nil
 }
