@@ -141,7 +141,8 @@ proxyMetadata:
 	echos = append(echos, prom)
 
 	// secureMetricsTarget: mTLS metrics ports 15091/15092 enabled; plaintext ports 15090/15020 restricted to localhost.
-	secureMetricsProxyMd := `{"proxyMetadata": {"ENVOY_SECURE_METRICS_PORT": "15091", "ENVOY_SECURE_MERGED_METRICS_PORT": "15092", "METRICS_LOCALHOST_ACCESS_ONLY": "true"}}`
+	secureMetricsProxyMd := `{"proxyMetadata": {"ENVOY_SECURE_METRICS_PORT": "15091",` +
+		`"ENVOY_SECURE_MERGED_METRICS_PORT": "15092", "METRICS_LOCALHOST_ACCESS_ONLY": "true"}}`
 	secureMetricsTarget := echo.Config{
 		Service: "secure-metrics-target",
 		Subsets: []echo.SubsetConfig{

@@ -637,26 +637,26 @@ func extractAttributesMetadata(envVars []string, plat platform.Environment, meta
 
 // MetadataOptions for constructing node metadata.
 type MetadataOptions struct {
-	Envs                        []string
-	Platform                    platform.Environment
-	InstanceIPs                 []string
-	StsPort                     int
-	ID                          string
-	ProxyConfig                 *meshAPI.ProxyConfig
-	PilotSubjectAltName         []string
-	CredentialSocketExists      bool
-	CustomCredentialsFileExists bool
-	XDSRootCert                 string
-	OutlierLogPath              string
-	annotationFilePath          string
-	EnvoyStatusPort             int
-	EnvoyPrometheusPort         int
-	EnvoySecureMetricsPort      int
+	Envs                         []string
+	Platform                     platform.Environment
+	InstanceIPs                  []string
+	StsPort                      int
+	ID                           string
+	ProxyConfig                  *meshAPI.ProxyConfig
+	PilotSubjectAltName          []string
+	CredentialSocketExists       bool
+	CustomCredentialsFileExists  bool
+	XDSRootCert                  string
+	OutlierLogPath               string
+	annotationFilePath           string
+	EnvoyStatusPort              int
+	EnvoyPrometheusPort          int
+	EnvoySecureMetricsPort       int
 	EnvoySecureMergedMetricsPort int
-	ExitOnZeroActiveConnections bool
-	MetadataDiscovery           *bool
-	EnvoySkipDeprecatedLogs     bool
-	WorkloadIdentitySocketFile  string
+	ExitOnZeroActiveConnections  bool
+	MetadataDiscovery            *bool
+	EnvoySkipDeprecatedLogs      bool
+	WorkloadIdentitySocketFile   string
 }
 
 const (

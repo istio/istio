@@ -280,25 +280,25 @@ func (a *Agent) generateNodeMetadata() (*model.Node, error) {
 	}
 
 	return bootstrap.GetNodeMetaData(bootstrap.MetadataOptions{
-		ID:                          a.cfg.ServiceNode,
-		Envs:                        os.Environ(),
-		Platform:                    a.cfg.Platform,
-		InstanceIPs:                 a.cfg.ProxyIPAddresses,
-		StsPort:                     a.secOpts.STSPort,
-		ProxyConfig:                 a.proxyConfig,
-		PilotSubjectAltName:         pilotSAN,
-		CredentialSocketExists:      credentialSocketExists,
-		CustomCredentialsFileExists: a.secOpts.ServeOnlyFiles,
-		OutlierLogPath:              a.envoyOpts.OutlierLogPath,
+		ID:                           a.cfg.ServiceNode,
+		Envs:                         os.Environ(),
+		Platform:                     a.cfg.Platform,
+		InstanceIPs:                  a.cfg.ProxyIPAddresses,
+		StsPort:                      a.secOpts.STSPort,
+		ProxyConfig:                  a.proxyConfig,
+		PilotSubjectAltName:          pilotSAN,
+		CredentialSocketExists:       credentialSocketExists,
+		CustomCredentialsFileExists:  a.secOpts.ServeOnlyFiles,
+		OutlierLogPath:               a.envoyOpts.OutlierLogPath,
 		EnvoyPrometheusPort:          a.cfg.EnvoyPrometheusPort,
 		EnvoySecureMetricsPort:       a.cfg.EnvoySecureMetricsPort,
 		EnvoySecureMergedMetricsPort: a.cfg.EnvoySecureMergedMetricsPort,
 		EnvoyStatusPort:              a.cfg.EnvoyStatusPort,
-		ExitOnZeroActiveConnections: a.cfg.ExitOnZeroActiveConnections,
-		XDSRootCert:                 a.cfg.XDSRootCerts,
-		MetadataDiscovery:           a.cfg.MetadataDiscovery,
-		EnvoySkipDeprecatedLogs:     a.cfg.EnvoySkipDeprecatedLogs,
-		WorkloadIdentitySocketFile:  a.cfg.WorkloadIdentitySocketFile,
+		ExitOnZeroActiveConnections:  a.cfg.ExitOnZeroActiveConnections,
+		XDSRootCert:                  a.cfg.XDSRootCerts,
+		MetadataDiscovery:            a.cfg.MetadataDiscovery,
+		EnvoySkipDeprecatedLogs:      a.cfg.EnvoySkipDeprecatedLogs,
+		WorkloadIdentitySocketFile:   a.cfg.WorkloadIdentitySocketFile,
 	})
 }
 
@@ -351,7 +351,8 @@ func (a *Agent) initializeEnvoyAgent(_ context.Context) error {
 		localHostAddr = localHostIPv6
 	}
 	a.envoyAgent = envoy.NewAgent(envoyProxy, drainDuration, a.cfg.MinimumDrainDuration, localHostAddr,
-		int(a.proxyConfig.ProxyAdminPort), a.cfg.EnvoyStatusPort, a.cfg.EnvoyPrometheusPort, a.cfg.EnvoySecureMetricsPort, a.cfg.EnvoySecureMergedMetricsPort, a.cfg.ExitOnZeroActiveConnections)
+		int(a.proxyConfig.ProxyAdminPort), a.cfg.EnvoyStatusPort, a.cfg.EnvoyPrometheusPort,
+		a.cfg.EnvoySecureMetricsPort, a.cfg.EnvoySecureMergedMetricsPort, a.cfg.ExitOnZeroActiveConnections)
 	return nil
 }
 
