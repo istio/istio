@@ -201,21 +201,6 @@ func (cfg *IptablesConfigurator) AppendInpodRules(podOverrides config.PodLevelOv
 	inpodMark := fmt.Sprintf("0x%x", config.InpodMark) + "/" + fmt.Sprintf("0x%x", config.InpodMask)
 	inpodTproxyMark := fmt.Sprintf("0x%x", config.InpodTProxyMark) + "/" + fmt.Sprintf("0x%x", config.InpodTProxyMask)
 
-	// For pods running under kata-containers, the pod IP is forwarded into a
-	// guest VM over a tap interface (e.g. tap0_kata) instead of being locally
-	// bound in the pod netns. We need extra rules so that ztunnel can capture
-	// inbound traffic and so that VM-originated outbound is redirected to
-	// ztunnel. Inject the tap interface name into VirtualInterfaces so the
-	// existing nat REDIRECT-from-virt block fires for it.
-	//
-	// Note: at the time these rules are installed, tap0_kata may not yet
-	// exist in the netns -- it is created later when the kata sandbox VM
-	// boots. iptables rules referencing the interface by name are evaluated
-	// per-packet, so installing them up-front is fine.
-	if podOverrides.KataMode {
-		podOverrides.VirtualInterfaces = append(podOverrides.VirtualInterfaces, "tap0_kata")
-	}
-
 	iptablesBuilder := builder.NewIptablesRuleBuilder(config.GetConfig(cfg.cfg))
 
 	// Insert jumps to our custom chains
@@ -292,10 +277,10 @@ func (cfg *IptablesConfigurator) AppendInpodRules(podOverrides config.PodLevelOv
 
 	// For VM-style runtimes (kata L3-forwarding, kubevirt bridge) the pod IP
 	// is not in the netns's local table -- it's forwarded/proxied to the VM
-	// over a tap interface -- so traffic destined to the pod IP on inbound
-	// ports (15006 plaintext capture, 15008 HBONE) would be routed onto the
-	// virtual interface and RST'd by the VM instead of being delivered to
-	// ztunnel's wildcard listeners on lo.
+	// over a tap interface (e.g. tap0_kata) -- so traffic destined to the
+	// pod IP on inbound ports (15006 plaintext capture, 15008 HBONE) would
+	// be routed onto the virtual interface and RST'd by the VM instead of
+	// being delivered to ztunnel's wildcard listeners on lo.
 	//
 	// Solution: mark every packet that enters on eth0 (other than ztunnel-
 	// originated, mark 0x539) with 0x111. The pod netns already has an
@@ -309,9 +294,19 @@ func (cfg *IptablesConfigurator) AppendInpodRules(podOverrides config.PodLevelOv
 	// backend). Replies come back on tap0 (not eth0), so we add a socket-
 	// match rule that marks any packet owned by an existing local socket.
 	//
+	// We also REDIRECT VM-originated outbound (arriving on tap0_kata) to
+	// ztunnel's outbound port 15001, mirroring the per-virt-interface
+	// behavior used for kubevirt.
+	//
+	// Note: at the time these rules are installed, tap0_kata may not yet
+	// exist in the netns -- it is created later when the kata sandbox VM
+	// boots. iptables rules referencing the interface by name are evaluated
+	// per-packet, so installing them up-front is fine.
+	//
 	//   1. `-i eth0 ! --mark 0x539 -j MARK 0x111`  : inbound from outside
 	//   2. `-m socket -j MARK 0x111`               : replies to ztunnel sockets
 	//   3. `-m mark 0x111 -j ACCEPT`               : exit chain so fwmark rule fires
+	//   4. `-i tap0_kata -p tcp -j REDIRECT 15001` : VM-originated outbound
 	if podOverrides.KataMode {
 		iptablesBuilder.AppendRule(ChainInpodPrerouting, "mangle",
 			"-i", "eth0",
@@ -335,15 +330,27 @@ func (cfg *IptablesConfigurator) AppendInpodRules(podOverrides config.PodLevelOv
 			"--mark", inpodTproxyMark,
 			"-j", "ACCEPT",
 		)
+		// CLI: -t nat -A ISTIO_PRERT -i tap0_kata -p tcp -j REDIRECT --to-ports 15001
+		iptablesBuilder.AppendRule(ChainInpodPrerouting, "nat",
+			"-i", "tap0_kata",
+			"-p", "tcp",
+			"-j", "REDIRECT",
+			"--to-ports", fmt.Sprint(config.ZtunnelOutboundPort),
+		)
 	}
 
 	// CLI: -A ISTIO_PRERT -m mark --mark 0x539/0xfff -j CONNMARK --set-xmark 0x111/0xfff
 	//
 	// DESC: If we have a packet mark, set a connmark.
-	iptablesBuilder.AppendRule(ChainInpodPrerouting, "mangle", "-m", "mark",
-		"--mark", inpodMark,
-		"-j", "CONNMARK",
-		"--set-xmark", inpodTproxyMark)
+	// Skipped for kata pods: ztunnel-originated traffic in the kata netns
+	// targets pod_ip (which routes out tap0_kata, not lo), so packets with
+	// mark 0x539 never loop through PRERT and this save rule never fires.
+	if !podOverrides.KataMode {
+		iptablesBuilder.AppendRule(ChainInpodPrerouting, "mangle", "-m", "mark",
+			"--mark", inpodMark,
+			"-j", "CONNMARK",
+			"--set-xmark", inpodTproxyMark)
+	}
 
 	if !podOverrides.IngressMode {
 		// Handle healthcheck probes from the host node. In the host netns, before the packet enters the pod, we SNAT
@@ -398,15 +405,19 @@ func (cfg *IptablesConfigurator) AppendInpodRules(podOverrides config.PodLevelOv
 	// CLI: -A ISTIO_OUTPUT -m connmark --mark 0x111/0xfff -j CONNMARK --restore-mark --nfmask 0xffffffff --ctmask 0xffffffff
 	//
 	// DESC: Propagate/restore connmark (if we had one) for outbound
-	iptablesBuilder.AppendRule(
-		ChainInpodOutput, "mangle",
-		"-m", "connmark",
-		"--mark", inpodTproxyMark,
-		"-j", "CONNMARK",
-		"--restore-mark",
-		"--nfmask", fmt.Sprintf("0x%x", config.InpodRestoreMask),
-		"--ctmask", fmt.Sprintf("0x%x", config.InpodRestoreMask),
-	)
+	// Skipped for kata pods: paired with the save rule above which never
+	// fires in kata, so this restore has nothing to restore.
+	if !podOverrides.KataMode {
+		iptablesBuilder.AppendRule(
+			ChainInpodOutput, "mangle",
+			"-m", "connmark",
+			"--mark", inpodTproxyMark,
+			"-j", "CONNMARK",
+			"--restore-mark",
+			"--nfmask", fmt.Sprintf("0x%x", config.InpodRestoreMask),
+			"--ctmask", fmt.Sprintf("0x%x", config.InpodRestoreMask),
+		)
+	}
 
 	if redirectDNS {
 		// CLI: -A ISTIO_OUTPUT ! -o lo -p udp -m udp --dport 53 -j REDIRECT --to-port 15053
