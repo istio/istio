@@ -865,7 +865,9 @@ func conflictWithReservedListener(proxy *Proxy, push *PushContext, bind string, 
 	// bind == wildcard
 	// or bind unspecified, but protocol is HTTP
 	if proxy.Metadata != nil {
-		conflictWithStaticListener = proxy.Metadata.EnvoyStatusPort == port || proxy.Metadata.EnvoyPrometheusPort == port
+		conflictWithStaticListener = proxy.Metadata.EnvoyStatusPort == port || proxy.Metadata.EnvoyPrometheusPort == port ||
+			(proxy.Metadata.EnvoySecureMetricsPort != 0 && proxy.Metadata.EnvoySecureMetricsPort == port) ||
+			(proxy.Metadata.EnvoySecureMergedMetricsPort != 0 && proxy.Metadata.EnvoySecureMergedMetricsPort == port)
 	}
 	if push != nil {
 		conflictWithVirtualListener = int(push.Mesh.ProxyListenPort) == port || int(push.Mesh.ProxyInboundListenPort) == port

@@ -198,6 +198,22 @@ func TestInboundListenerConfig(t *testing.T) {
 			buildService("test.com", wildcardIPv4, protocol.HTTP, tnow))
 	})
 
+	t.Run("secure metrics port conflict", func(t *testing.T) {
+		p := getProxy()
+		p.Metadata.EnvoySecureMetricsPort = 15091
+		testInboundListenerConfigWithConflictPort(t, p,
+			buildServiceWithPort("test1.com", 15091, protocol.HTTP, tnow.Add(1*time.Second)),
+			buildService("test2.com", wildcardIPv4, protocol.HTTP, tnow.Add(2*time.Second)))
+	})
+
+	t.Run("secure merged metrics port conflict", func(t *testing.T) {
+		p := getProxy()
+		p.Metadata.EnvoySecureMergedMetricsPort = 15092
+		testInboundListenerConfigWithConflictPort(t, p,
+			buildServiceWithPort("test1.com", 15092, protocol.HTTP, tnow.Add(1*time.Second)),
+			buildService("test2.com", wildcardIPv4, protocol.HTTP, tnow.Add(2*time.Second)))
+	})
+
 	t.Run("grpc", func(t *testing.T) {
 		testInboundListenerConfigWithGrpc(t, getProxy(),
 			buildService("test1.com", wildcardIPv4, protocol.GRPC, tnow.Add(1*time.Second)))

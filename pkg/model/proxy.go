@@ -330,6 +330,12 @@ type NodeMetadata struct {
 	// Envoy prometheus port redirecting to admin port prometheus endpoint.
 	EnvoyPrometheusPort int `json:"ENVOY_PROMETHEUS_PORT,omitempty"`
 
+	// EnvoySecureMetricsPort, when non-zero, adds an mTLS listener for Envoy-only stats on this port.
+	EnvoySecureMetricsPort int `json:"ENVOY_SECURE_METRICS_PORT,omitempty"`
+
+	// EnvoySecureMergedMetricsPort, when non-zero, adds an mTLS listener for merged metrics (Envoy + app + agent) on this port.
+	EnvoySecureMergedMetricsPort int `json:"ENVOY_SECURE_MERGED_METRICS_PORT,omitempty"`
+
 	// ExitOnZeroActiveConnections terminates Envoy if there are no active connections if set.
 	ExitOnZeroActiveConnections StringBool `json:"EXIT_ON_ZERO_ACTIVE_CONNECTIONS,omitempty"`
 
