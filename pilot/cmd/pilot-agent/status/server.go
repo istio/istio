@@ -50,6 +50,7 @@ import (
 	"istio.io/istio/pilot/cmd/pilot-agent/metrics"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/grpcready"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
+	"istio.io/istio/pilot/pkg/features"
 	dnsProto "istio.io/istio/pkg/dns/proto"
 	"istio.io/istio/pkg/env"
 	commonFeatures "istio.io/istio/pkg/features"
@@ -652,7 +653,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	// Gather all the metrics we will merge
-	if !s.config.NoEnvoy {
+	if !s.config.NoEnvoy && features.AgentMergeEnvoyStats {
 		scrapeURL := fmt.Sprintf("http://localhost:%d/stats/prometheus", s.envoyStatsPort)
 		if r.URL != nil && len(r.URL.RawQuery) > 0 {
 			scrapeURL = fmt.Sprintf("%s?%s", scrapeURL, r.URL.RawQuery)
