@@ -338,9 +338,9 @@ spec:
     name: default.redirect-prefix-replace.0
     redirect:
       port: 8080
+      prefixRewrite: /replacement
       redirectCode: 302
       scheme: https
-      uri: '%PREFIX()%/replacement'
 ---
 apiVersion: networking.istio.io/v1
 kind: VirtualService

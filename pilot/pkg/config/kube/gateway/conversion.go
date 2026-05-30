@@ -1404,7 +1404,7 @@ func createRedirectFilter(filter *k8s.HTTPRequestRedirectFilter) *istio.HTTPRedi
 		case k8s.FullPathHTTPPathModifier:
 			resp.Uri = *filter.Path.ReplaceFullPath
 		case k8s.PrefixMatchHTTPPathModifier:
-			resp.Uri = "%PREFIX()%" + *filter.Path.ReplacePrefixMatch
+			resp.PrefixRewrite = *filter.Path.ReplacePrefixMatch
 		}
 	}
 	return resp

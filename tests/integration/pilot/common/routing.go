@@ -624,6 +624,43 @@ spec:
 			},
 		},
 	})
+	t.RunTraffic(TrafficTestCase{
+		name: "redirect prefix_rewrite",
+		config: `
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: default
+spec:
+  hosts:
+    - {{ .dstSvc }}
+  http:
+  - match:
+    - uri:
+        prefix: /foo/
+    redirect:
+      prefixRewrite: /new/
+  - match:
+    - uri:
+        prefix: /new/
+    route:
+    - destination:
+        host: {{ .dstSvc }}`,
+		opts: echo.CallOptions{
+			Port: echo.Port{
+				Name: "http",
+			},
+			HTTP: echo.HTTP{
+				Path:            "/foo/bar",
+				FollowRedirects: true,
+			},
+			Count: 1,
+			Check: check.And(
+				check.OK(),
+				check.URL("/new/bar")),
+		},
+		workloadAgnostic: true,
+	})
 	// Contain ever special char allowed in a header
 	absurdHeader := "a!#$%&'*+-.^_`|~z"
 	t.RunTraffic(TrafficTestCase{
