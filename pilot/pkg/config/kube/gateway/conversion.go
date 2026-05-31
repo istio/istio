@@ -65,8 +65,10 @@ import (
 )
 
 const (
-	addressTypeOverride    = "networking.istio.io/address-type"
-	gatewayTLSCipherSuites = "gateway.istio.io/tls-cipher-suites"
+	addressTypeOverride          = "networking.istio.io/address-type"
+	gatewayTLSCipherSuites       = "gateway.istio.io/tls-cipher-suites"
+	gatewayTLSMinProtocolVersion = "gateway.istio.io/tls-min-protocol-version"
+	gatewayTLSMaxProtocolVersion = "gateway.istio.io/tls-max-protocol-version"
 )
 
 func sortConfigByCreationTime(configs []config.Config) {
@@ -2219,7 +2221,7 @@ func buildTLS(
 		return nil, nil
 	}
 	// Explicitly not supported: file mounted
-	// Not yet implemented: TLS mode, https redirect, max protocol version, SANs, VerifyCertificate
+	// Not yet implemented: TLS mode, https redirect, SANs, VerifyCertificate
 	out := &istio.ServerTLSSettings{
 		HttpsRedirect: false,
 	}
@@ -2334,7 +2336,33 @@ func buildTLS(
 			out.CipherSuites = ciphers
 		}
 	}
+	if v := tls.Options[gatewayTLSMinProtocolVersion]; v != "" {
+		if parsed, ok := parseTLSProtocolVersion(string(v)); ok {
+			out.MinProtocolVersion = parsed
+		}
+	}
+	if v := tls.Options[gatewayTLSMaxProtocolVersion]; v != "" {
+		if parsed, ok := parseTLSProtocolVersion(string(v)); ok {
+			out.MaxProtocolVersion = parsed
+		}
+	}
 	return out, nil
+}
+
+func parseTLSProtocolVersion(s string) (istio.ServerTLSSettings_TLSProtocol, bool) {
+	switch s {
+	case "TLSV1_0":
+		return istio.ServerTLSSettings_TLSV1_0, true
+	case "TLSV1_1":
+		return istio.ServerTLSSettings_TLSV1_1, true
+	case "TLSV1_2":
+		return istio.ServerTLSSettings_TLSV1_2, true
+	case "TLSV1_3":
+		return istio.ServerTLSSettings_TLSV1_3, true
+	case "TLS_AUTO", "":
+		return istio.ServerTLSSettings_TLS_AUTO, true
+	}
+	return 0, false
 }
 
 func buildSecretReference(
