@@ -575,9 +575,9 @@ func constructServiceEntries(
 		trafficDistribution := model.GetTrafficDistribution(nil, svc.Annotations, nsAnnotations)
 		switch trafficDistribution {
 		case model.TrafficDistributionPreferSameZone:
-			lb = preferSameZoneLoadBalancer
+			lb = preferSameZoneLoadBalancer()
 		case model.TrafficDistributionPreferSameNode:
-			lb = preferSameNodeLoadBalancer
+			lb = preferSameNodeLoadBalancer()
 		}
 	}
 
@@ -658,9 +658,9 @@ func constructService(
 		trafficDistribution := model.GetTrafficDistribution(svc.Spec.TrafficDistribution, svc.Annotations, nsAnnotations)
 		switch trafficDistribution {
 		case model.TrafficDistributionPreferSameZone:
-			lb = preferSameZoneLoadBalancer
+			lb = preferSameZoneLoadBalancer()
 		case model.TrafficDistributionPreferSameNode:
-			lb = preferSameNodeLoadBalancer
+			lb = preferSameNodeLoadBalancer()
 		}
 	}
 
@@ -699,26 +699,39 @@ func constructService(
 	}
 }
 
-var preferSameZoneLoadBalancer = &workloadapi.LoadBalancing{
-	// Prefer endpoints in close zones, but allow spilling over to further endpoints where required.
-	RoutingPreference: []workloadapi.LoadBalancing_Scope{
-		workloadapi.LoadBalancing_NETWORK,
-		workloadapi.LoadBalancing_REGION,
-		workloadapi.LoadBalancing_ZONE,
-	},
-	Mode: workloadapi.LoadBalancing_FAILOVER,
+// preferSameZoneLoadBalancer returns a fresh LoadBalancing config for PreferSameZone
+// traffic distribution. It must return a new pointer on every call because callers
+// (notably constructService) may mutate the returned object in place (for example,
+// setting HealthPolicy when PublishNotReadyAddresses is true). Returning a shared
+// package-level pointer here previously caused those mutations to leak across
+// services, poisoning the preset for every other service in the cluster.
+func preferSameZoneLoadBalancer() *workloadapi.LoadBalancing {
+	return &workloadapi.LoadBalancing{
+		// Prefer endpoints in close zones, but allow spilling over to further endpoints where required.
+		RoutingPreference: []workloadapi.LoadBalancing_Scope{
+			workloadapi.LoadBalancing_NETWORK,
+			workloadapi.LoadBalancing_REGION,
+			workloadapi.LoadBalancing_ZONE,
+		},
+		Mode: workloadapi.LoadBalancing_FAILOVER,
+	}
 }
 
-var preferSameNodeLoadBalancer = &workloadapi.LoadBalancing{
-	// Prefer endpoints in close zones, but allow spilling over to further endpoints where required.
-	RoutingPreference: []workloadapi.LoadBalancing_Scope{
-		workloadapi.LoadBalancing_NETWORK,
-		workloadapi.LoadBalancing_REGION,
-		workloadapi.LoadBalancing_ZONE,
-		workloadapi.LoadBalancing_SUBZONE,
-		workloadapi.LoadBalancing_NODE,
-	},
-	Mode: workloadapi.LoadBalancing_FAILOVER,
+// preferSameNodeLoadBalancer returns a fresh LoadBalancing config for PreferSameNode
+// traffic distribution. See preferSameZoneLoadBalancer for why this must not be a
+// shared package-level pointer.
+func preferSameNodeLoadBalancer() *workloadapi.LoadBalancing {
+	return &workloadapi.LoadBalancing{
+		// Prefer endpoints in close zones, but allow spilling over to further endpoints where required.
+		RoutingPreference: []workloadapi.LoadBalancing_Scope{
+			workloadapi.LoadBalancing_NETWORK,
+			workloadapi.LoadBalancing_REGION,
+			workloadapi.LoadBalancing_ZONE,
+			workloadapi.LoadBalancing_SUBZONE,
+			workloadapi.LoadBalancing_NODE,
+		},
+		Mode: workloadapi.LoadBalancing_FAILOVER,
+	}
 }
 
 func getVIPs(svc *v1.Service) []string {
