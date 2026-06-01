@@ -17,7 +17,10 @@
 package api
 
 import (
+	"context"
 	"testing"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
@@ -62,6 +65,9 @@ func TestSecureMetricsPorts(t *testing.T) {
 		})
 		t.NewSubTest("15020-localhost-only").Run(func(t framework.TestContext) {
 			testHTTPBlocked(t, target, mergedMetricsPort)
+		})
+		t.NewSubTest("auto-annotation-secure-port").Run(func(t framework.TestContext) {
+			testAutoAnnotation(t, target, "prometheus.istio.io/secure-port", "15092")
 		})
 	})
 }
@@ -113,6 +119,27 @@ func testHTTPBlocked(t framework.TestContext, target echo.Instances, port int) {
 			Retry:      echo.Retry{NoRetry: true},
 		}); err != nil {
 			t.Errorf("port %d is accessible via plain HTTP but should not be: %v", port, err)
+		}
+	}
+}
+
+// testAutoAnnotation verifies that the sidecar injector automatically sets the given annotation
+// on the pod when ENVOY_SECURE_MERGED_METRICS_PORT is configured via proxyMetadata.
+// This exercises applySecurePrometheusAnnotation end-to-end in a real cluster.
+func testAutoAnnotation(t framework.TestContext, target echo.Instances, annotation, wantValue string) {
+	for _, inst := range target {
+		for _, w := range inst.WorkloadsOrFail(t) {
+			pod, err := inst.Config().Cluster.Kube().CoreV1().Pods(inst.NamespaceName()).Get(
+				context.TODO(), w.PodName(), metav1.GetOptions{},
+			)
+			if err != nil {
+				t.Fatalf("failed to get pod %s: %v", w.PodName(), err)
+			}
+			got := pod.Annotations[annotation]
+			if got != wantValue {
+				t.Errorf("pod %s: annotation %s = %q, want %q (should be auto-set by injector from ENVOY_SECURE_MERGED_METRICS_PORT)",
+					w.PodName(), annotation, got, wantValue)
+			}
 		}
 	}
 }
