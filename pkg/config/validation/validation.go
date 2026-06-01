@@ -1155,6 +1155,18 @@ func validateConnectionPool(settings *networking.ConnectionPoolSettings) (errs e
 		if httpSettings.MaxConcurrentStreams < 0 {
 			errs = appendErrors(errs, fmt.Errorf("max concurrent streams must be non-negative"))
 		}
+		if keepalive := httpSettings.GetHttp2KeepAlive(); keepalive != nil {
+			if keepalive.Interval == nil {
+				errs = appendErrors(errs, fmt.Errorf("http2 keepalive interval is required"))
+			} else {
+				errs = appendErrors(errs, agent.ValidateDuration(keepalive.Interval))
+			}
+			if keepalive.Timeout == nil {
+				errs = appendErrors(errs, fmt.Errorf("http2 keepalive timeout is required"))
+			} else {
+				errs = appendErrors(errs, agent.ValidateDuration(keepalive.Timeout))
+			}
+		}
 	}
 
 	if tcp := settings.Tcp; tcp != nil {

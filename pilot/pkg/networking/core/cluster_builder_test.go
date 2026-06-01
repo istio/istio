@@ -414,6 +414,28 @@ func TestApplyDestinationRule(t *testing.T) {
 			expectedSubsetClusters: []*cluster.Cluster{},
 		},
 		{
+			name:        "destination rule with http2 keepalive",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			clusterMode: DefaultClusterMode,
+			service:     http2Service,
+			port:        http2ServicePort[0],
+			proxyView:   model.ProxyViewAll,
+			destRule: &networking.DestinationRule{
+				Host: "foo.default.svc.cluster.local",
+				TrafficPolicy: &networking.TrafficPolicy{
+					ConnectionPool: &networking.ConnectionPoolSettings{
+						Http: &networking.ConnectionPoolSettings_HTTPSettings{
+							Http2KeepAlive: &networking.ConnectionPoolSettings_HTTPSettings_ConnectionKeepalive{
+								Interval: &durationpb.Duration{Seconds: 15},
+								Timeout:  &durationpb.Duration{Seconds: 5},
+							},
+						},
+					},
+				},
+			},
+			expectedSubsetClusters: []*cluster.Cluster{},
+		},
+		{
 			name:        "destination rule with http2UpgradePolicy and maxConcurrentStreams",
 			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
 			clusterMode: DefaultClusterMode,
@@ -1037,6 +1059,25 @@ func TestApplyDestinationRule(t *testing.T) {
 				if ec.httpProtocolOptions.GetExplicitHttpConfig().GetHttp2ProtocolOptions().GetMaxConcurrentStreams().GetValue() !=
 					uint32(tt.destRule.TrafficPolicy.GetConnectionPool().GetHttp().MaxConcurrentStreams) {
 					t.Errorf("Unexpected max_concurrent_streams found")
+				}
+			}
+			if keepalive := tt.destRule.GetTrafficPolicy().GetConnectionPool().GetHttp().GetHttp2KeepAlive(); keepalive != nil {
+				if ec.httpProtocolOptions == nil {
+					t.Errorf("Expected cluster %s to have http protocol options but not found", tt.cluster.Name)
+				}
+				if ec.httpProtocolOptions.GetExplicitHttpConfig() == nil {
+					t.Errorf("Expected cluster %s to have explicit http config but not found", tt.cluster.Name)
+				}
+				http2ProtocolOptions := ec.httpProtocolOptions.GetExplicitHttpConfig().GetHttp2ProtocolOptions()
+				if http2ProtocolOptions == nil {
+					t.Errorf("Expected cluster %s to have HTTP2 protocol options but not found", tt.cluster.Name)
+				} else {
+					if http2ProtocolOptions.GetConnectionKeepalive().GetInterval() != keepalive.GetInterval() {
+						t.Errorf("Unexpected HTTP2 connection keepalive interval found")
+					}
+					if http2ProtocolOptions.GetConnectionKeepalive().GetTimeout() != keepalive.GetTimeout() {
+						t.Errorf("Unexpected HTTP2 connection keepalive timeout found")
+					}
 				}
 			}
 

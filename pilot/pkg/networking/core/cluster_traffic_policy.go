@@ -106,6 +106,7 @@ func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig,
 	var maxRequestsPerConnection uint32
 	var maxConcurrentStreams uint32
 	var maxConnectionDuration *durationpb.Duration
+	var connectionKeepalive *networking.ConnectionPoolSettings_HTTPSettings_ConnectionKeepalive
 
 	if settings.Http != nil {
 		if settings.Http.Http2MaxRequests > 0 {
@@ -123,6 +124,7 @@ func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig,
 		idleTimeout = settings.Http.IdleTimeout
 		maxRequestsPerConnection = uint32(settings.Http.MaxRequestsPerConnection)
 		maxConcurrentStreams = uint32(settings.Http.MaxConcurrentStreams)
+		connectionKeepalive = settings.Http.GetHttp2KeepAlive()
 	}
 
 	cb.applyDefaultConnectionPool(mc.cluster)
@@ -147,7 +149,7 @@ func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig,
 		Thresholds: []*cluster.CircuitBreakers_Thresholds{threshold},
 	}
 
-	if maxConnectionDuration != nil || idleTimeout != nil || maxRequestsPerConnection > 0 || maxConcurrentStreams > 0 {
+	if maxConnectionDuration != nil || idleTimeout != nil || maxRequestsPerConnection > 0 || maxConcurrentStreams > 0 || connectionKeepalive != nil {
 		if mc.httpProtocolOptions == nil {
 			mc.httpProtocolOptions = &http.HttpProtocolOptions{}
 		}
@@ -169,6 +171,12 @@ func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig,
 		http2ProtocolOptions := options.GetExplicitHttpConfig().GetHttp2ProtocolOptions()
 		if http2ProtocolOptions != nil && maxConcurrentStreams > 0 {
 			http2ProtocolOptions.MaxConcurrentStreams = &wrapperspb.UInt32Value{Value: maxConcurrentStreams}
+		}
+		if http2ProtocolOptions != nil && connectionKeepalive != nil {
+			http2ProtocolOptions.ConnectionKeepalive = &core.KeepaliveSettings{
+				Interval: connectionKeepalive.Interval,
+				Timeout:  connectionKeepalive.Timeout,
+			}
 		}
 	}
 	if settings.Http != nil && settings.Http.UseClientProtocol {
