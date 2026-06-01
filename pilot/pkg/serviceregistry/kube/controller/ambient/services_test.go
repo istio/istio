@@ -1138,7 +1138,7 @@ func TestServiceServices(t *testing.T) {
 func TestPreferSamePresetNotMutated(t *testing.T) {
 	a := newAmbientUnitTest(t)
 	mock := krttest.NewMock(t, []any{})
-	builder := a.serviceServiceBuilder(
+	builder := a.builder.serviceServiceBuilder(
 		krttest.GetMockCollection[Waypoint](mock),
 		krttest.GetMockCollection[*v1.Namespace](mock),
 		krttest.GetMockSingleton[MeshConfig](mock),
