@@ -163,30 +163,59 @@ func mergeBackendPolicyTrafficPolicy(user, backend *networking.TrafficPolicy) *n
 	if backend == nil {
 		return user
 	}
-	merged := user.DeepCopy()
-	if merged.LoadBalancer == nil {
-		merged.LoadBalancer = backend.LoadBalancer
-	}
-	if merged.ConnectionPool == nil {
-		merged.ConnectionPool = backend.ConnectionPool
-	}
-	if merged.OutlierDetection == nil {
-		merged.OutlierDetection = backend.OutlierDetection
-	}
-	if merged.Tls == nil {
-		merged.Tls = backend.Tls
-	}
-	if merged.Tunnel == nil {
-		merged.Tunnel = backend.Tunnel
-	}
-	if merged.ProxyProtocol == nil {
-		merged.ProxyProtocol = backend.ProxyProtocol
-	}
-	if merged.RetryBudget == nil {
-		merged.RetryBudget = backend.RetryBudget
-	}
-	merged.PortLevelSettings = mergeBackendPolicyPortLevelSettings(merged.PortLevelSettings, backend.PortLevelSettings)
+	// Start from the backend policy and let the user fields override it. hasPortLevel is false so only the
+	// fields the user actually sets win; the rest fall back to the backend policy. ShallowCopyTrafficPolicy
+	// drops port level settings, so they are merged back in separately below.
+	merged := MergeTrafficPolicy(ShallowCopyTrafficPolicy(backend), user, false)
+	merged.PortLevelSettings = mergeBackendPolicyPortLevelSettings(user.PortLevelSettings, backend.PortLevelSettings)
 	return merged
+}
+
+// MergeTrafficPolicy overrides mergedPolicy with the fields set on subsetPolicy and returns mergedPolicy.
+// When hasPortLevel is true, port level settings replace the destination level settings wholesale, so a
+// field omitted in the port level policy falls back to its default rather than being inherited.
+// Lives here rather than pilot/pkg/networking/util to avoid an import cycle (that package imports model);
+// it is also used by util.MergeSubsetTrafficPolicy and mergeBackendPolicyTrafficPolicy.
+func MergeTrafficPolicy(mergedPolicy, subsetPolicy *networking.TrafficPolicy, hasPortLevel bool) *networking.TrafficPolicy {
+	if subsetPolicy.ConnectionPool != nil || hasPortLevel {
+		mergedPolicy.ConnectionPool = subsetPolicy.ConnectionPool
+	}
+	if subsetPolicy.OutlierDetection != nil || hasPortLevel {
+		mergedPolicy.OutlierDetection = subsetPolicy.OutlierDetection
+	}
+	if subsetPolicy.LoadBalancer != nil || hasPortLevel {
+		mergedPolicy.LoadBalancer = subsetPolicy.LoadBalancer
+	}
+	if subsetPolicy.Tls != nil || hasPortLevel {
+		mergedPolicy.Tls = subsetPolicy.Tls
+	}
+	if subsetPolicy.Tunnel != nil {
+		mergedPolicy.Tunnel = subsetPolicy.Tunnel
+	}
+	if subsetPolicy.ProxyProtocol != nil {
+		mergedPolicy.ProxyProtocol = subsetPolicy.ProxyProtocol
+	}
+	if subsetPolicy.RetryBudget != nil {
+		mergedPolicy.RetryBudget = subsetPolicy.RetryBudget
+	}
+	return mergedPolicy
+}
+
+// ShallowCopyTrafficPolicy shallow copies a traffic policy. Port level settings are ignored.
+// Lives here rather than pilot/pkg/networking/util to avoid an import cycle (that package imports model).
+func ShallowCopyTrafficPolicy(original *networking.TrafficPolicy) *networking.TrafficPolicy {
+	if original == nil {
+		return nil
+	}
+	ret := &networking.TrafficPolicy{}
+	ret.ConnectionPool = original.ConnectionPool
+	ret.LoadBalancer = original.LoadBalancer
+	ret.OutlierDetection = original.OutlierDetection
+	ret.Tls = original.Tls
+	ret.Tunnel = original.Tunnel
+	ret.ProxyProtocol = original.ProxyProtocol
+	ret.RetryBudget = original.RetryBudget
+	return ret
 }
 
 // mergeBackendPolicyPortLevelSettings overlays user port settings on top of the backend ones. For a port

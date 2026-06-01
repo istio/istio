@@ -2479,11 +2479,16 @@ func TestSetDestinationRuleBackendPolicyMerging(t *testing.T) {
 	userConnPool := &networking.ConnectionPoolSettings{
 		Tcp: &networking.ConnectionPoolSettings_TCPSettings{MaxConnections: 7},
 	}
+	// TLS and RetryBudget are set by both the user rule and the backend policy; the user values must win.
+	userTLS := &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_MUTUAL}
+	userRetryBudget := &networking.TrafficPolicy_RetryBudget{MinRetryConcurrency: 5}
 	backendLb := &networking.LoadBalancerSettings{
 		LbPolicy: &networking.LoadBalancerSettings_Simple{Simple: networking.LoadBalancerSettings_LEAST_REQUEST},
 	}
 	backendTLS := &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_SIMPLE}
 	backendRetryBudget := &networking.TrafficPolicy_RetryBudget{MinRetryConcurrency: 10}
+	// OutlierDetection is set only by the backend policy, so it should fill in.
+	backendOutlier := &networking.OutlierDetection{Consecutive_5XxErrors: &wrapperspb.UInt32Value{Value: 3}}
 
 	userRule := config.Config{
 		Meta: config.Meta{Name: "user-dr", Namespace: "test", CreationTimestamp: time.Unix(2, 0)},
@@ -2492,6 +2497,8 @@ func TestSetDestinationRuleBackendPolicyMerging(t *testing.T) {
 			TrafficPolicy: &networking.TrafficPolicy{
 				LoadBalancer:   userLb,
 				ConnectionPool: userConnPool,
+				Tls:            userTLS,
+				RetryBudget:    userRetryBudget,
 			},
 			Subsets: []*networking.Subset{{Name: "v1"}},
 		},
@@ -2505,9 +2512,10 @@ func TestSetDestinationRuleBackendPolicyMerging(t *testing.T) {
 		Spec: &networking.DestinationRule{
 			Host: testhost,
 			TrafficPolicy: &networking.TrafficPolicy{
-				LoadBalancer: backendLb,
-				Tls:          backendTLS,
-				RetryBudget:  backendRetryBudget,
+				LoadBalancer:     backendLb,
+				Tls:              backendTLS,
+				RetryBudget:      backendRetryBudget,
+				OutlierDetection: backendOutlier,
 			},
 		},
 	}
@@ -2532,12 +2540,13 @@ func TestSetDestinationRuleBackendPolicyMerging(t *testing.T) {
 			merged := ps.destinationRuleIndex.namespaceLocal["test"].specificDestRules[host.Name(testhost)]
 			assert.Equal(t, len(merged), 1)
 			tp := merged[0].rule.Spec.(*networking.DestinationRule).TrafficPolicy
-			// user fields win
+			// user fields win, including where both set the same field (Tls, RetryBudget)
 			assert.Equal(t, tp.LoadBalancer, userLb)
 			assert.Equal(t, tp.ConnectionPool, userConnPool)
-			// backend fills the gaps
-			assert.Equal(t, tp.Tls, backendTLS)
-			assert.Equal(t, tp.RetryBudget, backendRetryBudget)
+			assert.Equal(t, tp.Tls, userTLS)
+			assert.Equal(t, tp.RetryBudget, userRetryBudget)
+			// backend fills the gaps the user rule leaves unset
+			assert.Equal(t, tp.OutlierDetection, backendOutlier)
 			// user subsets carry through
 			assert.Equal(t, len(merged[0].rule.Spec.(*networking.DestinationRule).Subsets), 1)
 		})
