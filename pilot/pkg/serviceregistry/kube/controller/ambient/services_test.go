@@ -1099,6 +1099,64 @@ func TestServiceServices(t *testing.T) {
 	}
 }
 
+// TestPreferSamePresetNotMutated is a regression test for a bug where the
+// preferSameZoneLoadBalancer / preferSameNodeLoadBalancer presets were stored
+// as package-level *workloadapi.LoadBalancing pointers. When a Service combined
+// PublishNotReadyAddresses=true with PreferSameZone/PreferSameNode traffic
+// distribution, the code path:
+//
+//	lb = preferSameZoneLoadBalancer
+//	if svc.Spec.PublishNotReadyAddresses { lb.HealthPolicy = ALLOW_ALL }
+//
+// mutated the shared global pointer in place, permanently leaking
+// HealthPolicy=ALLOW_ALL to every subsequent Service that used the same preset.
+// This caused ztunnel to route to not-ready endpoints cluster-wide.
+//
+// The fix turned the presets into functions that return a fresh value each call.
+func TestPreferSamePresetNotMutated(t *testing.T) {
+	a := newAmbientUnitTest(t)
+	mock := krttest.NewMock(t, []any{})
+	builder := a.serviceServiceBuilder(
+		krttest.GetMockCollection[Waypoint](mock),
+		krttest.GetMockCollection[*v1.Namespace](mock),
+		krttest.GetMockSingleton[MeshConfig](mock),
+		true,
+	)
+
+	mkSvc := func(name, ip, td string, pnra bool) *v1.Service {
+		return &v1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: "ns",
+				Annotations: map[string]string{
+					"networking.istio.io/traffic-distribution": td,
+				},
+			},
+			Spec: v1.ServiceSpec{
+				ClusterIP:                ip,
+				PublishNotReadyAddresses: pnra,
+				Ports:                    []v1.ServicePort{{Port: 80, Name: "http"}},
+			},
+		}
+	}
+
+	ctx := krt.TestingDummyContext{}
+
+	// Process a "poisoner" Service (PreferSameZone + PNRA) before a plain Service
+	// using PreferSameZone. The plain Service must NOT inherit ALLOW_ALL.
+	_ = builder(ctx, mkSvc("poisoner-zone", "1.2.3.4", "PreferSameZone", true))
+	victimZone := builder(ctx, mkSvc("victim-zone", "1.2.3.5", "PreferSameZone", false))
+
+	// Same scenario for PreferSameNode.
+	_ = builder(ctx, mkSvc("poisoner-node", "1.2.3.6", "PreferSameNode", true))
+	victimNode := builder(ctx, mkSvc("victim-node", "1.2.3.7", "PreferSameNode", false))
+
+	assert.Equal(t,
+		victimZone.Service.LoadBalancing.HealthPolicy, workloadapi.LoadBalancing_ONLY_HEALTHY)
+	assert.Equal(t,
+		victimNode.Service.LoadBalancing.HealthPolicy, workloadapi.LoadBalancing_ONLY_HEALTHY)
+}
+
 func TestServiceConditions(t *testing.T) {
 	waypointAddr := &workloadapi.GatewayAddress{
 		Destination: &workloadapi.GatewayAddress_Hostname{
