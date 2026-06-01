@@ -894,6 +894,7 @@ func TestApplyDestinationRule(t *testing.T) {
 							},
 							RetryBudget: &networking.TrafficPolicy_RetryBudget{
 								Percent:             wrappers.Double(0.3),
+								BudgetInterval:      &durationpb.Duration{Seconds: 10},
 								MinRetryConcurrency: uint32(4),
 							},
 						},
@@ -915,6 +916,7 @@ func TestApplyDestinationRule(t *testing.T) {
 								},
 								RetryBudget: &cluster.CircuitBreakers_Thresholds_RetryBudget{
 									BudgetPercent:       &xdstype.Percent{Value: 0.3},
+									BudgetInterval:      &durationpb.Duration{Seconds: 10},
 									MinRetryConcurrency: &wrappers.UInt32Value{Value: 4},
 								},
 							},
