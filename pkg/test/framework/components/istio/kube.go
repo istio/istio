@@ -649,6 +649,10 @@ func commonInstallArgs(ctx resource.Context, cfg Config, c cluster.Cluster, defa
 	}
 
 	// When running in GatewayAPIOnly mode, tell Pilot to ignore all Istio CRDs and only process Gateway API resources.
+	// (We deliberately leave the sidecar-injector webhook deployed because istio-managed gateway pods — including
+	// our own eastwestgateway — use `image: auto` and rely on the webhook to substitute the real image at admission.
+	// Sidecar injection is suppressed instead by not labeling application namespaces with `istio-injection=enabled`,
+	// see pkg/test/framework/components/namespace/kube.go.)
 	if ctx.Settings().GatewayAPIOnly {
 		args.AppendSet("values.pilot.env.PILOT_IGNORE_RESOURCES", "*.istio.io")
 	}

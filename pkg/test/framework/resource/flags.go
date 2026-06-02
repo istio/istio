@@ -52,7 +52,10 @@ func SettingsFromCommandLine(testID string) (*Settings, error) {
 	}
 
 	// NOTE: not using echo.VM, etc. here to avoid circular dependency.
-	if s.SkipVM {
+
+	// VM auto-registration relies on Pilot reconciling WorkloadEntry, which is disabled
+	// under GatewayAPIOnly
+	if s.SkipVM || s.GatewayAPIOnly {
 		s.SkipWorkloadClasses = append(s.SkipWorkloadClasses, "vm")
 	}
 	if s.SkipTProxy {
