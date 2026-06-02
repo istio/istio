@@ -63,7 +63,7 @@ type kubeComponent struct {
 	stopOnce sync.Once
 	stop     chan struct{}
 
-	api      map[string]prometheusApiV1.API
+	api       map[string]prometheusApiV1.API
 	forwarder map[string]istioKube.PortForwarder
 	connInfo  map[string]*clusterConnInfo
 	clusters  cluster.Clusters
