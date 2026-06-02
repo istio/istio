@@ -467,6 +467,22 @@ func TestFilterIstioEndpoint(t *testing.T) {
 			expected: false,
 		},
 		{
+			// In remote-primary setup in sidecar, sidecar proxies may see service
+			// entries defined in the remote cluster (e.g., cluster where istiod is
+			// actually running).
+			//
+			// We don't (yet) support the same mode of operation for ambient, that's
+			// why this test and the test above are expected to produce different
+			// results - when we generate configuration for sidecar proxies we don't
+			// filter a remote endpoint and when we generate configuration for ambient
+			// waypoint we do filter the remote endpoint out for non-global services.
+			name:     "test endpoint in remote cluster for local service and sidecar proxy",
+			proxy:    sidecar,
+			ep:       remoteEp,
+			svcInfo:  localSvc,
+			expected: true,
+		},
+		{
 			name:     "test ambient endpoint in local cluster for global service",
 			proxy:    ingressGw,
 			ep:       localEp,

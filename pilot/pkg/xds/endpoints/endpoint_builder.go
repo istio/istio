@@ -572,9 +572,14 @@ func (b *EndpointBuilder) filterIstioEndpoint(ep *model.IstioEndpoint) bool {
 			return false
 		}
 	}
-	// If we are in ambient mode, the service is not global and the endpoint is in a different cluster
-	// we filter it out.
-	if b.serviceInfo != nil && b.serviceInfo.Scope != model.Global && b.clusterID != ep.Locality.ClusterID {
+	// If we are operating in ambient mode, producing configuration for a waypoint or E/W gateway, the service
+	// is not global and the endpoint is in a different cluster we filter it out.
+	//
+	// NOTE: istiod itself can serve both ambient (e.g., waypoint and ztunnel) and sidecar proxies at the same time,
+	// and when we are generating configuration for a sidecar, we should not filter out endpoints that sidecar would
+	// normally see, just because we also serve ambient proxies from the same istiod as well. That's the reason why
+	// we have to check here that the node type is actually a waypoint and not a sidecar when generating EDS.
+	if b.nodeType == model.Waypoint && b.serviceInfo != nil && b.serviceInfo.Scope != model.Global && b.clusterID != ep.Locality.ClusterID {
 		return false
 	}
 
