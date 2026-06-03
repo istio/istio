@@ -2649,11 +2649,24 @@ func validateHTTPRetry(retries *networking.HTTPRetry) (errs error) {
 	return errs
 }
 
-func validateHTTPRedirect(redirect *networking.HTTPRedirect) error {
+func validateHTTPRedirect(redirect *networking.HTTPRedirect, matches []*networking.HTTPMatchRequest) error {
 	if redirect == nil {
 		return nil
 	}
-	if redirect.Uri == "" && redirect.Authority == "" && redirect.RedirectPort == nil && redirect.Scheme == "" {
+
+	if redirect.Uri != "" && redirect.PrefixRewrite != "" {
+		return errors.New("redirect may only specify one of uri or prefix_rewrite")
+	}
+
+	if redirect.PrefixRewrite != "" {
+		for _, match := range matches {
+			if _, isPrefix := match.GetUri().GetMatchType().(*networking.StringMatch_Prefix); match.Uri != nil && !isPrefix {
+				return errors.New("redirect prefix_rewrite requires all URI matches to use prefix match type")
+			}
+		}
+	}
+
+	if redirect.Uri == "" && redirect.PrefixRewrite == "" && redirect.Authority == "" && redirect.RedirectPort == nil && redirect.Scheme == "" {
 		return errors.New("redirect must specify URI, authority, scheme, or port")
 	}
 

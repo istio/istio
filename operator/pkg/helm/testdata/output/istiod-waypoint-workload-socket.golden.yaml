@@ -257,7 +257,7 @@ data:
           {{- if contains "/" (annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy_init.image) }}
             image: "{{ annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy_init.image }}"
           {{- else }}
-            image: "{{ .ProxyImage }}"
+            image: "{{ .ProxyInitImage }}"
           {{- end }}
             args:
             - istio-iptables

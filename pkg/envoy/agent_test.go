@@ -89,7 +89,7 @@ func (tp TestProxy) UpdateConfig(_ []byte) error {
 func TestStartExit(t *testing.T) {
 	ctx := context.Background()
 	done := make(chan struct{})
-	a := NewAgent(TestProxy{}, 0, 0, "", 0, 0, 0, true)
+	a := NewAgent(TestProxy{}, 0, 0, "", 0, 0, 0, 0, 0, true)
 	go func() {
 		a.Run(ctx)
 		done <- struct{}{}
@@ -106,7 +106,7 @@ func TestStartStop(t *testing.T) {
 	cleanup := func() {
 		cancel()
 	}
-	a := NewAgent(TestProxy{run: start, cleanup: cleanup}, 0, 0, "", 0, 0, 0, true)
+	a := NewAgent(TestProxy{run: start, cleanup: cleanup}, 0, 0, "", 0, 0, 0, 0, 0, true)
 	go func() { a.Run(ctx) }()
 	<-ctx.Done()
 }
@@ -139,7 +139,7 @@ func TestActiveConnections(t *testing.T) {
 			server := testserver.CreateAndStartServer(tt.stats)
 			defer server.Close()
 
-			agent := NewAgent(TestProxy{}, 0, 0, "localhost", server.Listener.Addr().(*net.TCPAddr).Port, 15021, 15009, true)
+			agent := NewAgent(TestProxy{}, 0, 0, "localhost", server.Listener.Addr().(*net.TCPAddr).Port, 15021, 15009, 0, 0, true)
 			if ac, _ := agent.activeProxyConnections(); ac != tt.expected {
 				t.Errorf("unexpected active proxy connections. expected: %d got: %d", tt.expected, ac)
 			}
