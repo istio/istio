@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/netip"
 	"os"
 	"strings"
 
@@ -93,6 +94,12 @@ func ReadSysctl(key string) (string, error) {
 	return strings.TrimSpace(string(data)), nil
 }
 
+// writeSysctl writes a single value into a /proc/sys entry. Used to flip
+// route_localnet for kata-mode DNS interception.
+func writeSysctl(key, value string) error {
+	return os.WriteFile(key, []byte(value), 0o644)
+}
+
 func forEachLoopbackRoute(cfg *cniconfig.AmbientConfig, operation string, f func(*netlink.Route) error) error {
 	loopbackLink, err := config.LinkByNameWithRetries("lo")
 	if err != nil {
@@ -141,4 +148,86 @@ func forEachLoopbackRoute(cfg *cniconfig.AmbientConfig, operation string, f func
 		}
 	}
 	return nil
+}
+
+// discoverDefaultGateway returns the IPv4 and IPv6 default-route gateways in
+// the current netns, if any. Used for kata-mode probe SNAT, where we need a
+// gateway address the guest VM is able to route back to.
+func discoverDefaultGateway() (netip.Addr, netip.Addr) {
+	var v4, v6 netip.Addr
+	for _, family := range []int{unix.AF_INET, unix.AF_INET6} {
+		routes, err := netlink.RouteList(nil, family)
+		if err != nil {
+			log.Debugf("failed to list routes for family %d: %v", family, err)
+			continue
+		}
+		for _, r := range routes {
+			// Default route: no Dst (or zero-length network).
+			if r.Dst != nil && r.Dst.IP != nil && !r.Dst.IP.IsUnspecified() {
+				continue
+			}
+			if r.Gw == nil {
+				continue
+			}
+			addr, ok := netip.AddrFromSlice(r.Gw)
+			if !ok {
+				continue
+			}
+			addr = addr.Unmap()
+			if family == unix.AF_INET && !v4.IsValid() {
+				v4 = addr
+			} else if family == unix.AF_INET6 && !v6.IsValid() {
+				v6 = addr
+			}
+		}
+	}
+	return v4, v6
+}
+
+// discoverPodIPs returns the IPv4 and IPv6 global-scope addresses bound to
+// non-loopback interfaces in the current netns. Used for kata-mode self-
+// hairpin handling, where ztunnel-originated HBONE to the pod's own IP must
+// be steered to lo instead of out the kata tap interface to the guest VM.
+//
+// Link-local, loopback, and the kata tap0_kata address (169.254.0.1) are
+// excluded.
+func discoverPodIPs() ([]netip.Addr, []netip.Addr) {
+	var v4, v6 []netip.Addr
+	links, err := netlink.LinkList()
+	if err != nil {
+		log.Debugf("failed to list links: %v", err)
+		return v4, v6
+	}
+	for _, link := range links {
+		name := link.Attrs().Name
+		if name == "lo" || strings.HasPrefix(name, "tap") {
+			continue
+		}
+		for _, family := range []int{unix.AF_INET, unix.AF_INET6} {
+			addrs, err := netlink.AddrList(link, family)
+			if err != nil {
+				log.Debugf("failed to list addresses for %s family %d: %v", name, family, err)
+				continue
+			}
+			for _, a := range addrs {
+				if a.IP == nil {
+					continue
+				}
+				addr, ok := netip.AddrFromSlice(a.IP)
+				if !ok {
+					continue
+				}
+				addr = addr.Unmap()
+				if !addr.IsValid() || addr.IsLoopback() || addr.IsLinkLocalUnicast() {
+					continue
+				}
+				if family == unix.AF_INET {
+					v4 = append(v4, addr)
+				} else {
+					v6 = append(v6, addr)
+				}
+			}
+		}
+	}
+	return v4, v6
 }
