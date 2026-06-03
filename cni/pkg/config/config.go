@@ -64,6 +64,27 @@ type PodLevelOverrides struct {
 	// instead of relying on the local route, and VM-originated outbound
 	// must be REDIRECTed to ztunnel's outbound port.
 	KataMode bool
+	// KataPodGateway is the IPv4 default-gateway address inside the pod
+	// netns at iptables-install time (i.e. the original CNI gateway, before
+	// kata replaces eth0's setup with the tap interface). When set in kata
+	// mode, kubelet HTTP/TCP probes that arrive with src
+	// HostProbeSNATAddress are SNAT-ed to this gateway when forwarded out
+	// the tap interface, so the guest VM has a valid route to reply.
+	KataPodGateway netip.Addr
+	// KataPodGatewayV6 mirrors KataPodGateway for IPv6 default gateways.
+	KataPodGatewayV6 netip.Addr
+	// KataPodIPv4 are the IPv4 addresses bound to the pod's primary
+	// non-loopback interface (typically eth0) at iptables-install time.
+	// When set in kata mode, ambient generates a mangle OUTPUT rule per
+	// pod IP that marks ztunnel-originated HBONE (port 15008) traffic
+	// destined for the pod's own IP so it is steered to lo (table 100)
+	// instead of being routed out the kata tap to the guest VM. Without
+	// this, ambient self-hairpin (when ztunnel's service LB picks the
+	// local pod as the destination endpoint) RSTs because the guest has
+	// no listener on :15008.
+	KataPodIPv4 []netip.Addr
+	// KataPodIPv6 mirrors KataPodIPv4 for IPv6.
+	KataPodIPv6 []netip.Addr
 }
 
 // AmbientConfig represents the "global"/per-instance configuration for Ambient mode traffic management
