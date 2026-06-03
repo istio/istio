@@ -166,6 +166,33 @@ func (cfg *IptablesConfigurator) executeDeleteCommands(log *istiolog.Scope) {
 // Setup iptables rules for in-pod mode. Ideally this should be an idempotent function.
 // NOTE that this expects to be run from within the pod network namespace!
 func (cfg *IptablesConfigurator) CreateInpodRules(log *istiolog.Scope, podOverrides config.PodLevelOverrides) error {
+	// In kata mode we need the original CNI default gateway to SNAT kubelet
+	// probe traffic so the guest VM has a route back. Discover it from the
+	// current netns (this function runs inside the pod netns). We do this
+	// before kata replaces eth0 with the tap interface.
+	if podOverrides.KataMode && !podOverrides.KataPodGateway.IsValid() && !podOverrides.KataPodGatewayV6.IsValid() {
+		gw4, gw6 := discoverDefaultGateway()
+		podOverrides.KataPodGateway = gw4
+		podOverrides.KataPodGatewayV6 = gw6
+		log.Debugf("kata mode: discovered pod-netns default gateway v4=%v v6=%v", gw4, gw6)
+	}
+	if podOverrides.KataMode && len(podOverrides.KataPodIPv4) == 0 && len(podOverrides.KataPodIPv6) == 0 {
+		ipv4, ipv6 := discoverPodIPs()
+		podOverrides.KataPodIPv4 = ipv4
+		podOverrides.KataPodIPv6 = ipv6
+		log.Debugf("kata mode: discovered pod-netns addresses v4=%v v6=%v", ipv4, ipv6)
+	}
+
+	// Kata DNS interception below DNATs VM-originated DNS queries to
+	// 127.0.0.1:15053 (ztunnel's DNS proxy). The packet arrives on tap0_kata
+	// with dst=kube-dns; route_localnet must be enabled for the kernel to
+	// route loopback addresses on a non-loopback ingress interface.
+	if podOverrides.KataMode {
+		if err := writeSysctl("/proc/sys/net/ipv4/conf/all/route_localnet", "1"); err != nil {
+			log.Warnf("kata mode: failed to enable route_localnet (DNS interception may fail): %v", err)
+		}
+	}
+
 	// Append our rules here
 	builder := cfg.AppendInpodRules(podOverrides)
 
@@ -308,6 +335,20 @@ func (cfg *IptablesConfigurator) AppendInpodRules(podOverrides config.PodLevelOv
 	//   3. `-m mark 0x111 -j ACCEPT`               : exit chain so fwmark rule fires
 	//   4. `-i tap0_kata -p tcp -j REDIRECT 15001` : VM-originated outbound
 	if podOverrides.KataMode {
+		// Kubelet HTTP/TCP probes arrive at eth0 with src
+		// HostProbeSNATAddress (the well-known passthrough source set by
+		// host-side istio-cni). For runc pods these are routed via lo to
+		// the in-netns app. For kata the app is in the VM, so we must
+		// forward via tap0_kata instead -- which means skipping the MARK
+		// rule below (otherwise fwmark 0x111 sends them to table 100/lo).
+		// The matching POSTROUTING SNAT rule below rewrites the source to
+		// the original CNI gateway so the VM can route the reply back.
+		iptablesBuilder.AppendVersionedRule(cfg.cfg.HostProbeSNATAddress.String(), cfg.cfg.HostProbeV6SNATAddress.String(),
+			ChainInpodPrerouting, "mangle",
+			"-s", iptablesconstants.IPVersionSpecific,
+			"-p", "tcp",
+			"-j", "ACCEPT",
+		)
 		iptablesBuilder.AppendRule(ChainInpodPrerouting, "mangle",
 			"-i", "eth0",
 			"-p", "tcp",
@@ -330,6 +371,48 @@ func (cfg *IptablesConfigurator) AppendInpodRules(podOverrides config.PodLevelOv
 			"--mark", inpodTproxyMark,
 			"-j", "ACCEPT",
 		)
+		if redirectDNS {
+			// CLI: -t nat -A ISTIO_PRERT -i tap0_kata -p udp --dport 53 -j DNAT --to-destination 127.0.0.1:15053
+			//
+			// DESC: VM-originated UDP DNS queries arrive via tap0_kata into
+			// PREROUTING (the OUTPUT-chain DNS REDIRECT below fires only for
+			// netns-local processes, not for the kata guest). We DNAT to
+			// 127.0.0.1:15053 rather than REDIRECT because ztunnel's DNS
+			// proxy only binds on loopback (127.0.0.1:15053); a PREROUTING
+			// REDIRECT would rewrite dest to tap0_kata's interface IP
+			// (169.254.0.1), where nothing is listening. DNAT requires
+			// route_localnet=1 on the ingress iface (set in CreateInpodRules).
+			// Conntrack reverses the DNAT on the reply so the VM sees a
+			// response from the original kube-dns address.
+			iptablesBuilder.AppendRuleV4(ChainInpodPrerouting, "nat",
+				"-i", "tap0_kata",
+				"-p", "udp",
+				"-m", "udp",
+				"--dport", "53",
+				"-j", "DNAT",
+				"--to-destination", fmt.Sprintf("127.0.0.1:%d", config.DNSCapturePort),
+			)
+			// CLI: -t nat -A ISTIO_PRERT -i tap0_kata -p tcp --dport 53 -j DNAT --to-destination 127.0.0.1:15053
+			//
+			// DESC: Same as above for TCP DNS. Must come BEFORE the tap0_kata
+			// TCP catch-all REDIRECT to 15001 (which would otherwise swallow
+			// dport 53 and send it to the outbound proxy).
+			iptablesBuilder.AppendRuleV4(ChainInpodPrerouting, "nat",
+				"-i", "tap0_kata",
+				"-p", "tcp",
+				"--dport", "53",
+				"-j", "DNAT",
+				"--to-destination", fmt.Sprintf("127.0.0.1:%d", config.DNSCapturePort),
+			)
+			// TODO DESC
+			iptablesBuilder.AppendRuleV4(ChainInpodPrerouting, "mangle",
+				"-i", "eth0",
+				"-p", "udp",
+				"--sport", "53",
+				"-j", "MARK",
+				"--set-xmark", inpodTproxyMark,
+			)
+		}
 		// CLI: -t nat -A ISTIO_PRERT -i tap0_kata -p tcp -j REDIRECT --to-ports 15001
 		iptablesBuilder.AppendRule(ChainInpodPrerouting, "nat",
 			"-i", "tap0_kata",
@@ -337,6 +420,67 @@ func (cfg *IptablesConfigurator) AppendInpodRules(podOverrides config.PodLevelOv
 			"-j", "REDIRECT",
 			"--to-ports", fmt.Sprint(config.ZtunnelOutboundPort),
 		)
+		// CLI: -t nat -A POSTROUTING -s 169.254.7.127 -o tap0_kata -j SNAT --to-source <gw>
+		//
+		// DESC: SNAT kubelet-probe traffic (entering with src
+		// HostProbeSNATAddress) to the original CNI gateway when it leaves
+		// over the kata tap interface, so the guest VM has a route back.
+		// Without this the VM RSTs the SYN because its routing table has
+		// no entry for the ztunnel link-local probe source.
+		if podOverrides.KataPodGateway.IsValid() {
+			iptablesBuilder.AppendRuleV4(
+				"POSTROUTING", "nat",
+				"-s", cfg.cfg.HostProbeSNATAddress.String(),
+				"-o", "tap0_kata",
+				"-j", "SNAT",
+				"--to-source", podOverrides.KataPodGateway.String(),
+			)
+		}
+		if podOverrides.KataPodGatewayV6.IsValid() {
+			iptablesBuilder.AppendRuleV6(
+				"POSTROUTING", "nat",
+				"-s", cfg.cfg.HostProbeV6SNATAddress.String(),
+				"-o", "tap0_kata",
+				"-j", "SNAT",
+				"--to-source", podOverrides.KataPodGatewayV6.String(),
+			)
+		}
+		// CLI: -t mangle -A OUTPUT -d <pod_ip> -p tcp --dport 15008 -j MARK --set-xmark 0x111/0xfff
+		//
+		// DESC: Handle ambient self-hairpin. When the local workload sends
+		// to a Service whose endpoints include this pod, ztunnel may LB-
+		// select self and open an outbound HBONE to <own_pod_ip>:15008.
+		// For runc this loops back via the kernel-installed `local <ip>
+		// dev lo` route. In kata-l3fwd the istio CNI installs a
+		// `<pod_ip> dev tap0_kata` route so VM-bound inbound is forwarded
+		// to the guest -- but the same route now sends the self-HBONE
+		// packet out tap to the VM, which has no :15008 listener and
+		// RSTs the SYN.
+		//
+		// Marking with the in-pod TProxy mark routes the packet via
+		// table 100 (`local default dev lo`) to ztunnel's *:15008
+		// listener, restoring the runc behavior. The match is scoped to
+		// dst=self and dport=15008, so no other traffic is affected.
+		for _, ip := range podOverrides.KataPodIPv4 {
+			iptablesBuilder.AppendRuleV4(
+				"OUTPUT", "mangle",
+				"-d", ip.String()+"/32",
+				"-p", "tcp",
+				"--dport", fmt.Sprint(config.ZtunnelInboundPort),
+				"-j", "MARK",
+				"--set-xmark", inpodTproxyMark,
+			)
+		}
+		for _, ip := range podOverrides.KataPodIPv6 {
+			iptablesBuilder.AppendRuleV6(
+				"OUTPUT", "mangle",
+				"-d", ip.String()+"/128",
+				"-p", "tcp",
+				"--dport", fmt.Sprint(config.ZtunnelInboundPort),
+				"-j", "MARK",
+				"--set-xmark", inpodTproxyMark,
+			)
+		}
 	}
 
 	// CLI: -A ISTIO_PRERT -m mark --mark 0x539/0xfff -j CONNMARK --set-xmark 0x111/0xfff
