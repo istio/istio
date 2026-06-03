@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+releaseNotes:
+  - |
+    **Fixed** a bug where istiod did not reload its CA root certificate when it rotated if the
+    certificate is provided via files (for example, when using an external CA such as istio-csr).
