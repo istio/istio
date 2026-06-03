@@ -343,6 +343,7 @@ func TestFilterIstioEndpoint(t *testing.T) {
 	}
 	localSvc := makeService("ns", "example.ns.svc.cluster.local", model.Local)
 	globalSvc := makeService("ns", "example.ns.svc.cluster.local", model.Global)
+	unscopedSvc := makeService("ns", "example.ns.svc.cluster.local", model.Unscoped)
 	sidecar := &model.Proxy{
 		Type:        model.SidecarProxy,
 		IPAddresses: []string{"111.111.111.111", "1111:2222::1"},
@@ -351,6 +352,7 @@ func TestFilterIstioEndpoint(t *testing.T) {
 		Metadata: &model.NodeMetadata{
 			Namespace: "not-default",
 			NodeName:  "example",
+			ClusterID: "local",
 		},
 		ConfigNamespace: "not-default",
 	}
@@ -467,19 +469,10 @@ func TestFilterIstioEndpoint(t *testing.T) {
 			expected: false,
 		},
 		{
-			// In remote-primary setup in sidecar, sidecar proxies may see service
-			// entries defined in the remote cluster (e.g., cluster where istiod is
-			// actually running).
-			//
-			// We don't (yet) support the same mode of operation for ambient, that's
-			// why this test and the test above are expected to produce different
-			// results - when we generate configuration for sidecar proxies we don't
-			// filter a remote endpoint and when we generate configuration for ambient
-			// waypoint we do filter the remote endpoint out for non-global services.
 			name:     "test endpoint in remote cluster for local service and sidecar proxy",
-			proxy:    sidecar,
+			proxy:    waypoint,
 			ep:       remoteEp,
-			svcInfo:  localSvc,
+			svcInfo:  unscopedSvc,
 			expected: true,
 		},
 		{
