@@ -589,6 +589,8 @@ func BackendTrafficPolicyCollection(
 			if i.Spec.RetryConstraint.Budget.Percent != nil {
 				retryBudget.Percent = &wrapperspb.DoubleValue{Value: float64(*i.Spec.RetryConstraint.Budget.Percent)}
 			}
+			// Gateway API default
+			retryBudget.BudgetInterval = durationpb.New(10 * time.Second)
 			if i.Spec.RetryConstraint.Budget.Interval != nil {
 				if d, err := time.ParseDuration(string(*i.Spec.RetryConstraint.Budget.Interval)); err == nil {
 					retryBudget.BudgetInterval = durationpb.New(d)
