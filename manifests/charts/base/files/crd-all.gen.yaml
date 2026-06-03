@@ -1680,6 +1680,11 @@ spec:
                           description: Specifies a limit on concurrent retries in
                             relation to the number of active requests.
                           properties:
+                            budgetInterval:
+                              description: Specifies the duration in which requests
+                                will be considered when calculating the budget for
+                                retries.
+                              type: string
                             minRetryConcurrency:
                               description: Specifies the minimum retry concurrency
                                 allowed for the retry budget.
@@ -2636,6 +2641,10 @@ spec:
                     description: Specifies a limit on concurrent retries in relation
                       to the number of active requests.
                     properties:
+                      budgetInterval:
+                        description: Specifies the duration in which requests will
+                          be considered when calculating the budget for retries.
+                        type: string
                       minRetryConcurrency:
                         description: Specifies the minimum retry concurrency allowed
                           for the retry budget.
@@ -3765,6 +3774,11 @@ spec:
                           description: Specifies a limit on concurrent retries in
                             relation to the number of active requests.
                           properties:
+                            budgetInterval:
+                              description: Specifies the duration in which requests
+                                will be considered when calculating the budget for
+                                retries.
+                              type: string
                             minRetryConcurrency:
                               description: Specifies the minimum retry concurrency
                                 allowed for the retry budget.
@@ -4721,6 +4735,10 @@ spec:
                     description: Specifies a limit on concurrent retries in relation
                       to the number of active requests.
                     properties:
+                      budgetInterval:
+                        description: Specifies the duration in which requests will
+                          be considered when calculating the budget for retries.
+                        type: string
                       minRetryConcurrency:
                         description: Specifies the minimum retry concurrency allowed
                           for the retry budget.
@@ -5850,6 +5868,11 @@ spec:
                           description: Specifies a limit on concurrent retries in
                             relation to the number of active requests.
                           properties:
+                            budgetInterval:
+                              description: Specifies the duration in which requests
+                                will be considered when calculating the budget for
+                                retries.
+                              type: string
                             minRetryConcurrency:
                               description: Specifies the minimum retry concurrency
                                 allowed for the retry budget.
@@ -6806,6 +6829,10 @@ spec:
                     description: Specifies a limit on concurrent retries in relation
                       to the number of active requests.
                     properties:
+                      budgetInterval:
+                        description: Specifies the duration in which requests will
+                          be considered when calculating the budget for retries.
+                        type: string
                       minRetryConcurrency:
                         description: Specifies the minimum retry concurrency allowed
                           for the retry budget.
