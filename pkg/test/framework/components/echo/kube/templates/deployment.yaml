@@ -52,6 +52,9 @@ spec:
         proxy.istio.io/config: '{"holdApplicationUntilProxyStarts": true}'
 {{- end }}
     spec:
+{{- if and (not $.ProxylessGRPC) (not $.HasSidecar) }}
+      runtimeClassName: kata-l3fwd
+{{- end }}
 {{- if $.Ambient }}
       topologySpreadConstraints:
       - topologyKey: "kubernetes.io/hostname"

@@ -420,6 +420,7 @@ func deploymentParams(ctx resource.Context, cfg echo.Config, settings *resource.
 		"Service":                 cfg.Service,
 		"StatefulSet":             cfg.StatefulSet,
 		"ProxylessGRPC":           cfg.IsProxylessGRPC(),
+		"HasSidecar":              cfg.HasSidecar(),
 		"GRPCMagicPort":           grpcMagicPort,
 		"Locality":                cfg.Locality,
 		"ServiceAccount":          cfg.ServiceAccount,
