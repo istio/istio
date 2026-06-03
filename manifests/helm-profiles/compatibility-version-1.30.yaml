@@ -1,0 +1,4 @@
+pilot:
+  env:
+    # 1.31 behavioral changes
+    PILOT_SPAWN_UPSTREAM_SPAN_FOR_GATEWAY: "false"
