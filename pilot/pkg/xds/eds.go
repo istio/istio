@@ -140,7 +140,7 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, 
 		return nil, model.DefaultXdsLogDetails, nil
 	}
 
-	resources, _, logDetails := eds.buildEndpoints(proxy, req, w, false, canSendPartialFullPushes(req))
+	resources, logDetails := eds.buildEndpoints(proxy, req, w, canSendPartialFullPushes(req))
 	return resources, logDetails, nil
 }
 
@@ -152,8 +152,8 @@ func (eds *EdsGenerator) GenerateDeltas(proxy *model.Proxy, req *model.PushReque
 	}
 
 	partialPush := canSendPartialFullPushes(req)
-	resources, removed, logs := eds.buildEndpoints(proxy, req, w, partialPush, partialPush)
-	return resources, removed, logs, partialPush, nil
+	resources, logs := eds.buildEndpoints(proxy, req, w, partialPush)
+	return resources, nil, logs, partialPush, nil
 }
 
 func canSendPartialFullPushes(req *model.PushRequest) bool {
@@ -178,9 +178,8 @@ func canSendPartialFullPushes(req *model.PushRequest) bool {
 func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 	req *model.PushRequest,
 	w *model.WatchedResource,
-	delta bool,
 	partialPush bool,
-) (model.Resources, model.DeletedResources, model.XdsLogDetails) {
+) (model.Resources, model.XdsLogDetails) {
 	var edsUpdatedServices sets.Set[string]
 	var changedDrs sets.Set[types.NamespacedName]
 	var changedAuthnNs sets.Set[string]
@@ -256,7 +255,7 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 		resources = append(resources, resource)
 		eds.Cache.Add(&builder, req, resource)
 	}
-	return resources, nil, model.XdsLogDetails{
+	return resources, model.XdsLogDetails{
 		Incremental:    len(edsUpdatedServices) != 0,
 		AdditionalInfo: fmt.Sprintf("empty:%v cached:%v/%v", empty, cached, cached+regenerated),
 	}
