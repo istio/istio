@@ -935,19 +935,29 @@ func applyPrometheusMerge(pod *corev1.Pod, mesh *meshconfig.MeshConfig) error {
 			scrape.Port = scrape.Targets[0].Port
 			scrape.Path = scrape.Targets[0].Path
 			for _, t := range scrape.Targets {
-				if t.Port == targetPort {
+				portNum, err := strconv.Atoi(t.Port)
+				if err != nil || portNum < 1 || portNum > 65535 {
+					return fmt.Errorf("invalid prometheus scrape targets: invalid target port %q", t.Port)
+				}
+				canon := strconv.Itoa(portNum)
+				if canon == targetPort {
 					return fmt.Errorf("invalid prometheus scrape targets: target port %s conflicts with agent port", t.Port)
 				}
-				if reason, reserved := status.IstioReservedPortReason(t.Port); reserved {
+				if reason, reserved := status.IstioReservedPortReason(canon); reserved {
 					return fmt.Errorf("invalid prometheus scrape targets: target port %s is reserved for Istio (%s) and cannot be scraped", t.Port, reason)
 				}
 			}
 		} else if scrape.Port != "" {
 			// Validate legacy prometheus.io/port annotation when the new scrape-targets annotation is not used.
-			if scrape.Port == targetPort {
+			portNum, err := strconv.Atoi(scrape.Port)
+			if err != nil || portNum < 1 || portNum > 65535 {
+				return fmt.Errorf("invalid prometheus scrape configuration: invalid port %q", scrape.Port)
+			}
+			canon := strconv.Itoa(portNum)
+			if canon == targetPort {
 				return fmt.Errorf("invalid prometheus scrape configuration: port %s conflicts with agent port", scrape.Port)
 			}
-			if reason, reserved := status.IstioReservedPortReason(scrape.Port); reserved {
+			if reason, reserved := status.IstioReservedPortReason(canon); reserved {
 				return fmt.Errorf("invalid prometheus scrape configuration: port %s is reserved for Istio (%s) and cannot be scraped", scrape.Port, reason)
 			}
 		}
