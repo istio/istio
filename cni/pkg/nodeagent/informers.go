@@ -329,6 +329,22 @@ func (s *InformerHandlers) reconcilePod(input any) error {
 			return nil
 		}
 
+		// Self-heal the host probe ipset for an already-enrolled pod. A startup snapshot
+		// that ran before this pod's IP was observable (e.g. right after a node/kubelet
+		// restart) will have skipped and pruned its probe-ipset entry. Such a pod hits
+		// changeNeeded=false below and would otherwise never be re-added, leaving its
+		// kubelet probes to be SNAT-bypassed -> redirected to ztunnel -> rejected by
+		// AuthorizationPolicy indefinitely. SyncHostProbeIPSet is an idempotent upsert,
+		// so re-asserting membership on each update for an enrolled pod is cheap and safe.
+		if isEnrolled && shouldBeEnabled && !isTerminated {
+			if podIPs := util.GetPodIPsIfPresent(currentPod); len(podIPs) > 0 {
+				if err := s.dataplane.SyncHostProbeIPSet(currentPod, podIPs); err != nil {
+					log.Warnf("failed to sync host probe ipset for enrolled pod, will retry: %v", err)
+					return err
+				}
+			}
+		}
+
 		if !changeNeeded || isTerminated {
 			log.Debugf("pod update event skipped: no change needed")
 			return nil
