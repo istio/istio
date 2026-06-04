@@ -872,6 +872,81 @@ spec:
 `, m)
 }
 
+func TestPathNormalizationScope(t *testing.T) {
+	cases := []struct {
+		name                         string
+		scope                        string
+		normalization                 meshconfig.MeshConfig_ProxyPathNormalization_NormalizationType
+		wantNormalizePath             bool
+		wantMergeSlashes              bool
+		wantEscapedSlashesAction      hcm.HttpConnectionManager_PathWithEscapedSlashesAction
+		wantPathNormalizationOptions  bool
+		wantHTTPFilterOperations      int
+		wantForwardingTransformation  bool
+		wantNormalizePathRfc3986First bool
+		wantMergeSlashesLast          bool
+	}{
+		{
+			name:                    "default forwarding scope preserves existing decode and merge behavior",
+			scope:                   "FORWARDING",
+			normalization:           meshconfig.MeshConfig_ProxyPathNormalization_DECODE_AND_MERGE_SLASHES,
+			wantNormalizePath:       true,
+			wantMergeSlashes:        true,
+			wantEscapedSlashesAction: hcm.HttpConnectionManager_UNESCAPE_AND_FORWARD,
+		},
+		{
+			name:                         "http filters scope preserves forwarded path",
+			scope:                        "HTTP_FILTERS",
+			normalization:                meshconfig.MeshConfig_ProxyPathNormalization_DECODE_AND_MERGE_SLASHES,
+			wantEscapedSlashesAction:     hcm.HttpConnectionManager_UNESCAPE_AND_FORWARD,
+			wantPathNormalizationOptions: true,
+			wantHTTPFilterOperations:     2,
+			wantForwardingTransformation: true,
+			wantNormalizePathRfc3986First: true,
+			wantMergeSlashesLast:         true,
+		},
+		{
+			name:                    "http filters scope with none disables normalization",
+			scope:                   "HTTP_FILTERS",
+			normalization:           meshconfig.MeshConfig_ProxyPathNormalization_NONE,
+			wantEscapedSlashesAction: hcm.HttpConnectionManager_KEEP_UNCHANGED,
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			test.SetForTest(t, &features.PathNormalizationScope, tt.scope)
+			httpConnManager := &hcm.HttpConnectionManager{}
+			configurePathNormalization(httpConnManager, tt.normalization)
+
+			assert.Equal(t, tt.wantNormalizePath, httpConnManager.GetNormalizePath().GetValue())
+			assert.Equal(t, tt.wantMergeSlashes, httpConnManager.GetMergeSlashes())
+			assert.Equal(t, tt.wantEscapedSlashesAction, httpConnManager.GetPathWithEscapedSlashesAction())
+
+			pathNormalizationOptions := httpConnManager.GetPathNormalizationOptions()
+			if !tt.wantPathNormalizationOptions {
+				assert.Equal(t, true, pathNormalizationOptions == nil)
+				return
+			}
+
+			if pathNormalizationOptions == nil {
+				t.Fatal("expected path normalization options")
+			}
+			assert.Equal(t, tt.wantForwardingTransformation, pathNormalizationOptions.GetForwardingTransformation() != nil)
+			assert.Equal(t, 0, len(pathNormalizationOptions.GetForwardingTransformation().GetOperations()))
+
+			operations := pathNormalizationOptions.GetHttpFilterTransformation().GetOperations()
+			assert.Equal(t, tt.wantHTTPFilterOperations, len(operations))
+			if tt.wantNormalizePathRfc3986First && operations[0].GetNormalizePathRfc_3986() == nil {
+				t.Fatal("expected first operation to normalize path per RFC 3986")
+			}
+			if tt.wantMergeSlashesLast && operations[len(operations)-1].GetMergeSlashes() == nil {
+				t.Fatal("expected last operation to merge slashes")
+			}
+		})
+	}
+}
+
 func TestHCMInternalAddressConfig(t *testing.T) {
 	cg := NewConfigGenTest(t, TestOptions{})
 	sidecarProxy := cg.SetupProxy(&model.Proxy{ConfigNamespace: "not-default"})

@@ -169,6 +169,10 @@ var (
 	EnableHCMInternalNetworks = env.Register("ENABLE_HCM_INTERNAL_NETWORKS", false,
 		"If enable, endpoints defined in mesh networks will be configured as internal addresses in Http Connection Manager").Get()
 
+	PathNormalizationScope = env.Register("PILOT_PATH_NORMALIZATION_SCOPE", "FORWARDING",
+		"Controls how mesh pathNormalization is applied. FORWARDING preserves existing behavior and forwards the normalized path. "+
+			"HTTP_FILTERS applies normalization for Envoy HTTP filters, routing, and matching, while preserving the original path forwarded upstream.").Get()
+
 	EnableLeaderElection = env.Register("ENABLE_LEADER_ELECTION", true,
 		"If enabled (default), starts a leader election client and gains leadership before executing controllers. "+
 			"If false, it assumes that only one instance of istiod is running and skips leader election.").Get()
