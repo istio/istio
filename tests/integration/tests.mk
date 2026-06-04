@@ -133,15 +133,3 @@ endif
 .PHONY: test.integration.kube.agentgateway
 test.integration.kube.agentgateway: | $(JUNIT_REPORT) check-go-tag
 	$(call run-test,./tests/integration/pilot/agentgateway/)
-
-# Runs the subset of pilot integration tests that are valid under --istio.test.gatewayAPIOnly:
-# Gateway API conformance + the Gateway-API-only tests in pilot, plus the InferencePool tests.
-# Anything that fundamentally requires Istio mesh CRDs or sidecar-injected workloads is excluded.
-# This uses a custom 60m timeout (vs. the run-test macro's 30m) because TestGatewayConformance
-# is the long pole and routinely takes ~50 minutes to complete.
-.PHONY: test.integration.pilot.gateway-api-only.kube
-test.integration.pilot.gateway-api-only.kube: GATEWAY_API_ONLY_PKGS=./tests/integration/pilot ./tests/integration/pilot/gie
-test.integration.pilot.gateway-api-only.kube: GATEWAY_API_ONLY_RUN=-run='TestGatewayConformance|TestGateway$$|TestHTTPRouteAndGRPCRouteCoexistence|TestInferencePoolMultipleTargetPorts'
-test.integration.pilot.gateway-api-only.kube: | $(JUNIT_REPORT) check-go-tag
-	$(GO) test -exec=true -toolexec=$(REPO_ROOT)/tools/go-compile-without-link -vet=off -tags=integ $(GATEWAY_API_ONLY_RUN) $(GATEWAY_API_ONLY_PKGS)
-	$(GO) test -p 1 ${T} -tags=integ -vet=off -timeout 60m $(GATEWAY_API_ONLY_RUN) $(GATEWAY_API_ONLY_PKGS) ${_INTEGRATION_TEST_FLAGS} ${_INTEGRATION_TEST_SELECT_FLAGS} 2>&1 | tee >($(JUNIT_REPORT) > $(JUNIT_OUT))
