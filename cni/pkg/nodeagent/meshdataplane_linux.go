@@ -237,6 +237,18 @@ func (s *meshDataplane) RemovePodFromMesh(ctx context.Context, pod *corev1.Pod, 
 	return nil
 }
 
+// SyncHostProbeIPSet re-asserts an already-enrolled pod's probe IPs in the host ipset.
+// This is the self-heal path for the informer: a startup snapshot that ran before a
+// pod's IP was observable (e.g. right after a node/kubelet restart) will have skipped
+// and pruned that pod, and steady-state informer events hit changeNeeded=false and would
+// never re-add it - leaving its kubelet probes to be rejected by ztunnel indefinitely.
+// addPodToHostAddrSet is an idempotent upsert, so calling this on each update for an
+// enrolled pod is cheap and safe.
+func (s *meshDataplane) SyncHostProbeIPSet(pod *corev1.Pod, podIPs []netip.Addr) error {
+	_, err := s.addPodToHostAddrSet(pod, podIPs)
+	return err
+}
+
 // syncHostAddrSets is called after the host node ipset has been created (or found + flushed)
 // during initial snapshot creation, it will insert every snapshotted pod's IP into the set.
 //
