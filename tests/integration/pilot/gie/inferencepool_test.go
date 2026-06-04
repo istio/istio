@@ -95,10 +95,7 @@ func TestInferencePoolMultipleTargetPorts(t *testing.T) {
 			// This is an external processor that selects endpoints based on request headers
 			var epp echo.Instance
 			// Under GatewayAPIOnly mode the injection webhook is not deployed, so no sidecar
-			// gets injected here. Under standard mesh mode a sidecar would be injected, and the
-			// gateway's outbound cluster to mock-epp would attempt mTLS based on the pod's
-			// tlsMode=istio label — which the plain-gRPC EPP server cannot terminate. Disable
-			// injection on this pod so the ext_proc stream is always plain HTTP/2.
+			// gets injected here
 			eppAnnotations := map[string]string{
 				"sidecar.istio.io/inject":                      "false",
 				"traffic.sidecar.istio.io/excludeInboundPorts": "9002",
