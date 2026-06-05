@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/test"
@@ -328,6 +329,19 @@ func makeService(namespace, hostname string, scope model.ServiceScope) *model.Se
 	}
 }
 
+func makeServiceEntry(namespace, hostname string) *model.ServiceInfo {
+	svc := &workloadapi.Service{
+		Namespace: namespace,
+		Hostname:  hostname,
+	}
+	return &model.ServiceInfo{
+		Service: svc,
+		Source: model.TypedObject{
+			Kind: kind.ServiceEntry,
+		},
+	}
+}
+
 func TestFilterIstioEndpoint(t *testing.T) {
 	svc := &model.Service{
 		Hostname: "example.ns.svc.cluster.local",
@@ -343,7 +357,7 @@ func TestFilterIstioEndpoint(t *testing.T) {
 	}
 	localSvc := makeService("ns", "example.ns.svc.cluster.local", model.Local)
 	globalSvc := makeService("ns", "example.ns.svc.cluster.local", model.Global)
-	unscopedSvc := makeService("ns", "example.ns.svc.cluster.local", model.Unscoped)
+	serviceEntry := makeServiceEntry("ns", "example.ns.svc.cluster.local")
 	sidecar := &model.Proxy{
 		Type:        model.SidecarProxy,
 		IPAddresses: []string{"111.111.111.111", "1111:2222::1"},
@@ -472,7 +486,7 @@ func TestFilterIstioEndpoint(t *testing.T) {
 			name:     "test endpoint in remote cluster for local service and sidecar proxy",
 			proxy:    waypoint,
 			ep:       remoteEp,
-			svcInfo:  unscopedSvc,
+			svcInfo:  serviceEntry,
 			expected: true,
 		},
 		{

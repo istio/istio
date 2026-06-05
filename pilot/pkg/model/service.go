@@ -1376,10 +1376,6 @@ const (
 	// cluster's east/west gateway. Istio will also automatically share globally matching endpoints with the cluster's
 	// local dataplane that are in the local and remote clusters.
 	Global ServiceScope = "GLOBAL"
-	// Unscoped ServiceScope specifies that the service does not have an explicitly assigned scope. For most intents
-	// and purposes this is similar to Local, but it allows to distinguish the cases where the scope cannot be
-	// explicitly assigned at all (e.g., ServiceEntry does not have a scope) and treat them specially.
-	Unscoped ServiceScope = ""
 )
 
 type WorkloadInfo struct {

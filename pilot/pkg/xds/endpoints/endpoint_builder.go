@@ -572,39 +572,17 @@ func (b *EndpointBuilder) filterIstioEndpoint(ep *model.IstioEndpoint) bool {
 			return false
 		}
 	}
-	// When multi-cluster ambeint mode of operation is enabled, services will have a scope. Scope can be local
-	// or global. In ambient, when service is local, we want to filter out endpoints from different clusters.
+	// ServiceEntry is a bit special, in ambient multi-cluster service entries are never global and are never
+	// read from a remote cluster, so they are by nature local to the cluster where istiod is running.
 	//
-	// This semantics makes sense, but it creates a bit of problem when it comes to sidecar mode of operation:
-	// - Service scope concept didn't exist in sidecar mode (there are some lose equivalents of that, but they are
-	//   not identical to service scope)
-	// - The same istiod can serve both sidecar and ambient workloads at the same time (IOW, we can't always
-	//   clearly tell that istiod is operating in sidecar mode or ambient mode, because it could be both or nerither)
-	// - Like istiod, some proxies are not sidecar or ambient either (e.g., we can't say that ingress gateway is in
-        //   sidecar mode or ambient mode - that's just not the distinction that makes sense for ingress gateway).
+	// However, istio in general supports remote primary deployment, where the same istiod might serve different
+	// clusters. In this case ServiceEntry, because it's visible to the istiod, will affect all the clsuters and
+	// not just the one where ServiceEntry is defined.
 	//
-	// As a result, when `AMBIENT_ENABLE_MULTI_NETWORK` feature flag and we start considering service scope, it also
-	// changes the behavior of ingress gateways, which are not sidecar or ambient and serve both sidecar and ambient
-	// use cases (potentially even at the same time).
-	//
-	// We cannot ignore service scope when generating Envoy configuration, so users that want endpoints from all
-	// clusters to be available will have to explicitly mark services as global or not enable
-	// `AMBIENT_ENABLE_MULTI_NETWORK` if they don't want to apply service scope semantics.
-
-	// However, ServiceEntries are special. We cannot label ServiceEntries as local or global like regular services,
-	// and they don't have a scope, which for many practical purposes is treated as if the scope was local. When we
-	// operate in "remote primary" mode that's not the expected behavior.
-	//
-	// With that in mind, when service scope is not assigned, we don't filter out endpoints from other clusters. This
-	// case only applies to ServiceEntries, so the only situation in which endpoint cluster is different from the
-	// proxy cluster is when we are operating in a "remote primary" mode where the same istiod is responsible for
-	// generating configuration for proxies in remote clusters.
-	//
-	// NOTE: Scope could be model.Local, model.Global or unassigned, checking here for explicit model.Local excludes
-	// both cases:
-	// - when scope is explicitly set to model.Global and therefore we don't want to filter the endoint
-	// - when scope is not explicitly set and therefore we don't want to filter the endpoint either.
-	if b.serviceInfo != nil && b.serviceInfo.Scope == model.Local && b.clusterID != ep.Locality.ClusterID {
+	// While ambient specifically does not support this type of deployment, we don't want to introduce unncessary
+	// incompatibility here either. So below we hanbdle service entries in a special way and ignore the scope of
+	// the ServiceEntry allowing endpoints from remote clusters.
+	if b.serviceInfo != nil && b.serviceInfo.Source.Kind != kind.ServiceEntry && b.serviceInfo.Scope == model.Local && b.clusterID != ep.Locality.ClusterID {
 		return false
 	}
 
