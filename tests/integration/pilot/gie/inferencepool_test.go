@@ -94,10 +94,11 @@ func TestInferencePoolMultipleTargetPorts(t *testing.T) {
 			// Deploy the endpoint picker (EPP) service as an echo instance
 			// This is an external processor that selects endpoints based on request headers
 			var epp echo.Instance
-			// Only add sidecar annotation when running with mesh (it has no effect in GatewayAPIOnly mode)
-			eppAnnotations := map[string]string{}
-			if !ctx.Settings().GatewayAPIOnly {
-				eppAnnotations["traffic.sidecar.istio.io/excludeInboundPorts"] = "9002"
+			// Under GatewayAPIOnly mode the injection webhook is not deployed, so no sidecar
+			// gets injected here
+			eppAnnotations := map[string]string{
+				"sidecar.istio.io/inject":                      "false",
+				"traffic.sidecar.istio.io/excludeInboundPorts": "9002",
 			}
 			eppConfig := echo.Config{
 				Service:   "mock-epp",

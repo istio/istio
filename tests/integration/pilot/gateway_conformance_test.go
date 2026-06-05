@@ -117,12 +117,14 @@ func TestGatewayConformance(t *testing.T) {
 
 			hostnameType := v1.AddressType("Hostname")
 			istioVersion, _ := env.ReadVersion()
+			// Honor the --istio.test.kube.gatewayClassName flag if set; otherwise this is DefaultGatewayClassName ("istio").
+			gatewayClassName := i.Settings().GatewayClassName
 			opts := suite.ConformanceOptions{
 				Client:                   c,
 				Clientset:                gatewayConformanceInputs.Client.Kube(),
 				ClientOptions:            clientOptions,
 				RestConfig:               gatewayConformanceInputs.Client.RESTConfig(),
-				GatewayClassName:         "istio",
+				GatewayClassName:         gatewayClassName,
 				Debug:                    scopes.Framework.DebugEnabled(),
 				CleanupBaseResources:     gatewayConformanceInputs.Cleanup,
 				ManifestFS:               []fs.FS{&conformance.Manifests},
