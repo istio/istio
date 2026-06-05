@@ -275,6 +275,10 @@ var (
 	// GatewayAPICRDVersionBelowMinimum defines a diag.MessageType for message "GatewayAPICRDVersionBelowMinimum".
 	// Description: A Gateway API CRD is installed at a version below the minimum required by this Istio version. Resources of this kind will not be processed.
 	GatewayAPICRDVersionBelowMinimum = diag.NewMessageType(diag.Warning, "IST0176", "Gateway API CRD %q is at version %q but Istio requires at least %q; resources of this kind will not be processed. Upgrade the Gateway API CRDs to satisfy the minimum version.")
+
+	// ConflictingServiceEntryProtocol defines a diag.MessageType for message "ConflictingServiceEntryProtocol".
+	// Description: Multiple ServiceEntries define the same host and port with conflicting protocols.
+	ConflictingServiceEntryProtocol = diag.NewMessageType(diag.Warning, "IST0177", "Multiple ServiceEntries (%s) define the same host %q and port %d with conflicting protocols (%s).")
 )
 
 // All returns a list of all known message types.
@@ -347,6 +351,7 @@ func All() []*diag.MessageType {
 		UnknownDestinationRuleHost,
 		JwksUriFetchUnrestricted,
 		GatewayAPICRDVersionBelowMinimum,
+		ConflictingServiceEntryProtocol,
 	}
 }
 
@@ -1007,5 +1012,17 @@ func NewGatewayAPICRDVersionBelowMinimum(r *resource.Instance, crd string, insta
 		crd,
 		installedVersion,
 		minimumVersion,
+	)
+}
+
+// NewConflictingServiceEntryProtocol returns a new diag.Message based on ConflictingServiceEntryProtocol.
+func NewConflictingServiceEntryProtocol(r *resource.Instance, serviceEntryNames string, host string, port int, protocols string) diag.Message {
+	return diag.NewMessage(
+		ConflictingServiceEntryProtocol,
+		r,
+		serviceEntryNames,
+		host,
+		port,
+		protocols,
 	)
 }
