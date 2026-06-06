@@ -34,6 +34,7 @@ import (
 	hashpolicy "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	extensions "istio.io/api/extensions/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -86,11 +87,11 @@ func setAccessLogAndBuildTCPFilter(push *model.PushContext, node *model.Proxy,
 	return tcpFilter
 }
 
-func buildSNIDFPFilter(port int, svc *model.Service) *listener.Filter {
+func buildSNIDFPFilter(port int, svc *model.Service, lookupFamily cluster.Cluster_DnsLookupFamily) *listener.Filter {
 	sniDfp := &snidfp.FilterConfig{
 		DnsCacheConfig: &dfp.DnsCacheConfig{
 			Name:            model.BuildDNSCacheName(svc.Hostname),
-			DnsLookupFamily: cluster.Cluster_V4_ONLY,
+			DnsLookupFamily: lookupFamily,
 		},
 		PortSpecifier: &snidfp.FilterConfig_PortValue{
 			PortValue: uint32(port),
@@ -108,8 +109,15 @@ func buildSNIDFPFilter(port int, svc *model.Service) *listener.Filter {
 // Otherwise no explicit resolver is set and Envoy uses its default DNS resolution.
 func buildAllowAnyDynamicDNSDNSCacheConfig(meta *model.NodeMetadata) *dfp.DnsCacheConfig {
 	cfg := &dfp.DnsCacheConfig{
-		Name:            util.AllowAnyDFPDNSCacheName,
-		DnsLookupFamily: cluster.Cluster_V4_ONLY,
+		Name: util.AllowAnyDFPDNSCacheName,
+		// Envoy defaults MaxHosts to 1024 when unset. Set it explicitly so the cap is
+		// visible in the generated config and tunable via PILOT_ALLOW_ANY_DYNAMIC_DNS_MAX_HOSTS.
+		MaxHosts: wrappers.UInt32(uint32(features.AllowAnyDynamicDNSMaxHosts)),
+	}
+	if meta != nil {
+		cfg.DnsLookupFamily = util.SelectDNSLookupFamily(meta.InstanceIPs)
+	} else {
+		cfg.DnsLookupFamily = cluster.Cluster_V4_ONLY
 	}
 	if meta == nil || !bool(meta.DNSCapture) {
 		return cfg
@@ -237,7 +245,7 @@ func (lb *ListenerBuilder) buildCompleteNetworkFilters(
 		policySvc != nil &&
 		policySvc.Hostname.IsWildCarded() &&
 		policySvc.Resolution == model.DynamicDNS {
-		sniDFPFilter := buildSNIDFPFilter(port, policySvc)
+		sniDFPFilter := buildSNIDFPFilter(port, policySvc, util.SelectDNSLookupFamily(lb.node.IPAddresses))
 		filters = append(filters, sniDFPFilter)
 	}
 

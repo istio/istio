@@ -1005,7 +1005,7 @@ func (lb *ListenerBuilder) buildWaypointNetworkFilters(svc *model.Service, fcc i
 
 		// Conditionally build SNI DFP for wildcard hosts with Dynamic DNS resolution
 		if svcHostname.IsWildCarded() && svc.Resolution == model.DynamicDNS {
-			sniDFPFilter = buildSNIDFPFilter(fcc.port.Port, svc)
+			sniDFPFilter = buildSNIDFPFilter(fcc.port.Port, svc, util.SelectDNSLookupFamily(lb.node.IPAddresses))
 		}
 	}
 

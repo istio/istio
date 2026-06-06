@@ -511,7 +511,7 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 	// Create DFP filter for wildcard hosts in waypoint inbound for ambient mode
 	if httpOpts.policySvc != nil && httpOpts.policySvc.Hostname.IsWildCarded() && httpOpts.class == istionetworking.ListenerClassSidecarInbound {
 		dfpCacheName := model.BuildDNSCacheName(httpOpts.policySvc.Hostname)
-		filters = append(filters, xdsfilters.BuildWaypointInboundDFPFilter(dfpCacheName))
+		filters = append(filters, xdsfilters.BuildWaypointInboundDFPFilter(dfpCacheName, util.SelectDNSLookupFamily(lb.node.IPAddresses)))
 	}
 
 	// Create DFP filter for wildcard hosts in sidecar outbound for DYNAMIC_DNS ServiceEntries
@@ -520,11 +520,14 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 		httpOpts.policySvc.Resolution == model.DynamicDNS &&
 		httpOpts.class == istionetworking.ListenerClassSidecarOutbound {
 		dfpCacheName := model.BuildDNSCacheName(httpOpts.policySvc.Hostname)
-		filters = append(filters, xdsfilters.BuildSidecarOutboundDynamicForwardProxyFilter(dfpCacheName))
+		filters = append(filters, xdsfilters.BuildSidecarOutboundDynamicForwardProxyFilter(dfpCacheName, util.SelectDNSLookupFamily(lb.node.IPAddresses)))
 	}
 
-	// Global DFP HTTP filter for ALLOW_ANY_DYNAMIC_DNS mode: enables the DFP cluster
-	// to resolve hostnames from the Host/:authority header for catch-all routes.
+	// DFP HTTP filter for ALLOW_ANY_DYNAMIC_DNS mode: enables the DFP cluster to resolve
+	// hostnames from the Host/:authority header. This is required on every sidecar outbound
+	// HCM (not just the virtual outbound catch-all chain) because buildCatchAllVirtualHost
+	// appends the allow_any_dynamic_dns catch-all virtual host -- which routes unknown hosts
+	// to the DFP cluster -- to every per-service outbound HTTP route config as well.
 	if httpOpts.class == istionetworking.ListenerClassSidecarOutbound &&
 		util.IsAllowAnyDynamicDNSOutbound(lb.node) {
 		filters = append(filters, buildAllowAnyDynamicDNSHTTPForwardProxyFilter(lb.node.Metadata))

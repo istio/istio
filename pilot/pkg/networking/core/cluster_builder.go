@@ -41,7 +41,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/loadbalancer"
 	"istio.io/istio/pilot/pkg/networking/telemetry"
 	"istio.io/istio/pilot/pkg/networking/util"
-	networkutil "istio.io/istio/pilot/pkg/util/network"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pilot/pkg/xds/endpoints"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
@@ -486,28 +485,7 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 
 	switch discoveryType {
 	case cluster.Cluster_STRICT_DNS, cluster.Cluster_LOGICAL_DNS:
-		if networkutil.AllIPv4(cb.proxyIPAddresses) {
-			// IPv4 only
-			c.DnsLookupFamily = cluster.Cluster_V4_ONLY
-		} else if networkutil.AllIPv6(cb.proxyIPAddresses) {
-			// IPv6 only
-			c.DnsLookupFamily = cluster.Cluster_V6_ONLY
-			// If we are in this mode, Istio sees ourselves as only have IPv6 addresses, but there is actually a link-local
-			// interface that serves the IPv4. Allow both families.
-			// This ensures we do not break DNS resolution to destinations that are IPv4 only.
-			if features.EnableAdditionalIpv4OutboundListenerForIpv6Only {
-				c.DnsLookupFamily = cluster.Cluster_ALL
-			}
-		} else {
-			// Dual Stack
-			if features.EnableDualStack {
-				// using Cluster_ALL to enable Happy Eyeballsfor upstream connections
-				c.DnsLookupFamily = cluster.Cluster_ALL
-			} else {
-				// keep the original logic if Dual Stack is disable
-				c.DnsLookupFamily = cluster.Cluster_V4_ONLY
-			}
-		}
+		c.DnsLookupFamily = util.SelectDNSLookupFamily(cb.proxyIPAddresses)
 		dnsResolverConfig, err := anypb.New(&cares.CaresDnsResolverConfig{
 			UdpMaxQueries: wrappers.UInt32(features.PilotDNSCaresUDPMaxQueries),
 		})
@@ -593,6 +571,9 @@ func (cb *ClusterBuilder) buildAllowAnyDFPCluster(tls *networking.ClientTLSSetti
 		v3.HttpProtocolOptionsType: httpProtocolOptions,
 	}
 	ec := newDFPClusterWrapper(c)
+	// Apply the default connection pool so this cluster gets Istio's high circuit-breaker
+	// thresholds instead of Envoy's low defaults (max 1024), matching the PassthroughCluster.
+	cb.applyConnectionPool(cb.req.Push.Mesh, ec, &networking.ConnectionPoolSettings{}, nil)
 	if tls != nil && tls.Mode != networking.ClientTLSSettings_DISABLE {
 		opts := &buildClusterOpts{
 			mesh:      cb.req.Push.Mesh,
@@ -625,7 +606,7 @@ func (cb *ClusterBuilder) buildDFPCluster(name string, service *model.Service, p
 				ClusterImplementationSpecifier: &dfpcluster.ClusterConfig_DnsCacheConfig{
 					DnsCacheConfig: &dfpcommon.DnsCacheConfig{
 						Name:            model.BuildDNSCacheName(service.Hostname),
-						DnsLookupFamily: cluster.Cluster_V4_ONLY,
+						DnsLookupFamily: util.SelectDNSLookupFamily(cb.proxyIPAddresses),
 					},
 				},
 			}),

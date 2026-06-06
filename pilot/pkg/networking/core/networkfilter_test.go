@@ -31,6 +31,7 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/api/security/v1beta1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/listenertest"
 	"istio.io/istio/pilot/pkg/networking/telemetry"
@@ -957,6 +958,9 @@ func TestBuildAllowAnyDynamicDNSDNSCacheConfig(t *testing.T) {
 			}
 			if cfg.DnsLookupFamily != cluster.Cluster_V4_ONLY {
 				t.Errorf("expected dns lookup family V4_ONLY, got %v", cfg.DnsLookupFamily)
+			}
+			if cfg.GetMaxHosts().GetValue() != uint32(features.AllowAnyDynamicDNSMaxHosts) {
+				t.Errorf("expected max hosts %d, got %d", features.AllowAnyDynamicDNSMaxHosts, cfg.GetMaxHosts().GetValue())
 			}
 			if !tc.expectResolver {
 				if cfg.TypedDnsResolverConfig != nil {

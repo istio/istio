@@ -23,6 +23,7 @@ import (
 	"strconv"
 	"strings"
 
+	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
@@ -43,6 +44,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/serviceregistry/util/label"
+	networkutil "istio.io/istio/pilot/pkg/util/network"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -102,6 +104,34 @@ const (
 	// to indicate whether Istio rewrite the ALPN headers
 	AlpnOverrideMetadataKey = "alpn_override"
 )
+
+// SelectDNSLookupFamily derives the DNS lookup family for DNS-resolving constructs (STRICT_DNS /
+// LOGICAL_DNS clusters and dynamic forward proxy DNS caches) from the proxy's own IP addresses.
+// Centralizing this keeps the behavior consistent across the default cluster builder and all the
+// DFP builders. When the proxy IPs are unknown the historical V4_ONLY default is used.
+func SelectDNSLookupFamily(proxyIPAddresses []string) cluster.Cluster_DnsLookupFamily {
+	switch {
+	case len(proxyIPAddresses) == 0:
+		return cluster.Cluster_V4_ONLY
+	case networkutil.AllIPv4(proxyIPAddresses):
+		// IPv4 only.
+		return cluster.Cluster_V4_ONLY
+	case networkutil.AllIPv6(proxyIPAddresses):
+		// IPv6 only. Istio sees only IPv6 addresses, but there may be a link-local interface
+		// serving IPv4. Allow both families so we do not break resolution to IPv4-only destinations.
+		if features.EnableAdditionalIpv4OutboundListenerForIpv6Only {
+			return cluster.Cluster_ALL
+		}
+		return cluster.Cluster_V6_ONLY
+	default:
+		// Dual stack: use Cluster_ALL to enable Happy Eyeballs when dual stack is enabled,
+		// otherwise keep the original V4_ONLY behavior.
+		if features.EnableDualStack {
+			return cluster.Cluster_ALL
+		}
+		return cluster.Cluster_V4_ONLY
+	}
+}
 
 // ALPNH2Only advertises that Proxy is going to use HTTP/2 when talking to the cluster.
 var ALPNH2Only = pm.ALPNH2Only

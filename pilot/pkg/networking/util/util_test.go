@@ -19,6 +19,7 @@ import (
 	"reflect"
 	"testing"
 
+	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
@@ -2045,4 +2046,24 @@ func BenchmarkAddConfigInfoMetadata(b *testing.B) {
 			}
 		}
 	})
+}
+
+func TestSelectDNSLookupFamily(t *testing.T) {
+	tests := []struct {
+		name string
+		ips  []string
+		want cluster.Cluster_DnsLookupFamily
+	}{
+		{"no ips defaults to v4", nil, cluster.Cluster_V4_ONLY},
+		{"ipv4 only", []string{"10.0.0.1"}, cluster.Cluster_V4_ONLY},
+		{"ipv6 only", []string{"2001:db8::1"}, cluster.Cluster_V6_ONLY},
+		{"dual stack defaults to v4", []string{"10.0.0.1", "2001:db8::1"}, cluster.Cluster_V4_ONLY},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := SelectDNSLookupFamily(tc.ips); got != tc.want {
+				t.Errorf("SelectDNSLookupFamily(%v) = %v, want %v", tc.ips, got, tc.want)
+			}
+		})
+	}
 }
