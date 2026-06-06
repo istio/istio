@@ -1399,6 +1399,64 @@ func extractIPMatcherFromListener(t *testing.T, l *listener.Listener) *matcher.I
 	return ipMatcher
 }
 
+// TestWaypointInternalHeadlessServiceNoEmptyRanges verifies that a service
+// with no addresses (the shape headless services take on IPv6 clusters,
+// where constants.UnspecifiedIP gets filtered out by FilterAddressesByIPFamily)
+// does not produce an IPMatcher_IPRangeMatcher with an empty Ranges slice.
+// An empty Ranges violates the proto's repeated.min_items=1 rule and is
+// rejected by envoy. See https://github.com/istio/istio/issues/60310.
+func TestWaypointInternalHeadlessServiceNoEmptyRanges(t *testing.T) {
+	test.SetForTest(t, &features.EnableAmbient, true)
+
+	cg := NewConfigGenTest(t, TestOptions{})
+
+	// Headless service: no ClusterVIPs, no AutoAllocated address, no
+	// DefaultAddress. svcAddresses in buildWaypointInternal will be empty.
+	svc := &model.Service{
+		Hostname: host.Name("headless.default.svc.cluster.local"),
+		Attributes: model.ServiceAttributes{
+			Namespace: "default",
+		},
+		Ports: model.PortList{
+			&model.Port{
+				Name:     "http",
+				Port:     80,
+				Protocol: protocol.HTTP,
+			},
+		},
+	}
+
+	proxy := &model.Proxy{
+		Type:            model.Waypoint,
+		ConfigNamespace: "default",
+		Metadata: &model.NodeMetadata{
+			ClusterID: "cluster-1",
+			Network:   "network-a",
+		},
+	}
+	proxy = cg.SetupProxy(proxy)
+
+	lb := &ListenerBuilder{
+		push: cg.PushContext(),
+		node: proxy,
+	}
+
+	l := lb.buildWaypointInternal(nil, []*model.Service{svc})
+	if l == nil {
+		t.Fatal("expected listener from buildWaypointInternal")
+	}
+
+	// If an IPMatcher exists, none of its RangeMatchers may have empty Ranges.
+	if ipMatcher := extractIPMatcherFromListener(t, l); ipMatcher != nil {
+		for i, rm := range ipMatcher.RangeMatchers {
+			if len(rm.Ranges) == 0 {
+				t.Fatalf("IPMatcher.RangeMatchers[%d].Ranges is empty; envoy rejects this (proto min_items=1). "+
+					"Headless services must elide the IPRangeMatcher entry entirely.", i)
+			}
+		}
+	}
+}
+
 func TestPreserveHeader(t *testing.T) {
 	cg := NewConfigGenTest(t, TestOptions{
 		MeshConfig: &meshconfig.MeshConfig{

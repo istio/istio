@@ -578,7 +578,10 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 				delete(svcHostnameMap.Map, authorityKey)
 			}
 		}
-		if len(portMapper.Map) > 0 {
+		// Skip the IP-range matcher when there are no addresses; envoy
+		// rejects an empty Ranges (proto min_items=1). Mirrors the
+		// svcHostnameMap guard above. See https://github.com/istio/istio/issues/60310.
+		if len(portMapper.Map) > 0 && len(svcAddresses) > 0 {
 			ranges := slices.Map(svcAddresses, func(vip string) *xds.CidrRange {
 				cidr := util.ConvertAddressToCidr(vip)
 				return &xds.CidrRange{
