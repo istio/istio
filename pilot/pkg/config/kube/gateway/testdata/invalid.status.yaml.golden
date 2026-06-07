@@ -678,9 +678,9 @@ status:
   - attachedRoutes: 0
     conditions:
     - lastTransitionTime: fake
-      message: protocol "UDP" is unsupported
-      reason: UnsupportedProtocol
-      status: "False"
+      message: No errors found
+      reason: Accepted
+      status: "True"
       type: Accepted
     - lastTransitionTime: fake
       message: No errors found
@@ -698,7 +698,9 @@ status:
       status: "True"
       type: ResolvedRefs
     name: udp
-    supportedKinds: []
+    supportedKinds:
+    - group: gateway.networking.k8s.io
+      kind: UDPRoute
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway

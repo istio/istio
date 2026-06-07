@@ -145,6 +145,7 @@ type Inputs struct {
 	HTTPRoutes           krt.Collection[*gatewayv1.HTTPRoute]
 	GRPCRoutes           krt.Collection[*gatewayv1.GRPCRoute]
 	TCPRoutes            krt.Collection[*gatewayalpha.TCPRoute]
+	UDPRoutes            krt.Collection[*gatewayalpha.UDPRoute]
 	TLSRoutes            krt.Collection[*gatewayv1.TLSRoute]
 	ListenerSets         krt.Collection[*gatewayv1.ListenerSet]
 	ReferenceGrants      krt.Collection[*gateway.ReferenceGrant]
@@ -211,10 +212,12 @@ func NewController(
 	}
 	if features.EnableAlphaGatewayAPI {
 		inputs.TCPRoutes = buildClient[*gatewayalpha.TCPRoute](c, kc, gvr.TCPRoute, opts, "informer/TCPRoutes")
+		inputs.UDPRoutes = buildClient[*gatewayalpha.UDPRoute](c, kc, gvr.UDPRoute, opts, "informer/UDPRoutes")
 		inputs.BackendTrafficPolicy = buildClient[*gatewayx.XBackendTrafficPolicy](c, kc, gvr.XBackendTrafficPolicy, opts, "informer/XBackendTrafficPolicy")
 	} else {
 		// If disabled, still build a collection but make it always empty
 		inputs.TCPRoutes = krt.NewStaticCollection[*gatewayalpha.TCPRoute](nil, nil, opts.WithName("disable/TCPRoutes")...)
+		inputs.UDPRoutes = krt.NewStaticCollection[*gatewayalpha.UDPRoute](nil, nil, opts.WithName("disable/UDPRoutes")...)
 		inputs.BackendTrafficPolicy = krt.NewStaticCollection[*gatewayx.XBackendTrafficPolicy](nil, nil, opts.WithName("disable/XBackendTrafficPolicy")...)
 	}
 
@@ -315,6 +318,12 @@ func NewController(
 		opts,
 	)
 	status.RegisterStatus(c.status, tcpRoutes.Status, GetStatus, c.tagWatcher.AccessUnprotected())
+	udpRoutes := UDPRouteCollection(
+		inputs.UDPRoutes,
+		routeInputs,
+		opts,
+	)
+	status.RegisterStatus(c.status, udpRoutes.Status, GetStatus, c.tagWatcher.AccessUnprotected())
 	tlsRoutes := TLSRouteCollection(
 		inputs.TLSRoutes,
 		routeInputs,
@@ -336,6 +345,7 @@ func NewController(
 
 	RouteAttachments := krt.JoinCollection([]krt.Collection[RouteAttachment]{
 		tcpRoutes.RouteAttachments,
+		udpRoutes.RouteAttachments,
 		tlsRoutes.RouteAttachments,
 		httpRoutes.RouteAttachments,
 		grpcRoutes.RouteAttachments,
@@ -345,6 +355,7 @@ func NewController(
 	})
 	Ancestors := krt.JoinCollection([]krt.Collection[AncestorBackend]{
 		tcpRoutes.Ancestors,
+		udpRoutes.Ancestors,
 		tlsRoutes.Ancestors,
 		httpRoutes.Ancestors,
 		grpcRoutes.Ancestors,
@@ -380,6 +391,7 @@ func NewController(
 
 	VirtualServices := krt.JoinCollection([]krt.Collection[config.Config]{
 		tcpRoutes.VirtualServices,
+		udpRoutes.VirtualServices,
 		tlsRoutes.VirtualServices,
 		httpAndGrpcVS,
 	}, opts.WithName("DerivedVirtualServices")...)
@@ -632,6 +644,7 @@ func pushXds[T any](xds model.XDSUpdater, f func(T) model.ConfigKey) func(events
 func (c *Controller) HasInferencePool(gw types.NamespacedName) bool {
 	return len(c.outputs.InferencePoolsByGateway.Lookup(gw)) > 0
 }
+
 
 func (c *Controller) inRevision(obj any) bool {
 	object := controllers.ExtractObject(obj)

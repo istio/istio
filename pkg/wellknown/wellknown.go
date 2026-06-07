@@ -89,6 +89,8 @@ const (
 	RoleBasedAccessControl = "envoy.filters.network.rbac"
 	// SNIDynamicForwardProxy network filter
 	SNIDynamicForwardProxy = "envoy.extensions.filters.network.sni_dynamic_forward_proxy"
+	// UDPProxy UDP listener filter
+	UDPProxy = "envoy.filters.udp_listener.udp_proxy"
 )
 
 // Listener filter names

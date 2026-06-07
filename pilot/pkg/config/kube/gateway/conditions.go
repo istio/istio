@@ -399,7 +399,8 @@ func generateSupportedKinds(l k8s.Listener) ([]k8s.RouteGroupKind, bool) {
 		if l.TLS != nil && ptr.OrEmpty(l.TLS.Mode) == k8s.TLSModeTerminate {
 			supported = append(supported, toRouteKind(gvk.TCPRoute))
 		}
-		// UDP route not support
+	case k8s.UDPProtocolType:
+		supported = []k8s.RouteGroupKind{toRouteKind(gvk.UDPRoute)}
 	}
 	if l.AllowedRoutes != nil && len(l.AllowedRoutes.Kinds) > 0 {
 		// We need to filter down to only ones we actually support

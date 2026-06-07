@@ -461,6 +461,7 @@ func (p RouteParents) fetch(ctx krt.HandlerContext, pk parentKey) []*parentInfo 
 					{Group: (*gatewayv1.Group)(ptr.Of(gvk.GRPCRoute.Group)), Kind: gatewayv1.Kind(gvk.GRPCRoute.Kind)},
 					{Group: (*gatewayv1.Group)(ptr.Of(gvk.TCPRoute.Group)), Kind: gatewayv1.Kind(gvk.TCPRoute.Kind)},
 					{Group: (*gatewayv1.Group)(ptr.Of(gvk.TLSRoute.Group)), Kind: gatewayv1.Kind(gvk.TLSRoute.Kind)},
+					{Group: (*gatewayv1.Group)(ptr.Of(gvk.UDPRoute.Group)), Kind: gatewayv1.Kind(gvk.UDPRoute.Kind)},
 				},
 			},
 		}

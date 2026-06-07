@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
+
 // ServerPort defines port for the gateway server.
 type ServerPort struct {
 	// A valid non-negative integer port number.
@@ -68,6 +69,10 @@ type MergedGateway struct {
 	// on QUIC (like HTTP3). Currently the support is experimental and
 	// is limited to HTTP3 only
 	MergedQUICTransportServers map[ServerPort]*MergedServers
+
+	// MergedUDPTransportServers map from physical port to servers listening
+	// on UDP for UDPRoute support
+	MergedUDPTransportServers map[ServerPort]*MergedServers
 
 	// HTTP3AdvertisingRoutes represents the set of HTTP routes which advertise HTTP/3.
 	// This mapping is used to generate alt-svc header that is needed for HTTP/3 server discovery.
@@ -182,6 +187,7 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 	nonPlainTextGatewayPortsBindMap := map[uint32]sets.String{}
 	mergedServers := make(map[ServerPort]*MergedServers)
 	mergedQUICServers := make(map[ServerPort]*MergedServers)
+	mergedUDPServers := make(map[ServerPort]*MergedServers)
 	serverPorts := make([]ServerPort, 0)
 	plainTextServers := make(map[uint32]ServerPort)
 	serversByRouteName := make(map[string][]*networking.Server)
@@ -286,6 +292,17 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 				}
 				serverPort := ServerPort{resolvedPort, s.Port.Protocol, s.Bind}
 				serverProtocol := protocol.Parse(serverPort.Protocol)
+				if serverProtocol == protocol.UDP {
+					gatewayNameForServer[s] = gatewayName
+					if mergedUDPServers[serverPort] == nil {
+						mergedUDPServers[serverPort] = &MergedServers{Servers: []*networking.Server{s}}
+						serverPorts = append(serverPorts, serverPort)
+					} else {
+						mergedUDPServers[serverPort].Servers = append(mergedUDPServers[serverPort].Servers, s)
+					}
+					log.Debugf("mergeGateways: gateway %q merged UDP server %v", gatewayName, s.Hosts)
+					continue
+				}
 				if gatewayPorts.Contains(resolvedPort) {
 					// We have two servers on the same port. Should we merge?
 					// 1. Yes if both servers are plain text and HTTP
@@ -445,6 +462,7 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 	return &MergedGateway{
 		MergedServers:                   mergedServers,
 		MergedQUICTransportServers:      mergedQUICServers,
+		MergedUDPTransportServers:       mergedUDPServers,
 		ServerPorts:                     serverPorts,
 		GatewayNameForServer:            gatewayNameForServer,
 		TLSServerInfo:                   tlsServerInfo,

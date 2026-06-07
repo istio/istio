@@ -708,6 +708,7 @@ func TestConvertResources(t *testing.T) {
 	}{
 		{name: "http"},
 		{name: "tcp"},
+		{name: "udp"},
 		{name: "tls"},
 		{name: "tls-terminate"},
 		{name: "grpc"},
@@ -866,6 +867,7 @@ func setupClientCRDs(t *testing.T, kc kube.CLIClient) {
 		gvr.HTTPRoute,
 		gvr.GRPCRoute,
 		gvr.TCPRoute,
+		gvr.UDPRoute,
 		gvr.TLSRoute,
 		gvr.ServiceEntry,
 		gvr.XBackendTrafficPolicy,

@@ -59,6 +59,8 @@ const (
 	TransportProtocolTCP = iota
 	// TransportProtocolQUIC is a QUIC listener
 	TransportProtocolQUIC
+	// TransportProtocolUDP is a UDP listener
+	TransportProtocolUDP
 )
 
 func (tp TransportProtocol) String() string {
@@ -67,12 +69,14 @@ func (tp TransportProtocol) String() string {
 		return "tcp"
 	case TransportProtocolQUIC:
 		return "quic"
+	case TransportProtocolUDP:
+		return "udp"
 	}
 	return "unknown"
 }
 
 func (tp TransportProtocol) ToEnvoySocketProtocol() core.SocketAddress_Protocol {
-	if tp == TransportProtocolQUIC {
+	if tp == TransportProtocolQUIC || tp == TransportProtocolUDP {
 		return core.SocketAddress_UDP
 	}
 	return core.SocketAddress_TCP

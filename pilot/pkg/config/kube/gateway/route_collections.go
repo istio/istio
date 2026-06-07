@@ -535,6 +535,78 @@ func TCPRouteCollection(
 	}
 }
 
+func UDPRouteCollection(
+	udpRoutes krt.Collection[*gatewayalpha.UDPRoute],
+	inputs RouteContextInputs,
+	opts krt.OptionsBuilder,
+) RouteResult[*gatewayalpha.UDPRoute, gatewayalpha.UDPRouteStatus] {
+	routeCount := gatewayRouteAttachmentCountCollection(inputs, udpRoutes, gvk.UDPRoute, opts)
+	ancestorBackends := krt.NewManyCollection(udpRoutes, func(krtctx krt.HandlerContext, obj *gatewayalpha.UDPRoute) []AncestorBackend {
+		return extractAncestorBackends(
+			obj.ObjectMeta,
+			kind.FromString(obj.Kind),
+			obj.Spec.ParentRefs,
+			obj.Spec.Rules,
+			func(r gatewayalpha.UDPRouteRule) []gatewayv1.BackendRef {
+				return r.BackendRefs
+			},
+		)
+	}, opts.WithName("UDPAncestors")...)
+	status, virtualServices := krt.NewStatusManyCollection(udpRoutes, func(krtctx krt.HandlerContext, obj *gatewayalpha.UDPRoute) (
+		*gatewayalpha.UDPRouteStatus,
+		[]config.Config,
+	) {
+		ctx := inputs.WithCtx(krtctx)
+		status := obj.Status.DeepCopy()
+		route := obj.Spec
+		parentStatus, parentRefs, _, gwResult := computeRoute(ctx, obj,
+			func(mesh bool, obj *gatewayalpha.UDPRoute) iter.Seq2[*istio.UDPRoute, *ConfigError] {
+				return func(yield func(*istio.UDPRoute, *ConfigError) bool) {
+					for _, r := range route.Rules {
+						if !yield(convertUDPRoute(ctx, r, obj, !mesh)) {
+							return
+						}
+					}
+				}
+			})
+		status.Parents = parentStatus
+
+		vs := []config.Config{}
+		count := 0
+		for _, parent := range filteredReferences(parentRefs) {
+			if parent.IsMesh() {
+				continue
+			}
+			routes := gwResult.routes
+			name := fmt.Sprintf("%s~udp~%d~%s", obj.Name, count, constants.KubernetesGatewayName)
+			vs = append(vs, config.Config{
+				Meta: config.Meta{
+					CreationTimestamp: obj.CreationTimestamp.Time,
+					GroupVersionKind:  gvk.VirtualService,
+					Name:              name,
+					Annotations:       routeMeta(obj),
+					Namespace:         obj.Namespace,
+					Domain:            ctx.DomainSuffix,
+				},
+				Spec: &istio.VirtualService{
+					Hosts:    []string{"*"},
+					Gateways: []string{parent.InternalName},
+					Udp:      routes,
+				},
+			})
+			count++
+		}
+		return status, vs
+	}, opts.WithName("UDPRoute")...)
+
+	return RouteResult[*gatewayalpha.UDPRoute, gatewayalpha.UDPRouteStatus]{
+		VirtualServices:  virtualServices,
+		RouteAttachments: routeCount,
+		Status:           status,
+		Ancestors:        ancestorBackends,
+	}
+}
+
 func TLSRouteCollection(
 	tlsRoutes krt.Collection[*gatewayv1.TLSRoute],
 	inputs RouteContextInputs,

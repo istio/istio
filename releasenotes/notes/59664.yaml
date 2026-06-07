@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 1430
+releaseNotes:
+  - |
+    **Added** Gateway API UDPRoute support for routing UDP traffic through Istio gateways.

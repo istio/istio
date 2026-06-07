@@ -27,6 +27,7 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	statefulsession "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/stateful_session/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	udpproxyv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/udp/udp_proxy/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/hashicorp/go-multierror"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -128,6 +129,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 	errs := istiomultierror.New()
 	// Mutable objects keyed by listener name so that we can build listeners at the end.
 	mutableopts := make(map[string]mutableListenerOpts)
+	udpListeners := make([]*listener.Listener, 0)
 	proxyConfig := builder.node.Metadata.ProxyConfigOrDefault(builder.push.Mesh.DefaultConfig)
 	// listener port -> host/bind
 	tlsHostsByPort := map[uint32]map[string]string{}
@@ -157,6 +159,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 		transportToServers := map[istionetworking.TransportProtocol]map[model.ServerPort]*model.MergedServers{
 			istionetworking.TransportProtocolTCP:  mergedGateway.MergedServers,
 			istionetworking.TransportProtocolQUIC: mergedGateway.MergedQUICTransportServers,
+			istionetworking.TransportProtocolUDP:  mergedGateway.MergedUDPTransportServers,
 		}
 
 		for transport, gwServers := range transportToServers {
@@ -165,7 +168,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 				continue
 			}
 
-			needPROXYProtocol := transport != istionetworking.TransportProtocolQUIC &&
+			needPROXYProtocol := transport == istionetworking.TransportProtocolTCP &&
 				proxyConfig.GetGatewayTopology().GetProxyProtocol() != nil
 
 			// on a given port, we can either have plain text HTTP servers or
@@ -196,6 +199,11 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 				// have to be the case (it is just the most common case now, in the future
 				// we will support more cases)
 				configgen.buildGatewayHTTP3FilterChains(builder, serversForPort, mergedGateway, proxyConfig, opts)
+			case istionetworking.TransportProtocolUDP:
+				if udpListener := builder.buildGatewayUDPListener(serversForPort, bind, extraBind, int(port.Number), mergedGateway); udpListener != nil {
+					udpListeners = append(udpListeners, udpListener)
+				}
+				continue
 			}
 
 			if mopts, exists := mutableopts[lname]; !exists {
@@ -226,7 +234,9 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 		log.Info(err.Error())
 	}
 
-	if len(mutableopts) == 0 {
+	listeners = append(listeners, udpListeners...)
+
+	if len(mutableopts) == 0 && len(udpListeners) == 0 {
 		log.Warnf("gateway has zero listeners for node %v", builder.node.ID)
 		return builder
 	}
@@ -332,6 +342,8 @@ func getListenerName(bind string, port int, transport istionetworking.TransportP
 		return bind + "_" + strconv.Itoa(port)
 	case istionetworking.TransportProtocolQUIC:
 		return "udp_" + bind + "_" + strconv.Itoa(port)
+	case istionetworking.TransportProtocolUDP:
+		return "udp_raw_" + bind + "_" + strconv.Itoa(port)
 	}
 	return "unknown"
 }
@@ -905,6 +917,90 @@ func (lb *ListenerBuilder) buildGatewayNetworkFiltersFromTCPRoutes(server *netwo
 		}
 	}
 	return nil
+}
+
+// buildGatewayUDPListener builds a UDP listener with a UDP proxy listener filter.
+func (lb *ListenerBuilder) buildGatewayUDPListener(
+	serversForPort *model.MergedServers,
+	bind string,
+	extraBind []string,
+	port int,
+	mergedGateway *model.MergedGateway,
+) *listener.Listener {
+	var udpListenerFilter *listener.ListenerFilter
+	for _, server := range serversForPort.Servers {
+		gatewayName := mergedGateway.GatewayNameForServer[server]
+		if lf := lb.buildUDPProxyListenerFilter(server, gatewayName); lf != nil {
+			udpListenerFilter = lf
+			break // UDPRoute spec: only one route per listener
+		}
+	}
+	if udpListenerFilter == nil {
+		log.Warnf("buildGatewayUDPListener: no UDP proxy filter for port %d", port)
+		return nil
+	}
+
+	lname := getListenerName(bind, port, istionetworking.TransportProtocolUDP)
+	log.Debugf("buildGatewayListener: building UDP listener %s", lname)
+
+	res := &listener.Listener{
+		Name:             lname,
+		TrafficDirection: core.TrafficDirection_OUTBOUND,
+		Address:          util.BuildNetworkAddress(bind, uint32(port), istionetworking.TransportProtocolUDP),
+		UdpListenerConfig: &listener.UdpListenerConfig{
+			DownstreamSocketConfig: &core.UdpSocketConfig{},
+		},
+		ListenerFilters: []*listener.ListenerFilter{udpListenerFilter},
+	}
+	if features.EnableDualStack && len(extraBind) > 0 {
+		res.AdditionalAddresses = util.BuildAdditionalAddresses(extraBind, uint32(port))
+		for _, additionalAddress := range res.AdditionalAddresses {
+			additionalAddress.GetAddress().GetSocketAddress().Protocol = core.SocketAddress_UDP
+		}
+	}
+	return res
+}
+
+func (lb *ListenerBuilder) buildUDPProxyListenerFilter(server *networking.Server, gatewayName string) *listener.ListenerFilter {
+	port := &model.Port{
+		Name:     server.Port.Name,
+		Port:     int(server.Port.Number),
+		Protocol: protocol.Parse(server.Port.Protocol),
+	}
+	for _, v := range lb.push.VirtualServicesForGateway(lb.node.ConfigNamespace, gatewayName) {
+		vsvc := v.Spec.(*networking.VirtualService)
+		for _, udp := range vsvc.Udp {
+			if l4MultiMatch(udp.Match, server, gatewayName) {
+				return lb.buildUDPProxyConfig(udp.Route, port, v.Meta)
+			}
+		}
+	}
+	return nil
+}
+
+// buildUDPProxyConfig builds the Envoy UDP proxy listener filter config.
+func (lb *ListenerBuilder) buildUDPProxyConfig(
+	routes []*networking.RouteDestination,
+	port *model.Port,
+	configMeta config.Meta,
+) *listener.ListenerFilter {
+	if len(routes) == 0 {
+		return nil
+	}
+	service := lb.push.ServiceForHostname(lb.node, host.Name(routes[0].Destination.Host))
+	clusterName := istio_route.GetDestinationCluster(routes[0].Destination, service, port.Port)
+	statPrefix := configMeta.Name + "." + configMeta.Namespace
+
+	udpProxy := &udpproxyv3.UdpProxyConfig{
+		StatPrefix: statPrefix,
+		RouteSpecifier: &udpproxyv3.UdpProxyConfig_Cluster{
+			Cluster: clusterName,
+		},
+	}
+	return &listener.ListenerFilter{
+		Name:       wellknown.UDPProxy,
+		ConfigType: &listener.ListenerFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(udpProxy)},
+	}
 }
 
 // buildGatewayNetworkFiltersFromTLSRoutes builds tcp proxy routes for all VirtualServices with TLS blocks.

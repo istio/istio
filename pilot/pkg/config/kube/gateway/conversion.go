@@ -390,6 +390,23 @@ func augmentTCPPortMatch(routes []*istio.TCPRoute, port k8s.PortNumber) []*istio
 	return res
 }
 
+func augmentUDPPortMatch(routes []*istio.UDPRoute, port k8s.PortNumber) []*istio.UDPRoute {
+	res := make([]*istio.UDPRoute, 0, len(routes))
+	for _, r := range routes {
+		r = r.DeepCopy()
+		for _, m := range r.Match {
+			m.Port = uint32(port)
+		}
+		if len(r.Match) == 0 {
+			r.Match = []*istio.L4MatchAttributes{{
+				Port: uint32(port),
+			}}
+		}
+		res = append(res, r)
+	}
+	return res
+}
+
 func augmentTLSPortMatch(routes []*istio.TLSRoute, port *k8s.PortNumber, parentHosts []string) []*istio.TLSRoute {
 	res := make([]*istio.TLSRoute, 0, len(routes))
 	for _, r := range routes {
@@ -810,6 +827,28 @@ func convertTCPRoute(ctx RouteContext, r k8salpha.TCPRouteRule, obj *k8salpha.TC
 		return nil, err
 	}
 	return &istio.TCPRoute{
+		Route: dest,
+	}, backendErr
+}
+
+func convertUDPRoute(ctx RouteContext, r k8salpha.UDPRouteRule, obj *k8salpha.UDPRoute, enforceRefGrant bool) (*istio.UDPRoute, *ConfigError) {
+	if tcpWeightSum(r.BackendRefs) == 0 {
+		return &istio.UDPRoute{
+			Route: []*istio.RouteDestination{{
+				Destination: &istio.Destination{
+					Host:   "internal.cluster.local",
+					Subset: "zero-weight",
+					Port:   &istio.PortSelector{Number: 65535},
+				},
+				Weight: 0,
+			}},
+		}, nil
+	}
+	dest, backendErr, err := buildTCPDestination(ctx, r.BackendRefs, obj.Namespace, enforceRefGrant, gvk.UDPRoute)
+	if err != nil {
+		return nil, err
+	}
+	return &istio.UDPRoute{
 		Route: dest,
 	}, backendErr
 }
@@ -2150,6 +2189,7 @@ var supportedProtocols = sets.New(
 	k8s.HTTPSProtocolType,
 	k8s.TLSProtocolType,
 	k8s.TCPProtocolType,
+	k8s.UDPProtocolType,
 	k8s.ProtocolType(protocol.HBONE))
 
 func listenerProtocolToIstio(name k8s.GatewayController, p k8s.ProtocolType) (string, error) {
@@ -2166,6 +2206,11 @@ func listenerProtocolToIstio(name k8s.GatewayController, p k8s.ProtocolType) (st
 			return "", fmt.Errorf("protocol %q is supported, but only when %v=true is configured", p, features.EnableAlphaGatewayAPIName)
 		}
 		return string(p), nil
+	case k8s.UDPProtocolType:
+		if !features.EnableAlphaGatewayAPI {
+			return "", fmt.Errorf("protocol %q is supported, but only when %v=true is configured", p, features.EnableAlphaGatewayAPIName)
+		}
+		return string(p), nil
 	// Our own custom types
 	case k8s.ProtocolType(protocol.HBONE):
 		if name != constants.ManagedGatewayMeshController && name != constants.ManagedGatewayEastWestController {
@@ -2177,7 +2222,6 @@ func listenerProtocolToIstio(name k8s.GatewayController, p k8s.ProtocolType) (st
 	if supportedProtocols.Contains(up) {
 		return "", fmt.Errorf("protocol %q is unsupported. hint: %q (uppercase) may be supported", p, up)
 	}
-	// Note: the k8s.UDPProtocolType is explicitly left to hit this path
 	return "", fmt.Errorf("protocol %q is unsupported", p)
 }
 
@@ -2620,6 +2664,8 @@ func GetCommonRouteInfo(spec any) ([]k8s.ParentReference, []k8s.Hostname, config
 	switch t := spec.(type) {
 	case *k8salpha.TCPRoute:
 		return t.Spec.ParentRefs, nil, gvk.TCPRoute
+	case *k8salpha.UDPRoute:
+		return t.Spec.ParentRefs, nil, gvk.UDPRoute
 	case *k8s.TLSRoute:
 		return t.Spec.ParentRefs, t.Spec.Hostnames, gvk.TLSRoute
 	case *k8s.HTTPRoute:
@@ -2635,6 +2681,8 @@ func GetCommonRouteInfo(spec any) ([]k8s.ParentReference, []k8s.Hostname, config
 func GetCommonRouteStateParents(spec any) []k8s.RouteParentStatus {
 	switch t := spec.(type) {
 	case *k8salpha.TCPRoute:
+		return t.Status.Parents
+	case *k8salpha.UDPRoute:
 		return t.Status.Parents
 	case *k8s.TLSRoute:
 		return t.Status.Parents
@@ -2670,6 +2718,8 @@ func getGroup(rgk k8s.RouteGroupKind) k8s.Group {
 func GetStatus[I, IS any](spec I) IS {
 	switch t := any(spec).(type) {
 	case *k8salpha.TCPRoute:
+		return any(t.Status).(IS)
+	case *k8salpha.UDPRoute:
 		return any(t.Status).(IS)
 	case *k8s.TLSRoute:
 		return any(t.Status).(IS)
