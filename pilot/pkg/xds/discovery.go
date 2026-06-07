@@ -199,7 +199,7 @@ func (s *DiscoveryServer) initJwksResolver() {
 
 	// Flush cached discovery responses when detecting jwt public key change.
 	s.JwtKeyResolver.PushFunc = func() {
-		s.ConfigUpdate(&model.PushRequest{Full: true, Reason: model.NewReasonStats(model.UnknownTrigger), Forced: true})
+		s.ConfigUpdate(&model.PushRequest{Reason: model.NewReasonStats(model.UnknownTrigger), Forced: true})
 	}
 }
 
@@ -286,12 +286,6 @@ func (s *DiscoveryServer) dropCacheForRequest(req *model.PushRequest) {
 
 // Push is called to push changes on config updates using ADS.
 func (s *DiscoveryServer) Push(req *model.PushRequest) {
-	if !req.Full {
-		req.Push = s.globalPushContext()
-		s.dropCacheForRequest(req)
-		s.AdsPushAll(req)
-		return
-	}
 	// Reset the status during the push.
 	oldPushContext := s.globalPushContext()
 	if oldPushContext != nil {
@@ -323,7 +317,7 @@ func (s *DiscoveryServer) globalPushContext() *model.PushContext {
 	return s.Env.PushContext()
 }
 
-var fullPushLog = istiolog.RegisterScope("fullpush", "logs details about why Istio is triggering a full push")
+var pushLog = istiolog.RegisterScope("push", "logs details about why Istio is triggering a push")
 
 // ConfigUpdate implements ConfigUpdater interface, used to request pushes.
 func (s *DiscoveryServer) ConfigUpdate(req *model.PushRequest) {
@@ -340,10 +334,10 @@ func (s *DiscoveryServer) ConfigUpdate(req *model.PushRequest) {
 	}
 	inboundConfigUpdates.Increment()
 	s.InboundUpdates.Inc()
-	if req.Full && fullPushLog.DebugEnabled() {
+	if pushLog.DebugEnabled() && !model.OnlyHasConfigsOfKind(req.ConfigsUpdated, kind.Endpoints) {
 		configs := slices.Sort(slices.Map(req.ConfigsUpdated.UnsortedList(), model.ConfigKey.String))
 		reasons := maps.Keys(req.Reason)
-		fullPushLog.Debugf("full push triggered configs=%v reasons=%v", configs, reasons)
+		pushLog.Debugf("push triggered configs=%v reasons=%v", configs, reasons)
 	}
 	s.pushChannel <- req
 }
@@ -387,13 +381,13 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, opts DebounceO
 			if req != nil {
 				pushCounter++
 				if req.ConfigsUpdated == nil {
-					log.Infof("Push debounce stable[%d] %d for reason %s: %v since last change, %v since last push, full=%v",
+					log.Infof("Push debounce stable[%d] %d for reason %s: %v since last change, %v since last push, forced=%v",
 						pushCounter, debouncedEvents, reasonsUpdated(req),
-						quietTime, eventDelay, req.Full)
+						quietTime, eventDelay, req.Forced)
 				} else {
-					log.Infof("Push debounce stable[%d] %d for config %s: %v since last change, %v since last push, full=%v",
+					log.Infof("Push debounce stable[%d] %d for config %s: %v since last change, %v since last push, forced=%v",
 						pushCounter, debouncedEvents, configsUpdated(req),
-						quietTime, eventDelay, req.Full)
+						quietTime, eventDelay, req.Forced)
 				}
 				free = false
 				go push(req, debouncedEvents, startDebounce)
@@ -415,7 +409,7 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, opts DebounceO
 			if len(r.Reason) == 0 {
 				r.Reason = model.NewReasonStats(model.UnknownTrigger)
 			}
-			if !opts.enableEDSDebounce && !r.Full {
+			if !opts.enableEDSDebounce && model.OnlyHasConfigsOfKind(r.ConfigsUpdated, kind.Endpoints) {
 				// trigger push now, just for EDS
 				go func(req *model.PushRequest) {
 					pushFn(req)

@@ -65,8 +65,8 @@ func (fx *Updater) ConfigUpdate(req *model.PushRequest) {
 	if fx.SplitEvents {
 		for _, n := range names {
 			event := "xds"
-			if req.Full {
-				event += " full"
+			if req.Forced {
+				event += " forced"
 			}
 			select {
 			case fx.Events <- Event{Type: event, ID: n}:
@@ -76,8 +76,8 @@ func (fx *Updater) ConfigUpdate(req *model.PushRequest) {
 	} else {
 		id := strings.Join(names, ",")
 		event := "xds"
-		if req.Full {
-			event += " full"
+		if req.Forced {
+			event += " forced"
 		}
 		select {
 		case fx.Events <- Event{Type: event, ID: id, Reason: req.Reason}:

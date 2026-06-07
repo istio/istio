@@ -36,7 +36,7 @@ spec:
     spec:
       containers:
         - name: discovery
-          image: gcr.io/istio-testing/pilot:latest
+          image: registry.istio.io/testing/pilot:latest
           env:
             - name: PILOT_ENABLE_ANALYSIS
               value: "true"

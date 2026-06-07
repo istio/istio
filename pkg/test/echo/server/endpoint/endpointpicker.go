@@ -213,18 +213,18 @@ func newEndpointPicker(config Config) *endpointPickerInstance {
 }
 
 func (e *endpointPickerInstance) Start(onReady OnReadyFunc) error {
-	addr := fmt.Sprintf("%s:%d", e.ListenerIP, e.Port.Port)
-	lis, err := net.Listen("tcp", addr)
+	lis, port, err := listenOnAddress(e.ListenerIP, e.Port.Port)
 	if err != nil {
 		return fmt.Errorf("failed to listen for endpoint picker: %v", err)
 	}
 	e.listener = lis
+	e.Port.Port = port
 
 	e.server = grpc.NewServer()
 	extprocv3.RegisterExternalProcessorServer(e.server, &endpointPickerServer{})
 
 	go func() {
-		eppLog.Infof("Endpoint Picker gRPC server READY and listening on %s", addr)
+		eppLog.Infof("Endpoint Picker gRPC server READY and listening on %s", lis.Addr().String())
 		eppLog.Infof("Endpoint Picker is registered and waiting for ext_proc connections from Envoy")
 		if err := e.server.Serve(lis); err != nil {
 			eppLog.Errorf("Endpoint picker server failed: %v", err)

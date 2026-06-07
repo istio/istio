@@ -217,42 +217,42 @@ func TestDebounce(t *testing.T) {
 		{
 			name: "Should not debounce partial pushes",
 			test: func(updateCh chan *model.PushRequest, expect func(partial, full int32)) {
-				updateCh <- &model.PushRequest{Full: false, Forced: true}
+				updateCh <- &model.PushRequest{Forced: true, ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.Endpoints, Name: "test"})}
 				expect(1, 0)
-				updateCh <- &model.PushRequest{Full: false, Forced: true}
+				updateCh <- &model.PushRequest{Forced: true, ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.Endpoints, Name: "test"})}
 				expect(2, 0)
-				updateCh <- &model.PushRequest{Full: false, Forced: true}
+				updateCh <- &model.PushRequest{Forced: true, ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.Endpoints, Name: "test"})}
 				expect(3, 0)
-				updateCh <- &model.PushRequest{Full: false, Forced: true}
+				updateCh <- &model.PushRequest{Forced: true, ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.Endpoints, Name: "test"})}
 				expect(4, 0)
-				updateCh <- &model.PushRequest{Full: false, Forced: true}
+				updateCh <- &model.PushRequest{Forced: true, ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.Endpoints, Name: "test"})}
 				expect(5, 0)
 			},
 		},
 		{
 			name: "Should debounce full pushes",
 			test: func(updateCh chan *model.PushRequest, expect func(partial, full int32)) {
-				updateCh <- &model.PushRequest{Full: true, Forced: true}
+				updateCh <- &model.PushRequest{Forced: true}
 				expect(0, 0)
 			},
 		},
 		{
 			name: "Should send full updates in batches",
 			test: func(updateCh chan *model.PushRequest, expect func(partial, full int32)) {
-				updateCh <- &model.PushRequest{Full: true, Forced: true}
-				updateCh <- &model.PushRequest{Full: true, Forced: true}
+				updateCh <- &model.PushRequest{Forced: true}
+				updateCh <- &model.PushRequest{Forced: true}
 				expect(0, 1)
 			},
 		},
 		{
 			name: "Should send full updates in batches, partial updates immediately",
 			test: func(updateCh chan *model.PushRequest, expect func(partial, full int32)) {
-				updateCh <- &model.PushRequest{Full: true, Forced: true}
-				updateCh <- &model.PushRequest{Full: true, Forced: true}
-				updateCh <- &model.PushRequest{Full: false, Forced: true}
-				updateCh <- &model.PushRequest{Full: false, Forced: true}
+				updateCh <- &model.PushRequest{Forced: true}
+				updateCh <- &model.PushRequest{Forced: true}
+				updateCh <- &model.PushRequest{Forced: true, ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.Endpoints, Name: "test"})}
+				updateCh <- &model.PushRequest{Forced: true, ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.Endpoints, Name: "test"})}
 				expect(2, 1)
-				updateCh <- &model.PushRequest{Full: false, Forced: true}
+				updateCh <- &model.PushRequest{Forced: true, ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.Endpoints, Name: "test"})}
 				expect(3, 1)
 			},
 		},
@@ -260,13 +260,13 @@ func TestDebounce(t *testing.T) {
 			name: "Should force a push after DebounceMax",
 			test: func(updateCh chan *model.PushRequest, expect func(partial, full int32)) {
 				// Send many requests within debounce window
-				updateCh <- &model.PushRequest{Full: true, Forced: true}
+				updateCh <- &model.PushRequest{Forced: true}
 				time.Sleep(opts.DebounceAfter / 2)
-				updateCh <- &model.PushRequest{Full: true, Forced: true}
+				updateCh <- &model.PushRequest{Forced: true}
 				time.Sleep(opts.DebounceAfter / 2)
-				updateCh <- &model.PushRequest{Full: true, Forced: true}
+				updateCh <- &model.PushRequest{Forced: true}
 				time.Sleep(opts.DebounceAfter / 2)
-				updateCh <- &model.PushRequest{Full: true, Forced: true}
+				updateCh <- &model.PushRequest{Forced: true}
 				time.Sleep(opts.DebounceAfter / 2)
 				expect(0, 1)
 			},
@@ -274,9 +274,9 @@ func TestDebounce(t *testing.T) {
 		{
 			name: "Should push synchronously after debounce",
 			test: func(updateCh chan *model.PushRequest, expect func(partial, full int32)) {
-				updateCh <- &model.PushRequest{Full: true, Forced: true}
+				updateCh <- &model.PushRequest{Forced: true}
 				time.Sleep(opts.DebounceAfter + 10*time.Millisecond)
-				updateCh <- &model.PushRequest{Full: true, Forced: true}
+				updateCh <- &model.PushRequest{Forced: true}
 				expect(0, 2)
 			},
 		},
@@ -295,7 +295,7 @@ func TestDebounce(t *testing.T) {
 			wg := sync.WaitGroup{}
 
 			fakePush := func(req *model.PushRequest) {
-				if req.Full {
+				if !model.OnlyHasConfigsOfKind(req.ConfigsUpdated, kind.Endpoints) {
 					select {
 					case pushingCh <- struct{}{}:
 					default:

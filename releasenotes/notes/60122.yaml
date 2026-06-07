@@ -1,0 +1,21 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+- 60122
+releaseNotes:
+- |
+  **Added** support for excluding policy configuration from Istio when the
+  `istio.io/ignore-policy-attachment` annotation is set to "true" on a
+  BackendTLSPolicy, or XBackendTrafficPolicy object. This allows users to
+  prevent specific policies from being translated into Istio configuration,
+  when policy is intended for a different gateway controller than Istio.
+  
+  Example usage:
+  ```yaml
+  apiVersion: gateway.networking.k8s.io/v1
+  kind: BackendTLSPolicy
+  metadata:
+    annotations:
+      istio.io/ignore-policy-attachment: "true"
+  ```

@@ -189,30 +189,32 @@ func TestDashboard(t *testing.T) {
 		})
 }
 
-// Some templates use replacement variables. Instead, replace those with wildcard
-var replacer = strings.NewReplacer(
-	"$dstns", ".*",
-	"$dstwl", ".*",
-	"$service", ".*",
-	"$srcns", ".*",
-	"$srcwl", ".*",
-	"$namespace", ".*",
-	"$workload", ".*",
-	"$dstsvc", ".*",
-	"$adapter", ".*",
-	"$qrep", "destination",
-	// Just allow all mTLS settings rather than trying to send mtls and plaintext
-	`connection_security_policy="unknown"`, `connection_security_policy=~".*"`,
-	`connection_security_policy="mutual_tls"`, `connection_security_policy=~".*"`,
-	`connection_security_policy!="mutual_tls"`, `connection_security_policy=~".*"`,
-	// Test runs in istio-system
-	`destination_workload_namespace!="istio-system"`, `destination_workload_namespace=~".*"`,
-	`source_workload_namespace!="istio-system"`, `source_workload_namespace=~".*"`,
-	"$__rate_interval", "1m",
-)
+func getTemplateReplacer() *strings.Replacer {
+	// Some templates use replacement variables. Instead, replace those with wildcard
+	return strings.NewReplacer(
+		"$dstns", ".*",
+		"$dstwl", ".*",
+		"$service", "b."+apps.Namespace.Name()+".svc.cluster.local", // Service only allows for a single selection, no wildcards
+		"$srcns", ".*",
+		"$srcwl", ".*",
+		"$namespace", ".*",
+		"$workload", ".*",
+		"$dstsvc", ".*",
+		"$adapter", ".*",
+		"$qrep", "destination",
+		// Just allow all mTLS settings rather than trying to send mtls and plaintext
+		`connection_security_policy="unknown"`, `connection_security_policy=~".*"`,
+		`connection_security_policy="mutual_tls"`, `connection_security_policy=~".*"`,
+		`connection_security_policy!="mutual_tls"`, `connection_security_policy=~".*"`,
+		// Test runs in istio-system
+		`destination_workload_namespace!="istio-system"`, `destination_workload_namespace=~".*"`,
+		`source_workload_namespace!="istio-system"`, `source_workload_namespace=~".*"`,
+		"$__rate_interval", "1m",
+	)
+}
 
 func checkMetric(cl cluster.Cluster, p prometheus.Instance, query string, excluded []string) error {
-	query = replacer.Replace(query)
+	query = getTemplateReplacer().Replace(query)
 	value, _, err := p.APIForCluster(cl).QueryRange(context.Background(), query, promv1.Range{
 		Start: time.Now().Add(-time.Minute),
 		End:   time.Now(),

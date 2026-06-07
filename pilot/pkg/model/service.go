@@ -1383,7 +1383,7 @@ type WorkloadInfo struct {
 	// Labels for the workload. Note these are only used internally, not sent over XDS
 	Labels map[string]string
 	// Source is the type that introduced this workload.
-	Source kind.Kind
+	Source TypedObject
 	// CreationTime is the time when the workload was created. Note this is used internally only.
 	CreationTime time.Time
 	// MarshaledAddress contains the pre-marshaled representation.
@@ -1392,13 +1392,15 @@ type WorkloadInfo struct {
 	// AsAddress contains a pre-created AddressInfo representation. This ensures we do not need repeated conversions on
 	// the hotpath
 	AsAddress AddressInfo
+	Waypoint  WaypointBindingStatus
 }
 
 func (i WorkloadInfo) Equals(other WorkloadInfo) bool {
 	return equalUsingPremarshaled(i.Workload, i.MarshaledAddress, other.Workload, other.MarshaledAddress) &&
 		maps.Equal(i.Labels, other.Labels) &&
 		i.Source == other.Source &&
-		i.CreationTime == other.CreationTime
+		i.CreationTime.Equal(other.CreationTime) &&
+		i.Waypoint.Equals(other.Waypoint)
 }
 
 func workloadResourceName(w *workloadapi.Workload) string {
@@ -1411,7 +1413,32 @@ func (i *WorkloadInfo) Clone() *WorkloadInfo {
 		Labels:       maps.Clone(i.Labels),
 		Source:       i.Source,
 		CreationTime: i.CreationTime,
+		Waypoint:     i.Waypoint,
 	}
+}
+
+func (i WorkloadInfo) GetStatusTarget() TypedObject {
+	return i.Source
+}
+
+func (i WorkloadInfo) GetConditions(currentConditions map[string]Condition) ConditionSet {
+	set := ConditionSet{
+		WaypointBound: nil,
+	}
+	if i.Waypoint.ResourceName != "" {
+		set[WaypointBound] = &Condition{
+			Status:  true,
+			Reason:  string(WaypointAccepted),
+			Message: "Successfully attached to waypoint " + i.Waypoint.ResourceName,
+		}
+	} else if i.Waypoint.Error != nil {
+		set[WaypointBound] = &Condition{
+			Status:  false,
+			Reason:  i.Waypoint.Error.Reason,
+			Message: i.Waypoint.Error.Message,
+		}
+	}
+	return set
 }
 
 func (i WorkloadInfo) ResourceName() string {

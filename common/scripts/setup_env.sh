@@ -77,7 +77,7 @@ fi
 TOOLS_REGISTRY_PROVIDER=${TOOLS_REGISTRY_PROVIDER:-registry.istio.io}
 PROJECT_ID=${PROJECT_ID:-testing}
 if [[ "${IMAGE_VERSION:-}" == "" ]]; then
-  IMAGE_VERSION=master-63fd6eec6f3df5a3ed4e190e60153ef3425f66b4
+  IMAGE_VERSION=master-1aae82591b3f663bba15d501ae7ce9c2d329aa70
 fi
 if [[ "${IMAGE_NAME:-}" == "" ]]; then
   IMAGE_NAME=build-tools

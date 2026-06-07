@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 59535
+releaseNotes:
+  - |
+    **Fixed** an issue where HTTPS listeners defined via `ListenerSet` failed to deliver TLS certificates when the parent Gateway used manual deployment.

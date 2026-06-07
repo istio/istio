@@ -32,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
+	"k8s.io/client-go/tools/cache"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/autoregistration"
@@ -152,7 +153,6 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 
 	serviceHandler := func(_, curr *model.Service, _ model.Event) {
 		pushReq := &model.PushRequest{
-			Full:           true,
 			ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: string(curr.Hostname), Namespace: curr.Attributes.Namespace}),
 			Reason:         model.NewReasonStats(model.ServiceUpdate),
 		}
@@ -169,7 +169,6 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	if opts.NetworksWatcher != nil {
 		opts.NetworksWatcher.AddNetworksHandler(func() {
 			s.ConfigUpdate(&model.PushRequest{
-				Full:   true,
 				Reason: model.NewReasonStats(model.NetworksTrigger),
 				Forced: true,
 			})
@@ -338,7 +337,6 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	// TODO code re-use from server.go
 	configHandler := func(_, curr config.Config, event model.Event) {
 		pushReq := &model.PushRequest{
-			Full:           true,
 			ConfigsUpdated: sets.New(model.ConfigKey{Kind: gvk.MustToKind(curr.GroupVersionKind), Name: curr.Name, Namespace: curr.Namespace}),
 			Reason:         model.NewReasonStats(model.ConfigUpdate),
 		}
@@ -402,14 +400,19 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	}
 	// Now that handlers are added, get everything started
 	cg.Run()
-	kubelib.WaitForCacheSync("fake", stop,
+	syncFns := []cache.InformerSynced{
 		cg.Registry.HasSynced,
-		cg.Store().HasSynced)
+		cg.Store().HasSynced,
+	}
+	if ambientIdx != nil {
+		syncFns = append(syncFns, ambientIdx.HasSynced)
+	}
+	kubelib.WaitForCacheSync("fake", stop, syncFns...)
 	cg.ServiceEntryRegistry.ResyncEDS()
 
 	// Send an update. This ensures that even if there are no configs provided, the push context is
 	// initialized.
-	s.ConfigUpdate(&model.PushRequest{Full: true, Forced: true})
+	s.ConfigUpdate(&model.PushRequest{Forced: true})
 
 	// Wait until initial updates are committed
 	c := s.InboundUpdates.Load()

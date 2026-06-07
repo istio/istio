@@ -17,8 +17,6 @@
 package ambient
 
 import (
-	"context"
-	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -44,7 +42,6 @@ import (
 	ambientComponent "istio.io/istio/pkg/test/framework/components/ambient"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	testkube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/prow"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/assert"
@@ -70,98 +67,25 @@ var conformanceNamespaces = []string{
 }
 
 var skippedTests = map[string]string{
-	"BackendTLSPolicyConflictResolution": "https://github.com/istio/istio/issues/57817",
-
 	// The following tests were added in v1.5.0
-	"BackendTLSPolicyObservedGenerationBump": "TODO",
 
 	"GatewayBackendClientCertificateFeature":                     "TODO",
-	"GatewayFrontendInvalidDefaultClientCertificateValidation":   "TODO",
-	"GatewayInvalidTLSBackendConfiguration":                      "TODO",
-	"GatewayTLSBackendClientCertificate":                         "TODO",
 	"GatewayFrontendClientCertificateValidationInsecureFallback": "TODO",
-	"GatewayFrontendClientCertificateValidation":                 "TODO",
-	"GatewayInvalidFrontendClientCertificateValidation":          "TODO",
 
-	"HTTPRoute303Redirect":                            "TODO",
-	"HTTPRoute307Redirect":                            "TODO",
-	"HTTPRoute308Redirect":                            "TODO",
-	"HTTPRouteCORS":                                   "TODO",
 	"HTTPRouteHTTPSListenerDetectMisdirectedRequests": "TODO",
 
-	"ListenerSetAllowedNamespaceNone":        "TODO",
-	"ListenerSetAllowedNamespaceSame":        "TODO",
-	"ListenerSetAllowedNamespaceSelector":    "TODO",
-	"ListenerSetAllowedRoutesNamespaces":     "TODO",
-	"ListenerSetAllowedRoutesSupportedKinds": "TODO",
-	"ListenerSetDefaultNotAllowed":           "TODO",
-	"ListenerSetHostnameConflict":            "TODO",
-	"ListenerSetHTTPRouting":                 "TODO",
-	"ListenerSetProtocolConflict":            "TODO",
-	"ListenerSetReferenceGrant":              "TODO",
+	"ListenerSetHostnameConflict": "TODO",
+	"ListenerSetProtocolConflict": "TODO",
+	"ListenerSetReferenceGrant":   "TODO",
 
-	"MeshHTTPRoute303Redirect": "TODO",
+	// Fixed upstream, waiting for new gateway api release to pick up fix
 	"MeshHTTPRoute307Redirect": "TODO",
-	"MeshHTTPRoute308Redirect": "TODO",
-
-	// The following tests were modified between v1.4.0 && v1.5.0
-	"BackendTLSPolicy": "TODO",
-
-	"GatewayClassObservedGenerationBump":    "TODO",
-	"GatewayWithAttachedRoutes":             "TODO",
-	"GatewayWithAttachedRoutesWithPort8080": "TODO",
-
-	"HTTPRouteHostnameIntersection": "TODO",
-
-	"MeshGRPCRouteWeight": "TODO",
-	"MeshHTTPRouteWeight": "TODO",
-}
-
-var agentgatewaySkippedTests = map[string]string{
-	"TLSRouteTerminateSimpleSameNamespace":  "TODO",
-	"TLSRouteMixedTerminationSameNamespace": "TODO",
 }
 
 func TestGatewayConformance(t *testing.T) {
-	testConformance("istio", maps.Keys(skippedTests), t)
-}
-
-func TestGatewayConformanceAgentgateway(t *testing.T) {
-	keys := append(maps.Keys(skippedTests), maps.Keys(agentgatewaySkippedTests)...)
-	testConformance("istio-agentgateway", keys, t)
-}
-
-// deleteConformanceNamespaces actively deletes all conformance namespaces.
-func deleteConformanceNamespaces(t *testing.T) {
-	t.Helper()
-	kc := gatewayConformanceInputs.Client.Kube()
-	for _, ns := range conformanceNamespaces {
-		// Ignore errors — namespace may not exist yet.
-		_ = kc.CoreV1().Namespaces().Delete(context.Background(), ns, metav1.DeleteOptions{})
-	}
-}
-
-// waitForConformanceNamespacesGone blocks until every conformance namespace is
-// fully removed (NotFound). This prevents the next conformance test from
-// hitting "unable to create new content in namespace because it is being
-// terminated" errors.
-func waitForConformanceNamespacesGone(t *testing.T) {
-	t.Helper()
-	kc := gatewayConformanceInputs.Client.Kube()
-	for _, ns := range conformanceNamespaces {
-		if err := testkube.WaitForNamespaceDeletion(kc, ns); err != nil {
-			t.Logf("warning: namespace %v was not fully deleted: %v", ns, err)
-		}
-	}
-}
-
-func testConformance(gatewayClassName string, skippedTestKeys []string, t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
-			deleteConformanceNamespaces(t)
-			waitForConformanceNamespacesGone(t)
-
 			// Precreate the GatewayConformance namespaces, and apply the Image Pull Secret to them.
 			if ctx.Settings().Image.PullSecret != "" {
 				for _, ns := range conformanceNamespaces {
@@ -188,12 +112,12 @@ func testConformance(gatewayClassName string, skippedTestKeys []string, t *testi
 				ClientOptions:            clientOptions,
 				Clientset:                gatewayConformanceInputs.Client.Kube(),
 				RestConfig:               gatewayConformanceInputs.Client.RESTConfig(),
-				GatewayClassName:         gatewayClassName,
+				GatewayClassName:         "istio",
 				Debug:                    scopes.Framework.DebugEnabled(),
 				CleanupBaseResources:     gatewayConformanceInputs.Cleanup,
 				ManifestFS:               []fs.FS{&conformance.Manifests},
 				SupportedFeatures:        gwfeatures.SetsToNamesSet(supported),
-				SkipTests:                skippedTestKeys,
+				SkipTests:                maps.Keys(skippedTests),
 				UsableNetworkAddresses:   []v1.GatewaySpecAddress{{Value: "infra-backend-v1.gateway-conformance-infra.svc.cluster.local", Type: &hostnameType}},
 				UnusableNetworkAddresses: []v1.GatewaySpecAddress{{Value: "foo", Type: &hostnameType}},
 				ConformanceProfiles: k8ssets.New(
@@ -229,15 +153,6 @@ func testConformance(gatewayClassName string, skippedTestKeys []string, t *testi
 			})
 			csuite, err := suite.NewConformanceTestSuite(opts)
 			assert.NoError(t, err)
-			// Register cleanup BEFORE csuite.Setup so it runs AFTER the suite's
-			// own cleanup (t.Cleanup is LIFO). The suite's cleanup issues async
-			// Delete calls; this wait turns the teardown into a synchronous
-			// operation, guaranteeing the next conformance test starts with a
-			// clean slate.
-			t.Cleanup(func() {
-				deleteConformanceNamespaces(t)
-				waitForConformanceNamespacesGone(t)
-			})
 			csuite.Setup(t, tests.ConformanceTests)
 
 			// remove the dataplane mode label from the gateway-conformance-infra namespace
@@ -274,7 +189,7 @@ func testConformance(gatewayClassName string, skippedTestKeys []string, t *testi
 			assert.NoError(t, err)
 			reportb, err := yaml.Marshal(report)
 			assert.NoError(t, err)
-			fp := filepath.Join(ctx.Settings().BaseDir, fmt.Sprintf("%s-conformance.yaml", gatewayClassName))
+			fp := filepath.Join(ctx.Settings().BaseDir, "istio-conformance.yaml")
 			t.Logf("writing conformance test to %v (%v)", fp, prow.ArtifactsURL(fp))
 			assert.NoError(t, os.WriteFile(fp, reportb, 0o644))
 		})

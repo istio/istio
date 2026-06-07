@@ -58,6 +58,7 @@ func (a *index) buildGlobalCollections(
 	localServiceEntryInformers kclient.Informer[*networkingclient.ServiceEntry],
 	localServiceInformers kclient.Informer[*v1.Service],
 	localAuthzInformers kclient.Informer[*securityclient.AuthorizationPolicy],
+	localWorkloadEntryInformers kclient.Informer[*networkingclient.WorkloadEntry],
 	options Options,
 	opts krt.OptionsBuilder,
 ) {
@@ -307,6 +308,16 @@ func (a *index) buildGlobalCollections(
 		options.DomainSuffix,
 		opts,
 	)
+	if features.EnableAmbientStatus {
+		workloadEntriesWriter := kclient.NewWriteClient[*networkingclient.WorkloadEntry](localCluster.Client)
+		statusqueue.Register(a.statusQueue, "istio-ambient-workloadentry", GlobalWorkloads,
+			func(info model.WorkloadInfo) (kclient.Patcher, map[string]model.Condition) {
+				if info.Source.Kind != kind.WorkloadEntry {
+					return nil, nil
+				}
+				return kclient.ToPatcher(workloadEntriesWriter), getConditions(info.Source.NamespacedName, localWorkloadEntryInformers)
+			})
+	}
 
 	GlobalWorkloadServiceIndex := krt.NewIndex[string, model.WorkloadInfo](GlobalWorkloads, "service", func(o model.WorkloadInfo) []string {
 		return maps.Keys(o.Workload.Services)
@@ -803,7 +814,7 @@ func (a *index) createSplitHorizonWorkload(
 
 	wi := model.WorkloadInfo{
 		Workload: &wl,
-		Source:   kind.KubernetesGateway,
+		Source:   model.TypedObject{Kind: kind.KubernetesGateway},
 		Labels:   labelutil.AugmentLabels(nil, networkGateway.Cluster, "", "", networkGateway.Network),
 	}
 	return precomputeWorkload(wi)

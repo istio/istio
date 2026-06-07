@@ -308,10 +308,19 @@ func (j *join[T]) name() string { return j.collectionName }
 func (j *join[T]) uid() collectionUID { return j.id }
 
 // nolint: unused // (not true, its to implement an interface)
-func (j *join[I]) dump() CollectionDump {
-	// Dump should not be used on join; instead its preferred to enroll each individual collection. Maybe reconsider
-	// in the future if there is a need
-	return CollectionDump{}
+func (j *join[T]) dump() CollectionDump {
+	inputs := map[string]InputDump{}
+	for _, c := range j.collections {
+		for _, input := range c.List() {
+			inputs[string(getTypedKey(input))] = InputDump{}
+		}
+	}
+
+	return CollectionDump{
+		Outputs: eraseMap(slices.GroupUnique(j.List(), getTypedKey)),
+		Inputs:  inputs,
+		Synced:  j.HasSynced(),
+	}
 }
 
 // nolint: unused // (not true)

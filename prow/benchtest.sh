@@ -22,9 +22,10 @@ ROOT=$(dirname "$WD")
 source "${ROOT}/prow/lib.sh"
 setup_and_export_git_sha
 
-set -eux
+set -eu
+set +x
 
-GCS_BENCHMARK_DIR="${GCS_BENCHMARK_DIR:-istio-prow/benchmarks}"
+S3_BENCHMARK_DIR="${S3_BENCHMARK_DIR:-istio-prow/benchmarks}"
 
 BENCHMARK_COUNT="${BENCHMARK_COUNT:-5}"
 BENCHMARK_CPUS="${BENCHMARK_CPUS:-8}"
@@ -49,13 +50,17 @@ case "${1}" in
     cat "${REPORT_PLAINTEXT}"
     ;;
   report)
-    # Upload the reports to a well known path based on git SHA
-    gsutil cp "${REPORT_JUNIT}" "gs://${GCS_BENCHMARK_DIR}/${GIT_SHA}.xml"
-    gsutil cp "${REPORT_PLAINTEXT}" "gs://${GCS_BENCHMARK_DIR}/${GIT_SHA}.txt"
+    ENDPOINT=$(echo "${CF_CREDENTIALS}" | jq -r '.endpoint')
+    AWS_ACCESS_KEY_ID=$(echo "${CF_CREDENTIALS}" | jq -r '.access_key')
+    AWS_SECRET_ACCESS_KEY=$(echo "${CF_CREDENTIALS}" | jq -r '.secret_key')
+    AWS_SESSION_TOKEN=$(echo "${CF_CREDENTIALS}" | jq -r '.session_token')
+    export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
+    aws --endpoint-url="${ENDPOINT}" s3 cp "${REPORT_JUNIT}" "s3://${S3_BENCHMARK_DIR}/${GIT_SHA}.xml"
+    aws --endpoint-url="${ENDPOINT}" s3 cp "${REPORT_PLAINTEXT}" "s3://${S3_BENCHMARK_DIR}/${GIT_SHA}.txt"
     ;;
   compare)
     # Fetch previous results, and compare them.
-    curl "https://storage.googleapis.com/${GCS_BENCHMARK_DIR}/${COMPARE_GIT_SHA}.txt" > "${ARTIFACTS}/baseline-benchmark-log.txt"
+    curl -L "https://blob.istio.io/${S3_BENCHMARK_DIR}/${COMPARE_GIT_SHA}.txt" > "${ARTIFACTS}/baseline-benchmark-log.txt"
     benchstat "${ARTIFACTS}/baseline-benchmark-log.txt" "${REPORT_PLAINTEXT}"
     ;;
   *)

@@ -457,10 +457,8 @@ func (sim *Simulation) matchVirtualHost(rc *route.RouteConfiguration, host strin
 	}
 	// Exact match
 	for _, vh := range rc.VirtualHosts {
-		for _, d := range vh.Domains {
-			if d == host {
-				return vh
-			}
+		if slices.Contains(vh.Domains, host) {
+			return vh
 		}
 	}
 	// prefix match
@@ -498,10 +496,8 @@ func (sim *Simulation) matchVirtualHost(rc *route.RouteConfiguration, host strin
 	}
 	// wildcard match
 	for _, vh := range rc.VirtualHosts {
-		for _, d := range vh.Domains {
-			if d == "*" {
-				return vh
-			}
+		if slices.Contains(vh.Domains, "*") {
+			return vh
 		}
 	}
 	return nil

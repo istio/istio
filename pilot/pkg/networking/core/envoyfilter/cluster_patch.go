@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto/merge"
+	"istio.io/istio/pkg/slices"
 )
 
 // ApplyClusterMerge processes the MERGE operation and merges the supplied configuration to the matched clusters.
@@ -170,7 +171,7 @@ func clusterMatch(cluster *cluster.Cluster, cp *model.EnvoyFilterConfigPatchWrap
 		return false
 	}
 
-	if cMatch.Service != "" && !hostContains(hostMatches, host.Name(cMatch.Service)) {
+	if cMatch.Service != "" && !slices.Contains(hostMatches, host.Name(cMatch.Service)) {
 		return false
 	}
 
@@ -180,13 +181,4 @@ func clusterMatch(cluster *cluster.Cluster, cp *model.EnvoyFilterConfigPatchWrap
 		return false
 	}
 	return true
-}
-
-func hostContains(hosts []host.Name, service host.Name) bool {
-	for _, h := range hosts {
-		if h == service {
-			return true
-		}
-	}
-	return false
 }

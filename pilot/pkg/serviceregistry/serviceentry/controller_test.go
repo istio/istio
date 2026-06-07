@@ -172,9 +172,9 @@ func TestServiceDiscoveryServices(t *testing.T) {
 	createConfigs([]*config.Config{httpDNS, httpDNSRR, tcpStatic}, store, t)
 
 	expectEvents(t, fx,
-		Event{Type: "xds full", ID: "*.google.com"},
-		Event{Type: "xds full", ID: "*.istio.io"},
-		Event{Type: "xds full", ID: "tcpstatic.com"},
+		Event{Type: "xds", ID: "*.google.com"},
+		Event{Type: "xds", ID: "*.istio.io"},
+		Event{Type: "xds", ID: "tcpstatic.com"},
 		Event{Type: "service", ID: "*.google.com", Namespace: httpDNS.Namespace},
 		Event{Type: "eds", ID: "*.google.com", Namespace: httpDNS.Namespace},
 		Event{Type: "service", ID: "*.istio.io", Namespace: httpDNSRR.Namespace},
@@ -197,8 +197,8 @@ func TestServiceDiscoveryGetService(t *testing.T) {
 	store, sd, fx := initServiceDiscovery(t)
 
 	createConfigs([]*config.Config{httpDNS, tcpStatic}, store, t)
-	fx.WaitOrFail(t, "xds full")
-	fx.WaitOrFail(t, "xds full")
+	fx.WaitOrFail(t, "xds")
+	fx.WaitOrFail(t, "xds")
 	service := sd.GetService(host.Name(hostDNE))
 	if service != nil {
 		t.Errorf("GetService(%q) => should not exist, got %s", hostDNE, service.Hostname)
@@ -240,20 +240,20 @@ func TestServiceDiscoveryServiceDeleteOverlapping(t *testing.T) {
 	// Creating SE should give us instances
 	createConfigs([]*config.Config{se1, wle}, store, t)
 	events.WaitOrFail(t, "service")
-	events.WaitOrFail(t, "xds full")
+	events.WaitOrFail(t, "xds")
 	expectServiceInstances(t, sd, se1, 0, expected)
 
 	// Create another identical SE (different name) gives us duplicate instances
 	// Arguable whether this is correct or not...
 	createConfigs([]*config.Config{se2}, store, t)
 	events.WaitOrFail(t, "service")
-	events.WaitOrFail(t, "xds full")
+	events.WaitOrFail(t, "xds")
 	expectServiceInstances(t, sd, se1, 0, append(slices.Clone(expected), expected...))
 	events.Clear()
 
 	// When we delete, we should get back to the original state, not delete all instances
 	deleteConfigs([]*config.Config{se1}, store, t)
-	events.WaitOrFail(t, "xds full")
+	events.WaitOrFail(t, "xds")
 	expectServiceInstances(t, sd, se1, 0, expected)
 }
 
@@ -316,7 +316,7 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		expectEvents(t, events,
 			Event{Type: "service", ID: "*.google.com", Namespace: httpStatic.Namespace},
 			Event{Type: "eds", ID: "*.google.com", Namespace: httpStatic.Namespace},
-			Event{Type: "xds full", ID: httpStatic.Spec.(*networking.ServiceEntry).Hosts[0]})
+			Event{Type: "xds", ID: httpStatic.Spec.(*networking.ServiceEntry).Hosts[0]})
 		expectServiceInstances(t, sd, httpStatic, 0, instances)
 	})
 
@@ -329,7 +329,7 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		expectEvents(t, events,
 			Event{Type: "service", ID: "*.google.com", Namespace: httpStaticOverlay.Namespace},
 			Event{Type: "eds", ID: "*.google.com", Namespace: httpStaticOverlay.Namespace},
-			Event{Type: "xds full", ID: httpStatic.Spec.(*networking.ServiceEntry).Hosts[0]})
+			Event{Type: "xds", ID: httpStatic.Spec.(*networking.ServiceEntry).Hosts[0]})
 	})
 
 	t.Run("add endpoint", func(t *testing.T) {
@@ -400,7 +400,7 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		expectEvents(t, events,
 			Event{Type: "service", ID: "*.google.com", Namespace: "other"},
 			Event{Type: "eds", ID: "*.google.com", Namespace: "other"},
-			Event{Type: "xds full", ID: httpStaticOverlayUpdatedNs.Spec.(*networking.ServiceEntry).Hosts[0]})
+			Event{Type: "xds", ID: httpStaticOverlayUpdatedNs.Spec.(*networking.ServiceEntry).Hosts[0]})
 	})
 
 	t.Run("delete entry", func(t *testing.T) {
@@ -417,7 +417,7 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		// not delete the endpoints shards of "*.google.com". We xpect a full push as the service has changed.
 		expectEvents(t, events,
 			Event{Type: "eds", ID: "*.google.com", Namespace: httpStaticOverlayUpdated.Namespace},
-			Event{Type: "xds full", ID: "*.google.com"},
+			Event{Type: "xds", ID: "*.google.com"},
 		)
 
 		// delete httpStatic, no "*.google.com" service exists now.
@@ -427,7 +427,7 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		expectEvents(t, events,
 			Event{Type: "service", ID: "*.google.com", Namespace: httpStatic.Namespace},
 			Event{Type: "eds", ID: "*.google.com", Namespace: httpStatic.Namespace},
-			Event{Type: "xds full", ID: "*.google.com"},
+			Event{Type: "xds", ID: "*.google.com"},
 		)
 
 		// add back httpStatic
@@ -437,7 +437,7 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		expectEvents(t, events,
 			Event{Type: "service", ID: "*.google.com", Namespace: httpStatic.Namespace},
 			Event{Type: "eds", ID: "*.google.com", Namespace: httpStatic.Namespace},
-			Event{Type: "xds full", ID: httpStatic.Spec.(*networking.ServiceEntry).Hosts[0]})
+			Event{Type: "xds", ID: httpStatic.Spec.(*networking.ServiceEntry).Hosts[0]})
 
 		// Add back the ServiceEntry, expect these instances to get added
 		createConfigs([]*config.Config{httpStaticOverlayUpdated}, store, t)
@@ -449,7 +449,7 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		expectEvents(t, events,
 			Event{Type: "service", ID: "*.google.com", Namespace: httpStaticOverlay.Namespace},
 			Event{Type: "eds", ID: "*.google.com", Namespace: httpStaticOverlay.Namespace},
-			Event{Type: "xds full", ID: "*.google.com"},
+			Event{Type: "xds", ID: "*.google.com"},
 		)
 	})
 
@@ -472,7 +472,7 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		expectEvents(t, events,
 			Event{Type: "service", ID: "*.google.com", Namespace: httpStaticOverlayUpdated.Namespace},
 			Event{Type: "eds", ID: "*.google.com", Namespace: httpStaticOverlayUpdated.Namespace},
-			Event{Type: "xds full", ID: "*.google.com"})
+			Event{Type: "xds", ID: "*.google.com"})
 
 		// Restore the target port
 		createConfigs([]*config.Config{httpStaticOverlayUpdated}, store, t)
@@ -486,7 +486,7 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		expectEvents(t, events,
 			Event{Type: "service", ID: "*.google.com", Namespace: httpStaticOverlayUpdated.Namespace},
 			Event{Type: "eds", ID: "*.google.com", Namespace: httpStaticOverlayUpdated.Namespace},
-			Event{Type: "xds full", ID: "*.google.com"})
+			Event{Type: "xds", ID: "*.google.com"})
 	})
 
 	t.Run("change host", func(t *testing.T) {
@@ -517,14 +517,14 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		expectEvents(t, events,
 			Event{Type: "service", ID: "other.com", Namespace: httpStaticOverlayUpdated.Namespace},
 			Event{Type: "eds", ID: "other.com", Namespace: httpStaticOverlayUpdated.Namespace},
-			Event{Type: "xds full", ID: "other.com"}) // service added
+			Event{Type: "xds", ID: "other.com"}) // service added
 
 		// restore this config and remove the added host.
 		createConfigs([]*config.Config{httpStaticOverlayUpdated}, store, t)
 		expectEvents(t, events,
 			Event{Type: "service", ID: "other.com", Namespace: httpStatic.Namespace},
 			Event{Type: "eds", ID: "other.com", Namespace: httpStatic.Namespace},
-			Event{Type: "xds full", ID: "other.com"},
+			Event{Type: "xds", ID: "other.com"},
 		) // service deleted
 	})
 
@@ -561,12 +561,12 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		expectEvents(t, events,
 			Event{Type: "service", ID: "tcpdns.com", Namespace: tcpDNS.Namespace},
 			Event{Type: "eds", ID: "tcpdns.com", Namespace: tcpDNS.Namespace},
-			Event{Type: "xds full", ID: "tcpdns.com"}) // service added
+			Event{Type: "xds", ID: "tcpdns.com"}) // service added
 
 		// now update the config
 		createConfigs([]*config.Config{tcpDNSUpdated}, store, t)
 		expectEvents(t, events,
-			Event{Type: "xds full", ID: "tcpdns.com"},
+			Event{Type: "xds", ID: "tcpdns.com"},
 			Event{Type: "eds", ID: "tcpdns.com"},
 		) // service deleted
 		expectServiceInstances(t, sd, tcpDNS, 0, instances2)
@@ -591,7 +591,7 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 			Event{Type: "service", ID: "*.google.com", Namespace: httpStaticOverlay.Namespace},
 			Event{Type: "eds", ID: "*.google.com", Namespace: httpStaticOverlay.Namespace},
 			Event{Type: "eds", ID: "selector1.com", Namespace: httpStaticOverlay.Namespace},
-			Event{Type: "xds full", ID: "*.google.com,selector1.com"}) // service added
+			Event{Type: "xds", ID: "*.google.com,selector1.com"}) // service added
 
 		selector1Updated := func() *config.Config {
 			c := selector1.DeepCopy()
@@ -605,7 +605,7 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		expectEvents(t, events,
 			Event{Type: "service", ID: "*.google.com", Namespace: httpStaticOverlay.Namespace},
 			Event{Type: "service", ID: "selector1.com", Namespace: httpStaticOverlay.Namespace},
-			Event{Type: "xds full", ID: "*.google.com,selector1.com"}) // service updated
+			Event{Type: "xds", ID: "*.google.com,selector1.com"}) // service updated
 	})
 }
 
@@ -646,7 +646,7 @@ func TestServiceDiscoveryServiceInstancesForDnsRoundRobinLB(t *testing.T) {
 	expectEvents(t, events,
 		Event{Type: "service", ID: "example.com", Namespace: se1.Namespace},
 		Event{Type: "eds", ID: "example.com", Namespace: se1.Namespace, EndpointCount: len(expectedPrimary)},
-		Event{Type: "xds full", ID: se1.Spec.(*networking.ServiceEntry).Hosts[0]},
+		Event{Type: "xds", ID: se1.Spec.(*networking.ServiceEntry).Hosts[0]},
 	)
 
 	createConfigs([]*config.Config{seMulti}, store, t)
@@ -657,7 +657,7 @@ func TestServiceDiscoveryServiceInstancesForDnsRoundRobinLB(t *testing.T) {
 	expectEvents(t, events,
 		Event{Type: "service", ID: "muladdrs.example.com", Namespace: seMulti.Namespace},
 		Event{Type: "eds", ID: "muladdrs.example.com", Namespace: seMulti.Namespace, EndpointCount: len(expectedMul)},
-		Event{Type: "xds full", ID: seMulti.Spec.(*networking.ServiceEntry).Hosts[0]},
+		Event{Type: "xds", ID: seMulti.Spec.(*networking.ServiceEntry).Hosts[0]},
 	)
 
 	otherNs := ptr.Of(dnsRoundRobinLBSE1.DeepCopy())
@@ -682,7 +682,7 @@ func TestServiceDiscoveryServiceInstancesForDnsRoundRobinLB(t *testing.T) {
 	expectEvents(t, events,
 		Event{Type: "service", ID: "example.com", Namespace: otherNs.Namespace},
 		Event{Type: "eds", ID: "example.com", Namespace: otherNs.Namespace, EndpointCount: len(otherNsExpected)},
-		Event{Type: "xds full", ID: otherNs.Spec.(*networking.ServiceEntry).Hosts[0]},
+		Event{Type: "xds", ID: otherNs.Spec.(*networking.ServiceEntry).Hosts[0]},
 	)
 
 	se2 := ptr.Of(dnsRoundRobinLBSE2.DeepCopy())
@@ -698,7 +698,7 @@ func TestServiceDiscoveryServiceInstancesForDnsRoundRobinLB(t *testing.T) {
 	createConfigs([]*config.Config{se2}, store, t)
 	expectEvents(t, events,
 		Event{Type: "service", ID: "example.com", Namespace: se2.Namespace},
-		Event{Type: "xds full", ID: se2.Spec.(*networking.ServiceEntry).Hosts[0]},
+		Event{Type: "xds", ID: se2.Spec.(*networking.ServiceEntry).Hosts[0]},
 	)
 
 	// check that instances are the same as before, we ignored this new instance
@@ -745,7 +745,7 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 		expectEvents(t, events,
 			Event{Type: "service", ID: "selector.com", Namespace: selector.Namespace},
 			Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace},
-			Event{Type: "xds full", ID: "selector.com"})
+			Event{Type: "xds", ID: "selector.com"})
 	})
 
 	t.Run("add workload", func(t *testing.T) {
@@ -794,7 +794,7 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 			Event{Type: "service", ID: "selector.com", Namespace: selector.Namespace},
 			Event{Type: "eds", ID: "updated.com", Namespace: selector.Namespace},
 			Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace},
-			Event{Type: "xds full", ID: "selector.com,updated.com"},
+			Event{Type: "xds", ID: "selector.com,updated.com"},
 		)
 	})
 
@@ -823,7 +823,7 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 			Event{Type: "service", ID: "updated.com", Namespace: selector.Namespace},
 			Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace},
 			Event{Type: "eds", ID: "updated.com", Namespace: selector.Namespace},
-			Event{Type: "xds full", ID: "selector.com,updated.com"},
+			Event{Type: "xds", ID: "selector.com,updated.com"},
 		)
 	})
 
@@ -836,7 +836,7 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 		expectEvents(t, events,
 			Event{Type: "service", ID: "dns.selector.com", Namespace: dnsSelector.Namespace},
 			Event{Type: "eds", ID: "dns.selector.com", Namespace: dnsSelector.Namespace},
-			Event{Type: "xds full", ID: "dns.selector.com"})
+			Event{Type: "xds", ID: "dns.selector.com"})
 	})
 
 	t.Run("add dns workload", func(t *testing.T) {
@@ -854,7 +854,7 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 		expectServiceInstances(t, sd, dnsSelector, 0, instances)
 		expectEvents(t, events,
 			Event{Type: "eds", ID: "dns.selector.com", Namespace: dnsSelector.Namespace},
-			Event{Type: "xds full", ID: "dns.selector.com"},
+			Event{Type: "xds", ID: "dns.selector.com"},
 			// cannot void proxy update for dns workload
 			Event{Type: "proxy", ID: "4.4.4.4"},
 		)
@@ -973,10 +973,10 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 		expectEvents(t, events,
 			Event{Type: "eds", ID: "selector.com"},
 			Event{Type: "service", ID: "selector.com"},
-			Event{Type: "xds full", ID: "selector.com"},
+			Event{Type: "xds", ID: "selector.com"},
 		)
 		deleteConfigs([]*config.Config{dnsWle}, store, t)
-		// no xds full event since dnsWle contains an IP address
+		// no xds event since dnsWle contains an IP address
 		expectEvents(t, events,
 			Event{Type: "eds", ID: "dns.selector.com", Namespace: dnsSelector.Namespace},
 		)
@@ -984,7 +984,7 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 		expectEvents(t, events,
 			Event{Type: "eds", ID: "dns.selector.com", Namespace: dnsSelector.Namespace},
 			Event{Type: "service", ID: "dns.selector.com"},
-			Event{Type: "xds full", ID: "dns.selector.com"},
+			Event{Type: "xds", ID: "dns.selector.com"},
 		)
 
 		assertControllerEmpty(t, sd)
@@ -1037,7 +1037,7 @@ func TestServiceDiscoveryWorkloadChangeLabel(t *testing.T) {
 		expectEvents(t, events,
 			Event{Type: "service", ID: "selector.com", Namespace: selector.Namespace},
 			Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace},
-			Event{Type: "xds full", ID: "selector.com"})
+			Event{Type: "xds", ID: "selector.com"})
 	})
 
 	t.Run("change label removing all", func(t *testing.T) {
@@ -1168,7 +1168,7 @@ func TestWorkloadInstanceFullPush(t *testing.T) {
 		expectEvents(t, events,
 			Event{Type: "service", ID: "selector.com", Namespace: selectorDNS.Namespace},
 			Event{Type: "eds", ID: "selector.com", Namespace: selectorDNS.Namespace},
-			Event{Type: "xds full", ID: "selector.com"})
+			Event{Type: "xds", ID: "selector.com"})
 	})
 
 	t.Run("add workload", func(t *testing.T) {
@@ -1187,7 +1187,7 @@ func TestWorkloadInstanceFullPush(t *testing.T) {
 		expectServiceInstances(t, sd, selectorDNS, 0, instances)
 		expectEvents(t, events,
 			Event{Type: "eds", ID: "selector.com", Namespace: selectorDNS.Namespace},
-			Event{Type: "xds full", ID: "selector.com"},
+			Event{Type: "xds", ID: "selector.com"},
 			Event{Type: "proxy", ID: "postman-echo.com"},
 		)
 	})
@@ -1210,21 +1210,21 @@ func TestWorkloadInstanceFullPush(t *testing.T) {
 		expectServiceInstances(t, sd, selectorDNS, 0, instances)
 		expectEvents(t, events,
 			Event{Type: "eds", ID: "selector.com", Namespace: selectorDNS.Namespace, EndpointCount: len(instances)},
-			Event{Type: "xds full", ID: "selector.com"})
+			Event{Type: "xds", ID: "selector.com"})
 	})
 
 	t.Run("full push for another new workload instance", func(t *testing.T) {
 		callInstanceHandlers([]*model.WorkloadInstance{fi2}, sd, model.EventAdd, t)
 		expectEvents(t, events,
 			Event{Type: "eds", ID: "selector.com", Namespace: selectorDNS.Namespace, EndpointCount: 6},
-			Event{Type: "xds full", ID: "selector.com"})
+			Event{Type: "xds", ID: "selector.com"})
 	})
 
 	t.Run("full push for new instance with multiple addresses", func(t *testing.T) {
 		callInstanceHandlers([]*model.WorkloadInstance{fiwithmulAddrs}, sd, model.EventAdd, t)
 		expectEvents(t, events,
 			Event{Type: "eds", ID: "selector.com", Namespace: selectorDNS.Namespace, EndpointCount: 8},
-			Event{Type: "xds full", ID: "selector.com"})
+			Event{Type: "xds", ID: "selector.com"})
 	})
 
 	t.Run("full push on delete workload instance", func(t *testing.T) {
@@ -1251,7 +1251,7 @@ func TestWorkloadInstanceFullPush(t *testing.T) {
 
 		expectEvents(t, events,
 			Event{Type: "eds", ID: "selector.com", Namespace: selectorDNS.Namespace, EndpointCount: len(instances)},
-			Event{Type: "xds full", ID: "selector.com"})
+			Event{Type: "xds", ID: "selector.com"})
 	})
 
 	t.Run("full push on delete workload instance with multiple addresses", func(t *testing.T) {
@@ -1273,7 +1273,7 @@ func TestWorkloadInstanceFullPush(t *testing.T) {
 
 		expectEvents(t, events,
 			Event{Type: "eds", ID: "selector.com", Namespace: selectorDNS.Namespace, EndpointCount: len(instances)},
-			Event{Type: "xds full", ID: "selector.com"})
+			Event{Type: "xds", ID: "selector.com"})
 	})
 }
 
@@ -1334,7 +1334,7 @@ func TestServiceDiscoveryWorkloadInstance(t *testing.T) {
 		expectEvents(t, events,
 			Event{Type: "service", ID: "selector.com", Namespace: selector.Namespace},
 			Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace},
-			Event{Type: "xds full", ID: "selector.com"})
+			Event{Type: "xds", ID: "selector.com"})
 	})
 
 	t.Run("add another service entry", func(t *testing.T) {
@@ -1345,7 +1345,7 @@ func TestServiceDiscoveryWorkloadInstance(t *testing.T) {
 		expectEvents(t, events,
 			Event{Type: "service", ID: "dns.selector.com", Namespace: dnsSelector.Namespace},
 			Event{Type: "eds", ID: "dns.selector.com", Namespace: dnsSelector.Namespace},
-			Event{Type: "xds full", ID: "dns.selector.com"})
+			Event{Type: "xds", ID: "dns.selector.com"})
 	})
 
 	t.Run("add workload instance", func(t *testing.T) {
@@ -1485,7 +1485,7 @@ func TestServiceDiscoveryWorkloadInstance(t *testing.T) {
 		expectServiceInstances(t, sd, dnsSelector, 0, instances)
 		expectEvents(t, events,
 			Event{Type: "eds", ID: "dns.selector.com", Namespace: dnsSelector.Namespace, EndpointCount: 2},
-			Event{Type: "xds full", ID: "dns.selector.com"},
+			Event{Type: "xds", ID: "dns.selector.com"},
 		)
 	})
 }
@@ -1517,7 +1517,7 @@ func TestServiceDiscoveryWorkloadInstanceChangeLabel(t *testing.T) {
 		expectEvents(t, events,
 			Event{Type: "service", ID: "selector.com", Namespace: selector.Namespace},
 			Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace},
-			Event{Type: "xds full"})
+			Event{Type: "xds"})
 	})
 
 	cases := []struct {

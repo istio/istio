@@ -62,6 +62,7 @@ func All() []analysis.Analyzer {
 		&injection.ImageAnalyzer{},
 		&injection.ImageAutoAnalyzer{},
 		&k8sgateway.SelectorAnalyzer{},
+		&k8sgateway.CRDVersionAnalyzer{},
 		&multicluster.MeshNetworksAnalyzer{},
 		&multicluster.ServiceAnalyzer{},
 		&service.PortNameAnalyzer{},

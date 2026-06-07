@@ -40,9 +40,7 @@ var (
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
-		Setup(istio.Setup(&i, func(ctx resource.Context, cfg *istio.Config) {
-			cfg.Values["pilot.env.PILOT_ENABLE_AGENTGATEWAY"] = "true"
-		})).
+		Setup(istio.Setup(&i, nil)).
 		Setup(deployment.SetupSingleNamespace(&apps, deployment.Config{})).
 		Setup(func(t resource.Context) error {
 			gatewayConformanceInputs.Client = t.Clusters().Default()

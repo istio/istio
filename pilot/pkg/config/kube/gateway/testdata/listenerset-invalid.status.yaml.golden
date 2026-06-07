@@ -135,6 +135,11 @@ status:
     reason: UnsupportedAddress
     status: "False"
     type: Programmed
+  - lastTransitionTime: fake
+    message: All references resolved
+    reason: ResolvedRefs
+    status: "True"
+    type: ResolvedRefs
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
@@ -160,6 +165,11 @@ status:
     reason: AddressNotUsable
     status: "False"
     type: Programmed
+  - lastTransitionTime: fake
+    message: All references resolved
+    reason: ResolvedRefs
+    status: "True"
+    type: ResolvedRefs
   listeners:
   - attachedRoutes: 0
     conditions:
@@ -211,6 +221,11 @@ status:
     reason: Programmed
     status: "True"
     type: Programmed
+  - lastTransitionTime: fake
+    message: All references resolved
+    reason: ResolvedRefs
+    status: "True"
+    type: ResolvedRefs
   listeners:
   - attachedRoutes: 0
     conditions:
@@ -262,6 +277,11 @@ status:
     reason: Programmed
     status: "True"
     type: Programmed
+  - lastTransitionTime: fake
+    message: All references resolved
+    reason: ResolvedRefs
+    status: "True"
+    type: ResolvedRefs
   listeners:
   - attachedRoutes: 0
     conditions:
@@ -311,6 +331,11 @@ status:
     reason: AddressNotUsable
     status: "False"
     type: Programmed
+  - lastTransitionTime: fake
+    message: All references resolved
+    reason: ResolvedRefs
+    status: "True"
+    type: ResolvedRefs
   listeners:
   - attachedRoutes: 0
     conditions:

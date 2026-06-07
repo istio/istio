@@ -183,7 +183,6 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 	})
 	tw.AddHandler(func(sets.String) {
 		s.XDSServer.ConfigUpdate(&model.PushRequest{
-			Full:   true,
 			Reason: model.NewReasonStats(model.TagUpdate),
 			Forced: true,
 		})
@@ -235,7 +234,6 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 
 					// Trigger a push so we can recompute status
 					s.XDSServer.ConfigUpdate(&model.PushRequest{
-						Full:   true,
 						Reason: model.NewReasonStats(model.GlobalUpdate),
 						Forced: true,
 					})

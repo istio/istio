@@ -164,8 +164,7 @@ func buildAgwDestination(
 		}
 		hostname = GetServiceHostname(ctx, string(to.Name), namespace)
 		key := namespace + "/" + string(to.Name)
-		svc := ptr.Flatten(krt.FetchOne(ctx.Krt, ctx.Services, krt.FilterKey(key)))
-		if svc == nil {
+		if !krt.ResourceExists(ctx.Krt, ctx.Services, key) {
 			msg := fmt.Sprintf("backend(%s) not found", hostname)
 			log.Debug(msg)
 			invalidBackendErr = &Condition{

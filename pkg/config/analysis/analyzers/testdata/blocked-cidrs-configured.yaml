@@ -26,7 +26,7 @@ spec:
     spec:
       containers:
         - name: discovery
-          image: gcr.io/istio-testing/pilot:latest
+          image: registry.istio.io/testing/pilot:latest
           env:
             - name: BLOCKED_CIDRS_IN_JWKS_URIS
               value: "10.0.0.0/8,192.168.0.0/16,172.16.0.0/12"

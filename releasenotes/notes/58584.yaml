@@ -1,6 +1,8 @@
 apiVersion: release-notes/v2
 kind: feature
 area: istioctl
+issue:
+  - 58584
 releaseNotes:
 - |
   **Added** port validation to `istioctl` commands to prevent invalid values outside the 1-65535 range.

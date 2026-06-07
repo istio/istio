@@ -664,14 +664,7 @@ func filterChainMatch(listener *listener.Listener, fc *listener.FilterChain, lp 
 		if fc.FilterChainMatch == nil || len(fc.FilterChainMatch.ServerNames) == 0 {
 			return false
 		}
-		sniMatched := false
-		for _, sni := range fc.FilterChainMatch.ServerNames {
-			if sni == match.Sni {
-				sniMatched = true
-				break
-			}
-		}
-		if !sniMatched {
+		if !slices.Contains(fc.FilterChainMatch.ServerNames, match.Sni) {
 			return false
 		}
 	}

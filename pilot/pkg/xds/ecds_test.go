@@ -158,7 +158,7 @@ func TestECDSGenerate(t *testing.T) {
 		{
 			name:             "simple",
 			proxyNamespace:   "default",
-			request:          &model.PushRequest{Full: true, Forced: true},
+			request:          &model.PushRequest{Forced: true},
 			watchedResources: []string{"extensions.istio.io/trafficextension/default.default-plugin~istio-translated-wasmplugin"},
 			wantExtensions:   sets.String{"extensions.istio.io/trafficextension/default.default-plugin~istio-translated-wasmplugin": {}},
 			wantSecrets:      sets.String{},
@@ -166,7 +166,7 @@ func TestECDSGenerate(t *testing.T) {
 		{
 			name:             "simple_with_secret",
 			proxyNamespace:   "default",
-			request:          &model.PushRequest{Full: true, Forced: true},
+			request:          &model.PushRequest{Forced: true},
 			watchedResources: []string{"extensions.istio.io/trafficextension/default.default-plugin-with-sec~istio-translated-wasmplugin"},
 			wantExtensions:   sets.String{"extensions.istio.io/trafficextension/default.default-plugin-with-sec~istio-translated-wasmplugin": {}},
 			wantSecrets:      sets.String{"default-docker-credential": {}},
@@ -174,7 +174,7 @@ func TestECDSGenerate(t *testing.T) {
 		{
 			name:             "miss_secret",
 			proxyNamespace:   "default",
-			request:          &model.PushRequest{Full: true, Forced: true},
+			request:          &model.PushRequest{Forced: true},
 			watchedResources: []string{"extensions.istio.io/trafficextension/default.default-plugin-wrong-sec~istio-translated-wasmplugin"},
 			wantExtensions:   sets.String{"extensions.istio.io/trafficextension/default.default-plugin-wrong-sec~istio-translated-wasmplugin": {}},
 			wantSecrets:      sets.String{},
@@ -182,7 +182,7 @@ func TestECDSGenerate(t *testing.T) {
 		{
 			name:             "wrong_secret_type",
 			proxyNamespace:   "default",
-			request:          &model.PushRequest{Full: true, Forced: true},
+			request:          &model.PushRequest{Forced: true},
 			watchedResources: []string{"extensions.istio.io/trafficextension/default.default-plugin-wrong-sec-type~istio-translated-wasmplugin"},
 			wantExtensions:   sets.String{"extensions.istio.io/trafficextension/default.default-plugin-wrong-sec-type~istio-translated-wasmplugin": {}},
 			wantSecrets:      sets.String{},
@@ -190,7 +190,7 @@ func TestECDSGenerate(t *testing.T) {
 		{
 			name:           "root_and_default",
 			proxyNamespace: "default",
-			request:        &model.PushRequest{Full: true, Forced: true},
+			request:        &model.PushRequest{Forced: true},
 			watchedResources: []string{
 				"extensions.istio.io/trafficextension/default.default-plugin-with-sec~istio-translated-wasmplugin",
 				"extensions.istio.io/trafficextension/istio-system.root-plugin~istio-translated-wasmplugin",
@@ -204,7 +204,7 @@ func TestECDSGenerate(t *testing.T) {
 		{
 			name:             "only_root",
 			proxyNamespace:   "somenamespace",
-			request:          &model.PushRequest{Full: true, Forced: true},
+			request:          &model.PushRequest{Forced: true},
 			watchedResources: []string{"extensions.istio.io/trafficextension/istio-system.root-plugin~istio-translated-wasmplugin"},
 			wantExtensions:   sets.String{"extensions.istio.io/trafficextension/istio-system.root-plugin~istio-translated-wasmplugin": {}},
 			wantSecrets:      sets.String{"root-docker-credential": {}},
@@ -213,7 +213,6 @@ func TestECDSGenerate(t *testing.T) {
 			name:           "no_relevant_config_update",
 			proxyNamespace: "default",
 			request: &model.PushRequest{
-				Full:           true,
 				ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.AuthorizationPolicy}),
 			},
 			watchedResources: []string{
@@ -227,7 +226,6 @@ func TestECDSGenerate(t *testing.T) {
 			name:           "has_relevant_config_update",
 			proxyNamespace: "default",
 			request: &model.PushRequest{
-				Full:           true,
 				ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.AuthorizationPolicy}, model.ConfigKey{Kind: kind.TrafficExtension}),
 			},
 			watchedResources: []string{"extensions.istio.io/trafficextension/default.default-plugin-with-sec~istio-translated-wasmplugin"},
@@ -238,7 +236,6 @@ func TestECDSGenerate(t *testing.T) {
 			name:           "non_relevant_secret_update",
 			proxyNamespace: "default",
 			request: &model.PushRequest{
-				Full:           true,
 				ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.AuthorizationPolicy}, model.ConfigKey{Kind: kind.Secret}),
 			},
 			watchedResources: []string{"extensions.istio.io/trafficextension/default.default-plugin-with-sec~istio-translated-wasmplugin"},
@@ -249,7 +246,6 @@ func TestECDSGenerate(t *testing.T) {
 			name:           "non_relevant_secret_update_and_wasm_plugin",
 			proxyNamespace: "default",
 			request: &model.PushRequest{
-				Full:           true,
 				ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.TrafficExtension}, model.ConfigKey{Kind: kind.Secret}),
 			},
 			watchedResources: []string{"extensions.istio.io/trafficextension/default.default-plugin-with-sec~istio-translated-wasmplugin"},
@@ -260,7 +256,6 @@ func TestECDSGenerate(t *testing.T) {
 			name:           "relevant_secret_update",
 			proxyNamespace: "default",
 			request: &model.PushRequest{
-				Full:           true,
 				ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.Secret, Name: "default-pull-secret", Namespace: "default"}),
 			},
 			watchedResources: []string{"extensions.istio.io/trafficextension/default.default-plugin-with-sec~istio-translated-wasmplugin"},
@@ -271,7 +266,6 @@ func TestECDSGenerate(t *testing.T) {
 			name:           "relevant_secret_update_non_full_push",
 			proxyNamespace: "default",
 			request: &model.PushRequest{
-				Full:           false,
 				ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.Secret, Name: "default-pull-secret", Namespace: "default"}),
 			},
 			watchedResources: []string{"extensions.istio.io/trafficextension/default.default-plugin-with-sec~istio-translated-wasmplugin"},
@@ -284,7 +278,6 @@ func TestECDSGenerate(t *testing.T) {
 			name:           "multi_wasmplugin_update_secret",
 			proxyNamespace: "default",
 			request: &model.PushRequest{
-				Full:           false,
 				ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.Secret, Name: "default-pull-secret", Namespace: "default"}),
 			},
 			watchedResources: []string{
@@ -301,7 +294,7 @@ func TestECDSGenerate(t *testing.T) {
 		{
 			name:             "extensionfilter_simple",
 			proxyNamespace:   "default",
-			request:          &model.PushRequest{Full: true, Forced: true},
+			request:          &model.PushRequest{Forced: true},
 			watchedResources: []string{"extensions.istio.io/trafficextension/default.default-extension"},
 			wantExtensions:   sets.String{"extensions.istio.io/trafficextension/default.default-extension": {}},
 			wantSecrets:      sets.String{},
@@ -309,7 +302,7 @@ func TestECDSGenerate(t *testing.T) {
 		{
 			name:             "extensionfilter_simple_with_secret",
 			proxyNamespace:   "default",
-			request:          &model.PushRequest{Full: true, Forced: true},
+			request:          &model.PushRequest{Forced: true},
 			watchedResources: []string{"extensions.istio.io/trafficextension/default.default-extension-with-sec"},
 			wantExtensions:   sets.String{"extensions.istio.io/trafficextension/default.default-extension-with-sec": {}},
 			wantSecrets:      sets.String{"default-docker-credential": {}},
@@ -317,7 +310,7 @@ func TestECDSGenerate(t *testing.T) {
 		{
 			name:             "extensionfilter_miss_secret",
 			proxyNamespace:   "default",
-			request:          &model.PushRequest{Full: true, Forced: true},
+			request:          &model.PushRequest{Forced: true},
 			watchedResources: []string{"extensions.istio.io/trafficextension/default.default-extension-wrong-sec"},
 			wantExtensions:   sets.String{"extensions.istio.io/trafficextension/default.default-extension-wrong-sec": {}},
 			wantSecrets:      sets.String{},
@@ -325,7 +318,7 @@ func TestECDSGenerate(t *testing.T) {
 		{
 			name:             "extensionfilter_wrong_secret_type",
 			proxyNamespace:   "default",
-			request:          &model.PushRequest{Full: true, Forced: true},
+			request:          &model.PushRequest{Forced: true},
 			watchedResources: []string{"extensions.istio.io/trafficextension/default.default-extension-wrong-sec-type"},
 			wantExtensions:   sets.String{"extensions.istio.io/trafficextension/default.default-extension-wrong-sec-type": {}},
 			wantSecrets:      sets.String{},
@@ -333,7 +326,7 @@ func TestECDSGenerate(t *testing.T) {
 		{
 			name:           "extensionfilter_root_and_default",
 			proxyNamespace: "default",
-			request:        &model.PushRequest{Full: true, Forced: true},
+			request:        &model.PushRequest{Forced: true},
 			watchedResources: []string{
 				"extensions.istio.io/trafficextension/default.default-extension-with-sec",
 				"extensions.istio.io/trafficextension/istio-system.root-extension",
@@ -347,7 +340,7 @@ func TestECDSGenerate(t *testing.T) {
 		{
 			name:             "extensionfilter_only_root",
 			proxyNamespace:   "somenamespace",
-			request:          &model.PushRequest{Full: true, Forced: true},
+			request:          &model.PushRequest{Forced: true},
 			watchedResources: []string{"extensions.istio.io/trafficextension/istio-system.root-extension"},
 			wantExtensions:   sets.String{"extensions.istio.io/trafficextension/istio-system.root-extension": {}},
 			wantSecrets:      sets.String{"root-docker-credential": {}},
@@ -356,7 +349,6 @@ func TestECDSGenerate(t *testing.T) {
 			name:           "extensionfilter_has_relevant_config_update",
 			proxyNamespace: "default",
 			request: &model.PushRequest{
-				Full:           true,
 				ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.AuthorizationPolicy}, model.ConfigKey{Kind: kind.TrafficExtension}),
 			},
 			watchedResources: []string{"extensions.istio.io/trafficextension/default.default-extension-with-sec"},
@@ -367,7 +359,6 @@ func TestECDSGenerate(t *testing.T) {
 			name:           "extensionfilter_relevant_secret_update",
 			proxyNamespace: "default",
 			request: &model.PushRequest{
-				Full:           true,
 				ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.Secret, Name: "default-pull-secret", Namespace: "default"}),
 			},
 			watchedResources: []string{"extensions.istio.io/trafficextension/default.default-extension-with-sec"},
@@ -377,7 +368,7 @@ func TestECDSGenerate(t *testing.T) {
 		{
 			name:           "mixed_wasmplugin_and_extensionfilter",
 			proxyNamespace: "default",
-			request:        &model.PushRequest{Full: true, Forced: true},
+			request:        &model.PushRequest{Forced: true},
 			watchedResources: []string{
 				"extensions.istio.io/trafficextension/default.default-plugin-with-sec~istio-translated-wasmplugin",
 				"extensions.istio.io/trafficextension/default.default-extension-with-sec",

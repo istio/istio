@@ -37,13 +37,7 @@ fi
 PROXY_REPO_SHA="${PROXY_REPO_SHA:-$(grep PROXY_REPO_SHA istio.deps  -A 4 | grep lastStableSHA | cut -f 4 -d '"')}"
 
 # Envoy binary variables
-ISTIO_ENVOY_BASE_URL="${ISTIO_ENVOY_BASE_URL:-https://storage.googleapis.com/istio-build/proxy}"
-
-# If we are not using the default, assume its private and we need to authenticate
-if [[ "${ISTIO_ENVOY_BASE_URL}" != "https://storage.googleapis.com/istio-build/proxy" ]]; then
-  AUTH_HEADER="Authorization: Bearer $(gcloud auth print-access-token)"
-  export AUTH_HEADER
-fi
+ISTIO_ENVOY_BASE_URL="${ISTIO_ENVOY_BASE_URL:-https://blob.istio.io/istio-build/proxy}"
 
 SIDECAR="${SIDECAR:-envoy}"
 
@@ -97,12 +91,26 @@ function set_download_command () {
   exit 1
 }
 
+# shellcheck source=bin/setup_cf_credentials.sh
+source "$(dirname "${BASH_SOURCE[0]}")/setup_cf_credentials.sh"
+
 # Downloads and extract an Envoy binary if the artifact doesn't already exist.
 # Params:
 #   $1: The URL of the Envoy tar.gz to be downloaded.
 #   $2: The full path of the output binary.
 #   $3: Non-versioned name to use
 function download_envoy_if_necessary () {
+  local URL="$1"
+  # If $1 is an s3:// URL, get a presigned URL
+  if [[ "$1" == s3://* ]]; then
+    setup_cf_credentials
+    echo "Getting presigned URL for $1"
+    # Use AWS CLI to get a presigned URL that is valid for 60 secs
+    if ! URL=$(aws s3 presign "$1" --expires-in 60 ${AWS_ENDPOINT_URL:+--endpoint-url "$AWS_ENDPOINT_URL"}); then
+      echo "Error: Failed to get presigned URL for $1"
+      return 1
+    fi
+  fi
   if [[ ! -f "$2" ]] ; then
     # Enter the output directory.
     mkdir -p "$(dirname "$2")"
@@ -110,8 +118,13 @@ function download_envoy_if_necessary () {
 
     # Download and extract the binary to the output directory.
     echo "Downloading ${SIDECAR}: $1 to $2"
-    time ${DOWNLOAD_COMMAND} --header "${AUTH_HEADER:-}" "$1" |\
+
+    # Don't leak the presigned URL via xtrace.
+    case $- in *x*) local _xtrace=1;; *) local _xtrace=0;; esac
+    { set +x; } 2>/dev/null
+    time ${DOWNLOAD_COMMAND} "${URL}" |\
       tar --extract --gzip --strip-components=3 --to-stdout > "$2"
+    [[ $_xtrace == 1 ]] && set -x
     chmod +x "$2"
 
     # Make a copy named just "envoy" in the same directory (overwrite if necessary).

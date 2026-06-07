@@ -100,9 +100,51 @@ func TestNodeUntainterOnlyUntaintsWhenIstiocniInourNs(t *testing.T) {
 	s.assertNodeTainted(t, "node2")
 }
 
+func TestNodeUntainterWithCustomTaintName(t *testing.T) {
+	setupLogging()
+	test.SetForTest(t, &features.EnableNodeUntaintControllers, true)
+	test.SetForTest(t, &features.NodeUntaintTaintName, "custom.io/not-ready")
+
+	s := newNodeUntainterTestServer(t)
+
+	s.addTaintedNodes(t, "node1")
+
+	node := generateNode("node2", nil)
+	node.Spec.Taints = append(node.Spec.Taints, corev1.Taint{
+		Key:    "cni.istio.io/not-ready",
+		Value:  "true",
+		Effect: corev1.TaintEffectNoSchedule,
+	})
+	s.nc.Create(node)
+
+	s.addCniPod(t, "node1", true)
+	s.addCniPod(t, "node2", true)
+
+	s.assertNodeUntainted(t, "node1")
+	// node2 still has the `cni.istio.io/not-ready` taint rather than the `custom.io/not-ready` one.
+	// The untaint controller should not remove it, as it only manages the `custom.io/not-ready` taint.
+	s.assertNodeHasTaintKey(t, "node2", "cni.istio.io/not-ready")
+}
+
 func (s *nodeTainterTestServer) assertNodeTainted(t *testing.T, node string) {
 	t.Helper()
 	assert.Equal(t, s.isNodeUntainted(node), false)
+}
+
+func (s *nodeTainterTestServer) assertNodeHasTaintKey(t *testing.T, node, key string) {
+	t.Helper()
+	assert.EventuallyEqual(t, func() bool {
+		n := s.nc.Get(node, "")
+		if n == nil {
+			return false
+		}
+		for _, ta := range n.Spec.Taints {
+			if ta.Key == key {
+				return true
+			}
+		}
+		return false
+	}, true, retry.Timeout(time.Second*3))
 }
 
 func (s *nodeTainterTestServer) assertNodeUntainted(t *testing.T, node string) {
@@ -118,7 +160,7 @@ func (s *nodeTainterTestServer) isNodeUntainted(node string) bool {
 		return false
 	}
 	for _, t := range n.Spec.Taints {
-		if t.Key == TaintName {
+		if t.Key == features.NodeUntaintTaintName {
 			return false
 		}
 	}
@@ -131,7 +173,7 @@ func (s *nodeTainterTestServer) addTaintedNodes(t *testing.T, nodes ...string) {
 		node := generateNode(node, nil)
 		// add our special taint
 		node.Spec.Taints = append(node.Spec.Taints, corev1.Taint{
-			Key:    TaintName,
+			Key:    features.NodeUntaintTaintName,
 			Value:  "true",
 			Effect: corev1.TaintEffectNoSchedule,
 		})

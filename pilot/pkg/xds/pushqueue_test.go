@@ -169,7 +169,6 @@ func TestProxyQueue(t *testing.T) {
 
 		firstTime := time.Now()
 		p.Enqueue(proxies[0], &model.PushRequest{
-			Full: false,
 			ConfigsUpdated: sets.New(model.ConfigKey{
 				Kind: kind.ServiceEntry,
 				Name: "foo",
@@ -178,7 +177,6 @@ func TestProxyQueue(t *testing.T) {
 		})
 
 		p.Enqueue(proxies[0], &model.PushRequest{
-			Full:           false,
 			ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: "bar", Namespace: "ns1"}),
 
 			Start: firstTime.Add(time.Second),
@@ -202,9 +200,6 @@ func TestProxyQueue(t *testing.T) {
 		)
 		if !reflect.DeepEqual(model.ConfigsOfKind(info.ConfigsUpdated, kind.ServiceEntry), expectedEds) {
 			t.Errorf("Expected EdsUpdates to be %v, got %v", expectedEds, model.ConfigsOfKind(info.ConfigsUpdated, kind.ServiceEntry))
-		}
-		if info.Full {
-			t.Errorf("Expected full to be false, got true")
 		}
 	})
 

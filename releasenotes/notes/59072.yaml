@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue: [59072]
+releaseNotes:
+  - |
+    **Added** configurable port overrides for the network gateway service via `networkGatewayPorts` values.
+  - |
+    **Added** template validation to fail early when `service.ports` is empty and `networkGateway` is not set.

@@ -945,7 +945,6 @@ type buildClusterOpts struct {
 	policy          *networking.TrafficPolicy
 	port            *model.Port
 	serviceAccounts []string
-	serviceTargets  []model.ServiceTarget
 	// Used for traffic across multiple network clusters
 	// the east-west gateway in a remote cluster will use this value to route
 	// traffic to the appropriate service

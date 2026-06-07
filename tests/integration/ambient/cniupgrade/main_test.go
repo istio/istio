@@ -23,6 +23,7 @@ import (
 	"istio.io/api/label"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/crd"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	common_deploy "istio.io/istio/pkg/test/framework/components/echo/common/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
@@ -177,6 +178,9 @@ func TestTrafficWithCNIUpgrade(t *testing.T) {
 	framework.NewTest(t).
 		TopLevel().
 		Run(func(t framework.TestContext) {
+			if !crd.SupportsGatewayAPI(t) {
+				t.Skip("requires Gateway API support (k8s >= 1.31)")
+			}
 			apps := common_deploy.NewOrFail(t, common_deploy.Config{
 				NoExternalNamespace: true,
 				IncludeExtAuthz:     false,

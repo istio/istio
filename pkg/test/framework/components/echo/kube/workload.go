@@ -206,6 +206,14 @@ func (w *workload) Sidecar() echo.Sidecar {
 	w.mutex.Lock()
 	s := w.sidecar
 	w.mutex.Unlock()
+
+	// Return an untyped nil instead of a (*sidecar)(nil). An interface holding a nil concrete
+	// pointer is itself non-nil, so without this guard `wl.Sidecar() != nil` would be true even
+	// for pods without a sidecar.
+	if s == nil {
+		return nil
+	}
+
 	return s
 }
 
