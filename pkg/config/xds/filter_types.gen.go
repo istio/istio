@@ -345,6 +345,7 @@ import (
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/retry/priority/previous_priorities/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/router/cluster_specifiers/lua/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/router/cluster_specifiers/matcher/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/stat_sinks/dynamic_modules/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/stat_sinks/graphite_statsd/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/stat_sinks/open_telemetry/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/stat_sinks/wasm/v3"
