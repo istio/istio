@@ -465,13 +465,22 @@ func btlsMergeAncestors(
 // BuildAncestorBackends extracts backend→gateway relationships from routes.
 // This is used to determine which gateways reference a given backend Service,
 // which is needed for BackendTLSPolicy status reporting.
+// For routes with Gateway parentRefs, the gateway is extracted directly.
+// For routes with Service parentRefs, the gateway is resolved via WaypointServiceBinding
+// (the service's use-waypoint label points to the waypoint gateway).
 // TODO(jaellio): support TCPRoute
 func BuildAncestorBackends(
 	httpRoutes krt.Collection[*gatewayv1.HTTPRoute],
 	grpcRoutes krt.Collection[*gatewayv1.GRPCRoute],
+	waypointBindings krt.Collection[WaypointServiceBinding],
 	opts krt.OptionsBuilder,
 ) krt.Collection[*AncestorBackend] {
-	httpAncestors := krt.NewManyCollection(httpRoutes, func(_ krt.HandlerContext, obj *gatewayv1.HTTPRoute) []*AncestorBackend {
+	// Index waypoint bindings by service key so we can resolve Service parentRef → waypoint gateway
+	bindingsByService := krt.NewIndex(waypointBindings, "btls-by-service", func(b WaypointServiceBinding) []types.NamespacedName {
+		return []types.NamespacedName{b.ServiceKey}
+	})
+
+	httpAncestors := krt.NewManyCollection(httpRoutes, func(ctx krt.HandlerContext, obj *gatewayv1.HTTPRoute) []*AncestorBackend {
 		source := TypedResource{
 			Kind: gvk.HTTPRoute,
 			Name: types.NamespacedName{
@@ -480,6 +489,8 @@ func BuildAncestorBackends(
 			},
 		}
 		gateways := extractGatewayRefs(obj.Namespace, obj.Spec.ParentRefs)
+		// Also resolve Service parentRefs to waypoint gateways via WaypointServiceBinding
+		gateways.Merge(extractWaypointGatewayRefs(ctx, obj.Namespace, obj.Spec.ParentRefs, bindingsByService))
 		backends := sets.New[types.NamespacedName]()
 		for _, rule := range obj.Spec.Rules {
 			for _, ref := range rule.BackendRefs {
@@ -496,7 +507,7 @@ func BuildAncestorBackends(
 		return buildAncestorPairs(gateways, backends, source)
 	}, opts.WithName("HTTPRouteAncestorBackends")...)
 
-	grpcAncestors := krt.NewManyCollection(grpcRoutes, func(_ krt.HandlerContext, obj *gatewayv1.GRPCRoute) []*AncestorBackend {
+	grpcAncestors := krt.NewManyCollection(grpcRoutes, func(ctx krt.HandlerContext, obj *gatewayv1.GRPCRoute) []*AncestorBackend {
 		source := TypedResource{
 			Kind: gvk.HTTPRoute,
 			Name: types.NamespacedName{
@@ -505,6 +516,8 @@ func BuildAncestorBackends(
 			},
 		}
 		gateways := extractGatewayRefs(obj.Namespace, obj.Spec.ParentRefs)
+		// Also resolve Service parentRefs to waypoint gateways via WaypointServiceBinding
+		gateways.Merge(extractWaypointGatewayRefs(ctx, obj.Namespace, obj.Spec.ParentRefs, bindingsByService))
 		backends := sets.New[types.NamespacedName]()
 		for _, rule := range obj.Spec.Rules {
 			for _, ref := range rule.BackendRefs {
@@ -539,6 +552,35 @@ func extractGatewayRefs(defaultNS string, refs []gatewayv1.ParentReference) sets
 			ns = string(*r.Namespace)
 		}
 		gateways.Insert(types.NamespacedName{Namespace: ns, Name: string(r.Name)})
+	}
+	return gateways
+}
+
+// extractWaypointGatewayRefs resolves Service parentRefs to waypoint gateways via WaypointServiceBinding.
+// For each Service parentRef, if the service has a use-waypoint label pointing to a waypoint gateway,
+// that gateway is included in the result set.
+func extractWaypointGatewayRefs(
+	ctx krt.HandlerContext,
+	defaultNS string,
+	refs []gatewayv1.ParentReference,
+	bindingsByService krt.Index[types.NamespacedName, WaypointServiceBinding],
+) sets.Set[types.NamespacedName] {
+	gateways := sets.New[types.NamespacedName]()
+	for _, r := range refs {
+		if r.Kind == nil || *r.Kind != "Service" {
+			continue
+		}
+		if r.Group != nil && *r.Group != "" {
+			continue
+		}
+		ns := defaultNS
+		if r.Namespace != nil {
+			ns = string(*r.Namespace)
+		}
+		svcKey := types.NamespacedName{Namespace: ns, Name: string(r.Name)}
+		for _, b := range bindingsByService.Fetch(ctx, svcKey) {
+			gateways.Insert(b.WaypointGateway)
+		}
 	}
 	return gateways
 }

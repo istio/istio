@@ -104,6 +104,14 @@ func GetAllClasses() map[gateway.ObjectName]gateway.GatewayController {
 	return res
 }
 
+// GetControllerForAgentgatewayClass returns the controller for a given agentgateway class.
+func GetControllerForAgentgatewayClass(className string) string {
+	if controller, ok := AgentgatewayClasses[gateway.ObjectName(className)]; ok {
+		return string(controller)
+	}
+	return string(constants.ManagedAgentgatewayController) // fallback
+}
+
 // GetClassInfos returns the full mapping of gateway controller to ClassInfo.
 func GetClassInfos() map[gateway.GatewayController]ClassInfo {
 	m := map[gateway.GatewayController]ClassInfo{
