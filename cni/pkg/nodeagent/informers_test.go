@@ -1244,7 +1244,7 @@ func TestInformerStillHandlesDeleteEventIfPodNotActuallyPresentAnymore(t *testin
 // fakeServer mock instead of the real meshDataplane, so tests can assert on
 // SyncHostProbeIPSet. The queue is intentionally not started tests drive
 // reconcile() directly so the only dataplane calls are the ones under test.
-func setupHandlersWithFakeDataplane(ctx context.Context, t *testing.T, client kube.Client, fs *fakeServer) *InformerHandlers {
+func setupHandlersWithFakeDataplane(ctx context.Context, client kube.Client, fs *fakeServer) *InformerHandlers {
 	handlers := setupHandlers(ctx, client, fs, "istio-system", defaultAmbientSelector, nil)
 	client.RunAndWait(ctx.Done())
 	kube.WaitForCacheSync("test", ctx.Done(), handlers.pods.HasSynced, handlers.namespaces.HasSynced)
@@ -1281,7 +1281,7 @@ func TestInformerEnrolledPodProbeIPSetReassertedWhenIPReappears(t *testing.T) {
 	fs := &fakeServer{}
 	fs.On("SyncHostProbeIPSet", mock.IsType(pod), util.GetPodIPsIfPresent(pod)).Once().Return(nil)
 
-	handlers := setupHandlersWithFakeDataplane(ctx, t, client, fs)
+	handlers := setupHandlersWithFakeDataplane(ctx, client, fs)
 
 	// The previous event observed no IP (snapshot pruned the entry); the current cache has
 	// it back. That IP-less -> IP transition is what triggers the self-heal.
@@ -1327,7 +1327,7 @@ func TestInformerEnrolledPodProbeIPSetNotReassertedWhenIPUnchanged(t *testing.T)
 	// invoked for an IP-unchanged update.
 	fs := &fakeServer{}
 
-	handlers := setupHandlersWithFakeDataplane(ctx, t, client, fs)
+	handlers := setupHandlersWithFakeDataplane(ctx, client, fs)
 
 	// Same IP as the cached pod, only an unrelated status field differs.
 	oldPod := pod.DeepCopy()
