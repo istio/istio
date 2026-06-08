@@ -279,15 +279,25 @@ func (lb *ListenerBuilder) buildHCMConnectTerminateChain(routes []*route.Route) 
 		// If we put them as a network filter, we get poor logs and cannot return an error at the CONNECT level
 		filters = authzBuilder.BuildTCPRulesAsHTTPFilter()
 	}
+	// TODO: Remove in 1.32
+	pre1_29_2 := !lb.node.VersionGreaterOrEqual(&model.IstioVersion{Major: 1, Minor: 29, Patch: 2})
+	connectAuthorityFilter := xdsfilters.ConnectAuthorityFilter
+	if pre1_29_2 {
+		connectAuthorityFilter = xdsfilters.ConnectAuthorityFilterPre1_29_2
+	}
 	filters = append(filters,
 		xdsfilters.GenerateWaypointDownstreamMetadataFilter(),
-		xdsfilters.ConnectAuthorityFilter)
+		connectAuthorityFilter)
 
 	// This filter checks whether the request went through a waypoint already and thefore whether L7 policies have
 	// been applied already. We put that information into filter state for later use when we decide whether to
 	// send the request to a waypoint or skip it.
 	if features.EnableAmbientMultiNetwork && isAmbientEastWestGateway(lb.node) {
-		filters = append(filters, xdsfilters.RequestSourceFilter)
+		requestSourceFilter := xdsfilters.RequestSourceFilter
+		if pre1_29_2 {
+			requestSourceFilter = xdsfilters.RequestSourceFilterPre1_29_2
+		}
+		filters = append(filters, requestSourceFilter)
 	}
 
 	// Filters needed to propagate the tunnel metadata to the inner streams.

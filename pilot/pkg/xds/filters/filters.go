@@ -350,6 +350,127 @@ var (
 		},
 	}
 
+	RequestSourceFilterPre1_29_2 = &hcm.HttpFilter{
+		Name: "request_source",
+		ConfigType: &hcm.HttpFilter_TypedConfig{
+			TypedConfig: protoconv.MessageToAny(&sfs.Config{
+				OnRequestHeaders: []*sfsvalue.FilterStateValue{
+					{
+						Key: &sfsvalue.FilterStateValue_ObjectKey{
+							ObjectKey: RequestSourceFilterStateKey,
+						},
+						Value: &sfsvalue.FilterStateValue_FormatString{
+							FormatString: &core.SubstitutionFormatString{
+								Format: &core.SubstitutionFormatString_TextFormatSource{
+									TextFormatSource: &core.DataSource{
+										Specifier: &core.DataSource_InlineString{
+											InlineString: "%REQ(x-istio-source)%",
+										},
+									},
+								},
+							},
+						},
+						FactoryKey:         "envoy.string",
+						SharedWithUpstream: sfsvalue.FilterStateValue_ONCE,
+					},
+				},
+			}),
+		},
+	}
+
+	ConnectAuthorityFilterPre1_29_2 = &hcm.HttpFilter{
+		Name: "connect_authority",
+		ConfigType: &hcm.HttpFilter_TypedConfig{
+			TypedConfig: protoconv.MessageToAny(&sfs.Config{
+				OnRequestHeaders: []*sfsvalue.FilterStateValue{
+					{
+						Key: &sfsvalue.FilterStateValue_ObjectKey{
+							ObjectKey: OriginalDstFilterStateKey,
+						},
+						Value: &sfsvalue.FilterStateValue_FormatString{
+							FormatString: &core.SubstitutionFormatString{
+								Format: &core.SubstitutionFormatString_TextFormatSource{
+									TextFormatSource: &core.DataSource{
+										Specifier: &core.DataSource_InlineString{
+											InlineString: "%REQ(:AUTHORITY)%",
+										},
+									},
+								},
+							},
+						},
+						SharedWithUpstream: sfsvalue.FilterStateValue_ONCE,
+					}, {
+						Key: &sfsvalue.FilterStateValue_ObjectKey{
+							ObjectKey: AuthorityFilterStateKey,
+						},
+						Value: &sfsvalue.FilterStateValue_FormatString{
+							FormatString: &core.SubstitutionFormatString{
+								Format: &core.SubstitutionFormatString_TextFormatSource{
+									TextFormatSource: &core.DataSource{
+										Specifier: &core.DataSource_InlineString{
+											InlineString: "%REQ(:AUTHORITY)%",
+										},
+									},
+								},
+							},
+						},
+						FactoryKey:         "envoy.string",
+						SharedWithUpstream: sfsvalue.FilterStateValue_ONCE,
+					}, {
+						Key: &sfsvalue.FilterStateValue_ObjectKey{
+							ObjectKey: "envoy.filters.listener.original_dst.remote_ip",
+						},
+						Value: &sfsvalue.FilterStateValue_FormatString{
+							FormatString: &core.SubstitutionFormatString{
+								Format: &core.SubstitutionFormatString_TextFormatSource{
+									TextFormatSource: &core.DataSource{
+										Specifier: &core.DataSource_InlineString{
+											InlineString: "%DOWNSTREAM_REMOTE_ADDRESS%",
+										},
+									},
+								},
+							},
+						},
+						SharedWithUpstream: sfsvalue.FilterStateValue_ONCE,
+					}, {
+						Key: &sfsvalue.FilterStateValue_ObjectKey{
+							ObjectKey: "io.istio.peer_principal",
+						},
+						FactoryKey: "envoy.string",
+						Value: &sfsvalue.FilterStateValue_FormatString{
+							FormatString: &core.SubstitutionFormatString{
+								Format: &core.SubstitutionFormatString_TextFormatSource{
+									TextFormatSource: &core.DataSource{
+										Specifier: &core.DataSource_InlineString{
+											InlineString: "%DOWNSTREAM_PEER_URI_SAN%",
+										},
+									},
+								},
+							},
+						},
+						SharedWithUpstream: sfsvalue.FilterStateValue_ONCE,
+					}, {
+						Key: &sfsvalue.FilterStateValue_ObjectKey{
+							ObjectKey: "io.istio.local_principal",
+						},
+						FactoryKey: "envoy.string",
+						Value: &sfsvalue.FilterStateValue_FormatString{
+							FormatString: &core.SubstitutionFormatString{
+								Format: &core.SubstitutionFormatString_TextFormatSource{
+									TextFormatSource: &core.DataSource{
+										Specifier: &core.DataSource_InlineString{
+											InlineString: "%DOWNSTREAM_LOCAL_URI_SAN%",
+										},
+									},
+								},
+							},
+						},
+						SharedWithUpstream: sfsvalue.FilterStateValue_ONCE,
+					},
+				},
+			}),
+		},
+	}
 	ConnectAuthorityNetworkFilter = &listener.Filter{
 		Name: "connect_authority",
 		ConfigType: &listener.Filter_TypedConfig{

@@ -1411,6 +1411,11 @@ type listenerKey struct {
 // 1. It uses TCP Proxy network filter to establish a CONNECT tunnel
 // 2. It captures and propagates metadata about the actual destination and service name required for double-HBONE.
 func buildInnerConnectOriginateListener(push *model.PushContext, proxy *model.Proxy) *listener.Listener {
+	// TODO: Remove in 1.32
+	factoryKey := "istio.hashable_string"
+	if !proxy.VersionGreaterOrEqual(&model.IstioVersion{Major: 1, Minor: 29, Patch: 2}) {
+		factoryKey = "envoy.string"
+	}
 	setFilterState := &sfsnetwork.Config{
 		OnNewConnection: []*sfsvalue.FilterStateValue{
 			{
@@ -1445,7 +1450,7 @@ func buildInnerConnectOriginateListener(push *model.PushContext, proxy *model.Pr
 						},
 					},
 				},
-				FactoryKey:         "istio.hashable_string",
+				FactoryKey:         factoryKey,
 				SharedWithUpstream: sfsvalue.FilterStateValue_TRANSITIVE,
 			},
 		},
