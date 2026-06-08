@@ -13,6 +13,7 @@ metadata:
     gateway.istio.io/managed: istio.io-gateway-controller
     gateway.networking.k8s.io/gateway-class-name: istio
     gateway.networking.k8s.io/gateway-name: default
+    istio.io/dataplane-mode: none
     should: see
   name: default-istio
   namespace: default
@@ -31,6 +32,7 @@ metadata:
     gateway.istio.io/managed: istio.io-gateway-controller
     gateway.networking.k8s.io/gateway-class-name: istio
     gateway.networking.k8s.io/gateway-name: default
+    istio.io/dataplane-mode: none
     should: see
   name: default-istio
   namespace: default
@@ -55,6 +57,7 @@ spec:
         gateway.istio.io/managed: istio.io-gateway-controller
         gateway.networking.k8s.io/gateway-class-name: istio
         gateway.networking.k8s.io/gateway-name: default
+        istio.io/dataplane-mode: none
         service.istio.io/canonical-name: default-istio
         service.istio.io/canonical-revision: latest
         should: see
@@ -235,6 +238,7 @@ metadata:
     gateway.istio.io/managed: istio.io-gateway-controller
     gateway.networking.k8s.io/gateway-class-name: istio
     gateway.networking.k8s.io/gateway-name: default
+    istio.io/dataplane-mode: none
     should: see
   name: default-istio
   namespace: default

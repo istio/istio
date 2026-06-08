@@ -2607,11 +2607,6 @@ data:
                     "gateway.istio.io/managed" "istio.io-agentgateway-waypoint-controller"
                   ) | nindent 8 }}
             spec:
-              {{- if .Values.gateways.seccompProfile }}
-              securityContext:
-                seccompProfile:
-              {{- toYaml .Values.gateways.seccompProfile | nindent 10 }}
-              {{- end }}
               serviceAccountName: {{.ServiceAccount | quote}}
               containers:
               - name: agentgateway
@@ -2635,6 +2630,10 @@ data:
                   runAsUser: {{ .ProxyUID | default "10101" }}
                   runAsGroup: {{ .ProxyGID | default "10101" }}
                   runAsNonRoot: true
+        {{- if .Values.gateways.seccompProfile }}
+                  seccompProfile:
+        {{- toYaml .Values.gateways.seccompProfile | nindent 12 }}
+        {{- end }}
                 ports:
                 - containerPort: 15020
                   name: metrics

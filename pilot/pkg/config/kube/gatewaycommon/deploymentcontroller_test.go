@@ -74,6 +74,16 @@ var (
 	timestampRegex = regexp.MustCompile(`lastTransitionTime:.*`)
 )
 
+func init() {
+	features.EnableAlphaGatewayAPI = true
+	features.EnableAmbientWaypoints = true
+	features.EnableAmbientMultiNetwork = true
+	features.EnableAgentgateway = true
+	// Recompute with ambient and agw enabled
+	ClassInfos = GetClassInfos()
+	BuiltinGatewayClasses = GetAllClasses()
+}
+
 func TestConfigureIstioGateway(t *testing.T) {
 	discoveryNamespacesFilter := buildFilter("default")
 	defaultNamespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "default"}}
@@ -293,6 +303,58 @@ func TestConfigureIstioGateway(t *testing.T) {
 				},
 				Spec: k8s.GatewaySpec{
 					GatewayClassName: constants.WaypointGatewayClassName,
+					Listeners: []k8s.Listener{{
+						Name:     "mesh",
+						Port:     k8s.PortNumber(15008),
+						Protocol: "ALL",
+					}},
+				},
+			},
+			objects: defaultObjects,
+			values: `global:
+  waypoint:
+    resources:
+      limits:
+        cpu: null
+        memory: 500Mi
+      requests:
+        cpu: null
+        memory: 150Mi`,
+		},
+		{
+			name: "agentgateway-waypoint",
+			gw: k8s.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "namespace",
+					Namespace: "default",
+					Labels: map[string]string{
+						label.TopologyNetwork.Name: "network-1", // explicitly set network won't be overwritten
+					},
+				},
+				Spec: k8s.GatewaySpec{
+					GatewayClassName: constants.AgentgatewayWaypointClassName,
+					Listeners: []k8s.Listener{{
+						Name:     "mesh",
+						Port:     k8s.PortNumber(15008),
+						Protocol: "ALL",
+					}},
+				},
+			},
+			objects: defaultObjects,
+			values: `global:
+  hub: test
+  tag: test
+  network: network-2`,
+		},
+		{
+			name: "agentgateway-waypoint-resources-null",
+			gw: k8s.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "namespace",
+					Namespace: "default",
+				},
+				Spec: k8s.GatewaySpec{
+					GatewayClassName: constants.AgentgatewayWaypointClassName,
 					Listeners: []k8s.Listener{{
 						Name:     "mesh",
 						Port:     k8s.PortNumber(15008),
@@ -1249,6 +1311,10 @@ global:
 		"kube-gateway": file.AsStringOrFail(t, filepath.Join(env.IstioSrc, "manifests/charts/istio-control/istio-discovery/files/kube-gateway.yaml")),
 		"waypoint":     file.AsStringOrFail(t, filepath.Join(env.IstioSrc, "manifests/charts/istio-control/istio-discovery/files/waypoint.yaml")),
 		"agentgateway": file.AsStringOrFail(t, filepath.Join(env.IstioSrc, "manifests/charts/istio-control/istio-discovery/files/agentgateway.yaml")),
+		"agentgateway-waypoint": file.AsStringOrFail(t, filepath.Join(
+			env.IstioSrc,
+			"manifests/charts/istio-control/istio-discovery/files/agentgateway-waypoint.yaml",
+		)),
 	})
 	if err != nil {
 		t.Fatal(err)

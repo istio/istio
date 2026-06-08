@@ -625,7 +625,6 @@ func init() {
 	features.EnableAlphaGatewayAPI = true
 	features.EnableAmbientWaypoints = true
 	features.EnableAmbientMultiNetwork = true
-	features.EnableAgentgateway = true
 	// Recompute with ambient enabled
 	gatewaycommon.ClassInfos = gatewaycommon.GetClassInfos()
 	gatewaycommon.BuiltinGatewayClasses = gatewaycommon.GetBuiltinGatewayClasses()
