@@ -2607,11 +2607,10 @@ data:
                     "gateway.istio.io/managed" "istio.io-agentgateway-waypoint-controller"
                   ) | nindent 8 }}
             spec:
-              securityContext:
               {{- if .Values.gateways.seccompProfile }}
+              securityContext:
                 seccompProfile:
               {{- toYaml .Values.gateways.seccompProfile | nindent 10 }}
-              {{- end }}
               {{- end }}
               serviceAccountName: {{.ServiceAccount | quote}}
               containers:
