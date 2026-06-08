@@ -700,7 +700,7 @@ func setAncestorStatus(
 	return gw.PolicyAncestorStatus{
 		AncestorRef:    pr,
 		ControllerName: controller,
-		Conditions:     setConditions(generation, currentConds, conds),
+		Conditions:     gatewaycommon.SetResourceConditions(generation, currentConds, toSharedConditions(conds)),
 	}
 }
 

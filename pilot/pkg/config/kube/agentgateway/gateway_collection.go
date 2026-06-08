@@ -93,6 +93,10 @@ func (g AgwParentInfo) Equals(other AgwParentInfo) bool {
 		slices.Equal(g.Hostnames, other.Hostnames)
 }
 
+func (g AgwParentInfo) IsWaypoint() bool {
+	return g.ParentGatewayClassName == constants.AgentgatewayWaypointClassName
+}
+
 // Borrowed from kgateway
 type ListenerSet struct {
 	Name string `json:"name"`
@@ -220,7 +224,7 @@ func ListenerSetCollection(
 				standardListener := gatewaycommon.ConvertListenerSetToListener(l)
 
 				if reason, ok := conflicts[l.Name]; ok {
-					standardStatus = gatewaycommon.ReportListenerConflict(i, standardListener, obj, standardStatus, reason)
+					standardStatus = gatewaycommon.ReportListenerConflict(i, standardListener, obj, standardStatus, reason, gatewaycommon.GenerateAgentgatewaySupportedKinds)
 					continue
 				}
 
@@ -244,7 +248,7 @@ func ListenerSetCollection(
 				}
 				name := InternalGatewayName(obj.Namespace, obj.Name, string(l.Name))
 
-				allowed, _ := gatewaycommon.GenerateSupportedKinds(standardListener)
+				allowed, _ := gatewaycommon.GenerateAgentgatewaySupportedKinds(standardListener)
 				pri := AgwParentInfo{
 					ParentGateway:    config.NamespacedName(parentGwObj),
 					InternalName:     obj.Namespace + "/" + name,
@@ -358,7 +362,7 @@ func GatewayCollection(
 
 		for i, l := range kgw.Listeners {
 			if reason, ok := gwListenerConflicts[l.Name]; ok {
-				status.Listeners = gatewaycommon.ReportListenerConflict(i, l, obj, status.Listeners, reason)
+				status.Listeners = gatewaycommon.ReportListenerConflict(i, l, obj, status.Listeners, reason, gatewaycommon.GenerateAgentgatewaySupportedKinds)
 				continue
 			}
 
@@ -378,7 +382,7 @@ func GatewayCollection(
 			servers = append(servers, server)
 
 			// Generate supported kinds for the listener
-			allowed, _ := gatewaycommon.GenerateSupportedKinds(l)
+			allowed, _ := gatewaycommon.GenerateAgentgatewaySupportedKinds(l)
 
 			name := InternalGatewayName(obj.Namespace, obj.Name, string(l.Name))
 			pri := AgwParentInfo{
@@ -450,24 +454,71 @@ func InternalGatewayName(gwNamespace, gwName, lName string) string {
 
 // TODO(jaellio): Move these definitions to route collection (?)
 // RouteParents holds information about things routes can reference as parents.
+// For ingress gateways, parents are Gateway/ListenerSet resources.
+// For waypoint gateways, routes can also reference Services as parents.
+// TODO(jaellio)
 type RouteParents struct {
+	// TODO(jaellio): Are the Gateway listeners just for the listeners with parents refs of
+	// type Gateway or listenerSet? Or could the listeners with a service parent ref also be included?
+	// Are they already included?
 	gatewayIndex krt.Index[AgwParentKey, *GatewayListener]
+
+	// waypointBindings maps services to their AGW waypoint gateways.
+	// When a route references a Service as parentRef, this collection is used to
+	// resolve the service to its waypoint gateway, enabling route attachment.
+	// TODO(jaellio): Consider if this is the best way to handle waypoint bindings,
+	// or if there's a more efficient approach. Also consider changing the name of this field to match
+	// gatewayIndex.
+	// TODO(jaellio): Do an equivalend to the agwParentKey for the waypointBindings?
+	waypointBindings krt.Collection[WaypointServiceBinding]
 }
 
 func (p RouteParents) fetch(ctx krt.HandlerContext, pk AgwParentKey) []*AgwParentInfo {
+	if pk.Kind == gvk.Service.Kubernetes() || pk.Kind == gvk.ServiceEntry.Kubernetes() {
+		return p.fetchServiceParent(ctx, pk)
+	}
 	return slices.Map(p.gatewayIndex.Fetch(ctx, pk), func(gw *GatewayListener) *AgwParentInfo {
+		return &gw.ParentInfo
+	})
+}
+
+// fetchServiceParent resolves a Service parentRef to the waypoint gateway that fronts it.
+// If the service has a use-waypoint label pointing to an AGW waypoint gateway, the route
+// is attached to that waypoint gateway's listeners.
+func (p RouteParents) fetchServiceParent(ctx krt.HandlerContext, pk AgwParentKey) []*AgwParentInfo {
+	if p.waypointBindings == nil {
+		return nil
+	}
+
+	// Look up the waypoint binding for this service
+	svcKey := pk.Namespace + "/" + pk.Name
+	binding := krt.FetchOne(ctx, p.waypointBindings, krt.FilterKey(svcKey))
+	if binding == nil {
+		return nil
+	}
+
+	// Found a waypoint binding — look up the waypoint gateway's listeners
+	wpKey := AgwParentKey{
+		Kind:      gvk.KubernetesGateway.Kubernetes(),
+		Name:      binding.WaypointGateway.Name,
+		Namespace: binding.WaypointGateway.Namespace,
+	}
+	return slices.Map(p.gatewayIndex.Fetch(ctx, wpKey), func(gw *GatewayListener) *AgwParentInfo {
 		return &gw.ParentInfo
 	})
 }
 
 func BuildRouteParents(
 	gateways krt.Collection[*GatewayListener],
+	waypointBindings krt.Collection[WaypointServiceBinding],
 ) RouteParents {
 	idx := krt.NewIndex(gateways, "parent", func(o *GatewayListener) []AgwParentKey {
 		return []AgwParentKey{o.ParentObject}
 	})
 	return RouteParents{
 		gatewayIndex: idx,
+		// waypointBindings maps services to their AGW waypoint gateways
+		waypointBindings: waypointBindings,
 	}
 }
 
