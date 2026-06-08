@@ -17,6 +17,7 @@ package controller
 import (
 	"context"
 	"strings"
+	"sync"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -53,22 +54,30 @@ type kubeController struct {
 	*Controller
 	workloadEntryController *serviceentry.Controller
 	stop                    chan struct{}
+	// closeOnce ensures Close is idempotent. During rapid credential rotation two
+	// update goroutines can race: both capture the same previous kubeController and
+	// both call Close on it. Without this guard the second call panics with
+	// "close of closed channel". Cleanup is side-effect-free on repeat calls so
+	// running it only once is correct.
+	closeOnce sync.Once
 }
 
 func (k *kubeController) Close() {
-	close(k.stop)
-	clusterID := k.Controller.clusterID
-	k.MeshServiceController.UnRegisterHandlersForCluster(clusterID)
-	k.MeshServiceController.DeleteRegistry(clusterID, provider.Kubernetes)
-	if k.workloadEntryController != nil {
-		k.MeshServiceController.DeleteRegistry(clusterID, provider.External)
-	}
-	if err := k.Controller.Cleanup(); err != nil {
-		log.Warnf("failed cleaning up services in %s: %v", clusterID, err)
-	}
-	if k.opts.XDSUpdater != nil {
-		k.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{Reason: model.NewReasonStats(model.ClusterUpdate), Forced: true})
-	}
+	k.closeOnce.Do(func() {
+		close(k.stop)
+		clusterID := k.Controller.clusterID
+		k.MeshServiceController.UnRegisterHandlersForCluster(clusterID)
+		k.MeshServiceController.DeleteRegistry(clusterID, provider.Kubernetes)
+		if k.workloadEntryController != nil {
+			k.MeshServiceController.DeleteRegistry(clusterID, provider.External)
+		}
+		if err := k.Controller.Cleanup(); err != nil {
+			log.Warnf("failed cleaning up services in %s: %v", clusterID, err)
+		}
+		if k.opts.XDSUpdater != nil {
+			k.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{Reason: model.NewReasonStats(model.ClusterUpdate), Forced: true})
+		}
+	})
 }
 
 // Multicluster structure holds the remote kube Controllers and multicluster specific attributes.
