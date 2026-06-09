@@ -9,9 +9,10 @@ kind: ServiceAccount
 metadata:
   annotations: {}
   labels:
-    gateway.istio.io/managed: istio.io-mesh-controller
-    gateway.networking.k8s.io/gateway-class-name: istio-waypoint
+    gateway.istio.io/managed: istio.io-agentgateway-waypoint-controller
+    gateway.networking.k8s.io/gateway-class-name: istio-agentgateway-waypoint
     gateway.networking.k8s.io/gateway-name: namespace
+    topology.istio.io/network: network-1
   name: namespace
   namespace: default
   ownerReferences:
@@ -25,9 +26,10 @@ kind: Deployment
 metadata:
   annotations: {}
   labels:
-    gateway.istio.io/managed: istio.io-mesh-controller
-    gateway.networking.k8s.io/gateway-class-name: istio-waypoint
+    gateway.istio.io/managed: istio.io-agentgateway-waypoint-controller
+    gateway.networking.k8s.io/gateway-class-name: istio-agentgateway-waypoint
     gateway.networking.k8s.io/gateway-name: namespace
+    topology.istio.io/network: network-1
   name: namespace
   namespace: default
   ownerReferences:
@@ -47,46 +49,29 @@ spec:
         prometheus.io/port: "15020"
         prometheus.io/scrape: "true"
       labels:
-        gateway.istio.io/managed: istio.io-mesh-controller
-        gateway.networking.k8s.io/gateway-class-name: istio-waypoint
+        gateway.istio.io/managed: istio.io-agentgateway-waypoint-controller
+        gateway.networking.k8s.io/gateway-class-name: istio-agentgateway-waypoint
         gateway.networking.k8s.io/gateway-name: namespace
         istio.io/dataplane-mode: none
         service.istio.io/canonical-name: namespace
         service.istio.io/canonical-revision: latest
         sidecar.istio.io/inject: "false"
+        topology.istio.io/network: network-1
     spec:
       containers:
       - args:
-        - proxy
-        - waypoint
-        - --domain
-        - $(POD_NAMESPACE).svc.<no value>
-        - --serviceCluster
-        - namespace.$(POD_NAMESPACE)
-        - --proxyLogLevel
-        - <nil>
-        - --proxyComponentLogLevel
-        - <nil>
-        - --log_output_level
-        - <nil>
+        - --config
+        - '{}'
         env:
-        - name: ISTIO_META_SERVICE_ACCOUNT
-          valueFrom:
-            fieldRef:
-              fieldPath: spec.serviceAccountName
-        - name: ISTIO_META_NODE_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: spec.nodeName
-        - name: PILOT_CERT_PROVIDER
-          value: <no value>
-        - name: CA_ADDR
-          value: istiod-<no value>.<no value>.svc:15012
         - name: POD_NAME
           valueFrom:
             fieldRef:
               fieldPath: metadata.name
         - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: NAMESPACE
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
@@ -98,51 +83,33 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.serviceAccountName
-        - name: HOST_IP
-          valueFrom:
-            fieldRef:
-              fieldPath: status.hostIP
-        - name: ISTIO_CPU_LIMIT
+        - name: CPU_LIMIT
           valueFrom:
             resourceFieldRef:
               divisor: "1"
               resource: limits.cpu
-        - name: PROXY_CONFIG
-          value: |
-            {}
-        - name: GOMEMLIMIT
-          valueFrom:
-            resourceFieldRef:
-              divisor: "1"
-              resource: limits.memory
-        - name: GOMAXPROCS
-          valueFrom:
-            resourceFieldRef:
-              divisor: "1"
-              resource: limits.cpu
-        - name: ISTIO_META_CLUSTER_ID
-          value: Kubernetes
-        - name: ISTIO_META_INTERCEPTION_MODE
-          value: REDIRECT
-        - name: ISTIO_META_WORKLOAD_NAME
+        - name: GATEWAY
           value: namespace
-        - name: ISTIO_META_OWNER
-          value: kubernetes://apis/apps/v1/namespaces/default/deployments/namespace
-        - name: ISTIO_META_MESH_ID
-          value: cluster.local
+        - name: RUST_BACKTRACE
+          value: "1"
+        - name: CLUSTER_ID
+          value: Kubernetes
+        - name: NETWORK
+          value: network-1
         - name: TRUST_DOMAIN
           value: cluster.local
-        image: '/proxyv2:'
-        name: istio-proxy
+        - name: XDS_ADDRESS
+          value: istiod.istio-system.svc:15012
+        - name: CA_ADDRESS
+          value: istiod-<no value>.<no value>.svc:15012
+        image: test/agentgateway:test
+        name: agentgateway
         ports:
         - containerPort: 15020
           name: metrics
           protocol: TCP
         - containerPort: 15021
           name: status-port
-          protocol: TCP
-        - containerPort: 15090
-          name: http-envoy-prom
           protocol: TCP
         readinessProbe:
           failureThreshold: 4
@@ -154,11 +121,6 @@ spec:
           periodSeconds: 15
           successThreshold: 1
           timeoutSeconds: 1
-        resources:
-          limits:
-            memory: 500Mi
-          requests:
-            memory: 150Mi
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
@@ -180,68 +142,51 @@ spec:
           successThreshold: 1
           timeoutSeconds: 1
         volumeMounts:
-        - mountPath: /var/run/secrets/workload-spiffe-uds
-          name: workload-socket
+        - mountPath: /var/run/secrets/xds
+          name: istiod-ca-cert
+        - mountPath: /var/run/secrets/xds-tokens
+          name: xds-token
+        - mountPath: /tmp
+          name: tmp
         - mountPath: /var/run/secrets/istio
           name: istiod-ca-cert
-        - mountPath: /var/lib/istio/data
-          name: istio-data
-        - mountPath: /etc/istio/proxy
-          name: istio-envoy
         - mountPath: /var/run/secrets/tokens
           name: istio-token
-        - mountPath: /etc/istio/pod
-          name: istio-podinfo
       serviceAccountName: namespace
       volumes:
       - emptyDir: {}
-        name: workload-socket
-      - emptyDir:
-          medium: Memory
-        name: istio-envoy
-      - emptyDir:
-          medium: Memory
-        name: go-proxy-envoy
-      - emptyDir: {}
-        name: istio-data
-      - emptyDir: {}
-        name: go-proxy-data
-      - downwardAPI:
-          items:
-          - fieldRef:
-              fieldPath: metadata.labels
-            path: labels
-          - fieldRef:
-              fieldPath: metadata.annotations
-            path: annotations
-        name: istio-podinfo
+        name: tmp
+      - name: xds-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              audience: <no value>
+              expirationSeconds: 43200
+              path: xds-token
       - name: istio-token
         projected:
           sources:
           - serviceAccountToken:
-              audience: istio-ca
+              audience: <no value>
               expirationSeconds: 43200
               path: istio-token
-      - configMap:
-          name: istio-ca-root-cert
-        name: istiod-ca-cert
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  annotations:
-    networking.istio.io/traffic-distribution: PreferClose
+  annotations: {}
   labels:
-    gateway.istio.io/managed: istio.io-mesh-controller
-    gateway.networking.k8s.io/gateway-class-name: istio-waypoint
+    gateway.istio.io/managed: istio.io-agentgateway-waypoint-controller
+    gateway.networking.k8s.io/gateway-class-name: istio-agentgateway-waypoint
     gateway.networking.k8s.io/gateway-name: namespace
+    topology.istio.io/network: network-1
   name: namespace
   namespace: default
   ownerReferences:
   - apiVersion: gateway.networking.k8s.io/v1
     kind: Gateway
     name: namespace
-    uid: ""
+    uid: null
 spec:
   ipFamilyPolicy: PreferDualStack
   ports:

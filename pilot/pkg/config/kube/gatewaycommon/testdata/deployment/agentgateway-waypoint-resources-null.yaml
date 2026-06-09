@@ -9,10 +9,9 @@ kind: ServiceAccount
 metadata:
   annotations: {}
   labels:
-    gateway.istio.io/managed: istio.io-agentgateway-controller
-    gateway.networking.k8s.io/gateway-class-name: istio-agentgateway
+    gateway.istio.io/managed: istio.io-agentgateway-waypoint-controller
+    gateway.networking.k8s.io/gateway-class-name: istio-agentgateway-waypoint
     gateway.networking.k8s.io/gateway-name: namespace
-    istio.io/dataplane-mode: none
   name: namespace
   namespace: default
   ownerReferences:
@@ -26,10 +25,9 @@ kind: Deployment
 metadata:
   annotations: {}
   labels:
-    gateway.istio.io/managed: istio.io-agentgateway-controller
-    gateway.networking.k8s.io/gateway-class-name: istio-agentgateway
+    gateway.istio.io/managed: istio.io-agentgateway-waypoint-controller
+    gateway.networking.k8s.io/gateway-class-name: istio-agentgateway-waypoint
     gateway.networking.k8s.io/gateway-name: namespace
-    istio.io/dataplane-mode: none
   name: namespace
   namespace: default
   ownerReferences:
@@ -49,8 +47,8 @@ spec:
         prometheus.io/port: "15020"
         prometheus.io/scrape: "true"
       labels:
-        gateway.istio.io/managed: istio.io-agentgateway-controller
-        gateway.networking.k8s.io/gateway-class-name: istio-agentgateway
+        gateway.istio.io/managed: istio.io-agentgateway-waypoint-controller
+        gateway.networking.k8s.io/gateway-class-name: istio-agentgateway-waypoint
         gateway.networking.k8s.io/gateway-name: namespace
         istio.io/dataplane-mode: none
         service.istio.io/canonical-name: namespace
@@ -97,6 +95,8 @@ spec:
           value: cluster.local
         - name: XDS_ADDRESS
           value: istiod.istio-system.svc:15012
+        - name: CA_ADDRESS
+          value: istiod-<no value>.<no value>.svc:15012
         image: '/agentgateway:'
         name: agentgateway
         ports:
@@ -145,34 +145,40 @@ spec:
         - mountPath: /var/run/secrets/xds
           name: istiod-ca-cert
         - mountPath: /var/run/secrets/xds-tokens
-          name: istio-token
+          name: xds-token
         - mountPath: /tmp
           name: tmp
-      securityContext:
-        sysctls:
-        - name: net.ipv4.ip_unprivileged_port_start
-          value: "0"
+        - mountPath: /var/run/secrets/istio
+          name: istiod-ca-cert
+        - mountPath: /var/run/secrets/tokens
+          name: istio-token
       serviceAccountName: namespace
       volumes:
       - emptyDir: {}
         name: tmp
-      - name: istio-token
+      - name: xds-token
         projected:
           sources:
           - serviceAccountToken:
               audience: <no value>
               expirationSeconds: 43200
               path: xds-token
+      - name: istio-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              audience: <no value>
+              expirationSeconds: 43200
+              path: istio-token
 ---
 apiVersion: v1
 kind: Service
 metadata:
   annotations: {}
   labels:
-    gateway.istio.io/managed: istio.io-agentgateway-controller
-    gateway.networking.k8s.io/gateway-class-name: istio-agentgateway
+    gateway.istio.io/managed: istio.io-agentgateway-waypoint-controller
+    gateway.networking.k8s.io/gateway-class-name: istio-agentgateway-waypoint
     gateway.networking.k8s.io/gateway-name: namespace
-    istio.io/dataplane-mode: none
   name: namespace
   namespace: default
   ownerReferences:
@@ -187,11 +193,11 @@ spec:
     name: status-port
     port: 15021
     protocol: TCP
-  - appProtocol: http
-    name: http
-    port: 80
+  - appProtocol: all
+    name: mesh
+    port: 15008
     protocol: TCP
   selector:
     gateway.networking.k8s.io/gateway-name: namespace
-  type: LoadBalancer
+  type: ClusterIP
 ---
