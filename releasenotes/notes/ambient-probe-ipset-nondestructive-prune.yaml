@@ -1,7 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: traffic-management
-
-releaseNotes:
-  - |
-    **Fixed** an issue where the istio-cni node agent could evict still-enrolled ambient pods from the host health-probe ipset during its startup snapshot when their IP was not yet observable (for example after a node or kubelet restart), causing kubelet probes to be rejected.
