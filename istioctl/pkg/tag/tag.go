@@ -393,6 +393,13 @@ func removeTag(ctx context.Context, kubeClient kubernetes.Interface, tagName str
 		}
 	}
 
+	// the default tag also creates a ValidatingWebhookConfiguration; remove it too
+	if tagName == DefaultRevisionName {
+		if err = DeleteValidatingWebhook(ctx, kubeClient, vwhBaseTemplateName); err != nil {
+			return fmt.Errorf("failed to delete Istio revision tag ValidatingWebhookConfiguration: %v", err)
+		}
+	}
+
 	if tagServiceExists {
 		err = DeleteTagServices(ctx, kubeClient, istioNS, tagName)
 		if err != nil {
