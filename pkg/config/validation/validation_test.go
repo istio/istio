@@ -6512,6 +6512,16 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, false, false},
+		{"ALLOW_ANY_DYNAMIC_DNS rejected in sidecar", &networking.Sidecar{
+			OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
+				Mode: networking.OutboundTrafficPolicy_Mode(3),
+			},
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*"},
+				},
+			},
+		}, false, false},
 		{"sidecar egress only one wildcarded", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{

@@ -3943,3 +3943,72 @@ func TestInsecureSkipVerify(t *testing.T) {
 		})
 	}
 }
+
+func TestBuildAllowAnyDFPClusterTLSSettings(t *testing.T) {
+	cg := NewConfigGenTest(t, TestOptions{})
+	proxy := cg.SetupProxy(nil)
+	cb := NewClusterBuilder(proxy, &model.PushRequest{Push: cg.PushContext()}, nil)
+
+	tests := []struct {
+		name      string
+		tls       *networking.ClientTLSSettings
+		expectTLS bool
+	}{
+		{
+			name: "no TLS settings",
+			tls:  nil,
+		},
+		{
+			name: "TLS DISABLE — no transport socket",
+			tls:  &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_DISABLE},
+		},
+		{
+			name:      "TLS SIMPLE — transport socket applied",
+			tls:       &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_SIMPLE},
+			expectTLS: true,
+		},
+		{
+			name:      "TLS ISTIO_MUTUAL — transport socket applied",
+			tls:       &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_ISTIO_MUTUAL},
+			expectTLS: true,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			c := cb.buildAllowAnyDFPCluster(tc.tls).cluster
+
+			if tc.expectTLS {
+				if c.TransportSocket == nil {
+					t.Fatal("expected TransportSocket to be set for TLS mode")
+				}
+				assert.Equal(t, c.TransportSocket.Name, "envoy.transport_sockets.tls")
+			} else if c.TransportSocket != nil {
+				t.Errorf("expected no TransportSocket, got %v", c.TransportSocket.Name)
+			}
+
+			// Verify UseDownstreamProtocolConfig is set for HTTP/2 (gRPC) support
+			anyOpts := c.TypedExtensionProtocolOptions[v3.HttpProtocolOptionsType]
+			if anyOpts == nil {
+				t.Fatal("expected TypedExtensionProtocolOptions to be set")
+			}
+			gotOpts := &http.HttpProtocolOptions{}
+			if err := anyOpts.UnmarshalTo(gotOpts); err != nil {
+				t.Fatalf("failed to unmarshal HttpProtocolOptions: %v", err)
+			}
+			wantOpts := &http.HttpProtocolOptions{
+				CommonHttpProtocolOptions: &core.HttpProtocolOptions{
+					IdleTimeout: durationpb.New(5 * time.Minute),
+				},
+				UpstreamProtocolOptions: &http.HttpProtocolOptions_UseDownstreamProtocolConfig{
+					UseDownstreamProtocolConfig: &http.HttpProtocolOptions_UseDownstreamHttpConfig{
+						HttpProtocolOptions:  &core.Http1ProtocolOptions{},
+						Http2ProtocolOptions: &core.Http2ProtocolOptions{},
+					},
+				},
+			}
+			if diff := cmp.Diff(wantOpts, gotOpts, protocmp.Transform()); diff != "" {
+				t.Errorf("HttpProtocolOptions mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}

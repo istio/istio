@@ -345,9 +345,8 @@ func initSidecarScopeInternalIndexes(ps *PushContext, sidecarScope *SidecarScope
 
 	if sidecarScope.Sidecar.GetOutboundTrafficPolicy() == nil {
 		if ps.Mesh.OutboundTrafficPolicy != nil {
-			sidecarScope.OutboundTrafficPolicy = &networking.OutboundTrafficPolicy{
-				Mode: networking.OutboundTrafficPolicy_Mode(ps.Mesh.OutboundTrafficPolicy.Mode),
-			}
+			mode := networking.OutboundTrafficPolicy_Mode(ps.Mesh.OutboundTrafficPolicy.Mode)
+			sidecarScope.OutboundTrafficPolicy = &networking.OutboundTrafficPolicy{Mode: mode}
 		}
 	} else {
 		sidecarScope.OutboundTrafficPolicy = sidecarScope.Sidecar.GetOutboundTrafficPolicy()

@@ -691,6 +691,11 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 		}
 	}, untypedMeta)
 
+	// DNS_PROXY_ADDR is not ISTIO_META_*-prefixed. Read the process env directly (pilot-agent uses os.Environ() for options.Envs).
+	if v, ok := os.LookupEnv("DNS_PROXY_ADDR"); ok && v != "" {
+		untypedMeta["DNS_PROXY_ADDR"] = v
+	}
+
 	j, err := json.Marshal(untypedMeta)
 	if err != nil {
 		return nil, err
