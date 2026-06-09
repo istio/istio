@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 60520
+releaseNotes:
+  - |
+    **Fixed** a panic (`close of closed channel`) in the multicluster secret controller that
+    could occur when a remote cluster's kubeconfig secret was updated twice in rapid succession.
