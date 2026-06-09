@@ -50,6 +50,7 @@ spec:
         gateway.istio.io/managed: istio.io-agentgateway-waypoint-controller
         gateway.networking.k8s.io/gateway-class-name: istio-agentgateway-waypoint
         gateway.networking.k8s.io/gateway-name: namespace
+        istio.io/dataplane-mode: none
         service.istio.io/canonical-name: namespace
         service.istio.io/canonical-revision: latest
         sidecar.istio.io/inject: "false"

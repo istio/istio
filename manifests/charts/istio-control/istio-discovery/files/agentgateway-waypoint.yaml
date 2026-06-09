@@ -57,6 +57,7 @@ spec:
         {{- toJsonMap
           (strdict
             "sidecar.istio.io/inject" "false"
+            "istio.io/dataplane-mode" "none"
             "service.istio.io/canonical-name" .DeploymentName
             "service.istio.io/canonical-revision" "latest"
            )
