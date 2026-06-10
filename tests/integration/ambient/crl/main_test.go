@@ -128,9 +128,7 @@ func TestMain(m *testing.M) {
 				},
 			}),
 		).
-		Setup(func(ctx resource.Context) error {
-			return deployApps(ctx)
-		}).
+		Setup(deployApps).
 		Run()
 }
 
