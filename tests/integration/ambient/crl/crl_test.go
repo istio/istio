@@ -219,17 +219,26 @@ func checkCRLRejectionMetric(t framework.TestContext, targetCluster cluster.Clus
 	return nil
 }
 
-// parseCRLRejectionTotal scans Prometheus text-format metrics for istio_crl_policy_rejections_total{reporter="<reporter>"} and returns its value.
+// parseCRLRejectionTotal scans Prometheus text-format metrics and returns the value of
+// istio_crl_policy_rejections_total for the given reporter label.
 func parseCRLRejectionTotal(metricsBody, reporter string) float64 {
-	target := fmt.Sprintf(`istio_crl_policy_rejections_total{reporter="%s"}`, reporter)
+	const metricName = "istio_crl_policy_rejections_total{"
+	reporterLabel := fmt.Sprintf(`reporter="%s"`, reporter)
 	for _, line := range strings.Split(metricsBody, "\n") {
 		trimmed := strings.TrimSpace(line)
-		if strings.HasPrefix(trimmed, target) {
-			parts := strings.Fields(trimmed)
-			if len(parts) >= 2 {
-				if val, err := strconv.ParseFloat(parts[1], 64); err == nil {
-					return val
-				}
+		if strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+		if !strings.HasPrefix(trimmed, metricName) {
+			continue
+		}
+		if !strings.Contains(trimmed, reporterLabel) {
+			continue
+		}
+		parts := strings.Fields(trimmed)
+		if len(parts) >= 2 {
+			if val, err := strconv.ParseFloat(parts[1], 64); err == nil {
+				return val
 			}
 		}
 	}
