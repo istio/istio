@@ -459,24 +459,15 @@ func convertListenerSetStatusToStandardStatus(e gatewayv1.ListenerEntryStatus) g
 	return gatewayv1.ListenerStatus(e)
 }
 
-// TODO(jaellio): Move these definitions to route collection (?)
 // RouteParents holds information about things routes can reference as parents.
 // For ingress gateways, parents are Gateway/ListenerSet resources.
 // For waypoint gateways, routes can also reference Services as parents.
-// TODO(jaellio)
 type RouteParents struct {
-	// TODO(jaellio): Are the Gateway listeners just for the listeners with parents refs of
-	// type Gateway or listenerSet? Or could the listeners with a service parent ref also be included?
-	// Are they already included?
 	gatewayIndex krt.Index[AgwParentKey, *GatewayListener]
 
 	// waypointBindings maps services to their AGW waypoint gateways.
 	// When a route references a Service as parentRef, this collection is used to
 	// resolve the service to its waypoint gateway, enabling route attachment.
-	// TODO(jaellio): Consider if this is the best way to handle waypoint bindings,
-	// or if there's a more efficient approach. Also consider changing the name of this field to match
-	// gatewayIndex.
-	// TODO(jaellio): Do an equivalend to the agwParentKey for the waypointBindings?
 	waypointBindings krt.Collection[WaypointServiceBinding]
 }
 
@@ -504,7 +495,7 @@ func (p RouteParents) fetchServiceParent(ctx krt.HandlerContext, pk AgwParentKey
 		return nil
 	}
 
-	// Found a waypoint binding — look up the waypoint gateway's listeners
+	// Found a waypoint binding, look up the waypoint's listeners
 	wpKey := AgwParentKey{
 		Kind:      gvk.KubernetesGateway.Kubernetes(),
 		Name:      binding.WaypointGateway.Name,

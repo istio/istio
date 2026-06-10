@@ -93,8 +93,6 @@ func (r RouteAttachment) Equals(other RouteAttachment) bool {
 
 // gatewayRouteAttachmentCountCollection holds the generic logic to determine the parents a route is attached to, used for
 // computing the aggregated `attachedRoutes` status in Gateway.
-// TODO(jaellio): update to support attachment to services and mapping from gateways (that are waypoints) to
-// routes belonging to services from by the respective gateways/waypoints
 func gatewayRouteAttachmentCountCollection[T controllers.Object](
 	inputs RouteContextInputs,
 	col krt.Collection[T],
@@ -110,15 +108,22 @@ func gatewayRouteAttachmentCountCollection[T controllers.Object](
 
 		parentRefs := extractParentReferenceInfo(ctx, inputs.RouteParents, obj)
 		return slices.MapFilter(FilteredReferences(parentRefs), func(e RouteParentReference) **RouteAttachment {
+			// For Gateway/ListenerSet parentRefs, use ParentKey directly.
+			// For Service/ServiceEntry parentRefs (waypoint routes), use ParentGateway
+			// which is the resolved waypoint gateway.
+			to := types.NamespacedName{
+				Name:      e.ParentKey.Name,
+				Namespace: e.ParentKey.Namespace,
+			}
 			if e.ParentKey.Kind != gvk.KubernetesGateway.Kubernetes() && e.ParentKey.Kind != gvk.ListenerSet.Kubernetes() {
-				return nil
+				if e.ParentGateway == (types.NamespacedName{}) {
+					return nil
+				}
+				to = e.ParentGateway
 			}
 			return ptr.Of(&RouteAttachment{
-				From: from,
-				To: types.NamespacedName{
-					Name:      e.ParentKey.Name,
-					Namespace: e.ParentKey.Namespace,
-				},
+				From:         from,
+				To:           to,
 				ListenerName: string(e.ParentSection),
 			})
 		})
@@ -219,10 +224,6 @@ func AgwRouteCollection(
 
 	// Join all the route types into a single collection
 	routes := krt.JoinCollection([]krt.Collection[AgwResource]{httpRoutes, grpcRoutes, tcpRoutes, tlsRoutes}, krtopts.WithName("ADPRoutes")...)
-	// TODO(jaellio): Up until this point, we have just found and translated all of the routes - need to verify this included routes
-	// attached to services at their parents.
-	// This is where the actual gateway mapping happens I think. For gateways that are waypoints, I need this to
-	// also include the waypoint bindings/routes belonging to services using those gateways(waypoints)
 	routeAttachments := krt.JoinCollection([]krt.Collection[*RouteAttachment]{
 		gatewayRouteAttachmentCountCollection(inputs, httpRouteCol, gvk.HTTPRoute, krtopts),
 		gatewayRouteAttachmentCountCollection(inputs, grpcRouteCol, gvk.GRPCRoute, krtopts),
