@@ -26,15 +26,17 @@ import (
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/util/sets"
 )
 
 type ConflictingServiceEntryProtocolAnalyzer struct{}
 
 var _ analysis.Analyzer = &ConflictingServiceEntryProtocolAnalyzer{}
 
-type hostPortKey struct {
-	host string
-	port uint32
+type scopedHostPortKey struct {
+	scope string
+	host  string
+	port  uint32
 }
 
 type protoEntry struct {
@@ -53,14 +55,19 @@ func (c *ConflictingServiceEntryProtocolAnalyzer) Metadata() analysis.Metadata {
 }
 
 func (c *ConflictingServiceEntryProtocolAnalyzer) Analyze(ctx analysis.Context) {
-	index := make(map[hostPortKey][]protoEntry)
+	index := make(map[scopedHostPortKey][]protoEntry)
 
 	ctx.ForEach(gvk.ServiceEntry, func(r *resource.Instance) bool {
 		se := r.Message.(*v1alpha3.ServiceEntry)
-		for _, h := range se.Hosts {
-			for _, p := range se.Ports {
-				key := hostPortKey{host: h, port: p.Number}
-				index[key] = append(index[key], protoEntry{protocol: p.Protocol, instance: r})
+		seNamespace := r.Metadata.FullName.Namespace.String()
+
+		scopes := exportToScopes(se.ExportTo, seNamespace)
+		for scope := range scopes {
+			for _, h := range se.Hosts {
+				for _, p := range se.Ports {
+					key := scopedHostPortKey{scope: scope, host: h, port: p.Number}
+					index[key] = append(index[key], protoEntry{protocol: p.Protocol, instance: r})
+				}
 			}
 		}
 		return true
@@ -69,6 +76,11 @@ func (c *ConflictingServiceEntryProtocolAnalyzer) Analyze(ctx analysis.Context) 
 	reported := make(map[resource.FullName]bool)
 
 	for key, entries := range index {
+		if key.scope != util.ExportToAllNamespaces {
+			starKey := scopedHostPortKey{scope: util.ExportToAllNamespaces, host: key.host, port: key.port}
+			entries = append(entries, index[starKey]...)
+		}
+
 		protocols := make(map[string]bool)
 		for _, e := range entries {
 			protocols[strings.ToUpper(e.protocol)] = true
@@ -108,4 +120,19 @@ func (c *ConflictingServiceEntryProtocolAnalyzer) Analyze(ctx analysis.Context) 
 			ctx.Report(gvk.ServiceEntry, m)
 		}
 	}
+}
+
+func exportToScopes(exportTo []string, seNamespace string) sets.String {
+	if util.IsExportToAllNamespaces(exportTo) {
+		return sets.New(util.ExportToAllNamespaces)
+	}
+	scopes := sets.New[string]()
+	for _, et := range exportTo {
+		if et == util.ExportToNamespaceLocal {
+			scopes.Insert(seNamespace)
+		} else {
+			scopes.Insert(et)
+		}
+	}
+	return scopes
 }

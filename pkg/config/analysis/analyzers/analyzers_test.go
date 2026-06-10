@@ -1040,6 +1040,12 @@ var testGrid = []testCase{
 		expected:   []message{},
 	},
 	{
+		name:       "ServiceEntry no conflict non-overlapping exportTo scopes",
+		inputFiles: []string{"testdata/serviceentry-conflicting-exportto.yaml"},
+		analyzer:   &serviceentry.ConflictingServiceEntryProtocolAnalyzer{},
+		expected:   []message{},
+	},
+	{
 		name:       "Condition Analyzer",
 		inputFiles: []string{"testdata/condition-analyzer.yaml"},
 		analyzer:   &conditions.ConditionAnalyzer{},
