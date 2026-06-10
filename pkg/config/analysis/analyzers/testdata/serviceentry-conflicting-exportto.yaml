@@ -1,5 +1,4 @@
-# No conflict: same host and port with different protocols, but non-overlapping exportTo scopes.
-apiVersion: networking.istio.io/v2
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: se-ns1
@@ -16,7 +15,7 @@ spec:
   exportTo:
   - "."
 ---
-apiVersion: networking.istio.io/v2
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: se-ns2
