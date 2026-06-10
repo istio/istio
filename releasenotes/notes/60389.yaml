@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - https://github.com/istio/istio/issues/60389
+releaseNotes:
+  - |
+    **Added** `budget_interval` field to the RetryBudget TrafficPolicy API to
+    configure the interval with which requests are considered when calculating
+    the retry budget. The default value, 0ms, retains the existing behavior of
+    considering only in-flight requests.

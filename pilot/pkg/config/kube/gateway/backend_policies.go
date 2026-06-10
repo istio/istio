@@ -20,6 +20,7 @@ import (
 	"strings"
 	"time"
 
+	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -282,7 +283,8 @@ func DestinationRuleCollection(
 				},
 				Spec: spec,
 			}
-		}, opts.WithName("BackendPolicyMerged")...)
+		}, opts.WithName("BackendPolicyMerged")...,
+	)
 	return merged
 }
 
@@ -583,10 +585,16 @@ func BackendTrafficPolicyCollection(
 			unsupported = append(unsupported, "sessionPersistence")
 		}
 		if i.Spec.RetryConstraint != nil {
-			// TODO: add support for interval.
 			retryBudget = &networking.TrafficPolicy_RetryBudget{}
 			if i.Spec.RetryConstraint.Budget.Percent != nil {
 				retryBudget.Percent = &wrapperspb.DoubleValue{Value: float64(*i.Spec.RetryConstraint.Budget.Percent)}
+			}
+			// Gateway API default
+			retryBudget.BudgetInterval = durationpb.New(10 * time.Second)
+			if i.Spec.RetryConstraint.Budget.Interval != nil {
+				if d, err := time.ParseDuration(string(*i.Spec.RetryConstraint.Budget.Interval)); err == nil {
+					retryBudget.BudgetInterval = durationpb.New(d)
+				}
 			}
 			retryBudget.MinRetryConcurrency = 10 // Gateway API default
 			if i.Spec.RetryConstraint.MinRetryRate != nil {
