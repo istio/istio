@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"testing"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"istio.io/api/label"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/log"
@@ -32,7 +34,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	testlabel "istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
