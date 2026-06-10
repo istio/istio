@@ -47,6 +47,12 @@ type MeshDataplane interface {
 	AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIPs []netip.Addr, netNs string) error
 	RemovePodFromMesh(ctx context.Context, pod *corev1.Pod, isDelete bool) error
 
+	// SyncHostProbeIPSet ensures an already-enrolled pod's probe IPs are present in the
+	// host probe ipset. It is an idempotent upsert used by the informer to self-heal
+	// entries that may have been pruned by a startup snapshot that ran before the pod's
+	// IP was observable (e.g. right after a node/kubelet restart).
+	SyncHostProbeIPSet(pod *corev1.Pod, podIPs []netip.Addr) error
+
 	Stop(skipCleanup bool)
 }
 
