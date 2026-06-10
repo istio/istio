@@ -50,7 +50,7 @@ import (
 //  4. Restart local cluster's ztunnel so it loads the updated CRL at startup and drops existing connections
 //  5. Cross-cluster call fails: source ztunnel rejects server cert because remote cluster's IA cert is revoked
 //  6. Verify istio_crl_policy_rejections_total{reporter="source"} metric incremented on local cluster
-//  7. Reset both clusters to clean CRL state
+//  7. Reset local/client cluster to clean CRL state
 func TestZtunnelCrlOutbound(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
@@ -62,7 +62,7 @@ func TestZtunnelCrlOutbound(t *testing.T) {
 			// Revoke the server cluster's IA in the client cluster's root CRL so that the
 			// client cluster's ztunnel rejects outbound connections to the server cluster.
 			ca.RevokeRemoteIntermediate(t, clientCluster, serverCluster)
-			ca.WaitForCRLPropagation(t, clientCluster, clientNS.Name())
+			ca.WaitForCRLPropagation(t, clientCluster)
 			deleteZtunnelPod(t, clientCluster)
 
 			t.Logf("waiting for source ztunnel to reject outbound connection to remote server")
@@ -84,7 +84,7 @@ func TestZtunnelCrlOutbound(t *testing.T) {
 //  4. Restart remote cluster's ztunnel so it loads the updated CRL at startup and drops existing connections
 //  5. Cross-cluster call fails: destination ztunnel rejects client cert because local cluster's IA cert is revoked
 //  6. Verify istio_crl_policy_rejections_total{reporter="destination"} metric incremented on remote cluster
-//  7. Reset both remote cluster to clean CRL state
+//  7. Reset remote/server cluster to clean CRL state
 func TestZtunnelCrlInbound(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
@@ -96,7 +96,7 @@ func TestZtunnelCrlInbound(t *testing.T) {
 			// Revoke the client cluster's IA in the server cluster's root CRL so that the
 			// server cluster's ztunnel rejects inbound connections from the client cluster.
 			ca.RevokeRemoteIntermediate(t, serverCluster, clientCluster)
-			ca.WaitForCRLPropagation(t, serverCluster, serverNS.Name())
+			ca.WaitForCRLPropagation(t, serverCluster)
 			deleteZtunnelPod(t, serverCluster)
 
 			t.Logf("waiting for destination ztunnel to reject inbound connection from client")
@@ -108,9 +108,7 @@ func TestZtunnelCrlInbound(t *testing.T) {
 // resetCrlState resets a cluster's CRL to empty state, waits for ConfigMap propagation, then restarts all ztunnel instances.
 func resetCrlState(t framework.TestContext, cl cluster.Cluster) {
 	t.Helper()
-	istioCfg := istio.DefaultConfigOrFail(t, t)
-	ztunnelNS := istioCfg.ZtunnelNamespace
-	ca.ResetCRL(t, cl, ztunnelNS)
+	ca.ResetCRL(t, cl)
 	deleteZtunnelPod(t, cl)
 	t.Logf("CRL reset complete on %s", cl.Name())
 }
@@ -141,6 +139,7 @@ func deleteZtunnelPod(t framework.TestContext, targetCluster cluster.Cluster) {
 }
 
 func verifyConnectionTo(t framework.TestContext, app echo.Instance) {
+	t.Helper()
 	t.Logf("verifying connection to %v", app.ServiceName())
 	retry.UntilSuccessOrFail(t, func() error {
 		_, err := client.Call(echo.CallOptions{
@@ -158,6 +157,7 @@ func verifyConnectionTo(t framework.TestContext, app echo.Instance) {
 }
 
 func verifyConnectionToRejected(t framework.TestContext, app echo.Instance, cl cluster.Cluster, reporter string) {
+	t.Helper()
 	retry.UntilSuccessOrFail(t, func() error {
 		if _, err := client.Call(echo.CallOptions{
 			To:                      app,
@@ -177,7 +177,6 @@ func verifyConnectionToRejected(t framework.TestContext, app echo.Instance, cl c
 // if istio_crl_policy_rejections_total{reporter="<reporter>"} is zero.
 func checkCRLRejectionMetric(t framework.TestContext, targetCluster cluster.Cluster, reporter string) error {
 	t.Helper()
-
 	istioCfg := istio.DefaultConfigOrFail(t, t)
 	ztunnelNS := istioCfg.ZtunnelNamespace
 	clusterName := targetCluster.Name()

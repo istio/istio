@@ -87,7 +87,7 @@ func TestMain(m *testing.M) {
 			if err != nil {
 				return err
 			}
-			// register cleanup of GenerateBundlePair resources that istiod distributes to every ns so we don't pollute other test suites
+			// register cleanup of k8s resources (derived from GenerateCaCerts) that istiod distributes to every ns so we don't pollute other test suites
 			ctx.Cleanup(func() {
 				log.Info("cleaning up istio-ca-crl and istio-ca-root-cert ConfigMaps")
 				for _, cl := range ctx.Clusters() {

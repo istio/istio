@@ -53,7 +53,7 @@ const (
 type CA struct {
 	rootCert    *x509.Certificate
 	rootKey     *rsa.PrivateKey
-	RootCertPEM []byte
+	rootCertPEM []byte
 	bundles     map[string]*bundle
 }
 
@@ -103,7 +103,7 @@ func GenerateCaCerts(ctx resource.Context) (*CA, error) {
 	c := &CA{
 		rootCert:    rootCert,
 		rootKey:     rootKey,
-		RootCertPEM: pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: rootDER}),
+		rootCertPEM: pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: rootDER}),
 		bundles:     make(map[string]*bundle, len(clusters)),
 	}
 
@@ -138,20 +138,24 @@ func (ca *CA) RevokeRemoteIntermediate(t framework.TestContext, local, remote cl
 	ca.updateCRLInSecret(t, lb)
 }
 
-// WaitForCRLPropagation waits until the istio-ca-crl ConfigMap in each namespace on the
+// WaitForCRLPropagation waits until the istio-ca-crl ConfigMap in ztunnel's namespace on the
 // given cluster reflects the cluster's current CRL.
-func (ca *CA) WaitForCRLPropagation(t framework.TestContext, c cluster.Cluster, namespaces ...string) {
+func (ca *CA) WaitForCRLPropagation(t framework.TestContext, c cluster.Cluster) {
 	t.Helper()
+	istioCfg := istio.DefaultConfigOrFail(t, t)
+	ztunnelNS := istioCfg.ZtunnelNamespace
 	b := ca.bundles[c.Name()]
 	retry.UntilSuccessOrFail(t, func() error {
-		return verifyCRLConfigMapsOnCluster(c, namespaces, b.crlPEM)
+		return verifyCRLConfigMapOnCluster(c, ztunnelNS, b.crlPEM)
 	}, retry.Timeout(waitTimeout))
 }
 
 // ResetCRL clears all revocation state for the given cluster, rebuilds empty CRLs,
 // pushes the update to the cluster's cacerts secret, and waits for propagation to namespaces.
-func (ca *CA) ResetCRL(t framework.TestContext, c cluster.Cluster, namespaces ...string) {
+func (ca *CA) ResetCRL(t framework.TestContext, c cluster.Cluster) {
 	t.Helper()
+	istioCfg := istio.DefaultConfigOrFail(t, t)
+	ztunnelNS := istioCfg.ZtunnelNamespace
 	b := ca.bundles[c.Name()]
 	t.Logf("resetting CRL to empty state on %s", c.Name())
 	b.revokedForeignIntermediateSerial = nil
@@ -160,7 +164,7 @@ func (ca *CA) ResetCRL(t framework.TestContext, c cluster.Cluster, namespaces ..
 	}
 	ca.updateCRLInSecret(t, b)
 	retry.UntilSuccessOrFail(t, func() error {
-		return verifyCRLConfigMapsOnCluster(c, namespaces, b.crlPEM)
+		return verifyCRLConfigMapOnCluster(c, ztunnelNS, b.crlPEM)
 	}, retry.Timeout(waitTimeout))
 }
 
@@ -199,7 +203,7 @@ func (ca *CA) newBundle(c cluster.Cluster, iaSerial *big.Int) (*bundle, error) {
 		intermediateCertPEM: iaCertPEM,
 		intermediateKeyPEM:  iaKeyPEM,
 		intermediateSerial:  iaSerial,
-		certChainPEM:        append(iaCertPEM, ca.RootCertPEM...),
+		certChainPEM:        append(iaCertPEM, ca.rootCertPEM...),
 	}, nil
 }
 
@@ -277,28 +281,26 @@ func (ca *CA) installBundle(ctx resource.Context, b *bundle) error {
 		pkica.CACertFile:       b.intermediateCertPEM,
 		pkica.CAPrivateKeyFile: b.intermediateKeyPEM,
 		pkica.CertChainFile:    b.certChainPEM,
-		pkica.RootCertFile:     ca.RootCertPEM,
+		pkica.RootCertFile:     ca.rootCertPEM,
 		pkica.CACRLFile:        b.crlPEM,
 	}
 	return upsertSecret(b.c.Kube(), systemNs.Name(), data)
 }
 
-func verifyCRLConfigMapsOnCluster(c cluster.Cluster, namespaces []string, expectedCRL []byte) error {
+func verifyCRLConfigMapOnCluster(c cluster.Cluster, ns string, expectedCRL []byte) error {
 	if c.IsExternalControlPlane() {
 		return nil
 	}
-	for _, ns := range namespaces {
-		cm, err := c.Kube().CoreV1().ConfigMaps(ns).Get(
-			context.TODO(),
-			controller.CRLNamespaceConfigMap,
-			metav1.GetOptions{},
-		)
-		if err != nil {
-			return fmt.Errorf("failed to get ConfigMap in %s/%s: %w", c.Name(), ns, err)
-		}
-		if cm.Data[constants.CACRLNamespaceConfigMapDataName] != string(expectedCRL) {
-			return fmt.Errorf("CRL not updated in %s/%s", c.Name(), ns)
-		}
+	cm, err := c.Kube().CoreV1().ConfigMaps(ns).Get(
+		context.TODO(),
+		controller.CRLNamespaceConfigMap,
+		metav1.GetOptions{},
+	)
+	if err != nil {
+		return fmt.Errorf("failed to get ConfigMap in %s/%s: %w", c.Name(), ns, err)
+	}
+	if cm.Data[constants.CACRLNamespaceConfigMapDataName] != string(expectedCRL) {
+		return fmt.Errorf("CRL not updated in %s/%s", c.Name(), ns)
 	}
 	return nil
 }
