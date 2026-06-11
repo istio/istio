@@ -2909,6 +2909,183 @@ func TestCreateSidecarScope(t *testing.T) {
 	}
 }
 
+// TestSelectServicesExactParity asserts that the exact-host fast path (servicesForExactHosts, used when every
+// imported host is non-wildcarded) returns exactly what the legacy full-scan path (servicesExportedToNamespace)
+// returns once both are run through selectServices. This guards against the two paths diverging.
+func TestSelectServicesExactParity(t *testing.T) {
+	svc := func(hostname, ns string, ports PortList, exportTo ...visibility.Instance) *Service {
+		s := &Service{
+			Hostname:   host.Name(hostname),
+			Ports:      ports,
+			Attributes: ServiceAttributes{Name: hostname, Namespace: ns, ServiceRegistry: provider.Kubernetes},
+		}
+		if len(exportTo) > 0 {
+			s.Attributes.ExportTo = sets.New(exportTo...)
+		}
+		return s
+	}
+
+	// A mix of services across namespaces and visibilities.
+	svcs := []*Service{
+		svc("foo", "a", port8000),                              // public by default
+		svc("bar", "a", port9000),                              // public by default
+		svc("foo", "b", port8000),                              // same hostname, different namespace
+		svc("priv", "b", port8000, visibility.Private),         // private to b
+		svc("shared", "c", port8000, visibility.Instance("a")), // exported to a only
+	}
+
+	tests := []struct {
+		name          string
+		configNS      string
+		listenerHosts map[string]hostClassification
+	}{
+		{
+			name:     "exact host in same namespace",
+			configNS: "a",
+			listenerHosts: map[string]hostClassification{
+				"a": {allHosts: []host.Name{"foo", "bar"}, exactHosts: sets.New[host.Name]("foo", "bar")},
+			},
+		},
+		{
+			name:     "exact host in another namespace",
+			configNS: "a",
+			listenerHosts: map[string]hostClassification{
+				"b": {allHosts: []host.Name{"foo"}, exactHosts: sets.New[host.Name]("foo")},
+			},
+		},
+		{
+			name:     "private service not visible across namespaces",
+			configNS: "a",
+			listenerHosts: map[string]hostClassification{
+				"b": {allHosts: []host.Name{"priv"}, exactHosts: sets.New[host.Name]("priv")},
+			},
+		},
+		{
+			name:     "service exported to config namespace",
+			configNS: "a",
+			listenerHosts: map[string]hostClassification{
+				"c": {allHosts: []host.Name{"shared"}, exactHosts: sets.New[host.Name]("shared")},
+			},
+		},
+		{
+			name:     "host that does not exist",
+			configNS: "a",
+			listenerHosts: map[string]hostClassification{
+				"a": {allHosts: []host.Name{"missing"}, exactHosts: sets.New[host.Name]("missing")},
+			},
+		},
+		{
+			name:     "exact hosts spanning multiple namespaces",
+			configNS: "a",
+			listenerHosts: map[string]hostClassification{
+				"a": {allHosts: []host.Name{"foo"}, exactHosts: sets.New[host.Name]("foo")},
+				"b": {allHosts: []host.Name{"foo", "priv"}, exactHosts: sets.New[host.Name]("foo", "priv")},
+				"c": {allHosts: []host.Name{"shared"}, exactHosts: sets.New[host.Name]("shared")},
+			},
+		},
+	}
+
+	// Build a PushContext with the service index populated as initServiceRegistry would.
+	ps := NewPushContext()
+	ps.exportToDefaults.service = sets.New(visibility.Public)
+	for _, s := range svcs {
+		hostMap, ok := ps.ServiceIndex.HostnameAndNamespace[s.Hostname]
+		if !ok {
+			hostMap = map[string]*Service{}
+			ps.ServiceIndex.HostnameAndNamespace[s.Hostname] = hostMap
+		}
+		hostMap[s.Attributes.Namespace] = s
+		if s.Attributes.ExportTo.IsEmpty() || s.Attributes.ExportTo.Contains(visibility.Public) {
+			ps.ServiceIndex.public = append(ps.ServiceIndex.public, s)
+		} else {
+			for exportTo := range s.Attributes.ExportTo {
+				key := string(exportTo)
+				if exportTo == visibility.Private {
+					key = s.Attributes.Namespace
+					ps.ServiceIndex.private = append(ps.ServiceIndex.private, s)
+				}
+				ps.ServiceIndex.exportedToNamespace[key] = append(ps.ServiceIndex.exportedToNamespace[key], s)
+			}
+		}
+	}
+
+	// byHostname gives a total order over a selection result. selectServices dedups to a single service per
+	// hostname, so hostname is a unique key. We compare order-insensitively because cluster order is not
+	// functionally significant to Envoy (CDS is state-of-the-world) and both paths are independently
+	// deterministic across pushes; the meaningful invariant is identical membership and trimmed content.
+	byHostname := func(svcs []*Service) []*Service {
+		out := slices.Clone(svcs)
+		slices.SortFunc(out, func(a, b *Service) int {
+			return strings.Compare(string(a.Hostname), string(b.Hostname))
+		})
+		return out
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ilw := &IstioEgressListenerWrapper{}
+			fast := byHostname(ilw.selectServices(ps.servicesForExactHosts(tt.configNS, tt.listenerHosts), tt.configNS, tt.listenerHosts))
+			scan := byHostname(ilw.selectServices(ps.servicesExportedToNamespace(tt.configNS), tt.configNS, tt.listenerHosts))
+			if !reflect.DeepEqual(fast, scan) {
+				fastJSON, _ := json.MarshalIndent(fast, "", "  ")
+				scanJSON, _ := json.MarshalIndent(scan, "", "  ")
+				t.Errorf("fast path and scan path diverged.\nfast: %s\nscan: %s", string(fastJSON), string(scanJSON))
+			}
+		})
+	}
+}
+
+// BenchmarkSelectServicesExact compares the exact-host fast path (servicesForExactHosts, O(H) index lookups +
+// O(H log H) sort) against the legacy full-scan path (servicesExportedToNamespace, O(M) scan + allocation),
+// each followed by the shared selectServices call, on identical input. H (hosts imported by the listener) is held at 10% of M
+// (services visible to the namespace), modeling a sidecar that imports a constant fraction of the mesh. Run with:
+//
+//	go test ./pilot/pkg/model/ -run '^$' -bench BenchmarkSelectServicesExact -benchmem
+func BenchmarkSelectServicesExact(b *testing.B) {
+	for _, meshServices := range []int{1000, 10000, 100000} {
+		importedHosts := meshServices / 10 // H: 10% of the mesh
+		ps := NewPushContext()
+		ps.exportToDefaults.service = sets.New(visibility.Public)
+		// Populate the indexes exactly as initServiceRegistry would: every service goes into
+		// HostnameAndNamespace (used by the fast path) and, being public, into public (used by the scan path).
+		for i := 0; i < meshServices; i++ {
+			hostname := host.Name("svc-" + strconv.Itoa(i) + ".ns.svc.cluster.local")
+			s := &Service{
+				Hostname:   hostname,
+				Ports:      port8000,
+				Attributes: ServiceAttributes{Name: string(hostname), Namespace: "ns", ServiceRegistry: provider.Kubernetes},
+			}
+			ps.ServiceIndex.HostnameAndNamespace[hostname] = map[string]*Service{"ns": s}
+			ps.ServiceIndex.public = append(ps.ServiceIndex.public, s)
+		}
+
+		// Listener imports the first H services as exact, explicitly-namespaced hosts.
+		exact := sets.New[host.Name]()
+		all := make([]host.Name, 0, importedHosts)
+		for i := 0; i < importedHosts; i++ {
+			h := host.Name("svc-" + strconv.Itoa(i) + ".ns.svc.cluster.local")
+			exact.Insert(h)
+			all = append(all, h)
+		}
+		hostsByNamespace := map[string]hostClassification{"ns": {exactHosts: exact, allHosts: all}}
+
+		suffix := "M=" + strconv.Itoa(meshServices) + "/H=" + strconv.Itoa(importedHosts)
+		ilw := &IstioEgressListenerWrapper{}
+		b.Run("fast/"+suffix, func(b *testing.B) {
+			b.ReportAllocs()
+			for i := 0; i < b.N; i++ {
+				ilw.selectServices(ps.servicesForExactHosts("ns", hostsByNamespace), "ns", hostsByNamespace)
+			}
+		})
+		b.Run("scan/"+suffix, func(b *testing.B) {
+			b.ReportAllocs()
+			for i := 0; i < b.N; i++ {
+				ilw.selectServices(ps.servicesExportedToNamespace("ns"), "ns", hostsByNamespace)
+			}
+		})
+	}
+}
+
 func TestIstioEgressListenerWrapper(t *testing.T) {
 	serviceA8000 := &Service{
 		Hostname:   "host",
