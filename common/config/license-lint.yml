@@ -64,6 +64,11 @@ allowlisted_modules:
 # MIT: https://github.com/ghodss/yaml/blob/master/LICENSE
 - github.com/ghodss/yaml
 
+# Apache 2.0: this is a sibling module within istio/test-infra repo (see top-level go.mod
+# `replace istio.io/test-infra/tools/prowgen => ./tools/prowgen`). The license
+# linter cannot detect a license for unpublished local modules.
+- istio.io/test-infra/tools/prowgen
+
 # BSD: https://github.com/gogo/protobuf/blob/master/LICENSE
 - github.com/gogo/protobuf
 
@@ -80,6 +85,7 @@ allowlisted_modules:
 # Helm is Apache 2.0: https://github.com/helm/helm/blob/master/LICENSE
 # However, it has a bunch of LICENSE test files that our linter fails to understand
 - helm.sh/helm/v3
+- helm.sh/helm/v4
 
 # https://github.com/pelletier/go-toml/blob/master/LICENSE
 # Uses MIT for everything, except a few files copied from
@@ -149,3 +155,8 @@ allowlisted_modules:
 # BSD
 # https://github.com/cyphar/filepath-securejoin/blob/main/LICENSE.BSD
 - github.com/cyphar/filepath-securejoin
+
+# The code is MIT: https://github.com/quic-go/quic-go/blob/master/LICENSE
+# However, the logo is not https://github.com/quic-go/quic-go/blob/master/assets/LICENSE.md.
+# However, we do not consume the logo.
+- github.com/quic-go/quic-go

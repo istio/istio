@@ -176,7 +176,7 @@ func (s *DiscoveryServer) pushXds(con *Connection, w *model.WatchedResource, req
 	}
 
 	switch {
-	case !req.Full:
+	case model.OnlyHasConfigsOfKind(req.ConfigsUpdated, kind.Endpoints):
 		if log.DebugEnabled() {
 			log.Debugf("%s: %s%s for node:%s resources:%d size:%s%s",
 				v3.GetShortType(w.TypeUrl), ptype, req.PushReason(), con.proxy.ID, len(res), util.ByteCount(configSize), info)
@@ -223,13 +223,11 @@ func xdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) (needsPush, defini
 	return false, false
 }
 
-// waypointNeedsPush checks if an incremental push is needed for CDS and LDS which normally do a full push.
+// waypointNeedsPush checks if a push is needed for CDS and LDS on incremental kind.Address changes.
 func waypointNeedsPush(req *model.PushRequest) bool {
 	// Waypoint proxies needs to be pushed for LDS and CDS on kind.Address changes.
-	// Waypoint proxies have a matcher against pod IPs in them. Historically, any LDS change would do a full
-	// push, recomputing push context. Doing that on every IP change doesn't scale, so we need these to remain
-	// incremental pushes.
-	// This allows waypoints only to push LDS on incremental pushes to Address type which would otherwise be skipped.
+	// Waypoint proxies have a matcher against pod IPs in them.
+	// This allows waypoints only to push LDS on Address type changes which would otherwise be skipped.
 
 	// Waypoints need CDS updates on kind.Address changes
 	// after implementing use-waypoint which decouples waypoint creation, wl pod creation

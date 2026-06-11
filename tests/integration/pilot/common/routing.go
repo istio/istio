@@ -624,6 +624,43 @@ spec:
 			},
 		},
 	})
+	t.RunTraffic(TrafficTestCase{
+		name: "redirect prefix_rewrite",
+		config: `
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: default
+spec:
+  hosts:
+    - {{ .dstSvc }}
+  http:
+  - match:
+    - uri:
+        prefix: /foo/
+    redirect:
+      prefixRewrite: /new/
+  - match:
+    - uri:
+        prefix: /new/
+    route:
+    - destination:
+        host: {{ .dstSvc }}`,
+		opts: echo.CallOptions{
+			Port: echo.Port{
+				Name: "http",
+			},
+			HTTP: echo.HTTP{
+				Path:            "/foo/bar",
+				FollowRedirects: true,
+			},
+			Count: 1,
+			Check: check.And(
+				check.OK(),
+				check.URL("/new/bar")),
+		},
+		workloadAgnostic: true,
+	})
 	// Contain ever special char allowed in a header
 	absurdHeader := "a!#$%&'*+-.^_`|~z"
 	t.RunTraffic(TrafficTestCase{
@@ -1969,83 +2006,6 @@ spec:
 				"Gateway":            "gateway",
 				"VirtualServiceHost": dest.Config().ClusterLocalFQDN(),
 				"Port":               443,
-				"GatewayIstioLabel":  t.Istio.Settings().IngressGatewayIstioLabel,
-			}
-		},
-	})
-	t.RunTraffic(TrafficTestCase{
-		// See https://github.com/istio/istio/issues/27315
-		// See https://github.com/istio/istio/issues/34609
-		name:             "http return 400 with with x-forwarded-proto https when vs port specify https",
-		targetMatchers:   matchers,
-		workloadAgnostic: true,
-		viaIngress:       true,
-		config: `apiVersion: networking.istio.io/v1
-kind: Gateway
-metadata:
-  name: gateway
-spec:
-  selector:
-    istio: {{.GatewayIstioLabel | default "ingressgateway"}}
-  servers:
-  - port:
-      number: 80
-      name: http
-      protocol: HTTP
-    hosts:
-    - "*"
-    tls:
-      httpsRedirect: true
----
-apiVersion: networking.istio.io/v1alpha3
-kind: EnvoyFilter
-metadata:
-  name: ingressgateway-redirect-config
-  namespace: {{.SystemNamespace | default "istio-system"}}
-spec:
-  configPatches:
-  - applyTo: NETWORK_FILTER
-    match:
-      context: GATEWAY
-      listener:
-        filterChain:
-          filter:
-            name: envoy.filters.network.http_connection_manager
-    patch:
-      operation: MERGE
-      value:
-        typed_config:
-          '@type': type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
-          xff_num_trusted_hops: 1
-          normalize_path: true
-  workloadSelector:
-    labels:
-      istio: {{.GatewayIstioLabel | default "ingressgateway"}}
----
-` + httpVirtualServiceTmpl,
-		opts: echo.CallOptions{
-			Count: 1,
-			Port: echo.Port{
-				Protocol: protocol.HTTP,
-			},
-			HTTP: echo.HTTP{
-				// In real world, this may be set by a downstream LB that terminates the TLS
-				Headers: headers.New().With(headers.XForwardedProto, "https").Build(),
-			},
-			Check: check.Status(http.StatusBadRequest),
-		},
-		setupOpts: fqdnHostHeader,
-		templateVars: func(_ echo.Callers, dests echo.Instances) map[string]any {
-			systemNamespace := "istio-system"
-			if t.Istio.Settings().SystemNamespace != "" {
-				systemNamespace = t.Istio.Settings().SystemNamespace
-			}
-			dest := dests[0]
-			return map[string]any{
-				"Gateway":            "gateway",
-				"VirtualServiceHost": dest.Config().ClusterLocalFQDN(),
-				"Port":               443,
-				"SystemNamespace":    systemNamespace,
 				"GatewayIstioLabel":  t.Istio.Settings().IngressGatewayIstioLabel,
 			}
 		},

@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/annotations"
+	"istio.io/istio/pkg/config/analysis/analyzers/authn"
 	"istio.io/istio/pkg/config/analysis/analyzers/authz"
 	"istio.io/istio/pkg/config/analysis/analyzers/conditions"
 	"istio.io/istio/pkg/config/analysis/analyzers/deployment"
@@ -531,6 +532,32 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name: "blockedCIDRsMissing",
+		inputFiles: []string{
+			"testdata/blocked-cidrs-missing.yaml",
+		},
+		analyzer: &authn.BlockedCIDRsAnalyzer{},
+		expected: []message{
+			{msg.JwksUriFetchUnrestricted, "Deployment istio-system/istiod"},
+		},
+	},
+	{
+		name: "blockedCIDRsConfigured",
+		inputFiles: []string{
+			"testdata/blocked-cidrs-configured.yaml",
+		},
+		analyzer: &authn.BlockedCIDRsAnalyzer{},
+		expected: []message{},
+	},
+	{
+		name: "blockedCIDRsNoRA",
+		inputFiles: []string{
+			"testdata/blocked-cidrs-no-ra.yaml",
+		},
+		analyzer: &authn.BlockedCIDRsAnalyzer{},
+		expected: []message{},
+	},
+	{
 		name: "authorizationpolicies",
 		inputFiles: []string{
 			"testdata/authorizationpolicies.yaml",
@@ -974,6 +1001,14 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name:       "GatewayAPICRDVersionBelowMinimum",
+		inputFiles: []string{"testdata/gateway-api-crd-version-old.yaml"},
+		analyzer:   &k8sgateway.CRDVersionAnalyzer{},
+		expected: []message{
+			{msg.GatewayAPICRDVersionBelowMinimum, "CustomResourceDefinition tlsroutes.gateway.networking.k8s.io"},
+		},
+	},
+	{
 		name:       "ServiceEntry Addresses Required Lowercase Protocol",
 		inputFiles: []string{"testdata/serviceentry-address-required-lowercase.yaml"},
 		analyzer:   &serviceentry.ProtocolAddressesAnalyzer{},
@@ -988,6 +1023,27 @@ var testGrid = []testCase{
 		expected: []message{
 			{msg.ServiceEntryAddressesRequired, "ServiceEntry address-missing-uppercase"},
 		},
+	},
+	{
+		name:       "ServiceEntry conflicting protocols on same host and port",
+		inputFiles: []string{"testdata/serviceentry-conflicting-protocol.yaml"},
+		analyzer:   &serviceentry.ConflictingServiceEntryProtocolAnalyzer{},
+		expected: []message{
+			{msg.ConflictingServiceEntryProtocol, "ServiceEntry default/se-http"},
+			{msg.ConflictingServiceEntryProtocol, "ServiceEntry default/se-https"},
+		},
+	},
+	{
+		name:       "ServiceEntry no conflict same protocol",
+		inputFiles: []string{"testdata/serviceentry-no-conflict-protocol.yaml"},
+		analyzer:   &serviceentry.ConflictingServiceEntryProtocolAnalyzer{},
+		expected:   []message{},
+	},
+	{
+		name:       "ServiceEntry no conflict non-overlapping exportTo scopes",
+		inputFiles: []string{"testdata/serviceentry-conflicting-exportto.yaml"},
+		analyzer:   &serviceentry.ConflictingServiceEntryProtocolAnalyzer{},
+		expected:   []message{},
 	},
 	{
 		name:       "Condition Analyzer",

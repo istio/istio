@@ -31,7 +31,6 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	grpcprom "github.com/grpc-ecosystem/go-grpc-prometheus"
-	"golang.org/x/net/http2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/reflection"
@@ -40,6 +39,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/security/v1beta1"
+	"istio.io/istio/pilot/pkg/config/kube/agentgateway"
 	"istio.io/istio/pilot/pkg/controllers/ipallocate"
 	"istio.io/istio/pilot/pkg/controllers/untaint"
 	kubecredentials "istio.io/istio/pilot/pkg/credentials/kube"
@@ -52,6 +52,7 @@ import (
 	sec_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/server"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
+	"istio.io/istio/pilot/pkg/serviceregistry/ambient"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pilot/pkg/status"
@@ -66,7 +67,6 @@ import (
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/ctrlz"
 	"istio.io/istio/pkg/filewatcher"
-	"istio.io/istio/pkg/h2c"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
@@ -116,6 +116,8 @@ type Server struct {
 	virtualServiceController *model.VirtualServiceController
 	ConfigStores             []model.ConfigStoreController
 	serviceEntryController   *serviceentry.Controller
+	agentgatewayController   *agentgateway.Controller
+	ambientIndex             ambient.Index
 
 	httpServer  *http.Server // debug, monitoring and readiness Server.
 	httpAddr    string
@@ -334,8 +336,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 
 	if features.EnableAgentgateway {
 		// Must occur after initControllers
-		// TODO(jaellio): pass registrations
-		s.XDSServer.InitCollections()
+		s.XDSServer.InitCollections(s.agentgatewayController.Registrations...)
 	}
 
 	// Initialize workloadTrustBundle after CA has been initialized
@@ -546,7 +547,6 @@ func (s *Server) initSDSServer() {
 		creds := kubecredentials.NewMulticluster(s.clusterID, s.multiclusterController)
 		creds.AddSecretHandler(func(k kind.Kind, name string, namespace string) {
 			s.XDSServer.ConfigUpdate(&model.PushRequest{
-				Full:           false,
 				ConfigsUpdated: sets.New(model.ConfigKey{Kind: k, Name: name, Namespace: namespace}),
 				Reason:         model.NewReasonStats(model.SecretTrigger),
 			})
@@ -632,10 +632,7 @@ func (s *Server) initServers(args *PilotArgs) {
 		log.Infof("multiplexing gRPC on http addr %v", args.ServerOptions.HTTPAddr)
 		multiplexGRPC = true
 	}
-	h2s := &http2.Server{
-		MaxConcurrentStreams: uint32(features.MaxConcurrentStreams),
-	}
-	multiplexHandler := h2c.NewHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	multiplexHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// If we detect gRPC, serve using grpcServer
 		if r.ProtoMajor == 2 && strings.HasPrefix(r.Header.Get("content-type"), "application/grpc") {
 			s.grpcServer.ServeHTTP(w, r)
@@ -643,7 +640,7 @@ func (s *Server) initServers(args *PilotArgs) {
 		}
 		// Otherwise, this is meant for the standard HTTP server
 		s.httpMux.ServeHTTP(w, r)
-	}), h2s)
+	})
 	s.httpServer = &http.Server{
 		Addr:        args.ServerOptions.HTTPAddr,
 		Handler:     s.httpMux,
@@ -656,6 +653,11 @@ func (s *Server) initServers(args *PilotArgs) {
 		s.httpServer.ReadTimeout = 0
 		s.httpServer.ReadHeaderTimeout = 30 * time.Second
 		s.httpServer.Handler = multiplexHandler
+		protocols := new(http.Protocols)
+		protocols.SetHTTP1(true)
+		protocols.SetUnencryptedHTTP2(true)
+		s.httpServer.Protocols = protocols
+		s.httpServer.HTTP2 = &http.HTTP2Config{MaxConcurrentStreams: features.MaxConcurrentStreams}
 	}
 
 	if args.ServerOptions.MonitoringAddr == "" {
@@ -887,6 +889,9 @@ func (s *Server) cachesSynced() bool {
 	if s.multiclusterController != nil && !s.multiclusterController.HasSynced() {
 		return false
 	}
+	if s.ambientIndex != nil && !s.ambientIndex.HasSynced() {
+		return false
+	}
 	if !s.ServiceController().HasSynced() {
 		return false
 	}
@@ -905,7 +910,6 @@ func (s *Server) initRegistryEventHandlers() {
 	// Flush cached discovery responses whenever services configuration change.
 	serviceHandler := func(prev, curr *model.Service, event model.Event) {
 		pushReq := &model.PushRequest{
-			Full:           true,
 			ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: string(curr.Hostname), Namespace: curr.Attributes.Namespace}),
 			Reason:         model.NewReasonStats(model.ServiceUpdate),
 		}
@@ -922,7 +926,6 @@ func (s *Server) initRegistryEventHandlers() {
 				return
 			}
 			pushReq := &model.PushRequest{
-				Full:           true,
 				ConfigsUpdated: sets.New(model.ConfigKey{Kind: gvk.MustToKind(curr.GroupVersionKind), Name: curr.Name, Namespace: curr.Namespace}),
 				Reason:         model.NewReasonStats(model.ConfigUpdate),
 			}
@@ -1174,6 +1177,8 @@ func (s *Server) initControllers(args *PilotArgs) error {
 		s.initIPAutoallocateController(args)
 	}
 
+	s.initKubeOptions(args)
+
 	if err := s.initConfigController(args); err != nil {
 		return fmt.Errorf("error initializing config controller: %v", err)
 	}
@@ -1314,7 +1319,6 @@ func (s *Server) initMeshHandlers(changeHandler func(_ *meshconfig.MeshConfig)) 
 	s.environment.AddMeshHandler(func() {
 		changeHandler(s.environment.Mesh())
 		s.XDSServer.ConfigUpdate(&model.PushRequest{
-			Full:   true,
 			Reason: model.NewReasonStats(model.GlobalUpdate),
 			Forced: true,
 		})
@@ -1348,7 +1352,6 @@ func (s *Server) initWorkloadTrustBundle(args *PilotArgs) error {
 
 	s.workloadTrustBundle.UpdateCb(func() {
 		pushReq := &model.PushRequest{
-			Full:   true,
 			Reason: model.NewReasonStats(model.GlobalUpdate),
 			Forced: true,
 		}

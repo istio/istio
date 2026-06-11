@@ -161,6 +161,8 @@ type AgentOptions struct {
 	DNSAddr string
 	// DNSForwardParallel indicates whether the agent should send parallel DNS queries to all upstream nameservers.
 	DNSForwardParallel bool
+	// DNSForwardTimeout is the timeout for upstream DNS queries.
+	DNSForwardTimeout time.Duration
 	// ProxyType is the type of proxy we are configured to handle
 	ProxyType model.NodeType
 	// ProxyNamespace to use for local dns resolution
@@ -201,6 +203,11 @@ type AgentOptions struct {
 	// Envoy prometheus port that circles back to its admin port for prom endpoint. Really belongs to the
 	// proxy config.
 	EnvoyPrometheusPort int
+
+	// EnvoySecureMetricsPort, when non-zero, exposes an mTLS listener for Envoy-only stats.
+	EnvoySecureMetricsPort int
+	// EnvoySecureMergedMetricsPort, when non-zero, exposes an mTLS listener for merged metrics.
+	EnvoySecureMergedMetricsPort int
 
 	MinimumDrainDuration time.Duration
 
@@ -273,23 +280,25 @@ func (a *Agent) generateNodeMetadata() (*model.Node, error) {
 	}
 
 	return bootstrap.GetNodeMetaData(bootstrap.MetadataOptions{
-		ID:                          a.cfg.ServiceNode,
-		Envs:                        os.Environ(),
-		Platform:                    a.cfg.Platform,
-		InstanceIPs:                 a.cfg.ProxyIPAddresses,
-		StsPort:                     a.secOpts.STSPort,
-		ProxyConfig:                 a.proxyConfig,
-		PilotSubjectAltName:         pilotSAN,
-		CredentialSocketExists:      credentialSocketExists,
-		CustomCredentialsFileExists: a.secOpts.ServeOnlyFiles,
-		OutlierLogPath:              a.envoyOpts.OutlierLogPath,
-		EnvoyPrometheusPort:         a.cfg.EnvoyPrometheusPort,
-		EnvoyStatusPort:             a.cfg.EnvoyStatusPort,
-		ExitOnZeroActiveConnections: a.cfg.ExitOnZeroActiveConnections,
-		XDSRootCert:                 a.cfg.XDSRootCerts,
-		MetadataDiscovery:           a.cfg.MetadataDiscovery,
-		EnvoySkipDeprecatedLogs:     a.cfg.EnvoySkipDeprecatedLogs,
-		WorkloadIdentitySocketFile:  a.cfg.WorkloadIdentitySocketFile,
+		ID:                           a.cfg.ServiceNode,
+		Envs:                         os.Environ(),
+		Platform:                     a.cfg.Platform,
+		InstanceIPs:                  a.cfg.ProxyIPAddresses,
+		StsPort:                      a.secOpts.STSPort,
+		ProxyConfig:                  a.proxyConfig,
+		PilotSubjectAltName:          pilotSAN,
+		CredentialSocketExists:       credentialSocketExists,
+		CustomCredentialsFileExists:  a.secOpts.ServeOnlyFiles,
+		OutlierLogPath:               a.envoyOpts.OutlierLogPath,
+		EnvoyPrometheusPort:          a.cfg.EnvoyPrometheusPort,
+		EnvoySecureMetricsPort:       a.cfg.EnvoySecureMetricsPort,
+		EnvoySecureMergedMetricsPort: a.cfg.EnvoySecureMergedMetricsPort,
+		EnvoyStatusPort:              a.cfg.EnvoyStatusPort,
+		ExitOnZeroActiveConnections:  a.cfg.ExitOnZeroActiveConnections,
+		XDSRootCert:                  a.cfg.XDSRootCerts,
+		MetadataDiscovery:            a.cfg.MetadataDiscovery,
+		EnvoySkipDeprecatedLogs:      a.cfg.EnvoySkipDeprecatedLogs,
+		WorkloadIdentitySocketFile:   a.cfg.WorkloadIdentitySocketFile,
 	})
 }
 
@@ -342,7 +351,8 @@ func (a *Agent) initializeEnvoyAgent(_ context.Context) error {
 		localHostAddr = localHostIPv6
 	}
 	a.envoyAgent = envoy.NewAgent(envoyProxy, drainDuration, a.cfg.MinimumDrainDuration, localHostAddr,
-		int(a.proxyConfig.ProxyAdminPort), a.cfg.EnvoyStatusPort, a.cfg.EnvoyPrometheusPort, a.cfg.ExitOnZeroActiveConnections)
+		int(a.proxyConfig.ProxyAdminPort), a.cfg.EnvoyStatusPort, a.cfg.EnvoyPrometheusPort,
+		a.cfg.EnvoySecureMetricsPort, a.cfg.EnvoySecureMergedMetricsPort, a.cfg.ExitOnZeroActiveConnections)
 	return nil
 }
 
@@ -541,8 +551,13 @@ func (a *Agent) startFileWatcher(ctx context.Context, filePath string, handler f
 
 func (a *Agent) initLocalDNSServer() (err error) {
 	if a.isDNSServerEnabled() {
-		if a.localDNSServer, err = dnsClient.NewLocalDNSServer(a.cfg.ProxyNamespace, a.cfg.ProxyDomain, a.cfg.DNSAddr,
-			a.cfg.DNSForwardParallel); err != nil {
+		if a.localDNSServer, err = dnsClient.NewLocalDNSServer(
+			a.cfg.ProxyNamespace,
+			a.cfg.ProxyDomain,
+			a.cfg.DNSAddr,
+			dnsClient.WithParallelForwarding(a.cfg.DNSForwardParallel),
+			dnsClient.WithUpstreamTimeout(a.cfg.DNSForwardTimeout),
+		); err != nil {
 			return err
 		}
 		a.localDNSServer.StartDNS()

@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
         - name: jaeger
-          image: "docker.io/jaegertracing/jaeger:2.14.0"
+          image: "docker.io/jaegertracing/jaeger:2.17.0"
           args:
             - "--config"
             - "/jaeger-configuration/config.yaml"
@@ -79,8 +79,8 @@ metadata:
     app: jaeger
 data:
   # Combination of
-  # * https://github.com/jaegertracing/jaeger/blob/v2.13.0/cmd/jaeger/config-badger.yaml
-  # * https://github.com/jaegertracing/jaeger/blob/v2.13.0/cmd/jaeger/internal/all-in-one.yaml
+  # * https://github.com/jaegertracing/jaeger/blob/v2.17.0/cmd/jaeger/config-badger.yaml
+  # * https://github.com/jaegertracing/jaeger/blob/v2.17.0/cmd/jaeger/internal/all-in-one.yaml
   config.yaml: |
     service:
       extensions: [jaeger_storage, jaeger_query, remote_sampling, healthcheckv2, expvar, zpages]

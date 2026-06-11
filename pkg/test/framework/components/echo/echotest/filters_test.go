@@ -331,7 +331,7 @@ func TestRun(t *testing.T) {
 				testTopology := map[string]map[string]int{}
 				tt.run(t, testTopology)
 				if diff := cmp.Diff(testTopology, tt.expect); diff != "" {
-					t.Errorf(diff)
+					t.Errorf("%s", diff)
 				}
 			})
 		}

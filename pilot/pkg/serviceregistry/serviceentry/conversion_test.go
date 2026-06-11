@@ -39,7 +39,6 @@ import (
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/spiffe"
-	"istio.io/istio/pkg/test"
 )
 
 var (
@@ -591,6 +590,13 @@ func convertPortNameToProtocol(name string) protocol.Instance {
 func makeService(hostname host.Name, configName, configNamespace string, addresses []string, autoV4, autoV6 string, ports map[string]int,
 	external bool, resolution model.Resolution, serviceAccounts ...string,
 ) *model.Service {
+	return makeServiceWithCanonical(hostname, configName, configNamespace, addresses, autoV4, autoV6, ports,
+		external, features.CanonicalServiceForMeshExternalServiceEntry, resolution, serviceAccounts...)
+}
+
+func makeServiceWithCanonical(hostname host.Name, configName, configNamespace string, addresses []string, autoV4, autoV6 string, ports map[string]int,
+	external bool, canonicalServiceForMeshExternal bool, resolution model.Resolution, serviceAccounts ...string,
+) *model.Service {
 	svc := &model.Service{
 		CreationTime:    GlobalTime,
 		Hostname:        hostname,
@@ -613,7 +619,7 @@ func makeService(hostname host.Name, configName, configNamespace string, address
 		svc.AutoAllocatedIPv6Address = autoV6
 	}
 
-	if external && features.CanonicalServiceForMeshExternalServiceEntry {
+	if external && canonicalServiceForMeshExternal {
 		if svc.Attributes.Labels == nil {
 			svc.Attributes.Labels = make(map[string]string)
 		}
@@ -659,7 +665,7 @@ func makeInstanceWithServiceAccount(cfg *config.Config, workloadName string, add
 func makeTarget(cfg *config.Config, address string, port int,
 	svcPort *networking.ServicePort, svcLabels map[string]string, mtlsMode MTLSMode,
 ) model.ServiceTarget {
-	services := convertServices(*cfg, nil)
+	services := convertServices(*cfg, nil, false)
 	svc := services[0] // default
 	for _, s := range services {
 		if string(s.Hostname) == address {
@@ -690,7 +696,7 @@ func makeTarget(cfg *config.Config, address string, port int,
 func makeInstance(cfg *config.Config, workloadName string, addresses []string, port int,
 	svcPort *networking.ServicePort, svcLabels map[string]string, mtlsMode MTLSMode,
 ) *model.ServiceInstance {
-	services := convertServices(*cfg, nil)
+	services := convertServices(*cfg, nil, false)
 	svc := services[0] // default
 	getSvc := false
 	for _, s := range services {
@@ -736,13 +742,19 @@ func makeInstance(cfg *config.Config, workloadName string, addresses []string, p
 }
 
 func TestConvertService(t *testing.T) {
-	testConvertServiceBody(t)
-	test.SetForTest(t, &features.CanonicalServiceForMeshExternalServiceEntry, true)
-	testConvertServiceBody(t)
+	testConvertServiceBody(t, false)
+	testConvertServiceBody(t, true)
 }
 
-func testConvertServiceBody(t *testing.T) {
+func testConvertServiceBody(t *testing.T, canonicalServiceForMeshExternal bool) {
 	t.Helper()
+
+	makeService := func(hostname host.Name, configName, configNamespace string, addresses []string, autoV4, autoV6 string, ports map[string]int,
+		external bool, resolution model.Resolution, serviceAccounts ...string,
+	) *model.Service {
+		return makeServiceWithCanonical(hostname, configName, configNamespace, addresses, autoV4, autoV6, ports,
+			external, canonicalServiceForMeshExternal, resolution, serviceAccounts...)
+	}
 
 	serviceTests := []struct {
 		externalSvc *config.Config
@@ -880,7 +892,7 @@ func testConvertServiceBody(t *testing.T) {
 	})
 
 	for _, tt := range serviceTests {
-		services := convertServices(*tt.externalSvc, nil)
+		services := convertServices(*tt.externalSvc, nil, canonicalServiceForMeshExternal)
 		if err := compare(t, services, tt.services); err != nil {
 			t.Errorf("testcase: %v\n%v ", tt.externalSvc.Name, err)
 		}
@@ -1010,7 +1022,7 @@ func TestConvertInstances(t *testing.T) {
 	for _, tt := range serviceInstanceTests {
 		t.Run(strings.Join(tt.externalSvc.Spec.(*networking.ServiceEntry).Hosts, "_"), func(t *testing.T) {
 			s := &Controller{}
-			ss := convertServices(*tt.externalSvc, nil)
+			ss := convertServices(*tt.externalSvc, nil, false)
 			instances := make([]*model.ServiceInstance, 0)
 			for _, service := range ss {
 				instances = append(
@@ -1106,7 +1118,7 @@ func TestConvertWorkloadEntryToServiceInstances(t *testing.T) {
 
 	for _, tt := range serviceInstanceTests {
 		t.Run(tt.name, func(t *testing.T) {
-			services := convertServices(*tt.se, nil)
+			services := convertServices(*tt.se, nil, false)
 			s := &Controller{inputs: Inputs{MeshConfig: meshwatcher.NewTestWatcher(mesh.DefaultMeshConfig()).AsCollection()}}
 			meta := config.Meta{
 				Name:      tt.se.Name,
@@ -1553,7 +1565,7 @@ func TestConvertServicesNamespaceTrafficDistribution(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			services := convertServices(*tt.cfg, tt.nsAnnotations)
+			services := convertServices(*tt.cfg, tt.nsAnnotations, false)
 			if len(services) != 1 {
 				t.Fatalf("expected 1 service, got %d", len(services))
 			}

@@ -33,6 +33,7 @@ type filter struct {
 	selects         map[string]string
 	labels          map[string]string
 	generic         func(any) bool
+	suppressChange  func(o, n any) bool
 
 	index *indexFilter
 }
@@ -81,6 +82,9 @@ func (f *filter) String() string {
 	}
 	if f.generic != nil {
 		attrs = append(attrs, "generic")
+	}
+	if f.suppressChange != nil {
+		attrs = append(attrs, "suppressChange")
 	}
 	res := strings.Join(attrs, ",")
 	return fmt.Sprintf("{%s}", res)
@@ -157,6 +161,25 @@ func FilterGeneric(f func(any) bool) FetchOption {
 	return func(h *dependency) {
 		h.filter.generic = f
 	}
+}
+
+// withUnsafeSuppressChange skips incoming update events when fn returns true.
+// This only applies to dependency change handling for Fetch calls; it does not affect the initial list result.
+// This is dangerous to use; if you use any parts of the object *outside* the comparison function, you will get stale data.
+// Recommended to use with PartialFetch
+func withUnsafeSuppressChange[T any](fn func(T, T) bool) FetchOption {
+	return func(h *dependency) {
+		h.filter.suppressChange = func(o, n any) bool {
+			return fn(o.(T), n.(T))
+		}
+	}
+}
+
+func (f *filter) SuppressChange(ev Event[any]) bool {
+	if f.suppressChange == nil || ev.Old == nil || ev.New == nil {
+		return false
+	}
+	return f.suppressChange(*ev.Old, *ev.New)
 }
 
 func (f *filter) Matches(object any, forList bool) bool {

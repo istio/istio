@@ -26,7 +26,6 @@ import (
 	"istio.io/api/annotation"
 	istio "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/kube/gatewaycommon"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/ptr"
@@ -113,27 +112,7 @@ func reportGatewayStatus(
 		gatewayConditions[string(gatewayv1.GatewayConditionAccepted)].error = gatewayErr
 	}
 
-	// Not defined in upstream API
-	const AttachedListenerSets = "AttachedListenerSets"
-	if obj.Spec.AllowedListeners != nil {
-		gatewayConditions[AttachedListenerSets] = &Condition{
-			reason:  "ListenersAttached",
-			message: "At least one ListenerSet is attached",
-		}
-		if !features.EnableAlphaGatewayAPI {
-			gatewayConditions[AttachedListenerSets].error = &ConfigError{
-				Reason: "Unsupported",
-				Message: fmt.Sprintf("AllowedListeners is configured, but ListenerSets are not enabled (set %v=true)",
-					features.EnableAlphaGatewayAPIName),
-			}
-		} else if listenerSetCount == 0 {
-			gatewayConditions[AttachedListenerSets].error = &ConfigError{
-				Reason:  "NoListenersAttached",
-				Message: "AllowedListeners is configured, but no ListenerSets are attached",
-			}
-		}
-	}
-
+	gs.AttachedListenerSets = ptr.Of(int32(listenerSetCount))
 	setProgrammedCondition(gatewayConditions, internal, gatewayServices, warnings, allUsable)
 
 	addressesToReport := external
@@ -222,6 +201,7 @@ func setProgrammedCondition(gatewayConditions map[string]*Condition, internal []
 func reportUnsupportedListenerSet(class string, status *gatewayv1.ListenerSetStatus, obj *gatewayv1.ListenerSet) {
 	gatewayConditions := map[string]*Condition{
 		string(gatewayv1.GatewayConditionAccepted): {
+			status: metav1.ConditionFalse,
 			reason: string(gatewayv1.GatewayReasonAccepted),
 			error: &ConfigError{
 				Reason:  string(gatewayv1.ListenerSetReasonNotAllowed),
@@ -229,6 +209,7 @@ func reportUnsupportedListenerSet(class string, status *gatewayv1.ListenerSetSta
 			},
 		},
 		string(gatewayv1.GatewayConditionProgrammed): {
+			status: metav1.ConditionFalse,
 			reason: string(gatewayv1.GatewayReasonProgrammed),
 			error: &ConfigError{
 				Reason:  string(gatewayv1.ListenerSetReasonNotAllowed),

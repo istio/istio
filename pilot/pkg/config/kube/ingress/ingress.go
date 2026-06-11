@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/slices"
 	netutil "istio.io/istio/pkg/util/net"
 )
 
@@ -56,7 +57,7 @@ func SupportedIngresses(
 				return nil, nil
 			}
 
-			wantIPs := sliceToStatus(runningAddresses(ctx, meshConfig, services, nodes, pods, podsByNamespace))
+			wantIPs := sliceToStatus(runningAddresses(ctx, meshConfig, services, nodes, podsByNamespace))
 
 			return &knetworking.IngressStatus{
 				LoadBalancer: knetworking.IngressLoadBalancerStatus{
@@ -73,7 +74,6 @@ func runningAddresses(
 	meshConfig meshwatcher.WatcherCollection,
 	services krt.Collection[*corev1.Service],
 	nodes krt.Collection[*corev1.Node],
-	pods krt.Collection[*corev1.Pod],
 	podsByNamespace krt.Index[string, *corev1.Pod],
 ) []string {
 	mesh := krt.FetchOne(ctx, meshConfig.AsCollection())
@@ -105,12 +105,7 @@ func runningAddresses(
 
 	// get all pods acting as ingress gateways
 	igSelector := getIngressGatewaySelector(ingressSelector, ingressService)
-	igPods := krt.Fetch(
-		ctx,
-		pods,
-		krt.FilterLabel(igSelector),
-		krt.FilterIndex(podsByNamespace, IngressNamespace),
-	)
+	igPods := podsByNamespace.Fetch(ctx, IngressNamespace, krt.FilterLabel(igSelector))
 
 	for _, pod := range igPods {
 		// only Running pods are valid
@@ -128,7 +123,7 @@ func runningAddresses(
 		addrs := make([]string, 0)
 		for _, address := range node.Status.Addresses {
 			if address.Type == corev1.NodeExternalIP {
-				if address.Address != "" && !addressInSlice(address.Address, addrs) {
+				if address.Address != "" && !slices.Contains(addrs, address.Address) {
 					addrs = append(addrs, address.Address)
 				}
 			}
@@ -248,14 +243,4 @@ func lessLoadBalancerIngress(addrs []knetworking.IngressLoadBalancerIngress) fun
 		}
 		return addrs[a].IP < addrs[b].IP
 	}
-}
-
-func addressInSlice(addr string, list []string) bool {
-	for _, v := range list {
-		if v == addr {
-			return true
-		}
-	}
-
-	return false
 }

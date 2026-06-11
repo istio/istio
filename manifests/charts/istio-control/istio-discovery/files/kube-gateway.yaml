@@ -269,7 +269,7 @@ spec:
         - name: istio-podinfo
           mountPath: /etc/istio/pod
       volumes:
-      - emptyDir: {}
+      - emptyDir:
         name: workload-socket
       - emptyDir: {}
         name: credential-socket

@@ -511,6 +511,16 @@ D2lWusoe2/nEqfDVVWGWlyJ7yOmqaVm/iNUN9B2N2g==
 		},
 		&corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-cert",
+				Namespace: "istio-system",
+			},
+			Data: map[string][]byte{
+				"tls.crt": []byte(rsaCertPEM),
+				"tls.key": []byte(rsaKeyPEM),
+			},
+		},
+		&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
 				Name:      "my-cert-http2",
 				Namespace: "istio-system",
 			},
@@ -615,7 +625,6 @@ func init() {
 	features.EnableAlphaGatewayAPI = true
 	features.EnableAmbientWaypoints = true
 	features.EnableAmbientMultiNetwork = true
-	features.EnableAgentgateway = true
 	// Recompute with ambient enabled
 	gatewaycommon.ClassInfos = gatewaycommon.GetClassInfos()
 	gatewaycommon.BuiltinGatewayClasses = gatewaycommon.GetBuiltinGatewayClasses()
@@ -699,6 +708,7 @@ func TestConvertResources(t *testing.T) {
 		{name: "http"},
 		{name: "tcp"},
 		{name: "tls"},
+		{name: "tls-terminate"},
 		{name: "grpc"},
 		{name: "mismatch"},
 		{name: "weighted"},
@@ -754,6 +764,8 @@ func TestConvertResources(t *testing.T) {
 			),
 		},
 		{name: "mix-backend-policy"},
+		{name: "backend-tls-policy-ignored"},
+		{name: "backend-traffic-policy-ignored"},
 		{name: "listenerset"},
 		{name: "listenerset-cross-namespace"},
 		{name: "listenerset-same-name-different-ns"},
@@ -773,6 +785,9 @@ func TestConvertResources(t *testing.T) {
 		{name: "redirect-only"},
 		{name: "reference-grant-multiple-to"},
 		{name: "http-grpc-same-host"},
+		{name: "empty-backend-refs"},
+		{name: "frontend-tls-invalid"},
+		{name: "backend-tls-client-cert"},
 	}
 	test.SetForTest(t, &features.EnableGatewayAPIGatewayClassController, false)
 	test.SetForTest(t, &features.EnableGatewayAPIInferenceExtension, true)
@@ -1679,6 +1694,104 @@ func marshalYaml(t test.Failer, cl []config.Config) []byte {
 		result = append(result, separator...)
 	}
 	return result
+}
+
+func TestCreateHeadersFilter(t *testing.T) {
+	tests := []struct {
+		name      string
+		filter    *k8s.HTTPHeaderFilter
+		wantErr   bool
+		errReason ConfigErrorReason
+	}{
+		{
+			name:    "nil filter",
+			filter:  nil,
+			wantErr: false,
+		},
+		{
+			name: "valid headers",
+			filter: &k8s.HTTPHeaderFilter{
+				Set: []k8s.HTTPHeader{{Name: "x-foo", Value: "bar"}},
+				Add: []k8s.HTTPHeader{{Name: "x-baz", Value: "qux"}},
+			},
+			wantErr: false,
+		},
+		{
+			name: "newline in set header value",
+			filter: &k8s.HTTPHeaderFilter{
+				Set: []k8s.HTTPHeader{{Name: "content-security-policy", Value: "default-src 'self';\nscript-src 'self';"}},
+			},
+			wantErr:   true,
+			errReason: InvalidFilter,
+		},
+		{
+			name: "carriage return in set header value",
+			filter: &k8s.HTTPHeaderFilter{
+				Set: []k8s.HTTPHeader{{Name: "x-foo", Value: "bar\rbaz"}},
+			},
+			wantErr:   true,
+			errReason: InvalidFilter,
+		},
+		{
+			name: "newline in add header value",
+			filter: &k8s.HTTPHeaderFilter{
+				Add: []k8s.HTTPHeader{{Name: "x-foo", Value: "bar\nbaz"}},
+			},
+			wantErr:   true,
+			errReason: InvalidFilter,
+		},
+		{
+			name: "null byte in header value",
+			filter: &k8s.HTTPHeaderFilter{
+				Set: []k8s.HTTPHeader{{Name: "x-foo", Value: "bar\x00baz"}},
+			},
+			wantErr:   true,
+			errReason: InvalidFilter,
+		},
+		{
+			name: "control character in header value",
+			filter: &k8s.HTTPHeaderFilter{
+				Set: []k8s.HTTPHeader{{Name: "x-foo", Value: "bar\x01baz"}},
+			},
+			wantErr:   true,
+			errReason: InvalidFilter,
+		},
+		{
+			name: "DEL character in header value",
+			filter: &k8s.HTTPHeaderFilter{
+				Set: []k8s.HTTPHeader{{Name: "x-foo", Value: "bar\x7Fbaz"}},
+			},
+			wantErr:   true,
+			errReason: InvalidFilter,
+		},
+		{
+			name: "tab in header value is valid",
+			filter: &k8s.HTTPHeaderFilter{
+				Set: []k8s.HTTPHeader{{Name: "x-foo", Value: "bar\tbaz"}},
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := createHeadersFilter(tt.filter)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("expected error but got none")
+				}
+				if err.Reason != tt.errReason {
+					t.Errorf("got reason %q, want %q", err.Reason, tt.errReason)
+				}
+			} else {
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+				if tt.filter != nil && got == nil {
+					t.Errorf("expected non-nil result for non-nil filter")
+				}
+			}
+		})
+	}
 }
 
 func TestHumanReadableJoin(t *testing.T) {

@@ -108,7 +108,7 @@ spec:
           value: "false"
         - name: DISABLE_ENVOY
           value: "true"
-        image: gcr.io/istio-testing/proxyv2:latest
+        image: registry.istio.io/testing/proxyv2:latest
         lifecycle:
           postStart:
             exec:

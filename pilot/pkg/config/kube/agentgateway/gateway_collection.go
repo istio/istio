@@ -18,7 +18,7 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/agentgateway/agentgateway/go/api"
+	"github.com/agentgateway/agentgateway/api"
 	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -395,8 +395,12 @@ func GatewayCollection(
 			}
 			result = append(result, res)
 		}
-		listenersFromSets := krt.Fetch(ctx, listenerSets, krt.FilterIndex(listenerIndex, config.NamespacedName(obj)))
+		listenersFromSets := listenerIndex.Fetch(ctx, config.NamespacedName(obj))
+		// When reporting gateway status, we need to count the actual ListenerSets attached to the gateway
+		// and not the listeners
+		listenerSets := make(map[types.NamespacedName]bool)
 		for _, ls := range listenersFromSets {
+			listenerSets[ls.Parent] = true
 			result = append(result, &GatewayListener{
 				Name:          ls.Name,
 				ParentGateway: config.NamespacedName(obj),
@@ -411,7 +415,7 @@ func GatewayCollection(
 			})
 		}
 
-		reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, len(listenersFromSets), gatewayErr)
+		reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, len(listenerSets), gatewayErr)
 		return status, result
 	}, opts.WithName("KubernetesGateway")...)
 
@@ -451,15 +455,14 @@ func convertListenerSetStatusToStandardStatus(e gatewayv1.ListenerEntryStatus) g
 	return gatewayv1.ListenerStatus(e)
 }
 
-// TODO(jaellio): Move these definitions to route collection?
+// TODO(jaellio): Move these definitions to route collection (?)
 // RouteParents holds information about things routes can reference as parents.
 type RouteParents struct {
-	gateways     krt.Collection[*GatewayListener]
 	gatewayIndex krt.Index[AgwParentKey, *GatewayListener]
 }
 
 func (p RouteParents) fetch(ctx krt.HandlerContext, pk AgwParentKey) []*AgwParentInfo {
-	return slices.Map(krt.Fetch(ctx, p.gateways, krt.FilterIndex(p.gatewayIndex, pk)), func(gw *GatewayListener) *AgwParentInfo {
+	return slices.Map(p.gatewayIndex.Fetch(ctx, pk), func(gw *GatewayListener) *AgwParentInfo {
 		return &gw.ParentInfo
 	})
 }
@@ -471,7 +474,6 @@ func BuildRouteParents(
 		return []AgwParentKey{o.ParentObject}
 	})
 	return RouteParents{
-		gateways:     gateways,
 		gatewayIndex: idx,
 	}
 }

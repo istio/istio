@@ -20,6 +20,7 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -64,6 +65,30 @@ func TestMergeGateways(t *testing.T) {
 		identity, _ := spiffe.ParseIdentity("spiffe://td/ns/ns/sa/other-sa")
 		return &identity
 	})
+	// ListenerSet-derived config with unmanaged parent Gateway: InternalServiceAccount is empty, any SA is accepted.
+	makeListenerSetConfig := func(certName string) config.Config {
+		return config.Config{
+			Meta: config.Meta{
+				Name:      "ls1",
+				Namespace: "tenant",
+				Annotations: map[string]string{
+					constants.InternalServiceAccount:  "",
+					constants.InternalParentNames:     "ListenerSet/ls1/https.tenant",
+					constants.InternalParentNamespace: "ns",
+				},
+			},
+			Spec: &networking.Gateway{
+				Servers: []*networking.Server{{
+					Hosts: []string{"foo.example.com"},
+					Port:  &networking.Port{Name: "https", Number: 443, Protocol: "HTTPS"},
+					Tls:   makeTLSSettings(networking.ServerTLSSettings_SIMPLE, []string{certName}),
+				}},
+			},
+		}
+	}
+	gwListenerSetCredSameNS := makeListenerSetConfig("kubernetes-gateway://tenant/foo")
+	gwListenerSetCredCrossNSAllowed := makeListenerSetConfig(fmt.Sprintf("kubernetes-gateway://%s/foo", AllowedNamespace))
+	gwListenerSetCredCrossNSNotAllowed := makeListenerSetConfig(fmt.Sprintf("kubernetes-gateway://%s/foo", NotAllowedNamespace))
 
 	// TODO(ramaraochavali): Add more test cases here.
 	tests := []struct {
@@ -276,6 +301,36 @@ func TestMergeGateways(t *testing.T) {
 			map[string]int{"http.7": 1},
 			1,
 			2,
+		},
+		{
+			"listenerset-cert-same-ns",
+			[]config.Config{gwListenerSetCredSameNS},
+			proxyIdentity,
+			1,
+			1,
+			map[string]int{"https.443.https.ls1.tenant": 1},
+			1,
+			1,
+		},
+		{
+			"listenerset-cert-cross-ns-allowed",
+			[]config.Config{gwListenerSetCredCrossNSAllowed},
+			proxyIdentity,
+			1,
+			1,
+			map[string]int{"https.443.https.ls1.tenant": 1},
+			1,
+			1,
+		},
+		{
+			"listenerset-cert-cross-ns-not-allowed",
+			[]config.Config{gwListenerSetCredCrossNSNotAllowed},
+			proxyIdentity,
+			1,
+			1,
+			map[string]int{"https.443.https.ls1.tenant": 1},
+			1,
+			0,
 		},
 	}
 

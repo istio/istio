@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/slices"
 )
 
@@ -85,11 +86,15 @@ func (sg *StatusGen) handleInternalRequest(proxy *model.Proxy, w *model.WatchedR
 		return nil, model.DefaultXdsLogDetails, grpcstatus.Error(codes.Unauthenticated, "authentication required")
 	}
 
+	// Non-system callers are restricted to proxies in their own namespace.
+	// Empty callerNamespace means unrestricted (auth disabled, caller from system namespace, or in allow-list).
+	callerNamespace := sg.callerNamespaceFilter(proxy)
+
 	res := model.Resources{}
 
 	switch w.TypeUrl {
 	case TypeDebugSyncronization:
-		res = sg.debugSyncz()
+		res = sg.debugSyncz(callerNamespace)
 	case TypeDebugConfigDump:
 		if len(w.ResourceNames) == 0 || len(w.ResourceNames) > 1 {
 			// Malformed request from client
@@ -97,7 +102,7 @@ func (sg *StatusGen) handleInternalRequest(proxy *model.Proxy, w *model.WatchedR
 			break
 		}
 		var err error
-		dumpRes, err := sg.debugConfigDump(w.ResourceNames.UnsortedList()[0])
+		dumpRes, err := sg.debugConfigDump(w.ResourceNames.UnsortedList()[0], callerNamespace)
 		if err != nil {
 			log.Infof("%s failed: %v", TypeDebugConfigDump, err)
 			break
@@ -105,6 +110,22 @@ func (sg *StatusGen) handleInternalRequest(proxy *model.Proxy, w *model.WatchedR
 		res = dumpRes
 	}
 	return res, model.DefaultXdsLogDetails, nil
+}
+
+// callerNamespaceFilter returns the namespace the caller is restricted to, or "" if unrestricted.
+func (sg *StatusGen) callerNamespaceFilter(proxy *model.Proxy) string {
+	if !features.EnableDebugEndpointAuth || proxy.VerifiedIdentity == nil {
+		return ""
+	}
+	systemNamespace := constants.IstioSystemNamespace
+	if env := sg.Server.Env; env != nil && env.Mesh() != nil && env.Mesh().GetRootNamespace() != "" {
+		systemNamespace = env.Mesh().GetRootNamespace()
+	}
+	ns := proxy.VerifiedIdentity.Namespace
+	if ns == systemNamespace || features.DebugEndpointAuthAllowedNamespaces.Contains(ns) {
+		return ""
+	}
+	return ns
 }
 
 // isSidecar ad-hoc method to see if connection represents a sidecar
@@ -122,13 +143,13 @@ func isZtunnel(con *Connection) bool {
 		con.proxy.Type == model.Ztunnel
 }
 
-func (sg *StatusGen) debugSyncz() model.Resources {
+func (sg *StatusGen) debugSyncz(callerNamespace string) model.Resources {
 	res := model.Resources{}
 
 	for _, con := range sg.Server.Clients() {
 		con.proxy.RLock()
 		// Skip "nodes" without metadata (they are probably istioctl queries!)
-		if isProxy(con) || isZtunnel(con) {
+		if (isProxy(con) || isZtunnel(con)) && (callerNamespace == "" || con.proxy.ConfigNamespace == callerNamespace) {
 			xdsConfigs := make([]*status.ClientConfig_GenericXdsConfig, 0)
 			wrs := con.proxy.DeepCloneWatchedResources()
 			for _, wr := range wrs {
@@ -183,11 +204,15 @@ func debugSyncStatus(wr model.WatchedResource) status.ConfigStatus {
 	return status.ConfigStatus_STALE
 }
 
-func (sg *StatusGen) debugConfigDump(proxyID string) (model.Resources, error) {
+func (sg *StatusGen) debugConfigDump(proxyID string, callerNamespace string) (model.Resources, error) {
 	conn := sg.Server.getProxyConnection(proxyID)
 	if conn == nil {
 		// This is "like" a 404.  The error is the client's.  However, this endpoint
 		// only tracks a single "shard" of connections.  The client may try another instance.
+		return nil, fmt.Errorf("config dump could not find connection for proxyID %q", proxyID)
+	}
+	// Non-system callers can only dump proxies in their own namespace.
+	if callerNamespace != "" && conn.proxy.ConfigNamespace != callerNamespace {
 		return nil, fmt.Errorf("config dump could not find connection for proxyID %q", proxyID)
 	}
 

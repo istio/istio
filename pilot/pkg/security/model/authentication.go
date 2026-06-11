@@ -74,26 +74,40 @@ func ConstructSdsSecretConfigForCredential(name string, credentialSocketExist bo
 	if name == credentials.BuiltinGatewaySecretTypeURI+SdsCaSuffix {
 		return ConstructSdsSecretConfig(SDSRootResourceName)
 	}
+	// External SDS: credentialName format is "sds://<resource-name>".
+	// The resource name (after stripping the sds:// prefix) is sent as-is to the SDS server,
+	// allowing the server to differentiate between different certificates.
+	//
+	// Priority order:
+	//   1. UDS socket (credential metadata on the proxy) — local SDS agent on the gateway pod
+	//   2. SDS extension provider in meshConfig — remote SDS server referenced by service/port
+	//   3. ADS fallback — treat resource name as a Kubernetes Secret reference via istiod
+	//
+	// Currently only a single SDS extension provider is supported; the first one found is used.
+	// To support multiple providers in the future, the format could be extended to
+	// "sds://<resource-name>@<provider-name>" to allow explicit provider selection.
 	if strings.HasPrefix(name, security.SDSExternalCredentialPrefix) {
-		// Check if External SDS is a provider and use its cluster name
-		if sdsName, ok := strings.CutPrefix(name, security.SDSExternalCredentialPrefix); ok {
+		resourceName, _ := strings.CutPrefix(name, security.SDSExternalCredentialPrefix)
+		if credentialSocketExist {
+			// Preserve full name (including sds:// prefix) for backward compatibility —
+			// existing UDS-based SDS agents expect the complete credentialName as the resource name.
+			return ConstructSdsSecretConfigForCredentialSocket(name, security.SDSExternalClusterName)
+		}
+		if push != nil {
 			for _, provider := range push.Mesh.ExtensionProviders {
-				if provider.GetSds() != nil && provider.GetSds().Name == sdsName {
+				if provider.GetSds() != nil {
 					_, cluster, err := model.LookupCluster(push, provider.GetSds().Service, int(provider.GetSds().Port))
 					if err != nil {
 						model.IncLookupClusterFailures("externalSds")
 						log.Errorf("could not find cluster for external sds provider %q: %v", provider.GetSds(), err)
 						return nil
 					}
-					return ConstructSdsSecretConfigForCredentialSocket(name, cluster)
+					return ConstructSdsSecretConfigForCredentialSocket(resourceName, cluster)
 				}
 			}
 		}
-	}
-	// if credentialSocketExist exists and credentialName is using SDSExternalCredentialPrefix
-	// SDS will be served via SDSExternalClusterName
-	if credentialSocketExist && strings.HasPrefix(name, security.SDSExternalCredentialPrefix) {
-		return ConstructSdsSecretConfigForCredentialSocket(name, security.SDSExternalClusterName)
+		// No UDS socket or extension provider — fall back to ADS (Kubernetes Secret via istiod)
+		name = resourceName
 	}
 
 	return &tls.SdsSecretConfig{

@@ -1355,6 +1355,7 @@ func TestPassthroughTraffic(t *testing.T) {
 	for _, tp := range []meshconfig.MeshConfig_OutboundTrafficPolicy_Mode{
 		meshconfig.MeshConfig_OutboundTrafficPolicy_REGISTRY_ONLY,
 		meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY,
+		meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY_DYNAMIC_DNS,
 	} {
 		t.Run(tp.String(), func(t *testing.T) {
 			o := xds.FakeOptions{
@@ -1365,8 +1366,9 @@ func TestPassthroughTraffic(t *testing.T) {
 				}(),
 			}
 			expectedCluster := map[meshconfig.MeshConfig_OutboundTrafficPolicy_Mode]string{
-				meshconfig.MeshConfig_OutboundTrafficPolicy_REGISTRY_ONLY: util.BlackHoleCluster,
-				meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY:     util.PassthroughCluster,
+				meshconfig.MeshConfig_OutboundTrafficPolicy_REGISTRY_ONLY:         util.BlackHoleCluster,
+				meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY:             util.PassthroughCluster,
+				meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY_DYNAMIC_DNS: util.AllowAnyDynamicDNSCluster,
 			}[tp]
 			t.Run("with VIP", func(t *testing.T) {
 				testCalls := []simulation.Expect{}
@@ -1378,11 +1380,25 @@ func TestPassthroughTraffic(t *testing.T) {
 							ClusterMatched: expectedCluster,
 						},
 					}
-					// For blackhole, we will 502 where possible instead of blackhole cluster
-					// This only works for HTTP on HTTP
-					if expectedCluster == util.BlackHoleCluster && call.IsHTTP() && isHTTPPort(call.Port) {
-						e.Result.ClusterMatched = ""
-						e.Result.VirtualHostMatched = util.BlackHole
+					// With VIP, call address doesn't match VIP so traffic goes through
+					// virtualOutbound. Mode-specific overrides:
+					switch tp {
+					case meshconfig.MeshConfig_OutboundTrafficPolicy_REGISTRY_ONLY:
+						// 502 via blackhole VH where possible (HTTP on HTTP ports)
+						if call.IsHTTP() && isHTTPPort(call.Port) {
+							e.Result.ClusterMatched = ""
+							e.Result.VirtualHostMatched = util.BlackHole
+						}
+					case meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY:
+						if call.Protocol == simulation.TCP && call.TLS == simulation.Plaintext &&
+							!isHTTPPort(call.Port) {
+							e.Result.ClusterMatched = util.PassthroughCluster
+						}
+					case meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY_DYNAMIC_DNS:
+						// Only plaintext HTTP goes via DFP; everything else PassthroughCluster.
+						if call.TLS != simulation.Plaintext || !call.IsHTTP() {
+							e.Result.ClusterMatched = util.PassthroughCluster
+						}
 					}
 					testCalls = append(testCalls, e)
 				}
@@ -1415,11 +1431,21 @@ spec:
 							ClusterMatched: expectedCluster,
 						},
 					}
-					// For blackhole, we will 502 where possible instead of blackhole cluster
-					// This only works for HTTP on HTTP
-					if expectedCluster == util.BlackHoleCluster && call.IsHTTP() && (isHTTPPort(call.Port) || isAutoPort(call.Port)) {
-						e.Result.ClusterMatched = ""
-						e.Result.VirtualHostMatched = util.BlackHole
+					// Without VIP, traffic goes to per-port listeners. Mode-specific overrides:
+					switch tp {
+					case meshconfig.MeshConfig_OutboundTrafficPolicy_REGISTRY_ONLY:
+						// 502 via blackhole VH where possible (HTTP on HTTP/auto ports)
+						if call.IsHTTP() && (isHTTPPort(call.Port) || isAutoPort(call.Port)) {
+							e.Result.ClusterMatched = ""
+							e.Result.VirtualHostMatched = util.BlackHole
+						}
+					case meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY_DYNAMIC_DNS:
+						// Only plaintext HTTP on HCM ports (HTTP/GRPC/H2/auto) uses DFP
+						// (already the default); everything else PassthroughCluster.
+						if call.TLS != simulation.Plaintext || !call.IsHTTP() ||
+							!(isHTTPPort(call.Port) || isAutoPort(call.Port)) {
+							e.Result.ClusterMatched = util.PassthroughCluster
+						}
 					}
 					// TCP without a VIP will capture everything.
 					// Auto without a VIP is similar, but HTTP happens to work because routing is done on header

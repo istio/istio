@@ -24,10 +24,12 @@ import (
 	"strconv"
 	"strings"
 
-	"helm.sh/helm/v3/pkg/chart"
-	"helm.sh/helm/v3/pkg/chart/loader"
-	"helm.sh/helm/v3/pkg/chartutil"
-	"helm.sh/helm/v3/pkg/engine"
+	"helm.sh/helm/v4/pkg/chart/common"
+	commonutil "helm.sh/helm/v4/pkg/chart/common/util"
+	"helm.sh/helm/v4/pkg/chart/loader/archive"
+	chartv2 "helm.sh/helm/v4/pkg/chart/v2"
+	loaderv2 "helm.sh/helm/v4/pkg/chart/v2/loader"
+	"helm.sh/helm/v4/pkg/engine"
 	"k8s.io/apimachinery/pkg/version"
 
 	"istio.io/istio/istioctl/pkg/install/k8sversion"
@@ -67,26 +69,26 @@ type TemplateFilterFunc func(string) bool
 type Warnings = util.Errors
 
 // renderChart renders the given chart with the given values and returns the resulting YAML manifest string.
-func renderChart(releaseName string, namespace string, vals values.Map, chrt *chart.Chart, version *version.Info) ([]string, Warnings, error) {
-	options := chartutil.ReleaseOptions{
+func renderChart(releaseName string, namespace string, vals values.Map, chrt *chartv2.Chart, version *version.Info) ([]string, Warnings, error) {
+	options := common.ReleaseOptions{
 		Name:      releaseName,
 		Namespace: namespace,
 	}
 
-	caps := *chartutil.DefaultCapabilities
+	caps := *common.DefaultCapabilities
 
 	// overwrite helm default capabilities
-	operatorVersion, _ := chartutil.ParseKubeVersion("1." + strconv.Itoa(k8sversion.MinK8SVersion) + ".0")
+	operatorVersion, _ := common.ParseKubeVersion("1." + strconv.Itoa(k8sversion.MinK8SVersion) + ".0")
 	caps.KubeVersion = *operatorVersion
 
 	if version != nil {
-		caps.KubeVersion = chartutil.KubeVersion{
+		caps.KubeVersion = common.KubeVersion{
 			Version: version.GitVersion,
 			Major:   version.Major,
 			Minor:   version.Minor,
 		}
 	}
-	helmVals, err := chartutil.ToRenderValues(chrt, vals, options, &caps)
+	helmVals, err := commonutil.ToRenderValues(chrt, vals, options, &caps)
 	if err != nil {
 		return nil, nil, fmt.Errorf("converting values: %v", err)
 	}
@@ -100,7 +102,7 @@ func renderChart(releaseName string, namespace string, vals values.Map, chrt *ch
 	if chrt.Metadata.Name == "base" {
 		enableIstioConfigCRDs, ok := values.GetPathAs[bool](vals, "base.enableIstioConfigCRDs")
 		if ok && !enableIstioConfigCRDs {
-			crdFiles = []chart.CRD{}
+			crdFiles = []chartv2.CRD{}
 		}
 	}
 
@@ -122,7 +124,7 @@ func renderChart(releaseName string, namespace string, vals values.Map, chrt *ch
 	}
 
 	// Sort crd files by name to ensure stable manifest output
-	slices.SortBy(crdFiles, func(a chart.CRD) string {
+	slices.SortBy(crdFiles, func(a chartv2.CRD) string {
 		return a.Name
 	})
 	for _, crd := range crdFiles {
@@ -149,7 +151,7 @@ const (
 )
 
 // loadChart reads a chart from the filesystem. This is like loader.LoadDir but allows a fs.FS.
-func loadChart(f fs.FS, root string) (*chart.Chart, error) {
+func loadChart(f fs.FS, root string) (*chartv2.Chart, error) {
 	fnames, err := getFilesRecursive(f, root)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -157,7 +159,7 @@ func loadChart(f fs.FS, root string) (*chart.Chart, error) {
 		}
 		return nil, fmt.Errorf("list files: %v", err)
 	}
-	var bfs []*loader.BufferedFile
+	var bfs []*archive.BufferedFile
 	for _, fname := range fnames {
 		b, err := fs.ReadFile(f, fname)
 		if err != nil {
@@ -165,14 +167,14 @@ func loadChart(f fs.FS, root string) (*chart.Chart, error) {
 		}
 		// Helm expects unix / separator, but on windows this will be \
 		name := strings.ReplaceAll(stripPrefix(fname, root), string(filepath.Separator), "/")
-		bf := &loader.BufferedFile{
+		bf := &archive.BufferedFile{
 			Name: name,
 			Data: b,
 		}
 		bfs = append(bfs, bf)
 	}
 
-	return loader.LoadFiles(bfs)
+	return loaderv2.LoadFiles(bfs)
 }
 
 // stripPrefix removes the given prefix from prefix.

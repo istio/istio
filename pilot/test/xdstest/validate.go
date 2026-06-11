@@ -165,10 +165,18 @@ func validateListenerTLS(t testing.TB, l *listener.Listener) {
 // matches logic in https://github.com/envoyproxy/envoy/blob/22683a0a24ffbb0cdeb4111eec5ec90246bec9cb/source/server/listener_impl.cc#L41
 func validateInspector(t testing.TB, l *listener.Listener) {
 	t.Helper()
+	hasTLSInspector := false
+	hasHTTPInspector := false
 	for _, lf := range l.ListenerFilters {
 		if lf.Name == xdsfilters.TLSInspector.Name {
-			return
+			hasTLSInspector = true
 		}
+		if lf.Name == xdsfilters.HTTPInspector.Name {
+			hasHTTPInspector = true
+		}
+	}
+	if hasTLSInspector {
+		return
 	}
 	for _, fc := range l.FilterChains {
 		m := fc.FilterChainMatch
@@ -181,10 +189,8 @@ func validateInspector(t testing.TB, l *listener.Listener) {
 		if m.TransportProtocol == "" && len(m.ServerNames) > 0 {
 			t.Errorf("server names set, but missing tls inspector: %v", Dump(t, l))
 		}
-		// This is a bit suspect; I suspect this could be done with just http inspector without tls inspector,
-		// but this mirrors Envoy validation logic
-		if m.TransportProtocol == "" && len(m.ApplicationProtocols) > 0 {
-			t.Errorf("application protocol set, but missing tls inspector: %v", Dump(t, l))
+		if m.TransportProtocol == "" && len(m.ApplicationProtocols) > 0 && !hasHTTPInspector {
+			t.Errorf("application protocol set, but missing tls inspector or http inspector: %v", Dump(t, l))
 		}
 	}
 }

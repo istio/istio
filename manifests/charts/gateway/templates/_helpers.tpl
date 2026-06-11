@@ -40,6 +40,18 @@ istio.io/rev: {{ . | quote }}
 {{- end }}
 
 {{/*
+Render a single network gateway port entry with validation.
+Expects a dict with keys: ports (the networkGatewayPorts map), name (port name), defaultTargetPort (fallback).
+*/}}
+{{- define "gateway.networkGatewayPort" -}}
+{{- $cfg := index .ports .name | required (printf "networkGatewayPorts.%s is required when networkGateway is set" .name) -}}
+- name: {{ .name }}
+  port: {{ $cfg.port }}
+  targetPort: {{ $cfg.targetPort | default .defaultTargetPort }}
+  protocol: {{ $cfg.protocol | default "TCP" }}
+{{- end -}}
+
+{{/*
 Render resource requirements, omitting any nil values.
 */}}
 {{- define "gateway.resources" -}}

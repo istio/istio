@@ -382,8 +382,8 @@ func (s *DiscoveryServer) registryz(w http.ResponseWriter, req *http.Request) {
 }
 
 // Dumps info about the endpoint shards, tracked using the new direct interface.
-// Legacy registry provides are synced to the new data structure as well, during
-// the full push.
+// Legacy registry providers are synced to the new data structure as well, during
+// push.
 func (s *DiscoveryServer) endpointShardz(w http.ResponseWriter, req *http.Request) {
 	writeJSON(w, s.Env.EndpointIndex.Shardz(), req)
 }
@@ -658,7 +658,7 @@ func (s *DiscoveryServer) getResourceTypes(req *http.Request) []string {
 func (s *DiscoveryServer) getConfigDumpByResourceType(conn *Connection, req *model.PushRequest, ts []string) map[string][]*discoveryv3.Resource {
 	dumps := make(map[string][]*discoveryv3.Resource)
 	if req == nil {
-		req = &model.PushRequest{Push: conn.proxy.LastPushContext, Start: time.Now(), Full: true, Forced: true}
+		req = &model.PushRequest{Push: conn.proxy.LastPushContext, Start: time.Now(), Forced: true}
 	}
 
 	for _, resourceType := range ts {
@@ -738,7 +738,7 @@ func (s *DiscoveryServer) getConfigDumpByResourceType(conn *Connection, req *mod
 // connectionConfigDump converts the connection internal state into an Envoy Admin API config dump proto
 // It is used in debugging to create a consistent object for comparison between Envoy and Pilot outputs
 func (s *DiscoveryServer) connectionConfigDump(conn *Connection, includeEds bool) (*admin.ConfigDump, error) {
-	req := &model.PushRequest{Push: conn.proxy.LastPushContext, Start: time.Now(), Full: true, Forced: true}
+	req := &model.PushRequest{Push: conn.proxy.LastPushContext, Start: time.Now(), Forced: true}
 	version := req.Push.PushVersion
 
 	dump := s.getConfigDumpByResourceType(conn, req, []string{
@@ -1034,7 +1034,7 @@ func (s *DiscoveryServer) instancesz(w http.ResponseWriter, req *http.Request) {
 }
 
 func (s *DiscoveryServer) ambientz(w http.ResponseWriter, req *http.Request) {
-	addresses, _ := s.Env.ServiceDiscovery.AddressInformation(nil)
+	addresses, _ := s.Env.AmbientIndexes.AddressInformation(nil)
 	res := struct {
 		Workloads []jsonMarshalProto `json:"workloads"`
 		Services  []jsonMarshalProto `json:"services"`
@@ -1081,7 +1081,7 @@ func (s *DiscoveryServer) ambientz(w http.ResponseWriter, req *http.Request) {
 			res.Services = append(res.Services, jsonMarshalProto{s})
 		}
 	}
-	for _, policy := range s.Env.ServiceDiscovery.Policies(nil) {
+	for _, policy := range s.Env.AmbientIndexes.Policies(nil) {
 		res.Policies = append(res.Policies, jsonMarshalProto{policy.Authorization})
 	}
 	writeJSON(w, res, req)

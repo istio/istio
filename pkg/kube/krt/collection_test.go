@@ -15,6 +15,7 @@
 package krt_test
 
 import (
+	"cmp"
 	"fmt"
 	"strconv"
 	"strings"
@@ -642,6 +643,59 @@ func TestCollectionMultipleFetchAllAndKey(t *testing.T) {
 	assert.EventuallyEqual(t, func() string {
 		return ptr.OrEmpty(Collection.Get()).Size
 	}, "2")
+}
+
+func TestCollectionFetchWithSuppressChange(t *testing.T) {
+	stop := test.NewStop(t)
+	opts := testOptions(t)
+	source := krt.NewStaticCollection[SimplePod](nil, nil, opts.WithName("SimplePod")...)
+	tt := assert.NewTracker[string](t)
+	counts := atomic.NewUint64(0)
+
+	Collection := krt.NewSingleton(func(ctx krt.HandlerContext) *Static {
+		counts.Inc()
+		pods := krt.PartialFetchComparable(ctx, source,
+			func(a SimplePod) Named {
+				return a.Named
+			},
+		)
+		if len(pods) == 0 {
+			return nil
+		}
+		best := slices.MaxFunc(pods, func(a, b Named) int {
+			return cmp.Compare(a.ResourceName(), b.ResourceName())
+		})
+		return &Static{Value: best.ResourceName()}
+	}, opts.WithName("Collection")...)
+	Collection.AsCollection().Register(TrackerHandler[Static](tt))
+
+	assert.Equal(t, Collection.AsCollection().WaitUntilSynced(stop), true)
+	assert.Equal(t, counts.Load(), uint64(1))
+
+	source.UpdateObject(SimplePod{
+		Named: Named{Namespace: "namespace", Name: "n1"},
+		IP:    "v1",
+	})
+	assert.EventuallyEqual(t, Collection.Get, &Static{Value: "namespace/n1"})
+	assert.Equal(t, counts.Load(), uint64(2))
+
+	source.UpdateObject(SimplePod{
+		Named: Named{Namespace: "namespace", Name: "n1"},
+		IP:    "v2",
+	})
+	// No change, and no recomputation
+	assert.Equal(t, Collection.Get(), &Static{Value: "namespace/n1"})
+	assert.Equal(t, counts.Load(), uint64(2))
+
+	source.Reset([]SimplePod{{
+		Named: Named{Namespace: "namespace", Name: "n2"},
+		IP:    "v3",
+	}})
+	assert.EventuallyEqual(t, Collection.Get, &Static{Value: "namespace/n2"})
+	// Recomputed now
+	assert.Equal(t, counts.Load(), uint64(3))
+
+	tt.WaitOrdered("add/static", "update/static")
 }
 
 func TestCollectionMultipleFetchKeys(t *testing.T) {

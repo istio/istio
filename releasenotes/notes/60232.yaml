@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+
+issue:
+  - 60232
+
+releaseNotes:
+- |
+  **Fixed** `istioctl` failing to discover istiod when Istio is installed in a non-default namespace
+  (other than `istio-system`) with a revision tag. The `DefaultWatcher` now constructs the expected
+  webhook name based on the Istio namespace passed via the `-i` flag.

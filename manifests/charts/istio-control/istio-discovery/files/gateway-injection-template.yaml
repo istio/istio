@@ -118,6 +118,10 @@ spec:
     {{- if .CompliancePolicy }}
     - name: COMPLIANCE_POLICY
       value: "{{ .CompliancePolicy }}"
+    {{- if eq .CompliancePolicy "fips-140-3" }}
+    - name: GODEBUG
+      value: "fips140=only"
+    {{- end }}
     {{- end }}
     - name: ISTIO_META_APP_CONTAINERS
       value: "{{ $containers | join "," }}"

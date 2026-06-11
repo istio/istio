@@ -96,7 +96,7 @@ spec:
               resource: limits.cpu
         - name: PLATFORM
           value: ""
-        image: gcr.io/istio-testing/pilot:latest
+        image: registry.istio.io/testing/pilot:latest
         name: discovery
         ports:
         - containerPort: 8080

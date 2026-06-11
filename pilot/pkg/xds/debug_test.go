@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -432,4 +433,139 @@ func TestStatusGenRequiresAuth(t *testing.T) {
 			t.Fatalf("expected no error when auth disabled, got %v", err)
 		}
 	})
+}
+
+// TestStatusGenNamespaceRestriction verifies that StatusGen (XDS istio.io/debug/syncz
+// and istio.io/debug/config_dump) enforces same-namespace restriction for non-system
+// callers. Without this, an authenticated workload in any namespace can enumerate and
+// dump config for proxies in other namespaces.
+func TestStatusGenNamespaceRestriction(t *testing.T) {
+	t.Run("syncz filters to caller namespace", func(t *testing.T) {
+		test.SetForTest(t, &features.EnableDebugEndpointAuth, true)
+		s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
+
+		victim := s.ConnectADS().
+			WithID("sidecar~10.0.0.1~victim.production~production.svc.cluster.local").
+			WithMetadata(model.NodeMetadata{
+				Namespace:   "production",
+				ProxyConfig: &model.NodeMetaProxyConfig{},
+			})
+		victim.RequestResponseAck(t, &discovery.DiscoveryRequest{TypeUrl: v3.ClusterType})
+
+		gen := xds.NewStatusGen(s.Discovery)
+
+		cases := []struct {
+			name         string
+			callerNS     string
+			wantVictimID bool
+		}{
+			{"system namespace sees all", "istio-system", true},
+			{"same namespace sees victim", "production", true},
+			{"cross namespace denied", "attacker", false},
+		}
+		for _, tc := range cases {
+			t.Run(tc.name, func(t *testing.T) {
+				caller := &model.Proxy{
+					ID:               "caller." + tc.callerNS,
+					VerifiedIdentity: &spiffe.Identity{Namespace: tc.callerNS},
+				}
+				res, _, err := gen.Generate(caller, &model.WatchedResource{TypeUrl: xds.TypeDebugSyncronization}, nil)
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+				saw := false
+				for _, r := range res {
+					if strings.Contains(r.Name, "victim.production") {
+						saw = true
+					}
+				}
+				assert.Equal(t, saw, tc.wantVictimID,
+					fmt.Sprintf("caller ns=%s should see victim=%v", tc.callerNS, tc.wantVictimID))
+			})
+		}
+	})
+
+	t.Run("config_dump denies cross-namespace", func(t *testing.T) {
+		test.SetForTest(t, &features.EnableDebugEndpointAuth, true)
+		s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
+
+		victim := s.ConnectADS().WithID("sidecar~10.0.0.1~victim.production~production.svc.cluster.local")
+		victim.RequestResponseAck(t, &discovery.DiscoveryRequest{TypeUrl: v3.ClusterType})
+
+		gen := xds.NewStatusGen(s.Discovery)
+
+		cases := []struct {
+			name     string
+			callerNS string
+			wantData bool
+		}{
+			{"system namespace allowed", "istio-system", true},
+			{"same namespace allowed", "production", true},
+			{"cross namespace denied", "attacker", false},
+		}
+		for _, tc := range cases {
+			t.Run(tc.name, func(t *testing.T) {
+				caller := &model.Proxy{
+					ID:               "caller." + tc.callerNS,
+					VerifiedIdentity: &spiffe.Identity{Namespace: tc.callerNS},
+				}
+				wr := &model.WatchedResource{
+					TypeUrl:       xds.TypeDebugConfigDump,
+					ResourceNames: sets.New("victim.production"),
+				}
+				res, _, err := gen.Generate(caller, wr, nil)
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+				if tc.wantData {
+					assert.Equal(t, len(res) > 0, true,
+						fmt.Sprintf("caller ns=%s should get config_dump but got empty", tc.callerNS))
+				} else {
+					assert.Equal(t, len(res), 0,
+						fmt.Sprintf("caller ns=%s must not receive config_dump for cross-namespace proxy", tc.callerNS))
+				}
+			})
+		}
+	})
+}
+
+// TestDebugGenPassesNamespaceContext verifies that DebugGen passes the caller namespace
+// to the internal HTTP handler via CallerNamespaceKey context.
+// This test FAILS without the fix (CallerNamespaceKey empty) and PASSES with the fix.
+func TestDebugGenPassesNamespaceContext(t *testing.T) {
+	var capturedNS string
+	var handlerCalled bool
+	mux := http.NewServeMux()
+	mux.HandleFunc("/debug/", func(w http.ResponseWriter, r *http.Request) {
+		handlerCalled = true
+		capturedNS, _ = r.Context().Value(xds.CallerNamespaceKey{}).(string)
+		// Simulate what getDebugConnection does: if CallerNamespaceKey is empty,
+		// the namespace check is skipped (security bug we're fixing)
+		if capturedNS == "" {
+			t.Fatal("CallerNamespaceKey not set in context - cross-namespace access would be allowed")
+		}
+		w.WriteHeader(http.StatusOK)
+	})
+
+	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
+	gen := xds.NewDebugGen(s.Discovery, "istio-system", mux)
+
+	proxy := &model.Proxy{
+		ID:               "test.production",
+		VerifiedIdentity: &spiffe.Identity{Namespace: "production"},
+	}
+	watchedRes := &model.WatchedResource{
+		TypeUrl:       v3.DebugType,
+		ResourceNames: sets.New("config_dump"),
+	}
+
+	_, _, err := gen.Generate(proxy, watchedRes, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !handlerCalled {
+		t.Fatal("handler was not called")
+	}
+	assert.Equal(t, "production", capturedNS, "caller namespace should be passed to handler")
 }

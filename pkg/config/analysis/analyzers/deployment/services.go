@@ -15,7 +15,6 @@ package deployment
 
 import (
 	"fmt"
-	"sort"
 	"strconv"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -30,6 +29,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/slices"
 )
 
 type ServiceAssociationAnalyzer struct{}
@@ -95,7 +95,7 @@ func (s *ServiceAssociationAnalyzer) analyzeDeploymentPortProtocol(r *resource.I
 			for protocol := range protMap {
 				svcNames = append(svcNames, protMap[protocol]...)
 			}
-			sort.Strings(svcNames)
+			slices.Sort(svcNames)
 			m := msg.NewDeploymentAssociatedToMultipleServices(r, r.Metadata.FullName.Name.String(), port, svcNames)
 
 			if line, ok := util.ErrorLine(r, fmt.Sprintf(util.MetadataName)); ok {
@@ -126,10 +126,8 @@ func (s *ServiceAssociationAnalyzer) analyzeDeploymentTargetPorts(r *resource.In
 				ports = append(ports, p)
 			}
 
-			sort.Strings(svcNames)
-			sort.Slice(ports, func(i, j int) bool {
-				return ports[i] < ports[j]
-			})
+			slices.Sort(svcNames)
+			slices.Sort(ports)
 			m := msg.NewDeploymentConflictingPorts(r, r.Metadata.FullName.Name.String(), svcNames, targetPort, ports)
 
 			if line, ok := util.ErrorLine(r, fmt.Sprintf(util.MetadataName)); ok {

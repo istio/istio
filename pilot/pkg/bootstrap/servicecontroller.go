@@ -17,7 +17,10 @@ package bootstrap
 import (
 	"fmt"
 
+	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
+	"istio.io/istio/pilot/pkg/serviceregistry/ambient"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
@@ -68,11 +71,36 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 		return nil
 	})
 
+	if features.EnableAmbient {
+		s.ambientIndex = ambient.New(ambient.Options{
+			SystemNamespace:        args.Namespace,
+			DomainSuffix:           args.RegistryOptions.KubeOptions.DomainSuffix,
+			ClusterID:              s.clusterID,
+			Revision:               args.Revision,
+			XDSUpdater:             s.XDSServer,
+			MeshConfig:             s.environment.Watcher,
+			StatusNotifier:         args.RegistryOptions.KubeOptions.StatusWritingEnabled,
+			Debugger:               args.KrtDebugger,
+			MultiClusterController: s.multiclusterController,
+			Flags: ambient.FeatureFlags{
+				DefaultAllowFromWaypoint:              features.DefaultAllowFromWaypoint,
+				EnableK8SServiceSelectWorkloadEntries: features.EnableK8SServiceSelectWorkloadEntries,
+			},
+		})
+		s.environment.AmbientIndexes = s.ambientIndex
+
+		s.addStartFunc("ambient index", func(stop <-chan struct{}) error {
+			go s.ambientIndex.Run(stop)
+			return nil
+		})
+	} else {
+		s.environment.AmbientIndexes = &model.NoopAmbientIndexes{}
+	}
+
 	return nil
 }
 
-// initKubeRegistry creates all the k8s service controllers under this pilot
-func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
+func (s *Server) initKubeOptions(args *PilotArgs) {
 	args.RegistryOptions.KubeOptions.ClusterID = s.clusterID
 	args.RegistryOptions.KubeOptions.Revision = args.Revision
 	args.RegistryOptions.KubeOptions.KrtDebugger = args.KrtDebugger
@@ -82,6 +110,10 @@ func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 	args.RegistryOptions.KubeOptions.MeshWatcher = s.environment.Watcher
 	args.RegistryOptions.KubeOptions.SystemNamespace = args.Namespace
 	args.RegistryOptions.KubeOptions.MeshServiceController = s.ServiceController()
+}
+
+// initKubeRegistry creates all the k8s service controllers under this pilot
+func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 	// pass namespace to k8s service registry
 	kubecontroller.NewMulticluster(args.PodName,
 		args.RegistryOptions.KubeOptions,

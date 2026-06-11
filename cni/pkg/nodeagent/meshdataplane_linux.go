@@ -17,6 +17,7 @@ import (
 	"context"
 	"errors"
 	"net/netip"
+	"sync"
 
 	"golang.org/x/sys/unix"
 	corev1 "k8s.io/api/core/v1"
@@ -33,6 +34,12 @@ type meshDataplane struct {
 	netServer          MeshDataplane
 	hostTrafficManager trafficmanager.TrafficRuleManager
 	hostAddrSet        set.AddressSetManager
+
+	// branchENIRules tracks the branch ENI routing info we added rules for,
+	// keyed by pod IP. We cache it at add time so teardown can delete the rules
+	// even if aws-vpc-cni has already removed its iif rule (making re-detection fail).
+	branchENIMu    sync.Mutex
+	branchENIRules map[netip.Addr]*branchENIRoute
 }
 
 // ConstructInitialSnapshot is always called first, before Start.
@@ -69,11 +76,49 @@ func (s *meshDataplane) Stop(skipCleanup bool) {
 			if err := s.hostAddrSet.DestroySet(); err != nil {
 				log.Warnf("could not destroy host addressSet on shutdown")
 			}
+			// Clean up any branch ENI ip rules we added. We use the cached info
+			// instead of re-detecting, since aws-vpc-cni may have already torn
+			// down its iif rules by the time we run.
+			s.flushBranchENIRules()
 			return nil
 		})
 	}
 
 	s.netServer.Stop(skipCleanup)
+}
+
+// rememberBranchENIRoute caches the branch ENI info for a pod IP so we can
+// clean up its rules later without re-scanning.
+func (s *meshDataplane) rememberBranchENIRoute(podIP netip.Addr, info *branchENIRoute) {
+	s.branchENIMu.Lock()
+	defer s.branchENIMu.Unlock()
+	if s.branchENIRules == nil {
+		s.branchENIRules = map[netip.Addr]*branchENIRoute{}
+	}
+	s.branchENIRules[podIP] = info
+}
+
+// forgetBranchENIRoute removes a cached branch ENI entry and returns it.
+func (s *meshDataplane) forgetBranchENIRoute(podIP netip.Addr) *branchENIRoute {
+	s.branchENIMu.Lock()
+	defer s.branchENIMu.Unlock()
+	info, ok := s.branchENIRules[podIP]
+	if !ok {
+		return nil
+	}
+	delete(s.branchENIRules, podIP)
+	return info
+}
+
+// flushBranchENIRules removes ip rules for every branch ENI entry we remembered.
+func (s *meshDataplane) flushBranchENIRules() {
+	s.branchENIMu.Lock()
+	cached := s.branchENIRules
+	s.branchENIRules = nil
+	s.branchENIMu.Unlock()
+	for podIP, info := range cached {
+		delBranchENIRules(podIP, info)
+	}
 }
 
 // AddPodToMesh attempts to inject iptables rules into the pod, and sends the pod to ztunnel.
@@ -157,7 +202,7 @@ func (s *meshDataplane) RemovePodFromMesh(ctx context.Context, pod *corev1.Pod, 
 
 	// Remove the hostside ipset entry first, and unconditionally - if later failures happen, we never
 	// want to leave stale entries (and the pod healthchecks will start to fail, which is a good signal)
-	if err := removePodFromHostAddrSet(pod, s.hostAddrSet); err != nil {
+	if err := s.removePodFromHostAddrSet(pod); err != nil {
 		log.Errorf("failed to remove pod %s from host addressSet, error was: %v", pod.Name, err)
 		// Removing pod from ipset should never fail, even if the IP is no longer there
 		// (unless we have a kernel incompatibility).
@@ -192,6 +237,13 @@ func (s *meshDataplane) RemovePodFromMesh(ctx context.Context, pod *corev1.Pod, 
 	return nil
 }
 
+// SyncHostProbeIPSet re-asserts an already-enrolled pod's probe IPs in the host ipset
+// (see the MeshDataplane interface for why). addPodToHostAddrSet is an idempotent upsert.
+func (s *meshDataplane) SyncHostProbeIPSet(pod *corev1.Pod, podIPs []netip.Addr) error {
+	_, err := s.addPodToHostAddrSet(pod, podIPs)
+	return err
+}
+
 // syncHostAddrSets is called after the host node ipset has been created (or found + flushed)
 // during initial snapshot creation, it will insert every snapshotted pod's IP into the set.
 //
@@ -200,11 +252,19 @@ func (s *meshDataplane) RemovePodFromMesh(ctx context.Context, pod *corev1.Pod, 
 // which is all we can do - these pods will fail healthcheck until the IPAM issue is resolved (which seems reasonable)
 func (s *meshDataplane) syncHostAddrSets(ambientPods []*corev1.Pod) error {
 	var addedIPSnapshot []netip.Addr
+	// If any enrolled pod is read without an IP, this snapshot is not a trustworthy view of
+	// what *should* be in the set. This happens when kubelet has not re-posted Status.PodIPs
+	// yet (node/kubelet restart) or the informer cache is not warm at scale. Pruning against
+	// such a snapshot evicts still-enrolled, still-running pods from the probe ipset, killing
+	// their kubelet probes until the next agent restart. Track it and skip the destructive
+	// prune below; the pod is re-added once its IP is observable.
+	snapshotIncomplete := false
 
 	for _, pod := range ambientPods {
 		podIPs := util.GetPodIPsIfPresent(pod)
 		if len(podIPs) == 0 {
-			log.Warnf("pod %s does not appear to have any assigned IPs, not syncing with ipset", pod.Name)
+			log.Warnf("pod %s does not appear to have any assigned IPs yet, deferring ipset sync", pod.Name)
+			snapshotIncomplete = true
 		} else {
 			addedIps, err := s.addPodToHostAddrSet(pod, podIPs)
 			if err != nil {
@@ -213,6 +273,14 @@ func (s *meshDataplane) syncHostAddrSets(ambientPods []*corev1.Pod) error {
 			addedIPSnapshot = append(addedIPSnapshot, addedIps...)
 		}
 
+	}
+
+	if snapshotIncomplete {
+		// Skipping the prune is safe: genuinely stale entries (pods that left while the agent
+		// was down) are harmless and get reaped by RemovePodFromMesh or the next complete
+		// startup snapshot. Evicting a live, still-enrolled pod is not safe - that is the bug.
+		log.Warn("startup ipset snapshot incomplete (some enrolled pods had no IP yet); skipping prune to avoid evicting still-enrolled pods")
+		return nil
 	}
 	return pruneHostAddrSet(sets.New(addedIPSnapshot...), s.hostAddrSet)
 }
@@ -260,6 +328,20 @@ func (s *meshDataplane) addPodToHostAddrSet(pod *corev1.Pod, podIPs []netip.Addr
 			} else {
 				addedIps = append(addedIps, pip)
 			}
+
+			// Detect branch ENI pods (AWS VPC CNI with Security Groups for Pods).
+			// These pods route through VPC fabric by default, which cannot handle
+			// the link-local SNAT address used for probe identification.
+			// Fix: add ip rules to route probe traffic via the existing veth pair.
+			if EnableAWSBranchENIProbe {
+				if info := detectBranchENI(pip); info != nil {
+					if err := addBranchENIRules(pip, info); err != nil {
+						log.Errorf("failed to add branch ENI rules for pod %s: %v", pip, err)
+					} else {
+						s.rememberBranchENIRoute(pip, info)
+					}
+				}
+			}
 		}
 		return nil
 	})
@@ -273,19 +355,28 @@ func (s *meshDataplane) addPodToHostAddrSet(pod *corev1.Pod, podIPs []netip.Addr
 // removePodFromHostAddrSet will remove (v4, v6) pod IPs from the host IP set(s).
 // Note that unlike when we add the IP to the set, on removal we will simply
 // skip removing the IP if the IP matches, but the UID comment does not match our pod.
-func removePodFromHostAddrSet(pod *corev1.Pod, hostsideProbeSet set.AddressSetManager) error {
+func (s *meshDataplane) removePodFromHostAddrSet(pod *corev1.Pod) error {
 	podUID := string(pod.ObjectMeta.UID)
-	log := log.WithLabels("ns", pod.Namespace, "name", pod.Name, "podUID", podUID, "ipset", hostsideProbeSet.GetPrefix())
+	log := log.WithLabels("ns", pod.Namespace, "name", pod.Name, "podUID", podUID, "ipset", s.hostAddrSet.GetPrefix())
 
 	podIPs := util.GetPodIPsIfPresent(pod)
 	return util.RunAsHost(func() error {
 		for _, pip := range podIPs {
-			if uidMismatch, err := hostsideProbeSet.ClearEntriesWithIPAndComment(pip, podUID); err != nil {
+			if uidMismatch, err := s.hostAddrSet.ClearEntriesWithIPAndComment(pip, podUID); err != nil {
 				return err
 			} else if uidMismatch != "" {
 				log.Warnf("pod ip %s could not be removed from addressSet, found entry with pod UID %s instead", pip, uidMismatch)
 			}
 			log.Debugf("removed pod from host addressSet by ip %s", pip)
+
+			// Clean up branch ENI rules if we added any. Use the cached info from
+			// the add path instead of re-detecting, since aws-vpc-cni may have
+			// already torn down its iif rules.
+			if EnableAWSBranchENIProbe {
+				if info := s.forgetBranchENIRoute(pip); info != nil {
+					delBranchENIRules(pip, info)
+				}
+			}
 		}
 		return nil
 	})

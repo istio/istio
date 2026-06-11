@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"os"
 	"path"
@@ -36,6 +37,7 @@ import (
 	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/security/pkg/cmd"
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/ra"
@@ -355,10 +357,9 @@ func handleEvent(s *Server) {
 			return
 		}
 
-		// in order to support root ca rotation, or we are removing the old ca,
-		// we need to make the new CA bundle contain both old and new CA certs
-		if bytes.Contains(currentCABundle, newCABundle) ||
-			bytes.Contains(newCABundle, currentCABundle) {
+		// allow the update when one CA bundle is a subset of the other,
+		// which covers both adding CA certs (rotation) and removing old CA certs
+		if pemBundleHasSubsetRelation(currentCABundle, newCABundle) {
 			log.Info("Updating new ROOT-CA")
 		} else {
 			log.Warn("Updating new ROOT-CA not supported")
@@ -726,4 +727,35 @@ func hasValidChainFiles(files []string) (bool, error) {
 		}
 	}
 	return false, nil
+}
+
+// pemBundleHasSubsetRelation checks whether one PEM bundle is a subset of the other,
+// by comparing DER-encoded certificate bytes. Returns true if a ⊆ b or b ⊆ a.
+func pemBundleHasSubsetRelation(a []byte, b []byte) bool {
+	certsA := pemToRawCertSet(a)
+	certsB := pemToRawCertSet(b)
+	if certsA.IsEmpty() || certsB.IsEmpty() {
+		return false
+	}
+	return certsA.SupersetOf(certsB) || certsB.SupersetOf(certsA)
+}
+
+// pemToRawCertSet decodes PEM data and returns a set of DER-encoded certificate bytes.
+// Only standard "CERTIFICATE" PEM blocks are considered; other block types (e.g.,
+// "TRUSTED CERTIFICATE", "X509 CERTIFICATE") are ignored. This is consistent with
+// existing CA bundle handling in Istio (see VerifyCABundle in pkg/webhooks/util and
+// readCACert in security/pkg/k8s/chiron), which reject non-"CERTIFICATE" blocks.
+func pemToRawCertSet(pemData []byte) sets.String {
+	certs := sets.New[string]()
+	for {
+		var block *pem.Block
+		block, pemData = pem.Decode(pemData)
+		if block == nil {
+			break
+		}
+		if block.Type == "CERTIFICATE" {
+			certs.Insert(string(block.Bytes))
+		}
+	}
+	return certs
 }

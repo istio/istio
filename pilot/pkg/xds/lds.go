@@ -39,6 +39,8 @@ var skippedLdsConfigs = map[model.NodeType]sets.Set[kind.Kind]{
 		kind.Secret,
 		kind.ProxyConfig,
 		kind.DNSName,
+		kind.Endpoints,
+		kind.Address,
 	),
 	model.SidecarProxy: sets.New(
 		kind.Gateway,
@@ -47,6 +49,8 @@ var skippedLdsConfigs = map[model.NodeType]sets.Set[kind.Kind]{
 		kind.Secret,
 		kind.ProxyConfig,
 		kind.DNSName,
+		kind.Endpoints,
+		kind.Address,
 	),
 	model.Waypoint: sets.New(
 		kind.Gateway,
@@ -55,6 +59,7 @@ var skippedLdsConfigs = map[model.NodeType]sets.Set[kind.Kind]{
 		kind.Secret,
 		kind.ProxyConfig,
 		kind.DNSName,
+		kind.Endpoints,
 	),
 }
 
@@ -65,11 +70,13 @@ func ldsNeedsPush(proxy *model.Proxy, req *model.PushRequest) bool {
 	if proxy.Type == model.Waypoint && waypointNeedsPush(req) {
 		return true
 	}
-	if !req.Full {
-		return false
-	}
 	for config := range req.ConfigsUpdated {
 		if !skippedLdsConfigs[proxy.Type].Contains(config.Kind) {
+			if config.Kind == kind.PeerAuthentication && config.Namespace != proxy.ConfigNamespace &&
+				config.Namespace != req.Push.Mesh.RootNamespace {
+				// PeerAuthentication of the configNamespace or rootNamespace can only impact lds
+				continue
+			}
 			return true
 		}
 	}

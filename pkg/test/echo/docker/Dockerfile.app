@@ -1,5 +1,5 @@
 ARG BASE_VERSION=latest
-ARG ISTIO_BASE_REGISTRY=gcr.io/istio-release
+ARG ISTIO_BASE_REGISTRY=registry.istio.io/release
 
 FROM ${ISTIO_BASE_REGISTRY}/base:${BASE_VERSION}
 

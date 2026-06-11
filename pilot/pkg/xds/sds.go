@@ -116,7 +116,7 @@ func (s *SecretGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req *
 		return nil, model.DefaultXdsLogDetails, nil
 	}
 	var updatedSecrets sets.Set[model.ConfigKey]
-	if !req.Full {
+	if !req.Forced {
 		updatedSecrets = model.ConfigsOfKind(req.ConfigsUpdated, kind.Secret).Merge(model.ConfigsOfKind(req.ConfigsUpdated, kind.ConfigMap))
 	}
 

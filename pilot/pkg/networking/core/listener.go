@@ -628,10 +628,10 @@ func buildListenerFromEntry(builder *ListenerBuilder, le *outboundListenerEntry,
 		// Otherwise, do not have a timeout at all
 		l.ListenerFiltersTimeout = durationpb.New(0)
 	}
-	wasm := builder.push.WasmPluginsByListenerInfo(builder.node, model.WasmPluginListenerInfo{
+	trafficExtensions := builder.push.TrafficExtensionsByListenerInfo(builder.node, model.ListenerInfo{
 		Port:  le.servicePort.Port,
 		Class: istionetworking.ListenerClassSidecarOutbound,
-	}, model.WasmPluginTypeNetwork)
+	}, model.FilterChainTypeNetwork)
 	for _, opt := range le.chains {
 		chain := &listener.FilterChain{
 			Metadata:        opt.metadata,
@@ -652,10 +652,10 @@ func buildListenerFromEntry(builder *ListenerBuilder, le *outboundListenerEntry,
 				Name:       wellknown.HTTPConnectionManager,
 				ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(hcm)},
 			}
-			opt.networkFilters = extension.PopAppendNetwork(opt.networkFilters, wasm, extensions.PluginPhase_AUTHN)
-			opt.networkFilters = extension.PopAppendNetwork(opt.networkFilters, wasm, extensions.PluginPhase_AUTHZ)
-			opt.networkFilters = extension.PopAppendNetwork(opt.networkFilters, wasm, extensions.PluginPhase_STATS)
-			opt.networkFilters = extension.PopAppendNetwork(opt.networkFilters, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
+			opt.networkFilters = extension.PopAppendNetworkTrafficExtension(opt.networkFilters, trafficExtensions, extensions.TrafficExtension_AUTHN)
+			opt.networkFilters = extension.PopAppendNetworkTrafficExtension(opt.networkFilters, trafficExtensions, extensions.TrafficExtension_AUTHZ)
+			opt.networkFilters = extension.PopAppendNetworkTrafficExtension(opt.networkFilters, trafficExtensions, extensions.TrafficExtension_STATS)
+			opt.networkFilters = extension.PopAppendNetworkTrafficExtension(opt.networkFilters, trafficExtensions, extensions.TrafficExtension_UNSPECIFIED)
 			chain.Filters = append(chain.Filters, opt.networkFilters...)
 			chain.Filters = append(chain.Filters, filter)
 		}
@@ -1279,15 +1279,7 @@ func (chain *filterChainOpts) toFilterChainMatch() *listener.FilterChainMatch {
 		TransportProtocol:    chain.transportProtocol,
 	}
 	if len(chain.sniHosts) > 0 {
-		fullWildcardFound := false
-		for _, h := range chain.sniHosts {
-			if h == "*" {
-				fullWildcardFound = true
-				// If we have a host with *, it effectively means match anything, i.e.
-				// no SNI based matching for this host.
-				break
-			}
-		}
+		fullWildcardFound := slices.Contains(chain.sniHosts, "*")
 		if !fullWildcardFound {
 			chain.sniHosts = append([]string{}, chain.sniHosts...)
 			sort.Stable(sort.StringSlice(chain.sniHosts))
@@ -1419,6 +1411,11 @@ type listenerKey struct {
 // 1. It uses TCP Proxy network filter to establish a CONNECT tunnel
 // 2. It captures and propagates metadata about the actual destination and service name required for double-HBONE.
 func buildInnerConnectOriginateListener(push *model.PushContext, proxy *model.Proxy) *listener.Listener {
+	// TODO: Remove in 1.32
+	factoryKey := "istio.hashable_string"
+	if !proxy.VersionGreaterOrEqual(&model.IstioVersion{Major: 1, Minor: 29, Patch: 2}) {
+		factoryKey = "envoy.string"
+	}
 	setFilterState := &sfsnetwork.Config{
 		OnNewConnection: []*sfsvalue.FilterStateValue{
 			{
@@ -1453,7 +1450,7 @@ func buildInnerConnectOriginateListener(push *model.PushContext, proxy *model.Pr
 						},
 					},
 				},
-				FactoryKey:         "envoy.string",
+				FactoryKey:         factoryKey,
 				SharedWithUpstream: sfsvalue.FilterStateValue_TRANSITIVE,
 			},
 		},
@@ -1526,18 +1523,29 @@ func buildInnerConnectOriginateListener(push *model.PushContext, proxy *model.Pr
 // tunnel, but unlike the inner_connect_originate it does not need to capture any metadata - it uses what
 // inner_connect_originate already captured and put in the filter state.
 func buildOuterConnectOriginateListener(push *model.PushContext, proxy *model.Proxy) *listener.Listener {
+	// the e/w gateway uses the x-istio-source header to determine whether we require L7 processing on that side
+	var source string
+	switch proxy.Type {
+	case model.Router:
+		source = downstreamSourceGateway
+	case model.Waypoint:
+		source = downstreamSourceWaypoint
+	case model.SidecarProxy:
+		source = downstreamSourceSidecar
+	}
+	var headers []*core.HeaderValueOption
+	if source != "" {
+		headers = []*core.HeaderValueOption{{
+			AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
+			Header:       &core.HeaderValue{Key: downstreamSourceHeader, Value: source},
+		}}
+	}
 	tcpProxy := &tcp.TcpProxy{
 		StatPrefix:       DoubleHBONEOuterConnectOriginate,
 		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: DoubleHBONEOuterConnectOriginate},
 		TunnelingConfig: &tcp.TcpProxy_TunnelingConfig{
-			Hostname: "%FILTER_STATE(istio.double_hbone.hbone_target_address:PLAIN)%",
-			HeadersToAdd: []*core.HeaderValueOption{{
-				AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
-				Header: &core.HeaderValue{
-					Key:   downstreamSourceHeader,
-					Value: "waypoint",
-				},
-			}},
+			Hostname:     "%FILTER_STATE(istio.double_hbone.hbone_target_address:PLAIN)%",
+			HeadersToAdd: headers,
 		},
 	}
 	accessLogBuilder.setHboneOriginationAccessLog(push, proxy, tcpProxy, istionetworking.ListenerClassSidecarInbound)

@@ -117,7 +117,6 @@ func (c *VirtualServiceController) xdsPush(events []krt.Event[config.Config]) {
 	}
 
 	c.xdsUpdater.ConfigUpdate(&PushRequest{
-		Full:           true,
 		ConfigsUpdated: cu,
 		Reason:         NewReasonStats(ConfigUpdate),
 	})

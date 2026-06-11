@@ -864,7 +864,7 @@ func TestApplyDestinationRule(t *testing.T) {
 									Value: 10,
 								},
 								RetryBudget: &cluster.CircuitBreakers_Thresholds_RetryBudget{
-									BudgetPercent:       &xdstype.Percent{Value: 0.2},
+									BudgetPercent:       &xdstype.Percent{Value: 20.0},
 									MinRetryConcurrency: &wrappers.UInt32Value{Value: 3},
 								},
 							},
@@ -894,6 +894,7 @@ func TestApplyDestinationRule(t *testing.T) {
 							},
 							RetryBudget: &networking.TrafficPolicy_RetryBudget{
 								Percent:             wrappers.Double(0.3),
+								BudgetInterval:      &durationpb.Duration{Seconds: 10},
 								MinRetryConcurrency: uint32(4),
 							},
 						},
@@ -915,6 +916,7 @@ func TestApplyDestinationRule(t *testing.T) {
 								},
 								RetryBudget: &cluster.CircuitBreakers_Thresholds_RetryBudget{
 									BudgetPercent:       &xdstype.Percent{Value: 0.3},
+									BudgetInterval:      &durationpb.Duration{Seconds: 10},
 									MinRetryConcurrency: &wrappers.UInt32Value{Value: 4},
 								},
 							},
@@ -1516,12 +1518,13 @@ func TestClusterDnsLookupFamily(t *testing.T) {
 	}
 
 	cases := []struct {
-		name           string
-		clusterName    string
-		discovery      cluster.Cluster_DiscoveryType
-		proxy          *model.Proxy
-		dualStack      bool
-		expectedFamily cluster.Cluster_DnsLookupFamily
+		name            string
+		clusterName     string
+		discovery       cluster.Cluster_DiscoveryType
+		proxy           *model.Proxy
+		dualStack       bool
+		connectStrategy model.DNSConnectStrategy
+		expectedFamily  cluster.Cluster_DnsLookupFamily
 	}{
 		{
 			name:           "all ipv4, dual stack disabled",
@@ -1571,6 +1574,15 @@ func TestClusterDnsLookupFamily(t *testing.T) {
 			dualStack:      true,
 			expectedFamily: cluster.Cluster_ALL,
 		},
+		{
+			name:            "connect strategy forces all for ipv4 sidecar",
+			clusterName:     "foo",
+			discovery:       cluster.Cluster_STRICT_DNS,
+			proxy:           getProxy(),
+			dualStack:       false,
+			connectStrategy: model.DNSConnectStrategyRaceFirstTCPConnect,
+			expectedFamily:  cluster.Cluster_ALL,
+		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1584,7 +1596,13 @@ func TestClusterDnsLookupFamily(t *testing.T) {
 				},
 				Hostname:     "host",
 				MeshExternal: false,
-				Attributes:   model.ServiceAttributes{Name: "svc", Namespace: "default"},
+				Attributes: model.ServiceAttributes{
+					Name:      "svc",
+					Namespace: "default",
+					K8sAttributes: model.K8sAttributes{
+						DNSConnectStrategy: tt.connectStrategy,
+					},
+				},
 			}
 			defaultCluster := cb.buildCluster(tt.clusterName, tt.discovery, endpoints, model.TrafficDirectionOutbound, servicePort, service, nil, "")
 			c := defaultCluster.build()
@@ -3212,7 +3230,7 @@ func TestApplyConnectionPool(t *testing.T) {
 						MaxPendingRequests: &wrappers.UInt32Value{Value: math.MaxUint32},
 						TrackRemaining:     false,
 						RetryBudget: &cluster.CircuitBreakers_Thresholds_RetryBudget{
-							BudgetPercent:       &xdstype.Percent{Value: 0.2},
+							BudgetPercent:       &xdstype.Percent{Value: 20.0},
 							MinRetryConcurrency: &wrappers.UInt32Value{Value: 3},
 						},
 					},
@@ -3923,6 +3941,75 @@ func TestInsecureSkipVerify(t *testing.T) {
 				}
 			} else if tc.destRule.GetTrafficPolicy().GetTls().SubjectAltNames != nil && len(tc.destRule.GetTrafficPolicy().GetTls().SubjectAltNames) == 0 {
 				assert.Equal(t, ec.httpProtocolOptions.UpstreamHttpProtocolOptions.AutoSanValidation, true)
+			}
+		})
+	}
+}
+
+func TestBuildAllowAnyDFPClusterTLSSettings(t *testing.T) {
+	cg := NewConfigGenTest(t, TestOptions{})
+	proxy := cg.SetupProxy(nil)
+	cb := NewClusterBuilder(proxy, &model.PushRequest{Push: cg.PushContext()}, nil)
+
+	tests := []struct {
+		name      string
+		tls       *networking.ClientTLSSettings
+		expectTLS bool
+	}{
+		{
+			name: "no TLS settings",
+			tls:  nil,
+		},
+		{
+			name: "TLS DISABLE — no transport socket",
+			tls:  &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_DISABLE},
+		},
+		{
+			name:      "TLS SIMPLE — transport socket applied",
+			tls:       &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_SIMPLE},
+			expectTLS: true,
+		},
+		{
+			name:      "TLS ISTIO_MUTUAL — transport socket applied",
+			tls:       &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_ISTIO_MUTUAL},
+			expectTLS: true,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			c := cb.buildAllowAnyDFPCluster(tc.tls).cluster
+
+			if tc.expectTLS {
+				if c.TransportSocket == nil {
+					t.Fatal("expected TransportSocket to be set for TLS mode")
+				}
+				assert.Equal(t, c.TransportSocket.Name, "envoy.transport_sockets.tls")
+			} else if c.TransportSocket != nil {
+				t.Errorf("expected no TransportSocket, got %v", c.TransportSocket.Name)
+			}
+
+			// Verify UseDownstreamProtocolConfig is set for HTTP/2 (gRPC) support
+			anyOpts := c.TypedExtensionProtocolOptions[v3.HttpProtocolOptionsType]
+			if anyOpts == nil {
+				t.Fatal("expected TypedExtensionProtocolOptions to be set")
+			}
+			gotOpts := &http.HttpProtocolOptions{}
+			if err := anyOpts.UnmarshalTo(gotOpts); err != nil {
+				t.Fatalf("failed to unmarshal HttpProtocolOptions: %v", err)
+			}
+			wantOpts := &http.HttpProtocolOptions{
+				CommonHttpProtocolOptions: &core.HttpProtocolOptions{
+					IdleTimeout: durationpb.New(5 * time.Minute),
+				},
+				UpstreamProtocolOptions: &http.HttpProtocolOptions_UseDownstreamProtocolConfig{
+					UseDownstreamProtocolConfig: &http.HttpProtocolOptions_UseDownstreamHttpConfig{
+						HttpProtocolOptions:  &core.Http1ProtocolOptions{},
+						Http2ProtocolOptions: &core.Http2ProtocolOptions{},
+					},
+				},
+			}
+			if diff := cmp.Diff(wantOpts, gotOpts, protocmp.Transform()); diff != "" {
+				t.Errorf("HttpProtocolOptions mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}

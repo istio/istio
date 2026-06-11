@@ -256,11 +256,11 @@ func TestWorkloadInstances(t *testing.T) {
 		createEndpoints(t, kube, service.Name, namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{pod.Status.PodIP})
 		fx.WaitOrFail(t, "eds")
 		// Endpoint update is triggered since its a brand new service
-		if ev := fx.WaitOrFail(t, "xds full"); !ev.Reason.Has(model.EndpointUpdate) {
+		if ev := fx.WaitOrFail(t, "xds"); !ev.Reason.Has(model.EndpointUpdate) {
 			t.Fatalf("xds push reason does not contain %v: %v", model.EndpointUpdate, ev)
 		}
 		// headless service update must trigger nds push, so we trigger a full push.
-		if ev := fx.WaitOrFail(t, "xds full"); !ev.Reason.Has(model.HeadlessEndpointUpdate) {
+		if ev := fx.WaitOrFail(t, "xds"); !ev.Reason.Has(model.HeadlessEndpointUpdate) {
 			t.Fatalf("xds push reason does not contain %v: %v", model.HeadlessEndpointUpdate, ev)
 		}
 
@@ -281,11 +281,11 @@ func TestWorkloadInstances(t *testing.T) {
 		createEndpoints(t, kube, service.Name, namespace, []v1.EndpointPort{{Name: "tcp", Port: 70}}, []string{pod.Status.PodIP})
 		fx.WaitOrFail(t, "eds")
 		// Endpoint update is triggered since its a brand new service
-		if ev := fx.WaitOrFail(t, "xds full"); !ev.Reason.Has(model.EndpointUpdate) {
+		if ev := fx.WaitOrFail(t, "xds"); !ev.Reason.Has(model.EndpointUpdate) {
 			t.Fatalf("xds push reason does not contain %v: %v", model.EndpointUpdate, ev)
 		}
 		// headless service update must trigger nds push, so we trigger a full push.
-		if ev := fx.WaitOrFail(t, "xds full"); !ev.Reason.Has(model.HeadlessEndpointUpdate) {
+		if ev := fx.WaitOrFail(t, "xds"); !ev.Reason.Has(model.HeadlessEndpointUpdate) {
 			t.Fatalf("xds push reason does not contain %v: %v", model.HeadlessEndpointUpdate, ev)
 		}
 		instances := []EndpointResponse{{
@@ -507,7 +507,7 @@ func TestWorkloadInstances(t *testing.T) {
 			},
 		})
 		makeIstioObject(t, store, workloadEntry)
-		fx.WaitOrFail(t, "xds full")
+		fx.WaitOrFail(t, "xds")
 
 		instances := []EndpointResponse{{
 			Address: workloadEntry.Spec.(*networking.WorkloadEntry).Address,
@@ -595,7 +595,7 @@ func TestWorkloadInstances(t *testing.T) {
 		}
 		makeIstioObject(t, store, we1)
 		makeIstioObject(t, store, we2)
-		fx.WaitOrFail(t, "xds full")
+		fx.WaitOrFail(t, "xds")
 
 		instances := []EndpointResponse{{
 			Address: workloadEntry.Spec.(*networking.WorkloadEntry).Address,
@@ -700,7 +700,7 @@ func TestWorkloadInstances(t *testing.T) {
 		}
 		makeIstioObject(t, store, we1)
 		makeIstioObject(t, store, we2)
-		fx.WaitOrFail(t, "xds full")
+		fx.WaitOrFail(t, "xds")
 
 		instances := []EndpointResponse{{
 			Address: workloadEntry.Spec.(*networking.WorkloadEntry).Address,
@@ -1160,7 +1160,7 @@ func TestWorkloadInstances(t *testing.T) {
 			},
 		})
 
-		fx.WaitOrFail(t, "xds full")
+		fx.WaitOrFail(t, "xds")
 		instances := []EndpointResponse{{
 			Address: "2.3.4.5",
 			Port:    80,
@@ -1268,7 +1268,7 @@ func TestWorkloadInstances(t *testing.T) {
 			},
 		})
 
-		fx.WaitOrFail(t, "xds full")
+		fx.WaitOrFail(t, "xds")
 		expectedSvc := &model.Service{
 			Hostname: "service.namespace.svc.cluster.local",
 			Ports: []*model.Port{

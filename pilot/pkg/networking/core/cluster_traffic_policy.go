@@ -187,7 +187,7 @@ func applyRetryBudget(
 		return
 	}
 
-	percent := &xdstype.Percent{Value: 0.2} // default to 20%
+	percent := &xdstype.Percent{Value: 20.0} // default to 20%
 	if retryBudget.Percent != nil {
 		percent = &xdstype.Percent{Value: retryBudget.Percent.Value}
 	}
@@ -198,6 +198,7 @@ func applyRetryBudget(
 
 	thresholds.RetryBudget = &cluster.CircuitBreakers_Thresholds_RetryBudget{
 		BudgetPercent:       percent,
+		BudgetInterval:      retryBudget.BudgetInterval,
 		MinRetryConcurrency: retryConcurrency,
 	}
 }
@@ -320,6 +321,9 @@ func applyLocalityLoadBalancer(
 	failover bool,
 ) {
 	// Failover should only be applied with outlier detection, or traffic will never failover.
+	// Conversely, because the default mesh config enables LocalityLbSetting (Enabled:true),
+	// enabling outlier detection in a DestinationRule will automatically activate locality LB
+	// failover behavior even when no explicit localityLbSetting is configured in the DR.
 	enableFailover := failover || c.OutlierDetection != nil
 	// set locality weighted lb config when locality lb is enabled, otherwise it will influence the result of LBPolicy like `least request`
 	if features.EnableLocalityWeightedLbConfig ||

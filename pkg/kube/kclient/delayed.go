@@ -51,6 +51,10 @@ type delayedHandlerRegistration struct {
 	hasSynced *atomic.Pointer[func() bool]
 }
 
+func (r delayedHandlerRegistration) HasSyncedChecker() cache.DoneChecker {
+	panic("not implemented; use HasSynced")
+}
+
 func (r delayedHandlerRegistration) HasSynced() bool {
 	if s := r.hasSynced.Load(); s != nil {
 		return (*s)()

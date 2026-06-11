@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"net"
 	"regexp"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -51,6 +50,7 @@ import (
 	pm "istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/identifier"
 	netutil "istio.io/istio/pkg/util/net"
@@ -93,9 +93,10 @@ func NewEnvironment() *Environment {
 		cache = DisabledCache{}
 	}
 	return &Environment{
-		pushContext:   NewPushContext(),
-		Cache:         cache,
-		EndpointIndex: NewEndpointIndex(cache),
+		pushContext:    NewPushContext(),
+		Cache:          cache,
+		EndpointIndex:  NewEndpointIndex(cache),
+		AmbientIndexes: &NoopAmbientIndexes{},
 	}
 }
 
@@ -112,6 +113,9 @@ type Environment struct {
 
 	// Watcher is the watcher for the mesh config (to be merged into the config store)
 	Watcher
+
+	// AmbientIndexes provides access to ambient mesh data (workloads, services, policies).
+	AmbientIndexes
 
 	// NetworksWatcher (loaded from a config map) provides information about the
 	// set of networks inside a mesh and how to route to endpoints in each
@@ -143,6 +147,9 @@ type Environment struct {
 	CredentialsController credentials.MulticlusterController
 
 	GatewayAPIController GatewayController
+
+	// AgentgatewayController is the controller for agentgateway.
+	AgentgatewayController AgentgatewayController
 
 	// EndpointShards for a service. This is a global (per-server) list, built from
 	// incremental updates. This is keyed by service and namespace
@@ -436,6 +443,11 @@ func (node *Proxy) IsAmbient() bool {
 	return node.IsWaypointProxy() || node.IsZTunnel()
 }
 
+// IsAgentgateway returns true if the proxy is acting as an agentgateway.
+func (node *Proxy) IsAgentgateway() bool {
+	return node.Type == Agentgateway
+}
+
 var NodeTypes = [...]NodeType{SidecarProxy, Router, Waypoint, Ztunnel}
 
 // SetSidecarScope identifies the sidecar scope object associated with this
@@ -566,6 +578,7 @@ func (node *Proxy) SetGatewaysForProxy(ps *PushContext) {
 	node.PrevMergedGateway = &PrevMergedGateway{
 		ContainsAutoPassthroughGateways: prevMergedGateway.ContainsAutoPassthroughGateways,
 		AutoPassthroughSNIHosts:         prevMergedGateway.GetAutoPassthroughGatewaySNIHosts(),
+		GatewayNameForServer:            prevMergedGateway.GatewayNameForServer,
 	}
 }
 
@@ -584,15 +597,15 @@ func (node *Proxy) SetServiceTargets(serviceDiscovery ServiceDiscovery) {
 	instances := serviceDiscovery.GetProxyServiceTargets(node)
 
 	// Keep service instances in order of creation/hostname.
-	sort.SliceStable(instances, func(i, j int) bool {
-		if instances[i].Service != nil && instances[j].Service != nil {
-			if !instances[i].Service.CreationTime.Equal(instances[j].Service.CreationTime) {
-				return instances[i].Service.CreationTime.Before(instances[j].Service.CreationTime)
+	slices.SortStableFunc(instances, func(a, b ServiceTarget) int {
+		if a.Service != nil && b.Service != nil {
+			if c := a.Service.CreationTime.Compare(b.Service.CreationTime); c != 0 {
+				return c
 			}
 			// Additionally, sort by hostname just in case services created automatically at the same second.
-			return instances[i].Service.Hostname < instances[j].Service.Hostname
+			return strings.Compare(string(a.Service.Hostname), string(b.Service.Hostname))
 		}
-		return true
+		return -1
 	})
 
 	node.ServiceTargets = instances
@@ -852,7 +865,9 @@ func conflictWithReservedListener(proxy *Proxy, push *PushContext, bind string, 
 	// bind == wildcard
 	// or bind unspecified, but protocol is HTTP
 	if proxy.Metadata != nil {
-		conflictWithStaticListener = proxy.Metadata.EnvoyStatusPort == port || proxy.Metadata.EnvoyPrometheusPort == port
+		conflictWithStaticListener = proxy.Metadata.EnvoyStatusPort == port || proxy.Metadata.EnvoyPrometheusPort == port ||
+			(proxy.Metadata.EnvoySecureMetricsPort != 0 && proxy.Metadata.EnvoySecureMetricsPort == port) ||
+			(proxy.Metadata.EnvoySecureMergedMetricsPort != 0 && proxy.Metadata.EnvoySecureMergedMetricsPort == port)
 	}
 	if push != nil {
 		conflictWithVirtualListener = int(push.Mesh.ProxyListenPort) == port || int(push.Mesh.ProxyInboundListenPort) == port
@@ -1090,6 +1105,14 @@ type GatewayController interface {
 	// For example, for resourceName of `kubernetes-gateway://ns-name/secret-name` and namespace of `ingress-ns`,
 	// this would return true only if there was a policy allowing `ingress-ns` to access Secrets in the `ns-name` namespace.
 	SecretAllowed(ourKind config.GroupVersionKind, resourceName string, namespace string) bool
+}
+
+type AgentgatewayController interface {
+	ConfigStoreController
+	// Reconcile updates the internal state of the agentgateway controller for a given input. This should be
+	// called before any List/Get calls if the state has changed
+	// Required for current status implementation
+	Reconcile(ctx *PushContext)
 }
 
 // OutboundListenerClass is a helper to turn a NodeType for outbound to a ListenerClass.

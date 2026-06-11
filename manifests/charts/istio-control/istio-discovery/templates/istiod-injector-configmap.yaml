@@ -80,6 +80,10 @@ data:
       agentgateway: |
 {{ .Files.Get "files/agentgateway.yaml" | trim | indent 8 }}
 {{- end }}
+{{- if not (hasKey .Values.sidecarInjectorWebhook.templates "agentgateway-waypoint") }}
+      agentgateway-waypoint: |
+{{ .Files.Get "files/agentgateway-waypoint.yaml" | trim | indent 8 }}
+{{- end }}
 {{- with .Values.sidecarInjectorWebhook.templates }}
 {{ toYaml . | trim | indent 6 }}
 {{- end }}

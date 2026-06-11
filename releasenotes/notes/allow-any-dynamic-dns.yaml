@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+
+releaseNotes:
+- |
+  **Added** `ALLOW_ANY_DYNAMIC_DNS` outbound traffic policy mode. When set in
+  `meshConfig.outboundTrafficPolicy.mode`, plaintext HTTP requests to unknown destinations are
+  forwarded via Envoy's Dynamic Forward Proxy, resolving hostnames from the Host header at
+  request time. Non-HTTP traffic (TLS, raw TCP) continues to use PassthroughCluster.
+  Scoped to sidecar proxies only. Not supported in the Sidecar CRD. Optional upstream TLS
+  origination can be configured via `meshConfig.outboundTrafficPolicy.tls`.

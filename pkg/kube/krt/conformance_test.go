@@ -364,7 +364,9 @@ func runConformance[T any](t *testing.T, factory func(t *testing.T) Rig[T]) {
 		keys = append(keys, fmt.Sprintf("a/%v", n))
 	}
 	raceHandler := assert.NewTracker[string](t)
+	done := make(chan struct{})
 	go func() {
+		defer close(done)
 		for _, k := range keys {
 			collection.CreateObject(k)
 		}
@@ -381,6 +383,10 @@ func runConformance[T any](t *testing.T, factory func(t *testing.T) Rig[T]) {
 	// We should get every event exactly one time
 	raceHandler.WaitUnordered(want...)
 	raceHandler.Empty()
+
+	// Wait for the goroutine to finish before the test returns,
+	// to avoid calling assert.NoError on a completed *testing.T.
+	<-done
 
 	removeHandler.Empty()
 

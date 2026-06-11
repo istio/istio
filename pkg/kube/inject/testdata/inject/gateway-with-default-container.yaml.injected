@@ -124,7 +124,7 @@ spec:
           value: cluster.local
         - name: TRUST_DOMAIN
           value: cluster.local
-        image: gcr.io/istio-testing/proxyv2:latest
+        image: registry.istio.io/testing/proxyv2:latest
         imagePullPolicy: IfNotPresent
         name: istio-proxy
         ports:

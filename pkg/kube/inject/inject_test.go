@@ -42,6 +42,7 @@ import (
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
+	common_features "istio.io/istio/pkg/features"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/kube/multicluster"
@@ -144,6 +145,13 @@ func TestInjection(t *testing.T) {
 			want: "hello.yaml.proxyImageName.injected",
 			setFlags: []string{
 				"values.global.proxy.image=proxyTest",
+			},
+		},
+		{
+			in:   "hello.yaml",
+			want: "hello.yaml.proxyInitImageName.injected",
+			setFlags: []string{
+				"values.global.proxy_init.image=proxyInitTest",
 			},
 		},
 		{
@@ -598,6 +606,13 @@ func TestInjection(t *testing.T) {
 						},
 					},
 				})
+			},
+		},
+		{
+			in:   "hello.yaml",
+			want: "hello-fips-140-3.yaml.injected",
+			setup: func(t test.Failer) {
+				test.SetForTest(t, &common_features.CompliancePolicy, "fips-140-3")
 			},
 		},
 	}
@@ -1480,14 +1495,14 @@ func TestProxyImage(t *testing.T) {
 	}{
 		{
 			desc: "vals-only-int-tag",
-			v:    val("docker.io/istio", 11),
-			want: "docker.io/istio/proxyv2:11",
+			v:    val("registry.istio.io/release", 11),
+			want: "registry.istio.io/release/proxyv2:11",
 		},
 		{
 			desc: "pc overrides imageType - float tag",
-			v:    val("docker.io/istio", 1.12),
+			v:    val("registry.istio.io/release", 1.12),
 			pc:   pc("distroless"),
-			want: "docker.io/istio/proxyv2:1.12-distroless",
+			want: "registry.istio.io/release/proxyv2:1.12-distroless",
 		},
 		{
 			desc: "annotation overrides imageType",
@@ -1523,15 +1538,15 @@ func TestProxyImage(t *testing.T) {
 		},
 		{
 			desc: "pc overrides imageType, tag also has image type",
-			v:    val("docker.io/istio", "1.12-debug"),
+			v:    val("registry.istio.io/release", "1.12-debug"),
 			pc:   pc("distroless"),
-			want: "docker.io/istio/proxyv2:1.12-distroless",
+			want: "registry.istio.io/release/proxyv2:1.12-distroless",
 		},
 		{
 			desc: "annotation overrides imageType, tag also has the same image type",
-			v:    val("docker.io/istio", "1.12-distroless"),
+			v:    val("registry.istio.io/release", "1.12-distroless"),
 			ann:  ann("distroless"),
-			want: "docker.io/istio/proxyv2:1.12-distroless",
+			want: "registry.istio.io/release/proxyv2:1.12-distroless",
 		},
 		{
 			desc: "unusual tag should work",

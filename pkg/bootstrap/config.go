@@ -128,6 +128,8 @@ func (cfg Config) toTemplateParams() (map[string]any, error) {
 		option.XdsType(xdsType),
 		option.MetadataDiscovery(mDiscovery),
 		option.MetricsLocalhostAccessOnly(cfg.Metadata.ProxyConfig.ProxyMetadata),
+		option.SecureMetricsPort(cfg.Metadata.EnvoySecureMetricsPort),
+		option.SecureMergedMetricsPort(cfg.Metadata.EnvoySecureMergedMetricsPort),
 	)
 
 	// Add GCPProjectNumber to access in bootstrap template.
@@ -393,6 +395,8 @@ func extractRuntimeFlags(cfg *model.NodeMetaProxyConfig, policy string) map[stri
 		"envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst": true,
 		"envoy.reloadable_features.http_reject_path_with_fragment":                                             false,
 		"envoy.reloadable_features.fixed_heap_use_allocated":                                                   true,
+		// Disable due to https://github.com/envoyproxy/envoy/issues/45212
+		"envoy.reloadable_features.coalesce_lb_rebuilds_on_batch_update": false,
 	}
 	if policy == common_features.FIPS_140_2 {
 		// This flag limits google_grpc client in Envoy to TLSv1.2 as the maximum version.
@@ -633,24 +637,26 @@ func extractAttributesMetadata(envVars []string, plat platform.Environment, meta
 
 // MetadataOptions for constructing node metadata.
 type MetadataOptions struct {
-	Envs                        []string
-	Platform                    platform.Environment
-	InstanceIPs                 []string
-	StsPort                     int
-	ID                          string
-	ProxyConfig                 *meshAPI.ProxyConfig
-	PilotSubjectAltName         []string
-	CredentialSocketExists      bool
-	CustomCredentialsFileExists bool
-	XDSRootCert                 string
-	OutlierLogPath              string
-	annotationFilePath          string
-	EnvoyStatusPort             int
-	EnvoyPrometheusPort         int
-	ExitOnZeroActiveConnections bool
-	MetadataDiscovery           *bool
-	EnvoySkipDeprecatedLogs     bool
-	WorkloadIdentitySocketFile  string
+	Envs                         []string
+	Platform                     platform.Environment
+	InstanceIPs                  []string
+	StsPort                      int
+	ID                           string
+	ProxyConfig                  *meshAPI.ProxyConfig
+	PilotSubjectAltName          []string
+	CredentialSocketExists       bool
+	CustomCredentialsFileExists  bool
+	XDSRootCert                  string
+	OutlierLogPath               string
+	annotationFilePath           string
+	EnvoyStatusPort              int
+	EnvoyPrometheusPort          int
+	EnvoySecureMetricsPort       int
+	EnvoySecureMergedMetricsPort int
+	ExitOnZeroActiveConnections  bool
+	MetadataDiscovery            *bool
+	EnvoySkipDeprecatedLogs      bool
+	WorkloadIdentitySocketFile   string
 }
 
 const (
@@ -685,6 +691,11 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 		}
 	}, untypedMeta)
 
+	// DNS_PROXY_ADDR is not ISTIO_META_*-prefixed. Read the process env directly (pilot-agent uses os.Environ() for options.Envs).
+	if v, ok := os.LookupEnv("DNS_PROXY_ADDR"); ok && v != "" {
+		untypedMeta["DNS_PROXY_ADDR"] = v
+	}
+
 	j, err := json.Marshal(untypedMeta)
 	if err != nil {
 		return nil, err
@@ -705,6 +716,8 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 	}
 	meta.EnvoyStatusPort = options.EnvoyStatusPort
 	meta.EnvoyPrometheusPort = options.EnvoyPrometheusPort
+	meta.EnvoySecureMetricsPort = options.EnvoySecureMetricsPort
+	meta.EnvoySecureMergedMetricsPort = options.EnvoySecureMergedMetricsPort
 	meta.ExitOnZeroActiveConnections = model.StringBool(options.ExitOnZeroActiveConnections)
 	if options.MetadataDiscovery == nil {
 		meta.MetadataDiscovery = nil

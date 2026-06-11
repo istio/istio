@@ -31,6 +31,8 @@ var (
 	HostProbeSNATIP                = netip.MustParseAddr(env.RegisterStringVar("HOST_PROBE_SNAT_IP", DefaultHostProbeSNATIP, "").Get())
 	HostProbeSNATIPV6              = netip.MustParseAddr(env.RegisterStringVar("HOST_PROBE_SNAT_IPV6", DefaultHostProbeSNATIPV6, "").Get())
 	UseScopedIptablesLegacyLocking = env.RegisterBoolVar("AMBIENT_USE_SCOPED_XTABLES_LOCKING", true, "").Get()
+	EnableAWSBranchENIProbe        = env.RegisterBoolVar("AMBIENT_ENABLE_AWS_BRANCH_ENI_PROBE", true,
+		"If true, detect AWS VPC CNI branch ENI pods and add ip rules to route probe traffic via veth").Get()
 )
 
 const (
@@ -51,6 +53,7 @@ type AmbientArgs struct {
 	KubeConfig                 string
 	ServerSocket               string
 	EnablementSelector         *util.CompiledEnablementSelectors
+	ExcludeNamespaces          []string
 	DNSCapture                 bool
 	EnableIPv6                 bool
 	ReconcilePodRulesOnStartup bool

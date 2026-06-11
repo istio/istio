@@ -642,6 +642,16 @@ func commonInstallArgs(ctx resource.Context, cfg Config, c cluster.Cluster, defa
 	for k, v := range cfg.OperatorOptions {
 		args.AppendSet(k, v)
 	}
+
+	// Set the GatewayClass name for Gateway API if it differs from the default.
+	if cfg.GatewayClassName != "" && cfg.GatewayClassName != DefaultGatewayClassName {
+		args.AppendSet("values.pilot.env.PILOT_GATEWAY_API_DEFAULT_GATEWAYCLASS_NAME", cfg.GatewayClassName)
+	}
+
+	if ctx.Settings().GatewayAPIOnly {
+		args.AppendSet("values.pilot.env.PILOT_IGNORE_RESOURCES", "*.istio.io")
+	}
+
 	return args
 }
 

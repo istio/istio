@@ -28,6 +28,7 @@ import (
 	"github.com/miekg/dns"
 
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	dnsProto "istio.io/istio/pkg/dns/proto"
 	istiolog "istio.io/istio/pkg/log"
@@ -59,6 +60,7 @@ type LocalDNSServer struct {
 
 	respondBeforeSync         bool
 	forwardToUpstreamParallel bool
+	upstreamTimeout           time.Duration
 }
 
 // LookupTable is borrowed from https://github.com/coredns/coredns/blob/master/plugin/hosts/hostsfile.go
@@ -85,12 +87,38 @@ const (
 	// the latest IP for a host.
 	// TODO: make it configurable
 	defaultTTLInSeconds = 30
+
+	// DefaultUpstreamTimeout is the default timeout for DNS upstream queries
+	DefaultUpstreamTimeout = 5 * time.Second
 )
 
-func NewLocalDNSServer(proxyNamespace, proxyDomain string, addr string, forwardToUpstreamParallel bool) (*LocalDNSServer, error) {
+// LocalDNSServerOption is a functional option for configuring LocalDNSServer.
+type LocalDNSServerOption func(*LocalDNSServer)
+
+// WithParallelForwarding enables or disables parallel forwarding to upstream DNS servers.
+func WithParallelForwarding(parallel bool) LocalDNSServerOption {
+	return func(s *LocalDNSServer) {
+		s.forwardToUpstreamParallel = parallel
+	}
+}
+
+// WithUpstreamTimeout sets the timeout for upstream DNS queries.
+func WithUpstreamTimeout(timeout time.Duration) LocalDNSServerOption {
+	return func(s *LocalDNSServer) {
+		s.upstreamTimeout = timeout
+	}
+}
+
+func NewLocalDNSServer(proxyNamespace, proxyDomain string, addr string, opts ...LocalDNSServerOption) (*LocalDNSServer, error) {
 	h := &LocalDNSServer{
 		proxyNamespace:            proxyNamespace,
-		forwardToUpstreamParallel: forwardToUpstreamParallel,
+		forwardToUpstreamParallel: false,
+		upstreamTimeout:           DefaultUpstreamTimeout,
+	}
+
+	// Apply functional options
+	for _, opt := range opts {
+		opt(h)
 	}
 
 	// proxyDomain could contain the namespace making it redundant.
@@ -117,7 +145,7 @@ func NewLocalDNSServer(proxyNamespace, proxyDomain string, addr string, forwardT
 			}
 		} else {
 			log.Error("DNS address :53 and not running as root, use default")
-			addr = "localhost:15053"
+			addr = constants.DefaultDNSProxyAddr
 		}
 	}
 
@@ -145,7 +173,7 @@ func NewLocalDNSServer(proxyNamespace, proxyDomain string, addr string, forwardT
 	log.WithLabels("search", h.searchNamespaces, "servers", h.resolvConfServers).Debugf("initialized DNS")
 
 	if addr == "" {
-		addr = "localhost:15053"
+		addr = constants.DefaultDNSProxyAddr
 	}
 	v4, v6 := netutil.ParseIPsSplitToV4V6(dnsConfig.Servers)
 	host, port, err := net.SplitHostPort(addr)
@@ -166,7 +194,7 @@ func NewLocalDNSServer(proxyNamespace, proxyDomain string, addr string, forwardT
 	}
 	for _, ipAddr := range addresses {
 		for _, proto := range []string{"udp", "tcp"} {
-			proxy, err := newDNSProxy(proto, ipAddr, h)
+			proxy, err := newDNSProxy(proto, ipAddr, h, h.upstreamTimeout)
 			if err != nil {
 				return nil, err
 			}
