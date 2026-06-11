@@ -506,10 +506,8 @@ func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 		if !hName.IsWildCarded() {
 			hc.exactHosts.Insert(hName)
 		} else {
-			// A wildcard host requires scanning the full service list to find matches.
 			allExactHosts = false
 		}
-		// A wildcard namespace ("*") also requires the scan, since the target namespace is not known up front.
 		if ns == wildcardNamespace {
 			allExactHosts = false
 		}
@@ -521,13 +519,10 @@ func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 	}
 
 	out.virtualServices = SelectVirtualServices(ps.virtualServiceIndex, configNamespace, hostsByNamespace)
-	// Let H = hosts imported by this listener, M = services visible to configNamespace.
 	var svces []*Service
 	if allExactHosts {
-		// Fast path: O(H) index lookups + O(H log H) sort, no full-list allocation.
 		svces = ps.servicesForExactHosts(configNamespace, hostsByNamespace)
 	} else {
-		// Scan path: O(M) allocation + O(M) scan; unavoidable for wildcard hosts.
 		svces = ps.servicesExportedToNamespace(configNamespace)
 	}
 	out.services = out.selectServices(svces, configNamespace, hostsByNamespace)
