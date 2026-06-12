@@ -17,17 +17,16 @@
 package ambient
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
 
 	"golang.org/x/sync/errgroup"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	k8sv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"istio.io/api/label"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
@@ -460,42 +459,32 @@ func TestEastWestGatewayTLSRoute(t *testing.T) {
 		}
 
 		systemNS := i.Settings().SystemNamespace
+		const ewGatewayName = "istio-eastwestgateway"
+		const passthroughListenerName = "tls-passthrough"
 
-		// Deploy a (second) E/W gateway with a TLS passthrough listener
-		// and a TLSRoute to the backend service.
+		// Adds a TLS passthrough listener to the existing shared east-west gateway
+		// and route to the backend with a TLSRoute.
+		addPassthroughListenerOrFail(t, gwCluster, systemNS, ewGatewayName, passthroughListenerName, tlsPassthroughPort)
+
 		templateArgs := map[string]string{
-			"GatewayNetwork": gwCluster.NetworkName(),
-			"BackendSvc":     backendSvc,
-			"BackendNS":      nsConfig.Name(),
-			"TLSPort":        fmt.Sprintf("%d", tlsPassthroughPort),
-			"SystemNS":       systemNS,
+			"BackendSvc":   backendSvc,
+			"BackendNS":    nsConfig.Name(),
+			"TLSPort":      fmt.Sprintf("%d", tlsPassthroughPort),
+			"SystemNS":     systemNS,
+			"GatewayName":  ewGatewayName,
+			"ListenerName": passthroughListenerName,
 		}
 		t.ConfigKube(gwCluster).
 			Eval(systemNS, templateArgs, `
-apiVersion: gateway.networking.k8s.io/v1
-kind: Gateway
-metadata:
-  name: eastwest-tlsroute-test
-  labels:
-    topology.istio.io/network: "{{ .GatewayNetwork }}"
-spec:
-  gatewayClassName: istio-east-west
-  listeners:
-  - name: tls-passthrough
-    port: {{ .TLSPort }}
-    protocol: TLS
-    tls:
-      mode: Passthrough
----
-apiVersion: gateway.networking.k8s.io/v1
+apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: TLSRoute
 metadata:
   name: eastwest-tlsroute-test
 spec:
   parentRefs:
-  - name: eastwest-tlsroute-test
+  - name: {{ .GatewayName }}
     kind: Gateway
-    sectionName: tls-passthrough
+    sectionName: {{ .ListenerName }}
   hostnames:
   - "{{ .BackendSvc }}.{{ .BackendNS }}.svc.cluster.local"
   rules:
@@ -520,26 +509,39 @@ spec:
     kind: Service
 `).ApplyOrFail(t)
 
-		// Wait for the gateway to be programmed.
+		// Wait for the passthrough listener to be programmed and for the TLSRoute to
+		// attach to it.
 		retry.UntilSuccessOrFail(t, func() error {
 			gw, err := gwCluster.GatewayAPI().GatewayV1().Gateways(systemNS).
-				Get(t.Context(), "eastwest-tlsroute-test", metav1.GetOptions{})
+				Get(t.Context(), ewGatewayName, metav1.GetOptions{})
 			if err != nil {
 				return fmt.Errorf("gateway not found: %v", err)
 			}
-			for _, cond := range gw.Status.Conditions {
-				if cond.Type == string(k8sv1.GatewayConditionProgrammed) && string(cond.Status) == "True" {
-					return nil
+			for _, ls := range gw.Status.Listeners {
+				if string(ls.Name) != passthroughListenerName {
+					continue
 				}
+				programmed := false
+				for _, cond := range ls.Conditions {
+					if cond.Type == string(k8sv1.ListenerConditionProgrammed) && string(cond.Status) == "True" {
+						programmed = true
+						break
+					}
+				}
+				if !programmed {
+					return fmt.Errorf("listener %q is not yet programmed", passthroughListenerName)
+				}
+				if ls.AttachedRoutes < 1 {
+					return fmt.Errorf("listener %q has no attached routes yet", passthroughListenerName)
+				}
+				return nil
 			}
-			return fmt.Errorf("gateway eastwest-tlsroute-test is not yet programmed")
+			return fmt.Errorf("listener %q not found in gateway status", passthroughListenerName)
 		}, retry.Timeout(2*time.Minute), retry.Delay(time.Second))
 
-		// Resolve the gateway's external address for the TLS passthrough port.
-		ewgw := i.CustomIngressFor(gwCluster,
-			types.NamespacedName{Name: "eastwest-tlsroute-test", Namespace: systemNS},
-			"gateway.istio.io/managed="+constants.ManagedGatewayEastWestControllerLabel)
-
+		// Resolve the shared east-west gateway's external address for the TLS
+		// passthrough port.
+		ewgw := i.EastWestGatewayForAmbient(gwCluster)
 		addrs, portList := ewgw.AddressesForPort(tlsPassthroughPort)
 		if len(addrs) == 0 || len(portList) == 0 {
 			t.Fatal("east-west gateway TLS passthrough address or port not found")
@@ -566,5 +568,57 @@ spec:
 				Options: []retry.Option{retry.Timeout(2 * time.Minute), retry.Delay(time.Second)},
 			},
 		})
+	})
+}
+
+// Adds a TLS passthrough listener on the given port to an
+// existing Gateway and registers a cleanup to remove it later.
+func addPassthroughListenerOrFail(t framework.TestContext, c cluster.Cluster, ns, gatewayName, listenerName string, port int) {
+	t.Helper()
+	gateways := c.GatewayAPI().GatewayV1().Gateways(ns)
+	mode := k8sv1.TLSModePassthrough
+	listener := k8sv1.Listener{
+		Name:     k8sv1.SectionName(listenerName),
+		Port:     k8sv1.PortNumber(port),
+		Protocol: k8sv1.TLSProtocolType,
+		TLS: &k8sv1.ListenerTLSConfig{
+			Mode: &mode,
+		},
+	}
+
+	retry.UntilSuccessOrFail(t, func() error {
+		gw, err := gateways.Get(t.Context(), gatewayName, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		for _, l := range gw.Spec.Listeners {
+			if l.Name == listener.Name {
+				return nil
+			}
+		}
+		gw.Spec.Listeners = append(gw.Spec.Listeners, listener)
+		_, err = gateways.Update(t.Context(), gw, metav1.UpdateOptions{})
+		return err
+	}, retry.Timeout(time.Minute), retry.Delay(time.Second))
+
+	t.Cleanup(func() {
+		_ = retry.UntilSuccess(func() error {
+			gw, err := gateways.Get(context.Background(), gatewayName, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			kept := make([]k8sv1.Listener, 0, len(gw.Spec.Listeners))
+			for _, l := range gw.Spec.Listeners {
+				if l.Name != listener.Name {
+					kept = append(kept, l)
+				}
+			}
+			if len(kept) == len(gw.Spec.Listeners) {
+				return nil
+			}
+			gw.Spec.Listeners = kept
+			_, err = gateways.Update(context.Background(), gw, metav1.UpdateOptions{})
+			return err
+		}, retry.Timeout(time.Minute), retry.Delay(time.Second))
 	})
 }
