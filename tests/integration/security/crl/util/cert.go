@@ -411,7 +411,7 @@ func WaitForCRLUpdate(t framework.TestContext, namespaces []string, bundle *IABu
 
 	// verify crl ConfigMaps are updated
 	retry.UntilSuccessOrFail(t, func() error {
-		return verifyCRLConfigMaps(namespaces, bundle.crlPEM)
+		return verifyCRLConfigMaps(namespaces, bundle.crlPEM, t.AllClusters()...)
 	}, retry.Timeout(waitTimeout))
 
 	// force pod annotation update to trigger ConfigMap volume refresh
