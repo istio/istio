@@ -1,6 +1,6 @@
 module istio.io/istio
 
-go 1.25.7
+go 1.26.0
 
 require (
 	cloud.google.com/go/compute/metadata v0.9.0
@@ -95,7 +95,7 @@ require (
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
-	helm.sh/helm/v3 v3.21.0
+	helm.sh/helm/v3 v3.21.1
 	istio.io/api v1.30.1-0.20260529120535-23c54ad84d6e
 	istio.io/client-go v1.30.1-0.20260529120836-10317b05e988
 	k8s.io/api v0.35.3
