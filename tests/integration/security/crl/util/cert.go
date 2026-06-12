@@ -193,7 +193,7 @@ func GenerateCaCerts(ctx resource.Context) (*RootBundle, error) {
 		return nil, err
 	}
 
-	ca := &RootBundle{
+	rb := &RootBundle{
 		rootCert:    rootCert,
 		rootKey:     rootKey,
 		rootCertPEM: rootCertPEM,
@@ -201,56 +201,56 @@ func GenerateCaCerts(ctx resource.Context) (*RootBundle, error) {
 	}
 
 	for i, cl := range clusters {
-		b, err := ca.newBundle(cl, big.NewInt(int64(2000+i*1000)))
+		b, err := rb.newBundle(cl, big.NewInt(int64(2000+i*1000)))
 		if err != nil {
 			return nil, err
 		}
-		if err := ca.rebuildCRL(b); err != nil {
+		if err := rb.rebuildCRL(b); err != nil {
 			return nil, err
 		}
-		if err := ca.createCaCertsSecret(ctx, b); err != nil {
+		if err := rb.createCaCertsSecret(ctx, b); err != nil {
 			return nil, err
 		}
-		ca.bundles[cl.Name()] = b
+		rb.bundles[cl.Name()] = b
 	}
 
-	return ca, nil
+	return rb, nil
 }
 
 // Bundle returns the intermediate CA bundle for the given cluster.
-func (ca *RootBundle) Bundle(c cluster.Cluster) *IABundle {
-	return ca.bundles[c.Name()]
+func (rb *RootBundle) Bundle(c cluster.Cluster) *IABundle {
+	return rb.bundles[c.Name()]
 }
 
 // RevokeIntermediate revokes the given cluster's own intermediate CA in its root CRL
 // and pushes the update to that cluster's cacerts secret.
-func (ca *RootBundle) RevokeIntermediate(t framework.TestContext, c cluster.Cluster) {
+func (rb *RootBundle) RevokeIntermediate(t framework.TestContext, c cluster.Cluster) {
 	t.Helper()
-	ca.RevokeRemoteIntermediate(t, c, c)
+	rb.RevokeRemoteIntermediate(t, c, c)
 }
 
 // RevokeRemoteIntermediate revokes the remote cluster's intermediate CA in the local
 // cluster's root CRL and pushes the update to the local cluster's cacerts secret.
-func (ca *RootBundle) RevokeRemoteIntermediate(t framework.TestContext, local, remote cluster.Cluster) {
+func (rb *RootBundle) RevokeRemoteIntermediate(t framework.TestContext, local, remote cluster.Cluster) {
 	t.Helper()
-	lb := ca.bundles[local.Name()]
-	rb := ca.bundles[remote.Name()]
+	localBundle := rb.bundles[local.Name()]
+	remoteBundle := rb.bundles[remote.Name()]
 	t.Logf("revoking %s IA in %s root CRL", remote.Name(), local.Name())
-	lb.revokedIntermediateSerial = rb.intermediateSerial
-	if err := ca.rebuildCRL(lb); err != nil {
+	localBundle.revokedIntermediateSerial = remoteBundle.intermediateSerial
+	if err := rb.rebuildCRL(localBundle); err != nil {
 		t.Fatalf("failed to rebuild CRL after revoking intermediate: %v", err)
 	}
-	ca.updateCRLInSecret(t, lb)
+	rb.updateCRLInSecret(t, localBundle)
 }
 
 // WaitForCRLPropagation waits until the istio-ca-crl ConfigMap in ztunnel's namespace on the
 // given cluster reflects the cluster's current CRL.
-func (ca *RootBundle) WaitForCRLPropagation(t framework.TestContext, c cluster.Cluster) {
+func (rb *RootBundle) WaitForCRLPropagation(t framework.TestContext, c cluster.Cluster) {
 	t.Helper()
 	istioCfg := istio.DefaultConfigOrFail(t, t)
-	b := ca.bundles[c.Name()]
+	b := rb.bundles[c.Name()]
 	retry.UntilSuccessOrFail(t, func() error {
-		return verifyCRLConfigMaps(t, []string{istioCfg.ZtunnelNamespace}, b.crlPEM, c)
+		return verifyCRLConfigMaps([]string{istioCfg.ZtunnelNamespace}, b.crlPEM, c)
 	}, retry.Timeout(waitTimeout))
 }
 
@@ -267,7 +267,7 @@ func (rb *RootBundle) ResetCRL(t framework.TestContext, c cluster.Cluster) {
 	}
 	rb.updateCRLInSecret(t, b)
 	retry.UntilSuccessOrFail(t, func() error {
-		return verifyCRLConfigMaps(t, []string{istioCfg.ZtunnelNamespace}, b.crlPEM, c)
+		return verifyCRLConfigMaps([]string{istioCfg.ZtunnelNamespace}, b.crlPEM, c)
 	}, retry.Timeout(waitTimeout))
 }
 
@@ -411,7 +411,7 @@ func WaitForCRLUpdate(t framework.TestContext, namespaces []string, bundle *IABu
 
 	// verify crl ConfigMaps are updated
 	retry.UntilSuccessOrFail(t, func() error {
-		return verifyCRLConfigMaps(t, namespaces, bundle.crlPEM)
+		return verifyCRLConfigMaps(namespaces, bundle.crlPEM)
 	}, retry.Timeout(waitTimeout))
 
 	// force pod annotation update to trigger ConfigMap volume refresh
@@ -420,7 +420,7 @@ func WaitForCRLUpdate(t framework.TestContext, namespaces []string, bundle *IABu
 	}, retry.Timeout(waitTimeout))
 }
 
-func verifyCRLConfigMaps(t framework.TestContext, namespaces []string, expectedCRL []byte, clusters ...cluster.Cluster) error {
+func verifyCRLConfigMaps(namespaces []string, expectedCRL []byte, clusters ...cluster.Cluster) error {
 	for _, c := range clusters {
 		if c.IsExternalControlPlane() {
 			// we replicate the crl configmap to all clusters where workloads are running. So we can skip this cluster.
