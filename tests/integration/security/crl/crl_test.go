@@ -52,7 +52,7 @@ func TestPluggedInCACRL(t *testing.T) {
 			t.Logf("initial mTLS call succeeded")
 
 			// revoke the intermediate certificate
-			util.RevokeIntermediate(t, certBundle)
+			certBundle.RevokeIntermediate(t, t.Clusters()[0])
 
 			// wait for the CRL ConfigMap to be updated
 			util.WaitForCRLUpdate(
@@ -61,7 +61,7 @@ func TestPluggedInCACRL(t *testing.T) {
 					clientNS.Name(),
 					serverNS.Name(),
 				},
-				certBundle,
+				certBundle.Bundle(t.Clusters()[0]),
 				client,
 				server,
 			)

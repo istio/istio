@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	testlabel "istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
+	crlutil "istio.io/istio/tests/integration/security/crl/util"
 )
 
 const (
@@ -67,7 +68,7 @@ values:
 )
 
 var (
-	ca            *CA
+	certBundle    *crlutil.RootBundle
 	clientNS      namespace.Instance
 	serverNS      namespace.Instance
 	client        echo.Instance
@@ -84,7 +85,7 @@ func TestMain(m *testing.M) {
 		Setup(func(ctx resource.Context) error {
 			var err error
 			// generate shared root CA and one intermediate bundle per cluster, installed via cacerts secret
-			ca, err = GenerateCaCerts(ctx)
+			certBundle, err = crlutil.GenerateCaCerts(ctx)
 			if err != nil {
 				return err
 			}

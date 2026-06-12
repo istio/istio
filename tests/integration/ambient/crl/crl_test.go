@@ -61,8 +61,8 @@ func TestZtunnelCrlOutbound(t *testing.T) {
 
 			// Revoke the server cluster's IA in the client cluster's root CRL so that the
 			// client cluster's ztunnel rejects outbound connections to the server cluster.
-			ca.RevokeRemoteIntermediate(t, clientCluster, serverCluster)
-			ca.WaitForCRLPropagation(t, clientCluster)
+			certBundle.RevokeRemoteIntermediate(t, clientCluster, serverCluster)
+			certBundle.WaitForCRLPropagation(t, clientCluster)
 			deleteZtunnelPod(t, clientCluster)
 
 			t.Logf("waiting for source ztunnel to reject outbound connection to remote server")
@@ -95,8 +95,8 @@ func TestZtunnelCrlInbound(t *testing.T) {
 
 			// Revoke the client cluster's IA in the server cluster's root CRL so that the
 			// server cluster's ztunnel rejects inbound connections from the client cluster.
-			ca.RevokeRemoteIntermediate(t, serverCluster, clientCluster)
-			ca.WaitForCRLPropagation(t, serverCluster)
+			certBundle.RevokeRemoteIntermediate(t, serverCluster, clientCluster)
+			certBundle.WaitForCRLPropagation(t, serverCluster)
 			deleteZtunnelPod(t, serverCluster)
 
 			t.Logf("waiting for destination ztunnel to reject inbound connection from client")
@@ -108,7 +108,7 @@ func TestZtunnelCrlInbound(t *testing.T) {
 // resetCrlState resets a cluster's CRL to empty state, waits for ConfigMap propagation, then restarts all ztunnel instances.
 func resetCrlState(t framework.TestContext, cl cluster.Cluster) {
 	t.Helper()
-	ca.ResetCRL(t, cl)
+	certBundle.ResetCRL(t, cl)
 	deleteZtunnelPod(t, cl)
 	t.Logf("CRL reset complete on %s", cl.Name())
 }
