@@ -21,6 +21,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"google.golang.org/protobuf/types/known/durationpb"
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -1669,6 +1670,77 @@ func TestValidateMeshNetworks(t *testing.T) {
 			}
 			if err == nil && !tc.valid {
 				t.Errorf("expected an error on invalid meshnetworks: %v", tc.mn)
+			}
+		})
+	}
+}
+
+func TestValidateConnectionSettings(t *testing.T) {
+	tests := []struct {
+		name    string
+		cs      *meshconfig.ProxyConfig_ConnectionSettings
+		wantErr bool
+	}{
+		{
+			name: "valid EDGE settings",
+			cs: &meshconfig.ProxyConfig_ConnectionSettings{
+				Profile:                               meshconfig.ProxyConfig_ConnectionSettings_EDGE,
+				ListenerPerConnectionBufferLimitBytes: &wrappers.Int32Value{Value: 32768},
+				HttpIdleTimeout:                       durationpb.New(3600 * time.Second),
+				HttpMaxConcurrentStreams:              &wrappers.Int32Value{Value: 100},
+				Http2InitialStreamWindowSize:          &wrappers.Int32Value{Value: 65536},
+				Http2InitialConnectionWindowSize:      &wrappers.Int32Value{Value: 1048576},
+			},
+			wantErr: false,
+		},
+		{
+			name: "negative buffer limit",
+			cs: &meshconfig.ProxyConfig_ConnectionSettings{
+				ListenerPerConnectionBufferLimitBytes: &wrappers.Int32Value{Value: -1},
+			},
+			wantErr: true,
+		},
+		{
+			name: "zero concurrent streams",
+			cs: &meshconfig.ProxyConfig_ConnectionSettings{
+				HttpMaxConcurrentStreams: &wrappers.Int32Value{Value: 0},
+			},
+			wantErr: true,
+		},
+		{
+			name: "small HTTP/2 window and negative duration",
+			cs: &meshconfig.ProxyConfig_ConnectionSettings{
+				Http2InitialStreamWindowSize: &wrappers.Int32Value{Value: 100},
+				HttpIdleTimeout:              durationpb.New(-1 * time.Second),
+			},
+			wantErr: true,
+		},
+		{
+			name: "HTTP/2 connection window size below minimum",
+			cs: &meshconfig.ProxyConfig_ConnectionSettings{
+				Http2InitialConnectionWindowSize: &wrappers.Int32Value{Value: 1000},
+			},
+			wantErr: true,
+		},
+		{
+			name: "negative stream window size",
+			cs: &meshconfig.ProxyConfig_ConnectionSettings{
+				Http2InitialStreamWindowSize: &wrappers.Int32Value{Value: -1},
+			},
+			wantErr: true,
+		},
+		{
+			name:    "empty ConnectionSettings validates clean",
+			cs:      &meshconfig.ProxyConfig_ConnectionSettings{},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateConnectionSettings(tt.cs)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("validateConnectionSettings() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
