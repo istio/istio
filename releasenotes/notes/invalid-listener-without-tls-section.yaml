@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+issue:
+  - https://github.com/istio/istio/issues/60562
+
+releaseNotes:
+  - |
+    **Fixed** a bug where an internal listener was incorrectly created when the listener is of HTTPS or TLS but without a TLS section defined.
+    A following version of the Gateway API will [prevent](https://github.com/kubernetes-sigs/gateway-api/pull/4788) this combination of inputs from ever reaching a controller.
