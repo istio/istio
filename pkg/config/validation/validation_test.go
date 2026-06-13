@@ -5974,6 +5974,27 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, true, false},
+		{"import all except a namespace", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*", "~ns1/*"},
+				},
+			},
+		}, true, false},
+		{"import all except an exact host", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*", "~/foo.com"},
+				},
+			},
+		}, true, false},
+		{"exclude with invalid namespace", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*", "~Invalid_NS/*"},
+				},
+			},
+		}, false, false},
 		{"bad egress host 1", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{

@@ -40,6 +40,7 @@ const (
 	wildcardNamespace = "*"
 	currentNamespace  = "."
 	wildcardService   = host.Name("*")
+	excludePrefix     = "~"
 )
 
 var (
@@ -65,8 +66,19 @@ var (
 )
 
 type hostClassification struct {
-	exactHosts sets.Set[host.Name]
-	allHosts   []host.Name
+	exactHosts    sets.Set[host.Name]
+	allHosts      []host.Name
+	excludedHosts []host.Name
+}
+
+// Excluded reports whether h matches any ~-prefixed exclusion entry scoped to this namespace.
+func (hc hostClassification) Excluded(h host.Name) bool {
+	for _, excluded := range hc.excludedHosts {
+		if h.SubsetOf(excluded) {
+			return true
+		}
+	}
+	return false
 }
 
 // Matches checks if the hostClassification(sidecar egress hosts) matches the Service's hostname
@@ -491,6 +503,14 @@ func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 			continue
 		}
 		ns, name, _ := strings.Cut(h, "/")
+
+		excluded := strings.HasPrefix(ns, excludePrefix)
+		if excluded {
+			ns = strings.TrimPrefix(ns, excludePrefix)
+			if ns == "" {
+				ns = wildcardNamespace
+			}
+		}
 		if ns == currentNamespace {
 			ns = configNamespace
 		}
@@ -499,6 +519,12 @@ func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 		hc, exists := hostsByNamespace[ns]
 		if !exists {
 			hc = hostClassification{exactHosts: sets.New[host.Name](), allHosts: make([]host.Name, 0)}
+		}
+
+		if excluded {
+			hc.excludedHosts = append(hc.excludedHosts, hName)
+			hostsByNamespace[ns] = hc
+			continue
 		}
 
 		// exact hosts are saved separately for map lookup
@@ -774,10 +800,16 @@ func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, confi
 	wildcardHosts, wnsFound := hostsByNamespace[wildcardNamespace]
 	for _, s := range services {
 		configNamespace := s.Attributes.Namespace
+		nsHosts, nsFound := hostsByNamespace[configNamespace]
+
+		// Skip services excluded by a ~-prefixed host in the service's namespace or wildcard scope.
+		if (nsFound && nsHosts.Excluded(s.Hostname)) || (wnsFound && wildcardHosts.Excluded(s.Hostname)) {
+			continue
+		}
 
 		// Check if there is an explicit import of form ns/* or ns/host
-		if importedHosts, nsFound := hostsByNamespace[configNamespace]; nsFound {
-			if svc := matchingAliasService(importedHosts, matchingService(importedHosts, s, ilw)); svc != nil {
+		if nsFound {
+			if svc := matchingAliasService(nsHosts, matchingService(nsHosts, s, ilw)); svc != nil {
 				importedServices = append(importedServices, svc)
 				continue
 			}
