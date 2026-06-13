@@ -57,6 +57,26 @@ type extractorKey struct {
 }
 
 func (i dependencyState[I]) update(key Key[I], deps []*dependency) {
+	// We will override the current dependencies with the new ones
+	// at some point. So here we make sure we remove them from the
+	// reverse index (indexedDependencies). Otherwise, when I goes
+	// away, the delete operation won't have that reverse index to
+	// clear itself from the reverse index.
+	if old, f := i.objectDependencies[key]; f {
+		for _, d := range old {
+			if depKeys, typ, _, _, ok := d.filter.reverseIndexKey(); ok {
+				for _, depKey := range depKeys {
+					k := indexedDependency{
+						id:  d.id,
+						key: depKey,
+						typ: typ,
+					}
+					sets.DeleteCleanupLast(i.indexedDependencies, k, key)
+				}
+			}
+		}
+	}
+
 	// Update the I -> Dependency mapping
 	i.objectDependencies[key] = deps
 	for _, d := range deps {
