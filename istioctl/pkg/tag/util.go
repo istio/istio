@@ -21,6 +21,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 	admitv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
@@ -151,6 +152,15 @@ func DeleteTagWebhooks(ctx context.Context, client kubernetes.Interface, tag str
 		result = multierror.Append(result, client.AdmissionregistrationV1().MutatingWebhookConfigurations().Delete(ctx, wh.Name, metav1.DeleteOptions{})).ErrorOrNil()
 	}
 	return result
+}
+
+// DeleteValidatingWebhook deletes a ValidatingWebhookConfiguration by name, ignoring not-found errors.
+func DeleteValidatingWebhook(ctx context.Context, client kubernetes.Interface, name string) error {
+	err := client.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(ctx, name, metav1.DeleteOptions{})
+	if err != nil && !errors.IsNotFound(err) {
+		return err
+	}
+	return nil
 }
 
 // DeleteTagServices deletes the given tag services
