@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+releaseNotes:
+  - |
+    **Added** an experimental `istioctl experimental manifest-generate-crds`
+    subcommand that renders only the Istio `CustomResourceDefinition` objects
+    from the install manifest. This is intended for use cases where CRDs need
+    to be installed independently from the rest of the control plane (for
+    example, a sidecar in a multi-container pod that shares a volume with the
+    distroless `istioctl` image, applying just the CRDs ahead of time).
