@@ -135,6 +135,15 @@ func buildListener(
 		ok = false
 	}
 
+	if controllerName == constants.ManagedAgentgatewayWaypointController {
+		if unexpectedWaypointListener(l) {
+			listenerConditions[string(gatewayv1.ListenerConditionAccepted)].error = &ConfigError{
+				Reason:  string(gatewayv1.ListenerReasonUnsupportedProtocol),
+				Message: `Expected a single listener on port 15008 with protocol "HBONE"`,
+			}
+		}
+	}
+
 	server := &istio.Server{
 		Port: &istio.Port{
 			// Name is required. We only have one server per Gateway, so we can just name them all the same
@@ -146,6 +155,21 @@ func buildListener(
 
 	updatedStatus := reportListenerCondition(listenerIndex, l, obj, status, listenerConditions)
 	return server, tlsInfo, updatedStatus, ok
+}
+
+// Gateway currently requires a listener (https://github.com/kubernetes-sigs/gateway-api/pull/1596).
+// We don't *really* care about the listener, but it may make sense to add a warning if users do not
+// configure it in an expected way so that we have consistency and can make changes in the future as needed.
+// We could completely reject but that seems more likely to cause pain.
+// TODO(jaellio): do we want to enforce only having a single listener?
+func unexpectedWaypointListener(l gatewayv1.Listener) bool {
+	if l.Port != 15008 {
+		return true
+	}
+	if l.Protocol != gatewayv1.ProtocolType(protocol.HBONE) {
+		return true
+	}
+	return false
 }
 
 func listenerProtocolToIstio(name gatewayv1.GatewayController, p gatewayv1.ProtocolType) (string, error) {
@@ -164,7 +188,8 @@ func listenerProtocolToIstio(name gatewayv1.GatewayController, p gatewayv1.Proto
 		return string(p), nil
 	// Our own custom types
 	case gatewayv1.ProtocolType(protocol.HBONE):
-		if name != constants.ManagedGatewayMeshController && name != constants.ManagedGatewayEastWestController {
+		if name != constants.ManagedGatewayMeshController && name != constants.ManagedGatewayEastWestController &&
+			name != constants.ManagedAgentgatewayWaypointController && name != constants.ManagedAgentgatewayController {
 			return "", fmt.Errorf("protocol %q is only supported for waypoint proxies", p)
 		}
 		return string(p), nil
