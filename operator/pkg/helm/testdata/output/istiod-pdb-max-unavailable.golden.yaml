@@ -4,7 +4,7 @@ apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
   name: istiod
-  namespace: istio-system
+  namespace: "istio-system"
   labels:
     app: istiod
     istio.io/rev: "default"

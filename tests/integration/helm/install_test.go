@@ -211,6 +211,31 @@ func TestNativeNftablesInstall(t *testing.T) {
 		Run(setupInstallation(values, false, DefaultNamespaceConfig, ""))
 }
 
+// TestNumericNamespaceInstall verifies Helm install when the control-plane namespace is numeric-only.
+// Such names must remain strings in rendered manifests (e.g. YAML fields that would otherwise parse as numbers).
+func TestNumericNamespaceInstall(t *testing.T) {
+	numericNS := "123456"
+	nsConfig := NewNamespaceConfig(
+		types.NamespacedName{Name: BaseReleaseName, Namespace: numericNS},
+		types.NamespacedName{Name: IstiodReleaseName, Namespace: numericNS},
+		types.NamespacedName{Name: IngressReleaseName, Namespace: numericNS},
+	)
+	values := map[string]interface{}{
+		"global": map[string]interface{}{
+			"istioNamespace": numericNS,
+		},
+		// Gateway injection sets CA_ADDR from global.istioNamespace, but xDS uses
+		// proxyConfig.DiscoveryAddress which defaults to istiod.istio-system.svc when
+		// PROXY_CONFIG is empty. Set discoveryAddress explicitly for non-istio-system installs.
+		"podAnnotations": map[string]interface{}{
+			"proxy.istio.io/config": fmt.Sprintf(`{"discoveryAddress":"istiod.%s.svc:15012"}`, numericNS),
+		},
+	}
+	framework.
+		NewTest(t).
+		Run(setupInstallation(values, false, nsConfig, ""))
+}
+
 // nolint: unparam
 func setupInstallation(values map[string]interface{}, isAmbient bool, config NamespaceConfig, revision string) func(t framework.TestContext) {
 	return baseSetup(values, isAmbient, config, func(t framework.TestContext) {
