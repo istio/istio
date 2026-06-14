@@ -18,6 +18,7 @@ import (
 	"reflect"
 	"testing"
 
+	mutationrules "github.com/envoyproxy/go-control-plane/envoy/config/common/mutation_rules/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	xdsfault "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/common/fault/v3"
@@ -655,6 +656,8 @@ func TestTranslateRequestMirrorPolicy(t *testing.T) {
 	cases := []struct {
 		name                    string
 		cluster                 string
+		authority               string
+		headers                 *networking.Headers_HeaderOperations
 		runtimeFraction         *core.RuntimeFractionalPercent
 		disableShadowHostSuffix bool
 		want                    *route.RouteAction_RequestMirrorPolicy
@@ -703,12 +706,74 @@ func TestTranslateRequestMirrorPolicy(t *testing.T) {
 				DisableShadowHostSuffixAppend: true,
 			},
 		},
+		{
+			name:      "mirror policy with authority set",
+			cluster:   "outbound|8080||service.namespace.svc.cluster.local",
+			authority: "shadow.example.com",
+			runtimeFraction: &core.RuntimeFractionalPercent{
+				DefaultValue: &xdstype.FractionalPercent{
+					Numerator:   100,
+					Denominator: xdstype.FractionalPercent_HUNDRED,
+				},
+			},
+			disableShadowHostSuffix: false,
+			want: &route.RouteAction_RequestMirrorPolicy{
+				Cluster: "outbound|8080||service.namespace.svc.cluster.local",
+				RuntimeFraction: &core.RuntimeFractionalPercent{
+					DefaultValue: &xdstype.FractionalPercent{
+						Numerator:   100,
+						Denominator: xdstype.FractionalPercent_HUNDRED,
+					},
+				},
+				TraceSampled: &wrapperspb.BoolValue{Value: false},
+				// host_rewrite_literal implicitly disables the -shadow suffix in Envoy;
+				// the translator sets the field to match observable behavior.
+				DisableShadowHostSuffixAppend: true,
+				HostRewriteLiteral:            "shadow.example.com",
+			},
+		},
+		{
+			name:    "mirror policy with header mutations",
+			cluster: "outbound|8080||service.namespace.svc.cluster.local",
+			headers: &networking.Headers_HeaderOperations{
+				Set:    map[string]string{"x-shadow": "true"},
+				Add:    map[string]string{"x-extra": "v"},
+				Remove: []string{"x-internal-secret"},
+			},
+			runtimeFraction: &core.RuntimeFractionalPercent{
+				DefaultValue: &xdstype.FractionalPercent{
+					Numerator:   100,
+					Denominator: xdstype.FractionalPercent_HUNDRED,
+				},
+			},
+			want: &route.RouteAction_RequestMirrorPolicy{
+				Cluster: "outbound|8080||service.namespace.svc.cluster.local",
+				RuntimeFraction: &core.RuntimeFractionalPercent{
+					DefaultValue: &xdstype.FractionalPercent{
+						Numerator:   100,
+						Denominator: xdstype.FractionalPercent_HUNDRED,
+					},
+				},
+				TraceSampled: &wrapperspb.BoolValue{Value: false},
+				RequestHeadersMutations: []*mutationrules.HeaderMutation{
+					{Action: &mutationrules.HeaderMutation_Append{Append: &core.HeaderValueOption{
+						Header:       &core.HeaderValue{Key: "x-shadow", Value: "true"},
+						AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
+					}}},
+					{Action: &mutationrules.HeaderMutation_Append{Append: &core.HeaderValueOption{
+						Header:       &core.HeaderValue{Key: "x-extra", Value: "v"},
+						AppendAction: core.HeaderValueOption_APPEND_IF_EXISTS_OR_ADD,
+					}}},
+					{Action: &mutationrules.HeaderMutation_Remove{Remove: "x-internal-secret"}},
+				},
+			},
+		},
 	}
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			test.SetForTest(t, &features.DisableShadowHostSuffix, tt.disableShadowHostSuffix)
-			got := TranslateRequestMirrorPolicy(tt.cluster, tt.runtimeFraction)
+			got := TranslateRequestMirrorPolicy(tt.cluster, tt.authority, tt.headers, tt.runtimeFraction)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("TranslateRequestMirrorPolicy() = %v, want %v", got, tt.want)
 			}

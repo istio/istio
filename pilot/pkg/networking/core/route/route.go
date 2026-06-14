@@ -21,6 +21,7 @@ import (
 	"strconv"
 	"strings"
 
+	mutationrules "github.com/envoyproxy/go-control-plane/envoy/config/common/mutation_rules/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	xdsfault "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/common/fault/v3"
@@ -665,14 +666,14 @@ func applyHTTPRouteDestination(
 		if mp := MirrorPercent(in); mp != nil {
 			cluster := opts.LookupDestinationCluster(in.Mirror, opts.LookupService(host.Name(in.Mirror.Host)), listenerPort)
 			action.RequestMirrorPolicies = append(action.RequestMirrorPolicies,
-				TranslateRequestMirrorPolicy(cluster, mp))
+				TranslateRequestMirrorPolicy(cluster, "", nil, mp))
 		}
 	}
 	for _, mirror := range in.Mirrors {
 		if mp := MirrorPercentByPolicy(mirror); mp != nil && mirror.Destination != nil {
 			cluster := opts.LookupDestinationCluster(mirror.Destination, opts.LookupService(host.Name(mirror.Destination.Host)), listenerPort)
 			action.RequestMirrorPolicies = append(action.RequestMirrorPolicies,
-				TranslateRequestMirrorPolicy(cluster, mp))
+				TranslateRequestMirrorPolicy(cluster, mirror.GetAuthority(), mirror.GetHeaders(), mp))
 		}
 	}
 
@@ -1438,14 +1439,72 @@ func TranslateFault(in *networking.HTTPFaultInjection) *xdshttpfault.HTTPFault {
 	return &out
 }
 
-func TranslateRequestMirrorPolicy(cluster string, mp *core.RuntimeFractionalPercent,
+func TranslateRequestMirrorPolicy(cluster, authority string, headers *networking.Headers_HeaderOperations, mp *core.RuntimeFractionalPercent,
 ) *route.RouteAction_RequestMirrorPolicy {
-	return &route.RouteAction_RequestMirrorPolicy{
+	out := &route.RouteAction_RequestMirrorPolicy{
 		Cluster:                       cluster,
 		RuntimeFraction:               mp,
 		TraceSampled:                  &wrapperspb.BoolValue{Value: false},
 		DisableShadowHostSuffixAppend: features.DisableShadowHostSuffix,
 	}
+	if authority != "" {
+		out.HostRewriteLiteral = authority
+		// Envoy implicitly disables the "-shadow" suffix when host_rewrite_literal
+		// is set; mirror that here so the field reflects observable behavior.
+		out.DisableShadowHostSuffixAppend = true
+	}
+	if muts := translateMirrorRequestHeaderMutations(headers); len(muts) > 0 {
+		out.RequestHeadersMutations = muts
+	}
+	return out
+}
+
+// translateMirrorRequestHeaderMutations converts Istio's HeaderOperations into
+// Envoy mutation_rules.HeaderMutation entries for the mirror policy. Order is
+// set, add, remove, matching the order Envoy applies them on the route path.
+func translateMirrorRequestHeaderMutations(ops *networking.Headers_HeaderOperations) []*mutationrules.HeaderMutation {
+	if ops == nil {
+		return nil
+	}
+	muts := make([]*mutationrules.HeaderMutation, 0, len(ops.Set)+len(ops.Add)+len(ops.Remove))
+	addMut := func(key, value string, appendAction core.HeaderValueOption_HeaderAppendAction) {
+		if isInternalHeader(key) {
+			return
+		}
+		muts = append(muts, &mutationrules.HeaderMutation{
+			Action: &mutationrules.HeaderMutation_Append{
+				Append: &core.HeaderValueOption{
+					Header:       &core.HeaderValue{Key: key, Value: value},
+					AppendAction: appendAction,
+				},
+			},
+		})
+	}
+	setKeys := make([]string, 0, len(ops.Set))
+	for k := range ops.Set {
+		setKeys = append(setKeys, k)
+	}
+	sort.Strings(setKeys)
+	for _, k := range setKeys {
+		addMut(k, ops.Set[k], core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD)
+	}
+	addKeys := make([]string, 0, len(ops.Add))
+	for k := range ops.Add {
+		addKeys = append(addKeys, k)
+	}
+	sort.Strings(addKeys)
+	for _, k := range addKeys {
+		addMut(k, ops.Add[k], core.HeaderValueOption_APPEND_IF_EXISTS_OR_ADD)
+	}
+	for _, k := range ops.Remove {
+		if isInternalHeader(k) {
+			continue
+		}
+		muts = append(muts, &mutationrules.HeaderMutation{
+			Action: &mutationrules.HeaderMutation_Remove{Remove: k},
+		})
+	}
+	return muts
 }
 
 func portLevelSettingsConsistentHash(dst *networking.Destination,
