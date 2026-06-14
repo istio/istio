@@ -15,6 +15,7 @@
 package core
 
 import (
+	"strings"
 	"sync"
 
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
@@ -24,11 +25,14 @@ import (
 	grpcaccesslog "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/grpc/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/util/protoconv"
+	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/wellknown"
 )
 
@@ -79,7 +83,7 @@ func newAccessLogBuilder() *AccessLogBuilder {
 		// We add ResponseFlagFilter here, as we want to get listener access logs only on scenarios where we might
 		// not get filter Access Logs like in cases like NR to upstream.
 		listenerAccessLog:         newCachedMeshConfigAccessLog(listenerAccessLogFilter()),
-		hboneOriginationAccessLog: newCachedMeshConfigAccessLog(hboneOriginationAccessLogFilter()),
+		hboneOriginationAccessLog: newCachedMeshConfigAccessLogWithBuilder(hboneOriginationAccessLogFilter(), hboneOriginationFileAccessLogFromMeshConfig),
 		hboneTerminationAccessLog: newCachedMeshConfigAccessLog(hboneTerminationAccessLogFilter()),
 	}
 }
@@ -302,12 +306,57 @@ func buildAccessLogFilter(f ...*accesslog.AccessLogFilter) *accesslog.AccessLogF
 	}
 }
 
+const hboneOriginationUpstreamHostFormat = "%FILTER_STATE(" + xdsfilters.OriginalDstFilterStateKey + ":PLAIN)%"
+
+func hboneOriginationTextLogFormat() string {
+	return strings.Replace(model.EnvoyTextLogFormat, "%UPSTREAM_HOST%", hboneOriginationUpstreamHostFormat, 1)
+}
+
+func hboneOriginationJSONLogFormat() string {
+	jsonLogStruct := &structpb.Struct{
+		Fields: make(map[string]*structpb.Value, len(model.EnvoyJSONLogFormatIstio.Fields)),
+	}
+	for key, value := range model.EnvoyJSONLogFormatIstio.Fields {
+		jsonLogStruct.Fields[key] = value
+	}
+	jsonLogStruct.Fields["upstream_host"] = structpb.NewStringValue(hboneOriginationUpstreamHostFormat)
+	jsonLogFormat, err := protomarshal.ToJSON(jsonLogStruct)
+	if err != nil {
+		return ""
+	}
+	return jsonLogFormat
+}
+
+func hboneOriginationFileAccessLogFromMeshConfig(path string, mesh *meshconfig.MeshConfig) *accesslog.AccessLog {
+	if mesh.AccessLogFormat != "" {
+		return model.FileAccessLogFromMeshConfig(path, mesh)
+	}
+	hboneMesh := *mesh
+	switch mesh.AccessLogEncoding {
+	case meshconfig.MeshConfig_TEXT:
+		hboneMesh.AccessLogFormat = hboneOriginationTextLogFormat()
+	case meshconfig.MeshConfig_JSON:
+		if jsonLogFormat := hboneOriginationJSONLogFormat(); jsonLogFormat != "" {
+			hboneMesh.AccessLogFormat = jsonLogFormat
+		}
+	}
+	return model.FileAccessLogFromMeshConfig(path, &hboneMesh)
+}
+
 func newCachedMeshConfigAccessLog(filter *accesslog.AccessLogFilter) cachedMeshConfigAccessLog {
-	return cachedMeshConfigAccessLog{filter: filter}
+	return newCachedMeshConfigAccessLogWithBuilder(filter, model.FileAccessLogFromMeshConfig)
+}
+
+func newCachedMeshConfigAccessLogWithBuilder(
+	filter *accesslog.AccessLogFilter,
+	build func(string, *meshconfig.MeshConfig) *accesslog.AccessLog,
+) cachedMeshConfigAccessLog {
+	return cachedMeshConfigAccessLog{filter: filter, build: build}
 }
 
 type cachedMeshConfigAccessLog struct {
 	filter *accesslog.AccessLogFilter
+	build  func(string, *meshconfig.MeshConfig) *accesslog.AccessLog
 	mutex  sync.RWMutex
 	cached *accesslog.AccessLog
 }
@@ -323,7 +372,7 @@ func (b *cachedMeshConfigAccessLog) buildOrFetch(mesh *meshconfig.MeshConfig) *a
 		return c
 	}
 	// We need to build access log. This is needed either on first access or when mesh config changes.
-	accessLog := model.FileAccessLogFromMeshConfig(mesh.AccessLogFile, mesh)
+	accessLog := b.build(mesh.AccessLogFile, mesh)
 	accessLog.Filter = b.filter
 
 	b.mutex.Lock()
