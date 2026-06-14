@@ -279,7 +279,7 @@ func CreateAgwExternalAuthFilter(
 	dst, err := buildAgwDestination(ctx, gatewayv1.HTTPBackendRef{
 		BackendRef: gatewayv1.BackendRef{
 			BackendObjectReference: filter.BackendRef,
-			Weight:                 ptr.Of(int32(1)),
+			Weight:                 new(int32(1)),
 		},
 	}, ns, k)
 	if err != nil {
@@ -313,7 +313,7 @@ func CreateAgwExternalAuthFilter(
 			if !strings.HasPrefix(path, "/") {
 				path = "/" + path
 			}
-			pp.Path = ptr.Of(fmt.Sprintf("%q + request.path", path))
+			pp.Path = new(fmt.Sprintf("%q + request.path", path))
 		}
 		// Per spec, this must always be included
 		pol.IncludeRequestHeaders = []string{

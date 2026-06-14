@@ -42,7 +42,6 @@ import (
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/webhooks/util"
 )
 
@@ -273,7 +272,7 @@ func (c *Controller) updateValidatingWebhookConfiguration(current *kubeApiAdmiss
 	for i := range updated.Webhooks {
 		updated.Webhooks[i].ClientConfig.CABundle = caBundle
 		if updateFailurePolicy {
-			updated.Webhooks[i].FailurePolicy = ptr.Of(kubeApiAdmission.Fail)
+			updated.Webhooks[i].FailurePolicy = new(kubeApiAdmission.Fail)
 		}
 	}
 

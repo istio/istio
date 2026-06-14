@@ -611,7 +611,7 @@ func (c *Controller) applyShadowService(kubeClient kube.Client, service *corev1.
 	_, err = kubeClient.Kube().CoreV1().Services(service.Namespace).Patch(
 		ctx, service.Name, types.ApplyPatchType, data, metav1.PatchOptions{
 			FieldManager: InferencePoolFieldManager,
-			Force:        ptr.Of(true),
+			Force:        new(true),
 		})
 	return err
 }

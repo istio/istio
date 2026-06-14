@@ -127,9 +127,9 @@ func translateBackendTLSPolicy(
 	sans := slices.MapFilter(btls.Spec.Validation.SubjectAltNames, func(e gatewayv1.SubjectAltName) *string {
 		switch e.Type {
 		case gatewayv1.HostnameSubjectAltNameType:
-			return ptr.Of(string(e.Hostname))
+			return new(string(e.Hostname))
 		case gatewayv1.URISubjectAltNameType:
-			return ptr.Of(string(e.URI))
+			return new(string(e.URI))
 		}
 		return nil
 	})
@@ -194,7 +194,7 @@ func translateBackendTLSPolicy(
 			sn := (*string)(target.SectionName)
 			if sn != nil {
 				parsed, _ := strconv.Atoi(*sn)
-				portNum = ptr.Of(uint32(parsed)) // nolint:gosec // G115: kubebuilder validation ensures safe for uint32
+				portNum = new(uint32(parsed)) // nolint:gosec // G115: kubebuilder validation ensures safe for uint32
 			}
 			policyTarget = &api.PolicyTarget{
 				Kind: &api.PolicyTarget_Service{
@@ -213,7 +213,7 @@ func translateBackendTLSPolicy(
 		// Build the backend TLS spec
 		res := &api.BackendPolicySpec_BackendTLS{
 			Root:                  caCert,
-			Hostname:              ptr.Of(string(btls.Spec.Validation.Hostname)),
+			Hostname:              new(string(btls.Spec.Validation.Hostname)),
 			VerifySubjectAltNames: sans,
 		}
 
@@ -279,8 +279,8 @@ func translateBackendTLSPolicy(
 	ancestorStatuses := make([]gatewayv1.PolicyAncestorStatus, 0, uniqueGateways.Len())
 	for gw := range uniqueGateways {
 		pr := gatewayv1.ParentReference{
-			Group: ptr.Of(gatewayv1.Group(gvk.KubernetesGateway.Group)),
-			Kind:  ptr.Of(gatewayv1.Kind(gvk.KubernetesGateway.Kind)),
+			Group: new(gatewayv1.Group(gvk.KubernetesGateway.Group)),
+			Kind:  new(gatewayv1.Kind(gvk.KubernetesGateway.Kind)),
 			Name:  gatewayv1.ObjectName(gw.Name),
 		}
 		ancestorStatuses = append(ancestorStatuses, btlsSetAncestorStatus(

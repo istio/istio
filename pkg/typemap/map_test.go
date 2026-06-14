@@ -17,7 +17,6 @@ package typemap_test
 import (
 	"testing"
 
-	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/typemap"
 )
@@ -44,9 +43,9 @@ func TestTypeMap(t *testing.T) {
 	typemap.Set(tm, &TestStruct{Field: "pointer"})
 	typemap.Set[TestInterface[string]](tm, TestStruct{Field: "interface"})
 
-	assert.Equal(t, typemap.Get[int](tm), ptr.Of(1))
-	assert.Equal(t, typemap.Get[int32](tm), ptr.Of(int32(2)))
-	assert.Equal(t, typemap.Get[string](tm), ptr.Of("string"))
-	assert.Equal(t, typemap.Get[*TestStruct](tm), ptr.Of(&TestStruct{Field: "pointer"}))
-	assert.Equal(t, typemap.Get[TestInterface[string]](tm), ptr.Of(TestInterface[string](TestStruct{Field: "interface"})))
+	assert.Equal(t, typemap.Get[int](tm), new(1))
+	assert.Equal(t, typemap.Get[int32](tm), new(int32(2)))
+	assert.Equal(t, typemap.Get[string](tm), new("string"))
+	assert.Equal(t, typemap.Get[*TestStruct](tm), new(&TestStruct{Field: "pointer"}))
+	assert.Equal(t, typemap.Get[TestInterface[string]](tm), new(TestInterface[string](TestStruct{Field: "interface"})))
 }

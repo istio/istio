@@ -27,7 +27,6 @@ import (
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/kube/krt"
-	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -122,7 +121,7 @@ func TestIndexCollection(t *testing.T) {
 		pods = append(pods, c...)
 
 		names := slices.Sort(slices.Map(pods, SimplePod.ResourceName))
-		return ptr.Of(strings.Join(names, ","))
+		return new(strings.Join(names, ","))
 	}, opts.WithName("Collection")...)
 	Collection.AsCollection().WaitUntilSynced(stop)
 	fetchSorted := func(ip string) []SimplePod {
@@ -152,29 +151,29 @@ func TestIndexCollection(t *testing.T) {
 	// pod 1 with 1.1.1.1 doesn't show up in the collection
 	pc.CreateOrUpdateStatus(pod)
 	tt.WaitUnordered("add/namespace/name1")
-	assert.Equal(t, Collection.Get(), ptr.Of(""))
+	assert.Equal(t, Collection.Get(), new(""))
 
 	// when we update it to what we Fetch with, we will see it
 	pod.Status.PodIP = "2.2.2.2"
 	pc.UpdateStatus(pod)
 	tt.WaitUnordered("update/namespace/name1")
-	assert.EventuallyEqual(t, Collection.Get, ptr.Of("namespace/name1"))
+	assert.EventuallyEqual(t, Collection.Get, new("namespace/name1"))
 
 	// adding pod 2 with the same IP gives us both
 	pc.CreateOrUpdateStatus(pod2)
 	tt.WaitUnordered("add/namespace/name2")
-	assert.EventuallyEqual(t, Collection.Get, ptr.Of("namespace/name1,namespace/name2"))
+	assert.EventuallyEqual(t, Collection.Get, new("namespace/name1,namespace/name2"))
 
 	// add pod 3 to make sure our second fetch works
 	pc.CreateOrUpdateStatus(pod3)
 	tt.WaitUnordered("add/namespace/name3")
-	assert.EventuallyEqual(t, Collection.Get, ptr.Of("namespace/name1,namespace/name2,namespace/name3"))
+	assert.EventuallyEqual(t, Collection.Get, new("namespace/name1,namespace/name2,namespace/name3"))
 
 	// make sure the separate index fetch works
 	pod4.GetLabels()["marker"] = "true"
 	pc.CreateOrUpdateStatus(pod4)
 	tt.WaitUnordered("add/namespace/name4")
-	assert.EventuallyEqual(t, Collection.Get, ptr.Of("namespace/name1,namespace/name2,namespace/name3,namespace/name4"))
+	assert.EventuallyEqual(t, Collection.Get, new("namespace/name1,namespace/name2,namespace/name3,namespace/name4"))
 
 	// delete everything
 	for _, pod := range pods {

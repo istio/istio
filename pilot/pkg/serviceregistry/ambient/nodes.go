@@ -79,7 +79,7 @@ func GlobalNodesCollection(
 			}, append(opts, krt.WithMetadata(krt.Metadata{
 				multicluster.ClusterKRTMetadataKey: clusterID,
 			}))...)
-			return ptr.Of(nc)
+			return new(nc)
 		},
 		opts...)
 }

@@ -161,7 +161,7 @@ func buildGlobalNetworkCollections(
 				opts...,
 			)
 
-			return ptr.Of(nwGateways)
+			return new(nwGateways)
 		},
 		"NetworkGateways",
 		opts,

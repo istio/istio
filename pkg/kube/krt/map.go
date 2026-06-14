@@ -59,7 +59,7 @@ func (m *mapCollection[T, U]) GetKey(k string) *U {
 		if EnableAssertions {
 			assertKeyMatch(*obj, m.mapFunc(*obj), m.collectionName)
 		}
-		return ptr.Of(m.mapFunc(*obj))
+		return new(m.mapFunc(*obj))
 	}
 	return nil
 }
@@ -90,10 +90,10 @@ func (m *mapCollection[T, U]) RegisterBatch(handler func([]Event[U]), runExistin
 				Event: o.Event,
 			}
 			if o.Old != nil {
-				e.Old = ptr.Of(m.mapFunc(*o.Old))
+				e.Old = new(m.mapFunc(*o.Old))
 			}
 			if o.New != nil {
-				e.New = ptr.Of(m.mapFunc(*o.New))
+				e.New = new(m.mapFunc(*o.New))
 			}
 			events = append(events, e)
 		}

@@ -18,7 +18,6 @@ import (
 	"net/netip"
 	"testing"
 
-	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/workloadapi"
 )
@@ -84,7 +83,7 @@ func TestToNetworkAddressFromCidr(t *testing.T) {
 			want: &workloadapi.NetworkAddress{
 				Network: "test",
 				Address: netip.MustParseAddr("10.0.0.0").AsSlice(),
-				Length:  ptr.Of(uint32(24)),
+				Length:  new(uint32(24)),
 			},
 		},
 		{
@@ -93,7 +92,7 @@ func TestToNetworkAddressFromCidr(t *testing.T) {
 			want: &workloadapi.NetworkAddress{
 				Network: "test",
 				Address: netip.MustParseAddr("fe80::").AsSlice(),
-				Length:  ptr.Of(uint32(10)),
+				Length:  new(uint32(10)),
 			},
 		},
 		{

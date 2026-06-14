@@ -25,7 +25,6 @@ import (
 	"golang.org/x/sys/unix"
 
 	cniconfig "istio.io/istio/cni/pkg/config"
-	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/tools/common/config"
 )
 
@@ -60,7 +59,7 @@ func forEachInpodMarkIPRule(cfg *cniconfig.AmbientConfig, f func(*netlink.Rule) 
 		inpodMarkRule.Family = family
 		inpodMarkRule.Table = cniconfig.RouteTableInbound
 		inpodMarkRule.Mark = cniconfig.InpodTProxyMark
-		inpodMarkRule.Mask = ptr.Of(uint32(cniconfig.InpodTProxyMask))
+		inpodMarkRule.Mask = new(uint32(cniconfig.InpodTProxyMask))
 		inpodMarkRule.Priority = 32764
 		rules = append(rules, inpodMarkRule)
 	}

@@ -29,7 +29,6 @@ import (
 	clientset "k8s.io/client-go/kubernetes"
 
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/security/pkg/pki/util"
 )
 
@@ -155,7 +154,7 @@ func submitCSR(
 		},
 	}
 	if requestedLifetime != time.Duration(0) {
-		csr.Spec.ExpirationSeconds = ptr.Of(int32(requestedLifetime.Seconds()))
+		csr.Spec.ExpirationSeconds = new(int32(requestedLifetime.Seconds()))
 	}
 	resp, err := client.CertificatesV1().CertificateSigningRequests().Create(context.Background(), csr, metav1.CreateOptions{})
 	if err != nil {

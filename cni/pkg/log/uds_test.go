@@ -25,7 +25,6 @@ import (
 
 	"istio.io/istio/cni/pkg/constants"
 	istiolog "istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/test/util/assert"
 )
 
@@ -73,7 +72,7 @@ func TestUDSLog(t *testing.T) {
 		{"info", "info log", nil},
 		{"warn", "warn log", nil},
 		{"error", "error log", nil},
-		{"info", "with labels", ptr.Of(float64(2))},
+		{"info", "with labels", new(float64(2))},
 	}
 	// For each level, there should be two lines, one from direct log,
 	// the other one from UDS server

@@ -41,7 +41,6 @@ import (
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/maps"
-	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test"
@@ -284,7 +283,7 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 
 	// httpStaticOverlayUpdatedNop is the same as httpStaticOverlayUpdated but with a NOP change
 	httpStaticOverlayUpdatedNop := func() *config.Config {
-		return ptr.Of(httpStaticOverlayUpdated.DeepCopy())
+		return new(httpStaticOverlayUpdated.DeepCopy())
 	}()
 
 	// httpStaticOverlayUpdatedNs is the same as httpStaticOverlay but with an extra endpoint and different namespace added to test updates
@@ -615,7 +614,7 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 func TestServiceDiscoveryServiceInstancesForDnsRoundRobinLB(t *testing.T) {
 	store, sd, events := initServiceDiscovery(t)
 
-	se1 := ptr.Of(dnsRoundRobinLBSE1.DeepCopy())
+	se1 := new(dnsRoundRobinLBSE1.DeepCopy())
 	se1.Spec.(*networking.ServiceEntry).Endpoints = []*networking.WorkloadEntry{
 		{
 			Address: "1.1.1.1",
@@ -626,7 +625,7 @@ func TestServiceDiscoveryServiceInstancesForDnsRoundRobinLB(t *testing.T) {
 		},
 	}
 
-	seMulti := ptr.Of(dnsRoundRobinLBSE3.DeepCopy())
+	seMulti := new(dnsRoundRobinLBSE3.DeepCopy())
 	seMulti.Name = "dns-round-robin-3"
 	seMulti.Spec.(*networking.ServiceEntry).Endpoints = []*networking.WorkloadEntry{
 		{
@@ -660,7 +659,7 @@ func TestServiceDiscoveryServiceInstancesForDnsRoundRobinLB(t *testing.T) {
 		Event{Type: "xds", ID: seMulti.Spec.(*networking.ServiceEntry).Hosts[0]},
 	)
 
-	otherNs := ptr.Of(dnsRoundRobinLBSE1.DeepCopy())
+	otherNs := new(dnsRoundRobinLBSE1.DeepCopy())
 	otherNs.Namespace = "other"
 	otherNs.Spec.(*networking.ServiceEntry).Endpoints = []*networking.WorkloadEntry{
 		{
@@ -685,7 +684,7 @@ func TestServiceDiscoveryServiceInstancesForDnsRoundRobinLB(t *testing.T) {
 		Event{Type: "xds", ID: otherNs.Spec.(*networking.ServiceEntry).Hosts[0]},
 	)
 
-	se2 := ptr.Of(dnsRoundRobinLBSE2.DeepCopy())
+	se2 := new(dnsRoundRobinLBSE2.DeepCopy())
 	se2.Spec.(*networking.ServiceEntry).Endpoints = []*networking.WorkloadEntry{
 		{
 			Address: "2.2.2.2",

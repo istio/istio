@@ -25,7 +25,6 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube/krt"
-	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/workloadapi"
 )
 
@@ -64,7 +63,7 @@ func InferenceHostname(name, namespace, domainSuffix string) host.Name {
 }
 
 func precomputeServicePtr(w *model.ServiceInfo) *model.ServiceInfo {
-	return ptr.Of(precomputeService(*w))
+	return new(precomputeService(*w))
 }
 
 func precomputeService(w model.ServiceInfo) model.ServiceInfo {
