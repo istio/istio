@@ -1900,6 +1900,25 @@ func reportListenerSetStatus(
 
 	setProgrammedCondition(gatewayConditions, internal, gatewayServices, warnings, allUsable)
 
+	// Prune stale listener status entries whose listener was removed from the spec,
+	// mirroring reportGatewayStatus. ListenerSetCollection threads the previous status
+	// forward to preserve per-listener data across reconciles, but only refreshes entries
+	// for listeners still in the spec. Without this pruning, a removed listener's status
+	// entry is orphaned forever (len(status.Listeners) > len(spec.Listeners)), which also
+	// wedges observedGeneration once the recomputed status stops differing from the stored one.
+	haveListeners := sets.New[k8s.SectionName]()
+	for _, l := range obj.Spec.Listeners {
+		haveListeners.Insert(l.Name)
+	}
+	listeners := make([]k8s.ListenerEntryStatus, 0, len(gs.Listeners))
+	for _, l := range gs.Listeners {
+		if haveListeners.Contains(l.Name) {
+			haveListeners.Delete(l.Name)
+			listeners = append(listeners, l)
+		}
+	}
+	gs.Listeners = listeners
+
 	gs.Conditions = setConditions(obj.Generation, gs.Conditions, gatewayConditions)
 }
 
