@@ -770,6 +770,7 @@ func TestConvertResources(t *testing.T) {
 		{name: "listenerset-cross-namespace"},
 		{name: "listenerset-same-name-different-ns"},
 		{name: "listenerset-invalid"},
+		{name: "listenerset-overlapping-port"},
 		{
 			name: "listenerset-empty-listeners",
 			validationIgnorer: crdvalidation.NewValidationIgnorer(
