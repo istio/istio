@@ -1612,6 +1612,7 @@ func TestL7JWT(t *testing.T) {
 					param.Namespace.String(): apps.Namespace.Name(),
 					"Services":               apps.ServiceAddressedWaypoint,
 					"To":                     dst,
+					"Jwks":                   jwt.JwksJSON,
 				}, "testdata/requestauthn/waypoint-jwt.yaml.tmpl").ApplyOrFail(t)
 
 				t.NewSubTest("deny without token").Run(func(t framework.TestContext) {

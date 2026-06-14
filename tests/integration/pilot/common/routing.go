@@ -4169,7 +4169,7 @@ metadata:
 spec:
   jwtRules:
   - issuer: "test-issuer-1@istio.io"
-    jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
+    jwks: '` + jwt.JwksJSON + `'
     outputClaimToHeaders:
     - header: "x-jwt-nested-key"
       claim: "nested.nested-2.key2"
