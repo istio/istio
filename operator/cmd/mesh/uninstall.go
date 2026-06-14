@@ -15,12 +15,15 @@
 package mesh
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"istio.io/istio/istioctl/pkg/cli"
@@ -165,6 +168,8 @@ func runUninstall(cmd *cobra.Command, ctx cli.Context, rootArgs *RootArgs, uiArg
 	if err := uninstall.DeleteObjectsList(kubeClient, rootArgs.DryRun, l, objectsList); err != nil {
 		return fmt.Errorf("failed to delete control plane resources by revision: %v", err)
 	}
+	// Clean up per-revision leader election leases that aren't covered by label-based pruning
+	deleteRevisionLeases(kubeClient, uiArgs.revision, ctx.IstioNamespace(), rootArgs.DryRun, l)
 	pl.SetState(progress.StateUninstallComplete)
 	return nil
 }
@@ -250,4 +255,35 @@ func constructResourceListOutput(resourcesList []*unstructured.UnstructuredList)
 		}
 	}
 	return output, strings.Join(gwlist, ", ")
+}
+
+// deleteRevisionLeases deletes per-revision leader election leases that aren't covered by label-based pruning
+func deleteRevisionLeases(kubeClient kube.CLIClient, revision string, ns string, dryRun bool, l *clog.ConsoleLogger) {
+	if revision == "" {
+		return
+	}
+	// These are the per-revision lease prefixes from pilot/pkg/leaderelection
+	leasePrefixes := []string{
+		"istio-gateway-deployment",
+		"istio-gateway-status-leader",
+		"istio-gateway-inferencepool",
+		"istio-node-untaint",
+		"istio-ip-autoallocate",
+	}
+	for _, prefix := range leasePrefixes {
+		leaseName := prefix + "-" + revision
+		if dryRun {
+			l.LogAndPrintf("Not deleting lease %s/%s because of dry run.", ns, leaseName)
+			continue
+		}
+		err := kubeClient.Kube().CoordinationV1().Leases(ns).Delete(
+			context.Background(), leaseName, metav1.DeleteOptions{})
+		if err != nil {
+			if !kerrors.IsNotFound(err) {
+				l.LogAndPrintf("  Failed to delete lease %s/%s: %v", ns, leaseName, err)
+			}
+			continue
+		}
+		l.LogAndPrintf("  Removed coordination.k8s.io/v1, Kind=Lease/%s.%s.", leaseName, ns)
+	}
 }

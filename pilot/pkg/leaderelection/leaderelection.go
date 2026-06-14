@@ -172,8 +172,15 @@ func (l *LeaderElection) create() (*k8sleaderelection.LeaderElector, error) {
 			leaseKey = ""
 		}
 		lock = &k8sresourcelock.LeaseLock{
-			LeaseMeta: metav1.ObjectMeta{Namespace: l.namespace, Name: l.electionID},
-			Client:    l.client.CoordinationV1(),
+			LeaseMeta: metav1.ObjectMeta{
+				Namespace: l.namespace,
+				Name:      l.electionID,
+				Labels: map[string]string{
+					"operator.istio.io/component": "Pilot",
+					"istio.io/rev":                l.revision,
+				},
+			},
+			Client: l.client.CoordinationV1(),
 			LockConfig: k8sresourcelock.ResourceLockConfig{
 				Identity: l.name,
 				Key:      leaseKey,
