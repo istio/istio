@@ -3234,6 +3234,44 @@ func TestIstioEgressListenerWrapper(t *testing.T) {
 			expected:  []*Service{serviceBWildcard},
 			namespace: "b",
 		},
+		{
+			name: "*/* excludes whole namespace b via ~b/*",
+			listenerHosts: map[string]hostClassification{
+				wildcardNamespace: {allHosts: []host.Name{wildcardService}, exactHosts: sets.New[host.Name]()},
+				"b":               {excludedHosts: []host.Name{wildcardService}},
+			},
+			services:  allServices,
+			expected:  []*Service{serviceA8000, serviceA9000, serviceAalt},
+			namespace: "a",
+		},
+		{
+			name: "*/* excludes exact host (all ports) from all namespaces via ~/host",
+			listenerHosts: map[string]hostClassification{
+				wildcardNamespace: {allHosts: []host.Name{wildcardService}, exactHosts: sets.New[host.Name](), excludedHosts: []host.Name{"host"}},
+			},
+			services:  allServices,
+			expected:  []*Service{serviceAalt},
+			namespace: "a",
+		},
+		{
+			name: "wildcard exclusion ~b/*.wildcard.com drops matching service",
+			listenerHosts: map[string]hostClassification{
+				"b": {allHosts: []host.Name{wildcardService}, exactHosts: sets.New[host.Name](), excludedHosts: []host.Name{"*.wildcard.com"}},
+			},
+			services:  []*Service{serviceBWildcard},
+			expected:  []*Service{},
+			namespace: "b",
+		},
+		{
+			name: "ns-scoped exclusion does not affect other namespace",
+			listenerHosts: map[string]hostClassification{
+				wildcardNamespace: {allHosts: []host.Name{wildcardService}, exactHosts: sets.New[host.Name]()},
+				"a":               {excludedHosts: []host.Name{wildcardService}},
+			},
+			services:  []*Service{serviceB8000, serviceB9000, serviceBalt},
+			expected:  []*Service{serviceB8000, serviceB9000, serviceBalt},
+			namespace: "b",
+		},
 	}
 
 	for _, tt := range tests {

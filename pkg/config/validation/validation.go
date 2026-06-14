@@ -933,7 +933,7 @@ var ValidateSidecar = RegisterValidateFunc("ValidateSidecar",
 				nssSvcs := map[string]map[string]bool{}
 				for _, hostname := range egress.Hosts {
 					parts := strings.SplitN(hostname, "/", 2)
-					if len(parts) == 2 {
+					if len(parts) == 2 && !strings.HasPrefix(parts[0], "~") {
 						ns := parts[0]
 						svc := parts[1]
 						if ns == "." {
