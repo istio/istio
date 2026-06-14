@@ -424,11 +424,14 @@ func setWarmup(warmup *networking.WarmupConfiguration) *cluster.Cluster_SlowStar
 		aggression = a.GetValue()
 	}
 
-	// If not specified, minWeightPersent default to 10, aligned with envoy default
+	// If not specified, minWeightPercent default to 10, aligned with envoy default
 	if m := warmup.MinimumPercent; m == nil {
 		minWeightPercent = 10
 	} else {
 		minWeightPercent = m.GetValue()
+		if minWeightPercent < 1 {
+			minWeightPercent = 1
+		}
 	}
 
 	return &cluster.Cluster_SlowStartConfig{

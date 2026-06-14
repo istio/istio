@@ -1252,6 +1252,9 @@ func validateLoadBalancer(settings *networking.LoadBalancerSettings, outlier *ne
 		} else {
 			errs = AppendValidation(errs, agent.ValidateDuration(warm.Duration))
 		}
+		if warm.MinimumPercent != nil && warm.MinimumPercent.GetValue() < 0 {
+			errs = AppendValidation(errs, fmt.Errorf("minimumPercent value should be greater than or equal to 0"))
+		}
 		if warm.MinimumPercent.GetValue() > 100 {
 			errs = AppendValidation(errs, fmt.Errorf("minimumPercent value should be less than or equal to 100"))
 		}
