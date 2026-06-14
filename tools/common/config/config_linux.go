@@ -28,7 +28,7 @@ const maxAttempts = 5
 func LinkByNameWithRetries(name string) (netlink.Link, error) {
 	var link netlink.Link
 	var err error
-	for attempt := 0; attempt < maxAttempts; attempt++ {
+	for range maxAttempts {
 		link, err = netlink.LinkByName(name)
 		if err == nil || !errors.Is(err, netlink.ErrDumpInterrupted) {
 			return link, err

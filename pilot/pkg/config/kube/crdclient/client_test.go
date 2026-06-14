@@ -330,7 +330,7 @@ func TestClientInitialSyncSkipsOtherRevisions(t *testing.T) {
 	var expectedNoRevision []config.Config
 	var expectedCanary []config.Config
 	var expectedProd []config.Config
-	for i := 0; i < 9; i++ {
+	for i := range 9 {
 		selectedLabels := labels[i%len(labels)]
 		obj := &clientnetworkingv1alpha3.ServiceEntry{
 			ObjectMeta: metav1.ObjectMeta{

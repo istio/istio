@@ -786,7 +786,7 @@ type myStruct struct {
 func makeRandomStructs(n int) []*myStruct {
 	rand.Seed(42) // nolint: staticcheck
 	structs := make([]*myStruct, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		structs[i] = &myStruct{n: rand.Intn(n)} // nolint: gosec
 	}
 	return structs
@@ -861,15 +861,15 @@ func ExampleSort() {
 func BenchmarkEqualUnordered(b *testing.B) {
 	size := 100
 	var l []string
-	for i := 0; i < size; i++ {
+	for i := range size {
 		l = append(l, strconv.Itoa(i))
 	}
 	var equal []string
-	for i := 0; i < size; i++ {
+	for i := range size {
 		equal = append(equal, strconv.Itoa(i))
 	}
 	var notEqual []string
-	for i := 0; i < size; i++ {
+	for i := range size {
 		notEqual = append(notEqual, strconv.Itoa(i))
 	}
 	notEqual[size-1] = "z"

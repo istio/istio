@@ -297,7 +297,7 @@ func TestExtractDockerImage(t *testing.T) {
 		for name, numberOfPreviousLayers := range tCases {
 			t.Run(name, func(t *testing.T) {
 				img := empty.Image
-				for i := 0; i < numberOfPreviousLayers; i++ {
+				for range numberOfPreviousLayers {
 					img, err = mutate.Append(img, mutate.Addendum{Layer: previousLayer})
 					if err != nil {
 						t.Fatal(err)
@@ -366,7 +366,7 @@ func TestExtractOCIStandardImage(t *testing.T) {
 		for name, numberOfPreviousLayers := range tCases {
 			t.Run(name, func(t *testing.T) {
 				img := empty.Image
-				for i := 0; i < numberOfPreviousLayers; i++ {
+				for range numberOfPreviousLayers {
 					img, err = mutate.Append(img, mutate.Addendum{Layer: previousLayer})
 					if err != nil {
 						t.Fatal(err)

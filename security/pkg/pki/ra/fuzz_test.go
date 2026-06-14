@@ -30,8 +30,7 @@ func FuzzValidateCSR(f *testing.F) {
 		if err != nil {
 			return
 		}
-		var i uint64
-		for i = 0; i < noOfEntries; i++ {
+		for range noOfEntries {
 			newStr, err := ff.GetString()
 			if err != nil {
 				break

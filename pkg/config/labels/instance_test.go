@@ -201,7 +201,7 @@ func TestInstanceValidate(t *testing.T) {
 
 func BenchmarkLabelString(b *testing.B) {
 	big := labels.Instance{}
-	for i := 0; i < 50; i++ {
+	for range 50 {
 		big["topology.kubernetes.io/region"] = "some value"
 	}
 	small := labels.Instance{

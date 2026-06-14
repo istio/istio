@@ -542,7 +542,7 @@ func omitNilInternal(v any) (any, bool) {
 			if _, changed := omitNilInternal(val); changed {
 				// At least one change found. Perform a filtering copy.
 				out := make([]any, 0, len(v))
-				for j := 0; j < i; j++ {
+				for j := range i {
 					out = append(out, v[j])
 				}
 				for j := i; j < len(v); j++ {

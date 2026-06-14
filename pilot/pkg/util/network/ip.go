@@ -174,7 +174,7 @@ func ResolveAddr(addr string, lookupIPAddr ...lookupIPAddrType) (string, error) 
 // AllIPv6 checks the addresses slice and returns true if all addresses
 // are valid IPv6 address, for all other cases it returns false.
 func AllIPv6(ipAddrs []string) bool {
-	for i := 0; i < len(ipAddrs); i++ {
+	for i := range ipAddrs {
 		addr, err := netip.ParseAddr(ipAddrs[i])
 		if err != nil {
 			// Should not happen, invalid IP in proxy's IPAddresses slice should have been caught earlier,
@@ -191,7 +191,7 @@ func AllIPv6(ipAddrs []string) bool {
 // AllIPv4 checks the addresses slice and returns true if all addresses
 // are valid IPv4 address, for all other cases it returns false.
 func AllIPv4(ipAddrs []string) bool {
-	for i := 0; i < len(ipAddrs); i++ {
+	for i := range ipAddrs {
 		addr, err := netip.ParseAddr(ipAddrs[i])
 		if err != nil {
 			// Should not happen, invalid IP in proxy's IPAddresses slice should have been caught earlier,
@@ -223,7 +223,7 @@ func CheckIPFamilyTypeForFirstIPs(ipAddrs []string) (IPFamilyType, error) {
 
 // GlobalUnicastIP returns the first global unicast address in the passed in addresses.
 func GlobalUnicastIP(ipAddrs []string) string {
-	for i := 0; i < len(ipAddrs); i++ {
+	for i := range ipAddrs {
 		addr, err := netip.ParseAddr(ipAddrs[i])
 		if err != nil {
 			// Should not happen, invalid IP in proxy's IPAddresses slice should have been caught earlier,
