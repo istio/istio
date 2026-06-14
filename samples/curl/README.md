@@ -1,6 +1,6 @@
 # Simple curl service
 
-This sample is a a request source for invoking other services, to experiment with Istio networking.
+This sample is a request source for invoking other services, to experiment with Istio networking.
 It consists of a pod that does nothing but sleep. You can get a shell on the pod (an Alpine container) and use `curl`.
 
 To use it:
