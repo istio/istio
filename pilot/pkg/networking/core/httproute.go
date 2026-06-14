@@ -24,6 +24,7 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	statefulsession "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/stateful_session/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	pb "google.golang.org/protobuf/proto"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 
@@ -197,8 +198,14 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(
 		IgnorePortInHostMatching:       true,
 	}
 
-	// apply envoy filter patches
-	out = envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_SIDECAR_OUTBOUND, node, efw, out)
+	// apply envoy filter patches only when cache is not hit, as the cache result is already applied with envoy filter patches.
+	// This is to prevent double applying envoy filter patches which may cause unexpected behavior.
+	if !cacheHit {
+		out = envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_SIDECAR_OUTBOUND, node, efw, out)
+	} else {
+		// This's a little tricky, we need to always apply envoyfilters for ROUTE_CONFIGURATION.
+		out = envoyfilter.ApplyMergeRouteConfiguration(networking.EnvoyFilter_SIDECAR_OUTBOUND, node, efw, out)
+	}
 
 	resource = &discovery.Resource{
 		Name:     out.Name,
@@ -523,6 +530,8 @@ func getVirtualHostsForSniffedServicePort(vhosts []*route.VirtualHost, routeName
 		return virtualHosts
 	}
 	if len(virtualHosts) == 1 {
+		// Clone before mutating to avoid affecting cached objects
+		virtualHosts[0] = pb.Clone(virtualHosts[0]).(*route.VirtualHost)
 		virtualHosts[0].Domains = []string{"*"}
 		return virtualHosts
 	}

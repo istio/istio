@@ -2034,3 +2034,111 @@ func buildHTTPService(hostname string, v visibility.Instance, ip, namespace stri
 	service.Ports = Ports
 	return service
 }
+
+// TestEnvoyFilterCacheDoublePatch verifies that EnvoyFilter patches are not applied multiple times
+// when vHostCache is reused for different route names on the same port.
+// This tests the bug where cached virtual hosts are modified in-place by EnvoyFilter patches,
+// causing patches to be applied again when the cache is reused for sniffed routes.
+func TestEnvoyFilterCacheDoublePatch(t *testing.T) {
+	// Create two services on the same port 8080
+	service1 := buildHTTPService("service1.default.svc.cluster.local", visibility.Public, "10.0.0.1", "default", 8080)
+	service2 := buildHTTPService("service2.default.svc.cluster.local", visibility.Public, "10.0.0.2", "default", 8080)
+
+	// Create an EnvoyFilter that merges request_headers_to_add to all virtual hosts
+	envoyFilter := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.EnvoyFilter,
+			Name:             "test-filter",
+			Namespace:        "default",
+		},
+		Spec: &networking.EnvoyFilter{
+			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+				{
+					ApplyTo: networking.EnvoyFilter_VIRTUAL_HOST,
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						Context: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+					},
+					Patch: &networking.EnvoyFilter_Patch{
+						Operation: networking.EnvoyFilter_Patch_MERGE,
+						Value: buildPatchStruct(`{
+							"request_headers_to_add": [
+								{
+									"header": {
+										"key": "x-test-header",
+										"value": "test-value"
+									}
+								}
+							]
+						}`),
+					},
+				},
+			},
+		},
+	}
+
+	// Setup config generator with services and EnvoyFilter
+	cg := NewConfigGenTest(t, TestOptions{
+		Services: []*model.Service{service1, service2},
+		Configs:  []config.Config{envoyFilter},
+	})
+
+	setupProxy := cg.SetupProxy(&model.Proxy{ConfigNamespace: "default", DNSDomain: "default.example.org"})
+	push := &model.PushRequest{Push: cg.PushContext()}
+	vHostCache := make(map[int][]*route.VirtualHost)
+
+	// Get the EnvoyFilter wrapper from push context
+	efw := push.Push.EnvoyFilters(setupProxy)
+	efKeys := efw.KeysApplyingTo(networking.EnvoyFilter_ROUTE_CONFIGURATION, networking.EnvoyFilter_VIRTUAL_HOST)
+
+	// First call: routeName "8080" - builds and caches all virtual hosts for the port
+	resource1, _ := cg.ConfigGen.buildSidecarOutboundHTTPRouteConfig(
+		setupProxy, push, "8080", vHostCache, efw, efKeys)
+	routeCfg1 := &route.RouteConfiguration{}
+	resource1.Resource.UnmarshalTo(routeCfg1)
+
+	// Get per-vhost header count from first call (should be 1 header per vhost after EnvoyFilter)
+	var firstVhostHeaderCount int
+	if len(routeCfg1.VirtualHosts) > 0 {
+		firstVhostHeaderCount = len(routeCfg1.VirtualHosts[0].RequestHeadersToAdd)
+	}
+	t.Logf("First call (route=8080): %d vhosts, first vhost has %d headers",
+		len(routeCfg1.VirtualHosts), firstVhostHeaderCount)
+
+	// Second call: sniffed route "service1.default.svc.cluster.local:8080"
+	// This should reuse cached vhosts and filter to service1
+	resource2, _ := cg.ConfigGen.buildSidecarOutboundHTTPRouteConfig(
+		setupProxy, push, "service1.default.svc.cluster.local:8080", vHostCache, efw, efKeys)
+	routeCfg2 := &route.RouteConfiguration{}
+	resource2.Resource.UnmarshalTo(routeCfg2)
+
+	var secondVhostHeaderCount int
+	if len(routeCfg2.VirtualHosts) > 0 {
+		secondVhostHeaderCount = len(routeCfg2.VirtualHosts[0].RequestHeadersToAdd)
+	}
+	t.Logf("Second call (route=service1...): %d vhosts, first vhost has %d headers",
+		len(routeCfg2.VirtualHosts), secondVhostHeaderCount)
+
+	// Third call: Same sniffed route again - should get same result as second call
+	resource3, _ := cg.ConfigGen.buildSidecarOutboundHTTPRouteConfig(
+		setupProxy, push, "service1.default.svc.cluster.local:8080", vHostCache, efw, efKeys)
+	routeCfg3 := &route.RouteConfiguration{}
+	resource3.Resource.UnmarshalTo(routeCfg3)
+
+	var thirdVhostHeaderCount int
+	if len(routeCfg3.VirtualHosts) > 0 {
+		thirdVhostHeaderCount = len(routeCfg3.VirtualHosts[0].RequestHeadersToAdd)
+	}
+	t.Logf("Third call (route=service1...): %d vhosts, first vhost has %d headers",
+		len(routeCfg3.VirtualHosts), thirdVhostHeaderCount)
+
+	// All calls should have the same header count per vhost (no double patching)
+	// The bug would cause header counts to increase on subsequent calls
+	if secondVhostHeaderCount != firstVhostHeaderCount || thirdVhostHeaderCount != firstVhostHeaderCount {
+		t.Errorf("BUG: EnvoyFilter patches applied multiple times! "+
+			"First: %d headers, Second: %d headers, Third: %d headers. "+
+			"Cached virtual hosts are being mutated.",
+			firstVhostHeaderCount, secondVhostHeaderCount, thirdVhostHeaderCount)
+	} else if firstVhostHeaderCount > 0 {
+		t.Logf("SUCCESS: All calls have same header count (%d per vhost), cache not mutated", firstVhostHeaderCount)
+	}
+}

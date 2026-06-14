@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 58914
+releaseNotes:
+  - |
+    **Fixed** an issue where EnvoyFilter patches were applied multiple times when the virtual host cache was reused for different route names on the same port.
