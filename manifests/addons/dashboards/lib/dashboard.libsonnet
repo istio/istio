@@ -9,5 +9,5 @@ local variables = import './variables.libsonnet';
     + g.dashboard.withRefresh('15s')
     + g.dashboard.time.withFrom('now-30m')
     + g.dashboard.time.withTo('now')
-    + g.dashboard.withVariables([variables.datasource]),
+    + g.dashboard.withVariables([variables.datasource, variables.cluster]),
 }

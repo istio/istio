@@ -10,7 +10,7 @@ local var = g.dashboard.variable;
     + var.query.withDatasourceFromVariable(self.datasource)
     + var.query.queryTypes.withLabelValues(
       'cluster',
-      'process_cpu_seconds_total',
+      'istio_build',
     )
     + var.query.withRefresh('time')
     + var.query.selectionOptions.withMulti()
