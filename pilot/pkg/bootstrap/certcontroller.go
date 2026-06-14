@@ -233,8 +233,7 @@ func (s *Server) initFileCertificateWatches(tlsOptions TLSOptions) error {
 	if err := s.istiodCertBundleWatcher.SetFromFilesAndNotify(tlsOptions.KeyFile, tlsOptions.CertFile, tlsOptions.CaCertFile); err != nil {
 		return fmt.Errorf("set keyCertBundle failed: %v", err)
 	}
-	// TODO: Setup watcher for root and restart server if it changes.
-	for _, file := range []string{tlsOptions.CertFile, tlsOptions.KeyFile} {
+	for _, file := range []string{tlsOptions.CertFile, tlsOptions.KeyFile, tlsOptions.CaCertFile} {
 		log.Infof("adding watcher for certificate %s", file)
 		if err := s.fileWatcher.Add(file); err != nil {
 			return fmt.Errorf("could not watch %v: %v", file, err)
@@ -258,10 +257,16 @@ func (s *Server) initFileCertificateWatches(tlsOptions TLSOptions) error {
 					if keyCertTimerC == nil {
 						keyCertTimerC = time.After(watchDebounceDelay)
 					}
+				case <-s.fileWatcher.Events(tlsOptions.CaCertFile):
+					if keyCertTimerC == nil {
+						keyCertTimerC = time.After(watchDebounceDelay)
+					}
 				case err := <-s.fileWatcher.Errors(tlsOptions.CertFile):
 					log.Errorf("error watching %v: %v", tlsOptions.CertFile, err)
 				case err := <-s.fileWatcher.Errors(tlsOptions.KeyFile):
 					log.Errorf("error watching %v: %v", tlsOptions.KeyFile, err)
+				case err := <-s.fileWatcher.Errors(tlsOptions.CaCertFile):
+					log.Errorf("error watching %v: %v", tlsOptions.CaCertFile, err)
 				case <-stop:
 					return
 				}
