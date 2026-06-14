@@ -89,14 +89,54 @@ func TestTagWatcher(t *testing.T) {
 	assert.Equal(t, tw.GetMyTags(), sets.New("revision", "tag-mwc-foo", "tag-svc-foo", "shared-tag"))
 }
 
+func TestTagWatcherDefaultTagInCustomNamespaceTakesPrecedence(t *testing.T) {
+	c := kube.NewFakeClient()
+	tw := NewTagWatcher(c, "default-revision", "custom-istio-ns").(*tagWatcher)
+	namespaces := clienttest.Wrap(t, tw.namespaces)
+	whs := clienttest.Wrap(t, tw.webhooks)
+	vwhs := clienttest.Wrap(t, tw.vWebhooks)
+	stop := test.NewStop(t)
+	c.RunAndWait(stop)
+	go tw.Run(stop)
+	kube.WaitForCacheSync("test", stop, tw.HasSynced)
+
+	namespaces.Create(&corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "app",
+		},
+	})
+	vwhs.Create(makeDefaultRevision("default-revision"))
+	whs.Create(makeTagWithName("other-revision", "default", "istio-revision-tag-default-custom-istio-ns"))
+
+	assert.EventuallyEqual(t, func() bool {
+		return tw.IsMine(metav1.ObjectMeta{Namespace: "app"})
+	}, false)
+}
+
 func makeTag(revision string, tg string) *admissionregistrationv1.MutatingWebhookConfiguration {
+	return makeTagWithName(revision, tg, tg)
+}
+
+func makeTagWithName(revision, tg, name string) *admissionregistrationv1.MutatingWebhookConfiguration {
 	return &admissionregistrationv1.MutatingWebhookConfiguration{
 		TypeMeta: metav1.TypeMeta{},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: tg,
+			Name: name,
 			Labels: map[string]string{
 				label.IoIstioRev.Name: revision,
 				label.IoIstioTag.Name: tg,
+			},
+		},
+	}
+}
+
+func makeDefaultRevision(revision string) *admissionregistrationv1.ValidatingWebhookConfiguration {
+	return &admissionregistrationv1.ValidatingWebhookConfiguration{
+		TypeMeta: metav1.TypeMeta{},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: defaultRevisionValidatingWebhookName,
+			Labels: map[string]string{
+				label.IoIstioRev.Name: revision,
 			},
 		},
 	}
