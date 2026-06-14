@@ -33,7 +33,7 @@ For more information about integrating with Prometheus, please see the [Promethe
 
 ### Grafana
 
-[Grafana](http://grafana.com/) is an open source monitoring solution that can be used to configure dashboards for Istio.
+[Grafana](https://grafana.com/) is an open source monitoring solution that can be used to configure dashboards for Istio.
 You can use Grafana to monitor the health of Istio and of applications within the service mesh.
 
 This sample provides the following dashboards:
