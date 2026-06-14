@@ -282,6 +282,23 @@ func TestCreateCertificate(t *testing.T) {
 			certChain: []string{testCert, testIntermediateCert, testIntermediateCert2, testRootCert}, // the response should have one cert per element in slice
 			code:      codes.OK,
 		},
+		// Regression for istio/istio#39001. When the plug-in CA's cert-chain.pem
+		// already contains the root (the default `make` output), CreateCertificate
+		// would otherwise emit the root twice. dedupCertChain must collapse the
+		// duplicate AND leave the root as the last element of the response.
+		"Successful signing w/ duplicate root in cert chain (#39001)": {
+			authenticators: []security.Authenticator{&mockAuthenticator{identities: []string{"test-identity"}}},
+			ca: &mockca.FakeCA{
+				SignedCert: []byte(testCert),
+				KeyCertBundle: util.NewKeyCertBundleFromPem(nil, nil,
+					[]byte(testIntermediateCert+testRootCert), // cert-chain.pem = inter || root
+					[]byte(testRootCert),
+					nil,
+				),
+			},
+			certChain: []string{testCert, testIntermediateCert, testRootCert},
+			code:      codes.OK,
+		},
 	}
 
 	p := &peer.Peer{Addr: &net.IPAddr{IP: net.IPv4(192, 168, 1, 1)}, AuthInfo: credentials.TLSInfo{}}
