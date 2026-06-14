@@ -1,0 +1,15 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+
+issue:
+  - https://github.com/istio/istio/issues/48316
+  - https://github.com/istio/istio/issues/48317
+
+releaseNotes:
+  - |
+    **Added** `values.sidecarInjectorWebhook.revisionLabelPreference` to configure revision-label precedence
+    for sidecar injection.
+
+    The default value is `namespace`, which preserves existing behavior. Setting this to `pod` allows a pod
+    `istio.io/rev` label to override a namespace `istio.io/rev` label.

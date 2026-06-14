@@ -1271,11 +1271,20 @@ message SecretVolume {
 
 // SidecarInjectorConfig is described in istio.io documentation.
 message SidecarInjectorConfig {
+  enum RevisionLabelPreference {
+    namespace = 0;
+    pod = 1;
+  }
+
   // Enables sidecar auto-injection in namespaces by default.
   google.protobuf.BoolValue enableNamespacesByDefault = 2;
 
   // Setting this to `IfNeeded` will result in the sidecar injector being run again if additional mutations occur. Default: Never
   string reinvocationPolicy = 3;
+
+  // Controls whether namespace or pod istio.io/rev labels are preferred for revisioned injection.
+  // Valid values are namespace (default) and pod.
+  RevisionLabelPreference revisionLabelPreference = 25;
 
   // Instructs Istio to not inject the sidecar on those pods, based on labels that are present in those pods.
   //

@@ -122,6 +122,11 @@ _internal_defaults_do_not_set:
     neverInjectSelector: []
     alwaysInjectSelector: []
 
+    # Controls revision label precedence for sidecar injection when both namespace and pod labels exist.
+    # - "namespace" (default): preserve existing behavior (namespace revision takes precedence)
+    # - "pod": allow pod istio.io/rev to take precedence over namespace istio.io/rev
+    revisionLabelPreference: "namespace"
+
     # injectedAnnotations are additional annotations that will be added to the pod spec after injection
     # This is primarily to support PSP annotations. For example, if you defined a PSP with the annotations:
     #
