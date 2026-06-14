@@ -112,8 +112,9 @@ func patchListener(patchContext networking.EnvoyFilter_PatchContext,
 			// empty name means this listener will be removed, we can return directly.
 			lis.Name = ""
 			return
-		} else if lp.Operation == networking.EnvoyFilter_Patch_MERGE {
-			merge.Merge(lis, lp.Value)
+		} else if lp.Operation == networking.EnvoyFilter_Patch_MERGE ||
+			lp.Operation == networking.EnvoyFilter_Patch_MERGE_AND_REPLACE_LIST {
+			mergePatchValue(lp.Operation, lis, lp.Value)
 		}
 	}
 	patchListenerFilters(patchContext, patches[networking.EnvoyFilter_LISTENER_FILTER], lis)
@@ -259,14 +260,15 @@ func patchFilterChain(patchContext networking.EnvoyFilter_PatchContext,
 			// nil means this filter chain will be removed, we can return directly.
 			fc.Filters = nil
 			return
-		} else if lp.Operation == networking.EnvoyFilter_Patch_MERGE {
+		} else if lp.Operation == networking.EnvoyFilter_Patch_MERGE ||
+			lp.Operation == networking.EnvoyFilter_Patch_MERGE_AND_REPLACE_LIST {
 			merged, err := mergeTransportSocketListener(fc, lp)
 			if err != nil {
 				log.Debugf("merge of transport socket failed for listener: %v", err)
 				continue
 			}
 			if !merged {
-				merge.Merge(fc, lp.Value)
+				mergePatchValue(lp.Operation, fc, lp.Value)
 			}
 		}
 	}
