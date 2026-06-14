@@ -61,10 +61,18 @@ var deltaConfigTypes = sets.New(
 // For outbound: Cluster for each service/subset hostname or cidr with SNI set to service hostname
 // Cluster type based on resolution
 // For inbound (sidecar only): Cluster for each inbound endpoint port and for each service port
-func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, req *model.PushRequest) ([]*discovery.Resource, model.XdsLogDetails) {
+func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy,
+	req *model.PushRequest, watched *model.WatchedResource,
+) ([]*discovery.Resource, model.XdsLogDetails) {
+	log.Debugf("BuildClusters for node %s with watched: %v", proxy.ID, watched)
 	envoyFilterPatches := req.Push.EnvoyFilters(proxy)
-	// In Sotw, we care about all services.
 	var services []*model.Service
+	if features.EnableCDSLazyLoad && watched != nil && len(watched.ResourceNames) > 0 {
+		// If CDS lazy load enabled, we don't send all the service form the beginning
+		resources, _, details, _ := configgen.BuildDeltaClusters(proxy, req, watched)
+		return resources, details
+	}
+	// In Sotw, we care about all services.
 	if features.FilterGatewayClusterConfig && proxy.Type == model.Router {
 		services = req.Push.GatewayServices(proxy, envoyFilterPatches)
 	} else {
@@ -78,9 +86,11 @@ func (configgen *ConfigGeneratorImpl) BuildClusters(proxy *model.Proxy, req *mod
 func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, updates *model.PushRequest,
 	watched *model.WatchedResource,
 ) ([]*discovery.Resource, []string, model.XdsLogDetails, bool) {
+	log.Infof("BuildDeltaClusters for node %s with resources: %v, updates: %v",
+		proxy.ID, sets.SortedList(watched.ResourceNames), updates.ConfigsUpdated)
 	// if we can't use delta, fall back to generate all
 	if !shouldUseDelta(updates) {
-		cl, lg := configgen.BuildClusters(proxy, updates)
+		cl, lg := configgen.BuildClusters(proxy, updates, watched)
 		return cl, nil, lg, false
 	}
 
@@ -118,6 +128,18 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 	}
 	have := sets.String{}
 	servicesDiffed := false
+	if len(updates.ConfigsUpdated) == 0 {
+		// If we have no config updates, it means this's a push only care about the service in the watched resource.
+		// So we can directly compute the delta from the service in the watched resource.
+		svcs, deleted := configgen.deltaFromService(proxy, updates.Push, serviceClusters, subsetClusters)
+		for _, svc := range svcs {
+			if !have.InsertContains(svc.Hostname.String()) {
+				services = append(services, svc)
+			}
+		}
+		deletedClusters.InsertAll(deleted...)
+	}
+
 	for key := range updates.ConfigsUpdated {
 		// deleted clusters for this config.
 		var deleted []string
@@ -148,7 +170,7 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 		deletedClusters.InsertAll(deleted...)
 	}
 	envoyFilterPatches := updates.Push.EnvoyFilters(proxy)
-	clusters, log := configgen.buildClusters(proxy, updates, services, envoyFilterPatches)
+	clusters, logDetail := configgen.buildClusters(proxy, updates, services, envoyFilterPatches)
 	// DeletedClusters contains list of all subset clusters for the deleted DR or updated DR.
 	// When clusters are rebuilt, we rebuild the subset clusters as well. So, we know what
 	// subset clusters are really needed. So if deleted cluster is not rebuilt, then it is really deleted.
@@ -158,7 +180,7 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 	}
 	// Remove anything we built from the deleted list
 	deletedClusters = deletedClusters.DifferenceInPlace(builtClusters)
-	return clusters, sets.SortedList(deletedClusters), log, true
+	return clusters, sets.SortedList(deletedClusters), logDetail, true
 }
 
 // deltaFromServices computes the delta clusters from the updated services.
@@ -272,6 +294,61 @@ func (configgen *ConfigGeneratorImpl) deltaFromServiceDiff(
 	for _, service := range allServices {
 		if _, ok := serviceClusters[service.Hostname.String()]; !ok {
 			// this is a service we don't currently have and we should
+			services = append(services, service)
+		}
+	}
+
+	for h, clusters := range serviceClusters {
+		hostname := host.Name(h)
+		if _, ok := allServices[hostname]; !ok {
+			// a service we had is no longer present, we have to delete it
+			deletedClusters = append(deletedClusters, clusters.UnsortedList()...)
+			deletedClusters = append(deletedClusters, subsetClusters[h].UnsortedList()...)
+		}
+	}
+
+	return services, deletedClusters
+}
+
+func (configgen *ConfigGeneratorImpl) deltaFromService(
+	proxy *model.Proxy,
+	push *model.PushContext,
+	serviceClusters map[string]sets.String,
+	subsetClusters map[string]sets.String,
+) ([]*model.Service, []string) {
+	var deletedClusters []string
+	var services []*model.Service
+	var allServices map[host.Name]*model.Service
+	if features.FilterGatewayClusterConfig && proxy.Type == model.Router {
+		svcs := push.GatewayServices(proxy, nil)
+		allServices = make(map[host.Name]*model.Service, len(svcs))
+		for _, svc := range svcs {
+			allServices[svc.Hostname] = svc
+		}
+	} else {
+		allServices = proxy.SidecarScope.ServicesByHostname()
+	}
+
+	for _, service := range allServices {
+		if _, ok := serviceClusters[service.Hostname.String()]; ok {
+			// this is a service we currently have and we should
+			services = append(services, service)
+		}
+	}
+
+	// Add extra services:
+	// 1. MeshConfig.ExtensionProviders
+	// 2. RequestAuthentication.JwtRules.JwksUri
+	// 3. EnvoyFilters with explicitly annotated references
+	//
+	// TODO: we should not send all the ports for these services, but only the ports that are actually referenced.
+	// This is a larger change as we need to track port references in the config store and push context.
+	envoyFilters := push.EnvoyFilters(proxy)
+	extraNamespacedHosts, extraHosts := push.ExtraWaypointServices(proxy, envoyFilters)
+	for _, service := range allServices {
+		if extraHosts.Contains(string(service.Hostname)) || extraNamespacedHosts.Contains(
+			model.NamespacedHostname{Namespace: service.Attributes.Namespace, Hostname: service.Hostname},
+		) {
 			services = append(services, service)
 		}
 	}
@@ -412,6 +489,10 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 }
 
 func shouldUseDelta(updates *model.PushRequest) bool {
+	if features.EnableCDSLazyLoad {
+		return true
+	}
+
 	return updates != nil && !updates.Forced && deltaAwareConfigTypes(updates.ConfigsUpdated, updates.Push.Mesh.RootNamespace)
 }
 

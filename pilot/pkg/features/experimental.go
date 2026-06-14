@@ -29,6 +29,9 @@ var (
 	FilterGatewayClusterConfig = env.Register("PILOT_FILTER_GATEWAY_CLUSTER_CONFIG", false,
 		"If enabled, Pilot will send only clusters that referenced in gateway virtual services attached to gateway").Get()
 
+	EnableCDSLazyLoad = env.Register("PILOT_ENABLE_CDS_LAZY_LOAD", false,
+		"If enabled, Pilot will send clusters when the traffic happen.").Get()
+
 	EnableAgentgateway = env.Register("PILOT_ENABLE_AGENTGATEWAY",
 		false,
 		"If enabled, the istio-agentgateway GatewayClass will be enabled.").Get()
