@@ -170,6 +170,10 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMesh
 			}
 		}
+		// Apply ECDH curves from meshMTLS config for mesh mTLS traffic.
+		if meshMTLS := opts.mesh.GetMeshMTLS(); meshMTLS != nil && len(meshMTLS.EcdhCurves) > 0 {
+			tlsContext.CommonTlsContext.TlsParams.EcdhCurves = meshMTLS.EcdhCurves
+		}
 		// Set auto_sni, auto_san_validation and allow_insecure_cluster_options for sidecar DFP clusters.
 		if c.isDFPCluster && opts.direction == model.TrafficDirectionOutbound {
 			setAutoSniAndAutoSanValidation(c, tls)
