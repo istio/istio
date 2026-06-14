@@ -115,7 +115,7 @@ spec:
   host: httpbin-other.default.svc.domain.suffix
   trafficPolicy:
     tls:
-      credentialName: invalid://
+      credentialName: configmap://default/malformed
       mode: SIMPLE
       sni: auth.example.com
 ---
@@ -130,7 +130,7 @@ spec:
   host: httpbin-second.default.svc.domain.suffix
   trafficPolicy:
     tls:
-      credentialName: invalid://
+      credentialName: configmap://default/does-not-exist
       mode: SIMPLE
       sni: auth.example.com
 ---
