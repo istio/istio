@@ -1080,8 +1080,8 @@ func (s *Server) createPeerCertVerifier(tlsOptions TLSOptions, trustDomain strin
 		}
 	} else {
 		if s.RA != nil {
-			if strings.HasPrefix(features.PilotCertProvider, constants.CertProviderKubernetesSignerPrefix) {
-				signerName := strings.TrimPrefix(features.PilotCertProvider, constants.CertProviderKubernetesSignerPrefix)
+			if after, ok := strings.CutPrefix(features.PilotCertProvider, constants.CertProviderKubernetesSignerPrefix); ok {
+				signerName := after
 				caBundle, _ := s.RA.GetRootCertFromMeshConfig(signerName)
 				rootCertBytes = append(rootCertBytes, caBundle...)
 			} else {
