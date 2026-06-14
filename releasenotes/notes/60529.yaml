@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 60500
+releaseNotes:
+  - |
+    **Added** Support for OpenTelemetry AlwaysOn trace sampler.
