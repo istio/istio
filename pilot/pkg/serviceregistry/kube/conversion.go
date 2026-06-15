@@ -24,6 +24,7 @@ import (
 
 	"istio.io/api/annotation"
 	"istio.io/api/label"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/cluster"
@@ -88,6 +89,13 @@ func ConvertService(svc corev1.Service, nsAnnotations map[string]string, domainS
 			ns = strings.TrimSpace(ns)
 			exportTo.Insert(visibility.Instance(ns))
 		}
+	}
+	// When headless service processing is disabled, mark the service as not visible to any
+	// namespace. This suppresses listener, cluster, and route generation for headless services
+	// across the entire mesh without requiring per-subsystem checks.
+	// See https://github.com/istio/istio/issues/60552 for details.
+	if svc.Spec.ClusterIP == corev1.ClusterIPNone && !features.EnableHeadlessService {
+		exportTo = sets.New(visibility.None)
 	}
 
 	istioService := &model.Service{
