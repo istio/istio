@@ -398,9 +398,6 @@ func upsertSecret(
 	return nil
 }
 
-// WaitForCRLUpdate waits for the istio-ca-crl ConfigMap to propagate to the given namespaces on all
-// clusters, then forces a volume refresh on the given sidecar proxy instances so they reload
-// the updated CRL without waiting for the next cert rotation.
 func WaitForCRLUpdate(t framework.TestContext, namespaces []string, bundle *IABundle, instances ...echo.Instance) {
 	t.Helper()
 	startTime := time.Now()
@@ -410,8 +407,9 @@ func WaitForCRLUpdate(t framework.TestContext, namespaces []string, bundle *IABu
 	}()
 
 	// verify crl ConfigMaps are updated
+	// istiod distributes ConfigMaps to its config cluster's namespaces, so we poll bundle.c.Config() cluster
 	retry.UntilSuccessOrFail(t, func() error {
-		return verifyCRLConfigMaps(namespaces, bundle.crlPEM, t.AllClusters()...)
+		return verifyCRLConfigMaps(namespaces, bundle.crlPEM, bundle.c.Config())
 	}, retry.Timeout(waitTimeout))
 
 	// force pod annotation update to trigger ConfigMap volume refresh
