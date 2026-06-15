@@ -40,20 +40,9 @@ import (
 const (
 	ambientControlPlaneValues = `
 values:
-  meshConfig:
-    serviceScopeConfigs:
-      - servicesSelector:
-          matchExpressions:
-            - key: istio.io/global
-              operator: In
-              values: ["true"]
-        scope: GLOBAL
   pilot:
     env:
       ENABLE_CA_CRL: "true"
-      AMBIENT_ENABLE_MULTI_NETWORK: "true"
-      AMBIENT_ENABLE_MULTI_NETWORK_INGRESS: "true"
-      AMBIENT_ENABLE_BAGGAGE: "true"
   cni:
     repair:
       enabled: false
@@ -107,12 +96,17 @@ func TestMain(m *testing.M) {
 		}).
 		Setup(istio.Setup(nil, func(ctx resource.Context, cfg *istio.Config) {
 			ctx.Settings().Ambient = true
-			ctx.Settings().AmbientMultiNetwork = true
 			cfg.EnableCNI = true
 			cfg.DeployEastWestGW = true
 			cfg.DeployGatewayAPI = true
 			cfg.SkipDeployCrossClusterSecrets = false
 			cfg.ControlPlaneValues = ambientControlPlaneValues
+
+			if ctx.Settings().AmbientMultiNetwork {
+				cfg.Values["pilot.env.AMBIENT_ENABLE_MULTI_NETWORK"] = "true"
+				cfg.Values["pilot.env.AMBIENT_ENABLE_MULTI_NETWORK_INGRESS"] = "true"
+				cfg.Values["pilot.env.AMBIENT_ENABLE_BAGGAGE"] = "true"
+			}
 		}, nil)).
 		SetupParallel(
 			namespace.Setup(&clientNS, namespace.Config{
