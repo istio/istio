@@ -50,7 +50,7 @@ require (
 	github.com/miekg/dns v1.1.72
 	github.com/mitchellh/copystructure v1.2.0
 	github.com/moby/buildkit v0.30.0
-	github.com/onsi/gomega v1.41.0
+	github.com/onsi/gomega v1.42.0
 	github.com/openshift/api v0.0.0-20260320151444-324a1bcb9f55
 	github.com/pires/go-proxyproto v0.12.0
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240409071808-615f978279ca
