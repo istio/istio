@@ -27,6 +27,13 @@ import (
 )
 
 var (
+	MergeHeadlessTCPListeners = env.Register(
+		"PILOT_MERGE_HEADLESS_TCP_LISTENERS",
+		false,
+		"If enabled, Istio merges all pod IPs for headless TCP services into a single listener using "+
+			"Envoy's additional_addresses, reducing Envoy config size. Disable to revert to one listener per pod IP.",
+	).Get()
+
 	// HTTP10 will add "accept_http_10" to http outbound listeners. Can also be set only for specific sidecars via meta.
 	HTTP10 = env.Register(
 		"PILOT_HTTP10",

@@ -515,32 +515,62 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 							lb.buildSidecarOutboundListener(listenerOpts, listenerMap, virtualServices, actualWildcards)
 							continue
 						}
-						for _, instance := range instances {
-							// Make sure each endpoint address is a valid address
-							// as service entries could have NONE resolution with label selectors for workload
-							// entries (which could technically have hostnames).
-							isValidInstance := true
-							for _, addr := range instance.Addresses {
-								if !netutil.IsValidIPAddress(addr) {
-									isValidInstance = false
-									break
+						if features.MergeHeadlessTCPListeners {
+							// Collect all valid non-self pod addresses and merge them into a single
+							// listener using AdditionalAddresses, rather than one listener per pod IP.
+							var allAddresses []string
+							for _, instance := range instances {
+								// Make sure each endpoint address is a valid address
+								// as service entries could have NONE resolution with label selectors for workload
+								// entries (which could technically have hostnames).
+								isValidInstance := true
+								for _, addr := range instance.Addresses {
+									if !netutil.IsValidIPAddress(addr) {
+										isValidInstance = false
+										break
+									}
 								}
+								if !isValidInstance {
+									continue
+								}
+								// Skip build outbound listener to the node itself,
+								// as when app access itself by pod ip will not flow through this listener.
+								// Simultaneously, it will be duplicate with inbound listener.
+								// should continue if current IstioEndpoint instance has the same ip with the
+								// first ip of node IPaddresses.
+								// The comparison works because both IstioEndpoint and Proxy always use the first PodIP (as provided by Kubernetes)
+								// as the first entry of their respective lists.
+								if instance.FirstAddressOrNil() == node.IPAddresses[0] {
+									continue
+								}
+								allAddresses = append(allAddresses, instance.Addresses...)
 							}
-							if !isValidInstance {
-								continue
+							if len(allAddresses) > 0 {
+								// Sort for deterministic LDS output — endpoint shard iteration is map-based and
+								// non-deterministic, so without sorting the primary address can flip between
+								// pushes and trigger unnecessary listener drains.
+								sort.Strings(allAddresses)
+								listenerOpts.bind.binds = allAddresses
+								lb.buildSidecarOutboundListener(listenerOpts, listenerMap, virtualServices, actualWildcards)
 							}
-							// Skip build outbound listener to the node itself,
-							// as when app access itself by pod ip will not flow through this listener.
-							// Simultaneously, it will be duplicate with inbound listener.
-							// should continue if current IstioEndpoint instance has the same ip with the
-							// first ip of node IPaddresses.
-							// The comparison works because both IstioEndpoint and Proxy always use the first PodIP (as provided by Kubernetes)
-							// as the first entry of their respective lists.
-							if instance.FirstAddressOrNil() == node.IPAddresses[0] {
-								continue
+						} else {
+							for _, instance := range instances {
+								isValidInstance := true
+								for _, addr := range instance.Addresses {
+									if !netutil.IsValidIPAddress(addr) {
+										isValidInstance = false
+										break
+									}
+								}
+								if !isValidInstance {
+									continue
+								}
+								if instance.FirstAddressOrNil() == node.IPAddresses[0] {
+									continue
+								}
+								listenerOpts.bind.binds = instance.Addresses
+								lb.buildSidecarOutboundListener(listenerOpts, listenerMap, virtualServices, actualWildcards)
 							}
-							listenerOpts.bind.binds = instance.Addresses
-							lb.buildSidecarOutboundListener(listenerOpts, listenerMap, virtualServices, actualWildcards)
 						}
 					} else {
 						// Standard logic for headless and non headless services

@@ -1036,10 +1036,13 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 	extSvcSelector.Attributes.LabelSelectors = map[string]string{"foo": "bar"}
 
 	tests := []struct {
-		name                      string
-		instances                 []*model.ServiceInstance
-		services                  []*model.Service
-		numListenersOnServicePort int
+		name                        string
+		instances                   []*model.ServiceInstance
+		services                    []*model.Service
+		mergeEnabled                bool
+		numListenersOnServicePort   int
+		expectedPrimaryAddress      string
+		expectedAdditionalAddresses []string
 	}{
 		{
 			name: "gen a listener per IP instance",
@@ -1052,6 +1055,21 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 			},
 			services:                  []*model.Service{svc},
 			numListenersOnServicePort: 3,
+		},
+		{
+			name: "merge all pod IPs into one listener with additional addresses",
+			instances: []*model.ServiceInstance{
+				// This instance is the proxy itself, will not gen a outbound listener for it.
+				buildServiceInstance(services[0], "1.1.1.1"),
+				buildServiceInstance(services[0], "10.10.10.10"),
+				buildServiceInstance(services[0], "11.11.11.11"),
+				buildServiceInstance(services[0], "12.11.11.11"),
+			},
+			services:                    []*model.Service{svc},
+			mergeEnabled:                true,
+			numListenersOnServicePort:   1,
+			expectedPrimaryAddress:      "10.10.10.10",
+			expectedAdditionalAddresses: []string{"11.11.11.11", "12.11.11.11"},
 		},
 		{
 			name:                      "no listeners for empty services",
@@ -1089,6 +1107,16 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 			numListenersOnServicePort: 2,
 		},
 		{
+			name: "external service with selector and endpoints merged",
+			instances: []*model.ServiceInstance{
+				buildServiceInstance(extSvcSelector, "10.10.10.10"),
+				buildServiceInstance(extSvcSelector, "11.11.11.11"),
+			},
+			services:                  []*model.Service{extSvcSelector},
+			mergeEnabled:              true,
+			numListenersOnServicePort: 1,
+		},
+		{
 			name:                      "no listeners for empty Kubernetes auto protocol",
 			instances:                 []*model.ServiceInstance{},
 			services:                  []*model.Service{autoSvc},
@@ -1103,9 +1131,20 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 			services:                  []*model.Service{autoSvc},
 			numListenersOnServicePort: 2,
 		},
+		{
+			name: "merge pod IPs into one listener for Kubernetes auto protocol",
+			instances: []*model.ServiceInstance{
+				buildServiceInstance(autoSvc, "10.10.10.10"),
+				buildServiceInstance(autoSvc, "11.11.11.11"),
+			},
+			services:                  []*model.Service{autoSvc},
+			mergeEnabled:              true,
+			numListenersOnServicePort: 1,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			test.SetForTest(t, &features.MergeHeadlessTCPListeners, tt.mergeEnabled)
 			cg := NewConfigGenTest(t, TestOptions{
 				Services:  tt.services,
 				Instances: tt.instances,
@@ -1129,6 +1168,24 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 
 			if len(listenersToCheck) != tt.numListenersOnServicePort {
 				t.Errorf("Expected %d listeners on service port 9999, got %d (%v)", tt.numListenersOnServicePort, len(listenersToCheck), listenersToCheck)
+			}
+
+			if tt.expectedPrimaryAddress != "" && len(listenersToCheck) == 1 {
+				for _, l := range listeners {
+					if l.Address.GetSocketAddress().GetPortValue() != 9999 {
+						continue
+					}
+					if got := l.Address.GetSocketAddress().GetAddress(); got != tt.expectedPrimaryAddress {
+						t.Errorf("Expected primary address %s, got %s", tt.expectedPrimaryAddress, got)
+					}
+					gotExtra := make([]string, 0, len(l.AdditionalAddresses))
+					for _, a := range l.AdditionalAddresses {
+						gotExtra = append(gotExtra, a.GetAddress().GetSocketAddress().GetAddress())
+					}
+					if !reflect.DeepEqual(gotExtra, tt.expectedAdditionalAddresses) {
+						t.Errorf("Expected additional addresses %v, got %v", tt.expectedAdditionalAddresses, gotExtra)
+					}
+				}
 			}
 		})
 	}

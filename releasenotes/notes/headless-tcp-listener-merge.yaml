@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+
+releaseNotes:
+  - |
+    **Added** support for merging all pod IPs for headless TCP services into a single Envoy listener using
+    `additional_addresses`, reducing Envoy config size. This behavior is opt-in and can be enabled by setting
+    the `PILOT_MERGE_HEADLESS_TCP_LISTENERS` environment variable to `true`.
