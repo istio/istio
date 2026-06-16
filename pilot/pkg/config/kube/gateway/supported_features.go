@@ -22,11 +22,6 @@ import (
 var skippedExtendedFeatures = []features.Feature{
 	// GatewayBackendClientCertificateFeature, GatewayInvalidTLSBackendConfiguration
 	features.GatewayBackendClientCertificateFeature,
-	// GatewayFrontendInvalidDefaultClientCertificateValidation, GatewayInvalidFrontendClientCertificateValidation,
-	// GatewayFrontendClientCertificateValidationInsecureFallback
-	features.GatewayFrontendClientCertificateValidationFeature,
-	// GatewayFrontendClientCertificateValidationInsecureFallback
-	features.GatewayFrontendClientCertificateValidationInsecureFallbackFeature,
 	// HTTPRouteHTTPSListenerDetectMisdirectedRequests
 	features.GatewayHTTPSListenerDetectMisdirectedRequestsFeature,
 	// ListenerSetHostnameConflict, ListenerSetProtocolConflict, ListenerSetReferenceGrant

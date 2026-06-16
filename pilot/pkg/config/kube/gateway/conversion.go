@@ -60,6 +60,7 @@ import (
 	"istio.io/istio/pkg/config/security"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
@@ -1816,6 +1817,23 @@ func reportGatewayStatus(
 		gs.AttachedListenerSets = ptr.Of(int32(listenerSetCount))
 	}
 
+	if obj.Spec.TLS != nil && obj.Spec.TLS.Frontend != nil {
+		frontend := obj.Spec.TLS.Frontend
+		hasInsecure := frontend.Default.Validation != nil && frontend.Default.Validation.Mode == k8s.AllowInsecureFallback
+		for _, perPort := range frontend.PerPort {
+			if perPort.TLS.Validation != nil && perPort.TLS.Validation.Mode == k8s.AllowInsecureFallback {
+				hasInsecure = true
+			}
+		}
+		if hasInsecure {
+			gatewayConditions[string(k8s.GatewayConditionInsecureFrontendValidationMode)] = &condition{
+				status:  metav1.ConditionTrue,
+				reason:  string(k8s.GatewayReasonConfigurationChanged),
+				message: "Gateway is operating in AllowInsecureGallback mode for frontend validation",
+			}
+		}
+	}
+
 	setProgrammedCondition(gatewayConditions, internal, gatewayServices, warnings, allUsable)
 
 	addressesToReport := external
@@ -2361,7 +2379,6 @@ func buildTLS(
 		}
 
 		if gatewayTLS != nil && gatewayTLS.Validation != nil && len(gatewayTLS.Validation.CACertificateRefs) > 0 {
-			// TODO: add 'Mode'
 			if len(gatewayTLS.Validation.CACertificateRefs) > 1 {
 				return out, &ConfigError{
 					Reason:  InvalidCACertificateRef,
@@ -2382,7 +2399,13 @@ func buildTLS(
 					),
 				}
 			}
-			out.Mode = istio.ServerTLSSettings_MUTUAL
+			if gatewayTLS.Validation.Mode == k8s.AllowInsecureFallback {
+				out.Mode = istio.ServerTLSSettings_OPTIONAL_MUTUAL
+				out.InsecureSkipVerify = proto.BoolTrue
+			} else {
+				out.Mode = istio.ServerTLSSettings_MUTUAL
+				out.InsecureSkipVerify = proto.BoolFalse
+			}
 			out.CaCertCredentialName = cred.ResourceName
 			if tls.Options != nil {
 				switch tls.Options[gatewaycommon.GatewayTLSTerminateModeKey] {

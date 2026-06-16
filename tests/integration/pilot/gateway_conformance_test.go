@@ -65,11 +65,8 @@ var conformanceNamespaces = []string{
 
 var skippedTests = map[string]string{
 	// The following tests were added in v1.5.0
-	"GatewayBackendClientCertificateFeature":                     "TODO",
-	"GatewayFrontendClientCertificateValidationInsecureFallback": "TODO",
-	"GatewayFrontendInvalidDefaultClientCertificateValidation":   "TODO",
-	"GatewayInvalidFrontendClientCertificateValidation":          "TODO",
-	"GatewayInvalidTLSBackendConfiguration":                      "TODO",
+	"GatewayBackendClientCertificateFeature": "TODO",
+	"GatewayInvalidTLSBackendConfiguration":  "TODO",
 
 	"HTTPRouteHTTPSListenerDetectMisdirectedRequests": "TODO",
 
