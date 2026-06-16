@@ -21,7 +21,6 @@ import (
 	"github.com/hashicorp/go-multierror"
 	admitv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
@@ -154,13 +153,19 @@ func DeleteTagWebhooks(ctx context.Context, client kubernetes.Interface, tag str
 	return result
 }
 
-// DeleteValidatingWebhook deletes a ValidatingWebhookConfiguration by name, ignoring not-found errors.
-func DeleteValidatingWebhook(ctx context.Context, client kubernetes.Interface, name string) error {
-	err := client.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(ctx, name, metav1.DeleteOptions{})
-	if err != nil && !errors.IsNotFound(err) {
+// DeleteTagValidatingWebhooks deletes ValidatingWebhookConfigurations tagged with istio.io/tag=<tag>.
+func DeleteTagValidatingWebhooks(ctx context.Context, client kubernetes.Interface, tag string) error {
+	vwhs, err := client.AdmissionregistrationV1().ValidatingWebhookConfigurations().List(ctx, metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("%s=%s", label.IoIstioTag.Name, tag),
+	})
+	if err != nil {
 		return err
 	}
-	return nil
+	var result error
+	for _, vwh := range vwhs.Items {
+		result = multierror.Append(result, client.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(ctx, vwh.Name, metav1.DeleteOptions{})).ErrorOrNil()
+	}
+	return result
 }
 
 // DeleteTagServices deletes the given tag services

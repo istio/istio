@@ -700,7 +700,8 @@ func TestRemoveDefaultTagDeletesValidatingWebhook(t *testing.T) {
 	}
 	vwh := &admitv1.ValidatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: vwhBaseTemplateName,
+			Name:   vwhBaseTemplateName,
+			Labels: map[string]string{label.IoIstioTag.Name: "default"},
 		},
 	}
 	client := fake.NewClientset(mwh, vwh)
