@@ -16,11 +16,11 @@
 #   - Disables inbound traffic interception (INBOUND_CAPTURE_PORTS: "") so the
 #     sidecar is used solely for certificate provisioning.
 #   - Adds two pre-configured mTLS scrape jobs:
-#       istio-secure-merged-metrics: scrapes port 15092 (merged metrics) on pods
-#         annotated with prometheus.istio.io/secure-port (auto-set by the injector
-#         when ENVOY_SECURE_MERGED_METRICS_PORT is configured).
-#       istio-secure-envoy-metrics: scrapes port 15091 (Envoy-only metrics) on pods
-#         annotated with prometheus.istio.io/secure-envoy-port (must be set manually
+#       istio-secure-merged-metrics: scrapes the port from the
+#         prometheus.istio.io/secure-port annotation (auto-set by the injector
+#         when ENVOY_SECURE_MERGED_METRICS_PORT is configured on the workload).
+#       istio-secure-envoy-metrics: scrapes the port from the
+#         prometheus.istio.io/secure-envoy-port annotation (must be set manually
 #         on workloads that configure ENVOY_SECURE_METRICS_PORT).
 #
 # See: https://istio.io/latest/docs/tasks/observability/metrics/secure-metrics/
