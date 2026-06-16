@@ -496,6 +496,146 @@ func TestProxyNeedsPush(t *testing.T) {
 	}
 }
 
+// TestProxyNeedsPushServiceTargets verifies how updates for the proxy's own service
+// (LocalService / ServiceTargets) and its previous local service (PrevLocalService) are
+// filtered when those services are not part of the proxy's egress (sidecar) scope.
+//
+// ServiceEntry updates for the current ServiceTargets are always kept (pre-existing
+// inbound behavior). Endpoints updates for the local/previous-local service, and any
+// PrevLocalService update, are only kept when the proxy has self-discovery enabled — this
+// is what keeps the zone-aware local_cluster in sync as the proxy's own endpoints change.
+func TestProxyNeedsPushServiceTargets(t *testing.T) {
+	const (
+		ownSvc   = "own.ns1.svc.cluster.local"
+		prevSvc  = "prev.ns1.svc.cluster.local"
+		otherSvc = "other.ns1.svc.cluster.local"
+		ns       = "ns1"
+		otherNs  = "ns2"
+		nsRoot   = "rootns"
+	)
+
+	cg := core.NewConfigGenTest(t, core.TestOptions{})
+	cg.PushContext().Mesh.RootNamespace = nsRoot
+
+	// A sidecar whose egress scope does NOT include its own service, so DependsOnConfig
+	// alone would filter out ServiceEntry/Endpoints updates for it. Only the
+	// ServiceTargets / LocalService / PrevLocalService handling in filterRelevantUpdates
+	// re-adds them. LocalService mirrors ServiceTargets[0], as SetServiceTargets populates it.
+	newSidecar := func(selfDiscovery bool) *model.Proxy {
+		return &model.Proxy{
+			Type:         model.SidecarProxy,
+			IPAddresses:  []string{"127.0.0.1"},
+			Metadata:     &model.NodeMetadata{EnableSelfDiscovery: model.StringBool(selfDiscovery)},
+			SidecarScope: &model.SidecarScope{Name: "sc1", Namespace: ns},
+			ServiceTargets: []model.ServiceTarget{
+				{Service: &model.Service{
+					Hostname:   ownSvc,
+					Attributes: model.ServiceAttributes{Namespace: ns},
+				}},
+			},
+			LocalService:     model.LocalServiceInfo{Name: ownSvc, Namespace: ns},
+			PrevLocalService: model.LocalServiceInfo{Name: prevSvc, Namespace: ns},
+		}
+	}
+
+	key := func(k kind.Kind, name, namespace string) model.ConfigKey {
+		return model.ConfigKey{Kind: k, Name: name, Namespace: namespace}
+	}
+
+	cases := []struct {
+		name          string
+		selfDiscovery bool
+		configs       sets.Set[model.ConfigKey]
+		want          bool
+		wantConfigs   sets.Set[model.ConfigKey]
+	}{
+		// ServiceEntry for the current ServiceTargets is kept regardless of self-discovery.
+		{
+			name:          "service entry for own service kept without self-discovery",
+			selfDiscovery: false,
+			configs:       sets.New(key(kind.ServiceEntry, ownSvc, ns)),
+			want:          true,
+			wantConfigs:   sets.New(key(kind.ServiceEntry, ownSvc, ns)),
+		},
+		// Endpoints for the own service are dropped without self-discovery (out of scope).
+		{
+			name:          "endpoints for own service filtered without self-discovery",
+			selfDiscovery: false,
+			configs:       sets.New(key(kind.Endpoints, ownSvc, ns)),
+			want:          false,
+			wantConfigs:   sets.New[model.ConfigKey](),
+		},
+		// PrevLocalService is only relevant to self-discovery, so it is dropped otherwise.
+		{
+			name:          "previous local service filtered without self-discovery",
+			selfDiscovery: false,
+			configs:       sets.New(key(kind.ServiceEntry, prevSvc, ns), key(kind.Endpoints, prevSvc, ns)),
+			want:          false,
+			wantConfigs:   sets.New[model.ConfigKey](),
+		},
+		// With self-discovery, both ServiceEntry and Endpoints for the local service are kept.
+		{
+			name:          "endpoints for own service kept with self-discovery",
+			selfDiscovery: true,
+			configs:       sets.New(key(kind.Endpoints, ownSvc, ns)),
+			want:          true,
+			wantConfigs:   sets.New(key(kind.Endpoints, ownSvc, ns)),
+		},
+		{
+			name:          "endpoints for previous local service kept with self-discovery",
+			selfDiscovery: true,
+			configs:       sets.New(key(kind.Endpoints, prevSvc, ns)),
+			want:          true,
+			wantConfigs:   sets.New(key(kind.Endpoints, prevSvc, ns)),
+		},
+		{
+			name:          "service entry for previous local service kept with self-discovery",
+			selfDiscovery: true,
+			configs:       sets.New(key(kind.ServiceEntry, prevSvc, ns)),
+			want:          true,
+			wantConfigs:   sets.New(key(kind.ServiceEntry, prevSvc, ns)),
+		},
+		// Unrelated out-of-scope services are filtered even with self-discovery enabled.
+		{
+			name:          "endpoints for unrelated out-of-scope service filtered with self-discovery",
+			selfDiscovery: true,
+			configs:       sets.New(key(kind.Endpoints, otherSvc, ns)),
+			want:          false,
+			wantConfigs:   sets.New[model.ConfigKey](),
+		},
+		// Namespace must match: same name in a different namespace does not match the local service.
+		{
+			name:          "previous local service name but wrong namespace filtered with self-discovery",
+			selfDiscovery: true,
+			configs:       sets.New(key(kind.Endpoints, prevSvc, otherNs)),
+			want:          false,
+			wantConfigs:   sets.New[model.ConfigKey](),
+		},
+		{
+			name:          "mixed: own-service endpoints kept, unrelated endpoints filtered with self-discovery",
+			selfDiscovery: true,
+			configs: sets.New(
+				key(kind.Endpoints, ownSvc, ns),
+				key(kind.Endpoints, otherSvc, ns),
+			),
+			want:        true,
+			wantConfigs: sets.New(key(kind.Endpoints, ownSvc, ns)),
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			newReq, got := DefaultProxyNeedsPush(newSidecar(tt.selfDiscovery), &model.PushRequest{ConfigsUpdated: tt.configs, Push: cg.PushContext()})
+			if got != tt.want {
+				t.Fatalf("Got needs push = %v, expected %v", got, tt.want)
+			}
+			if !tt.wantConfigs.Equals(newReq.ConfigsUpdated) {
+				t.Fatalf("Got configs updated = %v, expected %v", newReq.ConfigsUpdated, tt.wantConfigs)
+			}
+		})
+	}
+}
+
 func TestCheckConnectionIdentity(t *testing.T) {
 	cases := []struct {
 		name      string
