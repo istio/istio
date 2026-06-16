@@ -31,6 +31,7 @@ import (
 
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	uatomic "go.uber.org/atomic"
 
 	"istio.io/istio/pilot/pkg/features"
@@ -51,6 +52,7 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -1444,4 +1446,478 @@ func testEdsz(t *testing.T, s *xdsfake.FakeDiscoveryServer, proxyID string) {
 	if !strings.Contains(statusStr, "\"outbound|8080||eds.test.svc.cluster.local\"") {
 		t.Fatal("Mock eds service not found ", statusStr)
 	}
+}
+
+// TestEdsLocalCluster covers the zone-aware-routing local_cluster EDS path:
+//   - The proxy can subscribe to xds.LocalClusterName and receive a CLA built from
+//     its own service's endpoints, with locality preserved.
+//   - DestinationRule changes for the local service do NOT trigger a recompute of
+//     local_cluster (since the DR is intentionally ignored for it).
+//   - Endpoint changes to the local service DO trigger a recompute.
+func TestEdsLocalCluster(t *testing.T) {
+	test.SetForTest(t, &features.EnableZoneAwareRoutingSupport, true)
+
+	const (
+		proxyIP    = "1.1.1.1"
+		siblingIP  = "2.2.2.2"
+		svcNS      = "default"
+		svcName    = "local"
+		svcHost    = "local.default.svc.cluster.local"
+		nodeID     = "sidecar~1.1.1.1~test.default~default.svc.cluster.local"
+		portName   = "http"
+		portNumber = 80
+	)
+
+	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
+	svc := &model.Service{
+		Hostname: host.Name(svcHost),
+		Ports: model.PortList{{
+			Name:     portName,
+			Port:     portNumber,
+			Protocol: protocol.HTTP,
+		}},
+		Attributes: model.ServiceAttributes{Namespace: svcNS, Name: svcName},
+	}
+	s.MemRegistry.AddService(svc)
+	s.MemRegistry.AddInstance(&model.ServiceInstance{
+		Service:     svc,
+		ServicePort: svc.Ports[0],
+		Endpoint: &model.IstioEndpoint{
+			Addresses:       []string{proxyIP},
+			ServicePortName: portName,
+			EndpointPort:    portNumber,
+			Locality:        model.Locality{Label: "region1/zone1/subzone1"},
+			TLSMode:         model.IstioMutualTLSModeLabel,
+			HealthStatus:    model.Healthy,
+		},
+	})
+	s.MemRegistry.AddInstance(&model.ServiceInstance{
+		Service:     svc,
+		ServicePort: svc.Ports[0],
+		Endpoint: &model.IstioEndpoint{
+			Addresses:       []string{siblingIP},
+			ServicePortName: portName,
+			EndpointPort:    portNumber,
+			Locality:        model.Locality{Label: "region2/zone2/subzone2"},
+			TLSMode:         model.IstioMutualTLSModeLabel,
+			HealthStatus:    model.Healthy,
+		},
+	})
+	s.EnsureSynced(t)
+
+	ads := s.ConnectADS().WithID(nodeID).WithType(v3.EndpointType)
+	resp := ads.RequestResponseAck(t, &discovery.DiscoveryRequest{
+		TypeUrl:       v3.EndpointType,
+		ResourceNames: []string{xds.LocalClusterName},
+	})
+
+	t.Run("initial response includes both localities", func(t *testing.T) {
+		if len(resp.Resources) != 1 {
+			t.Fatalf("expected 1 resource, got %d", len(resp.Resources))
+		}
+		cla := &endpoint.ClusterLoadAssignment{}
+		if err := resp.Resources[0].UnmarshalTo(cla); err != nil {
+			t.Fatal(err)
+		}
+		if cla.ClusterName != xds.LocalClusterName {
+			t.Errorf("cluster name = %q, want %q", cla.ClusterName, xds.LocalClusterName)
+		}
+		got := map[string]string{}
+		for _, lle := range cla.Endpoints {
+			for _, lbe := range lle.LbEndpoints {
+				addr := lbe.GetEndpoint().GetAddress().GetSocketAddress().GetAddress()
+				got[addr] = lle.Locality.GetZone()
+			}
+		}
+		want := map[string]string{
+			proxyIP:   "zone1",
+			siblingIP: "zone2",
+		}
+		if !reflect.DeepEqual(want, got) {
+			t.Errorf("endpoints = %v, want %v", got, want)
+		}
+	})
+
+	t.Run("DR change does not recompute local_cluster", func(t *testing.T) {
+		s.Discovery.Push(&model.PushRequest{
+			ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.DestinationRule, Name: "any", Namespace: svcNS}),
+		})
+		// A partial push that doesn't touch local_cluster should not produce a non-empty
+		// response for this proxy (it's only watching local_cluster).
+		ads.ExpectNoResponse(t)
+	})
+
+	t.Run("endpoint change recomputes local_cluster", func(t *testing.T) {
+		s.MemRegistry.AddInstance(&model.ServiceInstance{
+			Service:     svc,
+			ServicePort: svc.Ports[0],
+			Endpoint: &model.IstioEndpoint{
+				Addresses:       []string{"3.3.3.3"},
+				ServicePortName: portName,
+				EndpointPort:    portNumber,
+				Locality:        model.Locality{Label: "region3/zone3/subzone3"},
+				TLSMode:         model.IstioMutualTLSModeLabel,
+				HealthStatus:    model.Healthy,
+			},
+		})
+		updated := ads.ExpectResponse(t)
+		if len(updated.Resources) != 1 {
+			t.Fatalf("expected 1 resource, got %d", len(updated.Resources))
+		}
+		cla := &endpoint.ClusterLoadAssignment{}
+		if err := updated.Resources[0].UnmarshalTo(cla); err != nil {
+			t.Fatal(err)
+		}
+		zones := map[string]bool{}
+		for _, lle := range cla.Endpoints {
+			zones[lle.Locality.GetZone()] = true
+		}
+		if !zones["zone3"] {
+			t.Errorf("expected new zone3 endpoint, got zones %v", zones)
+		}
+	})
+
+	t.Run("unrelated service update does not recompute local_cluster", func(t *testing.T) {
+		// A ServiceEntry update for a service that is not the proxy's local service
+		// must not produce an EDS response for local_cluster.
+		s.Discovery.Push(&model.PushRequest{
+			ConfigsUpdated: sets.New(model.ConfigKey{
+				Kind:      kind.ServiceEntry,
+				Name:      "other.default.svc.cluster.local",
+				Namespace: svcNS,
+			}),
+		})
+		ads.ExpectNoResponse(t)
+	})
+
+	t.Run("endpoint removal shrinks local_cluster", func(t *testing.T) {
+		// Drop the 3.3.3.3 endpoint added by the previous subtest, leaving only
+		// the proxy's own endpoint and the original sibling.
+		s.MemRegistry.SetEndpoints(svcHost, svcNS, []*model.IstioEndpoint{
+			{
+				Addresses:       []string{proxyIP},
+				ServicePortName: portName,
+				EndpointPort:    portNumber,
+				Locality:        model.Locality{Label: "region1/zone1/subzone1"},
+				TLSMode:         model.IstioMutualTLSModeLabel,
+				HealthStatus:    model.Healthy,
+			},
+			{
+				Addresses:       []string{siblingIP},
+				ServicePortName: portName,
+				EndpointPort:    portNumber,
+				Locality:        model.Locality{Label: "region2/zone2/subzone2"},
+				TLSMode:         model.IstioMutualTLSModeLabel,
+				HealthStatus:    model.Healthy,
+			},
+		})
+		updated := ads.ExpectResponse(t)
+		cla := &endpoint.ClusterLoadAssignment{}
+		if err := updated.Resources[0].UnmarshalTo(cla); err != nil {
+			t.Fatal(err)
+		}
+		addrs := map[string]bool{}
+		for _, lle := range cla.Endpoints {
+			for _, lbe := range lle.LbEndpoints {
+				addrs[lbe.GetEndpoint().GetAddress().GetSocketAddress().GetAddress()] = true
+			}
+		}
+		want := map[string]bool{proxyIP: true, siblingIP: true}
+		if !reflect.DeepEqual(addrs, want) {
+			t.Errorf("CLA endpoints = %v, want %v", addrs, want)
+		}
+	})
+}
+
+// TestEdsLocalClusterNoService verifies that a proxy with no ServiceTargets that
+// subscribes to local_cluster receives an empty CLA (cluster name set, no endpoints)
+// rather than a missing resource or a panic.
+func TestEdsLocalClusterNoService(t *testing.T) {
+	test.SetForTest(t, &features.EnableZoneAwareRoutingSupport, true)
+
+	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
+	// Note: no service or instance registered for the proxy's IP, so the proxy will
+	// have no ServiceTargets and local_cluster has no underlying service to resolve.
+	s.EnsureSynced(t)
+
+	ads := s.ConnectADS().
+		WithID("sidecar~9.9.9.9~test.default~default.svc.cluster.local").
+		WithType(v3.EndpointType)
+	resp := ads.RequestResponseAck(t, &discovery.DiscoveryRequest{
+		TypeUrl:       v3.EndpointType,
+		ResourceNames: []string{xds.LocalClusterName},
+	})
+
+	if len(resp.Resources) != 1 {
+		t.Fatalf("expected 1 resource, got %d", len(resp.Resources))
+	}
+	cla := &endpoint.ClusterLoadAssignment{}
+	if err := resp.Resources[0].UnmarshalTo(cla); err != nil {
+		t.Fatal(err)
+	}
+	if cla.ClusterName != xds.LocalClusterName {
+		t.Errorf("cluster name = %q, want %q", cla.ClusterName, xds.LocalClusterName)
+	}
+	if len(cla.Endpoints) != 0 {
+		t.Errorf("expected empty endpoints, got %d locality groups", len(cla.Endpoints))
+	}
+}
+
+// TestEdsLocalClusterSteadyStateNoService verifies that for a proxy that never has
+// a local service, subsequent unrelated service updates do NOT trigger a new
+// local_cluster push. The initial empty CLA is delivered once, and after that the
+// PrevLocalService==LocalService==\"\" sync inside buildEndpoints should keep the
+// transition flag clear so the partial-push optimization kicks in.
+func TestEdsLocalClusterSteadyStateNoService(t *testing.T) {
+	test.SetForTest(t, &features.EnableZoneAwareRoutingSupport, true)
+
+	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
+	s.EnsureSynced(t)
+
+	ads := s.ConnectADS().
+		WithID("sidecar~9.9.9.9~test.default~default.svc.cluster.local").
+		WithType(v3.EndpointType).
+		WithMetadata(model.NodeMetadata{Namespace: "default"})
+	// Consume the initial empty-CLA response so the connection is in steady state.
+	_ = ads.RequestResponseAck(t, &discovery.DiscoveryRequest{
+		TypeUrl:       v3.EndpointType,
+		ResourceNames: []string{xds.LocalClusterName},
+	})
+
+	// An unrelated ServiceEntry update in the proxy's namespace must not produce
+	// a follow-up local_cluster push.
+	s.Discovery.Push(&model.PushRequest{
+		ConfigsUpdated: sets.New(model.ConfigKey{
+			Kind:      kind.ServiceEntry,
+			Name:      "other.default.svc.cluster.local",
+			Namespace: "default",
+		}),
+	})
+	ads.ExpectNoResponse(t)
+}
+
+// TestEdsLocalClusterServiceReplacement verifies that when the proxy's local service
+// is swapped for a service with a different hostname, the transition is detected
+// (LocalService != PrevLocalService) and local_cluster is recomputed from the new
+// service's endpoints — even on a partial push.
+func TestEdsLocalClusterServiceReplacement(t *testing.T) {
+	test.SetForTest(t, &features.EnableZoneAwareRoutingSupport, true)
+
+	const (
+		proxyIP    = "1.1.1.1"
+		svcNS      = "default"
+		nodeID     = "sidecar~1.1.1.1~test.default~default.svc.cluster.local"
+		portName   = "http"
+		portNumber = 80
+		hostA      = "a.default.svc.cluster.local"
+		hostB      = "b.default.svc.cluster.local"
+	)
+
+	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
+
+	mkSvc := func(hostname, name string) *model.Service {
+		return &model.Service{
+			Hostname: host.Name(hostname),
+			Ports: model.PortList{{
+				Name:     portName,
+				Port:     portNumber,
+				Protocol: protocol.HTTP,
+			}},
+			Attributes: model.ServiceAttributes{Namespace: svcNS, Name: name},
+		}
+	}
+	mkInstance := func(svc *model.Service, zone string) *model.ServiceInstance {
+		return &model.ServiceInstance{
+			Service:     svc,
+			ServicePort: svc.Ports[0],
+			Endpoint: &model.IstioEndpoint{
+				Addresses:       []string{proxyIP},
+				ServicePortName: portName,
+				EndpointPort:    portNumber,
+				Locality:        model.Locality{Label: zone},
+				TLSMode:         model.IstioMutualTLSModeLabel,
+				HealthStatus:    model.Healthy,
+			},
+		}
+	}
+
+	svcA := mkSvc(hostA, "a")
+	s.MemRegistry.AddService(svcA)
+	s.MemRegistry.AddInstance(mkInstance(svcA, "region1/zoneA/sub"))
+	s.EnsureSynced(t)
+
+	ads := s.ConnectADS().
+		WithID(nodeID).
+		WithType(v3.EndpointType).
+		WithMetadata(model.NodeMetadata{Namespace: svcNS}).
+		WithTimeout(200 * time.Millisecond)
+	// Initial state: proxy belongs to svcA. The initial CLA should carry zoneA.
+	initial := ads.RequestResponseAck(t, &discovery.DiscoveryRequest{
+		TypeUrl:       v3.EndpointType,
+		ResourceNames: []string{xds.LocalClusterName},
+	})
+	{
+		cla := &endpoint.ClusterLoadAssignment{}
+		if err := initial.Resources[0].UnmarshalTo(cla); err != nil {
+			t.Fatal(err)
+		}
+		zones := map[string]bool{}
+		for _, lle := range cla.Endpoints {
+			zones[lle.Locality.GetZone()] = true
+		}
+		if !zones["zoneA"] {
+			t.Fatalf("initial CLA should contain zoneA, got %v", zones)
+		}
+	}
+
+	// Swap: remove svcA and add svcB (different hostname) where the proxy's IP is
+	// also an endpoint. After SetServiceTargets, proxy.LocalService becomes hostB
+	// while PrevLocalService is still hostA, so the transition forces a recompute.
+	s.MemRegistry.RemoveService(host.Name(hostA))
+	svcB := mkSvc(hostB, "b")
+	s.MemRegistry.AddService(svcB)
+	s.MemRegistry.AddInstance(mkInstance(svcB, "region2/zoneB/sub"))
+
+	// Read responses until we see the CLA reflect svcB's endpoints. Multiple
+	// debounced pushes may arrive (one for the removal, one or more for the add).
+	retry.UntilSuccessOrFail(t, func() error {
+		return test.Wrap(func(w test.Failer) {
+			resp := ads.ExpectResponse(w)
+			cla := &endpoint.ClusterLoadAssignment{}
+			if err := resp.Resources[0].UnmarshalTo(cla); err != nil {
+				w.Fatal(err)
+			}
+			zones := map[string]bool{}
+			for _, lle := range cla.Endpoints {
+				zones[lle.Locality.GetZone()] = true
+			}
+			if !zones["zoneB"] || zones["zoneA"] {
+				w.Fatalf("CLA zones = %v, want zoneB only", zones)
+			}
+		})
+	}, retry.Timeout(3*time.Second), retry.Delay(10*time.Millisecond))
+}
+
+// TestEdsLocalClusterServiceLifecycle verifies that local_cluster reacts to the
+// proxy's local service appearing and disappearing at runtime:
+//   - Initial response with no service is an empty CLA.
+//   - When the service and a matching endpoint are added, local_cluster is pushed
+//     with the new endpoint.
+//   - When the service is removed, local_cluster is pushed again as an empty CLA.
+func TestEdsLocalClusterServiceLifecycle(t *testing.T) {
+	test.SetForTest(t, &features.EnableZoneAwareRoutingSupport, true)
+
+	const (
+		proxyIP    = "1.1.1.1"
+		svcNS      = "default"
+		svcName    = "local"
+		svcHost    = "local.default.svc.cluster.local"
+		nodeID     = "sidecar~1.1.1.1~test.default~default.svc.cluster.local"
+		portName   = "http"
+		portNumber = 80
+	)
+
+	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
+	s.EnsureSynced(t)
+
+	ads := s.ConnectADS().
+		WithID(nodeID).
+		WithType(v3.EndpointType).
+		WithMetadata(model.NodeMetadata{Namespace: svcNS}).
+		WithTimeout(200 * time.Millisecond)
+	initial := ads.RequestResponseAck(t, &discovery.DiscoveryRequest{
+		TypeUrl:       v3.EndpointType,
+		ResourceNames: []string{xds.LocalClusterName},
+	})
+
+	extractAddrs := func(t *testing.T, resp *discovery.DiscoveryResponse) map[string]bool {
+		t.Helper()
+		if len(resp.Resources) != 1 {
+			t.Fatalf("expected 1 resource, got %d", len(resp.Resources))
+		}
+		cla := &endpoint.ClusterLoadAssignment{}
+		if err := resp.Resources[0].UnmarshalTo(cla); err != nil {
+			t.Fatal(err)
+		}
+		if cla.ClusterName != xds.LocalClusterName {
+			t.Errorf("cluster name = %q, want %q", cla.ClusterName, xds.LocalClusterName)
+		}
+		got := map[string]bool{}
+		for _, lle := range cla.Endpoints {
+			for _, lbe := range lle.LbEndpoints {
+				got[lbe.GetEndpoint().GetAddress().GetSocketAddress().GetAddress()] = true
+			}
+		}
+		return got
+	}
+
+	assertLocalCLA := func(t *testing.T, resp *discovery.DiscoveryResponse, wantAddrs ...string) {
+		t.Helper()
+		got := extractAddrs(t, resp)
+		if len(got) != len(wantAddrs) {
+			t.Fatalf("CLA endpoints = %v, want %v", got, wantAddrs)
+		}
+		for _, a := range wantAddrs {
+			if !got[a] {
+				t.Errorf("expected address %q in CLA, got %v", a, got)
+			}
+		}
+	}
+
+	// waitForCLAState consumes EDS responses until one matches the expected address
+	// set (or fails after a longer outer deadline). A registry mutation like
+	// AddService+AddInstance often produces multiple debounced pushes; we want to
+	// validate the *final* state, not the first response we happen to grab.
+	waitForCLAState := func(t *testing.T, wantAddrs ...string) {
+		t.Helper()
+		want := map[string]bool{}
+		for _, a := range wantAddrs {
+			want[a] = true
+		}
+		retry.UntilSuccessOrFail(t, func() error {
+			return test.Wrap(func(w test.Failer) {
+				resp := ads.ExpectResponse(w)
+				got := extractAddrs(t, resp)
+				if !reflect.DeepEqual(got, want) {
+					w.Fatalf("CLA endpoints = %v, want %v", got, want)
+				}
+			})
+		}, retry.Timeout(3*time.Second), retry.Delay(10*time.Millisecond))
+	}
+
+	t.Run("no service yields empty CLA", func(t *testing.T) {
+		assertLocalCLA(t, initial)
+	})
+
+	svc := &model.Service{
+		Hostname: host.Name(svcHost),
+		Ports: model.PortList{{
+			Name:     portName,
+			Port:     portNumber,
+			Protocol: protocol.HTTP,
+		}},
+		Attributes: model.ServiceAttributes{Namespace: svcNS, Name: svcName},
+	}
+
+	t.Run("adding service populates CLA", func(t *testing.T) {
+		s.MemRegistry.AddService(svc)
+		s.MemRegistry.AddInstance(&model.ServiceInstance{
+			Service:     svc,
+			ServicePort: svc.Ports[0],
+			Endpoint: &model.IstioEndpoint{
+				Addresses:       []string{proxyIP},
+				ServicePortName: portName,
+				EndpointPort:    portNumber,
+				Locality:        model.Locality{Label: "region1/zone1/subzone1"},
+				TLSMode:         model.IstioMutualTLSModeLabel,
+				HealthStatus:    model.Healthy,
+			},
+		})
+		waitForCLAState(t, proxyIP)
+	})
+
+	t.Run("removing service yields empty CLA", func(t *testing.T) {
+		s.MemRegistry.RemoveService(host.Name(svcHost))
+		waitForCLAState(t)
+	})
 }

@@ -24,6 +24,7 @@ import (
 	"k8s.io/kubectl/pkg/util/fieldpath"
 
 	"istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/bootstrap/option"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/model"
@@ -358,6 +359,38 @@ func TestServiceClusterOrDefault(t *testing.T) {
 			result := serviceClusterOrDefault(tt.input, tt.metadata)
 			if result != tt.expected {
 				t.Errorf("serviceClusterOrDefault() = %v, want %v", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestZoneAwareRoutingTemplateParam(t *testing.T) {
+	cases := []struct {
+		name    string
+		enabled bool
+		want    bool
+	}{
+		{"disabled", false, false},
+		{"enabled", true, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			test.SetForTest(t, &features.EnableZoneAwareRoutingSupport, tc.enabled)
+			node, err := GetNodeMetaData(MetadataOptions{
+				ID:          "sidecar~1.2.3.4~foo~bar",
+				Envs:        os.Environ(),
+				ProxyConfig: &v1alpha1.ProxyConfig{},
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			params, err := (Config{Node: node}).toTemplateParams()
+			if err != nil {
+				t.Fatal(err)
+			}
+			got, _ := params["zone_aware_routing_support"].(bool)
+			if got != tc.want {
+				t.Errorf("zone_aware_routing_support = %v, want %v", got, tc.want)
 			}
 		})
 	}

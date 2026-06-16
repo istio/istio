@@ -244,6 +244,10 @@ func EnvoyStatusPortEnableProxyProtocol(value bool) Instance {
 	return newOption("envoy_status_port_enable_proxy_protocol", value)
 }
 
+func ZoneAwareRoutingSupport(value bool) Instance {
+	return newOption("zone_aware_routing_support", value)
+}
+
 func EnvoyPrometheusPort(value int) Instance {
 	return newOption("envoy_prometheus_port", value)
 }

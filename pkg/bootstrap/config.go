@@ -207,6 +207,10 @@ func (cfg Config) toTemplateParams() (map[string]any, error) {
 		opts = append(opts, option.EnvoyStatusPortEnableProxyProtocol(true))
 	}
 
+	if features.EnableZoneAwareRoutingSupport {
+		opts = append(opts, option.ZoneAwareRoutingSupport(true))
+	}
+
 	proxyOpts, err := getProxyConfigOptions(cfg.Metadata)
 	if err != nil {
 		return nil, err

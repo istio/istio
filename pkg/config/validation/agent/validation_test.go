@@ -19,6 +19,7 @@ import (
 	"testing"
 	"time"
 
+	wrappers "github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/hashicorp/go-multierror"
 	"google.golang.org/protobuf/types/known/durationpb"
 
@@ -1145,6 +1146,54 @@ func TestValidateMeshConfig(t *testing.T) {
 	}
 }
 
+func TestValidateMeshConfigZoneAwareMutualExclusivity(t *testing.T) {
+	cases := []struct {
+		name string
+		in   *meshconfig.MeshConfig
+		err  bool
+	}{
+		{
+			name: "neither set is fine",
+			in:   &meshconfig.MeshConfig{DefaultConfig: &meshconfig.ProxyConfig{}},
+		},
+		{
+			name: "only localityLbSetting is fine",
+			in: &meshconfig.MeshConfig{
+				DefaultConfig:     &meshconfig.ProxyConfig{},
+				LocalityLbSetting: &networking.LocalityLoadBalancerSetting{},
+			},
+		},
+		{
+			name: "only zoneAwareLbSetting is fine",
+			in: &meshconfig.MeshConfig{
+				DefaultConfig:      &meshconfig.ProxyConfig{},
+				ZoneAwareLbSetting: &networking.ZoneAwareLoadBalancerSetting{},
+			},
+		},
+		{
+			name: "both set is rejected",
+			in: &meshconfig.MeshConfig{
+				DefaultConfig:      &meshconfig.ProxyConfig{},
+				LocalityLbSetting:  &networking.LocalityLoadBalancerSetting{},
+				ZoneAwareLbSetting: &networking.ZoneAwareLoadBalancerSetting{},
+			},
+			err: true,
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			_, err := ValidateMeshConfig(c.in)
+			gotMutExErr := false
+			if err != nil {
+				gotMutExErr = strings.Contains(err.Error(), "only one of localityLbSetting and zoneAwareLbSetting can be set")
+			}
+			if gotMutExErr != c.err {
+				t.Errorf("got mutual-exclusivity error=%v, want=%v (err=%v)", gotMutExErr, c.err, err)
+			}
+		})
+	}
+}
+
 func TestValidateLocalityLbSetting(t *testing.T) {
 	cases := []struct {
 		name    string
@@ -1366,6 +1415,153 @@ func TestValidateLocalityLbSetting(t *testing.T) {
 			t.Errorf("ValidateLocalityLbSetting failed on %v: got warn=%v but wanted warn=%v: %v",
 				c.name, warn != nil, c.warn, warn)
 		}
+	}
+}
+
+func TestValidateZoneAwareLbSetting(t *testing.T) {
+	cases := []struct {
+		name    string
+		in      *networking.ZoneAwareLoadBalancerSetting
+		outlier *networking.OutlierDetection
+		err     bool
+		warn    bool
+	}{
+		{
+			name:    "nil setting is valid",
+			in:      nil,
+			outlier: nil,
+		},
+		{
+			name: "enabled only is valid",
+			in: &networking.ZoneAwareLoadBalancerSetting{
+				Enabled: &wrappers.BoolValue{Value: true},
+			},
+			outlier: &networking.OutlierDetection{},
+		},
+		{
+			name: "valid region-level failover",
+			in: &networking.ZoneAwareLoadBalancerSetting{
+				Failover: []*networking.ZoneAwareLoadBalancerSetting_Failover{
+					{From: "us-east", To: "eu-west"},
+				},
+			},
+			outlier: &networking.OutlierDetection{},
+		},
+		{
+			name: "failover same src and dst region",
+			in: &networking.ZoneAwareLoadBalancerSetting{
+				Failover: []*networking.ZoneAwareLoadBalancerSetting_Failover{
+					{From: "region1", To: "region1"},
+				},
+			},
+			outlier: &networking.OutlierDetection{},
+			err:     true,
+		},
+		{
+			name: "failover src has '/' (zone scope) is rejected",
+			in: &networking.ZoneAwareLoadBalancerSetting{
+				Failover: []*networking.ZoneAwareLoadBalancerSetting_Failover{
+					{From: "region1/zone1", To: "region2"},
+				},
+			},
+			outlier: &networking.OutlierDetection{},
+			err:     true,
+		},
+		{
+			name: "failover dst has '/' (zone scope) is rejected",
+			in: &networking.ZoneAwareLoadBalancerSetting{
+				Failover: []*networking.ZoneAwareLoadBalancerSetting_Failover{
+					{From: "region1", To: "region2/zone1"},
+				},
+			},
+			outlier: &networking.OutlierDetection{},
+			err:     true,
+		},
+		{
+			name: "failover src has '*' wildcard is rejected",
+			in: &networking.ZoneAwareLoadBalancerSetting{
+				Failover: []*networking.ZoneAwareLoadBalancerSetting_Failover{
+					{From: "*", To: "region2"},
+				},
+			},
+			outlier: &networking.OutlierDetection{},
+			err:     true,
+		},
+		{
+			name: "failover dst has '*' wildcard is rejected",
+			in: &networking.ZoneAwareLoadBalancerSetting{
+				Failover: []*networking.ZoneAwareLoadBalancerSetting_Failover{
+					{From: "region1", To: "*"},
+				},
+			},
+			outlier: &networking.OutlierDetection{},
+			err:     true,
+		},
+		{
+			name: "failover and failoverPriority both set with topology region",
+			in: &networking.ZoneAwareLoadBalancerSetting{
+				Failover: []*networking.ZoneAwareLoadBalancerSetting_Failover{
+					{From: "region1", To: "region2"},
+				},
+				FailoverPriority: []string{"topology.kubernetes.io/region"},
+			},
+			outlier: &networking.OutlierDetection{},
+			err:     true,
+		},
+		{
+			name: "failoverPriority with zone label is rejected",
+			in: &networking.ZoneAwareLoadBalancerSetting{
+				FailoverPriority: []string{"topology.kubernetes.io/zone"},
+			},
+			outlier: &networking.OutlierDetection{},
+			err:     true,
+		},
+		{
+			name: "failoverPriority with subzone label is rejected",
+			in: &networking.ZoneAwareLoadBalancerSetting{
+				FailoverPriority: []string{"topology.istio.io/subzone"},
+			},
+			outlier: &networking.OutlierDetection{},
+			err:     true,
+		},
+		{
+			name: "failoverPriority with non-topology labels is valid",
+			in: &networking.ZoneAwareLoadBalancerSetting{
+				FailoverPriority: []string{"version", "app=ratings"},
+			},
+			outlier: &networking.OutlierDetection{},
+		},
+		{
+			name: "failover without outlier detection warns",
+			in: &networking.ZoneAwareLoadBalancerSetting{
+				Failover: []*networking.ZoneAwareLoadBalancerSetting_Failover{
+					{From: "us-east", To: "eu-west"},
+				},
+			},
+			outlier: nil,
+			warn:    true,
+		},
+		{
+			name: "failoverPriority without outlier detection warns",
+			in: &networking.ZoneAwareLoadBalancerSetting{
+				FailoverPriority: []string{"version"},
+			},
+			outlier: nil,
+			warn:    true,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			v := ValidateZoneAwareLbSetting(c.in, c.outlier)
+			warn, err := v.Unwrap()
+			if (err != nil) != c.err {
+				t.Errorf("got err=%v but wanted err=%v: %v", err != nil, c.err, err)
+			}
+			if (warn != nil) != c.warn {
+				t.Errorf("got warn=%v but wanted warn=%v: %v", warn != nil, c.warn, warn)
+			}
+		})
 	}
 }
 

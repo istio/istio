@@ -30,6 +30,8 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
+const LocalClusterName = "local_cluster"
+
 // SvcUpdate is a callback from service discovery when service info changes.
 func (s *DiscoveryServer) SvcUpdate(shard model.ShardKey, hostname string, namespace string, event model.Event) {
 	// When a service deleted, we should cleanup the endpoint shards and also remove keys from EndpointIndex to
@@ -205,26 +207,41 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 	cached := 0
 	regenerated := 0
 
+	// Sync PrevLocalService so the next EDS push starts from this push's view.
+	// SetServiceTargets is not called on every push, so without this the transition
+	// flag in affectedService would stay positive across subsequent unrelated pushes.
+	defer func() { proxy.PrevLocalService = proxy.LocalService }()
+
 	for clusterName := range w.ResourceNames {
-		affectedService := edsUpdatedServices.Contains(model.ParseSubsetKeyHostname(clusterName))
+		affected := affectedService(proxy, edsUpdatedServices, clusterName)
 		if partialPush && changedDrs.IsEmpty() && changedAuthnNs.IsEmpty() &&
-			!affectedService {
+			!affected {
 
 			// Cluster was not updated and no changes to destination rules or peer authentication policies, skip recomputing.
 			continue
 		}
 
-		dir, subsetName, hostname, port := model.ParseSubsetKey(clusterName)
+		dir, subsetName, hostname, port := parseClusterName(clusterName, proxy)
 		svc := req.Push.ServiceForHostname(proxy, hostname)
 
+		isLocalCluster := clusterName == LocalClusterName
 		var dr *model.ConsolidatedDestRule
-		if svc != nil {
+		if svc != nil && !isLocalCluster {
+			// TODO: disable DR lookup for local_cluster, as it's only used for zone-aware routing math,
+			// and we want to return the full locality distribution of the proxy's own service.
+			// We may want to enable this in the future, mainly to correctly create priorities when using failovers,
+			// which might improve traffic calculations if using sub-region failovers.
 			dr = proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, svc.Hostname)
 		}
 
 		// if we can do a partial push, check if the cluster is affected by the changed destination rules or peer authentication policies
 		// to avoid recomputing the cluster if it is not affected
-		if partialPush && svc != nil && !affectedService {
+		if partialPush && svc != nil && !affected {
+			// local cluster is unaffected by authn or DR changes
+			if isLocalCluster {
+				continue
+			}
+
 			if !clusterAffectedByChangedAuthn(svc, changedAuthnNs, req.Push.Mesh.RootNamespace) &&
 				!clusterAffectedByChangedDrs(proxy, dr, hostname, changedDrs) {
 				continue
@@ -260,6 +277,33 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 		Incremental:    len(edsUpdatedServices) != 0,
 		AdditionalInfo: fmt.Sprintf("empty:%v cached:%v/%v", empty, cached, cached+regenerated),
 	}
+}
+
+func parseClusterName(clusterName string, proxy *model.Proxy) (model.TrafficDirection, string, host.Name, int) {
+	if clusterName == LocalClusterName {
+		if proxy.LocalService == "" {
+			return model.TrafficDirectionOutbound, "", "", 0
+		}
+		return model.TrafficDirectionOutbound, "", proxy.LocalService, proxy.ServiceTargets[0].Port.Port
+	}
+
+	return model.ParseSubsetKey(clusterName)
+}
+
+func affectedService(proxy *model.Proxy, edsUpdatedServices sets.Set[string], clusterName string) bool {
+	if clusterName == LocalClusterName {
+		// Detect a local-service transition (add, delete, or replace). Both fields are
+		// empty for proxies that never had a local service, so steady-state pushes for
+		// those proxies fall through to "no service, nothing to push".
+		if proxy.LocalService != proxy.PrevLocalService {
+			return true
+		}
+		if proxy.LocalService == "" {
+			return false
+		}
+		return edsUpdatedServices.Contains(string(proxy.LocalService))
+	}
+	return edsUpdatedServices.Contains(model.ParseSubsetKeyHostname(clusterName))
 }
 
 // clusterAffectedByChangedDrs checks if the service is affected by the changed destination rules

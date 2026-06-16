@@ -582,6 +582,55 @@ func ValidateLocalityLbSetting(lb *networking.LocalityLoadBalancerSetting, outli
 	return errs
 }
 
+// ValidateZoneAwareLbSetting checks the ZoneAwareLoadBalancerSetting on a
+// DestinationRule's TrafficPolicy. ZoneAwareLbSetting differs from
+// LocalityLbSetting in that zone-level routing and failover within a region
+// are handled automatically by Envoy, so cross-region failover and
+// failover_priority entries must be region-scoped.
+func ValidateZoneAwareLbSetting(lb *networking.ZoneAwareLoadBalancerSetting, outlier *networking.OutlierDetection) (errs Validation) {
+	if lb == nil {
+		return errs
+	}
+
+	if len(lb.GetFailover()) > 0 && len(lb.GetFailoverPriority()) > 0 {
+		for _, priorityLabel := range lb.GetFailoverPriority() {
+			switch priorityLabel {
+			case label.LabelTopologyRegion, label.LabelTopologyZone, label.LabelTopologySubzone:
+				errs = AppendValidation(errs, fmt.Errorf("can not simultaneously set 'failover' and topology label '%s' in 'failover_priority'", priorityLabel))
+				return errs
+			}
+		}
+	}
+
+	for _, priorityLabel := range lb.GetFailoverPriority() {
+		// Zone-level routing/failover within a region is automatic for zone-aware
+		// LB, so allowing zone/subzone in failover_priority would conflict with the
+		// implicit ordering Envoy already applies.
+		switch priorityLabel {
+		case label.LabelTopologyZone, label.LabelTopologySubzone:
+			errs = AppendValidation(errs, fmt.Errorf("'failover_priority' for zone aware lb must not use topology label '%s'; zone-level routing is automatic", priorityLabel))
+		}
+	}
+
+	if (len(lb.GetFailover()) != 0 || len(lb.GetFailoverPriority()) != 0) && outlier == nil {
+		errs = AppendValidation(errs, WrapWarning(fmt.Errorf("outlier detection policy must be provided for failover")))
+	}
+
+	for _, failover := range lb.GetFailover() {
+		if failover.From == failover.To {
+			errs = AppendValidation(errs, fmt.Errorf("zone aware lb failover settings must specify different regions"))
+		}
+		if strings.Contains(failover.From, "/") || strings.Contains(failover.To, "/") {
+			errs = AppendValidation(errs, fmt.Errorf("zone aware lb failover only specifies region; zone and subzone failover are handled automatically"))
+		}
+		if strings.Contains(failover.To, "*") || strings.Contains(failover.From, "*") {
+			errs = AppendValidation(errs, fmt.Errorf("zone aware lb failover region should not contain '*' wildcard"))
+		}
+	}
+
+	return errs
+}
+
 const (
 	regionIndex int = iota
 	zoneIndex
@@ -821,7 +870,11 @@ func ValidateMeshConfig(mesh *meshconfig.MeshConfig) (Warning, error) {
 		v = AppendValidation(v, ValidateMeshConfigProxyConfig(mesh.DefaultConfig))
 	}
 
+	if mesh.LocalityLbSetting != nil && mesh.ZoneAwareLbSetting != nil {
+		v = AppendValidation(v, fmt.Errorf("only one of localityLbSetting and zoneAwareLbSetting can be set in mesh config"))
+	}
 	v = AppendValidation(v, ValidateLocalityLbSetting(mesh.LocalityLbSetting, &networking.OutlierDetection{}))
+	v = AppendValidation(v, ValidateZoneAwareLbSetting(mesh.ZoneAwareLbSetting, &networking.OutlierDetection{}))
 	v = AppendValidation(v, validateServiceSettings(mesh))
 	v = AppendValidation(v, validateTrustDomainConfig(mesh))
 

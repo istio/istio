@@ -557,6 +557,37 @@
         }
       }
       {{ end }}
+      {{ if .zone_aware_routing_support }}
+      ,
+      {
+        "name": "local_cluster",
+        "alt_stat_name": "local_cluster;",
+        "type": "EDS",
+        "connect_timeout": "1s",
+        "load_balancing_policy": {
+          "policies": [{
+            "typed_extension_config": {
+              "name": "envoy.load_balancing_policies.least_request",
+              "typed_config": {
+                "@type": "type.googleapis.com/envoy.extensions.load_balancing_policies.least_request.v3.LeastRequest",
+                "locality_lb_config": {
+                  "zone_aware_lb_config": {
+                    "min_cluster_size": "1"
+                  }
+                }
+              }
+            }
+          }]
+        },
+        "eds_cluster_config": {
+          "eds_config": {
+            "ads": {},
+            "resource_api_version": "V3"
+          },
+          "service_name": "local_cluster"
+        }
+      }
+      {{ end }}
     ],
     "listeners":[
       {
@@ -1070,21 +1101,21 @@
     {{ end }}
   ]
   {{ end }}
-  {{ if or .outlier_log_path .load_stats_config_json_str}}
+  {{ if or .outlier_log_path .load_stats_config_json_str .zone_aware_routing_support }}
   ,
   "cluster_manager": {
-    "enable_deferred_cluster_creation": true,
+    {{- if .zone_aware_routing_support }}
+    "local_cluster_name": "local_cluster",
+    {{- end }}
     {{- if .outlier_log_path}}
     "outlier_detection": {
       "event_log_path": "{{ .outlier_log_path }}"
-    }
-    {{- end}}
-    {{- if and .outlier_log_path .load_stats_config_json_str }}
-    ,
+    },
     {{- end}}
     {{- if .load_stats_config_json_str }}
-    "load_stats_config": {{- .load_stats_config_json_str }}
+    "load_stats_config": {{- .load_stats_config_json_str }},
     {{- end }}
+    "enable_deferred_cluster_creation": true
   }
   {{- end }}
   ,
