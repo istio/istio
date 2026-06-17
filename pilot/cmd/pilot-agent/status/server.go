@@ -119,8 +119,8 @@ var (
 	allowedEnvoyTypes = []string{"text/*", "text/plain"}
 	allowedAppTypes   = []string{"text/*", "text/plain", "application/openmetrics-text"}
 
-	prometheusText_0_0_4  = encoding{mediatype: "text/plain", params: map[string]string{"version": "0.0.4"}}
-	openMetricsText_0_0_1 = encoding{mediatype: "application/openmetrics-text", params: map[string]string{"version": "0.0.1"}}
+	prometheusText004  = encoding{mediatype: "text/plain", params: map[string]string{"version": "0.0.4"}}
+	openMetricsText001 = encoding{mediatype: "application/openmetrics-text", params: map[string]string{"version": "0.0.1"}}
 )
 
 // KubeAppProbers holds the information about a Kubernetes pod prober.
@@ -922,7 +922,7 @@ func allowedContentTypes(acceptHeader string, acceptedTypes []string) string {
 	encodings, err := parseAcceptHeader(acceptHeader)
 	if err != nil {
 		log.Warnf("Failed to parse Accept header %q: %v", acceptHeader, err)
-		return prometheusText_0_0_4.String()
+		return prometheusText004.String()
 	}
 
 	var acceptedEncodings []encoding
@@ -930,31 +930,31 @@ func allowedContentTypes(acceptHeader string, acceptedTypes []string) string {
 	for _, e := range encodings {
 		// This would include protobuf, all the Prometheus's OpenMetricsText and PrometheusText encodings
 		if e.mediatype == "*/*" || e.mediatype == "*" {
-			if !slices.Contains(acceptedTypes, prometheusText_0_0_4.mediatype) {
+			if !slices.Contains(acceptedTypes, prometheusText004.mediatype) {
 				continue
 			}
 
-			key := prometheusText_0_0_4.String()
+			key := prometheusText004.String()
 			if _, present := used[key]; present {
 				continue
 			}
 			used[key] = true
-			acceptedEncodings = append(acceptedEncodings, prometheusText_0_0_4)
+			acceptedEncodings = append(acceptedEncodings, prometheusText004)
 			continue
 		}
 
 		// This would include protobuf and all the Prometheus's OpenMetricsText encodings
 		if e.mediatype == "application/*" {
-			if !slices.Contains(acceptedTypes, openMetricsText_0_0_1.mediatype) {
+			if !slices.Contains(acceptedTypes, openMetricsText001.mediatype) {
 				continue
 			}
 
-			key := openMetricsText_0_0_1.String()
+			key := openMetricsText001.String()
 			if _, present := used[key]; present {
 				continue
 			}
 			used[key] = true
-			acceptedEncodings = append(acceptedEncodings, openMetricsText_0_0_1)
+			acceptedEncodings = append(acceptedEncodings, openMetricsText001)
 			continue
 		}
 
@@ -970,7 +970,7 @@ func allowedContentTypes(acceptHeader string, acceptedTypes []string) string {
 	total := len(acceptedEncodings)
 	if total == 0 {
 		log.Warnf("No recognized encodings found in Accept header %q", acceptHeader)
-		return prometheusText_0_0_4.String()
+		return prometheusText004.String()
 	}
 
 	var parts []string

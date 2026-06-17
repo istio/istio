@@ -581,19 +581,31 @@ func TestExcludeProtobufEncoding(t *testing.T) {
 		want         string
 	}{
 		{
-			name:         "typical accept header without protobuf",
-			acceptHeader: "application/openmetrics-text;version=1.0.0;escaping=allow-utf-8;q=0.5,application/openmetrics-text;version=0.0.1;q=0.4,text/plain;version=1.0.0;escaping=allow-utf-8;q=0.3,text/plain;version=0.0.4;q=0.2,*/*;q=0.1",
-			want:         "application/openmetrics-text",
+			name: "typical accept header without protobuf",
+			acceptHeader: "application/openmetrics-text;version=1.0.0;escaping=allow-utf-8;q=0.5," +
+				"application/openmetrics-text;version=0.0.1;q=0.4," +
+				"text/plain;version=1.0.0;escaping=allow-utf-8;q=0.3," +
+				"text/plain;version=0.0.4;q=0.2," +
+				"*/*;q=0.1",
+			want: "application/openmetrics-text",
 		},
 		{
-			name:         "typical accept header without protobuf and wildcard",
-			acceptHeader: "application/openmetrics-text;version=1.0.0;escaping=allow-utf-8;q=0.4,application/openmetrics-text;version=0.0.1;q=0.3,text/plain;version=1.0.0;escaping=allow-utf-8;q=0.2,text/plain;version=0.0.4;q=0.1",
-			want:         "application/openmetrics-text",
+			name: "typical accept header without protobuf and wildcard",
+			acceptHeader: "application/openmetrics-text;version=1.0.0;escaping=allow-utf-8;q=0.4," +
+				"application/openmetrics-text;version=0.0.1;q=0.3," +
+				"text/plain;version=1.0.0;escaping=allow-utf-8;q=0.2," +
+				"text/plain;version=0.0.4;q=0.1",
+			want: "application/openmetrics-text",
 		},
 		{
-			name:         "typical accept header with protobuf",
-			acceptHeader: "application/vnd.google.protobuf;proto=io.prometheus.client.MetricFamily;encoding=delimited;q=0.6,application/openmetrics-text;version=1.0.0;escaping=allow-utf-8;q=0.5,application/openmetrics-text;version=0.0.1;q=0.4,text/plain;version=1.0.0;escaping=allow-utf-8;q=0.3,text/plain;version=0.0.4;q=0.2,*/*;q=0.1",
-			want:         "application/openmetrics-text",
+			name: "typical accept header with protobuf",
+			acceptHeader: "application/vnd.google.protobuf;proto=io.prometheus.client.MetricFamily;encoding=delimited;q=0.6," +
+				"application/openmetrics-text;version=1.0.0;escaping=allow-utf-8;q=0.5," +
+				"application/openmetrics-text;version=0.0.1;q=0.4," +
+				"text/plain;version=1.0.0;escaping=allow-utf-8;q=0.3," +
+				"text/plain;version=0.0.4;q=0.2," +
+				"*/*;q=0.1",
+			want: "application/openmetrics-text",
 		},
 		{
 			name:         "protobuf only",
@@ -606,9 +618,10 @@ func TestExcludeProtobufEncoding(t *testing.T) {
 			want:         "application/openmetrics-text",
 		},
 		{
-			name:         "plain text only",
-			acceptHeader: "text/plain;version=1.0.0;escaping=allow-utf-8;q=0.3,text/plain;version=0.0.4;q=0.2,*/*;q=0.1",
-			want:         "text/plain",
+			name: "plain text only",
+			acceptHeader: "text/plain;version=1.0.0;escaping=allow-utf-8;q=0.2," +
+				"text/plain;version=0.0.4;q=0.1",
+			want: "text/plain",
 		},
 		{
 			name:         "expand MIME wildcard",
