@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+
+releaseNotes:
+- |
+  **Added** `values.global.proxy.holdApplicationUntilProxyStartsTimeoutSeconds` Helm value and
+  `sidecar.istio.io/holdApplicationUntilProxyStartsTimeoutSeconds` pod annotation to configure
+  the maximum time the `pilot-agent wait` postStart hook will wait for Envoy to become ready
+  when `holdApplicationUntilProxyStarts` is enabled. The annotation takes precedence over the
+  Helm value. The default is 60 seconds (unchanged from previous behaviour).

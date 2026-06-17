@@ -87,6 +87,12 @@ data:
           {{- $holdProxy := and
               (or .ProxyConfig.HoldApplicationUntilProxyStarts.GetValue .Values.global.proxy.holdApplicationUntilProxyStarts)
               (not $nativeSidecar) }}
+          {{- $holdWaitSec := .Values.global.proxy.holdApplicationUntilProxyStartsTimeoutSeconds | default 60 | int }}
+          {{- if lt $holdWaitSec 1 }}{{- $holdWaitSec = 60 }}{{- end }}
+          {{- if isset .ObjectMeta.Annotations `sidecar.istio.io/holdApplicationUntilProxyStartsTimeoutSeconds` }}
+          {{- $annoWait := index .ObjectMeta.Annotations `sidecar.istio.io/holdApplicationUntilProxyStartsTimeoutSeconds` }}
+          {{- if $annoWait }}{{- $parsedWait := atoi $annoWait }}{{- if gt $parsedWait 0 }}{{- $holdWaitSec = $parsedWait }}{{- end }}{{- end }}
+          {{- end }}
           {{- $noInitContainer := and
               (eq (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) `NONE`)
               (not $nativeSidecar) }}
@@ -238,6 +244,7 @@ data:
                   command:
                   - pilot-agent
                   - wait
+                  - --timeoutSeconds={{ $holdWaitSec }}
           {{- else if $nativeSidecar }}
             {{- /* preStop is called when the pod starts shutdown. Initialize drain. We will get SIGTERM once applications are torn down. */}}
             lifecycle:
