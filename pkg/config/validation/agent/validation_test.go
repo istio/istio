@@ -19,9 +19,9 @@ import (
 	"testing"
 	"time"
 
-	wrappers "github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/hashicorp/go-multierror"
 	"google.golang.org/protobuf/types/known/durationpb"
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"

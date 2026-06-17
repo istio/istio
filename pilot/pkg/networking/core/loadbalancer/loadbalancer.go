@@ -36,16 +36,26 @@ const (
 	FailoverPriorityLabelDefaultSeparator = '='
 )
 
-func GetLocalityLbSetting(
-	mesh *v1alpha3.LocalityLoadBalancerSetting,
-	destrule *v1alpha3.LocalityLoadBalancerSetting,
+// GetEffectiveLbSetting resolves which load-balancing locality semantics apply for a
+// given DR / service / mesh combination. Exactly one of the first two return values
+// is non-nil (or both nil if locality LB is effectively disabled).
+func GetEffectiveLbSetting(
+	meshLocality *v1alpha3.LocalityLoadBalancerSetting,
+	meshZoneAware *v1alpha3.ZoneAwareLoadBalancerSetting,
+	drSettings *v1alpha3.LoadBalancerSettings,
 	service *model.Service,
-) (*v1alpha3.LocalityLoadBalancerSetting, bool) {
-	if destrule != nil {
-		if destrule.Enabled != nil && !destrule.Enabled.Value {
-			return nil, false
+) (*v1alpha3.LocalityLoadBalancerSetting, *v1alpha3.ZoneAwareLoadBalancerSetting, bool) {
+	if zaLbSetting := drSettings.GetZoneAwareLbSetting(); zaLbSetting != nil {
+		if zaLbSetting.GetEnabled() != nil && !zaLbSetting.GetEnabled().Value {
+			return nil, nil, false
 		}
-		return destrule, false
+		return nil, zaLbSetting, false
+	}
+	if localityLbSetting := drSettings.GetLocalityLbSetting(); localityLbSetting != nil {
+		if localityLbSetting.GetEnabled() != nil && !localityLbSetting.GetEnabled().Value {
+			return nil, nil, false
+		}
+		return localityLbSetting, nil, false
 	}
 	if service != nil && service.Attributes.TrafficDistribution != model.TrafficDistributionAny {
 		switch service.Attributes.TrafficDistribution {
@@ -58,7 +68,7 @@ func GetLocalityLbSetting(
 					registrylabel.LabelTopologyRegion,
 					registrylabel.LabelTopologyZone,
 				},
-			}, true
+			}, nil, true
 		case model.TrafficDistributionPreferSameNode:
 			return &v1alpha3.LocalityLoadBalancerSetting{
 				Enabled: wrappers.Bool(true),
@@ -70,16 +80,106 @@ func GetLocalityLbSetting(
 					label.TopologySubzone.Name,
 					registrylabel.LabelHostname,
 				},
-			}, true
+			}, nil, true
 		case model.TrafficDistributionAny:
 			// fallthrough
 		}
 	}
-	msh := mesh.GetEnabled()
-	if msh != nil && !msh.Value {
-		return nil, false
+	if meshZoneAware != nil {
+		if meshZoneAware.GetEnabled() != nil && !meshZoneAware.GetEnabled().Value {
+			return nil, nil, false
+		}
+		return nil, meshZoneAware, false
 	}
-	return mesh, false
+	if meshLocality != nil {
+		if meshLocality.GetEnabled() != nil && !meshLocality.GetEnabled().Value {
+			return nil, nil, false
+		}
+		return meshLocality, nil, false
+	}
+	return nil, nil, false
+}
+
+// ApplyZoneAwareLoadBalancer is the zone-aware counterpart to ApplyLocalityLoadBalancer.
+// Envoy already routes within the local zone automatically when zone-aware LB is enabled
+// at the cluster level, so this only applies user-configured failovers.
+func ApplyZoneAwareLoadBalancer(
+	loadAssignment *endpoint.ClusterLoadAssignment,
+	wrappedLocalityLbEndpoints []*WrappedLocalityLbEndpoints,
+	locality *core.Locality,
+	proxyLabels map[string]string,
+	zoneAwareLB *v1alpha3.ZoneAwareLoadBalancerSetting,
+	enableFailover bool,
+) {
+	if zoneAwareLB == nil || loadAssignment == nil || !enableFailover {
+		return
+	}
+	if len(zoneAwareLB.FailoverPriority) > 0 {
+		applyFailoverPriorities(loadAssignment, wrappedLocalityLbEndpoints, proxyLabels, zoneAwareLB.FailoverPriority)
+		// When FailoverPriority is set, only apply region bucketing if user also asked for it,
+		// mirroring how ApplyLocalityLoadBalancer treats Failover as additive to FailoverPriority.
+		if len(zoneAwareLB.Failover) > 0 {
+			applyZoneAwareFailover(locality, loadAssignment, zoneAwareLB.Failover)
+		}
+	} else {
+		// Always region-bucket when failover is enabled, even with no Failover entries: this keeps
+		// cross-region endpoints out of priority 0 so Envoy's zone-aware LB only balances zones
+		// within the proxy's region.
+		applyZoneAwareFailover(locality, loadAssignment, zoneAwareLB.Failover)
+	}
+}
+
+// applyZoneAwareFailover buckets LocalityLbEndpoints by region only, so all endpoints in the
+// proxy's region land at priority 0 (where Envoy's zone-aware LB can balance them across zones).
+// Failover-matched regions occupy the next priority and remaining regions the last priority.
+// Like applyLocalityFailover, priorities are multiplied by 3 to compose with any prior
+// FailoverPriority assignment, then compacted to a contiguous 0..N range.
+func applyZoneAwareFailover(
+	locality *core.Locality,
+	loadAssignment *endpoint.ClusterLoadAssignment,
+	failover []*v1alpha3.ZoneAwareLoadBalancerSetting_Failover,
+) {
+	priorityMap := map[int][]int{}
+	proxyRegion := locality.GetRegion()
+
+	for i, localityEndpoint := range loadAssignment.Endpoints {
+		epRegion := localityEndpoint.GetLocality().GetRegion()
+		// 0: same region as proxy, 1: failover-matched region, 2: any other region.
+		var priority int
+		switch {
+		case epRegion == proxyRegion:
+			priority = 0
+		default:
+			priority = 2
+			for _, failoverSetting := range failover {
+				if failoverSetting.From == proxyRegion {
+					if epRegion == failoverSetting.To {
+						priority = 1
+					}
+					break
+				}
+			}
+		}
+		// Compose with any prior priority (e.g. set by applyFailoverPriorities).
+		// Zone-aware uses 3 buckets (0..2) so multiplying by 3 keeps the slots distinct.
+		priorityInt := int(loadAssignment.Endpoints[i].Priority*3) + priority
+		loadAssignment.Endpoints[i].Priority = uint32(priorityInt)
+		priorityMap[priorityInt] = append(priorityMap[priorityInt], i)
+	}
+
+	// Compact priorities to a contiguous 0..N range so Envoy doesn't skip empty buckets.
+	priorities := make([]int, 0, len(priorityMap))
+	for priority := range priorityMap {
+		priorities = append(priorities, priority)
+	}
+	sort.Ints(priorities)
+	for i, priority := range priorities {
+		if i != priority {
+			for _, index := range priorityMap[priority] {
+				loadAssignment.Endpoints[index].Priority = uint32(i)
+			}
+		}
+	}
 }
 
 func ApplyLocalityLoadBalancer(

@@ -207,11 +207,6 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 	cached := 0
 	regenerated := 0
 
-	// Sync PrevLocalService so the next EDS push starts from this push's view.
-	// SetServiceTargets is not called on every push, so without this the transition
-	// flag in affectedService would stay positive across subsequent unrelated pushes.
-	defer func() { proxy.PrevLocalService = proxy.LocalService }()
-
 	for clusterName := range w.ResourceNames {
 		affected := affectedService(proxy, edsUpdatedServices, clusterName)
 		if partialPush && changedDrs.IsEmpty() && changedAuthnNs.IsEmpty() &&

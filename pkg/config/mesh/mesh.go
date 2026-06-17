@@ -251,6 +251,18 @@ func ApplyMeshConfig(yaml string, defaultConfig *meshconfig.MeshConfig) (*meshco
 
 	defaultConfig.TrustDomainAliases = sets.SortedList(sets.New(append(defaultConfig.TrustDomainAliases, prevTrustDomainAliases...)...))
 
+	// LocalityLbSetting and ZoneAwareLbSetting are mutually exclusive. The default mesh config
+	// enables LocalityLbSetting, so a user opting into ZoneAwareLbSetting without explicitly
+	// clearing LocalityLbSetting would otherwise fail validation. If only one is set in the
+	// user-provided YAML, clear the other so the user's intent wins over the default.
+	_, userSetLocality := raw["localityLbSetting"]
+	_, userSetZoneAware := raw["zoneAwareLbSetting"]
+	if userSetZoneAware && !userSetLocality {
+		defaultConfig.LocalityLbSetting = nil
+	} else if userSetLocality && !userSetZoneAware {
+		defaultConfig.ZoneAwareLbSetting = nil
+	}
+
 	warn, err := agent.ValidateMeshConfig(defaultConfig)
 	if err != nil {
 		return nil, err

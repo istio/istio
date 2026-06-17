@@ -608,7 +608,13 @@ func ValidateZoneAwareLbSetting(lb *networking.ZoneAwareLoadBalancerSetting, out
 		// implicit ordering Envoy already applies.
 		switch priorityLabel {
 		case label.LabelTopologyZone, label.LabelTopologySubzone:
-			errs = AppendValidation(errs, fmt.Errorf("'failover_priority' for zone aware lb must not use topology label '%s'; zone-level routing is automatic", priorityLabel))
+			errs = AppendValidation(
+				errs,
+				fmt.Errorf(
+					"'failover_priority' for zone aware lb must not use topology label '%s'; zone-level routing is automatic",
+					priorityLabel,
+				),
+			)
 		}
 	}
 

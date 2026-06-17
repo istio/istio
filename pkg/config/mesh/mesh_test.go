@@ -277,6 +277,84 @@ defaultConfig:
 	t.Log("Result: \n", gotY, err)
 }
 
+func TestApplyMeshConfigLocalityZoneAwareExclusivity(t *testing.T) {
+	cases := []struct {
+		name             string
+		yaml             string
+		wantLocality     bool
+		wantZoneAware    bool
+		wantZAEnabled    bool
+		wantLocEnabled   bool
+		expectValidation bool
+	}{
+		{
+			name:           "no override keeps default locality",
+			yaml:           ``,
+			wantLocality:   true,
+			wantLocEnabled: true,
+		},
+		{
+			name: "user sets zoneAwareLbSetting clears default locality",
+			yaml: `
+zoneAwareLbSetting:
+  enabled: true
+`,
+			wantZoneAware: true,
+			wantZAEnabled: true,
+		},
+		{
+			name: "user sets localityLbSetting clears any zoneAware",
+			yaml: `
+localityLbSetting:
+  enabled: false
+`,
+			wantLocality: true,
+		},
+		{
+			name: "user sets both fails validation",
+			yaml: `
+localityLbSetting:
+  enabled: true
+zoneAwareLbSetting:
+  enabled: true
+`,
+			expectValidation: true,
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := mesh.ApplyMeshConfigDefaults(tt.yaml)
+			if tt.expectValidation {
+				if err == nil {
+					t.Fatalf("expected validation error, got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("ApplyMeshConfigDefaults() failed: %v", err)
+			}
+			if tt.wantLocality {
+				if got.LocalityLbSetting == nil {
+					t.Errorf("expected LocalityLbSetting set, got nil")
+				} else if tt.wantLocEnabled && !got.LocalityLbSetting.GetEnabled().GetValue() {
+					t.Errorf("expected LocalityLbSetting.Enabled=true")
+				}
+			} else if got.LocalityLbSetting != nil {
+				t.Errorf("expected LocalityLbSetting nil, got %v", got.LocalityLbSetting)
+			}
+			if tt.wantZoneAware {
+				if got.ZoneAwareLbSetting == nil {
+					t.Errorf("expected ZoneAwareLbSetting set, got nil")
+				} else if tt.wantZAEnabled && !got.ZoneAwareLbSetting.GetEnabled().GetValue() {
+					t.Errorf("expected ZoneAwareLbSetting.Enabled=true")
+				}
+			} else if got.ZoneAwareLbSetting != nil {
+				t.Errorf("expected ZoneAwareLbSetting nil, got %v", got.ZoneAwareLbSetting)
+			}
+		})
+	}
+}
+
 func getExtensionProviders(eps []*meshconfig.MeshConfig_ExtensionProvider) []string {
 	got := []string{}
 	for _, ep := range eps {

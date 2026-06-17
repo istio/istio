@@ -375,7 +375,7 @@ func TestZoneAwareRoutingTemplateParam(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			test.SetForTest(t, &features.EnableZoneAwareRoutingSupport, tc.enabled)
+			test.SetForTest(t, &features.EnableZoneAwareLB, tc.enabled)
 			node, err := GetNodeMetaData(MetadataOptions{
 				ID:          "sidecar~1.2.3.4~foo~bar",
 				Envs:        os.Environ(),

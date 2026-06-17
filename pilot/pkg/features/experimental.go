@@ -229,7 +229,7 @@ var (
 			"Items on this list can be prefixed with a '*.' meaning a whole group should be included regardless of the ignore list.",
 	).Get()
 
-	EnableZoneAwareRoutingSupport = env.Register("ENABLE_ZONE_AWARE_ROUTING_SUPPORT", false,
+	EnableZoneAwareLB = env.Register("ENABLE_ZONE_AWARE_LOAD_BALANCER", false,
 		"If enabled, Pilot will add the necessary configuration to support zone aware routing in Envoy. "+
 			"This includes adding a static cluster to all proxies. "+
 			"Note that Zone Aware loadbalacing should also be enabled in DestinationRule.").Get()

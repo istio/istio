@@ -284,9 +284,17 @@ func applyLoadBalancer(
 	if svc.SupportsUnhealthyEndpoints() {
 		c.CommonLbConfig.HealthyPanicThreshold = &xdstype.Percent{Value: 0}
 	}
-	// Use locality lb settings from load balancer settings if present, else use mesh wide locality lb settings
-	localityLbSetting, forceFailover := loadbalancer.GetLocalityLbSetting(meshConfig.GetLocalityLbSetting(), lb.GetLocalityLbSetting(), svc)
-	applyLocalityLoadBalancer(locality, proxyLabels, c, wrappedLocalityLbEndpoints, localityLbSetting, forceFailover)
+	localityLbSetting, zoneAwareLbSetting, forceFailover := loadbalancer.GetEffectiveLbSetting(
+		meshConfig.GetLocalityLbSetting(),
+		meshConfig.GetZoneAwareLbSetting(),
+		lb,
+		svc,
+	)
+	if zoneAwareLbSetting != nil {
+		applyZoneAwareLoadBalancer(locality, proxyLabels, c, wrappedLocalityLbEndpoints, zoneAwareLbSetting, forceFailover)
+	} else {
+		applyLocalityLoadBalancer(locality, proxyLabels, c, wrappedLocalityLbEndpoints, localityLbSetting, forceFailover)
+	}
 
 	if c.GetType() == cluster.Cluster_ORIGINAL_DST {
 		c.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
@@ -318,6 +326,34 @@ func applyLoadBalancer(
 	}
 
 	ApplyRingHashLoadBalancer(c, lb)
+}
+
+// applyZoneAwareLoadBalancer is the zone-aware counterpart to applyLocalityLoadBalancer.
+// It configures cluster-level zone-aware fields and applies any user-defined
+// region-level failover and failoverPriority overrides to the cluster's LoadAssignment.
+func applyZoneAwareLoadBalancer(
+	locality *core.Locality,
+	proxyLabels map[string]string,
+	c *cluster.Cluster,
+	wrappedLocalityLbEndpoints *loadbalancer.WrappedLocalityLbEndpoints,
+	zoneAwareLB *networking.ZoneAwareLoadBalancerSetting,
+	failover bool,
+) {
+	if features.EnableZoneAwareLB {
+		c.CommonLbConfig.LocalityConfigSpecifier = &cluster.Cluster_CommonLbConfig_ZoneAwareLbConfig_{
+			ZoneAwareLbConfig: &cluster.Cluster_CommonLbConfig_ZoneAwareLbConfig{
+				MinClusterSize: zoneAwareLB.GetMinClusterSize(),
+			},
+		}
+	}
+	enableFailover := failover || c.OutlierDetection != nil
+	if c.LoadAssignment != nil {
+		var wrapped []*loadbalancer.WrappedLocalityLbEndpoints
+		if wrappedLocalityLbEndpoints != nil {
+			wrapped = []*loadbalancer.WrappedLocalityLbEndpoints{wrappedLocalityLbEndpoints}
+		}
+		loadbalancer.ApplyZoneAwareLoadBalancer(c.LoadAssignment, wrapped, locality, proxyLabels, zoneAwareLB, enableFailover)
+	}
 }
 
 func applyLocalityLoadBalancer(

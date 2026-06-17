@@ -175,12 +175,25 @@ func (b *EndpointBuilder) populateSubsetInfo() {
 
 func (b *EndpointBuilder) populateFailoverPriorityLabels() {
 	enableFailover, lb := getOutlierDetectionAndLoadBalancerSettings(b.DestinationRule(), b.port, b.subsetName)
-	if enableFailover {
-		lbSetting, _ := loadbalancer.GetLocalityLbSetting(b.push.Mesh.GetLocalityLbSetting(), lb.GetLocalityLbSetting(), b.service)
-		if lbSetting != nil && lbSetting.Distribute == nil &&
-			len(lbSetting.FailoverPriority) > 0 && (lbSetting.Enabled == nil || lbSetting.Enabled.Value) {
-			b.failoverPriorityLabels = util.GetFailoverPriorityLabels(b.proxy.Labels, lbSetting.FailoverPriority)
-		}
+	if !enableFailover {
+		return
+	}
+	localitySetting, zoneAwareSetting, _ := loadbalancer.GetEffectiveLbSetting(
+		b.push.Mesh.GetLocalityLbSetting(),
+		b.push.Mesh.GetZoneAwareLbSetting(),
+		lb,
+		b.service,
+	)
+	var failoverPriority []string
+	switch {
+	case zoneAwareSetting != nil:
+		failoverPriority = zoneAwareSetting.FailoverPriority
+	case localitySetting != nil && localitySetting.Distribute == nil &&
+		(localitySetting.Enabled == nil || localitySetting.Enabled.Value):
+		failoverPriority = localitySetting.FailoverPriority
+	}
+	if len(failoverPriority) > 0 {
+		b.failoverPriorityLabels = util.GetFailoverPriorityLabels(b.proxy.Labels, failoverPriority)
 	}
 }
 
@@ -426,9 +439,14 @@ func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.Endpoi
 	// outlier detection in a DestinationRule will automatically activate locality LB failover
 	// even when no explicit localityLbSetting is configured in the DR.
 	enableFailover, lb := getOutlierDetectionAndLoadBalancerSettings(b.DestinationRule(), b.port, b.subsetName)
-	lbSetting, forceFailover := loadbalancer.GetLocalityLbSetting(b.push.Mesh.GetLocalityLbSetting(), lb.GetLocalityLbSetting(), b.service)
+	lbSetting, zoneAwareSetting, forceFailover := loadbalancer.GetEffectiveLbSetting(
+		b.push.Mesh.GetLocalityLbSetting(),
+		b.push.Mesh.GetZoneAwareLbSetting(),
+		lb,
+		b.service,
+	)
 	enableFailover = enableFailover || forceFailover
-	if lbSetting != nil {
+	if lbSetting != nil || zoneAwareSetting != nil {
 		// Make a shallow copy of the cla as we are mutating the endpoints with priorities/weights relative to the calling proxy
 		l = util.CloneClusterLoadAssignment(l)
 		wrappedLocalityLbEndpoints := make([]*loadbalancer.WrappedLocalityLbEndpoints, len(localityLbEndpoints))
@@ -438,7 +456,11 @@ func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.Endpoi
 				LocalityLbEndpoints: l.Endpoints[i],
 			}
 		}
-		loadbalancer.ApplyLocalityLoadBalancer(l, wrappedLocalityLbEndpoints, b.locality, b.proxy.Labels, lbSetting, enableFailover)
+		if zoneAwareSetting != nil {
+			loadbalancer.ApplyZoneAwareLoadBalancer(l, wrappedLocalityLbEndpoints, b.locality, b.proxy.Labels, zoneAwareSetting, enableFailover)
+		} else {
+			loadbalancer.ApplyLocalityLoadBalancer(l, wrappedLocalityLbEndpoints, b.locality, b.proxy.Labels, lbSetting, enableFailover)
+		}
 	}
 	return l
 }
