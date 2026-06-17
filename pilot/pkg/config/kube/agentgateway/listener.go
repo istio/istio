@@ -190,7 +190,7 @@ func listenerProtocolToIstio(name gatewayv1.GatewayController, p gatewayv1.Proto
 	case gatewayv1.ProtocolType(protocol.HBONE):
 		if name != constants.ManagedGatewayMeshController && name != constants.ManagedGatewayEastWestController &&
 			name != constants.ManagedAgentgatewayWaypointController && name != constants.ManagedAgentgatewayController {
-			return "", fmt.Errorf("protocol %q is only supported for waypoint proxies", p)
+			return "", fmt.Errorf("protocol %q is only supported for HBONE-enabled gateways/waypoints", p)
 		}
 		return string(p), nil
 	}
