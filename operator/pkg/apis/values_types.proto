@@ -1200,6 +1200,12 @@ message ProxyConfig {
   // Deprecated: replaced by ProxyConfig setting which allows per-pod configuration of this behavior.
   google.protobuf.BoolValue holdApplicationUntilProxyStarts = 37 [deprecated = true];
 
+  // Maximum seconds to wait for Envoy to become ready when holdApplicationUntilProxyStarts is enabled.
+  // The postStart hook runs `pilot-agent wait --timeoutSeconds=<value>`.
+  // Values below 1 are treated as 60 (pilot-agent's built-in default).
+  // Can be overridden per-pod with annotation sidecar.istio.io/holdApplicationUntilProxyStartsTimeoutSeconds.
+  uint32 holdApplicationUntilProxyStartsTimeoutSeconds = 43;
+
   // A comma separated list of inbound ports for which traffic is to be redirected to Envoy.
   // The wildcard character '*' can be used to configure redirection for all ports.
   string includeInboundPorts = 38;
