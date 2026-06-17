@@ -37,6 +37,18 @@ spec:
 apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
+  name: bookinfo-ratings-warmup-aggression-less-than-one
+spec:
+  host: ratings.prod.svc.cluster.local
+  trafficPolicy:
+    loadBalancer:
+      warmup:
+        duration: 300s
+        aggression: 0.5
+---
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
   name: bookinfo-ratings-http2-ping
 spec:
   host: ratings.prod.svc.cluster.local
