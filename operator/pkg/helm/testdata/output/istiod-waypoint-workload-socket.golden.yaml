@@ -528,6 +528,10 @@ data:
             - name: {{ $key }}
               value: "{{ $value }}"
             {{- end }}
+            {{- if .EnableZoneAwareLB }}
+            - name: ENABLE_ZONE_AWARE_LOAD_BALANCER
+              value: "true"
+            {{- end }}
             {{with .Values.global.imagePullPolicy }}imagePullPolicy: "{{.}}"{{end}}
             {{ if ne (annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort) `0` }}
           {{ if .Values.global.proxy.startupProbe.enabled }}
