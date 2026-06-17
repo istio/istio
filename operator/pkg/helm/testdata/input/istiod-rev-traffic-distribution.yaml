@@ -1,0 +1,5 @@
+spec:
+  values:
+    trafficDistribution: PreferClose
+    revisionTags:
+      - green
