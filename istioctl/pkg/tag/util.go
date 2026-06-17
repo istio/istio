@@ -163,7 +163,8 @@ func DeleteTagValidatingWebhooks(ctx context.Context, client kubernetes.Interfac
 	}
 	var result error
 	for _, vwh := range vwhs.Items {
-		result = multierror.Append(result, client.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(ctx, vwh.Name, metav1.DeleteOptions{})).ErrorOrNil()
+		err = client.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(ctx, vwh.Name, metav1.DeleteOptions{})
+		result = multierror.Append(result, err).ErrorOrNil()
 	}
 	return result
 }
