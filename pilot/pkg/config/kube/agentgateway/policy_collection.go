@@ -509,7 +509,7 @@ func BuildAncestorBackends(
 
 	grpcAncestors := krt.NewManyCollection(grpcRoutes, func(ctx krt.HandlerContext, obj *gatewayv1.GRPCRoute) []*AncestorBackend {
 		source := TypedResource{
-			Kind: gvk.HTTPRoute,
+			Kind: gvk.GRPCRoute,
 			Name: types.NamespacedName{
 				Namespace: obj.Namespace,
 				Name:      obj.Name,

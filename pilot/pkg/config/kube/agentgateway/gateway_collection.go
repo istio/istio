@@ -466,7 +466,8 @@ type RouteParents struct {
 }
 
 func (p RouteParents) fetch(ctx krt.HandlerContext, pk AgwParentKey) []*AgwParentInfo {
-	if pk.Kind == gvk.Service.Kubernetes() || pk.Kind == gvk.ServiceEntry.Kubernetes() {
+	// TODO(jaellio): support ServiceEntry for fetchServiceParent
+	if pk.Kind == gvk.Service.Kubernetes() {
 		return p.fetchServiceParent(ctx, pk)
 	}
 	return slices.Map(p.gatewayIndex.Fetch(ctx, pk), func(gw *GatewayListener) *AgwParentInfo {

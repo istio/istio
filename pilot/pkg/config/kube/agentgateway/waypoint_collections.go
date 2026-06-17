@@ -54,7 +54,7 @@ func BuildWaypointServiceBindings(
 	opts krt.OptionsBuilder,
 ) krt.Collection[WaypointServiceBinding] {
 	return krt.NewCollection(services, func(ctx krt.HandlerContext, svc *corev1.Service) *WaypointServiceBinding {
-		// check if the service or it's namespace has the use-waypoint label
+		// check if the service or its namespace has the use-waypoint label
 		wpRef := resolveUseWaypoint(ctx, svc.ObjectMeta, namespaces)
 		if wpRef == nil {
 			return nil
