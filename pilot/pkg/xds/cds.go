@@ -40,6 +40,7 @@ var skippedCdsConfigs = sets.New(
 	kind.Secret,
 	kind.Telemetry,
 	kind.WasmPlugin,
+	kind.TrafficExtension,
 	kind.ProxyConfig,
 	kind.DNSName,
 )
