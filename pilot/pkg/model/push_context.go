@@ -2179,8 +2179,17 @@ func (ps *PushContext) TrafficExtensions(proxy *Proxy) map[extensions.TrafficExt
 
 func (ps *PushContext) TrafficExtensionsByName(proxy *Proxy, names []types.NamespacedName) []*TrafficExtensionWrapper {
 	res := make([]*TrafficExtensionWrapper, 0, len(names))
+	// With more plumbing, there is probably a better way of doing this.
+	allowedNamespaces := sets.New(proxy.ConfigNamespace, ps.Mesh.RootNamespace)
+	// We allow cross namespace for waypoints
+	if proxy.IsWaypointProxy() {
+		for _, si := range ps.ServicesForWaypoint(WaypointKeyForProxy(proxy)) {
+			allowedNamespaces.Insert(si.GetNamespace())
+		}
+	}
+
 	for _, n := range names {
-		if n.Namespace != proxy.ConfigNamespace && n.Namespace != ps.Mesh.RootNamespace {
+		if !allowedNamespaces.Contains(n.Namespace) {
 			log.Warnf("proxy requested invalid TrafficExtension configuration: %v", n)
 			continue
 		}
