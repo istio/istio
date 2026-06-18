@@ -21,10 +21,15 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
+
+	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
+	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tests/integration/pilot/common"
 )
 
@@ -33,6 +38,11 @@ const (
 	// "region.zone.subzone" in the standard echo deployment).
 	localLocality  = "region/zone/subzone"
 	remoteLocality = "notregion/notzone/notsubzone"
+
+	// localClusterName matches xds.LocalClusterName in pilot. We hard-code it here so the
+	// integration test stays decoupled from pilot internals, but a mismatch should fail
+	// the static-cluster assertion below — which is the whole point.
+	localClusterName = "local_cluster"
 
 	sendCount = 50
 )
@@ -127,10 +137,7 @@ func TestZoneAwareLoadBalancer(t *testing.T) {
 		NewTest(t).
 		RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
-			// apps.A is the caller (proxy locality = "region/zone/subzone").
 			caller := apps.A[0]
-			// destB/destC are real backends we point WorkloadEntries at; their actual k8s
-			// localities are irrelevant — what matters is the locality declared on each WE.
 			destB := apps.B[0]
 			destC := apps.C[0]
 			proxyAddress := caller.WorkloadsOrFail(t)[0].Address()
@@ -138,13 +145,9 @@ func TestZoneAwareLoadBalancer(t *testing.T) {
 			cases := []struct {
 				name      string
 				workloads []weEntry
-				// expected is a map from echo service name → expected response count.
-				expected map[string]int
+				expected  map[string]int
 			}{
 				{
-					// One backend in the proxy's locality + one in a different region.
-					// Zone-aware LB keeps same-region endpoints at priority 0 (cluster-level
-					// ZoneAwareLbConfig only balances zones at p0), so all traffic goes local.
 					name: "LocalEndpointAttractsTraffic",
 					workloads: []weEntry{
 						{Address: destB.Address(), Locality: localLocality},
@@ -153,8 +156,6 @@ func TestZoneAwareLoadBalancer(t *testing.T) {
 					expected: expectAllTrafficTo(destB.Config().Service),
 				},
 				{
-					// Multiple local endpoints, multiple remote. Zone-aware should still
-					// pin everything to the local zone (priority 0 holds every local).
 					name: "MultipleLocalEndpoints",
 					workloads: []weEntry{
 						{Address: destB.Address(), Locality: localLocality},
@@ -165,8 +166,6 @@ func TestZoneAwareLoadBalancer(t *testing.T) {
 					expected: expectAllTrafficTo(destB.Config().Service),
 				},
 				{
-					// No local endpoint — zone-aware DR cannot route locally, so traffic
-					// must fall over to the remote-region endpoint (priority 1).
 					name: "NoLocalFailsOverToRemote",
 					workloads: []weEntry{
 						{Address: destC.Address(), Locality: remoteLocality},
@@ -174,8 +173,6 @@ func TestZoneAwareLoadBalancer(t *testing.T) {
 					expected: expectAllTrafficTo(destC.Config().Service),
 				},
 				{
-					// Local endpoint exists but is unreachable. Outlier detection ejects it,
-					// Envoy drops to priority 1 (remote) and traffic ends up on destC.
 					name: "UnreachableLocalEjectsToRemote",
 					workloads: []weEntry{
 						{Address: "10.99.99.99", Locality: localLocality},
@@ -198,10 +195,111 @@ func TestZoneAwareLoadBalancer(t *testing.T) {
 					t.ConfigIstio().
 						Eval(apps.Namespace.Name(), input, zoneAwareConfig).
 						ApplyOrFail(t)
+
+					// The traffic-distribution assertions below are not sufficient on their own:
+					// locality-LB defaults can produce the same pattern. We first verify that
+					// the proxy's Envoy config is actually zone-aware by asserting:
+					//   1. local_cluster is present as a static cluster
+					//   2. local_cluster has at least one endpoint (CLA populated via EDS)
+					//   3. the remote-host cluster uses zone_aware_lb_config, not locality_weighted
+					// All three must hold for zone-aware to be actually exercised at runtime.
+					assertZoneAwareConfig(t, caller, input.RemoteHost)
+
 					sendTrafficOrFail(t, caller, input.RemoteHost, tc.expected)
 				})
 			}
 		})
+}
+
+// assertZoneAwareConfig waits for the caller's Envoy config to reflect zone-aware routing.
+// Envoy's /config_dump endpoint omits endpoint data by default, so we use two separate
+// admin queries: /config_dump for cluster definitions (LocalityConfigSpecifier) and
+// /clusters?format=json for runtime host status (proves local_cluster is populated).
+func assertZoneAwareConfig(t framework.TestContext, caller echo.Instance, remoteHost string) {
+	t.Helper()
+	sidecar := caller.WorkloadsOrFail(t)[0].Sidecar()
+	remoteClusterName := fmt.Sprintf("outbound|80||%s", remoteHost)
+
+	// First: assert cluster definitions are correct.
+	sidecar.WaitForConfigOrFail(t, func(cd *admin.ConfigDump) (bool, error) {
+		clusters, err := extractClusters(cd)
+		if err != nil {
+			return false, err
+		}
+
+		var local, remote *cluster.Cluster
+		for _, c := range clusters {
+			switch c.GetName() {
+			case localClusterName:
+				local = c
+			case remoteClusterName:
+				remote = c
+			}
+		}
+		if local == nil {
+			return false, fmt.Errorf("static cluster %q not found in proxy config — env-var "+
+				"ENABLE_ZONE_AWARE_LOAD_BALANCER did not propagate to sidecar bootstrap", localClusterName)
+		}
+		if remote == nil {
+			return false, fmt.Errorf("dynamic cluster %q not yet present", remoteClusterName)
+		}
+
+		switch remote.GetCommonLbConfig().GetLocalityConfigSpecifier().(type) {
+		case *cluster.Cluster_CommonLbConfig_ZoneAwareLbConfig_:
+			// ok
+		case *cluster.Cluster_CommonLbConfig_LocalityWeightedLbConfig_:
+			return false, fmt.Errorf("cluster %q has LocalityWeightedLbConfig — istiod did not "+
+				"emit ZoneAwareLbConfig (is ENABLE_ZONE_AWARE_LOAD_BALANCER set on istiod?)", remoteClusterName)
+		default:
+			return false, fmt.Errorf("cluster %q has unexpected LocalityConfigSpecifier %T — expected ZoneAwareLbConfig",
+				remoteClusterName, remote.GetCommonLbConfig().GetLocalityConfigSpecifier())
+		}
+		return true, nil
+	}, retry.Delay(time.Second), retry.Timeout(30*time.Second))
+
+	// Second: assert local_cluster has live hosts via /clusters (config_dump excludes EDS data).
+	retry.UntilSuccessOrFail(t, func() error {
+		clusters, err := sidecar.Clusters()
+		if err != nil {
+			return err
+		}
+		for _, cs := range clusters.GetClusterStatuses() {
+			if cs.GetName() != localClusterName {
+				continue
+			}
+			if len(cs.GetHostStatuses()) == 0 {
+				return fmt.Errorf("cluster %q has 0 hosts — local_cluster EDS never populated", localClusterName)
+			}
+			return nil
+		}
+		return fmt.Errorf("cluster %q not present in /clusters output", localClusterName)
+	}, retry.Delay(time.Second), retry.Timeout(30*time.Second))
+}
+
+func extractClusters(cd *admin.ConfigDump) ([]*cluster.Cluster, error) {
+	var out []*cluster.Cluster
+	for _, c := range cd.GetConfigs() {
+		if c.GetTypeUrl() != "type.googleapis.com/envoy.admin.v3.ClustersConfigDump" {
+			continue
+		}
+		dump := &admin.ClustersConfigDump{}
+		if err := c.UnmarshalTo(dump); err != nil {
+			return nil, err
+		}
+		for _, sc := range dump.StaticClusters {
+			ct := &cluster.Cluster{}
+			if sc.Cluster != nil && sc.Cluster.UnmarshalTo(ct) == nil {
+				out = append(out, ct)
+			}
+		}
+		for _, dc := range dump.DynamicActiveClusters {
+			ct := &cluster.Cluster{}
+			if dc.Cluster != nil && dc.Cluster.UnmarshalTo(ct) == nil {
+				out = append(out, ct)
+			}
+		}
+	}
+	return out, nil
 }
 
 func expectAllTrafficTo(dest string) map[string]int {
@@ -218,7 +316,6 @@ func sendTrafficOrFail(t framework.TestContext, from echo.Instance, host string,
 		}
 		got := map[string]int{}
 		for _, r := range result.Responses {
-			// Hostname has form svc-version-randomid; extract just svc.
 			parts := strings.SplitN(r.Hostname, "-", 2)
 			if len(parts) < 2 {
 				return fmt.Errorf("unexpected hostname: %v", r)
@@ -233,8 +330,6 @@ func sendTrafficOrFail(t framework.TestContext, from echo.Instance, host string,
 		}
 		return nil
 	}
-	// We call our own service but with a Host header pointing at the zone-aware service —
-	// matches the locality_test pattern of indirection through the ServiceEntry hostname.
 	_ = from.CallOrFail(t, echo.CallOptions{
 		To: from,
 		Port: echo.Port{
