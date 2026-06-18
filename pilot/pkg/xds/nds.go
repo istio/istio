@@ -50,6 +50,7 @@ var skippedNdsConfigs = sets.New(
 	kind.RequestAuthentication,
 	kind.PeerAuthentication,
 	kind.WasmPlugin,
+	kind.TrafficExtension,
 	kind.ProxyConfig,
 	kind.MeshConfig,
 	kind.Endpoints,
