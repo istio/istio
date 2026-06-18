@@ -497,9 +497,10 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 					}
 
 					// Support statefulsets/headless services with TCP ports, and empty service address field.
-					// Instead of generating a single 0.0.0.0:Port listener, generate a listener
-					// for each instance. HTTP services can happily reside on 0.0.0.0:PORT and use the
-					// wildcard route match to get to the appropriate IP through original dst clusters.
+					// Instead of generating a single 0.0.0.0:Port listener per pod IP, generate a single
+					// wildcard 0.0.0.0:Port listener with per-pod /32 CIDR filter chain matches.
+					// HTTP services can happily reside on 0.0.0.0:PORT and use the wildcard route match
+					// to get to the appropriate IP through original dst clusters.
 					if bind.Primary() == "" && service.Resolution == model.Passthrough &&
 						saddress == constants.UnspecifiedIP && (servicePort.Protocol.IsTCP() || servicePort.Protocol.IsUnsupported()) {
 						instances := push.ServiceEndpointsByPort(service, servicePort.Port, nil)
@@ -516,7 +517,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 							continue
 						}
 						for _, instance := range instances {
-							// Make sure each endpoint address is a valid address
+							// Make sure each endpoint address is a valid IP address
 							// as service entries could have NONE resolution with label selectors for workload
 							// entries (which could technically have hostnames).
 							isValidInstance := true
@@ -529,18 +530,20 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 							if !isValidInstance {
 								continue
 							}
-							// Skip build outbound listener to the node itself,
-							// as when app access itself by pod ip will not flow through this listener.
-							// Simultaneously, it will be duplicate with inbound listener.
-							// should continue if current IstioEndpoint instance has the same ip with the
-							// first ip of node IPaddresses.
-							// The comparison works because both IstioEndpoint and Proxy always use the first PodIP (as provided by Kubernetes)
-							// as the first entry of their respective lists.
+							// Skip the node itself: traffic to self does not flow through an outbound listener.
+							// The comparison works because both IstioEndpoint and Proxy always use the first
+							// PodIP (as provided by Kubernetes) as the first entry of their respective lists.
 							if instance.FirstAddressOrNil() == node.IPAddresses[0] {
 								continue
 							}
-							listenerOpts.bind.binds = instance.Addresses
-							lb.buildSidecarOutboundListener(listenerOpts, listenerMap, virtualServices, actualWildcards)
+							// Build a single wildcard listener with per-pod /32 CIDR filter chain matches
+							// instead of a separate per-pod-IP listener. This reduces the total listener
+							// count from O(endpoints) to O(1) per headless service port.
+							perPodOpts := listenerOpts
+							perPodOpts.bind.binds = actualWildcards
+							perPodOpts.cidr = instance.Addresses
+							perPodOpts.headlessPodCIDR = true
+							lb.buildSidecarOutboundListener(perPodOpts, listenerMap, virtualServices, actualWildcards)
 						}
 					} else {
 						// Standard logic for headless and non headless services
@@ -801,7 +804,7 @@ func buildSidecarOutboundTCPListenerOpts(opts outboundListenerOpts, virtualServi
 	}
 
 	out = append(out, buildSidecarOutboundTLSFilterChainOpts(opts.proxy, opts.push, opts.cidr, opts.service,
-		opts.bind.Primary(), opts.port, meshGateway, svcConfigs)...)
+		opts.bind.Primary(), opts.port, meshGateway, svcConfigs, opts.headlessPodCIDR)...)
 	out = append(out, buildSidecarOutboundTCPFilterChainOpts(opts.proxy, opts.push, opts.cidr, opts.service,
 		opts.port, meshGateway, svcConfigs)...)
 	return out
@@ -1106,6 +1109,12 @@ type outboundListenerOpts struct {
 
 	port    *model.Port
 	service *model.Service
+
+	// headlessPodCIDR indicates that cidr contains per-pod /32 (or /128) host routes
+	// for a headless service. In this case the CIDR match is already pod-specific, so
+	// SNI-based discrimination is not needed and should be suppressed to avoid requiring
+	// callers to match on the service hostname.
+	headlessPodCIDR bool
 }
 
 // buildGatewayListener builds and initializes a Listener proto based on the provided opts. It does not set any filters.

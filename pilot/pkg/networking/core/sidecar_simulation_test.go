@@ -1134,6 +1134,92 @@ ports:
 	)
 }
 
+// TestHeadlessServiceListenerShape verifies the generated Envoy listener structure
+// for a headless TCP service with multiple pods. The expected output is a single
+// 0.0.0.0:PORT wildcard listener containing one CIDR-matched filter chain per pod,
+// rather than the old model of one listener per pod IP.
+//
+// Run with -v to see the full JSON listener dump.
+func TestHeadlessServiceListenerShape(t *testing.T) {
+	kubeConfig := `
+apiVersion: v1
+kind: Service
+metadata:
+  name: mystatefulset
+  namespace: default
+spec:
+  clusterIP: None
+  selector:
+    app: mystatefulset
+  ports:
+  - name: tcp
+    port: 8080
+    protocol: TCP
+---
+apiVersion: discovery.k8s.io/v1
+kind: EndpointSlice
+metadata:
+  name: mystatefulset
+  namespace: default
+  labels:
+    kubernetes.io/service-name: mystatefulset
+endpoints:
+- addresses:
+  - 10.0.0.1
+- addresses:
+  - 10.0.0.2
+- addresses:
+  - 10.0.0.3
+ports:
+- name: tcp
+  port: 8080
+  protocol: TCP
+`
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+		KubernetesObjectString: kubeConfig,
+	})
+	sim := simulation.NewSimulation(t, s, s.SetupProxy(nil))
+
+	// Find the single wildcard listener on port 8080.
+	l := xdstest.ExtractListener("0.0.0.0_8080", sim.Listeners)
+	if l == nil {
+		t.Fatalf("expected listener 0.0.0.0_8080, got listeners: %v", xdstest.ExtractListenerNames(sim.Listeners))
+	}
+
+	// Expect exactly one wildcard listener (not three per-pod listeners).
+	count := 0
+	for _, li := range sim.Listeners {
+		if li.GetAddress().GetSocketAddress().GetPortValue() == 8080 {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Errorf("expected 1 listener on port 8080, got %d", count)
+	}
+
+	// The proxy IP is 1.1.1.1 (FakeDiscoveryServer default), so only 3 remote pod
+	// IPs generate filter chains (the proxy's own IP is skipped).
+	// Each pod gets a /32 CIDR-matched filter chain.
+	if got := len(l.FilterChains); got != 3 {
+		t.Errorf("expected 3 per-pod filter chains, got %d", got)
+	}
+
+	for i, fc := range l.FilterChains {
+		ranges := fc.GetFilterChainMatch().GetPrefixRanges()
+		if len(ranges) != 1 {
+			t.Errorf("filter chain %d: expected 1 prefix range, got %d", i, len(ranges))
+			continue
+		}
+		if ranges[0].GetPrefixLen().GetValue() != 32 {
+			t.Errorf("filter chain %d: expected /32, got /%d", i, ranges[0].GetPrefixLen().GetValue())
+		}
+	}
+
+	// Dump the full listener JSON — visible when running with -v.
+	t.Logf("headless TCP listener (single wildcard + per-pod CIDR filter chains):\n%s",
+		xdstest.Dump(t, l))
+}
+
 func TestExternalNameServices(t *testing.T) {
 	ports := `
   - name: http
