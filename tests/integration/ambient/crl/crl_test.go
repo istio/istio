@@ -63,11 +63,10 @@ func TestZtunnelCrlOutbound(t *testing.T) {
 			// client cluster's ztunnel rejects outbound connections to the server cluster.
 			certBundle.RevokeRemoteIntermediate(t, clientCluster, serverCluster)
 			certBundle.WaitForCRLPropagation(t, clientCluster)
-			deleteZtunnelPod(t, clientCluster)
+			restartZtunnelPodAndWait(t, clientCluster)
 
-			t.Logf("waiting for source ztunnel to reject outbound connection to remote server")
+			t.Logf("waiting for source ztunnel to reject outbound connection to remote server with revoked IA")
 			verifyConnectionToRejected(t, server, clientCluster, "source")
-			t.Logf("call correctly failed: source ztunnel rejected outbound connection to remote server with revoked IA")
 		})
 }
 
@@ -97,11 +96,10 @@ func TestZtunnelCrlInbound(t *testing.T) {
 			// server cluster's ztunnel rejects inbound connections from the client cluster.
 			certBundle.RevokeRemoteIntermediate(t, serverCluster, clientCluster)
 			certBundle.WaitForCRLPropagation(t, serverCluster)
-			deleteZtunnelPod(t, serverCluster)
+			restartZtunnelPodAndWait(t, serverCluster)
 
-			t.Logf("waiting for destination ztunnel to reject inbound connection from client")
+			t.Logf("waiting for destination ztunnel to reject inbound connection from client with revoked IA")
 			verifyConnectionToRejected(t, server, serverCluster, "destination")
-			t.Logf("call correctly failed: destination ztunnel rejected inbound connection from client with revoked IA")
 		})
 }
 
@@ -109,13 +107,13 @@ func TestZtunnelCrlInbound(t *testing.T) {
 func resetCrlState(t framework.TestContext, cl cluster.Cluster) {
 	t.Helper()
 	certBundle.ResetCRL(t, cl)
-	deleteZtunnelPod(t, cl)
+	restartZtunnelPodAndWait(t, cl)
 	t.Logf("CRL reset complete on %s", cl.Name())
 }
 
-// deleteZtunnelPod deletes all ztunnel pods on the given cluster so the DS recreates them,
+// restartZtunnelPodAndWait deletes all ztunnel pods on the given cluster so the DS recreates them,
 // causing ztunnel to start fresh with the CRL loaded from the current istio-ca-crl ConfigMap volume and to drop existing connections.
-func deleteZtunnelPod(t framework.TestContext, targetCluster cluster.Cluster) {
+func restartZtunnelPodAndWait(t framework.TestContext, targetCluster cluster.Cluster) {
 	t.Helper()
 	clusterName := targetCluster.Name()
 	istioCfg := istio.DefaultConfigOrFail(t, t)

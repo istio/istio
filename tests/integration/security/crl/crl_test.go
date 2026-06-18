@@ -53,7 +53,7 @@ func TestPluggedInCACRL(t *testing.T) {
 
 			// Revoke the intermediate certificate in each primary cluster where istiod runs and watches the cacerts secret
 			for _, c := range t.AllClusters().Primaries() {
-				certBundle.RevokeIntermediate(t, c)
+				certBundle.RevokeOwnIntermediate(t, c)
 
 				// wait for the CRL ConfigMap to be updated
 				util.WaitForCRLUpdate(

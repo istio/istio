@@ -35,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/log"
@@ -222,9 +223,9 @@ func (rb *RootBundle) Bundle(c cluster.Cluster) *IABundle {
 	return rb.bundles[c.Name()]
 }
 
-// RevokeIntermediate revokes the given cluster's own intermediate CA in its root CRL
+// RevokeOwnIntermediate revokes the given cluster's own intermediate CA in its root CRL
 // and pushes the update to that cluster's cacerts secret.
-func (rb *RootBundle) RevokeIntermediate(t framework.TestContext, c cluster.Cluster) {
+func (rb *RootBundle) RevokeOwnIntermediate(t framework.TestContext, c cluster.Cluster) {
 	t.Helper()
 	rb.RevokeRemoteIntermediate(t, c, c)
 }
@@ -343,14 +344,13 @@ func (rb *RootBundle) createCaCertsSecret(
 	}
 	// delete any stale istio-ca-root-cert ConfigMap from a previous test run so istiod
 	// recreates it from the new cacerts secret on startup.
-	configMapName := "istio-ca-root-cert"
-	err = bundle.c.Kube().CoreV1().ConfigMaps(systemNs.Name()).Delete(context.TODO(), configMapName,
+	err = bundle.c.Kube().CoreV1().ConfigMaps(systemNs.Name()).Delete(context.TODO(), features.CACertConfigMapName,
 		metav1.DeleteOptions{})
 	if err == nil {
-		log.Infof("configmap %v is deleted", configMapName)
+		log.Infof("configmap %v is deleted", features.CACertConfigMapName)
 	} else {
 		log.Warnf("configmap %v may not exist and the deletion returns err (%v)",
-			configMapName, err)
+			features.CACertConfigMapName, err)
 	}
 	return nil
 }

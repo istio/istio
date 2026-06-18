@@ -24,6 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/api/label"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/framework"
@@ -87,8 +88,8 @@ func TestMain(m *testing.M) {
 						return
 					}
 					for _, ns := range nsList.Items {
-						_ = cl.Kube().CoreV1().ConfigMaps(ns.Name).Delete(context.TODO(), "istio-ca-crl", metav1.DeleteOptions{})
-						_ = cl.Kube().CoreV1().ConfigMaps(ns.Name).Delete(context.TODO(), "istio-ca-root-cert", metav1.DeleteOptions{})
+						_ = cl.Kube().CoreV1().ConfigMaps(ns.Name).Delete(context.TODO(), features.CRLConfigMapName, metav1.DeleteOptions{})
+						_ = cl.Kube().CoreV1().ConfigMaps(ns.Name).Delete(context.TODO(), features.CACertConfigMapName, metav1.DeleteOptions{})
 					}
 				}
 			})
