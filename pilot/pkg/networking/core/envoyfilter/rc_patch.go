@@ -53,8 +53,7 @@ func ApplyRouteConfigurationPatches(
 
 	// only merge is applicable for route configuration.
 	for _, rp := range efw.Patches[networking.EnvoyFilter_ROUTE_CONFIGURATION] {
-		if rp.Operation != networking.EnvoyFilter_Patch_MERGE &&
-			rp.Operation != networking.EnvoyFilter_Patch_MERGE_AND_REPLACE_LIST {
+		if !isMergeOperation(rp.Operation) {
 			continue
 		}
 		if commonConditionMatch(patchContext, rp) &&
@@ -117,8 +116,7 @@ func patchVirtualHost(patchContext networking.EnvoyFilter_PatchContext,
 			applied = true
 			if rp.Operation == networking.EnvoyFilter_Patch_REMOVE {
 				return true
-			} else if rp.Operation == networking.EnvoyFilter_Patch_MERGE ||
-				rp.Operation == networking.EnvoyFilter_Patch_MERGE_AND_REPLACE_LIST {
+			} else if isMergeOperation(rp.Operation) {
 				mergePatchValue(rp.Operation, virtualHosts[idx], rp.Value)
 			} else if rp.Operation == networking.EnvoyFilter_Patch_REPLACE {
 				virtualHosts[idx] = proto.Clone(rp.Value).(*route.VirtualHost)
@@ -252,8 +250,7 @@ func patchHTTPRoute(patchContext networking.EnvoyFilter_PatchContext,
 				virtualHost.Routes[routeIndex] = nil
 				*routesRemoved = true
 				return
-			} else if rp.Operation == networking.EnvoyFilter_Patch_MERGE ||
-				rp.Operation == networking.EnvoyFilter_Patch_MERGE_AND_REPLACE_LIST {
+			} else if isMergeOperation(rp.Operation) {
 				cloneVhostRouteByRouteIndex(virtualHost, routeIndex)
 				mergePatchValue(rp.Operation, virtualHost.Routes[routeIndex], rp.Value)
 			}

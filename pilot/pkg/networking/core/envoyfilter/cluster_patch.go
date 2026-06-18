@@ -52,8 +52,7 @@ func ApplyClusterMerge(pctx networking.EnvoyFilter_PatchContext, efw *model.Merg
 			clusterMatch(c, cp, hosts) {
 			return nil
 		}
-		if cp.Operation != networking.EnvoyFilter_Patch_MERGE &&
-			cp.Operation != networking.EnvoyFilter_Patch_MERGE_AND_REPLACE_LIST {
+		if !isMergeOperation(cp.Operation) {
 			IncrementEnvoyFilterMetric(cp.Key(), Cluster, applied)
 			continue
 		}
