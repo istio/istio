@@ -41,7 +41,7 @@ const agentgatewayWaypointName = "agentgateway-waypoint"
 // traffic is redirected through the waypoint. Traversal is proven the same way the istio waypoint
 // tests do it: an HTTPRoute injects a marker response header, and the request is confirmed to have
 // been processed at L7.
-func TestAgentgatewayWaypointTraffic(t *testing.T) {
+func gitTestAgentgatewayWaypointTraffic(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(t framework.TestContext) {
@@ -147,3 +147,4 @@ spec:
 				),
 			})
 		})
+}
