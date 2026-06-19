@@ -232,12 +232,13 @@ func waypointNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
 	if !model.HasConfigsOfKind(req.ConfigsUpdated, kind.Address) {
 		return false
 	}
-	if !features.ScopedAddressPushes {
-		return true
-	}
 	if proxy.IsAmbientEastWestGateway() {
 		// East-west gateways serve the global services on their network rather than attached
-		// services, so attachment-based scoping does not apply to them.
+		// services, so attachment-based scoping does not apply to them. This holds regardless of
+		// the ScopedAddressPushes feature.
+		return true
+	}
+	if !features.ScopedAddressPushes {
 		return true
 	}
 	// Only push if one of the updated services/workloads is attached to this waypoint.
