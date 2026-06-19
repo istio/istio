@@ -1141,8 +1141,10 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 			if len(listenersToCheck) != tt.numListenersOnServicePort {
 				t.Errorf("Expected %d listeners on service port 9999, got %d (%v)", tt.numListenersOnServicePort, len(listenersToCheck), listenersToCheck)
 			}
-			if tt.numFilterChainsOnListener > 0 && filterChainCount != tt.numFilterChainsOnListener {
-				t.Errorf("Expected %d filter chains on listener, got %d", tt.numFilterChainsOnListener, filterChainCount)
+			if tt.numFilterChainsOnListener > 0 {
+				if filterChainCount != tt.numFilterChainsOnListener {
+					t.Errorf("Expected %d filter chains on listener, got %d", tt.numFilterChainsOnListener, filterChainCount)
+				}
 			}
 		})
 	}

@@ -516,6 +516,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 							lb.buildSidecarOutboundListener(listenerOpts, listenerMap, virtualServices, actualWildcards)
 							continue
 						}
+
 						for _, instance := range instances {
 							// Make sure each endpoint address is a valid IP address
 							// as service entries could have NONE resolution with label selectors for workload
@@ -536,14 +537,19 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 							if instance.FirstAddressOrNil() == node.IPAddresses[0] {
 								continue
 							}
-							// Build a single wildcard listener with per-pod /32 CIDR filter chain matches
-							// instead of a separate per-pod-IP listener. This reduces the total listener
-							// count from O(endpoints) to O(1) per headless service port.
-							perPodOpts := listenerOpts
-							perPodOpts.bind.binds = actualWildcards
-							perPodOpts.cidr = instance.Addresses
-							perPodOpts.headlessPodCIDR = true
-							lb.buildSidecarOutboundListener(perPodOpts, listenerMap, virtualServices, actualWildcards)
+							if features.EnableHeadlessFilterChainListener {
+								// Build a single wildcard listener with per-pod /32 CIDR filter chain matches
+								// instead of a separate per-pod-IP listener. This reduces the total listener
+								// count from O(endpoints) to O(1) per headless service port.
+								perPodOpts := listenerOpts
+								perPodOpts.bind.binds = actualWildcards
+								perPodOpts.cidr = instance.Addresses
+								perPodOpts.headlessPodCIDR = true
+								lb.buildSidecarOutboundListener(perPodOpts, listenerMap, virtualServices, actualWildcards)
+							} else {
+								listenerOpts.bind.binds = instance.Addresses
+								lb.buildSidecarOutboundListener(listenerOpts, listenerMap, virtualServices, actualWildcards)
+							}
 						}
 					} else {
 						// Standard logic for headless and non headless services

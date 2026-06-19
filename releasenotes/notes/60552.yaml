@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: improvement
+area: traffic-management
+issue:
+  - 60552
+releaseNotes:
+  - |
+    **Improved** headless TCP service listener generation: instead of creating one listener per pod IP,
+    Istio now generates a single wildcard `0.0.0.0:Port` listener with per-pod `/32` CIDR filter chains.
+    This reduces xDS listener count and payload size for large headless services (e.g. StatefulSets).
+    The old behavior (one listener per pod IP) can be restored by setting the `PILOT_ENABLE_HEADLESS_FILTER_CHAIN_LISTENER` environment variable to `false` on istiod.
