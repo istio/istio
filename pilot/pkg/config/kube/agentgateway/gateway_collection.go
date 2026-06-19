@@ -21,6 +21,7 @@ import (
 	"github.com/agentgateway/agentgateway/api"
 	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
@@ -35,6 +36,7 @@ import (
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/revisions"
 	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // Used by agentgateway controller
@@ -43,6 +45,40 @@ type TLSInfo struct {
 	Cert   []byte
 	CaCert []byte
 	Key    []byte `json:"-"`
+}
+
+type portProtocol struct {
+	hostnames sets.String
+	protocol  gatewayv1.ProtocolType
+}
+
+type ListenerConflict string
+
+const (
+	ListenerConflictHostname = "hostname"
+	ListenerConflictProtocol = "protocol"
+)
+
+func validateListenerConflicts(listeners []*GatewayListener) {
+	portMap := make(map[gatewayv1.PortNumber]*portProtocol)
+	for _, listener := range listeners {
+		if p, ok := portMap[listener.ParentInfo.Port]; ok {
+			if p.protocol == listener.ParentInfo.Protocol {
+				if slices.ContainsFunc(listener.ParentInfo.Hostnames, p.hostnames.Contains) {
+					listener.Conflict = ListenerConflictHostname
+				} else {
+					p.hostnames.InsertAll(listener.ParentInfo.Hostnames...)
+				}
+			} else {
+				listener.Conflict = ListenerConflictProtocol
+			}
+		} else {
+			portMap[listener.ParentInfo.Port] = &portProtocol{
+				hostnames: sets.New(listener.ParentInfo.Hostnames...),
+				protocol:  listener.ParentInfo.Protocol,
+			}
+		}
+	}
 }
 
 // Used by agentgateway controller
@@ -54,7 +90,10 @@ type GatewayListener struct {
 	ParentObject AgwParentKey
 	ParentInfo   AgwParentInfo
 	TLSInfo      *TLSInfo
-	Valid        bool
+	// Indicates if a listener built successfully independently of other listeners
+	Valid bool
+	// Indicates if a listener has any conflicts with other listeners
+	Conflict ListenerConflict
 }
 
 func (g GatewayListener) ResourceName() string {
@@ -73,6 +112,7 @@ func (g GatewayListener) Equals(other GatewayListener) bool {
 		}
 	}
 	return g.Valid == other.Valid &&
+		g.Conflict == other.Conflict &&
 		g.Name == other.Name &&
 		g.ParentGateway == other.ParentGateway &&
 		g.ParentObject == other.ParentObject &&
@@ -106,7 +146,8 @@ type ListenerSet struct {
 	ParentInfo    AgwParentInfo        `json:"parentInfo"`
 	TLSInfo       *TLSInfo             `json:"tlsInfo"`
 	GatewayParent types.NamespacedName `json:"gatewayParent"`
-	Valid         bool                 `json:"valid"`
+	// Indicates if a listener built successfully independently of other listeners
+	Valid bool `json:"valid"`
 }
 
 func (g ListenerSet) ResourceName() string {
@@ -256,6 +297,13 @@ func ListenerSetCollection(
 	return statusCol, gw
 }
 
+// reportListenerSetStatus sets the ListenerSet-level (top-level) Accepted and Programmed conditions
+// for the normal/success path, by resolving the parent Gateway's service instances and deriving the
+// Programmed condition from data-plane readiness. It starts from a success baseline and only
+// downgrades Accepted when the parent itself is not accepted (via the cond argument). Use this when
+// the ListenerSet is otherwise healthy; for the failure paths see reportListenerSetWithConflicts
+// (aggregate status when listeners are invalid/conflicting) and reportListenerSetListenerConflicts
+// (per-listener Conflicted condition).
 func reportListenerSetStatus(
 	r *gatewaycommon.GatewayContext,
 	parentGwObj *gatewayv1.Gateway,
@@ -290,6 +338,66 @@ func reportListenerSetStatus(
 	setProgrammedCondition(gatewayConditions, internal, gatewayServices, warnings, allUsable)
 
 	gs.Conditions = setConditions(obj.Generation, gs.Conditions, gatewayConditions)
+}
+
+// reportListenerSetWithConflicts sets the ListenerSet-level (top-level) Accepted and Programmed
+// conditions when one or more of its listeners are unusable (invalid or conflicting). It is called
+// once per ListenerSet, after every listener entry has been evaluated. The accepted argument carries
+// partial-acceptance semantics: it is true when at least one listener is still usable (so the
+// ListenerSet as a whole is Accepted/Programmed=True even though some entries are not), and false
+// when no listener is usable. For the per-listener Conflicted condition, see
+// reportListenerSetListenerConflicts.
+func reportListenerSetWithConflicts(status *gatewayv1.ListenerSetStatus, obj *gatewayv1.ListenerSet, accepted bool) {
+	condition := metav1.ConditionFalse
+	if accepted {
+		condition = metav1.ConditionTrue
+	}
+	programmedReason := gatewayv1.ListenerSetReasonListenersNotValid
+	if accepted {
+		programmedReason = gatewayv1.ListenerSetReasonProgrammed
+	}
+	// In case any listeners are invalid, this status should be set even if the gateway / listenerset is accepted
+	// https://github.com/kubernetes-sigs/gateway-api/blob/8fe8316f5792a7830a49c800f89fe689e0df042e/apisx/v1alpha1/xlistenerset_types.go#L396
+	gatewayConditions := map[string]*Condition{
+		string(gatewayv1.GatewayConditionAccepted): {
+			status: condition,
+			reason: string(gatewayv1.ListenerSetReasonListenersNotValid),
+		},
+		string(gatewayv1.GatewayConditionProgrammed): {
+			status: condition,
+			reason: string(programmedReason),
+		},
+	}
+
+	status.Conditions = setConditions(obj.Generation, status.Conditions, gatewayConditions)
+}
+
+// reportListenerSetListenerConflicts sets the conditions for a single listener entry that conflicts
+// with another listener (e.g. hostname or protocol clash on a shared port). It is called once per
+// conflicting listener and operates on that entry's ListenerEntryStatus, setting Conflicted=True
+// along with Accepted=False and Programmed=False, using the given conflict reason/message. This is
+// the per-listener counterpart to reportListenerSetWithConflicts, which reports the aggregate
+// ListenerSet-level status.
+func reportListenerSetListenerConflicts(status *gatewayv1.ListenerEntryStatus, obj *gatewayv1.ListenerSet, reason string, message string) {
+	gatewayConditions := map[string]*Condition{
+		string(gatewayv1.ListenerConditionConflicted): {
+			status:  metav1.ConditionTrue,
+			reason:  reason,
+			message: message,
+		},
+		string(gatewayv1.GatewayConditionAccepted): {
+			status:  metav1.ConditionFalse,
+			reason:  reason,
+			message: message,
+		},
+		string(gatewayv1.GatewayConditionProgrammed): {
+			status:  metav1.ConditionFalse,
+			reason:  reason,
+			message: message,
+		},
+	}
+
+	status.Conditions = setConditions(obj.Generation, status.Conditions, gatewayConditions)
 }
 
 // GatewayCollection builds the collection of Gateways. This is responsible for translating from the Kubernetes Gateway API
@@ -418,7 +526,8 @@ func GatewayCollection(
 				Valid:      ls.Valid,
 			})
 		}
-
+		validateListenerConflicts(result)
+		// TODO(jaellio): include unique listener sets in status after validating listener conflicts
 		reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, len(listenerSets), gatewayErr)
 		return status, result
 	}, opts.WithName("KubernetesGateway")...)
