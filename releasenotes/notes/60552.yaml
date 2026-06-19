@@ -1,5 +1,5 @@
 apiVersion: release-notes/v2
-kind: improvement
+kind: bug-fix
 area: traffic-management
 issue:
   - 60552
