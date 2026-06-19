@@ -528,6 +528,9 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, w *model.WatchedResource
 			}
 			resp.RemovedResources = sets.SortedList(removed)
 		}
+		if len(resp.RemovedResources) > 0 {
+			deltaLog.Debugf("ADS:%v REMOVE for node:%s %v", v3.GetShortType(w.TypeUrl), con.ID(), resp.RemovedResources)
+		}
 	}
 	var newResourceNames sets.String
 	if shouldSetWatchedResources(w) {
@@ -542,9 +545,6 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, w *model.WatchedResource
 		} else {
 			newResourceNames = resourceNamesSet(res)
 		}
-	}
-	if len(resp.RemovedResources) > 0 {
-		deltaLog.Debugf("ADS:%v REMOVE for node:%s %v", v3.GetShortType(w.TypeUrl), con.ID(), resp.RemovedResources)
 	}
 
 	configSize := ResourceSize(res)
