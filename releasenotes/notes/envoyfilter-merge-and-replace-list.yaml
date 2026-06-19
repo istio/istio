@@ -1,7 +1,8 @@
 apiVersion: release-notes/v2
 kind: feature
 area: traffic-management
-
+issues:
+  - 60498
 releaseNotes:
   - |
     **Added** a new `MERGE_AND_REPLACE_LIST` patch operation to `EnvoyFilter`. It behaves like
