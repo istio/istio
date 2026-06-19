@@ -957,6 +957,10 @@ func (s *Server) initRegistryEventHandlers() {
 			if schema.GroupVersionKind() == gvk.VirtualService {
 				continue
 			}
+			// Traffic extension controller already emits TrafficExtension events, we should suppress WasmPlugin events
+			if schema.GroupVersionKind() == gvk.WasmPlugin {
+				continue
+			}
 
 			s.configController.RegisterEventHandler(schema.GroupVersionKind(), configHandler)
 		}

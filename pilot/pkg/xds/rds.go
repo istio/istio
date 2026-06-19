@@ -36,6 +36,7 @@ var skippedRdsConfigs = sets.New(
 	kind.PeerAuthentication,
 	kind.Secret,
 	kind.WasmPlugin,
+	kind.TrafficExtension,
 	kind.Telemetry,
 	kind.ProxyConfig,
 	kind.DNSName,
