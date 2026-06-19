@@ -149,6 +149,7 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 	}
 	envoyFilterPatches := updates.Push.EnvoyFilters(proxy)
 	clusters, log := configgen.buildClusters(proxy, updates, services, envoyFilterPatches)
+	log.Incremental = true
 	// DeletedClusters contains list of all subset clusters for the deleted DR or updated DR.
 	// When clusters are rebuilt, we rebuild the subset clusters as well. So, we know what
 	// subset clusters are really needed. So if deleted cluster is not rebuilt, then it is really deleted.

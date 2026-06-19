@@ -514,15 +514,20 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, w *model.WatchedResource
 		Nonce:             nonce(req.Push.PushVersion),
 		Resources:         res,
 	}
-	if usedDelta {
-		resp.RemovedResources = deletedRes
-	} else if !logdata.Incremental {
-		// similar to sotw
-		removed := w.ResourceNames.Copy()
-		for _, r := range res {
-			removed.Delete(r.Name)
+	if xds.IsWildcardTypeURL(w.TypeUrl) {
+		// we should only ever remove resources on wildcard subscriptions,
+		// in non-wildcard subscriptions, envoy will automatically unsubscribe from resources
+		// also avoids https://github.com/envoyproxy/envoy/issues/32823 in ECDS
+		if usedDelta {
+			resp.RemovedResources = deletedRes
+		} else if !logdata.Incremental {
+			// sotw style resource diffing for calculating removed resources
+			removed := w.ResourceNames.Copy()
+			for _, r := range res {
+				removed.Delete(r.Name)
+			}
+			resp.RemovedResources = sets.SortedList(removed)
 		}
-		resp.RemovedResources = sets.SortedList(removed)
 	}
 	var newResourceNames sets.String
 	if shouldSetWatchedResources(w) {
@@ -537,9 +542,6 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, w *model.WatchedResource
 		} else {
 			newResourceNames = resourceNamesSet(res)
 		}
-	}
-	if neverRemoveDelta(w.TypeUrl) {
-		resp.RemovedResources = nil
 	}
 	if len(resp.RemovedResources) > 0 {
 		deltaLog.Debugf("ADS:%v REMOVE for node:%s %v", v3.GetShortType(w.TypeUrl), con.ID(), resp.RemovedResources)
@@ -602,13 +604,6 @@ func resourceNamesSet(res model.Resources) sets.Set[string] {
 // This is used when resources are spontaneously pushed during Delta XDS
 func requiresResourceNamesModification(url string) bool {
 	return url == v3.AddressType || url == v3.WorkloadType
-}
-
-// neverRemoveDelta checks if a type should never remove resources
-func neverRemoveDelta(url string) bool {
-	// https://github.com/envoyproxy/envoy/issues/32823
-	// We want to garbage collect extensions when they are no longer referenced, rather than delete immediately
-	return url == v3.ExtensionConfigurationType
 }
 
 // shouldSetWatchedResources indicates whether we should set the watched resources for a given type.

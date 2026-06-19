@@ -257,7 +257,7 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 		eds.Cache.Add(&builder, req, resource)
 	}
 	return resources, model.XdsLogDetails{
-		Incremental:    len(edsUpdatedServices) != 0,
+		Incremental:    partialPush,
 		AdditionalInfo: fmt.Sprintf("empty:%v cached:%v/%v", empty, cached, cached+regenerated),
 	}
 }
