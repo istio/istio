@@ -1108,9 +1108,10 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 				buildServiceInstance(autoSvc, "11.11.11.11"),
 			},
 			services: []*model.Service{autoSvc},
-			// 2 pods → 1 wildcard listener: 2 per-pod /32 CIDR TCP chains + 1 shared HTTP chain
-			numListenersOnServicePort: 1,
-			numFilterChainsOnListener: 3,
+			// auto-detect (Unsupported) protocol: CIDR optimization is not applied because
+			// Envoy's destination-IP priority beats ALPN, which would route HTTP to TCP proxy.
+			// Falls back to per-pod-IP listeners (2 pods → 2 listeners).
+			numListenersOnServicePort: 2,
 		},
 	}
 	for _, tt := range tests {

@@ -537,10 +537,13 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 							if instance.FirstAddressOrNil() == node.IPAddresses[0] {
 								continue
 							}
-							if features.EnableHeadlessFilterChainListener {
+							if features.EnableHeadlessFilterChainListener && servicePort.Protocol.IsTCP() {
 								// Build a single wildcard listener with per-pod /32 CIDR filter chain matches
 								// instead of a separate per-pod-IP listener. This reduces the total listener
 								// count from O(endpoints) to O(1) per headless service port.
+								// Only applies to pure TCP ports: for auto-detect (Unsupported) ports, Envoy's
+								// filter chain matching gives destination IP higher priority than ALPN, so CIDR
+								// on the TCP chain would steal HTTP traffic away from the HCM chain.
 								perPodOpts := listenerOpts
 								perPodOpts.bind.binds = actualWildcards
 								perPodOpts.cidr = instance.Addresses
