@@ -366,6 +366,13 @@ type PushRequest struct {
 
 	AddressesUpdated sets.Set[string]
 
+	// WaypointsUpdated keeps track of the waypoints that the services/workloads behind the
+	// kind.Address entries in ConfigsUpdated are attached to, including waypoints they were
+	// attached to before the update. This is used to scope Address pushes to the waypoint
+	// proxies actually affected; Address updates that reference no waypoint (e.g. ordinary
+	// pod churn) leave this empty so waypoints can skip them entirely.
+	WaypointsUpdated sets.Set[WaypointReference]
+
 	// Push stores the push context to use for the update. This may initially be nil, as we will
 	// debounce changes before a PushContext is eventually created.
 	Push *PushContext
@@ -519,6 +526,12 @@ func (pr *PushRequest) Merge(other *PushRequest) *PushRequest {
 		pr.AddressesUpdated.Merge(other.AddressesUpdated)
 	}
 
+	if pr.WaypointsUpdated == nil {
+		pr.WaypointsUpdated = other.WaypointsUpdated
+	} else {
+		pr.WaypointsUpdated.Merge(other.WaypointsUpdated)
+	}
+
 	return pr
 }
 
@@ -565,6 +578,12 @@ func (pr *PushRequest) CopyMerge(other *PushRequest) *PushRequest {
 		merged.AddressesUpdated = make(sets.Set[string], len(pr.AddressesUpdated)+len(other.AddressesUpdated))
 		merged.AddressesUpdated.Merge(pr.AddressesUpdated)
 		merged.AddressesUpdated.Merge(other.AddressesUpdated)
+	}
+
+	if len(pr.WaypointsUpdated) > 0 || len(other.WaypointsUpdated) > 0 {
+		merged.WaypointsUpdated = make(sets.Set[WaypointReference], len(pr.WaypointsUpdated)+len(other.WaypointsUpdated))
+		merged.WaypointsUpdated.Merge(pr.WaypointsUpdated)
+		merged.WaypointsUpdated.Merge(other.WaypointsUpdated)
 	}
 
 	return merged
