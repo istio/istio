@@ -1108,9 +1108,9 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 				buildServiceInstance(autoSvc, "11.11.11.11"),
 			},
 			services: []*model.Service{autoSvc},
-			// 2 pods → 1 wildcard listener with 2 per-pod CIDR filter chains (TCP + HTTP each)
+			// 2 pods → 1 wildcard listener: 2 per-pod /32 CIDR TCP chains + 1 shared HTTP chain
 			numListenersOnServicePort: 1,
-			numFilterChainsOnListener: 2,
+			numFilterChainsOnListener: 3,
 		},
 	}
 	for _, tt := range tests {

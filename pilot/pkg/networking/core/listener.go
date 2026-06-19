@@ -976,23 +976,30 @@ func (lb *ListenerBuilder) buildSidecarOutboundListener(listenerOpts outboundLis
 				} else if currentListenerEntry.protocol.IsTCP() {
 					conflictType = AutoOverTCP
 				} else {
-					// Exit early, listener already exists
-					return
+					// Existing listener is also auto-detect (Unsupported). For headless services,
+					// each pod calls buildSidecarOutboundListener with its own CIDR, resulting in
+					// multiple Auto-over-Auto calls on the same wildcard key. Merge only the TCP
+					// (per-pod CIDR) filter chains; the HTTP chain was already added by the first pod.
+					conflictType = TCPOverAuto
+					opts = buildSidecarOutboundTCPListenerOpts(listenerOpts, virtualServices)
+					goto handleConflict
 				}
 			}
-			// Add tcp filter chain, build TCP filter chain first.
-			tcpOpts := buildSidecarOutboundTCPListenerOpts(listenerOpts, virtualServices)
+			{
+				// Add tcp filter chain, build TCP filter chain first.
+				tcpOpts := buildSidecarOutboundTCPListenerOpts(listenerOpts, virtualServices)
 
-			// Add http filter chain and tcp filter chain to the listener opts
-			httpOpts := buildSidecarOutboundHTTPListenerOpts(listenerOpts, actualWildcards[0], listenerProtocol)
-			// Add application protocol filter chain match to the http filter chain. The application protocol will be set by http inspector
-			for _, opt := range httpOpts {
-				// Support HTTP/1.0, HTTP/1.1 and HTTP/2
-				opt.applicationProtocols = append(opt.applicationProtocols, plaintextHTTPALPNs...)
-				opt.transportProtocol = xdsfilters.RawBufferTransportProtocol
+				// Add http filter chain and tcp filter chain to the listener opts
+				httpOpts := buildSidecarOutboundHTTPListenerOpts(listenerOpts, actualWildcards[0], listenerProtocol)
+				// Add application protocol filter chain match to the http filter chain. The application protocol will be set by http inspector
+				for _, opt := range httpOpts {
+					// Support HTTP/1.0, HTTP/1.1 and HTTP/2
+					opt.applicationProtocols = append(opt.applicationProtocols, plaintextHTTPALPNs...)
+					opt.transportProtocol = xdsfilters.RawBufferTransportProtocol
+				}
+
+				opts = append(tcpOpts, httpOpts...)
 			}
-
-			opts = append(tcpOpts, httpOpts...)
 
 		default:
 			// UDP or other protocols: no need to log, it's too noisy
@@ -1000,6 +1007,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListener(listenerOpts outboundLis
 		}
 	}
 
+handleConflict:
 	// If there is a TCP listener on well known port, cannot add any http filter chain
 	// with the inspector as it will break for server-first protocols. Similarly,
 	// if there was a HTTP listener on well known port, cannot add a tcp listener
