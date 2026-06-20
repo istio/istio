@@ -727,6 +727,31 @@ func TestValidateAllRealms(t *testing.T) {
 			expectErr: true,
 		},
 		{
+			name:      "unspecified ipv4",
+			wwwAuth:   `Bearer realm="http://0.0.0.0:8080/admin",service="evil.com"`,
+			expectErr: true,
+		},
+		{
+			name:      "unspecified ipv6",
+			wwwAuth:   `Bearer realm="http://[::]/admin",service="evil.com"`,
+			expectErr: true,
+		},
+		{
+			name:      "localhost trailing dot",
+			wwwAuth:   `Bearer realm="http://localhost./admin",service="evil.com"`,
+			expectErr: true,
+		},
+		{
+			name:      "loopback trailing dot",
+			wwwAuth:   `Bearer realm="http://127.0.0.1./api",service="evil.com"`,
+			expectErr: true,
+		},
+		{
+			name:      "gcp metadata trailing dot",
+			wwwAuth:   `Bearer realm="http://metadata.google.internal./computeMetadata/v1/",service="evil.com"`,
+			expectErr: true,
+		},
+		{
 			name:      "no realm param",
 			wwwAuth:   `Bearer service="registry.example.com"`,
 			expectErr: false,
