@@ -149,9 +149,9 @@ func (c *Controller) DeleteRegistry(clusterID cluster.ID, providerID provider.ID
 	log.Infof("%s registry for the cluster %s has been deleted.", providerID, clusterID)
 }
 
-// UpdateRegistry atomically replaces an existing registry with a new one.
-// This is used during credential rotation to avoid service disruption.
-// The new registry is started, then atomically swapped with the old one.
+// UpdateRegistry atomically replaces an existing registry with a new one, used
+// during credential rotation to avoid service disruption. The caller must have
+// already started the new registry; UpdateRegistry only performs the swap.
 func (c *Controller) UpdateRegistry(newRegistry serviceregistry.Instance, stop <-chan struct{}) {
 	if stop == nil {
 		log.Warnf("nil stop channel passed to UpdateRegistry for registry %s/%s", newRegistry.Provider(), newRegistry.Cluster())
@@ -172,11 +172,6 @@ func (c *Controller) UpdateRegistry(newRegistry serviceregistry.Instance, stop <
 		// No existing registry, just add
 		c.addRegistry(newRegistry, stop)
 		log.Infof("%s registry for cluster %s has been added (no previous registry).", providerID, clusterID)
-	}
-
-	// Start the new registry if we're already running
-	if c.running {
-		go newRegistry.Run(stop)
 	}
 }
 
