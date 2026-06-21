@@ -32,3 +32,23 @@ func Test_AddRootFlags(t *testing.T) {
 	assert.Equal(t, *r.impersonateGroup, impersonateConfig.Groups)
 	assert.Equal(t, *r.kubeTimeout, "15s")
 }
+
+func Test_AddRootFlags_Revision(t *testing.T) {
+	flags := &pflag.FlagSet{}
+	r := AddRootFlags(flags)
+
+	f := flags.Lookup(FlagRevision)
+	if f == nil {
+		t.Fatalf("expected %q flag to be registered", FlagRevision)
+	}
+	// -r is claimed by per-subcommand --revision registrations, so the root flag is long-only.
+	if f.Shorthand != "" {
+		t.Fatalf("expected no shorthand for root %q flag, got %q", FlagRevision, f.Shorthand)
+	}
+	assert.Equal(t, r.Revision(), "")
+
+	if err := flags.Set(FlagRevision, "canary"); err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(t, r.Revision(), "canary")
+}

@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+  - 59882
+releaseNotes:
+- |
+  **Added** a global `--revision` flag to `istioctl`. Subcommands that target the control plane
+  through the default client now inherit the revision without each one registering its own flag.
