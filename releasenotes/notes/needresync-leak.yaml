@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+  - |
+    **Fixed** a memory leak in Istiod where `needResync` entries for failed pod IPs were never cleaned up.
