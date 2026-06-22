@@ -434,7 +434,8 @@ func (c *Controller) buildFinalListenerSetStatus(
 				} else {
 					if obj.Conflict == ListenerConflictHostname {
 						invalidListenerCount++
-						reportListenerSetListenerConflicts(&status.Listeners[idx], i.Obj, string(gatewayv1.ListenerReasonHostnameConflict), "Found conflicting hostnames on listeners, all listeners on a single port must have unique hostnames")
+						reportListenerSetListenerConflicts(&status.Listeners[idx], i.Obj, string(gatewayv1.ListenerReasonHostnameConflict),
+							"Found conflicting hostnames on listeners, all listeners on a single port must have unique hostnames")
 					} else if obj.Conflict == ListenerConflictProtocol {
 						invalidListenerCount++
 						ListenerMessageProtocolConflict := "Found conflicting protocols on listeners, a single port can only contain listeners with compatible protocols"
