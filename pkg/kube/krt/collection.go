@@ -54,7 +54,16 @@ type extractorKey struct {
 }
 
 func (i dependencyState[I]) update(key Key[I], deps []*dependency) {
-	// Update the I -> Dependency mapping
+	// We will override the current dependencies with the new ones, so
+	// we first remove the existing dependencies from the reverse index
+	// (indexedDependencies). Otherwise, when "I" goes away, a delete
+	// operation might leave some reverse index behind.
+	i.delete(key)
+
+	// Update the I -> Dependency mapping. Notice that we're overriding
+	// all dependencies for the key. That means that as the delete call
+	// above removes the key from objectDependencies, that doesn't matter
+	// as we reassign the key here once again.
 	i.objectDependencies[key] = deps
 	for _, d := range deps {
 		if depKeys, typ, extractor, filterID, ok := d.filter.reverseIndexKey(); ok {
