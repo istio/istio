@@ -23,12 +23,94 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	proxyprotocol "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/proxy_protocol/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/test/util/assert"
 )
+
+func TestApplyDefaultTrafficPolicy(t *testing.T) {
+	meshConnPool := &networking.ConnectionPoolSettings{
+		Tcp: &networking.ConnectionPoolSettings_TCPSettings{MaxConnections: 100},
+	}
+	meshOutlier := &networking.OutlierDetection{
+		Consecutive_5XxErrors: &wrappers.UInt32Value{Value: 5},
+	}
+	drConnPool := &networking.ConnectionPoolSettings{
+		Tcp: &networking.ConnectionPoolSettings_TCPSettings{MaxConnections: 7},
+	}
+	drOutlier := &networking.OutlierDetection{
+		Consecutive_5XxErrors: &wrappers.UInt32Value{Value: 9},
+	}
+	bothDefault := &meshconfig.MeshConfig_DefaultTrafficPolicy{
+		ConnectionPool:   meshConnPool,
+		OutlierDetection: meshOutlier,
+	}
+
+	tests := []struct {
+		name         string
+		meshDefault  *meshconfig.MeshConfig_DefaultTrafficPolicy
+		policy       *networking.TrafficPolicy
+		wantConnPool *networking.ConnectionPoolSettings
+		wantOutlier  *networking.OutlierDetection
+		wantNil      bool
+	}{
+		{
+			name:        "no mesh default, nil policy stays nil",
+			meshDefault: nil,
+			policy:      nil,
+			wantNil:     true,
+		},
+		{
+			name:         "no mesh default leaves DR policy untouched",
+			meshDefault:  &meshconfig.MeshConfig_DefaultTrafficPolicy{},
+			policy:       &networking.TrafficPolicy{ConnectionPool: drConnPool},
+			wantConnPool: drConnPool,
+		},
+		{
+			name:         "no DR inherits both baseline blocks",
+			meshDefault:  bothDefault,
+			policy:       nil,
+			wantConnPool: meshConnPool,
+			wantOutlier:  meshOutlier,
+		},
+		{
+			name:         "DR connectionPool overrides, outlier inherited",
+			meshDefault:  bothDefault,
+			policy:       &networking.TrafficPolicy{ConnectionPool: drConnPool},
+			wantConnPool: drConnPool,
+			wantOutlier:  meshOutlier,
+		},
+		{
+			name:         "DR sets both, baseline ignored",
+			meshDefault:  bothDefault,
+			policy:       &networking.TrafficPolicy{ConnectionPool: drConnPool, OutlierDetection: drOutlier},
+			wantConnPool: drConnPool,
+			wantOutlier:  drOutlier,
+		},
+		{
+			name:         "baseline only connectionPool, DR sets outlier",
+			meshDefault:  &meshconfig.MeshConfig_DefaultTrafficPolicy{ConnectionPool: meshConnPool},
+			policy:       &networking.TrafficPolicy{OutlierDetection: drOutlier},
+			wantConnPool: meshConnPool,
+			wantOutlier:  drOutlier,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := applyDefaultTrafficPolicy(tt.meshDefault, tt.policy)
+			if tt.wantNil {
+				assert.Equal(t, got == nil, true)
+				return
+			}
+			assert.Equal(t, got.GetConnectionPool(), tt.wantConnPool)
+			assert.Equal(t, got.GetOutlierDetection(), tt.wantOutlier)
+		})
+	}
+}
 
 func TestApplyUpstreamProxyProtocol(t *testing.T) {
 	istioMutualTLSSettings := &networking.ClientTLSSettings{
