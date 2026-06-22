@@ -30,13 +30,13 @@ import (
 // buildBindsFromGateway reads: the parent gateway identity and the parent
 // listener info (port, protocol, gateway class, and any conflict).
 func agwBindListener(
-	gwNs, gwName string,
+	gwName string,
 	port gatewayv1.PortNumber,
 	proto gatewayv1.ProtocolType,
 	className string,
 	conflict ListenerConflict,
 ) *GatewayListener {
-	pg := types.NamespacedName{Namespace: gwNs, Name: gwName}
+	pg := types.NamespacedName{Namespace: "default", Name: gwName}
 	return &GatewayListener{
 		ParentGateway: pg,
 		ParentInfo: AgwParentInfo{
@@ -84,8 +84,8 @@ func TestBuildBindsFromGateway(t *testing.T) {
 		{
 			name: "different gateways share a port with different protocols",
 			gateways: [][]*GatewayListener{
-				{agwBindListener("default", "gateway-http", 8080, gatewayv1.HTTPProtocolType, constants.AgentgatewayClassName, "")},
-				{agwBindListener("default", "gateway-https", 8080, gatewayv1.HTTPSProtocolType, constants.AgentgatewayClassName, "")},
+				{agwBindListener("gateway-http", 8080, gatewayv1.HTTPProtocolType, constants.AgentgatewayClassName, "")},
+				{agwBindListener("gateway-https", 8080, gatewayv1.HTTPSProtocolType, constants.AgentgatewayClassName, "")},
 			},
 			want: []bindResult{
 				{key: "8080/default/gateway-http", gateway: "default/gateway-http", port: 8080, protocol: api.Bind_HTTP, tunnel: api.Bind_DIRECT},
@@ -95,8 +95,8 @@ func TestBuildBindsFromGateway(t *testing.T) {
 		{
 			name: "different gateways share a port with different tunnel protocols",
 			gateways: [][]*GatewayListener{
-				{agwBindListener("default", "waypoint", 15008, hboneProtocol, constants.AgentgatewayWaypointClassName, "")},
-				{agwBindListener("default", "gateway", 15008, hboneProtocol, constants.AgentgatewayClassName, "")},
+				{agwBindListener("waypoint", 15008, hboneProtocol, constants.AgentgatewayWaypointClassName, "")},
+				{agwBindListener("gateway", 15008, hboneProtocol, constants.AgentgatewayClassName, "")},
 			},
 			want: []bindResult{
 				{key: "15008/default/waypoint", gateway: "default/waypoint", port: 15008, protocol: api.Bind_HTTP, tunnel: api.Bind_HBONE_WAYPOINT},
@@ -107,9 +107,9 @@ func TestBuildBindsFromGateway(t *testing.T) {
 			name: "single gateway multiple non-conflicting listeners on the same port collapse to one bind",
 			gateways: [][]*GatewayListener{
 				{
-					agwBindListener("default", "gw", 8080, gatewayv1.HTTPProtocolType, constants.AgentgatewayClassName, ""),
-					agwBindListener("default", "gw", 8080, gatewayv1.HTTPProtocolType, constants.AgentgatewayClassName, ""),
-					agwBindListener("default", "gw", 443, gatewayv1.HTTPSProtocolType, constants.AgentgatewayClassName, ""),
+					agwBindListener("gw", 8080, gatewayv1.HTTPProtocolType, constants.AgentgatewayClassName, ""),
+					agwBindListener("gw", 8080, gatewayv1.HTTPProtocolType, constants.AgentgatewayClassName, ""),
+					agwBindListener("gw", 443, gatewayv1.HTTPSProtocolType, constants.AgentgatewayClassName, ""),
 				},
 			},
 			want: []bindResult{
@@ -121,8 +121,8 @@ func TestBuildBindsFromGateway(t *testing.T) {
 			name: "conflicting listener does not determine the bind protocol",
 			gateways: [][]*GatewayListener{
 				{
-					agwBindListener("default", "gw", 8080, gatewayv1.HTTPProtocolType, constants.AgentgatewayClassName, ""),
-					agwBindListener("default", "gw", 8080, gatewayv1.HTTPSProtocolType, constants.AgentgatewayClassName, ListenerConflictProtocol),
+					agwBindListener("gw", 8080, gatewayv1.HTTPProtocolType, constants.AgentgatewayClassName, ""),
+					agwBindListener("gw", 8080, gatewayv1.HTTPSProtocolType, constants.AgentgatewayClassName, ListenerConflictProtocol),
 				},
 			},
 			want: []bindResult{

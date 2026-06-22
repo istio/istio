@@ -248,8 +248,8 @@ func TestAgwParentInfoIsWaypoint(t *testing.T) {
 
 // test helpers for building inputs. All inputs live in the "ns1" namespace.
 
-func testService(name string, labels map[string]string) *corev1.Service {
-	return &corev1.Service{ObjectMeta: metav1.ObjectMeta{Namespace: "ns1", Name: name, Labels: labels}}
+func testService(labels map[string]string) *corev1.Service {
+	return &corev1.Service{ObjectMeta: metav1.ObjectMeta{Namespace: "ns1", Name: "svc1", Labels: labels}}
 }
 
 func testNamespace(labels map[string]string) *corev1.Namespace {
@@ -280,7 +280,7 @@ func TestBuildWaypointServiceBindings(t *testing.T) {
 	}{
 		{
 			name:       "service labeled with existing waypoint gateway",
-			services:   []*corev1.Service{testService("svc1", useWaypoint("wp"))},
+			services:   []*corev1.Service{testService(useWaypoint("wp"))},
 			namespaces: []*corev1.Namespace{testNamespace(nil)},
 			gateways:   []*gatewayv1.Gateway{testGateway("wp", constants.AgentgatewayWaypointClassName)},
 			want: []WaypointServiceBinding{{
@@ -290,28 +290,28 @@ func TestBuildWaypointServiceBindings(t *testing.T) {
 		},
 		{
 			name:       "service without label produces no binding",
-			services:   []*corev1.Service{testService("svc1", nil)},
+			services:   []*corev1.Service{testService(nil)},
 			namespaces: []*corev1.Namespace{testNamespace(nil)},
 			gateways:   []*gatewayv1.Gateway{testGateway("wp", constants.AgentgatewayWaypointClassName)},
 			want:       nil,
 		},
 		{
 			name:       "labeled service but waypoint gateway missing",
-			services:   []*corev1.Service{testService("svc1", useWaypoint("wp"))},
+			services:   []*corev1.Service{testService(useWaypoint("wp"))},
 			namespaces: []*corev1.Namespace{testNamespace(nil)},
 			gateways:   nil,
 			want:       nil,
 		},
 		{
 			name:       "labeled service but gateway is not a waypoint class",
-			services:   []*corev1.Service{testService("svc1", useWaypoint("wp"))},
+			services:   []*corev1.Service{testService(useWaypoint("gw"))},
 			namespaces: []*corev1.Namespace{testNamespace(nil)},
-			gateways:   []*gatewayv1.Gateway{testGateway("wp", constants.AgentgatewayClassName)},
+			gateways:   []*gatewayv1.Gateway{testGateway("gw", constants.AgentgatewayClassName)},
 			want:       nil,
 		},
 		{
 			name:       "namespace label inherited by service",
-			services:   []*corev1.Service{testService("svc1", nil)},
+			services:   []*corev1.Service{testService(nil)},
 			namespaces: []*corev1.Namespace{testNamespace(useWaypoint("wp"))},
 			gateways:   []*gatewayv1.Gateway{testGateway("wp", constants.AgentgatewayWaypointClassName)},
 			want: []WaypointServiceBinding{{
@@ -321,7 +321,7 @@ func TestBuildWaypointServiceBindings(t *testing.T) {
 		},
 		{
 			name:       "use-waypoint none opts out",
-			services:   []*corev1.Service{testService("svc1", useWaypoint("none"))},
+			services:   []*corev1.Service{testService(useWaypoint("none"))},
 			namespaces: []*corev1.Namespace{testNamespace(useWaypoint("wp"))},
 			gateways:   []*gatewayv1.Gateway{testGateway("wp", constants.AgentgatewayWaypointClassName)},
 			want:       nil,
