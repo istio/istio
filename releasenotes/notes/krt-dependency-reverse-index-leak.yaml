@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+  - |
+    **Fixed** a memory leak in the `krt` controller framework where changing the key used in a `Fetch` filter
+    (for example, relabeling a pod to point to a different waypoint) left stale reverse-index entries that were 
+    never cleaned up. Over time this could grow memory usage and cause unnecessary recomputations.
