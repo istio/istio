@@ -501,8 +501,15 @@ func TestReplaceRegistry(t *testing.T) {
 	}
 
 	// Caller starts the new registry before swapping it in; UpdateRegistry only swaps.
+	// Wait for it to actually be running so the swap models the real ordering.
 	newRegistry := runnableRegistry("cluster1")
 	go newRegistry.Run(stop)
+	retry.UntilSuccessOrFail(t, func() error {
+		if !newRegistry.running.Load() {
+			return fmt.Errorf("new registry should be running before swap")
+		}
+		return nil
+	}, retry.Timeout(time.Second))
 	ctrl.UpdateRegistry(newRegistry, stop)
 
 	// Verify replacement - should still have 1 registry with same cluster ID
@@ -548,8 +555,15 @@ func TestReplaceRegistryAddsIfNotExists(t *testing.T) {
 		return nil
 	}, retry.Timeout(time.Second))
 
+	// Wait for it to actually be running so the swap models the real ordering.
 	newRegistry := runnableRegistry("newCluster")
 	go newRegistry.Run(stop)
+	retry.UntilSuccessOrFail(t, func() error {
+		if !newRegistry.running.Load() {
+			return fmt.Errorf("new registry should be running before swap")
+		}
+		return nil
+	}, retry.Timeout(time.Second))
 	ctrl.UpdateRegistry(newRegistry, stop)
 
 	// Verify it was added
