@@ -1054,6 +1054,61 @@ func TestValidateProtocolDetectionTimeout(t *testing.T) {
 	}
 }
 
+func TestValidateMeshConfigDefaultTrafficPolicy(t *testing.T) {
+	cases := []struct {
+		name    string
+		dtp     *meshconfig.MeshConfig_DefaultTrafficPolicy
+		wantErr bool
+	}{
+		{
+			name: "nil",
+			dtp:  nil,
+		},
+		{
+			name: "valid connectionPool and outlierDetection",
+			dtp: &meshconfig.MeshConfig_DefaultTrafficPolicy{
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Tcp: &networking.ConnectionPoolSettings_TCPSettings{MaxConnections: 100},
+				},
+				OutlierDetection: &networking.OutlierDetection{
+					MaxEjectionPercent: 50,
+				},
+			},
+		},
+		{
+			name: "empty connectionPool",
+			dtp: &meshconfig.MeshConfig_DefaultTrafficPolicy{
+				ConnectionPool: &networking.ConnectionPoolSettings{},
+			},
+			wantErr: true,
+		},
+		{
+			name: "negative max connections",
+			dtp: &meshconfig.MeshConfig_DefaultTrafficPolicy{
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Tcp: &networking.ConnectionPoolSettings_TCPSettings{MaxConnections: -1},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "outlier ejection percent out of range",
+			dtp: &meshconfig.MeshConfig_DefaultTrafficPolicy{
+				OutlierDetection: &networking.OutlierDetection{MaxEjectionPercent: 101},
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := validateMeshConfigDefaultTrafficPolicy(tt.dtp).Unwrap()
+			if tt.wantErr != (err != nil) {
+				t.Fatalf("wantErr=%v got err=%v", tt.wantErr, err)
+			}
+		})
+	}
+}
+
 func TestValidateMeshConfig(t *testing.T) {
 	if _, err := ValidateMeshConfig(&meshconfig.MeshConfig{}); err == nil {
 		t.Error("expected an error on an empty mesh config")

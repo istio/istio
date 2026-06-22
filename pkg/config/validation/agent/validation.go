@@ -800,6 +800,86 @@ func ValidateMeshTLSDefaults(mesh *meshconfig.MeshConfig) (v Validation) {
 	return v
 }
 
+// validateMeshConfigDefaultTrafficPolicy validates the value constraints of the mesh-wide
+// baseline traffic policy. It mirrors the connectionPool / outlierDetection checks applied to
+// a DestinationRule traffic policy, since the field reuses the same sub-types.
+func validateMeshConfigDefaultTrafficPolicy(dtp *meshconfig.MeshConfig_DefaultTrafficPolicy) (errs Validation) {
+	if dtp == nil {
+		return errs
+	}
+	if cp := dtp.GetConnectionPool(); cp != nil {
+		if cp.Http == nil && cp.Tcp == nil {
+			errs = AppendValidation(errs, errors.New("connection pool must have at least one field"))
+		}
+		if http := cp.Http; http != nil {
+			if http.Http1MaxPendingRequests < 0 {
+				errs = AppendValidation(errs, errors.New("http1 max pending requests must be non-negative"))
+			}
+			if http.Http2MaxRequests < 0 {
+				errs = AppendValidation(errs, errors.New("http2 max requests must be non-negative"))
+			}
+			if http.MaxRequestsPerConnection < 0 {
+				errs = AppendValidation(errs, errors.New("max requests per connection must be non-negative"))
+			}
+			if http.MaxRetries < 0 {
+				errs = AppendValidation(errs, errors.New("max retries must be non-negative"))
+			}
+			if http.MaxConcurrentStreams < 0 {
+				errs = AppendValidation(errs, errors.New("max concurrent streams must be non-negative"))
+			}
+			if http.IdleTimeout != nil {
+				errs = AppendValidation(errs, ValidateDuration(http.IdleTimeout))
+			}
+			if http.H2UpgradePolicy == networking.ConnectionPoolSettings_HTTPSettings_UPGRADE && http.UseClientProtocol {
+				errs = AppendValidation(errs, errors.New("use client protocol must not be true when H2UpgradePolicy is UPGRADE"))
+			}
+		}
+		if tcp := cp.Tcp; tcp != nil {
+			if tcp.MaxConnections < 0 {
+				errs = AppendValidation(errs, errors.New("max connections must be non-negative"))
+			}
+			if tcp.ConnectTimeout != nil {
+				errs = AppendValidation(errs, ValidateDuration(tcp.ConnectTimeout))
+			}
+			if tcp.MaxConnectionDuration != nil {
+				errs = AppendValidation(errs, ValidateDuration(tcp.MaxConnectionDuration))
+			}
+			if tcp.IdleTimeout != nil && tcp.IdleTimeout.AsDuration().Milliseconds() != 0 {
+				errs = AppendValidation(errs, ValidateDuration(tcp.IdleTimeout))
+			}
+			if ka := tcp.TcpKeepalive; ka != nil {
+				if ka.Time != nil {
+					errs = AppendValidation(errs, ValidateDuration(ka.Time))
+				}
+				if ka.Interval != nil {
+					errs = AppendValidation(errs, ValidateDuration(ka.Interval))
+				}
+			}
+		}
+	}
+	if od := dtp.GetOutlierDetection(); od != nil {
+		if od.BaseEjectionTime != nil {
+			errs = AppendValidation(errs, ValidateDuration(od.BaseEjectionTime))
+		}
+		if od.Interval != nil {
+			errs = AppendValidation(errs, ValidateDuration(od.Interval))
+		}
+		if !od.SplitExternalLocalOriginErrors && od.ConsecutiveLocalOriginFailures.GetValue() > 0 {
+			errs = AppendValidation(errs, errors.New("outlier detection consecutive local origin failures is specified, "+
+				"but split external local origin errors is set to false"))
+		}
+		errs = AppendValidation(errs, validatePercent(od.MaxEjectionPercent), validatePercent(od.MinHealthPercent))
+	}
+	return errs
+}
+
+func validatePercent(val int32) error {
+	if val < 0 || val > 100 {
+		return fmt.Errorf("percentage %v is not in range 0..100", val)
+	}
+	return nil
+}
+
 // ValidateMeshConfig checks that the mesh config is well-formed
 func ValidateMeshConfig(mesh *meshconfig.MeshConfig) (Warning, error) {
 	v := Validation{}
@@ -832,6 +912,8 @@ func ValidateMeshConfig(mesh *meshconfig.MeshConfig) (Warning, error) {
 	v = AppendValidation(v, ValidateMeshTLSConfig(mesh))
 
 	v = AppendValidation(v, ValidateMeshTLSDefaults(mesh))
+
+	v = AppendValidation(v, validateMeshConfigDefaultTrafficPolicy(mesh.GetDefaultTrafficPolicy()))
 
 	return v.Unwrap()
 }
