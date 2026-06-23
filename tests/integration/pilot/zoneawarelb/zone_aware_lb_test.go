@@ -50,7 +50,7 @@ const (
 // Zone-aware-routing configuration:
 //   - LocalSvc: a ServiceEntry whose endpoint matches the calling proxy's address.
 //     This makes the proxy's local_cluster (the static cluster injected when
-//     ENABLE_ZONE_AWARE_LOAD_BALANCER=true) resolve to a real service, exercising
+//     ISTIO_META_ENABLE_SELF_DISCOVERY=true) resolve to a real service, exercising
 //     that side of the feature.
 //   - ZoneAwareSvc: the target ServiceEntry that selects WorkloadEntries by label.
 //     The DR enables ZoneAwareLbSetting with MinClusterSize=1 so Envoy zone-aware
@@ -237,8 +237,8 @@ func assertZoneAwareConfig(t framework.TestContext, caller echo.Instance, remote
 			}
 		}
 		if local == nil {
-			return false, fmt.Errorf("static cluster %q not found in proxy config — env-var "+
-				"ENABLE_ZONE_AWARE_LOAD_BALANCER did not propagate to sidecar bootstrap", localClusterName)
+			return false, fmt.Errorf("static cluster %q not found in proxy config — "+
+				"ISTIO_META_ENABLE_SELF_DISCOVERY did not propagate to sidecar bootstrap", localClusterName)
 		}
 		if remote == nil {
 			return false, fmt.Errorf("dynamic cluster %q not yet present", remoteClusterName)
@@ -249,7 +249,7 @@ func assertZoneAwareConfig(t framework.TestContext, caller echo.Instance, remote
 			// ok
 		case *cluster.Cluster_CommonLbConfig_LocalityWeightedLbConfig_:
 			return false, fmt.Errorf("cluster %q has LocalityWeightedLbConfig — istiod did not "+
-				"emit ZoneAwareLbConfig (is ENABLE_ZONE_AWARE_LOAD_BALANCER set on istiod?)", remoteClusterName)
+				"emit ZoneAwareLbConfig (is ISTIO_META_ENABLE_SELF_DISCOVERY set in proxyMetadata?)", remoteClusterName)
 		default:
 			return false, fmt.Errorf("cluster %q has unexpected LocalityConfigSpecifier %T — expected ZoneAwareLbConfig",
 				remoteClusterName, remote.GetCommonLbConfig().GetLocalityConfigSpecifier())

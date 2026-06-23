@@ -53,7 +53,12 @@ func (cb *ClusterBuilder) applyTrafficPolicy(service *model.Service, opts buildC
 	cb.applyConnectionPool(opts.mesh, opts.mutable, connectionPool, retryBudget)
 	if opts.direction != model.TrafficDirectionInbound {
 		applyOutlierDetection(service, opts.mutable.cluster, outlierDetection)
-		applyLoadBalancer(service, opts.mutable.cluster, loadBalancer, opts.port, cb.locality, cb.proxyLabels, opts.mesh, opts.mutable.dnsWrappedLocalityLbEndpoints)
+		enableSelfDiscovery := cb.proxyMetadata != nil && bool(cb.proxyMetadata.EnableSelfDiscovery)
+		applyLoadBalancer(
+			service, opts.mutable.cluster, loadBalancer, opts.port, cb.locality,
+			cb.proxyLabels, opts.mesh, opts.mutable.dnsWrappedLocalityLbEndpoints,
+			cb.proxyID, enableSelfDiscovery,
+		)
 		if opts.clusterMode != SniDnatClusterMode {
 			autoMTLSEnabled := opts.mesh.GetEnableAutoMtls().Value
 			tls, mtlsCtxType := cb.buildUpstreamTLSSettings(tls, opts.serviceAccounts, opts.istioMtlsSni,
@@ -274,6 +279,8 @@ func applyLoadBalancer(
 	proxyLabels map[string]string,
 	meshConfig *meshconfig.MeshConfig,
 	wrappedLocalityLbEndpoints *loadbalancer.WrappedLocalityLbEndpoints,
+	proxyID string,
+	enableSelfDiscovery bool,
 ) {
 	// DFP clusters (DYNAMIC_DNS ServiceEntries) use CLUSTER_PROVIDED LB policy
 	if c.LbPolicy == cluster.Cluster_CLUSTER_PROVIDED {
@@ -291,7 +298,10 @@ func applyLoadBalancer(
 		svc,
 	)
 	if zoneAwareLbSetting != nil {
-		applyZoneAwareLoadBalancer(locality, proxyLabels, c, wrappedLocalityLbEndpoints, zoneAwareLbSetting, forceFailover)
+		applyZoneAwareLoadBalancer(
+			locality, proxyLabels, c, wrappedLocalityLbEndpoints, zoneAwareLbSetting,
+			forceFailover, proxyID, enableSelfDiscovery,
+		)
 	} else {
 		applyLocalityLoadBalancer(locality, proxyLabels, c, wrappedLocalityLbEndpoints, localityLbSetting, forceFailover)
 	}
@@ -338,13 +348,16 @@ func applyZoneAwareLoadBalancer(
 	wrappedLocalityLbEndpoints *loadbalancer.WrappedLocalityLbEndpoints,
 	zoneAwareLB *networking.ZoneAwareLoadBalancerSetting,
 	failover bool,
+	proxyID string,
+	enableSelfDiscovery bool,
 ) {
-	if features.EnableZoneAwareLB {
-		c.CommonLbConfig.LocalityConfigSpecifier = &cluster.Cluster_CommonLbConfig_ZoneAwareLbConfig_{
-			ZoneAwareLbConfig: &cluster.Cluster_CommonLbConfig_ZoneAwareLbConfig{
-				MinClusterSize: zoneAwareLB.GetMinClusterSize(),
-			},
-		}
+	if !enableSelfDiscovery {
+		log.Warnf("Zone-aware load balancing is enabled for cluster %s, but proxy self-discovery is not enabled on %s", c.Name, proxyID)
+	}
+	c.CommonLbConfig.LocalityConfigSpecifier = &cluster.Cluster_CommonLbConfig_ZoneAwareLbConfig_{
+		ZoneAwareLbConfig: &cluster.Cluster_CommonLbConfig_ZoneAwareLbConfig{
+			MinClusterSize: zoneAwareLB.GetMinClusterSize(),
+		},
 	}
 	enableFailover := failover || c.OutlierDetection != nil
 	if c.LoadAssignment != nil {

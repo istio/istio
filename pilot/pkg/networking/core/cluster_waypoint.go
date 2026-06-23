@@ -204,7 +204,7 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 		connectionPool.Http = nil
 		cb.applyConnectionPool(mesh, localCluster, connectionPool, retryBudget)
 		applyOutlierDetection(nil, localCluster.cluster, outlierDetection)
-		applyLoadBalancer(svc, localCluster.cluster, loadBalancer, &port, cb.locality, cb.proxyLabels, mesh, nil)
+		applyLoadBalancer(svc, localCluster.cluster, loadBalancer, &port, cb.locality, cb.proxyLabels, mesh, nil, cb.proxyID, false)
 		// TODO: Decide if we want to support this
 		if localCluster.cluster.GetType() == cluster.Cluster_ORIGINAL_DST {
 			log.Warnf("Passthrough on the east/west gateway isn't expected")
@@ -224,7 +224,7 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 
 	// Unless the svc resolution type is DynamicDNS, we apply the LB settings
 	if svc.Resolution != model.DynamicDNS {
-		applyLoadBalancer(svc, localCluster.cluster, loadBalancer, &port, cb.locality, cb.proxyLabels, mesh, nil)
+		applyLoadBalancer(svc, localCluster.cluster, loadBalancer, &port, cb.locality, cb.proxyLabels, mesh, nil, cb.proxyID, false)
 	}
 
 	// Setup EDS config after apply LoadBalancer, since it can impact the result

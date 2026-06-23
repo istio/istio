@@ -31,13 +31,18 @@ var (
 	apps = deployment.SingleNamespaceView{}
 )
 
-// TestMain installs Istio with ENABLE_ZONE_AWARE_LOAD_BALANCER=true so the cluster-level
-// ZoneAwareLbConfig wiring and the local_cluster static cluster are exercised end-to-end.
+// TestMain installs Istio with ISTIO_META_ENABLE_SELF_DISCOVERY=true in the default proxy metadata
+// so the local_cluster static cluster and ZoneAwareLbConfig wiring are exercised end-to-end.
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		Setup(istio.Setup(&i, func(_ resource.Context, cfg *istio.Config) {
-			cfg.Values["pilot.env.ENABLE_ZONE_AWARE_LOAD_BALANCER"] = "true"
+			cfg.ControlPlaneValues = `
+meshConfig:
+  defaultConfig:
+    proxyMetadata:
+      ISTIO_META_ENABLE_SELF_DISCOVERY: "true"
+`
 		})).
 		Setup(deployment.SetupSingleNamespace(&apps, deployment.Config{})).
 		Run()

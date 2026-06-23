@@ -24,7 +24,6 @@ import (
 	"k8s.io/kubectl/pkg/util/fieldpath"
 
 	"istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/bootstrap/option"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/model"
@@ -366,19 +365,22 @@ func TestServiceClusterOrDefault(t *testing.T) {
 
 func TestZoneAwareRoutingTemplateParam(t *testing.T) {
 	cases := []struct {
-		name    string
-		enabled bool
-		want    bool
+		name   string
+		envVal string
+		want   bool
 	}{
-		{"disabled", false, false},
-		{"enabled", true, true},
+		{"disabled", "", false},
+		{"enabled", "true", true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			test.SetForTest(t, &features.EnableZoneAwareLB, tc.enabled)
+			envs := os.Environ()
+			if tc.envVal != "" {
+				envs = append(envs, "ISTIO_META_ENABLE_SELF_DISCOVERY="+tc.envVal)
+			}
 			node, err := GetNodeMetaData(MetadataOptions{
 				ID:          "sidecar~1.2.3.4~foo~bar",
-				Envs:        os.Environ(),
+				Envs:        envs,
 				ProxyConfig: &v1alpha1.ProxyConfig{},
 			})
 			if err != nil {

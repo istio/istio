@@ -422,6 +422,9 @@ func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.Endpoi
 		if !b.subsetLabels.SubsetOf(ep.Labels) {
 			return false
 		}
+		if b.clusterName == "local_cluster" {
+			return ep.WorkloadName == b.proxy.Metadata.WorkloadName
+		}
 		return true
 	})
 

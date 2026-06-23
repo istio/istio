@@ -27,10 +27,8 @@ import (
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 )
 
@@ -230,9 +228,9 @@ func TestApplyUpstreamProxyProtocol(t *testing.T) {
 }
 
 // TestApplyZoneAwareLoadBalancer covers the cluster-level zone-aware wiring:
-//   - With ENABLE_ZONE_AWARE_LOAD_BALANCER=true, sets CommonLbConfig.ZoneAwareLbConfig
+//   - With enableSelfDiscovery=true, sets CommonLbConfig.ZoneAwareLbConfig
 //     and propagates MinClusterSize from the ZoneAwareLoadBalancerSetting.
-//   - With the feature flag off, leaves CommonLbConfig.LocalityConfigSpecifier unset.
+//   - With enableSelfDiscovery=false, leaves CommonLbConfig.LocalityConfigSpecifier unset.
 //   - Region-bucketing on the cluster's LoadAssignment is delegated to the loadbalancer
 //     package and exercised end-to-end here.
 func TestApplyZoneAwareLoadBalancer(t *testing.T) {
@@ -252,14 +250,13 @@ func TestApplyZoneAwareLoadBalancer(t *testing.T) {
 		}
 	}
 
-	t.Run("feature flag on sets ZoneAwareLbConfig with MinClusterSize", func(t *testing.T) {
-		test.SetForTest(t, &features.EnableZoneAwareLB, true)
+	t.Run("sets ZoneAwareLbConfig with MinClusterSize", func(t *testing.T) {
 		c := newCluster()
 		za := &networking.ZoneAwareLoadBalancerSetting{
 			Enabled:        wrappers.Bool(true),
 			MinClusterSize: &wrappers.UInt64Value{Value: 7},
 		}
-		applyZoneAwareLoadBalancer(proxyLocality, nil, c, nil, za, true)
+		applyZoneAwareLoadBalancer(proxyLocality, nil, c, nil, za, true, "test-proxy", true)
 		zaCfg := c.CommonLbConfig.GetZoneAwareLbConfig()
 		if zaCfg == nil {
 			t.Fatal("expected CommonLbConfig.ZoneAwareLbConfig to be set")
@@ -269,11 +266,10 @@ func TestApplyZoneAwareLoadBalancer(t *testing.T) {
 		}
 	})
 
-	t.Run("feature flag on with nil MinClusterSize", func(t *testing.T) {
-		test.SetForTest(t, &features.EnableZoneAwareLB, true)
+	t.Run("sets ZoneAwareLbConfig with nil MinClusterSize", func(t *testing.T) {
 		c := newCluster()
 		za := &networking.ZoneAwareLoadBalancerSetting{Enabled: wrappers.Bool(true)}
-		applyZoneAwareLoadBalancer(proxyLocality, nil, c, nil, za, true)
+		applyZoneAwareLoadBalancer(proxyLocality, nil, c, nil, za, true, "test-proxy", true)
 		zaCfg := c.CommonLbConfig.GetZoneAwareLbConfig()
 		if zaCfg == nil {
 			t.Fatal("expected ZoneAwareLbConfig to be set even without MinClusterSize")
@@ -283,24 +279,23 @@ func TestApplyZoneAwareLoadBalancer(t *testing.T) {
 		}
 	})
 
-	t.Run("feature flag off leaves LocalityConfigSpecifier unset", func(t *testing.T) {
-		test.SetForTest(t, &features.EnableZoneAwareLB, false)
+	t.Run("self-discovery off still sets ZoneAwareLbConfig and emits warning", func(t *testing.T) {
 		c := newCluster()
 		za := &networking.ZoneAwareLoadBalancerSetting{
 			Enabled:        wrappers.Bool(true),
 			MinClusterSize: &wrappers.UInt64Value{Value: 7},
 		}
-		applyZoneAwareLoadBalancer(proxyLocality, nil, c, nil, za, true)
-		if c.CommonLbConfig.LocalityConfigSpecifier != nil {
-			t.Errorf("expected nil LocalityConfigSpecifier, got %T", c.CommonLbConfig.LocalityConfigSpecifier)
+		// ZoneAwareLbConfig is always set; enableSelfDiscovery=false only triggers a warning.
+		applyZoneAwareLoadBalancer(proxyLocality, nil, c, nil, za, true, "test-proxy", false)
+		if c.CommonLbConfig.GetZoneAwareLbConfig() == nil {
+			t.Error("expected ZoneAwareLbConfig to be set even when self-discovery is off")
 		}
 	})
 
 	t.Run("region-buckets CLA priorities", func(t *testing.T) {
-		test.SetForTest(t, &features.EnableZoneAwareLB, true)
 		c := newCluster()
 		za := &networking.ZoneAwareLoadBalancerSetting{Enabled: wrappers.Bool(true)}
-		applyZoneAwareLoadBalancer(proxyLocality, nil, c, nil, za, true)
+		applyZoneAwareLoadBalancer(proxyLocality, nil, c, nil, za, true, "test-proxy", true)
 		// region1 endpoints (any zone) → 0, region2 → 1.
 		want := []uint32{0, 0, 1}
 		for i, ep := range c.LoadAssignment.Endpoints {
@@ -312,12 +307,11 @@ func TestApplyZoneAwareLoadBalancer(t *testing.T) {
 	})
 
 	t.Run("outlier detection alone enables failover bucketing", func(t *testing.T) {
-		test.SetForTest(t, &features.EnableZoneAwareLB, true)
 		c := newCluster()
 		c.OutlierDetection = &cluster.OutlierDetection{}
 		za := &networking.ZoneAwareLoadBalancerSetting{Enabled: wrappers.Bool(true)}
 		// failover=false here; OutlierDetection alone should be enough.
-		applyZoneAwareLoadBalancer(proxyLocality, nil, c, nil, za, false)
+		applyZoneAwareLoadBalancer(proxyLocality, nil, c, nil, za, false, "test-proxy", true)
 		want := []uint32{0, 0, 1}
 		for i, ep := range c.LoadAssignment.Endpoints {
 			if ep.Priority != want[i] {
@@ -328,10 +322,9 @@ func TestApplyZoneAwareLoadBalancer(t *testing.T) {
 	})
 
 	t.Run("nil LoadAssignment is safe", func(t *testing.T) {
-		test.SetForTest(t, &features.EnableZoneAwareLB, true)
 		c := &cluster.Cluster{CommonLbConfig: &cluster.Cluster_CommonLbConfig{}}
 		za := &networking.ZoneAwareLoadBalancerSetting{Enabled: wrappers.Bool(true)}
-		applyZoneAwareLoadBalancer(proxyLocality, nil, c, nil, za, true)
+		applyZoneAwareLoadBalancer(proxyLocality, nil, c, nil, za, true, "test-proxy", true)
 		// ZoneAwareLbConfig still gets set even without a LoadAssignment.
 		if c.CommonLbConfig.GetZoneAwareLbConfig() == nil {
 			t.Error("expected ZoneAwareLbConfig set even with nil LoadAssignment")

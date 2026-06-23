@@ -1455,8 +1455,6 @@ func testEdsz(t *testing.T, s *xdsfake.FakeDiscoveryServer, proxyID string) {
 //     local_cluster (since the DR is intentionally ignored for it).
 //   - Endpoint changes to the local service DO trigger a recompute.
 func TestEdsLocalCluster(t *testing.T) {
-	test.SetForTest(t, &features.EnableZoneAwareLB, true)
-
 	const (
 		proxyIP    = "1.1.1.1"
 		siblingIP  = "2.2.2.2"
@@ -1633,8 +1631,6 @@ func TestEdsLocalCluster(t *testing.T) {
 // subscribes to local_cluster receives an empty CLA (cluster name set, no endpoints)
 // rather than a missing resource or a panic.
 func TestEdsLocalClusterNoService(t *testing.T) {
-	test.SetForTest(t, &features.EnableZoneAwareLB, true)
-
 	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
 	// Note: no service or instance registered for the proxy's IP, so the proxy will
 	// have no ServiceTargets and local_cluster has no underlying service to resolve.
@@ -1669,8 +1665,6 @@ func TestEdsLocalClusterNoService(t *testing.T) {
 // PrevLocalService==LocalService==\"\" sync inside buildEndpoints should keep the
 // transition flag clear so the partial-push optimization kicks in.
 func TestEdsLocalClusterSteadyStateNoService(t *testing.T) {
-	test.SetForTest(t, &features.EnableZoneAwareLB, true)
-
 	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
 	s.EnsureSynced(t)
 
@@ -1701,8 +1695,6 @@ func TestEdsLocalClusterSteadyStateNoService(t *testing.T) {
 // (LocalService != PrevLocalService) and local_cluster is recomputed from the new
 // service's endpoints — even on a partial push.
 func TestEdsLocalClusterServiceReplacement(t *testing.T) {
-	test.SetForTest(t, &features.EnableZoneAwareLB, true)
-
 	const (
 		proxyIP    = "1.1.1.1"
 		svcNS      = "default"
@@ -1805,8 +1797,6 @@ func TestEdsLocalClusterServiceReplacement(t *testing.T) {
 //     with the new endpoint.
 //   - When the service is removed, local_cluster is pushed again as an empty CLA.
 func TestEdsLocalClusterServiceLifecycle(t *testing.T) {
-	test.SetForTest(t, &features.EnableZoneAwareLB, true)
-
 	const (
 		proxyIP    = "1.1.1.1"
 		svcNS      = "default"
