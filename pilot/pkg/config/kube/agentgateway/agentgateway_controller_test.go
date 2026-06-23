@@ -19,11 +19,11 @@ import (
 	"testing"
 
 	"github.com/agentgateway/agentgateway/api"
+	"github.com/google/go-cmp/cmp"
 	"k8s.io/apimachinery/pkg/types"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/test/util/assert"
 )
 
 // agwBindListener builds a minimal GatewayListener with only the fields
@@ -145,7 +145,9 @@ func TestBuildBindsFromGateway(t *testing.T) {
 					})
 				}
 			}
-			assert.Equal(t, sortBinds(got), sortBinds(tt.want))
+			if diff := cmp.Diff(sortBinds(got), sortBinds(tt.want), cmp.AllowUnexported(bindResult{})); diff != "" {
+				t.Fatalf("unexpected binds (-got +want):\n%s", diff)
+			}
 		})
 	}
 }
