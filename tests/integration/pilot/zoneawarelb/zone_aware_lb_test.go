@@ -71,11 +71,9 @@ spec:
     number: 80
     protocol: HTTP
   resolution: STATIC
-  endpoints:
-{{ range $i, $we := .LocalClusterWorkloads }}
-  - address: {{ $we.Address }}
-    locality: {{ $we.Locality }}
-{{ end }}
+  workloadSelector:
+    labels:
+      app: zone-aware-local
 ---
 apiVersion: networking.istio.io/v1
 kind: ServiceEntry
@@ -110,6 +108,20 @@ spec:
       zoneAwareLbSetting:
         enabled: true
         minClusterSize: 1
+{{ range $i, $we := .LocalClusterWorkloads }}
+---
+apiVersion: networking.istio.io/v1
+kind: WorkloadEntry
+metadata:
+  name: zone-aware-local-we-{{ $i }}
+  labels:
+    service.istio.io/workload-name: {{ $.LocalClusterWorkloadName }}
+spec:
+  address: {{ $we.Address }}
+  locality: {{ $we.Locality }}
+  labels:
+    app: zone-aware-local
+{{ end }}
 {{ range $i, $we := .DestinationWorkloads }}
 ---
 apiVersion: networking.istio.io/v1
@@ -130,10 +142,11 @@ type weEntry struct {
 }
 
 type zoneAwareInput struct {
-	LocalHost             string
-	RemoteHost            string
-	LocalClusterWorkloads []weEntry
-	DestinationWorkloads  []weEntry
+	LocalHost                string
+	RemoteHost               string
+	LocalClusterWorkloadName string
+	LocalClusterWorkloads    []weEntry
+	DestinationWorkloads     []weEntry
 }
 
 func TestZoneAwareLoadBalancer(t *testing.T) {
@@ -146,12 +159,14 @@ func TestZoneAwareLoadBalancer(t *testing.T) {
 			destB := apps.B[0]
 			destC := apps.C[0]
 			proxyAddress := caller.WorkloadsOrFail(t)[0].Address()
+			sourcePeerAddress := destB.WorkloadsOrFail(t)[0].Address()
+			callerWorkloadName := workloadNameForEcho(caller)
 			oneLocalClusterEndpoint := []weEntry{
 				{Address: proxyAddress, Locality: localLocality},
 			}
 			twoLocalClusterZones := []weEntry{
 				{Address: proxyAddress, Locality: localLocality},
-				{Address: proxyAddress, Locality: sameRegionZone2Locality},
+				{Address: sourcePeerAddress, Locality: sameRegionZone2Locality},
 			}
 
 			cases := []struct {
@@ -233,10 +248,11 @@ func TestZoneAwareLoadBalancer(t *testing.T) {
 				t.NewSubTest(tc.name).Run(func(t framework.TestContext) {
 					hostSuffix := fmt.Sprintf("case-%d", i)
 					input := zoneAwareInput{
-						LocalHost:             fmt.Sprintf("local-%s.example.com", hostSuffix),
-						RemoteHost:            fmt.Sprintf("zone-aware-%s.example.com", hostSuffix),
-						LocalClusterWorkloads: tc.localClusterWorkloads,
-						DestinationWorkloads:  tc.destinationWorkloads,
+						LocalHost:                fmt.Sprintf("local-%s.example.com", hostSuffix),
+						RemoteHost:               fmt.Sprintf("zone-aware-%s.example.com", hostSuffix),
+						LocalClusterWorkloadName: callerWorkloadName,
+						LocalClusterWorkloads:    tc.localClusterWorkloads,
+						DestinationWorkloads:     tc.destinationWorkloads,
 					}
 					t.ConfigIstio().
 						Eval(apps.Namespace.Name(), input, zoneAwareConfig).
@@ -255,6 +271,15 @@ func TestZoneAwareLoadBalancer(t *testing.T) {
 				})
 			}
 		})
+}
+
+func workloadNameForEcho(inst echo.Instance) string {
+	cfg := inst.Config()
+	version := cfg.Version
+	if len(cfg.Subsets) > 0 {
+		version = cfg.Subsets[0].Version
+	}
+	return fmt.Sprintf("%s-%s", cfg.Service, version)
 }
 
 // assertZoneAwareConfig waits for the caller's Envoy config to reflect zone-aware routing.
