@@ -113,7 +113,13 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(
 // TODO: trace decorators, inbound timeouts
 func buildSidecarInboundHTTPRouteConfig(svc *model.Service, lb *ListenerBuilder, cc inboundChainConfig) *route.RouteConfiguration {
 	traceOperation := telemetry.TraceOperation(string(cc.telemetryMetadata.InstanceHostname), cc.port.Port)
-	defaultRoute := istio_route.BuildDefaultHTTPInboundRoute(lb.node, cc.clusterName, traceOperation, cc.port.Protocol)
+	var defaultRoute *route.Route
+	if lb.node.IsWaypointProxy() {
+		// the inbound route of a Waypoint is more like the outbound route
+		defaultRoute = istio_route.BuildDefaultHTTPOutboundRoute(cc.clusterName, traceOperation, lb.push.Mesh)
+	} else {
+		defaultRoute = istio_route.BuildDefaultHTTPInboundRoute(lb.node, cc.clusterName, traceOperation, cc.port.Protocol)
+	}
 
 	inboundVHost := &route.VirtualHost{
 		Name:    inboundVirtualHostPrefix + strconv.Itoa(cc.port.Port), // Format: "inbound|http|%d"
