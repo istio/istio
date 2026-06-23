@@ -36,8 +36,11 @@ import (
 const (
 	// localLocality must match the locality of the calling proxy (apps.A defaults to
 	// "region.zone.subzone" in the standard echo deployment).
-	localLocality  = "region/zone/subzone"
-	remoteLocality = "notregion/notzone/notsubzone"
+	localLocality           = "region/zone/subzone"
+	sameRegionZone2Locality = "region/zone2/subzone"
+	sameRegionZone3Locality = "region/zone3/subzone"
+	sameRegionZone4Locality = "region/zone4/subzone"
+	remoteRegionLocality    = "notregion/notzone/notsubzone"
 
 	// localClusterName matches xds.LocalClusterName in pilot. We hard-code it here so the
 	// integration test stays decoupled from pilot internals, but a mismatch should fail
@@ -48,7 +51,8 @@ const (
 )
 
 // Zone-aware-routing configuration:
-//   - LocalSvc: a ServiceEntry whose endpoint matches the calling proxy's address.
+//   - LocalSvc: a ServiceEntry whose endpoints model the caller service's
+//     source-zone distribution.
 //     This makes the proxy's local_cluster (the static cluster injected when
 //     ISTIO_META_ENABLE_SELF_DISCOVERY=true) resolve to a real service, exercising
 //     that side of the feature.
@@ -68,8 +72,10 @@ spec:
     protocol: HTTP
   resolution: STATIC
   endpoints:
-  - address: {{ .ProxyAddress }}
-    locality: {{ .LocalLocality }}
+{{ range $i, $we := .LocalClusterWorkloads }}
+  - address: {{ $we.Address }}
+    locality: {{ $we.Locality }}
+{{ end }}
 ---
 apiVersion: networking.istio.io/v1
 kind: ServiceEntry
@@ -104,7 +110,7 @@ spec:
       zoneAwareLbSetting:
         enabled: true
         minClusterSize: 1
-{{ range $i, $we := .Workloads }}
+{{ range $i, $we := .DestinationWorkloads }}
 ---
 apiVersion: networking.istio.io/v1
 kind: WorkloadEntry
@@ -124,11 +130,10 @@ type weEntry struct {
 }
 
 type zoneAwareInput struct {
-	LocalHost     string
-	RemoteHost    string
-	ProxyAddress  string
-	LocalLocality string
-	Workloads     []weEntry
+	LocalHost             string
+	RemoteHost            string
+	LocalClusterWorkloads []weEntry
+	DestinationWorkloads  []weEntry
 }
 
 func TestZoneAwareLoadBalancer(t *testing.T) {
@@ -141,56 +146,97 @@ func TestZoneAwareLoadBalancer(t *testing.T) {
 			destB := apps.B[0]
 			destC := apps.C[0]
 			proxyAddress := caller.WorkloadsOrFail(t)[0].Address()
+			oneLocalClusterEndpoint := []weEntry{
+				{Address: proxyAddress, Locality: localLocality},
+			}
+			twoLocalClusterZones := []weEntry{
+				{Address: proxyAddress, Locality: localLocality},
+				{Address: proxyAddress, Locality: sameRegionZone2Locality},
+			}
 
 			cases := []struct {
-				name      string
-				workloads []weEntry
-				expected  map[string]int
+				name                  string
+				localClusterWorkloads []weEntry
+				destinationWorkloads  []weEntry
+				expected              map[string]int
 			}{
 				{
-					name: "LocalEndpointAttractsTraffic",
-					workloads: []weEntry{
+					name:                  "OneSourceEndpointOneDestinationEndpointSameLocality",
+					localClusterWorkloads: oneLocalClusterEndpoint,
+					destinationWorkloads: []weEntry{
 						{Address: destB.Address(), Locality: localLocality},
-						{Address: destC.Address(), Locality: remoteLocality},
 					},
 					expected: expectAllTrafficTo(destB.Config().Service),
 				},
 				{
-					name: "MultipleLocalEndpoints",
-					workloads: []weEntry{
+					name:                  "OneSourceEndpointTwoDestinationLocalitiesSameRegionOverflows",
+					localClusterWorkloads: oneLocalClusterEndpoint,
+					destinationWorkloads: []weEntry{
 						{Address: destB.Address(), Locality: localLocality},
+						{Address: destC.Address(), Locality: sameRegionZone2Locality},
+					},
+					expected: map[string]int{
+						destB.Config().Service: sendCount / 2,
+						destC.Config().Service: sendCount / 2,
+					},
+				},
+				{
+					name:                  "TwoSourceZonesTwoDestinationEndpointsMatchingSourceZones",
+					localClusterWorkloads: twoLocalClusterZones,
+					destinationWorkloads: []weEntry{
 						{Address: destB.Address(), Locality: localLocality},
-						{Address: destC.Address(), Locality: remoteLocality},
-						{Address: destC.Address(), Locality: remoteLocality},
+						{Address: destC.Address(), Locality: sameRegionZone2Locality},
 					},
 					expected: expectAllTrafficTo(destB.Config().Service),
 				},
 				{
-					name: "NoLocalFailsOverToRemote",
-					workloads: []weEntry{
-						{Address: destC.Address(), Locality: remoteLocality},
+					name:                  "TwoSourceZonesTwoDestinationEndpointsDifferentSourceZones",
+					localClusterWorkloads: twoLocalClusterZones,
+					destinationWorkloads: []weEntry{
+						{Address: destB.Address(), Locality: sameRegionZone3Locality},
+						{Address: destC.Address(), Locality: sameRegionZone4Locality},
+					},
+					expected: map[string]int{
+						destB.Config().Service: sendCount / 2,
+						destC.Config().Service: sendCount / 2,
+					},
+				},
+				{
+					name:                  "CrossRegionEndpointIgnoredWhileSameRegionHealthy",
+					localClusterWorkloads: oneLocalClusterEndpoint,
+					destinationWorkloads: []weEntry{
+						{Address: destB.Address(), Locality: localLocality},
+						{Address: destC.Address(), Locality: remoteRegionLocality},
+					},
+					expected: expectAllTrafficTo(destB.Config().Service),
+				},
+				{
+					name:                  "CrossRegionEndpointUsedWhenSameRegionAbsent",
+					localClusterWorkloads: oneLocalClusterEndpoint,
+					destinationWorkloads: []weEntry{
+						{Address: destC.Address(), Locality: remoteRegionLocality},
 					},
 					expected: expectAllTrafficTo(destC.Config().Service),
 				},
 				{
-					name: "UnreachableLocalEjectsToRemote",
-					workloads: []weEntry{
+					name:                  "CrossRegionEndpointUsedAfterSameRegionEjection",
+					localClusterWorkloads: oneLocalClusterEndpoint,
+					destinationWorkloads: []weEntry{
 						{Address: "10.99.99.99", Locality: localLocality},
-						{Address: destC.Address(), Locality: remoteLocality},
+						{Address: destC.Address(), Locality: remoteRegionLocality},
 					},
 					expected: expectAllTrafficTo(destC.Config().Service),
 				},
 			}
 
-			for _, tc := range cases {
+			for i, tc := range cases {
 				t.NewSubTest(tc.name).Run(func(t framework.TestContext) {
-					hostSuffix := strings.ToLower(strings.ReplaceAll(tc.name, "/", "-"))
+					hostSuffix := fmt.Sprintf("case-%d", i)
 					input := zoneAwareInput{
-						LocalHost:     fmt.Sprintf("local-%s.example.com", hostSuffix),
-						RemoteHost:    fmt.Sprintf("zone-aware-%s.example.com", hostSuffix),
-						ProxyAddress:  proxyAddress,
-						LocalLocality: localLocality,
-						Workloads:     tc.workloads,
+						LocalHost:             fmt.Sprintf("local-%s.example.com", hostSuffix),
+						RemoteHost:            fmt.Sprintf("zone-aware-%s.example.com", hostSuffix),
+						LocalClusterWorkloads: tc.localClusterWorkloads,
+						DestinationWorkloads:  tc.destinationWorkloads,
 					}
 					t.ConfigIstio().
 						Eval(apps.Namespace.Name(), input, zoneAwareConfig).
@@ -200,10 +246,10 @@ func TestZoneAwareLoadBalancer(t *testing.T) {
 					// locality-LB defaults can produce the same pattern. We first verify that
 					// the proxy's Envoy config is actually zone-aware by asserting:
 					//   1. local_cluster is present as a static cluster
-					//   2. local_cluster has at least one endpoint (CLA populated via EDS)
+					//   2. local_cluster has exactly the expected endpoint count (CLA populated via EDS)
 					//   3. the remote-host cluster uses zone_aware_lb_config, not locality_weighted
 					// All three must hold for zone-aware to be actually exercised at runtime.
-					assertZoneAwareConfig(t, caller, input.RemoteHost)
+					assertZoneAwareConfig(t, caller, input.RemoteHost, len(tc.localClusterWorkloads))
 
 					sendTrafficOrFail(t, caller, input.RemoteHost, tc.expected)
 				})
@@ -215,7 +261,7 @@ func TestZoneAwareLoadBalancer(t *testing.T) {
 // Envoy's /config_dump endpoint omits endpoint data by default, so we use two separate
 // admin queries: /config_dump for cluster definitions (LocalityConfigSpecifier) and
 // /clusters?format=json for runtime host status (proves local_cluster is populated).
-func assertZoneAwareConfig(t framework.TestContext, caller echo.Instance, remoteHost string) {
+func assertZoneAwareConfig(t framework.TestContext, caller echo.Instance, remoteHost string, expectedLocalClusterHosts int) {
 	t.Helper()
 	sidecar := caller.WorkloadsOrFail(t)[0].Sidecar()
 	remoteClusterName := fmt.Sprintf("outbound|80||%s", remoteHost)
@@ -257,7 +303,8 @@ func assertZoneAwareConfig(t framework.TestContext, caller echo.Instance, remote
 		return true, nil
 	}, retry.Delay(time.Second), retry.Timeout(30*time.Second))
 
-	// Second: assert local_cluster has live hosts via /clusters (config_dump excludes EDS data).
+	// Second: assert local_cluster has the expected live hosts via /clusters
+	// (config_dump excludes EDS data).
 	retry.UntilSuccessOrFail(t, func() error {
 		clusters, err := sidecar.Clusters()
 		if err != nil {
@@ -267,8 +314,10 @@ func assertZoneAwareConfig(t framework.TestContext, caller echo.Instance, remote
 			if cs.GetName() != localClusterName {
 				continue
 			}
-			if len(cs.GetHostStatuses()) == 0 {
-				return fmt.Errorf("cluster %q has 0 hosts — local_cluster EDS never populated", localClusterName)
+			got := len(cs.GetHostStatuses())
+			if got != expectedLocalClusterHosts {
+				return fmt.Errorf("cluster %q has %d hosts, expected %d — local_cluster EDS has unexpected endpoints",
+					localClusterName, got, expectedLocalClusterHosts)
 			}
 			return nil
 		}
@@ -323,8 +372,13 @@ func sendTrafficOrFail(t framework.TestContext, from echo.Instance, host string,
 			got[parts[0]]++
 		}
 		scopes.Framework.Infof("Got responses: %+v", got)
+		for svc, reqs := range expected {
+			if !common.AlmostEquals(got[svc], reqs, 3) {
+				return fmt.Errorf("unexpected request distribution. Expected: %+v, got: %+v", expected, got)
+			}
+		}
 		for svc, reqs := range got {
-			if !common.AlmostEquals(reqs, expected[svc], 3) {
+			if _, ok := expected[svc]; !ok && !common.AlmostEquals(reqs, 0, 3) {
 				return fmt.Errorf("unexpected request distribution. Expected: %+v, got: %+v", expected, got)
 			}
 		}
