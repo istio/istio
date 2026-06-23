@@ -99,6 +99,30 @@ spec:
             name: ns4-cert
             namespace: ns4
 ---
+apiVersion: gateway.networking.k8s.io/v1
+kind: ListenerSet
+metadata:
+  name: all-denied
+  namespace: ns2
+spec:
+  parentRef:
+    name: parent-gateway
+    namespace: istio-system
+    kind: Gateway
+    group: gateway.networking.k8s.io
+  listeners:
+    - name: only
+      hostname: only.foo.com
+      protocol: HTTPS
+      port: 443
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - kind: Secret
+            group: ""
+            name: ns4-cert
+            namespace: ns4
+---
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: ReferenceGrant
 metadata:
