@@ -345,9 +345,8 @@ func initSidecarScopeInternalIndexes(ps *PushContext, sidecarScope *SidecarScope
 
 	if sidecarScope.Sidecar.GetOutboundTrafficPolicy() == nil {
 		if ps.Mesh.OutboundTrafficPolicy != nil {
-			sidecarScope.OutboundTrafficPolicy = &networking.OutboundTrafficPolicy{
-				Mode: networking.OutboundTrafficPolicy_Mode(ps.Mesh.OutboundTrafficPolicy.Mode),
-			}
+			mode := networking.OutboundTrafficPolicy_Mode(ps.Mesh.OutboundTrafficPolicy.Mode)
+			sidecarScope.OutboundTrafficPolicy = &networking.OutboundTrafficPolicy{Mode: mode}
 		}
 	} else {
 		sidecarScope.OutboundTrafficPolicy = sidecarScope.Sidecar.GetOutboundTrafficPolicy()
@@ -484,6 +483,8 @@ func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 	}
 
 	hostsByNamespace := make(map[string]hostClassification)
+
+	allExactHosts := true
 	for _, h := range istioListener.Hosts {
 		if strings.Count(h, "/") != 1 {
 			log.Errorf("Illegal host in sidecar resource: %s, host must be of form namespace/dnsName", h)
@@ -503,6 +504,11 @@ func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 		// exact hosts are saved separately for map lookup
 		if !hName.IsWildCarded() {
 			hc.exactHosts.Insert(hName)
+		} else {
+			allExactHosts = false
+		}
+		if ns == wildcardNamespace {
+			allExactHosts = false
 		}
 
 		// allHosts contains the exact hosts and wildcard hosts,
@@ -512,11 +518,45 @@ func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 	}
 
 	out.virtualServices = SelectVirtualServices(ps.virtualServiceIndex, configNamespace, hostsByNamespace)
-	svces := ps.servicesExportedToNamespace(configNamespace)
+	var svces []*Service
+	if allExactHosts {
+		svces = ps.servicesForExactHosts(configNamespace, hostsByNamespace)
+	} else {
+		svces = ps.servicesExportedToNamespace(configNamespace)
+	}
 	out.services = out.selectServices(svces, configNamespace, hostsByNamespace)
 	out.mostSpecificWildcardVsIndex = computeWildcardHostVirtualServiceIndex(out.virtualServices, out.services)
 
 	return out
+}
+
+// servicesForExactHosts resolves the candidate services for an egress listener whose hosts are all exact
+// (non-wildcard) and explicitly namespaced, via direct lookups in ps.ServiceIndex.HostnameAndNamespace instead
+// of scanning every service visible to configNamespace. It is a fast-path replacement for
+// servicesExportedToNamespace; the returned list is fed to selectServices, exactly like the scan-based path.
+func (ps *PushContext) servicesForExactHosts(configNamespace string,
+	hostsByNamespace map[string]hostClassification,
+) []*Service {
+	var candidates []*Service
+	for ns, hc := range hostsByNamespace {
+		for hName := range hc.exactHosts {
+			byNamespace, ok := ps.ServiceIndex.HostnameAndNamespace[hName]
+			if !ok {
+				continue
+			}
+			svc, ok := byNamespace[ns]
+			if !ok {
+				continue
+			}
+			// HostnameAndNamespace contains all services regardless of exportTo, so visibility is reapplied.
+			if !ps.IsServiceVisible(svc, configNamespace) {
+				continue
+			}
+			candidates = append(candidates, svc)
+		}
+	}
+	// Sort for deterministic output, matching servicesExportedToNamespace (built from creation-ordered services).
+	return SortServicesByCreationTime(candidates)
 }
 
 // GetEgressListenerForRDS returns the egress listener corresponding to

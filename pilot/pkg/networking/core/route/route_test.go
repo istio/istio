@@ -1230,22 +1230,6 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(ok).To(BeFalse())
 	})
 
-	t.Run("for path prefix redirect", func(t *testing.T) {
-		g := NewWithT(t)
-		cg := core.NewConfigGenTest(t, core.TestOptions{})
-
-		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithRedirectPathPrefix, 8080, gatewayNames, routeOpts)
-		xdstest.ValidateRoutes(t, routes)
-		g.Expect(err).NotTo(HaveOccurred())
-		g.Expect(len(routes)).To(Equal(1))
-
-		redirectAction, ok := routes[0].Action.(*envoyroute.Route_Redirect)
-		g.Expect(ok).NotTo(BeFalse())
-		g.Expect(redirectAction.Redirect.PathRewriteSpecifier).To(Equal(&envoyroute.RedirectAction_PrefixRewrite{
-			PrefixRewrite: "/replace-prefix",
-		}))
-	})
-
 	t.Run("for host rewrite", func(t *testing.T) {
 		g := NewWithT(t)
 		cg := core.NewConfigGenTest(t, core.TestOptions{})
@@ -1401,24 +1385,6 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(routeAction.Route.AppendXForwardedHost).To(Equal(true))
 	})
 
-	t.Run("for redirect uri prefix '%PREFIX()%' that is without gateway semantics", func(t *testing.T) {
-		g := NewWithT(t)
-		cg := core.NewConfigGenTest(t, core.TestOptions{})
-
-		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg),
-			virtualServiceWithRedirectPathPrefixNoGatewaySematics,
-			8080, gatewayNames, routeOpts)
-		xdstest.ValidateRoutes(t, routes)
-		g.Expect(err).NotTo(HaveOccurred())
-		g.Expect(len(routes)).To(Equal(1))
-
-		redirectAction, ok := routes[0].Action.(*envoyroute.Route_Redirect)
-		g.Expect(ok).NotTo(BeFalse())
-		g.Expect(redirectAction.Redirect.PathRewriteSpecifier).To(Equal(&envoyroute.RedirectAction_PathRedirect{
-			PathRedirect: "%PREFIX()%/replace-full",
-		}))
-	})
-
 	t.Run("for full path redirect", func(t *testing.T) {
 		g := NewWithT(t)
 		cg := core.NewConfigGenTest(t, core.TestOptions{})
@@ -1432,6 +1398,23 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(ok).NotTo(BeFalse())
 		g.Expect(redirectAction.Redirect.PathRewriteSpecifier).To(Equal(&envoyroute.RedirectAction_PathRedirect{
 			PathRedirect: "/replace-full-path",
+		}))
+	})
+
+	t.Run("for prefix_rewrite redirect", func(t *testing.T) {
+		g := NewWithT(t)
+		cg := core.NewConfigGenTest(t, core.TestOptions{})
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithRedirectPrefixRewrite, 8080, gatewayNames, routeOpts)
+		xdstest.ValidateRoutes(t, routes)
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(len(routes)).To(Equal(1))
+
+		redirectAction, ok := routes[0].Action.(*envoyroute.Route_Redirect)
+		g.Expect(ok).NotTo(BeFalse())
+		g.Expect(redirectAction.Redirect.HostRedirect).To(Equal("foo.example.com"))
+		g.Expect(redirectAction.Redirect.PathRewriteSpecifier).To(Equal(&envoyroute.RedirectAction_PrefixRewrite{
+			PrefixRewrite: "/",
 		}))
 	})
 
@@ -2261,49 +2244,6 @@ var virtualServiceWithInvalidRedirect = config.Config{
 	},
 }
 
-var virtualServiceWithRedirectPathPrefix = config.Config{
-	Meta: config.Meta{
-		GroupVersionKind: gvk.VirtualService,
-		Name:             "acme",
-		Annotations: map[string]string{
-			"internal.istio.io/route-semantics": "gateway",
-		},
-	},
-	Spec: &networking.VirtualService{
-		Hosts:    []string{},
-		Gateways: []string{"some-gateway"},
-		Http: []*networking.HTTPRoute{
-			{
-				Redirect: &networking.HTTPRedirect{
-					Uri:          "%PREFIX()%/replace-prefix",
-					Authority:    "some-authority.default.svc.cluster.local",
-					RedirectCode: 308,
-				},
-			},
-		},
-	},
-}
-
-var virtualServiceWithRedirectPathPrefixNoGatewaySematics = config.Config{
-	Meta: config.Meta{
-		GroupVersionKind: gvk.VirtualService,
-		Name:             "acme",
-	},
-	Spec: &networking.VirtualService{
-		Hosts:    []string{},
-		Gateways: []string{"some-gateway"},
-		Http: []*networking.HTTPRoute{
-			{
-				Redirect: &networking.HTTPRedirect{
-					Uri:          "%PREFIX()%/replace-full",
-					Authority:    "some-authority.default.svc.cluster.local",
-					RedirectCode: 308,
-				},
-			},
-		},
-	},
-}
-
 var virtualServiceWithRedirectFullPath = config.Config{
 	Meta: config.Meta{
 		GroupVersionKind: gvk.VirtualService,
@@ -2318,6 +2258,26 @@ var virtualServiceWithRedirectFullPath = config.Config{
 					Uri:          "/replace-full-path",
 					Authority:    "some-authority.default.svc.cluster.local",
 					RedirectCode: 308,
+				},
+			},
+		},
+	},
+}
+
+var virtualServiceWithRedirectPrefixRewrite = config.Config{
+	Meta: config.Meta{
+		GroupVersionKind: gvk.VirtualService,
+		Name:             "acme",
+	},
+	Spec: &networking.VirtualService{
+		Hosts:    []string{},
+		Gateways: []string{"some-gateway"},
+		Http: []*networking.HTTPRoute{
+			{
+				Redirect: &networking.HTTPRedirect{
+					Authority:     "foo.example.com",
+					PrefixRewrite: "/",
+					RedirectCode:  301,
 				},
 			},
 		},

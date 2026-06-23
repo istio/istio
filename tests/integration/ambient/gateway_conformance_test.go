@@ -67,8 +67,6 @@ var conformanceNamespaces = []string{
 }
 
 var skippedTests = map[string]string{
-	"BackendTLSPolicyConflictResolution": "https://github.com/istio/istio/issues/57817",
-
 	// The following tests were added in v1.5.0
 
 	"GatewayBackendClientCertificateFeature":                     "TODO",

@@ -170,6 +170,12 @@ var (
 		false,
 		"If enabled, controller that untaints nodes with cni pods ready will run. This should be enabled if you disabled ambient init containers.").Get()
 
+	NodeUntaintTaintName = env.Register(
+		"PILOT_NODE_UNTAINT_CONTROLLERS_TAINT_NAME",
+		"cni.istio.io/not-ready",
+		"The taint key used by the node-untaint controller to identify nodes that should be untainted.",
+	).Get()
+
 	EnableIPAutoallocate = env.Register(
 		"PILOT_ENABLE_IP_AUTOALLOCATE",
 		true,
@@ -273,6 +279,12 @@ var (
 	// Also see https://github.com/istio/istio/issues/46719 why this flag is required
 	EnableAdditionalIpv4OutboundListenerForIpv6Only = env.RegisterBoolVar("ISTIO_ENABLE_IPV4_OUTBOUND_LISTENER_FOR_IPV6_CLUSTERS", false,
 		"If true, pilot will configure an additional IPv4 listener for outbound traffic in IPv6 only clusters, e.g. AWS EKS IPv6 only clusters.").Get()
+
+	// AllowAnyDynamicDNSMaxHosts caps the number of resolved hosts held in the shared DFP DNS cache
+	// for ALLOW_ANY_DYNAMIC_DNS mode. This matches Envoy's own default (1024) and bounds the memory
+	// used by the cache; raise it for proxies that fan out to a very large number of external hosts.
+	AllowAnyDynamicDNSMaxHosts = env.RegisterIntVar("PILOT_ALLOW_ANY_DYNAMIC_DNS_MAX_HOSTS", 1024,
+		"Maximum number of hosts kept in the dynamic forward proxy DNS cache for ALLOW_ANY_DYNAMIC_DNS outbound traffic mode.").Get()
 
 	EnableVtprotobuf = env.Register("ENABLE_VTPROTOBUF", true,
 		"If true, will use optimized vtprotobuf based marshaling. Requires a build with -tags=vtprotobuf.").Get()

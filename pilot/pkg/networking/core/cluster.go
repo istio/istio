@@ -333,6 +333,10 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 		resources = append(resources, ob...)
 		// Add a blackhole and passthrough cluster for catching traffic to unresolved routes
 		clusters = outboundPatcher.conditionallyAppend(clusters, nil, cb.buildBlackHoleCluster(), cb.buildDefaultPassthroughCluster())
+		if util.IsAllowAnyDynamicDNSOutbound(proxy) {
+			dfpCluster := cb.buildAllowAnyDFPCluster(req.Push.Mesh.GetOutboundTrafficPolicy().GetTls())
+			clusters = outboundPatcher.conditionallyAppend(clusters, nil, dfpCluster.build())
+		}
 		clusters = append(clusters, outboundPatcher.insertedClusters()...)
 		// Setup inbound clusters
 		inboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_INBOUND}
@@ -945,7 +949,6 @@ type buildClusterOpts struct {
 	policy          *networking.TrafficPolicy
 	port            *model.Port
 	serviceAccounts []string
-	serviceTargets  []model.ServiceTarget
 	// Used for traffic across multiple network clusters
 	// the east-west gateway in a remote cluster will use this value to route
 	// traffic to the appropriate service

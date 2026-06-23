@@ -52,14 +52,27 @@ type defaultWatcher struct {
 	mu       sync.RWMutex
 }
 
-func NewDefaultWatcher(client kube.Client, revision string) DefaultWatcher {
+// NewDefaultWatcher creates a watcher that tracks the default revision by watching
+// MutatingWebhookConfigurations. The istioNamespace parameter scopes the lookup to
+// the webhook for a specific Istio namespace. When Istio is installed outside of
+// istio-system, the webhook is named "istio-revision-tag-default-<namespace>" instead
+// of "istio-revision-tag-default". If istioNamespace is empty, the watcher falls back
+// to matching by the canonical name "istio-revision-tag-default".
+func NewDefaultWatcher(client kube.Client, revision string, istioNamespace string) DefaultWatcher {
 	p := &defaultWatcher{
 		revision: revision,
 		mu:       sync.RWMutex{},
 	}
 	p.queue = controllers.NewQueue("default revision", controllers.WithReconciler(p.setDefault))
 	p.webhooks = kclient.New[*admitv1.MutatingWebhookConfiguration](client)
-	p.webhooks.AddEventHandler(controllers.FilteredObjectHandler(p.queue.AddObject, isDefaultTagWebhook))
+
+	expectedName := defaultTagWebhookName
+	if istioNamespace != "" && istioNamespace != "istio-system" {
+		expectedName = defaultTagWebhookName + "-" + istioNamespace
+	}
+	p.webhooks.AddEventHandler(controllers.FilteredObjectHandler(p.queue.AddObject, func(obj controllers.Object) bool {
+		return obj.GetName() == expectedName
+	}))
 
 	return p
 }
@@ -106,8 +119,4 @@ func (p *defaultWatcher) setDefault(key types.NamespacedName) error {
 	p.defaultRevision = revision
 	p.notifyHandlers()
 	return nil
-}
-
-func isDefaultTagWebhook(obj controllers.Object) bool {
-	return obj.GetName() == defaultTagWebhookName
 }

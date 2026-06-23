@@ -57,6 +57,7 @@ import (
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -625,7 +626,6 @@ func init() {
 	features.EnableAlphaGatewayAPI = true
 	features.EnableAmbientWaypoints = true
 	features.EnableAmbientMultiNetwork = true
-	features.EnableAgentgateway = true
 	// Recompute with ambient enabled
 	gatewaycommon.ClassInfos = gatewaycommon.GetClassInfos()
 	gatewaycommon.BuiltinGatewayClasses = gatewaycommon.GetBuiltinGatewayClasses()
@@ -765,6 +765,8 @@ func TestConvertResources(t *testing.T) {
 			),
 		},
 		{name: "mix-backend-policy"},
+		{name: "backend-tls-policy-ignored"},
+		{name: "backend-traffic-policy-ignored"},
 		{name: "listenerset"},
 		{name: "listenerset-cross-namespace"},
 		{name: "listenerset-same-name-different-ns"},
@@ -1695,6 +1697,104 @@ func marshalYaml(t test.Failer, cl []config.Config) []byte {
 	return result
 }
 
+func TestCreateHeadersFilter(t *testing.T) {
+	tests := []struct {
+		name      string
+		filter    *k8s.HTTPHeaderFilter
+		wantErr   bool
+		errReason ConfigErrorReason
+	}{
+		{
+			name:    "nil filter",
+			filter:  nil,
+			wantErr: false,
+		},
+		{
+			name: "valid headers",
+			filter: &k8s.HTTPHeaderFilter{
+				Set: []k8s.HTTPHeader{{Name: "x-foo", Value: "bar"}},
+				Add: []k8s.HTTPHeader{{Name: "x-baz", Value: "qux"}},
+			},
+			wantErr: false,
+		},
+		{
+			name: "newline in set header value",
+			filter: &k8s.HTTPHeaderFilter{
+				Set: []k8s.HTTPHeader{{Name: "content-security-policy", Value: "default-src 'self';\nscript-src 'self';"}},
+			},
+			wantErr:   true,
+			errReason: InvalidFilter,
+		},
+		{
+			name: "carriage return in set header value",
+			filter: &k8s.HTTPHeaderFilter{
+				Set: []k8s.HTTPHeader{{Name: "x-foo", Value: "bar\rbaz"}},
+			},
+			wantErr:   true,
+			errReason: InvalidFilter,
+		},
+		{
+			name: "newline in add header value",
+			filter: &k8s.HTTPHeaderFilter{
+				Add: []k8s.HTTPHeader{{Name: "x-foo", Value: "bar\nbaz"}},
+			},
+			wantErr:   true,
+			errReason: InvalidFilter,
+		},
+		{
+			name: "null byte in header value",
+			filter: &k8s.HTTPHeaderFilter{
+				Set: []k8s.HTTPHeader{{Name: "x-foo", Value: "bar\x00baz"}},
+			},
+			wantErr:   true,
+			errReason: InvalidFilter,
+		},
+		{
+			name: "control character in header value",
+			filter: &k8s.HTTPHeaderFilter{
+				Set: []k8s.HTTPHeader{{Name: "x-foo", Value: "bar\x01baz"}},
+			},
+			wantErr:   true,
+			errReason: InvalidFilter,
+		},
+		{
+			name: "DEL character in header value",
+			filter: &k8s.HTTPHeaderFilter{
+				Set: []k8s.HTTPHeader{{Name: "x-foo", Value: "bar\x7Fbaz"}},
+			},
+			wantErr:   true,
+			errReason: InvalidFilter,
+		},
+		{
+			name: "tab in header value is valid",
+			filter: &k8s.HTTPHeaderFilter{
+				Set: []k8s.HTTPHeader{{Name: "x-foo", Value: "bar\tbaz"}},
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := createHeadersFilter(tt.filter)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("expected error but got none")
+				}
+				if err.Reason != tt.errReason {
+					t.Errorf("got reason %q, want %q", err.Reason, tt.errReason)
+				}
+			} else {
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+				if tt.filter != nil && got == nil {
+					t.Errorf("expected non-nil result for non-nil filter")
+				}
+			}
+		})
+	}
+}
+
 func TestHumanReadableJoin(t *testing.T) {
 	tests := []struct {
 		input []string
@@ -1886,4 +1986,96 @@ func kubernetesObjectsFromString(s string) ([]runtime.Object, error) {
 
 func firstValue[T, U any](val T, _ U) T {
 	return val
+}
+
+// TestListenerSetStatusTruncatesOnListenerRemoval is a regression test for a bug where a
+// listener removed from a ListenerSet's spec left an orphaned entry in status.Listeners
+// forever. ListenerSetCollection threads the previous status forward (to preserve
+// per-listener data across reconciles) but only refreshes entries for listeners still in
+// the spec, and reportListenerSetStatus did not prune the stale ones the way
+// reportGatewayStatus does for Gateways. The leftover entry left
+// len(status.Listeners) > len(spec.Listeners) and eventually wedged observedGeneration.
+//
+// The ListenerSet is created with a spec of 2 listeners but a status that already carries
+// 3 (one stale entry), simulating the post-removal state. A correct reconcile must prune
+// the status back to the 2 listeners that are still in the spec.
+func TestListenerSetStatusTruncatesOnListenerRemoval(t *testing.T) {
+	test.SetForTest(t, &features.EnableGatewayAPIGatewayClassController, false)
+	stop := test.NewStop(t)
+	kc := kube.NewFakeClient()
+	setupClientCRDs(t, kc)
+	cg := core.NewConfigGenTest(t, core.TestOptions{})
+
+	gatewayClasses := clienttest.NewWriter[*k8s.GatewayClass](t, kc)
+	gateways := clienttest.NewWriter[*k8s.Gateway](t, kc)
+	listenerSets := clienttest.NewWriter[*k8s.ListenerSet](t, kc)
+
+	ctrl := NewController(kc, AlwaysReady, controller.Options{DomainSuffix: "domain.suffix", KrtDebugger: &krt.DebugHandler{}}, nil)
+	sq := &TestStatusQueue{state: map[status.Resource]any{}}
+	go ctrl.Run(stop)
+	kc.RunAndWait(stop)
+	ctrl.Reconcile(cg.PushContext())
+	kube.WaitForCacheSync("test", stop, ctrl.HasSynced)
+	ctrl.status.SetQueue(sq)
+
+	gatewayClasses.Create(&k8s.GatewayClass{
+		ObjectMeta: metav1.ObjectMeta{Name: "istio"},
+		Spec:       k8s.GatewayClassSpec{ControllerName: "istio.io/gateway-controller"},
+	})
+	gateways.Create(&k8s.Gateway{
+		ObjectMeta: metav1.ObjectMeta{Name: "parent", Namespace: "istio-system"},
+		Spec: k8s.GatewaySpec{
+			GatewayClassName: "istio",
+			AllowedListeners: &k8s.AllowedListeners{
+				Namespaces: &k8s.ListenerNamespaces{From: ptr.Of(k8s.NamespacesFromAll)},
+			},
+			Listeners: []k8s.Listener{{
+				Name:     "default",
+				Hostname: ptr.Of(k8s.Hostname("example.com")),
+				Protocol: k8s.HTTPProtocolType,
+				Port:     80,
+			}},
+		},
+	})
+
+	entry := func(n string) k8s.ListenerEntry {
+		return k8s.ListenerEntry{
+			Name:     k8s.SectionName(n),
+			Hostname: ptr.Of(k8s.Hostname(n + ".example.com")),
+			Protocol: k8s.HTTPProtocolType,
+			Port:     80,
+		}
+	}
+	listenerSets.Create(&k8s.ListenerSet{
+		ObjectMeta: metav1.ObjectMeta{Name: "set", Namespace: "istio-system"},
+		Spec: k8s.ListenerSetSpec{
+			ParentRef: k8s.ParentGatewayReference{
+				Group:     ptr.Of(k8s.Group("gateway.networking.k8s.io")),
+				Kind:      ptr.Of(k8s.Kind("Gateway")),
+				Name:      "parent",
+				Namespace: ptr.Of(k8s.Namespace("istio-system")),
+			},
+			Listeners: []k8s.ListenerEntry{entry("a"), entry("b")},
+		},
+		// Stale status: a previous, larger spec left an orphaned "stale" listener entry.
+		Status: k8s.ListenerSetStatus{
+			Listeners: []k8s.ListenerEntryStatus{{Name: "a"}, {Name: "b"}, {Name: "stale"}},
+		},
+	})
+
+	statusListenerCount := func() int {
+		for _, s := range sq.Statuses() {
+			switch st := s.(type) {
+			case *k8s.ListenerSetStatus:
+				return len(st.Listeners)
+			case k8s.ListenerSetStatus:
+				return len(st.Listeners)
+			}
+		}
+		return -1
+	}
+
+	// With the fix, the orphaned "stale" entry is pruned and status matches the 2 spec
+	// listeners. Without the fix, status stays at 3.
+	assert.EventuallyEqual(t, statusListenerCount, 2)
 }

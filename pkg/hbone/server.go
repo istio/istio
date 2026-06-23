@@ -24,8 +24,6 @@ import (
 
 	"github.com/cbeuw/connutil"
 	"golang.org/x/net/http2"
-
-	"istio.io/istio/pkg/h2c"
 )
 
 func NewDoubleHBONEServer(tlsConfig *tls.Config) *http.Server {
@@ -48,7 +46,6 @@ func newServer(handleFunc func(http.ResponseWriter, *http.Request) bool) *http.S
 	h2, _ := http2.ConfigureTransports(h1)
 	h2.ReadIdleTimeout = 10 * time.Minute // TODO: much larger to support long-lived connections
 	h2.AllowHTTP = true
-	h2Server := &http2.Server{}
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodConnect {
 			if handleFunc(w, r) {
@@ -58,8 +55,12 @@ func newServer(handleFunc func(http.ResponseWriter, *http.Request) bool) *http.S
 			w.WriteHeader(http.StatusMethodNotAllowed)
 		}
 	})
+	protocols := new(http.Protocols)
+	protocols.SetHTTP1(true)
+	protocols.SetUnencryptedHTTP2(true)
 	return &http.Server{
-		Handler: h2c.NewHandler(handler, h2Server),
+		Handler:   handler,
+		Protocols: protocols,
 	}
 }
 

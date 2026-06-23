@@ -1,6 +1,8 @@
 apiVersion: release-notes/v2
 kind: feature
 area: traffic-management
+issue:
+  - 59813
 releaseNotes:
 - |
   **Added** configurable DNS upstream timeout via `DNS_FORWARD_TIMEOUT` environment variable. The default timeout remains 5 seconds. Users can increase the timeout for high-latency DNS servers or decrease it to reduce user-impacting latency when DNS servers are unresponsive (fail faster to try next server sooner). Set via `DNS_FORWARD_TIMEOUT=10s` in istio-proxy container or mesh-wide via `proxyMetadata`.

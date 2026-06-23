@@ -1,6 +1,8 @@
 apiVersion: release-notes/v2
 kind: bug-fix
 area: traffic-management
+issue:
+  - 59098
 releaseNotes:
   - |
     **Fixed** Gateway API `tls.Options[gateway.istio.io/tls-terminate-mode]` to properly override TLS mode after CACertificateRefs processing.

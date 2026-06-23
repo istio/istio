@@ -2428,7 +2428,7 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 		gw := cfg.Spec.(*networking.Gateway)
 		if gwsvcstr, f := cfg.Annotations[InternalGatewayServiceAnnotation]; f {
 			gwsvcs := strings.Split(gwsvcstr, ",")
-			known := sets.New[string](gwsvcs...)
+			known := sets.New(gwsvcs...)
 			cfgNamespace := ptr.NonEmptyOrDefault(cfg.Annotations[constants.InternalParentNamespace], cfg.Namespace)
 			matchingInstances := make([]ServiceTarget, 0, len(proxy.ServiceTargets))
 			for _, si := range proxy.ServiceTargets {

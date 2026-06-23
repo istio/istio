@@ -74,6 +74,16 @@ var (
 	timestampRegex = regexp.MustCompile(`lastTransitionTime:.*`)
 )
 
+func init() {
+	features.EnableAlphaGatewayAPI = true
+	features.EnableAmbientWaypoints = true
+	features.EnableAmbientMultiNetwork = true
+	features.EnableAgentgateway = true
+	// Recompute with ambient and agw enabled
+	ClassInfos = GetClassInfos()
+	BuiltinGatewayClasses = GetAllClasses()
+}
+
 func TestConfigureIstioGateway(t *testing.T) {
 	discoveryNamespacesFilter := buildFilter("default")
 	defaultNamespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "default"}}
@@ -293,6 +303,58 @@ func TestConfigureIstioGateway(t *testing.T) {
 				},
 				Spec: k8s.GatewaySpec{
 					GatewayClassName: constants.WaypointGatewayClassName,
+					Listeners: []k8s.Listener{{
+						Name:     "mesh",
+						Port:     k8s.PortNumber(15008),
+						Protocol: "ALL",
+					}},
+				},
+			},
+			objects: defaultObjects,
+			values: `global:
+  waypoint:
+    resources:
+      limits:
+        cpu: null
+        memory: 500Mi
+      requests:
+        cpu: null
+        memory: 150Mi`,
+		},
+		{
+			name: "agentgateway-waypoint",
+			gw: k8s.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "namespace",
+					Namespace: "default",
+					Labels: map[string]string{
+						label.TopologyNetwork.Name: "network-1", // explicitly set network won't be overwritten
+					},
+				},
+				Spec: k8s.GatewaySpec{
+					GatewayClassName: constants.AgentgatewayWaypointClassName,
+					Listeners: []k8s.Listener{{
+						Name:     "mesh",
+						Port:     k8s.PortNumber(15008),
+						Protocol: "ALL",
+					}},
+				},
+			},
+			objects: defaultObjects,
+			values: `global:
+  hub: test
+  tag: test
+  network: network-2`,
+		},
+		{
+			name: "agentgateway-waypoint-resources-null",
+			gw: k8s.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "namespace",
+					Namespace: "default",
+				},
+				Spec: k8s.GatewaySpec{
+					GatewayClassName: constants.AgentgatewayWaypointClassName,
 					Listeners: []k8s.Listener{{
 						Name:     "mesh",
 						Port:     k8s.PortNumber(15008),
@@ -1210,7 +1272,19 @@ func TestHandlerEnqueueFunction(t *testing.T) {
 			}
 			kube.WaitForCacheSync("test", stop, d.queue.HasSynced)
 
-			assert.EventuallyEqual(t, reconciles.Load, tt.reconciles, retry.Timeout(time.Second*5), retry.Message("reconciliations count check"))
+			// Tie the assertion to the in-band reconcile signal rather than a
+			// wall-clock retry. EventuallyEqual depended on a 5s budget for the
+			// reconcile worker to drain the queue, which is racy on slower
+			// runners. For non-zero cases, block on reconcileDone (the same
+			// channel the prep-Create/Delete already uses above) then check
+			// the count once. For zero cases, use Consistently to confirm no
+			// spurious reconcile is enqueued.
+			if tt.reconciles == 0 {
+				assert.Consistently(t, reconciles.Load, int32(0))
+			} else {
+				<-reconcileDone
+				assert.Equal(t, reconciles.Load(), tt.reconciles)
+			}
 		})
 	}
 }
@@ -1237,6 +1311,10 @@ global:
 		"kube-gateway": file.AsStringOrFail(t, filepath.Join(env.IstioSrc, "manifests/charts/istio-control/istio-discovery/files/kube-gateway.yaml")),
 		"waypoint":     file.AsStringOrFail(t, filepath.Join(env.IstioSrc, "manifests/charts/istio-control/istio-discovery/files/waypoint.yaml")),
 		"agentgateway": file.AsStringOrFail(t, filepath.Join(env.IstioSrc, "manifests/charts/istio-control/istio-discovery/files/agentgateway.yaml")),
+		"agentgateway-waypoint": file.AsStringOrFail(t, filepath.Join(
+			env.IstioSrc,
+			"manifests/charts/istio-control/istio-discovery/files/agentgateway-waypoint.yaml",
+		)),
 	})
 	if err != nil {
 		t.Fatal(err)

@@ -1,0 +1,33 @@
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: se-ns1
+  namespace: ns1
+spec:
+  hosts:
+  - example.com
+  ports:
+  - name: http-8080
+    number: 8080
+    protocol: HTTP
+  resolution: DNS
+  location: MESH_EXTERNAL
+  exportTo:
+  - "."
+---
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: se-ns2
+  namespace: ns2
+spec:
+  hosts:
+  - example.com
+  ports:
+  - name: https-8080
+    number: 8080
+    protocol: HTTPS
+  resolution: DNS
+  location: MESH_EXTERNAL
+  exportTo:
+  - "."

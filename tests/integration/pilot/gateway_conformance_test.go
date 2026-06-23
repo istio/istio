@@ -64,8 +64,6 @@ var conformanceNamespaces = []string{
 }
 
 var skippedTests = map[string]string{
-	"BackendTLSPolicyConflictResolution": "https://github.com/istio/istio/issues/57817",
-
 	// The following tests were added in v1.5.0
 	"GatewayBackendClientCertificateFeature":                     "TODO",
 	"GatewayFrontendClientCertificateValidationInsecureFallback": "TODO",
@@ -119,12 +117,14 @@ func TestGatewayConformance(t *testing.T) {
 
 			hostnameType := v1.AddressType("Hostname")
 			istioVersion, _ := env.ReadVersion()
+			// Honor the --istio.test.kube.gatewayClassName flag if set; otherwise this is DefaultGatewayClassName ("istio").
+			gatewayClassName := i.Settings().GatewayClassName
 			opts := suite.ConformanceOptions{
 				Client:                   c,
 				Clientset:                gatewayConformanceInputs.Client.Kube(),
 				ClientOptions:            clientOptions,
 				RestConfig:               gatewayConformanceInputs.Client.RESTConfig(),
-				GatewayClassName:         "istio",
+				GatewayClassName:         gatewayClassName,
 				Debug:                    scopes.Framework.DebugEnabled(),
 				CleanupBaseResources:     gatewayConformanceInputs.Cleanup,
 				ManifestFS:               []fs.FS{&conformance.Manifests},

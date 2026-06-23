@@ -1677,11 +1677,34 @@ func TestValidateHTTPRedirect(t *testing.T) {
 			},
 			valid: true,
 		},
+		{
+			name: "prefix_rewrite alone",
+			redirect: &networking.HTTPRedirect{
+				PrefixRewrite: "/bar",
+			},
+			valid: true,
+		},
+		{
+			name: "prefix_rewrite with authority",
+			redirect: &networking.HTTPRedirect{
+				Authority:     "foo.example.com",
+				PrefixRewrite: "/",
+			},
+			valid: true,
+		},
+		{
+			name: "uri and prefix_rewrite mutually exclusive",
+			redirect: &networking.HTTPRedirect{
+				Uri:           "/old",
+				PrefixRewrite: "/new",
+			},
+			valid: false,
+		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			if err := validateHTTPRedirect(tc.redirect); (err == nil) != tc.valid {
+			if err := validateHTTPRedirect(tc.redirect, nil); (err == nil) != tc.valid {
 				t.Fatalf("got valid=%v but wanted valid=%v: %v", err == nil, tc.valid, err)
 			}
 		})
@@ -1895,6 +1918,40 @@ func TestValidateHTTPRoute(t *testing.T) {
 			Redirect: &networking.HTTPRedirect{
 				Uri:       "/lerp",
 				Authority: "foo.biz",
+			},
+		}, valid: true},
+		{name: "prefix_rewrite redirect with prefix URI match", route: &networking.HTTPRoute{
+			Match: []*networking.HTTPMatchRequest{{
+				Uri: &networking.StringMatch{MatchType: &networking.StringMatch_Prefix{Prefix: "/foo"}},
+			}},
+			Redirect: &networking.HTTPRedirect{
+				PrefixRewrite: "/bar",
+			},
+		}, valid: true},
+		{name: "prefix_rewrite redirect with exact URI match is invalid", route: &networking.HTTPRoute{
+			Match: []*networking.HTTPMatchRequest{{
+				Uri: &networking.StringMatch{MatchType: &networking.StringMatch_Exact{Exact: "/foo"}},
+			}},
+			Redirect: &networking.HTTPRedirect{
+				PrefixRewrite: "/bar",
+			},
+		}, valid: false},
+		{name: "prefix_rewrite redirect with regex URI match is invalid", route: &networking.HTTPRoute{
+			Match: []*networking.HTTPMatchRequest{{
+				Uri: &networking.StringMatch{MatchType: &networking.StringMatch_Regex{Regex: "/foo.*"}},
+			}},
+			Redirect: &networking.HTTPRedirect{
+				PrefixRewrite: "/bar",
+			},
+		}, valid: false},
+		{name: "prefix_rewrite redirect with no URI match (wildcard) is valid", route: &networking.HTTPRoute{
+			Match: []*networking.HTTPMatchRequest{{
+				Headers: map[string]*networking.StringMatch{
+					"x-foo": {MatchType: &networking.StringMatch_Exact{Exact: "bar"}},
+				},
+			}},
+			Redirect: &networking.HTTPRedirect{
+				PrefixRewrite: "/bar",
 			},
 		}, valid: true},
 		{name: "conflicting redirect and route", route: &networking.HTTPRoute{
@@ -6448,6 +6505,16 @@ func TestValidateSidecar(t *testing.T) {
 					Host:   "foo.bar",
 					Subset: "shiny",
 				},
+			},
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*"},
+				},
+			},
+		}, false, false},
+		{"ALLOW_ANY_DYNAMIC_DNS rejected in sidecar", &networking.Sidecar{
+			OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
+				Mode: networking.OutboundTrafficPolicy_Mode(3),
 			},
 			Egress: []*networking.IstioEgressListener{
 				{

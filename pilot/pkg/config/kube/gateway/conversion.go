@@ -139,7 +139,10 @@ func convertHTTPRoute(ctx RouteContext, r k8s.HTTPRouteRule,
 	for _, filter := range r.Filters {
 		switch filter.Type {
 		case k8s.HTTPRouteFilterRequestHeaderModifier:
-			h := createHeadersFilter(filter.RequestHeaderModifier)
+			h, err := createHeadersFilter(filter.RequestHeaderModifier)
+			if err != nil {
+				return nil, nil, err
+			}
 			if h == nil {
 				continue
 			}
@@ -148,7 +151,10 @@ func convertHTTPRoute(ctx RouteContext, r k8s.HTTPRouteRule,
 			}
 			vs.Headers.Request = h
 		case k8s.HTTPRouteFilterResponseHeaderModifier:
-			h := createHeadersFilter(filter.ResponseHeaderModifier)
+			h, err := createHeadersFilter(filter.ResponseHeaderModifier)
+			if err != nil {
+				return nil, nil, err
+			}
 			if h == nil {
 				continue
 			}
@@ -285,7 +291,10 @@ func convertGRPCRoute(ctx RouteContext, r k8s.GRPCRouteRule,
 	for _, filter := range r.Filters {
 		switch filter.Type {
 		case k8s.GRPCRouteFilterRequestHeaderModifier:
-			h := createHeadersFilter(filter.RequestHeaderModifier)
+			h, err := createHeadersFilter(filter.RequestHeaderModifier)
+			if err != nil {
+				return nil, err
+			}
 			if h == nil {
 				continue
 			}
@@ -294,7 +303,10 @@ func convertGRPCRoute(ctx RouteContext, r k8s.GRPCRouteRule,
 			}
 			vs.Headers.Request = h
 		case k8s.GRPCRouteFilterResponseHeaderModifier:
-			h := createHeadersFilter(filter.ResponseHeaderModifier)
+			h, err := createHeadersFilter(filter.ResponseHeaderModifier)
+			if err != nil {
+				return nil, err
+			}
 			if h == nil {
 				continue
 			}
@@ -958,7 +970,10 @@ func buildHTTPDestination(
 		for _, filter := range fwd.Filters {
 			switch filter.Type {
 			case k8s.HTTPRouteFilterRequestHeaderModifier:
-				h := createHeadersFilter(filter.RequestHeaderModifier)
+				h, err := createHeadersFilter(filter.RequestHeaderModifier)
+				if err != nil {
+					return nil, ipCfg, nil, err
+				}
 				if h == nil {
 					continue
 				}
@@ -967,7 +982,10 @@ func buildHTTPDestination(
 				}
 				rd.Headers.Request = h
 			case k8s.HTTPRouteFilterResponseHeaderModifier:
-				h := createHeadersFilter(filter.ResponseHeaderModifier)
+				h, err := createHeadersFilter(filter.ResponseHeaderModifier)
+				if err != nil {
+					return nil, ipCfg, nil, err
+				}
 				if h == nil {
 					continue
 				}
@@ -1026,7 +1044,10 @@ func buildGRPCDestination(
 		for _, filter := range fwd.Filters {
 			switch filter.Type {
 			case k8s.GRPCRouteFilterRequestHeaderModifier:
-				h := createHeadersFilter(filter.RequestHeaderModifier)
+				h, err := createHeadersFilter(filter.RequestHeaderModifier)
+				if err != nil {
+					return nil, nil, err
+				}
 				if h == nil {
 					continue
 				}
@@ -1035,7 +1056,10 @@ func buildGRPCDestination(
 				}
 				rd.Headers.Request = h
 			case k8s.GRPCRouteFilterResponseHeaderModifier:
-				h := createHeadersFilter(filter.ResponseHeaderModifier)
+				h, err := createHeadersFilter(filter.ResponseHeaderModifier)
+				if err != nil {
+					return nil, nil, err
+				}
 				if h == nil {
 					continue
 				}
@@ -1380,21 +1404,39 @@ func createRedirectFilter(filter *k8s.HTTPRequestRedirectFilter) *istio.HTTPRedi
 		case k8s.FullPathHTTPPathModifier:
 			resp.Uri = *filter.Path.ReplaceFullPath
 		case k8s.PrefixMatchHTTPPathModifier:
-			resp.Uri = "%PREFIX()%" + *filter.Path.ReplacePrefixMatch
+			resp.PrefixRewrite = *filter.Path.ReplacePrefixMatch
 		}
 	}
 	return resp
 }
 
-func createHeadersFilter(filter *k8s.HTTPHeaderFilter) *istio.Headers_HeaderOperations {
+func isValidHeaderValue(v string) bool {
+	for _, c := range []byte(v) {
+		if c == 0x09 || c >= 0x20 && c != 0x7F {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+func createHeadersFilter(filter *k8s.HTTPHeaderFilter) (*istio.Headers_HeaderOperations, *ConfigError) {
 	if filter == nil {
-		return nil
+		return nil, nil
+	}
+	for _, h := range append(filter.Set, filter.Add...) {
+		if !isValidHeaderValue(h.Value) {
+			return nil, &ConfigError{
+				Reason:  InvalidFilter,
+				Message: fmt.Sprintf("header %q value contains invalid characters", h.Name),
+			}
+		}
 	}
 	return &istio.Headers_HeaderOperations{
 		Add:    headerListToMap(filter.Add),
 		Remove: filter.Remove,
 		Set:    headerListToMap(filter.Set),
-	}
+	}, nil
 }
 
 // nolint: unparam
@@ -1857,6 +1899,25 @@ func reportListenerSetStatus(
 	}
 
 	setProgrammedCondition(gatewayConditions, internal, gatewayServices, warnings, allUsable)
+
+	// Prune stale listener status entries whose listener was removed from the spec,
+	// mirroring reportGatewayStatus. ListenerSetCollection threads the previous status
+	// forward to preserve per-listener data across reconciles, but only refreshes entries
+	// for listeners still in the spec. Without this pruning, a removed listener's status
+	// entry is orphaned forever (len(status.Listeners) > len(spec.Listeners)), which also
+	// wedges observedGeneration once the recomputed status stops differing from the stored one.
+	haveListeners := sets.New[k8s.SectionName]()
+	for _, l := range obj.Spec.Listeners {
+		haveListeners.Insert(l.Name)
+	}
+	listeners := make([]k8s.ListenerEntryStatus, 0, len(gs.Listeners))
+	for _, l := range gs.Listeners {
+		if haveListeners.Contains(l.Name) {
+			haveListeners.Delete(l.Name)
+			listeners = append(listeners, l)
+		}
+	}
+	gs.Listeners = listeners
 
 	gs.Conditions = setConditions(obj.Generation, gs.Conditions, gatewayConditions)
 }

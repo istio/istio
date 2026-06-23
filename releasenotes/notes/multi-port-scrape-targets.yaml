@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+issue:
+  - 59567
+
+releaseNotes:
+  - |
+    **Added** a new pod annotation `prometheus.istio.io/scrape-targets` that lets users
+    declare multiple application-metrics endpoints per pod as a comma-separated
+    `port:path` list. Targets colliding with the agent status port or any Istio-reserved
+    data-plane port are rejected at injection time with a human-readable error.

@@ -70,7 +70,7 @@ func ManagedOwnerGatewayTest(t framework.TestContext) {
 apiVersion: v1
 kind: Service
 metadata:
-  name: managed-owner-istio
+  name: managed-owner-%[1]s
 spec:
   ports:
   - appProtocol: http
@@ -82,7 +82,7 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: managed-owner-istio
+  name: managed-owner-%[1]s
 spec:
   selector:
     matchLabels:
@@ -95,8 +95,8 @@ spec:
     spec:
       containers:
       - name: fake
-        image: %s
-`, image)).ApplyOrFail(t)
+        image: %[2]s
+`, i.GatewayClassName, image)).ApplyOrFail(t)
 	cls := t.Clusters().Default()
 	fetchFn := testKube.NewSinglePodFetch(cls, apps.Namespace.Name(), label.IoK8sNetworkingGatewayGatewayName.Name+"=managed-owner")
 	if _, err := testKube.WaitUntilPodsAreReady(fetchFn); err != nil {
@@ -139,14 +139,15 @@ spec:
 	retry.UntilSuccessOrFail(t, check)
 
 	// Make sure we did not overwrite our deployment or service
+	ownedName := "managed-owner-" + i.GatewayClassName
 	dep, err := t.Clusters().Default().Kube().AppsV1().Deployments(apps.Namespace.Name()).
-		Get(context.Background(), "managed-owner-istio", metav1.GetOptions{})
+		Get(context.Background(), ownedName, metav1.GetOptions{})
 	assert.NoError(t, err)
 	assert.Equal(t, dep.Labels[label.GatewayManaged.Name], "")
 	assert.Equal(t, dep.Spec.Template.Spec.Containers[0].Image, image)
 
 	svc, err := t.Clusters().Default().Kube().CoreV1().Services(apps.Namespace.Name()).
-		Get(context.Background(), "managed-owner-istio", metav1.GetOptions{})
+		Get(context.Background(), ownedName, metav1.GetOptions{})
 	assert.NoError(t, err)
 	assert.Equal(t, svc.Labels[label.GatewayManaged.Name], "")
 	assert.Equal(t, svc.Spec.Type, corev1.ServiceTypeClusterIP)
@@ -478,7 +479,7 @@ spec:
 }
 
 func TaggedGatewayTest(t framework.TestContext) {
-	if t.Settings().Meshless {
+	if t.Settings().GatewayAPIOnly {
 		t.Skip("TaggedGatewayTest requires full Istio mesh with revision support")
 	}
 	revision := t.Settings().Revisions.Default()
@@ -605,7 +606,7 @@ spec:
 }
 
 func UnmanagedGatewayTest(t framework.TestContext) {
-	if t.Settings().Meshless {
+	if t.Settings().GatewayAPIOnly {
 		t.Skip("UnmanagedGatewayTest requires pre-deployed ingress gateway")
 	}
 	i := istio.DefaultConfigOrFail(t, t)
@@ -962,9 +963,6 @@ func TestGatewayReadinessProbes(t *testing.T) {
 		RequiresSingleCluster().
 		RequiresLocalControlPlane().
 		Run(func(t framework.TestContext) {
-			if t.Settings().Meshless {
-				t.Skip("TestGatewayReadinessProbes requires pre-deployed ingress gateway")
-			}
 			c := t.Clusters().Default()
 			var svc *corev1.Service
 			svc, _, err := testKube.WaitUntilServiceEndpointsAreReady(c.Kube(), i.IngressFor(c).Namespace(), "istio-ingressgateway")
@@ -998,9 +996,6 @@ func TestGatewayMetricsEndpoints(t *testing.T) {
 		RequiresSingleCluster().
 		RequiresLocalControlPlane().
 		Run(func(t framework.TestContext) {
-			if t.Settings().Meshless {
-				t.Skip("TestGatewayMetricsEndpoints requires pre-deployed ingress gateway")
-			}
 			c := t.Clusters().Default()
 			podIPs, err := i.PodIPsFor(c, i.IngressFor(c).Namespace(), "app=istio-ingressgateway")
 			if err != nil {

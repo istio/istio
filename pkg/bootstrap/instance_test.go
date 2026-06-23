@@ -34,8 +34,10 @@ import (
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/compression/zstd/compressor/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/compressor/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/router/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/tls_inspector/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/resource_monitors/downstream_connections/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	"github.com/google/go-cmp/cmp"
@@ -94,6 +96,9 @@ func TestGolden(t *testing.T) {
 		teardown                   func()
 		check                      func(got *bootstrap.Bootstrap, t *testing.T)
 		compliancePolicy           string
+		secureMetricsPort          int
+		secureMergedMetricsPort    int
+		proxyCfgBase               string
 	}{
 		{
 			base: "xdsproxy",
@@ -245,6 +250,12 @@ func TestGolden(t *testing.T) {
 		{
 			base: "stats_compression",
 		},
+		{
+			base:                    "secure_metrics",
+			proxyCfgBase:            "default",
+			secureMetricsPort:       15091,
+			secureMergedMetricsPort: 15092,
+		},
 	}
 
 	test.SetForTest(t, &version.Info.Version, "binary-1.0")
@@ -259,7 +270,11 @@ func TestGolden(t *testing.T) {
 				defer c.teardown()
 			}
 
-			proxyConfig, err := loadProxyConfig(c.base, out, t)
+			proxyCfgBase := c.proxyCfgBase
+			if proxyCfgBase == "" {
+				proxyCfgBase = c.base
+			}
+			proxyConfig, err := loadProxyConfig(proxyCfgBase, out, t)
 			if err != nil {
 				t.Fatalf("unable to load proxy config: %s\n%v", c.base, err)
 			}
@@ -300,11 +315,13 @@ func TestGolden(t *testing.T) {
 				PilotSubjectAltName: []string{
 					"spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account",
 				},
-				OutlierLogPath:             "/dev/stdout",
-				annotationFilePath:         annoFile.Name(),
-				EnvoyPrometheusPort:        15090,
-				EnvoyStatusPort:            15021,
-				WorkloadIdentitySocketFile: "test.sock",
+				OutlierLogPath:               "/dev/stdout",
+				annotationFilePath:           annoFile.Name(),
+				EnvoyPrometheusPort:          15090,
+				EnvoyStatusPort:              15021,
+				EnvoySecureMetricsPort:       c.secureMetricsPort,
+				EnvoySecureMergedMetricsPort: c.secureMergedMetricsPort,
+				WorkloadIdentitySocketFile:   "test.sock",
 			})
 			if err != nil {
 				t.Fatal(err)

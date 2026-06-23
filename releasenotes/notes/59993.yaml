@@ -1,6 +1,8 @@
 apiVersion: release-notes/v2
 kind: feature
 area: installation
+issue:
+  - 59993
 releaseNotes:
   - |
     **Added** `WaypointBound` status condition to `WorkloadEntry` resources, reporting whether the workload is

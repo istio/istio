@@ -20,6 +20,7 @@ import (
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -131,7 +132,7 @@ func (lb *ListenerBuilder) buildVirtualOutboundListener() *ListenerBuilder {
 		isTransparentProxy = proto.BoolTrue
 	}
 
-	filterChains := buildOutboundCatchAllNetworkFilterChains(lb.node, lb.push)
+	filterChains := lb.buildOutboundCatchAllNetworkFilterChains()
 
 	actualWildcards, _ := getWildcardsAndLocalHost(lb.node.GetIPMode())
 	// add an extra listener that binds to the port that is the recipient of the iptables redirect
@@ -151,6 +152,11 @@ func (lb *ListenerBuilder) buildVirtualOutboundListener() *ListenerBuilder {
 		// add an additional IPv4 outbound listener for IPv6 only clusters
 		ipv4Wildcards, _ := getWildcardsAndLocalHost(model.IPv4) // get the IPv4 based wildcards
 		ipTablesListener.AdditionalAddresses = util.BuildAdditionalAddresses(ipv4Wildcards[0:], uint32(lb.push.Mesh.ProxyListenPort))
+	}
+
+	if util.IsAllowAnyDynamicDNSOutbound(lb.node) {
+		// HTTP inspector detects plaintext HTTP ALPNs for routing to the DFP chain.
+		ipTablesListener.ListenerFilters = append(ipTablesListener.ListenerFilters, xdsfilters.HTTPInspector)
 	}
 
 	class := model.OutboundListenerClass(lb.node.Type)
@@ -227,10 +233,13 @@ func (lb *ListenerBuilder) getListeners() []*listener.Listener {
 	return listeners
 }
 
+// buildOutboundCatchAllNetworkFiltersOnly builds the fallthrough (DefaultFilterChain) filter stack
+// for per-port outbound listeners. Both ALLOW_ANY and ALLOW_ANY_DYNAMIC_DNS use PassthroughCluster
+// as the fallthrough target; non-HTTP traffic is not eligible for DFP resolution.
 func buildOutboundCatchAllNetworkFiltersOnly(push *model.PushContext, node *model.Proxy) []*listener.Filter {
 	var egressCluster string
 
-	if util.IsAllowAnyOutbound(node) {
+	if util.IsAllowAnyDynamicDNSOutbound(node) || util.IsAllowAnyOutbound(node) {
 		// We need a passthrough filter to fill in the filter stack for orig_dst listener
 		egressCluster = util.PassthroughCluster
 
@@ -276,14 +285,69 @@ func parseDuration(s string) *durationpb.Duration {
 // with TLS blocks and build the appropriate filter chain matches and routes here. And then finally
 // evaluate the left over unmatched TLS traffic using allow_any or registry_only.
 // See https://github.com/istio/istio/issues/21170
-func buildOutboundCatchAllNetworkFilterChains(node *model.Proxy, push *model.PushContext) []*listener.FilterChain {
-	filterStack := buildOutboundCatchAllNetworkFiltersOnly(push, node)
-	chains := make([]*listener.FilterChain, 0, 2)
-	chains = append(chains, blackholeFilterChain(push, node), &listener.FilterChain{
+func (lb *ListenerBuilder) buildOutboundCatchAllNetworkFilterChains() []*listener.FilterChain {
+	node := lb.node
+	push := lb.push
+	chains := []*listener.FilterChain{blackholeFilterChain(push, node)}
+
+	if util.IsAllowAnyDynamicDNSOutbound(node) {
+		// Plaintext HTTP: HTTP inspector detects HTTP traffic → HCM with DFP filter → AllowAnyDynamicDNSCluster.
+		chains = append(chains, lb.buildAllowAnyDynamicDNSHTTPFilterChain())
+	}
+	// Everything else (TLS, plain TCP): PassthroughCluster (or EgressProxy) for ALLOW_ANY/ALLOW_ANY_DYNAMIC_DNS,
+	// BlackHoleCluster for REGISTRY_ONLY.
+	chains = append(chains, &listener.FilterChain{
 		Name:    model.VirtualOutboundCatchAllTCPFilterChainName,
-		Filters: filterStack,
+		Filters: buildOutboundCatchAllNetworkFiltersOnly(push, node),
 	})
+
 	return chains
+}
+
+// buildAllowAnyDynamicDNSHTTPFilterChain builds an HTTP filter chain for the virtual outbound
+// listener that handles plaintext HTTP traffic (detected by the HTTP inspector). The HCM
+// includes the DFP HTTP filter and an inline route config with the allow_any_dynamic_dns
+// catch-all route, so unknown HTTP requests are forwarded via the DFP cluster.
+func (lb *ListenerBuilder) buildAllowAnyDynamicDNSHTTPFilterChain() *listener.FilterChain {
+	ph := util.GetProxyHeaders(lb.node, lb.push, istionetworking.ListenerClassSidecarOutbound)
+	routeConfig := &route.RouteConfiguration{
+		Name:                           util.AllowAnyDynamicDNS,
+		VirtualHosts:                   []*route.VirtualHost{buildCatchAllVirtualHost(lb.node, ph.IncludeRequestAttemptCount, ph.XForwardedHost)},
+		ValidateClusters:               proto.BoolFalse,
+		MaxDirectResponseBodySizeBytes: istio_route.DefaultMaxDirectResponseBodySizeBytes,
+		IgnorePortInHostMatching:       true,
+	}
+	httpOpts := &httpListenerOpts{
+		useRemoteAddress: features.UseRemoteAddress,
+		connectionManager: &hcm.HttpConnectionManager{
+			ServerName:                 ph.ServerName,
+			ServerHeaderTransformation: ph.ServerHeaderTransformation,
+			GenerateRequestId:          ph.GenerateRequestID,
+		},
+		suppressEnvoyDebugHeaders: ph.SuppressDebugHeaders,
+		skipIstioMXHeaders:        ph.SkipIstioMXHeaders,
+		class:                     istionetworking.ListenerClassSidecarOutbound,
+		protocol:                  protocol.HTTP,
+		routeConfig:               routeConfig,
+		statPrefix:                util.DelimitedStatsPrefix("outbound_" + model.VirtualOutboundListenerName + "_allow_any_dynamic_dns"),
+	}
+	if features.HTTP10 || enableHTTP10(lb.node.Metadata.HTTP10) {
+		httpOpts.connectionManager.HttpProtocolOptions = &core.Http1ProtocolOptions{
+			AcceptHttp_10: true,
+		}
+	}
+	connMgr := lb.buildHTTPConnectionManager(httpOpts)
+	hcmFilter := &listener.Filter{
+		Name:       wellknown.HTTPConnectionManager,
+		ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(connMgr)},
+	}
+	return &listener.FilterChain{
+		Name: model.VirtualOutboundCatchAllTCPFilterChainName + "-http",
+		FilterChainMatch: &listener.FilterChainMatch{
+			ApplicationProtocols: plaintextHTTPALPNs,
+		},
+		Filters: []*listener.Filter{hcmFilter},
+	}
 }
 
 func blackholeFilterChain(push *model.PushContext, node *model.Proxy) *listener.FilterChain {
@@ -447,7 +511,7 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 	// Create DFP filter for wildcard hosts in waypoint inbound for ambient mode
 	if httpOpts.policySvc != nil && httpOpts.policySvc.Hostname.IsWildCarded() && httpOpts.class == istionetworking.ListenerClassSidecarInbound {
 		dfpCacheName := model.BuildDNSCacheName(httpOpts.policySvc.Hostname)
-		filters = append(filters, xdsfilters.BuildWaypointInboundDFPFilter(dfpCacheName))
+		filters = append(filters, xdsfilters.BuildWaypointInboundDFPFilter(dfpCacheName, util.SelectDNSLookupFamily(lb.node.IPAddresses)))
 	}
 
 	// Create DFP filter for wildcard hosts in sidecar outbound for DYNAMIC_DNS ServiceEntries
@@ -456,7 +520,17 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 		httpOpts.policySvc.Resolution == model.DynamicDNS &&
 		httpOpts.class == istionetworking.ListenerClassSidecarOutbound {
 		dfpCacheName := model.BuildDNSCacheName(httpOpts.policySvc.Hostname)
-		filters = append(filters, xdsfilters.BuildSidecarOutboundDynamicForwardProxyFilter(dfpCacheName))
+		filters = append(filters, xdsfilters.BuildSidecarOutboundDynamicForwardProxyFilter(dfpCacheName, util.SelectDNSLookupFamily(lb.node.IPAddresses)))
+	}
+
+	// DFP HTTP filter for ALLOW_ANY_DYNAMIC_DNS mode: enables the DFP cluster to resolve
+	// hostnames from the Host/:authority header. This is required on every sidecar outbound
+	// HCM (not just the virtual outbound catch-all chain) because buildCatchAllVirtualHost
+	// appends the allow_any_dynamic_dns catch-all virtual host -- which routes unknown hosts
+	// to the DFP cluster -- to every per-service outbound HTTP route config as well.
+	if httpOpts.class == istionetworking.ListenerClassSidecarOutbound &&
+		util.IsAllowAnyDynamicDNSOutbound(lb.node) {
+		filters = append(filters, buildAllowAnyDynamicDNSHTTPForwardProxyFilter(lb.node.Metadata))
 	}
 
 	// Router filter must be last

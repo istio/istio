@@ -198,6 +198,7 @@ func applyRetryBudget(
 
 	thresholds.RetryBudget = &cluster.CircuitBreakers_Thresholds_RetryBudget{
 		BudgetPercent:       percent,
+		BudgetInterval:      retryBudget.BudgetInterval,
 		MinRetryConcurrency: retryConcurrency,
 	}
 }
