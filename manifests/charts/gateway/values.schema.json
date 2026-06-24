@@ -334,6 +334,12 @@
             }
           }
         },
+        "dnsPolicy": {
+          "type": "string"
+        },
+        "dnsConfig": {
+          "type": "object"
+        },
         "terminationGracePeriodSeconds": {
           "type": "number"
         },
