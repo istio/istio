@@ -2216,10 +2216,11 @@ func TestEndpointUpdateBeforePodUpdate(t *testing.T) {
 	addEndpoint("svc", []string{"172.0.1.1", "172.0.1.2", "172.0.1.3"}, []string{"pod1", "pod2", "pod3"})
 	// This is really an implementation detail here - but checking to sanity check our test
 	assertPendingResync(1)
-	// Remove the endpoint again, with no pod events in between. Should have no memory leaks
+	// Remove the endpoint via UPDATE (no pod events in between). needResync must not leak.
+	// Regression: PR #58250 filtered failed pods from the pod cache; an EndpointSlice UPDATE
+	// that removes an IP did not call endpointDeleted, so needResync leaked forever.
 	addEndpoint("svc", []string{"172.0.1.1", "172.0.1.2"}, []string{"pod1", "pod2"})
-	// TODO this case would leak
-	// assertPendingResync(0)
+	assertPendingResync(0)
 
 	// completely remove the endpoint
 	addEndpoint("svc", []string{"172.0.1.1", "172.0.1.2", "172.0.1.3"}, []string{"pod1", "pod2", "pod3"})
