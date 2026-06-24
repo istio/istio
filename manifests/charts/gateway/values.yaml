@@ -63,7 +63,7 @@ _internal_defaults_do_not_set:
     loadBalancerIP: ""
     loadBalancerSourceRanges: []
     externalTrafficPolicy: ""
-    healthCheckNodePort: ""
+    healthCheckNodePort: 
     externalIPs: []
     ipFamilyPolicy: ""
     ipFamilies: []

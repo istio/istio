@@ -45,7 +45,7 @@ spec:
   internalTrafficPolicy: "{{ . }}"
 {{- end }}
 {{- with .Values.service.healthCheckNodePort }}
-  healthCheckNodePort: "{{ . }}"
+  healthCheckNodePort: {{ . }}
 {{- end }}
   type: {{ .Values.service.type }}
 {{- if not (eq .Values.service.clusterIP "") }}
