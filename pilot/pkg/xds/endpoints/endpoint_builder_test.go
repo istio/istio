@@ -629,15 +629,12 @@ func TestSupportsUnhealthyEndpoints(t *testing.T) {
 			test.SetAtomicBoolForTest(t, features.GlobalSendUnhealthyEndpoints, tt.globalSendUnhealthy)
 			test.SetAtomicBoolForTest(t, features.DefaultSendUnhealthyEndpoints, tt.defaultSendUnhealthy)
 
-			b := EndpointBuilder{
-				service: svc,
-				port:    80,
-			}
+			var dr *networking.DestinationRule
 			if tt.dr != nil {
-				b.destinationRule = model.ConvertConsolidatedDestRule(tt.dr, nil)
+				dr = tt.dr.Spec.(*networking.DestinationRule)
 			}
 
-			if got := b.supportsUnhealthyEndpoints(); got != tt.want {
+			if got := supportsUnhealthyEndpoints(svc, dr, 80, ""); got != tt.want {
 				t.Errorf("supportsUnhealthyEndpoints() = %v, want %v", got, tt.want)
 			}
 		})

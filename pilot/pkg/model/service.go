@@ -162,15 +162,11 @@ func (s *Service) SupportsDrainingEndpoints() bool {
 }
 
 // SupportsUnhealthyEndpoints marks if this service should send unhealthy endpoints.
-// Note: when DefaultSendUnhealthyEndpoints is the reason, callers that also have access to the
-// DestinationRule should use EndpointBuilder.supportsUnhealthyEndpoints() to additionally exclude
-// services whose OutlierDetection sets minHealthPercent > 0.
 func (s *Service) SupportsUnhealthyEndpoints() bool {
-	if s.ForcesSupportUnhealthyEndpoints() {
+	if features.DefaultSendUnhealthyEndpoints.Load() {
 		return true
 	}
-	if features.DefaultSendUnhealthyEndpoints.Load() {
-		// Enable by default; endpoint filtering further excludes services with minHealthPercent > 0.
+	if s.ForcesSupportUnhealthyEndpoints() {
 		return true
 	}
 	return false
