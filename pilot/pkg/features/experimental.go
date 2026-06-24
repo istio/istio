@@ -42,9 +42,6 @@ var (
 			" to unhealthy/non-ready hosts even if the percentage of healthy hosts fall below minimum health percentage(panic threshold).",
 	).Get())
 
-	// DefaultSendUnhealthyEndpoints enables sending unhealthy endpoints by default unless a service has
-	// OutlierDetection configured with minHealthPercent > 0, in which case unhealthy endpoints are excluded
-	// to avoid routing traffic to non-ready pods when Envoy enters panic mode.
 	DefaultSendUnhealthyEndpoints = atomic.NewBool(env.Register(
 		"PILOT_DEFAULT_SEND_UNHEALTHY_ENDPOINTS",
 		true,
