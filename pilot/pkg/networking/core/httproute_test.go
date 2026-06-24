@@ -26,11 +26,15 @@ import (
 	cookiev3 "github.com/envoyproxy/go-control-plane/envoy/extensions/http/stateful_session/cookie/v3"
 	headerv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/http/stateful_session/header/v3"
 	httpv3 "github.com/envoyproxy/go-control-plane/envoy/type/http/v3"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	meshapi "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/core/route/retry"
+	"istio.io/istio/pilot/pkg/networking/telemetry"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pilot/test/xdstest"
@@ -2033,4 +2037,58 @@ func buildHTTPService(hostname string, v visibility.Instance, ip, namespace stri
 
 	service.Ports = Ports
 	return service
+}
+
+func TestInboundHTTPRouteConfig(t *testing.T) {
+	svc := buildHTTPService("service-A.default.svc.cluster.local", visibility.Public, "", "default", 8080)
+
+	cases := []struct {
+		name          string
+		proxy         *model.Proxy
+		validateRoute bool
+		expectedRetry *route.RetryPolicy
+	}{
+		{
+			name:          "sidecar",
+			proxy:         &model.Proxy{Type: model.SidecarProxy},
+			validateRoute: false,
+			expectedRetry: &route.RetryPolicy{
+				NumRetries: wrapperspb.UInt32(2),
+				RetryOn:    "reset-before-request",
+			},
+		},
+		{
+			name:          "waypoint",
+			proxy:         &model.Proxy{Type: model.Waypoint},
+			validateRoute: true,
+			expectedRetry: retry.DefaultPolicy(),
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			cg := NewConfigGenTest(t, TestOptions{})
+			proxy := cg.SetupProxy(tt.proxy)
+			lb := NewListenerBuilder(proxy, cg.PushContext())
+
+			cc := inboundChainConfig{
+				telemetryMetadata: telemetry.FilterChainMetadata{InstanceHostname: svc.Hostname},
+				port:              model.ServiceInstancePort{ServicePort: &model.Port{Port: 8080}, TargetPort: 8080},
+				clusterName:       model.BuildInboundSubsetKey(8080),
+				hbone:             lb.node.IsWaypointProxy(),
+			}
+			routeCfg := buildSidecarInboundHTTPRouteConfig(svc, lb, cc)
+			if tt.validateRoute {
+				xdstest.ValidateRouteConfiguration(t, routeCfg)
+			}
+
+			for _, vh := range routeCfg.VirtualHosts {
+				for _, r := range vh.Routes {
+					if a, e := r.GetRoute().RetryPolicy, tt.expectedRetry; !proto.Equal(a, e) {
+						t.Errorf("retry policy mismatch got: %v want: %v", a, e)
+					}
+				}
+			}
+		})
+	}
 }
