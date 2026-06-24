@@ -514,7 +514,7 @@ func applyOutlierDetection(service *model.Service, c *cluster.Cluster, outlier *
 	// FIXME: we can't distinguish between it being unset or being explicitly set to 0
 	minHealthPercent := outlier.MinHealthPercent
 	if minHealthPercent >= 0 {
-		// This service requires that we are send unhealthy endpoints, we should disable Panic Threshold. Otherwise
+		// This service requires that we send unhealthy endpoints, we should disable Panic Threshold. Otherwise
 		// Envoy will send traffic to "Unready" pods when the percentage of healthy hosts fall
 		// below minimum health percentage.
 		if service.ForcesSupportUnhealthyEndpoints() {
