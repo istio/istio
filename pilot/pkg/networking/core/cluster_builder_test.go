@@ -1313,7 +1313,7 @@ func TestBuildDefaultCluster(t *testing.T) {
 			name:        "static cluster with endpoints",
 			clusterName: "foo",
 			discovery:   cluster.Cluster_STATIC,
-			endpoints:   []*endpoint.LocalityLbEndpoints{
+			endpoints: []*endpoint.LocalityLbEndpoints{
 				{
 					Locality: &core.Locality{
 						Region:  "region1",
