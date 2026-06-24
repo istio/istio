@@ -5,5 +5,5 @@ issue:
   - https://github.com/istio/istio/issues/60682
 releaseNotes:
   - |
-    **Fixed** default http retries for inbound routes of waypoints. The mesh config's defaulHTTPRetry will apply to
+    **Fixed** default http retries for inbound routes of waypoints. The mesh config's defaultHttpRetryPolicy will apply to
     local services attached to waypoints.
