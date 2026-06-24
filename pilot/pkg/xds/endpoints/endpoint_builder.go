@@ -204,6 +204,28 @@ func (b *EndpointBuilder) DestinationRule() *v1alpha3.DestinationRule {
 	return nil
 }
 
+// supportsUnhealthyEndpoints returns whether unhealthy endpoints should be included in EDS for this cluster.
+// When DefaultSendUnhealthyEndpoints is enabled, unhealthy endpoints are excluded if the DestinationRule
+// configures OutlierDetection.MinHealthPercent > 0, since Envoy's panic threshold would otherwise route
+// traffic to unhealthy pods.
+func (b *EndpointBuilder) supportsUnhealthyEndpoints() bool {
+	if !b.service.SupportsUnhealthyEndpoints() {
+		return false
+	}
+	if features.GlobalSendUnhealthyEndpoints.Load() {
+		return true
+	}
+	if features.DefaultSendUnhealthyEndpoints.Load() {
+		if dr := b.DestinationRule(); dr != nil {
+			policy := getSubsetTrafficPolicy(dr, &model.Port{Port: b.port}, b.subsetName)
+			if policy != nil && policy.OutlierDetection != nil && policy.OutlierDetection.MinHealthPercent > 0 {
+				return false
+			}
+		}
+	}
+	return true
+}
+
 func (b *EndpointBuilder) Type() string {
 	return model.EDSType
 }
@@ -553,7 +575,7 @@ func (b *EndpointBuilder) filterIstioEndpoint(ep *model.IstioEndpoint) bool {
 	// Filter out unhealthy endpoints, unless the service needs them.
 	// This is used to let envoy know about the amount of health endpoints in a cluster.
 	// This is used to let envoy know about the amount of health endpoints in a cluster.
-	if !b.service.SupportsUnhealthyEndpoints() && ep.HealthStatus == model.UnHealthy {
+	if !b.supportsUnhealthyEndpoints() && ep.HealthStatus == model.UnHealthy {
 		return false
 	}
 	// Filter out terminating endpoints -- we never need these. Even in "send unhealthy mode", there is no need

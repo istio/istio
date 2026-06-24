@@ -454,6 +454,7 @@ func TestEDSUnhealthyEndpoints(t *testing.T) {
 	for _, sendUnhealthy := range []bool{true, false} {
 		t.Run(fmt.Sprint(sendUnhealthy), func(t *testing.T) {
 			test.SetAtomicBoolForTest(t, features.GlobalSendUnhealthyEndpoints, sendUnhealthy)
+			test.SetAtomicBoolForTest(t, features.DefaultSendUnhealthyEndpoints, sendUnhealthy)
 			s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
 			addUnhealthyCluster(s, sendUnhealthy)
 			s.EnsureSynced(t)
@@ -681,6 +682,30 @@ func TestEDSUnhealthyEndpoints(t *testing.T) {
 			s.MemRegistry.SetEndpoints("unhealthy.svc.cluster.local", "", []*model.IstioEndpoint{})
 			validateEndpoints(true, nil, nil)
 		})
+	}
+}
+
+// TestEDSDefaultSendUnhealthyEndpoints verifies that with DefaultSendUnhealthyEndpoints=true,
+// unhealthy endpoints are included in EDS when there is no DestinationRule configuring
+// OutlierDetection.MinHealthPercent > 0.
+func TestEDSDefaultSendUnhealthyEndpoints(t *testing.T) {
+	test.SetAtomicBoolForTest(t, features.GlobalSendUnhealthyEndpoints, false)
+	test.SetAtomicBoolForTest(t, features.DefaultSendUnhealthyEndpoints, true)
+
+	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
+	// addUnhealthyCluster with sendUnhealthy=true so the endpoint gets SendUnhealthyEndpoints=true
+	// and triggers a push from endpointshards when it first appears.
+	addUnhealthyCluster(s, true)
+	s.EnsureSynced(t)
+	adscon := s.Connect(nil, nil, watchEds)
+
+	// With DefaultSendUnhealthyEndpoints=true and no DestinationRule, the unhealthy endpoint
+	// should be included in EDS.
+	lbe := adscon.GetEndpoints()["outbound|53||unhealthy.svc.cluster.local"]
+	_, euh := xdstest.ExtractHealthEndpoints(lbe)
+	gotUnhealthy := sets.SortedList(sets.New(euh...))
+	if !reflect.DeepEqual(gotUnhealthy, []string{"10.0.0.53:53"}) {
+		t.Fatalf("expected unhealthy endpoint [10.0.0.53:53] to be included, got %v", gotUnhealthy)
 	}
 }
 

@@ -26,6 +26,7 @@ import (
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	overridehost "github.com/envoyproxy/go-control-plane/envoy/extensions/load_balancing_policies/override_host/v3"
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	"github.com/google/go-cmp/cmp"
@@ -52,6 +53,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -2487,6 +2489,9 @@ func TestApplyLoadBalancer(t *testing.T) {
 		discoveryType                      cluster.Cluster_DiscoveryType
 		port                               *model.Port
 		sendUnhealthyEndpoints             bool
+		defaultSendUnhealthyEndpoints      bool
+		presetPanicThreshold               *float64
+		expectedPanicThreshold             *float64
 		proxyLabels                        map[string]string
 		outlierDetection                   bool
 		expectedLbPolicy                   cluster.Cluster_LbPolicy
@@ -2566,6 +2571,21 @@ func TestApplyLoadBalancer(t *testing.T) {
 			expectedLbPolicy:               defaultLBAlgorithm(),
 			expectedLocalityWeightedConfig: true,
 		},
+		{
+			name:                          "DefaultSendUnhealthyEndpoints disables panic threshold when no outlier detection",
+			discoveryType:                 cluster.Cluster_EDS,
+			defaultSendUnhealthyEndpoints: true,
+			expectedLbPolicy:              defaultLBAlgorithm(),
+			expectedPanicThreshold:        ptr.Of(float64(0)),
+		},
+		{
+			name:                          "DefaultSendUnhealthyEndpoints does not override panic threshold set by outlier detection",
+			discoveryType:                 cluster.Cluster_EDS,
+			defaultSendUnhealthyEndpoints: true,
+			presetPanicThreshold:          ptr.Of(float64(70)),
+			expectedLbPolicy:              defaultLBAlgorithm(),
+			expectedPanicThreshold:        ptr.Of(float64(70)),
+		},
 		// TODO: add more to cover all cases
 	}
 
@@ -2578,10 +2598,14 @@ func TestApplyLoadBalancer(t *testing.T) {
 	for _, tt := range testcases {
 		t.Run(tt.name, func(t *testing.T) {
 			test.SetAtomicBoolForTest(t, features.GlobalSendUnhealthyEndpoints, tt.sendUnhealthyEndpoints)
+			test.SetAtomicBoolForTest(t, features.DefaultSendUnhealthyEndpoints, tt.defaultSendUnhealthyEndpoints)
 			c := &cluster.Cluster{
 				ClusterDiscoveryType: &cluster.Cluster_Type{Type: tt.discoveryType},
 				LoadAssignment:       &endpoint.ClusterLoadAssignment{},
 				CommonLbConfig:       &cluster.Cluster_CommonLbConfig{},
+			}
+			if tt.presetPanicThreshold != nil {
+				c.CommonLbConfig.HealthyPanicThreshold = &xdstype.Percent{Value: *tt.presetPanicThreshold}
 			}
 
 			if tt.outlierDetection {
@@ -2604,6 +2628,13 @@ func TestApplyLoadBalancer(t *testing.T) {
 
 			if tt.sendUnhealthyEndpoints && c.CommonLbConfig.HealthyPanicThreshold.GetValue() != 0 {
 				t.Errorf("panic threshold should be disabled when sendHealthyEndpoints is enabled")
+			}
+			if tt.expectedPanicThreshold != nil {
+				if c.CommonLbConfig.HealthyPanicThreshold == nil {
+					t.Errorf("expected HealthyPanicThreshold=%v, got nil", *tt.expectedPanicThreshold)
+				} else if c.CommonLbConfig.HealthyPanicThreshold.Value != *tt.expectedPanicThreshold {
+					t.Errorf("expected HealthyPanicThreshold=%v, got %v", *tt.expectedPanicThreshold, c.CommonLbConfig.HealthyPanicThreshold.Value)
+				}
 			}
 
 			if tt.expectedLocalityWeightedConfig && c.CommonLbConfig.GetLocalityWeightedLbConfig() == nil {
