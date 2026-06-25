@@ -61,9 +61,9 @@ func GetEffectiveLbSetting(
 		if len(zaLbSetting.Failover) == 0 && len(zaLbSetting.FailoverPriority) == 0 {
 			// make a shallow copy, defaulting FailoverPriority
 			zaLbSetting = &v1alpha3.ZoneAwareLoadBalancerSetting{
-				Enabled:          zaLbSetting.Enabled,
-				MinClusterSize:   zaLbSetting.MinClusterSize,
-				FailoverPriority: DefaultZoneAwareFailoverPriority,
+				Enabled:        zaLbSetting.Enabled,
+				MinClusterSize: zaLbSetting.MinClusterSize,
+				// FailoverPriority: DefaultZoneAwareFailoverPriority,
 			}
 		}
 
