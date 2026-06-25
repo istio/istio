@@ -894,6 +894,20 @@ func TestSortHTTPRoutes(t *testing.T) {
 		out  []*istio.HTTPRoute
 	}{
 		{
+			// Regression: a specific regex must sort before a "/" catch-all.
+			// If it sorts after, BuildHTTPRoutesForVirtualService treats the
+			// catch-all as terminal and drops the regex route entirely.
+			"specific regex sorts before catch-all prefix",
+			[]*istio.HTTPRoute{
+				{Match: []*istio.HTTPMatchRequest{{Uri: &istio.StringMatch{MatchType: &istio.StringMatch_Prefix{Prefix: "/"}}}}},
+				{Match: []*istio.HTTPMatchRequest{{Uri: &istio.StringMatch{MatchType: &istio.StringMatch_Regex{Regex: "^/reservations/[^/]+/charges/deposit$"}}}}},
+			},
+			[]*istio.HTTPRoute{
+				{Match: []*istio.HTTPMatchRequest{{Uri: &istio.StringMatch{MatchType: &istio.StringMatch_Regex{Regex: "^/reservations/[^/]+/charges/deposit$"}}}}},
+				{Match: []*istio.HTTPMatchRequest{{Uri: &istio.StringMatch{MatchType: &istio.StringMatch_Prefix{Prefix: "/"}}}}},
+			},
+		},
+		{
 			"match is preferred over no match",
 			[]*istio.HTTPRoute{
 				{
@@ -929,7 +943,7 @@ func TestSortHTTPRoutes(t *testing.T) {
 			},
 		},
 		{
-			"path matching exact > prefix  > regex",
+			"exact > regex > catch-all prefix (catch-all sorts last)",
 			[]*istio.HTTPRoute{
 				{
 					Match: []*istio.HTTPMatchRequest{
@@ -981,8 +995,8 @@ func TestSortHTTPRoutes(t *testing.T) {
 					Match: []*istio.HTTPMatchRequest{
 						{
 							Uri: &istio.StringMatch{
-								MatchType: &istio.StringMatch_Prefix{
-									Prefix: "/",
+								MatchType: &istio.StringMatch_Regex{
+									Regex: ".*foo",
 								},
 							},
 						},
@@ -992,8 +1006,8 @@ func TestSortHTTPRoutes(t *testing.T) {
 					Match: []*istio.HTTPMatchRequest{
 						{
 							Uri: &istio.StringMatch{
-								MatchType: &istio.StringMatch_Regex{
-									Regex: ".*foo",
+								MatchType: &istio.StringMatch_Prefix{
+									Prefix: "/",
 								},
 							},
 						},
@@ -1271,7 +1285,7 @@ func TestSortHTTPRoutes(t *testing.T) {
 						{
 							Uri: &istio.StringMatch{
 								MatchType: &istio.StringMatch_Prefix{
-									Prefix: "/",
+									Prefix: "/foo",
 								},
 							},
 						},
@@ -1319,7 +1333,7 @@ func TestSortHTTPRoutes(t *testing.T) {
 						{
 							Uri: &istio.StringMatch{
 								MatchType: &istio.StringMatch_Prefix{
-									Prefix: "/",
+									Prefix: "/foo",
 								},
 							},
 						},
