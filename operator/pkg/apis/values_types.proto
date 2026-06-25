@@ -1267,7 +1267,7 @@ message SecretVolume {
 
 // SidecarInjectorConfig is described in istio.io documentation.
 message SidecarInjectorConfig {
-  enum RevisionLabelPreference {
+  enum RevisionLabelPrecedence {
     namespace = 0;
     pod = 1;
   }
@@ -1280,7 +1280,7 @@ message SidecarInjectorConfig {
 
   // Controls whether namespace or pod istio.io/rev labels are preferred for revisioned injection.
   // Valid values are namespace (default) and pod.
-  RevisionLabelPreference revisionLabelPreference = 25;
+  RevisionLabelPrecedence revisionLabelPrecedence = 25;
 
   // Instructs Istio to not inject the sidecar on those pods, based on labels that are present in those pods.
   //

@@ -8,7 +8,7 @@ issue:
 
 releaseNotes:
   - |
-    **Added** `values.sidecarInjectorWebhook.revisionLabelPreference` to configure revision-label precedence
+    **Added** `values.sidecarInjectorWebhook.revisionLabelPrecedence` to configure revision-label precedence
     for sidecar injection.
 
     The default value is `namespace`, which preserves existing behavior. Setting this to `pod` allows a pod

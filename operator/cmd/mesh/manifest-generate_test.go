@@ -1321,14 +1321,14 @@ func TestWebhookSelector(t *testing.T) {
 	}
 }
 
-func TestWebhookSelectorPodRevisionPreference(t *testing.T) {
+func TestWebhookSelectorPodRevisionPrecedence(t *testing.T) {
 	revLabel := klabels.Set{"istio.io/rev": "canary"}
 	objEnabled := klabels.Set{"sidecar.istio.io/inject": "true"}
 	objEnabledAndCanaryRev := klabels.Set{"sidecar.istio.io/inject": "true", "istio.io/rev": "canary"}
 	objEnabledAndDefaultRev := klabels.Set{"sidecar.istio.io/inject": "true", "istio.io/rev": "default"}
 
-	defaultWebhook := getWebhooks(t, "--set values.sidecarInjectorWebhook.revisionLabelPreference=pod", "istio-sidecar-injector")
-	revWebhook := getWebhooks(t, "--set revision=canary --set values.sidecarInjectorWebhook.revisionLabelPreference=pod", "istio-sidecar-injector-canary")
+	defaultWebhook := getWebhooks(t, "--set values.sidecarInjectorWebhook.revisionLabelPrecedence=pod", "istio-sidecar-injector")
+	revWebhook := getWebhooks(t, "--set revision=canary --set values.sidecarInjectorWebhook.revisionLabelPrecedence=pod", "istio-sidecar-injector-canary")
 	whs := mergeWebhooks(defaultWebhook, revWebhook)
 
 	findMatch := func(namespaceLabels, podLabels klabels.Set) string {
@@ -1346,7 +1346,7 @@ func TestWebhookSelectorPodRevisionPreference(t *testing.T) {
 		return found
 	}
 
-	// Pod revision should take precedence over namespace revision when preference=pod.
+	// Pod revision should take precedence over namespace revision when precedence=pod.
 	if got := findMatch(revLabel, objEnabledAndDefaultRev); got != "istiod" {
 		t.Fatalf("expected default revision webhook service istiod, got %q", got)
 	}
@@ -1359,14 +1359,14 @@ func TestWebhookSelectorPodRevisionPreference(t *testing.T) {
 	}
 }
 
-func TestWebhookSelectorRevisionPreferenceValidation(t *testing.T) {
-	setFlags := "--set values.sidecarInjectorWebhook.revisionLabelPreference=invalid"
+func TestWebhookSelectorRevisionPrecedenceValidation(t *testing.T) {
+	setFlags := "--set values.sidecarInjectorWebhook.revisionLabelPrecedence=invalid"
 	files := []string{"templates/mutatingwebhook.yaml"}
 	_, err := runManifestGenerate([]string{}, setFlags, liveCharts, files)
 	if err == nil {
-		t.Fatal("expected error for invalid revisionLabelPreference")
+		t.Fatal("expected error for invalid revisionLabelPrecedence")
 	}
-	if !strings.Contains(err.Error(), "unknown value") || !strings.Contains(err.Error(), "RevisionLabelPreference") {
+	if !strings.Contains(err.Error(), "unknown value") || !strings.Contains(err.Error(), "RevisionLabelPrecedence") {
 		t.Fatalf("expected validation error, got: %v", err)
 	}
 }

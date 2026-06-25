@@ -256,49 +256,49 @@ func (OutboundTrafficPolicyConfig_Mode) EnumDescriptor() ([]byte, []int) {
 	return file_pkg_apis_values_types_proto_rawDescGZIP(), []int{20, 0}
 }
 
-type SidecarInjectorConfig_RevisionLabelPreference int32
+type SidecarInjectorConfig_RevisionLabelPrecedence int32
 
 const (
-	SidecarInjectorConfig_namespace SidecarInjectorConfig_RevisionLabelPreference = 0
-	SidecarInjectorConfig_pod       SidecarInjectorConfig_RevisionLabelPreference = 1
+	SidecarInjectorConfig_namespace SidecarInjectorConfig_RevisionLabelPrecedence = 0
+	SidecarInjectorConfig_pod       SidecarInjectorConfig_RevisionLabelPrecedence = 1
 )
 
-// Enum value maps for SidecarInjectorConfig_RevisionLabelPreference.
+// Enum value maps for SidecarInjectorConfig_RevisionLabelPrecedence.
 var (
-	SidecarInjectorConfig_RevisionLabelPreference_name = map[int32]string{
+	SidecarInjectorConfig_RevisionLabelPrecedence_name = map[int32]string{
 		0: "namespace",
 		1: "pod",
 	}
-	SidecarInjectorConfig_RevisionLabelPreference_value = map[string]int32{
+	SidecarInjectorConfig_RevisionLabelPrecedence_value = map[string]int32{
 		"namespace": 0,
 		"pod":       1,
 	}
 )
 
-func (x SidecarInjectorConfig_RevisionLabelPreference) Enum() *SidecarInjectorConfig_RevisionLabelPreference {
-	p := new(SidecarInjectorConfig_RevisionLabelPreference)
+func (x SidecarInjectorConfig_RevisionLabelPrecedence) Enum() *SidecarInjectorConfig_RevisionLabelPrecedence {
+	p := new(SidecarInjectorConfig_RevisionLabelPrecedence)
 	*p = x
 	return p
 }
 
-func (x SidecarInjectorConfig_RevisionLabelPreference) String() string {
+func (x SidecarInjectorConfig_RevisionLabelPrecedence) String() string {
 	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
 }
 
-func (SidecarInjectorConfig_RevisionLabelPreference) Descriptor() protoreflect.EnumDescriptor {
+func (SidecarInjectorConfig_RevisionLabelPrecedence) Descriptor() protoreflect.EnumDescriptor {
 	return file_pkg_apis_values_types_proto_enumTypes[4].Descriptor()
 }
 
-func (SidecarInjectorConfig_RevisionLabelPreference) Type() protoreflect.EnumType {
+func (SidecarInjectorConfig_RevisionLabelPrecedence) Type() protoreflect.EnumType {
 	return &file_pkg_apis_values_types_proto_enumTypes[4]
 }
 
-func (x SidecarInjectorConfig_RevisionLabelPreference) Number() protoreflect.EnumNumber {
+func (x SidecarInjectorConfig_RevisionLabelPrecedence) Number() protoreflect.EnumNumber {
 	return protoreflect.EnumNumber(x)
 }
 
-// Deprecated: Use SidecarInjectorConfig_RevisionLabelPreference.Descriptor instead.
-func (SidecarInjectorConfig_RevisionLabelPreference) EnumDescriptor() ([]byte, []int) {
+// Deprecated: Use SidecarInjectorConfig_RevisionLabelPrecedence.Descriptor instead.
+func (SidecarInjectorConfig_RevisionLabelPrecedence) EnumDescriptor() ([]byte, []int) {
 	return file_pkg_apis_values_types_proto_rawDescGZIP(), []int{36, 0}
 }
 
@@ -4559,7 +4559,7 @@ type SidecarInjectorConfig struct {
 	ReinvocationPolicy string `protobuf:"bytes,3,opt,name=reinvocationPolicy,proto3" json:"reinvocationPolicy,omitempty"`
 	// Controls whether namespace or pod istio.io/rev labels are preferred for revisioned injection.
 	// Valid values are namespace (default) and pod.
-	RevisionLabelPreference SidecarInjectorConfig_RevisionLabelPreference `protobuf:"varint,25,opt,name=revisionLabelPreference,proto3,enum=istio.operator.v1alpha1.SidecarInjectorConfig_RevisionLabelPreference" json:"revisionLabelPreference,omitempty"`
+	RevisionLabelPrecedence SidecarInjectorConfig_RevisionLabelPrecedence `protobuf:"varint,25,opt,name=revisionLabelPrecedence,proto3,enum=istio.operator.v1alpha1.SidecarInjectorConfig_RevisionLabelPrecedence" json:"revisionLabelPrecedence,omitempty"`
 	// Instructs Istio to not inject the sidecar on those pods, based on labels that are present in those pods.
 	//
 	// Annotations in the pods have higher precedence than the label selectors.
@@ -4638,9 +4638,9 @@ func (x *SidecarInjectorConfig) GetReinvocationPolicy() string {
 	return ""
 }
 
-func (x *SidecarInjectorConfig) GetRevisionLabelPreference() SidecarInjectorConfig_RevisionLabelPreference {
+func (x *SidecarInjectorConfig) GetRevisionLabelPrecedence() SidecarInjectorConfig_RevisionLabelPrecedence {
 	if x != nil {
-		return x.RevisionLabelPreference
+		return x.RevisionLabelPrecedence
 	}
 	return SidecarInjectorConfig_namespace
 }
@@ -6014,7 +6014,7 @@ const file_pkg_apis_values_types_proto_rawDesc = "" +
 	"\x15SidecarInjectorConfig\x12X\n" +
 	"\x19enableNamespacesByDefault\x18\x02 \x01(\v2\x1a.google.protobuf.BoolValueR\x19enableNamespacesByDefault\x12.\n" +
 	"\x12reinvocationPolicy\x18\x03 \x01(\tR\x12reinvocationPolicy\x12\x80\x01\n" +
-	"\x17revisionLabelPreference\x18\x19 \x01(\x0e2F.istio.operator.v1alpha1.SidecarInjectorConfig.RevisionLabelPreferenceR\x17revisionLabelPreference\x12I\n" +
+	"\x17revisionLabelPrecedence\x18\x19 \x01(\x0e2F.istio.operator.v1alpha1.SidecarInjectorConfig.RevisionLabelPrecedenceR\x17revisionLabelPrecedence\x12I\n" +
 	"\x13neverInjectSelector\x18\v \x03(\v2\x17.google.protobuf.StructR\x13neverInjectSelector\x12K\n" +
 	"\x14alwaysInjectSelector\x18\f \x03(\v2\x17.google.protobuf.StructR\x14alwaysInjectSelector\x12L\n" +
 	"\x13rewriteAppHTTPProbe\x18\x10 \x01(\v2\x1a.google.protobuf.BoolValueR\x13rewriteAppHTTPProbe\x12I\n" +
@@ -6022,7 +6022,7 @@ const file_pkg_apis_values_types_proto_rawDesc = "" +
 	"\finjectionURL\x18\x16 \x01(\tR\finjectionURL\x125\n" +
 	"\ttemplates\x18\x17 \x01(\v2\x17.google.protobuf.StructR\ttemplates\x12*\n" +
 	"\x10defaultTemplates\x18\x18 \x03(\tR\x10defaultTemplates\"1\n" +
-	"\x17RevisionLabelPreference\x12\r\n" +
+	"\x17RevisionLabelPrecedence\x12\r\n" +
 	"\tnamespace\x10\x00\x12\a\n" +
 	"\x03pod\x10\x01\"\xbd\x02\n" +
 	"\fTracerConfig\x12F\n" +
@@ -6134,7 +6134,7 @@ var file_pkg_apis_values_types_proto_goTypes = []any{
 	(IngressControllerMode)(0),                         // 1: istio.operator.v1alpha1.ingressControllerMode
 	(Tracer)(0),                                        // 2: istio.operator.v1alpha1.tracer
 	(OutboundTrafficPolicyConfig_Mode)(0),              // 3: istio.operator.v1alpha1.OutboundTrafficPolicyConfig.Mode
-	(SidecarInjectorConfig_RevisionLabelPreference)(0), // 4: istio.operator.v1alpha1.SidecarInjectorConfig.RevisionLabelPreference
+	(SidecarInjectorConfig_RevisionLabelPrecedence)(0), // 4: istio.operator.v1alpha1.SidecarInjectorConfig.RevisionLabelPrecedence
 	(*ArchConfig)(nil),                                 // 5: istio.operator.v1alpha1.ArchConfig
 	(*CNIConfig)(nil),                                  // 6: istio.operator.v1alpha1.CNIConfig
 	(*CNIUsageConfig)(nil),                             // 7: istio.operator.v1alpha1.CNIUsageConfig
@@ -6360,7 +6360,7 @@ var file_pkg_apis_values_types_proto_depIdxs = []int32{
 	12,  // 161: istio.operator.v1alpha1.ProxyInitConfig.resources:type_name -> istio.operator.v1alpha1.Resources
 	60,  // 162: istio.operator.v1alpha1.SDSConfig.token:type_name -> google.protobuf.Struct
 	58,  // 163: istio.operator.v1alpha1.SidecarInjectorConfig.enableNamespacesByDefault:type_name -> google.protobuf.BoolValue
-	4,   // 164: istio.operator.v1alpha1.SidecarInjectorConfig.revisionLabelPreference:type_name -> istio.operator.v1alpha1.SidecarInjectorConfig.RevisionLabelPreference
+	4,   // 164: istio.operator.v1alpha1.SidecarInjectorConfig.revisionLabelPrecedence:type_name -> istio.operator.v1alpha1.SidecarInjectorConfig.RevisionLabelPrecedence
 	60,  // 165: istio.operator.v1alpha1.SidecarInjectorConfig.neverInjectSelector:type_name -> google.protobuf.Struct
 	60,  // 166: istio.operator.v1alpha1.SidecarInjectorConfig.alwaysInjectSelector:type_name -> google.protobuf.Struct
 	58,  // 167: istio.operator.v1alpha1.SidecarInjectorConfig.rewriteAppHTTPProbe:type_name -> google.protobuf.BoolValue
