@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - https://github.com/istio/api/issues/3395
+  - https://github.com/istio/istio/issues/55153
+releaseNotes:
+  - |
+    **Fixed** DestinationRule validation incorrectly rejecting warmup aggression values between 0 and 1.
