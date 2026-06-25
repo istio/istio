@@ -1114,18 +1114,24 @@ func TestGetEffectiveLbSetting(t *testing.T) {
 			name:              "dr zone-aware only",
 			dr:                drZA(&networking.ZoneAwareLoadBalancerSetting{Failover: zaFailover}),
 			expectedZoneAware: &networking.ZoneAwareLoadBalancerSetting{Failover: zaFailover},
+			expectedForce:     true,
 		},
 		{
 			name:              "dr zone-aware wins over mesh zone-aware",
 			meshZoneAware:     &networking.ZoneAwareLoadBalancerSetting{},
 			dr:                drZA(&networking.ZoneAwareLoadBalancerSetting{Failover: zaFailover}),
 			expectedZoneAware: &networking.ZoneAwareLoadBalancerSetting{Failover: zaFailover},
+			expectedForce:     true,
 		},
 		{
-			name:              "dr zone-aware wins over mesh locality",
-			meshLocality:      &networking.LocalityLoadBalancerSetting{Failover: failover},
-			dr:                drZA(&networking.ZoneAwareLoadBalancerSetting{}),
-			expectedZoneAware: &networking.ZoneAwareLoadBalancerSetting{},
+			// no Failover/FailoverPriority → DefaultZoneAwareFailoverPriority is injected
+			name:         "dr zone-aware wins over mesh locality",
+			meshLocality: &networking.LocalityLoadBalancerSetting{Failover: failover},
+			dr:           drZA(&networking.ZoneAwareLoadBalancerSetting{}),
+			expectedZoneAware: &networking.ZoneAwareLoadBalancerSetting{
+				FailoverPriority: DefaultZoneAwareFailoverPriority,
+			},
+			expectedForce: true,
 		},
 		{
 			name:             "dr locality wins over mesh zone-aware",
@@ -1149,10 +1155,15 @@ func TestGetEffectiveLbSetting(t *testing.T) {
 			dr:           drZA(&networking.ZoneAwareLoadBalancerSetting{Enabled: &wrappers.BoolValue{Value: false}}),
 		},
 		{
-			name:              "dr zone-aware enabled overrides mesh zone-aware disabled",
-			meshZoneAware:     &networking.ZoneAwareLoadBalancerSetting{Enabled: &wrappers.BoolValue{Value: false}},
-			dr:                drZA(&networking.ZoneAwareLoadBalancerSetting{Enabled: &wrappers.BoolValue{Value: true}}),
-			expectedZoneAware: &networking.ZoneAwareLoadBalancerSetting{Enabled: &wrappers.BoolValue{Value: true}},
+			// no Failover/FailoverPriority → DefaultZoneAwareFailoverPriority is injected
+			name:          "dr zone-aware enabled overrides mesh zone-aware disabled",
+			meshZoneAware: &networking.ZoneAwareLoadBalancerSetting{Enabled: &wrappers.BoolValue{Value: false}},
+			dr:            drZA(&networking.ZoneAwareLoadBalancerSetting{Enabled: &wrappers.BoolValue{Value: true}}),
+			expectedZoneAware: &networking.ZoneAwareLoadBalancerSetting{
+				Enabled:          &wrappers.BoolValue{Value: true},
+				FailoverPriority: DefaultZoneAwareFailoverPriority,
+			},
+			expectedForce: true,
 		},
 		{
 			name:             "service traffic distribution wins over mesh zone-aware",
@@ -1162,10 +1173,14 @@ func TestGetEffectiveLbSetting(t *testing.T) {
 			expectedForce:    true,
 		},
 		{
-			name:              "dr zone-aware wins over service traffic distribution",
-			dr:                drZA(&networking.ZoneAwareLoadBalancerSetting{}),
-			svc:               preferSameZoneService,
-			expectedZoneAware: &networking.ZoneAwareLoadBalancerSetting{},
+			// no Failover/FailoverPriority → DefaultZoneAwareFailoverPriority is injected
+			name: "dr zone-aware wins over service traffic distribution",
+			dr:   drZA(&networking.ZoneAwareLoadBalancerSetting{}),
+			svc:  preferSameZoneService,
+			expectedZoneAware: &networking.ZoneAwareLoadBalancerSetting{
+				FailoverPriority: DefaultZoneAwareFailoverPriority,
+			},
+			expectedForce: true,
 		},
 		{
 			name:             "dr locality wins over service traffic distribution",
