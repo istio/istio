@@ -1875,13 +1875,14 @@ func reportListenerSetStatus(
 	gatewayServices []string,
 	servers []*istio.Server,
 	gatewayErr *ConfigError,
+	listenersValid bool,
 ) {
 	internal, _, _, _, warnings, allUsable := r.ResolveGatewayInstances(parentGwObj.Namespace, gatewayServices, servers)
 
 	// Setup initial conditions to the success state. If we encounter errors, we will update this.
 	// We have two status
-	// Accepted: is the configuration valid. We only have errors in listeners, and the status is not supposed to
-	// be tied to listeners, so this is always accepted
+	// Accepted: is the configuration valid. Unlike a Gateway, a ListenerSet is only Accepted if at least
+	// one of its listeners is valid; otherwise we report ListenersNotValid.
 	// Programmed: is the data plane "ready" (note: eventually consistent)
 	gatewayConditions := map[string]*condition{
 		string(k8s.GatewayConditionAccepted): {
@@ -1893,12 +1894,28 @@ func reportListenerSetStatus(
 			message: "Resource programmed",
 		},
 	}
+	var listenersErr *ConfigError
+	if !listenersValid {
+		listenersErr = &ConfigError{
+			Reason:  string(k8s.ListenerSetReasonListenersNotValid),
+			Message: "None of the ListenerSet's listeners are valid",
+		}
+	}
+
 	if gatewayErr != nil {
 		gatewayErr.Message = "Parent not accepted: " + gatewayErr.Message
 		gatewayConditions[string(k8s.GatewayConditionAccepted)].error = gatewayErr
+	} else if listenersErr != nil {
+		gatewayConditions[string(k8s.GatewayConditionAccepted)].error = listenersErr
 	}
 
 	setProgrammedCondition(gatewayConditions, internal, gatewayServices, warnings, allUsable)
+
+	// A ListenerSet with no valid listeners cannot be programmed; this takes precedence over any
+	// address-related programming status.
+	if listenersErr != nil {
+		gatewayConditions[string(k8s.GatewayConditionProgrammed)].error = listenersErr
+	}
 
 	// Prune stale listener status entries whose listener was removed from the spec,
 	// mirroring reportGatewayStatus. ListenerSetCollection threads the previous status

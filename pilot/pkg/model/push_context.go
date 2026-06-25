@@ -2455,7 +2455,50 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 		return nil
 	}
 
+	if features.EnableStrictGatewayMerging {
+		gatewayInstances = filterStrictGatewayMerging(gatewayInstances)
+		if len(gatewayInstances) == 0 {
+			return nil
+		}
+	}
+
 	return mergeGateways(gatewayInstances, proxy, ps)
+}
+
+// filterStrictGatewayMerging filters gateway instances when strict gateway merging is enabled.
+// When managed GatewayAPI gateways are present, Istio gateways from different namespaces are excluded
+// to prevent cross-namespace credential leaking.
+func filterStrictGatewayMerging(instances []gatewayWithInstances) []gatewayWithInstances {
+	managedGWAPINamespaces := sets.New[string]()
+	for _, gwi := range instances {
+		cfg := gwi.gateway
+		if cfg.Annotations[constants.InternalGatewaySemantics] == constants.GatewaySemanticsGateway &&
+			cfg.Annotations[constants.InternalServiceAccount] != "" {
+			managedGWAPINamespaces.Insert(cfg.Namespace)
+		}
+	}
+
+	if managedGWAPINamespaces.Len() == 0 {
+		return instances
+	}
+
+	if managedGWAPINamespaces.Len() > 1 {
+		log.Warnf("strict gateway merging: multiple managed GatewayAPI gateway namespaces: %v", managedGWAPINamespaces)
+	}
+
+	filtered := make([]gatewayWithInstances, 0, len(instances))
+	for _, gwi := range instances {
+		cfg := gwi.gateway
+		isGWAPI := cfg.Annotations[constants.InternalGatewaySemantics] == constants.GatewaySemanticsGateway
+		if isGWAPI || managedGWAPINamespaces.Contains(cfg.Namespace) {
+			filtered = append(filtered, gwi)
+		} else {
+			gatewayName := cfg.Namespace + "/" + cfg.Name
+			log.Infof("strict gateway merging: skipping gateway %s not in managed GatewayAPI namespace", gatewayName)
+			RecordRejectedConfig(gatewayName)
+		}
+	}
+	return filtered
 }
 
 func (ps *PushContext) NetworkManager() *NetworkManager {

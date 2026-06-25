@@ -894,19 +894,16 @@ func ValidateNamespaceSlashWildcardHostname(hostname string, isGateway bool, gat
 	}
 
 	if !isGateway {
-		// namespace can be * or . or ~ or a valid DNS label in sidecars
-		if parts[0] != "*" && parts[0] != "." && parts[0] != "~" {
-			if !labels.IsDNS1123Label(parts[0]) {
-				errs = AppendErrors(errs, fmt.Errorf("invalid namespace value %q in sidecar", parts[0]))
-			}
+		// namespace can be *, ., or a valid DNS label, optionally ~-prefixed to exclude it.
+		ns := strings.TrimPrefix(parts[0], "~")
+		if ns != "" && ns != "*" && ns != "." && !labels.IsDNS1123Label(ns) {
+			errs = AppendErrors(errs, fmt.Errorf("invalid namespace value %q in sidecar", parts[0]))
 		}
-	} else {
+	} else if parts[0] != "*" && parts[0] != "." && (parts[0] != "~" || !gatewaySemantics) {
 		// namespace can be * or . or a valid DNS label in gateways
 		// namespace can be ~ in gateways converted from Gateway API when no routes match
-		if parts[0] != "*" && parts[0] != "." && (parts[0] != "~" || !gatewaySemantics) {
-			if !labels.IsDNS1123Label(parts[0]) {
-				errs = AppendErrors(errs, fmt.Errorf("invalid namespace value %q in gateway", parts[0]))
-			}
+		if !labels.IsDNS1123Label(parts[0]) {
+			errs = AppendErrors(errs, fmt.Errorf("invalid namespace value %q in gateway", parts[0]))
 		}
 	}
 	errs = AppendErrors(errs, validateSidecarOrGatewayHostnamePart(parts[1], isGateway))
