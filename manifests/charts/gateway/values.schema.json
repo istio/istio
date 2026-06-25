@@ -191,6 +191,9 @@
             "externalTrafficPolicy": {
               "type": "string"
             },
+            "healthCheckNodePort": {
+              "type": "integer"
+            },
             "loadBalancerIP": {
               "type": "string"
             },
