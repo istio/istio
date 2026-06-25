@@ -1556,6 +1556,95 @@ func TestServiceIndex(t *testing.T) {
 	g.Expect(serviceNames(si.private)).To(Equal([]string{"svc-private"}))
 }
 
+// TestServiceIndexDefaultServiceExportTo verifies that meshConfig.defaultServiceExportTo entries
+// that name specific namespaces (e.g. [".", "bar"]) are honored for services that do not
+// set their own exportTo: such services stay private to their own namespace AND are exported to the
+// additional namespaces listed in the default.
+func TestServiceIndexDefaultServiceExportTo(t *testing.T) {
+	g := NewWithT(t)
+	env := NewEnvironment()
+	configController := NewFakeStore()
+	env.ConfigStore = configController
+	env.ServiceDiscovery = &localServiceDiscovery{
+		services: []*Service{
+			{
+				Hostname: "svc-unset-1",
+				Ports:    allPorts,
+				Attributes: ServiceAttributes{
+					Namespace: "test1",
+				},
+			},
+			{
+				Hostname: "svc-unset-2",
+				Ports:    allPorts,
+				Attributes: ServiceAttributes{
+					Namespace: "test2",
+				},
+			},
+			{
+				// A service that already lives in the default target namespace must not be
+				// duplicated by the additional-namespace export.
+				Hostname: "svc-bar-ns",
+				Ports:    allPorts,
+				Attributes: ServiceAttributes{
+					Namespace: "bar",
+				},
+			},
+			{
+				// An explicit exportTo still takes precedence over the default.
+				Hostname: "svc-public",
+				Ports:    allPorts,
+				Attributes: ServiceAttributes{
+					Namespace: "test1",
+					ExportTo:  sets.New(visibility.Public),
+				},
+			},
+		},
+		serviceInstances: []*ServiceInstance{
+			{
+				Endpoint: &IstioEndpoint{
+					Addresses:    []string{"192.168.1.2"},
+					EndpointPort: 8000,
+					TLSMode:      DisabledTLSModeLabel,
+				},
+			},
+		},
+	}
+	m := mesh.DefaultMeshConfig()
+	m.DefaultServiceExportTo = []string{".", "bar"}
+	env.Watcher = meshwatcher.NewTestWatcher(m)
+	stop := test.NewStop(t)
+	env.VirtualServiceController = NewVirtualServiceController(
+		configController,
+		VSControllerOptions{KrtDebugger: krt.GlobalDebugHandler},
+		env.Watcher,
+	)
+	go configController.Run(stop)
+	go env.VirtualServiceController.Run(stop)
+	kube.WaitForCacheSync("test", stop, configController.HasSynced)
+	kube.WaitForCacheSync("test", stop, env.VirtualServiceController.HasSynced)
+	env.Init()
+
+	pc := NewPushContext()
+	pc.InitContext(env, nil, nil)
+	si := pc.ServiceIndex
+
+	// Default-private services are exported to their own namespace.
+	g.Expect(serviceNames(si.exportedToNamespace["test1"])).To(Equal([]string{"svc-unset-1"}))
+	g.Expect(serviceNames(si.exportedToNamespace["test2"])).To(Equal([]string{"svc-unset-2"}))
+
+	// All default-private services are additionally exported to the bar namespace, and the
+	// service already living in bar appears exactly once (no duplicate from the export loop).
+	g.Expect(serviceNames(si.exportedToNamespace["bar"])).
+		To(Equal([]string{"svc-bar-ns", "svc-unset-1", "svc-unset-2"}))
+
+	// Services with an explicit exportTo are unaffected by the default.
+	g.Expect(serviceNames(si.public)).To(Equal([]string{"svc-public"}))
+
+	// All default-private services are tracked as private.
+	g.Expect(serviceNames(si.private)).To(Equal([]string{"svc-bar-ns", "svc-unset-1", "svc-unset-2"}))
+}
+
 func TestIsServiceVisible(t *testing.T) {
 	targetNamespace := "foo"
 	cases := []struct {
@@ -1699,6 +1788,48 @@ func TestIsServiceVisible(t *testing.T) {
 				},
 			},
 			expect: false,
+		},
+		{
+			name: "service whose namespace is bar has no exportTo map with global private and target namespace foo",
+			pushContext: &PushContext{
+				exportToDefaults: exportToDefaults{
+					service: sets.New(visibility.Private, visibility.Instance("foo")),
+				},
+			},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace: "bar",
+				},
+			},
+			expect: true,
+		},
+		{
+			name: "service whose namespace is bar has no exportTo map with global private and unrelated target namespace",
+			pushContext: &PushContext{
+				exportToDefaults: exportToDefaults{
+					service: sets.New(visibility.Private, visibility.Instance("baz")),
+				},
+			},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace: "bar",
+				},
+			},
+			expect: false,
+		},
+		{
+			name: "service whose namespace is foo has no exportTo map with global private and unrelated target namespace",
+			pushContext: &PushContext{
+				exportToDefaults: exportToDefaults{
+					service: sets.New(visibility.Private, visibility.Instance("baz")),
+				},
+			},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace: "foo",
+				},
+			},
+			expect: true,
 		},
 	}
 

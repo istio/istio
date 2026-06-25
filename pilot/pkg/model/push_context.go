@@ -1068,7 +1068,7 @@ func (ps *PushContext) IsServiceVisible(service *Service, namespace string) bool
 	ns := service.Attributes.Namespace
 	if service.Attributes.ExportTo.IsEmpty() {
 		if ps.exportToDefaults.service.Contains(visibility.Private) {
-			return ns == namespace
+			return ns == namespace || ps.exportToDefaults.service.Contains(visibility.Instance(namespace))
 		} else if ps.exportToDefaults.service.Contains(visibility.Public) {
 			return true
 		}
@@ -1565,6 +1565,23 @@ func (ps *PushContext) initServiceRegistry(env *Environment, configsUpdate sets.
 					exportedServices = make([]*Service, 0)
 				}
 				ps.ServiceIndex.exportedToNamespace[ns] = append(exportedServices, s)
+				// Export service to additional default namespaces.
+				for v := range ps.exportToDefaults.service {
+					switch v {
+					case visibility.Public, visibility.Private, visibility.None:
+						continue
+					default:
+						targetNamespace := string(v)
+						if targetNamespace == ns {
+							continue // avoid duplicate entry.
+						}
+						targetExportedServices, ok := ps.ServiceIndex.exportedToNamespace[targetNamespace]
+						if !ok {
+							targetExportedServices = make([]*Service, 0)
+						}
+						ps.ServiceIndex.exportedToNamespace[targetNamespace] = append(targetExportedServices, s)
+					}
+				}
 			} else if ps.exportToDefaults.service.Contains(visibility.Public) {
 				ps.ServiceIndex.public = append(ps.ServiceIndex.public, s)
 			}
