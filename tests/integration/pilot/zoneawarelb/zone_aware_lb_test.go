@@ -100,10 +100,12 @@ spec:
     connectionPool:
       tcp:
         connectTimeout: 250ms
+{{ if .WithOutlierDetection }}
     outlierDetection:
       interval: 1s
       baseEjectionTime: 10m
       maxEjectionPercent: 100
+{{ end }}
     loadBalancer:
       zoneAwareLbSetting:
         enabled: true
@@ -147,6 +149,7 @@ type zoneAwareInput struct {
 	LocalClusterWorkloadName string
 	LocalClusterWorkloads    []weEntry
 	DestinationWorkloads     []weEntry
+	WithOutlierDetection     bool
 }
 
 func TestZoneAwareLoadBalancer(t *testing.T) {
@@ -173,6 +176,7 @@ func TestZoneAwareLoadBalancer(t *testing.T) {
 				name                  string
 				localClusterWorkloads []weEntry
 				destinationWorkloads  []weEntry
+				withOutlierDetection  bool
 				expected              map[string]int
 			}{
 				{
@@ -246,8 +250,12 @@ func TestZoneAwareLoadBalancer(t *testing.T) {
 					expected: expectAllTrafficTo(destC.Config().Service),
 				},
 				{
+					// outlierDetection is required here: Envoy must detect and eject
+					// the unreachable same-region endpoint before falling over to the
+					// cross-region one.
 					name:                  "CrossRegionEndpointUsedAfterSameRegionEjection",
 					localClusterWorkloads: oneLocalClusterEndpoint,
+					withOutlierDetection:  true,
 					destinationWorkloads: []weEntry{
 						{Address: "10.99.99.99", Locality: localLocality},
 						{Address: destC.Address(), Locality: remoteRegionLocality},
@@ -265,6 +273,7 @@ func TestZoneAwareLoadBalancer(t *testing.T) {
 						LocalClusterWorkloadName: callerWorkloadName,
 						LocalClusterWorkloads:    tc.localClusterWorkloads,
 						DestinationWorkloads:     tc.destinationWorkloads,
+						WithOutlierDetection:     tc.withOutlierDetection,
 					}
 					t.ConfigIstio().
 						Eval(apps.Namespace.Name(), input, zoneAwareConfig).

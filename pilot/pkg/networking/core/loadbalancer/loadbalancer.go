@@ -70,7 +70,7 @@ func GetEffectiveLbSetting(
 		// similar to TrafficDistributionPreferSameZone,
 		// zone aware routing requires that we always enable failovers,
 		// since we need to always separate endpoints in different regions.
-		return nil, zaLbSetting, true
+		return nil, zaLbSetting, false
 	}
 	if localityLbSetting := drSettings.GetLocalityLbSetting(); localityLbSetting != nil {
 		if localityLbSetting.GetEnabled() != nil && !localityLbSetting.GetEnabled().Value {
