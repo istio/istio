@@ -88,6 +88,7 @@ type EndpointBuilder struct {
 	mtlsChecker *mtlsChecker
 
 	canonicalServiceForMeshExternal bool
+	isLocalCluster                  bool
 }
 
 func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.PushContext) EndpointBuilder {
@@ -132,6 +133,7 @@ func NewCDSEndpointBuilder(
 		dir:        dir,
 
 		canonicalServiceForMeshExternal: features.CanonicalServiceForMeshExternalServiceEntry,
+		isLocalCluster:                  clusterName == "local_cluster",
 	}
 	b.populateSubsetInfo()
 	b.populateFailoverPriorityLabels()
@@ -422,9 +424,6 @@ func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.Endpoi
 		if !b.subsetLabels.SubsetOf(ep.Labels) {
 			return false
 		}
-		if b.clusterName == "local_cluster" {
-			return ep.WorkloadName == b.proxy.Metadata.WorkloadName
-		}
 		return true
 	})
 
@@ -577,7 +576,6 @@ func (b *EndpointBuilder) filterIstioEndpoint(ep *model.IstioEndpoint) bool {
 	}
 	// Filter out unhealthy endpoints, unless the service needs them.
 	// This is used to let envoy know about the amount of health endpoints in a cluster.
-	// This is used to let envoy know about the amount of health endpoints in a cluster.
 	if !b.service.SupportsUnhealthyEndpoints() && ep.HealthStatus == model.UnHealthy {
 		return false
 	}
@@ -601,6 +599,18 @@ func (b *EndpointBuilder) filterIstioEndpoint(ep *model.IstioEndpoint) bool {
 	// we filter it out.
 	if b.serviceInfo != nil && b.serviceInfo.Scope != model.Global && b.clusterID != ep.Locality.ClusterID {
 		return false
+	}
+
+	// If this is the self discovery cluster, then we only need endpoints from the same workload and the same region
+	if b.isLocalCluster {
+		if b.proxy.Metadata.WorkloadName != ep.WorkloadName {
+			return false
+		}
+
+		locality := util.ConvertLocality(ep.Locality.Label)
+		if b.proxy.Locality.Region != locality.Region {
+			return false
+		}
 	}
 
 	return true
