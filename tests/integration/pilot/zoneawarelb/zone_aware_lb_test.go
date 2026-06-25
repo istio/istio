@@ -226,6 +226,18 @@ func TestZoneAwareLoadBalancer(t *testing.T) {
 					expected: expectAllTrafficTo(destB.Config().Service),
 				},
 				{
+					// Verifies that a same-region endpoint in a *different* zone beats a cross-region
+					// endpoint. Without the region-bucketing in applyZoneAwareFailover, both land at
+					// priority 0 and Envoy's zone-aware LB distributes traffic to the remote region.
+					name:                  "CrossRegionEndpointIgnoredWhenSameRegionDifferentZoneAvailable",
+					localClusterWorkloads: oneLocalClusterEndpoint,
+					destinationWorkloads: []weEntry{
+						{Address: destB.Address(), Locality: sameRegionZone2Locality},
+						{Address: destC.Address(), Locality: remoteRegionLocality},
+					},
+					expected: expectAllTrafficTo(destB.Config().Service),
+				},
+				{
 					name:                  "CrossRegionEndpointUsedWhenSameRegionAbsent",
 					localClusterWorkloads: oneLocalClusterEndpoint,
 					destinationWorkloads: []weEntry{

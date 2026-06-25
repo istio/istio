@@ -1496,14 +1496,26 @@ func TestEdsLocalCluster(t *testing.T) {
 			Addresses:       []string{siblingIP},
 			ServicePortName: portName,
 			EndpointPort:    portNumber,
-			Locality:        model.Locality{Label: "region2/zone2/subzone2"},
+			Locality:        model.Locality{Label: "region1/zone2/subzone2"},
 			TLSMode:         model.IstioMutualTLSModeLabel,
 			HealthStatus:    model.Healthy,
 		},
 	})
 	s.EnsureSynced(t)
 
-	ads := s.ConnectADS().WithID(nodeID).WithType(v3.EndpointType)
+	// Set the proxy locality so filterIstioEndpoint's same-region filter does not
+	// reject endpoints. Both proxyIP (region1/zone1) and siblingIP (region1/zone2) are
+	// in the same region, so both should appear in the local_cluster CLA.
+	ads := s.ConnectADS().
+		WithID(nodeID).
+		WithType(v3.EndpointType).
+		WithMetadata(model.NodeMetadata{
+			Namespace: svcNS,
+			Labels: map[string]string{
+				"topology.kubernetes.io/region": "region1",
+				"topology.kubernetes.io/zone":   "zone1",
+			},
+		})
 	resp := ads.RequestResponseAck(t, &discovery.DiscoveryRequest{
 		TypeUrl:       v3.EndpointType,
 		ResourceNames: []string{xds.LocalClusterName},
@@ -1553,7 +1565,7 @@ func TestEdsLocalCluster(t *testing.T) {
 				Addresses:       []string{"3.3.3.3"},
 				ServicePortName: portName,
 				EndpointPort:    portNumber,
-				Locality:        model.Locality{Label: "region3/zone3/subzone3"},
+				Locality:        model.Locality{Label: "region1/zone3/subzone3"},
 				TLSMode:         model.IstioMutualTLSModeLabel,
 				HealthStatus:    model.Healthy,
 			},
@@ -1604,7 +1616,7 @@ func TestEdsLocalCluster(t *testing.T) {
 				Addresses:       []string{siblingIP},
 				ServicePortName: portName,
 				EndpointPort:    portNumber,
-				Locality:        model.Locality{Label: "region2/zone2/subzone2"},
+				Locality:        model.Locality{Label: "region1/zone2/subzone2"},
 				TLSMode:         model.IstioMutualTLSModeLabel,
 				HealthStatus:    model.Healthy,
 			},
@@ -1623,6 +1635,38 @@ func TestEdsLocalCluster(t *testing.T) {
 		want := map[string]bool{proxyIP: true, siblingIP: true}
 		if !reflect.DeepEqual(addrs, want) {
 			t.Errorf("CLA endpoints = %v, want %v", addrs, want)
+		}
+	})
+
+	t.Run("cross-region endpoint excluded from local_cluster", func(t *testing.T) {
+		// Add an endpoint for the same service in a different region. It must not
+		// appear in local_cluster because the same-region filter in filterIstioEndpoint
+		// keeps cross-region endpoints out of the zone-aware LB's source cluster.
+		const remoteIP = "4.4.4.4"
+		s.MemRegistry.AddInstance(&model.ServiceInstance{
+			Service:     svc,
+			ServicePort: svc.Ports[0],
+			Endpoint: &model.IstioEndpoint{
+				Addresses:       []string{remoteIP},
+				ServicePortName: portName,
+				EndpointPort:    portNumber,
+				Locality:        model.Locality{Label: "otherregion/zone1/subzone1"},
+				TLSMode:         model.IstioMutualTLSModeLabel,
+				HealthStatus:    model.Healthy,
+			},
+		})
+		updated := ads.ExpectResponse(t)
+		cla := &endpoint.ClusterLoadAssignment{}
+		if err := updated.Resources[0].UnmarshalTo(cla); err != nil {
+			t.Fatal(err)
+		}
+		for _, lle := range cla.Endpoints {
+			for _, lbe := range lle.LbEndpoints {
+				addr := lbe.GetEndpoint().GetAddress().GetSocketAddress().GetAddress()
+				if addr == remoteIP {
+					t.Errorf("cross-region endpoint %s should be excluded from local_cluster, but was present", remoteIP)
+				}
+			}
 		}
 	})
 }
@@ -1741,7 +1785,13 @@ func TestEdsLocalClusterServiceReplacement(t *testing.T) {
 	ads := s.ConnectADS().
 		WithID(nodeID).
 		WithType(v3.EndpointType).
-		WithMetadata(model.NodeMetadata{Namespace: svcNS}).
+		WithMetadata(model.NodeMetadata{
+			Namespace: svcNS,
+			Labels: map[string]string{
+				"topology.kubernetes.io/region": "region1",
+				"topology.kubernetes.io/zone":   "zoneA",
+			},
+		}).
 		WithTimeout(200 * time.Millisecond)
 	// Initial state: proxy belongs to svcA. The initial CLA should carry zoneA.
 	initial := ads.RequestResponseAck(t, &discovery.DiscoveryRequest{
@@ -1768,7 +1818,7 @@ func TestEdsLocalClusterServiceReplacement(t *testing.T) {
 	s.MemRegistry.RemoveService(host.Name(hostA))
 	svcB := mkSvc(hostB, "b")
 	s.MemRegistry.AddService(svcB)
-	s.MemRegistry.AddInstance(mkInstance(svcB, "region2/zoneB/sub"))
+	s.MemRegistry.AddInstance(mkInstance(svcB, "region1/zoneB/sub"))
 
 	// Read responses until we see the CLA reflect svcB's endpoints. Multiple
 	// debounced pushes may arrive (one for the removal, one or more for the add).
@@ -1813,7 +1863,13 @@ func TestEdsLocalClusterServiceLifecycle(t *testing.T) {
 	ads := s.ConnectADS().
 		WithID(nodeID).
 		WithType(v3.EndpointType).
-		WithMetadata(model.NodeMetadata{Namespace: svcNS}).
+		WithMetadata(model.NodeMetadata{
+			Namespace: svcNS,
+			Labels: map[string]string{
+				"topology.kubernetes.io/region": "region1",
+				"topology.kubernetes.io/zone":   "zone1",
+			},
+		}).
 		WithTimeout(200 * time.Millisecond)
 	initial := ads.RequestResponseAck(t, &discovery.DiscoveryRequest{
 		TypeUrl:       v3.EndpointType,
