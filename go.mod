@@ -47,7 +47,7 @@ require (
 	github.com/mattn/go-isatty v0.0.22
 	github.com/miekg/dns v1.1.72
 	github.com/mitchellh/copystructure v1.2.0
-	github.com/moby/buildkit v0.31.0
+	github.com/moby/buildkit v0.31.1
 	github.com/onsi/gomega v1.42.1
 	github.com/openshift/api v0.0.0-20250806102053-6a7223edb2fc
 	github.com/pires/go-proxyproto v0.12.0
