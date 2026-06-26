@@ -3445,6 +3445,17 @@ func TestValidateConnectionPool(t *testing.T) {
 			},
 			valid: true,
 		},
+		{
+			name: "valid connection pool, http2 keepalive", in: &networking.ConnectionPoolSettings{
+				Http: &networking.ConnectionPoolSettings_HTTPSettings{
+					Http2KeepAlive: &networking.ConnectionPoolSettings_HTTPSettings_ConnectionKeepalive{
+						Interval: &durationpb.Duration{Seconds: 15},
+						Timeout:  &durationpb.Duration{Seconds: 5},
+					},
+				},
+			},
+			valid: true,
+		},
 
 		{name: "invalid connection pool, empty", in: &networking.ConnectionPoolSettings{}, valid: false},
 
@@ -3509,6 +3520,37 @@ func TestValidateConnectionPool(t *testing.T) {
 		{
 			name: "invalid connection pool, bad max concurrent streams", in: &networking.ConnectionPoolSettings{
 				Http: &networking.ConnectionPoolSettings_HTTPSettings{MaxConcurrentStreams: -1},
+			},
+			valid: false,
+		},
+		{
+			name: "invalid connection pool, http2 keepalive without interval", in: &networking.ConnectionPoolSettings{
+				Http: &networking.ConnectionPoolSettings_HTTPSettings{
+					Http2KeepAlive: &networking.ConnectionPoolSettings_HTTPSettings_ConnectionKeepalive{
+						Timeout: &durationpb.Duration{Seconds: 5},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "invalid connection pool, http2 keepalive without timeout", in: &networking.ConnectionPoolSettings{
+				Http: &networking.ConnectionPoolSettings_HTTPSettings{
+					Http2KeepAlive: &networking.ConnectionPoolSettings_HTTPSettings_ConnectionKeepalive{
+						Interval: &durationpb.Duration{Seconds: 15},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "invalid connection pool, bad http2 keepalive interval", in: &networking.ConnectionPoolSettings{
+				Http: &networking.ConnectionPoolSettings_HTTPSettings{
+					Http2KeepAlive: &networking.ConnectionPoolSettings_HTTPSettings_ConnectionKeepalive{
+						Interval: &durationpb.Duration{Seconds: 15, Nanos: 5},
+						Timeout:  &durationpb.Duration{Seconds: 5},
+					},
+				},
 			},
 			valid: false,
 		},
