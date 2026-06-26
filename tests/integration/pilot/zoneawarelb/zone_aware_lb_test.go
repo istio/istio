@@ -319,12 +319,34 @@ func localClusterLabelsForEcho(t framework.TestContext, inst echo.Instance) map[
 		t.Fatalf("failed getting caller pod %s/%s labels: %v", inst.NamespaceName(), workload.PodName(), err)
 	}
 
+	nodeTopologyLabels := map[string]string{}
+	if pod.Spec.NodeName != "" {
+		node, err := workload.Cluster().Kube().CoreV1().Nodes().Get(t.Context(), pod.Spec.NodeName, metav1.GetOptions{})
+		if err != nil {
+			scopes.Framework.Infof("Zone-aware caller topology: failed getting node %q for pod %s/%s: %v",
+				pod.Spec.NodeName, pod.Namespace, pod.Name, err)
+		} else {
+			for _, k := range []string{
+				"topology.kubernetes.io/region",
+				"topology.kubernetes.io/zone",
+				"topology.istio.io/subzone",
+				"topology.istio.io/network",
+			} {
+				if v := node.Labels[k]; v != "" {
+					nodeTopologyLabels[k] = v
+				}
+			}
+		}
+	}
+
 	out := map[string]string{}
 	for _, k := range []string{"pod-template-hash", "rollouts-pod-template-hash"} {
 		if v := pod.Labels[k]; v != "" {
 			out[k] = v
 		}
 	}
+	scopes.Framework.Infof("Zone-aware caller topology: service=%s pod=%s/%s podIP=%s node=%s podLabels=%v nodeTopologyLabels=%v copiedLocalClusterLabels=%v testLocality=%s",
+		inst.Config().Service, pod.Namespace, pod.Name, pod.Status.PodIP, pod.Spec.NodeName, pod.Labels, nodeTopologyLabels, out, localLocality)
 	return out
 }
 
@@ -343,6 +365,8 @@ func assertZoneAwareConfig(
 	sidecar := caller.WorkloadsOrFail(t)[0].Sidecar()
 	remoteClusterName := fmt.Sprintf("outbound|80||%s", remoteHost)
 	expectedDestinationHosts := expectedDestinationHostPriorities(destinationWorkloads)
+	scopes.Framework.Infof("Zone-aware destination expectation: cluster=%s destinationWorkloads=%v expectedHostPriorities=%v",
+		remoteClusterName, destinationWorkloads, expectedDestinationHosts)
 
 	// First: assert cluster definitions are correct.
 	sidecar.WaitForConfigOrFail(t, func(cd *admin.ConfigDump) (bool, error) {
@@ -368,6 +392,8 @@ func assertZoneAwareConfig(
 			return false, fmt.Errorf("dynamic cluster %q not yet present", remoteClusterName)
 		}
 
+		scopes.Framework.Infof("Zone-aware cluster config: cluster=%s localityConfig=%T commonLbConfig=%v",
+			remoteClusterName, remote.GetCommonLbConfig().GetLocalityConfigSpecifier(), remote.GetCommonLbConfig())
 		switch remote.GetCommonLbConfig().GetLocalityConfigSpecifier().(type) {
 		case *cluster.Cluster_CommonLbConfig_ZoneAwareLbConfig_:
 			// ok
@@ -456,10 +482,11 @@ func assertDestinationHosts(cs *admin.ClusterStatus, expected map[string]uint32)
 	}
 	for address, priority := range expected {
 		if gotPriority, ok := got[address]; !ok {
-			return fmt.Errorf("cluster %q missing destination host %s; got hosts %v", cs.GetName(), address, got)
+			return fmt.Errorf("cluster %q missing destination host %s; expected hosts %v, got hosts %v",
+				cs.GetName(), address, expected, got)
 		} else if gotPriority != priority {
-			return fmt.Errorf("cluster %q destination host %s has priority %d, expected %d; got hosts %v",
-				cs.GetName(), address, gotPriority, priority, got)
+			return fmt.Errorf("cluster %q destination host %s has priority %d, expected %d; expected hosts %v, got hosts %v",
+				cs.GetName(), address, gotPriority, priority, expected, got)
 		}
 	}
 	for address := range got {
