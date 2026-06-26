@@ -41,6 +41,7 @@ func (s *GatewayAnalyzer) Metadata() analysis.Metadata {
 		Description: "Checks the gateways associated with each virtual service",
 		Inputs: []config.GroupVersionKind{
 			gvk.Gateway,
+			gvk.KubernetesGateway,
 			gvk.VirtualService,
 		},
 	}
@@ -78,7 +79,10 @@ func (s *GatewayAnalyzer) analyzeVirtualService(r *resource.Instance, c analysis
 
 		gwFullName := resource.NewShortOrFullName(vsNs, gwName)
 
-		if !c.Exists(gvk.Gateway, gwFullName) {
+		istioGwExists := c.Exists(gvk.Gateway, gwFullName)
+		k8sGwExists := c.Exists(gvk.KubernetesGateway, gwFullName)
+
+		if !istioGwExists && !k8sGwExists {
 			m := msg.NewReferencedResourceNotFound(r, "gateway", gwName)
 
 			if line, ok := util.ErrorLine(r, fmt.Sprintf(util.VSGateway, i)); ok {
