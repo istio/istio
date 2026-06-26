@@ -61,16 +61,16 @@ func GetEffectiveLbSetting(
 		if len(zaLbSetting.Failover) == 0 && len(zaLbSetting.FailoverPriority) == 0 {
 			// make a shallow copy, defaulting FailoverPriority
 			zaLbSetting = &v1alpha3.ZoneAwareLoadBalancerSetting{
-				Enabled:        zaLbSetting.Enabled,
-				MinClusterSize: zaLbSetting.MinClusterSize,
-				// FailoverPriority: DefaultZoneAwareFailoverPriority,
+				Enabled:          zaLbSetting.Enabled,
+				MinClusterSize:   zaLbSetting.MinClusterSize,
+				FailoverPriority: DefaultZoneAwareFailoverPriority,
 			}
 		}
 
 		// similar to TrafficDistributionPreferSameZone,
 		// zone aware routing requires that we always enable failovers,
 		// since we need to always separate endpoints in different regions.
-		return nil, zaLbSetting, false
+		return nil, zaLbSetting, true
 	}
 	if localityLbSetting := drSettings.GetLocalityLbSetting(); localityLbSetting != nil {
 		if localityLbSetting.GetEnabled() != nil && !localityLbSetting.GetEnabled().Value {
