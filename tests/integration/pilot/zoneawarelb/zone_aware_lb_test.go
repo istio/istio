@@ -25,6 +25,7 @@ import (
 
 	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -123,6 +124,9 @@ spec:
   locality: {{ $we.Locality }}
   labels:
     app: zone-aware-local
+{{ range $k, $v := $.LocalClusterLabels }}
+    {{ $k }}: {{ $v | quote }}
+{{ end }}
 {{ end }}
 {{ range $i, $we := .DestinationWorkloads }}
 ---
@@ -147,6 +151,7 @@ type zoneAwareInput struct {
 	LocalHost                string
 	RemoteHost               string
 	LocalClusterWorkloadName string
+	LocalClusterLabels       map[string]string
 	LocalClusterWorkloads    []weEntry
 	DestinationWorkloads     []weEntry
 	WithOutlierDetection     bool
@@ -164,6 +169,7 @@ func TestZoneAwareLoadBalancer(t *testing.T) {
 			proxyAddress := caller.WorkloadsOrFail(t)[0].Address()
 			sourcePeerAddress := destB.WorkloadsOrFail(t)[0].Address()
 			callerWorkloadName := workloadNameForEcho(caller)
+			callerLocalClusterLabels := localClusterLabelsForEcho(t, caller)
 			oneLocalClusterEndpoint := []weEntry{
 				{Address: proxyAddress, Locality: localLocality},
 			}
@@ -271,6 +277,7 @@ func TestZoneAwareLoadBalancer(t *testing.T) {
 						LocalHost:                fmt.Sprintf("local-%s.example.com", hostSuffix),
 						RemoteHost:               fmt.Sprintf("zone-aware-%s.example.com", hostSuffix),
 						LocalClusterWorkloadName: callerWorkloadName,
+						LocalClusterLabels:       callerLocalClusterLabels,
 						LocalClusterWorkloads:    tc.localClusterWorkloads,
 						DestinationWorkloads:     tc.destinationWorkloads,
 						WithOutlierDetection:     tc.withOutlierDetection,
@@ -301,6 +308,24 @@ func workloadNameForEcho(inst echo.Instance) string {
 		version = cfg.Subsets[0].Version
 	}
 	return fmt.Sprintf("%s-%s", cfg.Service, version)
+}
+
+func localClusterLabelsForEcho(t framework.TestContext, inst echo.Instance) map[string]string {
+	t.Helper()
+	workload := inst.WorkloadsOrFail(t)[0]
+	pod, err := workload.Cluster().Kube().CoreV1().Pods(inst.NamespaceName()).Get(
+		t.Context(), workload.PodName(), metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("failed getting caller pod %s/%s labels: %v", inst.NamespaceName(), workload.PodName(), err)
+	}
+
+	out := map[string]string{}
+	for _, k := range []string{"pod-template-hash", "rollouts-pod-template-hash"} {
+		if v := pod.Labels[k]; v != "" {
+			out[k] = v
+		}
+	}
+	return out
 }
 
 // assertZoneAwareConfig waits for the caller's Envoy config to reflect zone-aware routing.
