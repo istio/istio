@@ -16,6 +16,7 @@ package model
 
 import (
 	"fmt"
+	"sync/atomic"
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -23,6 +24,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -770,4 +772,138 @@ func TestControllerMergeVirtualServices(t *testing.T) {
 		got = controller2.MergedVirtualServices()
 		checkOrder(got)
 	})
+}
+
+// fakeXDSUpdater counts ConfigUpdate calls for push suppression tests.
+type fakeXDSUpdater struct {
+	pushCount atomic.Int32
+}
+
+func (f *fakeXDSUpdater) ConfigUpdate(*PushRequest)                                 { f.pushCount.Add(1) }
+func (f *fakeXDSUpdater) EDSUpdate(ShardKey, string, string, []*IstioEndpoint)      {}
+func (f *fakeXDSUpdater) EDSCacheUpdate(ShardKey, string, string, []*IstioEndpoint) {}
+func (f *fakeXDSUpdater) SvcUpdate(ShardKey, string, string, Event)                 {}
+func (f *fakeXDSUpdater) ProxyUpdate(cluster.ID, string)                            {}
+func (f *fakeXDSUpdater) RemoveShard(ShardKey)                                      {}
+
+func setupControllerWithXDS(t *testing.T, xds XDSUpdater, objs ...config.Config) (*VirtualServiceController, *FakeStore) {
+	stop := test.NewStop(t)
+	meshHolder := meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{})
+	store := NewFakeStore()
+	for _, o := range objs {
+		store.Create(o)
+	}
+	controller := NewVirtualServiceController(
+		store,
+		VSControllerOptions{KrtDebugger: krt.GlobalDebugHandler, XDSUpdater: xds},
+		meshHolder,
+	)
+	go store.Run(stop)
+	go controller.Run(stop)
+	kube.WaitForCacheSync("test", stop, store.HasSynced)
+	kube.WaitForCacheSync("test", stop, controller.HasSynced)
+	return controller, store
+}
+
+// TestXDSPushSuppression verifies that xdsPush suppresses pushes for metadata-only
+// changes (the regression introduced in PR #59435) while still firing for spec changes
+// and istio.io label/annotation changes.
+func TestXDSPushSuppression(t *testing.T) {
+	baseVS := config.Config{
+		Meta: config.Meta{
+			Name:             "test-vs",
+			Namespace:        "default",
+			GroupVersionKind: gvk.VirtualService,
+			Labels:           map[string]string{"app": "test"},
+			Annotations:      map[string]string{"meta.helm.sh/release-name": "my-release"},
+		},
+		Spec: &v1alpha3.VirtualService{
+			Hosts: []string{"example.org"},
+			Http: []*v1alpha3.HTTPRoute{
+				{Route: []*v1alpha3.HTTPRouteDestination{
+					{Destination: &v1alpha3.Destination{Host: "example.org"}},
+				}},
+			},
+		},
+	}
+
+	cases := []struct {
+		name     string
+		update   func(vs config.Config) config.Config
+		wantPush bool
+	}{
+		{
+			name: "non-istio annotation change does not push",
+			update: func(vs config.Config) config.Config {
+				vs.Annotations = map[string]string{
+					"meta.helm.sh/release-name":                        "my-release",
+					"kubectl.kubernetes.io/last-applied-configuration": `{"new":"value"}`,
+				}
+				return vs
+			},
+			wantPush: false,
+		},
+		{
+			name: "non-istio label change does not push",
+			update: func(vs config.Config) config.Config {
+				vs.Labels = map[string]string{"app": "test", "argocd.argoproj.io/app": "myapp"}
+				return vs
+			},
+			wantPush: false,
+		},
+		{
+			name: "spec change pushes",
+			update: func(vs config.Config) config.Config {
+				vs.Spec = &v1alpha3.VirtualService{
+					Hosts: []string{"example.org", "other.org"},
+					Http: []*v1alpha3.HTTPRoute{
+						{Route: []*v1alpha3.HTTPRouteDestination{
+							{Destination: &v1alpha3.Destination{Host: "example.org"}},
+						}},
+					},
+				}
+				return vs
+			},
+			wantPush: true,
+		},
+		{
+			name: "istio.io annotation change pushes",
+			update: func(vs config.Config) config.Config {
+				vs.Annotations = map[string]string{
+					"meta.helm.sh/release-name":    "my-release",
+					"networking.istio.io/exportTo": ".",
+				}
+				return vs
+			},
+			wantPush: true,
+		},
+		{
+			name: "istio.io label change pushes",
+			update: func(vs config.Config) config.Config {
+				vs.Labels = map[string]string{"app": "test", "istio.io/rev": "canary"}
+				return vs
+			},
+			wantPush: true,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			xds := &fakeXDSUpdater{}
+			_, store := setupControllerWithXDS(t, xds, baseVS.DeepCopy())
+
+			// Wait for initial sync pushes to settle, then reset the counter.
+			assert.EventuallyEqual(t, xds.pushCount.Load, int32(1))
+			xds.pushCount.Store(0)
+
+			updated := tc.update(baseVS.DeepCopy())
+			store.Update(updated)
+
+			if tc.wantPush {
+				assert.EventuallyEqual(t, xds.pushCount.Load, int32(1))
+			} else {
+				assert.Consistently(t, xds.pushCount.Load, int32(0))
+			}
+		})
+	}
 }
