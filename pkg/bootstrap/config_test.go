@@ -390,9 +390,9 @@ func TestZoneAwareRoutingTemplateParam(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			got, _ := params["zone_aware_routing_support"].(bool)
+			got, _ := params["enable_self_discovery"].(bool)
 			if got != tc.want {
-				t.Errorf("zone_aware_routing_support = %v, want %v", got, tc.want)
+				t.Errorf("enable_self_discovery = %v, want %v", got, tc.want)
 			}
 		})
 	}

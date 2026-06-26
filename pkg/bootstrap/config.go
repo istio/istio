@@ -208,7 +208,7 @@ func (cfg Config) toTemplateParams() (map[string]any, error) {
 	}
 
 	if cfg.Metadata.EnableSelfDiscovery {
-		opts = append(opts, option.ZoneAwareRoutingSupport(true))
+		opts = append(opts, option.EnableSelfDiscovery(true))
 	}
 
 	proxyOpts, err := getProxyConfigOptions(cfg.Metadata)

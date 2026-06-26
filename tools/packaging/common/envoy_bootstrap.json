@@ -557,7 +557,7 @@
         }
       }
       {{ end }}
-      {{ if .zone_aware_routing_support }}
+      {{ if .enable_self_discovery }}
       ,
       {
         "name": "local_cluster",
@@ -1101,10 +1101,10 @@
     {{ end }}
   ]
   {{ end }}
-  {{ if or .outlier_log_path .load_stats_config_json_str .zone_aware_routing_support }}
+  {{ if or .outlier_log_path .load_stats_config_json_str .enable_self_discovery }}
   ,
   "cluster_manager": {
-    {{- if .zone_aware_routing_support }}
+    {{- if .enable_self_discovery }}
     "local_cluster_name": "local_cluster",
     {{- end }}
     {{- if .outlier_log_path}}
