@@ -121,6 +121,9 @@ metadata:
     service.istio.io/workload-name: {{ $.LocalClusterWorkloadName }}
 spec:
   address: {{ $we.Address }}
+{{ if $.WorkloadNetwork }}
+  network: {{ $.WorkloadNetwork | quote }}
+{{ end }}
   locality: {{ $we.Locality }}
   labels:
     app: zone-aware-local
@@ -136,6 +139,9 @@ metadata:
   name: zone-aware-we-{{ $i }}
 spec:
   address: {{ $we.Address }}
+{{ if $.WorkloadNetwork }}
+  network: {{ $.WorkloadNetwork | quote }}
+{{ end }}
   locality: {{ $we.Locality }}
   labels:
     app: zone-aware-backend
@@ -152,6 +158,7 @@ type zoneAwareInput struct {
 	RemoteHost               string
 	LocalClusterWorkloadName string
 	LocalClusterLabels       map[string]string
+	WorkloadNetwork          string
 	LocalClusterWorkloads    []weEntry
 	DestinationWorkloads     []weEntry
 	WithOutlierDetection     bool
@@ -169,7 +176,7 @@ func TestZoneAwareLoadBalancer(t *testing.T) {
 			proxyAddress := caller.WorkloadsOrFail(t)[0].Address()
 			sourcePeerAddress := destB.WorkloadsOrFail(t)[0].Address()
 			callerWorkloadName := workloadNameForEcho(caller)
-			callerLocalClusterLabels := localClusterLabelsForEcho(t, caller)
+			callerLocalClusterLabels, callerWorkloadNetwork := localClusterLabelsAndNetworkForEcho(t, caller)
 			oneLocalClusterEndpoint := []weEntry{
 				{Address: proxyAddress, Locality: localLocality},
 			}
@@ -278,6 +285,7 @@ func TestZoneAwareLoadBalancer(t *testing.T) {
 						RemoteHost:               fmt.Sprintf("zone-aware-%s.example.com", hostSuffix),
 						LocalClusterWorkloadName: callerWorkloadName,
 						LocalClusterLabels:       callerLocalClusterLabels,
+						WorkloadNetwork:          callerWorkloadNetwork,
 						LocalClusterWorkloads:    tc.localClusterWorkloads,
 						DestinationWorkloads:     tc.destinationWorkloads,
 						WithOutlierDetection:     tc.withOutlierDetection,
@@ -310,7 +318,7 @@ func workloadNameForEcho(inst echo.Instance) string {
 	return fmt.Sprintf("%s-%s", cfg.Service, version)
 }
 
-func localClusterLabelsForEcho(t framework.TestContext, inst echo.Instance) map[string]string {
+func localClusterLabelsAndNetworkForEcho(t framework.TestContext, inst echo.Instance) (map[string]string, string) {
 	t.Helper()
 	workload := inst.WorkloadsOrFail(t)[0]
 	pod, err := workload.Cluster().Kube().CoreV1().Pods(inst.NamespaceName()).Get(
@@ -319,35 +327,13 @@ func localClusterLabelsForEcho(t framework.TestContext, inst echo.Instance) map[
 		t.Fatalf("failed getting caller pod %s/%s labels: %v", inst.NamespaceName(), workload.PodName(), err)
 	}
 
-	nodeTopologyLabels := map[string]string{}
-	if pod.Spec.NodeName != "" {
-		node, err := workload.Cluster().Kube().CoreV1().Nodes().Get(t.Context(), pod.Spec.NodeName, metav1.GetOptions{})
-		if err != nil {
-			scopes.Framework.Infof("Zone-aware caller topology: failed getting node %q for pod %s/%s: %v",
-				pod.Spec.NodeName, pod.Namespace, pod.Name, err)
-		} else {
-			for _, k := range []string{
-				"topology.kubernetes.io/region",
-				"topology.kubernetes.io/zone",
-				"topology.istio.io/subzone",
-				"topology.istio.io/network",
-			} {
-				if v := node.Labels[k]; v != "" {
-					nodeTopologyLabels[k] = v
-				}
-			}
-		}
-	}
-
 	out := map[string]string{}
 	for _, k := range []string{"pod-template-hash", "rollouts-pod-template-hash"} {
 		if v := pod.Labels[k]; v != "" {
 			out[k] = v
 		}
 	}
-	scopes.Framework.Infof("Zone-aware caller topology: service=%s pod=%s/%s podIP=%s node=%s podLabels=%v nodeTopologyLabels=%v copiedLocalClusterLabels=%v testLocality=%s",
-		inst.Config().Service, pod.Namespace, pod.Name, pod.Status.PodIP, pod.Spec.NodeName, pod.Labels, nodeTopologyLabels, out, localLocality)
-	return out
+	return out, pod.Labels["topology.istio.io/network"]
 }
 
 // assertZoneAwareConfig waits for the caller's Envoy config to reflect zone-aware routing.
@@ -365,8 +351,6 @@ func assertZoneAwareConfig(
 	sidecar := caller.WorkloadsOrFail(t)[0].Sidecar()
 	remoteClusterName := fmt.Sprintf("outbound|80||%s", remoteHost)
 	expectedDestinationHosts := expectedDestinationHostPriorities(destinationWorkloads)
-	scopes.Framework.Infof("Zone-aware destination expectation: cluster=%s destinationWorkloads=%v expectedHostPriorities=%v",
-		remoteClusterName, destinationWorkloads, expectedDestinationHosts)
 
 	// First: assert cluster definitions are correct.
 	sidecar.WaitForConfigOrFail(t, func(cd *admin.ConfigDump) (bool, error) {
@@ -392,8 +376,6 @@ func assertZoneAwareConfig(
 			return false, fmt.Errorf("dynamic cluster %q not yet present", remoteClusterName)
 		}
 
-		scopes.Framework.Infof("Zone-aware cluster config: cluster=%s localityConfig=%T commonLbConfig=%v",
-			remoteClusterName, remote.GetCommonLbConfig().GetLocalityConfigSpecifier(), remote.GetCommonLbConfig())
 		switch remote.GetCommonLbConfig().GetLocalityConfigSpecifier().(type) {
 		case *cluster.Cluster_CommonLbConfig_ZoneAwareLbConfig_:
 			// ok
