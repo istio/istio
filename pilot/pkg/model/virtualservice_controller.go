@@ -96,6 +96,10 @@ func NewVirtualServiceController(
 	return c
 }
 
+// xdsPush fires a config push for VirtualService events, applying the same suppression
+// logic as NeedsPush: skip updates where the spec is unchanged AND no istio.io
+// label/annotation changed. Non-istio.io metadata changes (Helm, Argo CD,
+// kubectl annotations) are not sufficient to trigger a push.
 func (c *VirtualServiceController) xdsPush(events []krt.Event[config.Config]) {
 	if c.xdsUpdater == nil {
 		return
@@ -103,6 +107,9 @@ func (c *VirtualServiceController) xdsPush(events []krt.Event[config.Config]) {
 
 	cu := sets.New[ConfigKey]()
 	for _, e := range events {
+		if e.Old != nil && e.New != nil && !NeedsPush(*e.Old, *e.New) {
+			continue
+		}
 		for _, vs := range e.Items() {
 			cu.Insert(ConfigKey{
 				Kind:      kind.VirtualService,
