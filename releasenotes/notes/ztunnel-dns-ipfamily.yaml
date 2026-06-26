@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - https://github.com/istio/ztunnel/pull/1965
+releaseNotes:
+  - |
+    **Fixed** an issue where the ambient DNS proxy (ztunnel) could return IPv6 (AAAA)
+    records to single-stack IPv4 clients. For a `ServiceEntry` with an auto-allocated
+    IPv6 address, an IPv4-only client would prefer the IPv6 address and fail to connect
+    with "network is unreachable". DNS records are now filtered by the requesting
+    client's IP families, matching the sidecar behavior.
