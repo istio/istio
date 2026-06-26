@@ -36,14 +36,6 @@ const (
 	FailoverPriorityLabelDefaultSeparator = '='
 )
 
-// DefaultZoneAwareFailoverPriority defines the default priorities that should be applied
-// when ZoneAware LB is enabled and no failovers are defined, to correctly support
-// ZoneAware, we need to always separate regions into other priorities.
-var DefaultZoneAwareFailoverPriority = []string{
-	label.TopologyNetwork.Name,
-	registrylabel.LabelTopologyRegion,
-}
-
 // GetEffectiveLbSetting resolves which load-balancing locality semantics apply for a
 // given DR / service / mesh combination. Exactly one of the first two return values
 // is non-nil (or both nil if locality LB is effectively disabled).
@@ -56,15 +48,6 @@ func GetEffectiveLbSetting(
 	if zaLbSetting := drSettings.GetZoneAwareLbSetting(); zaLbSetting != nil {
 		if zaLbSetting.GetEnabled() != nil && !zaLbSetting.GetEnabled().Value {
 			return nil, nil, false
-		}
-
-		if len(zaLbSetting.Failover) == 0 && len(zaLbSetting.FailoverPriority) == 0 {
-			// make a shallow copy, defaulting FailoverPriority
-			zaLbSetting = &v1alpha3.ZoneAwareLoadBalancerSetting{
-				Enabled:          zaLbSetting.Enabled,
-				MinClusterSize:   zaLbSetting.MinClusterSize,
-				FailoverPriority: DefaultZoneAwareFailoverPriority,
-			}
 		}
 
 		// similar to TrafficDistributionPreferSameZone,

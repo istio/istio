@@ -121,9 +121,6 @@ metadata:
     service.istio.io/workload-name: {{ $.LocalClusterWorkloadName }}
 spec:
   address: {{ $we.Address }}
-{{ if $.WorkloadNetwork }}
-  network: {{ $.WorkloadNetwork | quote }}
-{{ end }}
   locality: {{ $we.Locality }}
   labels:
     app: zone-aware-local
@@ -139,9 +136,6 @@ metadata:
   name: zone-aware-we-{{ $i }}
 spec:
   address: {{ $we.Address }}
-{{ if $.WorkloadNetwork }}
-  network: {{ $.WorkloadNetwork | quote }}
-{{ end }}
   locality: {{ $we.Locality }}
   labels:
     app: zone-aware-backend
@@ -158,7 +152,6 @@ type zoneAwareInput struct {
 	RemoteHost               string
 	LocalClusterWorkloadName string
 	LocalClusterLabels       map[string]string
-	WorkloadNetwork          string
 	LocalClusterWorkloads    []weEntry
 	DestinationWorkloads     []weEntry
 	WithOutlierDetection     bool
@@ -176,7 +169,7 @@ func TestZoneAwareLoadBalancer(t *testing.T) {
 			proxyAddress := caller.WorkloadsOrFail(t)[0].Address()
 			sourcePeerAddress := destB.WorkloadsOrFail(t)[0].Address()
 			callerWorkloadName := workloadNameForEcho(caller)
-			callerLocalClusterLabels, callerWorkloadNetwork := localClusterLabelsAndNetworkForEcho(t, caller)
+			callerLocalClusterLabels := localClusterLabelsForEcho(t, caller)
 			oneLocalClusterEndpoint := []weEntry{
 				{Address: proxyAddress, Locality: localLocality},
 			}
@@ -285,7 +278,6 @@ func TestZoneAwareLoadBalancer(t *testing.T) {
 						RemoteHost:               fmt.Sprintf("zone-aware-%s.example.com", hostSuffix),
 						LocalClusterWorkloadName: callerWorkloadName,
 						LocalClusterLabels:       callerLocalClusterLabels,
-						WorkloadNetwork:          callerWorkloadNetwork,
 						LocalClusterWorkloads:    tc.localClusterWorkloads,
 						DestinationWorkloads:     tc.destinationWorkloads,
 						WithOutlierDetection:     tc.withOutlierDetection,
@@ -318,7 +310,7 @@ func workloadNameForEcho(inst echo.Instance) string {
 	return fmt.Sprintf("%s-%s", cfg.Service, version)
 }
 
-func localClusterLabelsAndNetworkForEcho(t framework.TestContext, inst echo.Instance) (map[string]string, string) {
+func localClusterLabelsForEcho(t framework.TestContext, inst echo.Instance) map[string]string {
 	t.Helper()
 	workload := inst.WorkloadsOrFail(t)[0]
 	pod, err := workload.Cluster().Kube().CoreV1().Pods(inst.NamespaceName()).Get(
@@ -333,7 +325,7 @@ func localClusterLabelsAndNetworkForEcho(t framework.TestContext, inst echo.Inst
 			out[k] = v
 		}
 	}
-	return out, pod.Labels["topology.istio.io/network"]
+	return out
 }
 
 // assertZoneAwareConfig waits for the caller's Envoy config to reflect zone-aware routing.
