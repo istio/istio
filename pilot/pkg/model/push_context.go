@@ -1564,14 +1564,12 @@ func (ps *PushContext) initServiceRegistry(env *Environment, configsUpdate sets.
 				// configured default namespaces.
 				for v := range ps.exportToDefaults.service {
 					switch v {
-					case visibility.Public, visibility.None:
-						continue
+					case visibility.Instance(ns), visibility.Public, visibility.None:
+						continue // skip visibility.Instance(ns) to avoid duplicate entry.
 					default:
 						targetNamespace := string(v)
 						if v == visibility.Private {
 							targetNamespace = ns
-						} else if targetNamespace == ns {
-							continue // avoid duplicate entry
 						}
 						exportedServices, ok := ps.ServiceIndex.exportedToNamespace[targetNamespace]
 						if !ok {
@@ -1790,13 +1788,10 @@ func (ps *PushContext) initVirtualServices(env *Environment) {
 				exportedVirtualServices := ps.virtualServiceIndex.exportedToNamespaceByGateway
 				for v := range ps.exportToDefaults.virtualService {
 					switch v {
-					case visibility.Public, visibility.Private, visibility.None:
-						continue
+					case visibility.Instance(ns), visibility.Private, visibility.None, visibility.Public:
+						continue // own namespace already covered by private index.
 					default:
 						targetNamespace := string(v)
-						if targetNamespace == ns {
-							continue // already covered by the private index
-						}
 						for _, gw := range gwNames {
 							n := types.NamespacedName{Namespace: targetNamespace, Name: gw}
 							exportedVirtualServices[n] = append(exportedVirtualServices[n], virtualService)
