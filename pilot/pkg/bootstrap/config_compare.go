@@ -15,50 +15,11 @@
 package bootstrap
 
 import (
-	"strings"
-
-	"google.golang.org/protobuf/proto"
-
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 )
 
-// needsPush checks whether the passed in config has same spec and hence push needs
-// to be triggered. This is to avoid unnecessary pushes only when labels have changed
-// for example.
+// needsPush delegates to model.NeedsPush.
 func needsPush(prev config.Config, curr config.Config) bool {
-	if prev.GroupVersionKind != curr.GroupVersionKind {
-		// This should never happen.
-		return true
-	}
-	// If the config is not Istio, let us just push.
-	if !strings.HasSuffix(prev.GroupVersionKind.Group, "istio.io") {
-		return true
-	}
-	// If current/previous metadata has "*istio.io" label/annotation, just push
-	for label := range curr.Meta.Labels {
-		if strings.Contains(label, "istio.io") {
-			return true
-		}
-	}
-	for annotation := range curr.Meta.Annotations {
-		if strings.Contains(annotation, "istio.io") {
-			return true
-		}
-	}
-	for label := range prev.Meta.Labels {
-		if strings.Contains(label, "istio.io") {
-			return true
-		}
-	}
-	for annotation := range prev.Meta.Annotations {
-		if strings.Contains(annotation, "istio.io") {
-			return true
-		}
-	}
-	prevspecProto, okProtoP := prev.Spec.(proto.Message)
-	currspecProto, okProtoC := curr.Spec.(proto.Message)
-	if okProtoP && okProtoC {
-		return !proto.Equal(prevspecProto, currspecProto)
-	}
-	return true
+	return model.NeedsPush(prev, curr)
 }
