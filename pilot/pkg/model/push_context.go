@@ -1560,7 +1560,7 @@ func (ps *PushContext) initServiceRegistry(env *Environment, configsUpdate sets.
 		if s.Attributes.ExportTo.IsEmpty() {
 			if ps.exportToDefaults.service.Contains(visibility.Private) {
 				ps.ServiceIndex.private = append(ps.ServiceIndex.private, s)
-				// Export service to service's own namespaces and additionally
+				// Export service to service's own namespace and additionally
 				// configured default namespaces.
 				for v := range ps.exportToDefaults.service {
 					switch v {
@@ -1783,6 +1783,25 @@ func (ps *PushContext) initVirtualServices(env *Environment) {
 				for _, gw := range gwNames {
 					n := types.NamespacedName{Namespace: ns, Name: gw}
 					private[n] = append(private[n], virtualService)
+				}
+				// Export the VirtualService to any additional default namespaces.
+				// Avoid exporting to the VirtualService's own namespace because that
+				// is already covered in privateByNamespaceAndGateway.
+				exportedVirtualServices := ps.virtualServiceIndex.exportedToNamespaceByGateway
+				for v := range ps.exportToDefaults.virtualService {
+					switch v {
+					case visibility.Public, visibility.Private, visibility.None:
+						continue
+					default:
+						targetNamespace := string(v)
+						if targetNamespace == ns {
+							continue // already covered by the private index
+						}
+						for _, gw := range gwNames {
+							n := types.NamespacedName{Namespace: targetNamespace, Name: gw}
+							exportedVirtualServices[n] = append(exportedVirtualServices[n], virtualService)
+						}
+					}
 				}
 			} else if ps.exportToDefaults.virtualService.Contains(visibility.Public) {
 				for _, gw := range gwNames {
