@@ -293,7 +293,7 @@ func TestZoneAwareLoadBalancer(t *testing.T) {
 					//   2. local_cluster has exactly the expected endpoint count (CLA populated via EDS)
 					//   3. the remote-host cluster uses zone_aware_lb_config, not locality_weighted
 					// All three must hold for zone-aware to be actually exercised at runtime.
-					assertZoneAwareConfig(t, caller, input.RemoteHost, len(tc.localClusterWorkloads))
+					assertZoneAwareConfig(t, caller, input.RemoteHost, len(tc.localClusterWorkloads), tc.destinationWorkloads)
 
 					sendTrafficOrFail(t, caller, input.RemoteHost, tc.expected)
 				})
@@ -332,10 +332,17 @@ func localClusterLabelsForEcho(t framework.TestContext, inst echo.Instance) map[
 // Envoy's /config_dump endpoint omits endpoint data by default, so we use two separate
 // admin queries: /config_dump for cluster definitions (LocalityConfigSpecifier) and
 // /clusters?format=json for runtime host status (proves local_cluster is populated).
-func assertZoneAwareConfig(t framework.TestContext, caller echo.Instance, remoteHost string, expectedLocalClusterHosts int) {
+func assertZoneAwareConfig(
+	t framework.TestContext,
+	caller echo.Instance,
+	remoteHost string,
+	expectedLocalClusterHosts int,
+	destinationWorkloads []weEntry,
+) {
 	t.Helper()
 	sidecar := caller.WorkloadsOrFail(t)[0].Sidecar()
 	remoteClusterName := fmt.Sprintf("outbound|80||%s", remoteHost)
+	expectedDestinationHosts := expectedDestinationHostPriorities(destinationWorkloads)
 
 	// First: assert cluster definitions are correct.
 	sidecar.WaitForConfigOrFail(t, func(cd *admin.ConfigDump) (bool, error) {
@@ -374,26 +381,99 @@ func assertZoneAwareConfig(t framework.TestContext, caller echo.Instance, remote
 		return true, nil
 	}, retry.Delay(time.Second), retry.Timeout(30*time.Second))
 
-	// Second: assert local_cluster has the expected live hosts via /clusters
-	// (config_dump excludes EDS data).
+	// Second: assert local_cluster and the destination cluster have the expected live hosts
+	// via /clusters (config_dump excludes EDS data).
 	retry.UntilSuccessOrFail(t, func() error {
 		clusters, err := sidecar.Clusters()
 		if err != nil {
 			return err
 		}
+		foundLocalCluster := false
+		foundRemoteCluster := false
 		for _, cs := range clusters.GetClusterStatuses() {
-			if cs.GetName() != localClusterName {
-				continue
+			switch cs.GetName() {
+			case localClusterName:
+				foundLocalCluster = true
+				got := len(cs.GetHostStatuses())
+				if got != expectedLocalClusterHosts {
+					return fmt.Errorf("cluster %q has %d hosts, expected %d — local_cluster EDS has unexpected endpoints",
+						localClusterName, got, expectedLocalClusterHosts)
+				}
+			case remoteClusterName:
+				foundRemoteCluster = true
+				if err := assertDestinationHosts(cs, expectedDestinationHosts); err != nil {
+					return err
+				}
 			}
-			got := len(cs.GetHostStatuses())
-			if got != expectedLocalClusterHosts {
-				return fmt.Errorf("cluster %q has %d hosts, expected %d — local_cluster EDS has unexpected endpoints",
-					localClusterName, got, expectedLocalClusterHosts)
-			}
-			return nil
 		}
-		return fmt.Errorf("cluster %q not present in /clusters output", localClusterName)
+		if !foundLocalCluster {
+			return fmt.Errorf("cluster %q not present in /clusters output", localClusterName)
+		}
+		if !foundRemoteCluster {
+			return fmt.Errorf("cluster %q not present in /clusters output", remoteClusterName)
+		}
+		return nil
 	}, retry.Delay(time.Second), retry.Timeout(30*time.Second))
+}
+
+func expectedDestinationHostPriorities(workloads []weEntry) map[string]uint32 {
+	raw := make(map[string]int, len(workloads))
+	seenRawPriority := map[int]bool{}
+	for _, we := range workloads {
+		priority := 0
+		if localityRegion(we.Locality) != localityRegion(localLocality) {
+			priority = 1
+		}
+		raw[we.Address] = priority
+		seenRawPriority[priority] = true
+	}
+
+	compacted := map[int]uint32{}
+	if seenRawPriority[0] {
+		compacted[0] = 0
+		if seenRawPriority[1] {
+			compacted[1] = 1
+		}
+	} else if seenRawPriority[1] {
+		compacted[1] = 0
+	}
+
+	out := make(map[string]uint32, len(raw))
+	for address, priority := range raw {
+		out[address] = compacted[priority]
+	}
+	return out
+}
+
+func assertDestinationHosts(cs *admin.ClusterStatus, expected map[string]uint32) error {
+	got := map[string]uint32{}
+	for _, hs := range cs.GetHostStatuses() {
+		socketAddress := hs.GetAddress().GetSocketAddress()
+		if socketAddress == nil {
+			return fmt.Errorf("cluster %q has host without socket address: %v", cs.GetName(), hs.GetAddress())
+		}
+		got[socketAddress.GetAddress()] = hs.GetPriority()
+	}
+	for address, priority := range expected {
+		if gotPriority, ok := got[address]; !ok {
+			return fmt.Errorf("cluster %q missing destination host %s; got hosts %v", cs.GetName(), address, got)
+		} else if gotPriority != priority {
+			return fmt.Errorf("cluster %q destination host %s has priority %d, expected %d; got hosts %v",
+				cs.GetName(), address, gotPriority, priority, got)
+		}
+	}
+	for address := range got {
+		if _, ok := expected[address]; !ok {
+			return fmt.Errorf("cluster %q has unexpected destination host %s; expected hosts %v, got hosts %v",
+				cs.GetName(), address, expected, got)
+		}
+	}
+	return nil
+}
+
+func localityRegion(locality string) string {
+	region, _, _ := strings.Cut(locality, "/")
+	return region
 }
 
 func extractClusters(cd *admin.ConfigDump) ([]*cluster.Cluster, error) {
