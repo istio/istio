@@ -617,3 +617,4 @@ func Setup(apps *Echos, cfg Config) resource.SetupFn {
 		return nil
 	}
 }
+
