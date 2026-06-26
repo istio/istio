@@ -607,6 +607,14 @@ func (b *EndpointBuilder) filterIstioEndpoint(ep *model.IstioEndpoint) bool {
 			return false
 		}
 
+		// similar to GetDeployMetaFromPod but reversed, we need to find the same ReplicaSet for this proxy
+		if b.proxy.Labels["pod-template-hash"] != ep.Labels["pod-template-hash"] {
+			return false
+		}
+		if b.proxy.Labels["rollouts-pod-template-hash"] != ep.Labels["rollouts-pod-template-hash"] {
+			return false
+		}
+
 		locality := util.ConvertLocality(ep.Locality.Label)
 		if b.proxy.Locality.Region != locality.Region {
 			return false

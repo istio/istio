@@ -1671,6 +1671,172 @@ func TestEdsLocalCluster(t *testing.T) {
 	})
 }
 
+// TestEdsLocalClusterHashFilter verifies that filterIstioEndpoint restricts the
+// local_cluster CLA to endpoints whose pod-template-hash / rollouts-pod-template-hash
+// labels match the calling proxy's labels when those labels are present.
+func TestEdsLocalClusterHashFilter(t *testing.T) {
+	const (
+		proxyIP    = "1.1.1.1"
+		otherIP    = "2.2.2.2"
+		svcNS      = "default"
+		svcHost    = "local.default.svc.cluster.local"
+		nodeID     = "sidecar~1.1.1.1~test.default~default.svc.cluster.local"
+		portName   = "http"
+		portNumber = 80
+		proxyHash  = "abc123"
+		otherHash  = "xyz789"
+	)
+
+	// topoLabels are always needed: the region filter runs before the hash filter.
+	topoLabels := map[string]string{
+		"topology.kubernetes.io/region": "region1",
+		"topology.kubernetes.io/zone":   "zone1",
+	}
+
+	mkEp := func(addr string, extraLabels map[string]string) *model.IstioEndpoint {
+		lbls := map[string]string{}
+		for k, v := range extraLabels {
+			lbls[k] = v
+		}
+		return &model.IstioEndpoint{
+			Addresses:       []string{addr},
+			ServicePortName: portName,
+			EndpointPort:    portNumber,
+			Locality:        model.Locality{Label: "region1/zone1/subzone1"},
+			TLSMode:         model.IstioMutualTLSModeLabel,
+			HealthStatus:    model.Healthy,
+			Labels:          lbls,
+		}
+	}
+
+	withHash := func(base map[string]string, extra map[string]string) map[string]string {
+		out := map[string]string{}
+		for k, v := range base {
+			out[k] = v
+		}
+		for k, v := range extra {
+			out[k] = v
+		}
+		return out
+	}
+
+	cases := []struct {
+		name        string
+		proxyLabels map[string]string
+		endpoints   []*model.IstioEndpoint
+		wantAddrs   map[string]bool
+	}{
+		{
+			name:        "pod-template-hash: matching endpoint included",
+			proxyLabels: withHash(topoLabels, map[string]string{"pod-template-hash": proxyHash}),
+			endpoints: []*model.IstioEndpoint{
+				mkEp(proxyIP, map[string]string{"pod-template-hash": proxyHash}),
+			},
+			wantAddrs: map[string]bool{proxyIP: true},
+		},
+		{
+			name:        "pod-template-hash: mismatched endpoint excluded",
+			proxyLabels: withHash(topoLabels, map[string]string{"pod-template-hash": proxyHash}),
+			endpoints: []*model.IstioEndpoint{
+				mkEp(proxyIP, map[string]string{"pod-template-hash": proxyHash}),
+				mkEp(otherIP, map[string]string{"pod-template-hash": otherHash}),
+			},
+			wantAddrs: map[string]bool{proxyIP: true},
+		},
+		{
+			name:        "pod-template-hash: endpoint without label excluded when proxy has hash",
+			proxyLabels: withHash(topoLabels, map[string]string{"pod-template-hash": proxyHash}),
+			endpoints: []*model.IstioEndpoint{
+				mkEp(proxyIP, map[string]string{"pod-template-hash": proxyHash}),
+				mkEp(otherIP, nil),
+			},
+			wantAddrs: map[string]bool{proxyIP: true},
+		},
+		{
+			// When the proxy has no pod-template-hash label the filter is not applied
+			// and all same-region endpoints appear in the CLA regardless of their labels.
+			name:        "pod-template-hash: no hash on proxy passes all same-region endpoints",
+			proxyLabels: topoLabels,
+			endpoints: []*model.IstioEndpoint{
+				mkEp(proxyIP, nil),
+				mkEp(otherIP, nil),
+			},
+			wantAddrs: map[string]bool{proxyIP: true, otherIP: true},
+		},
+		{
+			name:        "rollouts-pod-template-hash: matching endpoint included, mismatched excluded",
+			proxyLabels: withHash(topoLabels, map[string]string{"rollouts-pod-template-hash": proxyHash}),
+			endpoints: []*model.IstioEndpoint{
+				mkEp(proxyIP, map[string]string{"rollouts-pod-template-hash": proxyHash}),
+				mkEp(otherIP, map[string]string{"rollouts-pod-template-hash": otherHash}),
+			},
+			wantAddrs: map[string]bool{proxyIP: true},
+		},
+		{
+			name:        "rollouts-pod-template-hash: endpoint without label excluded when proxy has hash",
+			proxyLabels: withHash(topoLabels, map[string]string{"rollouts-pod-template-hash": proxyHash}),
+			endpoints: []*model.IstioEndpoint{
+				mkEp(proxyIP, map[string]string{"rollouts-pod-template-hash": proxyHash}),
+				mkEp(otherIP, nil),
+			},
+			wantAddrs: map[string]bool{proxyIP: true},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
+			svc := &model.Service{
+				Hostname: host.Name(svcHost),
+				Ports: model.PortList{{
+					Name:     portName,
+					Port:     portNumber,
+					Protocol: protocol.HTTP,
+				}},
+				Attributes: model.ServiceAttributes{Namespace: svcNS, Name: "local"},
+			}
+			s.MemRegistry.AddService(svc)
+			for _, ep := range tc.endpoints {
+				s.MemRegistry.AddInstance(&model.ServiceInstance{
+					Service:     svc,
+					ServicePort: svc.Ports[0],
+					Endpoint:    ep,
+				})
+			}
+			s.EnsureSynced(t)
+
+			ads := s.ConnectADS().
+				WithID(nodeID).
+				WithType(v3.EndpointType).
+				WithMetadata(model.NodeMetadata{
+					Namespace: svcNS,
+					Labels:    tc.proxyLabels,
+				})
+			resp := ads.RequestResponseAck(t, &discovery.DiscoveryRequest{
+				TypeUrl:       v3.EndpointType,
+				ResourceNames: []string{xds.LocalClusterName},
+			})
+
+			if len(resp.Resources) != 1 {
+				t.Fatalf("expected 1 resource, got %d", len(resp.Resources))
+			}
+			cla := &endpoint.ClusterLoadAssignment{}
+			if err := resp.Resources[0].UnmarshalTo(cla); err != nil {
+				t.Fatal(err)
+			}
+			got := map[string]bool{}
+			for _, lle := range cla.Endpoints {
+				for _, lbe := range lle.LbEndpoints {
+					got[lbe.GetEndpoint().GetAddress().GetSocketAddress().GetAddress()] = true
+				}
+			}
+			if !reflect.DeepEqual(tc.wantAddrs, got) {
+				t.Errorf("CLA addresses = %v, want %v", got, tc.wantAddrs)
+			}
+		})
+	}
+}
+
 // TestEdsLocalClusterNoService verifies that a proxy with no ServiceTargets that
 // subscribes to local_cluster receives an empty CLA (cluster name set, no endpoints)
 // rather than a missing resource or a panic.
