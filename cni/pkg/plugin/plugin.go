@@ -180,10 +180,11 @@ func CmdAdd(args *skel.CmdArgs) (err error) {
 	if err := types.LoadArgs(args.Args, &k8sArgs); err != nil {
 		return fmt.Errorf("failed to load args: %v", err)
 	}
-	if isCNIPod(conf, &k8sArgs) {
-		// If we are in a degraded state and this is our own agent pod, skip
-		return pluginResponse(conf)
-	}
+if strings.HasPrefix(string(k8sArgs.K8S_POD_NAME), "istio-cni-node-") &&
+	string(k8sArgs.K8S_POD_NAMESPACE) == conf.PodNamespace {
+	log.Infof("pod %v looks like our own CNI agent pod; skipping kube client creation", k8sArgs.K8S_POD_NAME)
+	return pluginResponse(conf)
+}
 
 	// Create a kube client
 	client, err := newK8sClient(*conf)
