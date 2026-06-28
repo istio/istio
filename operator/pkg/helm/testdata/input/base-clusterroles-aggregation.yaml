@@ -1,0 +1,4 @@
+spec:
+  values:
+    base:
+      aggregateClusterRoles: true

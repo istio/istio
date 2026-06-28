@@ -332,6 +332,20 @@ func TestRender(t *testing.T) {
 			chartName:   "istio-control/istio-discovery",
 			diffSelect:  "ConfigMap:*:istio-sidecar-injector",
 		},
+		{
+			desc:        "base-clusterroles",
+			releaseName: "istio-base",
+			namespace:   "istio-system",
+			chartName:   "base",
+			diffSelect:  "ClusterRole::istio-view,ClusterRole::istio-edit",
+		},
+		{
+			desc:        "base-clusterroles-aggregation",
+			releaseName: "istio-base",
+			namespace:   "istio-system",
+			chartName:   "base",
+			diffSelect:  "ClusterRole::istio-view,ClusterRole::istio-edit",
+		},
 	}
 
 	for _, tc := range cases {
