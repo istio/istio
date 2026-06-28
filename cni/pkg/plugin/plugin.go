@@ -173,16 +173,16 @@ func CmdAdd(args *skel.CmdArgs) (err error) {
 	// by the CNI pod or it is invalid which cause the CNI pod to be unable to start if
 	// on the creation of a new K8s client. We preemptively check if the pod is a CNI pod
 	// to avoid a deadlock on the kubeconfig when the k8s client is unnecessary to process
-	// the CNI add event for the CNI pod itself.
-	if conf.AmbientEnabled {
-		k8sArgs := K8sArgs{}
-		if err := types.LoadArgs(args.Args, &k8sArgs); err != nil {
-			return fmt.Errorf("failed to load args: %v", err)
-		}
-		if isCNIPod(conf, &k8sArgs) {
-			// If we are in a degraded state and this is our own agent pod, skip
-			return pluginResponse(conf)
-		}
+	// the CNI add event for the CNI pod itself. This applies to both ambient and sidecar
+	// mode, since newK8sClient below runs unconditionally and would otherwise deadlock the
+	// CNI pod when its kubeconfig is not yet present (for example after a node reboot).
+	k8sArgs := K8sArgs{}
+	if err := types.LoadArgs(args.Args, &k8sArgs); err != nil {
+		return fmt.Errorf("failed to load args: %v", err)
+	}
+	if isCNIPod(conf, &k8sArgs) {
+		// If we are in a degraded state and this is our own agent pod, skip
+		return pluginResponse(conf)
 	}
 
 	// Create a kube client
