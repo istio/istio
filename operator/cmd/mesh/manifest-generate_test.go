@@ -1321,6 +1321,56 @@ func TestWebhookSelector(t *testing.T) {
 	}
 }
 
+func TestWebhookSelectorPodRevisionPrecedence(t *testing.T) {
+	revLabel := klabels.Set{"istio.io/rev": "canary"}
+	objEnabled := klabels.Set{"sidecar.istio.io/inject": "true"}
+	objEnabledAndCanaryRev := klabels.Set{"sidecar.istio.io/inject": "true", "istio.io/rev": "canary"}
+	objEnabledAndDefaultRev := klabels.Set{"sidecar.istio.io/inject": "true", "istio.io/rev": "default"}
+
+	defaultWebhook := getWebhooks(t, "--set values.sidecarInjectorWebhook.revisionLabelPrecedence=pod", "istio-sidecar-injector")
+	revWebhook := getWebhooks(t, "--set revision=canary --set values.sidecarInjectorWebhook.revisionLabelPrecedence=pod", "istio-sidecar-injector-canary")
+	whs := mergeWebhooks(defaultWebhook, revWebhook)
+
+	findMatch := func(namespaceLabels, podLabels klabels.Set) string {
+		found := ""
+		for _, wh := range whs {
+			sn := wh.ClientConfig.Service.Name
+			matches := selectorMatches(t, wh.NamespaceSelector, namespaceLabels) && selectorMatches(t, wh.ObjectSelector, podLabels)
+			if matches && found != "" {
+				t.Fatalf("matched multiple webhooks. had %v and %v", found, sn)
+			}
+			if matches {
+				found = sn
+			}
+		}
+		return found
+	}
+
+	// Pod revision should take precedence over namespace revision when precedence=pod.
+	if got := findMatch(revLabel, objEnabledAndDefaultRev); got != "istiod" {
+		t.Fatalf("expected default revision webhook service istiod, got %q", got)
+	}
+	if got := findMatch(revLabel, objEnabledAndCanaryRev); got != "istiod-canary" {
+		t.Fatalf("expected canary revision webhook service istiod-canary, got %q", got)
+	}
+	// Pods without explicit revision should continue to follow namespace revision.
+	if got := findMatch(revLabel, objEnabled); got != "istiod-canary" {
+		t.Fatalf("expected namespace-selected canary service istiod-canary, got %q", got)
+	}
+}
+
+func TestWebhookSelectorRevisionPrecedenceValidation(t *testing.T) {
+	setFlags := "--set values.sidecarInjectorWebhook.revisionLabelPrecedence=invalid"
+	files := []string{"templates/mutatingwebhook.yaml"}
+	_, err := runManifestGenerate([]string{}, setFlags, liveCharts, files)
+	if err == nil {
+		t.Fatal("expected error for invalid revisionLabelPrecedence")
+	}
+	if !strings.Contains(err.Error(), "unknown value") || !strings.Contains(err.Error(), "RevisionLabelPrecedence") {
+		t.Fatalf("expected validation error, got: %v", err)
+	}
+}
+
 func selectorMatches(t *testing.T, selector *metav1.LabelSelector, labels klabels.Set) bool {
 	t.Helper()
 	// From webhook spec: "Default to the empty LabelSelector, which matches everything."
