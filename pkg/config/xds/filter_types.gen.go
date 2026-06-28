@@ -134,6 +134,7 @@ import (
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/aws_lambda/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/aws_request_signing/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/bandwidth_limit/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/bandwidth_share/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/basic_auth/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/buffer/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/cache/v3"
