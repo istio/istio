@@ -870,15 +870,10 @@ func (lb *ListenerBuilder) buildSidecarOutboundListener(listenerOpts outboundLis
 					// VIP, the conflict cannot be detected earlier from the service address,
 					// so re-check here and skip the port if it conflicts.
 					wildcard := actualWildcards[0]
-					if canbind, knownlistener := lb.node.CanBindToPort(listenerOpts.bind.bindToPort, listenerOpts.proxy,
+					if canbind, _ := lb.node.CanBindToPort(listenerOpts.bind.bindToPort, listenerOpts.proxy,
 						listenerOpts.push, wildcard, listenerOpts.port.Port, listenerOpts.port.Protocol, wildcard); !canbind {
-						if knownlistener {
-							log.Warnf("buildSidecarOutboundListener: skipping CIDR service port %d for node %s as it conflicts with reserved listener",
-								listenerOpts.port.Port, lb.node.ID)
-						} else {
-							log.Warnf("buildSidecarOutboundListener: skipping privileged CIDR service port %d for node %s as it is an unprivileged proxy",
-								listenerOpts.port.Port, lb.node.ID)
-						}
+						log.Warnf("buildSidecarOutboundListener: skipping CIDR service port %d for node %s as it conflicts with reserved listener",
+							listenerOpts.port.Port, lb.node.ID)
 						return
 					}
 				}
