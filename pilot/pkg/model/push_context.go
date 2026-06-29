@@ -1067,8 +1067,10 @@ func (ps *PushContext) IsServiceVisible(service *Service, namespace string) bool
 
 	ns := service.Attributes.Namespace
 	if service.Attributes.ExportTo.IsEmpty() {
-		if ps.exportToDefaults.service.Contains(visibility.Private) {
-			return ns == namespace || ps.exportToDefaults.service.Contains(visibility.Instance(namespace))
+		if ps.exportToDefaults.service.Contains(visibility.Instance(namespace)) {
+			return true
+		} else if ps.exportToDefaults.service.Contains(visibility.Private) {
+			return ns == namespace
 		} else if ps.exportToDefaults.service.Contains(visibility.Public) {
 			return true
 		}
@@ -1557,47 +1559,30 @@ func (ps *PushContext) initServiceRegistry(env *Environment, configsUpdate sets.
 		}
 
 		ns := s.Attributes.Namespace
-		if s.Attributes.ExportTo.IsEmpty() {
-			if ps.exportToDefaults.service.Contains(visibility.Private) {
-				ps.ServiceIndex.private = append(ps.ServiceIndex.private, s)
-				// Export service to service's own namespace and additionally
-				// configured default namespaces.
-				for v := range ps.exportToDefaults.service {
-					switch v {
-					case visibility.Instance(ns), visibility.Public, visibility.None:
-						continue // skip visibility.Instance(ns) to avoid duplicate entry.
-					default:
-						targetNamespace := string(v)
-						if v == visibility.Private {
-							targetNamespace = ns
-						}
-						exportedServices, ok := ps.ServiceIndex.exportedToNamespace[targetNamespace]
-						if !ok {
-							exportedServices = make([]*Service, 0)
-						}
-						ps.ServiceIndex.exportedToNamespace[targetNamespace] = append(exportedServices, s)
-					}
-				}
-			} else if ps.exportToDefaults.service.Contains(visibility.Public) {
-				ps.ServiceIndex.public = append(ps.ServiceIndex.public, s)
-			}
-		} else {
-			// if service has exportTo *, make it public and ignore all other exportTos.
-			// if service does not have exportTo *, but has exportTo ~ - i.e. not visible to anyone, ignore all exportTos.
-			// if service has exportTo ., replace with current namespace.
-			if s.Attributes.ExportTo.Contains(visibility.Public) {
-				ps.ServiceIndex.public = append(ps.ServiceIndex.public, s)
-				continue
-			} else if s.Attributes.ExportTo.Contains(visibility.None) {
-				continue
-			}
+		exportToSet := ps.exportToDefaults.service.Copy()
+		if !s.Attributes.ExportTo.IsEmpty() {
+			exportToSet = s.Attributes.ExportTo
+		}
+
+		// if service has exportTo *, make it public and ignore all other exportTos.
+		// if service does not have exportTo *, but has exportTo ~ - i.e. not visible to anyone, ignore all exportTos.
+		// if service has exportTo ., replace with current namespace.
+		if exportToSet.Contains(visibility.Public) {
+			ps.ServiceIndex.public = append(ps.ServiceIndex.public, s)
+			continue
+		} else if !exportToSet.Contains(visibility.None) {
 			// . or other namespaces
-			for exportTo := range s.Attributes.ExportTo {
+			isPrivate := false
+			visited := sets.New[string]()
+			for exportTo := range exportToSet {
 				key := string(exportTo)
 				if exportTo == visibility.Private || key == ns {
 					// exportTo with same namespace is effectively private
 					key = ns
-					ps.ServiceIndex.private = append(ps.ServiceIndex.private, s)
+					if !isPrivate {
+						isPrivate = true
+						ps.ServiceIndex.private = append(ps.ServiceIndex.private, s)
+					}
 				}
 
 				// exportTo is a specific target namespace
@@ -1605,7 +1590,10 @@ func (ps *PushContext) initServiceRegistry(env *Environment, configsUpdate sets.
 				if !ok {
 					exportedServices = make([]*Service, 0)
 				}
-				ps.ServiceIndex.exportedToNamespace[key] = append(exportedServices, s)
+
+				if !visited.InsertContains(key) {
+					ps.ServiceIndex.exportedToNamespace[key] = append(exportedServices, s)
+				}
 			}
 		}
 	}
@@ -1772,65 +1760,42 @@ func (ps *PushContext) initVirtualServices(env *Environment) {
 		ns := virtualService.Namespace
 		rule := virtualService.Spec.(*networking.VirtualService)
 		gwNames := getGatewayNames(rule)
-		if len(rule.ExportTo) == 0 {
-			// No exportTo in virtualService. Use the global default
-			// We only honor ., *
-			if ps.exportToDefaults.virtualService.Contains(visibility.Private) {
-				// add to local namespace only
-				private := ps.virtualServiceIndex.privateByNamespaceAndGateway
-				for _, gw := range gwNames {
-					n := types.NamespacedName{Namespace: ns, Name: gw}
-					private[n] = append(private[n], virtualService)
-				}
-				// Export the VirtualService to any additional default namespaces.
-				// Avoid exporting to the VirtualService's own namespace because that
-				// is already covered in privateByNamespaceAndGateway.
-				exportedVirtualServices := ps.virtualServiceIndex.exportedToNamespaceByGateway
-				for v := range ps.exportToDefaults.virtualService {
-					switch v {
-					case visibility.Instance(ns), visibility.Private, visibility.None, visibility.Public:
-						continue // own namespace already covered by private index.
-					default:
-						targetNamespace := string(v)
-						for _, gw := range gwNames {
-							n := types.NamespacedName{Namespace: targetNamespace, Name: gw}
-							exportedVirtualServices[n] = append(exportedVirtualServices[n], virtualService)
-						}
-					}
-				}
-			} else if ps.exportToDefaults.virtualService.Contains(visibility.Public) {
-				for _, gw := range gwNames {
-					ps.virtualServiceIndex.publicByGateway[gw] = append(ps.virtualServiceIndex.publicByGateway[gw], virtualService)
-				}
-			}
-		} else {
-			exportToSet := sets.NewWithLength[visibility.Instance](len(rule.ExportTo))
+		exportToSet := ps.exportToDefaults.virtualService.Copy()
+		if len(rule.ExportTo) > 0 {
+			exportToSet = sets.NewWithLength[visibility.Instance](len(rule.ExportTo))
 			for _, e := range rule.ExportTo {
 				exportToSet.Insert(visibility.Instance(e))
 			}
-			// if vs has exportTo ~ - i.e. not visible to anyone, ignore all exportTos
-			// if vs has exportTo *, make public and ignore all other exportTos
-			// if vs has exportTo ., replace with current namespace
-			if exportToSet.Contains(visibility.Public) {
-				for _, gw := range gwNames {
-					ps.virtualServiceIndex.publicByGateway[gw] = append(ps.virtualServiceIndex.publicByGateway[gw], virtualService)
-				}
-			} else if !exportToSet.Contains(visibility.None) {
-				// . or other namespaces
-				for exportTo := range exportToSet {
-					if exportTo == visibility.Private || string(exportTo) == ns {
-						// add to local namespace only
+		}
+
+		// if vs has exportTo ~ - i.e. not visible to anyone, ignore all exportTos
+		// if vs has exportTo *, make public and ignore all other exportTos
+		// if vs has exportTo ., replace with current namespace
+		if exportToSet.Contains(visibility.Public) {
+			for _, gw := range gwNames {
+				ps.virtualServiceIndex.publicByGateway[gw] = append(ps.virtualServiceIndex.publicByGateway[gw], virtualService)
+			}
+		} else if !exportToSet.Contains(visibility.None) {
+			// . or other namespaces
+			isPrivate := false
+			for exportTo := range exportToSet {
+				key := string(exportTo)
+				if exportTo == visibility.Private || key == ns {
+					// add to local namespace only
+					private := ps.virtualServiceIndex.privateByNamespaceAndGateway
+					if !isPrivate {
+						isPrivate = true
 						for _, gw := range gwNames {
 							n := types.NamespacedName{Namespace: ns, Name: gw}
-							ps.virtualServiceIndex.privateByNamespaceAndGateway[n] = append(ps.virtualServiceIndex.privateByNamespaceAndGateway[n], virtualService)
+							private[n] = append(private[n], virtualService)
 						}
-					} else {
-						exported := ps.virtualServiceIndex.exportedToNamespaceByGateway
-						// add to local namespace only
-						for _, gw := range gwNames {
-							n := types.NamespacedName{Namespace: string(exportTo), Name: gw}
-							exported[n] = append(exported[n], virtualService)
-						}
+					}
+				} else {
+					exported := ps.virtualServiceIndex.exportedToNamespaceByGateway
+					// add to local namespace only
+					for _, gw := range gwNames {
+						n := types.NamespacedName{Namespace: key, Name: gw}
+						exported[n] = append(exported[n], virtualService)
 					}
 				}
 			}
