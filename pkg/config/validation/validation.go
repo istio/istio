@@ -1632,9 +1632,30 @@ var ValidateRequestAuthentication = RegisterValidateFunc("ValidateRequestAuthent
 
 		for _, rule := range in.JwtRules {
 			errs = AppendValidation(errs, validateJwtRule(rule))
+			errs = warnPrivateJwksKeys(errs, rule)
 		}
 		return errs.Unwrap()
 	})
+
+// warnPrivateJwksKeys warns if inline Jwks contains private key material.
+// Envoy only needs public keys for token verification.
+func warnPrivateJwksKeys(v Validation, rule *security_beta.JWTRule) Validation {
+	if rule == nil || rule.Jwks == "" {
+		return v
+	}
+	set, err := jwk.Parse([]byte(rule.Jwks))
+	if err != nil {
+		return v
+	}
+	for i := 0; i < set.Len(); i++ {
+		key, _ := set.Get(i)
+		switch key.(type) {
+		case jwk.RSAPrivateKey, jwk.ECDSAPrivateKey, jwk.OKPPrivateKey, jwk.SymmetricKey:
+			v = AppendWarningf(v, "jwks key at index %d contains private key material; only public keys are used for verification", i)
+		}
+	}
+	return v
+}
 
 func validateJwtRule(rule *security_beta.JWTRule) (errs error) {
 	if rule == nil {
