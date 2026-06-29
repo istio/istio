@@ -3002,7 +3002,6 @@ func TestSelectServicesExactParity(t *testing.T) {
 				key := string(exportTo)
 				if exportTo == visibility.Private {
 					key = s.Attributes.Namespace
-					ps.ServiceIndex.private = append(ps.ServiceIndex.private, s)
 				}
 				ps.ServiceIndex.exportedToNamespace[key] = append(ps.ServiceIndex.exportedToNamespace[key], s)
 			}
