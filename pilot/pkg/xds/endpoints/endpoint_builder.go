@@ -616,7 +616,7 @@ func (b *EndpointBuilder) filterIstioEndpoint(ep *model.IstioEndpoint) bool {
 		}
 
 		locality := util.ConvertLocality(ep.Locality.Label)
-		if b.proxy.Locality.Region != locality.Region {
+		if b.locality != nil && b.locality.Region != locality.Region {
 			return false
 		}
 	}

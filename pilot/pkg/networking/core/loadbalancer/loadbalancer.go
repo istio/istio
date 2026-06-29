@@ -93,7 +93,7 @@ func GetEffectiveLbSetting(
 		if meshZoneAware.GetEnabled() != nil && !meshZoneAware.GetEnabled().Value {
 			return nil, nil, false
 		}
-		return nil, meshZoneAware, false
+		return nil, meshZoneAware, true
 	}
 	if meshLocality != nil {
 		if meshLocality.GetEnabled() != nil && !meshLocality.GetEnabled().Value {
