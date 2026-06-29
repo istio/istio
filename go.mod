@@ -56,7 +56,7 @@ require (
 	github.com/prometheus/client_golang v1.23.2
 	github.com/prometheus/client_model v0.6.2
 	github.com/prometheus/common v0.69.0
-	github.com/prometheus/procfs v0.20.1
+	github.com/prometheus/procfs v0.21.0
 	github.com/prometheus/prometheus v0.310.0
 	github.com/quic-go/quic-go v0.60.0
 	github.com/ryanuber/go-glob v1.0.0
