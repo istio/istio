@@ -7246,6 +7246,21 @@ func TestValidateRequestAuthentication(t *testing.T) {
 			valid: false,
 		},
 		{
+			// JWKS bearing private RSA components warns but is still accepted.
+			name:       "jwks with private RSA key warns",
+			configName: constants.DefaultAuthenticationPolicyName,
+			in: &security_beta.RequestAuthentication{
+				JwtRules: []*security_beta.JWTRule{
+					{
+						Issuer: "foo.com",
+						Jwks:   `{"keys":[{"kty":"RSA","e":"AQAB","kid":"private","n":"xAE7eB6qugXyCAG3yhh7pkDkT65pHymX-P7KfIupjf59vsdo91bSP9C8H07pSAGQO1MV_xFj9VswgsCg4R6otmg5PV2He95lZdHtOcU5DXIg_pbhLdKXbi66GlVeK6ABZOUW3WYtnNHD-91gVuoeJT_DwtGGcp4ignkgXfkiEm4sw-4sfb4qdt5oLbyVpmW6x9cfa7vs2WTfURiCrBoUqgBo_-4WTiULmmHSGZHOjzwa8WtrtOQGsAFjIbno85jp6MnGGGZPYZbDAa_b3y5u-YpW7ypZrvD8BgtKVjgtQgZhLAGezMt0ua3DRrWnKqTZ0BJ_EyxOGuHJrLsn00fnMQ","d":"jJVKLOMXjlSnICzfP_eWshwR_DQp1U_GBLn-bL2qf90U5GMRDg5fT7Df3M2zL3DhMzdLDIeBmh-ujMTPjU0PWyVN5JX9LBhAOgsX3DKAdR2KMlEsBM4HE6VV1JhqQozqAcSPwhBHJM_pBM21S94EZf_RbA0PvyLcjeLP4WqAOY-J4OXVR3rzKwAH02NjLBR-Tnoiv-WlPZbE9SmYJL0G3xRFVELYwf4l7t-PSrZxk6V_xrTLpsScA-WICTaXmRGyDOSBuiBfHfDQyiTfQEUjcc6aQ7slLAwfmU2AeYJqHk1zwZpDJpgEf9G3eYi09Q2MLpzSjMxWVqV5L7TtcoGv5Q"}]}`, // nolint: lll
+					},
+				},
+			},
+			valid:   true,
+			warning: true,
+		},
+		{
 			name:       "null outputClaimToHeader",
 			configName: constants.DefaultAuthenticationPolicyName,
 			in: &security_beta.RequestAuthentication{
