@@ -1550,7 +1550,6 @@ func TestServiceIndex(t *testing.T) {
 	g.Expect(serviceNames(si.exportedToNamespace["test1"])).To(Equal([]string{"svc-private"}))
 
 	g.Expect(serviceNames(si.public)).To(Equal([]string{"svc-public", "svc-unset"}))
-
 }
 
 func TestIsServiceVisible(t *testing.T) {

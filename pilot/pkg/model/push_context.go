@@ -1570,7 +1570,7 @@ func (ps *PushContext) initServiceRegistry(env *Environment, configsUpdate sets.
 				ps.ServiceIndex.public = append(ps.ServiceIndex.public, s)
 				continue
 			} else if s.Attributes.ExportTo.Contains(visibility.None) {
-				ps.ServiceIndex.count -= 1
+				ps.ServiceIndex.count--
 				continue
 			}
 			// . or other namespaces
