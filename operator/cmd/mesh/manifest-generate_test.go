@@ -629,10 +629,11 @@ func TestManifestGenerateReaderRBACEnableFlag(t *testing.T) {
 		manifest := generateManifest(t, "default", flags, liveCharts, nil)
 		objs := parseObjectSetFromManifest(t, manifest)
 		g.Expect(objs.kind(gvk.ServiceAccount.Kind).nameEquals(readerSAName)).Should(BeNil())
-		g.Expect(manifest).Should(MatchRegexp("kind: ClusterRole[\\s\\S]*name: istio-reader-clusterrole-" + namespace))
-		g.Expect(manifest).Should(MatchRegexp("kind: ClusterRoleBinding[\\s\\S]*name: istio-reader-clusterrole-" + namespace))
-		g.Expect(manifest).Should(ContainSubstring("name: custom-reader"))
-		g.Expect(manifest).Should(ContainSubstring("namespace: custom-ns"))
+		g.Expect(objs.kind(gvk.ServiceAccount.Kind).nameEquals("custom-reader")).Should(BeNil())
+		g.Expect(manifest).Should(Not(MatchRegexp("kind: ClusterRole[\\s\\S]*name: istio-reader-clusterrole-" + namespace)))
+		g.Expect(manifest).Should(Not(MatchRegexp("kind: ClusterRoleBinding[\\s\\S]*name: istio-reader-clusterrole-" + namespace)))
+		g.Expect(manifest).Should(Not(ContainSubstring("name: custom-reader")))
+		g.Expect(manifest).Should(Not(ContainSubstring("namespace: custom-ns")))
 	})
 
 	t.Run("custom reader service account with enableReaderRBAC enabled", func(t *testing.T) {
