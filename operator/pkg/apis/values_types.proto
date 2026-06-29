@@ -657,11 +657,19 @@ message GlobalConfig {
   // If true, install istio-reader service account and associated cluster role/binding,
   // which are used for multicluster remote-secret workflows.
   google.protobuf.BoolValue enableReaderRBAC = 78;
-  // The next available key is 79
+  // Optionally specify a custom service account to bind to the istio-reader ClusterRole.
+  // When set, the default istio-reader-service-account is not created.
+  ReaderServiceAccount readerServiceAccount = 79;
+  // The next available key is 80
 }
 
 message Agentgateway {
   string image = 1;
+}
+
+message ReaderServiceAccount {
+  string name = 1;
+  string namespace = 2;
 }
 
 enum ResourceScope {
