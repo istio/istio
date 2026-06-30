@@ -46,7 +46,7 @@ func filterRelevantUpdates(proxy *model.Proxy, req *model.PushRequest) *model.Pu
 			continue
 		}
 		// if proxy enables self-discovery, we need to always include LocalService related configs.
-		// we can avoid this elsewere to avoid unnecesary proxy pushes.
+		// we can avoid this elsewhere to avoid unnecessary proxy pushes.
 		if proxy.Metadata.EnableSelfDiscovery && (config.Kind == kind.ServiceEntry || config.Kind == kind.Endpoints) {
 			if (config.Name == proxy.PrevLocalService.Name && config.Namespace == proxy.PrevLocalService.Namespace) ||
 				(config.Name == proxy.LocalService.Name && config.Namespace == proxy.LocalService.Namespace) {
