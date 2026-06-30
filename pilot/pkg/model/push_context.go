@@ -1573,16 +1573,16 @@ func (ps *PushContext) initServiceRegistry(env *Environment, configsUpdate sets.
 		}
 		if !exportToSet.Contains(visibility.None) {
 			// . or other namespaces
-			isPrivate := false
+			includesPrivate := false
 			for exportTo := range exportToSet {
 				key := string(exportTo)
 				if exportTo == visibility.Private || key == ns {
 					// exportTo with same namespace is effectively private
-					key = ns
-					if isPrivate {
+					if includesPrivate {
 						continue
 					}
-					isPrivate = true
+					key = ns
+					includesPrivate = true
 					ps.ServiceIndex.private = append(ps.ServiceIndex.private, s)
 				}
 
@@ -1775,16 +1775,16 @@ func (ps *PushContext) initVirtualServices(env *Environment) {
 			}
 		} else if !exportToSet.Contains(visibility.None) {
 			// . or other namespaces
-			isPrivate := false
+			includesPrivate := false
 			for exportTo := range exportToSet {
 				key := string(exportTo)
 				if exportTo == visibility.Private || key == ns {
-					// add to local namespace only
-					private := ps.virtualServiceIndex.privateByNamespaceAndGateway
-					if isPrivate {
+					// exportTo with same namespace is effectively private
+					if includesPrivate {
 						continue
 					}
-					isPrivate = true
+					includesPrivate = true
+					private := ps.virtualServiceIndex.privateByNamespaceAndGateway
 					for _, gw := range gwNames {
 						n := types.NamespacedName{Namespace: ns, Name: gw}
 						private[n] = append(private[n], virtualService)
