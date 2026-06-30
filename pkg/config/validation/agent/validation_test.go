@@ -1509,6 +1509,14 @@ func TestValidateZoneAwareLbSetting(t *testing.T) {
 			err:     true,
 		},
 		{
+			name: "failoverPriority with region label is rejected",
+			in: &networking.ZoneAwareLoadBalancerSetting{
+				FailoverPriority: []string{"topology.kubernetes.io/region"},
+			},
+			outlier: &networking.OutlierDetection{},
+			err:     true,
+		},
+		{
 			name: "failoverPriority with zone label is rejected",
 			in: &networking.ZoneAwareLoadBalancerSetting{
 				FailoverPriority: []string{"topology.kubernetes.io/zone"},

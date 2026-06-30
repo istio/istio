@@ -584,37 +584,31 @@ func ValidateLocalityLbSetting(lb *networking.LocalityLoadBalancerSetting, outli
 
 // ValidateZoneAwareLbSetting checks the ZoneAwareLoadBalancerSetting on a
 // DestinationRule's TrafficPolicy. ZoneAwareLbSetting differs from
-// LocalityLbSetting in that zone-level routing and failover within a region
-// are handled automatically by Envoy, so cross-region failover and
-// failover_priority entries must be region-scoped.
+// LocalityLbSetting in that region-, zone-, and subzone-level routing are all
+// handled automatically by Envoy: endpoints are always partitioned by region and
+// zone/subzone routing within a region is implicit. As a result, failover only
+// configures cross-region ordering, and failover_priority must not contain the
+// region, zone, or subzone topology labels.
 func ValidateZoneAwareLbSetting(lb *networking.ZoneAwareLoadBalancerSetting, outlier *networking.OutlierDetection) (errs Validation) {
 	if lb == nil {
 		return errs
 	}
 
 	for _, priorityLabel := range lb.GetFailoverPriority() {
-		// Zone-level routing/failover within a region is automatic for zone-aware
-		// LB, so allowing zone/subzone in failover_priority would conflict with the
-		// implicit ordering Envoy already applies.
+		// Region-, zone-, and subzone-level routing are all handled automatically by
+		// zone-aware LB: endpoints are always partitioned by region (use `failover` to
+		// order the cross-region tiers) and zone/subzone routing within a region is
+		// implicit. Allowing these topology labels in failover_priority would be
+		// redundant with, or conflict with, the ordering Envoy already applies.
 		switch priorityLabel {
-		case label.LabelTopologyZone, label.LabelTopologySubzone:
+		case label.LabelTopologyRegion, label.LabelTopologyZone, label.LabelTopologySubzone:
 			errs = AppendValidation(
 				errs,
 				fmt.Errorf(
-					"'failover_priority' for zone aware lb must not use topology label '%s'; zone-level routing is automatic",
+					"'failover_priority' for zone aware lb must not use topology label '%s'; region- and zone-level routing are handled automatically",
 					priorityLabel,
 				),
 			)
-		}
-	}
-
-	if len(lb.GetFailover()) > 0 && len(lb.GetFailoverPriority()) > 0 {
-		for _, priorityLabel := range lb.GetFailoverPriority() {
-			switch priorityLabel {
-			case label.LabelTopologyRegion:
-				errs = AppendValidation(errs, fmt.Errorf("can not simultaneously set 'failover' and topology label '%s' in 'failover_priority'", priorityLabel))
-				return errs
-			}
 		}
 	}
 
