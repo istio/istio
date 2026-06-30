@@ -48,7 +48,7 @@ func TestUserNamespace(t *testing.T) {
 			}
 
 			var userns echo.Instance
-			deployment.New(t, t.Clusters().Primaries().Default()).
+			deployment.New(t).
 				With(&userns, echo.Config{
 					Service:        "userns",
 					Namespace:      ns,
@@ -80,7 +80,7 @@ func annotateNamespaceForHostUsers(t framework.TestContext, nsName string) {
 	for _, c := range t.Clusters() {
 		ns, err := c.Kube().CoreV1().Namespaces().Get(context.TODO(), nsName, metav1.GetOptions{})
 		if err != nil {
-			t.Fatalf("failed to get namespace %s: %v", nsName, err)
+			t.Fatalf("failed to get namespace %s on cluster %s: %v", nsName, c.Name(), err)
 		}
 		if ns.Annotations == nil {
 			ns.Annotations = make(map[string]string)
@@ -88,7 +88,7 @@ func annotateNamespaceForHostUsers(t framework.TestContext, nsName string) {
 		ns.Annotations["openshift.io/sa.scc.uid-range"] = "1000/10000"
 		ns.Annotations["openshift.io/sa.scc.supplemental-groups"] = "1000/10000"
 		if _, err := c.Kube().CoreV1().Namespaces().Update(context.TODO(), ns, metav1.UpdateOptions{}); err != nil {
-			t.Fatalf("failed to annotate namespace %s: %v", nsName, err)
+			t.Fatalf("failed to annotate namespace %s on cluster %s: %v", nsName, c.Name(), err)
 		}
 	}
 }
