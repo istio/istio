@@ -63,8 +63,7 @@ var _ Metrics = &PushContext{}
 
 // serviceIndex is an index of all services by various fields for easy access during push.
 type serviceIndex struct {
-	// private are services that are reachable within the same namespace, with exportTo "."
-	private []*Service
+	count int
 	// public are services reachable within the mesh with exportTo "*"
 	public []*Service
 	// exportedToNamespace are services that were made visible to this namespace
@@ -82,8 +81,8 @@ type serviceIndex struct {
 
 func newServiceIndex() serviceIndex {
 	return serviceIndex{
+		count:                0,
 		public:               []*Service{},
-		private:              []*Service{},
 		exportedToNamespace:  map[string][]*Service{},
 		HostnameAndNamespace: map[host.Name]map[string]*Service{},
 		instancesByPort:      map[string]map[int][]*IstioEndpoint{},
@@ -1031,19 +1030,13 @@ func (ps *PushContext) extraServicesForProxy(proxy *Proxy, patches *MergedEnvoyF
 }
 
 // servicesExportedToNamespace returns the list of services that are visible to a namespace.
-// namespace "" indicates all namespaces
 func (ps *PushContext) servicesExportedToNamespace(ns string) []*Service {
 	var out []*Service
 
 	// First add private services and explicitly exportedTo services
-	if ns == NamespaceAll {
-		out = make([]*Service, 0, len(ps.ServiceIndex.private)+len(ps.ServiceIndex.public))
-		out = append(out, ps.ServiceIndex.private...)
-	} else {
-		exportedServices := ps.ServiceIndex.exportedToNamespace[ns]
-		out = make([]*Service, 0, len(exportedServices)+len(ps.ServiceIndex.public))
-		out = append(out, exportedServices...)
-	}
+	exportedServices := ps.ServiceIndex.exportedToNamespace[ns]
+	out = make([]*Service, 0, len(exportedServices)+len(ps.ServiceIndex.public))
+	out = append(out, exportedServices...)
 
 	// Second add public services
 	out = append(out, ps.ServiceIndex.public...)
@@ -1051,10 +1044,10 @@ func (ps *PushContext) servicesExportedToNamespace(ns string) []*Service {
 	return out
 }
 
-// GetAllServices returns the total services within the mesh.
+// GetTotalServiceCount returns the total services within the mesh.
 // Note: per proxy services should use SidecarScope.Services.
-func (ps *PushContext) GetAllServices() []*Service {
-	return ps.servicesExportedToNamespace(NamespaceAll)
+func (ps *PushContext) GetTotalServiceCount() int {
+	return ps.ServiceIndex.count
 }
 
 // ServiceForHostname returns the service associated with a given hostname following SidecarScope
@@ -1521,6 +1514,8 @@ func (ps *PushContext) initServiceRegistry(env *Environment, configsUpdate sets.
 	allServices := SortServicesByCreationTime(env.Services())
 	resolveServiceAliases(allServices, configsUpdate)
 
+	ps.ServiceIndex.count = len(allServices)
+
 	ps.ServiceIndex.instancesByPort = make(map[string]map[int][]*IstioEndpoint, len(allServices))
 	ps.serviceAccounts = make(map[serviceAccountKey][]string, len(allServices))
 	for _, s := range allServices {
@@ -1573,7 +1568,6 @@ func (ps *PushContext) initServiceRegistry(env *Environment, configsUpdate sets.
 		ns := s.Attributes.Namespace
 		if s.Attributes.ExportTo.IsEmpty() {
 			if ps.exportToDefaults.service.Contains(visibility.Private) {
-				ps.ServiceIndex.private = append(ps.ServiceIndex.private, s)
 				exportedServices, ok := ps.ServiceIndex.exportedToNamespace[ns]
 				if !ok {
 					exportedServices = make([]*Service, 0)
@@ -1590,15 +1584,15 @@ func (ps *PushContext) initServiceRegistry(env *Environment, configsUpdate sets.
 				ps.ServiceIndex.public = append(ps.ServiceIndex.public, s)
 				continue
 			} else if s.Attributes.ExportTo.Contains(visibility.None) {
+				ps.ServiceIndex.count--
 				continue
 			}
 			// . or other namespaces
 			for exportTo := range s.Attributes.ExportTo {
 				key := string(exportTo)
-				if exportTo == visibility.Private || key == ns {
+				if exportTo == visibility.Private {
 					// exportTo with same namespace is effectively private
 					key = ns
-					ps.ServiceIndex.private = append(ps.ServiceIndex.private, s)
 				}
 
 				// exportTo is a specific target namespace
