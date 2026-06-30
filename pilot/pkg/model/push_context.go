@@ -1067,10 +1067,10 @@ func (ps *PushContext) IsServiceVisible(service *Service, namespace string) bool
 
 	ns := service.Attributes.Namespace
 	if service.Attributes.ExportTo.IsEmpty() {
-		if ps.exportToDefaults.service.Contains(visibility.Private) {
-			return ns == namespace
-		} else if ps.exportToDefaults.service.Contains(visibility.Instance(namespace)) {
+		if ps.exportToDefaults.service.Contains(visibility.Instance(namespace)) {
 			return true
+		} else if ps.exportToDefaults.service.Contains(visibility.Private) {
+			return ns == namespace
 		} else if ps.exportToDefaults.service.Contains(visibility.Public) {
 			return true
 		}
@@ -1574,16 +1574,16 @@ func (ps *PushContext) initServiceRegistry(env *Environment, configsUpdate sets.
 		if !exportToSet.Contains(visibility.None) {
 			// . or other namespaces
 			isPrivate := false
-			visited := sets.New[string]()
 			for exportTo := range exportToSet {
 				key := string(exportTo)
 				if exportTo == visibility.Private || key == ns {
 					// exportTo with same namespace is effectively private
 					key = ns
-					if !isPrivate {
-						isPrivate = true
-						ps.ServiceIndex.private = append(ps.ServiceIndex.private, s)
+					if isPrivate {
+						continue
 					}
+					isPrivate = true
+					ps.ServiceIndex.private = append(ps.ServiceIndex.private, s)
 				}
 
 				// exportTo is a specific target namespace
@@ -1591,10 +1591,7 @@ func (ps *PushContext) initServiceRegistry(env *Environment, configsUpdate sets.
 				if !ok {
 					exportedServices = make([]*Service, 0)
 				}
-
-				if !visited.InsertContains(key) {
-					ps.ServiceIndex.exportedToNamespace[key] = append(exportedServices, s)
-				}
+				ps.ServiceIndex.exportedToNamespace[key] = append(exportedServices, s)
 			}
 		}
 	}
@@ -1784,16 +1781,16 @@ func (ps *PushContext) initVirtualServices(env *Environment) {
 				if exportTo == visibility.Private || key == ns {
 					// add to local namespace only
 					private := ps.virtualServiceIndex.privateByNamespaceAndGateway
-					if !isPrivate {
-						isPrivate = true
-						for _, gw := range gwNames {
-							n := types.NamespacedName{Namespace: ns, Name: gw}
-							private[n] = append(private[n], virtualService)
-						}
+					if isPrivate {
+						continue
+					}
+					isPrivate = true
+					for _, gw := range gwNames {
+						n := types.NamespacedName{Namespace: ns, Name: gw}
+						private[n] = append(private[n], virtualService)
 					}
 				} else {
 					exported := ps.virtualServiceIndex.exportedToNamespaceByGateway
-					// add to local namespace only
 					for _, gw := range gwNames {
 						n := types.NamespacedName{Namespace: key, Name: gw}
 						exported[n] = append(exported[n], virtualService)
