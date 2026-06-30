@@ -1,0 +1,6 @@
+spec:
+  values:
+    startupProbe:
+      httpGet:
+        port: 15021
+        path: /healthz/ready

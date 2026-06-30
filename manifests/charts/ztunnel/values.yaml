@@ -54,6 +54,13 @@ _internal_defaults_do_not_set:
   # Additional labels to apply on the pod level
   podLabels: {}
 
+  # Optionally configure a startupProbe. The example below uses the same endpoint as the readinessProbe.
+  # startupProbe:
+  #   httpGet:
+  #     port: 15021
+  #     path: /healthz/ready
+  startupProbe: {}
+
   # Pod resource configuration
   resources:
     requests:

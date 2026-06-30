@@ -236,6 +236,13 @@ func TestRender(t *testing.T) {
 			diffSelect:  "DaemonSet:*:ztunnel",
 		},
 		{
+			desc:        "ztunnel-startup-probe",
+			releaseName: "ztunnel",
+			namespace:   "istio-system",
+			chartName:   "ztunnel",
+			diffSelect:  "DaemonSet:*:ztunnel",
+		},
+		{
 			desc:        "istiod-webhook-install",
 			releaseName: "istiod",
 			namespace:   "istio-system",

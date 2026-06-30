@@ -99,6 +99,10 @@ spec:
           seLinuxOptions:
 {{ toYaml .Values.seLinuxOptions | trim | indent 12 }}
 {{- end }}
+{{- with .Values.startupProbe }}
+        startupProbe:
+          {{- toYaml . | nindent 10 }}
+{{- end }}
         readinessProbe:
           httpGet:
             port: 15021

@@ -35,6 +35,17 @@ To view supported configuration options and documentation, run:
 helm show values istio/ztunnel
 ```
 
+### Startup Probe
+
+To render an optional startup probe, set `startupProbe` to a Kubernetes probe object. For example, to use the same endpoint as the default ztunnel readiness probe:
+
+```yaml
+startupProbe:
+  httpGet:
+    port: 15021
+    path: /healthz/ready
+```
+
 ### Profiles
 
 Istio Helm charts have a concept of a `profile`, which is a bundled collection of value presets.
