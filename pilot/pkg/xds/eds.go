@@ -276,10 +276,10 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 
 func parseClusterName(clusterName string, proxy *model.Proxy) (model.TrafficDirection, string, host.Name, int) {
 	if clusterName == LocalClusterName {
-		if proxy.LocalService == "" {
+		if proxy.LocalService.Name == "" {
 			return model.TrafficDirectionOutbound, "", "", 0
 		}
-		return model.TrafficDirectionOutbound, "", proxy.LocalService, proxy.ServiceTargets[0].Port.Port
+		return model.TrafficDirectionOutbound, "", host.Name(proxy.LocalService.Name), proxy.ServiceTargets[0].Port.Port
 	}
 
 	return model.ParseSubsetKey(clusterName)
@@ -293,10 +293,10 @@ func affectedService(proxy *model.Proxy, edsUpdatedServices sets.Set[string], cl
 		if proxy.LocalService != proxy.PrevLocalService {
 			return true
 		}
-		if proxy.LocalService == "" {
+		if proxy.LocalService.Name == "" {
 			return false
 		}
-		return edsUpdatedServices.Contains(string(proxy.LocalService))
+		return edsUpdatedServices.Contains(proxy.LocalService.Name)
 	}
 	return edsUpdatedServices.Contains(model.ParseSubsetKeyHostname(clusterName))
 }

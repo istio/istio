@@ -365,13 +365,14 @@ type Proxy struct {
 	// would have 6 entries.
 	ServiceTargets []ServiceTarget
 
-	// LocalService is the hostname of the local service associated with the proxy. It is populated
-	// in SetServiceTargets from the first entry in ServiceTargets, or empty if there is none.
-	LocalService host.Name
+	// LocalService is the namespaced hostname of the local service associated with the proxy. It is
+	// populated in SetServiceTargets from the first entry in ServiceTargets, or the zero value if
+	// there is none. The Name field holds the service hostname and Namespace its namespace.
+	LocalService types.NamespacedName
 
 	// PrevLocalService is the value of LocalService prior to the most recent SetServiceTargets call,
 	// used to detect local-service transitions during incremental pushes.
-	PrevLocalService host.Name
+	PrevLocalService types.NamespacedName
 
 	// Istio version associated with the Proxy
 	IstioVersion *IstioVersion
@@ -617,9 +618,12 @@ func (node *Proxy) SetServiceTargets(serviceDiscovery ServiceDiscovery) {
 	})
 
 	node.PrevLocalService = node.LocalService
-	node.LocalService = ""
+	node.LocalService = types.NamespacedName{}
 	if len(instances) > 0 {
-		node.LocalService = instances[0].Service.Hostname
+		node.LocalService = types.NamespacedName{
+			Name:      string(instances[0].Service.Hostname),
+			Namespace: instances[0].Service.Attributes.Namespace,
+		}
 	}
 	node.ServiceTargets = instances
 }
