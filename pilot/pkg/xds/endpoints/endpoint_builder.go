@@ -176,6 +176,10 @@ func (b *EndpointBuilder) populateSubsetInfo() {
 }
 
 func (b *EndpointBuilder) populateFailoverPriorityLabels() {
+	if b.isLocalCluster {
+		return
+	}
+
 	enableFailover, lb := getOutlierDetectionAndLoadBalancerSettings(b.DestinationRule(), b.port, b.subsetName)
 	if !enableFailover {
 		return
@@ -433,6 +437,10 @@ func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.Endpoi
 	}
 
 	l := b.createClusterLoadAssignment(localityLbEndpoints)
+	// if this is the self-discovery cluster we can and should avoid applying loadbalancers
+	if b.isLocalCluster {
+		return l
+	}
 
 	// If locality aware routing is enabled, prioritize endpoints or set their lb weight.
 	// Failover should only be enabled when there is an outlier detection, otherwise Envoy
