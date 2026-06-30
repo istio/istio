@@ -93,6 +93,10 @@ func GetEffectiveLbSetting(
 		if meshZoneAware.GetEnabled() != nil && !meshZoneAware.GetEnabled().Value {
 			return nil, nil, false
 		}
+
+		// similar to TrafficDistributionPreferSameZone,
+		// zone aware routing requires that we always enable failovers,
+		// since we need to always separate endpoints in different regions.
 		return nil, meshZoneAware, true
 	}
 	if meshLocality != nil {
