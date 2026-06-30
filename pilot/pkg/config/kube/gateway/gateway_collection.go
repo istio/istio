@@ -159,7 +159,12 @@ func ListenerSetCollection(
 					obj, originalStatus, parentGwObj.Spec, standardListener, i, controllerName, portErr)
 				status.Listeners = slices.Map(updatedStatus, convertStandardStatusToListenerSetStatus(l))
 
+				if server == nil {
+					continue
+				}
+
 				servers = append(servers, server)
+
 				if controllerName == constants.ManagedGatewayMeshController || controllerName == constants.ManagedGatewayEastWestController {
 					// Waypoint doesn't actually convert the routes to VirtualServices
 					continue
@@ -298,7 +303,12 @@ func GatewayCollection(
 			server, updatedStatus, programmed := buildListener(ctx, configMaps, secrets, grants, namespaces, obj, status.Listeners, kgw, l, i, controllerName, nil)
 			status.Listeners = updatedStatus
 
+			if server == nil {
+				continue
+			}
+
 			servers = append(servers, server)
+
 			if controllerName == constants.ManagedGatewayMeshController || controllerName == constants.ManagedGatewayEastWestController {
 				// Waypoint and ambient e/w don't actually convert the routes to VirtualServices
 				// TODO: Maybe E/W gateway should for non 15008 ports for backwards compat?
