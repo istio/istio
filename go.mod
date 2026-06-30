@@ -44,7 +44,7 @@ require (
 	github.com/hashicorp/go-version v1.9.0
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/howardjohn/unshare-go v0.5.0
-	github.com/klauspost/compress v1.18.6
+	github.com/klauspost/compress v1.18.7
 	github.com/lestrrat-go/jwx v1.2.31
 	github.com/mattn/go-isatty v0.0.22
 	github.com/miekg/dns v1.1.72
@@ -58,7 +58,7 @@ require (
 	github.com/prometheus/client_golang v1.23.2
 	github.com/prometheus/client_model v0.6.2
 	github.com/prometheus/common v0.69.0
-	github.com/prometheus/procfs v0.21.0
+	github.com/prometheus/procfs v0.21.1
 	github.com/prometheus/prometheus v0.310.0
 	github.com/quic-go/quic-go v0.60.0
 	github.com/ryanuber/go-glob v1.0.0
@@ -90,7 +90,7 @@ require (
 	gomodules.xyz/jsonpatch/v2 v2.5.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20260526163538-3dc84a4a5aaa
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260526163538-3dc84a4a5aaa
-	google.golang.org/grpc v1.81.1
+	google.golang.org/grpc v1.82.0
 	google.golang.org/protobuf v1.36.11
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 	gopkg.in/yaml.v2 v2.4.0
