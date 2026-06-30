@@ -1146,8 +1146,7 @@ spec:
                                   nullable: true
                                   type: boolean
                                 failover:
-                                  description: 'Optional: only one of failover or
-                                    failoverPriority can be set.'
+                                  description: Optional.
                                   items:
                                     properties:
                                       from:
@@ -1596,8 +1595,7 @@ spec:
                                         nullable: true
                                         type: boolean
                                       failover:
-                                        description: 'Optional: only one of failover
-                                          or failoverPriority can be set.'
+                                        description: Optional.
                                         items:
                                           properties:
                                             from:
@@ -2210,8 +2208,7 @@ spec:
                             nullable: true
                             type: boolean
                           failover:
-                            description: 'Optional: only one of failover or failoverPriority
-                              can be set.'
+                            description: Optional.
                             items:
                               properties:
                                 from:
@@ -2649,8 +2646,7 @@ spec:
                                   nullable: true
                                   type: boolean
                                 failover:
-                                  description: 'Optional: only one of failover or
-                                    failoverPriority can be set.'
+                                  description: Optional.
                                   items:
                                     properties:
                                       from:
@@ -3414,8 +3410,7 @@ spec:
                                   nullable: true
                                   type: boolean
                                 failover:
-                                  description: 'Optional: only one of failover or
-                                    failoverPriority can be set.'
+                                  description: Optional.
                                   items:
                                     properties:
                                       from:
@@ -3864,8 +3859,7 @@ spec:
                                         nullable: true
                                         type: boolean
                                       failover:
-                                        description: 'Optional: only one of failover
-                                          or failoverPriority can be set.'
+                                        description: Optional.
                                         items:
                                           properties:
                                             from:
@@ -4478,8 +4472,7 @@ spec:
                             nullable: true
                             type: boolean
                           failover:
-                            description: 'Optional: only one of failover or failoverPriority
-                              can be set.'
+                            description: Optional.
                             items:
                               properties:
                                 from:
@@ -4917,8 +4910,7 @@ spec:
                                   nullable: true
                                   type: boolean
                                 failover:
-                                  description: 'Optional: only one of failover or
-                                    failoverPriority can be set.'
+                                  description: Optional.
                                   items:
                                     properties:
                                       from:
@@ -5682,8 +5674,7 @@ spec:
                                   nullable: true
                                   type: boolean
                                 failover:
-                                  description: 'Optional: only one of failover or
-                                    failoverPriority can be set.'
+                                  description: Optional.
                                   items:
                                     properties:
                                       from:
@@ -6132,8 +6123,7 @@ spec:
                                         nullable: true
                                         type: boolean
                                       failover:
-                                        description: 'Optional: only one of failover
-                                          or failoverPriority can be set.'
+                                        description: Optional.
                                         items:
                                           properties:
                                             from:
@@ -6746,8 +6736,7 @@ spec:
                             nullable: true
                             type: boolean
                           failover:
-                            description: 'Optional: only one of failover or failoverPriority
-                              can be set.'
+                            description: Optional.
                             items:
                               properties:
                                 from:
@@ -7185,8 +7174,7 @@ spec:
                                   nullable: true
                                   type: boolean
                                 failover:
-                                  description: 'Optional: only one of failover or
-                                    failoverPriority can be set.'
+                                  description: Optional.
                                   items:
                                     properties:
                                       from:
