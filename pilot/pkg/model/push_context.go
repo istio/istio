@@ -1067,10 +1067,10 @@ func (ps *PushContext) IsServiceVisible(service *Service, namespace string) bool
 
 	ns := service.Attributes.Namespace
 	if service.Attributes.ExportTo.IsEmpty() {
-		if ps.exportToDefaults.service.Contains(visibility.Instance(namespace)) {
-			return true
-		} else if ps.exportToDefaults.service.Contains(visibility.Private) {
+		if ps.exportToDefaults.service.Contains(visibility.Private) {
 			return ns == namespace
+		} else if ps.exportToDefaults.service.Contains(visibility.Instance(namespace)) {
+			return true
 		} else if ps.exportToDefaults.service.Contains(visibility.Public) {
 			return true
 		}
@@ -1559,7 +1559,7 @@ func (ps *PushContext) initServiceRegistry(env *Environment, configsUpdate sets.
 		}
 
 		ns := s.Attributes.Namespace
-		exportToSet := ps.exportToDefaults.service.Copy()
+		exportToSet := ps.exportToDefaults.service
 		if !s.Attributes.ExportTo.IsEmpty() {
 			exportToSet = s.Attributes.ExportTo
 		}
@@ -1570,7 +1570,8 @@ func (ps *PushContext) initServiceRegistry(env *Environment, configsUpdate sets.
 		if exportToSet.Contains(visibility.Public) {
 			ps.ServiceIndex.public = append(ps.ServiceIndex.public, s)
 			continue
-		} else if !exportToSet.Contains(visibility.None) {
+		}
+		if !exportToSet.Contains(visibility.None) {
 			// . or other namespaces
 			isPrivate := false
 			visited := sets.New[string]()
@@ -1760,7 +1761,7 @@ func (ps *PushContext) initVirtualServices(env *Environment) {
 		ns := virtualService.Namespace
 		rule := virtualService.Spec.(*networking.VirtualService)
 		gwNames := getGatewayNames(rule)
-		exportToSet := ps.exportToDefaults.virtualService.Copy()
+		exportToSet := ps.exportToDefaults.virtualService
 		if len(rule.ExportTo) > 0 {
 			exportToSet = sets.NewWithLength[visibility.Instance](len(rule.ExportTo))
 			for _, e := range rule.ExportTo {
