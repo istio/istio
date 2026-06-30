@@ -88,7 +88,7 @@ type EndpointBuilder struct {
 	mtlsChecker *mtlsChecker
 
 	canonicalServiceForMeshExternal bool
-	isLocalCluster                  bool
+	isSelfDiscoveryCluster          bool
 }
 
 func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.PushContext) EndpointBuilder {
@@ -133,7 +133,7 @@ func NewCDSEndpointBuilder(
 		dir:        dir,
 
 		canonicalServiceForMeshExternal: features.CanonicalServiceForMeshExternalServiceEntry,
-		isLocalCluster:                  clusterName == "local_cluster",
+		isSelfDiscoveryCluster:          clusterName == util.SelfDiscoveryCluster,
 	}
 	b.populateSubsetInfo()
 	b.populateFailoverPriorityLabels()
@@ -176,7 +176,7 @@ func (b *EndpointBuilder) populateSubsetInfo() {
 }
 
 func (b *EndpointBuilder) populateFailoverPriorityLabels() {
-	if b.isLocalCluster {
+	if b.isSelfDiscoveryCluster {
 		return
 	}
 
@@ -438,7 +438,7 @@ func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.Endpoi
 
 	l := b.createClusterLoadAssignment(localityLbEndpoints)
 	// if this is the self-discovery cluster we can and should avoid applying loadbalancers
-	if b.isLocalCluster {
+	if b.isSelfDiscoveryCluster {
 		return l
 	}
 
@@ -614,7 +614,7 @@ func (b *EndpointBuilder) filterIstioEndpoint(ep *model.IstioEndpoint) bool {
 	}
 
 	// If this is the self discovery cluster, then we only need endpoints from the same workload and the same region
-	if b.isLocalCluster {
+	if b.isSelfDiscoveryCluster {
 		if b.proxy.Metadata.WorkloadName != ep.WorkloadName {
 			return false
 		}

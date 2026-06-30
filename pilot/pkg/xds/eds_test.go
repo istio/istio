@@ -1449,7 +1449,7 @@ func testEdsz(t *testing.T, s *xdsfake.FakeDiscoveryServer, proxyID string) {
 }
 
 // TestEdsLocalCluster covers the zone-aware-routing local_cluster EDS path:
-//   - The proxy can subscribe to xds.LocalClusterName and receive a CLA built from
+//   - The proxy can subscribe to util.SelfDiscoveryCluster and receive a CLA built from
 //     its own service's endpoints, with locality preserved.
 //   - DestinationRule changes for the local service do NOT trigger a recompute of
 //     local_cluster (since the DR is intentionally ignored for it).
@@ -1518,7 +1518,7 @@ func TestEdsLocalCluster(t *testing.T) {
 		})
 	resp := ads.RequestResponseAck(t, &discovery.DiscoveryRequest{
 		TypeUrl:       v3.EndpointType,
-		ResourceNames: []string{xds.LocalClusterName},
+		ResourceNames: []string{util.SelfDiscoveryCluster},
 	})
 
 	t.Run("initial response includes both localities", func(t *testing.T) {
@@ -1529,8 +1529,8 @@ func TestEdsLocalCluster(t *testing.T) {
 		if err := resp.Resources[0].UnmarshalTo(cla); err != nil {
 			t.Fatal(err)
 		}
-		if cla.ClusterName != xds.LocalClusterName {
-			t.Errorf("cluster name = %q, want %q", cla.ClusterName, xds.LocalClusterName)
+		if cla.ClusterName != util.SelfDiscoveryCluster {
+			t.Errorf("cluster name = %q, want %q", cla.ClusterName, util.SelfDiscoveryCluster)
 		}
 		got := map[string]string{}
 		for _, lle := range cla.Endpoints {
@@ -1814,7 +1814,7 @@ func TestEdsLocalClusterHashFilter(t *testing.T) {
 				})
 			resp := ads.RequestResponseAck(t, &discovery.DiscoveryRequest{
 				TypeUrl:       v3.EndpointType,
-				ResourceNames: []string{xds.LocalClusterName},
+				ResourceNames: []string{util.SelfDiscoveryCluster},
 			})
 
 			if len(resp.Resources) != 1 {
@@ -1851,7 +1851,7 @@ func TestEdsLocalClusterNoService(t *testing.T) {
 		WithType(v3.EndpointType)
 	resp := ads.RequestResponseAck(t, &discovery.DiscoveryRequest{
 		TypeUrl:       v3.EndpointType,
-		ResourceNames: []string{xds.LocalClusterName},
+		ResourceNames: []string{util.SelfDiscoveryCluster},
 	})
 
 	if len(resp.Resources) != 1 {
@@ -1861,8 +1861,8 @@ func TestEdsLocalClusterNoService(t *testing.T) {
 	if err := resp.Resources[0].UnmarshalTo(cla); err != nil {
 		t.Fatal(err)
 	}
-	if cla.ClusterName != xds.LocalClusterName {
-		t.Errorf("cluster name = %q, want %q", cla.ClusterName, xds.LocalClusterName)
+	if cla.ClusterName != util.SelfDiscoveryCluster {
+		t.Errorf("cluster name = %q, want %q", cla.ClusterName, util.SelfDiscoveryCluster)
 	}
 	if len(cla.Endpoints) != 0 {
 		t.Errorf("expected empty endpoints, got %d locality groups", len(cla.Endpoints))
@@ -1885,7 +1885,7 @@ func TestEdsLocalClusterSteadyStateNoService(t *testing.T) {
 	// Consume the initial empty-CLA response so the connection is in steady state.
 	_ = ads.RequestResponseAck(t, &discovery.DiscoveryRequest{
 		TypeUrl:       v3.EndpointType,
-		ResourceNames: []string{xds.LocalClusterName},
+		ResourceNames: []string{util.SelfDiscoveryCluster},
 	})
 
 	// An unrelated ServiceEntry update in the proxy's namespace must not produce
@@ -1962,7 +1962,7 @@ func TestEdsLocalClusterServiceReplacement(t *testing.T) {
 	// Initial state: proxy belongs to svcA. The initial CLA should carry zoneA.
 	initial := ads.RequestResponseAck(t, &discovery.DiscoveryRequest{
 		TypeUrl:       v3.EndpointType,
-		ResourceNames: []string{xds.LocalClusterName},
+		ResourceNames: []string{util.SelfDiscoveryCluster},
 	})
 	{
 		cla := &endpoint.ClusterLoadAssignment{}
@@ -2039,7 +2039,7 @@ func TestEdsLocalClusterServiceLifecycle(t *testing.T) {
 		WithTimeout(200 * time.Millisecond)
 	initial := ads.RequestResponseAck(t, &discovery.DiscoveryRequest{
 		TypeUrl:       v3.EndpointType,
-		ResourceNames: []string{xds.LocalClusterName},
+		ResourceNames: []string{util.SelfDiscoveryCluster},
 	})
 
 	extractAddrs := func(t *testing.T, resp *discovery.DiscoveryResponse) map[string]bool {
@@ -2051,8 +2051,8 @@ func TestEdsLocalClusterServiceLifecycle(t *testing.T) {
 		if err := resp.Resources[0].UnmarshalTo(cla); err != nil {
 			t.Fatal(err)
 		}
-		if cla.ClusterName != xds.LocalClusterName {
-			t.Errorf("cluster name = %q, want %q", cla.ClusterName, xds.LocalClusterName)
+		if cla.ClusterName != util.SelfDiscoveryCluster {
+			t.Errorf("cluster name = %q, want %q", cla.ClusterName, util.SelfDiscoveryCluster)
 		}
 		got := map[string]bool{}
 		for _, lle := range cla.Endpoints {

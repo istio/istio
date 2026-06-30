@@ -22,6 +22,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pilot/pkg/xds/endpoints"
 	"istio.io/istio/pkg/config/host"
@@ -29,8 +30,6 @@ import (
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
-
-const LocalClusterName = "local_cluster"
 
 // SvcUpdate is a callback from service discovery when service info changes.
 func (s *DiscoveryServer) SvcUpdate(shard model.ShardKey, hostname string, namespace string, event model.Event) {
@@ -219,9 +218,9 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 		dir, subsetName, hostname, port := parseClusterName(clusterName, proxy)
 		svc := req.Push.ServiceForHostname(proxy, hostname)
 
-		isLocalCluster := clusterName == LocalClusterName
+		isSelfDiscoveryCluster := clusterName == util.SelfDiscoveryCluster
 		var dr *model.ConsolidatedDestRule
-		if svc != nil && !isLocalCluster {
+		if svc != nil && !isSelfDiscoveryCluster {
 			// TODO: disable DR lookup for local_cluster, as it's only used for zone-aware routing math,
 			// and we want to return the full locality distribution of the proxy's own service.
 			// We may want to enable this in the future, mainly to correctly create priorities when using failovers,
@@ -233,7 +232,7 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 		// to avoid recomputing the cluster if it is not affected
 		if partialPush && svc != nil && !affected {
 			// local cluster is unaffected by authn or DR changes
-			if isLocalCluster {
+			if isSelfDiscoveryCluster {
 				continue
 			}
 
@@ -275,7 +274,7 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 }
 
 func parseClusterName(clusterName string, proxy *model.Proxy) (model.TrafficDirection, string, host.Name, int) {
-	if clusterName == LocalClusterName {
+	if clusterName == util.SelfDiscoveryCluster {
 		if proxy.LocalService.Name == "" {
 			return model.TrafficDirectionOutbound, "", "", 0
 		}
@@ -286,7 +285,7 @@ func parseClusterName(clusterName string, proxy *model.Proxy) (model.TrafficDire
 }
 
 func affectedService(proxy *model.Proxy, edsUpdatedServices sets.Set[string], clusterName string) bool {
-	if clusterName == LocalClusterName {
+	if clusterName == util.SelfDiscoveryCluster {
 		// Detect a local-service transition (add, delete, or replace). Both fields are
 		// empty for proxies that never had a local service, so steady-state pushes for
 		// those proxies fall through to "no service, nothing to push".
