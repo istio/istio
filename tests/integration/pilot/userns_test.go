@@ -60,10 +60,19 @@ func TestUserNamespace(t *testing.T) {
 				BuildOrFail(t)
 
 			src := apps.A[0]
-			src.CallOrFail(t, echo.CallOptions{
-				To:    userns,
-				Port:  echo.Port{Name: "http"},
-				Check: check.OK(),
+			t.NewSubTest("from standard to userns").Run(func(t framework.TestContext) {
+				src.CallOrFail(t, echo.CallOptions{
+					To:    userns,
+					Port:  echo.Port{Name: "http"},
+					Check: check.OK(),
+				})
+			})
+			t.NewSubTest("from userns to standard").Run(func(t framework.TestContext) {
+				userns.CallOrFail(t, echo.CallOptions{
+					To:    src,
+					Port:  echo.Port{Name: "http"},
+					Check: check.OK(),
+				})
 			})
 		})
 }
