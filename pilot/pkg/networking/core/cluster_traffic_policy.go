@@ -57,7 +57,7 @@ func (cb *ClusterBuilder) applyTrafficPolicy(service *model.Service, opts buildC
 		applyLoadBalancer(
 			service, opts.mutable.cluster, loadBalancer, opts.port, cb.locality,
 			cb.proxyLabels, opts.mesh, opts.mutable.dnsWrappedLocalityLbEndpoints,
-			cb.proxyID, enableSelfDiscovery,
+			cb.proxyType, cb.proxyID, enableSelfDiscovery,
 		)
 		if opts.clusterMode != SniDnatClusterMode {
 			autoMTLSEnabled := opts.mesh.GetEnableAutoMtls().Value
@@ -279,6 +279,7 @@ func applyLoadBalancer(
 	proxyLabels map[string]string,
 	meshConfig *meshconfig.MeshConfig,
 	wrappedLocalityLbEndpoints *loadbalancer.WrappedLocalityLbEndpoints,
+	proxyType model.NodeType,
 	proxyID string,
 	enableSelfDiscovery bool,
 ) {
@@ -297,7 +298,10 @@ func applyLoadBalancer(
 		lb,
 		svc,
 	)
-	if zoneAwareLbSetting != nil {
+	// Zone-aware LB relies on a self-discovery local_cluster, which waypoints never configure,
+	// so it is meaningless there. Skip it for waypoints and fall back to locality LB (which is
+	// a no-op when no localityLbSetting is configured, since the two are mutually exclusive).
+	if zoneAwareLbSetting != nil && proxyType != model.Waypoint {
 		applyZoneAwareLoadBalancer(
 			locality, proxyLabels, c, wrappedLocalityLbEndpoints, zoneAwareLbSetting,
 			forceFailover, proxyID, enableSelfDiscovery,

@@ -448,7 +448,11 @@ func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.Endpoi
 		b.service,
 	)
 	enableFailover = enableFailover || forceFailover
-	if lbSetting != nil || zoneAwareSetting != nil {
+	// Zone-aware LB relies on a self-discovery local_cluster, which waypoints never configure,
+	// so it is meaningless there. Skip it for waypoints (they fall back to locality LB only if
+	// one is configured, but the two settings are mutually exclusive so there is none here).
+	applyZoneAware := zoneAwareSetting != nil && b.proxy.Type != model.Waypoint
+	if lbSetting != nil || applyZoneAware {
 		// Make a shallow copy of the cla as we are mutating the endpoints with priorities/weights relative to the calling proxy
 		l = util.CloneClusterLoadAssignment(l)
 		wrappedLocalityLbEndpoints := make([]*loadbalancer.WrappedLocalityLbEndpoints, len(localityLbEndpoints))
@@ -458,7 +462,7 @@ func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.Endpoi
 				LocalityLbEndpoints: l.Endpoints[i],
 			}
 		}
-		if zoneAwareSetting != nil {
+		if applyZoneAware {
 			loadbalancer.ApplyZoneAwareLoadBalancer(l, wrappedLocalityLbEndpoints, b.locality, b.proxy.Labels, zoneAwareSetting, enableFailover)
 		} else {
 			loadbalancer.ApplyLocalityLoadBalancer(l, wrappedLocalityLbEndpoints, b.locality, b.proxy.Labels, lbSetting, enableFailover)
