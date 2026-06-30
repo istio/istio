@@ -298,6 +298,17 @@ func (b *EndpointBuilder) WriteHash(h hash.Hash) {
 		h.WriteString(b.proxyView.String())
 	}
 	h.Write(Separator)
+
+	if b.isSelfDiscoveryCluster {
+		h.WriteString(b.proxy.Metadata.WorkloadName)
+		h.Write(Separator)
+		h.WriteString(b.proxy.Labels["pod-template-hash"])
+		h.Write(Separator)
+		h.WriteString(b.proxy.Labels["rollouts-pod-template-hash"])
+		h.Write(Separator)
+		h.WriteString(strconv.Itoa(b.port))
+		h.Write(Separator)
+	}
 }
 
 func (b *EndpointBuilder) Cacheable() bool {
