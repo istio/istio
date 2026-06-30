@@ -1109,6 +1109,7 @@ func TestGetEffectiveLbSetting(t *testing.T) {
 			name:              "mesh zone-aware only",
 			meshZoneAware:     &networking.ZoneAwareLoadBalancerSetting{},
 			expectedZoneAware: &networking.ZoneAwareLoadBalancerSetting{},
+			expectedForce:     true,
 		},
 		{
 			name:              "dr zone-aware only",
@@ -1141,6 +1142,7 @@ func TestGetEffectiveLbSetting(t *testing.T) {
 			meshLocality:      &networking.LocalityLoadBalancerSetting{},
 			meshZoneAware:     &networking.ZoneAwareLoadBalancerSetting{Failover: zaFailover},
 			expectedZoneAware: &networking.ZoneAwareLoadBalancerSetting{Failover: zaFailover},
+			expectedForce:     true,
 		},
 		{
 			name:          "mesh zone-aware disabled",

@@ -592,16 +592,6 @@ func ValidateZoneAwareLbSetting(lb *networking.ZoneAwareLoadBalancerSetting, out
 		return errs
 	}
 
-	if len(lb.GetFailover()) > 0 && len(lb.GetFailoverPriority()) > 0 {
-		for _, priorityLabel := range lb.GetFailoverPriority() {
-			switch priorityLabel {
-			case label.LabelTopologyRegion, label.LabelTopologyZone, label.LabelTopologySubzone:
-				errs = AppendValidation(errs, fmt.Errorf("can not simultaneously set 'failover' and topology label '%s' in 'failover_priority'", priorityLabel))
-				return errs
-			}
-		}
-	}
-
 	for _, priorityLabel := range lb.GetFailoverPriority() {
 		// Zone-level routing/failover within a region is automatic for zone-aware
 		// LB, so allowing zone/subzone in failover_priority would conflict with the
@@ -615,6 +605,16 @@ func ValidateZoneAwareLbSetting(lb *networking.ZoneAwareLoadBalancerSetting, out
 					priorityLabel,
 				),
 			)
+		}
+	}
+
+	if len(lb.GetFailover()) > 0 && len(lb.GetFailoverPriority()) > 0 {
+		for _, priorityLabel := range lb.GetFailoverPriority() {
+			switch priorityLabel {
+			case label.LabelTopologyRegion:
+				errs = AppendValidation(errs, fmt.Errorf("can not simultaneously set 'failover' and topology label '%s' in 'failover_priority'", priorityLabel))
+				return errs
+			}
 		}
 	}
 

@@ -237,7 +237,7 @@ func TestZoneAwareLoadBalancer(t *testing.T) {
 				},
 				{
 					// Verifies that a same-region endpoint in a *different* zone beats a cross-region
-					// endpoint. Without the region-bucketing in applyZoneAwareFailover, both land at
+					// endpoint. Without the region-bucketing in applyZoneAwareRegionalFailover, both land at
 					// priority 0 and Envoy's zone-aware LB distributes traffic to the remote region.
 					name:                  "CrossRegionEndpointIgnoredWhenSameRegionDifferentZoneAvailable",
 					localClusterWorkloads: oneLocalClusterEndpoint,

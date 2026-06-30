@@ -120,25 +120,22 @@ func ApplyZoneAwareLoadBalancer(
 	}
 	if len(zoneAwareLB.FailoverPriority) > 0 {
 		applyFailoverPriorities(loadAssignment, wrappedLocalityLbEndpoints, proxyLabels, zoneAwareLB.FailoverPriority)
-		// When FailoverPriority is set, only apply region bucketing if user also asked for it,
-		// mirroring how ApplyLocalityLoadBalancer treats Failover as additive to FailoverPriority.
-		if len(zoneAwareLB.Failover) > 0 {
-			applyZoneAwareFailover(locality, loadAssignment, zoneAwareLB.Failover)
-		}
+		// When FailoverPriority is set, also apply region bucketing,
+		applyZoneAwareRegionalFailover(locality, loadAssignment, zoneAwareLB.Failover)
 	} else {
 		// Always region-bucket when failover is enabled, even with no Failover entries: this keeps
 		// cross-region endpoints out of priority 0 so Envoy's zone-aware LB only balances zones
 		// within the proxy's region.
-		applyZoneAwareFailover(locality, loadAssignment, zoneAwareLB.Failover)
+		applyZoneAwareRegionalFailover(locality, loadAssignment, zoneAwareLB.Failover)
 	}
 }
 
-// applyZoneAwareFailover buckets LocalityLbEndpoints by region only, so all endpoints in the
+// applyZoneAwareRegionalFailover buckets LocalityLbEndpoints by region only, so all endpoints in the
 // proxy's region land at priority 0 (where Envoy's zone-aware LB can balance them across zones).
 // Failover-matched regions occupy the next priority and remaining regions the last priority.
 // Like applyLocalityFailover, priorities are multiplied by 3 to compose with any prior
 // FailoverPriority assignment, then compacted to a contiguous 0..N range.
-func applyZoneAwareFailover(
+func applyZoneAwareRegionalFailover(
 	locality *core.Locality,
 	loadAssignment *endpoint.ClusterLoadAssignment,
 	failover []*v1alpha3.ZoneAwareLoadBalancerSetting_Failover,
