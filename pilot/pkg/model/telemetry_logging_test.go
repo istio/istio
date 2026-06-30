@@ -16,6 +16,7 @@ package model
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
@@ -70,6 +71,120 @@ func TestFileAccessLogFormat(t *testing.T) {
 			assert.Equal(t, tc.expected, got)
 		})
 	}
+}
+
+func getTextFormat(al *accesslog.AccessLog) string {
+	fl := &fileaccesslog.FileAccessLog{}
+	if err := al.GetTypedConfig().UnmarshalTo(fl); err != nil {
+		return ""
+	}
+	return fl.GetLogFormat().GetTextFormatSource().GetInlineString()
+}
+
+func getJSONField(al *accesslog.AccessLog, field string) string {
+	fl := &fileaccesslog.FileAccessLog{}
+	if err := al.GetTypedConfig().UnmarshalTo(fl); err != nil {
+		return ""
+	}
+	return fl.GetLogFormat().GetJsonFormat().GetFields()[field].GetStringValue()
+}
+
+func TestHboneOriginationAccessLogFormat(t *testing.T) {
+	filterStateOp := "%FILTER_STATE(" + hboneOriginalDstFilterStateKey + ":PLAIN)%"
+
+	t.Run("default text format hides internal downstream address", func(t *testing.T) {
+		mesh := &meshconfig.MeshConfig{
+			AccessLogFile:     DevStdout,
+			AccessLogEncoding: meshconfig.MeshConfig_TEXT,
+		}
+		al := FileAccessLogFromMeshConfigForHboneOrigination(DevStdout, mesh)
+		got := getTextFormat(al)
+		if strings.Contains(got, "%DOWNSTREAM_REMOTE_ADDRESS%") {
+			t.Errorf("HBONE origination format must not contain %%DOWNSTREAM_REMOTE_ADDRESS%%, got: %s", got)
+		}
+		if !strings.Contains(got, filterStateOp) {
+			t.Errorf("HBONE origination format must contain %s, got: %s", filterStateOp, got)
+		}
+	})
+
+	t.Run("default json format hides internal downstream address", func(t *testing.T) {
+		mesh := &meshconfig.MeshConfig{
+			AccessLogFile:     DevStdout,
+			AccessLogEncoding: meshconfig.MeshConfig_JSON,
+		}
+		al := FileAccessLogFromMeshConfigForHboneOrigination(DevStdout, mesh)
+		got := getJSONField(al, "downstream_remote_address")
+		if got != filterStateOp {
+			t.Errorf("downstream_remote_address want %s, got %s", filterStateOp, got)
+		}
+		// upstream_host should remain the standard operator (real ztunnel address)
+		if upstreamHost := getJSONField(al, "upstream_host"); upstreamHost != "%UPSTREAM_HOST%" {
+			t.Errorf("upstream_host should be unchanged, want %%UPSTREAM_HOST%%, got %s", upstreamHost)
+		}
+	})
+
+	t.Run("custom text format is passed through unchanged", func(t *testing.T) {
+		customFmt := "[%START_TIME%] %UPSTREAM_HOST% %DOWNSTREAM_REMOTE_ADDRESS%\n"
+		mesh := &meshconfig.MeshConfig{
+			AccessLogFile:     DevStdout,
+			AccessLogEncoding: meshconfig.MeshConfig_TEXT,
+			AccessLogFormat:   customFmt,
+		}
+		al := FileAccessLogFromMeshConfigForHboneOrigination(DevStdout, mesh)
+		got := getTextFormat(al)
+		if got != customFmt {
+			t.Errorf("custom format should be used unchanged, want %q, got %q", customFmt, got)
+		}
+	})
+}
+
+func TestHboneTerminationAccessLogFormat(t *testing.T) {
+	filterStateOp := "%FILTER_STATE(" + hboneOriginalDstFilterStateKey + ":PLAIN)%"
+
+	t.Run("default text format hides internal upstream host", func(t *testing.T) {
+		mesh := &meshconfig.MeshConfig{
+			AccessLogFile:     DevStdout,
+			AccessLogEncoding: meshconfig.MeshConfig_TEXT,
+		}
+		al := FileAccessLogFromMeshConfigForHboneTermination(DevStdout, mesh)
+		got := getTextFormat(al)
+		if strings.Contains(got, "%UPSTREAM_HOST%") {
+			t.Errorf("HBONE termination format must not contain %%UPSTREAM_HOST%%, got: %s", got)
+		}
+		if !strings.Contains(got, filterStateOp) {
+			t.Errorf("HBONE termination format must contain %s, got: %s", filterStateOp, got)
+		}
+	})
+
+	t.Run("default json format hides internal upstream host", func(t *testing.T) {
+		mesh := &meshconfig.MeshConfig{
+			AccessLogFile:     DevStdout,
+			AccessLogEncoding: meshconfig.MeshConfig_JSON,
+		}
+		al := FileAccessLogFromMeshConfigForHboneTermination(DevStdout, mesh)
+		got := getJSONField(al, "upstream_host")
+		if got != filterStateOp {
+			t.Errorf("upstream_host want %s, got %s", filterStateOp, got)
+		}
+		// downstream_remote_address should remain the standard operator (real ztunnel IP)
+		if downstreamRemote := getJSONField(al, "downstream_remote_address"); downstreamRemote != "%DOWNSTREAM_REMOTE_ADDRESS%" {
+			t.Errorf("downstream_remote_address should be unchanged, want %%DOWNSTREAM_REMOTE_ADDRESS%%, got %s", downstreamRemote)
+		}
+	})
+
+	t.Run("custom text format is passed through unchanged", func(t *testing.T) {
+		customFmt := "[%START_TIME%] %UPSTREAM_HOST% %DOWNSTREAM_REMOTE_ADDRESS%\n"
+		mesh := &meshconfig.MeshConfig{
+			AccessLogFile:     DevStdout,
+			AccessLogEncoding: meshconfig.MeshConfig_TEXT,
+			AccessLogFormat:   customFmt,
+		}
+		al := FileAccessLogFromMeshConfigForHboneTermination(DevStdout, mesh)
+		got := getTextFormat(al)
+		if got != customFmt {
+			t.Errorf("custom format should be used unchanged, want %q, got %q", customFmt, got)
+		}
+	})
 }
 
 func TestAccessLogging(t *testing.T) {
