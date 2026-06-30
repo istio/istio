@@ -124,14 +124,12 @@ func ApplyZoneAwareLoadBalancer(
 	}
 	if len(zoneAwareLB.FailoverPriority) > 0 {
 		applyFailoverPriorities(loadAssignment, wrappedLocalityLbEndpoints, proxyLabels, zoneAwareLB.FailoverPriority)
-		// When FailoverPriority is set, also apply region bucketing,
-		applyZoneAwareRegionalFailover(locality, loadAssignment, zoneAwareLB.Failover)
-	} else {
-		// Always region-bucket when failover is enabled, even with no Failover entries: this keeps
-		// cross-region endpoints out of priority 0 so Envoy's zone-aware LB only balances zones
-		// within the proxy's region.
-		applyZoneAwareRegionalFailover(locality, loadAssignment, zoneAwareLB.Failover)
 	}
+
+	// Always apply region bucketing, even with no Failover entries: this keeps
+	// cross-region endpoints out of priority 0 so Envoy's zone-aware LB only balances zones
+	// within the proxy's region.
+	applyZoneAwareRegionalFailover(locality, loadAssignment, zoneAwareLB.Failover)
 }
 
 // applyZoneAwareRegionalFailover buckets LocalityLbEndpoints by region only, so all endpoints in the
