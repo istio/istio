@@ -2176,6 +2176,12 @@ func buildListener(
 		Hosts: hostnames,
 		Tls:   tls,
 	}
+	if tls == nil && (l.Protocol == k8s.HTTPSProtocolType || l.Protocol == k8s.TLSProtocolType) {
+		// This is a placeholder listener for ListenerSets.
+		// We don't generate an istio.Server for it.
+		log.Warnf("protocol is %s but no TLS section is defined, skipping listener creation", l.Protocol)
+		server = nil
+	}
 
 	updatedStatus := reportListenerCondition(listenerIndex, l, obj, status, listenerConditions)
 	return server, updatedStatus, ok
