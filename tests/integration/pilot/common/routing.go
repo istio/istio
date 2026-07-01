@@ -27,6 +27,9 @@ import (
 	"strings"
 	"time"
 
+	envoyadmin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
+	envoycluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	envoyupstreamhttp "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	"google.golang.org/grpc/codes"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 	corev1 "k8s.io/api/core/v1"
@@ -36,6 +39,7 @@ import (
 
 	"istio.io/api/annotation"
 	"istio.io/istio/pilot/pkg/model"
+	xdsv3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/security"
@@ -1642,6 +1646,98 @@ func destinationRuleCases(t TrafficContext) {
 			Check: check.OK(),
 		},
 	})
+	t.NewSubTest("http2 keepalive in DR").Run(func(ctx framework.TestContext) {
+		if ctx.Settings().Ambient {
+			ctx.Skip("requires sidecar Envoy cluster config")
+		}
+
+		ctx.ConfigIstio().YAML(
+			t.Apps.Namespace.Name(),
+			http2KeepaliveDestinationRule("http2-keepalive-dr", to.Config().Service),
+		).ApplyOrFail(ctx)
+
+		from[0].CallOrFail(ctx, echo.CallOptions{
+			To:    to,
+			Port:  ports.HTTP2,
+			Count: 1,
+			HTTP: echo.HTTP{
+				HTTP2: true,
+			},
+			Check: check.And(
+				check.OK(),
+				check.Protocol("HTTP/2.0"),
+			),
+		})
+
+		verifyHTTP2Keepalive(ctx, from[0], to)
+	})
+}
+
+func verifyHTTP2Keepalive(t framework.TestContext, from echo.Instance, to echo.Instances) {
+	t.Helper()
+
+	clusterName := fmt.Sprintf("outbound|%d||%s", ports.HTTP2.ServicePort, to.Config().ClusterLocalFQDN())
+	workloads := from.WorkloadsOrFail(t)
+	if len(workloads) == 0 {
+		t.Fatal("source has no workloads")
+	}
+	sidecar := workloads[0].Sidecar()
+	if sidecar == nil {
+		t.Fatal("source workload has no sidecar")
+	}
+
+	sidecar.WaitForConfigOrFail(t, func(cfg *envoyadmin.ConfigDump) (bool, error) {
+		return hasHTTP2Keepalive(cfg, clusterName)
+	}, retry.Timeout(30*time.Second))
+}
+
+func hasHTTP2Keepalive(cfg *envoyadmin.ConfigDump, clusterName string) (bool, error) {
+	for _, config := range cfg.GetConfigs() {
+		if config.GetTypeUrl() != "type.googleapis.com/envoy.admin.v3.ClustersConfigDump" {
+			continue
+		}
+
+		clusterDump := &envoyadmin.ClustersConfigDump{}
+		if err := config.UnmarshalTo(clusterDump); err != nil {
+			return false, err
+		}
+		for _, dynamicCluster := range clusterDump.GetDynamicActiveClusters() {
+			cluster := &envoycluster.Cluster{}
+			if err := dynamicCluster.GetCluster().UnmarshalTo(cluster); err != nil {
+				return false, err
+			}
+			if cluster.GetName() != clusterName {
+				continue
+			}
+
+			httpOptionsAny := cluster.GetTypedExtensionProtocolOptions()[xdsv3.HttpProtocolOptionsType]
+			if httpOptionsAny == nil {
+				return false, fmt.Errorf("cluster %q has no %s typed extension protocol options", clusterName, xdsv3.HttpProtocolOptionsType)
+			}
+
+			httpOptions := &envoyupstreamhttp.HttpProtocolOptions{}
+			if err := httpOptionsAny.UnmarshalTo(httpOptions); err != nil {
+				return false, err
+			}
+			http2Options := httpOptions.GetExplicitHttpConfig().GetHttp2ProtocolOptions()
+			if http2Options == nil {
+				return false, fmt.Errorf("cluster %q has no HTTP/2 protocol options", clusterName)
+			}
+			keepalive := http2Options.GetConnectionKeepalive()
+			if keepalive == nil {
+				return false, fmt.Errorf("cluster %q has no HTTP/2 keepalive", clusterName)
+			}
+			if keepalive.GetInterval().GetSeconds() != 15 || keepalive.GetInterval().GetNanos() != 0 {
+				return false, fmt.Errorf("cluster %q has unexpected HTTP/2 keepalive interval: %v", clusterName, keepalive.GetInterval())
+			}
+			if keepalive.GetTimeout().GetSeconds() != 5 || keepalive.GetTimeout().GetNanos() != 0 {
+				return false, fmt.Errorf("cluster %q has unexpected HTTP/2 keepalive timeout: %v", clusterName, keepalive.GetTimeout())
+			}
+			return true, nil
+		}
+	}
+
+	return false, fmt.Errorf("cluster %q not found", clusterName)
 }
 
 // trafficLoopCases contains tests to ensure traffic does not loop through the sidecar
@@ -4018,6 +4114,25 @@ spec:
 `, name, app)
 }
 
+func http2KeepaliveDestinationRule(name, app string) string {
+	return fmt.Sprintf(`apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: %s
+spec:
+  host: %s
+  trafficPolicy:
+    tls:
+      mode: DISABLE
+    connectionPool:
+      http:
+        http2KeepAlive:
+          interval: 15s
+          timeout: 5s
+---
+`, name, app)
+}
+
 func peerAuthentication(app, mode string) string {
 	return fmt.Sprintf(`apiVersion: security.istio.io/v1
 kind: PeerAuthentication
@@ -4169,7 +4284,7 @@ metadata:
 spec:
   jwtRules:
   - issuer: "test-issuer-1@istio.io"
-    jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
+    jwks: '` + jwt.JwksJSON + `'
     outputClaimToHeaders:
     - header: "x-jwt-nested-key"
       claim: "nested.nested-2.key2"

@@ -64,8 +64,7 @@ var _ Metrics = &PushContext{}
 
 // serviceIndex is an index of all services by various fields for easy access during push.
 type serviceIndex struct {
-	// private are services that are reachable within the same namespace, with exportTo "."
-	private []*Service
+	count int
 	// public are services reachable within the mesh with exportTo "*"
 	public []*Service
 	// exportedToNamespace are services that were made visible to this namespace
@@ -83,8 +82,8 @@ type serviceIndex struct {
 
 func newServiceIndex() serviceIndex {
 	return serviceIndex{
+		count:                0,
 		public:               []*Service{},
-		private:              []*Service{},
 		exportedToNamespace:  map[string][]*Service{},
 		HostnameAndNamespace: map[host.Name]map[string]*Service{},
 		instancesByPort:      map[string]map[int][]*IstioEndpoint{},
@@ -1017,19 +1016,13 @@ func (ps *PushContext) extraServicesForProxy(proxy *Proxy, patches *MergedEnvoyF
 }
 
 // servicesExportedToNamespace returns the list of services that are visible to a namespace.
-// namespace "" indicates all namespaces
 func (ps *PushContext) servicesExportedToNamespace(ns string) []*Service {
 	var out []*Service
 
 	// First add private services and explicitly exportedTo services
-	if ns == NamespaceAll {
-		out = make([]*Service, 0, len(ps.ServiceIndex.private)+len(ps.ServiceIndex.public))
-		out = append(out, ps.ServiceIndex.private...)
-	} else {
-		exportedServices := ps.ServiceIndex.exportedToNamespace[ns]
-		out = make([]*Service, 0, len(exportedServices)+len(ps.ServiceIndex.public))
-		out = append(out, exportedServices...)
-	}
+	exportedServices := ps.ServiceIndex.exportedToNamespace[ns]
+	out = make([]*Service, 0, len(exportedServices)+len(ps.ServiceIndex.public))
+	out = append(out, exportedServices...)
 
 	// Second add public services
 	out = append(out, ps.ServiceIndex.public...)
@@ -1037,10 +1030,10 @@ func (ps *PushContext) servicesExportedToNamespace(ns string) []*Service {
 	return out
 }
 
-// GetAllServices returns the total services within the mesh.
+// GetTotalServiceCount returns the total services within the mesh.
 // Note: per proxy services should use SidecarScope.Services.
-func (ps *PushContext) GetAllServices() []*Service {
-	return ps.servicesExportedToNamespace(NamespaceAll)
+func (ps *PushContext) GetTotalServiceCount() int {
+	return ps.ServiceIndex.count
 }
 
 // ServiceForHostname returns the service associated with a given hostname following SidecarScope
@@ -1509,6 +1502,8 @@ func (ps *PushContext) initServiceRegistry(env *Environment, configsUpdate sets.
 	allServices := SortServicesByCreationTime(env.Services())
 	resolveServiceAliases(allServices, configsUpdate)
 
+	ps.ServiceIndex.count = len(allServices)
+
 	ps.ServiceIndex.instancesByPort = make(map[string]map[int][]*IstioEndpoint, len(allServices))
 	ps.serviceAccounts = make(map[serviceAccountKey][]string, len(allServices))
 	for _, s := range allServices {
@@ -1571,28 +1566,29 @@ func (ps *PushContext) initServiceRegistry(env *Environment, configsUpdate sets.
 			ps.ServiceIndex.public = append(ps.ServiceIndex.public, s)
 			continue
 		}
-		if !exportToSet.Contains(visibility.None) {
-			// . or other namespaces
-			includesPrivate := false
-			for exportTo := range exportToSet {
-				key := string(exportTo)
-				if exportTo == visibility.Private || key == ns {
-					// exportTo with same namespace is effectively private
-					if includesPrivate {
-						continue
-					}
-					key = ns
-					includesPrivate = true
-					ps.ServiceIndex.private = append(ps.ServiceIndex.private, s)
+		if exportToSet.Contains(visibility.None) {
+			ps.ServiceIndex.count--
+			continue
+		}
+		// . or other namespaces
+		includesPrivate := false
+		for exportTo := range exportToSet {
+			key := string(exportTo)
+			if exportTo == visibility.Private || key == ns {
+				// exportTo with same namespace is effectively private
+				if includesPrivate {
+					continue
 				}
-
-				// exportTo is a specific target namespace
-				exportedServices, ok := ps.ServiceIndex.exportedToNamespace[key]
-				if !ok {
-					exportedServices = make([]*Service, 0)
-				}
-				ps.ServiceIndex.exportedToNamespace[key] = append(exportedServices, s)
+				key = ns
+				includesPrivate = true
 			}
+
+			// exportTo is a specific target namespace
+			exportedServices, ok := ps.ServiceIndex.exportedToNamespace[key]
+			if !ok {
+				exportedServices = make([]*Service, 0)
+			}
+			ps.ServiceIndex.exportedToNamespace[key] = append(exportedServices, s)
 		}
 	}
 }
@@ -2164,8 +2160,17 @@ func (ps *PushContext) TrafficExtensions(proxy *Proxy) map[extensions.TrafficExt
 
 func (ps *PushContext) TrafficExtensionsByName(proxy *Proxy, names []types.NamespacedName) []*TrafficExtensionWrapper {
 	res := make([]*TrafficExtensionWrapper, 0, len(names))
+	// With more plumbing, there is probably a better way of doing this.
+	allowedNamespaces := sets.New(proxy.ConfigNamespace, ps.Mesh.RootNamespace)
+	// We allow cross namespace for waypoints
+	if proxy.IsWaypointProxy() {
+		for _, si := range ps.ServicesForWaypoint(WaypointKeyForProxy(proxy)) {
+			allowedNamespaces.Insert(si.GetNamespace())
+		}
+	}
+
 	for _, n := range names {
-		if n.Namespace != proxy.ConfigNamespace && n.Namespace != ps.Mesh.RootNamespace {
+		if !allowedNamespaces.Contains(n.Namespace) {
 			log.Warnf("proxy requested invalid TrafficExtension configuration: %v", n)
 			continue
 		}
@@ -2447,7 +2452,50 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 		return nil
 	}
 
+	if features.EnableStrictGatewayMerging {
+		gatewayInstances = filterStrictGatewayMerging(gatewayInstances)
+		if len(gatewayInstances) == 0 {
+			return nil
+		}
+	}
+
 	return mergeGateways(gatewayInstances, proxy, ps)
+}
+
+// filterStrictGatewayMerging filters gateway instances when strict gateway merging is enabled.
+// When managed GatewayAPI gateways are present, Istio gateways from different namespaces are excluded
+// to prevent cross-namespace credential leaking.
+func filterStrictGatewayMerging(instances []gatewayWithInstances) []gatewayWithInstances {
+	managedGWAPINamespaces := sets.New[string]()
+	for _, gwi := range instances {
+		cfg := gwi.gateway
+		if cfg.Annotations[constants.InternalGatewaySemantics] == constants.GatewaySemanticsGateway &&
+			cfg.Annotations[constants.InternalServiceAccount] != "" {
+			managedGWAPINamespaces.Insert(cfg.Namespace)
+		}
+	}
+
+	if managedGWAPINamespaces.Len() == 0 {
+		return instances
+	}
+
+	if managedGWAPINamespaces.Len() > 1 {
+		log.Warnf("strict gateway merging: multiple managed GatewayAPI gateway namespaces: %v", managedGWAPINamespaces)
+	}
+
+	filtered := make([]gatewayWithInstances, 0, len(instances))
+	for _, gwi := range instances {
+		cfg := gwi.gateway
+		isGWAPI := cfg.Annotations[constants.InternalGatewaySemantics] == constants.GatewaySemanticsGateway
+		if isGWAPI || managedGWAPINamespaces.Contains(cfg.Namespace) {
+			filtered = append(filtered, gwi)
+		} else {
+			gatewayName := cfg.Namespace + "/" + cfg.Name
+			log.Infof("strict gateway merging: skipping gateway %s not in managed GatewayAPI namespace", gatewayName)
+			RecordRejectedConfig(gatewayName)
+		}
+	}
+	return filtered
 }
 
 func (ps *PushContext) NetworkManager() *NetworkManager {

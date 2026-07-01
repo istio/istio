@@ -35,12 +35,14 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/listenertest"
 	"istio.io/istio/pilot/pkg/networking/plugin/authz"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/network"
@@ -1503,5 +1505,84 @@ func TestPreserveHeader(t *testing.T) {
 			}
 			assert.NoError(t, tt.isExpected(lb.buildHTTPConnectionManager(tt.opts)))
 		})
+	}
+}
+
+func TestVirtualOutboundListenerAllowAnyDynamicDNS(t *testing.T) {
+	meshCfg := mesh.DefaultMeshConfig()
+	meshCfg.OutboundTrafficPolicy = &meshconfig.MeshConfig_OutboundTrafficPolicy{
+		Mode: meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY_DYNAMIC_DNS,
+	}
+	listeners := buildListeners(t, TestOptions{
+		Services:   testServices,
+		MeshConfig: meshCfg,
+	}, nil)
+
+	vo := xdstest.ExtractListener(model.VirtualOutboundListenerName, listeners)
+	if vo == nil {
+		t.Fatal("didn't find virtual outbound listener")
+	}
+
+	listenertest.VerifyListener(t, vo, listenertest.ListenerTest{
+		Filters: []string{wellknown.HTTPInspector},
+		FilterChains: []listenertest.FilterChainTest{
+			{Name: model.VirtualOutboundBlackholeFilterChainName},
+			{
+				Name:           model.VirtualOutboundCatchAllTCPFilterChainName + "-http",
+				NetworkFilters: []string{wellknown.HTTPConnectionManager},
+				HTTPFilters:    []string{"envoy.filters.http.dynamic_forward_proxy"},
+				ValidateHCM: func(t test.Failer, h *hcm.HttpConnectionManager) {
+					rc := h.GetRouteConfig()
+					if rc == nil || len(rc.VirtualHosts) == 0 || len(rc.VirtualHosts[0].Routes) == 0 {
+						t.Fatalf("expected catch-all route in HCM route config")
+					}
+					cluster := rc.VirtualHosts[0].Routes[0].GetRoute().GetCluster()
+					assert.Equal(t, cluster, util.AllowAnyDynamicDNSCluster)
+				},
+			},
+			{
+				Name:           model.VirtualOutboundCatchAllTCPFilterChainName,
+				NetworkFilters: []string{wellknown.TCPProxy},
+			},
+		},
+		TotalMatch: true,
+	})
+}
+
+func TestDFPHTTPFilterInjectedInOutboundHCM(t *testing.T) {
+	meshCfg := mesh.DefaultMeshConfig()
+	meshCfg.OutboundTrafficPolicy = &meshconfig.MeshConfig_OutboundTrafficPolicy{
+		Mode: meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY_DYNAMIC_DNS,
+	}
+	listeners := buildListeners(t, TestOptions{
+		Services:   testServices,
+		MeshConfig: meshCfg,
+	}, nil)
+
+	for _, l := range listeners {
+		if l.Name == model.VirtualOutboundListenerName || l.Name == model.VirtualInboundListenerName {
+			continue
+		}
+		for _, fc := range l.FilterChains {
+			for _, f := range fc.Filters {
+				if f.Name != wellknown.HTTPConnectionManager {
+					continue
+				}
+				hcmCfg := &hcm.HttpConnectionManager{}
+				if err := f.GetTypedConfig().UnmarshalTo(hcmCfg); err != nil {
+					t.Fatalf("failed to unmarshal HCM: %v", err)
+				}
+				foundDFP := false
+				for _, hf := range hcmCfg.HttpFilters {
+					if hf.Name == "envoy.filters.http.dynamic_forward_proxy" {
+						foundDFP = true
+						break
+					}
+				}
+				if !foundDFP {
+					t.Errorf("listener %s chain %s: expected DFP HTTP filter in outbound HCM", l.Name, fc.Name)
+				}
+			}
+		}
 	}
 }

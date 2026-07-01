@@ -104,8 +104,8 @@ var (
 		"If set to true, starts the DNS server on :15053. This won't automatically capture the DNS traffic and can be used "+
 			"when we want Gateways to resolve DNS using this as Resolver for use cases like Dynamic Forward Proxy")
 
-	// DNSCaptureAddr is the address to listen.
-	DNSCaptureAddr = env.Register("DNS_PROXY_ADDR", "localhost:15053",
+	// DNSCaptureAddr is the address istio-agent listens on for the DNS proxy.
+	DNSCaptureAddr = env.Register("DNS_PROXY_ADDR", constants.DefaultDNSProxyAddr,
 		"Custom address for the DNS proxy. If it ends with :53 and running as root allows running without iptable DNS capture")
 
 	DNSForwardParallel = env.Register("DNS_FORWARD_PARALLEL", false,

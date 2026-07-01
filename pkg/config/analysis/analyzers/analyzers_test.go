@@ -1025,6 +1025,27 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name:       "ServiceEntry conflicting protocols on same host and port",
+		inputFiles: []string{"testdata/serviceentry-conflicting-protocol.yaml"},
+		analyzer:   &serviceentry.ConflictingServiceEntryProtocolAnalyzer{},
+		expected: []message{
+			{msg.ConflictingServiceEntryProtocol, "ServiceEntry default/se-http"},
+			{msg.ConflictingServiceEntryProtocol, "ServiceEntry default/se-https"},
+		},
+	},
+	{
+		name:       "ServiceEntry no conflict same protocol",
+		inputFiles: []string{"testdata/serviceentry-no-conflict-protocol.yaml"},
+		analyzer:   &serviceentry.ConflictingServiceEntryProtocolAnalyzer{},
+		expected:   []message{},
+	},
+	{
+		name:       "ServiceEntry no conflict non-overlapping exportTo scopes",
+		inputFiles: []string{"testdata/serviceentry-conflicting-exportto.yaml"},
+		analyzer:   &serviceentry.ConflictingServiceEntryProtocolAnalyzer{},
+		expected:   []message{},
+	},
+	{
 		name:       "Condition Analyzer",
 		inputFiles: []string{"testdata/condition-analyzer.yaml"},
 		analyzer:   &conditions.ConditionAnalyzer{},

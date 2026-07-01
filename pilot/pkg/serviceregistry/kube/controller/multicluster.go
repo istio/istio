@@ -220,8 +220,9 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeCont
 
 	// run after WorkloadHandler is added
 	if cluster.Action == multicluster.Update {
-		// For updates, wait for sync then atomically replace the registry.
-		// This ensures zero service disruption during credential rotation.
+		// Start the new registry here. The registry is swapped in only after it syncs,
+		// so the old registry keeps serving until then.
+		go kubeRegistry.Run(clusterStopCh)
 		go func() {
 			// Wait for the new cluster to sync
 			<-cluster.SyncedCh

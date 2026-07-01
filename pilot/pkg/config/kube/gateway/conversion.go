@@ -1875,13 +1875,14 @@ func reportListenerSetStatus(
 	gatewayServices []string,
 	servers []*istio.Server,
 	gatewayErr *ConfigError,
+	listenersValid bool,
 ) {
 	internal, _, _, _, warnings, allUsable := r.ResolveGatewayInstances(parentGwObj.Namespace, gatewayServices, servers)
 
 	// Setup initial conditions to the success state. If we encounter errors, we will update this.
 	// We have two status
-	// Accepted: is the configuration valid. We only have errors in listeners, and the status is not supposed to
-	// be tied to listeners, so this is always accepted
+	// Accepted: is the configuration valid. Unlike a Gateway, a ListenerSet is only Accepted if at least
+	// one of its listeners is valid; otherwise we report ListenersNotValid.
 	// Programmed: is the data plane "ready" (note: eventually consistent)
 	gatewayConditions := map[string]*condition{
 		string(k8s.GatewayConditionAccepted): {
@@ -1893,12 +1894,47 @@ func reportListenerSetStatus(
 			message: "Resource programmed",
 		},
 	}
+	var listenersErr *ConfigError
+	if !listenersValid {
+		listenersErr = &ConfigError{
+			Reason:  string(k8s.ListenerSetReasonListenersNotValid),
+			Message: "None of the ListenerSet's listeners are valid",
+		}
+	}
+
 	if gatewayErr != nil {
 		gatewayErr.Message = "Parent not accepted: " + gatewayErr.Message
 		gatewayConditions[string(k8s.GatewayConditionAccepted)].error = gatewayErr
+	} else if listenersErr != nil {
+		gatewayConditions[string(k8s.GatewayConditionAccepted)].error = listenersErr
 	}
 
 	setProgrammedCondition(gatewayConditions, internal, gatewayServices, warnings, allUsable)
+
+	// A ListenerSet with no valid listeners cannot be programmed; this takes precedence over any
+	// address-related programming status.
+	if listenersErr != nil {
+		gatewayConditions[string(k8s.GatewayConditionProgrammed)].error = listenersErr
+	}
+
+	// Prune stale listener status entries whose listener was removed from the spec,
+	// mirroring reportGatewayStatus. ListenerSetCollection threads the previous status
+	// forward to preserve per-listener data across reconciles, but only refreshes entries
+	// for listeners still in the spec. Without this pruning, a removed listener's status
+	// entry is orphaned forever (len(status.Listeners) > len(spec.Listeners)), which also
+	// wedges observedGeneration once the recomputed status stops differing from the stored one.
+	haveListeners := sets.New[k8s.SectionName]()
+	for _, l := range obj.Spec.Listeners {
+		haveListeners.Insert(l.Name)
+	}
+	listeners := make([]k8s.ListenerEntryStatus, 0, len(gs.Listeners))
+	for _, l := range gs.Listeners {
+		if haveListeners.Contains(l.Name) {
+			haveListeners.Delete(l.Name)
+			listeners = append(listeners, l)
+		}
+	}
+	gs.Listeners = listeners
 
 	gs.Conditions = setConditions(obj.Generation, gs.Conditions, gatewayConditions)
 }
@@ -2139,6 +2175,12 @@ func buildListener(
 		},
 		Hosts: hostnames,
 		Tls:   tls,
+	}
+	if tls == nil && (l.Protocol == k8s.HTTPSProtocolType || l.Protocol == k8s.TLSProtocolType) {
+		// This is a placeholder listener for ListenerSets.
+		// We don't generate an istio.Server for it.
+		log.Warnf("protocol is %s but no TLS section is defined, skipping listener creation", l.Protocol)
+		server = nil
 	}
 
 	updatedStatus := reportListenerCondition(listenerIndex, l, obj, status, listenerConditions)

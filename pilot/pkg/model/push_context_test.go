@@ -1550,10 +1550,6 @@ func TestServiceIndex(t *testing.T) {
 	g.Expect(serviceNames(si.exportedToNamespace["test1"])).To(Equal([]string{"svc-private"}))
 
 	g.Expect(serviceNames(si.public)).To(Equal([]string{"svc-public", "svc-unset"}))
-
-	// Should just have "test1"
-	g.Expect(si.private).To(HaveLen(1))
-	g.Expect(serviceNames(si.private)).To(Equal([]string{"svc-private"}))
 }
 
 // TestServiceIndexDefaultServiceExportTo verifies that meshConfig.defaultServiceExportTo entries
@@ -1641,8 +1637,8 @@ func TestServiceIndexDefaultServiceExportTo(t *testing.T) {
 	// Services with an explicit exportTo are unaffected by the default.
 	g.Expect(serviceNames(si.public)).To(Equal([]string{"svc-public"}))
 
-	// All default-private services are tracked as private.
-	g.Expect(serviceNames(si.private)).To(Equal([]string{"svc-bar-ns", "svc-unset-1", "svc-unset-2"}))
+	// All services are counted in the total service count.
+	g.Expect(pc.GetTotalServiceCount()).To(Equal(4))
 }
 
 func TestIsServiceVisible(t *testing.T) {

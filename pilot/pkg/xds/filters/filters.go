@@ -795,21 +795,21 @@ func additionalLabels(cfg map[string]any) {
 }
 
 // BuildWaypointInboundDFPFilter builds a dynamic forward proxy filter for waypoint inbound listeners
-// using the specified DNS cache config name. This name must match the name used in the corresponding
-// dynamic forward proxy cluster.
-func BuildWaypointInboundDFPFilter(dnsCacheConfigName string) *hcm.HttpFilter {
-	return buildDynamicForwardProxyFilter(dnsCacheConfigName)
+// using the specified DNS cache config name and lookup family. The name and lookup family must match
+// those used in the corresponding dynamic forward proxy cluster, since Envoy dedupes DNS caches by name.
+func BuildWaypointInboundDFPFilter(dnsCacheConfigName string, lookupFamily cluster.Cluster_DnsLookupFamily) *hcm.HttpFilter {
+	return buildDynamicForwardProxyFilter(dnsCacheConfigName, lookupFamily)
 }
 
 // BuildSidecarOutboundDynamicForwardProxyFilter builds a dynamic forward proxy filter for sidecar outbound listeners
-// using the specified DNS cache config name. This name must match the name used in the corresponding
-// dynamic forward proxy cluster.
-func BuildSidecarOutboundDynamicForwardProxyFilter(dnsCacheConfigName string) *hcm.HttpFilter {
-	return buildDynamicForwardProxyFilter(dnsCacheConfigName)
+// using the specified DNS cache config name and lookup family. The name and lookup family must match those used in
+// the corresponding dynamic forward proxy cluster, since Envoy dedupes DNS caches by name.
+func BuildSidecarOutboundDynamicForwardProxyFilter(dnsCacheConfigName string, lookupFamily cluster.Cluster_DnsLookupFamily) *hcm.HttpFilter {
+	return buildDynamicForwardProxyFilter(dnsCacheConfigName, lookupFamily)
 }
 
-// buildDynamicForwardProxyFilter builds a DFP HTTP filter using the specified DNS cache config name.
-func buildDynamicForwardProxyFilter(dnsCacheConfigName string) *hcm.HttpFilter {
+// buildDynamicForwardProxyFilter builds a DFP HTTP filter using the specified DNS cache config name and lookup family.
+func buildDynamicForwardProxyFilter(dnsCacheConfigName string, lookupFamily cluster.Cluster_DnsLookupFamily) *hcm.HttpFilter {
 	return &hcm.HttpFilter{
 		Name: "envoy.filters.http.dynamic_forward_proxy",
 		ConfigType: &hcm.HttpFilter_TypedConfig{
@@ -817,7 +817,7 @@ func buildDynamicForwardProxyFilter(dnsCacheConfigName string) *hcm.HttpFilter {
 				ImplementationSpecifier: &dfp.FilterConfig_DnsCacheConfig{
 					DnsCacheConfig: &dfpcommon.DnsCacheConfig{
 						Name:            dnsCacheConfigName,
-						DnsLookupFamily: cluster.Cluster_V4_ONLY,
+						DnsLookupFamily: lookupFamily,
 					},
 				},
 			}),

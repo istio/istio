@@ -292,6 +292,10 @@ type NodeMetadata struct {
 	// This depends on DNSCapture.
 	DNSAutoAllocate StringBool `json:"DNS_AUTO_ALLOCATE,omitempty"`
 
+	// DNSProxyAddr is the host:port where istio-agent listens for DNS (DNS_PROXY_ADDR). Populated from bootstrap
+	// so Pilot can point Envoy dynamic forward proxy at the same address.
+	DNSProxyAddr string `json:"DNS_PROXY_ADDR,omitempty"`
+
 	// EnableHBONE, if set, will enable generation of HBONE listener config.
 	// Note: this only impacts sidecars and gateways; ztunnel and waypoint proxy unconditionally use HBONE.
 	EnableHBONE StringBool `json:"ENABLE_HBONE,omitempty"`
