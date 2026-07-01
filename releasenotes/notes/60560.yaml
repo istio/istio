@@ -6,5 +6,6 @@ issue:
 releaseNotes:
   - |
     **Fixed** an issue where additional namespaces in
-    meshConfig.defaultServiceExportTo were not being honored when the default
-    included the current namespace as ".".
+    meshConfig.defaultServiceExportTo and
+    meshConfig.defaultVirtualServiceExportTo were not being honored when the
+    default included the current namespace as ".".
