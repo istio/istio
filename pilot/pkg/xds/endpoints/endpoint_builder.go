@@ -624,13 +624,15 @@ func (b *EndpointBuilder) filterIstioEndpoint(ep *model.IstioEndpoint) bool {
 		return false
 	}
 
-	// If this is the self discovery cluster, then we only need endpoints from the same workload and the same region
+	// If this is the self discovery cluster, then we only need endpoints from the same workload and the same region.
 	if b.isSelfDiscoveryCluster {
 		if b.proxy.Metadata.WorkloadName != ep.WorkloadName {
 			return false
 		}
 
-		// similar to GetDeployMetaFromPod but reversed, we need to find the same ReplicaSet for this proxy
+		// In kubernetes it's better if we only include endpoints from the same ReplicaSet,
+		// since we can expect balanced traffic distribution across the pods in the same ReplicaSet,
+		// but not across multiple ReplicaSets in a Deployment.
 		if b.proxy.Labels["pod-template-hash"] != ep.Labels["pod-template-hash"] {
 			return false
 		}

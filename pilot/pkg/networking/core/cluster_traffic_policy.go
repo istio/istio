@@ -298,9 +298,7 @@ func applyLoadBalancer(
 		lb,
 		svc,
 	)
-	// Zone-aware LB relies on a self-discovery local_cluster, which waypoints never configure,
-	// so it is meaningless there. Skip it for waypoints and fall back to locality LB (which is
-	// a no-op when no localityLbSetting is configured, since the two are mutually exclusive).
+	// Zone-aware LB is not supported for Waypoints, skip it and fall back to locality LB.
 	if zoneAwareLbSetting != nil && proxyType != model.Waypoint {
 		applyZoneAwareLoadBalancer(
 			locality, proxyLabels, c, wrappedLocalityLbEndpoints, zoneAwareLbSetting,
@@ -342,7 +340,6 @@ func applyLoadBalancer(
 	ApplyRingHashLoadBalancer(c, lb)
 }
 
-// applyZoneAwareLoadBalancer is the zone-aware counterpart to applyLocalityLoadBalancer.
 // It configures cluster-level zone-aware fields and applies any user-defined
 // region-level failover and failoverPriority overrides to the cluster's LoadAssignment.
 func applyZoneAwareLoadBalancer(

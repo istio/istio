@@ -108,9 +108,6 @@ func GetEffectiveLbSetting(
 	return nil, nil, false
 }
 
-// ApplyZoneAwareLoadBalancer is the zone-aware counterpart to ApplyLocalityLoadBalancer.
-// Envoy already routes within the local zone automatically when zone-aware LB is enabled
-// at the cluster level, so this only applies user-configured failovers.
 func ApplyZoneAwareLoadBalancer(
 	loadAssignment *endpoint.ClusterLoadAssignment,
 	wrappedLocalityLbEndpoints []*WrappedLocalityLbEndpoints,
@@ -125,7 +122,7 @@ func ApplyZoneAwareLoadBalancer(
 		applyFailoverPriorities(loadAssignment, wrappedLocalityLbEndpoints, proxyLabels, zoneAwareLB.FailoverPriority)
 	}
 
-	// Always apply region bucketing, even with no Failover entries: this keeps
+	// Always apply region bucketing, even with no Failover entries. This keeps
 	// cross-region endpoints out of priority 0 so Envoy's zone-aware LB only balances zones
 	// within the proxy's region.
 	applyZoneAwareRegionalFailover(locality, loadAssignment, zoneAwareLB.Failover)
