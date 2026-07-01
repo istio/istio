@@ -1059,19 +1059,14 @@ func (ps *PushContext) IsServiceVisible(service *Service, namespace string) bool
 	}
 
 	ns := service.Attributes.Namespace
-	if service.Attributes.ExportTo.IsEmpty() {
-		if ps.exportToDefaults.service.Contains(visibility.Instance(namespace)) {
-			return true
-		} else if ps.exportToDefaults.service.Contains(visibility.Private) {
-			return ns == namespace
-		} else if ps.exportToDefaults.service.Contains(visibility.Public) {
-			return true
-		}
+	exportToSet := ps.exportToDefaults.service
+	if !service.Attributes.ExportTo.IsEmpty() {
+		exportToSet = service.Attributes.ExportTo
 	}
 
-	return service.Attributes.ExportTo.Contains(visibility.Public) ||
-		(service.Attributes.ExportTo.Contains(visibility.Private) && ns == namespace) ||
-		service.Attributes.ExportTo.Contains(visibility.Instance(namespace))
+	return exportToSet.Contains(visibility.Public) ||
+		(exportToSet.Contains(visibility.Private) && ns == namespace) ||
+		exportToSet.Contains(visibility.Instance(namespace))
 }
 
 // VirtualServicesForGateway lists all virtual services bound to the specified gateways
