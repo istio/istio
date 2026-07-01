@@ -48,7 +48,7 @@ graph TD
 
 ## Project Structure
 
-```
+```text
 istio/
 ├── pilot/                    # Control plane (Istiod)
 │   ├── cmd/pilot-discovery/  #   Istiod binary entry point
@@ -146,9 +146,9 @@ Istiod is a modular monolith that dynamically configures all proxies in the mesh
 
 1. **Config Ingestion** — Watches 20+ Kubernetes resource types (Services, Endpoints, Istio CRDs like VirtualService, DestinationRule, Gateway) via `ConfigStore` and `ServiceDiscovery` interfaces. Sources include CRD client (`pkg/config/crd`), filesystem, and xDS.
 
-2. **Config Translation** — Converts internal models into Envoy configuration (Listeners, Routes, Clusters, Endpoints). Core logic is in `pilot/pkg/networking/core/`.
+1. **Config Translation** — Converts internal models into Envoy configuration (Listeners, Routes, Clusters, Endpoints). Core logic is in `pilot/pkg/networking/core/`.
 
-3. **Config Serving (xDS)** — Serves configuration to proxies over the xDS protocol (ADS - Aggregated Discovery Service). Implementation in `pilot/pkg/xds/`. Supports both full-state and incremental (delta) xDS.
+1. **Config Serving (xDS)** — Serves configuration to proxies over the xDS protocol (ADS - Aggregated Discovery Service). Implementation in `pilot/pkg/xds/`. Supports both full-state and incremental (delta) xDS.
 
 Entry point: `pilot/cmd/pilot-discovery/main.go`
 
@@ -190,7 +190,7 @@ Helm chart: `manifests/charts/ztunnel/`
 
 ## Data Flow
 
-```
+```text
 Kubernetes API
     │
     │  watches (Services, Endpoints, Istio CRDs, Gateway API resources)
