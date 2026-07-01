@@ -277,15 +277,14 @@ defaultConfig:
 	t.Log("Result: \n", gotY, err)
 }
 
-func TestApplyMeshConfigLocalityZoneAwareExclusivity(t *testing.T) {
+func TestApplyMeshConfigLocalityZoneAware(t *testing.T) {
 	cases := []struct {
-		name             string
-		yaml             string
-		wantLocality     bool
-		wantZoneAware    bool
-		wantZAEnabled    bool
-		wantLocEnabled   bool
-		expectValidation bool
+		name           string
+		yaml           string
+		wantLocality   bool
+		wantZoneAware  bool
+		wantZAEnabled  bool
+		wantLocEnabled bool
 	}{
 		{
 			name:           "no override keeps default locality",
@@ -294,16 +293,21 @@ func TestApplyMeshConfigLocalityZoneAwareExclusivity(t *testing.T) {
 			wantLocEnabled: true,
 		},
 		{
-			name: "user sets zoneAwareLbSetting clears default locality",
+			// LocalityLbSetting and ZoneAwareLbSetting are not mutually exclusive at the
+			// mesh level: the default locality setting is retained alongside the user's
+			// zone-aware setting, and LB resolution gives zone-aware precedence at runtime.
+			name: "user sets zoneAwareLbSetting; default locality retained",
 			yaml: `
 zoneAwareLbSetting:
   enabled: true
 `,
-			wantZoneAware: true,
-			wantZAEnabled: true,
+			wantLocality:   true,
+			wantLocEnabled: true,
+			wantZoneAware:  true,
+			wantZAEnabled:  true,
 		},
 		{
-			name: "user sets localityLbSetting clears any zoneAware",
+			name: "user sets localityLbSetting disabled",
 			yaml: `
 localityLbSetting:
   enabled: false
@@ -311,25 +315,23 @@ localityLbSetting:
 			wantLocality: true,
 		},
 		{
-			name: "user sets both fails validation",
+			// Both set at the mesh level is allowed; neither is cleared.
+			name: "user sets both is allowed at mesh level",
 			yaml: `
 localityLbSetting:
   enabled: true
 zoneAwareLbSetting:
   enabled: true
 `,
-			expectValidation: true,
+			wantLocality:   true,
+			wantLocEnabled: true,
+			wantZoneAware:  true,
+			wantZAEnabled:  true,
 		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := mesh.ApplyMeshConfigDefaults(tt.yaml)
-			if tt.expectValidation {
-				if err == nil {
-					t.Fatalf("expected validation error, got nil")
-				}
-				return
-			}
 			if err != nil {
 				t.Fatalf("ApplyMeshConfigDefaults() failed: %v", err)
 			}

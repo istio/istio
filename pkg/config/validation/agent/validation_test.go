@@ -1146,54 +1146,6 @@ func TestValidateMeshConfig(t *testing.T) {
 	}
 }
 
-func TestValidateMeshConfigZoneAwareMutualExclusivity(t *testing.T) {
-	cases := []struct {
-		name string
-		in   *meshconfig.MeshConfig
-		err  bool
-	}{
-		{
-			name: "neither set is fine",
-			in:   &meshconfig.MeshConfig{DefaultConfig: &meshconfig.ProxyConfig{}},
-		},
-		{
-			name: "only localityLbSetting is fine",
-			in: &meshconfig.MeshConfig{
-				DefaultConfig:     &meshconfig.ProxyConfig{},
-				LocalityLbSetting: &networking.LocalityLoadBalancerSetting{},
-			},
-		},
-		{
-			name: "only zoneAwareLbSetting is fine",
-			in: &meshconfig.MeshConfig{
-				DefaultConfig:      &meshconfig.ProxyConfig{},
-				ZoneAwareLbSetting: &networking.ZoneAwareLoadBalancerSetting{},
-			},
-		},
-		{
-			name: "both set is rejected",
-			in: &meshconfig.MeshConfig{
-				DefaultConfig:      &meshconfig.ProxyConfig{},
-				LocalityLbSetting:  &networking.LocalityLoadBalancerSetting{},
-				ZoneAwareLbSetting: &networking.ZoneAwareLoadBalancerSetting{},
-			},
-			err: true,
-		},
-	}
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			_, err := ValidateMeshConfig(c.in)
-			gotMutExErr := false
-			if err != nil {
-				gotMutExErr = strings.Contains(err.Error(), "only one of localityLbSetting and zoneAwareLbSetting can be set")
-			}
-			if gotMutExErr != c.err {
-				t.Errorf("got mutual-exclusivity error=%v, want=%v (err=%v)", gotMutExErr, c.err, err)
-			}
-		})
-	}
-}
-
 func TestValidateLocalityLbSetting(t *testing.T) {
 	cases := []struct {
 		name    string

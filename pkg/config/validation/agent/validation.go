@@ -870,9 +870,12 @@ func ValidateMeshConfig(mesh *meshconfig.MeshConfig) (Warning, error) {
 		v = AppendValidation(v, ValidateMeshConfigProxyConfig(mesh.DefaultConfig))
 	}
 
-	if mesh.LocalityLbSetting != nil && mesh.ZoneAwareLbSetting != nil {
-		v = AppendValidation(v, fmt.Errorf("only one of localityLbSetting and zoneAwareLbSetting can be set in mesh config"))
-	}
+	// LocalityLbSetting and ZoneAwareLbSetting are not mutually exclusive at the mesh level:
+	// the default mesh config always enables LocalityLbSetting, and load-balancer resolution
+	// (GetEffectiveLbSetting) gives ZoneAwareLbSetting deterministic precedence over
+	// LocalityLbSetting, so a user opting into mesh-wide zone-aware LB simply has locality LB
+	// ignored. The mutual-exclusion check is still enforced for DestinationRule LoadBalancerSettings,
+	// where specifying both in a single policy is a genuine mistake.
 	v = AppendValidation(v, ValidateLocalityLbSetting(mesh.LocalityLbSetting, &networking.OutlierDetection{}))
 	v = AppendValidation(v, ValidateZoneAwareLbSetting(mesh.ZoneAwareLbSetting, &networking.OutlierDetection{}))
 	v = AppendValidation(v, validateServiceSettings(mesh))
