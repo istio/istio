@@ -117,9 +117,8 @@ func ApplyZoneAwareLoadBalancer(
 	locality *core.Locality,
 	proxyLabels map[string]string,
 	zoneAwareLB *v1alpha3.ZoneAwareLoadBalancerSetting,
-	enableFailover bool,
 ) {
-	if zoneAwareLB == nil || loadAssignment == nil || !enableFailover {
+	if zoneAwareLB == nil || loadAssignment == nil {
 		return
 	}
 	if len(zoneAwareLB.FailoverPriority) > 0 {

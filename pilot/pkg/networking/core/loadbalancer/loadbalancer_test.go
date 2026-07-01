@@ -1208,7 +1208,7 @@ func TestApplyZoneAwareLoadBalancer(t *testing.T) {
 	t.Run("zone-aware without explicit failover still region-buckets", func(t *testing.T) {
 		c := buildFakeCluster()
 		za := &networking.ZoneAwareLoadBalancerSetting{Enabled: wrappers.Bool(true)}
-		ApplyZoneAwareLoadBalancer(c.LoadAssignment, nil, proxyLocality, nil, za, true)
+		ApplyZoneAwareLoadBalancer(c.LoadAssignment, nil, proxyLocality, nil, za)
 		// Default behavior mirrors locality LB: same-region endpoints at p0, others compacted to p1,
 		// so Envoy zone-aware LB only balances zones inside the proxy's region.
 		want := []uint32{0, 0, 0, 0, 0, 1, 1}
@@ -1220,25 +1220,12 @@ func TestApplyZoneAwareLoadBalancer(t *testing.T) {
 		}
 	})
 
-	t.Run("enableFailover=false leaves CLA untouched", func(t *testing.T) {
-		c := buildFakeCluster()
-		za := &networking.ZoneAwareLoadBalancerSetting{
-			Failover: []*networking.ZoneAwareLoadBalancerSetting_Failover{{From: "region1", To: "region2"}},
-		}
-		ApplyZoneAwareLoadBalancer(c.LoadAssignment, nil, proxyLocality, nil, za, false)
-		for i, ep := range c.LoadAssignment.Endpoints {
-			if ep.Priority != 0 {
-				t.Fatalf("endpoint[%d] priority %d; want 0 when enableFailover=false", i, ep.Priority)
-			}
-		}
-	})
-
 	t.Run("zone-aware Failover keeps same-region endpoints at priority 0", func(t *testing.T) {
 		c := buildFakeCluster()
 		za := &networking.ZoneAwareLoadBalancerSetting{
 			Failover: []*networking.ZoneAwareLoadBalancerSetting_Failover{{From: "region1", To: "region2"}},
 		}
-		ApplyZoneAwareLoadBalancer(c.LoadAssignment, nil, proxyLocality, nil, za, true)
+		ApplyZoneAwareLoadBalancer(c.LoadAssignment, nil, proxyLocality, nil, za)
 		// All region1 endpoints (any zone/subzone) → 0, failover-matched region2 → 1, region3 → 2.
 		// This is the shape Envoy zone-aware LB needs: priority 0 spans every same-region zone.
 		want := []uint32{0, 0, 0, 0, 0, 1, 2}
@@ -1256,7 +1243,7 @@ func TestApplyZoneAwareLoadBalancer(t *testing.T) {
 		za := &networking.ZoneAwareLoadBalancerSetting{
 			Failover: []*networking.ZoneAwareLoadBalancerSetting_Failover{{From: "region9", To: "region2"}},
 		}
-		ApplyZoneAwareLoadBalancer(c.LoadAssignment, nil, proxyLocality, nil, za, true)
+		ApplyZoneAwareLoadBalancer(c.LoadAssignment, nil, proxyLocality, nil, za)
 		// region1 → 0, region2 + region3 → compacted to 1.
 		want := []uint32{0, 0, 0, 0, 0, 1, 1}
 		for i, ep := range c.LoadAssignment.Endpoints {
@@ -1277,7 +1264,7 @@ func TestApplyZoneAwareLoadBalancer(t *testing.T) {
 			"topology.istio.io/network": "n1",
 			"topology.istio.io/cluster": "c1",
 		}
-		ApplyZoneAwareLoadBalancer(c.LoadAssignment, wrapped, proxyLocality, proxyLabels, za, true)
+		ApplyZoneAwareLoadBalancer(c.LoadAssignment, wrapped, proxyLocality, proxyLabels, za)
 		// applyFailoverPriorities reshapes Endpoints. We just confirm the slice is non-empty
 		// and the priority math ran (some endpoint at priority 0).
 		if len(c.LoadAssignment.Endpoints) == 0 {
@@ -1297,7 +1284,7 @@ func TestApplyZoneAwareLoadBalancer(t *testing.T) {
 
 	t.Run("nil CLA is a no-op", func(t *testing.T) {
 		za := &networking.ZoneAwareLoadBalancerSetting{Enabled: wrappers.Bool(true)}
-		ApplyZoneAwareLoadBalancer(nil, nil, proxyLocality, nil, za, true)
+		ApplyZoneAwareLoadBalancer(nil, nil, proxyLocality, nil, za)
 	})
 }
 

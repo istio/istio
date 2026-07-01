@@ -304,7 +304,7 @@ func applyLoadBalancer(
 	if zoneAwareLbSetting != nil && proxyType != model.Waypoint {
 		applyZoneAwareLoadBalancer(
 			locality, proxyLabels, c, wrappedLocalityLbEndpoints, zoneAwareLbSetting,
-			forceFailover, proxyID, enableSelfDiscovery,
+			proxyID, enableSelfDiscovery,
 		)
 	} else {
 		applyLocalityLoadBalancer(locality, proxyLabels, c, wrappedLocalityLbEndpoints, localityLbSetting, forceFailover)
@@ -351,7 +351,6 @@ func applyZoneAwareLoadBalancer(
 	c *cluster.Cluster,
 	wrappedLocalityLbEndpoints *loadbalancer.WrappedLocalityLbEndpoints,
 	zoneAwareLB *networking.ZoneAwareLoadBalancerSetting,
-	failover bool,
 	proxyID string,
 	enableSelfDiscovery bool,
 ) {
@@ -363,13 +362,12 @@ func applyZoneAwareLoadBalancer(
 			MinClusterSize: zoneAwareLB.GetMinClusterSize(),
 		},
 	}
-	enableFailover := failover || c.OutlierDetection != nil
 	if c.LoadAssignment != nil {
 		var wrapped []*loadbalancer.WrappedLocalityLbEndpoints
 		if wrappedLocalityLbEndpoints != nil {
 			wrapped = []*loadbalancer.WrappedLocalityLbEndpoints{wrappedLocalityLbEndpoints}
 		}
-		loadbalancer.ApplyZoneAwareLoadBalancer(c.LoadAssignment, wrapped, locality, proxyLabels, zoneAwareLB, enableFailover)
+		loadbalancer.ApplyZoneAwareLoadBalancer(c.LoadAssignment, wrapped, locality, proxyLabels, zoneAwareLB)
 	}
 }
 

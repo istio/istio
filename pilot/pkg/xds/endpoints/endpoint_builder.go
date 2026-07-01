@@ -482,7 +482,7 @@ func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.Endpoi
 			}
 		}
 		if applyZoneAware {
-			loadbalancer.ApplyZoneAwareLoadBalancer(l, wrappedLocalityLbEndpoints, b.locality, b.proxy.Labels, zoneAwareSetting, enableFailover)
+			loadbalancer.ApplyZoneAwareLoadBalancer(l, wrappedLocalityLbEndpoints, b.locality, b.proxy.Labels, zoneAwareSetting)
 		} else {
 			loadbalancer.ApplyLocalityLoadBalancer(l, wrappedLocalityLbEndpoints, b.locality, b.proxy.Labels, lbSetting, enableFailover)
 		}
