@@ -278,6 +278,8 @@ func parseClusterName(clusterName string, proxy *model.Proxy) (model.TrafficDire
 		if proxy.LocalService.Name == "" {
 			return model.TrafficDirectionOutbound, "", "", 0
 		}
+
+		// if proxy.LocalService exists, proxy.ServiceTargets should have at least one entry, and the first entry should be the same as proxy.LocalService
 		return model.TrafficDirectionOutbound, "", host.Name(proxy.LocalService.Name), proxy.ServiceTargets[0].Port.Port
 	}
 
