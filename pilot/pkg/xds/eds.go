@@ -221,8 +221,7 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 		isSelfDiscoveryCluster := clusterName == util.SelfDiscoveryCluster
 		var dr *model.ConsolidatedDestRule
 		if svc != nil && !isSelfDiscoveryCluster {
-			// disable DR lookup for self discovery cluster, as it's only used for zone-aware routing math,
-			// and we want to return the full endpoint distribution of the proxy's own service.
+			// disable DR lookup for self discovery cluster, we don't need to apply subsetting or traffic policies.
 			dr = proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, svc.Hostname)
 		}
 
@@ -277,8 +276,7 @@ func parseClusterName(clusterName string, proxy *model.Proxy) (model.TrafficDire
 			return model.TrafficDirectionOutbound, "", "", 0
 		}
 
-		// if proxy.LocalService exists, proxy.ServiceTargets should have at least one entry, and the first entry should be the same as proxy.LocalService
-		return model.TrafficDirectionOutbound, "", host.Name(proxy.LocalService.Name), proxy.ServiceTargets[0].Port.Port
+		return model.TrafficDirectionOutbound, "", host.Name(proxy.LocalService.Name), proxy.LocalService.Port
 	}
 
 	return model.ParseSubsetKey(clusterName)

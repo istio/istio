@@ -18,8 +18,6 @@ import (
 	"fmt"
 	"testing"
 
-	"k8s.io/apimachinery/pkg/types"
-
 	mesh "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	security "istio.io/api/security/v1beta1"
@@ -535,8 +533,8 @@ func TestProxyNeedsPushServiceTargets(t *testing.T) {
 					Attributes: model.ServiceAttributes{Namespace: ns},
 				}},
 			},
-			LocalService:     types.NamespacedName{Name: ownSvc, Namespace: ns},
-			PrevLocalService: types.NamespacedName{Name: prevSvc, Namespace: ns},
+			LocalService:     model.LocalServiceInfo{Name: ownSvc, Namespace: ns},
+			PrevLocalService: model.LocalServiceInfo{Name: prevSvc, Namespace: ns},
 		}
 	}
 

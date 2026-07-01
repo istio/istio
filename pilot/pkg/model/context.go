@@ -303,6 +303,14 @@ type XdsDeltaResourceGenerator interface {
 	GenerateDeltas(proxy *Proxy, req *PushRequest, w *WatchedResource) (Resources, DeletedResources, XdsLogDetails, bool, error)
 }
 
+// LocalServiceInfo identifies the local service associated with a proxy: the service's
+// hostname, namespace, and the port used to model the proxy's self-discovery local_cluster.
+type LocalServiceInfo struct {
+	Name      string
+	Namespace string
+	Port      int
+}
+
 // Proxy contains information about an specific instance of a proxy (envoy sidecar, gateway,
 // etc). The Proxy is initialized when a sidecar connects to Pilot, and populated from
 // 'node' info in the protocol as well as data extracted from registries.
@@ -365,14 +373,15 @@ type Proxy struct {
 	// would have 6 entries.
 	ServiceTargets []ServiceTarget
 
-	// LocalService is the namespaced hostname of the local service associated with the proxy. It is
-	// populated in SetServiceTargets from the first entry in ServiceTargets, or the zero value if
-	// there is none. The Name field holds the service hostname and Namespace its namespace.
-	LocalService types.NamespacedName
+	// LocalService identifies the local service associated with the proxy. It is populated in
+	// SetServiceTargets from the first entry in ServiceTargets, or the zero value if there is none.
+	// Carrying the port here avoids re-deriving it from ServiceTargets when building the
+	// self-discovery local_cluster, and lets incremental pushes detect port changes.
+	LocalService LocalServiceInfo
 
 	// PrevLocalService is the value of LocalService prior to the most recent SetServiceTargets call,
 	// used to detect local-service transitions during incremental pushes.
-	PrevLocalService types.NamespacedName
+	PrevLocalService LocalServiceInfo
 
 	// Istio version associated with the Proxy
 	IstioVersion *IstioVersion
@@ -618,11 +627,12 @@ func (node *Proxy) SetServiceTargets(serviceDiscovery ServiceDiscovery) {
 	})
 
 	node.PrevLocalService = node.LocalService
-	node.LocalService = types.NamespacedName{}
+	node.LocalService = LocalServiceInfo{}
 	if len(instances) > 0 {
-		node.LocalService = types.NamespacedName{
+		node.LocalService = LocalServiceInfo{
 			Name:      string(instances[0].Service.Hostname),
 			Namespace: instances[0].Service.Attributes.Namespace,
+			Port:      instances[0].Port.Port,
 		}
 	}
 	node.ServiceTargets = instances
