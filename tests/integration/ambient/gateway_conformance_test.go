@@ -107,35 +107,37 @@ func TestGatewayConformance(t *testing.T) {
 			istioVersion, _ := env.ReadVersion()
 			supported := gateway.SupportedFeatures.Clone().Delete(gwfeatures.MeshConsumerRouteFeature)
 			opts := suite.ConformanceOptions{
-				Client:                   c,
-				ClientOptions:            clientOptions,
-				Clientset:                gatewayConformanceInputs.Client.Kube(),
-				RestConfig:               gatewayConformanceInputs.Client.RESTConfig(),
-				GatewayClassName:         "istio",
-				Debug:                    scopes.Framework.DebugEnabled(),
-				CleanupBaseResources:     gatewayConformanceInputs.Cleanup,
-				ManifestFS:               []fs.FS{&conformance.Manifests},
-				SupportedFeatures:        gwfeatures.SetsToNamesSet(supported),
-				SkipTests:                maps.Keys(skippedTests),
-				UsableNetworkAddresses:   []v1.GatewaySpecAddress{{Value: "infra-backend-v1.gateway-conformance-infra.svc.cluster.local", Type: &hostnameType}},
-				UnusableNetworkAddresses: []v1.GatewaySpecAddress{{Value: "foo", Type: &hostnameType}},
-				ConformanceProfiles: k8ssets.New(
-					suite.GatewayHTTPConformanceProfileName,
-					suite.GatewayTLSConformanceProfileName,
-					suite.GatewayGRPCConformanceProfileName,
-					suite.MeshHTTPConformanceProfileName,
-				),
-				Implementation: confv1.Implementation{
-					Organization: "istio",
-					Project:      "istio",
-					URL:          "https://istio.io/",
-					Version:      istioVersion,
-					Contact:      []string{"@istio/maintainers"},
+				Client:        c,
+				ClientOptions: clientOptions,
+				Clientset:     gatewayConformanceInputs.Client.Kube(),
+				RestConfig:    gatewayConformanceInputs.Client.RESTConfig(),
+				ManifestFS:    []fs.FS{&conformance.Manifests},
+				ConfigurableOptions: suite.ConfigurableOptions{
+					GatewayClassName:         "istio",
+					Debug:                    scopes.Framework.DebugEnabled(),
+					CleanupBaseResources:     gatewayConformanceInputs.Cleanup,
+					SupportedFeatures:        gwfeatures.SetsToNamesSet(supported).UnsortedList(),
+					SkipTests:                maps.Keys(skippedTests),
+					UsableNetworkAddresses:   []v1.GatewaySpecAddress{{Value: "infra-backend-v1.gateway-conformance-infra.svc.cluster.local", Type: &hostnameType}},
+					UnusableNetworkAddresses: []v1.GatewaySpecAddress{{Value: "foo", Type: &hostnameType}},
+					ConformanceProfiles: k8ssets.New(
+						suite.GatewayHTTPConformanceProfileName,
+						suite.GatewayTLSConformanceProfileName,
+						suite.GatewayGRPCConformanceProfileName,
+						suite.MeshHTTPConformanceProfileName,
+					).UnsortedList(),
+					Implementation: confv1.Implementation{
+						Organization: "istio",
+						Project:      "istio",
+						URL:          "https://istio.io/",
+						Version:      istioVersion,
+						Contact:      []string{"@istio/maintainers"},
+					},
+					NamespaceLabels: map[string]string{
+						label.IoIstioDataplaneMode.Name: "ambient",
+					},
+					TimeoutConfig: ctx.Settings().GatewayConformanceTimeoutConfig,
 				},
-				NamespaceLabels: map[string]string{
-					label.IoIstioDataplaneMode.Name: "ambient",
-				},
-				TimeoutConfig: ctx.Settings().GatewayConformanceTimeoutConfig,
 			}
 			if ctx.Settings().GatewayConformanceAllowCRDsMismatch {
 				opts.AllowCRDsMismatch = true
