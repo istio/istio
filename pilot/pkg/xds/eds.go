@@ -221,10 +221,8 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 		isSelfDiscoveryCluster := clusterName == util.SelfDiscoveryCluster
 		var dr *model.ConsolidatedDestRule
 		if svc != nil && !isSelfDiscoveryCluster {
-			// TODO: disable DR lookup for local_cluster, as it's only used for zone-aware routing math,
+			// disable DR lookup for local_cluster, as it's only used for zone-aware routing math,
 			// and we want to return the full locality distribution of the proxy's own service.
-			// We may want to enable this in the future, mainly to correctly create priorities when using failovers,
-			// which might improve traffic calculations if using sub-region failovers.
 			dr = proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, svc.Hostname)
 		}
 
