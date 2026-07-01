@@ -58,8 +58,9 @@ const (
 //     ISTIO_META_ENABLE_SELF_DISCOVERY=true) resolve to a real service, exercising
 //     that side of the feature.
 //   - ZoneAwareSvc: the target ServiceEntry that selects WorkloadEntries by label.
-//     The DR enables ZoneAwareLbSetting with MinClusterSize=1 so Envoy zone-aware
-//     LB engages even with a single endpoint per zone.
+//     The DR enables ZoneAwareLbSetting with a configurable MinClusterSize (default 1,
+//     so Envoy zone-aware LB engages even with a single endpoint per zone). Raising it
+//     above the destination cluster's host count makes Envoy disable zone-aware routing.
 const zoneAwareConfig = `
 apiVersion: networking.istio.io/v1
 kind: ServiceEntry
@@ -110,7 +111,7 @@ spec:
     loadBalancer:
       zoneAwareLbSetting:
         enabled: true
-        minClusterSize: 1
+        minClusterSize: {{ .MinClusterSize }}
 {{ range $i, $we := .LocalClusterWorkloads }}
 ---
 apiVersion: networking.istio.io/v1
@@ -155,6 +156,7 @@ type zoneAwareInput struct {
 	LocalClusterWorkloads    []weEntry
 	DestinationWorkloads     []weEntry
 	WithOutlierDetection     bool
+	MinClusterSize           int
 }
 
 func TestZoneAwareLoadBalancer(t *testing.T) {
@@ -183,6 +185,7 @@ func TestZoneAwareLoadBalancer(t *testing.T) {
 				localClusterWorkloads []weEntry
 				destinationWorkloads  []weEntry
 				withOutlierDetection  bool
+				minClusterSize        int
 				expected              map[string]int
 			}{
 				{
@@ -213,6 +216,26 @@ func TestZoneAwareLoadBalancer(t *testing.T) {
 						{Address: destC.Address(), Locality: sameRegionZone2Locality},
 					},
 					expected: expectAllTrafficTo(destB.Config().Service),
+				},
+				{
+					// Same setup as TwoSourceZonesTwoDestinationEndpointsMatchingSourceZones, which
+					// normally pins all traffic to the same-zone endpoint (destB). Raising
+					// minClusterSize above the destination cluster's host count makes Envoy disable
+					// zone-aware routing at runtime (the cluster is smaller than the configured
+					// threshold), so traffic falls back to an even split across both same-region zones.
+					// istiod still emits ZoneAwareLbConfig, so assertZoneAwareConfig continues to pass;
+					// only the runtime distribution changes.
+					name:                  "HighMinClusterSizeDisablesZoneAwareRouting",
+					localClusterWorkloads: twoLocalClusterZones,
+					destinationWorkloads: []weEntry{
+						{Address: destB.Address(), Locality: localLocality},
+						{Address: destC.Address(), Locality: sameRegionZone2Locality},
+					},
+					minClusterSize: 10,
+					expected: map[string]int{
+						destB.Config().Service: sendCount / 2,
+						destC.Config().Service: sendCount / 2,
+					},
 				},
 				{
 					name:                  "TwoSourceZonesTwoDestinationEndpointsDifferentSourceZones",
@@ -273,6 +296,10 @@ func TestZoneAwareLoadBalancer(t *testing.T) {
 			for i, tc := range cases {
 				t.NewSubTest(tc.name).Run(func(t framework.TestContext) {
 					hostSuffix := fmt.Sprintf("case-%d", i)
+					minClusterSize := tc.minClusterSize
+					if minClusterSize == 0 {
+						minClusterSize = 1
+					}
 					input := zoneAwareInput{
 						LocalHost:                fmt.Sprintf("local-%s.example.com", hostSuffix),
 						RemoteHost:               fmt.Sprintf("zone-aware-%s.example.com", hostSuffix),
@@ -281,6 +308,7 @@ func TestZoneAwareLoadBalancer(t *testing.T) {
 						LocalClusterWorkloads:    tc.localClusterWorkloads,
 						DestinationWorkloads:     tc.destinationWorkloads,
 						WithOutlierDetection:     tc.withOutlierDetection,
+						MinClusterSize:           minClusterSize,
 					}
 					t.ConfigIstio().
 						Eval(apps.Namespace.Name(), input, zoneAwareConfig).
