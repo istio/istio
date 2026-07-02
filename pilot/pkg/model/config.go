@@ -265,9 +265,8 @@ func resolveGatewayName(gwname string, meta config.Meta) string {
 		}
 	} else {
 		// remove the . from ./gateway and substitute it with the namespace name
-		i := strings.Index(gwname, "/")
-		if gwname[:i] == "." {
-			out = meta.Namespace + "/" + gwname[i+1:]
+		if before, after, _ := strings.Cut(gwname, "/"); before == "." {
+			out = meta.Namespace + "/" + after
 		}
 	}
 	return out

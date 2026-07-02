@@ -580,9 +580,8 @@ func createWorkloadEntry(name, namespace string, spec *networking.WorkloadEntry)
 
 func convertPortNameToProtocol(name string) protocol.Instance {
 	prefix := name
-	i := strings.Index(name, "-")
-	if i >= 0 {
-		prefix = name[:i]
+	if before, _, ok := strings.Cut(name, "-"); ok {
+		prefix = before
 	}
 	return protocol.Parse(prefix)
 }
