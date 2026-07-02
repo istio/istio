@@ -138,7 +138,7 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n in
 
 	// create configuration objects
 	elts := make(map[int]config2.Config)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		elts[i] = Make(namespace, i)
 	}
 	log.Info("Make mock objects")
@@ -242,7 +242,7 @@ func CheckMapInvariant(r model.ConfigStore, t *testing.T, namespace string, n in
 	}
 
 	// update all elements
-	for i := 0; i < n; i++ {
+	for i := range n {
 		elt := Make(namespace, i)
 		elt.Spec.(*config.MockConfig).Pairs[0].Value += "(updated)"
 		elt.ResourceVersion = revs[i]
@@ -422,7 +422,7 @@ func CheckCacheFreshness(cache model.ConfigStoreController, namespace string, t 
 func CheckCacheSync(store model.ConfigStore, cache model.ConfigStoreController, namespace string, n int, t *testing.T) {
 	keys := make(map[int]config2.Config)
 	// add elements directly through client
-	for i := 0; i < n; i++ {
+	for i := range n {
 		keys[i] = Make(namespace, i)
 		if _, err := store.Create(keys[i]); err != nil {
 			t.Error(err)
@@ -440,7 +440,7 @@ func CheckCacheSync(store model.ConfigStore, cache model.ConfigStoreController, 
 	}
 
 	// remove elements directly through client
-	for i := 0; i < n; i++ {
+	for i := range n {
 		if err := store.Delete(mockGvk, keys[i].Name, keys[i].Namespace, nil); err != nil {
 			t.Error(err)
 		}
@@ -454,7 +454,7 @@ func CheckCacheSync(store model.ConfigStore, cache model.ConfigStoreController, 
 	}, retry.Message("no elements in cache"))
 
 	// now add through the controller
-	for i := 0; i < n; i++ {
+	for i := range n {
 		if _, err := cache.Create(Make(namespace, i)); err != nil {
 			t.Error(err)
 		}
@@ -470,7 +470,7 @@ func CheckCacheSync(store model.ConfigStore, cache model.ConfigStoreController, 
 	}, retry.Message("cache and backing store match"))
 
 	// remove elements directly through the client
-	for i := 0; i < n; i++ {
+	for i := range n {
 		if err := store.Delete(mockGvk, keys[i].Name, keys[i].Namespace, nil); err != nil {
 			t.Error(err)
 		}

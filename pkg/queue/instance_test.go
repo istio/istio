@@ -37,7 +37,7 @@ func TestOrdering(t *testing.T) {
 	wg.Add(numValues)
 	mu := sync.Mutex{}
 	out := make([]int, 0)
-	for i := 0; i < numValues; i++ {
+	for i := range numValues {
 		q.Push(func() error {
 			mu.Lock()
 			out = append(out, i)
@@ -59,7 +59,7 @@ func TestOrdering(t *testing.T) {
 		t.Fatalf("expected output array length %d to equal %d", len(out), numValues)
 	}
 
-	for i := 0; i < numValues; i++ {
+	for i := range numValues {
 		if i != out[i] {
 			t.Fatalf("expected out[%d] %v to equal %v", i, out[i], i)
 		}

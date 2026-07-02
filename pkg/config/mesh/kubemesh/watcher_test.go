@@ -145,7 +145,7 @@ func TestExtraConfigmap(t *testing.T) {
 		}
 		assertMeshConfig(t, w, "init")
 		errCh := make(chan error, 2)
-		for i := 0; i < 100; i++ {
+		for i := range 100 {
 			t.Log("iter", i)
 			write := fmt.Sprint(i)
 			wg := sync.WaitGroup{}

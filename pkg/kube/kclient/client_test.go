@@ -159,7 +159,7 @@ func TestSwappingClient(t *testing.T) {
 			cl.Create(&istioclient.WasmPlugin{
 				ObjectMeta: metav1.ObjectMeta{Name: "name", Namespace: "default"},
 			})
-			for attempt := 0; attempt < 10; attempt++ {
+			for range 10 {
 				l := wasm.List("", klabels.Everything())
 				if len(l) == 1 {
 					return nil

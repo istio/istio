@@ -364,7 +364,7 @@ func TestGetProxyServiceTargets(t *testing.T) {
 
 	// Creates 100 endpoints that refers to a pod in a different namespace.
 	fakeSvcCounts := 100
-	for i := 0; i < fakeSvcCounts; i++ {
+	for i := range fakeSvcCounts {
 		svcName := fmt.Sprintf("svc-fake-%d", i)
 		createServiceWait(controller, svcName, "nsfake", []string{"10.0.0.1", "10.0.0.2"}, nil,
 			map[string]string{
@@ -1288,7 +1288,7 @@ func TestController_ServiceWithChangingDiscoveryNamespaces(t *testing.T) {
 		testMeshWatcher.Set(meshConfig)
 
 		// assert firing of service events
-		for i := 0; i < expectedNumSvcEvents; i++ {
+		for range expectedNumSvcEvents {
 			fx.WaitOrFail(t, "service")
 		}
 
@@ -1464,7 +1464,7 @@ func TestControllerResourceScoping(t *testing.T) {
 		testMeshWatcher.Set(meshConfig)
 
 		// assert firing of service events
-		for i := 0; i < expectedNumSvcEvents; i++ {
+		for range expectedNumSvcEvents {
 			fx.WaitOrFail(t, "service")
 		}
 

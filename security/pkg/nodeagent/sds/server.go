@@ -89,7 +89,7 @@ func (s *Server) initWorkloadSdsService(opts *security.Options) {
 		sdsServiceLog.Info("Starting SDS grpc server")
 		waitTime := time.Second
 		started := false
-		for i := 0; i < maxRetryTimes; i++ {
+		for range maxRetryTimes {
 			if s.stopped.Load() {
 				return
 			}

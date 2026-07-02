@@ -352,7 +352,7 @@ func TestConcurrentCreateSelfSignedIstioCA(t *testing.T) {
 	rootCertCh := make(chan []byte, parallel)
 	privateKeyCh := make(chan []byte, parallel)
 
-	for i := 0; i < parallel; i++ {
+	for range parallel {
 		go func() {
 			defer wg.Done()
 			// succeed creating a self-signed cert

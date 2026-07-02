@@ -164,7 +164,7 @@ func TestOpts(t *testing.T) {
 		}},
 	}
 
-	for j := 0; j < 2; j++ {
+	for j := range 2 {
 		for i, c := range cases {
 			t.Run(strconv.Itoa(j*100+i), func(t *testing.T) {
 				o := DefaultOptions()

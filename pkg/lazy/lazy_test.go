@@ -89,7 +89,7 @@ func TestLazyRetry(t *testing.T) {
 	wg.Add(10)
 	results := []int32{}
 	resCh := make(chan int32, 10)
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		go func() {
 			res, err := l.Get()
 			if res >= 6 {
@@ -125,7 +125,7 @@ func TestLazy(t *testing.T) {
 	wg.Add(10)
 	results := []int32{}
 	resCh := make(chan int32, 10)
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		go func() {
 			res, err := l.Get()
 			if res >= 6 {
