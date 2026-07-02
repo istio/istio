@@ -84,6 +84,11 @@ type inboundChainConfig struct {
 	// hbone determines if this is coming from an HBONE request originally
 	hbone bool
 
+	// transportProtocol is the transport protocol of the filter chain match option
+	// that produced this chain (e.g. "tls" or "raw_buffer"). Used to disambiguate
+	// stat_prefix when multiple filter chains share the same base prefix.
+	transportProtocol string
+
 	// telemetryMetadata defines additional information about the chain for telemetry purposes.
 	telemetryMetadata telemetry.FilterChainMetadata
 
@@ -102,6 +107,9 @@ func (cc inboundChainConfig) StatPrefix() string {
 		statPrefix = cc.clusterName
 	} else {
 		statPrefix = "inbound_" + cc.Name(istionetworking.ListenerProtocolHTTP)
+	}
+	if cc.transportProtocol == xdsfilters.RawBufferTransportProtocol {
+		statPrefix += "_plaintext"
 	}
 
 	statPrefix = util.DelimitedStatsPrefix(statPrefix)
@@ -327,23 +335,25 @@ func (lb *ListenerBuilder) buildInboundListener(name string, addresses []string,
 func (lb *ListenerBuilder) inboundChainForOpts(cc inboundChainConfig, mtls authn.MTLSSettings, opts []FilterChainMatchOptions) []*listener.FilterChain {
 	chains := make([]*listener.FilterChain, 0, len(opts))
 	for _, opt := range opts {
+		chainCC := cc
+		chainCC.transportProtocol = opt.TransportProtocol
 		var filterChain *listener.FilterChain
 		switch opt.Protocol {
 		// Switch on the protocol. Note: we do not need to handle Auto protocol as it will already be split into a TCP and HTTP option.
 		case istionetworking.ListenerProtocolHTTP:
 			filterChain = &listener.FilterChain{
-				FilterChainMatch: cc.ToFilterChainMatch(opt),
-				Filters:          lb.buildInboundNetworkFiltersForHTTP(cc),
+				FilterChainMatch: chainCC.ToFilterChainMatch(opt),
+				Filters:          lb.buildInboundNetworkFiltersForHTTP(chainCC),
 				TransportSocket:  buildDownstreamTLSTransportSocket(opt.ToTransportSocket(mtls)),
-				Name:             cc.Name(opt.Protocol),
+				Name:             chainCC.Name(opt.Protocol),
 			}
 
 		case istionetworking.ListenerProtocolTCP:
 			filterChain = &listener.FilterChain{
-				FilterChainMatch: cc.ToFilterChainMatch(opt),
-				Filters:          lb.buildInboundNetworkFilters(cc),
+				FilterChainMatch: chainCC.ToFilterChainMatch(opt),
+				Filters:          lb.buildInboundNetworkFilters(chainCC),
 				TransportSocket:  buildDownstreamTLSTransportSocket(opt.ToTransportSocket(mtls)),
-				Name:             cc.Name(opt.Protocol),
+				Name:             chainCC.Name(opt.Protocol),
 			}
 
 		}
@@ -894,6 +904,9 @@ func (lb *ListenerBuilder) buildInboundNetworkFilters(fcc inboundChainConfig) []
 	// If stat name is configured, build the stat prefix from configured pattern.
 	if len(lb.push.Mesh.InboundClusterStatName) != 0 {
 		statPrefix = telemetry.BuildInboundStatPrefix(lb.push.Mesh.InboundClusterStatName, fcc.telemetryMetadata, "", uint32(fcc.port.Port), fcc.port.Name)
+	}
+	if fcc.transportProtocol == xdsfilters.RawBufferTransportProtocol {
+		statPrefix += "_plaintext"
 	}
 	tcpProxy := &tcp.TcpProxy{
 		StatPrefix:       statPrefix,

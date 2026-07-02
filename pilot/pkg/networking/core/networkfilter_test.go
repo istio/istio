@@ -74,17 +74,38 @@ func TestInboundNetworkFilterStatPrefix(t *testing.T) {
 	cases := []struct {
 		name               string
 		statPattern        string
+		transportProtocol  string
 		expectedStatPrefix string
 	}{
 		{
 			"no pattern",
+			"",
 			"",
 			"inbound|8888||",
 		},
 		{
 			"service only pattern",
 			"%SERVICE%",
+			"",
 			"v0.default.example.org",
+		},
+		{
+			"no pattern with raw_buffer transport",
+			"",
+			"raw_buffer",
+			"inbound|8888||_plaintext",
+		},
+		{
+			"service only pattern with raw_buffer transport",
+			"%SERVICE%",
+			"raw_buffer",
+			"v0.default.example.org_plaintext",
+		},
+		{
+			"no pattern with tls transport",
+			"",
+			"tls",
+			"inbound|8888||",
 		},
 	}
 
@@ -107,6 +128,7 @@ func TestInboundNetworkFilterStatPrefix(t *testing.T) {
 				port: model.ServiceInstancePort{
 					ServicePort: &model.Port{},
 				},
+				transportProtocol: tt.transportProtocol,
 			}
 
 			listenerFilters := NewListenerBuilder(cg.SetupProxy(nil), cg.PushContext()).buildInboundNetworkFilters(fcc)

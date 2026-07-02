@@ -1259,6 +1259,7 @@ func TestInboundHTTPListenerConfig(t *testing.T) {
 						{
 							TotalMatch: true,
 							Port:       8080,
+							Type:       listenertest.MTLSHTTP,
 							HTTPFilters: []string{
 								xdsfilters.MxFilterName, xdsfilters.GrpcStats.Name, xdsfilters.Fault.Name,
 								xdsfilters.Cors.Name, wellknown.Router,
