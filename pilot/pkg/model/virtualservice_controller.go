@@ -15,6 +15,8 @@
 package model
 
 import (
+	"slices"
+
 	"k8s.io/apimachinery/pkg/types"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -32,7 +34,7 @@ import (
 type MeshConfig = meshwatcher.MeshConfigResource
 
 type Outputs struct {
-	MergedVirtualServices krt.Collection[config.Config]
+	MergedVirtualServices krt.Collection[MergedVirtualService]
 }
 
 type VSControllerOptions struct {
@@ -82,6 +84,7 @@ func NewVirtualServiceController(
 	MergedVirtualServices := mergeVirtualServices(
 		VirtualServices,
 		DelegateVirtualServices,
+		DefaultExportTo.AsCollection(),
 		opts,
 	)
 
@@ -100,14 +103,14 @@ func NewVirtualServiceController(
 // logic as NeedsPush: skip updates where the spec is unchanged AND no istio.io
 // label/annotation changed. Non-istio.io metadata changes (Helm, Argo CD,
 // kubectl annotations) are not sufficient to trigger a push.
-func (c *VirtualServiceController) xdsPush(events []krt.Event[config.Config]) {
+func (c *VirtualServiceController) xdsPush(events []krt.Event[MergedVirtualService]) {
 	if c.xdsUpdater == nil {
 		return
 	}
 
 	cu := sets.New[ConfigKey]()
 	for _, e := range events {
-		if e.Old != nil && e.New != nil && !NeedsPush(*e.Old, *e.New) {
+		if e.Old != nil && e.New != nil && !NeedsPush(e.Old.Config, e.New.Config) {
 			continue
 		}
 		for _, vs := range e.Items() {
@@ -129,11 +132,11 @@ func (c *VirtualServiceController) xdsPush(events []krt.Event[config.Config]) {
 	})
 }
 
-func (c *VirtualServiceController) MergedVirtualServices() []config.Config {
-	return sortConfigByCreationTime(c.outputs.MergedVirtualServices.List())
+func (c *VirtualServiceController) MergedVirtualServices() []MergedVirtualService {
+	return sortMergedVirtualServicesByCreationTime(c.outputs.MergedVirtualServices.List())
 }
 
-func (c *VirtualServiceController) Collection() krt.Collection[config.Config] {
+func (c *VirtualServiceController) Collection() krt.Collection[MergedVirtualService] {
 	return c.outputs.MergedVirtualServices
 }
 
@@ -249,33 +252,82 @@ func defaultExportTo(
 	}, opts.WithName("DefaultExportTo")...)
 }
 
+type MergedVirtualService struct {
+	config.Config
+	ExportTo sets.Set[visibility.Instance]
+}
+
+func (m MergedVirtualService) ResourceName() string {
+	return m.Namespace + "/" + m.Name
+}
+
+func (m MergedVirtualService) Equals(other MergedVirtualService) bool {
+	return m.Config.Equals(&other.Config)
+}
+
 func mergeVirtualServices(
 	virtualServices krt.Collection[config.Config],
 	delegateVirtualServices krt.Collection[DelegateVirtualService],
+	defaultExportTo krt.Collection[DefaultExportToSet],
 	opts krt.OptionsBuilder,
-) krt.Collection[config.Config] {
-	return krt.NewCollection(virtualServices, func(ctx krt.HandlerContext, cfg config.Config) *config.Config {
+) krt.Collection[MergedVirtualService] {
+	return krt.NewCollection(virtualServices, func(ctx krt.HandlerContext, cfg config.Config) *MergedVirtualService {
 		// this is a Delegate VS, we won't add these to the collection directly
-		if len(cfg.Spec.(*networking.VirtualService).Hosts) == 0 {
+		spec := cfg.Spec.(*networking.VirtualService)
+		if len(spec.Hosts) == 0 {
 			return nil
 		}
 
 		// if this is a Gateway VS, we don't need to perform any merging or short name resolving
 		if UseGatewaySemantics(cfg) {
-			return &cfg
+			exportToSet := convertExportToSet(spec.ExportTo, cfg.Namespace)
+			if len(exportToSet) == 0 {
+				defaultExportTo := krt.FetchOne(ctx, defaultExportTo).Set
+				exportToSet = sets.NewWithLength[visibility.Instance](defaultExportTo.Len())
+				for v := range defaultExportTo {
+					if v == visibility.Private {
+						exportToSet.Insert(visibility.Instance(cfg.Namespace))
+					} else {
+						exportToSet.Insert(v)
+					}
+				}
+			}
+			return &MergedVirtualService{
+				Config:   cfg,
+				ExportTo: exportToSet,
+			}
 		}
 
 		root := ResolveVirtualServiceShortnames(cfg)
-		spec := root.Spec.(*networking.VirtualService)
+		spec = root.Spec.(*networking.VirtualService)
+
+		exportToSet := convertExportToSet(spec.ExportTo, cfg.Namespace)
+		if len(exportToSet) == 0 {
+			defaultExportTo := krt.FetchOne(ctx, defaultExportTo).Set
+			exportToSet = sets.NewWithLength[visibility.Instance](defaultExportTo.Len())
+			for v := range defaultExportTo {
+				if v == visibility.Private {
+					exportToSet.Insert(visibility.Instance(cfg.Namespace))
+				} else {
+					exportToSet.Insert(v)
+				}
+			}
+		}
 
 		// if this is an Ingress VS, we don't need to perform any merging
 		if UseIngressSemantics(cfg) {
-			return &root
+			return &MergedVirtualService{
+				Config:   root,
+				ExportTo: exportToSet,
+			}
 		}
 
 		// if this VS does not reference any delegate, we don't need to perform any merging
 		if !isRootVs(spec) {
-			return &root
+			return &MergedVirtualService{
+				Config:   root,
+				ExportTo: exportToSet,
+			}
 		}
 
 		mergedRoutes := []*networking.HTTPRoute{}
@@ -319,6 +371,29 @@ func mergeVirtualServices(
 			log.Debugf("merged virtualService: %s", vsString)
 		}
 
-		return &root
+		return &MergedVirtualService{
+			Config:   root,
+			ExportTo: exportToSet,
+		}
 	}, opts.WithName("MergedVirtualServices")...)
+}
+
+func convertExportToSet(exportTo []string, namespace string) sets.Set[visibility.Instance] {
+	exportToSet := sets.NewWithLength[visibility.Instance](len(exportTo))
+	for _, e := range exportTo {
+		v := visibility.Instance(e)
+		if v == visibility.Private {
+			v = visibility.Instance(namespace)
+		}
+		exportToSet.Insert(v)
+	}
+	return exportToSet
+}
+
+// sortMergedVirtualServicesByCreationTime sorts the list of merged virtual services in ascending order by their creation time (if available)
+func sortMergedVirtualServicesByCreationTime(configs []MergedVirtualService) []MergedVirtualService {
+	slices.SortFunc(configs, func(a, b MergedVirtualService) int {
+		return configCompareByCreationTime(a.Config, b.Config)
+	})
+	return configs
 }

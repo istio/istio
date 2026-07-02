@@ -1751,10 +1751,7 @@ func (ps *PushContext) initVirtualServices(env *Environment) {
 		gwNames := getGatewayNames(rule)
 		exportToSet := ps.exportToDefaults.virtualService
 		if len(rule.ExportTo) > 0 {
-			exportToSet = sets.NewWithLength[visibility.Instance](len(rule.ExportTo))
-			for _, e := range rule.ExportTo {
-				exportToSet.Insert(visibility.Instance(e))
-			}
+			exportToSet = virtualService.ExportTo
 		}
 
 		// if vs has exportTo ~ - i.e. not visible to anyone, ignore all exportTos
@@ -1762,7 +1759,7 @@ func (ps *PushContext) initVirtualServices(env *Environment) {
 		// if vs has exportTo ., replace with current namespace
 		if exportToSet.Contains(visibility.Public) {
 			for _, gw := range gwNames {
-				ps.virtualServiceIndex.publicByGateway[gw] = append(ps.virtualServiceIndex.publicByGateway[gw], virtualService)
+				ps.virtualServiceIndex.publicByGateway[gw] = append(ps.virtualServiceIndex.publicByGateway[gw], virtualService.Config)
 			}
 		} else if !exportToSet.Contains(visibility.None) {
 			// . or other namespaces
@@ -1778,13 +1775,13 @@ func (ps *PushContext) initVirtualServices(env *Environment) {
 					private := ps.virtualServiceIndex.privateByNamespaceAndGateway
 					for _, gw := range gwNames {
 						n := types.NamespacedName{Namespace: ns, Name: gw}
-						private[n] = append(private[n], virtualService)
+						private[n] = append(private[n], virtualService.Config)
 					}
 				} else {
 					exported := ps.virtualServiceIndex.exportedToNamespaceByGateway
 					for _, gw := range gwNames {
 						n := types.NamespacedName{Namespace: key, Name: gw}
-						exported[n] = append(exported[n], virtualService)
+						exported[n] = append(exported[n], virtualService.Config)
 					}
 				}
 			}

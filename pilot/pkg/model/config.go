@@ -15,8 +15,7 @@
 package model
 
 import (
-	"cmp"
-	"sort"
+	"slices"
 	"strings"
 
 	udpa "github.com/cncf/xds/go/udpa/type/v1"
@@ -317,17 +316,19 @@ func mostSpecificHostWildcardMatch[V any](needle string, wildcard map[host.Name]
 
 // sortConfigByCreationTime sorts the list of config objects in ascending order by their creation time (if available)
 func sortConfigByCreationTime(configs []config.Config) []config.Config {
-	sort.Slice(configs, func(i, j int) bool {
-		if r := configs[i].CreationTimestamp.Compare(configs[j].CreationTimestamp); r != 0 {
-			return r == -1 // -1 means i is less than j, so return true
-		}
-		// If creation time is the same, then behavior is nondeterministic. In this case, we can
-		// pick an arbitrary but consistent ordering based on name and namespace, which is unique.
-		// CreationTimestamp is stored in seconds, so this is not uncommon.
-		if r := cmp.Compare(configs[i].Name, configs[j].Name); r != 0 {
-			return r == -1
-		}
-		return cmp.Compare(configs[i].Namespace, configs[j].Namespace) == -1
-	})
+	slices.SortFunc(configs, configCompareByCreationTime)
 	return configs
+}
+
+func configCompareByCreationTime(a, b config.Config) int {
+	if r := a.CreationTimestamp.Compare(b.CreationTimestamp); r != 0 {
+		return r
+	}
+	// If creation time is the same, then behavior is nondeterministic. In this case, we can
+	// pick an arbitrary but consistent ordering based on name and namespace, which is unique.
+	// CreationTimestamp is stored in seconds, so this is not uncommon.
+	if r := strings.Compare(a.Name, b.Name); r != 0 {
+		return r
+	}
+	return strings.Compare(a.Namespace, b.Namespace)
 }
