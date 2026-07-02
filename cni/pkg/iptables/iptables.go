@@ -24,7 +24,6 @@ import (
 	"istio.io/istio/cni/pkg/scopes"
 	"istio.io/istio/cni/pkg/util"
 	istiolog "istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/tools/istio-iptables/pkg/builder"
 	iptablescapture "istio.io/istio/tools/istio-iptables/pkg/capture"
 	iptablesconstants "istio.io/istio/tools/istio-iptables/pkg/constants"
@@ -110,7 +109,7 @@ func NewIptablesConfigurator(
 	}
 
 	// Setup another configurator with inpod configuration. Basically this will just change how locking is done.
-	inPodConfigurator := ptr.Of(*configurator)
+	inPodConfigurator := new(*configurator)
 	inPodConfigurator.ext = podDeps
 	inPodConfigurator.cfg = podCfg
 	return configurator, inPodConfigurator, nil

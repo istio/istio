@@ -626,7 +626,7 @@ func TestCollectionMultipleFetchAllAndKey(t *testing.T) {
 				cnt++
 			}
 		}
-		return ptr.Of(SizedPod{
+		return new(SizedPod{
 			Named: Named{Name: "count"},
 			Size:  fmt.Sprintf("%d", cnt),
 		})
@@ -716,7 +716,7 @@ func TestCollectionMultipleFetchKeys(t *testing.T) {
 		names := slices.Sort(slices.Map(pods, func(e SimplePod) string {
 			return e.Name + "/" + e.IP
 		}))
-		return ptr.Of(strings.Join(names, ","))
+		return new(strings.Join(names, ","))
 	}, opts.WithName("Collection")...)
 	Collection.AsCollection().WaitUntilSynced(stop)
 
@@ -749,29 +749,29 @@ func TestCollectionMultipleFetchKeys(t *testing.T) {
 	// ensure both Fetch trigger on create
 	makePod()
 	tt.WaitUnordered("add/namespace/name1")
-	assert.EventuallyEqual(t, Collection.Get, ptr.Of("name1/1.1.1.1"))
+	assert.EventuallyEqual(t, Collection.Get, new("name1/1.1.1.1"))
 
 	makePod()
 	tt.WaitUnordered("add/namespace/name2")
-	assert.EventuallyEqual(t, Collection.Get, ptr.Of("name1/1.1.1.1,name2/2.2.2.2"))
+	assert.EventuallyEqual(t, Collection.Get, new("name1/1.1.1.1,name2/2.2.2.2"))
 
 	// ensure updates trigger both (separately, reversed order)
 	updatePod(1)
 	tt.WaitUnordered("update/namespace/name2")
-	assert.EventuallyEqual(t, Collection.Get, ptr.Of("name1/1.1.1.1,name2/20.20.20.20"))
+	assert.EventuallyEqual(t, Collection.Get, new("name1/1.1.1.1,name2/20.20.20.20"))
 
 	updatePod(0)
 	tt.WaitUnordered("update/namespace/name1")
-	assert.EventuallyEqual(t, Collection.Get, ptr.Of("name1/10.10.10.10,name2/20.20.20.20"))
+	assert.EventuallyEqual(t, Collection.Get, new("name1/10.10.10.10,name2/20.20.20.20"))
 
 	// ensure deletes trigger both (separately)
 	deletePod(0)
 	tt.WaitUnordered("delete/namespace/name1")
-	assert.EventuallyEqual(t, Collection.Get, ptr.Of("name2/20.20.20.20"))
+	assert.EventuallyEqual(t, Collection.Get, new("name2/20.20.20.20"))
 
 	deletePod(1)
 	tt.WaitUnordered("delete/namespace/name2")
-	assert.EventuallyEqual(t, Collection.Get, ptr.Of(""))
+	assert.EventuallyEqual(t, Collection.Get, new(""))
 }
 
 func TestCollectionDiscardResult(t *testing.T) {

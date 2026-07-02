@@ -47,11 +47,6 @@ func TestEqual(t *testing.T) {
 	assertEqual(t, Equal(&one, &otherOne), true)
 }
 
-func TestOf(t *testing.T) {
-	one := 1
-	assertEqual(t, Of(1), &one)
-}
-
 func TestOrDefault(t *testing.T) {
 	one := 1
 	assertEqual(t, OrDefault(nil, 2), 2)

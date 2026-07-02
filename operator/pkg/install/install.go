@@ -37,7 +37,6 @@ import (
 	"istio.io/istio/operator/pkg/webhook"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
-	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/istiomultierror"
 	"istio.io/istio/pkg/util/sets"
@@ -206,7 +205,7 @@ func (i Installer) serverSideApply(obj manifest.Manifest) error {
 	}
 	if _, err := dc.Patch(context.TODO(), obj.GetName(), types.ApplyPatchType, []byte(obj.Content), metav1.PatchOptions{
 		DryRun:       dryRun,
-		Force:        ptr.Of(true),
+		Force:        new(true),
 		FieldManager: fieldOwnerOperator,
 	}); err != nil {
 		return fmt.Errorf("failed to update resource with server-side apply for obj %v: %v", objectStr, err)

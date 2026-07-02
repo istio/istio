@@ -129,7 +129,7 @@ func TestAmbientMulticlusterIndex_WaypointForWorkloadTraffic(t *testing.T) {
 			s.AddSecret("s2", "c2") // Non-overlapping ips
 			remoteClients := krt.NewCollection(s.mcController.Clusters(), func(_ krt.HandlerContext, c *multicluster.Cluster) **remoteAmbientClients {
 				cl := c.Client
-				return ptr.Of(&remoteAmbientClients{
+				return new(&remoteAmbientClients{
 					clusterID: c.ID,
 					ambientclients: &ambientclients{
 						pc:    clienttest.NewDirectClient[*corev1.Pod, corev1.Pod, *corev1.PodList](t, cl),
@@ -428,7 +428,7 @@ func TestMulticlusterAmbientIndex_TestServiceMerging(t *testing.T) {
 	s.AddSecret("s1", "remote-cluster") // overlapping ips
 	remoteClients := krt.NewCollection(s.mcController.Clusters(), func(_ krt.HandlerContext, c *multicluster.Cluster) **remoteAmbientClients {
 		cl := c.Client
-		return ptr.Of(&remoteAmbientClients{
+		return new(&remoteAmbientClients{
 			clusterID: c.ID,
 			ambientclients: &ambientclients{
 				pc:    clienttest.NewDirectClient[*corev1.Pod, corev1.Pod, *corev1.PodList](t, cl),
@@ -556,7 +556,7 @@ func TestMulticlusterAmbientIndex_SplitHorizon(t *testing.T) {
 	s.AddSecret("s1", "remote-cluster") // overlapping ips
 	remoteClients := krt.NewCollection(s.mcController.Clusters(), func(_ krt.HandlerContext, c *multicluster.Cluster) **remoteAmbientClients {
 		cl := c.Client
-		return ptr.Of(&remoteAmbientClients{
+		return new(&remoteAmbientClients{
 			clusterID: c.ID,
 			ambientclients: &ambientclients{
 				pc:    clienttest.NewDirectClient[*corev1.Pod, corev1.Pod, *corev1.PodList](t, cl),

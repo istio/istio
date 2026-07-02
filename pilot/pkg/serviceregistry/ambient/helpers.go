@@ -25,7 +25,6 @@ import (
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/network"
-	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/workloadapi"
 )
 
@@ -102,7 +101,7 @@ func toNetworkAddressFromCidr(vip string, nw network.ID) (*workloadapi.NetworkAd
 		Address: prefix.Addr().AsSlice(),
 	}
 	if !prefix.IsSingleIP() {
-		na.Length = ptr.Of(uint32(prefix.Bits()))
+		na.Length = new(uint32(prefix.Bits()))
 	}
 	return na, nil
 }

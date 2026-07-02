@@ -57,7 +57,6 @@ import (
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/revisions"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
@@ -737,7 +736,7 @@ func (c *Controller) buildListenerFromGateway(obj *GatewayListener) *AgwResource
 	l.Protocol = protocol
 	l.Tls = tlsConfig
 
-	return ptr.Of(ToResourceForGateway(obj.ParentGateway, AgwListener{Listener: l}))
+	return new(ToResourceForGateway(obj.ParentGateway, AgwListener{Listener: l}))
 }
 
 // getProtocolAndTLSConfig extracts protocol and TLS configuration from a gateway

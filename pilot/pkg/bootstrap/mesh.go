@@ -25,7 +25,6 @@ import (
 	"istio.io/istio/pkg/filewatcher"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/version"
 )
 
@@ -110,7 +109,7 @@ func (s *Server) getConfigurationSources(args *PilotArgs, fileWatcher filewatche
 	// Watcher will be merging more than one mesh config source?
 	var userMeshConfig *meshwatcher.MeshConfigSource
 	if features.SharedMeshConfig != "" && s.kubeClient != nil {
-		userMeshConfig = ptr.Of(kubemesh.NewConfigMapSource(s.kubeClient, args.Namespace, features.SharedMeshConfig, cmKey, opts))
+		userMeshConfig = new(kubemesh.NewConfigMapSource(s.kubeClient, args.Namespace, features.SharedMeshConfig, cmKey, opts))
 	}
 	if _, err := os.Stat(file); !os.IsNotExist(err) {
 		fileSource, err := meshwatcher.NewFileSource(fileWatcher, file, opts)

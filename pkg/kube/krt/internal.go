@@ -24,7 +24,6 @@ import (
 
 	"istio.io/api/type/v1beta1"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/ptr"
 )
 
 // registerHandlerAsBatched is a helper to register the provided handler as a batched handler. This allows collections to
@@ -45,10 +44,10 @@ func castEvent[I, O any](o Event[I]) Event[O] {
 		Event: o.Event,
 	}
 	if o.Old != nil {
-		e.Old = ptr.Of(any(*o.Old).(O))
+		e.Old = new(any(*o.Old).(O))
 	}
 	if o.New != nil {
-		e.New = ptr.Of(any(*o.New).(O))
+		e.New = new(any(*o.New).(O))
 	}
 	return e
 }

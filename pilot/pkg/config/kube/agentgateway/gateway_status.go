@@ -112,7 +112,7 @@ func reportGatewayStatus(
 		gatewayConditions[string(gatewayv1.GatewayConditionAccepted)].error = gatewayErr
 	}
 
-	gs.AttachedListenerSets = ptr.Of(int32(listenerSetCount))
+	gs.AttachedListenerSets = new(int32(listenerSetCount))
 	setProgrammedCondition(gatewayConditions, internal, gatewayServices, warnings, allUsable)
 
 	addressesToReport := external

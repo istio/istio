@@ -698,7 +698,7 @@ func (h *manyCollection[I, O]) onSecondaryDependencyEvent(sourceCollection colle
 				}
 				e := Event[I]{
 					Event: controllers.EventDelete,
-					Old:   ptr.Of(h.collectionState.inputs[i]),
+					Old:   new(h.collectionState.inputs[i]),
 				}
 				toRun = append(toRun, e)
 			}

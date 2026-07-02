@@ -337,9 +337,9 @@ func BackendTLSPolicyCollection(
 		tls.SubjectAltNames = slices.MapFilter(s.Validation.SubjectAltNames, func(e gw.SubjectAltName) *string {
 			switch e.Type {
 			case gw.HostnameSubjectAltNameType:
-				return ptr.Of(string(e.Hostname))
+				return new(string(e.Hostname))
 			case gw.URISubjectAltNameType:
-				return ptr.Of(string(e.URI))
+				return new(string(e.URI))
 			}
 			return nil
 		})
@@ -361,7 +361,7 @@ func BackendTLSPolicyCollection(
 				switch refType := refo.(type) {
 				case *v1.Service:
 					if t.SectionName != nil && *t.SectionName != "" {
-						sectionName = ptr.Of(string(*t.SectionName))
+						sectionName = new(string(*t.SectionName))
 						portExists := false
 						for _, port := range refType.Spec.Ports {
 							if port.Name == *sectionName {
@@ -375,7 +375,7 @@ func BackendTLSPolicyCollection(
 					}
 				case *networkingclient.ServiceEntry:
 					if t.SectionName != nil && *t.SectionName != "" {
-						sectionName = ptr.Of(string(*t.SectionName))
+						sectionName = new(string(*t.SectionName))
 						portExists := false
 						for _, port := range refType.Spec.Ports {
 							if port.Name == *sectionName {
@@ -459,8 +459,8 @@ func BackendTLSPolicyCollection(
 		gwl := slices.SortBy(uniqueGateways.UnsortedList(), types.NamespacedName.String)
 		for _, g := range gwl {
 			pr := gw.ParentReference{
-				Group: ptr.Of(gw.Group(gvk.KubernetesGateway.Group)),
-				Kind:  ptr.Of(gw.Kind(gvk.KubernetesGateway.Kind)),
+				Group: new(gw.Group(gvk.KubernetesGateway.Group)),
+				Kind:  new(gw.Kind(gvk.KubernetesGateway.Kind)),
 				Name:  gw.ObjectName(g.Name),
 			}
 			ancestorStatus = append(ancestorStatus, setAncestorStatus(pr, status, i.Generation, conds, gw.GatewayController(features.ManagedGatewayController)))

@@ -474,10 +474,10 @@ func (p RouteParents) fetch(ctx krt.HandlerContext, pk parentKey) []*parentInfo 
 				InternalName: "mesh",
 				// Mesh has no configurable AllowedKinds, so allow all supported
 				AllowedKinds: []gatewayv1.RouteGroupKind{
-					{Group: (*gatewayv1.Group)(ptr.Of(gvk.HTTPRoute.Group)), Kind: gatewayv1.Kind(gvk.HTTPRoute.Kind)},
-					{Group: (*gatewayv1.Group)(ptr.Of(gvk.GRPCRoute.Group)), Kind: gatewayv1.Kind(gvk.GRPCRoute.Kind)},
-					{Group: (*gatewayv1.Group)(ptr.Of(gvk.TCPRoute.Group)), Kind: gatewayv1.Kind(gvk.TCPRoute.Kind)},
-					{Group: (*gatewayv1.Group)(ptr.Of(gvk.TLSRoute.Group)), Kind: gatewayv1.Kind(gvk.TLSRoute.Kind)},
+					{Group: (*gatewayv1.Group)(new(gvk.HTTPRoute.Group)), Kind: gatewayv1.Kind(gvk.HTTPRoute.Kind)},
+					{Group: (*gatewayv1.Group)(new(gvk.GRPCRoute.Group)), Kind: gatewayv1.Kind(gvk.GRPCRoute.Kind)},
+					{Group: (*gatewayv1.Group)(new(gvk.TCPRoute.Group)), Kind: gatewayv1.Kind(gvk.TCPRoute.Kind)},
+					{Group: (*gatewayv1.Group)(new(gvk.TLSRoute.Group)), Kind: gatewayv1.Kind(gvk.TLSRoute.Kind)},
 				},
 			},
 		}

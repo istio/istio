@@ -20,7 +20,6 @@ import (
 	"github.com/agentgateway/agentgateway/api"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
-	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/test/util/assert"
 )
 
@@ -40,7 +39,7 @@ func TestCreateAgwPathMatch(t *testing.T) {
 			name: "prefix match with default type",
 			match: gatewayv1.HTTPRouteMatch{
 				Path: &gatewayv1.HTTPPathMatch{
-					Value: ptr.Of("/api/v1"),
+					Value: new("/api/v1"),
 				},
 			},
 			want: &api.PathMatch{
@@ -51,8 +50,8 @@ func TestCreateAgwPathMatch(t *testing.T) {
 			name: "prefix match strips trailing slash",
 			match: gatewayv1.HTTPRouteMatch{
 				Path: &gatewayv1.HTTPPathMatch{
-					Type:  ptr.Of(gatewayv1.PathMatchPathPrefix),
-					Value: ptr.Of("/api/v1/"),
+					Type:  new(gatewayv1.PathMatchPathPrefix),
+					Value: new("/api/v1/"),
 				},
 			},
 			want: &api.PathMatch{
@@ -63,8 +62,8 @@ func TestCreateAgwPathMatch(t *testing.T) {
 			name: "prefix root path preserved",
 			match: gatewayv1.HTTPRouteMatch{
 				Path: &gatewayv1.HTTPPathMatch{
-					Type:  ptr.Of(gatewayv1.PathMatchPathPrefix),
-					Value: ptr.Of("/"),
+					Type:  new(gatewayv1.PathMatchPathPrefix),
+					Value: new("/"),
 				},
 			},
 			want: &api.PathMatch{
@@ -75,8 +74,8 @@ func TestCreateAgwPathMatch(t *testing.T) {
 			name: "exact match preserves trailing slash",
 			match: gatewayv1.HTTPRouteMatch{
 				Path: &gatewayv1.HTTPPathMatch{
-					Type:  ptr.Of(gatewayv1.PathMatchExact),
-					Value: ptr.Of("/api/v1/"),
+					Type:  new(gatewayv1.PathMatchExact),
+					Value: new("/api/v1/"),
 				},
 			},
 			want: &api.PathMatch{
@@ -87,8 +86,8 @@ func TestCreateAgwPathMatch(t *testing.T) {
 			name: "exact match",
 			match: gatewayv1.HTTPRouteMatch{
 				Path: &gatewayv1.HTTPPathMatch{
-					Type:  ptr.Of(gatewayv1.PathMatchExact),
-					Value: ptr.Of("/healthz"),
+					Type:  new(gatewayv1.PathMatchExact),
+					Value: new("/healthz"),
 				},
 			},
 			want: &api.PathMatch{
@@ -99,8 +98,8 @@ func TestCreateAgwPathMatch(t *testing.T) {
 			name: "regex match",
 			match: gatewayv1.HTTPRouteMatch{
 				Path: &gatewayv1.HTTPPathMatch{
-					Type:  ptr.Of(gatewayv1.PathMatchRegularExpression),
-					Value: ptr.Of("/api/v[0-9]+/.*"),
+					Type:  new(gatewayv1.PathMatchRegularExpression),
+					Value: new("/api/v[0-9]+/.*"),
 				},
 			},
 			want: &api.PathMatch{
@@ -111,7 +110,7 @@ func TestCreateAgwPathMatch(t *testing.T) {
 			name: "nil value coerces to root prefix",
 			match: gatewayv1.HTTPRouteMatch{
 				Path: &gatewayv1.HTTPPathMatch{
-					Type: ptr.Of(gatewayv1.PathMatchPathPrefix),
+					Type: new(gatewayv1.PathMatchPathPrefix),
 				},
 			},
 			want: &api.PathMatch{
@@ -122,8 +121,8 @@ func TestCreateAgwPathMatch(t *testing.T) {
 			name: "empty value coerces to root prefix",
 			match: gatewayv1.HTTPRouteMatch{
 				Path: &gatewayv1.HTTPPathMatch{
-					Type:  ptr.Of(gatewayv1.PathMatchPathPrefix),
-					Value: ptr.Of(""),
+					Type:  new(gatewayv1.PathMatchPathPrefix),
+					Value: new(""),
 				},
 			},
 			want: &api.PathMatch{
@@ -134,8 +133,8 @@ func TestCreateAgwPathMatch(t *testing.T) {
 			name: "missing leading slash is prepended",
 			match: gatewayv1.HTTPRouteMatch{
 				Path: &gatewayv1.HTTPPathMatch{
-					Type:  ptr.Of(gatewayv1.PathMatchExact),
-					Value: ptr.Of("foo/bar"),
+					Type:  new(gatewayv1.PathMatchExact),
+					Value: new("foo/bar"),
 				},
 			},
 			want: &api.PathMatch{
@@ -146,8 +145,8 @@ func TestCreateAgwPathMatch(t *testing.T) {
 			name: "unsupported path match type returns error",
 			match: gatewayv1.HTTPRouteMatch{
 				Path: &gatewayv1.HTTPPathMatch{
-					Type:  ptr.Of(gatewayv1.PathMatchType("Invalid")),
-					Value: ptr.Of("/foo"),
+					Type:  new(gatewayv1.PathMatchType("Invalid")),
+					Value: new("/foo"),
 				},
 			},
 			wantError: true,
@@ -198,7 +197,7 @@ func TestCreateAgwHeadersMatch(t *testing.T) {
 			match: gatewayv1.HTTPRouteMatch{
 				Headers: []gatewayv1.HTTPHeaderMatch{
 					{
-						Type:  ptr.Of(gatewayv1.HeaderMatchExact),
+						Type:  new(gatewayv1.HeaderMatchExact),
 						Name:  "X-Request-ID",
 						Value: "abc-123",
 					},
@@ -213,7 +212,7 @@ func TestCreateAgwHeadersMatch(t *testing.T) {
 			match: gatewayv1.HTTPRouteMatch{
 				Headers: []gatewayv1.HTTPHeaderMatch{
 					{
-						Type:  ptr.Of(gatewayv1.HeaderMatchRegularExpression),
+						Type:  new(gatewayv1.HeaderMatchRegularExpression),
 						Name:  "User-Agent",
 						Value: "Mozilla/.*",
 					},
@@ -228,12 +227,12 @@ func TestCreateAgwHeadersMatch(t *testing.T) {
 			match: gatewayv1.HTTPRouteMatch{
 				Headers: []gatewayv1.HTTPHeaderMatch{
 					{
-						Type:  ptr.Of(gatewayv1.HeaderMatchExact),
+						Type:  new(gatewayv1.HeaderMatchExact),
 						Name:  "X-Env",
 						Value: "production",
 					},
 					{
-						Type:  ptr.Of(gatewayv1.HeaderMatchRegularExpression),
+						Type:  new(gatewayv1.HeaderMatchRegularExpression),
 						Name:  "X-Version",
 						Value: "v[0-9]+",
 					},
@@ -249,7 +248,7 @@ func TestCreateAgwHeadersMatch(t *testing.T) {
 			match: gatewayv1.HTTPRouteMatch{
 				Headers: []gatewayv1.HTTPHeaderMatch{
 					{
-						Type:  ptr.Of(gatewayv1.HeaderMatchType("Invalid")),
+						Type:  new(gatewayv1.HeaderMatchType("Invalid")),
 						Name:  "X-Bad",
 						Value: "foo",
 					},
@@ -303,7 +302,7 @@ func TestCreateAgwQueryMatch(t *testing.T) {
 			match: gatewayv1.HTTPRouteMatch{
 				QueryParams: []gatewayv1.HTTPQueryParamMatch{
 					{
-						Type:  ptr.Of(gatewayv1.QueryParamMatchRegularExpression),
+						Type:  new(gatewayv1.QueryParamMatchRegularExpression),
 						Name:  "token",
 						Value: "[a-f0-9]{32}",
 					},
@@ -318,12 +317,12 @@ func TestCreateAgwQueryMatch(t *testing.T) {
 			match: gatewayv1.HTTPRouteMatch{
 				QueryParams: []gatewayv1.HTTPQueryParamMatch{
 					{
-						Type:  ptr.Of(gatewayv1.QueryParamMatchExact),
+						Type:  new(gatewayv1.QueryParamMatchExact),
 						Name:  "page",
 						Value: "1",
 					},
 					{
-						Type:  ptr.Of(gatewayv1.QueryParamMatchRegularExpression),
+						Type:  new(gatewayv1.QueryParamMatchRegularExpression),
 						Name:  "sort",
 						Value: "(asc|desc)",
 					},
@@ -339,7 +338,7 @@ func TestCreateAgwQueryMatch(t *testing.T) {
 			match: gatewayv1.HTTPRouteMatch{
 				QueryParams: []gatewayv1.HTTPQueryParamMatch{
 					{
-						Type:  ptr.Of(gatewayv1.QueryParamMatchType("Invalid")),
+						Type:  new(gatewayv1.QueryParamMatchType("Invalid")),
 						Name:  "bad",
 						Value: "val",
 					},
@@ -380,21 +379,21 @@ func TestCreateAgwMethodMatch(t *testing.T) {
 		{
 			name: "GET method",
 			match: gatewayv1.HTTPRouteMatch{
-				Method: ptr.Of(gatewayv1.HTTPMethodGet),
+				Method: new(gatewayv1.HTTPMethodGet),
 			},
 			want: &api.MethodMatch{Exact: "GET"},
 		},
 		{
 			name: "POST method",
 			match: gatewayv1.HTTPRouteMatch{
-				Method: ptr.Of(gatewayv1.HTTPMethodPost),
+				Method: new(gatewayv1.HTTPMethodPost),
 			},
 			want: &api.MethodMatch{Exact: "POST"},
 		},
 		{
 			name: "DELETE method",
 			match: gatewayv1.HTTPRouteMatch{
-				Method: ptr.Of(gatewayv1.HTTPMethodDelete),
+				Method: new(gatewayv1.HTTPMethodDelete),
 			},
 			want: &api.MethodMatch{Exact: "DELETE"},
 		},
@@ -514,7 +513,7 @@ func TestCreateAgwRewriteFilter(t *testing.T) {
 		{
 			name: "hostname rewrite only",
 			filter: &gatewayv1.HTTPURLRewriteFilter{
-				Hostname: ptr.Of(gatewayv1.PreciseHostname("new.example.com")),
+				Hostname: new(gatewayv1.PreciseHostname("new.example.com")),
 			},
 			want: &api.TrafficPolicySpec{
 				Kind: &api.TrafficPolicySpec_UrlRewrite{
@@ -529,7 +528,7 @@ func TestCreateAgwRewriteFilter(t *testing.T) {
 			filter: &gatewayv1.HTTPURLRewriteFilter{
 				Path: &gatewayv1.HTTPPathModifier{
 					Type:               gatewayv1.PrefixMatchHTTPPathModifier,
-					ReplacePrefixMatch: ptr.Of("/v2"),
+					ReplacePrefixMatch: new("/v2"),
 				},
 			},
 			want: &api.TrafficPolicySpec{
@@ -545,7 +544,7 @@ func TestCreateAgwRewriteFilter(t *testing.T) {
 			filter: &gatewayv1.HTTPURLRewriteFilter{
 				Path: &gatewayv1.HTTPPathModifier{
 					Type:            gatewayv1.FullPathHTTPPathModifier,
-					ReplaceFullPath: ptr.Of("/new/path"),
+					ReplaceFullPath: new("/new/path"),
 				},
 			},
 			want: &api.TrafficPolicySpec{
@@ -559,10 +558,10 @@ func TestCreateAgwRewriteFilter(t *testing.T) {
 		{
 			name: "hostname and prefix path rewrite",
 			filter: &gatewayv1.HTTPURLRewriteFilter{
-				Hostname: ptr.Of(gatewayv1.PreciseHostname("api.example.com")),
+				Hostname: new(gatewayv1.PreciseHostname("api.example.com")),
 				Path: &gatewayv1.HTTPPathModifier{
 					Type:               gatewayv1.PrefixMatchHTTPPathModifier,
-					ReplacePrefixMatch: ptr.Of("/api/v2"),
+					ReplacePrefixMatch: new("/api/v2"),
 				},
 			},
 			want: &api.TrafficPolicySpec{
@@ -579,7 +578,7 @@ func TestCreateAgwRewriteFilter(t *testing.T) {
 			filter: &gatewayv1.HTTPURLRewriteFilter{
 				Path: &gatewayv1.HTTPPathModifier{
 					Type:               gatewayv1.PrefixMatchHTTPPathModifier,
-					ReplacePrefixMatch: ptr.Of("/v2/"),
+					ReplacePrefixMatch: new("/v2/"),
 				},
 			},
 			want: &api.TrafficPolicySpec{
@@ -595,7 +594,7 @@ func TestCreateAgwRewriteFilter(t *testing.T) {
 			filter: &gatewayv1.HTTPURLRewriteFilter{
 				Path: &gatewayv1.HTTPPathModifier{
 					Type:            gatewayv1.FullPathHTTPPathModifier,
-					ReplaceFullPath: ptr.Of("/new/path/"),
+					ReplaceFullPath: new("/new/path/"),
 				},
 			},
 			want: &api.TrafficPolicySpec{
@@ -629,7 +628,7 @@ func TestCreateAgwRedirectFilter(t *testing.T) {
 		{
 			name: "scheme redirect",
 			filter: &gatewayv1.HTTPRequestRedirectFilter{
-				Scheme: ptr.Of("https"),
+				Scheme: new("https"),
 			},
 			want: &api.RequestRedirect{
 				Scheme: "https",
@@ -638,7 +637,7 @@ func TestCreateAgwRedirectFilter(t *testing.T) {
 		{
 			name: "hostname redirect",
 			filter: &gatewayv1.HTTPRequestRedirectFilter{
-				Hostname: ptr.Of(gatewayv1.PreciseHostname("new.example.com")),
+				Hostname: new(gatewayv1.PreciseHostname("new.example.com")),
 			},
 			want: &api.RequestRedirect{
 				Host: "new.example.com",
@@ -647,7 +646,7 @@ func TestCreateAgwRedirectFilter(t *testing.T) {
 		{
 			name: "port redirect",
 			filter: &gatewayv1.HTTPRequestRedirectFilter{
-				Port: ptr.Of(gatewayv1.PortNumber(8443)),
+				Port: new(gatewayv1.PortNumber(8443)),
 			},
 			want: &api.RequestRedirect{
 				Port: 8443,
@@ -656,7 +655,7 @@ func TestCreateAgwRedirectFilter(t *testing.T) {
 		{
 			name: "status code 301 permanent redirect",
 			filter: &gatewayv1.HTTPRequestRedirectFilter{
-				StatusCode: ptr.Of(301),
+				StatusCode: new(301),
 			},
 			want: &api.RequestRedirect{
 				Status: 301,
@@ -665,10 +664,10 @@ func TestCreateAgwRedirectFilter(t *testing.T) {
 		{
 			name: "full redirect with scheme hostname port and status",
 			filter: &gatewayv1.HTTPRequestRedirectFilter{
-				Scheme:     ptr.Of("https"),
-				Hostname:   ptr.Of(gatewayv1.PreciseHostname("secure.example.com")),
-				Port:       ptr.Of(gatewayv1.PortNumber(443)),
-				StatusCode: ptr.Of(301),
+				Scheme:     new("https"),
+				Hostname:   new(gatewayv1.PreciseHostname("secure.example.com")),
+				Port:       new(gatewayv1.PortNumber(443)),
+				StatusCode: new(301),
 			},
 			want: &api.RequestRedirect{
 				Scheme: "https",
@@ -682,9 +681,9 @@ func TestCreateAgwRedirectFilter(t *testing.T) {
 			filter: &gatewayv1.HTTPRequestRedirectFilter{
 				Path: &gatewayv1.HTTPPathModifier{
 					Type:               gatewayv1.PrefixMatchHTTPPathModifier,
-					ReplacePrefixMatch: ptr.Of("/new-prefix"),
+					ReplacePrefixMatch: new("/new-prefix"),
 				},
-				StatusCode: ptr.Of(302),
+				StatusCode: new(302),
 			},
 			want: &api.RequestRedirect{
 				Status: 302,
@@ -696,9 +695,9 @@ func TestCreateAgwRedirectFilter(t *testing.T) {
 			filter: &gatewayv1.HTTPRequestRedirectFilter{
 				Path: &gatewayv1.HTTPPathModifier{
 					Type:            gatewayv1.FullPathHTTPPathModifier,
-					ReplaceFullPath: ptr.Of("/completely/new"),
+					ReplaceFullPath: new("/completely/new"),
 				},
-				StatusCode: ptr.Of(308),
+				StatusCode: new(308),
 			},
 			want: &api.RequestRedirect{
 				Status: 308,
@@ -710,7 +709,7 @@ func TestCreateAgwRedirectFilter(t *testing.T) {
 			filter: &gatewayv1.HTTPRequestRedirectFilter{
 				Path: &gatewayv1.HTTPPathModifier{
 					Type:               gatewayv1.PrefixMatchHTTPPathModifier,
-					ReplacePrefixMatch: ptr.Of("/api/"),
+					ReplacePrefixMatch: new("/api/"),
 				},
 			},
 			want: &api.RequestRedirect{
@@ -754,7 +753,7 @@ func TestCreateAgwGRPCHeadersMatch(t *testing.T) {
 			match: gatewayv1.GRPCRouteMatch{
 				Headers: []gatewayv1.GRPCHeaderMatch{
 					{
-						Type:  ptr.Of(gatewayv1.GRPCHeaderMatchRegularExpression),
+						Type:  new(gatewayv1.GRPCHeaderMatchRegularExpression),
 						Name:  "x-request-id",
 						Value: "[a-f0-9-]{36}",
 					},
@@ -769,12 +768,12 @@ func TestCreateAgwGRPCHeadersMatch(t *testing.T) {
 			match: gatewayv1.GRPCRouteMatch{
 				Headers: []gatewayv1.GRPCHeaderMatch{
 					{
-						Type:  ptr.Of(gatewayv1.GRPCHeaderMatchExact),
+						Type:  new(gatewayv1.GRPCHeaderMatchExact),
 						Name:  "content-type",
 						Value: "application/grpc",
 					},
 					{
-						Type:  ptr.Of(gatewayv1.GRPCHeaderMatchRegularExpression),
+						Type:  new(gatewayv1.GRPCHeaderMatchRegularExpression),
 						Name:  "authorization",
 						Value: "Bearer .*",
 					},

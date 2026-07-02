@@ -52,7 +52,7 @@ For example, a simple `Singleton` example that keeps track of the number of `Con
 ```go
 ConfigMapCount := krt.NewSingleton[int](func(ctx krt.HandlerContext) *int {
     cms := krt.Fetch(ctx, ConfigMaps)
-    return ptr.Of(len(cms))
+    return new(len(cms))
 })
 ```
 

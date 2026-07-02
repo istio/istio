@@ -156,7 +156,7 @@ func (n *writeClient[T]) PatchStatus(name, namespace string, pt apitypes.PatchTy
 func (n *writeClient[T]) ApplyStatus(name, namespace string, pt apitypes.PatchType, data []byte, fieldManager string) (T, error) {
 	api := kubeclient.GetWriteClient[T](n.client, namespace)
 	return api.Patch(context.Background(), name, pt, data, metav1.PatchOptions{
-		Force:        ptr.Of(true),
+		Force:        new(true),
 		FieldManager: fieldManager,
 	}, "status")
 }

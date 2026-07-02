@@ -56,7 +56,7 @@ Endpoints := krt.NewManyCollection[Endpoint](func(ctx krt.HandlerContext, svc *v
 // From pkg/kube/krt/README.md
 ConfigMapCount := krt.NewSingleton[int](func(ctx krt.HandlerContext) *int {
     cms := krt.Fetch(ctx, ConfigMaps)
-    return ptr.Of(len(cms))
+    return new(len(cms))
 })
 ```
 

@@ -75,7 +75,7 @@ func (a *index) buildGlobalCollections(
 		a.mcController,
 		LocalServices,
 		func(_ krt.HandlerContext, c *multicluster.Cluster) *krt.Collection[*v1.Service] {
-			return ptr.Of(c.Services())
+			return new(c.Services())
 		},
 		"Services",
 		opts,
@@ -105,7 +105,7 @@ func (a *index) buildGlobalCollections(
 				krt.WithDebugging(opts.Debugger()),
 				krt.WithStop(c.GetStop()),
 			}
-			return ptr.Of(krt.MapCollection(c.Gateways(), func(obj *gatewayv1.Gateway) krt.ObjectWithCluster[*gatewayv1.Gateway] {
+			return new(krt.MapCollection(c.Gateways(), func(obj *gatewayv1.Gateway) krt.ObjectWithCluster[*gatewayv1.Gateway] {
 				return krt.ObjectWithCluster[*gatewayv1.Gateway]{
 					ClusterID: c.ID,
 					Object:    &obj,
@@ -119,7 +119,7 @@ func (a *index) buildGlobalCollections(
 		a.mcController,
 		LocalNamespaces,
 		func(_ krt.HandlerContext, c *multicluster.Cluster) *krt.Collection[*v1.Namespace] {
-			return ptr.Of(c.Namespaces())
+			return new(c.Namespaces())
 		},
 		"Namespaces",
 		opts,
@@ -145,7 +145,7 @@ func (a *index) buildGlobalCollections(
 				krt.WithDebugging(opts.Debugger()),
 				krt.WithStop(c.GetStop()),
 			}
-			return ptr.Of(krt.MapCollection(c.Nodes(), func(obj *v1.Node) krt.ObjectWithCluster[*v1.Node] {
+			return new(krt.MapCollection(c.Nodes(), func(obj *v1.Node) krt.ObjectWithCluster[*v1.Node] {
 				return krt.ObjectWithCluster[*v1.Node]{
 					ClusterID: c.ID,
 					Object:    &obj,
@@ -710,7 +710,7 @@ func mergeServiceInfosWithCluster(
 				Address: a.ip.Addr().AsSlice(),
 			}
 			if !a.ip.IsSingleIP() {
-				na.Length = ptr.Of(uint32(a.ip.Bits()))
+				na.Length = new(uint32(a.ip.Bits()))
 			}
 			return na
 		})
