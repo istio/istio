@@ -283,14 +283,7 @@ func mergeVirtualServices(
 			exportToSet := convertExportToSet(spec.ExportTo, cfg.Namespace)
 			if len(exportToSet) == 0 {
 				defaultExportTo := krt.FetchOne(ctx, defaultExportTo).Set
-				exportToSet = sets.NewWithLength[visibility.Instance](defaultExportTo.Len())
-				for v := range defaultExportTo {
-					if v == visibility.Private {
-						exportToSet.Insert(visibility.Instance(cfg.Namespace))
-					} else {
-						exportToSet.Insert(v)
-					}
-				}
+				exportToSet = copyDefaultExportToSet(defaultExportTo, cfg.Namespace)
 			}
 			return &MergedVirtualService{
 				Config:   cfg,
@@ -304,14 +297,7 @@ func mergeVirtualServices(
 		exportToSet := convertExportToSet(spec.ExportTo, cfg.Namespace)
 		if len(exportToSet) == 0 {
 			defaultExportTo := krt.FetchOne(ctx, defaultExportTo).Set
-			exportToSet = sets.NewWithLength[visibility.Instance](defaultExportTo.Len())
-			for v := range defaultExportTo {
-				if v == visibility.Private {
-					exportToSet.Insert(visibility.Instance(cfg.Namespace))
-				} else {
-					exportToSet.Insert(v)
-				}
-			}
+			exportToSet = copyDefaultExportToSet(defaultExportTo, cfg.Namespace)
 		}
 
 		// if this is an Ingress VS, we don't need to perform any merging
@@ -379,6 +365,10 @@ func mergeVirtualServices(
 }
 
 func convertExportToSet(exportTo []string, namespace string) sets.Set[visibility.Instance] {
+	if len(exportTo) == 0 {
+		return nil
+	}
+
 	exportToSet := sets.NewWithLength[visibility.Instance](len(exportTo))
 	for _, e := range exportTo {
 		v := visibility.Instance(e)
@@ -386,6 +376,18 @@ func convertExportToSet(exportTo []string, namespace string) sets.Set[visibility
 			v = visibility.Instance(namespace)
 		}
 		exportToSet.Insert(v)
+	}
+	return exportToSet
+}
+
+func copyDefaultExportToSet(defaultExportTo sets.Set[visibility.Instance], namespace string) sets.Set[visibility.Instance] {
+	exportToSet := sets.NewWithLength[visibility.Instance](defaultExportTo.Len())
+	for v := range defaultExportTo {
+		if v == visibility.Private {
+			exportToSet.Insert(visibility.Instance(namespace))
+		} else {
+			exportToSet.Insert(v)
+		}
 	}
 	return exportToSet
 }
