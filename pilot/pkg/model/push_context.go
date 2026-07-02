@@ -1763,15 +1763,10 @@ func (ps *PushContext) initVirtualServices(env *Environment) {
 			}
 		} else if !exportToSet.Contains(visibility.None) {
 			// . or other namespaces
-			includesPrivate := false
 			for exportTo := range exportToSet {
 				key := string(exportTo)
-				if exportTo == visibility.Private || key == ns {
+				if key == ns {
 					// exportTo with same namespace is effectively private
-					if includesPrivate {
-						continue
-					}
-					includesPrivate = true
 					private := ps.virtualServiceIndex.privateByNamespaceAndGateway
 					for _, gw := range gwNames {
 						n := types.NamespacedName{Namespace: ns, Name: gw}
@@ -2041,7 +2036,7 @@ func (ps *PushContext) setDestinationRules(configs []config.Config) {
 				exportToSet.Insert(visibility.Instance(e))
 			}
 		} else {
-			exportToSet = sets.New[visibility.Instance](visibility.Private)
+			exportToSet = sets.New(visibility.Private)
 		}
 
 		// add only if the dest rule is exported with . or * or explicit exportTo containing this namespace
