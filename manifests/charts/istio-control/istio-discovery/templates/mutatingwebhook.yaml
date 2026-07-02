@@ -18,7 +18,7 @@ a unique prefix to each. */}}
     {{- else }}
     service:
       name: istiod{{- if not (eq .revision "") }}-{{ .revision }}{{- end }}
-      namespace: {{ .namespace }}
+      namespace: {{ .namespace | quote }}
       path: "{{ .injectionPath }}"
       port: 443
     {{- end }}
