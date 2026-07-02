@@ -51,8 +51,9 @@ type ManifestGenerateArgs struct {
 	// Filter is the list of components to render
 	Filter []string
 	// Output is the path of the file to write the rendered manifest to.
-	// If empty, the manifest is written to stdout. This is useful in environments
-	// without a shell to redirect output, such as the distroless istioctl image.
+	// If empty, the manifest is written to stdout. Writing directly avoids
+	// shell redirection, which is required in environments without a shell
+	// (for example, hardened istioctl images that ship without one).
 	Output string
 }
 
@@ -100,7 +101,7 @@ func ManifestGenerateCmd(ctx cli.Context, _ *RootArgs, mgArgs *ManifestGenerateA
   # Generate the demo profile
   istioctl manifest generate --set profile=demo
 
-  # Write the manifest to a file instead of stdout (useful when no shell is available to redirect, e.g. the distroless istioctl image)
+  # Write the manifest to a file instead of stdout (avoids shell redirection; works where no shell is available)
   istioctl manifest generate -o /shared/istio.yaml
 
   # To override a setting that includes dots, escape them with a backslash (\).  Your shell may require enclosing quotes.

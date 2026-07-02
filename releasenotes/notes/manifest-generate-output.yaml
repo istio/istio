@@ -4,6 +4,7 @@ area: installation
 releaseNotes:
   - |
     **Added** an `-o/--output` flag to `istioctl manifest generate` that writes
-    the generated manifest to a file instead of stdout. This is useful in
-    environments without a shell to redirect output, such as the distroless
-    `istioctl` image.
+    the generated manifest to a file instead of stdout. This avoids relying on
+    shell redirection, which is convenient for automation and required in
+    environments where no shell is available (for example, hardened `istioctl`
+    images that ship without one).
