@@ -106,8 +106,12 @@ func TestBinarySizes(t *testing.T) {
 	}{
 		// TODO: shrink the ranges here once the active work to reduce binary size is complete
 		// For now, having two small a range will result in lots of "merge conflicts"
-		"istioctl":        {60, 100},
-		"pilot-agent":     {20, 28},
+		"istioctl": {60, 100},
+		// pilot-agent grew ~1.7 MiB on top of the prior ~28 MiB baseline when
+		// the textparse-backed OpenMetrics decoder for the metrics merger landed
+		// (istio#60350); bump max to 32 to leave reasonable headroom without
+		// thrashing on merge conflicts.
+		"pilot-agent":     {20, 32},
 		"pilot-discovery": {60, 120}, // TODO: shrink this once we merge the multicluster ambient controller as default
 		"bug-report":      {60, 80},
 		"client":          {15, 30},
