@@ -23,6 +23,8 @@ import (
 	k8salpha "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	"istio.io/istio/pilot/pkg/model/kstatus"
+	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/log"
@@ -95,6 +97,15 @@ func generateSupportedKinds(l k8s.Listener) ([]k8s.RouteGroupKind, bool) {
 			supported = append(supported, toRouteKind(gvk.TCPRoute))
 		}
 		// UDP route not support
+	case k8s.ProtocolType(protocol.HBONE):
+		// HBONE is a tunnel protocol used by waypoint proxies; it can carry any application protocol
+		// TODO(jaellio): verify this is correct
+		supported = []k8s.RouteGroupKind{
+			toRouteKind(gvk.HTTPRoute),
+			toRouteKind(gvk.GRPCRoute),
+			toRouteKind(gvk.TCPRoute),
+			toRouteKind(gvk.TLSRoute),
+		}
 	}
 	if l.AllowedRoutes != nil && len(l.AllowedRoutes.Kinds) > 0 {
 		// We need to filter down to only ones we actually support
@@ -157,6 +168,8 @@ type RouteParentResult struct {
 	DeniedReason *ParentError
 	// RouteError, if present, indicates a route-level error (e.g. unresolved backend refs)
 	RouteError *Condition
+	// ControllerName is the name of the controller that generated the result
+	ControllerName string
 }
 
 // createRouteStatus builds the RouteParentStatus slice from route parent results.
@@ -166,14 +179,14 @@ func createRouteStatus(
 	parentResults []RouteParentResult,
 	objectNamespace string,
 	generation int64,
-	controllerName string,
 	currentParents []k8s.RouteParentStatus,
 ) []k8s.RouteParentStatus {
 	parents := slices.Clone(currentParents)
 	parentIndexes := map[string]int{}
 	for idx, p := range parents {
 		// Only consider our own
-		if p.ControllerName != k8s.GatewayController(controllerName) {
+		if p.ControllerName != constants.ManagedAgentgatewayController &&
+			p.ControllerName != constants.ManagedAgentgatewayWaypointController {
 			continue
 		}
 		rs := parentRefStringWithNS(p.ParentRef, objectNamespace)
@@ -271,14 +284,14 @@ func createRouteStatus(
 		var currentConditions []metav1.Condition
 		cs := slices.FindFunc(currentParents, func(s k8s.RouteParentStatus) bool {
 			return parentRefStringWithNS(s.ParentRef, objectNamespace) == myRef &&
-				s.ControllerName == k8s.GatewayController(controllerName)
+				s.ControllerName == k8s.GatewayController(gw.ControllerName)
 		})
 		if cs != nil {
 			currentConditions = cs.Conditions
 		}
 		ns := k8s.RouteParentStatus{
 			ParentRef:      gw.OriginalReference,
-			ControllerName: k8s.GatewayController(controllerName),
+			ControllerName: k8s.GatewayController(gw.ControllerName),
 			Conditions:     setConditions(generation, currentConditions, conds),
 		}
 		if idx, f := parentIndexes[myRef]; f {
