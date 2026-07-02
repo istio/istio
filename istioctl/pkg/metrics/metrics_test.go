@@ -101,24 +101,24 @@ var _ promv1.API = mockPromAPI{}
 func TestPrintMetrics(t *testing.T) {
 	mockProm := mockPromAPI{
 		cannedResponse: map[string]prometheus_model.Value{
-			"sum(rate(istio_requests_total{destination_workload=~\"details.*\", destination_workload_namespace=~\".*\",reporter=\"destination\"}[1m0s]))": prometheus_model.Vector{ // nolint: lll
+			`sum(rate(istio_requests_total{destination_workload=~"details.*",destination_workload_namespace=~".*",reporter="destination"}[1m0s]))`: prometheus_model.Vector{ // nolint: lll
 				&prometheus_model.Sample{Value: 0.04},
 			},
-			"sum(rate(istio_requests_total{destination_workload=~\"details.*\", destination_workload_namespace=~\".*\",reporter=\"destination\",response_code=~\"[45][0-9]{2}\"}[1m0s]))": prometheus_model.Vector{}, // nolint: lll
-			"histogram_quantile(0.500000, sum(rate(istio_request_duration_milliseconds_bucket{destination_workload=~\"details.*\", destination_workload_namespace=~\".*\",reporter=\"destination\"}[1m0s])) by (le))": prometheus_model.Vector{ // nolint: lll
+			`sum(rate(istio_requests_total{destination_workload=~"details.*",destination_workload_namespace=~".*",reporter="destination",response_code=~"[45][0-9]{2}"}[1m0s]))`: prometheus_model.Vector{}, // nolint: lll
+			`histogram_quantile(0.500000, sum(rate(istio_request_duration_milliseconds_bucket{destination_workload=~"details.*",destination_workload_namespace=~".*",reporter="destination"}[1m0s])) by (le))`: prometheus_model.Vector{ // nolint: lll
 				&prometheus_model.Sample{Value: 2.5},
 			},
-			"histogram_quantile(0.900000, sum(rate(istio_request_duration_milliseconds_bucket{destination_workload=~\"details.*\", destination_workload_namespace=~\".*\",reporter=\"destination\"}[1m0s])) by (le))": prometheus_model.Vector{ // nolint: lll
+			`histogram_quantile(0.900000, sum(rate(istio_request_duration_milliseconds_bucket{destination_workload=~"details.*",destination_workload_namespace=~".*",reporter="destination"}[1m0s])) by (le))`: prometheus_model.Vector{ // nolint: lll
 				&prometheus_model.Sample{Value: 4.5},
 			},
-			"histogram_quantile(0.990000, sum(rate(istio_request_duration_milliseconds_bucket{destination_workload=~\"details.*\", destination_workload_namespace=~\".*\",reporter=\"destination\"}[1m0s])) by (le))": prometheus_model.Vector{ // nolint: lll
+			`histogram_quantile(0.990000, sum(rate(istio_request_duration_milliseconds_bucket{destination_workload=~"details.*",destination_workload_namespace=~".*",reporter="destination"}[1m0s])) by (le))`: prometheus_model.Vector{ // nolint: lll
 				&prometheus_model.Sample{Value: 4.95},
 			},
 		},
 	}
 	workload := "details"
 
-	sm, err := metrics(mockProm, workload, time.Minute)
+	sm, err := metrics(mockProm, workload, time.Minute, "", "")
 	if err != nil {
 		t.Fatalf("Unwanted exception %v", err)
 	}
@@ -133,6 +133,66 @@ func TestPrintMetrics(t *testing.T) {
 `
 	if output != expectedOutput {
 		t.Fatalf("Unexpected output; got:\n %q\nwant:\n %q", output, expectedOutput)
+	}
+}
+
+func TestPrintMetricsWithServiceFilter(t *testing.T) {
+	mockProm := mockPromAPI{
+		cannedResponse: map[string]prometheus_model.Value{
+			`sum(rate(istio_requests_total{destination_workload=~"details.*",destination_workload_namespace=~".*",reporter="destination",destination_service=~"reviews.default.svc.cluster.local"}[1m0s]))`: prometheus_model.Vector{ // nolint: lll
+				&prometheus_model.Sample{Value: 0.02},
+			},
+			`sum(rate(istio_requests_total{destination_workload=~"details.*",destination_workload_namespace=~".*",reporter="destination",destination_service=~"reviews.default.svc.cluster.local",response_code=~"[45][0-9]{2}"}[1m0s]))`: prometheus_model.Vector{}, // nolint: lll
+			`histogram_quantile(0.500000, sum(rate(istio_request_duration_milliseconds_bucket{destination_workload=~"details.*",destination_workload_namespace=~".*",reporter="destination",destination_service=~"reviews.default.svc.cluster.local"}[1m0s])) by (le))`: prometheus_model.Vector{ // nolint: lll
+				&prometheus_model.Sample{Value: 1.5},
+			},
+			`histogram_quantile(0.900000, sum(rate(istio_request_duration_milliseconds_bucket{destination_workload=~"details.*",destination_workload_namespace=~".*",reporter="destination",destination_service=~"reviews.default.svc.cluster.local"}[1m0s])) by (le))`: prometheus_model.Vector{ // nolint: lll
+				&prometheus_model.Sample{Value: 3.0},
+			},
+			`histogram_quantile(0.990000, sum(rate(istio_request_duration_milliseconds_bucket{destination_workload=~"details.*",destination_workload_namespace=~".*",reporter="destination",destination_service=~"reviews.default.svc.cluster.local"}[1m0s])) by (le))`: prometheus_model.Vector{ // nolint: lll
+				&prometheus_model.Sample{Value: 4.0},
+			},
+		},
+	}
+	workload := "details"
+
+	sm, err := metrics(mockProm, workload, time.Minute, "reviews.default.svc.cluster.local", "")
+	if err != nil {
+		t.Fatalf("Unwanted exception %v", err)
+	}
+
+	if sm.totalRPS != 0.02 {
+		t.Fatalf("Expected totalRPS 0.02, got %f", sm.totalRPS)
+	}
+}
+
+func TestPrintMetricsWithResponseCodeFilter(t *testing.T) {
+	mockProm := mockPromAPI{
+		cannedResponse: map[string]prometheus_model.Value{
+			`sum(rate(istio_requests_total{destination_workload=~"details.*",destination_workload_namespace=~".*",reporter="destination",response_code=~"2[0-9]{2}"}[1m0s]))`: prometheus_model.Vector{ // nolint: lll
+				&prometheus_model.Sample{Value: 0.03},
+			},
+			`sum(rate(istio_requests_total{destination_workload=~"details.*",destination_workload_namespace=~".*",reporter="destination",response_code=~"[45][0-9]{2}"}[1m0s]))`: prometheus_model.Vector{}, // nolint: lll
+			`histogram_quantile(0.500000, sum(rate(istio_request_duration_milliseconds_bucket{destination_workload=~"details.*",destination_workload_namespace=~".*",reporter="destination"}[1m0s])) by (le))`: prometheus_model.Vector{ // nolint: lll
+				&prometheus_model.Sample{Value: 2.0},
+			},
+			`histogram_quantile(0.900000, sum(rate(istio_request_duration_milliseconds_bucket{destination_workload=~"details.*",destination_workload_namespace=~".*",reporter="destination"}[1m0s])) by (le))`: prometheus_model.Vector{ // nolint: lll
+				&prometheus_model.Sample{Value: 3.5},
+			},
+			`histogram_quantile(0.990000, sum(rate(istio_request_duration_milliseconds_bucket{destination_workload=~"details.*",destination_workload_namespace=~".*",reporter="destination"}[1m0s])) by (le))`: prometheus_model.Vector{ // nolint: lll
+				&prometheus_model.Sample{Value: 4.5},
+			},
+		},
+	}
+	workload := "details"
+
+	sm, err := metrics(mockProm, workload, time.Minute, "", "2[0-9]{2}")
+	if err != nil {
+		t.Fatalf("Unwanted exception %v", err)
+	}
+
+	if sm.totalRPS != 0.03 {
+		t.Fatalf("Expected totalRPS 0.03, got %f", sm.totalRPS)
 	}
 }
 
