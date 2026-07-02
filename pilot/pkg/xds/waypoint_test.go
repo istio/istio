@@ -26,15 +26,20 @@ import (
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	upstream "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	. "github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
+	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -1210,4 +1215,39 @@ spec:
 			}
 		})
 	}
+}
+
+func TestWaypointScopedAddressPush(t *testing.T) {
+	d, _ := setupWaypointTest(t,
+		waypointGateway, waypointSvc, waypointInstance, appServiceEntry)
+
+	ads := d.ConnectADS().WithType(v3.ListenerType).
+		WithID("waypoint~3.0.0.1~waypoint-pod.default~default.svc.cluster.local")
+	ads.RequestResponseAck(t, nil)
+
+	// Workload churn unrelated to any waypoint (pods scaling, nodes recycling, ...) only
+	// produces Address updates; the waypoint's config doesn't reference it, so its
+	// listeners must not be rebuilt.
+	clienttest.NewWriter[*networkingclient.WorkloadEntry](t, d.KubeClient()).Create(&networkingclient.WorkloadEntry{
+		ObjectMeta: metav1.ObjectMeta{Name: "unrelated", Namespace: "default"},
+		Spec:       networking.WorkloadEntry{Address: "9.9.9.9"},
+	})
+	ads.ExpectNoResponse(t)
+
+	// A service attaching to this waypoint arrives through the same Address update path and
+	// must still trigger a listener rebuild.
+	clienttest.NewWriter[*networkingclient.ServiceEntry](t, d.KubeClient()).Create(&networkingclient.ServiceEntry{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "app2",
+			Namespace: "default",
+			Labels:    map[string]string{label.IoIstioUseWaypoint.Name: "waypoint"},
+		},
+		Spec: networking.ServiceEntry{
+			Hosts:      []string{"app2.com"},
+			Addresses:  []string{"1.2.3.5"},
+			Ports:      []*networking.ServicePort{{Number: 80, Name: "http", Protocol: "HTTP"}},
+			Resolution: networking.ServiceEntry_STATIC,
+		},
+	})
+	ads.ExpectResponse(t)
 }
