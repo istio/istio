@@ -186,6 +186,7 @@ func (lb *ListenerBuilder) buildOutboundNetworkFiltersWithSingleDestination(
 		IdleTimeout:                     idleTimeout,
 		MaxDownstreamConnectionDuration: destinationRule.GetTrafficPolicy().GetConnectionPool().GetTcp().GetMaxConnectionDuration(),
 	}
+	setTCPOnDemandIfNeeded(tcpProxy)
 
 	maybeSetHashPolicy(destinationRule, tcpProxy, subsetName)
 	applyTunnelingConfig(tcpProxy, destinationRule, subsetName)
@@ -275,6 +276,7 @@ func (lb *ListenerBuilder) buildOutboundNetworkFiltersWithWeightedClusters(route
 		IdleTimeout:                     idleTimeout,
 		MaxDownstreamConnectionDuration: destinationRule.GetTrafficPolicy().GetConnectionPool().GetTcp().GetMaxConnectionDuration(),
 	}
+	setTCPOnDemandIfNeeded(tcpProxy)
 
 	for _, route := range routes {
 		service := lb.push.ServiceForHostname(lb.node, host.Name(route.Destination.Host))

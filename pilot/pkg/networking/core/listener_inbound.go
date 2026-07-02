@@ -900,6 +900,7 @@ func (lb *ListenerBuilder) buildInboundNetworkFilters(fcc inboundChainConfig) []
 		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: fcc.clusterName},
 		IdleTimeout:      parseDuration(lb.node.Metadata.IdleTimeout),
 	}
+	setTCPOnDemandIfNeeded(tcpProxy)
 	tcpFilter := setAccessLogAndBuildTCPFilter(lb.push, lb.node, tcpProxy, istionetworking.ListenerClassSidecarInbound, fcc.policyService)
 	networkFilterstack := buildNetworkFiltersStack(fcc.port.Protocol, tcpFilter, statPrefix, fcc.clusterName)
 	return lb.buildCompleteNetworkFilters(istionetworking.ListenerClassSidecarInbound, fcc.port.Port, networkFilterstack, true, fcc.policyService)

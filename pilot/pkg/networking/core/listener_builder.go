@@ -259,6 +259,7 @@ func buildOutboundCatchAllNetworkFiltersOnly(push *model.PushContext, node *mode
 		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: egressCluster},
 		IdleTimeout:      parseDuration(node.Metadata.IdleTimeout),
 	}
+	setTCPOnDemandIfNeeded(tcpProxy)
 
 	filterStack := buildMetricsNetworkFilters(push, node, istionetworking.ListenerClassSidecarOutbound, nil)
 	accessLogBuilder.setTCPAccessLog(push, node, tcpProxy, istionetworking.ListenerClassSidecarOutbound, nil)
@@ -268,6 +269,18 @@ func buildOutboundCatchAllNetworkFiltersOnly(push *model.PushContext, node *mode
 	})
 
 	return filterStack
+}
+
+func setTCPOnDemandIfNeeded(tcpProxy *tcp.TcpProxy) {
+	if features.EnableCDSLazyLoad {
+		tcpProxy.OnDemand = &tcp.TcpProxy_OnDemand{
+			OdcdsConfig: &core.ConfigSource{
+				ConfigSourceSpecifier: &core.ConfigSource_Ads{
+					Ads: &core.AggregatedConfigSource{},
+				},
+			},
+		}
+	}
 }
 
 func parseDuration(s string) *durationpb.Duration {
@@ -534,6 +547,9 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 	}
 
 	// Router filter must be last
+	if features.EnableCDSLazyLoad {
+		filters = append(filters, xdsfilters.OnDemandHTTPFilter)
+	}
 	filters = append(filters, xdsfilters.BuildRouterFilter(xdsfilters.RouterFilterContext{
 		SuppressDebugHeaders: httpOpts.suppressEnvoyDebugHeaders,
 	}))

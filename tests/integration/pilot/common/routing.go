@@ -3214,13 +3214,13 @@ spec:
 				opts:   callOpts,
 			})
 			t.RunTraffic(TrafficTestCase{
-				name:   "query param" + c.Config().Service,
+				name:   "query param " + c.Config().Service,
 				config: svc + tmpl.MustEvaluate(destRule, "httpQueryParameterName: some-query-param"),
 				call:   c.CallOrFail,
 				opts:   callOpts,
 			})
 			t.RunTraffic(TrafficTestCase{
-				name:   "http header" + c.Config().Service,
+				name:   "http header " + c.Config().Service,
 				config: svc + tmpl.MustEvaluate(destRule, "httpHeaderName: x-some-header"),
 				call:   c.CallOrFail,
 				opts:   callOpts,

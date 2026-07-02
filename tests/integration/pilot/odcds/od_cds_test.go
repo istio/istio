@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package pilot
+package odcds
 
 import (
 	"testing"
@@ -23,6 +23,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/common/deployment"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/tests/integration/pilot/common"
 )
 
 var (
@@ -36,7 +37,7 @@ var (
 
 // TestMain defines the entrypoint for pilot tests using a standard Istio installation.
 // If a test requires a custom install it should go into its own package, otherwise it should go
-// here to reuse a single install across tests.
+// here to reuse a single installation across tests.
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
@@ -49,11 +50,13 @@ values:
 `
 		})).
 		Setup(deployment.SetupSingleNamespace(&apps, deployment.Config{})).
-		Setup(func(t resource.Context) error {
-			gatewayConformanceInputs.Client = t.Clusters().Default()
-			gatewayConformanceInputs.Cleanup = !t.Settings().NoCleanup
-
-			return nil
-		}).
 		Run()
+}
+
+func TestTraffic(t *testing.T) {
+	framework.
+		NewTest(t).
+		Run(func(t framework.TestContext) {
+			common.RunAllTrafficTests(t, i, apps)
+		})
 }
