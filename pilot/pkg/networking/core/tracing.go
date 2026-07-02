@@ -424,6 +424,10 @@ func otelConfig(serviceName string, otelProvider *meshconfig.MeshConfig_Extensio
 				return nil, false, err
 			}
 			oc.Sampler = dts
+		case *meshconfig.MeshConfig_ExtensionProvider_OpenTelemetryTracingProvider_AlwaysOnSampler_:
+			oc.Sampler = &core.TypedExtensionConfig{
+				Name: "envoy.tracers.opentelemetry.samplers.always_on",
+			}
 		}
 
 		// If any sampler is configured for the OpenTelemetryTracingProvider
