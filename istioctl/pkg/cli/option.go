@@ -33,6 +33,7 @@ const (
 	FlagImpersonateGroup = "as-group"
 	FlagNamespace        = "namespace"
 	FlagIstioNamespace   = "istioNamespace"
+	FlagRevision         = "revision"
 	FlagKubeTimeout      = "kubeclient-timeout"
 )
 
@@ -44,6 +45,7 @@ type RootFlags struct {
 	impersonateGroup *[]string
 	namespace        *string
 	istioNamespace   *string
+	revision         *string
 	kubeTimeout      *string
 
 	defaultNamespace string
@@ -58,6 +60,7 @@ func AddRootFlags(flags *pflag.FlagSet) *RootFlags {
 		impersonateGroup: ptr.Of[[]string](nil),
 		namespace:        ptr.Of[string](""),
 		istioNamespace:   ptr.Of[string](""),
+		revision:         ptr.Of[string](""),
 		kubeTimeout:      ptr.Of[string](""),
 	}
 	flags.StringVarP(r.kubeconfig, FlagKubeConfig, "c", "",
@@ -73,6 +76,9 @@ func AddRootFlags(flags *pflag.FlagSet) *RootFlags {
 		"Kubernetes namespace")
 	flags.StringVarP(r.istioNamespace, FlagIstioNamespace, "i", viper.GetString(FlagIstioNamespace),
 		"Istio system namespace")
+	// No -r shorthand here: it is already claimed by the per-subcommand --revision registrations
+	// (clioptions.ControlPlaneOptions, tag, waypoint, analyze). Long flag only until those migrate.
+	flags.StringVar(r.revision, FlagRevision, "", "Control plane revision")
 	flags.StringVar(r.kubeTimeout, FlagKubeTimeout, "15s", "Kubernetes client timeout as a time.Duration string, defaults to 15 seconds.")
 
 	return r
@@ -101,6 +107,14 @@ func (r *RootFlags) KubeClientTimeout() (time.Duration, error) {
 // IstioNamespace returns the istioNamespace flag value.
 func (r *RootFlags) IstioNamespace() string {
 	return *r.istioNamespace
+}
+
+// Revision returns the revision flag value, empty if the flag was not set.
+func (r *RootFlags) Revision() string {
+	if r.revision == nil {
+		return ""
+	}
+	return *r.revision
 }
 
 // DefaultNamespace returns the default namespace to use.
