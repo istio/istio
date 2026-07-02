@@ -36,7 +36,6 @@ import (
 	klabels "k8s.io/apimachinery/pkg/labels"
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	k8s "sigs.k8s.io/gateway-api/apis/v1"
-	k8salpha "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayx "sigs.k8s.io/gateway-api/apisx/v1alpha1"
 
 	"istio.io/api/annotation"
@@ -790,7 +789,7 @@ func extractParentReferenceInfo(ctx RouteContext, parents RouteParents, obj cont
 	return parentRefs
 }
 
-func convertTCPRoute(ctx RouteContext, r k8salpha.TCPRouteRule, obj *k8salpha.TCPRoute, enforceRefGrant bool) (*istio.TCPRoute, *ConfigError) {
+func convertTCPRoute(ctx RouteContext, r k8s.TCPRouteRule, obj *k8s.TCPRoute, enforceRefGrant bool) (*istio.TCPRoute, *ConfigError) {
 	if tcpWeightSum(r.BackendRefs) == 0 {
 		// The spec requires us to reject connections when there are no >0 weight backends
 		// We don't have a great way to do it. TODO: add a fault injection API for TCP?
@@ -2204,9 +2203,6 @@ func listenerProtocolToIstio(name k8s.GatewayController, p k8s.ProtocolType) (st
 	case k8s.TLSProtocolType:
 		return string(p), nil
 	case k8s.TCPProtocolType:
-		if !features.EnableAlphaGatewayAPI {
-			return "", fmt.Errorf("protocol %q is supported, but only when %v=true is configured", p, features.EnableAlphaGatewayAPIName)
-		}
 		return string(p), nil
 	// Our own custom types
 	case k8s.ProtocolType(protocol.HBONE):
@@ -2660,7 +2656,7 @@ func toNamespaceSet(name string, labels map[string]string) klabels.Set {
 
 func GetCommonRouteInfo(spec any) ([]k8s.ParentReference, []k8s.Hostname, config.GroupVersionKind) {
 	switch t := spec.(type) {
-	case *k8salpha.TCPRoute:
+	case *k8s.TCPRoute:
 		return t.Spec.ParentRefs, nil, gvk.TCPRoute
 	case *k8s.TLSRoute:
 		return t.Spec.ParentRefs, t.Spec.Hostnames, gvk.TLSRoute
@@ -2676,7 +2672,7 @@ func GetCommonRouteInfo(spec any) ([]k8s.ParentReference, []k8s.Hostname, config
 
 func GetCommonRouteStateParents(spec any) []k8s.RouteParentStatus {
 	switch t := spec.(type) {
-	case *k8salpha.TCPRoute:
+	case *k8s.TCPRoute:
 		return t.Status.Parents
 	case *k8s.TLSRoute:
 		return t.Status.Parents
@@ -2711,7 +2707,7 @@ func getGroup(rgk k8s.RouteGroupKind) k8s.Group {
 
 func GetStatus[I, IS any](spec I) IS {
 	switch t := any(spec).(type) {
-	case *k8salpha.TCPRoute:
+	case *k8s.TCPRoute:
 		return any(t.Status).(IS)
 	case *k8s.TLSRoute:
 		return any(t.Status).(IS)

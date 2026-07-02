@@ -26,7 +26,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gatewayalpha "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
 	"istio.io/istio/pilot/pkg/config/kube/gatewaycommon"
@@ -129,7 +128,7 @@ func AgwRouteCollection(
 	queue *status.StatusCollections,
 	httpRouteCol krt.Collection[*gatewayv1.HTTPRoute],
 	grpcRouteCol krt.Collection[*gatewayv1.GRPCRoute],
-	tcpRouteCol krt.Collection[*gatewayalpha.TCPRoute],
+	tcpRouteCol krt.Collection[*gatewayv1.TCPRoute],
 	tlsRouteCol krt.Collection[*gatewayv1.TLSRoute],
 	inputs RouteContextInputs,
 	tagWatcher krt.RecomputeProtected[revisions.TagWatcher],
@@ -182,7 +181,7 @@ func AgwRouteCollection(
 
 	// Create TCPRoutes collection
 	tcpRouteStatus, tcpRoutes := createTCPRouteCollection(tcpRouteCol, inputs, krtopts, "TCPRoutes",
-		func(ctx RouteContext, obj *gatewayalpha.TCPRoute) (RouteContext, iter.Seq2[AgwTCPRoute, *Condition]) {
+		func(ctx RouteContext, obj *gatewayv1.TCPRoute) (RouteContext, iter.Seq2[AgwTCPRoute, *Condition]) {
 			route := obj.Spec
 			return ctx, func(yield func(AgwTCPRoute, *Condition) bool) {
 				for n, r := range route.Rules {
@@ -193,8 +192,8 @@ func AgwRouteCollection(
 					}
 				}
 			}
-		}, func(status gatewayv1.RouteStatus) gatewayalpha.TCPRouteStatus {
-			return gatewayalpha.TCPRouteStatus{RouteStatus: status}
+		}, func(status gatewayv1.RouteStatus) gatewayv1.TCPRouteStatus {
+			return gatewayv1.TCPRouteStatus{RouteStatus: status}
 		})
 	status.RegisterStatus(queue, tcpRouteStatus, GetStatus, tagWatcher.AccessUnprotected())
 
