@@ -179,6 +179,68 @@ func verify(t *testing.T, encoding meshconfig.MeshConfig_AccessLogEncoding, got 
 	}
 }
 
+func TestHboneOriginationFileAccessLogFromMeshConfig(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		encoding   meshconfig.MeshConfig_AccessLogEncoding
+		format     string
+		wantFormat string
+	}{
+		{
+			name:       "default text uses original destination",
+			encoding:   meshconfig.MeshConfig_TEXT,
+			wantFormat: hboneOriginationTextLogFormat(),
+		},
+		{
+			name:       "custom text is unchanged",
+			encoding:   meshconfig.MeshConfig_TEXT,
+			format:     "custom %UPSTREAM_HOST%",
+			wantFormat: "custom %UPSTREAM_HOST%\n",
+		},
+		{
+			name:       "default json uses original destination",
+			encoding:   meshconfig.MeshConfig_JSON,
+			wantFormat: hboneOriginationJSONLogFormat(),
+		},
+		{
+			name:       "custom json is unchanged",
+			encoding:   meshconfig.MeshConfig_JSON,
+			format:     `{"upstream_host":"%UPSTREAM_HOST%"}`,
+			wantFormat: `{"upstream_host":"%UPSTREAM_HOST%"}`,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			m := mesh.DefaultMeshConfig()
+			m.AccessLogEncoding = tc.encoding
+			m.AccessLogFormat = tc.format
+
+			verify(t, tc.encoding, hboneOriginationFileAccessLogFromMeshConfig(model.DevStdout, m), tc.wantFormat)
+		})
+	}
+}
+
+func TestHboneOriginationFileAccessLogDoesNotMutateDefaultJSONFormat(t *testing.T) {
+	m := mesh.DefaultMeshConfig()
+	m.AccessLogEncoding = meshconfig.MeshConfig_JSON
+
+	hboneOriginationFileAccessLogFromMeshConfig(model.DevStdout, m)
+
+	if got := model.EnvoyJSONLogFormatIstio.Fields["upstream_host"].GetStringValue(); got != "%UPSTREAM_HOST%" {
+		t.Fatalf("default JSON upstream_host format mutated: %s", got)
+	}
+}
+
+func TestAccessLogBuilderUsesHboneOriginationFormat(t *testing.T) {
+	b := newAccessLogBuilder()
+	m := mesh.DefaultMeshConfig()
+	m.AccessLogFile = model.DevStdout
+
+	got := b.hboneOriginationAccessLog.buildOrFetch(m)
+
+	verify(t, meshconfig.MeshConfig_TEXT, got, hboneOriginationTextLogFormat())
+	assert.Equal(t, hboneOriginationAccessLogFilter(), got.Filter)
+}
+
 func TestAccessLogPatch(t *testing.T) {
 	// Regression test for https://github.com/istio/istio/issues/35778
 	cg := NewConfigGenTest(t, TestOptions{
