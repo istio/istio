@@ -115,6 +115,7 @@ spec:
               command:
               - pilot-agent
               - wait
+              - --timeoutSeconds=60
               - --url=http://localhost:15020/healthz/ready
         name: istio-proxy
         ports:

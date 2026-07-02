@@ -203,6 +203,7 @@ spec:
               command:
               - pilot-agent
               - wait
+              - --timeoutSeconds=60
           preStop:
             exec:
               command:
