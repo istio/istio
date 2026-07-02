@@ -371,16 +371,6 @@ spec:
           number: 80
   - match:
     - uri:
-        prefix: /disable
-    name: default.http-retry-request.2
-    retries: {}
-    route:
-    - destination:
-        host: httpbin.default.svc.domain.suffix
-        port:
-          number: 80
-  - match:
-    - uri:
         prefix: /empty
     name: default.http-retry-request.1
     retries:

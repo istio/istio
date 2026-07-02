@@ -720,6 +720,7 @@ func TestConvertResources(t *testing.T) {
 			validationIgnorer: crdvalidation.NewValidationIgnorer(
 				"default/^invalid-backendRef-kind-",
 				"default/^invalid-backendRef-mixed-",
+				"default/^invalid-retry-attempts",
 			),
 		},
 		{name: "multi-gateway"},

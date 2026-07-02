@@ -198,9 +198,12 @@ func convertHTTPRoute(ctx RouteContext, r k8s.HTTPRouteRule,
 			PerTryTimeout: nil,
 			RetryOn:       strings.Join(retryOn, ","),
 		}
-		if vs.Retries.Attempts == 0 {
-			// Invalid to set this when there are no attempts
-			vs.Retries.RetryOn = ""
+		if vs.Retries.Attempts < 1 {
+			// Setting attempts less than 1 is invalid.
+			return nil, nil, &ConfigError{
+				Reason:  InvalidConfiguration,
+				Message: fmt.Sprintf("retry attempts must be greater than 0, got %d", vs.Retries.Attempts),
+			}
 		}
 		if r.Retry.Backoff != nil {
 			retrybackOff, _ := time.ParseDuration(string(*r.Retry.Backoff))
