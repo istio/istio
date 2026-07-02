@@ -187,27 +187,11 @@ func delegateVirtualServices(
 			return nil
 		}
 
-		var exportToSet sets.Set[visibility.Instance]
-		if len(spec.ExportTo) == 0 {
+		exportToSet := convertExportToSet(spec.ExportTo, cfg.Namespace)
+		if len(exportToSet) == 0 {
 			// No exportTo in virtualService. Use the global default
 			defaultExportTo := krt.FetchOne(ctx, defaultExportTo).Set
-			exportToSet = sets.NewWithLength[visibility.Instance](defaultExportTo.Len())
-			for v := range defaultExportTo {
-				if v == visibility.Private {
-					exportToSet.Insert(visibility.Instance(cfg.Namespace))
-				} else {
-					exportToSet.Insert(v)
-				}
-			}
-		} else {
-			exportToSet = sets.NewWithLength[visibility.Instance](len(spec.ExportTo))
-			for _, e := range spec.ExportTo {
-				if e == string(visibility.Private) {
-					exportToSet.Insert(visibility.Instance(cfg.Namespace))
-				} else {
-					exportToSet.Insert(visibility.Instance(e))
-				}
-			}
+			exportToSet = copyDefaultExportToSet(defaultExportTo, cfg.Namespace)
 		}
 
 		return &DelegateVirtualService{

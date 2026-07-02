@@ -1750,7 +1750,7 @@ func (ps *PushContext) initVirtualServices(env *Environment) {
 		rule := virtualService.Spec.(*networking.VirtualService)
 		gwNames := getGatewayNames(rule)
 		exportToSet := ps.exportToDefaults.virtualService
-		if len(rule.ExportTo) > 0 {
+		if len(virtualService.ExportTo) > 0 {
 			exportToSet = virtualService.ExportTo
 		}
 
