@@ -108,10 +108,12 @@ spec:
       baseEjectionTime: 10m
       maxEjectionPercent: 100
 {{ end }}
+{{ if not .DisableZoneAware }}
     loadBalancer:
       zoneAwareLbSetting:
         enabled: true
         minClusterSize: {{ .MinClusterSize }}
+{{ end }}
 {{ range $i, $we := .LocalClusterWorkloads }}
 ---
 apiVersion: networking.istio.io/v1
@@ -157,6 +159,7 @@ type zoneAwareInput struct {
 	DestinationWorkloads     []weEntry
 	WithOutlierDetection     bool
 	MinClusterSize           int
+	DisableZoneAware         bool
 }
 
 func TestZoneAwareLoadBalancer(t *testing.T) {
@@ -186,6 +189,7 @@ func TestZoneAwareLoadBalancer(t *testing.T) {
 				destinationWorkloads  []weEntry
 				withOutlierDetection  bool
 				minClusterSize        int
+				disableZoneAware      bool
 				expected              map[string]int
 			}{
 				{
@@ -216,6 +220,24 @@ func TestZoneAwareLoadBalancer(t *testing.T) {
 						{Address: destC.Address(), Locality: sameRegionZone2Locality},
 					},
 					expected: expectAllTrafficTo(destB.Config().Service),
+				},
+				{
+					// Same topology as TwoSourceZonesTwoDestinationEndpointsMatchingSourceZones, but
+					// with no loadBalancer DR block (default locality LB, no outlier detection).
+					// Without zone-aware routing there is no mechanism to pin traffic to the local
+					// zone: no priorities are assigned and both same-region endpoints stay equal,
+					// so traffic splits evenly.
+					name:                  "ZoneAwareDisabledTwoSourceZonesTwoDestinationEndpointsMatchingSourceZones",
+					localClusterWorkloads: twoLocalClusterZones,
+					destinationWorkloads: []weEntry{
+						{Address: destB.Address(), Locality: localLocality},
+						{Address: destC.Address(), Locality: sameRegionZone2Locality},
+					},
+					disableZoneAware: true,
+					expected: map[string]int{
+						destB.Config().Service: sendCount / 2,
+						destC.Config().Service: sendCount / 2,
+					},
 				},
 				{
 					// Same setup as TwoSourceZonesTwoDestinationEndpointsMatchingSourceZones, which
@@ -257,6 +279,23 @@ func TestZoneAwareLoadBalancer(t *testing.T) {
 						{Address: destC.Address(), Locality: remoteRegionLocality},
 					},
 					expected: expectAllTrafficTo(destB.Config().Service),
+				},
+				{
+					// Same topology as CrossRegionEndpointIgnoredWhileSameRegionHealthy, but with
+					// no loadBalancer DR block (default locality LB, no outlier detection).
+					// Without zone-aware region-bucketing, both endpoints are at equal priority
+					// and traffic splits evenly across the same-region and cross-region endpoints.
+					name:                  "ZoneAwareDisabledCrossRegionEndpointNotIgnored",
+					localClusterWorkloads: oneLocalClusterEndpoint,
+					destinationWorkloads: []weEntry{
+						{Address: destB.Address(), Locality: localLocality},
+						{Address: destC.Address(), Locality: remoteRegionLocality},
+					},
+					disableZoneAware: true,
+					expected: map[string]int{
+						destB.Config().Service: sendCount / 2,
+						destC.Config().Service: sendCount / 2,
+					},
 				},
 				{
 					// Verifies that a same-region endpoint in a *different* zone beats a cross-region
@@ -309,19 +348,24 @@ func TestZoneAwareLoadBalancer(t *testing.T) {
 						DestinationWorkloads:     tc.destinationWorkloads,
 						WithOutlierDetection:     tc.withOutlierDetection,
 						MinClusterSize:           minClusterSize,
+						DisableZoneAware:         tc.disableZoneAware,
 					}
 					t.ConfigIstio().
 						Eval(apps.Namespace.Name(), input, zoneAwareConfig).
 						ApplyOrFail(t)
 
-					// The traffic-distribution assertions below are not sufficient on their own:
-					// locality-LB defaults can produce the same pattern. We first verify that
-					// the proxy's Envoy config is actually zone-aware by asserting:
+					// For cases where zone-aware is enabled, verify the proxy's Envoy config
+					// is actually using zone-aware LB (not just locality LB defaults):
 					//   1. local_cluster is present as a static cluster
 					//   2. local_cluster has exactly the expected endpoint count (CLA populated via EDS)
 					//   3. the remote-host cluster uses zone_aware_lb_config, not locality_weighted
-					// All three must hold for zone-aware to be actually exercised at runtime.
-					assertZoneAwareConfig(t, caller, input.RemoteHost, len(tc.localClusterWorkloads), tc.destinationWorkloads)
+					// For disabled cases, wait for EDS to converge on the destination cluster
+					// before sending traffic so the distribution assertion is meaningful.
+					if !tc.disableZoneAware {
+						assertZoneAwareConfig(t, caller, input.RemoteHost, len(tc.localClusterWorkloads), tc.destinationWorkloads)
+					} else {
+						waitForDestinationEndpoints(t, caller, input.RemoteHost, len(tc.destinationWorkloads))
+					}
 
 					sendTrafficOrFail(t, caller, input.RemoteHost, tc.expected)
 				})
@@ -441,6 +485,40 @@ func assertZoneAwareConfig(
 			return fmt.Errorf("cluster %q not present in /clusters output", remoteClusterName)
 		}
 		return nil
+	}, retry.Delay(time.Second), retry.Timeout(30*time.Second))
+}
+
+// waitForDestinationEndpoints waits until the remote cluster is present in the caller's
+// /clusters output and has exactly expectedCount live hosts. Used for cases where
+// assertZoneAwareConfig is not called (e.g. zone-aware LB is disabled in the DR) to
+// ensure EDS has converged before sending traffic.
+func waitForDestinationEndpoints(
+	t framework.TestContext,
+	caller echo.Instance,
+	remoteHost string,
+	expectedCount int,
+) {
+	t.Helper()
+	sidecar := caller.WorkloadsOrFail(t)[0].Sidecar()
+	remoteClusterName := fmt.Sprintf("outbound|80||%s", remoteHost)
+
+	retry.UntilSuccessOrFail(t, func() error {
+		clusters, err := sidecar.Clusters()
+		if err != nil {
+			return err
+		}
+		for _, cs := range clusters.GetClusterStatuses() {
+			if cs.GetName() != remoteClusterName {
+				continue
+			}
+			got := len(cs.GetHostStatuses())
+			if got != expectedCount {
+				return fmt.Errorf("cluster %q has %d hosts, waiting for %d",
+					remoteClusterName, got, expectedCount)
+			}
+			return nil
+		}
+		return fmt.Errorf("cluster %q not yet present in /clusters output", remoteClusterName)
 	}, retry.Delay(time.Second), retry.Timeout(30*time.Second))
 }
 
