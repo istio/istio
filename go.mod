@@ -52,7 +52,7 @@ require (
 	github.com/moby/buildkit v0.31.1
 	github.com/onsi/gomega v1.42.1
 	github.com/openshift/api v0.0.0-20260320151444-324a1bcb9f55
-	github.com/pires/go-proxyproto v0.13.0
+	github.com/pires/go-proxyproto v0.14.0
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240409071808-615f978279ca
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2
 	github.com/prometheus/client_golang v1.23.2
