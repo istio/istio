@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+  - 1674
+releaseNotes:
+  - |
+    **Added** Added a helm variable to inject an optional startupProbe to ztunnel daemonsets.
