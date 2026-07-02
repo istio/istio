@@ -214,6 +214,53 @@ spec:
         gateway.istio.io/tls-cipher-suites: "bad, ECDHE-RSA-AES128-GCM-SHA256"
 ---
 apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: gateway-tls-min-max-version
+  namespace: istio-system
+spec:
+  addresses:
+  - value: istio-ingressgateway
+    type: Hostname
+  gatewayClassName: istio
+  listeners:
+  - name: tls
+    hostname: "min-max.example.com"
+    port: 34000
+    protocol: TLS
+    allowedRoutes:
+      namespaces:
+        from: All
+    tls:
+      mode: Passthrough
+      options:
+        gateway.istio.io/tls-min-protocol-version: "TLSV1_2"
+        gateway.istio.io/tls-max-protocol-version: "TLSV1_3"
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: gateway-tls-min-version-invalid
+  namespace: istio-system
+spec:
+  addresses:
+  - value: istio-ingressgateway
+    type: Hostname
+  gatewayClassName: istio
+  listeners:
+  - name: tls
+    hostname: "invalid-min.example.com"
+    port: 34000
+    protocol: TLS
+    allowedRoutes:
+      namespaces:
+        from: All
+    tls:
+      mode: Passthrough
+      options:
+        gateway.istio.io/tls-min-protocol-version: "TLSV9_9"
+---
+apiVersion: gateway.networking.k8s.io/v1
 kind: TLSRoute
 metadata:
   name: tls
