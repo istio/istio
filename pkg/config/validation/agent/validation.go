@@ -448,6 +448,12 @@ func ValidateMeshConfigProxyConfig(config *meshconfig.ProxyConfig) Validation {
 		}
 	}
 
+	if cs := config.GetConnectionSettings(); cs != nil {
+		if err := validateConnectionSettings(cs); err != nil {
+			errs = multierror.Append(errs, multierror.Prefix(err, "invalid connection settings:"))
+		}
+	}
+
 	return Validation{errs, warnings}
 }
 
@@ -957,6 +963,54 @@ func validateNetwork(network *meshconfig.Network) (errs error) {
 		if err := ValidatePort(int(n.Port)); err != nil {
 			errs = multierror.Append(errs, err)
 		}
+	}
+	return errs
+}
+
+func validateConnectionSettings(cs *meshconfig.ProxyConfig_ConnectionSettings) error {
+	var errs error
+	if v := cs.GetListenerPerConnectionBufferLimitBytes(); v != nil && v.GetValue() < 0 {
+		errs = multierror.Append(errs, errors.New("listener_per_connection_buffer_limit_bytes must be non-negative"))
+	}
+	if v := cs.GetClusterPerConnectionBufferLimitBytes(); v != nil && v.GetValue() < 0 {
+		errs = multierror.Append(errs, errors.New("cluster_per_connection_buffer_limit_bytes must be non-negative"))
+	}
+	if d := cs.GetHttpIdleTimeout(); d != nil && d.AsDuration() < 0 {
+		errs = multierror.Append(errs, errors.New("http_idle_timeout must be non-negative"))
+	}
+	if d := cs.GetHttpMaxConnectionDuration(); d != nil && d.AsDuration() < 0 {
+		errs = multierror.Append(errs, errors.New("http_max_connection_duration must be non-negative"))
+	}
+	if d := cs.GetHttpDrainTimeout(); d != nil && d.AsDuration() < 0 {
+		errs = multierror.Append(errs, errors.New("http_drain_timeout must be non-negative"))
+	}
+	if d := cs.GetHttpRequestTimeout(); d != nil && d.AsDuration() < 0 {
+		errs = multierror.Append(errs, errors.New("http_request_timeout must be non-negative"))
+	}
+	if d := cs.GetHttpRequestHeadersTimeout(); d != nil && d.AsDuration() < 0 {
+		errs = multierror.Append(errs, errors.New("http_request_headers_timeout must be non-negative"))
+	}
+	if d := cs.GetHttpStreamIdleTimeout(); d != nil && d.AsDuration() < 0 {
+		errs = multierror.Append(errs, errors.New("http_stream_idle_timeout must be non-negative"))
+	}
+	if d := cs.GetHttpMaxStreamDuration(); d != nil && d.AsDuration() < 0 {
+		errs = multierror.Append(errs, errors.New("http_max_stream_duration must be non-negative"))
+	}
+	if v := cs.GetHttpMaxConcurrentStreams(); v != nil && v.GetValue() <= 0 {
+		errs = multierror.Append(errs, errors.New("http_max_concurrent_streams must be positive"))
+	}
+	if v := cs.GetHttp2InitialStreamWindowSize(); v != nil && v.GetValue() < 65535 {
+		errs = multierror.Append(errs, errors.New("http2_initial_stream_window_size must be at least 65535"))
+	}
+	if v := cs.GetHttp2InitialConnectionWindowSize(); v != nil && v.GetValue() < 65535 {
+		errs = multierror.Append(errs, errors.New("http2_initial_connection_window_size must be at least 65535"))
+	}
+	// TODO: ListenerConnectionLimit and GlobalDownstreamConnectionLimit are validated here but wired in later PR (listener limits).
+	if v := cs.GetListenerConnectionLimit(); v != nil && v.GetValue() <= 0 {
+		errs = multierror.Append(errs, errors.New("listener_connection_limit must be positive"))
+	}
+	if v := cs.GetGlobalDownstreamConnectionLimit(); v != nil && v.GetValue() <= 0 {
+		errs = multierror.Append(errs, errors.New("global_downstream_connection_limit must be positive"))
 	}
 	return errs
 }
