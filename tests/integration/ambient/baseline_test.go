@@ -19,6 +19,7 @@ package ambient
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"net/netip"
 	"os"
@@ -978,6 +979,7 @@ spec:
 func TestAuthorizationL4(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
 		applyDrainingWorkaround(t)
+		applyTestRunnerAllowPolicy(t, apps.Namespace.Name())
 		// pairs x allow/deny
 		runTestContext(t, func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions) {
 			if opt.Scheme != scheme.TCP {
@@ -1271,6 +1273,7 @@ spec:
 func TestAuthorizationWaypointDefaultDeny(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
 		applyDrainingWorkaround(t)
+		applyTestRunnerAllowPolicy(t, apps.Namespace.Name())
 		runTestContextIndividual(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
 			if !dst.Config().HasAnyWaypointProxy() {
 				// we only care about testing waypoints
@@ -1362,6 +1365,7 @@ spec:
 func TestAuthorizationL7(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
 		applyDrainingWorkaround(t)
+		applyTestRunnerAllowPolicy(t, apps.Namespace.Name())
 		runTestContextIndividual(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
 			if opt.Scheme != scheme.HTTP {
 				return
@@ -1876,6 +1880,70 @@ spec:
     connectionPool:
       http:
         maxRequestsPerConnection: 1`).ApplyOrFail(t)
+}
+
+// applyTestRunnerAllowPolicy installs an AuthorizationPolicy in `namespace`
+// that allows traffic from any IP the test runner could be using to reach the
+// cluster.
+//
+// Background: for runtimes such as kata-containers, the echo workload runs
+// inside a guest VM and is unreachable via `kubectl port-forward` (which
+// enters the host-side network namespace loopback). The test framework
+// therefore dials the echo gRPC instruction port directly on the pod IP (see
+// pkg/test/framework/components/echo/kube/workload.go). When a test applies a
+// deny-by-default AuthorizationPolicy selecting the source pod (typical when
+// source and destination share the same app label, or when a cluster-wide
+// allow-nothing policy is applied), ztunnel rejects the runner's instruction
+// call and the test cannot even issue the actual probe to the destination.
+//
+// Because ALLOW policies are OR'd within a workload, installing a second
+// ALLOW policy that matches the runner's source IP unblocks the instruction
+// channel without changing the policy semantics for the src->dst call under
+// test. The policy is scoped to the test via t.ConfigIstio() so it is cleaned
+// up automatically when the test ends.
+func applyTestRunnerAllowPolicy(t framework.TestContext, namespace string) {
+	ips := discoverTestRunnerIPs()
+	if len(ips) == 0 {
+		return
+	}
+	quoted := make([]string, len(ips))
+	for i, ip := range ips {
+		quoted[i] = fmt.Sprintf("%q", ip)
+	}
+	t.ConfigIstio().YAML(namespace, fmt.Sprintf(`apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-test-runner
+spec:
+  action: ALLOW
+  rules:
+  - from:
+    - source:
+        ipBlocks: [%s]
+`, strings.Join(quoted, ","))).ApplyOrFail(t)
+}
+
+func discoverTestRunnerIPs() []string {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return nil
+	}
+	var ips []string
+	for _, addr := range addrs {
+		ipnet, ok := addr.(*net.IPNet)
+		if !ok {
+			continue
+		}
+		if ipnet.IP.IsLoopback() || ipnet.IP.IsLinkLocalUnicast() || ipnet.IP.IsMulticast() {
+			continue
+		}
+		if v4 := ipnet.IP.To4(); v4 != nil {
+			ips = append(ips, v4.String()+"/32")
+		} else {
+			ips = append(ips, ipnet.IP.String()+"/128")
+		}
+	}
+	return ips
 }
 
 // Relies on the suite running in a cluster with a CNI which enforces K8s netpol but presently has no check
@@ -3225,7 +3293,6 @@ func TestAPIServer(t *testing.T) {
 			token, err := cluster.Kube().CoreV1().ServiceAccounts(apps.Namespace.Name()).CreateToken(context.Background(), "default",
 				&authenticationv1.TokenRequest{
 					Spec: authenticationv1.TokenRequestSpec{
-						Audiences:         []string{"kubernetes.default.svc"},
 						ExpirationSeconds: ptr.Of(int64(600)),
 					},
 				}, metav1.CreateOptions{})
@@ -3372,13 +3439,27 @@ func TestDirect(t *testing.T) {
 				t.Fatal(err)
 			}
 			wl := apps.Sidecar[0].WorkloadsOrFail(t)[0]
-			pf, err := wl.Cluster().NewPortForwarder(wl.PodName(), apps.Namespace.Name(), "", 0, 15008)
-			assert.NoError(t, err)
-			assert.NoError(t, pf.Start())
+			// For runtimes like kata-containers the sidecar Envoy listens inside a guest VM,
+			// which port-forward (which enters the host-side netns loopback) cannot reach.
+			// Detect those by RuntimeClassName and dial the pod IP's HBONE port directly.
+			pod, err := wl.Cluster().Kube().CoreV1().Pods(apps.Namespace.Name()).
+				Get(context.Background(), wl.PodName(), metav1.GetOptions{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			var hboneAddr string
+			if rc := pod.Spec.RuntimeClassName; rc != nil && *rc != "" {
+				hboneAddr = net.JoinHostPort(wl.Address(), "15008")
+			} else {
+				pf, err := wl.Cluster().NewPortForwarder(wl.PodName(), apps.Namespace.Name(), "", 0, 15008)
+				assert.NoError(t, err)
+				assert.NoError(t, pf.Start())
+				hboneAddr = pf.Address()
+			}
 
 			// this is real odd but we're going to assume for now that we've just got the one waypoint I guess?
 			hbone := echo.HBONE{
-				Address:            pf.Address(),
+				Address:            hboneAddr,
 				Headers:            nil,
 				Cert:               string(cert.ClientCert),
 				Key:                string(cert.Key),

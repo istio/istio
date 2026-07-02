@@ -79,6 +79,13 @@ func TestMain(m *testing.M) {
 			cfg.DeployEastWestGW = false
 			cfg.ControlPlaneValues = `
 values:
+  pilot:
+    # Force sidecar-injected pods to use the istio-init init container for iptables
+    # setup instead of relying on the istio-cni DaemonSet, which cannot configure
+    # iptables inside pods running under the kata-l3fwd runtime class. The CNI
+    # DaemonSet itself stays enabled (components.cni.enabled) for ambient redirection.
+    cni:
+      enabled: false
   cni:
     repair:
       enabled: true

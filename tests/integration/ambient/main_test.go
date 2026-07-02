@@ -57,6 +57,13 @@ const (
 	ambientControlPlaneValues = `
 values:
   pilot:
+    # Inject sidecar pods with the istio-init init container so they set up their own
+    # iptables redirection, rather than relying on the istio-cni DaemonSet. The CNI
+    # DaemonSet (components.cni.enabled) still handles ambient redirection; this only
+    # affects sidecar-injected (test echo) pods, whose iptables cannot be configured
+    # from the host when running under the kata-l3fwd runtime class.
+    cni:
+      enabled: false
     env:
       # Note: support is alpha and env var is tightly scoped
       ENABLE_WILDCARD_HOST_SERVICE_ENTRIES_FOR_TLS: "true"

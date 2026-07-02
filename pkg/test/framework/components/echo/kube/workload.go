@@ -17,6 +17,9 @@ package kube
 import (
 	"context"
 	"fmt"
+	"net"
+	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -39,7 +42,33 @@ import (
 
 const (
 	appContainerName = "app"
+
+	// directPodIPEnv, when set to a truthy value, makes the echo workload connect
+	// directly to the pod IP instead of using kubectl port-forward. This is required
+	// for runtimes such as kata-containers, where the application listens inside a
+	// guest VM and is not reachable on the host-side network namespace loopback that
+	// port-forward enters. It requires pod IPs to be routable from the test runner.
+	directPodIPEnv = "ECHO_KUBE_DIRECT_POD_IP"
 )
+
+// directPodIP reports whether the echo workload should connect directly to the pod IP
+// rather than via port-forward, either because it was explicitly requested via the
+// directPodIPEnv environment variable, or because the pod uses a runtime (e.g.
+// kata-containers) whose application is unreachable through the host-side netns that
+// port-forward enters.
+func directPodIP(pod corev1.Pod) bool {
+	switch strings.ToLower(os.Getenv(directPodIPEnv)) {
+	case "1", "true", "yes", "on":
+		return true
+	}
+	// Kata (and other VM-based runtimes) run the app inside a guest VM, so port-forward
+	// into the host network namespace loopback cannot reach it. Detect those by the
+	// presence of a runtime class and fall back to dialing the routable pod IP directly.
+	if rc := pod.Spec.RuntimeClassName; rc != nil && *rc != "" {
+		return true
+	}
+	return false
+}
 
 var _ echo.Workload = &workload{}
 
@@ -239,6 +268,9 @@ func isPodReady(pod corev1.Pod) bool {
 }
 
 func (w *workload) isConnected() bool {
+	if directPodIP(w.pod) {
+		return w.client != nil
+	}
 	if w.forwarder == nil {
 		return false
 	}
@@ -258,6 +290,25 @@ func (w *workload) connect(pod corev1.Pod) (err error) {
 			_ = w.disconnect()
 		}
 	}()
+
+	// For runtimes like kata-containers, the app listens inside a guest VM and is not
+	// reachable via port-forward (which enters the host-side netns loopback). Connect
+	// directly to the routable pod IP instead.
+	if directPodIP(pod) {
+		if pod.Status.PodIP == "" {
+			return fmt.Errorf("pod %s/%s has no IP yet", pod.Namespace, pod.Name)
+		}
+		addr := net.JoinHostPort(pod.Status.PodIP, fmt.Sprint(w.grpcPort))
+		w.client, err = echoClient.New(addr, w.tls)
+		if err != nil {
+			return fmt.Errorf("failed connecting to grpc client to pod %s/%s at %s : %v",
+				pod.Namespace, pod.Name, addr, err)
+		}
+		if w.hasSidecar {
+			w.sidecar = newSidecar(pod, w.cluster)
+		}
+		return nil
+	}
 
 	// Create a forwarder to the command port of the app.
 	if err = retry.UntilSuccess(func() error {
