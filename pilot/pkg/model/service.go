@@ -1315,6 +1315,8 @@ func (i ServiceInfo) GetConditions(currentConditions map[string]Condition) Condi
 type WaypointBindingStatus struct {
 	// ResourceName that clients should use when addressing traffic to this Service.
 	ResourceName string
+	// ServiceAccounts the waypoint service accounts
+	ServiceAccounts []string
 	// IngressUseWaypoint specifies whether ingress gateways should use the waypoint for this service.
 	IngressUseWaypoint bool
 	// IngressLabelPresent specifies whether the istio.io/ingress-use-waypoint label is set on the service.
@@ -1330,6 +1332,7 @@ type StatusMessage struct {
 
 func (i WaypointBindingStatus) Equals(other WaypointBindingStatus) bool {
 	return i.ResourceName == other.ResourceName &&
+		slices.Equal(i.ServiceAccounts, other.ServiceAccounts) &&
 		i.IngressUseWaypoint == other.IngressUseWaypoint &&
 		i.IngressLabelPresent == other.IngressLabelPresent &&
 		ptr.Equal(i.Error, other.Error)
