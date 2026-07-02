@@ -17,6 +17,7 @@ package mesh
 import (
 	"cmp"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -49,6 +50,10 @@ type ManifestGenerateArgs struct {
 	Revision string
 	// Filter is the list of components to render
 	Filter []string
+	// Output is the path of the file to write the rendered manifest to.
+	// If empty, the manifest is written to stdout. This is useful in environments
+	// without a shell to redirect output, such as the distroless istioctl image.
+	Output string
 }
 
 var kubeClientFunc func() (kube.CLIClient, error)
@@ -60,6 +65,7 @@ func (a *ManifestGenerateArgs) String() string {
 	b.WriteString("Force:         " + fmt.Sprint(a.Force) + "\n")
 	b.WriteString("ManifestsPath: " + a.ManifestsPath + "\n")
 	b.WriteString("Revision:      " + a.Revision + "\n")
+	b.WriteString("Output:        " + a.Output + "\n")
 	return b.String()
 }
 
@@ -72,6 +78,8 @@ func addManifestGenerateFlags(cmd *cobra.Command, args *ManifestGenerateArgs) {
 	cmd.PersistentFlags().StringVarP(&args.Revision, "revision", "r", "", revisionFlagHelpStr)
 	cmd.PersistentFlags().StringSliceVar(&args.Filter, "filter", nil, "")
 	_ = cmd.PersistentFlags().MarkHidden("filter")
+	cmd.PersistentFlags().StringVarP(&args.Output, "output", "o", "",
+		"Path of the file to write the generated manifest to. If empty, writes to stdout.")
 
 	cmd.PersistentFlags().BoolVar(&args.EnableClusterSpecific, "cluster-specific", false,
 		"If enabled, the current cluster will be checked for cluster-specific setting detection.")
@@ -91,6 +99,9 @@ func ManifestGenerateCmd(ctx cli.Context, _ *RootArgs, mgArgs *ManifestGenerateA
 
   # Generate the demo profile
   istioctl manifest generate --set profile=demo
+
+  # Write the manifest to a file instead of stdout (useful when no shell is available to redirect, e.g. the distroless istioctl image)
+  istioctl manifest generate -o /shared/istio.yaml
 
   # To override a setting that includes dots, escape them with a backslash (\).  Your shell may require enclosing quotes.
   istioctl manifest generate --set "values.sidecarInjectorWebhook.injectedAnnotations.container\.apparmor\.security\.beta\.kubernetes\.io/istio-proxy=runtime/default"
@@ -130,7 +141,18 @@ func ManifestGenerate(kubeClient kube.CLIClient, mgArgs *ManifestGenerateArgs, l
 	if err != nil {
 		return err
 	}
-	for _, manifest := range sortManifestSet(manifests) {
+	sorted := sortManifestSet(manifests)
+	if mgArgs.Output != "" {
+		var b strings.Builder
+		for _, manifest := range sorted {
+			b.WriteString(manifest + YAMLSeparator)
+		}
+		if err := os.WriteFile(mgArgs.Output, []byte(b.String()), 0o644); err != nil {
+			return fmt.Errorf("write manifest to %q: %w", mgArgs.Output, err)
+		}
+		return nil
+	}
+	for _, manifest := range sorted {
 		l.Print(manifest + YAMLSeparator)
 	}
 	return nil

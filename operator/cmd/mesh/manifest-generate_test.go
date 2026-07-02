@@ -1322,3 +1322,69 @@ func TestSidecarTemplate(t *testing.T) {
 		},
 	})
 }
+
+func TestManifestGenerateArgsString(t *testing.T) {
+	a := &ManifestGenerateArgs{
+		InFilenames:   []string{"a.yaml", "b.yaml"},
+		Set:           []string{"a=b", "c=d"},
+		Force:         true,
+		ManifestsPath: "/charts",
+		Revision:      "canary",
+		Output:        "/tmp/out.yaml",
+	}
+	got := a.String()
+	for _, w := range []string{"[a.yaml b.yaml]", "[a=b c=d]", "true", "/charts", "canary", "/tmp/out.yaml"} {
+		if !strings.Contains(got, w) {
+			t.Errorf("String() output missing %q:\n%s", w, got)
+		}
+	}
+}
+
+func TestManifestGenerateOutputFlagRegistered(t *testing.T) {
+	mgArgs := &ManifestGenerateArgs{}
+	cmd := ManifestGenerateCmd(nil, &RootArgs{}, mgArgs)
+	addManifestGenerateFlags(cmd, mgArgs)
+	f := cmd.Flag("output")
+	if f == nil {
+		t.Fatal("flag --output is not registered")
+	}
+	if f.Shorthand != "o" {
+		t.Errorf("flag --output: got shorthand %q, want %q", f.Shorthand, "o")
+	}
+}
+
+func TestManifestGenerateOutputFile(t *testing.T) {
+	outFile := filepath.Join(t.TempDir(), "istio.yaml")
+	stdout, err := runManifestGenerate([]string{}, "-o "+outFile, liveCharts, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v: %s", err, stdout)
+	}
+
+	// When -o is specified, the manifest must not be echoed to stdout.
+	if strings.Contains(stdout, "kind: CustomResourceDefinition") {
+		t.Errorf("expected no manifest on stdout when -o is set, got:\n%s", stdout)
+	}
+
+	data, err := os.ReadFile(outFile)
+	if err != nil {
+		t.Fatalf("read output file: %v", err)
+	}
+	objs := parseObjectSetFromManifest(t, string(data)).objSlice
+	if len(objs) == 0 {
+		t.Fatalf("expected at least one object in output file, got 0")
+	}
+	if !strings.HasSuffix(string(data), YAMLSeparator) {
+		t.Errorf("output file should end with YAML separator")
+	}
+}
+
+func TestManifestGenerateOutputFileWriteError(t *testing.T) {
+	bogus := filepath.Join(t.TempDir(), "nonexistent-subdir", "istio.yaml")
+	out, err := runManifestGenerate([]string{}, "-o "+bogus, liveCharts, nil)
+	if err == nil {
+		t.Fatalf("expected write error, got nil; stdout=%s", out)
+	}
+	if !strings.Contains(err.Error(), "write manifest to") {
+		t.Errorf("expected error to mention 'write manifest to', got %v", err)
+	}
+}
