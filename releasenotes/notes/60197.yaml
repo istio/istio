@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+issue:
+- https://github.com/istio/istio/issues/60197
+
+releaseNotes:
+- |
+  **Fixed** `BackendTLSPolicy` ConfigMap CA references to keep recoverable SDS resource names when the referenced ConfigMap is temporarily missing or invalid, allowing recovery after the ConfigMap syncs or is updated.
