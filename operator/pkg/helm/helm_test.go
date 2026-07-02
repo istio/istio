@@ -222,6 +222,13 @@ func TestRender(t *testing.T) {
 			diffSelect:  "Service:*:istio-eastwest",
 		},
 		{
+			desc:        "gateway-dns-config",
+			releaseName: "istio-ingress",
+			namespace:   "istio-ingress",
+			chartName:   "gateway",
+			diffSelect:  "Deployment:*:istio-ingress",
+		},
+		{
 			desc:        "ztunnel-dns-config",
 			releaseName: "ztunnel",
 			namespace:   "istio-system",
@@ -317,6 +324,13 @@ func TestRender(t *testing.T) {
 			namespace:   "istio-system",
 			chartName:   "base",
 			diffSelect:  "ValidatingWebhookConfiguration:*:istiod-default-validator",
+		},
+		{
+			desc:        "istiod-waypoint-workload-socket",
+			releaseName: "istiod",
+			namespace:   "istio-system",
+			chartName:   "istio-control/istio-discovery",
+			diffSelect:  "ConfigMap:*:istio-sidecar-injector",
 		},
 	}
 

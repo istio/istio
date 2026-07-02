@@ -49,6 +49,56 @@ status:
 apiVersion: gateway.networking.k8s.io/v1
 kind: ListenerSet
 metadata:
+  name: all-denied
+  namespace: ns2
+spec: null
+status:
+  conditions:
+  - lastTransitionTime: fake
+    message: None of the ListenerSet's listeners are valid
+    reason: ListenersNotValid
+    status: "False"
+    type: Accepted
+  - lastTransitionTime: fake
+    message: None of the ListenerSet's listeners are valid
+    reason: ListenersNotValid
+    status: "False"
+    type: Programmed
+  listeners:
+  - attachedRoutes: 0
+    conditions:
+    - lastTransitionTime: fake
+      message: certificateRef ns4-cert/ns4 not accessible to a Gateway in namespace
+        "ns2" (missing a ReferenceGrant?)
+      reason: NoValidCACertificate
+      status: "False"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: NoConflicts
+      status: "False"
+      type: Conflicted
+    - lastTransitionTime: fake
+      message: Bad TLS configuration
+      reason: Invalid
+      status: "False"
+      type: Programmed
+    - lastTransitionTime: fake
+      message: certificateRef ns4-cert/ns4 not accessible to a Gateway in namespace
+        "ns2" (missing a ReferenceGrant?)
+      reason: RefNotPermitted
+      status: "False"
+      type: ResolvedRefs
+    name: only
+    supportedKinds:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+    - group: gateway.networking.k8s.io
+      kind: GRPCRoute
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: ListenerSet
+metadata:
   name: cross-ns-cert
   namespace: ns2
 spec: null
@@ -96,9 +146,10 @@ status:
   - attachedRoutes: 0
     conditions:
     - lastTransitionTime: fake
-      message: No errors found
-      reason: Accepted
-      status: "True"
+      message: certificateRef ns4-cert/ns4 not accessible to a Gateway in namespace
+        "ns2" (missing a ReferenceGrant?)
+      reason: NoValidCACertificate
+      status: "False"
       type: Accepted
     - lastTransitionTime: fake
       message: No errors found
@@ -194,7 +245,7 @@ status:
   addresses:
   - type: IPAddress
     value: 1.2.3.4
-  attachedListenerSets: 3
+  attachedListenerSets: 4
   conditions:
   - lastTransitionTime: fake
     message: Resource accepted
@@ -207,6 +258,11 @@ status:
     reason: Programmed
     status: "True"
     type: Programmed
+  - lastTransitionTime: fake
+    message: All references resolved
+    reason: ResolvedRefs
+    status: "True"
+    type: ResolvedRefs
   listeners:
   - attachedRoutes: 0
     conditions:

@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+  - |
+    **Fixed** ListenerSet status reporting so that a ListenerSet with no valid listeners now
+    reports the `Accepted` and `Programmed` conditions as `False` with reason `ListenersNotValid`.
+    Previously the ListenerSet-level conditions could remain `True` even when none of its listeners
+    were usable.

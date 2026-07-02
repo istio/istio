@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue: [60312]
+releaseNotes:
+- |
+  **Fixed** an issue where `consistentHash` load balancing in `DestinationRule` would not send traffic
+  to new endpoints after scaling, due to an Envoy regression (`envoyproxy/envoy#45212`) where the
+  RING_HASH ring was not rebuilt on endpoint changes during batched updates.

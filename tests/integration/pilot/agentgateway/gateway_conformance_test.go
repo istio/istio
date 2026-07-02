@@ -64,8 +64,6 @@ var conformanceNamespaces = []string{
 }
 
 var skippedTests = map[string]string{
-	"BackendTLSPolicyConflictResolution": "https://github.com/istio/istio/issues/57817",
-
 	// The following tests were added in v1.5.0
 	"BackendTLSPolicyObservedGenerationBump": "TODO",
 
@@ -83,16 +81,9 @@ var skippedTests = map[string]string{
 	"HTTPRouteCORS":                                   "TODO",
 	"HTTPRouteHTTPSListenerDetectMisdirectedRequests": "TODO",
 
-	"ListenerSetAllowedNamespaceNone":        "TODO",
-	"ListenerSetAllowedNamespaceSame":        "TODO",
-	"ListenerSetAllowedNamespaceSelector":    "TODO",
-	"ListenerSetAllowedRoutesNamespaces":     "TODO",
-	"ListenerSetAllowedRoutesSupportedKinds": "TODO",
-	"ListenerSetDefaultNotAllowed":           "TODO",
-	"ListenerSetHostnameConflict":            "TODO",
-	"ListenerSetHTTPRouting":                 "TODO",
-	"ListenerSetProtocolConflict":            "TODO",
-	"ListenerSetReferenceGrant":              "TODO",
+	"ListenerSetHostnameConflict": "TODO",
+	"ListenerSetProtocolConflict": "TODO",
+	"ListenerSetReferenceGrant":   "TODO",
 
 	"MeshHTTPRoute303Redirect": "TODO",
 	"MeshHTTPRoute307Redirect": "TODO",

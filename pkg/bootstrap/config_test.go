@@ -117,6 +117,20 @@ func TestGetNodeMetaData(t *testing.T) {
 	g.Expect(node.Metadata.Labels[model.LocalityLabel]).To(Equal("region/zone/subzone"))
 }
 
+func TestGetNodeMetaDataSecureMetricsPorts(t *testing.T) {
+	node, err := GetNodeMetaData(MetadataOptions{
+		ID:                           "test",
+		Envs:                         os.Environ(),
+		EnvoySecureMetricsPort:       15091,
+		EnvoySecureMergedMetricsPort: 15092,
+	})
+
+	g := NewWithT(t)
+	g.Expect(err).Should(BeNil())
+	g.Expect(node.Metadata.EnvoySecureMetricsPort).To(Equal(15091))
+	g.Expect(node.Metadata.EnvoySecureMergedMetricsPort).To(Equal(15092))
+}
+
 func TestSetIstioVersion(t *testing.T) {
 	test.SetForTest(t, &version.Info.Version, "binary")
 

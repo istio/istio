@@ -51,6 +51,7 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 )
 
@@ -111,6 +112,7 @@ type SidecarTemplateData struct {
 	Revision                 string
 	NativeSidecars           bool
 	ProxyImage               string
+	ProxyInitImage           string
 	ProxyUID                 int64
 	ProxyGID                 int64
 	InboundTrafficPolicyMode string
@@ -209,10 +211,8 @@ func injectRequired(ignored []string, config *Config, podSpec *corev1.PodSpec, m
 	}
 
 	// skip special kubernetes system namespaces
-	for _, namespace := range ignored {
-		if metadata.Namespace == namespace {
-			return false
-		}
+	if slices.Contains(ignored, metadata.Namespace) {
+		return false
 	}
 
 	annos := metadata.GetAnnotations()
@@ -320,18 +320,41 @@ func ProxyImage(values *opconfig.Values, image *proxyConfig.ProxyImage, annotati
 	imageName := "proxyv2"
 	global := values.GetGlobal()
 
+	if global.GetProxy() != nil && global.GetProxy().GetImage() != "" {
+		imageName = global.GetProxy().GetImage()
+	}
+
+	imageType := ""
+	if image != nil {
+		imageType = image.ImageType
+	}
+
+	return proxyImageURL(values, imageName, imageType, annotations)
+}
+
+// ProxyInitImage constructs image url for the proxy init container.
+// values based name => {{ .Values.global.hub }}/{{ .Values.global.proxy_init.image }}:{{ .Values.global.tag }}
+func ProxyInitImage(values *opconfig.Values, annotations map[string]string) string {
+	imageName := "proxyv2"
+	global := values.GetGlobal()
+
+	if global.GetProxyInit() != nil && global.GetProxyInit().GetImage() != "" {
+		imageName = global.GetProxyInit().GetImage()
+	}
+
+	return proxyImageURL(values, imageName, "", annotations)
+}
+
+func proxyImageURL(values *opconfig.Values, imageName, imageType string, annotations map[string]string) string {
+	global := values.GetGlobal()
+
 	tag := ""
 	if global.GetTag() != nil { // Tag is an interface but we need the string form.
 		tag = fmt.Sprintf("%v", global.GetTag().AsInterface())
 	}
 
-	imageType := global.GetVariant()
-	if image != nil {
-		imageType = image.ImageType
-	}
-
-	if global.GetProxy() != nil && global.GetProxy().GetImage() != "" {
-		imageName = global.GetProxy().GetImage()
+	if imageType == "" {
+		imageType = global.GetVariant()
 	}
 
 	if it, ok := annotations[annotation.SidecarProxyImageType.Name]; ok {
@@ -464,6 +487,7 @@ func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod
 		Values:                   params.valuesConfig.asMap,
 		Revision:                 params.revision,
 		ProxyImage:               ProxyImage(params.valuesConfig.asStruct, params.proxyConfig.Image, strippedPod.Annotations),
+		ProxyInitImage:           ProxyInitImage(params.valuesConfig.asStruct, strippedPod.Annotations),
 		NativeSidecars:           params.nativeSidecar,
 		ProxyUID:                 proxyUID,
 		ProxyGID:                 proxyGID,

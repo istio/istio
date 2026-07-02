@@ -87,14 +87,18 @@ func ListenerSetCollection(
 	krt.StatusCollection[*gatewayv1.ListenerSet, gatewayv1.ListenerSetStatus],
 	krt.Collection[ListenerSet],
 ) {
+	// Note: tagWatcher.IsMine() is intentionally not filtered at this config-emission layer. Filtering
+	// here caused a temporary outage when a Gateway's or ListenerSet's istio.io/rev label was changed:
+	// the prior owning control plane immediately dropped the resource and pushed empty xDS config to
+	// pods still running on the old revision (see https://github.com/istio/istio/issues/59959).
+	// Status writes are filtered to the owning revision via RegisterStatus in
+	// pilot/pkg/status/collections.go, and Deployment management is filtered in deploymentcontroller.go,
+	// so emitting config from non-owning revisions is safe and matches how core Istio CRDs behave.
 	statusCol, gw := krt.NewStatusManyCollection(listenerSets,
 		func(ctx krt.HandlerContext, obj *gatewayv1.ListenerSet) (*gatewayv1.ListenerSetStatus, []ListenerSet) {
 			// We currently depend on service discovery information not know to krt; mark we depend on it.
 			context := gatewayContext.Get(ctx).Load()
 			if context == nil {
-				return nil, nil
-			}
-			if !tagWatcher.Get(ctx).IsMine(obj.ObjectMeta) {
 				return nil, nil
 			}
 			result := []ListenerSet{}
@@ -141,11 +145,12 @@ func ListenerSetCollection(
 			gatewayServices, err := extractGatewayServices(domainSuffix, parentGwObj, classInfo)
 			if len(gatewayServices) == 0 && err != nil {
 				// Short circuit if it's a hard failure
-				reportListenerSetStatus(context, parentGwObj, obj, status, gatewayServices, nil, err)
+				reportListenerSetStatus(context, parentGwObj, obj, status, gatewayServices, nil, err, true)
 				return status, nil
 			}
 
 			servers := []*istio.Server{}
+			validListeners := 0
 			for i, l := range ls.Listeners {
 				port, portErr := detectListenerPortNumber(l)
 				l.Port = port
@@ -155,7 +160,15 @@ func ListenerSetCollection(
 					obj, originalStatus, parentGwObj.Spec, standardListener, i, controllerName, portErr)
 				status.Listeners = slices.Map(updatedStatus, convertStandardStatusToListenerSetStatus(l))
 
+				if programmed {
+					validListeners++
+				}
+				if server == nil {
+					continue
+				}
+
 				servers = append(servers, server)
+
 				if controllerName == constants.ManagedGatewayMeshController {
 					// Waypoint doesn't convert routes to VirtualServices.
 					continue
@@ -169,10 +182,17 @@ func ListenerSetCollection(
 				meta[constants.InternalGatewaySemantics] = constants.GatewaySemanticsGateway
 				meta[model.InternalGatewayServiceAnnotation] = strings.Join(gatewayServices, ",")
 				meta[constants.InternalParentNamespace] = parentGwObj.Namespace
-				serviceAccountName := model.GetOrDefault(
-					parentGwObj.GetAnnotations()[annotation.GatewayServiceAccount.Name],
-					gatewaycommon.GetDefaultName(parentGwObj.GetName(), &parentGwObj.Spec, classInfo.DisableNameSuffix),
-				)
+
+				// For unmanaged (manual deployment) parent Gateways, we have no idea what service accounts
+				// the gateway workloads will use, so we must not enforce service account restrictions.
+				// See: https://istio.io/latest/docs/tasks/traffic-management/ingress/gateway-api/#manual-deployment
+				serviceAccountName := ""
+				if gatewaycommon.IsManaged(&parentGwObj.Spec) {
+					serviceAccountName = model.GetOrDefault(
+						parentGwObj.GetAnnotations()[annotation.GatewayServiceAccount.Name],
+						gatewaycommon.GetDefaultName(parentGwObj.GetName(), &parentGwObj.Spec, classInfo.DisableNameSuffix),
+					)
+				}
 				meta[constants.InternalServiceAccount] = serviceAccountName
 
 				// Each listener generates an Istio Gateway with a single Server. This allows binding to a specific listener.
@@ -216,7 +236,7 @@ func ListenerSetCollection(
 				result = append(result, res)
 			}
 
-			reportListenerSetStatus(context, parentGwObj, obj, status, gatewayServices, servers, err)
+			reportListenerSetStatus(context, parentGwObj, obj, status, gatewayServices, servers, err, validListeners > 0)
 			return status, result
 		}, opts.WithName("ListenerSets")...)
 
@@ -242,13 +262,12 @@ func GatewayCollection(
 	listenerIndex := krt.NewIndex(listenerSets, "gatewayParent", func(o ListenerSet) []types.NamespacedName {
 		return []types.NamespacedName{o.GatewayParent}
 	})
+	// Note: tagWatcher.IsMine() is intentionally not filtered at this config-emission layer. See the
+	// comment in ListenerSetCollection above for the rationale.
 	statusCol, gw := krt.NewStatusManyCollection(gateways, func(ctx krt.HandlerContext, obj *gatewayv1.Gateway) (*gatewayv1.GatewayStatus, []Gateway) {
 		// We currently depend on service discovery information not known to krt; mark we depend on it.
 		context := gatewayContext.Get(ctx).Load()
 		if context == nil {
-			return nil, nil
-		}
-		if !tagWatcher.Get(ctx).IsMine(obj.ObjectMeta) {
 			return nil, nil
 		}
 		result := []Gateway{}
@@ -274,7 +293,8 @@ func GatewayCollection(
 		gatewayServices, err := extractGatewayServices(domainSuffix, obj, classInfo)
 		if len(gatewayServices) == 0 && err != nil {
 			// Short circuit if its a hard failure
-			reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, 0, err)
+			backendTLSErr := validateBackendClientCertificateRef(ctx, obj, secrets, grants)
+			reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, 0, err, backendTLSErr)
 			return status, nil
 		}
 
@@ -293,7 +313,12 @@ func GatewayCollection(
 			server, updatedStatus, programmed := buildListener(ctx, configMaps, secrets, grants, namespaces, obj, status.Listeners, kgw, l, i, controllerName, nil)
 			status.Listeners = updatedStatus
 
+			if server == nil {
+				continue
+			}
+
 			servers = append(servers, server)
+
 			if controllerName == constants.ManagedGatewayMeshController {
 				// Waypoint doesn't convert routes to VirtualServices.
 				continue
@@ -363,7 +388,8 @@ func GatewayCollection(
 			})
 		}
 
-		reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, len(listenerSets), err)
+		backendTLSErr := validateBackendClientCertificateRef(ctx, obj, secrets, grants)
+		reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, len(listenerSets), err, backendTLSErr)
 		return status, result
 	}, opts.WithName("KubernetesGateway")...)
 

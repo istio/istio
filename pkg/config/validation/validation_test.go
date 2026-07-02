@@ -1677,11 +1677,34 @@ func TestValidateHTTPRedirect(t *testing.T) {
 			},
 			valid: true,
 		},
+		{
+			name: "prefix_rewrite alone",
+			redirect: &networking.HTTPRedirect{
+				PrefixRewrite: "/bar",
+			},
+			valid: true,
+		},
+		{
+			name: "prefix_rewrite with authority",
+			redirect: &networking.HTTPRedirect{
+				Authority:     "foo.example.com",
+				PrefixRewrite: "/",
+			},
+			valid: true,
+		},
+		{
+			name: "uri and prefix_rewrite mutually exclusive",
+			redirect: &networking.HTTPRedirect{
+				Uri:           "/old",
+				PrefixRewrite: "/new",
+			},
+			valid: false,
+		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			if err := validateHTTPRedirect(tc.redirect); (err == nil) != tc.valid {
+			if err := validateHTTPRedirect(tc.redirect, nil); (err == nil) != tc.valid {
 				t.Fatalf("got valid=%v but wanted valid=%v: %v", err == nil, tc.valid, err)
 			}
 		})
@@ -1895,6 +1918,40 @@ func TestValidateHTTPRoute(t *testing.T) {
 			Redirect: &networking.HTTPRedirect{
 				Uri:       "/lerp",
 				Authority: "foo.biz",
+			},
+		}, valid: true},
+		{name: "prefix_rewrite redirect with prefix URI match", route: &networking.HTTPRoute{
+			Match: []*networking.HTTPMatchRequest{{
+				Uri: &networking.StringMatch{MatchType: &networking.StringMatch_Prefix{Prefix: "/foo"}},
+			}},
+			Redirect: &networking.HTTPRedirect{
+				PrefixRewrite: "/bar",
+			},
+		}, valid: true},
+		{name: "prefix_rewrite redirect with exact URI match is invalid", route: &networking.HTTPRoute{
+			Match: []*networking.HTTPMatchRequest{{
+				Uri: &networking.StringMatch{MatchType: &networking.StringMatch_Exact{Exact: "/foo"}},
+			}},
+			Redirect: &networking.HTTPRedirect{
+				PrefixRewrite: "/bar",
+			},
+		}, valid: false},
+		{name: "prefix_rewrite redirect with regex URI match is invalid", route: &networking.HTTPRoute{
+			Match: []*networking.HTTPMatchRequest{{
+				Uri: &networking.StringMatch{MatchType: &networking.StringMatch_Regex{Regex: "/foo.*"}},
+			}},
+			Redirect: &networking.HTTPRedirect{
+				PrefixRewrite: "/bar",
+			},
+		}, valid: false},
+		{name: "prefix_rewrite redirect with no URI match (wildcard) is valid", route: &networking.HTTPRoute{
+			Match: []*networking.HTTPMatchRequest{{
+				Headers: map[string]*networking.StringMatch{
+					"x-foo": {MatchType: &networking.StringMatch_Exact{Exact: "bar"}},
+				},
+			}},
+			Redirect: &networking.HTTPRedirect{
+				PrefixRewrite: "/bar",
 			},
 		}, valid: true},
 		{name: "conflicting redirect and route", route: &networking.HTTPRoute{
@@ -3388,6 +3445,17 @@ func TestValidateConnectionPool(t *testing.T) {
 			},
 			valid: true,
 		},
+		{
+			name: "valid connection pool, http2 keepalive", in: &networking.ConnectionPoolSettings{
+				Http: &networking.ConnectionPoolSettings_HTTPSettings{
+					Http2KeepAlive: &networking.ConnectionPoolSettings_HTTPSettings_ConnectionKeepalive{
+						Interval: &durationpb.Duration{Seconds: 15},
+						Timeout:  &durationpb.Duration{Seconds: 5},
+					},
+				},
+			},
+			valid: true,
+		},
 
 		{name: "invalid connection pool, empty", in: &networking.ConnectionPoolSettings{}, valid: false},
 
@@ -3452,6 +3520,37 @@ func TestValidateConnectionPool(t *testing.T) {
 		{
 			name: "invalid connection pool, bad max concurrent streams", in: &networking.ConnectionPoolSettings{
 				Http: &networking.ConnectionPoolSettings_HTTPSettings{MaxConcurrentStreams: -1},
+			},
+			valid: false,
+		},
+		{
+			name: "invalid connection pool, http2 keepalive without interval", in: &networking.ConnectionPoolSettings{
+				Http: &networking.ConnectionPoolSettings_HTTPSettings{
+					Http2KeepAlive: &networking.ConnectionPoolSettings_HTTPSettings_ConnectionKeepalive{
+						Timeout: &durationpb.Duration{Seconds: 5},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "invalid connection pool, http2 keepalive without timeout", in: &networking.ConnectionPoolSettings{
+				Http: &networking.ConnectionPoolSettings_HTTPSettings{
+					Http2KeepAlive: &networking.ConnectionPoolSettings_HTTPSettings_ConnectionKeepalive{
+						Interval: &durationpb.Duration{Seconds: 15},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "invalid connection pool, bad http2 keepalive interval", in: &networking.ConnectionPoolSettings{
+				Http: &networking.ConnectionPoolSettings_HTTPSettings{
+					Http2KeepAlive: &networking.ConnectionPoolSettings_HTTPSettings_ConnectionKeepalive{
+						Interval: &durationpb.Duration{Seconds: 15, Nanos: 5},
+						Timeout:  &durationpb.Duration{Seconds: 5},
+					},
+				},
 			},
 			valid: false,
 		},
@@ -5917,6 +6016,27 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, true, false},
+		{"import all except a namespace", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*", "~ns1/*"},
+				},
+			},
+		}, true, false},
+		{"import all except an exact host", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*", "~/foo.com"},
+				},
+			},
+		}, true, false},
+		{"exclude with invalid namespace", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*", "~Invalid_NS/*"},
+				},
+			},
+		}, false, false},
 		{"bad egress host 1", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
@@ -6448,6 +6568,16 @@ func TestValidateSidecar(t *testing.T) {
 					Host:   "foo.bar",
 					Subset: "shiny",
 				},
+			},
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*"},
+				},
+			},
+		}, false, false},
+		{"ALLOW_ANY_DYNAMIC_DNS rejected in sidecar", &networking.Sidecar{
+			OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
+				Mode: networking.OutboundTrafficPolicy_Mode(3),
 			},
 			Egress: []*networking.IstioEgressListener{
 				{
@@ -7244,6 +7374,21 @@ func TestValidateRequestAuthentication(t *testing.T) {
 				},
 			},
 			valid: false,
+		},
+		{
+			// JWKS bearing private RSA components warns but is still accepted.
+			name:       "jwks with private RSA key warns",
+			configName: constants.DefaultAuthenticationPolicyName,
+			in: &security_beta.RequestAuthentication{
+				JwtRules: []*security_beta.JWTRule{
+					{
+						Issuer: "foo.com",
+						Jwks:   `{"keys":[{"kty":"RSA","e":"AQAB","kid":"private","n":"xAE7eB6qugXyCAG3yhh7pkDkT65pHymX-P7KfIupjf59vsdo91bSP9C8H07pSAGQO1MV_xFj9VswgsCg4R6otmg5PV2He95lZdHtOcU5DXIg_pbhLdKXbi66GlVeK6ABZOUW3WYtnNHD-91gVuoeJT_DwtGGcp4ignkgXfkiEm4sw-4sfb4qdt5oLbyVpmW6x9cfa7vs2WTfURiCrBoUqgBo_-4WTiULmmHSGZHOjzwa8WtrtOQGsAFjIbno85jp6MnGGGZPYZbDAa_b3y5u-YpW7ypZrvD8BgtKVjgtQgZhLAGezMt0ua3DRrWnKqTZ0BJ_EyxOGuHJrLsn00fnMQ","d":"jJVKLOMXjlSnICzfP_eWshwR_DQp1U_GBLn-bL2qf90U5GMRDg5fT7Df3M2zL3DhMzdLDIeBmh-ujMTPjU0PWyVN5JX9LBhAOgsX3DKAdR2KMlEsBM4HE6VV1JhqQozqAcSPwhBHJM_pBM21S94EZf_RbA0PvyLcjeLP4WqAOY-J4OXVR3rzKwAH02NjLBR-Tnoiv-WlPZbE9SmYJL0G3xRFVELYwf4l7t-PSrZxk6V_xrTLpsScA-WICTaXmRGyDOSBuiBfHfDQyiTfQEUjcc6aQ7slLAwfmU2AeYJqHk1zwZpDJpgEf9G3eYi09Q2MLpzSjMxWVqV5L7TtcoGv5Q"}]}`, // nolint: lll
+					},
+				},
+			},
+			valid:   true,
+			warning: true,
 		},
 		{
 			name:       "null outputClaimToHeader",

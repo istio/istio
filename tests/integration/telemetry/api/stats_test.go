@@ -541,7 +541,7 @@ func TestGRPCCountMetrics(t *testing.T) {
 			// Metrics to be queried and tested
 			metrics := []string{"istio_request_messages_total", "istio_response_messages_total"}
 			for _, metric := range metrics {
-				t.NewSubTestf(metric).Run(func(t framework.TestContext) {
+				t.NewSubTestf("%s", metric).Run(func(t framework.TestContext) {
 					t.Cleanup(func() {
 						if t.Failed() {
 							util.PromDump(t.Clusters().Default(), promInst, prometheus.Query{Metric: metric})

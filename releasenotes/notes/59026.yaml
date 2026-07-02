@@ -1,6 +1,8 @@
 apiVersion: release-notes/v2
 kind: bug-fix
 area: traffic-management
+issue:
+  - 59026
 releaseNotes:
   - |
-    - **Fixed** On Gateway API, make Origin parsing stricter
+    **Fixed** Gateway API to apply stricter Origin header parsing.

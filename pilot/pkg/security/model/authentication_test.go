@@ -713,11 +713,11 @@ func TestConstructSdsSecretConfigForCredential(t *testing.T) {
 			},
 		},
 		{
-			name:                   "sds://external-cert",
+			name:                   "sds://my-credential",
 			credentialSocketExists: true,
 			push:                   &model.PushContext{Mesh: &meshconfig.MeshConfig{}},
 			expected: &auth.SdsSecretConfig{
-				Name: "sds://external-cert",
+				Name: "sds://my-credential",
 				SdsConfig: &core.ConfigSource{
 					ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 						ApiConfigSource: &core.ApiConfigSource{
@@ -747,17 +747,17 @@ func TestConstructSdsSecretConfigForCredential(t *testing.T) {
 			},
 		},
 		{
-			name:                   "sds://provider-cert",
+			name:                   "sds://my-credential",
 			credentialSocketExists: false,
 			push: func() *model.PushContext {
 				pc := &model.PushContext{
 					Mesh: &meshconfig.MeshConfig{
 						ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{
 							{
-								Name: "provider-cert",
+								Name: "my-sds-provider",
 								Provider: &meshconfig.MeshConfig_ExtensionProvider_Sds{
 									Sds: &meshconfig.MeshConfig_ExtensionProvider_SDSProvider{
-										Name:    "provider-cert",
+										Name:    "my-sds-provider",
 										Service: "sds-provider-service",
 										Port:    8080,
 									},
@@ -783,7 +783,7 @@ func TestConstructSdsSecretConfigForCredential(t *testing.T) {
 				return pc
 			}(),
 			expected: &auth.SdsSecretConfig{
-				Name: "sds://provider-cert",
+				Name: "my-credential",
 				SdsConfig: &core.ConfigSource{
 					ConfigSourceSpecifier: &core.ConfigSource_ApiConfigSource{
 						ApiConfigSource: &core.ApiConfigSource{
@@ -804,17 +804,17 @@ func TestConstructSdsSecretConfigForCredential(t *testing.T) {
 			},
 		},
 		{
-			name:                   "sds://provider-cert",
+			name:                   "sds://my-credential-missing-service",
 			credentialSocketExists: false,
 			push: func() *model.PushContext {
 				pc := &model.PushContext{
 					Mesh: &meshconfig.MeshConfig{
 						ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{
 							{
-								Name: "provider-cert",
+								Name: "my-sds-provider",
 								Provider: &meshconfig.MeshConfig_ExtensionProvider_Sds{
 									Sds: &meshconfig.MeshConfig_ExtensionProvider_SDSProvider{
-										Name:    "provider-cert",
+										Name:    "my-sds-provider",
 										Service: "missing-service",
 										Port:    8080,
 									},
@@ -828,6 +828,15 @@ func TestConstructSdsSecretConfigForCredential(t *testing.T) {
 				return pc
 			}(),
 			expected: nil,
+		},
+		{
+			name:                   "sds://no-provider-no-socket",
+			credentialSocketExists: false,
+			push:                   &model.PushContext{Mesh: &meshconfig.MeshConfig{}},
+			expected: &auth.SdsSecretConfig{
+				Name:      "kubernetes://no-provider-no-socket",
+				SdsConfig: SDSAdsConfig,
+			},
 		},
 	}
 
@@ -931,7 +940,7 @@ func TestApplyCredentialSDSToServerCommonTLSContext(t *testing.T) {
 			name: "credential name with socket",
 			tlsOpts: &networking.ServerTLSSettings{
 				Mode:           networking.ServerTLSSettings_SIMPLE,
-				CredentialName: "sds://external-cert",
+				CredentialName: "sds://my-credential",
 			},
 			credentialSocketExist:  true,
 			expectedCertCount:      1,

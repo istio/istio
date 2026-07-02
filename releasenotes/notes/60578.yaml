@@ -1,0 +1,14 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 60578
+releaseNotes:
+  - |
+    **Fixed** a bug where removing a listener from a `ListenerSet` left an orphaned entry
+    in the resource's `status.listeners` indefinitely. The stale entry made
+    `status.listeners` longer than `spec.listeners` and, after repeated listener add/remove
+    cycles, wedged the `ListenerSet`'s `observedGeneration` so later spec changes were no
+    longer reflected in its status. `reportListenerSetStatus` now prunes status entries for
+    listeners that are no longer present in the spec, matching the existing behavior for
+    `Gateway` resources.

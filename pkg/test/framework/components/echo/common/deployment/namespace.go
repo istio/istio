@@ -114,8 +114,8 @@ func (n *EchoNamespace) loadValues(t resource.Context, echos echo.Instances, d *
 		n.Sotw = match.ServiceName(echo.NamespacedName{Name: n.ServiceNamePrefix + SotwSvc, Namespace: ns}).GetMatches(echos)
 	}
 
-	// Skip applying Istio CRDs (Sidecar, ServiceEntry) on meshless clusters where these CRDs don't exist.
-	if t.Settings().Meshless {
+	// Skip applying Istio CRDs (Sidecar, ServiceEntry) on GatewayAPIOnly clusters where these CRDs don't exist.
+	if t.Settings().GatewayAPIOnly {
 		return nil
 	}
 

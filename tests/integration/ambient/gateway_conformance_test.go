@@ -67,20 +67,15 @@ var conformanceNamespaces = []string{
 }
 
 var skippedTests = map[string]string{
-	"BackendTLSPolicyConflictResolution": "https://github.com/istio/istio/issues/57817",
-
 	// The following tests were added in v1.5.0
+
 	"GatewayBackendClientCertificateFeature":                     "TODO",
 	"GatewayFrontendClientCertificateValidationInsecureFallback": "TODO",
-	"GatewayFrontendInvalidDefaultClientCertificateValidation":   "TODO",
-	"GatewayInvalidFrontendClientCertificateValidation":          "TODO",
-	"GatewayInvalidTLSBackendConfiguration":                      "TODO",
 
 	"HTTPRouteHTTPSListenerDetectMisdirectedRequests": "TODO",
 
 	"ListenerSetHostnameConflict": "TODO",
 	"ListenerSetProtocolConflict": "TODO",
-	"ListenerSetReferenceGrant":   "TODO",
 
 	// Fixed upstream, waiting for new gateway api release to pick up fix
 	"MeshHTTPRoute307Redirect": "TODO",

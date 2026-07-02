@@ -21,6 +21,7 @@ updates:
       - dependency-name: "k8s.io/*"
       - dependency-name: "sigs.k8s.io/*"
       - dependency-name: "github.com/envoyproxy/go-control-plane/*"
+      - dependency-name: "github.com/prometheus/prometheus"
     groups:
       all-dependencies:
         patterns:
@@ -31,6 +32,36 @@ updates:
           - "k8s.io/*"
           - "sigs.k8s.io/*"
           - "github.com/envoyproxy/go-control-plane/*"
+          - "github.com/prometheus/prometheus"
+
+  - package-ecosystem: "gomod"
+    directories:
+      - "/"
+      - "!/samples/**"
+    schedule:
+      interval: "daily"
+    labels:
+      - "release-notes-none"
+    target-branch: "release-1.30"
+    # See master stanza above for why both ignore and exclude-patterns are required.
+    ignore:
+      - dependency-name: "istio.io/*"
+      - dependency-name: "k8s.io/*"
+      - dependency-name: "sigs.k8s.io/*"
+      - dependency-name: "github.com/envoyproxy/go-control-plane/*"
+      - dependency-name: "github.com/prometheus/prometheus"
+      - dependency-name: "helm.sh/helm/v3"
+    groups:
+      all-dependencies:
+        patterns:
+          - "*"
+        exclude-patterns:
+          - "istio.io/*"
+          - "k8s.io/*"
+          - "sigs.k8s.io/*"
+          - "github.com/envoyproxy/go-control-plane/*"
+          - "github.com/prometheus/prometheus"
+          - "helm.sh/helm/v3"
 
   - package-ecosystem: "gomod"
     directories:
@@ -47,6 +78,9 @@ updates:
       - dependency-name: "k8s.io/*"
       - dependency-name: "sigs.k8s.io/*"
       - dependency-name: "github.com/envoyproxy/go-control-plane/*"
+      - dependency-name: "github.com/prometheus/prometheus"
+      - dependency-name: "helm.sh/helm/v3"
+      - dependency-name: "google.golang.org/grpc"
     groups:
       all-dependencies:
         patterns:
@@ -56,56 +90,9 @@ updates:
           - "k8s.io/*"
           - "sigs.k8s.io/*"
           - "github.com/envoyproxy/go-control-plane/*"
-
-  - package-ecosystem: "gomod"
-    directories:
-      - "/"
-      - "!/samples/**"
-    schedule:
-      interval: "daily"
-    labels:
-      - "release-notes-none"
-    target-branch: "release-1.28"
-    # See master stanza above for why both ignore and exclude-patterns are required.
-    ignore:
-      - dependency-name: "istio.io/*"
-      - dependency-name: "k8s.io/*"
-      - dependency-name: "sigs.k8s.io/*"
-      - dependency-name: "github.com/envoyproxy/go-control-plane/*"
-    groups:
-      all-dependencies:
-        patterns:
-          - "*"
-        exclude-patterns:
-          - "istio.io/*"
-          - "k8s.io/*"
-          - "sigs.k8s.io/*"
-          - "github.com/envoyproxy/go-control-plane/*"
-
-  - package-ecosystem: "gomod"
-    directories:
-      - "/"
-      - "!/samples/**"
-    schedule:
-      interval: "daily"
-    labels:
-      - "release-notes-none"
-    target-branch: "release-1.27"
-    # See master stanza above for why both ignore and exclude-patterns are required.
-    ignore:
-      - dependency-name: "istio.io/*"
-      - dependency-name: "k8s.io/*"
-      - dependency-name: "sigs.k8s.io/*"
-      - dependency-name: "github.com/envoyproxy/go-control-plane/*"
-    groups:
-      all-dependencies:
-        patterns:
-          - "*"
-        exclude-patterns:
-          - "istio.io/*"
-          - "k8s.io/*"
-          - "sigs.k8s.io/*"
-          - "github.com/envoyproxy/go-control-plane/*"
+          - "github.com/prometheus/prometheus"
+          - "helm.sh/helm/v3"
+          - "google.golang.org/grpc"
 
   # Ignore all dependency updates in samples/
   # We do not care about the dependencies in the samples/ directory as they are not meant

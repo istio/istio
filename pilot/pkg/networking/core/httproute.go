@@ -265,18 +265,10 @@ func selectVirtualServices(virtualServices []*config.Config, servicesByName map[
 						break
 					}
 				}
-			} else {
+			} else if slices.ContainsFunc(wcSvcHosts, lch.Matches) {
 				// If non wildcard vs host isn't be found in service map, only loop through
 				// wildcard service hosts to avoid repeated matching.
-				for _, svcHost := range wcSvcHosts {
-					if lch.Matches(svcHost) {
-						match = true
-						break
-					}
-				}
-			}
-
-			if match {
+				match = true
 				break
 			}
 		}
@@ -363,7 +355,7 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 			DNSDomain:       node.DNSDomain,
 			DNSCapture:      bool(node.Metadata.DNSCapture),
 			DNSAutoAllocate: bool(node.Metadata.DNSAutoAllocate),
-			AllowAny:        util.IsAllowAnyOutbound(node),
+			AllowAny:        util.IsAllowAnyOutbound(node) || util.IsAllowAnyDynamicDNSOutbound(node),
 			ListenerPort:    listenerPort,
 			Services:        services,
 			VirtualServices: virtualServices,
@@ -769,6 +761,31 @@ func getUniqueAndSharedDNSDomain(fqdnHostname, proxyDomain string) (partsUnique 
 }
 
 func buildCatchAllVirtualHost(node *model.Proxy, includeRequestAttemptCount bool, appendXForwardedHost bool) *route.VirtualHost {
+	if util.IsAllowAnyDynamicDNSOutbound(node) {
+		notimeout := durationpb.New(0)
+		return &route.VirtualHost{
+			Name:    util.AllowAnyDynamicDNS,
+			Domains: []string{"*"},
+			Routes: []*route.Route{
+				{
+					Name: util.AllowAnyDynamicDNS,
+					Match: &route.RouteMatch{
+						PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"},
+					},
+					Action: &route.Route_Route{
+						Route: &route.RouteAction{
+							ClusterSpecifier:     &route.RouteAction_Cluster{Cluster: util.AllowAnyDynamicDNSCluster},
+							Timeout:              notimeout,
+							MaxGrpcTimeout:       notimeout,
+							AppendXForwardedHost: appendXForwardedHost,
+						},
+					},
+				},
+			},
+			IncludeRequestAttemptCount: includeRequestAttemptCount,
+		}
+	}
+
 	if util.IsAllowAnyOutbound(node) {
 		egressCluster := util.PassthroughCluster
 		notimeout := durationpb.New(0)

@@ -1240,6 +1240,108 @@ func TestInformerStillHandlesDeleteEventIfPodNotActuallyPresentAnymore(t *testin
 	fs.AssertExpectations(t)
 }
 
+// setupHandlersWithFakeDataplane wires the informer handlers to talk directly to the
+// fakeServer mock instead of the real meshDataplane, so tests can assert on
+// SyncHostProbeIPSet. The queue is intentionally not started tests drive
+// reconcile() directly so the only dataplane calls are the ones under test.
+func setupHandlersWithFakeDataplane(ctx context.Context, client kube.Client, fs *fakeServer) *InformerHandlers {
+	handlers := setupHandlers(ctx, client, fs, "istio-system", defaultAmbientSelector, nil)
+	client.RunAndWait(ctx.Done())
+	kube.WaitForCacheSync("test", ctx.Done(), handlers.pods.HasSynced, handlers.namespaces.HasSynced)
+	return handlers
+}
+
+// An already-enrolled pod whose probe IP reappears (e.g. the startup snapshot pruned it
+// while Status.PodIPs was momentarily empty after a node/kubelet restart) should have its
+// host probe ipset entry re-asserted exactly once, with no add/remove since enrollment is
+// otherwise unchanged.
+func TestInformerEnrolledPodProbeIPSetReassertedWhenIPReappears(t *testing.T) {
+	setupLogging()
+	NodeName = "testnode"
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "test",
+			Namespace:   "test",
+			Annotations: map[string]string{annotation.AmbientRedirection.Name: constants.AmbientRedirectionEnabled},
+		},
+		Spec:   corev1.PodSpec{NodeName: NodeName},
+		Status: corev1.PodStatus{PodIP: "11.1.1.12"},
+	}
+	ns := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "test",
+			Labels: map[string]string{label.IoIstioDataplaneMode.Name: constants.DataplaneModeAmbient},
+		},
+	}
+
+	client := kube.NewFakeClient(ns, pod)
+	fs := &fakeServer{}
+	fs.On("SyncHostProbeIPSet", mock.IsType(pod), util.GetPodIPsIfPresent(pod)).Once().Return(nil)
+
+	handlers := setupHandlersWithFakeDataplane(ctx, client, fs)
+
+	// The previous event observed no IP (snapshot pruned the entry); the current cache has
+	// it back. That IP-less -> IP transition is what triggers the self-heal.
+	iplessOldPod := pod.DeepCopy()
+	iplessOldPod.Status.PodIP = ""
+	iplessOldPod.Status.PodIPs = nil
+
+	assert.NoError(t, handlers.reconcile(controllers.Event{
+		Event: controllers.EventUpdate,
+		Old:   iplessOldPod,
+		New:   pod,
+	}))
+
+	fs.AssertExpectations(t)
+}
+
+// An update that does not change an enrolled pod's IPs (e.g. a readiness/condition change)
+// must not re-assert the ipset, to avoid a redundant syscall on every unrelated update.
+func TestInformerEnrolledPodProbeIPSetNotReassertedWhenIPUnchanged(t *testing.T) {
+	setupLogging()
+	NodeName = "testnode"
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "test",
+			Namespace:   "test",
+			Annotations: map[string]string{annotation.AmbientRedirection.Name: constants.AmbientRedirectionEnabled},
+		},
+		Spec:   corev1.PodSpec{NodeName: NodeName},
+		Status: corev1.PodStatus{PodIP: "11.1.1.12"},
+	}
+	ns := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "test",
+			Labels: map[string]string{label.IoIstioDataplaneMode.Name: constants.DataplaneModeAmbient},
+		},
+	}
+
+	client := kube.NewFakeClient(ns, pod)
+	// No SyncHostProbeIPSet expectation: fakeServer.Called would fail the test if it were
+	// invoked for an IP-unchanged update.
+	fs := &fakeServer{}
+
+	handlers := setupHandlersWithFakeDataplane(ctx, client, fs)
+
+	// Same IP as the cached pod, only an unrelated status field differs.
+	oldPod := pod.DeepCopy()
+	oldPod.Status.Phase = corev1.PodRunning
+
+	assert.NoError(t, handlers.reconcile(controllers.Event{
+		Event: controllers.EventUpdate,
+		Old:   oldPod,
+		New:   pod,
+	}))
+
+	fs.AssertExpectations(t)
+}
+
 func TestInformerExistingPodNotAddedWhenNsExcluded(t *testing.T) {
 	setupLogging()
 	NodeName = "testnode"

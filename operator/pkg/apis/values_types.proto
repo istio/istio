@@ -657,11 +657,19 @@ message GlobalConfig {
   // If true, install istio-reader service account and associated cluster role/binding,
   // which are used for multicluster remote-secret workflows.
   google.protobuf.BoolValue enableReaderRBAC = 78;
-  // The next available key is 79
+  // Optionally specify a custom service account to bind to the istio-reader ClusterRole.
+  // When set, the default istio-reader-service-account is not created.
+  ReaderServiceAccount readerServiceAccount = 79;
+  // The next available key is 80
 }
 
 message Agentgateway {
   string image = 1;
+}
+
+message ReaderServiceAccount {
+  string name = 1;
+  string namespace = 2;
 }
 
 enum ResourceScope {
@@ -1018,6 +1026,10 @@ message PilotTaintControllerConfig {
 
   // The namespace of the CNI daemonset, incase it's not the same as istiod.
   string namespace = 2;
+  // The taint key used by the node-untaint controller to identify nodes that should be untainted.
+  // This corresponds to the Helm chart value `values.pilot.taint.name` and the
+  // environment variable `PILOT_NODE_UNTAINT_CONTROLLERS_TAINT_NAME` used by istiod.
+  string name = 3;
 }
 
 // Controls legacy k8s ingress. Only one pilot profile should enable ingress support.

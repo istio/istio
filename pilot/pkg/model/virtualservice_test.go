@@ -1655,6 +1655,139 @@ func TestSelectVirtualService(t *testing.T) {
 	}
 }
 
+func TestSelectVirtualServicesExclusion(t *testing.T) {
+	mkVS := func(name, ns string, hosts ...string) config.Config {
+		return config.Config{
+			Meta: config.Meta{GroupVersionKind: gvk.VirtualService, Name: name, Namespace: ns},
+			Spec: &networking.VirtualService{Hosts: hosts, Gateways: []string{"mesh"}},
+		}
+	}
+	index := virtualServiceIndex{
+		publicByGateway: map[string][]config.Config{
+			constants.IstioMeshGateway: {
+				mkVS("vs-a", "a", "a.com"),
+				mkVS("vs-b", "b", "b.com"),
+				mkVS("vs-multi", "a", "drop.com", "keep.com"),
+			},
+		},
+	}
+
+	includeAll := hostClassification{exactHosts: sets.New[host.Name](), allHosts: []host.Name{wildcardService}}
+	includeAllExcept := func(excluded ...host.Name) hostClassification {
+		return hostClassification{exactHosts: sets.New[host.Name](), allHosts: []host.Name{wildcardService}, excludedHosts: excluded}
+	}
+
+	tests := []struct {
+		name      string
+		hostsByNS map[string]hostClassification
+		expected  []string
+	}{
+		{
+			name:      "no exclusion selects all",
+			hostsByNS: map[string]hostClassification{wildcardNamespace: includeAll},
+			expected:  []string{"vs-a", "vs-b", "vs-multi"},
+		},
+		{
+			name: "~b/* excludes namespace b",
+			hostsByNS: map[string]hostClassification{
+				wildcardNamespace: includeAll,
+				"b":               {excludedHosts: []host.Name{wildcardService}},
+			},
+			expected: []string{"vs-a", "vs-multi"},
+		},
+		{
+			name:      "~/a.com excludes the VS whose only host is a.com",
+			hostsByNS: map[string]hostClassification{wildcardNamespace: includeAllExcept("a.com")},
+			expected:  []string{"vs-b", "vs-multi"},
+		},
+		{
+			name:      "multi-host VS survives when only one host excluded",
+			hostsByNS: map[string]hostClassification{wildcardNamespace: includeAllExcept("drop.com")},
+			expected:  []string{"vs-a", "vs-b", "vs-multi"},
+		},
+		{
+			name:      "multi-host VS dropped when all hosts excluded",
+			hostsByNS: map[string]hostClassification{wildcardNamespace: includeAllExcept("drop.com", "keep.com")},
+			expected:  []string{"vs-a", "vs-b"},
+		},
+		{
+			name: "exclusion via ns scope while include via wildcard scope",
+			hostsByNS: map[string]hostClassification{
+				wildcardNamespace: includeAll,
+				"a":               {excludedHosts: []host.Name{"a.com"}},
+			},
+			expected: []string{"vs-b", "vs-multi"},
+		},
+		{
+			name:      "exclusion with no include matches nothing",
+			hostsByNS: map[string]hostClassification{wildcardNamespace: {exactHosts: sets.New[host.Name](), excludedHosts: []host.Name{wildcardService}}},
+			expected:  []string{},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := SelectVirtualServices(index, "some-ns", tt.hostsByNS)
+			gotNames := make([]string, 0, len(got))
+			for _, c := range got {
+				gotNames = append(gotNames, c.Name)
+			}
+			assert.Equal(t, gotNames, tt.expected)
+		})
+	}
+}
+
+// TestSelectVirtualServicesExclusionWildcard pins the directional SubsetOf semantics:
+// a wildcard exclusion covers exact hosts, but an exact exclusion does not drop a
+// wildcard route that still serves other hosts.
+func TestSelectVirtualServicesExclusionWildcard(t *testing.T) {
+	mkVS := func(name string, hosts ...string) config.Config {
+		return config.Config{
+			Meta: config.Meta{GroupVersionKind: gvk.VirtualService, Name: name, Namespace: "a"},
+			Spec: &networking.VirtualService{Hosts: hosts, Gateways: []string{"mesh"}},
+		}
+	}
+	index := virtualServiceIndex{
+		publicByGateway: map[string][]config.Config{
+			constants.IstioMeshGateway: {
+				mkVS("vs-exact", "a.com"),
+				mkVS("vs-wild", "*.com"),
+			},
+		},
+	}
+	includeAllExcept := func(excluded ...host.Name) map[string]hostClassification {
+		return map[string]hostClassification{
+			wildcardNamespace: {exactHosts: sets.New[host.Name](), allHosts: []host.Name{wildcardService}, excludedHosts: excluded},
+		}
+	}
+
+	tests := []struct {
+		name      string
+		hostsByNS map[string]hostClassification
+		expected  []string
+	}{
+		{
+			name:      "wildcard exclusion covers exact host",
+			hostsByNS: includeAllExcept("*.com"),
+			expected:  []string{},
+		},
+		{
+			name:      "exact exclusion does not drop wildcard route",
+			hostsByNS: includeAllExcept("a.com"),
+			expected:  []string{"vs-wild"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := SelectVirtualServices(index, "some-ns", tt.hostsByNS)
+			gotNames := make([]string, 0, len(got))
+			for _, c := range got {
+				gotNames = append(gotNames, c.Name)
+			}
+			assert.Equal(t, gotNames, tt.expected)
+		})
+	}
+}
+
 func buildHTTPService(hostname string, v visibility.Instance, ip, namespace string, ports ...int) *Service {
 	service := &Service{
 		CreationTime:   time.Now(),

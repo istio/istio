@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+releaseNotes:
+  - |
+    **Fixed** a deadlock in the multicluster `ClusterStore` where `AllReady` could recursively acquire the store `RWMutex` for read via `triggerRecomputeOnSync` -> `GetByID` while a writer was waiting, blocking further reads and writes against the store.

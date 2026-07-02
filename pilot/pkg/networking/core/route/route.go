@@ -546,7 +546,7 @@ func TranslateRoute(
 		})
 	}
 	if in.Redirect != nil {
-		ApplyRedirect(out, in.Redirect, listenPort, opts.IsTLS, model.UseGatewaySemantics(virtualService))
+		ApplyRedirect(out, in.Redirect, listenPort, opts.IsTLS)
 	} else if in.DirectResponse != nil {
 		ApplyDirectResponse(out, in.DirectResponse)
 	} else {
@@ -776,21 +776,20 @@ func processWeightedDestination(
 	return clusterWeight, hostname
 }
 
-func ApplyRedirect(out *route.Route, redirect *networking.HTTPRedirect, port int, isTLS bool, useGatewaySemantics bool) {
+func ApplyRedirect(out *route.Route, redirect *networking.HTTPRedirect, port int, isTLS bool) {
 	action := &route.Route_Redirect{
 		Redirect: &route.RedirectAction{
 			HostRedirect: redirect.Authority,
-			PathRewriteSpecifier: &route.RedirectAction_PathRedirect{
-				PathRedirect: redirect.Uri,
-			},
 		},
 	}
 
-	if useGatewaySemantics {
-		if uri, isPrefixReplace := cutPrefix(redirect.Uri, "%PREFIX()%"); isPrefixReplace {
-			action.Redirect.PathRewriteSpecifier = &route.RedirectAction_PrefixRewrite{
-				PrefixRewrite: uri,
-			}
+	if redirect.PrefixRewrite != "" {
+		action.Redirect.PathRewriteSpecifier = &route.RedirectAction_PrefixRewrite{
+			PrefixRewrite: redirect.PrefixRewrite,
+		}
+	} else {
+		action.Redirect.PathRewriteSpecifier = &route.RedirectAction_PathRedirect{
+			PathRedirect: redirect.Uri,
 		}
 	}
 
@@ -1646,13 +1645,6 @@ func IsCatchAllRoute(r *route.Route) bool {
 	}
 
 	return catchall && len(r.Match.Headers) == 0 && len(r.Match.QueryParameters) == 0 && len(r.Match.DynamicMetadata) == 0
-}
-
-func cutPrefix(s, prefix string) (after string, found bool) {
-	if !strings.HasPrefix(s, prefix) {
-		return s, false
-	}
-	return s[len(prefix):], true
 }
 
 // CheckAndGetInferencePoolConfigs extracts inference pool configurations from a VirtualService's Extra field.

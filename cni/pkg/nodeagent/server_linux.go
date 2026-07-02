@@ -73,6 +73,22 @@ func initMeshDataplane(client kube.Client, args AmbientArgs) (*meshDataplane, er
 		}
 	}
 
+	// Native nftables uses `nft --json` for set membership; fall back to
+	// iptables if the bundled nft was built without libjansson.
+	if useNftables {
+		jsonOK, err := detectNftJSONSupport()
+		switch {
+		case err != nil:
+			log.Warnf("nft JSON support could not be probed (%v). "+
+				"Proceeding with nftables backend as configured.", err)
+		case !jsonOK:
+			log.Warn("nft binary built without libjansson; falling back to iptables backend.")
+			useNftables = false
+		default:
+			log.Debug("nft JSON support confirmed, proceeding with nftables backend")
+		}
+	}
+
 	log.Infof("creating host addressSet manager in the node netns")
 	setManager, err := createHostNetworkAddrSetManager(useNftables, hostCfg.EnableIPv6)
 	if err != nil {

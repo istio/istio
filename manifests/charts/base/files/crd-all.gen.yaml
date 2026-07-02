@@ -37,7 +37,7 @@ spec:
         properties:
           spec:
             description: 'Extend the functionality provided by the Istio proxy through
-              WebAssembly or Lua filters. See more details at: https://istio.io/docs/reference/config/proxy_extensions/v1alpha1/traffic_extension.html'
+              WebAssembly or Lua filters. See more details at: https://istio.io/docs/reference/config/proxy_extensions/traffic_extension.html'
             oneOf:
             - not:
                 anyOf:
@@ -814,6 +814,28 @@ spec:
                                     pool connection.
                                   format: int32
                                   type: integer
+                                http2KeepAlive:
+                                  description: Configure HTTP/2 PING frames for upstream
+                                    connections.
+                                  properties:
+                                    interval:
+                                      description: Send HTTP/2 PING frames at this
+                                        interval.
+                                      type: string
+                                      x-kubernetes-validations:
+                                      - message: must be a valid duration greater
+                                          than 1ms
+                                        rule: duration(self) >= duration('1ms')
+                                    timeout:
+                                      description: How long to wait for a response
+                                        to an HTTP/2 PING frame before closing the
+                                        connection.
+                                      type: string
+                                      x-kubernetes-validations:
+                                      - message: must be a valid duration greater
+                                          than 1ms
+                                        rule: duration(self) >= duration('1ms')
+                                  type: object
                                 http2MaxRequests:
                                   description: Maximum number of active requests to
                                     a destination.
@@ -1189,6 +1211,28 @@ spec:
                                           connection pool connection.
                                         format: int32
                                         type: integer
+                                      http2KeepAlive:
+                                        description: Configure HTTP/2 PING frames
+                                          for upstream connections.
+                                        properties:
+                                          interval:
+                                            description: Send HTTP/2 PING frames at
+                                              this interval.
+                                            type: string
+                                            x-kubernetes-validations:
+                                            - message: must be a valid duration greater
+                                                than 1ms
+                                              rule: duration(self) >= duration('1ms')
+                                          timeout:
+                                            description: How long to wait for a response
+                                              to an HTTP/2 PING frame before closing
+                                              the connection.
+                                            type: string
+                                            x-kubernetes-validations:
+                                            - message: must be a valid duration greater
+                                                than 1ms
+                                              rule: duration(self) >= duration('1ms')
+                                        type: object
                                       http2MaxRequests:
                                         description: Maximum number of active requests
                                           to a destination.
@@ -1636,6 +1680,11 @@ spec:
                           description: Specifies a limit on concurrent retries in
                             relation to the number of active requests.
                           properties:
+                            budgetInterval:
+                              description: Specifies the duration in which requests
+                                will be considered when calculating the budget for
+                                retries.
+                              type: string
                             minRetryConcurrency:
                               description: Specifies the minimum retry concurrency
                                 allowed for the retry budget.
@@ -1756,6 +1805,24 @@ spec:
                               while waiting for a ready connection pool connection.
                             format: int32
                             type: integer
+                          http2KeepAlive:
+                            description: Configure HTTP/2 PING frames for upstream
+                              connections.
+                            properties:
+                              interval:
+                                description: Send HTTP/2 PING frames at this interval.
+                                type: string
+                                x-kubernetes-validations:
+                                - message: must be a valid duration greater than 1ms
+                                  rule: duration(self) >= duration('1ms')
+                              timeout:
+                                description: How long to wait for a response to an
+                                  HTTP/2 PING frame before closing the connection.
+                                type: string
+                                x-kubernetes-validations:
+                                - message: must be a valid duration greater than 1ms
+                                  rule: duration(self) >= duration('1ms')
+                            type: object
                           http2MaxRequests:
                             description: Maximum number of active requests to a destination.
                             format: int32
@@ -2120,6 +2187,28 @@ spec:
                                     pool connection.
                                   format: int32
                                   type: integer
+                                http2KeepAlive:
+                                  description: Configure HTTP/2 PING frames for upstream
+                                    connections.
+                                  properties:
+                                    interval:
+                                      description: Send HTTP/2 PING frames at this
+                                        interval.
+                                      type: string
+                                      x-kubernetes-validations:
+                                      - message: must be a valid duration greater
+                                          than 1ms
+                                        rule: duration(self) >= duration('1ms')
+                                    timeout:
+                                      description: How long to wait for a response
+                                        to an HTTP/2 PING frame before closing the
+                                        connection.
+                                      type: string
+                                      x-kubernetes-validations:
+                                      - message: must be a valid duration greater
+                                          than 1ms
+                                        rule: duration(self) >= duration('1ms')
+                                  type: object
                                 http2MaxRequests:
                                   description: Maximum number of active requests to
                                     a destination.
@@ -2552,6 +2641,10 @@ spec:
                     description: Specifies a limit on concurrent retries in relation
                       to the number of active requests.
                     properties:
+                      budgetInterval:
+                        description: Specifies the duration in which requests will
+                          be considered when calculating the budget for retries.
+                        type: string
                       minRetryConcurrency:
                         description: Specifies the minimum retry concurrency allowed
                           for the retry budget.
@@ -2815,6 +2908,28 @@ spec:
                                     pool connection.
                                   format: int32
                                   type: integer
+                                http2KeepAlive:
+                                  description: Configure HTTP/2 PING frames for upstream
+                                    connections.
+                                  properties:
+                                    interval:
+                                      description: Send HTTP/2 PING frames at this
+                                        interval.
+                                      type: string
+                                      x-kubernetes-validations:
+                                      - message: must be a valid duration greater
+                                          than 1ms
+                                        rule: duration(self) >= duration('1ms')
+                                    timeout:
+                                      description: How long to wait for a response
+                                        to an HTTP/2 PING frame before closing the
+                                        connection.
+                                      type: string
+                                      x-kubernetes-validations:
+                                      - message: must be a valid duration greater
+                                          than 1ms
+                                        rule: duration(self) >= duration('1ms')
+                                  type: object
                                 http2MaxRequests:
                                   description: Maximum number of active requests to
                                     a destination.
@@ -3190,6 +3305,28 @@ spec:
                                           connection pool connection.
                                         format: int32
                                         type: integer
+                                      http2KeepAlive:
+                                        description: Configure HTTP/2 PING frames
+                                          for upstream connections.
+                                        properties:
+                                          interval:
+                                            description: Send HTTP/2 PING frames at
+                                              this interval.
+                                            type: string
+                                            x-kubernetes-validations:
+                                            - message: must be a valid duration greater
+                                                than 1ms
+                                              rule: duration(self) >= duration('1ms')
+                                          timeout:
+                                            description: How long to wait for a response
+                                              to an HTTP/2 PING frame before closing
+                                              the connection.
+                                            type: string
+                                            x-kubernetes-validations:
+                                            - message: must be a valid duration greater
+                                                than 1ms
+                                              rule: duration(self) >= duration('1ms')
+                                        type: object
                                       http2MaxRequests:
                                         description: Maximum number of active requests
                                           to a destination.
@@ -3637,6 +3774,11 @@ spec:
                           description: Specifies a limit on concurrent retries in
                             relation to the number of active requests.
                           properties:
+                            budgetInterval:
+                              description: Specifies the duration in which requests
+                                will be considered when calculating the budget for
+                                retries.
+                              type: string
                             minRetryConcurrency:
                               description: Specifies the minimum retry concurrency
                                 allowed for the retry budget.
@@ -3757,6 +3899,24 @@ spec:
                               while waiting for a ready connection pool connection.
                             format: int32
                             type: integer
+                          http2KeepAlive:
+                            description: Configure HTTP/2 PING frames for upstream
+                              connections.
+                            properties:
+                              interval:
+                                description: Send HTTP/2 PING frames at this interval.
+                                type: string
+                                x-kubernetes-validations:
+                                - message: must be a valid duration greater than 1ms
+                                  rule: duration(self) >= duration('1ms')
+                              timeout:
+                                description: How long to wait for a response to an
+                                  HTTP/2 PING frame before closing the connection.
+                                type: string
+                                x-kubernetes-validations:
+                                - message: must be a valid duration greater than 1ms
+                                  rule: duration(self) >= duration('1ms')
+                            type: object
                           http2MaxRequests:
                             description: Maximum number of active requests to a destination.
                             format: int32
@@ -4121,6 +4281,28 @@ spec:
                                     pool connection.
                                   format: int32
                                   type: integer
+                                http2KeepAlive:
+                                  description: Configure HTTP/2 PING frames for upstream
+                                    connections.
+                                  properties:
+                                    interval:
+                                      description: Send HTTP/2 PING frames at this
+                                        interval.
+                                      type: string
+                                      x-kubernetes-validations:
+                                      - message: must be a valid duration greater
+                                          than 1ms
+                                        rule: duration(self) >= duration('1ms')
+                                    timeout:
+                                      description: How long to wait for a response
+                                        to an HTTP/2 PING frame before closing the
+                                        connection.
+                                      type: string
+                                      x-kubernetes-validations:
+                                      - message: must be a valid duration greater
+                                          than 1ms
+                                        rule: duration(self) >= duration('1ms')
+                                  type: object
                                 http2MaxRequests:
                                   description: Maximum number of active requests to
                                     a destination.
@@ -4553,6 +4735,10 @@ spec:
                     description: Specifies a limit on concurrent retries in relation
                       to the number of active requests.
                     properties:
+                      budgetInterval:
+                        description: Specifies the duration in which requests will
+                          be considered when calculating the budget for retries.
+                        type: string
                       minRetryConcurrency:
                         description: Specifies the minimum retry concurrency allowed
                           for the retry budget.
@@ -4816,6 +5002,28 @@ spec:
                                     pool connection.
                                   format: int32
                                   type: integer
+                                http2KeepAlive:
+                                  description: Configure HTTP/2 PING frames for upstream
+                                    connections.
+                                  properties:
+                                    interval:
+                                      description: Send HTTP/2 PING frames at this
+                                        interval.
+                                      type: string
+                                      x-kubernetes-validations:
+                                      - message: must be a valid duration greater
+                                          than 1ms
+                                        rule: duration(self) >= duration('1ms')
+                                    timeout:
+                                      description: How long to wait for a response
+                                        to an HTTP/2 PING frame before closing the
+                                        connection.
+                                      type: string
+                                      x-kubernetes-validations:
+                                      - message: must be a valid duration greater
+                                          than 1ms
+                                        rule: duration(self) >= duration('1ms')
+                                  type: object
                                 http2MaxRequests:
                                   description: Maximum number of active requests to
                                     a destination.
@@ -5191,6 +5399,28 @@ spec:
                                           connection pool connection.
                                         format: int32
                                         type: integer
+                                      http2KeepAlive:
+                                        description: Configure HTTP/2 PING frames
+                                          for upstream connections.
+                                        properties:
+                                          interval:
+                                            description: Send HTTP/2 PING frames at
+                                              this interval.
+                                            type: string
+                                            x-kubernetes-validations:
+                                            - message: must be a valid duration greater
+                                                than 1ms
+                                              rule: duration(self) >= duration('1ms')
+                                          timeout:
+                                            description: How long to wait for a response
+                                              to an HTTP/2 PING frame before closing
+                                              the connection.
+                                            type: string
+                                            x-kubernetes-validations:
+                                            - message: must be a valid duration greater
+                                                than 1ms
+                                              rule: duration(self) >= duration('1ms')
+                                        type: object
                                       http2MaxRequests:
                                         description: Maximum number of active requests
                                           to a destination.
@@ -5638,6 +5868,11 @@ spec:
                           description: Specifies a limit on concurrent retries in
                             relation to the number of active requests.
                           properties:
+                            budgetInterval:
+                              description: Specifies the duration in which requests
+                                will be considered when calculating the budget for
+                                retries.
+                              type: string
                             minRetryConcurrency:
                               description: Specifies the minimum retry concurrency
                                 allowed for the retry budget.
@@ -5758,6 +5993,24 @@ spec:
                               while waiting for a ready connection pool connection.
                             format: int32
                             type: integer
+                          http2KeepAlive:
+                            description: Configure HTTP/2 PING frames for upstream
+                              connections.
+                            properties:
+                              interval:
+                                description: Send HTTP/2 PING frames at this interval.
+                                type: string
+                                x-kubernetes-validations:
+                                - message: must be a valid duration greater than 1ms
+                                  rule: duration(self) >= duration('1ms')
+                              timeout:
+                                description: How long to wait for a response to an
+                                  HTTP/2 PING frame before closing the connection.
+                                type: string
+                                x-kubernetes-validations:
+                                - message: must be a valid duration greater than 1ms
+                                  rule: duration(self) >= duration('1ms')
+                            type: object
                           http2MaxRequests:
                             description: Maximum number of active requests to a destination.
                             format: int32
@@ -6122,6 +6375,28 @@ spec:
                                     pool connection.
                                   format: int32
                                   type: integer
+                                http2KeepAlive:
+                                  description: Configure HTTP/2 PING frames for upstream
+                                    connections.
+                                  properties:
+                                    interval:
+                                      description: Send HTTP/2 PING frames at this
+                                        interval.
+                                      type: string
+                                      x-kubernetes-validations:
+                                      - message: must be a valid duration greater
+                                          than 1ms
+                                        rule: duration(self) >= duration('1ms')
+                                    timeout:
+                                      description: How long to wait for a response
+                                        to an HTTP/2 PING frame before closing the
+                                        connection.
+                                      type: string
+                                      x-kubernetes-validations:
+                                      - message: must be a valid duration greater
+                                          than 1ms
+                                        rule: duration(self) >= duration('1ms')
+                                  type: object
                                 http2MaxRequests:
                                   description: Maximum number of active requests to
                                     a destination.
@@ -6554,6 +6829,10 @@ spec:
                     description: Specifies a limit on concurrent retries in relation
                       to the number of active requests.
                     properties:
+                      budgetInterval:
+                        description: Specifies the duration in which requests will
+                          be considered when calculating the budget for retries.
+                        type: string
                       minRetryConcurrency:
                         description: Specifies the minimum retry concurrency allowed
                           for the retry budget.
@@ -7044,7 +7323,7 @@ spec:
                           description: |-
                             Determines how the patch should be applied.
 
-                            Valid Options: MERGE, ADD, REMOVE, INSERT_BEFORE, INSERT_AFTER, INSERT_FIRST, REPLACE
+                            Valid Options: MERGE, ADD, REMOVE, INSERT_BEFORE, INSERT_AFTER, INSERT_FIRST, REPLACE, MERGE_AND_REPLACE_LIST
                           enum:
                           - INVALID
                           - MERGE
@@ -7054,6 +7333,7 @@ spec:
                           - INSERT_AFTER
                           - INSERT_FIRST
                           - REPLACE
+                          - MERGE_AND_REPLACE_LIST
                           type: string
                         value:
                           description: The JSON config of the object being patched.
@@ -9229,6 +9509,23 @@ spec:
                           while waiting for a ready connection pool connection.
                         format: int32
                         type: integer
+                      http2KeepAlive:
+                        description: Configure HTTP/2 PING frames for upstream connections.
+                        properties:
+                          interval:
+                            description: Send HTTP/2 PING frames at this interval.
+                            type: string
+                            x-kubernetes-validations:
+                            - message: must be a valid duration greater than 1ms
+                              rule: duration(self) >= duration('1ms')
+                          timeout:
+                            description: How long to wait for a response to an HTTP/2
+                              PING frame before closing the connection.
+                            type: string
+                            x-kubernetes-validations:
+                            - message: must be a valid duration greater than 1ms
+                              rule: duration(self) >= duration('1ms')
+                        type: object
                       http2MaxRequests:
                         description: Maximum number of active requests to a destination.
                         format: int32
@@ -9350,6 +9647,26 @@ spec:
                                 queued while waiting for a ready connection pool connection.
                               format: int32
                               type: integer
+                            http2KeepAlive:
+                              description: Configure HTTP/2 PING frames for upstream
+                                connections.
+                              properties:
+                                interval:
+                                  description: Send HTTP/2 PING frames at this interval.
+                                  type: string
+                                  x-kubernetes-validations:
+                                  - message: must be a valid duration greater than
+                                      1ms
+                                    rule: duration(self) >= duration('1ms')
+                                timeout:
+                                  description: How long to wait for a response to
+                                    an HTTP/2 PING frame before closing the connection.
+                                  type: string
+                                  x-kubernetes-validations:
+                                  - message: must be a valid duration greater than
+                                      1ms
+                                    rule: duration(self) >= duration('1ms')
+                              type: object
                             http2MaxRequests:
                               description: Maximum number of active requests to a
                                 destination.
@@ -9807,6 +10124,23 @@ spec:
                           while waiting for a ready connection pool connection.
                         format: int32
                         type: integer
+                      http2KeepAlive:
+                        description: Configure HTTP/2 PING frames for upstream connections.
+                        properties:
+                          interval:
+                            description: Send HTTP/2 PING frames at this interval.
+                            type: string
+                            x-kubernetes-validations:
+                            - message: must be a valid duration greater than 1ms
+                              rule: duration(self) >= duration('1ms')
+                          timeout:
+                            description: How long to wait for a response to an HTTP/2
+                              PING frame before closing the connection.
+                            type: string
+                            x-kubernetes-validations:
+                            - message: must be a valid duration greater than 1ms
+                              rule: duration(self) >= duration('1ms')
+                        type: object
                       http2MaxRequests:
                         description: Maximum number of active requests to a destination.
                         format: int32
@@ -9928,6 +10262,26 @@ spec:
                                 queued while waiting for a ready connection pool connection.
                               format: int32
                               type: integer
+                            http2KeepAlive:
+                              description: Configure HTTP/2 PING frames for upstream
+                                connections.
+                              properties:
+                                interval:
+                                  description: Send HTTP/2 PING frames at this interval.
+                                  type: string
+                                  x-kubernetes-validations:
+                                  - message: must be a valid duration greater than
+                                      1ms
+                                    rule: duration(self) >= duration('1ms')
+                                timeout:
+                                  description: How long to wait for a response to
+                                    an HTTP/2 PING frame before closing the connection.
+                                  type: string
+                                  x-kubernetes-validations:
+                                  - message: must be a valid duration greater than
+                                      1ms
+                                    rule: duration(self) >= duration('1ms')
+                              type: object
                             http2MaxRequests:
                               description: Maximum number of active requests to a
                                 destination.
@@ -10385,6 +10739,23 @@ spec:
                           while waiting for a ready connection pool connection.
                         format: int32
                         type: integer
+                      http2KeepAlive:
+                        description: Configure HTTP/2 PING frames for upstream connections.
+                        properties:
+                          interval:
+                            description: Send HTTP/2 PING frames at this interval.
+                            type: string
+                            x-kubernetes-validations:
+                            - message: must be a valid duration greater than 1ms
+                              rule: duration(self) >= duration('1ms')
+                          timeout:
+                            description: How long to wait for a response to an HTTP/2
+                              PING frame before closing the connection.
+                            type: string
+                            x-kubernetes-validations:
+                            - message: must be a valid duration greater than 1ms
+                              rule: duration(self) >= duration('1ms')
+                        type: object
                       http2MaxRequests:
                         description: Maximum number of active requests to a destination.
                         format: int32
@@ -10506,6 +10877,26 @@ spec:
                                 queued while waiting for a ready connection pool connection.
                               format: int32
                               type: integer
+                            http2KeepAlive:
+                              description: Configure HTTP/2 PING frames for upstream
+                                connections.
+                              properties:
+                                interval:
+                                  description: Send HTTP/2 PING frames at this interval.
+                                  type: string
+                                  x-kubernetes-validations:
+                                  - message: must be a valid duration greater than
+                                      1ms
+                                    rule: duration(self) >= duration('1ms')
+                                timeout:
+                                  description: How long to wait for a response to
+                                    an HTTP/2 PING frame before closing the connection.
+                                  type: string
+                                  x-kubernetes-validations:
+                                  - message: must be a valid duration greater than
+                                      1ms
+                                    rule: duration(self) >= duration('1ms')
+                              type: object
                             http2MaxRequests:
                               description: Maximum number of active requests to a
                                 destination.
@@ -11556,6 +11947,10 @@ spec:
                           maximum: 4294967295
                           minimum: 0
                           type: integer
+                        prefixRewrite:
+                          description: On a redirect, replace the matched prefix with
+                            this value.
+                          type: string
                         redirectCode:
                           description: On a redirect, Specifies the HTTP status code
                             to use in the redirect response.
@@ -12608,6 +13003,10 @@ spec:
                           maximum: 4294967295
                           minimum: 0
                           type: integer
+                        prefixRewrite:
+                          description: On a redirect, replace the matched prefix with
+                            this value.
+                          type: string
                         redirectCode:
                           description: On a redirect, Specifies the HTTP status code
                             to use in the redirect response.
@@ -13660,6 +14059,10 @@ spec:
                           maximum: 4294967295
                           minimum: 0
                           type: integer
+                        prefixRewrite:
+                          description: On a redirect, replace the matched prefix with
+                            this value.
+                          type: string
                         redirectCode:
                           description: On a redirect, Specifies the HTTP status code
                             to use in the redirect response.

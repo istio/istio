@@ -316,6 +316,26 @@ func TestManifestGenerateGateways(t *testing.T) {
 	})
 }
 
+// TestManifestGenerateHPAPDB verifies that setting k8s.hpaSpec.minReplicas causes
+// a PodDisruptionBudget to be generated without requiring the user to also set the
+// component's autoscaleMin Helm value directly.
+func TestManifestGenerateHPAPDB(t *testing.T) {
+	runTestGroup(t, testGroup{
+		{
+			desc:        "gateway_hpa_pdb",
+			diffSelect:  "HorizontalPodAutoscaler:*:istio-ingressgateway,PodDisruptionBudget:*:istio-ingressgateway",
+			fileSelect:  []string{"templates/autoscale.yaml", "templates/poddisruptionbudget.yaml"},
+			chartSource: liveCharts,
+		},
+		{
+			desc:        "pilot_hpa_pdb",
+			diffSelect:  "HorizontalPodAutoscaler:*:istiod,PodDisruptionBudget:*:istiod",
+			fileSelect:  []string{"templates/autoscale.yaml", "templates/poddisruptionbudget.yaml"},
+			chartSource: liveCharts,
+		},
+	})
+}
+
 func TestManifestGenerateWithDuplicateMutatingWebhookConfig(t *testing.T) {
 	testResourceFile := "duplicate_mwc"
 
@@ -596,6 +616,40 @@ func TestManifestGenerateReaderRBACEnableFlag(t *testing.T) {
 		manifest := generateManifest(t, "minimal", flags, liveCharts, []string{"templates/reader-serviceaccount.yaml"})
 		objs := parseObjectSetFromManifest(t, manifest)
 		g.Expect(objs.kind(gvk.ServiceAccount.Kind).nameEquals(readerSAName)).Should(BeNil())
+	})
+
+	t.Run("custom reader service account with enableReaderRBAC disabled", func(t *testing.T) {
+		flags := fmt.Sprintf(
+			"--set values.global.resourceScope=all --set values.global.istioNamespace=%s "+
+				"--set values.global.enableReaderRBAC=false "+
+				"--set values.global.readerServiceAccount.name=custom-reader "+
+				"--set values.global.readerServiceAccount.namespace=custom-ns",
+			namespace,
+		)
+		manifest := generateManifest(t, "default", flags, liveCharts, nil)
+		objs := parseObjectSetFromManifest(t, manifest)
+		g.Expect(objs.kind(gvk.ServiceAccount.Kind).nameEquals(readerSAName)).Should(BeNil())
+		g.Expect(objs.kind(gvk.ServiceAccount.Kind).nameEquals("custom-reader")).Should(BeNil())
+		g.Expect(manifest).Should(Not(MatchRegexp("kind: ClusterRole[\\s\\S]*name: istio-reader-clusterrole-" + namespace)))
+		g.Expect(manifest).Should(Not(MatchRegexp("kind: ClusterRoleBinding[\\s\\S]*name: istio-reader-clusterrole-" + namespace)))
+		g.Expect(manifest).Should(Not(ContainSubstring("name: custom-reader")))
+		g.Expect(manifest).Should(Not(ContainSubstring("namespace: custom-ns")))
+	})
+
+	t.Run("custom reader service account with enableReaderRBAC enabled", func(t *testing.T) {
+		flags := fmt.Sprintf(
+			"--set values.global.resourceScope=all --set values.global.istioNamespace=%s "+
+				"--set values.global.readerServiceAccount.name=custom-reader "+
+				"--set values.global.readerServiceAccount.namespace=custom-ns",
+			namespace,
+		)
+		manifest := generateManifest(t, "default", flags, liveCharts, nil)
+		objs := parseObjectSetFromManifest(t, manifest)
+		g.Expect(objs.kind(gvk.ServiceAccount.Kind).nameEquals(readerSAName)).Should(BeNil())
+		g.Expect(manifest).Should(MatchRegexp("kind: ClusterRole[\\s\\S]*name: istio-reader-clusterrole-" + namespace))
+		g.Expect(manifest).Should(MatchRegexp("kind: ClusterRoleBinding[\\s\\S]*name: istio-reader-clusterrole-" + namespace))
+		g.Expect(manifest).Should(ContainSubstring("name: custom-reader"))
+		g.Expect(manifest).Should(ContainSubstring("namespace: custom-ns"))
 	})
 }
 

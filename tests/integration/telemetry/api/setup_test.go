@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"istio.io/api/annotation"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -138,6 +139,29 @@ proxyMetadata:
 		Ports: []echo.Port{},
 	}
 	echos = append(echos, prom)
+
+	// secureMetricsTarget: mTLS metrics ports 15091/15092 enabled; plaintext ports 15090/15020 restricted to localhost.
+	secureMetricsProxyMd := `{"proxyMetadata": {"ENVOY_SECURE_METRICS_PORT": "15091",` +
+		`"ENVOY_SECURE_MERGED_METRICS_PORT": "15092", "METRICS_LOCALHOST_ACCESS_ONLY": "true"}}`
+	secureMetricsTarget := echo.Config{
+		Service: "secure-metrics-target",
+		Subsets: []echo.SubsetConfig{
+			{
+				Annotations: map[string]string{
+					annotation.ProxyConfig.Name: secureMetricsProxyMd,
+				},
+			},
+		},
+		Ports: []echo.Port{
+			{
+				Name:         "http",
+				Protocol:     protocol.HTTP,
+				ServicePort:  8080,
+				WorkloadPort: 8080,
+			},
+		},
+	}
+	echos = append(echos, secureMetricsTarget)
 
 	if err := cdeployment.SetupSingleNamespace(&apps, cdeployment.Config{Configs: echo.ConfigFuture(&echos)})(ctx); err != nil {
 		return err

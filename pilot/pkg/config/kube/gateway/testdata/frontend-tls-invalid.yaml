@@ -1,0 +1,74 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: istio
+spec:
+  controllerName: istio.io/gateway-controller
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: invalid-frontend-ca-ref
+  namespace: istio-system
+spec:
+  tls:
+    frontend:
+      default:
+        validation:
+          caCertificateRefs:
+            - group: ""
+              kind: ConfigMap
+              name: does-not-exist
+  addresses:
+  - value: istio-ingressgateway
+    type: Hostname
+  gatewayClassName: istio
+  listeners:
+  - name: https
+    hostname: "example.com"
+    port: 443
+    protocol: HTTPS
+    allowedRoutes:
+      namespaces:
+        from: All
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - name: my-cert-http
+  - name: http
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: All
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: invalid-frontend-ca-kind
+  namespace: istio-system
+spec:
+  tls:
+    frontend:
+      default:
+        validation:
+          caCertificateRefs:
+            - group: ""
+              kind: Service
+              name: some-service
+  addresses:
+  - value: istio-ingressgateway
+    type: Hostname
+  gatewayClassName: istio
+  listeners:
+  - name: https
+    hostname: "example.com"
+    port: 443
+    protocol: HTTPS
+    allowedRoutes:
+      namespaces:
+        from: All
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - name: my-cert-http

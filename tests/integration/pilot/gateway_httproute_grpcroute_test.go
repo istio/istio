@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/crd"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
+	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -38,13 +39,14 @@ func TestHTTPRouteAndGRPCRouteCoexistence(t *testing.T) {
 			if !crd.SupportsGatewayAPI(t) {
 				t.Skip("requires Gateway API support (k8s >= 1.31)")
 			}
-			t.ConfigIstio().YAML(apps.Namespace.Name(), `
+			cfg := istio.DefaultConfigOrFail(t, t)
+			t.ConfigIstio().YAML(apps.Namespace.Name(), fmt.Sprintf(`
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: gateway
 spec:
-  gatewayClassName: istio
+  gatewayClassName: %s
   listeners:
   - name: default
     hostname: "*.example.com"
@@ -83,9 +85,9 @@ spec:
   - backendRefs:
     - name: b
       port: 7070
-`).ApplyOrFail(t)
+`, cfg.GatewayClassName)).ApplyOrFail(t)
 
-			gatewayAddr := fmt.Sprintf("gateway-istio.%s.svc.cluster.local", apps.Namespace.Name())
+			gatewayAddr := fmt.Sprintf("gateway-%s.%s.svc.cluster.local", cfg.GatewayClassName, apps.Namespace.Name())
 
 			// Test HTTP traffic
 			t.NewSubTest("http-traffic").Run(func(t framework.TestContext) {

@@ -147,7 +147,7 @@ func (i *istioImpl) deployAmbientEastWestGateway(cluster cluster.Cluster) error 
 	if err != nil {
 		return fmt.Errorf("failed generating eastwest gateway yaml: %v: %v", err, string(gw))
 	}
-	if err = i.ctx.ConfigKube(cluster).YAML(i.cfg.SystemNamespace, string(gw)).Apply(applyopt.NoCleanup); err != nil {
+	if err = i.ctx.ConfigKube(cluster).YAML(i.cfg.SystemNamespace, string(gw)).Apply(applyopt.CleanupConditionally); err != nil {
 		return fmt.Errorf("failed applying eastwest gateway yaml: %v", err)
 	}
 

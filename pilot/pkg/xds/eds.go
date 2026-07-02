@@ -104,6 +104,7 @@ var skippedEdsConfigs = sets.New(
 	kind.Secret,
 	kind.Telemetry,
 	kind.WasmPlugin,
+	kind.TrafficExtension,
 	kind.ProxyConfig,
 	kind.DNSName,
 	kind.Sidecar,
@@ -140,7 +141,7 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, 
 		return nil, model.DefaultXdsLogDetails, nil
 	}
 
-	resources, _, logDetails := eds.buildEndpoints(proxy, req, w, false, canSendPartialFullPushes(req))
+	resources, logDetails := eds.buildEndpoints(proxy, req, w, canSendPartialFullPushes(req))
 	return resources, logDetails, nil
 }
 
@@ -152,8 +153,8 @@ func (eds *EdsGenerator) GenerateDeltas(proxy *model.Proxy, req *model.PushReque
 	}
 
 	partialPush := canSendPartialFullPushes(req)
-	resources, removed, logs := eds.buildEndpoints(proxy, req, w, partialPush, partialPush)
-	return resources, removed, logs, partialPush, nil
+	resources, logs := eds.buildEndpoints(proxy, req, w, partialPush)
+	return resources, nil, logs, partialPush, nil
 }
 
 func canSendPartialFullPushes(req *model.PushRequest) bool {
@@ -178,9 +179,8 @@ func canSendPartialFullPushes(req *model.PushRequest) bool {
 func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 	req *model.PushRequest,
 	w *model.WatchedResource,
-	delta bool,
 	partialPush bool,
-) (model.Resources, model.DeletedResources, model.XdsLogDetails) {
+) (model.Resources, model.XdsLogDetails) {
 	var edsUpdatedServices sets.Set[string]
 	var changedDrs sets.Set[types.NamespacedName]
 	var changedAuthnNs sets.Set[string]
@@ -201,7 +201,6 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 		}
 	}
 	var resources model.Resources
-	var removed model.DeletedResources
 	empty := 0
 	cached := 0
 	regenerated := 0
@@ -217,12 +216,6 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 
 		dir, subsetName, hostname, port := model.ParseSubsetKey(clusterName)
 		svc := req.Push.ServiceForHostname(proxy, hostname)
-
-		// In delta mode, if a service is not found, it means the cluster is removed
-		if delta && svc == nil {
-			removed = append(removed, clusterName)
-			continue
-		}
 
 		var dr *model.ConsolidatedDestRule
 		if svc != nil {
@@ -251,12 +244,6 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 		}
 
 		l := builder.BuildClusterLoadAssignment(eds.EndpointIndex)
-		if l == nil {
-			if delta {
-				removed = append(removed, clusterName)
-			}
-			continue
-		}
 		regenerated++
 
 		if len(l.Endpoints) == 0 {
@@ -269,7 +256,7 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 		resources = append(resources, resource)
 		eds.Cache.Add(&builder, req, resource)
 	}
-	return resources, removed, model.XdsLogDetails{
+	return resources, model.XdsLogDetails{
 		Incremental:    len(edsUpdatedServices) != 0,
 		AdditionalInfo: fmt.Sprintf("empty:%v cached:%v/%v", empty, cached, cached+regenerated),
 	}

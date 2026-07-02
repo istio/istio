@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+  - 60447
+
+releaseNotes:
+- |
+  **Added** `istioctl analyze` now warns (IST0177) when multiple ServiceEntries define the same host and port with conflicting protocols.

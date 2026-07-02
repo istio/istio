@@ -39,23 +39,31 @@ func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, ho
 	importedVirtualServices := make([]*config.Config, 0, estimatedCap)
 	vsset := sets.New[types.NamespacedName]()
 
-	addVirtualService := func(vs *config.Config, hc hostClassification, useGatewaySemantics bool) {
+	wnsImportedHosts, wnsFound := hostsByNamespace[wildcardNamespace]
+
+	addVirtualService := func(vs *config.Config, hc hostClassification, useGatewaySemantics bool, vsNamespace string) {
 		key := vs.NamespacedName()
 		if vsset.Contains(key) {
 			return
 		}
 
+		nsExcl, nsExclFound := hostsByNamespace[vsNamespace]
 		rule := vs.Spec.(*networking.VirtualService)
 		for _, vh := range rule.Hosts {
-			if hc.VSMatches(host.Name(vh), useGatewaySemantics) {
-				importedVirtualServices = append(importedVirtualServices, vs)
-				vsset.Insert(key)
-				return
+			h := host.Name(vh)
+			if !hc.VSMatches(h, useGatewaySemantics) {
+				continue
 			}
+			// Skip a matched host excluded by a ~-prefixed entry; another host may still select the VS.
+			if (nsExclFound && nsExcl.Excluded(h)) || (wnsFound && wnsImportedHosts.Excluded(h)) {
+				continue
+			}
+			importedVirtualServices = append(importedVirtualServices, vs)
+			vsset.Insert(key)
+			return
 		}
 	}
 
-	wnsImportedHosts, wnsFound := hostsByNamespace[wildcardNamespace]
 	var loopAndAdd func(vses []config.Config)
 	if features.UnifiedSidecarScoping {
 		loopAndAdd = func(vses []config.Config) {
@@ -75,12 +83,12 @@ func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, ho
 
 					// Check if there is an explicit import of form ns/* or ns/host
 					if importedHosts, nsFound := hostsByNamespace[vsNamespace]; nsFound {
-						addVirtualService(c, importedHosts, useGatewaySemantics)
+						addVirtualService(c, importedHosts, useGatewaySemantics, vsNamespace)
 					}
 
 					// Check if there is an import of form */host or */*
 					if wnsFound {
-						addVirtualService(c, wnsImportedHosts, useGatewaySemantics)
+						addVirtualService(c, wnsImportedHosts, useGatewaySemantics, vsNamespace)
 					}
 				}
 			}
@@ -99,12 +107,12 @@ func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, ho
 
 				// Check if there is an explicit import of form ns/* or ns/host
 				if importedHosts, nsFound := hostsByNamespace[vsNamespace]; nsFound {
-					addVirtualService(c, importedHosts, useGatewaySemantics)
+					addVirtualService(c, importedHosts, useGatewaySemantics, vsNamespace)
 				}
 
 				// Check if there is an import of form */host or */*
 				if wnsFound {
-					addVirtualService(c, wnsImportedHosts, useGatewaySemantics)
+					addVirtualService(c, wnsImportedHosts, useGatewaySemantics, vsNamespace)
 				}
 			}
 		}
