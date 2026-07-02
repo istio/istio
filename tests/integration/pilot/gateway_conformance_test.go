@@ -122,6 +122,7 @@ func TestGatewayConformance(t *testing.T) {
 					GatewayClassName:         gatewayClassName,
 					Debug:                    scopes.Framework.DebugEnabled(),
 					CleanupBaseResources:     gatewayConformanceInputs.Cleanup,
+					CleanupTestResources:     gatewayConformanceInputs.Cleanup,
 					SupportedFeatures:        features.SetsToNamesSet(supportedFeatures).UnsortedList(),
 					SkipTests:                maps.Keys(skippedTests),
 					UsableNetworkAddresses:   []v1.GatewaySpecAddress{{Value: "infra-backend-v1.gateway-conformance-infra.svc.cluster.local", Type: &hostnameType}},
