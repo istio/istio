@@ -118,6 +118,7 @@ func TestGatewayConformance(t *testing.T) {
 						suite.GatewayHTTPConformanceProfileName,
 						suite.GatewayTLSConformanceProfileName,
 						suite.GatewayGRPCConformanceProfileName,
+						suite.GatewayTCPConformanceProfileName,
 						suite.MeshHTTPConformanceProfileName,
 					},
 					Implementation: confv1.Implementation{
@@ -132,11 +133,11 @@ func TestGatewayConformance(t *testing.T) {
 					},
 					TimeoutConfig: ctx.Settings().GatewayConformanceTimeoutConfig,
 				},
-				Client:                   c,
-				ClientOptions:            clientOptions,
-				Clientset:                gatewayConformanceInputs.Client.Kube(),
-				RestConfig:               gatewayConformanceInputs.Client.RESTConfig(),
-				ManifestFS:               []fs.FS{&conformance.Manifests},
+				Client:        c,
+				ClientOptions: clientOptions,
+				Clientset:     gatewayConformanceInputs.Client.Kube(),
+				RestConfig:    gatewayConformanceInputs.Client.RESTConfig(),
+				ManifestFS:    []fs.FS{&conformance.Manifests},
 			}
 			if ctx.Settings().GatewayConformanceAllowCRDsMismatch {
 				opts.AllowCRDsMismatch = true

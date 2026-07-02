@@ -152,6 +152,7 @@ func TestGatewayConformanceAgentgateway(t *testing.T) {
 						suite.GatewayHTTPConformanceProfileName,
 						suite.GatewayTLSConformanceProfileName,
 						suite.GatewayGRPCConformanceProfileName,
+						suite.GatewayTCPConformanceProfileName,
 						suite.MeshHTTPConformanceProfileName,
 					},
 					Implementation: confv1.Implementation{
@@ -163,11 +164,11 @@ func TestGatewayConformanceAgentgateway(t *testing.T) {
 					},
 					TimeoutConfig: ctx.Settings().GatewayConformanceTimeoutConfig,
 				},
-				Client:                   c,
-				Clientset:                gatewayConformanceInputs.Client.Kube(),
-				ClientOptions:            clientOptions,
-				RestConfig:               gatewayConformanceInputs.Client.RESTConfig(),
-				ManifestFS:               []fs.FS{&conformance.Manifests},
+				Client:        c,
+				Clientset:     gatewayConformanceInputs.Client.Kube(),
+				ClientOptions: clientOptions,
+				RestConfig:    gatewayConformanceInputs.Client.RESTConfig(),
+				ManifestFS:    []fs.FS{&conformance.Manifests},
 			}
 			if rev := ctx.Settings().Revisions.Default(); rev != "" {
 				opts.NamespaceLabels = map[string]string{

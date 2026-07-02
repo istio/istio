@@ -130,6 +130,7 @@ func TestGatewayConformance(t *testing.T) {
 						suite.GatewayHTTPConformanceProfileName,
 						suite.GatewayTLSConformanceProfileName,
 						suite.GatewayGRPCConformanceProfileName,
+						suite.GatewayTCPConformanceProfileName,
 						suite.MeshHTTPConformanceProfileName,
 					},
 					Implementation: confv1.Implementation{
