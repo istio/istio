@@ -1423,10 +1423,18 @@ func TestManifestGenerateOutputFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read output file: %v", err)
 	}
-	objs := parseObjectSetFromManifest(t, string(data)).objSlice
-	if len(objs) == 0 {
+	objs := parseObjectSetFromManifest(t, string(data))
+	if len(objs.objSlice) == 0 {
 		t.Fatalf("expected at least one object in output file, got 0")
 	}
+	// The full manifest must include the Istio CRDs (the base component).
+	crds := objs.kind(gvk.CustomResourceDefinition.Kind)
+	if len(crds.objSlice) == 0 {
+		t.Fatalf("expected the output file to include CustomResourceDefinitions, got none")
+	}
+	g := NewWithT(t)
+	g.Expect(crds.nameEquals("gateways.networking.istio.io")).Should(Not(BeNil()))
+	g.Expect(crds.nameEquals("virtualservices.networking.istio.io")).Should(Not(BeNil()))
 	if !strings.HasSuffix(string(data), YAMLSeparator) {
 		t.Errorf("output file should end with YAML separator")
 	}
