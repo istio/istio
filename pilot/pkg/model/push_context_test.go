@@ -2598,6 +2598,88 @@ func TestSetDestinationRuleMerging(t *testing.T) {
 	}
 }
 
+func TestSetDestinationRuleBackendPolicyMerging(t *testing.T) {
+	testhost := "backend.test.svc.cluster.local"
+	userLb := &networking.LoadBalancerSettings{
+		LbPolicy: &networking.LoadBalancerSettings_Simple{Simple: networking.LoadBalancerSettings_ROUND_ROBIN},
+	}
+	userConnPool := &networking.ConnectionPoolSettings{
+		Tcp: &networking.ConnectionPoolSettings_TCPSettings{MaxConnections: 7},
+	}
+	// TLS and RetryBudget are set by both the user rule and the backend policy; the user values must win.
+	userTLS := &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_MUTUAL}
+	userRetryBudget := &networking.TrafficPolicy_RetryBudget{MinRetryConcurrency: 5}
+	backendLb := &networking.LoadBalancerSettings{
+		LbPolicy: &networking.LoadBalancerSettings_Simple{Simple: networking.LoadBalancerSettings_LEAST_REQUEST},
+	}
+	backendTLS := &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_SIMPLE}
+	backendRetryBudget := &networking.TrafficPolicy_RetryBudget{MinRetryConcurrency: 10}
+	// OutlierDetection is set only by the backend policy, so it should fill in.
+	backendOutlier := &networking.OutlierDetection{Consecutive_5XxErrors: &wrapperspb.UInt32Value{Value: 3}}
+
+	userRule := config.Config{
+		Meta: config.Meta{Name: "user-dr", Namespace: "test", CreationTimestamp: time.Unix(2, 0)},
+		Spec: &networking.DestinationRule{
+			Host: testhost,
+			TrafficPolicy: &networking.TrafficPolicy{
+				LoadBalancer:   userLb,
+				ConnectionPool: userConnPool,
+				Tls:            userTLS,
+				RetryBudget:    userRetryBudget,
+			},
+			Subsets: []*networking.Subset{{Name: "v1"}},
+		},
+	}
+	backendRule := config.Config{
+		Meta: config.Meta{
+			Name:        "backend.test~istio-gateway",
+			Namespace:   "test",
+			Annotations: map[string]string{constants.InternalParentNames: "XBackendTrafficPolicy/policy.test"},
+		},
+		Spec: &networking.DestinationRule{
+			Host: testhost,
+			TrafficPolicy: &networking.TrafficPolicy{
+				LoadBalancer:     backendLb,
+				Tls:              backendTLS,
+				RetryBudget:      backendRetryBudget,
+				OutlierDetection: backendOutlier,
+			},
+		},
+	}
+
+	// The user DestinationRule fields must win over the backend policy regardless of which one
+	// was created first, and the backend policy fills in the fields the user rule leaves unset.
+	cases := []struct {
+		name      string
+		backendTS time.Time
+	}{
+		{name: "backend created first", backendTS: time.Unix(1, 0)},
+		{name: "backend created last", backendTS: time.Unix(3, 0)},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			ps := NewPushContext()
+			ps.exportToDefaults.destinationRule = sets.New(visibility.Public)
+			backend := backendRule.DeepCopy()
+			backend.CreationTimestamp = tc.backendTS
+			ps.setDestinationRules([]config.Config{userRule, backend})
+
+			merged := ps.destinationRuleIndex.namespaceLocal["test"].specificDestRules[host.Name(testhost)]
+			assert.Equal(t, len(merged), 1)
+			tp := merged[0].rule.Spec.(*networking.DestinationRule).TrafficPolicy
+			// user fields win, including where both set the same field (Tls, RetryBudget)
+			assert.Equal(t, tp.LoadBalancer, userLb)
+			assert.Equal(t, tp.ConnectionPool, userConnPool)
+			assert.Equal(t, tp.Tls, userTLS)
+			assert.Equal(t, tp.RetryBudget, userRetryBudget)
+			// backend fills the gaps the user rule leaves unset
+			assert.Equal(t, tp.OutlierDetection, backendOutlier)
+			// user subsets carry through
+			assert.Equal(t, len(merged[0].rule.Spec.(*networking.DestinationRule).Subsets), 1)
+		})
+	}
+}
+
 func TestSetDestinationRuleWithExportTo(t *testing.T) {
 	ps := NewPushContext()
 	ps.Mesh = &meshconfig.MeshConfig{RootNamespace: "istio-system"}
