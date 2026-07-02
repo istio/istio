@@ -15,6 +15,7 @@
 package core
 
 import (
+	"strings"
 	"time"
 
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
@@ -23,6 +24,7 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
+	httpv3 "github.com/envoyproxy/go-control-plane/envoy/type/http/v3"
 	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 	"k8s.io/apimachinery/pkg/types"
@@ -400,21 +402,7 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 	connectionManager.StatPrefix = httpOpts.statPrefix
 	connectionManager.AppendXForwardedPort = ph.GetXForwardedPort().GetEnabled().GetValue()
 
-	// Setup normalization
-	connectionManager.PathWithEscapedSlashesAction = hcm.HttpConnectionManager_KEEP_UNCHANGED
-	switch lb.push.Mesh.GetPathNormalization().GetNormalization() {
-	case meshconfig.MeshConfig_ProxyPathNormalization_NONE:
-		connectionManager.NormalizePath = proto.BoolFalse
-	case meshconfig.MeshConfig_ProxyPathNormalization_BASE, meshconfig.MeshConfig_ProxyPathNormalization_DEFAULT:
-		connectionManager.NormalizePath = proto.BoolTrue
-	case meshconfig.MeshConfig_ProxyPathNormalization_MERGE_SLASHES:
-		connectionManager.NormalizePath = proto.BoolTrue
-		connectionManager.MergeSlashes = true
-	case meshconfig.MeshConfig_ProxyPathNormalization_DECODE_AND_MERGE_SLASHES:
-		connectionManager.NormalizePath = proto.BoolTrue
-		connectionManager.MergeSlashes = true
-		connectionManager.PathWithEscapedSlashesAction = hcm.HttpConnectionManager_UNESCAPE_AND_FORWARD
-	}
+	configurePathNormalization(connectionManager, lb.push.Mesh.GetPathNormalization().GetNormalization())
 
 	if httpOpts.useRemoteAddress {
 		connectionManager.UseRemoteAddress = proto.BoolTrue
@@ -551,6 +539,85 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 	}
 	connectionManager.Proxy_100Continue = features.Enable100ContinueHeaders
 	return connectionManager
+}
+
+func configurePathNormalization(connectionManager *hcm.HttpConnectionManager, normalization meshconfig.MeshConfig_ProxyPathNormalization_NormalizationType) {
+	connectionManager.PathWithEscapedSlashesAction = hcm.HttpConnectionManager_KEEP_UNCHANGED
+
+	if strings.EqualFold(features.PathNormalizationScope, "HTTP_FILTERS") {
+		configureHTTPFilterPathNormalization(connectionManager, normalization)
+		return
+	}
+
+	switch normalization {
+	case meshconfig.MeshConfig_ProxyPathNormalization_NONE:
+		connectionManager.NormalizePath = proto.BoolFalse
+	case meshconfig.MeshConfig_ProxyPathNormalization_BASE, meshconfig.MeshConfig_ProxyPathNormalization_DEFAULT:
+		connectionManager.NormalizePath = proto.BoolTrue
+	case meshconfig.MeshConfig_ProxyPathNormalization_MERGE_SLASHES:
+		connectionManager.NormalizePath = proto.BoolTrue
+		connectionManager.MergeSlashes = true
+	case meshconfig.MeshConfig_ProxyPathNormalization_DECODE_AND_MERGE_SLASHES:
+		connectionManager.NormalizePath = proto.BoolTrue
+		connectionManager.MergeSlashes = true
+		connectionManager.PathWithEscapedSlashesAction = hcm.HttpConnectionManager_UNESCAPE_AND_FORWARD
+	}
+}
+
+func configureHTTPFilterPathNormalization(connectionManager *hcm.HttpConnectionManager, normalization meshconfig.MeshConfig_ProxyPathNormalization_NormalizationType) {
+	filterTransformation := pathTransformation(normalization)
+	if filterTransformation == nil {
+		connectionManager.NormalizePath = proto.BoolFalse
+		return
+	}
+
+	connectionManager.PathNormalizationOptions = &hcm.HttpConnectionManager_PathNormalizationOptions{
+		// Override Envoy's default forwarding normalization so the upstream :path is preserved.
+		ForwardingTransformation: &httpv3.PathTransformation{},
+		HttpFilterTransformation: filterTransformation,
+	}
+	if normalization == meshconfig.MeshConfig_ProxyPathNormalization_DECODE_AND_MERGE_SLASHES {
+		connectionManager.PathWithEscapedSlashesAction = hcm.HttpConnectionManager_UNESCAPE_AND_FORWARD
+	}
+}
+
+func pathTransformation(normalization meshconfig.MeshConfig_ProxyPathNormalization_NormalizationType) *httpv3.PathTransformation {
+	switch normalization {
+	case meshconfig.MeshConfig_ProxyPathNormalization_NONE:
+		return nil
+	case meshconfig.MeshConfig_ProxyPathNormalization_BASE, meshconfig.MeshConfig_ProxyPathNormalization_DEFAULT:
+		return &httpv3.PathTransformation{
+			Operations: []*httpv3.PathTransformation_Operation{normalizePathRFC3986()},
+		}
+	case meshconfig.MeshConfig_ProxyPathNormalization_MERGE_SLASHES,
+		meshconfig.MeshConfig_ProxyPathNormalization_DECODE_AND_MERGE_SLASHES:
+		return &httpv3.PathTransformation{
+			Operations: []*httpv3.PathTransformation_Operation{
+				normalizePathRFC3986(),
+				mergeSlashes(),
+			},
+		}
+	default:
+		return &httpv3.PathTransformation{
+			Operations: []*httpv3.PathTransformation_Operation{normalizePathRFC3986()},
+		}
+	}
+}
+
+func normalizePathRFC3986() *httpv3.PathTransformation_Operation {
+	return &httpv3.PathTransformation_Operation{
+		OperationSpecifier: &httpv3.PathTransformation_Operation_NormalizePathRfc_3986{
+			NormalizePathRfc_3986: &httpv3.PathTransformation_Operation_NormalizePathRFC3986{},
+		},
+	}
+}
+
+func mergeSlashes() *httpv3.PathTransformation_Operation {
+	return &httpv3.PathTransformation_Operation{
+		OperationSpecifier: &httpv3.PathTransformation_Operation_MergeSlashes_{
+			MergeSlashes: &httpv3.PathTransformation_Operation_MergeSlashes{},
+		},
+	}
 }
 
 func appendMxFilter(httpOpts *httpListenerOpts, filters []*hcm.HttpFilter) []*hcm.HttpFilter {
