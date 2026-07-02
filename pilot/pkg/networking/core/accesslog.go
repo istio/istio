@@ -79,8 +79,8 @@ func newAccessLogBuilder() *AccessLogBuilder {
 		// We add ResponseFlagFilter here, as we want to get listener access logs only on scenarios where we might
 		// not get filter Access Logs like in cases like NR to upstream.
 		listenerAccessLog:         newCachedMeshConfigAccessLog(listenerAccessLogFilter()),
-		hboneOriginationAccessLog: newCachedMeshConfigAccessLog(hboneOriginationAccessLogFilter()),
-		hboneTerminationAccessLog: newCachedMeshConfigAccessLog(hboneTerminationAccessLogFilter()),
+		hboneOriginationAccessLog: newCachedHboneOriginationAccessLog(hboneOriginationAccessLogFilter()),
+		hboneTerminationAccessLog: newCachedHboneTerminationAccessLog(hboneTerminationAccessLogFilter()),
 	}
 }
 
@@ -303,13 +303,22 @@ func buildAccessLogFilter(f ...*accesslog.AccessLogFilter) *accesslog.AccessLogF
 }
 
 func newCachedMeshConfigAccessLog(filter *accesslog.AccessLogFilter) cachedMeshConfigAccessLog {
-	return cachedMeshConfigAccessLog{filter: filter}
+	return cachedMeshConfigAccessLog{filter: filter, buildFn: model.FileAccessLogFromMeshConfig}
+}
+
+func newCachedHboneOriginationAccessLog(filter *accesslog.AccessLogFilter) cachedMeshConfigAccessLog {
+	return cachedMeshConfigAccessLog{filter: filter, buildFn: model.FileAccessLogFromMeshConfigForHboneOrigination}
+}
+
+func newCachedHboneTerminationAccessLog(filter *accesslog.AccessLogFilter) cachedMeshConfigAccessLog {
+	return cachedMeshConfigAccessLog{filter: filter, buildFn: model.FileAccessLogFromMeshConfigForHboneTermination}
 }
 
 type cachedMeshConfigAccessLog struct {
-	filter *accesslog.AccessLogFilter
-	mutex  sync.RWMutex
-	cached *accesslog.AccessLog
+	filter  *accesslog.AccessLogFilter
+	buildFn func(path string, mesh *meshconfig.MeshConfig) *accesslog.AccessLog
+	mutex   sync.RWMutex
+	cached  *accesslog.AccessLog
 }
 
 func (b *cachedMeshConfigAccessLog) getCached() *accesslog.AccessLog {
@@ -323,7 +332,7 @@ func (b *cachedMeshConfigAccessLog) buildOrFetch(mesh *meshconfig.MeshConfig) *a
 		return c
 	}
 	// We need to build access log. This is needed either on first access or when mesh config changes.
-	accessLog := model.FileAccessLogFromMeshConfig(mesh.AccessLogFile, mesh)
+	accessLog := b.buildFn(mesh.AccessLogFile, mesh)
 	accessLog.Filter = b.filter
 
 	b.mutex.Lock()
