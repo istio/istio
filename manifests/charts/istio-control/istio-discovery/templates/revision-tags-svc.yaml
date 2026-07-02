@@ -53,6 +53,9 @@ spec:
   - {{ . }}
   {{- end }}
   {{- end }}
+  {{- if $.Values.trafficDistribution }}
+  trafficDistribution: {{ $.Values.trafficDistribution }}
+  {{- end }}
 ---
 {{- end -}}
 {{- end }}

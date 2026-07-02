@@ -332,6 +332,13 @@ func TestRender(t *testing.T) {
 			chartName:   "istio-control/istio-discovery",
 			diffSelect:  "ConfigMap:*:istio-sidecar-injector",
 		},
+		{
+			desc:        "istiod-rev-traffic-distribution",
+			releaseName: "istiod",
+			namespace:   "istio-system",
+			chartName:   "istio-control/istio-discovery",
+			diffSelect:  "Service:*:istiod-revision-tag-green",
+		},
 	}
 
 	for _, tc := range cases {
