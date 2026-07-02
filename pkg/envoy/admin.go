@@ -37,8 +37,11 @@ func DrainListeners(adminPort uint32, inboundonly bool, skipExit bool) error {
 		drainURL += "&skip_exit"
 	}
 	res, err := doEnvoyPost(drainURL, "", "", adminPort)
+	if err != nil {
+		return err
+	}
 	log.Debugf("Drain listener endpoint response : %s", res.String())
-	return err
+	return nil
 }
 
 func doEnvoyPost(path, contentType, body string, adminPort uint32) (*bytes.Buffer, error) {
