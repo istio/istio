@@ -23,7 +23,6 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gatewayalpha "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayx "sigs.k8s.io/gateway-api/apisx/v1alpha1"
 
 	"istio.io/istio/pkg/config"
@@ -305,8 +304,8 @@ func ConvertGRPCRouteToAgw(ctx RouteContext, r gatewayv1.GRPCRouteRule,
 }
 
 // ConvertTCPRouteToAgw converts a TCPRouteRule to an agentgateway TCPRoute
-func ConvertTCPRouteToAgw(ctx RouteContext, r gatewayalpha.TCPRouteRule,
-	obj *gatewayalpha.TCPRoute, pos int,
+func ConvertTCPRouteToAgw(ctx RouteContext, r gatewayv1.TCPRouteRule,
+	obj *gatewayv1.TCPRoute, pos int,
 ) (*api.TCPRoute, *Condition) {
 	routeRuleKey := strconv.Itoa(pos)
 	res := &api.TCPRoute{
@@ -360,7 +359,7 @@ func ConvertTLSRouteToAgw(ctx RouteContext, r gatewayv1.TLSRouteRule,
 // GetStatus extracts the status from a route or gateway resource.
 func GetStatus[I, IS any](spec I) IS {
 	switch t := any(spec).(type) {
-	case *gatewayalpha.TCPRoute:
+	case *gatewayv1.TCPRoute:
 		return any(t.Status).(IS)
 	case *gatewayv1.TLSRoute:
 		return any(t.Status).(IS)
@@ -389,7 +388,7 @@ func GetStatus[I, IS any](spec I) IS {
 // GetCommonRouteInfo extracts parent references, hostnames, and GVK from a route resource.
 func GetCommonRouteInfo(spec any) ([]gatewayv1.ParentReference, []gatewayv1.Hostname, config.GroupVersionKind) {
 	switch t := spec.(type) {
-	case *gatewayalpha.TCPRoute:
+	case *gatewayv1.TCPRoute:
 		return t.Spec.ParentRefs, nil, gvk.TCPRoute
 	case *gatewayv1.TLSRoute:
 		return t.Spec.ParentRefs, t.Spec.Hostnames, gvk.TLSRoute

@@ -30,7 +30,6 @@ import (
 	istio "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/kube/gatewaycommon"
 	kubecreds "istio.io/istio/pilot/pkg/credentials/kube"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -158,9 +157,6 @@ func listenerProtocolToIstio(name gatewayv1.GatewayController, p gatewayv1.Proto
 	case gatewayv1.TLSProtocolType:
 		return string(p), nil
 	case gatewayv1.TCPProtocolType:
-		if !features.EnableAlphaGatewayAPI {
-			return "", fmt.Errorf("protocol %q is supported, but only when %v=true is configured", p, features.EnableAlphaGatewayAPIName)
-		}
 		return string(p), nil
 	// Our own custom types
 	case gatewayv1.ProtocolType(protocol.HBONE):
