@@ -44,7 +44,7 @@ require (
 	github.com/hashicorp/go-version v1.9.0
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/howardjohn/unshare-go v0.5.0
-	github.com/klauspost/compress v1.18.7
+	github.com/klauspost/compress v1.19.0
 	github.com/lestrrat-go/jwx v1.2.31
 	github.com/mattn/go-isatty v0.0.22
 	github.com/miekg/dns v1.1.72
@@ -52,7 +52,7 @@ require (
 	github.com/moby/buildkit v0.31.1
 	github.com/onsi/gomega v1.42.1
 	github.com/openshift/api v0.0.0-20260320151444-324a1bcb9f55
-	github.com/pires/go-proxyproto v0.12.0
+	github.com/pires/go-proxyproto v0.13.0
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240409071808-615f978279ca
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2
 	github.com/prometheus/client_golang v1.23.2
