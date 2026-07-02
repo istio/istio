@@ -1154,8 +1154,8 @@ spec:
                                         type: string
                                       to:
                                         description: Destination region the traffic
-                                          will fail over to when all endpoints in
-                                          the 'from' region become unhealthy.
+                                          will fail over to when endpoints in the
+                                          'from' region becomes unhealthy.
                                         type: string
                                     type: object
                                   type: array
@@ -1168,8 +1168,8 @@ spec:
                                   type: array
                                 minClusterSize:
                                   description: Minimum number of hosts in the upstream
-                                    cluster required for zone-aware routing to be
-                                    enabled.
+                                    cluster required for zone-aware load balancing
+                                    to be enabled.
                                   minimum: 1
                                   nullable: true
                                   type: integer
@@ -1603,9 +1603,8 @@ spec:
                                               type: string
                                             to:
                                               description: Destination region the
-                                                traffic will fail over to when all
-                                                endpoints in the 'from' region become
-                                                unhealthy.
+                                                traffic will fail over to when endpoints
+                                                in the 'from' region becomes unhealthy.
                                               type: string
                                           type: object
                                         type: array
@@ -1619,7 +1618,7 @@ spec:
                                       minClusterSize:
                                         description: Minimum number of hosts in the
                                           upstream cluster required for zone-aware
-                                          routing to be enabled.
+                                          load balancing to be enabled.
                                         minimum: 1
                                         nullable: true
                                         type: integer
@@ -2216,8 +2215,8 @@ spec:
                                   type: string
                                 to:
                                   description: Destination region the traffic will
-                                    fail over to when all endpoints in the 'from'
-                                    region become unhealthy.
+                                    fail over to when endpoints in the 'from' region
+                                    becomes unhealthy.
                                   type: string
                               type: object
                             type: array
@@ -2229,7 +2228,7 @@ spec:
                             type: array
                           minClusterSize:
                             description: Minimum number of hosts in the upstream cluster
-                              required for zone-aware routing to be enabled.
+                              required for zone-aware load balancing to be enabled.
                             minimum: 1
                             nullable: true
                             type: integer
@@ -2654,8 +2653,8 @@ spec:
                                         type: string
                                       to:
                                         description: Destination region the traffic
-                                          will fail over to when all endpoints in
-                                          the 'from' region become unhealthy.
+                                          will fail over to when endpoints in the
+                                          'from' region becomes unhealthy.
                                         type: string
                                     type: object
                                   type: array
@@ -2668,8 +2667,8 @@ spec:
                                   type: array
                                 minClusterSize:
                                   description: Minimum number of hosts in the upstream
-                                    cluster required for zone-aware routing to be
-                                    enabled.
+                                    cluster required for zone-aware load balancing
+                                    to be enabled.
                                   minimum: 1
                                   nullable: true
                                   type: integer
@@ -3418,8 +3417,8 @@ spec:
                                         type: string
                                       to:
                                         description: Destination region the traffic
-                                          will fail over to when all endpoints in
-                                          the 'from' region become unhealthy.
+                                          will fail over to when endpoints in the
+                                          'from' region becomes unhealthy.
                                         type: string
                                     type: object
                                   type: array
@@ -3432,8 +3431,8 @@ spec:
                                   type: array
                                 minClusterSize:
                                   description: Minimum number of hosts in the upstream
-                                    cluster required for zone-aware routing to be
-                                    enabled.
+                                    cluster required for zone-aware load balancing
+                                    to be enabled.
                                   minimum: 1
                                   nullable: true
                                   type: integer
@@ -3867,9 +3866,8 @@ spec:
                                               type: string
                                             to:
                                               description: Destination region the
-                                                traffic will fail over to when all
-                                                endpoints in the 'from' region become
-                                                unhealthy.
+                                                traffic will fail over to when endpoints
+                                                in the 'from' region becomes unhealthy.
                                               type: string
                                           type: object
                                         type: array
@@ -3883,7 +3881,7 @@ spec:
                                       minClusterSize:
                                         description: Minimum number of hosts in the
                                           upstream cluster required for zone-aware
-                                          routing to be enabled.
+                                          load balancing to be enabled.
                                         minimum: 1
                                         nullable: true
                                         type: integer
@@ -4480,8 +4478,8 @@ spec:
                                   type: string
                                 to:
                                   description: Destination region the traffic will
-                                    fail over to when all endpoints in the 'from'
-                                    region become unhealthy.
+                                    fail over to when endpoints in the 'from' region
+                                    becomes unhealthy.
                                   type: string
                               type: object
                             type: array
@@ -4493,7 +4491,7 @@ spec:
                             type: array
                           minClusterSize:
                             description: Minimum number of hosts in the upstream cluster
-                              required for zone-aware routing to be enabled.
+                              required for zone-aware load balancing to be enabled.
                             minimum: 1
                             nullable: true
                             type: integer
@@ -4918,8 +4916,8 @@ spec:
                                         type: string
                                       to:
                                         description: Destination region the traffic
-                                          will fail over to when all endpoints in
-                                          the 'from' region become unhealthy.
+                                          will fail over to when endpoints in the
+                                          'from' region becomes unhealthy.
                                         type: string
                                     type: object
                                   type: array
@@ -4932,8 +4930,8 @@ spec:
                                   type: array
                                 minClusterSize:
                                   description: Minimum number of hosts in the upstream
-                                    cluster required for zone-aware routing to be
-                                    enabled.
+                                    cluster required for zone-aware load balancing
+                                    to be enabled.
                                   minimum: 1
                                   nullable: true
                                   type: integer
@@ -5682,8 +5680,8 @@ spec:
                                         type: string
                                       to:
                                         description: Destination region the traffic
-                                          will fail over to when all endpoints in
-                                          the 'from' region become unhealthy.
+                                          will fail over to when endpoints in the
+                                          'from' region becomes unhealthy.
                                         type: string
                                     type: object
                                   type: array
@@ -5696,8 +5694,8 @@ spec:
                                   type: array
                                 minClusterSize:
                                   description: Minimum number of hosts in the upstream
-                                    cluster required for zone-aware routing to be
-                                    enabled.
+                                    cluster required for zone-aware load balancing
+                                    to be enabled.
                                   minimum: 1
                                   nullable: true
                                   type: integer
@@ -6131,9 +6129,8 @@ spec:
                                               type: string
                                             to:
                                               description: Destination region the
-                                                traffic will fail over to when all
-                                                endpoints in the 'from' region become
-                                                unhealthy.
+                                                traffic will fail over to when endpoints
+                                                in the 'from' region becomes unhealthy.
                                               type: string
                                           type: object
                                         type: array
@@ -6147,7 +6144,7 @@ spec:
                                       minClusterSize:
                                         description: Minimum number of hosts in the
                                           upstream cluster required for zone-aware
-                                          routing to be enabled.
+                                          load balancing to be enabled.
                                         minimum: 1
                                         nullable: true
                                         type: integer
@@ -6744,8 +6741,8 @@ spec:
                                   type: string
                                 to:
                                   description: Destination region the traffic will
-                                    fail over to when all endpoints in the 'from'
-                                    region become unhealthy.
+                                    fail over to when endpoints in the 'from' region
+                                    becomes unhealthy.
                                   type: string
                               type: object
                             type: array
@@ -6757,7 +6754,7 @@ spec:
                             type: array
                           minClusterSize:
                             description: Minimum number of hosts in the upstream cluster
-                              required for zone-aware routing to be enabled.
+                              required for zone-aware load balancing to be enabled.
                             minimum: 1
                             nullable: true
                             type: integer
@@ -7182,8 +7179,8 @@ spec:
                                         type: string
                                       to:
                                         description: Destination region the traffic
-                                          will fail over to when all endpoints in
-                                          the 'from' region become unhealthy.
+                                          will fail over to when endpoints in the
+                                          'from' region becomes unhealthy.
                                         type: string
                                     type: object
                                   type: array
@@ -7196,8 +7193,8 @@ spec:
                                   type: array
                                 minClusterSize:
                                   description: Minimum number of hosts in the upstream
-                                    cluster required for zone-aware routing to be
-                                    enabled.
+                                    cluster required for zone-aware load balancing
+                                    to be enabled.
                                   minimum: 1
                                   nullable: true
                                   type: integer
