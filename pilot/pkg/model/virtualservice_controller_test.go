@@ -737,7 +737,9 @@ func TestControllerMergeVirtualServices(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			controller := setupController(t, tc.defaultExportTo, tc.virtualServices...)
-			got := controller.MergedVirtualServices()
+			got := slices.Map(controller.MergedVirtualServices(), func(mvs MergedVirtualService) config.Config {
+				return mvs.Config
+			})
 			assert.Equal(t, got, tc.expectedVirtualServices)
 		})
 	}
@@ -764,12 +766,16 @@ func TestControllerMergeVirtualServices(t *testing.T) {
 
 		vses := []config.Config{root, delegate, normal}
 		controller1 := setupController(t, sets.New(visibility.Public), vses...)
-		got := controller1.MergedVirtualServices()
+		got := slices.Map(controller1.MergedVirtualServices(), func(mvs MergedVirtualService) config.Config {
+			return mvs.Config
+		})
 		checkOrder(got)
 
 		vses = []config.Config{normal, delegate, root}
 		controller2 := setupController(t, sets.New(visibility.Public), vses...)
-		got = controller2.MergedVirtualServices()
+		got = slices.Map(controller2.MergedVirtualServices(), func(mvs MergedVirtualService) config.Config {
+			return mvs.Config
+		})
 		checkOrder(got)
 	})
 }

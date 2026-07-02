@@ -1750,41 +1750,33 @@ func (ps *PushContext) initVirtualServices(env *Environment) {
 		rule := virtualService.Spec.(*networking.VirtualService)
 		gwNames := getGatewayNames(rule)
 		exportToSet := ps.exportToDefaults.virtualService
-		if len(rule.ExportTo) > 0 {
-			exportToSet = sets.NewWithLength[visibility.Instance](len(rule.ExportTo))
-			for _, e := range rule.ExportTo {
-				exportToSet.Insert(visibility.Instance(e))
-			}
+		if len(virtualService.ExportTo) > 0 {
+			exportToSet = virtualService.ExportTo
 		}
 
 		// if vs has exportTo ~ - i.e. not visible to anyone, ignore all exportTos
 		// if vs has exportTo *, make public and ignore all other exportTos
-		// if vs has exportTo ., replace with current namespace
+		// virtualService.ExportTo will never have visibility.Private, it's converted in the controller into the private namespace name.
 		if exportToSet.Contains(visibility.Public) {
 			for _, gw := range gwNames {
-				ps.virtualServiceIndex.publicByGateway[gw] = append(ps.virtualServiceIndex.publicByGateway[gw], virtualService)
+				ps.virtualServiceIndex.publicByGateway[gw] = append(ps.virtualServiceIndex.publicByGateway[gw], virtualService.Config)
 			}
 		} else if !exportToSet.Contains(visibility.None) {
-			// . or other namespaces
-			includesPrivate := false
+			// other namespaces
 			for exportTo := range exportToSet {
 				key := string(exportTo)
-				if exportTo == visibility.Private || key == ns {
+				if key == ns {
 					// exportTo with same namespace is effectively private
-					if includesPrivate {
-						continue
-					}
-					includesPrivate = true
 					private := ps.virtualServiceIndex.privateByNamespaceAndGateway
 					for _, gw := range gwNames {
 						n := types.NamespacedName{Namespace: ns, Name: gw}
-						private[n] = append(private[n], virtualService)
+						private[n] = append(private[n], virtualService.Config)
 					}
 				} else {
 					exported := ps.virtualServiceIndex.exportedToNamespaceByGateway
 					for _, gw := range gwNames {
 						n := types.NamespacedName{Namespace: key, Name: gw}
-						exported[n] = append(exported[n], virtualService)
+						exported[n] = append(exported[n], virtualService.Config)
 					}
 				}
 			}
@@ -2044,7 +2036,7 @@ func (ps *PushContext) setDestinationRules(configs []config.Config) {
 				exportToSet.Insert(visibility.Instance(e))
 			}
 		} else {
-			exportToSet = sets.New[visibility.Instance](visibility.Private)
+			exportToSet = sets.New(visibility.Private)
 		}
 
 		// add only if the dest rule is exported with . or * or explicit exportTo containing this namespace
