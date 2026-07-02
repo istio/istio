@@ -244,6 +244,10 @@ func EnvoyStatusPortEnableProxyProtocol(value bool) Instance {
 	return newOption("envoy_status_port_enable_proxy_protocol", value)
 }
 
+func EnableSelfDiscovery(value bool) Instance {
+	return newOption("enable_self_discovery", value)
+}
+
 func EnvoyPrometheusPort(value int) Instance {
 	return newOption("envoy_prometheus_port", value)
 }
