@@ -1,0 +1,14 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 60343
+releaseNotes:
+- |
+  **Fixed** an issue when istiod operating in mixed mode (e.g., ambient enabled and sidecar proxies present),
+  incorrectly filters out entries in remote cluster when generating a configuration for a sidecar proxy.
+  In ambient mode, istiod is expected to filter out endpoints in remote clusters, unless the services those
+  endpoints belong to are explictly marked as global. In sidecar mode this logic is not needed, but it was
+  triggering regardless when ambient multi-network mode was enabled. That's because istiod didn't check that
+  the proxy is a sidecar proxy before, now we check the type of proxy and don't filter out endpoints based
+  on the cluster when generating configuration for a sidecar proxy.

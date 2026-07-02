@@ -572,9 +572,17 @@ func (b *EndpointBuilder) filterIstioEndpoint(ep *model.IstioEndpoint) bool {
 			return false
 		}
 	}
-	// If we are in ambient mode, the service is not global and the endpoint is in a different cluster
-	// we filter it out.
-	if b.serviceInfo != nil && b.serviceInfo.Scope != model.Global && b.clusterID != ep.Locality.ClusterID {
+	// ServiceEntry is a bit special, in ambient multi-cluster service entries are never global and are never
+	// read from a remote cluster, so they are by nature local to the cluster where istiod is running.
+	//
+	// However, istio in general supports remote primary deployment, where the same istiod might serve different
+	// clusters. In this case ServiceEntry, because it's visible to the istiod, will affect all the clsuters and
+	// not just the one where ServiceEntry is defined.
+	//
+	// While ambient specifically does not support this type of deployment, we don't want to introduce unncessary
+	// incompatibility here either. So below we hanbdle service entries in a special way and ignore the scope of
+	// the ServiceEntry allowing endpoints from remote clusters.
+	if b.serviceInfo != nil && b.serviceInfo.Source.Kind != kind.ServiceEntry && b.serviceInfo.Scope == model.Local && b.clusterID != ep.Locality.ClusterID {
 		return false
 	}
 
