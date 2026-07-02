@@ -27,6 +27,12 @@ import (
 )
 
 var (
+	EnableHeadlessService = env.Register(
+		"PILOT_ENABLE_HEADLESS_SERVICE",
+		true,
+		"If disabled, Istio will not apply special processing for headless services. ",
+	).Get()
+
 	// HTTP10 will add "accept_http_10" to http outbound listeners. Can also be set only for specific sidecars via meta.
 	HTTP10 = env.Register(
 		"PILOT_HTTP10",
