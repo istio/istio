@@ -189,6 +189,20 @@ func TestNonAutoRegisteredWorkloads(t *testing.T) {
 	}
 }
 
+// TestNewControllerZeroMaxConnAge ensures a zero (unset) maxConnAge is treated as "no limit",
+// consistent with gRPC's keepalive.ServerParameters.MaxConnectionAge, rather than as an
+// immediate cutoff that would cause connected WorkloadEntries to be treated as leaked.
+func TestNewControllerZeroMaxConnAge(t *testing.T) {
+	store := memory.NewController(memory.Make(collections.All))
+	stop := test.NewStop(t)
+	go store.Run(stop)
+	c := NewController(store, "pilot-1", 0)
+	go c.Run(stop)
+	if c.maxConnectionAge != time.Duration(math.MaxInt64) {
+		t.Fatalf("expected zero maxConnAge to result in no limit (MaxInt64), got %v", c.maxConnectionAge)
+	}
+}
+
 func TestAutoregistrationLifecycle(t *testing.T) {
 	maxConnAge := time.Hour
 	c1, c2, store := setup(t)

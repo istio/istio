@@ -120,6 +120,11 @@ func NewController(store model.ConfigStoreController, instanceID string, maxConn
 		return nil
 	}
 
+	// Consistent with gRPC's keepalive.ServerParameters.MaxConnectionAge: a zero (or negative)
+	// value means "unset", which is treated as no limit rather than an immediate cutoff.
+	if maxConnAge <= 0 {
+		maxConnAge = time.Duration(math.MaxInt64)
+	}
 	if maxConnAge != math.MaxInt64 {
 		maxConnAge += maxConnAge / 2
 		// if overflow, set it to max int64
