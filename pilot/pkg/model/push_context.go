@@ -1756,13 +1756,13 @@ func (ps *PushContext) initVirtualServices(env *Environment) {
 
 		// if vs has exportTo ~ - i.e. not visible to anyone, ignore all exportTos
 		// if vs has exportTo *, make public and ignore all other exportTos
-		// if vs has exportTo ., replace with current namespace
+		// virtualService.ExportTo will never have visibility.Private, it's converted in the controller into the private namespace name.
 		if exportToSet.Contains(visibility.Public) {
 			for _, gw := range gwNames {
 				ps.virtualServiceIndex.publicByGateway[gw] = append(ps.virtualServiceIndex.publicByGateway[gw], virtualService.Config)
 			}
 		} else if !exportToSet.Contains(visibility.None) {
-			// . or other namespaces
+			// other namespaces
 			for exportTo := range exportToSet {
 				key := string(exportTo)
 				if key == ns {
