@@ -15,7 +15,6 @@
 package model
 
 import (
-	"slices"
 	"strings"
 
 	udpa "github.com/cncf/xds/go/udpa/type/v1"
@@ -25,6 +24,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/hash"
 	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/sets"
