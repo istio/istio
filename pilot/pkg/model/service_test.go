@@ -1068,6 +1068,72 @@ func BenchmarkEndpointDeepCopy(b *testing.B) {
 	}
 }
 
+func TestSupportsUnhealthyEndpoints(t *testing.T) {
+	svcAny := &Service{
+		Attributes: ServiceAttributes{K8sAttributes: K8sAttributes{TrafficDistribution: TrafficDistributionAny}},
+	}
+	svcPreferClose := &Service{
+		Attributes: ServiceAttributes{K8sAttributes: K8sAttributes{TrafficDistribution: TrafficDistributionPreferSameZone}},
+	}
+
+	tests := []struct {
+		name                 string
+		svc                  *Service
+		globalSendUnhealthy  bool
+		defaultSendUnhealthy bool
+		wantSupports         bool
+		wantForces           bool
+	}{
+		{
+			name:         "both flags off, TrafficDistributionAny",
+			svc:          svcAny,
+			wantSupports: false,
+			wantForces:   false,
+		},
+		{
+			name:                 "DefaultSendUnhealthyEndpoints=true",
+			svc:                  svcAny,
+			defaultSendUnhealthy: true,
+			wantSupports:         true,
+			wantForces:           false,
+		},
+		{
+			name:                "GlobalSendUnhealthyEndpoints=true",
+			svc:                 svcAny,
+			globalSendUnhealthy: true,
+			wantSupports:        true,
+			wantForces:          true,
+		},
+		{
+			name:         "TrafficDistribution != Any forces unhealthy regardless of flags",
+			svc:          svcPreferClose,
+			wantSupports: true,
+			wantForces:   true,
+		},
+		{
+			name:                 "nil service with DefaultSendUnhealthy",
+			svc:                  nil,
+			defaultSendUnhealthy: true,
+			wantSupports:         true,
+			wantForces:           false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			test.SetAtomicBoolForTest(t, features.GlobalSendUnhealthyEndpoints, tt.globalSendUnhealthy)
+			test.SetAtomicBoolForTest(t, features.DefaultSendUnhealthyEndpoints, tt.defaultSendUnhealthy)
+
+			if got := tt.svc.SupportsUnhealthyEndpoints(); got != tt.wantSupports {
+				t.Errorf("SupportsUnhealthyEndpoints() = %v, want %v", got, tt.wantSupports)
+			}
+			if got := tt.svc.ForcesSupportUnhealthyEndpoints(); got != tt.wantForces {
+				t.Errorf("ForcesSupportUnhealthyEndpoints() = %v, want %v", got, tt.wantForces)
+			}
+		})
+	}
+}
+
 func TestGetTrafficDistribution(t *testing.T) {
 	preferClose := "PreferClose"
 

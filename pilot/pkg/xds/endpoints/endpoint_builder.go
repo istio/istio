@@ -88,6 +88,7 @@ type EndpointBuilder struct {
 	mtlsChecker *mtlsChecker
 
 	canonicalServiceForMeshExternal bool
+	supportsUnhealthyEndpoints      bool
 }
 
 func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.PushContext) EndpointBuilder {
@@ -133,6 +134,8 @@ func NewCDSEndpointBuilder(
 
 		canonicalServiceForMeshExternal: features.CanonicalServiceForMeshExternalServiceEntry,
 	}
+
+	b.supportsUnhealthyEndpoints = supportsUnhealthyEndpoints(service, b.DestinationRule(), port, subsetName)
 	b.populateSubsetInfo()
 	b.populateFailoverPriorityLabels()
 	if features.EnableAmbientMultiNetwork {
@@ -161,6 +164,9 @@ func (b *EndpointBuilder) WithSubset(subset string) *EndpointBuilder {
 	subsetBuilder := *b
 	subsetBuilder.subsetName = subset
 	subsetBuilder.populateSubsetInfo()
+	subsetBuilder.supportsUnhealthyEndpoints = supportsUnhealthyEndpoints(
+		subsetBuilder.service, subsetBuilder.DestinationRule(), subsetBuilder.port, subsetBuilder.subsetName,
+	)
 	return &subsetBuilder
 }
 
@@ -202,6 +208,26 @@ func (b *EndpointBuilder) DestinationRule() *v1alpha3.DestinationRule {
 		return dr
 	}
 	return nil
+}
+
+// supportsUnhealthyEndpoints returns whether unhealthy endpoints should be included in EDS for this cluster.
+// When DefaultSendUnhealthyEndpoints is enabled, unhealthy endpoints are excluded if the DestinationRule
+// configures OutlierDetection.MinHealthPercent > 0, since Envoy's panic threshold would otherwise route
+// traffic to unhealthy pods.
+func supportsUnhealthyEndpoints(service *model.Service, dr *v1alpha3.DestinationRule, port int, subsetName string) bool {
+	if service.ForcesSupportUnhealthyEndpoints() {
+		return true
+	}
+	if !service.SupportsUnhealthyEndpoints() {
+		return false
+	}
+	if dr != nil {
+		policy := getSubsetTrafficPolicy(dr, &model.Port{Port: port}, subsetName)
+		if policy != nil && policy.OutlierDetection != nil && policy.OutlierDetection.MinHealthPercent > 0 {
+			return false
+		}
+	}
+	return true
 }
 
 func (b *EndpointBuilder) Type() string {
@@ -553,7 +579,7 @@ func (b *EndpointBuilder) filterIstioEndpoint(ep *model.IstioEndpoint) bool {
 	// Filter out unhealthy endpoints, unless the service needs them.
 	// This is used to let envoy know about the amount of health endpoints in a cluster.
 	// This is used to let envoy know about the amount of health endpoints in a cluster.
-	if !b.service.SupportsUnhealthyEndpoints() && ep.HealthStatus == model.UnHealthy {
+	if !b.supportsUnhealthyEndpoints && ep.HealthStatus == model.UnHealthy {
 		return false
 	}
 	// Filter out terminating endpoints -- we never need these. Even in "send unhealthy mode", there is no need

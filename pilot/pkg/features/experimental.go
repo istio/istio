@@ -42,6 +42,14 @@ var (
 			" to unhealthy/non-ready hosts even if the percentage of healthy hosts fall below minimum health percentage(panic threshold).",
 	).Get())
 
+	DefaultSendUnhealthyEndpoints = atomic.NewBool(env.Register(
+		"PILOT_DEFAULT_SEND_UNHEALTHY_ENDPOINTS",
+		true,
+		"If enabled, Pilot will include unhealthy endpoints in EDS pushes by default. "+
+			"Unhealthy endpoints are excluded only when OutlierDetection is configured with minHealthPercent > 0, "+
+			"to prevent Envoy from routing traffic to non-ready endpoints when the panic threshold is triggered.",
+	).Get())
+
 	EnablePersistentSessionFilter = atomic.NewBool(env.Register(
 		"PILOT_ENABLE_PERSISTENT_SESSION_FILTER",
 		false,
