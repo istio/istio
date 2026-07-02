@@ -1040,18 +1040,23 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 		instances                 []*model.ServiceInstance
 		services                  []*model.Service
 		numListenersOnServicePort int
+		// numFilterChainsOnListener is the expected number of non-default filter chains on the
+		// single wildcard listener that now replaces per-pod listeners. Only checked when > 0.
+		numFilterChainsOnListener int
 	}{
 		{
 			name: "gen a listener per IP instance",
 			instances: []*model.ServiceInstance{
-				// This instance is the proxy itself, will not gen a outbound listener for it.
+				// This instance is the proxy itself, will not gen an outbound listener for it.
 				buildServiceInstance(services[0], "1.1.1.1"),
 				buildServiceInstance(services[0], "10.10.10.10"),
 				buildServiceInstance(services[0], "11.11.11.11"),
 				buildServiceInstance(services[0], "12.11.11.11"),
 			},
-			services:                  []*model.Service{svc},
-			numListenersOnServicePort: 3,
+			services: []*model.Service{svc},
+			// 3 non-self pods → 1 wildcard listener with 3 per-pod CIDR filter chains
+			numListenersOnServicePort: 1,
+			numFilterChainsOnListener: 3,
 		},
 		{
 			name:                      "no listeners for empty services",
@@ -1085,8 +1090,10 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 				buildServiceInstance(extSvcSelector, "10.10.10.10"),
 				buildServiceInstance(extSvcSelector, "11.11.11.11"),
 			},
-			services:                  []*model.Service{extSvcSelector},
-			numListenersOnServicePort: 2,
+			services: []*model.Service{extSvcSelector},
+			// 2 pods → 1 wildcard listener with 2 per-pod CIDR filter chains
+			numListenersOnServicePort: 1,
+			numFilterChainsOnListener: 2,
 		},
 		{
 			name:                      "no listeners for empty Kubernetes auto protocol",
@@ -1100,7 +1107,10 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 				buildServiceInstance(autoSvc, "10.10.10.10"),
 				buildServiceInstance(autoSvc, "11.11.11.11"),
 			},
-			services:                  []*model.Service{autoSvc},
+			services: []*model.Service{autoSvc},
+			// auto-detect (Unsupported) protocol: CIDR optimization is not applied because
+			// Envoy's destination-IP priority beats ALPN, which would route HTTP to TCP proxy.
+			// Falls back to per-pod-IP listeners (2 pods → 2 listeners).
 			numListenersOnServicePort: 2,
 		},
 	}
@@ -1116,10 +1126,12 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 			proxy.Metadata.OutboundListenerExactBalance = true
 
 			listeners := NewListenerBuilder(proxy, cg.env.PushContext()).buildSidecarOutboundListeners(proxy, cg.env.PushContext())
-			listenersToCheck := make([]string, 0)
+			var listenersToCheck []string
+			var filterChainCount int
 			for _, l := range listeners {
 				if l.Address.GetSocketAddress().GetPortValue() == 9999 {
 					listenersToCheck = append(listenersToCheck, l.Name)
+					filterChainCount = len(l.FilterChains)
 				}
 
 				if l.ConnectionBalanceConfig == nil || l.ConnectionBalanceConfig.GetExactBalance() == nil {
@@ -1129,6 +1141,11 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 
 			if len(listenersToCheck) != tt.numListenersOnServicePort {
 				t.Errorf("Expected %d listeners on service port 9999, got %d (%v)", tt.numListenersOnServicePort, len(listenersToCheck), listenersToCheck)
+			}
+			if tt.numFilterChainsOnListener > 0 {
+				if filterChainCount != tt.numFilterChainsOnListener {
+					t.Errorf("Expected %d filter chains on listener, got %d", tt.numFilterChainsOnListener, filterChainCount)
+				}
 			}
 		})
 	}
