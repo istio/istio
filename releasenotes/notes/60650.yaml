@@ -1,0 +1,19 @@
+apiVersion: release-notes/v2
+
+kind: security-fix
+
+area: security
+
+releaseNotes:
+  - |
+    **Fixed** two bypasses in the Wasm image fetcher's bearer realm validation that
+    allowed a malicious OCI registry to redirect the authentication realm request to
+    the unspecified address (`0.0.0.0`, `[::]`) or to a trailing-dot form of a blocked
+    host (for example `localhost.` or `metadata.google.internal.`).
+
+securityNotes:
+  - |
+    The `WWW-Authenticate` bearer realm validator used when pulling Wasm modules from an
+    OCI registry did not block the unspecified address (routed to loopback on Linux) or
+    trailing-dot FQDN forms of loopback, private, link-local, and cloud metadata hosts,
+    allowing server-side request forgery against internal services.
