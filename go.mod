@@ -57,7 +57,7 @@ require (
 	github.com/prometheus/client_model v0.6.2
 	github.com/prometheus/common v0.69.0
 	github.com/prometheus/procfs v0.21.1
-	github.com/prometheus/prometheus v0.310.0
+	github.com/prometheus/prometheus v0.311.3
 	github.com/quic-go/quic-go v0.60.0
 	github.com/ryanuber/go-glob v1.0.0
 	github.com/spf13/cobra v1.10.2
