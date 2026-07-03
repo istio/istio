@@ -357,6 +357,36 @@ func setConditions(generation int64, existingConditions []metav1.Condition, cond
 	return existingConditions
 }
 
+func reportListenerConflict(
+	index int,
+	l k8s.Listener,
+	obj controllers.Object,
+	statusListeners []k8s.ListenerStatus,
+	reason k8s.ListenerConditionReason,
+) []k8s.ListenerStatus {
+	msg := "Listener has a conflict with another listener attached to the same Gateway"
+	conditions := map[string]*condition{
+		string(k8s.ListenerConditionAccepted): {
+			error: &ConfigError{
+				Reason:  ConfigErrorReason(reason),
+				Message: msg,
+			},
+		},
+		string(k8s.ListenerConditionProgrammed): {
+			error: &ConfigError{
+				Reason:  ConfigErrorReason(reason),
+				Message: msg,
+			},
+		},
+		string(k8s.ListenerConditionConflicted): {
+			reason:  string(reason),
+			message: msg,
+			status:  kstatus.StatusTrue,
+		},
+	}
+	return reportListenerCondition(index, l, obj, statusListeners, conditions)
+}
+
 func reportListenerCondition(index int, l k8s.Listener, obj controllers.Object,
 	statusListeners []k8s.ListenerStatus, conditions map[string]*condition,
 ) []k8s.ListenerStatus {

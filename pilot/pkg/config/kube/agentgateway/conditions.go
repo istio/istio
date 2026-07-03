@@ -111,6 +111,36 @@ func generateSupportedKinds(l k8s.Listener) ([]k8s.RouteGroupKind, bool) {
 	return supported, true
 }
 
+func reportListenerConflict(
+	index int,
+	l k8s.Listener,
+	obj controllers.Object,
+	statusListeners []k8s.ListenerStatus,
+	reason k8s.ListenerConditionReason,
+) []k8s.ListenerStatus {
+	msg := "Listener has a conflict with another listener attached to the same Gateway"
+	conditions := map[string]*Condition{
+		string(k8s.ListenerConditionAccepted): {
+			error: &ConfigError{
+				Reason:  ConfigErrorReason(reason),
+				Message: msg,
+			},
+		},
+		string(k8s.ListenerConditionProgrammed): {
+			error: &ConfigError{
+				Reason:  ConfigErrorReason(reason),
+				Message: msg,
+			},
+		},
+		string(k8s.ListenerConditionConflicted): {
+			reason:  string(reason),
+			message: msg,
+			status:  metav1.ConditionTrue,
+		},
+	}
+	return reportListenerCondition(index, l, obj, statusListeners, conditions)
+}
+
 func reportListenerCondition(index int, l k8s.Listener, obj controllers.Object,
 	statusListeners []k8s.ListenerStatus, conditions map[string]*Condition,
 ) []k8s.ListenerStatus {

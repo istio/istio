@@ -15,7 +15,6 @@
 package gateway
 
 import (
-	"fmt"
 	"strings"
 
 	"go.uber.org/atomic"
@@ -74,6 +73,7 @@ func (g ListenerSet) Equals(other ListenerSet) bool {
 func ListenerSetCollection(
 	listenerSets krt.Collection[*gatewayv1.ListenerSet],
 	gateways krt.Collection[*gatewayv1.Gateway],
+	gatewayConflicts krt.Collection[gatewaycommon.GatewayListenerConflicts],
 	gatewayClasses krt.Collection[gatewaycommon.GatewayClass],
 	namespaces krt.Collection[*corev1.Namespace],
 	grants gatewaycommon.ReferenceGrants,
@@ -149,26 +149,37 @@ func ListenerSetCollection(
 				return status, nil
 			}
 
+			var conflicts map[gatewayv1.SectionName]gatewayv1.ListenerConditionReason
+			if gwConflict := krt.FetchOne(ctx, gatewayConflicts, krt.FilterKey(config.NamespacedName(parentGwObj).String())); gwConflict != nil {
+				conflicts = gwConflict.ConflictsFor(obj)
+			}
+
 			servers := []*istio.Server{}
 			validListeners := 0
 			for i, l := range ls.Listeners {
-				port, portErr := detectListenerPortNumber(l)
+				port, portErr := gatewaycommon.ListenerEntryPortNumber(l)
 				l.Port = port
 				standardListener := gatewaycommon.ConvertListenerSetToListener(l)
 				originalStatus := slices.Map(status.Listeners, convertListenerSetStatusToStandardStatus)
 				server, updatedStatus, programmed := buildListener(ctx, configMaps, secrets, grants, namespaces,
 					obj, originalStatus, parentGwObj.Spec, standardListener, i, controllerName, portErr)
-				status.Listeners = slices.Map(updatedStatus, convertStandardStatusToListenerSetStatus(l))
+				status.Listeners = slices.Map(updatedStatus, convertStandardStatusToListenerSetStatus)
 
-				if programmed {
-					validListeners++
+				if reason, ok := conflicts[l.Name]; ok {
+					standardStatus := slices.Map(status.Listeners, convertListenerSetStatusToStandardStatus)
+					updated := reportListenerConflict(i, standardListener, obj, standardStatus, reason)
+					status.Listeners = slices.Map(updated, convertStandardStatusToListenerSetStatus)
+					continue
 				}
+
 				if server == nil {
 					continue
 				}
 
+				if programmed {
+					validListeners++
+				}
 				servers = append(servers, server)
-
 				if controllerName == constants.ManagedGatewayMeshController {
 					// Waypoint doesn't convert routes to VirtualServices.
 					continue
@@ -246,6 +257,7 @@ func ListenerSetCollection(
 func GatewayCollection(
 	gateways krt.Collection[*gatewayv1.Gateway],
 	listenerSets krt.Collection[ListenerSet],
+	gatewayConflicts krt.Collection[gatewaycommon.GatewayListenerConflicts],
 	gatewayClasses krt.Collection[gatewaycommon.GatewayClass],
 	namespaces krt.Collection[*corev1.Namespace],
 	grants gatewaycommon.ReferenceGrants,
@@ -309,9 +321,20 @@ func GatewayCollection(
 			)
 		}
 
+		var gwListenerConflicts map[gatewayv1.SectionName]gatewayv1.ListenerConditionReason
+		if gwConflict := krt.FetchOne(ctx, gatewayConflicts, krt.FilterKey(config.NamespacedName(obj).String())); gwConflict != nil {
+			gwListenerConflicts = gwConflict.ConflictsForGateway(obj)
+		}
+
 		for i, l := range kgw.Listeners {
 			server, updatedStatus, programmed := buildListener(ctx, configMaps, secrets, grants, namespaces, obj, status.Listeners, kgw, l, i, controllerName, nil)
 			status.Listeners = updatedStatus
+
+			if reason, ok := gwListenerConflicts[l.Name]; ok {
+				updated := reportListenerConflict(i, l, obj, status.Listeners, reason)
+				status.Listeners = updated
+				continue
+			}
 
 			if server == nil {
 				continue
@@ -378,6 +401,9 @@ func GatewayCollection(
 		// and not the listeners.
 		listenerSets := make(map[parentKey]bool)
 		for _, ls := range listenersFromSets {
+			if !ls.Valid {
+				continue
+			}
 			listenerSets[ls.Parent] = true
 			servers = append(servers, ls.Config.Spec.(*istio.Gateway).Servers...)
 			result = append(result, Gateway{
@@ -499,23 +525,8 @@ func BuildRouteParents(
 	}
 }
 
-func detectListenerPortNumber(l gatewayv1.ListenerEntry) (gatewayv1.PortNumber, error) {
-	if l.Port != 0 {
-		return l.Port, nil
-	}
-	switch l.Protocol {
-	case gatewayv1.HTTPProtocolType:
-		return 80, nil
-	case gatewayv1.HTTPSProtocolType:
-		return 443, nil
-	}
-	return 0, fmt.Errorf("protocol %v requires a port to be set", l.Protocol)
-}
-
-func convertStandardStatusToListenerSetStatus(l gatewayv1.ListenerEntry) func(e gatewayv1.ListenerStatus) gatewayv1.ListenerEntryStatus {
-	return func(e gatewayv1.ListenerStatus) gatewayv1.ListenerEntryStatus {
-		return gatewayv1.ListenerEntryStatus(e)
-	}
+func convertStandardStatusToListenerSetStatus(e gatewayv1.ListenerStatus) gatewayv1.ListenerEntryStatus {
+	return gatewayv1.ListenerEntryStatus(e)
 }
 
 func convertListenerSetStatusToStandardStatus(e gatewayv1.ListenerEntryStatus) gatewayv1.ListenerStatus {

@@ -263,9 +263,17 @@ func (c *Controller) buildResourceCollections(opts krt.OptionsBuilder) {
 	status.RegisterStatus(c.status, gatewayClassStatus, GetStatus, c.tagWatcher.AccessUnprotected())
 
 	referenceGrants := gatewaycommon.BuildReferenceGrants(gatewaycommon.ReferenceGrantsCollection(c.inputs.ReferenceGrants, opts))
+	gatewayListenerConflicts := gatewaycommon.GatewayListenerConflictCollection(
+		c.inputs.Gateways,
+		c.inputs.ListenerSets,
+		c.inputs.Namespaces,
+		gatewaycommon.FetchAgentgatewayClassFetcher(gatewayClasses),
+		opts,
+	)
 	listenerSetIntialStatus, listenerSets := ListenerSetCollection(
 		c.inputs.ListenerSets,
 		c.inputs.Gateways,
+		gatewayListenerConflicts,
 		gatewayClasses,
 		c.inputs.Namespaces,
 		referenceGrants,
@@ -283,6 +291,7 @@ func (c *Controller) buildResourceCollections(opts krt.OptionsBuilder) {
 	gatewayInitialStatus, gateways := GatewayCollection(
 		c.inputs.Gateways,
 		listenerSets,
+		gatewayListenerConflicts,
 		gatewayClasses,
 		c.inputs.Namespaces,
 		referenceGrants,
@@ -719,6 +728,9 @@ func listenerName(listener *GatewayListener) *api.ListenerName {
 
 // buildListenerFromGateway creates a listener resource from a gateway
 func (c *Controller) buildListenerFromGateway(obj *GatewayListener) *AgwResource {
+	if obj == nil || !obj.Valid {
+		return nil
+	}
 	l := &api.Listener{
 		Key:      obj.ResourceName(),
 		Name:     listenerName(obj),

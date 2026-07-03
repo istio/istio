@@ -35,6 +35,7 @@ import (
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/revisions"
 	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // Used by agentgateway controller
@@ -130,6 +131,7 @@ func (g ListenerSet) Equals(other ListenerSet) bool {
 func ListenerSetCollection(
 	listenerSets krt.Collection[*gatewayv1.ListenerSet],
 	gateways krt.Collection[*gatewayv1.Gateway],
+	gatewayConflicts krt.Collection[gatewaycommon.GatewayListenerConflicts],
 	gatewayClasses krt.Collection[gatewaycommon.GatewayClass],
 	namespaces krt.Collection[*corev1.Namespace],
 	grants gatewaycommon.ReferenceGrants,
@@ -201,20 +203,40 @@ func ListenerSetCollection(
 			gatewayServices, err := extractGatewayServices(domainSuffix, parentGwObj, classInfo)
 			if len(gatewayServices) == 0 && err != nil {
 				// Short circuit if it's a hard failure
-				reportListenerSetStatus(context, parentGwObj, obj, status, gatewayServices, nil, err)
+				reportListenerSetStatus(context, parentGwObj, obj, status, gatewayServices, nil, err, true)
 				return status, nil
 			}
 
+			var conflicts map[gatewayv1.SectionName]gatewayv1.ListenerConditionReason
+			if gwConflict := krt.FetchOne(ctx, gatewayConflicts, krt.FilterKey(config.NamespacedName(parentGwObj).String())); gwConflict != nil {
+				conflicts = gwConflict.ConflictsFor(obj)
+			}
+
 			servers := []*istio.Server{}
+			validListeners := 0
 			for i, l := range ls.Listeners {
-				port, portErr := detectListenerPortNumber(l)
+				port, portErr := gatewaycommon.ListenerEntryPortNumber(l)
 				l.Port = port
 				standardListener := gatewaycommon.ConvertListenerSetToListener(l)
 				originalStatus := slices.Map(status.Listeners, convertListenerSetStatusToStandardStatus)
 				server, tlsInfo, updatedStatus, programmed := buildListener(ctx, secrets, configMaps, grants, namespaces,
 					obj, originalStatus, parentGwObj.Spec, standardListener, i, controllerName, portErr)
-				status.Listeners = slices.Map(updatedStatus, convertStandardStatusToListenerSetStatus(l))
+				status.Listeners = slices.Map(updatedStatus, convertStandardStatusToListenerSetStatus)
 
+				if reason, ok := conflicts[l.Name]; ok {
+					standardStatus := slices.Map(status.Listeners, convertListenerSetStatusToStandardStatus)
+					updated := reportListenerConflict(i, standardListener, obj, standardStatus, reason)
+					status.Listeners = slices.Map(updated, convertStandardStatusToListenerSetStatus)
+					continue
+				}
+
+				if server == nil {
+					continue
+				}
+
+				if programmed {
+					validListeners++
+				}
 				servers = append(servers, server)
 
 				// TODO(jaellio): Figure out if this logic needs to change to support agentgateway as an E/W gateway
@@ -248,7 +270,7 @@ func ListenerSetCollection(
 				result = append(result, res)
 			}
 
-			reportListenerSetStatus(context, parentGwObj, obj, status, gatewayServices, servers, err)
+			reportListenerSetStatus(context, parentGwObj, obj, status, gatewayServices, servers, err, validListeners > 0)
 			return status, result
 		}, opts.WithName("ListenerSets")...)
 
@@ -262,15 +284,11 @@ func reportListenerSetStatus(
 	gs *gatewayv1.ListenerSetStatus,
 	gatewayServices []string,
 	servers []*istio.Server,
-	cond *Condition,
+	gatewayErr *Condition,
+	listenersValid bool,
 ) {
 	internal, _, _, _, warnings, allUsable := r.ResolveGatewayInstances(parentGwObj.Namespace, gatewayServices, servers)
 
-	// Setup initial conditions to the success state. If we encounter errors, we will update this.
-	// We have two status
-	// Accepted: is the configuration valid. We only have errors in listeners, and the status is not supposed to
-	// be tied to listeners, so this is always accepted
-	// Programmed: is the data plane "ready" (note: eventually consistent)
 	gatewayConditions := map[string]*Condition{
 		string(gatewayv1.GatewayConditionAccepted): {
 			reason:  string(gatewayv1.GatewayReasonAccepted),
@@ -281,12 +299,38 @@ func reportListenerSetStatus(
 			message: "Resource programmed",
 		},
 	}
-	if cond != nil && cond.error != nil {
-		cond.error.Message = "Parent not accepted: " + cond.error.Message
-		gatewayConditions[string(gatewayv1.GatewayConditionAccepted)].error = cond.error
+	var listenersErr *ConfigError
+	if !listenersValid {
+		listenersErr = &ConfigError{
+			Reason:  string(gatewayv1.ListenerSetReasonListenersNotValid),
+			Message: "None of the ListenerSet's listeners are valid",
+		}
+	}
+
+	if gatewayErr != nil && gatewayErr.error != nil {
+		gatewayErr.error.Message = "Parent not accepted: " + gatewayErr.error.Message
+		gatewayConditions[string(gatewayv1.GatewayConditionAccepted)].error = gatewayErr.error
+	} else if listenersErr != nil {
+		gatewayConditions[string(gatewayv1.GatewayConditionAccepted)].error = listenersErr
 	}
 
 	setProgrammedCondition(gatewayConditions, internal, gatewayServices, warnings, allUsable)
+	if listenersErr != nil {
+		gatewayConditions[string(gatewayv1.GatewayConditionProgrammed)].error = listenersErr
+	}
+
+	haveListeners := sets.New[gatewayv1.SectionName]()
+	for _, l := range obj.Spec.Listeners {
+		haveListeners.Insert(l.Name)
+	}
+	listeners := make([]gatewayv1.ListenerEntryStatus, 0, len(gs.Listeners))
+	for _, l := range gs.Listeners {
+		if haveListeners.Contains(l.Name) {
+			haveListeners.Delete(l.Name)
+			listeners = append(listeners, l)
+		}
+	}
+	gs.Listeners = listeners
 
 	gs.Conditions = setConditions(obj.Generation, gs.Conditions, gatewayConditions)
 }
@@ -298,6 +342,7 @@ func reportListenerSetStatus(
 func GatewayCollection(
 	gateways krt.Collection[*gatewayv1.Gateway],
 	listenerSets krt.Collection[ListenerSet],
+	gatewayConflicts krt.Collection[gatewaycommon.GatewayListenerConflicts],
 	gatewayClasses krt.Collection[gatewaycommon.GatewayClass],
 	namespaces krt.Collection[*corev1.Namespace],
 	grants gatewaycommon.ReferenceGrants,
@@ -357,12 +402,27 @@ func GatewayCollection(
 			gatewayErr = err.error
 		}
 
+		var gwListenerConflicts map[gatewayv1.SectionName]gatewayv1.ListenerConditionReason
+		if gwConflict := krt.FetchOne(ctx, gatewayConflicts, krt.FilterKey(config.NamespacedName(obj).String())); gwConflict != nil {
+			gwListenerConflicts = gwConflict.ConflictsForGateway(obj)
+		}
+
 		for i, l := range kgw.Listeners {
 			// Attached Routes count starts at 0 and gets updated later in the status syncer
 			// when the real count is available after route processing
 			server, tlsInfo, updatedStatus, programmed := buildListener(
 				ctx, secrets, configMaps, grants, namespaces, obj, status.Listeners, kgw, l, i, controllerName, nil)
 			status.Listeners = updatedStatus
+
+			if reason, ok := gwListenerConflicts[l.Name]; ok {
+				updated := reportListenerConflict(i, l, obj, status.Listeners, reason)
+				status.Listeners = updated
+				continue
+			}
+
+			if server == nil {
+				continue
+			}
 
 			servers = append(servers, server)
 
@@ -402,6 +462,9 @@ func GatewayCollection(
 		// and not the listeners
 		listenerSets := make(map[types.NamespacedName]bool)
 		for _, ls := range listenersFromSets {
+			if !ls.Valid {
+				continue
+			}
 			listenerSets[ls.Parent] = true
 			result = append(result, &GatewayListener{
 				Name:          ls.Name,
@@ -434,23 +497,8 @@ func InternalGatewayName(gwNamespace, gwName, lName string) string {
 	return fmt.Sprintf("%s/%s.%s", gwNamespace, gwName, lName)
 }
 
-func detectListenerPortNumber(l gatewayv1.ListenerEntry) (gatewayv1.PortNumber, error) {
-	if l.Port != 0 {
-		return l.Port, nil
-	}
-	switch l.Protocol {
-	case gatewayv1.HTTPProtocolType:
-		return 80, nil
-	case gatewayv1.HTTPSProtocolType:
-		return 443, nil
-	}
-	return 0, fmt.Errorf("protocol %v requires a port to be set", l.Protocol)
-}
-
-func convertStandardStatusToListenerSetStatus(l gatewayv1.ListenerEntry) func(e gatewayv1.ListenerStatus) gatewayv1.ListenerEntryStatus {
-	return func(e gatewayv1.ListenerStatus) gatewayv1.ListenerEntryStatus {
-		return gatewayv1.ListenerEntryStatus(e)
-	}
+func convertStandardStatusToListenerSetStatus(e gatewayv1.ListenerStatus) gatewayv1.ListenerEntryStatus {
+	return gatewayv1.ListenerEntryStatus(e)
 }
 
 func convertListenerSetStatusToStandardStatus(e gatewayv1.ListenerEntryStatus) gatewayv1.ListenerStatus {
