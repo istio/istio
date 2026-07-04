@@ -98,6 +98,11 @@ var skippedTests = map[string]string{
 	// The following tests were added in v1.5.0
 	"TLSRouteTerminateSimpleSameNamespace":  "TODO",
 	"TLSRouteMixedTerminationSameNamespace": "TODO",
+
+	// The following tests were added in v1.6.0
+	"HTTPRouteNoBackendRefs":             "TODO",
+	"GatewayInvalidParametersRef":        "TODO",
+	"GatewayListenerUnsupportedProtocol": "TODO",
 }
 
 func TestGatewayConformanceAgentgateway(t *testing.T) {
