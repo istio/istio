@@ -686,10 +686,13 @@ var (
 		Group:      "gateway.networking.k8s.io",
 		Kind:       "TCPRoute",
 		Plural:     "tcproutes",
-		Version:    "v1alpha2",
-		Proto:      "k8s.io.gateway_api.api.v1alpha1.TCPRouteSpec", StatusProto: "k8s.io.gateway_api.api.v1alpha1.TCPRouteStatus",
-		ReflectType: reflect.TypeOf(&sigsk8siogatewayapiapisv1alpha2.TCPRouteSpec{}).Elem(), StatusType: reflect.TypeOf(&sigsk8siogatewayapiapisv1alpha2.TCPRouteStatus{}).Elem(),
-		ProtoPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2", StatusPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2",
+		Version:    "v1",
+		VersionAliases: []string{
+			"v1alpha2",
+		},
+		Proto: "k8s.io.gateway_api.api.v1.TCPRouteSpec", StatusProto: "k8s.io.gateway_api.api.v1.TCPRouteStatus",
+		ReflectType: reflect.TypeOf(&sigsk8siogatewayapiapisv1.TCPRouteSpec{}).Elem(), StatusType: reflect.TypeOf(&sigsk8siogatewayapiapisv1.TCPRouteStatus{}).Elem(),
+		ProtoPackage: "sigs.k8s.io/gateway-api/apis/v1", StatusPackage: "sigs.k8s.io/gateway-api/apis/v1",
 		ClusterScoped: false,
 		Synthetic:     false,
 		Builtin:       false,
@@ -1024,6 +1027,7 @@ var (
 				MustAdd(RequestAuthentication).
 				MustAdd(ServiceEntry).
 				MustAdd(Sidecar).
+				MustAdd(TCPRoute).
 				MustAdd(TLSRoute).
 				MustAdd(Telemetry).
 				MustAdd(TrafficExtension).

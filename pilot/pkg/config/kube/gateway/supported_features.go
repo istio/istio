@@ -31,6 +31,8 @@ var skippedExtendedFeatures = []features.Feature{
 	features.GatewayHTTPSListenerDetectMisdirectedRequestsFeature,
 	// ListenerSetHostnameConflict, ListenerSetProtocolConflict, ListenerSetReferenceGrant
 	features.ListenerSetFeature,
+	// UDPRoute* - Istio does not support UDPRoute
+	features.UDPRouteFeature,
 }
 
 var SupportedFeatures = features.AllFeatures.Clone().Delete(skippedExtendedFeatures...)
