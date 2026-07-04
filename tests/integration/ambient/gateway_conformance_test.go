@@ -115,6 +115,7 @@ func TestGatewayConformance(t *testing.T) {
 					GatewayClassName:         "istio",
 					Debug:                    scopes.Framework.DebugEnabled(),
 					CleanupBaseResources:     gatewayConformanceInputs.Cleanup,
+					CleanupTestResources:     gatewayConformanceInputs.Cleanup,
 					SupportedFeatures:        gwfeatures.SetsToNamesSet(supported).UnsortedList(),
 					SkipTests:                maps.Keys(skippedTests),
 					UsableNetworkAddresses:   []v1.GatewaySpecAddress{{Value: "infra-backend-v1.gateway-conformance-infra.svc.cluster.local", Type: &hostnameType}},
