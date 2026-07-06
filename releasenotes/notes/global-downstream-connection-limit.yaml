@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 57973
+releaseNotes:
+  - |
+    **Added** support for `globalDownstreamConnectionLimit` in `ProxyConfig.connectionSettings`,
+    providing a first-class API field for configuring the global downstream connection limit.
+    This takes precedence over the existing `ISTIO_META_GLOBAL_DOWNSTREAM_MAX_CONNECTIONS` metadata
+    and the deprecated `overload.global_downstream_max_connections` runtime flag.

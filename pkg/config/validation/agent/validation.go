@@ -1143,7 +1143,7 @@ func validateConnectionSettings(cs *meshconfig.ProxyConfig_ConnectionSettings) e
 	if v := cs.GetHttp2InitialConnectionWindowSize(); v != nil && v.GetValue() < 65535 {
 		errs = multierror.Append(errs, errors.New("http2_initial_connection_window_size must be at least 65535"))
 	}
-	// TODO: ListenerConnectionLimit and GlobalDownstreamConnectionLimit are validated here but wired in later PR (listener limits).
+	// TODO: ListenerConnectionLimit is validated here but wired in a later PR (listener limits).
 	if v := cs.GetListenerConnectionLimit(); v != nil && v.GetValue() <= 0 {
 		errs = multierror.Append(errs, errors.New("listener_connection_limit must be positive"))
 	}
