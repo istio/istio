@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: ambient
+issue:
+  - 60757
+releaseNotes:
+  - |
+    **Fixed** an issue where enabling `PILOT_ENABLE_AMBIENT` caused sidecar proxies to receive WDS (Workload Discovery Service) resources for all pods in the cluster, leading to significant CPU increases (up to 10x in large clusters). Sidecars now correctly skip WDS resources, which are only needed by ambient mesh components (ztunnels and waypoints).

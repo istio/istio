@@ -45,6 +45,17 @@ func (e WorkloadGenerator) GenerateDeltas(
 	req *model.PushRequest,
 	w *model.WatchedResource,
 ) (model.Resources, model.DeletedResources, model.XdsLogDetails, bool, error) {
+	// Only ambient mesh components (ztunnels and waypoints) should receive WDS resources.
+	// Sidecars and other traditional proxy types should not receive these resources.
+	// This prevents the issue where enabling PILOT_ENABLE_AMBIENT causes sidecars to receive
+	// workload resources for all pods in the cluster, leading to significant CPU increases.
+	// See: https://github.com/istio/istio/issues/60757
+	if !proxy.IsAmbient() {
+		// Return empty response to prevent sidecars from receiving workload resources.
+		// The 'true' parameter means we should send the (empty) response.
+		return make(model.Resources, 0), nil, model.XdsLogDetails{}, true, nil
+	}
+
 	addresses := req.AddressesUpdated
 	isReq := req.IsRequest()
 	if !isReq && len(addresses) == 0 {
