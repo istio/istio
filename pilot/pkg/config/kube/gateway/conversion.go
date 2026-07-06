@@ -227,16 +227,10 @@ func convertHTTPRoute(ctx RouteContext, r k8s.HTTPRouteRule,
 		}
 	}
 	if weightSum(r.BackendRefs) == 0 && vs.Redirect == nil {
-		if len(r.BackendRefs) == 0 {
-			// No backends specified at all; per the Gateway API spec return 404
-			vs.DirectResponse = &istio.HTTPDirectResponse{
-				Status: 404,
-			}
-		} else {
-			// Backends exist but all have zero weight; per the Gateway API spec return 500
-			vs.DirectResponse = &istio.HTTPDirectResponse{
-				Status: 500,
-			}
+		// Per the Gateway API spec, when there are no >0 weight backends return
+		// 500.
+		vs.DirectResponse = &istio.HTTPDirectResponse{
+			Status: 500,
 		}
 	} else {
 		route, ipCfg, backendErr, err := buildHTTPDestination(ctx, r.BackendRefs, obj.Namespace, enforceRefGrant)
