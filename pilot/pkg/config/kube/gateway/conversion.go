@@ -2096,61 +2096,59 @@ func buildListener(
 	controllerName k8s.GatewayController,
 	portErr error,
 ) (*istio.Server, []k8s.ListenerStatus, bool) {
-	listenerConditions := map[string]*condition{
+	listenerConditions := map[string]*gatewaycommon.ListenerStatusCondition{
 		string(k8s.ListenerConditionAccepted): {
-			reason:  string(k8s.ListenerReasonAccepted),
-			message: "No errors found",
+			Reason:  string(k8s.ListenerReasonAccepted),
+			Message: "No errors found",
 		},
 		string(k8s.ListenerConditionProgrammed): {
-			reason:  string(k8s.ListenerReasonProgrammed),
-			message: "No errors found",
+			Reason:  string(k8s.ListenerReasonProgrammed),
+			Message: "No errors found",
 		},
 		string(k8s.ListenerConditionConflicted): {
-			reason:  string(k8s.ListenerReasonNoConflicts),
-			message: "No errors found",
-			status:  kstatus.StatusFalse,
+			Reason:  string(k8s.ListenerReasonNoConflicts),
+			Message: "No errors found",
+			Status:  kstatus.StatusFalse,
 		},
 		string(k8s.ListenerConditionResolvedRefs): {
-			reason:  string(k8s.ListenerReasonResolvedRefs),
-			message: "No errors found",
+			Reason:  string(k8s.ListenerReasonResolvedRefs),
+			Message: "No errors found",
 		},
 	}
 
 	ok := true
 	tls, err := buildTLS(ctx, configMaps, secrets, grants, resolveGatewayTLS(l.Port, gw.TLS), l.TLS, obj, kube.IsAutoPassthrough(obj.GetLabels(), l))
 	if err != nil {
-		listenerConditions[string(k8s.ListenerConditionResolvedRefs)].error = err
-		listenerConditions[string(k8s.GatewayConditionProgrammed)].error = &ConfigError{
-			Reason:  string(k8s.GatewayReasonInvalid),
-			Message: "Bad TLS configuration",
+		listenerConditions[string(k8s.ListenerConditionResolvedRefs)].Error = &gatewaycommon.ListenerStatusConfigError{
+			Reason: err.Reason, Message: err.Message,
+		}
+		listenerConditions[string(k8s.GatewayConditionProgrammed)].Error = &gatewaycommon.ListenerStatusConfigError{
+			Reason: string(k8s.GatewayReasonInvalid), Message: "Bad TLS configuration",
 		}
 		if err.Reason == InvalidCACertificateRef || err.Reason == InvalidCACertificateKind || err.Reason == InvalidListenerRefNotPermitted {
-			listenerConditions[string(k8s.ListenerConditionAccepted)].error = &ConfigError{
-				Reason:  string(k8s.ListenerReasonNoValidCACertificate),
-				Message: err.Message,
+			listenerConditions[string(k8s.ListenerConditionAccepted)].Error = &gatewaycommon.ListenerStatusConfigError{
+				Reason: string(k8s.ListenerReasonNoValidCACertificate), Message: err.Message,
 			}
 		}
 		ok = false
 	}
 	hostnames := buildHostnameMatch(ctx, obj.GetNamespace(), namespaces, l)
 	if portErr != nil {
-		listenerConditions[string(k8s.ListenerConditionAccepted)].error = &ConfigError{
-			Reason:  string(k8s.ListenerReasonUnsupportedProtocol),
-			Message: portErr.Error(),
+		listenerConditions[string(k8s.ListenerConditionAccepted)].Error = &gatewaycommon.ListenerStatusConfigError{
+			Reason: string(k8s.ListenerReasonUnsupportedProtocol), Message: portErr.Error(),
 		}
 		ok = false
 	}
 	protocol, perr := listenerProtocolToIstio(controllerName, l.Protocol)
 	if perr != nil {
-		listenerConditions[string(k8s.ListenerConditionAccepted)].error = &ConfigError{
-			Reason:  string(k8s.ListenerReasonUnsupportedProtocol),
-			Message: perr.Error(),
+		listenerConditions[string(k8s.ListenerConditionAccepted)].Error = &gatewaycommon.ListenerStatusConfigError{
+			Reason: string(k8s.ListenerReasonUnsupportedProtocol), Message: perr.Error(),
 		}
 		ok = false
 	}
 	if controllerName == constants.ManagedGatewayMeshController {
 		if unexpectedWaypointListener(l) {
-			listenerConditions[string(k8s.ListenerConditionAccepted)].error = &ConfigError{
+			listenerConditions[string(k8s.ListenerConditionAccepted)].Error = &gatewaycommon.ListenerStatusConfigError{
 				Reason:  string(k8s.ListenerReasonUnsupportedProtocol),
 				Message: `Expected a single listener on port 15008 with protocol "HBONE"`,
 			}
@@ -2159,7 +2157,7 @@ func buildListener(
 
 	if controllerName == constants.ManagedGatewayEastWestController {
 		if unexpectedEastWestWaypointListener(l) {
-			listenerConditions[string(k8s.ListenerConditionAccepted)].error = &ConfigError{
+			listenerConditions[string(k8s.ListenerConditionAccepted)].Error = &gatewaycommon.ListenerStatusConfigError{
 				Reason:  string(k8s.ListenerReasonUnsupportedProtocol),
 				Message: `East-west gateway listeners must be either port 15008 with protocol "HBONE" and TLS.Mode == Terminate, or TLS with TLS.Mode == Passthrough`,
 			}
@@ -2178,11 +2176,11 @@ func buildListener(
 	if tls == nil && (l.Protocol == k8s.HTTPSProtocolType || l.Protocol == k8s.TLSProtocolType) {
 		// This is a placeholder listener for ListenerSets.
 		// We don't generate an istio.Server for it.
-		log.Debugf("protocol is %s but no TLS section is defined, skipping listener creation", l.Protocol)
+		log.Warnf("protocol is %s but no TLS section is defined, skipping listener creation", l.Protocol)
 		server = nil
 	}
 
-	updatedStatus := reportListenerCondition(listenerIndex, l, obj, status, listenerConditions)
+	updatedStatus := gatewaycommon.ReportListenerCondition(listenerIndex, l, obj, status, listenerConditions)
 	return server, updatedStatus, ok
 }
 
@@ -2191,7 +2189,8 @@ var supportedProtocols = sets.New(
 	k8s.HTTPSProtocolType,
 	k8s.TLSProtocolType,
 	k8s.TCPProtocolType,
-	k8s.ProtocolType(protocol.HBONE))
+	k8s.ProtocolType(protocol.HBONE),
+)
 
 func listenerProtocolToIstio(name k8s.GatewayController, p k8s.ProtocolType) (string, error) {
 	switch p {
@@ -2691,18 +2690,6 @@ func defaultString[T ~string](s *T, def string) string {
 		return def
 	}
 	return string(*s)
-}
-
-func toRouteKind(g config.GroupVersionKind) k8s.RouteGroupKind {
-	return k8s.RouteGroupKind{Group: (*k8s.Group)(&g.Group), Kind: k8s.Kind(g.Kind)}
-}
-
-func routeGroupKindEqual(rgk1, rgk2 k8s.RouteGroupKind) bool {
-	return rgk1.Kind == rgk2.Kind && getGroup(rgk1) == getGroup(rgk2)
-}
-
-func getGroup(rgk k8s.RouteGroupKind) k8s.Group {
-	return ptr.OrDefault(rgk.Group, k8s.Group(gvk.KubernetesGateway.Group))
 }
 
 func GetStatus[I, IS any](spec I) IS {

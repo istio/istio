@@ -27,7 +27,6 @@ import (
 	istio "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/kube/gatewaycommon"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
@@ -262,17 +261,4 @@ func getListenerNames(spec *gatewayv1.GatewaySpec) sets.Set[gatewayv1.SectionNam
 		res.Insert(l.Name)
 	}
 	return res
-}
-
-func toRouteKind(g config.GroupVersionKind) gatewayv1.RouteGroupKind {
-	return gatewayv1.RouteGroupKind{Group: (*gatewayv1.Group)(&g.Group), Kind: gatewayv1.Kind(g.Kind)}
-}
-
-// routeGroupKindEqual checks if two RouteGroupKinds are equal
-func routeGroupKindEqual(rgk1, rgk2 gatewayv1.RouteGroupKind) bool {
-	return rgk1.Kind == rgk2.Kind && getGroup(rgk1) == getGroup(rgk2)
-}
-
-func getGroup(rgk gatewayv1.RouteGroupKind) gatewayv1.Group {
-	return ptr.OrDefault(rgk.Group, gatewayv1.GroupName)
 }
