@@ -1799,24 +1799,6 @@ func TestCreateHeadersFilter(t *testing.T) {
 	}
 }
 
-func TestHumanReadableJoin(t *testing.T) {
-	tests := []struct {
-		input []string
-		want  string
-	}{
-		{[]string{"a"}, "a"},
-		{[]string{"a", "b"}, "a and b"},
-		{[]string{"a", "b", "c"}, "a, b, and c"},
-	}
-	for _, tt := range tests {
-		t.Run(strings.Join(tt.input, "_"), func(t *testing.T) {
-			if got := humanReadableJoin(tt.input); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("got %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 //
 //func BenchmarkBuildHTTPVirtualServices(b *testing.B) {
 //	ports := []*model.Port{

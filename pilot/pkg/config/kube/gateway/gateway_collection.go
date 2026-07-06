@@ -131,21 +131,21 @@ func ListenerSetCollection(
 				return nil, nil
 			}
 			if !classInfo.SupportsListenerSet {
-				reportUnsupportedListenerSet(class.Name, status, obj)
+				gatewaycommon.ReportUnsupportedListenerSet(class.Name, status, obj)
 				return status, nil
 			}
 
 			if !gatewaycommon.NamespaceAcceptedByAllowListeners(obj.Namespace, parentGwObj, func(s string) *corev1.Namespace {
 				return ptr.Flatten(krt.FetchOne(ctx, namespaces, krt.FilterKey(s)))
 			}) {
-				reportNotAllowedListenerSet(status, obj)
+				gatewaycommon.ReportNotAllowedListenerSet(status, obj)
 				return status, nil
 			}
 
 			gatewayServices, err := extractGatewayServices(domainSuffix, parentGwObj, classInfo)
 			if len(gatewayServices) == 0 && err != nil {
 				// Short circuit if it's a hard failure
-				reportListenerSetStatus(context, parentGwObj, obj, status, gatewayServices, nil, err, true)
+				gatewaycommon.ReportListenerSetStatus(context, parentGwObj, obj, status, gatewayServices, nil, listenerSetParentErr(err), true)
 				return status, nil
 			}
 
@@ -156,21 +156,20 @@ func ListenerSetCollection(
 
 			servers := []*istio.Server{}
 			validListeners := 0
+			standardStatus := slices.Map(status.Listeners, gatewaycommon.ConvertListenerSetStatusToStandardStatus)
 			for i, l := range ls.Listeners {
 				port, portErr := gatewaycommon.ListenerEntryPortNumber(l)
 				l.Port = port
 				standardListener := gatewaycommon.ConvertListenerSetToListener(l)
-				originalStatus := slices.Map(status.Listeners, convertListenerSetStatusToStandardStatus)
-				server, updatedStatus, programmed := buildListener(ctx, configMaps, secrets, grants, namespaces,
-					obj, originalStatus, parentGwObj.Spec, standardListener, i, controllerName, portErr)
-				status.Listeners = slices.Map(updatedStatus, convertStandardStatusToListenerSetStatus)
 
 				if reason, ok := conflicts[l.Name]; ok {
-					standardStatus := slices.Map(status.Listeners, convertListenerSetStatusToStandardStatus)
-					updated := gatewaycommon.ReportListenerConflict(i, standardListener, obj, standardStatus, reason)
-					status.Listeners = slices.Map(updated, convertStandardStatusToListenerSetStatus)
+					standardStatus = gatewaycommon.ReportListenerConflict(i, standardListener, obj, standardStatus, reason)
 					continue
 				}
+
+				server, updatedStatus, programmed := buildListener(ctx, configMaps, secrets, grants, namespaces,
+					obj, standardStatus, parentGwObj.Spec, standardListener, i, controllerName, portErr)
+				standardStatus = updatedStatus
 
 				if server == nil {
 					continue
@@ -247,11 +246,19 @@ func ListenerSetCollection(
 				result = append(result, res)
 			}
 
-			reportListenerSetStatus(context, parentGwObj, obj, status, gatewayServices, servers, err, validListeners > 0)
+			status.Listeners = slices.Map(standardStatus, gatewaycommon.ConvertStandardStatusToListenerSetStatus)
+			gatewaycommon.ReportListenerSetStatus(context, parentGwObj, obj, status, gatewayServices, servers, listenerSetParentErr(err), validListeners > 0)
 			return status, result
 		}, opts.WithName("ListenerSets")...)
 
 	return statusCol, gw
+}
+
+func listenerSetParentErr(err *ConfigError) *gatewaycommon.ListenerStatusConfigError {
+	if err == nil {
+		return nil
+	}
+	return &gatewaycommon.ListenerStatusConfigError{Reason: err.Reason, Message: err.Message}
 }
 
 func GatewayCollection(
@@ -327,14 +334,13 @@ func GatewayCollection(
 		}
 
 		for i, l := range kgw.Listeners {
-			server, updatedStatus, programmed := buildListener(ctx, configMaps, secrets, grants, namespaces, obj, status.Listeners, kgw, l, i, controllerName, nil)
-			status.Listeners = updatedStatus
-
 			if reason, ok := gwListenerConflicts[l.Name]; ok {
-				updated := gatewaycommon.ReportListenerConflict(i, l, obj, status.Listeners, reason)
-				status.Listeners = updated
+				status.Listeners = gatewaycommon.ReportListenerConflict(i, l, obj, status.Listeners, reason)
 				continue
 			}
+
+			server, updatedStatus, programmed := buildListener(ctx, configMaps, secrets, grants, namespaces, obj, status.Listeners, kgw, l, i, controllerName, nil)
+			status.Listeners = updatedStatus
 
 			if server == nil {
 				continue
@@ -454,36 +460,20 @@ func FinalGatewayStatusCollection(
 }
 
 // FinalListenerSetStatusCollection finalizes a ListenerSet status similarly to how FinalGatewayStatusCollection does it for gateways.
-// In a nutshell for conformance with Gateway API we need to report for each Listener in a ListenerSet to report how many
-// routes have been attached to that listener. That's what this function does, it takes a ListenerSet status collection
-// that container almost everything we need in the status already and just updates AttachedRoutes filed on each listener
-// after we actually constructed all the route collections.
 func FinalListenerSetStatusCollection(
 	listenerSetStatuses krt.StatusCollection[*gatewayv1.ListenerSet, gatewayv1.ListenerSetStatus],
 	routeAttachments krt.Collection[RouteAttachment],
 	routeAttachmentsIndex krt.Index[types.NamespacedName, RouteAttachment],
 	opts krt.OptionsBuilder,
 ) krt.StatusCollection[*gatewayv1.ListenerSet, gatewayv1.ListenerSetStatus] {
-	return krt.NewCollection(
+	return gatewaycommon.FinalListenerSetStatusCollection(
 		listenerSetStatuses,
-		func(
-			ctx krt.HandlerContext, i krt.ObjectWithStatus[*gatewayv1.ListenerSet, gatewayv1.ListenerSetStatus],
-		) *krt.ObjectWithStatus[*gatewayv1.ListenerSet, gatewayv1.ListenerSetStatus] {
-			routes := routeAttachmentsIndex.Fetch(ctx, config.NamespacedName(i.Obj))
-			counts := map[string]int32{}
-			for _, r := range routes {
-				counts[r.ListenerName]++
-			}
-			status := i.Status.DeepCopy()
-			for i, s := range status.Listeners {
-				s.AttachedRoutes = counts[string(s.Name)]
-				status.Listeners[i] = s
-			}
-			return &krt.ObjectWithStatus[*gatewayv1.ListenerSet, gatewayv1.ListenerSetStatus]{
-				Obj:    i.Obj,
-				Status: *status,
-			}
-		}, opts.WithName("ListenerSetFinalStatus")...)
+		func(ctx krt.HandlerContext, obj *gatewayv1.ListenerSet) []RouteAttachment {
+			return routeAttachmentsIndex.Fetch(ctx, config.NamespacedName(obj))
+		},
+		func(r RouteAttachment) string { return r.ListenerName },
+		opts,
+	)
 }
 
 // RouteParents holds information about things routes can reference as parents.
@@ -523,12 +513,4 @@ func BuildRouteParents(
 		gateways:     gateways,
 		gatewayIndex: idx,
 	}
-}
-
-func convertStandardStatusToListenerSetStatus(e gatewayv1.ListenerStatus) gatewayv1.ListenerEntryStatus {
-	return gatewayv1.ListenerEntryStatus(e)
-}
-
-func convertListenerSetStatusToStandardStatus(e gatewayv1.ListenerEntryStatus) gatewayv1.ListenerStatus {
-	return gatewayv1.ListenerStatus(e)
 }
