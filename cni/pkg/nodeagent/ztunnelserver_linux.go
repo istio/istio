@@ -182,7 +182,7 @@ func (z ztunnelUDSConnection) Send(ctx context.Context, data *zdsapi.WorkloadReq
 	case <-ctx.Done():
 		return nil, fmt.Errorf("context expired before response received: %v", ctx.Err())
 	case <-z.done:
-		return nil, fmt.Errorf("connection closed before request sent")
+		return nil, fmt.Errorf("connection closed before response received")
 	}
 }
 

@@ -38,27 +38,6 @@ var readWriteDeadline = 5 * time.Second
 var ztunnelConnected = monitoring.NewGauge("ztunnel_connected",
 	"number of connections to ztunnel")
 
-// raceTestDelay is TEST-ONLY fault injection for reproducing istio/ztunnel#1674.
-// If the named env var is set to a valid Go duration (e.g. "24h", "6s"), it sleeps
-// that long or until ctx is done. When unset (the default) it is a no-op, so normal
-// behavior is unchanged and the image is safe to ship.
-func raceTestDelay(ctx context.Context, envVar string) {
-	v := os.Getenv(envVar)
-	if v == "" {
-		return
-	}
-	d, err := time.ParseDuration(v)
-	if err != nil {
-		log.Errorf("racetest: invalid duration %q for %s: %v", v, envVar, err)
-		return
-	}
-	log.Warnf("racetest: %s set, sleeping %s before proceeding", envVar, d)
-	select {
-	case <-time.After(d):
-	case <-ctx.Done():
-	}
-}
-
 type ZtunnelServer interface {
 	Run(ctx context.Context)
 	PodDeleted(ctx context.Context, uid string) error
@@ -203,7 +182,6 @@ func (z *ztunnelServer) handleConn(ctx context.Context, conn ZtunnelConnection) 
 	}
 
 	log.WithLabels("version", m.Version).Infof("received hello from ztunnel")
-	raceTestDelay(ctx, "ZTUNNEL_RACE_PRESNAPSHOT_DELAY")
 	log.Debug("sending snapshot to ztunnel")
 	if err := z.sendSnapshot(ctx, conn); err != nil {
 		return err
@@ -284,10 +262,9 @@ func podToWorkload(pod *v1.Pod) *zdsapi.WorkloadInfo {
 	}
 }
 
-func (z *ztunnelServer) sendSnapshot(ctx context.Context, conn ZtunnelConnection) error {
+func (z *ztunnelServer) sendSnapshot(_ context.Context, conn ZtunnelConnection) error {
 	snap := z.pods.ReadCurrentPodSnapshot()
 	for uid, wl := range snap {
-		raceTestDelay(ctx, "ZTUNNEL_RACE_PERPOD_DELAY")
 		var resp *zdsapi.WorkloadResponse
 		var err error
 		log := log.WithLabels("uid", uid)
@@ -325,7 +302,6 @@ func (z *ztunnelServer) sendSnapshot(ctx context.Context, conn ZtunnelConnection
 			log.Errorf("add-workload: got ack error: %s", resp.GetAck().GetError())
 		}
 	}
-	raceTestDelay(ctx, "ZTUNNEL_RACE_SNAPSHOT_DELAY")
 	resp, err := conn.SendMsgAndWaitForAck(&zdsapi.WorkloadRequest{
 		Payload: &zdsapi.WorkloadRequest_SnapshotSent{
 			SnapshotSent: &zdsapi.SnapshotSent{},
