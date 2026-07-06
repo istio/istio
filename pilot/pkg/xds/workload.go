@@ -51,9 +51,7 @@ func (e WorkloadGenerator) GenerateDeltas(
 	// workload resources for all pods in the cluster, leading to significant CPU increases.
 	// See: https://github.com/istio/istio/issues/60757
 	if !proxy.IsAmbient() {
-		// Return empty response to prevent sidecars from receiving workload resources.
-		// The 'true' parameter means we should send the (empty) response.
-		return make(model.Resources, 0), nil, model.XdsLogDetails{}, true, nil
+		return nil, nil, model.DefaultXdsLogDetails, false, nil
 	}
 
 	addresses := req.AddressesUpdated
