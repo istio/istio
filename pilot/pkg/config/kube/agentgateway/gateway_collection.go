@@ -349,7 +349,7 @@ func GatewayCollection(
 		if len(gatewayServices) == 0 && err != nil {
 			// Short circuit if its a hard failure
 			log.Errorf("failed to translate gwv1", "name", obj.GetName(), "namespace", obj.GetNamespace(), "err", err.message)
-			reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, 0, err.error)
+			reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, 0, err.error, 0)
 			return status, nil
 		}
 		var gatewayErr *ConfigError
@@ -357,6 +357,7 @@ func GatewayCollection(
 			gatewayErr = err.error
 		}
 
+		validListeners := 0
 		for i, l := range kgw.Listeners {
 			// Attached Routes count starts at 0 and gets updated later in the status syncer
 			// when the real count is available after route processing
@@ -364,6 +365,9 @@ func GatewayCollection(
 				ctx, secrets, configMaps, grants, namespaces, obj, status.Listeners, kgw, l, i, controllerName, nil)
 			status.Listeners = updatedStatus
 
+			if programmed {
+				validListeners++
+			}
 			servers = append(servers, server)
 
 			// Generate supported kinds for the listener
@@ -417,7 +421,7 @@ func GatewayCollection(
 			})
 		}
 
-		reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, len(listenerSets), gatewayErr)
+		reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, len(listenerSets), gatewayErr, validListeners)
 		return status, result
 	}, opts.WithName("KubernetesGateway")...)
 

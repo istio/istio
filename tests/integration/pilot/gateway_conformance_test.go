@@ -79,10 +79,9 @@ var skippedTests = map[string]string{
 	"MeshHTTPRoute307Redirect": "TODO",
 
 	// The following tests were added in v1.6.0
-	"HTTPRouteNoBackendRefs":             "TODO",
-	"GatewayInvalidParametersRef":        "TODO",
-	"GatewayListenerUnsupportedProtocol": "TODO",
-	"TCPRouteWeightedRouting":            "TODO: flaky in dual-stack and multicluster environments",
+	"HTTPRouteNoBackendRefs":      "TODO",
+	"GatewayInvalidParametersRef": "TODO",
+	"TCPRouteWeightedRouting":     "TODO: flaky in dual-stack and multicluster environments",
 }
 
 func TestGatewayConformance(t *testing.T) {
