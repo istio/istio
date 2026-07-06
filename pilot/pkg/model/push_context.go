@@ -1086,22 +1086,16 @@ func (ps *PushContext) VirtualServicesForGateway(proxyNamespace, gateway string)
 		len(ps.virtualServiceIndex.exportedToNamespaceByGateway[name])+
 		len(ps.virtualServiceIndex.publicByGateway[gateway]))
 	// Use index-based iteration to get stable pointers to slice elements
-	for i := range ps.virtualServiceIndex.privateByNamespaceAndGateway[name] {
-		res = append(res, ps.virtualServiceIndex.privateByNamespaceAndGateway[name][i])
-	}
-	for i := range ps.virtualServiceIndex.exportedToNamespaceByGateway[name] {
-		res = append(res, ps.virtualServiceIndex.exportedToNamespaceByGateway[name][i])
-	}
+	res = append(res, ps.virtualServiceIndex.privateByNamespaceAndGateway[name]...)
+	res = append(res, ps.virtualServiceIndex.exportedToNamespaceByGateway[name]...)
 	// Favor same-namespace Gateway routes, to give the "consumer override" preference.
 	// We do 2 iterations here to avoid extra allocations.
-	for i := range ps.virtualServiceIndex.publicByGateway[gateway] {
-		vs := ps.virtualServiceIndex.publicByGateway[gateway][i]
+	for _, vs := range ps.virtualServiceIndex.publicByGateway[gateway] {
 		if UseGatewaySemantics(*vs) && vs.Namespace == proxyNamespace {
 			res = append(res, vs)
 		}
 	}
-	for i := range ps.virtualServiceIndex.publicByGateway[gateway] {
-		vs := ps.virtualServiceIndex.publicByGateway[gateway][i]
+	for _, vs := range ps.virtualServiceIndex.publicByGateway[gateway] {
 		if !(UseGatewaySemantics(*vs) && vs.Namespace == proxyNamespace) {
 			res = append(res, vs)
 		}
