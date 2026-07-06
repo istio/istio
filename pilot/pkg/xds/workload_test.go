@@ -619,8 +619,8 @@ func TestWorkloadGenerator_ProxyTypeFiltering(t *testing.T) {
 						tt.name, tt.description)
 				}
 			} else {
-				// Non-ambient proxies should receive empty response
-				ads.ExpectEmptyResponse()
+				// Non-ambient proxies should not receive any response
+				ads.ExpectNoResponse()
 			}
 		})
 	}
