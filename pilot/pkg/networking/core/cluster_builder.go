@@ -30,11 +30,13 @@ import (
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	metadatav3 "github.com/envoyproxy/go-control-plane/envoy/type/metadata/v3"
+	"google.golang.org/protobuf/proto"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -483,6 +485,11 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: discoveryType},
 		CommonLbConfig:       &cluster.Cluster_CommonLbConfig{},
 	}
+	if cs := cb.getResolvedConnectionSettings(); cs != nil {
+		if v := cs.GetClusterPerConnectionBufferLimitBytes(); v != nil && v.GetValue() >= 0 {
+			c.PerConnectionBufferLimitBytes = wrappers.UInt32(uint32(v.GetValue()))
+		}
+	}
 
 	// Build default alt stat name - This may be overwritten by the MeshConfig options.
 	c.AltStatName = util.DelimitedStatsPrefix(name)
@@ -544,6 +551,25 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 	}
 
 	return ec
+}
+
+func (cb *ClusterBuilder) getResolvedConnectionSettings() *meshconfig.ProxyConfig_ConnectionSettings {
+	defaultConfig := cb.req.Push.Mesh.GetDefaultConfig()
+	proxyConfig := defaultConfig
+	if cb.proxyMetadata != nil {
+		proxyConfig = cb.proxyMetadata.ProxyConfigOrDefault(defaultConfig)
+	}
+	if proxyConfig == nil || proxyConfig.GetConnectionSettings() == nil {
+		return nil
+	}
+
+	cs := proto.Clone(proxyConfig.GetConnectionSettings()).(*meshconfig.ProxyConfig_ConnectionSettings)
+	if cb.proxyType == model.Router &&
+		cs.GetProfile() == meshconfig.ProxyConfig_ConnectionSettings_EDGE &&
+		cs.ClusterPerConnectionBufferLimitBytes == nil {
+		cs.ClusterPerConnectionBufferLimitBytes = wrappers.Int32(32768)
+	}
+	return cs
 }
 
 // buildAllowAnyDFPCluster builds the DFP cluster for ALLOW_ANY_DYNAMIC_DNS mode.
