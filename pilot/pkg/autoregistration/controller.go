@@ -699,6 +699,16 @@ func workloadEntryFromGroup(name string, proxy *model.Proxy, groupCfg *config.Co
 		delete(entry.Labels, pm.LocalityLabel)
 	}
 
+	// If the proxy accepts HBONE, set the tunnel label so istiod marks the workload HBONE-capable
+	if proxy.EnableHBONEListen() {
+		if entry.Labels == nil {
+			entry.Labels = map[string]string{}
+		}
+		if _, ok := entry.Labels[model.TunnelLabel]; !ok {
+			entry.Labels[model.TunnelLabel] = model.TunnelHTTP
+		}
+	}
+
 	annotations := map[string]string{annotation.IoIstioAutoRegistrationGroup.Name: groupCfg.Name}
 	if group.Metadata != nil && group.Metadata.Annotations != nil {
 		annotations = mergeLabels(annotations, group.Metadata.Annotations)
