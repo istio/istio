@@ -1536,6 +1536,111 @@ func TestClusterDnsConfig(t *testing.T) {
 	}
 }
 
+func TestClusterPerConnectionBufferLimitBytes(t *testing.T) {
+	servicePort := &model.Port{
+		Name:     "default",
+		Port:     8080,
+		Protocol: protocol.HTTP,
+	}
+	endpoints := []*endpoint.LocalityLbEndpoints{
+		{
+			Locality: &core.Locality{
+				Region:  "region1",
+				Zone:    "zone1",
+				SubZone: "subzone1",
+			},
+			LbEndpoints: []*endpoint.LbEndpoint{},
+			LoadBalancingWeight: &wrappers.UInt32Value{
+				Value: 1,
+			},
+			Priority: 0,
+		},
+	}
+	service := &model.Service{
+		Ports: model.PortList{
+			servicePort,
+		},
+		Hostname:     "host",
+		MeshExternal: false,
+		Attributes:   model.ServiceAttributes{Name: "svc", Namespace: "default"},
+	}
+
+	cases := []struct {
+		name             string
+		proxyType        model.NodeType
+		meshConnSettings *meshconfig.ProxyConfig_ConnectionSettings
+		want             *wrappers.UInt32Value
+	}{
+		{
+			name:             "no connection settings leaves buffer limit unset",
+			proxyType:        model.Router,
+			meshConnSettings: nil,
+			want:             nil,
+		},
+		{
+			name:      "edge profile sets default on router",
+			proxyType: model.Router,
+			meshConnSettings: &meshconfig.ProxyConfig_ConnectionSettings{
+				Profile: meshconfig.ProxyConfig_ConnectionSettings_EDGE,
+			},
+			want: wrappers.UInt32(32768),
+		},
+		{
+			name:      "edge profile does not set default on sidecar",
+			proxyType: model.SidecarProxy,
+			meshConnSettings: &meshconfig.ProxyConfig_ConnectionSettings{
+				Profile: meshconfig.ProxyConfig_ConnectionSettings_EDGE,
+			},
+			want: nil,
+		},
+		{
+			name:      "explicit value overrides edge default",
+			proxyType: model.Router,
+			meshConnSettings: &meshconfig.ProxyConfig_ConnectionSettings{
+				Profile:                              meshconfig.ProxyConfig_ConnectionSettings_EDGE,
+				ClusterPerConnectionBufferLimitBytes: wrappers.Int32(65536),
+			},
+			want: wrappers.UInt32(65536),
+		},
+		{
+			name:      "explicit value applies regardless of profile",
+			proxyType: model.SidecarProxy,
+			meshConnSettings: &meshconfig.ProxyConfig_ConnectionSettings{
+				Profile:                              meshconfig.ProxyConfig_ConnectionSettings_SIDECAR,
+				ClusterPerConnectionBufferLimitBytes: wrappers.Int32(4096),
+			},
+			want: wrappers.UInt32(4096),
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			mesh := testMesh()
+			mesh.DefaultConfig = &meshconfig.ProxyConfig{
+				ConnectionSettings: tt.meshConnSettings,
+			}
+			cb := &ClusterBuilder{
+				proxyType:     tt.proxyType,
+				proxyMetadata: &model.NodeMetadata{},
+				req: &model.PushRequest{
+					Push: &model.PushContext{
+						Mesh: mesh,
+					},
+				},
+			}
+
+			defaultCluster := cb.buildCluster("my-cluster", cluster.Cluster_STATIC, endpoints, model.TrafficDirectionOutbound, servicePort, service, nil, "")
+			if defaultCluster == nil {
+				t.Fatal("expected cluster to be built")
+			}
+
+			if diff := cmp.Diff(tt.want, defaultCluster.cluster.GetPerConnectionBufferLimitBytes(), protocmp.Transform()); diff != "" {
+				t.Fatalf("unexpected PerConnectionBufferLimitBytes diff (-want,+got): %v", diff)
+			}
+		})
+	}
+}
+
 func TestClusterDnsLookupFamily(t *testing.T) {
 	servicePort := &model.Port{
 		Name:     "default",
