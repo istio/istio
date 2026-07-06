@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - https://github.com/istio/ztunnel/issues/1674
+releaseNotes:
+  - |
+    **Fixed** a deadlock in the ambient CNI node agent where a pod deletion event
+    concurrent with a ztunnel (re)connection could permanently block the ZDS server.
