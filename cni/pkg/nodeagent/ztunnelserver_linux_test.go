@@ -567,6 +567,92 @@ func TestZtunnelRemovePod(t *testing.T) {
 	mt.Assert(ztunnelConnected.Name(), nil, monitortest.Exactly(1))
 }
 
+// TestZtunnelPodDeletedDeadlockOnNonDrainingConn reproduces the quiet, permanent
+// "ztunnel stuck NotReady while the CNI reports Ready" deadlock behind istio/ztunnel#1674.
+//
+// PodDeleted holds z.conns.mu while calling conn.Send(...) on every connection, and Send blocks
+// until that connection's handleConn drains its `updates` channel and acks the message. PodDeleted
+// is invoked with the long-lived server context (see the s.ctx calls in informers.go), so there is
+// no per-operation timeout.
+//
+// If a connection is still in the connection set but nothing is draining its `updates` channel,
+// Send blocks forever while holding z.conns.mu. That is exactly the transient state produced when
+// an old ztunnel disconnects (e.g. a ztunnel pod restart on an established node): handleConn returns
+// and its deferred deleteConn() parks on z.conns.mu, so the dead connection is momentarily still in
+// connectionSet. A concurrent pod delete then grabs the mutex first and Sends to that dead
+// connection.
+//
+// Once PodDeleted is wedged holding z.conns.mu, addConn() blocks too, so a *reconnecting* ztunnel
+// hangs at the very first step of handleConn -- before ReadHello/sendSnapshot -- and therefore never
+// receives a snapshot. It stays NotReady (HTTP 500 "pending: workload proxy manager") indefinitely,
+// quietly, while the CNI pod still reports Ready.
+func TestZtunnelPodDeletedDeadlockOnNonDrainingConn(t *testing.T) {
+	setupLogging()
+
+	ztServ, err := newZtunnelServer(
+		fmt.Sprintf("@testaddr-deadlock%d", ztunnelTestCounter.Add(1)),
+		fakePodCache{},
+		time.Second/10,
+	)
+	assert.NoError(t, err)
+	defer ztServ.Close()
+
+	// A connection that is in the set but whose handleConn is not draining `updates` (the dead,
+	// not-yet-reaped state described above). Send() only touches the `updates` and per-request
+	// response channels -- never the socket -- so a nil socket is fine for exercising the real
+	// Send() code path here.
+	orphan := &ztunnelUDSConnection{uuid: uuid.New(), updates: make(chan UpdateRequest, 100)}
+	ztServ.conns.addConn(orphan)
+
+	// In production PodDeleted is called with the long-lived server ctx (no per-op timeout). Use a
+	// cancellable ctx so we can model "restart the CNI pod" (the issue's documented workaround) as
+	// the only escape, and so the test cleans up its goroutines.
+	ctx, cancel := context.WithCancel(context.Background())
+
+	podDeletedDone := make(chan error, 1)
+	go func() { podDeletedDone <- ztServ.PodDeleted(ctx, "some-deleted-pod-uid") }()
+
+	// PodDeleted enqueues the Del to orphan.updates then blocks on an ack that never comes, holding
+	// z.conns.mu the whole time.
+	select {
+	case <-podDeletedDone:
+		t.Fatal("PodDeleted returned, but it should block waiting for an ack from a non-draining connection")
+	case <-time.After(2 * time.Second):
+		// expected: still blocked, holding z.conns.mu
+	}
+
+	// Because PodDeleted holds z.conns.mu, a reconnecting ztunnel's addConn -- the first thing
+	// handleConn does, before ReadHello/sendSnapshot -- is also blocked. That is the quiet, permanent
+	// NotReady: the new ztunnel connects but never gets its snapshot.
+	reconnectAdded := make(chan struct{})
+	go func() {
+		ztServ.conns.addConn(&ztunnelUDSConnection{uuid: uuid.New(), updates: make(chan UpdateRequest, 100)})
+		close(reconnectAdded)
+	}()
+	select {
+	case <-reconnectAdded:
+		t.Fatal("a reconnecting ztunnel's addConn completed, but it should be blocked on z.conns.mu held by the wedged PodDeleted")
+	case <-time.After(2 * time.Second):
+		// expected: the reconnecting ztunnel is wedged at addConn -> stuck NotReady forever
+	}
+
+	// The only escape is cancelling the server context, i.e. restarting the CNI pod. Confirm that
+	// frees the deadlock (both PodDeleted and the blocked addConn proceed).
+	cancel()
+	select {
+	case <-podDeletedDone:
+		// PodDeleted's Send observed ctx cancellation and returned, releasing z.conns.mu.
+	case <-time.After(2 * time.Second):
+		t.Fatal("PodDeleted did not return after the server context was cancelled")
+	}
+	select {
+	case <-reconnectAdded:
+		// addConn proceeded once the mutex was released.
+	case <-time.After(2 * time.Second):
+		t.Fatal("addConn did not proceed after PodDeleted released z.conns.mu")
+	}
+}
+
 func TestZtunnelPodAdded(t *testing.T) {
 	mt := monitortest.New(t)
 	setupLogging()
