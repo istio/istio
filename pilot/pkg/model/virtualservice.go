@@ -64,12 +64,11 @@ func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, ho
 		}
 	}
 
-	var loopAndAdd func(vses []config.Config)
+	var loopAndAdd func(vses []*config.Config)
 	if features.UnifiedSidecarScoping {
-		loopAndAdd = func(vses []config.Config) {
+		loopAndAdd = func(vses []*config.Config) {
 			for _, gwMatch := range []bool{true, false} {
-				for i := range vses {
-					c := &vses[i]
+				for _, c := range vses {
 					useGatewaySemantics := UseGatewaySemantics(*c)
 					gwExact := useGatewaySemantics && c.Namespace == configNamespace
 					if gwMatch != gwExact {
@@ -95,9 +94,8 @@ func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, ho
 		}
 	} else {
 		// Legacy path
-		loopAndAdd = func(vses []config.Config) {
-			for i := range vses {
-				c := &vses[i]
+		loopAndAdd = func(vses []*config.Config) {
+			for _, c := range vses {
 				vsNamespace := c.Namespace
 				useGatewaySemantics := UseGatewaySemantics(*c)
 				// Selection algorithm:

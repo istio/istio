@@ -3263,7 +3263,7 @@ func applyConfigDiff(t *testing.T, cg *ConfigGenTest, prevConfigs, configs []con
 			assert.EventuallyEqual(t, func() config.Spec {
 				c := cg.env.VirtualServiceController.Collection().GetKey(cfg.NamespacedName().String())
 				if c == nil {
-					return config.Config{}
+					return nil
 				}
 				return c.Spec
 			}, cfg.Spec)

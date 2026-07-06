@@ -109,7 +109,7 @@ func (c *VirtualServiceController) xdsPush(events []krt.Event[MergedVirtualServi
 
 	cu := sets.New[ConfigKey]()
 	for _, e := range events {
-		if e.Old != nil && e.New != nil && !NeedsPush(e.Old.Config, e.New.Config) {
+		if e.Old != nil && e.New != nil && !NeedsPush(*e.Old.Config, *e.New.Config) {
 			continue
 		}
 		for _, vs := range e.Items() {
@@ -236,7 +236,7 @@ func defaultExportTo(
 }
 
 type MergedVirtualService struct {
-	config.Config
+	*config.Config
 	ExportTo sets.Set[visibility.Instance]
 }
 
@@ -245,7 +245,7 @@ func (m MergedVirtualService) ResourceName() string {
 }
 
 func (m MergedVirtualService) Equals(other MergedVirtualService) bool {
-	return m.Config.Equals(&other.Config)
+	return m.Config.Equals(other.Config)
 }
 
 func mergeVirtualServices(
@@ -269,7 +269,7 @@ func mergeVirtualServices(
 				exportToSet = copyDefaultExportToSet(defaultExportTo, cfg.Namespace)
 			}
 			return &MergedVirtualService{
-				Config:   cfg,
+				Config:   &cfg,
 				ExportTo: exportToSet,
 			}
 		}
@@ -286,7 +286,7 @@ func mergeVirtualServices(
 		// if this is an Ingress VS, we don't need to perform any merging
 		if UseIngressSemantics(cfg) {
 			return &MergedVirtualService{
-				Config:   root,
+				Config:   &root,
 				ExportTo: exportToSet,
 			}
 		}
@@ -294,7 +294,7 @@ func mergeVirtualServices(
 		// if this VS does not reference any delegate, we don't need to perform any merging
 		if !isRootVs(spec) {
 			return &MergedVirtualService{
-				Config:   root,
+				Config:   &root,
 				ExportTo: exportToSet,
 			}
 		}
@@ -341,7 +341,7 @@ func mergeVirtualServices(
 		}
 
 		return &MergedVirtualService{
-			Config:   root,
+			Config:   &root,
 			ExportTo: exportToSet,
 		}
 	}, opts.WithName("MergedVirtualServices")...)
@@ -378,7 +378,7 @@ func copyDefaultExportToSet(defaultExportTo sets.Set[visibility.Instance], names
 // sortMergedVirtualServicesByCreationTime sorts the list of merged virtual services in ascending order by their creation time (if available)
 func sortMergedVirtualServicesByCreationTime(configs []MergedVirtualService) []MergedVirtualService {
 	slices.SortFunc(configs, func(a, b MergedVirtualService) int {
-		return configCompareByCreationTime(a.Config, b.Config)
+		return configCompareByCreationTime(*a.Config, *b.Config)
 	})
 	return configs
 }
