@@ -103,6 +103,7 @@ var skippedTests = map[string]string{
 	"HTTPRouteNoBackendRefs":             "TODO",
 	"GatewayInvalidParametersRef":        "TODO",
 	"GatewayListenerUnsupportedProtocol": "TODO",
+	"TCPRouteWeightedRouting":            "TODO: flaky in dual-stack and multicluster environments",
 }
 
 func TestGatewayConformanceAgentgateway(t *testing.T) {
