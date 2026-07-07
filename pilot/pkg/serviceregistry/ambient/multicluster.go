@@ -364,12 +364,24 @@ func (a *index) buildGlobalCollections(
 
 			capacity := uint32(0)
 			for _, wl := range i.Objects {
+				if !svc.Clusters.Contains(cluster.ID(wl.Workload.ClusterId)) {
+					// This workload is in a cluster where the service is not marked as global,
+					// so we shouldn't count it.
+					continue
+				}
 				if wl.Workload.GetCapacity().GetValue() == 0 {
 					capacity++
 				} else {
 					capacity += wl.Workload.Capacity.GetValue()
 				}
 			}
+
+			if capacity == 0 {
+				// Didn't find any workloads in clusters where the service is global?
+				// Don't generate the split horizon workload as there is nowhere to route to on the remote network.
+				return nil
+			}
+
 			gws := LookupNetworkGateway(ctx, networkID, GlobalNetworks.GatewaysByNetwork)
 			meshCfg := krt.FetchOne(ctx, a.meshConfig.AsCollection())
 			if meshCfg == nil {
@@ -486,6 +498,9 @@ func (a *index) buildGlobalCollections(
 				if wl.Workload.Network == localNetwork {
 					continue
 				}
+				if !svc.Clusters.Contains(cluster.ID(wl.Workload.ClusterId)) {
+					continue
+				}
 				sans.Insert(spiffe.MustGenSpiffeURI(meshCfg.MeshConfig, wl.Workload.Namespace, wl.Workload.ServiceAccount))
 			}
 			if sans.IsEmpty() {
@@ -498,6 +513,7 @@ func (a *index) buildGlobalCollections(
 				Scope:              svc.Scope,
 				CreationTime:       svc.CreationTime,
 				DNSConnectStrategy: svc.DNSConnectStrategy,
+				Clusters:           svc.Clusters.Copy(),
 			}
 			newSvcInfo.Service.SubjectAltNames = sans.UnsortedList()
 			return precomputeServicePtr(newSvcInfo)
@@ -619,6 +635,8 @@ func networkAddressToSimple(a *workloadapi.NetworkAddress) simpleNetworkAddress 
 	}
 }
 
+// The highlevel merge logic is that we merge all the "global" service infos with whatever is defined in the local cluster.
+// We never merge service entries with anything, because they are special.
 func mergeServiceInfosWithCluster(
 	localClusterID cluster.ID,
 ) func(serviceInfos []krt.ObjectWithCluster[model.ServiceInfo]) *krt.ObjectWithCluster[model.ServiceInfo] {
@@ -628,51 +646,55 @@ func mergeServiceInfosWithCluster(
 			return nil
 		}
 
-		// Precompute the svc info here
-		if svcInfosLen == 1 {
-			obj := serviceInfos[0]
+		// We don't read ServiceEntries from remote clusters, so if we find a service entry it must be from the local
+		// cluster, but it probably will cause less confusion for the reader if we check both cluster name and the
+		// source kind.
+		for _, obj := range serviceInfos {
+			if obj.ClusterID != localClusterID {
+				continue
+			}
+			if obj.Object.Source.Kind != kind.ServiceEntry {
+				continue
+			}
+			// We found a local cluster service entry - skip the merge and just return it as authoritative.
 			return &krt.ObjectWithCluster[model.ServiceInfo]{
 				ClusterID: obj.ClusterID,
 				Object:    precomputeServicePtr(obj.Object),
 			}
 		}
 
-		// If we can't find a local serviceinfo, we just take the first one.
-		base := serviceInfos[0]
+		relevantServiceInfos := make([]krt.ObjectWithCluster[model.ServiceInfo], 0, svcInfosLen)
 		for _, obj := range serviceInfos {
-			if obj.ClusterID == localClusterID {
-				base = obj
-				// If there's a service entry that's considered external to the mesh, we
-				// prioritize that
-				if obj.Object.Source.Kind == kind.ServiceEntry {
-					break
-				}
+			// Never merge service entries. This condition should never be true because we never read remote
+			// cluster service entries, but let's be explicit for now.
+			if obj.Object.Source.Kind == kind.ServiceEntry {
+				continue
 			}
+			// We are interested in local service definitions plus all the service definitions in remote clusters
+			// that are marked as global.
+			if obj.Object.Scope != model.Global && obj.ClusterID != localClusterID {
+				continue
+			}
+
+			relevantServiceInfos = append(relevantServiceInfos, obj)
 		}
 
-		// If we have a locally scoped service
-		if base.Object != nil && base.Object.Scope != model.Global {
-			// and we did not find one in the local cluster, skip it
-			if base.ClusterID != localClusterID {
-				return nil
-			}
-			// otherwise, skip merging
-			return &krt.ObjectWithCluster[model.ServiceInfo]{
-				ClusterID: base.ClusterID,
-				Object:    precomputeServicePtr(base.Object),
-			}
+		if len(relevantServiceInfos) == 0 {
+			return nil
 		}
 
-		vips := sets.NewWithLength[simpleNetworkAddress](svcInfosLen)
-		sans := sets.NewWithLength[string](svcInfosLen)
+		relevantSvcInfosLen := len(relevantServiceInfos)
+		vips := sets.NewWithLength[simpleNetworkAddress](relevantSvcInfosLen)
+		sans := sets.NewWithLength[string](relevantSvcInfosLen)
 		ports := map[portKey]sets.Set[simplePort]{}
+		serviceScope := model.Local
 		workloadPortsToSimplePort := func(p *workloadapi.Port) simplePort {
 			return simplePort{
 				servicePort: p.ServicePort,
 				targetPort:  p.TargetPort,
 			}
 		}
-		for _, obj := range serviceInfos {
+		for _, obj := range relevantServiceInfos {
 			if obj.Object == nil {
 				continue
 			}
@@ -686,8 +708,14 @@ func mergeServiceInfosWithCluster(
 			vips.InsertAll(slices.Map(obj.Object.Service.GetAddresses(), networkAddressToSimple)...)
 			sans.InsertAll(obj.Object.Service.GetSubjectAltNames()...)
 
+			// NOTE: Service scope (global or local) does not make terribly a lot of sense anymore.
+			// However, the scope is checked in a few places after the merge, so I preserve it for now.
+			if obj.Object.Scope == model.Global {
+				serviceScope = model.Global
+			}
 		}
 
+		base := relevantServiceInfos[0]
 		basePorts := sets.New(slices.Map(base.Object.Service.Ports, workloadPortsToSimplePort)...)
 		for source, portSet := range ports {
 			if !basePorts.Equals(portSet) {
@@ -715,10 +743,14 @@ func mergeServiceInfosWithCluster(
 			return na
 		})
 		base.Object.Service.SubjectAltNames = sans.UnsortedList()
+		base.Object.Scope = serviceScope
+		base.Object.Clusters = sets.New(slices.Map(relevantServiceInfos, func(obj krt.ObjectWithCluster[model.ServiceInfo]) cluster.ID {
+			return obj.ClusterID
+		})...)
 
 		// Remember, we have to re-precompute the serviceinfo since we changed it
 		return &krt.ObjectWithCluster[model.ServiceInfo]{
-			ClusterID: base.ClusterID,
+			ClusterID: localClusterID,
 			Object:    precomputeServicePtr(base.Object),
 		}
 	}

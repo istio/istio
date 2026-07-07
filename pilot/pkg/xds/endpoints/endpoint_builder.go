@@ -574,8 +574,8 @@ func (b *EndpointBuilder) filterIstioEndpoint(ep *model.IstioEndpoint) bool {
 	}
 	// If we are in ambient mode, the service is not global and the endpoint is in a different cluster
 	// we filter it out.
-	if b.serviceInfo != nil && b.serviceInfo.Scope != model.Global && b.clusterID != ep.Locality.ClusterID {
-		return false
+	if b.serviceInfo != nil && b.serviceInfo.Scope == model.Global {
+		return b.serviceInfo.Clusters.Contains(ep.Locality.ClusterID)
 	}
 
 	return true

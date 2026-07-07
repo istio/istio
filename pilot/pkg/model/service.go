@@ -1179,6 +1179,8 @@ type ServiceInfo struct {
 	// CreationTime is the time when the service was created. Note this is used internally only
 	// for conflict resolution.
 	CreationTime time.Time
+	// List of clusters where this service is present.
+	Clusters sets.Set[cluster.ID]
 }
 
 func (i ServiceInfo) GetLabelSelector() map[string]string {
