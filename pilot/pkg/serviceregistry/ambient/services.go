@@ -71,7 +71,7 @@ func (a Builder) ServicesCollection(
 			}),
 		)...)
 
-	ServiceEntriesInfo := krt.NewManyCollection(serviceEntries, a.serviceEntryServiceBuilder(waypoints, namespaces),
+	ServiceEntriesInfo := krt.NewManyCollection(serviceEntries, a.serviceEntryServiceBuilder(waypoints, namespaces, meshConfig),
 		append(
 			opts.WithName("ServiceEntriesInfo"),
 			krt.WithMetadata(krt.Metadata{
@@ -120,6 +120,10 @@ func (a Builder) ServicesCollection(
 					bestByNamespace[tsiNamespace] = tsi.ServiceInfo
 				} else {
 					// if we are not the best for our namespace, then we don't need to worry about being canonical
+					continue
+				}
+				// namespace visibility should not take canonical
+				if tsi.Service.GetVisibility() == workloadapi.Service_NAMESPACE {
 					continue
 				}
 				if canonical == nil || isBetter(tsi.ServiceInfo, *canonical) {
@@ -420,6 +424,79 @@ func matchServiceScope(ctx krt.HandlerContext, meshCfg *MeshConfig, namespaces k
 	return model.Local
 }
 
+// visibilityInput carries everything a serviceEntryVisibility MatchRule may need to
+// evaluate. Bundling the source ServiceEntry, the per-host translated Service, and the
+// namespace labels means adding a future matcher (e.g. hostnameSuffix, addressInCidr) is a
+// new case in visibilityRuleMatches, not a signature change.
+type visibilityInput struct {
+	se       *networkingclient.ServiceEntry
+	svc      *workloadapi.Service
+	nsLabels labels.Set
+}
+
+// serviceEntryVisibility resolves the WDS visibility for a single ServiceEntry-derived
+// service by evaluating the mesh's serviceEntryVisibility policies: the first policy whose
+// rules all match wins, otherwise defaultVisibility applies. It returns nil when the
+// service should not be published at all (NONE). When serviceEntryVisibility is unset,
+// services are PUBLIC, preserving legacy behavior.
+func serviceEntryVisibility(meshCfg *MeshConfig, in visibilityInput) *workloadapi.Service_Visibility {
+	if meshCfg == nil || meshCfg.GetServiceEntryVisibility() == nil {
+		return ptr.Of(workloadapi.Service_PUBLIC)
+	}
+	sev := meshCfg.GetServiceEntryVisibility()
+	resolved := sev.GetDefaultVisibility()
+	for _, policy := range sev.GetPolicies() {
+		if visibilityPolicyMatches(policy, in) {
+			resolved = policy.GetVisibility()
+			break
+		}
+	}
+	return toWDSVisibility(resolved)
+}
+
+// visibilityPolicyMatches reports whether all of a policy's rules match (AND semantics).
+// An empty rule list matches everything, making the policy a catch-all.
+func visibilityPolicyMatches(policy *meshapi.ServiceEntryVisibility_Policy, in visibilityInput) bool {
+	for _, rule := range policy.GetMatchingRules() {
+		if !visibilityRuleMatches(rule, in) {
+			return false
+		}
+	}
+	return true
+}
+
+// visibilityRuleMatches evaluates a single matcher against the feature it concerns. Only
+// namespaceSelector is implemented today; future matchers read in.svc (hostname, addresses)
+// or in.se.Spec (declared addresses) without changing the input shape.
+func visibilityRuleMatches(rule *meshapi.ServiceEntryVisibility_MatchRule, in visibilityInput) bool {
+	switch rule.GetMatcher().(type) {
+	case *meshapi.ServiceEntryVisibility_MatchRule_NamespaceSelector:
+		sel, err := LabelSelectorAsSelector(rule.GetNamespaceSelector())
+		if err != nil {
+			log.Warnf("failed to convert serviceEntryVisibility namespace selector: %v", err)
+			return false
+		}
+		return sel.Matches(in.nsLabels)
+	default:
+		// Unknown or unset matcher does not match.
+		return false
+	}
+}
+
+// toWDSVisibility maps a MeshConfig visibility to the WDS Service visibility, returning nil
+// when the service should not be published (NONE).
+func toWDSVisibility(v meshapi.ServiceEntryVisibility_Visibility) *workloadapi.Service_Visibility {
+	switch v {
+	case meshapi.ServiceEntryVisibility_NAMESPACE:
+		return ptr.Of(workloadapi.Service_NAMESPACE)
+	case meshapi.ServiceEntryVisibility_NONE:
+		return nil
+	default:
+		// PUBLIC and VISIBILITY_UNSPECIFIED both resolve to PUBLIC (legacy behavior).
+		return ptr.Of(workloadapi.Service_PUBLIC)
+	}
+}
+
 func (a Builder) serviceServiceBuilder(
 	waypoints krt.Collection[Waypoint],
 	namespaces krt.Collection[*v1.Namespace],
@@ -462,6 +539,7 @@ func (t TypedServiceInfo) Equals(other TypedServiceInfo) bool {
 func (a Builder) serviceEntryServiceBuilder(
 	waypoints krt.Collection[Waypoint],
 	namespaces krt.Collection[*v1.Namespace],
+	meshConfig krt.Singleton[MeshConfig],
 ) krt.TransformationMulti[*networkingclient.ServiceEntry, TypedServiceInfo] {
 	return func(ctx krt.HandlerContext, s *networkingclient.ServiceEntry) []TypedServiceInfo {
 		waypoint, waypointError := fetchWaypointForService(ctx, waypoints, namespaces, s.ObjectMeta)
@@ -474,7 +552,10 @@ func (a Builder) serviceEntryServiceBuilder(
 			nsLabels = (*ns).Labels
 		}
 
-		serviceInfos := serviceEntriesInfo(ctx, s, waypoints, namespaces, waypoint, waypointError, nsAnnotations, nsLabels, a.Networks.FetchLocalNetworkID)
+		serviceInfos := serviceEntriesInfo(
+			ctx, s, waypoints, namespaces, waypoint, waypointError,
+			nsAnnotations, nsLabels, meshConfig, a.Networks.FetchLocalNetworkID,
+		)
 		return slices.Map(serviceInfos, func(si model.ServiceInfo) TypedServiceInfo {
 			return TypedServiceInfo{ServiceInfo: si}
 		})
@@ -490,6 +571,7 @@ func serviceEntriesInfo(
 	wperr *model.StatusMessage,
 	nsAnnotations map[string]string,
 	nsLabels map[string]string,
+	meshConfig krt.Singleton[MeshConfig],
 	networkGetter func(ctx krt.HandlerContext) network.ID,
 ) []model.ServiceInfo {
 	sel := model.NewSelector(s.Spec.GetWorkloadSelector().GetLabels())
@@ -516,10 +598,22 @@ func serviceEntriesInfo(
 
 	weighted := buildWeightedWaypoints(ctx, waypoints, namespaces, s.ObjectMeta, w, &waypoint)
 
-	return slices.Map(constructServiceEntries(ctx, s, w, nsAnnotations, networkGetter), func(e *workloadapi.Service) model.ServiceInfo {
+	meshCfg := krt.FetchOne(ctx, meshConfig.AsCollection())
+	services := constructServiceEntries(ctx, s, w, nsAnnotations, networkGetter)
+	result := make([]model.ServiceInfo, 0, len(services))
+	for _, e := range services {
+		// Resolve visibility per host from the mesh's serviceEntryVisibility policies.
+		// A nil result means NONE: the ServiceEntry may be written, but Istio configures no
+		// dataplane for this host, so it is not published to WDS.
+		visibility := serviceEntryVisibility(meshCfg, visibilityInput{se: s, svc: e, nsLabels: labels.Set(nsLabels)})
+		if visibility == nil {
+			log.Debugf("ServiceEntry %s/%s host %s resolves to visibility NONE; not configuring", s.Namespace, s.Name, e.Hostname)
+			continue
+		}
+		e.Visibility = *visibility
 		e.IngressUseWaypoint = waypoint.IngressUseWaypoint
 		e.WeightedWaypoints = weighted
-		return precomputeService(model.ServiceInfo{
+		result = append(result, precomputeService(model.ServiceInfo{
 			Service:            e,
 			PortNames:          portNames,
 			LabelSelector:      sel,
@@ -527,8 +621,9 @@ func serviceEntriesInfo(
 			Waypoint:           waypoint,
 			DNSConnectStrategy: model.GetDNSConnectStrategy(s.Annotations),
 			CreationTime:       s.CreationTimestamp.Time,
-		})
-	})
+		}))
+	}
+	return result
 }
 
 func constructServiceEntries(

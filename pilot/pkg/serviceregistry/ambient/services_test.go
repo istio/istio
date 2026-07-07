@@ -951,6 +951,248 @@ func TestServiceEntryServices(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "ServiceEntry visibility NAMESPACE via namespaceSelector",
+			inputs: []any{
+				ns,
+				meshwatcher.MeshConfigResource{MeshConfig: &meshConfig.MeshConfig{
+					ServiceEntryVisibility: &meshConfig.ServiceEntryVisibility{
+						DefaultVisibility: meshConfig.ServiceEntryVisibility_PUBLIC,
+						Policies: []*meshConfig.ServiceEntryVisibility_Policy{{
+							Visibility: meshConfig.ServiceEntryVisibility_NAMESPACE,
+							MatchingRules: []*meshConfig.ServiceEntryVisibility_MatchRule{{
+								Matcher: &meshConfig.ServiceEntryVisibility_MatchRule_NamespaceSelector{
+									NamespaceSelector: &meshConfig.LabelSelector{
+										MatchLabels: map[string]string{v1.LabelMetadataName: "ns"},
+									},
+								},
+							}},
+						}},
+					},
+				}},
+			},
+			se: &networkingclient.ServiceEntry{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "vis-namespace-se",
+					Namespace: "ns",
+				},
+				Spec: networking.ServiceEntry{
+					Addresses:  []string{"1.2.3.4/32"},
+					Hosts:      []string{"nslocal.example.com"},
+					Ports:      []*networking.ServicePort{{Number: 80, Name: "http", Protocol: "HTTP"}},
+					Resolution: networking.ServiceEntry_DNS,
+				},
+			},
+			result: []*workloadapi.Service{
+				{
+					Name:      "vis-namespace-se",
+					Namespace: "ns",
+					Hostname:  "nslocal.example.com",
+					Addresses: []*workloadapi.NetworkAddress{{
+						Network: testNW,
+						Address: netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice(),
+					}},
+					Ports: []*workloadapi.Port{{
+						ServicePort: 80,
+						TargetPort:  80,
+						AppProtocol: workloadapi.AppProtocol_HTTP11,
+					}},
+					Visibility: workloadapi.Service_NAMESPACE,
+				},
+			},
+		},
+		{
+			name: "ServiceEntry visibility NONE is dropped",
+			inputs: []any{
+				ns,
+				meshwatcher.MeshConfigResource{MeshConfig: &meshConfig.MeshConfig{
+					ServiceEntryVisibility: &meshConfig.ServiceEntryVisibility{
+						DefaultVisibility: meshConfig.ServiceEntryVisibility_NONE,
+					},
+				}},
+			},
+			se: &networkingclient.ServiceEntry{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "vis-none-se",
+					Namespace: "ns",
+				},
+				Spec: networking.ServiceEntry{
+					Addresses:  []string{"1.2.3.4/32"},
+					Hosts:      []string{"dropped.example.com"},
+					Ports:      []*networking.ServicePort{{Number: 80, Name: "http", Protocol: "HTTP"}},
+					Resolution: networking.ServiceEntry_DNS,
+				},
+			},
+			result: []*workloadapi.Service{},
+		},
+		{
+			name: "ServiceEntry falls back to defaultVisibility NAMESPACE when no policy matches",
+			inputs: []any{
+				ns,
+				meshwatcher.MeshConfigResource{MeshConfig: &meshConfig.MeshConfig{
+					ServiceEntryVisibility: &meshConfig.ServiceEntryVisibility{
+						DefaultVisibility: meshConfig.ServiceEntryVisibility_NAMESPACE,
+						Policies: []*meshConfig.ServiceEntryVisibility_Policy{{
+							Visibility: meshConfig.ServiceEntryVisibility_PUBLIC,
+							MatchingRules: []*meshConfig.ServiceEntryVisibility_MatchRule{{
+								Matcher: &meshConfig.ServiceEntryVisibility_MatchRule_NamespaceSelector{
+									NamespaceSelector: &meshConfig.LabelSelector{
+										// Selects a different namespace, so this policy does not match.
+										MatchLabels: map[string]string{v1.LabelMetadataName: "other"},
+									},
+								},
+							}},
+						}},
+					},
+				}},
+			},
+			se: &networkingclient.ServiceEntry{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "vis-default-ns-se",
+					Namespace: "ns",
+				},
+				Spec: networking.ServiceEntry{
+					Addresses:  []string{"1.2.3.4/32"},
+					Hosts:      []string{"defaultns.example.com"},
+					Ports:      []*networking.ServicePort{{Number: 80, Name: "http", Protocol: "HTTP"}},
+					Resolution: networking.ServiceEntry_DNS,
+				},
+			},
+			result: []*workloadapi.Service{
+				{
+					Name:      "vis-default-ns-se",
+					Namespace: "ns",
+					Hostname:  "defaultns.example.com",
+					Addresses: []*workloadapi.NetworkAddress{{
+						Network: testNW,
+						Address: netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice(),
+					}},
+					Ports: []*workloadapi.Port{{
+						ServicePort: 80,
+						TargetPort:  80,
+						AppProtocol: workloadapi.AppProtocol_HTTP11,
+					}},
+					Visibility: workloadapi.Service_NAMESPACE,
+				},
+			},
+		},
+		{
+			// Two policies both match the SE's namespace. First-match-wins means the earlier
+			// NAMESPACE policy applies; if ordering were broken (last-wins/most-restrictive),
+			// the later NONE policy would instead drop the service and this test would fail.
+			name: "ServiceEntry visibility uses the first matching policy in order",
+			inputs: []any{
+				ns,
+				meshwatcher.MeshConfigResource{MeshConfig: &meshConfig.MeshConfig{
+					ServiceEntryVisibility: &meshConfig.ServiceEntryVisibility{
+						DefaultVisibility: meshConfig.ServiceEntryVisibility_PUBLIC,
+						Policies: []*meshConfig.ServiceEntryVisibility_Policy{
+							{
+								Visibility: meshConfig.ServiceEntryVisibility_NAMESPACE,
+								MatchingRules: []*meshConfig.ServiceEntryVisibility_MatchRule{{
+									Matcher: &meshConfig.ServiceEntryVisibility_MatchRule_NamespaceSelector{
+										NamespaceSelector: &meshConfig.LabelSelector{
+											MatchLabels: map[string]string{v1.LabelMetadataName: "ns"},
+										},
+									},
+								}},
+							},
+							{
+								Visibility: meshConfig.ServiceEntryVisibility_NONE,
+								MatchingRules: []*meshConfig.ServiceEntryVisibility_MatchRule{{
+									Matcher: &meshConfig.ServiceEntryVisibility_MatchRule_NamespaceSelector{
+										NamespaceSelector: &meshConfig.LabelSelector{
+											MatchLabels: map[string]string{v1.LabelMetadataName: "ns"},
+										},
+									},
+								}},
+							},
+						},
+					},
+				}},
+			},
+			se: &networkingclient.ServiceEntry{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "vis-ordering-se",
+					Namespace: "ns",
+				},
+				Spec: networking.ServiceEntry{
+					Addresses:  []string{"1.2.3.4/32"},
+					Hosts:      []string{"ordered.example.com"},
+					Ports:      []*networking.ServicePort{{Number: 80, Name: "http", Protocol: "HTTP"}},
+					Resolution: networking.ServiceEntry_DNS,
+				},
+			},
+			result: []*workloadapi.Service{
+				{
+					Name:      "vis-ordering-se",
+					Namespace: "ns",
+					Hostname:  "ordered.example.com",
+					Addresses: []*workloadapi.NetworkAddress{{
+						Network: testNW,
+						Address: netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice(),
+					}},
+					Ports: []*workloadapi.Port{{
+						ServicePort: 80,
+						TargetPort:  80,
+						AppProtocol: workloadapi.AppProtocol_HTTP11,
+					}},
+					Visibility: workloadapi.Service_NAMESPACE,
+				},
+			},
+		},
+		{
+			// An empty namespaceSelector matches every namespace. Redundant with
+			// defaultVisibility in practice, but it is expressible, so confirm it always
+			// matches: the NAMESPACE policy applies rather than falling through to the
+			// PUBLIC default.
+			name: "ServiceEntry visibility empty namespaceSelector matches all namespaces",
+			inputs: []any{
+				ns,
+				meshwatcher.MeshConfigResource{MeshConfig: &meshConfig.MeshConfig{
+					ServiceEntryVisibility: &meshConfig.ServiceEntryVisibility{
+						DefaultVisibility: meshConfig.ServiceEntryVisibility_PUBLIC,
+						Policies: []*meshConfig.ServiceEntryVisibility_Policy{{
+							Visibility: meshConfig.ServiceEntryVisibility_NAMESPACE,
+							MatchingRules: []*meshConfig.ServiceEntryVisibility_MatchRule{{
+								Matcher: &meshConfig.ServiceEntryVisibility_MatchRule_NamespaceSelector{
+									NamespaceSelector: &meshConfig.LabelSelector{},
+								},
+							}},
+						}},
+					},
+				}},
+			},
+			se: &networkingclient.ServiceEntry{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "vis-empty-selector-se",
+					Namespace: "ns",
+				},
+				Spec: networking.ServiceEntry{
+					Addresses:  []string{"1.2.3.4/32"},
+					Hosts:      []string{"emptysel.example.com"},
+					Ports:      []*networking.ServicePort{{Number: 80, Name: "http", Protocol: "HTTP"}},
+					Resolution: networking.ServiceEntry_DNS,
+				},
+			},
+			result: []*workloadapi.Service{
+				{
+					Name:      "vis-empty-selector-se",
+					Namespace: "ns",
+					Hostname:  "emptysel.example.com",
+					Addresses: []*workloadapi.NetworkAddress{{
+						Network: testNW,
+						Address: netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice(),
+					}},
+					Ports: []*workloadapi.Port{{
+						ServicePort: 80,
+						TargetPort:  80,
+						AppProtocol: workloadapi.AppProtocol_HTTP11,
+					}},
+					Visibility: workloadapi.Service_NAMESPACE,
+				},
+			},
+		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
@@ -959,6 +1201,7 @@ func TestServiceEntryServices(t *testing.T) {
 			builder := a.serviceEntryServiceBuilder(
 				krttest.GetMockCollection[Waypoint](mock),
 				krttest.GetMockCollection[*v1.Namespace](mock),
+				krttest.GetMockSingleton[MeshConfig](mock),
 			)
 			wrapper := builder(krt.TestingDummyContext{}, tt.se)
 			res := slices.Map(wrapper, func(e TypedServiceInfo) *workloadapi.Service {

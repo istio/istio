@@ -519,6 +519,21 @@ func TestAmbientIndex_ServiceOverlap(t *testing.T) {
 		s.assertCanonicalService(t, "svc1.ns1.svc.company.com", "se-2")
 		s.assertNoEvent(t)
 	})
+
+	t.Run("namespace-scoped serviceentry is not canonical", func(t *testing.T) {
+		s := newAmbientTestServer(t, testC, testNW, "")
+		// Scope every ServiceEntry to its own namespace.
+		s.meshConfig.Mesh().ServiceEntryVisibility = &v1alpha1.ServiceEntryVisibility{
+			DefaultVisibility: v1alpha1.ServiceEntryVisibility_NAMESPACE,
+		}
+
+		// The SE is still published (present in the registry)...
+		addServiceEntry(s, 1, "foo.com", testNS)
+		s.assertAddresses(t, testNW+"/10.255.0.1", "se-1")
+		// ...but a NAMESPACE-scoped service must never be promoted to the canonical
+		// cross-namespace service for its hostname (want == "" => no canonical service).
+		s.assertCanonicalService(t, "foo.com", "")
+	})
 }
 
 func TestAmbientIndex_ServiceAttachedWaypoints(t *testing.T) {
