@@ -794,7 +794,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	// OpenMetrics — the multi-target loop below strips and reappends a single
 	// "# EOF" terminator for the OM case, and the single-target branch writes
 	// the app body last so its own "# EOF" terminates the response.
-	if err = scrapeAndWriteAgentMetrics(s.registry, io.Writer(w), outFormat); err != nil {
+	if err = scrapeAndWriteAgentMetrics(s.registry, io.Writer(w)); err != nil {
 		log.Errorf("failed scraping and writing agent metrics: %v", err)
 		metrics.AgentScrapeErrors.Increment()
 	}
@@ -1230,12 +1230,23 @@ func decodeAll(body io.Reader, format expfmt.Format) ([]*dto.MetricFamily, error
 	}
 }
 
-func scrapeAndWriteAgentMetrics(registry prometheus.Gatherer, w io.Writer, format expfmt.Format) error {
+// scrapeAndWriteAgentMetrics writes the agent's own self-metrics as the first
+// chunk of the byte-concatenation fast path. It always encodes as plain text.
+//
+// This chunk is followed by the Envoy and application bodies, so it must not be
+// a self-contained document. The OpenMetrics encoder requires a closing "# EOF"
+// marker to be a valid document (expfmt's encoder emits it on Close), and
+// writing that terminator here would place it mid-stream and corrupt the merged
+// response. Plain text has no such terminator; the response is terminated
+// correctly by the application body, which is written last. Proto and
+// OpenMetrics output never flow through this function — the parse-and-re-encode
+// path (writeMergedProtoPath) gathers and encodes the agent registry itself.
+func scrapeAndWriteAgentMetrics(registry prometheus.Gatherer, w io.Writer) error {
 	mfs, err := registry.Gather()
 	if err != nil {
 		return err
 	}
-	enc := expfmt.NewEncoder(w, format)
+	enc := expfmt.NewEncoder(w, FmtText)
 	for _, mf := range mfs {
 		if err := enc.Encode(mf); err != nil {
 			return err

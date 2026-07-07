@@ -198,24 +198,39 @@ func TestMergeFormat(t *testing.T) {
 	}
 }
 
-// TestScrapeAndWriteAgentMetrics_Protobuf round-trips agent self-metrics through
-// the proto encoder and decoder. The recovered MetricFamily set must be non-empty,
-// proving that the format parameter (rather than the historical hardcoded FmtText)
-// is honored.
-func TestScrapeAndWriteAgentMetrics_Protobuf(t *testing.T) {
+// TestScrapeAndWriteAgentMetrics_Text asserts agent self-metrics are always
+// written as plain text. This chunk is the first written on the byte-concat fast
+// path, ahead of the Envoy and application bodies, so it must not carry an
+// OpenMetrics "# EOF" terminator (which would land mid-stream and corrupt the
+// merged response). The output must also decode as valid Prometheus text.
+func TestScrapeAndWriteAgentMetrics_Text(t *testing.T) {
 	registry := TestingRegistry(t)
 
 	var buf bytes.Buffer
-	if err := scrapeAndWriteAgentMetrics(registry, &buf, FmtProtoDelim); err != nil {
+	if err := scrapeAndWriteAgentMetrics(registry, &buf); err != nil {
 		t.Fatalf("scrapeAndWriteAgentMetrics: %v", err)
 	}
 	if buf.Len() == 0 {
-		t.Fatal("expected non-empty proto output from agent metrics")
+		t.Fatal("expected non-empty text output from agent metrics")
+	}
+	if strings.Contains(buf.String(), "# EOF") {
+		t.Fatalf("agent metrics chunk must not contain an OpenMetrics # EOF terminator:\n%s", buf.String())
 	}
 
-	mfs := decodeProtoFamilies(t, buf.Bytes())
-	if len(mfs) == 0 {
-		t.Fatal("expected at least one MetricFamily decoded from agent metrics proto stream")
+	dec := expfmt.NewDecoder(bytes.NewReader(buf.Bytes()), FmtText)
+	var count int
+	for {
+		var mf dto.MetricFamily
+		if err := dec.Decode(&mf); err != nil {
+			if err == io.EOF {
+				break
+			}
+			t.Fatalf("agent metrics did not decode as valid Prometheus text: %v", err)
+		}
+		count++
+	}
+	if count == 0 {
+		t.Fatal("expected at least one MetricFamily decoded from agent metrics text stream")
 	}
 }
 
