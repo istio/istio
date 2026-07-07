@@ -1144,6 +1144,15 @@ type ServiceWaypointInfo struct {
 	Service            *workloadapi.Service
 	IngressUseWaypoint bool
 	WaypointHostname   string
+	// WeightedWaypoints is set only for canary waypoint routing; otherwise use WaypointHostname.
+	WeightedWaypoints []WeightedWaypointHostname
+}
+
+// WeightedWaypointHostname is a resolved waypoint plus its relative traffic weight.
+type WeightedWaypointHostname struct {
+	Hostname      string
+	HboneMtlsPort uint32
+	Weight        uint32
 }
 
 type TypedObject struct {

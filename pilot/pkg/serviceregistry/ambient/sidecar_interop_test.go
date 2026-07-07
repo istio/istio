@@ -102,3 +102,63 @@ func TestWaypointInterop(t *testing.T) {
 		})
 	}
 }
+
+// TestWaypointInteropCanary verifies canary waypoint pod changes trigger EDS for the bound service.
+func TestWaypointInteropCanary(t *testing.T) {
+	s := newAmbientTestServer(t, testC, testNW, "")
+	addressUpdate := s.svcXdsName
+	edsUpdate := s.hostnameForService
+
+	// Primary and canary waypoint services (IP based), no pods yet.
+	s.addWaypointSpecificAddress(t, "10.0.0.1", "", "wp-primary", constants.AllTraffic, true)
+	s.addService(t, "wp-primary",
+		map[string]string{},
+		map[string]string{},
+		[]int32{80}, map[string]string{"app": "primary"}, "10.0.0.1")
+	s.assertEvent(t, addressUpdate("wp-primary"))
+	s.addWaypointSpecificAddress(t, "10.0.0.3", "", "wp-canary", constants.AllTraffic, true)
+	s.addService(t, "wp-canary",
+		map[string]string{},
+		map[string]string{},
+		[]int32{80}, map[string]string{"app": "canary"}, "10.0.0.3")
+	s.assertEvent(t, addressUpdate("wp-canary"))
+
+	// Bind svc1 to the primary waypoint with a weighted canary.
+	s.addService(t, "svc1",
+		map[string]string{
+			label.IoIstioUseWaypoint.Name:   "wp-primary",
+			useWaypointCanaryLabel:          "wp-canary",
+			"istio.io/ingress-use-waypoint": "true",
+		},
+		map[string]string{useWaypointCanaryWeightAnno: "20"},
+		[]int32{80}, map[string]string{"app": "a"}, "10.0.0.2")
+	s.assertEvent(t, addressUpdate("svc1"), edsUpdate("svc1"))
+
+	// The weighted set should resolve to both waypoints.
+	assert.EventuallyEqual(t, func() int {
+		got := s.ServicesWithWaypoint(s.svcXdsName("svc1"))
+		if len(got) == 0 {
+			return 0
+		}
+		return len(got[0].WeightedWaypoints)
+	}, 2)
+
+	// Primary waypoint pod changes still push EDS for svc1.
+	s.addPods(t, "127.0.0.10", "primary-pod", "primary-sa", map[string]string{"app": "primary"}, nil, true, corev1.PodRunning)
+	s.assertEvent(t, s.podXdsName("primary-pod"), edsUpdate("svc1"))
+
+	// Canary waypoint pod changes must also push EDS for svc1.
+	s.addPods(t, "127.0.0.11", "canary-pod", "canary-sa", map[string]string{"app": "canary"}, nil, true, corev1.PodRunning)
+	s.assertEvent(t, s.podXdsName("canary-pod"), edsUpdate("svc1"))
+
+	// A weight change must push EDS for svc1.
+	s.addService(t, "svc1",
+		map[string]string{
+			label.IoIstioUseWaypoint.Name:   "wp-primary",
+			useWaypointCanaryLabel:          "wp-canary",
+			"istio.io/ingress-use-waypoint": "true",
+		},
+		map[string]string{useWaypointCanaryWeightAnno: "50"},
+		[]int32{80}, map[string]string{"app": "a"}, "10.0.0.2")
+	s.assertEvent(t, addressUpdate("svc1"), edsUpdate("svc1"))
+}

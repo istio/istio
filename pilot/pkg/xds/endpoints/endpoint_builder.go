@@ -927,18 +927,59 @@ func (b *EndpointBuilder) findServiceWaypoint(endpointIndex *model.EndpointIndex
 	if !svc.IngressUseWaypoint && !isEastWestGateway(b.proxy) {
 		return nil, false
 	}
+	// Weighted waypoints override the single primary waypoint for gateway endpoint generation.
+	if len(svc.WeightedWaypoints) > 0 {
+		return b.weightedWaypointEndpoints(svc, endpointIndex)
+	}
+	eps := b.waypointEndpoints(svc.WaypointHostname, int(svc.Service.GetWaypoint().GetHboneMtlsPort()), endpointIndex)
+	return eps, true
+}
+
+// waypointEndpoints returns the endpoints of a waypoint's HBONE port.
+func (b *EndpointBuilder) waypointEndpoints(hostname string, port int, endpointIndex *model.EndpointIndex) []*model.IstioEndpoint {
 	waypointClusterName := model.BuildSubsetKey(
 		model.TrafficDirectionOutbound,
 		"",
-		host.Name(svc.WaypointHostname),
-		int(svc.Service.GetWaypoint().GetHboneMtlsPort()),
+		host.Name(hostname),
+		port,
 	)
 	endpointBuilder := NewEndpointBuilder(waypointClusterName, b.proxy, b.push)
-	waypointEndpoints, _ := endpointBuilder.snapshotEndpointsForPort(endpointIndex)
-	return waypointEndpoints, true
+	eps, _ := endpointBuilder.snapshotEndpointsForPort(endpointIndex)
+	return eps
 }
 
-func (b *EndpointBuilder) snapshotEndpointsForPort(endpointIndex *model.EndpointIndex) ([]*model.IstioEndpoint, bool) {
+// weightedWaypointEndpoints scales endpoint weights so each waypoint gets its configured share.
+func (b *EndpointBuilder) weightedWaypointEndpoints(
+	svc model.ServiceWaypointInfo,
+	endpointIndex *model.EndpointIndex,
+) ([]*model.IstioEndpoint, bool) {
+	// Scale factor keeps the per-endpoint integer weights precise after dividing by the pod count.
+	const weightScale = 10000
+	var out []*model.IstioEndpoint
+	for _, ww := range svc.WeightedWaypoints {
+		if ww.Weight == 0 {
+			// Resolved but receives no traffic.
+			continue
+		}
+		eps := b.waypointEndpoints(ww.Hostname, int(ww.HboneMtlsPort), endpointIndex)
+		if len(eps) == 0 {
+			continue
+		}
+		perEndpoint := ww.Weight * weightScale / uint32(len(eps))
+		if perEndpoint == 0 {
+			perEndpoint = 1
+		}
+		for _, ep := range eps {
+			c := ep.ShallowCopy()
+			c.LbWeight = perEndpoint
+			out = append(out, c)
+		}
+	}
+	// Once weighted waypoints are configured, fail closed instead of falling back to direct endpoints.
+	return out, true
+}
+
+func (b *EndpointBuilder) snapshotEndpointsForPort(endpointIndex *model.EndpointIndex) ([]*model.IstioEndpoint, bool) { //nolint:unparam
 	svcPort := b.servicePort(b.port)
 	if svcPort == nil {
 		return nil, false

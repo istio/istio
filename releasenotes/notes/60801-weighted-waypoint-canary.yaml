@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - https://github.com/istio/istio/issues/60801
+releaseNotes:
+- |
+  **Added** support for weighted waypoint canaries in ambient mode. A service (or namespace) can now
+  reference a primary and a weighted canary waypoint via the `istio.io/use-waypoint-canary`,
+  `istio.io/use-waypoint-canary-namespace`, and `istio.io/use-waypoint-canary-weight` labels/annotation,
+  shifting a configurable percentage of its traffic to the canary waypoint without any client changes.

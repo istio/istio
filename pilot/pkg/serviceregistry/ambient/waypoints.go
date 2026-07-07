@@ -220,6 +220,103 @@ func (w Waypoint) ResourceName() string {
 	return w.GetNamespace() + "/" + w.GetName()
 }
 
+// Canary waypoint attribute keys. These are hardcoded here temporarily until the canonical
+// constants land in istio/api via https://github.com/istio/api/pull/3735. Once that PR merges and
+// the istio.io/api dependency is bumped, replace these with the generated constants:
+//
+//	useWaypointCanaryLabel          -> label.IoIstioUseWaypointCanary.Name
+//	useWaypointCanaryNamespaceLabel -> label.IoIstioUseWaypointCanaryNamespace.Name
+//	useWaypointCanaryWeightAnno     -> annotation.IoIstioUseWaypointCanaryWeight.Name
+const (
+	useWaypointCanaryLabel          = "istio.io/use-waypoint-canary"
+	useWaypointCanaryNamespaceLabel = "istio.io/use-waypoint-canary-namespace"
+	useWaypointCanaryWeightAnno     = "istio.io/use-waypoint-canary-weight"
+)
+
+// getUseWaypointCanary parses the optional canary waypoint reference.
+func getUseWaypointCanary(meta metav1.ObjectMeta, defaultNamespace string) *krt.Named {
+	labelValue, ok := meta.Labels[useWaypointCanaryLabel]
+	if !ok || labelValue == "" || labelValue == "none" {
+		return nil
+	}
+	namespace := defaultNamespace
+	if override, f := meta.Labels[useWaypointCanaryNamespaceLabel]; f {
+		namespace = override
+	}
+	return &krt.Named{Name: labelValue, Namespace: namespace}
+}
+
+// getCanaryWeight parses the canary weight annotation. Missing means 0%.
+func getCanaryWeight(meta metav1.ObjectMeta) (weight uint32, valid bool) {
+	v, ok := meta.Annotations[useWaypointCanaryWeightAnno]
+	if !ok {
+		return 0, true
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil || n < 0 || n > 100 {
+		return 0, false
+	}
+	return uint32(n), true
+}
+
+// resolveCanaryWaypoint applies the primary waypoint attachment and traffic-type checks.
+func resolveCanaryWaypoint(
+	ctx krt.HandlerContext,
+	waypoints krt.Collection[Waypoint],
+	namespaces krt.Collection[*v1.Namespace],
+	fallbackNamespace string,
+	named *krt.Named,
+) (*Waypoint, *model.StatusMessage) {
+	w := krt.FetchOne[Waypoint](ctx, waypoints, krt.FilterKey(named.ResourceName()))
+	if w == nil {
+		return nil, ReportWaypointIsNotReady(named.ResourceName())
+	}
+	if !w.AllowsAttachmentFromNamespaceOrLookup(ctx, namespaces, fallbackNamespace) {
+		return nil, ReportWaypointAttachmentDenied(w.ResourceName())
+	}
+	if w.TrafficType != constants.ServiceTraffic && w.TrafficType != constants.AllTraffic {
+		return nil, ReportWaypointUnsupportedTrafficType(w.ResourceName(), constants.ServiceTraffic)
+	}
+	return w, nil
+}
+
+// buildWeightedWaypoints returns [{primary, 100-weight}, {canary, weight}] for a valid canary.
+// Canary errors are reported on the binding status and fall back to the primary waypoint.
+func buildWeightedWaypoints(
+	ctx krt.HandlerContext,
+	waypoints krt.Collection[Waypoint],
+	namespaces krt.Collection[*v1.Namespace],
+	o metav1.ObjectMeta,
+	primary *Waypoint,
+	status *model.WaypointBindingStatus,
+) []*workloadapi.WeightedWaypoint {
+	if primary == nil || status.Error != nil {
+		return nil
+	}
+	named := getUseWaypointCanary(o, o.Namespace)
+	if named == nil {
+		return nil
+	}
+	if named.ResourceName() == primary.ResourceName() {
+		status.Error = ReportWaypointCanarySameAsPrimary(named.ResourceName())
+		return nil
+	}
+	weight, ok := getCanaryWeight(o)
+	if !ok {
+		status.Error = ReportWaypointCanaryInvalidWeight(named.ResourceName())
+		return nil
+	}
+	canary, cerr := resolveCanaryWaypoint(ctx, waypoints, namespaces, o.Namespace, named)
+	if cerr != nil {
+		status.Error = cerr
+		return nil
+	}
+	return []*workloadapi.WeightedWaypoint{
+		{Destination: primary.GetAddress(), Weight: 100 - weight},
+		{Destination: canary.GetAddress(), Weight: weight},
+	}
+}
+
 func gatewayToWaypointTransform(
 	pods krt.Collection[*v1.Pod],
 	gatewayClasses krt.Collection[*gatewayv1.GatewayClass],

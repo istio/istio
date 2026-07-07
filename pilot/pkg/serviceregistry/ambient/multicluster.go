@@ -522,40 +522,14 @@ func (a *index) buildGlobalCollections(
 		if s.LabelSelector.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel {
 			return nil
 		}
-		waypoint := s.Service.Waypoint
-		if waypoint == nil {
-			return nil
-		}
-		waypointAddress := waypoint.GetHostname()
-		if waypointAddress == nil {
-			return nil
-		}
-
-		return []NamespaceHostname{{
-			Namespace: waypointAddress.Namespace,
-			Hostname:  waypointAddress.Hostname,
-		}}
+		return serviceOwningWaypointHostnames(s)
 	})
 	SplitHorizonServiceInfosByOwningWaypointIP := krt.NewIndex(SplitHorizonServices, "owningWaypointIp", func(s model.ServiceInfo) []networkAddress {
 		// Filter out waypoint services
 		if s.LabelSelector.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel {
 			return nil
 		}
-		waypoint := s.Service.Waypoint
-		if waypoint == nil {
-			return nil
-		}
-		waypointAddress := waypoint.GetAddress()
-		if waypointAddress == nil {
-			return nil
-		}
-		netip, _ := netip.AddrFromSlice(waypointAddress.Address)
-		netaddr := networkAddress{
-			network: waypointAddress.Network,
-			ip:      netip.String(),
-		}
-
-		return []networkAddress{netaddr}
+		return serviceOwningWaypointAddresses(s)
 	})
 
 	if features.EnableIngressWaypointRouting {

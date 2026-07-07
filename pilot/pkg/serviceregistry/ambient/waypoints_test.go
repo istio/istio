@@ -22,9 +22,12 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"istio.io/api/annotation"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/workloadapi"
 )
 
 func TestMakeAllowedRoutes(t *testing.T) {
@@ -273,5 +276,102 @@ func assertWaypointSelector(t *testing.T, result, expected WaypointSelector) {
 		assert.Equal(t, result.Selector, nil)
 	} else {
 		assert.Equal(t, result.Selector.String(), expected.Selector.String())
+	}
+}
+
+func TestGetUseWaypointCanary(t *testing.T) {
+	cases := []struct {
+		name      string
+		labels    map[string]string
+		defaultNS string
+		want      *krt.Named
+	}{
+		{"no label", nil, "ns", nil},
+		{"empty value", map[string]string{useWaypointCanaryLabel: ""}, "ns", nil},
+		{"none", map[string]string{useWaypointCanaryLabel: "none"}, "ns", nil},
+		{
+			"same namespace",
+			map[string]string{useWaypointCanaryLabel: "wp"},
+			"ns",
+			&krt.Named{Name: "wp", Namespace: "ns"},
+		},
+		{
+			"cross namespace",
+			map[string]string{
+				useWaypointCanaryLabel:          "wp",
+				useWaypointCanaryNamespaceLabel: "other",
+			},
+			"ns",
+			&krt.Named{Name: "wp", Namespace: "other"},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := getUseWaypointCanary(metav1.ObjectMeta{Labels: tc.labels}, tc.defaultNS)
+			assert.Equal(t, got, tc.want)
+		})
+	}
+}
+
+func TestGetCanaryWeight(t *testing.T) {
+	anno := useWaypointCanaryWeightAnno
+	cases := []struct {
+		name       string
+		anns       map[string]string
+		wantWeight uint32
+		wantValid  bool
+	}{
+		{"absent defaults to 0", nil, 0, true},
+		{"zero", map[string]string{anno: "0"}, 0, true},
+		{"mid", map[string]string{anno: "42"}, 42, true},
+		{"hundred", map[string]string{anno: "100"}, 100, true},
+		{"non-integer", map[string]string{anno: "abc"}, 0, false},
+		{"negative", map[string]string{anno: "-1"}, 0, false},
+		{"over hundred", map[string]string{anno: "101"}, 0, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			w, valid := getCanaryWeight(metav1.ObjectMeta{Annotations: tc.anns})
+			assert.Equal(t, valid, tc.wantValid)
+			assert.Equal(t, w, tc.wantWeight)
+		})
+	}
+}
+
+func TestServiceOwningWaypoints(t *testing.T) {
+	primary := &workloadapi.GatewayAddress{
+		Destination:   &workloadapi.GatewayAddress_Hostname{Hostname: &workloadapi.NamespacedHostname{Namespace: "ns", Hostname: "primary"}},
+		HboneMtlsPort: 15008,
+	}
+	canary := &workloadapi.GatewayAddress{
+		Destination:   &workloadapi.GatewayAddress_Hostname{Hostname: &workloadapi.NamespacedHostname{Namespace: "ns", Hostname: "canary"}},
+		HboneMtlsPort: 15008,
+	}
+	cases := []struct {
+		name string
+		svc  *workloadapi.Service
+		want []*workloadapi.GatewayAddress
+	}{
+		{"nil service", nil, nil},
+		{"no waypoint", &workloadapi.Service{}, nil},
+		{"primary only", &workloadapi.Service{Waypoint: primary}, []*workloadapi.GatewayAddress{primary}},
+		{
+			// The weighted set always contains the primary, so it is the complete set.
+			"primary plus weighted canary",
+			&workloadapi.Service{
+				Waypoint: primary,
+				WeightedWaypoints: []*workloadapi.WeightedWaypoint{
+					{Destination: primary, Weight: 95},
+					{Destination: canary, Weight: 5},
+				},
+			},
+			[]*workloadapi.GatewayAddress{primary, canary},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := serviceOwningWaypoints(model.ServiceInfo{Service: tc.svc})
+			assert.Equal(t, got, tc.want)
+		})
 	}
 }

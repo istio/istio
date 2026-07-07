@@ -40,3 +40,17 @@ func ReportWaypointUnsupportedTrafficType(waypoint string, ttype string) *model.
 		Message: fmt.Sprintf("attempting to bind to traffic type %q which the waypoint %q does not support", ttype, waypoint),
 	}
 }
+
+func ReportWaypointCanaryInvalidWeight(waypoint string) *model.StatusMessage {
+	return &model.StatusMessage{
+		Reason:  "CanaryInvalidWeight",
+		Message: fmt.Sprintf("canary waypoint %q has an invalid weight; must be an integer in [0,100]", waypoint),
+	}
+}
+
+func ReportWaypointCanarySameAsPrimary(waypoint string) *model.StatusMessage {
+	return &model.StatusMessage{
+		Reason:  "CanarySameAsPrimary",
+		Message: fmt.Sprintf("canary waypoint %q must differ from the primary waypoint", waypoint),
+	}
+}
