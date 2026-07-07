@@ -180,7 +180,8 @@ func TestWorkload(t *testing.T) {
 		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
 			DebounceTime: time.Millisecond * 25,
 		})
-		ads := s.ConnectDeltaADS().WithTimeout(time.Second * 5).WithType(v3.AddressType).WithNodeType(model.Ztunnel).WithMetadata(model.NodeMetadata{NodeName: "node"})
+		ads := s.ConnectDeltaADS().WithTimeout(time.Second * 5).WithType(v3.AddressType).
+			WithNodeType(model.Ztunnel).WithMetadata(model.NodeMetadata{NodeName: "node"})
 		spamDebugEndpointsToDetectRace(t, s)
 
 		ads.Request(&discovery.DeltaDiscoveryRequest{
@@ -259,7 +260,8 @@ func TestWorkload(t *testing.T) {
 		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
 			DebounceTime: time.Millisecond * 25,
 		})
-		ads := s.ConnectDeltaADS().WithTimeout(time.Second * 5).WithType(v3.AddressType).WithNodeType(model.Ztunnel).WithMetadata(model.NodeMetadata{NodeName: "node"})
+		ads := s.ConnectDeltaADS().WithTimeout(time.Second * 5).WithType(v3.AddressType).
+			WithNodeType(model.Ztunnel).WithMetadata(model.NodeMetadata{NodeName: "node"})
 		spamDebugEndpointsToDetectRace(t, s)
 
 		ads.Request(&discovery.DeltaDiscoveryRequest{
