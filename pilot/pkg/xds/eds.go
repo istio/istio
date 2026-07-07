@@ -105,6 +105,9 @@ var skippedEdsConfigs = sets.New(
 	kind.ProxyConfig,
 	kind.DNSName,
 	kind.Sidecar,
+	// we can skip Address here to avoid pushing Sidecars and Gateways on Address changes,
+	// it's already checked in waypointNeedsPush
+	kind.Address,
 )
 
 var deltaAwareEdsConfigs = sets.New(
@@ -118,7 +121,7 @@ func edsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
 		return res
 	}
 	// CDS needs to be pushed for waypoint proxies on kind.Address changes, so we need to push EDS as well.
-	if proxy.Type == model.Waypoint && waypointNeedsPush(req) {
+	if proxy.Type == model.Waypoint && waypointNeedsPush(req, proxy) {
 		return true
 	}
 	for config := range req.ConfigsUpdated {

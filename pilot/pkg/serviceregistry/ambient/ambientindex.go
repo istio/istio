@@ -349,7 +349,7 @@ func New(options Options) Index {
 				DNSConnectStrategy: a.DNSConnectStrategy,
 			}
 		},
-		PushXdsAddress(a.XDSUpdater, model.ServiceInfo.ResourceName),
+		PushXdsAddress(a.XDSUpdater, model.ServiceInfo.ResourceName, model.ServiceInfo.WaypointRef),
 	), false)
 
 	NamespacesInfo := krt.NewCollection(Namespaces, func(ctx krt.HandlerContext, i *corev1.Namespace) *model.NamespaceInfo {
@@ -443,7 +443,7 @@ func New(options Options) Index {
 			// Only trigger push if the XDS object changed; the rest is just for computation of others
 			return a.Workload
 		},
-		PushXdsAddress(a.XDSUpdater, model.WorkloadInfo.ResourceName),
+		PushXdsAddress(a.XDSUpdater, model.WorkloadInfo.ResourceName, model.WorkloadInfo.WaypointRef),
 	), false)
 
 	if features.EnableIngressWaypointRouting {
@@ -859,14 +859,20 @@ func PushXds[T any](xds model.XDSUpdater, f func(T) model.ConfigKey) func(events
 	}
 }
 
-func PushXdsAddress[T any](xds model.XDSUpdater, f func(T) string) func(events []krt.Event[T]) {
+func PushXdsAddress[T any](xds model.XDSUpdater, f func(T) string, waypointRef func(T) *workloadapi.GatewayAddress) func(events []krt.Event[T]) {
 	return func(events []krt.Event[T]) {
 		au := sets.New[string]()
+		wu := sets.New[model.WaypointReference]()
 		for _, e := range events {
+			// Items() includes the old state on updates and deletes, so detaching from a
+			// waypoint still records that waypoint as updated.
 			for _, i := range e.Items() {
 				c := f(i)
 				if c != "" {
 					au.Insert(c)
+				}
+				if ref, ok := model.WaypointReferenceFromGatewayAddress(waypointRef(i)); ok {
+					wu.Insert(ref)
 				}
 			}
 		}
@@ -884,6 +890,7 @@ func PushXdsAddress[T any](xds model.XDSUpdater, f func(T) string) func(events [
 			Full:             false,
 			AddressesUpdated: au,
 			ConfigsUpdated:   cu,
+			WaypointsUpdated: wu,
 			Reason:           model.NewReasonStats(model.AmbientUpdate),
 		})
 	}
