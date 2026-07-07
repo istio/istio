@@ -91,11 +91,11 @@ func TestHeadlessEndpointPushOptimization(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			proxy := &model.Proxy{
-				Type:         tt.proxyType,
-				IPAddresses:  []string{"1.1.1.1"},
-				ID:           "test-proxy.default",
-				Metadata:     &model.NodeMetadata{},
-				MergedGateway: &model.MergedGateway{},
+				Type:              tt.proxyType,
+				IPAddresses:       []string{"1.1.1.1"},
+				ID:                "test-proxy.default",
+				Metadata:          &model.NodeMetadata{},
+				MergedGateway:     &model.MergedGateway{},
 				PrevMergedGateway: &model.PrevMergedGateway{},
 			}
 
