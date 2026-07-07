@@ -125,7 +125,7 @@ func edsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
 		return res
 	}
 	// CDS needs to be pushed for waypoint proxies on kind.Address changes, so we need to push EDS as well.
-	if proxy.Type == model.Waypoint && waypointNeedsPush(req) {
+	if proxy.Type == model.Waypoint && waypointNeedsPush(req, proxy) {
 		return true
 	}
 	for config := range req.ConfigsUpdated {
