@@ -562,10 +562,10 @@ func TestPeerAuthenticationUpdate(t *testing.T) {
 // enabled, causing 10x CPU increases in large clusters.
 func TestWorkloadGenerator_ProxyTypeFiltering(t *testing.T) {
 	tests := []struct {
-		name            string
-		proxyType       model.NodeType
-		shouldGenerate  bool
-		description     string
+		name           string
+		proxyType      model.NodeType
+		shouldGenerate bool
+		description    string
 	}{
 		{
 			name:           "sidecar proxy should not receive WDS",
