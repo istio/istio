@@ -356,6 +356,56 @@ func (TunnelProtocol) EnumDescriptor() ([]byte, []int) {
 	return file_workloadapi_workload_proto_rawDescGZIP(), []int{5}
 }
 
+// Visibility controls which clients can resolve and send traffic to a service.
+type Service_Visibility int32
+
+const (
+	// Visible to every client the control plane serves. This is the default,
+	// and matches the behavior before this field was introduced.
+	Service_PUBLIC Service_Visibility = 0
+	// Visible only to clients in the same namespace as the service.
+	Service_NAMESPACE Service_Visibility = 1
+)
+
+// Enum value maps for Service_Visibility.
+var (
+	Service_Visibility_name = map[int32]string{
+		0: "PUBLIC",
+		1: "NAMESPACE",
+	}
+	Service_Visibility_value = map[string]int32{
+		"PUBLIC":    0,
+		"NAMESPACE": 1,
+	}
+)
+
+func (x Service_Visibility) Enum() *Service_Visibility {
+	p := new(Service_Visibility)
+	*p = x
+	return p
+}
+
+func (x Service_Visibility) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (Service_Visibility) Descriptor() protoreflect.EnumDescriptor {
+	return file_workloadapi_workload_proto_enumTypes[6].Descriptor()
+}
+
+func (Service_Visibility) Type() protoreflect.EnumType {
+	return &file_workloadapi_workload_proto_enumTypes[6]
+}
+
+func (x Service_Visibility) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use Service_Visibility.Descriptor instead.
+func (Service_Visibility) EnumDescriptor() ([]byte, []int) {
+	return file_workloadapi_workload_proto_rawDescGZIP(), []int{1, 0}
+}
+
 type LoadBalancing_Scope int32
 
 const (
@@ -407,11 +457,11 @@ func (x LoadBalancing_Scope) String() string {
 }
 
 func (LoadBalancing_Scope) Descriptor() protoreflect.EnumDescriptor {
-	return file_workloadapi_workload_proto_enumTypes[6].Descriptor()
+	return file_workloadapi_workload_proto_enumTypes[7].Descriptor()
 }
 
 func (LoadBalancing_Scope) Type() protoreflect.EnumType {
-	return &file_workloadapi_workload_proto_enumTypes[6]
+	return &file_workloadapi_workload_proto_enumTypes[7]
 }
 
 func (x LoadBalancing_Scope) Number() protoreflect.EnumNumber {
@@ -472,11 +522,11 @@ func (x LoadBalancing_Mode) String() string {
 }
 
 func (LoadBalancing_Mode) Descriptor() protoreflect.EnumDescriptor {
-	return file_workloadapi_workload_proto_enumTypes[7].Descriptor()
+	return file_workloadapi_workload_proto_enumTypes[8].Descriptor()
 }
 
 func (LoadBalancing_Mode) Type() protoreflect.EnumType {
-	return &file_workloadapi_workload_proto_enumTypes[7]
+	return &file_workloadapi_workload_proto_enumTypes[8]
 }
 
 func (x LoadBalancing_Mode) Number() protoreflect.EnumNumber {
@@ -520,11 +570,11 @@ func (x LoadBalancing_HealthPolicy) String() string {
 }
 
 func (LoadBalancing_HealthPolicy) Descriptor() protoreflect.EnumDescriptor {
-	return file_workloadapi_workload_proto_enumTypes[8].Descriptor()
+	return file_workloadapi_workload_proto_enumTypes[9].Descriptor()
 }
 
 func (LoadBalancing_HealthPolicy) Type() protoreflect.EnumType {
-	return &file_workloadapi_workload_proto_enumTypes[8]
+	return &file_workloadapi_workload_proto_enumTypes[9]
 }
 
 func (x LoadBalancing_HealthPolicy) Number() protoreflect.EnumNumber {
@@ -572,11 +622,11 @@ func (x ApplicationTunnel_Protocol) String() string {
 }
 
 func (ApplicationTunnel_Protocol) Descriptor() protoreflect.EnumDescriptor {
-	return file_workloadapi_workload_proto_enumTypes[9].Descriptor()
+	return file_workloadapi_workload_proto_enumTypes[10].Descriptor()
 }
 
 func (ApplicationTunnel_Protocol) Type() protoreflect.EnumType {
-	return &file_workloadapi_workload_proto_enumTypes[9]
+	return &file_workloadapi_workload_proto_enumTypes[10]
 }
 
 func (x ApplicationTunnel_Protocol) Number() protoreflect.EnumNumber {
@@ -746,8 +796,12 @@ type Service struct {
 	// set, `waypoint` remains populated with the primary waypoint so that dataplanes which do
 	// not understand this field continue to send all traffic to the primary.
 	WeightedWaypoints []*WeightedWaypoint `protobuf:"bytes,13,rep,name=weighted_waypoints,json=weightedWaypoints,proto3" json:"weighted_waypoints,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	// visibility controls which clients this service is resolvable by. When
+	// unset it defaults to PUBLIC. Services that a mesh administrator has scoped
+	// to no visibility at all are simply not sent, so they do not appear here.
+	Visibility    Service_Visibility `protobuf:"varint,14,opt,name=visibility,proto3,enum=istio.workload.Service_Visibility" json:"visibility,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Service) Reset() {
@@ -869,6 +923,13 @@ func (x *Service) GetWeightedWaypoints() []*WeightedWaypoint {
 		return x.WeightedWaypoints
 	}
 	return nil
+}
+
+func (x *Service) GetVisibility() Service_Visibility {
+	if x != nil {
+		return x.Visibility
+	}
+	return Service_PUBLIC
 }
 
 type LoadBalancing struct {
@@ -1810,7 +1871,7 @@ const file_workloadapi_workload_proto_rawDesc = "" +
 	"\aAddress\x126\n" +
 	"\bworkload\x18\x01 \x01(\v2\x18.istio.workload.WorkloadH\x00R\bworkload\x123\n" +
 	"\aservice\x18\x02 \x01(\v2\x17.istio.workload.ServiceH\x00R\aserviceB\x06\n" +
-	"\x04type\"\x88\x05\n" +
+	"\x04type\"\xf5\x05\n" +
 	"\aService\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1c\n" +
 	"\tnamespace\x18\x02 \x01(\tR\tnamespace\x12\x1a\n" +
@@ -1828,7 +1889,15 @@ const file_workloadapi_workload_proto_rawDesc = "" +
 	"extensions\x12\x1c\n" +
 	"\tcanonical\x18\v \x01(\bR\tcanonical\x120\n" +
 	"\x14ingress_use_waypoint\x18\f \x01(\bR\x12ingressUseWaypoint\x12O\n" +
-	"\x12weighted_waypoints\x18\r \x03(\v2 .istio.workload.WeightedWaypointR\x11weightedWaypoints\"\xcd\x03\n" +
+	"\x12weighted_waypoints\x18\r \x03(\v2 .istio.workload.WeightedWaypointR\x11weightedWaypoints\x12B\n" +
+	"\n" +
+	"visibility\x18\x0e \x01(\x0e2\".istio.workload.Service.VisibilityR\n" +
+	"visibility\"'\n" +
+	"\n" +
+	"Visibility\x12\n" +
+	"\n" +
+	"\x06PUBLIC\x10\x00\x12\r\n" +
+	"\tNAMESPACE\x10\x01\"\xcd\x03\n" +
 	"\rLoadBalancing\x12R\n" +
 	"\x12routing_preference\x18\x01 \x03(\x0e2#.istio.workload.LoadBalancing.ScopeR\x11routingPreference\x126\n" +
 	"\x04mode\x18\x02 \x01(\x0e2\".istio.workload.LoadBalancing.ModeR\x04mode\x12O\n" +
@@ -1965,7 +2034,7 @@ func file_workloadapi_workload_proto_rawDescGZIP() []byte {
 	return file_workloadapi_workload_proto_rawDescData
 }
 
-var file_workloadapi_workload_proto_enumTypes = make([]protoimpl.EnumInfo, 10)
+var file_workloadapi_workload_proto_enumTypes = make([]protoimpl.EnumInfo, 11)
 var file_workloadapi_workload_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
 var file_workloadapi_workload_proto_goTypes = []any{
 	(IPFamilies)(0),                 // 0: istio.workload.IPFamilies
@@ -1974,64 +2043,66 @@ var file_workloadapi_workload_proto_goTypes = []any{
 	(WorkloadType)(0),               // 3: istio.workload.WorkloadType
 	(AppProtocol)(0),                // 4: istio.workload.AppProtocol
 	(TunnelProtocol)(0),             // 5: istio.workload.TunnelProtocol
-	(LoadBalancing_Scope)(0),        // 6: istio.workload.LoadBalancing.Scope
-	(LoadBalancing_Mode)(0),         // 7: istio.workload.LoadBalancing.Mode
-	(LoadBalancing_HealthPolicy)(0), // 8: istio.workload.LoadBalancing.HealthPolicy
-	(ApplicationTunnel_Protocol)(0), // 9: istio.workload.ApplicationTunnel.Protocol
-	(*Address)(nil),                 // 10: istio.workload.Address
-	(*Service)(nil),                 // 11: istio.workload.Service
-	(*LoadBalancing)(nil),           // 12: istio.workload.LoadBalancing
-	(*Workload)(nil),                // 13: istio.workload.Workload
-	(*Locality)(nil),                // 14: istio.workload.Locality
-	(*PortList)(nil),                // 15: istio.workload.PortList
-	(*Port)(nil),                    // 16: istio.workload.Port
-	(*ApplicationTunnel)(nil),       // 17: istio.workload.ApplicationTunnel
-	(*GatewayAddress)(nil),          // 18: istio.workload.GatewayAddress
-	(*WeightedWaypoint)(nil),        // 19: istio.workload.WeightedWaypoint
-	(*NetworkAddress)(nil),          // 20: istio.workload.NetworkAddress
-	(*NamespacedHostname)(nil),      // 21: istio.workload.NamespacedHostname
-	(*Extension)(nil),               // 22: istio.workload.Extension
-	nil,                             // 23: istio.workload.Workload.ServicesEntry
-	(*wrapperspb.UInt32Value)(nil),  // 24: google.protobuf.UInt32Value
-	(*anypb.Any)(nil),               // 25: google.protobuf.Any
+	(Service_Visibility)(0),         // 6: istio.workload.Service.Visibility
+	(LoadBalancing_Scope)(0),        // 7: istio.workload.LoadBalancing.Scope
+	(LoadBalancing_Mode)(0),         // 8: istio.workload.LoadBalancing.Mode
+	(LoadBalancing_HealthPolicy)(0), // 9: istio.workload.LoadBalancing.HealthPolicy
+	(ApplicationTunnel_Protocol)(0), // 10: istio.workload.ApplicationTunnel.Protocol
+	(*Address)(nil),                 // 11: istio.workload.Address
+	(*Service)(nil),                 // 12: istio.workload.Service
+	(*LoadBalancing)(nil),           // 13: istio.workload.LoadBalancing
+	(*Workload)(nil),                // 14: istio.workload.Workload
+	(*Locality)(nil),                // 15: istio.workload.Locality
+	(*PortList)(nil),                // 16: istio.workload.PortList
+	(*Port)(nil),                    // 17: istio.workload.Port
+	(*ApplicationTunnel)(nil),       // 18: istio.workload.ApplicationTunnel
+	(*GatewayAddress)(nil),          // 19: istio.workload.GatewayAddress
+	(*WeightedWaypoint)(nil),        // 20: istio.workload.WeightedWaypoint
+	(*NetworkAddress)(nil),          // 21: istio.workload.NetworkAddress
+	(*NamespacedHostname)(nil),      // 22: istio.workload.NamespacedHostname
+	(*Extension)(nil),               // 23: istio.workload.Extension
+	nil,                             // 24: istio.workload.Workload.ServicesEntry
+	(*wrapperspb.UInt32Value)(nil),  // 25: google.protobuf.UInt32Value
+	(*anypb.Any)(nil),               // 26: google.protobuf.Any
 }
 var file_workloadapi_workload_proto_depIdxs = []int32{
-	13, // 0: istio.workload.Address.workload:type_name -> istio.workload.Workload
-	11, // 1: istio.workload.Address.service:type_name -> istio.workload.Service
-	20, // 2: istio.workload.Service.addresses:type_name -> istio.workload.NetworkAddress
-	16, // 3: istio.workload.Service.ports:type_name -> istio.workload.Port
-	18, // 4: istio.workload.Service.waypoint:type_name -> istio.workload.GatewayAddress
-	12, // 5: istio.workload.Service.load_balancing:type_name -> istio.workload.LoadBalancing
+	14, // 0: istio.workload.Address.workload:type_name -> istio.workload.Workload
+	12, // 1: istio.workload.Address.service:type_name -> istio.workload.Service
+	21, // 2: istio.workload.Service.addresses:type_name -> istio.workload.NetworkAddress
+	17, // 3: istio.workload.Service.ports:type_name -> istio.workload.Port
+	19, // 4: istio.workload.Service.waypoint:type_name -> istio.workload.GatewayAddress
+	13, // 5: istio.workload.Service.load_balancing:type_name -> istio.workload.LoadBalancing
 	0,  // 6: istio.workload.Service.ip_families:type_name -> istio.workload.IPFamilies
-	22, // 7: istio.workload.Service.extensions:type_name -> istio.workload.Extension
-	19, // 8: istio.workload.Service.weighted_waypoints:type_name -> istio.workload.WeightedWaypoint
-	6,  // 9: istio.workload.LoadBalancing.routing_preference:type_name -> istio.workload.LoadBalancing.Scope
-	7,  // 10: istio.workload.LoadBalancing.mode:type_name -> istio.workload.LoadBalancing.Mode
-	8,  // 11: istio.workload.LoadBalancing.health_policy:type_name -> istio.workload.LoadBalancing.HealthPolicy
-	5,  // 12: istio.workload.Workload.tunnel_protocol:type_name -> istio.workload.TunnelProtocol
-	18, // 13: istio.workload.Workload.waypoint:type_name -> istio.workload.GatewayAddress
-	18, // 14: istio.workload.Workload.network_gateway:type_name -> istio.workload.GatewayAddress
-	3,  // 15: istio.workload.Workload.workload_type:type_name -> istio.workload.WorkloadType
-	17, // 16: istio.workload.Workload.application_tunnel:type_name -> istio.workload.ApplicationTunnel
-	23, // 17: istio.workload.Workload.services:type_name -> istio.workload.Workload.ServicesEntry
-	2,  // 18: istio.workload.Workload.status:type_name -> istio.workload.WorkloadStatus
-	14, // 19: istio.workload.Workload.locality:type_name -> istio.workload.Locality
-	1,  // 20: istio.workload.Workload.network_mode:type_name -> istio.workload.NetworkMode
-	22, // 21: istio.workload.Workload.extensions:type_name -> istio.workload.Extension
-	24, // 22: istio.workload.Workload.capacity:type_name -> google.protobuf.UInt32Value
-	16, // 23: istio.workload.PortList.ports:type_name -> istio.workload.Port
-	4,  // 24: istio.workload.Port.app_protocol:type_name -> istio.workload.AppProtocol
-	9,  // 25: istio.workload.ApplicationTunnel.protocol:type_name -> istio.workload.ApplicationTunnel.Protocol
-	21, // 26: istio.workload.GatewayAddress.hostname:type_name -> istio.workload.NamespacedHostname
-	20, // 27: istio.workload.GatewayAddress.address:type_name -> istio.workload.NetworkAddress
-	18, // 28: istio.workload.WeightedWaypoint.destination:type_name -> istio.workload.GatewayAddress
-	25, // 29: istio.workload.Extension.config:type_name -> google.protobuf.Any
-	15, // 30: istio.workload.Workload.ServicesEntry.value:type_name -> istio.workload.PortList
-	31, // [31:31] is the sub-list for method output_type
-	31, // [31:31] is the sub-list for method input_type
-	31, // [31:31] is the sub-list for extension type_name
-	31, // [31:31] is the sub-list for extension extendee
-	0,  // [0:31] is the sub-list for field type_name
+	23, // 7: istio.workload.Service.extensions:type_name -> istio.workload.Extension
+	20, // 8: istio.workload.Service.weighted_waypoints:type_name -> istio.workload.WeightedWaypoint
+	6,  // 9: istio.workload.Service.visibility:type_name -> istio.workload.Service.Visibility
+	7,  // 10: istio.workload.LoadBalancing.routing_preference:type_name -> istio.workload.LoadBalancing.Scope
+	8,  // 11: istio.workload.LoadBalancing.mode:type_name -> istio.workload.LoadBalancing.Mode
+	9,  // 12: istio.workload.LoadBalancing.health_policy:type_name -> istio.workload.LoadBalancing.HealthPolicy
+	5,  // 13: istio.workload.Workload.tunnel_protocol:type_name -> istio.workload.TunnelProtocol
+	19, // 14: istio.workload.Workload.waypoint:type_name -> istio.workload.GatewayAddress
+	19, // 15: istio.workload.Workload.network_gateway:type_name -> istio.workload.GatewayAddress
+	3,  // 16: istio.workload.Workload.workload_type:type_name -> istio.workload.WorkloadType
+	18, // 17: istio.workload.Workload.application_tunnel:type_name -> istio.workload.ApplicationTunnel
+	24, // 18: istio.workload.Workload.services:type_name -> istio.workload.Workload.ServicesEntry
+	2,  // 19: istio.workload.Workload.status:type_name -> istio.workload.WorkloadStatus
+	15, // 20: istio.workload.Workload.locality:type_name -> istio.workload.Locality
+	1,  // 21: istio.workload.Workload.network_mode:type_name -> istio.workload.NetworkMode
+	23, // 22: istio.workload.Workload.extensions:type_name -> istio.workload.Extension
+	25, // 23: istio.workload.Workload.capacity:type_name -> google.protobuf.UInt32Value
+	17, // 24: istio.workload.PortList.ports:type_name -> istio.workload.Port
+	4,  // 25: istio.workload.Port.app_protocol:type_name -> istio.workload.AppProtocol
+	10, // 26: istio.workload.ApplicationTunnel.protocol:type_name -> istio.workload.ApplicationTunnel.Protocol
+	22, // 27: istio.workload.GatewayAddress.hostname:type_name -> istio.workload.NamespacedHostname
+	21, // 28: istio.workload.GatewayAddress.address:type_name -> istio.workload.NetworkAddress
+	19, // 29: istio.workload.WeightedWaypoint.destination:type_name -> istio.workload.GatewayAddress
+	26, // 30: istio.workload.Extension.config:type_name -> google.protobuf.Any
+	16, // 31: istio.workload.Workload.ServicesEntry.value:type_name -> istio.workload.PortList
+	32, // [32:32] is the sub-list for method output_type
+	32, // [32:32] is the sub-list for method input_type
+	32, // [32:32] is the sub-list for extension type_name
+	32, // [32:32] is the sub-list for extension extendee
+	0,  // [0:32] is the sub-list for field type_name
 }
 
 func init() { file_workloadapi_workload_proto_init() }
@@ -2053,7 +2124,7 @@ func file_workloadapi_workload_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_workloadapi_workload_proto_rawDesc), len(file_workloadapi_workload_proto_rawDesc)),
-			NumEnums:      10,
+			NumEnums:      11,
 			NumMessages:   14,
 			NumExtensions: 0,
 			NumServices:   0,
