@@ -72,7 +72,7 @@ func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) (*model.PushReques
 	}
 
 	// Optimization: Skip CDS for headless endpoint updates.
-	// For routers: Clusters are EDS type - endpoint IPs delivered via EDS, not CDS.
+	// For routers: Clusters are EDS type - endpoint IPs delivered via EDS.
 	// For sidecars: Clusters are ORIGINAL_DST (no endpoints) or EDS type.
 	// In both cases, cluster definitions are static when only endpoints change.
 	if req.Reason.Has(model.HeadlessEndpointUpdate) {

@@ -72,9 +72,6 @@ func ldsNeedsPush(proxy *model.Proxy, req *model.PushRequest) bool {
 	}
 
 	// Optimization: Routers don't need LDS updates for headless endpoint changes.
-	// Router listeners reference cluster names (delivered via CDS), not endpoint IPs.
-	// For plain TCP, filter chains have no matching criteria (catch-all).
-	// For TLS, SNI hosts come from Gateway CR spec, not service endpoints.
 	if proxy.Type == model.Router && req.Reason.Has(model.HeadlessEndpointUpdate) {
 		// Check if all updates are ServiceEntry (headless endpoint marker)
 		allServiceEntry := true
