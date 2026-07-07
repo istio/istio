@@ -41,6 +41,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/sets"
@@ -562,34 +563,46 @@ func TestPeerAuthenticationUpdate(t *testing.T) {
 // enabled, causing 10x CPU increases in large clusters.
 func TestWorkloadGenerator_ProxyTypeFiltering(t *testing.T) {
 	tests := []struct {
-		name           string
-		proxyType      model.NodeType
-		shouldGenerate bool
-		description    string
+		name              string
+		proxyType         model.NodeType
+		metadataDiscovery *model.StringBool
+		shouldGenerate    bool
+		description       string
 	}{
 		{
-			name:           "sidecar proxy should not receive WDS",
-			proxyType:      model.SidecarProxy,
-			shouldGenerate: false,
-			description:    "Sidecars use traditional xDS and should not receive WDS resources",
+			name:              "sidecar proxy should not receive WDS",
+			proxyType:         model.SidecarProxy,
+			metadataDiscovery: nil,
+			shouldGenerate:    false,
+			description:       "Sidecars use traditional xDS and should not receive WDS resources",
 		},
 		{
-			name:           "ztunnel should receive WDS",
-			proxyType:      model.Ztunnel,
-			shouldGenerate: true,
-			description:    "Ztunnels manage L4 traffic in ambient mesh and need WDS resources",
+			name:              "sidecar with PEER_METADATA_DISCOVERY enabled should receive WDS",
+			proxyType:         model.SidecarProxy,
+			metadataDiscovery: (*model.StringBool)(ptr.Of(true)),
+			shouldGenerate:    true,
+			description:       "Sidecars with explicit PEER_METADATA_DISCOVERY=true should receive WDS resources",
 		},
 		{
-			name:           "waypoint should receive WDS",
-			proxyType:      model.Waypoint,
-			shouldGenerate: true,
-			description:    "Waypoints handle L7 traffic in ambient mesh and need WDS resources",
+			name:              "ztunnel should receive WDS",
+			proxyType:         model.Ztunnel,
+			metadataDiscovery: nil,
+			shouldGenerate:    true,
+			description:       "Ztunnels manage L4 traffic in ambient mesh and need WDS resources",
 		},
 		{
-			name:           "router/gateway should not receive WDS",
-			proxyType:      model.Router,
-			shouldGenerate: false,
-			description:    "Traditional gateways use traditional xDS and should not receive WDS resources",
+			name:              "waypoint should receive WDS",
+			proxyType:         model.Waypoint,
+			metadataDiscovery: nil,
+			shouldGenerate:    true,
+			description:       "Waypoints handle L7 traffic in ambient mesh and need WDS resources",
+		},
+		{
+			name:              "router/gateway should not receive WDS",
+			proxyType:         model.Router,
+			metadataDiscovery: nil,
+			shouldGenerate:    false,
+			description:       "Traditional gateways use traditional xDS and should not receive WDS resources",
 		},
 	}
 
@@ -605,8 +618,14 @@ func TestWorkloadGenerator_ProxyTypeFiltering(t *testing.T) {
 				return len(s.AmbientIndex.All())
 			}, 1)
 
-			// Create an ADS connection with the specified proxy type
-			ads := s.ConnectDeltaADS().WithType(v3.AddressType).WithNodeType(tt.proxyType)
+			// Create metadata with the specified discovery setting
+			metadata := model.NodeMetadata{}
+			if tt.metadataDiscovery != nil {
+				metadata.MetadataDiscovery = tt.metadataDiscovery
+			}
+
+			// Create an ADS connection with the specified proxy type and metadata
+			ads := s.ConnectDeltaADS().WithType(v3.AddressType).WithNodeType(tt.proxyType).WithMetadata(metadata)
 
 			// Request workload resources with wildcard subscription
 			ads.Request(&discovery.DeltaDiscoveryRequest{

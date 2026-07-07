@@ -46,12 +46,16 @@ func (e WorkloadGenerator) GenerateDeltas(
 	w *model.WatchedResource,
 ) (model.Resources, model.DeletedResources, model.XdsLogDetails, bool, error) {
 	// Only ambient mesh components (ztunnels and waypoints) should receive WDS resources.
-	// Sidecars and other traditional proxy types should not receive these resources.
+	// Sidecars and other traditional proxy types should not receive these resources unless
+	// they explicitly opt-in via PEER_METADATA_DISCOVERY setting.
 	// This prevents the issue where enabling PILOT_ENABLE_AMBIENT causes sidecars to receive
 	// workload resources for all pods in the cluster, leading to significant CPU increases.
 	// See: https://github.com/istio/istio/issues/60757
 	if !proxy.IsAmbient() {
-		return nil, nil, model.DefaultXdsLogDetails, false, nil
+		// Check if the proxy has explicitly enabled peer metadata discovery
+		if proxy.Metadata == nil || proxy.Metadata.MetadataDiscovery == nil || !*proxy.Metadata.MetadataDiscovery {
+			return nil, nil, model.DefaultXdsLogDetails, false, nil
+		}
 	}
 
 	addresses := req.AddressesUpdated
