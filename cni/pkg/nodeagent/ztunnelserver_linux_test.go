@@ -580,27 +580,25 @@ func TestZtunnelPodDeletedDoesNotDeadlockOnDisconnectingConn(t *testing.T) {
 	defer ztServ.Close()
 
 	// No socket is ok here
-	conn := &ztunnelUDSConnection{
-		uuid:    uuid.New(),
-		updates: make(chan UpdateRequest, 100),
-		done:    make(chan struct{}),
-	}
+	conn := newZtunnelConnection((*net.UnixConn)(nil))
 	ztServ.conns.addConn(conn)
 
 	// We don't cancel this context
 	ctx := context.Background()
 
-	podDeletedDone := make(chan error, 1)
-	go func() { podDeletedDone <- ztServ.PodDeleted(ctx, "some-deleted-pod-uid") }()
+	var podDeleteReturned atomic.Bool
+	go func() {
+		// PodDeleted returns a non-nil error here (Send returns "connection closed before
+		// response received" once done is closed); we only care that it returns at all.
+		_ = ztServ.PodDeleted(ctx, "some-deleted-pod-uid")
+		podDeleteReturned.Store(true)
+	}()
 
 	// PodDeleted enqueues the Del to conn.updates then blocks waiting for an ack that never comes
-	// from the non-draining connection, holding z.conns.mu the whole time.
-	select {
-	case <-podDeletedDone:
-		t.Fatal("PodDeleted returned before the connection was reaped; test did not exercise the deadlock path")
-	case <-time.After(500 * time.Millisecond):
-		// expected: still blocked, holding z.conns.mu
-	}
+	// from the non-draining connection, holding z.conns.mu the whole time. Confirm it stays blocked
+	// for a window, so we know we exercised the deadlock path (PodDeleted grabbed the mutex before
+	// the reap below).
+	assert.Consistently(t, podDeleteReturned.Load, false, 500*time.Millisecond)
 
 	// Simulate handleConn exiting and reaping the connection. deleteConn() closes conn.done
 	// *before* taking z.conns.mu.  The Send blocked above observes <-done, returns,
@@ -608,30 +606,16 @@ func TestZtunnelPodDeletedDoesNotDeadlockOnDisconnectingConn(t *testing.T) {
 	go ztServ.conns.deleteConn(conn)
 
 	// The fix: PodDeleted unblocks promptly, WITHOUT the server context being cancelled.
-	select {
-	case <-podDeletedDone:
-		// good: the blocked broadcast was released when the connection was reaped.
-	case <-time.After(2 * time.Second):
-		t.Fatal("PodDeleted did not return after the connection was reaped -- deadlock not fixed")
-	}
+	assert.EventuallyEqual(t, podDeleteReturned.Load, true)
 
 	// And because the mutex was released, a reconnecting ztunnel's addConn is not blocked -- so a
 	// fresh ztunnel can register and receive its snapshot.
-	reconnectAdded := make(chan struct{})
+	var reconnectAdded atomic.Bool
 	go func() {
-		ztServ.conns.addConn(&ztunnelUDSConnection{
-			uuid:    uuid.New(),
-			updates: make(chan UpdateRequest, 100),
-			done:    make(chan struct{}),
-		})
-		close(reconnectAdded)
+		ztServ.conns.addConn(newZtunnelConnection((*net.UnixConn)(nil)))
+		reconnectAdded.Store(true)
 	}()
-	select {
-	case <-reconnectAdded:
-		// good: z.conns.mu is free.
-	case <-time.After(2 * time.Second):
-		t.Fatal("a reconnecting ztunnel's addConn blocked -- z.conns.mu is still held")
-	}
+	assert.EventuallyEqual(t, reconnectAdded.Load, true)
 }
 
 func TestZtunnelPodAdded(t *testing.T) {

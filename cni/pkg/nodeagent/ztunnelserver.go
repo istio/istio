@@ -341,6 +341,15 @@ type ZtunnelConnection interface {
 	Done() chan struct{}
 }
 
+func (c *connMgr) snapshotConns() []ZtunnelConnection {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	// return a copy of the slice, so that the caller can iterate over it without holding the lock
+	conns := make([]ZtunnelConnection, len(c.connectionSet))
+	copy(conns, c.connectionSet)
+	return conns
+}
+
 // PodDeleted sends a pod deletion notification to connected ztunnels.
 //
 // Note that unlike PodAdded, this deletion event is broadcast to *all*
@@ -360,9 +369,7 @@ func (z *ztunnelServer) PodDeleted(ctx context.Context, uid string) error {
 
 	var delErr []error
 
-	z.conns.mu.Lock()
-	defer z.conns.mu.Unlock()
-	for _, conn := range z.conns.connectionSet {
+	for _, conn := range z.conns.snapshotConns() {
 		log := log.WithLabels("conn_uuid", conn.UUID())
 		log.Debug("sending msg to connected ztunnel")
 		_, err := conn.Send(ctx, r, nil)
