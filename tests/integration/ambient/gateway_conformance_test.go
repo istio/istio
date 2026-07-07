@@ -81,7 +81,6 @@ var skippedTests = map[string]string{
 
 	// The following tests were added in v1.6.0
 	"HTTPRouteNoBackendRefs":             "TODO",
-	"GatewayInvalidParametersRef":        "TODO",
 	"GatewayListenerUnsupportedProtocol": "TODO",
 }
 

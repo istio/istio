@@ -788,6 +788,12 @@ func TestConvertResources(t *testing.T) {
 		{name: "reference-grant-multiple-to"},
 		{name: "http-grpc-same-host"},
 		{name: "empty-backend-refs"},
+		{
+			name: "gateway-invalid-parameters-ref",
+			validationIgnorer: crdvalidation.NewValidationIgnorer(
+				"istio-system/^valid-parameters$",
+			),
+		},
 		{name: "frontend-tls-invalid"},
 		{name: "backend-tls-client-cert"},
 	}
