@@ -1,0 +1,136 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: istio
+spec:
+  controllerName: istio.io/gateway-controller
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: gateway-with-listenerset-protocol-conflict
+  namespace: istio-system
+spec:
+  allowedListeners:
+    namespaces:
+      from: All
+  addresses:
+  - value: istio-ingressgateway
+    type: Hostname
+  gatewayClassName: istio
+  listeners:
+  - name: gateway-listener
+    port: 80
+    protocol: HTTP
+    hostname: gateway-listener.com
+    allowedRoutes:
+      namespaces:
+        from: All
+  - name: protocol-conflict-with-gateway-listener
+    port: 80
+    protocol: HTTP
+    hostname: protocol-conflict-with-gateway-listener.com
+    allowedRoutes:
+      namespaces:
+        from: All
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: ListenerSet
+metadata:
+  name: listenerset-with-protocol-conflict-with-gateway-1
+  namespace: istio-system
+  creationTimestamp: "2024-01-01T00:00:01Z"
+spec:
+  parentRef:
+    kind: Gateway
+    group: gateway.networking.k8s.io
+    name: gateway-with-listenerset-protocol-conflict
+    namespace: istio-system
+  listeners:
+  - name: listener-set-1-listener
+    port: 80
+    protocol: HTTP
+    hostname: listener-set-1-listener.com
+    allowedRoutes:
+      namespaces:
+        from: All
+  - name: protocol-conflict-with-gateway-listener
+    port: 80
+    protocol: TCP
+    allowedRoutes:
+      namespaces:
+        from: All
+  - name: protocol-conflict-with-listener-set-listener
+    port: 80
+    protocol: HTTP
+    hostname: protocol-conflict-with-listener-set-listener.com
+    allowedRoutes:
+      namespaces:
+        from: All
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: ListenerSet
+metadata:
+  name: listenerset-with-protocol-conflict-with-gateway-2
+  namespace: istio-system
+  creationTimestamp: "2024-01-01T00:00:02Z"
+spec:
+  parentRef:
+    kind: Gateway
+    group: gateway.networking.k8s.io
+    name: gateway-with-listenerset-protocol-conflict
+    namespace: istio-system
+  listeners:
+  - name: protocol-conflict-with-gateway-listener
+    port: 80
+    protocol: TCP
+    allowedRoutes:
+      namespaces:
+        from: All
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: ListenerSet
+metadata:
+  name: listenerset-with-protocol-conflict-with-listener-set-1
+  namespace: istio-system
+  creationTimestamp: "2024-01-01T00:00:03Z"
+spec:
+  parentRef:
+    kind: Gateway
+    group: gateway.networking.k8s.io
+    name: gateway-with-listenerset-protocol-conflict
+    namespace: istio-system
+  listeners:
+  - name: listener-set-2-listener
+    port: 80
+    protocol: HTTP
+    hostname: listener-set-2-listener.com
+    allowedRoutes:
+      namespaces:
+        from: All
+  - name: protocol-conflict-with-listener-set-listener
+    port: 80
+    protocol: TCP
+    allowedRoutes:
+      namespaces:
+        from: All
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: ListenerSet
+metadata:
+  name: listenerset-with-protocol-conflict-with-listener-set-2
+  namespace: istio-system
+  creationTimestamp: "2024-01-01T00:00:04Z"
+spec:
+  parentRef:
+    kind: Gateway
+    group: gateway.networking.k8s.io
+    name: gateway-with-listenerset-protocol-conflict
+    namespace: istio-system
+  listeners:
+  - name: protocol-conflict-with-listener-set-listener
+    port: 80
+    protocol: TCP
+    allowedRoutes:
+      namespaces:
+        from: All
