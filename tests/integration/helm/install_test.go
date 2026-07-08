@@ -37,6 +37,8 @@ import (
 	"istio.io/istio/tests/util/sanitycheck"
 )
 
+const numericNamespaceInstallEnvVar = "ISTIO_TEST_HELM_NUMERIC_NAMESPACE"
+
 // TestDefaultInstall tests Istio installation using Helm with default options
 func TestDefaultInstall(t *testing.T) {
 	values := map[string]interface{}{
@@ -209,6 +211,37 @@ func TestNativeNftablesInstall(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(setupInstallation(values, false, DefaultNamespaceConfig, ""))
+}
+
+// TestNumericNamespaceInstall verifies Helm install when the control-plane namespace is numeric-only.
+// Such names must remain strings in rendered manifests (e.g. YAML fields that would otherwise parse as numbers).
+//
+// This test is opt-in only. Set ISTIO_TEST_HELM_NUMERIC_NAMESPACE=1 to run it, as conflicts with other tests due to CRD/CR owner references.
+func TestNumericNamespaceInstall(t *testing.T) {
+	if os.Getenv(numericNamespaceInstallEnvVar) != "1" {
+		t.Skipf("Skipping TestNumericNamespaceInstall; set %s=1 to run", numericNamespaceInstallEnvVar)
+	}
+
+	numericNS := "123456"
+	nsConfig := NewNamespaceConfig(
+		types.NamespacedName{Name: BaseReleaseName, Namespace: numericNS},
+		types.NamespacedName{Name: IstiodReleaseName, Namespace: numericNS},
+		types.NamespacedName{Name: IngressReleaseName, Namespace: numericNS},
+	)
+	values := map[string]interface{}{
+		"global": map[string]interface{}{
+			"istioNamespace": numericNS,
+		},
+		// Gateway injection sets CA_ADDR from global.istioNamespace, but xDS uses
+		// proxyConfig.DiscoveryAddress which defaults to istiod.istio-system.svc when
+		// PROXY_CONFIG is empty. Set discoveryAddress explicitly for non-istio-system installs.
+		"podAnnotations": map[string]interface{}{
+			"proxy.istio.io/config": fmt.Sprintf(`{"discoveryAddress":"istiod.%s.svc:15012"}`, numericNS),
+		},
+	}
+	framework.
+		NewTest(t).
+		Run(setupInstallation(values, false, nsConfig, ""))
 }
 
 // nolint: unparam

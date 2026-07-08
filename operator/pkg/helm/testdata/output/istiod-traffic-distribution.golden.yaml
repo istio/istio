@@ -3,7 +3,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: istiod
-  namespace: istio-system
+  namespace: "istio-system"
   labels:
     istio.io/rev: "default"
     install.operator.istio.io/owning-resource: unknown

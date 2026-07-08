@@ -22,7 +22,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	k8ssets "k8s.io/apimachinery/pkg/util/sets" //nolint: depguard
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	v1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/conformance"
@@ -99,6 +98,20 @@ var skippedTests = map[string]string{
 	// The following tests were added in v1.5.0
 	"TLSRouteTerminateSimpleSameNamespace":  "TODO",
 	"TLSRouteMixedTerminationSameNamespace": "TODO",
+
+	// The following tests were added in v1.6.0
+	"HTTPRouteNoBackendRefs":             "TODO",
+	"GatewayInvalidParametersRef":        "TODO",
+	"GatewayListenerUnsupportedProtocol": "TODO",
+	"TCPRouteWeightedRouting":            "TODO: flaky in dual-stack and multicluster environments",
+
+	// agentgateway does not yet route TCPRoute data-plane traffic, so the
+	// traffic-based TCPRoute conformance tests fail. The status/validation-only
+	// TCPRouteInvalid* tests still run and pass, so they are not skipped.
+	"TCPRouteMultipleRoutesAttachment":    "TODO: agentgateway does not yet support TCPRoute traffic",
+	"TCPRouteParentRefAttachAll":          "TODO: agentgateway does not yet support TCPRoute traffic",
+	"TCPRouteParentRefPortAndSectionName": "TODO: agentgateway does not yet support TCPRoute traffic",
+	"TCPRouteReferenceGrant":              "TODO: agentgateway does not yet support TCPRoute traffic",
 }
 
 func TestGatewayConformanceAgentgateway(t *testing.T) {
@@ -141,32 +154,36 @@ func TestGatewayConformanceAgentgateway(t *testing.T) {
 			hostnameType := v1.AddressType("Hostname")
 			istioVersion, _ := env.ReadVersion()
 			opts := suite.ConformanceOptions{
-				Client:                   c,
-				Clientset:                gatewayConformanceInputs.Client.Kube(),
-				ClientOptions:            clientOptions,
-				RestConfig:               gatewayConformanceInputs.Client.RESTConfig(),
-				GatewayClassName:         "istio-agentgateway",
-				Debug:                    scopes.Framework.DebugEnabled(),
-				CleanupBaseResources:     gatewayConformanceInputs.Cleanup,
-				ManifestFS:               []fs.FS{&conformance.Manifests},
-				SupportedFeatures:        features.SetsToNamesSet(supportedFeatures),
-				SkipTests:                maps.Keys(skippedTests),
-				UsableNetworkAddresses:   []v1.GatewaySpecAddress{{Value: "infra-backend-v1.gateway-conformance-infra.svc.cluster.local", Type: &hostnameType}},
-				UnusableNetworkAddresses: []v1.GatewaySpecAddress{{Value: "foo", Type: &hostnameType}},
-				ConformanceProfiles: k8ssets.New(
-					suite.GatewayHTTPConformanceProfileName,
-					suite.GatewayTLSConformanceProfileName,
-					suite.GatewayGRPCConformanceProfileName,
-					suite.MeshHTTPConformanceProfileName,
-				),
-				Implementation: confv1.Implementation{
-					Organization: "istio",
-					Project:      "istio",
-					URL:          "https://istio.io/",
-					Version:      istioVersion,
-					Contact:      []string{"@istio/maintainers"},
+				ConfigurableOptions: suite.ConfigurableOptions{
+					GatewayClassName:         "istio-agentgateway",
+					Debug:                    scopes.Framework.DebugEnabled(),
+					CleanupBaseResources:     gatewayConformanceInputs.Cleanup,
+					CleanupTestResources:     gatewayConformanceInputs.Cleanup,
+					SupportedFeatures:        features.SetsToNamesSet(supportedFeatures).UnsortedList(),
+					SkipTests:                maps.Keys(skippedTests),
+					UsableNetworkAddresses:   []v1.GatewaySpecAddress{{Value: "infra-backend-v1.gateway-conformance-infra.svc.cluster.local", Type: &hostnameType}},
+					UnusableNetworkAddresses: []v1.GatewaySpecAddress{{Value: "foo", Type: &hostnameType}},
+					ConformanceProfiles: []suite.ConformanceProfileName{
+						suite.GatewayHTTPConformanceProfileName,
+						suite.GatewayTLSConformanceProfileName,
+						suite.GatewayGRPCConformanceProfileName,
+						suite.GatewayTCPConformanceProfileName,
+						suite.MeshHTTPConformanceProfileName,
+					},
+					Implementation: confv1.Implementation{
+						Organization: "istio",
+						Project:      "istio",
+						URL:          "https://istio.io/",
+						Version:      istioVersion,
+						Contact:      []string{"@istio/maintainers"},
+					},
+					TimeoutConfig: ctx.Settings().GatewayConformanceTimeoutConfig,
 				},
-				TimeoutConfig: ctx.Settings().GatewayConformanceTimeoutConfig,
+				Client:        c,
+				Clientset:     gatewayConformanceInputs.Client.Kube(),
+				ClientOptions: clientOptions,
+				RestConfig:    gatewayConformanceInputs.Client.RESTConfig(),
+				ManifestFS:    []fs.FS{&conformance.Manifests},
 			}
 			if rev := ctx.Settings().Revisions.Default(); rev != "" {
 				opts.NamespaceLabels = map[string]string{

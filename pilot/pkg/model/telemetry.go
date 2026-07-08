@@ -74,7 +74,7 @@ type Telemetries struct {
 	// As result, this cache will live until any Telemetry is modified.
 	computedMetricsFilters map[metricsKey]any
 	computedLoggingConfig  map[loggingKey][]LoggingConfig
-	mu                     sync.Mutex
+	mu                     sync.RWMutex
 }
 
 // telemetryKey defines a key into the computedMetricsFilters cache.
@@ -249,13 +249,15 @@ func (t *Telemetries) AccessLogging(push *PushContext, proxy *Proxy, class netwo
 		Class:        class,
 		Version:      proxy.GetIstioVersion(),
 	}
-	t.mu.Lock()
-	defer t.mu.Unlock()
+	t.mu.RLock()
 	precomputed, ok := t.computedLoggingConfig[key]
+	t.mu.RUnlock()
 	if ok {
 		return precomputed
 	}
 
+	t.mu.Lock()
+	defer t.mu.Unlock()
 	providers := mergeLogs(ct.Logging, t.meshConfig, workloadMode(class))
 	cfgs := make([]LoggingConfig, 0, len(providers))
 	for p, v := range providers {
@@ -509,13 +511,15 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 	if svc != nil {
 		key.Service = types.NamespacedName{Name: svc.Attributes.Name, Namespace: svc.Attributes.Namespace}
 	}
-	t.mu.Lock()
-	defer t.mu.Unlock()
+	t.mu.RLock()
 	precomputed, f := t.computedMetricsFilters[key]
+	t.mu.RUnlock()
 	if f {
 		return precomputed
 	}
 
+	t.mu.Lock()
+	defer t.mu.Unlock()
 	// First, take all the metrics configs and transform them into a normalized form
 	tmm := mergeMetrics(c.Metrics, t.meshConfig)
 	log.Debugf("merged metrics, proxyID: %s metrics: %+v", proxy.ID, tmm)

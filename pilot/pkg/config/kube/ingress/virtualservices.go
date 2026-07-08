@@ -289,14 +289,14 @@ func createFallbackStringMatch(s string) *networking.StringMatch {
 	// Note that this implementation only converts prefix and exact matches, not regexps.
 
 	// Replace e.g. "foo.*" with prefix match
-	if strings.HasSuffix(s, ".*") {
+	if before, ok := strings.CutSuffix(s, ".*"); ok {
 		return &networking.StringMatch{
-			MatchType: &networking.StringMatch_Prefix{Prefix: strings.TrimSuffix(s, ".*")},
+			MatchType: &networking.StringMatch_Prefix{Prefix: before},
 		}
 	}
-	if strings.HasSuffix(s, "/*") {
+	if before, ok := strings.CutSuffix(s, "/*"); ok {
 		return &networking.StringMatch{
-			MatchType: &networking.StringMatch_Prefix{Prefix: strings.TrimSuffix(s, "/*")},
+			MatchType: &networking.StringMatch_Prefix{Prefix: before},
 		}
 	}
 

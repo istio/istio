@@ -71,6 +71,9 @@ spec:
       imagePullSecrets:
       - name: {{ $.ImagePullSecretName }}
 {{- end }}
+{{- if $.UserNamespace }}
+      hostUsers: false
+{{- end }}
       containers:
 {{- if and
   (ne (index $subset.Annotations "sidecar.istio.io/inject") "false")

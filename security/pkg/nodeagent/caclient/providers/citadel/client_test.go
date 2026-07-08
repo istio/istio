@@ -314,8 +314,8 @@ func extractBearerToken(ctx context.Context) (string, error) {
 	}
 
 	for _, value := range authHeader {
-		if strings.HasPrefix(value, bearerTokenPrefix) {
-			return strings.TrimPrefix(value, bearerTokenPrefix), nil
+		if after, ok0 := strings.CutPrefix(value, bearerTokenPrefix); ok0 {
+			return after, nil
 		}
 	}
 

@@ -312,7 +312,7 @@ func (s *DiscoveryServer) initProxyMetadata(node *core.Node) (*model.Proxy, erro
 }
 
 // setTopologyLabels sets locality, cluster, network label
-// must be called after `SetWorkloadLabels` and `SetServiceTargets`.
+// must be called after `SetWorkloadLabels`.
 func setTopologyLabels(proxy *model.Proxy) {
 	// This is a bit un-intuitive, but pull the locality from Labels first. The service registries have the best access to
 	// locality information, as they can read from various sources (Node on Kubernetes, for example). They will take this
@@ -385,6 +385,21 @@ func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.P
 	proxy.Lock()
 	defer proxy.Unlock()
 	var shouldResetGateway, shouldResetSidecarScope bool
+
+	// Recompute workload labels first so that SetServiceTargets can use them.
+	// The metadata fallback path in GetProxyServiceTargets (used when the pod is not
+	// yet in the informer cache, e.g. during rolling istiod restarts) reads proxy.Labels
+	// to match services. If labels are stale/empty at that point, ServiceTargets ends up
+	// empty and inbound clusters are not generated.
+	// only recompute workload labels when
+	// 1. stream established and proxy first time initialization
+	// 2. proxy update
+	recomputeLabels := request == nil || request.IsProxyUpdate()
+	if recomputeLabels {
+		proxy.SetWorkloadLabels(s.Env)
+		setTopologyLabels(proxy)
+	}
+
 	// 1. If request == nil(initiation phase) or request.ConfigsUpdated == nil(global push), set proxy serviceTargets.
 	// 2. otherwise only set when svc update, this is for the case that a service may select the proxy
 	if request == nil || request.Forced ||
@@ -393,15 +408,6 @@ func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.P
 		// proxy.SetGatewaysForProxy depends on the serviceTargets,
 		// so when we reset serviceTargets, should reset gateway as well.
 		shouldResetGateway = true
-	}
-
-	// only recompute workload labels when
-	// 1. stream established and proxy first time initialization
-	// 2. proxy update
-	recomputeLabels := request == nil || request.IsProxyUpdate()
-	if recomputeLabels {
-		proxy.SetWorkloadLabels(s.Env)
-		setTopologyLabels(proxy)
 	}
 	// Precompute the sidecar scope and merged gateways associated with this proxy.
 	// Saves compute cycles in networking code. Though this might be redundant sometimes, we still
@@ -558,7 +564,7 @@ func AdsPushAll(s *DiscoveryServer) {
 
 // AdsPushAll will send updates to all nodes.
 func (s *DiscoveryServer) AdsPushAll(req *model.PushRequest) {
-	totalService := len(req.Push.GetAllServices())
+	totalService := req.Push.GetTotalServiceCount()
 	log.Infof("XDS: Pushing Services:%d ConnectedEndpoints:%d Version:%s",
 		totalService, s.adsClientCount(), req.Push.PushVersion)
 	monServices.Record(float64(totalService))

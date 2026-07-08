@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: ztunnel
-  namespace: istio-system
+  namespace: "istio-system"
   labels:
     app.kubernetes.io/name: ztunnel
     app.kubernetes.io/managed-by: "Helm"

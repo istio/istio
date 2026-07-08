@@ -22,7 +22,7 @@ webhooks:
       # Should change from base but cannot for API compat
       service:
         name: istiod
-        namespace: istio-system
+        namespace: "istio-system"
         path: "/validate"
     rules:
       - operations:

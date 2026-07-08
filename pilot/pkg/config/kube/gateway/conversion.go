@@ -36,7 +36,6 @@ import (
 	klabels "k8s.io/apimachinery/pkg/labels"
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	k8s "sigs.k8s.io/gateway-api/apis/v1"
-	k8salpha "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayx "sigs.k8s.io/gateway-api/apisx/v1alpha1"
 
 	"istio.io/api/annotation"
@@ -791,7 +790,7 @@ func extractParentReferenceInfo(ctx RouteContext, parents RouteParents, obj cont
 	return parentRefs
 }
 
-func convertTCPRoute(ctx RouteContext, r k8salpha.TCPRouteRule, obj *k8salpha.TCPRoute, enforceRefGrant bool) (*istio.TCPRoute, *ConfigError) {
+func convertTCPRoute(ctx RouteContext, r k8s.TCPRouteRule, obj *k8s.TCPRoute, enforceRefGrant bool) (*istio.TCPRoute, *ConfigError) {
 	if tcpWeightSum(r.BackendRefs) == 0 {
 		// The spec requires us to reject connections when there are no >0 weight backends
 		// We don't have a great way to do it. TODO: add a fault injection API for TCP?
@@ -1893,13 +1892,14 @@ func reportListenerSetStatus(
 	gatewayServices []string,
 	servers []*istio.Server,
 	gatewayErr *ConfigError,
+	listenersValid bool,
 ) {
 	internal, _, _, _, warnings, allUsable := r.ResolveGatewayInstances(parentGwObj.Namespace, gatewayServices, servers)
 
 	// Setup initial conditions to the success state. If we encounter errors, we will update this.
 	// We have two status
-	// Accepted: is the configuration valid. We only have errors in listeners, and the status is not supposed to
-	// be tied to listeners, so this is always accepted
+	// Accepted: is the configuration valid. Unlike a Gateway, a ListenerSet is only Accepted if at least
+	// one of its listeners is valid; otherwise we report ListenersNotValid.
 	// Programmed: is the data plane "ready" (note: eventually consistent)
 	gatewayConditions := map[string]*condition{
 		string(k8s.GatewayConditionAccepted): {
@@ -1911,12 +1911,28 @@ func reportListenerSetStatus(
 			message: "Resource programmed",
 		},
 	}
+	var listenersErr *ConfigError
+	if !listenersValid {
+		listenersErr = &ConfigError{
+			Reason:  string(k8s.ListenerSetReasonListenersNotValid),
+			Message: "None of the ListenerSet's listeners are valid",
+		}
+	}
+
 	if gatewayErr != nil {
 		gatewayErr.Message = "Parent not accepted: " + gatewayErr.Message
 		gatewayConditions[string(k8s.GatewayConditionAccepted)].error = gatewayErr
+	} else if listenersErr != nil {
+		gatewayConditions[string(k8s.GatewayConditionAccepted)].error = listenersErr
 	}
 
 	setProgrammedCondition(gatewayConditions, internal, gatewayServices, warnings, allUsable)
+
+	// A ListenerSet with no valid listeners cannot be programmed; this takes precedence over any
+	// address-related programming status.
+	if listenersErr != nil {
+		gatewayConditions[string(k8s.GatewayConditionProgrammed)].error = listenersErr
+	}
 
 	// Prune stale listener status entries whose listener was removed from the spec,
 	// mirroring reportGatewayStatus. ListenerSetCollection threads the previous status
@@ -2177,6 +2193,12 @@ func buildListener(
 		Hosts: hostnames,
 		Tls:   tls,
 	}
+	if tls == nil && (l.Protocol == k8s.HTTPSProtocolType || l.Protocol == k8s.TLSProtocolType) {
+		// This is a placeholder listener for ListenerSets.
+		// We don't generate an istio.Server for it.
+		log.Warnf("protocol is %s but no TLS section is defined, skipping listener creation", l.Protocol)
+		server = nil
+	}
 
 	updatedStatus := reportListenerCondition(listenerIndex, l, obj, status, listenerConditions)
 	return server, updatedStatus, ok
@@ -2199,9 +2221,6 @@ func listenerProtocolToIstio(name k8s.GatewayController, p k8s.ProtocolType) (st
 	case k8s.TLSProtocolType:
 		return string(p), nil
 	case k8s.TCPProtocolType:
-		if !features.EnableAlphaGatewayAPI {
-			return "", fmt.Errorf("protocol %q is supported, but only when %v=true is configured", p, features.EnableAlphaGatewayAPIName)
-		}
 		return string(p), nil
 	// Our own custom types
 	case k8s.ProtocolType(protocol.HBONE):
@@ -2660,7 +2679,7 @@ func toNamespaceSet(name string, labels map[string]string) klabels.Set {
 
 func GetCommonRouteInfo(spec any) ([]k8s.ParentReference, []k8s.Hostname, config.GroupVersionKind) {
 	switch t := spec.(type) {
-	case *k8salpha.TCPRoute:
+	case *k8s.TCPRoute:
 		return t.Spec.ParentRefs, nil, gvk.TCPRoute
 	case *k8s.TLSRoute:
 		return t.Spec.ParentRefs, t.Spec.Hostnames, gvk.TLSRoute
@@ -2676,7 +2695,7 @@ func GetCommonRouteInfo(spec any) ([]k8s.ParentReference, []k8s.Hostname, config
 
 func GetCommonRouteStateParents(spec any) []k8s.RouteParentStatus {
 	switch t := spec.(type) {
-	case *k8salpha.TCPRoute:
+	case *k8s.TCPRoute:
 		return t.Status.Parents
 	case *k8s.TLSRoute:
 		return t.Status.Parents
@@ -2711,7 +2730,7 @@ func getGroup(rgk k8s.RouteGroupKind) k8s.Group {
 
 func GetStatus[I, IS any](spec I) IS {
 	switch t := any(spec).(type) {
-	case *k8salpha.TCPRoute:
+	case *k8s.TCPRoute:
 		return any(t.Status).(IS)
 	case *k8s.TLSRoute:
 		return any(t.Status).(IS)

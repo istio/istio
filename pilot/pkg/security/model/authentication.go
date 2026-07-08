@@ -294,7 +294,7 @@ func ApplyCredentialSDSToServerCommonTLSContext(tlsContext *tls.CommonTlsContext
 			VerifyCertificateSpki: tlsOpts.VerifyCertificateSpki,
 			VerifyCertificateHash: tlsOpts.VerifyCertificateHash,
 		}
-		if tlsOpts.AllowInsecure {
+		if tlsOpts.GetInsecureSkipVerify().GetValue() {
 			defaultValidationContext.TrustChainVerification = tls.CertificateValidationContext_ACCEPT_UNTRUSTED
 		}
 		tlsContext.ValidationContextType = &tls.CommonTlsContext_CombinedValidationContext{
