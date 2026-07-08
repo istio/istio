@@ -21,6 +21,10 @@ import (
 
 	"google.golang.org/protobuf/types/known/wrapperspb"
 	v1 "k8s.io/api/core/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"istio.io/api/label"
@@ -34,6 +38,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/kube/multicluster"
@@ -47,6 +52,15 @@ import (
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/workloadapi"
 )
+
+type globalServiceAddresses struct {
+	name      types.NamespacedName
+	addresses []*workloadapi.NetworkAddress
+}
+
+func (a globalServiceAddresses) ResourceName() string {
+	return a.name.Namespace + "/" + a.name.Name
+}
 
 func (a *index) buildGlobalCollections(
 	localCluster *multicluster.Cluster,
@@ -472,6 +486,36 @@ func (a *index) buildGlobalCollections(
 		return []networkAddress{netaddr}
 	})
 
+	globalServiceVIPs := krt.NewCollection(LocalServices, func(ctx krt.HandlerContext, svc *v1.Service) *globalServiceAddresses {
+		serviceLabels := labels.Set(svc.Labels)
+		name, ok := serviceLabels.Lookup("istio.io/original-service-name")
+		if !ok || name == "" {
+			return nil
+		}
+		namespace, ok := serviceLabels.Lookup("istio.io/original-service-namespace")
+		if !ok || namespace == "" {
+			return nil
+		}
+		serviceName := types.NamespacedName{
+			Name:      name,
+			Namespace: namespace,
+		}
+		addresses, err := slices.MapErr(getVIPs(svc), func(a string) (*workloadapi.NetworkAddress, error) {
+			return toNetworkAddress(ctx, a, GlobalNetworks.FetchLocalNetworkID)
+		})
+		if err != nil {
+			log.Warnf("fail to parse service %v: %v", name, err)
+			return nil
+		}
+		return &globalServiceAddresses{
+			name:      serviceName,
+			addresses: addresses,
+		}
+	}, opts.WithName("GlobalServiceAddresses")...)
+	globalServiceVIPIndex := krt.NewIndex[types.NamespacedName, globalServiceAddresses](globalServiceVIPs, "globalServiceAdresses", func(gsa globalServiceAddresses) []types.NamespacedName {
+		return []types.NamespacedName{gsa.name}
+	})
+
 	SplitHorizonServices := krt.NewCollection(
 		GlobalMergedWorkloadServices,
 		func(ctx krt.HandlerContext, svc model.ServiceInfo) *model.ServiceInfo {
@@ -508,6 +552,16 @@ func (a *index) buildGlobalCollections(
 			}
 			sans = sans.Union(sets.New(svc.Service.SubjectAltNames...))
 
+			vips := sets.New[simpleNetworkAddress]()
+			vips.InsertAll(slices.Map(svc.Service.GetAddresses(), networkAddressToSimple)...)
+			gsa := globalServiceVIPIndex.Fetch(ctx, types.NamespacedName{Name: svc.Service.Name, Namespace: svc.Service.Namespace})
+			for _, gs := range gsa {
+				vips.InsertAll(slices.Map(gs.addresses, networkAddressToSimple)...)
+			}
+			orderedVips := slices.SortBy(vips.UnsortedList(), func(a simpleNetworkAddress) string {
+				return a.network + "/" + a.ip.String()
+			})
+
 			newSvcInfo := &model.ServiceInfo{
 				Service:            protomarshal.Clone(svc.Service),
 				Scope:              svc.Scope,
@@ -516,6 +570,16 @@ func (a *index) buildGlobalCollections(
 				Clusters:           svc.Clusters.Copy(),
 			}
 			newSvcInfo.Service.SubjectAltNames = sans.UnsortedList()
+			newSvcInfo.Service.Addresses = slices.Map(orderedVips, func(a simpleNetworkAddress) *workloadapi.NetworkAddress {
+				na := &workloadapi.NetworkAddress{
+					Network: a.network,
+					Address: a.ip.Addr().AsSlice(),
+				}
+				if !a.ip.IsSingleIP() {
+					na.Length = ptr.Of(uint32(a.ip.Bits()))
+				}
+				return na
+			})
 			return precomputeServicePtr(newSvcInfo)
 		},
 		opts.WithName("SplitHorizonServices")...)
@@ -850,4 +914,101 @@ func (a *index) createSplitHorizonWorkload(
 		Labels:   labelutil.AugmentLabels(nil, networkGateway.Cluster, "", "", networkGateway.Network),
 	}
 	return precomputeWorkload(wi)
+}
+
+type globalService types.NamespacedName
+
+func (g globalService) ResourceName() string {
+	return g.Namespace + "/" + g.Name
+}
+
+type globalServiceDiscovery struct {
+	servicesWithoutLocalIP krt.Collection[globalService]
+	queue                  controllers.Queue
+	systemNamespace        string
+	client                 kclient.Writer[*v1.Service]
+}
+
+func newGlobalServiceDiscovery(client kube.Client, systemNamespace string, networkGetter func(ctx krt.HandlerContext) network.ID, globalServices krt.Collection[model.ServiceInfo], opts krt.OptionsBuilder) *globalServiceDiscovery {
+	servicesWithoutLocalIP := krt.NewCollection(globalServices, func(ctx krt.HandlerContext, svc model.ServiceInfo) *globalService {
+		if svc.Scope != model.Global {
+			return nil
+		}
+		return &globalService{
+			Namespace: svc.Service.Namespace,
+			Name:      svc.Service.Name,
+		}
+	}, opts.WithName("GlobalServices")...)
+
+	gsd := &globalServiceDiscovery{
+		servicesWithoutLocalIP: servicesWithoutLocalIP,
+		systemNamespace:        systemNamespace,
+		client:                 kclient.NewWriteClient[*v1.Service](client),
+	}
+	gsd.queue = controllers.NewQueue("globalServiceDiscoveryController", controllers.WithGenericReconciler(gsd.reconcile))
+
+	servicesWithoutLocalIP.RegisterBatch(func(es []krt.Event[globalService]) {
+		for _, e := range es {
+			switch e.Event {
+			case controllers.EventAdd, controllers.EventDelete:
+				gsd.queue.Add(e)
+			default:
+				// TODO: I think we only need to care about Add and Delete events, but let's check
+				// that we don't need to handle Update events as well and if we need to handle
+				// somehow unknown even types on top of that.
+			}
+		}
+	}, false)
+	return gsd
+}
+
+func (gsd *globalServiceDiscovery) Run(stop <-chan struct{}) {
+	gsd.servicesWithoutLocalIP.WaitUntilSynced(stop)
+	gsd.queue.Run(stop)
+}
+
+func replacementServiceName(name, namespace string) string {
+	// TODO: generate a unique name that fits the limit of 63 characters
+	return fmt.Sprintf("%s-%s", namespace, name)
+}
+
+func replacementService(name, namespace, systemNamespace string) *v1.Service {
+	return &v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      replacementServiceName(name, namespace),
+			Namespace: systemNamespace,
+			Labels: map[string]string{
+				"istio.io/original-service-name":      name,
+				"istio.io/original-service-namespace": namespace,
+			},
+		},
+		Spec: v1.ServiceSpec{
+			Ports: []v1.ServicePort{{Port: 80}},
+		},
+	}
+}
+
+func (gsd *globalServiceDiscovery) reconcile(obj any) error {
+	event := obj.(krt.Event[globalService])
+	switch event.Event {
+	case controllers.EventAdd:
+		svc := event.New
+		s, err := gsd.client.Create(replacementService(svc.Name, svc.Namespace, gsd.systemNamespace))
+		if err == nil || kerrors.IsAlreadyExists(err) {
+			log.Errorf("krinkin: successfully created replacement service for %s/%s: %+v", svc.Namespace, svc.Name, s)
+			return nil
+		}
+		log.Errorf("krinkin: failed to create replacement service for %s/%s: %v", svc.Namespace, svc.Name, err)
+		return err
+	case controllers.EventDelete:
+		svc := event.Old
+		err := gsd.client.Delete(replacementServiceName(svc.Name, svc.Namespace), gsd.systemNamespace)
+		if err == nil || kerrors.IsNotFound(err) {
+			log.Errorf("krinkin: successfully deleted replacement service for %s/%s", svc.Namespace, svc.Name)
+			return nil
+		}
+		log.Errorf("krinkin: failed to delete replacement service for %s/%s: %v", svc.Namespace, svc.Name, err)
+		return err
+	}
+	return nil
 }
