@@ -240,9 +240,17 @@ func NewController(
 	status.RegisterStatus(c.status, GatewayClassStatus, GetStatus, c.tagWatcher.AccessUnprotected())
 
 	ReferenceGrants := gatewaycommon.BuildReferenceGrants(gatewaycommon.ReferenceGrantsCollection(inputs.ReferenceGrants, opts))
+	GatewayListenerConflicts := gatewaycommon.GatewayListenerConflictCollection(
+		inputs.Gateways,
+		inputs.ListenerSets,
+		inputs.Namespaces,
+		gatewaycommon.FetchGatewayClassFetcher(GatewayClasses),
+		opts,
+	)
 	ListenerSetStatus, ListenerSets := ListenerSetCollection(
 		inputs.ListenerSets,
 		inputs.Gateways,
+		GatewayListenerConflicts,
 		GatewayClasses,
 		inputs.Namespaces,
 		ReferenceGrants,
@@ -259,6 +267,7 @@ func NewController(
 	GatewaysStatus, Gateways := GatewayCollection(
 		inputs.Gateways,
 		ListenerSets,
+		GatewayListenerConflicts,
 		GatewayClasses,
 		inputs.Namespaces,
 		ReferenceGrants,

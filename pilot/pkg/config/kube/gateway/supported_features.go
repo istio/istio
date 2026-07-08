@@ -29,8 +29,6 @@ var skippedExtendedFeatures = []features.Feature{
 	features.GatewayFrontendClientCertificateValidationInsecureFallbackFeature,
 	// HTTPRouteHTTPSListenerDetectMisdirectedRequests
 	features.GatewayHTTPSListenerDetectMisdirectedRequestsFeature,
-	// ListenerSetHostnameConflict, ListenerSetProtocolConflict, ListenerSetReferenceGrant
-	features.ListenerSetFeature,
 }
 
 var SupportedFeatures = features.AllFeatures.Clone().Delete(skippedExtendedFeatures...)
