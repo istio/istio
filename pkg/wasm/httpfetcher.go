@@ -22,6 +22,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"time"
 
@@ -57,15 +58,35 @@ func NewHTTPFetcher(requestTimeout time.Duration, requestMaxRetry int) *HTTPFetc
 	transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	return &HTTPFetcher{
 		client: &http.Client{
-			Timeout: requestTimeout,
+			Timeout:       requestTimeout,
+			CheckRedirect: denyInternalRedirect,
 		},
 		insecureClient: &http.Client{
-			Timeout:   requestTimeout,
-			Transport: transport,
+			Timeout:       requestTimeout,
+			Transport:     transport,
+			CheckRedirect: denyInternalRedirect,
 		},
 		initialBackoff:  time.Millisecond * 500,
 		requestMaxRetry: requestMaxRetry,
 	}
+}
+
+// denyInternalRedirect stops the module fetch from following a redirect whose
+// target host is a loopback, private, link-local, or unspecified address (or
+// localhost / the GCP metadata name). The module URL is trusted config, but the
+// server it points at is not: without this a malicious or compromised wasm
+// server can 30x-redirect the fetch to a cluster-internal service or to
+// 169.254.169.254.
+func denyInternalRedirect(req *http.Request, _ []*http.Request) error {
+	host := req.URL.Hostname()
+	if host == "localhost" || host == "metadata.google.internal" {
+		return fmt.Errorf("redirect to %q blocked: internal host", req.URL.Host)
+	}
+	if ip := net.ParseIP(host); ip != nil &&
+		(ip.IsPrivate() || ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsUnspecified()) {
+		return fmt.Errorf("redirect to %q blocked: private/loopback/link-local address", req.URL.Host)
+	}
+	return nil
 }
 
 // Fetch downloads a wasm module with HTTP get.
