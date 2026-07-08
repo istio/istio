@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: security-fix
+area: security
+issue:
+  - 60820
+releaseNotes:
+  - |
+    **Fixed** the remote wasm module HTTP fetcher following HTTP redirects to
+    internal addresses. A malicious or compromised module server can no longer
+    redirect the fetch to loopback, private, link-local, or cloud metadata
+    endpoints.
