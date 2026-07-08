@@ -133,9 +133,9 @@ func create(c kube.Client, cfg config.Config, objMeta metav1.ObjectMeta) (metav1
 			Spec:       *(cfg.Spec.(*istioioapinetworkingv1alpha3.Sidecar)),
 		}, metav1.CreateOptions{})
 	case gvk.TCPRoute:
-		return c.GatewayAPI().GatewayV1alpha2().TCPRoutes(cfg.Namespace).Create(context.TODO(), &sigsk8siogatewayapiapisv1alpha2.TCPRoute{
+		return c.GatewayAPI().GatewayV1().TCPRoutes(cfg.Namespace).Create(context.TODO(), &sigsk8siogatewayapiapisv1.TCPRoute{
 			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*sigsk8siogatewayapiapisv1alpha2.TCPRouteSpec)),
+			Spec:       *(cfg.Spec.(*sigsk8siogatewayapiapisv1.TCPRouteSpec)),
 		}, metav1.CreateOptions{})
 	case gvk.TLSRoute:
 		return c.GatewayAPI().GatewayV1().TLSRoutes(cfg.Namespace).Create(context.TODO(), &sigsk8siogatewayapiapisv1.TLSRoute{
@@ -146,6 +146,11 @@ func create(c kube.Client, cfg config.Config, objMeta metav1.ObjectMeta) (metav1
 		return c.Istio().TelemetryV1().Telemetries(cfg.Namespace).Create(context.TODO(), &apiistioioapitelemetryv1.Telemetry{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*istioioapitelemetryv1alpha1.Telemetry)),
+		}, metav1.CreateOptions{})
+	case gvk.TrafficExtension:
+		return c.Istio().ExtensionsV1alpha1().TrafficExtensions(cfg.Namespace).Create(context.TODO(), &apiistioioapiextensionsv1alpha1.TrafficExtension{
+			ObjectMeta: objMeta,
+			Spec:       *(cfg.Spec.(*istioioapiextensionsv1alpha1.TrafficExtension)),
 		}, metav1.CreateOptions{})
 	case gvk.UDPRoute:
 		return c.GatewayAPI().GatewayV1alpha2().UDPRoutes(cfg.Namespace).Create(context.TODO(), &sigsk8siogatewayapiapisv1alpha2.UDPRoute{
@@ -270,9 +275,9 @@ func update(c kube.Client, cfg config.Config, objMeta metav1.ObjectMeta) (metav1
 			Spec:       *(cfg.Spec.(*istioioapinetworkingv1alpha3.Sidecar)),
 		}, metav1.UpdateOptions{})
 	case gvk.TCPRoute:
-		return c.GatewayAPI().GatewayV1alpha2().TCPRoutes(cfg.Namespace).Update(context.TODO(), &sigsk8siogatewayapiapisv1alpha2.TCPRoute{
+		return c.GatewayAPI().GatewayV1().TCPRoutes(cfg.Namespace).Update(context.TODO(), &sigsk8siogatewayapiapisv1.TCPRoute{
 			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*sigsk8siogatewayapiapisv1alpha2.TCPRouteSpec)),
+			Spec:       *(cfg.Spec.(*sigsk8siogatewayapiapisv1.TCPRouteSpec)),
 		}, metav1.UpdateOptions{})
 	case gvk.TLSRoute:
 		return c.GatewayAPI().GatewayV1().TLSRoutes(cfg.Namespace).Update(context.TODO(), &sigsk8siogatewayapiapisv1.TLSRoute{
@@ -283,6 +288,11 @@ func update(c kube.Client, cfg config.Config, objMeta metav1.ObjectMeta) (metav1
 		return c.Istio().TelemetryV1().Telemetries(cfg.Namespace).Update(context.TODO(), &apiistioioapitelemetryv1.Telemetry{
 			ObjectMeta: objMeta,
 			Spec:       *(cfg.Spec.(*istioioapitelemetryv1alpha1.Telemetry)),
+		}, metav1.UpdateOptions{})
+	case gvk.TrafficExtension:
+		return c.Istio().ExtensionsV1alpha1().TrafficExtensions(cfg.Namespace).Update(context.TODO(), &apiistioioapiextensionsv1alpha1.TrafficExtension{
+			ObjectMeta: objMeta,
+			Spec:       *(cfg.Spec.(*istioioapiextensionsv1alpha1.TrafficExtension)),
 		}, metav1.UpdateOptions{})
 	case gvk.UDPRoute:
 		return c.GatewayAPI().GatewayV1alpha2().UDPRoutes(cfg.Namespace).Update(context.TODO(), &sigsk8siogatewayapiapisv1alpha2.UDPRoute{
@@ -407,9 +417,9 @@ func updateStatus(c kube.Client, cfg config.Config, objMeta metav1.ObjectMeta) (
 			Status:     *(cfg.Status.(*istioioapimetav1alpha1.IstioStatus)),
 		}, metav1.UpdateOptions{})
 	case gvk.TCPRoute:
-		return c.GatewayAPI().GatewayV1alpha2().TCPRoutes(cfg.Namespace).UpdateStatus(context.TODO(), &sigsk8siogatewayapiapisv1alpha2.TCPRoute{
+		return c.GatewayAPI().GatewayV1().TCPRoutes(cfg.Namespace).UpdateStatus(context.TODO(), &sigsk8siogatewayapiapisv1.TCPRoute{
 			ObjectMeta: objMeta,
-			Status:     *(cfg.Status.(*sigsk8siogatewayapiapisv1alpha2.TCPRouteStatus)),
+			Status:     *(cfg.Status.(*sigsk8siogatewayapiapisv1.TCPRouteStatus)),
 		}, metav1.UpdateOptions{})
 	case gvk.TLSRoute:
 		return c.GatewayAPI().GatewayV1().TLSRoutes(cfg.Namespace).UpdateStatus(context.TODO(), &sigsk8siogatewayapiapisv1.TLSRoute{
@@ -418,6 +428,11 @@ func updateStatus(c kube.Client, cfg config.Config, objMeta metav1.ObjectMeta) (
 		}, metav1.UpdateOptions{})
 	case gvk.Telemetry:
 		return c.Istio().TelemetryV1().Telemetries(cfg.Namespace).UpdateStatus(context.TODO(), &apiistioioapitelemetryv1.Telemetry{
+			ObjectMeta: objMeta,
+			Status:     *(cfg.Status.(*istioioapimetav1alpha1.IstioStatus)),
+		}, metav1.UpdateOptions{})
+	case gvk.TrafficExtension:
+		return c.Istio().ExtensionsV1alpha1().TrafficExtensions(cfg.Namespace).UpdateStatus(context.TODO(), &apiistioioapiextensionsv1alpha1.TrafficExtension{
 			ObjectMeta: objMeta,
 			Status:     *(cfg.Status.(*istioioapimetav1alpha1.IstioStatus)),
 		}, metav1.UpdateOptions{})
@@ -717,19 +732,19 @@ func patch(c kube.Client, orig config.Config, origMeta metav1.ObjectMeta, mod co
 		return c.Istio().NetworkingV1().Sidecars(orig.Namespace).
 			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
 	case gvk.TCPRoute:
-		oldRes := &sigsk8siogatewayapiapisv1alpha2.TCPRoute{
+		oldRes := &sigsk8siogatewayapiapisv1.TCPRoute{
 			ObjectMeta: origMeta,
-			Spec:       *(orig.Spec.(*sigsk8siogatewayapiapisv1alpha2.TCPRouteSpec)),
+			Spec:       *(orig.Spec.(*sigsk8siogatewayapiapisv1.TCPRouteSpec)),
 		}
-		modRes := &sigsk8siogatewayapiapisv1alpha2.TCPRoute{
+		modRes := &sigsk8siogatewayapiapisv1.TCPRoute{
 			ObjectMeta: modMeta,
-			Spec:       *(mod.Spec.(*sigsk8siogatewayapiapisv1alpha2.TCPRouteSpec)),
+			Spec:       *(mod.Spec.(*sigsk8siogatewayapiapisv1.TCPRouteSpec)),
 		}
 		patchBytes, err := genPatchBytes(oldRes, modRes, typ)
 		if err != nil {
 			return nil, err
 		}
-		return c.GatewayAPI().GatewayV1alpha2().TCPRoutes(orig.Namespace).
+		return c.GatewayAPI().GatewayV1().TCPRoutes(orig.Namespace).
 			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
 	case gvk.TLSRoute:
 		oldRes := &sigsk8siogatewayapiapisv1.TLSRoute{
@@ -760,6 +775,21 @@ func patch(c kube.Client, orig config.Config, origMeta metav1.ObjectMeta, mod co
 			return nil, err
 		}
 		return c.Istio().TelemetryV1().Telemetries(orig.Namespace).
+			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
+	case gvk.TrafficExtension:
+		oldRes := &apiistioioapiextensionsv1alpha1.TrafficExtension{
+			ObjectMeta: origMeta,
+			Spec:       *(orig.Spec.(*istioioapiextensionsv1alpha1.TrafficExtension)),
+		}
+		modRes := &apiistioioapiextensionsv1alpha1.TrafficExtension{
+			ObjectMeta: modMeta,
+			Spec:       *(mod.Spec.(*istioioapiextensionsv1alpha1.TrafficExtension)),
+		}
+		patchBytes, err := genPatchBytes(oldRes, modRes, typ)
+		if err != nil {
+			return nil, err
+		}
+		return c.Istio().ExtensionsV1alpha1().TrafficExtensions(orig.Namespace).
 			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
 	case gvk.UDPRoute:
 		oldRes := &sigsk8siogatewayapiapisv1alpha2.UDPRoute{
@@ -897,11 +927,13 @@ func delete(c kube.Client, typ config.GroupVersionKind, name, namespace string, 
 	case gvk.Sidecar:
 		return c.Istio().NetworkingV1().Sidecars(namespace).Delete(context.TODO(), name, deleteOptions)
 	case gvk.TCPRoute:
-		return c.GatewayAPI().GatewayV1alpha2().TCPRoutes(namespace).Delete(context.TODO(), name, deleteOptions)
+		return c.GatewayAPI().GatewayV1().TCPRoutes(namespace).Delete(context.TODO(), name, deleteOptions)
 	case gvk.TLSRoute:
 		return c.GatewayAPI().GatewayV1().TLSRoutes(namespace).Delete(context.TODO(), name, deleteOptions)
 	case gvk.Telemetry:
 		return c.Istio().TelemetryV1().Telemetries(namespace).Delete(context.TODO(), name, deleteOptions)
+	case gvk.TrafficExtension:
+		return c.Istio().ExtensionsV1alpha1().TrafficExtensions(namespace).Delete(context.TODO(), name, deleteOptions)
 	case gvk.UDPRoute:
 		return c.GatewayAPI().GatewayV1alpha2().UDPRoutes(namespace).Delete(context.TODO(), name, deleteOptions)
 	case gvk.VirtualService:
@@ -1626,7 +1658,7 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 		}
 	},
 	gvk.TCPRoute: func(r runtime.Object) config.Config {
-		obj := r.(*sigsk8siogatewayapiapisv1alpha2.TCPRoute)
+		obj := r.(*sigsk8siogatewayapiapisv1.TCPRoute)
 		return config.Config{
 			Meta: config.Meta{
 				GroupVersionKind:  gvk.TCPRoute,
@@ -1668,6 +1700,25 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 		return config.Config{
 			Meta: config.Meta{
 				GroupVersionKind:  gvk.Telemetry,
+				Name:              obj.Name,
+				Namespace:         obj.Namespace,
+				Labels:            obj.Labels,
+				Annotations:       obj.Annotations,
+				ResourceVersion:   obj.ResourceVersion,
+				CreationTimestamp: obj.CreationTimestamp.Time,
+				OwnerReferences:   obj.OwnerReferences,
+				UID:               string(obj.UID),
+				Generation:        obj.Generation,
+			},
+			Spec:   &obj.Spec,
+			Status: &obj.Status,
+		}
+	},
+	gvk.TrafficExtension: func(r runtime.Object) config.Config {
+		obj := r.(*apiistioioapiextensionsv1alpha1.TrafficExtension)
+		return config.Config{
+			Meta: config.Meta{
+				GroupVersionKind:  gvk.TrafficExtension,
 				Name:              obj.Name,
 				Namespace:         obj.Namespace,
 				Labels:            obj.Labels,

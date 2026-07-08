@@ -15,6 +15,7 @@
 package status
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"encoding/json"
@@ -27,6 +28,7 @@ import (
 	"net/http/pprof"
 	"os"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -49,6 +51,7 @@ import (
 	"istio.io/istio/pilot/cmd/pilot-agent/metrics"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/grpcready"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
+	"istio.io/istio/pilot/pkg/features"
 	dnsProto "istio.io/istio/pkg/dns/proto"
 	"istio.io/istio/pkg/env"
 	commonFeatures "istio.io/istio/pkg/features"
@@ -103,6 +106,21 @@ var (
 	ProbeKeepaliveConnections = env.Register("ENABLE_PROBE_KEEPALIVE_CONNECTIONS", false,
 		"If enabled, readiness probes will keep the connection from pilot-agent to the application alive. "+
 			"This mirrors older Istio versions' behaviors, but not kubelet's.").Get()
+)
+
+var (
+	// When scraping Envoy metrics we can't use neither protobuf nor openmetrics format.
+	// The logic implemented for stats merged basically concatenates the outputs from multiple targets - it does not
+	// work well if you need to merge metrics of multiple formats.
+	//
+	// NOTE: There is limited support for handling openmetrics format, but only when scraping from application, Envoy
+	// stats are written as-is without removing the EOF marker, and therefore we cannot use openmetrics format for
+	// Envoy.
+	allowedEnvoyTypes = []string{"text/*", "text/plain"}
+	allowedAppTypes   = []string{"text/*", "text/plain", "application/openmetrics-text"}
+
+	prometheusText004  = encoding{mediatype: "text/plain", params: map[string]string{"version": "0.0.4"}}
+	openMetricsText001 = encoding{mediatype: "application/openmetrics-text", params: map[string]string{"version": "0.0.1"}}
 )
 
 // KubeAppProbers holds the information about a Kubernetes pod prober.
@@ -164,7 +182,15 @@ type Server struct {
 	shutdown              context.CancelCauseFunc
 	drain                 func()
 	disableDrain          func()
+
+	// maxAppBodyBytes caps the per-target app metrics body to bound agent memory
+	// across N concurrent scrape targets. Reads above the cap are dropped as failures
+	// and incremented on AppScrapeErrors. Defaults to defaultMaxAppMetricsBodyBytes;
+	// tests may override via the struct literal.
+	maxAppBodyBytes int
 }
+
+const defaultMaxAppMetricsBodyBytes = 10 * 1024 * 1024 // 10 MiB
 
 func initializeMonitoring() (prometheus.Gatherer, error) {
 	registry := prometheus.NewRegistry()
@@ -232,6 +258,7 @@ func NewServer(config Options) (*Server, error) {
 		shutdown:              config.Shutdown,
 		drain:                 config.TriggerDrain,
 		disableDrain:          config.DisableDrain,
+		maxAppBodyBytes:       defaultMaxAppMetricsBodyBytes,
 	}
 	if LegacyLocalhostProbeDestination.Get() {
 		s.appProbersDestination = "localhost"
@@ -250,16 +277,49 @@ func NewServer(config Options) (*Server, error) {
 		log.Infof("Prometheus scraping configuration: %v", prom)
 		if prom.Scrape != "false" {
 			s.prometheus = &prom
-			if s.prometheus.Path == "" {
-				s.prometheus.Path = "/metrics"
+			if len(s.prometheus.Targets) == 0 {
+				// Legacy path: apply defaults and synthesize a single Targets entry.
+				if s.prometheus.Path == "" {
+					s.prometheus.Path = "/metrics"
+				}
+				if s.prometheus.Port == "" {
+					s.prometheus.Port = "80"
+				}
+				if s.prometheus.Port == strconv.Itoa(int(config.StatusPort)) {
+					return nil, fmt.Errorf("invalid prometheus scrape configuration: "+
+						"application port is the same as agent port, which may lead to a recursive loop. "+
+						"Ensure pod does not have prometheus.io/port=%d label, or that injection is not happening multiple times", config.StatusPort)
+				}
+				s.prometheus.Targets = []ScrapeTarget{{Port: s.prometheus.Port, Path: s.prometheus.Path}}
+			} else {
+				// New-format path: populate legacy Port/Path from Targets[0] if absent so that
+				// handleStats (which reads Port/Path directly) scrapes the primary endpoint correctly.
+				if s.prometheus.Port == "" {
+					s.prometheus.Port = s.prometheus.Targets[0].Port
+				}
+				if s.prometheus.Path == "" {
+					s.prometheus.Path = s.prometheus.Targets[0].Path
+				}
 			}
-			if s.prometheus.Port == "" {
-				s.prometheus.Port = "80"
-			}
-			if s.prometheus.Port == strconv.Itoa(int(config.StatusPort)) {
-				return nil, fmt.Errorf("invalid prometheus scrape configuration: "+
-					"application port is the same as agent port, which may lead to a recursive loop. "+
-					"Ensure pod does not have prometheus.io/port=%d label, or that injection is not happening multiple times", config.StatusPort)
+			// Default path and validate every target port numerically to catch leading-zero
+			// representations (e.g. "015020" dials 15020 at runtime but != "15020" as a string).
+			for i, t := range s.prometheus.Targets {
+				if t.Path == "" {
+					s.prometheus.Targets[i].Path = "/metrics"
+				}
+				portNum, atoiErr := strconv.Atoi(t.Port)
+				if atoiErr != nil || portNum < 1 || portNum > 65535 {
+					return nil, fmt.Errorf("invalid prometheus scrape configuration: "+
+						"invalid target port %q", t.Port)
+				}
+				if portNum == int(config.StatusPort) {
+					return nil, fmt.Errorf("invalid prometheus scrape configuration: "+
+						"target port %s is the same as agent port, which may lead to a recursive loop", t.Port)
+				}
+				if reason, reserved := IstioReservedPortReason(strconv.Itoa(portNum)); reserved {
+					return nil, fmt.Errorf("invalid prometheus scrape configuration: "+
+						"target port %s is reserved for Istio (%s) and cannot be scraped", t.Port, reason)
+				}
 			}
 		}
 	}
@@ -504,10 +564,71 @@ func (s *Server) isReady() error {
 	return nil
 }
 
+// ScrapeTarget represents a single application metrics endpoint to scrape.
+type ScrapeTarget struct {
+	Port string `json:"port"`
+	Path string `json:"path"`
+}
+
 type PrometheusScrapeConfiguration struct {
-	Scrape string `json:"scrape"`
-	Path   string `json:"path"`
-	Port   string `json:"port"`
+	Scrape  string         `json:"scrape"`
+	Path    string         `json:"path"`
+	Port    string         `json:"port"`
+	Targets []ScrapeTarget `json:"targets,omitempty"`
+}
+
+// IsEmpty reports whether no scrape configuration is set.
+func (p PrometheusScrapeConfiguration) IsEmpty() bool {
+	return p.Scrape == "" && p.Path == "" && p.Port == "" && len(p.Targets) == 0
+}
+
+// istioReservedPorts are data-plane ports the Istio sidecar/agent owns. Users must
+// not point metrics-merging scrape targets at any of these: they either hit a
+// non-application surface (admin, tunnel, traffic capture, DNS) or would create a
+// recursive / double-counted scrape (15020 is the merged endpoint itself; 15090 is
+// Envoy's raw Prom output, already merged).
+var istioReservedPorts = map[string]string{
+	"15000": "Envoy admin",
+	"15001": "outbound traffic capture",
+	"15004": "pilot debug",
+	"15006": "inbound traffic capture",
+	"15008": "HBONE tunnel",
+	"15020": "pilot-agent status / merged Prometheus",
+	"15021": "Envoy health",
+	"15053": "DNS proxy",
+	"15090": "Envoy Prometheus (already merged)",
+}
+
+// IstioReservedPortReason returns the human-readable reason port is reserved by the
+// Istio data plane, along with whether it is reserved. Callers should surface the
+// reason to users; the error message is more actionable when users see *why*.
+func IstioReservedPortReason(port string) (string, bool) {
+	reason, ok := istioReservedPorts[port]
+	return reason, ok
+}
+
+// ParseScrapeTargets parses a comma-separated list of "port:path" pairs into ScrapeTargets.
+// Whitespace is trimmed from each entry. An empty path defaults to "/metrics".
+// Returns an error if any entry has an empty port.
+func ParseScrapeTargets(raw string) ([]ScrapeTarget, error) {
+	var targets []ScrapeTarget
+	for _, entry := range strings.Split(raw, ",") {
+		entry = strings.TrimSpace(entry)
+		if entry == "" {
+			continue
+		}
+		parts := strings.SplitN(entry, ":", 2)
+		port := strings.TrimSpace(parts[0])
+		if port == "" {
+			return nil, fmt.Errorf("empty port in scrape target %q", entry)
+		}
+		path := "/metrics"
+		if len(parts) == 2 && strings.TrimSpace(parts[1]) != "" {
+			path = strings.TrimSpace(parts[1])
+		}
+		targets = append(targets, ScrapeTarget{Port: port, Path: path})
+	}
+	return targets, nil
 }
 
 // handleStats handles prometheus stats scraping. This will scrape envoy metrics, and, if configured,
@@ -548,29 +669,35 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	// Gather all the metrics we will merge
-	if !s.config.NoEnvoy {
+	if !s.config.NoEnvoy && features.AgentMergeEnvoyStats {
 		scrapeURL := fmt.Sprintf("http://localhost:%d/stats/prometheus", s.envoyStatsPort)
 		if r.URL != nil && len(r.URL.RawQuery) > 0 {
 			scrapeURL = fmt.Sprintf("%s?%s", scrapeURL, r.URL.RawQuery)
 		}
-		if envoy, envoyCancel, _, err = s.scrape(scrapeURL, r.Header); err != nil {
+		acceptHeader := allowedContentTypes(r.Header.Get("Accept"), allowedEnvoyTypes)
+		if envoy, envoyCancel, _, err = s.scrape(scrapeURL, r.Header, acceptHeader); err != nil {
 			log.Errorf("failed scraping envoy metrics: %v", err)
 			metrics.EnvoyScrapeErrors.Increment()
 		}
 	}
 
-	// Scrape app metrics if defined and capture their format
+	// Scrape app metrics. Multi-target buffers each response so we can rewrite the
+	// OpenMetrics "# EOF" trailer; single-target streams via io.Copy.
 	var format expfmt.Format
+	var appBodies [][]byte
 	if s.prometheus != nil {
-		var contentType string
-		url := fmt.Sprintf("http://localhost:%s%s", s.prometheus.Port, s.prometheus.Path)
-		if application, appCancel, contentType, err = s.scrape(url, r.Header); err != nil {
-			log.Errorf("failed scraping application metrics: %v", err)
-			metrics.AppScrapeErrors.Increment()
+		acceptHeader := allowedContentTypes(r.Header.Get("Accept"), allowedAppTypes)
+		if len(s.prometheus.Targets) > 1 {
+			format, appBodies = s.scrapeMultipleApps(r, acceptHeader)
+		} else {
+			var contentType string
+			if application, appCancel, contentType, err = s.scrape(appMetricsURL(s.prometheus.Port, s.prometheus.Path), r.Header, acceptHeader); err != nil {
+				log.Errorf("failed scraping application metrics: %v", err)
+				metrics.AppScrapeErrors.Increment()
+			}
+			format = negotiateMetricsFormat(contentType)
 		}
-		format = negotiateMetricsFormat(contentType)
 	} else {
-		// Without app metrics format use a default
 		format = FmtText
 	}
 
@@ -591,14 +718,145 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// App metrics must go last because if they are FmtOpenMetrics,
-	// they will have a trailing "# EOF" which terminates the full exposition
-	if application != nil {
-		_, err = io.Copy(w, application)
-		if err != nil {
+	// they will have a trailing "# EOF" which terminates the full exposition.
+	// The two branches are mutually exclusive: the dispatcher above sets exactly
+	// one of `application` (single-target streaming) or `appBodies` (multi-target buffered).
+	if appBodies != nil {
+		// Multi-target path: write each target's buffered body in Targets order.
+		// EOF-handling rule:
+		//   - Strip "# EOF" from every body unconditionally.
+		//   - When the negotiated format is OpenMetrics, append a single "# EOF\n" after
+		//     all bodies via expfmt.FinalizeOpenMetrics. When the format is text, no
+		//     terminator is appended.
+		// Newline rule: ensure a "\n" separates concatenated bodies in case a target
+		// response does not end with one. Split into a second w.Write so the stripped
+		// sub-slice does not trigger a body-sized append+realloc.
+		openMetrics := format.FormatType() == expfmt.TypeOpenMetrics
+		for i, body := range appBodies {
+			if body == nil {
+				continue
+			}
+			out := stripOpenMetricsEOF(body)
+			if _, werr := w.Write(out); werr != nil {
+				log.Errorf("failed writing application metrics from target %d: %v", i, werr)
+				metrics.AppScrapeErrors.Increment()
+			} else if len(out) > 0 && out[len(out)-1] != '\n' {
+				if _, werr := w.Write([]byte{'\n'}); werr != nil {
+					log.Errorf("failed writing newline separator for target %d: %v", i, werr)
+					metrics.AppScrapeErrors.Increment()
+				}
+			}
+			// Release the body for GC before the next iteration; the merged response is
+			// already on the wire (or in the buffered ResponseWriter) at this point.
+			appBodies[i] = nil
+		}
+		if openMetrics {
+			if _, werr := expfmt.FinalizeOpenMetrics(w); werr != nil {
+				log.Errorf("failed writing application metrics EOF marker: %v", werr)
+				metrics.AppScrapeErrors.Increment()
+			}
+		}
+	} else if application != nil {
+		if _, err = io.Copy(w, application); err != nil {
 			log.Errorf("failed to scraping and writing application metrics: %v", err)
 			metrics.AppScrapeErrors.Increment()
 		}
 	}
+}
+
+// scrapeMultipleApps fans out one scrape per entry in s.prometheus.Targets concurrently and
+// returns the bodies indexed by Targets position. Failed targets are represented by nil entries;
+// each failure increments metrics.AppScrapeErrors once. The returned format is the first successful
+// target's negotiated format (which matches Targets[0] when Targets[0] succeeds), falling back to
+// FmtText when no target succeeds.
+func (s *Server) scrapeMultipleApps(r *http.Request, acceptHeader string) (expfmt.Format, [][]byte) {
+	bodies := make([][]byte, len(s.prometheus.Targets))
+	contentTypes := make([]string, len(s.prometheus.Targets))
+	var wg sync.WaitGroup
+	for i, t := range s.prometheus.Targets {
+		wg.Add(1)
+		go func(idx int, tgt ScrapeTarget) {
+			defer wg.Done()
+			// fail* dedup the log+counter+return shape across the three failure paths.
+			// Path is %q-quoted to neutralize CWE-117 log injection via newline-containing
+			// annotation values (the path comes from prometheus.istio.io/scrape-targets).
+			failErr := func(format string, args ...any) {
+				log.Errorf("scrape target %q:%q: "+format, append([]any{tgt.Port, tgt.Path}, args...)...)
+				metrics.AppScrapeErrors.Increment()
+			}
+			failWarn := func(format string, args ...any) {
+				log.Warnf("scrape target %q:%q: "+format, append([]any{tgt.Port, tgt.Path}, args...)...)
+				metrics.AppScrapeErrors.Increment()
+			}
+			body, cancel, contentType, err := s.scrape(appMetricsURL(tgt.Port, tgt.Path), r.Header, acceptHeader)
+			if cancel != nil {
+				defer cancel()
+			}
+			if err != nil {
+				failErr("scrape failed: %v", err)
+				return
+			}
+			defer body.Close()
+			// Pre-size the read buffer to 64 KiB so io.ReadAll's power-of-two growth does
+			// not allocate ~14 times for a 10 MiB body. cap+1 lets us distinguish at-cap
+			// (legitimate boundary) from saturation (cap+1 or more bytes consumed).
+			buf := bytes.NewBuffer(make([]byte, 0, 64*1024))
+			if _, readErr := buf.ReadFrom(io.LimitReader(body, int64(s.maxAppBodyBytes)+1)); readErr != nil {
+				failErr("read failed: %v", readErr)
+				return
+			}
+			if buf.Len() > s.maxAppBodyBytes {
+				failWarn("response exceeds %d bytes; dropping target", s.maxAppBodyBytes)
+				return
+			}
+			bodies[idx] = buf.Bytes()
+			contentTypes[idx] = contentType
+		}(i, t)
+	}
+	wg.Wait()
+
+	// Format selection: first successful target's format wins, unless any later successful
+	// target disagrees — in which case we downgrade to text. An OpenMetrics-claimed
+	// response containing a text body (or vice versa) is invalid. Single-format scrapes
+	// (all-text or all-OM) keep their format and EOF semantics.
+	var format expfmt.Format
+	for i, ct := range contentTypes {
+		if bodies[i] == nil {
+			continue
+		}
+		f := negotiateMetricsFormat(ct)
+		if format == "" {
+			format = f
+			continue
+		}
+		if f != format {
+			format = FmtText
+			break
+		}
+	}
+	if format == "" {
+		format = FmtText
+	}
+	return format, bodies
+}
+
+func appMetricsURL(port, path string) string {
+	return fmt.Sprintf("http://localhost:%s%s", port, path)
+}
+
+// openMetricsEOF is the OpenMetrics exposition terminator without trailing newline.
+var openMetricsEOF = []byte("# EOF")
+
+// stripOpenMetricsEOF returns body without its trailing "# EOF" line if present,
+// or the body unchanged if not. Trailing whitespace and "\r\n" line endings around
+// the terminator are tolerated. This is the "strip" half of the OpenMetrics merge
+// rule; the matching reappend uses expfmt.FinalizeOpenMetrics.
+func stripOpenMetricsEOF(body []byte) []byte {
+	trimmed := bytes.TrimRight(body, " \t\r\n")
+	if bytes.HasSuffix(trimmed, openMetricsEOF) {
+		return trimmed[:len(trimmed)-len(openMetricsEOF)]
+	}
+	return body
 }
 
 const (
@@ -620,6 +878,108 @@ func negotiateMetricsFormat(contentType string) expfmt.Format {
 		}
 	}
 	return FmtText
+}
+
+type encoding struct {
+	mediatype string
+	params    map[string]string
+}
+
+func (e encoding) String() string {
+	var params []string
+	for k, v := range e.params {
+		params = append(params, fmt.Sprintf("%s=%s", k, v))
+	}
+	sort.Strings(params)
+	return strings.Join(append([]string{e.mediatype}, params...), ";")
+}
+
+func parseAcceptHeader(acceptedTypes string) ([]encoding, error) {
+	var encodings []encoding
+	for _, e := range strings.Split(acceptedTypes, ",") {
+		mediatype, params, err := mime.ParseMediaType(e)
+		if err != nil {
+			return nil, fmt.Errorf("bad encoding %q: %w", e, err)
+		}
+		delete(params, "q") // quality values are not relevant for this parsing
+		encodings = append(encodings, encoding{mediatype: mediatype, params: params})
+	}
+	return encodings, nil
+}
+
+// allowedContentTypes parses the accepted header and excludes all the content types that are not on the list of allowed
+// content types.
+//
+// A few caveats to keep in mind:
+//  1. The Accept header may have wildecards and MIME ranges in principle (though proper Prometheus clients should only
+//     use wildcards as a fallback)
+//     - This function replaces * and */* with text/plain version 0.0.4 and replaces application/* with
+//     application/openmetrics-text version 0.0.1 - those are the most basic content types matching the wildecard/range
+//     and therefore the clients asking for them should be able to support those types at least
+//  2. If after filtering we don't have any encodings left, we fallback to text/plain version 0.0.4
+//  3. If for some reason we fail to parse the Accept header, we again fallback to text/plain version 0.0.4
+func allowedContentTypes(acceptHeader string, acceptedTypes []string) string {
+	encodings, err := parseAcceptHeader(acceptHeader)
+	if err != nil {
+		log.Warnf("Failed to parse Accept header %q: %v", acceptHeader, err)
+		return prometheusText004.String()
+	}
+
+	var acceptedEncodings []encoding
+	used := map[string]bool{}
+	for _, e := range encodings {
+		// This would include protobuf, all the Prometheus's OpenMetricsText and PrometheusText encodings
+		if e.mediatype == "*/*" || e.mediatype == "*" {
+			if !slices.Contains(acceptedTypes, prometheusText004.mediatype) {
+				continue
+			}
+
+			key := prometheusText004.String()
+			if _, present := used[key]; present {
+				continue
+			}
+			used[key] = true
+			acceptedEncodings = append(acceptedEncodings, prometheusText004)
+			continue
+		}
+
+		// This would include protobuf and all the Prometheus's OpenMetricsText encodings
+		if e.mediatype == "application/*" {
+			if !slices.Contains(acceptedTypes, openMetricsText001.mediatype) {
+				continue
+			}
+
+			key := openMetricsText001.String()
+			if _, present := used[key]; present {
+				continue
+			}
+			used[key] = true
+			acceptedEncodings = append(acceptedEncodings, openMetricsText001)
+			continue
+		}
+
+		if !slices.Contains(acceptedTypes, e.mediatype) {
+			continue
+		}
+
+		key := e.String()
+		used[key] = true
+		acceptedEncodings = append(acceptedEncodings, e)
+	}
+
+	total := len(acceptedEncodings)
+	if total == 0 {
+		log.Warnf("No recognized encodings found in Accept header %q", acceptHeader)
+		return prometheusText004.String()
+	}
+
+	var parts []string
+	for i, e := range acceptedEncodings {
+		e.params["q"] = fmt.Sprintf("0.%d", total-i)
+		parts = append(parts, mime.FormatMediaType(e.mediatype, e.params))
+	}
+
+	return strings.Join(parts, ",")
 }
 
 func scrapeAndWriteAgentMetrics(registry prometheus.Gatherer, w io.Writer) error {
@@ -659,7 +1019,7 @@ func getHeaderTimeout(timeout string) (time.Duration, error) {
 // This will attempt to mimic some of Prometheus functionality by passing some of the headers through
 // such as accept, timeout, and user agent
 // Returns the scraped metrics reader as well as the response's "Content-Type" header to determine the metrics format
-func (s *Server) scrape(url string, header http.Header) (io.ReadCloser, context.CancelFunc, string, error) {
+func (s *Server) scrape(url string, header http.Header, acceptHeader string) (io.ReadCloser, context.CancelFunc, string, error) {
 	var cancel context.CancelFunc
 	ctx := context.Background()
 	if timeoutString := header.Get("X-Prometheus-Scrape-Timeout-Seconds"); timeoutString != "" {
@@ -674,10 +1034,12 @@ func (s *Server) scrape(url string, header http.Header) (io.ReadCloser, context.
 	if err != nil {
 		return nil, cancel, "", err
 	}
-	applyHeaders(req.Header, header, "Accept",
-		"User-Agent",
+	applyHeaders(req.Header, header, "User-Agent",
 		"X-Prometheus-Scrape-Timeout-Seconds",
 	)
+	if acceptHeader != "" {
+		req.Header.Set("Accept", acceptHeader)
+	}
 
 	resp, err := s.http.Do(req)
 	if err != nil {

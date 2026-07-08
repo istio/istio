@@ -40,10 +40,12 @@ const (
 	wildcardNamespace = "*"
 	currentNamespace  = "."
 	wildcardService   = host.Name("*")
+	excludePrefix     = "~"
 )
 
 var (
 	sidecarScopedKnownConfigTypes = sets.New(
+		kind.Endpoints,
 		kind.ServiceEntry,
 		kind.VirtualService,
 		kind.DestinationRule,
@@ -58,13 +60,25 @@ var (
 		kind.AuthorizationPolicy,
 		kind.RequestAuthentication,
 		kind.WasmPlugin,
+		kind.TrafficExtension,
 		kind.Telemetry,
 	)
 )
 
 type hostClassification struct {
-	exactHosts sets.Set[host.Name]
-	allHosts   []host.Name
+	exactHosts    sets.Set[host.Name]
+	allHosts      []host.Name
+	excludedHosts []host.Name
+}
+
+// Excluded reports whether h matches any ~-prefixed exclusion entry scoped to this namespace.
+func (hc hostClassification) Excluded(h host.Name) bool {
+	for _, excluded := range hc.excludedHosts {
+		if h.SubsetOf(excluded) {
+			return true
+		}
+	}
+	return false
 }
 
 // Matches checks if the hostClassification(sidecar egress hosts) matches the Service's hostname
@@ -343,9 +357,8 @@ func initSidecarScopeInternalIndexes(ps *PushContext, sidecarScope *SidecarScope
 
 	if sidecarScope.Sidecar.GetOutboundTrafficPolicy() == nil {
 		if ps.Mesh.OutboundTrafficPolicy != nil {
-			sidecarScope.OutboundTrafficPolicy = &networking.OutboundTrafficPolicy{
-				Mode: networking.OutboundTrafficPolicy_Mode(ps.Mesh.OutboundTrafficPolicy.Mode),
-			}
+			mode := networking.OutboundTrafficPolicy_Mode(ps.Mesh.OutboundTrafficPolicy.Mode)
+			sidecarScope.OutboundTrafficPolicy = &networking.OutboundTrafficPolicy{Mode: mode}
 		}
 	} else {
 		sidecarScope.OutboundTrafficPolicy = sidecarScope.Sidecar.GetOutboundTrafficPolicy()
@@ -397,7 +410,11 @@ func (sc *SidecarScope) collectImportedServices(ps *PushContext, configNamespace
 						continue
 					}
 					// This won't overwrite hostnames that have already been found eg because they were requested in hosts
-					if ns := pickFirstVisibleNamespace(ps, byNamespace, configNamespace); ns != "" {
+					pickNamespace := pickFirstVisibleNamespace
+					if features.SidecarPickBestServiceNamespace {
+						pickNamespace = pickBestVisibleNamespace
+					}
+					if ns := pickNamespace(ps, byNamespace, configNamespace); ns != "" {
 						if matchedSvc := serviceMatchingPort(byNamespace[ns], ilw, ports); matchedSvc != nil {
 							sc.appendSidecarServices(servicesAdded, matchedSvc)
 						}
@@ -452,11 +469,20 @@ func (sc *SidecarScope) selectDestinationRules(ps *PushContext, configNamespace 
 				}
 			}
 		}
-		sc.AddConfigDependencies(ConfigKey{
-			Kind:      kind.ServiceEntry,
-			Name:      string(s.Hostname),
-			Namespace: s.Attributes.Namespace,
-		}.HashCode())
+		sc.AddConfigDependencies(
+			ConfigKey{
+				Kind:      kind.ServiceEntry,
+				Name:      string(s.Hostname),
+				Namespace: s.Attributes.Namespace,
+			}.HashCode(),
+			// we do not directly depend on endpoints, but this is needed
+			// to only filter service endpoint updates for services we care about
+			ConfigKey{
+				Kind:      kind.Endpoints,
+				Name:      string(s.Hostname),
+				Namespace: s.Attributes.Namespace,
+			}.HashCode(),
+		)
 	}
 }
 
@@ -469,12 +495,22 @@ func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 	}
 
 	hostsByNamespace := make(map[string]hostClassification)
+
+	allExactHosts := true
 	for _, h := range istioListener.Hosts {
 		if strings.Count(h, "/") != 1 {
 			log.Errorf("Illegal host in sidecar resource: %s, host must be of form namespace/dnsName", h)
 			continue
 		}
 		ns, name, _ := strings.Cut(h, "/")
+
+		excluded := strings.HasPrefix(ns, excludePrefix)
+		if excluded {
+			ns = strings.TrimPrefix(ns, excludePrefix)
+			if ns == "" {
+				ns = wildcardNamespace
+			}
+		}
 		if ns == currentNamespace {
 			ns = configNamespace
 		}
@@ -485,9 +521,20 @@ func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 			hc = hostClassification{exactHosts: sets.New[host.Name](), allHosts: make([]host.Name, 0)}
 		}
 
+		if excluded {
+			hc.excludedHosts = append(hc.excludedHosts, hName)
+			hostsByNamespace[ns] = hc
+			continue
+		}
+
 		// exact hosts are saved separately for map lookup
 		if !hName.IsWildCarded() {
 			hc.exactHosts.Insert(hName)
+		} else {
+			allExactHosts = false
+		}
+		if ns == wildcardNamespace {
+			allExactHosts = false
 		}
 
 		// allHosts contains the exact hosts and wildcard hosts,
@@ -497,11 +544,45 @@ func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 	}
 
 	out.virtualServices = SelectVirtualServices(ps.virtualServiceIndex, configNamespace, hostsByNamespace)
-	svces := ps.servicesExportedToNamespace(configNamespace)
+	var svces []*Service
+	if allExactHosts {
+		svces = ps.servicesForExactHosts(configNamespace, hostsByNamespace)
+	} else {
+		svces = ps.servicesExportedToNamespace(configNamespace)
+	}
 	out.services = out.selectServices(svces, configNamespace, hostsByNamespace)
 	out.mostSpecificWildcardVsIndex = computeWildcardHostVirtualServiceIndex(out.virtualServices, out.services)
 
 	return out
+}
+
+// servicesForExactHosts resolves the candidate services for an egress listener whose hosts are all exact
+// (non-wildcard) and explicitly namespaced, via direct lookups in ps.ServiceIndex.HostnameAndNamespace instead
+// of scanning every service visible to configNamespace. It is a fast-path replacement for
+// servicesExportedToNamespace; the returned list is fed to selectServices, exactly like the scan-based path.
+func (ps *PushContext) servicesForExactHosts(configNamespace string,
+	hostsByNamespace map[string]hostClassification,
+) []*Service {
+	var candidates []*Service
+	for ns, hc := range hostsByNamespace {
+		for hName := range hc.exactHosts {
+			byNamespace, ok := ps.ServiceIndex.HostnameAndNamespace[hName]
+			if !ok {
+				continue
+			}
+			svc, ok := byNamespace[ns]
+			if !ok {
+				continue
+			}
+			// HostnameAndNamespace contains all services regardless of exportTo, so visibility is reapplied.
+			if !ps.IsServiceVisible(svc, configNamespace) {
+				continue
+			}
+			candidates = append(candidates, svc)
+		}
+	}
+	// Sort for deterministic output, matching servicesExportedToNamespace (built from creation-ordered services).
+	return SortServicesByCreationTime(candidates)
 }
 
 // GetEgressListenerForRDS returns the egress listener corresponding to
@@ -670,6 +751,11 @@ func (sc *SidecarScope) Services() []*Service {
 	return sc.services
 }
 
+// Services returns the list of services that are visible to a sidecar.
+func (sc *SidecarScope) ServicesByHostname() map[host.Name]*Service {
+	return sc.servicesByHostname
+}
+
 // Testing Only. This allows tests to inject a config without having the mock.
 func (sc *SidecarScope) SetDestinationRulesForTesting(configs []config.Config) {
 	sc.destinationRulesByNames = make(map[types.NamespacedName]*config.Config)
@@ -714,10 +800,16 @@ func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, confi
 	wildcardHosts, wnsFound := hostsByNamespace[wildcardNamespace]
 	for _, s := range services {
 		configNamespace := s.Attributes.Namespace
+		nsHosts, nsFound := hostsByNamespace[configNamespace]
+
+		// Skip services excluded by a ~-prefixed host in the service's namespace or wildcard scope.
+		if (nsFound && nsHosts.Excluded(s.Hostname)) || (wnsFound && wildcardHosts.Excluded(s.Hostname)) {
+			continue
+		}
 
 		// Check if there is an explicit import of form ns/* or ns/host
-		if importedHosts, nsFound := hostsByNamespace[configNamespace]; nsFound {
-			if svc := matchingAliasService(importedHosts, matchingService(importedHosts, s, ilw)); svc != nil {
+		if nsFound {
+			if svc := matchingAliasService(nsHosts, matchingService(nsHosts, s, ilw)); svc != nil {
 				importedServices = append(importedServices, svc)
 				continue
 			}
@@ -1051,6 +1143,33 @@ func pickFirstVisibleNamespace(ps *PushContext, byNamespace map[string]*Service,
 	if len(nss) > 0 {
 		sort.Strings(nss)
 		return nss[0]
+	}
+	return ""
+}
+
+// Pick the best Service namespace visible to the configNamespace namespace.
+// If it does not exist, return an empty string.
+// Best is defined as:
+// 1. contains a Kubernetes service and is visible to configNamespace
+// 2. contains the oldest non-Kubernetes service which is visible to configNamespace
+// This does not consider whether a svc is in the configNamespace,
+// the calling logic has already attempted a direct lookup of byNamespace[configNamespace]
+func pickBestVisibleNamespace(ps *PushContext, byNamespace map[string]*Service, configNamespace string) string {
+	var currentBestService *Service
+	for _, svc := range byNamespace {
+		if ps.IsServiceVisible(svc, configNamespace) {
+			// if we have a visible kube service, use it
+			if svc.Attributes.ServiceRegistry == provider.Kubernetes {
+				return svc.NamespacedName().Namespace
+			}
+			// if this is the first visible service, or it's older than our current best, then it is the new best that we have seen
+			if currentBestService == nil || svc.CreationTime.Before(currentBestService.CreationTime) {
+				currentBestService = svc
+			}
+		}
+	}
+	if currentBestService != nil {
+		return currentBestService.NamespacedName().Namespace
 	}
 	return ""
 }

@@ -35,12 +35,14 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/listenertest"
 	"istio.io/istio/pilot/pkg/networking/plugin/authz"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/network"
@@ -52,6 +54,22 @@ import (
 	"istio.io/istio/pkg/wellknown"
 	workloadapi "istio.io/istio/pkg/workloadapi"
 )
+
+// mockAmbientIndex is a test implementation of AmbientIndexes that returns mock service info
+type mockAmbientIndex struct {
+	model.NoopAmbientIndexes
+	serviceInfos []*model.ServiceInfo
+}
+
+func (m *mockAmbientIndex) ServiceInfo(key string) *model.ServiceInfo {
+	for _, info := range m.serviceInfos {
+		svcKey := fmt.Sprintf("%s/%s", info.GetNamespace(), info.Service.GetHostname())
+		if key == svcKey {
+			return info
+		}
+	}
+	return nil
+}
 
 func TestVirtualListenerBuilder(t *testing.T) {
 	cg := NewConfigGenTest(t, TestOptions{Services: testServices})
@@ -1136,27 +1154,29 @@ func TestWaypointInternalMultiNetworkAddresses(t *testing.T) {
 				svc.ClusterVIPs.SetAddressesFor("cluster-1", tc.localVIPs)
 			}
 
-			svcDiscovery := memory.NewServiceDiscovery(svc)
-			svcDiscovery.AddServiceInfo(&model.ServiceInfo{
-				Service: &workloadapi.Service{
-					Name:      svc.Attributes.Name,
-					Namespace: svc.Attributes.Namespace,
-					Hostname:  svc.Hostname.String(),
-					Addresses: tc.addresses,
-				},
-				Scope: tc.scope,
-			})
-
 			cg := NewConfigGenTest(t, TestOptions{
 				ClusterID: "cluster-1",
 				ServiceRegistries: []serviceregistry.Instance{
 					serviceregistry.Simple{
 						ProviderID:          provider.Kubernetes,
 						ClusterID:           "cluster-1",
-						DiscoveryController: svcDiscovery,
+						DiscoveryController: memory.NewServiceDiscovery(svc),
 					},
 				},
 			})
+			cg.env.AmbientIndexes = &mockAmbientIndex{
+				serviceInfos: []*model.ServiceInfo{
+					{
+						Service: &workloadapi.Service{
+							Name:      svc.Attributes.Name,
+							Namespace: svc.Attributes.Namespace,
+							Hostname:  svc.Hostname.String(),
+							Addresses: tc.addresses,
+						},
+						Scope: tc.scope,
+					},
+				},
+			}
 
 			proxy := &model.Proxy{
 				Type:            model.Waypoint,
@@ -1381,6 +1401,64 @@ func extractIPMatcherFromListener(t *testing.T, l *listener.Listener) *matcher.I
 	return ipMatcher
 }
 
+// TestWaypointInternalHeadlessServiceNoEmptyRanges verifies that a service
+// with no addresses (the shape headless services take on IPv6 clusters,
+// where constants.UnspecifiedIP gets filtered out by FilterAddressesByIPFamily)
+// does not produce an IPMatcher_IPRangeMatcher with an empty Ranges slice.
+// An empty Ranges violates the proto's repeated.min_items=1 rule and is
+// rejected by envoy. See https://github.com/istio/istio/issues/60310.
+func TestWaypointInternalHeadlessServiceNoEmptyRanges(t *testing.T) {
+	test.SetForTest(t, &features.EnableAmbient, true)
+
+	cg := NewConfigGenTest(t, TestOptions{})
+
+	// Headless service: no ClusterVIPs, no AutoAllocated address, no
+	// DefaultAddress. svcAddresses in buildWaypointInternal will be empty.
+	svc := &model.Service{
+		Hostname: host.Name("headless.default.svc.cluster.local"),
+		Attributes: model.ServiceAttributes{
+			Namespace: "default",
+		},
+		Ports: model.PortList{
+			&model.Port{
+				Name:     "http",
+				Port:     80,
+				Protocol: protocol.HTTP,
+			},
+		},
+	}
+
+	proxy := &model.Proxy{
+		Type:            model.Waypoint,
+		ConfigNamespace: "default",
+		Metadata: &model.NodeMetadata{
+			ClusterID: "cluster-1",
+			Network:   "network-a",
+		},
+	}
+	proxy = cg.SetupProxy(proxy)
+
+	lb := &ListenerBuilder{
+		push: cg.PushContext(),
+		node: proxy,
+	}
+
+	l := lb.buildWaypointInternal(nil, []*model.Service{svc})
+	if l == nil {
+		t.Fatal("expected listener from buildWaypointInternal")
+	}
+
+	// If an IPMatcher exists, none of its RangeMatchers may have empty Ranges.
+	if ipMatcher := extractIPMatcherFromListener(t, l); ipMatcher != nil {
+		for i, rm := range ipMatcher.RangeMatchers {
+			if len(rm.Ranges) == 0 {
+				t.Fatalf("IPMatcher.RangeMatchers[%d].Ranges is empty; envoy rejects this (proto min_items=1). "+
+					"Headless services must elide the IPRangeMatcher entry entirely.", i)
+			}
+		}
+	}
+}
+
 func TestPreserveHeader(t *testing.T) {
 	cg := NewConfigGenTest(t, TestOptions{
 		MeshConfig: &meshconfig.MeshConfig{
@@ -1427,5 +1505,84 @@ func TestPreserveHeader(t *testing.T) {
 			}
 			assert.NoError(t, tt.isExpected(lb.buildHTTPConnectionManager(tt.opts)))
 		})
+	}
+}
+
+func TestVirtualOutboundListenerAllowAnyDynamicDNS(t *testing.T) {
+	meshCfg := mesh.DefaultMeshConfig()
+	meshCfg.OutboundTrafficPolicy = &meshconfig.MeshConfig_OutboundTrafficPolicy{
+		Mode: meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY_DYNAMIC_DNS,
+	}
+	listeners := buildListeners(t, TestOptions{
+		Services:   testServices,
+		MeshConfig: meshCfg,
+	}, nil)
+
+	vo := xdstest.ExtractListener(model.VirtualOutboundListenerName, listeners)
+	if vo == nil {
+		t.Fatal("didn't find virtual outbound listener")
+	}
+
+	listenertest.VerifyListener(t, vo, listenertest.ListenerTest{
+		Filters: []string{wellknown.HTTPInspector},
+		FilterChains: []listenertest.FilterChainTest{
+			{Name: model.VirtualOutboundBlackholeFilterChainName},
+			{
+				Name:           model.VirtualOutboundCatchAllTCPFilterChainName + "-http",
+				NetworkFilters: []string{wellknown.HTTPConnectionManager},
+				HTTPFilters:    []string{"envoy.filters.http.dynamic_forward_proxy"},
+				ValidateHCM: func(t test.Failer, h *hcm.HttpConnectionManager) {
+					rc := h.GetRouteConfig()
+					if rc == nil || len(rc.VirtualHosts) == 0 || len(rc.VirtualHosts[0].Routes) == 0 {
+						t.Fatalf("expected catch-all route in HCM route config")
+					}
+					cluster := rc.VirtualHosts[0].Routes[0].GetRoute().GetCluster()
+					assert.Equal(t, cluster, util.AllowAnyDynamicDNSCluster)
+				},
+			},
+			{
+				Name:           model.VirtualOutboundCatchAllTCPFilterChainName,
+				NetworkFilters: []string{wellknown.TCPProxy},
+			},
+		},
+		TotalMatch: true,
+	})
+}
+
+func TestDFPHTTPFilterInjectedInOutboundHCM(t *testing.T) {
+	meshCfg := mesh.DefaultMeshConfig()
+	meshCfg.OutboundTrafficPolicy = &meshconfig.MeshConfig_OutboundTrafficPolicy{
+		Mode: meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY_DYNAMIC_DNS,
+	}
+	listeners := buildListeners(t, TestOptions{
+		Services:   testServices,
+		MeshConfig: meshCfg,
+	}, nil)
+
+	for _, l := range listeners {
+		if l.Name == model.VirtualOutboundListenerName || l.Name == model.VirtualInboundListenerName {
+			continue
+		}
+		for _, fc := range l.FilterChains {
+			for _, f := range fc.Filters {
+				if f.Name != wellknown.HTTPConnectionManager {
+					continue
+				}
+				hcmCfg := &hcm.HttpConnectionManager{}
+				if err := f.GetTypedConfig().UnmarshalTo(hcmCfg); err != nil {
+					t.Fatalf("failed to unmarshal HCM: %v", err)
+				}
+				foundDFP := false
+				for _, hf := range hcmCfg.HttpFilters {
+					if hf.Name == "envoy.filters.http.dynamic_forward_proxy" {
+						foundDFP = true
+						break
+					}
+				}
+				if !foundDFP {
+					t.Errorf("listener %s chain %s: expected DFP HTTP filter in outbound HCM", l.Name, fc.Name)
+				}
+			}
+		}
 	}
 }

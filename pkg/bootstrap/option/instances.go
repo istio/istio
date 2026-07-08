@@ -248,6 +248,22 @@ func EnvoyPrometheusPort(value int) Instance {
 	return newOption("envoy_prometheus_port", value)
 }
 
+// SecureMetricsPort adds an mTLS listener for Envoy-only stats. Zero disables it.
+func SecureMetricsPort(value int) Instance {
+	if value == 0 {
+		return skipOption("secure_metrics_port")
+	}
+	return newOption("secure_metrics_port", value)
+}
+
+// SecureMergedMetricsPort adds an mTLS listener for merged metrics (Envoy + app + agent). Zero disables it.
+func SecureMergedMetricsPort(value int) Instance {
+	if value == 0 {
+		return skipOption("secure_merged_metrics_port")
+	}
+	return newOption("secure_merged_metrics_port", value)
+}
+
 func STSPort(value int) Instance {
 	return newOption("sts_port", value)
 }

@@ -26,7 +26,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gatewayalpha "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	istio "istio.io/api/networking/v1alpha3"
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
@@ -35,6 +34,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/gateway/kube"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube/controllers"
@@ -438,31 +438,31 @@ func GRPCRouteCollection(
 }
 
 func TCPRouteCollection(
-	tcpRoutes krt.Collection[*gatewayalpha.TCPRoute],
+	tcpRoutes krt.Collection[*gatewayv1.TCPRoute],
 	inputs RouteContextInputs,
 	opts krt.OptionsBuilder,
-) RouteResult[*gatewayalpha.TCPRoute, gatewayalpha.TCPRouteStatus] {
+) RouteResult[*gatewayv1.TCPRoute, gatewayv1.TCPRouteStatus] {
 	routeCount := gatewayRouteAttachmentCountCollection(inputs, tcpRoutes, gvk.TCPRoute, opts)
-	ancestorBackends := krt.NewManyCollection(tcpRoutes, func(krtctx krt.HandlerContext, obj *gatewayalpha.TCPRoute) []AncestorBackend {
+	ancestorBackends := krt.NewManyCollection(tcpRoutes, func(krtctx krt.HandlerContext, obj *gatewayv1.TCPRoute) []AncestorBackend {
 		return extractAncestorBackends(
 			obj.ObjectMeta,
 			kind.FromString(obj.Kind),
 			obj.Spec.ParentRefs,
 			obj.Spec.Rules,
-			func(r gatewayalpha.TCPRouteRule) []gatewayv1.BackendRef {
+			func(r gatewayv1.TCPRouteRule) []gatewayv1.BackendRef {
 				return r.BackendRefs
 			},
 		)
 	}, opts.WithName("TCPAncestors")...)
-	status, virtualServices := krt.NewStatusManyCollection(tcpRoutes, func(krtctx krt.HandlerContext, obj *gatewayalpha.TCPRoute) (
-		*gatewayalpha.TCPRouteStatus,
+	status, virtualServices := krt.NewStatusManyCollection(tcpRoutes, func(krtctx krt.HandlerContext, obj *gatewayv1.TCPRoute) (
+		*gatewayv1.TCPRouteStatus,
 		[]config.Config,
 	) {
 		ctx := inputs.WithCtx(krtctx)
 		status := obj.Status.DeepCopy()
 		route := obj.Spec
 		parentStatus, parentRefs, meshResult, gwResult := computeRoute(ctx, obj,
-			func(mesh bool, obj *gatewayalpha.TCPRoute) iter.Seq2[*istio.TCPRoute, *ConfigError] {
+			func(mesh bool, obj *gatewayv1.TCPRoute) iter.Seq2[*istio.TCPRoute, *ConfigError] {
 				return func(yield func(*istio.TCPRoute, *ConfigError) bool) {
 					for _, r := range route.Rules {
 						if !yield(convertTCPRoute(ctx, r, obj, !mesh)) {
@@ -526,7 +526,7 @@ func TCPRouteCollection(
 		return status, vs
 	}, opts.WithName("TCPRoute")...)
 
-	return RouteResult[*gatewayalpha.TCPRoute, gatewayalpha.TCPRouteStatus]{
+	return RouteResult[*gatewayv1.TCPRoute, gatewayv1.TCPRouteStatus]{
 		VirtualServices:  virtualServices,
 		RouteAttachments: routeCount,
 		Status:           status,
@@ -593,12 +593,20 @@ func TLSRouteCollection(
 					vsHosts = []string{fmt.Sprintf("%s.%s.svc.%s", ref.Name, ref.Namespace, ctx.DomainSuffix)}
 				}
 				routes = augmentTLSPortMatch(routes, parent.OriginalReference.Port, vsHosts)
+			} else if parent.Hostname != "" {
+				// For gateway parents with a listener hostname constraint, intersect the route
+				// hostnames with the listener hostname per the Gateway API spec.
+				// e.g. route hostnames [*.com] ∩ listener hostname *.example.com = [*.example.com]
+				routeNames := host.NewNames(vsHosts)
+				listenerNames := host.NewNames([]string{parent.Hostname})
+				vsHosts = slices.Map(routeNames.Intersection(listenerNames), func(n host.Name) string { return string(n) })
+				routes = constrainTLSRoutesToListenerHost(routes, parent.Hostname)
 			}
-			for _, host := range vsHosts {
+			for _, vsHost := range vsHosts {
 				name := fmt.Sprintf("%s~tls~%d~%s", obj.Name, count, constants.KubernetesGatewayName)
 				filteredRoutes := routes
 				if parent.IsMesh() {
-					filteredRoutes = compatibleRoutesForHost(routes, host)
+					filteredRoutes = compatibleRoutesForHost(routes, vsHost)
 				}
 				// Create one VS per hostname with a single hostname.
 				// This ensures we can treat each hostname independently, as the spec requires
@@ -612,7 +620,7 @@ func TLSRouteCollection(
 						Domain:            ctx.DomainSuffix,
 					},
 					Spec: &istio.VirtualService{
-						Hosts:    []string{host},
+						Hosts:    []string{vsHost},
 						Gateways: []string{parent.InternalName},
 						Tls:      filteredRoutes,
 					},
@@ -777,7 +785,7 @@ func gatewayRouteAttachmentCountCollection[T controllers.Object](
 
 		parentRefs := extractParentReferenceInfo(ctx, inputs.RouteParents, obj)
 		return slices.MapFilter(filteredReferences(parentRefs), func(e routeParentReference) *RouteAttachment {
-			if e.ParentKey.Kind != gvk.KubernetesGateway {
+			if e.ParentKey.Kind != gvk.KubernetesGateway && e.ParentKey.Kind != gvk.ListenerSet {
 				return nil
 			}
 			return &RouteAttachment{

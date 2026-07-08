@@ -20,6 +20,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"go.uber.org/atomic"
 )
 
 func TestPriorityQueue(t *testing.T) {
@@ -177,14 +179,14 @@ func TestDelayQueueRetry(t *testing.T) {
 	defer close(stop)
 	go dq.Run(stop)
 
-	count := 0
+	count := atomic.NewInt32(0)
 	done := make(chan struct{})
 	dq.PushDelayed(func() error {
-		count++
-		if count == maxTaskRetry+1 {
+		cnt := count.Inc()
+		if cnt == maxTaskRetry+1 {
 			close(done)
 		}
-		return fmt.Errorf("error count %d", count)
+		return fmt.Errorf("error count %d", cnt)
 	}, 200*time.Millisecond)
 
 	select {
@@ -193,7 +195,7 @@ func TestDelayQueueRetry(t *testing.T) {
 	case <-done:
 	}
 
-	if count != maxTaskRetry+1 {
-		t.Errorf("running count %d != %d", count, maxTaskRetry+1)
+	if cnt := count.Load(); cnt != maxTaskRetry+1 {
+		t.Errorf("running count %d != %d", cnt, maxTaskRetry+1)
 	}
 }

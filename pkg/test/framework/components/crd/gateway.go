@@ -35,7 +35,7 @@ import (
 // SupportsGatewayAPI checks if the gateway API is supported.
 func SupportsGatewayAPI(t resource.Context) bool {
 	for _, cluster := range t.Clusters() {
-		if !cluster.MinKubeVersion(23) { // API uses CEL which requires 1.23
+		if !cluster.MinKubeVersion(31) { // isIP() CEL function requires 1.31 (gateway-api v1.5.0)
 			return false
 		}
 	}
@@ -67,10 +67,11 @@ func DeployGatewayAPI(ctx resource.Context) error {
 		Apply(apply.NoCleanup); err != nil {
 		return err
 	}
+	gatewayClassName := cfg.GatewayClassName
 	// Wait until our GatewayClass is ready
 	return retry.UntilSuccess(func() error {
 		for _, c := range ctx.Clusters().Configs() {
-			_, err := c.GatewayAPI().GatewayV1().GatewayClasses().Get(context.Background(), "istio", metav1.GetOptions{})
+			_, err := c.GatewayAPI().GatewayV1().GatewayClasses().Get(context.Background(), gatewayClassName, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}

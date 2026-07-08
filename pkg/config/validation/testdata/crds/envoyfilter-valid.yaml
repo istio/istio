@@ -72,3 +72,23 @@ spec:
         value: # cluster specification
           name: "lua_cluster"
 ---
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: merge-and-replace-list
+spec:
+  configPatches:
+    - applyTo: NETWORK_FILTER
+      match:
+        listener:
+          filterChain:
+            transportProtocol: tls
+      patch:
+        operation: MERGE_AND_REPLACE_LIST
+        value:
+          name: envoy.filters.network.http_connection_manager
+          typed_config:
+            "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+            upgrade_configs:
+              - upgrade_type: websocket
+---

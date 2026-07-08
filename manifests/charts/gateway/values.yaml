@@ -63,6 +63,7 @@ _internal_defaults_do_not_set:
     loadBalancerIP: ""
     loadBalancerSourceRanges: []
     externalTrafficPolicy: ""
+    healthCheckNodePort: 
     externalIPs: []
     ipFamilyPolicy: ""
     ipFamilies: []
@@ -104,10 +105,10 @@ _internal_defaults_do_not_set:
 
   # Deployment Update strategy
   strategy: {}
-  
+
   # Sets the Deployment minReadySeconds value
   minReadySeconds:
-  
+
   # Optionally configure a custom readinessProbe. By default the control plane
   # automatically injects the readinessProbe. If you wish to override that
   # behavior, you may define your own readinessProbe here.
@@ -131,6 +132,21 @@ _internal_defaults_do_not_set:
 
   # If specified, the gateway will act as a network gateway for the given network.
   networkGateway: ""
+
+  # Ports for the network gateway service. Only used when networkGateway is set.
+  networkGatewayPorts:
+    status-port:
+      port: 15021
+      targetPort: 15021
+    tls:
+      port: 15443
+      targetPort: 15443
+    tls-istiod:
+      port: 15012
+      targetPort: 15012
+    tls-webhook:
+      port: 15017
+      targetPort: 15017
 
   # Specify image pull policy if default behavior isn't desired.
   # Default behavior: latest images will be Always else IfNotPresent
@@ -170,6 +186,14 @@ _internal_defaults_do_not_set:
   # podDisruptionBudget: {}
   #
   podDisruptionBudget: {}
+
+  # Configure the DNS policy for the gateway pods. See
+  # https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy
+  dnsPolicy: ""
+
+  # Configure DNS settings for the gateway pods. See
+  # https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-dns-config
+  dnsConfig: {}
 
   # Sets the per-pod terminationGracePeriodSeconds setting.
   terminationGracePeriodSeconds: 30

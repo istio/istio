@@ -123,6 +123,7 @@ var rootCmd = &cobra.Command{
 					Revision:                   nodeagent.Revision,
 					ServerSocket:               cfg.InstallConfig.ZtunnelUDSAddress,
 					EnablementSelector:         compiledSelectors,
+					ExcludeNamespaces:          util.SplitExcludeNamespaces(cfg.InstallConfig.ExcludeNamespaces),
 					DNSCapture:                 cfg.InstallConfig.AmbientDNSCapture,
 					EnableIPv6:                 cfg.InstallConfig.AmbientIPv6,
 					ReconcilePodRulesOnStartup: cfg.InstallConfig.AmbientReconcilePodRulesOnStartup,

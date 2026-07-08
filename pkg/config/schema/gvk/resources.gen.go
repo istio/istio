@@ -70,11 +70,13 @@ var (
 	Sidecar_v1alpha3               = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1alpha3", Kind: "Sidecar"}
 	Sidecar_v1beta1                = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1beta1", Kind: "Sidecar"}
 	StatefulSet                    = config.GroupVersionKind{Group: "apps", Version: "v1", Kind: "StatefulSet"}
-	TCPRoute                       = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1alpha2", Kind: "TCPRoute"}
+	TCPRoute                       = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1", Kind: "TCPRoute"}
+	TCPRoute_v1alpha2              = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1alpha2", Kind: "TCPRoute"}
 	TLSRoute                       = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1", Kind: "TLSRoute"}
 	TLSRoute_v1alpha2              = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1alpha2", Kind: "TLSRoute"}
 	Telemetry                      = config.GroupVersionKind{Group: "telemetry.istio.io", Version: "v1", Kind: "Telemetry"}
 	Telemetry_v1alpha1             = config.GroupVersionKind{Group: "telemetry.istio.io", Version: "v1alpha1", Kind: "Telemetry"}
+	TrafficExtension               = config.GroupVersionKind{Group: "extensions.istio.io", Version: "v1alpha1", Kind: "TrafficExtension"}
 	UDPRoute                       = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1alpha2", Kind: "UDPRoute"}
 	ValidatingWebhookConfiguration = config.GroupVersionKind{Group: "admissionregistration.k8s.io", Version: "v1", Kind: "ValidatingWebhookConfiguration"}
 	VirtualService                 = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1", Kind: "VirtualService"}
@@ -213,6 +215,8 @@ func ToGVR(g config.GroupVersionKind) (schema.GroupVersionResource, bool) {
 		return gvr.StatefulSet, true
 	case TCPRoute:
 		return gvr.TCPRoute, true
+	case TCPRoute_v1alpha2:
+		return gvr.TCPRoute_v1alpha2, true
 	case TLSRoute:
 		return gvr.TLSRoute, true
 	case TLSRoute_v1alpha2:
@@ -221,6 +225,8 @@ func ToGVR(g config.GroupVersionKind) (schema.GroupVersionResource, bool) {
 		return gvr.Telemetry, true
 	case Telemetry_v1alpha1:
 		return gvr.Telemetry_v1alpha1, true
+	case TrafficExtension:
+		return gvr.TrafficExtension, true
 	case UDPRoute:
 		return gvr.UDPRoute, true
 	case ValidatingWebhookConfiguration:
@@ -340,6 +346,8 @@ func ToKind(g config.GroupVersionKind) (kind.Kind, bool) {
 		return kind.TLSRoute, true
 	case Telemetry:
 		return kind.Telemetry, true
+	case TrafficExtension:
+		return kind.TrafficExtension, true
 	case UDPRoute:
 		return kind.UDPRoute, true
 	case ValidatingWebhookConfiguration:
@@ -466,6 +474,8 @@ func FromGVR(g schema.GroupVersionResource) (config.GroupVersionKind, bool) {
 		return TLSRoute, true
 	case gvr.Telemetry:
 		return Telemetry, true
+	case gvr.TrafficExtension:
+		return TrafficExtension, true
 	case gvr.UDPRoute:
 		return UDPRoute, true
 	case gvr.ValidatingWebhookConfiguration:
@@ -583,6 +593,8 @@ func KebabKind(k string) string {
 		return "tls-route"
 	case "Telemetry":
 		return "telemetry"
+	case "TrafficExtension":
+		return "traffic-extension"
 	case "UDPRoute":
 		return "udp-route"
 	case "ValidatingWebhookConfiguration":

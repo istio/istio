@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+  - 60108
+releaseNotes:
+  - |
+    **Fixed** Waypoint and kube-gateway workload-socket volume incompatible with SPIRE CSI driver configuration.

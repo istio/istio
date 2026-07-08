@@ -29,6 +29,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/fsnotify/fsnotify"
 	"github.com/stretchr/testify/require"
 
 	"istio.io/istio/pkg/file"
@@ -1253,6 +1254,45 @@ func TestSymlinkDirectoryCleanup(t *testing.T) {
 		t.Logf("Test completed - reviewer example validated")
 		t.Logf("Watching symlink path: %s", symlinkCertPath)
 		t.Logf("Watching resolved path: %s", realCertFile)
+	})
+}
+
+func TestHandleFileEventKubernetesSecretRotationEventsTriggerUpdate(t *testing.T) {
+	resourceName := "file-cert:/etc/sleep/client_certs/client.example.com/tls.crt~/etc/sleep/client_certs/client.example.com/tls.key"
+	symlinkFile := "/etc/sleep/client_certs/client.example.com/tls.crt"
+	targetFile := "/etc/sleep/client_certs/client.example.com/..data/tls.crt"
+
+	sc := &SecretManagerClient{
+		fileCerts: map[FileCert]struct{}{
+			{
+				ResourceName: resourceName,
+				Filename:     symlinkFile,
+				TargetPath:   targetFile,
+			}: {},
+		},
+	}
+
+	resources := map[FileCert]struct{}{}
+	for fc := range sc.fileCerts {
+		resources[fc] = struct{}{}
+	}
+
+	t.Run("first rotation direct cert chmod", func(t *testing.T) {
+		event := fsnotify.Event{
+			Name: symlinkFile,
+			Op:   fsnotify.Chmod,
+		}
+		updated := sc.handleFileEvent(event, resources)
+		require.Contains(t, updated, resourceName)
+	})
+
+	t.Run("second rotation metadata data symlink create", func(t *testing.T) {
+		event := fsnotify.Event{
+			Name: "/etc/sleep/client_certs/client.example.com/..data",
+			Op:   fsnotify.Create,
+		}
+		updated := sc.handleFileEvent(event, resources)
+		require.Contains(t, updated, resourceName)
 	})
 }
 

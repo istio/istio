@@ -1,0 +1,14 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+issue:
+  - 57080
+
+releaseNotes:
+- |
+  **Fixed** external SDS provider for gateways to use the credential name (after stripping the `sds://`
+  prefix) as the SDS resource name instead of the provider name. This allows multiple gateways using the
+  same SDS provider to request different certificates. For MUTUAL TLS, the CA certificate resource name
+  is correctly derived as `<credential-name>-cacert`. When neither a UDS socket nor an SDS extension
+  provider is configured, the gateway now falls back to fetching certificates via ADS (Kubernetes Secrets)
+  instead of failing silently.

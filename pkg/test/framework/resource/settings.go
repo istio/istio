@@ -139,8 +139,16 @@ type Settings struct {
 	// Skip TProxy related parts for all the tests.
 	SkipTProxy bool
 
+	// Skip user namespace related parts for all the tests.
+	SkipUserNamespace bool
+
 	// Ambient mesh is being used
 	Ambient bool
+
+	// GatewayAPIOnly indicates tests are running against a cluster without Istio mesh capabilities.
+	// When true, echo apps will be deployed without the istio-proxy sidecar container overlay,
+	// as there is no injection webhook to transform the "image: auto" placeholder.
+	GatewayAPIOnly bool
 
 	// Use ambient instead of sidecars
 	AmbientEverywhere bool
@@ -197,6 +205,10 @@ type Settings struct {
 
 	// If enabled, native nftable rules will be used for traffic redirection instead of iptable rules.
 	NativeNftables bool
+
+	// Agentgateway indicates that the agentgateway tests should be run. This is gated behind a separate flag since
+	// agentgateway support is experimental.
+	Agentgateway bool
 }
 
 // SkipVMs changes the skip settings at runtime
@@ -229,10 +241,7 @@ func (s *Settings) RunDir() string {
 	u := strings.Replace(s.RunID.String(), "-", "", -1)
 	t := strings.Replace(s.TestID, "_", "-", -1)
 	// We want at least 6 characters of uuid padding
-	padding := maxTestIDLength - len(t)
-	if padding < 0 {
-		padding = 0
-	}
+	padding := max(maxTestIDLength-len(t), 0)
 	n := fmt.Sprintf("%s-%s", t, u[0:padding])
 
 	return path.Join(s.BaseDir, n)

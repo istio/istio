@@ -791,6 +791,11 @@ type K8sAttributes struct {
 	// ObjectName is the object name of the underlying object. This may differ from the Service.Attributes.Name for legacy semantics.
 	ObjectName string
 
+	// DNSConnectStrategy specifies the connection strategy for the service.
+	// When set to DNSConnectStrategyRaceFirstTCPConnect, DNS clusters will set DnsLookupFamily=ALL
+	// to enable Envoy's happy eyeballs algorithm.
+	DNSConnectStrategy DNSConnectStrategy
+
 	// spec.PublishNotReadyAddresses
 	PublishNotReadyAddresses bool
 }
@@ -850,6 +855,23 @@ func GetTrafficDistribution(specValue *string, svcAnnotations, nsAnnotations map
 
 	// 4. Default to Any
 	return TrafficDistributionAny
+}
+
+type DNSConnectStrategy int
+
+const (
+	// DNSConnectStrategyDefault uses standard connection behavior.
+	DNSConnectStrategyDefault DNSConnectStrategy = iota
+	// DNSConnectStrategyRaceFirstTCPConnect races connections to all resolved IPs and picks the first healthy one.
+	DNSConnectStrategyRaceFirstTCPConnect
+)
+
+// GetDNSConnectStrategy reads the connect strategy from annotations.
+func GetDNSConnectStrategy(annotations map[string]string) DNSConnectStrategy {
+	if strings.EqualFold(annotations["istio.io/connect-strategy"], "RACE_FIRST_TCP_CONNECT") {
+		return DNSConnectStrategyRaceFirstTCPConnect
+	}
+	return DNSConnectStrategyDefault
 }
 
 // DeepCopy creates a deep copy of ServiceAttributes, but skips internal mutexes.
@@ -959,7 +981,6 @@ type ServiceDiscovery interface {
 	// Kubernetes Multi-Cluster Services (MCS) ServiceExport API. Only applies to services in
 	// Kubernetes clusters.
 	MCSServices() []MCSServiceInfo
-	AmbientIndexes
 }
 
 type AmbientIndexes interface {
@@ -1033,6 +1054,45 @@ func waypointKeyForProxy(node *Proxy, externalAddresses bool) WaypointKey {
 	return key
 }
 
+// WaypointReference identifies the waypoint a service or workload is attached to, mirroring
+// workloadapi.GatewayAddress: either by namespaced hostname or by network address.
+type WaypointReference struct {
+	// Namespace and Hostname are set for hostname-based references.
+	Namespace string
+	Hostname  string
+	// Network and Address are set for address-based references.
+	Network string
+	Address string
+}
+
+// WaypointReferenceFromGatewayAddress converts a workloadapi waypoint reference, returning
+// false if there is no reference or it has no usable destination.
+func WaypointReferenceFromGatewayAddress(addr *workloadapi.GatewayAddress) (WaypointReference, bool) {
+	switch d := addr.GetDestination().(type) {
+	case *workloadapi.GatewayAddress_Hostname:
+		return WaypointReference{Namespace: d.Hostname.Namespace, Hostname: d.Hostname.Hostname}, true
+	case *workloadapi.GatewayAddress_Address:
+		ip, ok := netip.AddrFromSlice(d.Address.Address)
+		if !ok {
+			return WaypointReference{}, false
+		}
+		return WaypointReference{Network: d.Address.Network, Address: ip.String()}, true
+	}
+	return WaypointReference{}, false
+}
+
+// Matches reports whether the referenced waypoint is the one identified by key.
+// This mirrors the hostname and address lookups used by the ambient index's
+// ServicesForWaypoint/WorkloadsForWaypoint.
+func (ref WaypointReference) Matches(key WaypointKey) bool {
+	if ref.Hostname != "" {
+		return ref.Namespace == key.Namespace && slices.Contains(key.Hostnames, ref.Hostname)
+	}
+	return ref.Network == key.Network && slices.Contains(key.Addresses, ref.Address)
+}
+
+var _ AmbientIndexes = NoopAmbientIndexes{}
+
 // NoopAmbientIndexes provides an implementation of AmbientIndexes that always returns nil, to easily "skip" it.
 type NoopAmbientIndexes struct{}
 
@@ -1097,7 +1157,11 @@ func (i AddressInfo) Aliases() []string {
 		aliases := make([]string, 0, len(addr.Service.Addresses))
 		for _, networkAddr := range addr.Service.Addresses {
 			ip, _ := netip.AddrFromSlice(networkAddr.Address)
-			aliases = append(aliases, networkAddr.Network+"/"+ip.String())
+			if networkAddr.Length != nil {
+				aliases = append(aliases, fmt.Sprintf("%s/%s/%d", networkAddr.Network, ip.String(), *networkAddr.Length))
+			} else {
+				aliases = append(aliases, networkAddr.Network+"/"+ip.String())
+			}
 		}
 		return aliases
 	}
@@ -1148,6 +1212,9 @@ type ServiceInfo struct {
 	// AsAddress contains a pre-created AddressInfo representation. This ensures we do not need repeated conversions on
 	// the hotpath
 	AsAddress AddressInfo
+	// DNSConnectStrategy is the DNS connection strategy for this service. Used internally
+	// to generate status conditions.
+	DNSConnectStrategy DNSConnectStrategy
 	// CreationTime is the time when the service was created. Note this is used internally only
 	// for conflict resolution.
 	CreationTime time.Time
@@ -1161,6 +1228,33 @@ func (i ServiceInfo) GetStatusTarget() TypedObject {
 	return i.Source
 }
 
+// A subset of ServiceInfo fields that are relevant for xDS generation
+// to enable correct change detection.
+type XDSServiceInfo struct {
+	Service            *workloadapi.Service
+	DNSConnectStrategy DNSConnectStrategy
+}
+
+func (i *XDSServiceInfo) Equals(other *XDSServiceInfo) bool {
+	return i.DNSConnectStrategy == other.DNSConnectStrategy && proto.Equal(i.Service, other.Service)
+}
+
+func (i XDSServiceInfo) NamespacedName() types.NamespacedName {
+	return types.NamespacedName{Name: i.Service.Name, Namespace: i.Service.Namespace}
+}
+
+func (i XDSServiceInfo) GetName() string {
+	return i.Service.Name
+}
+
+func (i XDSServiceInfo) GetNamespace() string {
+	return i.Service.Namespace
+}
+
+func (i XDSServiceInfo) ResourceName() string {
+	return serviceResourceName(i.Service)
+}
+
 type ConditionType string
 
 const (
@@ -1171,7 +1265,8 @@ const (
 	// It is used to inform the user that the ServiceEntry will not be active until it is bound to a waypoint.
 	WaypointMissing ConditionType = "istio.io/WaypointMissing"
 
-	NoWaypointForWildcardService string = "NoWaypointForWildcardService"
+	NoWaypointForWildcardService          string = "NoWaypointForWildcardService"
+	NoWaypointForConnectStrategyCondition string = "NoWaypointForRacingConnectStrategy"
 )
 
 type ConditionSet = map[ConditionType]*Condition
@@ -1190,14 +1285,22 @@ func (c *Condition) Equals(v *Condition) bool {
 		c.Status == v.Status
 }
 
-func (i ServiceInfo) GetConditions() ConditionSet {
+func (i ServiceInfo) GetConditions(currentConditions map[string]Condition) ConditionSet {
 	set := ConditionSet{
 		// Write all conditions here, then override if we want them set.
 		// This ensures we can properly prune the condition if its no longer needed (such as if there is no waypoint attached at all).
 		WaypointBound: nil,
 	}
-	if host.Name(i.Service.Hostname).IsWildCarded() && i.Source.Kind == kind.ServiceEntry {
+	if _, f := currentConditions[string(WaypointMissing)]; f ||
+		host.Name(i.Service.Hostname).IsWildCarded() && i.Source.Kind == kind.ServiceEntry {
 		// Only prune WaypointMissing condition if we have a wildcard service entry
+		set[WaypointMissing] = nil
+	}
+	if _, f := currentConditions[string(WaypointMissing)]; f ||
+		(i.DNSConnectStrategy != DNSConnectStrategyDefault && i.Source.Kind == kind.ServiceEntry) {
+		// Only prune WaypointMissing condition if we have a non-default connect strategy OR if the condition is already set.
+		// This ensures we do not have a scenario where a user sets a connect strategy, then removes it and
+		// the condition never goes away because we only check for non default strategies and not the presence of the condition itself.
 		set[WaypointMissing] = nil
 	}
 
@@ -1232,6 +1335,15 @@ func (i ServiceInfo) GetConditions() ConditionSet {
 				Status:  true,
 				Reason:  NoWaypointForWildcardService,
 				Message: buildMsg.String(),
+			}
+		}
+		if i.DNSConnectStrategy != DNSConnectStrategyDefault && i.Source.Kind == kind.ServiceEntry {
+			msg := "ServiceEntry has a non-default connect strategy but no waypoint bound. " +
+				"A waypoint is required for connect strategies to take effect for ambient clients."
+			set[WaypointMissing] = &Condition{
+				Status:  true,
+				Reason:  NoWaypointForConnectStrategyCondition,
+				Message: msg,
 			}
 		}
 	}
@@ -1279,12 +1391,18 @@ func (i ServiceInfo) Equals(other ServiceInfo) bool {
 		maps.Equal(i.LabelSelector.Labels, other.LabelSelector.Labels) &&
 		maps.Equal(i.PortNames, other.PortNames) &&
 		i.Source == other.Source &&
+		i.DNSConnectStrategy == other.DNSConnectStrategy &&
 		i.Scope == other.Scope &&
 		i.Waypoint.Equals(other.Waypoint)
 }
 
 func (i ServiceInfo) ResourceName() string {
 	return serviceResourceName(i.Service)
+}
+
+// WaypointRef returns the waypoint this service is attached to, if any.
+func (i ServiceInfo) WaypointRef() *workloadapi.GatewayAddress {
+	return i.Service.GetWaypoint()
 }
 
 func serviceResourceName(s *workloadapi.Service) string {
@@ -1309,7 +1427,7 @@ type WorkloadInfo struct {
 	// Labels for the workload. Note these are only used internally, not sent over XDS
 	Labels map[string]string
 	// Source is the type that introduced this workload.
-	Source kind.Kind
+	Source TypedObject
 	// CreationTime is the time when the workload was created. Note this is used internally only.
 	CreationTime time.Time
 	// MarshaledAddress contains the pre-marshaled representation.
@@ -1318,13 +1436,15 @@ type WorkloadInfo struct {
 	// AsAddress contains a pre-created AddressInfo representation. This ensures we do not need repeated conversions on
 	// the hotpath
 	AsAddress AddressInfo
+	Waypoint  WaypointBindingStatus
 }
 
 func (i WorkloadInfo) Equals(other WorkloadInfo) bool {
 	return equalUsingPremarshaled(i.Workload, i.MarshaledAddress, other.Workload, other.MarshaledAddress) &&
 		maps.Equal(i.Labels, other.Labels) &&
 		i.Source == other.Source &&
-		i.CreationTime == other.CreationTime
+		i.CreationTime.Equal(other.CreationTime) &&
+		i.Waypoint.Equals(other.Waypoint)
 }
 
 func workloadResourceName(w *workloadapi.Workload) string {
@@ -1337,11 +1457,41 @@ func (i *WorkloadInfo) Clone() *WorkloadInfo {
 		Labels:       maps.Clone(i.Labels),
 		Source:       i.Source,
 		CreationTime: i.CreationTime,
+		Waypoint:     i.Waypoint,
 	}
+}
+
+func (i WorkloadInfo) GetStatusTarget() TypedObject {
+	return i.Source
+}
+
+func (i WorkloadInfo) GetConditions(currentConditions map[string]Condition) ConditionSet {
+	set := ConditionSet{
+		WaypointBound: nil,
+	}
+	if i.Waypoint.ResourceName != "" {
+		set[WaypointBound] = &Condition{
+			Status:  true,
+			Reason:  string(WaypointAccepted),
+			Message: "Successfully attached to waypoint " + i.Waypoint.ResourceName,
+		}
+	} else if i.Waypoint.Error != nil {
+		set[WaypointBound] = &Condition{
+			Status:  false,
+			Reason:  i.Waypoint.Error.Reason,
+			Message: i.Waypoint.Error.Message,
+		}
+	}
+	return set
 }
 
 func (i WorkloadInfo) ResourceName() string {
 	return workloadResourceName(i.Workload)
+}
+
+// WaypointRef returns the waypoint this workload is attached to, if any.
+func (i WorkloadInfo) WaypointRef() *workloadapi.GatewayAddress {
+	return i.Workload.GetWaypoint()
 }
 
 type WaypointPolicyStatus struct {
@@ -1357,12 +1507,12 @@ const (
 	WaypointPolicyReasonTargetNotFound   = "TargetNotFound"
 )
 
-// impl pilot/pkg/serviceregistry/kube/controller/ambient/statusqueue/StatusWriter
+// impl pilot/pkg/serviceregistry/ambient/statusqueue/StatusWriter
 func (i WaypointPolicyStatus) GetStatusTarget() TypedObject {
 	return i.Source
 }
 
-func (i WaypointPolicyStatus) GetConditions() ConditionSet {
+func (i WaypointPolicyStatus) GetConditions(_currentConditions map[string]Condition) ConditionSet {
 	set := make(ConditionSet, 1)
 
 	set[WaypointAccepted] = flattenConditions(i.Conditions)
@@ -1458,12 +1608,12 @@ type WorkloadAuthorization struct {
 	Binding PolicyBindingStatus
 }
 
-// impl pilot/pkg/serviceregistry/kube/controller/ambient/statusqueue/StatusWriter
+// impl pilot/pkg/serviceregistry/ambient/statusqueue/StatusWriter
 func (i WorkloadAuthorization) GetStatusTarget() TypedObject {
 	return i.Source
 }
 
-func (i WorkloadAuthorization) GetConditions() ConditionSet {
+func (i WorkloadAuthorization) GetConditions(_currentConditions map[string]Condition) ConditionSet {
 	set := make(ConditionSet, 1)
 
 	if i.Binding.Status != nil {
@@ -1802,6 +1952,21 @@ func (s *Service) getAllAddressesForProxy(node *Proxy) []string {
 	}
 
 	if a := s.DefaultAddress; len(a) > 0 {
+		// If the service has ClusterVIPs (from a K8s service) but none for this proxy's cluster, the
+		// DefaultAddress is a remote cluster's ClusterIP. Filter it by IP family to avoid returning an
+		// unreachable address (e.g. IPv6 ClusterIP to an IPv4-only proxy).
+		//
+		// Conversely, ServiceEntries with explicit addresses have empty ClusterVIPs and rely on
+		// DefaultAddress for routing (Envoy matches on the VIP regardless of IP family), so leave them
+		// alone.
+		if s.ClusterVIPs.Len() > 0 {
+			if filtered := netutil.FilterAddressesByIPFamily(
+				[]string{a}, node.SupportsIPv4(), node.SupportsIPv6(),
+			); len(filtered) > 0 {
+				return filtered
+			}
+			return nil
+		}
 		return []string{a}
 	}
 	return nil

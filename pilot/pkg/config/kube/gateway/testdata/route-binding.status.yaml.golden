@@ -32,6 +32,11 @@ status:
     reason: Programmed
     status: "True"
     type: Programmed
+  - lastTransitionTime: fake
+    message: All references resolved
+    reason: ResolvedRefs
+    status: "True"
+    type: ResolvedRefs
   listeners:
   - attachedRoutes: 1
     conditions:
@@ -830,7 +835,7 @@ status:
       namespace: istio-system
       sectionName: foobar
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: TCPRoute
 metadata:
   name: wrong-protocol
@@ -840,7 +845,7 @@ status:
   parents:
   - conditions:
     - lastTransitionTime: fake
-      message: kind gateway.networking.k8s.io/v1alpha2/TCPRoute is not allowed
+      message: kind gateway.networking.k8s.io/v1/TCPRoute is not allowed
       reason: NotAllowedByListeners
       status: "False"
       type: Accepted

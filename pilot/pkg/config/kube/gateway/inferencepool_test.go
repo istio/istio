@@ -26,6 +26,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 )
@@ -41,6 +42,7 @@ func TestReconcileInferencePool(t *testing.T) {
 		expectedLabels      map[string]string
 		expectedServiceName string
 		expectedTargetPorts []int32
+		expectedAppProtocol *string
 	}{
 		{
 			name: "basic shadow service creation",
@@ -209,6 +211,75 @@ func TestReconcileInferencePool(t *testing.T) {
 			},
 			expectedTargetPorts: []int32{8000, 8001, 8002},
 		},
+		{
+			// Verifies that the InferencePool's spec-level AppProtocol is
+			// broadcast onto every generated ServicePort.
+			name: "h2c appProtocol propagates to every shadow service port",
+			inferencePool: &inferencev1.InferencePool{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "h2c-pool",
+					Namespace: "default",
+				},
+				Spec: inferencev1.InferencePoolSpec{
+					TargetPorts: []inferencev1.Port{
+						{Number: inferencev1.PortNumber(8080)},
+						{Number: inferencev1.PortNumber(8081)},
+					},
+					AppProtocol: inferencev1.AppProtocolH2C,
+					Selector: inferencev1.LabelSelector{
+						MatchLabels: map[inferencev1.LabelKey]inferencev1.LabelValue{
+							"app": "h2c",
+						},
+					},
+					EndpointPickerRef: inferencev1.EndpointPickerRef{
+						Name: "dummy",
+						Port: &inferencev1.Port{
+							Number: inferencev1.PortNumber(5421),
+						},
+					},
+				},
+			},
+			expectedLabels: map[string]string{
+				constants.InternalServiceSemantics: constants.ServiceSemanticsInferencePool,
+				InferencePoolRefLabel:              "h2c-pool",
+			},
+			expectedTargetPorts: []int32{8080, 8081},
+			expectedAppProtocol: ptr.Of(string(inferencev1.AppProtocolH2C)),
+		},
+		{
+			// Verifies that omitting AppProtocol on the InferencePool leaves
+			// ServicePort.AppProtocol unset, so Istio falls back to its default
+			// protocol detection.
+			name: "unspecified appProtocol leaves shadow service port AppProtocol unset",
+			inferencePool: &inferencev1.InferencePool{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "no-appproto-pool",
+					Namespace: "default",
+				},
+				Spec: inferencev1.InferencePoolSpec{
+					TargetPorts: []inferencev1.Port{
+						{Number: inferencev1.PortNumber(8080)},
+					},
+					Selector: inferencev1.LabelSelector{
+						MatchLabels: map[inferencev1.LabelKey]inferencev1.LabelValue{
+							"app": "no-appproto",
+						},
+					},
+					EndpointPickerRef: inferencev1.EndpointPickerRef{
+						Name: "dummy",
+						Port: &inferencev1.Port{
+							Number: inferencev1.PortNumber(5421),
+						},
+					},
+				},
+			},
+			expectedLabels: map[string]string{
+				constants.InternalServiceSemantics: constants.ServiceSemanticsInferencePool,
+				InferencePoolRefLabel:              "no-appproto-pool",
+			},
+			expectedTargetPorts: []int32{8080},
+			expectedAppProtocol: nil,
+		},
 	}
 
 	for _, tc := range testCases {
@@ -262,6 +333,13 @@ func TestReconcileInferencePool(t *testing.T) {
 				assert.Equal(t, service.Spec.Ports[i].Port, int32(54321+i))
 				assert.Equal(t, service.Spec.Ports[i].TargetPort.IntVal, tc.expectedTargetPorts[i])
 				assert.Equal(t, service.Spec.Ports[i].Name, fmt.Sprintf("http-%d", i))
+			}
+
+			// Every generated ServicePort must carry the InferencePool's
+			// AppProtocol (or nil if unset).
+			for i := 0; i < len(service.Spec.Ports); i++ {
+				assert.Equal(t, service.Spec.Ports[i].AppProtocol, tc.expectedAppProtocol,
+					fmt.Sprintf("ServicePort[%d].AppProtocol", i))
 			}
 
 			assert.Equal(t, service.OwnerReferences[0].Name, tc.inferencePool.Name)

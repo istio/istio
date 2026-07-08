@@ -67,7 +67,7 @@ func (k *kubeController) Close() {
 		log.Warnf("failed cleaning up services in %s: %v", clusterID, err)
 	}
 	if k.opts.XDSUpdater != nil {
-		k.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: model.NewReasonStats(model.ClusterUpdate), Forced: true})
+		k.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{Reason: model.NewReasonStats(model.ClusterUpdate), Forced: true})
 	}
 }
 
@@ -157,7 +157,6 @@ func NewMulticluster(
 		if !configCluster && options.XDSUpdater != nil {
 			options.MeshWatcher.AddMeshHandler(func() {
 				kubeRegistry.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
-					Full:   true,
 					Reason: model.NewReasonStats(model.GlobalUpdate),
 					Forced: true,
 				})
@@ -221,8 +220,9 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeCont
 
 	// run after WorkloadHandler is added
 	if cluster.Action == multicluster.Update {
-		// For updates, wait for sync then atomically replace the registry.
-		// This ensures zero service disruption during credential rotation.
+		// Start the new registry here. The registry is swapped in only after it syncs,
+		// so the old registry keeps serving until then.
+		go kubeRegistry.Run(clusterStopCh)
 		go func() {
 			// Wait for the new cluster to sync
 			<-cluster.SyncedCh

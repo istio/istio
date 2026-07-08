@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+
+releaseNotes:
+  - |
+    **Added** `terminationMessagePolicy` helm field for the istiod (pilot) container, allowing configuration of how termination messages are populated.

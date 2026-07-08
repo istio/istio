@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/agentgateway/agentgateway/go/api"
+	"github.com/agentgateway/agentgateway/api"
 	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
@@ -29,7 +29,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gatewayalpha "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
 	gatewayx "sigs.k8s.io/gateway-api/apisx/v1alpha1"
 
@@ -39,8 +38,8 @@ import (
 	kubesecrets "istio.io/istio/pilot/pkg/credentials/kube"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry/ambient"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller/ambient"
 	"istio.io/istio/pilot/pkg/status"
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/cluster"
@@ -49,6 +48,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
@@ -56,7 +56,6 @@ import (
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/revisions"
 	"istio.io/istio/pkg/slices"
@@ -134,8 +133,8 @@ type AgwInputs struct {
 	Gateways             krt.Collection[*gatewayv1.Gateway]
 	HTTPRoutes           krt.Collection[*gatewayv1.HTTPRoute]
 	GRPCRoutes           krt.Collection[*gatewayv1.GRPCRoute]
-	TCPRoutes            krt.Collection[*gatewayalpha.TCPRoute]
-	TLSRoutes            krt.Collection[*gatewayalpha.TLSRoute]
+	TCPRoutes            krt.Collection[*gatewayv1.TCPRoute]
+	TLSRoutes            krt.Collection[*gatewayv1.TLSRoute]
 	ListenerSets         krt.Collection[*gatewayv1.ListenerSet]
 	ReferenceGrants      krt.Collection[*gateway.ReferenceGrant]
 	BackendTrafficPolicy krt.Collection[*gatewayx.XBackendTrafficPolicy]
@@ -189,7 +188,8 @@ func (c *Controller) initializeInputs(kc kube.Client, opts krt.OptionsBuilder) {
 	inputs := &AgwInputs{
 		Namespaces: krt.NewInformer[*corev1.Namespace](kc, opts.WithName("informer/Namespaces")...),
 		Nodes: krt.NewFilteredInformer[*corev1.Node](kc, kclient.Filter{
-			ObjectFilter: kc.ObjectFilter(),
+			ObjectTransform: kube.StripNodeUnusedFields,
+			ObjectFilter:    kc.ObjectFilter(),
 		}, opts.WithName("informer/Nodes")...),
 		Pods: krt.NewFilteredInformer[*corev1.Pod](kc, kclient.Filter{
 			ObjectTransform: kube.StripPodUnusedFields,
@@ -214,7 +214,10 @@ func (c *Controller) initializeInputs(kc kube.Client, opts krt.OptionsBuilder) {
 		Gateways:           buildClient[*gatewayv1.Gateway](c, kc, gvr.KubernetesGateway, opts, "informer/Gateways"),
 		HTTPRoutes:         buildClient[*gatewayv1.HTTPRoute](c, kc, gvr.HTTPRoute, opts, "informer/HTTPRoutes"),
 		GRPCRoutes:         buildClient[*gatewayv1.GRPCRoute](c, kc, gvr.GRPCRoute, opts, "informer/GRPCRoutes"),
+		TLSRoutes:          buildClient[*gatewayv1.TLSRoute](c, kc, gvr.TLSRoute, opts, "informer/TLSRoutes"),
+		TCPRoutes:          buildClient[*gatewayv1.TCPRoute](c, kc, gvr.TCPRoute, opts, "informer/TCPRoutes"),
 		BackendTLSPolicies: buildClient[*gatewayv1.BackendTLSPolicy](c, kc, gvr.BackendTLSPolicy, opts, "informer/BackendTLSPolicies"),
+		ListenerSets:       buildClient[*gatewayv1.ListenerSet](c, kc, gvr.ListenerSet, opts, "informer/ListenerSets"),
 
 		ReferenceGrants: buildClient[*gateway.ReferenceGrant](c, kc, gvr.ReferenceGrant, opts, "informer/ReferenceGrants"),
 		ServiceEntries:  buildClient[*networkingclient.ServiceEntry](c, kc, gvr.ServiceEntry, opts, "informer/ServiceEntries"),
@@ -225,16 +228,10 @@ func (c *Controller) initializeInputs(kc kube.Client, opts krt.OptionsBuilder) {
 	}
 
 	if features.EnableAlphaGatewayAPI {
-		inputs.TCPRoutes = buildClient[*gatewayalpha.TCPRoute](c, kc, gvr.TCPRoute, opts, "informer/TCPRoutes")
-		inputs.TLSRoutes = buildClient[*gatewayalpha.TLSRoute](c, kc, gvr.TLSRoute, opts, "informer/TLSRoutes")
 		inputs.BackendTrafficPolicy = buildClient[*gatewayx.XBackendTrafficPolicy](c, kc, gvr.XBackendTrafficPolicy, opts, "informer/XBackendTrafficPolicy")
-		inputs.ListenerSets = buildClient[*gatewayv1.ListenerSet](c, kc, gvr.ListenerSet, opts, "informer/ListenerSets")
 	} else {
 		// If disabled, still build a collection but make it always empty
-		inputs.TCPRoutes = krt.NewStaticCollection[*gatewayalpha.TCPRoute](nil, nil, opts.WithName("disable/TCPRoutes")...)
-		inputs.TLSRoutes = krt.NewStaticCollection[*gatewayalpha.TLSRoute](nil, nil, opts.WithName("disable/TLSRoutes")...)
 		inputs.BackendTrafficPolicy = krt.NewStaticCollection[*gatewayx.XBackendTrafficPolicy](nil, nil, opts.WithName("disable/XBackendTrafficPolicy")...)
-		inputs.ListenerSets = krt.NewStaticCollection[*gatewayv1.ListenerSet](nil, nil, opts.WithName("disable/ListenerSets")...)
 	}
 
 	if features.EnableGatewayAPIInferenceExtension {
@@ -250,11 +247,23 @@ func (c *Controller) initializeInputs(kc kube.Client, opts krt.OptionsBuilder) {
 // TODO(jaellio): Consider refactoring so actual collection creation happen in a common BaseGatewayController type so
 // collections are only built once across controller and agentgateway_controller
 func (c *Controller) buildResourceCollections(opts krt.OptionsBuilder) {
-	gatewayClassStatus, gatewayClasses := gatewaycommon.GatewayClassesCollection(c.inputs.GatewayClasses, opts)
+	agwGatewayClasses := krt.NewCollection(c.inputs.GatewayClasses, func(ctx krt.HandlerContext, class *gatewayv1.GatewayClass) **gatewayv1.GatewayClass {
+		controller, builtInClass := gatewaycommon.AgentgatewayClasses[gatewayv1.ObjectName(class.Name)]
+		if !builtInClass {
+			return nil
+		}
+		if controller != constants.ManagedAgentgatewayController {
+			return nil
+		}
+		agwClass := class.DeepCopy()
+		return &agwClass
+	}, opts.WithName("AgentgatewayGatewayClasses")...)
+
+	gatewayClassStatus, gatewayClasses := gatewaycommon.GatewayClassesCollection(agwGatewayClasses, opts)
 	status.RegisterStatus(c.status, gatewayClassStatus, GetStatus, c.tagWatcher.AccessUnprotected())
 
 	referenceGrants := gatewaycommon.BuildReferenceGrants(gatewaycommon.ReferenceGrantsCollection(c.inputs.ReferenceGrants, opts))
-	listenerSetStatus, listenerSets := ListenerSetCollection(
+	listenerSetIntialStatus, listenerSets := ListenerSetCollection(
 		c.inputs.ListenerSets,
 		c.inputs.Gateways,
 		gatewayClasses,
@@ -267,7 +276,7 @@ func (c *Controller) buildResourceCollections(opts krt.OptionsBuilder) {
 		c.tagWatcher,
 		opts,
 	)
-	status.RegisterStatus(c.status, listenerSetStatus, GetStatus, c.tagWatcher.AccessUnprotected())
+
 	// GatewaysStatus is not fully complete until its join with route attachments to report attachedRoutes.
 	// Do not register yet.
 	// GatewayAPI uses status - how you know what
@@ -287,10 +296,31 @@ func (c *Controller) buildResourceCollections(opts krt.OptionsBuilder) {
 
 	// Build agw resources for gateway
 	inferencePolicies := InferencePolicyCollection(c.inputs.InferencePools, c.domainSuffix, opts)
-	agwResources, routeAttachments := c.buildAgwResources(gateways, referenceGrants, inferencePolicies, opts)
+
+	// Build ancestor backends (backend→gateway mapping) for BackendTLSPolicy status
+	ancestorBackends := BuildAncestorBackends(c.inputs.HTTPRoutes, c.inputs.GRPCRoutes, opts)
+
+	// Build BackendTLS policies
+	backendTLSInputs := BackendTLSPolicyInputs{
+		BackendTLSPolicies: c.inputs.BackendTLSPolicies,
+		ConfigMaps:         c.inputs.ConfigMaps,
+		Secrets:            c.inputs.Secrets,
+		Services:           c.inputs.Services,
+		Gateways:           c.inputs.Gateways,
+		AncestorBackends:   ancestorBackends,
+		ControllerName:     constants.ManagedAgentgatewayController,
+		DomainSuffix:       c.domainSuffix,
+	}
+	backendTLSStatus, backendTLSPolicies := BackendTLSPolicyCollection(backendTLSInputs, opts)
+	status.RegisterStatus(c.status, backendTLSStatus, GetStatus, c.tagWatcher.AccessUnprotected())
+
+	agwResources, routeAttachments := c.buildAgwResources(gateways, referenceGrants, inferencePolicies, backendTLSPolicies, opts)
 
 	gatewayFinalStatus := c.buildFinalGatewayStatus(gatewayInitialStatus, routeAttachments, opts)
 	status.RegisterStatus(c.status, gatewayFinalStatus, GetStatus, c.tagWatcher.AccessUnprotected())
+
+	listenerSetFinalStatus := c.buildFinalListenerSetStatus(listenerSetIntialStatus, routeAttachments, opts)
+	status.RegisterStatus(c.status, listenerSetFinalStatus, GetStatus, c.tagWatcher.AccessUnprotected())
 
 	httpRoutesByInferencePool := krt.NewIndex(c.inputs.HTTPRoutes, "inferencepool-route", indexHTTPRouteByInferencePool)
 	inferencePoolStatus, _ := InferencePoolCollection(
@@ -315,6 +345,36 @@ func (c *Controller) buildResourceCollections(opts krt.OptionsBuilder) {
 
 	c.outputs.Resources = agwResources
 	c.outputs.Addresses = addresses
+}
+
+func (c *Controller) buildFinalListenerSetStatus(
+	listenerSetStatuses krt.StatusCollection[*gatewayv1.ListenerSet, gatewayv1.ListenerSetStatus],
+	routeAttachments krt.Collection[*RouteAttachment],
+	opts krt.OptionsBuilder,
+) krt.StatusCollection[*gatewayv1.ListenerSet, gatewayv1.ListenerSetStatus] {
+	routeAttachmentsIndex := krt.NewIndex(routeAttachments, "to", func(o *RouteAttachment) []types.NamespacedName {
+		return []types.NamespacedName{o.To}
+	})
+	return krt.NewCollection(
+		listenerSetStatuses,
+		func(
+			ctx krt.HandlerContext, i krt.ObjectWithStatus[*gatewayv1.ListenerSet, gatewayv1.ListenerSetStatus],
+		) *krt.ObjectWithStatus[*gatewayv1.ListenerSet, gatewayv1.ListenerSetStatus] {
+			routes := routeAttachmentsIndex.Fetch(ctx, config.NamespacedName(i.Obj))
+			routesPerListener := map[string]int32{}
+			for _, r := range routes {
+				routesPerListener[r.ListenerName]++
+			}
+			status := i.Status.DeepCopy()
+			for i, l := range status.Listeners {
+				l.AttachedRoutes = routesPerListener[string(l.Name)]
+				status.Listeners[i] = l
+			}
+			return &krt.ObjectWithStatus[*gatewayv1.ListenerSet, gatewayv1.ListenerSetStatus]{
+				Obj:    i.Obj,
+				Status: *status,
+			}
+		}, opts.WithName("ListenerSetFinalStatus")...)
 }
 
 func (c *Controller) buildFinalGatewayStatus(
@@ -353,15 +413,11 @@ func (c *Controller) buildAddressCollections(opts krt.OptionsBuilder) krt.Collec
 		ClusterID:       c.cluster,
 	}, opts)
 	builder := ambient.Builder{
-		DomainSuffix:      c.domainSuffix,
-		ClusterID:         c.cluster,
-		NetworkGateways:   Networks.NetworkGateways,
-		GatewaysByNetwork: Networks.GatewaysByNetwork,
+		DomainSuffix: c.domainSuffix,
+		ClusterID:    c.cluster,
+		Networks:     Networks,
 		Flags: ambient.FeatureFlags{
 			EnableK8SServiceSelectWorkloadEntries: true,
-		},
-		Network: func(ctx krt.HandlerContext) network.ID {
-			return ""
 		},
 	}
 	// Dummy empty mesh config
@@ -568,25 +624,14 @@ func (c *Controller) buildAgwResources(
 	gateways krt.Collection[*GatewayListener],
 	refGrants gatewaycommon.ReferenceGrants,
 	inferencePolicies krt.Collection[AgwResource],
+	backendTLSPolicies krt.Collection[AgwResource],
 	opts krt.OptionsBuilder,
 ) (
 	krt.Collection[AgwResource],
 	krt.Collection[*RouteAttachment],
 ) {
-	// filter gateway collections to only include gateways which use a built-in gateway class
-	// (resources for additional gateway classes should be created by the downstream providing them)
-	filteredGateways := krt.NewCollection(gateways, func(ctx krt.HandlerContext, gw *GatewayListener) **GatewayListener {
-		// Note: This filtering logic is opposite of kgateway which uses additionalGatewayClasses
-		if _, builtInClass := gatewaycommon.AgentgatewayClasses[gatewayv1.ObjectName(gw.ParentInfo.ParentGatewayClassName)]; !builtInClass {
-			return nil
-		}
-		return &gw
-	}, opts.WithName("FilteredGateways")...)
-
-	filteredGateways.List()
-
 	// Build ports and binds
-	ports := krt.UnnamedIndex(filteredGateways, func(l *GatewayListener) []string {
+	ports := krt.UnnamedIndex(gateways, func(l *GatewayListener) []string {
 		return []string{fmt.Sprint(l.ParentInfo.Port)}
 	}).AsCollection(opts.WithName("PortBindings")...)
 
@@ -595,10 +640,7 @@ func (c *Controller) buildAgwResources(
 		uniq := sets.New[types.NamespacedName]()
 		protocol := api.Bind_Protocol(0)
 		for _, gw := range object.Objects {
-			uniq.Insert(types.NamespacedName{
-				Namespace: gw.ParentGateway.Namespace,
-				Name:      gw.ParentGateway.Name,
-			})
+			uniq.Insert(gw.ParentGateway)
 			// TODO: better handle conflicts of protocols. For now, we arbitrarily treat TLS > plain
 			if gw.Valid {
 				protocol = max(protocol, c.getBindProtocol(gw))
@@ -617,12 +659,12 @@ func (c *Controller) buildAgwResources(
 	}, opts.WithName("Binds")...)
 
 	// Build listeners
-	listeners := krt.NewCollection(filteredGateways, func(ctx krt.HandlerContext, obj *GatewayListener) *AgwResource {
+	listeners := krt.NewCollection(gateways, func(ctx krt.HandlerContext, obj *GatewayListener) *AgwResource {
 		return c.buildListenerFromGateway(obj)
 	}, opts.WithName("Listeners")...)
 
 	// Build routes
-	routeParents := BuildRouteParents(filteredGateways)
+	routeParents := BuildRouteParents(gateways)
 
 	routeInputs := RouteContextInputs{
 		Grants:         refGrants,
@@ -647,18 +689,31 @@ func (c *Controller) buildAgwResources(
 	)
 
 	// Join all Agw resources
-	allAgwResources := krt.JoinCollection([]krt.Collection[AgwResource]{binds, listeners, agwRoutes, inferencePolicies}, opts.WithName("Resources")...)
+	allAgwResources := krt.JoinCollection([]krt.Collection[AgwResource]{
+		binds, listeners, agwRoutes, inferencePolicies, backendTLSPolicies,
+	}, opts.WithName("Resources")...)
 
 	return allAgwResources, routeAttachments
 }
 
-// Taken from kgateway utils.go
-func ListenerName(namespace, name string, listener string) *api.ListenerName {
+func listenerName(listener *GatewayListener) *api.ListenerName {
+	gatewayName := listener.ParentGateway.Name
+	gatewayNamespace := listener.ParentGateway.Namespace
+	name := string(listener.ParentInfo.SectionName)
+
+	var listenerSet *api.ResourceName
+	if listener.ParentObject.Kind == gvk.ListenerSet.Kubernetes() {
+		listenerSet = &api.ResourceName{
+			Name:      listener.ParentObject.Name,
+			Namespace: listener.ParentObject.Namespace,
+		}
+	}
+
 	return &api.ListenerName{
-		GatewayName:      name,
-		GatewayNamespace: namespace,
-		ListenerName:     listener,
-		ListenerSet:      nil,
+		GatewayName:      gatewayName,
+		GatewayNamespace: gatewayNamespace,
+		ListenerName:     name,
+		ListenerSet:      listenerSet,
 	}
 }
 
@@ -666,8 +721,8 @@ func ListenerName(namespace, name string, listener string) *api.ListenerName {
 func (c *Controller) buildListenerFromGateway(obj *GatewayListener) *AgwResource {
 	l := &api.Listener{
 		Key:      obj.ResourceName(),
-		Name:     ListenerName(obj.ParentObject.Namespace, obj.ParentObject.Name, string(obj.ParentInfo.SectionName)),
-		BindKey:  fmt.Sprint(obj.ParentInfo.Port) + "/" + obj.ParentObject.Namespace + "/" + obj.ParentObject.Name,
+		Name:     listenerName(obj),
+		BindKey:  fmt.Sprint(obj.ParentInfo.Port) + "/" + obj.ParentGateway.String(),
 		Hostname: obj.ParentInfo.OriginalHostname,
 	}
 
@@ -680,10 +735,7 @@ func (c *Controller) buildListenerFromGateway(obj *GatewayListener) *AgwResource
 	l.Protocol = protocol
 	l.Tls = tlsConfig
 
-	return ptr.Of(ToResourceForGateway(types.NamespacedName{
-		Namespace: obj.ParentObject.Namespace,
-		Name:      obj.ParentObject.Name,
-	}, AgwListener{Listener: l}))
+	return ptr.Of(ToResourceForGateway(obj.ParentGateway, AgwListener{Listener: l}))
 }
 
 // getProtocolAndTLSConfig extracts protocol and TLS configuration from a gateway

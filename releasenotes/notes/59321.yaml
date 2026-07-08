@@ -3,6 +3,8 @@ apiVersion: release-notes/v2
 kind: bug-fix
 
 area: traffic-management
+issue:
+  - 59321
 
 releaseNotes:
 - |

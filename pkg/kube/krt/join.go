@@ -308,10 +308,19 @@ func (j *join[T]) name() string { return j.collectionName }
 func (j *join[T]) uid() collectionUID { return j.id }
 
 // nolint: unused // (not true, its to implement an interface)
-func (j *join[I]) dump() CollectionDump {
-	// Dump should not be used on join; instead its preferred to enroll each individual collection. Maybe reconsider
-	// in the future if there is a need
-	return CollectionDump{}
+func (j *join[T]) dump() CollectionDump {
+	inputs := map[string]InputDump{}
+	for _, c := range j.collections {
+		for _, input := range c.List() {
+			inputs[string(getTypedKey(input))] = InputDump{}
+		}
+	}
+
+	return CollectionDump{
+		Outputs: eraseMap(slices.GroupUnique(j.List(), getTypedKey)),
+		Inputs:  inputs,
+		Synced:  j.HasSynced(),
+	}
 }
 
 // nolint: unused // (not true)
@@ -379,12 +388,14 @@ func JoinCollection[T any](cs []Collection[T], opts ...CollectionOption) Collect
 	if o.stop == nil {
 		panic("no stop channel")
 	}
+	// if only one collection, no need to check for overlap
+	uncheckedOverlap := o.joinUnchecked || len(c) == 1
 	j := &join[T]{
 		collectionName:   o.name,
 		id:               nextUID(),
 		synced:           synced,
 		collections:      c,
-		uncheckedOverlap: o.joinUnchecked,
+		uncheckedOverlap: uncheckedOverlap,
 		stop:             o.stop,
 		syncer: channelSyncer{
 			name:   o.name,
@@ -398,7 +409,7 @@ func JoinCollection[T any](cs []Collection[T], opts ...CollectionOption) Collect
 
 	// For unchecked mode, we don't need the centralized event handling infrastructure.
 	// Handlers register directly with sub-collections in RegisterBatch.
-	if o.joinUnchecked {
+	if j.uncheckedOverlap {
 		// for unchecked, we waitn for the sub-collections to sync here
 		go func() {
 			for _, c := range c {

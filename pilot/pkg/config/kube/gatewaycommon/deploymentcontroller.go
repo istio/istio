@@ -17,6 +17,7 @@ package gatewaycommon
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -362,6 +363,8 @@ func (d *DeploymentController) Reconcile(req types.NamespacedName) error {
 	return d.configureIstioGateway(log, *gw, ci)
 }
 
+var errPushContext = errors.New("PushContext not initialized")
+
 func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gateway.Gateway, gi ClassInfo) error {
 	// If user explicitly sets addresses, we are assuming they are pointing to an existing deployment.
 	// We will not manage it in this case
@@ -372,6 +375,10 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 	if !IsManaged(&gw.Spec) {
 		log.Debug("skip disabled gateway")
 		return nil
+	}
+	if !d.env.PushContext().InitDone.Load() {
+		log.Debug("skip PushContext not initialized")
+		return errPushContext
 	}
 	existingControllerVersion, overwriteControllerVersion, shouldHandle := ManagedGatewayControllerVersion(gw)
 	if !shouldHandle {
@@ -790,7 +797,7 @@ func (d *DeploymentController) apply(controller string, yml string, input Templa
 	// safeguard: validate object type matches default template
 	// only allow the 5 kinds defined in kube-gateway.yaml
 	kind := us.GetKind()
-	allowedKinds := sets.New("Deployment", "Service", "ServiceAccount", "HorizontalPodAutoscaler", "PodDisruptionBudget")
+	allowedKinds := sets.New("Deployment", "DaemonSet", "Service", "ServiceAccount", "HorizontalPodAutoscaler", "PodDisruptionBudget")
 	if !allowedKinds.Contains(kind) {
 		return fmt.Errorf("unexpected object kind %q, only %v are allowed", kind, allowedKinds.UnsortedList())
 	}
@@ -907,6 +914,7 @@ func extractServicePorts(gw gateway.Gateway, listenerSets []gateway.Listener) []
 	svcPorts = append(svcPorts, corev1.ServicePort{
 		Name:        "status-port",
 		Port:        int32(15021),
+		Protocol:    corev1.ProtocolTCP,
 		AppProtocol: &tcp,
 	})
 	portNums := sets.New[int32]()
@@ -925,8 +933,17 @@ func extractServicePorts(gw gateway.Gateway, listenerSets []gateway.Listener) []
 		svcPorts = append(svcPorts, corev1.ServicePort{
 			Name:        name,
 			Port:        l.Port,
+			Protocol:    corev1.ProtocolTCP,
 			AppProtocol: &appProtocol,
 		})
+		if features.EnableQUICListeners && protocol.Parse(appProtocol) == protocol.HTTPS {
+			svcPorts = append(svcPorts, corev1.ServicePort{
+				Name:        name + "-quic",
+				Port:        l.Port,
+				Protocol:    corev1.ProtocolUDP,
+				AppProtocol: &appProtocol,
+			})
+		}
 	}
 	return svcPorts
 }

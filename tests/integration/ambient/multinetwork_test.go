@@ -17,17 +17,22 @@
 package ambient
 
 import (
+	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"golang.org/x/sync/errgroup"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"istio.io/api/label"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/ambient"
 	"istio.io/istio/pkg/test/framework/components/cluster"
+	"istio.io/istio/pkg/test/framework/components/crd"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
@@ -240,6 +245,79 @@ func TestMultinetworkFailover(t *testing.T) {
 			deployWaypointsOrFail(t, local, waypointName, ns1)
 			deployWaypointsOrFail(t, local, waypointName, ns2)
 			runTest(t, local, remote, ns1, ns2)
+
+			t.NewSubTest("ingress-use-waypoint").Run(func(t framework.TestContext) {
+				SetNsIngressUseWaypoint(t, ns1.Name())
+
+				t.ConfigIstio().Eval(ns1.Name(), map[string]string{
+					"Service": brokenService1,
+					"Port":    fmt.Sprintf("%d", ports.HTTP.ServicePort),
+				}, `apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: tag-via-waypoint
+spec:
+  parentRefs:
+  - group: ""
+    kind: Service
+    name: {{.Service}}
+  rules:
+  - filters:
+    - type: ResponseHeaderModifier
+      responseHeaderModifier:
+        add:
+        - name: x-traversed-waypoint
+          value: "true"
+    backendRefs:
+    - group: ""
+      kind: Service
+      name: {{.Service}}
+      port: {{.Port}}
+`).ApplyOrFail(t)
+
+				t.ConfigIstio().Eval(ns1.Name(), map[string]string{
+					"Destination": fmt.Sprintf("%s.%s.svc.cluster.local", brokenService1, ns1.Name()),
+				}, `apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: gateway
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts: ["*"]
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: route
+spec:
+  gateways:
+  - gateway
+  hosts:
+  - "*"
+  http:
+  - route:
+    - destination:
+        host: "{{.Destination}}"
+`).ApplyOrFail(t)
+
+				i.IngressFor(local).CallOrFail(t, echo.CallOptions{
+					Port: echo.Port{
+						Protocol:    protocol.HTTP,
+						ServicePort: 80,
+					},
+					Scheme: scheme.HTTP,
+					Check: check.And(
+						check.OK(),
+						check.ResponseHeader("x-traversed-waypoint", "true"),
+					),
+				})
+			})
 		})
 	})
 }
@@ -291,13 +369,13 @@ func scaleDeploymentOrFail(t framework.TestContext, c cluster.Cluster, namespace
 
 	s, err := c.Kube().AppsV1().Deployments(namespace).GetScale(t.Context(), name, metav1.GetOptions{})
 	if err != nil {
-		t.Fatalf("failed to find deployment %s in namespace %s: %w", name, namespace, err)
+		t.Fatalf("failed to find deployment %s in namespace %s: %v", name, namespace, err)
 	}
 
 	s.Spec.Replicas = scale
 	_, err = c.Kube().AppsV1().Deployments(namespace).UpdateScale(t.Context(), name, s, metav1.UpdateOptions{})
 	if err != nil {
-		t.Fatalf("failed to scale deployment %s in namespace %s to %d replicas: %w", name, namespace, scale, err)
+		t.Fatalf("failed to scale deployment %s in namespace %s to %d replicas: %v", name, namespace, scale, err)
 	}
 
 	retry.UntilSuccessOrFail(t, func() error {
@@ -313,5 +391,234 @@ func scaleDeploymentOrFail(t framework.TestContext, c cluster.Cluster, namespace
 			return nil
 		}
 		return fmt.Errorf("deployment still has different number of pods, want %d, got %d", scale, len(pods.Items))
+	})
+}
+
+// TestEastWestGatewayTLSRoute checks if we can expose passthrough ports on E/W gateways
+// and use TLSRoutes so internal services that don't belong to the mesh can be reached from
+// outside the cluster. A use case for this is when users want to expose the Kubenertes API
+// service through their E/W gateway.
+func TestEastWestGatewayTLSRoute(t *testing.T) {
+	framework.NewTest(t).Run(func(t framework.TestContext) {
+		if !t.Settings().Ambient || !t.Settings().AmbientMultiNetwork {
+			t.Skip("this test is ambient multi-network specific")
+		}
+		if len(t.Clusters()) < 2 {
+			t.Fatal("east-west gateway TLSRoute test requires at least 2 clusters")
+		}
+
+		crd.DeployGatewayAPIOrSkip(t)
+
+		allClusters := t.Clusters()
+		// gwCluster hosts the E/W gateway + backend; remoteCluster is the client.
+		gwCluster := allClusters[0]
+		remoteCluster := allClusters[1]
+
+		nsConfig := namespace.NewOrFail(t, namespace.Config{
+			Prefix: "ew-tlsroute",
+			Inject: false,
+		})
+
+		const backendSvc = "tlsroute-backend"
+		const clientSvc = "tlsroute-client"
+		// Note that for legacy reasons we can't use
+		// port 15443. If port 15443 is used, pilot
+		// automagically converts the TLS mode to AUTO_PASSTHROUGH.
+		const tlsPassthroughPort = 16443
+
+		echos := deployment.New(t).
+			WithConfig(echo.Config{
+				Service:   backendSvc,
+				Namespace: nsConfig,
+				Cluster:   gwCluster,
+				Ports: echo.Ports{
+					{Name: "tls", Protocol: protocol.HTTPS, ServicePort: tlsPassthroughPort, TLS: true},
+				},
+				ServiceLabels: map[string]string{
+					"istio.io/global": "true",
+				},
+			}).
+			WithConfig(echo.Config{
+				Service:   clientSvc,
+				Namespace: nsConfig,
+				Cluster:   remoteCluster,
+				Ports: echo.Ports{
+					{Name: "tls", Protocol: protocol.HTTPS, ServicePort: tlsPassthroughPort},
+				},
+			}).
+			BuildOrFail(t)
+
+		backends := match.ServiceName(echo.NamespacedName{Name: backendSvc, Namespace: nsConfig}).GetMatches(echos)
+		clients := match.ServiceName(echo.NamespacedName{Name: clientSvc, Namespace: nsConfig}).GetMatches(echos)
+
+		if len(backends) == 0 {
+			t.Fatal("no backend instances found")
+		}
+		if len(clients) == 0 {
+			t.Fatal("no client instances found")
+		}
+
+		systemNS := i.Settings().SystemNamespace
+		const ewGatewayName = "istio-eastwestgateway"
+		const passthroughListenerName = "tls-passthrough"
+
+		// Adds a TLS passthrough listener to the existing shared east-west gateway
+		// and route to the backend with a TLSRoute.
+		addPassthroughListenerOrFail(t, gwCluster, systemNS, ewGatewayName, passthroughListenerName, tlsPassthroughPort)
+
+		templateArgs := map[string]string{
+			"BackendSvc":   backendSvc,
+			"BackendNS":    nsConfig.Name(),
+			"TLSPort":      fmt.Sprintf("%d", tlsPassthroughPort),
+			"SystemNS":     systemNS,
+			"GatewayName":  ewGatewayName,
+			"ListenerName": passthroughListenerName,
+		}
+		t.ConfigKube(gwCluster).
+			Eval(systemNS, templateArgs, `
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TLSRoute
+metadata:
+  name: eastwest-tlsroute-test
+spec:
+  parentRefs:
+  - name: {{ .GatewayName }}
+    kind: Gateway
+    sectionName: {{ .ListenerName }}
+  hostnames:
+  - "{{ .BackendSvc }}.{{ .BackendNS }}.svc.cluster.local"
+  rules:
+  - backendRefs:
+    - name: {{ .BackendSvc }}
+      namespace: {{ .BackendNS }}
+      port: {{ .TLSPort }}
+`).
+			Eval(nsConfig.Name(), templateArgs, `
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: eastwest-tlsroute-test
+  namespace: {{ .BackendNS }}
+spec:
+  from:
+  - group: gateway.networking.k8s.io
+    kind: TLSRoute
+    namespace: {{ .SystemNS }}
+  to:
+  - group: ""
+    kind: Service
+`).ApplyOrFail(t)
+
+		// Wait for the passthrough listener to be programmed and for the TLSRoute to
+		// attach to it.
+		retry.UntilSuccessOrFail(t, func() error {
+			gw, err := gwCluster.GatewayAPI().GatewayV1().Gateways(systemNS).
+				Get(t.Context(), ewGatewayName, metav1.GetOptions{})
+			if err != nil {
+				return fmt.Errorf("gateway not found: %v", err)
+			}
+			for _, ls := range gw.Status.Listeners {
+				if string(ls.Name) != passthroughListenerName {
+					continue
+				}
+				programmed := false
+				for _, cond := range ls.Conditions {
+					if cond.Type == string(k8sv1.ListenerConditionProgrammed) && string(cond.Status) == "True" {
+						programmed = true
+						break
+					}
+				}
+				if !programmed {
+					return fmt.Errorf("listener %q is not yet programmed", passthroughListenerName)
+				}
+				if ls.AttachedRoutes < 1 {
+					return fmt.Errorf("listener %q has no attached routes yet", passthroughListenerName)
+				}
+				return nil
+			}
+			return fmt.Errorf("listener %q not found in gateway status", passthroughListenerName)
+		}, retry.Timeout(2*time.Minute), retry.Delay(time.Second))
+
+		// Resolve the shared east-west gateway's external address for the TLS
+		// passthrough port.
+		ewgw := i.EastWestGatewayForAmbient(gwCluster)
+		addrs, portList := ewgw.AddressesForPort(tlsPassthroughPort)
+		if len(addrs) == 0 || len(portList) == 0 {
+			t.Fatal("east-west gateway TLS passthrough address or port not found")
+		}
+
+		sni := fmt.Sprintf("%s.%s.svc.cluster.local", backendSvc, nsConfig.Name())
+
+		// From the remote cluster, call the TLS passthrough listener on the E/W gateway.
+		// The TLSRoute should route based on SNI to the backend service.
+		clients[0].CallOrFail(t, echo.CallOptions{
+			Address: addrs[0],
+			Port: echo.Port{
+				ServicePort: portList[0],
+				Protocol:    protocol.HTTPS,
+			},
+			Scheme: scheme.HTTPS,
+			TLS: echo.TLS{
+				InsecureSkipVerify: true,
+				ServerName:         sni,
+			},
+			Count: 1,
+			Check: check.OK(),
+			Retry: echo.Retry{
+				Options: []retry.Option{retry.Timeout(2 * time.Minute), retry.Delay(time.Second)},
+			},
+		})
+	})
+}
+
+// Adds a TLS passthrough listener on the given port to an
+// existing Gateway and registers a cleanup to remove it later.
+func addPassthroughListenerOrFail(t framework.TestContext, c cluster.Cluster, ns, gatewayName, listenerName string, port int) {
+	t.Helper()
+	gateways := c.GatewayAPI().GatewayV1().Gateways(ns)
+	mode := k8sv1.TLSModePassthrough
+	listener := k8sv1.Listener{
+		Name:     k8sv1.SectionName(listenerName),
+		Port:     k8sv1.PortNumber(port),
+		Protocol: k8sv1.TLSProtocolType,
+		TLS: &k8sv1.ListenerTLSConfig{
+			Mode: &mode,
+		},
+	}
+
+	retry.UntilSuccessOrFail(t, func() error {
+		gw, err := gateways.Get(t.Context(), gatewayName, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		for _, l := range gw.Spec.Listeners {
+			if l.Name == listener.Name {
+				return nil
+			}
+		}
+		gw.Spec.Listeners = append(gw.Spec.Listeners, listener)
+		_, err = gateways.Update(t.Context(), gw, metav1.UpdateOptions{})
+		return err
+	}, retry.Timeout(time.Minute), retry.Delay(time.Second))
+
+	t.Cleanup(func() {
+		_ = retry.UntilSuccess(func() error {
+			gw, err := gateways.Get(context.Background(), gatewayName, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
+			kept := make([]k8sv1.Listener, 0, len(gw.Spec.Listeners))
+			for _, l := range gw.Spec.Listeners {
+				if l.Name != listener.Name {
+					kept = append(kept, l)
+				}
+			}
+			if len(kept) == len(gw.Spec.Listeners) {
+				return nil
+			}
+			gw.Spec.Listeners = kept
+			_, err = gateways.Update(context.Background(), gw, metav1.UpdateOptions{})
+			return err
+		}, retry.Timeout(time.Minute), retry.Delay(time.Second))
 	})
 }

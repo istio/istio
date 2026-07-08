@@ -72,6 +72,9 @@ type shadowServiceInfo struct {
 	// targetPorts is the port number on the pods selected by the selector.
 	// Currently, inference extension only supports a single target port.
 	targetPorts []targetPort
+	// appProtocol configured on the InferencePool, which will be configured on
+	// each port of the shadow service.
+	appProtocol string
 }
 
 type targetPort struct {
@@ -162,8 +165,9 @@ func createInferencePoolObject(pool *inferencev1.InferencePool, gatewayParents s
 		},
 		selector:    make(map[string]string, len(pool.Spec.Selector.MatchLabels)),
 		poolName:    pool.GetName(),
-		targetPorts: make([]targetPort, 0, len(pool.Spec.TargetPorts)),
 		poolUID:     pool.GetUID(),
+		targetPorts: make([]targetPort, 0, len(pool.Spec.TargetPorts)),
+		appProtocol: string(pool.Spec.AppProtocol),
 	}
 
 	for k, v := range pool.Spec.Selector.MatchLabels {
@@ -514,12 +518,17 @@ func translateShadowServiceToService(shadow shadowServiceInfo, extRef extRefInfo
 
 	for i, tp := range shadow.targetPorts {
 		portName := fmt.Sprintf("http-%d", i)
-		ports = append(ports, corev1.ServicePort{
+		sp := corev1.ServicePort{
 			Name:       portName,
 			Protocol:   corev1.ProtocolTCP,
 			Port:       baseDummyPort + int32(i),
 			TargetPort: intstr.FromInt(int(tp.port)),
-		})
+		}
+		if shadow.appProtocol != "" {
+			appProtocol := shadow.appProtocol
+			sp.AppProtocol = &appProtocol
+		}
+		ports = append(ports, sp)
 	}
 
 	// Create a new service object based on the shadow service info

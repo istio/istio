@@ -21,6 +21,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/constants"
 	istiolog "istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/slices"
 )
 
 var authzLog = istiolog.RegisterScope("authorization", "Istio Authorization Policy")
@@ -111,11 +112,25 @@ func (t Bundle) replaceTrustDomains(principal, trustDomainFromPrincipal string) 
 		// Check to make sure we don't generate duplicated principals. This happens when trust domain
 		// has a * prefix. For example, "*-td" can match with "old-td" and "new-td", but we only want
 		// to keep the principal as-is in the generated config, .i.e. *-td.
-		if !isKeyInList(newPrincipal, principalsForAliases) {
+		if !slices.Contains(principalsForAliases, newPrincipal) {
 			principalsForAliases = append(principalsForAliases, newPrincipal)
 		}
 	}
 	return principalsForAliases
+}
+
+// ExpandTrustDomainAliases takes a list of trust domain values and expands any value that matches
+// a known trust domain to include all trust domain aliases.
+func (t Bundle) ExpandTrustDomainAliases(values []string) []string {
+	result := make([]string, 0, len(values))
+	for _, v := range values {
+		if slices.Contains(t.TrustDomains, v) {
+			result = append(result, t.TrustDomains...)
+		} else {
+			result = append(result, v)
+		}
+	}
+	return slices.FilterDuplicates(result)
 }
 
 // replaceTrustDomainInPrincipal returns a new SPIFFE identity with the new trust domain.

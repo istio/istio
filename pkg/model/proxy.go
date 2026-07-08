@@ -292,6 +292,10 @@ type NodeMetadata struct {
 	// This depends on DNSCapture.
 	DNSAutoAllocate StringBool `json:"DNS_AUTO_ALLOCATE,omitempty"`
 
+	// DNSProxyAddr is the host:port where istio-agent listens for DNS (DNS_PROXY_ADDR). Populated from bootstrap
+	// so Pilot can point Envoy dynamic forward proxy at the same address.
+	DNSProxyAddr string `json:"DNS_PROXY_ADDR,omitempty"`
+
 	// EnableHBONE, if set, will enable generation of HBONE listener config.
 	// Note: this only impacts sidecars and gateways; ztunnel and waypoint proxy unconditionally use HBONE.
 	EnableHBONE StringBool `json:"ENABLE_HBONE,omitempty"`
@@ -329,6 +333,12 @@ type NodeMetadata struct {
 
 	// Envoy prometheus port redirecting to admin port prometheus endpoint.
 	EnvoyPrometheusPort int `json:"ENVOY_PROMETHEUS_PORT,omitempty"`
+
+	// EnvoySecureMetricsPort, when non-zero, adds an mTLS listener for Envoy-only stats on this port.
+	EnvoySecureMetricsPort int `json:"ENVOY_SECURE_METRICS_PORT,omitempty"`
+
+	// EnvoySecureMergedMetricsPort, when non-zero, adds an mTLS listener for merged metrics (Envoy + app + agent) on this port.
+	EnvoySecureMergedMetricsPort int `json:"ENVOY_SECURE_MERGED_METRICS_PORT,omitempty"`
 
 	// ExitOnZeroActiveConnections terminates Envoy if there are no active connections if set.
 	ExitOnZeroActiveConnections StringBool `json:"EXIT_ON_ZERO_ACTIVE_CONNECTIONS,omitempty"`

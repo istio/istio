@@ -17,6 +17,7 @@ package analyzers
 import (
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/annotations"
+	"istio.io/istio/pkg/config/analysis/analyzers/authn"
 	"istio.io/istio/pkg/config/analysis/analyzers/authz"
 	"istio.io/istio/pkg/config/analysis/analyzers/conditions"
 	"istio.io/istio/pkg/config/analysis/analyzers/deployment"
@@ -43,6 +44,7 @@ func All() []analysis.Analyzer {
 	analyzers := []analysis.Analyzer{
 		// Please keep this list sorted alphabetically by pkg.name for convenience
 		&annotations.K8sAnalyzer{},
+		&authn.BlockedCIDRsAnalyzer{},
 		&authz.AuthorizationPoliciesAnalyzer{},
 		&conditions.ConditionAnalyzer{},
 		&deployment.ServiceAssociationAnalyzer{},
@@ -60,6 +62,7 @@ func All() []analysis.Analyzer {
 		&injection.ImageAnalyzer{},
 		&injection.ImageAutoAnalyzer{},
 		&k8sgateway.SelectorAnalyzer{},
+		&k8sgateway.CRDVersionAnalyzer{},
 		&multicluster.MeshNetworksAnalyzer{},
 		&multicluster.ServiceAnalyzer{},
 		&service.PortNameAnalyzer{},
@@ -70,6 +73,7 @@ func All() []analysis.Analyzer {
 		&virtualservice.GatewayAnalyzer{},
 		&virtualservice.JWTClaimRouteAnalyzer{},
 		&serviceentry.ProtocolAddressesAnalyzer{},
+		&serviceentry.ConflictingServiceEntryProtocolAnalyzer{},
 		&webhook.Analyzer{},
 		&telemetry.ProviderAnalyzer{},
 		&telemetry.SelectorAnalyzer{},

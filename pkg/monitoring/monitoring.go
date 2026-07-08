@@ -55,8 +55,10 @@ func RegisterPrometheusExporter(reg prometheus.Registerer, gatherer prometheus.G
 	promOpts := []otelprom.Option{
 		otelprom.WithoutScopeInfo(),
 		otelprom.WithoutTargetInfo(),
+		// nolint: staticcheck // no need to migrate
 		otelprom.WithoutUnits(),
 		otelprom.WithRegisterer(reg),
+		// nolint: staticcheck // no need to migrate
 		otelprom.WithoutCounterSuffixes(),
 	}
 

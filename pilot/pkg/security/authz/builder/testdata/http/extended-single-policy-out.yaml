@@ -147,11 +147,11 @@ typedConfig:
                 - authenticated:
                     principalName:
                       safeRegex:
-                        regex: .*/ns/rule[0]-from[0]-ns[1]/.*
+                        regex: .*/ns/rule\[0\]-from\[0\]-ns\[1\]/.*
                 - authenticated:
                     principalName:
                       safeRegex:
-                        regex: .*/ns/rule[0]-from[0]-ns[2]/.*
+                        regex: .*/ns/rule\[0\]-from\[0\]-ns\[2\]/.*
             - orIds:
                 ids:
                 - remoteIp:
@@ -243,11 +243,11 @@ typedConfig:
                 - authenticated:
                     principalName:
                       safeRegex:
-                        regex: .*/ns/rule[0]-from[1]-ns[1]/.*
+                        regex: .*/ns/rule\[0\]-from\[1\]-ns\[1\]/.*
                 - authenticated:
                     principalName:
                       safeRegex:
-                        regex: .*/ns/rule[0]-from[1]-ns[2]/.*
+                        regex: .*/ns/rule\[0\]-from\[1\]-ns\[2\]/.*
             - orIds:
                 ids:
                 - remoteIp:
@@ -417,11 +417,11 @@ typedConfig:
                 - authenticated:
                     principalName:
                       safeRegex:
-                        regex: .*/ns/rule[1]-from[0]-ns[1]/.*
+                        regex: .*/ns/rule\[1\]-from\[0\]-ns\[1\]/.*
                 - authenticated:
                     principalName:
                       safeRegex:
-                        regex: .*/ns/rule[1]-from[0]-ns[2]/.*
+                        regex: .*/ns/rule\[1\]-from\[0\]-ns\[2\]/.*
             - orIds:
                 ids:
                 - remoteIp:
@@ -491,11 +491,11 @@ typedConfig:
                 - authenticated:
                     principalName:
                       safeRegex:
-                        regex: .*/ns/rule[1]-from[1]-ns[1]/.*
+                        regex: .*/ns/rule\[1\]-from\[1\]-ns\[1\]/.*
                 - authenticated:
                     principalName:
                       safeRegex:
-                        regex: .*/ns/rule[1]-from[1]-ns[2]/.*
+                        regex: .*/ns/rule\[1\]-from\[1\]-ns\[2\]/.*
             - orIds:
                 ids:
                 - remoteIp:

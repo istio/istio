@@ -1677,11 +1677,34 @@ func TestValidateHTTPRedirect(t *testing.T) {
 			},
 			valid: true,
 		},
+		{
+			name: "prefix_rewrite alone",
+			redirect: &networking.HTTPRedirect{
+				PrefixRewrite: "/bar",
+			},
+			valid: true,
+		},
+		{
+			name: "prefix_rewrite with authority",
+			redirect: &networking.HTTPRedirect{
+				Authority:     "foo.example.com",
+				PrefixRewrite: "/",
+			},
+			valid: true,
+		},
+		{
+			name: "uri and prefix_rewrite mutually exclusive",
+			redirect: &networking.HTTPRedirect{
+				Uri:           "/old",
+				PrefixRewrite: "/new",
+			},
+			valid: false,
+		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			if err := validateHTTPRedirect(tc.redirect); (err == nil) != tc.valid {
+			if err := validateHTTPRedirect(tc.redirect, nil); (err == nil) != tc.valid {
 				t.Fatalf("got valid=%v but wanted valid=%v: %v", err == nil, tc.valid, err)
 			}
 		})
@@ -1895,6 +1918,40 @@ func TestValidateHTTPRoute(t *testing.T) {
 			Redirect: &networking.HTTPRedirect{
 				Uri:       "/lerp",
 				Authority: "foo.biz",
+			},
+		}, valid: true},
+		{name: "prefix_rewrite redirect with prefix URI match", route: &networking.HTTPRoute{
+			Match: []*networking.HTTPMatchRequest{{
+				Uri: &networking.StringMatch{MatchType: &networking.StringMatch_Prefix{Prefix: "/foo"}},
+			}},
+			Redirect: &networking.HTTPRedirect{
+				PrefixRewrite: "/bar",
+			},
+		}, valid: true},
+		{name: "prefix_rewrite redirect with exact URI match is invalid", route: &networking.HTTPRoute{
+			Match: []*networking.HTTPMatchRequest{{
+				Uri: &networking.StringMatch{MatchType: &networking.StringMatch_Exact{Exact: "/foo"}},
+			}},
+			Redirect: &networking.HTTPRedirect{
+				PrefixRewrite: "/bar",
+			},
+		}, valid: false},
+		{name: "prefix_rewrite redirect with regex URI match is invalid", route: &networking.HTTPRoute{
+			Match: []*networking.HTTPMatchRequest{{
+				Uri: &networking.StringMatch{MatchType: &networking.StringMatch_Regex{Regex: "/foo.*"}},
+			}},
+			Redirect: &networking.HTTPRedirect{
+				PrefixRewrite: "/bar",
+			},
+		}, valid: false},
+		{name: "prefix_rewrite redirect with no URI match (wildcard) is valid", route: &networking.HTTPRoute{
+			Match: []*networking.HTTPMatchRequest{{
+				Headers: map[string]*networking.StringMatch{
+					"x-foo": {MatchType: &networking.StringMatch_Exact{Exact: "bar"}},
+				},
+			}},
+			Redirect: &networking.HTTPRedirect{
+				PrefixRewrite: "/bar",
 			},
 		}, valid: true},
 		{name: "conflicting redirect and route", route: &networking.HTTPRoute{
@@ -3388,6 +3445,17 @@ func TestValidateConnectionPool(t *testing.T) {
 			},
 			valid: true,
 		},
+		{
+			name: "valid connection pool, http2 keepalive", in: &networking.ConnectionPoolSettings{
+				Http: &networking.ConnectionPoolSettings_HTTPSettings{
+					Http2KeepAlive: &networking.ConnectionPoolSettings_HTTPSettings_ConnectionKeepalive{
+						Interval: &durationpb.Duration{Seconds: 15},
+						Timeout:  &durationpb.Duration{Seconds: 5},
+					},
+				},
+			},
+			valid: true,
+		},
 
 		{name: "invalid connection pool, empty", in: &networking.ConnectionPoolSettings{}, valid: false},
 
@@ -3452,6 +3520,37 @@ func TestValidateConnectionPool(t *testing.T) {
 		{
 			name: "invalid connection pool, bad max concurrent streams", in: &networking.ConnectionPoolSettings{
 				Http: &networking.ConnectionPoolSettings_HTTPSettings{MaxConcurrentStreams: -1},
+			},
+			valid: false,
+		},
+		{
+			name: "invalid connection pool, http2 keepalive without interval", in: &networking.ConnectionPoolSettings{
+				Http: &networking.ConnectionPoolSettings_HTTPSettings{
+					Http2KeepAlive: &networking.ConnectionPoolSettings_HTTPSettings_ConnectionKeepalive{
+						Timeout: &durationpb.Duration{Seconds: 5},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "invalid connection pool, http2 keepalive without timeout", in: &networking.ConnectionPoolSettings{
+				Http: &networking.ConnectionPoolSettings_HTTPSettings{
+					Http2KeepAlive: &networking.ConnectionPoolSettings_HTTPSettings_ConnectionKeepalive{
+						Interval: &durationpb.Duration{Seconds: 15},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name: "invalid connection pool, bad http2 keepalive interval", in: &networking.ConnectionPoolSettings{
+				Http: &networking.ConnectionPoolSettings_HTTPSettings{
+					Http2KeepAlive: &networking.ConnectionPoolSettings_HTTPSettings_ConnectionKeepalive{
+						Interval: &durationpb.Duration{Seconds: 15, Nanos: 5},
+						Timeout:  &durationpb.Duration{Seconds: 5},
+					},
+				},
 			},
 			valid: false,
 		},
@@ -5917,6 +6016,27 @@ func TestValidateSidecar(t *testing.T) {
 				},
 			},
 		}, true, false},
+		{"import all except a namespace", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*", "~ns1/*"},
+				},
+			},
+		}, true, false},
+		{"import all except an exact host", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*", "~/foo.com"},
+				},
+			},
+		}, true, false},
+		{"exclude with invalid namespace", &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*", "~Invalid_NS/*"},
+				},
+			},
+		}, false, false},
 		{"bad egress host 1", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
@@ -6448,6 +6568,16 @@ func TestValidateSidecar(t *testing.T) {
 					Host:   "foo.bar",
 					Subset: "shiny",
 				},
+			},
+			Egress: []*networking.IstioEgressListener{
+				{
+					Hosts: []string{"*/*"},
+				},
+			},
+		}, false, false},
+		{"ALLOW_ANY_DYNAMIC_DNS rejected in sidecar", &networking.Sidecar{
+			OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
+				Mode: networking.OutboundTrafficPolicy_Mode(3),
 			},
 			Egress: []*networking.IstioEgressListener{
 				{
@@ -7244,6 +7374,21 @@ func TestValidateRequestAuthentication(t *testing.T) {
 				},
 			},
 			valid: false,
+		},
+		{
+			// JWKS bearing private RSA components warns but is still accepted.
+			name:       "jwks with private RSA key warns",
+			configName: constants.DefaultAuthenticationPolicyName,
+			in: &security_beta.RequestAuthentication{
+				JwtRules: []*security_beta.JWTRule{
+					{
+						Issuer: "foo.com",
+						Jwks:   `{"keys":[{"kty":"RSA","e":"AQAB","kid":"private","n":"xAE7eB6qugXyCAG3yhh7pkDkT65pHymX-P7KfIupjf59vsdo91bSP9C8H07pSAGQO1MV_xFj9VswgsCg4R6otmg5PV2He95lZdHtOcU5DXIg_pbhLdKXbi66GlVeK6ABZOUW3WYtnNHD-91gVuoeJT_DwtGGcp4ignkgXfkiEm4sw-4sfb4qdt5oLbyVpmW6x9cfa7vs2WTfURiCrBoUqgBo_-4WTiULmmHSGZHOjzwa8WtrtOQGsAFjIbno85jp6MnGGGZPYZbDAa_b3y5u-YpW7ypZrvD8BgtKVjgtQgZhLAGezMt0ua3DRrWnKqTZ0BJ_EyxOGuHJrLsn00fnMQ","d":"jJVKLOMXjlSnICzfP_eWshwR_DQp1U_GBLn-bL2qf90U5GMRDg5fT7Df3M2zL3DhMzdLDIeBmh-ujMTPjU0PWyVN5JX9LBhAOgsX3DKAdR2KMlEsBM4HE6VV1JhqQozqAcSPwhBHJM_pBM21S94EZf_RbA0PvyLcjeLP4WqAOY-J4OXVR3rzKwAH02NjLBR-Tnoiv-WlPZbE9SmYJL0G3xRFVELYwf4l7t-PSrZxk6V_xrTLpsScA-WICTaXmRGyDOSBuiBfHfDQyiTfQEUjcc6aQ7slLAwfmU2AeYJqHk1zwZpDJpgEf9G3eYi09Q2MLpzSjMxWVqV5L7TtcoGv5Q"}]}`, // nolint: lll
+					},
+				},
+			},
+			valid:   true,
+			warning: true,
 		},
 		{
 			name:       "null outputClaimToHeader",
@@ -8161,6 +8306,342 @@ func TestValidateWasmPlugin(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			warn, err := ValidateWasmPlugin(config.Config{
+				Meta: config.Meta{
+					Name:      someName,
+					Namespace: someNamespace,
+				},
+				Spec: tt.in,
+			})
+			checkValidationMessage(t, warn, err, tt.warning, tt.out)
+		})
+	}
+}
+
+func TestValidateTrafficExtension(t *testing.T) {
+	tests := []struct {
+		name    string
+		in      proto.Message
+		out     string
+		warning string
+	}{
+		{
+			"invalid message",
+			&networking.Server{},
+			"cannot cast",
+			"",
+		},
+		{
+			"neither wasm nor lua set",
+			&extensions.TrafficExtension{},
+			"exactly one of wasm or lua must be set",
+			"",
+		},
+		{
+			"valid lua config",
+			&extensions.TrafficExtension{
+				FilterConfig: &extensions.TrafficExtension_Lua{Lua: &extensions.LuaConfig{
+					InlineCode: "function envoy_on_request(request_handle)\n  request_handle:headers():add('x-foo', 'bar')\nend",
+				}},
+			},
+			"",
+			"",
+		},
+		{
+			"lua code empty",
+			&extensions.TrafficExtension{
+				FilterConfig: &extensions.TrafficExtension_Lua{Lua: &extensions.LuaConfig{
+					InlineCode: "",
+				}},
+			},
+			"lua.inlineCode cannot be empty",
+			"",
+		},
+		{
+			"lua code too large",
+			&extensions.TrafficExtension{
+				FilterConfig: &extensions.TrafficExtension_Lua{Lua: &extensions.LuaConfig{
+					InlineCode: string(make([]byte, 65537)),
+				}},
+			},
+			"lua.inlineCode exceeds maximum size of 64KB",
+			"",
+		},
+		{
+			"valid wasm config",
+			&extensions.TrafficExtension{
+				FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
+					Url: "http://test.com/test",
+				}},
+			},
+			"",
+			"",
+		},
+		{
+			"wasm url empty",
+			&extensions.TrafficExtension{
+				FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
+					Url: "",
+				}},
+			},
+			"url field needs to be set",
+			"",
+		},
+		{
+			"wasm wrong scheme",
+			&extensions.TrafficExtension{
+				FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
+					Url: "ftp://test.com/test",
+				}},
+			},
+			"unsupported scheme",
+			"",
+		},
+		{
+			"wasm valid http",
+			&extensions.TrafficExtension{
+				FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
+					Url: "http://test.com/test",
+				}},
+			},
+			"",
+			"",
+		},
+		{
+			"wasm valid http w/ sha",
+			&extensions.TrafficExtension{
+				FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
+					Url:    "http://test.com/test",
+					Sha256: "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+				}},
+			},
+			"",
+			"",
+		},
+		{
+			"wasm short sha",
+			&extensions.TrafficExtension{
+				FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
+					Url:    "http://test.com/test",
+					Sha256: "01ba47",
+				}},
+			},
+			"sha256 field must be 64 characters long",
+			"",
+		},
+		{
+			"wasm invalid sha characters",
+			&extensions.TrafficExtension{
+				FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
+					Url:    "http://test.com/test",
+					Sha256: "01Ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+				}},
+			},
+			"sha256 field must match [a-f0-9]{64} pattern",
+			"",
+		},
+		{
+			"wasm valid oci",
+			&extensions.TrafficExtension{
+				FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
+					Url: "oci://test.com/test",
+				}},
+			},
+			"",
+			"",
+		},
+		{
+			"wasm valid oci no scheme",
+			&extensions.TrafficExtension{
+				FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
+					Url: "test.com/test",
+				}},
+			},
+			"",
+			"",
+		},
+		{
+			"wasm invalid vm config - invalid env name",
+			&extensions.TrafficExtension{
+				FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
+					Url: "test.com/test",
+					VmConfig: &extensions.VmConfig{
+						Env: []*extensions.EnvVar{
+							{
+								Name:      "",
+								ValueFrom: extensions.EnvValueSource_HOST,
+							},
+						},
+					},
+				}},
+			},
+			"spec.vmConfig.env invalid",
+			"",
+		},
+		{
+			"wasm invalid vm config - duplicate env",
+			&extensions.TrafficExtension{
+				FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
+					Url: "test.com/test",
+					VmConfig: &extensions.VmConfig{
+						Env: []*extensions.EnvVar{
+							{
+								Name:  "ENV1",
+								Value: "VAL1",
+							},
+							{
+								Name:  "ENV1",
+								Value: "VAL1",
+							},
+						},
+					},
+				}},
+			},
+			"duplicate env",
+			"",
+		},
+		{
+			"valid lua with selector",
+			&extensions.TrafficExtension{
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{"app": "test"},
+				},
+				FilterConfig: &extensions.TrafficExtension_Lua{Lua: &extensions.LuaConfig{
+					InlineCode: "function envoy_on_request() end",
+				}},
+			},
+			"",
+			"",
+		},
+		{
+			"valid lua with targetRefs",
+			&extensions.TrafficExtension{
+				TargetRefs: []*api.PolicyTargetReference{
+					{
+						Group: gvk.KubernetesGateway.Group,
+						Kind:  gvk.KubernetesGateway.Kind,
+						Name:  "gateway",
+					},
+				},
+				FilterConfig: &extensions.TrafficExtension_Lua{Lua: &extensions.LuaConfig{
+					InlineCode: "function envoy_on_request() end",
+				}},
+			},
+			"",
+			"",
+		},
+		{
+			"both selector and targetRefs",
+			&extensions.TrafficExtension{
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{"app": "test"},
+				},
+				TargetRefs: []*api.PolicyTargetReference{
+					{
+						Group: gvk.KubernetesGateway.Group,
+						Kind:  gvk.KubernetesGateway.Kind,
+						Name:  "gateway",
+					},
+				},
+				FilterConfig: &extensions.TrafficExtension_Lua{Lua: &extensions.LuaConfig{
+					InlineCode: "function envoy_on_request() end",
+				}},
+			},
+			"only one of targetRefs or workloadSelector can be set",
+			"",
+		},
+		{
+			"invalid match - nil traffic selector",
+			&extensions.TrafficExtension{
+				Match: []*extensions.TrafficSelector{nil},
+				FilterConfig: &extensions.TrafficExtension_Lua{Lua: &extensions.LuaConfig{
+					InlineCode: "function envoy_on_request() end",
+				}},
+			},
+			"spec.Match[0] is nil",
+			"",
+		},
+		{
+			"invalid match - nil port selector",
+			&extensions.TrafficExtension{
+				Match: []*extensions.TrafficSelector{
+					{
+						Ports: []*api.PortSelector{nil},
+					},
+				},
+				FilterConfig: &extensions.TrafficExtension_Lua{Lua: &extensions.LuaConfig{
+					InlineCode: "function envoy_on_request() end",
+				}},
+			},
+			"spec.Match[0].Ports[0] is nil",
+			"",
+		},
+		{
+			"invalid match - port out of range (too low)",
+			&extensions.TrafficExtension{
+				Match: []*extensions.TrafficSelector{
+					{
+						Ports: []*api.PortSelector{
+							{Number: 0},
+						},
+					},
+				},
+				FilterConfig: &extensions.TrafficExtension_Lua{Lua: &extensions.LuaConfig{
+					InlineCode: "function envoy_on_request() end",
+				}},
+			},
+			"spec.Match[0].Ports[0] is out of range: 0",
+			"",
+		},
+		{
+			"invalid match - port out of range (too high)",
+			&extensions.TrafficExtension{
+				Match: []*extensions.TrafficSelector{
+					{
+						Ports: []*api.PortSelector{
+							{Number: 65536},
+						},
+					},
+				},
+				FilterConfig: &extensions.TrafficExtension_Lua{Lua: &extensions.LuaConfig{
+					InlineCode: "function envoy_on_request() end",
+				}},
+			},
+			"spec.Match[0].Ports[0] is out of range: 65536",
+			"",
+		},
+		{
+			"valid match with port",
+			&extensions.TrafficExtension{
+				Match: []*extensions.TrafficSelector{
+					{
+						Mode: api.WorkloadMode_CLIENT,
+						Ports: []*api.PortSelector{
+							{Number: 8080},
+						},
+					},
+				},
+				FilterConfig: &extensions.TrafficExtension_Lua{Lua: &extensions.LuaConfig{
+					InlineCode: "function envoy_on_request() end",
+				}},
+			},
+			"",
+			"",
+		},
+		{
+			"wasm plugin name too long",
+			&extensions.TrafficExtension{
+				FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
+					Url:        "test.com/test",
+					PluginName: string(make([]byte, 257)),
+				}},
+			},
+			"pluginName field must be less than 256 characters long",
+			"",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			warn, err := ValidateTrafficExtension(config.Config{
 				Meta: config.Meta{
 					Name:      someName,
 					Namespace: someNamespace,

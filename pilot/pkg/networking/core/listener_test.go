@@ -37,6 +37,7 @@ import (
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	extensions "istio.io/api/extensions/v1alpha1"
+	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	security "istio.io/api/security/v1beta1"
@@ -60,6 +61,7 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/wellknown"
 )
 
@@ -198,6 +200,22 @@ func TestInboundListenerConfig(t *testing.T) {
 			buildService("test.com", wildcardIPv4, protocol.HTTP, tnow))
 	})
 
+	t.Run("secure metrics port conflict", func(t *testing.T) {
+		p := getProxy()
+		p.Metadata.EnvoySecureMetricsPort = 15091
+		testInboundListenerConfigWithConflictPort(t, p,
+			buildServiceWithPort("test1.com", 15091, protocol.HTTP, tnow.Add(1*time.Second)),
+			buildService("test2.com", wildcardIPv4, protocol.HTTP, tnow.Add(2*time.Second)))
+	})
+
+	t.Run("secure merged metrics port conflict", func(t *testing.T) {
+		p := getProxy()
+		p.Metadata.EnvoySecureMergedMetricsPort = 15092
+		testInboundListenerConfigWithConflictPort(t, p,
+			buildServiceWithPort("test1.com", 15092, protocol.HTTP, tnow.Add(1*time.Second)),
+			buildService("test2.com", wildcardIPv4, protocol.HTTP, tnow.Add(2*time.Second)))
+	})
+
 	t.Run("grpc", func(t *testing.T) {
 		testInboundListenerConfigWithGrpc(t, getProxy(),
 			buildService("test1.com", wildcardIPv4, protocol.GRPC, tnow.Add(1*time.Second)))
@@ -243,10 +261,12 @@ func TestInboundListenerConfig(t *testing.T) {
 			// Ext auth makes 2 filters
 			wellknown.HTTPRoleBasedAccessControl,
 			wellknown.HTTPExternalAuthorization,
-			"extensions.istio.io/wasmplugin/istio-system.wasm-authn",
-			"extensions.istio.io/wasmplugin/istio-system.wasm-authz",
+			"extensions.istio.io/trafficextension/istio-system.extension-wasm-authn",
+			"extensions.istio.io/trafficextension/istio-system.extension-lua-authn",
+			"extensions.istio.io/trafficextension/istio-system.extension-wasm-authz",
+			"extensions.istio.io/trafficextension/istio-system.extension-lua-authz",
 			wellknown.HTTPRoleBasedAccessControl,
-			"extensions.istio.io/wasmplugin/istio-system.wasm-stats",
+			"extensions.istio.io/trafficextension/istio-system.extension-wasm-stats",
 			wellknown.HTTPGRPCStats,
 			xdsfilters.Fault.Name,
 			xdsfilters.Cors.Name,
@@ -255,9 +275,9 @@ func TestInboundListenerConfig(t *testing.T) {
 		}
 		httpNetworkFilters := []string{
 			xdsfilters.MxFilterName,
-			"extensions.istio.io/wasmplugin/istio-system.wasm-network-authn",
-			"extensions.istio.io/wasmplugin/istio-system.wasm-network-authz",
-			"extensions.istio.io/wasmplugin/istio-system.wasm-network-stats",
+			"extensions.istio.io/trafficextension/istio-system.extension-wasm-network-authn",
+			"extensions.istio.io/trafficextension/istio-system.extension-wasm-network-authz",
+			"extensions.istio.io/trafficextension/istio-system.extension-wasm-network-stats",
 			wellknown.HTTPConnectionManager,
 		}
 		tcpNetworkFilters := []string{
@@ -265,10 +285,10 @@ func TestInboundListenerConfig(t *testing.T) {
 			// Ext auth makes 2 filters
 			wellknown.RoleBasedAccessControl,
 			wellknown.ExternalAuthorization,
-			"extensions.istio.io/wasmplugin/istio-system.wasm-network-authn",
-			"extensions.istio.io/wasmplugin/istio-system.wasm-network-authz",
+			"extensions.istio.io/trafficextension/istio-system.extension-wasm-network-authn",
+			"extensions.istio.io/trafficextension/istio-system.extension-wasm-network-authz",
 			wellknown.RoleBasedAccessControl,
-			"extensions.istio.io/wasmplugin/istio-system.wasm-network-stats",
+			"extensions.istio.io/trafficextension/istio-system.extension-wasm-network-stats",
 			xds.StatsFilterName,
 			wellknown.TCPProxy,
 		}
@@ -375,6 +395,76 @@ func TestInboundListenerConfig(t *testing.T) {
 			},
 		})
 	})
+}
+
+func TestBuildListener_FactoryKey(t *testing.T) {
+	test.SetForTest(t, &features.EnableHBONESend, true)
+	test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
+	test.SetForTest(t, &features.EnableAmbientWaypointMultiNetwork, true)
+	cg := NewConfigGenTest(t, TestOptions{})
+
+	waypoint := cg.SetupProxy(&model.Proxy{
+		Type:            model.Waypoint,
+		ConfigNamespace: "not-default",
+		Labels: map[string]string{
+			label.GatewayManaged.Name: constants.ManagedGatewayMeshControllerLabel,
+		},
+		IstioVersion: &model.IstioVersion{Major: 1, Minor: 29, Patch: 2},
+	})
+	type expectedCounts struct {
+		hashableString int
+		envoyString    int
+	}
+	for _, tt := range []struct {
+		version  *model.IstioVersion
+		expected map[string]expectedCounts
+	}{
+		{
+			&model.IstioVersion{Major: 1, Minor: 30, Patch: 0},
+			map[string]expectedCounts{
+				"connect_terminate":       {3, 0},
+				"inner_connect_originate": {1, 0},
+			},
+		},
+		{
+			&model.IstioVersion{Major: 1, Minor: 29, Patch: 2},
+			map[string]expectedCounts{
+				"connect_terminate":       {3, 0},
+				"inner_connect_originate": {1, 0},
+			},
+		},
+		{
+			&model.IstioVersion{Major: 1, Minor: 29, Patch: 1},
+			map[string]expectedCounts{
+				"connect_terminate":       {0, 3},
+				"inner_connect_originate": {0, 1},
+			},
+		},
+	} {
+		waypoint.IstioVersion = tt.version
+		listeners := cg.Listeners(waypoint)
+
+		if len(listeners) == 0 {
+			t.Errorf("%s: missing listeners", tt.version)
+			continue
+		}
+		names := sets.String{}
+		for _, l := range listeners {
+			names.Insert(l.Name)
+			counts := tt.expected[l.Name]
+			text := l.String()
+			assert.Equal(t, strings.Count(text, `factory_key:"istio.hashable_string"`), counts.hashableString, tt.version.String(),
+				l.Name, "istio.hashable_string")
+			assert.Equal(t, strings.Count(text, `factory_key:"envoy.string"`), counts.envoyString, tt.version.String(),
+				l.Name, "envoy.string")
+		}
+
+		for k := range tt.expected {
+			if !names.Contains(k) {
+				t.Errorf("%s: no listener for count, %s", tt.version, k)
+			}
+		}
+	}
 }
 
 func TestOutboundListenerConflict_HTTPWithCurrentUnknown(t *testing.T) {
@@ -781,6 +871,151 @@ func TestOutboundListenerTCPWithVSExactBalance(t *testing.T) {
 	}
 }
 
+func TestOutboundListenerTCPWithVSEmptyRoute(t *testing.T) {
+	// Regression test: a VirtualService with a TCP match but no routes should not
+	// cause a panic in buildOutboundNetworkFilters. The VS should be skipped and
+	// the default service route should be used instead.
+	tests := []struct {
+		name string
+		vs   *networking.VirtualService
+	}{
+		{
+			name: "tcp match with port but no routes",
+			vs: &networking.VirtualService{
+				Hosts:    []string{"test.com"},
+				Gateways: []string{"mesh"},
+				Tcp: []*networking.TCPRoute{
+					{
+						Match: []*networking.L4MatchAttributes{
+							{
+								Port: 8080,
+							},
+						},
+						// Route intentionally left empty
+					},
+				},
+			},
+		},
+		{
+			name: "tcp implicit match with no routes",
+			vs: &networking.VirtualService{
+				Hosts:    []string{"test.com"},
+				Gateways: []string{"mesh"},
+				Tcp: []*networking.TCPRoute{
+					{
+						// No match and no route
+					},
+				},
+			},
+		},
+		{
+			name: "tcp match with destination subnets but no routes",
+			vs: &networking.VirtualService{
+				Hosts:    []string{"test.com"},
+				Gateways: []string{"mesh"},
+				Tcp: []*networking.TCPRoute{
+					{
+						Match: []*networking.L4MatchAttributes{
+							{
+								DestinationSubnets: []string{"10.10.0.0/24"},
+								Port:               8080,
+							},
+						},
+						// Route intentionally left empty
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			services := []*model.Service{
+				buildService("test.com", "10.10.0.0/24", protocol.TCP, tnow),
+			}
+
+			virtualService := config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.VirtualService,
+					Name:             "test_vs",
+					Namespace:        "default",
+				},
+				Spec: tt.vs,
+			}
+			listeners := buildOutboundListeners(t, getProxy(), nil, &virtualService, services...)
+
+			if len(listeners) != 1 {
+				t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
+			}
+
+			// The VS with empty routes should be skipped, so the default service
+			// route should be used. Verify we have a valid TCP filter chain.
+			for _, l := range listeners {
+				for _, fc := range l.GetFilterChains() {
+					listenertest.VerifyFilterChain(t, fc, listenertest.FilterChainTest{
+						NetworkFilters: []string{wellknown.TCPProxy},
+						TotalMatch:     true,
+					})
+					tcpProxy := xdstest.ExtractTCPProxy(t, fc)
+					if tcpProxy == nil {
+						t.Fatal("expected tcp proxy filter, found none")
+					}
+					// Should route to the default service cluster
+					if tcpProxy.GetCluster() == "" && tcpProxy.GetWeightedClusters() == nil {
+						t.Fatal("expected a cluster or weighted clusters in TCP proxy, found none")
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestOutboundListenerTLSWithVSEmptyRoute(t *testing.T) {
+	// Regression test: a VirtualService with a TLS match but no routes should not
+	// cause a panic in buildSidecarOutboundTLSFilterChainOpts. The VS should be skipped.
+	services := []*model.Service{
+		{
+			CreationTime:   tnow,
+			Hostname:       host.Name("test.com"),
+			DefaultAddress: wildcardIPv4,
+			Ports: model.PortList{
+				&model.Port{
+					Name:     "https",
+					Port:     8080,
+					Protocol: protocol.HTTPS,
+				},
+			},
+			Resolution: model.Passthrough,
+			Attributes: model.ServiceAttributes{Namespace: "default"},
+		},
+	}
+	virtualService := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.VirtualService,
+			Name:             "test_vs",
+			Namespace:        "default",
+		},
+		Spec: &networking.VirtualService{
+			Hosts:    []string{"test.com"},
+			Gateways: []string{"mesh"},
+			Tls: []*networking.TLSRoute{
+				{
+					Match: []*networking.TLSMatchAttributes{
+						{
+							Port:     8080,
+							SniHosts: []string{"test.com"},
+						},
+					},
+					// Route intentionally left empty
+				},
+			},
+		},
+	}
+	// Should not panic.
+	for _, p := range []*model.Proxy{getProxy(), &dualStackProxy} {
+		buildOutboundListeners(t, p, nil, &virtualService, services...)
+	}
+}
+
 func TestOutboundListenerForHeadlessServices(t *testing.T) {
 	svc := buildServiceWithPort("test.com", 9999, protocol.TCP, tnow)
 	svc.Resolution = model.Passthrough
@@ -1092,42 +1327,82 @@ func TestOutboundTlsTrafficWithoutTimeout(t *testing.T) {
 
 var filterTestConfigs = []config.Config{
 	{
-		Meta: config.Meta{Name: "wasm-network-authz", Namespace: "istio-system", GroupVersionKind: gvk.WasmPlugin},
-		Spec: &extensions.WasmPlugin{
-			Phase: extensions.PluginPhase_AUTHZ,
-			Type:  extensions.PluginType_NETWORK,
+		Meta: config.Meta{Name: "extension-wasm-network-authz", Namespace: "istio-system", GroupVersionKind: gvk.TrafficExtension},
+		Spec: &extensions.TrafficExtension{
+			Phase: extensions.TrafficExtension_AUTHZ,
+			FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
+				Url:  "file:///etc/istio/filters/authz.wasm",
+				Type: extensions.PluginType_NETWORK,
+			}},
 		},
 	},
 	{
-		Meta: config.Meta{Name: "wasm-network-authn", Namespace: "istio-system", GroupVersionKind: gvk.WasmPlugin},
-		Spec: &extensions.WasmPlugin{
-			Phase: extensions.PluginPhase_AUTHN,
-			Type:  extensions.PluginType_NETWORK,
+		Meta: config.Meta{Name: "extension-wasm-network-authn", Namespace: "istio-system", GroupVersionKind: gvk.TrafficExtension},
+		Spec: &extensions.TrafficExtension{
+			Phase: extensions.TrafficExtension_AUTHN,
+			FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
+				Url:  "file:///etc/istio/filters/authn.wasm",
+				Type: extensions.PluginType_NETWORK,
+			}},
 		},
 	},
 	{
-		Meta: config.Meta{Name: "wasm-network-stats", Namespace: "istio-system", GroupVersionKind: gvk.WasmPlugin},
-		Spec: &extensions.WasmPlugin{
-			Phase: extensions.PluginPhase_STATS,
-			Type:  extensions.PluginType_NETWORK,
+		Meta: config.Meta{Name: "extension-wasm-network-stats", Namespace: "istio-system", GroupVersionKind: gvk.TrafficExtension},
+		Spec: &extensions.TrafficExtension{
+			Phase: extensions.TrafficExtension_STATS,
+			FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
+				Url:  "file:///etc/istio/filters/stats.wasm",
+				Type: extensions.PluginType_NETWORK,
+			}},
 		},
 	},
 	{
-		Meta: config.Meta{Name: "wasm-authz", Namespace: "istio-system", GroupVersionKind: gvk.WasmPlugin},
-		Spec: &extensions.WasmPlugin{
-			Phase: extensions.PluginPhase_AUTHZ,
+		Meta: config.Meta{Name: "extension-wasm-authz", Namespace: "istio-system", GroupVersionKind: gvk.TrafficExtension},
+		Spec: &extensions.TrafficExtension{
+			Phase: extensions.TrafficExtension_AUTHZ,
+			FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
+				Url:  "oci://example.com/http-authz:v1",
+				Type: extensions.PluginType_HTTP,
+			}},
 		},
 	},
 	{
-		Meta: config.Meta{Name: "wasm-authn", Namespace: "istio-system", GroupVersionKind: gvk.WasmPlugin},
-		Spec: &extensions.WasmPlugin{
-			Phase: extensions.PluginPhase_AUTHN,
+		Meta: config.Meta{Name: "extension-wasm-authn", Namespace: "istio-system", GroupVersionKind: gvk.TrafficExtension},
+		Spec: &extensions.TrafficExtension{
+			Phase: extensions.TrafficExtension_AUTHN,
+			FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
+				Url:  "oci://example.com/http-authn:v1",
+				Type: extensions.PluginType_HTTP,
+			}},
 		},
 	},
 	{
-		Meta: config.Meta{Name: "wasm-stats", Namespace: "istio-system", GroupVersionKind: gvk.WasmPlugin},
-		Spec: &extensions.WasmPlugin{
-			Phase: extensions.PluginPhase_STATS,
+		Meta: config.Meta{Name: "extension-wasm-stats", Namespace: "istio-system", GroupVersionKind: gvk.TrafficExtension},
+		Spec: &extensions.TrafficExtension{
+			Phase: extensions.TrafficExtension_STATS,
+			FilterConfig: &extensions.TrafficExtension_Wasm{Wasm: &extensions.WasmConfig{
+				Url:  "oci://example.com/http-stats:v1",
+				Type: extensions.PluginType_HTTP,
+			}},
+		},
+	},
+	// Additional Lua filters
+	{
+		Meta: config.Meta{Name: "extension-lua-authz", Namespace: "istio-system", GroupVersionKind: gvk.TrafficExtension},
+		Spec: &extensions.TrafficExtension{
+			Phase: extensions.TrafficExtension_AUTHZ,
+			FilterConfig: &extensions.TrafficExtension_Lua{Lua: &extensions.LuaConfig{
+				InlineCode: "function envoy_on_request(request_handle) end",
+			}},
+		},
+	},
+	{
+		Meta: config.Meta{Name: "extension-lua-authn", Namespace: "istio-system", GroupVersionKind: gvk.TrafficExtension},
+		Spec: &extensions.TrafficExtension{
+			Phase: extensions.TrafficExtension_AUTHN,
+			FilterConfig: &extensions.TrafficExtension_Lua{Lua: &extensions.LuaConfig{
+				InlineCode: "function envoy_on_request(request_handle) end",
+			}},
 		},
 	},
 	{
@@ -1180,9 +1455,11 @@ func TestOutboundFilters(t *testing.T) {
 					TotalMatch: true,
 					HTTPFilters: []string{
 						xdsfilters.MxFilterName,
-						"extensions.istio.io/wasmplugin/istio-system.wasm-authn",
-						"extensions.istio.io/wasmplugin/istio-system.wasm-authz",
-						"extensions.istio.io/wasmplugin/istio-system.wasm-stats",
+						"extensions.istio.io/trafficextension/istio-system.extension-wasm-authn",
+						"extensions.istio.io/trafficextension/istio-system.extension-lua-authn",
+						"extensions.istio.io/trafficextension/istio-system.extension-wasm-authz",
+						"extensions.istio.io/trafficextension/istio-system.extension-lua-authz",
+						"extensions.istio.io/trafficextension/istio-system.extension-wasm-stats",
 						wellknown.HTTPGRPCStats,
 						xdsfilters.AlpnFilterName,
 						xdsfilters.Fault.Name,
@@ -1191,9 +1468,9 @@ func TestOutboundFilters(t *testing.T) {
 						wellknown.Router,
 					},
 					NetworkFilters: []string{
-						"extensions.istio.io/wasmplugin/istio-system.wasm-network-authn",
-						"extensions.istio.io/wasmplugin/istio-system.wasm-network-authz",
-						"extensions.istio.io/wasmplugin/istio-system.wasm-network-stats",
+						"extensions.istio.io/trafficextension/istio-system.extension-wasm-network-authn",
+						"extensions.istio.io/trafficextension/istio-system.extension-wasm-network-authz",
+						"extensions.istio.io/trafficextension/istio-system.extension-wasm-network-stats",
 						wellknown.HTTPConnectionManager,
 					},
 				},
@@ -1216,9 +1493,9 @@ func TestOutboundFilters(t *testing.T) {
 				{
 					TotalMatch: true,
 					NetworkFilters: []string{
-						"extensions.istio.io/wasmplugin/istio-system.wasm-network-authn",
-						"extensions.istio.io/wasmplugin/istio-system.wasm-network-authz",
-						"extensions.istio.io/wasmplugin/istio-system.wasm-network-stats",
+						"extensions.istio.io/trafficextension/istio-system.extension-wasm-network-authn",
+						"extensions.istio.io/trafficextension/istio-system.extension-wasm-network-authz",
+						"extensions.istio.io/trafficextension/istio-system.extension-wasm-network-stats",
 						xds.StatsFilterName,
 						wellknown.TCPProxy,
 					},
@@ -1399,14 +1676,7 @@ func TestOutboundTLSDynamicDNSWildcardServerNames(t *testing.T) {
 	if len(fc.FilterChainMatch.ServerNames) == 0 {
 		t.Fatalf("expected filter_chain_match.server_names (e.g. [%q]), got %v", hostname, fc.FilterChainMatch.ServerNames)
 	}
-	found := false
-	for _, sn := range fc.FilterChainMatch.ServerNames {
-		if sn == hostname {
-			found = true
-			break
-		}
-	}
-	if !found {
+	if !slices.Contains(fc.FilterChainMatch.ServerNames, hostname) {
 		t.Fatalf("expected server_names to contain %q, got %v", hostname, fc.FilterChainMatch.ServerNames)
 	}
 }
@@ -2948,12 +3218,7 @@ func buildOutboundListeners(t *testing.T, proxy *model.Proxy, sidecarConfig *con
 }
 
 func isHTTPListener(listener *listener.Listener) bool {
-	for _, fc := range listener.GetFilterChains() {
-		if isHTTPFilterChain(fc) {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(listener.GetFilterChains(), isHTTPFilterChain)
 }
 
 func isMysqlListener(listener *listener.Listener) bool {
@@ -3370,7 +3635,7 @@ func TestBuildListenerTLSContext(t *testing.T) {
 			name: "external SDS provider with credential name",
 			serverTLSSettings: &networking.ServerTLSSettings{
 				Mode:           networking.ServerTLSSettings_SIMPLE,
-				CredentialName: "sds://provider-cert",
+				CredentialName: "sds://my-credential",
 			},
 			proxy: &model.Proxy{
 				Metadata: &model.NodeMetadata{},
@@ -3380,10 +3645,10 @@ func TestBuildListenerTLSContext(t *testing.T) {
 					Mesh: &meshconfig.MeshConfig{
 						ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{
 							{
-								Name: "provider-cert",
+								Name: "my-sds-provider",
 								Provider: &meshconfig.MeshConfig_ExtensionProvider_Sds{
 									Sds: &meshconfig.MeshConfig_ExtensionProvider_SDSProvider{
-										Name:    "provider-cert",
+										Name:    "my-sds-provider",
 										Service: "sds-provider-service",
 										Port:    8080,
 									},
@@ -3417,7 +3682,7 @@ func TestBuildListenerTLSContext(t *testing.T) {
 			name: "external SDS provider with mutual TLS",
 			serverTLSSettings: &networking.ServerTLSSettings{
 				Mode:            networking.ServerTLSSettings_MUTUAL,
-				CredentialName:  "sds://provider-cert",
+				CredentialName:  "sds://my-credential",
 				SubjectAltNames: []string{"test.com"},
 			},
 			proxy: &model.Proxy{
@@ -3428,10 +3693,10 @@ func TestBuildListenerTLSContext(t *testing.T) {
 					Mesh: &meshconfig.MeshConfig{
 						ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{
 							{
-								Name: "provider-cert",
+								Name: "my-sds-provider",
 								Provider: &meshconfig.MeshConfig_ExtensionProvider_Sds{
 									Sds: &meshconfig.MeshConfig_ExtensionProvider_SDSProvider{
-										Name:    "provider-cert",
+										Name:    "my-sds-provider",
 										Service: "sds-provider-service",
 										Port:    8080,
 									},

@@ -20,7 +20,6 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8s "sigs.k8s.io/gateway-api/apis/v1"
-	k8salpha "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -90,10 +89,9 @@ func generateSupportedKinds(l k8s.Listener) ([]k8s.RouteGroupKind, bool) {
 	case k8s.TCPProtocolType:
 		supported = []k8s.RouteGroupKind{toRouteKind(gvk.TCPRoute)}
 	case k8s.TLSProtocolType:
-		if l.TLS != nil && l.TLS.Mode != nil && *l.TLS.Mode == k8s.TLSModePassthrough {
-			supported = []k8s.RouteGroupKind{toRouteKind(gvk.TLSRoute)}
-		} else {
-			supported = []k8s.RouteGroupKind{toRouteKind(gvk.TCPRoute)}
+		supported = []k8s.RouteGroupKind{toRouteKind(gvk.TLSRoute)}
+		if l.TLS != nil && l.TLS.Mode != nil && *l.TLS.Mode == k8s.TLSModeTerminate {
+			supported = append(supported, toRouteKind(gvk.TCPRoute))
 		}
 		// UDP route not support
 	}
@@ -337,9 +335,9 @@ func parentRefStringWithNS(ref k8s.ParentReference, objectNamespace string) stri
 // GetCommonRouteStateParents extracts the current status parents from a route object.
 func GetCommonRouteStateParents(spec any) []k8s.RouteParentStatus {
 	switch t := spec.(type) {
-	case *k8salpha.TCPRoute:
+	case *k8s.TCPRoute:
 		return t.Status.Parents
-	case *k8salpha.TLSRoute:
+	case *k8s.TLSRoute:
 		return t.Status.Parents
 	case *k8s.HTTPRoute:
 		return t.Status.Parents

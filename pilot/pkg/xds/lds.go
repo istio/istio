@@ -17,6 +17,7 @@ package xds
 import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pilot/pkg/util/protoconv"
@@ -39,6 +40,8 @@ var skippedLdsConfigs = map[model.NodeType]sets.Set[kind.Kind]{
 		kind.Secret,
 		kind.ProxyConfig,
 		kind.DNSName,
+		kind.Endpoints,
+		kind.Address,
 	),
 	model.SidecarProxy: sets.New(
 		kind.Gateway,
@@ -47,29 +50,41 @@ var skippedLdsConfigs = map[model.NodeType]sets.Set[kind.Kind]{
 		kind.Secret,
 		kind.ProxyConfig,
 		kind.DNSName,
+		kind.Endpoints,
+		kind.Address,
 	),
-	model.Waypoint: sets.New(
-		kind.Gateway,
-		kind.WorkloadGroup,
-		kind.WorkloadEntry,
-		kind.Secret,
-		kind.ProxyConfig,
-		kind.DNSName,
-	),
+	model.Waypoint: func() sets.Set[kind.Kind] {
+		s := sets.New(
+			kind.Gateway,
+			kind.WorkloadGroup,
+			kind.WorkloadEntry,
+			kind.Secret,
+			kind.ProxyConfig,
+			kind.DNSName,
+			kind.Endpoints,
+		)
+		if features.ScopedAddressPushes {
+			// Address changes are handled by waypointNeedsPush, scoped to the affected waypoints
+			s.Insert(kind.Address)
+		}
+		return s
+	}(),
 }
 
 func ldsNeedsPush(proxy *model.Proxy, req *model.PushRequest) bool {
 	if res, ok := xdsNeedsPush(req, proxy); ok {
 		return res
 	}
-	if proxy.Type == model.Waypoint && waypointNeedsPush(req) {
+	if proxy.Type == model.Waypoint && waypointNeedsPush(req, proxy) {
 		return true
-	}
-	if !req.Full {
-		return false
 	}
 	for config := range req.ConfigsUpdated {
 		if !skippedLdsConfigs[proxy.Type].Contains(config.Kind) {
+			if config.Kind == kind.PeerAuthentication && config.Namespace != proxy.ConfigNamespace &&
+				config.Namespace != req.Push.Mesh.RootNamespace {
+				// PeerAuthentication of the configNamespace or rootNamespace can only impact lds
+				continue
+			}
 			return true
 		}
 	}

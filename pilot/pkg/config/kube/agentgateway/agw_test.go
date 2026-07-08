@@ -17,7 +17,7 @@ package agentgateway
 import (
 	"testing"
 
-	"github.com/agentgateway/agentgateway/go/api"
+	"github.com/agentgateway/agentgateway/api"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"istio.io/istio/pkg/ptr"

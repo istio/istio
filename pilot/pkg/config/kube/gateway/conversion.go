@@ -36,7 +36,6 @@ import (
 	klabels "k8s.io/apimachinery/pkg/labels"
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	k8s "sigs.k8s.io/gateway-api/apis/v1"
-	k8salpha "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayx "sigs.k8s.io/gateway-api/apisx/v1alpha1"
 
 	"istio.io/api/annotation"
@@ -139,7 +138,10 @@ func convertHTTPRoute(ctx RouteContext, r k8s.HTTPRouteRule,
 	for _, filter := range r.Filters {
 		switch filter.Type {
 		case k8s.HTTPRouteFilterRequestHeaderModifier:
-			h := createHeadersFilter(filter.RequestHeaderModifier)
+			h, err := createHeadersFilter(filter.RequestHeaderModifier)
+			if err != nil {
+				return nil, nil, err
+			}
 			if h == nil {
 				continue
 			}
@@ -148,7 +150,10 @@ func convertHTTPRoute(ctx RouteContext, r k8s.HTTPRouteRule,
 			}
 			vs.Headers.Request = h
 		case k8s.HTTPRouteFilterResponseHeaderModifier:
-			h := createHeadersFilter(filter.ResponseHeaderModifier)
+			h, err := createHeadersFilter(filter.ResponseHeaderModifier)
+			if err != nil {
+				return nil, nil, err
+			}
 			if h == nil {
 				continue
 			}
@@ -285,7 +290,10 @@ func convertGRPCRoute(ctx RouteContext, r k8s.GRPCRouteRule,
 	for _, filter := range r.Filters {
 		switch filter.Type {
 		case k8s.GRPCRouteFilterRequestHeaderModifier:
-			h := createHeadersFilter(filter.RequestHeaderModifier)
+			h, err := createHeadersFilter(filter.RequestHeaderModifier)
+			if err != nil {
+				return nil, err
+			}
 			if h == nil {
 				continue
 			}
@@ -294,7 +302,10 @@ func convertGRPCRoute(ctx RouteContext, r k8s.GRPCRouteRule,
 			}
 			vs.Headers.Request = h
 		case k8s.GRPCRouteFilterResponseHeaderModifier:
-			h := createHeadersFilter(filter.ResponseHeaderModifier)
+			h, err := createHeadersFilter(filter.ResponseHeaderModifier)
+			if err != nil {
+				return nil, err
+			}
 			if h == nil {
 				continue
 			}
@@ -410,6 +421,37 @@ func compatibleRoutesForHost(routes []*istio.TLSRoute, parentHost string) []*ist
 			r.Match[0].SniHosts = sniHosts
 		}
 		res = append(res, r)
+	}
+	return res
+}
+
+// constrainTLSRoutesToListenerHost constrains TLS route SniHosts to only include the
+// intersection with the listener hostname. This ensures that a TLSRoute with a broader
+// hostname (e.g. *.com) attached to a listener with a narrower hostname (e.g. *.example.com)
+// only matches the intersection (*.example.com), not the full route hostname.
+func constrainTLSRoutesToListenerHost(routes []*istio.TLSRoute, listenerHost string) []*istio.TLSRoute {
+	if listenerHost == "" {
+		return routes
+	}
+	listenerNames := host.NewNames([]string{listenerHost})
+	res := make([]*istio.TLSRoute, 0, len(routes))
+	for _, r := range routes {
+		r = r.DeepCopy()
+		for _, m := range r.Match {
+			routeNames := host.NewNames(m.SniHosts)
+			m.SniHosts = slices.Map(routeNames.Intersection(listenerNames), func(n host.Name) string { return string(n) })
+		}
+		// Only include the route if at least one match still has hosts
+		hasHosts := false
+		for _, m := range r.Match {
+			if len(m.SniHosts) > 0 {
+				hasHosts = true
+				break
+			}
+		}
+		if hasHosts || len(r.Match) == 0 {
+			res = append(res, r)
+		}
 	}
 	return res
 }
@@ -747,7 +789,7 @@ func extractParentReferenceInfo(ctx RouteContext, parents RouteParents, obj cont
 	return parentRefs
 }
 
-func convertTCPRoute(ctx RouteContext, r k8salpha.TCPRouteRule, obj *k8salpha.TCPRoute, enforceRefGrant bool) (*istio.TCPRoute, *ConfigError) {
+func convertTCPRoute(ctx RouteContext, r k8s.TCPRouteRule, obj *k8s.TCPRoute, enforceRefGrant bool) (*istio.TCPRoute, *ConfigError) {
 	if tcpWeightSum(r.BackendRefs) == 0 {
 		// The spec requires us to reject connections when there are no >0 weight backends
 		// We don't have a great way to do it. TODO: add a fault injection API for TCP?
@@ -927,7 +969,10 @@ func buildHTTPDestination(
 		for _, filter := range fwd.Filters {
 			switch filter.Type {
 			case k8s.HTTPRouteFilterRequestHeaderModifier:
-				h := createHeadersFilter(filter.RequestHeaderModifier)
+				h, err := createHeadersFilter(filter.RequestHeaderModifier)
+				if err != nil {
+					return nil, ipCfg, nil, err
+				}
 				if h == nil {
 					continue
 				}
@@ -936,7 +981,10 @@ func buildHTTPDestination(
 				}
 				rd.Headers.Request = h
 			case k8s.HTTPRouteFilterResponseHeaderModifier:
-				h := createHeadersFilter(filter.ResponseHeaderModifier)
+				h, err := createHeadersFilter(filter.ResponseHeaderModifier)
+				if err != nil {
+					return nil, ipCfg, nil, err
+				}
 				if h == nil {
 					continue
 				}
@@ -995,7 +1043,10 @@ func buildGRPCDestination(
 		for _, filter := range fwd.Filters {
 			switch filter.Type {
 			case k8s.GRPCRouteFilterRequestHeaderModifier:
-				h := createHeadersFilter(filter.RequestHeaderModifier)
+				h, err := createHeadersFilter(filter.RequestHeaderModifier)
+				if err != nil {
+					return nil, nil, err
+				}
 				if h == nil {
 					continue
 				}
@@ -1004,7 +1055,10 @@ func buildGRPCDestination(
 				}
 				rd.Headers.Request = h
 			case k8s.GRPCRouteFilterResponseHeaderModifier:
-				h := createHeadersFilter(filter.ResponseHeaderModifier)
+				h, err := createHeadersFilter(filter.ResponseHeaderModifier)
+				if err != nil {
+					return nil, nil, err
+				}
 				if h == nil {
 					continue
 				}
@@ -1054,8 +1108,7 @@ func buildDestination(ctx RouteContext, to k8s.BackendRef, ns string,
 		}
 		hostname = string(to.Name) + "." + namespace + ".svc." + ctx.DomainSuffix
 		key := namespace + "/" + string(to.Name)
-		svc := ptr.Flatten(krt.FetchOne(ctx.Krt, ctx.Services, krt.FilterKey(key)))
-		if svc == nil {
+		if !krt.ResourceExists(ctx.Krt, ctx.Services, key) {
 			invalidBackendErr = &ConfigError{Reason: InvalidDestinationNotFound, Message: fmt.Sprintf("backend(%s) not found", hostname)}
 		}
 	case config.GroupVersionKind{Group: gvk.ServiceEntry.Group, Kind: "Hostname"}:
@@ -1075,8 +1128,7 @@ func buildDestination(ctx RouteContext, to k8s.BackendRef, ns string,
 		}
 		// TODO: currently we are always looking for Service. We should be looking for ServiceImport when features.EnableMCSHost
 		key := namespace + "/" + string(to.Name)
-		svc := ptr.Flatten(krt.FetchOne(ctx.Krt, ctx.Services, krt.FilterKey(key)))
-		if svc == nil {
+		if !krt.ResourceExists(ctx.Krt, ctx.Services, key) {
 			invalidBackendErr = &ConfigError{Reason: InvalidDestinationNotFound, Message: fmt.Sprintf("backend(%s) not found", hostname)}
 		}
 	case gvk.InferencePool:
@@ -1351,21 +1403,39 @@ func createRedirectFilter(filter *k8s.HTTPRequestRedirectFilter) *istio.HTTPRedi
 		case k8s.FullPathHTTPPathModifier:
 			resp.Uri = *filter.Path.ReplaceFullPath
 		case k8s.PrefixMatchHTTPPathModifier:
-			resp.Uri = "%PREFIX()%" + *filter.Path.ReplacePrefixMatch
+			resp.PrefixRewrite = *filter.Path.ReplacePrefixMatch
 		}
 	}
 	return resp
 }
 
-func createHeadersFilter(filter *k8s.HTTPHeaderFilter) *istio.Headers_HeaderOperations {
+func isValidHeaderValue(v string) bool {
+	for _, c := range []byte(v) {
+		if c == 0x09 || c >= 0x20 && c != 0x7F {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+func createHeadersFilter(filter *k8s.HTTPHeaderFilter) (*istio.Headers_HeaderOperations, *ConfigError) {
 	if filter == nil {
-		return nil
+		return nil, nil
+	}
+	for _, h := range append(filter.Set, filter.Add...) {
+		if !isValidHeaderValue(h.Value) {
+			return nil, &ConfigError{
+				Reason:  InvalidFilter,
+				Message: fmt.Sprintf("header %q value contains invalid characters", h.Name),
+			}
+		}
 	}
 	return &istio.Headers_HeaderOperations{
 		Add:    headerListToMap(filter.Add),
 		Remove: filter.Remove,
 		Set:    headerListToMap(filter.Set),
-	}
+	}, nil
 }
 
 // nolint: unparam
@@ -1710,6 +1780,7 @@ func reportGatewayStatus(
 	servers []*istio.Server,
 	listenerSetCount int,
 	gatewayErr *ConfigError,
+	backendTLSErr *ConfigError,
 ) {
 	// TODO: we lose address if servers is empty due to an error
 	internal, internalIP, external, pending, warnings, allUsable := r.ResolveGatewayInstances(obj.Namespace, gatewayServices, servers)
@@ -1728,9 +1799,16 @@ func reportGatewayStatus(
 			reason:  string(k8s.GatewayReasonProgrammed),
 			message: "Resource programmed",
 		},
+		string(k8s.GatewayConditionResolvedRefs): {
+			reason:  string(k8s.GatewayReasonResolvedRefs),
+			message: "All references resolved",
+		},
 	}
 	if gatewayErr != nil {
 		gatewayConditions[string(k8s.GatewayConditionAccepted)].error = gatewayErr
+	}
+	if backendTLSErr != nil {
+		gatewayConditions[string(k8s.GatewayConditionResolvedRefs)].error = backendTLSErr
 	}
 
 	if listenerSetCount != 0 {
@@ -1796,13 +1874,14 @@ func reportListenerSetStatus(
 	gatewayServices []string,
 	servers []*istio.Server,
 	gatewayErr *ConfigError,
+	listenersValid bool,
 ) {
 	internal, _, _, _, warnings, allUsable := r.ResolveGatewayInstances(parentGwObj.Namespace, gatewayServices, servers)
 
 	// Setup initial conditions to the success state. If we encounter errors, we will update this.
 	// We have two status
-	// Accepted: is the configuration valid. We only have errors in listeners, and the status is not supposed to
-	// be tied to listeners, so this is always accepted
+	// Accepted: is the configuration valid. Unlike a Gateway, a ListenerSet is only Accepted if at least
+	// one of its listeners is valid; otherwise we report ListenersNotValid.
 	// Programmed: is the data plane "ready" (note: eventually consistent)
 	gatewayConditions := map[string]*condition{
 		string(k8s.GatewayConditionAccepted): {
@@ -1814,12 +1893,47 @@ func reportListenerSetStatus(
 			message: "Resource programmed",
 		},
 	}
+	var listenersErr *ConfigError
+	if !listenersValid {
+		listenersErr = &ConfigError{
+			Reason:  string(k8s.ListenerSetReasonListenersNotValid),
+			Message: "None of the ListenerSet's listeners are valid",
+		}
+	}
+
 	if gatewayErr != nil {
 		gatewayErr.Message = "Parent not accepted: " + gatewayErr.Message
 		gatewayConditions[string(k8s.GatewayConditionAccepted)].error = gatewayErr
+	} else if listenersErr != nil {
+		gatewayConditions[string(k8s.GatewayConditionAccepted)].error = listenersErr
 	}
 
 	setProgrammedCondition(gatewayConditions, internal, gatewayServices, warnings, allUsable)
+
+	// A ListenerSet with no valid listeners cannot be programmed; this takes precedence over any
+	// address-related programming status.
+	if listenersErr != nil {
+		gatewayConditions[string(k8s.GatewayConditionProgrammed)].error = listenersErr
+	}
+
+	// Prune stale listener status entries whose listener was removed from the spec,
+	// mirroring reportGatewayStatus. ListenerSetCollection threads the previous status
+	// forward to preserve per-listener data across reconciles, but only refreshes entries
+	// for listeners still in the spec. Without this pruning, a removed listener's status
+	// entry is orphaned forever (len(status.Listeners) > len(spec.Listeners)), which also
+	// wedges observedGeneration once the recomputed status stops differing from the stored one.
+	haveListeners := sets.New[k8s.SectionName]()
+	for _, l := range obj.Spec.Listeners {
+		haveListeners.Insert(l.Name)
+	}
+	listeners := make([]k8s.ListenerEntryStatus, 0, len(gs.Listeners))
+	for _, l := range gs.Listeners {
+		if haveListeners.Contains(l.Name) {
+			haveListeners.Delete(l.Name)
+			listeners = append(listeners, l)
+		}
+	}
+	gs.Listeners = listeners
 
 	gs.Conditions = setConditions(obj.Generation, gs.Conditions, gatewayConditions)
 }
@@ -2010,6 +2124,12 @@ func buildListener(
 			Reason:  string(k8s.GatewayReasonInvalid),
 			Message: "Bad TLS configuration",
 		}
+		if err.Reason == InvalidCACertificateRef || err.Reason == InvalidCACertificateKind || err.Reason == InvalidListenerRefNotPermitted {
+			listenerConditions[string(k8s.ListenerConditionAccepted)].error = &ConfigError{
+				Reason:  string(k8s.ListenerReasonNoValidCACertificate),
+				Message: err.Message,
+			}
+		}
 		ok = false
 	}
 	hostnames := buildHostnameMatch(ctx, obj.GetNamespace(), namespaces, l)
@@ -2055,6 +2175,12 @@ func buildListener(
 		Hosts: hostnames,
 		Tls:   tls,
 	}
+	if tls == nil && (l.Protocol == k8s.HTTPSProtocolType || l.Protocol == k8s.TLSProtocolType) {
+		// This is a placeholder listener for ListenerSets.
+		// We don't generate an istio.Server for it.
+		log.Warnf("protocol is %s but no TLS section is defined, skipping listener creation", l.Protocol)
+		server = nil
+	}
 
 	updatedStatus := reportListenerCondition(listenerIndex, l, obj, status, listenerConditions)
 	return server, updatedStatus, ok
@@ -2074,10 +2200,9 @@ func listenerProtocolToIstio(name k8s.GatewayController, p k8s.ProtocolType) (st
 		return string(p), nil
 	case k8s.HTTPSProtocolType:
 		return string(p), nil
-	case k8s.TLSProtocolType, k8s.TCPProtocolType:
-		if !features.EnableAlphaGatewayAPI {
-			return "", fmt.Errorf("protocol %q is supported, but only when %v=true is configured", p, features.EnableAlphaGatewayAPIName)
-		}
+	case k8s.TLSProtocolType:
+		return string(p), nil
+	case k8s.TCPProtocolType:
 		return string(p), nil
 	// Our own custom types
 	case k8s.ProtocolType(protocol.HBONE):
@@ -2092,6 +2217,68 @@ func listenerProtocolToIstio(name k8s.GatewayController, p k8s.ProtocolType) (st
 	}
 	// Note: the k8s.UDPProtocolType is explicitly left to hit this path
 	return "", fmt.Errorf("protocol %q is unsupported", p)
+}
+
+// validateBackendClientCertificateRef validates the spec.tls.backend.clientCertificateRef
+// field on a Gateway. It returns nil if the field is not set or the reference is valid.
+func validateBackendClientCertificateRef(
+	ctx krt.HandlerContext,
+	gw *k8s.Gateway,
+	secrets krt.Collection[*corev1.Secret],
+	grants gatewaycommon.ReferenceGrants,
+) *ConfigError {
+	if gw.Spec.TLS == nil || gw.Spec.TLS.Backend == nil || gw.Spec.TLS.Backend.ClientCertificateRef == nil {
+		return nil
+	}
+	ref := *gw.Spec.TLS.Backend.ClientCertificateRef
+	namespace := gw.GetNamespace()
+
+	if gatewaycommon.NormalizeReference(ref.Group, ref.Kind, gvk.Secret) != gvk.Secret {
+		return &ConfigError{
+			Reason:  InvalidClientCertificateRef,
+			Message: fmt.Sprintf("invalid clientCertificateRef %v, only secret is allowed", secretObjectReferenceString(ref)),
+		}
+	}
+
+	key := ptr.OrDefault((*string)(ref.Namespace), namespace) + "/" + string(ref.Name)
+	scrt := ptr.Flatten(krt.FetchOne(ctx, secrets, krt.FilterKey(key)))
+	if scrt == nil {
+		return &ConfigError{
+			Reason:  InvalidClientCertificateRef,
+			Message: fmt.Sprintf("invalid clientCertificateRef %v, secret %v not found", secretObjectReferenceString(ref), key),
+		}
+	}
+
+	certInfo, err := kubecreds.ExtractCertInfo(scrt)
+	if err != nil {
+		return &ConfigError{
+			Reason:  InvalidClientCertificateRef,
+			Message: fmt.Sprintf("invalid clientCertificateRef %v, %v", secretObjectReferenceString(ref), err),
+		}
+	}
+	if _, err = tls.X509KeyPair(certInfo.Cert, certInfo.Key); err != nil {
+		return &ConfigError{
+			Reason:  InvalidClientCertificateRef,
+			Message: fmt.Sprintf("invalid clientCertificateRef %v, the certificate is malformed: %v", secretObjectReferenceString(ref), err),
+		}
+	}
+
+	credNs := ptr.OrDefault((*string)(ref.Namespace), namespace)
+	if credNs != namespace {
+		cred := creds.ToKubernetesGatewayResource(credNs, string(ref.Name))
+		objectKind := schematypes.GvkFromObject(gw)
+		if !grants.SecretAllowed(ctx, objectKind, cred, namespace) {
+			return &ConfigError{
+				Reason: ConfigErrorReason(k8s.GatewayReasonRefNotPermitted),
+				Message: fmt.Sprintf(
+					"clientCertificateRef %v/%v not accessible to a Gateway in namespace %q (missing a ReferenceGrant?)",
+					ref.Name, credNs, namespace,
+				),
+			}
+		}
+	}
+
+	return nil
 }
 
 func resolveGatewayTLS(port k8s.PortNumber, gw *k8s.GatewayTLSConfig) *k8s.TLSConfig {
@@ -2196,7 +2383,7 @@ func buildTLS(
 			// TODO: add 'Mode'
 			if len(gatewayTLS.Validation.CACertificateRefs) > 1 {
 				return out, &ConfigError{
-					Reason:  InvalidTLS,
+					Reason:  InvalidCACertificateRef,
 					Message: "only one caCertificateRef is supported",
 				}
 			}
@@ -2307,7 +2494,7 @@ func buildCaCertificateReference(
 		cm := ptr.Flatten(krt.FetchOne(ctx, configMaps, krt.FilterKey(key)))
 		if cm == nil {
 			return nil, &ConfigError{
-				Reason:  InvalidTLS,
+				Reason:  InvalidCACertificateRef,
 				Message: fmt.Sprintf("invalid CA certificate reference %v, configmap %v not found", objectReferenceString(ref), key),
 			}
 		}
@@ -2320,26 +2507,26 @@ func buildCaCertificateReference(
 		scrt := ptr.Flatten(krt.FetchOne(ctx, secrets, krt.FilterKey(key)))
 		if scrt == nil {
 			return nil, &ConfigError{
-				Reason:  InvalidTLS,
+				Reason:  InvalidCACertificateRef,
 				Message: fmt.Sprintf("invalid CA certificate reference %v, secret %v not found", objectReferenceString(ref), key),
 			}
 		}
 		certInfo, certInfoErr = kubecreds.ExtractRoot(scrt.Data)
 	default:
 		return nil, &ConfigError{
-			Reason:  InvalidTLS,
+			Reason:  InvalidCACertificateKind,
 			Message: fmt.Sprintf("invalid CA certificate reference %v, only secret and configmap are allowed", objectReferenceString(ref)),
 		}
 	}
 	if certInfoErr != nil {
 		return nil, &ConfigError{
-			Reason:  InvalidTLS,
+			Reason:  InvalidCACertificateRef,
 			Message: fmt.Sprintf("invalid CA certificate reference %v, %v", objectReferenceString(ref), certInfoErr),
 		}
 	}
 	if !x509.NewCertPool().AppendCertsFromPEM(certInfo.Cert) {
 		return nil, &ConfigError{
-			Reason:  InvalidTLS,
+			Reason:  InvalidCACertificateRef,
 			Message: fmt.Sprintf("invalid CA certificate reference %v, the bundle is malformed", objectReferenceString(ref)),
 		}
 	}
@@ -2469,7 +2656,7 @@ func toNamespaceSet(name string, labels map[string]string) klabels.Set {
 
 func GetCommonRouteInfo(spec any) ([]k8s.ParentReference, []k8s.Hostname, config.GroupVersionKind) {
 	switch t := spec.(type) {
-	case *k8salpha.TCPRoute:
+	case *k8s.TCPRoute:
 		return t.Spec.ParentRefs, nil, gvk.TCPRoute
 	case *k8s.TLSRoute:
 		return t.Spec.ParentRefs, t.Spec.Hostnames, gvk.TLSRoute
@@ -2485,7 +2672,7 @@ func GetCommonRouteInfo(spec any) ([]k8s.ParentReference, []k8s.Hostname, config
 
 func GetCommonRouteStateParents(spec any) []k8s.RouteParentStatus {
 	switch t := spec.(type) {
-	case *k8salpha.TCPRoute:
+	case *k8s.TCPRoute:
 		return t.Status.Parents
 	case *k8s.TLSRoute:
 		return t.Status.Parents
@@ -2520,7 +2707,7 @@ func getGroup(rgk k8s.RouteGroupKind) k8s.Group {
 
 func GetStatus[I, IS any](spec I) IS {
 	switch t := any(spec).(type) {
-	case *k8salpha.TCPRoute:
+	case *k8s.TCPRoute:
 		return any(t.Status).(IS)
 	case *k8s.TLSRoute:
 		return any(t.Status).(IS)

@@ -318,6 +318,7 @@ func (t *countingTracker) Finished(count int) {
 	}
 	if !t.hasSynced && t.upstreamHasSyncedButEventsPending && result == 0 && count != 0 {
 		close(t.synced)
+		t.hasSynced = true
 	}
 }
 

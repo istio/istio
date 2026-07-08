@@ -21,6 +21,7 @@ import (
 
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pkg/config/constants"
+	dnsClient "istio.io/istio/pkg/dns/client"
 	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/security"
@@ -103,12 +104,15 @@ var (
 		"If set to true, starts the DNS server on :15053. This won't automatically capture the DNS traffic and can be used "+
 			"when we want Gateways to resolve DNS using this as Resolver for use cases like Dynamic Forward Proxy")
 
-	// DNSCaptureAddr is the address to listen.
-	DNSCaptureAddr = env.Register("DNS_PROXY_ADDR", "localhost:15053",
+	// DNSCaptureAddr is the address istio-agent listens on for the DNS proxy.
+	DNSCaptureAddr = env.Register("DNS_PROXY_ADDR", constants.DefaultDNSProxyAddr,
 		"Custom address for the DNS proxy. If it ends with :53 and running as root allows running without iptable DNS capture")
 
 	DNSForwardParallel = env.Register("DNS_FORWARD_PARALLEL", false,
 		"If set to true, agent will send parallel DNS queries to all upstream nameservers")
+
+	DNSForwardTimeout = env.Register("DNS_FORWARD_TIMEOUT", dnsClient.DefaultUpstreamTimeout,
+		"Timeout for upstream DNS queries. Defaults to 5 seconds")
 
 	// Ability of istio-agent to retrieve proxyConfig via XDS for dynamic configuration updates
 	enableProxyConfigXdsEnv = env.Register("PROXY_CONFIG_XDS_AGENT", false,
@@ -136,6 +140,12 @@ var (
 		"Envoy health status port value").Get()
 	envoyPrometheusPortEnv = env.Register("ENVOY_PROMETHEUS_PORT", 15090,
 		"Envoy prometheus redirection port value").Get()
+
+	envoySecureMetricsPortEnv = env.Register("ENVOY_SECURE_METRICS_PORT", 0,
+		"Envoy mTLS metrics port value (Envoy stats only)").Get()
+
+	envoySecureMergedMetricsPortEnv = env.Register("ENVOY_SECURE_MERGED_METRICS_PORT", 0,
+		"Envoy mTLS merged metrics port value (Envoy + app + agent stats)").Get()
 
 	// Defined by https://github.com/grpc/proposal/blob/c5722a35e71f83f07535c6c7c890cf0c58ec90c0/A27-xds-global-load-balancing.md#xdsclient-and-bootstrap-file
 	grpcBootstrapEnv = env.Register("GRPC_XDS_BOOTSTRAP", filepath.Join(constants.ConfigPathDir, "grpc-bootstrap.json"),

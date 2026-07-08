@@ -56,6 +56,7 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		Label(label.CustomSetup).
+		Label(label.PQC).
 		Setup(istio.Setup(&i, func(ctx resource.Context, cfg *istio.Config) {
 			cfg.ControlPlaneValues = `
 values:
@@ -97,6 +98,9 @@ spec:
   mtls:
     mode: STRICT`
 			return ctx.ConfigIstio().YAML(i.Settings().SystemNamespace, peerAuthYaml).Apply(apply.Wait)
+		}).
+		SkipIf("K8s < 1.34 doesn't support PQC", func(ctx resource.Context) bool {
+			return !ctx.Clusters().Default().MinKubeVersion(34)
 		}).
 		Run()
 }
@@ -213,7 +217,7 @@ spec:
 						CurvePreferences: []string{"P-256"},
 					},
 					Timeout: 1 * time.Second,
-					Check:   check.TLSHandshakeFailure(),
+					Check:   check.Or(check.TLSHandshakeFailure(), check.ConnectionResetByPeer()),
 				})
 			})
 		})
@@ -341,7 +345,7 @@ spec:
 						CurvePreferences: []string{"P-256"},
 					},
 					Timeout: 1 * time.Second,
-					Check:   check.TLSHandshakeFailure(),
+					Check:   check.Or(check.TLSHandshakeFailure(), check.ConnectionResetByPeer()),
 				})
 			})
 

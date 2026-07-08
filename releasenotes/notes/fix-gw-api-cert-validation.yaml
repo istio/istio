@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+  - |
+    **Fixed**: status reporting for certificate references in Gateway resources to comply with the Gateway API specification v1.5.0.
+    It changes the Gateway status to report conditions of type ResolvedRefs and also adds extra details to the Accepted condition when it fails
+    due to invalid or non-existent certificates.

@@ -22,7 +22,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	k8ssets "k8s.io/apimachinery/pkg/util/sets" //nolint: depguard
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	v1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/conformance"
@@ -46,7 +45,7 @@ import (
 
 // GatewayConformanceInputs defines inputs to the gateway conformance test.
 // The upstream build requires using `testing.T` types, which we cannot pass using our framework.
-// To workaround this, we set up the inputs it TestMain.
+// To workaround this, we set up the inputs in TestMain.
 type GatewayConformanceInputs struct {
 	Client  kube.CLIClient
 	Cleanup bool
@@ -64,62 +63,26 @@ var conformanceNamespaces = []string{
 }
 
 var skippedTests = map[string]string{
-	"BackendTLSPolicyConflictResolution": "https://github.com/istio/istio/issues/57817",
-
 	// The following tests were added in v1.5.0
 	"GatewayBackendClientCertificateFeature":                     "TODO",
-	"GatewayFrontendInvalidDefaultClientCertificateValidation":   "TODO",
-	"GatewayInvalidTLSBackendConfiguration":                      "TODO",
-	"GatewayTLSBackendClientCertificate":                         "TODO",
 	"GatewayFrontendClientCertificateValidationInsecureFallback": "TODO",
-	"GatewayFrontendClientCertificateValidation":                 "TODO",
+	"GatewayFrontendInvalidDefaultClientCertificateValidation":   "TODO",
 	"GatewayInvalidFrontendClientCertificateValidation":          "TODO",
+	"GatewayInvalidTLSBackendConfiguration":                      "TODO",
 
-	"HTTPRoute303Redirect":                            "TODO",
-	"HTTPRoute307Redirect":                            "TODO",
-	"HTTPRoute308Redirect":                            "TODO",
-	"HTTPRouteCORS":                                   "TODO",
 	"HTTPRouteHTTPSListenerDetectMisdirectedRequests": "TODO",
 
-	"ListenerSetAllowedNamespaceNone":        "TODO",
-	"ListenerSetAllowedNamespaceSame":        "TODO",
-	"ListenerSetAllowedNamespaceSelector":    "TODO",
-	"ListenerSetAllowedRoutesNamespaces":     "TODO",
-	"ListenerSetAllowedRoutesSupportedKinds": "TODO",
-	"ListenerSetDefaultNotAllowed":           "TODO",
-	"ListenerSetHostnameConflict":            "TODO",
-	"ListenerSetHTTPRouting":                 "TODO",
-	"ListenerSetProtocolConflict":            "TODO",
-	"ListenerSetReferenceGrant":              "TODO",
+	"ListenerSetHostnameConflict": "TODO",
+	"ListenerSetProtocolConflict": "TODO",
 
-	"MeshHTTPRoute303Redirect": "TODO",
+	// Fixed upstream, waiting for new gateway api release to pick up fix
 	"MeshHTTPRoute307Redirect": "TODO",
-	"MeshHTTPRoute308Redirect": "TODO",
 
-	"TLSRouteHostnameIntersection":                 "TODO",
-	"TLSRouteInvalidBackendRefNonexistent":         "TODO",
-	"TLSRouteInvalidBackendRefUnknownKind":         "TODO",
-	"TLSRouteInvalidNoMatchingListenerHostname":    "TODO",
-	"TLSRouteInvalidNoMatchingListener":            "TODO",
-	"TLSRouteListenerMixedTerminationNotSupported": "TODO",
-	"TLSRouteListenerPassthroughSupportedKinds":    "TODO",
-	"TLSRouteListenerTerminateNotSupported":        "TODO",
-	"TLSRouteListenerTerminateSupportedKinds":      "TODO",
-	"TLSRouteMixedTerminationSameNamespace":        "TODO",
-	"TLSRouteSimpleSameNamespace":                  "TODO",
-	"TLSRouteTerminateSimpleSameNamespace":         "TODO",
-
-	// The following tests were modified between v1.4.0 && v1.5.0
-	"BackendTLSPolicy": "TODO",
-
-	"GatewayClassObservedGenerationBump":    "TODO",
-	"GatewayWithAttachedRoutes":             "TODO",
-	"GatewayWithAttachedRoutesWithPort8080": "TODO",
-
-	"HTTPRouteHostnameIntersection": "TODO",
-
-	"MeshGRPCRouteWeight": "TODO",
-	"MeshHTTPRouteWeight": "TODO",
+	// The following tests were added in v1.6.0
+	"HTTPRouteNoBackendRefs":             "TODO",
+	"GatewayInvalidParametersRef":        "TODO",
+	"GatewayListenerUnsupportedProtocol": "TODO",
+	"TCPRouteWeightedRouting":            "TODO: flaky in dual-stack and multicluster environments",
 }
 
 func TestGatewayConformance(t *testing.T) {
@@ -155,35 +118,42 @@ func TestGatewayConformance(t *testing.T) {
 					}
 				}
 			}
+
 			hostnameType := v1.AddressType("Hostname")
 			istioVersion, _ := env.ReadVersion()
+			// Honor the --istio.test.kube.gatewayClassName flag if set; otherwise this is DefaultGatewayClassName ("istio").
+			gatewayClassName := i.Settings().GatewayClassName
 			opts := suite.ConformanceOptions{
-				Client:                   c,
-				Clientset:                gatewayConformanceInputs.Client.Kube(),
-				ClientOptions:            clientOptions,
-				RestConfig:               gatewayConformanceInputs.Client.RESTConfig(),
-				GatewayClassName:         "istio",
-				Debug:                    scopes.Framework.DebugEnabled(),
-				CleanupBaseResources:     gatewayConformanceInputs.Cleanup,
-				ManifestFS:               []fs.FS{&conformance.Manifests},
-				SupportedFeatures:        features.SetsToNamesSet(supportedFeatures),
-				SkipTests:                maps.Keys(skippedTests),
-				UsableNetworkAddresses:   []v1.GatewaySpecAddress{{Value: "infra-backend-v1.gateway-conformance-infra.svc.cluster.local", Type: &hostnameType}},
-				UnusableNetworkAddresses: []v1.GatewaySpecAddress{{Value: "foo", Type: &hostnameType}},
-				ConformanceProfiles: k8ssets.New(
-					suite.GatewayHTTPConformanceProfileName,
-					suite.GatewayTLSConformanceProfileName,
-					suite.GatewayGRPCConformanceProfileName,
-					suite.MeshHTTPConformanceProfileName,
-				),
-				Implementation: confv1.Implementation{
-					Organization: "istio",
-					Project:      "istio",
-					URL:          "https://istio.io/",
-					Version:      istioVersion,
-					Contact:      []string{"@istio/maintainers"},
+				ConfigurableOptions: suite.ConfigurableOptions{
+					GatewayClassName:         gatewayClassName,
+					Debug:                    scopes.Framework.DebugEnabled(),
+					CleanupBaseResources:     gatewayConformanceInputs.Cleanup,
+					CleanupTestResources:     gatewayConformanceInputs.Cleanup,
+					SupportedFeatures:        features.SetsToNamesSet(supportedFeatures).UnsortedList(),
+					SkipTests:                maps.Keys(skippedTests),
+					UsableNetworkAddresses:   []v1.GatewaySpecAddress{{Value: "infra-backend-v1.gateway-conformance-infra.svc.cluster.local", Type: &hostnameType}},
+					UnusableNetworkAddresses: []v1.GatewaySpecAddress{{Value: "foo", Type: &hostnameType}},
+					ConformanceProfiles: []suite.ConformanceProfileName{
+						suite.GatewayHTTPConformanceProfileName,
+						suite.GatewayTLSConformanceProfileName,
+						suite.GatewayGRPCConformanceProfileName,
+						suite.GatewayTCPConformanceProfileName,
+						suite.MeshHTTPConformanceProfileName,
+					},
+					Implementation: confv1.Implementation{
+						Organization: "istio",
+						Project:      "istio",
+						URL:          "https://istio.io/",
+						Version:      istioVersion,
+						Contact:      []string{"@istio/maintainers"},
+					},
+					TimeoutConfig: ctx.Settings().GatewayConformanceTimeoutConfig,
 				},
-				TimeoutConfig: ctx.Settings().GatewayConformanceTimeoutConfig,
+				Client:        c,
+				Clientset:     gatewayConformanceInputs.Client.Kube(),
+				ClientOptions: clientOptions,
+				RestConfig:    gatewayConformanceInputs.Client.RESTConfig(),
+				ManifestFS:    []fs.FS{&conformance.Manifests},
 			}
 			if rev := ctx.Settings().Revisions.Default(); rev != "" {
 				opts.NamespaceLabels = map[string]string{
@@ -216,7 +186,7 @@ func TestGatewayConformance(t *testing.T) {
 			assert.NoError(t, err)
 			reportb, err := yaml.Marshal(report)
 			assert.NoError(t, err)
-			fp := filepath.Join(ctx.Settings().BaseDir, "conformance.yaml")
+			fp := filepath.Join(ctx.Settings().BaseDir, "istio-conformance.yaml")
 			t.Logf("writing conformance test to %v (%v)", fp, prow.ArtifactsURL(fp))
 			assert.NoError(t, os.WriteFile(fp, reportb, 0o644))
 		})

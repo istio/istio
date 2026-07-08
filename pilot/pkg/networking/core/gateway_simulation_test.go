@@ -17,10 +17,18 @@ package core_test
 import (
 	"testing"
 
+	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/simulation"
 	"istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pilot/test/xdstest"
+	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/test/util/tmpl"
 )
@@ -2102,4 +2110,394 @@ spec:
 			calls: []simulation.Expect{},
 		},
 	)
+}
+
+func TestTLSRouteTermination(t *testing.T) {
+	tlsTerminateGateway := `
+apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: gateway
+  namespace: istio-system
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - hosts:
+    - '*/example.com'
+    port:
+      name: tls-terminate
+      number: 443
+      protocol: TLS
+    tls:
+      mode: SIMPLE
+      credentialName: sds-credential
+`
+	tlsPassthroughGateway := `
+apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: gateway
+  namespace: istio-system
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - hosts:
+    - '*/example.com'
+    port:
+      name: tls-passthrough
+      number: 443
+      protocol: TLS
+    tls:
+      mode: PASSTHROUGH
+`
+	// VirtualService configs with internal annotations must be provided as config.Config
+	// objects rather than YAML strings, because the YAML parser rejects internal annotations.
+	tlsRouteVS := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.VirtualService,
+			Name:             "tls-route-vs",
+			Namespace:        "default",
+			Annotations: map[string]string{
+				constants.InternalParentNames:    "TLSRoute/my-tls-route.default",
+				constants.InternalRouteSemantics: constants.RouteSemanticsGateway,
+			},
+		},
+		Spec: &networking.VirtualService{
+			Hosts:    []string{"example.com"},
+			Gateways: []string{"istio-system/gateway"},
+			Tls: []*networking.TLSRoute{
+				{
+					Match: []*networking.TLSMatchAttributes{
+						{
+							SniHosts: []string{"example.com"},
+							Port:     443,
+						},
+					},
+					Route: []*networking.RouteDestination{
+						{
+							Destination: &networking.Destination{
+								Host: "backend.default.svc.cluster.local",
+								Port: &networking.PortSelector{Number: 8080},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	proxy := &model.Proxy{
+		Labels: map[string]string{"istio": "ingressgateway"},
+		Metadata: &model.NodeMetadata{
+			Labels:    map[string]string{"istio": "ingressgateway"},
+			Namespace: "istio-system",
+		},
+		Type: model.Router,
+	}
+
+	t.Run("tlsroute with tls terminate", func(t *testing.T) {
+		o := xds.FakeOptions{
+			ConfigString: tlsTerminateGateway,
+			Configs:      []config.Config{tlsRouteVS},
+		}
+		s := xds.NewFakeDiscoveryServer(t, o)
+		sim := simulation.NewSimulation(t, s, s.SetupProxy(proxy))
+		sim.RunExpectations([]simulation.Expect{
+			{
+				Name: "tls terminate request",
+				Call: simulation.Call{
+					Port:       443,
+					Protocol:   simulation.TCP,
+					TLS:        simulation.TLS,
+					HostHeader: "example.com",
+				},
+				Result: simulation.Result{
+					ListenerMatched: "0.0.0.0_443",
+					ClusterMatched:  "outbound|8080||backend.default.svc.cluster.local",
+				},
+			},
+		})
+	})
+
+	t.Run("tlsroute with tls passthrough", func(t *testing.T) {
+		o := xds.FakeOptions{
+			ConfigString: tlsPassthroughGateway,
+			Configs:      []config.Config{tlsRouteVS},
+		}
+		s := xds.NewFakeDiscoveryServer(t, o)
+		sim := simulation.NewSimulation(t, s, s.SetupProxy(proxy))
+		sim.RunExpectations([]simulation.Expect{
+			{
+				Name: "tls passthrough request",
+				Call: simulation.Call{
+					Port:       443,
+					Protocol:   simulation.TCP,
+					TLS:        simulation.TLS,
+					HostHeader: "example.com",
+				},
+				Result: simulation.Result{
+					ListenerMatched: "0.0.0.0_443",
+					ClusterMatched:  "outbound|8080||backend.default.svc.cluster.local",
+				},
+			},
+		})
+	})
+
+	// Mixed mode: both terminate and passthrough on same port with different hostnames
+	t.Run("tlsroute mixed mode", func(t *testing.T) {
+		mixedGateway := `
+apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: gateway
+  namespace: istio-system
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - hosts:
+    - '*/terminate.example.com'
+    port:
+      name: tls-terminate
+      number: 443
+      protocol: TLS
+    tls:
+      mode: SIMPLE
+      credentialName: sds-credential
+  - hosts:
+    - '*/passthrough.example.com'
+    port:
+      name: tls-passthrough
+      number: 443
+      protocol: TLS
+    tls:
+      mode: PASSTHROUGH
+`
+		terminateVS := config.Config{
+			Meta: config.Meta{
+				GroupVersionKind: gvk.VirtualService,
+				Name:             "terminate-vs",
+				Namespace:        "default",
+				Annotations: map[string]string{
+					constants.InternalParentNames:    "TLSRoute/terminate-route.default",
+					constants.InternalRouteSemantics: constants.RouteSemanticsGateway,
+				},
+			},
+			Spec: &networking.VirtualService{
+				Hosts:    []string{"terminate.example.com"},
+				Gateways: []string{"istio-system/gateway"},
+				Tls: []*networking.TLSRoute{
+					{
+						Match: []*networking.TLSMatchAttributes{
+							{
+								SniHosts: []string{"terminate.example.com"},
+								Port:     443,
+							},
+						},
+						Route: []*networking.RouteDestination{
+							{
+								Destination: &networking.Destination{
+									Host: "backend-terminate.default.svc.cluster.local",
+									Port: &networking.PortSelector{Number: 8080},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+		passthroughVS := config.Config{
+			Meta: config.Meta{
+				GroupVersionKind: gvk.VirtualService,
+				Name:             "passthrough-vs",
+				Namespace:        "default",
+				Annotations: map[string]string{
+					constants.InternalParentNames:    "TLSRoute/passthrough-route.default",
+					constants.InternalRouteSemantics: constants.RouteSemanticsGateway,
+				},
+			},
+			Spec: &networking.VirtualService{
+				Hosts:    []string{"passthrough.example.com"},
+				Gateways: []string{"istio-system/gateway"},
+				Tls: []*networking.TLSRoute{
+					{
+						Match: []*networking.TLSMatchAttributes{
+							{
+								SniHosts: []string{"passthrough.example.com"},
+								Port:     443,
+							},
+						},
+						Route: []*networking.RouteDestination{
+							{
+								Destination: &networking.Destination{
+									Host: "backend-passthrough.default.svc.cluster.local",
+									Port: &networking.PortSelector{Number: 443},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+
+		o := xds.FakeOptions{
+			ConfigString: mixedGateway,
+			Configs:      []config.Config{terminateVS, passthroughVS},
+		}
+		s := xds.NewFakeDiscoveryServer(t, o)
+		sim := simulation.NewSimulation(t, s, s.SetupProxy(proxy))
+		sim.RunExpectations([]simulation.Expect{
+			{
+				Name: "terminate route reaches terminate backend",
+				Call: simulation.Call{
+					Port:       443,
+					Protocol:   simulation.TCP,
+					TLS:        simulation.TLS,
+					HostHeader: "terminate.example.com",
+				},
+				Result: simulation.Result{
+					ListenerMatched: "0.0.0.0_443",
+					ClusterMatched:  "outbound|8080||backend-terminate.default.svc.cluster.local",
+				},
+			},
+			{
+				Name: "passthrough route reaches passthrough backend",
+				Call: simulation.Call{
+					Port:       443,
+					Protocol:   simulation.TCP,
+					TLS:        simulation.TLS,
+					HostHeader: "passthrough.example.com",
+				},
+				Result: simulation.Result{
+					ListenerMatched: "0.0.0.0_443",
+					ClusterMatched:  "outbound|443||backend-passthrough.default.svc.cluster.local",
+				},
+			},
+		})
+	})
+}
+
+func TestGatewayExternalSDSProviderSimulation(t *testing.T) {
+	mc := mesh.DefaultMeshConfig()
+	mc.ExtensionProviders = append(mc.ExtensionProviders, &meshconfig.MeshConfig_ExtensionProvider{
+		Name: "my-sds-provider",
+		Provider: &meshconfig.MeshConfig_ExtensionProvider_Sds{
+			Sds: &meshconfig.MeshConfig_ExtensionProvider_SDSProvider{
+				Name:    "my-sds-provider",
+				Service: "sds-provider.sds-system.svc.cluster.local",
+				Port:    8443,
+			},
+		},
+	})
+
+	configStr := `
+apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: external-sds-gateway
+  namespace: istio-system
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    tls:
+      mode: SIMPLE
+      credentialName: "sds://my-credential"
+    hosts:
+    - "secure.example.com"
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: secure-vs
+  namespace: istio-system
+spec:
+  hosts:
+  - "secure.example.com"
+  gateways:
+  - external-sds-gateway
+  http:
+  - route:
+    - destination:
+        host: backend.default.svc.cluster.local
+        port:
+          number: 80
+---
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: sds-provider
+  namespace: istio-system
+spec:
+  hosts:
+  - "sds-provider.sds-system.svc.cluster.local"
+  ports:
+  - number: 8443
+    name: grpc
+    protocol: GRPC
+  resolution: STATIC
+  location: MESH_INTERNAL
+  endpoints:
+  - address: 10.0.0.100
+`
+
+	proxy := &model.Proxy{
+		Labels: map[string]string{"istio": "ingressgateway"},
+		Metadata: &model.NodeMetadata{
+			Labels:    map[string]string{"istio": "ingressgateway"},
+			Namespace: "istio-system",
+		},
+		Type: model.Router,
+	}
+
+	o := xds.FakeOptions{
+		ConfigString: configStr,
+		MeshConfig:   mc,
+	}
+
+	s := xds.NewFakeDiscoveryServer(t, o)
+	sim := simulation.NewSimulation(t, s, s.SetupProxy(proxy))
+
+	// Verify the listener was created
+	l := xdstest.ExtractListener("0.0.0.0_443", sim.Listeners)
+	if l == nil {
+		t.Fatal("expected listener 0.0.0.0_443 to be created")
+	}
+
+	if len(l.FilterChains) == 0 {
+		t.Fatal("expected at least one filter chain")
+	}
+
+	fc := l.FilterChains[0]
+	if fc.GetTransportSocket() == nil {
+		t.Fatal("expected transport socket for TLS")
+	}
+
+	tlsContext := xdstest.UnmarshalAny[auth.DownstreamTlsContext](t, fc.GetTransportSocket().GetTypedConfig())
+	sdsConfigs := tlsContext.GetCommonTlsContext().GetTlsCertificateSdsSecretConfigs()
+	if len(sdsConfigs) == 0 {
+		t.Fatal("expected SDS secret configs")
+	}
+
+	sdsConfig := sdsConfigs[0]
+	if sdsConfig.GetName() != "my-credential" {
+		t.Errorf("expected SDS name %q, got %q", "my-credential", sdsConfig.GetName())
+	}
+
+	grpcServices := sdsConfig.GetSdsConfig().GetApiConfigSource().GetGrpcServices()
+	if len(grpcServices) == 0 {
+		t.Fatal("expected gRPC services in SDS config")
+	}
+
+	clusterName := grpcServices[0].GetEnvoyGrpc().GetClusterName()
+	expectedCluster := "outbound|8443||sds-provider.sds-system.svc.cluster.local"
+	if clusterName != expectedCluster {
+		t.Errorf("expected cluster %q, got %q", expectedCluster, clusterName)
+	}
 }

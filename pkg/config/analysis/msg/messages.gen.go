@@ -267,6 +267,18 @@ var (
 	// UnknownDestinationRuleHost defines a diag.MessageType for message "UnknownDestinationRuleHost".
 	// Description: Host defined in destination rule does not match any services in the mesh.
 	UnknownDestinationRuleHost = diag.NewMessageType(diag.Warning, "IST0174", "The host %s defined in the DestinationRule does not match any services in the mesh.")
+
+	// JwksUriFetchUnrestricted defines a diag.MessageType for message "JwksUriFetchUnrestricted".
+	// Description: RequestAuthentication resources exist but BLOCKED_CIDRS_IN_JWKS_URIS is not configured on istiod.
+	JwksUriFetchUnrestricted = diag.NewMessageType(diag.Warning, "IST0175", "BLOCKED_CIDRS_IN_JWKS_URIS is not configured but %d RequestAuthentication resource(s) exist (%s). Consider configuring it to restrict JWKS URI fetches to trusted networks.")
+
+	// GatewayAPICRDVersionBelowMinimum defines a diag.MessageType for message "GatewayAPICRDVersionBelowMinimum".
+	// Description: A Gateway API CRD is installed at a version below the minimum required by this Istio version. Resources of this kind will not be processed.
+	GatewayAPICRDVersionBelowMinimum = diag.NewMessageType(diag.Warning, "IST0176", "Gateway API CRD %q is at version %q but Istio requires at least %q; resources of this kind will not be processed. Upgrade the Gateway API CRDs to satisfy the minimum version.")
+
+	// ConflictingServiceEntryProtocol defines a diag.MessageType for message "ConflictingServiceEntryProtocol".
+	// Description: Multiple ServiceEntries define the same host and port with conflicting protocols.
+	ConflictingServiceEntryProtocol = diag.NewMessageType(diag.Warning, "IST0177", "Multiple ServiceEntries (%s) define the same host %q and port %d with conflicting protocols (%s).")
 )
 
 // All returns a list of all known message types.
@@ -337,6 +349,9 @@ func All() []*diag.MessageType {
 		NegativeConditionStatus,
 		DestinationRuleSubsetNotSelectPods,
 		UnknownDestinationRuleHost,
+		JwksUriFetchUnrestricted,
+		GatewayAPICRDVersionBelowMinimum,
+		ConflictingServiceEntryProtocol,
 	}
 }
 
@@ -976,5 +991,38 @@ func NewUnknownDestinationRuleHost(r *resource.Instance, host string) diag.Messa
 		UnknownDestinationRuleHost,
 		r,
 		host,
+	)
+}
+
+// NewJwksUriFetchUnrestricted returns a new diag.Message based on JwksUriFetchUnrestricted.
+func NewJwksUriFetchUnrestricted(r *resource.Instance, count int, names string) diag.Message {
+	return diag.NewMessage(
+		JwksUriFetchUnrestricted,
+		r,
+		count,
+		names,
+	)
+}
+
+// NewGatewayAPICRDVersionBelowMinimum returns a new diag.Message based on GatewayAPICRDVersionBelowMinimum.
+func NewGatewayAPICRDVersionBelowMinimum(r *resource.Instance, crd string, installedVersion string, minimumVersion string) diag.Message {
+	return diag.NewMessage(
+		GatewayAPICRDVersionBelowMinimum,
+		r,
+		crd,
+		installedVersion,
+		minimumVersion,
+	)
+}
+
+// NewConflictingServiceEntryProtocol returns a new diag.Message based on ConflictingServiceEntryProtocol.
+func NewConflictingServiceEntryProtocol(r *resource.Instance, serviceEntryNames string, host string, port int, protocols string) diag.Message {
+	return diag.NewMessage(
+		ConflictingServiceEntryProtocol,
+		r,
+		serviceEntryNames,
+		host,
+		port,
+		protocols,
 	)
 }

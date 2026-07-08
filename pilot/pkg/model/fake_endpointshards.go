@@ -37,11 +37,17 @@ func (f *FakeEndpointIndexUpdater) ConfigUpdate(*PushRequest) {}
 
 func (f *FakeEndpointIndexUpdater) EDSUpdate(shard ShardKey, serviceName string, namespace string, eps []*IstioEndpoint) {
 	pushType := f.Index.UpdateServiceEndpoints(shard, serviceName, namespace, eps, true)
-	if f.ConfigUpdateFunc != nil && (pushType == IncrementalPush || pushType == FullPush) {
-		// Trigger a push
+	if pushType == NoPush {
+		return
+	}
+
+	if f.ConfigUpdateFunc != nil {
+		configKind := kind.Endpoints
+		if pushType == FullPush {
+			configKind = kind.ServiceEntry
+		}
 		f.ConfigUpdateFunc(&PushRequest{
-			Full:           pushType == FullPush,
-			ConfigsUpdated: sets.New(ConfigKey{Kind: kind.ServiceEntry, Name: serviceName, Namespace: namespace}),
+			ConfigsUpdated: sets.New(ConfigKey{Kind: configKind, Name: serviceName, Namespace: namespace}),
 			Reason:         NewReasonStats(EndpointUpdate),
 		})
 	}

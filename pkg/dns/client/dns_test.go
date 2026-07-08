@@ -43,7 +43,7 @@ func TestDNS(t *testing.T) {
 
 func TestBuildAlternateHosts(t *testing.T) {
 	// Create the server instance without starting it, as it's unnecessary for this test
-	d, err := NewLocalDNSServer("ns1", "ns1.svc.cluster.local", "localhost:0", false)
+	d, err := NewLocalDNSServer("ns1", "ns1.svc.cluster.local", "localhost:0")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -593,7 +593,7 @@ func makeUpstream(t test.Failer, responses map[string]string) string {
 
 func initDNS(t test.Failer, forwardToUpstreamParallel bool) *LocalDNSServer {
 	srv := makeUpstream(t, map[string]string{"www.bing.com.": "1.1.1.1"})
-	testAgentDNS, err := NewLocalDNSServer("ns1", "ns1.svc.cluster.local", "localhost:0", forwardToUpstreamParallel)
+	testAgentDNS, err := NewLocalDNSServer("ns1", "ns1.svc.cluster.local", "localhost:0", WithParallelForwarding(forwardToUpstreamParallel))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -679,4 +679,96 @@ func equalsDNSrecords(got []dns.RR, want []dns.RR) bool {
 		got[i].Header().Rdlength = 0
 	}
 	return reflect.DeepEqual(got, want)
+}
+
+func TestDNSTimeoutBehavior(t *testing.T) {
+	tests := []struct {
+		name        string
+		timeout     time.Duration
+		minDuration time.Duration // Should take at least this long
+		maxDuration time.Duration // But not more than this
+	}{
+		{
+			name:        "100ms timeout",
+			timeout:     100 * time.Millisecond,
+			minDuration: 90 * time.Millisecond,  // Allow 10ms tolerance
+			maxDuration: 200 * time.Millisecond, // Should timeout well before 200ms
+		},
+		{
+			name:        "200ms timeout",
+			timeout:     200 * time.Millisecond,
+			minDuration: 180 * time.Millisecond,
+			maxDuration: 400 * time.Millisecond,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create an upstream DNS server that never responds (to trigger timeout)
+			unresponsiveHandler := func(w dns.ResponseWriter, req *dns.Msg) {
+				// Don't respond - just return without writing anything
+				// This will cause the client to timeout
+			}
+
+			up := make(chan struct{})
+			server := &dns.Server{
+				Addr:              "127.0.0.1:0",
+				Net:               "udp",
+				Handler:           dns.HandlerFunc(unresponsiveHandler),
+				NotifyStartedFunc: func() { close(up) },
+			}
+
+			go func() {
+				_ = server.ListenAndServe()
+			}()
+			defer func() {
+				_ = server.Shutdown()
+			}()
+
+			// Wait for server to be ready
+			select {
+			case <-time.After(time.Second * 10):
+				t.Fatal("server setup timeout")
+			case <-up:
+			}
+
+			dnsServer, err := NewLocalDNSServer("test-ns", "test-ns.svc.cluster.local", "localhost:0",
+				WithUpstreamTimeout(tt.timeout))
+			if err != nil {
+				t.Fatalf("Failed to create DNS server: %v", err)
+			}
+			defer dnsServer.Close()
+
+			// Override resolv.conf servers to point to our unresponsive test server
+			dnsServer.resolvConfServers = []string{server.PacketConn.LocalAddr().String()}
+
+			// Make a query and measure how long it takes
+			req := new(dns.Msg)
+			req.SetQuestion("test.example.com.", dns.TypeA)
+
+			start := time.Now()
+			response := dnsServer.queryUpstream(dnsServer.dnsProxies[0].upstreamClient, req, log)
+			duration := time.Since(start)
+
+			// Should get SERVFAIL due to timeout
+			if response.Rcode != dns.RcodeServerFailure {
+				t.Errorf("Expected SERVFAIL, got %v", response.Rcode)
+			}
+
+			// Verify the timeout happened in expected timeframe
+			if duration < tt.minDuration {
+				t.Errorf("Query completed too quickly: %v, expected >= %v (timeout was %v)",
+					duration, tt.minDuration, tt.timeout)
+			}
+			if duration > tt.maxDuration {
+				t.Errorf("Query took too long: %v, expected <= %v (timeout was %v)",
+					duration, tt.maxDuration, tt.timeout)
+			}
+
+			// Should have timed out (not gotten a response)
+			if len(response.Answer) > 0 {
+				t.Errorf("Expected timeout, but got answer")
+			}
+		})
+	}
 }

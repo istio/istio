@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 55640
+
+releaseNotes:
+  - |
+    **Added** support for configuring HTTP/2 keepalive PING settings on upstream connections through `DestinationRule`.

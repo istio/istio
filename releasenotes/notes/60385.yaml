@@ -1,0 +1,14 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+
+issue:
+  - https://github.com/istio/istio/issues/47500
+  - https://github.com/istio/istio/issues/47777
+  - https://github.com/istio/istio/issues/52521
+
+releaseNotes:
+- |
+  **Added** `prefix_rewrite` field to `HTTPRedirect`, enabling prefix-aware path rewriting
+  in redirect rules. This allows stripping or replacing the matched path prefix while
+  redirecting, e.g. redirecting `example.com/foo/bar` to `foo.example.com/bar`.

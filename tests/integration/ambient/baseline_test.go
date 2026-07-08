@@ -180,9 +180,9 @@ func getIngressGatewayServiceAccount(t framework.TestContext) string {
 	appsClient := cluster.Kube().AppsV1()
 
 	// Get the ingress gateway deployment
-	dep, err := appsClient.Deployments("istio-system").Get(
+	dep, err := appsClient.Deployments(i.Settings().SystemNamespace).Get(
 		context.TODO(),
-		"istio-ingressgateway",
+		i.IngressFor(cluster).ServiceName(),
 		metav1.GetOptions{},
 	)
 	if err != nil {
@@ -1612,6 +1612,7 @@ func TestL7JWT(t *testing.T) {
 					param.Namespace.String(): apps.Namespace.Name(),
 					"Services":               apps.ServiceAddressedWaypoint,
 					"To":                     dst,
+					"Jwks":                   jwt.JwksJSON,
 				}, "testdata/requestauthn/waypoint-jwt.yaml.tmpl").ApplyOrFail(t)
 
 				t.NewSubTest("deny without token").Run(func(t framework.TestContext) {
@@ -2797,7 +2798,7 @@ spec:
 var CheckDeny = check.Or(
 	check.ErrorContains("rpc error: code = PermissionDenied"), // gRPC
 	check.ErrorContains("EOF"),                                // TCP envoy
-	check.ErrorContains("read: connection reset by peer"),     // TCP ztunnel
+	check.ConnectionResetByPeer(),                             // TCP ztunnel
 	check.NoErrorAndStatus(http.StatusForbidden),              // HTTP
 	check.NoErrorAndStatus(http.StatusServiceUnavailable),     // HTTP client, TCP server
 )

@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+issue:
+  - 59912
+releaseNotes:
+  - |
+    - **Fixed** pilot-agent missing certificate reloads on second and subsequent Kubernetes secret rotations for file-mounted certs.

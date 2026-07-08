@@ -17,7 +17,7 @@ status:
     status: "True"
     type: Programmed
   listeners:
-  - attachedRoutes: 0
+  - attachedRoutes: 1
     conditions:
     - lastTransitionTime: fake
       message: No errors found
@@ -65,7 +65,7 @@ status:
     status: "True"
     type: Programmed
   listeners:
-  - attachedRoutes: 0
+  - attachedRoutes: 1
     conditions:
     - lastTransitionTime: fake
       message: No errors found
@@ -129,6 +129,11 @@ status:
     reason: Programmed
     status: "True"
     type: Programmed
+  - lastTransitionTime: fake
+    message: All references resolved
+    reason: ResolvedRefs
+    status: "True"
+    type: ResolvedRefs
   listeners:
   - attachedRoutes: 0
     conditions:

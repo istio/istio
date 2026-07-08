@@ -691,6 +691,157 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(routes[0].GetRoute().GetHashPolicy()).To(ConsistOf(hashPolicy))
 	})
 
+	// Test for issue #58708: portLevelSettings port must match destination port
+	t.Run("for virtual service with port level settings matching service port", func(t *testing.T) {
+		g := NewWithT(t)
+		// VirtualService with destination port 8484 (service port)
+		virtualService := config.Config{
+			Meta: config.Meta{
+				GroupVersionKind: gvk.VirtualService,
+				Name:             "acme",
+			},
+			Spec: &networking.VirtualService{
+				Hosts:    []string{},
+				Gateways: []string{"some-gateway"},
+				Http: []*networking.HTTPRoute{
+					{
+						Route: []*networking.HTTPRouteDestination{
+							{
+								Destination: &networking.Destination{
+									Host: "*.example.org",
+									Port: &networking.PortSelector{
+										Number: 8484, // Service port
+									},
+								},
+								Weight: 100,
+							},
+						},
+					},
+				},
+			},
+		}
+		cg := core.NewConfigGenTest(t, core.TestOptions{
+			Services: exampleService,
+			Configs: []config.Config{
+				virtualService,
+				{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.DestinationRule,
+						Name:             "acme",
+						Namespace:        "istio-system",
+					},
+					Spec: &networking.DestinationRule{
+						Host: "*.example.org",
+						TrafficPolicy: &networking.TrafficPolicy{
+							PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
+								{
+									Port: &networking.PortSelector{
+										Number: 8484, // Matches service port - should work
+									},
+									LoadBalancer: &networking.LoadBalancerSettings{
+										LbPolicy: loadBalancerPolicy("matching-port-cookie"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		})
+
+		proxy := node(cg)
+		hashByDestination := route.GetConsistentHashForVirtualService(cg.PushContext(), proxy, virtualService)
+		routeOpts := buildRouteOpts(serviceRegistry, hashByDestination)
+		routes, err := route.BuildHTTPRoutesForVirtualService(proxy, virtualService, 8080, gatewayNames, routeOpts)
+		xdstest.ValidateRoutes(t, routes)
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(len(routes)).To(Equal(1))
+
+		// Hash policy should be applied because ports match
+		hashPolicy := &envoyroute.RouteAction_HashPolicy{
+			PolicySpecifier: &envoyroute.RouteAction_HashPolicy_Cookie_{
+				Cookie: &envoyroute.RouteAction_HashPolicy_Cookie{
+					Name: "matching-port-cookie",
+					Ttl:  nil,
+				},
+			},
+		}
+		g.Expect(routes[0].GetRoute().GetHashPolicy()).To(ConsistOf(hashPolicy))
+	})
+
+	// Test for issue #58708: portLevelSettings with mismatched port (e.g., gateway listener port vs service port)
+	t.Run("for virtual service with port level settings mismatched port", func(t *testing.T) {
+		g := NewWithT(t)
+		// VirtualService with destination port 8484 (service port)
+		// but DestinationRule portLevelSettings uses port 443 (gateway listener port)
+		virtualService := config.Config{
+			Meta: config.Meta{
+				GroupVersionKind: gvk.VirtualService,
+				Name:             "acme",
+			},
+			Spec: &networking.VirtualService{
+				Hosts:    []string{},
+				Gateways: []string{"some-gateway"},
+				Http: []*networking.HTTPRoute{
+					{
+						Route: []*networking.HTTPRouteDestination{
+							{
+								Destination: &networking.Destination{
+									Host: "*.example.org",
+									Port: &networking.PortSelector{
+										Number: 8484, // Service port
+									},
+								},
+								Weight: 100,
+							},
+						},
+					},
+				},
+			},
+		}
+		cg := core.NewConfigGenTest(t, core.TestOptions{
+			Services: exampleService,
+			Configs: []config.Config{
+				virtualService,
+				{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.DestinationRule,
+						Name:             "acme",
+						Namespace:        "istio-system",
+					},
+					Spec: &networking.DestinationRule{
+						Host: "*.example.org",
+						TrafficPolicy: &networking.TrafficPolicy{
+							PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
+								{
+									Port: &networking.PortSelector{
+										Number: 443, // Gateway listener port - does NOT match service port
+									},
+									LoadBalancer: &networking.LoadBalancerSettings{
+										LbPolicy: loadBalancerPolicy("mismatched-port-cookie"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		})
+
+		proxy := node(cg)
+		hashByDestination := route.GetConsistentHashForVirtualService(cg.PushContext(), proxy, virtualService)
+		routeOpts := buildRouteOpts(serviceRegistry, hashByDestination)
+		routes, err := route.BuildHTTPRoutesForVirtualService(proxy, virtualService, 8080, gatewayNames, routeOpts)
+		xdstest.ValidateRoutes(t, routes)
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(len(routes)).To(Equal(1))
+
+		// Hash policy should NOT be applied because ports don't match
+		// This is the expected behavior - portLevelSettings must match destination port
+		g.Expect(routes[0].GetRoute().GetHashPolicy()).To(BeEmpty(),
+			"Hash policy should not be applied when portLevelSettings port (443) doesn't match destination port (8484)")
+	})
+
 	t.Run("for virtual service with cookie hash policy with attributes", func(t *testing.T) {
 		g := NewWithT(t)
 		ttl := durationpb.Duration{Nanos: 100}
@@ -1079,22 +1230,6 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(ok).To(BeFalse())
 	})
 
-	t.Run("for path prefix redirect", func(t *testing.T) {
-		g := NewWithT(t)
-		cg := core.NewConfigGenTest(t, core.TestOptions{})
-
-		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithRedirectPathPrefix, 8080, gatewayNames, routeOpts)
-		xdstest.ValidateRoutes(t, routes)
-		g.Expect(err).NotTo(HaveOccurred())
-		g.Expect(len(routes)).To(Equal(1))
-
-		redirectAction, ok := routes[0].Action.(*envoyroute.Route_Redirect)
-		g.Expect(ok).NotTo(BeFalse())
-		g.Expect(redirectAction.Redirect.PathRewriteSpecifier).To(Equal(&envoyroute.RedirectAction_PrefixRewrite{
-			PrefixRewrite: "/replace-prefix",
-		}))
-	})
-
 	t.Run("for host rewrite", func(t *testing.T) {
 		g := NewWithT(t)
 		cg := core.NewConfigGenTest(t, core.TestOptions{})
@@ -1250,24 +1385,6 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(routeAction.Route.AppendXForwardedHost).To(Equal(true))
 	})
 
-	t.Run("for redirect uri prefix '%PREFIX()%' that is without gateway semantics", func(t *testing.T) {
-		g := NewWithT(t)
-		cg := core.NewConfigGenTest(t, core.TestOptions{})
-
-		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg),
-			virtualServiceWithRedirectPathPrefixNoGatewaySematics,
-			8080, gatewayNames, routeOpts)
-		xdstest.ValidateRoutes(t, routes)
-		g.Expect(err).NotTo(HaveOccurred())
-		g.Expect(len(routes)).To(Equal(1))
-
-		redirectAction, ok := routes[0].Action.(*envoyroute.Route_Redirect)
-		g.Expect(ok).NotTo(BeFalse())
-		g.Expect(redirectAction.Redirect.PathRewriteSpecifier).To(Equal(&envoyroute.RedirectAction_PathRedirect{
-			PathRedirect: "%PREFIX()%/replace-full",
-		}))
-	})
-
 	t.Run("for full path redirect", func(t *testing.T) {
 		g := NewWithT(t)
 		cg := core.NewConfigGenTest(t, core.TestOptions{})
@@ -1281,6 +1398,23 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(ok).NotTo(BeFalse())
 		g.Expect(redirectAction.Redirect.PathRewriteSpecifier).To(Equal(&envoyroute.RedirectAction_PathRedirect{
 			PathRedirect: "/replace-full-path",
+		}))
+	})
+
+	t.Run("for prefix_rewrite redirect", func(t *testing.T) {
+		g := NewWithT(t)
+		cg := core.NewConfigGenTest(t, core.TestOptions{})
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithRedirectPrefixRewrite, 8080, gatewayNames, routeOpts)
+		xdstest.ValidateRoutes(t, routes)
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(len(routes)).To(Equal(1))
+
+		redirectAction, ok := routes[0].Action.(*envoyroute.Route_Redirect)
+		g.Expect(ok).NotTo(BeFalse())
+		g.Expect(redirectAction.Redirect.HostRedirect).To(Equal("foo.example.com"))
+		g.Expect(redirectAction.Redirect.PathRewriteSpecifier).To(Equal(&envoyroute.RedirectAction_PrefixRewrite{
+			PrefixRewrite: "/",
 		}))
 	})
 
@@ -2110,49 +2244,6 @@ var virtualServiceWithInvalidRedirect = config.Config{
 	},
 }
 
-var virtualServiceWithRedirectPathPrefix = config.Config{
-	Meta: config.Meta{
-		GroupVersionKind: gvk.VirtualService,
-		Name:             "acme",
-		Annotations: map[string]string{
-			"internal.istio.io/route-semantics": "gateway",
-		},
-	},
-	Spec: &networking.VirtualService{
-		Hosts:    []string{},
-		Gateways: []string{"some-gateway"},
-		Http: []*networking.HTTPRoute{
-			{
-				Redirect: &networking.HTTPRedirect{
-					Uri:          "%PREFIX()%/replace-prefix",
-					Authority:    "some-authority.default.svc.cluster.local",
-					RedirectCode: 308,
-				},
-			},
-		},
-	},
-}
-
-var virtualServiceWithRedirectPathPrefixNoGatewaySematics = config.Config{
-	Meta: config.Meta{
-		GroupVersionKind: gvk.VirtualService,
-		Name:             "acme",
-	},
-	Spec: &networking.VirtualService{
-		Hosts:    []string{},
-		Gateways: []string{"some-gateway"},
-		Http: []*networking.HTTPRoute{
-			{
-				Redirect: &networking.HTTPRedirect{
-					Uri:          "%PREFIX()%/replace-full",
-					Authority:    "some-authority.default.svc.cluster.local",
-					RedirectCode: 308,
-				},
-			},
-		},
-	},
-}
-
 var virtualServiceWithRedirectFullPath = config.Config{
 	Meta: config.Meta{
 		GroupVersionKind: gvk.VirtualService,
@@ -2167,6 +2258,26 @@ var virtualServiceWithRedirectFullPath = config.Config{
 					Uri:          "/replace-full-path",
 					Authority:    "some-authority.default.svc.cluster.local",
 					RedirectCode: 308,
+				},
+			},
+		},
+	},
+}
+
+var virtualServiceWithRedirectPrefixRewrite = config.Config{
+	Meta: config.Meta{
+		GroupVersionKind: gvk.VirtualService,
+		Name:             "acme",
+	},
+	Spec: &networking.VirtualService{
+		Hosts:    []string{},
+		Gateways: []string{"some-gateway"},
+		Http: []*networking.HTTPRoute{
+			{
+				Redirect: &networking.HTTPRedirect{
+					Authority:     "foo.example.com",
+					PrefixRewrite: "/",
+					RedirectCode:  301,
 				},
 			},
 		},

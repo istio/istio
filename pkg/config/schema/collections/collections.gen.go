@@ -686,10 +686,13 @@ var (
 		Group:      "gateway.networking.k8s.io",
 		Kind:       "TCPRoute",
 		Plural:     "tcproutes",
-		Version:    "v1alpha2",
-		Proto:      "k8s.io.gateway_api.api.v1alpha1.TCPRouteSpec", StatusProto: "k8s.io.gateway_api.api.v1alpha1.TCPRouteStatus",
-		ReflectType: reflect.TypeOf(&sigsk8siogatewayapiapisv1alpha2.TCPRouteSpec{}).Elem(), StatusType: reflect.TypeOf(&sigsk8siogatewayapiapisv1alpha2.TCPRouteStatus{}).Elem(),
-		ProtoPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2", StatusPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2",
+		Version:    "v1",
+		VersionAliases: []string{
+			"v1alpha2",
+		},
+		Proto: "k8s.io.gateway_api.api.v1.TCPRouteSpec", StatusProto: "k8s.io.gateway_api.api.v1.TCPRouteStatus",
+		ReflectType: reflect.TypeOf(&sigsk8siogatewayapiapisv1.TCPRouteSpec{}).Elem(), StatusType: reflect.TypeOf(&sigsk8siogatewayapiapisv1.TCPRouteStatus{}).Elem(),
+		ProtoPackage: "sigs.k8s.io/gateway-api/apis/v1", StatusPackage: "sigs.k8s.io/gateway-api/apis/v1",
 		ClusterScoped: false,
 		Synthetic:     false,
 		Builtin:       false,
@@ -730,6 +733,21 @@ var (
 		Synthetic:     false,
 		Builtin:       false,
 		ValidateProto: validation.ValidateTelemetry,
+	}.MustBuild()
+
+	TrafficExtension = resource.Builder{
+		Identifier: "TrafficExtension",
+		Group:      "extensions.istio.io",
+		Kind:       "TrafficExtension",
+		Plural:     "trafficextensions",
+		Version:    "v1alpha1",
+		Proto:      "istio.extensions.v1alpha1.TrafficExtension", StatusProto: "istio.meta.v1alpha1.IstioStatus",
+		ReflectType: reflect.TypeOf(&istioioapiextensionsv1alpha1.TrafficExtension{}).Elem(), StatusType: reflect.TypeOf(&istioioapimetav1alpha1.IstioStatus{}).Elem(),
+		ProtoPackage: "istio.io/api/extensions/v1alpha1", StatusPackage: "istio.io/api/meta/v1alpha1",
+		ClusterScoped: false,
+		Synthetic:     false,
+		Builtin:       false,
+		ValidateProto: validation.ValidateTrafficExtension,
 	}.MustBuild()
 
 	UDPRoute = resource.Builder{
@@ -894,6 +912,7 @@ var (
 		MustAdd(TCPRoute).
 		MustAdd(TLSRoute).
 		MustAdd(Telemetry).
+		MustAdd(TrafficExtension).
 		MustAdd(UDPRoute).
 		MustAdd(ValidatingWebhookConfiguration).
 		MustAdd(VirtualService).
@@ -953,6 +972,7 @@ var (
 		MustAdd(ServiceEntry).
 		MustAdd(Sidecar).
 		MustAdd(Telemetry).
+		MustAdd(TrafficExtension).
 		MustAdd(VirtualService).
 		MustAdd(WasmPlugin).
 		MustAdd(WorkloadEntry).
@@ -980,6 +1000,7 @@ var (
 			MustAdd(TCPRoute).
 			MustAdd(TLSRoute).
 			MustAdd(Telemetry).
+			MustAdd(TrafficExtension).
 			MustAdd(UDPRoute).
 			MustAdd(VirtualService).
 			MustAdd(WasmPlugin).
@@ -1006,8 +1027,10 @@ var (
 				MustAdd(RequestAuthentication).
 				MustAdd(ServiceEntry).
 				MustAdd(Sidecar).
+				MustAdd(TCPRoute).
 				MustAdd(TLSRoute).
 				MustAdd(Telemetry).
+				MustAdd(TrafficExtension).
 				MustAdd(VirtualService).
 				MustAdd(WasmPlugin).
 				MustAdd(WorkloadEntry).
