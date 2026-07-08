@@ -77,24 +77,18 @@ func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) (*model.PushReques
 	// In both cases, cluster definitions are static when only endpoints change.
 	// However, if ServiceUpdate is also present, the service definition changed
 	// (ports, labels, etc.) and we need to push CDS.
-	if req.Reason.Has(model.HeadlessEndpointUpdate) && !req.Reason.Has(model.ServiceUpdate) {
-		// Check if all updates are ServiceEntry (headless endpoint marker)
-		allServiceEntry := true
-		for config := range req.ConfigsUpdated {
-			if config.Kind != kind.ServiceEntry {
-				allServiceEntry = false
-				break
-			}
-		}
-		if allServiceEntry {
-			return req, false
-		}
-	}
+	headlessOnly := req.Reason.Has(model.HeadlessEndpointUpdate) && !req.Reason.Has(model.ServiceUpdate)
+	// Check if all updates are ServiceEntry (headless endpoint marker)
+	allServiceEntry := headlessOnly
 
 	relevantUpdates := make(sets.Set[model.ConfigKey])
 	filtered := false
 	checkGateway := false
 	for config := range req.ConfigsUpdated {
+		if headlessOnly && config.Kind != kind.ServiceEntry {
+			allServiceEntry = false
+		}
+
 		if proxy.Type == model.Router {
 			if config.Kind == kind.Gateway {
 				// Do the check outside of the loop since its slow; just trigger we need it
@@ -113,6 +107,10 @@ func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) (*model.PushReques
 			// we filtered a config
 			filtered = true
 		}
+	}
+
+	if allServiceEntry {
+		return req, false
 	}
 
 	needsPush := false
