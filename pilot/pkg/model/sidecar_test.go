@@ -3347,7 +3347,7 @@ func TestContainsEgressDependencies(t *testing.T) {
 					Attributes: ServiceAttributes{Namespace: nsName},
 				},
 			}
-			virtualServices := []config.Config{
+			virtualServices := []*config.Config{
 				{
 					Meta: config.Meta{
 						Name:      vsName,
@@ -3984,9 +3984,9 @@ func BenchmarkConvertIstioListenerToWrapper(b *testing.B) {
 
 func benchmarkConvertIstioListenerToWrapper(b *testing.B, vsNum int, hostNum int, wildcard string, matchAll bool) {
 	// virtual service
-	cfgs := make([]config.Config, 0)
+	cfgs := make([]*config.Config, 0)
 	for i := 0; i < vsNum; i++ {
-		cfgs = append(cfgs, config.Config{
+		cfgs = append(cfgs, &config.Config{
 			Meta: config.Meta{
 				GroupVersionKind: gvk.VirtualService,
 				Name:             "vs-name-" + strconv.Itoa(i),
