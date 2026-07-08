@@ -86,6 +86,26 @@ func TestHeadlessEndpointPushOptimization(t *testing.T) {
 			expectLDS: false, // kind.Endpoints is in skip list
 			expectCDS: false, // kind.Endpoints is in skip list
 		},
+		{
+			name:      "Router with HeadlessEndpointUpdate + ServiceUpdate should push both",
+			proxyType: model.Router,
+			reason:    model.NewReasonStats(model.HeadlessEndpointUpdate, model.ServiceUpdate),
+			configUpdates: sets.New(
+				model.ConfigKey{Kind: kind.ServiceEntry, Name: "my-service", Namespace: "default"},
+			),
+			expectLDS: true, // ServiceUpdate means service definition changed
+			expectCDS: true, // ServiceUpdate means service definition changed
+		},
+		{
+			name:      "Sidecar with HeadlessEndpointUpdate + ServiceUpdate should push both",
+			proxyType: model.SidecarProxy,
+			reason:    model.NewReasonStats(model.HeadlessEndpointUpdate, model.ServiceUpdate),
+			configUpdates: sets.New(
+				model.ConfigKey{Kind: kind.ServiceEntry, Name: "my-service", Namespace: "default"},
+			),
+			expectLDS: true, // ServiceUpdate means service definition changed
+			expectCDS: true, // ServiceUpdate means service definition changed
+		},
 	}
 
 	for _, tt := range tests {

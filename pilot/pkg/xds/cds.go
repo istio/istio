@@ -75,7 +75,9 @@ func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) (*model.PushReques
 	// For routers: Clusters are EDS type - endpoint IPs delivered via EDS.
 	// For sidecars: Clusters are ORIGINAL_DST (no endpoints) or EDS type.
 	// In both cases, cluster definitions are static when only endpoints change.
-	if req.Reason.Has(model.HeadlessEndpointUpdate) {
+	// However, if ServiceUpdate is also present, the service definition changed
+	// (ports, labels, etc.) and we need to push CDS.
+	if req.Reason.Has(model.HeadlessEndpointUpdate) && !req.Reason.Has(model.ServiceUpdate) {
 		// Check if all updates are ServiceEntry (headless endpoint marker)
 		allServiceEntry := true
 		for config := range req.ConfigsUpdated {

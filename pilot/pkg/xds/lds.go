@@ -72,7 +72,9 @@ func ldsNeedsPush(proxy *model.Proxy, req *model.PushRequest) bool {
 	}
 
 	// Optimization: Routers don't need LDS updates for headless endpoint changes.
-	if proxy.Type == model.Router && req.Reason.Has(model.HeadlessEndpointUpdate) {
+	// However, if ServiceUpdate is also present, the service definition changed
+	// (ports, labels, etc.) and we need to push LDS.
+	if proxy.Type == model.Router && req.Reason.Has(model.HeadlessEndpointUpdate) && !req.Reason.Has(model.ServiceUpdate) {
 		// Check if all updates are ServiceEntry (headless endpoint marker)
 		allServiceEntry := true
 		for config := range req.ConfigsUpdated {
