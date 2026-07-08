@@ -1198,10 +1198,16 @@ func TestServiceEntryServices(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mock := krttest.NewMock(t, tt.inputs)
 			a := newAmbientUnitTest(t)
+			// Build a synchronous, precompiled visibility singleton from the mock mesh config.
+			// (A reactive NewSingleton is not computed synchronously under TestingDummyContext.)
+			var sev *meshConfig.ServiceEntryVisibility
+			if mc := krttest.GetMockSingleton[MeshConfig](mock).Get(); mc != nil {
+				sev = mc.GetServiceEntryVisibility()
+			}
 			builder := a.serviceEntryServiceBuilder(
 				krttest.GetMockCollection[Waypoint](mock),
 				krttest.GetMockCollection[*v1.Namespace](mock),
-				krttest.GetMockSingleton[MeshConfig](mock),
+				krt.NewStatic(ptr.Of(compileServiceEntryVisibility(sev)), true),
 			)
 			wrapper := builder(krt.TestingDummyContext{}, tt.se)
 			res := slices.Map(wrapper, func(e TypedServiceInfo) *workloadapi.Service {
