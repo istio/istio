@@ -241,6 +241,11 @@ const (
 	// IstioMutualTLSModeLabel implies that the endpoint is ready to receive Istio mTLS connections.
 	IstioMutualTLSModeLabel = "istio"
 
+	// GatewayTLSModeLabel indicates cross-network gateway endpoints.
+	// These use trust domain prefix matching instead of exact SAN validation,
+	// allowing sidecars to connect to gateways that present their own identity.
+	GatewayTLSModeLabel = "gateway"
+
 	// IstioCanonicalServiceLabelName is the name of label for the Istio Canonical Service for a workload instance.
 	IstioCanonicalServiceLabelName = pm.IstioCanonicalServiceLabelName
 

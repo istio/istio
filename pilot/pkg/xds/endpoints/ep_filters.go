@@ -25,11 +25,13 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
+	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/network"
@@ -39,6 +41,12 @@ import (
 // innerConnectOriginate is the name for the resources associated with establishing double-HBONE connection.
 // Duplicated from networking/core/waypoint.go to avoid import cycle
 const innerConnectOriginate = "inner_connect_originate"
+
+// isAmbientWorkload returns true if the endpoint represents an ambient workload.
+// Ambient workloads are identified by the istio.io/dataplane-mode=ambient label.
+func isAmbientWorkload(ep *model.IstioEndpoint) bool {
+	return ep.Labels[label.IoIstioDataplaneMode.Name] == constants.DataplaneModeAmbient
+}
 
 // EndpointsByNetworkFilter is a network filter function to support Split Horizon EDS - filter the endpoints based on the network
 // of the connected sidecar. The filter will filter out all endpoints which are not present within the
@@ -172,8 +180,10 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 			// Cross-network traffic relies on mTLS for SNI routing in sidecar mode.
 			// So if we are not in ambient multi-network mode and mTLS is not enabled for the target endpoint on a remote
 			// network we skip it altogether.
+			// However, for sidecar proxies accessing ambient workloads, we can route via the cross-network
+			// gateway which handles the HBONE connection to the ambient workload.
 			// TODO BTS may allow us to work around this
-			if (!features.EnableAmbientMultiNetwork || isSidecarProxy(b.proxy)) && !isMtlsEnabled(lbEp) {
+			if (!features.EnableAmbientMultiNetwork || isSidecarProxy(b.proxy)) && !isMtlsEnabled(lbEp) && !isAmbientWorkload(istioEndpoint) {
 				continue
 			}
 
@@ -264,9 +274,12 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 				}
 
 				// TODO: figure out a way to extract locality data from the gateway public endpoints in meshNetworks
+				// Use GatewayTLSModeLabel for cross-network gateway endpoints.
+				// This allows trust domain prefix matching instead of exact SAN validation,
+				// since gateways present their own identity rather than the target service's identity.
 				util.AppendLbEndpointMetadata(&model.EndpointMetadata{
 					Network:   gw.Network,
-					TLSMode:   model.IstioMutualTLSModeLabel,
+					TLSMode:   model.GatewayTLSModeLabel,
 					ClusterID: gw.Cluster,
 					Labels:    labels.Instance{},
 				}, gwEp.Metadata)

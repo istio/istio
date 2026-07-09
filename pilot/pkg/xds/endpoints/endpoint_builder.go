@@ -376,10 +376,13 @@ func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.Endpoi
 		return buildEmptyClusterLoadAssignment(b.clusterName)
 	}
 
-	// features.EnableIngressWaypointRouting only makes sense for ingress gateways and for E/W gateways
-	// we don't want this behavior, so additionally check that we are not generating endpoints for the
-	// E/W gateway.
-	if features.EnableIngressWaypointRouting && !isEastWestGateway(b.proxy) {
+	// features.EnableIngressWaypointRouting enables waypoint routing for ingress gateways.
+	// For E/W gateways with inbound-vip direction (handling sidecar traffic to ambient workloads),
+	// we also need to route to waypoints to enable proper L7 processing.
+	enableWaypointRouting := features.EnableIngressWaypointRouting && !isEastWestGateway(b.proxy)
+	// E/W gateway inbound-vip direction handles sidecar traffic that needs to be routed to waypoints
+	ewGatewayInboundVIP := isEastWestGateway(b.proxy) && b.dir == model.TrafficDirectionInboundVIP
+	if enableWaypointRouting || ewGatewayInboundVIP {
 		if waypointEps, f := b.findServiceWaypoint(endpointIndex); f {
 			// endpoints are from waypoint service but the envoy endpoint is different envoy cluster
 			locLbEps := b.generate(waypointEps, true)
@@ -764,7 +767,11 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 		// Setup tunnel metadata so requests will go through the tunnel
 		target := ptr.NonEmptyOrDefault(waypoint, net.JoinHostPort(address, strconv.Itoa(port)))
 		innerAddressName := connectOriginate
-		if isEastWestGateway(b.proxy) {
+		// For E/W gateway, use forwardInnerConnect only when NOT handling inbound-vip traffic.
+		// Inbound-vip traffic comes from the 15443 listener (sidecar mTLS) and needs to originate
+		// a new HBONE tunnel to the ambient workload. Double-HBONE traffic (forwarding an existing
+		// inner tunnel) uses forwardInnerConnect.
+		if isEastWestGateway(b.proxy) && b.dir != model.TrafficDirectionInboundVIP {
 			innerAddressName = forwardInnerConnect
 		}
 		ep.HostIdentifier = &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{
