@@ -17,6 +17,7 @@ package xds
 import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pilot/pkg/util/protoconv"
@@ -48,21 +49,28 @@ var skippedLdsConfigs = map[model.NodeType]sets.Set[kind.Kind]{
 		kind.ProxyConfig,
 		kind.DNSName,
 	),
-	model.Waypoint: sets.New(
-		kind.Gateway,
-		kind.WorkloadGroup,
-		kind.WorkloadEntry,
-		kind.Secret,
-		kind.ProxyConfig,
-		kind.DNSName,
-	),
+	model.Waypoint: func() sets.Set[kind.Kind] {
+		s := sets.New(
+			kind.Gateway,
+			kind.WorkloadGroup,
+			kind.WorkloadEntry,
+			kind.Secret,
+			kind.ProxyConfig,
+			kind.DNSName,
+		)
+		if features.ScopedAddressPushes {
+			// Address changes are handled by waypointNeedsPush, scoped to the affected waypoints
+			s.Insert(kind.Address)
+		}
+		return s
+	}(),
 }
 
 func ldsNeedsPush(proxy *model.Proxy, req *model.PushRequest) bool {
 	if res, ok := xdsNeedsPush(req, proxy); ok {
 		return res
 	}
-	if proxy.Type == model.Waypoint && waypointNeedsPush(req) {
+	if proxy.Type == model.Waypoint && waypointNeedsPush(req, proxy) {
 		return true
 	}
 	if !req.Full {

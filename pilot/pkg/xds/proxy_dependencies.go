@@ -17,6 +17,7 @@ package xds
 import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/util/sets"
@@ -76,6 +77,12 @@ func proxyDependentOnConfig(proxy *model.Proxy, config model.ConfigKey, push *mo
 	// Skip config dependency check based on proxy type for certain configs.
 	if UnAffectedConfigKinds[proxy.Type].Contains(config.Kind) {
 		return false
+	}
+	// Ambient Address updates only matter to proxies subscribed to Workload Address resources;
+	// anything sidecars and gateways need from those changes is surfaced as ServiceEntry or
+	// Endpoints updates.
+	if features.ScopedAddressPushes && config.Kind == kind.Address {
+		return proxy.GetWatchedResource(v3.AddressType) != nil
 	}
 	// Detailed config dependencies check.
 	switch proxy.Type {

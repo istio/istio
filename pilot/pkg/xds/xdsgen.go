@@ -223,17 +223,32 @@ func xdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) (needsPush, defini
 	return false, false
 }
 
-// waypointNeedsPush checks if an incremental push is needed for CDS and LDS which normally do a full push.
-func waypointNeedsPush(req *model.PushRequest) bool {
-	// Waypoint proxies needs to be pushed for LDS and CDS on kind.Address changes.
-	// Waypoint proxies have a matcher against pod IPs in them. Historically, any LDS change would do a full
-	// push, recomputing push context. Doing that on every IP change doesn't scale, so we need these to remain
-	// incremental pushes.
-	// This allows waypoints only to push LDS on incremental pushes to Address type which would otherwise be skipped.
-
-	// Waypoints need CDS updates on kind.Address changes
-	// after implementing use-waypoint which decouples waypoint creation, wl pod creation
-	// user specifying waypoint use. Without this we're not getting correct waypoint config
-	// in a timely manner
-	return model.HasConfigsOfKind(req.ConfigsUpdated, kind.Address)
+// waypointNeedsPush checks if a push is needed for a waypoint proxy on incremental kind.Address changes.
+// Waypoint listeners, clusters, and routes are built from the services and workloads attached to the
+// waypoint (e.g. the main_internal listener matches attached service VIPs and attached workload IPs),
+// and attachment is only surfaced through kind.Address updates (use-waypoint changes, VIP or pod IP
+// changes of attached resources).
+func waypointNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
+	if !model.HasConfigsOfKind(req.ConfigsUpdated, kind.Address) {
+		return false
+	}
+	if proxy.IsAmbientEastWestGateway() {
+		// East-west gateways serve the global services on their network rather than attached
+		// services, so attachment-based scoping does not apply to them. This holds regardless of
+		// the ScopedAddressPushes feature.
+		return true
+	}
+	if !features.ScopedAddressPushes {
+		return true
+	}
+	// Only push if one of the updated services/workloads is attached to this waypoint.
+	// Detachments are covered as well: the ambient index records the waypoints referenced by
+	// both the old and the new state of every updated object.
+	key := model.WaypointKeyForProxy(proxy)
+	for ref := range req.WaypointsUpdated {
+		if ref.Matches(key) {
+			return true
+		}
+	}
+	return false
 }
