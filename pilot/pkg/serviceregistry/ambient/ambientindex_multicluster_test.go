@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -808,4 +809,92 @@ func (a *ambientTestServer) DeleteSecret(secretName string) {
 func (a *ambientTestServer) AddSecret(secretName, clusterID string) {
 	kubeconfig++
 	a.sec.CreateOrUpdate(makeSecret(secretNamespace, secretName, clusterCredential{clusterID, fmt.Appendf(nil, "kubeconfig-%d", kubeconfig)}))
+}
+
+// TestMulticlusterAmbientIndex_RemoteClusterInitializationOrdering verifies that a remote
+// cluster whose per-cluster dependencies (network, waypoints, nodes, workload services) are
+// not yet computed when the merged global transformations first run still converges: the
+// transformations initially hit the "cluster X does not have <dep> yet, skipping" paths and
+// must be recomputed once the dependencies show up. Unlike the other tests in this file, it
+// intentionally does NOT wait for the remote cluster's network to be registered before
+// creating resources, so the initial computations race cluster initialization.
+func TestMulticlusterAmbientIndex_RemoteClusterInitializationOrdering(t *testing.T) {
+	test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
+	s := newAmbientTestServer(t, testC, testNW, "")
+	s.AddSecret("s1", "remote-cluster")
+	remoteClients := krt.NewCollection(s.mcController.Clusters(), func(_ krt.HandlerContext, c *multicluster.Cluster) **remoteAmbientClients {
+		cl := c.Client
+		return ptr.Of(&remoteAmbientClients{
+			clusterID: c.ID,
+			ambientclients: &ambientclients{
+				pc:    clienttest.NewDirectClient[*corev1.Pod, corev1.Pod, *corev1.PodList](t, cl),
+				sc:    clienttest.NewDirectClient[*corev1.Service, corev1.Service, *corev1.ServiceList](t, cl),
+				ns:    clienttest.NewWriter[*corev1.Namespace](t, cl),
+				grc:   clienttest.NewWriter[*k8sv1.Gateway](t, cl),
+				gwcls: clienttest.NewWriter[*k8sv1.GatewayClass](t, cl),
+				se:    clienttest.NewWriter[*apiv1alpha3.ServiceEntry](t, cl),
+				we:    clienttest.NewWriter[*apiv1alpha3.WorkloadEntry](t, cl),
+				pa:    clienttest.NewWriter[*clientsecurityv1beta1.PeerAuthentication](t, cl),
+				authz: clienttest.NewWriter[*clientsecurityv1beta1.AuthorizationPolicy](t, cl),
+				sec:   clienttest.NewWriter[*corev1.Secret](t, cl),
+			},
+		})
+	})
+
+	const remoteNetwork = "remote-network"
+	const networkGatewayIP = "172.0.1.2"
+
+	assert.EventuallyEqual(t, func() int {
+		return len(remoteClients.List())
+	}, 1)
+	remoteClient := remoteClients.List()[0]
+
+	// Create everything on the remote cluster back to back, without waiting for the
+	// cluster's network (or any other per-cluster collection) to be registered first.
+	// The merged global transformations will observe partially-initialized state.
+	remoteClient.ns.Create(&corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   systemNS,
+			Labels: map[string]string{label.TopologyNetwork.Name: remoteNetwork},
+		},
+	})
+	remoteClient.ns.Create(&corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{Name: testNS},
+	})
+	s.addNetworkGatewayForClient(t, networkGatewayIP, remoteNetwork, remoteClient.grc)
+	s.addServiceForClient(t, "svc2",
+		map[string]string{"istio.io/global": "true"},
+		map[string]string{},
+		[]int32{80}, map[string]string{"app": "a"}, "127.1.0.1", remoteClient.sc,
+	)
+	s.addPodsForClient(t, "127.0.0.1", "pod1-abc", "sa1",
+		map[string]string{"app": "a"}, nil, true, corev1.PodRunning, remoteClient.pc)
+
+	// The same global service exists locally so it is resolvable from this cluster.
+	s.addServiceForClient(t, "svc2",
+		map[string]string{"istio.io/global": "true"},
+		map[string]string{},
+		[]int32{80}, map[string]string{"app": "a"}, "10.0.0.1", s.sc,
+	)
+
+	// Eventually the remote cluster's state must be fully reflected in the merged
+	// collections, even though the first computations ran before its dependencies existed.
+	splitHorizonName := fmt.Sprintf("%s/SplitHorizonWorkload/ns1/east-west/%s/%s",
+		remoteNetwork, networkGatewayIP, s.svcXdsName("svc2"))
+	retry.UntilSuccessOrFail(t, func() error {
+		svc := s.lookupService("ns1/svc2.ns1.svc.company.com")
+		if svc == nil {
+			return fmt.Errorf("global service not found")
+		}
+		if svc.Scope != model.Global {
+			return fmt.Errorf("expected service scope to be Global, got %s", svc.Scope)
+		}
+		if gwwl := s.workloads.GetKey("NetworkGateway/remote-network/172.0.1.2/0"); gwwl == nil {
+			return fmt.Errorf("expected network gateway workload to exist, but it does not")
+		}
+		if shwl := s.workloads.GetKey(splitHorizonName); shwl == nil {
+			return fmt.Errorf("expected split horizon workload to exist, but it does not")
+		}
+		return nil
+	}, retry.Timeout(time.Second*10))
 }

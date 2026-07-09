@@ -492,6 +492,10 @@ func (h *manyCollection[I, O]) handleChangedPrimaryInputEvents(items []Event[I])
 				_, alreadyHasAResult := h.collectionState.mappings[iKey]
 				nowHasAResult := len(results) > 0
 				if alreadyHasAResult || !nowHasAResult {
+					// Even though the result is discarded, the dependencies fetched during this
+					// run must still be recorded; otherwise events on those dependencies will
+					// not retrigger this input, and a discarded first run would never be retried.
+					h.dependencyState.update(iKey, ctx.d)
 					h.log.WithLabels("iKey", iKey).Debugf("discarding result")
 					continue
 				}
