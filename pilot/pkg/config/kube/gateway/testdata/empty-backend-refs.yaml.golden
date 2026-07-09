@@ -32,13 +32,13 @@ spec:
   - no-backend.domain.example
   http:
   - directResponse:
-      status: 404
+      status: 500
     match:
     - uri:
         prefix: /no-backend
     name: default.no-backend.0
   - directResponse:
-      status: 404
+      status: 500
     match:
     - uri:
         prefix: /empty-list
