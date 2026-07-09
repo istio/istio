@@ -542,26 +542,3 @@ func validateParametersRef(ctx krt.HandlerContext, gw *gatewayv1.Gateway, config
 	}
 	return nil
 }
-
-func detectListenerPortNumber(l gatewayv1.ListenerEntry) (gatewayv1.PortNumber, error) {
-	if l.Port != 0 {
-		return l.Port, nil
-	}
-	switch l.Protocol {
-	case gatewayv1.HTTPProtocolType:
-		return 80, nil
-	case gatewayv1.HTTPSProtocolType:
-		return 443, nil
-	}
-	return 0, fmt.Errorf("protocol %v requires a port to be set", l.Protocol)
-}
-
-func convertStandardStatusToListenerSetStatus(l gatewayv1.ListenerEntry) func(e gatewayv1.ListenerStatus) gatewayv1.ListenerEntryStatus {
-	return func(e gatewayv1.ListenerStatus) gatewayv1.ListenerEntryStatus {
-		return gatewayv1.ListenerEntryStatus(e)
-	}
-}
-
-func convertListenerSetStatusToStandardStatus(e gatewayv1.ListenerEntryStatus) gatewayv1.ListenerStatus {
-	return gatewayv1.ListenerStatus(e)
-}
