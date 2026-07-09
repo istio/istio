@@ -3204,3 +3204,63 @@ func generateService(name, namespace string, labels, annotations map[string]stri
 		},
 	}
 }
+
+// pushRequestRecorder captures the PushRequest produced by event handlers under test.
+type pushRequestRecorder struct {
+	req *model.PushRequest
+}
+
+func (p *pushRequestRecorder) EDSUpdate(model.ShardKey, string, string, []*model.IstioEndpoint) {}
+func (p *pushRequestRecorder) EDSCacheUpdate(model.ShardKey, string, string, []*model.IstioEndpoint) {
+}
+func (p *pushRequestRecorder) SvcUpdate(model.ShardKey, string, string, model.Event) {}
+func (p *pushRequestRecorder) ConfigUpdate(req *model.PushRequest)                   { p.req = req }
+func (p *pushRequestRecorder) ProxyUpdate(cluster.ID, string)                        {}
+func (p *pushRequestRecorder) RemoveShard(model.ShardKey)                            {}
+
+func TestPushXdsAddressWaypointRefs(t *testing.T) {
+	waypoint := &workloadapi.GatewayAddress{
+		Destination: &workloadapi.GatewayAddress_Hostname{
+			Hostname: &workloadapi.NamespacedHostname{Namespace: "default", Hostname: "waypoint.default.svc.cluster.local"},
+		},
+	}
+	waypointRef := model.WaypointReference{Namespace: "default", Hostname: "waypoint.default.svc.cluster.local"}
+	attached := model.WorkloadInfo{Workload: &workloadapi.Workload{Uid: "cluster0//Pod/default/a", Waypoint: waypoint}}
+	unattached := model.WorkloadInfo{Workload: &workloadapi.Workload{Uid: "cluster0//Pod/default/a"}}
+
+	cases := []struct {
+		name  string
+		event krt.Event[model.WorkloadInfo]
+		want  sets.Set[model.WaypointReference]
+	}{
+		{
+			name:  "workload without waypoint",
+			event: krt.Event[model.WorkloadInfo]{New: &unattached, Event: controllers.EventAdd},
+			want:  sets.New[model.WaypointReference](),
+		},
+		{
+			name:  "workload attached to waypoint",
+			event: krt.Event[model.WorkloadInfo]{New: &attached, Event: controllers.EventAdd},
+			want:  sets.New(waypointRef),
+		},
+		{
+			// The waypoint a workload detaches from must still see the change to drop its config
+			name:  "workload detached from waypoint",
+			event: krt.Event[model.WorkloadInfo]{Old: &attached, New: &unattached, Event: controllers.EventUpdate},
+			want:  sets.New(waypointRef),
+		},
+		{
+			name:  "attached workload deleted",
+			event: krt.Event[model.WorkloadInfo]{Old: &attached, Event: controllers.EventDelete},
+			want:  sets.New(waypointRef),
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			rec := &pushRequestRecorder{}
+			PushXdsAddress(rec, model.WorkloadInfo.ResourceName, model.WorkloadInfo.WaypointRef)([]krt.Event[model.WorkloadInfo]{tt.event})
+			assert.Equal(t, rec.req.WaypointsUpdated, tt.want)
+			assert.Equal(t, rec.req.AddressesUpdated, sets.New("cluster0//Pod/default/a"))
+		})
+	}
+}

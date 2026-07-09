@@ -80,9 +80,7 @@ var skippedTests = map[string]string{
 	"HTTPRouteCORS":                                   "TODO",
 	"HTTPRouteHTTPSListenerDetectMisdirectedRequests": "TODO",
 
-	"ListenerSetHostnameConflict": "TODO",
-	"ListenerSetProtocolConflict": "TODO",
-	"ListenerSetReferenceGrant":   "TODO",
+	"ListenerSetReferenceGrant": "TODO",
 
 	"MeshHTTPRoute303Redirect": "TODO",
 	"MeshHTTPRoute307Redirect": "TODO",
@@ -103,6 +101,15 @@ var skippedTests = map[string]string{
 	"HTTPRouteNoBackendRefs":             "TODO",
 	"GatewayInvalidParametersRef":        "TODO",
 	"GatewayListenerUnsupportedProtocol": "TODO",
+	"TCPRouteWeightedRouting":            "TODO: flaky in dual-stack and multicluster environments",
+
+	// agentgateway does not yet route TCPRoute data-plane traffic, so the
+	// traffic-based TCPRoute conformance tests fail. The status/validation-only
+	// TCPRouteInvalid* tests still run and pass, so they are not skipped.
+	"TCPRouteMultipleRoutesAttachment":    "TODO: agentgateway does not yet support TCPRoute traffic",
+	"TCPRouteParentRefAttachAll":          "TODO: agentgateway does not yet support TCPRoute traffic",
+	"TCPRouteParentRefPortAndSectionName": "TODO: agentgateway does not yet support TCPRoute traffic",
+	"TCPRouteReferenceGrant":              "TODO: agentgateway does not yet support TCPRoute traffic",
 }
 
 func TestGatewayConformanceAgentgateway(t *testing.T) {
