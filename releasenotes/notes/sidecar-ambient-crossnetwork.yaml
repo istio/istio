@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue: []
+releaseNotes:
+  - |
+    **Added** experimental support for cross-network traffic between sidecar and ambient workloads
+    through the ambient east-west gateway (requires `AMBIENT_ENABLE_MULTI_NETWORK`). Sidecar
+    clients can reach global services backed by ambient workloads on a remote network via an
+    `ISTIO_MUTUAL` listener on the east-west gateway, and ambient clients can reach global services
+    backed by HBONE-capable sidecar workloads (`networking.istio.io/tunnel=http`) on a remote network.

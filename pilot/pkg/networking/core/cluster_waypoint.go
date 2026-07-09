@@ -108,6 +108,9 @@ func (configgen *ConfigGeneratorImpl) buildWaypointInboundClusters(
 	if features.EnableAmbientMultiNetwork && isAmbientEastWestGateway(proxy) {
 		// Creates "blackhole" cluster to avoid failures if no globally scoped services exist
 		clusters = append(clusters, cb.buildWaypointForwardInnerConnect(), cb.buildBlackHoleCluster())
+		// E/W gateway needs connect_originate for traffic that needs to establish new HBONE tunnels
+		// (e.g., sidecar mTLS traffic bridging to ambient workloads via service waypoints)
+		clusters = append(clusters, cb.buildWaypointConnectOriginate(proxy, push))
 	} else {
 		clusters = append(clusters, cb.buildWaypointConnectOriginate(proxy, push))
 	}
@@ -199,8 +202,10 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 	}
 
 	if terminate {
-		// We're tunneling double HBONE as raw TCP, so no need for HTTP settings
-		// or h2 upgrade
+		// For E/W gateway: traffic is tunneled to waypoint via HBONE.
+		// We don't set HTTP protocol options here because the upstream goes through
+		// internal_upstream which passes raw bytes to connect_originate for HBONE tunneling.
+		// HCM at the listener level will parse HTTP, but the cluster connection is raw TCP.
 		connectionPool.Http = nil
 		cb.applyConnectionPool(mesh, localCluster, connectionPool, retryBudget)
 		applyOutlierDetection(nil, localCluster.cluster, outlierDetection)
@@ -214,6 +219,11 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 		// Set a transport socket since we're going to an internal listener
 		transportSocket := util.RawBufferTransport()
 		localCluster.cluster.TransportSocket = util.FullMetadataPassthroughInternalUpstreamTransportSocket(transportSocket)
+		// The connect_originate listener's peer_metadata filter injects a metadata-exchange
+		// blob into the response stream (synthesized from the HBONE CONNECT response baggage).
+		// Attach the consuming cluster filter so it is stripped before the response reaches
+		// the HTTP codec; without this the codec fails with a protocol error.
+		cb.maybeApplyBaggageMetadataDiscovery(localCluster.cluster)
 		return localCluster.build()
 	}
 
