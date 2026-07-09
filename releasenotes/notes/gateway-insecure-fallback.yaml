@@ -1,7 +1,8 @@
 apiVersion: release-notes/v2
 kind: feature
 area: traffic-management
-issue: 60018
+issue:
+- 60018
 releaseNotes:
 - |
   **Added** implementation of the Gateway API AllowInsecureFallback feature in the client certificate validation logic.
