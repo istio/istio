@@ -309,11 +309,14 @@ func applyFailoverPriorityPerLocality(
 	failoverPriorities []string,
 ) []*endpoint.LocalityLbEndpoints {
 	lowestPriority := len(failoverPriorities)
+	includesNetwork := lowestPriority > 0 && failoverPriorities[0] == label.TopologyNetwork.Name
+
 	// key is priority, value is the index of LocalityLbEndpoints.LbEndpoints
 	priorityMap := map[int][]int{}
 	priorityLabels, priorityLabelOverrides := priorityLabelOverrides(failoverPriorities)
 	for i, istioEndpoint := range ep.IstioEndpoints {
 		var priority int
+		var adjust int
 		// failoverPriority labels match
 		for j, label := range priorityLabels {
 			valueForProxy, ok := priorityLabelOverrides[label]
@@ -321,10 +324,17 @@ func applyFailoverPriorityPerLocality(
 				valueForProxy = proxyLabels[label]
 			}
 			if valueForProxy != istioEndpoint.Labels[label] {
+				if j == 0 && includesNetwork {
+					// ignore network
+					adjust = len(failoverPriorities)
+					continue
+				}
 				priority = lowestPriority - j
 				break
 			}
 		}
+		priority += adjust
+		// adjust priority
 		priorityMap[priority] = append(priorityMap[priority], i)
 	}
 

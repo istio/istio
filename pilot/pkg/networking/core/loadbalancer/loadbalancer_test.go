@@ -415,6 +415,25 @@ func TestApplyLocalitySetting(t *testing.T) {
 									Value: 1,
 								},
 							},
+						},
+						LoadBalancingWeight: &wrappers.UInt32Value{
+							Value: 1,
+						},
+						Priority: 0,
+					},
+					{
+						Locality: &core.Locality{
+							Region:  "region1",
+							Zone:    "zone1",
+							SubZone: "subzone1",
+						},
+						LbEndpoints: []*endpoint.LbEndpoint{
+							{
+								HostIdentifier: buildEndpoint("1.1.1.1"),
+								LoadBalancingWeight: &wrappers.UInt32Value{
+									Value: 1,
+								},
+							},
 							{
 								HostIdentifier: buildEndpoint("2.2.2.2"),
 								LoadBalancingWeight: &wrappers.UInt32Value{
@@ -423,9 +442,9 @@ func TestApplyLocalitySetting(t *testing.T) {
 							},
 						},
 						LoadBalancingWeight: &wrappers.UInt32Value{
-							Value: 2,
+							Value: 1,
 						},
-						Priority: 0,
+						Priority: 1,
 					},
 					{
 						Locality: &core.Locality{
@@ -440,17 +459,11 @@ func TestApplyLocalitySetting(t *testing.T) {
 									Value: 1,
 								},
 							},
-							{
-								HostIdentifier: buildEndpoint("4.4.4.4"),
-								LoadBalancingWeight: &wrappers.UInt32Value{
-									Value: 1,
-								},
-							},
 						},
 						LoadBalancingWeight: &wrappers.UInt32Value{
 							Value: 2,
 						},
-						Priority: 0,
+						Priority: 1,
 					},
 					{
 						Locality: &core.Locality{
@@ -465,6 +478,19 @@ func TestApplyLocalitySetting(t *testing.T) {
 									Value: 1,
 								},
 							},
+						},
+						LoadBalancingWeight: &wrappers.UInt32Value{
+							Value: 1,
+						},
+						Priority: 0,
+					},
+					{
+						Locality: &core.Locality{
+							Region:  "region3",
+							Zone:    "zone3",
+							SubZone: "subzone3",
+						},
+						LbEndpoints: []*endpoint.LbEndpoint{
 							{
 								HostIdentifier: buildEndpointWithMultipleAddresses("2.3.4.5", "2001:1::2"),
 								LoadBalancingWeight: &wrappers.UInt32Value{
@@ -473,9 +499,9 @@ func TestApplyLocalitySetting(t *testing.T) {
 							},
 						},
 						LoadBalancingWeight: &wrappers.UInt32Value{
-							Value: 2,
+							Value: 1,
 						},
-						Priority: 0,
+						Priority: 1,
 					},
 				},
 			},
@@ -836,6 +862,157 @@ func TestApplyLocalitySetting(t *testing.T) {
 					}
 				}
 			})
+		}
+	})
+
+	t.Run("FailoverPriority including locality", func(t *testing.T) {
+		failoverPriority := []string{"topology.istio.io/network", "region", "zone"}
+		proxyLabels := map[string]string{
+			"topology.istio.io/network": "n1",
+			"region":                    "region2",
+			"zone":                      "zone2",
+		}
+
+		expected := []*endpoint.LocalityLbEndpoints{
+			{
+				Locality: &core.Locality{
+					Region:  "region1",
+					Zone:    "zone1",
+					SubZone: "subzone1",
+				},
+				LbEndpoints: []*endpoint.LbEndpoint{
+					{
+						HostIdentifier: buildEndpoint("1.1.1.1"),
+						LoadBalancingWeight: &wrappers.UInt32Value{
+							Value: 1,
+						},
+					},
+				},
+				LoadBalancingWeight: &wrappers.UInt32Value{
+					Value: 1,
+				},
+				Priority: 1, // n1 r1 z1
+			},
+			{
+				Locality: &core.Locality{
+					Region:  "region1",
+					Zone:    "zone2",
+					SubZone: "subzone2",
+				},
+				LbEndpoints: []*endpoint.LbEndpoint{
+					{
+						HostIdentifier: buildEndpoint("2.2.2.2"),
+						LoadBalancingWeight: &wrappers.UInt32Value{
+							Value: 1,
+						},
+					},
+				},
+				LoadBalancingWeight: &wrappers.UInt32Value{
+					Value: 1,
+				},
+				Priority: 3, // n2 r1 z2
+			},
+			{
+				Locality: &core.Locality{
+					Region:  "region2",
+					Zone:    "zone2",
+					SubZone: "subzone2",
+				},
+				LbEndpoints: []*endpoint.LbEndpoint{
+					{
+						HostIdentifier: buildEndpoint("3.3.3.3"),
+						LoadBalancingWeight: &wrappers.UInt32Value{
+							Value: 1,
+						},
+					},
+				},
+				LoadBalancingWeight: &wrappers.UInt32Value{
+					Value: 1,
+				},
+				Priority: 0, // n1 r2 z2
+			},
+			{
+				Locality: &core.Locality{
+					Region:  "region3",
+					Zone:    "zone3",
+					SubZone: "subzone3",
+				},
+				LbEndpoints: []*endpoint.LbEndpoint{
+					{
+						HostIdentifier: buildEndpoint("4.4.4.4"),
+						LoadBalancingWeight: &wrappers.UInt32Value{
+							Value: 1,
+						},
+					},
+				},
+				LoadBalancingWeight: &wrappers.UInt32Value{
+					Value: 1,
+				},
+				Priority: 3, // n2 r3 z3
+			},
+			{
+				Locality: &core.Locality{
+					Region:  "region2",
+					Zone:    "zone2",
+					SubZone: "subzone2",
+				},
+				LbEndpoints: []*endpoint.LbEndpoint{
+					{
+						HostIdentifier: buildEndpoint("5.5.5.5"),
+						LoadBalancingWeight: &wrappers.UInt32Value{
+							Value: 1,
+						},
+					},
+				},
+				LoadBalancingWeight: &wrappers.UInt32Value{
+					Value: 1,
+				},
+				Priority: 2, // n2 r2 z2
+			},
+			{
+				Locality: &core.Locality{
+					Region:  "region3",
+					Zone:    "zone3",
+					SubZone: "subzone3",
+				},
+				LbEndpoints: []*endpoint.LbEndpoint{
+					{
+						HostIdentifier: buildEndpoint("6.6.6.6"),
+						LoadBalancingWeight: &wrappers.UInt32Value{
+							Value: 1,
+						},
+					},
+				},
+				LoadBalancingWeight: &wrappers.UInt32Value{
+					Value: 1,
+				},
+				Priority: 1, // n1 r3 z3
+			},
+		}
+
+		env := buildEnvForClustersWithFailoverPriority(t, failoverPriority)
+		cluster := buildFakeCluster()
+		wrappedEndpoints := buildWrappedLocalityLbEndpointsForFailoverPriorityWithFailover()
+		for _, we := range wrappedEndpoints {
+			for _, ie := range we.IstioEndpoints {
+				ie.Labels["region"] = we.LocalityLbEndpoints.Locality.Region
+				ie.Labels["zone"] = we.LocalityLbEndpoints.Locality.Zone
+			}
+		}
+
+		ApplyLocalityLoadBalancer(cluster.LoadAssignment, wrappedEndpoints, locality, proxyLabels, env.Mesh().LocalityLbSetting, true)
+
+		if len(cluster.LoadAssignment.Endpoints) != len(expected) {
+			t.Fatalf("expected endpoints %d but got %d", len(cluster.LoadAssignment.Endpoints), len(expected))
+		}
+		for i := range cluster.LoadAssignment.Endpoints {
+			// TODO Below assertions are not robust to ordering changes in cluster.LoadAssignment.Endpoints[i]
+			if cluster.LoadAssignment.Endpoints[i].LoadBalancingWeight.GetValue() != expected[i].LoadBalancingWeight.GetValue() {
+				t.Errorf("Got unexpected lb weight %v expected %v", cluster.LoadAssignment.Endpoints[i].LoadBalancingWeight, expected[i].LoadBalancingWeight)
+			}
+			if cluster.LoadAssignment.Endpoints[i].Priority != expected[i].Priority {
+				t.Errorf("Got unexpected priority %v expected %v", cluster.LoadAssignment.Endpoints[i].Priority, expected[i].Priority)
+			}
 		}
 	})
 
@@ -1519,12 +1696,6 @@ func buildSmallClusterForFailOverPriority() *cluster.Cluster {
 					LbEndpoints: []*endpoint.LbEndpoint{
 						{
 							HostIdentifier: buildEndpoint("1.1.1.1"),
-							LoadBalancingWeight: &wrappers.UInt32Value{
-								Value: 1,
-							},
-						},
-						{
-							HostIdentifier: buildEndpointWithMultipleAddresses("1.2.3.4", "2001:1::1"),
 							LoadBalancingWeight: &wrappers.UInt32Value{
 								Value: 1,
 							},
