@@ -15,6 +15,7 @@
 package gateway
 
 import (
+	"fmt"
 	"strings"
 
 	"go.uber.org/atomic"
@@ -317,6 +318,10 @@ func GatewayCollection(
 			return status, nil
 		}
 
+		if err == nil {
+			err = validateParametersRef(ctx, obj, configMaps)
+		}
+
 		// See: https://istio.io/latest/docs/tasks/traffic-management/ingress/gateway-api/#manual-deployment
 		// If we set and address of type hostname, then we have no idea what service accounts the gateway workloads will use.
 		// Thus, we don't enforce service account name restrictions (still look at namespaces though).
@@ -513,4 +518,27 @@ func BuildRouteParents(
 		gateways:     gateways,
 		gatewayIndex: idx,
 	}
+}
+
+func validateParametersRef(ctx krt.HandlerContext, gw *gatewayv1.Gateway, configMaps krt.Collection[*corev1.ConfigMap]) *ConfigError {
+	if gw.Spec.Infrastructure == nil || gw.Spec.Infrastructure.ParametersRef == nil {
+		return nil
+	}
+	params := gw.Spec.Infrastructure.ParametersRef
+	// Validate that the ParametersRef group/kind is of a ConfigMap.
+	if string(params.Kind) != gvk.ConfigMap.Kind || string(params.Group) != gvk.ConfigMap.Group {
+		return &ConfigError{
+			Reason:  string(gatewayv1.GatewayReasonInvalidParameters),
+			Message: fmt.Sprintf("Unsupported parametersRef group/kind %s/%s, only ConfigMap is supported", params.Group, params.Kind),
+		}
+	}
+	// Validate ParametersRef exists.
+	cm := ptr.Flatten(krt.FetchOne(ctx, configMaps, krt.FilterKey(gw.Namespace+"/"+params.Name)))
+	if cm == nil {
+		return &ConfigError{
+			Reason:  string(gatewayv1.GatewayReasonInvalidParameters),
+			Message: fmt.Sprintf("parametersRef ConfigMap %s/%s does not exist", gw.Namespace, params.Name),
+		}
+	}
+	return nil
 }
