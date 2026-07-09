@@ -222,8 +222,12 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 		// The connect_originate listener's peer_metadata filter injects a metadata-exchange
 		// blob into the response stream (synthesized from the HBONE CONNECT response baggage).
 		// Attach the consuming cluster filter so it is stripped before the response reaches
-		// the HTTP codec; without this the codec fails with a protocol error.
-		cb.maybeApplyBaggageMetadataDiscovery(localCluster.cluster)
+		// the HTTP codec; without this the codec fails with a protocol error. Only the
+		// sidecar-bridge subset goes through connect_originate; the "tcp" subset forwards
+		// opaque double-HBONE bytes and must not have a consumer reading the stream.
+		if subset == model.SidecarBridgeSubsetName {
+			cb.maybeApplyBaggageMetadataDiscovery(localCluster.cluster)
+		}
 		return localCluster.build()
 	}
 
@@ -347,6 +351,10 @@ func (cb *ClusterBuilder) buildWaypointInboundVIP(proxy *model.Proxy, svcs map[h
 				// East-west gateways don't respect DestinationRule, so don't read it here
 				// TODO: Confirm this decision
 				clusters = append(clusters, cb.buildWaypointInboundVIPCluster(proxy, svc, *port, "tcp", mesh, nil, nil))
+				// Separate subset for bridging terminated sidecar mTLS (15443) traffic into
+				// ambient. The "tcp" subset must keep forwarding double-HBONE inner streams
+				// opaquely, so the new-HBONE-origination semantics live on their own cluster.
+				clusters = append(clusters, cb.buildWaypointInboundVIPCluster(proxy, svc, *port, model.SidecarBridgeSubsetName, mesh, nil, nil))
 				continue
 			}
 			cfg := cb.sidecarScope.DestinationRule(model.TrafficDirectionInbound, proxy, svc.Hostname).GetRule()
