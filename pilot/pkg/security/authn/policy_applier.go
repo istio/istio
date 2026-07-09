@@ -249,32 +249,42 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 
 		name := fmt.Sprintf("origins-%d", i)
 		providers[name] = provider
-		innerAndList = append(innerAndList, &envoy_jwt.JwtRequirement{
-			RequiresType: &envoy_jwt.JwtRequirement_RequiresAny{
-				RequiresAny: &envoy_jwt.JwtRequirementOrList{
-					Requirements: []*envoy_jwt.JwtRequirement{
-						{
-							RequiresType: &envoy_jwt.JwtRequirement_ProviderName{
-								ProviderName: name,
-							},
-						},
-						{
-							RequiresType: &envoy_jwt.JwtRequirement_AllowMissing{
-								AllowMissing: &emptypb.Empty{},
+
+		providerRequirement := &envoy_jwt.JwtRequirement{
+			RequiresType: &envoy_jwt.JwtRequirement_ProviderName{
+				ProviderName: name,
+			},
+		}
+
+		if jwtRule.GetRequired() {
+			// Required providers must be present and valid; no allow_missing wrapper.
+			innerAndList = append(innerAndList, providerRequirement)
+		} else {
+			innerAndList = append(innerAndList, &envoy_jwt.JwtRequirement{
+				RequiresType: &envoy_jwt.JwtRequirement_RequiresAny{
+					RequiresAny: &envoy_jwt.JwtRequirementOrList{
+						Requirements: []*envoy_jwt.JwtRequirement{
+							providerRequirement,
+							{
+								RequiresType: &envoy_jwt.JwtRequirement_AllowMissing{
+									AllowMissing: &emptypb.Empty{},
+								},
 							},
 						},
 					},
 				},
-			},
-		})
-		outterOrList = append(outterOrList, &envoy_jwt.JwtRequirement{
-			RequiresType: &envoy_jwt.JwtRequirement_ProviderName{
-				ProviderName: name,
-			},
-		})
+			})
+			// Only optional providers participate in the outer OR shortcut.
+			outterOrList = append(outterOrList, &envoy_jwt.JwtRequirement{
+				RequiresType: &envoy_jwt.JwtRequirement_ProviderName{
+					ProviderName: name,
+				},
+			})
+		}
 	}
 
-	// If there is only one provider, simply use an OR of {provider, `allow_missing`}.
+	// If there is only one provider, use its requirement directly (either a bare
+	// ProviderName when required=true, or OR{provider, allow_missing} otherwise).
 	if len(innerAndList) == 1 {
 		return &envoy_jwt.JwtAuthentication{
 			Rules: []*envoy_jwt.RequirementRule{
@@ -294,18 +304,33 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 		}
 	}
 
-	// If there are more than one provider, filter should OR of
-	// {P1, P2 .., AND of {OR{P1, allow_missing}, OR{P2, allow_missing} ...}}
-	// where the innerAnd enforce a token, if provided, must be valid, and the
-	// outer OR aids the case where providers share the same location (as
-	// it will always fail with the innerAND).
-	outterOrList = append(outterOrList, &envoy_jwt.JwtRequirement{
+	// Build the AND requirement over all providers. For required providers the
+	// entry is a bare ProviderName; for optional ones it is OR{provider, allow_missing}.
+	andRequirement := &envoy_jwt.JwtRequirement{
 		RequiresType: &envoy_jwt.JwtRequirement_RequiresAll{
 			RequiresAll: &envoy_jwt.JwtRequirementAndList{
 				Requirements: innerAndList,
 			},
 		},
-	})
+	}
+
+	// When all providers are required, outterOrList is empty. Emit just the AND
+	// requirement so that every token must be present and valid.
+	// When some providers are optional, OR the individual optional providers with
+	// the AND list to handle the case where providers share the same token location.
+	var finalRequirement *envoy_jwt.JwtRequirement
+	if len(outterOrList) == 0 {
+		finalRequirement = andRequirement
+	} else {
+		outterOrList = append(outterOrList, andRequirement)
+		finalRequirement = &envoy_jwt.JwtRequirement{
+			RequiresType: &envoy_jwt.JwtRequirement_RequiresAny{
+				RequiresAny: &envoy_jwt.JwtRequirementOrList{
+					Requirements: outterOrList,
+				},
+			},
+		}
+	}
 
 	return &envoy_jwt.JwtAuthentication{
 		Rules: []*envoy_jwt.RequirementRule{
@@ -316,13 +341,7 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 					},
 				},
 				RequirementType: &envoy_jwt.RequirementRule_Requires{
-					Requires: &envoy_jwt.JwtRequirement{
-						RequiresType: &envoy_jwt.JwtRequirement_RequiresAny{
-							RequiresAny: &envoy_jwt.JwtRequirementOrList{
-								Requirements: outterOrList,
-							},
-						},
-					},
+					Requires: finalRequirement,
 				},
 			},
 		},
