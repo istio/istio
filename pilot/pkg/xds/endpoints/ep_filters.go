@@ -25,11 +25,13 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
+	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/network"
@@ -39,6 +41,12 @@ import (
 // innerConnectOriginate is the name for the resources associated with establishing double-HBONE connection.
 // Duplicated from networking/core/waypoint.go to avoid import cycle
 const innerConnectOriginate = "inner_connect_originate"
+
+// isAmbientWorkload returns true if the endpoint represents an ambient workload.
+// Ambient workloads are identified by the istio.io/dataplane-mode=ambient label.
+func isAmbientWorkload(ep *model.IstioEndpoint) bool {
+	return ep.Labels[label.IoIstioDataplaneMode.Name] == constants.DataplaneModeAmbient
+}
 
 // EndpointsByNetworkFilter is a network filter function to support Split Horizon EDS - filter the endpoints based on the network
 // of the connected sidecar. The filter will filter out all endpoints which are not present within the
@@ -147,10 +155,16 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 				continue
 			}
 
+			// A sidecar cannot speak double-HBONE, but it can reach an ambient destination
+			// through an E/W gateway that terminates its mTLS and originates HBONE onward.
+			// Such an endpoint takes the legacy mTLS gateway rather than the HBONE one, so it
+			// must not be treated as requiring HBONE below.
+			bridged := isSidecarProxy(b.proxy) && isAmbientWorkload(istioEndpoint)
+
 			// We require using double-HBONE in a either of the following cases:
 			// 1. This is a waypoint proxy - it can only talk HBONE
 			// 2. We earlier decided to use HBONE for this endpoint
-			requireHBONE := model.IsWaypointProxy(b.proxy) || usesTunnel(lbEp)
+			requireHBONE := !bridged && (model.IsWaypointProxy(b.proxy) || usesTunnel(lbEp))
 
 			// If we use HBONE and the proxy is ingress gateway check that the feature
 			// is enabled first and if it's not, skip the endpoint.
@@ -205,9 +219,11 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 
 			// Cross-network traffic relies on mTLS for SNI routing in sidecar mode.
 			// So if we are not in ambient multi-network mode and mTLS is not enabled for the target endpoint on a remote
-			// network we skip it altogether.
+			// network we skip it altogether. A bridged endpoint is the exception: the E/W gateway
+			// terminates the sidecar's mTLS and originates HBONE onward, so the destination not
+			// speaking legacy mTLS is precisely the case the bridge exists for.
 			// TODO BTS may allow us to work around this
-			if !requireHBONE && !isMtlsEnabled(lbEp) {
+			if !requireHBONE && !isMtlsEnabled(lbEp) && !bridged {
 				log.Warnf("Workload %s on network %s does not support mTLS or double-HBONE, skipping",
 					istioEndpoint.WorkloadName, epNetwork)
 				continue
@@ -300,9 +316,12 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 				}
 
 				// TODO: figure out a way to extract locality data from the gateway public endpoints in meshNetworks
+				// Use GatewayTLSModeLabel for cross-network gateway endpoints.
+				// This allows trust domain prefix matching instead of exact SAN validation,
+				// since gateways present their own identity rather than the target service's identity.
 				util.AppendLbEndpointMetadata(&model.EndpointMetadata{
 					Network:   gw.Network,
-					TLSMode:   model.IstioMutualTLSModeLabel,
+					TLSMode:   model.GatewayTLSModeLabel,
 					ClusterID: gw.Cluster,
 					Labels:    labels.Instance{},
 				}, gwEp.Metadata)
