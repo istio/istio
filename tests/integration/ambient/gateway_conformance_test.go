@@ -77,7 +77,6 @@ var skippedTests = map[string]string{
 	"MeshHTTPRoute307Redirect": "TODO",
 
 	// The following tests were added in v1.6.0
-	"HTTPRouteNoBackendRefs":             "TODO",
 	"GatewayListenerUnsupportedProtocol": "TODO",
 }
 

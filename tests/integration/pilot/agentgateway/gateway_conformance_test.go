@@ -98,7 +98,6 @@ var skippedTests = map[string]string{
 	"TLSRouteMixedTerminationSameNamespace": "TODO",
 
 	// The following tests were added in v1.6.0
-	"HTTPRouteNoBackendRefs":             "TODO",
 	"GatewayInvalidParametersRef":        "TODO",
 	"GatewayListenerUnsupportedProtocol": "TODO",
 	"TCPRouteWeightedRouting":            "TODO: flaky in dual-stack and multicluster environments",
