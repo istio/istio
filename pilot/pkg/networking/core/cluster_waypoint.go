@@ -15,6 +15,7 @@
 package core
 
 import (
+	"fmt"
 	"time"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
@@ -45,6 +46,7 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/wellknown"
 )
 
@@ -87,8 +89,49 @@ var (
 	}
 )
 
-func (configgen *ConfigGeneratorImpl) buildInboundHBONEClusters() *cluster.Cluster {
-	return GetMainInternalCluster()
+func (configgen *ConfigGeneratorImpl) buildInboundHBONEClusters(proxy *model.Proxy) []*cluster.Cluster {
+	clusters := []*cluster.Cluster{GetMainInternalCluster()}
+	clusters = append(clusters, buildMainInternalPodClusters(proxy)...)
+	return clusters
+}
+
+// buildMainInternalPodClusters builds one cluster per inbound target port that re-enters
+// main_internal with the restored destination overridden to this workload's own address.
+// Used to terminate cross-network double-HBONE inner tunnels whose CONNECT authority is the
+// service hostname, which cannot be restored into an original destination address.
+func buildMainInternalPodClusters(proxy *model.Proxy) []*cluster.Cluster {
+	if !features.EnableAmbientMultiNetwork || len(proxy.IPAddresses) == 0 {
+		return nil
+	}
+	ip := proxy.IPAddresses[0]
+	ports := sets.New[int]()
+	for _, st := range proxy.ServiceTargets {
+		ports.Insert(int(st.Port.TargetPort))
+	}
+	clusters := make([]*cluster.Cluster, 0, ports.Len())
+	for _, port := range sets.SortedList(ports) {
+		name := mainInternalPodCluster(port)
+		meta := &core.Metadata{FilterMetadata: map[string]*structpb.Struct{
+			util.OriginalDstMetadataKey: util.BuildTunnelMetadataStruct(ip, port, ""),
+		}}
+		c := &cluster.Cluster{
+			Name:                 name,
+			ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
+			CircuitBreakers:      &cluster.CircuitBreakers{Thresholds: []*cluster.CircuitBreakers_Thresholds{getDefaultCircuitBreakerThresholds()}},
+			LoadAssignment: &endpoint.ClusterLoadAssignment{
+				ClusterName: name,
+				Endpoints:   util.BuildInternalEndpoint(MainInternalName, meta),
+			},
+			TransportSocket: util.WaypointInternalUpstreamTransportSocket(util.RawBufferTransport()),
+		}
+		c.AltStatName = util.DelimitedStatsPrefix(name)
+		clusters = append(clusters, c)
+	}
+	return clusters
+}
+
+func mainInternalPodCluster(targetPort int) string {
+	return fmt.Sprintf("%s_pod_%d", MainInternalName, targetPort)
 }
 
 func (configgen *ConfigGeneratorImpl) buildWaypointInboundClusters(
