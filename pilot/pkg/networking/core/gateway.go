@@ -1105,9 +1105,10 @@ func builtAutoPassthroughFilterChainsWithTLS(push *model.PushContext, proxy *mod
 			// The underscore format (outbound_.80_._.host) is DNS-compatible.
 			sniHost := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
 
-			// Route to inbound-vip cluster which has EDS endpoints with HBONE tunnel settings.
-			// E/W gateways create inbound-vip clusters with "tcp" subset for all services.
-			inboundVIPCluster := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "tcp", service.Hostname, port.Port)
+			// Route to the sidecar-bridge inbound-vip cluster, whose EDS endpoints originate a
+			// new HBONE tunnel toward the service (or its waypoint). The "tcp" subset cannot be
+			// used here: it forwards double-HBONE inner streams opaquely for the 15008 path.
+			inboundVIPCluster := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, model.SidecarBridgeSubsetName, service.Hostname, port.Port)
 			statPrefix := inboundVIPCluster
 
 			// For HTTP and unsupported (sniffing) protocols, use HCM to properly handle

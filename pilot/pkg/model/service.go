@@ -246,6 +246,12 @@ const (
 	// allowing sidecars to connect to gateways that present their own identity.
 	GatewayTLSModeLabel = "gateway"
 
+	// SidecarBridgeSubsetName is the inbound-vip cluster subset used by ambient east-west
+	// gateways to bridge terminated sidecar mTLS traffic into ambient. Unlike the "tcp"
+	// subset, which forwards double-HBONE inner streams opaquely to their destination,
+	// this subset originates a new HBONE tunnel toward the service (or its waypoint).
+	SidecarBridgeSubsetName = "sidecar"
+
 	// IstioCanonicalServiceLabelName is the name of label for the Istio Canonical Service for a workload instance.
 	IstioCanonicalServiceLabelName = pm.IstioCanonicalServiceLabelName
 

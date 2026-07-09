@@ -377,12 +377,13 @@ func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.Endpoi
 	}
 
 	// features.EnableIngressWaypointRouting enables waypoint routing for ingress gateways.
-	// For E/W gateways with inbound-vip direction (handling sidecar traffic to ambient workloads),
-	// we also need to route to waypoints to enable proper L7 processing.
+	// For the E/W gateway sidecar-bridge subset (terminated sidecar mTLS destined for ambient
+	// workloads), we also need to route to waypoints to enable proper L7 processing. The "tcp"
+	// subset keeps its opaque double-HBONE forwarding semantics and must not be redirected.
 	enableWaypointRouting := features.EnableIngressWaypointRouting && !isEastWestGateway(b.proxy)
-	// E/W gateway inbound-vip direction handles sidecar traffic that needs to be routed to waypoints
-	ewGatewayInboundVIP := isEastWestGateway(b.proxy) && b.dir == model.TrafficDirectionInboundVIP
-	if enableWaypointRouting || ewGatewayInboundVIP {
+	ewGatewaySidecarBridge := isEastWestGateway(b.proxy) &&
+		b.dir == model.TrafficDirectionInboundVIP && b.subsetName == model.SidecarBridgeSubsetName
+	if enableWaypointRouting || ewGatewaySidecarBridge {
 		if waypointEps, f := b.findServiceWaypoint(endpointIndex); f {
 			// endpoints are from waypoint service but the envoy endpoint is different envoy cluster
 			locLbEps := b.generate(waypointEps, true)
@@ -767,11 +768,12 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 		// Setup tunnel metadata so requests will go through the tunnel
 		target := ptr.NonEmptyOrDefault(waypoint, net.JoinHostPort(address, strconv.Itoa(port)))
 		innerAddressName := connectOriginate
-		// For E/W gateway, use forwardInnerConnect only when NOT handling inbound-vip traffic.
-		// Inbound-vip traffic comes from the 15443 listener (sidecar mTLS) and needs to originate
-		// a new HBONE tunnel to the ambient workload. Double-HBONE traffic (forwarding an existing
-		// inner tunnel) uses forwardInnerConnect.
-		if isEastWestGateway(b.proxy) && b.dir != model.TrafficDirectionInboundVIP {
+		// E/W gateways forward existing (double-HBONE) inner tunnels opaquely via
+		// forwardInnerConnect. The one exception is the sidecar-bridge subset: that traffic
+		// comes from the 15443 listener (terminated sidecar mTLS) and needs the gateway to
+		// originate a new HBONE tunnel to the ambient workload.
+		if isEastWestGateway(b.proxy) &&
+			!(b.dir == model.TrafficDirectionInboundVIP && b.subsetName == model.SidecarBridgeSubsetName) {
 			innerAddressName = forwardInnerConnect
 		}
 		ep.HostIdentifier = &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{
