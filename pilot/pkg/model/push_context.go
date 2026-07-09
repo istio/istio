@@ -63,12 +63,11 @@ var _ Metrics = &PushContext{}
 
 // serviceIndex is an index of all services by various fields for easy access during push.
 type serviceIndex struct {
-	// privateByNamespace are services that can reachable within the same namespace, with exportTo "."
-	privateByNamespace map[string][]*Service
+	count int
 	// public are services reachable within the mesh with exportTo "*"
 	public []*Service
 	// exportedToNamespace are services that were made visible to this namespace
-	// by an exportTo explicitly specifying this namespace.
+	// by an exportTo explicitly specifying this namespace or because they are private to the namespace.
 	exportedToNamespace map[string][]*Service
 
 	// HostnameAndNamespace has all services, indexed by hostname then namespace.
@@ -82,8 +81,8 @@ type serviceIndex struct {
 
 func newServiceIndex() serviceIndex {
 	return serviceIndex{
+		count:                0,
 		public:               []*Service{},
-		privateByNamespace:   map[string][]*Service{},
 		exportedToNamespace:  map[string][]*Service{},
 		HostnameAndNamespace: map[host.Name]map[string]*Service{},
 		instancesByPort:      map[string]map[int][]*IstioEndpoint{},
@@ -1031,22 +1030,13 @@ func (ps *PushContext) extraServicesForProxy(proxy *Proxy, patches *MergedEnvoyF
 }
 
 // servicesExportedToNamespace returns the list of services that are visible to a namespace.
-// namespace "" indicates all namespaces
 func (ps *PushContext) servicesExportedToNamespace(ns string) []*Service {
 	var out []*Service
 
 	// First add private services and explicitly exportedTo services
-	if ns == NamespaceAll {
-		out = make([]*Service, 0, len(ps.ServiceIndex.privateByNamespace)+len(ps.ServiceIndex.public))
-		for _, privateServices := range ps.ServiceIndex.privateByNamespace {
-			out = append(out, privateServices...)
-		}
-	} else {
-		out = make([]*Service, 0, len(ps.ServiceIndex.privateByNamespace[ns])+
-			len(ps.ServiceIndex.exportedToNamespace[ns])+len(ps.ServiceIndex.public))
-		out = append(out, ps.ServiceIndex.privateByNamespace[ns]...)
-		out = append(out, ps.ServiceIndex.exportedToNamespace[ns]...)
-	}
+	exportedServices := ps.ServiceIndex.exportedToNamespace[ns]
+	out = make([]*Service, 0, len(exportedServices)+len(ps.ServiceIndex.public))
+	out = append(out, exportedServices...)
 
 	// Second add public services
 	out = append(out, ps.ServiceIndex.public...)
@@ -1054,10 +1044,10 @@ func (ps *PushContext) servicesExportedToNamespace(ns string) []*Service {
 	return out
 }
 
-// GetAllServices returns the total services within the mesh.
+// GetTotalServiceCount returns the total services within the mesh.
 // Note: per proxy services should use SidecarScope.Services.
-func (ps *PushContext) GetAllServices() []*Service {
-	return ps.servicesExportedToNamespace(NamespaceAll)
+func (ps *PushContext) GetTotalServiceCount() int {
+	return ps.ServiceIndex.count
 }
 
 // ServiceForHostname returns the service associated with a given hostname following SidecarScope
@@ -1083,17 +1073,14 @@ func (ps *PushContext) IsServiceVisible(service *Service, namespace string) bool
 	}
 
 	ns := service.Attributes.Namespace
-	if service.Attributes.ExportTo.IsEmpty() {
-		if ps.exportToDefaults.service.Contains(visibility.Private) {
-			return ns == namespace
-		} else if ps.exportToDefaults.service.Contains(visibility.Public) {
-			return true
-		}
+	exportToSet := ps.exportToDefaults.service
+	if !service.Attributes.ExportTo.IsEmpty() {
+		exportToSet = service.Attributes.ExportTo
 	}
 
-	return service.Attributes.ExportTo.Contains(visibility.Public) ||
-		(service.Attributes.ExportTo.Contains(visibility.Private) && ns == namespace) ||
-		service.Attributes.ExportTo.Contains(visibility.Instance(namespace))
+	return exportToSet.Contains(visibility.Public) ||
+		(exportToSet.Contains(visibility.Private) && ns == namespace) ||
+		exportToSet.Contains(visibility.Instance(namespace))
 }
 
 // VirtualServicesForGateway lists all virtual services bound to the specified gateways
@@ -1524,73 +1511,109 @@ func (ps *PushContext) initServiceRegistry(env *Environment, configsUpdate sets.
 	allServices := SortServicesByCreationTime(env.Services())
 	resolveServiceAliases(allServices, configsUpdate)
 
+	ps.ServiceIndex.count = len(allServices)
+
+	ps.ServiceIndex.instancesByPort = make(map[string]map[int][]*IstioEndpoint, len(allServices))
+	ps.serviceAccounts = make(map[serviceAccountKey][]string, len(allServices))
 	for _, s := range allServices {
-		portMap := map[string]int{}
-		ports := sets.New[int]()
+		portMap := make(map[string]int, len(s.Ports))
+		ports := sets.NewWithLength[int](len(s.Ports))
 		for _, port := range s.Ports {
 			portMap[port.Name] = port.Port
 			ports.Insert(port.Port)
 		}
 
 		svcKey := s.Key()
-		if _, ok := ps.ServiceIndex.instancesByPort[svcKey]; !ok {
-			ps.ServiceIndex.instancesByPort[svcKey] = make(map[int][]*IstioEndpoint)
+		instancesByPort, ok := ps.ServiceIndex.instancesByPort[svcKey]
+		if !ok {
+			instancesByPort = make(map[int][]*IstioEndpoint, len(s.Ports))
+			ps.ServiceIndex.instancesByPort[svcKey] = instancesByPort
 		}
+		var accounts sets.String
 		shards, ok := env.EndpointIndex.ShardsForService(string(s.Hostname), s.Attributes.Namespace)
 		if ok {
-			instancesByPort := shards.CopyEndpoints(portMap, ports)
+			endpoints := shards.CopyEndpoints(portMap, ports)
 			// Iterate over the instances and add them to the service index to avoid overriding the existing port instances.
-			for port, instances := range instancesByPort {
-				ps.ServiceIndex.instancesByPort[svcKey][port] = instances
+			for port, instances := range endpoints {
+				instancesByPort[port] = instances
 			}
+			// Extract service accounts while we have the shards.
+			shards.RLock()
+			accounts = shards.ServiceAccounts.Copy()
+			shards.RUnlock()
 		}
-		if _, f := ps.ServiceIndex.HostnameAndNamespace[s.Hostname]; !f {
-			ps.ServiceIndex.HostnameAndNamespace[s.Hostname] = map[string]*Service{}
+		ps.addServiceAccounts(s, accounts)
+
+		hostMap, f := ps.ServiceIndex.HostnameAndNamespace[s.Hostname]
+		if !f {
+			hostMap = map[string]*Service{}
+			ps.ServiceIndex.HostnameAndNamespace[s.Hostname] = hostMap
 		}
 		// In some scenarios, there may be multiple Services defined for the same hostname due to ServiceEntry allowing
 		// arbitrary hostnames. In these cases, we want to pick the first Service, which is the oldest. This ensures
 		// newly created Services cannot take ownership unexpectedly.
 		// However, the Service is from Kubernetes it should take precedence over ones not. This prevents someone from
 		// "domain squatting" on the hostname before a Kubernetes Service is created.
-		if existing := ps.ServiceIndex.HostnameAndNamespace[s.Hostname][s.Attributes.Namespace]; existing != nil &&
+		if existing := hostMap[s.Attributes.Namespace]; existing != nil &&
 			!(existing.Attributes.ServiceRegistry != provider.Kubernetes && s.Attributes.ServiceRegistry == provider.Kubernetes) {
 			log.Debugf("Service %s/%s from registry %s ignored by %s/%s/%s", s.Attributes.Namespace, s.Hostname, s.Attributes.ServiceRegistry,
 				existing.Attributes.ServiceRegistry, existing.Attributes.Namespace, existing.Hostname)
 		} else {
-			ps.ServiceIndex.HostnameAndNamespace[s.Hostname][s.Attributes.Namespace] = s
+			hostMap[s.Attributes.Namespace] = s
 		}
 
 		ns := s.Attributes.Namespace
-		if s.Attributes.ExportTo.IsEmpty() {
-			if ps.exportToDefaults.service.Contains(visibility.Private) {
-				ps.ServiceIndex.privateByNamespace[ns] = append(ps.ServiceIndex.privateByNamespace[ns], s)
-			} else if ps.exportToDefaults.service.Contains(visibility.Public) {
-				ps.ServiceIndex.public = append(ps.ServiceIndex.public, s)
-			}
-		} else {
-			// if service has exportTo *, make it public and ignore all other exportTos.
-			// if service does not have exportTo *, but has exportTo ~ - i.e. not visible to anyone, ignore all exportTos.
-			// if service has exportTo ., replace with current namespace.
-			if s.Attributes.ExportTo.Contains(visibility.Public) {
-				ps.ServiceIndex.public = append(ps.ServiceIndex.public, s)
-				continue
-			} else if s.Attributes.ExportTo.Contains(visibility.None) {
-				continue
-			}
-			// . or other namespaces
-			for exportTo := range s.Attributes.ExportTo {
-				if exportTo == visibility.Private || string(exportTo) == ns {
-					// exportTo with same namespace is effectively private
-					ps.ServiceIndex.privateByNamespace[ns] = append(ps.ServiceIndex.privateByNamespace[ns], s)
-				} else {
-					// exportTo is a specific target namespace
-					ps.ServiceIndex.exportedToNamespace[string(exportTo)] = append(ps.ServiceIndex.exportedToNamespace[string(exportTo)], s)
+		exportToSet := ps.exportToDefaults.service
+		if !s.Attributes.ExportTo.IsEmpty() {
+			exportToSet = s.Attributes.ExportTo
+		}
+
+		// if service has exportTo *, make it public and ignore all other exportTos.
+		// if service does not have exportTo *, but has exportTo ~ - i.e. not visible to anyone, ignore all exportTos.
+		// if service has exportTo ., replace with current namespace.
+		if exportToSet.Contains(visibility.Public) {
+			ps.ServiceIndex.public = append(ps.ServiceIndex.public, s)
+			continue
+		}
+		if exportToSet.Contains(visibility.None) {
+			ps.ServiceIndex.count--
+			continue
+		}
+		// . or other namespaces
+		includesPrivate := false
+		for exportTo := range exportToSet {
+			key := string(exportTo)
+			if exportTo == visibility.Private || key == ns {
+				// exportTo with same namespace is effectively private
+				if includesPrivate {
+					continue
 				}
+				key = ns
+				includesPrivate = true
 			}
+
+			// exportTo is a specific target namespace
+			exportedServices, ok := ps.ServiceIndex.exportedToNamespace[key]
+			if !ok {
+				exportedServices = make([]*Service, 0)
+			}
+			ps.ServiceIndex.exportedToNamespace[key] = append(exportedServices, s)
 		}
 	}
+}
 
-	ps.initServiceAccounts(env, allServices)
+func (ps *PushContext) addServiceAccounts(s *Service, accounts sets.String) {
+	if len(s.ServiceAccounts) > 0 {
+		if accounts == nil {
+			accounts = sets.New(s.ServiceAccounts...)
+		} else {
+			accounts = accounts.InsertAll(s.ServiceAccounts...)
+		}
+	}
+	ps.serviceAccounts[serviceAccountKey{
+		hostname:  s.Hostname,
+		namespace: s.Attributes.Namespace,
+	}] = sets.SortedList(spiffe.ExpandWithTrustDomains(accounts, ps.Mesh.TrustDomainAliases))
 }
 
 // resolveServiceAliases sets the Aliases attributes on all services. The incoming Service's will just have AliasFor set,
@@ -1609,6 +1632,10 @@ func resolveServiceAliases(allServices []*Service, configsUpdated sets.Set[Confi
 			Namespace: s.Attributes.Namespace,
 		}
 		rawAlias[nh] = host.Name(s.Attributes.K8sAttributes.ExternalName)
+	}
+
+	if len(rawAlias) == 0 {
+		return
 	}
 
 	// unnamespacedRawAlias is like rawAlias but without namespaces.
@@ -1677,7 +1704,7 @@ func resolveServiceAliases(allServices []*Service, configsUpdated sets.Set[Confi
 	// Sort aliases so order is deterministic.
 	for _, v := range aliasesForService {
 		slices.SortFunc(v, func(a, b NamespacedHostname) int {
-			if r := cmp.Compare(a.Namespace, b.Namespace); r != 0 {
+			if r := strings.Compare(a.Namespace, b.Namespace); r != 0 {
 				return r
 			}
 			return cmp.Compare(a.Hostname, b.Hostname)
@@ -1704,41 +1731,12 @@ func SortServicesByCreationTime(services []*Service) []*Service {
 		// If creation time is the same, then behavior is nondeterministic. In this case, we can
 		// pick an arbitrary but consistent ordering based on name and namespace, which is unique.
 		// CreationTimestamp is stored in seconds, so this is not uncommon.
-		if r := cmp.Compare(i.Attributes.Name, j.Attributes.Name); r != 0 {
+		if r := strings.Compare(i.Attributes.Name, j.Attributes.Name); r != 0 {
 			return r
 		}
-		return cmp.Compare(i.Attributes.Namespace, j.Attributes.Namespace)
+		return strings.Compare(i.Attributes.Namespace, j.Attributes.Namespace)
 	})
 	return services
-}
-
-// Caches list of service accounts in the registry
-func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service) {
-	for _, svc := range services {
-		var accounts sets.String
-		// First get endpoint level service accounts
-		shard, f := env.EndpointIndex.ShardsForService(string(svc.Hostname), svc.Attributes.Namespace)
-		if f {
-			shard.RLock()
-			// copy here to reduce the lock time
-			// endpoints could update frequently, so the longer it locks, the more likely it will block other threads.
-			accounts = shard.ServiceAccounts.Copy()
-			shard.RUnlock()
-		}
-		if len(svc.ServiceAccounts) > 0 {
-			if accounts == nil {
-				accounts = sets.New(svc.ServiceAccounts...)
-			} else {
-				accounts = accounts.InsertAll(svc.ServiceAccounts...)
-			}
-		}
-		sa := sets.SortedList(spiffe.ExpandWithTrustDomains(accounts, ps.Mesh.TrustDomainAliases))
-		key := serviceAccountKey{
-			hostname:  svc.Hostname,
-			namespace: svc.Attributes.Namespace,
-		}
-		ps.serviceAccounts[key] = sa
-	}
 }
 
 // Caches list of authentication policies
@@ -1765,49 +1763,42 @@ func (ps *PushContext) initVirtualServices(env *Environment) {
 		ns := virtualService.Namespace
 		rule := virtualService.Spec.(*networking.VirtualService)
 		gwNames := getGatewayNames(rule)
-		if len(rule.ExportTo) == 0 {
-			// No exportTo in virtualService. Use the global default
-			// We only honor ., *
-			if ps.exportToDefaults.virtualService.Contains(visibility.Private) {
-				// add to local namespace only
-				private := ps.virtualServiceIndex.privateByNamespaceAndGateway
-				for _, gw := range gwNames {
-					n := types.NamespacedName{Namespace: ns, Name: gw}
-					private[n] = append(private[n], virtualService)
-				}
-			} else if ps.exportToDefaults.virtualService.Contains(visibility.Public) {
-				for _, gw := range gwNames {
-					ps.virtualServiceIndex.publicByGateway[gw] = append(ps.virtualServiceIndex.publicByGateway[gw], virtualService)
-				}
-			}
-		} else {
-			exportToSet := sets.NewWithLength[visibility.Instance](len(rule.ExportTo))
+		exportToSet := ps.exportToDefaults.virtualService
+		if len(rule.ExportTo) > 0 {
+			exportToSet = sets.NewWithLength[visibility.Instance](len(rule.ExportTo))
 			for _, e := range rule.ExportTo {
 				exportToSet.Insert(visibility.Instance(e))
 			}
-			// if vs has exportTo ~ - i.e. not visible to anyone, ignore all exportTos
-			// if vs has exportTo *, make public and ignore all other exportTos
-			// if vs has exportTo ., replace with current namespace
-			if exportToSet.Contains(visibility.Public) {
-				for _, gw := range gwNames {
-					ps.virtualServiceIndex.publicByGateway[gw] = append(ps.virtualServiceIndex.publicByGateway[gw], virtualService)
-				}
-			} else if !exportToSet.Contains(visibility.None) {
-				// . or other namespaces
-				for exportTo := range exportToSet {
-					if exportTo == visibility.Private || string(exportTo) == ns {
-						// add to local namespace only
-						for _, gw := range gwNames {
-							n := types.NamespacedName{Namespace: ns, Name: gw}
-							ps.virtualServiceIndex.privateByNamespaceAndGateway[n] = append(ps.virtualServiceIndex.privateByNamespaceAndGateway[n], virtualService)
-						}
-					} else {
-						exported := ps.virtualServiceIndex.exportedToNamespaceByGateway
-						// add to local namespace only
-						for _, gw := range gwNames {
-							n := types.NamespacedName{Namespace: string(exportTo), Name: gw}
-							exported[n] = append(exported[n], virtualService)
-						}
+		}
+
+		// if vs has exportTo ~ - i.e. not visible to anyone, ignore all exportTos
+		// if vs has exportTo *, make public and ignore all other exportTos
+		// if vs has exportTo ., replace with current namespace
+		if exportToSet.Contains(visibility.Public) {
+			for _, gw := range gwNames {
+				ps.virtualServiceIndex.publicByGateway[gw] = append(ps.virtualServiceIndex.publicByGateway[gw], virtualService)
+			}
+		} else if !exportToSet.Contains(visibility.None) {
+			// . or other namespaces
+			includesPrivate := false
+			for exportTo := range exportToSet {
+				key := string(exportTo)
+				if exportTo == visibility.Private || key == ns {
+					// exportTo with same namespace is effectively private
+					if includesPrivate {
+						continue
+					}
+					includesPrivate = true
+					private := ps.virtualServiceIndex.privateByNamespaceAndGateway
+					for _, gw := range gwNames {
+						n := types.NamespacedName{Namespace: ns, Name: gw}
+						private[n] = append(private[n], virtualService)
+					}
+				} else {
+					exported := ps.virtualServiceIndex.exportedToNamespaceByGateway
+					for _, gw := range gwNames {
+						n := types.NamespacedName{Namespace: key, Name: gw}
+						exported[n] = append(exported[n], virtualService)
 					}
 				}
 			}
@@ -2020,27 +2011,26 @@ func (ps *PushContext) SetDestinationRulesForTesting(configs []config.Config) {
 
 // sortConfigBySelectorAndCreationTime sorts the list of config objects based on priority and creation time.
 func sortConfigBySelectorAndCreationTime(configs []config.Config) []config.Config {
-	sort.Slice(configs, func(i, j int) bool {
-		// check if one of the configs has priority
-		idr := configs[i].Spec.(*networking.DestinationRule)
-		jdr := configs[j].Spec.(*networking.DestinationRule)
+	return slices.SortFunc(configs, func(a, b config.Config) int {
+		// check if one of the configs has workload selector
+		idr := a.Spec.(*networking.DestinationRule)
+		jdr := b.Spec.(*networking.DestinationRule)
 		if idr.GetWorkloadSelector() != nil && jdr.GetWorkloadSelector() == nil {
-			return true
+			return -1
 		}
 		if idr.GetWorkloadSelector() == nil && jdr.GetWorkloadSelector() != nil {
-			return false
+			return +1
 		}
 
 		// If priority is the same or neither has priority, fallback to creation time ordering
-		if r := configs[i].CreationTimestamp.Compare(configs[j].CreationTimestamp); r != 0 {
-			return r == -1 // -1 means i is less than j, so return true.
+		if r := a.CreationTimestamp.Compare(b.CreationTimestamp); r != 0 {
+			return r
 		}
-		if r := cmp.Compare(configs[i].Name, configs[j].Name); r != 0 {
-			return r == -1
+		if r := strings.Compare(a.Name, b.Name); r != 0 {
+			return r
 		}
-		return cmp.Compare(configs[i].Namespace, configs[j].Namespace) == -1
+		return strings.Compare(a.Namespace, b.Namespace)
 	})
-	return configs
 }
 
 // setDestinationRules updates internal structures using a set of configs.

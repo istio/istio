@@ -1544,15 +1544,101 @@ func TestServiceIndex(t *testing.T) {
 	g.Expect(si.instancesByPort).To(HaveLen(5))
 	g.Expect(si.HostnameAndNamespace).To(HaveLen(5))
 
-	// Should just have "namespace"
-	g.Expect(si.exportedToNamespace).To(HaveLen(1))
+	// Should have exported and private services in the right namespaces
+	g.Expect(si.exportedToNamespace).To(HaveLen(2))
 	g.Expect(serviceNames(si.exportedToNamespace["namespace"])).To(Equal([]string{"svc-namespace"}))
+	g.Expect(serviceNames(si.exportedToNamespace["test1"])).To(Equal([]string{"svc-private"}))
 
 	g.Expect(serviceNames(si.public)).To(Equal([]string{"svc-public", "svc-unset"}))
+}
 
-	// Should just have "test1"
-	g.Expect(si.privateByNamespace).To(HaveLen(1))
-	g.Expect(serviceNames(si.privateByNamespace["test1"])).To(Equal([]string{"svc-private"}))
+// TestServiceIndexDefaultServiceExportTo verifies that meshConfig.defaultServiceExportTo entries
+// that name specific namespaces (e.g. [".", "bar"]) are honored for services that do not
+// set their own exportTo: such services stay private to their own namespace AND are exported to the
+// additional namespaces listed in the default.
+func TestServiceIndexDefaultServiceExportTo(t *testing.T) {
+	g := NewWithT(t)
+	env := NewEnvironment()
+	configController := NewFakeStore()
+	env.ConfigStore = configController
+	env.ServiceDiscovery = &localServiceDiscovery{
+		services: []*Service{
+			{
+				Hostname: "svc-unset-1",
+				Ports:    allPorts,
+				Attributes: ServiceAttributes{
+					Namespace: "test1",
+				},
+			},
+			{
+				Hostname: "svc-unset-2",
+				Ports:    allPorts,
+				Attributes: ServiceAttributes{
+					Namespace: "test2",
+				},
+			},
+			{
+				// A service that already lives in the default target namespace must not be
+				// duplicated by the additional-namespace export.
+				Hostname: "svc-bar-ns",
+				Ports:    allPorts,
+				Attributes: ServiceAttributes{
+					Namespace: "bar",
+				},
+			},
+			{
+				// An explicit exportTo still takes precedence over the default.
+				Hostname: "svc-public",
+				Ports:    allPorts,
+				Attributes: ServiceAttributes{
+					Namespace: "test1",
+					ExportTo:  sets.New(visibility.Public),
+				},
+			},
+		},
+		serviceInstances: []*ServiceInstance{
+			{
+				Endpoint: &IstioEndpoint{
+					Addresses:    []string{"192.168.1.2"},
+					EndpointPort: 8000,
+					TLSMode:      DisabledTLSModeLabel,
+				},
+			},
+		},
+	}
+	m := mesh.DefaultMeshConfig()
+	m.DefaultServiceExportTo = []string{".", "bar"}
+	env.Watcher = meshwatcher.NewTestWatcher(m)
+	stop := test.NewStop(t)
+	env.VirtualServiceController = NewVirtualServiceController(
+		configController,
+		VSControllerOptions{KrtDebugger: krt.GlobalDebugHandler},
+		env.Watcher,
+	)
+	go configController.Run(stop)
+	go env.VirtualServiceController.Run(stop)
+	kube.WaitForCacheSync("test", stop, configController.HasSynced)
+	kube.WaitForCacheSync("test", stop, env.VirtualServiceController.HasSynced)
+	env.Init()
+
+	pc := NewPushContext()
+	pc.InitContext(env, nil, nil)
+	si := pc.ServiceIndex
+
+	// Default-private services are exported to their own namespace.
+	g.Expect(serviceNames(si.exportedToNamespace["test1"])).To(Equal([]string{"svc-unset-1"}))
+	g.Expect(serviceNames(si.exportedToNamespace["test2"])).To(Equal([]string{"svc-unset-2"}))
+
+	// All default-private services are additionally exported to the bar namespace, and the
+	// service already living in bar appears exactly once (no duplicate from the export loop).
+	g.Expect(serviceNames(si.exportedToNamespace["bar"])).
+		To(Equal([]string{"svc-bar-ns", "svc-unset-1", "svc-unset-2"}))
+
+	// Services with an explicit exportTo are unaffected by the default.
+	g.Expect(serviceNames(si.public)).To(Equal([]string{"svc-public"}))
+
+	// All services are counted in the total service count.
+	g.Expect(pc.GetTotalServiceCount()).To(Equal(4))
 }
 
 func TestIsServiceVisible(t *testing.T) {
@@ -1698,6 +1784,48 @@ func TestIsServiceVisible(t *testing.T) {
 				},
 			},
 			expect: false,
+		},
+		{
+			name: "service whose namespace is bar has no exportTo map with global private and target namespace foo",
+			pushContext: &PushContext{
+				exportToDefaults: exportToDefaults{
+					service: sets.New(visibility.Private, visibility.Instance("foo")),
+				},
+			},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace: "bar",
+				},
+			},
+			expect: true,
+		},
+		{
+			name: "service whose namespace is bar has no exportTo map with global private and unrelated target namespace",
+			pushContext: &PushContext{
+				exportToDefaults: exportToDefaults{
+					service: sets.New(visibility.Private, visibility.Instance("baz")),
+				},
+			},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace: "bar",
+				},
+			},
+			expect: false,
+		},
+		{
+			name: "service whose namespace is foo has no exportTo map with global private and unrelated target namespace",
+			pushContext: &PushContext{
+				exportToDefaults: exportToDefaults{
+					service: sets.New(visibility.Private, visibility.Instance("baz")),
+				},
+			},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace: "foo",
+				},
+			},
+			expect: true,
 		},
 	}
 
@@ -2964,6 +3092,125 @@ func TestVirtualServiceWithExportTo(t *testing.T) {
 	}
 }
 
+// TestVirtualServiceWithDefaultExportTo verifies that meshConfig.defaultVirtualServiceExportTo entries
+// that name specific namespaces (e.g. [".", "ns1"]) are honored for virtual services that do not set
+// their own exportTo: such virtual services stay private to their own namespace AND are exported to the
+// additional namespaces listed in the default. It also asserts no duplicate entry is produced for the
+// virtual service's own namespace.
+func TestVirtualServiceWithDefaultExportTo(t *testing.T) {
+	ps := NewPushContext()
+	m := &meshconfig.MeshConfig{
+		RootNamespace:                 "zzz",
+		DefaultVirtualServiceExportTo: []string{".", "ns1"},
+	}
+	env := &Environment{Watcher: meshwatcher.NewTestWatcher(m)}
+	ps.Mesh = env.Mesh()
+	fakeStore := NewFakeStore()
+	var controller ConfigStoreController = fakeStore
+	gatewayName := "default/gateway"
+
+	// Mesh-gateway virtual service with no exportTo in namespace test1 -> default [".", "ns1"] applies.
+	meshRule1 := config.Config{
+		Meta: config.Meta{Name: "mesh-rule1", Namespace: "test1", GroupVersionKind: gvk.VirtualService},
+		Spec: &networking.VirtualService{Hosts: []string{"mesh-rule1.com"}},
+	}
+	// Mesh-gateway virtual service with no exportTo in namespace test2.
+	meshRule2 := config.Config{
+		Meta: config.Meta{Name: "mesh-rule2", Namespace: "test2", GroupVersionKind: gvk.VirtualService},
+		Spec: &networking.VirtualService{Hosts: []string{"mesh-rule2.com"}},
+	}
+	// Gateway-scoped virtual service with no exportTo in namespace test1.
+	gwRule := config.Config{
+		Meta: config.Meta{Name: "gw-rule", Namespace: "test1", GroupVersionKind: gvk.VirtualService},
+		Spec: &networking.VirtualService{Gateways: []string{gatewayName}, Hosts: []string{"gw-rule.com"}},
+	}
+
+	for _, c := range []config.Config{meshRule1, meshRule2, gwRule} {
+		if _, err := controller.Create(c); err != nil {
+			t.Fatalf("could not create %v", c.Name)
+		}
+	}
+
+	env.VirtualServiceController = NewVirtualServiceController(
+		controller,
+		VSControllerOptions{KrtDebugger: krt.GlobalDebugHandler},
+		env.Watcher,
+	)
+
+	stop := test.NewStop(t)
+	go controller.Run(stop)
+	go env.VirtualServiceController.Run(stop)
+	kube.WaitForCacheSync("test", stop, controller.HasSynced)
+	kube.WaitForCacheSync("test", stop, env.VirtualServiceController.HasSynced)
+
+	env.ConfigStore = controller
+	ps.initDefaultExportMaps()
+	ps.initVirtualServices(env)
+
+	cases := []struct {
+		name      string
+		proxyNs   string
+		gateway   string
+		wantHosts []string
+	}{
+		{
+			name:      "own namespace sees private default virtual service exactly once",
+			proxyNs:   "test1",
+			gateway:   constants.IstioMeshGateway,
+			wantHosts: []string{"mesh-rule1.com"},
+		},
+		{
+			name:      "additional default namespace sees virtual services exported from all namespaces",
+			proxyNs:   "ns1",
+			gateway:   constants.IstioMeshGateway,
+			wantHosts: []string{"mesh-rule1.com", "mesh-rule2.com"},
+		},
+		{
+			name:      "unrelated namespace only sees its own private default virtual service",
+			proxyNs:   "test2",
+			gateway:   constants.IstioMeshGateway,
+			wantHosts: []string{"mesh-rule2.com"},
+		},
+		{
+			name:      "unrelated namespace sees no default-private virtual services",
+			proxyNs:   "random",
+			gateway:   constants.IstioMeshGateway,
+			wantHosts: []string{},
+		},
+		{
+			name:      "gateway-scoped virtual service visible to its own namespace exactly once",
+			proxyNs:   "test1",
+			gateway:   gatewayName,
+			wantHosts: []string{"gw-rule.com"},
+		},
+		{
+			name:      "gateway-scoped virtual service exported to additional default namespace",
+			proxyNs:   "ns1",
+			gateway:   gatewayName,
+			wantHosts: []string{"gw-rule.com"},
+		},
+		{
+			name:      "gateway-scoped virtual service not visible to unrelated namespace",
+			proxyNs:   "random",
+			gateway:   gatewayName,
+			wantHosts: []string{},
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			rules := ps.VirtualServicesForGateway(tt.proxyNs, tt.gateway)
+			gotHosts := make([]string, 0)
+			for _, r := range rules {
+				vs := r.Spec.(*networking.VirtualService)
+				gotHosts = append(gotHosts, vs.Hosts...)
+			}
+			if !reflect.DeepEqual(gotHosts, tt.wantHosts) {
+				t.Errorf("want %+v, got %+v", tt.wantHosts, gotHosts)
+			}
+		})
+	}
+}
+
 func TestInitVirtualService(t *testing.T) {
 	testCase := func(legacy bool, ns1GatewayExpectedDestinations, ns5GatewayExpectedDestinations sets.String) {
 		test.SetForTest(t, &features.FilterGatewayClusterConfig, true)
@@ -3772,67 +4019,5 @@ func TestResolveServiceAliases(t *testing.T) {
 			})
 			assert.Equal(t, tt.output, out)
 		})
-	}
-}
-
-func BenchmarkInitServiceAccounts(b *testing.B) {
-	ps := NewPushContext()
-	index := NewEndpointIndex(DisabledCache{})
-	env := &Environment{EndpointIndex: index}
-	ps.Mesh = &meshconfig.MeshConfig{TrustDomainAliases: []string{"td1", "td2"}}
-
-	services := []*Service{
-		{
-			Hostname: "svc-unset",
-			Ports:    allPorts,
-			Attributes: ServiceAttributes{
-				Namespace: "test1",
-			},
-		},
-		{
-			Hostname: "svc-public",
-			Ports:    allPorts,
-			Attributes: ServiceAttributes{
-				Namespace: "test1",
-				ExportTo:  sets.New(visibility.Public),
-			},
-		},
-		{
-			Hostname: "svc-private",
-			Ports:    allPorts,
-			Attributes: ServiceAttributes{
-				Namespace: "test1",
-				ExportTo:  sets.New(visibility.Private),
-			},
-		},
-		{
-			Hostname: "svc-none",
-			Ports:    allPorts,
-			Attributes: ServiceAttributes{
-				Namespace: "test1",
-				ExportTo:  sets.New(visibility.None),
-			},
-		},
-		{
-			Hostname: "svc-namespace",
-			Ports:    allPorts,
-			Attributes: ServiceAttributes{
-				Namespace: "test1",
-				ExportTo:  sets.New(visibility.Instance("namespace")),
-			},
-		},
-	}
-
-	for _, svc := range services {
-		if index.shardsBySvc[string(svc.Hostname)] == nil {
-			index.shardsBySvc[string(svc.Hostname)] = map[string]*EndpointShards{}
-		}
-		index.shardsBySvc[string(svc.Hostname)][svc.Attributes.Namespace] = &EndpointShards{
-			ServiceAccounts: sets.New("spiffe://cluster.local/ns/def/sa/sa1", "spiffe://cluster.local/ns/def/sa/sa2"),
-		}
-	}
-	b.ResetTimer()
-	for n := 0; n < b.N; n++ {
-		ps.initServiceAccounts(env, services)
 	}
 }

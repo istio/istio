@@ -564,7 +564,7 @@ func (s *DiscoveryServer) AdsPushAll(req *model.PushRequest) {
 		log.Infof("XDS: Incremental Pushing ConnectedEndpoints:%d Version:%s",
 			s.adsClientCount(), req.Push.PushVersion)
 	} else {
-		totalService := len(req.Push.GetAllServices())
+		totalService := req.Push.GetTotalServiceCount()
 		log.Infof("XDS: Pushing Services:%d ConnectedEndpoints:%d Version:%s",
 			totalService, s.adsClientCount(), req.Push.PushVersion)
 		monServices.Record(float64(totalService))

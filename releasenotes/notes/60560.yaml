@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 60560
+releaseNotes:
+  - |
+    **Fixed** an issue where additional namespaces in
+    meshConfig.defaultServiceExportTo and
+    meshConfig.defaultVirtualServiceExportTo were not being honored when the
+    default included the current namespace as ".".
