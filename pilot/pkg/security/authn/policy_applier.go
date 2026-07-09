@@ -155,9 +155,12 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 	innerAndList := []*envoy_jwt.JwtRequirement{}
 
 	// Optional providers are added here so the final requirement can OR them with the AND list.
-	// This handles providers that share the same token extraction location. The outer OR is
-	// skipped when any provider is required, since it would let a single optional token bypass
-	// required providers on distinct headers.
+	// This handles providers that share the same token extraction location (e.g., both reading
+	// from Authorization). The outer OR is skipped when any provider is required, since it would
+	// let a single optional token bypass required providers.
+	// Note: if a required provider and an optional provider both extract from the same header,
+	// the optional provider will reject the request when the header contains a token from a
+	// different issuer (allow_missing only applies to absent tokens, not wrong-issuer ones).
 	outterOrList := []*envoy_jwt.JwtRequirement{}
 	hasRequired := false
 

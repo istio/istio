@@ -11,4 +11,4 @@ releaseNotes:
   Previously, configuring multiple `jwtRules` validated each token independently but allowed requests with only one valid token to pass. Setting `required: true` on each rule enforces that all configured tokens must be present and cryptographically valid.
   This is useful when workloads must receive tokens from multiple issuers on distinct headers, for example an identity token in `Authorization` and a scope token in a custom header.
   The field defaults to `false`, preserving existing behavior for current `RequestAuthentication` resources.
-  When multiple `required` rules are configured, request principal and JWT payload metadata are populated from one of the validated tokens. Use `AuthorizationPolicy` rules that match on claims from the token relevant to your authorization decision.
+  When multiple `required` rules are configured, claims from all validated tokens are accessible in `AuthorizationPolicy` via `request.auth.claims`. Each provider's payload is stored under its own metadata key, so authorization rules can reference claims from any of the required tokens.

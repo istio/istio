@@ -284,6 +284,31 @@ func TestRequestAuthentication(t *testing.T) {
 						opts.Check = check.Status(http.StatusUnauthorized)
 					},
 				},
+				{
+					// Required token is expired: Envoy rejects an expired token even when required=true.
+					name: "primary-expired-scope-optional-valid",
+					customizeCall: func(_ framework.TestContext, _ echo.Instance, opts *echo.CallOptions) {
+						opts.HTTP.Path = "/primary-expired-scope-optional-valid"
+						opts.HTTP.Headers = headers.New().
+							WithAuthz(jwt.TokenExpired).
+							With("x-scope-token", jwt.TokenIssuer2).
+							Build()
+						opts.Check = check.Status(http.StatusUnauthorized)
+					},
+				},
+				{
+					// Optional token is expired and present: allow_missing only covers absent tokens,
+					// not expired ones, so this must be rejected.
+					name: "primary-valid-scope-optional-expired",
+					customizeCall: func(_ framework.TestContext, _ echo.Instance, opts *echo.CallOptions) {
+						opts.HTTP.Path = "/primary-valid-scope-optional-expired"
+						opts.HTTP.Headers = headers.New().
+							WithAuthz(jwt.TokenIssuer1).
+							With("x-scope-token", jwt.TokenExpired).
+							Build()
+						opts.Check = check.Status(http.StatusUnauthorized)
+					},
+				},
 			}))
 
 			t.NewSubTest("authn-authz").Run(newTest("testdata/requestauthn/authn-authz.yaml.tmpl", []testCase{
