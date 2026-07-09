@@ -1,0 +1,20 @@
+apiVersion: security.istio.io/v1
+kind: RequestAuthentication
+metadata:
+  name: {{ .To.ServiceName }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ .To.ServiceName }}
+  jwtRules:
+  - issuer: "test-issuer-1@istio.io"
+    jwksUri: "{{ .JWTServer.JwksURI }}"
+    required: true
+    fromHeaders:
+    - name: "authorization"
+      prefix: "Bearer "
+  - issuer: "test-issuer-2@istio.io"
+    jwksUri: "{{ .JWTServer.JwksURI }}"
+    required: true
+    fromHeaders:
+    - name: "x-scope-token"

@@ -180,6 +180,112 @@ func TestRequestAuthentication(t *testing.T) {
 				},
 			}))
 
+			t.NewSubTest("required-multi-jwt").Run(newTest("testdata/requestauthn/required-multi-jwt.yaml.tmpl", []testCase{
+				{
+					name: "both-tokens-valid",
+					customizeCall: func(t framework.TestContext, from echo.Instance, opts *echo.CallOptions) {
+						opts.HTTP.Path = "/both-tokens-valid"
+						opts.HTTP.Headers = headers.New().
+							WithAuthz(jwt.TokenIssuer1).
+							With("x-scope-token", jwt.TokenIssuer2).
+							Build()
+						opts.Check = check.And(
+							check.OK(),
+							check.ReachedTargetClusters(t))
+					},
+				},
+				{
+					name: "only-primary-token",
+					customizeCall: func(_ framework.TestContext, _ echo.Instance, opts *echo.CallOptions) {
+						opts.HTTP.Path = "/only-primary-token"
+						opts.HTTP.Headers = headers.New().WithAuthz(jwt.TokenIssuer1).Build()
+						opts.Check = check.Status(http.StatusUnauthorized)
+					},
+				},
+				{
+					name: "only-scope-token",
+					customizeCall: func(_ framework.TestContext, _ echo.Instance, opts *echo.CallOptions) {
+						opts.HTTP.Path = "/only-scope-token"
+						opts.HTTP.Headers = headers.New().
+							With("x-scope-token", jwt.TokenIssuer2).
+							Build()
+						opts.Check = check.Status(http.StatusUnauthorized)
+					},
+				},
+				{
+					name: "no-tokens",
+					customizeCall: func(_ framework.TestContext, _ echo.Instance, opts *echo.CallOptions) {
+						opts.HTTP.Path = "/no-tokens"
+						opts.Check = check.Status(http.StatusUnauthorized)
+					},
+				},
+				{
+					name: "primary-valid-scope-expired",
+					customizeCall: func(_ framework.TestContext, _ echo.Instance, opts *echo.CallOptions) {
+						opts.HTTP.Path = "/primary-valid-scope-expired"
+						opts.HTTP.Headers = headers.New().
+							WithAuthz(jwt.TokenIssuer1).
+							With("x-scope-token", jwt.TokenExpired).
+							Build()
+						opts.Check = check.Status(http.StatusUnauthorized)
+					},
+				},
+				{
+					name: "primary-expired-scope-valid",
+					customizeCall: func(_ framework.TestContext, _ echo.Instance, opts *echo.CallOptions) {
+						opts.HTTP.Path = "/primary-expired-scope-valid"
+						opts.HTTP.Headers = headers.New().
+							WithAuthz(jwt.TokenExpired).
+							With("x-scope-token", jwt.TokenIssuer2).
+							Build()
+						opts.Check = check.Status(http.StatusUnauthorized)
+					},
+				},
+			}))
+
+			t.NewSubTest("required-mixed-jwt").Run(newTest("testdata/requestauthn/required-mixed-jwt.yaml.tmpl", []testCase{
+				{
+					name: "both-tokens-valid",
+					customizeCall: func(t framework.TestContext, from echo.Instance, opts *echo.CallOptions) {
+						opts.HTTP.Path = "/both-tokens-valid"
+						opts.HTTP.Headers = headers.New().
+							WithAuthz(jwt.TokenIssuer1).
+							With("x-scope-token", jwt.TokenIssuer2).
+							Build()
+						opts.Check = check.And(
+							check.OK(),
+							check.ReachedTargetClusters(t))
+					},
+				},
+				{
+					name: "only-primary-token",
+					customizeCall: func(t framework.TestContext, from echo.Instance, opts *echo.CallOptions) {
+						opts.HTTP.Path = "/only-primary-token"
+						opts.HTTP.Headers = headers.New().WithAuthz(jwt.TokenIssuer1).Build()
+						opts.Check = check.And(
+							check.OK(),
+							check.ReachedTargetClusters(t))
+					},
+				},
+				{
+					name: "only-scope-token",
+					customizeCall: func(_ framework.TestContext, _ echo.Instance, opts *echo.CallOptions) {
+						opts.HTTP.Path = "/only-scope-token"
+						opts.HTTP.Headers = headers.New().
+							With("x-scope-token", jwt.TokenIssuer2).
+							Build()
+						opts.Check = check.Status(http.StatusUnauthorized)
+					},
+				},
+				{
+					name: "no-tokens",
+					customizeCall: func(_ framework.TestContext, _ echo.Instance, opts *echo.CallOptions) {
+						opts.HTTP.Path = "/no-tokens"
+						opts.Check = check.Status(http.StatusUnauthorized)
+					},
+				},
+			}))
+
 			t.NewSubTest("authn-authz").Run(newTest("testdata/requestauthn/authn-authz.yaml.tmpl", []testCase{
 				{
 					name: "valid-token",

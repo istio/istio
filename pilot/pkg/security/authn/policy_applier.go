@@ -142,22 +142,24 @@ func (a policyApplier) InboundMTLSSettings(
 
 // convertToEnvoyJwtConfig converts a list of JWT rules into Envoy JWT filter config to enforce it.
 // Each rule is expected corresponding to one JWT issuer (provider).
-// The behavior of the filter should reject all requests with invalid token. On the other hand,
-// if no token provided, the request is allowed.
+// The filter rejects requests with invalid tokens. Missing tokens are allowed unless a rule has
+// required set to true, in which case that token must be present and valid.
 func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContext, clearRouteCache bool) *envoy_jwt.JwtAuthentication {
 	if len(jwtRules) == 0 {
 		return nil
 	}
 
 	providers := map[string]*envoy_jwt.JwtProvider{}
-	// Each element of innerAndList is the requirement for each provider, in the form of
-	// {provider OR `allow_missing`}
-	// This list will be ANDed (if have more than one provider) for the final requirement.
+	// Each element of innerAndList is the per-provider requirement: a bare ProviderName when
+	// required is true, or OR{provider, allow_missing} otherwise. Multiple entries are ANDed.
 	innerAndList := []*envoy_jwt.JwtRequirement{}
 
-	// This is an (or) list for all providers. This will be OR with the innerAndList above so
-	// it can pass the requirement in the case that providers share the same location.
+	// Optional providers are added here so the final requirement can OR them with the AND list.
+	// This handles providers that share the same token extraction location. The outer OR is
+	// skipped when any provider is required, since it would let a single optional token bypass
+	// required providers on distinct headers.
 	outterOrList := []*envoy_jwt.JwtRequirement{}
+	hasRequired := false
 
 	for i, jwtRule := range jwtRules {
 		provider := &envoy_jwt.JwtProvider{
@@ -257,6 +259,7 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 		}
 
 		if jwtRule.GetRequired() {
+			hasRequired = true
 			// Required providers must be present and valid; no allow_missing wrapper.
 			innerAndList = append(innerAndList, providerRequirement)
 		} else {
@@ -314,10 +317,14 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 		},
 	}
 
-	// When all providers are required, outterOrList is empty. Emit just the AND
-	// requirement so that every token must be present and valid.
-	// When some providers are optional, OR the individual optional providers with
-	// the AND list to handle the case where providers share the same token location.
+	// When any provider is required, skip the outer OR shortcut so optional tokens cannot
+	// satisfy the requirement without the required token(s).
+	if hasRequired {
+		outterOrList = nil
+	}
+
+	// When outterOrList is empty, emit just the AND requirement. Otherwise OR optional
+	// provider shortcuts with the AND list for shared token extraction locations.
 	var finalRequirement *envoy_jwt.JwtRequirement
 	if len(outterOrList) == 0 {
 		finalRequirement = andRequirement
