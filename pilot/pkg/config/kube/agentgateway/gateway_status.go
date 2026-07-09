@@ -27,7 +27,6 @@ import (
 	istio "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/kube/gatewaycommon"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
@@ -181,94 +180,42 @@ func reportGatewayStatus(
 }
 
 func setProgrammedCondition(gatewayConditions map[string]*Condition, internal []string, gatewayServices []string, warnings []string, allUsable bool) {
-	if len(internal) > 0 {
-		msg := fmt.Sprintf("Resource programmed, assigned to service(s) %s", humanReadableJoin(internal))
-		gatewayConditions[string(gatewayv1.GatewayConditionProgrammed)].message = msg
+	programmed := gatewayConditions[string(gatewayv1.GatewayConditionProgrammed)]
+	mapped := map[string]*gatewaycommon.ListenerStatusCondition{
+		string(gatewayv1.GatewayConditionProgrammed): agentgatewayListenerStatusCondition(programmed),
 	}
-
-	if len(gatewayServices) == 0 {
-		gatewayConditions[string(gatewayv1.GatewayConditionProgrammed)].error = &ConfigError{
-			Reason:  InvalidAddress,
-			Message: "Failed to assign to any requested addresses",
-		}
-	} else if len(warnings) > 0 {
-		var msg string
-		var reason string
-		if len(internal) != 0 {
-			msg = fmt.Sprintf("Assigned to service(s) %s, but failed to assign to all requested addresses: %s",
-				humanReadableJoin(internal), strings.Join(warnings, "; "))
-		} else {
-			msg = fmt.Sprintf("Failed to assign to any requested addresses: %s", strings.Join(warnings, "; "))
-		}
-		if allUsable {
-			reason = string(gatewayv1.GatewayReasonAddressNotAssigned)
-		} else {
-			reason = string(gatewayv1.GatewayReasonAddressNotUsable)
-		}
-		gatewayConditions[string(gatewayv1.GatewayConditionProgrammed)].error = &ConfigError{
-			// TODO: this only checks Service ready, we should also check Deployment ready?
-			Reason:  reason,
-			Message: msg,
-		}
-	}
+	gatewaycommon.SetProgrammedCondition(mapped, internal, gatewayServices, warnings, allUsable)
+	applyAgentgatewayConditionFromListenerStatus(programmed, mapped[string(gatewayv1.GatewayConditionProgrammed)])
 }
 
-// reportUnsupportedListenerSet reports a status message for a ListenerSet that is not supported
-func reportUnsupportedListenerSet(class string, status *gatewayv1.ListenerSetStatus, obj *gatewayv1.ListenerSet) {
-	gatewayConditions := map[string]*Condition{
-		string(gatewayv1.GatewayConditionAccepted): {
-			status: metav1.ConditionFalse,
-			reason: string(gatewayv1.GatewayReasonAccepted),
-			error: &ConfigError{
-				Reason:  string(gatewayv1.ListenerSetReasonNotAllowed),
-				Message: fmt.Sprintf("The %q GatewayClass does not support ListenerSet", class),
-			},
-		},
-		string(gatewayv1.GatewayConditionProgrammed): {
-			status: metav1.ConditionFalse,
-			reason: string(gatewayv1.GatewayReasonProgrammed),
-			error: &ConfigError{
-				Reason:  string(gatewayv1.ListenerSetReasonNotAllowed),
-				Message: fmt.Sprintf("The %q GatewayClass does not support ListenerSet", class),
-			},
-		},
+func agentgatewayListenerStatusCondition(c *Condition) *gatewaycommon.ListenerStatusCondition {
+	if c == nil {
+		return &gatewaycommon.ListenerStatusCondition{}
 	}
-	status.Listeners = nil
-	status.Conditions = setConditions(obj.Generation, status.Conditions, gatewayConditions)
+	out := &gatewaycommon.ListenerStatusCondition{
+		Reason:  c.reason,
+		Message: c.message,
+		Status:  c.status,
+		SetOnce: c.setOnce,
+	}
+	if c.error != nil {
+		out.Error = &gatewaycommon.ListenerStatusConfigError{Reason: c.error.Reason, Message: c.error.Message}
+	}
+	return out
 }
 
-// reportNotAllowedListenerSet reports a status message for a ListenerSet that is not allowed to be selected
-func reportNotAllowedListenerSet(status *gatewayv1.ListenerSetStatus, obj *gatewayv1.ListenerSet) {
-	gatewayConditions := map[string]*Condition{
-		string(gatewayv1.GatewayConditionAccepted): {
-			reason: string(gatewayv1.GatewayReasonAccepted),
-			error: &ConfigError{
-				Reason:  string(gatewayv1.ListenerSetReasonNotAllowed),
-				Message: "The parent Gateway does not allow this reference; check the 'spec.allowedRoutes'",
-			},
-		},
-		string(gatewayv1.GatewayConditionProgrammed): {
-			reason: string(gatewayv1.GatewayReasonProgrammed),
-			error: &ConfigError{
-				Reason:  string(gatewayv1.ListenerSetReasonNotAllowed),
-				Message: "The parent Gateway does not allow this reference; check the 'spec.allowedRoutes'",
-			},
-		},
+func applyAgentgatewayConditionFromListenerStatus(c *Condition, u *gatewaycommon.ListenerStatusCondition) {
+	if c == nil || u == nil {
+		return
 	}
-	status.Listeners = nil
-	status.Conditions = setConditions(obj.Generation, status.Conditions, gatewayConditions)
-}
-
-func humanReadableJoin(ss []string) string {
-	switch len(ss) {
-	case 0:
-		return ""
-	case 1:
-		return ss[0]
-	case 2:
-		return ss[0] + " and " + ss[1]
-	default:
-		return strings.Join(ss[:len(ss)-1], ", ") + ", and " + ss[len(ss)-1]
+	c.reason = u.Reason
+	c.message = u.Message
+	c.status = u.Status
+	c.setOnce = u.SetOnce
+	if u.Error != nil {
+		c.error = &ConfigError{Reason: u.Error.Reason, Message: u.Error.Message}
+	} else {
+		c.error = nil
 	}
 }
 
@@ -278,17 +225,4 @@ func getListenerNames(spec *gatewayv1.GatewaySpec) sets.Set[gatewayv1.SectionNam
 		res.Insert(l.Name)
 	}
 	return res
-}
-
-func toRouteKind(g config.GroupVersionKind) gatewayv1.RouteGroupKind {
-	return gatewayv1.RouteGroupKind{Group: (*gatewayv1.Group)(&g.Group), Kind: gatewayv1.Kind(g.Kind)}
-}
-
-// routeGroupKindEqual checks if two RouteGroupKinds are equal
-func routeGroupKindEqual(rgk1, rgk2 gatewayv1.RouteGroupKind) bool {
-	return rgk1.Kind == rgk2.Kind && getGroup(rgk1) == getGroup(rgk2)
-}
-
-func getGroup(rgk gatewayv1.RouteGroupKind) gatewayv1.Group {
-	return ptr.OrDefault(rgk.Group, gatewayv1.GroupName)
 }

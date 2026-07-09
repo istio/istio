@@ -567,6 +567,57 @@ func TestZtunnelRemovePod(t *testing.T) {
 	mt.Assert(ztunnelConnected.Name(), nil, monitortest.Exactly(1))
 }
 
+// Test that a simulataneus pod delete and ztunnel disconenect does not deadlock
+func TestZtunnelPodDeletedDoesNotDeadlockOnDisconnectingConn(t *testing.T) {
+	setupLogging()
+
+	ztServ, err := newZtunnelServer(
+		fmt.Sprintf("@testaddr-deadlock%d", ztunnelTestCounter.Add(1)),
+		fakePodCache{},
+		time.Second/10,
+	)
+	assert.NoError(t, err)
+	defer ztServ.Close()
+
+	// No socket is ok here
+	conn := newZtunnelConnection((*net.UnixConn)(nil))
+	ztServ.conns.addConn(conn)
+
+	// We don't cancel this context
+	ctx := context.Background()
+
+	var podDeleteReturned atomic.Bool
+	go func() {
+		// PodDeleted returns a non-nil error here (Send returns "connection closed before
+		// response received" once done is closed); we only care that it returns at all.
+		_ = ztServ.PodDeleted(ctx, "some-deleted-pod-uid")
+		podDeleteReturned.Store(true)
+	}()
+
+	// PodDeleted enqueues the Del to conn.updates then blocks waiting for an ack that never comes
+	// from the non-draining connection, holding z.conns.mu the whole time. Confirm it stays blocked
+	// for a window, so we know we exercised the deadlock path (PodDeleted grabbed the mutex before
+	// the reap below).
+	assert.Consistently(t, podDeleteReturned.Load, false, 500*time.Millisecond)
+
+	// Simulate handleConn exiting and reaping the connection. deleteConn() closes conn.done
+	// *before* taking z.conns.mu.  The Send blocked above observes <-done, returns,
+	// and PodDeleted releases the mutex (letting deleteConn then acquire it).
+	go ztServ.conns.deleteConn(conn)
+
+	// The fix: PodDeleted unblocks promptly, WITHOUT the server context being cancelled.
+	assert.EventuallyEqual(t, podDeleteReturned.Load, true)
+
+	// And because the mutex was released, a reconnecting ztunnel's addConn is not blocked -- so a
+	// fresh ztunnel can register and receive its snapshot.
+	var reconnectAdded atomic.Bool
+	go func() {
+		ztServ.conns.addConn(newZtunnelConnection((*net.UnixConn)(nil)))
+		reconnectAdded.Store(true)
+	}()
+	assert.EventuallyEqual(t, reconnectAdded.Load, true)
+}
+
 func TestZtunnelPodAdded(t *testing.T) {
 	mt := monitortest.New(t)
 	setupLogging()

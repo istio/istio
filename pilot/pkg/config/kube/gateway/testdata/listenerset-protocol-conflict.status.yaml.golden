@@ -1,8 +1,8 @@
 apiVersion: gateway.networking.k8s.io/v1
 kind: ListenerSet
 metadata:
-  name: single-entry-http
-  namespace: ns1
+  name: listenerset-with-protocol-conflict-with-gateway-1
+  namespace: istio-system
 spec: null
 status:
   conditions:
@@ -39,7 +39,59 @@ status:
       reason: ResolvedRefs
       status: "True"
       type: ResolvedRefs
-    name: first
+    name: listener-set-1-listener
+    supportedKinds:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+    - group: gateway.networking.k8s.io
+      kind: GRPCRoute
+  - attachedRoutes: 0
+    conditions:
+    - lastTransitionTime: fake
+      message: Listener has a conflict with another listener attached to the same
+        Gateway
+      reason: ProtocolConflict
+      status: "False"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: Listener has a conflict with another listener attached to the same
+        Gateway
+      reason: ProtocolConflict
+      status: "True"
+      type: Conflicted
+    - lastTransitionTime: fake
+      message: Listener has a conflict with another listener attached to the same
+        Gateway
+      reason: ProtocolConflict
+      status: "False"
+      type: Programmed
+    name: protocol-conflict-with-gateway-listener
+    supportedKinds:
+    - group: gateway.networking.k8s.io
+      kind: TCPRoute
+  - attachedRoutes: 0
+    conditions:
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: NoConflicts
+      status: "False"
+      type: Conflicted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Programmed
+      status: "True"
+      type: Programmed
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    name: protocol-conflict-with-listener-set-listener
     supportedKinds:
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
@@ -49,8 +101,8 @@ status:
 apiVersion: gateway.networking.k8s.io/v1
 kind: ListenerSet
 metadata:
-  name: all-denied
-  namespace: ns2
+  name: listenerset-with-protocol-conflict-with-gateway-2
+  namespace: istio-system
 spec: null
 status:
   conditions:
@@ -68,39 +120,33 @@ status:
   - attachedRoutes: 0
     conditions:
     - lastTransitionTime: fake
-      message: certificateRef ns4-cert/ns4 not accessible to a Gateway in namespace
-        "ns2" (missing a ReferenceGrant?)
-      reason: NoValidCACertificate
+      message: Listener has a conflict with another listener attached to the same
+        Gateway
+      reason: ProtocolConflict
       status: "False"
       type: Accepted
     - lastTransitionTime: fake
-      message: No errors found
-      reason: NoConflicts
-      status: "False"
+      message: Listener has a conflict with another listener attached to the same
+        Gateway
+      reason: ProtocolConflict
+      status: "True"
       type: Conflicted
     - lastTransitionTime: fake
-      message: Bad TLS configuration
-      reason: Invalid
+      message: Listener has a conflict with another listener attached to the same
+        Gateway
+      reason: ProtocolConflict
       status: "False"
       type: Programmed
-    - lastTransitionTime: fake
-      message: certificateRef ns4-cert/ns4 not accessible to a Gateway in namespace
-        "ns2" (missing a ReferenceGrant?)
-      reason: RefNotPermitted
-      status: "False"
-      type: ResolvedRefs
-    name: only
+    name: protocol-conflict-with-gateway-listener
     supportedKinds:
     - group: gateway.networking.k8s.io
-      kind: HTTPRoute
-    - group: gateway.networking.k8s.io
-      kind: GRPCRoute
+      kind: TCPRoute
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: ListenerSet
 metadata:
-  name: cross-ns-cert
-  namespace: ns2
+  name: listenerset-with-protocol-conflict-with-listener-set-1
+  namespace: istio-system
 spec: null
 status:
   conditions:
@@ -110,7 +156,7 @@ status:
     status: "True"
     type: Accepted
   - lastTransitionTime: fake
-    message: Resource programmed, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:443
+    message: Resource programmed, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:80
     reason: Programmed
     status: "True"
     type: Programmed
@@ -137,7 +183,7 @@ status:
       reason: ResolvedRefs
       status: "True"
       type: ResolvedRefs
-    name: allowed
+    name: listener-set-2-listener
     supportedKinds:
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
@@ -146,81 +192,71 @@ status:
   - attachedRoutes: 0
     conditions:
     - lastTransitionTime: fake
-      message: certificateRef ns4-cert/ns4 not accessible to a Gateway in namespace
-        "ns2" (missing a ReferenceGrant?)
-      reason: NoValidCACertificate
+      message: Listener has a conflict with another listener attached to the same
+        Gateway
+      reason: ProtocolConflict
       status: "False"
       type: Accepted
     - lastTransitionTime: fake
-      message: No errors found
-      reason: NoConflicts
-      status: "False"
+      message: Listener has a conflict with another listener attached to the same
+        Gateway
+      reason: ProtocolConflict
+      status: "True"
       type: Conflicted
     - lastTransitionTime: fake
-      message: Bad TLS configuration
-      reason: Invalid
+      message: Listener has a conflict with another listener attached to the same
+        Gateway
+      reason: ProtocolConflict
       status: "False"
       type: Programmed
-    - lastTransitionTime: fake
-      message: certificateRef ns4-cert/ns4 not accessible to a Gateway in namespace
-        "ns2" (missing a ReferenceGrant?)
-      reason: RefNotPermitted
-      status: "False"
-      type: ResolvedRefs
-    name: denied
+    name: protocol-conflict-with-listener-set-listener
     supportedKinds:
     - group: gateway.networking.k8s.io
-      kind: HTTPRoute
-    - group: gateway.networking.k8s.io
-      kind: GRPCRoute
+      kind: TCPRoute
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: ListenerSet
 metadata:
-  name: same-ns-cert
-  namespace: ns2
+  name: listenerset-with-protocol-conflict-with-listener-set-2
+  namespace: istio-system
 spec: null
 status:
   conditions:
   - lastTransitionTime: fake
-    message: Resource accepted
-    reason: Accepted
-    status: "True"
+    message: None of the ListenerSet's listeners are valid
+    reason: ListenersNotValid
+    status: "False"
     type: Accepted
   - lastTransitionTime: fake
-    message: Resource programmed, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:443
-    reason: Programmed
-    status: "True"
+    message: None of the ListenerSet's listeners are valid
+    reason: ListenersNotValid
+    status: "False"
     type: Programmed
   listeners:
   - attachedRoutes: 0
     conditions:
     - lastTransitionTime: fake
-      message: No errors found
-      reason: Accepted
-      status: "True"
+      message: Listener has a conflict with another listener attached to the same
+        Gateway
+      reason: ProtocolConflict
+      status: "False"
       type: Accepted
     - lastTransitionTime: fake
-      message: No errors found
-      reason: NoConflicts
-      status: "False"
+      message: Listener has a conflict with another listener attached to the same
+        Gateway
+      reason: ProtocolConflict
+      status: "True"
       type: Conflicted
     - lastTransitionTime: fake
-      message: No errors found
-      reason: Programmed
-      status: "True"
+      message: Listener has a conflict with another listener attached to the same
+        Gateway
+      reason: ProtocolConflict
+      status: "False"
       type: Programmed
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: ResolvedRefs
-      status: "True"
-      type: ResolvedRefs
-    name: second
+    name: protocol-conflict-with-listener-set-listener
     supportedKinds:
     - group: gateway.networking.k8s.io
-      kind: HTTPRoute
-    - group: gateway.networking.k8s.io
-      kind: GRPCRoute
+      kind: TCPRoute
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: GatewayClass
@@ -238,14 +274,14 @@ status:
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
-  name: parent-gateway
+  name: gateway-with-listenerset-protocol-conflict
   namespace: istio-system
 spec: null
 status:
   addresses:
   - type: IPAddress
     value: 1.2.3.4
-  attachedListenerSets: 3
+  attachedListenerSets: 2
   conditions:
   - lastTransitionTime: fake
     message: Resource accepted
@@ -253,8 +289,7 @@ status:
     status: "True"
     type: Accepted
   - lastTransitionTime: fake
-    message: Resource programmed, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:443
-      and istio-ingressgateway.istio-system.svc.domain.suffix:80
+    message: Resource programmed, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:80
     reason: Programmed
     status: "True"
     type: Programmed
@@ -286,7 +321,35 @@ status:
       reason: ResolvedRefs
       status: "True"
       type: ResolvedRefs
-    name: foo
+    name: gateway-listener
+    supportedKinds:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+    - group: gateway.networking.k8s.io
+      kind: GRPCRoute
+  - attachedRoutes: 0
+    conditions:
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: NoConflicts
+      status: "False"
+      type: Conflicted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Programmed
+      status: "True"
+      type: Programmed
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    name: protocol-conflict-with-gateway-listener
     supportedKinds:
     - group: gateway.networking.k8s.io
       kind: HTTPRoute

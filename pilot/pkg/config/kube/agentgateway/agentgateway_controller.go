@@ -263,9 +263,17 @@ func (c *Controller) buildResourceCollections(opts krt.OptionsBuilder) {
 	status.RegisterStatus(c.status, gatewayClassStatus, GetStatus, c.tagWatcher.AccessUnprotected())
 
 	referenceGrants := gatewaycommon.BuildReferenceGrants(gatewaycommon.ReferenceGrantsCollection(c.inputs.ReferenceGrants, opts))
+	gatewayListenerConflicts := gatewaycommon.GatewayListenerConflictCollection(
+		c.inputs.Gateways,
+		c.inputs.ListenerSets,
+		c.inputs.Namespaces,
+		gatewaycommon.FetchAgentgatewayClassFetcher(gatewayClasses),
+		opts,
+	)
 	listenerSetIntialStatus, listenerSets := ListenerSetCollection(
 		c.inputs.ListenerSets,
 		c.inputs.Gateways,
+		gatewayListenerConflicts,
 		gatewayClasses,
 		c.inputs.Namespaces,
 		referenceGrants,
@@ -283,6 +291,7 @@ func (c *Controller) buildResourceCollections(opts krt.OptionsBuilder) {
 	gatewayInitialStatus, gateways := GatewayCollection(
 		c.inputs.Gateways,
 		listenerSets,
+		gatewayListenerConflicts,
 		gatewayClasses,
 		c.inputs.Namespaces,
 		referenceGrants,
@@ -355,26 +364,14 @@ func (c *Controller) buildFinalListenerSetStatus(
 	routeAttachmentsIndex := krt.NewIndex(routeAttachments, "to", func(o *RouteAttachment) []types.NamespacedName {
 		return []types.NamespacedName{o.To}
 	})
-	return krt.NewCollection(
+	return gatewaycommon.FinalListenerSetStatusCollection(
 		listenerSetStatuses,
-		func(
-			ctx krt.HandlerContext, i krt.ObjectWithStatus[*gatewayv1.ListenerSet, gatewayv1.ListenerSetStatus],
-		) *krt.ObjectWithStatus[*gatewayv1.ListenerSet, gatewayv1.ListenerSetStatus] {
-			routes := routeAttachmentsIndex.Fetch(ctx, config.NamespacedName(i.Obj))
-			routesPerListener := map[string]int32{}
-			for _, r := range routes {
-				routesPerListener[r.ListenerName]++
-			}
-			status := i.Status.DeepCopy()
-			for i, l := range status.Listeners {
-				l.AttachedRoutes = routesPerListener[string(l.Name)]
-				status.Listeners[i] = l
-			}
-			return &krt.ObjectWithStatus[*gatewayv1.ListenerSet, gatewayv1.ListenerSetStatus]{
-				Obj:    i.Obj,
-				Status: *status,
-			}
-		}, opts.WithName("ListenerSetFinalStatus")...)
+		func(ctx krt.HandlerContext, obj *gatewayv1.ListenerSet) []*RouteAttachment {
+			return routeAttachmentsIndex.Fetch(ctx, config.NamespacedName(obj))
+		},
+		func(r *RouteAttachment) string { return r.ListenerName },
+		opts,
+	)
 }
 
 func (c *Controller) buildFinalGatewayStatus(
@@ -719,6 +716,9 @@ func listenerName(listener *GatewayListener) *api.ListenerName {
 
 // buildListenerFromGateway creates a listener resource from a gateway
 func (c *Controller) buildListenerFromGateway(obj *GatewayListener) *AgwResource {
+	if obj == nil || !obj.Valid {
+		return nil
+	}
 	l := &api.Listener{
 		Key:      obj.ResourceName(),
 		Name:     listenerName(obj),

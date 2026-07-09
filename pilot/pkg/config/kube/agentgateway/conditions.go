@@ -23,7 +23,6 @@ import (
 
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/slices"
@@ -73,66 +72,6 @@ func setConditions(generation int64, existingConditions []metav1.Condition, cond
 		}
 	}
 	return existingConditions
-}
-
-// generateSupportedKinds generates the supported kinds for a listener based on its protocol and allowedRoutes.
-// The boolean return indicates whether all allowed routes were supported.
-func generateSupportedKinds(l k8s.Listener) ([]k8s.RouteGroupKind, bool) {
-	supported := []k8s.RouteGroupKind{}
-	switch l.Protocol {
-	case k8s.HTTPProtocolType, k8s.HTTPSProtocolType:
-		// Only terminate allowed, so its always HTTP
-		supported = []k8s.RouteGroupKind{
-			toRouteKind(gvk.HTTPRoute),
-			toRouteKind(gvk.GRPCRoute),
-		}
-	case k8s.TCPProtocolType:
-		supported = []k8s.RouteGroupKind{toRouteKind(gvk.TCPRoute)}
-	case k8s.TLSProtocolType:
-		supported = []k8s.RouteGroupKind{toRouteKind(gvk.TLSRoute)}
-		if l.TLS != nil && l.TLS.Mode != nil && *l.TLS.Mode == k8s.TLSModeTerminate {
-			supported = append(supported, toRouteKind(gvk.TCPRoute))
-		}
-		// UDP route not support
-	}
-	if l.AllowedRoutes != nil && len(l.AllowedRoutes.Kinds) > 0 {
-		// We need to filter down to only ones we actually support
-		intersection := []k8s.RouteGroupKind{}
-		for _, s := range supported {
-			for _, kind := range l.AllowedRoutes.Kinds {
-				if routeGroupKindEqual(s, kind) {
-					intersection = append(intersection, s)
-					break
-				}
-			}
-		}
-		return intersection, len(intersection) == len(l.AllowedRoutes.Kinds)
-	}
-	return supported, true
-}
-
-func reportListenerCondition(index int, l k8s.Listener, obj controllers.Object,
-	statusListeners []k8s.ListenerStatus, conditions map[string]*Condition,
-) []k8s.ListenerStatus {
-	for index >= len(statusListeners) {
-		statusListeners = append(statusListeners, k8s.ListenerStatus{})
-	}
-	cond := statusListeners[index].Conditions
-	supported, valid := generateSupportedKinds(l)
-	if !valid {
-		conditions[string(k8s.ListenerConditionResolvedRefs)] = &Condition{
-			reason:  string(k8s.ListenerReasonInvalidRouteKinds),
-			status:  metav1.ConditionFalse,
-			message: "Invalid route kinds",
-		}
-	}
-	statusListeners[index] = k8s.ListenerStatus{
-		Name:           l.Name,
-		AttachedRoutes: 0, // this will be reported later
-		SupportedKinds: supported,
-		Conditions:     setConditions(obj.GetGeneration(), cond, conditions),
-	}
-	return statusListeners
 }
 
 func FilterInPlaceByIndex[E any](s []E, keep func(int) bool) []E {
