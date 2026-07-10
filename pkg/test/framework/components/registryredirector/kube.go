@@ -21,6 +21,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"sync"
 	"time"
 
 	"istio.io/istio/pkg/kube"
@@ -50,7 +51,12 @@ type kubeComponent struct {
 	ns        namespace.Instance
 	cluster   cluster.Cluster
 	address   string
+	mu        sync.Mutex
+	stopOnce  sync.Once
+	stop      chan struct{}
 	forwarder kube.PortForwarder
+	podName   string
+	podNS     string
 }
 
 func newKube(ctx resource.Context, cfg Config) (Instance, error) {
@@ -126,6 +132,9 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	}
 
 	thePod := pods[0]
+	c.podName = thePod.Name
+	c.podNS = thePod.Namespace
+	c.stop = make(chan struct{})
 
 	portForwarder, err := c.cluster.NewPortForwarder(thePod.Name, thePod.Namespace, "", 0, 1338)
 	if err != nil {
@@ -137,8 +146,60 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	}
 
 	c.forwarder = portForwarder
+	go c.watchForwarder()
 
 	return c, nil
+}
+
+func (c *kubeComponent) isConnected() bool {
+	if c.forwarder == nil {
+		return false
+	}
+	select {
+	case <-c.forwarder.ErrChan():
+		return false
+	default:
+		return true
+	}
+}
+
+func (c *kubeComponent) reconnect() error {
+	if c.forwarder != nil {
+		c.forwarder.Close()
+		c.forwarder = nil
+	}
+	fwd, err := c.cluster.NewPortForwarder(c.podName, c.podNS, "", 0, 1338)
+	if err != nil {
+		return err
+	}
+	if err := fwd.Start(); err != nil {
+		fwd.Close()
+		return err
+	}
+	c.forwarder = fwd
+	return nil
+}
+
+func (c *kubeComponent) watchForwarder() {
+	t := time.NewTicker(500 * time.Millisecond)
+	defer t.Stop()
+	for {
+		select {
+		case <-c.stop:
+			return
+		case <-t.C:
+			c.mu.Lock()
+			if !c.isConnected() {
+				scopes.Framework.Warn("registry-redirector port forward terminated, reconnecting")
+				if err := c.reconnect(); err != nil {
+					scopes.Framework.Warnf("registry-redirector port forward reconnect failed: %v", err)
+				} else {
+					scopes.Framework.Warn("registry-redirector port forward reconnected")
+				}
+			}
+			c.mu.Unlock()
+		}
+	}
 }
 
 func (c *kubeComponent) ID() resource.ID {
@@ -147,6 +208,17 @@ func (c *kubeComponent) ID() resource.ID {
 
 // Close implements io.Closer.
 func (c *kubeComponent) Close() error {
+	c.stopOnce.Do(func() {
+		if c.stop != nil {
+			close(c.stop)
+		}
+	})
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.forwarder != nil {
+		c.forwarder.Close()
+		c.forwarder = nil
+	}
 	return nil
 }
 
@@ -164,7 +236,10 @@ func (c *kubeComponent) SetupTagMap(tagMap map[string]string) error {
 	}
 
 	err = retry.UntilSuccess(func() error {
-		_, err := client.Post(fmt.Sprintf("http://%s/admin/v1/tagmap", c.forwarder.Address()), "application/json", bytes.NewBuffer(body))
+		c.mu.Lock()
+		addr := c.forwarder.Address()
+		c.mu.Unlock()
+		_, err := client.Post(fmt.Sprintf("http://%s/admin/v1/tagmap", addr), "application/json", bytes.NewBuffer(body))
 		return err
 	}, retry.Delay(100*time.Millisecond), retry.Timeout(20*time.Second))
 	if err != nil {
