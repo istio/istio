@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: extensibility
+issue:
+  - https://github.com/istio/istio/issues/60665
+releaseNotes:
+  - |
+    **Fixed** a bug where a Service referring to a Waypoint in a different namespace did not have the namespace wide Telemetry resource included as part of its configuration.

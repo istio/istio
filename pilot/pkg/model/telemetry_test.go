@@ -617,6 +617,22 @@ func TestTelemetryFilters(t *testing.T) {
 			},
 		},
 	}}
+	overridesOther := []*tpb.MetricsOverrides{{
+		Match: &tpb.MetricSelector{
+			MetricMatch: &tpb.MetricSelector_Metric{
+				Metric: tpb.MetricSelector_REQUEST_DURATION,
+			},
+		},
+		TagOverrides: map[string]*tpb.MetricsOverrides_TagOverride{
+			"removeOther": {
+				Operation: tpb.MetricsOverrides_TagOverride_REMOVE,
+			},
+			"add": {
+				Operation: tpb.MetricsOverrides_TagOverride_UPSERT,
+				Value:     "otherBar",
+			},
+		},
+	}}
 	sidecar := &Proxy{
 		ConfigNamespace: "default",
 		Labels:          map[string]string{"app": "test"},
@@ -721,6 +737,20 @@ func TestTelemetryFilters(t *testing.T) {
 		Metrics: []*tpb.Metrics{
 			{
 				Overrides: overrides,
+			},
+		},
+	}
+
+	targetRefsOther := &tpb.Telemetry{
+		TargetRefs: []*v1beta1.PolicyTargetReference{{
+			Group:     gvk.Service.Group,
+			Kind:      gvk.Service.Kind,
+			Namespace: "other",
+			Name:      "sample-svc",
+		}},
+		Metrics: []*tpb.Metrics{
+			{
+				Overrides: overridesOther,
 			},
 		},
 	}
@@ -1097,6 +1127,63 @@ func TestTelemetryFilters(t *testing.T) {
 			want: map[string]string{
 				"istio.stats": `{"disable_host_header_fallback":true,"metrics":[{"dimensions":{"add":"bar"},"name":"requests_total"` +
 					`,"tags_to_remove":["remove"]}],"reporter":"SERVER_GATEWAY"}`,
+			},
+		},
+		{
+			name: "targetRef match cross namespace",
+			cfgs: []config.Config{
+				newTelemetry("default", targetRefs),
+				{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.Telemetry,
+						Name:             "default",
+						Namespace:        "other",
+					},
+					Spec: targetRefsOther,
+				},
+			},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Name:            "sample-svc",
+					Namespace:       "other",
+					ServiceRegistry: provider.Kubernetes,
+				},
+			},
+			proxy:            waypoint,
+			class:            networking.ListenerClassSidecarInbound,
+			protocol:         networking.ListenerProtocolHTTP,
+			defaultProviders: &meshconfig.MeshConfig_DefaultProviders{Metrics: []string{"prometheus"}},
+			want: map[string]string{
+				"istio.stats": `{"disable_host_header_fallback":true,"metrics":[{"dimensions":{"add":"otherBar"}` +
+					`,"name":"request_duration_milliseconds","tags_to_remove":["removeOther"]}],"reporter":"SERVER_GATEWAY"}`,
+			},
+		},
+		{
+			name: "cross namespace wide",
+			cfgs: []config.Config{
+				{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.Telemetry,
+						Name:             "default",
+						Namespace:        "other",
+					},
+					Spec: overridesPrometheus,
+				},
+			},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Name:            "sample-svc",
+					Namespace:       "other",
+					ServiceRegistry: provider.Kubernetes,
+				},
+			},
+			proxy:            waypoint,
+			class:            networking.ListenerClassSidecarInbound,
+			protocol:         networking.ListenerProtocolHTTP,
+			defaultProviders: &meshconfig.MeshConfig_DefaultProviders{Metrics: []string{"prometheus"}},
+			want: map[string]string{
+				"istio.stats": `{"disable_host_header_fallback":true,"metrics":[{"dimensions":{"add":"bar"}` +
+					`,"name":"requests_total","tags_to_remove":["remove"]}],"reporter":"SERVER_GATEWAY"}`,
 			},
 		},
 	}
