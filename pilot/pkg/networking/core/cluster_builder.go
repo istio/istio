@@ -150,6 +150,7 @@ type ClusterBuilder struct {
 	cache                     model.XdsCache
 	credentialSocketExist     bool
 	fileCredentialSocketExist bool
+	connectionSettings        *meshconfig.ProxyConfig_ConnectionSettings
 }
 
 // NewClusterBuilder builds an instance of ClusterBuilder.
@@ -188,6 +189,7 @@ func NewClusterBuilder(proxy *model.Proxy, req *model.PushRequest, cache model.X
 			cb.fileCredentialSocketExist = true
 		}
 	}
+	cb.connectionSettings = cb.resolveConnectionSettings()
 	return cb
 }
 
@@ -485,8 +487,8 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 		ClusterDiscoveryType: &cluster.Cluster_Type{Type: discoveryType},
 		CommonLbConfig:       &cluster.Cluster_CommonLbConfig{},
 	}
-	if cs := cb.getResolvedConnectionSettings(); cs != nil {
-		if v := cs.GetClusterPerConnectionBufferLimitBytes(); v != nil && v.GetValue() >= 0 {
+	if cs := cb.connectionSettings; cs != nil {
+		if v := cs.GetClusterPerConnectionBufferLimitBytes(); v != nil && v.GetValue() > 0 {
 			c.PerConnectionBufferLimitBytes = wrappers.UInt32(uint32(v.GetValue()))
 		}
 	}
@@ -553,7 +555,7 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 	return ec
 }
 
-func (cb *ClusterBuilder) getResolvedConnectionSettings() *meshconfig.ProxyConfig_ConnectionSettings {
+func (cb *ClusterBuilder) resolveConnectionSettings() *meshconfig.ProxyConfig_ConnectionSettings {
 	defaultConfig := cb.req.Push.Mesh.GetDefaultConfig()
 	proxyConfig := defaultConfig
 	if cb.proxyMetadata != nil {
