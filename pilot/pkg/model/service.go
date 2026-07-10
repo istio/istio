@@ -1285,8 +1285,16 @@ const (
 	// It is used to inform the user that the ServiceEntry will not be active until it is bound to a waypoint.
 	WaypointMissing ConditionType = "istio.io/WaypointMissing"
 
+	// VisibilityApplied reports the visibility resolved for a ServiceEntry from
+	// MeshConfig.serviceEntryVisibility. Status is always true (informational); Reason carries the
+	// resolved value (VisibilityPublic / VisibilityNamespace).
+	VisibilityApplied ConditionType = "istio.io/VisibilityApplied"
+
 	NoWaypointForWildcardService          string = "NoWaypointForWildcardService"
 	NoWaypointForConnectStrategyCondition string = "NoWaypointForRacingConnectStrategy"
+
+	VisibilityPublic    string = "Public"
+	VisibilityNamespace string = "Namespace"
 )
 
 type ConditionSet = map[ConditionType]*Condition
@@ -1372,6 +1380,26 @@ func (i ServiceInfo) GetConditions(currentConditions map[string]Condition) Condi
 				Reason:  NoWaypointForConnectStrategyCondition,
 				Message: msg,
 			}
+		}
+	}
+
+	// Surface the visibility resolved from MeshConfig.serviceEntryVisibility. k8s Services are
+	// always PUBLIC, so this is only meaningful for ServiceEntry sources. The value is uniform
+	// across a ServiceEntry's hosts today, so this host-independent condition is idempotent across
+	// the per-host ServiceInfos that target the same object. If per-host matchers ever make
+	// visibility diverge within one ServiceEntry, this single fixed-type condition would need to
+	// aggregate across hosts instead.
+	if i.Source.Kind == kind.ServiceEntry {
+		reason, msg := VisibilityPublic, "ServiceEntry is visible to the entire mesh (PUBLIC)."
+		if i.Service.GetVisibility() == workloadapi.Service_NAMESPACE {
+			reason = VisibilityNamespace
+			msg = "ServiceEntry is visible only within its own namespace (NAMESPACE), " +
+				"per mesh serviceEntryVisibility."
+		}
+		set[VisibilityApplied] = &Condition{
+			Status:  true,
+			Reason:  reason,
+			Message: msg,
 		}
 	}
 
