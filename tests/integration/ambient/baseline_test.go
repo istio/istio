@@ -53,6 +53,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
 	"istio.io/istio/pkg/test/framework/components/echo/config"
 	"istio.io/istio/pkg/test/framework/components/echo/config/param"
+	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/echo/util/traffic"
@@ -2688,6 +2689,99 @@ spec:
 				})
 			}
 		})
+}
+
+// TestServiceEntryVisibility exercises MeshConfig.serviceEntryVisibility end-to-end in ambient:
+// with a safe-by-default NAMESPACE default and a policy promoting se-visibility=public namespaces
+// to PUBLIC, a namespace-local ServiceEntry must be completely invisible to an out-of-namespace
+// client and must not shadow a PUBLIC ServiceEntry that shares its hostname -- even when the
+// namespace-local one is created first (older, so it would win canonical selection if istiod's
+// guard were missing). This single test covers visibility filtering, the canonical guard, and
+// non-shadowing at once.
+func TestServiceEntryVisibility(t *testing.T) {
+	framework.NewTest(t).Run(func(t framework.TestContext) {
+		// Safe-by-default posture: every ServiceEntry is namespace-local unless its namespace is
+		// explicitly labeled se-visibility=public.
+		i.PatchMeshConfigOrFail(t, `
+serviceEntryVisibility:
+  defaultVisibility: NAMESPACE
+  policies:
+  - visibility: PUBLIC
+    matchingRules:
+    - namespaceSelector:
+        matchLabels:
+          se-visibility: public`)
+
+		const (
+			shadowHost   = "visibility-shadow.internal"
+			localBackend = "shadowlocal"  // backs the namespace-local ServiceEntry
+			pubBackend   = "shadowpublic" // backs the public ServiceEntry
+		)
+
+		// Two ambient namespaces, both discovered by istiod (they lack the test-exclude label the
+		// discoverySelectors in tests/integration/iop-ambient-test-defaults.yaml filter on -- note
+		// apps.ExternalNamespace carries that label and is deliberately NOT discovered, so a
+		// ServiceEntry there never reaches WDS). Only the public namespace is labeled
+		// se-visibility=public, so the policy promotes just its ServiceEntries to PUBLIC; the other
+		// stays namespace-local by the NAMESPACE default.
+		localNs := namespace.NewOrFail(t, namespace.Config{
+			Prefix: "vis-local",
+			Labels: map[string]string{"istio.io/dataplane-mode": "ambient"},
+		})
+		pubNs := namespace.NewOrFail(t, namespace.Config{
+			Prefix: "vis-public",
+			Labels: map[string]string{
+				"istio.io/dataplane-mode": "ambient",
+				"se-visibility":           "public",
+			},
+		})
+
+		// Distinct backends so a shadow surfaces as the wrong responder, not merely a failure.
+		deployment.New(t).
+			WithConfig(echo.Config{Service: localBackend, Namespace: localNs, Ports: ports.All()}).
+			WithConfig(echo.Config{Service: pubBackend, Namespace: pubNs, Ports: ports.All()}).
+			BuildOrFail(t)
+
+		se := func(name, app string) string {
+			return fmt.Sprintf(`apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: %s
+spec:
+  hosts:
+  - %s
+  ports:
+  - name: http
+    number: 80
+    protocol: HTTP
+    targetPort: 8080
+  location: MESH_INTERNAL
+  resolution: STATIC
+  workloadSelector:
+    labels:
+      app: %s`, name, shadowHost, app)
+		}
+
+		// Create the namespace-local ServiceEntry FIRST so it is the older entry: absent the
+		// canonical guard it would win canonical selection and shadow the public one.
+		t.ConfigIstio().YAML(localNs.Name(), se("shadow-local", localBackend)).ApplyOrFail(t)
+		t.ConfigIstio().YAML(pubNs.Name(), se("shadow-public", pubBackend)).ApplyOrFail(t)
+
+		// A cross-namespace ambient client: the namespace-local ServiceEntry is invisible to it and
+		// must not shadow the public one, so the shared host must resolve to the PUBLIC backend.
+		apps.Captured[0].CallOrFail(t, echo.CallOptions{
+			Address: shadowHost,
+			Port:    echo.Port{Name: "http", ServicePort: 80},
+			Scheme:  scheme.HTTP,
+			HTTP:    echo.HTTP{Path: "/visibility"},
+			Check: check.And(
+				check.OK(),
+				// The echo response identifies the responding pod; it must be the public backend,
+				// never the namespace-local one (which would indicate shadowing / wrong canonical).
+				check.BodyContains("Hostname="+pubBackend),
+			),
+		})
+	})
 }
 
 // Run runs the given reachability test cases with the context.
