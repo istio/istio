@@ -74,7 +74,7 @@ var skippedTests = map[string]string{
 	"GatewayFrontendClientCertificateValidation":                 "TODO",
 	"GatewayInvalidFrontendClientCertificateValidation":          "TODO",
 
-	"HTTPRouteCORS":                                   "TODO",
+	"HTTPRouteCORS": "TODO",
 	"HTTPRouteHTTPSListenerDetectMisdirectedRequests": "TODO",
 
 	"ListenerSetReferenceGrant": "TODO",
