@@ -74,17 +74,10 @@ var skippedTests = map[string]string{
 	"GatewayFrontendClientCertificateValidation":                 "TODO",
 	"GatewayInvalidFrontendClientCertificateValidation":          "TODO",
 
-	"HTTPRoute303Redirect":                            "TODO",
-	"HTTPRoute307Redirect":                            "TODO",
-	"HTTPRoute308Redirect":                            "TODO",
 	"HTTPRouteCORS":                                   "TODO",
 	"HTTPRouteHTTPSListenerDetectMisdirectedRequests": "TODO",
 
 	"ListenerSetReferenceGrant": "TODO",
-
-	"MeshHTTPRoute303Redirect": "TODO",
-	"MeshHTTPRoute307Redirect": "TODO",
-	"MeshHTTPRoute308Redirect": "TODO",
 
 	// The following tests were modified between v1.4.0 && v1.5.0
 	"BackendTLSPolicy": "TODO",
