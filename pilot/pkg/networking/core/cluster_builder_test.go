@@ -1628,6 +1628,7 @@ func TestClusterPerConnectionBufferLimitBytes(t *testing.T) {
 					},
 				},
 			}
+			cb.connectionSettings = cb.resolveConnectionSettings()
 
 			defaultCluster := cb.buildCluster("my-cluster", cluster.Cluster_STATIC, endpoints, model.TrafficDirectionOutbound, servicePort, service, nil, "")
 			if defaultCluster == nil {
