@@ -54,3 +54,11 @@ func ReportWaypointCanarySameAsPrimary(waypoint string) *model.StatusMessage {
 		Message: fmt.Sprintf("canary waypoint %q must differ from the primary waypoint", waypoint),
 	}
 }
+
+func ReportWaypointCrossNamespaceForbidden(waypoint string) *model.StatusMessage {
+	return &model.StatusMessage{
+		Reason: "CrossNamespaceWaypointForbidden",
+		Message: fmt.Sprintf("cannot bind to waypoint %q in another namespace: cross-namespace waypoint binding is "+
+			"not permitted for a ServiceEntry with NAMESPACE visibility", waypoint),
+	}
+}

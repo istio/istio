@@ -74,11 +74,40 @@ func TestServiceEntryServices(t *testing.T) {
 		},
 	}
 
+	// A waypoint in a different namespace than the ServiceEntry ("ns"), reachable via
+	// use-waypoint-namespace. Its allowedRoutes permit attachment from "ns", so the binding is
+	// attempted and reaches the NAMESPACE-visibility guard rather than being denied earlier.
+	crossNsWaypointAddr := &workloadapi.GatewayAddress{
+		Destination: &workloadapi.GatewayAddress_Hostname{
+			Hostname: &workloadapi.NamespacedHostname{
+				Namespace: "other",
+				Hostname:  "hostname.other.example",
+			},
+		},
+		HboneMtlsPort: 15008,
+	}
+	crossNsWaypoint := Waypoint{
+		Named: krt.Named{
+			Name:      "waypoint",
+			Namespace: "other",
+		},
+		TrafficType: constants.AllTraffic,
+		Address:     crossNsWaypointAddr,
+		AllowedRoutes: WaypointSelector{
+			FromNamespaces: gatewayv1.NamespacesFromSelector,
+			Selector:       labels.ValidatedSetSelector(map[string]string{v1.LabelMetadataName: "ns"}),
+		},
+	}
+
 	cases := []struct {
 		name   string
 		inputs []any
 		se     *networkingclient.ServiceEntry
 		result []*workloadapi.Service
+		// waypointErr, when set, asserts the (single) resulting service's
+		// WaypointBindingStatus.Error -- the status surfaced when a binding is refused. The
+		// service builder result otherwise only carries the *workloadapi.Service, which drops it.
+		waypointErr *model.StatusMessage
 	}{
 		{
 			name:   "DNS service entry with address",
@@ -1193,6 +1222,141 @@ func TestServiceEntryServices(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "NAMESPACE visibility refuses cross-namespace waypoint binding",
+			inputs: []any{
+				ns,
+				crossNsWaypoint,
+				meshwatcher.MeshConfigResource{MeshConfig: &meshConfig.MeshConfig{
+					ServiceEntryVisibility: &meshConfig.ServiceEntryVisibility{
+						DefaultVisibility: meshConfig.ServiceEntryVisibility_NAMESPACE,
+					},
+				}},
+			},
+			se: &networkingclient.ServiceEntry{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "ns-crossns-wp",
+					Namespace: "ns",
+					Labels: map[string]string{
+						label.IoIstioUseWaypoint.Name:          "waypoint",
+						label.IoIstioUseWaypointNamespace.Name: "other",
+					},
+				},
+				Spec: networking.ServiceEntry{
+					Addresses:  []string{"1.2.3.4"},
+					Hosts:      []string{"a.example.com"},
+					Ports:      []*networking.ServicePort{{Number: 80, Name: "http", Protocol: "HTTP"}},
+					Resolution: networking.ServiceEntry_STATIC,
+				},
+			},
+			result: []*workloadapi.Service{
+				{
+					Name:      "ns-crossns-wp",
+					Namespace: "ns",
+					Hostname:  "a.example.com",
+					Addresses: []*workloadapi.NetworkAddress{{
+						Network: testNW,
+						Address: netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice(),
+					}},
+					Ports: []*workloadapi.Port{{
+						ServicePort: 80,
+						TargetPort:  80,
+						AppProtocol: workloadapi.AppProtocol_HTTP11,
+					}},
+					Visibility: workloadapi.Service_NAMESPACE,
+					// Waypoint intentionally nil: the cross-namespace binding is refused, and it is
+					// NOT retargeted to a same-named colocated waypoint.
+				},
+			},
+			waypointErr: ReportWaypointCrossNamespaceForbidden("other/waypoint"),
+		},
+		{
+			name: "NAMESPACE visibility keeps same-namespace waypoint binding",
+			inputs: []any{
+				ns,
+				waypoint,
+				meshwatcher.MeshConfigResource{MeshConfig: &meshConfig.MeshConfig{
+					ServiceEntryVisibility: &meshConfig.ServiceEntryVisibility{
+						DefaultVisibility: meshConfig.ServiceEntryVisibility_NAMESPACE,
+					},
+				}},
+			},
+			se: &networkingclient.ServiceEntry{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "ns-samens-wp",
+					Namespace: "ns",
+					Labels: map[string]string{
+						label.IoIstioUseWaypoint.Name:          "waypoint",
+						label.IoIstioUseWaypointNamespace.Name: "ns",
+					},
+				},
+				Spec: networking.ServiceEntry{
+					Addresses:  []string{"1.2.3.4"},
+					Hosts:      []string{"a.example.com"},
+					Ports:      []*networking.ServicePort{{Number: 80, Name: "http", Protocol: "HTTP"}},
+					Resolution: networking.ServiceEntry_STATIC,
+				},
+			},
+			result: []*workloadapi.Service{
+				{
+					Name:      "ns-samens-wp",
+					Namespace: "ns",
+					Hostname:  "a.example.com",
+					Addresses: []*workloadapi.NetworkAddress{{
+						Network: testNW,
+						Address: netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice(),
+					}},
+					Waypoint: waypointAddr,
+					Ports: []*workloadapi.Port{{
+						ServicePort: 80,
+						TargetPort:  80,
+						AppProtocol: workloadapi.AppProtocol_HTTP11,
+					}},
+					Visibility: workloadapi.Service_NAMESPACE,
+				},
+			},
+		},
+		{
+			name: "PUBLIC visibility keeps cross-namespace waypoint binding",
+			inputs: []any{
+				ns,
+				crossNsWaypoint,
+			},
+			se: &networkingclient.ServiceEntry{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "public-crossns-wp",
+					Namespace: "ns",
+					Labels: map[string]string{
+						label.IoIstioUseWaypoint.Name:          "waypoint",
+						label.IoIstioUseWaypointNamespace.Name: "other",
+					},
+				},
+				Spec: networking.ServiceEntry{
+					Addresses:  []string{"1.2.3.4"},
+					Hosts:      []string{"a.example.com"},
+					Ports:      []*networking.ServicePort{{Number: 80, Name: "http", Protocol: "HTTP"}},
+					Resolution: networking.ServiceEntry_STATIC,
+				},
+			},
+			result: []*workloadapi.Service{
+				{
+					Name:      "public-crossns-wp",
+					Namespace: "ns",
+					Hostname:  "a.example.com",
+					Addresses: []*workloadapi.NetworkAddress{{
+						Network: testNW,
+						Address: netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice(),
+					}},
+					Waypoint: crossNsWaypointAddr,
+					Ports: []*workloadapi.Port{{
+						ServicePort: 80,
+						TargetPort:  80,
+						AppProtocol: workloadapi.AppProtocol_HTTP11,
+					}},
+					// Visibility PUBLIC (zero value): cross-namespace binding is allowed.
+				},
+			},
+		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1214,6 +1378,10 @@ func TestServiceEntryServices(t *testing.T) {
 				return e.Service
 			})
 			assert.Equal(t, res, tt.result)
+			if tt.waypointErr != nil {
+				assert.Equal(t, len(wrapper), 1)
+				assert.Equal(t, wrapper[0].Waypoint.Error, tt.waypointErr)
+			}
 		})
 	}
 }

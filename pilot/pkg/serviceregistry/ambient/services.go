@@ -670,6 +670,12 @@ func serviceEntriesInfo(
 
 	vis := krt.FetchOne(ctx, visibility.AsCollection())
 	services := constructServiceEntries(ctx, s, w, nsAnnotations, networkGetter)
+	// A ServiceEntry host with NAMESPACE visibility must not bind to a waypoint in another
+	// namespace: that would expose the namespace-scoped service to the waypoint's namespace, a leak
+	// the data plane can't currently contain. Only use-waypoint-namespace (on the ServiceEntry or
+	// inherited from its namespace) can resolve a waypoint outside the ServiceEntry's namespace, so
+	// a differing namespace is exactly that case. Detect it here; fail the binding per host below.
+	crossNamespaceWaypoint := w != nil && w.Namespace != s.Namespace
 	result := make([]model.ServiceInfo, 0, len(services))
 	for _, e := range services {
 		// Resolve visibility per host from the precompiled serviceEntryVisibility.
@@ -681,14 +687,24 @@ func serviceEntriesInfo(
 			continue
 		}
 		e.Visibility = *hostVisibility
-		e.IngressUseWaypoint = waypoint.IngressUseWaypoint
+		// Fail (never silently retarget to a same-named colocated waypoint) a cross-namespace
+		// waypoint binding for a namespace-scoped host: drop the binding for this host and surface
+		// the reason via status.
+		hostWaypoint := waypoint
+		if *hostVisibility == workloadapi.Service_NAMESPACE && crossNamespaceWaypoint {
+			log.Debugf("ServiceEntry %s/%s host %s has NAMESPACE visibility; refusing cross-namespace waypoint %s",
+				s.Namespace, s.Name, e.Hostname, w.ResourceName())
+			e.Waypoint = nil
+			hostWaypoint = model.WaypointBindingStatus{Error: ReportWaypointCrossNamespaceForbidden(w.ResourceName())}
+		}
+		e.IngressUseWaypoint = hostWaypoint.IngressUseWaypoint
 		e.WeightedWaypoints = weighted
 		result = append(result, precomputeService(model.ServiceInfo{
 			Service:            e,
 			PortNames:          portNames,
 			LabelSelector:      sel,
 			Source:             MakeSource(s),
-			Waypoint:           waypoint,
+			Waypoint:           hostWaypoint,
 			DNSConnectStrategy: model.GetDNSConnectStrategy(s.Annotations),
 			CreationTime:       s.CreationTimestamp.Time,
 		}))
