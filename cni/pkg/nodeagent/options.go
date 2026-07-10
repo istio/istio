@@ -44,9 +44,7 @@ var (
 	KataRuntimeClassNames = parseKataRuntimeClassNames(env.RegisterStringVar(
 		"EXPERIMENTAL_KATA_RUNTIMECLASS_NAMES", "",
 		"Comma-separated list of RuntimeClass names that should be treated as "+
-			"kata-containers pods (enables extra iptables rules to steer traffic "+
-			"to ztunnel when the pod IP is not locally bound in the netns). "+
-			"Empty disables kata-mode detection.").Get())
+			"kata-containers pods. These pods MUST be running with `l3forwarding` as their internetworking model.".Get())
 )
 
 func parseKataRuntimeClassNames(v string) sets.String {
