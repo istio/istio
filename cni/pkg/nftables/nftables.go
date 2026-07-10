@@ -109,6 +109,13 @@ func NewNftablesConfigurator(
 
 // CreateInpodRules creates nftables rules within a pod's network namespace
 func (cfg *NftablesConfigurator) CreateInpodRules(log *istiolog.Scope, podOverrides config.PodLevelOverrides) error {
+	// The kata-mode iptables path (EXPERIMENTAL_KATA_RUNTIMECLASS_NAMES) has
+	// no nftables equivalent today. Fail fast rather than silently emitting
+	// runc rules that don't match the kata pod's netns topology.
+	if podOverrides.Kata != nil {
+		return fmt.Errorf("kata mode (EXPERIMENTAL_KATA_RUNTIMECLASS_NAMES) is not supported with the nftables traffic manager; use iptables")
+	}
+
 	log.Info("native nftables enabled, using nft rules for inpod traffic redirection")
 
 	rules, err := cfg.AppendInpodRules(podOverrides)

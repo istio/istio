@@ -16,10 +16,12 @@ package nodeagent
 
 import (
 	"net/netip"
+	"strings"
 
 	"istio.io/istio/cni/pkg/util"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/env"
+	"istio.io/istio/pkg/util/sets"
 )
 
 var (
@@ -33,7 +35,29 @@ var (
 	UseScopedIptablesLegacyLocking = env.RegisterBoolVar("AMBIENT_USE_SCOPED_XTABLES_LOCKING", true, "").Get()
 	EnableAWSBranchENIProbe        = env.RegisterBoolVar("AMBIENT_ENABLE_AWS_BRANCH_ENI_PROBE", true,
 		"If true, detect AWS VPC CNI branch ENI pods and add ip rules to route probe traffic via veth").Get()
+
+	// KataRuntimeClassNames is the set of RuntimeClass names for which the CNI
+	// should install the "kata mode" iptables rules (pod IP forwarded into a
+	// guest VM over a tap interface, not locally bound in the pod netns).
+	// Comma-separated list; empty (the default) disables kata-mode detection
+	// entirely, preserving pre-existing behavior for all pods.
+	KataRuntimeClassNames = parseKataRuntimeClassNames(env.RegisterStringVar(
+		"EXPERIMENTAL_KATA_RUNTIMECLASS_NAMES", "",
+		"Comma-separated list of RuntimeClass names that should be treated as "+
+			"kata-containers pods (enables extra iptables rules to steer traffic "+
+			"to ztunnel when the pod IP is not locally bound in the netns). "+
+			"Empty disables kata-mode detection.").Get())
 )
+
+func parseKataRuntimeClassNames(v string) sets.String {
+	out := sets.New[string]()
+	for _, name := range strings.Split(v, ",") {
+		if trimmed := strings.TrimSpace(name); trimmed != "" {
+			out.Insert(trimmed)
+		}
+	}
+	return out
+}
 
 const (
 	// to reliably identify kubelet healthprobes from inside the pod (versus standard kube-proxy traffic,

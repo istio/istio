@@ -51,40 +51,35 @@ const (
 	PodDNSDisabled
 )
 
+// KataOverrides holds pod-level state that only applies when the pod runs
+// under a kata-containers (or any VM-style) RuntimeClass, where the pod IP
+// is forwarded into a guest VM over a tap interface and is therefore not
+// locally bound in the pod netns. Presence of a non-nil pointer on
+// PodLevelOverrides signals "kata mode": inbound traffic to ztunnel must be
+// steered to lo via fwmark instead of relying on the local route, and VM-
+// originated outbound must be REDIRECTed to ztunnel's outbound port.
+type KataOverrides struct {
+	// PodGatewayV4 is the IPv4 default-gateway address for SNATing probes
+	PodGatewayV4 netip.Addr
+	// PodGatewayV6 mirrors PodGatewayV4 for IPv6
+	PodGatewayV6 netip.Addr
+	// PodIPv4 are the IPv4 addresses bound to the pod's primary
+	// non-loopback interface. Used to detect hairpinned traffic.
+	PodIPv4 []netip.Addr
+	// PodIPv6 mirrors PodIPv4 for IPv6.
+	PodIPv6 []netip.Addr
+}
+
 // PodLevelOverrides holds runtime/dynamic pod-level config overrides
 // that may need to be taken into account when injecting pod rules
 type PodLevelOverrides struct {
 	VirtualInterfaces []string
 	IngressMode       bool
 	DNSProxy          PodDNSOverride
-	// KataMode is set when the pod runs under a kata-containers (or any
-	// VM-style) RuntimeClass, where the pod IP is forwarded into a guest VM
-	// over a tap interface and is therefore not locally bound in the pod
-	// netns. Inbound traffic to ztunnel must be steered to lo via fwmark
-	// instead of relying on the local route, and VM-originated outbound
-	// must be REDIRECTed to ztunnel's outbound port.
-	KataMode bool
-	// KataPodGateway is the IPv4 default-gateway address inside the pod
-	// netns at iptables-install time (i.e. the original CNI gateway, before
-	// kata replaces eth0's setup with the tap interface). When set in kata
-	// mode, kubelet HTTP/TCP probes that arrive with src
-	// HostProbeSNATAddress are SNAT-ed to this gateway when forwarded out
-	// the tap interface, so the guest VM has a valid route to reply.
-	KataPodGateway netip.Addr
-	// KataPodGatewayV6 mirrors KataPodGateway for IPv6 default gateways.
-	KataPodGatewayV6 netip.Addr
-	// KataPodIPv4 are the IPv4 addresses bound to the pod's primary
-	// non-loopback interface (typically eth0) at iptables-install time.
-	// When set in kata mode, ambient generates a mangle OUTPUT rule per
-	// pod IP that marks ztunnel-originated HBONE (port 15008) traffic
-	// destined for the pod's own IP so it is steered to lo (table 100)
-	// instead of being routed out the kata tap to the guest VM. Without
-	// this, ambient self-hairpin (when ztunnel's service LB picks the
-	// local pod as the destination endpoint) RSTs because the guest has
-	// no listener on :15008.
-	KataPodIPv4 []netip.Addr
-	// KataPodIPv6 mirrors KataPodIPv4 for IPv6.
-	KataPodIPv6 []netip.Addr
+	// Kata is non-nil when the pod runs under a kata-containers  RuntimeClass.
+	// See KataOverrides for details. A nil pointer
+	// (the default) means the pod is a normal runc/etc. pod
+	Kata *KataOverrides
 }
 
 // AmbientConfig represents the "global"/per-instance configuration for Ambient mode traffic management
