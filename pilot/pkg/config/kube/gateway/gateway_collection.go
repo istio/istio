@@ -314,7 +314,7 @@ func GatewayCollection(
 		if len(gatewayServices) == 0 && err != nil {
 			// Short circuit if its a hard failure
 			backendTLSErr := validateBackendClientCertificateRef(ctx, obj, secrets, grants)
-			reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, 0, err, backendTLSErr)
+			reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, 0, err, backendTLSErr, 0)
 			return status, nil
 		}
 
@@ -333,6 +333,7 @@ func GatewayCollection(
 			)
 		}
 
+		validListeners := 0
 		var gwListenerConflicts map[gatewayv1.SectionName]gatewayv1.ListenerConditionReason
 		if gwConflict := krt.FetchOne(ctx, gatewayConflicts, krt.FilterKey(config.NamespacedName(obj).String())); gwConflict != nil {
 			gwListenerConflicts = gwConflict.ConflictsForGateway(obj)
@@ -347,6 +348,9 @@ func GatewayCollection(
 			server, updatedStatus, programmed := buildListener(ctx, configMaps, secrets, grants, namespaces, obj, status.Listeners, kgw, l, i, controllerName, nil)
 			status.Listeners = updatedStatus
 
+			if programmed {
+				validListeners++
+			}
 			if server == nil {
 				continue
 			}
@@ -426,7 +430,7 @@ func GatewayCollection(
 		}
 
 		backendTLSErr := validateBackendClientCertificateRef(ctx, obj, secrets, grants)
-		reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, len(listenerSets), err, backendTLSErr)
+		reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, len(listenerSets), err, backendTLSErr, validListeners)
 		return status, result
 	}, opts.WithName("KubernetesGateway")...)
 

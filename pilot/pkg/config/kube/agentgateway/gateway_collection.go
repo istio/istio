@@ -342,7 +342,7 @@ func GatewayCollection(
 		if len(gatewayServices) == 0 && err != nil {
 			// Short circuit if its a hard failure
 			log.Errorf("failed to translate gwv1", "name", obj.GetName(), "namespace", obj.GetNamespace(), "err", err.message)
-			reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, 0, err.error)
+			reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, 0, err.error, 0)
 			return status, nil
 		}
 		var gatewayErr *ConfigError
@@ -350,6 +350,7 @@ func GatewayCollection(
 			gatewayErr = err.error
 		}
 
+		validListeners := 0
 		var gwListenerConflicts map[gatewayv1.SectionName]gatewayv1.ListenerConditionReason
 		if gwConflict := krt.FetchOne(ctx, gatewayConflicts, krt.FilterKey(config.NamespacedName(obj).String())); gwConflict != nil {
 			gwListenerConflicts = gwConflict.ConflictsForGateway(obj)
@@ -367,6 +368,9 @@ func GatewayCollection(
 				ctx, secrets, configMaps, grants, namespaces, obj, status.Listeners, kgw, l, i, controllerName, nil)
 			status.Listeners = updatedStatus
 
+			if programmed {
+				validListeners++
+			}
 			if server == nil {
 				continue
 			}
@@ -427,7 +431,7 @@ func GatewayCollection(
 			})
 		}
 
-		reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, len(listenerSets), gatewayErr)
+		reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, len(listenerSets), gatewayErr, validListeners)
 		return status, result
 	}, opts.WithName("KubernetesGateway")...)
 
