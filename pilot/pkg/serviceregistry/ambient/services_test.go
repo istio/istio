@@ -1371,7 +1371,7 @@ func TestServiceEntryServices(t *testing.T) {
 			builder := a.serviceEntryServiceBuilder(
 				krttest.GetMockCollection[Waypoint](mock),
 				krttest.GetMockCollection[*v1.Namespace](mock),
-				krt.NewStatic(ptr.Of(compileServiceEntryVisibility(sev)), true),
+				krt.NewStatic(model.CompileServiceEntryVisibility(sev), true),
 			)
 			wrapper := builder(krt.TestingDummyContext{}, tt.se)
 			res := slices.Map(wrapper, func(e TypedServiceInfo) *workloadapi.Service {

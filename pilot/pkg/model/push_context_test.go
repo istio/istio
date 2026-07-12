@@ -1827,6 +1827,87 @@ func TestIsServiceVisible(t *testing.T) {
 			},
 			expect: true,
 		},
+		// --- serviceEntryVisibility applyToSidecars ceiling (PushContext.serviceExportTo) ---
+		{
+			name: "applyToSidecars: NAMESPACE service in foo is visible in its own namespace",
+			pushContext: &PushContext{
+				Mesh: &meshconfig.MeshConfig{
+					ServiceEntryVisibility: &meshconfig.ServiceEntryVisibility{ApplyToSidecars: true},
+				},
+			},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace:  "foo",
+					ExportTo:   sets.New(visibility.Public),
+					Visibility: ServiceVisibilityNamespace,
+				},
+			},
+			expect: true,
+		},
+		{
+			name: "applyToSidecars: NAMESPACE service in bar with exportTo=* is clamped, not visible in foo",
+			pushContext: &PushContext{
+				Mesh: &meshconfig.MeshConfig{
+					ServiceEntryVisibility: &meshconfig.ServiceEntryVisibility{ApplyToSidecars: true},
+				},
+			},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace:  "bar",
+					ExportTo:   sets.New(visibility.Public),
+					Visibility: ServiceVisibilityNamespace,
+				},
+			},
+			expect: false,
+		},
+		{
+			name: "applyToSidecars: PUBLIC service in bar keeps exportTo=* (visible cross-namespace in foo)",
+			pushContext: &PushContext{
+				Mesh: &meshconfig.MeshConfig{
+					ServiceEntryVisibility: &meshconfig.ServiceEntryVisibility{ApplyToSidecars: true},
+				},
+			},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace:  "bar",
+					ExportTo:   sets.New(visibility.Public),
+					Visibility: ServiceVisibilityPublic,
+				},
+			},
+			expect: true,
+		},
+		{
+			name: "applyToSidecars: NONE service is not visible even in its own namespace",
+			pushContext: &PushContext{
+				Mesh: &meshconfig.MeshConfig{
+					ServiceEntryVisibility: &meshconfig.ServiceEntryVisibility{ApplyToSidecars: true},
+				},
+			},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace:  "foo",
+					ExportTo:   sets.New(visibility.Public),
+					Visibility: ServiceVisibilityNone,
+				},
+			},
+			expect: false,
+		},
+		{
+			name: "applyToSidecars disabled: NAMESPACE visibility is ignored, exportTo=* governs",
+			pushContext: &PushContext{
+				Mesh: &meshconfig.MeshConfig{
+					ServiceEntryVisibility: &meshconfig.ServiceEntryVisibility{ApplyToSidecars: false},
+				},
+			},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace:  "bar",
+					ExportTo:   sets.New(visibility.Public),
+					Visibility: ServiceVisibilityNamespace,
+				},
+			},
+			expect: true,
+		},
 	}
 
 	for _, c := range cases {

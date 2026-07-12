@@ -20,7 +20,6 @@ import (
 	"net/netip"
 	"strconv"
 
-	"google.golang.org/protobuf/proto"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -426,145 +425,31 @@ func matchServiceScope(ctx krt.HandlerContext, meshCfg *MeshConfig, namespaces k
 	return model.Local
 }
 
-// visibilityInput carries everything a serviceEntryVisibility rule may need to evaluate.
-// Bundling the source ServiceEntry, the per-host translated Service, and the namespace
-// labels means adding a future matcher (e.g. hostnameSuffix, addressInCidr) is a new case in
-// compileVisibilityRule/compiledVisibilityRule.matches, not a signature change.
-type visibilityInput struct {
-	se       *networkingclient.ServiceEntry
-	svc      *workloadapi.Service
-	nsLabels labels.Set
-}
-
-// compiledVisibility is the precompiled, dependency-narrowed projection of
-// MeshConfig.serviceEntryVisibility. It is produced once per serviceEntryVisibility change
-// (see ServiceEntryVisibilityCollection) rather than per ServiceEntry/host, so label
-// selectors are converted only once and ServiceEntry processing recomputes only when the
-// visibility config actually changes.
-type compiledVisibility struct {
-	// defaultVisibility is applied when no policy matches (nil => NONE, i.e. do not publish).
-	defaultVisibility *workloadapi.Service_Visibility
-	policies          []compiledVisibilityPolicy
-	// source is retained only for equality, so krt dedupes on the underlying config and does
-	// not treat a recompiled-but-identical value as a change.
-	source *meshapi.ServiceEntryVisibility
-}
-
-type compiledVisibilityPolicy struct {
-	visibility *workloadapi.Service_Visibility // nil => NONE (drop)
-	rules      []compiledVisibilityRule
-}
-
-type compiledVisibilityRule struct {
-	// namespaceSelector is set for a namespace_selector matcher. A nil selector never matches
-	// (unknown/unset matcher), so a malformed rule fails closed.
-	namespaceSelector labels.Selector
-}
-
-func (c compiledVisibility) ResourceName() string { return "ServiceEntryVisibility" }
-
-func (c compiledVisibility) Equals(other compiledVisibility) bool {
-	return proto.Equal(c.source, other.source)
-}
-
-// visibilityFor resolves the WDS visibility for one host: the first policy whose rules all
-// match wins, otherwise defaultVisibility. A nil result means the service is not published
-// (NONE). A nil receiver (visibility not yet computed) defaults to PUBLIC (legacy behavior).
-func (c *compiledVisibility) visibilityFor(in visibilityInput) *workloadapi.Service_Visibility {
-	if c == nil {
-		return ptr.Of(workloadapi.Service_PUBLIC)
-	}
-	for _, p := range c.policies {
-		if p.matches(in) {
-			return p.visibility
-		}
-	}
-	return c.defaultVisibility
-}
-
-// matches reports whether all of a policy's rules match (AND semantics). An empty rule list
-// matches everything, making the policy a catch-all.
-func (p compiledVisibilityPolicy) matches(in visibilityInput) bool {
-	for _, r := range p.rules {
-		if !r.matches(in) {
-			return false
-		}
-	}
-	return true
-}
-
-func (r compiledVisibilityRule) matches(in visibilityInput) bool {
-	if r.namespaceSelector != nil {
-		return r.namespaceSelector.Matches(in.nsLabels)
-	}
-	return false
-}
-
-// ServiceEntryVisibilityCollection derives a precompiled serviceEntryVisibility singleton
-// from the mesh config. ServiceEntry processing depends on this narrow projection rather
-// than the full MeshConfig, so unrelated MeshConfig changes do not trigger a ServiceEntry
-// recompute, and label selectors are compiled once here instead of per host.
-func ServiceEntryVisibilityCollection(meshConfig krt.Singleton[MeshConfig], opts krt.OptionsBuilder) krt.Singleton[compiledVisibility] {
-	return krt.NewSingleton[compiledVisibility](func(ctx krt.HandlerContext) *compiledVisibility {
+// ServiceEntryVisibilityCollection derives the shared, precompiled serviceEntryVisibility matcher
+// (model.ServiceEntryVisibilityMatcher) as a singleton from the mesh config. ServiceEntry
+// processing depends on this narrow projection rather than the full MeshConfig, so unrelated
+// MeshConfig changes do not trigger a ServiceEntry recompute, and label selectors are compiled
+// once here instead of per host. The same matcher type is used by the sidecar (serviceentry)
+// registry so both dataplanes evaluate visibility identically.
+func ServiceEntryVisibilityCollection(meshConfig krt.Singleton[MeshConfig], opts krt.OptionsBuilder) krt.Singleton[model.ServiceEntryVisibilityMatcher] {
+	return krt.NewSingleton[model.ServiceEntryVisibilityMatcher](func(ctx krt.HandlerContext) *model.ServiceEntryVisibilityMatcher {
 		meshCfg := krt.FetchOne(ctx, meshConfig.AsCollection())
 		var sev *meshapi.ServiceEntryVisibility
 		if meshCfg != nil {
 			sev = meshCfg.GetServiceEntryVisibility()
 		}
-		return ptr.Of(compileServiceEntryVisibility(sev))
+		return model.CompileServiceEntryVisibility(sev)
 	}, opts.WithName("ServiceEntryVisibility")...)
 }
 
-// compileServiceEntryVisibility precompiles a serviceEntryVisibility config into a reusable
-// form. A nil config is legacy behavior: everything is PUBLIC.
-func compileServiceEntryVisibility(sev *meshapi.ServiceEntryVisibility) compiledVisibility {
-	if sev == nil {
-		return compiledVisibility{defaultVisibility: ptr.Of(workloadapi.Service_PUBLIC)}
+// wdsVisibility maps the neutral resolved visibility to the WDS Service visibility field. NONE has
+// no WDS representation (such services are dropped before this is called), so only the
+// PUBLIC/NAMESPACE cases are relevant here.
+func wdsVisibility(v model.ServiceVisibility) workloadapi.Service_Visibility {
+	if v == model.ServiceVisibilityNamespace {
+		return workloadapi.Service_NAMESPACE
 	}
-	out := compiledVisibility{
-		defaultVisibility: toWDSVisibility(sev.GetDefaultVisibility()),
-		source:            sev,
-	}
-	for _, policy := range sev.GetPolicies() {
-		cp := compiledVisibilityPolicy{visibility: toWDSVisibility(policy.GetVisibility())}
-		for _, rule := range policy.GetMatchingRules() {
-			cp.rules = append(cp.rules, compileVisibilityRule(rule))
-		}
-		out.policies = append(out.policies, cp)
-	}
-	return out
-}
-
-// compileVisibilityRule converts a single matcher into its precompiled form. Only
-// namespaceSelector is implemented today; future matchers read in.svc (hostname, addresses)
-// or in.se.Spec (declared addresses) without changing the input shape.
-func compileVisibilityRule(rule *meshapi.ServiceEntryVisibility_MatchRule) compiledVisibilityRule {
-	switch rule.GetMatcher().(type) {
-	case *meshapi.ServiceEntryVisibility_MatchRule_NamespaceSelector:
-		sel, err := LabelSelectorAsSelector(rule.GetNamespaceSelector())
-		if err != nil {
-			log.Warnf("failed to convert serviceEntryVisibility namespace selector: %v", err)
-			return compiledVisibilityRule{}
-		}
-		return compiledVisibilityRule{namespaceSelector: sel}
-	default:
-		// Unknown or unset matcher never matches.
-		return compiledVisibilityRule{}
-	}
-}
-
-// toWDSVisibility maps a MeshConfig visibility to the WDS Service visibility, returning nil
-// when the service should not be published (NONE).
-func toWDSVisibility(v meshapi.ServiceEntryVisibility_Visibility) *workloadapi.Service_Visibility {
-	switch v {
-	case meshapi.ServiceEntryVisibility_NAMESPACE:
-		return ptr.Of(workloadapi.Service_NAMESPACE)
-	case meshapi.ServiceEntryVisibility_NONE:
-		return nil
-	default:
-		// PUBLIC and VISIBILITY_UNSPECIFIED both resolve to PUBLIC (legacy behavior).
-		return ptr.Of(workloadapi.Service_PUBLIC)
-	}
+	return workloadapi.Service_PUBLIC
 }
 
 func (a Builder) serviceServiceBuilder(
@@ -609,7 +494,7 @@ func (t TypedServiceInfo) Equals(other TypedServiceInfo) bool {
 func (a Builder) serviceEntryServiceBuilder(
 	waypoints krt.Collection[Waypoint],
 	namespaces krt.Collection[*v1.Namespace],
-	visibility krt.Singleton[compiledVisibility],
+	visibility krt.Singleton[model.ServiceEntryVisibilityMatcher],
 ) krt.TransformationMulti[*networkingclient.ServiceEntry, TypedServiceInfo] {
 	return func(ctx krt.HandlerContext, s *networkingclient.ServiceEntry) []TypedServiceInfo {
 		waypoint, waypointError := fetchWaypointForService(ctx, waypoints, namespaces, s.ObjectMeta)
@@ -641,7 +526,7 @@ func serviceEntriesInfo(
 	wperr *model.StatusMessage,
 	nsAnnotations map[string]string,
 	nsLabels map[string]string,
-	visibility krt.Singleton[compiledVisibility],
+	visibility krt.Singleton[model.ServiceEntryVisibilityMatcher],
 	networkGetter func(ctx krt.HandlerContext) network.ID,
 ) []model.ServiceInfo {
 	sel := model.NewSelector(s.Spec.GetWorkloadSelector().GetLabels())
@@ -669,6 +554,14 @@ func serviceEntriesInfo(
 	weighted := buildWeightedWaypoints(ctx, waypoints, namespaces, s.ObjectMeta, w, &waypoint)
 
 	vis := krt.FetchOne(ctx, visibility.AsCollection())
+	// Resolve the ServiceEntry's visibility once from the precompiled serviceEntryVisibility; it is
+	// uniform across the ServiceEntry's hosts. NONE means Istio configures no dataplane for it, so it
+	// is not published to WDS.
+	resolvedVisibility := vis.VisibilityFor(nsLabels)
+	if resolvedVisibility == model.ServiceVisibilityNone {
+		log.Debugf("ServiceEntry %s/%s resolves to visibility NONE; not configuring", s.Namespace, s.Name)
+		return nil
+	}
 	services := constructServiceEntries(ctx, s, w, nsAnnotations, networkGetter)
 	// A ServiceEntry host with NAMESPACE visibility must not bind to a waypoint in another
 	// namespace: that would expose the namespace-scoped service to the waypoint's namespace, a leak
@@ -678,20 +571,13 @@ func serviceEntriesInfo(
 	crossNamespaceWaypoint := w != nil && w.Namespace != s.Namespace
 	result := make([]model.ServiceInfo, 0, len(services))
 	for _, e := range services {
-		// Resolve visibility per host from the precompiled serviceEntryVisibility.
-		// A nil result means NONE: the ServiceEntry may be written, but Istio configures no
-		// dataplane for this host, so it is not published to WDS.
-		hostVisibility := vis.visibilityFor(visibilityInput{se: s, svc: e, nsLabels: labels.Set(nsLabels)})
-		if hostVisibility == nil {
-			log.Debugf("ServiceEntry %s/%s host %s resolves to visibility NONE; not configuring", s.Namespace, s.Name, e.Hostname)
-			continue
-		}
-		e.Visibility = *hostVisibility
+		e.Visibility = wdsVisibility(resolvedVisibility)
+
 		// Fail (never silently retarget to a same-named colocated waypoint) a cross-namespace
 		// waypoint binding for a namespace-scoped host: drop the binding for this host and surface
 		// the reason via status.
 		hostWaypoint := waypoint
-		if *hostVisibility == workloadapi.Service_NAMESPACE && crossNamespaceWaypoint {
+		if resolvedVisibility == model.ServiceVisibilityNamespace && crossNamespaceWaypoint {
 			log.Debugf("ServiceEntry %s/%s host %s has NAMESPACE visibility; refusing cross-namespace waypoint %s",
 				s.Namespace, s.Name, e.Hostname, w.ResourceName())
 			e.Waypoint = nil

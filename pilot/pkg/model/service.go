@@ -747,7 +747,22 @@ type ServiceAttributes struct {
 	Labels map[string]string
 	// ExportTo defines the visibility of Service in
 	// a namespace when the namespace is imported.
+	//
+	// WARNING: reading ExportTo directly is visibility-unsafe. When
+	// MeshConfig.serviceEntryVisibility.applyToSidecars is set, the effective scoping is the
+	// intersection of ExportTo and Visibility (below); ExportTo alone can over-expose a service.
+	// Consult effective scoping via PushContext.serviceExportTo / IsServiceVisible instead.
 	ExportTo sets.Set[visibility.Instance]
+
+	// Visibility is the scope resolved from MeshConfig.serviceEntryVisibility for a ServiceEntry
+	// (Public for everything else / when unset). It caps ExportTo when applyToSidecars is enabled;
+	// see PushContext.serviceExportTo. The zero value is Public (legacy behavior).
+	//
+	// WARNING: do not read this raw for scoping — it must be combined with ExportTo via
+	// PushContext.serviceExportTo / IsServiceVisible, or a service can be over-exposed. It stays
+	// exported only because ServiceAttributes is compared with go-cmp across the codebase, which
+	// panics on unexported fields; treat it as read-only outside the ServiceEntry conversion.
+	Visibility ServiceVisibility
 
 	// LabelSelectors are the labels used by the service to select workloads.
 	// Applicable to both Kubernetes and ServiceEntries.
@@ -913,7 +928,8 @@ func (s *ServiceAttributes) DeepCopy() ServiceAttributes {
 // Equals checks whether the attributes are equal from the passed in service.
 func (s *ServiceAttributes) Equals(other *ServiceAttributes) bool {
 	eql := s.Name == other.Name && s.Namespace == other.Namespace &&
-		s.ServiceRegistry == other.ServiceRegistry && s.K8sAttributes == other.K8sAttributes
+		s.ServiceRegistry == other.ServiceRegistry && s.K8sAttributes == other.K8sAttributes &&
+		s.Visibility == other.Visibility
 	if !eql {
 		return false
 	}
