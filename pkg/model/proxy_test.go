@@ -23,7 +23,7 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/api/networking/v1alpha3"
+	"istio.io/api/networking/v1"
 	"istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/test/util/assert"
 )
@@ -79,7 +79,7 @@ func TestNodeMetadata(t *testing.T) {
 						ControlPlaneAuthPolicy: meshconfig.AuthenticationPolicy_MUTUAL_TLS,
 						EnvoyAccessLogService: &meshconfig.RemoteService{
 							Address: "address",
-							TlsSettings: &v1alpha3.ClientTLSSettings{
+							TlsSettings: &v1.ClientTLSSettings{
 								SubjectAltNames: []string{"san"},
 							},
 						},
@@ -96,7 +96,7 @@ func TestNodeMetadata(t *testing.T) {
 						ControlPlaneAuthPolicy: meshconfig.AuthenticationPolicy_MUTUAL_TLS,
 						EnvoyAccessLogService: &meshconfig.RemoteService{
 							Address: "address",
-							TlsSettings: &v1alpha3.ClientTLSSettings{
+							TlsSettings: &v1.ClientTLSSettings{
 								SubjectAltNames: []string{"san"},
 							},
 						},

@@ -22,7 +22,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	istio "istio.io/api/networking/v1alpha3"
+	istio "istio.io/api/networking/v1"
 	istioclient "istio.io/client-go/pkg/apis/networking/v1"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"

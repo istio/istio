@@ -21,7 +21,7 @@ import (
 	. "github.com/onsi/gomega"
 	"google.golang.org/protobuf/types/known/durationpb"
 
-	networkingAPI "istio.io/api/networking/v1alpha3"
+	networkingAPI "istio.io/api/networking/v1"
 	"istio.io/istio/pkg/bootstrap/option"
 	"istio.io/istio/pkg/model"
 )

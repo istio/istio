@@ -23,7 +23,7 @@ import (
 	k8s "sigs.k8s.io/gateway-api/apis/v1"
 
 	"istio.io/api/label"
-	networking "istio.io/api/networking/v1alpha3"
+	networking "istio.io/api/networking/v1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"

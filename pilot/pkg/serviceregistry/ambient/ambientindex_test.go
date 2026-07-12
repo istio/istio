@@ -32,10 +32,10 @@ import (
 	"istio.io/api/annotation"
 	"istio.io/api/label"
 	"istio.io/api/mesh/v1alpha1"
-	"istio.io/api/networking/v1alpha3"
+	"istio.io/api/networking/v1"
 	auth "istio.io/api/security/v1beta1"
 	"istio.io/api/type/v1beta1"
-	apiv1alpha3 "istio.io/client-go/pkg/apis/networking/v1"
+	apiv1 "istio.io/client-go/pkg/apis/networking/v1"
 	clientsecurityv1beta1 "istio.io/client-go/pkg/apis/security/v1"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/features"
@@ -2337,8 +2337,8 @@ func newAmbientTestServerFromOptions(t *testing.T, networkID network.ID, options
 			ns:    clienttest.NewWriter[*corev1.Namespace](t, cl),
 			grc:   clienttest.NewWriter[*k8sv1.Gateway](t, cl),
 			gwcls: clienttest.NewWriter[*k8sv1.GatewayClass](t, cl),
-			se:    clienttest.NewWriter[*apiv1alpha3.ServiceEntry](t, cl),
-			we:    clienttest.NewWriter[*apiv1alpha3.WorkloadEntry](t, cl),
+			se:    clienttest.NewWriter[*apiv1.ServiceEntry](t, cl),
+			we:    clienttest.NewWriter[*apiv1.WorkloadEntry](t, cl),
 			pa:    clienttest.NewWriter[*clientsecurityv1beta1.PeerAuthentication](t, cl),
 			authz: clienttest.NewWriter[*clientsecurityv1beta1.AuthorizationPolicy](t, cl),
 			sec:   clienttest.NewWriter[*corev1.Secret](t, cl),
@@ -2737,21 +2737,21 @@ func (s *ambientTestServer) addWorkloadEntriesForClient(
 	name,
 	sa string,
 	labels map[string]string,
-	we clienttest.TestWriter[*apiv1alpha3.WorkloadEntry],
+	we clienttest.TestWriter[*apiv1.WorkloadEntry],
 ) {
 	t.Helper()
 	we.CreateOrUpdate(generateWorkloadEntry(ip, name, "ns1", sa, labels, nil))
 }
 
-func generateWorkloadEntry(ip, name, namespace, saName string, labels map[string]string, annotations map[string]string) *apiv1alpha3.WorkloadEntry {
-	return &apiv1alpha3.WorkloadEntry{
+func generateWorkloadEntry(ip, name, namespace, saName string, labels map[string]string, annotations map[string]string) *apiv1.WorkloadEntry {
+	return &apiv1.WorkloadEntry{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        name,
 			Labels:      labels,
 			Annotations: annotations,
 			Namespace:   namespace,
 		},
-		Spec: v1alpha3.WorkloadEntry{
+		Spec: v1.WorkloadEntry{
 			Address:        ip,
 			ServiceAccount: saName,
 			Labels:         labels,
@@ -2763,7 +2763,7 @@ func (s *ambientTestServer) deleteWorkloadEntry(t *testing.T, name string) {
 	s.deleteWorkloadEntryForClient(t, name, s.we)
 }
 
-func (s *ambientTestServer) deleteWorkloadEntryForClient(t *testing.T, name string, we clienttest.TestWriter[*apiv1alpha3.WorkloadEntry]) {
+func (s *ambientTestServer) deleteWorkloadEntryForClient(t *testing.T, name string, we clienttest.TestWriter[*apiv1.WorkloadEntry]) {
 	t.Helper()
 	we.Delete(name, "ns1")
 }
@@ -2786,11 +2786,11 @@ func (s *ambientTestServer) addServiceEntryForClient(t *testing.T,
 	ns string,
 	labels map[string]string,
 	epAddresses []string,
-	se clienttest.TestWriter[*apiv1alpha3.ServiceEntry],
+	se clienttest.TestWriter[*apiv1.ServiceEntry],
 ) {
 	t.Helper()
 
-	se.CreateOrUpdate(&apiv1alpha3.ServiceEntry{
+	se.CreateOrUpdate(&apiv1.ServiceEntry{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: ns,
@@ -2800,22 +2800,22 @@ func (s *ambientTestServer) addServiceEntryForClient(t *testing.T,
 			},
 		},
 		Spec:   *generateServiceEntry(hostStr, addresses, labels, epAddresses),
-		Status: v1alpha3.ServiceEntryStatus{},
+		Status: v1.ServiceEntryStatus{},
 	})
 }
 
-func generateServiceEntry(host string, addresses []string, labels map[string]string, epAddresses []string) *v1alpha3.ServiceEntry {
-	var endpoints []*v1alpha3.WorkloadEntry
-	var workloadSelector *v1alpha3.WorkloadSelector
+func generateServiceEntry(host string, addresses []string, labels map[string]string, epAddresses []string) *v1.ServiceEntry {
+	var endpoints []*v1.WorkloadEntry
+	var workloadSelector *v1.WorkloadSelector
 
 	if epAddresses == nil {
-		workloadSelector = &v1alpha3.WorkloadSelector{
+		workloadSelector = &v1.WorkloadSelector{
 			Labels: labels,
 		}
 	} else {
-		endpoints = []*v1alpha3.WorkloadEntry{}
+		endpoints = []*v1.WorkloadEntry{}
 		for _, addr := range epAddresses {
-			endpoints = append(endpoints, &v1alpha3.WorkloadEntry{
+			endpoints = append(endpoints, &v1.WorkloadEntry{
 				Address: addr,
 				Labels:  labels,
 				Ports: map[string]uint32{
@@ -2825,10 +2825,10 @@ func generateServiceEntry(host string, addresses []string, labels map[string]str
 		}
 	}
 
-	return &v1alpha3.ServiceEntry{
+	return &v1.ServiceEntry{
 		Hosts:     []string{host},
 		Addresses: addresses,
-		Ports: []*v1alpha3.ServicePort{
+		Ports: []*v1.ServicePort{
 			{
 				Name:       "http",
 				Number:     80,
@@ -2852,7 +2852,7 @@ func (s *ambientTestServer) deleteServiceEntry(t *testing.T, name string, rest .
 	s.deleteServiceEntryForClient(t, name, ns, s.se)
 }
 
-func (s *ambientTestServer) deleteServiceEntryForClient(t *testing.T, name, ns string, se clienttest.TestWriter[*apiv1alpha3.ServiceEntry]) {
+func (s *ambientTestServer) deleteServiceEntryForClient(t *testing.T, name, ns string, se clienttest.TestWriter[*apiv1.ServiceEntry]) {
 	t.Helper()
 	se.Delete(name, ns)
 }

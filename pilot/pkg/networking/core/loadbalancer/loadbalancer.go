@@ -25,7 +25,7 @@ import (
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	"istio.io/api/label"
-	"istio.io/api/networking/v1alpha3"
+	"istio.io/api/networking/v1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	registrylabel "istio.io/istio/pilot/pkg/serviceregistry/util/label"
@@ -37,10 +37,10 @@ const (
 )
 
 func GetLocalityLbSetting(
-	mesh *v1alpha3.LocalityLoadBalancerSetting,
-	destrule *v1alpha3.LocalityLoadBalancerSetting,
+	mesh *v1.LocalityLoadBalancerSetting,
+	destrule *v1.LocalityLoadBalancerSetting,
 	service *model.Service,
-) (*v1alpha3.LocalityLoadBalancerSetting, bool) {
+) (*v1.LocalityLoadBalancerSetting, bool) {
 	if destrule != nil {
 		if destrule.Enabled != nil && !destrule.Enabled.Value {
 			return nil, false
@@ -50,7 +50,7 @@ func GetLocalityLbSetting(
 	if service != nil && service.Attributes.TrafficDistribution != model.TrafficDistributionAny {
 		switch service.Attributes.TrafficDistribution {
 		case model.TrafficDistributionPreferSameZone:
-			return &v1alpha3.LocalityLoadBalancerSetting{
+			return &v1.LocalityLoadBalancerSetting{
 				Enabled: wrappers.Bool(true),
 				// Prefer same zone, region, network
 				FailoverPriority: []string{
@@ -60,7 +60,7 @@ func GetLocalityLbSetting(
 				},
 			}, true
 		case model.TrafficDistributionPreferSameNode:
-			return &v1alpha3.LocalityLoadBalancerSetting{
+			return &v1.LocalityLoadBalancerSetting{
 				Enabled: wrappers.Bool(true),
 				// Prefer same node, subzone, zone, region, network
 				FailoverPriority: []string{
@@ -87,7 +87,7 @@ func ApplyLocalityLoadBalancer(
 	wrappedLocalityLbEndpoints []*WrappedLocalityLbEndpoints,
 	locality *core.Locality,
 	proxyLabels map[string]string,
-	localityLB *v1alpha3.LocalityLoadBalancerSetting,
+	localityLB *v1.LocalityLoadBalancerSetting,
 	enableFailover bool,
 ) {
 	// before calling this function localityLB.enabled field has been checked.
@@ -119,7 +119,7 @@ func ApplyLocalityLoadBalancer(
 func applyLocalityWeights(
 	locality *core.Locality,
 	loadAssignment *endpoint.ClusterLoadAssignment,
-	distribute []*v1alpha3.LocalityLoadBalancerSetting_Distribute,
+	distribute []*v1.LocalityLoadBalancerSetting_Distribute,
 ) {
 	if distribute == nil {
 		return
@@ -181,7 +181,7 @@ func applyLocalityWeights(
 func applyLocalityFailover(
 	locality *core.Locality,
 	loadAssignment *endpoint.ClusterLoadAssignment,
-	failover []*v1alpha3.LocalityLoadBalancerSetting_Failover,
+	failover []*v1.LocalityLoadBalancerSetting_Failover,
 ) {
 	// key is priority, value is the index of the LocalityLbEndpoints in ClusterLoadAssignment
 	priorityMap := map[int][]int{}

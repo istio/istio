@@ -26,9 +26,9 @@ import (
 	"sigs.k8s.io/gateway-api/pkg/consts"
 
 	"istio.io/api/meta/v1alpha1"
-	"istio.io/api/networking/v1alpha3"
+	"istio.io/api/networking/v1"
 	"istio.io/api/networking/v1beta1"
-	clientnetworkingv1alpha3 "istio.io/client-go/pkg/apis/networking/v1"
+	clientnetworkingv1 "istio.io/client-go/pkg/apis/networking/v1"
 	apiistioioapinetworkingv1beta1 "istio.io/client-go/pkg/apis/networking/v1beta1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
@@ -263,7 +263,7 @@ func TestClient(t *testing.T) {
 		if !r.IsClusterScoped() {
 			cfgMeta.Namespace = namespace
 		}
-		pb := &v1alpha3.WorkloadGroup{Probe: &v1alpha3.ReadinessProbe{PeriodSeconds: 6}}
+		pb := &v1.WorkloadGroup{Probe: &v1.ReadinessProbe{PeriodSeconds: 6}}
 		if _, err := store.Create(config.Config{
 			Meta: cfgMeta,
 			Spec: config.Spec(pb),
@@ -332,16 +332,16 @@ func TestClientInitialSyncSkipsOtherRevisions(t *testing.T) {
 	var expectedProd []config.Config
 	for i := 0; i < 9; i++ {
 		selectedLabels := labels[i%len(labels)]
-		obj := &clientnetworkingv1alpha3.ServiceEntry{
+		obj := &clientnetworkingv1.ServiceEntry{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      fmt.Sprintf("test-service-entry-%d", i),
 				Namespace: "test",
 				Labels:    selectedLabels,
 			},
-			Spec: v1alpha3.ServiceEntry{},
+			Spec: v1.ServiceEntry{},
 		}
 
-		clienttest.NewWriter[*clientnetworkingv1alpha3.ServiceEntry](t, fake).Create(obj)
+		clienttest.NewWriter[*clientnetworkingv1.ServiceEntry](t, fake).Create(obj)
 		// canary revision should receive only global objects and objects with the canary revision
 		if selectedLabels == nil || reflect.DeepEqual(selectedLabels, labels[1]) {
 			expectedCanary = append(expectedCanary, TranslateObject(obj, gvk.ServiceEntry, ""))
@@ -378,15 +378,15 @@ func TestClientInitialSyncSkipsOtherRevisions(t *testing.T) {
 }
 
 func TestClientSync(t *testing.T) {
-	obj := &clientnetworkingv1alpha3.ServiceEntry{
+	obj := &clientnetworkingv1.ServiceEntry{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-service-entry",
 			Namespace: "test",
 		},
-		Spec: v1alpha3.ServiceEntry{},
+		Spec: v1.ServiceEntry{},
 	}
 	fake := kube.NewFakeClient()
-	clienttest.NewWriter[*clientnetworkingv1alpha3.ServiceEntry](t, fake).Create(obj)
+	clienttest.NewWriter[*clientnetworkingv1.ServiceEntry](t, fake).Create(obj)
 	for _, s := range collections.Pilot.All() {
 		clienttest.MakeCRD(t, fake, s.GroupVersionResource())
 	}

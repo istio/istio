@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"strings"
 
-	"istio.io/api/networking/v1alpha3"
+	"istio.io/api/networking/v1"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
@@ -55,7 +55,7 @@ func (s *GatewayAnalyzer) Analyze(c analysis.Context) {
 }
 
 func (s *GatewayAnalyzer) analyzeVirtualService(r *resource.Instance, c analysis.Context) {
-	vs := r.Message.(*v1alpha3.VirtualService)
+	vs := r.Message.(*v1.VirtualService)
 	vsNs := r.Metadata.FullName.Namespace
 	vsName := r.Metadata.FullName
 
@@ -106,7 +106,7 @@ func vsHostInGateway(c analysis.Context, gateway resource.FullName, vsHosts []st
 
 	c.ForEach(gvk.Gateway, func(r *resource.Instance) bool {
 		if r.Metadata.FullName == gateway {
-			s := r.Message.(*v1alpha3.Gateway)
+			s := r.Message.(*v1.Gateway)
 			gatewayNs = r.Metadata.FullName.Namespace.String()
 			for _, v := range s.Servers {
 				sanitizeServerHostNamespace(v, gatewayNs)
@@ -135,7 +135,7 @@ func vsHostInGateway(c analysis.Context, gateway resource.FullName, vsHosts []st
 // convert ./host to currentNamespace/Host
 // */host to just host
 // */* to just *
-func sanitizeServerHostNamespace(server *v1alpha3.Server, namespace string) {
+func sanitizeServerHostNamespace(server *v1.Server, namespace string) {
 	for i, h := range server.Hosts {
 		if strings.Contains(h, "/") {
 			parts := strings.Split(h, "/")

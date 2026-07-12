@@ -33,7 +33,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"istio.io/api/networking/v1alpha3"
+	"istio.io/api/networking/v1"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test"
 )
@@ -44,7 +44,7 @@ func TestGetTransportCredentials(t *testing.T) {
 	cases := []struct {
 		name                       string
 		args                       *PilotArgs
-		tlsSettings                *v1alpha3.ClientTLSSettings
+		tlsSettings                *v1.ClientTLSSettings
 		secret                     *corev1.Secret
 		credentialSecurityProtocol string
 		expectedError              error
@@ -58,8 +58,8 @@ func TestGetTransportCredentials(t *testing.T) {
 		{
 			name: "SIMPLE TLS",
 			args: &PilotArgs{Namespace: testNamespace},
-			tlsSettings: &v1alpha3.ClientTLSSettings{
-				Mode:           v1alpha3.ClientTLSSettings_SIMPLE,
+			tlsSettings: &v1.ClientTLSSettings{
+				Mode:           v1.ClientTLSSettings_SIMPLE,
 				CaCertificates: caCertStr,
 			},
 			credentialSecurityProtocol: "tls",
@@ -68,8 +68,8 @@ func TestGetTransportCredentials(t *testing.T) {
 		{
 			name: "Fail SIMPLE TLS with InsecureSkipVerify",
 			args: &PilotArgs{Namespace: testNamespace},
-			tlsSettings: &v1alpha3.ClientTLSSettings{
-				Mode:               v1alpha3.ClientTLSSettings_SIMPLE,
+			tlsSettings: &v1.ClientTLSSettings{
+				Mode:               v1.ClientTLSSettings_SIMPLE,
 				InsecureSkipVerify: &wrappers.BoolValue{Value: true},
 			},
 			credentialSecurityProtocol: "tls",
@@ -78,8 +78,8 @@ func TestGetTransportCredentials(t *testing.T) {
 		{
 			name: "SIMPLE TLS from secrets",
 			args: &PilotArgs{Namespace: testNamespace},
-			tlsSettings: &v1alpha3.ClientTLSSettings{
-				Mode:           v1alpha3.ClientTLSSettings_SIMPLE,
+			tlsSettings: &v1.ClientTLSSettings{
+				Mode:           v1.ClientTLSSettings_SIMPLE,
 				CredentialName: "test-secret",
 			},
 			secret: &corev1.Secret{
@@ -98,8 +98,8 @@ func TestGetTransportCredentials(t *testing.T) {
 		{
 			name: "SIMPLE TLS from secrets ca.crt",
 			args: &PilotArgs{Namespace: testNamespace},
-			tlsSettings: &v1alpha3.ClientTLSSettings{
-				Mode:           v1alpha3.ClientTLSSettings_SIMPLE,
+			tlsSettings: &v1.ClientTLSSettings{
+				Mode:           v1.ClientTLSSettings_SIMPLE,
 				CredentialName: "test-secret",
 			},
 			secret: &corev1.Secret{
@@ -118,8 +118,8 @@ func TestGetTransportCredentials(t *testing.T) {
 		{
 			name: "Fail SIMPLE TLS from secrets not in cluster",
 			args: &PilotArgs{Namespace: testNamespace},
-			tlsSettings: &v1alpha3.ClientTLSSettings{
-				Mode:           v1alpha3.ClientTLSSettings_SIMPLE,
+			tlsSettings: &v1.ClientTLSSettings{
+				Mode:           v1.ClientTLSSettings_SIMPLE,
 				CredentialName: "test-secret",
 			},
 			secret: &corev1.Secret{
@@ -136,8 +136,8 @@ func TestGetTransportCredentials(t *testing.T) {
 		{
 			name: "Fail SIMPLE TLS from secrets but caCert is also configured",
 			args: &PilotArgs{Namespace: testNamespace},
-			tlsSettings: &v1alpha3.ClientTLSSettings{
-				Mode:           v1alpha3.ClientTLSSettings_SIMPLE,
+			tlsSettings: &v1.ClientTLSSettings{
+				Mode:           v1.ClientTLSSettings_SIMPLE,
 				CredentialName: "test-secret",
 				CaCertificates: caCertStr,
 			},
@@ -157,8 +157,8 @@ func TestGetTransportCredentials(t *testing.T) {
 		{
 			name: "MUTUAL TLS",
 			args: &PilotArgs{Namespace: testNamespace},
-			tlsSettings: &v1alpha3.ClientTLSSettings{
-				Mode: v1alpha3.ClientTLSSettings_MUTUAL,
+			tlsSettings: &v1.ClientTLSSettings{
+				Mode: v1.ClientTLSSettings_MUTUAL,
 			},
 			credentialSecurityProtocol: "insecure",
 			expectedError:              nil,
@@ -240,7 +240,7 @@ func TestVerifyCert(t *testing.T) {
 			certStr := testCert(c.certSerialNumber, priv, caCert, c.certDomainNames)
 			s := Server{}
 			block, _ = pem.Decode([]byte(certStr))
-			actualErr := s.verifyCert([][]byte{block.Bytes}, &v1alpha3.ClientTLSSettings{SubjectAltNames: c.sans, CaCrl: crl})
+			actualErr := s.verifyCert([][]byte{block.Bytes}, &v1.ClientTLSSettings{SubjectAltNames: c.sans, CaCrl: crl})
 			if actualErr == nil && c.expectedErr != nil {
 				t.Errorf("expected verifyCert error: %v", c.expectedErr.Error())
 			} else if c.expectedErr == nil && actualErr != nil {

@@ -23,7 +23,7 @@ import (
 
 	v1alpha12 "istio.io/api/analysis/v1alpha1"
 	"istio.io/api/meta/v1alpha1"
-	networking "istio.io/api/networking/v1alpha3"
+	networking "istio.io/api/networking/v1"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis/diag"
 	"istio.io/istio/pkg/util/sets"

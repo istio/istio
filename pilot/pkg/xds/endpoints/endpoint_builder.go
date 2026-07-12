@@ -28,7 +28,7 @@ import (
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"istio.io/api/label"
-	"istio.io/api/networking/v1alpha3"
+	"istio.io/api/networking/v1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/loadbalancer"
@@ -196,9 +196,9 @@ func (b *EndpointBuilder) populateAmbientServiceInfo() {
 	}
 }
 
-func (b *EndpointBuilder) DestinationRule() *v1alpha3.DestinationRule {
+func (b *EndpointBuilder) DestinationRule() *v1.DestinationRule {
 	if dr := b.destinationRule.GetRule(); dr != nil {
-		dr, _ := dr.Spec.(*v1alpha3.DestinationRule)
+		dr, _ := dr.Spec.(*v1.DestinationRule)
 		return dr
 	}
 	return nil
@@ -845,15 +845,15 @@ func supportTunnel(b *EndpointBuilder, e *model.IstioEndpoint) bool {
 }
 
 func getOutlierDetectionAndLoadBalancerSettings(
-	destinationRule *v1alpha3.DestinationRule,
+	destinationRule *v1.DestinationRule,
 	portNumber int,
 	subsetName string,
-) (bool, *v1alpha3.LoadBalancerSettings) {
+) (bool, *v1.LoadBalancerSettings) {
 	if destinationRule == nil {
 		return false, nil
 	}
 	outlierDetectionEnabled := false
-	var lbSettings *v1alpha3.LoadBalancerSettings
+	var lbSettings *v1.LoadBalancerSettings
 
 	port := &model.Port{Port: portNumber}
 	policy := getSubsetTrafficPolicy(destinationRule, port, subsetName)
@@ -867,8 +867,8 @@ func getOutlierDetectionAndLoadBalancerSettings(
 	return outlierDetectionEnabled, lbSettings
 }
 
-func getSubsetTrafficPolicy(destinationRule *v1alpha3.DestinationRule, port *model.Port, subsetName string) *v1alpha3.TrafficPolicy {
-	var subSetTrafficPolicy *v1alpha3.TrafficPolicy
+func getSubsetTrafficPolicy(destinationRule *v1.DestinationRule, port *model.Port, subsetName string) *v1.TrafficPolicy {
+	var subSetTrafficPolicy *v1.TrafficPolicy
 	for _, subset := range destinationRule.Subsets {
 		if subset.Name == subsetName {
 			subSetTrafficPolicy = subset.TrafficPolicy
@@ -879,7 +879,7 @@ func getSubsetTrafficPolicy(destinationRule *v1alpha3.DestinationRule, port *mod
 }
 
 // getSubSetLabels returns the labels associated with a subset of a given service.
-func getSubSetLabels(dr *v1alpha3.DestinationRule, subsetName string) labels.Instance {
+func getSubSetLabels(dr *v1.DestinationRule, subsetName string) labels.Instance {
 	// empty subset
 	if subsetName == "" {
 		return nil

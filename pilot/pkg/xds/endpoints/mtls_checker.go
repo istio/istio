@@ -17,7 +17,7 @@ package endpoints
 import (
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 
-	networkingapi "istio.io/api/networking/v1alpha3"
+	networkingapi "istio.io/api/networking/v1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/authn"

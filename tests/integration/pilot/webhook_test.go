@@ -27,7 +27,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"istio.io/api/label"
-	networking "istio.io/api/networking/v1alpha3"
+	networking "istio.io/api/networking/v1"
 	clientnetworking "istio.io/client-go/pkg/apis/networking/v1"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/util/retry"

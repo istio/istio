@@ -41,7 +41,7 @@ import (
 	apiannotation "istio.io/api/annotation"
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/api/networking/v1alpha3"
+	"istio.io/api/networking/v1"
 	typev1beta1 "istio.io/api/type/v1beta1"
 	clientnetworking "istio.io/client-go/pkg/apis/networking/v1"
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
@@ -253,7 +253,7 @@ func extendFQDN(host string) string {
 }
 
 // getDestRuleSubsets gets names of subsets that match any pod labels (also, ones that don't match).
-func getDestRuleSubsets(subsets []*v1alpha3.Subset, podsLabels []klabels.Set) ([]string, []string) {
+func getDestRuleSubsets(subsets []*v1.Subset, podsLabels []klabels.Set) ([]string, []string) {
 	matchingSubsets := make([]string, 0, len(subsets))
 	nonmatchingSubsets := make([]string, 0, len(subsets))
 	for _, subset := range subsets {
@@ -332,9 +332,9 @@ func printDestinationRule(writer io.Writer, initPrintNum int,
 	}
 }
 
-func recordShortPolicies(lb *v1alpha3.LoadBalancerSettings,
-	connectionPool *v1alpha3.ConnectionPoolSettings,
-	outlierDetection *v1alpha3.OutlierDetection,
+func recordShortPolicies(lb *v1.LoadBalancerSettings,
+	connectionPool *v1.ConnectionPoolSettings,
+	outlierDetection *v1.OutlierDetection,
 ) string {
 	extra := make([]string, 0)
 	if lb != nil {
@@ -353,7 +353,7 @@ func recordShortPolicies(lb *v1alpha3.LoadBalancerSettings,
 }
 
 // httpRouteMatchSvc returns true if it matches and a slice of facts about the match
-func httpRouteMatchSvc(vs *clientnetworking.VirtualService, route *v1alpha3.HTTPRoute, svc corev1.Service, matchingSubsets []string, nonmatchingSubsets []string, dr *clientnetworking.DestinationRule) (bool, []string) { // nolint: lll
+func httpRouteMatchSvc(vs *clientnetworking.VirtualService, route *v1.HTTPRoute, svc corev1.Service, matchingSubsets []string, nonmatchingSubsets []string, dr *clientnetworking.DestinationRule) (bool, []string) { // nolint: lll
 	svcHost := extendFQDN(fmt.Sprintf("%s.%s", svc.ObjectMeta.Name, svc.ObjectMeta.Namespace))
 	facts := []string{}
 	mismatchNotes := []string{}
@@ -425,7 +425,7 @@ func httpRouteMatchSvc(vs *clientnetworking.VirtualService, route *v1alpha3.HTTP
 	return match, facts
 }
 
-func tcpRouteMatchSvc(vs *clientnetworking.VirtualService, route *v1alpha3.TCPRoute, svc corev1.Service) (bool, []string) {
+func tcpRouteMatchSvc(vs *clientnetworking.VirtualService, route *v1.TCPRoute, svc corev1.Service) (bool, []string) {
 	match := false
 	facts := []string{}
 	svcHost := extendFQDN(fmt.Sprintf("%s.%s", svc.ObjectMeta.Name, svc.ObjectMeta.Namespace))
@@ -445,22 +445,22 @@ func tcpRouteMatchSvc(vs *clientnetworking.VirtualService, route *v1alpha3.TCPRo
 	return match, facts
 }
 
-func renderStringMatch(sm *v1alpha3.StringMatch) string {
+func renderStringMatch(sm *v1.StringMatch) string {
 	if sm == nil {
 		return ""
 	}
 
 	switch x := sm.MatchType.(type) {
-	case *v1alpha3.StringMatch_Exact:
+	case *v1.StringMatch_Exact:
 		return x.Exact
-	case *v1alpha3.StringMatch_Prefix:
+	case *v1.StringMatch_Prefix:
 		return x.Prefix + "*"
 	}
 
 	return sm.String()
 }
 
-func renderMatches(trafficMatches []*v1alpha3.HTTPMatchRequest) string {
+func renderMatches(trafficMatches []*v1.HTTPMatchRequest) string {
 	if len(trafficMatches) == 0 {
 		return "everything"
 	}
@@ -472,7 +472,7 @@ func renderMatches(trafficMatches []*v1alpha3.HTTPMatchRequest) string {
 	return strings.Join(matches, ", ")
 }
 
-func renderMatch(match *v1alpha3.HTTPMatchRequest) string {
+func renderMatch(match *v1.HTTPMatchRequest) string {
 	retval := "Match: "
 	// TODO Are users interested in seeing Scheme, Method, Authority?
 	if match.Uri != nil {
@@ -735,7 +735,7 @@ func getIstioVirtualServiceNameForSvc(cd *configdump.Wrapper, svc corev1.Service
 	return ss[3], ss[2], nil
 }
 
-// getIstioVirtualServicePathForSvcFromRoute returns something like "/apis/networking/v1alpha3/namespaces/default/virtual-service/reviews"
+// getIstioVirtualServicePathForSvcFromRoute returns something like "/apis/networking/v1/namespaces/default/virtual-service/reviews"
 func getIstioVirtualServicePathForSvcFromRoute(cd *configdump.Wrapper, svc corev1.Service, port int32) (string, error) {
 	sPort := strconv.Itoa(int(port))
 
@@ -833,7 +833,7 @@ func getIstioDestinationRuleNameForSvc(cd *configdump.Wrapper, svc corev1.Servic
 	return ss[3], ss[2], nil
 }
 
-// getIstioDestinationRulePathForSvc returns something like "/apis/networking/v1alpha3/namespaces/default/destination-rule/reviews"
+// getIstioDestinationRulePathForSvc returns something like "/apis/networking/v1/namespaces/default/destination-rule/reviews"
 func getIstioDestinationRulePathForSvc(cd *configdump.Wrapper, svc corev1.Service, port int32) (string, error) {
 	svcHost := extendFQDN(fmt.Sprintf("%s.%s", svc.ObjectMeta.Name, svc.ObjectMeta.Namespace))
 	filter := istio_envoy_configdump.ClusterFilter{

@@ -31,7 +31,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/api/networking/v1alpha3"
+	"istio.io/api/networking/v1"
 	"istio.io/istio/pilot/pkg/autoregistration"
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
 	"istio.io/istio/pilot/pkg/config/kube/agentgateway"
@@ -433,12 +433,12 @@ func (s *Server) makeKubeConfigController(args *PilotArgs) *crdclient.Client {
 // TODO:
 //
 //	Implement for MUTUAL_TLS/ISTIO_MUTUAL_TLS modes
-func (s *Server) getTransportCredentials(args *PilotArgs, tlsSettings *v1alpha3.ClientTLSSettings) (credentials.TransportCredentials, error) {
-	if err := agent.ValidateTLS(args.Namespace, tlsSettings); err != nil && tlsSettings.GetMode() == v1alpha3.ClientTLSSettings_SIMPLE {
+func (s *Server) getTransportCredentials(args *PilotArgs, tlsSettings *v1.ClientTLSSettings) (credentials.TransportCredentials, error) {
+	if err := agent.ValidateTLS(args.Namespace, tlsSettings); err != nil && tlsSettings.GetMode() == v1.ClientTLSSettings_SIMPLE {
 		return nil, err
 	}
 	switch tlsSettings.GetMode() {
-	case v1alpha3.ClientTLSSettings_SIMPLE:
+	case v1.ClientTLSSettings_SIMPLE:
 		if len(tlsSettings.GetCredentialName()) > 0 {
 			rootCert, err := s.getRootCertFromSecret(tlsSettings.GetCredentialName(), args.Namespace)
 			if err != nil {
@@ -471,7 +471,7 @@ func (s *Server) getTransportCredentials(args *PilotArgs, tlsSettings *v1alpha3.
 }
 
 // verifyCert verifies given cert against TLS settings like SANs and CRL.
-func (s *Server) verifyCert(certs [][]byte, tlsSettings *v1alpha3.ClientTLSSettings) error {
+func (s *Server) verifyCert(certs [][]byte, tlsSettings *v1.ClientTLSSettings) error {
 	if len(certs) == 0 {
 		return fmt.Errorf("no certificates provided")
 	}

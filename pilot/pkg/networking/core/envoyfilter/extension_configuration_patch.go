@@ -18,7 +18,7 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"google.golang.org/protobuf/proto"
 
-	networking "istio.io/api/networking/v1alpha3"
+	networking "istio.io/api/networking/v1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/sets"

@@ -17,7 +17,7 @@ package envoyfilter
 import (
 	"fmt"
 
-	network "istio.io/api/networking/v1alpha3"
+	network "istio.io/api/networking/v1"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"

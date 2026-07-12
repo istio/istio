@@ -20,7 +20,7 @@ import (
 
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 
-	networking "istio.io/api/networking/v1alpha3"
+	networking "istio.io/api/networking/v1"
 )
 
 type ApplyFunc = func(tcpProxy *tcp.TcpProxy, destinationRule *networking.DestinationRule, subsetName string)

@@ -17,7 +17,7 @@ package virtualservice
 import (
 	klabels "k8s.io/apimachinery/pkg/labels"
 
-	"istio.io/api/networking/v1alpha3"
+	"istio.io/api/networking/v1"
 	"istio.io/api/security/v1beta1"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
@@ -69,7 +69,7 @@ func (s *JWTClaimRouteAnalyzer) Analyze(c analysis.Context) {
 
 func (s *JWTClaimRouteAnalyzer) analyze(r *resource.Instance, c analysis.Context, requestAuthNByNamespace map[string][]klabels.Selector) {
 	// Check if the virtual service is using JWT claim based routing.
-	vs := r.Message.(*v1alpha3.VirtualService)
+	vs := r.Message.(*v1.VirtualService)
 	var vsRouteKey string
 	if vsRouteKey = routeBasedOnJWTClaimKey(vs); vsRouteKey == "" {
 		return
@@ -89,7 +89,7 @@ func (s *JWTClaimRouteAnalyzer) analyze(r *resource.Instance, c analysis.Context
 			continue
 		}
 
-		gw := gwRes.Message.(*v1alpha3.Gateway)
+		gw := gwRes.Message.(*v1.Gateway)
 		gwSelector := klabels.SelectorFromSet(gw.Selector)
 
 		// Check each pod selected by the gateway.
@@ -119,7 +119,7 @@ func (s *JWTClaimRouteAnalyzer) analyze(r *resource.Instance, c analysis.Context
 	}
 }
 
-func routeBasedOnJWTClaimKey(vs *v1alpha3.VirtualService) string {
+func routeBasedOnJWTClaimKey(vs *v1.VirtualService) string {
 	for _, httpRoute := range vs.GetHttp() {
 		for _, match := range httpRoute.GetMatch() {
 			for key := range match.GetHeaders() {

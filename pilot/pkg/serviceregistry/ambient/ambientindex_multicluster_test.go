@@ -23,7 +23,7 @@ import (
 	k8sv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"istio.io/api/label"
-	apiv1alpha3 "istio.io/client-go/pkg/apis/networking/v1"
+	apiv1 "istio.io/client-go/pkg/apis/networking/v1"
 	clientsecurityv1beta1 "istio.io/client-go/pkg/apis/security/v1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -46,8 +46,8 @@ type ambientclients struct {
 	ns    clienttest.TestWriter[*corev1.Namespace]
 	grc   clienttest.TestWriter[*k8sv1.Gateway]
 	gwcls clienttest.TestWriter[*k8sv1.GatewayClass]
-	se    clienttest.TestWriter[*apiv1alpha3.ServiceEntry]
-	we    clienttest.TestWriter[*apiv1alpha3.WorkloadEntry]
+	se    clienttest.TestWriter[*apiv1.ServiceEntry]
+	we    clienttest.TestWriter[*apiv1.WorkloadEntry]
 	pa    clienttest.TestWriter[*clientsecurityv1beta1.PeerAuthentication]
 	authz clienttest.TestWriter[*clientsecurityv1beta1.AuthorizationPolicy]
 }
@@ -137,8 +137,8 @@ func TestAmbientMulticlusterIndex_WaypointForWorkloadTraffic(t *testing.T) {
 						ns:    clienttest.NewWriter[*corev1.Namespace](t, cl),
 						grc:   clienttest.NewWriter[*k8sv1.Gateway](t, cl),
 						gwcls: clienttest.NewWriter[*k8sv1.GatewayClass](t, cl),
-						se:    clienttest.NewWriter[*apiv1alpha3.ServiceEntry](t, cl),
-						we:    clienttest.NewWriter[*apiv1alpha3.WorkloadEntry](t, cl),
+						se:    clienttest.NewWriter[*apiv1.ServiceEntry](t, cl),
+						we:    clienttest.NewWriter[*apiv1.WorkloadEntry](t, cl),
 						pa:    clienttest.NewWriter[*clientsecurityv1beta1.PeerAuthentication](t, cl),
 						authz: clienttest.NewWriter[*clientsecurityv1beta1.AuthorizationPolicy](t, cl),
 						sec:   clienttest.NewWriter[*corev1.Secret](t, cl),
@@ -436,8 +436,8 @@ func TestMulticlusterAmbientIndex_TestServiceMerging(t *testing.T) {
 				ns:    clienttest.NewWriter[*corev1.Namespace](t, cl),
 				grc:   clienttest.NewWriter[*k8sv1.Gateway](t, cl),
 				gwcls: clienttest.NewWriter[*k8sv1.GatewayClass](t, cl),
-				se:    clienttest.NewWriter[*apiv1alpha3.ServiceEntry](t, cl),
-				we:    clienttest.NewWriter[*apiv1alpha3.WorkloadEntry](t, cl),
+				se:    clienttest.NewWriter[*apiv1.ServiceEntry](t, cl),
+				we:    clienttest.NewWriter[*apiv1.WorkloadEntry](t, cl),
 				pa:    clienttest.NewWriter[*clientsecurityv1beta1.PeerAuthentication](t, cl),
 				authz: clienttest.NewWriter[*clientsecurityv1beta1.AuthorizationPolicy](t, cl),
 				sec:   clienttest.NewWriter[*corev1.Secret](t, cl),
@@ -564,8 +564,8 @@ func TestMulticlusterAmbientIndex_SplitHorizon(t *testing.T) {
 				ns:    clienttest.NewWriter[*corev1.Namespace](t, cl),
 				grc:   clienttest.NewWriter[*k8sv1.Gateway](t, cl),
 				gwcls: clienttest.NewWriter[*k8sv1.GatewayClass](t, cl),
-				se:    clienttest.NewWriter[*apiv1alpha3.ServiceEntry](t, cl),
-				we:    clienttest.NewWriter[*apiv1alpha3.WorkloadEntry](t, cl),
+				se:    clienttest.NewWriter[*apiv1.ServiceEntry](t, cl),
+				we:    clienttest.NewWriter[*apiv1.WorkloadEntry](t, cl),
 				pa:    clienttest.NewWriter[*clientsecurityv1beta1.PeerAuthentication](t, cl),
 				authz: clienttest.NewWriter[*clientsecurityv1beta1.AuthorizationPolicy](t, cl),
 				sec:   clienttest.NewWriter[*corev1.Secret](t, cl),

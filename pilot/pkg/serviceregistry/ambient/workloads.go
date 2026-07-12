@@ -28,7 +28,7 @@ import (
 
 	"istio.io/api/annotation"
 	"istio.io/api/label"
-	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
+	networkingv1 "istio.io/api/networking/v1"
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
 	securityclient "istio.io/client-go/pkg/apis/security/v1"
 	"istio.io/istio/pilot/pkg/features"
@@ -923,9 +923,9 @@ func serviceEntryWorkloadBuilder(
 		eps := se.Spec.Endpoints
 		// If we have a DNS service, endpoints are not required
 		implicitEndpoints := len(eps) == 0 &&
-			(se.Spec.Resolution == networkingv1alpha3.ServiceEntry_DNS ||
-				se.Spec.Resolution == networkingv1alpha3.ServiceEntry_DYNAMIC_DNS ||
-				se.Spec.Resolution == networkingv1alpha3.ServiceEntry_DNS_ROUND_ROBIN) &&
+			(se.Spec.Resolution == networkingv1.ServiceEntry_DNS ||
+				se.Spec.Resolution == networkingv1.ServiceEntry_DYNAMIC_DNS ||
+				se.Spec.Resolution == networkingv1.ServiceEntry_DNS_ROUND_ROBIN) &&
 			se.Spec.WorkloadSelector == nil
 		if len(eps) == 0 && !implicitEndpoints {
 			return nil
@@ -942,8 +942,8 @@ func serviceEntryWorkloadBuilder(
 			return nil
 		}
 		if implicitEndpoints {
-			eps = slices.Map(allServices, func(si model.ServiceInfo) *networkingv1alpha3.WorkloadEntry {
-				return &networkingv1alpha3.WorkloadEntry{Address: si.Service.Hostname}
+			eps = slices.Map(allServices, func(si model.ServiceInfo) *networkingv1.WorkloadEntry {
+				return &networkingv1.WorkloadEntry{Address: si.Service.Hostname}
 			})
 		}
 		if len(eps) == 0 {
@@ -1243,7 +1243,7 @@ func fetchPeerAuthentications(
 	}))
 }
 
-func constructServicesFromWorkloadEntry(p *networkingv1alpha3.WorkloadEntry, services []model.ServiceInfo) map[string]*workloadapi.PortList {
+func constructServicesFromWorkloadEntry(p *networkingv1.WorkloadEntry, services []model.ServiceInfo) map[string]*workloadapi.PortList {
 	res := map[string]*workloadapi.PortList{}
 	for _, svc := range services {
 		n := namespacedHostname(svc.Service.Namespace, svc.Service.Hostname)
@@ -1353,7 +1353,7 @@ func getPodLocality(ctx krt.HandlerContext, Nodes krt.Collection[Node], pod *v1.
 	return node.Locality
 }
 
-func getWorkloadEntryLocality(p *networkingv1alpha3.WorkloadEntry) *workloadapi.Locality {
+func getWorkloadEntryLocality(p *networkingv1.WorkloadEntry) *workloadapi.Locality {
 	region, zone, subzone := labelutil.SplitLocalityLabel(p.GetLocality())
 	if region == "" && zone == "" && subzone == "" {
 		return nil

@@ -20,7 +20,7 @@ import (
 
 	fuzz "github.com/AdaLogics/go-fuzz-headers"
 
-	"istio.io/api/networking/v1alpha3"
+	"istio.io/api/networking/v1"
 	"istio.io/istio/pilot/pkg/autoregistration"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
@@ -60,8 +60,8 @@ var (
 	// A valid WorkloadGroup.
 	// This can be modified to have pseudo-random
 	// values for more randomization.
-	tmplA = &v1alpha3.WorkloadGroup{
-		Template: &v1alpha3.WorkloadEntry{
+	tmplA = &v1.WorkloadGroup{
+		Template: &v1.WorkloadEntry{
 			Ports:          map[string]uint32{"http": 80},
 			Labels:         map[string]string{"app": "a"},
 			Network:        "nw0",

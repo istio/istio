@@ -1967,7 +1967,7 @@ spec:
     tls:
       httpsRedirect: true
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: EnvoyFilter
 metadata:
   name: ingressgateway-redirect-config
@@ -2547,7 +2547,7 @@ func XFFGatewayCase(apps *deployment.SingleNamespaceView, gateway string) []Traf
 func envoyFilterCases(t TrafficContext) {
 	// Test adding envoyfilter to inbound and outbound route/cluster/listeners
 	cfg := `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: EnvoyFilter
 metadata:
   name: outbound
@@ -2594,7 +2594,7 @@ spec:
       value:
         http2_protocol_options: {}
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: EnvoyFilter
 metadata:
   name: inbound

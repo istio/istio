@@ -54,13 +54,13 @@ var collectionsTemplate string
 type colEntry struct {
 	Resource *ast.Resource
 
-	// ClientImport represents the import alias for the client. Example: clientnetworkingv1alpha3.
+	// ClientImport represents the import alias for the client. Example: clientnetworkingv1.
 	ClientImport string
-	// ClientImport represents the import alias for the status. Example: clientnetworkingv1alpha3.
+	// ClientImport represents the import alias for the status. Example: clientnetworkingv1.
 	StatusImport string
 	// IstioAwareClientImport represents the import alias for the API, taking into account Istio storing its API (spec)
 	// separate from its client import
-	// Example: apiclientnetworkingv1alpha3.
+	// Example: apiclientnetworkingv1.
 	IstioAwareClientImport string
 	// ClientGroupPath represents the group in the client. Example: NetworkingV1alpha3.
 	ClientGroupPath string

@@ -17,7 +17,7 @@ package model
 import (
 	"k8s.io/apimachinery/pkg/types"
 
-	networking "istio.io/api/networking/v1alpha3"
+	networking "istio.io/api/networking/v1"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh/meshwatcher"

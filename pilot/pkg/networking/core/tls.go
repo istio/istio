@@ -18,7 +18,7 @@ import (
 	"sort"
 	"strings"
 
-	"istio.io/api/networking/v1alpha3"
+	"istio.io/api/networking/v1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/tunnelingconfig"
 	"istio.io/istio/pilot/pkg/networking/telemetry"
@@ -36,7 +36,7 @@ import (
 // Match by source labels, the listener port where traffic comes in, the gateway on which the rule is being
 // bound, etc. All these can be checked statically, since we are generating the configuration for a proxy
 // with predefined labels, on a specific port.
-func matchTLS(match *v1alpha3.TLSMatchAttributes, proxyLabels labels.Instance, gateways sets.String, port int, proxyNamespace string) bool {
+func matchTLS(match *v1.TLSMatchAttributes, proxyLabels labels.Instance, gateways sets.String, port int, proxyNamespace string) bool {
 	if match == nil {
 		return true
 	}
@@ -58,7 +58,7 @@ func matchTLS(match *v1alpha3.TLSMatchAttributes, proxyLabels labels.Instance, g
 // Match by source labels, the listener port where traffic comes in, the gateway on which the rule is being
 // bound, etc. All these can be checked statically, since we are generating the configuration for a proxy
 // with predefined labels, on a specific port.
-func matchTCP(match *v1alpha3.L4MatchAttributes, proxyLabels labels.Instance, gateways sets.String, port int, proxyNamespace string) bool {
+func matchTCP(match *v1.L4MatchAttributes, proxyLabels labels.Instance, gateways sets.String, port int, proxyNamespace string) bool {
 	if match == nil {
 		return true
 	}
@@ -81,7 +81,7 @@ func matchTCP(match *v1alpha3.L4MatchAttributes, proxyLabels labels.Instance, ga
 func getConfigsForHost(filterNamespace string, hostname host.Name, configs []*config.Config) []*config.Config {
 	svcConfigs := make([]*config.Config, 0)
 	for _, cfg := range configs {
-		virtualService := cfg.Spec.(*v1alpha3.VirtualService)
+		virtualService := cfg.Spec.(*v1.VirtualService)
 		for _, vsHost := range virtualService.Hosts {
 			if filterNamespace != "" && filterNamespace != cfg.Namespace {
 				continue
@@ -96,7 +96,7 @@ func getConfigsForHost(filterNamespace string, hostname host.Name, configs []*co
 }
 
 // hashRuntimeTLSMatchPredicates hashes runtime predicates of a TLS match
-func hashRuntimeTLSMatchPredicates(match *v1alpha3.TLSMatchAttributes) string {
+func hashRuntimeTLSMatchPredicates(match *v1.TLSMatchAttributes) string {
 	return strings.Join(match.SniHosts, ",") + "|" + strings.Join(match.DestinationSubnets, ",")
 }
 
@@ -135,7 +135,7 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 	lb := &ListenerBuilder{node: node, push: push}
 	out := make([]*filterChainOpts, 0)
 	for _, cfg := range configs {
-		virtualService := cfg.Spec.(*v1alpha3.VirtualService)
+		virtualService := cfg.Spec.(*v1.VirtualService)
 		for _, tls := range virtualService.Tls {
 			if len(tls.Route) == 0 {
 				continue
@@ -249,7 +249,7 @@ func buildSidecarOutboundTCPFilterChainOpts(node *model.Proxy, push *model.PushC
 	defaultRouteAdded := false
 TcpLoop:
 	for _, cfg := range configs {
-		virtualService := cfg.Spec.(*v1alpha3.VirtualService)
+		virtualService := cfg.Spec.(*v1.VirtualService)
 		for _, tcp := range virtualService.Tcp {
 			if len(tcp.Route) == 0 {
 				// no routes, skip (validated at admission but config may still arrive without routes)

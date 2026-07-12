@@ -19,7 +19,7 @@ import (
 	"strings"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/api/networking/v1alpha3"
+	"istio.io/api/networking/v1"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
@@ -66,7 +66,7 @@ func (serviceEntry *ProtocolAddressesAnalyzer) Analyze(context analysis.Context)
 }
 
 func (serviceEntry *ProtocolAddressesAnalyzer) analyzeProtocolAddresses(r *resource.Instance, ctx analysis.Context, metaDNSAutoAllocated bool) {
-	se := r.Message.(*v1alpha3.ServiceEntry)
+	se := r.Message.(*v1.ServiceEntry)
 	if se.Addresses == nil && !addressAllocated(r) && !metaDNSAutoAllocated {
 		for index, port := range se.Ports {
 			if port.Protocol == "" || strings.EqualFold(port.Protocol, "TCP") {
@@ -87,6 +87,6 @@ func addressAllocated(r *resource.Instance) bool {
 		return false
 	}
 
-	status := r.Status.(*v1alpha3.ServiceEntryStatus)
+	status := r.Status.(*v1.ServiceEntryStatus)
 	return len(status.Addresses) > 0
 }

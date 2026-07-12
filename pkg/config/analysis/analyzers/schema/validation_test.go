@@ -20,7 +20,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 	. "github.com/onsi/gomega"
 
-	"istio.io/api/networking/v1alpha3"
+	"istio.io/api/networking/v1"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis/msg"
@@ -35,7 +35,7 @@ import (
 func TestCorrectArgs(t *testing.T) {
 	g := NewWithT(t)
 
-	m1 := &v1alpha3.VirtualService{}
+	m1 := &v1.VirtualService{}
 
 	testSchema := schemaWithValidateFn(func(cfg config.Config) (warnings validation.Warning, errs error) {
 		g.Expect(cfg.Name).To(Equal("name"))
@@ -46,7 +46,7 @@ func TestCorrectArgs(t *testing.T) {
 	ctx := &fixtures.Context{
 		Resources: []*resource.Instance{
 			{
-				Message: &v1alpha3.VirtualService{},
+				Message: &v1.VirtualService{},
 				Metadata: resource.Metadata{
 					FullName: resource.NewFullName("ns", "name"),
 				},
@@ -61,9 +61,9 @@ func TestCorrectArgs(t *testing.T) {
 func TestSchemaValidationWrapper(t *testing.T) {
 	testCol := gvk.VirtualService
 
-	m1 := &v1alpha3.VirtualService{}
-	m2 := &v1alpha3.VirtualService{}
-	m3 := &v1alpha3.VirtualService{}
+	m1 := &v1.VirtualService{}
+	m2 := &v1.VirtualService{}
+	m3 := &v1.VirtualService{}
 
 	testSchema := schemaWithValidateFn(func(cfg config.Config) (warnings validation.Warning, errs error) {
 		if cfg.Spec == m1 {

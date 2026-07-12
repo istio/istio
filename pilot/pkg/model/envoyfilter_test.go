@@ -20,7 +20,7 @@ import (
 
 	"google.golang.org/protobuf/types/known/structpb"
 
-	networking "istio.io/api/networking/v1alpha3"
+	networking "istio.io/api/networking/v1"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/util/protomarshal"
 )

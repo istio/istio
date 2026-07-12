@@ -17,7 +17,7 @@ package virtualservice
 import (
 	"fmt"
 
-	"istio.io/api/networking/v1alpha3"
+	"istio.io/api/networking/v1"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
@@ -57,7 +57,7 @@ func (d *DestinationRuleAnalyzer) Analyze(ctx analysis.Context) {
 func (d *DestinationRuleAnalyzer) analyzeVirtualService(r *resource.Instance, ctx analysis.Context,
 	destHostsAndSubsets map[hostAndSubset]bool,
 ) {
-	vs := r.Message.(*v1alpha3.VirtualService)
+	vs := r.Message.(*v1.VirtualService)
 	ns := r.Metadata.FullName.Namespace
 
 	for _, ad := range getRouteDestinations(vs) {
@@ -96,7 +96,7 @@ func (d *DestinationRuleAnalyzer) analyzeVirtualService(r *resource.Instance, ct
 	}
 }
 
-func (d *DestinationRuleAnalyzer) checkDestinationSubset(vsNamespace resource.Namespace, destination *v1alpha3.Destination,
+func (d *DestinationRuleAnalyzer) checkDestinationSubset(vsNamespace resource.Namespace, destination *v1.Destination,
 	destHostsAndSubsets map[hostAndSubset]bool,
 ) bool {
 	name := util.GetResourceNameFromHost(vsNamespace, destination.GetHost())
@@ -121,7 +121,7 @@ func (d *DestinationRuleAnalyzer) checkDestinationSubset(vsNamespace resource.Na
 func initDestHostsAndSubsets(ctx analysis.Context) map[hostAndSubset]bool {
 	hostsAndSubsets := make(map[hostAndSubset]bool)
 	ctx.ForEach(gvk.DestinationRule, func(r *resource.Instance) bool {
-		dr := r.Message.(*v1alpha3.DestinationRule)
+		dr := r.Message.(*v1.DestinationRule)
 		drNamespace := r.Metadata.FullName.Namespace
 
 		for _, ss := range dr.GetSubsets() {

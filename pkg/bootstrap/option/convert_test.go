@@ -18,7 +18,7 @@ import (
 	"reflect"
 	"testing"
 
-	networkingAPI "istio.io/api/networking/v1alpha3"
+	networkingAPI "istio.io/api/networking/v1"
 	"istio.io/istio/pkg/model"
 )
 

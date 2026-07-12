@@ -284,7 +284,7 @@ func convertHTTPWasmConfigFromRemoteToLocal(ec *core.TypedExtensionConfig, wasmH
 	}()
 
 	// ec.Name is resourceName.
-	// https://github.com/istio/istio/blob/9ea7ad532a9cc58a3564143d41ac89a61aaa8058/pilot/pkg/networking/core/v1alpha3/extension/wasmplugin.go#L103
+	// https://github.com/istio/istio/blob/9ea7ad532a9cc58a3564143d41ac89a61aaa8058/pilot/pkg/networking/core/v1/extension/wasmplugin.go#L103
 	err := rewriteVMConfig(ec.Name, wasmHTTPFilterConfig.Config.GetVmConfig(), &status, cache, wasmHTTPFilterConfig.Config.Name)
 	if err != nil {
 		return nil, err
@@ -318,7 +318,7 @@ func convertNetworkWasmConfigFromRemoteToLocal(ec *core.TypedExtensionConfig, wa
 	}()
 
 	// ec.Name is resourceName.
-	// https://github.com/istio/istio/blob/9ea7ad532a9cc58a3564143d41ac89a61aaa8058/pilot/pkg/networking/core/v1alpha3/extension/wasmplugin.go#L103
+	// https://github.com/istio/istio/blob/9ea7ad532a9cc58a3564143d41ac89a61aaa8058/pilot/pkg/networking/core/v1/extension/wasmplugin.go#L103
 	err := rewriteVMConfig(ec.Name, wasmNetworkFilterConfig.Config.GetVmConfig(), &status, cache, wasmNetworkFilterConfig.Config.Name)
 	if err != nil {
 		return nil, err

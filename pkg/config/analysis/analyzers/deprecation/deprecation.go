@@ -19,7 +19,7 @@ import (
 
 	k8sext "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 
-	"istio.io/api/networking/v1alpha3"
+	"istio.io/api/networking/v1"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/msg"
@@ -104,7 +104,7 @@ func (*FieldAnalyzer) analyzeCRD(r *resource.Instance, ctx analysis.Context) {
 }
 
 func (*FieldAnalyzer) analyzeSidecar(r *resource.Instance, ctx analysis.Context) {
-	sc := r.Message.(*v1alpha3.Sidecar)
+	sc := r.Message.(*v1.Sidecar)
 
 	if sc.OutboundTrafficPolicy != nil {
 		if sc.OutboundTrafficPolicy.EgressProxy != nil {
@@ -115,7 +115,7 @@ func (*FieldAnalyzer) analyzeSidecar(r *resource.Instance, ctx analysis.Context)
 }
 
 func (*FieldAnalyzer) analyzeVirtualService(r *resource.Instance, ctx analysis.Context) {
-	vs := r.Message.(*v1alpha3.VirtualService)
+	vs := r.Message.(*v1.VirtualService)
 
 	for _, httpRoute := range vs.Http {
 		if httpRoute.Fault != nil {

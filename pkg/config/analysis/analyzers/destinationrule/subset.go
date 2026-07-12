@@ -19,7 +19,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 
-	"istio.io/api/networking/v1alpha3"
+	"istio.io/api/networking/v1"
 	networkingutil "istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	"istio.io/istio/pkg/cluster"
@@ -85,7 +85,7 @@ func (a *PodNotSelectedAnalyzer) Analyze(context analysis.Context) {
 	})
 
 	context.ForEach(gvk.DestinationRule, func(resource *resource.Instance) bool {
-		dr := resource.Message.(*v1alpha3.DestinationRule)
+		dr := resource.Message.(*v1.DestinationRule)
 		se := util.GetDestinationHost(resource.Metadata.FullName.Namespace, dr.GetExportTo(), dr.GetHost(), services)
 		if se == nil {
 			msg := msg.NewUnknownDestinationRuleHost(resource, dr.GetHost())

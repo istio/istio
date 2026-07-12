@@ -28,7 +28,7 @@ import (
 	//  To install the xds resolvers and balancers.
 	_ "google.golang.org/grpc/xds"
 
-	networking "istio.io/api/networking/v1alpha3"
+	networking "istio.io/api/networking/v1"
 	"istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/protocol"

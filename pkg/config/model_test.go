@@ -25,7 +25,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8s "sigs.k8s.io/gateway-api/apis/v1"
 
-	networking "istio.io/api/networking/v1alpha3"
+	networking "istio.io/api/networking/v1"
 	"istio.io/istio/pkg/test/config"
 	"istio.io/istio/pkg/test/util/assert"
 )

@@ -34,7 +34,7 @@ import (
 	"istio.io/api/annotation"
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	networkingv1alpha3 "istio.io/api/networking/v1alpha3"
+	networkingv1 "istio.io/api/networking/v1"
 	clientnetworking "istio.io/client-go/pkg/apis/networking/v1"
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
@@ -146,12 +146,12 @@ The default output is serialized YAML, which can be piped into 'kubectl apply -f
 					},
 				},
 			}
-			spec := &networkingv1alpha3.WorkloadGroup{
-				Metadata: &networkingv1alpha3.WorkloadGroup_ObjectMeta{
+			spec := &networkingv1.WorkloadGroup{
+				Metadata: &networkingv1.WorkloadGroup_ObjectMeta{
 					Labels:      convertToStringMap(resourceLabels),
 					Annotations: convertToStringMap(annotations),
 				},
-				Template: &networkingv1alpha3.WorkloadEntry{
+				Template: &networkingv1.WorkloadEntry{
 					Ports:          convertToUnsignedInt32Map(ports),
 					ServiceAccount: serviceAccount,
 					Network:        network,
@@ -184,7 +184,7 @@ The default output is serialized YAML, which can be piped into 'kubectl apply -f
 	return createCmd
 }
 
-func generateWorkloadGroupYAML(u *unstructured.Unstructured, spec *networkingv1alpha3.WorkloadGroup) ([]byte, error) {
+func generateWorkloadGroupYAML(u *unstructured.Unstructured, spec *networkingv1.WorkloadGroup) ([]byte, error) {
 	iSpec, err := unstructureIstioType(spec)
 	if err != nil {
 		return nil, err
@@ -295,10 +295,10 @@ func readWorkloadGroup(filename string, wg *clientnetworking.WorkloadGroup) erro
 	}
 	// fill empty structs
 	if wg.Spec.Metadata == nil {
-		wg.Spec.Metadata = &networkingv1alpha3.WorkloadGroup_ObjectMeta{}
+		wg.Spec.Metadata = &networkingv1.WorkloadGroup_ObjectMeta{}
 	}
 	if wg.Spec.Template == nil {
-		wg.Spec.Template = &networkingv1alpha3.WorkloadEntry{}
+		wg.Spec.Template = &networkingv1.WorkloadEntry{}
 	}
 	// default service account for an empty field is "default"
 	if wg.Spec.Template.ServiceAccount == "" {

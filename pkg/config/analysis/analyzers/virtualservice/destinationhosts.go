@@ -17,7 +17,7 @@ package virtualservice
 import (
 	"fmt"
 
-	"istio.io/api/networking/v1alpha3"
+	"istio.io/api/networking/v1"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
@@ -62,8 +62,8 @@ func (a *DestinationHostAnalyzer) Analyze(ctx analysis.Context) {
 	})
 }
 
-func (a *DestinationHostAnalyzer) analyzeSubset(r *resource.Instance, ctx analysis.Context, vsDestinations map[resource.FullName][]*v1alpha3.Destination) {
-	vs := r.Message.(*v1alpha3.VirtualService)
+func (a *DestinationHostAnalyzer) analyzeSubset(r *resource.Instance, ctx analysis.Context, vsDestinations map[resource.FullName][]*v1.Destination) {
+	vs := r.Message.(*v1.VirtualService)
 
 	// if there's no gateway specified, we're done
 	if len(vs.GetGateways()) == 0 {
@@ -93,11 +93,11 @@ func (a *DestinationHostAnalyzer) analyzeSubset(r *resource.Instance, ctx analys
 }
 
 // get all virtualservice that have destination with subset
-func initVirtualServiceDestinations(ctx analysis.Context) map[resource.FullName][]*v1alpha3.Destination {
-	virtualservices := make(map[resource.FullName][]*v1alpha3.Destination)
+func initVirtualServiceDestinations(ctx analysis.Context) map[resource.FullName][]*v1.Destination {
+	virtualservices := make(map[resource.FullName][]*v1.Destination)
 
 	ctx.ForEach(gvk.VirtualService, func(r *resource.Instance) bool {
-		virtualservice := r.Message.(*v1alpha3.VirtualService)
+		virtualservice := r.Message.(*v1.VirtualService)
 		for _, routes := range virtualservice.GetHttp() {
 			for _, destinations := range routes.GetRoute() {
 				// if there's no subset specified, we're done
@@ -118,9 +118,9 @@ func initVirtualServiceDestinations(ctx analysis.Context) map[resource.FullName]
 }
 
 func (a *DestinationHostAnalyzer) analyzeVirtualService(r *resource.Instance, ctx analysis.Context,
-	serviceEntryHosts map[util.ScopedFqdn]*v1alpha3.ServiceEntry,
+	serviceEntryHosts map[util.ScopedFqdn]*v1.ServiceEntry,
 ) {
-	vs := r.Message.(*v1alpha3.VirtualService)
+	vs := r.Message.(*v1.VirtualService)
 
 	for _, d := range getRouteDestinations(vs) {
 		s := util.GetDestinationHost(r.Metadata.FullName.Namespace, vs.ExportTo, d.Destination.GetHost(), serviceEntryHosts)
@@ -162,7 +162,7 @@ func (a *DestinationHostAnalyzer) analyzeVirtualService(r *resource.Instance, ct
 	}
 }
 
-func checkServiceEntryPorts(ctx analysis.Context, r *resource.Instance, d *AnnotatedDestination, s *v1alpha3.ServiceEntry) {
+func checkServiceEntryPorts(ctx analysis.Context, r *resource.Instance, d *AnnotatedDestination, s *v1.ServiceEntry) {
 	if d.Destination.GetPort() == nil {
 		// If destination port isn't specified, it's only a problem if the service being referenced exposes multiple ports.
 		if len(s.GetPorts()) > 1 {

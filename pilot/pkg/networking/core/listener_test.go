@@ -39,7 +39,7 @@ import (
 	extensions "istio.io/api/extensions/v1alpha1"
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	networking "istio.io/api/networking/v1alpha3"
+	networking "istio.io/api/networking/v1"
 	security "istio.io/api/security/v1beta1"
 	telemetry "istio.io/api/telemetry/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"

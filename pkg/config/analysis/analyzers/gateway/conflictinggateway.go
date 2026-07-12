@@ -22,7 +22,7 @@ import (
 
 	klabels "k8s.io/apimachinery/pkg/labels"
 
-	"istio.io/api/networking/v1alpha3"
+	"istio.io/api/networking/v1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
@@ -62,7 +62,7 @@ func (s *ConflictingGatewayAnalyzer) Analyze(c analysis.Context) {
 func (*ConflictingGatewayAnalyzer) analyzeGateway(r *resource.Instance, c analysis.Context,
 	gwCMap gatewaysContextMap,
 ) {
-	gw := r.Message.(*v1alpha3.Gateway)
+	gw := r.Message.(*v1.Gateway)
 	gwName := r.Metadata.FullName.String()
 	// For pods selected by gw.Selector, find Services that select them and remember those ports
 	gwSelector := klabels.SelectorFromSet(gw.Selector)
@@ -136,7 +136,7 @@ func (*ConflictingGatewayAnalyzer) analyzeGateway(r *resource.Instance, c analys
 }
 
 // isGWConflict implements gateway's hosts match
-func isGWConflict(server *v1alpha3.Server, knowHostsBind gatewayHostsBind) bool {
+func isGWConflict(server *v1.Server, knowHostsBind gatewayHostsBind) bool {
 	newHostsBind := knowHostsBind
 	// CheckDuplicates returns all of the hosts provided that are already known
 	// If there were no duplicates, all hosts are added to the known hosts.
@@ -154,7 +154,7 @@ type gatewaysContextMap map[string]map[string]gatewayHostsBind
 func initGatewaysMap(ctx analysis.Context) gatewaysContextMap {
 	gwConflictingMap := make(map[string]map[string]gatewayHostsBind)
 	ctx.ForEach(gvk.Gateway, func(r *resource.Instance) bool {
-		gw := r.Message.(*v1alpha3.Gateway)
+		gw := r.Message.(*v1.Gateway)
 		gwName := r.Metadata.FullName.String()
 
 		gwSelector := klabels.SelectorFromSet(gw.GetSelector())

@@ -930,8 +930,8 @@ type Workload struct {
 	//
 	// As an example, a ServiceEntry with two WorkloadEntries inlined could become
 	// two Workloads with the following UIDs:
-	// - cluster1/networking.istio.io/v1alpha3/ServiceEntry/default/external-svc/endpoint1
-	// - cluster1/networking.istio.io/v1alpha3/ServiceEntry/default/external-svc/endpoint2
+	// - cluster1/networking.istio.io/v1/ServiceEntry/default/external-svc/endpoint1
+	// - cluster1/networking.istio.io/v1/ServiceEntry/default/external-svc/endpoint2
 	//
 	// For VMs and other workloads other formats are also supported; for example,
 	// a single UID string: "0ae5c03d-5fb3-4eb9-9de8-2bd4b51606ba"

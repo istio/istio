@@ -30,7 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	apiannotation "istio.io/api/annotation"
-	networking "istio.io/api/networking/v1alpha3"
+	networking "istio.io/api/networking/v1"
 	clientnetworking "istio.io/client-go/pkg/apis/networking/v1"
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/util/configdump"
@@ -1166,7 +1166,7 @@ func TestGetIstioVirtualServicePathForSvcFromRoute(t *testing.T) {
 				Status: corev1.ServiceStatus{},
 			},
 			inputPort: int32(9080),
-			expected:  "/apis/networking.istio.io/v1alpha3/namespaces/default/virtual-service/bookinfo",
+			expected:  "/apis/networking.istio.io/v1/namespaces/default/virtual-service/bookinfo",
 		},
 		{
 			name:        "test http config",
@@ -1181,7 +1181,7 @@ func TestGetIstioVirtualServicePathForSvcFromRoute(t *testing.T) {
 				Status: corev1.ServiceStatus{},
 			},
 			inputPort: int32(9080),
-			expected:  "/apis/networking.istio.io/v1alpha3/namespaces/default/virtual-service/bookinfo",
+			expected:  "/apis/networking.istio.io/v1/namespaces/default/virtual-service/bookinfo",
 		},
 	}
 

@@ -179,7 +179,7 @@ spec:
           subset: v2
         weight: 25`
 	validVirtualServiceJSON = `{
-"apiVersion": "networking.istio.io/v1alpha3",
+"apiVersion": "networking.istio.io/v1",
 "kind": "VirtualService",
 "metadata": {
 	"name": "valid-virtual-service"
@@ -229,7 +229,7 @@ spec:
           subset: v2
         weight: 25`
 	validVirtualService1JSON = `{
-"apiVersion": "networking.istio.io/v1alpha3",
+"apiVersion": "networking.istio.io/v1",
 "kind": "VirtualService",
 "metadata": {
 	"name": "valid-virtual-service1"
@@ -276,7 +276,7 @@ spec:
         host: c
         subset: v1`
 	validVirtualService2JSON = `{
-"apiVersion": "networking.istio.io/v1alpha3",
+"apiVersion": "networking.istio.io/v1",
 "kind": "VirtualService",
 "metadata": {
 	"name": "valid-virtual-service2"
@@ -319,7 +319,7 @@ spec:
           subset: v2
         weight: -15`
 	invalidVirtualServiceJSON = `{
-"apiVersion": "networking.istio.io/v1alpha3",
+"apiVersion": "networking.istio.io/v1",
 "kind": "VirtualService",
 "metadata": {
 	"name": "invalid-virtual-service"

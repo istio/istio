@@ -26,7 +26,7 @@ import (
 	pstruct "google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
-	networkingAPI "istio.io/api/networking/v1alpha3"
+	networkingAPI "istio.io/api/networking/v1"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/model"

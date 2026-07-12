@@ -35,7 +35,7 @@ import (
 	extensions "istio.io/api/extensions/v1alpha1"
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	networking "istio.io/api/networking/v1alpha3"
+	networking "istio.io/api/networking/v1"
 	networkingv1beta1 "istio.io/api/networking/v1beta1"
 	security_beta "istio.io/api/security/v1beta1"
 	telemetry "istio.io/api/telemetry/v1alpha1"
@@ -1760,7 +1760,7 @@ var ValidatePeerAuthentication = RegisterValidateFunc("ValidatePeerAuthenticatio
 		return validation.Warning, errs
 	})
 
-// ValidateVirtualService checks that a v1alpha3 route rule is well-formed.
+// ValidateVirtualService checks that a v1 route rule is well-formed.
 var ValidateVirtualService = RegisterValidateFunc("ValidateVirtualService",
 	func(cfg config.Config) (Warning, error) {
 		virtualService, ok := cfg.Spec.(*networking.VirtualService)

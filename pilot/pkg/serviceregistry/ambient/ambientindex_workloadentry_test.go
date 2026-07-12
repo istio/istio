@@ -21,8 +21,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/api/label"
-	"istio.io/api/networking/v1alpha3"
-	apiv1alpha3 "istio.io/client-go/pkg/apis/networking/v1"
+	"istio.io/api/networking/v1"
+	apiv1 "istio.io/client-go/pkg/apis/networking/v1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/constants"
@@ -488,13 +488,13 @@ func TestAmbientIndex_CrossNetworkWorkloadEntry(t *testing.T) {
 	s := newAmbientTestServer(t, testC, testNW, "")
 
 	// Create a WorkloadEntry with a network different from the local cluster network
-	s.we.CreateOrUpdate(&apiv1alpha3.WorkloadEntry{
+	s.we.CreateOrUpdate(&apiv1.WorkloadEntry{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "cross-net-wle",
 			Namespace: testNS,
 			Labels:    map[string]string{"app": "cross-net"},
 		},
-		Spec: v1alpha3.WorkloadEntry{
+		Spec: v1.WorkloadEntry{
 			Address:        "10.10.10.1",
 			ServiceAccount: "sa-cross",
 			Labels:         map[string]string{"app": "cross-net"},

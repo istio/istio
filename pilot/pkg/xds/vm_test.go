@@ -19,7 +19,7 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/api/networking/v1alpha3"
+	"istio.io/api/networking/v1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/xds"
@@ -42,8 +42,8 @@ func TestRegistration(t *testing.T) {
 			Name:             "wg",
 			Namespace:        "namespace",
 		},
-		Spec: &v1alpha3.WorkloadGroup{
-			Template: &v1alpha3.WorkloadEntry{
+		Spec: &v1.WorkloadGroup{
+			Template: &v1.WorkloadEntry{
 				Labels: map[string]string{
 					"merge": "wg",
 					"wg":    "1",
@@ -71,7 +71,7 @@ func TestRegistration(t *testing.T) {
 		}
 		return nil
 	}, retry.Timeout(time.Second*10))
-	assert.Equal(t, we.Spec.(*v1alpha3.WorkloadEntry).Labels, map[string]string{
+	assert.Equal(t, we.Spec.(*v1.WorkloadEntry).Labels, map[string]string{
 		"merge": "meta",
 		"meta":  "2",
 		"wg":    "1",

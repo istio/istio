@@ -21,7 +21,7 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 
-	"istio.io/api/networking/v1alpha3"
+	"istio.io/api/networking/v1"
 )
 
 func FuzzApplyLocalityLBSetting(f *testing.F) {
@@ -50,7 +50,7 @@ func FuzzApplyLocalityLBSetting(f *testing.F) {
 			return
 		}
 
-		localityLB := &v1alpha3.LocalityLoadBalancerSetting{}
+		localityLB := &v1.LocalityLoadBalancerSetting{}
 		err = ff.GenerateStruct(localityLB)
 		if err != nil {
 			return

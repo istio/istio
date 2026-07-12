@@ -27,7 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/api/mesh/v1alpha1"
-	networking "istio.io/api/networking/v1alpha3"
+	networking "istio.io/api/networking/v1"
 	securityBeta "istio.io/api/security/v1beta1"
 	"istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"

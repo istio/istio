@@ -178,7 +178,7 @@ func TestAggregateStoreWriteWithoutWriter(t *testing.T) {
 func TestAggregateStoreFails(t *testing.T) {
 	g := NewWithT(t)
 
-	store1 := memory.NewController(memory.Make(collection.SchemasFor(schemaFor("OtherConfig", "istio.networking.v1alpha3.Gateway"))))
+	store1 := memory.NewController(memory.Make(collection.SchemasFor(schemaFor("OtherConfig", "istio.networking.v1.Gateway"))))
 
 	stores := []model.ConfigStoreController{store1}
 

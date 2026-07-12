@@ -25,7 +25,7 @@ import (
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 
-	apiv1alpha3 "istio.io/api/networking/v1alpha3"
+	apiv1 "istio.io/api/networking/v1"
 	networkingv1 "istio.io/client-go/pkg/apis/networking/v1"
 	"istio.io/istio/pilot/pkg/features"
 	autoallocate "istio.io/istio/pilot/pkg/networking/serviceentry"
@@ -360,7 +360,7 @@ type jsonPatch struct {
 
 func keepHost(se *networkingv1.ServiceEntry, h string) bool {
 	// Only keep wildcarded hosts if the resolution is dynamic DNS
-	return !cfghost.Name(h).IsWildCarded() || se.Spec.Resolution == apiv1alpha3.ServiceEntry_DYNAMIC_DNS
+	return !cfghost.Name(h).IsWildCarded() || se.Spec.Resolution == apiv1.ServiceEntry_DYNAMIC_DNS
 }
 
 // statusPatchForAddresses returns two patch variants (replace and add-status) along with
@@ -403,7 +403,7 @@ func (c *IPAllocator) statusPatchForAddresses(se *networkingv1.ServiceEntry, for
 	var newlyAllocated []netip.Addr
 
 	// construct the assigned addresses datastructure to patch
-	assignedAddresses := []apiv1alpha3.ServiceEntryAddress{}
+	assignedAddresses := []apiv1.ServiceEntryAddress{}
 	for _, host := range slices.Filter(se.Spec.Hosts, func(h string) bool { return keepHost(se, h) }) {
 		if assignedHosts.InsertContains(host) {
 			continue
@@ -419,7 +419,7 @@ func (c *IPAllocator) statusPatchForAddresses(se *networkingv1.ServiceEntry, for
 		}
 
 		for _, a := range assignedIPs {
-			assignedAddresses = append(assignedAddresses, apiv1alpha3.ServiceEntryAddress{Value: a.String(), Host: host})
+			assignedAddresses = append(assignedAddresses, apiv1.ServiceEntryAddress{Value: a.String(), Host: host})
 		}
 	}
 
@@ -447,7 +447,7 @@ func (c *IPAllocator) statusPatchForAddresses(se *networkingv1.ServiceEntry, for
 		{
 			Operation: "add",
 			Path:      "/status",
-			Value:     apiv1alpha3.ServiceEntryStatus{},
+			Value:     apiv1.ServiceEntryStatus{},
 		},
 		{
 			Operation: "add",
@@ -501,7 +501,7 @@ func (c *IPAllocator) tryClearAddresses(se *networkingv1.ServiceEntry) error {
 		{
 			Operation: "replace",
 			Path:      "/status/addresses",
-			Value:     []apiv1alpha3.ServiceEntryAddress{},
+			Value:     []apiv1.ServiceEntryAddress{},
 		},
 	})
 	if err != nil {

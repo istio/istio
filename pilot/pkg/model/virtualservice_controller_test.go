@@ -23,7 +23,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/api/networking/v1alpha3"
+	"istio.io/api/networking/v1"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh/meshwatcher"
@@ -77,16 +77,16 @@ func TestControllerMergeVirtualServices(t *testing.T) {
 			Namespace:        "default",
 			GroupVersionKind: gvk.VirtualService,
 		},
-		Spec: &v1alpha3.VirtualService{
+		Spec: &v1.VirtualService{
 			Hosts:    []string{"example.org"},
 			Gateways: []string{"default/gateway"},
-			Http: []*v1alpha3.HTTPRoute{
+			Http: []*v1.HTTPRoute{
 				{
-					Route: []*v1alpha3.HTTPRouteDestination{
+					Route: []*v1.HTTPRouteDestination{
 						{
-							Destination: &v1alpha3.Destination{
+							Destination: &v1.Destination{
 								Host: "example.org",
-								Port: &v1alpha3.PortSelector{
+								Port: &v1.PortSelector{
 									Number: 80,
 								},
 							},
@@ -103,34 +103,34 @@ func TestControllerMergeVirtualServices(t *testing.T) {
 			Namespace:        "istio-system",
 			GroupVersionKind: gvk.VirtualService,
 		},
-		Spec: &v1alpha3.VirtualService{
+		Spec: &v1.VirtualService{
 			Hosts:    []string{"*.org"},
 			Gateways: []string{"istio-system/gateway"},
-			Http: []*v1alpha3.HTTPRoute{
+			Http: []*v1.HTTPRoute{
 				{
-					Match: []*v1alpha3.HTTPMatchRequest{
+					Match: []*v1.HTTPMatchRequest{
 						{
-							Uri: &v1alpha3.StringMatch{
-								MatchType: &v1alpha3.StringMatch_Prefix{Prefix: "/productpage"},
+							Uri: &v1.StringMatch{
+								MatchType: &v1.StringMatch_Prefix{Prefix: "/productpage"},
 							},
 						},
 						{
-							Uri: &v1alpha3.StringMatch{
-								MatchType: &v1alpha3.StringMatch_Exact{Exact: "/login"},
+							Uri: &v1.StringMatch{
+								MatchType: &v1.StringMatch_Exact{Exact: "/login"},
 							},
 						},
 					},
-					Delegate: &v1alpha3.Delegate{
+					Delegate: &v1.Delegate{
 						Name:      "productpage-vs",
 						Namespace: "default",
 					},
 				},
 				{
-					Route: []*v1alpha3.HTTPRouteDestination{
+					Route: []*v1.HTTPRouteDestination{
 						{
-							Destination: &v1alpha3.Destination{
+							Destination: &v1.Destination{
 								Host: "example.org",
-								Port: &v1alpha3.PortSelector{
+								Port: &v1.PortSelector{
 									Number: 80,
 								},
 							},
@@ -147,33 +147,33 @@ func TestControllerMergeVirtualServices(t *testing.T) {
 			Namespace:        "default",
 			GroupVersionKind: gvk.VirtualService,
 		},
-		Spec: &v1alpha3.VirtualService{
+		Spec: &v1.VirtualService{
 			Hosts:    []string{"*.org"},
 			Gateways: []string{"default/gateway"},
-			Http: []*v1alpha3.HTTPRoute{
+			Http: []*v1.HTTPRoute{
 				{
-					Match: []*v1alpha3.HTTPMatchRequest{
+					Match: []*v1.HTTPMatchRequest{
 						{
-							Uri: &v1alpha3.StringMatch{
-								MatchType: &v1alpha3.StringMatch_Prefix{Prefix: "/productpage"},
+							Uri: &v1.StringMatch{
+								MatchType: &v1.StringMatch_Prefix{Prefix: "/productpage"},
 							},
 						},
 						{
-							Uri: &v1alpha3.StringMatch{
-								MatchType: &v1alpha3.StringMatch_Exact{Exact: "/login"},
+							Uri: &v1.StringMatch{
+								MatchType: &v1.StringMatch_Exact{Exact: "/login"},
 							},
 						},
 					},
-					Delegate: &v1alpha3.Delegate{
+					Delegate: &v1.Delegate{
 						Name: "productpage-vs",
 					},
 				},
 				{
-					Route: []*v1alpha3.HTTPRouteDestination{
+					Route: []*v1.HTTPRouteDestination{
 						{
-							Destination: &v1alpha3.Destination{
+							Destination: &v1.Destination{
 								Host: "example.org",
-								Port: &v1alpha3.PortSelector{
+								Port: &v1.PortSelector{
 									Number: 80,
 								},
 							},
@@ -190,16 +190,16 @@ func TestControllerMergeVirtualServices(t *testing.T) {
 			Namespace:        "istio-system",
 			GroupVersionKind: gvk.VirtualService,
 		},
-		Spec: &v1alpha3.VirtualService{
+		Spec: &v1.VirtualService{
 			Hosts:    []string{"*.org"},
 			Gateways: []string{"istio-system/gateway"},
-			Http: []*v1alpha3.HTTPRoute{
+			Http: []*v1.HTTPRoute{
 				{
-					Route: []*v1alpha3.HTTPRouteDestination{
+					Route: []*v1.HTTPRouteDestination{
 						{
-							Destination: &v1alpha3.Destination{
+							Destination: &v1.Destination{
 								Host: "example.org",
-								Port: &v1alpha3.PortSelector{
+								Port: &v1.PortSelector{
 									Number: 80,
 								},
 							},
@@ -217,24 +217,24 @@ func TestControllerMergeVirtualServices(t *testing.T) {
 				Namespace:        namespace,
 				GroupVersionKind: gvk.VirtualService,
 			},
-			Spec: &v1alpha3.VirtualService{
+			Spec: &v1.VirtualService{
 				Hosts:    []string{},
 				Gateways: []string{namespace + "/gateway"},
 				ExportTo: exportTo,
-				Http: []*v1alpha3.HTTPRoute{
+				Http: []*v1.HTTPRoute{
 					{
-						Match: []*v1alpha3.HTTPMatchRequest{
+						Match: []*v1.HTTPMatchRequest{
 							{
-								Uri: &v1alpha3.StringMatch{
-									MatchType: &v1alpha3.StringMatch_Prefix{Prefix: "/productpage/v1"},
+								Uri: &v1.StringMatch{
+									MatchType: &v1.StringMatch_Prefix{Prefix: "/productpage/v1"},
 								},
 							},
 						},
-						Route: []*v1alpha3.HTTPRouteDestination{
+						Route: []*v1.HTTPRouteDestination{
 							{
-								Destination: &v1alpha3.Destination{
+								Destination: &v1.Destination{
 									Host: "productpage.org",
-									Port: &v1alpha3.PortSelector{
+									Port: &v1.PortSelector{
 										Number: 80,
 									},
 									Subset: "v1",
@@ -243,18 +243,18 @@ func TestControllerMergeVirtualServices(t *testing.T) {
 						},
 					},
 					{
-						Match: []*v1alpha3.HTTPMatchRequest{
+						Match: []*v1.HTTPMatchRequest{
 							{
-								Uri: &v1alpha3.StringMatch{
-									MatchType: &v1alpha3.StringMatch_Prefix{Prefix: "/productpage/v2"},
+								Uri: &v1.StringMatch{
+									MatchType: &v1.StringMatch_Prefix{Prefix: "/productpage/v2"},
 								},
 							},
 						},
-						Route: []*v1alpha3.HTTPRouteDestination{
+						Route: []*v1.HTTPRouteDestination{
 							{
-								Destination: &v1alpha3.Destination{
+								Destination: &v1.Destination{
 									Host: "productpage.org",
-									Port: &v1alpha3.PortSelector{
+									Port: &v1.PortSelector{
 										Number: 80,
 									},
 									Subset: "v2",
@@ -263,11 +263,11 @@ func TestControllerMergeVirtualServices(t *testing.T) {
 						},
 					},
 					{
-						Route: []*v1alpha3.HTTPRouteDestination{
+						Route: []*v1.HTTPRouteDestination{
 							{
-								Destination: &v1alpha3.Destination{
+								Destination: &v1.Destination{
 									Host: "productpage.org",
-									Port: &v1alpha3.PortSelector{
+									Port: &v1.PortSelector{
 										Number: 80,
 									},
 									Subset: "v3",
@@ -289,7 +289,7 @@ func TestControllerMergeVirtualServices(t *testing.T) {
 			Namespace:        "default2",
 			GroupVersionKind: gvk.VirtualService,
 		},
-		Spec: &v1alpha3.VirtualService{
+		Spec: &v1.VirtualService{
 			Hosts:    []string{},
 			Gateways: []string{"default2/gateway"},
 			ExportTo: []string{"."},
@@ -302,23 +302,23 @@ func TestControllerMergeVirtualServices(t *testing.T) {
 			Namespace:        "istio-system",
 			GroupVersionKind: gvk.VirtualService,
 		},
-		Spec: &v1alpha3.VirtualService{
+		Spec: &v1.VirtualService{
 			Hosts:    []string{"*.org"},
 			Gateways: []string{"istio-system/gateway"},
-			Http: []*v1alpha3.HTTPRoute{
+			Http: []*v1.HTTPRoute{
 				{
-					Match: []*v1alpha3.HTTPMatchRequest{
+					Match: []*v1.HTTPMatchRequest{
 						{
-							Uri: &v1alpha3.StringMatch{
-								MatchType: &v1alpha3.StringMatch_Prefix{Prefix: "/productpage/v1"},
+							Uri: &v1.StringMatch{
+								MatchType: &v1.StringMatch_Prefix{Prefix: "/productpage/v1"},
 							},
 						},
 					},
-					Route: []*v1alpha3.HTTPRouteDestination{
+					Route: []*v1.HTTPRouteDestination{
 						{
-							Destination: &v1alpha3.Destination{
+							Destination: &v1.Destination{
 								Host: "productpage.org",
-								Port: &v1alpha3.PortSelector{
+								Port: &v1.PortSelector{
 									Number: 80,
 								},
 								Subset: "v1",
@@ -327,18 +327,18 @@ func TestControllerMergeVirtualServices(t *testing.T) {
 					},
 				},
 				{
-					Match: []*v1alpha3.HTTPMatchRequest{
+					Match: []*v1.HTTPMatchRequest{
 						{
-							Uri: &v1alpha3.StringMatch{
-								MatchType: &v1alpha3.StringMatch_Prefix{Prefix: "/productpage/v2"},
+							Uri: &v1.StringMatch{
+								MatchType: &v1.StringMatch_Prefix{Prefix: "/productpage/v2"},
 							},
 						},
 					},
-					Route: []*v1alpha3.HTTPRouteDestination{
+					Route: []*v1.HTTPRouteDestination{
 						{
-							Destination: &v1alpha3.Destination{
+							Destination: &v1.Destination{
 								Host: "productpage.org",
-								Port: &v1alpha3.PortSelector{
+								Port: &v1.PortSelector{
 									Number: 80,
 								},
 								Subset: "v2",
@@ -347,23 +347,23 @@ func TestControllerMergeVirtualServices(t *testing.T) {
 					},
 				},
 				{
-					Match: []*v1alpha3.HTTPMatchRequest{
+					Match: []*v1.HTTPMatchRequest{
 						{
-							Uri: &v1alpha3.StringMatch{
-								MatchType: &v1alpha3.StringMatch_Prefix{Prefix: "/productpage"},
+							Uri: &v1.StringMatch{
+								MatchType: &v1.StringMatch_Prefix{Prefix: "/productpage"},
 							},
 						},
 						{
-							Uri: &v1alpha3.StringMatch{
-								MatchType: &v1alpha3.StringMatch_Exact{Exact: "/login"},
+							Uri: &v1.StringMatch{
+								MatchType: &v1.StringMatch_Exact{Exact: "/login"},
 							},
 						},
 					},
-					Route: []*v1alpha3.HTTPRouteDestination{
+					Route: []*v1.HTTPRouteDestination{
 						{
-							Destination: &v1alpha3.Destination{
+							Destination: &v1.Destination{
 								Host: "productpage.org",
-								Port: &v1alpha3.PortSelector{
+								Port: &v1.PortSelector{
 									Number: 80,
 								},
 								Subset: "v3",
@@ -372,11 +372,11 @@ func TestControllerMergeVirtualServices(t *testing.T) {
 					},
 				},
 				{
-					Route: []*v1alpha3.HTTPRouteDestination{
+					Route: []*v1.HTTPRouteDestination{
 						{
-							Destination: &v1alpha3.Destination{
+							Destination: &v1.Destination{
 								Host: "example.org",
-								Port: &v1alpha3.PortSelector{
+								Port: &v1.PortSelector{
 									Number: 80,
 								},
 							},
@@ -390,7 +390,7 @@ func TestControllerMergeVirtualServices(t *testing.T) {
 	mergedVsInDefault := mergedVs.DeepCopy()
 	mergedVsInDefault.Name = "default-vs"
 	mergedVsInDefault.Namespace = "default"
-	spec := mergedVsInDefault.Spec.(*v1alpha3.VirtualService)
+	spec := mergedVsInDefault.Spec.(*v1.VirtualService)
 	spec.Gateways = []string{"default/gateway"}
 
 	// invalid delegate, match condition conflicts with root
@@ -400,23 +400,23 @@ func TestControllerMergeVirtualServices(t *testing.T) {
 			Namespace:        "default",
 			GroupVersionKind: gvk.VirtualService,
 		},
-		Spec: &v1alpha3.VirtualService{
+		Spec: &v1.VirtualService{
 			Hosts:    []string{},
 			Gateways: []string{"default/gateway"},
-			Http: []*v1alpha3.HTTPRoute{
+			Http: []*v1.HTTPRoute{
 				{
-					Match: []*v1alpha3.HTTPMatchRequest{
+					Match: []*v1.HTTPMatchRequest{
 						{
-							Uri: &v1alpha3.StringMatch{
-								MatchType: &v1alpha3.StringMatch_Prefix{Prefix: "/productpage/v1"},
+							Uri: &v1.StringMatch{
+								MatchType: &v1.StringMatch_Prefix{Prefix: "/productpage/v1"},
 							},
 						},
 					},
-					Route: []*v1alpha3.HTTPRouteDestination{
+					Route: []*v1.HTTPRouteDestination{
 						{
-							Destination: &v1alpha3.Destination{
+							Destination: &v1.Destination{
 								Host: "productpage.org",
-								Port: &v1alpha3.PortSelector{
+								Port: &v1.PortSelector{
 									Number: 80,
 								},
 								Subset: "v1",
@@ -425,18 +425,18 @@ func TestControllerMergeVirtualServices(t *testing.T) {
 					},
 				},
 				{
-					Match: []*v1alpha3.HTTPMatchRequest{
+					Match: []*v1.HTTPMatchRequest{
 						{
-							Uri: &v1alpha3.StringMatch{
-								MatchType: &v1alpha3.StringMatch_Prefix{Prefix: "/productpage/v2"},
+							Uri: &v1.StringMatch{
+								MatchType: &v1.StringMatch_Prefix{Prefix: "/productpage/v2"},
 							},
 						},
 					},
-					Route: []*v1alpha3.HTTPRouteDestination{
+					Route: []*v1.HTTPRouteDestination{
 						{
-							Destination: &v1alpha3.Destination{
+							Destination: &v1.Destination{
 								Host: "productpage.org",
-								Port: &v1alpha3.PortSelector{
+								Port: &v1.PortSelector{
 									Number: 80,
 								},
 								Subset: "v2",
@@ -446,20 +446,20 @@ func TestControllerMergeVirtualServices(t *testing.T) {
 				},
 				{
 					// mismatch, this route will be ignored
-					Match: []*v1alpha3.HTTPMatchRequest{
+					Match: []*v1.HTTPMatchRequest{
 						{
 							Name: "mismatch",
-							Uri: &v1alpha3.StringMatch{
+							Uri: &v1.StringMatch{
 								// conflicts with root's HTTPMatchRequest
-								MatchType: &v1alpha3.StringMatch_Prefix{Prefix: "/mis-match/path"},
+								MatchType: &v1.StringMatch_Prefix{Prefix: "/mis-match/path"},
 							},
 						},
 					},
-					Route: []*v1alpha3.HTTPRouteDestination{
+					Route: []*v1.HTTPRouteDestination{
 						{
-							Destination: &v1alpha3.Destination{
+							Destination: &v1.Destination{
 								Host: "productpage.org",
-								Port: &v1alpha3.PortSelector{
+								Port: &v1.PortSelector{
 									Number: 80,
 								},
 								Subset: "v3",
@@ -477,23 +477,23 @@ func TestControllerMergeVirtualServices(t *testing.T) {
 			Namespace:        "istio-system",
 			GroupVersionKind: gvk.VirtualService,
 		},
-		Spec: &v1alpha3.VirtualService{
+		Spec: &v1.VirtualService{
 			Hosts:    []string{"*.org"},
 			Gateways: []string{"istio-system/gateway"},
-			Http: []*v1alpha3.HTTPRoute{
+			Http: []*v1.HTTPRoute{
 				{
-					Match: []*v1alpha3.HTTPMatchRequest{
+					Match: []*v1.HTTPMatchRequest{
 						{
-							Uri: &v1alpha3.StringMatch{
-								MatchType: &v1alpha3.StringMatch_Prefix{Prefix: "/productpage/v1"},
+							Uri: &v1.StringMatch{
+								MatchType: &v1.StringMatch_Prefix{Prefix: "/productpage/v1"},
 							},
 						},
 					},
-					Route: []*v1alpha3.HTTPRouteDestination{
+					Route: []*v1.HTTPRouteDestination{
 						{
-							Destination: &v1alpha3.Destination{
+							Destination: &v1.Destination{
 								Host: "productpage.org",
-								Port: &v1alpha3.PortSelector{
+								Port: &v1.PortSelector{
 									Number: 80,
 								},
 								Subset: "v1",
@@ -502,18 +502,18 @@ func TestControllerMergeVirtualServices(t *testing.T) {
 					},
 				},
 				{
-					Match: []*v1alpha3.HTTPMatchRequest{
+					Match: []*v1.HTTPMatchRequest{
 						{
-							Uri: &v1alpha3.StringMatch{
-								MatchType: &v1alpha3.StringMatch_Prefix{Prefix: "/productpage/v2"},
+							Uri: &v1.StringMatch{
+								MatchType: &v1.StringMatch_Prefix{Prefix: "/productpage/v2"},
 							},
 						},
 					},
-					Route: []*v1alpha3.HTTPRouteDestination{
+					Route: []*v1.HTTPRouteDestination{
 						{
-							Destination: &v1alpha3.Destination{
+							Destination: &v1.Destination{
 								Host: "productpage.org",
-								Port: &v1alpha3.PortSelector{
+								Port: &v1.PortSelector{
 									Number: 80,
 								},
 								Subset: "v2",
@@ -522,11 +522,11 @@ func TestControllerMergeVirtualServices(t *testing.T) {
 					},
 				},
 				{
-					Route: []*v1alpha3.HTTPRouteDestination{
+					Route: []*v1.HTTPRouteDestination{
 						{
-							Destination: &v1alpha3.Destination{
+							Destination: &v1.Destination{
 								Host: "example.org",
-								Port: &v1alpha3.PortSelector{
+								Port: &v1.PortSelector{
 									Number: 80,
 								},
 							},
@@ -544,35 +544,35 @@ func TestControllerMergeVirtualServices(t *testing.T) {
 			Namespace:        "istio-system",
 			GroupVersionKind: gvk.VirtualService,
 		},
-		Spec: &v1alpha3.VirtualService{
+		Spec: &v1.VirtualService{
 			Hosts:    []string{"*.org"},
 			Gateways: []string{"istio-system/gateway"},
-			Http: []*v1alpha3.HTTPRoute{
+			Http: []*v1.HTTPRoute{
 				{
-					Match: []*v1alpha3.HTTPMatchRequest{
+					Match: []*v1.HTTPMatchRequest{
 						{
-							Uri: &v1alpha3.StringMatch{
-								MatchType: &v1alpha3.StringMatch_Prefix{Prefix: "/productpage"},
+							Uri: &v1.StringMatch{
+								MatchType: &v1.StringMatch_Prefix{Prefix: "/productpage"},
 							},
 						},
 					},
-					Delegate: &v1alpha3.Delegate{
+					Delegate: &v1.Delegate{
 						Name:      "productpage-vs",
 						Namespace: "default",
 					},
 				},
 				{
-					Match: []*v1alpha3.HTTPMatchRequest{
+					Match: []*v1.HTTPMatchRequest{
 						{
-							Uri: &v1alpha3.StringMatch{
-								MatchType: &v1alpha3.StringMatch_Prefix{Prefix: "/legacy/path"},
+							Uri: &v1.StringMatch{
+								MatchType: &v1.StringMatch_Prefix{Prefix: "/legacy/path"},
 							},
 						},
 					},
-					Rewrite: &v1alpha3.HTTPRewrite{
+					Rewrite: &v1.HTTPRewrite{
 						Uri: "/productpage",
 					},
-					Delegate: &v1alpha3.Delegate{
+					Delegate: &v1.Delegate{
 						Name:      "productpage-vs",
 						Namespace: "default",
 					},
@@ -587,16 +587,16 @@ func TestControllerMergeVirtualServices(t *testing.T) {
 			Namespace:        "default",
 			GroupVersionKind: gvk.VirtualService,
 		},
-		Spec: &v1alpha3.VirtualService{
+		Spec: &v1.VirtualService{
 			Hosts:    []string{},
 			Gateways: []string{"default/gateway"},
-			Http: []*v1alpha3.HTTPRoute{
+			Http: []*v1.HTTPRoute{
 				{
-					Route: []*v1alpha3.HTTPRouteDestination{
+					Route: []*v1.HTTPRouteDestination{
 						{
-							Destination: &v1alpha3.Destination{
+							Destination: &v1.Destination{
 								Host: "productpage.org",
-								Port: &v1alpha3.PortSelector{
+								Port: &v1.PortSelector{
 									Number: 80,
 								},
 								Subset: "v1",
@@ -614,23 +614,23 @@ func TestControllerMergeVirtualServices(t *testing.T) {
 			Namespace:        "istio-system",
 			GroupVersionKind: gvk.VirtualService,
 		},
-		Spec: &v1alpha3.VirtualService{
+		Spec: &v1.VirtualService{
 			Hosts:    []string{"*.org"},
 			Gateways: []string{"istio-system/gateway"},
-			Http: []*v1alpha3.HTTPRoute{
+			Http: []*v1.HTTPRoute{
 				{
-					Match: []*v1alpha3.HTTPMatchRequest{
+					Match: []*v1.HTTPMatchRequest{
 						{
-							Uri: &v1alpha3.StringMatch{
-								MatchType: &v1alpha3.StringMatch_Prefix{Prefix: "/productpage"},
+							Uri: &v1.StringMatch{
+								MatchType: &v1.StringMatch_Prefix{Prefix: "/productpage"},
 							},
 						},
 					},
-					Route: []*v1alpha3.HTTPRouteDestination{
+					Route: []*v1.HTTPRouteDestination{
 						{
-							Destination: &v1alpha3.Destination{
+							Destination: &v1.Destination{
 								Host: "productpage.org",
-								Port: &v1alpha3.PortSelector{
+								Port: &v1.PortSelector{
 									Number: 80,
 								},
 								Subset: "v1",
@@ -639,21 +639,21 @@ func TestControllerMergeVirtualServices(t *testing.T) {
 					},
 				},
 				{
-					Match: []*v1alpha3.HTTPMatchRequest{
+					Match: []*v1.HTTPMatchRequest{
 						{
-							Uri: &v1alpha3.StringMatch{
-								MatchType: &v1alpha3.StringMatch_Prefix{Prefix: "/legacy/path"},
+							Uri: &v1.StringMatch{
+								MatchType: &v1.StringMatch_Prefix{Prefix: "/legacy/path"},
 							},
 						},
 					},
-					Rewrite: &v1alpha3.HTTPRewrite{
+					Rewrite: &v1.HTTPRewrite{
 						Uri: "/productpage",
 					},
-					Route: []*v1alpha3.HTTPRouteDestination{
+					Route: []*v1.HTTPRouteDestination{
 						{
-							Destination: &v1alpha3.Destination{
+							Destination: &v1.Destination{
 								Host: "productpage.org",
-								Port: &v1alpha3.PortSelector{
+								Port: &v1.PortSelector{
 									Number: 80,
 								},
 								Subset: "v1",
@@ -823,11 +823,11 @@ func TestXDSPushSuppression(t *testing.T) {
 			Labels:           map[string]string{"app": "test"},
 			Annotations:      map[string]string{"meta.helm.sh/release-name": "my-release"},
 		},
-		Spec: &v1alpha3.VirtualService{
+		Spec: &v1.VirtualService{
 			Hosts: []string{"example.org"},
-			Http: []*v1alpha3.HTTPRoute{
-				{Route: []*v1alpha3.HTTPRouteDestination{
-					{Destination: &v1alpha3.Destination{Host: "example.org"}},
+			Http: []*v1.HTTPRoute{
+				{Route: []*v1.HTTPRouteDestination{
+					{Destination: &v1.Destination{Host: "example.org"}},
 				}},
 			},
 		},
@@ -860,11 +860,11 @@ func TestXDSPushSuppression(t *testing.T) {
 		{
 			name: "spec change pushes",
 			update: func(vs config.Config) config.Config {
-				vs.Spec = &v1alpha3.VirtualService{
+				vs.Spec = &v1.VirtualService{
 					Hosts: []string{"example.org", "other.org"},
-					Http: []*v1alpha3.HTTPRoute{
-						{Route: []*v1alpha3.HTTPRouteDestination{
-							{Destination: &v1alpha3.Destination{Host: "example.org"}},
+					Http: []*v1.HTTPRoute{
+						{Route: []*v1.HTTPRouteDestination{
+							{Destination: &v1.Destination{Host: "example.org"}},
 						}},
 					},
 				}

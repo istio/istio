@@ -34,7 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/api/label"
-	"istio.io/api/networking/v1alpha3"
+	"istio.io/api/networking/v1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
@@ -669,7 +669,7 @@ func TestWaypointEnvoyFilter(t *testing.T) {
 			t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
 				"Destination":  waypointName,
 				"WaypointName": waypointName,
-			}, `apiVersion: networking.istio.io/v1alpha3
+			}, `apiVersion: networking.istio.io/v1
 kind: EnvoyFilter
 metadata:
   name: inbound
@@ -2152,18 +2152,18 @@ func TestServiceEntryInlinedWorkloadEntry(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
 			testCases := []struct {
-				location   v1alpha3.ServiceEntry_Location
-				resolution v1alpha3.ServiceEntry_Resolution
+				location   v1.ServiceEntry_Location
+				resolution v1.ServiceEntry_Resolution
 				to         echo.Instances
 			}{
 				{
-					location:   v1alpha3.ServiceEntry_MESH_INTERNAL,
-					resolution: v1alpha3.ServiceEntry_STATIC,
+					location:   v1.ServiceEntry_MESH_INTERNAL,
+					resolution: v1.ServiceEntry_STATIC,
 					to:         apps.Mesh,
 				},
 				{
-					location:   v1alpha3.ServiceEntry_MESH_EXTERNAL,
-					resolution: v1alpha3.ServiceEntry_STATIC,
+					location:   v1.ServiceEntry_MESH_EXTERNAL,
+					resolution: v1.ServiceEntry_STATIC,
 					to:         apps.MeshExternal,
 				},
 				// TODO dns cases
@@ -2287,23 +2287,23 @@ func TestServiceEntrySelectsWorkloadEntry(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
 			testCases := []struct {
-				location   v1alpha3.ServiceEntry_Location
-				resolution v1alpha3.ServiceEntry_Resolution
+				location   v1.ServiceEntry_Location
+				resolution v1.ServiceEntry_Resolution
 				to         echo.Instances
 			}{
 				{
-					location:   v1alpha3.ServiceEntry_MESH_INTERNAL,
-					resolution: v1alpha3.ServiceEntry_STATIC,
+					location:   v1.ServiceEntry_MESH_INTERNAL,
+					resolution: v1.ServiceEntry_STATIC,
 					to:         apps.Mesh,
 				},
 				{
-					location:   v1alpha3.ServiceEntry_MESH_EXTERNAL,
-					resolution: v1alpha3.ServiceEntry_STATIC,
+					location:   v1.ServiceEntry_MESH_EXTERNAL,
+					resolution: v1.ServiceEntry_STATIC,
 					to:         apps.MeshExternal,
 				},
 				{
-					location:   v1alpha3.ServiceEntry_MESH_EXTERNAL,
-					resolution: v1alpha3.ServiceEntry_DNS,
+					location:   v1.ServiceEntry_MESH_EXTERNAL,
+					resolution: v1.ServiceEntry_DNS,
 					to:         apps.MeshExternal,
 				},
 			}
@@ -2418,7 +2418,7 @@ spec:
 			}
 
 			for _, tc := range testCases {
-				if tc.resolution != v1alpha3.ServiceEntry_DNS {
+				if tc.resolution != v1.ServiceEntry_DNS {
 					continue
 				}
 				ingressHost := fmt.Sprintf("%s.%s.svc.cluster.local", ingress.ServiceName(), ingress.Namespace())
@@ -2460,18 +2460,18 @@ func TestServiceEntrySelectsUncapturedPod(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
 			testCases := []struct {
-				location   v1alpha3.ServiceEntry_Location
-				resolution v1alpha3.ServiceEntry_Resolution
+				location   v1.ServiceEntry_Location
+				resolution v1.ServiceEntry_Resolution
 				to         echo.Instances
 			}{
 				{
-					location:   v1alpha3.ServiceEntry_MESH_INTERNAL,
-					resolution: v1alpha3.ServiceEntry_STATIC,
+					location:   v1.ServiceEntry_MESH_INTERNAL,
+					resolution: v1.ServiceEntry_STATIC,
 					to:         apps.Mesh,
 				},
 				{
-					location:   v1alpha3.ServiceEntry_MESH_EXTERNAL,
-					resolution: v1alpha3.ServiceEntry_STATIC,
+					location:   v1.ServiceEntry_MESH_EXTERNAL,
+					resolution: v1.ServiceEntry_STATIC,
 					to:         apps.MeshExternal,
 				},
 				// TODO dns cases
@@ -2743,7 +2743,7 @@ func TestIngressTLS(t *testing.T) {
 		t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]any{
 			"Destination": apps.Captured.Config().Service,
 			"Port":        ports.HTTPS.ServicePort,
-		}, `apiVersion: networking.istio.io/v1alpha3
+		}, `apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: gateway
@@ -2757,7 +2757,7 @@ spec:
       protocol: HTTP
     hosts: ["*"]
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: route
@@ -2773,7 +2773,7 @@ spec:
         port:
           number: {{.Port}}
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: "{{.Destination}}"

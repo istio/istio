@@ -25,7 +25,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	"istio.io/api/networking/v1alpha3"
+	"istio.io/api/networking/v1"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/validation/agent"
 	"istio.io/istio/pkg/log"
@@ -82,7 +82,7 @@ func DefaultMeshConfig() *meshconfig.MeshConfig {
 		EnableAutoMtls:              wrappers.Bool(true),
 		OutboundTrafficPolicy:       &meshconfig.MeshConfig_OutboundTrafficPolicy{Mode: meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY},
 		InboundTrafficPolicy:        &meshconfig.MeshConfig_InboundTrafficPolicy{Mode: meshconfig.MeshConfig_InboundTrafficPolicy_PASSTHROUGH},
-		LocalityLbSetting: &v1alpha3.LocalityLoadBalancerSetting{
+		LocalityLbSetting: &v1.LocalityLoadBalancerSetting{
 			Enabled: wrappers.Bool(true),
 		},
 		Certificates:  []*meshconfig.Certificate{},

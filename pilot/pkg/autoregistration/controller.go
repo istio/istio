@@ -29,7 +29,7 @@ import (
 	kubetypes "k8s.io/apimachinery/pkg/types"
 
 	"istio.io/api/annotation"
-	"istio.io/api/networking/v1alpha3"
+	"istio.io/api/networking/v1"
 	"istio.io/istio/pilot/pkg/autoregistration/internal/health"
 	"istio.io/istio/pilot/pkg/autoregistration/internal/state"
 	"istio.io/istio/pilot/pkg/features"
@@ -280,7 +280,7 @@ func ensureProxyCanControlEntry(proxy *model.Proxy, wle *config.Config) error {
 	if proxy.VerifiedIdentity.Namespace != wle.Namespace {
 		return fmt.Errorf("registration of WorkloadEntry namespace mismatch: %q vs %q", proxy.VerifiedIdentity.Namespace, wle.Namespace)
 	}
-	spec := wle.Spec.(*v1alpha3.WorkloadEntry)
+	spec := wle.Spec.(*v1.WorkloadEntry)
 	if spec.ServiceAccount != "" && proxy.VerifiedIdentity.ServiceAccount != spec.ServiceAccount {
 		return fmt.Errorf("registration of WorkloadEntry service account mismatch: %q vs %q", proxy.VerifiedIdentity.ServiceAccount, spec.ServiceAccount)
 	}
@@ -685,7 +685,7 @@ func mergeLabels(labels ...map[string]string) map[string]string {
 var workloadGroupIsController = true
 
 func workloadEntryFromGroup(name string, proxy *model.Proxy, groupCfg *config.Config) *config.Config {
-	group := groupCfg.Spec.(*v1alpha3.WorkloadGroup)
+	group := groupCfg.Spec.(*v1.WorkloadGroup)
 	entry := group.Template.DeepCopy()
 	entry.Address = proxy.IPAddresses[0]
 	// TODO move labels out of entry

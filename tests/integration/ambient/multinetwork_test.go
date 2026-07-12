@@ -277,7 +277,7 @@ spec:
 
 				t.ConfigIstio().Eval(ns1.Name(), map[string]string{
 					"Destination": fmt.Sprintf("%s.%s.svc.cluster.local", brokenService1, ns1.Name()),
-				}, `apiVersion: networking.istio.io/v1alpha3
+				}, `apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: gateway
@@ -291,7 +291,7 @@ spec:
       protocol: HTTP
     hosts: ["*"]
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: route

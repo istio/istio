@@ -19,7 +19,7 @@ import (
 	"sort"
 	"strings"
 
-	"istio.io/api/networking/v1alpha3"
+	"istio.io/api/networking/v1"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
@@ -105,7 +105,7 @@ func combineResourceEntryNames(rList []*resource.Instance) string {
 func initMeshGatewayHosts(ctx analysis.Context) map[util.ScopedFqdn][]*resource.Instance {
 	hostsVirtualServices := map[util.ScopedFqdn][]*resource.Instance{}
 	ctx.ForEach(gvk.VirtualService, func(r *resource.Instance) bool {
-		vs := r.Message.(*v1alpha3.VirtualService)
+		vs := r.Message.(*v1.VirtualService)
 		vsNamespace := r.Metadata.FullName.Namespace
 		vsAttachedToMeshGateway := false
 		// No entry in gateways imply "mesh" by default

@@ -25,7 +25,7 @@ import (
 
 	// TODO: should likely update to v1 but this is the type currently recognized byt kclient
 	"istio.io/api/label"
-	"istio.io/api/networking/v1alpha3"
+	"istio.io/api/networking/v1"
 	"istio.io/api/security/v1beta1"
 	apiv1beta1 "istio.io/api/type/v1beta1"
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
@@ -312,7 +312,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 						Namespace:  testNS,
 						Generation: 1,
 					},
-					Spec: v1alpha3.ServiceEntry{},
+					Spec: v1.ServiceEntry{},
 				},
 			},
 			policy: securityclient.AuthorizationPolicy{
@@ -354,7 +354,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 						Namespace:  testNS,
 						Generation: 1,
 					},
-					Spec: v1alpha3.ServiceEntry{},
+					Spec: v1.ServiceEntry{},
 				},
 			},
 			policy: securityclient.AuthorizationPolicy{
@@ -397,7 +397,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 						},
 						Generation: 1,
 					},
-					Spec: v1alpha3.ServiceEntry{},
+					Spec: v1.ServiceEntry{},
 				},
 			},
 			policy: securityclient.AuthorizationPolicy{
@@ -472,7 +472,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 						Namespace:  testNS,
 						Generation: 1,
 					},
-					Spec: v1alpha3.ServiceEntry{},
+					Spec: v1.ServiceEntry{},
 				},
 				{
 					ObjectMeta: metav1.ObjectMeta{
@@ -480,7 +480,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 						Namespace:  testNS,
 						Generation: 1,
 					},
-					Spec: v1alpha3.ServiceEntry{},
+					Spec: v1.ServiceEntry{},
 				},
 			},
 			policy: securityclient.AuthorizationPolicy{
@@ -539,7 +539,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 						},
 						Generation: 1,
 					},
-					Spec: v1alpha3.ServiceEntry{},
+					Spec: v1.ServiceEntry{},
 				},
 				{
 					ObjectMeta: metav1.ObjectMeta{
@@ -547,7 +547,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 						Namespace:  testNS,
 						Generation: 1,
 					},
-					Spec: v1alpha3.ServiceEntry{},
+					Spec: v1.ServiceEntry{},
 				},
 			},
 			policy: securityclient.AuthorizationPolicy{

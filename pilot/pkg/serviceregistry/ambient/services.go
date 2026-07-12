@@ -27,7 +27,7 @@ import (
 
 	"istio.io/api/label"
 	meshapi "istio.io/api/mesh/v1alpha1"
-	"istio.io/api/networking/v1alpha3"
+	"istio.io/api/networking/v1"
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -507,7 +507,7 @@ func serviceEntriesInfo(
 
 	// Warn if we have a dynamic DNS service entry with no egress waypoint
 	// This configuration will not be shared with the dataplane
-	if s.Spec.Resolution == v1alpha3.ServiceEntry_DYNAMIC_DNS && (w == nil || wperr != nil) {
+	if s.Spec.Resolution == v1.ServiceEntry_DYNAMIC_DNS && (w == nil || wperr != nil) {
 		log.Warnf("ServiceEntry %s/%s has dynamic DNS resolution but no valid waypoint", s.Namespace, s.Name)
 	}
 
@@ -564,7 +564,7 @@ func constructServiceEntries(
 
 	// When resolution is NONE, we want to passthrough traffic to the destination address.
 	// In this case, we can skip attempting to get a traffic distribution because it is not applicable.
-	if svc.Spec.Resolution == v1alpha3.ServiceEntry_NONE {
+	if svc.Spec.Resolution == v1.ServiceEntry_NONE {
 		lb = &workloadapi.LoadBalancing{
 			Mode: workloadapi.LoadBalancing_PASSTHROUGH,
 			// HealthPolicy is primarily aesthetic in this case, making the WDS easier to understand.
@@ -587,9 +587,9 @@ func constructServiceEntries(
 		// if we have no user-provided hostsAddresses and we have hostsAddresses supported resolution
 		// we can try to use autoassigned hostsAddresses
 		hostsAddresses := addresses
-		if len(hostsAddresses) == 0 && svc.Spec.Resolution != v1alpha3.ServiceEntry_NONE {
+		if len(hostsAddresses) == 0 && svc.Spec.Resolution != v1.ServiceEntry_NONE {
 			// block auto IP assignment for wildcards unless the resolution type is DYNAMIC_DNS
-			if host.Name(h).IsWildCarded() && svc.Spec.Resolution != v1alpha3.ServiceEntry_DYNAMIC_DNS {
+			if host.Name(h).IsWildCarded() && svc.Spec.Resolution != v1.ServiceEntry_DYNAMIC_DNS {
 				log.Debugf("autoassigned IPs only support for wildcarded hosts with dynamic DNS resolution, skipping %s", h)
 			} else if hostsAddrs, ok := autoassignedHostAddresses[h]; ok {
 				hostsAddresses = slices.Map(hostsAddrs, func(e netip.Addr) *workloadapi.NetworkAddress {
@@ -597,7 +597,7 @@ func constructServiceEntries(
 				})
 			}
 		}
-		if host.Name(h).IsWildCarded() && containsTLSPort && svc.Spec.Resolution == v1alpha3.ServiceEntry_DYNAMIC_DNS &&
+		if host.Name(h).IsWildCarded() && containsTLSPort && svc.Spec.Resolution == v1.ServiceEntry_DYNAMIC_DNS &&
 			!features.EnableWildcardHostServiceEntriesForTLS {
 			log.Debugf("xds configuration will not be generated for the TLS port belonging to the service %s with wildcard "+
 				"host %s since the feature is disabled", svc.Name, h)

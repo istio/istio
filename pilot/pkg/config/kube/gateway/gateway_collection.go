@@ -24,7 +24,7 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"istio.io/api/annotation"
-	istio "istio.io/api/networking/v1alpha3"
+	istio "istio.io/api/networking/v1"
 	"istio.io/istio/pilot/pkg/config/kube/gatewaycommon"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"

@@ -27,7 +27,7 @@ import (
 
 	"go.uber.org/atomic"
 
-	"istio.io/api/networking/v1alpha3"
+	"istio.io/api/networking/v1"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
@@ -104,14 +104,14 @@ func TestWorkloadHealthChecker_PerformApplicationHealthCheck(t *testing.T) {
 	t.Run("tcp", func(t *testing.T) {
 		listener, err := NewDelayedListener()
 		assert.NoError(t, err)
-		tcpHealthChecker := NewWorkloadHealthChecker(&v1alpha3.ReadinessProbe{
+		tcpHealthChecker := NewWorkloadHealthChecker(&v1.ReadinessProbe{
 			InitialDelaySeconds: 0,
 			TimeoutSeconds:      1,
 			PeriodSeconds:       1,
 			SuccessThreshold:    1,
 			FailureThreshold:    1,
-			HealthCheckMethod: &v1alpha3.ReadinessProbe_TcpSocket{
-				TcpSocket: &v1alpha3.TCPHealthCheckConfig{
+			HealthCheckMethod: &v1.ReadinessProbe_TcpSocket{
+				TcpSocket: &v1.TCPHealthCheckConfig{
 					Host: "localhost",
 					Port: uint32(listener.port),
 				},
@@ -186,14 +186,14 @@ func TestWorkloadHealthChecker_PerformApplicationHealthCheck(t *testing.T) {
 			t.Fatal(err)
 		}
 		t.Cleanup(sss.Close)
-		httpHealthChecker := NewWorkloadHealthChecker(&v1alpha3.ReadinessProbe{
+		httpHealthChecker := NewWorkloadHealthChecker(&v1.ReadinessProbe{
 			InitialDelaySeconds: 0,
 			TimeoutSeconds:      1,
 			PeriodSeconds:       1,
 			SuccessThreshold:    1,
 			FailureThreshold:    1,
-			HealthCheckMethod: &v1alpha3.ReadinessProbe_HttpGet{
-				HttpGet: &v1alpha3.HTTPHealthCheckConfig{
+			HealthCheckMethod: &v1.ReadinessProbe_HttpGet{
+				HttpGet: &v1.HTTPHealthCheckConfig{
 					Path:   httpPath,
 					Port:   uint32(port),
 					Scheme: "http",

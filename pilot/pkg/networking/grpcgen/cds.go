@@ -23,7 +23,7 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
-	networking "istio.io/api/networking/v1alpha3"
+	networking "istio.io/api/networking/v1"
 	"istio.io/istio/pilot/pkg/model"
 	corexds "istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -73,7 +73,7 @@ func newClusterFilter(names []string) map[string]sets.String {
 }
 
 // clusterBuilder is responsible for building a single default and subset clusters for a service
-// TODO re-use the v1alpha3.ClusterBuilder:
+// TODO re-use the v1.ClusterBuilder:
 // Most of the logic is similar, I think we can just share the code if we expose:
 // * BuildSubsetCluster
 // * BuildDefaultCluster
@@ -131,7 +131,7 @@ func (b *clusterBuilder) build() []*cluster.Cluster {
 	if b.filter.Contains(b.defaultClusterName) {
 		defaultCluster = b.edsCluster(b.defaultClusterName)
 		if b.svc.SupportsDrainingEndpoints() {
-			// see core/v1alpha3/cluster.go
+			// see core/v1/cluster.go
 			defaultCluster.CommonLbConfig.OverrideHostStatus = &core.HealthStatusSet{
 				Statuses: []core.HealthStatus{
 					core.HealthStatus_HEALTHY,

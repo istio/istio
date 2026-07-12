@@ -17,14 +17,14 @@ package core
 import (
 	"testing"
 
-	"istio.io/api/networking/v1alpha3"
+	"istio.io/api/networking/v1"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/util/sets"
 )
 
 func TestMatchTLS(t *testing.T) {
 	type args struct {
-		match       *v1alpha3.TLSMatchAttributes
+		match       *v1.TLSMatchAttributes
 		proxyLabels labels.Instance
 		gateways    sets.String
 		port        int
@@ -38,7 +38,7 @@ func TestMatchTLS(t *testing.T) {
 		{
 			"source namespace match",
 			args{
-				match: &v1alpha3.TLSMatchAttributes{
+				match: &v1.TLSMatchAttributes{
 					SourceNamespace: "foo",
 				},
 				namespace: "foo",
@@ -48,7 +48,7 @@ func TestMatchTLS(t *testing.T) {
 		{
 			"source namespace not match",
 			args{
-				match: &v1alpha3.TLSMatchAttributes{
+				match: &v1.TLSMatchAttributes{
 					SourceNamespace: "foo",
 				},
 				namespace: "bar",
@@ -58,7 +58,7 @@ func TestMatchTLS(t *testing.T) {
 		{
 			"source namespace not match when empty",
 			args{
-				match: &v1alpha3.TLSMatchAttributes{
+				match: &v1.TLSMatchAttributes{
 					SourceNamespace: "foo",
 				},
 				namespace: "",
@@ -68,7 +68,7 @@ func TestMatchTLS(t *testing.T) {
 		{
 			"source namespace any",
 			args{
-				match:     &v1alpha3.TLSMatchAttributes{},
+				match:     &v1.TLSMatchAttributes{},
 				namespace: "bar",
 			},
 			true,
@@ -85,7 +85,7 @@ func TestMatchTLS(t *testing.T) {
 
 func TestMatchTCP(t *testing.T) {
 	type args struct {
-		match       *v1alpha3.L4MatchAttributes
+		match       *v1.L4MatchAttributes
 		proxyLabels labels.Instance
 		gateways    sets.String
 		port        int
@@ -99,7 +99,7 @@ func TestMatchTCP(t *testing.T) {
 		{
 			"source namespace match",
 			args{
-				match: &v1alpha3.L4MatchAttributes{
+				match: &v1.L4MatchAttributes{
 					SourceNamespace: "foo",
 				},
 				namespace: "foo",
@@ -109,7 +109,7 @@ func TestMatchTCP(t *testing.T) {
 		{
 			"source namespace not match",
 			args{
-				match: &v1alpha3.L4MatchAttributes{
+				match: &v1.L4MatchAttributes{
 					SourceNamespace: "foo",
 				},
 				namespace: "bar",
@@ -119,7 +119,7 @@ func TestMatchTCP(t *testing.T) {
 		{
 			"source namespace not match when empty",
 			args{
-				match: &v1alpha3.L4MatchAttributes{
+				match: &v1.L4MatchAttributes{
 					SourceNamespace: "foo",
 				},
 				namespace: "",
@@ -129,7 +129,7 @@ func TestMatchTCP(t *testing.T) {
 		{
 			"source namespace any",
 			args{
-				match:     &v1alpha3.L4MatchAttributes{},
+				match:     &v1.L4MatchAttributes{},
 				namespace: "bar",
 			},
 			true,

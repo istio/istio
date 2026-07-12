@@ -18,7 +18,7 @@ import (
 	"strconv"
 	"testing"
 
-	"istio.io/api/networking/v1alpha3"
+	"istio.io/api/networking/v1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/test/mock"
 	"istio.io/istio/pkg/config"
@@ -69,7 +69,7 @@ func BenchmarkStoreUpdate(b *testing.B) {
 			GroupVersionKind: gvk.ServiceEntry,
 			Namespace:        "ns",
 		},
-		Spec: &v1alpha3.ServiceEntry{
+		Spec: &v1.ServiceEntry{
 			Hosts: []string{"www.foo.com"},
 		},
 	}
@@ -80,7 +80,7 @@ func BenchmarkStoreUpdate(b *testing.B) {
 		// update one thousand times
 		for i := 0; i < 1000; i++ {
 			cfg.Name = strconv.Itoa(i)
-			cfg.Spec.(*v1alpha3.ServiceEntry).Hosts[0] = cfg.Name
+			cfg.Spec.(*v1.ServiceEntry).Hosts[0] = cfg.Name
 			if _, err := s.Update(cfg); err != nil {
 				b.Fatalf("update failed: %v", err)
 			}
@@ -110,7 +110,7 @@ func initStore(b *testing.B) model.ConfigStore {
 			GroupVersionKind: gvk.ServiceEntry,
 			Namespace:        "ns",
 		},
-		Spec: &v1alpha3.ServiceEntry{
+		Spec: &v1.ServiceEntry{
 			Hosts: []string{"www.foo.com"},
 		},
 	}

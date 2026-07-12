@@ -24,8 +24,8 @@ import (
 
 	"istio.io/api/label"
 	"istio.io/api/meta/v1alpha1"
-	"istio.io/api/networking/v1alpha3"
-	networkingv1alpha3 "istio.io/client-go/pkg/apis/networking/v1"
+	"istio.io/api/networking/v1"
+	networkingv1 "istio.io/client-go/pkg/apis/networking/v1"
 	"istio.io/istio/pilot/pkg/controllers/ipallocate"
 	"istio.io/istio/pilot/pkg/features"
 	autoallocate "istio.io/istio/pilot/pkg/networking/serviceentry"
@@ -64,7 +64,7 @@ func newV6AddressString(p string, i uint64) string {
 
 type ipAllocateTestRig struct {
 	client kubelib.Client
-	se     clienttest.TestClient[*networkingv1alpha3.ServiceEntry]
+	se     clienttest.TestClient[*networkingv1.ServiceEntry]
 	stop   chan struct{}
 	t      *testing.T
 }
@@ -83,22 +83,22 @@ func setupIPAllocateTest(t *testing.T, ipv4Prefix, ipv6Prefix string) ipAllocate
 		ipv6Prefix = TestIPV6Prefix
 	}
 
-	se := clienttest.NewDirectClient[*networkingv1alpha3.ServiceEntry, networkingv1alpha3.ServiceEntry, *networkingv1alpha3.ServiceEntryList](t, c)
+	se := clienttest.NewDirectClient[*networkingv1.ServiceEntry, networkingv1.ServiceEntry, *networkingv1.ServiceEntryList](t, c)
 	ipController := ipallocate.NewIPAllocator(s, c)
 	// these would normally be the first addresses consumed, we should check that warming works by asserting that we get their nexts when we reconcile
 	se.CreateOrUpdateStatus(
-		&networkingv1alpha3.ServiceEntry{
+		&networkingv1.ServiceEntry{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "pre-existing",
 				Namespace: "default",
 			},
-			Spec: v1alpha3.ServiceEntry{
+			Spec: v1.ServiceEntry{
 				Hosts: []string{
 					"test.testing.io",
 				},
-				Resolution: v1alpha3.ServiceEntry_DNS,
+				Resolution: v1.ServiceEntry_DNS,
 			},
-			Status: v1alpha3.ServiceEntryStatus{Addresses: []*v1alpha3.ServiceEntryAddress{
+			Status: v1.ServiceEntryStatus{Addresses: []*v1.ServiceEntryAddress{
 				{
 					Host:  "test.testing.io",
 					Value: newV4AddressString(ipv4Prefix, 1),
@@ -125,41 +125,41 @@ func setupIPAllocateTest(t *testing.T, ipv4Prefix, ipv6Prefix string) ipAllocate
 func TestIPAllocate(t *testing.T) {
 	rig := setupIPAllocateTest(t, TestIPV4Prefix, TestIPV6Prefix)
 	rig.se.Create(
-		&networkingv1alpha3.ServiceEntry{
+		&networkingv1.ServiceEntry{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "with-v4-address",
 				Namespace: "boop",
 			},
-			Spec: v1alpha3.ServiceEntry{
+			Spec: v1.ServiceEntry{
 				Hosts: []string{
 					"wa-v4.boop.testing.io",
 				},
 				Addresses: []string{
 					"1.2.3.4",
 				},
-				Resolution: v1alpha3.ServiceEntry_DNS,
+				Resolution: v1.ServiceEntry_DNS,
 			},
 		},
 	)
 	rig.se.Create(
-		&networkingv1alpha3.ServiceEntry{
+		&networkingv1.ServiceEntry{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "with-v6-address",
 				Namespace: "boop",
 			},
-			Spec: v1alpha3.ServiceEntry{
+			Spec: v1.ServiceEntry{
 				Hosts: []string{
 					"wa-v6.boop.testing.io",
 				},
 				Addresses: []string{
 					"1:2::3::4",
 				},
-				Resolution: v1alpha3.ServiceEntry_DNS,
+				Resolution: v1.ServiceEntry_DNS,
 			},
 		},
 	)
 	rig.se.Create(
-		&networkingv1alpha3.ServiceEntry{
+		&networkingv1.ServiceEntry{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "opt-out",
 				Namespace: "boop",
@@ -167,28 +167,28 @@ func TestIPAllocate(t *testing.T) {
 					label.NetworkingEnableAutoallocateIp.Name: "false",
 				},
 			},
-			Spec: v1alpha3.ServiceEntry{
+			Spec: v1.ServiceEntry{
 				Hosts: []string{
 					"nope.boop.testing.io",
 				},
-				Resolution: v1alpha3.ServiceEntry_DNS,
+				Resolution: v1.ServiceEntry_DNS,
 			},
 		},
 	)
 	rig.se.Create(
-		&networkingv1alpha3.ServiceEntry{
+		&networkingv1.ServiceEntry{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:              "with-existing-status",
 				Namespace:         "boop",
 				CreationTimestamp: metav1.Now(),
 			},
-			Spec: v1alpha3.ServiceEntry{
+			Spec: v1.ServiceEntry{
 				Hosts: []string{
 					"with-existing-status.boop.testing.io",
 				},
-				Resolution: v1alpha3.ServiceEntry_DNS,
+				Resolution: v1.ServiceEntry_DNS,
 			},
-			Status: v1alpha3.ServiceEntryStatus{
+			Status: v1.ServiceEntryStatus{
 				Conditions: []*v1alpha1.IstioCondition{
 					{
 						Type:    "test",
@@ -234,20 +234,20 @@ func TestIPAllocate(t *testing.T) {
 	addr := autoallocate.GetAddressesFromServiceEntry(rig.se.Get("with-existing-status", "boop"))
 	assert.Equal(t, len(addr), 2, "ensure we retrieved addresses to create a conflict with")
 	rig.se.Create(
-		&networkingv1alpha3.ServiceEntry{
+		&networkingv1.ServiceEntry{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "user-assigned conflict",
 				Namespace: "boop",
 			},
 
-			Spec: v1alpha3.ServiceEntry{
+			Spec: v1.ServiceEntry{
 				Hosts: []string{
 					"in-conflict.boop.testing.io",
 				},
 				Addresses: []string{
 					addr[0].String(),
 				},
-				Resolution: v1alpha3.ServiceEntry_DNS,
+				Resolution: v1.ServiceEntry_DNS,
 			},
 		},
 	)
@@ -275,26 +275,26 @@ func TestIPAllocate(t *testing.T) {
 	// this is almost certainly caused by some bug in our code, none the less test we can recover
 	conflictingAddresses := autoallocate.GetAddressesFromServiceEntry(rig.se.Get("with-existing-status", "boop"))
 	assert.Equal(t, len(conflictingAddresses), 2, "ensure we retrieved addresses to create a conflict with")
-	conflictingStatusAddresses := []*v1alpha3.ServiceEntryAddress{}
+	conflictingStatusAddresses := []*v1.ServiceEntryAddress{}
 	statusConflictHost := "status-conflict.boop.testing.io"
 	for _, a := range conflictingAddresses {
-		conflictingStatusAddresses = append(conflictingStatusAddresses, &v1alpha3.ServiceEntryAddress{Value: a.String(), Host: statusConflictHost})
+		conflictingStatusAddresses = append(conflictingStatusAddresses, &v1.ServiceEntryAddress{Value: a.String(), Host: statusConflictHost})
 	}
 	// create an auto-assigned conflict
 	rig.se.Create(
-		&networkingv1alpha3.ServiceEntry{
+		&networkingv1.ServiceEntry{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:              "status-conflict",
 				Namespace:         "boop",
 				CreationTimestamp: metav1.Now(),
 			},
-			Spec: v1alpha3.ServiceEntry{
+			Spec: v1.ServiceEntry{
 				Hosts: []string{
 					statusConflictHost,
 				},
-				Resolution: v1alpha3.ServiceEntry_DNS,
+				Resolution: v1.ServiceEntry_DNS,
 			},
-			Status: v1alpha3.ServiceEntryStatus{
+			Status: v1.ServiceEntryStatus{
 				Addresses: conflictingStatusAddresses,
 				Conditions: []*v1alpha1.IstioCondition{
 					{
@@ -465,7 +465,7 @@ func TestIPAllocate(t *testing.T) {
 	// resolution is set to DYNAMIC_DNS
 	se = rig.se.Get("pre-existing", "default")
 	se.Spec.Hosts = []string{"*.wildcard.testing.io"}
-	se.Spec.Resolution = v1alpha3.ServiceEntry_DYNAMIC_DNS
+	se.Spec.Resolution = v1.ServiceEntry_DYNAMIC_DNS
 	rig.se.Update(se)
 	assert.EventuallyEqual(t, func() int {
 		se := rig.se.Get("pre-existing", "default")
@@ -483,7 +483,7 @@ func TestIPAllocate(t *testing.T) {
 	// for completeness test that having no hosts produces an empty map
 	se = rig.se.Get("pre-existing", "default")
 	se.Spec.Hosts = []string{}
-	se.Spec.Resolution = v1alpha3.ServiceEntry_DNS
+	se.Spec.Resolution = v1.ServiceEntry_DNS
 	rig.se.Update(se)
 	assert.EventuallyEqual(t, func() int {
 		se := rig.se.Get("pre-existing", "default")
@@ -541,14 +541,14 @@ func TestIPAllocateStaleAddressCleanup(t *testing.T) {
 
 	// Create a SE with a concrete host and DNS resolution — IPs should be allocated
 	rig.se.Create(
-		&networkingv1alpha3.ServiceEntry{
+		&networkingv1.ServiceEntry{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
 				Namespace: ns,
 			},
-			Spec: v1alpha3.ServiceEntry{
+			Spec: v1.ServiceEntry{
 				Hosts:      []string{"httpbingo.org"},
-				Resolution: v1alpha3.ServiceEntry_DNS,
+				Resolution: v1.ServiceEntry_DNS,
 			},
 		},
 	)
@@ -566,7 +566,7 @@ func TestIPAllocateStaleAddressCleanup(t *testing.T) {
 
 	// Update: switch to DYNAMIC_DNS — wildcard should now get IPs allocated
 	se = rig.se.Get(name, ns)
-	se.Spec.Resolution = v1alpha3.ServiceEntry_DYNAMIC_DNS
+	se.Spec.Resolution = v1.ServiceEntry_DYNAMIC_DNS
 	rig.se.Update(se)
 	assert.EventuallyEqual(t, func() int {
 		return len(autoallocate.GetAddressesFromServiceEntry(rig.se.Get(name, ns)))
@@ -575,7 +575,7 @@ func TestIPAllocateStaleAddressCleanup(t *testing.T) {
 	// Restore to a concrete host with DNS resolution — IPs should be re-allocated
 	se = rig.se.Get(name, ns)
 	se.Spec.Hosts = []string{"httpbingo.org"}
-	se.Spec.Resolution = v1alpha3.ServiceEntry_DNS
+	se.Spec.Resolution = v1.ServiceEntry_DNS
 	rig.se.Update(se)
 	assert.EventuallyEqual(t, func() int {
 		return len(autoallocate.GetAddressesFromServiceEntry(rig.se.Get(name, ns)))

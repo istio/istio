@@ -19,7 +19,7 @@ import (
 	"sort"
 	"strings"
 
-	"istio.io/api/networking/v1alpha3"
+	"istio.io/api/networking/v1"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
@@ -58,7 +58,7 @@ func (c *ConflictingServiceEntryProtocolAnalyzer) Analyze(ctx analysis.Context) 
 	index := make(map[scopedHostPortKey][]protoEntry)
 
 	ctx.ForEach(gvk.ServiceEntry, func(r *resource.Instance) bool {
-		se := r.Message.(*v1alpha3.ServiceEntry)
+		se := r.Message.(*v1.ServiceEntry)
 		seNamespace := r.Metadata.FullName.Namespace.String()
 
 		scopes := exportToScopes(se.ExportTo, seNamespace)

@@ -31,7 +31,7 @@ import (
 	"google.golang.org/grpc/health/grpc_health_v1"
 	grpc_status "google.golang.org/grpc/status"
 
-	"istio.io/api/networking/v1alpha3"
+	"istio.io/api/networking/v1"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/istio/pkg/kube/apimirror"
@@ -61,13 +61,13 @@ func (p *ProbeResult) IsHealthy() bool {
 }
 
 type GRPCProber struct {
-	Config      *v1alpha3.GrpcHealthCheckConfig
+	Config      *v1.GrpcHealthCheckConfig
 	DefaultHost string
 }
 
 var _ Prober = &GRPCProber{}
 
-func NewGRPCProber(cfg *v1alpha3.GrpcHealthCheckConfig, defaultHost string) *GRPCProber {
+func NewGRPCProber(cfg *v1.GrpcHealthCheckConfig, defaultHost string) *GRPCProber {
 	return &GRPCProber{
 		Config:      cfg,
 		DefaultHost: defaultHost,
@@ -120,14 +120,14 @@ func (g *GRPCProber) Probe(timeout time.Duration) (ProbeResult, error) {
 }
 
 type HTTPProber struct {
-	Config      *v1alpha3.HTTPHealthCheckConfig
+	Config      *v1.HTTPHealthCheckConfig
 	Transport   *http.Transport
 	DefaultHost string
 }
 
 var _ Prober = &HTTPProber{}
 
-func NewHTTPProber(cfg *v1alpha3.HTTPHealthCheckConfig, defaultHost string, ipv6 bool) *HTTPProber {
+func NewHTTPProber(cfg *v1.HTTPHealthCheckConfig, defaultHost string, ipv6 bool) *HTTPProber {
 	h := new(HTTPProber)
 	h.Config = cfg
 
@@ -216,11 +216,11 @@ func (h *HTTPProber) Probe(timeout time.Duration) (ProbeResult, error) {
 }
 
 type TCPProber struct {
-	Config      *v1alpha3.TCPHealthCheckConfig
+	Config      *v1.TCPHealthCheckConfig
 	DefaultHost string
 }
 
-func NewTCPProber(cfg *v1alpha3.TCPHealthCheckConfig, host string) *TCPProber {
+func NewTCPProber(cfg *v1.TCPHealthCheckConfig, host string) *TCPProber {
 	return &TCPProber{
 		Config:      cfg,
 		DefaultHost: host,
@@ -251,7 +251,7 @@ func (t *TCPProber) Probe(timeout time.Duration) (ProbeResult, error) {
 }
 
 type ExecProber struct {
-	Config *v1alpha3.ExecHealthCheckConfig
+	Config *v1.ExecHealthCheckConfig
 }
 
 var _ Prober = &ExecProber{}

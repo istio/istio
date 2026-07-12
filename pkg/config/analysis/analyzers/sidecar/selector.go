@@ -19,7 +19,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/labels"
 
-	"istio.io/api/networking/v1alpha3"
+	"istio.io/api/networking/v1"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
@@ -57,7 +57,7 @@ func (a *SelectorAnalyzer) Analyze(c analysis.Context) {
 	namespaces := make(map[string]*resource.Instance)
 
 	c.ForEach(gvk.Sidecar, func(rs *resource.Instance) bool {
-		s := rs.Message.(*v1alpha3.Sidecar)
+		s := rs.Message.(*v1.Sidecar)
 
 		// record namespace-scoped sidecars
 		if s.WorkloadSelector == nil || len(s.WorkloadSelector.Labels) == 0 {

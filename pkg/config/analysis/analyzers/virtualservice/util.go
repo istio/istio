@@ -15,7 +15,7 @@
 package virtualservice
 
 import (
-	"istio.io/api/networking/v1alpha3"
+	"istio.io/api/networking/v1"
 )
 
 // AnnotatedDestination holds metadata about a Destination object that is used for analyzing
@@ -23,10 +23,10 @@ type AnnotatedDestination struct {
 	RouteRule        string
 	ServiceIndex     int
 	DestinationIndex int
-	Destination      *v1alpha3.Destination
+	Destination      *v1.Destination
 }
 
-func getRouteDestinations(vs *v1alpha3.VirtualService) []*AnnotatedDestination {
+func getRouteDestinations(vs *v1.VirtualService) []*AnnotatedDestination {
 	destinations := make([]*AnnotatedDestination, 0)
 	for i, r := range vs.GetTcp() {
 		for j, rd := range r.GetRoute() {
@@ -62,7 +62,7 @@ func getRouteDestinations(vs *v1alpha3.VirtualService) []*AnnotatedDestination {
 	return destinations
 }
 
-func getHTTPMirrorDestinations(vs *v1alpha3.VirtualService) []*AnnotatedDestination {
+func getHTTPMirrorDestinations(vs *v1.VirtualService) []*AnnotatedDestination {
 	var destinations []*AnnotatedDestination
 
 	for i, r := range vs.GetHttp() {

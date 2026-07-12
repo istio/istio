@@ -17,15 +17,15 @@ var (
 	DaemonSet                      = schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "daemonsets"}
 	Deployment                     = schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}
 	DestinationRule                = schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1", Resource: "destinationrules"}
-	DestinationRule_v1alpha3       = schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1alpha3", Resource: "destinationrules"}
+	DestinationRule_v1       = schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1", Resource: "destinationrules"}
 	DestinationRule_v1beta1        = schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1beta1", Resource: "destinationrules"}
 	EndpointSlice                  = schema.GroupVersionResource{Group: "discovery.k8s.io", Version: "v1", Resource: "endpointslices"}
 	Endpoints                      = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "endpoints"}
-	EnvoyFilter                    = schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1alpha3", Resource: "envoyfilters"}
+	EnvoyFilter                    = schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1", Resource: "envoyfilters"}
 	GRPCRoute                      = schema.GroupVersionResource{Group: "gateway.networking.k8s.io", Version: "v1", Resource: "grpcroutes"}
 	GRPCRoute_v1alpha2             = schema.GroupVersionResource{Group: "gateway.networking.k8s.io", Version: "v1alpha2", Resource: "grpcroutes"}
 	Gateway                        = schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1", Resource: "gateways"}
-	Gateway_v1alpha3               = schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1alpha3", Resource: "gateways"}
+	Gateway_v1               = schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1", Resource: "gateways"}
 	Gateway_v1beta1                = schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1beta1", Resource: "gateways"}
 	GatewayClass                   = schema.GroupVersionResource{Group: "gateway.networking.k8s.io", Version: "v1", Resource: "gatewayclasses"}
 	GatewayClass_v1alpha2          = schema.GroupVersionResource{Group: "gateway.networking.k8s.io", Version: "v1alpha2", Resource: "gatewayclasses"}
@@ -60,10 +60,10 @@ var (
 	Service                        = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "services"}
 	ServiceAccount                 = schema.GroupVersionResource{Group: "", Version: "v1", Resource: "serviceaccounts"}
 	ServiceEntry                   = schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1", Resource: "serviceentries"}
-	ServiceEntry_v1alpha3          = schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1alpha3", Resource: "serviceentries"}
+	ServiceEntry_v1          = schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1", Resource: "serviceentries"}
 	ServiceEntry_v1beta1           = schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1beta1", Resource: "serviceentries"}
 	Sidecar                        = schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1", Resource: "sidecars"}
-	Sidecar_v1alpha3               = schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1alpha3", Resource: "sidecars"}
+	Sidecar_v1               = schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1", Resource: "sidecars"}
 	Sidecar_v1beta1                = schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1beta1", Resource: "sidecars"}
 	StatefulSet                    = schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "statefulsets"}
 	TCPRoute                       = schema.GroupVersionResource{Group: "gateway.networking.k8s.io", Version: "v1", Resource: "tcproutes"}
@@ -76,14 +76,14 @@ var (
 	UDPRoute                       = schema.GroupVersionResource{Group: "gateway.networking.k8s.io", Version: "v1alpha2", Resource: "udproutes"}
 	ValidatingWebhookConfiguration = schema.GroupVersionResource{Group: "admissionregistration.k8s.io", Version: "v1", Resource: "validatingwebhookconfigurations"}
 	VirtualService                 = schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1", Resource: "virtualservices"}
-	VirtualService_v1alpha3        = schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1alpha3", Resource: "virtualservices"}
+	VirtualService_v1        = schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1", Resource: "virtualservices"}
 	VirtualService_v1beta1         = schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1beta1", Resource: "virtualservices"}
 	WasmPlugin                     = schema.GroupVersionResource{Group: "extensions.istio.io", Version: "v1alpha1", Resource: "wasmplugins"}
 	WorkloadEntry                  = schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1", Resource: "workloadentries"}
-	WorkloadEntry_v1alpha3         = schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1alpha3", Resource: "workloadentries"}
+	WorkloadEntry_v1         = schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1", Resource: "workloadentries"}
 	WorkloadEntry_v1beta1          = schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1beta1", Resource: "workloadentries"}
 	WorkloadGroup                  = schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1", Resource: "workloadgroups"}
-	WorkloadGroup_v1alpha3         = schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1alpha3", Resource: "workloadgroups"}
+	WorkloadGroup_v1         = schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1", Resource: "workloadgroups"}
 	WorkloadGroup_v1beta1          = schema.GroupVersionResource{Group: "networking.istio.io", Version: "v1beta1", Resource: "workloadgroups"}
 	XBackendTrafficPolicy          = schema.GroupVersionResource{Group: "gateway.networking.x-k8s.io", Version: "v1alpha1", Resource: "xbackendtrafficpolicies"}
 )
@@ -114,7 +114,7 @@ func IsClusterScoped(g schema.GroupVersionResource) bool {
 		return false
 	case DestinationRule:
 		return false
-	case DestinationRule_v1alpha3:
+	case DestinationRule_v1:
 		return false
 	case DestinationRule_v1beta1:
 		return false
@@ -130,7 +130,7 @@ func IsClusterScoped(g schema.GroupVersionResource) bool {
 		return false
 	case Gateway:
 		return false
-	case Gateway_v1alpha3:
+	case Gateway_v1:
 		return false
 	case Gateway_v1beta1:
 		return false
@@ -196,13 +196,13 @@ func IsClusterScoped(g schema.GroupVersionResource) bool {
 		return false
 	case ServiceEntry:
 		return false
-	case ServiceEntry_v1alpha3:
+	case ServiceEntry_v1:
 		return false
 	case ServiceEntry_v1beta1:
 		return false
 	case Sidecar:
 		return false
-	case Sidecar_v1alpha3:
+	case Sidecar_v1:
 		return false
 	case Sidecar_v1beta1:
 		return false
@@ -228,7 +228,7 @@ func IsClusterScoped(g schema.GroupVersionResource) bool {
 		return true
 	case VirtualService:
 		return false
-	case VirtualService_v1alpha3:
+	case VirtualService_v1:
 		return false
 	case VirtualService_v1beta1:
 		return false
@@ -236,13 +236,13 @@ func IsClusterScoped(g schema.GroupVersionResource) bool {
 		return false
 	case WorkloadEntry:
 		return false
-	case WorkloadEntry_v1alpha3:
+	case WorkloadEntry_v1:
 		return false
 	case WorkloadEntry_v1beta1:
 		return false
 	case WorkloadGroup:
 		return false
-	case WorkloadGroup_v1alpha3:
+	case WorkloadGroup_v1:
 		return false
 	case WorkloadGroup_v1beta1:
 		return false

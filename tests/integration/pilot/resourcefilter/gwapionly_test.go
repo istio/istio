@@ -148,7 +148,7 @@ spec:
     - name: b
       port: 80
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: EnvoyFilter
 metadata:
   name: change-status

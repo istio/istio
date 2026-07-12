@@ -23,7 +23,7 @@ import (
 
 	"go.uber.org/atomic"
 
-	networking "istio.io/api/networking/v1alpha3"
+	networking "istio.io/api/networking/v1"
 	authz "istio.io/api/security/v1beta1"
 	api "istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/model"

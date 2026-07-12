@@ -37,7 +37,7 @@ import (
 
 	apiistioioapiextensionsv1alpha1 "istio.io/client-go/pkg/apis/extensions/v1alpha1"
 	apiistioioapinetworkingv1 "istio.io/client-go/pkg/apis/networking/v1"
-	apiistioioapinetworkingv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
+	apiistioioapinetworkingv1 "istio.io/client-go/pkg/apis/networking/v1"
 	apiistioioapinetworkingv1beta1 "istio.io/client-go/pkg/apis/networking/v1beta1"
 	apiistioioapisecurityv1 "istio.io/client-go/pkg/apis/security/v1"
 	apiistioioapitelemetryv1 "istio.io/client-go/pkg/apis/telemetry/v1"
@@ -74,7 +74,7 @@ func GetWriteClient[T runtime.Object](c ClientGetter, namespace string) ktypes.W
 		return c.Kube().DiscoveryV1().EndpointSlices(namespace).(ktypes.WriteAPI[T])
 	case *k8sioapicorev1.Endpoints:
 		return c.Kube().CoreV1().Endpoints(namespace).(ktypes.WriteAPI[T])
-	case *apiistioioapinetworkingv1alpha3.EnvoyFilter:
+	case *apiistioioapinetworkingv1.EnvoyFilter:
 		return c.Istio().NetworkingV1alpha3().EnvoyFilters(namespace).(ktypes.WriteAPI[T])
 	case *sigsk8siogatewayapiapisv1.GRPCRoute:
 		return c.GatewayAPI().GatewayV1().GRPCRoutes(namespace).(ktypes.WriteAPI[T])
@@ -179,7 +179,7 @@ func GetClient[T, TL runtime.Object](c ClientGetter, namespace string) ktypes.Re
 		return c.Kube().DiscoveryV1().EndpointSlices(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *k8sioapicorev1.Endpoints:
 		return c.Kube().CoreV1().Endpoints(namespace).(ktypes.ReadWriteAPI[T, TL])
-	case *apiistioioapinetworkingv1alpha3.EnvoyFilter:
+	case *apiistioioapinetworkingv1.EnvoyFilter:
 		return c.Istio().NetworkingV1alpha3().EnvoyFilters(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *sigsk8siogatewayapiapisv1.GRPCRoute:
 		return c.GatewayAPI().GatewayV1().GRPCRoutes(namespace).(ktypes.ReadWriteAPI[T, TL])
@@ -285,7 +285,7 @@ func gvrToObject(g schema.GroupVersionResource) runtime.Object {
 	case gvr.Endpoints:
 		return &k8sioapicorev1.Endpoints{}
 	case gvr.EnvoyFilter:
-		return &apiistioioapinetworkingv1alpha3.EnvoyFilter{}
+		return &apiistioioapinetworkingv1.EnvoyFilter{}
 	case gvr.GRPCRoute:
 		return &sigsk8siogatewayapiapisv1.GRPCRoute{}
 	case gvr.Gateway:

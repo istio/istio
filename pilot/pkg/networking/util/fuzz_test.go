@@ -18,7 +18,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	networking "istio.io/api/networking/v1alpha3"
+	networking "istio.io/api/networking/v1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/fuzz"
 	"istio.io/istio/pkg/test/util/assert"

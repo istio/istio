@@ -31,7 +31,7 @@ import (
 
 	"istio.io/api/annotation"
 	"istio.io/api/meta/v1alpha1"
-	"istio.io/api/networking/v1alpha3"
+	"istio.io/api/networking/v1"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -91,8 +91,8 @@ func (f *fakeConn) Stopped() bool {
 }
 
 var (
-	tmplA = &v1alpha3.WorkloadGroup{
-		Template: &v1alpha3.WorkloadEntry{
+	tmplA = &v1.WorkloadGroup{
+		Template: &v1.WorkloadEntry{
 			Ports:          map[string]uint32{"http": 80},
 			Labels:         map[string]string{"app": "a"},
 			Network:        "nw0",
@@ -134,8 +134,8 @@ var (
 				"grouplabel": "notonentry",
 			},
 		},
-		Spec: &v1alpha3.WorkloadGroup{
-			Template: &v1alpha3.WorkloadEntry{
+		Spec: &v1.WorkloadGroup{
+			Template: &v1.WorkloadEntry{
 				Ports:          map[string]uint32{"http": 80},
 				Labels:         map[string]string{"app": "a"},
 				Network:        "nw0",
@@ -155,7 +155,7 @@ var (
 				"proxy.istio.io/health-checks-enabled": "true",
 			},
 		},
-		Spec: &v1alpha3.WorkloadEntry{
+		Spec: &v1.WorkloadEntry{
 			Address: "10.0.0.1",
 			Network: "nw0",
 		},
@@ -430,12 +430,12 @@ func TestWorkloadEntryFromGroup(t *testing.T) {
 				"grouplabel": "notonentry",
 			},
 		},
-		Spec: &v1alpha3.WorkloadGroup{
-			Metadata: &v1alpha3.WorkloadGroup_ObjectMeta{
+		Spec: &v1.WorkloadGroup{
+			Metadata: &v1.WorkloadGroup_ObjectMeta{
 				Labels:      map[string]string{"foo": "bar"},
 				Annotations: map[string]string{"foo": "bar"},
 			},
-			Template: &v1alpha3.WorkloadEntry{
+			Template: &v1.WorkloadEntry{
 				Ports:          map[string]uint32{"http": 80},
 				Labels:         map[string]string{"app": "a"},
 				Weight:         1,
@@ -473,7 +473,7 @@ func TestWorkloadEntryFromGroup(t *testing.T) {
 				Controller: &workloadGroupIsController,
 			}},
 		},
-		Spec: &v1alpha3.WorkloadEntry{
+		Spec: &v1.WorkloadEntry{
 			Address: "10.0.0.1",
 			Ports: map[string]uint32{
 				"http": 80,
@@ -502,8 +502,8 @@ func TestWorkloadEntryFromGroupHBONE(t *testing.T) {
 				Namespace:        "a",
 				Name:             "wg-a",
 			},
-			Spec: &v1alpha3.WorkloadGroup{
-				Template: &v1alpha3.WorkloadEntry{
+			Spec: &v1.WorkloadGroup{
+				Template: &v1.WorkloadEntry{
 					Ports:          map[string]uint32{"http": 80},
 					Labels:         map[string]string{"app": "a"},
 					ServiceAccount: "sa-a",
@@ -540,7 +540,7 @@ func TestWorkloadEntryFromGroupHBONE(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			group := baseGroup()
 			if tc.tmplLabels != nil {
-				group.Spec.(*v1alpha3.WorkloadGroup).Template.Labels = tc.tmplLabels
+				group.Spec.(*v1.WorkloadGroup).Template.Labels = tc.tmplLabels
 			}
 			proxy := fakeProxy("10.0.0.1", group, "nw1", "sa")
 			proxy.Metadata.EnableHBONE = model.StringBool(tc.enableHBONE)
@@ -837,8 +837,8 @@ func checkEntry(
 		err = multierror.Append(fmt.Errorf("expected WorkloadEntry %s/%s to exist", wg.Namespace, name))
 		return err
 	}
-	tmpl := wg.Spec.(*v1alpha3.WorkloadGroup)
-	we := cfg.Spec.(*v1alpha3.WorkloadEntry)
+	tmpl := wg.Spec.(*v1.WorkloadGroup)
+	we := cfg.Spec.(*v1.WorkloadEntry)
 
 	// check workload entry specific fields
 	if !reflect.DeepEqual(we.Ports, tmpl.Template.Ports) {
@@ -1056,7 +1056,7 @@ func fakeProxy(ip string, wg config.Config, nw network.ID, sa string) *model.Pro
 }
 
 func fakeProxySuitableForHealthChecks(wle config.Config) *model.Proxy {
-	wleSpec := wle.Spec.(*v1alpha3.WorkloadEntry)
+	wleSpec := wle.Spec.(*v1.WorkloadEntry)
 	return &model.Proxy{
 		ID:               wle.Name + "." + wle.Namespace,
 		IPAddresses:      []string{wleSpec.Address},
@@ -1065,7 +1065,7 @@ func fakeProxySuitableForHealthChecks(wle config.Config) *model.Proxy {
 			Namespace: wle.Namespace,
 			Network:   network.ID(wleSpec.Network),
 			ProxyConfig: &model.NodeMetaProxyConfig{
-				ReadinessProbe: &v1alpha3.ReadinessProbe{},
+				ReadinessProbe: &v1.ReadinessProbe{},
 			},
 			WorkloadEntry: wle.Name, // indicate a name of the WorkloadEntry this proxy corresponds to
 		},

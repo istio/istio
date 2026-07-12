@@ -19,7 +19,7 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/api/networking/v1alpha3"
+	"istio.io/api/networking/v1"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/istio/pkg/kube/apimirror"
@@ -51,7 +51,7 @@ const (
 	lastStateUnhealthy
 )
 
-func fillInDefaults(cfg *v1alpha3.ReadinessProbe) *v1alpha3.ReadinessProbe {
+func fillInDefaults(cfg *v1.ReadinessProbe) *v1.ReadinessProbe {
 	cfg = cfg.DeepCopy()
 	// Thresholds have a minimum of 1
 	cfg.FailureThreshold = orDefault(cfg.FailureThreshold, 1)
@@ -62,7 +62,7 @@ func fillInDefaults(cfg *v1alpha3.ReadinessProbe) *v1alpha3.ReadinessProbe {
 	cfg.PeriodSeconds = orDefault(cfg.PeriodSeconds, 10)
 
 	switch h := cfg.HealthCheckMethod.(type) {
-	case *v1alpha3.ReadinessProbe_HttpGet:
+	case *v1.ReadinessProbe_HttpGet:
 		if h.HttpGet.Path == "" {
 			h.HttpGet.Path = "/"
 		}
@@ -74,7 +74,7 @@ func fillInDefaults(cfg *v1alpha3.ReadinessProbe) *v1alpha3.ReadinessProbe {
 	return cfg
 }
 
-func NewWorkloadHealthChecker(cfg *v1alpha3.ReadinessProbe, envoyProbe ready.Prober, proxyAddrs []string, ipv6 bool) *WorkloadHealthChecker {
+func NewWorkloadHealthChecker(cfg *v1.ReadinessProbe, envoyProbe ready.Prober, proxyAddrs []string, ipv6 bool) *WorkloadHealthChecker {
 	// if a config does not exist return a no-op prober
 	if cfg == nil {
 		return nil
@@ -83,13 +83,13 @@ func NewWorkloadHealthChecker(cfg *v1alpha3.ReadinessProbe, envoyProbe ready.Pro
 	defaultHost := resolveDefaultHost(proxyAddrs)
 	var prober Prober
 	switch healthCheckMethod := cfg.HealthCheckMethod.(type) {
-	case *v1alpha3.ReadinessProbe_HttpGet:
+	case *v1.ReadinessProbe_HttpGet:
 		prober = NewHTTPProber(healthCheckMethod.HttpGet, defaultHost, ipv6)
-	case *v1alpha3.ReadinessProbe_TcpSocket:
+	case *v1.ReadinessProbe_TcpSocket:
 		prober = NewTCPProber(healthCheckMethod.TcpSocket, defaultHost)
-	case *v1alpha3.ReadinessProbe_Exec:
+	case *v1.ReadinessProbe_Exec:
 		prober = &ExecProber{Config: healthCheckMethod.Exec}
-	case *v1alpha3.ReadinessProbe_Grpc:
+	case *v1.ReadinessProbe_Grpc:
 		prober = NewGRPCProber(healthCheckMethod.Grpc, defaultHost)
 	default:
 		prober = nil

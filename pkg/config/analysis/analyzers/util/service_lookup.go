@@ -20,17 +20,17 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	"istio.io/api/annotation"
-	"istio.io/api/networking/v1alpha3"
+	"istio.io/api/networking/v1"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/gvk"
 )
 
-func InitServiceEntryHostMap(ctx analysis.Context) map[ScopedFqdn]*v1alpha3.ServiceEntry {
-	result := make(map[ScopedFqdn]*v1alpha3.ServiceEntry)
+func InitServiceEntryHostMap(ctx analysis.Context) map[ScopedFqdn]*v1.ServiceEntry {
+	result := make(map[ScopedFqdn]*v1.ServiceEntry)
 
 	ctx.ForEach(gvk.ServiceEntry, func(r *resource.Instance) bool {
-		s := r.Message.(*v1alpha3.ServiceEntry)
+		s := r.Message.(*v1.ServiceEntry)
 		hostsNamespaceScope := string(r.Metadata.FullName.Namespace)
 
 		exportsToAll := false
@@ -65,17 +65,17 @@ func InitServiceEntryHostMap(ctx analysis.Context) map[ScopedFqdn]*v1alpha3.Serv
 	// validation is performed against serviceEntry
 	ctx.ForEach(gvk.Service, func(r *resource.Instance) bool {
 		s := r.Message.(*corev1.ServiceSpec)
-		var se *v1alpha3.ServiceEntry
-		var ports []*v1alpha3.ServicePort
+		var se *v1.ServiceEntry
+		var ports []*v1.ServicePort
 		for _, p := range s.Ports {
-			ports = append(ports, &v1alpha3.ServicePort{
+			ports = append(ports, &v1.ServicePort{
 				Number:   uint32(p.Port),
 				Name:     p.Name,
 				Protocol: string(p.Protocol),
 			})
 		}
 		host := ConvertHostToFQDN(r.Metadata.FullName.Namespace, r.Metadata.FullName.Name.String())
-		se = &v1alpha3.ServiceEntry{
+		se = &v1.ServiceEntry{
 			Hosts: []string{host},
 			Ports: ports,
 		}
@@ -107,8 +107,8 @@ func getVisibleNamespacesFromExportToAnno(anno, resourceNamespace string) []stri
 }
 
 func GetDestinationHost(sourceNs resource.Namespace, exportTo []string, host string,
-	serviceEntryHosts map[ScopedFqdn]*v1alpha3.ServiceEntry,
-) *v1alpha3.ServiceEntry {
+	serviceEntryHosts map[ScopedFqdn]*v1.ServiceEntry,
+) *v1.ServiceEntry {
 	// Check explicitly defined ServiceEntries as well as services discovered from the platform
 
 	// Check ServiceEntries which are exposed to all namespaces

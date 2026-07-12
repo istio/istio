@@ -21,15 +21,15 @@ var (
 	DaemonSet                      = config.GroupVersionKind{Group: "apps", Version: "v1", Kind: "DaemonSet"}
 	Deployment                     = config.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"}
 	DestinationRule                = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1", Kind: "DestinationRule"}
-	DestinationRule_v1alpha3       = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1alpha3", Kind: "DestinationRule"}
+	DestinationRule_v1       = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1", Kind: "DestinationRule"}
 	DestinationRule_v1beta1        = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1beta1", Kind: "DestinationRule"}
 	EndpointSlice                  = config.GroupVersionKind{Group: "discovery.k8s.io", Version: "v1", Kind: "EndpointSlice"}
 	Endpoints                      = config.GroupVersionKind{Group: "", Version: "v1", Kind: "Endpoints"}
-	EnvoyFilter                    = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1alpha3", Kind: "EnvoyFilter"}
+	EnvoyFilter                    = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1", Kind: "EnvoyFilter"}
 	GRPCRoute                      = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1", Kind: "GRPCRoute"}
 	GRPCRoute_v1alpha2             = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1alpha2", Kind: "GRPCRoute"}
 	Gateway                        = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1", Kind: "Gateway"}
-	Gateway_v1alpha3               = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1alpha3", Kind: "Gateway"}
+	Gateway_v1               = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1", Kind: "Gateway"}
 	Gateway_v1beta1                = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1beta1", Kind: "Gateway"}
 	GatewayClass                   = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1", Kind: "GatewayClass"}
 	GatewayClass_v1alpha2          = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1alpha2", Kind: "GatewayClass"}
@@ -64,10 +64,10 @@ var (
 	Service                        = config.GroupVersionKind{Group: "", Version: "v1", Kind: "Service"}
 	ServiceAccount                 = config.GroupVersionKind{Group: "", Version: "v1", Kind: "ServiceAccount"}
 	ServiceEntry                   = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1", Kind: "ServiceEntry"}
-	ServiceEntry_v1alpha3          = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1alpha3", Kind: "ServiceEntry"}
+	ServiceEntry_v1          = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1", Kind: "ServiceEntry"}
 	ServiceEntry_v1beta1           = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1beta1", Kind: "ServiceEntry"}
 	Sidecar                        = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1", Kind: "Sidecar"}
-	Sidecar_v1alpha3               = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1alpha3", Kind: "Sidecar"}
+	Sidecar_v1               = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1", Kind: "Sidecar"}
 	Sidecar_v1beta1                = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1beta1", Kind: "Sidecar"}
 	StatefulSet                    = config.GroupVersionKind{Group: "apps", Version: "v1", Kind: "StatefulSet"}
 	TCPRoute                       = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1", Kind: "TCPRoute"}
@@ -80,14 +80,14 @@ var (
 	UDPRoute                       = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1alpha2", Kind: "UDPRoute"}
 	ValidatingWebhookConfiguration = config.GroupVersionKind{Group: "admissionregistration.k8s.io", Version: "v1", Kind: "ValidatingWebhookConfiguration"}
 	VirtualService                 = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1", Kind: "VirtualService"}
-	VirtualService_v1alpha3        = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1alpha3", Kind: "VirtualService"}
+	VirtualService_v1        = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1", Kind: "VirtualService"}
 	VirtualService_v1beta1         = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1beta1", Kind: "VirtualService"}
 	WasmPlugin                     = config.GroupVersionKind{Group: "extensions.istio.io", Version: "v1alpha1", Kind: "WasmPlugin"}
 	WorkloadEntry                  = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1", Kind: "WorkloadEntry"}
-	WorkloadEntry_v1alpha3         = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1alpha3", Kind: "WorkloadEntry"}
+	WorkloadEntry_v1         = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1", Kind: "WorkloadEntry"}
 	WorkloadEntry_v1beta1          = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1beta1", Kind: "WorkloadEntry"}
 	WorkloadGroup                  = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1", Kind: "WorkloadGroup"}
-	WorkloadGroup_v1alpha3         = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1alpha3", Kind: "WorkloadGroup"}
+	WorkloadGroup_v1         = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1", Kind: "WorkloadGroup"}
 	WorkloadGroup_v1beta1          = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1beta1", Kind: "WorkloadGroup"}
 	XBackendTrafficPolicy          = config.GroupVersionKind{Group: "gateway.networking.x-k8s.io", Version: "v1alpha1", Kind: "XBackendTrafficPolicy"}
 )
@@ -115,8 +115,8 @@ func ToGVR(g config.GroupVersionKind) (schema.GroupVersionResource, bool) {
 		return gvr.Deployment, true
 	case DestinationRule:
 		return gvr.DestinationRule, true
-	case DestinationRule_v1alpha3:
-		return gvr.DestinationRule_v1alpha3, true
+	case DestinationRule_v1:
+		return gvr.DestinationRule_v1, true
 	case DestinationRule_v1beta1:
 		return gvr.DestinationRule_v1beta1, true
 	case EndpointSlice:
@@ -131,8 +131,8 @@ func ToGVR(g config.GroupVersionKind) (schema.GroupVersionResource, bool) {
 		return gvr.GRPCRoute_v1alpha2, true
 	case Gateway:
 		return gvr.Gateway, true
-	case Gateway_v1alpha3:
-		return gvr.Gateway_v1alpha3, true
+	case Gateway_v1:
+		return gvr.Gateway_v1, true
 	case Gateway_v1beta1:
 		return gvr.Gateway_v1beta1, true
 	case GatewayClass:
@@ -201,14 +201,14 @@ func ToGVR(g config.GroupVersionKind) (schema.GroupVersionResource, bool) {
 		return gvr.ServiceAccount, true
 	case ServiceEntry:
 		return gvr.ServiceEntry, true
-	case ServiceEntry_v1alpha3:
-		return gvr.ServiceEntry_v1alpha3, true
+	case ServiceEntry_v1:
+		return gvr.ServiceEntry_v1, true
 	case ServiceEntry_v1beta1:
 		return gvr.ServiceEntry_v1beta1, true
 	case Sidecar:
 		return gvr.Sidecar, true
-	case Sidecar_v1alpha3:
-		return gvr.Sidecar_v1alpha3, true
+	case Sidecar_v1:
+		return gvr.Sidecar_v1, true
 	case Sidecar_v1beta1:
 		return gvr.Sidecar_v1beta1, true
 	case StatefulSet:
@@ -233,22 +233,22 @@ func ToGVR(g config.GroupVersionKind) (schema.GroupVersionResource, bool) {
 		return gvr.ValidatingWebhookConfiguration, true
 	case VirtualService:
 		return gvr.VirtualService, true
-	case VirtualService_v1alpha3:
-		return gvr.VirtualService_v1alpha3, true
+	case VirtualService_v1:
+		return gvr.VirtualService_v1, true
 	case VirtualService_v1beta1:
 		return gvr.VirtualService_v1beta1, true
 	case WasmPlugin:
 		return gvr.WasmPlugin, true
 	case WorkloadEntry:
 		return gvr.WorkloadEntry, true
-	case WorkloadEntry_v1alpha3:
-		return gvr.WorkloadEntry_v1alpha3, true
+	case WorkloadEntry_v1:
+		return gvr.WorkloadEntry_v1, true
 	case WorkloadEntry_v1beta1:
 		return gvr.WorkloadEntry_v1beta1, true
 	case WorkloadGroup:
 		return gvr.WorkloadGroup, true
-	case WorkloadGroup_v1alpha3:
-		return gvr.WorkloadGroup_v1alpha3, true
+	case WorkloadGroup_v1:
+		return gvr.WorkloadGroup_v1, true
 	case WorkloadGroup_v1beta1:
 		return gvr.WorkloadGroup_v1beta1, true
 	case XBackendTrafficPolicy:

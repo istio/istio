@@ -34,9 +34,9 @@ func TestParse(t *testing.T) {
 resources:
   - kind:         "VirtualService"
     group:        "networking.istio.io"
-    version:      "v1alpha3"
-    proto:        "istio.networking.v1alpha3.VirtualService"
-    protoPackage: "istio.io/api/networking/v1alpha3"
+    version:      "v1"
+    proto:        "istio.networking.v1.VirtualService"
+    protoPackage: "istio.io/api/networking/v1"
 `,
 			expected: &Metadata{
 				Resources: []*Resource{
@@ -44,9 +44,9 @@ resources:
 						Identifier:   "VirtualService",
 						Kind:         "VirtualService",
 						Group:        "networking.istio.io",
-						Version:      "v1alpha3",
-						Proto:        "istio.networking.v1alpha3.VirtualService",
-						ProtoPackage: "istio.io/api/networking/v1alpha3",
+						Version:      "v1",
+						Proto:        "istio.networking.v1.VirtualService",
+						ProtoPackage: "istio.io/api/networking/v1",
 						Validate:     "validation.ValidateVirtualService",
 					},
 				},

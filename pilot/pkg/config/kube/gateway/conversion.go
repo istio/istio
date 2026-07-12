@@ -40,7 +40,7 @@ import (
 
 	"istio.io/api/annotation"
 	"istio.io/api/label"
-	istio "istio.io/api/networking/v1alpha3"
+	istio "istio.io/api/networking/v1"
 	"istio.io/istio/pilot/pkg/config/kube/gatewaycommon"
 	"istio.io/istio/pilot/pkg/credentials"
 	kubecreds "istio.io/istio/pilot/pkg/credentials/kube"

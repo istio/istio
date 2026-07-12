@@ -29,7 +29,7 @@ import (
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
 
-	"istio.io/api/networking/v1alpha3"
+	"istio.io/api/networking/v1"
 )
 
 func TestHttpProber(t *testing.T) {
@@ -64,7 +64,7 @@ func TestHttpProber(t *testing.T) {
 			server, port := createHTTPServer(tt.statusCode)
 			defer server.Close()
 			httpProber := NewHTTPProber(
-				&v1alpha3.HTTPHealthCheckConfig{
+				&v1.HTTPHealthCheckConfig{
 					Path:   "/test/health/check",
 					Port:   port,
 					Host:   "127.0.0.1",
@@ -162,7 +162,7 @@ func TestGrpcProber(t *testing.T) {
 			grpcProber := &GRPCProber{}
 			if tt.service != "" {
 				grpcProber = NewGRPCProber(
-					&v1alpha3.GrpcHealthCheckConfig{
+					&v1.GrpcHealthCheckConfig{
 						Port:    tt.port,
 						Service: tt.service,
 					}, "localhost")
@@ -199,7 +199,7 @@ func TestTcpProber(t *testing.T) {
 			server, port := createHTTPServer(200)
 			defer server.Close()
 			tcpProber := TCPProber{
-				Config: &v1alpha3.TCPHealthCheckConfig{
+				Config: &v1.TCPHealthCheckConfig{
 					Host: "127.0.0.1",
 					Port: port,
 				},
@@ -247,7 +247,7 @@ func TestExecProber(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
 			execProber := &ExecProber{
-				Config: &v1alpha3.ExecHealthCheckConfig{
+				Config: &v1.ExecHealthCheckConfig{
 					Command: tt.command,
 				},
 			}

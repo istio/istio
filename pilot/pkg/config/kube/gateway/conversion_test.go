@@ -33,7 +33,7 @@ import (
 	"sigs.k8s.io/gateway-api/pkg/consts"
 	"sigs.k8s.io/yaml"
 
-	istio "istio.io/api/networking/v1alpha3"
+	istio "istio.io/api/networking/v1"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/config/kube/gatewaycommon"
 	"istio.io/istio/pilot/pkg/features"

@@ -17,7 +17,7 @@ package gateway
 import (
 	"testing"
 
-	"istio.io/api/networking/v1alpha3"
+	"istio.io/api/networking/v1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test"
@@ -26,37 +26,37 @@ import (
 func TestIsTLSServer(t *testing.T) {
 	cases := []struct {
 		name     string
-		server   *v1alpha3.Server
+		server   *v1.Server
 		expected bool
 	}{
 		{
 			name: "tls non nil and HTTP as transport protocol",
-			server: &v1alpha3.Server{
-				Port: &v1alpha3.Port{
+			server: &v1.Server{
+				Port: &v1.Port{
 					Number:   80,
 					Protocol: string(protocol.HTTP),
 					Name:     "http",
 				},
-				Tls: &v1alpha3.ServerTLSSettings{HttpsRedirect: true},
+				Tls: &v1.ServerTLSSettings{HttpsRedirect: true},
 			},
 			expected: false,
 		},
 		{
 			name: "tls non nil and TCP as transport protocol",
-			server: &v1alpha3.Server{
-				Port: &v1alpha3.Port{
+			server: &v1.Server{
+				Port: &v1.Port{
 					Number:   80,
 					Protocol: string(protocol.TCP),
 					Name:     "tcp",
 				},
-				Tls: &v1alpha3.ServerTLSSettings{HttpsRedirect: true},
+				Tls: &v1.ServerTLSSettings{HttpsRedirect: true},
 			},
 			expected: true,
 		},
 		{
 			name: "tls nil and HTTP as transport protocol",
-			server: &v1alpha3.Server{
-				Port: &v1alpha3.Port{
+			server: &v1.Server{
+				Port: &v1.Port{
 					Number:   80,
 					Protocol: string(protocol.HTTP),
 					Name:     "http",
@@ -66,8 +66,8 @@ func TestIsTLSServer(t *testing.T) {
 		},
 		{
 			name: "tls nil and TCP as transport protocol",
-			server: &v1alpha3.Server{
-				Port: &v1alpha3.Port{
+			server: &v1.Server{
+				Port: &v1.Port{
 					Number:   80,
 					Protocol: string(protocol.TCP),
 					Name:     "tcp",
@@ -90,13 +90,13 @@ func TestIsTLSServer(t *testing.T) {
 func TestIsHTTPServer(t *testing.T) {
 	cases := []struct {
 		name     string
-		server   *v1alpha3.Server
+		server   *v1.Server
 		expected bool
 	}{
 		{
 			name: "HTTP as transport protocol",
-			server: &v1alpha3.Server{
-				Port: &v1alpha3.Port{
+			server: &v1.Server{
+				Port: &v1.Port{
 					Number:   80,
 					Protocol: string(protocol.HTTP),
 					Name:     "http",
@@ -106,37 +106,37 @@ func TestIsHTTPServer(t *testing.T) {
 		},
 		{
 			name: "HTTPS traffic with passthrough ServerTLS mode",
-			server: &v1alpha3.Server{
-				Port: &v1alpha3.Port{
+			server: &v1.Server{
+				Port: &v1.Port{
 					Number:   80,
 					Protocol: string(protocol.HTTPS),
 					Name:     "https",
 				},
-				Tls: &v1alpha3.ServerTLSSettings{Mode: v1alpha3.ServerTLSSettings_PASSTHROUGH},
+				Tls: &v1.ServerTLSSettings{Mode: v1.ServerTLSSettings_PASSTHROUGH},
 			},
 			expected: false,
 		},
 		{
 			name: "HTTP traffic with passthrough ServerTLS mode",
-			server: &v1alpha3.Server{
-				Port: &v1alpha3.Port{
+			server: &v1.Server{
+				Port: &v1.Port{
 					Number:   80,
 					Protocol: string(protocol.HTTP),
 					Name:     "http",
 				},
-				Tls: &v1alpha3.ServerTLSSettings{Mode: v1alpha3.ServerTLSSettings_PASSTHROUGH},
+				Tls: &v1.ServerTLSSettings{Mode: v1.ServerTLSSettings_PASSTHROUGH},
 			},
 			expected: true,
 		},
 		{
 			name: "HTTPS traffic with istio mutual ServerTLS mode",
-			server: &v1alpha3.Server{
-				Port: &v1alpha3.Port{
+			server: &v1.Server{
+				Port: &v1.Port{
 					Number:   80,
 					Protocol: string(protocol.HTTPS),
 					Name:     "https",
 				},
-				Tls: &v1alpha3.ServerTLSSettings{Mode: v1alpha3.ServerTLSSettings_ISTIO_MUTUAL},
+				Tls: &v1.ServerTLSSettings{Mode: v1.ServerTLSSettings_ISTIO_MUTUAL},
 			},
 			expected: true,
 		},
@@ -156,13 +156,13 @@ func TestIsHTTPServer(t *testing.T) {
 func TestIsHTTPSServerWithTLSTermination(t *testing.T) {
 	cases := []struct {
 		name     string
-		server   *v1alpha3.Server
+		server   *v1.Server
 		expected bool
 	}{
 		{
 			name: "HTTP as transport protocol",
-			server: &v1alpha3.Server{
-				Port: &v1alpha3.Port{
+			server: &v1.Server{
+				Port: &v1.Port{
 					Number:   80,
 					Protocol: string(protocol.HTTP),
 					Name:     "http",
@@ -172,37 +172,37 @@ func TestIsHTTPSServerWithTLSTermination(t *testing.T) {
 		},
 		{
 			name: "HTTPS traffic with passthrough ServerTLS mode",
-			server: &v1alpha3.Server{
-				Port: &v1alpha3.Port{
+			server: &v1.Server{
+				Port: &v1.Port{
 					Number:   80,
 					Protocol: string(protocol.HTTPS),
 					Name:     "https",
 				},
-				Tls: &v1alpha3.ServerTLSSettings{Mode: v1alpha3.ServerTLSSettings_PASSTHROUGH},
+				Tls: &v1.ServerTLSSettings{Mode: v1.ServerTLSSettings_PASSTHROUGH},
 			},
 			expected: false,
 		},
 		{
 			name: "HTTP traffic with tls termination",
-			server: &v1alpha3.Server{
-				Port: &v1alpha3.Port{
+			server: &v1.Server{
+				Port: &v1.Port{
 					Number:   80,
 					Protocol: string(protocol.HTTP),
 					Name:     "http",
 				},
-				Tls: &v1alpha3.ServerTLSSettings{Mode: v1alpha3.ServerTLSSettings_MUTUAL},
+				Tls: &v1.ServerTLSSettings{Mode: v1.ServerTLSSettings_MUTUAL},
 			},
 			expected: false,
 		},
 		{
 			name: "HTTPS traffic with istio mutual ServerTLS mode",
-			server: &v1alpha3.Server{
-				Port: &v1alpha3.Port{
+			server: &v1.Server{
+				Port: &v1.Port{
 					Number:   80,
 					Protocol: string(protocol.HTTPS),
 					Name:     "https",
 				},
-				Tls: &v1alpha3.ServerTLSSettings{Mode: v1alpha3.ServerTLSSettings_ISTIO_MUTUAL},
+				Tls: &v1.ServerTLSSettings{Mode: v1.ServerTLSSettings_ISTIO_MUTUAL},
 			},
 			expected: true,
 		},
@@ -222,14 +222,14 @@ func TestIsHTTPSServerWithTLSTermination(t *testing.T) {
 func TestIsEligibleForHTTP3Upgrade(t *testing.T) {
 	cases := []struct {
 		name                string
-		server              *v1alpha3.Server
+		server              *v1.Server
 		enableQUICListeners bool
 		expected            bool
 	}{
 		{
 			name: "EnableQUICListeners set to false",
-			server: &v1alpha3.Server{
-				Port: &v1alpha3.Port{
+			server: &v1.Server{
+				Port: &v1.Port{
 					Number:   80,
 					Protocol: string(protocol.HTTP),
 					Name:     "http",
@@ -240,8 +240,8 @@ func TestIsEligibleForHTTP3Upgrade(t *testing.T) {
 		},
 		{
 			name: "HTTP as transport protocol and EnableQUICListeners set to true",
-			server: &v1alpha3.Server{
-				Port: &v1alpha3.Port{
+			server: &v1.Server{
+				Port: &v1.Port{
 					Number:   80,
 					Protocol: string(protocol.HTTP),
 					Name:     "http",
@@ -252,26 +252,26 @@ func TestIsEligibleForHTTP3Upgrade(t *testing.T) {
 		},
 		{
 			name: "HTTPS traffic with passthrough ServerTLS mode and EnableQUICListeners set to true",
-			server: &v1alpha3.Server{
-				Port: &v1alpha3.Port{
+			server: &v1.Server{
+				Port: &v1.Port{
 					Number:   80,
 					Protocol: string(protocol.HTTPS),
 					Name:     "https",
 				},
-				Tls: &v1alpha3.ServerTLSSettings{Mode: v1alpha3.ServerTLSSettings_PASSTHROUGH},
+				Tls: &v1.ServerTLSSettings{Mode: v1.ServerTLSSettings_PASSTHROUGH},
 			},
 			enableQUICListeners: true,
 			expected:            false,
 		},
 		{
 			name: "HTTPS traffic with istio mutual ServerTLS mode and EnableQUICListeners set to true",
-			server: &v1alpha3.Server{
-				Port: &v1alpha3.Port{
+			server: &v1.Server{
+				Port: &v1.Port{
 					Number:   80,
 					Protocol: string(protocol.HTTPS),
 					Name:     "https",
 				},
-				Tls: &v1alpha3.ServerTLSSettings{Mode: v1alpha3.ServerTLSSettings_ISTIO_MUTUAL},
+				Tls: &v1.ServerTLSSettings{Mode: v1.ServerTLSSettings_ISTIO_MUTUAL},
 			},
 			enableQUICListeners: true,
 			expected:            true,
@@ -292,13 +292,13 @@ func TestIsEligibleForHTTP3Upgrade(t *testing.T) {
 func TestIsPassThroughServer(t *testing.T) {
 	cases := []struct {
 		name     string
-		server   *v1alpha3.Server
+		server   *v1.Server
 		expected bool
 	}{
 		{
 			name: "nil server TlS",
-			server: &v1alpha3.Server{
-				Port: &v1alpha3.Port{
+			server: &v1.Server{
+				Port: &v1.Port{
 					Number:   80,
 					Protocol: string(protocol.HTTP),
 					Name:     "http",
@@ -308,37 +308,37 @@ func TestIsPassThroughServer(t *testing.T) {
 		},
 		{
 			name: "passthrough ServerTLS mode",
-			server: &v1alpha3.Server{
-				Port: &v1alpha3.Port{
+			server: &v1.Server{
+				Port: &v1.Port{
 					Number:   80,
 					Protocol: string(protocol.HTTPS),
 					Name:     "https",
 				},
-				Tls: &v1alpha3.ServerTLSSettings{Mode: v1alpha3.ServerTLSSettings_PASSTHROUGH},
+				Tls: &v1.ServerTLSSettings{Mode: v1.ServerTLSSettings_PASSTHROUGH},
 			},
 			expected: true,
 		},
 		{
 			name: "auto passthrough ServerTLS mode",
-			server: &v1alpha3.Server{
-				Port: &v1alpha3.Port{
+			server: &v1.Server{
+				Port: &v1.Port{
 					Number:   80,
 					Protocol: string(protocol.HTTP),
 					Name:     "http",
 				},
-				Tls: &v1alpha3.ServerTLSSettings{Mode: v1alpha3.ServerTLSSettings_AUTO_PASSTHROUGH},
+				Tls: &v1.ServerTLSSettings{Mode: v1.ServerTLSSettings_AUTO_PASSTHROUGH},
 			},
 			expected: true,
 		},
 		{
 			name: "istio mutual ServerTLS mode",
-			server: &v1alpha3.Server{
-				Port: &v1alpha3.Port{
+			server: &v1.Server{
+				Port: &v1.Port{
 					Number:   80,
 					Protocol: string(protocol.HTTPS),
 					Name:     "https",
 				},
-				Tls: &v1alpha3.ServerTLSSettings{Mode: v1alpha3.ServerTLSSettings_ISTIO_MUTUAL},
+				Tls: &v1.ServerTLSSettings{Mode: v1.ServerTLSSettings_ISTIO_MUTUAL},
 			},
 			expected: false,
 		},
@@ -357,13 +357,13 @@ func TestIsPassThroughServer(t *testing.T) {
 func TestIsTCPServerWithTLSTermination(t *testing.T) {
 	cases := []struct {
 		name     string
-		server   *v1alpha3.Server
+		server   *v1.Server
 		expected bool
 	}{
 		{
 			name: "nil tls and HTTP",
-			server: &v1alpha3.Server{
-				Port: &v1alpha3.Port{
+			server: &v1.Server{
+				Port: &v1.Port{
 					Number:   80,
 					Protocol: string(protocol.HTTP),
 					Name:     "http",
@@ -373,61 +373,61 @@ func TestIsTCPServerWithTLSTermination(t *testing.T) {
 		},
 		{
 			name: "passthrough ServerTLS mode",
-			server: &v1alpha3.Server{
-				Port: &v1alpha3.Port{
+			server: &v1.Server{
+				Port: &v1.Port{
 					Number:   80,
 					Protocol: string(protocol.TCP),
 					Name:     "tcp",
 				},
-				Tls: &v1alpha3.ServerTLSSettings{Mode: v1alpha3.ServerTLSSettings_PASSTHROUGH},
+				Tls: &v1.ServerTLSSettings{Mode: v1.ServerTLSSettings_PASSTHROUGH},
 			},
 			expected: false,
 		},
 		{
 			name: "auto passthrough ServerTLS mode",
-			server: &v1alpha3.Server{
-				Port: &v1alpha3.Port{
+			server: &v1.Server{
+				Port: &v1.Port{
 					Number:   80,
 					Protocol: string(protocol.TCP),
 					Name:     "tcp",
 				},
-				Tls: &v1alpha3.ServerTLSSettings{Mode: v1alpha3.ServerTLSSettings_AUTO_PASSTHROUGH},
+				Tls: &v1.ServerTLSSettings{Mode: v1.ServerTLSSettings_AUTO_PASSTHROUGH},
 			},
 			expected: false,
 		},
 		{
 			name: "tls and HTTPS",
-			server: &v1alpha3.Server{
-				Port: &v1alpha3.Port{
+			server: &v1.Server{
+				Port: &v1.Port{
 					Number:   80,
 					Protocol: string(protocol.HTTPS),
 					Name:     "https",
 				},
-				Tls: &v1alpha3.ServerTLSSettings{CredentialName: "cert", Mode: v1alpha3.ServerTLSSettings_MUTUAL},
+				Tls: &v1.ServerTLSSettings{CredentialName: "cert", Mode: v1.ServerTLSSettings_MUTUAL},
 			},
 			expected: false,
 		},
 		{
 			name: "tls and HTTP",
-			server: &v1alpha3.Server{
-				Port: &v1alpha3.Port{
+			server: &v1.Server{
+				Port: &v1.Port{
 					Number:   80,
 					Protocol: string(protocol.HTTP),
 					Name:     "https",
 				},
-				Tls: &v1alpha3.ServerTLSSettings{CredentialName: "cert", Mode: v1alpha3.ServerTLSSettings_MUTUAL},
+				Tls: &v1.ServerTLSSettings{CredentialName: "cert", Mode: v1.ServerTLSSettings_MUTUAL},
 			},
 			expected: false,
 		},
 		{
 			name: "tls and TLS",
-			server: &v1alpha3.Server{
-				Port: &v1alpha3.Port{
+			server: &v1.Server{
+				Port: &v1.Port{
 					Number:   80,
 					Protocol: string(protocol.TLS),
 					Name:     "tls",
 				},
-				Tls: &v1alpha3.ServerTLSSettings{CredentialName: "cert", Mode: v1alpha3.ServerTLSSettings_MUTUAL},
+				Tls: &v1.ServerTLSSettings{CredentialName: "cert", Mode: v1.ServerTLSSettings_MUTUAL},
 			},
 			expected: true,
 		},

@@ -43,7 +43,7 @@ func NewScopedFqdn(scope string, namespace resource.Namespace, host string) Scop
 
 // GetResourceNameFromHost figures out the resource.FullName to look up from the provided host string
 // We need to handle two possible formats: short name and FQDN
-// https://istio.io/docs/reference/config/networking/v1alpha3/virtual-service/#Destination
+// https://istio.io/docs/reference/config/networking/v1/virtual-service/#Destination
 func GetResourceNameFromHost(defaultNamespace resource.Namespace, host string) resource.FullName {
 	// First, try to parse as FQDN (which can be cross-namespace)
 	name := GetFullNameFromFQDN(host)

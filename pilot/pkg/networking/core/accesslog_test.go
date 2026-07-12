@@ -185,7 +185,7 @@ func TestAccessLogPatch(t *testing.T) {
 		Configs:        nil,
 		ConfigPointers: nil,
 		ConfigString: `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: EnvoyFilter
 metadata:
   name: access-log-format

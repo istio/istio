@@ -33,13 +33,13 @@ import (
 
 	istioioapiextensionsv1alpha1 "istio.io/api/extensions/v1alpha1"
 	istioioapimetav1alpha1 "istio.io/api/meta/v1alpha1"
-	istioioapinetworkingv1alpha3 "istio.io/api/networking/v1alpha3"
+	istioioapinetworkingv1 "istio.io/api/networking/v1"
 	istioioapinetworkingv1beta1 "istio.io/api/networking/v1beta1"
 	istioioapisecurityv1beta1 "istio.io/api/security/v1beta1"
 	istioioapitelemetryv1alpha1 "istio.io/api/telemetry/v1alpha1"
 	apiistioioapiextensionsv1alpha1 "istio.io/client-go/pkg/apis/extensions/v1alpha1"
 	apiistioioapinetworkingv1 "istio.io/client-go/pkg/apis/networking/v1"
-	apiistioioapinetworkingv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
+	apiistioioapinetworkingv1 "istio.io/client-go/pkg/apis/networking/v1"
 	apiistioioapinetworkingv1beta1 "istio.io/client-go/pkg/apis/networking/v1beta1"
 	apiistioioapisecurityv1 "istio.io/client-go/pkg/apis/security/v1"
 	apiistioioapitelemetryv1 "istio.io/client-go/pkg/apis/telemetry/v1"
@@ -60,12 +60,12 @@ func create(c kube.Client, cfg config.Config, objMeta metav1.ObjectMeta) (metav1
 	case gvk.DestinationRule:
 		return c.Istio().NetworkingV1().DestinationRules(cfg.Namespace).Create(context.TODO(), &apiistioioapinetworkingv1.DestinationRule{
 			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*istioioapinetworkingv1alpha3.DestinationRule)),
+			Spec:       *(cfg.Spec.(*istioioapinetworkingv1.DestinationRule)),
 		}, metav1.CreateOptions{})
 	case gvk.EnvoyFilter:
-		return c.Istio().NetworkingV1alpha3().EnvoyFilters(cfg.Namespace).Create(context.TODO(), &apiistioioapinetworkingv1alpha3.EnvoyFilter{
+		return c.Istio().NetworkingV1alpha3().EnvoyFilters(cfg.Namespace).Create(context.TODO(), &apiistioioapinetworkingv1.EnvoyFilter{
 			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*istioioapinetworkingv1alpha3.EnvoyFilter)),
+			Spec:       *(cfg.Spec.(*istioioapinetworkingv1.EnvoyFilter)),
 		}, metav1.CreateOptions{})
 	case gvk.GRPCRoute:
 		return c.GatewayAPI().GatewayV1().GRPCRoutes(cfg.Namespace).Create(context.TODO(), &sigsk8siogatewayapiapisv1.GRPCRoute{
@@ -75,7 +75,7 @@ func create(c kube.Client, cfg config.Config, objMeta metav1.ObjectMeta) (metav1
 	case gvk.Gateway:
 		return c.Istio().NetworkingV1().Gateways(cfg.Namespace).Create(context.TODO(), &apiistioioapinetworkingv1.Gateway{
 			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*istioioapinetworkingv1alpha3.Gateway)),
+			Spec:       *(cfg.Spec.(*istioioapinetworkingv1.Gateway)),
 		}, metav1.CreateOptions{})
 	case gvk.GatewayClass:
 		return c.GatewayAPI().GatewayV1().GatewayClasses().Create(context.TODO(), &sigsk8siogatewayapiapisv1.GatewayClass{
@@ -125,12 +125,12 @@ func create(c kube.Client, cfg config.Config, objMeta metav1.ObjectMeta) (metav1
 	case gvk.ServiceEntry:
 		return c.Istio().NetworkingV1().ServiceEntries(cfg.Namespace).Create(context.TODO(), &apiistioioapinetworkingv1.ServiceEntry{
 			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*istioioapinetworkingv1alpha3.ServiceEntry)),
+			Spec:       *(cfg.Spec.(*istioioapinetworkingv1.ServiceEntry)),
 		}, metav1.CreateOptions{})
 	case gvk.Sidecar:
 		return c.Istio().NetworkingV1().Sidecars(cfg.Namespace).Create(context.TODO(), &apiistioioapinetworkingv1.Sidecar{
 			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*istioioapinetworkingv1alpha3.Sidecar)),
+			Spec:       *(cfg.Spec.(*istioioapinetworkingv1.Sidecar)),
 		}, metav1.CreateOptions{})
 	case gvk.TCPRoute:
 		return c.GatewayAPI().GatewayV1().TCPRoutes(cfg.Namespace).Create(context.TODO(), &sigsk8siogatewayapiapisv1.TCPRoute{
@@ -160,7 +160,7 @@ func create(c kube.Client, cfg config.Config, objMeta metav1.ObjectMeta) (metav1
 	case gvk.VirtualService:
 		return c.Istio().NetworkingV1().VirtualServices(cfg.Namespace).Create(context.TODO(), &apiistioioapinetworkingv1.VirtualService{
 			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*istioioapinetworkingv1alpha3.VirtualService)),
+			Spec:       *(cfg.Spec.(*istioioapinetworkingv1.VirtualService)),
 		}, metav1.CreateOptions{})
 	case gvk.WasmPlugin:
 		return c.Istio().ExtensionsV1alpha1().WasmPlugins(cfg.Namespace).Create(context.TODO(), &apiistioioapiextensionsv1alpha1.WasmPlugin{
@@ -170,12 +170,12 @@ func create(c kube.Client, cfg config.Config, objMeta metav1.ObjectMeta) (metav1
 	case gvk.WorkloadEntry:
 		return c.Istio().NetworkingV1().WorkloadEntries(cfg.Namespace).Create(context.TODO(), &apiistioioapinetworkingv1.WorkloadEntry{
 			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*istioioapinetworkingv1alpha3.WorkloadEntry)),
+			Spec:       *(cfg.Spec.(*istioioapinetworkingv1.WorkloadEntry)),
 		}, metav1.CreateOptions{})
 	case gvk.WorkloadGroup:
 		return c.Istio().NetworkingV1().WorkloadGroups(cfg.Namespace).Create(context.TODO(), &apiistioioapinetworkingv1.WorkloadGroup{
 			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*istioioapinetworkingv1alpha3.WorkloadGroup)),
+			Spec:       *(cfg.Spec.(*istioioapinetworkingv1.WorkloadGroup)),
 		}, metav1.CreateOptions{})
 	case gvk.XBackendTrafficPolicy:
 		return c.GatewayAPI().ExperimentalV1alpha1().XBackendTrafficPolicies(cfg.Namespace).Create(context.TODO(), &sigsk8siogatewayapiapisxv1alpha1.XBackendTrafficPolicy{
@@ -202,12 +202,12 @@ func update(c kube.Client, cfg config.Config, objMeta metav1.ObjectMeta) (metav1
 	case gvk.DestinationRule:
 		return c.Istio().NetworkingV1().DestinationRules(cfg.Namespace).Update(context.TODO(), &apiistioioapinetworkingv1.DestinationRule{
 			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*istioioapinetworkingv1alpha3.DestinationRule)),
+			Spec:       *(cfg.Spec.(*istioioapinetworkingv1.DestinationRule)),
 		}, metav1.UpdateOptions{})
 	case gvk.EnvoyFilter:
-		return c.Istio().NetworkingV1alpha3().EnvoyFilters(cfg.Namespace).Update(context.TODO(), &apiistioioapinetworkingv1alpha3.EnvoyFilter{
+		return c.Istio().NetworkingV1alpha3().EnvoyFilters(cfg.Namespace).Update(context.TODO(), &apiistioioapinetworkingv1.EnvoyFilter{
 			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*istioioapinetworkingv1alpha3.EnvoyFilter)),
+			Spec:       *(cfg.Spec.(*istioioapinetworkingv1.EnvoyFilter)),
 		}, metav1.UpdateOptions{})
 	case gvk.GRPCRoute:
 		return c.GatewayAPI().GatewayV1().GRPCRoutes(cfg.Namespace).Update(context.TODO(), &sigsk8siogatewayapiapisv1.GRPCRoute{
@@ -217,7 +217,7 @@ func update(c kube.Client, cfg config.Config, objMeta metav1.ObjectMeta) (metav1
 	case gvk.Gateway:
 		return c.Istio().NetworkingV1().Gateways(cfg.Namespace).Update(context.TODO(), &apiistioioapinetworkingv1.Gateway{
 			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*istioioapinetworkingv1alpha3.Gateway)),
+			Spec:       *(cfg.Spec.(*istioioapinetworkingv1.Gateway)),
 		}, metav1.UpdateOptions{})
 	case gvk.GatewayClass:
 		return c.GatewayAPI().GatewayV1().GatewayClasses().Update(context.TODO(), &sigsk8siogatewayapiapisv1.GatewayClass{
@@ -267,12 +267,12 @@ func update(c kube.Client, cfg config.Config, objMeta metav1.ObjectMeta) (metav1
 	case gvk.ServiceEntry:
 		return c.Istio().NetworkingV1().ServiceEntries(cfg.Namespace).Update(context.TODO(), &apiistioioapinetworkingv1.ServiceEntry{
 			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*istioioapinetworkingv1alpha3.ServiceEntry)),
+			Spec:       *(cfg.Spec.(*istioioapinetworkingv1.ServiceEntry)),
 		}, metav1.UpdateOptions{})
 	case gvk.Sidecar:
 		return c.Istio().NetworkingV1().Sidecars(cfg.Namespace).Update(context.TODO(), &apiistioioapinetworkingv1.Sidecar{
 			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*istioioapinetworkingv1alpha3.Sidecar)),
+			Spec:       *(cfg.Spec.(*istioioapinetworkingv1.Sidecar)),
 		}, metav1.UpdateOptions{})
 	case gvk.TCPRoute:
 		return c.GatewayAPI().GatewayV1().TCPRoutes(cfg.Namespace).Update(context.TODO(), &sigsk8siogatewayapiapisv1.TCPRoute{
@@ -302,7 +302,7 @@ func update(c kube.Client, cfg config.Config, objMeta metav1.ObjectMeta) (metav1
 	case gvk.VirtualService:
 		return c.Istio().NetworkingV1().VirtualServices(cfg.Namespace).Update(context.TODO(), &apiistioioapinetworkingv1.VirtualService{
 			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*istioioapinetworkingv1alpha3.VirtualService)),
+			Spec:       *(cfg.Spec.(*istioioapinetworkingv1.VirtualService)),
 		}, metav1.UpdateOptions{})
 	case gvk.WasmPlugin:
 		return c.Istio().ExtensionsV1alpha1().WasmPlugins(cfg.Namespace).Update(context.TODO(), &apiistioioapiextensionsv1alpha1.WasmPlugin{
@@ -312,12 +312,12 @@ func update(c kube.Client, cfg config.Config, objMeta metav1.ObjectMeta) (metav1
 	case gvk.WorkloadEntry:
 		return c.Istio().NetworkingV1().WorkloadEntries(cfg.Namespace).Update(context.TODO(), &apiistioioapinetworkingv1.WorkloadEntry{
 			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*istioioapinetworkingv1alpha3.WorkloadEntry)),
+			Spec:       *(cfg.Spec.(*istioioapinetworkingv1.WorkloadEntry)),
 		}, metav1.UpdateOptions{})
 	case gvk.WorkloadGroup:
 		return c.Istio().NetworkingV1().WorkloadGroups(cfg.Namespace).Update(context.TODO(), &apiistioioapinetworkingv1.WorkloadGroup{
 			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*istioioapinetworkingv1alpha3.WorkloadGroup)),
+			Spec:       *(cfg.Spec.(*istioioapinetworkingv1.WorkloadGroup)),
 		}, metav1.UpdateOptions{})
 	case gvk.XBackendTrafficPolicy:
 		return c.GatewayAPI().ExperimentalV1alpha1().XBackendTrafficPolicies(cfg.Namespace).Update(context.TODO(), &sigsk8siogatewayapiapisxv1alpha1.XBackendTrafficPolicy{
@@ -347,7 +347,7 @@ func updateStatus(c kube.Client, cfg config.Config, objMeta metav1.ObjectMeta) (
 			Status:     *(cfg.Status.(*istioioapimetav1alpha1.IstioStatus)),
 		}, metav1.UpdateOptions{})
 	case gvk.EnvoyFilter:
-		return c.Istio().NetworkingV1alpha3().EnvoyFilters(cfg.Namespace).UpdateStatus(context.TODO(), &apiistioioapinetworkingv1alpha3.EnvoyFilter{
+		return c.Istio().NetworkingV1alpha3().EnvoyFilters(cfg.Namespace).UpdateStatus(context.TODO(), &apiistioioapinetworkingv1.EnvoyFilter{
 			ObjectMeta: objMeta,
 			Status:     *(cfg.Status.(*istioioapimetav1alpha1.IstioStatus)),
 		}, metav1.UpdateOptions{})
@@ -409,7 +409,7 @@ func updateStatus(c kube.Client, cfg config.Config, objMeta metav1.ObjectMeta) (
 	case gvk.ServiceEntry:
 		return c.Istio().NetworkingV1().ServiceEntries(cfg.Namespace).UpdateStatus(context.TODO(), &apiistioioapinetworkingv1.ServiceEntry{
 			ObjectMeta: objMeta,
-			Status:     *(cfg.Status.(*istioioapinetworkingv1alpha3.ServiceEntryStatus)),
+			Status:     *(cfg.Status.(*istioioapinetworkingv1.ServiceEntryStatus)),
 		}, metav1.UpdateOptions{})
 	case gvk.Sidecar:
 		return c.Istio().NetworkingV1().Sidecars(cfg.Namespace).UpdateStatus(context.TODO(), &apiistioioapinetworkingv1.Sidecar{
@@ -509,11 +509,11 @@ func patch(c kube.Client, orig config.Config, origMeta metav1.ObjectMeta, mod co
 	case gvk.DestinationRule:
 		oldRes := &apiistioioapinetworkingv1.DestinationRule{
 			ObjectMeta: origMeta,
-			Spec:       *(orig.Spec.(*istioioapinetworkingv1alpha3.DestinationRule)),
+			Spec:       *(orig.Spec.(*istioioapinetworkingv1.DestinationRule)),
 		}
 		modRes := &apiistioioapinetworkingv1.DestinationRule{
 			ObjectMeta: modMeta,
-			Spec:       *(mod.Spec.(*istioioapinetworkingv1alpha3.DestinationRule)),
+			Spec:       *(mod.Spec.(*istioioapinetworkingv1.DestinationRule)),
 		}
 		patchBytes, err := genPatchBytes(oldRes, modRes, typ)
 		if err != nil {
@@ -522,13 +522,13 @@ func patch(c kube.Client, orig config.Config, origMeta metav1.ObjectMeta, mod co
 		return c.Istio().NetworkingV1().DestinationRules(orig.Namespace).
 			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
 	case gvk.EnvoyFilter:
-		oldRes := &apiistioioapinetworkingv1alpha3.EnvoyFilter{
+		oldRes := &apiistioioapinetworkingv1.EnvoyFilter{
 			ObjectMeta: origMeta,
-			Spec:       *(orig.Spec.(*istioioapinetworkingv1alpha3.EnvoyFilter)),
+			Spec:       *(orig.Spec.(*istioioapinetworkingv1.EnvoyFilter)),
 		}
-		modRes := &apiistioioapinetworkingv1alpha3.EnvoyFilter{
+		modRes := &apiistioioapinetworkingv1.EnvoyFilter{
 			ObjectMeta: modMeta,
-			Spec:       *(mod.Spec.(*istioioapinetworkingv1alpha3.EnvoyFilter)),
+			Spec:       *(mod.Spec.(*istioioapinetworkingv1.EnvoyFilter)),
 		}
 		patchBytes, err := genPatchBytes(oldRes, modRes, typ)
 		if err != nil {
@@ -554,11 +554,11 @@ func patch(c kube.Client, orig config.Config, origMeta metav1.ObjectMeta, mod co
 	case gvk.Gateway:
 		oldRes := &apiistioioapinetworkingv1.Gateway{
 			ObjectMeta: origMeta,
-			Spec:       *(orig.Spec.(*istioioapinetworkingv1alpha3.Gateway)),
+			Spec:       *(orig.Spec.(*istioioapinetworkingv1.Gateway)),
 		}
 		modRes := &apiistioioapinetworkingv1.Gateway{
 			ObjectMeta: modMeta,
-			Spec:       *(mod.Spec.(*istioioapinetworkingv1alpha3.Gateway)),
+			Spec:       *(mod.Spec.(*istioioapinetworkingv1.Gateway)),
 		}
 		patchBytes, err := genPatchBytes(oldRes, modRes, typ)
 		if err != nil {
@@ -704,11 +704,11 @@ func patch(c kube.Client, orig config.Config, origMeta metav1.ObjectMeta, mod co
 	case gvk.ServiceEntry:
 		oldRes := &apiistioioapinetworkingv1.ServiceEntry{
 			ObjectMeta: origMeta,
-			Spec:       *(orig.Spec.(*istioioapinetworkingv1alpha3.ServiceEntry)),
+			Spec:       *(orig.Spec.(*istioioapinetworkingv1.ServiceEntry)),
 		}
 		modRes := &apiistioioapinetworkingv1.ServiceEntry{
 			ObjectMeta: modMeta,
-			Spec:       *(mod.Spec.(*istioioapinetworkingv1alpha3.ServiceEntry)),
+			Spec:       *(mod.Spec.(*istioioapinetworkingv1.ServiceEntry)),
 		}
 		patchBytes, err := genPatchBytes(oldRes, modRes, typ)
 		if err != nil {
@@ -719,11 +719,11 @@ func patch(c kube.Client, orig config.Config, origMeta metav1.ObjectMeta, mod co
 	case gvk.Sidecar:
 		oldRes := &apiistioioapinetworkingv1.Sidecar{
 			ObjectMeta: origMeta,
-			Spec:       *(orig.Spec.(*istioioapinetworkingv1alpha3.Sidecar)),
+			Spec:       *(orig.Spec.(*istioioapinetworkingv1.Sidecar)),
 		}
 		modRes := &apiistioioapinetworkingv1.Sidecar{
 			ObjectMeta: modMeta,
-			Spec:       *(mod.Spec.(*istioioapinetworkingv1alpha3.Sidecar)),
+			Spec:       *(mod.Spec.(*istioioapinetworkingv1.Sidecar)),
 		}
 		patchBytes, err := genPatchBytes(oldRes, modRes, typ)
 		if err != nil {
@@ -809,11 +809,11 @@ func patch(c kube.Client, orig config.Config, origMeta metav1.ObjectMeta, mod co
 	case gvk.VirtualService:
 		oldRes := &apiistioioapinetworkingv1.VirtualService{
 			ObjectMeta: origMeta,
-			Spec:       *(orig.Spec.(*istioioapinetworkingv1alpha3.VirtualService)),
+			Spec:       *(orig.Spec.(*istioioapinetworkingv1.VirtualService)),
 		}
 		modRes := &apiistioioapinetworkingv1.VirtualService{
 			ObjectMeta: modMeta,
-			Spec:       *(mod.Spec.(*istioioapinetworkingv1alpha3.VirtualService)),
+			Spec:       *(mod.Spec.(*istioioapinetworkingv1.VirtualService)),
 		}
 		patchBytes, err := genPatchBytes(oldRes, modRes, typ)
 		if err != nil {
@@ -839,11 +839,11 @@ func patch(c kube.Client, orig config.Config, origMeta metav1.ObjectMeta, mod co
 	case gvk.WorkloadEntry:
 		oldRes := &apiistioioapinetworkingv1.WorkloadEntry{
 			ObjectMeta: origMeta,
-			Spec:       *(orig.Spec.(*istioioapinetworkingv1alpha3.WorkloadEntry)),
+			Spec:       *(orig.Spec.(*istioioapinetworkingv1.WorkloadEntry)),
 		}
 		modRes := &apiistioioapinetworkingv1.WorkloadEntry{
 			ObjectMeta: modMeta,
-			Spec:       *(mod.Spec.(*istioioapinetworkingv1alpha3.WorkloadEntry)),
+			Spec:       *(mod.Spec.(*istioioapinetworkingv1.WorkloadEntry)),
 		}
 		patchBytes, err := genPatchBytes(oldRes, modRes, typ)
 		if err != nil {
@@ -854,11 +854,11 @@ func patch(c kube.Client, orig config.Config, origMeta metav1.ObjectMeta, mod co
 	case gvk.WorkloadGroup:
 		oldRes := &apiistioioapinetworkingv1.WorkloadGroup{
 			ObjectMeta: origMeta,
-			Spec:       *(orig.Spec.(*istioioapinetworkingv1alpha3.WorkloadGroup)),
+			Spec:       *(orig.Spec.(*istioioapinetworkingv1.WorkloadGroup)),
 		}
 		modRes := &apiistioioapinetworkingv1.WorkloadGroup{
 			ObjectMeta: modMeta,
-			Spec:       *(mod.Spec.(*istioioapinetworkingv1alpha3.WorkloadGroup)),
+			Spec:       *(mod.Spec.(*istioioapinetworkingv1.WorkloadGroup)),
 		}
 		patchBytes, err := genPatchBytes(oldRes, modRes, typ)
 		if err != nil {
@@ -1155,7 +1155,7 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 		}
 	},
 	gvk.EnvoyFilter: func(r runtime.Object) config.Config {
-		obj := r.(*apiistioioapinetworkingv1alpha3.EnvoyFilter)
+		obj := r.(*apiistioioapinetworkingv1.EnvoyFilter)
 		return config.Config{
 			Meta: config.Meta{
 				GroupVersionKind:  gvk.EnvoyFilter,

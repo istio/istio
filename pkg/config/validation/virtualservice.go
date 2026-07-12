@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"strings"
 
-	networking "istio.io/api/networking/v1alpha3"
+	networking "istio.io/api/networking/v1"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/validation/agent"
 )

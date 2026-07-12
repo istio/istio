@@ -34,7 +34,7 @@ import (
 // default, using the same mechanism that EDS is using, i.e. sending only changed resources
 // in a push. Incremental deletes are sent as a resource with empty body.
 //
-// Example: networking.istio.io/v1alpha3/VirtualService
+// Example: networking.istio.io/v1/VirtualService
 //
 // TODO: we can also add a special marker in the header)
 type APIGenerator struct {
@@ -66,8 +66,8 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, re
 	// key, which is similar.
 	//
 	// The actual type in the Any should be a real proto - which is based on the generated package name.
-	// For example: type is for Any is 'type.googlepis.com/istio.networking.v1alpha3.EnvoyFilter
-	// We use: networking.istio.io/v1alpha3/EnvoyFilter
+	// For example: type is for Any is 'type.googlepis.com/istio.networking.v1.EnvoyFilter
+	// We use: networking.istio.io/v1/EnvoyFilter
 	kind := strings.SplitN(w.TypeUrl, "/", 3)
 	if len(kind) != 3 {
 		log.Warnf("ADS: Unknown watched resources %s", w.TypeUrl)

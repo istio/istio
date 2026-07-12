@@ -32,7 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/yaml"
 
-	networking "istio.io/api/networking/v1alpha3"
+	networking "istio.io/api/networking/v1"
 	clientnetworking "istio.io/client-go/pkg/apis/networking/v1"
 	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pkg/config/constants"
@@ -75,7 +75,7 @@ const (
 	Timeout      = 2 * time.Minute
 
 	sampleEnvoyFilter = `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: EnvoyFilter
 metadata:
   name: sample
@@ -103,7 +103,7 @@ spec:
 `
 
 	revisionedSampleEnvoyFilter = `
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: EnvoyFilter
 metadata:
   name: sample

@@ -22,13 +22,13 @@ import (
 
 	istioioapiextensionsv1alpha1 "istio.io/api/extensions/v1alpha1"
 	istioioapimeshv1alpha1 "istio.io/api/mesh/v1alpha1"
-	istioioapinetworkingv1alpha3 "istio.io/api/networking/v1alpha3"
+	istioioapinetworkingv1 "istio.io/api/networking/v1"
 	istioioapinetworkingv1beta1 "istio.io/api/networking/v1beta1"
 	istioioapisecurityv1beta1 "istio.io/api/security/v1beta1"
 	istioioapitelemetryv1alpha1 "istio.io/api/telemetry/v1alpha1"
 	apiistioioapiextensionsv1alpha1 "istio.io/client-go/pkg/apis/extensions/v1alpha1"
 	apiistioioapinetworkingv1 "istio.io/client-go/pkg/apis/networking/v1"
-	apiistioioapinetworkingv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
+	apiistioioapinetworkingv1 "istio.io/client-go/pkg/apis/networking/v1"
 	apiistioioapinetworkingv1beta1 "istio.io/client-go/pkg/apis/networking/v1beta1"
 	apiistioioapisecurityv1 "istio.io/client-go/pkg/apis/security/v1"
 	apiistioioapitelemetryv1 "istio.io/client-go/pkg/apis/telemetry/v1"
@@ -56,7 +56,7 @@ func getGvk(obj any) (config.GroupVersionKind, bool) {
 		return gvk.DaemonSet, true
 	case *k8sioapiappsv1.Deployment:
 		return gvk.Deployment, true
-	case *istioioapinetworkingv1alpha3.DestinationRule:
+	case *istioioapinetworkingv1.DestinationRule:
 		return gvk.DestinationRule, true
 	case *apiistioioapinetworkingv1.DestinationRule:
 		return gvk.DestinationRule, true
@@ -64,13 +64,13 @@ func getGvk(obj any) (config.GroupVersionKind, bool) {
 		return gvk.EndpointSlice, true
 	case *k8sioapicorev1.Endpoints:
 		return gvk.Endpoints, true
-	case *istioioapinetworkingv1alpha3.EnvoyFilter:
+	case *istioioapinetworkingv1.EnvoyFilter:
 		return gvk.EnvoyFilter, true
-	case *apiistioioapinetworkingv1alpha3.EnvoyFilter:
+	case *apiistioioapinetworkingv1.EnvoyFilter:
 		return gvk.EnvoyFilter, true
 	case *sigsk8siogatewayapiapisv1.GRPCRoute:
 		return gvk.GRPCRoute, true
-	case *istioioapinetworkingv1alpha3.Gateway:
+	case *istioioapinetworkingv1.Gateway:
 		return gvk.Gateway, true
 	case *apiistioioapinetworkingv1.Gateway:
 		return gvk.Gateway, true
@@ -126,11 +126,11 @@ func getGvk(obj any) (config.GroupVersionKind, bool) {
 		return gvk.Service, true
 	case *k8sioapicorev1.ServiceAccount:
 		return gvk.ServiceAccount, true
-	case *istioioapinetworkingv1alpha3.ServiceEntry:
+	case *istioioapinetworkingv1.ServiceEntry:
 		return gvk.ServiceEntry, true
 	case *apiistioioapinetworkingv1.ServiceEntry:
 		return gvk.ServiceEntry, true
-	case *istioioapinetworkingv1alpha3.Sidecar:
+	case *istioioapinetworkingv1.Sidecar:
 		return gvk.Sidecar, true
 	case *apiistioioapinetworkingv1.Sidecar:
 		return gvk.Sidecar, true
@@ -152,7 +152,7 @@ func getGvk(obj any) (config.GroupVersionKind, bool) {
 		return gvk.UDPRoute, true
 	case *k8sioapiadmissionregistrationv1.ValidatingWebhookConfiguration:
 		return gvk.ValidatingWebhookConfiguration, true
-	case *istioioapinetworkingv1alpha3.VirtualService:
+	case *istioioapinetworkingv1.VirtualService:
 		return gvk.VirtualService, true
 	case *apiistioioapinetworkingv1.VirtualService:
 		return gvk.VirtualService, true
@@ -160,11 +160,11 @@ func getGvk(obj any) (config.GroupVersionKind, bool) {
 		return gvk.WasmPlugin, true
 	case *apiistioioapiextensionsv1alpha1.WasmPlugin:
 		return gvk.WasmPlugin, true
-	case *istioioapinetworkingv1alpha3.WorkloadEntry:
+	case *istioioapinetworkingv1.WorkloadEntry:
 		return gvk.WorkloadEntry, true
 	case *apiistioioapinetworkingv1.WorkloadEntry:
 		return gvk.WorkloadEntry, true
-	case *istioioapinetworkingv1alpha3.WorkloadGroup:
+	case *istioioapinetworkingv1.WorkloadGroup:
 		return gvk.WorkloadGroup, true
 	case *apiistioioapinetworkingv1.WorkloadGroup:
 		return gvk.WorkloadGroup, true

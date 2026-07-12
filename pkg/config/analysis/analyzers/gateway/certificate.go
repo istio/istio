@@ -15,7 +15,7 @@
 package gateway
 
 import (
-	"istio.io/api/networking/v1alpha3"
+	"istio.io/api/networking/v1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
@@ -48,7 +48,7 @@ func (gateway *CertificateAnalyzer) Analyze(context analysis.Context) {
 }
 
 func (gateway *CertificateAnalyzer) analyzeDuplicateCertificate(currentResource *resource.Instance, context analysis.Context, scopeGatewayToNamespace bool) {
-	currentGateway := currentResource.Message.(*v1alpha3.Gateway)
+	currentGateway := currentResource.Message.(*v1.Gateway)
 	currentGatewayFullName := currentResource.Metadata.FullName
 	gateways := getGatewaysWithSelector(context, scopeGatewayToNamespace, currentGatewayFullName, currentGateway.Selector)
 
@@ -59,7 +59,7 @@ func (gateway *CertificateAnalyzer) analyzeDuplicateCertificate(currentResource 
 		}
 
 		gatewayInstance := context.Find(gvk.Gateway, gatewayFullName)
-		gateway := gatewayInstance.Message.(*v1alpha3.Gateway)
+		gateway := gatewayInstance.Message.(*v1.Gateway)
 		for _, currentServer := range currentGateway.Servers {
 			for _, server := range gateway.Servers {
 				// make sure have TLS configuration
@@ -82,7 +82,7 @@ func (gateway *CertificateAnalyzer) analyzeDuplicateCertificate(currentResource 
 	}
 }
 
-func haveSameCertificate(currentGatewayTLS, gatewayTLS *v1alpha3.ServerTLSSettings) bool {
+func haveSameCertificate(currentGatewayTLS, gatewayTLS *v1.ServerTLSSettings) bool {
 	if currentGatewayTLS.CredentialName != "" && gatewayTLS.CredentialName != "" {
 		return currentGatewayTLS.CredentialName == gatewayTLS.CredentialName
 	}
@@ -119,7 +119,7 @@ func getGatewaysWithSelector(c analysis.Context, gwScope bool, currentGWName res
 			return true
 		}
 
-		gateway := resource.Message.(*v1alpha3.Gateway)
+		gateway := resource.Message.(*v1.Gateway)
 		// if current gateway selector is subset of other gateway selector
 		// add other gateway
 		if selectorSubset(currentGWSelector, gateway.Selector) {
