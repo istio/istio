@@ -2704,6 +2704,7 @@ func TestServiceEntryVisibility(t *testing.T) {
 		// explicitly labeled se-visibility=public.
 		i.PatchMeshConfigOrFail(t, `
 serviceEntryVisibility:
+  applyToSidecars: true
   defaultVisibility: NAMESPACE
   policies:
   - visibility: PUBLIC
@@ -2713,9 +2714,11 @@ serviceEntryVisibility:
           se-visibility: public`)
 
 		const (
-			shadowHost   = "visibility-shadow.internal"
-			localBackend = "shadowlocal"  // backs the namespace-local ServiceEntry
-			pubBackend   = "shadowpublic" // backs the public ServiceEntry
+			shadowHost    = "visibility-shadow.internal"
+			localOnlyHost = "visibility-local-only.internal"
+			localBackend  = "shadowlocal"  // backs the namespace-local ServiceEntry
+			pubBackend    = "shadowpublic" // backs the public ServiceEntry
+			sidecarClient = "seclient"     // sidecar-injected client exercising applyToSidecars
 		)
 
 		// Two ambient namespaces, both discovered by istiod (they lack the test-exclude label the
@@ -2736,13 +2739,35 @@ serviceEntryVisibility:
 			},
 		})
 
-		// Distinct backends so a shadow surfaces as the wrong responder, not merely a failure.
-		deployment.New(t).
+		// Distinct backends so a shadow surfaces as the wrong responder, not merely a failure. The
+		// sidecar client lives in the public namespace -- cross-namespace to the namespace-local
+		// ServiceEntry -- with DNS capture on so it resolves auto-allocated ServiceEntry addresses
+		// (PILOT_ENABLE_IP_AUTOALLOCATE is on by default). A sidecar-injected pod in an ambient
+		// namespace opts out of ztunnel capture (DataplaneModeNone) and uses its injected proxy, so it
+		// exercises the applyToSidecars exportTo ceiling rather than the ztunnel path.
+		echos := deployment.New(t).
 			WithConfig(echo.Config{Service: localBackend, Namespace: localNs, Ports: ports.All()}).
 			WithConfig(echo.Config{Service: pubBackend, Namespace: pubNs, Ports: ports.All()}).
+			WithConfig(echo.Config{
+				Service:        sidecarClient,
+				Namespace:      pubNs,
+				Ports:          ports.All(),
+				ServiceAccount: true,
+				Subsets: []echo.SubsetConfig{{
+					Replicas: 1,
+					Labels: map[string]string{
+						"sidecar.istio.io/inject":       "true",
+						label.IoIstioDataplaneMode.Name: constants.DataplaneModeNone,
+					},
+					Annotations: map[string]string{
+						"proxy.istio.io/config": `{"proxyMetadata":{"ISTIO_META_DNS_CAPTURE":"true"}}`,
+					},
+				}},
+			}).
 			BuildOrFail(t)
+		sidecar := match.ServiceName(echo.NamespacedName{Name: sidecarClient, Namespace: pubNs}).GetMatches(echos)
 
-		se := func(name, app string) string {
+		seHost := func(name, host, app string) string {
 			return fmt.Sprintf(`apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
@@ -2759,13 +2784,17 @@ spec:
   resolution: STATIC
   workloadSelector:
     labels:
-      app: %s`, name, shadowHost, app)
+      app: %s`, name, host, app)
 		}
 
 		// Create the namespace-local ServiceEntry FIRST so it is the older entry: absent the
 		// canonical guard it would win canonical selection and shadow the public one.
-		t.ConfigIstio().YAML(localNs.Name(), se("shadow-local", localBackend)).ApplyOrFail(t)
-		t.ConfigIstio().YAML(pubNs.Name(), se("shadow-public", pubBackend)).ApplyOrFail(t)
+		t.ConfigIstio().YAML(localNs.Name(), seHost("shadow-local", shadowHost, localBackend)).ApplyOrFail(t)
+		t.ConfigIstio().YAML(pubNs.Name(), seHost("shadow-public", shadowHost, pubBackend)).ApplyOrFail(t)
+		// A namespace-local ServiceEntry with no public sibling, used only for the sidecar negative
+		// case below: it is NAMESPACE-visible and lives in localNs, so it must be unreachable from a
+		// client outside localNs.
+		t.ConfigIstio().YAML(localNs.Name(), seHost("local-only", localOnlyHost, localBackend)).ApplyOrFail(t)
 
 		// A cross-namespace ambient client: the namespace-local ServiceEntry is invisible to it and
 		// must not shadow the public one, so the shared host must resolve to the PUBLIC backend.
@@ -2780,6 +2809,31 @@ spec:
 				// never the namespace-local one (which would indicate shadowing / wrong canonical).
 				check.BodyContains("Hostname="+pubBackend),
 			),
+		})
+
+		// The sidecar client is cross-namespace to the namespace-local ServiceEntry. With
+		// applyToSidecars, that SE's exportTo is capped to its own namespace, so it is absent from the
+		// sidecar's config: the shared host resolves only to the PUBLIC backend (no shadowing), exactly
+		// as for the ambient client above.
+		sidecar[0].CallOrFail(t, echo.CallOptions{
+			Address: shadowHost,
+			Port:    echo.Port{Name: "http", ServicePort: 80},
+			Scheme:  scheme.HTTP,
+			HTTP:    echo.HTTP{Path: "/visibility"},
+			Check: check.And(
+				check.OK(),
+				check.BodyContains("Hostname="+pubBackend),
+			),
+		})
+		// The namespace-local-only ServiceEntry has no public sibling, so the ceiling removes it from
+		// the cross-namespace sidecar entirely: the host is neither routable nor resolvable, and the
+		// call fails. This distinguishes the positive case above from one that passes for unrelated
+		// reasons.
+		sidecar[0].CallOrFail(t, echo.CallOptions{
+			Address: localOnlyHost,
+			Port:    echo.Port{Name: "http", ServicePort: 80},
+			Scheme:  scheme.HTTP,
+			Check:   check.Error(),
 		})
 	})
 }
