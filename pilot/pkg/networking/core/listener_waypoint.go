@@ -385,7 +385,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 			if len(svcAddresses) > 0 && features.EnableAmbientMultiNetwork && !isEastWestGateway {
 				filters = []*listener.Filter{getOrigDstSfs(origDst, false)}
 			}
-			if isAmbientEastWestGateway {
+			if isEastWestGateway {
 				cc.policyService = nil
 			}
 			tcpChain = &listener.FilterChain{
