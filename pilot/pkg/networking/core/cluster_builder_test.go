@@ -2810,7 +2810,7 @@ func newH2TestCluster() *clusterWrapper {
 }
 
 func newDownstreamTestCluster() *clusterWrapper {
-	cb := NewClusterBuilder(newSidecarProxy(), nil, model.DisabledCache{})
+	cb := NewClusterBuilder(newSidecarProxy(), &model.PushRequest{Push: &model.PushContext{Mesh: &meshconfig.MeshConfig{}}}, model.DisabledCache{})
 	mc := newClusterWrapper(&cluster.Cluster{
 		Name: "test-cluster",
 	})
