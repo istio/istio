@@ -167,7 +167,7 @@ func (cfg *IptablesConfigurator) executeDeleteCommands(log *istiolog.Scope) {
 // NOTE that this expects to be run from within the pod network namespace!
 func (cfg *IptablesConfigurator) CreateInpodRules(log *istiolog.Scope, podOverrides config.PodLevelOverrides) error {
 	// Kata pods take a completely separate path -- see iptables_kata.go.
-	if podOverrides.Kata != nil {
+	if podOverrides.Kata {
 		return cfg.createInpodRulesKata(log, podOverrides)
 	}
 

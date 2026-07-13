@@ -603,6 +603,23 @@ func TestGetPodLevelOverrides(t *testing.T) {
 	}
 }
 
+func TestGetPodLevelOverridesKata(t *testing.T) {
+	originalRuntimeClassNames := KataRuntimeClassNames
+	KataRuntimeClassNames = parseKataRuntimeClassNames("kata")
+	t.Cleanup(func() {
+		KataRuntimeClassNames = originalRuntimeClassNames
+	})
+
+	runtimeClassName := "kata"
+	pod := &corev1.Pod{
+		Spec: corev1.PodSpec{
+			RuntimeClassName: &runtimeClassName,
+		},
+	}
+
+	assert.Equal(t, getPodLevelTrafficOverrides(pod).Kata, true)
+}
+
 // for tests that call `runtime.GC()` - we have no control over when the GC is actually scheduled,
 // and it is flake-prone to check for closure after calling it, this retries for a bit to make
 // sure the netns is closed eventually.

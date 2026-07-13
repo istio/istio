@@ -179,6 +179,9 @@ type Settings struct {
 	// CustomGRPCEchoImage if specified will run an extra container in the echo Pods responsible for gRPC ports
 	CustomGRPCEchoImage string
 
+	// AmbientPodRuntimeClass is the RuntimeClassName assigned to echo pods without sidecars.
+	AmbientPodRuntimeClass string
+
 	// MaxDumps is the maximum number of full test dumps that are allowed to occur within a test suite.
 	MaxDumps uint64
 
@@ -283,6 +286,7 @@ func (s *Settings) String() string {
 	result += fmt.Sprintf("Variant:           						 %s\n", s.Image.Variant)
 	result += fmt.Sprintf("PullPolicy:        						 %s\n", s.Image.PullPolicy)
 	result += fmt.Sprintf("PullSecret:        						 %s\n", s.Image.PullSecret)
+	result += fmt.Sprintf("AmbientPodRuntimeClass:					 %s\n", s.AmbientPodRuntimeClass)
 	result += fmt.Sprintf("MaxDumps:          						 %d\n", s.MaxDumps)
 	result += fmt.Sprintf("HelmRepo:          						 %v\n", s.HelmRepo)
 	result += fmt.Sprintf("IPFamilies:							 %v\n", s.IPFamilies)

@@ -184,13 +184,10 @@ func discoverDefaultGateway() (netip.Addr, netip.Addr) {
 	return v4, v6
 }
 
-// discoverPodIPs returns the IPv4 and IPv6 global-scope addresses bound to
-// non-loopback interfaces in the current netns. Used for kata-mode self-
-// hairpin handling, where ztunnel-originated HBONE to the pod's own IP must
-// be steered to lo instead of out the kata tap interface to the guest VM.
-//
-// Link-local, loopback, and the kata tap0_kata address (169.254.0.1) are
-// excluded.
+// discoverPodIPs returns non-loopback, non-link-local IPv4 and IPv6 addresses
+// from non-tap interfaces in the current netns. It is used for Kata self-
+// hairpin handling, where ztunnel-originated HBONE traffic to the pod's own IP
+// must be delivered locally instead of routed through tap0_kata to the guest.
 func discoverPodIPs() ([]netip.Addr, []netip.Addr) {
 	var v4, v6 []netip.Addr
 	links, err := netlink.LinkList()
