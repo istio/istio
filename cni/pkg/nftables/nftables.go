@@ -112,7 +112,7 @@ func (cfg *NftablesConfigurator) CreateInpodRules(log *istiolog.Scope, podOverri
 	// The kata-mode iptables path (EXPERIMENTAL_KATA_RUNTIMECLASS_NAMES) has
 	// no nftables equivalent today. Fail fast rather than silently emitting
 	// runc rules that don't match the kata pod's netns topology.
-	if podOverrides.Kata != nil {
+	if podOverrides.Kata {
 		return fmt.Errorf("kata mode (EXPERIMENTAL_KATA_RUNTIMECLASS_NAMES) is not supported with the nftables traffic manager; use iptables")
 	}
 

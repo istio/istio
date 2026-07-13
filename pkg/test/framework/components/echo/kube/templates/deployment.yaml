@@ -52,8 +52,8 @@ spec:
         proxy.istio.io/config: '{"holdApplicationUntilProxyStarts": true}'
 {{- end }}
     spec:
-{{- if and (not $.ProxylessGRPC) (not $.HasSidecar) }}
-      runtimeClassName: kata-l3fwd
+{{- if and (ne $.AmbientPodRuntimeClass "") (not $.ProxylessGRPC) (not $.HasSidecar) }}
+      runtimeClassName: {{ $.AmbientPodRuntimeClass }}
 {{- end }}
 {{- if $.Ambient }}
       topologySpreadConstraints:
@@ -106,6 +106,10 @@ spec:
         image: {{ $.ImageHub }}/app:{{ $.ImageTag }}
 {{- end }}
         imagePullPolicy: {{ $.ImagePullPolicy }}
+        lifecycle:
+          preStop:
+            sleep:
+              seconds: 2
         args:
 {{- if $appContainer.FallbackPort }}
           - --forwarding_address=0.0.0.0:{{ $appContainer.FallbackPort }}

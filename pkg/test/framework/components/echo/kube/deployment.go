@@ -421,6 +421,7 @@ func deploymentParams(ctx resource.Context, cfg echo.Config, settings *resource.
 		"StatefulSet":             cfg.StatefulSet,
 		"ProxylessGRPC":           cfg.IsProxylessGRPC(),
 		"HasSidecar":              cfg.HasSidecar(),
+		"AmbientPodRuntimeClass":  settings.AmbientPodRuntimeClass,
 		"GRPCMagicPort":           grpcMagicPort,
 		"Locality":                cfg.Locality,
 		"ServiceAccount":          cfg.ServiceAccount,
