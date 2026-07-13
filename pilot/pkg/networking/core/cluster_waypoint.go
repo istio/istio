@@ -268,7 +268,7 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 		// the HTTP codec; without this the codec fails with a protocol error. Only the
 		// sidecar-bridge subset goes through connect_originate; the "tcp" subset forwards
 		// opaque double-HBONE bytes and must not have a consumer reading the stream.
-		if subset == model.SidecarBridgeSubsetName {
+		if model.IsSidecarBridgeSubset(subset) {
 			cb.maybeApplyBaggageMetadataDiscovery(localCluster.cluster)
 		}
 		return localCluster.build()
@@ -391,13 +391,22 @@ func (cb *ClusterBuilder) buildWaypointInboundVIP(proxy *model.Proxy, svcs map[h
 				continue
 			}
 			if isAmbientEastWestGateway(proxy) {
-				// East-west gateways don't respect DestinationRule, so don't read it here
+				// East-west gateways don't respect DestinationRule traffic policy, so pass nil here.
 				// TODO: Confirm this decision
 				clusters = append(clusters, cb.buildWaypointInboundVIPCluster(proxy, svc, *port, "tcp", mesh, nil, nil))
 				// Separate subset for bridging terminated sidecar mTLS (15443) traffic into
 				// ambient. The "tcp" subset must keep forwarding double-HBONE inner streams
 				// opaquely, so the new-HBONE-origination semantics live on their own cluster.
 				clusters = append(clusters, cb.buildWaypointInboundVIPCluster(proxy, svc, *port, model.SidecarBridgeSubsetName, mesh, nil, nil))
+				// DR subsets do get bridge clusters, mirroring classic AUTO_PASSTHROUGH's
+				// per-subset SNI chains: remote sidecar clients route VS subset traffic with the
+				// subset embedded in the SNI, and EDS filters endpoints by the subset labels.
+				// Only endpoint selection is honored; traffic policy is still ignored.
+				drCfg := cb.sidecarScope.DestinationRule(model.TrafficDirectionInbound, proxy, svc.Hostname).GetRule()
+				for _, ss := range CastDestinationRule(drCfg).GetSubsets() {
+					clusters = append(clusters,
+						cb.buildWaypointInboundVIPCluster(proxy, svc, *port, model.SidecarBridgeSubsetOf(ss.Name), mesh, nil, nil))
+				}
 				continue
 			}
 			cfg := cb.sidecarScope.DestinationRule(model.TrafficDirectionInbound, proxy, svc.Hostname).GetRule()

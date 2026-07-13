@@ -78,6 +78,9 @@ type EndpointBuilder struct {
 	// These fields are provided for convenience only
 	subsetName   string
 	subsetLabels labels.Instance
+	// sidecarBridge marks inbound-vip clusters carrying east-west gateway
+	// sidecar-bridge semantics (see model.SidecarBridgeSubsetName).
+	sidecarBridge bool
 	hostname     host.Name
 	port         int
 	push         *model.PushContext
@@ -166,6 +169,12 @@ func (b *EndpointBuilder) WithSubset(subset string) *EndpointBuilder {
 
 func (b *EndpointBuilder) populateSubsetInfo() {
 	if b.dir == model.TrafficDirectionInboundVIP {
+		b.sidecarBridge = model.IsSidecarBridgeSubset(b.subsetName)
+		if b.sidecarBridge {
+			// Strip the bridge marker so the remaining name is the DR subset ("" for default),
+			// letting the standard subset-label endpoint filtering below apply.
+			b.subsetName = strings.TrimPrefix(strings.TrimPrefix(b.subsetName, model.SidecarBridgeSubsetName), "/")
+		}
 		b.subsetName = strings.TrimPrefix(b.subsetName, "http/")
 		b.subsetName = strings.TrimPrefix(b.subsetName, "tcp/")
 	}
@@ -382,7 +391,7 @@ func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.Endpoi
 	// subset keeps its opaque double-HBONE forwarding semantics and must not be redirected.
 	enableWaypointRouting := features.EnableIngressWaypointRouting && !isEastWestGateway(b.proxy)
 	ewGatewaySidecarBridge := isEastWestGateway(b.proxy) &&
-		b.dir == model.TrafficDirectionInboundVIP && b.subsetName == model.SidecarBridgeSubsetName
+		b.dir == model.TrafficDirectionInboundVIP && b.sidecarBridge
 	if enableWaypointRouting || ewGatewaySidecarBridge {
 		if waypointEps, f := b.findServiceWaypoint(endpointIndex); f {
 			// endpoints are from waypoint service but the envoy endpoint is different envoy cluster
@@ -773,7 +782,7 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 		// comes from the 15443 listener (terminated sidecar mTLS) and needs the gateway to
 		// originate a new HBONE tunnel to the ambient workload.
 		if isEastWestGateway(b.proxy) &&
-			!(b.dir == model.TrafficDirectionInboundVIP && b.subsetName == model.SidecarBridgeSubsetName) {
+			!(b.dir == model.TrafficDirectionInboundVIP && b.sidecarBridge) {
 			innerAddressName = forwardInnerConnect
 		}
 		ep.HostIdentifier = &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{
