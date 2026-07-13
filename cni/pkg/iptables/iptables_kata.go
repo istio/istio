@@ -4,7 +4,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,14 +32,11 @@ func (cfg *IptablesConfigurator) createInpodRulesKata(log *istiolog.Scope, podOv
 		gw4, gw6 := discoverDefaultGateway()
 		podOverrides.Kata.PodGatewayV4 = gw4
 		podOverrides.Kata.PodGatewayV6 = gw6
-		// log.Debugf("kata mode: discovered pod-netns default gateway v4=%v v6=%v", gw4, gw6)
 	}
-	// if len(podOverrides.Kata.PodIPv4) == 0 && len(podOverrides.Kata.PodIPv6) == 0 {
-	if len(podOverrides.Kata.PodIPv4) == 0 {
-		ipv4, _ := discoverPodIPs()
+	if len(podOverrides.Kata.PodIPv4) == 0 && len(podOverrides.Kata.PodIPv6) == 0 {
+		ipv4, ipv6 := discoverPodIPs()
 		podOverrides.Kata.PodIPv4 = ipv4
-		// podOverrides.Kata.PodIPv6 = ipv6
-		// log.Debugf("kata mode: discovered pod-netns addresses v4=%v v6=%v", ipv4, ipv6)
+		podOverrides.Kata.PodIPv6 = ipv6
 	}
 
 	// DNS interception requires DNATing VM-originated DNS queries to
@@ -227,16 +224,16 @@ func (cfg *IptablesConfigurator) appendInpodRulesKata(podOverrides config.PodLev
 		)
 	}
 
-	// for _, ip := range podOverrides.Kata.PodIPv6 {
-	// 	b.AppendRuleV6(
-	// 		"OUTPUT", "mangle",
-	// 		"-d", ip.String()+"/128",
-	// 		"-p", "tcp",
-	// 		"--dport", fmt.Sprint(config.ZtunnelInboundPort),
-	// 		"-j", "MARK",
-	// 		"--set-xmark", inpodTproxyMark,
-	// 	)
-	// }
+	for _, ip := range podOverrides.Kata.PodIPv6 {
+		b.AppendRuleV6(
+			"OUTPUT", "mangle",
+			"-d", ip.String()+"/128",
+			"-p", "tcp",
+			"--dport", fmt.Sprint(config.ZtunnelInboundPort),
+			"-j", "MARK",
+			"--set-xmark", inpodTproxyMark,
+		)
+	}
 
 	// --- Shared with runc: hostprobe ACCEPT in nat PRERT + inbound
 	// plaintext REDIRECT. Both are needed in kata (kata's mangle MARK just
