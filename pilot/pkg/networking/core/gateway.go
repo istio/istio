@@ -1100,37 +1100,50 @@ func builtAutoPassthroughFilterChainsWithTLS(push *model.PushContext, proxy *mod
 			if !matchFound {
 				continue
 			}
-			// SNI hosts use the DNS SRV format (with underscores) - this is what sidecars send
-			// for mTLS SNI because DNS doesn't allow pipes in domain names.
-			// The underscore format (outbound_.80_._.host) is DNS-compatible.
-			sniHost := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
-
-			// Route to the sidecar-bridge inbound-vip cluster, whose EDS endpoints originate a
-			// new HBONE tunnel toward the service (or its waypoint). The "tcp" subset cannot be
-			// used here: it forwards double-HBONE inner streams opaquely for the 15008 path.
-			inboundVIPCluster := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, model.SidecarBridgeSubsetName, service.Hostname, port.Port)
-			statPrefix := inboundVIPCluster
-
-			// For HTTP and unsupported (sniffing) protocols, use HCM to properly handle
-			// request-response semantics. This prevents the upstream HBONE tunnel from
-			// closing prematurely when the sidecar half-closes after sending the request.
-			var networkFilters []*listener.Filter
-			if port.Protocol.IsHTTP() || port.Protocol.IsUnsupported() {
-				networkFilters = buildHTTPPassthroughNetworkFilter(lb, statPrefix, inboundVIPCluster, port)
-			} else {
-				// For non-HTTP protocols (true TCP), use TCP proxy
-				networkFilters = buildSimpleTCPProxyNetworkFilter(lb, statPrefix, inboundVIPCluster)
+			// One chain for the default subset plus one per DestinationRule subset,
+			// mirroring classic AUTO_PASSTHROUGH: remote sidecar clients embed the VS-selected
+			// subset in the SNI, and each subset gets its own bridge cluster whose EDS filters
+			// endpoints by the subset labels.
+			destinationRule := CastDestinationRule(proxy.SidecarScope.DestinationRule(
+				model.TrafficDirectionOutbound, proxy, service.Hostname).GetRule())
+			subsetNames := []string{""}
+			for _, ss := range destinationRule.GetSubsets() {
+				subsetNames = append(subsetNames, ss.Name)
 			}
+			for _, subsetName := range subsetNames {
+				// SNI hosts use the DNS SRV format (with underscores) - this is what sidecars send
+				// for mTLS SNI because DNS doesn't allow pipes in domain names.
+				// The underscore format (outbound_.80_.<subset>_.host) is DNS-compatible.
+				sniHost := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, subsetName, service.Hostname, port.Port)
 
-			// Build filter chain with TLS termination for ISTIO_MUTUAL mode.
-			// The gateway terminates mTLS from sidecar and forwards via inbound-vip cluster
-			// which uses HBONE to reach ambient workloads.
-			filterChains = append(filterChains, &filterChainOpts{
-				sniHosts:             []string{sniHost},
-				applicationProtocols: allIstioMtlsALPNs,
-				tlsContext:           tlsContext,
-				networkFilters:       networkFilters,
-			})
+				// Route to the sidecar-bridge inbound-vip cluster, whose EDS endpoints originate a
+				// new HBONE tunnel toward the service (or its waypoint). The "tcp" subset cannot be
+				// used here: it forwards double-HBONE inner streams opaquely for the 15008 path.
+				inboundVIPCluster := model.BuildSubsetKey(model.TrafficDirectionInboundVIP,
+					model.SidecarBridgeSubsetOf(subsetName), service.Hostname, port.Port)
+				statPrefix := inboundVIPCluster
+
+				// For HTTP and unsupported (sniffing) protocols, use HCM to properly handle
+				// request-response semantics. This prevents the upstream HBONE tunnel from
+				// closing prematurely when the sidecar half-closes after sending the request.
+				var networkFilters []*listener.Filter
+				if port.Protocol.IsHTTP() || port.Protocol.IsUnsupported() {
+					networkFilters = buildHTTPPassthroughNetworkFilter(lb, statPrefix, inboundVIPCluster, port)
+				} else {
+					// For non-HTTP protocols (true TCP), use TCP proxy
+					networkFilters = buildSimpleTCPProxyNetworkFilter(lb, statPrefix, inboundVIPCluster)
+				}
+
+				// Build filter chain with TLS termination for ISTIO_MUTUAL mode.
+				// The gateway terminates mTLS from sidecar and forwards via inbound-vip cluster
+				// which uses HBONE to reach ambient workloads.
+				filterChains = append(filterChains, &filterChainOpts{
+					sniHosts:             []string{sniHost},
+					applicationProtocols: allIstioMtlsALPNs,
+					tlsContext:           tlsContext,
+					networkFilters:       networkFilters,
+				})
+			}
 		}
 	}
 	return filterChains

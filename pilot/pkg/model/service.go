@@ -259,6 +259,22 @@ const (
 	IstioCanonicalServiceRevisionLabelName = pm.IstioCanonicalServiceRevisionLabelName
 )
 
+// SidecarBridgeSubsetOf returns the inbound-vip subset name carrying sidecar-bridge
+// semantics for the given DestinationRule subset ("" for the default subset).
+// Mirrors the "http/<subset>" and "tcp/<subset>" convention used by waypoint VIP clusters.
+func SidecarBridgeSubsetOf(subset string) string {
+	if subset == "" {
+		return SidecarBridgeSubsetName
+	}
+	return SidecarBridgeSubsetName + "/" + subset
+}
+
+// IsSidecarBridgeSubset reports whether an inbound-vip subset name carries
+// sidecar-bridge semantics (the default bridge subset or a DR-subset variant).
+func IsSidecarBridgeSubset(subsetName string) bool {
+	return subsetName == SidecarBridgeSubsetName || strings.HasPrefix(subsetName, SidecarBridgeSubsetName+"/")
+}
+
 func SupportsTunnel(labels map[string]string, tunnelType string) bool {
 	tl, f := labels[TunnelLabel]
 	if !f {
