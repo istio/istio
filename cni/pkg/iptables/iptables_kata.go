@@ -16,11 +16,17 @@ package iptables
 import (
 	"fmt"
 	"net/netip"
+	"strings"
+
+	"github.com/vishvananda/netlink"
+	"golang.org/x/sys/unix"
 
 	"istio.io/istio/cni/pkg/config"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/tools/istio-iptables/pkg/builder"
 )
+
+const kataTapIface = "tap0_kata"
 
 type kataInpodConfig struct {
 	podGatewayV4 netip.Addr
@@ -147,7 +153,7 @@ func (cfg *IptablesConfigurator) appendInpodRulesKata(
 		// VM-originated TCP and UDP DNS: DNAT to 127.0.0.1:15053.
 		// route_localnet=1 (set in createInpodRulesKata) is required.
 		b.AppendRuleV4(ChainInpodPrerouting, "nat",
-			"-i", "tap0_kata",
+			"-i", kataTapIface,
 			"-p", "udp",
 			"-m", "udp",
 			"--dport", "53",
@@ -155,7 +161,7 @@ func (cfg *IptablesConfigurator) appendInpodRulesKata(
 			"--to-destination", fmt.Sprintf("127.0.0.1:%d", config.DNSCapturePort),
 		)
 		b.AppendRuleV4(ChainInpodPrerouting, "nat",
-			"-i", "tap0_kata",
+			"-i", kataTapIface,
 			"-p", "tcp",
 			"--dport", "53",
 			"-j", "DNAT",
@@ -176,7 +182,7 @@ func (cfg *IptablesConfigurator) appendInpodRulesKata(
 	// Redirect VM-originated TCP traffic arriving on tap0_kata to ztunnel's
 	// outbound port. Port 53 traffic is handled by the earlier DNS rules.
 	b.AppendRuleV4(ChainInpodPrerouting, "nat",
-		"-i", "tap0_kata",
+		"-i", kataTapIface,
 		"-p", "tcp",
 		"-j", "REDIRECT",
 		"--to-ports", fmt.Sprint(config.ZtunnelOutboundPort),
@@ -188,8 +194,12 @@ func (cfg *IptablesConfigurator) appendInpodRulesKata(
 	if kataCfg.podGatewayV4.IsValid() {
 		b.AppendRuleV4(
 			"POSTROUTING", "nat",
+			"-j", ChainHostPostrouting,
+		)
+		b.AppendRuleV4(
+			ChainHostPostrouting, "nat",
 			"-s", cfg.cfg.HostProbeSNATAddress.String(),
-			"-o", "tap0_kata",
+			"-o", kataTapIface,
 			"-j", "SNAT",
 			"--to-source", kataCfg.podGatewayV4.String(),
 		)
@@ -199,7 +209,7 @@ func (cfg *IptablesConfigurator) appendInpodRulesKata(
 	// through tap0_kata into the guest.
 	for _, ip := range kataCfg.podIPv4 {
 		b.AppendRuleV4(
-			"OUTPUT", "mangle",
+			ChainInpodOutput, "mangle",
 			"-d", ip.String()+"/32",
 			"-p", "tcp",
 			"--dport", fmt.Sprint(config.ZtunnelInboundPort),
@@ -261,4 +271,84 @@ func (cfg *IptablesConfigurator) appendInpodRulesKata(
 	}
 
 	return b
+}
+
+// discoverDefaultGateway returns the IPv4 and IPv6 default-route gateways in
+// the current netns, if any. Used for kata-mode probe SNAT, where we need a
+// gateway address the guest VM is able to route back to.
+func discoverDefaultGateway() (netip.Addr, netip.Addr) {
+	var v4, v6 netip.Addr
+	for _, family := range []int{unix.AF_INET, unix.AF_INET6} {
+		routes, err := netlink.RouteList(nil, family)
+		if err != nil {
+			log.Debugf("failed to list routes for family %d: %v", family, err)
+			continue
+		}
+		for _, r := range routes {
+			// Default route: no Dst (or zero-length network).
+			if r.Dst != nil && r.Dst.IP != nil && !r.Dst.IP.IsUnspecified() {
+				continue
+			}
+			if r.Gw == nil {
+				continue
+			}
+			addr, ok := netip.AddrFromSlice(r.Gw)
+			if !ok {
+				continue
+			}
+			addr = addr.Unmap()
+			if family == unix.AF_INET && !v4.IsValid() {
+				v4 = addr
+			} else if family == unix.AF_INET6 && !v6.IsValid() {
+				v6 = addr
+			}
+		}
+	}
+	return v4, v6
+}
+
+// discoverPodIPs returns non-loopback, non-link-local IPv4 and IPv6 addresses
+// from non-tap interfaces in the current netns. It is used for Kata self-
+// hairpin handling, where ztunnel-originated HBONE traffic to the pod's own IP
+// must be delivered locally instead of routed through tap0_kata to the guest.
+func discoverPodIPs() ([]netip.Addr, []netip.Addr) {
+	var v4, v6 []netip.Addr
+	links, err := netlink.LinkList()
+	if err != nil {
+		log.Debugf("failed to list links: %v", err)
+		return v4, v6
+	}
+
+	for _, link := range links {
+		name := link.Attrs().Name
+		if name == "lo" || strings.HasPrefix(name, "tap") {
+			continue
+		}
+		for _, family := range []int{unix.AF_INET, unix.AF_INET6} {
+			addrs, err := netlink.AddrList(link, family)
+			if err != nil {
+				log.Debugf("failed to list addresses for %s family %d: %v", name, family, err)
+				continue
+			}
+			for _, a := range addrs {
+				if a.IP == nil {
+					continue
+				}
+				addr, ok := netip.AddrFromSlice(a.IP)
+				if !ok {
+					continue
+				}
+				addr = addr.Unmap()
+				if !addr.IsValid() || addr.IsLoopback() || addr.IsLinkLocalUnicast() {
+					continue
+				}
+				if family == unix.AF_INET {
+					v4 = append(v4, addr)
+				} else {
+					v6 = append(v6, addr)
+				}
+			}
+		}
+	}
+	return v4, v6
 }
