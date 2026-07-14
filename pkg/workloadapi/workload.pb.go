@@ -738,8 +738,8 @@ type Service struct {
 	IngressUseWaypoint bool `protobuf:"varint,12,opt,name=ingress_use_waypoint,json=ingressUseWaypoint,proto3" json:"ingress_use_waypoint,omitempty"`
 	// weighted_waypoints, when non-empty, describes a weighted set of waypoints for this
 	// service, and the client dataplane selects one waypoint per connection proportional to
-	// each entry's weight. This is used to shift a configurable percentage of a service's
-	// in-mesh traffic from one waypoint to another (for example, a canary migration between
+	// each entry's weight. This is used to shift a configurable share of a service's
+	// in-mesh connections from one waypoint to another (for example, a canary migration between
 	// two waypoint revisions or implementations).
 	//
 	// When this is empty, the single `waypoint` field is used exactly as before. When it is
