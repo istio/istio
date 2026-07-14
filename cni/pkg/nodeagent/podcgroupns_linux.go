@@ -81,7 +81,7 @@ func (p *PodNetnsProcFinder) FindNetnsForPods(pods map[types.UID]*corev1.Pod) (P
 	*/
 
 	podUIDNetns := make(PodToNetns)
-	selectedNetnsHasPodInterfaces := make(map[string]bool)
+	selectedNetnsHasMutilpleIface := make(map[string]bool)
 	netnsObserved := sets.New[uint64]()
 
 	entries, err := fs.ReadDir(p.proc, ".")
@@ -128,14 +128,15 @@ func (p *PodNetnsProcFinder) FindNetnsForPods(pods map[types.UID]*corev1.Pod) (P
 
 		if isKata {
 			// Kata helper processes can share the pod cgroup while using private netns;
-			// prefer the namespace containing the pod's network interfaces.
-			candidateHasPodInterfaces := netnsHasPodInterfaces(netns)
+			// prefer the namespace with more network interfaces as that's usually the
+			// pod netns
+			candidateHasMultifaceIface := netnsHasMultipleInterfaces(netns)
 
 			if exists {
 				log.Warnf("found more than one netns for kata pod: %s", res.uid)
-				existingHasPodInterfaces := selectedNetnsHasPodInterfaces[string(res.uid)]
-				if existingHasPodInterfaces != candidateHasPodInterfaces {
-					if existingHasPodInterfaces {
+				existingHasMultipleIface := selectedNetnsHasMutilpleIface[string(res.uid)]
+				if existingHasMultipleIface != candidateHasMultifaceIface {
+					if existingHasMultipleIface {
 						netns.Close()
 						continue
 					}
@@ -145,7 +146,7 @@ func (p *PodNetnsProcFinder) FindNetnsForPods(pods map[types.UID]*corev1.Pod) (P
 				}
 				existingNetns.Netns.Close()
 			}
-			selectedNetnsHasPodInterfaces[string(res.uid)] = candidateHasPodInterfaces
+			selectedNetnsHasMutilpleIface[string(res.uid)] = candidateHasMultifaceIface
 		}
 
 		workload := WorkloadInfo{
@@ -158,7 +159,7 @@ func (p *PodNetnsProcFinder) FindNetnsForPods(pods map[types.UID]*corev1.Pod) (P
 	return podUIDNetns, nil
 }
 
-func netnsHasPodInterfaces(netns NetnsFd) bool {
+func netnsHasMultipleInterfaces(netns NetnsFd) bool {
 	hasPodInterfaces := false
 	if err := NetnsDo(netns, func() error {
 		links, err := netlink.LinkList()
