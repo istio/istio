@@ -78,15 +78,14 @@ func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) (*model.PushReques
 	// However, if ServiceUpdate is also present, the service definition changed
 	// (ports, labels, etc.) and we need to push CDS.
 	headlessOnly := req.Reason.Has(model.HeadlessEndpointUpdate) && !req.Reason.Has(model.ServiceUpdate)
-	// Check if all updates are ServiceEntry (headless endpoint marker)
-	allServiceEntry := headlessOnly
 
 	relevantUpdates := make(sets.Set[model.ConfigKey])
 	filtered := false
 	checkGateway := false
 	for config := range req.ConfigsUpdated {
+		// Check if all updates are ServiceEntry (headless endpoint marker)
 		if headlessOnly && config.Kind != kind.ServiceEntry {
-			allServiceEntry = false
+			headlessOnly = false
 		}
 
 		if proxy.Type == model.Router {
@@ -109,7 +108,7 @@ func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) (*model.PushReques
 		}
 	}
 
-	if allServiceEntry {
+	if headlessOnly {
 		return req, false
 	}
 

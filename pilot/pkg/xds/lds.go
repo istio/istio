@@ -75,9 +75,6 @@ func ldsNeedsPush(proxy *model.Proxy, req *model.PushRequest) bool {
 	// However, if ServiceUpdate is also present, the service definition changed
 	// (ports, labels, etc.) and we need to push LDS.
 	headlessOnly := proxy.Type == model.Router && req.Reason.Has(model.HeadlessEndpointUpdate) && !req.Reason.Has(model.ServiceUpdate)
-	// Check if all updates are ServiceEntry (headless endpoint marker); if so, and this is a
-	// headless-only update, none of them need to trigger a push on their own.
-	allServiceEntry := headlessOnly
 	sawServiceEntry := false
 
 	for config := range req.ConfigsUpdated {
@@ -87,7 +84,9 @@ func ldsNeedsPush(proxy *model.Proxy, req *model.PushRequest) bool {
 				sawServiceEntry = true
 				continue
 			}
-			allServiceEntry = false
+			// Check if all updates are ServiceEntry (headless endpoint marker); if so, and this is a
+			// headless-only update, none of them need to trigger a push on their own.
+			headlessOnly = false
 		}
 		if !skippedLdsConfigs[proxy.Type].Contains(config.Kind) {
 			if config.Kind == kind.PeerAuthentication && config.Namespace != proxy.ConfigNamespace &&
@@ -99,7 +98,7 @@ func ldsNeedsPush(proxy *model.Proxy, req *model.PushRequest) bool {
 		}
 	}
 	// ServiceEntry updates only trigger a push here if they weren't exclusively headless endpoint markers.
-	return sawServiceEntry && !allServiceEntry
+	return sawServiceEntry && !headlessOnly
 }
 
 func (l LdsGenerator) Generate(proxy *model.Proxy, _ *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
