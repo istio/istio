@@ -106,6 +106,8 @@ spec:
         image: {{ $.ImageHub }}/app:{{ $.ImageTag }}
 {{- end }}
         imagePullPolicy: {{ $.ImagePullPolicy }}
+        # Give WDS some time to catch up.
+        # See https://github.com/istio/istio/issues/58514
         lifecycle:
           preStop:
             sleep:

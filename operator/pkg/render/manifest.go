@@ -318,14 +318,7 @@ func MergeInputs(filenames []string, flags []string, client kube.Client) (values
 
 	installPackagePath := userConfigBase.GetPathString("spec.installPackagePath")
 	profile := userConfigBase.GetPathString("spec.profile")
-	// Deep clone the user values now, before they may be aliased into (and mutated through)
-	// `base` by the MergeFrom below. translateIstioOperatorToHelm mutates values such as
-	// `values.pilot.cni.enabled` in place; without this clone those edits would also corrupt
-	// the snapshot we re-apply as the final override step, silently dropping user overrides.
 	userValues, _ := userConfigBase.GetPathMap("spec.values")
-	if userValues != nil {
-		userValues = userValues.DeepClone()
-	}
 
 	// Now we have the base
 	base, err := readProfile(installPackagePath, profile)
