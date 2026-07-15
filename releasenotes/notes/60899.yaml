@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+
+issue: []
+
+releaseNotes:
+  - |
+    **Added** `ZTUNNEL_RESOURCE_CPU_LIMIT` and `ZTUNNEL_RESOURCE_CPU_REQUEST`
+    environment variables to the ztunnel DaemonSet, populated from the
+    configured `resources.limits.cpu` / `resources.requests.cpu` when set.
+    ztunnel uses these to derive CPU-aware worker-thread counts.
