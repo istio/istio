@@ -679,3 +679,130 @@ func TestWaypointNeedsPush(t *testing.T) {
 		assert.Equal(t, waypointNeedsPush(addressUpdate(), waypoint), true)
 	})
 }
+
+func TestScopedSecretPushes(t *testing.T) {
+	const (
+		nsName     = "ns1"
+		nsOther    = "ns2"
+		nsRoot     = "rootns"
+		secretName = "my-tls-secret"
+	)
+
+	type Case struct {
+		name    string
+		proxy   *model.Proxy
+		configs sets.Set[model.ConfigKey]
+		want    bool
+	}
+
+	makeProxy := func(proxyType model.NodeType, ns string, sdsResources []string, watchECDS bool) *model.Proxy {
+		p := &model.Proxy{
+			Type:             proxyType,
+			ConfigNamespace:  ns,
+			Metadata:         &model.NodeMetadata{Namespace: ns},
+			SidecarScope:     &model.SidecarScope{Name: "default", Namespace: ns},
+			WatchedResources: map[string]*model.WatchedResource{},
+		}
+		if len(sdsResources) > 0 {
+			p.NewWatchedResource(v3.SecretType, sdsResources)
+		}
+		if watchECDS {
+			p.NewWatchedResource(v3.ExtensionConfigurationType, nil)
+		}
+		return p
+	}
+
+	push := &model.PushContext{}
+	push.Mesh = &mesh.MeshConfig{RootNamespace: nsRoot}
+
+	cases := []Case{
+		{
+			name:    "secret update, sidecar with matching kubernetes:// subscription",
+			proxy:   makeProxy(model.SidecarProxy, nsName, []string{"kubernetes://my-tls-secret"}, false),
+			configs: sets.New(model.ConfigKey{Kind: kind.Secret, Name: secretName, Namespace: nsName}),
+			want:    true,
+		},
+		{
+			name:    "secret update, sidecar with no SDS subscription",
+			proxy:   makeProxy(model.SidecarProxy, nsName, nil, false),
+			configs: sets.New(model.ConfigKey{Kind: kind.Secret, Name: secretName, Namespace: nsName}),
+			want:    false,
+		},
+		{
+			name:    "secret update, sidecar with unrelated SDS subscription",
+			proxy:   makeProxy(model.SidecarProxy, nsName, []string{"kubernetes://other-secret"}, false),
+			configs: sets.New(model.ConfigKey{Kind: kind.Secret, Name: secretName, Namespace: nsName}),
+			want:    false,
+		},
+		{
+			name:    "secret update, sidecar subscribes to -cacert variant",
+			proxy:   makeProxy(model.SidecarProxy, nsName, []string{"kubernetes://my-tls-secret-cacert"}, false),
+			configs: sets.New(model.ConfigKey{Kind: kind.Secret, Name: secretName, Namespace: nsName}),
+			want:    true,
+		},
+		{
+			name:    "cacert secret update, sidecar subscribes to base secret",
+			proxy:   makeProxy(model.SidecarProxy, nsName, []string{"kubernetes://my-tls-secret"}, false),
+			configs: sets.New(model.ConfigKey{Kind: kind.Secret, Name: secretName + "-cacert", Namespace: nsName}),
+			want:    true,
+		},
+		{
+			name:    "secret update, proxy in different namespace with implicit kubernetes:// name",
+			proxy:   makeProxy(model.SidecarProxy, nsOther, []string{"kubernetes://my-tls-secret"}, false),
+			configs: sets.New(model.ConfigKey{Kind: kind.Secret, Name: secretName, Namespace: nsName}),
+			want:    false,
+		},
+		{
+			name:    "secret update, proxy with explicit kubernetes://ns/name subscription",
+			proxy:   makeProxy(model.SidecarProxy, nsOther, []string{"kubernetes://ns1/my-tls-secret"}, false),
+			configs: sets.New(model.ConfigKey{Kind: kind.Secret, Name: secretName, Namespace: nsName}),
+			want:    true,
+		},
+		{
+			name:    "secret update, gateway with kubernetes-gateway:// subscription",
+			proxy:   makeProxy(model.Router, nsName, []string{"kubernetes-gateway://ns1/my-tls-secret"}, false),
+			configs: sets.New(model.ConfigKey{Kind: kind.Secret, Name: secretName, Namespace: nsName}),
+			want:    true,
+		},
+		{
+			name:    "secret update, gateway with non-matching kubernetes-gateway:// subscription",
+			proxy:   makeProxy(model.Router, nsName, []string{"kubernetes-gateway://ns1/other-secret"}, false),
+			configs: sets.New(model.ConfigKey{Kind: kind.Secret, Name: secretName, Namespace: nsName}),
+			want:    false,
+		},
+		{
+			name:    "secret update, proxy watches ECDS (conservative push)",
+			proxy:   makeProxy(model.SidecarProxy, nsName, nil, true),
+			configs: sets.New(model.ConfigKey{Kind: kind.Secret, Name: secretName, Namespace: nsName}),
+			want:    true,
+		},
+		{
+			name:    "configmap update, proxy with matching configmap:// subscription",
+			proxy:   makeProxy(model.SidecarProxy, nsName, []string{"configmap://ns1/my-ca-cert"}, false),
+			configs: sets.New(model.ConfigKey{Kind: kind.ConfigMap, Name: "my-ca-cert", Namespace: nsName}),
+			want:    true,
+		},
+		{
+			name:    "configmap update, proxy with no subscription",
+			proxy:   makeProxy(model.SidecarProxy, nsName, nil, false),
+			configs: sets.New(model.ConfigKey{Kind: kind.ConfigMap, Name: "my-ca-cert", Namespace: nsName}),
+			want:    false,
+		},
+		{
+			name:    "configmap update, proxy with non-matching subscription",
+			proxy:   makeProxy(model.SidecarProxy, nsName, []string{"configmap://ns1/other-cm"}, false),
+			configs: sets.New(model.ConfigKey{Kind: kind.ConfigMap, Name: "my-ca-cert", Namespace: nsName}),
+			want:    false,
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			_, got := DefaultProxyNeedsPush(tt.proxy, &model.PushRequest{
+				ConfigsUpdated: tt.configs,
+				Push:           push,
+			})
+			assert.Equal(t, got, tt.want)
+		})
+	}
+}
