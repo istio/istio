@@ -16,9 +16,12 @@ package core
 
 import (
 	"math"
+	"strconv"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	matcher "github.com/envoyproxy/go-control-plane/envoy/config/common/matcher/v3"
+	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	proxyprotocol "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/proxy_protocol/v3"
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
@@ -53,6 +56,9 @@ func (cb *ClusterBuilder) applyTrafficPolicy(service *model.Service, opts buildC
 	cb.applyConnectionPool(opts.mesh, opts.mutable, connectionPool, retryBudget)
 	if opts.direction != model.TrafficDirectionInbound {
 		applyOutlierDetection(service, opts.mutable.cluster, outlierDetection)
+		if outlierDetection != nil && len(outlierDetection.OutlierDetectionHttpErrorCodes) > 0 {
+			applyOutlierDetectionErrorCodes(opts.mutable, outlierDetection.OutlierDetectionHttpErrorCodes)
+		}
 		enableSelfDiscovery := cb.proxyMetadata != nil && bool(cb.proxyMetadata.EnableSelfDiscovery)
 		applyLoadBalancer(
 			service, opts.mutable.cluster, loadBalancer, opts.port, cb.locality,
@@ -549,6 +555,44 @@ func applyOutlierDetection(service *model.Service, c *cluster.Cluster, outlier *
 			minHealthPercent = 0
 		}
 		c.CommonLbConfig.HealthyPanicThreshold = &xdstype.Percent{Value: float64(minHealthPercent)}
+	}
+}
+
+// applyOutlierDetectionErrorCodes sets the HttpProtocolOptions.OutlierDetection.ErrorMatcher
+// on the cluster based on the outlier_detection_http_error_codes field in DestinationRule.
+// When set, Envoy treats only the specified HTTP status codes as outlier detection failures,
+// replacing the default 5xx-only behavior.
+func applyOutlierDetectionErrorCodes(mc *clusterWrapper, codes []uint32) {
+	if mc.httpProtocolOptions == nil {
+		mc.httpProtocolOptions = &http.HttpProtocolOptions{}
+	}
+	rules := make([]*matcher.MatchPredicate, 0, len(codes))
+	for _, code := range codes {
+		rules = append(rules, &matcher.MatchPredicate{
+			Rule: &matcher.MatchPredicate_HttpResponseHeadersMatch{
+				HttpResponseHeadersMatch: &matcher.HttpHeadersMatch{
+					Headers: []*route.HeaderMatcher{{
+						Name: ":status",
+						HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{
+							ExactMatch: strconv.Itoa(int(code)),
+						},
+					}},
+				},
+			},
+		})
+	}
+	var predicate *matcher.MatchPredicate
+	if len(rules) == 1 {
+		predicate = rules[0]
+	} else {
+		predicate = &matcher.MatchPredicate{
+			Rule: &matcher.MatchPredicate_OrMatch{
+				OrMatch: &matcher.MatchPredicate_MatchSet{Rules: rules},
+			},
+		}
+	}
+	mc.httpProtocolOptions.OutlierDetection = &http.HttpProtocolOptions_OutlierDetection{
+		ErrorMatcher: predicate,
 	}
 }
 

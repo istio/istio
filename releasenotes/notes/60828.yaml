@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 60828
+releaseNotes:
+  - |
+    **Added** `outlierDetectionHttpErrorCodes` field to `DestinationRule.OutlierDetection`,
+    allowing users to specify which HTTP status codes (including non-5xx codes)
+    trigger outlier detection ejection.

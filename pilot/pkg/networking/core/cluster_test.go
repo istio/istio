@@ -1437,6 +1437,50 @@ func TestApplyOutlierDetection(t *testing.T) {
 	}
 }
 
+func TestApplyOutlierDetectionErrorCodes(t *testing.T) {
+	tests := []struct {
+		name     string
+		codes    []uint32
+		wantNil  bool
+		wantOr   bool
+		wantCode string
+	}{
+		{
+			name:     "single error code",
+			codes:    []uint32{429},
+			wantCode: "429",
+		},
+		{
+			name:     "multiple error codes uses or_match",
+			codes:    []uint32{429, 503},
+			wantOr:   true,
+			wantCode: "429",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewWithT(t)
+			mc := &clusterWrapper{
+				cluster: &cluster.Cluster{},
+			}
+			applyOutlierDetectionErrorCodes(mc, tt.codes)
+			g.Expect(mc.httpProtocolOptions).NotTo(BeNil())
+			od := mc.httpProtocolOptions.GetOutlierDetection()
+			g.Expect(od).NotTo(BeNil())
+			g.Expect(od.ErrorMatcher).NotTo(BeNil())
+			if tt.wantOr {
+				orMatch := od.ErrorMatcher.GetOrMatch()
+				g.Expect(orMatch).NotTo(BeNil())
+				g.Expect(len(orMatch.Rules)).To(Equal(len(tt.codes)))
+			} else {
+				hdrs := od.ErrorMatcher.GetHttpResponseHeadersMatch().GetHeaders()
+				g.Expect(len(hdrs)).To(Equal(1))
+				g.Expect(hdrs[0].GetExactMatch()).To(Equal(tt.wantCode))
+			}
+		})
+	}
+}
+
 func TestStatNamePattern(t *testing.T) {
 	g := NewWithT(t)
 
