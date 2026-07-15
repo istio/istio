@@ -84,7 +84,7 @@ func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) (*model.PushReques
 	checkGateway := false
 	for config := range req.ConfigsUpdated {
 		// Check if all updates are ServiceEntry (headless endpoint marker)
-		if headlessOnly && config.Kind != kind.ServiceEntry {
+		if config.Kind != kind.ServiceEntry {
 			headlessOnly = false
 		}
 
