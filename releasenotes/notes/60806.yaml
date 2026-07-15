@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 60806
+releaseNotes:
+  - |
+    **Fixed** cross-network traffic through the east-west gateway being blocked by a spurious
+    deny-all RBAC filter when the destination service has L7 AuthorizationPolicies.

@@ -271,6 +271,23 @@ func TestParseValue(t *testing.T) {
 	}
 }
 
+func TestSetPathsAllowsEqualsInValue(t *testing.T) {
+	m := Map{}
+
+	err := m.SetPaths("spec.values.global.proxy.privileged=true", "spec.values.global.proxy.env=FOO=bar=baz")
+
+	assert.NoError(t, err)
+	assert.Equal(t, `{"spec":{"values":{"global":{"proxy":{"env":"FOO=bar=baz","privileged":true}}}}}`, m.JSON())
+}
+
+func TestGetValueForSetFlagAllowsEqualsInValue(t *testing.T) {
+	got := GetValueForSetFlag([]string{
+		"spec.values.global.proxy.env=FOO=bar=baz",
+	}, "spec.values.global.proxy.env")
+
+	assert.Equal(t, "FOO=bar=baz", got)
+}
+
 func TestMergeFrom(t *testing.T) {
 	fromJSON := func(s string) Map {
 		m, err := fromJSON[Map]([]byte(s))

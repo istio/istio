@@ -99,11 +99,11 @@ type exportToDefaults struct {
 
 // virtualServiceIndex is the index of virtual services by various fields.
 type virtualServiceIndex struct {
-	exportedToNamespaceByGateway map[types.NamespacedName][]config.Config
+	exportedToNamespaceByGateway map[types.NamespacedName][]*config.Config
 	// this contains all the virtual services with exportTo "." and current namespace. The keys are namespace,gateway.
-	privateByNamespaceAndGateway map[types.NamespacedName][]config.Config
+	privateByNamespaceAndGateway map[types.NamespacedName][]*config.Config
 	// This contains all virtual services whose exportTo is "*", keyed by gateway
-	publicByGateway map[string][]config.Config
+	publicByGateway map[string][]*config.Config
 
 	// This contains destination hosts of virtual services, keyed by gateway's namespace/name,
 	// only used when PILOT_FILTER_GATEWAY_CLUSTER_CONFIG is enabled
@@ -115,9 +115,9 @@ type virtualServiceIndex struct {
 
 func newVirtualServiceIndex() virtualServiceIndex {
 	out := virtualServiceIndex{
-		publicByGateway:              map[string][]config.Config{},
-		privateByNamespaceAndGateway: map[types.NamespacedName][]config.Config{},
-		exportedToNamespaceByGateway: map[types.NamespacedName][]config.Config{},
+		publicByGateway:              map[string][]*config.Config{},
+		privateByNamespaceAndGateway: map[types.NamespacedName][]*config.Config{},
+		exportedToNamespaceByGateway: map[types.NamespacedName][]*config.Config{},
 		referencedDestinations:       map[string]sets.String{},
 	}
 	if features.FilterGatewayClusterConfig {
@@ -365,6 +365,13 @@ type PushRequest struct {
 
 	AddressesUpdated sets.Set[string]
 
+	// WaypointsUpdated keeps track of the waypoints that the services/workloads behind the
+	// kind.Address entries in ConfigsUpdated are attached to, including waypoints they were
+	// attached to before the update. This is used to scope Address pushes to the waypoint
+	// proxies actually affected; Address updates that reference no waypoint (e.g. ordinary
+	// pod churn) leave this empty so waypoints can skip them entirely.
+	WaypointsUpdated sets.Set[WaypointReference]
+
 	// Push stores the push context to use for the update. This may initially be nil, as we will
 	// debounce changes before a PushContext is eventually created.
 	Push *PushContext
@@ -518,6 +525,12 @@ func (pr *PushRequest) Merge(other *PushRequest) *PushRequest {
 		pr.AddressesUpdated.Merge(other.AddressesUpdated)
 	}
 
+	if pr.WaypointsUpdated == nil {
+		pr.WaypointsUpdated = other.WaypointsUpdated
+	} else {
+		pr.WaypointsUpdated.Merge(other.WaypointsUpdated)
+	}
+
 	return pr
 }
 
@@ -564,6 +577,12 @@ func (pr *PushRequest) CopyMerge(other *PushRequest) *PushRequest {
 		merged.AddressesUpdated = make(sets.Set[string], len(pr.AddressesUpdated)+len(other.AddressesUpdated))
 		merged.AddressesUpdated.Merge(pr.AddressesUpdated)
 		merged.AddressesUpdated.Merge(other.AddressesUpdated)
+	}
+
+	if len(pr.WaypointsUpdated) > 0 || len(other.WaypointsUpdated) > 0 {
+		merged.WaypointsUpdated = make(sets.Set[WaypointReference], len(pr.WaypointsUpdated)+len(other.WaypointsUpdated))
+		merged.WaypointsUpdated.Merge(pr.WaypointsUpdated)
+		merged.WaypointsUpdated.Merge(other.WaypointsUpdated)
 	}
 
 	return merged
@@ -1086,22 +1105,16 @@ func (ps *PushContext) VirtualServicesForGateway(proxyNamespace, gateway string)
 		len(ps.virtualServiceIndex.exportedToNamespaceByGateway[name])+
 		len(ps.virtualServiceIndex.publicByGateway[gateway]))
 	// Use index-based iteration to get stable pointers to slice elements
-	for i := range ps.virtualServiceIndex.privateByNamespaceAndGateway[name] {
-		res = append(res, &ps.virtualServiceIndex.privateByNamespaceAndGateway[name][i])
-	}
-	for i := range ps.virtualServiceIndex.exportedToNamespaceByGateway[name] {
-		res = append(res, &ps.virtualServiceIndex.exportedToNamespaceByGateway[name][i])
-	}
+	res = append(res, ps.virtualServiceIndex.privateByNamespaceAndGateway[name]...)
+	res = append(res, ps.virtualServiceIndex.exportedToNamespaceByGateway[name]...)
 	// Favor same-namespace Gateway routes, to give the "consumer override" preference.
 	// We do 2 iterations here to avoid extra allocations.
-	for i := range ps.virtualServiceIndex.publicByGateway[gateway] {
-		vs := &ps.virtualServiceIndex.publicByGateway[gateway][i]
+	for _, vs := range ps.virtualServiceIndex.publicByGateway[gateway] {
 		if UseGatewaySemantics(*vs) && vs.Namespace == proxyNamespace {
 			res = append(res, vs)
 		}
 	}
-	for i := range ps.virtualServiceIndex.publicByGateway[gateway] {
-		vs := &ps.virtualServiceIndex.publicByGateway[gateway][i]
+	for _, vs := range ps.virtualServiceIndex.publicByGateway[gateway] {
 		if !(UseGatewaySemantics(*vs) && vs.Namespace == proxyNamespace) {
 			res = append(res, vs)
 		}
@@ -1732,9 +1745,9 @@ func (ps *PushContext) initAuthnPolicies(env *Environment) {
 
 // Caches list of virtual services
 func (ps *PushContext) initVirtualServices(env *Environment) {
-	ps.virtualServiceIndex.exportedToNamespaceByGateway = map[types.NamespacedName][]config.Config{}
-	ps.virtualServiceIndex.privateByNamespaceAndGateway = map[types.NamespacedName][]config.Config{}
-	ps.virtualServiceIndex.publicByGateway = map[string][]config.Config{}
+	ps.virtualServiceIndex.exportedToNamespaceByGateway = map[types.NamespacedName][]*config.Config{}
+	ps.virtualServiceIndex.privateByNamespaceAndGateway = map[types.NamespacedName][]*config.Config{}
+	ps.virtualServiceIndex.publicByGateway = map[string][]*config.Config{}
 	ps.virtualServiceIndex.referencedDestinations = map[string]sets.String{}
 
 	if features.FilterGatewayClusterConfig {
@@ -1750,41 +1763,33 @@ func (ps *PushContext) initVirtualServices(env *Environment) {
 		rule := virtualService.Spec.(*networking.VirtualService)
 		gwNames := getGatewayNames(rule)
 		exportToSet := ps.exportToDefaults.virtualService
-		if len(rule.ExportTo) > 0 {
-			exportToSet = sets.NewWithLength[visibility.Instance](len(rule.ExportTo))
-			for _, e := range rule.ExportTo {
-				exportToSet.Insert(visibility.Instance(e))
-			}
+		if len(virtualService.ExportTo) > 0 {
+			exportToSet = virtualService.ExportTo
 		}
 
 		// if vs has exportTo ~ - i.e. not visible to anyone, ignore all exportTos
 		// if vs has exportTo *, make public and ignore all other exportTos
-		// if vs has exportTo ., replace with current namespace
+		// virtualService.ExportTo will never have visibility.Private, it's converted in the controller into the private namespace name.
 		if exportToSet.Contains(visibility.Public) {
 			for _, gw := range gwNames {
-				ps.virtualServiceIndex.publicByGateway[gw] = append(ps.virtualServiceIndex.publicByGateway[gw], virtualService)
+				ps.virtualServiceIndex.publicByGateway[gw] = append(ps.virtualServiceIndex.publicByGateway[gw], virtualService.Config)
 			}
 		} else if !exportToSet.Contains(visibility.None) {
-			// . or other namespaces
-			includesPrivate := false
+			// other namespaces
 			for exportTo := range exportToSet {
 				key := string(exportTo)
-				if exportTo == visibility.Private || key == ns {
+				if key == ns {
 					// exportTo with same namespace is effectively private
-					if includesPrivate {
-						continue
-					}
-					includesPrivate = true
 					private := ps.virtualServiceIndex.privateByNamespaceAndGateway
 					for _, gw := range gwNames {
 						n := types.NamespacedName{Namespace: ns, Name: gw}
-						private[n] = append(private[n], virtualService)
+						private[n] = append(private[n], virtualService.Config)
 					}
 				} else {
 					exported := ps.virtualServiceIndex.exportedToNamespaceByGateway
 					for _, gw := range gwNames {
 						n := types.NamespacedName{Namespace: key, Name: gw}
-						exported[n] = append(exported[n], virtualService)
+						exported[n] = append(exported[n], virtualService.Config)
 					}
 				}
 			}
@@ -2044,7 +2049,7 @@ func (ps *PushContext) setDestinationRules(configs []config.Config) {
 				exportToSet.Insert(visibility.Instance(e))
 			}
 		} else {
-			exportToSet = sets.New[visibility.Instance](visibility.Private)
+			exportToSet = sets.New(visibility.Private)
 		}
 
 		// add only if the dest rule is exported with . or * or explicit exportTo containing this namespace

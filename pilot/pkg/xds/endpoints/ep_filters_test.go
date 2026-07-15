@@ -476,6 +476,60 @@ var mtlsCases = map[string]map[string]struct {
 			IsMtlsDisabled: false,
 			SubsetName:     "enable-tls",
 		},
+		"mtls-off-subset-fallback-to-destination": {
+			Config: config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.DestinationRule,
+					Name:             "mtls-off-fallback",
+					Namespace:        "ns",
+				},
+				Spec: &networking.DestinationRule{
+					Host: "example.ns.svc.cluster.local",
+					TrafficPolicy: &networking.TrafficPolicy{
+						// subset has no TLS setting, so this DR-level mode must be used
+						Tls: &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_DISABLE},
+					},
+					Subsets: []*networking.Subset{{
+						Name:   "no-tls",
+						Labels: map[string]string{"app": "example"},
+						// TrafficPolicy present but sets no TLS mode -> fall back to DR level
+						TrafficPolicy: &networking.TrafficPolicy{
+							ConnectionPool: &networking.ConnectionPoolSettings{
+								Tcp: &networking.ConnectionPoolSettings_TCPSettings{MaxConnections: 100},
+							},
+						},
+					}},
+				},
+			},
+			IsMtlsDisabled: true,
+			SubsetName:     "no-tls",
+		},
+		"mtls-on-subset-fallback-to-destination": {
+			Config: config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.DestinationRule,
+					Name:             "mtls-on-fallback",
+					Namespace:        "ns",
+				},
+				Spec: &networking.DestinationRule{
+					Host: "example.ns.svc.cluster.local",
+					TrafficPolicy: &networking.TrafficPolicy{
+						Tls: &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_ISTIO_MUTUAL},
+					},
+					Subsets: []*networking.Subset{{
+						Name:   "no-tls",
+						Labels: map[string]string{"app": "example"},
+						TrafficPolicy: &networking.TrafficPolicy{
+							ConnectionPool: &networking.ConnectionPoolSettings{
+								Tcp: &networking.ConnectionPoolSettings_TCPSettings{MaxConnections: 100},
+							},
+						},
+					}},
+				},
+			},
+			IsMtlsDisabled: false,
+			SubsetName:     "no-tls",
+		},
 	},
 }
 

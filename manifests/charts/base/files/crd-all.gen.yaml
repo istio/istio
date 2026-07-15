@@ -973,6 +973,9 @@ spec:
                                   - ringHash
                                 - required:
                                   - maglev
+                              description: Consistent Hash-based load balancing can
+                                be used to provide soft session affinity based on
+                                HTTP headers, cookies or other properties.
                               properties:
                                 httpCookie:
                                   description: Hash based on HTTP cookie.
@@ -1039,10 +1042,7 @@ spec:
                                   type: boolean
                               type: object
                             localityLbSetting:
-                              description: Locality load balancer settings, this will
-                                override mesh-wide settings in entirety, meaning no
-                                merging would be performed between this object and
-                                the object one in MeshConfig.
+                              description: Locality load balancer settings.
                               properties:
                                 distribute:
                                   description: 'Optional: only one of distribute,
@@ -1091,8 +1091,8 @@ spec:
                                   type: array
                               type: object
                             simple:
-                              description: |2-
-
+                              description: |-
+                                Standard load balancing algorithms that require no tuning.
 
                                 Valid Options: LEAST_CONN, RANDOM, PASSTHROUGH, ROUND_ROBIN, LEAST_REQUEST
                               enum:
@@ -1136,10 +1136,7 @@ spec:
                               - message: must be a valid duration greater than 1ms
                                 rule: duration(self) >= duration('1ms')
                             zoneAwareLbSetting:
-                              description: Zone Aware load balancer settings, this
-                                will override mesh-wide settings in entirety, meaning
-                                no merging would be performed between this object
-                                and the object one in MeshConfig.
+                              description: Zone Aware load balancer settings.
                               properties:
                                 enabled:
                                   description: Enable zone aware load balancing.
@@ -1168,8 +1165,8 @@ spec:
                                   type: array
                                 minClusterSize:
                                   description: Minimum number of hosts in the upstream
-                                    cluster required for zone-aware load balancing
-                                    to be enabled.
+                                    cluster's local region required for zone-aware
+                                    load balancing to be enabled.
                                   minimum: 1
                                   nullable: true
                                   type: integer
@@ -1416,6 +1413,9 @@ spec:
                                         - ringHash
                                       - required:
                                         - maglev
+                                    description: Consistent Hash-based load balancing
+                                      can be used to provide soft session affinity
+                                      based on HTTP headers, cookies or other properties.
                                     properties:
                                       httpCookie:
                                         description: Hash based on HTTP cookie.
@@ -1487,10 +1487,7 @@ spec:
                                         type: boolean
                                     type: object
                                   localityLbSetting:
-                                    description: Locality load balancer settings,
-                                      this will override mesh-wide settings in entirety,
-                                      meaning no merging would be performed between
-                                      this object and the object one in MeshConfig.
+                                    description: Locality load balancer settings.
                                     properties:
                                       distribute:
                                         description: 'Optional: only one of distribute,
@@ -1539,8 +1536,8 @@ spec:
                                         type: array
                                     type: object
                                   simple:
-                                    description: |2-
-
+                                    description: |-
+                                      Standard load balancing algorithms that require no tuning.
 
                                       Valid Options: LEAST_CONN, RANDOM, PASSTHROUGH, ROUND_ROBIN, LEAST_REQUEST
                                     enum:
@@ -1585,10 +1582,7 @@ spec:
                                         1ms
                                       rule: duration(self) >= duration('1ms')
                                   zoneAwareLbSetting:
-                                    description: Zone Aware load balancer settings,
-                                      this will override mesh-wide settings in entirety,
-                                      meaning no merging would be performed between
-                                      this object and the object one in MeshConfig.
+                                    description: Zone Aware load balancer settings.
                                     properties:
                                       enabled:
                                         description: Enable zone aware load balancing.
@@ -1617,8 +1611,8 @@ spec:
                                         type: array
                                       minClusterSize:
                                         description: Minimum number of hosts in the
-                                          upstream cluster required for zone-aware
-                                          load balancing to be enabled.
+                                          upstream cluster's local region required
+                                          for zone-aware load balancing to be enabled.
                                         minimum: 1
                                         nullable: true
                                         type: integer
@@ -2039,6 +2033,9 @@ spec:
                             - ringHash
                           - required:
                             - maglev
+                        description: Consistent Hash-based load balancing can be used
+                          to provide soft session affinity based on HTTP headers,
+                          cookies or other properties.
                         properties:
                           httpCookie:
                             description: Hash based on HTTP cookie.
@@ -2104,9 +2101,7 @@ spec:
                             type: boolean
                         type: object
                       localityLbSetting:
-                        description: Locality load balancer settings, this will override
-                          mesh-wide settings in entirety, meaning no merging would
-                          be performed between this object and the object one in MeshConfig.
+                        description: Locality load balancer settings.
                         properties:
                           distribute:
                             description: 'Optional: only one of distribute, failover
@@ -2154,8 +2149,8 @@ spec:
                             type: array
                         type: object
                       simple:
-                        description: |2-
-
+                        description: |-
+                          Standard load balancing algorithms that require no tuning.
 
                           Valid Options: LEAST_CONN, RANDOM, PASSTHROUGH, ROUND_ROBIN, LEAST_REQUEST
                         enum:
@@ -2197,10 +2192,7 @@ spec:
                         - message: must be a valid duration greater than 1ms
                           rule: duration(self) >= duration('1ms')
                       zoneAwareLbSetting:
-                        description: Zone Aware load balancer settings, this will
-                          override mesh-wide settings in entirety, meaning no merging
-                          would be performed between this object and the object one
-                          in MeshConfig.
+                        description: Zone Aware load balancer settings.
                         properties:
                           enabled:
                             description: Enable zone aware load balancing.
@@ -2227,8 +2219,9 @@ spec:
                               type: string
                             type: array
                           minClusterSize:
-                            description: Minimum number of hosts in the upstream cluster
-                              required for zone-aware load balancing to be enabled.
+                            description: Minimum number of hosts in the upstream cluster's
+                              local region required for zone-aware load balancing
+                              to be enabled.
                             minimum: 1
                             nullable: true
                             type: integer
@@ -2472,6 +2465,9 @@ spec:
                                   - ringHash
                                 - required:
                                   - maglev
+                              description: Consistent Hash-based load balancing can
+                                be used to provide soft session affinity based on
+                                HTTP headers, cookies or other properties.
                               properties:
                                 httpCookie:
                                   description: Hash based on HTTP cookie.
@@ -2538,10 +2534,7 @@ spec:
                                   type: boolean
                               type: object
                             localityLbSetting:
-                              description: Locality load balancer settings, this will
-                                override mesh-wide settings in entirety, meaning no
-                                merging would be performed between this object and
-                                the object one in MeshConfig.
+                              description: Locality load balancer settings.
                               properties:
                                 distribute:
                                   description: 'Optional: only one of distribute,
@@ -2590,8 +2583,8 @@ spec:
                                   type: array
                               type: object
                             simple:
-                              description: |2-
-
+                              description: |-
+                                Standard load balancing algorithms that require no tuning.
 
                                 Valid Options: LEAST_CONN, RANDOM, PASSTHROUGH, ROUND_ROBIN, LEAST_REQUEST
                               enum:
@@ -2635,10 +2628,7 @@ spec:
                               - message: must be a valid duration greater than 1ms
                                 rule: duration(self) >= duration('1ms')
                             zoneAwareLbSetting:
-                              description: Zone Aware load balancer settings, this
-                                will override mesh-wide settings in entirety, meaning
-                                no merging would be performed between this object
-                                and the object one in MeshConfig.
+                              description: Zone Aware load balancer settings.
                               properties:
                                 enabled:
                                   description: Enable zone aware load balancing.
@@ -2667,8 +2657,8 @@ spec:
                                   type: array
                                 minClusterSize:
                                   description: Minimum number of hosts in the upstream
-                                    cluster required for zone-aware load balancing
-                                    to be enabled.
+                                    cluster's local region required for zone-aware
+                                    load balancing to be enabled.
                                   minimum: 1
                                   nullable: true
                                   type: integer
@@ -3236,6 +3226,9 @@ spec:
                                   - ringHash
                                 - required:
                                   - maglev
+                              description: Consistent Hash-based load balancing can
+                                be used to provide soft session affinity based on
+                                HTTP headers, cookies or other properties.
                               properties:
                                 httpCookie:
                                   description: Hash based on HTTP cookie.
@@ -3302,10 +3295,7 @@ spec:
                                   type: boolean
                               type: object
                             localityLbSetting:
-                              description: Locality load balancer settings, this will
-                                override mesh-wide settings in entirety, meaning no
-                                merging would be performed between this object and
-                                the object one in MeshConfig.
+                              description: Locality load balancer settings.
                               properties:
                                 distribute:
                                   description: 'Optional: only one of distribute,
@@ -3354,8 +3344,8 @@ spec:
                                   type: array
                               type: object
                             simple:
-                              description: |2-
-
+                              description: |-
+                                Standard load balancing algorithms that require no tuning.
 
                                 Valid Options: LEAST_CONN, RANDOM, PASSTHROUGH, ROUND_ROBIN, LEAST_REQUEST
                               enum:
@@ -3399,10 +3389,7 @@ spec:
                               - message: must be a valid duration greater than 1ms
                                 rule: duration(self) >= duration('1ms')
                             zoneAwareLbSetting:
-                              description: Zone Aware load balancer settings, this
-                                will override mesh-wide settings in entirety, meaning
-                                no merging would be performed between this object
-                                and the object one in MeshConfig.
+                              description: Zone Aware load balancer settings.
                               properties:
                                 enabled:
                                   description: Enable zone aware load balancing.
@@ -3431,8 +3418,8 @@ spec:
                                   type: array
                                 minClusterSize:
                                   description: Minimum number of hosts in the upstream
-                                    cluster required for zone-aware load balancing
-                                    to be enabled.
+                                    cluster's local region required for zone-aware
+                                    load balancing to be enabled.
                                   minimum: 1
                                   nullable: true
                                   type: integer
@@ -3679,6 +3666,9 @@ spec:
                                         - ringHash
                                       - required:
                                         - maglev
+                                    description: Consistent Hash-based load balancing
+                                      can be used to provide soft session affinity
+                                      based on HTTP headers, cookies or other properties.
                                     properties:
                                       httpCookie:
                                         description: Hash based on HTTP cookie.
@@ -3750,10 +3740,7 @@ spec:
                                         type: boolean
                                     type: object
                                   localityLbSetting:
-                                    description: Locality load balancer settings,
-                                      this will override mesh-wide settings in entirety,
-                                      meaning no merging would be performed between
-                                      this object and the object one in MeshConfig.
+                                    description: Locality load balancer settings.
                                     properties:
                                       distribute:
                                         description: 'Optional: only one of distribute,
@@ -3802,8 +3789,8 @@ spec:
                                         type: array
                                     type: object
                                   simple:
-                                    description: |2-
-
+                                    description: |-
+                                      Standard load balancing algorithms that require no tuning.
 
                                       Valid Options: LEAST_CONN, RANDOM, PASSTHROUGH, ROUND_ROBIN, LEAST_REQUEST
                                     enum:
@@ -3848,10 +3835,7 @@ spec:
                                         1ms
                                       rule: duration(self) >= duration('1ms')
                                   zoneAwareLbSetting:
-                                    description: Zone Aware load balancer settings,
-                                      this will override mesh-wide settings in entirety,
-                                      meaning no merging would be performed between
-                                      this object and the object one in MeshConfig.
+                                    description: Zone Aware load balancer settings.
                                     properties:
                                       enabled:
                                         description: Enable zone aware load balancing.
@@ -3880,8 +3864,8 @@ spec:
                                         type: array
                                       minClusterSize:
                                         description: Minimum number of hosts in the
-                                          upstream cluster required for zone-aware
-                                          load balancing to be enabled.
+                                          upstream cluster's local region required
+                                          for zone-aware load balancing to be enabled.
                                         minimum: 1
                                         nullable: true
                                         type: integer
@@ -4302,6 +4286,9 @@ spec:
                             - ringHash
                           - required:
                             - maglev
+                        description: Consistent Hash-based load balancing can be used
+                          to provide soft session affinity based on HTTP headers,
+                          cookies or other properties.
                         properties:
                           httpCookie:
                             description: Hash based on HTTP cookie.
@@ -4367,9 +4354,7 @@ spec:
                             type: boolean
                         type: object
                       localityLbSetting:
-                        description: Locality load balancer settings, this will override
-                          mesh-wide settings in entirety, meaning no merging would
-                          be performed between this object and the object one in MeshConfig.
+                        description: Locality load balancer settings.
                         properties:
                           distribute:
                             description: 'Optional: only one of distribute, failover
@@ -4417,8 +4402,8 @@ spec:
                             type: array
                         type: object
                       simple:
-                        description: |2-
-
+                        description: |-
+                          Standard load balancing algorithms that require no tuning.
 
                           Valid Options: LEAST_CONN, RANDOM, PASSTHROUGH, ROUND_ROBIN, LEAST_REQUEST
                         enum:
@@ -4460,10 +4445,7 @@ spec:
                         - message: must be a valid duration greater than 1ms
                           rule: duration(self) >= duration('1ms')
                       zoneAwareLbSetting:
-                        description: Zone Aware load balancer settings, this will
-                          override mesh-wide settings in entirety, meaning no merging
-                          would be performed between this object and the object one
-                          in MeshConfig.
+                        description: Zone Aware load balancer settings.
                         properties:
                           enabled:
                             description: Enable zone aware load balancing.
@@ -4490,8 +4472,9 @@ spec:
                               type: string
                             type: array
                           minClusterSize:
-                            description: Minimum number of hosts in the upstream cluster
-                              required for zone-aware load balancing to be enabled.
+                            description: Minimum number of hosts in the upstream cluster's
+                              local region required for zone-aware load balancing
+                              to be enabled.
                             minimum: 1
                             nullable: true
                             type: integer
@@ -4735,6 +4718,9 @@ spec:
                                   - ringHash
                                 - required:
                                   - maglev
+                              description: Consistent Hash-based load balancing can
+                                be used to provide soft session affinity based on
+                                HTTP headers, cookies or other properties.
                               properties:
                                 httpCookie:
                                   description: Hash based on HTTP cookie.
@@ -4801,10 +4787,7 @@ spec:
                                   type: boolean
                               type: object
                             localityLbSetting:
-                              description: Locality load balancer settings, this will
-                                override mesh-wide settings in entirety, meaning no
-                                merging would be performed between this object and
-                                the object one in MeshConfig.
+                              description: Locality load balancer settings.
                               properties:
                                 distribute:
                                   description: 'Optional: only one of distribute,
@@ -4853,8 +4836,8 @@ spec:
                                   type: array
                               type: object
                             simple:
-                              description: |2-
-
+                              description: |-
+                                Standard load balancing algorithms that require no tuning.
 
                                 Valid Options: LEAST_CONN, RANDOM, PASSTHROUGH, ROUND_ROBIN, LEAST_REQUEST
                               enum:
@@ -4898,10 +4881,7 @@ spec:
                               - message: must be a valid duration greater than 1ms
                                 rule: duration(self) >= duration('1ms')
                             zoneAwareLbSetting:
-                              description: Zone Aware load balancer settings, this
-                                will override mesh-wide settings in entirety, meaning
-                                no merging would be performed between this object
-                                and the object one in MeshConfig.
+                              description: Zone Aware load balancer settings.
                               properties:
                                 enabled:
                                   description: Enable zone aware load balancing.
@@ -4930,8 +4910,8 @@ spec:
                                   type: array
                                 minClusterSize:
                                   description: Minimum number of hosts in the upstream
-                                    cluster required for zone-aware load balancing
-                                    to be enabled.
+                                    cluster's local region required for zone-aware
+                                    load balancing to be enabled.
                                   minimum: 1
                                   nullable: true
                                   type: integer
@@ -5499,6 +5479,9 @@ spec:
                                   - ringHash
                                 - required:
                                   - maglev
+                              description: Consistent Hash-based load balancing can
+                                be used to provide soft session affinity based on
+                                HTTP headers, cookies or other properties.
                               properties:
                                 httpCookie:
                                   description: Hash based on HTTP cookie.
@@ -5565,10 +5548,7 @@ spec:
                                   type: boolean
                               type: object
                             localityLbSetting:
-                              description: Locality load balancer settings, this will
-                                override mesh-wide settings in entirety, meaning no
-                                merging would be performed between this object and
-                                the object one in MeshConfig.
+                              description: Locality load balancer settings.
                               properties:
                                 distribute:
                                   description: 'Optional: only one of distribute,
@@ -5617,8 +5597,8 @@ spec:
                                   type: array
                               type: object
                             simple:
-                              description: |2-
-
+                              description: |-
+                                Standard load balancing algorithms that require no tuning.
 
                                 Valid Options: LEAST_CONN, RANDOM, PASSTHROUGH, ROUND_ROBIN, LEAST_REQUEST
                               enum:
@@ -5662,10 +5642,7 @@ spec:
                               - message: must be a valid duration greater than 1ms
                                 rule: duration(self) >= duration('1ms')
                             zoneAwareLbSetting:
-                              description: Zone Aware load balancer settings, this
-                                will override mesh-wide settings in entirety, meaning
-                                no merging would be performed between this object
-                                and the object one in MeshConfig.
+                              description: Zone Aware load balancer settings.
                               properties:
                                 enabled:
                                   description: Enable zone aware load balancing.
@@ -5694,8 +5671,8 @@ spec:
                                   type: array
                                 minClusterSize:
                                   description: Minimum number of hosts in the upstream
-                                    cluster required for zone-aware load balancing
-                                    to be enabled.
+                                    cluster's local region required for zone-aware
+                                    load balancing to be enabled.
                                   minimum: 1
                                   nullable: true
                                   type: integer
@@ -5942,6 +5919,9 @@ spec:
                                         - ringHash
                                       - required:
                                         - maglev
+                                    description: Consistent Hash-based load balancing
+                                      can be used to provide soft session affinity
+                                      based on HTTP headers, cookies or other properties.
                                     properties:
                                       httpCookie:
                                         description: Hash based on HTTP cookie.
@@ -6013,10 +5993,7 @@ spec:
                                         type: boolean
                                     type: object
                                   localityLbSetting:
-                                    description: Locality load balancer settings,
-                                      this will override mesh-wide settings in entirety,
-                                      meaning no merging would be performed between
-                                      this object and the object one in MeshConfig.
+                                    description: Locality load balancer settings.
                                     properties:
                                       distribute:
                                         description: 'Optional: only one of distribute,
@@ -6065,8 +6042,8 @@ spec:
                                         type: array
                                     type: object
                                   simple:
-                                    description: |2-
-
+                                    description: |-
+                                      Standard load balancing algorithms that require no tuning.
 
                                       Valid Options: LEAST_CONN, RANDOM, PASSTHROUGH, ROUND_ROBIN, LEAST_REQUEST
                                     enum:
@@ -6111,10 +6088,7 @@ spec:
                                         1ms
                                       rule: duration(self) >= duration('1ms')
                                   zoneAwareLbSetting:
-                                    description: Zone Aware load balancer settings,
-                                      this will override mesh-wide settings in entirety,
-                                      meaning no merging would be performed between
-                                      this object and the object one in MeshConfig.
+                                    description: Zone Aware load balancer settings.
                                     properties:
                                       enabled:
                                         description: Enable zone aware load balancing.
@@ -6143,8 +6117,8 @@ spec:
                                         type: array
                                       minClusterSize:
                                         description: Minimum number of hosts in the
-                                          upstream cluster required for zone-aware
-                                          load balancing to be enabled.
+                                          upstream cluster's local region required
+                                          for zone-aware load balancing to be enabled.
                                         minimum: 1
                                         nullable: true
                                         type: integer
@@ -6565,6 +6539,9 @@ spec:
                             - ringHash
                           - required:
                             - maglev
+                        description: Consistent Hash-based load balancing can be used
+                          to provide soft session affinity based on HTTP headers,
+                          cookies or other properties.
                         properties:
                           httpCookie:
                             description: Hash based on HTTP cookie.
@@ -6630,9 +6607,7 @@ spec:
                             type: boolean
                         type: object
                       localityLbSetting:
-                        description: Locality load balancer settings, this will override
-                          mesh-wide settings in entirety, meaning no merging would
-                          be performed between this object and the object one in MeshConfig.
+                        description: Locality load balancer settings.
                         properties:
                           distribute:
                             description: 'Optional: only one of distribute, failover
@@ -6680,8 +6655,8 @@ spec:
                             type: array
                         type: object
                       simple:
-                        description: |2-
-
+                        description: |-
+                          Standard load balancing algorithms that require no tuning.
 
                           Valid Options: LEAST_CONN, RANDOM, PASSTHROUGH, ROUND_ROBIN, LEAST_REQUEST
                         enum:
@@ -6723,10 +6698,7 @@ spec:
                         - message: must be a valid duration greater than 1ms
                           rule: duration(self) >= duration('1ms')
                       zoneAwareLbSetting:
-                        description: Zone Aware load balancer settings, this will
-                          override mesh-wide settings in entirety, meaning no merging
-                          would be performed between this object and the object one
-                          in MeshConfig.
+                        description: Zone Aware load balancer settings.
                         properties:
                           enabled:
                             description: Enable zone aware load balancing.
@@ -6753,8 +6725,9 @@ spec:
                               type: string
                             type: array
                           minClusterSize:
-                            description: Minimum number of hosts in the upstream cluster
-                              required for zone-aware load balancing to be enabled.
+                            description: Minimum number of hosts in the upstream cluster's
+                              local region required for zone-aware load balancing
+                              to be enabled.
                             minimum: 1
                             nullable: true
                             type: integer
@@ -6998,6 +6971,9 @@ spec:
                                   - ringHash
                                 - required:
                                   - maglev
+                              description: Consistent Hash-based load balancing can
+                                be used to provide soft session affinity based on
+                                HTTP headers, cookies or other properties.
                               properties:
                                 httpCookie:
                                   description: Hash based on HTTP cookie.
@@ -7064,10 +7040,7 @@ spec:
                                   type: boolean
                               type: object
                             localityLbSetting:
-                              description: Locality load balancer settings, this will
-                                override mesh-wide settings in entirety, meaning no
-                                merging would be performed between this object and
-                                the object one in MeshConfig.
+                              description: Locality load balancer settings.
                               properties:
                                 distribute:
                                   description: 'Optional: only one of distribute,
@@ -7116,8 +7089,8 @@ spec:
                                   type: array
                               type: object
                             simple:
-                              description: |2-
-
+                              description: |-
+                                Standard load balancing algorithms that require no tuning.
 
                                 Valid Options: LEAST_CONN, RANDOM, PASSTHROUGH, ROUND_ROBIN, LEAST_REQUEST
                               enum:
@@ -7161,10 +7134,7 @@ spec:
                               - message: must be a valid duration greater than 1ms
                                 rule: duration(self) >= duration('1ms')
                             zoneAwareLbSetting:
-                              description: Zone Aware load balancer settings, this
-                                will override mesh-wide settings in entirety, meaning
-                                no merging would be performed between this object
-                                and the object one in MeshConfig.
+                              description: Zone Aware load balancer settings.
                               properties:
                                 enabled:
                                   description: Enable zone aware load balancing.
@@ -7193,8 +7163,8 @@ spec:
                                   type: array
                                 minClusterSize:
                                   description: Minimum number of hosts in the upstream
-                                    cluster required for zone-aware load balancing
-                                    to be enabled.
+                                    cluster's local region required for zone-aware
+                                    load balancing to be enabled.
                                   minimum: 1
                                   nullable: true
                                   type: integer
@@ -8109,6 +8079,12 @@ spec:
                             a 301 redirect for all http connections, asking the clients
                             to use HTTPS.
                           type: boolean
+                        insecureSkipVerify:
+                          description: 'Optional: If set to true, the proxy will try
+                            to validate the certificate, but even if the validation
+                            fails, it will allow the connection through.'
+                          nullable: true
+                          type: boolean
                         maxProtocolVersion:
                           description: |-
                             Optional: Maximum TLS protocol version.
@@ -8384,6 +8360,12 @@ spec:
                             a 301 redirect for all http connections, asking the clients
                             to use HTTPS.
                           type: boolean
+                        insecureSkipVerify:
+                          description: 'Optional: If set to true, the proxy will try
+                            to validate the certificate, but even if the validation
+                            fails, it will allow the connection through.'
+                          nullable: true
+                          type: boolean
                         maxProtocolVersion:
                           description: |-
                             Optional: Maximum TLS protocol version.
@@ -8658,6 +8640,12 @@ spec:
                           description: If set to true, the load balancer will send
                             a 301 redirect for all http connections, asking the clients
                             to use HTTPS.
+                          type: boolean
+                        insecureSkipVerify:
+                          description: 'Optional: If set to true, the proxy will try
+                            to validate the certificate, but even if the validation
+                            fails, it will allow the connection through.'
+                          nullable: true
                           type: boolean
                         maxProtocolVersion:
                           description: |-
@@ -10324,6 +10312,12 @@ spec:
                             a 301 redirect for all http connections, asking the clients
                             to use HTTPS.
                           type: boolean
+                        insecureSkipVerify:
+                          description: 'Optional: If set to true, the proxy will try
+                            to validate the certificate, but even if the validation
+                            fails, it will allow the connection through.'
+                          nullable: true
+                          type: boolean
                         maxProtocolVersion:
                           description: |-
                             Optional: Maximum TLS protocol version.
@@ -10939,6 +10933,12 @@ spec:
                             a 301 redirect for all http connections, asking the clients
                             to use HTTPS.
                           type: boolean
+                        insecureSkipVerify:
+                          description: 'Optional: If set to true, the proxy will try
+                            to validate the certificate, but even if the validation
+                            fails, it will allow the connection through.'
+                          nullable: true
+                          type: boolean
                         maxProtocolVersion:
                           description: |-
                             Optional: Maximum TLS protocol version.
@@ -11553,6 +11553,12 @@ spec:
                           description: If set to true, the load balancer will send
                             a 301 redirect for all http connections, asking the clients
                             to use HTTPS.
+                          type: boolean
+                        insecureSkipVerify:
+                          description: 'Optional: If set to true, the proxy will try
+                            to validate the certificate, but even if the validation
+                            fails, it will allow the connection through.'
+                          nullable: true
                           type: boolean
                         maxProtocolVersion:
                           description: |-

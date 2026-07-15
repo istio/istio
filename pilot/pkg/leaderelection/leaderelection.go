@@ -121,9 +121,15 @@ func (l *LeaderElection) Run(stop <-chan struct{}) {
 		l.cycle.Inc()
 		l.mu.Unlock()
 		ctx, cancel := context.WithCancel(context.Background())
+		// Cancel the current cycle's context when stop closes. The goroutine also exits
+		// once the context is done, so it does not accumulate across election cycles
+		// when leadership is repeatedly lost and re-acquired.
 		go func() {
-			<-stop
-			cancel()
+			defer cancel()
+			select {
+			case <-stop:
+			case <-ctx.Done():
+			}
 		}()
 		le.Run(ctx)
 		select {

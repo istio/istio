@@ -22,6 +22,7 @@ import (
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
@@ -56,6 +57,7 @@ import (
 	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/wellknown"
 )
@@ -5133,6 +5135,109 @@ func TestGatewayExternalSDSProvider(t *testing.T) {
 					t.Error("expected combined validation context for MUTUAL TLS")
 				}
 			}
+		})
+	}
+}
+
+func TestGatewayListenerConnectionSettings(t *testing.T) {
+	tests := []struct {
+		name      string
+		cs        *meshconfig.ProxyConfig_ConnectionSettings
+		verifyBuf func(t *testing.T, buf *wrappers.UInt32Value)
+		verifyHCM func(t *testing.T, cm *hcm.HttpConnectionManager)
+	}{
+		{
+			name: "EDGE profile sets buffer limit and HCM defaults",
+			cs: &meshconfig.ProxyConfig_ConnectionSettings{
+				Profile: meshconfig.ProxyConfig_ConnectionSettings_EDGE,
+			},
+			verifyBuf: func(t *testing.T, buf *wrappers.UInt32Value) {
+				assert.Equal(t, uint32(32768), buf.GetValue())
+			},
+			verifyHCM: func(t *testing.T, cm *hcm.HttpConnectionManager) {
+				assert.Equal(t, int64(300), cm.StreamIdleTimeout.GetSeconds())
+				assert.Equal(t, true, cm.MergeSlashes)
+			},
+		},
+		{
+			name: "explicit buffer limit overrides EDGE",
+			cs: &meshconfig.ProxyConfig_ConnectionSettings{
+				Profile:                               meshconfig.ProxyConfig_ConnectionSettings_EDGE,
+				ListenerPerConnectionBufferLimitBytes: &wrappers.Int32Value{Value: 16384},
+			},
+			verifyBuf: func(t *testing.T, buf *wrappers.UInt32Value) {
+				assert.Equal(t, uint32(16384), buf.GetValue())
+			},
+			verifyHCM: func(t *testing.T, cm *hcm.HttpConnectionManager) {
+				// Other EDGE defaults still applied
+				assert.Equal(t, int64(300), cm.StreamIdleTimeout.GetSeconds())
+			},
+		},
+		{
+			name: "no connection settings does not set buffer limit",
+			cs:   nil,
+			verifyBuf: func(t *testing.T, buf *wrappers.UInt32Value) {
+				assert.Equal(t, (*wrappers.UInt32Value)(nil), buf)
+			},
+			verifyHCM: func(t *testing.T, cm *hcm.HttpConnectionManager) {
+				// Default 0s stream idle timeout
+				assert.Equal(t, time.Duration(0), cm.StreamIdleTimeout.AsDuration())
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			mc := mesh.DefaultMeshConfig()
+			mc.DefaultConfig.ConnectionSettings = tc.cs
+
+			cg := NewConfigGenTest(t, TestOptions{
+				MeshConfig: mc,
+				Configs: []config.Config{
+					{
+						Meta: config.Meta{
+							GroupVersionKind: gvk.Gateway,
+							Name:             "test-gw",
+							Namespace:        "not-default",
+						},
+						Spec: &networking.Gateway{
+							Selector: map[string]string{"istio": "ingressgateway"},
+							Servers: []*networking.Server{
+								{
+									Port:  &networking.Port{Number: 80, Name: "http", Protocol: "HTTP"},
+									Hosts: []string{"*.example.com"},
+								},
+							},
+						},
+					},
+				},
+			})
+
+			proxy := cg.SetupProxy(&proxyGateway)
+			lb := NewListenerBuilder(proxy, cg.PushContext())
+			builder := cg.ConfigGen.buildGatewayListeners(lb)
+
+			// Find the gateway listener by port
+			var l *listener.Listener
+			for _, lst := range builder.gatewayListeners {
+				if strings.Contains(lst.Name, "_80") {
+					l = lst
+					break
+				}
+			}
+			if l == nil {
+				t.Fatal("expected to find gateway listener")
+			}
+
+			tc.verifyBuf(t, l.PerConnectionBufferLimitBytes)
+
+			// Verify HCM settings
+			// Single-server gateway produces one unnamed filter chain.
+			if len(l.GetFilterChains()) == 0 {
+				t.Fatalf("listener %q has no filter chains", l.Name)
+			}
+			hcmFilter := xdstest.ExtractHTTPConnectionManager(t, l.GetFilterChains()[0])
+			tc.verifyHCM(t, hcmFilter)
 		})
 	}
 }

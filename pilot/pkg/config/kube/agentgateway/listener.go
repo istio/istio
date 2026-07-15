@@ -30,7 +30,6 @@ import (
 	istio "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/kube/gatewaycommon"
 	kubecreds "istio.io/istio/pilot/pkg/credentials/kube"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -82,23 +81,23 @@ func buildListener(
 	controllerName gatewayv1.GatewayController,
 	portErr error,
 ) (*istio.Server, *TLSInfo, []gatewayv1.ListenerStatus, bool) {
-	listenerConditions := map[string]*Condition{
+	listenerConditions := map[string]*gatewaycommon.ListenerStatusCondition{
 		string(gatewayv1.ListenerConditionAccepted): {
-			reason:  string(gatewayv1.ListenerReasonAccepted),
-			message: "No errors found",
+			Reason:  string(gatewayv1.ListenerReasonAccepted),
+			Message: "No errors found",
 		},
 		string(gatewayv1.ListenerConditionProgrammed): {
-			reason:  string(gatewayv1.ListenerReasonProgrammed),
-			message: "No errors found",
+			Reason:  string(gatewayv1.ListenerReasonProgrammed),
+			Message: "No errors found",
 		},
 		string(gatewayv1.ListenerConditionConflicted): {
-			reason:  string(gatewayv1.ListenerReasonNoConflicts),
-			message: "No errors found",
-			status:  kstatus.StatusFalse,
+			Reason:  string(gatewayv1.ListenerReasonNoConflicts),
+			Message: "No errors found",
+			Status:  kstatus.StatusFalse,
 		},
 		string(gatewayv1.ListenerConditionResolvedRefs): {
-			reason:  string(gatewayv1.ListenerReasonResolvedRefs),
-			message: "No errors found",
+			Reason:  string(gatewayv1.ListenerReasonResolvedRefs),
+			Message: "No errors found",
 		},
 	}
 
@@ -110,17 +109,17 @@ func buildListener(
 		err = validateTLS(tlsInfo)
 	}
 	if err != nil {
-		listenerConditions[string(gatewayv1.ListenerConditionResolvedRefs)].error = err
-		listenerConditions[string(gatewayv1.GatewayConditionProgrammed)].error = &ConfigError{
-			Reason:  string(gatewayv1.GatewayReasonInvalid),
-			Message: "Bad TLS configuration",
+		listenerConditions[string(gatewayv1.ListenerConditionResolvedRefs)].Error = &gatewaycommon.ListenerStatusConfigError{
+			Reason: err.Reason, Message: err.Message,
+		}
+		listenerConditions[string(gatewayv1.GatewayConditionProgrammed)].Error = &gatewaycommon.ListenerStatusConfigError{
+			Reason: string(gatewayv1.GatewayReasonInvalid), Message: "Bad TLS configuration",
 		}
 		ok = false
 	}
 	if portErr != nil {
-		listenerConditions[string(gatewayv1.ListenerConditionAccepted)].error = &ConfigError{
-			Reason:  string(gatewayv1.ListenerReasonUnsupportedProtocol),
-			Message: portErr.Error(),
+		listenerConditions[string(gatewayv1.ListenerConditionAccepted)].Error = &gatewaycommon.ListenerStatusConfigError{
+			Reason: string(gatewayv1.ListenerReasonUnsupportedProtocol), Message: portErr.Error(),
 		}
 		ok = false
 	}
@@ -128,9 +127,8 @@ func buildListener(
 	hostnames := buildHostnameMatch(ctx, obj.GetNamespace(), namespaces, l)
 	_, perr := listenerProtocolToIstio(controllerName, l.Protocol)
 	if perr != nil {
-		listenerConditions[string(gatewayv1.ListenerConditionAccepted)].error = &ConfigError{
-			Reason:  string(gatewayv1.ListenerReasonUnsupportedProtocol),
-			Message: perr.Error(),
+		listenerConditions[string(gatewayv1.ListenerConditionAccepted)].Error = &gatewaycommon.ListenerStatusConfigError{
+			Reason: string(gatewayv1.ListenerReasonUnsupportedProtocol), Message: perr.Error(),
 		}
 		ok = false
 	}
@@ -144,7 +142,7 @@ func buildListener(
 		Hosts: hostnames,
 	}
 
-	updatedStatus := reportListenerCondition(listenerIndex, l, obj, status, listenerConditions)
+	updatedStatus := gatewaycommon.ReportListenerCondition(listenerIndex, l, obj, status, listenerConditions)
 	return server, tlsInfo, updatedStatus, ok
 }
 
@@ -158,9 +156,6 @@ func listenerProtocolToIstio(name gatewayv1.GatewayController, p gatewayv1.Proto
 	case gatewayv1.TLSProtocolType:
 		return string(p), nil
 	case gatewayv1.TCPProtocolType:
-		if !features.EnableAlphaGatewayAPI {
-			return "", fmt.Errorf("protocol %q is supported, but only when %v=true is configured", p, features.EnableAlphaGatewayAPIName)
-		}
 		return string(p), nil
 	// Our own custom types
 	case gatewayv1.ProtocolType(protocol.HBONE):

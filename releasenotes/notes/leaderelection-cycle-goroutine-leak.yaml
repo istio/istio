@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 60843
+releaseNotes:
+  - |
+    **Fixed** a goroutine leak in istiod leader election where every election cycle
+    (leadership lost and re-acquired) leaked one goroutine until process exit.

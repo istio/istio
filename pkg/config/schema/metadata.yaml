@@ -276,11 +276,13 @@ resources:
   - kind: "TCPRoute"
     plural: "tcproutes"
     group: "gateway.networking.k8s.io"
-    version: "v1alpha2"
-    protoPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2"
-    proto: "k8s.io.gateway_api.api.v1alpha1.TCPRouteSpec"
-    statusProto: "k8s.io.gateway_api.api.v1alpha1.TCPRouteStatus"
-    statusProtoPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2"
+    version: "v1"
+    versionAliases:
+    - "v1alpha2"
+    protoPackage: "sigs.k8s.io/gateway-api/apis/v1"
+    proto: "k8s.io.gateway_api.api.v1.TCPRouteSpec"
+    statusProto: "k8s.io.gateway_api.api.v1.TCPRouteStatus"
+    statusProtoPackage: "sigs.k8s.io/gateway-api/apis/v1"
 
   - kind: "TLSRoute"
     plural: "tlsroutes"
