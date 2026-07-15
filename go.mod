@@ -13,7 +13,7 @@ require (
 	github.com/cbeuw/connutil v1.0.1
 	github.com/cenkalti/backoff/v4 v4.3.0
 	github.com/cespare/xxhash/v2 v2.3.0
-	github.com/cheggaaa/pb/v3 v3.1.7
+	github.com/cheggaaa/pb/v3 v3.2.0
 	github.com/cncf/xds/go v0.0.0-20260202195803-dba9d589def2
 	github.com/containernetworking/cni v1.3.0
 	github.com/containernetworking/plugins v1.9.1
@@ -181,8 +181,8 @@ require (
 	github.com/lestrrat-go/iter v1.0.2 // indirect
 	github.com/lestrrat-go/option v1.0.1 // indirect
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de // indirect
-	github.com/mattn/go-colorable v0.1.14 // indirect
-	github.com/mattn/go-runewidth v0.0.23 // indirect
+	github.com/mattn/go-colorable v0.1.15 // indirect
+	github.com/mattn/go-runewidth v0.0.24 // indirect
 	github.com/mitchellh/go-wordwrap v1.0.1 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/moby/spdystream v0.5.1 // indirect
