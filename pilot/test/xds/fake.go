@@ -180,6 +180,12 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	}
 	mc := multicluster.NewFakeController()
 	creds := kubesecrets.NewMulticluster(opts.DefaultClusterName, mc)
+	creds.AddSecretHandler(func(k kind.Kind, name string, namespace string) {
+		s.ConfigUpdate(&model.PushRequest{
+			ConfigsUpdated: sets.New(model.ConfigKey{Kind: k, Name: name, Namespace: namespace}),
+			Reason:         model.NewReasonStats(model.SecretTrigger),
+		})
+	})
 
 	configController := memory.NewController(memory.MakeSkipValidation(collections.PilotGatewayAPI()))
 	clientBuilder := opts.KubeClientBuilder

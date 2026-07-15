@@ -15,8 +15,11 @@
 package xds
 
 import (
+	"strings"
+
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/model/credentials"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/kind"
@@ -84,6 +87,20 @@ func proxyDependentOnConfig(proxy *model.Proxy, config model.ConfigKey, push *mo
 	if features.ScopedAddressPushes && config.Kind == kind.Address {
 		return proxy.GetWatchedResource(v3.AddressType) != nil
 	}
+	// Secret/ConfigMap updates only matter to proxies that subscribe to the specific resource via SDS.
+	if config.Kind == kind.Secret {
+		// Proxies using WasmPlugin/TrafficExtension might use image pull credentials outside of SDS subscriptions,
+		// so for those proxies, we need to preserve the old behavior of pushing at every change.
+		// TODO: build a reverse index (secret -> TrafficExtension resource names) in PushContext so we
+		// can precisely match instead of pushing on each Secret change
+		if proxy.GetWatchedResource(v3.ExtensionConfigurationType) != nil {
+			return true
+		}
+		return proxyReferencesSecret(proxy, config)
+	}
+	if config.Kind == kind.ConfigMap {
+		return proxyReferencesConfigMap(proxy, config)
+	}
 	// Detailed config dependencies check.
 	switch proxy.Type {
 	case model.SidecarProxy:
@@ -114,6 +131,47 @@ func proxyDependentOnConfig(proxy *model.Proxy, config model.ConfigKey, push *mo
 		return true
 	}
 	return false
+}
+
+// proxyReferencesSecret checks whether the proxy's SDS subscriptions include the given secret.
+func proxyReferencesSecret(proxy *model.Proxy, config model.ConfigKey) bool {
+	sds := proxy.GetWatchedResource(v3.SecretType)
+	if sds == nil || sds.ResourceNames.Len() == 0 {
+		return false
+	}
+	secretName := config.Name
+	secretNS := config.Namespace
+	proxyNS := proxy.GetNamespace()
+
+	// Build candidate names: the secret itself and its -cacert counterpart.
+	names := []string{secretName}
+	if stripped := strings.TrimSuffix(secretName, credentials.SdsCaSuffix); stripped != secretName {
+		names = append(names, stripped)
+	} else {
+		names = append(names, secretName+credentials.SdsCaSuffix)
+	}
+
+	for _, name := range names {
+		if proxyNS == secretNS && sds.ResourceNames.Contains(credentials.KubernetesSecretTypeURI+name) {
+			return true
+		}
+		if sds.ResourceNames.Contains(credentials.KubernetesSecretTypeURI + secretNS + "/" + name) {
+			return true
+		}
+		if sds.ResourceNames.Contains(credentials.KubernetesGatewaySecretTypeURI + secretNS + "/" + name) {
+			return true
+		}
+	}
+	return false
+}
+
+// proxyReferencesConfigMap checks whether the proxy's SDS subscriptions include the given configmap.
+func proxyReferencesConfigMap(proxy *model.Proxy, config model.ConfigKey) bool {
+	sds := proxy.GetWatchedResource(v3.SecretType)
+	if sds == nil {
+		return false
+	}
+	return sds.ResourceNames.Contains(credentials.KubernetesConfigMapTypeURI + config.Namespace + "/" + config.Name)
 }
 
 // DefaultProxyNeedsPush check if a proxy needs push for this push event and returns a new PushRequest in the case
