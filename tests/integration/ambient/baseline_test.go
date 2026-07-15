@@ -40,7 +40,6 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/http/headers"
 	"istio.io/istio/pkg/kube/inject"
-	"istio.io/istio/pkg/ptr"
 	echot "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/env"
@@ -3288,7 +3287,7 @@ func TestAPIServer(t *testing.T) {
 				&authenticationv1.TokenRequest{
 					Spec: authenticationv1.TokenRequestSpec{
 						Audiences:         []string{"kubernetes.default.svc"},
-						ExpirationSeconds: ptr.Of(int64(600)),
+						ExpirationSeconds: new(int64(600)),
 					},
 				}, metav1.CreateOptions{})
 			assert.NoError(t, err)

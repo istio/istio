@@ -43,7 +43,6 @@ import (
 	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/network"
-	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
@@ -842,9 +841,9 @@ func (w *workload) buildPodService() []runtime.Object {
 				Hints:              nil,
 			}},
 			Ports: []discoveryv1.EndpointPort{{
-				Name:     ptr.Of("http"),
-				Port:     ptr.Of(w.port),
-				Protocol: ptr.Of(corev1.ProtocolTCP),
+				Name:     new("http"),
+				Port:     new(w.port),
+				Protocol: new(corev1.ProtocolTCP),
 			}},
 		},
 	}

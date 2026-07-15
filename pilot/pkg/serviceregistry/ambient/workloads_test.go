@@ -39,7 +39,6 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/kube/krt/krttest"
-	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -152,7 +151,7 @@ func TestPodWorkloads(t *testing.T) {
 							Kind:       "ReplicaSet",
 							APIVersion: "apps/v1",
 							Name:       "rs",
-							Controller: ptr.Of(true),
+							Controller: new(true),
 						},
 					},
 				},
@@ -584,7 +583,7 @@ func TestPodWorkloads(t *testing.T) {
 						{
 							Addresses: []string{"1.2.3.4"},
 							Conditions: discovery.EndpointConditions{
-								Ready: ptr.Of(true),
+								Ready: new(true),
 							},
 							TargetRef: &v1.ObjectReference{
 								Kind:      "Pod",
@@ -595,9 +594,9 @@ func TestPodWorkloads(t *testing.T) {
 					},
 					Ports: []discovery.EndpointPort{
 						{
-							Name:     ptr.Of("http"),
-							Protocol: ptr.Of(v1.ProtocolTCP),
-							Port:     ptr.Of(int32(80)),
+							Name:     new("http"),
+							Protocol: new(v1.ProtocolTCP),
+							Port:     new(int32(80)),
 						},
 					},
 				},
@@ -676,15 +675,15 @@ func TestPodWorkloads(t *testing.T) {
 						{
 							Addresses: []string{"1.2.3.4"},
 							Conditions: discovery.EndpointConditions{
-								Ready: ptr.Of(true),
+								Ready: new(true),
 							},
 						},
 					},
 					Ports: []discovery.EndpointPort{
 						{
-							Name:     ptr.Of("http"),
-							Protocol: ptr.Of(v1.ProtocolTCP),
-							Port:     ptr.Of(int32(80)),
+							Name:     new("http"),
+							Protocol: new(v1.ProtocolTCP),
+							Port:     new(int32(80)),
 						},
 					},
 				},
@@ -768,7 +767,7 @@ func TestPodWorkloads(t *testing.T) {
 						{
 							Addresses: []string{"1.1.1.1"},
 							Conditions: discovery.EndpointConditions{
-								Ready: ptr.Of(true),
+								Ready: new(true),
 							},
 							TargetRef: &v1.ObjectReference{
 								Kind:      "Pod",
@@ -779,9 +778,9 @@ func TestPodWorkloads(t *testing.T) {
 					},
 					Ports: []discovery.EndpointPort{
 						{
-							Name:     ptr.Of("80"),
-							Protocol: ptr.Of(v1.ProtocolTCP),
-							Port:     ptr.Of(int32(80)),
+							Name:     new("80"),
+							Protocol: new(v1.ProtocolTCP),
+							Port:     new(int32(80)),
 						},
 					},
 				},
@@ -2024,15 +2023,15 @@ func TestEndpointSliceWorkloads(t *testing.T) {
 					{
 						Addresses: []string{"1.2.3.4"},
 						Conditions: discovery.EndpointConditions{
-							Ready: ptr.Of(true),
+							Ready: new(true),
 						},
 					},
 				},
 				Ports: []discovery.EndpointPort{
 					{
-						Name:     ptr.Of("http"),
-						Protocol: ptr.Of(v1.ProtocolTCP),
-						Port:     ptr.Of(int32(80)),
+						Name:     new("http"),
+						Protocol: new(v1.ProtocolTCP),
+						Port:     new(int32(80)),
 					},
 				},
 			},
@@ -2112,15 +2111,15 @@ func kubernetesAPIServerEndpoint(ip string) *discovery.EndpointSlice {
 			{
 				Addresses: []string{ip},
 				Conditions: discovery.EndpointConditions{
-					Ready: ptr.Of(true),
+					Ready: new(true),
 				},
 			},
 		},
 		Ports: []discovery.EndpointPort{
 			{
-				Name:     ptr.Of("https"),
-				Protocol: ptr.Of(v1.ProtocolTCP),
-				Port:     ptr.Of(int32(6443)),
+				Name:     new("https"),
+				Protocol: new(v1.ProtocolTCP),
+				Port:     new(int32(6443)),
 			},
 		},
 	}
@@ -2161,7 +2160,7 @@ func newAmbientUnitTest(t test.Failer) Builder {
 			Status: gatewayv1.GatewayStatus{
 				Addresses: []gatewayv1.GatewayStatusAddress{
 					{
-						Type:  ptr.Of(gatewayv1.IPAddressType),
+						Type:  new(gatewayv1.IPAddressType),
 						Value: "9.9.9.9",
 					},
 				},
@@ -2191,7 +2190,7 @@ func newAmbientUnitTest(t test.Failer) Builder {
 			Status: gatewayv1.GatewayStatus{
 				Addresses: []gatewayv1.GatewayStatusAddress{
 					{
-						Type:  ptr.Of(gatewayv1.HostnameAddressType),
+						Type:  new(gatewayv1.HostnameAddressType),
 						Value: "networkgateway.example.com",
 					},
 				},

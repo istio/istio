@@ -1730,7 +1730,7 @@ func TestRBACConvert(t *testing.T) {
 										t.Fatalf("unexpected selector in mesh-level policy %v", p)
 									}
 									if rootCfg == nil || p.GetCreationTimestamp().Before(rootCfg.GetCreationTimestamp()) {
-										rootCfg = ptr.Of(p)
+										rootCfg = new(p)
 									}
 								default:
 									spec := p.Spec.(*auth.PeerAuthentication)
@@ -1740,10 +1740,10 @@ func TestRBACConvert(t *testing.T) {
 
 									if spec.GetSelector() != nil {
 										// Workload policy
-										workloadCfg = ptr.Of(p)
+										workloadCfg = new(p)
 									} else if nsCfg == nil || p.GetCreationTimestamp().Before(nsCfg.GetCreationTimestamp()) {
 										// Namespace policy
-										nsCfg = ptr.Of(p)
+										nsCfg = new(p)
 									}
 								}
 							}
@@ -2237,7 +2237,7 @@ func TestAmbientSync(t *testing.T) {
 			GatewayClassName: "istio-remote",
 			Addresses: []k8sv1.GatewaySpecAddress{
 				{
-					Type:  ptr.Of(k8sv1.IPAddressType),
+					Type:  new(k8sv1.IPAddressType),
 					Value: "172.18.1.45",
 				},
 			},
@@ -2247,7 +2247,7 @@ func TestAmbientSync(t *testing.T) {
 					Port:     15008,
 					Protocol: k8sv1.ProtocolType("HBONE"),
 					TLS: &k8sv1.ListenerTLSConfig{
-						Mode: ptr.Of(k8sv1.TLSModeType("Passthrough")),
+						Mode: new(k8sv1.TLSModeType("Passthrough")),
 						Options: map[k8sv1.AnnotationKey]k8sv1.AnnotationValue{
 							"gateway.istio.io/listener-protocol": "auto-passthrough",
 						},
@@ -2258,7 +2258,7 @@ func TestAmbientSync(t *testing.T) {
 		Status: k8sv1.GatewayStatus{
 			Addresses: []k8sv1.GatewayStatusAddress{
 				{
-					Type:  ptr.Of(k8sv1.IPAddressType),
+					Type:  new(k8sv1.IPAddressType),
 					Value: "172.18.1.45",
 				},
 			},
@@ -2533,7 +2533,7 @@ func (s *ambientTestServer) addNetworkGatewaySpecificAddressForClient(
 				Port:     15008,
 				Protocol: "HBONE",
 				TLS: &k8sv1.ListenerTLSConfig{
-					Mode: ptr.Of(k8sv1.TLSModeTerminate),
+					Mode: new(k8sv1.TLSModeTerminate),
 					Options: map[k8sv1.AnnotationKey]k8sv1.AnnotationValue{
 						"gateway.istio.io/tls-terminate-mode": "ISTIO_MUTUAL",
 					},
@@ -2561,10 +2561,10 @@ func (s *ambientTestServer) addNetworkGatewaySpecificAddressForClient(
 	if ready {
 		addr := []k8sv1.GatewayStatusAddress{}
 		if ip != "" {
-			addr = append(addr, k8sv1.GatewayStatusAddress{Type: ptr.Of(k8sv1.IPAddressType), Value: ip})
+			addr = append(addr, k8sv1.GatewayStatusAddress{Type: new(k8sv1.IPAddressType), Value: ip})
 		}
 		if hostname != "" {
-			addr = append(addr, k8sv1.GatewayStatusAddress{Type: ptr.Of(k8sv1.HostnameAddressType), Value: hostname})
+			addr = append(addr, k8sv1.GatewayStatusAddress{Type: new(k8sv1.HostnameAddressType), Value: hostname})
 		}
 		gateway.Status = k8sv1.GatewayStatus{
 			Addresses: addr,
@@ -2629,10 +2629,10 @@ func (s *ambientTestServer) addWaypointSpecificAddressForClient(
 	if ready {
 		addr := []k8sv1.GatewayStatusAddress{}
 		if ip != "" {
-			addr = append(addr, k8sv1.GatewayStatusAddress{Type: ptr.Of(k8sv1.IPAddressType), Value: ip})
+			addr = append(addr, k8sv1.GatewayStatusAddress{Type: new(k8sv1.IPAddressType), Value: ip})
 		}
 		if hostname != "" {
-			addr = append(addr, k8sv1.GatewayStatusAddress{Type: ptr.Of(k8sv1.HostnameAddressType), Value: hostname})
+			addr = append(addr, k8sv1.GatewayStatusAddress{Type: new(k8sv1.HostnameAddressType), Value: hostname})
 		}
 		gateway.Status = k8sv1.GatewayStatus{
 			Addresses: addr,

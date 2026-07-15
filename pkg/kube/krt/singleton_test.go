@@ -25,7 +25,6 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/kube/krt"
-	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -44,7 +43,7 @@ func TestSingleton(t *testing.T) {
 	ConfigMapNames := krt.NewSingleton[string](
 		func(ctx krt.HandlerContext) *string {
 			cms := krt.Fetch(ctx, ConfigMaps)
-			return ptr.Of(slices.Join(",", slices.Map(cms, func(c *corev1.ConfigMap) string {
+			return new(slices.Join(",", slices.Map(cms, func(c *corev1.ConfigMap) string {
 				return config.NamespacedName(c).String()
 			})...))
 		}, opts.With(
@@ -77,20 +76,20 @@ func TestNewStatic(t *testing.T) {
 
 	assert.Equal(t, s.Get(), nil)
 
-	s.Set(ptr.Of("foo"))
-	assert.Equal(t, s.Get(), ptr.Of("foo"))
+	s.Set(new("foo"))
+	assert.Equal(t, s.Get(), new("foo"))
 	tt.WaitOrdered("add/foo")
 
 	s.Set(nil)
 	assert.Equal(t, s.Get(), nil)
 	tt.WaitOrdered("delete/foo")
 
-	s.Set(ptr.Of("bar"))
-	assert.Equal(t, s.Get(), ptr.Of("bar"))
+	s.Set(new("bar"))
+	assert.Equal(t, s.Get(), new("bar"))
 	tt.WaitOrdered("add/bar")
 
-	s.Set(ptr.Of("bar2"))
-	assert.Equal(t, s.Get(), ptr.Of("bar2"))
+	s.Set(new("bar2"))
+	assert.Equal(t, s.Get(), new("bar2"))
 	tt.WaitUnordered("delete/bar", "add/bar2")
 }
 
@@ -104,8 +103,8 @@ func TestStaticMetadata(t *testing.T) {
 
 	assert.Equal(t, s.Get(), nil)
 
-	s.Set(ptr.Of("foo"))
-	assert.Equal(t, s.Get(), ptr.Of("foo"))
+	s.Set(new("foo"))
+	assert.Equal(t, s.Get(), new("foo"))
 	tt.WaitOrdered("add/foo")
 
 	assert.Equal(t, s.AsCollection().Metadata(), meta)

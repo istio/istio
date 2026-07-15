@@ -116,7 +116,7 @@ func (s *delayedClient[T]) AddEventHandler(h cache.ResourceEventHandler) cache.R
 	defer s.hm.Unlock()
 
 	hasSynced := delayedHandlerRegistration{hasSynced: new(atomic.Pointer[func() bool])}
-	hasSynced.hasSynced.Store(ptr.Of(s.delayed.HasSynced))
+	hasSynced.hasSynced.Store(new(s.delayed.HasSynced))
 	s.handlers = append(s.handlers, delayedHandler{
 		ResourceEventHandler: h,
 		hasSynced:            hasSynced,
@@ -184,7 +184,7 @@ func (s *delayedClient[T]) set(inf Informer[T]) {
 		defer s.hm.Unlock()
 		for _, h := range s.handlers {
 			reg := inf.AddEventHandler(h)
-			h.hasSynced.hasSynced.Store(ptr.Of(reg.HasSynced))
+			h.hasSynced.hasSynced.Store(new(reg.HasSynced))
 		}
 		s.handlers = nil
 		for _, i := range s.indexers {

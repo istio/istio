@@ -33,7 +33,6 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
-	"istio.io/istio/pkg/ptr"
 )
 
 var (
@@ -173,7 +172,7 @@ func DeleteResource(clt kube.CLIClient, dryRun bool, log clog.Logger, obj *unstr
 		return err
 	}
 
-	if err := c.Delete(context.TODO(), obj.GetName(), metav1.DeleteOptions{PropagationPolicy: ptr.Of(metav1.DeletePropagationForeground)}); err != nil {
+	if err := c.Delete(context.TODO(), obj.GetName(), metav1.DeleteOptions{PropagationPolicy: new(metav1.DeletePropagationForeground)}); err != nil {
 		if !kerrors.IsNotFound(err) {
 			return err
 		}

@@ -50,7 +50,6 @@ import (
 	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/network"
-	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/workloadapi"
@@ -1379,7 +1378,7 @@ func implicitWaypointPolicies(
 		if si.Waypoint.ResourceName == "" || (waypoint != nil && waypoint.ResourceName() == si.Waypoint.ResourceName) {
 			return nil
 		}
-		return ptr.Of(si.Waypoint.ResourceName)
+		return new(si.Waypoint.ResourceName)
 	})
 	if len(serviceWaypointKeys) == 0 {
 		if waypoint != nil {
@@ -1400,7 +1399,7 @@ func implicitWaypointPolicies(
 		if policy == "" {
 			return nil
 		}
-		return ptr.Of(w.Namespace + "/" + policy)
+		return new(w.Namespace + "/" + policy)
 	})
 }
 
@@ -1516,7 +1515,7 @@ func endpointSliceAddressIndex(EndpointSlices krt.Collection[*discovery.Endpoint
 }
 
 func precomputeWorkloadPtr(w *model.WorkloadInfo) *model.WorkloadInfo {
-	return ptr.Of(precomputeWorkload(*w))
+	return new(precomputeWorkload(*w))
 }
 
 func precomputeWorkload(w model.WorkloadInfo) model.WorkloadInfo {

@@ -36,7 +36,6 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/xds"
-	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -355,7 +354,7 @@ func (t *Telemetries) Tracing(proxy *Proxy, svc *Service) *TracingConfig {
 		}
 		if m.RandomSamplingPercentage != nil {
 			for _, spec := range specs {
-				spec.RandomSamplingPercentage = ptr.Of(m.RandomSamplingPercentage.GetValue())
+				spec.RandomSamplingPercentage = new(m.RandomSamplingPercentage.GetValue())
 			}
 		}
 		if m.UseRequestIdForTraceSampling != nil {

@@ -321,7 +321,7 @@ func GlobalWaypointsCollection(
 			return makeWaypoint(gateway, gatewayClass, serviceAccounts, trafficType, clusterNetwork)
 		}, opts...)
 
-		return ptr.Of(clusterWaypoints)
+		return new(clusterWaypoints)
 	}, "Waypoints", opts)
 }
 

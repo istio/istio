@@ -33,7 +33,6 @@ import (
 	"istio.io/istio/pilot/pkg/keycertbundle"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
-	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
@@ -68,7 +67,7 @@ var (
 					Resources:   []string{"*"},
 				},
 			}},
-			FailurePolicy: ptr.Of(admission.Ignore),
+			FailurePolicy: new(admission.Ignore),
 		}, {
 			Name: "hook1",
 			ClientConfig: admission.WebhookClientConfig{Service: &admission.ServiceReference{
@@ -84,7 +83,7 @@ var (
 					Resources:   []string{"*"},
 				},
 			}},
-			FailurePolicy: ptr.Of(admission.Ignore),
+			FailurePolicy: new(admission.Ignore),
 		}},
 	}
 
@@ -138,8 +137,8 @@ func init() {
 	webhookConfigWithCABundleIgnore.Webhooks[1].ClientConfig.CABundle = caBundle0
 
 	webhookConfigWithCABundleFail = webhookConfigWithCABundleIgnore.DeepCopyObject().(*admission.ValidatingWebhookConfiguration)
-	webhookConfigWithCABundleFail.Webhooks[0].FailurePolicy = ptr.Of(admission.Fail)
-	webhookConfigWithCABundleFail.Webhooks[1].FailurePolicy = ptr.Of(admission.Fail)
+	webhookConfigWithCABundleFail.Webhooks[0].FailurePolicy = new(admission.Fail)
+	webhookConfigWithCABundleFail.Webhooks[1].FailurePolicy = new(admission.Fail)
 }
 
 const (
@@ -225,7 +224,7 @@ func TestGreenfield(t *testing.T) {
 	webhooks.Delete(unpatchedWebhookConfig.Name, "")
 
 	// verify the webhook is updated after the controller can confirm invalid config is rejected.
-	gatewayError.Store(ptr.Of[error](kerrors.NewInternalError(errors.New("unknown error"))))
+	gatewayError.Store(new(error(kerrors.NewInternalError(errors.New("unknown error")))))
 	webhooks.Create(unpatchedWebhookConfig)
 	assert.EventuallyEqual(
 		t,
@@ -236,7 +235,7 @@ func TestGreenfield(t *testing.T) {
 	)
 
 	// verify the webhook is updated after the controller can confirm invalid config is rejected.
-	gatewayError.Store(ptr.Of[error](kerrors.NewInternalError(errors.New(deniedRequestMessageFragment))))
+	gatewayError.Store(new(error(kerrors.NewInternalError(errors.New(deniedRequestMessageFragment)))))
 	c.syncAll()
 	assert.EventuallyEqual(
 		t,
@@ -247,7 +246,7 @@ func TestGreenfield(t *testing.T) {
 	)
 
 	// If we start having issues, we should not flip back to Ignore
-	gatewayError.Store(ptr.Of[error](kerrors.NewInternalError(errors.New("unknown error"))))
+	gatewayError.Store(new(error(kerrors.NewInternalError(errors.New("unknown error")))))
 	c.syncAll()
 	assert.EventuallyEqual(
 		t,
@@ -276,7 +275,7 @@ func TestGreenfield(t *testing.T) {
 // TestCABundleChange ensures that we create request to update all webhooks when CA bundle changes.
 func TestCABundleChange(t *testing.T) {
 	c, gatewayError := createTestController(t)
-	gatewayError.Store(ptr.Of[error](kerrors.NewInternalError(errors.New(deniedRequestMessageFragment))))
+	gatewayError.Store(new(error(kerrors.NewInternalError(errors.New(deniedRequestMessageFragment)))))
 	webhooks := clienttest.Wrap(t, c.webhooks)
 	fetch := func(name string) func() *admission.ValidatingWebhookConfiguration {
 		return func() *admission.ValidatingWebhookConfiguration {

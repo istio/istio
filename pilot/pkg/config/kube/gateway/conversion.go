@@ -1822,7 +1822,7 @@ func reportGatewayStatus(
 	}
 
 	if listenerSetCount != 0 {
-		gs.AttachedListenerSets = ptr.Of(int32(listenerSetCount))
+		gs.AttachedListenerSets = new(int32(listenerSetCount))
 	}
 
 	setProgrammedCondition(gatewayConditions, internal, gatewayServices, warnings, allUsable)

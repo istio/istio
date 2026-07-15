@@ -22,7 +22,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
-	"istio.io/istio/pkg/ptr"
 )
 
 func TestKind(t *testing.T) {
@@ -34,7 +33,7 @@ func TestKind(t *testing.T) {
 		t.Errorf("GetSpec() => got %v, want %v", got, spec)
 	}
 
-	status := ptr.Of(json.RawMessage(`{"c":"d"}`))
+	status := new(json.RawMessage(`{"c":"d"}`))
 	obj.Status = status
 	if got := obj.GetStatus(); !reflect.DeepEqual(status, got) {
 		t.Errorf("GetStatus() => got %v, want %v", got, status)

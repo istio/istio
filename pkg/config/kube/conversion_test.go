@@ -20,7 +20,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/ptr"
 )
 
 func TestConvertProtocol(t *testing.T) {
@@ -79,7 +78,7 @@ func TestConvertProtocol(t *testing.T) {
 			name:          "standard app protocol",
 			port:          3306, // mysql
 			portName:      "random-name",
-			appProto:      ptr.Of("kubernetes.io/h2c"),
+			appProto:      new("kubernetes.io/h2c"),
 			expectedProto: protocol.HTTP2,
 		},
 	}
