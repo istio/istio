@@ -171,6 +171,55 @@ func TestSidecarMutualTlsOrigination(t *testing.T) {
 		})
 }
 
+// TestSidecarMutualTlsOrigination_SecretRotation verifies that rotating a Secret referenced by a DestinationRule
+// credentialName is propagated to the sidecar. The CA is rotated to an unrelated one (which must break
+// connectivity) and then back (which must restore it); a skipped push would leave the old config in place.
+func TestSidecarMutualTlsOrigination_SecretRotation(t *testing.T) {
+	framework.NewTest(t).
+		Run(func(t framework.TestContext) {
+			const credName = "mtls-credential-rotation"
+			from := apps.Ns2.C
+			ns := from.Config().Namespace
+			host := apps.External.All.Config().ClusterLocalFQDN()
+
+			validCred := ingressutil.IngressCredential{
+				Certificate: file.AsStringOrFail(t, path.Join(env.IstioSrc, "tests/testdata/certs/dns/cert-chain.pem")),
+				PrivateKey:  file.AsStringOrFail(t, path.Join(env.IstioSrc, "tests/testdata/certs/dns/key.pem")),
+				CaCert:      file.AsStringOrFail(t, path.Join(env.IstioSrc, "tests/testdata/certs/dns/root-cert.pem")),
+			}
+			// Same key pair, but a CA that did not sign the server certificate.
+			wrongCACred := validCred
+			wrongCACred.CaCert = ingressutil.CaCertA
+
+			// Creates or updates the secret in the client namespace.
+			setCredential := func(cred ingressutil.IngressCredential) {
+				ingressutil.CreateIngressKubeSecretInNamespace(t, credName, ingressutil.Mtls, cred, false, ns.Name())
+			}
+
+			serviceAccount := from.Config().SpiffeIdentity()
+			authorizeSidecar(t, ns, serviceAccount[strings.LastIndex(serviceAccount, "/")+1:])
+			setCredential(validCred)
+			newTLSSidecarDestinationRule(t, apps.External.All, "MUTUAL", "c", credName, ns)
+
+			ok := ingressutil.ExpectedResponse{StatusCode: http.StatusOK}
+			from[0].CallOrFail(t, newTLSSidecarCallOpts(apps.External.All[0], host, ok))
+
+			t.NewSubTest("rotate to wrong CA").Run(func(t framework.TestContext) {
+				setCredential(wrongCACred)
+				from[0].CallOrFail(t, newTLSSidecarCallOpts(apps.External.All[0], host, ingressutil.ExpectedResponse{
+					StatusCode:           http.StatusServiceUnavailable,
+					ErrorMessage:         "CERTIFICATE_VERIFY_FAILED",
+					AllowedErrorMessages: []string{"remote connection failure"},
+				}))
+			})
+
+			t.NewSubTest("rotate back to valid CA").Run(func(t framework.TestContext) {
+				setCredential(validCred)
+				from[0].CallOrFail(t, newTLSSidecarCallOpts(apps.External.All[0], host, ok))
+			})
+		})
+}
+
 // Authorize only specific sidecars in the namespace with secret listing permissions.
 func authorizeSidecar(t framework.TestContext, clientNamespace namespace.Instance, serviceAccountName string) {
 	args := map[string]any{
@@ -252,6 +301,11 @@ spec:
     portLevelSettings:
       - port:
           number: 80
+        # Force a new upstream connection (and TLS handshake) per request, so rotated
+        # credentials take effect immediately instead of reusing pooled connections.
+        connectionPool:
+          http:
+            maxRequestsPerConnection: 1
         tls:
           mode: {{.Mode}}
           credentialName: {{.CredentialName}}
