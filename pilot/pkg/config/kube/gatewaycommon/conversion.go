@@ -24,6 +24,7 @@ import (
 	istio "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/krt"
@@ -48,7 +49,12 @@ type ListenerStatusCondition struct {
 	SetOnce string
 }
 
-func setListenerConditions(
+// SupportedKindsFetcher returns route kinds supported by a listener and whether
+// the listener's allowedRoutes kinds are valid. Injected per controller so
+// gateway and agentgateway can apply their own protocol semantics (e.g. HBONE).
+type SupportedKindsFetcher func(l gatewayv1.Listener) ([]gatewayv1.RouteGroupKind, bool)
+
+func SetListenerConditions(
 	generation int64,
 	existingConditions []metav1.Condition,
 	conditions map[string]*ListenerStatusCondition,
@@ -95,7 +101,7 @@ func SetResourceConditions(
 	existingConditions []metav1.Condition,
 	conditions map[string]*ListenerStatusCondition,
 ) []metav1.Condition {
-	return setListenerConditions(generation, existingConditions, conditions)
+	return SetListenerConditions(generation, existingConditions, conditions)
 }
 
 // HumanReadableJoin formats a slice of strings for human-readable status messages.
@@ -159,6 +165,7 @@ func ReportListenerConflict(
 	obj controllers.Object,
 	statusListeners []gatewayv1.ListenerStatus,
 	reason gatewayv1.ListenerConditionReason,
+	supportedKinds SupportedKindsFetcher,
 ) []gatewayv1.ListenerStatus {
 	msg := "Listener has a conflict with another listener attached to the same Gateway"
 	conditions := map[string]*ListenerStatusCondition{
@@ -180,7 +187,7 @@ func ReportListenerConflict(
 			Status:  kstatus.StatusTrue,
 		},
 	}
-	return ReportListenerCondition(index, l, obj, statusListeners, conditions)
+	return ReportListenerCondition(index, l, obj, statusListeners, conditions, supportedKinds)
 }
 
 // ReportListenerCondition applies listener condition updates and supported route kinds.
@@ -190,12 +197,13 @@ func ReportListenerCondition(
 	obj controllers.Object,
 	statusListeners []gatewayv1.ListenerStatus,
 	conditions map[string]*ListenerStatusCondition,
+	supportedKinds SupportedKindsFetcher,
 ) []gatewayv1.ListenerStatus {
 	for index >= len(statusListeners) {
 		statusListeners = append(statusListeners, gatewayv1.ListenerStatus{})
 	}
 	cond := statusListeners[index].Conditions
-	supported, valid := GenerateSupportedKinds(l)
+	supported, valid := supportedKinds(l)
 	if !valid {
 		conditions[string(gatewayv1.ListenerConditionResolvedRefs)] = &ListenerStatusCondition{
 			Reason:  string(gatewayv1.ListenerReasonInvalidRouteKinds),
@@ -207,13 +215,13 @@ func ReportListenerCondition(
 		Name:           l.Name,
 		AttachedRoutes: 0, // reported later
 		SupportedKinds: supported,
-		Conditions:     setListenerConditions(obj.GetGeneration(), cond, conditions),
+		Conditions:     SetListenerConditions(obj.GetGeneration(), cond, conditions),
 	}
 	return statusListeners
 }
 
-// GenerateSupportedKinds returns route kinds supported by a listener and whether allowedRoutes kinds are valid.
-func GenerateSupportedKinds(l gatewayv1.Listener) ([]gatewayv1.RouteGroupKind, bool) {
+// generateGatewaySupportedKinds returns route kinds supported by a listener and whether allowedRoutes kinds are valid.
+func GenerateGatewaySupportedKinds(l gatewayv1.Listener) ([]gatewayv1.RouteGroupKind, bool) {
 	supported := []gatewayv1.RouteGroupKind{}
 	switch l.Protocol {
 	case gatewayv1.HTTPProtocolType, gatewayv1.HTTPSProtocolType:
@@ -230,6 +238,51 @@ func GenerateSupportedKinds(l gatewayv1.Listener) ([]gatewayv1.RouteGroupKind, b
 		}
 	}
 	if l.AllowedRoutes != nil && len(l.AllowedRoutes.Kinds) > 0 {
+		intersection := []gatewayv1.RouteGroupKind{}
+		for _, s := range supported {
+			for _, kind := range l.AllowedRoutes.Kinds {
+				if RouteGroupKindEqual(s, kind) {
+					intersection = append(intersection, s)
+					break
+				}
+			}
+		}
+		return intersection, len(intersection) == len(l.AllowedRoutes.Kinds)
+	}
+	return supported, true
+}
+
+// GenerateAgentgatewaySupportedKinds generates the supported kinds for a listener based on its protocol and allowedRoutes.
+// The boolean return indicates whether all allowed routes were supported.
+func GenerateAgentgatewaySupportedKinds(l gatewayv1.Listener) ([]gatewayv1.RouteGroupKind, bool) {
+	supported := []gatewayv1.RouteGroupKind{}
+	switch l.Protocol {
+	case gatewayv1.HTTPProtocolType, gatewayv1.HTTPSProtocolType:
+		// Only terminate allowed, so its always HTTP
+		supported = []gatewayv1.RouteGroupKind{
+			ToRouteKind(gvk.HTTPRoute),
+			ToRouteKind(gvk.GRPCRoute),
+		}
+	case gatewayv1.TCPProtocolType:
+		supported = []gatewayv1.RouteGroupKind{ToRouteKind(gvk.TCPRoute)}
+	case gatewayv1.TLSProtocolType:
+		supported = []gatewayv1.RouteGroupKind{ToRouteKind(gvk.TLSRoute)}
+		if l.TLS != nil && l.TLS.Mode != nil && *l.TLS.Mode == gatewayv1.TLSModeTerminate {
+			supported = append(supported, ToRouteKind(gvk.TCPRoute))
+		}
+		// UDP route not support
+	case gatewayv1.ProtocolType(protocol.HBONE):
+		// HBONE is a tunnel protocol used by waypoint proxies; it can carry any application protocol
+		// TODO(jaellio): verify this is correct
+		supported = []gatewayv1.RouteGroupKind{
+			ToRouteKind(gvk.HTTPRoute),
+			ToRouteKind(gvk.GRPCRoute),
+			ToRouteKind(gvk.TCPRoute),
+			ToRouteKind(gvk.TLSRoute),
+		}
+	}
+	if l.AllowedRoutes != nil && len(l.AllowedRoutes.Kinds) > 0 {
+		// We need to filter down to only ones we actually support
 		intersection := []gatewayv1.RouteGroupKind{}
 		for _, s := range supported {
 			for _, kind := range l.AllowedRoutes.Kinds {

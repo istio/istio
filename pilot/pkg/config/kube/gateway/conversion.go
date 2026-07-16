@@ -1873,7 +1873,7 @@ func reportGatewayStatus(
 		}
 	}
 	gs.Listeners = listeners
-	gs.Conditions = setConditions(obj.Generation, gs.Conditions, gatewayConditions)
+	gs.Conditions = gatewaycommon.SetListenerConditions(obj.Generation, gs.Conditions, toSharedConditions(gatewayConditions))
 }
 
 func setProgrammedCondition(gatewayConditions map[string]*condition, internal []string, gatewayServices []string, warnings []string, allUsable bool) {
@@ -1883,6 +1883,16 @@ func setProgrammedCondition(gatewayConditions map[string]*condition, internal []
 	}
 	gatewaycommon.SetProgrammedCondition(mapped, internal, gatewayServices, warnings, allUsable)
 	applyConditionFromListenerStatus(programmed, mapped[string(k8s.GatewayConditionProgrammed)])
+}
+
+// toSharedConditions converts a map of local conditions into the
+// shared gatewaycommon representation used by SetListenerConditions.
+func toSharedConditions(in map[string]*condition) map[string]*gatewaycommon.ListenerStatusCondition {
+	out := make(map[string]*gatewaycommon.ListenerStatusCondition, len(in))
+	for k, c := range in {
+		out[k] = listenerStatusConditionFromCondition(c)
+	}
+	return out
 }
 
 func listenerStatusConditionFromCondition(c *condition) *gatewaycommon.ListenerStatusCondition {
@@ -1923,15 +1933,15 @@ func reportUnmanagedGatewayStatus(
 	status *k8s.GatewayStatus,
 	obj *k8s.Gateway,
 ) {
-	gatewayConditions := map[string]*condition{
+	gatewayConditions := map[string]*gatewaycommon.ListenerStatusCondition{
 		string(k8s.GatewayConditionAccepted): {
-			reason:  string(k8s.GatewayReasonAccepted),
-			message: "Resource accepted",
+			Reason:  string(k8s.GatewayReasonAccepted),
+			Message: "Resource accepted",
 		},
 		string(k8s.GatewayConditionProgrammed): {
-			reason: string(k8s.GatewayReasonProgrammed),
+			Reason: string(k8s.GatewayReasonProgrammed),
 			// Set to true anyway since this is basically declaring it as valid
-			message: "This Gateway is remote; Istio will not program it",
+			Message: "This Gateway is remote; Istio will not program it",
 		},
 	}
 
@@ -1939,7 +1949,7 @@ func reportUnmanagedGatewayStatus(
 		return k8s.GatewayStatusAddress(e)
 	})
 	status.Listeners = nil
-	status.Conditions = setConditions(obj.Generation, status.Conditions, gatewayConditions)
+	status.Conditions = gatewaycommon.SetListenerConditions(obj.Generation, status.Conditions, gatewayConditions)
 }
 
 func extractGatewayServices(domainSuffix string, kgw *k8s.Gateway, info gatewaycommon.ClassInfo) ([]string, *ConfigError) {
@@ -2091,7 +2101,7 @@ func buildListener(
 		}
 	}
 
-	updatedStatus := gatewaycommon.ReportListenerCondition(listenerIndex, l, obj, status, listenerConditions)
+	updatedStatus := gatewaycommon.ReportListenerCondition(listenerIndex, l, obj, status, listenerConditions, gatewaycommon.GenerateGatewaySupportedKinds)
 	return server, updatedStatus, ok
 }
 
