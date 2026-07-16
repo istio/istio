@@ -70,7 +70,7 @@ func (a Builder) ServicesCollection(
 			}),
 		)...)
 
-	serviceEntryVisibility := ServiceEntryVisibilityCollection(meshConfig, opts)
+	serviceEntryVisibility := model.ServiceEntryVisibilityCollection(meshConfig.AsCollection(), opts)
 	ServiceEntriesInfo := krt.NewManyCollection(serviceEntries, a.serviceEntryServiceBuilder(waypoints, namespaces, serviceEntryVisibility),
 		append(
 			opts.WithName("ServiceEntriesInfo"),
@@ -381,23 +381,6 @@ func matchServiceScope(ctx krt.HandlerContext, meshCfg *MeshConfig, namespaces k
 	// Default to local scope if no match is found
 	log.Debugf("service %s/%s is locally scoped", s.Namespace, s.Name)
 	return model.Local
-}
-
-// ServiceEntryVisibilityCollection derives the shared, precompiled serviceEntryVisibility matcher
-// (model.ServiceEntryVisibilityMatcher) as a singleton from the mesh config. ServiceEntry
-// processing depends on this narrow projection rather than the full MeshConfig, so unrelated
-// MeshConfig changes do not trigger a ServiceEntry recompute, and label selectors are compiled
-// once here instead of per host. The same matcher type is used by the sidecar (serviceentry)
-// registry so both dataplanes evaluate visibility identically.
-func ServiceEntryVisibilityCollection(meshConfig krt.Singleton[MeshConfig], opts krt.OptionsBuilder) krt.Singleton[model.ServiceEntryVisibilityMatcher] {
-	return krt.NewSingleton[model.ServiceEntryVisibilityMatcher](func(ctx krt.HandlerContext) *model.ServiceEntryVisibilityMatcher {
-		meshCfg := krt.FetchOne(ctx, meshConfig.AsCollection())
-		var sev *meshapi.ServiceEntryVisibility
-		if meshCfg != nil {
-			sev = meshCfg.GetServiceEntryVisibility()
-		}
-		return model.CompileServiceEntryVisibility(sev)
-	}, opts.WithName("ServiceEntryVisibility")...)
 }
 
 // wdsVisibility maps the neutral resolved visibility to the WDS Service visibility field. NONE has

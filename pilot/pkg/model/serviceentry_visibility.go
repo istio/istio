@@ -20,6 +20,7 @@ import (
 
 	meshapi "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/kube/krt"
 )
 
 // ServiceVisibility is the visibility resolved for a ServiceEntry from
@@ -128,6 +129,22 @@ func CompileServiceEntryVisibility(sev *meshapi.ServiceEntryVisibility) *Service
 		out.policies = append(out.policies, vp)
 	}
 	return out
+}
+
+// ServiceEntryVisibilityCollection derives the precompiled serviceEntryVisibility matcher as a krt
+// singleton from the mesh config, so both dataplanes (ambient and classic serviceentry) compile it
+// once and evaluate visibility identically. It recomputes only when the matcher changes (Equals).
+func ServiceEntryVisibilityCollection(
+	meshConfig krt.Collection[MeshConfig],
+	opts krt.OptionsBuilder,
+) krt.Singleton[ServiceEntryVisibilityMatcher] {
+	return krt.NewSingleton[ServiceEntryVisibilityMatcher](func(ctx krt.HandlerContext) *ServiceEntryVisibilityMatcher {
+		mc := krt.FetchOne(ctx, meshConfig)
+		if mc == nil {
+			return CompileServiceEntryVisibility(nil)
+		}
+		return CompileServiceEntryVisibility(mc.GetServiceEntryVisibility())
+	}, opts.WithName("ServiceEntryVisibility")...)
 }
 
 // compileVisibilityRule converts a single matcher into its precompiled form. Only namespaceSelector

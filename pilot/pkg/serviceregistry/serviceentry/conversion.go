@@ -517,14 +517,9 @@ func services(
 	canonicalServiceForMeshExternal bool,
 	opts krt.OptionsBuilder,
 ) (krt.Collection[ServiceWithInstances], krt.Index[string, ServiceWithInstances], krt.Index[string, ServiceWithInstances]) {
-	// Precompile the serviceEntryVisibility matcher once as a singleton rather than per ServiceEntry.
-	serviceEntryVisibility := krt.NewSingleton[model.ServiceEntryVisibilityMatcher](func(ctx krt.HandlerContext) *model.ServiceEntryVisibilityMatcher {
-		mc := krt.FetchOne(ctx, meshConfig)
-		if mc == nil {
-			return model.CompileServiceEntryVisibility(nil)
-		}
-		return model.CompileServiceEntryVisibility(mc.MeshConfig.GetServiceEntryVisibility())
-	}, opts.WithName("ServiceEntryVisibility")...)
+	// Precompile the serviceEntryVisibility matcher once (shared with the ambient path) rather than
+	// per ServiceEntry.
+	serviceEntryVisibility := model.ServiceEntryVisibilityCollection(meshConfig, opts)
 
 	collection := krt.NewManyCollection(serviceEntries, func(ctx krt.HandlerContext, cfg config.Config) []ServiceWithInstances {
 		se := cfg.Spec.(*networking.ServiceEntry)
