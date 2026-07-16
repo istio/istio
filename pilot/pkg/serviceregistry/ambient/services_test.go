@@ -17,6 +17,7 @@ package ambient
 import (
 	"net/netip"
 	"testing"
+	"time"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,6 +33,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh/meshwatcher"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/kube/krt/krttest"
 	"istio.io/istio/pkg/ptr"
@@ -1381,6 +1383,95 @@ func TestServiceEntryServices(t *testing.T) {
 			if tt.waypointErr != nil {
 				assert.Equal(t, len(wrapper), 1)
 				assert.Equal(t, wrapper[0].Waypoint.Error, tt.waypointErr)
+			}
+		})
+	}
+}
+
+func TestSelectWorkloadServices(t *testing.T) {
+	const host = "shared.example.com"
+	older := time.Unix(100, 0)
+	newer := time.Unix(200, 0)
+
+	si := func(ns, name string, k kind.Kind, vis workloadapi.Service_Visibility, created time.Time) TypedServiceInfo {
+		return TypedServiceInfo{ServiceInfo: model.ServiceInfo{
+			Service: &workloadapi.Service{
+				Name:       name,
+				Namespace:  ns,
+				Hostname:   host,
+				Visibility: vis,
+			},
+			Source:       model.TypedObject{Kind: k},
+			CreationTime: created,
+		}}
+	}
+
+	// run returns the winning service name per namespace and the name of the single canonical
+	// service ("" if none).
+	run := func(t *testing.T, inputs []TypedServiceInfo) (map[string]string, string) {
+		winners := map[string]string{}
+		canonical := ""
+		for _, s := range selectWorkloadServices(inputs) {
+			winners[s.Service.Namespace] = s.Service.Name
+			if s.Service.Canonical {
+				if canonical != "" {
+					t.Fatalf("more than one canonical service: %s and %s", canonical, s.Service.Name)
+				}
+				canonical = s.Service.Name
+			}
+		}
+		return winners, canonical
+	}
+
+	cases := []struct {
+		name          string
+		inputs        []TypedServiceInfo
+		wantWinners   map[string]string
+		wantCanonical string
+	}{
+		{
+			// Same namespace, same hostname: the older SE owns the slot. Because the owner is
+			// NAMESPACE-scoped, nothing is canonical (out-of-namespace clients see no service).
+			name: "same namespace: older NAMESPACE beats newer PUBLIC, nothing canonical",
+			inputs: []TypedServiceInfo{
+				si("ns", "pub", kind.ServiceEntry, workloadapi.Service_PUBLIC, newer),
+				si("ns", "nslocal", kind.ServiceEntry, workloadapi.Service_NAMESPACE, older),
+			},
+			wantWinners:   map[string]string{"ns": "nslocal"},
+			wantCanonical: "",
+		},
+		{
+			// A Kubernetes Service must be canonical over an older ServiceEntry that camps its
+			// hostname -- age must not let the SE capture it.
+			name: "kube Service is canonical over an older camping PUBLIC ServiceEntry",
+			inputs: []TypedServiceInfo{
+				si("team-a", "svc", kind.Service, workloadapi.Service_PUBLIC, newer),
+				si("team-b", "camp", kind.ServiceEntry, workloadapi.Service_PUBLIC, older),
+			},
+			wantWinners:   map[string]string{"team-a": "svc", "team-b": "camp"},
+			wantCanonical: "svc",
+		},
+		{
+			// Cross namespace: the PUBLIC SE is canonical; the NAMESPACE SE owns only its namespace.
+			name: "cross namespace: PUBLIC is canonical, NAMESPACE is not",
+			inputs: []TypedServiceInfo{
+				si("team-a", "nslocal", kind.ServiceEntry, workloadapi.Service_NAMESPACE, older),
+				si("team-b", "pub", kind.ServiceEntry, workloadapi.Service_PUBLIC, newer),
+			},
+			wantWinners:   map[string]string{"team-a": "nslocal", "team-b": "pub"},
+			wantCanonical: "pub",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Order-independence: same result for the inputs and their reverse.
+			reverse := slices.Clone(tc.inputs)
+			slices.Reverse(reverse)
+			for _, order := range [][]TypedServiceInfo{tc.inputs, reverse} {
+				winners, canonical := run(t, order)
+				assert.Equal(t, winners, tc.wantWinners)
+				assert.Equal(t, canonical, tc.wantCanonical)
 			}
 		})
 	}

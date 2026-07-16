@@ -94,50 +94,7 @@ func (a Builder) ServicesCollection(
 			if len(ios.Objects) == 0 {
 				return nil
 			}
-
-			typedServiceInfos := ios.Objects
-
-			bestByNamespace := make(map[string]model.ServiceInfo)
-
-			// check if a is a better ServiceInfo than b
-			// better meaning both:
-			//     a is older than b
-			//     b is not a Kubernetes Service
-			isBetter := func(a, b model.ServiceInfo) bool {
-				return a.CreationTime.Before(b.CreationTime) && b.Source.Kind != kind.Service
-			}
-			var canonical *model.ServiceInfo
-			for _, tsi := range typedServiceInfos {
-				tsiNamespace := tsi.GetNamespace()
-				if tsi.Source.Kind == kind.Service {
-					// A Kubernetes Service is always used, and canonical
-					bestByNamespace[tsiNamespace] = tsi.ServiceInfo
-					canonical = &tsi.ServiceInfo
-					continue
-				}
-				currentBest, found := bestByNamespace[tsiNamespace]
-				if !found || isBetter(tsi.ServiceInfo, currentBest) {
-					bestByNamespace[tsiNamespace] = tsi.ServiceInfo
-				} else {
-					// if we are not the best for our namespace, then we don't need to worry about being canonical
-					continue
-				}
-				// namespace visibility should not take canonical
-				if tsi.Service.GetVisibility() == workloadapi.Service_NAMESPACE {
-					continue
-				}
-				if canonical == nil || isBetter(tsi.ServiceInfo, *canonical) {
-					canonical = &tsi.ServiceInfo
-				}
-			}
-
-			// make a copy and then set canonical
-			if canonical != nil {
-				bestByNamespace[canonical.GetNamespace()] = setCanonical(canonical)
-			}
-
-			// convert map into slice and return
-			return maps.Values(bestByNamespace)
+			return selectWorkloadServices(ios.Objects)
 		}, append(
 			opts.WithName("WorkloadServices"),
 			krt.WithMetadata(krt.Metadata{
@@ -146,6 +103,53 @@ func (a Builder) ServicesCollection(
 		)...,
 	)
 	return WorkloadServices
+}
+
+// selectWorkloadServices resolves the set of services sharing a hostname down to one winner per
+// namespace and marks the single canonical service.
+func selectWorkloadServices(typedServiceInfos []TypedServiceInfo) []model.ServiceInfo {
+	bestByNamespace := make(map[string]model.ServiceInfo)
+
+	// check if a is a better ServiceInfo than b
+	// better meaning both:
+	//     a is older than b
+	//     b is not a Kubernetes Service
+	isBetter := func(a, b model.ServiceInfo) bool {
+		return a.CreationTime.Before(b.CreationTime) && b.Source.Kind != kind.Service
+	}
+	// Pick the winner for each namespace: a Kubernetes Service always wins, else the oldest.
+	for _, tsi := range typedServiceInfos {
+		tsiNamespace := tsi.GetNamespace()
+		if tsi.Source.Kind == kind.Service {
+			bestByNamespace[tsiNamespace] = tsi.ServiceInfo
+			continue
+		}
+		currentBest, found := bestByNamespace[tsiNamespace]
+		if !found || isBetter(tsi.ServiceInfo, currentBest) {
+			bestByNamespace[tsiNamespace] = tsi.ServiceInfo
+		}
+	}
+
+	// select and mark Canonical from bestByNamespace
+	var canonical *model.ServiceInfo
+	for ns := range bestByNamespace {
+		si := bestByNamespace[ns]
+		switch {
+		case si.Source.Kind == kind.Service:
+			canonical = &si
+		case si.Service.GetVisibility() == workloadapi.Service_NAMESPACE:
+			continue
+		default:
+			if canonical == nil || isBetter(si, *canonical) {
+				canonical = &si
+			}
+		}
+	}
+	if canonical != nil {
+		bestByNamespace[canonical.GetNamespace()] = setCanonical(canonical)
+	}
+
+	return maps.Values(bestByNamespace)
 }
 
 func GlobalNestedWorkloadServicesCollection(
