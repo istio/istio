@@ -15,14 +15,11 @@
 package model
 
 import (
-	"fmt"
-
 	"google.golang.org/protobuf/proto"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/selection"
 
 	meshapi "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pkg/config/mesh"
 )
 
 // ServiceVisibility is the visibility resolved for a ServiceEntry from
@@ -138,7 +135,7 @@ func CompileServiceEntryVisibility(sev *meshapi.ServiceEntryVisibility) *Service
 func compileVisibilityRule(rule *meshapi.ServiceEntryVisibility_MatchRule) visibilityRule {
 	switch rule.GetMatcher().(type) {
 	case *meshapi.ServiceEntryVisibility_MatchRule_NamespaceSelector:
-		sel, err := labelSelectorAsSelector(rule.GetNamespaceSelector())
+		sel, err := mesh.LabelSelectorAsSelector(rule.GetNamespaceSelector())
 		if err != nil {
 			log.Warnf("failed to convert serviceEntryVisibility namespace selector: %v", err)
 			return visibilityRule{}
@@ -161,52 +158,4 @@ func toServiceVisibility(v meshapi.ServiceEntryVisibility_Visibility) ServiceVis
 	default:
 		return ServiceVisibilityPublic
 	}
-}
-
-// labelSelectorAsSelector converts a mesh API LabelSelector to a labels.Selector. A nil selector
-// matches nothing; an empty selector matches everything.
-//
-// NOTE: this is a copy of the identical LabelSelectorAsSelector in pkg/kube/namespace (and
-// pilot/pkg/serviceregistry/ambient). It is copied, not imported, because pkg/kube/namespace pulls
-// in heavy kube-client machinery (kube/kclient/controllers) that the central model package must not
-// depend on. Importing ambient would be a cycle.
-// TODO: targeted DRY — lift this pure converter into a lean leaf package (e.g.
-// pkg/config/mesh, already imported by pkg/kube/namespace and cycle-free for model/ambient) so the
-// three call sites share one copy.
-func labelSelectorAsSelector(ps *meshapi.LabelSelector) (labels.Selector, error) {
-	if ps == nil {
-		return labels.Nothing(), nil
-	}
-	if len(ps.MatchLabels)+len(ps.MatchExpressions) == 0 {
-		return labels.Everything(), nil
-	}
-	requirements := make([]labels.Requirement, 0, len(ps.MatchLabels)+len(ps.MatchExpressions))
-	for k, v := range ps.MatchLabels {
-		r, err := labels.NewRequirement(k, selection.Equals, []string{v})
-		if err != nil {
-			return nil, err
-		}
-		requirements = append(requirements, *r)
-	}
-	for _, expr := range ps.MatchExpressions {
-		var op selection.Operator
-		switch metav1.LabelSelectorOperator(expr.Operator) {
-		case metav1.LabelSelectorOpIn:
-			op = selection.In
-		case metav1.LabelSelectorOpNotIn:
-			op = selection.NotIn
-		case metav1.LabelSelectorOpExists:
-			op = selection.Exists
-		case metav1.LabelSelectorOpDoesNotExist:
-			op = selection.DoesNotExist
-		default:
-			return nil, fmt.Errorf("%q is not a valid label selector operator", expr.Operator)
-		}
-		r, err := labels.NewRequirement(expr.Key, op, append([]string(nil), expr.Values...))
-		if err != nil {
-			return nil, err
-		}
-		requirements = append(requirements, *r)
-	}
-	return labels.NewSelector().Add(requirements...), nil
 }

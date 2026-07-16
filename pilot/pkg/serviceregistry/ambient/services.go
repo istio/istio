@@ -21,9 +21,7 @@ import (
 	"strconv"
 
 	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/selection"
 
 	"istio.io/api/label"
 	meshapi "istio.io/api/mesh/v1alpha1"
@@ -37,6 +35,7 @@ import (
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
@@ -337,47 +336,6 @@ func typedServiceServiceBuilder(
 	}
 }
 
-// LabelSelectorAsSelector converts a mesh api LabelSelector to a labels.Selector.
-func LabelSelectorAsSelector(ps *meshapi.LabelSelector) (labels.Selector, error) {
-	if ps == nil {
-		return labels.Nothing(), nil
-	}
-	if len(ps.MatchLabels)+len(ps.MatchExpressions) == 0 {
-		return labels.Everything(), nil
-	}
-	requirements := make([]labels.Requirement, 0, len(ps.MatchLabels)+len(ps.MatchExpressions))
-	for k, v := range ps.MatchLabels {
-		r, err := labels.NewRequirement(k, selection.Equals, []string{v})
-		if err != nil {
-			return nil, err
-		}
-		requirements = append(requirements, *r)
-	}
-	for _, expr := range ps.MatchExpressions {
-		var op selection.Operator
-		switch metav1.LabelSelectorOperator(expr.Operator) {
-		case metav1.LabelSelectorOpIn:
-			op = selection.In
-		case metav1.LabelSelectorOpNotIn:
-			op = selection.NotIn
-		case metav1.LabelSelectorOpExists:
-			op = selection.Exists
-		case metav1.LabelSelectorOpDoesNotExist:
-			op = selection.DoesNotExist
-		default:
-			return nil, fmt.Errorf("%q is not a valid label selector operator", expr.Operator)
-		}
-		r, err := labels.NewRequirement(expr.Key, op, append([]string(nil), expr.Values...))
-		if err != nil {
-			return nil, err
-		}
-		requirements = append(requirements, *r)
-	}
-	selector := labels.NewSelector()
-	selector = selector.Add(requirements...)
-	return selector, nil
-}
-
 func matchServiceScope(ctx krt.HandlerContext, meshCfg *MeshConfig, namespaces krt.Collection[*v1.Namespace], s *v1.Service) model.ServiceScope {
 	// Apply label selectors from the MeshConfig's servieScopeConfig to determine the scope of the service based on the namespace
 	// or service label matches
@@ -385,7 +343,7 @@ func matchServiceScope(ctx krt.HandlerContext, meshCfg *MeshConfig, namespaces k
 	for _, scopeConfig := range meshCfg.ServiceScopeConfigs {
 		// Match namespace labels
 		// Treat Nothing selectors as Everything selectors
-		nss, err := LabelSelectorAsSelector(scopeConfig.NamespaceSelector)
+		nss, err := mesh.LabelSelectorAsSelector(scopeConfig.NamespaceSelector)
 		if err != nil {
 			log.Warnf("failed to convert namespace selector: %v", err)
 			continue
@@ -393,7 +351,7 @@ func matchServiceScope(ctx krt.HandlerContext, meshCfg *MeshConfig, namespaces k
 		if nss.String() == labels.Nothing().String() {
 			nss = labels.Everything()
 		}
-		ss, err := LabelSelectorAsSelector(scopeConfig.ServicesSelector)
+		ss, err := mesh.LabelSelectorAsSelector(scopeConfig.ServicesSelector)
 		if err != nil {
 			log.Warnf("failed to convert service selector: %v", err)
 			continue
