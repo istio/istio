@@ -9,6 +9,7 @@ This folder contains Istio integration tests that use the test framework checked
 1. [Writing Tests](#writing-tests)
     1. [Adding a Test Suite](#adding-a-test-suite)
     1. [Sub-Tests](#sub-tests)
+    1. [Assertion & Retry Conventions](#assertion--retry-conventions)
     1. [Parallel Tests](#parallel-tests)
     1. [Using Components](#using-components)
     1. [Writing Components](#writing-components)
@@ -143,6 +144,83 @@ func TestMyLogic(t *testing.T) {
 ```
 
 Under the hood, calling `subtest.Run()` delegates to `t.Run()` in order to create a child `testing.T`.
+
+### Assertion & Retry Conventions
+
+Integration tests run against real clusters where configuration propagation, pod startup, and
+control-plane reconciliation are inherently asynchronous. Prefer Istio-native helpers over ad-hoc
+timing or manual retry loops to reduce flakiness and keep failure output consistent.
+
+#### Async polling
+
+Use `istio.io/istio/pkg/test/util/retry` for anything that may not be immediately true:
+
+| Scenario | Preferred pattern | Avoid |
+|---|---|---|
+| Wait for API/K8s state | `retry.UntilSuccessOrFail` | `for i := 0; i < N; i++` loops |
+| Wait for a bool condition | `retry.UntilOrFail` | `time.Sleep` then a single check |
+| Require N consecutive successes | `retry.Converge(N)` with `UntilSuccessOrFail` | Tight loops without backoff |
+| Poll until a value equals expected | `assert.EventuallyEqual` | Manual compare inside a retry loop |
+
+Example:
+
+```go
+retry.UntilSuccessOrFail(t, func() error {
+    got, err := fetchStatus()
+    if err != nil {
+        return err
+    }
+    if got != want {
+        return fmt.Errorf("got %q, want %q", got, want)
+    }
+    return nil
+}, retry.Timeout(30*time.Second), retry.Delay(time.Second))
+```
+
+For equality polling, prefer `assert.EventuallyEqual` from `istio.io/istio/pkg/test/util/assert`:
+
+```go
+assert.EventuallyEqual(t, func() string { return getPhase() }, "Running",
+    retry.Timeout(30*time.Second), retry.Delay(time.Second))
+```
+
+#### Negative and stability checks
+
+When asserting that something does **not** happen (for example, logs must not appear, or a status
+field must not be cleared), avoid blind `time.Sleep` inside a retry loop. Prefer polling with an
+explicit timeout:
+
+- `assert.Consistently` — value must remain stable for a duration
+- `retry.UntilSuccessOrFail` — retry until a negative condition holds (for example, `count == 0`)
+
+#### Synchronous assertions
+
+| Scenario | Preferred pattern | Avoid |
+|---|---|---|
+| HTTP/traffic validation | `CallOrFail` + `check.*` matchers | Raw HTTP clients + `t.Fatalf` |
+| Struct/value comparison | `assert.Equal` | `t.Fatalf` with manual diff |
+| Resource setup failures | `ApplyOrFail`, `BuildOrFail`, `NewOrFail` | `t.Fatal` after every setup step |
+
+#### Structured output (istioctl, JSON dumps, analyzer messages)
+
+For complex parsed output, use Gomega via `NewWithT(t)` inside `framework.NewTest`:
+
+```go
+g := NewWithT(t)
+g.Expect(parsed).To(HaveKey("bootstrap"))
+g.Expect(parsed["endpoints"]).ToNot(BeEmpty())
+```
+
+Keep async polling on `retry.*`; use Gomega only for synchronous assertions on data already fetched.
+
+#### When `time.Sleep` is acceptable
+
+Fixed sleeps are acceptable only when the delay itself is the test condition:
+
+- Traffic generator soak/baseline windows (collecting samples over a duration)
+- Rate-limit guards between infrastructure operations (for example, CNI daemonset restart throttling)
+
+If a sleep exists only to wait for propagation before a single check, replace it with `retry.*`.
 
 ### Parallel Tests
 
@@ -592,7 +670,7 @@ The test framework supports the following command-line flags:
 
 ### Running on a Mac
 
-* Currently some _native_ tests fail when being run on a Mac with an error like:
+- Currently some _native_ tests fail when being run on a Mac with an error like:
 
 ```plain
 unable to locate an Envoy binary
@@ -601,7 +679,7 @@ unable to locate an Envoy binary
 This is documented in this [PR](https://github.com/istio/istio/issues/13677). Once the Envoy binary is available for the Mac,
 these tests will hopefully succeed.
 
-* If one uses Docker for Mac for the kubernetes environment be sure to specify the `-istio.test.kube.loadbalancer=false` parameter. This solves an error like:
+- If one uses Docker for Mac for the kubernetes environment be sure to specify the `-istio.test.kube.loadbalancer=false` parameter. This solves an error like:
 
 ```plain
 service ingress is not available yet

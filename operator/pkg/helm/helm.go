@@ -137,8 +137,8 @@ func renderChart(releaseName string, namespace string, vals values.Map, chrt *ch
 func extractWarnings(v string) Warnings {
 	var w Warnings
 	for _, l := range strings.Split(v, "\n") {
-		if strings.HasPrefix(l, "WARNING: ") {
-			w = util.AppendErr(w, errors.New(strings.TrimPrefix(l, "WARNING: ")))
+		if after, ok := strings.CutPrefix(l, "WARNING: "); ok {
+			w = util.AppendErr(w, errors.New(after))
 		}
 	}
 	return w

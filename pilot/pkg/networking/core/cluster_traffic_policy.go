@@ -68,6 +68,39 @@ func (cb *ClusterBuilder) applyTrafficPolicy(service *model.Service, opts buildC
 	}
 }
 
+// applyDefaultTrafficPolicy overlays the resolved DestinationRule policy on top of the
+// mesh-wide MeshConfig.DefaultTrafficPolicy baseline, per block. A DR that sets a
+// connectionPool / outlierDetection block overrides that whole block; an unset block
+// inherits the mesh baseline. Returns policy unchanged when no mesh baseline is set.
+func applyDefaultTrafficPolicy(meshDefault *meshconfig.MeshConfig_DefaultTrafficPolicy,
+	policy *networking.TrafficPolicy,
+) *networking.TrafficPolicy {
+	defaultConnPool := meshDefault.GetConnectionPool()
+	defaultOutlier := meshDefault.GetOutlierDetection()
+	if defaultConnPool == nil && defaultOutlier == nil {
+		return policy
+	}
+	needConnPool := defaultConnPool != nil && policy.GetConnectionPool() == nil
+	needOutlier := defaultOutlier != nil && policy.GetOutlierDetection() == nil
+	if !needConnPool && !needOutlier {
+		return policy
+	}
+	// Copy so we never mutate the cached DestinationRule policy. portLevelSettings are
+	// already resolved for this port by the caller, so dropping them here is safe.
+	if policy == nil {
+		policy = &networking.TrafficPolicy{}
+	} else {
+		policy = model.ShallowCopyTrafficPolicy(policy)
+	}
+	if needConnPool {
+		policy.ConnectionPool = defaultConnPool
+	}
+	if needOutlier {
+		policy.OutlierDetection = defaultOutlier
+	}
+	return policy
+}
+
 // selectTrafficPolicyComponents returns the components of TrafficPolicy that should be used for given port.
 func selectTrafficPolicyComponents(policy *networking.TrafficPolicy) (
 	*networking.ConnectionPoolSettings,

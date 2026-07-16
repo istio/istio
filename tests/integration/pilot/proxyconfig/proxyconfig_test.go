@@ -202,9 +202,8 @@ func applyProxyConfigs(ctx framework.TestContext, configs []proxyConfigInstance)
 	for _, config := range configs {
 		ctx.ConfigIstio().YAML(config.namespace, config.config).ApplyOrFail(ctx)
 	}
-	// TODO(Monkeyanator) give a few seconds for PC to propagate
-	// shouldn't be required but multicluster seems to have some issues with echo instance restart.
-	time.Sleep(time.Second * 5)
+	// Propagation is handled by checkInjectedValues, which retries with echo
+	// Restart() to re-trigger injection once ProxyConfig is reconciled by istiod.
 }
 
 func deleteProxyConfigs(ctx framework.TestContext, configs []proxyConfigInstance) {

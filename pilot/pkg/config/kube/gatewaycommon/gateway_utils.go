@@ -140,3 +140,18 @@ func ConvertListenerSetToListener(l gatewayv1.ListenerEntry) gatewayv1.Listener 
 	// For now, structs are identical enough Go can cast them. I doubt this will hold up forever, but we can adjust as needed.
 	return gatewayv1.Listener(l)
 }
+
+// ListenerEntryPortNumber returns the effective port for a ListenerSet listener, applying the same
+// HTTP/HTTPS defaults used when building programmed listeners.
+func ListenerEntryPortNumber(l gatewayv1.ListenerEntry) (gatewayv1.PortNumber, error) {
+	if l.Port != 0 {
+		return l.Port, nil
+	}
+	switch l.Protocol {
+	case gatewayv1.HTTPProtocolType:
+		return 80, nil
+	case gatewayv1.HTTPSProtocolType:
+		return 443, nil
+	}
+	return 0, fmt.Errorf("protocol %v requires a port to be set", l.Protocol)
+}

@@ -411,7 +411,7 @@ func (a *index) buildGlobalCollections(
 			// Only trigger push if the XDS object changed; the rest is just for computation of others
 			return a.Workload
 		},
-		PushXdsAddress(a.XDSUpdater, model.WorkloadInfo.ResourceName),
+		PushXdsAddress(a.XDSUpdater, model.WorkloadInfo.ResourceName, model.WorkloadInfo.WaypointRef),
 	), false)
 
 	SplitHorizonWorkloadAddressIndex := krt.NewIndex[networkAddress, model.WorkloadInfo](SplitHorizonWorkloads, "networkAddress", networkAddressFromWorkload)
@@ -512,7 +512,7 @@ func (a *index) buildGlobalCollections(
 				DNSConnectStrategy: a.DNSConnectStrategy,
 			}
 		},
-		PushXdsAddress(a.XDSUpdater, model.ServiceInfo.ResourceName),
+		PushXdsAddress(a.XDSUpdater, model.ServiceInfo.ResourceName, model.ServiceInfo.WaypointRef),
 	), false)
 
 	SplitHorizonServiceAddressIndex := krt.NewIndex[networkAddress, model.ServiceInfo](SplitHorizonServices, "serviceAddress", networkAddressFromService)

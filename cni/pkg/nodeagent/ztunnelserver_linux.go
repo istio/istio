@@ -32,6 +32,7 @@ type ztunnelUDSConnection struct {
 	uuid    uuid.UUID
 	u       *net.UnixConn
 	updates chan UpdateRequest
+	done    chan struct{}
 }
 
 type updateRequest struct {
@@ -69,7 +70,11 @@ func (ur updateRequest) Resp() chan updateResponse {
 
 func newZtunnelConnection(u net.Conn) ZtunnelConnection {
 	unixConn := u.(*net.UnixConn)
-	return &ztunnelUDSConnection{uuid: uuid.New(), u: unixConn, updates: make(chan UpdateRequest, 100)}
+	return &ztunnelUDSConnection{uuid: uuid.New(), u: unixConn, updates: make(chan UpdateRequest, 100), done: make(chan struct{})}
+}
+
+func (z *ztunnelUDSConnection) Done() chan struct{} {
+	return z.done
 }
 
 func (z *ztunnelUDSConnection) SendDataAndWaitForAck(data []byte, fd *int) (*zdsapi.WorkloadResponse, error) {
@@ -167,6 +172,8 @@ func (z ztunnelUDSConnection) Send(ctx context.Context, data *zdsapi.WorkloadReq
 	case z.updates <- req:
 	case <-ctx.Done():
 		return nil, fmt.Errorf("context expired before request sent: %v", ctx.Err())
+	case <-z.done:
+		return nil, fmt.Errorf("connection closed before request sent")
 	}
 
 	select {
@@ -174,6 +181,8 @@ func (z ztunnelUDSConnection) Send(ctx context.Context, data *zdsapi.WorkloadReq
 		return r.resp, r.err
 	case <-ctx.Done():
 		return nil, fmt.Errorf("context expired before response received: %v", ctx.Err())
+	case <-z.done:
+		return nil, fmt.Errorf("connection closed before response received")
 	}
 }
 

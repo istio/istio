@@ -22,6 +22,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	prometheusApi "github.com/prometheus/client_golang/api"
@@ -49,11 +50,22 @@ var (
 	_ io.Closer = &kubeComponent{}
 )
 
+type clusterConnInfo struct {
+	cls     cluster.Cluster
+	podName string
+	podNS   string
+	port    int
+}
+
 type kubeComponent struct {
-	id resource.ID
+	id       resource.ID
+	mu       sync.RWMutex
+	stopOnce sync.Once
+	stop     chan struct{}
 
 	api       map[string]prometheusApiV1.API
 	forwarder map[string]istioKube.PortForwarder
+	connInfo  map[string]*clusterConnInfo
 	clusters  cluster.Clusters
 }
 
@@ -91,6 +103,8 @@ func newKube(ctx resource.Context, cfgIn Config) (Instance, error) {
 	c.id = ctx.TrackResource(c)
 	c.api = make(map[string]prometheusApiV1.API)
 	c.forwarder = make(map[string]istioKube.PortForwarder)
+	c.connInfo = make(map[string]*clusterConnInfo)
+	c.stop = make(chan struct{})
 	cfg, err := istio.DefaultConfig(ctx)
 	if err != nil {
 		return nil, err
@@ -115,9 +129,9 @@ func newKube(ctx resource.Context, cfgIn Config) (Instance, error) {
 		if err != nil {
 			return nil, err
 		}
-		port := uint16(svc.Spec.Ports[0].Port)
+		port := int(svc.Spec.Ports[0].Port)
 
-		forwarder, err := cls.NewPortForwarder(pod.Name, pod.Namespace, "", 0, int(port))
+		forwarder, err := cls.NewPortForwarder(pod.Name, pod.Namespace, "", 0, port)
 		if err != nil {
 			return nil, err
 		}
@@ -136,6 +150,13 @@ func newKube(ctx resource.Context, cfgIn Config) (Instance, error) {
 		}
 
 		c.api[cls.Name()] = prometheusApiV1.NewAPI(client)
+		c.connInfo[cls.Name()] = &clusterConnInfo{
+			cls:     cls,
+			podName: pod.Name,
+			podNS:   pod.Namespace,
+			port:    port,
+		}
+		go c.watchForwarder(cls.Name())
 	}
 	return c, nil
 }
@@ -146,17 +167,87 @@ func (c *kubeComponent) ID() resource.ID {
 
 // API implements environment.DeployedPrometheus.
 func (c *kubeComponent) API() prometheusApiV1.API {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	return c.api[c.clusters.Default().Name()]
 }
 
 func (c *kubeComponent) APIForCluster(cluster cluster.Cluster) prometheusApiV1.API {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	return c.api[cluster.Name()]
+}
+
+func (c *kubeComponent) isConnected(clsName string) bool {
+	fwd := c.forwarder[clsName]
+	if fwd == nil {
+		return false
+	}
+	select {
+	case <-fwd.ErrChan():
+		return false
+	default:
+		return true
+	}
+}
+
+func (c *kubeComponent) reconnect(clsName string) error {
+	info := c.connInfo[clsName]
+	if fwd := c.forwarder[clsName]; fwd != nil {
+		fwd.Close()
+		c.forwarder[clsName] = nil
+	}
+	fwd, err := info.cls.NewPortForwarder(info.podName, info.podNS, "", 0, info.port)
+	if err != nil {
+		return err
+	}
+	if err := fwd.Start(); err != nil {
+		fwd.Close()
+		return err
+	}
+	c.forwarder[clsName] = fwd
+
+	address := fmt.Sprintf("http://%s", fwd.Address())
+	client, err := prometheusApi.NewClient(prometheusApi.Config{Address: address})
+	if err != nil {
+		fwd.Close()
+		c.forwarder[clsName] = nil
+		return err
+	}
+	c.api[clsName] = prometheusApiV1.NewAPI(client)
+	return nil
+}
+
+func (c *kubeComponent) watchForwarder(clsName string) {
+	t := time.NewTicker(500 * time.Millisecond)
+	defer t.Stop()
+	for {
+		select {
+		case <-c.stop:
+			return
+		case <-t.C:
+			c.mu.Lock()
+			if !c.isConnected(clsName) {
+				scopes.Framework.Warnf("prometheus port forward for cluster %s terminated, reconnecting", clsName)
+				if err := c.reconnect(clsName); err != nil {
+					scopes.Framework.Warnf("prometheus port forward reconnect for cluster %s failed: %v", clsName, err)
+				} else {
+					scopes.Framework.Warnf("prometheus port forward for cluster %s reconnected", clsName)
+				}
+			}
+			c.mu.Unlock()
+		}
+	}
 }
 
 func (c *kubeComponent) RawQuery(cluster cluster.Cluster, promQL string) (model.Value, error) {
 	scopes.Framework.Debugf("Query running: %s", promQL)
 
-	v, _, err := c.api[cluster.Name()].Query(context.Background(), promQL, time.Now())
+	c.mu.RLock()
+	api := c.api[cluster.Name()]
+	c.mu.RUnlock()
+
+	v, _, err := api.Query(context.Background(), promQL, time.Now())
 	if err != nil {
 		return nil, fmt.Errorf("error querying Prometheus: %v", err)
 	}
@@ -214,8 +305,13 @@ func Sum(val model.Value) (float64, error) {
 
 // Close implements io.Closer.
 func (c *kubeComponent) Close() error {
+	c.stopOnce.Do(func() { close(c.stop) })
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	for _, forwarder := range c.forwarder {
-		forwarder.Close()
+		if forwarder != nil {
+			forwarder.Close()
+		}
 	}
 	return nil
 }

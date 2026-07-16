@@ -74,35 +74,27 @@ var skippedTests = map[string]string{
 	"GatewayFrontendClientCertificateValidation":                 "TODO",
 	"GatewayInvalidFrontendClientCertificateValidation":          "TODO",
 
-	"HTTPRoute303Redirect":                            "TODO",
-	"HTTPRoute307Redirect":                            "TODO",
-	"HTTPRoute308Redirect":                            "TODO",
-	"HTTPRouteCORS":                                   "TODO",
 	"HTTPRouteHTTPSListenerDetectMisdirectedRequests": "TODO",
-
-	"ListenerSetHostnameConflict": "TODO",
-	"ListenerSetProtocolConflict": "TODO",
-	"ListenerSetReferenceGrant":   "TODO",
-
-	"MeshHTTPRoute303Redirect": "TODO",
-	"MeshHTTPRoute307Redirect": "TODO",
-	"MeshHTTPRoute308Redirect": "TODO",
 
 	// The following tests were modified between v1.4.0 && v1.5.0
 	"BackendTLSPolicy": "TODO",
-
-	"GatewayWithAttachedRoutesWithPort8080": "TODO",
-
-	"MeshGRPCRouteWeight": "TODO",
 
 	// The following tests were added in v1.5.0
 	"TLSRouteTerminateSimpleSameNamespace":  "TODO",
 	"TLSRouteMixedTerminationSameNamespace": "TODO",
 
 	// The following tests were added in v1.6.0
-	"HTTPRouteNoBackendRefs":             "TODO",
 	"GatewayInvalidParametersRef":        "TODO",
 	"GatewayListenerUnsupportedProtocol": "TODO",
+	"TCPRouteWeightedRouting":            "TODO: flaky in dual-stack and multicluster environments",
+
+	// agentgateway does not yet route TCPRoute data-plane traffic, so the
+	// traffic-based TCPRoute conformance tests fail. The status/validation-only
+	// TCPRouteInvalid* tests still run and pass, so they are not skipped.
+	"TCPRouteMultipleRoutesAttachment":    "TODO: agentgateway does not yet support TCPRoute traffic",
+	"TCPRouteParentRefAttachAll":          "TODO: agentgateway does not yet support TCPRoute traffic",
+	"TCPRouteParentRefPortAndSectionName": "TODO: agentgateway does not yet support TCPRoute traffic",
+	"TCPRouteReferenceGrant":              "TODO: agentgateway does not yet support TCPRoute traffic",
 }
 
 func TestGatewayConformanceAgentgateway(t *testing.T) {

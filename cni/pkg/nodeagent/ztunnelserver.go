@@ -84,6 +84,7 @@ func (c *connMgr) LatestConn() (ZtunnelConnection, error) {
 
 func (c *connMgr) deleteConn(conn ZtunnelConnection) {
 	log.Debug("ztunnel disconnected")
+	close(conn.Done())
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	log := log.WithLabels("conn_uuid", conn.UUID())
@@ -337,6 +338,16 @@ type ZtunnelConnection interface {
 	ReadHello() (*zdsapi.ZdsHello, error)
 	Send(ctx context.Context, data *zdsapi.WorkloadRequest, fd *int) (*zdsapi.WorkloadResponse, error)
 	SendMsgAndWaitForAck(msg *zdsapi.WorkloadRequest, fd *int) (*zdsapi.WorkloadResponse, error)
+	Done() chan struct{}
+}
+
+func (c *connMgr) snapshotConns() []ZtunnelConnection {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	// return a copy of the slice, so that the caller can iterate over it without holding the lock
+	conns := make([]ZtunnelConnection, len(c.connectionSet))
+	copy(conns, c.connectionSet)
+	return conns
 }
 
 // PodDeleted sends a pod deletion notification to connected ztunnels.
@@ -358,9 +369,7 @@ func (z *ztunnelServer) PodDeleted(ctx context.Context, uid string) error {
 
 	var delErr []error
 
-	z.conns.mu.Lock()
-	defer z.conns.mu.Unlock()
-	for _, conn := range z.conns.connectionSet {
+	for _, conn := range z.conns.snapshotConns() {
 		log := log.WithLabels("conn_uuid", conn.UUID())
 		log.Debug("sending msg to connected ztunnel")
 		_, err := conn.Send(ctx, r, nil)

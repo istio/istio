@@ -96,13 +96,13 @@ func ToResourceName(name string) string {
 // ParseResourceName parses a raw resourceName string.
 func ParseResourceName(resourceName string, proxyNamespace string, proxyCluster cluster.ID, configCluster cluster.ID) (SecretResource, error) {
 	sep := "/"
-	if strings.HasPrefix(resourceName, KubernetesSecretTypeURI) {
+	if after, ok := strings.CutPrefix(resourceName, KubernetesSecretTypeURI); ok {
 		// Valid formats:
 		// * kubernetes://secret-name
 		// * kubernetes://secret-namespace/secret-name
 		// If namespace is not set, we will fetch from the namespace of the proxy. The secret will be read from
 		// the cluster the proxy resides in. This mirrors the legacy behavior mounting a secret as a file
-		res := strings.TrimPrefix(resourceName, KubernetesSecretTypeURI)
+		res := after
 		split := strings.Split(res, sep)
 		namespace := proxyNamespace
 		name := split[0]
@@ -118,11 +118,11 @@ func ParseResourceName(resourceName string, proxyNamespace string, proxyCluster 
 			ResourceName: resourceName,
 			Cluster:      proxyCluster,
 		}, nil
-	} else if strings.HasPrefix(resourceName, KubernetesConfigMapTypeURI) {
+	} else if after, ok := strings.CutPrefix(resourceName, KubernetesConfigMapTypeURI); ok {
 		// Valid formats:
 		// * configmap://secret-namespace/secret-name
 		// Namespace is required. The secret is read from the config cluster; this is the primary difference from KubernetesSecretType.
-		res := strings.TrimPrefix(resourceName, KubernetesConfigMapTypeURI)
+		res := after
 		split := strings.Split(res, sep)
 		if len(split) <= 1 {
 			return SecretResource{}, fmt.Errorf("invalid resource name %q. Expected namespace and name", resourceName)
@@ -143,11 +143,11 @@ func ParseResourceName(resourceName string, proxyNamespace string, proxyCluster 
 			ResourceName: resourceName,
 			Cluster:      configCluster,
 		}, nil
-	} else if strings.HasPrefix(resourceName, kubernetesGatewaySecretTypeURI) {
+	} else if after, ok := strings.CutPrefix(resourceName, kubernetesGatewaySecretTypeURI); ok {
 		// Valid formats:
 		// * kubernetes-gateway://secret-namespace/secret-name
 		// Namespace is required. The secret is read from the config cluster; this is the primary difference from KubernetesSecretType.
-		res := strings.TrimPrefix(resourceName, kubernetesGatewaySecretTypeURI)
+		res := after
 		split := strings.Split(res, sep)
 		if len(split) <= 1 {
 			return SecretResource{}, fmt.Errorf("invalid resource name %q. Expected namespace and name", resourceName)
