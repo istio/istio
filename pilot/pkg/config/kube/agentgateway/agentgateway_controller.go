@@ -375,6 +375,10 @@ type SectionedNamespacedName struct {
 	SectionName gatewayv1.SectionName
 }
 
+func (s SectionedNamespacedName) String() string {
+	return s.Namespace + "/" + s.Name + "/" + string(s.SectionName)
+}
+
 var sectionedNamespacedNameIndexCollectionFunc = krt.WithIndexCollectionFromString(func(s string) SectionedNamespacedName {
 	parts := strings.Split(s, "/")
 	if len(parts) != 3 {

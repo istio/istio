@@ -24,36 +24,11 @@ import (
 	"istio.io/istio/pilot/pkg/config/kube/gatewaycommon"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
-
-func reportListenerCondition(index int, l k8s.Listener, obj controllers.Object,
-	statusListeners []k8s.ListenerStatus, conditions map[string]*Condition,
-) []k8s.ListenerStatus {
-	for index >= len(statusListeners) {
-		statusListeners = append(statusListeners, k8s.ListenerStatus{})
-	}
-	cond := statusListeners[index].Conditions
-	supported, valid := gatewaycommon.GenerateAgentgatewaySupportedKinds(l)
-	if !valid {
-		conditions[string(k8s.ListenerConditionResolvedRefs)] = &Condition{
-			reason:  string(k8s.ListenerReasonInvalidRouteKinds),
-			status:  metav1.ConditionFalse,
-			message: "Invalid route kinds",
-		}
-	}
-	statusListeners[index] = k8s.ListenerStatus{
-		Name:           l.Name,
-		AttachedRoutes: 0, // this will be reported later
-		SupportedKinds: supported,
-		Conditions:     gatewaycommon.SetListenerConditions(obj.GetGeneration(), cond, toSharedConditions(conditions)),
-	}
-	return statusListeners
-}
 
 func FilterInPlaceByIndex[E any](s []E, keep func(int) bool) []E {
 	i := 0

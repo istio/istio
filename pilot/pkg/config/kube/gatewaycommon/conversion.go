@@ -252,7 +252,6 @@ func GenerateGatewaySupportedKinds(l gatewayv1.Listener) ([]gatewayv1.RouteGroup
 	return supported, true
 }
 
-
 // GenerateAgentgatewaySupportedKinds generates the supported kinds for a listener based on its protocol and allowedRoutes.
 // The boolean return indicates whether all allowed routes were supported.
 func GenerateAgentgatewaySupportedKinds(l gatewayv1.Listener) ([]gatewayv1.RouteGroupKind, bool) {
