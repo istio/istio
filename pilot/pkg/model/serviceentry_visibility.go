@@ -19,7 +19,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 
 	meshapi "istio.io/api/mesh/v1alpha1"
-	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/mesh/labelselector"
 	"istio.io/istio/pkg/kube/krt"
 )
 
@@ -164,7 +164,7 @@ func ServiceEntryVisibilityCollection(
 func compileVisibilityRule(rule *meshapi.ServiceEntryVisibility_MatchRule) (visibilityRule, bool) {
 	switch rule.GetMatcher().(type) {
 	case *meshapi.ServiceEntryVisibility_MatchRule_NamespaceSelector:
-		sel, err := mesh.LabelSelectorAsSelector(rule.GetNamespaceSelector())
+		sel, err := labelselector.LabelSelectorAsSelector(rule.GetNamespaceSelector())
 		if err != nil {
 			log.Errorf("failed to convert serviceEntryVisibility namespace selector: %v", err)
 			return visibilityRule{}, false

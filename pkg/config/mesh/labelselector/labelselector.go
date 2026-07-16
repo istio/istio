@@ -12,7 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package mesh
+// Package labelselector converts the mesh API LabelSelector to a k8s labels.Selector. It is a
+// separate package from pkg/config/mesh so that importing the converter pulls in
+// k8s.io/apimachinery/pkg/labels only where it is needed: lean binaries like pilot-agent import
+// pkg/config/mesh but must not gain the apimachinery dependency (enforced by tests/binary
+// TestDependencies).
+package labelselector
 
 import (
 	"fmt"

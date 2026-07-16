@@ -23,6 +23,7 @@ import (
 
 	meshapi "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/mesh/labelselector"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
@@ -196,7 +197,7 @@ func (d *discoveryNamespacesFilter) selectorsChanged(
 
 		// convert LabelSelectors to Selectors
 		for _, selector := range discoverySelectors {
-			ls, err := mesh.LabelSelectorAsSelector(selector)
+			ls, err := labelselector.LabelSelectorAsSelector(selector)
 			if err != nil {
 				log.Errorf("error initializing discovery namespaces filter, invalid discovery selector: %v", err)
 				return nil, nil

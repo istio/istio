@@ -35,7 +35,7 @@ import (
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/mesh/labelselector"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
@@ -347,7 +347,7 @@ func matchServiceScope(ctx krt.HandlerContext, meshCfg *MeshConfig, namespaces k
 	for _, scopeConfig := range meshCfg.ServiceScopeConfigs {
 		// Match namespace labels
 		// Treat Nothing selectors as Everything selectors
-		nss, err := mesh.LabelSelectorAsSelector(scopeConfig.NamespaceSelector)
+		nss, err := labelselector.LabelSelectorAsSelector(scopeConfig.NamespaceSelector)
 		if err != nil {
 			log.Warnf("failed to convert namespace selector: %v", err)
 			continue
@@ -355,7 +355,7 @@ func matchServiceScope(ctx krt.HandlerContext, meshCfg *MeshConfig, namespaces k
 		if nss.String() == labels.Nothing().String() {
 			nss = labels.Everything()
 		}
-		ss, err := mesh.LabelSelectorAsSelector(scopeConfig.ServicesSelector)
+		ss, err := labelselector.LabelSelectorAsSelector(scopeConfig.ServicesSelector)
 		if err != nil {
 			log.Warnf("failed to convert service selector: %v", err)
 			continue
