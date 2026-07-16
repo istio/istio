@@ -112,23 +112,28 @@ func (p visibilityPolicy) matches(nsLabels labels.Set) bool {
 }
 
 // CompileServiceEntryVisibility precompiles a serviceEntryVisibility config. A nil config is legacy
-// behavior: everything is Public.
-func CompileServiceEntryVisibility(sev *meshapi.ServiceEntryVisibility) *ServiceEntryVisibilityMatcher {
+// behavior: everything is Public. It always returns a usable best-effort matcher; ok is false if any
+// part of the config failed to compile, so callers that own the config can keep the last known good
+// matcher instead of applying a partially-compiled one.
+func CompileServiceEntryVisibility(sev *meshapi.ServiceEntryVisibility) (*ServiceEntryVisibilityMatcher, bool) {
 	if sev == nil {
-		return &ServiceEntryVisibilityMatcher{defaultVisibility: ServiceVisibilityPublic}
+		return &ServiceEntryVisibilityMatcher{defaultVisibility: ServiceVisibilityPublic}, true
 	}
 	out := &ServiceEntryVisibilityMatcher{
 		defaultVisibility: toServiceVisibility(sev.GetDefaultVisibility()),
 		source:            sev,
 	}
+	ok := true
 	for _, policy := range sev.GetPolicies() {
 		vp := visibilityPolicy{visibility: toServiceVisibility(policy.GetVisibility())}
 		for _, rule := range policy.GetMatchingRules() {
-			vp.rules = append(vp.rules, compileVisibilityRule(rule))
+			r, ruleOK := compileVisibilityRule(rule)
+			ok = ok && ruleOK
+			vp.rules = append(vp.rules, r)
 		}
 		out.policies = append(out.policies, vp)
 	}
-	return out
+	return out, ok
 }
 
 // ServiceEntryVisibilityCollection derives the precompiled serviceEntryVisibility matcher as a krt
@@ -139,28 +144,35 @@ func ServiceEntryVisibilityCollection(
 	opts krt.OptionsBuilder,
 ) krt.Singleton[ServiceEntryVisibilityMatcher] {
 	return krt.NewSingleton[ServiceEntryVisibilityMatcher](func(ctx krt.HandlerContext) *ServiceEntryVisibilityMatcher {
-		mc := krt.FetchOne(ctx, meshConfig)
-		if mc == nil {
-			return CompileServiceEntryVisibility(nil)
+		var sev *meshapi.ServiceEntryVisibility
+		if mc := krt.FetchOne(ctx, meshConfig); mc != nil {
+			sev = mc.GetServiceEntryVisibility()
 		}
-		return CompileServiceEntryVisibility(mc.GetServiceEntryVisibility())
+		m, ok := CompileServiceEntryVisibility(sev)
+		if !ok {
+			// The config failed to compile (logged above). Keep the last known good matcher rather
+			// than applying a partially-compiled one; a fresh instance falls back to best-effort.
+			ctx.DiscardResult()
+		}
+		return m
 	}, opts.WithName("ServiceEntryVisibility")...)
 }
 
 // compileVisibilityRule converts a single matcher into its precompiled form. Only namespaceSelector
-// is implemented today; future matchers (hostnameSuffix, addressInCidr) become new cases here.
-func compileVisibilityRule(rule *meshapi.ServiceEntryVisibility_MatchRule) visibilityRule {
+// is implemented today; future matchers (hostnameSuffix, addressInCidr) become new cases here. ok is
+// false if the matcher failed to compile; an unknown/unset matcher is not a failure (forward compat).
+func compileVisibilityRule(rule *meshapi.ServiceEntryVisibility_MatchRule) (visibilityRule, bool) {
 	switch rule.GetMatcher().(type) {
 	case *meshapi.ServiceEntryVisibility_MatchRule_NamespaceSelector:
 		sel, err := mesh.LabelSelectorAsSelector(rule.GetNamespaceSelector())
 		if err != nil {
-			log.Warnf("failed to convert serviceEntryVisibility namespace selector: %v", err)
-			return visibilityRule{}
+			log.Errorf("failed to convert serviceEntryVisibility namespace selector: %v", err)
+			return visibilityRule{}, false
 		}
-		return visibilityRule{namespaceSelector: sel}
+		return visibilityRule{namespaceSelector: sel}, true
 	default:
 		// Unknown or unset matcher never matches.
-		return visibilityRule{}
+		return visibilityRule{}, true
 	}
 }
 

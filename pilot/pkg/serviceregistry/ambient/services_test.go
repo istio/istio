@@ -1370,10 +1370,11 @@ func TestServiceEntryServices(t *testing.T) {
 			if mc := krttest.GetMockSingleton[MeshConfig](mock).Get(); mc != nil {
 				sev = mc.GetServiceEntryVisibility()
 			}
+			matcher, _ := model.CompileServiceEntryVisibility(sev)
 			builder := a.serviceEntryServiceBuilder(
 				krttest.GetMockCollection[Waypoint](mock),
 				krttest.GetMockCollection[*v1.Namespace](mock),
-				krt.NewStatic(model.CompileServiceEntryVisibility(sev), true),
+				krt.NewStatic(matcher, true),
 			)
 			wrapper := builder(krt.TestingDummyContext{}, tt.se)
 			res := slices.Map(wrapper, func(e TypedServiceInfo) *workloadapi.Service {
