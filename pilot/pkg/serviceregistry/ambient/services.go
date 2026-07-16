@@ -505,6 +505,8 @@ func serviceEntriesInfo(
 	resolvedVisibility := vis.VisibilityFor(nsLabels)
 	if resolvedVisibility == model.ServiceVisibilityNone {
 		log.Debugf("ServiceEntry %s/%s resolves to visibility NONE; not configuring", s.Namespace, s.Name)
+		// StatusBug: dropping the ServiceInfo means we can't write a condition that it was dropped.
+		// https://github.com/istio/istio/issues/60908
 		return nil
 	}
 	services := constructServiceEntries(ctx, s, w, nsAnnotations, networkGetter)
