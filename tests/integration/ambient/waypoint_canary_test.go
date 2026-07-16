@@ -79,8 +79,8 @@ func TestWeightedWaypointTrafficShift(t *testing.T) {
 		// Mesh-only: dropping the canary label makes the weighted set disappear, so ztunnel falls
 		// back to the single primary waypoint.
 		t.NewSubTest("no-canary-label-single-waypoint").Run(func(t framework.TestContext) {
-			setWeightedWaypoint(t, Captured, canaryPrimaryWP, canaryCanaryWP, 100)
-			patchService(t, Captured, fmt.Sprintf(`{"metadata":{"labels":{"%s":null}}}`,
+			setWeightedWaypoint(t, canaryCanaryWP, 100)
+			patchCapturedService(t, fmt.Sprintf(`{"metadata":{"labels":{"%s":null}}}`,
 				label.IoIstioUseWaypointCanary.Name))
 			servedThrough(t, canaryPrimaryWP, call, wantAll)
 			servedThrough(t, canaryCanaryWP, call, wantNone)
@@ -99,7 +99,7 @@ func TestWeightedWaypointCanaryNotReady(t *testing.T) {
 
 		// Canary points at a waypoint that was never created. Every request should still succeed via
 		// the primary waypoint.
-		setWeightedWaypoint(t, Captured, canaryPrimaryWP, "does-not-exist", 50)
+		setWeightedWaypoint(t, "does-not-exist", 50)
 		call := func() (echo.CallResult, error) {
 			return src.Call(echo.CallOptions{
 				To: dst, Port: ports.HTTP, Count: 40, NewConnectionPerRequest: true, Check: acceptAny,
@@ -121,7 +121,7 @@ func TestWeightedWaypointPolicyPropagation(t *testing.T) {
 		dst := apps.Captured
 
 		// All traffic goes to the canary waypoint.
-		setWeightedWaypoint(t, Captured, canaryPrimaryWP, canaryCanaryWP, 100)
+		setWeightedWaypoint(t, canaryCanaryWP, 100)
 
 		// Service-scoped L7 DENY, enforced at the waypoint. Must be programmed onto the canary too.
 		t.ConfigIstio().Eval(ns, map[string]string{"Service": Captured}, `apiVersion: security.istio.io/v1
@@ -242,7 +242,7 @@ func runWeightShiftSubtests(t framework.TestContext, call func() (echo.CallResul
 		{"weight-100-all-canary", 100, wantAll, wantNone},
 	} {
 		t.NewSubTest(tc.name).Run(func(t framework.TestContext) {
-			setWeightedWaypoint(t, Captured, canaryPrimaryWP, canaryCanaryWP, tc.weight)
+			setWeightedWaypoint(t, canaryCanaryWP, tc.weight)
 			servedThrough(t, canaryCanaryWP, call, tc.canary)
 			servedThrough(t, canaryPrimaryWP, call, tc.primary)
 		})
@@ -337,34 +337,34 @@ func newServiceWaypoint(t framework.TestContext, name string) {
 	}, retry.Timeout(2*time.Minute))
 }
 
-// setWeightedWaypoint labels a service with a primary and canary waypoint plus a canary weight,
-// registering cleanup that clears all three.
-func setWeightedWaypoint(t framework.TestContext, svc, primary, canary string, weight int) {
+// setWeightedWaypoint labels the Captured service with the primary and the given canary waypoint
+// plus a canary weight, registering cleanup that clears all three.
+func setWeightedWaypoint(t framework.TestContext, canary string, weight int) {
 	set := fmt.Sprintf(`{"metadata":{"labels":{"%s":%q,"%s":%q},"annotations":{"%s":%q}}}`,
-		label.IoIstioUseWaypoint.Name, primary,
+		label.IoIstioUseWaypoint.Name, canaryPrimaryWP,
 		label.IoIstioUseWaypointCanary.Name, canary,
 		annotation.IoIstioUseWaypointCanaryWeight.Name, strconv.Itoa(weight))
-	patchService(t, svc, set)
+	patchCapturedService(t, set)
 	t.Cleanup(func() {
-		clear := fmt.Sprintf(`{"metadata":{"labels":{"%s":null,"%s":null},"annotations":{"%s":null}}}`,
+		reset := fmt.Sprintf(`{"metadata":{"labels":{"%s":null,"%s":null},"annotations":{"%s":null}}}`,
 			label.IoIstioUseWaypoint.Name, label.IoIstioUseWaypointCanary.Name,
 			annotation.IoIstioUseWaypointCanaryWeight.Name)
-		if err := patchServiceE(t, svc, clear); err != nil {
-			scopes.Framework.Errorf("failed clearing weighted waypoint for %s: %v", svc, err)
+		if err := patchCapturedServiceE(t, reset); err != nil {
+			scopes.Framework.Errorf("failed clearing weighted waypoint for %s: %v", Captured, err)
 		}
 	})
 }
 
-func patchService(t framework.TestContext, svc, patch string) {
-	if err := patchServiceE(t, svc, patch); err != nil {
+func patchCapturedService(t framework.TestContext, patch string) {
+	if err := patchCapturedServiceE(t, patch); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func patchServiceE(t framework.TestContext, svc, patch string) error {
+func patchCapturedServiceE(t framework.TestContext, patch string) error {
 	for _, c := range t.Clusters() {
 		if _, err := c.Kube().CoreV1().Services(apps.Namespace.Name()).Patch(
-			context.TODO(), svc, types.MergePatchType, []byte(patch), metav1.PatchOptions{}); err != nil {
+			context.TODO(), Captured, types.MergePatchType, []byte(patch), metav1.PatchOptions{}); err != nil {
 			return err
 		}
 	}
