@@ -46,10 +46,10 @@ require (
 	github.com/howardjohn/unshare-go v0.5.0
 	github.com/klauspost/compress v1.19.0
 	github.com/lestrrat-go/jwx v1.2.31
-	github.com/mattn/go-isatty v0.0.22
+	github.com/mattn/go-isatty v0.0.23
 	github.com/miekg/dns v1.1.72
 	github.com/mitchellh/copystructure v1.2.0
-	github.com/moby/buildkit v0.31.1
+	github.com/moby/buildkit v0.31.2
 	github.com/onsi/gomega v1.42.1
 	github.com/openshift/api v0.0.0-20260320151444-324a1bcb9f55
 	github.com/pires/go-proxyproto v0.15.0
@@ -90,7 +90,7 @@ require (
 	gomodules.xyz/jsonpatch/v2 v2.5.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20260526163538-3dc84a4a5aaa
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260526163538-3dc84a4a5aaa
-	google.golang.org/grpc v1.82.0
+	google.golang.org/grpc v1.82.1
 	google.golang.org/protobuf v1.36.11
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 	gopkg.in/yaml.v2 v2.4.0
