@@ -19,6 +19,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
+	"istio.io/api/annotation"
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -126,11 +127,11 @@ func TestWaypointInteropCanary(t *testing.T) {
 	// Bind svc1 to the primary waypoint with a weighted canary.
 	s.addService(t, "svc1",
 		map[string]string{
-			label.IoIstioUseWaypoint.Name:   "wp-primary",
-			useWaypointCanaryLabel:          "wp-canary",
-			"istio.io/ingress-use-waypoint": "true",
+			label.IoIstioUseWaypoint.Name:       "wp-primary",
+			label.IoIstioUseWaypointCanary.Name: "wp-canary",
+			"istio.io/ingress-use-waypoint":     "true",
 		},
-		map[string]string{useWaypointCanaryWeightAnno: "20"},
+		map[string]string{annotation.IoIstioUseWaypointCanaryWeight.Name: "20"},
 		[]int32{80}, map[string]string{"app": "a"}, "10.0.0.2")
 	s.assertEvent(t, addressUpdate("svc1"), edsUpdate("svc1"))
 
@@ -154,11 +155,11 @@ func TestWaypointInteropCanary(t *testing.T) {
 	// A weight change must push EDS for svc1.
 	s.addService(t, "svc1",
 		map[string]string{
-			label.IoIstioUseWaypoint.Name:   "wp-primary",
-			useWaypointCanaryLabel:          "wp-canary",
-			"istio.io/ingress-use-waypoint": "true",
+			label.IoIstioUseWaypoint.Name:       "wp-primary",
+			label.IoIstioUseWaypointCanary.Name: "wp-canary",
+			"istio.io/ingress-use-waypoint":     "true",
 		},
-		map[string]string{useWaypointCanaryWeightAnno: "50"},
+		map[string]string{annotation.IoIstioUseWaypointCanaryWeight.Name: "50"},
 		[]int32{80}, map[string]string{"app": "a"}, "10.0.0.2")
 	s.assertEvent(t, addressUpdate("svc1"), edsUpdate("svc1"))
 }

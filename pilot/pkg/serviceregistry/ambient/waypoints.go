@@ -220,27 +220,14 @@ func (w Waypoint) ResourceName() string {
 	return w.GetNamespace() + "/" + w.GetName()
 }
 
-// Canary waypoint attribute keys. These are hardcoded here temporarily until the canonical
-// constants land in istio/api via https://github.com/istio/api/pull/3735. Once that PR merges and
-// the istio.io/api dependency is bumped, replace these with the generated constants:
-//
-//	useWaypointCanaryLabel          -> label.IoIstioUseWaypointCanary.Name
-//	useWaypointCanaryNamespaceLabel -> label.IoIstioUseWaypointCanaryNamespace.Name
-//	useWaypointCanaryWeightAnno     -> annotation.IoIstioUseWaypointCanaryWeight.Name
-const (
-	useWaypointCanaryLabel          = "istio.io/use-waypoint-canary"
-	useWaypointCanaryNamespaceLabel = "istio.io/use-waypoint-canary-namespace"
-	useWaypointCanaryWeightAnno     = "istio.io/use-waypoint-canary-weight"
-)
-
 // getUseWaypointCanary parses the optional canary waypoint reference.
 func getUseWaypointCanary(meta metav1.ObjectMeta, defaultNamespace string) *krt.Named {
-	labelValue, ok := meta.Labels[useWaypointCanaryLabel]
+	labelValue, ok := meta.Labels[label.IoIstioUseWaypointCanary.Name]
 	if !ok || labelValue == "" || labelValue == "none" {
 		return nil
 	}
 	namespace := defaultNamespace
-	if override, f := meta.Labels[useWaypointCanaryNamespaceLabel]; f {
+	if override, f := meta.Labels[label.IoIstioUseWaypointCanaryNamespace.Name]; f {
 		namespace = override
 	}
 	return &krt.Named{Name: labelValue, Namespace: namespace}
@@ -248,7 +235,7 @@ func getUseWaypointCanary(meta metav1.ObjectMeta, defaultNamespace string) *krt.
 
 // getCanaryWeight parses the canary weight annotation. Missing means 0%.
 func getCanaryWeight(meta metav1.ObjectMeta) (weight uint32, valid bool) {
-	v, ok := meta.Annotations[useWaypointCanaryWeightAnno]
+	v, ok := meta.Annotations[annotation.IoIstioUseWaypointCanaryWeight.Name]
 	if !ok {
 		return 0, true
 	}

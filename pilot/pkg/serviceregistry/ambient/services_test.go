@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
+	"istio.io/api/annotation"
 	"istio.io/api/label"
 	meshConfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -1633,11 +1634,11 @@ func TestServiceServices(t *testing.T) {
 					Name:      "name",
 					Namespace: "ns",
 					Labels: map[string]string{
-						label.IoIstioUseWaypoint.Name: "waypoint",
-						useWaypointCanaryLabel:        "canary",
+						label.IoIstioUseWaypoint.Name:       "waypoint",
+						label.IoIstioUseWaypointCanary.Name: "canary",
 					},
 					Annotations: map[string]string{
-						useWaypointCanaryWeightAnno: "5",
+						annotation.IoIstioUseWaypointCanaryWeight.Name: "5",
 					},
 				},
 				Spec: v1.ServiceSpec{
@@ -1673,11 +1674,11 @@ func TestServiceServices(t *testing.T) {
 					Name:      "name",
 					Namespace: "ns",
 					Labels: map[string]string{
-						label.IoIstioUseWaypoint.Name: "waypoint",
-						useWaypointCanaryLabel:        "canary",
+						label.IoIstioUseWaypoint.Name:       "waypoint",
+						label.IoIstioUseWaypointCanary.Name: "canary",
 					},
 					Annotations: map[string]string{
-						useWaypointCanaryWeightAnno: "not-a-number",
+						annotation.IoIstioUseWaypointCanaryWeight.Name: "not-a-number",
 					},
 				},
 				Spec: v1.ServiceSpec{
@@ -1709,11 +1710,11 @@ func TestServiceServices(t *testing.T) {
 					Name:      "name",
 					Namespace: "ns",
 					Labels: map[string]string{
-						label.IoIstioUseWaypoint.Name: "waypoint",
-						useWaypointCanaryLabel:        "canary",
+						label.IoIstioUseWaypoint.Name:       "waypoint",
+						label.IoIstioUseWaypointCanary.Name: "canary",
 					},
 					Annotations: map[string]string{
-						useWaypointCanaryWeightAnno: "5",
+						annotation.IoIstioUseWaypointCanaryWeight.Name: "5",
 					},
 				},
 				Spec: v1.ServiceSpec{

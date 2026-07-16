@@ -22,6 +22,7 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"istio.io/api/annotation"
+	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube/krt"
@@ -287,19 +288,19 @@ func TestGetUseWaypointCanary(t *testing.T) {
 		want      *krt.Named
 	}{
 		{"no label", nil, "ns", nil},
-		{"empty value", map[string]string{useWaypointCanaryLabel: ""}, "ns", nil},
-		{"none", map[string]string{useWaypointCanaryLabel: "none"}, "ns", nil},
+		{"empty value", map[string]string{label.IoIstioUseWaypointCanary.Name: ""}, "ns", nil},
+		{"none", map[string]string{label.IoIstioUseWaypointCanary.Name: "none"}, "ns", nil},
 		{
 			"same namespace",
-			map[string]string{useWaypointCanaryLabel: "wp"},
+			map[string]string{label.IoIstioUseWaypointCanary.Name: "wp"},
 			"ns",
 			&krt.Named{Name: "wp", Namespace: "ns"},
 		},
 		{
 			"cross namespace",
 			map[string]string{
-				useWaypointCanaryLabel:          "wp",
-				useWaypointCanaryNamespaceLabel: "other",
+				label.IoIstioUseWaypointCanary.Name:          "wp",
+				label.IoIstioUseWaypointCanaryNamespace.Name: "other",
 			},
 			"ns",
 			&krt.Named{Name: "wp", Namespace: "other"},
@@ -314,7 +315,7 @@ func TestGetUseWaypointCanary(t *testing.T) {
 }
 
 func TestGetCanaryWeight(t *testing.T) {
-	anno := useWaypointCanaryWeightAnno
+	anno := annotation.IoIstioUseWaypointCanaryWeight.Name
 	cases := []struct {
 		name       string
 		anns       map[string]string
