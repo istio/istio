@@ -1080,12 +1080,25 @@ func (ps *PushContext) serviceExportTo(service *Service) sets.Set[visibility.Ins
 	if !service.Attributes.ExportTo.IsEmpty() {
 		exportToSet = service.Attributes.ExportTo
 	}
+	// The user requested only None (~), so honor it; else run through the ServiceEntryVisibility logic
+	// to ensure we don't leak
+	if exportToSet.Len() == 1 && exportToSet.Contains(visibility.None) {
+		return exportToSet
+	}
 	// serviceEntryVisibility caps exportTo for classic (sidecar) proxies when opted in. It only
 	// ever narrows: NAMESPACE clamps to namespace-local, NONE hides the service entirely.
 	if ps.Mesh.GetServiceEntryVisibility().GetApplyToSidecars() {
 		switch service.Attributes.Visibility {
 		case ServiceVisibilityNamespace:
-			return sets.New(visibility.Private)
+			// Clamp to own-ns: keep Private only if the declared exportTo includes own namespace
+			// (*, ., or a literal own-ns entry); otherwise the intersection is None.
+			ns := service.Attributes.Namespace
+			if exportToSet.Contains(visibility.Public) ||
+				exportToSet.Contains(visibility.Private) ||
+				exportToSet.Contains(visibility.Instance(ns)) {
+				return sets.New(visibility.Private)
+			}
+			return sets.New(visibility.None)
 		case ServiceVisibilityNone:
 			return sets.New(visibility.None)
 		}

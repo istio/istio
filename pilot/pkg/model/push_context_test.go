@@ -1893,6 +1893,215 @@ func TestIsServiceVisible(t *testing.T) {
 			expect: false,
 		},
 		{
+			name: "applyToSidecars: explicit exportTo=~ stays None under NAMESPACE visibility",
+			pushContext: &PushContext{
+				Mesh: &meshconfig.MeshConfig{
+					ServiceEntryVisibility: &meshconfig.ServiceEntryVisibility{ApplyToSidecars: true},
+				},
+			},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace:  "foo",
+					ExportTo:   sets.New(visibility.None),
+					Visibility: ServiceVisibilityNamespace,
+				},
+			},
+			expect: false,
+		},
+		{
+			name: "applyToSidecars: explicit exportTo=~ stays None even under PUBLIC visibility",
+			pushContext: &PushContext{
+				Mesh: &meshconfig.MeshConfig{
+					ServiceEntryVisibility: &meshconfig.ServiceEntryVisibility{ApplyToSidecars: true},
+				},
+			},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace:  "foo",
+					ExportTo:   sets.New(visibility.None),
+					Visibility: ServiceVisibilityPublic,
+				},
+			},
+			expect: false,
+		},
+		{
+			name: "applyToSidecars: exportTo=<own ns literal> under NAMESPACE stays visible in own namespace",
+			pushContext: &PushContext{
+				Mesh: &meshconfig.MeshConfig{
+					ServiceEntryVisibility: &meshconfig.ServiceEntryVisibility{ApplyToSidecars: true},
+				},
+			},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace:  "foo",
+					ExportTo:   sets.New(visibility.Instance("foo")),
+					Visibility: ServiceVisibilityNamespace,
+				},
+			},
+			expect: true,
+		},
+		{
+			name: "applyToSidecars: exportTo=<own ns literal> under PUBLIC stays visible in own namespace",
+			pushContext: &PushContext{
+				Mesh: &meshconfig.MeshConfig{
+					ServiceEntryVisibility: &meshconfig.ServiceEntryVisibility{ApplyToSidecars: true},
+				},
+			},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace:  "foo",
+					ExportTo:   sets.New(visibility.Instance("foo")),
+					Visibility: ServiceVisibilityPublic,
+				},
+			},
+			expect: true,
+		},
+		{
+			name: "applyToSidecars: NONE visibility hides service despite exportTo=.",
+			pushContext: &PushContext{
+				Mesh: &meshconfig.MeshConfig{
+					ServiceEntryVisibility: &meshconfig.ServiceEntryVisibility{ApplyToSidecars: true},
+				},
+			},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace:  "foo",
+					ExportTo:   sets.New(visibility.Private),
+					Visibility: ServiceVisibilityNone,
+				},
+			},
+			expect: false,
+		},
+		{
+			// [*,~] resolves to public (* wins over ~), so it is clamped, not short-circuited by the ~.
+			name: "applyToSidecars: exportTo=[*,~] in foo is clamped to own namespace (visible in foo)",
+			pushContext: &PushContext{
+				Mesh: &meshconfig.MeshConfig{
+					ServiceEntryVisibility: &meshconfig.ServiceEntryVisibility{ApplyToSidecars: true},
+				},
+			},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace:  "foo",
+					ExportTo:   sets.New(visibility.Public, visibility.None),
+					Visibility: ServiceVisibilityNamespace,
+				},
+			},
+			expect: true,
+		},
+		{
+			name: "applyToSidecars: exportTo=[*,~] in bar is clamped, not visible cross-namespace in foo",
+			pushContext: &PushContext{
+				Mesh: &meshconfig.MeshConfig{
+					ServiceEntryVisibility: &meshconfig.ServiceEntryVisibility{ApplyToSidecars: true},
+				},
+			},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace:  "bar",
+					ExportTo:   sets.New(visibility.Public, visibility.None),
+					Visibility: ServiceVisibilityNamespace,
+				},
+			},
+			expect: false,
+		},
+		{
+			name: "applyToSidecars: exportTo=. under NAMESPACE stays visible in own namespace",
+			pushContext: &PushContext{
+				Mesh: &meshconfig.MeshConfig{
+					ServiceEntryVisibility: &meshconfig.ServiceEntryVisibility{ApplyToSidecars: true},
+				},
+			},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace:  "foo",
+					ExportTo:   sets.New(visibility.Private),
+					Visibility: ServiceVisibilityNamespace,
+				},
+			},
+			expect: true,
+		},
+		{
+			name: "applyToSidecars: exportTo=<other ns> under NAMESPACE is None (disjoint intersection)",
+			pushContext: &PushContext{
+				Mesh: &meshconfig.MeshConfig{
+					ServiceEntryVisibility: &meshconfig.ServiceEntryVisibility{ApplyToSidecars: true},
+				},
+			},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace:  "foo",
+					ExportTo:   sets.New(visibility.Instance("baz")),
+					Visibility: ServiceVisibilityNamespace,
+				},
+			},
+			expect: false,
+		},
+		{
+			name: "applyToSidecars: exportTo=[foo,baz] in foo stays visible in own namespace under NAMESPACE",
+			pushContext: &PushContext{
+				Mesh: &meshconfig.MeshConfig{
+					ServiceEntryVisibility: &meshconfig.ServiceEntryVisibility{ApplyToSidecars: true},
+				},
+			},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace:  "foo",
+					ExportTo:   sets.New(visibility.Instance("foo"), visibility.Instance("baz")),
+					Visibility: ServiceVisibilityNamespace,
+				},
+			},
+			expect: true,
+		},
+		{
+			name: "applyToSidecars: exportTo=[foo,baz] in baz - NAMESPACE clamps away the cross-namespace foo grant",
+			pushContext: &PushContext{
+				Mesh: &meshconfig.MeshConfig{
+					ServiceEntryVisibility: &meshconfig.ServiceEntryVisibility{ApplyToSidecars: true},
+				},
+			},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace:  "baz",
+					ExportTo:   sets.New(visibility.Instance("foo"), visibility.Instance("baz")),
+					Visibility: ServiceVisibilityNamespace,
+				},
+			},
+			expect: false,
+		},
+		{
+			name: "applyToSidecars: exportTo=[foo] in baz - NAMESPACE strips the explicit foo grant",
+			pushContext: &PushContext{
+				Mesh: &meshconfig.MeshConfig{
+					ServiceEntryVisibility: &meshconfig.ServiceEntryVisibility{ApplyToSidecars: true},
+				},
+			},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace:  "baz",
+					ExportTo:   sets.New(visibility.Instance("foo")),
+					Visibility: ServiceVisibilityNamespace,
+				},
+			},
+			expect: false,
+		},
+		{
+			name: "applyToSidecars: exportTo=[baz] (own ns) in baz is namespace-local, not visible in foo",
+			pushContext: &PushContext{
+				Mesh: &meshconfig.MeshConfig{
+					ServiceEntryVisibility: &meshconfig.ServiceEntryVisibility{ApplyToSidecars: true},
+				},
+			},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace:  "baz",
+					ExportTo:   sets.New(visibility.Instance("baz")),
+					Visibility: ServiceVisibilityNamespace,
+				},
+			},
+			expect: false,
+		},
+		{
 			name: "applyToSidecars disabled: NAMESPACE visibility is ignored, exportTo=* governs",
 			pushContext: &PushContext{
 				Mesh: &meshconfig.MeshConfig{
@@ -1917,6 +2126,97 @@ func TestIsServiceVisible(t *testing.T) {
 			g := NewWithT(t)
 			g.Expect(isVisible).To(Equal(c.expect))
 		})
+	}
+}
+
+// TestServiceExportToNeverWidens asserts the ceiling invariant of serviceExportTo across its whole
+// input space: the clamp only ever narrows. Two properties, checked for every combination:
+//
+//  1. Never broader than declared: the effective set is not reachable in any namespace the declared
+//     exportTo is not.
+//  2. Never exceeds the visibility clamp (when applyToSidecars): NONE is reachable nowhere, NAMESPACE
+//     only in the service's own namespace.
+func TestServiceExportToNeverWidens(t *testing.T) {
+	// reachable mirrors IsServiceVisible's interpretation of an exportTo set for a target namespace.
+	reachable := func(set sets.Set[visibility.Instance], target, ownNs string) bool {
+		return set.Contains(visibility.Public) ||
+			(set.Contains(visibility.Private) && target == ownNs) ||
+			set.Contains(visibility.Instance(target))
+	}
+
+	// Atoms spanning every distinct exportTo value the clamp branches on: the three symbolic scopes,
+	// own-namespace (as serviceNamespaces vary over "foo"/"baz"), another mesh namespace, and an
+	// unrelated one. The invariants must hold for any declared set (many are invalid configs that
+	// validation rejects), so enumerate every non-empty subset rather than hand-picking forms.
+	baseSet := []visibility.Instance{
+		visibility.Public,
+		visibility.Private,
+		visibility.None,
+		visibility.Instance("foo"),
+		visibility.Instance("baz"),
+		visibility.Instance("qux"),
+	}
+	// Every non-empty subset of baseSet: start with the empty set and, for each atom, add it to a copy
+	// of every subset already collected (doubling the collection each round).
+	exportToForms := []sets.Set[visibility.Instance]{sets.New[visibility.Instance]()}
+	for _, atom := range baseSet {
+		n := len(exportToForms) // freeze before appending this round
+		for i := 0; i < n; i++ {
+			withAtom := exportToForms[i].Copy()
+			withAtom.Insert(atom)
+			exportToForms = append(exportToForms, withAtom)
+		}
+	}
+	exportToForms = exportToForms[1:] // drop the empty set: it selects the mesh default, not a clamp of the declared set
+	visibilities := map[string]ServiceVisibility{
+		"PUBLIC":    ServiceVisibilityPublic,
+		"NAMESPACE": ServiceVisibilityNamespace,
+		"NONE":      ServiceVisibilityNone,
+	}
+	serviceNamespaces := []string{"foo", "baz"}
+	clientNamespaces := []string{"foo", "baz", "qux"}
+
+	for _, apply := range []bool{true, false} {
+		for visName, vis := range visibilities {
+			for _, serviceNs := range serviceNamespaces {
+				for _, declared := range exportToForms {
+					ps := &PushContext{
+						Mesh: &meshconfig.MeshConfig{
+							ServiceEntryVisibility: &meshconfig.ServiceEntryVisibility{ApplyToSidecars: apply},
+						},
+					}
+					svc := &Service{Attributes: ServiceAttributes{
+						Namespace:  serviceNs,
+						ExportTo:   declared.Copy(),
+						Visibility: vis,
+					}}
+					effective := ps.serviceExportTo(svc)
+					for _, clientNs := range clientNamespaces {
+						// Invariant 1: never reachable where the declared exportTo is not.
+						if reachable(effective, clientNs, serviceNs) && !reachable(declared, clientNs, serviceNs) {
+							t.Errorf("widened past declared: apply=%v vis=%s serviceNs=%s client=%s: declared=%v effective=%v",
+								apply, visName, serviceNs, clientNs, sets.SortedList(declared), sets.SortedList(effective))
+						}
+						if !apply {
+							continue
+						}
+						// Invariant 2: with applyToSidecars, never exceed the visibility clamp.
+						switch vis {
+						case ServiceVisibilityNone:
+							if reachable(effective, clientNs, serviceNs) {
+								t.Errorf("NONE visibility reachable: serviceNs=%s clientNs=%s: declared=%v effective=%v",
+									serviceNs, clientNs, sets.SortedList(declared), sets.SortedList(effective))
+							}
+						case ServiceVisibilityNamespace:
+							if reachable(effective, clientNs, serviceNs) && clientNs != serviceNs {
+								t.Errorf("NAMESPACE visibility reachable outside own namespace: serviceNs=%s clientNs=%s: declared=%v effective=%v",
+									serviceNs, clientNs, sets.SortedList(declared), sets.SortedList(effective))
+							}
+						}
+					}
+				}
+			}
+		}
 	}
 }
 
