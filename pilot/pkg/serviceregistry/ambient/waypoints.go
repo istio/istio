@@ -292,11 +292,14 @@ func buildWeightedWaypoints(
 	if primary == nil || status.Error != nil {
 		return nil
 	}
-	// Canary attributes may be declared on the object or inherited from its namespace, mirroring the
-	// primary waypoint.
+	// The canary is inherited from the same level as the primary: consult the namespace's canary
+	// attributes only when the primary itself was inherited from the namespace (the object sets no
+	// use-waypoint of its own).
 	var nsMeta *metav1.ObjectMeta
-	if ns := ptr.OrEmpty(krt.FetchOne[*v1.Namespace](ctx, namespaces, krt.FilterKey(o.Namespace))); ns != nil {
-		nsMeta = &ns.ObjectMeta
+	if objPrimary, _ := getUseWaypoint(o, o.Namespace); objPrimary == nil {
+		if ns := ptr.OrEmpty(krt.FetchOne[*v1.Namespace](ctx, namespaces, krt.FilterKey(o.Namespace))); ns != nil {
+			nsMeta = &ns.ObjectMeta
+		}
 	}
 	named := getUseWaypointCanary(o, nsMeta, o.Namespace)
 	if named == nil {

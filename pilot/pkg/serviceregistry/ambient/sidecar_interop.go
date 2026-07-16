@@ -16,10 +16,9 @@
 package ambient
 
 import (
+	"bytes"
 	"net/netip"
 	"strings"
-
-	"google.golang.org/protobuf/proto"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -62,12 +61,33 @@ func (s serviceEDS) Equals(other serviceEDS) bool {
 	if len(s.WeightedWaypoints) != len(other.WeightedWaypoints) {
 		return false
 	}
+	// assumes builder preserved order; compare the fields cheaply rather than proto.Equal on the
+	// EDS hot path.
 	for i := range s.WeightedWaypoints {
-		if !proto.Equal(s.WeightedWaypoints[i], other.WeightedWaypoints[i]) {
+		if !weightedWaypointEqual(s.WeightedWaypoints[i], other.WeightedWaypoints[i]) {
 			return false
 		}
 	}
 	return true
+}
+
+// weightedWaypointEqual compares the fields that affect gateway EDS: the weight and the destination
+// waypoint (hostname or network address, plus HBONE port). The getters are nil-safe, so this covers
+// either GatewayAddress oneof case.
+func weightedWaypointEqual(a, b *workloadapi.WeightedWaypoint) bool {
+	if a.GetWeight() != b.GetWeight() {
+		return false
+	}
+	ad, bd := a.GetDestination(), b.GetDestination()
+	if ad.GetHboneMtlsPort() != bd.GetHboneMtlsPort() {
+		return false
+	}
+	if ad.GetHostname().GetNamespace() != bd.GetHostname().GetNamespace() ||
+		ad.GetHostname().GetHostname() != bd.GetHostname().GetHostname() {
+		return false
+	}
+	aa, ba := ad.GetAddress(), bd.GetAddress()
+	return aa.GetNetwork() == ba.GetNetwork() && bytes.Equal(aa.GetAddress(), ba.GetAddress())
 }
 
 // RegisterEdsShim handles triggering xDS events when Envoy EDS needs to change.

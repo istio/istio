@@ -1324,6 +1324,13 @@ func (i ServiceInfo) GetConditions(currentConditions map[string]Condition) Condi
 			buildMsg.WriteString(". Ingress traffic is not using the waypoint, set the istio.io/ingress-use-waypoint label to true if desired.")
 		}
 
+		// The primary is bound; an Error here is a canary failure. Surface it while keeping the
+		// service bound, since traffic still flows through the primary waypoint.
+		if i.Waypoint.Error != nil {
+			buildMsg.WriteString(". Canary waypoint not attached: ")
+			buildMsg.WriteString(i.Waypoint.Error.Message)
+		}
+
 		set[WaypointBound] = &Condition{
 			Status:  true,
 			Reason:  string(WaypointAccepted),
