@@ -284,15 +284,17 @@ func TestGetUseWaypointCanary(t *testing.T) {
 	cases := []struct {
 		name      string
 		labels    map[string]string
+		nsLabels  map[string]string
 		defaultNS string
 		want      *krt.Named
 	}{
-		{"no label", nil, "ns", nil},
-		{"empty value", map[string]string{label.IoIstioUseWaypointCanary.Name: ""}, "ns", nil},
-		{"none", map[string]string{label.IoIstioUseWaypointCanary.Name: "none"}, "ns", nil},
+		{"no label", nil, nil, "ns", nil},
+		{"empty value", map[string]string{label.IoIstioUseWaypointCanary.Name: ""}, nil, "ns", nil},
+		{"none", map[string]string{label.IoIstioUseWaypointCanary.Name: "none"}, nil, "ns", nil},
 		{
 			"same namespace",
 			map[string]string{label.IoIstioUseWaypointCanary.Name: "wp"},
+			nil,
 			"ns",
 			&krt.Named{Name: "wp", Namespace: "ns"},
 		},
@@ -302,13 +304,42 @@ func TestGetUseWaypointCanary(t *testing.T) {
 				label.IoIstioUseWaypointCanary.Name:          "wp",
 				label.IoIstioUseWaypointCanaryNamespace.Name: "other",
 			},
+			nil,
 			"ns",
 			&krt.Named{Name: "wp", Namespace: "other"},
+		},
+		{
+			"inherited from namespace",
+			nil,
+			map[string]string{label.IoIstioUseWaypointCanary.Name: "ns-wp"},
+			"ns",
+			&krt.Named{Name: "ns-wp", Namespace: "ns"},
+		},
+		{
+			"inherited cross namespace from namespace",
+			nil,
+			map[string]string{
+				label.IoIstioUseWaypointCanary.Name:          "ns-wp",
+				label.IoIstioUseWaypointCanaryNamespace.Name: "other",
+			},
+			"ns",
+			&krt.Named{Name: "ns-wp", Namespace: "other"},
+		},
+		{
+			"object overrides namespace",
+			map[string]string{label.IoIstioUseWaypointCanary.Name: "wp"},
+			map[string]string{label.IoIstioUseWaypointCanary.Name: "ns-wp"},
+			"ns",
+			&krt.Named{Name: "wp", Namespace: "ns"},
 		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := getUseWaypointCanary(metav1.ObjectMeta{Labels: tc.labels}, tc.defaultNS)
+			var nsMeta *metav1.ObjectMeta
+			if tc.nsLabels != nil {
+				nsMeta = &metav1.ObjectMeta{Labels: tc.nsLabels}
+			}
+			got := getUseWaypointCanary(metav1.ObjectMeta{Labels: tc.labels}, nsMeta, tc.defaultNS)
 			assert.Equal(t, got, tc.want)
 		})
 	}
@@ -319,20 +350,27 @@ func TestGetCanaryWeight(t *testing.T) {
 	cases := []struct {
 		name       string
 		anns       map[string]string
+		nsAnns     map[string]string
 		wantWeight uint32
 		wantValid  bool
 	}{
-		{"absent defaults to 0", nil, 0, true},
-		{"zero", map[string]string{anno: "0"}, 0, true},
-		{"mid", map[string]string{anno: "42"}, 42, true},
-		{"hundred", map[string]string{anno: "100"}, 100, true},
-		{"non-integer", map[string]string{anno: "abc"}, 0, false},
-		{"negative", map[string]string{anno: "-1"}, 0, false},
-		{"over hundred", map[string]string{anno: "101"}, 0, false},
+		{"absent defaults to 0", nil, nil, 0, true},
+		{"zero", map[string]string{anno: "0"}, nil, 0, true},
+		{"mid", map[string]string{anno: "42"}, nil, 42, true},
+		{"hundred", map[string]string{anno: "100"}, nil, 100, true},
+		{"non-integer", map[string]string{anno: "abc"}, nil, 0, false},
+		{"negative", map[string]string{anno: "-1"}, nil, 0, false},
+		{"over hundred", map[string]string{anno: "101"}, nil, 0, false},
+		{"inherited from namespace", nil, map[string]string{anno: "30"}, 30, true},
+		{"object overrides namespace", map[string]string{anno: "42"}, map[string]string{anno: "30"}, 42, true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			w, valid := getCanaryWeight(metav1.ObjectMeta{Annotations: tc.anns})
+			var nsMeta *metav1.ObjectMeta
+			if tc.nsAnns != nil {
+				nsMeta = &metav1.ObjectMeta{Annotations: tc.nsAnns}
+			}
+			w, valid := getCanaryWeight(metav1.ObjectMeta{Annotations: tc.anns}, nsMeta)
 			assert.Equal(t, valid, tc.wantValid)
 			assert.Equal(t, w, tc.wantWeight)
 		})

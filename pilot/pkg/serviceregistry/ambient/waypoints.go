@@ -220,22 +220,34 @@ func (w Waypoint) ResourceName() string {
 	return w.GetNamespace() + "/" + w.GetName()
 }
 
-// getUseWaypointCanary parses the optional canary waypoint reference.
-func getUseWaypointCanary(meta metav1.ObjectMeta, defaultNamespace string) *krt.Named {
-	labelValue, ok := meta.Labels[label.IoIstioUseWaypointCanary.Name]
+// getUseWaypointCanary parses the optional canary waypoint reference from the object, falling back
+// to its namespace (nsMeta, may be nil). The canary label and its namespace override are read from
+// whichever level declares the canary, mirroring how the primary waypoint is inherited.
+func getUseWaypointCanary(meta metav1.ObjectMeta, nsMeta *metav1.ObjectMeta, defaultNamespace string) *krt.Named {
+	labels := meta.Labels
+	if _, ok := labels[label.IoIstioUseWaypointCanary.Name]; !ok && nsMeta != nil {
+		if _, ok := nsMeta.Labels[label.IoIstioUseWaypointCanary.Name]; ok {
+			labels = nsMeta.Labels
+		}
+	}
+	labelValue, ok := labels[label.IoIstioUseWaypointCanary.Name]
 	if !ok || labelValue == "" || labelValue == "none" {
 		return nil
 	}
 	namespace := defaultNamespace
-	if override, f := meta.Labels[label.IoIstioUseWaypointCanaryNamespace.Name]; f {
+	if override, f := labels[label.IoIstioUseWaypointCanaryNamespace.Name]; f {
 		namespace = override
 	}
 	return &krt.Named{Name: labelValue, Namespace: namespace}
 }
 
-// getCanaryWeight parses the canary weight annotation. Missing means 0%.
-func getCanaryWeight(meta metav1.ObjectMeta) (weight uint32, valid bool) {
+// getCanaryWeight parses the canary weight annotation from the object, falling back to its
+// namespace (nsMeta, may be nil). Missing means 0%.
+func getCanaryWeight(meta metav1.ObjectMeta, nsMeta *metav1.ObjectMeta) (weight uint32, valid bool) {
 	v, ok := meta.Annotations[annotation.IoIstioUseWaypointCanaryWeight.Name]
+	if !ok && nsMeta != nil {
+		v, ok = nsMeta.Annotations[annotation.IoIstioUseWaypointCanaryWeight.Name]
+	}
 	if !ok {
 		return 0, true
 	}
@@ -280,7 +292,13 @@ func buildWeightedWaypoints(
 	if primary == nil || status.Error != nil {
 		return nil
 	}
-	named := getUseWaypointCanary(o, o.Namespace)
+	// Canary attributes may be declared on the object or inherited from its namespace, mirroring the
+	// primary waypoint.
+	var nsMeta *metav1.ObjectMeta
+	if ns := ptr.OrEmpty(krt.FetchOne[*v1.Namespace](ctx, namespaces, krt.FilterKey(o.Namespace))); ns != nil {
+		nsMeta = &ns.ObjectMeta
+	}
+	named := getUseWaypointCanary(o, nsMeta, o.Namespace)
 	if named == nil {
 		return nil
 	}
@@ -288,7 +306,7 @@ func buildWeightedWaypoints(
 		status.Error = ReportWaypointCanarySameAsPrimary(named.ResourceName())
 		return nil
 	}
-	weight, ok := getCanaryWeight(o)
+	weight, ok := getCanaryWeight(o, nsMeta)
 	if !ok {
 		status.Error = ReportWaypointCanaryInvalidWeight(named.ResourceName())
 		return nil
