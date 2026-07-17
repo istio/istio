@@ -296,8 +296,8 @@ func buildWeightedWaypoints(
 	// attributes only when the primary itself was inherited from the namespace (the object sets no
 	// use-waypoint of its own).
 	var nsMeta *metav1.ObjectMeta
-	if objPrimary, _ := getUseWaypoint(o, o.Namespace); objPrimary == nil {
-		if ns := ptr.OrEmpty(krt.FetchOne[*v1.Namespace](ctx, namespaces, krt.FilterKey(o.Namespace))); ns != nil {
+	if objPrimary, _ := GetUseWaypoint(o, o.Namespace); objPrimary == nil {
+		if ns := ptr.OrEmpty(krt.FetchOne(ctx, namespaces, krt.FilterKey(o.Namespace))); ns != nil {
 			nsMeta = &ns.ObjectMeta
 		}
 	}
