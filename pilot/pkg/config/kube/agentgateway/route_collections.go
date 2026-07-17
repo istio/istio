@@ -52,7 +52,6 @@ type RouteContext struct {
 type RouteContextInputs struct {
 	Grants         gatewaycommon.ReferenceGrants
 	RouteParents   RouteParents
-	ControllerName string
 	DomainSuffix   string
 	Services       krt.Collection[*corev1.Service]
 	Namespaces     krt.Collection[*corev1.Namespace]
@@ -108,15 +107,22 @@ func gatewayRouteAttachmentCountCollection[T controllers.Object](
 
 		parentRefs := extractParentReferenceInfo(ctx, inputs.RouteParents, obj)
 		return slices.MapFilter(FilteredReferences(parentRefs), func(e RouteParentReference) **RouteAttachment {
+			// For Gateway/ListenerSet parentRefs, use ParentKey directly.
+			// For Service/ServiceEntry parentRefs (waypoint routes), use ParentGateway
+			// which is the resolved waypoint gateway.
+			to := types.NamespacedName{
+				Name:      e.ParentKey.Name,
+				Namespace: e.ParentKey.Namespace,
+			}
 			if e.ParentKey.Kind != gvk.KubernetesGateway.Kubernetes() && e.ParentKey.Kind != gvk.ListenerSet.Kubernetes() {
-				return nil
+				if e.ParentGateway == (types.NamespacedName{}) {
+					return nil
+				}
+				to = e.ParentGateway
 			}
 			return ptr.Of(&RouteAttachment{
-				From: from,
-				To: types.NamespacedName{
-					Name:      e.ParentKey.Name,
-					Namespace: e.ParentKey.Namespace,
-				},
+				From:         from,
+				To:           to,
 				ListenerName: string(e.ParentSection),
 			})
 		})
@@ -217,7 +223,6 @@ func AgwRouteCollection(
 
 	// Join all the route types into a single collection
 	routes := krt.JoinCollection([]krt.Collection[AgwResource]{httpRoutes, grpcRoutes, tcpRoutes, tlsRoutes}, krtopts.WithName("ADPRoutes")...)
-
 	routeAttachments := krt.JoinCollection([]krt.Collection[*RouteAttachment]{
 		gatewayRouteAttachmentCountCollection(inputs, httpRouteCol, gvk.HTTPRoute, krtopts),
 		gatewayRouteAttachmentCountCollection(inputs, grpcRouteCol, gvk.GRPCRoute, krtopts),
@@ -329,7 +334,6 @@ func ToResourceForGateway(gw types.NamespacedName, resource any) AgwResource {
 	}
 }
 
-// TODO(jaellio): Handle Route conditions
 // ProcessParentReferences processes filtered parent references and builds resources per gateway.
 // It emits exactly one ParentStatus per Gateway (aggregate across listeners).
 // If no listeners are allowed, the Accepted reason is:
@@ -442,9 +446,10 @@ func createRouteCollectionGeneric[T controllers.Object, R comparable, ST any](
 				OriginalReference: r.OriginalReference,
 				DeniedReason:      r.DeniedReason,
 				RouteError:        gwResult.Error,
+				ControllerName:    gatewaycommon.GetControllerForAgentgatewayClass(r.ParentGatewayClassName),
 			}
 		})
-		parents := createRouteStatus(rpResults, obj.GetNamespace(), obj.GetGeneration(), inputs.ControllerName, GetCommonRouteStateParents(obj))
+		parents := createRouteStatus(rpResults, obj.GetNamespace(), obj.GetGeneration(), GetCommonRouteStateParents(obj))
 		routeStatus := gatewayv1.RouteStatus{Parents: parents}
 		return ptr.Of(buildStatus(routeStatus)), resources
 	}, krtopts.WithName(collectionName)...)

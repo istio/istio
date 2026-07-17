@@ -30,6 +30,7 @@ import (
 	istio "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/kube/gatewaycommon"
 	kubecreds "istio.io/istio/pilot/pkg/credentials/kube"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -133,6 +134,15 @@ func buildListener(
 		ok = false
 	}
 
+	if controllerName == constants.ManagedAgentgatewayWaypointController {
+		if unexpectedWaypointListener(l) {
+			listenerConditions[string(gatewayv1.ListenerConditionAccepted)].Error = &gatewaycommon.ListenerStatusConfigError{
+				Reason:  string(gatewayv1.ListenerReasonUnsupportedProtocol),
+				Message: `Expected a single listener on port 15008 with protocol "HBONE"`,
+			}
+		}
+	}
+
 	server := &istio.Server{
 		Port: &istio.Port{
 			// Name is required. We only have one server per Gateway, so we can just name them all the same
@@ -142,8 +152,23 @@ func buildListener(
 		Hosts: hostnames,
 	}
 
-	updatedStatus := gatewaycommon.ReportListenerCondition(listenerIndex, l, obj, status, listenerConditions)
+	updatedStatus := gatewaycommon.ReportListenerCondition(listenerIndex, l, obj, status, listenerConditions, gatewaycommon.GenerateAgentgatewaySupportedKinds)
 	return server, tlsInfo, updatedStatus, ok
+}
+
+// Gateway currently requires a listener (https://github.com/kubernetes-sigs/gateway-api/pull/1596).
+// We don't *really* care about the listener, but it may make sense to add a warning if users do not
+// configure it in an expected way so that we have consistency and can make changes in the future as needed.
+// We could completely reject but that seems more likely to cause pain.
+// TODO(jaellio): do we want to enforce only having a single listener?
+func unexpectedWaypointListener(l gatewayv1.Listener) bool {
+	if l.Port != 15008 {
+		return true
+	}
+	if l.Protocol != gatewayv1.ProtocolType(protocol.HBONE) {
+		return true
+	}
+	return false
 }
 
 func listenerProtocolToIstio(name gatewayv1.GatewayController, p gatewayv1.ProtocolType) (string, error) {
@@ -156,11 +181,15 @@ func listenerProtocolToIstio(name gatewayv1.GatewayController, p gatewayv1.Proto
 	case gatewayv1.TLSProtocolType:
 		return string(p), nil
 	case gatewayv1.TCPProtocolType:
+		if !features.EnableAlphaGatewayAPI {
+			return "", fmt.Errorf("protocol %q is only supported when the alpha Gateway API is enabled", p)
+		}
 		return string(p), nil
 	// Our own custom types
 	case gatewayv1.ProtocolType(protocol.HBONE):
-		if name != constants.ManagedGatewayMeshController && name != constants.ManagedGatewayEastWestController {
-			return "", fmt.Errorf("protocol %q is only supported for waypoint proxies", p)
+		if name != constants.ManagedGatewayMeshController && name != constants.ManagedGatewayEastWestController &&
+			name != constants.ManagedAgentgatewayWaypointController && name != constants.ManagedAgentgatewayController {
+			return "", fmt.Errorf("protocol %q is only supported for HBONE-enabled gateways/waypoints", p)
 		}
 		return string(p), nil
 	}

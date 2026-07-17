@@ -105,7 +105,7 @@ func fetchWaypointForTarget(
 	// namespace to be used when the annotation doesn't include a namespace
 	fallbackNamespace := o.Namespace
 	// try fetching the waypoint defined on the object itself
-	wp, isNone := getUseWaypoint(o, fallbackNamespace)
+	wp, isNone := GetUseWaypoint(o, fallbackNamespace)
 	if isNone {
 		// we've got a local override here opting out of waypoint
 		return nil, nil
@@ -131,7 +131,7 @@ func fetchWaypointForTarget(
 	// this probably should never be nil. How would o exist in a namespace we know nothing about? maybe edge case of starting the controller or ns delete?
 	if namespace != nil {
 		// toss isNone, we don't need to know /why/ we got nil
-		wp, _ := getUseWaypoint(namespace.ObjectMeta, fallbackNamespace)
+		wp, _ := GetUseWaypoint(namespace.ObjectMeta, fallbackNamespace)
 		if wp != nil {
 			w := krt.FetchOne[Waypoint](ctx, waypoints, krt.FilterKey(wp.ResourceName()))
 			if w != nil {
@@ -193,11 +193,11 @@ func fetchWaypointForWorkload(ctx krt.HandlerContext, Waypoints krt.Collection[W
 	return nil, ReportWaypointUnsupportedTrafficType(w.ResourceName(), constants.WorkloadTraffic)
 }
 
-// getUseWaypoint takes objectMeta and a defaultNamespace
+// GetUseWaypoint takes objectMeta and a defaultNamespace
 // it looks for the istio.io/use-waypoint label and parses it
 // if there is no namespace provided in the label the default namespace will be used
 // defaultNamespace avoids the need to infer when object meta from a namespace was given
-func getUseWaypoint(meta metav1.ObjectMeta, defaultNamespace string) (named *krt.Named, isNone bool) {
+func GetUseWaypoint(meta metav1.ObjectMeta, defaultNamespace string) (named *krt.Named, isNone bool) {
 	if labelValue, ok := meta.Labels[label.IoIstioUseWaypoint.Name]; ok {
 		// NOTE: this means Istio reserves the word "none" in this field with a special meaning
 		// a waypoint named "none" cannot be used and will be ignored
