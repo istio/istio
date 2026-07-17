@@ -1183,6 +1183,15 @@ type ServiceWaypointInfo struct {
 	Service            *workloadapi.Service
 	IngressUseWaypoint bool
 	WaypointHostname   string
+	// WeightedWaypoints is set only for canary waypoint routing; otherwise use WaypointHostname.
+	WeightedWaypoints []WeightedWaypointHostname
+}
+
+// WeightedWaypointHostname is a resolved waypoint plus its relative traffic weight.
+type WeightedWaypointHostname struct {
+	Hostname      string
+	HboneMtlsPort uint32
+	Weight        uint32
 }
 
 type TypedObject struct {
@@ -1313,6 +1322,13 @@ func (i ServiceInfo) GetConditions(currentConditions map[string]Condition) Condi
 			buildMsg.WriteString(". Ingress traffic will traverse the waypoint")
 		} else if i.Waypoint.IngressLabelPresent {
 			buildMsg.WriteString(". Ingress traffic is not using the waypoint, set the istio.io/ingress-use-waypoint label to true if desired.")
+		}
+
+		// The primary is bound; an Error here is a canary failure. Surface it while keeping the
+		// service bound, since traffic still flows through the primary waypoint.
+		if i.Waypoint.Error != nil {
+			buildMsg.WriteString(". Canary waypoint not attached: ")
+			buildMsg.WriteString(i.Waypoint.Error.Message)
 		}
 
 		set[WaypointBound] = &Condition{

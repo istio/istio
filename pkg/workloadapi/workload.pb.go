@@ -736,8 +736,18 @@ type Service struct {
 	// for this service through the service's waypoint proxy.
 	// This is controlled by the istio.io/ingress-use-waypoint label on the Service or its namespace.
 	IngressUseWaypoint bool `protobuf:"varint,12,opt,name=ingress_use_waypoint,json=ingressUseWaypoint,proto3" json:"ingress_use_waypoint,omitempty"`
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+	// weighted_waypoints, when non-empty, describes a weighted set of waypoints for this
+	// service, and the client dataplane selects one waypoint per connection proportional to
+	// each entry's weight. This is used to shift a configurable share of a service's
+	// in-mesh connections from one waypoint to another (for example, a canary migration between
+	// two waypoint revisions or implementations).
+	//
+	// When this is empty, the single `waypoint` field is used exactly as before. When it is
+	// set, `waypoint` remains populated with the primary waypoint so that dataplanes which do
+	// not understand this field continue to send all traffic to the primary.
+	WeightedWaypoints []*WeightedWaypoint `protobuf:"bytes,13,rep,name=weighted_waypoints,json=weightedWaypoints,proto3" json:"weighted_waypoints,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *Service) Reset() {
@@ -852,6 +862,13 @@ func (x *Service) GetIngressUseWaypoint() bool {
 		return x.IngressUseWaypoint
 	}
 	return false
+}
+
+func (x *Service) GetWeightedWaypoints() []*WeightedWaypoint {
+	if x != nil {
+		return x.WeightedWaypoints
+	}
+	return nil
 }
 
 type LoadBalancing struct {
@@ -1547,6 +1564,67 @@ func (*GatewayAddress_Hostname) isGatewayAddress_Destination() {}
 
 func (*GatewayAddress_Address) isGatewayAddress_Destination() {}
 
+// WeightedWaypoint is a single waypoint together with the relative weight for
+// selecting it out of a weighted set (see Service.weighted_waypoints).
+type WeightedWaypoint struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The waypoint address, in the same form as Service.waypoint. The destination
+	// identity is resolved from the waypoint's own workload record at connect time,
+	// exactly as for the single-waypoint field; this message adds no identity.
+	Destination *GatewayAddress `protobuf:"bytes,1,opt,name=destination,proto3" json:"destination,omitempty"`
+	// Relative weight for selecting this waypoint. The realized share of connections
+	// sent to this waypoint is weight / (sum of weights in the set). A weight of 0
+	// means the waypoint is described (and may be validated/reported) but receives no
+	// traffic.
+	Weight        uint32 `protobuf:"varint,2,opt,name=weight,proto3" json:"weight,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *WeightedWaypoint) Reset() {
+	*x = WeightedWaypoint{}
+	mi := &file_workloadapi_workload_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WeightedWaypoint) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WeightedWaypoint) ProtoMessage() {}
+
+func (x *WeightedWaypoint) ProtoReflect() protoreflect.Message {
+	mi := &file_workloadapi_workload_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WeightedWaypoint.ProtoReflect.Descriptor instead.
+func (*WeightedWaypoint) Descriptor() ([]byte, []int) {
+	return file_workloadapi_workload_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *WeightedWaypoint) GetDestination() *GatewayAddress {
+	if x != nil {
+		return x.Destination
+	}
+	return nil
+}
+
+func (x *WeightedWaypoint) GetWeight() uint32 {
+	if x != nil {
+		return x.Weight
+	}
+	return 0
+}
+
 // NetworkAddress represents an address bound to a specific network.
 type NetworkAddress struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -1563,7 +1641,7 @@ type NetworkAddress struct {
 
 func (x *NetworkAddress) Reset() {
 	*x = NetworkAddress{}
-	mi := &file_workloadapi_workload_proto_msgTypes[9]
+	mi := &file_workloadapi_workload_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1575,7 +1653,7 @@ func (x *NetworkAddress) String() string {
 func (*NetworkAddress) ProtoMessage() {}
 
 func (x *NetworkAddress) ProtoReflect() protoreflect.Message {
-	mi := &file_workloadapi_workload_proto_msgTypes[9]
+	mi := &file_workloadapi_workload_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1588,7 +1666,7 @@ func (x *NetworkAddress) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NetworkAddress.ProtoReflect.Descriptor instead.
 func (*NetworkAddress) Descriptor() ([]byte, []int) {
-	return file_workloadapi_workload_proto_rawDescGZIP(), []int{9}
+	return file_workloadapi_workload_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *NetworkAddress) GetNetwork() string {
@@ -1625,7 +1703,7 @@ type NamespacedHostname struct {
 
 func (x *NamespacedHostname) Reset() {
 	*x = NamespacedHostname{}
-	mi := &file_workloadapi_workload_proto_msgTypes[10]
+	mi := &file_workloadapi_workload_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1637,7 +1715,7 @@ func (x *NamespacedHostname) String() string {
 func (*NamespacedHostname) ProtoMessage() {}
 
 func (x *NamespacedHostname) ProtoReflect() protoreflect.Message {
-	mi := &file_workloadapi_workload_proto_msgTypes[10]
+	mi := &file_workloadapi_workload_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1650,7 +1728,7 @@ func (x *NamespacedHostname) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NamespacedHostname.ProtoReflect.Descriptor instead.
 func (*NamespacedHostname) Descriptor() ([]byte, []int) {
-	return file_workloadapi_workload_proto_rawDescGZIP(), []int{10}
+	return file_workloadapi_workload_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *NamespacedHostname) GetNamespace() string {
@@ -1682,7 +1760,7 @@ type Extension struct {
 
 func (x *Extension) Reset() {
 	*x = Extension{}
-	mi := &file_workloadapi_workload_proto_msgTypes[11]
+	mi := &file_workloadapi_workload_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1694,7 +1772,7 @@ func (x *Extension) String() string {
 func (*Extension) ProtoMessage() {}
 
 func (x *Extension) ProtoReflect() protoreflect.Message {
-	mi := &file_workloadapi_workload_proto_msgTypes[11]
+	mi := &file_workloadapi_workload_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1707,7 +1785,7 @@ func (x *Extension) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Extension.ProtoReflect.Descriptor instead.
 func (*Extension) Descriptor() ([]byte, []int) {
-	return file_workloadapi_workload_proto_rawDescGZIP(), []int{11}
+	return file_workloadapi_workload_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *Extension) GetName() string {
@@ -1732,7 +1810,7 @@ const file_workloadapi_workload_proto_rawDesc = "" +
 	"\aAddress\x126\n" +
 	"\bworkload\x18\x01 \x01(\v2\x18.istio.workload.WorkloadH\x00R\bworkload\x123\n" +
 	"\aservice\x18\x02 \x01(\v2\x17.istio.workload.ServiceH\x00R\aserviceB\x06\n" +
-	"\x04type\"\xb7\x04\n" +
+	"\x04type\"\x88\x05\n" +
 	"\aService\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1c\n" +
 	"\tnamespace\x18\x02 \x01(\tR\tnamespace\x12\x1a\n" +
@@ -1749,7 +1827,8 @@ const file_workloadapi_workload_proto_rawDesc = "" +
 	" \x03(\v2\x19.istio.workload.ExtensionR\n" +
 	"extensions\x12\x1c\n" +
 	"\tcanonical\x18\v \x01(\bR\tcanonical\x120\n" +
-	"\x14ingress_use_waypoint\x18\f \x01(\bR\x12ingressUseWaypoint\"\xcd\x03\n" +
+	"\x14ingress_use_waypoint\x18\f \x01(\bR\x12ingressUseWaypoint\x12O\n" +
+	"\x12weighted_waypoints\x18\r \x03(\v2 .istio.workload.WeightedWaypointR\x11weightedWaypoints\"\xcd\x03\n" +
 	"\rLoadBalancing\x12R\n" +
 	"\x12routing_preference\x18\x01 \x03(\x0e2#.istio.workload.LoadBalancing.ScopeR\x11routingPreference\x126\n" +
 	"\x04mode\x18\x02 \x01(\x0e2\".istio.workload.LoadBalancing.ModeR\x04mode\x12O\n" +
@@ -1829,6 +1908,9 @@ const file_workloadapi_workload_proto_rawDesc = "" +
 	"\aaddress\x18\x02 \x01(\v2\x1e.istio.workload.NetworkAddressH\x00R\aaddress\x12&\n" +
 	"\x0fhbone_mtls_port\x18\x03 \x01(\rR\rhboneMtlsPortB\r\n" +
 	"\vdestinationJ\x04\b\x04\x10\x05R\x15hbone_single_tls_port\"l\n" +
+	"\x10WeightedWaypoint\x12@\n" +
+	"\vdestination\x18\x01 \x01(\v2\x1e.istio.workload.GatewayAddressR\vdestination\x12\x16\n" +
+	"\x06weight\x18\x02 \x01(\rR\x06weight\"l\n" +
 	"\x0eNetworkAddress\x12\x18\n" +
 	"\anetwork\x18\x01 \x01(\tR\anetwork\x12\x18\n" +
 	"\aaddress\x18\x02 \x01(\fR\aaddress\x12\x1b\n" +
@@ -1884,7 +1966,7 @@ func file_workloadapi_workload_proto_rawDescGZIP() []byte {
 }
 
 var file_workloadapi_workload_proto_enumTypes = make([]protoimpl.EnumInfo, 10)
-var file_workloadapi_workload_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
+var file_workloadapi_workload_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
 var file_workloadapi_workload_proto_goTypes = []any{
 	(IPFamilies)(0),                 // 0: istio.workload.IPFamilies
 	(NetworkMode)(0),                // 1: istio.workload.NetworkMode
@@ -1905,48 +1987,51 @@ var file_workloadapi_workload_proto_goTypes = []any{
 	(*Port)(nil),                    // 16: istio.workload.Port
 	(*ApplicationTunnel)(nil),       // 17: istio.workload.ApplicationTunnel
 	(*GatewayAddress)(nil),          // 18: istio.workload.GatewayAddress
-	(*NetworkAddress)(nil),          // 19: istio.workload.NetworkAddress
-	(*NamespacedHostname)(nil),      // 20: istio.workload.NamespacedHostname
-	(*Extension)(nil),               // 21: istio.workload.Extension
-	nil,                             // 22: istio.workload.Workload.ServicesEntry
-	(*wrapperspb.UInt32Value)(nil),  // 23: google.protobuf.UInt32Value
-	(*anypb.Any)(nil),               // 24: google.protobuf.Any
+	(*WeightedWaypoint)(nil),        // 19: istio.workload.WeightedWaypoint
+	(*NetworkAddress)(nil),          // 20: istio.workload.NetworkAddress
+	(*NamespacedHostname)(nil),      // 21: istio.workload.NamespacedHostname
+	(*Extension)(nil),               // 22: istio.workload.Extension
+	nil,                             // 23: istio.workload.Workload.ServicesEntry
+	(*wrapperspb.UInt32Value)(nil),  // 24: google.protobuf.UInt32Value
+	(*anypb.Any)(nil),               // 25: google.protobuf.Any
 }
 var file_workloadapi_workload_proto_depIdxs = []int32{
 	13, // 0: istio.workload.Address.workload:type_name -> istio.workload.Workload
 	11, // 1: istio.workload.Address.service:type_name -> istio.workload.Service
-	19, // 2: istio.workload.Service.addresses:type_name -> istio.workload.NetworkAddress
+	20, // 2: istio.workload.Service.addresses:type_name -> istio.workload.NetworkAddress
 	16, // 3: istio.workload.Service.ports:type_name -> istio.workload.Port
 	18, // 4: istio.workload.Service.waypoint:type_name -> istio.workload.GatewayAddress
 	12, // 5: istio.workload.Service.load_balancing:type_name -> istio.workload.LoadBalancing
 	0,  // 6: istio.workload.Service.ip_families:type_name -> istio.workload.IPFamilies
-	21, // 7: istio.workload.Service.extensions:type_name -> istio.workload.Extension
-	6,  // 8: istio.workload.LoadBalancing.routing_preference:type_name -> istio.workload.LoadBalancing.Scope
-	7,  // 9: istio.workload.LoadBalancing.mode:type_name -> istio.workload.LoadBalancing.Mode
-	8,  // 10: istio.workload.LoadBalancing.health_policy:type_name -> istio.workload.LoadBalancing.HealthPolicy
-	5,  // 11: istio.workload.Workload.tunnel_protocol:type_name -> istio.workload.TunnelProtocol
-	18, // 12: istio.workload.Workload.waypoint:type_name -> istio.workload.GatewayAddress
-	18, // 13: istio.workload.Workload.network_gateway:type_name -> istio.workload.GatewayAddress
-	3,  // 14: istio.workload.Workload.workload_type:type_name -> istio.workload.WorkloadType
-	17, // 15: istio.workload.Workload.application_tunnel:type_name -> istio.workload.ApplicationTunnel
-	22, // 16: istio.workload.Workload.services:type_name -> istio.workload.Workload.ServicesEntry
-	2,  // 17: istio.workload.Workload.status:type_name -> istio.workload.WorkloadStatus
-	14, // 18: istio.workload.Workload.locality:type_name -> istio.workload.Locality
-	1,  // 19: istio.workload.Workload.network_mode:type_name -> istio.workload.NetworkMode
-	21, // 20: istio.workload.Workload.extensions:type_name -> istio.workload.Extension
-	23, // 21: istio.workload.Workload.capacity:type_name -> google.protobuf.UInt32Value
-	16, // 22: istio.workload.PortList.ports:type_name -> istio.workload.Port
-	4,  // 23: istio.workload.Port.app_protocol:type_name -> istio.workload.AppProtocol
-	9,  // 24: istio.workload.ApplicationTunnel.protocol:type_name -> istio.workload.ApplicationTunnel.Protocol
-	20, // 25: istio.workload.GatewayAddress.hostname:type_name -> istio.workload.NamespacedHostname
-	19, // 26: istio.workload.GatewayAddress.address:type_name -> istio.workload.NetworkAddress
-	24, // 27: istio.workload.Extension.config:type_name -> google.protobuf.Any
-	15, // 28: istio.workload.Workload.ServicesEntry.value:type_name -> istio.workload.PortList
-	29, // [29:29] is the sub-list for method output_type
-	29, // [29:29] is the sub-list for method input_type
-	29, // [29:29] is the sub-list for extension type_name
-	29, // [29:29] is the sub-list for extension extendee
-	0,  // [0:29] is the sub-list for field type_name
+	22, // 7: istio.workload.Service.extensions:type_name -> istio.workload.Extension
+	19, // 8: istio.workload.Service.weighted_waypoints:type_name -> istio.workload.WeightedWaypoint
+	6,  // 9: istio.workload.LoadBalancing.routing_preference:type_name -> istio.workload.LoadBalancing.Scope
+	7,  // 10: istio.workload.LoadBalancing.mode:type_name -> istio.workload.LoadBalancing.Mode
+	8,  // 11: istio.workload.LoadBalancing.health_policy:type_name -> istio.workload.LoadBalancing.HealthPolicy
+	5,  // 12: istio.workload.Workload.tunnel_protocol:type_name -> istio.workload.TunnelProtocol
+	18, // 13: istio.workload.Workload.waypoint:type_name -> istio.workload.GatewayAddress
+	18, // 14: istio.workload.Workload.network_gateway:type_name -> istio.workload.GatewayAddress
+	3,  // 15: istio.workload.Workload.workload_type:type_name -> istio.workload.WorkloadType
+	17, // 16: istio.workload.Workload.application_tunnel:type_name -> istio.workload.ApplicationTunnel
+	23, // 17: istio.workload.Workload.services:type_name -> istio.workload.Workload.ServicesEntry
+	2,  // 18: istio.workload.Workload.status:type_name -> istio.workload.WorkloadStatus
+	14, // 19: istio.workload.Workload.locality:type_name -> istio.workload.Locality
+	1,  // 20: istio.workload.Workload.network_mode:type_name -> istio.workload.NetworkMode
+	22, // 21: istio.workload.Workload.extensions:type_name -> istio.workload.Extension
+	24, // 22: istio.workload.Workload.capacity:type_name -> google.protobuf.UInt32Value
+	16, // 23: istio.workload.PortList.ports:type_name -> istio.workload.Port
+	4,  // 24: istio.workload.Port.app_protocol:type_name -> istio.workload.AppProtocol
+	9,  // 25: istio.workload.ApplicationTunnel.protocol:type_name -> istio.workload.ApplicationTunnel.Protocol
+	21, // 26: istio.workload.GatewayAddress.hostname:type_name -> istio.workload.NamespacedHostname
+	20, // 27: istio.workload.GatewayAddress.address:type_name -> istio.workload.NetworkAddress
+	18, // 28: istio.workload.WeightedWaypoint.destination:type_name -> istio.workload.GatewayAddress
+	25, // 29: istio.workload.Extension.config:type_name -> google.protobuf.Any
+	15, // 30: istio.workload.Workload.ServicesEntry.value:type_name -> istio.workload.PortList
+	31, // [31:31] is the sub-list for method output_type
+	31, // [31:31] is the sub-list for method input_type
+	31, // [31:31] is the sub-list for extension type_name
+	31, // [31:31] is the sub-list for extension extendee
+	0,  // [0:31] is the sub-list for field type_name
 }
 
 func init() { file_workloadapi_workload_proto_init() }
@@ -1962,14 +2047,14 @@ func file_workloadapi_workload_proto_init() {
 		(*GatewayAddress_Hostname)(nil),
 		(*GatewayAddress_Address)(nil),
 	}
-	file_workloadapi_workload_proto_msgTypes[9].OneofWrappers = []any{}
+	file_workloadapi_workload_proto_msgTypes[10].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_workloadapi_workload_proto_rawDesc), len(file_workloadapi_workload_proto_rawDesc)),
 			NumEnums:      10,
-			NumMessages:   13,
+			NumMessages:   14,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
