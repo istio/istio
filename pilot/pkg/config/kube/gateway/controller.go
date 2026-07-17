@@ -312,6 +312,8 @@ func NewController(
 		DomainSuffix:    c.domainSuffix,
 		Services:        inputs.Services,
 		Namespaces:      inputs.Namespaces,
+		GatewayClasses:  inputs.GatewayClasses,
+		Gateways:        inputs.Gateways,
 		ServiceEntries:  inputs.ServiceEntries,
 		InferencePools:  inputs.InferencePools,
 		internalContext: c.gatewayContext,
