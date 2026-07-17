@@ -1,0 +1,14 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+  - |
+    **Fixed**: an `agentgateway` Gateway now connects to sidecar-injected (mesh) backends using
+    Istio mutual TLS instead of plaintext. Previously, raw TCP routed to a mesh backend (via
+    `TCPRoute`, or a `TLSRoute` in Terminate mode) could hang for server-first protocols — where
+    the backend speaks first, such as SMTP or MySQL — and backends enforcing `STRICT` mutual TLS
+    were unreachable.
+securityNotes:
+  - |
+    Traffic from an `agentgateway` Gateway to sidecar-injected mesh backends is now encrypted with
+    Istio mutual TLS, where previously it was sent in plaintext.
