@@ -26,8 +26,11 @@ import (
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"istio.io/api/annotation"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
+	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -163,7 +166,22 @@ func TestZoneAwareLoadBalancer(t *testing.T) {
 		NewTest(t).
 		RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
-			caller := apps.A[0]
+			// Deploy a dedicated caller with ISTIO_META_ENABLE_SELF_DISCOVERY=true so that
+			// only this proxy gets local_cluster injected, without a global mesh config change.
+			callerInstances := deployment.New(t).
+				WithConfig(echo.Config{
+					Service:   "zone-aware-caller",
+					Namespace: apps.Namespace,
+					Locality:  "region.zone.subzone",
+					Ports:     ports.All(),
+					Subsets: []echo.SubsetConfig{{
+						Annotations: map[string]string{
+							annotation.ProxyConfig.Name: `{"proxyMetadata":{"ISTIO_META_ENABLE_SELF_DISCOVERY":"true"}}`,
+						},
+					}},
+				}).
+				BuildOrFail(t)
+			caller := callerInstances[0]
 			destB := apps.B[0]
 			destC := apps.C[0]
 			proxyAddress := caller.WorkloadsOrFail(t)[0].Address()
@@ -381,7 +399,8 @@ func localClusterLabelsForEcho(t framework.TestContext, inst echo.Instance) map[
 	t.Helper()
 	workload := inst.WorkloadsOrFail(t)[0]
 	pod, err := workload.Cluster().Kube().CoreV1().Pods(inst.NamespaceName()).Get(
-		t.Context(), workload.PodName(), metav1.GetOptions{})
+		t.Context(), workload.PodName(), metav1.GetOptions{},
+	)
 	if err != nil {
 		t.Fatalf("failed getting caller pod %s/%s labels: %v", inst.NamespaceName(), workload.PodName(), err)
 	}
@@ -603,4 +622,3 @@ func extractClusters(cd *admin.ConfigDump) ([]*cluster.Cluster, error) {
 	}
 	return out, nil
 }
-

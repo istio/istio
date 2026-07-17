@@ -40,14 +40,7 @@ var (
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
-		Setup(istio.Setup(&i, func(_ resource.Context, cfg *istio.Config) {
-			cfg.ControlPlaneValues = `
-meshConfig:
-  defaultConfig:
-    proxyMetadata:
-      ISTIO_META_ENABLE_SELF_DISCOVERY: "true"
-`
-		})).
+		Setup(istio.Setup(&i, nil)).
 		Setup(deployment.SetupSingleNamespace(&apps, deployment.Config{})).
 		Setup(func(t resource.Context) error {
 			gatewayConformanceInputs.Client = t.Clusters().Default()
