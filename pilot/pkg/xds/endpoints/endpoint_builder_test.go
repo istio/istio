@@ -657,6 +657,91 @@ func TestFilterIstioEndpoint(t *testing.T) {
 	}
 }
 
+func TestSupportsUnhealthyEndpoints(t *testing.T) {
+	svc := &model.Service{
+		Hostname: "example.ns.svc.cluster.local",
+		Attributes: model.ServiceAttributes{
+			Name:      "example",
+			Namespace: "ns",
+		},
+		Ports: model.PortList{{Port: 80, Protocol: protocol.HTTP, Name: "http"}},
+	}
+
+	makeDR := func(minHealthPercent int32) *config.Config {
+		return &config.Config{
+			Meta: config.Meta{
+				Name:      "dr",
+				Namespace: "ns",
+			},
+			Spec: &networking.DestinationRule{
+				Host: "example.ns.svc.cluster.local",
+				TrafficPolicy: &networking.TrafficPolicy{
+					OutlierDetection: &networking.OutlierDetection{
+						MinHealthPercent: minHealthPercent,
+					},
+				},
+			},
+		}
+	}
+
+	tests := []struct {
+		name                 string
+		dr                   *config.Config
+		globalSendUnhealthy  bool
+		defaultSendUnhealthy bool
+		want                 bool
+	}{
+		{
+			name: "both flags off",
+			want: false,
+		},
+		{
+			name:                "GlobalSendUnhealthyEndpoints=true",
+			globalSendUnhealthy: true,
+			want:                true,
+		},
+		{
+			name:                 "DefaultSendUnhealthyEndpoints=true, no DR",
+			defaultSendUnhealthy: true,
+			want:                 true,
+		},
+		{
+			name:                 "DefaultSendUnhealthyEndpoints=true, DR minHealthPercent=0",
+			defaultSendUnhealthy: true,
+			dr:                   makeDR(0),
+			want:                 true,
+		},
+		{
+			name:                 "DefaultSendUnhealthyEndpoints=true, DR minHealthPercent=50",
+			defaultSendUnhealthy: true,
+			dr:                   makeDR(50),
+			want:                 false,
+		},
+		{
+			name:                "GlobalSendUnhealthyEndpoints overrides DR minHealthPercent",
+			globalSendUnhealthy: true,
+			dr:                  makeDR(50),
+			want:                true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			test.SetAtomicBoolForTest(t, features.GlobalSendUnhealthyEndpoints, tt.globalSendUnhealthy)
+			test.SetAtomicBoolForTest(t, features.DefaultSendUnhealthyEndpoints, tt.defaultSendUnhealthy)
+
+			var dr *networking.DestinationRule
+			if tt.dr != nil {
+				dr = tt.dr.Spec.(*networking.DestinationRule)
+			}
+
+			if got := supportsUnhealthyEndpoints(svc, dr, 80, ""); got != tt.want {
+				t.Errorf("supportsUnhealthyEndpoints() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestBuildClusterLoadAssignment_InferenceServicePortFiltering(t *testing.T) {
 	tests := []struct {
 		name                 string

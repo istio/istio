@@ -161,8 +161,19 @@ func (s *Service) SupportsDrainingEndpoints() bool {
 		(features.PersistentSessionHeaderLabel != "" && s.Attributes.Labels[features.PersistentSessionHeaderLabel] != "")
 }
 
-// SupportsUnhealthyEndpoints marks if this service should send unhealthy endpoints
+// SupportsUnhealthyEndpoints marks if this service should send unhealthy endpoints.
 func (s *Service) SupportsUnhealthyEndpoints() bool {
+	if features.DefaultSendUnhealthyEndpoints.Load() {
+		return true
+	}
+	if s.ForcesSupportUnhealthyEndpoints() {
+		return true
+	}
+	return false
+}
+
+// ForcesSupportUnhealthyEndpoints marks if this service should always send unhealthy endpoints.
+func (s *Service) ForcesSupportUnhealthyEndpoints() bool {
 	if features.GlobalSendUnhealthyEndpoints.Load() {
 		// Enable process-wide
 		return true
