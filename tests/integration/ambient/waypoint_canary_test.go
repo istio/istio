@@ -82,8 +82,10 @@ func TestWeightedWaypointTrafficShift(t *testing.T) {
 			setWeightedWaypoint(t, canaryCanaryWP, 100)
 			patchCapturedService(t, fmt.Sprintf(`{"metadata":{"labels":{"%s":null}}}`,
 				label.IoIstioUseWaypointCanary.Name))
-			servedThrough(t, canaryPrimaryWP, call, wantAll)
-			servedThrough(t, canaryCanaryWP, call, wantNone)
+			// Collapsing the weighted set back to a single waypoint reprograms more than an in-place
+			// weight change, so allow extra time for the canary to drain before asserting.
+			servedThrough(t, canaryPrimaryWP, call, wantAll, retry.Timeout(2*time.Minute))
+			servedThrough(t, canaryCanaryWP, call, wantNone, retry.Timeout(2*time.Minute))
 		})
 	})
 }
@@ -253,7 +255,13 @@ func runWeightShiftSubtests(t framework.TestContext, call func() (echo.CallResul
 // and retries call until the count of successful (200) responses - the requests that waypoint served
 // - satisfies want. Only 200s count: denials of the other waypoint, warming 503s, and transport
 // errors are never counted as success, so a broken or warming dataplane cannot pass an assertion.
-func servedThrough(t framework.TestContext, waypoint string, call func() (echo.CallResult, error), want func(served, total int) error) {
+func servedThrough(
+	t framework.TestContext,
+	waypoint string,
+	call func() (echo.CallResult, error),
+	want func(served, total int) error,
+	retryOpts ...retry.Option,
+) {
 	ns := apps.Namespace.Name()
 	cfg := t.ConfigIstio().Eval(ns, map[string]string{
 		"Namespace": ns,
@@ -291,7 +299,7 @@ spec:
 			}
 		}
 		return want(served, total)
-	}, retry.Timeout(90*time.Second), retry.Delay(time.Second))
+	}, append([]retry.Option{retry.Timeout(90 * time.Second), retry.Delay(time.Second)}, retryOpts...)...)
 }
 
 // wantAll: the admitted waypoint served every request (it fronts the service and got all traffic).
