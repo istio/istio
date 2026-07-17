@@ -699,6 +699,8 @@ type RouteContextInputs struct {
 	DomainSuffix    string
 	Services        krt.Collection[*corev1.Service]
 	Namespaces      krt.Collection[*corev1.Namespace]
+	GatewayClasses  krt.Collection[*gatewayv1.GatewayClass]
+	Gateways        krt.Collection[*gatewayv1.Gateway]
 	ServiceEntries  krt.Collection[*networkingclient.ServiceEntry]
 	InferencePools  krt.Collection[*inferencev1.InferencePool]
 	internalContext krt.RecomputeProtected[*atomic.Pointer[GatewayContext]]

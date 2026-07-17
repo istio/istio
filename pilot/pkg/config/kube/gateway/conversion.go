@@ -569,6 +569,57 @@ func waypointConfigured(labels map[string]string) bool {
 	return false
 }
 
+func waypointManagedByAnotherController(ctx RouteContext, parentRef parentReference) bool {
+	var labels map[string]string
+	switch parentRef.Kind {
+	case gvk.Service:
+		svc := ptr.Flatten(krt.FetchOne(ctx.Krt, ctx.Services, krt.FilterKey(parentRef.Namespace+"/"+parentRef.Name)))
+		if svc == nil {
+			return false
+		}
+		labels = svc.Labels
+	case gvk.ServiceEntry:
+		svc := ptr.Flatten(krt.FetchOne(ctx.Krt, ctx.ServiceEntries, krt.FilterKey(parentRef.Namespace+"/"+parentRef.Name)))
+		if svc == nil {
+			return false
+		}
+		labels = svc.Labels
+	default:
+		return false
+	}
+
+	waypointName, found := labels[label.IoIstioUseWaypoint.Name]
+	if !found {
+		ns := ptr.Flatten(krt.FetchOne(ctx.Krt, ctx.Namespaces, krt.FilterKey(parentRef.Namespace)))
+		if ns == nil {
+			return false
+		}
+		labels = ns.Labels
+		waypointName, found = labels[label.IoIstioUseWaypoint.Name]
+	}
+	if !found || waypointName == "" || strings.EqualFold(waypointName, "none") {
+		return false
+	}
+	if ctx.Gateways == nil || ctx.GatewayClasses == nil {
+		return false
+	}
+
+	waypointNamespace := parentRef.Namespace
+	if namespace := labels[label.IoIstioUseWaypointNamespace.Name]; namespace != "" {
+		waypointNamespace = namespace
+	}
+	waypoint := ptr.Flatten(krt.FetchOne(ctx.Krt, ctx.Gateways, krt.FilterKey(waypointNamespace+"/"+waypointName)))
+	if waypoint == nil {
+		return false
+	}
+	class := ptr.Flatten(krt.FetchOne(ctx.Krt, ctx.GatewayClasses, krt.FilterKey(string(waypoint.Spec.GatewayClassName))))
+	if class == nil {
+		return false
+	}
+	return class.Spec.ControllerName != constants.ManagedGatewayMeshController &&
+		class.Spec.ControllerName != k8s.GatewayController(features.ManagedGatewayController)
+}
+
 func referenceAllowed(
 	ctx RouteContext,
 	parent *parentInfo,
@@ -737,6 +788,9 @@ func extractParentReferenceInfo(ctx RouteContext, parents RouteParents, obj cont
 		}
 		gk := ir
 		if ir.Kind == gvk.Service || ir.Kind == gvk.ServiceEntry {
+			if waypointManagedByAnotherController(ctx, pk) {
+				continue
+			}
 			gk = meshParentKey
 		}
 		currentParents := parents.fetch(ctx.Krt, gk)
