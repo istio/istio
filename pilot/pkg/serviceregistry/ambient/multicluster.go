@@ -192,6 +192,7 @@ func (a *index) buildGlobalCollections(
 		LocalWaypoints,
 		opts,
 	)
+	LocalServiceEntryVisibility := model.ServiceEntryVisibilityCollection(LocalMeshConfig.AsCollection(), opts)
 
 	LocalWorkloadServices := builder.ServicesCollection(
 		localCluster.ID,
@@ -200,6 +201,7 @@ func (a *index) buildGlobalCollections(
 		LocalWaypoints,
 		LocalNamespaces,
 		LocalMeshConfig,
+		LocalServiceEntryVisibility,
 		opts,
 		false, // Don't precompute here; these will just get merged into the global collection later
 	)
@@ -216,6 +218,7 @@ func (a *index) buildGlobalCollections(
 			localServiceEntries,
 			localGatewayClasses,
 			LocalMeshConfig,
+			LocalServiceEntryVisibility,
 			localCluster.Namespaces(),
 			opts,
 		)

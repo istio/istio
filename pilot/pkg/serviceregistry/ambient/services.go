@@ -59,6 +59,7 @@ func (a Builder) ServicesCollection(
 	waypoints krt.Collection[Waypoint],
 	namespaces krt.Collection[*v1.Namespace],
 	meshConfig krt.Singleton[MeshConfig],
+	serviceEntryVisibility krt.Singleton[model.ServiceEntryVisibilityMatcher],
 	opts krt.OptionsBuilder,
 	precompute bool,
 ) krt.Collection[model.ServiceInfo] {
@@ -70,7 +71,6 @@ func (a Builder) ServicesCollection(
 			}),
 		)...)
 
-	serviceEntryVisibility := model.ServiceEntryVisibilityCollection(meshConfig.AsCollection(), opts)
 	ServiceEntriesInfo := krt.NewManyCollection(serviceEntries, a.serviceEntryServiceBuilder(waypoints, namespaces, serviceEntryVisibility),
 		append(
 			opts.WithName("ServiceEntriesInfo"),
@@ -277,7 +277,7 @@ func serviceServiceBuilder(
 		}
 		ns := krt.FetchOne(ctx, namespaces, krt.FilterKey(s.Namespace))
 		waypointStatus := model.WaypointBindingStatus{}
-		waypoint, wperr := fetchWaypointForService(ctx, waypoints, namespaces, s.ObjectMeta)
+		waypoint, wperr := fetchWaypointForService(ctx, waypoints, namespaces, nil, s.ObjectMeta)
 		if waypoint != nil {
 			waypointStatus.ResourceName = waypoint.ResourceName()
 			var nsLabels map[string]string
@@ -442,7 +442,7 @@ func (a Builder) serviceEntryServiceBuilder(
 	visibility krt.Singleton[model.ServiceEntryVisibilityMatcher],
 ) krt.TransformationMulti[*networkingclient.ServiceEntry, TypedServiceInfo] {
 	return func(ctx krt.HandlerContext, s *networkingclient.ServiceEntry) []TypedServiceInfo {
-		waypoint, waypointError := fetchWaypointForService(ctx, waypoints, namespaces, s.ObjectMeta)
+		waypoint, waypointError := fetchWaypointForService(ctx, waypoints, namespaces, visibility, s.ObjectMeta)
 
 		ns := krt.FetchOne(ctx, namespaces, krt.FilterKey(s.Namespace))
 		var nsAnnotations map[string]string
@@ -510,34 +510,17 @@ func serviceEntriesInfo(
 		return nil
 	}
 	services := constructServiceEntries(ctx, s, w, nsAnnotations, networkGetter)
-	// A ServiceEntry host with NAMESPACE visibility must not bind to a waypoint in another
-	// namespace: that would expose the namespace-scoped service to the waypoint's namespace, a leak
-	// the data plane can't currently contain. Only use-waypoint-namespace (on the ServiceEntry or
-	// inherited from its namespace) can resolve a waypoint outside the ServiceEntry's namespace, so
-	// a differing namespace is exactly that case. Detect it here; fail the binding per host below.
-	crossNamespaceWaypoint := w != nil && w.Namespace != s.Namespace
 	result := make([]model.ServiceInfo, 0, len(services))
 	for _, e := range services {
 		e.Visibility = wdsVisibility(resolvedVisibility)
-
-		// Fail (never silently retarget to a same-named colocated waypoint) a cross-namespace
-		// waypoint binding for a namespace-scoped host: drop the binding for this host and surface
-		// the reason via status.
-		hostWaypoint := waypoint
-		if resolvedVisibility == model.ServiceVisibilityNamespace && crossNamespaceWaypoint {
-			log.Debugf("ServiceEntry %s/%s host %s has NAMESPACE visibility; refusing cross-namespace waypoint %s",
-				s.Namespace, s.Name, e.Hostname, w.ResourceName())
-			e.Waypoint = nil
-			hostWaypoint = model.WaypointBindingStatus{Error: ReportWaypointCrossNamespaceForbidden(w.ResourceName())}
-		}
-		e.IngressUseWaypoint = hostWaypoint.IngressUseWaypoint
+		e.IngressUseWaypoint = waypoint.IngressUseWaypoint
 		e.WeightedWaypoints = weighted
 		result = append(result, precomputeService(model.ServiceInfo{
 			Service:            e,
 			PortNames:          portNames,
 			LabelSelector:      sel,
 			Source:             MakeSource(s),
-			Waypoint:           hostWaypoint,
+			Waypoint:           waypoint,
 			DNSConnectStrategy: model.GetDNSConnectStrategy(s.Annotations),
 			CreationTime:       s.CreationTimestamp.Time,
 		}))

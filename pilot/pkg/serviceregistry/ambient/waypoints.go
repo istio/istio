@@ -148,8 +148,9 @@ func fetchWaypointForTarget(
 	return nil, nil
 }
 
+// SAFETY: if fetching waypoints for a ServiceEntry visibility must be taken into account. For Kubernetes services a nil visibility singleton is expected
 func fetchWaypointForService(ctx krt.HandlerContext, Waypoints krt.Collection[Waypoint],
-	Namespaces krt.Collection[*v1.Namespace], o metav1.ObjectMeta,
+	Namespaces krt.Collection[*v1.Namespace], ServiceEntryVisibility krt.Singleton[model.ServiceEntryVisibilityMatcher], o metav1.ObjectMeta,
 ) (*Waypoint, *model.StatusMessage) {
 	// This is a waypoint, so it cannot have a waypoint
 	if o.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel {
@@ -163,13 +164,25 @@ func fetchWaypointForService(ctx krt.HandlerContext, Waypoints krt.Collection[Wa
 	if err != nil || w == nil {
 		return nil, err
 	}
-	if w.TrafficType == constants.ServiceTraffic || w.TrafficType == constants.AllTraffic {
-		return w, nil
+	if w.TrafficType != constants.ServiceTraffic && w.TrafficType != constants.AllTraffic {
+		// Waypoint does not support Service traffic
+		log.Debugf("Unable to add service waypoint %s/%s; traffic type %s not supported for %s/%s",
+			w.Namespace, w.Name, w.TrafficType, o.Namespace, o.Name)
+		return nil, ReportWaypointUnsupportedTrafficType(w.ResourceName(), constants.ServiceTraffic)
 	}
-	// Waypoint does not support Service traffic
-	log.Debugf("Unable to add service waypoint %s/%s; traffic type %s not supported for %s/%s",
-		w.Namespace, w.Name, w.TrafficType, o.Namespace, o.Name)
-	return nil, ReportWaypointUnsupportedTrafficType(w.ResourceName(), constants.ServiceTraffic)
+	// A NAMESPACE-visibility ServiceEntry must not bind to a waypoint in another namespace: that would
+	// expose it to the waypoint's namespace. Refuse here so every consumer is covered.
+	// ServiceEntryVisibility is nil for consumers it doesn't govern (e.g. Kubernetes Services).
+	if ServiceEntryVisibility != nil && w.Namespace != o.Namespace {
+		var nsLabels map[string]string
+		if ns := krt.FetchOne(ctx, Namespaces, krt.FilterKey(o.Namespace)); ns != nil {
+			nsLabels = (*ns).Labels
+		}
+		if krt.FetchOne(ctx, ServiceEntryVisibility.AsCollection()).VisibilityFor(nsLabels) == model.ServiceVisibilityNamespace {
+			return nil, ReportWaypointCrossNamespaceForbidden(w.ResourceName())
+		}
+	}
+	return w, nil
 }
 
 func fetchWaypointForWorkload(ctx krt.HandlerContext, Waypoints krt.Collection[Waypoint],

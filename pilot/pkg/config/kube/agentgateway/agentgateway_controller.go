@@ -508,6 +508,8 @@ func (c *Controller) buildAddressCollections(opts krt.OptionsBuilder) krt.Collec
 	}
 	// Dummy empty mesh config
 	meshConfig := krt.NewStatic[ambient.MeshConfig](&ambient.MeshConfig{MeshConfig: mesh.DefaultMeshConfig()}, true, opts.WithName("MeshConfig")...)
+	// TODO: AGW should probably understand  all this stuff? Dummy for now per the above being a dummy
+	serviceEntryVisibility := model.ServiceEntryVisibilityCollection(meshConfig.AsCollection(), opts)
 
 	waypoints := builder.WaypointsCollection(c.cluster, inputs.Gateways, inputs.GatewayClasses, inputs.Pods, opts)
 	services := builder.ServicesCollection(
@@ -517,6 +519,7 @@ func (c *Controller) buildAddressCollections(opts krt.OptionsBuilder) krt.Collec
 		waypoints,
 		inputs.Namespaces,
 		meshConfig,
+		serviceEntryVisibility,
 		opts,
 		true,
 	)
