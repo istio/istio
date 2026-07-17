@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+
+kind: bug-fix
+area: traffic-management
+
+releaseNotes:
+- |
+  **Fixed** the `Accepted` condition on a Kubernetes Gateway to reflect the validity of its
+  listeners. When one or more listeners are not accepted (for example, an unsupported listener
+  protocol), the Gateway now reports the `ListenersNotValid` reason, and is only set to
+  `Accepted=False` when none of its listeners are accepted. Previously the Gateway was always
+  reported as `Accepted` regardless of its listeners.

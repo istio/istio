@@ -15,6 +15,7 @@
 package model
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -25,10 +26,12 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/workloadapi"
 )
 
 func TestGetByPort(t *testing.T) {
@@ -1203,4 +1206,35 @@ func TestGetTrafficDistribution(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestServiceInfoWaypointConditions(t *testing.T) {
+	base := func() ServiceInfo {
+		return ServiceInfo{
+			Service: &workloadapi.Service{Hostname: "foo.ns.svc.cluster.local"},
+			Source:  TypedObject{Kind: kind.Service},
+		}
+	}
+	canaryErr := &StatusMessage{Reason: "WaypointNotReady", Message: "waypoint ns/canary is not ready"}
+
+	t.Run("primary bound with canary error stays bound and surfaces the error", func(t *testing.T) {
+		si := base()
+		si.Waypoint = WaypointBindingStatus{ResourceName: "ns/primary", Error: canaryErr}
+		got := si.GetConditions(nil)[WaypointBound]
+		if got == nil || !got.Status {
+			t.Fatalf("want WaypointBound=true, got %+v", got)
+		}
+		if !strings.Contains(got.Message, canaryErr.Message) {
+			t.Fatalf("canary error not surfaced in WaypointBound message: %q", got.Message)
+		}
+	})
+
+	t.Run("primary failure reports not bound", func(t *testing.T) {
+		si := base()
+		si.Waypoint = WaypointBindingStatus{Error: canaryErr}
+		got := si.GetConditions(nil)[WaypointBound]
+		if got == nil || got.Status {
+			t.Fatalf("want WaypointBound=false, got %+v", got)
+		}
+	})
 }

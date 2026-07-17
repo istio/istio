@@ -1065,6 +1065,45 @@ func waypointKeyForProxy(node *Proxy, externalAddresses bool) WaypointKey {
 	return key
 }
 
+// WaypointReference identifies the waypoint a service or workload is attached to, mirroring
+// workloadapi.GatewayAddress: either by namespaced hostname or by network address.
+type WaypointReference struct {
+	// Namespace and Hostname are set for hostname-based references.
+	Namespace string
+	Hostname  string
+	// Network and Address are set for address-based references.
+	Network string
+	Address string
+}
+
+// WaypointReferenceFromGatewayAddress converts a workloadapi waypoint reference, returning
+// false if there is no reference or it has no usable destination.
+func WaypointReferenceFromGatewayAddress(addr *workloadapi.GatewayAddress) (WaypointReference, bool) {
+	switch d := addr.GetDestination().(type) {
+	case *workloadapi.GatewayAddress_Hostname:
+		return WaypointReference{Namespace: d.Hostname.Namespace, Hostname: d.Hostname.Hostname}, true
+	case *workloadapi.GatewayAddress_Address:
+		ip, ok := netip.AddrFromSlice(d.Address.Address)
+		if !ok {
+			return WaypointReference{}, false
+		}
+		return WaypointReference{Network: d.Address.Network, Address: ip.String()}, true
+	}
+	return WaypointReference{}, false
+}
+
+// Matches reports whether the referenced waypoint is the one identified by key.
+// This mirrors the hostname and address lookups used by the ambient index's
+// ServicesForWaypoint/WorkloadsForWaypoint.
+func (ref WaypointReference) Matches(key WaypointKey) bool {
+	if ref.Hostname != "" {
+		return ref.Namespace == key.Namespace && slices.Contains(key.Hostnames, ref.Hostname)
+	}
+	return ref.Network == key.Network && slices.Contains(key.Addresses, ref.Address)
+}
+
+var _ AmbientIndexes = NoopAmbientIndexes{}
+
 // NoopAmbientIndexes provides an implementation of AmbientIndexes that always returns nil, to easily "skip" it.
 type NoopAmbientIndexes struct{}
 
@@ -1155,6 +1194,15 @@ type ServiceWaypointInfo struct {
 	Service            *workloadapi.Service
 	IngressUseWaypoint bool
 	WaypointHostname   string
+	// WeightedWaypoints is set only for canary waypoint routing; otherwise use WaypointHostname.
+	WeightedWaypoints []WeightedWaypointHostname
+}
+
+// WeightedWaypointHostname is a resolved waypoint plus its relative traffic weight.
+type WeightedWaypointHostname struct {
+	Hostname      string
+	HboneMtlsPort uint32
+	Weight        uint32
 }
 
 type TypedObject struct {
@@ -1287,6 +1335,13 @@ func (i ServiceInfo) GetConditions(currentConditions map[string]Condition) Condi
 			buildMsg.WriteString(". Ingress traffic is not using the waypoint, set the istio.io/ingress-use-waypoint label to true if desired.")
 		}
 
+		// The primary is bound; an Error here is a canary failure. Surface it while keeping the
+		// service bound, since traffic still flows through the primary waypoint.
+		if i.Waypoint.Error != nil {
+			buildMsg.WriteString(". Canary waypoint not attached: ")
+			buildMsg.WriteString(i.Waypoint.Error.Message)
+		}
+
 		set[WaypointBound] = &Condition{
 			Status:  true,
 			Reason:  string(WaypointAccepted),
@@ -1372,6 +1427,11 @@ func (i ServiceInfo) ResourceName() string {
 	return serviceResourceName(i.Service)
 }
 
+// WaypointRef returns the waypoint this service is attached to, if any.
+func (i ServiceInfo) WaypointRef() *workloadapi.GatewayAddress {
+	return i.Service.GetWaypoint()
+}
+
 func serviceResourceName(s *workloadapi.Service) string {
 	return s.Namespace + "/" + s.Hostname
 }
@@ -1454,6 +1514,11 @@ func (i WorkloadInfo) GetConditions(currentConditions map[string]Condition) Cond
 
 func (i WorkloadInfo) ResourceName() string {
 	return workloadResourceName(i.Workload)
+}
+
+// WaypointRef returns the waypoint this workload is attached to, if any.
+func (i WorkloadInfo) WaypointRef() *workloadapi.GatewayAddress {
+	return i.Workload.GetWaypoint()
 }
 
 type WaypointPolicyStatus struct {

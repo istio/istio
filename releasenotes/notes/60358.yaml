@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 60358
+releaseNotes:
+  - |
+    **Fixed** a `DestinationRule` and a Gateway API backend policy (`BackendTLSPolicy` or `XBackendTrafficPolicy`)
+    targeting the same host so that the `DestinationRule` fields now take precedence and the backend policy only
+    fills in fields the `DestinationRule` leaves unset, regardless of which was created first.

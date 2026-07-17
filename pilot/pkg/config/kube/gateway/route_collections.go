@@ -26,7 +26,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gatewayalpha "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	istio "istio.io/api/networking/v1alpha3"
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
@@ -439,31 +438,31 @@ func GRPCRouteCollection(
 }
 
 func TCPRouteCollection(
-	tcpRoutes krt.Collection[*gatewayalpha.TCPRoute],
+	tcpRoutes krt.Collection[*gatewayv1.TCPRoute],
 	inputs RouteContextInputs,
 	opts krt.OptionsBuilder,
-) RouteResult[*gatewayalpha.TCPRoute, gatewayalpha.TCPRouteStatus] {
+) RouteResult[*gatewayv1.TCPRoute, gatewayv1.TCPRouteStatus] {
 	routeCount := gatewayRouteAttachmentCountCollection(inputs, tcpRoutes, gvk.TCPRoute, opts)
-	ancestorBackends := krt.NewManyCollection(tcpRoutes, func(krtctx krt.HandlerContext, obj *gatewayalpha.TCPRoute) []AncestorBackend {
+	ancestorBackends := krt.NewManyCollection(tcpRoutes, func(krtctx krt.HandlerContext, obj *gatewayv1.TCPRoute) []AncestorBackend {
 		return extractAncestorBackends(
 			obj.ObjectMeta,
 			kind.FromString(obj.Kind),
 			obj.Spec.ParentRefs,
 			obj.Spec.Rules,
-			func(r gatewayalpha.TCPRouteRule) []gatewayv1.BackendRef {
+			func(r gatewayv1.TCPRouteRule) []gatewayv1.BackendRef {
 				return r.BackendRefs
 			},
 		)
 	}, opts.WithName("TCPAncestors")...)
-	status, virtualServices := krt.NewStatusManyCollection(tcpRoutes, func(krtctx krt.HandlerContext, obj *gatewayalpha.TCPRoute) (
-		*gatewayalpha.TCPRouteStatus,
+	status, virtualServices := krt.NewStatusManyCollection(tcpRoutes, func(krtctx krt.HandlerContext, obj *gatewayv1.TCPRoute) (
+		*gatewayv1.TCPRouteStatus,
 		[]config.Config,
 	) {
 		ctx := inputs.WithCtx(krtctx)
 		status := obj.Status.DeepCopy()
 		route := obj.Spec
 		parentStatus, parentRefs, meshResult, gwResult := computeRoute(ctx, obj,
-			func(mesh bool, obj *gatewayalpha.TCPRoute) iter.Seq2[*istio.TCPRoute, *ConfigError] {
+			func(mesh bool, obj *gatewayv1.TCPRoute) iter.Seq2[*istio.TCPRoute, *ConfigError] {
 				return func(yield func(*istio.TCPRoute, *ConfigError) bool) {
 					for _, r := range route.Rules {
 						if !yield(convertTCPRoute(ctx, r, obj, !mesh)) {
@@ -527,7 +526,7 @@ func TCPRouteCollection(
 		return status, vs
 	}, opts.WithName("TCPRoute")...)
 
-	return RouteResult[*gatewayalpha.TCPRoute, gatewayalpha.TCPRouteStatus]{
+	return RouteResult[*gatewayv1.TCPRoute, gatewayv1.TCPRouteStatus]{
 		VirtualServices:  virtualServices,
 		RouteAttachments: routeCount,
 		Status:           status,
@@ -702,6 +701,8 @@ type RouteContextInputs struct {
 	DomainSuffix    string
 	Services        krt.Collection[*corev1.Service]
 	Namespaces      krt.Collection[*corev1.Namespace]
+	GatewayClasses  krt.Collection[*gatewayv1.GatewayClass]
+	Gateways        krt.Collection[*gatewayv1.Gateway]
 	ServiceEntries  krt.Collection[*networkingclient.ServiceEntry]
 	InferencePools  krt.Collection[*inferencev1.InferencePool]
 	internalContext krt.RecomputeProtected[*atomic.Pointer[gatewaycommon.GatewayContext]]
