@@ -14,11 +14,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package zoneawarelb
+package pilot
 
 import (
 	"fmt"
-	"net/http"
 	"strings"
 	"testing"
 	"time"
@@ -29,9 +28,7 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/istio/tests/integration/pilot/common"
 )
 
 const (
@@ -47,8 +44,6 @@ const (
 	// integration test stays decoupled from pilot internals, but a mismatch should fail
 	// the static-cluster assertion below — which is the whole point.
 	localClusterName = "local_cluster"
-
-	sendCount = 50
 )
 
 // Zone-aware-routing configuration:
@@ -609,48 +604,3 @@ func extractClusters(cd *admin.ConfigDump) ([]*cluster.Cluster, error) {
 	return out, nil
 }
 
-func expectAllTrafficTo(dest string) map[string]int {
-	return map[string]int{dest: sendCount}
-}
-
-func sendTrafficOrFail(t framework.TestContext, from echo.Instance, host string, expected map[string]int) {
-	t.Helper()
-	headers := http.Header{}
-	headers.Add("Host", host)
-	checker := func(result echo.CallResult, inErr error) error {
-		if inErr != nil {
-			return inErr
-		}
-		got := map[string]int{}
-		for _, r := range result.Responses {
-			parts := strings.SplitN(r.Hostname, "-", 2)
-			if len(parts) < 2 {
-				return fmt.Errorf("unexpected hostname: %v", r)
-			}
-			got[parts[0]]++
-		}
-		scopes.Framework.Infof("Got responses: %+v", got)
-		for svc, reqs := range expected {
-			if !common.AlmostEquals(got[svc], reqs, 3) {
-				return fmt.Errorf("unexpected request distribution. Expected: %+v, got: %+v", expected, got)
-			}
-		}
-		for svc, reqs := range got {
-			if _, ok := expected[svc]; !ok && !common.AlmostEquals(reqs, 0, 3) {
-				return fmt.Errorf("unexpected request distribution. Expected: %+v, got: %+v", expected, got)
-			}
-		}
-		return nil
-	}
-	_ = from.CallOrFail(t, echo.CallOptions{
-		To: from,
-		Port: echo.Port{
-			Name: "http",
-		},
-		HTTP: echo.HTTP{
-			Headers: headers,
-		},
-		Count: sendCount,
-		Check: checker,
-	})
-}
