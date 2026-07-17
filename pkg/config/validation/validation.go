@@ -1256,7 +1256,11 @@ func validateLoadBalancer(settings *networking.LoadBalancerSettings, outlier *ne
 		}
 	}
 
+	if settings.LocalityLbSetting != nil && settings.ZoneAwareLbSetting != nil {
+		errs = AppendValidation(errs, fmt.Errorf("only one of localityLbSetting and zoneAwareLbSetting can be set"))
+	}
 	errs = AppendValidation(errs, agent.ValidateLocalityLbSetting(settings.LocalityLbSetting, outlier))
+	errs = AppendValidation(errs, agent.ValidateZoneAwareLbSetting(settings.ZoneAwareLbSetting, outlier))
 
 	if warm := settings.Warmup; warm != nil {
 		if warm.Duration == nil {

@@ -88,6 +88,7 @@ type EndpointBuilder struct {
 	mtlsChecker *mtlsChecker
 
 	canonicalServiceForMeshExternal bool
+	isSelfDiscoveryCluster          bool
 }
 
 func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.PushContext) EndpointBuilder {
@@ -132,6 +133,7 @@ func NewCDSEndpointBuilder(
 		dir:        dir,
 
 		canonicalServiceForMeshExternal: features.CanonicalServiceForMeshExternalServiceEntry,
+		isSelfDiscoveryCluster:          clusterName == util.SelfDiscoveryCluster,
 	}
 	b.populateSubsetInfo()
 	b.populateFailoverPriorityLabels()
@@ -174,13 +176,26 @@ func (b *EndpointBuilder) populateSubsetInfo() {
 }
 
 func (b *EndpointBuilder) populateFailoverPriorityLabels() {
+	if b.isSelfDiscoveryCluster {
+		return
+	}
+
 	enableFailover, lb := getOutlierDetectionAndLoadBalancerSettings(b.DestinationRule(), b.port, b.subsetName)
-	if enableFailover {
-		lbSetting, _ := loadbalancer.GetLocalityLbSetting(b.push.Mesh.GetLocalityLbSetting(), lb.GetLocalityLbSetting(), b.service)
-		if lbSetting != nil && lbSetting.Distribute == nil &&
-			len(lbSetting.FailoverPriority) > 0 && (lbSetting.Enabled == nil || lbSetting.Enabled.Value) {
-			b.failoverPriorityLabels = util.GetFailoverPriorityLabels(b.proxy.Labels, lbSetting.FailoverPriority)
-		}
+	if !enableFailover {
+		return
+	}
+	lbSettings := loadbalancer.GetEffectiveLbSetting(
+		b.push.Mesh.GetLocalityLbSetting(),
+		b.push.Mesh.GetZoneAwareLbSetting(),
+		lb,
+		b.service,
+	)
+	if lbSettings == nil {
+		return
+	}
+	failoverPriority := lbSettings.FailoverPriorityLabels()
+	if len(failoverPriority) > 0 {
+		b.failoverPriorityLabels = util.GetFailoverPriorityLabels(b.proxy.Labels, failoverPriority)
 	}
 }
 
@@ -279,6 +294,17 @@ func (b *EndpointBuilder) WriteHash(h hash.Hash) {
 		h.WriteString(b.proxyView.String())
 	}
 	h.Write(Separator)
+
+	if b.isSelfDiscoveryCluster {
+		h.WriteString(b.proxy.Metadata.WorkloadName)
+		h.Write(Separator)
+		h.WriteString(b.proxy.Labels["pod-template-hash"])
+		h.Write(Separator)
+		h.WriteString(b.proxy.Labels["rollouts-pod-template-hash"])
+		h.Write(Separator)
+		h.WriteString(strconv.Itoa(b.port))
+		h.Write(Separator)
+	}
 }
 
 func (b *EndpointBuilder) Cacheable() bool {
@@ -418,6 +444,10 @@ func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.Endpoi
 	}
 
 	l := b.createClusterLoadAssignment(localityLbEndpoints)
+	// if this is the self-discovery cluster we can and should avoid applying loadbalancers
+	if b.isSelfDiscoveryCluster {
+		return l
+	}
 
 	// If locality aware routing is enabled, prioritize endpoints or set their lb weight.
 	// Failover should only be enabled when there is an outlier detection, otherwise Envoy
@@ -426,20 +456,31 @@ func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.Endpoi
 	// outlier detection in a DestinationRule will automatically activate locality LB failover
 	// even when no explicit localityLbSetting is configured in the DR.
 	enableFailover, lb := getOutlierDetectionAndLoadBalancerSettings(b.DestinationRule(), b.port, b.subsetName)
-	lbSetting, forceFailover := loadbalancer.GetLocalityLbSetting(b.push.Mesh.GetLocalityLbSetting(), lb.GetLocalityLbSetting(), b.service)
-	enableFailover = enableFailover || forceFailover
-	if lbSetting != nil {
-		// Make a shallow copy of the cla as we are mutating the endpoints with priorities/weights relative to the calling proxy
-		l = util.CloneClusterLoadAssignment(l)
-		wrappedLocalityLbEndpoints := make([]*loadbalancer.WrappedLocalityLbEndpoints, len(localityLbEndpoints))
-		for i := range localityLbEndpoints {
-			wrappedLocalityLbEndpoints[i] = &loadbalancer.WrappedLocalityLbEndpoints{
-				IstioEndpoints:      localityLbEndpoints[i].istioEndpoints,
-				LocalityLbEndpoints: l.Endpoints[i],
-			}
-		}
-		loadbalancer.ApplyLocalityLoadBalancer(l, wrappedLocalityLbEndpoints, b.locality, b.proxy.Labels, lbSetting, enableFailover)
+	lbSettings := loadbalancer.GetEffectiveLbSetting(
+		b.push.Mesh.GetLocalityLbSetting(),
+		b.push.Mesh.GetZoneAwareLbSetting(),
+		lb,
+		b.service,
+	)
+	if lbSettings == nil {
+		return l
 	}
+	// Zone-aware LB relies on a self-discovery local_cluster, which waypoints never configure,
+	// so it is meaningless there. Skip it for waypoints (they fall back to locality LB only if
+	// one is configured, but the two settings are mutually exclusive so there is none here).
+	if lbSettings.IsZoneAware() && b.proxy.Type == model.Waypoint {
+		return l
+	}
+	// Make a shallow copy of the cla as we are mutating the endpoints with priorities/weights relative to the calling proxy
+	l = util.CloneClusterLoadAssignment(l)
+	wrappedLocalityLbEndpoints := make([]*loadbalancer.WrappedLocalityLbEndpoints, len(localityLbEndpoints))
+	for i := range localityLbEndpoints {
+		wrappedLocalityLbEndpoints[i] = &loadbalancer.WrappedLocalityLbEndpoints{
+			IstioEndpoints:      localityLbEndpoints[i].istioEndpoints,
+			LocalityLbEndpoints: l.Endpoints[i],
+		}
+	}
+	lbSettings.ApplyToLoadAssignment(l, wrappedLocalityLbEndpoints, b.locality, b.proxy.Labels, enableFailover)
 	return l
 }
 
@@ -552,7 +593,6 @@ func (b *EndpointBuilder) filterIstioEndpoint(ep *model.IstioEndpoint) bool {
 	}
 	// Filter out unhealthy endpoints, unless the service needs them.
 	// This is used to let envoy know about the amount of health endpoints in a cluster.
-	// This is used to let envoy know about the amount of health endpoints in a cluster.
 	if !b.service.SupportsUnhealthyEndpoints() && ep.HealthStatus == model.UnHealthy {
 		return false
 	}
@@ -576,6 +616,28 @@ func (b *EndpointBuilder) filterIstioEndpoint(ep *model.IstioEndpoint) bool {
 	// we filter it out.
 	if b.serviceInfo != nil && b.serviceInfo.Scope != model.Global && b.clusterID != ep.Locality.ClusterID {
 		return false
+	}
+
+	// If this is the self discovery cluster, then we only need endpoints from the same workload and the same region.
+	if b.isSelfDiscoveryCluster {
+		if b.proxy.Metadata.WorkloadName != ep.WorkloadName {
+			return false
+		}
+
+		// In kubernetes it's better if we only include endpoints from the same ReplicaSet,
+		// since we can expect balanced traffic distribution across the pods in the same ReplicaSet,
+		// but not across multiple ReplicaSets in a Deployment.
+		if b.proxy.Labels["pod-template-hash"] != ep.Labels["pod-template-hash"] {
+			return false
+		}
+		if b.proxy.Labels["rollouts-pod-template-hash"] != ep.Labels["rollouts-pod-template-hash"] {
+			return false
+		}
+
+		locality := util.ConvertLocality(ep.Locality.Label)
+		if b.locality != nil && b.locality.Region != locality.Region {
+			return false
+		}
 	}
 
 	return true
