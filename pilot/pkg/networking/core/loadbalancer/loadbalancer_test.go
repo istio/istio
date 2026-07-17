@@ -1185,7 +1185,18 @@ func TestGetEffectiveLbSetting(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			gotLocality, gotZoneAware, gotForce := GetEffectiveLbSetting(tt.meshLocality, tt.meshZoneAware, tt.dr, tt.svc)
+			got := GetEffectiveLbSetting(tt.meshLocality, tt.meshZoneAware, tt.dr, tt.svc)
+			var (
+				gotLocality  *networking.LocalityLoadBalancerSetting
+				gotZoneAware *networking.ZoneAwareLoadBalancerSetting
+				gotForce     bool
+			)
+			switch s := got.(type) {
+			case LocalityLBSettings:
+				gotLocality, gotForce = s.Setting, s.ForceFailover()
+			case ZoneAwareLBSettings:
+				gotZoneAware, gotForce = s.Setting, s.ForceFailover()
+			}
 			if !reflect.DeepEqual(tt.expectedLocality, gotLocality) {
 				t.Fatalf("locality: expected %v, got %v", tt.expectedLocality, gotLocality)
 			}

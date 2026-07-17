@@ -325,21 +325,20 @@ func applyLoadBalancer(
 	if svc.SupportsUnhealthyEndpoints() {
 		c.CommonLbConfig.HealthyPanicThreshold = &xdstype.Percent{Value: 0}
 	}
-	localityLbSetting, zoneAwareLbSetting, forceFailover := loadbalancer.GetEffectiveLbSetting(
+	lbSettings := loadbalancer.GetEffectiveLbSetting(
 		meshConfig.GetLocalityLbSetting(),
 		meshConfig.GetZoneAwareLbSetting(),
 		lb,
 		svc,
 	)
-	// Zone-aware LB is not supported for Waypoints, skip it and fall back to locality LB.
-	if zoneAwareLbSetting != nil && proxyType != model.Waypoint {
-		applyZoneAwareLoadBalancer(
-			locality, proxyLabels, c, wrappedLocalityLbEndpoints, zoneAwareLbSetting,
-			proxyID, enableSelfDiscovery,
-		)
-	} else {
-		applyLocalityLoadBalancer(locality, proxyLabels, c, wrappedLocalityLbEndpoints, localityLbSetting, forceFailover)
+	if lbSettings == nil {
+		// No effective locality/zone-aware setting; fall back to the default locality LB cluster config.
+		lbSettings = loadbalancer.LocalityLBSettings{}
 	}
+	lbSettings.ApplyToCluster(
+		c, wrappedLocalityLbEndpoints, locality, proxyLabels,
+		proxyType == model.Waypoint, proxyID, enableSelfDiscovery,
+	)
 
 	if c.GetType() == cluster.Cluster_ORIGINAL_DST {
 		c.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
@@ -371,66 +370,6 @@ func applyLoadBalancer(
 	}
 
 	ApplyRingHashLoadBalancer(c, lb)
-}
-
-// It configures cluster-level zone-aware fields and applies any user-defined
-// region-level failover and failoverPriority overrides to the cluster's LoadAssignment.
-func applyZoneAwareLoadBalancer(
-	locality *core.Locality,
-	proxyLabels map[string]string,
-	c *cluster.Cluster,
-	wrappedLocalityLbEndpoints *loadbalancer.WrappedLocalityLbEndpoints,
-	zoneAwareLB *networking.ZoneAwareLoadBalancerSetting,
-	proxyID string,
-	enableSelfDiscovery bool,
-) {
-	if !enableSelfDiscovery {
-		log.Warnf("Zone-aware load balancing is enabled for cluster %s, but proxy self-discovery is not enabled on %s", c.Name, proxyID)
-	}
-	c.CommonLbConfig.LocalityConfigSpecifier = &cluster.Cluster_CommonLbConfig_ZoneAwareLbConfig_{
-		ZoneAwareLbConfig: &cluster.Cluster_CommonLbConfig_ZoneAwareLbConfig{
-			MinClusterSize: zoneAwareLB.GetMinClusterSize(),
-		},
-	}
-	if c.LoadAssignment != nil {
-		var wrapped []*loadbalancer.WrappedLocalityLbEndpoints
-		if wrappedLocalityLbEndpoints != nil {
-			wrapped = []*loadbalancer.WrappedLocalityLbEndpoints{wrappedLocalityLbEndpoints}
-		}
-		loadbalancer.ApplyZoneAwareLoadBalancer(c.LoadAssignment, wrapped, locality, proxyLabels, zoneAwareLB)
-	}
-}
-
-func applyLocalityLoadBalancer(
-	locality *core.Locality,
-	proxyLabels map[string]string,
-	c *cluster.Cluster,
-	wrappedLocalityLbEndpoints *loadbalancer.WrappedLocalityLbEndpoints,
-	localityLB *networking.LocalityLoadBalancerSetting,
-	failover bool,
-) {
-	// Failover should only be applied with outlier detection, or traffic will never failover.
-	// Conversely, because the default mesh config enables LocalityLbSetting (Enabled:true),
-	// enabling outlier detection in a DestinationRule will automatically activate locality LB
-	// failover behavior even when no explicit localityLbSetting is configured in the DR.
-	enableFailover := failover || c.OutlierDetection != nil
-	// set locality weighted lb config when locality lb is enabled, otherwise it will influence the result of LBPolicy like `least request`
-	if features.EnableLocalityWeightedLbConfig ||
-		(enableFailover && (localityLB.GetFailover() != nil || localityLB.GetFailoverPriority() != nil)) ||
-		localityLB.GetDistribute() != nil {
-		c.CommonLbConfig.LocalityConfigSpecifier = &cluster.Cluster_CommonLbConfig_LocalityWeightedLbConfig_{
-			LocalityWeightedLbConfig: &cluster.Cluster_CommonLbConfig_LocalityWeightedLbConfig{},
-		}
-	}
-
-	if c.LoadAssignment != nil {
-		var wrapped []*loadbalancer.WrappedLocalityLbEndpoints
-		if wrappedLocalityLbEndpoints != nil {
-			wrapped = []*loadbalancer.WrappedLocalityLbEndpoints{wrappedLocalityLbEndpoints}
-		}
-		loadbalancer.ApplyLocalityLoadBalancer(c.LoadAssignment,
-			wrapped, locality, proxyLabels, localityLB, enableFailover)
-	}
 }
 
 // applySimpleDefaultLoadBalancer will set the DefaultLBPolicy and create an LbConfig if used in LoadBalancerSettings

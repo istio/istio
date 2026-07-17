@@ -184,20 +184,16 @@ func (b *EndpointBuilder) populateFailoverPriorityLabels() {
 	if !enableFailover {
 		return
 	}
-	localitySetting, zoneAwareSetting, _ := loadbalancer.GetEffectiveLbSetting(
+	lbSettings := loadbalancer.GetEffectiveLbSetting(
 		b.push.Mesh.GetLocalityLbSetting(),
 		b.push.Mesh.GetZoneAwareLbSetting(),
 		lb,
 		b.service,
 	)
-	var failoverPriority []string
-	switch {
-	case zoneAwareSetting != nil:
-		failoverPriority = zoneAwareSetting.FailoverPriority
-	case localitySetting != nil && localitySetting.Distribute == nil &&
-		(localitySetting.Enabled == nil || localitySetting.Enabled.Value):
-		failoverPriority = localitySetting.FailoverPriority
+	if lbSettings == nil {
+		return
 	}
+	failoverPriority := lbSettings.FailoverPriorityLabels()
 	if len(failoverPriority) > 0 {
 		b.failoverPriorityLabels = util.GetFailoverPriorityLabels(b.proxy.Labels, failoverPriority)
 	}
@@ -460,33 +456,31 @@ func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.Endpoi
 	// outlier detection in a DestinationRule will automatically activate locality LB failover
 	// even when no explicit localityLbSetting is configured in the DR.
 	enableFailover, lb := getOutlierDetectionAndLoadBalancerSettings(b.DestinationRule(), b.port, b.subsetName)
-	lbSetting, zoneAwareSetting, forceFailover := loadbalancer.GetEffectiveLbSetting(
+	lbSettings := loadbalancer.GetEffectiveLbSetting(
 		b.push.Mesh.GetLocalityLbSetting(),
 		b.push.Mesh.GetZoneAwareLbSetting(),
 		lb,
 		b.service,
 	)
-	enableFailover = enableFailover || forceFailover
+	if lbSettings == nil {
+		return l
+	}
 	// Zone-aware LB relies on a self-discovery local_cluster, which waypoints never configure,
 	// so it is meaningless there. Skip it for waypoints (they fall back to locality LB only if
 	// one is configured, but the two settings are mutually exclusive so there is none here).
-	applyZoneAware := zoneAwareSetting != nil && b.proxy.Type != model.Waypoint
-	if lbSetting != nil || applyZoneAware {
-		// Make a shallow copy of the cla as we are mutating the endpoints with priorities/weights relative to the calling proxy
-		l = util.CloneClusterLoadAssignment(l)
-		wrappedLocalityLbEndpoints := make([]*loadbalancer.WrappedLocalityLbEndpoints, len(localityLbEndpoints))
-		for i := range localityLbEndpoints {
-			wrappedLocalityLbEndpoints[i] = &loadbalancer.WrappedLocalityLbEndpoints{
-				IstioEndpoints:      localityLbEndpoints[i].istioEndpoints,
-				LocalityLbEndpoints: l.Endpoints[i],
-			}
-		}
-		if applyZoneAware {
-			loadbalancer.ApplyZoneAwareLoadBalancer(l, wrappedLocalityLbEndpoints, b.locality, b.proxy.Labels, zoneAwareSetting)
-		} else {
-			loadbalancer.ApplyLocalityLoadBalancer(l, wrappedLocalityLbEndpoints, b.locality, b.proxy.Labels, lbSetting, enableFailover)
+	if lbSettings.IsZoneAware() && b.proxy.Type == model.Waypoint {
+		return l
+	}
+	// Make a shallow copy of the cla as we are mutating the endpoints with priorities/weights relative to the calling proxy
+	l = util.CloneClusterLoadAssignment(l)
+	wrappedLocalityLbEndpoints := make([]*loadbalancer.WrappedLocalityLbEndpoints, len(localityLbEndpoints))
+	for i := range localityLbEndpoints {
+		wrappedLocalityLbEndpoints[i] = &loadbalancer.WrappedLocalityLbEndpoints{
+			IstioEndpoints:      localityLbEndpoints[i].istioEndpoints,
+			LocalityLbEndpoints: l.Endpoints[i],
 		}
 	}
+	lbSettings.ApplyToLoadAssignment(l, wrappedLocalityLbEndpoints, b.locality, b.proxy.Labels, enableFailover)
 	return l
 }
 
