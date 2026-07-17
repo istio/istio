@@ -475,7 +475,7 @@ func getURIRank(match *istio.HTTPMatchRequest) int {
 	case *istio.StringMatch_Regex:
 		return 1
 	case *istio.StringMatch_PathTemplate:
-		return 1
+		return 0
 	}
 	// should not happen
 	return -1
