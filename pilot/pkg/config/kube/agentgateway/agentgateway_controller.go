@@ -504,6 +504,11 @@ func (c *Controller) buildAddressCollections(opts krt.OptionsBuilder) krt.Collec
 		Networks:     Networks,
 		Flags: ambient.FeatureFlags{
 			EnableK8SServiceSelectWorkloadEntries: true,
+			// Mark sidecar-meshed workloads (security.istio.io/tlsMode=istio) as
+			// LEGACY_ISTIO_MTLS in the WDS stream we serve to agentgateway. The
+			// agentgateway data plane uses this to reach such backends via
+			// istio-mutual mTLS instead of plaintext.
+			EnableMtlsTransportProtocol: true,
 		},
 	}
 	// Dummy empty mesh config
