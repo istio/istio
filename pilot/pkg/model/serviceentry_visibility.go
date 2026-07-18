@@ -100,6 +100,11 @@ func (m *ServiceEntryVisibilityMatcher) VisibilityFor(nsLabels map[string]string
 	return m.defaultVisibility
 }
 
+// Configured reports whether MeshConfig.serviceEntryVisibility was set at all.
+func (m *ServiceEntryVisibilityMatcher) Configured() bool {
+	return m != nil && m.source != nil
+}
+
 // matches reports whether all of a policy's rules match (AND semantics). An empty rule list matches
 // everything, making the policy a catch-all.
 func (p visibilityPolicy) matches(nsLabels labels.Set) bool {

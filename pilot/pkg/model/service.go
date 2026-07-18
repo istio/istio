@@ -1254,6 +1254,10 @@ type ServiceInfo struct {
 	// CreationTime is the time when the service was created. Note this is used internally only
 	// for conflict resolution.
 	CreationTime time.Time
+	// VisibilityConfigured reports whether MeshConfig.serviceEntryVisibility was set. Used internally
+	// only, to gate the VisibilityApplied status; the status value itself comes from Service.Visibility
+	// so it always reflects what the dataplane received.
+	VisibilityConfigured bool
 }
 
 func (i ServiceInfo) GetLabelSelector() map[string]string {
@@ -1399,23 +1403,25 @@ func (i ServiceInfo) GetConditions(currentConditions map[string]Condition) Condi
 		}
 	}
 
-	// Surface the visibility resolved from MeshConfig.serviceEntryVisibility. k8s Services are
-	// always PUBLIC, so this is only meaningful for ServiceEntry sources. The value is uniform
-	// across a ServiceEntry's hosts today, so this host-independent condition is idempotent across
-	// the per-host ServiceInfos that target the same object. If per-host matchers ever make
-	// visibility diverge within one ServiceEntry, this single fixed-type condition would need to
-	// aggregate across hosts instead.
+	// Surface the visibility resolved from MeshConfig.serviceEntryVisibility, only for ServiceEntry
+	// sources and only when the feature is configured (ResolvedVisibility non-nil) -- otherwise prune,
+	// so an unset mesh does not stamp a condition on every ServiceEntry. The value is uniform across a
+	// ServiceEntry's hosts today, so this host-independent condition is idempotent across the per-host
+	// ServiceInfos that target the same object.
 	if i.Source.Kind == kind.ServiceEntry {
-		reason, msg := VisibilityPublic, "ServiceEntry is visible to the entire mesh (PUBLIC)."
-		if i.Service.GetVisibility() == workloadapi.Service_NAMESPACE {
-			reason = VisibilityNamespace
-			msg = "ServiceEntry is visible only within its own namespace (NAMESPACE), " +
-				"per mesh serviceEntryVisibility."
-		}
-		set[VisibilityApplied] = &Condition{
-			Status:  true,
-			Reason:  reason,
-			Message: msg,
+		set[VisibilityApplied] = nil
+		if i.VisibilityConfigured {
+			reason, msg := VisibilityPublic, "ServiceEntry is visible to the entire mesh (PUBLIC)."
+			if i.Service.GetVisibility() == workloadapi.Service_NAMESPACE {
+				reason = VisibilityNamespace
+				msg = "ServiceEntry is visible only within its own namespace (NAMESPACE), " +
+					"per mesh serviceEntryVisibility."
+			}
+			set[VisibilityApplied] = &Condition{
+				Status:  true,
+				Reason:  reason,
+				Message: msg,
+			}
 		}
 	}
 
@@ -1464,7 +1470,8 @@ func (i ServiceInfo) Equals(other ServiceInfo) bool {
 		i.Source == other.Source &&
 		i.DNSConnectStrategy == other.DNSConnectStrategy &&
 		i.Scope == other.Scope &&
-		i.Waypoint.Equals(other.Waypoint)
+		i.Waypoint.Equals(other.Waypoint) &&
+		i.VisibilityConfigured == other.VisibilityConfigured
 }
 
 func (i ServiceInfo) ResourceName() string {

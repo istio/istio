@@ -255,7 +255,8 @@ func New(options Options) Index {
 	serviceEntryVisibility := model.ServiceEntryVisibilityCollection(a.meshConfig.AsCollection(), opts)
 
 	// these are workloadapi-style services combined from kube services and service entries
-	WorkloadServices := builder.ServicesCollection(options.ClusterID, Services, ServiceEntries, Waypoints, Namespaces, a.meshConfig, serviceEntryVisibility, opts, true)
+	WorkloadServices := builder.ServicesCollection(options.ClusterID, Services, ServiceEntries, Waypoints,
+		Namespaces, a.meshConfig, serviceEntryVisibility, opts, true)
 
 	if features.EnableAmbientStatus {
 		serviceEntriesWriter := kclient.NewWriteClient[*networkingclient.ServiceEntry](client)

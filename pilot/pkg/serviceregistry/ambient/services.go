@@ -509,6 +509,9 @@ func serviceEntriesInfo(
 		// https://github.com/istio/istio/issues/60908
 		return nil
 	}
+	// Gate the visibility status on whether the feature is configured; an unset mesh writes no
+	// condition. The status value itself comes from the WDS Service.Visibility set above.
+	visibilityConfigured := vis.Configured()
 	services := constructServiceEntries(ctx, s, w, nsAnnotations, networkGetter)
 	result := make([]model.ServiceInfo, 0, len(services))
 	for _, e := range services {
@@ -516,13 +519,14 @@ func serviceEntriesInfo(
 		e.IngressUseWaypoint = waypoint.IngressUseWaypoint
 		e.WeightedWaypoints = weighted
 		result = append(result, precomputeService(model.ServiceInfo{
-			Service:            e,
-			PortNames:          portNames,
-			LabelSelector:      sel,
-			Source:             MakeSource(s),
-			Waypoint:           waypoint,
-			DNSConnectStrategy: model.GetDNSConnectStrategy(s.Annotations),
-			CreationTime:       s.CreationTimestamp.Time,
+			Service:              e,
+			PortNames:            portNames,
+			LabelSelector:        sel,
+			Source:               MakeSource(s),
+			Waypoint:             waypoint,
+			DNSConnectStrategy:   model.GetDNSConnectStrategy(s.Annotations),
+			CreationTime:         s.CreationTimestamp.Time,
+			VisibilityConfigured: visibilityConfigured,
 		}))
 	}
 	return result
