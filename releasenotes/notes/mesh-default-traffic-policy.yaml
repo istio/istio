@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue: []
+releaseNotes:
+  - |
+    **Added** `defaultTrafficPolicy` to `MeshConfig`, a mesh-wide baseline `connectionPool` and
+    `outlierDetection` that outbound clusters inherit. A `DestinationRule` that sets one of these
+    blocks overrides the baseline for that block; a block the `DestinationRule` leaves unset now
+    inherits the mesh baseline instead of Istio's built-in defaults. When no baseline is configured,
+    behavior is unchanged. The baseline `connectionPool` is also applied to inbound clusters and the
+    passthrough cluster.

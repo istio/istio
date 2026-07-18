@@ -26,14 +26,19 @@ import (
 
 type MockedZtunnelConnection struct {
 	mock.Mock
+	done chan struct{}
 }
 
 func FakeZtunnelConnection() *MockedZtunnelConnection {
-	return &MockedZtunnelConnection{}
+	return &MockedZtunnelConnection{done: make(chan struct{})}
 }
 
 func (m *MockedZtunnelConnection) Close() {
 	m.Called()
+}
+
+func (m *MockedZtunnelConnection) Done() chan struct{} {
+	return m.done
 }
 
 func (m *MockedZtunnelConnection) UUID() uuid.UUID {

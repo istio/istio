@@ -22,6 +22,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pilot/pkg/xds/endpoints"
 	"istio.io/istio/pkg/config/host"
@@ -104,6 +105,7 @@ var skippedEdsConfigs = sets.New(
 	kind.Secret,
 	kind.Telemetry,
 	kind.WasmPlugin,
+	kind.TrafficExtension,
 	kind.ProxyConfig,
 	kind.DNSName,
 	kind.Sidecar,
@@ -124,7 +126,7 @@ func edsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
 		return res
 	}
 	// CDS needs to be pushed for waypoint proxies on kind.Address changes, so we need to push EDS as well.
-	if proxy.Type == model.Waypoint && waypointNeedsPush(req) {
+	if proxy.Type == model.Waypoint && waypointNeedsPush(req, proxy) {
 		return true
 	}
 	for config := range req.ConfigsUpdated {
@@ -205,25 +207,32 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 	regenerated := 0
 
 	for clusterName := range w.ResourceNames {
-		affectedService := edsUpdatedServices.Contains(model.ParseSubsetKeyHostname(clusterName))
+		affected := affectedService(proxy, edsUpdatedServices, clusterName)
 		if partialPush && changedDrs.IsEmpty() && changedAuthnNs.IsEmpty() &&
-			!affectedService {
+			!affected {
 
 			// Cluster was not updated and no changes to destination rules or peer authentication policies, skip recomputing.
 			continue
 		}
 
-		dir, subsetName, hostname, port := model.ParseSubsetKey(clusterName)
+		dir, subsetName, hostname, port := parseClusterName(clusterName, proxy)
 		svc := req.Push.ServiceForHostname(proxy, hostname)
 
+		isSelfDiscoveryCluster := clusterName == util.SelfDiscoveryCluster
 		var dr *model.ConsolidatedDestRule
-		if svc != nil {
+		if svc != nil && !isSelfDiscoveryCluster {
+			// disable DR lookup for self discovery cluster, we don't need to apply subsetting or traffic policies.
 			dr = proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, svc.Hostname)
 		}
 
 		// if we can do a partial push, check if the cluster is affected by the changed destination rules or peer authentication policies
 		// to avoid recomputing the cluster if it is not affected
-		if partialPush && svc != nil && !affectedService {
+		if partialPush && svc != nil && !affected {
+			// local cluster is unaffected by authn or DR changes
+			if isSelfDiscoveryCluster {
+				continue
+			}
+
 			if !clusterAffectedByChangedAuthn(svc, changedAuthnNs, req.Push.Mesh.RootNamespace) &&
 				!clusterAffectedByChangedDrs(proxy, dr, hostname, changedDrs) {
 				continue
@@ -259,6 +268,34 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 		Incremental:    len(edsUpdatedServices) != 0,
 		AdditionalInfo: fmt.Sprintf("empty:%v cached:%v/%v", empty, cached, cached+regenerated),
 	}
+}
+
+func parseClusterName(clusterName string, proxy *model.Proxy) (model.TrafficDirection, string, host.Name, int) {
+	if clusterName == util.SelfDiscoveryCluster {
+		if proxy.LocalService.Name == "" {
+			return model.TrafficDirectionOutbound, "", "", 0
+		}
+
+		return model.TrafficDirectionOutbound, "", host.Name(proxy.LocalService.Name), proxy.LocalService.Port
+	}
+
+	return model.ParseSubsetKey(clusterName)
+}
+
+func affectedService(proxy *model.Proxy, edsUpdatedServices sets.Set[string], clusterName string) bool {
+	if clusterName == util.SelfDiscoveryCluster {
+		// Detect a local-service transition (add, delete, or replace). Both fields are
+		// empty for proxies that never had a local service, so steady-state pushes for
+		// those proxies fall through to "no service, nothing to push".
+		if proxy.LocalService != proxy.PrevLocalService {
+			return true
+		}
+		if proxy.LocalService.Name == "" {
+			return false
+		}
+		return edsUpdatedServices.Contains(proxy.LocalService.Name)
+	}
+	return edsUpdatedServices.Contains(model.ParseSubsetKeyHostname(clusterName))
 }
 
 // clusterAffectedByChangedDrs checks if the service is affected by the changed destination rules

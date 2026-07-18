@@ -49,6 +49,7 @@ func TestGatewayAPIRequestAuthentication(t *testing.T) {
 				Source(config.File("testdata/requestauthn/gateway-jwt.yaml.tmpl").WithParams(param.Params{
 					param.Namespace.String(): apps.Namespace,
 					"Services":               apps.A.Append(apps.B).Services(),
+					"JWTServer":              jwtServer,
 				})).
 				BuildAll(nil, apps.A.Append(apps.B).Services()).
 				Apply()
@@ -200,6 +201,7 @@ func TestGatewayAPIAuthorizationPolicy(t *testing.T) {
 				Source(config.File("testdata/authz/gateway-authz.yaml.tmpl").WithParams(param.Params{
 					param.Namespace.String(): apps.Namespace,
 					"Services":               apps.A.Append(apps.B).Services(),
+					"JWTServer":              jwtServer,
 				})).
 				BuildAll(nil, apps.A.Append(apps.B).Services()).
 				Apply()

@@ -1,0 +1,15 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue: []
+
+releaseNotes:
+  - |
+    **Enabled** Sending unhealthy endpoints by default unless `OutlierDetection.minHealthPercent` is being configured, 
+    can be disabled by setting `PILOT_AUTO_SEND_UNHEALTHY_ENDPOINTS` to `false`.
+
+upgradeNotes:
+  - title: Default behavior for sending unhealthy endpoints
+    content: |
+      By default, Istio will now send unhealthy endpoints unless `OutlierDetection.minHealthPercent` is being configured on a Service. 
+      This can be disabled by setting `PILOT_AUTO_SEND_UNHEALTHY_ENDPOINTS` to `false` or using compatibility profiles.

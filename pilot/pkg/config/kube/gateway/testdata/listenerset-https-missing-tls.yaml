@@ -1,0 +1,54 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: istio
+spec:
+  controllerName: istio.io/gateway-controller
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: parent-gateway
+  namespace: istio-system
+spec:
+  allowedListeners:
+    namespaces:
+      from: All
+  addresses:
+  - value: istio-ingressgateway
+    type: Hostname
+  gatewayClassName: istio
+  listeners:
+  - name: parent
+    port: 443
+    protocol: HTTPS
+    hostname: parent.example.com
+    tls:
+      certificateRefs:
+      - group: ""
+        kind: Secret
+        name: parent-cert
+      mode: Terminate
+    allowedRoutes:
+      namespaces:
+        from: All
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: ListenerSet
+metadata:
+  name: https-missing-tls
+  namespace: istio-system
+spec:
+  parentRef:
+    kind: Gateway
+    group: gateway.networking.k8s.io
+    name: parent-gateway
+    namespace: istio-system
+  listeners:
+  - name: missing-tls
+    port: 8443
+    protocol: HTTPS
+    hostname: child.example.com
+    allowedRoutes:
+      namespaces:
+        from: All

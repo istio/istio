@@ -3002,7 +3002,6 @@ func TestSelectServicesExactParity(t *testing.T) {
 				key := string(exportTo)
 				if exportTo == visibility.Private {
 					key = s.Attributes.Namespace
-					ps.ServiceIndex.private = append(ps.ServiceIndex.private, s)
 				}
 				ps.ServiceIndex.exportedToNamespace[key] = append(ps.ServiceIndex.exportedToNamespace[key], s)
 			}
@@ -3234,6 +3233,44 @@ func TestIstioEgressListenerWrapper(t *testing.T) {
 			expected:  []*Service{serviceBWildcard},
 			namespace: "b",
 		},
+		{
+			name: "*/* excludes whole namespace b via ~b/*",
+			listenerHosts: map[string]hostClassification{
+				wildcardNamespace: {allHosts: []host.Name{wildcardService}, exactHosts: sets.New[host.Name]()},
+				"b":               {excludedHosts: []host.Name{wildcardService}},
+			},
+			services:  allServices,
+			expected:  []*Service{serviceA8000, serviceA9000, serviceAalt},
+			namespace: "a",
+		},
+		{
+			name: "*/* excludes exact host (all ports) from all namespaces via ~/host",
+			listenerHosts: map[string]hostClassification{
+				wildcardNamespace: {allHosts: []host.Name{wildcardService}, exactHosts: sets.New[host.Name](), excludedHosts: []host.Name{"host"}},
+			},
+			services:  allServices,
+			expected:  []*Service{serviceAalt},
+			namespace: "a",
+		},
+		{
+			name: "wildcard exclusion ~b/*.wildcard.com drops matching service",
+			listenerHosts: map[string]hostClassification{
+				"b": {allHosts: []host.Name{wildcardService}, exactHosts: sets.New[host.Name](), excludedHosts: []host.Name{"*.wildcard.com"}},
+			},
+			services:  []*Service{serviceBWildcard},
+			expected:  []*Service{},
+			namespace: "b",
+		},
+		{
+			name: "ns-scoped exclusion does not affect other namespace",
+			listenerHosts: map[string]hostClassification{
+				wildcardNamespace: {allHosts: []host.Name{wildcardService}, exactHosts: sets.New[host.Name]()},
+				"a":               {excludedHosts: []host.Name{wildcardService}},
+			},
+			services:  []*Service{serviceB8000, serviceB9000, serviceBalt},
+			expected:  []*Service{serviceB8000, serviceB9000, serviceBalt},
+			namespace: "b",
+		},
 	}
 
 	for _, tt := range tests {
@@ -3310,7 +3347,7 @@ func TestContainsEgressDependencies(t *testing.T) {
 					Attributes: ServiceAttributes{Namespace: nsName},
 				},
 			}
-			virtualServices := []config.Config{
+			virtualServices := []*config.Config{
 				{
 					Meta: config.Meta{
 						Name:      vsName,
@@ -3947,9 +3984,9 @@ func BenchmarkConvertIstioListenerToWrapper(b *testing.B) {
 
 func benchmarkConvertIstioListenerToWrapper(b *testing.B, vsNum int, hostNum int, wildcard string, matchAll bool) {
 	// virtual service
-	cfgs := make([]config.Config, 0)
+	cfgs := make([]*config.Config, 0)
 	for i := 0; i < vsNum; i++ {
-		cfgs = append(cfgs, config.Config{
+		cfgs = append(cfgs, &config.Config{
 			Meta: config.Meta{
 				GroupVersionKind: gvk.VirtualService,
 				Name:             "vs-name-" + strconv.Itoa(i),

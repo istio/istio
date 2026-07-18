@@ -1551,7 +1551,7 @@ func TestSelectVirtualService(t *testing.T) {
 			},
 		},
 	}
-	virtualService1 := config.Config{
+	virtualService1 := &config.Config{
 		Meta: config.Meta{
 			GroupVersionKind: gvk.VirtualService,
 			Name:             "acme2-v1",
@@ -1559,7 +1559,7 @@ func TestSelectVirtualService(t *testing.T) {
 		},
 		Spec: virtualServiceSpec1,
 	}
-	virtualService2 := config.Config{
+	virtualService2 := &config.Config{
 		Meta: config.Meta{
 			GroupVersionKind: gvk.VirtualService,
 			Name:             "acme-v2",
@@ -1567,7 +1567,7 @@ func TestSelectVirtualService(t *testing.T) {
 		},
 		Spec: virtualServiceSpec2,
 	}
-	virtualService3 := config.Config{
+	virtualService3 := &config.Config{
 		Meta: config.Meta{
 			GroupVersionKind: gvk.VirtualService,
 			Name:             "acme-v3",
@@ -1575,7 +1575,7 @@ func TestSelectVirtualService(t *testing.T) {
 		},
 		Spec: virtualServiceSpec3,
 	}
-	virtualService4 := config.Config{
+	virtualService4 := &config.Config{
 		Meta: config.Meta{
 			GroupVersionKind: gvk.VirtualService,
 			Name:             "acme-v4",
@@ -1583,7 +1583,7 @@ func TestSelectVirtualService(t *testing.T) {
 		},
 		Spec: virtualServiceSpec4,
 	}
-	virtualService5 := config.Config{
+	virtualService5 := &config.Config{
 		Meta: config.Meta{
 			GroupVersionKind: gvk.VirtualService,
 			Name:             "acme-v3",
@@ -1591,7 +1591,7 @@ func TestSelectVirtualService(t *testing.T) {
 		},
 		Spec: virtualServiceSpec5,
 	}
-	virtualService6 := config.Config{
+	virtualService6 := &config.Config{
 		Meta: config.Meta{
 			GroupVersionKind: gvk.VirtualService,
 			Name:             "acme-v3",
@@ -1599,7 +1599,7 @@ func TestSelectVirtualService(t *testing.T) {
 		},
 		Spec: virtualServiceSpec6,
 	}
-	virtualService7 := config.Config{
+	virtualService7 := &config.Config{
 		Meta: config.Meta{
 			GroupVersionKind: gvk.VirtualService,
 			Name:             "acme2-v1",
@@ -1607,7 +1607,7 @@ func TestSelectVirtualService(t *testing.T) {
 		},
 		Spec: virtualServiceSpec7,
 	}
-	virtualService8 := config.Config{
+	virtualService8 := &config.Config{
 		Meta: config.Meta{
 			GroupVersionKind: gvk.VirtualService,
 			Name:             "vs-wildcard-v1",
@@ -1615,7 +1615,7 @@ func TestSelectVirtualService(t *testing.T) {
 		},
 		Spec: virtualServiceSpec8,
 	}
-	virtualService9 := config.Config{
+	virtualService9 := &config.Config{
 		Meta: config.Meta{
 			GroupVersionKind: gvk.VirtualService,
 			Name:             "service-wildcard-v1",
@@ -1625,7 +1625,7 @@ func TestSelectVirtualService(t *testing.T) {
 	}
 
 	index := virtualServiceIndex{
-		publicByGateway: map[string][]config.Config{
+		publicByGateway: map[string][]*config.Config{
 			constants.IstioMeshGateway: {
 				virtualService1,
 				virtualService2,
@@ -1652,6 +1652,139 @@ func TestSelectVirtualService(t *testing.T) {
 		if config.Name != expectedVS[i] {
 			t.Fatalf("Unexpected virtualService, got %s, expected %s", config.Name, expectedVS[i])
 		}
+	}
+}
+
+func TestSelectVirtualServicesExclusion(t *testing.T) {
+	mkVS := func(name, ns string, hosts ...string) *config.Config {
+		return &config.Config{
+			Meta: config.Meta{GroupVersionKind: gvk.VirtualService, Name: name, Namespace: ns},
+			Spec: &networking.VirtualService{Hosts: hosts, Gateways: []string{"mesh"}},
+		}
+	}
+	index := virtualServiceIndex{
+		publicByGateway: map[string][]*config.Config{
+			constants.IstioMeshGateway: {
+				mkVS("vs-a", "a", "a.com"),
+				mkVS("vs-b", "b", "b.com"),
+				mkVS("vs-multi", "a", "drop.com", "keep.com"),
+			},
+		},
+	}
+
+	includeAll := hostClassification{exactHosts: sets.New[host.Name](), allHosts: []host.Name{wildcardService}}
+	includeAllExcept := func(excluded ...host.Name) hostClassification {
+		return hostClassification{exactHosts: sets.New[host.Name](), allHosts: []host.Name{wildcardService}, excludedHosts: excluded}
+	}
+
+	tests := []struct {
+		name      string
+		hostsByNS map[string]hostClassification
+		expected  []string
+	}{
+		{
+			name:      "no exclusion selects all",
+			hostsByNS: map[string]hostClassification{wildcardNamespace: includeAll},
+			expected:  []string{"vs-a", "vs-b", "vs-multi"},
+		},
+		{
+			name: "~b/* excludes namespace b",
+			hostsByNS: map[string]hostClassification{
+				wildcardNamespace: includeAll,
+				"b":               {excludedHosts: []host.Name{wildcardService}},
+			},
+			expected: []string{"vs-a", "vs-multi"},
+		},
+		{
+			name:      "~/a.com excludes the VS whose only host is a.com",
+			hostsByNS: map[string]hostClassification{wildcardNamespace: includeAllExcept("a.com")},
+			expected:  []string{"vs-b", "vs-multi"},
+		},
+		{
+			name:      "multi-host VS survives when only one host excluded",
+			hostsByNS: map[string]hostClassification{wildcardNamespace: includeAllExcept("drop.com")},
+			expected:  []string{"vs-a", "vs-b", "vs-multi"},
+		},
+		{
+			name:      "multi-host VS dropped when all hosts excluded",
+			hostsByNS: map[string]hostClassification{wildcardNamespace: includeAllExcept("drop.com", "keep.com")},
+			expected:  []string{"vs-a", "vs-b"},
+		},
+		{
+			name: "exclusion via ns scope while include via wildcard scope",
+			hostsByNS: map[string]hostClassification{
+				wildcardNamespace: includeAll,
+				"a":               {excludedHosts: []host.Name{"a.com"}},
+			},
+			expected: []string{"vs-b", "vs-multi"},
+		},
+		{
+			name:      "exclusion with no include matches nothing",
+			hostsByNS: map[string]hostClassification{wildcardNamespace: {exactHosts: sets.New[host.Name](), excludedHosts: []host.Name{wildcardService}}},
+			expected:  []string{},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := SelectVirtualServices(index, "some-ns", tt.hostsByNS)
+			gotNames := make([]string, 0, len(got))
+			for _, c := range got {
+				gotNames = append(gotNames, c.Name)
+			}
+			assert.Equal(t, gotNames, tt.expected)
+		})
+	}
+}
+
+// TestSelectVirtualServicesExclusionWildcard pins the directional SubsetOf semantics:
+// a wildcard exclusion covers exact hosts, but an exact exclusion does not drop a
+// wildcard route that still serves other hosts.
+func TestSelectVirtualServicesExclusionWildcard(t *testing.T) {
+	mkVS := func(name string, hosts ...string) *config.Config {
+		return &config.Config{
+			Meta: config.Meta{GroupVersionKind: gvk.VirtualService, Name: name, Namespace: "a"},
+			Spec: &networking.VirtualService{Hosts: hosts, Gateways: []string{"mesh"}},
+		}
+	}
+	index := virtualServiceIndex{
+		publicByGateway: map[string][]*config.Config{
+			constants.IstioMeshGateway: {
+				mkVS("vs-exact", "a.com"),
+				mkVS("vs-wild", "*.com"),
+			},
+		},
+	}
+	includeAllExcept := func(excluded ...host.Name) map[string]hostClassification {
+		return map[string]hostClassification{
+			wildcardNamespace: {exactHosts: sets.New[host.Name](), allHosts: []host.Name{wildcardService}, excludedHosts: excluded},
+		}
+	}
+
+	tests := []struct {
+		name      string
+		hostsByNS map[string]hostClassification
+		expected  []string
+	}{
+		{
+			name:      "wildcard exclusion covers exact host",
+			hostsByNS: includeAllExcept("*.com"),
+			expected:  []string{},
+		},
+		{
+			name:      "exact exclusion does not drop wildcard route",
+			hostsByNS: includeAllExcept("a.com"),
+			expected:  []string{"vs-wild"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := SelectVirtualServices(index, "some-ns", tt.hostsByNS)
+			gotNames := make([]string, 0, len(got))
+			for _, c := range got {
+				gotNames = append(gotNames, c.Name)
+			}
+			assert.Equal(t, gotNames, tt.expected)
+		})
 	}
 }
 
@@ -1749,7 +1882,7 @@ func BenchmarkSelectVirtualServices(b *testing.B) {
 			}
 
 			// Build virtual services spread across namespaces
-			virtualServices := make([]config.Config, 0, sc.numVSPerNS*sc.numNamespaces)
+			virtualServices := make([]*config.Config, 0, sc.numVSPerNS*sc.numNamespaces)
 			for i := 0; i < sc.numVSPerNS*sc.numNamespaces; i++ {
 				ns := namespaces[i%sc.numNamespaces]
 				var vsHost string
@@ -1762,7 +1895,7 @@ func BenchmarkSelectVirtualServices(b *testing.B) {
 				} else {
 					vsHost = fmt.Sprintf("external-%d.example.com", i)
 				}
-				vs := config.Config{
+				vs := &config.Config{
 					Meta: config.Meta{
 						GroupVersionKind: gvk.VirtualService,
 						Name:             fmt.Sprintf("vs-%d", i),
@@ -1790,11 +1923,11 @@ func BenchmarkSelectVirtualServices(b *testing.B) {
 			}
 
 			index := virtualServiceIndex{
-				publicByGateway: map[string][]config.Config{
+				publicByGateway: map[string][]*config.Config{
 					constants.IstioMeshGateway: virtualServices,
 				},
-				privateByNamespaceAndGateway: map[types.NamespacedName][]config.Config{},
-				exportedToNamespaceByGateway: map[types.NamespacedName][]config.Config{},
+				privateByNamespaceAndGateway: map[types.NamespacedName][]*config.Config{},
+				exportedToNamespaceByGateway: map[types.NamespacedName][]*config.Config{},
 			}
 
 			b.ReportAllocs()

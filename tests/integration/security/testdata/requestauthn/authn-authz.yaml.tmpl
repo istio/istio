@@ -8,7 +8,7 @@ spec:
       app: {{ .To.ServiceName }}
   jwtRules:
   - issuer: "test-issuer-1@istio.io"
-    jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
+    jwksUri: "{{ .JWTServer.JwksURI }}"
 ---
 # The following policy enables authorization on workload dst.
 apiVersion: security.istio.io/v1

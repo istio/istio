@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/fuzz"
 	"istio.io/istio/pkg/test/util/assert"
 )
@@ -28,7 +29,7 @@ func FuzzShallowCopyTrafficPolicy(f *testing.F) {
 		r := fuzz.Struct[*networking.TrafficPolicy](fg)
 		// We do not copy these, so ignore them
 		r.PortLevelSettings = nil
-		copied := ShallowCopyTrafficPolicy(r)
+		copied := model.ShallowCopyTrafficPolicy(r)
 		assert.Equal(fg.T(), r, copied)
 	})
 }
@@ -57,11 +58,11 @@ func FuzzMergeTrafficPolicy(f *testing.F) {
 		checkFrom.PortLevelSettings = nil
 
 		empty1 := &networking.TrafficPolicy{}
-		copied := mergeTrafficPolicy(empty1, copyFrom, true)
+		copied := model.MergeTrafficPolicy(empty1, copyFrom, true)
 		assert.Equal(fg.T(), checkFrom, copied)
 
 		empty2 := &networking.TrafficPolicy{}
-		copied = mergeTrafficPolicy(empty2, copied, true)
+		copied = model.MergeTrafficPolicy(empty2, copied, true)
 		assert.Equal(fg.T(), checkFrom, copied)
 	})
 }

@@ -207,6 +207,10 @@ func (cfg Config) toTemplateParams() (map[string]any, error) {
 		opts = append(opts, option.EnvoyStatusPortEnableProxyProtocol(true))
 	}
 
+	if cfg.Metadata.EnableSelfDiscovery {
+		opts = append(opts, option.EnableSelfDiscovery(true))
+	}
+
 	proxyOpts, err := getProxyConfigOptions(cfg.Metadata)
 	if err != nil {
 		return nil, err
@@ -675,8 +679,8 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 	untypedMeta := map[string]any{}
 
 	for k, v := range options.ProxyConfig.GetProxyMetadata() {
-		if strings.HasPrefix(k, IstioMetaPrefix) {
-			untypedMeta[strings.TrimPrefix(k, IstioMetaPrefix)] = v
+		if after, ok := strings.CutPrefix(k, IstioMetaPrefix); ok {
+			untypedMeta[after] = v
 		}
 	}
 

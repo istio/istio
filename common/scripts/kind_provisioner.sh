@@ -416,20 +416,20 @@ function install_metallb() {
     METALLB_IPS4=()
     while read -r ip; do
       METALLB_IPS4+=("$ip")
-    done < <(cidr_to_ips "$DOCKER_KIND_SUBNET" | tail -n 100)
+    done < <(cidr_to_ips "$DOCKER_KIND_SUBNET" | tail -n 400)
     METALLB_IPS6=()
     if [[ "$(docker inspect kind | jq '.[0].IPAM.Config | length' -r)" == 2 ]]; then
       # Two configs? Must be dual stack.
       DOCKER_KIND_SUBNET="$(docker inspect kind | jq '.[0].IPAM.Config[1].Subnet' -r)"
       while read -r ip; do
         METALLB_IPS6+=("$ip")
-      done < <(cidr_to_ips "$DOCKER_KIND_SUBNET" | tail -n 100)
+      done < <(cidr_to_ips "$DOCKER_KIND_SUBNET" | tail -n 400)
     fi
   fi
 
   # Give this cluster of those IPs
   RANGE="["
-  for i in {0..19}; do
+  for i in {0..49}; do
     RANGE+="${METALLB_IPS4[1]},"
     METALLB_IPS4=("${METALLB_IPS4[@]:1}")
     if [[ "${#METALLB_IPS6[@]}" != 0 ]]; then

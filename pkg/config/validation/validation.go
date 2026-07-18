@@ -514,8 +514,8 @@ func validateServerPort(port *networking.Port, bind string) (errs Validation) {
 }
 
 func validateServerBind(port *networking.Port, bind string) (errs error) {
-	if strings.HasPrefix(bind, UnixAddressPrefix) {
-		errs = appendErrors(errs, ValidateUnixAddress(strings.TrimPrefix(bind, UnixAddressPrefix)))
+	if after, ok := strings.CutPrefix(bind, UnixAddressPrefix); ok {
+		errs = appendErrors(errs, ValidateUnixAddress(after))
 		if port != nil && port.Number != 0 {
 			errs = appendErrors(errs, fmt.Errorf("port number must be 0 for unix domain socket: %v", port))
 		}
@@ -824,8 +824,8 @@ var ValidateSidecar = RegisterValidateFunc("ValidateSidecar",
 			portMap.Insert(i.Port.Number)
 
 			if len(i.DefaultEndpoint) != 0 {
-				if strings.HasPrefix(i.DefaultEndpoint, UnixAddressPrefix) {
-					errs = AppendValidation(errs, ValidateUnixAddress(strings.TrimPrefix(i.DefaultEndpoint, UnixAddressPrefix)))
+				if after, ok0 := strings.CutPrefix(i.DefaultEndpoint, UnixAddressPrefix); ok0 {
+					errs = AppendValidation(errs, ValidateUnixAddress(after))
 				} else {
 					// format should be 127.0.0.1:port, [::1]:port or :port
 					sHost, sPort, sErr := net.SplitHostPort(i.DefaultEndpoint)
@@ -933,7 +933,7 @@ var ValidateSidecar = RegisterValidateFunc("ValidateSidecar",
 				nssSvcs := map[string]map[string]bool{}
 				for _, hostname := range egress.Hosts {
 					parts := strings.SplitN(hostname, "/", 2)
-					if len(parts) == 2 {
+					if len(parts) == 2 && !strings.HasPrefix(parts[0], "~") {
 						ns := parts[0]
 						svc := parts[1]
 						if ns == "." {
@@ -1164,6 +1164,18 @@ func validateConnectionPool(settings *networking.ConnectionPoolSettings) (errs e
 		if httpSettings.MaxConcurrentStreams < 0 {
 			errs = appendErrors(errs, fmt.Errorf("max concurrent streams must be non-negative"))
 		}
+		if keepalive := httpSettings.GetHttp2KeepAlive(); keepalive != nil {
+			if keepalive.Interval == nil {
+				errs = appendErrors(errs, fmt.Errorf("http2 keepalive interval is required"))
+			} else {
+				errs = appendErrors(errs, agent.ValidateDuration(keepalive.Interval))
+			}
+			if keepalive.Timeout == nil {
+				errs = appendErrors(errs, fmt.Errorf("http2 keepalive timeout is required"))
+			} else {
+				errs = appendErrors(errs, agent.ValidateDuration(keepalive.Timeout))
+			}
+		}
 	}
 
 	if tcp := settings.Tcp; tcp != nil {
@@ -1244,7 +1256,11 @@ func validateLoadBalancer(settings *networking.LoadBalancerSettings, outlier *ne
 		}
 	}
 
+	if settings.LocalityLbSetting != nil && settings.ZoneAwareLbSetting != nil {
+		errs = AppendValidation(errs, fmt.Errorf("only one of localityLbSetting and zoneAwareLbSetting can be set"))
+	}
 	errs = AppendValidation(errs, agent.ValidateLocalityLbSetting(settings.LocalityLbSetting, outlier))
+	errs = AppendValidation(errs, agent.ValidateZoneAwareLbSetting(settings.ZoneAwareLbSetting, outlier))
 
 	if warm := settings.Warmup; warm != nil {
 		if warm.Duration == nil {
@@ -1255,8 +1271,8 @@ func validateLoadBalancer(settings *networking.LoadBalancerSettings, outlier *ne
 		if warm.MinimumPercent.GetValue() > 100 {
 			errs = AppendValidation(errs, fmt.Errorf("minimumPercent value should be less than or equal to 100"))
 		}
-		if warm.Aggression != nil && warm.Aggression.GetValue() < 1 {
-			errs = AppendValidation(errs, fmt.Errorf("aggression should be greater than or equal to 1"))
+		if warm.Aggression != nil && warm.Aggression.GetValue() <= 0 {
+			errs = AppendValidation(errs, fmt.Errorf("aggression should be greater than 0"))
 		}
 	}
 	return errs
@@ -1620,9 +1636,30 @@ var ValidateRequestAuthentication = RegisterValidateFunc("ValidateRequestAuthent
 
 		for _, rule := range in.JwtRules {
 			errs = AppendValidation(errs, validateJwtRule(rule))
+			errs = warnPrivateJwksKeys(errs, rule)
 		}
 		return errs.Unwrap()
 	})
+
+// warnPrivateJwksKeys warns if inline Jwks contains private key material.
+// Envoy only needs public keys for token verification.
+func warnPrivateJwksKeys(v Validation, rule *security_beta.JWTRule) Validation {
+	if rule == nil || rule.Jwks == "" {
+		return v
+	}
+	set, err := jwk.Parse([]byte(rule.Jwks))
+	if err != nil {
+		return v
+	}
+	for i := 0; i < set.Len(); i++ {
+		key, _ := set.Get(i)
+		switch key.(type) {
+		case jwk.RSAPrivateKey, jwk.ECDSAPrivateKey, jwk.OKPPrivateKey, jwk.SymmetricKey:
+			v = AppendWarningf(v, "jwks key at index %d contains private key material; only public keys are used for verification", i)
+		}
+	}
+	return v
+}
 
 func validateJwtRule(rule *security_beta.JWTRule) (errs error) {
 	if rule == nil {
