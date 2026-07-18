@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/monitoring/monitortest"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 func TestInformerExistingPodAddedWhenNsLabeled(t *testing.T) {
@@ -1554,45 +1555,33 @@ func TestInformerLabeledPodInExcludedNsNotEnrolled(t *testing.T) {
 }
 
 func assertPodAnnotated(t *testing.T, client kube.Client, pod *corev1.Pod) {
-	for i := 0; i < 5; i++ {
+	retry.UntilOrFail(t, func() bool {
 		p, err := client.Kube().CoreV1().Pods(pod.Namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
 		if err != nil {
 			t.Fatal(err)
 		}
-		if p.Annotations[annotation.AmbientRedirection.Name] == constants.AmbientRedirectionEnabled {
-			return
-		}
-		time.Sleep(1 * time.Second)
-	}
-	t.Fatal("Pod not annotated")
+		return p.Annotations[annotation.AmbientRedirection.Name] == constants.AmbientRedirectionEnabled
+	}, retry.Timeout(5*time.Second), retry.Delay(50*time.Millisecond), retry.Message("Pod not annotated"))
 }
 
 func assertPodAnnotatedPending(t *testing.T, client kube.Client, pod *corev1.Pod) {
-	for i := 0; i < 5; i++ {
+	retry.UntilOrFail(t, func() bool {
 		p, err := client.Kube().CoreV1().Pods(pod.Namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
 		if err != nil {
 			t.Fatal(err)
 		}
-		if p.Annotations[annotation.AmbientRedirection.Name] == constants.AmbientRedirectionPending {
-			return
-		}
-		time.Sleep(1 * time.Second)
-	}
-	t.Fatal("Pod not annotated with pending status")
+		return p.Annotations[annotation.AmbientRedirection.Name] == constants.AmbientRedirectionPending
+	}, retry.Timeout(5*time.Second), retry.Delay(50*time.Millisecond), retry.Message("Pod not annotated with pending status"))
 }
 
 func assertPodNotAnnotated(t *testing.T, client kube.Client, pod *corev1.Pod) {
-	for i := 0; i < 5; i++ {
+	retry.UntilOrFail(t, func() bool {
 		p, err := client.Kube().CoreV1().Pods(pod.Namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
 		if err != nil {
 			t.Fatal(err)
 		}
-		if p.Annotations[annotation.AmbientRedirection.Name] != constants.AmbientRedirectionEnabled {
-			return
-		}
-		time.Sleep(1 * time.Second)
-	}
-	t.Fatal("Pod annotated")
+		return p.Annotations[annotation.AmbientRedirection.Name] != constants.AmbientRedirectionEnabled
+	}, retry.Timeout(5*time.Second), retry.Delay(50*time.Millisecond), retry.Message("Pod annotated"))
 }
 
 // nolint: lll
