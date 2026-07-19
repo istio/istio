@@ -353,6 +353,7 @@
       }
       
       
+      
     ],
     "listeners":[
       {
@@ -566,10 +567,10 @@
   
   ,
   "cluster_manager": {
-    "enable_deferred_cluster_creation": true,
     "outlier_detection": {
       "event_log_path": "/dev/stdout"
-    }
+    },
+    "enable_deferred_cluster_creation": true
   }
   ,
   "deferred_stat_options": {

@@ -2,3 +2,6 @@ pilot:
   env:
     # 1.30 behavioral changes
     PILOT_SIDECAR_PICK_BEST_SERVICE_NAMESPACE: "false"
+    # 1.31 behavioral changes
+    PILOT_ENABLE_STRICT_GATEWAY_MERGING: "false"
+    PILOT_AUTO_SEND_UNHEALTHY_ENDPOINTS: "false"

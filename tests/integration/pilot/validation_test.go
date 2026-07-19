@@ -175,8 +175,8 @@ func TestEnsureNoMissingCRDs(t *testing.T) {
 				"gateway.networking.k8s.io/v1beta1/GatewayClass",
 				"gateway.networking.k8s.io/v1/HTTPRoute",
 				"gateway.networking.k8s.io/v1beta1/HTTPRoute",
-				"gateway.networking.k8s.io/v1alpha2/TCPRoute",
-				"gateway.networking.k8s.io/v1alpha2/TLSRoute",
+				"gateway.networking.k8s.io/v1/TCPRoute",
+				"gateway.networking.k8s.io/v1/TLSRoute",
 				"gateway.networking.k8s.io/v1beta1/ReferenceGrant",
 				"gateway.networking.k8s.io/v1alpha2/ReferenceGrant",
 			} {

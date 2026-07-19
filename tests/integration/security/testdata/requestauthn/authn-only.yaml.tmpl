@@ -8,7 +8,7 @@ spec:
       app: {{ .To.ServiceName }}
   jwtRules:
   - issuer: "test-issuer-1@istio.io"
-    jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
+    jwksUri: "{{ .JWTServer.JwksURI }}"
     outputPayloadToHeader: "x-test-payload"
     outputClaimToHeaders:
     - header: "x-jwt-iss"
@@ -18,5 +18,5 @@ spec:
     - header: "x-jwt-nested-claim"
       claim: "nested.nested-2.key2"
   - issuer: "test-issuer-2@istio.io"
-    jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
+    jwksUri: "{{ .JWTServer.JwksURI }}"
     outputPayloadToHeader: "x-test-payload"

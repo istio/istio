@@ -28,6 +28,7 @@ import (
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	overridehost "github.com/envoyproxy/go-control-plane/envoy/extensions/load_balancing_policies/override_host/v3"
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
+	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/google/go-cmp/cmp"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -52,6 +53,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -298,6 +300,80 @@ func TestConnectionPoolSettings(t *testing.T) {
 					g.Expect(thresholds.MaxRetries.Value).To(Equal(uint32(expected.Http.MaxRetries)))
 				}
 			}
+		})
+	}
+}
+
+func TestDefaultTrafficPolicy(t *testing.T) {
+	meshConnPool := &networking.ConnectionPoolSettings{
+		Tcp: &networking.ConnectionPoolSettings_TCPSettings{MaxConnections: 33},
+	}
+	meshOutlier := &networking.OutlierDetection{
+		Consecutive_5XxErrors: &wrappers.UInt32Value{Value: 7},
+	}
+	drConnPool := &networking.ConnectionPoolSettings{
+		Tcp: &networking.ConnectionPoolSettings_TCPSettings{MaxConnections: 99},
+	}
+
+	cases := map[string]struct {
+		defaultTrafficPolicy *meshconfig.MeshConfig_DefaultTrafficPolicy
+		destRule             *networking.DestinationRule
+		wantMaxConnections   uint32
+		wantOutlier          bool
+		// passthrough cluster connection pool is seeded from the baseline connectionPool only
+		wantPassthroughMaxConnections uint32
+	}{
+		"baseline applied with no destination rule": {
+			defaultTrafficPolicy: &meshconfig.MeshConfig_DefaultTrafficPolicy{
+				ConnectionPool:   meshConnPool,
+				OutlierDetection: meshOutlier,
+			},
+			destRule:                      &networking.DestinationRule{Host: "*.example.org"},
+			wantMaxConnections:            33,
+			wantOutlier:                   true,
+			wantPassthroughMaxConnections: 33,
+		},
+		"destination rule overrides connectionPool, inherits outlier": {
+			defaultTrafficPolicy: &meshconfig.MeshConfig_DefaultTrafficPolicy{
+				ConnectionPool:   meshConnPool,
+				OutlierDetection: meshOutlier,
+			},
+			destRule: &networking.DestinationRule{
+				Host:          "*.example.org",
+				TrafficPolicy: &networking.TrafficPolicy{ConnectionPool: drConnPool},
+			},
+			wantMaxConnections:            99,
+			wantOutlier:                   true,
+			wantPassthroughMaxConnections: 33,
+		},
+	}
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
+			g := NewWithT(t)
+			mesh := testMesh()
+			mesh.DefaultTrafficPolicy = tt.defaultTrafficPolicy
+			clusters := xdstest.ExtractClusters(buildTestClusters(clusterTest{
+				t:               t,
+				serviceHostname: "*.example.org",
+				nodeType:        model.SidecarProxy,
+				mesh:            mesh,
+				destRule:        tt.destRule,
+			}))
+
+			outbound, ok := clusters["outbound|8080||*.example.org"]
+			g.Expect(ok).To(BeTrue())
+			g.Expect(outbound.CircuitBreakers.Thresholds[0].MaxConnections.GetValue()).To(Equal(tt.wantMaxConnections))
+			if tt.wantOutlier {
+				g.Expect(outbound.OutlierDetection).NotTo(BeNil())
+				g.Expect(outbound.OutlierDetection.Consecutive_5Xx.GetValue()).To(Equal(uint32(7)))
+			} else {
+				g.Expect(outbound.OutlierDetection).To(BeNil())
+			}
+
+			passthrough, ok := clusters[util.PassthroughCluster]
+			g.Expect(ok).To(BeTrue())
+			g.Expect(passthrough.CircuitBreakers.Thresholds[0].MaxConnections.GetValue()).
+				To(Equal(tt.wantPassthroughMaxConnections))
 		})
 	}
 }
@@ -2487,6 +2563,9 @@ func TestApplyLoadBalancer(t *testing.T) {
 		discoveryType                      cluster.Cluster_DiscoveryType
 		port                               *model.Port
 		sendUnhealthyEndpoints             bool
+		defaultSendUnhealthyEndpoints      bool
+		presetPanicThreshold               *float64
+		expectedPanicThreshold             *float64
 		proxyLabels                        map[string]string
 		outlierDetection                   bool
 		expectedLbPolicy                   cluster.Cluster_LbPolicy
@@ -2566,6 +2645,21 @@ func TestApplyLoadBalancer(t *testing.T) {
 			expectedLbPolicy:               defaultLBAlgorithm(),
 			expectedLocalityWeightedConfig: true,
 		},
+		{
+			name:                          "DefaultSendUnhealthyEndpoints disables panic threshold when no outlier detection",
+			discoveryType:                 cluster.Cluster_EDS,
+			defaultSendUnhealthyEndpoints: true,
+			expectedLbPolicy:              defaultLBAlgorithm(),
+			expectedPanicThreshold:        ptr.Of(float64(0)),
+		},
+		{
+			name:                          "DefaultSendUnhealthyEndpoints does not override panic threshold set by outlier detection",
+			discoveryType:                 cluster.Cluster_EDS,
+			defaultSendUnhealthyEndpoints: true,
+			presetPanicThreshold:          ptr.Of(float64(70)),
+			expectedLbPolicy:              defaultLBAlgorithm(),
+			expectedPanicThreshold:        ptr.Of(float64(70)),
+		},
 		// TODO: add more to cover all cases
 	}
 
@@ -2578,10 +2672,14 @@ func TestApplyLoadBalancer(t *testing.T) {
 	for _, tt := range testcases {
 		t.Run(tt.name, func(t *testing.T) {
 			test.SetAtomicBoolForTest(t, features.GlobalSendUnhealthyEndpoints, tt.sendUnhealthyEndpoints)
+			test.SetAtomicBoolForTest(t, features.DefaultSendUnhealthyEndpoints, tt.defaultSendUnhealthyEndpoints)
 			c := &cluster.Cluster{
 				ClusterDiscoveryType: &cluster.Cluster_Type{Type: tt.discoveryType},
 				LoadAssignment:       &endpoint.ClusterLoadAssignment{},
 				CommonLbConfig:       &cluster.Cluster_CommonLbConfig{},
+			}
+			if tt.presetPanicThreshold != nil {
+				c.CommonLbConfig.HealthyPanicThreshold = &xdstype.Percent{Value: *tt.presetPanicThreshold}
 			}
 
 			if tt.outlierDetection {
@@ -2596,7 +2694,7 @@ func TestApplyLoadBalancer(t *testing.T) {
 				test.SetForTest(t, &features.EnableRedisFilter, true)
 			}
 
-			applyLoadBalancer(nil, c, tt.lbSettings, tt.port, proxy.Locality, tt.proxyLabels, &meshconfig.MeshConfig{}, nil)
+			applyLoadBalancer(nil, c, tt.lbSettings, tt.port, proxy.Locality, tt.proxyLabels, &meshconfig.MeshConfig{}, nil, proxy.Type, "", false)
 
 			if c.LbPolicy != tt.expectedLbPolicy {
 				t.Errorf("cluster LbPolicy %s != expected %s", c.LbPolicy, tt.expectedLbPolicy)
@@ -2604,6 +2702,13 @@ func TestApplyLoadBalancer(t *testing.T) {
 
 			if tt.sendUnhealthyEndpoints && c.CommonLbConfig.HealthyPanicThreshold.GetValue() != 0 {
 				t.Errorf("panic threshold should be disabled when sendHealthyEndpoints is enabled")
+			}
+			if tt.expectedPanicThreshold != nil {
+				if c.CommonLbConfig.HealthyPanicThreshold == nil {
+					t.Errorf("expected HealthyPanicThreshold=%v, got nil", *tt.expectedPanicThreshold)
+				} else if c.CommonLbConfig.HealthyPanicThreshold.Value != *tt.expectedPanicThreshold {
+					t.Errorf("expected HealthyPanicThreshold=%v, got %v", *tt.expectedPanicThreshold, c.CommonLbConfig.HealthyPanicThreshold.Value)
+				}
 			}
 
 			if tt.expectedLocalityWeightedConfig && c.CommonLbConfig.GetLocalityWeightedLbConfig() == nil {
@@ -3263,7 +3368,7 @@ func applyConfigDiff(t *testing.T, cg *ConfigGenTest, prevConfigs, configs []con
 			assert.EventuallyEqual(t, func() config.Spec {
 				c := cg.env.VirtualServiceController.Collection().GetKey(cfg.NamespacedName().String())
 				if c == nil {
-					return config.Config{}
+					return nil
 				}
 				return c.Spec
 			}, cfg.Spec)

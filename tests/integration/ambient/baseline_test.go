@@ -1094,9 +1094,17 @@ func TestAuthorizationServiceAttached(t *testing.T) {
 		// make another target use our waypoint, but don't expect authz there
 		ambient.SetWaypointForService(t, apps.Namespace, otherDst.ServiceName(), authzDst.Config().ServiceWaypointProxy)
 
-		t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
-			"Destination": authzDst.Config().Service,
-		}, `
+		// Mark the service as global so cross-network endpoints are populated
+		// in multi-network deployments. No-op for single-cluster.
+		labelServiceGlobal(t, authzDst.Config().Service, t.AllClusters()...)
+		t.Cleanup(func() {
+			unlabelServiceGlobal(t, authzDst.Config().Service, t.AllClusters()...)
+		})
+
+		t.NewSubTest("principal").Run(func(t framework.TestContext) {
+			t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
+				"Destination": authzDst.Config().Service,
+			}, `
 apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
@@ -1112,30 +1120,84 @@ spec:
         principals: ["cluster.local/ns/something/sa/else"]
   `).ApplyOrFail(t)
 
-		for _, src := range src.Instances() {
-			t.NewSubTest(src.Config().Cluster.StableName()).Run(func(t framework.TestContext) {
-				t.NewSubTest("authz target deny").RunParallel(func(t framework.TestContext) {
-					opts := echo.CallOptions{
-						To:     authzDst,
-						Check:  CheckDeny,
-						Port:   echo.Port{Name: "http"},
-						Scheme: scheme.HTTP,
-						Count:  10,
-					}
-					src.CallOrFail(t, opts)
+			for _, src := range src.Instances() {
+				t.NewSubTest(src.Config().Cluster.StableName()).Run(func(t framework.TestContext) {
+					t.NewSubTest("authz target deny").RunParallel(func(t framework.TestContext) {
+						opts := echo.CallOptions{
+							To:     authzDst,
+							Check:  CheckDeny,
+							Port:   echo.Port{Name: "http"},
+							Scheme: scheme.HTTP,
+							Count:  10,
+						}
+						src.CallOrFail(t, opts)
+					})
+					t.NewSubTest("non-authz target allow").RunParallel(func(t framework.TestContext) {
+						opts := echo.CallOptions{
+							To:     otherDst,
+							Check:  check.OK(),
+							Port:   echo.Port{Name: "http"},
+							Scheme: scheme.HTTP,
+							Count:  10,
+						}
+						src.CallOrFail(t, opts)
+					})
 				})
-				t.NewSubTest("non-authz target allow").RunParallel(func(t framework.TestContext) {
-					opts := echo.CallOptions{
-						To:     otherDst,
-						Check:  check.OK(),
-						Port:   echo.Port{Name: "http"},
-						Scheme: scheme.HTTP,
-						Count:  10,
-					}
-					src.CallOrFail(t, opts)
+			}
+		})
+
+		t.NewSubTest("header").Run(func(t framework.TestContext) {
+			t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
+				"Destination": authzDst.Config().Service,
+			}, `
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: policy-header-match
+spec:
+  targetRefs:
+  - kind: Service
+    group: ""
+    name: "{{ .Destination }}"
+  action: ALLOW
+  rules:
+  - when:
+    - key: request.headers[x-foo]
+      values: ["x-bar"]
+  `).ApplyOrFail(t)
+
+			for _, src := range src.Instances() {
+				t.NewSubTest(src.Config().Cluster.StableName()).Run(func(t framework.TestContext) {
+					t.NewSubTest("allow with matching header").RunParallel(func(t framework.TestContext) {
+						opts := echo.CallOptions{
+							To:                      authzDst,
+							Check:                   check.And(check.OK(), check.ReachedTargetClusters(t)),
+							Port:                    echo.Port{Name: "http"},
+							Scheme:                  scheme.HTTP,
+							Count:                   10,
+							NewConnectionPerRequest: true,
+							HTTP: echo.HTTP{
+								Headers: headers.New().With("x-foo", "x-bar").Build(),
+							},
+						}
+						src.CallOrFail(t, opts)
+					})
+					t.NewSubTest("deny without matching header").RunParallel(func(t framework.TestContext) {
+						opts := echo.CallOptions{
+							To:     authzDst,
+							Check:  CheckDeny,
+							Port:   echo.Port{Name: "http"},
+							Scheme: scheme.HTTP,
+							Count:  10,
+							HTTP: echo.HTTP{
+								Headers: headers.New().With("x-foo", "wrong-value").Build(),
+							},
+						}
+						src.CallOrFail(t, opts)
+					})
 				})
-			})
-		}
+			}
+		})
 	})
 }
 
@@ -1612,6 +1674,7 @@ func TestL7JWT(t *testing.T) {
 					param.Namespace.String(): apps.Namespace.Name(),
 					"Services":               apps.ServiceAddressedWaypoint,
 					"To":                     dst,
+					"Jwks":                   jwt.JwksJSON,
 				}, "testdata/requestauthn/waypoint-jwt.yaml.tmpl").ApplyOrFail(t)
 
 				t.NewSubTest("deny without token").Run(func(t framework.TestContext) {

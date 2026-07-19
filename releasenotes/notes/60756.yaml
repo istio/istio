@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+- |
+  **Fixed** an issue where service.istio.io/canonical-name label can end up
+  ending in an invalid "." or "_" when truncated to 63 chars in the injection
+  template.

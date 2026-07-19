@@ -303,6 +303,14 @@ type XdsDeltaResourceGenerator interface {
 	GenerateDeltas(proxy *Proxy, req *PushRequest, w *WatchedResource) (Resources, DeletedResources, XdsLogDetails, bool, error)
 }
 
+// LocalServiceInfo identifies the local service associated with a proxy: the service's
+// hostname, namespace, and the port used to model the proxy's self-discovery local_cluster.
+type LocalServiceInfo struct {
+	Name      string
+	Namespace string
+	Port      int
+}
+
 // Proxy contains information about an specific instance of a proxy (envoy sidecar, gateway,
 // etc). The Proxy is initialized when a sidecar connects to Pilot, and populated from
 // 'node' info in the protocol as well as data extracted from registries.
@@ -364,6 +372,16 @@ type Proxy struct {
 	// ServiceTargets will maintain a list entry for each Service-port, so if we have 2 services each with 3 ports, we
 	// would have 6 entries.
 	ServiceTargets []ServiceTarget
+
+	// LocalService identifies the local service associated with the proxy. It is populated in
+	// SetServiceTargets from the first entry in ServiceTargets, or the zero value if there is none.
+	// Carrying the port here avoids re-deriving it from ServiceTargets when building the
+	// self-discovery local_cluster, and lets incremental pushes detect port changes.
+	LocalService LocalServiceInfo
+
+	// PrevLocalService is the value of LocalService prior to the most recent SetServiceTargets call,
+	// used to detect local-service transitions during incremental pushes.
+	PrevLocalService LocalServiceInfo
 
 	// Istio version associated with the Proxy
 	IstioVersion *IstioVersion
@@ -608,6 +626,15 @@ func (node *Proxy) SetServiceTargets(serviceDiscovery ServiceDiscovery) {
 		return -1
 	})
 
+	node.PrevLocalService = node.LocalService
+	node.LocalService = LocalServiceInfo{}
+	if len(instances) > 0 {
+		node.LocalService = LocalServiceInfo{
+			Name:      string(instances[0].Service.Hostname),
+			Namespace: instances[0].Service.Attributes.Namespace,
+			Port:      instances[0].Port.Port,
+		}
+	}
 	node.ServiceTargets = instances
 }
 

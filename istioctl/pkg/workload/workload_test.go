@@ -459,28 +459,3 @@ func TestConvertToMap(t *testing.T) {
 		})
 	}
 }
-
-func TestSplitEqual(t *testing.T) {
-	tests := []struct {
-		arg       string
-		wantKey   string
-		wantValue string
-	}{
-		{arg: "key=value", wantKey: "key", wantValue: "value"},
-		{arg: "key==value", wantKey: "key", wantValue: "=value"},
-		{arg: "key=", wantKey: "key", wantValue: ""},
-		{arg: "key", wantKey: "key", wantValue: ""},
-		{arg: "", wantKey: "", wantValue: ""},
-	}
-	for _, tt := range tests {
-		t.Run(tt.arg, func(t *testing.T) {
-			gotKey, gotValue := splitEqual(tt.arg)
-			if gotKey != tt.wantKey {
-				t.Errorf("splitEqual(%v) got = %v, want %v", tt.arg, gotKey, tt.wantKey)
-			}
-			if gotValue != tt.wantValue {
-				t.Errorf("splitEqual(%v) got1 = %v, want %v", tt.arg, gotValue, tt.wantValue)
-			}
-		})
-	}
-}

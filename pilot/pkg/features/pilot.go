@@ -333,6 +333,11 @@ var (
 			"and will not distribute CRL data to namespaces for proxies to consume.",
 	).Get()
 
+	EnableStrictGatewayMerging = env.Register(
+		"PILOT_ENABLE_STRICT_GATEWAY_MERGING",
+		true,
+		"If enabled, managed GatewayAPI Gateways will not be merged with Istio Gateways from different namespaces.").Get()
+
 	EnableNativeSidecars = func() NativeSidecarMode {
 		v := env.Register("ENABLE_NATIVE_SIDECARS", "auto",
 			"If set to true, use Kubernetes native sidecar container support. Requires SidecarContainer feature flag. "+

@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
+	"istio.io/api/annotation"
 	"istio.io/api/label"
 	meshConfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -979,6 +980,32 @@ func TestServiceServices(t *testing.T) {
 		// TODO: look up the HBONE port instead of hardcoding it
 		HboneMtlsPort: 15008,
 	}
+	// Canary waypoint fixtures (both in namespace "ns", attachable from "ns").
+	canaryAddr := &workloadapi.GatewayAddress{
+		Destination: &workloadapi.GatewayAddress_Hostname{
+			Hostname: &workloadapi.NamespacedHostname{Namespace: "ns", Hostname: "canary.example"},
+		},
+		HboneMtlsPort: 15008,
+	}
+	allowNS := WaypointSelector{
+		FromNamespaces: gatewayv1.NamespacesFromSelector,
+		Selector:       labels.ValidatedSetSelector(map[string]string{v1.LabelMetadataName: "ns"}),
+	}
+	primaryWaypoint := Waypoint{
+		Named:         krt.Named{Name: "waypoint", Namespace: "ns"},
+		TrafficType:   constants.AllTraffic,
+		Address:       waypointAddr,
+		AllowedRoutes: allowNS,
+	}
+	canaryWaypoint := Waypoint{
+		Named:         krt.Named{Name: "canary", Namespace: "ns"},
+		TrafficType:   constants.AllTraffic,
+		Address:       canaryAddr,
+		AllowedRoutes: allowNS,
+	}
+	nsNS := &v1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{Name: "ns", Labels: map[string]string{v1.LabelMetadataName: "ns"}},
+	}
 	cases := []struct {
 		name   string
 		inputs []any
@@ -1592,6 +1619,118 @@ func TestServiceServices(t *testing.T) {
 					},
 					Mode: workloadapi.LoadBalancing_FAILOVER,
 				},
+				Ports: []*workloadapi.Port{{
+					ServicePort: 80,
+					AppProtocol: workloadapi.AppProtocol_HTTP11,
+				}},
+				Canonical: true,
+			},
+		},
+		{
+			name:   "weighted canary",
+			inputs: []any{primaryWaypoint, canaryWaypoint, nsNS},
+			svc: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "name",
+					Namespace: "ns",
+					Labels: map[string]string{
+						label.IoIstioUseWaypoint.Name:       "waypoint",
+						label.IoIstioUseWaypointCanary.Name: "canary",
+					},
+					Annotations: map[string]string{
+						annotation.IoIstioUseWaypointCanaryWeight.Name: "5",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					ClusterIP: "1.2.3.4",
+					Ports:     []v1.ServicePort{{Port: 80, Name: "http"}},
+				},
+			},
+			result: &workloadapi.Service{
+				Name:      "name",
+				Namespace: "ns",
+				Hostname:  "name.ns.svc.domain.suffix",
+				Addresses: []*workloadapi.NetworkAddress{{
+					Network: testNW,
+					Address: netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice(),
+				}},
+				Waypoint: waypointAddr,
+				WeightedWaypoints: []*workloadapi.WeightedWaypoint{
+					{Destination: waypointAddr, Weight: 95},
+					{Destination: canaryAddr, Weight: 5},
+				},
+				Ports: []*workloadapi.Port{{
+					ServicePort: 80,
+					AppProtocol: workloadapi.AppProtocol_HTTP11,
+				}},
+				Canonical: true,
+			},
+		},
+		{
+			name:   "canary invalid weight falls back to primary only",
+			inputs: []any{primaryWaypoint, canaryWaypoint, nsNS},
+			svc: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "name",
+					Namespace: "ns",
+					Labels: map[string]string{
+						label.IoIstioUseWaypoint.Name:       "waypoint",
+						label.IoIstioUseWaypointCanary.Name: "canary",
+					},
+					Annotations: map[string]string{
+						annotation.IoIstioUseWaypointCanaryWeight.Name: "not-a-number",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					ClusterIP: "1.2.3.4",
+					Ports:     []v1.ServicePort{{Port: 80, Name: "http"}},
+				},
+			},
+			result: &workloadapi.Service{
+				Name:      "name",
+				Namespace: "ns",
+				Hostname:  "name.ns.svc.domain.suffix",
+				Addresses: []*workloadapi.NetworkAddress{{
+					Network: testNW,
+					Address: netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice(),
+				}},
+				Waypoint: waypointAddr,
+				Ports: []*workloadapi.Port{{
+					ServicePort: 80,
+					AppProtocol: workloadapi.AppProtocol_HTTP11,
+				}},
+				Canonical: true,
+			},
+		},
+		{
+			name:   "canary not ready falls back to primary only",
+			inputs: []any{primaryWaypoint, nsNS}, // canary waypoint not provided/ready
+			svc: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "name",
+					Namespace: "ns",
+					Labels: map[string]string{
+						label.IoIstioUseWaypoint.Name:       "waypoint",
+						label.IoIstioUseWaypointCanary.Name: "canary",
+					},
+					Annotations: map[string]string{
+						annotation.IoIstioUseWaypointCanaryWeight.Name: "5",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					ClusterIP: "1.2.3.4",
+					Ports:     []v1.ServicePort{{Port: 80, Name: "http"}},
+				},
+			},
+			result: &workloadapi.Service{
+				Name:      "name",
+				Namespace: "ns",
+				Hostname:  "name.ns.svc.domain.suffix",
+				Addresses: []*workloadapi.NetworkAddress{{
+					Network: testNW,
+					Address: netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice(),
+				}},
+				Waypoint: waypointAddr,
 				Ports: []*workloadapi.Port{{
 					ServicePort: 80,
 					AppProtocol: workloadapi.AppProtocol_HTTP11,

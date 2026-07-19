@@ -287,6 +287,7 @@ func serviceServiceBuilder(
 
 		svc := constructService(ctx, s, waypoint, domainSuffix, nsAnnotations, networkGetter)
 		svc.IngressUseWaypoint = waypointStatus.IngressUseWaypoint
+		svc.WeightedWaypoints = buildWeightedWaypoints(ctx, waypoints, namespaces, s.ObjectMeta, waypoint, &waypointStatus)
 
 		svcInfo := &model.ServiceInfo{
 			Service:       svc,
@@ -473,7 +474,7 @@ func (a Builder) serviceEntryServiceBuilder(
 			nsLabels = (*ns).Labels
 		}
 
-		serviceInfos := serviceEntriesInfo(ctx, s, waypoint, waypointError, nsAnnotations, nsLabels, a.Networks.FetchLocalNetworkID)
+		serviceInfos := serviceEntriesInfo(ctx, s, waypoints, namespaces, waypoint, waypointError, nsAnnotations, nsLabels, a.Networks.FetchLocalNetworkID)
 		return slices.Map(serviceInfos, func(si model.ServiceInfo) TypedServiceInfo {
 			return TypedServiceInfo{ServiceInfo: si}
 		})
@@ -483,6 +484,8 @@ func (a Builder) serviceEntryServiceBuilder(
 func serviceEntriesInfo(
 	ctx krt.HandlerContext,
 	s *networkingclient.ServiceEntry,
+	waypoints krt.Collection[Waypoint],
+	namespaces krt.Collection[*v1.Namespace],
 	w *Waypoint,
 	wperr *model.StatusMessage,
 	nsAnnotations map[string]string,
@@ -511,8 +514,11 @@ func serviceEntriesInfo(
 		log.Warnf("ServiceEntry %s/%s has dynamic DNS resolution but no valid waypoint", s.Namespace, s.Name)
 	}
 
+	weighted := buildWeightedWaypoints(ctx, waypoints, namespaces, s.ObjectMeta, w, &waypoint)
+
 	return slices.Map(constructServiceEntries(ctx, s, w, nsAnnotations, networkGetter), func(e *workloadapi.Service) model.ServiceInfo {
 		e.IngressUseWaypoint = waypoint.IngressUseWaypoint
+		e.WeightedWaypoints = weighted
 		return precomputeService(model.ServiceInfo{
 			Service:            e,
 			PortNames:          portNames,

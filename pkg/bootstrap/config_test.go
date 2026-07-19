@@ -362,3 +362,38 @@ func TestServiceClusterOrDefault(t *testing.T) {
 		})
 	}
 }
+
+func TestZoneAwareRoutingTemplateParam(t *testing.T) {
+	cases := []struct {
+		name   string
+		envVal string
+		want   bool
+	}{
+		{"disabled", "", false},
+		{"enabled", "true", true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			envs := os.Environ()
+			if tc.envVal != "" {
+				envs = append(envs, "ISTIO_META_ENABLE_SELF_DISCOVERY="+tc.envVal)
+			}
+			node, err := GetNodeMetaData(MetadataOptions{
+				ID:          "sidecar~1.2.3.4~foo~bar",
+				Envs:        envs,
+				ProxyConfig: &v1alpha1.ProxyConfig{},
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			params, err := (Config{Node: node}).toTemplateParams()
+			if err != nil {
+				t.Fatal(err)
+			}
+			got, _ := params["enable_self_discovery"].(bool)
+			if got != tc.want {
+				t.Errorf("enable_self_discovery = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
