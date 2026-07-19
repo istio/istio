@@ -705,6 +705,7 @@ func TestConvertResources(t *testing.T) {
 		// Some configs are intended to be generated with invalid configs, and since they will be validated
 		// by the validator, we need to ignore the validation errors to prevent the test from failing.
 		validationIgnorer *crdvalidation.ValidationIgnorer
+		validate          func(t *testing.T, destinationRules []config.Config)
 	}{
 		{name: "http"},
 		{name: "tcp"},
@@ -762,8 +763,29 @@ func TestConvertResources(t *testing.T) {
 			validationIgnorer: crdvalidation.NewValidationIgnorer(
 				"default/echo-https",
 				"default/external-service",
+				"default/grpc-backend-tls",
 				"default/multi-host-service",
 			),
+			validate: func(t *testing.T, destinationRules []config.Config) {
+				var allowed, denied *config.Config
+				for idx := range destinationRules {
+					dr := destinationRules[idx].Spec.(*istio.DestinationRule)
+					switch dr.Host {
+					case "grpc-backend-tls.default.svc.domain.suffix":
+						allowed = &destinationRules[idx]
+					case "echo-https.default.svc.domain.suffix":
+						denied = &destinationRules[idx]
+					}
+				}
+				if allowed == nil || denied == nil {
+					t.Fatalf("expected generated DestinationRules for both gRPC TLS test Services")
+				}
+				grpcPorts, _ := allowed.Extra[constants.ConfigExtraGRPCBackendPorts].([]uint32)
+				assert.Equal(t, grpcPorts, []uint32{443, 9443})
+				if _, found := denied.Extra[constants.ConfigExtraGRPCBackendPorts]; found {
+					t.Fatal("an unauthorized GRPCRoute must not select the backend protocol")
+				}
+			},
 		},
 		{name: "mix-backend-policy"},
 		{name: "backend-tls-policy-ignored"},
@@ -856,6 +878,9 @@ func TestConvertResources(t *testing.T) {
 			vs := ctrl.List(gvk.VirtualService, "")
 			res = append(res, sortedConfigByCreationTime(vs)...)
 			dr := ctrl.List(gvk.DestinationRule, "")
+			if tt.validate != nil {
+				tt.validate(t, dr)
+			}
 			res = append(res, sortedConfigByCreationTime(dr)...)
 
 			goldenFile := fmt.Sprintf("testdata/%s.yaml.golden", tt.name)

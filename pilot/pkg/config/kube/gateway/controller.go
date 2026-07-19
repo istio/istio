@@ -361,11 +361,15 @@ func NewController(
 	AncestorsIndex := krt.NewIndex(Ancestors, "ancestors", func(o AncestorBackend) []TypedNamespacedName {
 		return []TypedNamespacedName{o.Backend}
 	})
+	GRPCBackendsIndex := krt.NewIndex(grpcRoutes.ResolvedBackends, "grpcBackends", func(o ResolvedBackend) []TypedNamespacedName {
+		return []TypedNamespacedName{o.Backend}
+	})
 
 	DestinationRules := DestinationRuleCollection(
 		inputs.BackendTrafficPolicy,
 		inputs.BackendTLSPolicies,
 		AncestorsIndex,
+		GRPCBackendsIndex,
 		references,
 		c.domainSuffix,
 		c,

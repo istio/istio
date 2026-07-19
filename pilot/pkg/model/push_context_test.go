@@ -2645,6 +2645,7 @@ func TestSetDestinationRuleBackendPolicyMerging(t *testing.T) {
 				OutlierDetection: backendOutlier,
 			},
 		},
+		Extra: map[string]any{constants.ConfigExtraGRPCBackendPorts: []uint32{443}},
 	}
 
 	// The user DestinationRule fields must win over the backend policy regardless of which one
@@ -2676,6 +2677,8 @@ func TestSetDestinationRuleBackendPolicyMerging(t *testing.T) {
 			assert.Equal(t, tp.OutlierDetection, backendOutlier)
 			// user subsets carry through
 			assert.Equal(t, len(merged[0].rule.Spec.(*networking.DestinationRule).Subsets), 1)
+			grpcPorts, _ := merged[0].rule.Extra[constants.ConfigExtraGRPCBackendPorts].([]uint32)
+			assert.Equal(t, grpcPorts, []uint32{443})
 		})
 	}
 }
