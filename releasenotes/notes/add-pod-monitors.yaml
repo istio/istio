@@ -1,6 +1,8 @@
 apiVersion: release-notes/v2
 kind: feature
 area: installation
+issue:
+  - 60926
 releaseNotes:
   - |
     **Added** optional `PodMonitor` resources for the `istio-cni` and `ztunnel` helm charts.
