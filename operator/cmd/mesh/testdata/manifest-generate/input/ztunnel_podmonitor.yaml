@@ -1,0 +1,13 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  name: istio-operator
+spec:
+  profile: ambient
+  values:
+    ztunnel:
+      podMonitor:
+        enabled: true
+  components:
+    ztunnel:
+      enabled: true
