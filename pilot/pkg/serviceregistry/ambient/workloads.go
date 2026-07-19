@@ -315,10 +315,19 @@ func MergedGlobalWorkloadsCollection(
 				krt.WithName(fmt.Sprintf("NodeLocality[%s]", c.ID)),
 			)...)
 
-			globalWorkloadServicesWithCluster := *workloadServicesPtr
-			globalWorkloadServices := krt.MapCollection(
-				globalWorkloadServicesWithCluster,
-				unwrapObjectWithCluster[model.ServiceInfo],
+			globalWorkloadServices := krt.NewCollection(
+				*workloadServicesPtr,
+				func(ctx krt.HandlerContext, obj krt.ObjectWithCluster[model.ServiceInfo]) *model.ServiceInfo {
+					svc := unwrapObjectWithCluster(obj)
+					if svc.Source.Kind == kind.ServiceEntry {
+						return &svc
+					}
+					// Let's filter the list of services to those that are globally scoped in the cluster
+					if svc.Scope != model.Global {
+						return nil
+					}
+					return &svc
+				},
 				append(
 					opts,
 					krt.WithName(fmt.Sprintf("WorkloadServices[%s]", c.ID)),

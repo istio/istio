@@ -121,6 +121,8 @@ type index struct {
 	revision        string
 	Debugger        *krt.DebugHandler
 
+	globalServiceDiscovery *globalServiceDiscovery
+
 	mcController *multicluster.Controller
 	meshConfig   meshwatcher.WatcherCollection
 	stop         chan struct{}
@@ -232,6 +234,10 @@ func New(options Options) Index {
 			opts,
 		)
 
+		localNetworkGetter := func(ctx krt.HandlerContext) network.ID {
+			return a.networks.FetchLocalNetworkID(ctx)
+		}
+		a.globalServiceDiscovery = newGlobalServiceDiscovery(client, options.SystemNamespace, localNetworkGetter, a.services.Collection, opts)
 		return a
 	}
 
@@ -843,6 +849,11 @@ func (a *index) Run(stop <-chan struct{}) {
 		go func() {
 			kubeclient.WaitForCacheSync("ambient-status-queue", stop, a.HasSynced)
 			a.statusQueue.Run(stop)
+		}()
+	}
+	if a.globalServiceDiscovery != nil {
+		go func() {
+			a.globalServiceDiscovery.Run(stop)
 		}()
 	}
 	<-stop
