@@ -1854,6 +1854,10 @@ func reportGatewayStatus(
 			reason:  string(k8s.GatewayReasonResolvedRefs),
 			message: "All references resolved",
 		},
+		string(k8s.GatewayConditionInsecureFrontendValidationMode): {
+			status:  metav1.ConditionFalse,
+			message: "AllowInsecureFallback mode is disabled for frontend validation",
+		},
 	}
 	if gatewayErr != nil {
 		gatewayConditions[string(k8s.GatewayConditionAccepted)].error = gatewayErr
@@ -1883,16 +1887,19 @@ func reportGatewayStatus(
 	if obj.Spec.TLS != nil && obj.Spec.TLS.Frontend != nil {
 		frontend := obj.Spec.TLS.Frontend
 		hasInsecure := frontend.Default.Validation != nil && frontend.Default.Validation.Mode == k8s.AllowInsecureFallback
-		for _, perPort := range frontend.PerPort {
-			if perPort.TLS.Validation != nil && perPort.TLS.Validation.Mode == k8s.AllowInsecureFallback {
-				hasInsecure = true
+		if !hasInsecure {
+			for _, perPort := range frontend.PerPort {
+				if perPort.TLS.Validation != nil && perPort.TLS.Validation.Mode == k8s.AllowInsecureFallback {
+					hasInsecure = true
+					break
+				}
 			}
 		}
 		if hasInsecure {
 			gatewayConditions[string(k8s.GatewayConditionInsecureFrontendValidationMode)] = &condition{
 				status:  metav1.ConditionTrue,
 				reason:  string(k8s.GatewayReasonConfigurationChanged),
-				message: "Gateway is operating in AllowInsecureGallback mode for frontend validation",
+				message: "Gateway is operating in AllowInsecureFallback mode for frontend validation",
 			}
 		}
 	}
@@ -2392,20 +2399,22 @@ func buildTLS(
 					),
 				}
 			}
+
+			out.Mode = istio.ServerTLSSettings_MUTUAL
+			out.InsecureSkipVerify = proto.BoolFalse
 			if gatewayTLS.Validation.Mode == k8s.AllowInsecureFallback {
 				out.Mode = istio.ServerTLSSettings_OPTIONAL_MUTUAL
 				out.InsecureSkipVerify = proto.BoolTrue
-			} else {
-				out.Mode = istio.ServerTLSSettings_MUTUAL
-				out.InsecureSkipVerify = proto.BoolFalse
 			}
 			out.CaCertCredentialName = cred.ResourceName
 			if tls.Options != nil {
 				switch tls.Options[gatewaycommon.GatewayTLSTerminateModeKey] {
 				case "MUTUAL":
 					out.Mode = istio.ServerTLSSettings_MUTUAL
+					out.InsecureSkipVerify = proto.BoolFalse
 				case "OPTIONAL_MUTUAL":
 					out.Mode = istio.ServerTLSSettings_OPTIONAL_MUTUAL
+					out.InsecureSkipVerify = proto.BoolFalse
 				}
 			}
 		}
