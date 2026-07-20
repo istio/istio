@@ -1238,3 +1238,72 @@ func TestServiceInfoWaypointConditions(t *testing.T) {
 		}
 	})
 }
+
+func TestServiceInfoVisibilityCondition(t *testing.T) {
+	cases := []struct {
+		name       string
+		sourceKind kind.Kind
+		configured bool
+		visibility workloadapi.Service_Visibility
+		// wantReason is the expected VisibilityApplied condition Reason; "" means the condition
+		// must not be set (pruned): non-ServiceEntry sources, or the feature unconfigured.
+		wantReason string
+	}{
+		{
+			name:       "ServiceEntry PUBLIC",
+			sourceKind: kind.ServiceEntry,
+			configured: true,
+			visibility: workloadapi.Service_PUBLIC,
+			wantReason: VisibilityPublic,
+		},
+		{
+			name:       "ServiceEntry NAMESPACE",
+			sourceKind: kind.ServiceEntry,
+			configured: true,
+			visibility: workloadapi.Service_NAMESPACE,
+			wantReason: VisibilityNamespace,
+		},
+		{
+			// Feature unconfigured: the dataplane stays PUBLIC (legacy) and we write no condition.
+			name:       "ServiceEntry unconfigured",
+			sourceKind: kind.ServiceEntry,
+			configured: false,
+			visibility: workloadapi.Service_PUBLIC,
+			wantReason: "",
+		},
+		{
+			// The Source.Kind gate wins for a Kubernetes Service even if the flag were somehow set.
+			name:       "kube Service",
+			sourceKind: kind.Service,
+			configured: true,
+			visibility: workloadapi.Service_PUBLIC,
+			wantReason: "",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			si := ServiceInfo{
+				Service: &workloadapi.Service{
+					Name:       "svc",
+					Namespace:  "ns",
+					Hostname:   "svc.example.com",
+					Visibility: tc.visibility,
+				},
+				Source:               TypedObject{Kind: tc.sourceKind},
+				VisibilityConfigured: tc.configured,
+			}
+			got := si.GetConditions(nil)[VisibilityApplied]
+			if tc.wantReason == "" {
+				if got != nil {
+					t.Fatalf("expected no VisibilityApplied condition, got %+v", got)
+				}
+				return
+			}
+			if got == nil {
+				t.Fatal("expected VisibilityApplied condition, got none")
+			}
+			assert.Equal(t, got.Status, true)
+			assert.Equal(t, got.Reason, tc.wantReason)
+		})
+	}
+}

@@ -517,15 +517,30 @@ func services(
 	canonicalServiceForMeshExternal bool,
 	opts krt.OptionsBuilder,
 ) (krt.Collection[ServiceWithInstances], krt.Index[string, ServiceWithInstances], krt.Index[string, ServiceWithInstances]) {
+	// Precompile the serviceEntryVisibility matcher once (shared with the ambient path) rather than
+	// per ServiceEntry.
+	serviceEntryVisibility := model.ServiceEntryVisibilityCollection(meshConfig, opts)
+
 	collection := krt.NewManyCollection(serviceEntries, func(ctx krt.HandlerContext, cfg config.Config) []ServiceWithInstances {
 		se := cfg.Spec.(*networking.ServiceEntry)
 		namespace := krt.FetchOne(ctx, namespaces, krt.FilterKey(cfg.Namespace))
 		var namespaceAnnotations map[string]string
+		var namespaceLabels map[string]string
 		if namespace != nil {
 			namespaceAnnotations = (*namespace).Annotations
+			namespaceLabels = (*namespace).Labels
 		}
 
 		services := convertServices(cfg, namespaceAnnotations, canonicalServiceForMeshExternal)
+		// Resolve the ServiceEntry's visibility from the precompiled serviceEntryVisibility matcher so
+		// classic (sidecar) exportTo can be capped by it (see PushContext.serviceExportTo). The default
+		// (feature unset) resolves to Public, leaving services at their zero value.
+		if vis := krt.FetchOne(ctx, serviceEntryVisibility.AsCollection()); vis != nil {
+			resolved := vis.VisibilityFor(namespaceLabels)
+			for _, svc := range services {
+				svc.Attributes.Visibility = resolved
+			}
+		}
 		if se.WorkloadSelector == nil {
 			// No selector: endpoints from SE directly
 			return slices.Map(services, func(ss *model.Service) ServiceWithInstances {

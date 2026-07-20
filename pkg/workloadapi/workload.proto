@@ -109,6 +109,19 @@ message Service {
   // set, `waypoint` remains populated with the primary waypoint so that dataplanes which do
   // not understand this field continue to send all traffic to the primary.
   repeated WeightedWaypoint weighted_waypoints = 13;
+  // Visibility controls which clients can resolve and send traffic to a service.
+  enum Visibility {
+    // Visible to every client the control plane serves. This is the default,
+    // and matches the behavior before this field was introduced.
+    PUBLIC = 0;
+    // Visible only to clients in the same namespace as the service.
+    NAMESPACE = 1;
+  }
+
+  // visibility controls which clients this service is resolvable by. When
+  // unset it defaults to PUBLIC. Services that a mesh administrator has scoped
+  // to no visibility at all are simply not sent, so they do not appear here.
+  Visibility visibility = 14;
 }
 
 enum IPFamilies {
