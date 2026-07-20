@@ -17,6 +17,7 @@ package istioagent
 import (
 	"context"
 	"fmt"
+	"maps"
 	"math"
 	"net"
 	"sync"
@@ -68,6 +69,11 @@ var connectionNumber = atomic.NewUint32(0)
 // resource.
 type ResponseHandler func(resp *anypb.Any) error
 
+// DeltaResponseHandler handles a delta XDS response in the agent. Unlike ResponseHandler it
+// receives all resources and removed names in the response, allowing multi-resource and
+// removal-aware processing.
+type DeltaResponseHandler func(resources []*discovery.Resource, removed []string) error
+
 // XdsProxy proxies all XDS requests from envoy to istiod, in addition to allowing
 // subsystems inside the agent to also communicate with either istiod/envoy (eg dns, sds, etc).
 // The goal here is to consolidate all xds related connections to istiod/envoy into a
@@ -84,11 +90,18 @@ type XdsProxy struct {
 	optsMutex            sync.RWMutex
 	dialOptions          []grpc.DialOption
 	handlers             map[string]ResponseHandler
-	healthChecker        *health.WorkloadHealthChecker
-	xdsHeaders           map[string]string
-	xdsUdsPath           string
-	proxyAddresses       []string
-	ia                   *Agent
+	deltaHandlers        map[string]DeltaResponseHandler
+
+	// ndsAccumulator holds the per-hostname DNS entries accumulated from incremental NDS
+	// updates. It is reset at the start of each new upstream delta stream so reconnects
+	// produce a clean slate. Protected by ndsAccumulatorMu.
+	ndsAccumulator   map[string]*dnsProto.NameTable_NameInfo
+	ndsAccumulatorMu sync.Mutex
+	healthChecker    *health.WorkloadHealthChecker
+	xdsHeaders       map[string]string
+	xdsUdsPath       string
+	proxyAddresses   []string
+	ia               *Agent
 
 	// connected stores the active gRPC stream. The proxy will only have 1 connection at a time
 	connected                 *ProxyConnection
@@ -138,6 +151,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		istiodSAN:             ia.cfg.IstiodSAN,
 		clusterID:             ia.secOpts.ClusterID,
 		handlers:              map[string]ResponseHandler{},
+		deltaHandlers:         map[string]DeltaResponseHandler{},
 		stopChan:              make(chan struct{}),
 		healthChecker:         health.NewWorkloadHealthChecker(ia.proxyConfig.ReadinessProbe, envoyProbe, ia.cfg.ProxyIPAddresses, ia.cfg.IsIPv6),
 		xdsHeaders:            ia.cfg.XDSHeaders,
@@ -149,13 +163,36 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 	}
 
 	if ia.localDNSServer != nil {
-		proxy.handlers[model.NameTableType] = func(resp *anypb.Any) error {
-			var nt dnsProto.NameTable
-			if err := resp.UnmarshalTo(&nt); err != nil {
-				log.Errorf("failed to unmarshal name table: %v", err)
-				return err
+		// Delta path: each resource is a single-entry NameTable keyed by hostname. An empty
+		// Name signals the old full-table format (old istiod or incapable path), which resets
+		// the accumulator. Named resources are merged/removed incrementally.
+		proxy.deltaHandlers[model.NameTableType] = func(resources []*discovery.Resource, removed []string) error {
+			proxy.ndsAccumulatorMu.Lock()
+			defer proxy.ndsAccumulatorMu.Unlock()
+			for _, r := range resources {
+				if r.Name == "" {
+					// Full-table resource from an old or incapable istiod: reset accumulator.
+					var nt dnsProto.NameTable
+					if err := r.Resource.UnmarshalTo(&nt); err != nil {
+						return err
+					}
+					proxy.ndsAccumulator = nt.GetTable()
+				} else {
+					var nt dnsProto.NameTable
+					if err := r.Resource.UnmarshalTo(&nt); err != nil {
+						return err
+					}
+					for name, ni := range nt.GetTable() {
+						proxy.ndsAccumulator[name] = ni
+					}
+				}
 			}
-			ia.localDNSServer.UpdateLookupTable(&nt)
+			for _, name := range removed {
+				delete(proxy.ndsAccumulator, name)
+			}
+			// Pass a snapshot copy so UpdateLookupTable's stored pointer is independent of our
+			// live accumulator map (UpdateLookupTable stores nt via nameTable.Store(nt)).
+			ia.localDNSServer.UpdateLookupTable(&dnsProto.NameTable{Table: maps.Clone(proxy.ndsAccumulator)})
 			return nil
 		}
 	}
@@ -419,7 +456,7 @@ func (p *XdsProxy) handleUpstreamRequest(con *ProxyConnection) {
 			con.sendRequest(req)
 			if !initialRequestsSent.Load() && req.TypeUrl == model.ListenerType {
 				// fire off an initial NDS request
-				if _, f := p.handlers[model.NameTableType]; f {
+				if _, f := p.deltaHandlers[model.NameTableType]; f {
 					con.sendRequest(&discovery.DiscoveryRequest{
 						TypeUrl: model.NameTableType,
 					})
@@ -588,6 +625,14 @@ func (p *XdsProxy) close() {
 	if p.downstreamListener != nil {
 		_ = p.downstreamListener.Close()
 	}
+}
+
+// resetNDSAccumulator clears the NDS hostname accumulator at the start of each new upstream
+// delta stream so that stale entries from a previous connection do not survive reconnects.
+func (p *XdsProxy) resetNDSAccumulator() {
+	p.ndsAccumulatorMu.Lock()
+	p.ndsAccumulator = make(map[string]*dnsProto.NameTable_NameInfo)
+	p.ndsAccumulatorMu.Unlock()
 }
 
 func (p *XdsProxy) initDownstreamServer() error {
