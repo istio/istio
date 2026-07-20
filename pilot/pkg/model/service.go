@@ -31,6 +31,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cespare/xxhash/v2"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/protobuf/proto"
@@ -1164,6 +1165,23 @@ var _ AmbientIndexes = NoopAmbientIndexes{}
 type AddressInfo struct {
 	*workloadapi.Address
 	Marshaled *anypb.Any
+	// Version is a content-based hash of Marshaled, sent as the resource version over WDS.
+	// Clients echo it back in InitialResourceVersions on reconnect, letting the server skip
+	// resources the client already has; hashing the content keeps versions consistent across
+	// istiod replicas. Empty when no pre-marshaled form exists, in which case the resource is
+	// never skipped.
+	Version string
+}
+
+// NewAddressInfo builds an AddressInfo from an Address, pre-marshaling it and computing the
+// content-based Version.
+func NewAddressInfo(addr *workloadapi.Address) AddressInfo {
+	marshaled := protoconv.MessageToAny(addr)
+	return AddressInfo{
+		Address:   addr,
+		Marshaled: marshaled,
+		Version:   strconv.FormatUint(xxhash.Sum64(marshaled.Value), 16),
+	}
 }
 
 func (i AddressInfo) Equals(other AddressInfo) bool {
