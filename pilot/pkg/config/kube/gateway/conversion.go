@@ -1856,6 +1856,7 @@ func reportGatewayStatus(
 		},
 		string(k8s.GatewayConditionInsecureFrontendValidationMode): {
 			status:  metav1.ConditionFalse,
+			reason:  "AllowInsecureFallbackNotConfigured",
 			message: "AllowInsecureFallback mode is disabled for frontend validation",
 		},
 	}

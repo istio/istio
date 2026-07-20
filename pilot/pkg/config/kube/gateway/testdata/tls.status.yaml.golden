@@ -29,7 +29,7 @@ status:
     type: Accepted
   - lastTransitionTime: fake
     message: AllowInsecureFallback mode is disabled for frontend validation
-    reason: ""
+    reason: AllowInsecureFallbackNotConfigured
     status: "False"
     type: InsecureFrontendValidationMode
   - lastTransitionTime: fake
@@ -312,7 +312,7 @@ status:
     type: Accepted
   - lastTransitionTime: fake
     message: AllowInsecureFallback mode is disabled for frontend validation
-    reason: ""
+    reason: AllowInsecureFallbackNotConfigured
     status: "False"
     type: InsecureFrontendValidationMode
   - lastTransitionTime: fake
@@ -371,7 +371,7 @@ status:
     type: Accepted
   - lastTransitionTime: fake
     message: AllowInsecureFallback mode is disabled for frontend validation
-    reason: ""
+    reason: AllowInsecureFallbackNotConfigured
     status: "False"
     type: InsecureFrontendValidationMode
   - lastTransitionTime: fake
@@ -430,7 +430,7 @@ status:
     type: Accepted
   - lastTransitionTime: fake
     message: AllowInsecureFallback mode is disabled for frontend validation
-    reason: ""
+    reason: AllowInsecureFallbackNotConfigured
     status: "False"
     type: InsecureFrontendValidationMode
   - lastTransitionTime: fake
@@ -489,7 +489,7 @@ status:
     type: Accepted
   - lastTransitionTime: fake
     message: AllowInsecureFallback mode is disabled for frontend validation
-    reason: ""
+    reason: AllowInsecureFallbackNotConfigured
     status: "False"
     type: InsecureFrontendValidationMode
   - lastTransitionTime: fake
