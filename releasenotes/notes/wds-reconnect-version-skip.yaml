@@ -1,0 +1,30 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+issue:
+  - https://github.com/istio/ztunnel/issues/1966
+
+releaseNotes:
+  - |
+    **Fixed** a bug where a ztunnel reconnect (such as the periodic connection recycle
+    from `keepaliveMaxServerConnectionAge`) triggered a full workload (WDS) push. Istiod now
+    assigns each WDS resource a content-based version and, when a reconnecting client
+    reports the versions it already holds via `initial_resource_versions`, re-sends only
+    resources that changed while the client was disconnected. Older ztunnel versions that
+    do not report versions continue to receive the full set.
+
+upgradeNotes:
+  - title: WDS reconnect requests are larger in big ambient meshes
+    content: |
+      On reconnect, ztunnel reports the name and version of every workload (WDS) resource it
+      holds. This request can exceed istiod's default 4MiB gRPC receive limit, leaving ztunnel
+      in a reconnect loop with `ResourceExhausted: grpc: received message larger than max`
+      errors. Meshes could already hit the limit at roughly 55,000 workloads, since resource
+      names were reported before this change; the added versions grow the request by about a
+      third, lowering the trigger point to roughly 40,000 workloads (sooner with long resource
+      names or many services). If your mesh is near this scale, raise
+      `ISTIO_GPRC_MAXRECVMSGSIZE` on istiod — budget roughly 1MiB per 10,000 workloads and
+      services; for example, `--set pilot.env.ISTIO_GPRC_MAXRECVMSGSIZE=33554432` (32MiB)
+      covers meshes well past 300,000 resources — and watch istiod logs for the error above
+      after upgrading.
