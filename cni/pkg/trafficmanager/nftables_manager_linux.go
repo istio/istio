@@ -87,6 +87,15 @@ func (m *NftablesTrafficManager) DeleteHostRules() {
 	}
 }
 
+// EnsureHostRules re-asserts the host-level nftables rules (idempotent, meant for the
+// periodic reconcile loop)
+func (m *NftablesTrafficManager) EnsureHostRules() (bool, error) {
+	if m.hostNftables == nil {
+		return false, fmt.Errorf("host nftables configurator not available (this is likely a pod-only traffic manager)")
+	}
+	return m.hostNftables.EnsureHostRules()
+}
+
 // ReconcileModeEnabled returns true if reconciliation mode is enabled
 func (m *NftablesTrafficManager) ReconcileModeEnabled() bool {
 	if m.podNftables == nil {

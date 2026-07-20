@@ -104,6 +104,15 @@ func (m *IptablesTrafficManager) DeleteHostRules() {
 	}
 }
 
+// EnsureHostRules verifies the host-level iptables rules and re-installs them on drift
+// (idempotent, meant for the periodic reconcile loop)
+func (m *IptablesTrafficManager) EnsureHostRules() (bool, error) {
+	if m.hostIptables == nil {
+		return false, fmt.Errorf("host iptables configurator not available (this is likely a pod-only traffic manager)")
+	}
+	return m.hostIptables.EnsureHostRules()
+}
+
 // ReconcileModeEnabled returns true if reconciliation mode is enabled
 func (m *IptablesTrafficManager) ReconcileModeEnabled() bool {
 	if m.podIptables == nil {

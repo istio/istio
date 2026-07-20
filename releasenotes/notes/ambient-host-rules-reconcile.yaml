@@ -1,0 +1,17 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+
+issue:
+  - 60607
+
+releaseNotes:
+  - |
+    **Added** periodic runtime reconciliation of the ambient host-level health check rules
+    (`nat` `POSTROUTING` -> `ISTIO_POSTRT` SNAT). If an external actor (e.g. a `firewalld`
+    reload or an `iptables-restore` from an OS persistence unit) removes these rules while
+    `istio-cni-node` is running, they are now automatically detected and re-installed, instead
+    of causing permanent probe failures under `STRICT` mTLS until the DaemonSet is restarted.
+    The interval can be configured with `cni.ambient.reconcileHostRulesInterval` (default `30s`,
+    set to `"0"` to disable). A new `nodeagent_host_rules_reconciles_total` metric reports
+    detected drift and reconcile failures.
