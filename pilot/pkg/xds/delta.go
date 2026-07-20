@@ -297,6 +297,9 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 			// Record sub/unsub, but drop synthetic wildcard info
 			Subscribed:   subs,
 			Unsubscribed: sets.New(req.ResourceNamesUnsubscribe...).Delete("*"),
+			// On reconnect, the versions of resources the client retained. Generators with
+			// content-based versions use this to skip re-sending unchanged resources.
+			InitialResourceVersions: req.InitialResourceVersions,
 		},
 		Forced: true,
 	}

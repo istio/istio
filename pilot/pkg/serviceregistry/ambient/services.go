@@ -33,7 +33,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/serviceentry"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
@@ -753,12 +752,8 @@ func precomputeServicePtr(w *model.ServiceInfo) *model.ServiceInfo {
 }
 
 func precomputeService(w model.ServiceInfo) model.ServiceInfo {
-	addr := serviceToAddress(w.Service)
-	w.MarshaledAddress = protoconv.MessageToAny(addr)
-	w.AsAddress = model.AddressInfo{
-		Address:   addr,
-		Marshaled: w.MarshaledAddress,
-	}
+	w.AsAddress = model.NewAddressInfo(serviceToAddress(w.Service))
+	w.MarshaledAddress = w.AsAddress.Marshaled
 	return w
 }
 
