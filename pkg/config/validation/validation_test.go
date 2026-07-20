@@ -3688,6 +3688,26 @@ func TestValidateLoadBalancer(t *testing.T) {
 			},
 			valid: false,
 		},
+
+		{
+			name: "invalid: localityLbSetting and zoneAwareLbSetting both set",
+			in: &networking.LoadBalancerSettings{
+				LocalityLbSetting:  &networking.LocalityLoadBalancerSetting{},
+				ZoneAwareLbSetting: &networking.ZoneAwareLoadBalancerSetting{},
+			},
+			valid: false,
+		},
+		{
+			name: "valid: zoneAwareLbSetting only",
+			in: &networking.LoadBalancerSettings{
+				ZoneAwareLbSetting: &networking.ZoneAwareLoadBalancerSetting{
+					Failover: []*networking.ZoneAwareLoadBalancerSetting_Failover{
+						{From: "us-east", To: "eu-west"},
+					},
+				},
+			},
+			valid: true,
+		},
 	}
 
 	for _, c := range cases {

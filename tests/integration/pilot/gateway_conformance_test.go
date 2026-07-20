@@ -69,15 +69,10 @@ var skippedTests = map[string]string{
 
 	"HTTPRouteHTTPSListenerDetectMisdirectedRequests": "TODO",
 
-	"ListenerSetHostnameConflict": "TODO",
-	"ListenerSetProtocolConflict": "TODO",
-
 	// Fixed upstream, waiting for new gateway api release to pick up fix
 	"MeshHTTPRoute307Redirect": "TODO",
 
 	// The following tests were added in v1.6.0
-	"HTTPRouteNoBackendRefs":             "TODO",
-	"GatewayInvalidParametersRef":        "TODO",
 	"GatewayListenerUnsupportedProtocol": "TODO",
 	"TCPRouteWeightedRouting":            "TODO: flaky in dual-stack and multicluster environments",
 }

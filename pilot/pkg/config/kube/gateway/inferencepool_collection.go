@@ -337,10 +337,10 @@ func calculateSingleParentStatus(
 			Namespace: inferencev1.Namespace(gatewayParent.Namespace),
 			Name:      inferencev1.ObjectName(gatewayParent.Name),
 		},
-		Conditions: setConditions(pool.Generation, filteredConditions, map[string]*condition{
+		Conditions: gatewaycommon.SetResourceConditions(pool.Generation, filteredConditions, toSharedConditions(map[string]*condition{
 			string(inferencev1.InferencePoolConditionAccepted):     acceptedStatus,
 			string(inferencev1.InferencePoolConditionResolvedRefs): resolvedRefsStatus,
-		}),
+		})),
 	}
 }
 

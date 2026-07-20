@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/cni/pkg/config"
 	"istio.io/istio/cni/pkg/iptables"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tools/istio-iptables/pkg/dependencies"
 )
 
@@ -607,11 +608,5 @@ func TestGetPodLevelOverrides(t *testing.T) {
 // and it is flake-prone to check for closure after calling it, this retries for a bit to make
 // sure the netns is closed eventually.
 func assertNSClosed(t *testing.T, closed *atomic.Bool) {
-	for i := 0; i < 5; i++ {
-		if closed.Load() {
-			return
-		}
-		time.Sleep(1 * time.Second)
-	}
-	t.Fatal("NS not closed")
+	retry.UntilOrFail(t, closed.Load, retry.Timeout(5*time.Second), retry.Delay(20*time.Millisecond), retry.Message("NS not closed"))
 }

@@ -26,6 +26,7 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
@@ -113,7 +114,15 @@ func (configgen *ConfigGeneratorImpl) BuildHTTPRoutes(
 // TODO: trace decorators, inbound timeouts
 func buildSidecarInboundHTTPRouteConfig(svc *model.Service, lb *ListenerBuilder, cc inboundChainConfig) *route.RouteConfiguration {
 	traceOperation := telemetry.TraceOperation(string(cc.telemetryMetadata.InstanceHostname), cc.port.Port)
-	defaultRoute := istio_route.BuildDefaultHTTPInboundRoute(lb.node, cc.clusterName, traceOperation, cc.port.Protocol)
+	var defaultRoute *route.Route
+	var responseBodySize *wrapperspb.UInt32Value
+	if lb.node.IsWaypointProxy() {
+		// the inbound route of a Waypoint is more like the outbound route
+		defaultRoute = istio_route.BuildDefaultHTTPOutboundRoute(cc.clusterName, traceOperation, lb.push.Mesh)
+		responseBodySize = istio_route.DefaultMaxDirectResponseBodySizeBytes
+	} else {
+		defaultRoute = istio_route.BuildDefaultHTTPInboundRoute(lb.node, cc.clusterName, traceOperation, cc.port.Protocol)
+	}
 
 	inboundVHost := &route.VirtualHost{
 		Name:    inboundVirtualHostPrefix + strconv.Itoa(cc.port.Port), // Format: "inbound|http|%d"
@@ -122,9 +131,10 @@ func buildSidecarInboundHTTPRouteConfig(svc *model.Service, lb *ListenerBuilder,
 	}
 
 	r := &route.RouteConfiguration{
-		Name:             cc.clusterName,
-		VirtualHosts:     []*route.VirtualHost{inboundVHost},
-		ValidateClusters: proto.BoolFalse,
+		Name:                           cc.clusterName,
+		VirtualHosts:                   []*route.VirtualHost{inboundVHost},
+		MaxDirectResponseBodySizeBytes: responseBodySize,
+		ValidateClusters:               proto.BoolFalse,
 	}
 	efw := lb.push.EnvoyFilters(lb.node)
 	r = envoyfilter.ApplyRouteConfigurationPatches(networking.EnvoyFilter_SIDECAR_INBOUND, lb.node, efw, r)

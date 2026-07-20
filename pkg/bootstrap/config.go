@@ -207,6 +207,10 @@ func (cfg Config) toTemplateParams() (map[string]any, error) {
 		opts = append(opts, option.EnvoyStatusPortEnableProxyProtocol(true))
 	}
 
+	if cfg.Metadata.EnableSelfDiscovery {
+		opts = append(opts, option.EnableSelfDiscovery(true))
+	}
+
 	proxyOpts, err := getProxyConfigOptions(cfg.Metadata)
 	if err != nil {
 		return nil, err

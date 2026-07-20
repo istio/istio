@@ -81,7 +81,9 @@ type Telemetries struct {
 type telemetryKey struct {
 	// Root stores the Telemetry in the root namespace, if any
 	Root types.NamespacedName
-	// Namespace stores the Telemetry in the root namespace, if any
+	// Proxy stores the Telemetry in the proxy namespace, if any
+	Proxy types.NamespacedName
+	// Namespace stores the Telemetry in the Telemtry namespace, if any
 	Namespace types.NamespacedName
 	// Workload stores the Telemetry in the root namespace, if any
 	Workload types.NamespacedName
@@ -411,7 +413,6 @@ func (t *Telemetries) applicableTelemetries(proxy *Proxy, svc *Service) computed
 		return computedTelemetries{}
 	}
 
-	namespace := proxy.ConfigNamespace
 	// Order here matters. The latter elements will override the first elements
 	ms := []*tpb.Metrics{}
 	ls := []*computedAccessLogging{}
@@ -434,7 +435,26 @@ func (t *Telemetries) applicableTelemetries(proxy *Proxy, svc *Service) computed
 		}
 	}
 
+	namespace := proxy.ConfigNamespace
 	if namespace != t.RootNamespace {
+		telemetry := t.namespaceWideTelemetryConfig(namespace)
+		if telemetry != (Telemetry{}) {
+			key.Proxy = types.NamespacedName{Name: telemetry.Name, Namespace: telemetry.Namespace}
+			ms = append(ms, telemetry.Spec.GetMetrics()...)
+			if len(telemetry.Spec.GetAccessLogging()) != 0 {
+				ls = append(ls, &computedAccessLogging{
+					telemetryKey: telemetryKey{
+						Namespace: key.Namespace,
+					},
+					Logging: telemetry.Spec.GetAccessLogging(),
+				})
+			}
+			ts = append(ts, telemetry.Spec.GetTracing()...)
+		}
+	}
+
+	if proxy.IsWaypointProxy() && svc != nil && namespace != svc.Attributes.Namespace {
+		namespace = svc.Attributes.Namespace
 		telemetry := t.namespaceWideTelemetryConfig(namespace)
 		if telemetry != (Telemetry{}) {
 			key.Namespace = types.NamespacedName{Name: telemetry.Name, Namespace: telemetry.Namespace}

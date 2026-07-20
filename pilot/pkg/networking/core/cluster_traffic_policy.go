@@ -53,7 +53,12 @@ func (cb *ClusterBuilder) applyTrafficPolicy(service *model.Service, opts buildC
 	cb.applyConnectionPool(opts.mesh, opts.mutable, connectionPool, retryBudget)
 	if opts.direction != model.TrafficDirectionInbound {
 		applyOutlierDetection(service, opts.mutable.cluster, outlierDetection)
-		applyLoadBalancer(service, opts.mutable.cluster, loadBalancer, opts.port, cb.locality, cb.proxyLabels, opts.mesh, opts.mutable.dnsWrappedLocalityLbEndpoints)
+		enableSelfDiscovery := cb.proxyMetadata != nil && bool(cb.proxyMetadata.EnableSelfDiscovery)
+		applyLoadBalancer(
+			service, opts.mutable.cluster, loadBalancer, opts.port, cb.locality,
+			cb.proxyLabels, opts.mesh, opts.mutable.dnsWrappedLocalityLbEndpoints,
+			cb.proxyType, cb.proxyID, enableSelfDiscovery,
+		)
 		if opts.clusterMode != SniDnatClusterMode {
 			autoMTLSEnabled := opts.mesh.GetEnableAutoMtls().Value
 			tls, mtlsCtxType := cb.buildUpstreamTLSSettings(tls, opts.serviceAccounts, opts.istioMtlsSni,
@@ -66,6 +71,39 @@ func (cb *ClusterBuilder) applyTrafficPolicy(service *model.Service, opts buildC
 	if opts.mutable.cluster.GetType() == cluster.Cluster_ORIGINAL_DST {
 		opts.mutable.cluster.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
 	}
+}
+
+// applyDefaultTrafficPolicy overlays the resolved DestinationRule policy on top of the
+// mesh-wide MeshConfig.DefaultTrafficPolicy baseline, per block. A DR that sets a
+// connectionPool / outlierDetection block overrides that whole block; an unset block
+// inherits the mesh baseline. Returns policy unchanged when no mesh baseline is set.
+func applyDefaultTrafficPolicy(meshDefault *meshconfig.MeshConfig_DefaultTrafficPolicy,
+	policy *networking.TrafficPolicy,
+) *networking.TrafficPolicy {
+	defaultConnPool := meshDefault.GetConnectionPool()
+	defaultOutlier := meshDefault.GetOutlierDetection()
+	if defaultConnPool == nil && defaultOutlier == nil {
+		return policy
+	}
+	needConnPool := defaultConnPool != nil && policy.GetConnectionPool() == nil
+	needOutlier := defaultOutlier != nil && policy.GetOutlierDetection() == nil
+	if !needConnPool && !needOutlier {
+		return policy
+	}
+	// Copy so we never mutate the cached DestinationRule policy. portLevelSettings are
+	// already resolved for this port by the caller, so dropping them here is safe.
+	if policy == nil {
+		policy = &networking.TrafficPolicy{}
+	} else {
+		policy = model.ShallowCopyTrafficPolicy(policy)
+	}
+	if needConnPool {
+		policy.ConnectionPool = defaultConnPool
+	}
+	if needOutlier {
+		policy.OutlierDetection = defaultOutlier
+	}
+	return policy
 }
 
 // selectTrafficPolicyComponents returns the components of TrafficPolicy that should be used for given port.
@@ -274,19 +312,33 @@ func applyLoadBalancer(
 	proxyLabels map[string]string,
 	meshConfig *meshconfig.MeshConfig,
 	wrappedLocalityLbEndpoints *loadbalancer.WrappedLocalityLbEndpoints,
+	proxyType model.NodeType,
+	proxyID string,
+	enableSelfDiscovery bool,
 ) {
 	// DFP clusters (DYNAMIC_DNS ServiceEntries) use CLUSTER_PROVIDED LB policy
 	if c.LbPolicy == cluster.Cluster_CLUSTER_PROVIDED {
 		return
 	}
-	// Disable panic threshold when SendUnhealthyEndpoints is enabled as enabling it "may" send traffic to unready
+	// If HealthyPanicThreshold is unset, disable it when service supports unhealthy endpoints as enabling it "may" send traffic to unready
 	// end points when load balancer is in panic mode.
-	if svc.SupportsUnhealthyEndpoints() {
+	if c.CommonLbConfig.HealthyPanicThreshold == nil && svc.SupportsUnhealthyEndpoints() {
 		c.CommonLbConfig.HealthyPanicThreshold = &xdstype.Percent{Value: 0}
 	}
-	// Use locality lb settings from load balancer settings if present, else use mesh wide locality lb settings
-	localityLbSetting, forceFailover := loadbalancer.GetLocalityLbSetting(meshConfig.GetLocalityLbSetting(), lb.GetLocalityLbSetting(), svc)
-	applyLocalityLoadBalancer(locality, proxyLabels, c, wrappedLocalityLbEndpoints, localityLbSetting, forceFailover)
+	lbSettings := loadbalancer.GetEffectiveLbSetting(
+		meshConfig.GetLocalityLbSetting(),
+		meshConfig.GetZoneAwareLbSetting(),
+		lb,
+		svc,
+	)
+	if lbSettings == nil {
+		// No effective locality/zone-aware setting; fall back to the default locality LB cluster config.
+		lbSettings = loadbalancer.LocalityLBSettings{}
+	}
+	lbSettings.ApplyToCluster(
+		c, wrappedLocalityLbEndpoints, locality, proxyLabels,
+		proxyType == model.Waypoint, proxyID, enableSelfDiscovery,
+	)
 
 	if c.GetType() == cluster.Cluster_ORIGINAL_DST {
 		c.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
@@ -318,38 +370,6 @@ func applyLoadBalancer(
 	}
 
 	ApplyRingHashLoadBalancer(c, lb)
-}
-
-func applyLocalityLoadBalancer(
-	locality *core.Locality,
-	proxyLabels map[string]string,
-	c *cluster.Cluster,
-	wrappedLocalityLbEndpoints *loadbalancer.WrappedLocalityLbEndpoints,
-	localityLB *networking.LocalityLoadBalancerSetting,
-	failover bool,
-) {
-	// Failover should only be applied with outlier detection, or traffic will never failover.
-	// Conversely, because the default mesh config enables LocalityLbSetting (Enabled:true),
-	// enabling outlier detection in a DestinationRule will automatically activate locality LB
-	// failover behavior even when no explicit localityLbSetting is configured in the DR.
-	enableFailover := failover || c.OutlierDetection != nil
-	// set locality weighted lb config when locality lb is enabled, otherwise it will influence the result of LBPolicy like `least request`
-	if features.EnableLocalityWeightedLbConfig ||
-		(enableFailover && (localityLB.GetFailover() != nil || localityLB.GetFailoverPriority() != nil)) ||
-		localityLB.GetDistribute() != nil {
-		c.CommonLbConfig.LocalityConfigSpecifier = &cluster.Cluster_CommonLbConfig_LocalityWeightedLbConfig_{
-			LocalityWeightedLbConfig: &cluster.Cluster_CommonLbConfig_LocalityWeightedLbConfig{},
-		}
-	}
-
-	if c.LoadAssignment != nil {
-		var wrapped []*loadbalancer.WrappedLocalityLbEndpoints
-		if wrappedLocalityLbEndpoints != nil {
-			wrapped = []*loadbalancer.WrappedLocalityLbEndpoints{wrappedLocalityLbEndpoints}
-		}
-		loadbalancer.ApplyLocalityLoadBalancer(c.LoadAssignment,
-			wrapped, locality, proxyLabels, localityLB, enableFailover)
-	}
 }
 
 // applySimpleDefaultLoadBalancer will set the DefaultLBPolicy and create an LbConfig if used in LoadBalancerSettings
@@ -522,10 +542,10 @@ func applyOutlierDetection(service *model.Service, c *cluster.Cluster, outlier *
 	// FIXME: we can't distinguish between it being unset or being explicitly set to 0
 	minHealthPercent := outlier.MinHealthPercent
 	if minHealthPercent >= 0 {
-		// When we are sending unhealthy endpoints, we should disable Panic Threshold. Otherwise
+		// This service requires that we send unhealthy endpoints, we should disable Panic Threshold. Otherwise
 		// Envoy will send traffic to "Unready" pods when the percentage of healthy hosts fall
 		// below minimum health percentage.
-		if service.SupportsUnhealthyEndpoints() {
+		if service.ForcesSupportUnhealthyEndpoints() {
 			minHealthPercent = 0
 		}
 		c.CommonLbConfig.HealthyPanicThreshold = &xdstype.Percent{Value: float64(minHealthPercent)}
