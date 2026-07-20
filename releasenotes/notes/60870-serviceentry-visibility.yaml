@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 60870
+releaseNotes:
+- |
+  **Added** `meshConfig.serviceEntryVisibility`, letting a mesh administrator control the visibility of
+  `ServiceEntry` resources. Ambient (ztunnel and waypoints) enforces visibility by default;
+  classic sidecars additionally honor it when `applyToSidecars` is set. The feature is
+  inert unless configured, so existing meshes are unaffected by default.
