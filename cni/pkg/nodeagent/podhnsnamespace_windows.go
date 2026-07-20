@@ -96,6 +96,7 @@ func (p *PodNetNsHNSFinder) FindNetnsForPods(pods map[types.UID]*corev1.Pod) (Po
 		ns, err := hcn.GetNamespaceByID(nsGuid)
 		if err != nil {
 			log.Warnf("error getting namespace for %s: %v", podUID, err)
+			continue
 		}
 		// Open the namespace so we have access to the handle
 		pod := pods[podUID]
