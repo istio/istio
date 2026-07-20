@@ -274,6 +274,7 @@ func TestSleepCheckInstall(t *testing.T) {
 			// indefinitely for a file modification.
 			errChan := make(chan error, 1)
 			runAndWaitForReady := func() {
+				t.Helper()
 				go func() {
 					errChan <- in.sleepWatchInstall(ctx, sets.String{})
 				}()
