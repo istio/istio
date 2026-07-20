@@ -841,7 +841,14 @@ func buildConnectForwarder(push *model.PushContext, proxy *model.Proxy, class is
 				},
 			},
 		}
-		filters = []*listener.Filter{xdsfilters.WaypointListenerBaggagePeerMetadata}
+		if features.EnableAmbientBaggageGenericTranport {
+			// In THREAD_LOCAL_REGISTRY mode the peer_metadata filters exchange metadata
+			// through a per-worker-thread registry keyed by the downstream connection ID,
+			// rather than a data-stream preamble. Stamp that ID into filter state (shared
+			// TRANSITIVE) before the peer_metadata filter runs so both ends agree on the key.
+			filters = append(filters, buildPeerMetadataConnectionIDFilter(proxy))
+		}
+		filters = append(filters, xdsfilters.WaypointListenerBaggagePeerMetadata)
 	}
 
 	tcp := &listener.Filter{
@@ -865,6 +872,54 @@ func buildConnectForwarder(push *model.PushContext, proxy *model.Proxy, class is
 	}
 	accessLogBuilder.setListenerAccessLog(push, proxy, l, class)
 	return l
+}
+
+// buildPeerMetadataConnectionIDFilter returns a set_filter_state network filter that stamps
+// the downstream connection ID into filter state under the key the peer_metadata filter's
+// THREAD_LOCAL_REGISTRY mode uses to exchange metadata between the downstream and upstream
+// filters running on the same worker thread.
+func buildPeerMetadataConnectionIDFilter(proxy *model.Proxy) *listener.Filter {
+	setFilterState := &sfsnetwork.Config{
+		OnNewConnection: []*sfsvalue.FilterStateValue{peerMetadataConnectionIDFilterStateValue(proxy)},
+	}
+	return &listener.Filter{
+		Name: "envoy.filters.network.set_filter_state",
+		ConfigType: &listener.Filter_TypedConfig{
+			TypedConfig: protoconv.MessageToAny(setFilterState),
+		},
+	}
+}
+
+// peerMetadataConnectionIDFilterStateValue describes how the downstream connection ID is
+// stored in filter state. It is shared TRANSITIVE so the paired upstream peer_metadata filter
+// can read the same key on the upstream connection.
+func peerMetadataConnectionIDFilterStateValue(proxy *model.Proxy) *sfsvalue.FilterStateValue {
+	return &sfsvalue.FilterStateValue{
+		Key: &sfsvalue.FilterStateValue_ObjectKey{
+			ObjectKey: "envoy.peer_metadata.downstream_connection_id",
+		},
+		Value: &sfsvalue.FilterStateValue_FormatString{
+			FormatString: &core.SubstitutionFormatString{
+				Format: &core.SubstitutionFormatString_TextFormatSource{
+					TextFormatSource: &core.DataSource{
+						Specifier: &core.DataSource_InlineString{InlineString: "%CONNECTION_ID%"},
+					},
+				},
+			},
+		},
+		FactoryKey:         hashableStringFactoryKey(proxy),
+		SharedWithUpstream: sfsvalue.FilterStateValue_TRANSITIVE,
+	}
+}
+
+// hashableStringFactoryKey returns the set_filter_state factory key for a hashable string
+// object, accounting for the rename introduced in Istio 1.29.2.
+func hashableStringFactoryKey(proxy *model.Proxy) string {
+	// TODO: Remove in 1.32
+	if !proxy.VersionGreaterOrEqual(&model.IstioVersion{Major: 1, Minor: 29, Patch: 2}) {
+		return "envoy.string"
+	}
+	return "istio.hashable_string"
 }
 
 // buildWaypointHTTPFilters augments the common chain of Waypoint-bound HTTP filters.

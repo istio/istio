@@ -436,7 +436,7 @@ func (cb *ClusterBuilder) maybeApplyBaggageMetadataDiscovery(c *cluster.Cluster)
 }
 
 func (cb *ClusterBuilder) maybeDisableBaggageDiscovery(c *cluster.Cluster) {
-	if cb.sendHbone {
+	if cb.sendHbone && !features.EnableAmbientBaggageGenericTranport {
 		addDisableBaggageDiscoveryMetadata(c)
 	}
 }
