@@ -74,4 +74,13 @@ var (
 
 	EnableXDSCacheMetrics = env.Register("PILOT_XDS_CACHE_STATS", false,
 		"If true, Pilot will collect metrics for XDS cache efficiency.").Get()
+
+	// EnableDeltaNds controls whether istiod injects the DELTA_NDS capability into a proxy's
+	// metadata at injection/bootstrap templating time. When enabled, injected agents advertise
+	// NodeMetadata.DeltaNDS, which makes istiod generate NDS incrementally for them (see
+	// pilot/pkg/xds/nds.go). The actual delta decision is driven by the per-proxy capability,
+	// so this flag only gates whether new proxies opt in.
+	EnableDeltaNds = env.Register("PILOT_ENABLE_DELTA_NDS", false,
+		"If true, injected proxies will advertise the DELTA_NDS capability and receive "+
+			"incremental NDS updates.").Get()
 )

@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	dnsProto "istio.io/istio/pkg/dns/proto"
 	netutil "istio.io/istio/pkg/util/net"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // Config for building the name table.
@@ -34,6 +35,14 @@ type Config struct {
 	// MulticlusterHeadlessEnabled if true, the DNS name table for a headless service will resolve to
 	// same-network endpoints in any cluster.
 	MulticlusterHeadlessEnabled bool
+
+	// Hostnames, if non-nil, restricts the table to services whose hostname is in the set
+	// (plus the per-pod records those services own). A nil set builds the full proxy-scoped
+	// table. This is used to build incremental (delta) NDS updates without rebuilding and
+	// re-serializing the whole table: each service only contributes records under its own
+	// hostname, and the sole cross-service interaction is same-hostname merging, so filtering
+	// by hostname yields the same entries the full build would produce for those hostnames.
+	Hostnames sets.String
 }
 
 // BuildNameTable produces a table of hostnames and their associated IPs that can then
@@ -45,6 +54,10 @@ func BuildNameTable(cfg Config) *dnsProto.NameTable {
 	}
 	for _, el := range cfg.Node.SidecarScope.EgressListeners {
 		for _, svc := range el.Services() {
+			if cfg.Hostnames != nil && !cfg.Hostnames.Contains(svc.Hostname.String()) {
+				// Delta build: skip services whose hostname didn't change.
+				continue
+			}
 			var addressList []string
 			hostName := svc.Hostname
 			headless := false

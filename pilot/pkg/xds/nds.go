@@ -37,6 +37,8 @@ type NdsGenerator struct {
 
 var _ model.XdsResourceGenerator = &NdsGenerator{}
 
+var _ model.XdsDeltaResourceGenerator = &NdsGenerator{}
+
 // Map of all configs that do not impact NDS
 var skippedNdsConfigs = func() sets.Set[kind.Kind] {
 	s := sets.New(
@@ -65,20 +67,33 @@ var skippedNdsConfigs = func() sets.Set[kind.Kind] {
 	return s
 }()
 
-func ndsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
+// ndsNeedsPush returns a (possibly filtered) PushRequest and whether NDS needs to be pushed.
+// ConfigsUpdated is filtered to only NDS-relevant kinds so that BuildDeltaNameTable sees a
+// clean set when deciding whether to use true delta. This mirrors cdsNeedsPush.
+func ndsNeedsPush(req *model.PushRequest, proxy *model.Proxy) (*model.PushRequest, bool) {
 	if res, ok := xdsNeedsPush(req, proxy); ok {
-		return res
+		return req, res
 	}
+	relevantUpdates := make(sets.Set[model.ConfigKey])
+	filtered := false
 	for config := range req.ConfigsUpdated {
-		if _, f := skippedNdsConfigs[config.Kind]; !f {
-			return true
+		if !skippedNdsConfigs.Contains(config.Kind) {
+			relevantUpdates.Insert(config)
+		} else {
+			filtered = true
 		}
 	}
-	return false
+	if filtered {
+		newReq := *req
+		newReq.ConfigsUpdated = relevantUpdates
+		req = &newReq
+	}
+	return req, len(req.ConfigsUpdated) > 0
 }
 
 func (n NdsGenerator) Generate(proxy *model.Proxy, _ *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
-	if !ndsNeedsPush(req, proxy) {
+	req, needsPush := ndsNeedsPush(req, proxy)
+	if !needsPush {
 		return nil, model.DefaultXdsLogDetails, nil
 	}
 	nt := n.ConfigGenerator.BuildNameTable(proxy, req.Push)
@@ -87,4 +102,17 @@ func (n NdsGenerator) Generate(proxy *model.Proxy, _ *model.WatchedResource, req
 	}
 	resources := model.Resources{&discovery.Resource{Resource: protoconv.MessageToAny(nt)}}
 	return resources, model.DefaultXdsLogDetails, nil
+}
+
+// GenerateDeltas generates incremental NDS resources. See BuildDeltaNameTable for the full
+// delta logic, including the capability check and fallback paths.
+func (n NdsGenerator) GenerateDeltas(proxy *model.Proxy, req *model.PushRequest,
+	w *model.WatchedResource,
+) (model.Resources, model.DeletedResources, model.XdsLogDetails, bool, error) {
+	req, needsPush := ndsNeedsPush(req, proxy)
+	if !needsPush {
+		return nil, nil, model.DefaultXdsLogDetails, false, nil
+	}
+	res, removed, log, usedDelta := n.ConfigGenerator.BuildDeltaNameTable(proxy, req, w)
+	return res, removed, log, usedDelta, nil
 }
