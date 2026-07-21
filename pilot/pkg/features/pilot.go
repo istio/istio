@@ -203,15 +203,6 @@ var (
 			"These checks are both expensive and panic on failure. As a result, this should be used only for testing.",
 	).Get()
 
-	// EnableUnsafeDeltaTest enables runtime checks to test Delta XDS efficiency. This should never be enabled in
-	// production.
-	EnableUnsafeDeltaTest = env.Register(
-		"UNSAFE_PILOT_ENABLE_DELTA_TEST",
-		false,
-		"If enabled, addition runtime tests for Delta XDS efficiency are added. "+
-			"These checks are extremely expensive, so this should be used only for testing, not production.",
-	).Get()
-
 	SharedMeshConfig = env.Register("SHARED_MESH_CONFIG", "",
 		"Additional config map to load for shared MeshConfig settings. The standard mesh config will take precedence.").Get()
 
@@ -419,7 +410,7 @@ var (
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.
 func UnsafeFeaturesEnabled() bool {
-	return EnableUnsafeAdminEndpoints || EnableUnsafeAssertions || EnableUnsafeDeltaTest
+	return EnableUnsafeAdminEndpoints || EnableUnsafeAssertions
 }
 
 type NativeSidecarMode int
