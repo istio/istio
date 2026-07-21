@@ -7,8 +7,9 @@ issue:
 
 releaseNotes:
   - |
-    **Added** periodic runtime reconciliation of the ambient host-level health check rules
-    (`nat` `POSTROUTING` -> `ISTIO_POSTRT` SNAT). If an external actor (e.g. a `firewalld`
+    **Added** periodic runtime reconciliation of the ambient host-level health check SNAT rules
+    (iptables `nat` `POSTROUTING` -> `ISTIO_POSTRT`, or the `istio-ambient-nat` table with
+    native nftables). If an external actor (e.g. a `firewalld`
     reload or an `iptables-restore` from an OS persistence unit) removes these rules while
     `istio-cni-node` is running, they are now automatically detected and re-installed, instead
     of causing permanent probe failures under `STRICT` mTLS until the DaemonSet is restarted.
