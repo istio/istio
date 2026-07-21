@@ -140,6 +140,11 @@ spec:
             resourceFieldRef:
               resource: limits.cpu
               divisor: "1"
+        - name: ZTUNNEL_RESOURCE_CPU_REQUEST
+          valueFrom:
+            resourceFieldRef:
+              resource: requests.cpu
+              divisor: "1"
         volumeMounts:
         - mountPath: /var/run/secrets/istio
           name: istiod-ca-cert
