@@ -1504,7 +1504,7 @@ func TestApplyOutlierDetectionErrorCodes(t *testing.T) {
 			} else {
 				hdrs := od.ErrorMatcher.GetHttpResponseHeadersMatch().GetHeaders()
 				g.Expect(hdrs).To(HaveLen(1))
-				g.Expect(hdrs[0].GetExactMatch()).To(Equal("429"))
+				g.Expect(hdrs[0].GetStringMatch().GetExact()).To(Equal("429"))
 			}
 		})
 	}

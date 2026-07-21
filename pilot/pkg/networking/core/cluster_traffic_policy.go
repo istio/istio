@@ -22,6 +22,7 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/config/common/matcher/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	matchertype "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	proxyprotocol "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/proxy_protocol/v3"
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
@@ -573,8 +574,12 @@ func applyOutlierDetectionErrorCodes(mc *clusterWrapper, codes []uint32) {
 				HttpResponseHeadersMatch: &matcher.HttpHeadersMatch{
 					Headers: []*route.HeaderMatcher{{
 						Name: ":status",
-						HeaderMatchSpecifier: &route.HeaderMatcher_ExactMatch{
-							ExactMatch: strconv.Itoa(int(code)),
+						HeaderMatchSpecifier: &route.HeaderMatcher_StringMatch{
+							StringMatch: &matchertype.StringMatcher{
+								MatchPattern: &matchertype.StringMatcher_Exact{
+									Exact: strconv.Itoa(int(code)),
+								},
+							},
 						},
 					}},
 				},
