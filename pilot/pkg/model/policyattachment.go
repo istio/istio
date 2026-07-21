@@ -44,7 +44,11 @@ type WorkloadPolicyMatcher struct {
 	WorkloadLabels    labels.Instance
 	IsWaypoint        bool
 	Services          []ServiceInfoForPolicyMatcher
-	RootNamespace     string
+	// Gateways are the classic networking.istio.io Gateways this workload is an instance of.
+	// Unlike Gateway API gateways, they are not identified by a workload label, so targetRef
+	// attachment matches against this list instead.
+	Gateways      []types.NamespacedName
+	RootNamespace string
 }
 
 type ServiceInfoForPolicyMatcher struct {
@@ -84,6 +88,26 @@ func (p WorkloadPolicyMatcher) WithService(service *Service) WorkloadPolicyMatch
 		Namespace: service.Attributes.Namespace,
 		Registry:  service.Attributes.ServiceRegistry,
 	})
+	return p
+}
+
+// WithGateway adds a classic networking.istio.io Gateway to the selection criteria, so
+// targetRef-based policies can attach to it. The zero NamespacedName is ignored.
+func (p WorkloadPolicyMatcher) WithGateway(nn types.NamespacedName) WorkloadPolicyMatcher {
+	if nn == (types.NamespacedName{}) {
+		return p
+	}
+
+	p.Gateways = append(p.Gateways, nn)
+	return p
+}
+
+// WithGateways adds multiple classic networking.istio.io Gateways to the selection criteria.
+// Like WithServices, it is nil-slice safe.
+func (p WorkloadPolicyMatcher) WithGateways(nns []types.NamespacedName) WorkloadPolicyMatcher {
+	for _, nn := range nns {
+		p = p.WithGateway(nn)
+	}
 	return p
 }
 
@@ -129,6 +153,20 @@ func (p WorkloadPolicyMatcher) ShouldAttachPolicy(kind config.GroupVersionKind,
 
 	// non-gateway: use selector
 	if !isGatewayAPI {
+		// A classic Gateway proxy has no gateway-name label, so it lands here rather than in the
+		// Gateway API branch below; a targetRef may still select it.
+		for _, targetRef := range targetRefs {
+			if !matchesGroupKind(targetRef, gvk.Gateway) {
+				continue
+			}
+			for _, gw := range p.Gateways {
+				if targetRef.GetName() == gw.Name &&
+					policyName.Namespace == gw.Namespace &&
+					(targetRef.GetNamespace() == "" || targetRef.GetNamespace() == gw.Namespace) {
+					return true
+				}
+			}
+		}
 		// if targetRef is specified, ignore the policy altogether
 		if len(targetRefs) > 0 {
 			return false

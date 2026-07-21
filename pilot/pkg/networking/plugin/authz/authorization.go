@@ -17,6 +17,7 @@ package authz
 import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
@@ -47,12 +48,18 @@ func NewBuilder(actionType ActionType, push *model.PushContext, proxy *model.Pro
 }
 
 func NewBuilderForService(actionType ActionType, push *model.PushContext, proxy *model.Proxy, useFilterState bool, svc *model.Service) *Builder {
-	return newBuilder(actionType, push, proxy, useFilterState, svc, false)
+	return newBuilder(actionType, push, proxy, useFilterState, svc, nil, false)
+}
+
+// NewBuilderForGateways creates a builder scoped to the given classic networking.istio.io Gateways,
+// so targetRef-based AuthorizationPolicies attach only to those gateways' filter chains.
+func NewBuilderForGateways(actionType ActionType, push *model.PushContext, proxy *model.Proxy, useFilterState bool, gateways []types.NamespacedName) *Builder {
+	return newBuilder(actionType, push, proxy, useFilterState, nil, gateways, false)
 }
 
 // NewWaypointTerminationBuilder creates a builder for use on the waypoints HBONE termination layer
 func NewWaypointTerminationBuilder(actionType ActionType, push *model.PushContext, proxy *model.Proxy) *Builder {
-	return newBuilder(actionType, push, proxy, false, nil, true)
+	return newBuilder(actionType, push, proxy, false, nil, nil, true)
 }
 
 func newBuilder(
@@ -61,6 +68,7 @@ func newBuilder(
 	proxy *model.Proxy,
 	useFilterState bool,
 	svc *model.Service,
+	gateways []types.NamespacedName,
 	alwaysTreatAsNonWaypoint bool,
 ) *Builder {
 	tdBundle := trustdomain.NewBundle(push.Mesh.TrustDomain, push.Mesh.TrustDomainAliases)
@@ -68,7 +76,10 @@ func newBuilder(
 		IsCustomBuilder: actionType == Custom,
 		UseFilterState:  useFilterState,
 	}
-	selectionOpts := model.PolicyMatcherForProxy(proxy).WithService(svc).WithRootNamespace(push.AuthzPolicies.RootNamespace)
+	selectionOpts := model.PolicyMatcherForProxy(proxy).
+		WithService(svc).
+		WithGateways(gateways).
+		WithRootNamespace(push.AuthzPolicies.RootNamespace)
 	if alwaysTreatAsNonWaypoint {
 		// The intention here is to apply authz rules to the waypoint, but using the standard workload selector policy semantics,
 		// rather than the per-service rules.

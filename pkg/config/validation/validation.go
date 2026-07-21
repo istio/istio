@@ -1341,8 +1341,12 @@ func IsNegativeDuration(in time.Duration) error {
 }
 
 func validatePolicyTargetReferences(targetRefs []*type_beta.PolicyTargetReference) (v Validation) {
+	return validatePolicyTargetReferencesForKinds(targetRefs, allowedTargetRefs)
+}
+
+func validatePolicyTargetReferencesForKinds(targetRefs []*type_beta.PolicyTargetReference, allowed []config.GroupVersionKind) (v Validation) {
 	for _, r := range targetRefs {
-		v = AppendValidation(v, validatePolicyTargetReference(r))
+		v = AppendValidation(v, validatePolicyTargetReferenceForKinds(r, allowed))
 	}
 	return v
 }
@@ -1355,7 +1359,15 @@ var allowedTargetRefs = []config.GroupVersionKind{
 	gvk.GatewayClass,
 }
 
+// authorizationPolicyTargetRefs extends allowedTargetRefs with the classic
+// networking.istio.io Gateway, which is accepted only for AuthorizationPolicy.
+var authorizationPolicyTargetRefs = append(slices.Clone(allowedTargetRefs), gvk.Gateway)
+
 func validatePolicyTargetReference(targetRef *type_beta.PolicyTargetReference) (v Validation) {
+	return validatePolicyTargetReferenceForKinds(targetRef, allowedTargetRefs)
+}
+
+func validatePolicyTargetReferenceForKinds(targetRef *type_beta.PolicyTargetReference, allowed []config.GroupVersionKind) (v Validation) {
 	if targetRef == nil {
 		return v
 	}
@@ -1371,13 +1383,13 @@ func validatePolicyTargetReference(targetRef *type_beta.PolicyTargetReference) (
 	if canoncalGroup == "" {
 		canoncalGroup = "core"
 	}
-	allowed := slices.FindFunc(allowedTargetRefs, func(gvk config.GroupVersionKind) bool {
+	found := slices.FindFunc(allowed, func(gvk config.GroupVersionKind) bool {
 		return gvk.Kind == targetRef.Kind && gvk.CanonicalGroup() == canoncalGroup
 	}) != nil
 
-	if !allowed {
+	if !found {
 		v = appendErrorf(v, "targetRef must be to one of %v but was %s/%s",
-			allowedTargetRefs, targetRef.Group, targetRef.Kind)
+			allowed, targetRef.Group, targetRef.Kind)
 	}
 	return v
 }
@@ -1437,8 +1449,8 @@ var ValidateAuthorizationPolicy = RegisterValidateFunc("ValidateAuthorizationPol
 		var warnings Warning
 		selectorTypeValidation := validateOneOfSelectorType(in.GetSelector(), in.GetTargetRef(), in.GetTargetRefs())
 		workloadSelectorValidation := validateWorkloadSelector(in.GetSelector())
-		targetRefValidation := validatePolicyTargetReference(in.GetTargetRef())
-		targetRefsValidation := validatePolicyTargetReferences(in.GetTargetRefs())
+		targetRefValidation := validatePolicyTargetReferenceForKinds(in.GetTargetRef(), authorizationPolicyTargetRefs)
+		targetRefsValidation := validatePolicyTargetReferencesForKinds(in.GetTargetRefs(), authorizationPolicyTargetRefs)
 		errs = appendErrors(errs, selectorTypeValidation, workloadSelectorValidation, targetRefValidation, targetRefsValidation)
 		warnings = appendErrors(warnings, workloadSelectorValidation.Warning)
 

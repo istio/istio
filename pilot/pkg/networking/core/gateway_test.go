@@ -37,6 +37,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	security "istio.io/api/security/v1beta1"
 	telemetry "istio.io/api/telemetry/v1alpha1"
+	apitypev1beta1 "istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
 	pilot_model "istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
@@ -5239,5 +5240,176 @@ func TestGatewayListenerConnectionSettings(t *testing.T) {
 			hcmFilter := xdstest.ExtractHTTPConnectionManager(t, l.GetFilterChains()[0])
 			tc.verifyHCM(t, hcmFilter)
 		})
+	}
+}
+
+// buildGatewayListenersForAuthzTest builds the gateway listeners for proxyGateway (ConfigNamespace
+// "not-default") given a set of Gateway/AuthorizationPolicy/etc. configs, using the same wiring as
+// TestBuildGatewayListenersFilters.
+func buildGatewayListenersForAuthzTest(t *testing.T, configs []config.Config) []*listener.Listener {
+	t.Helper()
+	cg := NewConfigGenTest(t, TestOptions{Configs: configs})
+	proxy := cg.SetupProxy(&proxyGateway)
+	metadata := proxyGatewayMetadata
+	proxy.Metadata = &metadata
+	lb := NewListenerBuilder(proxy, cg.PushContext())
+	return cg.ConfigGen.buildGatewayListeners(lb).gatewayListeners
+}
+
+// httpFilterNamesForListener aggregates the HTTP filter names across all of a listener's filter
+// chains (HTTPS gateways typically produce a single HCM filter chain per listener).
+func httpFilterNamesForListener(t *testing.T, l *listener.Listener) []string {
+	t.Helper()
+	if l == nil {
+		t.Fatalf("listener not found")
+	}
+	var httpFilters []string
+	for _, fc := range l.GetFilterChains() {
+		_, hf := xdstest.ExtractFilterNames(t, fc)
+		httpFilters = append(httpFilters, hf...)
+	}
+	return httpFilters
+}
+
+// classicGatewayTargetRef returns a targetRef pointing at a classic networking.istio.io Gateway.
+func classicGatewayTargetRef(gwName string) *apitypev1beta1.PolicyTargetReference {
+	return &apitypev1beta1.PolicyTargetReference{
+		Group: gvk.Gateway.Group, // networking.istio.io
+		Kind:  gvk.Gateway.Kind,  // Gateway
+		Name:  gwName,
+	}
+}
+
+func httpsGatewayConfig(name string, port uint32, hostName string) config.Config {
+	return config.Config{
+		Meta: config.Meta{Name: name, Namespace: "not-default", GroupVersionKind: gvk.Gateway},
+		Spec: &networking.Gateway{
+			Servers: []*networking.Server{
+				{
+					Port:  &networking.Port{Name: "https", Number: port, Protocol: "HTTPS"},
+					Hosts: []string{hostName},
+					Tls:   &networking.ServerTLSSettings{CredentialName: "test", Mode: networking.ServerTLSSettings_SIMPLE},
+				},
+			},
+		},
+	}
+}
+
+// TestBuildGatewayListenersAuthzTargetRefScoping is the "money" test: an AuthorizationPolicy whose
+// targetRef points at classic Gateway gw-a must produce the Envoy RBAC HTTP filter ONLY on gw-a's
+// HTTPS filter chain, and must NOT appear on the co-resident gw-b's HTTPS filter chain.
+func TestBuildGatewayListenersAuthzTargetRefScoping(t *testing.T) {
+	configs := []config.Config{
+		httpsGatewayConfig("gw-a", 443, "a.example.com"),
+		httpsGatewayConfig("gw-b", 8443, "b.example.com"),
+		{
+			Meta: config.Meta{Name: "authz-gw-a", Namespace: "not-default", GroupVersionKind: gvk.AuthorizationPolicy},
+			Spec: &security.AuthorizationPolicy{
+				Action:     security.AuthorizationPolicy_ALLOW,
+				TargetRefs: []*apitypev1beta1.PolicyTargetReference{classicGatewayTargetRef("gw-a")},
+				Rules: []*security.Rule{{
+					From: []*security.Rule_From{{
+						Source: &security.Source{Principals: []string{"cluster.local/ns/default/sa/client"}},
+					}},
+				}},
+			},
+		},
+	}
+
+	listeners := buildGatewayListenersForAuthzTest(t, configs)
+
+	gwAFilters := httpFilterNamesForListener(t, xdstest.ExtractListener("0.0.0.0_443", listeners))
+	gwBFilters := httpFilterNamesForListener(t, xdstest.ExtractListener("0.0.0.0_8443", listeners))
+
+	if !slices.Contains(gwAFilters, wellknown.HTTPRoleBasedAccessControl) {
+		t.Errorf("expected RBAC http filter %q on gw-a's HTTPS chain, got %v",
+			wellknown.HTTPRoleBasedAccessControl, gwAFilters)
+	}
+	if slices.Contains(gwBFilters, wellknown.HTTPRoleBasedAccessControl) {
+		t.Errorf("did NOT expect RBAC http filter %q on gw-b's HTTPS chain (policy targets gw-a only), got %v",
+			wellknown.HTTPRoleBasedAccessControl, gwBFilters)
+	}
+
+	// gw-b is not targeted, so its HTTPS chain must be byte-identical to the no-policy baseline.
+	baseline := buildGatewayListenersForAuthzTest(t, []config.Config{httpsGatewayConfig("gw-b", 8443, "b.example.com")})
+	baselineB := xdstest.ExtractListener("0.0.0.0_8443", baseline)
+	if diff := cmp.Diff(baselineB, xdstest.ExtractListener("0.0.0.0_8443", listeners), protocmp.Transform()); diff != "" {
+		t.Errorf("gw-b HTTPS listener changed by an unrelated targetRef policy (-baseline +got):\n%s", diff)
+	}
+}
+
+// TestBuildGatewayListenersAuthzNoTargetRefByteIdentical asserts the byte-identical/no-op invariant:
+// when NO classic-Gateway-targetRef policy is present, the per-gateway scoping path must leave the
+// HTTPS chain identical to today. A proxy-wide (selector-less) AuthorizationPolicy must still be
+// enforced on the HTTPS chain (RBAC present); with no policy at all, RBAC must be absent.
+func TestBuildGatewayListenersAuthzNoTargetRefByteIdentical(t *testing.T) {
+	gw := httpsGatewayConfig("gw", 443, "a.example.com")
+
+	// No authz policy: RBAC absent.
+	noPolicy := buildGatewayListenersForAuthzTest(t, []config.Config{gw})
+	if got := httpFilterNamesForListener(t, xdstest.ExtractListener("0.0.0.0_443", noPolicy)); slices.Contains(got, wellknown.HTTPRoleBasedAccessControl) {
+		t.Errorf("did not expect RBAC http filter with no authz policy, got %v", got)
+	}
+
+	// Proxy-wide (no targetRef) policy: RBAC present — enforcement is not weakened by scoping.
+	proxyWide := buildGatewayListenersForAuthzTest(t, []config.Config{
+		gw,
+		{
+			Meta: config.Meta{Name: "authz-proxywide", Namespace: "not-default", GroupVersionKind: gvk.AuthorizationPolicy},
+			Spec: &security.AuthorizationPolicy{Action: security.AuthorizationPolicy_ALLOW},
+		},
+	})
+	if got := httpFilterNamesForListener(t, xdstest.ExtractListener("0.0.0.0_443", proxyWide)); !slices.Contains(got, wellknown.HTTPRoleBasedAccessControl) {
+		t.Errorf("expected RBAC http filter for a proxy-wide (no-targetRef) policy, got %v", got)
+	}
+}
+
+// TestBuildGatewayListenersAuthzPlaintextHTTPUnaffected asserts plaintext HTTP chains (server == nil,
+// unknown provenance) are never scoped: a classic-Gateway-targetRef policy must NOT attach to a
+// plaintext HTTP chain (byte-identical to today, where such a policy would not attach), while a
+// proxy-wide policy continues to attach exactly as before.
+func TestBuildGatewayListenersAuthzPlaintextHTTPUnaffected(t *testing.T) {
+	httpGw := config.Config{
+		Meta: config.Meta{Name: "gw-http", Namespace: "not-default", GroupVersionKind: gvk.Gateway},
+		Spec: &networking.Gateway{
+			Servers: []*networking.Server{{
+				Port:  &networking.Port{Name: "http", Number: 80, Protocol: "HTTP"},
+				Hosts: []string{"a.example.com"},
+			}},
+		},
+	}
+
+	// A targetRef policy pointing at the plaintext HTTP gateway must NOT add RBAC to its HTTP chain.
+	targeted := buildGatewayListenersForAuthzTest(t, []config.Config{
+		httpGw,
+		{
+			Meta: config.Meta{Name: "authz-http", Namespace: "not-default", GroupVersionKind: gvk.AuthorizationPolicy},
+			Spec: &security.AuthorizationPolicy{
+				Action:     security.AuthorizationPolicy_ALLOW,
+				TargetRefs: []*apitypev1beta1.PolicyTargetReference{classicGatewayTargetRef("gw-http")},
+			},
+		},
+	})
+	if got := httpFilterNamesForListener(t, xdstest.ExtractListener("0.0.0.0_80", targeted)); slices.Contains(got, wellknown.HTTPRoleBasedAccessControl) {
+		t.Errorf("plaintext HTTP chain must not be scoped by a targetRef policy, got %v", got)
+	}
+
+	// The plaintext HTTP chain must be byte-identical to the no-policy baseline.
+	baseline := buildGatewayListenersForAuthzTest(t, []config.Config{httpGw})
+	if diff := cmp.Diff(xdstest.ExtractListener("0.0.0.0_80", baseline),
+		xdstest.ExtractListener("0.0.0.0_80", targeted), protocmp.Transform()); diff != "" {
+		t.Errorf("plaintext HTTP listener changed by a targetRef policy (-baseline +got):\n%s", diff)
+	}
+
+	// A proxy-wide policy still attaches to the plaintext HTTP chain, exactly as today.
+	proxyWide := buildGatewayListenersForAuthzTest(t, []config.Config{
+		httpGw,
+		{
+			Meta: config.Meta{Name: "authz-proxywide", Namespace: "not-default", GroupVersionKind: gvk.AuthorizationPolicy},
+			Spec: &security.AuthorizationPolicy{Action: security.AuthorizationPolicy_ALLOW},
+		},
+	})
+	if got := httpFilterNamesForListener(t, xdstest.ExtractListener("0.0.0.0_80", proxyWide)); !slices.Contains(got, wellknown.HTTPRoleBasedAccessControl) {
+		t.Errorf("expected RBAC http filter on plaintext HTTP chain for a proxy-wide policy, got %v", got)
 	}
 }

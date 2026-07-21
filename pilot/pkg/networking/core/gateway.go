@@ -30,6 +30,7 @@ import (
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/hashicorp/go-multierror"
 	"google.golang.org/protobuf/types/known/anypb"
+	"k8s.io/apimachinery/pkg/types"
 
 	extensions "istio.io/api/extensions/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -714,8 +715,27 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(node *mod
 			statPrefix:                server.Name,
 			http3Only:                 http3Enabled,
 			class:                     istionetworking.ListenerClassGateway,
+			gatewayName:               gatewayNameForServer(node, server),
 		},
 	}
+}
+
+// gatewayNameForServer returns the classic Gateway that owns the given server, which
+// MergedGateway records as a "namespace/name" string. The zero value is returned when the
+// server has no known owner, leaving authz scoping a no-op.
+func gatewayNameForServer(node *model.Proxy, server *networking.Server) types.NamespacedName {
+	if node.MergedGateway == nil {
+		return types.NamespacedName{}
+	}
+	name, ok := node.MergedGateway.GatewayNameForServer[server]
+	if !ok {
+		return types.NamespacedName{}
+	}
+	ns, n, found := strings.Cut(name, "/")
+	if !found {
+		return types.NamespacedName{}
+	}
+	return types.NamespacedName{Namespace: ns, Name: n}
 }
 
 func buildGatewayConnectionManager(proxyConfig *meshconfig.ProxyConfig, node *model.Proxy, http3SupportEnabled bool,
