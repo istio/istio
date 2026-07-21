@@ -93,8 +93,8 @@ func (s *meshDataplane) Start(ctx context.Context) {
 // reconcileHostRulesLoop periodically verifies the host-level health check rules and
 // re-installs them when drift is detected. The design follows kube-proxy's periodic
 // sync (30s by default) and kube-ovn's wait.Until idempotent re-assert: when there is
-// no drift the verification is read-only (iptables-save + iptables -C) and no rule
-// writes happen.
+// no drift the verification is read-only (iptables-save + iptables -C on the iptables
+// backend, an nft rule listing on the nftables backend) and no rule writes happen.
 func (s *meshDataplane) reconcileHostRulesLoop(ctx context.Context) {
 	defer close(s.hostRulesReconcileDone)
 	log.Infof("starting host rules reconcile loop (interval: %v)", s.hostRulesReconcileInterval)
