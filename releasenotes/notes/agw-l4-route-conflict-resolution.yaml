@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+  - |
+    **Fixed**: when multiple `TCPRoute`s or `TLSRoute`s attach to the same `agentgateway` Gateway
+    listener, the oldest route (by creation timestamp, then namespace/name) is now consistently
+    selected, following the Gateway API conflict-resolution rules. Previously the route bound to the
+    listener was not deterministic, so traffic could reach the wrong backend.
