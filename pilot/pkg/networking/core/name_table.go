@@ -28,9 +28,6 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
-// deltaAwareNdsConfigs are the config kinds that carry a service hostname as ConfigKey.Name,
-// allowing NDS to compute per-host deltas. Any other kind may change service visibility for the
-// proxy, so we fall back to a full build.
 var deltaAwareNdsConfigs = sets.New(
 	kind.ServiceEntry,
 	kind.DNSName,
@@ -47,22 +44,20 @@ func (configgen *ConfigGeneratorImpl) BuildNameTable(node *model.Proxy, push *mo
 	})
 }
 
-// BuildDeltaNameTable generates the per-host NDS resource deltas for a proxy. It mirrors
-// BuildDeltaClusters: handles the delta gate and falls back to a full build when needed,
-// returning (resources, removed, logDetails, usedDelta).
+// BuildDeltaNameTable generates the per-host NDS resource deltas for a proxy.
+// It handles the delta gate and falls back to a full build when needed.
 func (configgen *ConfigGeneratorImpl) BuildDeltaNameTable(proxy *model.Proxy, updates *model.PushRequest,
 	watched *model.WatchedResource,
 ) ([]*discovery.Resource, []string, model.XdsLogDetails, bool) {
-	// this agent does not support or is requesting to not receive
-	// true Delta NDS.
+	// this agent does not support or is requesting to not receive true Delta NDS.
 	if !bool(proxy.Metadata.DeltaNDS) {
 		nt := configgen.BuildNameTable(proxy, updates.Push)
 		return []*discovery.Resource{{Resource: protoconv.MessageToAny(nt)}}, nil, model.DefaultXdsLogDetails, false
 	}
 
+	// at least one config kind has changed that doesn't support delta, we need to rebuild the whole table and send
+	// each table entry
 	if !shouldUseNdsDelta(updates) {
-		// at least one config kind has changed that doesn't support delta, we need to rebuild the whole table and send
-		// each table entry
 		nt := configgen.BuildNameTable(proxy, updates.Push)
 		return toPerHostResources(nt.GetTable()), nil, model.DefaultXdsLogDetails, false
 	}
@@ -87,7 +82,7 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaNameTable(proxy *model.Proxy, up
 }
 
 // shouldUseNdsDelta reports whether the push can be handled incrementally: not forced and
-// containing only delta-aware, service-scoped kinds. Mirrors CDS's shouldUseDelta.
+// containing only delta-aware, service-scoped kinds.
 func shouldUseNdsDelta(updates *model.PushRequest) bool {
 	if updates == nil || updates.Forced {
 		return false
@@ -100,8 +95,6 @@ func shouldUseNdsDelta(updates *model.PushRequest) bool {
 	return true
 }
 
-// ndsChangedHostnames collects the service FQDNs from the push's ConfigsUpdated. For
-// ServiceEntry and DNSName keys, ConfigKey.Name is the service hostname.
 func ndsChangedHostnames(cfgs sets.Set[model.ConfigKey]) sets.String {
 	hosts := sets.NewWithLength[string](len(cfgs))
 	for k := range cfgs {

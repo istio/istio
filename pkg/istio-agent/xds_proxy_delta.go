@@ -220,6 +220,7 @@ func (p *XdsProxy) handleUpstreamDeltaResponse(con *ProxyConnection) {
 				"removes", len(resp.RemovedResources),
 			).Debugf("upstream response")
 			metrics.XdsProxyResponses.Increment()
+			// first check if we have a true delta handler for this TypeUrl
 			if h, f := p.deltaHandlers[resp.TypeUrl]; f {
 				err := h.Handle(resp.Resources, resp.RemovedResources)
 				var errorResp *google_rpc.Status
@@ -236,6 +237,7 @@ func (p *XdsProxy) handleUpstreamDeltaResponse(con *ProxyConnection) {
 				})
 				continue
 			}
+			// fall back to stow handlers
 			if h, f := p.handlers[resp.TypeUrl]; f {
 				if len(resp.Resources) == 0 {
 					// Empty response, nothing to do

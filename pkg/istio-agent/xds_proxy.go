@@ -162,7 +162,6 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 	}
 
 	if ia.localDNSServer != nil {
-		// SotW path: istiod sends the full NameTable as a single resource on every push.
 		proxy.handlers[model.NameTableType] = func(resp *anypb.Any) error {
 			var nt dnsProto.NameTable
 			if err := resp.UnmarshalTo(&nt); err != nil {
@@ -171,7 +170,6 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 			ia.localDNSServer.Rebuild(nt.GetTable())
 			return nil
 		}
-		// Delta path: each resource is a single-entry NameTable keyed by hostname.
 		proxy.deltaHandlers[model.NameTableType] = &ndsDeltaHandler{dnsServer: ia.localDNSServer}
 	}
 	if ia.cfg.EnableDynamicProxyConfig && ia.secretCache != nil {

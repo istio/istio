@@ -67,9 +67,7 @@ var skippedNdsConfigs = func() sets.Set[kind.Kind] {
 	return s
 }()
 
-// ndsNeedsPush returns a (possibly filtered) PushRequest and whether NDS needs to be pushed.
-// ConfigsUpdated is filtered to only NDS-relevant kinds so that BuildDeltaNameTable sees a
-// clean set when deciding whether to use true delta. This mirrors cdsNeedsPush.
+// ndsNeedsPush returns a filtered PushRequest (including only NDS-relevant kinds) and whether NDS needs to be pushed.
 func ndsNeedsPush(req *model.PushRequest, proxy *model.Proxy) (*model.PushRequest, bool) {
 	if res, ok := xdsNeedsPush(req, proxy); ok {
 		return req, res
@@ -104,8 +102,6 @@ func (n NdsGenerator) Generate(proxy *model.Proxy, _ *model.WatchedResource, req
 	return resources, model.DefaultXdsLogDetails, nil
 }
 
-// GenerateDeltas generates incremental NDS resources. See BuildDeltaNameTable for the full
-// delta logic, including the capability check and fallback paths.
 func (n NdsGenerator) GenerateDeltas(proxy *model.Proxy, req *model.PushRequest,
 	w *model.WatchedResource,
 ) (model.Resources, model.DeletedResources, model.XdsLogDetails, bool, error) {

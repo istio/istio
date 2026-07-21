@@ -214,20 +214,20 @@ func (h *LocalDNSServer) StartDNS() {
 	}
 }
 
-// Rebuild builds a fresh lookup table from added and atomically replaces the current one.
+// Rebuild builds a fresh lookup table from table and atomically replaces the current one.
 // Used when the full set of DNS entries is known (initial load, reconnect after stream reset).
-func (h *LocalDNSServer) Rebuild(added map[string]*dnsProto.NameTable_NameInfo) {
+func (h *LocalDNSServer) Rebuild(table map[string]*dnsProto.NameTable_NameInfo) {
 	newTable := &LookupTable{
 		allHosts: sets.String{},
 		name4:    map[string][]dns.RR{},
 		name6:    map[string][]dns.RR{},
 		cname:    map[string][]dns.RR{},
 	}
-	for hostname, ni := range added {
+	for hostname, ni := range table {
 		h.addHostEntries(newTable, hostname, ni)
 	}
 	h.lookupTable.Store(newTable)
-	h.nameTable.Store(&dnsProto.NameTable{Table: added})
+	h.nameTable.Store(&dnsProto.NameTable{Table: table})
 	log.Debugf("rebuilt lookup table with %d hosts", len(newTable.allHosts))
 }
 

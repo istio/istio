@@ -117,9 +117,7 @@ type SidecarTemplateData struct {
 	ProxyGID                 int64
 	InboundTrafficPolicyMode string
 	CompliancePolicy         string
-	// EnableDeltaNds advertises the DELTA_NDS capability on the injected proxy so istiod
-	// generates NDS incrementally for it. Driven by the istiod feature flag EnableDeltaNds.
-	EnableDeltaNds bool
+	EnableDeltaNds           bool
 }
 
 type (

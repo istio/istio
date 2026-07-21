@@ -36,12 +36,8 @@ type Config struct {
 	// same-network endpoints in any cluster.
 	MulticlusterHeadlessEnabled bool
 
-	// Hostnames, if non-nil, restricts the table to services whose hostname is in the set
-	// (plus the per-pod records those services own). A nil set builds the full proxy-scoped
-	// table. This is used to build incremental (delta) NDS updates without rebuilding and
-	// re-serializing the whole table: each service only contributes records under its own
-	// hostname, and the sole cross-service interaction is same-hostname merging, so filtering
-	// by hostname yields the same entries the full build would produce for those hostnames.
+	// Hostnames, if non-nil, restricts the table generation to services whose hostname is in the set
+	// (plus the per-pod records those services own). This is used to build incremental NDS updates.
 	Hostnames sets.String
 }
 
@@ -55,7 +51,6 @@ func BuildNameTable(cfg Config) *dnsProto.NameTable {
 	for _, el := range cfg.Node.SidecarScope.EgressListeners {
 		for _, svc := range el.Services() {
 			if cfg.Hostnames != nil && !cfg.Hostnames.Contains(svc.Hostname.String()) {
-				// Delta build: skip services whose hostname didn't change.
 				continue
 			}
 			var addressList []string

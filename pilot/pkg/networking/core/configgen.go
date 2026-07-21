@@ -45,9 +45,7 @@ type ConfigGenerator interface {
 	// BuildNameTable returns list of hostnames and the associated IPs
 	BuildNameTable(node *model.Proxy, push *model.PushContext) *dnsProto.NameTable
 
-	// BuildDeltaNameTable generates the per-host NDS resource deltas for a proxy. It mirrors
-	// BuildDeltaClusters: it handles the delta gate and falls back to a full build when needed,
-	// returning (resources, removed, logDetails, usedDelta).
+	// BuildDeltaNameTable generates per-host NDS resource deltas for a proxy
 	BuildDeltaNameTable(proxy *model.Proxy, updates *model.PushRequest,
 		watched *model.WatchedResource) ([]*discovery.Resource, []string, model.XdsLogDetails, bool)
 
