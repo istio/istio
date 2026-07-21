@@ -681,6 +681,136 @@ func equalsDNSrecords(got []dns.RR, want []dns.RR) bool {
 	return reflect.DeepEqual(got, want)
 }
 
+func newTestDNSServer(t *testing.T) *LocalDNSServer {
+	t.Helper()
+	h, err := NewLocalDNSServer("ns1", "ns1.svc.cluster.local", "localhost:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	h.searchNamespaces = []string{"ns1.svc.cluster.local", "svc.cluster.local", "cluster.local"}
+	return h
+}
+
+func resolves(h *LocalDNSServer, hostname string) bool {
+	lp := h.lookupTable.Load()
+	if lp == nil {
+		return false
+	}
+	_, found := lp.(*LookupTable).lookupHost(dns.TypeA, hostname+".")
+	return found
+}
+
+func TestRebuild(t *testing.T) {
+	h := newTestDNSServer(t)
+
+	h.Rebuild(map[string]*dnsProto.NameTable_NameInfo{
+		"svc-a.ns1.svc.cluster.local": {Ips: []string{"10.0.0.1"}, Registry: "Kubernetes", Namespace: "ns1", Shortname: "svc-a"},
+		"svc-b.ns1.svc.cluster.local": {Ips: []string{"10.0.0.2"}, Registry: "Kubernetes", Namespace: "ns1", Shortname: "svc-b"},
+	})
+
+	if !resolves(h, "svc-a.ns1.svc.cluster.local") {
+		t.Error("expected svc-a to resolve after Rebuild")
+	}
+	if !resolves(h, "svc-b.ns1.svc.cluster.local") {
+		t.Error("expected svc-b to resolve after Rebuild")
+	}
+
+	// NameTable() must reflect the rebuilt state.
+	nt := h.NameTable()
+	if nt == nil || len(nt.Table) != 2 {
+		t.Errorf("expected NameTable with 2 entries, got %v", nt)
+	}
+
+	// Second Rebuild replaces the first — svc-a must disappear.
+	h.Rebuild(map[string]*dnsProto.NameTable_NameInfo{
+		"svc-c.ns1.svc.cluster.local": {Ips: []string{"10.0.0.3"}, Registry: "Kubernetes", Namespace: "ns1", Shortname: "svc-c"},
+	})
+	if resolves(h, "svc-a.ns1.svc.cluster.local") {
+		t.Error("svc-a should have been purged by the second Rebuild")
+	}
+	if !resolves(h, "svc-c.ns1.svc.cluster.local") {
+		t.Error("expected svc-c to resolve after second Rebuild")
+	}
+}
+
+func TestUpdateLookupTableIncremental(t *testing.T) {
+	h := newTestDNSServer(t)
+	h.Rebuild(map[string]*dnsProto.NameTable_NameInfo{
+		"svc-a.ns1.svc.cluster.local": {Ips: []string{"10.0.0.1"}, Registry: "Kubernetes", Namespace: "ns1", Shortname: "svc-a"},
+		"svc-b.ns1.svc.cluster.local": {Ips: []string{"10.0.0.2"}, Registry: "Kubernetes", Namespace: "ns1", Shortname: "svc-b"},
+	})
+
+	t.Run("add new entry", func(t *testing.T) {
+		h.UpdateLookupTable(map[string]*dnsProto.NameTable_NameInfo{
+			"svc-c.ns1.svc.cluster.local": {Ips: []string{"10.0.0.3"}, Registry: "Kubernetes", Namespace: "ns1", Shortname: "svc-c"},
+		}, nil)
+		if !resolves(h, "svc-c.ns1.svc.cluster.local") {
+			t.Error("expected svc-c to resolve after incremental add")
+		}
+		// Existing entries must be preserved.
+		if !resolves(h, "svc-a.ns1.svc.cluster.local") {
+			t.Error("svc-a should still resolve after adding svc-c")
+		}
+	})
+
+	t.Run("update existing entry IP", func(t *testing.T) {
+		h.UpdateLookupTable(map[string]*dnsProto.NameTable_NameInfo{
+			"svc-a.ns1.svc.cluster.local": {Ips: []string{"10.0.0.99"}, Registry: "Kubernetes", Namespace: "ns1", Shortname: "svc-a"},
+		}, nil)
+		lp := h.lookupTable.Load().(*LookupTable)
+		rrs, _ := lp.lookupHost(dns.TypeA, "svc-a.ns1.svc.cluster.local.")
+		if len(rrs) == 0 || rrs[0].(*dns.A).A.String() != "10.0.0.99" {
+			t.Errorf("expected svc-a to resolve to 10.0.0.99, got %v", rrs)
+		}
+	})
+
+	t.Run("remove entry", func(t *testing.T) {
+		h.UpdateLookupTable(nil, []string{"svc-b.ns1.svc.cluster.local"})
+		if resolves(h, "svc-b.ns1.svc.cluster.local") {
+			t.Error("svc-b should no longer resolve after removal")
+		}
+		if !resolves(h, "svc-a.ns1.svc.cluster.local") {
+			t.Error("svc-a should still resolve after removing svc-b")
+		}
+	})
+
+	t.Run("NameTable stays in sync", func(t *testing.T) {
+		nt := h.NameTable()
+		if nt == nil {
+			t.Fatal("NameTable() returned nil")
+		}
+		// svc-b was removed, svc-c was added, svc-a was updated.
+		if _, ok := nt.Table["svc-b.ns1.svc.cluster.local"]; ok {
+			t.Error("NameTable still contains removed svc-b")
+		}
+		if _, ok := nt.Table["svc-c.ns1.svc.cluster.local"]; !ok {
+			t.Error("NameTable missing added svc-c")
+		}
+		if ni := nt.Table["svc-a.ns1.svc.cluster.local"]; ni == nil || len(ni.Ips) == 0 || ni.Ips[0] != "10.0.0.99" {
+			t.Errorf("NameTable has wrong IP for svc-a: %v", ni)
+		}
+	})
+}
+
+func TestRebuildPurgesStaleEntries(t *testing.T) {
+	h := newTestDNSServer(t)
+	h.Rebuild(map[string]*dnsProto.NameTable_NameInfo{
+		"svc-a.ns1.svc.cluster.local": {Ips: []string{"10.0.0.1"}, Registry: "Kubernetes", Namespace: "ns1", Shortname: "svc-a"},
+	})
+	// Add incrementally.
+	h.UpdateLookupTable(map[string]*dnsProto.NameTable_NameInfo{
+		"svc-b.ns1.svc.cluster.local": {Ips: []string{"10.0.0.2"}, Registry: "Kubernetes", Namespace: "ns1", Shortname: "svc-b"},
+	}, nil)
+
+	// Simulate reconnect: Rebuild with only svc-a. svc-b (stale from prior connection) must vanish.
+	h.Rebuild(map[string]*dnsProto.NameTable_NameInfo{
+		"svc-a.ns1.svc.cluster.local": {Ips: []string{"10.0.0.1"}, Registry: "Kubernetes", Namespace: "ns1", Shortname: "svc-a"},
+	})
+	if resolves(h, "svc-b.ns1.svc.cluster.local") {
+		t.Error("Rebuild must purge svc-b from the previous connection")
+	}
+}
+
 func TestDNSTimeoutBehavior(t *testing.T) {
 	tests := []struct {
 		name        string

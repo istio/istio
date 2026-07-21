@@ -624,7 +624,7 @@ func (h *ndsDeltaHandler) OnStreamStart() {
 func (h *ndsDeltaHandler) Handle(resources []*discovery.Resource, removed []string) error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	if resources[0].Name == "" {
+	if len(resources) > 0 && resources[0].Name == "" {
 		// Full-table resource from old/incapable istiod: single resource contains the whole table.
 		var nt dnsProto.NameTable
 		if err := resources[0].Resource.UnmarshalTo(&nt); err != nil {

@@ -227,7 +227,7 @@ func (h *LocalDNSServer) Rebuild(added map[string]*dnsProto.NameTable_NameInfo) 
 		h.addHostEntries(newTable, hostname, ni)
 	}
 	h.lookupTable.Store(newTable)
-	h.nameTable.Store(added)
+	h.nameTable.Store(&dnsProto.NameTable{Table: added})
 	log.Debugf("rebuilt lookup table with %d hosts", len(newTable.allHosts))
 }
 
