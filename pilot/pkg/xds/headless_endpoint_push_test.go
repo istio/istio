@@ -22,10 +22,10 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
-// TestHeadlessEndpointPushOptimization verifies that LDS/CDS pushes are skipped
+// TestHeadlessEndpointPushOptimization verifies that LDS/CDS/RDS pushes are skipped
 // for headless endpoint updates where appropriate:
-// - Routers: Skip both LDS and CDS (only push EDS)
-// - Sidecars: Skip CDS (push LDS for TCP services, NDS for HTTP services)
+// - Routers: Skip LDS, CDS, and RDS (only push EDS)
+// - Sidecars: Skip CDS and RDS (push LDS for TCP services, NDS for HTTP services)
 func TestHeadlessEndpointPushOptimization(t *testing.T) {
 	tests := []struct {
 		name          string
@@ -34,9 +34,10 @@ func TestHeadlessEndpointPushOptimization(t *testing.T) {
 		configUpdates sets.Set[model.ConfigKey]
 		expectLDS     bool
 		expectCDS     bool
+		expectRDS     bool
 	}{
 		{
-			name:      "Router with headless endpoint update should skip LDS and CDS",
+			name:      "Router with headless endpoint update should skip LDS, CDS and RDS",
 			proxyType: model.Router,
 			reason:    model.NewReasonStats(model.HeadlessEndpointUpdate),
 			configUpdates: sets.New(
@@ -44,9 +45,10 @@ func TestHeadlessEndpointPushOptimization(t *testing.T) {
 			),
 			expectLDS: false,
 			expectCDS: false,
+			expectRDS: false,
 		},
 		{
-			name:      "Sidecar with headless endpoint update should skip CDS but not LDS",
+			name:      "Sidecar with headless endpoint update should skip CDS and RDS but not LDS",
 			proxyType: model.SidecarProxy,
 			reason:    model.NewReasonStats(model.HeadlessEndpointUpdate),
 			configUpdates: sets.New(
@@ -54,9 +56,10 @@ func TestHeadlessEndpointPushOptimization(t *testing.T) {
 			),
 			expectLDS: true, // Sidecars need LDS for per-pod listeners/filter chains
 			expectCDS: false,
+			expectRDS: false,
 		},
 		{
-			name:      "Router with non-headless ServiceEntry should push both",
+			name:      "Router with non-headless ServiceEntry should push all",
 			proxyType: model.Router,
 			reason:    model.NewReasonStats(model.ConfigUpdate), // Not HeadlessEndpointUpdate
 			configUpdates: sets.New(
@@ -64,9 +67,10 @@ func TestHeadlessEndpointPushOptimization(t *testing.T) {
 			),
 			expectLDS: true,
 			expectCDS: true,
+			expectRDS: true,
 		},
 		{
-			name:      "Router with mixed config types should push both",
+			name:      "Router with mixed config types should push all",
 			proxyType: model.Router,
 			reason:    model.NewReasonStats(model.HeadlessEndpointUpdate),
 			configUpdates: sets.New(
@@ -75,9 +79,10 @@ func TestHeadlessEndpointPushOptimization(t *testing.T) {
 			),
 			expectLDS: true,
 			expectCDS: true,
+			expectRDS: true,
 		},
 		{
-			name:      "Sidecar with regular endpoint update (kind.Endpoints) should push both",
+			name:      "Sidecar with regular endpoint update (kind.Endpoints) should push none",
 			proxyType: model.SidecarProxy,
 			reason:    model.NewReasonStats(model.EndpointUpdate),
 			configUpdates: sets.New(
@@ -85,9 +90,10 @@ func TestHeadlessEndpointPushOptimization(t *testing.T) {
 			),
 			expectLDS: false, // kind.Endpoints is in skip list
 			expectCDS: false, // kind.Endpoints is in skip list
+			expectRDS: false, // kind.Endpoints is in skip list
 		},
 		{
-			name:      "Router with HeadlessEndpointUpdate + ServiceUpdate should push both",
+			name:      "Router with HeadlessEndpointUpdate + ServiceUpdate should push all",
 			proxyType: model.Router,
 			reason:    model.NewReasonStats(model.HeadlessEndpointUpdate, model.ServiceUpdate),
 			configUpdates: sets.New(
@@ -95,9 +101,10 @@ func TestHeadlessEndpointPushOptimization(t *testing.T) {
 			),
 			expectLDS: true, // ServiceUpdate means service definition changed
 			expectCDS: true, // ServiceUpdate means service definition changed
+			expectRDS: true, // ServiceUpdate means service definition changed
 		},
 		{
-			name:      "Sidecar with HeadlessEndpointUpdate + ServiceUpdate should push both",
+			name:      "Sidecar with HeadlessEndpointUpdate + ServiceUpdate should push all",
 			proxyType: model.SidecarProxy,
 			reason:    model.NewReasonStats(model.HeadlessEndpointUpdate, model.ServiceUpdate),
 			configUpdates: sets.New(
@@ -105,6 +112,7 @@ func TestHeadlessEndpointPushOptimization(t *testing.T) {
 			),
 			expectLDS: true, // ServiceUpdate means service definition changed
 			expectCDS: true, // ServiceUpdate means service definition changed
+			expectRDS: true, // ServiceUpdate means service definition changed
 		},
 	}
 
@@ -135,6 +143,12 @@ func TestHeadlessEndpointPushOptimization(t *testing.T) {
 			_, gotCDS := cdsNeedsPush(req, proxy)
 			if gotCDS != tt.expectCDS {
 				t.Errorf("cdsNeedsPush() = %v, want %v", gotCDS, tt.expectCDS)
+			}
+
+			// Test RDS
+			gotRDS := rdsNeedsPush(req, proxy)
+			if gotRDS != tt.expectRDS {
+				t.Errorf("rdsNeedsPush() = %v, want %v", gotRDS, tt.expectRDS)
 			}
 		})
 	}
