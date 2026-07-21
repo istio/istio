@@ -18,11 +18,11 @@ import (
 	"bytes"
 	"errors"
 	"io"
-	"slices"
 	"strings"
 	"testing"
 
 	istiolog "istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test/util/assert"
 	iptablesconstants "istio.io/istio/tools/istio-iptables/pkg/constants"
 	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
