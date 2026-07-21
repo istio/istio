@@ -1017,6 +1017,7 @@ func TestOutboundListenerTLSWithVSEmptyRoute(t *testing.T) {
 }
 
 func TestOutboundListenerForHeadlessServices(t *testing.T) {
+	test.SetForTest(t, &features.EnableHeadlessFilterChainListener, true)
 	svc := buildServiceWithPort("test.com", 9999, protocol.TCP, tnow)
 	svc.Resolution = model.Passthrough
 	svc.Attributes.ServiceRegistry = provider.Kubernetes

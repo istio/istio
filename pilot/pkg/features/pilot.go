@@ -231,7 +231,7 @@ var (
 	// 0.0.0.0:Port listener with per-pod /32 CIDR filter chain matches, rather than a separate
 	// per-pod-IP listener. The single-listener approach reduces xDS size by ~10% for large
 	// headless services and keeps Envoy listener count at O(1) per headless service port.
-	EnableHeadlessFilterChainListener = env.Register("PILOT_ENABLE_HEADLESS_FILTER_CHAIN_LISTENER", true,
+	EnableHeadlessFilterChainListener = env.Register("PILOT_ENABLE_HEADLESS_FILTER_CHAIN_LISTENER", false,
 		"If true, headless TCP services use a single wildcard listener with per-pod /32 CIDR filter chain matches "+
 			"instead of one listener per pod IP. Reduces xDS size and listener count for large headless services.").Get()
 

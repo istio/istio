@@ -7,7 +7,6 @@ pilot:
     # 1.31 behavioral changes
     PILOT_ENABLE_STRICT_GATEWAY_MERGING: "false"
     PILOT_AUTO_SEND_UNHEALTHY_ENDPOINTS: "false"
-    PILOT_ENABLE_HEADLESS_FILTER_CHAIN_LISTENER: "false"
 
 cni:
   ambient:
