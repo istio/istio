@@ -160,6 +160,10 @@ func (client mockPromAPI) Flags(ctx context.Context) (promv1.FlagsResult, error)
 	return nil, nil
 }
 
+func (client mockPromAPI) FormatQuery(ctx context.Context, query string) (string, error) {
+	return "", nil
+}
+
 func (client mockPromAPI) Query(ctx context.Context, query string, ts time.Time, opts ...promv1.Option) (prometheus_model.Value, promv1.Warnings, error) {
 	canned, ok := client.cannedResponse[query]
 	if !ok {
@@ -200,8 +204,12 @@ func (client mockPromAPI) Snapshot(ctx context.Context, skipHead bool) (promv1.S
 	return promv1.SnapshotResult{}, nil
 }
 
-func (client mockPromAPI) Rules(ctx context.Context) (promv1.RulesResult, error) {
+func (client mockPromAPI) Rules(ctx context.Context, matches []string) (promv1.RulesResult, error) {
 	return promv1.RulesResult{}, nil
+}
+
+func (client mockPromAPI) TSDBBlocks(ctx context.Context) (promv1.TSDBBlocksResult, error) {
+	return promv1.TSDBBlocksResult{}, nil
 }
 
 func (client mockPromAPI) Targets(ctx context.Context) (promv1.TargetsResult, error) {
@@ -222,7 +230,7 @@ func (client mockPromAPI) Metadata(ctx context.Context, metric string, limit str
 
 func (client mockPromAPI) LabelNames(
 	ctx context.Context, matches []string, startTime time.Time, endTime time.Time, options ...promv1.Option,
-) ([]string, promv1.Warnings, error) {
+) (prometheus_model.LabelNames, promv1.Warnings, error) {
 	return nil, nil, nil
 }
 
