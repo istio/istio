@@ -17,6 +17,7 @@ package client
 import (
 	"context"
 	"fmt"
+	"maps"
 	"net"
 	"net/netip"
 	"os"
@@ -213,17 +214,82 @@ func (h *LocalDNSServer) StartDNS() {
 	}
 }
 
-func (h *LocalDNSServer) UpdateLookupTable(nt *dnsProto.NameTable) {
-	lookupTable := &LookupTable{
+// Rebuild builds a fresh lookup table from added and atomically replaces the current one.
+// Used when the full set of DNS entries is known (initial load, reconnect after stream reset).
+func (h *LocalDNSServer) Rebuild(added map[string]*dnsProto.NameTable_NameInfo) {
+	newTable := &LookupTable{
 		allHosts: sets.String{},
 		name4:    map[string][]dns.RR{},
 		name6:    map[string][]dns.RR{},
 		cname:    map[string][]dns.RR{},
 	}
-	h.BuildAlternateHosts(nt, lookupTable.buildDNSAnswers)
-	h.lookupTable.Store(lookupTable)
-	h.nameTable.Store(nt)
-	log.Debugf("updated lookup table with %d hosts", len(lookupTable.allHosts))
+	for hostname, ni := range added {
+		h.addHostEntries(newTable, hostname, ni)
+	}
+	h.lookupTable.Store(newTable)
+	h.nameTable.Store(added)
+	log.Debugf("rebuilt lookup table with %d hosts", len(newTable.allHosts))
+}
+
+// UpdateLookupTable incrementally updates the lookup table for a set of added/modified and removed NDS hostnames.
+func (h *LocalDNSServer) UpdateLookupTable(added map[string]*dnsProto.NameTable_NameInfo, removed []string) {
+	prevNT := h.nameTable.Load().(*dnsProto.NameTable)
+	base := h.lookupTable.Load().(*LookupTable)
+	newTable := &LookupTable{
+		allHosts: base.allHosts.Copy(),
+		name4:    maps.Clone(base.name4),
+		name6:    maps.Clone(base.name6),
+		cname:    maps.Clone(base.cname),
+	}
+	updatedNT := &dnsProto.NameTable{Table: maps.Clone(prevNT.GetTable())}
+	for _, hostname := range removed {
+		h.removeHostEntries(newTable, hostname, prevNT.GetTable()[hostname])
+		delete(updatedNT.Table, hostname)
+	}
+	for hostname, ni := range added {
+		h.removeHostEntries(newTable, hostname, prevNT.GetTable()[hostname])
+		h.addHostEntries(newTable, hostname, ni)
+		updatedNT.Table[hostname] = ni
+	}
+	h.lookupTable.Store(newTable)
+	h.nameTable.Store(updatedNT)
+
+	log.Debugf("applied delta to lookup table +%d -%d, total %d hosts", len(added), len(removed), len(newTable.allHosts))
+}
+
+// altHostsFor returns the set of DNS keys a hostname contributes, derived from its NameInfo.
+func (h *LocalDNSServer) altHostsFor(hostname string, ni *dnsProto.NameTable_NameInfo) sets.String {
+	if ni.Registry == string(provider.Kubernetes) {
+		return generateAltHosts(hostname, ni, h.proxyNamespace, h.proxyDomain, h.proxyDomainParts)
+	}
+	fqdn := hostname
+	if !strings.HasSuffix(fqdn, ".") {
+		fqdn += "."
+	}
+	return sets.New(fqdn)
+}
+
+// addHostEntries computes the DNS alt-hosts for a single NDS hostname and inserts them into table.
+func (h *LocalDNSServer) addHostEntries(table *LookupTable, hostname string, ni *dnsProto.NameTable_NameInfo) {
+	ipv4, ipv6 := netutil.ParseIPsSplitToV4V6(ni.Ips)
+	if len(ipv4) == 0 && len(ipv6) == 0 {
+		return
+	}
+	table.buildDNSAnswers(h.altHostsFor(hostname, ni), ipv4, ipv6, h.searchNamespaces)
+}
+
+// removeHostEntries deletes all DNS keys that hostname contributed, re-deriving them from ni
+// (the NameInfo the hostname had before this delta).
+func (h *LocalDNSServer) removeHostEntries(table *LookupTable, hostname string, ni *dnsProto.NameTable_NameInfo) {
+	if ni == nil {
+		return
+	}
+	for ah := range h.altHostsFor(hostname, ni) {
+		table.allHosts.Delete(ah)
+		delete(table.name4, ah)
+		delete(table.name6, ah)
+		delete(table.cname, ah)
+	}
 }
 
 // BuildAlternateHosts builds alternate hosts for Kubernetes services in the name table and

@@ -204,7 +204,9 @@ func (p *XdsProxy) handleUpstreamDeltaRequest(con *ProxyConnection) {
 }
 
 func (p *XdsProxy) handleUpstreamDeltaResponse(con *ProxyConnection) {
-	p.resetNDSAccumulator()
+	for _, h := range p.deltaHandlers {
+		h.OnStreamStart()
+	}
 	forwardEnvoyCh := make(chan *discovery.DeltaDiscoveryResponse, 1)
 	for {
 		select {
@@ -219,7 +221,7 @@ func (p *XdsProxy) handleUpstreamDeltaResponse(con *ProxyConnection) {
 			).Debugf("upstream response")
 			metrics.XdsProxyResponses.Increment()
 			if h, f := p.deltaHandlers[resp.TypeUrl]; f {
-				err := h(resp.Resources, resp.RemovedResources)
+				err := h.Handle(resp.Resources, resp.RemovedResources)
 				var errorResp *google_rpc.Status
 				if err != nil {
 					errorResp = &google_rpc.Status{

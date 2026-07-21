@@ -38,6 +38,7 @@ import (
 	istiogrpc "istio.io/istio/pilot/pkg/grpc"
 	"istio.io/istio/pkg/channels"
 	"istio.io/istio/pkg/config/constants"
+	dnsClient "istio.io/istio/pkg/dns/client"
 	dnsProto "istio.io/istio/pkg/dns/proto"
 	"istio.io/istio/pkg/istio-agent/health"
 	"istio.io/istio/pkg/istio-agent/metrics"
@@ -69,10 +70,14 @@ var connectionNumber = atomic.NewUint32(0)
 // resource.
 type ResponseHandler func(resp *anypb.Any) error
 
-// DeltaResponseHandler handles a delta XDS response in the agent. Unlike ResponseHandler it
-// receives all resources and removed names in the response, allowing multi-resource and
-// removal-aware processing.
-type DeltaResponseHandler func(resources []*discovery.Resource, removed []string) error
+// DeltaHandler handles delta XDS responses for a specific type URL.
+type DeltaHandler interface {
+	// Handle processes the resources and removed names from a delta response.
+	Handle(resources []*discovery.Resource, removed []string) error
+	// OnStreamStart is called when a new upstream delta stream is established.
+	// Implementations should use this to reset any stream-scoped state.
+	OnStreamStart()
+}
 
 // XdsProxy proxies all XDS requests from envoy to istiod, in addition to allowing
 // subsystems inside the agent to also communicate with either istiod/envoy (eg dns, sds, etc).
@@ -90,18 +95,12 @@ type XdsProxy struct {
 	optsMutex            sync.RWMutex
 	dialOptions          []grpc.DialOption
 	handlers             map[string]ResponseHandler
-	deltaHandlers        map[string]DeltaResponseHandler
-
-	// ndsAccumulator holds the per-hostname DNS entries accumulated from incremental NDS
-	// updates. It is reset at the start of each new upstream delta stream so reconnects
-	// produce a clean slate. Protected by ndsAccumulatorMu.
-	ndsAccumulator   map[string]*dnsProto.NameTable_NameInfo
-	ndsAccumulatorMu sync.Mutex
-	healthChecker    *health.WorkloadHealthChecker
-	xdsHeaders       map[string]string
-	xdsUdsPath       string
-	proxyAddresses   []string
-	ia               *Agent
+	deltaHandlers        map[string]DeltaHandler
+	healthChecker        *health.WorkloadHealthChecker
+	xdsHeaders           map[string]string
+	xdsUdsPath           string
+	proxyAddresses       []string
+	ia                   *Agent
 
 	// connected stores the active gRPC stream. The proxy will only have 1 connection at a time
 	connected                 *ProxyConnection
@@ -151,7 +150,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		istiodSAN:             ia.cfg.IstiodSAN,
 		clusterID:             ia.secOpts.ClusterID,
 		handlers:              map[string]ResponseHandler{},
-		deltaHandlers:         map[string]DeltaResponseHandler{},
+		deltaHandlers:         map[string]DeltaHandler{},
 		stopChan:              make(chan struct{}),
 		healthChecker:         health.NewWorkloadHealthChecker(ia.proxyConfig.ReadinessProbe, envoyProbe, ia.cfg.ProxyIPAddresses, ia.cfg.IsIPv6),
 		xdsHeaders:            ia.cfg.XDSHeaders,
@@ -163,38 +162,17 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 	}
 
 	if ia.localDNSServer != nil {
-		// Delta path: each resource is a single-entry NameTable keyed by hostname. An empty
-		// Name signals the old full-table format (old istiod or incapable path), which resets
-		// the accumulator. Named resources are merged/removed incrementally.
-		proxy.deltaHandlers[model.NameTableType] = func(resources []*discovery.Resource, removed []string) error {
-			proxy.ndsAccumulatorMu.Lock()
-			defer proxy.ndsAccumulatorMu.Unlock()
-			for _, r := range resources {
-				if r.Name == "" {
-					// Full-table resource from an old or incapable istiod: reset accumulator.
-					var nt dnsProto.NameTable
-					if err := r.Resource.UnmarshalTo(&nt); err != nil {
-						return err
-					}
-					proxy.ndsAccumulator = nt.GetTable()
-				} else {
-					var nt dnsProto.NameTable
-					if err := r.Resource.UnmarshalTo(&nt); err != nil {
-						return err
-					}
-					for name, ni := range nt.GetTable() {
-						proxy.ndsAccumulator[name] = ni
-					}
-				}
+		// SotW path: istiod sends the full NameTable as a single resource on every push.
+		proxy.handlers[model.NameTableType] = func(resp *anypb.Any) error {
+			var nt dnsProto.NameTable
+			if err := resp.UnmarshalTo(&nt); err != nil {
+				return err
 			}
-			for _, name := range removed {
-				delete(proxy.ndsAccumulator, name)
-			}
-			// Pass a snapshot copy so UpdateLookupTable's stored pointer is independent of our
-			// live accumulator map (UpdateLookupTable stores nt via nameTable.Store(nt)).
-			ia.localDNSServer.UpdateLookupTable(&dnsProto.NameTable{Table: maps.Clone(proxy.ndsAccumulator)})
+			ia.localDNSServer.Rebuild(nt.GetTable())
 			return nil
 		}
+		// Delta path: each resource is a single-entry NameTable keyed by hostname.
+		proxy.deltaHandlers[model.NameTableType] = &ndsDeltaHandler{dnsServer: ia.localDNSServer}
 	}
 	if ia.cfg.EnableDynamicProxyConfig && ia.secretCache != nil {
 		proxy.handlers[model.ProxyConfigType] = func(resp *anypb.Any) error {
@@ -456,7 +434,7 @@ func (p *XdsProxy) handleUpstreamRequest(con *ProxyConnection) {
 			con.sendRequest(req)
 			if !initialRequestsSent.Load() && req.TypeUrl == model.ListenerType {
 				// fire off an initial NDS request
-				if _, f := p.deltaHandlers[model.NameTableType]; f {
+				if _, f := p.handlers[model.NameTableType]; f {
 					con.sendRequest(&discovery.DiscoveryRequest{
 						TypeUrl: model.NameTableType,
 					})
@@ -627,12 +605,52 @@ func (p *XdsProxy) close() {
 	}
 }
 
-// resetNDSAccumulator clears the NDS hostname accumulator at the start of each new upstream
-// delta stream so that stale entries from a previous connection do not survive reconnects.
-func (p *XdsProxy) resetNDSAccumulator() {
-	p.ndsAccumulatorMu.Lock()
-	p.ndsAccumulator = make(map[string]*dnsProto.NameTable_NameInfo)
-	p.ndsAccumulatorMu.Unlock()
+// ndsDeltaHandler implements DeltaHandler for the Name Discovery Service. It handles both the
+// full-table format (unnamed single resource from old/incapable istiod) and the per-hostname
+// incremental format. Stream-scoped state (needsRebuild) is reset via OnStreamStart so that
+// stale entries from a previous connection are purged on the first response.
+type ndsDeltaHandler struct {
+	dnsServer    *dnsClient.LocalDNSServer
+	needsRebuild bool
+	mu           sync.Mutex
+}
+
+func (h *ndsDeltaHandler) OnStreamStart() {
+	h.mu.Lock()
+	h.needsRebuild = true
+	h.mu.Unlock()
+}
+
+func (h *ndsDeltaHandler) Handle(resources []*discovery.Resource, removed []string) error {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if resources[0].Name == "" {
+		// Full-table resource from old/incapable istiod: single resource contains the whole table.
+		var nt dnsProto.NameTable
+		if err := resources[0].Resource.UnmarshalTo(&nt); err != nil {
+			return err
+		}
+		h.dnsServer.Rebuild(nt.GetTable())
+		h.needsRebuild = false
+		return nil
+	}
+
+	added := make(map[string]*dnsProto.NameTable_NameInfo, len(resources))
+	for _, r := range resources {
+		var nt dnsProto.NameTable
+		if err := r.Resource.UnmarshalTo(&nt); err != nil {
+			return err
+		}
+		maps.Copy(added, nt.GetTable())
+	}
+
+	if h.needsRebuild {
+		h.dnsServer.Rebuild(added)
+		h.needsRebuild = false
+	} else {
+		h.dnsServer.UpdateLookupTable(added, removed)
+	}
+	return nil
 }
 
 func (p *XdsProxy) initDownstreamServer() error {
