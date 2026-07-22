@@ -130,3 +130,21 @@ func TestProjectClassic(t *testing.T) {
 		t.Fatalf("unexpected endpoints: %+v", projection.Endpoints)
 	}
 }
+
+func TestProjectClassicInferenceSemantics(t *testing.T) {
+	source := model.ConfigKey{Kind: kind.InferencePool, Namespace: "apps", Name: "models"}
+	id := DefinitionID{Source: source, Port: "http-0"}
+	resolved := ResolvedDestination{
+		Binding: DestinationBinding{
+			Key: BindingKey{Definition: id}, Definition: id, RuntimeName: "models.internal", Namespace: "apps",
+			Port: DestinationPort{Name: "http-0", Number: 8080, Protocol: protocol.HTTP},
+		},
+		Definition: DestinationDefinition{
+			ID: id, Namespace: "apps", Metadata: DestinationMetadata{Semantics: InferencePoolSemantics},
+		},
+	}
+	projection := ProjectClassic(resolved, provider.GatewayBackend)
+	if !projection.Service.UseInferenceSemantics() {
+		t.Fatalf("inference semantics were not preserved: %+v", projection.Service.Attributes.Labels)
+	}
+}

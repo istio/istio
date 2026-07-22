@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	destinationmodel "istio.io/istio/pilot/pkg/model/destination"
 	"istio.io/istio/pilot/pkg/serviceregistry/gatewaybackend"
+	kuberegistry "istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pilot/pkg/status"
 	"istio.io/istio/pkg/cluster"
@@ -109,8 +110,21 @@ type Controller struct {
 
 	shadowServiceReconciler controllers.Queue
 
-	backendRegistry  *gatewaybackend.Controller
-	destinationIndex *destinationmodel.Index
+	backendRegistry      *gatewaybackend.Controller
+	destinationIndex     *destinationmodel.Index
+	destinationOpts      krt.OptionsBuilder
+	destinationSources   DestinationSources
+	destinationResolvers map[destinationmodel.EndpointSourceKind]destinationmodel.Resolver
+}
+
+// DestinationSources are compiled independently of the global index owner.
+// Bootstrap joins these with sources from other registries before constructing
+// the single mesh-wide DestinationIndex.
+type DestinationSources struct {
+	Frontends   krt.Collection[destinationmodel.FrontendDefinition]
+	Definitions krt.Collection[destinationmodel.DestinationDefinition]
+	Bindings    krt.Collection[destinationmodel.DestinationBinding]
+	Resolvers   map[destinationmodel.EndpointSourceKind]destinationmodel.Resolver
 }
 
 type ParentInfo struct {
@@ -139,6 +153,7 @@ type Outputs struct {
 
 type Inputs struct {
 	Namespaces krt.Collection[*corev1.Namespace]
+	Pods       krt.Collection[*corev1.Pod]
 
 	Services   krt.Collection[*corev1.Service]
 	Secrets    krt.Collection[*corev1.Secret]
@@ -172,16 +187,17 @@ func NewController(
 
 	tw := revisions.NewTagWatcher(kc, options.Revision, options.SystemNamespace)
 	c := &Controller{
-		client:         kc,
-		cluster:        options.ClusterID,
-		revision:       options.Revision,
-		status:         &status.StatusCollections{},
-		tagWatcher:     krt.NewRecomputeProtected(tw, false, opts.WithName("tagWatcher")...),
-		waitForCRD:     waitForCRD,
-		gatewayContext: krt.NewRecomputeProtected(atomic.NewPointer[gatewaycommon.GatewayContext](nil), false, opts.WithName("gatewayContext")...),
-		stop:           stop,
-		xdsUpdater:     xdsUpdater,
-		domainSuffix:   options.DomainSuffix,
+		client:          kc,
+		cluster:         options.ClusterID,
+		revision:        options.Revision,
+		status:          &status.StatusCollections{},
+		tagWatcher:      krt.NewRecomputeProtected(tw, false, opts.WithName("tagWatcher")...),
+		waitForCRD:      waitForCRD,
+		gatewayContext:  krt.NewRecomputeProtected(atomic.NewPointer[gatewaycommon.GatewayContext](nil), false, opts.WithName("gatewayContext")...),
+		stop:            stop,
+		xdsUpdater:      xdsUpdater,
+		domainSuffix:    options.DomainSuffix,
+		destinationOpts: opts,
 	}
 	tw.AddHandler(func(s sets.String) {
 		c.tagWatcher.TriggerRecomputation()
@@ -191,6 +207,7 @@ func NewController(
 
 	inputs := Inputs{
 		Namespaces: krt.NewInformer[*corev1.Namespace](kc, opts.WithName("informer/Namespaces")...),
+		Pods:       krt.NewInformer[*corev1.Pod](kc, opts.WithName("informer/Pods")...),
 		Secrets: krt.WrapClient(
 			kclient.NewFiltered[*corev1.Secret](kc, kubetypes.Filter{
 				FieldSelector: kubesecrets.SecretsFieldSelector,
@@ -387,23 +404,52 @@ func NewController(
 	xBackendDestinations := krt.NewCollection(backendPolicies.ValidBindings, func(_ krt.HandlerContext, b BackendBinding) *destinationmodel.DestinationBinding {
 		return &b.Destination
 	}, opts.WithName("XBackendDestinations")...)
+	trustDomain := ""
+	if options.MeshWatcher != nil && options.MeshWatcher.Mesh() != nil {
+		trustDomain = options.MeshWatcher.Mesh().GetTrustDomain()
+	}
+	kubeServiceIR := krt.NewCollection(inputs.Services, func(_ krt.HandlerContext, service *corev1.Service) *kuberegistry.ServiceDestinationIR {
+		ir := kuberegistry.ConvertServiceToDestinationIR(*service, nil, c.domainSuffix, c.cluster, trustDomain)
+		return &ir
+	}, opts.WithName("KubernetesServiceDestinationIR")...)
+	kubeFrontends := krt.NewCollection(kubeServiceIR, func(_ krt.HandlerContext, ir kuberegistry.ServiceDestinationIR) *destinationmodel.FrontendDefinition {
+		return &ir.Frontend
+	}, opts.WithName("KubernetesServiceFrontends")...)
+	kubeDefinitions := krt.NewManyCollection(kubeServiceIR, func(_ krt.HandlerContext, ir kuberegistry.ServiceDestinationIR) []destinationmodel.DestinationDefinition {
+		return ir.Definitions
+	}, opts.WithName("KubernetesServiceDestinationDefinitions")...)
+	kubeBindings := krt.NewManyCollection(kubeServiceIR, func(_ krt.HandlerContext, ir kuberegistry.ServiceDestinationIR) []destinationmodel.DestinationBinding {
+		out := make([]destinationmodel.DestinationBinding, 0, len(ir.Definitions))
+		consumer := destinationmodel.ConsumerID{Kind: "Mesh"}
+		for _, definition := range ir.Definitions {
+			port := definition.Ports[0]
+			out = append(out, destinationmodel.DestinationBinding{
+				Key:         destinationmodel.BindingKey{Definition: definition.ID, Consumer: consumer},
+				RuntimeName: ir.Frontend.Hostname, Definition: definition.ID, Consumer: consumer,
+				Port: port, Endpoints: definition.Endpoints, Connection: definition.Connection,
+				Dependencies: destinationmodel.NormalizeDependencies(definition.Dependencies...),
+				Namespace:    definition.Namespace, CreationTime: definition.CreationTime,
+			})
+		}
+		return out
+	}, opts.WithName("KubernetesServiceDestinationBindings")...)
 	allDestinationDefinitions := krt.JoinCollection([]krt.Collection[destinationmodel.DestinationDefinition]{
 		xBackendDefinitions,
 		inferenceDestinationDefinitions,
+		kubeDefinitions,
 	}, opts.WithName("DestinationDefinitions")...)
 	allDestinationBindings := krt.JoinCollection([]krt.Collection[destinationmodel.DestinationBinding]{
 		xBackendDestinations,
 		inferenceDestinationBindings,
+		kubeBindings,
 	}, opts.WithName("DestinationBindings")...)
-	c.destinationIndex = destinationmodel.NewIndex(allDestinationDefinitions, allDestinationBindings, opts, destinationmodel.IndexOptions{})
-	runtimeBackends := krt.NewCollection(c.destinationIndex.Resolved, func(_ krt.HandlerContext, resolved destinationmodel.ResolvedDestination) *gatewaybackend.RuntimeBackend {
-		runtime, ok := destinationmodel.RuntimeBackendFromBinding(resolved.Binding)
-		if !ok {
-			return nil
-		}
-		return &runtime
-	}, opts.WithName("RuntimeXBackends")...)
-	c.backendRegistry = gatewaybackend.NewController(runtimeBackends, c.cluster, xdsUpdater)
+	c.destinationResolvers = map[destinationmodel.EndpointSourceKind]destinationmodel.Resolver{
+		destinationmodel.ExtensionResolved: inferencePoolEndpointResolver(inputs.InferencePools, inputs.Pods, c.cluster, trustDomain),
+	}
+	c.destinationSources = DestinationSources{
+		Frontends: kubeFrontends, Definitions: allDestinationDefinitions, Bindings: allDestinationBindings,
+		Resolvers: c.destinationResolvers,
+	}
 
 	policyDestinationRules := DestinationRuleCollection(
 		inputs.BackendTrafficPolicy,
@@ -698,6 +744,57 @@ func (c *Controller) BackendRegistry() *gatewaybackend.Controller {
 // DestinationIndex exposes the shared, consumer-scoped outbound destination
 // view. It contains no frontend or ztunnel addressability semantics.
 func (c *Controller) DestinationIndex() *destinationmodel.Index {
+	return c.destinationIndex
+}
+
+func (c *Controller) DestinationSources() DestinationSources {
+	return c.destinationSources
+}
+
+// InitializeGlobalDestinationIndex constructs the shared index from the
+// controller's source collections. Ownership is initiated by bootstrap rather
+// than hidden inside Gateway translation; the setter remains on Controller to
+// preserve the existing waypoint provider interface during migration.
+func (c *Controller) InitializeGlobalDestinationIndex(external ...DestinationSources) *destinationmodel.Index {
+	if c.destinationIndex != nil {
+		return c.destinationIndex
+	}
+	definitions := []krt.Collection[destinationmodel.DestinationDefinition]{c.destinationSources.Definitions}
+	bindings := []krt.Collection[destinationmodel.DestinationBinding]{c.destinationSources.Bindings}
+	frontends := []krt.Collection[destinationmodel.FrontendDefinition]{c.destinationSources.Frontends}
+	resolvers := make(map[destinationmodel.EndpointSourceKind]destinationmodel.Resolver, len(c.destinationResolvers))
+	for sourceKind, resolver := range c.destinationResolvers {
+		resolvers[sourceKind] = resolver
+	}
+	for _, source := range external {
+		frontends = append(frontends, source.Frontends)
+		definitions = append(definitions, source.Definitions)
+		bindings = append(bindings, source.Bindings)
+		for sourceKind, resolver := range source.Resolvers {
+			resolvers[sourceKind] = resolver
+		}
+	}
+	c.destinationSources = DestinationSources{
+		Frontends:   krt.JoinCollection(frontends, c.destinationOpts.WithName("GlobalDestinationFrontends")...),
+		Definitions: krt.JoinCollection(definitions, c.destinationOpts.WithName("GlobalDestinationDefinitions")...),
+		Bindings:    krt.JoinCollection(bindings, c.destinationOpts.WithName("GlobalDestinationBindings")...),
+		Resolvers:   resolvers,
+	}
+	c.destinationIndex = destinationmodel.NewIndex(
+		c.destinationSources.Definitions, c.destinationSources.Bindings, c.destinationOpts,
+		destinationmodel.IndexOptions{Resolvers: resolvers},
+	)
+	runtimeBackends := krt.NewCollection(c.destinationIndex.Resolved, func(_ krt.HandlerContext, resolved destinationmodel.ResolvedDestination) *gatewaybackend.RuntimeBackend {
+		if resolved.Binding.Definition.Source.Kind != kind.XBackend {
+			return nil
+		}
+		runtime, ok := destinationmodel.RuntimeBackendFromBinding(resolved.Binding)
+		if !ok {
+			return nil
+		}
+		return &runtime
+	}, c.destinationOpts.WithName("RuntimeXBackends")...)
+	c.backendRegistry = gatewaybackend.NewController(runtimeBackends, c.cluster, c.xdsUpdater)
 	return c.destinationIndex
 }
 

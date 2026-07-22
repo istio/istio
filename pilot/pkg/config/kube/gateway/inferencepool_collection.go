@@ -224,7 +224,7 @@ func createInferencePoolObject(
 	extRef.port = int32(pool.Spec.EndpointPickerRef.Port.Number)
 
 	extRef.failureMode = string(inferencev1.EndpointPickerFailClose) // Default failure mode
-	if pool.Spec.EndpointPickerRef.FailureMode != inferencev1.EndpointPickerFailClose {
+	if pool.Spec.EndpointPickerRef.FailureMode != "" && pool.Spec.EndpointPickerRef.FailureMode != inferencev1.EndpointPickerFailClose {
 		extRef.failureMode = string(pool.Spec.EndpointPickerRef.FailureMode)
 	}
 
@@ -279,8 +279,11 @@ func createInferencePoolObject(
 			Kind: destination.ExtensionResolved, Source: source, Hostname: runtimeName,
 			Extension: extRef.name, Port: uint32(extRef.port), //nolint:gosec // API port validation bounds this value.
 		},
-		Connection:   destination.ConnectionPolicy{Protocol: applicationProtocol},
-		Metadata:     destination.DestinationMetadata{Extension: extRef.failureMode},
+		Connection: destination.ConnectionPolicy{Protocol: applicationProtocol},
+		Metadata: destination.DestinationMetadata{
+			Semantics:   destination.InferencePoolSemantics,
+			FailureMode: destination.ExtensionFailureMode(extRef.failureMode),
+		},
 		CreationTime: pool.CreationTimestamp.Time,
 	}
 

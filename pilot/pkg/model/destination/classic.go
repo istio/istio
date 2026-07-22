@@ -18,6 +18,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/labels"
 )
 
 // ClassicProjection is the compatibility view used by existing CDS/EDS and
@@ -39,6 +40,11 @@ func ProjectClassic(resolved ResolvedDestination, registry provider.ID) ClassicP
 		Ports: model.PortList{p}, CreationTime: resolved.Binding.CreationTime,
 		Hostname: resolved.Binding.RuntimeName, DefaultAddress: constants.UnspecifiedIP,
 		Resolution: resolutionFor(resolved.Binding.Endpoints.Kind), MeshExternal: true,
+	}
+	if d.Metadata.Semantics == InferencePoolSemantics {
+		service.Attributes.Labels = labels.Instance{
+			constants.InternalServiceSemantics: constants.ServiceSemanticsInferencePool,
+		}
 	}
 	return ClassicProjection{Service: service, Endpoints: append([]*model.IstioEndpoint(nil), resolved.Endpoints...)}
 }

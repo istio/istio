@@ -195,9 +195,6 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 		gwc := gateway.NewController(s.kubeClient, s.kubeClient.CrdWatcher().WaitForCRD, args.RegistryOptions.KubeOptions, s.XDSServer)
 		s.environment.GatewayAPIController = gwc
 		s.ConfigStores = append(s.ConfigStores, s.environment.GatewayAPIController)
-		if features.EnableAlphaGatewayAPI {
-			s.ServiceController().AddRegistry(gwc.BackendRegistry())
-		}
 
 		// Create the agentgateway controller before the leader election block so it can share the
 		// same status writer activation. Both controllers use separate StatusCollections, so both

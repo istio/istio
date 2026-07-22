@@ -10,6 +10,7 @@ package kube
 
 import (
 	"maps"
+	"reflect"
 	"sort"
 	"strconv"
 
@@ -29,6 +30,12 @@ import (
 type ServiceDestinationIR struct {
 	Frontend    destinationmodel.FrontendDefinition
 	Definitions []destinationmodel.DestinationDefinition
+}
+
+func (s ServiceDestinationIR) ResourceName() string { return s.Frontend.ID.String() }
+
+func (s ServiceDestinationIR) Equals(other ServiceDestinationIR) bool {
+	return reflect.DeepEqual(s, other)
 }
 
 // ConvertServiceToDestinationIR splits the existing Kubernetes conversion

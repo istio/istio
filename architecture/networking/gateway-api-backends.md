@@ -900,6 +900,43 @@ into `EndpointIndex` (or CDS/EDS changed to consume `ResolvedDestination`
 directly) before their compatibility registry/shadow endpoint path can be
 removed.
 
+### Stage C: InferencePool endpoint resolution and cutover gate
+
+The destination contract now carries typed `Semantics` and
+`ExtensionFailureMode` fields. InferencePool definitions use
+`InferencePoolSemantics`, and the classic projection translates that capability
+to the existing `UseInferenceSemantics` compatibility label. This avoids
+inferring behavior from `Source.Kind` while preserving the current single
+cluster, override-host, and all-target-port behavior during xDS migration.
+
+`ExtensionResolved` is now registered in the global index. Its InferencePool
+resolver watches Pods, applies the pool's selector and readiness gate, and emits
+resolved endpoints with all Pod IPs, target port, labels, SPIFFE service
+account, TLS mode, locality, network, workload, node, namespace, cluster, and
+health metadata. Definitions remain inert without an accepted Gateway binding,
+and the resolver output is consumer filtered by the index.
+
+**Decision:** retain shadow Service reconciliation at this stage. Although
+endpoint resolution is now independent of the Service, classic EDS still reads
+`EndpointIndex`; it does not consume the endpoint snapshot held by
+`ResolvedDestination`. The temporary Gateway backend registry also only
+projects DNS destinations. Deleting the shadow Service before either bridging
+resolved endpoints into `EndpointIndex` or changing EDS to consume bindings
+would produce an InferencePool cluster with no endpoints.
+
+**Parity gate before removal:** compare the new Pod resolver against
+EndpointSlice conversion for terminating/serving readiness, dual-stack address
+selection, network lookup beyond explicit Pod labels, custom locality overrides,
+discoverability policy, workload-name metadata, and endpoint update push/cache
+dependencies. The shadow path may be removed only after these are equal or the
+binding endpoint path becomes authoritative for EDS.
+
+**Still active compatibility path:** VirtualService `Extra` continues to carry
+per-route endpoint-picker configuration and the inference ext-proc filter still
+uses that typed Go payload. Moving this data into destination metadata requires
+route compilation to select metadata by binding key; it is separate from
+endpoint discovery and remains an explicit follow-up.
+
 **Open InferencePool question:** `EndpointSource` identifies the InferencePool
 and endpoint picker, allowing a resolver to read the selector from the source
 object. Before shadow removal, the extension resolver must reproduce
@@ -1011,6 +1048,63 @@ headless, and ExternalName Services, including frontend identity, VIPs,
 resolution, external targets, ports, selectors, external addresses,
 node-local behavior, and publish-not-ready semantics.
 
+### Global index cutover record
+
+Destination source compilation and index ownership are now separate lifecycle
+steps. Gateway translation exports `DestinationSources` (frontends,
+definitions, bindings, and resolvers); service-controller bootstrap explicitly
+initializes the one global index after both Gateway and ServiceEntry controllers
+exist. The controller retains an index pointer only as the compatibility
+provider used by waypoint generation. This removes the previous hidden,
+Gateway-constructor-owned index lifecycle without changing the
+`PushContext.GatewayAPIController` interface yet.
+
+Kubernetes Service source wiring now participates in that source graph:
+
+* Each Service is converted through `ConvertServiceToDestinationIR` and emits
+  its frontend and per-port definitions as krt collections.
+* Each declared frontend activates its default destinations with a reusable
+  mesh consumer scope. This is distinct from XBackend and InferencePool route
+  activation: declared Kubernetes frontends are intentionally eager.
+* Kubernetes bindings retain the Service hostname as their runtime identity;
+  they do not enter the Gateway backend compatibility registry. That registry
+  filters explicitly to XBackend definitions, preventing duplicate Kubernetes
+  Services in the aggregate registry.
+* Bootstrap initialization retains resolver plugins supplied by source
+  adapters. Unsupported endpoint descriptors fail closed in the shared index.
+* ServiceEntry frontends, definitions, bindings, and resolver plugins are joined
+  into this same index at service-controller assembly. Its local dual-run index
+  remains a comparison surface, not the only ServiceEntry integration path.
+
+Decisions:
+
+* Service-controller bootstrap, rather than Gateway translation, owns the index
+  initialization boundary. Initialization occurs after ServiceEntry controller
+  construction because its resolver closures depend on the controller's KRT
+  instance collections. The current Gateway controller stores the resulting
+  pointer only to avoid a broad environment/PushContext interface change during
+  cutover.
+* `ConsumerID{Kind: "Mesh"}` is the initial activation scope for declared
+  Kubernetes Service frontends. Sidecar visibility filtering remains with the
+  classic registry until service selection switches to the destination index.
+* Classic projection remains source-filtered during migration. Adding a
+  definition to the global index must not implicitly add a second registry
+  frontend.
+
+Open questions:
+
+* Move the index pointer from `GatewayAPIController` to a dedicated Environment
+  destination provider once sidecar and waypoint consumers switch together.
+* Kubernetes `ServiceMembership` needs the shared EndpointSlice resolver before
+  global resolved destinations can replace the existing EDS path. Until then,
+  its source wiring is dual-run and fails closed at resolution.
+* Namespace annotations are not yet available to the global source adapter's
+  pure conversion callback. Export/traffic-distribution parity requiring
+  namespace defaults must be wired before switching ownership.
+* Mesh-scoped bindings must eventually be filtered through export visibility,
+  Sidecar egress hosts, cluster tenancy, and waypoint ownership rather than
+  being interpreted as globally visible by new consumers.
+
 ### Stage 2 implementation record: destination index and endpoint resolution
 
 `pilot/pkg/model/destination.Index` now joins active `DestinationBinding`
@@ -1105,6 +1199,59 @@ Comparison tests cover representative STATIC, DNS, DNS_ROUND_ROBIN,
 DYNAMIC_DNS, and NONE entries against `convertServices`, including host/address
 expansion, invalid-address filtering, port/protocol/target-port retention,
 visibility, selectors, SANs, mesh location, and frontend resolution.
+
+### Stage 4B implementation record: ServiceEntry resolver wiring
+
+The ServiceEntry controller now builds source-neutral frontend, definition,
+and mesh binding collections beside its existing `ServiceWithInstances`
+collection. A controller-owned `DestinationIndex` resolves those bindings from
+the same converted instances that currently feed EDS, making the shared view
+authoritative for ServiceEntry destination data while legacy registry
+publication remains enabled for compatibility.
+
+Concrete decisions:
+
+* Declared ServiceEntry frontends activate one mesh binding per host/port
+  definition. Multiple addresses do not duplicate bindings or endpoints.
+* Static, DNS, dynamic-DNS, and passthrough resolver plugins all read the
+  existing `ServiceWithInstances` KRT collection. This deliberately reuses the
+  mature inline endpoint, WorkloadEntry selector, locality, network, health,
+  and target-port conversion during cutover instead of reimplementing it.
+* Resolver lookup keys include namespace and hostname, then filter by the
+  originating ServiceEntry object name and effective port. Two ServiceEntries
+  sharing a hostname therefore retain independent destination identities and
+  endpoint sets.
+* DNS resolver registration preserves non-ServiceEntry behavior with a direct
+  hostname fallback, allowing these plugins to be joined into an index that
+  also contains XBackend DNS definitions.
+* The ServiceEntry source `ConfigKey` is an explicit resolved dependency.
+  WorkloadEntry and selected-workload changes are additionally tracked by KRT
+  fetch dependencies on `ServiceWithInstances`.
+* `NONE` produces a valid resolved binding with the converted endpoint set,
+  which may be empty. Its `Passthrough` cluster semantics remain encoded by the
+  frontend resolution and endpoint-source discriminator rather than invented
+  EDS behavior.
+
+Open questions before removing the legacy registry:
+
+* Global ownership must join the controller's destination collections and
+  resolver plugins with Gateway, Kubernetes, and InferencePool sources. The
+  controller-local index proves authority and lifecycle but is not yet the one
+  CDS/EDS entrypoint.
+* KRT invalidation is precise at the converted ServiceEntry collection level,
+  but resolved dependency metadata cannot identify individual inline endpoint
+  entries. WorkloadEntry keys should be propagated explicitly if delta-xDS
+  later requires object-level attribution beyond collection fetches.
+* ExportTo visibility is retained on frontends but mesh bindings currently use
+  a broad `ConsumerSet{Kind: Mesh}` compatibility scope. Global consumer
+  selection must intersect frontend visibility and SidecarScope before cutover.
+* DNS round-robin deduplication across multiple ServiceEntries with the same
+  host and port still lives in `mergeServicesInstancesByNamespaceHost`; the
+  per-source destination view intentionally does not collapse those identities.
+
+Tests cover static, DNS, and NONE endpoint parity, port and target-port
+selection, source dependency propagation, same-host source isolation, final
+source deletion, and destination collection lifecycle.
 
 ### Integration checkpoint: shared consumption and cutover boundary
 

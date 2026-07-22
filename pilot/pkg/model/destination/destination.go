@@ -152,7 +152,23 @@ type DestinationMetadata struct {
 	ServiceAccounts []string
 	Network         string
 	Extension       string
+	Semantics       Semantics
+	FailureMode     ExtensionFailureMode
 }
+
+type Semantics string
+
+const (
+	StandardSemantics      Semantics = "Standard"
+	InferencePoolSemantics Semantics = "InferencePool"
+)
+
+type ExtensionFailureMode string
+
+const (
+	ExtensionFailClose ExtensionFailureMode = "FailClose"
+	ExtensionFailOpen  ExtensionFailureMode = "FailOpen"
+)
 
 type DestinationDefinition struct {
 	ID           DefinitionID

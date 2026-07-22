@@ -69,6 +69,10 @@ func TestInferencePoolDestinationBindings(t *testing.T) {
 	if bindings[0].Endpoints.Extension != "picker" || bindings[0].Endpoints.Port != 9002 {
 		t.Fatalf("endpoint picker metadata not preserved: %+v", bindings[0].Endpoints)
 	}
+	if definitions[0].Metadata.Semantics != destination.InferencePoolSemantics ||
+		definitions[0].Metadata.FailureMode != destination.ExtensionFailClose {
+		t.Fatalf("typed inference metadata not preserved: %+v", definitions[0].Metadata)
+	}
 }
 
 func TestReconcileInferencePool(t *testing.T) {
