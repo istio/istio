@@ -128,7 +128,7 @@ func (a Builder) ServicesCollection(
 
 			// make a copy and then set canonical
 			if canonical != nil {
-				bestByNamespace[canonical.GetNamespace()] = setCanonical(canonical)
+				bestByNamespace[canonical.GetNamespace()] = setCanonical(*canonical)
 			}
 
 			// convert map into slice and return
@@ -757,22 +757,13 @@ func precomputeService(w model.ServiceInfo) model.ServiceInfo {
 	return w
 }
 
-// setCanonical sets the canonical field in a WDS service without mangling the ServiceInfo
-func setCanonical(se *model.ServiceInfo) model.ServiceInfo {
-	wdsSvc := protomarshal.ShallowClone(se.Service)
-	wdsSvc.Canonical = true
-	return precomputeService(model.ServiceInfo{
-		Service:            wdsSvc,
-		LabelSelector:      se.LabelSelector,
-		PortNames:          se.PortNames,
-		Source:             se.Source,
-		Scope:              se.Scope,
-		Waypoint:           se.Waypoint,
-		MarshaledAddress:   se.MarshaledAddress,
-		AsAddress:          se.AsAddress,
-		DNSConnectStrategy: se.DNSConnectStrategy,
-		CreationTime:       se.CreationTime,
-	})
+// setCanonical sets the canonical field in a WDS service without mangling the ServiceInfo.
+// The ServiceInfo is passed by value so every field is carried over to the returned copy; only
+// the cloned Service proto and the precomputed address fields differ from the input.
+func setCanonical(se model.ServiceInfo) model.ServiceInfo {
+	se.Service = protomarshal.ShallowClone(se.Service)
+	se.Service.Canonical = true
+	return precomputeService(se)
 }
 
 // ingressUseWaypointFromLabels returns whether the ingress-use-waypoint label is
