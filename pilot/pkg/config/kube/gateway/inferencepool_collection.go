@@ -19,6 +19,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"strconv"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,8 +30,13 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"istio.io/istio/pilot/pkg/config/kube/gatewaycommon"
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/model/destination"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/ptr"
@@ -91,10 +97,76 @@ type InferencePool struct {
 	shadowService  shadowServiceInfo
 	extRef         extRefInfo
 	gatewayParents sets.Set[types.NamespacedName] // Gateways that reference this InferencePool
+	// destination is the destination-only representation of the pool. The
+	// shadow Service remains a compatibility projection while xDS consumers
+	// migrate to DestinationBinding.
+	destination destination.DestinationDefinition
 }
 
 func (i InferencePool) ResourceName() string {
 	return i.shadowService.key.Namespace + "/" + i.shadowService.poolName
+}
+
+// DestinationBindings returns one active binding for each accepted Gateway
+// consumer. These bindings intentionally do not create an ambient frontend;
+// waypoint and classic outbound projections consume them directly.
+func (i InferencePool) DestinationBindings() []destination.DestinationBinding {
+	parents := i.gatewayParents.UnsortedList()
+	slices.SortFunc(parents, func(a, b types.NamespacedName) int {
+		if a.Namespace != b.Namespace {
+			return strings.Compare(a.Namespace, b.Namespace)
+		}
+		return strings.Compare(a.Name, b.Name)
+	})
+	result := make([]destination.DestinationBinding, 0, len(parents)*len(i.destination.Ports))
+	for _, parent := range parents {
+		consumer := destination.ConsumerID{Kind: "Gateway", Namespace: parent.Namespace, Name: parent.Name}
+		for _, port := range i.destination.Ports {
+			id := i.destination.ID
+			id.Port = port.Name
+			result = append(result, destination.DestinationBinding{
+				Key:          destination.BindingKey{Definition: id, Consumer: consumer},
+				RuntimeName:  i.destination.Endpoints.Hostname,
+				Definition:   id,
+				Consumer:     consumer,
+				Port:         port,
+				Endpoints:    i.destination.Endpoints,
+				Connection:   i.destination.Connection,
+				Dependencies: destination.NormalizeDependencies(i.destination.ID.Source),
+				Namespace:    i.destination.Namespace,
+				CreationTime: i.destination.CreationTime,
+			})
+		}
+	}
+	return result
+}
+
+func (i InferencePool) destinationDefinitions() []destination.DestinationDefinition {
+	result := make([]destination.DestinationDefinition, 0, len(i.destination.Ports))
+	for _, port := range i.destination.Ports {
+		definition := i.destination
+		definition.ID.Port = port.Name
+		definition.Ports = []destination.DestinationPort{port}
+		result = append(result, definition)
+	}
+	return result
+}
+
+// InferencePoolDestinationCollections exposes the destination-only half of
+// InferencePool compilation for the shared DestinationIndex. The existing
+// InferencePool collection remains the source of the shadow-Service projection
+// during the dual-run migration.
+func InferencePoolDestinationCollections(
+	pools krt.Collection[InferencePool],
+	opts krt.OptionsBuilder,
+) (krt.Collection[destination.DestinationDefinition], krt.Collection[destination.DestinationBinding]) {
+	definitions := krt.NewManyCollection(pools, func(_ krt.HandlerContext, pool InferencePool) []destination.DestinationDefinition {
+		return pool.destinationDefinitions()
+	}, opts.WithName("InferencePoolDestinationDefinitions")...)
+	bindings := krt.NewManyCollection(pools, func(_ krt.HandlerContext, pool InferencePool) []destination.DestinationBinding {
+		return pool.DestinationBindings()
+	}, opts.WithName("InferencePoolDestinationBindings")...)
+	return definitions, bindings
 }
 
 func InferencePoolCollection(
@@ -124,7 +196,7 @@ func InferencePoolCollection(
 			var inferencePool *InferencePool
 			if len(gatewayParents) > 0 {
 				// Create the InferencePool object
-				inferencePool = createInferencePoolObject(pool, gatewayParents)
+				inferencePool = createInferencePoolObject(pool, gatewayParents, c.domainSuffix)
 			}
 
 			// Calculate status
@@ -135,7 +207,11 @@ func InferencePoolCollection(
 }
 
 // createInferencePoolObject creates the InferencePool object with shadow service and extension ref info
-func createInferencePoolObject(pool *inferencev1.InferencePool, gatewayParents sets.Set[types.NamespacedName]) *InferencePool {
+func createInferencePoolObject(
+	pool *inferencev1.InferencePool,
+	gatewayParents sets.Set[types.NamespacedName],
+	domainSuffix string,
+) *InferencePool {
 	// Build extension reference info
 	extRef := extRefInfo{
 		name: string(pool.Spec.EndpointPickerRef.Name),
@@ -178,10 +254,41 @@ func createInferencePoolObject(pool *inferencev1.InferencePool, gatewayParents s
 		shadowSvcInfo.targetPorts = append(shadowSvcInfo.targetPorts, targetPort{port: int32(port.Number)})
 	}
 
+	ports := make([]destination.DestinationPort, 0, len(shadowSvcInfo.targetPorts))
+	applicationProtocol := protocol.Parse(shadowSvcInfo.appProtocol)
+	if applicationProtocol == protocol.Unsupported {
+		// The compatibility Service names these ports "http-*", which causes
+		// Kubernetes service conversion to infer HTTP when appProtocol is empty.
+		applicationProtocol = protocol.HTTP
+	}
+	for i, target := range shadowSvcInfo.targetPorts {
+		ports = append(ports, destination.DestinationPort{
+			Name: fmt.Sprintf("http-%d", i), Number: int(target.port), Protocol: applicationProtocol,
+		})
+	}
+	if domainSuffix == "" {
+		domainSuffix = "cluster.local"
+	}
+	runtimeName := host.Name(fmt.Sprintf("%s.%s.svc.%s", svcName, pool.Namespace, domainSuffix))
+	source := model.ConfigKey{Kind: kind.InferencePool, Namespace: pool.Namespace, Name: pool.Name}
+	definition := destination.DestinationDefinition{
+		ID:        destination.DefinitionID{Source: source, UID: string(pool.UID)},
+		Namespace: pool.Namespace,
+		Ports:     ports,
+		Endpoints: destination.EndpointSource{
+			Kind: destination.ExtensionResolved, Source: source, Hostname: runtimeName,
+			Extension: extRef.name, Port: uint32(extRef.port), //nolint:gosec // API port validation bounds this value.
+		},
+		Connection:   destination.ConnectionPolicy{Protocol: applicationProtocol},
+		Metadata:     destination.DestinationMetadata{Extension: extRef.failureMode},
+		CreationTime: pool.CreationTimestamp.Time,
+	}
+
 	return &InferencePool{
 		shadowService:  shadowSvcInfo,
 		extRef:         extRef,
 		gatewayParents: gatewayParents,
+		destination:    definition,
 	}
 }
 

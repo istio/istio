@@ -324,6 +324,12 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 	cb := NewClusterBuilder(proxy, req, configgen.Cache)
 	instances := proxy.ServiceTargets
 	cacheStats := cacheStats{}
+	destinationProjections := projectWaypointOutboundDestinations(destinationBindingsForGatewayProxy(proxy, req.Push))
+	if proxy.Type != model.Waypoint {
+		// Gateway and sidecar CDS may consume the same destination-only view.
+		// Consumer filtering above makes this a no-op for ordinary sidecars.
+		services = appendDestinationServices(services, destinationProjections)
+	}
 	switch proxy.Type {
 	case model.SidecarProxy:
 		// Setup outbound clusters
@@ -354,6 +360,9 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 		extraNamespacedHosts, extraHosts := req.Push.ExtraWaypointServices(proxy, envoyFilterPatches)
 		outboundServices := filterWaypointOutboundServices(
 			req.Push.ServicesAttachedToMesh(), wps.services, extraNamespacedHosts, extraHosts, services)
+		// A valid Gateway reference is itself sufficient to activate an opaque
+		// outbound destination for this waypoint. It is not an ambient frontend.
+		outboundServices = appendDestinationServices(outboundServices, destinationProjections)
 		// For E/W gateways that also expose non-HBONE ports via the Gateway API (e.g., TLS passthrough
 		// to the Kubernetes API server), include services referenced by those gateway servers.
 		if isAmbientEastWestGateway(proxy) && proxy.MergedGateway != nil {

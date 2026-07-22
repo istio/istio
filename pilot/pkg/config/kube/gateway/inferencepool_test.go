@@ -21,15 +21,55 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/model/destination"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/util/sets"
 )
+
+func TestInferencePoolDestinationBindings(t *testing.T) {
+	pool := &inferencev1.InferencePool{
+		ObjectMeta: metav1.ObjectMeta{Name: "pool", Namespace: "models", UID: "uid-1"},
+		Spec: inferencev1.InferencePoolSpec{
+			TargetPorts:       []inferencev1.Port{{Number: 8080}},
+			EndpointPickerRef: inferencev1.EndpointPickerRef{Name: "picker", Port: &inferencev1.Port{Number: 9002}},
+		},
+	}
+	compiled := createInferencePoolObject(pool, sets.New(
+		types.NamespacedName{Namespace: "gateways", Name: "b"},
+		types.NamespacedName{Namespace: "gateways", Name: "a"},
+	), "cluster.local")
+	bindings := compiled.DestinationBindings()
+	definitions := compiled.destinationDefinitions()
+	if len(bindings) != 2 {
+		t.Fatalf("got %d bindings, want 2", len(bindings))
+	}
+	if len(definitions) != 1 || definitions[0].ID != bindings[0].Definition {
+		t.Fatalf("definition and binding identity differ: %+v, %+v", definitions, bindings[0].Definition)
+	}
+	if got, want := bindings[0].Consumer.Name, "a"; got != want {
+		t.Fatalf("first consumer = %q, want %q", got, want)
+	}
+	if got, want := bindings[0].Endpoints.Kind, destination.ExtensionResolved; got != want {
+		t.Fatalf("endpoint source = %q, want %q", got, want)
+	}
+	if got, want := bindings[0].RuntimeName.String(), "pool-ip-27cac550.models.svc.cluster.local"; got != want {
+		t.Fatalf("runtime name = %q, want %q", got, want)
+	}
+	if got, want := bindings[0].Port.Number, 8080; got != want {
+		t.Fatalf("target port = %d, want %d", got, want)
+	}
+	if bindings[0].Endpoints.Extension != "picker" || bindings[0].Endpoints.Port != 9002 {
+		t.Fatalf("endpoint picker metadata not preserved: %+v", bindings[0].Endpoints)
+	}
+}
 
 func TestReconcileInferencePool(t *testing.T) {
 	test.SetForTest(t, &features.EnableGatewayAPIInferenceExtension, true)

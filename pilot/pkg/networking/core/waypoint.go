@@ -15,12 +15,76 @@
 package core
 
 import (
+	"istio.io/api/label"
+
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/model/destination"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/util/sets"
 )
+
+type destinationIndexProvider interface {
+	DestinationIndex() *destination.Index
+}
+
+type destinationConsumerIndex interface {
+	ForConsumer(destination.ConsumerID) []destination.ResolvedDestination
+}
+
+func destinationBindingsForGatewayProxy(node *model.Proxy, push *model.PushContext) []destination.ResolvedDestination {
+	if push.GatewayAPIController == nil {
+		return nil
+	}
+	provider, ok := push.GatewayAPIController.(destinationIndexProvider)
+	if !ok || provider.DestinationIndex() == nil {
+		return nil
+	}
+	return destinationBindingsForGateway(provider.DestinationIndex(), node)
+}
+
+func destinationBindingsForGateway(index destinationConsumerIndex, node *model.Proxy) []destination.ResolvedDestination {
+	gatewayName, ok := node.Labels[label.IoK8sNetworkingGatewayGatewayName.Name]
+	if !ok || gatewayName == "" {
+		return nil
+	}
+	namespace := node.GetNamespace()
+	if namespace == "" {
+		namespace = node.ConfigNamespace
+	}
+	return index.ForConsumer(destination.ConsumerID{
+		Kind: "Gateway", Namespace: namespace, Name: gatewayName,
+	})
+}
+
+// projectWaypointOutboundDestinations adapts consumer-filtered destination
+// bindings to the legacy CDS/EDS inputs used by waypoint outbound generation.
+// It deliberately does not add the projection to AmbientIndexes: an opaque
+// outbound destination is not a frontend and must never be published to
+// ztunnel address discovery.
+func projectWaypointOutboundDestinations(resolved []destination.ResolvedDestination) []destination.ClassicProjection {
+	result := make([]destination.ClassicProjection, 0, len(resolved))
+	for _, binding := range resolved {
+		result = append(result, destination.ProjectClassic(binding, provider.GatewayBackend))
+	}
+	return result
+}
+
+func appendDestinationServices(services []*model.Service, projections []destination.ClassicProjection) []*model.Service {
+	known := sets.New[model.NamespacedHostname]()
+	for _, service := range services {
+		known.Insert(model.NamespacedHostname{Hostname: service.Hostname, Namespace: service.Attributes.Namespace})
+	}
+	for _, projection := range projections {
+		key := model.NamespacedHostname{Hostname: projection.Service.Hostname, Namespace: projection.Service.Attributes.Namespace}
+		if !known.InsertContains(key) {
+			services = append(services, projection.Service)
+		}
+	}
+	return services
+}
 
 const (
 	// ConnectTerminate is the name for the resources associated with the termination of HTTP CONNECT.

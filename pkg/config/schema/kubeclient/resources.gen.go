@@ -148,6 +148,8 @@ func GetWriteClient[T runtime.Object](c ClientGetter, namespace string) ktypes.W
 		return c.Istio().NetworkingV1().WorkloadEntries(namespace).(ktypes.WriteAPI[T])
 	case *apiistioioapinetworkingv1.WorkloadGroup:
 		return c.Istio().NetworkingV1().WorkloadGroups(namespace).(ktypes.WriteAPI[T])
+	case *sigsk8siogatewayapiapisxv1alpha1.XBackend:
+		return c.GatewayAPI().ExperimentalV1alpha1().XBackends(namespace).(ktypes.WriteAPI[T])
 	case *sigsk8siogatewayapiapisxv1alpha1.XBackendTrafficPolicy:
 		return c.GatewayAPI().ExperimentalV1alpha1().XBackendTrafficPolicies(namespace).(ktypes.WriteAPI[T])
 	default:
@@ -253,6 +255,8 @@ func GetClient[T, TL runtime.Object](c ClientGetter, namespace string) ktypes.Re
 		return c.Istio().NetworkingV1().WorkloadEntries(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *apiistioioapinetworkingv1.WorkloadGroup:
 		return c.Istio().NetworkingV1().WorkloadGroups(namespace).(ktypes.ReadWriteAPI[T, TL])
+	case *sigsk8siogatewayapiapisxv1alpha1.XBackend:
+		return c.GatewayAPI().ExperimentalV1alpha1().XBackends(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *sigsk8siogatewayapiapisxv1alpha1.XBackendTrafficPolicy:
 		return c.GatewayAPI().ExperimentalV1alpha1().XBackendTrafficPolicies(namespace).(ktypes.ReadWriteAPI[T, TL])
 	default:
@@ -358,6 +362,8 @@ func gvrToObject(g schema.GroupVersionResource) runtime.Object {
 		return &apiistioioapinetworkingv1.WorkloadEntry{}
 	case gvr.WorkloadGroup:
 		return &apiistioioapinetworkingv1.WorkloadGroup{}
+	case gvr.XBackend:
+		return &sigsk8siogatewayapiapisxv1alpha1.XBackend{}
 	case gvr.XBackendTrafficPolicy:
 		return &sigsk8siogatewayapiapisxv1alpha1.XBackendTrafficPolicy{}
 	default:
@@ -705,6 +711,13 @@ func getInformerFiltered(c ClientGetter, opts ktypes.InformerOptions, g schema.G
 		}
 		w = func(options metav1.ListOptions) (watch.Interface, error) {
 			return c.Istio().NetworkingV1().WorkloadGroups(opts.Namespace).Watch(context.Background(), options)
+		}
+	case gvr.XBackend:
+		l = func(options metav1.ListOptions) (runtime.Object, error) {
+			return c.GatewayAPI().ExperimentalV1alpha1().XBackends(opts.Namespace).List(context.Background(), options)
+		}
+		w = func(options metav1.ListOptions) (watch.Interface, error) {
+			return c.GatewayAPI().ExperimentalV1alpha1().XBackends(opts.Namespace).Watch(context.Background(), options)
 		}
 	case gvr.XBackendTrafficPolicy:
 		l = func(options metav1.ListOptions) (runtime.Object, error) {

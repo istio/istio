@@ -24,6 +24,8 @@ const (
 	Kubernetes ID = "Kubernetes"
 	// External is a service registry for externally provided ServiceEntries
 	External ID = "External"
+	// GatewayBackend is the route-activated registry for Gateway API Backend resources.
+	GatewayBackend ID = "GatewayBackend"
 )
 
 func (id ID) String() string {

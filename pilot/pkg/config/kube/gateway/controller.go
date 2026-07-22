@@ -31,6 +31,8 @@ import (
 	kubesecrets "istio.io/istio/pilot/pkg/credentials/kube"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	destinationmodel "istio.io/istio/pilot/pkg/model/destination"
+	"istio.io/istio/pilot/pkg/serviceregistry/gatewaybackend"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pilot/pkg/status"
 	"istio.io/istio/pkg/cluster"
@@ -106,6 +108,9 @@ type Controller struct {
 	domainSuffix string // the domain suffix to use for generated resources
 
 	shadowServiceReconciler controllers.Queue
+
+	backendRegistry  *gatewaybackend.Controller
+	destinationIndex *destinationmodel.Index
 }
 
 type ParentInfo struct {
@@ -149,6 +154,7 @@ type Inputs struct {
 	ReferenceGrants      krt.Collection[*gateway.ReferenceGrant]
 	BackendTrafficPolicy krt.Collection[*gatewayx.XBackendTrafficPolicy]
 	BackendTLSPolicies   krt.Collection[*gatewayv1.BackendTLSPolicy]
+	XBackends            krt.Collection[*gatewayx.XBackend]
 	ServiceEntries       krt.Collection[*networkingclient.ServiceEntry]
 	InferencePools       krt.Collection[*inferencev1.InferencePool]
 }
@@ -211,9 +217,11 @@ func NewController(
 	}
 	if features.EnableAlphaGatewayAPI {
 		inputs.BackendTrafficPolicy = buildClient[*gatewayx.XBackendTrafficPolicy](c, kc, gvr.XBackendTrafficPolicy, opts, "informer/XBackendTrafficPolicy")
+		inputs.XBackends = buildClient[*gatewayx.XBackend](c, kc, gvr.XBackend, opts, "informer/XBackend")
 	} else {
 		// If disabled, still build a collection but make it always empty
 		inputs.BackendTrafficPolicy = krt.NewStaticCollection[*gatewayx.XBackendTrafficPolicy](nil, nil, opts.WithName("disable/XBackendTrafficPolicy")...)
+		inputs.XBackends = krt.NewStaticCollection[*gatewayx.XBackend](nil, nil, opts.WithName("disable/XBackend")...)
 	}
 
 	if features.EnableGatewayAPIInferenceExtension {
@@ -228,6 +236,7 @@ func NewController(
 		gatewaycommon.AddReference(inputs.ServiceEntries),
 		gatewaycommon.AddReference(inputs.ConfigMaps),
 		gatewaycommon.AddReference(inputs.Secrets),
+		gatewaycommon.AddReference(inputs.XBackends),
 	)
 
 	handlers := []krt.HandlerRegistration{}
@@ -293,6 +302,7 @@ func NewController(
 		c,
 		opts,
 	)
+	inferenceDestinationDefinitions, inferenceDestinationBindings := InferencePoolDestinationCollections(InferencePools, opts)
 
 	// Create a queue for handling service updates.
 	// We create the queue even if the env var is off just to prevent nil pointer issues.
@@ -308,6 +318,7 @@ func NewController(
 
 	routeInputs := RouteContextInputs{
 		Grants:          ReferenceGrants,
+		References:      references,
 		RouteParents:    RouteParents,
 		DomainSuffix:    c.domainSuffix,
 		Services:        inputs.Services,
@@ -316,6 +327,7 @@ func NewController(
 		Gateways:        inputs.Gateways,
 		ServiceEntries:  inputs.ServiceEntries,
 		InferencePools:  inputs.InferencePools,
+		XBackends:       inputs.XBackends,
 		internalContext: c.gatewayContext,
 	}
 	tcpRoutes := TCPRouteCollection(
@@ -361,8 +373,39 @@ func NewController(
 	AncestorsIndex := krt.NewIndex(Ancestors, "ancestors", func(o AncestorBackend) []TypedNamespacedName {
 		return []TypedNamespacedName{o.Backend}
 	})
+	backendBindings := BackendBindings(inputs.XBackends, Ancestors, RouteAttachments, ReferenceGrants, opts)
+	backendPolicies := XBackendConnectionPolicies(backendBindings, references, ReferenceGrants, opts)
+	xBackendStatus := XBackendStatusCollection(inputs.XBackends, backendBindings, backendPolicies.Results, opts)
+	status.RegisterStatus(c.status, xBackendStatus, GetStatus, c.tagWatcher.AccessUnprotected())
+	xBackendDefinitions := krt.NewCollection(inputs.XBackends, func(_ krt.HandlerContext, backend *gatewayx.XBackend) *destinationmodel.DestinationDefinition {
+		binding, err := compileBackendBinding(backend, types.NamespacedName{})
+		if err != nil {
+			return nil
+		}
+		return destinationDefinitionFromBinding(binding.Destination)
+	}, opts.WithName("XBackendDestinationDefinitions")...)
+	xBackendDestinations := krt.NewCollection(backendPolicies.ValidBindings, func(_ krt.HandlerContext, b BackendBinding) *destinationmodel.DestinationBinding {
+		return &b.Destination
+	}, opts.WithName("XBackendDestinations")...)
+	allDestinationDefinitions := krt.JoinCollection([]krt.Collection[destinationmodel.DestinationDefinition]{
+		xBackendDefinitions,
+		inferenceDestinationDefinitions,
+	}, opts.WithName("DestinationDefinitions")...)
+	allDestinationBindings := krt.JoinCollection([]krt.Collection[destinationmodel.DestinationBinding]{
+		xBackendDestinations,
+		inferenceDestinationBindings,
+	}, opts.WithName("DestinationBindings")...)
+	c.destinationIndex = destinationmodel.NewIndex(allDestinationDefinitions, allDestinationBindings, opts, destinationmodel.IndexOptions{})
+	runtimeBackends := krt.NewCollection(c.destinationIndex.Resolved, func(_ krt.HandlerContext, resolved destinationmodel.ResolvedDestination) *gatewaybackend.RuntimeBackend {
+		runtime, ok := destinationmodel.RuntimeBackendFromBinding(resolved.Binding)
+		if !ok {
+			return nil
+		}
+		return &runtime
+	}, opts.WithName("RuntimeXBackends")...)
+	c.backendRegistry = gatewaybackend.NewController(runtimeBackends, c.cluster, xdsUpdater)
 
-	DestinationRules := DestinationRuleCollection(
+	policyDestinationRules := DestinationRuleCollection(
 		inputs.BackendTrafficPolicy,
 		inputs.BackendTLSPolicies,
 		AncestorsIndex,
@@ -372,6 +415,10 @@ func NewController(
 		inputs.Services,
 		opts,
 	)
+	DestinationRules := krt.JoinCollection([]krt.Collection[config.Config]{
+		policyDestinationRules,
+		backendPolicies.DestinationRules,
+	}, opts.WithName("AllDestinationRules")...)
 
 	GatewayFinalStatus := FinalGatewayStatusCollection(GatewaysStatus, RouteAttachments, RouteAttachmentsIndex, opts)
 	status.RegisterStatus(c.status, GatewayFinalStatus, GetStatus, c.tagWatcher.AccessUnprotected())
@@ -640,6 +687,29 @@ func pushXds[T any](xds model.XDSUpdater, f func(T) model.ConfigKey) func(events
 
 func (c *Controller) HasInferencePool(gw types.NamespacedName) bool {
 	return len(c.outputs.InferencePoolsByGateway.Lookup(gw)) > 0
+}
+
+// BackendRegistry exposes route-activated Gateway API Backend services to the
+// aggregate service controller without synthesizing ServiceEntry resources.
+func (c *Controller) BackendRegistry() *gatewaybackend.Controller {
+	return c.backendRegistry
+}
+
+// DestinationIndex exposes the shared, consumer-scoped outbound destination
+// view. It contains no frontend or ztunnel addressability semantics.
+func (c *Controller) DestinationIndex() *destinationmodel.Index {
+	return c.destinationIndex
+}
+
+func destinationDefinitionFromBinding(binding destinationmodel.DestinationBinding) *destinationmodel.DestinationDefinition {
+	return &destinationmodel.DestinationDefinition{
+		ID:           binding.Definition,
+		Namespace:    binding.Namespace,
+		Ports:        []destinationmodel.DestinationPort{binding.Port},
+		Endpoints:    binding.Endpoints,
+		Connection:   binding.Connection,
+		CreationTime: binding.CreationTime,
+	}
 }
 
 func (c *Controller) inRevision(obj any) bool {
