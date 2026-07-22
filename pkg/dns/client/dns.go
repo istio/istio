@@ -235,6 +235,9 @@ func (h *LocalDNSServer) Rebuild(table map[string]*dnsProto.NameTable_NameInfo) 
 func (h *LocalDNSServer) UpdateLookupTable(added map[string]*dnsProto.NameTable_NameInfo, removed []string) {
 	prevNT := h.nameTable.Load().(*dnsProto.NameTable)
 	base := h.lookupTable.Load().(*LookupTable)
+	// We cannot modify the existing lookup table in place, as it may be concurrently read by DNS queries.
+	// Instead, we create a new table and atomically replace the old one.
+	// This can be more costly than modifying in place but it allows us to avoid blocking DNS queries while we update the table.
 	newTable := &LookupTable{
 		allHosts: base.allHosts.Copy(),
 		name4:    maps.Clone(base.name4),
