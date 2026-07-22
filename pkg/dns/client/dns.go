@@ -17,7 +17,6 @@ package client
 import (
 	"context"
 	"fmt"
-	"maps"
 	"net"
 	"net/netip"
 	"os"
@@ -33,6 +32,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	dnsProto "istio.io/istio/pkg/dns/proto"
 	istiolog "istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/slices"
 	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/sets"
