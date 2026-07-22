@@ -21,7 +21,6 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
-	dnsProto "istio.io/istio/pkg/dns/proto"
 )
 
 // ConfigGenerator represents the interfaces to be implemented by code that generates xDS responses
@@ -42,8 +41,8 @@ type ConfigGenerator interface {
 	// BuildHTTPRoutes returns the list of HTTP routes for the given proxy. This is the RDS output
 	BuildHTTPRoutes(node *model.Proxy, req *model.PushRequest, routeNames []string) ([]*discovery.Resource, model.XdsLogDetails)
 
-	// BuildNameTable returns list of hostnames and the associated IPs
-	BuildNameTable(node *model.Proxy, push *model.PushContext) *dnsProto.NameTable
+	// BuildNameTable returns the full name table as a single xDS resource. This is the NDS SotW output.
+	BuildNameTable(node *model.Proxy, push *model.PushContext) ([]*discovery.Resource, model.XdsLogDetails)
 
 	// BuildDeltaNameTable generates per-host NDS resource deltas for a proxy
 	BuildDeltaNameTable(proxy *model.Proxy, updates *model.PushRequest,

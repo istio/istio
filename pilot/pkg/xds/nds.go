@@ -15,12 +15,9 @@
 package xds
 
 import (
-	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core"
-	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -94,12 +91,8 @@ func (n NdsGenerator) Generate(proxy *model.Proxy, _ *model.WatchedResource, req
 	if !needsPush {
 		return nil, model.DefaultXdsLogDetails, nil
 	}
-	nt := n.ConfigGenerator.BuildNameTable(proxy, req.Push)
-	if nt == nil {
-		return nil, model.DefaultXdsLogDetails, nil
-	}
-	resources := model.Resources{&discovery.Resource{Resource: protoconv.MessageToAny(nt)}}
-	return resources, model.DefaultXdsLogDetails, nil
+	resources, logs := n.ConfigGenerator.BuildNameTable(proxy, req.Push)
+	return resources, logs, nil
 }
 
 func (n NdsGenerator) GenerateDeltas(proxy *model.Proxy, req *model.PushRequest,

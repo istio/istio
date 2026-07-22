@@ -811,6 +811,39 @@ func TestRebuildPurgesStaleEntries(t *testing.T) {
 	}
 }
 
+// TestUpdateLookupTableNonKubernetes exercises the non-Kubernetes (ServiceEntry/External)
+// registry branch of the incremental delta path: such hosts contribute only their exact FQDN
+// (no short-name alt hosts), and add/remove must touch exactly that key.
+func TestUpdateLookupTableNonKubernetes(t *testing.T) {
+	h := newTestDNSServer(t)
+	h.Rebuild(map[string]*dnsProto.NameTable_NameInfo{
+		"www.example.com": {Ips: []string{"1.2.3.4"}, Registry: "External"},
+	})
+	if !resolves(h, "www.example.com") {
+		t.Fatal("expected external host to resolve after Rebuild")
+	}
+
+	// Incremental add of a second external host must not disturb the first.
+	h.UpdateLookupTable(map[string]*dnsProto.NameTable_NameInfo{
+		"api.example.com": {Ips: []string{"5.6.7.8"}, Registry: "External"},
+	}, nil)
+	if !resolves(h, "api.example.com") {
+		t.Error("expected api.example.com to resolve after incremental add")
+	}
+	if !resolves(h, "www.example.com") {
+		t.Error("www.example.com should survive an incremental add")
+	}
+
+	// Incremental removal must delete exactly the FQDN the host contributed, leaving the other.
+	h.UpdateLookupTable(nil, []string{"www.example.com"})
+	if resolves(h, "www.example.com") {
+		t.Error("www.example.com should no longer resolve after removal")
+	}
+	if !resolves(h, "api.example.com") {
+		t.Error("api.example.com should still resolve after removing www.example.com")
+	}
+}
+
 func TestDNSTimeoutBehavior(t *testing.T) {
 	tests := []struct {
 		name        string

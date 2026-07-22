@@ -40,8 +40,6 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
-	dnsClient "istio.io/istio/pkg/dns/client"
-	dnsProto "istio.io/istio/pkg/dns/proto"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/status"
 	"istio.io/istio/pilot/pkg/util/protoconv"
@@ -51,6 +49,8 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/gvk"
+	dnsClient "istio.io/istio/pkg/dns/client"
+	dnsProto "istio.io/istio/pkg/dns/proto"
 	"istio.io/istio/pkg/envoy"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/test"
@@ -618,14 +618,16 @@ func setupDownstreamConnection(t *testing.T, proxy *XdsProxy) *grpc.ClientConn {
 func TestNDSDeltaHandler(t *testing.T) {
 	makeResource := func(name string, ips ...string) *discovery.Resource {
 		ni := &dnsProto.NameTable_NameInfo{Ips: ips, Registry: "Kubernetes"}
-		table := map[string]*dnsProto.NameTable_NameInfo{}
+		var nt *dnsProto.NameTable
 		if name == "" {
 			// unnamed = full-table resource (old istiod format)
-			table["svc-a.default.svc.cluster.local"] = ni
+			nt = &dnsProto.NameTable{Table: map[string]*dnsProto.NameTable_NameInfo{
+				"svc-a.default.svc.cluster.local": ni,
+			}}
 		} else {
-			table[name] = ni
+			// named per-host resource carries attributes in the single-valued NameInfo field.
+			nt = &dnsProto.NameTable{NameInfo: ni}
 		}
-		nt := &dnsProto.NameTable{Table: table}
 		return &discovery.Resource{Name: name, Resource: protoconv.MessageToAny(nt)}
 	}
 

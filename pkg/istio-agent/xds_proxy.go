@@ -17,7 +17,6 @@ package istioagent
 import (
 	"context"
 	"fmt"
-	"maps"
 	"math"
 	"net"
 	"sync"
@@ -639,7 +638,7 @@ func (h *ndsDeltaHandler) Handle(resources []*discovery.Resource, removed []stri
 		if err := r.Resource.UnmarshalTo(&nt); err != nil {
 			return err
 		}
-		maps.Copy(added, nt.GetTable())
+		added[r.Name] = nt.NameInfo
 	}
 
 	if h.needsRebuild {

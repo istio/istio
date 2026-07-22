@@ -40,5 +40,8 @@ message NameTable {
 
     // Map of hostname to resolution attributes.
     map<string, NameInfo> table = 1;
+    // Resolution attributes for a single hostname, the hostname itself is carried by discovery.Resource.Name.
+    // Used to send incremental updates to the NameTable. Sent by istiod to istio agents via xds.
+    NameInfo name_info = 2;
 }
 

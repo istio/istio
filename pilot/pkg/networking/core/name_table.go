@@ -35,13 +35,18 @@ var deltaAwareNdsConfigs = sets.New(
 
 // BuildNameTable produces a table of hostnames and their associated IPs that can then
 // be used by the agent to resolve DNS. This logic is always active. However, local DNS resolution
-// will only be effective if DNS capture is enabled in the proxy
-func (configgen *ConfigGeneratorImpl) BuildNameTable(node *model.Proxy, push *model.PushContext) *dnsProto.NameTable {
-	return dnsServer.BuildNameTable(dnsServer.Config{
+// will only be effective if DNS capture is enabled in the proxy. This is the NDS SotW output:
+// the whole table wrapped in a single xDS resource.
+func (configgen *ConfigGeneratorImpl) BuildNameTable(node *model.Proxy, push *model.PushContext) ([]*discovery.Resource, model.XdsLogDetails) {
+	nt := dnsServer.BuildNameTable(dnsServer.Config{
 		Node:                        node,
 		Push:                        push,
 		MulticlusterHeadlessEnabled: features.MulticlusterHeadlessEnabled,
 	})
+	if nt == nil {
+		return nil, model.DefaultXdsLogDetails
+	}
+	return []*discovery.Resource{{Resource: protoconv.MessageToAny(nt)}}, model.DefaultXdsLogDetails
 }
 
 // BuildDeltaNameTable generates the per-host NDS resource deltas for a proxy.
@@ -51,30 +56,31 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaNameTable(proxy *model.Proxy, up
 ) ([]*discovery.Resource, []string, model.XdsLogDetails, bool) {
 	// this agent does not support or is requesting to not receive true Delta NDS.
 	if !bool(proxy.Metadata.DeltaNDS) {
-		nt := configgen.BuildNameTable(proxy, updates.Push)
-		return []*discovery.Resource{{Resource: protoconv.MessageToAny(nt)}}, nil, model.DefaultXdsLogDetails, false
+		resources, logs := configgen.BuildNameTable(proxy, updates.Push)
+		return resources, nil, logs, false
+	}
+
+	config := dnsServer.Config{
+		Node:                        proxy,
+		Push:                        updates.Push,
+		MulticlusterHeadlessEnabled: features.MulticlusterHeadlessEnabled,
 	}
 
 	// at least one config kind has changed that doesn't support delta, we need to rebuild the whole table and send
 	// each table entry
 	if !shouldUseNdsDelta(updates) {
-		nt := configgen.BuildNameTable(proxy, updates.Push)
+		nt := dnsServer.BuildNameTable(config)
 		return toPerHostResources(nt.GetTable()), nil, model.DefaultXdsLogDetails, false
 	}
 
 	// True delta: build only the changed hostnames' records.
-	changedHosts := ndsChangedHostnames(updates.ConfigsUpdated)
-	newTable := dnsServer.BuildNameTable(dnsServer.Config{
-		Node:                        proxy,
-		Push:                        updates.Push,
-		MulticlusterHeadlessEnabled: features.MulticlusterHeadlessEnabled,
-		Hostnames:                   changedHosts,
-	}).GetTable()
+	config.Hostnames = ndsChangedHostnames(updates.ConfigsUpdated)
+	newTable := dnsServer.BuildNameTable(config).GetTable()
 
 	res := toPerHostResources(newTable)
 	var removed []string
 	for name := range watched.ResourceNames {
-		if _, stillPresent := newTable[name]; !stillPresent && ownedByAny(name, changedHosts) {
+		if _, stillPresent := newTable[name]; !stillPresent && ownedByAny(name, config.Hostnames) {
 			removed = append(removed, name)
 		}
 	}
@@ -127,10 +133,13 @@ func isOwnedBy(name, h string) bool {
 }
 
 // toPerHostResources decomposes a NameTable map into one discovery.Resource per hostname.
+// Each resource carries the hostname in discovery.Resource.Name and the resolution attributes
+// in the single-valued NameTable.NameInfo field (rather than a single-entry table map), avoiding
+// duplicating the hostname and allocating a one-entry map per resource.
 func toPerHostResources(table map[string]*dnsProto.NameTable_NameInfo) []*discovery.Resource {
 	res := make([]*discovery.Resource, 0, len(table))
 	for name, ni := range table {
-		nt := &dnsProto.NameTable{Table: map[string]*dnsProto.NameTable_NameInfo{name: ni}}
+		nt := &dnsProto.NameTable{NameInfo: ni}
 		res = append(res, &discovery.Resource{
 			Name:     name,
 			Resource: protoconv.MessageToAny(nt),

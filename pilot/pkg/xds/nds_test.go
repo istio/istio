@@ -128,9 +128,8 @@ func ndsTableFromDeltaResponse(t *testing.T, resp *discovery.DeltaDiscoveryRespo
 		if err := r.Resource.UnmarshalTo(&entry); err != nil {
 			t.Fatalf("failed to unmarshal NDS resource %q: %v", r.Name, err)
 		}
-		for k, v := range entry.Table {
-			nt.Table[k] = v
-		}
+		// Per-host delta resources carry the hostname in Resource.Name and the attributes in NameInfo.
+		nt.Table[r.Name] = entry.GetNameInfo()
 	}
 	for _, name := range resp.RemovedResources {
 		delete(nt.Table, name)
@@ -207,6 +206,28 @@ func addHeadlessPod(s *xds.FakeDiscoveryServer, svcName, ns, podName, ip string)
 func removeAllHeadlessPods(s *xds.FakeDiscoveryServer, svcName, ns string) {
 	h := host.Name(fmt.Sprintf("%s.%s.svc.cluster.local", svcName, ns))
 	s.MemRegistry.SetEndpoints(string(h), ns, nil)
+	s.Discovery.ConfigUpdate(&model.PushRequest{
+		ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.DNSName, Name: string(h), Namespace: ns}),
+	})
+}
+
+// setHeadlessPods replaces the full endpoint set of a headless service with one endpoint per
+// entry in pods (podName->ip) and fires a DNSName push. Used to model headless scale up/down,
+// where the service record and surviving pods stay but a departed pod's per-pod record must go.
+func setHeadlessPods(s *xds.FakeDiscoveryServer, svcName, ns string, pods map[string]string) {
+	h := host.Name(fmt.Sprintf("%s.%s.svc.cluster.local", svcName, ns))
+	eps := make([]*model.IstioEndpoint, 0, len(pods))
+	for podName, ip := range pods {
+		eps = append(eps, &model.IstioEndpoint{
+			Addresses:       []string{ip},
+			ServicePortName: "http",
+			EndpointPort:    80,
+			HostName:        podName,
+			SubDomain:       svcName,
+			HealthStatus:    model.Healthy,
+		})
+	}
+	s.MemRegistry.SetEndpoints(string(h), ns, eps)
 	s.Discovery.ConfigUpdate(&model.PushRequest{
 		ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.DNSName, Name: string(h), Namespace: ns}),
 	})
@@ -365,6 +386,37 @@ func TestNDSDelta(t *testing.T) {
 		} {
 			if !removed.Contains(expected) {
 				t.Errorf("expected %q in RemovedResources after scale-to-zero, got: %v", expected, resp.RemovedResources)
+			}
+		}
+	})
+
+	t.Run("headless scale-down removes only the departed pod's per-pod entry", func(t *testing.T) {
+		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+		addHeadlessService(s, "svc-h", ns)
+		setHeadlessPods(s, "svc-h", ns, map[string]string{"pod-0": "10.1.0.1", "pod-1": "10.1.0.2", "pod-2": "10.1.0.3"})
+		s.EnsureSynced(t)
+
+		ads := connectDeltaNDS(t, s)
+		ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{})
+
+		// Scale down by one: pod-2 leaves; the service record and pod-0/pod-1 remain. This is the
+		// key removal case — the push only names the service hostname, yet the generator must
+		// derive that pod-2's per-pod record is gone (via owned(H) vs w.ResourceNames).
+		setHeadlessPods(s, "svc-h", ns, map[string]string{"pod-0": "10.1.0.1", "pod-1": "10.1.0.2"})
+		resp := ads.ExpectResponse()
+
+		pod2 := perPodHostname("pod-2", "svc-h", ns)
+		if !slices.Contains(resp.RemovedResources, pod2) {
+			t.Errorf("expected departed pod %q in RemovedResources, got %v", pod2, resp.RemovedResources)
+		}
+		// Neither the surviving pods nor the service record may be removed.
+		for _, keep := range []string{
+			perPodHostname("pod-0", "svc-h", ns),
+			perPodHostname("pod-1", "svc-h", ns),
+			fmt.Sprintf("svc-h.%s.svc.cluster.local", ns),
+		} {
+			if slices.Contains(resp.RemovedResources, keep) {
+				t.Errorf("%q survived a partial scale-down and must not be removed", keep)
 			}
 		}
 	})
