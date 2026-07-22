@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+
+issue:
+  - 38610
+
+releaseNotes:
+- |
+  **Added** the ability for `AuthorizationPolicy` resources to target classic `networking.istio.io/Gateway` resources via `targetRefs`. This allows policies to be scoped to the exact gateway chains they cover instead of landing on every chain of the proxy. This applies to HTTPS and TLS passthrough chains. There is no behavior change to plain HTTP gateways.
