@@ -232,4 +232,5 @@ const (
 
 	// TODO: think about a better name?
 	ConfigExtraPerRouteRuleInferencePoolConfigs = "perRouteRuleInferencePoolConfigs"
+	ConfigExtraHTTPRouteOrigins = "httpRouteOrigins"
 )

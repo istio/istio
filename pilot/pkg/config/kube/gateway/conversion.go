@@ -460,32 +460,36 @@ func routeMeta(obj controllers.Object) map[string]string {
 // see https://gateway-api.sigs.k8s.io/v1alpha2/references/spec/#gateway.networking.k8s.io/v1alpha2.HTTPRouteRule
 func sortHTTPRoutes(routes []*istio.HTTPRoute) {
 	sort.SliceStable(routes, func(i, j int) bool {
-		if len(routes[i].Match) == 0 {
-			return false
-		} else if len(routes[j].Match) == 0 {
-			return true
-		}
-		// Only look at match[0], we always generate only one match
-		m1, m2 := routes[i].Match[0], routes[j].Match[0]
-		r1, r2 := getURIRank(m1), getURIRank(m2)
-		len1, len2 := getURILength(m1), getURILength(m2)
-		switch {
-		// 1: Exact/Prefix/Regex
-		case r1 != r2:
-			return r1 > r2
-		case len1 != len2:
-			return len1 > len2
-			// 2: method math
-		case (m1.Method == nil) != (m2.Method == nil):
-			return m1.Method != nil
-			// 3: number of header matches
-		case len(m1.Headers) != len(m2.Headers):
-			return len(m1.Headers) > len(m2.Headers)
-			// 4: number of query matches
-		default:
-			return len(m1.QueryParams) > len(m2.QueryParams)
-		}
+		return httpRouteLess(routes[i], routes[j])
 	})
+}
+
+func httpRouteLess(i, j *istio.HTTPRoute) bool {
+	if len(i.Match) == 0 {
+		return false
+	} else if len(j.Match) == 0 {
+		return true
+	}
+	// Only look at match[0], we always generate only one match
+	m1, m2 := i.Match[0], j.Match[0]
+	r1, r2 := getURIRank(m1), getURIRank(m2)
+	len1, len2 := getURILength(m1), getURILength(m2)
+	switch {
+	// 1: Exact/Prefix/Regex
+	case r1 != r2:
+		return r1 > r2
+	case len1 != len2:
+		return len1 > len2
+		// 2: method math
+	case (m1.Method == nil) != (m2.Method == nil):
+		return m1.Method != nil
+		// 3: number of header matches
+	case len(m1.Headers) != len(m2.Headers):
+		return len(m1.Headers) > len(m2.Headers)
+		// 4: number of query matches
+	default:
+		return len(m1.QueryParams) > len(m2.QueryParams)
+	}
 }
 
 func parentMeta(obj controllers.Object, sectionName *k8s.SectionName) map[string]string {
