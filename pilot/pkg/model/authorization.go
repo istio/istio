@@ -20,6 +20,7 @@ import (
 	authpb "istio.io/api/security/v1beta1"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/util/sets"
 )
 
 type AuthorizationPolicy struct {
@@ -110,6 +111,34 @@ func (policy *AuthorizationPolicies) ListAuthorizationPolicies(selectionOpts Wor
 	}
 
 	return configs
+}
+
+// GatewaysTargetedByTargetRef returns the set of classic networking.istio.io Gateways that at
+// least one in-scope AuthorizationPolicy attaches to via a targetRef. Scope mirrors
+// ListAuthorizationPolicies: only the root namespace and the given proxy config namespace are
+// scanned, under the classic-Gateway same-namespace rule. Callers use this to activate
+// per-Gateway authz scoping ONLY for Gateways that are actually targeted, so untargeted
+// Gateways keep the shared proxy-wide builder (byte-identical output).
+func (policy *AuthorizationPolicies) GatewaysTargetedByTargetRef(configNamespace string) sets.Set[types.NamespacedName] {
+	result := sets.New[types.NamespacedName]()
+	if policy == nil {
+		return result
+	}
+	for _, ns := range slices.FilterDuplicates([]string{policy.RootNamespace, configNamespace}) {
+		for _, cfg := range policy.NamespaceToPolicies[ns] {
+			for _, ref := range GetTargetRefs(cfg.Spec) {
+				if !matchesGroupKind(ref, gvk.Gateway) {
+					continue
+				}
+				// Same-namespace rule: policyNamespace == gatewayNamespace, so cfg.Namespace is
+				// the gateway namespace; a targetRef namespace, if set, must equal it.
+				if ref.GetNamespace() == "" || ref.GetNamespace() == cfg.Namespace {
+					result.Insert(types.NamespacedName{Namespace: cfg.Namespace, Name: ref.GetName()})
+				}
+			}
+		}
+	}
+	return result
 }
 
 func updateAuthorizationPoliciesResult(configs AuthorizationPoliciesResult, config AuthorizationPolicy) AuthorizationPoliciesResult {

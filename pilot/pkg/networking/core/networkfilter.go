@@ -209,7 +209,11 @@ func (lb *ListenerBuilder) buildCompleteNetworkFilters(
 ) []*listener.Filter {
 	authzCustomBuilder := lb.authzCustomBuilder
 	authzBuilder := lb.authzBuilder
-	if policySvc != nil {
+	switch {
+	case class == istionetworking.ListenerClassGateway && lb.authzTargetedGateways.Contains(lb.authzGatewayName):
+		authzBuilder = lb.gatewayAuthzBuilder(authz.Local, lb.authzGatewayName)
+		authzCustomBuilder = lb.gatewayAuthzBuilder(authz.Custom, lb.authzGatewayName)
+	case policySvc != nil:
 		useFilterState := lb.node.Type == model.Waypoint
 		authzBuilder = authz.NewBuilderForService(authz.Local, lb.push, lb.node, useFilterState, policySvc)
 		authzCustomBuilder = authz.NewBuilderForService(authz.Custom, lb.push, lb.node, useFilterState, policySvc)

@@ -46,6 +46,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/wellknown"
 )
 
@@ -81,6 +82,16 @@ type ListenerBuilder struct {
 	// keyed by the owning Gateway, so the many filter chains of one gateway share a builder.
 	authzGatewayBuilders       map[types.NamespacedName]*authz.Builder
 	authzCustomGatewayBuilders map[types.NamespacedName]*authz.Builder
+
+	// authzGatewayName is transient scratch state, set only while a classic-Gateway TCP or TLS
+	// chain's network filters are built, so buildCompleteNetworkFilters can scope authz to the
+	// owning Gateway. The zero value means "use the proxy-wide builders".
+	authzGatewayName types.NamespacedName
+
+	// authzTargetedGateways is the set of classic Gateways targeted by an in-scope
+	// classic-Gateway-targetRef AuthorizationPolicy. Per-gateway authz scoping activates only for
+	// Gateways in this set; every other chain reuses the shared proxy-wide builders. Computed once.
+	authzTargetedGateways sets.Set[types.NamespacedName]
 }
 
 // enabledInspector captures if for a given listener, listener filter inspectors are added
@@ -98,6 +109,9 @@ func NewListenerBuilder(node *model.Proxy, push *model.PushContext) *ListenerBui
 	builder.authnBuilder = authn.NewBuilder(push, node)
 	builder.authzBuilder = authz.NewBuilder(authz.Local, push, node, node.Type == model.Waypoint)
 	builder.authzCustomBuilder = authz.NewBuilder(authz.Custom, push, node, node.Type == model.Waypoint)
+	if node.Type == model.Router {
+		builder.authzTargetedGateways = push.AuthzPolicies.GatewaysTargetedByTargetRef(node.ConfigNamespace)
+	}
 	return builder
 }
 
@@ -570,10 +584,12 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 }
 
 // authzBuildersForChain returns the (Local, Custom) authz builders for an HTTP filter chain:
-// per-gateway builders for a classic Gateway chain with a known owner, and the shared proxy-wide
-// builders for every other chain (which keeps their output byte-identical).
+// per-gateway builders for a classic Gateway TARGETED by a targetRef AuthorizationPolicy, and the
+// shared proxy-wide builders for every other chain. Reusing the shared builders for every untargeted
+// chain keeps their output byte-identical to the pre-scoping behavior.
 func (lb *ListenerBuilder) authzBuildersForChain(httpOpts *httpListenerOpts) (local, custom *authz.Builder) {
-	if httpOpts.class != istionetworking.ListenerClassGateway || httpOpts.gatewayName == (types.NamespacedName{}) {
+	if httpOpts.class != istionetworking.ListenerClassGateway ||
+		!lb.authzTargetedGateways.Contains(httpOpts.gatewayName) {
 		return lb.authzBuilder, lb.authzCustomBuilder
 	}
 	return lb.gatewayAuthzBuilder(authz.Local, httpOpts.gatewayName),

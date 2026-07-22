@@ -731,6 +731,12 @@ func gatewayNameForServer(node *model.Proxy, server *networking.Server) types.Na
 	if !ok {
 		return types.NamespacedName{}
 	}
+	return parseGatewayName(name)
+}
+
+// parseGatewayName parses a "namespace/name" classic Gateway identifier into a NamespacedName.
+// The zero value is returned for an empty or malformed name, leaving authz scoping a no-op.
+func parseGatewayName(name string) types.NamespacedName {
 	ns, n, found := strings.Cut(name, "/")
 	if !found {
 		return types.NamespacedName{}
@@ -835,6 +841,13 @@ func (lb *ListenerBuilder) createGatewayTCPFilterChainOpts(
 	server *networking.Server, listenerPort uint32,
 	gatewayName string, tlsHostsByPort map[uint32]map[string]string,
 ) []*filterChainOpts {
+	// Scope authz to the owning classic Gateway while this server's network filters are built.
+	// buildCompleteNetworkFilters reads authzGatewayName, so every network-filter chain below MUST be
+	// materialized synchronously within this call, before the defer clears the field; a lazily/deferred
+	// build would silently fall back to the proxy-wide builder and widen authz (fail-open).
+	lb.authzGatewayName = parseGatewayName(gatewayName)
+	defer func() { lb.authzGatewayName = types.NamespacedName{} }()
+
 	// We have a TCP/TLS server. This could be TLS termination (user specifies server.TLS with simple/mutual)
 	// or opaque TCP (server.TLS is nil). or it could be a TLS passthrough with SNI based routing.
 

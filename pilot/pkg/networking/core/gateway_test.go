@@ -31,6 +31,7 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
+	"k8s.io/apimachinery/pkg/types"
 
 	extensions "istio.io/api/extensions/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -4341,6 +4342,67 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 			},
 		},
 		{
+			// An AuthorizationPolicy whose targetRef points at a classic networking.istio.io Gateway
+			// scopes the RBAC *network* filter onto that gateway's TCP filter chain. The gateway and
+			// policy are co-located in the proxy's config namespace ("not-default") so the policy is in
+			// the authz lookup set and ShouldAttachPolicy's classic-Gateway branch
+			// (policy.Namespace == gateway.Namespace) matches.
+			name: "TCP RBAC scoped to targeted classic Gateway",
+			configs: []config.Config{
+				{
+					Meta: config.Meta{Name: "gw-tcp-a", Namespace: "not-default", GroupVersionKind: gvk.Gateway},
+					Spec: &networking.Gateway{
+						Servers: []*networking.Server{
+							{
+								Port:  &networking.Port{Name: "tcp", Number: 100, Protocol: "TCP"},
+								Hosts: []string{"www-a.example.com"},
+							},
+						},
+					},
+				},
+				{
+					Meta: config.Meta{Name: uuid.NewString(), Namespace: uuid.NewString(), GroupVersionKind: gvk.VirtualService},
+					Spec: &networking.VirtualService{
+						Gateways: []string{"not-default/gw-tcp-a"},
+						Hosts:    []string{"www-a.example.com"},
+						Tcp: []*networking.TCPRoute{
+							{
+								Route: []*networking.RouteDestination{
+									{
+										Destination: &networking.Destination{
+											Host: "http.com",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				{
+					Meta: config.Meta{Name: "authz-gw-tcp-a", Namespace: "not-default", GroupVersionKind: gvk.AuthorizationPolicy},
+					Spec: &security.AuthorizationPolicy{
+						Action:     security.AuthorizationPolicy_ALLOW,
+						TargetRefs: []*apitypev1beta1.PolicyTargetReference{classicGatewayTargetRef("gw-tcp-a")},
+						Rules: []*security.Rule{{
+							From: []*security.Rule_From{{
+								Source: &security.Source{Principals: []string{"cluster.local/ns/default/sa/client"}},
+							}},
+						}},
+					},
+				},
+			},
+			expectedListener: listenertest.ListenerTest{
+				FilterChains: []listenertest.FilterChainTest{
+					{
+						NetworkFilters: []string{
+							wellknown.RoleBasedAccessControl,
+							wellknown.TCPProxy,
+						},
+					},
+				},
+			},
+		},
+		{
 			name: "mTLS, RBAC, WASM, TrafficExtension, and Stats",
 			configs: []config.Config{
 				{
@@ -5248,12 +5310,24 @@ func TestGatewayListenerConnectionSettings(t *testing.T) {
 // TestBuildGatewayListenersFilters.
 func buildGatewayListenersForAuthzTest(t *testing.T, configs []config.Config) []*listener.Listener {
 	t.Helper()
+	return buildGatewayListenerBuilderForAuthzTest(t, configs).gatewayListeners
+}
+
+// buildGatewayListenerBuilderForAuthzTest is like buildGatewayListenersForAuthzTest but returns the
+// mutated *ListenerBuilder itself, so a test can inspect the per-classic-Gateway authz builder caches
+// (authzGatewayBuilders / authzCustomGatewayBuilders) that are populated as a side effect of building
+// the gateway listeners. A per-gateway builder is cached only when a chain diverges from the shared
+// proxy-wide authz builder, so the cache's key set is the observable for the activation gate: it must
+// contain exactly the classic Gateways actually targeted by an in-scope classic-Gateway-targetRef
+// AuthorizationPolicy, and nothing else.
+func buildGatewayListenerBuilderForAuthzTest(t *testing.T, configs []config.Config) *ListenerBuilder {
+	t.Helper()
 	cg := NewConfigGenTest(t, TestOptions{Configs: configs})
 	proxy := cg.SetupProxy(&proxyGateway)
 	metadata := proxyGatewayMetadata
 	proxy.Metadata = &metadata
 	lb := NewListenerBuilder(proxy, cg.PushContext())
-	return cg.ConfigGen.buildGatewayListeners(lb).gatewayListeners
+	return cg.ConfigGen.buildGatewayListeners(lb)
 }
 
 // httpFilterNamesForListener aggregates the HTTP filter names across all of a listener's filter
@@ -5269,6 +5343,110 @@ func httpFilterNamesForListener(t *testing.T, l *listener.Listener) []string {
 		httpFilters = append(httpFilters, hf...)
 	}
 	return httpFilters
+}
+
+// networkFilterNamesForListener aggregates the network (L4) filter names across all of a listener's
+// filter chains. TCP/passthrough gateways route through the network-filter path (not HCM), so RBAC
+// scoping there must be asserted on these names rather than the HTTP filter names.
+func networkFilterNamesForListener(t *testing.T, l *listener.Listener) []string {
+	t.Helper()
+	if l == nil {
+		t.Fatalf("listener not found")
+	}
+	var networkFilters []string
+	for _, fc := range l.GetFilterChains() {
+		nf, _ := xdstest.ExtractFilterNames(t, fc)
+		networkFilters = append(networkFilters, nf...)
+	}
+	return networkFilters
+}
+
+// tcpGatewayConfigs returns a classic opaque-TCP Gateway plus a VirtualService with a TCP route bound
+// to it, on the proxy's config namespace ("not-default") so a co-located targetRef policy can attach.
+func tcpGatewayConfigs(name string, port uint32, hostName string) []config.Config {
+	return []config.Config{
+		{
+			Meta: config.Meta{Name: name, Namespace: "not-default", GroupVersionKind: gvk.Gateway},
+			Spec: &networking.Gateway{
+				Servers: []*networking.Server{
+					{
+						Port:  &networking.Port{Name: "tcp", Number: port, Protocol: "TCP"},
+						Hosts: []string{hostName},
+					},
+				},
+			},
+		},
+		{
+			Meta: config.Meta{Name: uuid.NewString(), Namespace: uuid.NewString(), GroupVersionKind: gvk.VirtualService},
+			Spec: &networking.VirtualService{
+				Gateways: []string{"not-default/" + name},
+				Hosts:    []string{hostName},
+				Tcp: []*networking.TCPRoute{
+					{
+						Match: []*networking.L4MatchAttributes{{Port: port}},
+						Route: []*networking.RouteDestination{
+							{Destination: &networking.Destination{Host: "foo.com"}},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+// passthroughGatewayConfigs returns a classic TLS-passthrough Gateway plus a VirtualService with a TLS
+// route bound to it, on the proxy's config namespace ("not-default"). Passthrough servers route
+// through the network-filter path via buildGatewayNetworkFiltersFromTLSRoutes.
+func passthroughGatewayConfigs(name string, port uint32, hostName string) []config.Config {
+	return []config.Config{
+		{
+			Meta: config.Meta{Name: name, Namespace: "not-default", GroupVersionKind: gvk.Gateway},
+			Spec: &networking.Gateway{
+				Servers: []*networking.Server{
+					{
+						Port:  &networking.Port{Name: "tls", Number: port, Protocol: "TLS"},
+						Hosts: []string{hostName},
+						Tls:   &networking.ServerTLSSettings{Mode: networking.ServerTLSSettings_PASSTHROUGH},
+					},
+				},
+			},
+		},
+		{
+			Meta: config.Meta{Name: uuid.NewString(), Namespace: uuid.NewString(), GroupVersionKind: gvk.VirtualService},
+			Spec: &networking.VirtualService{
+				Gateways: []string{"not-default/" + name},
+				Hosts:    []string{hostName},
+				Tls: []*networking.TLSRoute{
+					{
+						Match: []*networking.TLSMatchAttributes{
+							{Port: port, SniHosts: []string{hostName}},
+						},
+						Route: []*networking.RouteDestination{
+							{Destination: &networking.Destination{Host: "foo.com"}},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+// classicGatewayTargetRefAuthz returns an ALLOW AuthorizationPolicy (with a real rule so the RBAC
+// filter is actually emitted) targeting a classic networking.istio.io Gateway, co-located in the
+// proxy's config namespace ("not-default").
+func classicGatewayTargetRefAuthz(name, gwName string) config.Config {
+	return config.Config{
+		Meta: config.Meta{Name: name, Namespace: "not-default", GroupVersionKind: gvk.AuthorizationPolicy},
+		Spec: &security.AuthorizationPolicy{
+			Action:     security.AuthorizationPolicy_ALLOW,
+			TargetRefs: []*apitypev1beta1.PolicyTargetReference{classicGatewayTargetRef(gwName)},
+			Rules: []*security.Rule{{
+				From: []*security.Rule_From{{
+					Source: &security.Source{Principals: []string{"cluster.local/ns/default/sa/client"}},
+				}},
+			}},
+		},
+	}
 }
 
 // classicGatewayTargetRef returns a targetRef pointing at a classic networking.istio.io Gateway.
@@ -5295,9 +5473,9 @@ func httpsGatewayConfig(name string, port uint32, hostName string) config.Config
 	}
 }
 
-// TestBuildGatewayListenersAuthzTargetRefScoping is the "money" test: an AuthorizationPolicy whose
-// targetRef points at classic Gateway gw-a must produce the Envoy RBAC HTTP filter ONLY on gw-a's
-// HTTPS filter chain, and must NOT appear on the co-resident gw-b's HTTPS filter chain.
+// TestBuildGatewayListenersAuthzTargetRefScoping is the core HTTPS scoping test: an
+// AuthorizationPolicy whose targetRef points at classic Gateway gw-a must produce the Envoy RBAC HTTP
+// filter ONLY on gw-a's HTTPS filter chain, and must NOT appear on the co-resident gw-b's HTTPS chain.
 func TestBuildGatewayListenersAuthzTargetRefScoping(t *testing.T) {
 	configs := []config.Config{
 		httpsGatewayConfig("gw-a", 443, "a.example.com"),
@@ -5411,5 +5589,174 @@ func TestBuildGatewayListenersAuthzPlaintextHTTPUnaffected(t *testing.T) {
 	})
 	if got := httpFilterNamesForListener(t, xdstest.ExtractListener("0.0.0.0_80", proxyWide)); !slices.Contains(got, wellknown.HTTPRoleBasedAccessControl) {
 		t.Errorf("expected RBAC http filter on plaintext HTTP chain for a proxy-wide policy, got %v", got)
+	}
+}
+
+// TestBuildGatewayListenersAuthzTargetRefScopingTCP is the network-filter analog of the HTTPS
+// scoping test: an AuthorizationPolicy whose targetRef points at classic opaque-TCP Gateway gw-tcp-a
+// must produce the Envoy RBAC *network* filter ONLY on gw-tcp-a's TCP filter chain, and must NOT
+// appear on the co-resident gw-tcp-b's TCP filter chain. The TCP/passthrough path scopes authz via
+// the per-gateway builder selected in buildCompleteNetworkFilters (networkfilter.go) from the
+// transient lb.authzGatewayName armed in createGatewayTCPFilterChainOpts.
+func TestBuildGatewayListenersAuthzTargetRefScopingTCP(t *testing.T) {
+	configs := append(tcpGatewayConfigs("gw-tcp-a", 100, "www-a.example.com"),
+		tcpGatewayConfigs("gw-tcp-b", 101, "www-b.example.com")...)
+	configs = append(configs, classicGatewayTargetRefAuthz("authz-gw-tcp-a", "gw-tcp-a"))
+
+	listeners := buildGatewayListenersForAuthzTest(t, configs)
+
+	gwAFilters := networkFilterNamesForListener(t, xdstest.ExtractListener("0.0.0.0_100", listeners))
+	gwBFilters := networkFilterNamesForListener(t, xdstest.ExtractListener("0.0.0.0_101", listeners))
+
+	if !slices.Contains(gwAFilters, wellknown.RoleBasedAccessControl) {
+		t.Errorf("expected RBAC network filter %q on gw-tcp-a's TCP chain, got %v",
+			wellknown.RoleBasedAccessControl, gwAFilters)
+	}
+	if slices.Contains(gwBFilters, wellknown.RoleBasedAccessControl) {
+		t.Errorf("did NOT expect RBAC network filter %q on gw-tcp-b's TCP chain (policy targets gw-tcp-a only), got %v",
+			wellknown.RoleBasedAccessControl, gwBFilters)
+	}
+
+	// gw-tcp-b is not targeted, so its TCP listener must be byte-identical to the no-policy baseline.
+	baseline := buildGatewayListenersForAuthzTest(t, tcpGatewayConfigs("gw-tcp-b", 101, "www-b.example.com"))
+	baselineB := xdstest.ExtractListener("0.0.0.0_101", baseline)
+	if diff := cmp.Diff(baselineB, xdstest.ExtractListener("0.0.0.0_101", listeners), protocmp.Transform()); diff != "" {
+		t.Errorf("gw-tcp-b TCP listener changed by an unrelated targetRef policy (-baseline +got):\n%s", diff)
+	}
+}
+
+// TestBuildGatewayListenersAuthzTargetRefScopingPassthrough is the TLS-passthrough analog: an
+// AuthorizationPolicy targeting classic passthrough Gateway gw-tls-a must produce the RBAC network
+// filter ONLY on gw-tls-a's passthrough filter chain, not on the co-resident gw-tls-b. Passthrough
+// servers route through buildGatewayNetworkFiltersFromTLSRoutes, which shares the same network
+// authz path as opaque TCP, so both are scoped by the per-gateway builder in buildCompleteNetworkFilters.
+func TestBuildGatewayListenersAuthzTargetRefScopingPassthrough(t *testing.T) {
+	configs := append(passthroughGatewayConfigs("gw-tls-a", 9443, "www-a.example.com"),
+		passthroughGatewayConfigs("gw-tls-b", 9444, "www-b.example.com")...)
+	configs = append(configs, classicGatewayTargetRefAuthz("authz-gw-tls-a", "gw-tls-a"))
+
+	listeners := buildGatewayListenersForAuthzTest(t, configs)
+
+	gwAFilters := networkFilterNamesForListener(t, xdstest.ExtractListener("0.0.0.0_9443", listeners))
+	gwBFilters := networkFilterNamesForListener(t, xdstest.ExtractListener("0.0.0.0_9444", listeners))
+
+	if !slices.Contains(gwAFilters, wellknown.RoleBasedAccessControl) {
+		t.Errorf("expected RBAC network filter %q on gw-tls-a's passthrough chain, got %v",
+			wellknown.RoleBasedAccessControl, gwAFilters)
+	}
+	if slices.Contains(gwBFilters, wellknown.RoleBasedAccessControl) {
+		t.Errorf("did NOT expect RBAC network filter %q on gw-tls-b's passthrough chain (policy targets gw-tls-a only), got %v",
+			wellknown.RoleBasedAccessControl, gwBFilters)
+	}
+
+	// gw-tls-b is not targeted, so its passthrough listener must be byte-identical to the baseline.
+	baseline := buildGatewayListenersForAuthzTest(t, passthroughGatewayConfigs("gw-tls-b", 9444, "www-b.example.com"))
+	baselineB := xdstest.ExtractListener("0.0.0.0_9444", baseline)
+	if diff := cmp.Diff(baselineB, xdstest.ExtractListener("0.0.0.0_9444", listeners), protocmp.Transform()); diff != "" {
+		t.Errorf("gw-tls-b passthrough listener changed by an unrelated targetRef policy (-baseline +got):\n%s", diff)
+	}
+}
+
+// TestBuildGatewayListenersAuthzTCPNoPolicyBaseline is the zero-impact guard for the network path:
+// with NO classic-Gateway-targetRef policy present, a TCP gateway's network-filter stack must be
+// exactly [TCPProxy] (no RBAC), and a proxy-wide (no-targetRef) policy must still be enforced (RBAC
+// present) — the existing "TCP RBAC and Stats" table case covers the proxy-wide-with-stats variant.
+func TestBuildGatewayListenersAuthzTCPNoPolicyBaseline(t *testing.T) {
+	// No authz policy: RBAC network filter absent.
+	noPolicy := buildGatewayListenersForAuthzTest(t, tcpGatewayConfigs("gw-tcp", 100, "www.example.com"))
+	if got := networkFilterNamesForListener(t, xdstest.ExtractListener("0.0.0.0_100", noPolicy)); slices.Contains(got, wellknown.RoleBasedAccessControl) {
+		t.Errorf("did not expect RBAC network filter with no authz policy, got %v", got)
+	}
+
+	// Proxy-wide (no targetRef) policy: RBAC network filter present — enforcement not weakened.
+	proxyWide := buildGatewayListenersForAuthzTest(t, append(tcpGatewayConfigs("gw-tcp", 100, "www.example.com"),
+		config.Config{
+			Meta: config.Meta{Name: "authz-proxywide", Namespace: "not-default", GroupVersionKind: gvk.AuthorizationPolicy},
+			Spec: &security.AuthorizationPolicy{Action: security.AuthorizationPolicy_ALLOW},
+		}))
+	if got := networkFilterNamesForListener(t, xdstest.ExtractListener("0.0.0.0_100", proxyWide)); !slices.Contains(got, wellknown.RoleBasedAccessControl) {
+		t.Errorf("expected RBAC network filter for a proxy-wide (no-targetRef) policy, got %v", got)
+	}
+}
+
+// perGatewayAuthzBuilderKeys returns the union of the classic-Gateway keys across both per-gateway
+// authz builder caches on the ListenerBuilder. A key is present iff a chain owned by that classic
+// Gateway diverged from the shared proxy-wide authz builder and constructed a dedicated per-gateway
+// builder (authz.NewBuilderForGateways). This set is the observable for the authz activation gate.
+func perGatewayAuthzBuilderKeys(lb *ListenerBuilder) sets.Set[types.NamespacedName] {
+	keys := sets.New[types.NamespacedName]()
+	for k := range lb.authzGatewayBuilders {
+		keys.Insert(k)
+	}
+	for k := range lb.authzCustomGatewayBuilders {
+		keys.Insert(k)
+	}
+	return keys
+}
+
+// TestBuildGatewayListenersAuthzActivationGateHTTPS asserts the authz activation gate for the HCM
+// (HTTPS) path: istiod must construct a per-classic-Gateway authz builder ONLY for gateways actually
+// targeted by an in-scope classic-Gateway-targetRef AuthorizationPolicy, reusing the shared proxy-wide
+// builder for every other gateway.
+//
+// The gate is xDS-invisible: an untargeted gateway's per-gateway builder would resolve to the same
+// policy set as the proxy-wide builder, so filter output is byte-identical either way. It can only be
+// observed through the per-gateway builder caches -- constructing one is a NewBuilderForGateways scan +
+// allocation that an untargeted gateway does not need.
+//
+// The gate is a precomputed "targeted gateways" set on the ListenerBuilder (authzTargetedGateways),
+// populated in NewListenerBuilder from AuthorizationPolicies.GatewaysTargetedByTargetRef over
+// {RootNamespace, node.ConfigNamespace} for policies whose targetRefs include a classic Gateway
+// (group networking.istio.io, kind Gateway) under the same-namespace rule; authzBuildersForChain and
+// buildCompleteNetworkFilters diverge from the proxy-wide path only for gateways in that set.
+func TestBuildGatewayListenersAuthzActivationGateHTTPS(t *testing.T) {
+	gwA := types.NamespacedName{Namespace: "not-default", Name: "gw-a"}
+
+	// Case 1: gw-a targeted, gw-b co-resident but untargeted. Only gw-a may get a per-gateway builder.
+	targeted := buildGatewayListenerBuilderForAuthzTest(t, []config.Config{
+		httpsGatewayConfig("gw-a", 443, "a.example.com"),
+		httpsGatewayConfig("gw-b", 8443, "b.example.com"),
+		classicGatewayTargetRefAuthz("authz-gw-a", "gw-a"),
+	})
+	if got := perGatewayAuthzBuilderKeys(targeted); !got.Equals(sets.New(gwA)) {
+		t.Errorf("activation gate (HTTPS): expected per-gateway authz builders for exactly %v, got %v",
+			sets.New(gwA).UnsortedList(), got.UnsortedList())
+	}
+
+	// Case 2: no classic-Gateway-targetRef policy at all. No per-gateway builder may be constructed;
+	// both gateways must reuse the shared proxy-wide builder.
+	noPolicy := buildGatewayListenerBuilderForAuthzTest(t, []config.Config{
+		httpsGatewayConfig("gw-a", 443, "a.example.com"),
+		httpsGatewayConfig("gw-b", 8443, "b.example.com"),
+	})
+	if got := perGatewayAuthzBuilderKeys(noPolicy); got.Len() != 0 {
+		t.Errorf("activation gate (HTTPS): expected NO per-gateway authz builders with no targetRef policy, got %v",
+			got.UnsortedList())
+	}
+}
+
+// TestBuildGatewayListenersAuthzActivationGateTCP is the network-filter (opaque-TCP) analog of the HTTPS
+// activation-gate test: buildCompleteNetworkFilters (networkfilter.go) diverges to a per-gateway authz
+// builder only when the chain's owning classic Gateway is in lb.authzTargetedGateways, so the untargeted
+// gw-tcp-b -- and both gateways in the no-policy case -- reuse the shared proxy-wide builder. Same gate as
+// the HTTPS case.
+func TestBuildGatewayListenersAuthzActivationGateTCP(t *testing.T) {
+	gwA := types.NamespacedName{Namespace: "not-default", Name: "gw-tcp-a"}
+
+	configs := append(tcpGatewayConfigs("gw-tcp-a", 100, "www-a.example.com"),
+		tcpGatewayConfigs("gw-tcp-b", 101, "www-b.example.com")...)
+	configs = append(configs, classicGatewayTargetRefAuthz("authz-gw-tcp-a", "gw-tcp-a"))
+	targeted := buildGatewayListenerBuilderForAuthzTest(t, configs)
+	if got := perGatewayAuthzBuilderKeys(targeted); !got.Equals(sets.New(gwA)) {
+		t.Errorf("activation gate (TCP): expected per-gateway authz builders for exactly %v, got %v",
+			sets.New(gwA).UnsortedList(), got.UnsortedList())
+	}
+
+	noPolicy := buildGatewayListenerBuilderForAuthzTest(t, append(
+		tcpGatewayConfigs("gw-tcp-a", 100, "www-a.example.com"),
+		tcpGatewayConfigs("gw-tcp-b", 101, "www-b.example.com")...))
+	if got := perGatewayAuthzBuilderKeys(noPolicy); got.Len() != 0 {
+		t.Errorf("activation gate (TCP): expected NO per-gateway authz builders with no targetRef policy, got %v",
+			got.UnsortedList())
 	}
 }

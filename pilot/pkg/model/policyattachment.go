@@ -151,22 +151,26 @@ func (p WorkloadPolicyMatcher) ShouldAttachPolicy(kind config.GroupVersionKind,
 	gatewayName, isGatewayAPI := workloadGatewayName(p.WorkloadLabels)
 	targetRefs := GetTargetRefs(policy)
 
-	// non-gateway: use selector
-	if !isGatewayAPI {
-		// A classic Gateway proxy has no gateway-name label, so it lands here rather than in the
-		// Gateway API branch below; a targetRef may still select it.
-		for _, targetRef := range targetRefs {
-			if !matchesGroupKind(targetRef, gvk.Gateway) {
-				continue
-			}
-			for _, gw := range p.Gateways {
-				if targetRef.GetName() == gw.Name &&
-					policyName.Namespace == gw.Namespace &&
-					(targetRef.GetNamespace() == "" || targetRef.GetNamespace() == gw.Namespace) {
-					return true
-				}
+	// Classic networking.istio.io Gateways carry no gateway-name label, so they are matched via
+	// p.Gateways rather than the label. This runs independently of isGatewayAPI because a single
+	// workload can be both a Gateway API gateway (label present => isGatewayAPI==true) and an
+	// instance of a classic Gateway; gating it on !isGatewayAPI would silently drop classic-Gateway
+	// targetRefs for such mixed workloads. The loop no-ops when p.Gateways is empty.
+	for _, targetRef := range targetRefs {
+		if !matchesGroupKind(targetRef, gvk.Gateway) {
+			continue
+		}
+		for _, gw := range p.Gateways {
+			if targetRef.GetName() == gw.Name &&
+				policyName.Namespace == gw.Namespace &&
+				(targetRef.GetNamespace() == "" || targetRef.GetNamespace() == gw.Namespace) {
+				return true
 			}
 		}
+	}
+
+	// non-gateway: use selector
+	if !isGatewayAPI {
 		// if targetRef is specified, ignore the policy altogether
 		if len(targetRefs) > 0 {
 			return false

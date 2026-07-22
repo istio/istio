@@ -595,6 +595,106 @@ func TestShouldAttachPolicy_ClassicGatewayZeroImpact(t *testing.T) {
 	}
 }
 
+// TestShouldAttachPolicy_MixedGatewayAPIAndClassic covers a workload that is BOTH a Gateway API
+// gateway (it carries the gateway.networking.k8s.io/gateway-name label, so isGatewayAPI==true) AND an
+// instance of a classic networking.istio.io Gateway (p.Gateways is non-empty). A classic-Gateway
+// targetRef must attach to such a mixed workload; the classic-Gateway match runs independently of
+// isGatewayAPI rather than only inside the `if !isGatewayAPI` branch. The remaining cases guard the
+// surrounding behavior: a Gateway-API targetRef must still attach, and a classic targetRef must NOT
+// attach when the workload is not an instance of any classic Gateway (empty p.Gateways).
+func TestShouldAttachPolicy_MixedGatewayAPIAndClassic(t *testing.T) {
+	const k8sGatewayName = "some-k8s-gw"
+
+	classicGatewayTargetRef := &v1beta1.PolicyTargetReference{
+		Group: gvk.Gateway.Group,
+		Kind:  gvk.Gateway.Kind,
+		Name:  "gw-a",
+	}
+	k8sGatewayTargetRef := &v1beta1.PolicyTargetReference{
+		Group: gvk.KubernetesGateway.Group,
+		Kind:  gvk.KubernetesGateway.Kind,
+		Name:  k8sGatewayName,
+	}
+
+	// A workload that is simultaneously a Gateway API gateway (label present => isGatewayAPI==true)
+	// and an instance of the classic Gateway gw-a (Gateways non-empty).
+	mixedWorkload := WorkloadPolicyMatcher{
+		WorkloadNamespace: "ns1",
+		WorkloadLabels: labels.Instance{
+			label.IoK8sNetworkingGatewayGatewayName.Name: k8sGatewayName,
+		},
+		IsWaypoint: false,
+		Gateways:   []types.NamespacedName{{Name: "gw-a", Namespace: "ns1"}},
+	}
+	// A pure Gateway API workload: it carries the gateway-name label but is not an instance of any
+	// classic Gateway (empty Gateways).
+	pureK8sGatewayWorkload := WorkloadPolicyMatcher{
+		WorkloadNamespace: "ns1",
+		WorkloadLabels: labels.Instance{
+			label.IoK8sNetworkingGatewayGatewayName.Name: k8sGatewayName,
+		},
+		IsWaypoint: false,
+	}
+
+	tests := []struct {
+		name      string
+		selection WorkloadPolicyMatcher
+		policy    TargetablePolicy
+		expected  bool
+	}{
+		{
+			// The classic-Gateway targetRef attaches even though the workload is also a Gateway API
+			// gateway, because the workload is an instance of the targeted classic Gateway.
+			name:      "mixed workload attaches classic Gateway targetRef",
+			selection: mixedWorkload,
+			policy: &mockPolicyTargetGetter{
+				targetRefs: []*v1beta1.PolicyTargetReference{classicGatewayTargetRef},
+			},
+			expected: true,
+		},
+		{
+			// Guard: a Gateway-API (KubernetesGateway) targetRef must still attach to the mixed workload
+			// via its gateway-name label, exactly as before.
+			name:      "mixed workload still attaches Gateway-API targetRef",
+			selection: mixedWorkload,
+			policy: &mockPolicyTargetGetter{
+				targetRefs: []*v1beta1.PolicyTargetReference{k8sGatewayTargetRef},
+			},
+			expected: true,
+		},
+		{
+			// Guard: a pure Gateway-API workload still attaches a matching Gateway-API targetRef.
+			name:      "pure Gateway-API workload attaches Gateway-API targetRef",
+			selection: pureK8sGatewayWorkload,
+			policy: &mockPolicyTargetGetter{
+				targetRefs: []*v1beta1.PolicyTargetReference{k8sGatewayTargetRef},
+			},
+			expected: true,
+		},
+		{
+			// Guard: a classic-Gateway targetRef must NOT attach to a Gateway-API workload that is not an
+			// instance of any classic Gateway (empty Gateways); the match keys off the Gateways list.
+			name:      "pure Gateway-API workload does not attach classic Gateway targetRef",
+			selection: pureK8sGatewayWorkload,
+			policy: &mockPolicyTargetGetter{
+				targetRefs: []*v1beta1.PolicyTargetReference{classicGatewayTargetRef},
+			},
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			test.SetForTest(t, &features.EnableSelectorBasedK8sGatewayPolicy, true)
+			nsName := types.NamespacedName{Name: "policy1", Namespace: "ns1"}
+			got := tt.selection.ShouldAttachPolicy(mockKind, nsName, tt.policy)
+			if got != tt.expected {
+				t.Errorf("Expected %v, but got %v", tt.expected, got)
+			}
+		})
+	}
+}
+
 // TestWithGateways verifies the plural WithGateways helper appends every non-zero NamespacedName to
 // the matcher's Gateways slice (mirroring WithServices), is nil-slice safe, and skips zero values
 // (delegating to the Change-2 WithGateway, which no-ops on the zero NamespacedName).
