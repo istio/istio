@@ -1379,12 +1379,12 @@ func validatePolicyTargetReferenceForKinds(targetRef *type_beta.PolicyTargetRefe
 		v = appendErrorf(v, "targetRef namespace must not be set; cross namespace referencing is not supported")
 	}
 
-	canoncalGroup := targetRef.Group
-	if canoncalGroup == "" {
-		canoncalGroup = "core"
+	canonicalGroup := targetRef.Group
+	if canonicalGroup == "" {
+		canonicalGroup = "core"
 	}
 	found := slices.FindFunc(allowed, func(gvk config.GroupVersionKind) bool {
-		return gvk.Kind == targetRef.Kind && gvk.CanonicalGroup() == canoncalGroup
+		return gvk.Kind == targetRef.Kind && gvk.CanonicalGroup() == canonicalGroup
 	}) != nil
 
 	if !found {
