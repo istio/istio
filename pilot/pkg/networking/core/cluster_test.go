@@ -1477,7 +1477,7 @@ func TestApplyOutlierDetectionErrorCodes(t *testing.T) {
 						Host: "*.example.org",
 						TrafficPolicy: &networking.TrafficPolicy{
 							OutlierDetection: &networking.OutlierDetection{
-								Consecutive_5XxErrors:              &wrappers.UInt32Value{Value: 1},
+								Consecutive_5XxErrors:          &wrappers.UInt32Value{Value: 1},
 								OutlierDetectionHttpErrorCodes: tt.codes,
 							},
 						},
