@@ -110,9 +110,28 @@ func NewListenerBuilder(node *model.Proxy, push *model.PushContext) *ListenerBui
 	builder.authzBuilder = authz.NewBuilder(authz.Local, push, node, node.Type == model.Waypoint)
 	builder.authzCustomBuilder = authz.NewBuilder(authz.Custom, push, node, node.Type == model.Waypoint)
 	if node.Type == model.Router {
-		builder.authzTargetedGateways = push.AuthzPolicies.GatewaysTargetedByTargetRef(node.ConfigNamespace)
+		builder.authzTargetedGateways = push.AuthzPolicies.GatewaysTargetedByTargetRef(
+			node.ConfigNamespace, boundGatewayNamespaces(node)...)
 	}
 	return builder
+}
+
+// boundGatewayNamespaces returns the distinct namespaces of the classic Gateways bound to the proxy,
+// derived from the merged gateway's "namespace/name" identifiers. It is nil-safe and skips malformed
+// names. These namespaces are where cross-namespace classic-Gateway targetRef policies may live.
+func boundGatewayNamespaces(node *model.Proxy) []string {
+	if node.MergedGateway == nil {
+		return nil
+	}
+	namespaces := sets.New[string]()
+	for _, name := range node.MergedGateway.GetGatewayNames() {
+		nn := parseGatewayName(name)
+		if nn == (types.NamespacedName{}) {
+			continue
+		}
+		namespaces.Insert(nn.Namespace)
+	}
+	return namespaces.UnsortedList()
 }
 
 func maxConnectionsToAcceptPerSocketEvent() *wrappers.UInt32Value {

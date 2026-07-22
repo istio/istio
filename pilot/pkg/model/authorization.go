@@ -81,7 +81,12 @@ type AuthorizationPoliciesResult struct {
 	Audit  []AuthorizationPolicy
 }
 
-// ListAuthorizationPolicies returns authorization policies applied to the workload in the given namespace.
+// ListAuthorizationPolicies returns authorization policies applied to the workload in the given
+// namespace. It scans the root namespace, the workload namespace, and any service namespaces via
+// the full ShouldAttachPolicy path; it additionally scans the namespaces of selectionOpts.Gateways
+// (classic networking.istio.io Gateways) but there attaches ONLY classic-Gateway targetRef matches,
+// never selector / no-targetRef fallbacks, so a tenant's selector policy cannot leak onto a shared
+// gateway proxy in a different namespace.
 func (policy *AuthorizationPolicies) ListAuthorizationPolicies(selectionOpts WorkloadPolicyMatcher) AuthorizationPoliciesResult {
 	configs := AuthorizationPoliciesResult{}
 	if policy == nil {
@@ -100,7 +105,8 @@ func (policy *AuthorizationPolicies) ListAuthorizationPolicies(selectionOpts Wor
 		lookupInNamespaces = append(lookupInNamespaces, svc.Namespace)
 	}
 
-	for _, ns := range slices.FilterDuplicates(lookupInNamespaces) {
+	baseNamespaces := slices.FilterDuplicates(lookupInNamespaces)
+	for _, ns := range baseNamespaces {
 		for _, config := range policy.NamespaceToPolicies[ns] {
 			spec := config.Spec
 
@@ -110,21 +116,47 @@ func (policy *AuthorizationPolicies) ListAuthorizationPolicies(selectionOpts Wor
 		}
 	}
 
+	// In the shared-ingress topology a classic Gateway (and its targetRef policy) can live in a
+	// namespace that is neither the root nor the proxy config namespace. Scan those extra gateway
+	// namespaces too, but attach ONLY policies matching a classic-Gateway targetRef for one of
+	// selectionOpts.Gateways. The ordinary selector / no-targetRef fallback is deliberately NOT
+	// applied here, so a tenant's selector policy cannot leak onto the shared proxy.
+	seen := sets.New(baseNamespaces...)
+	var extraNamespaces []string
+	for _, gw := range selectionOpts.Gateways {
+		if !seen.Contains(gw.Namespace) {
+			seen.Insert(gw.Namespace)
+			extraNamespaces = append(extraNamespaces, gw.Namespace)
+		}
+	}
+	for _, ns := range extraNamespaces {
+		for _, config := range policy.NamespaceToPolicies[ns] {
+			if selectionOpts.attachesToClassicGateway(config.NamespacedName(), config.Spec) {
+				configs = updateAuthorizationPoliciesResult(configs, config)
+			}
+		}
+	}
+
 	return configs
 }
 
 // GatewaysTargetedByTargetRef returns the set of classic networking.istio.io Gateways that at
-// least one in-scope AuthorizationPolicy attaches to via a targetRef. Scope mirrors
-// ListAuthorizationPolicies: only the root namespace and the given proxy config namespace are
-// scanned, under the classic-Gateway same-namespace rule. Callers use this to activate
-// per-Gateway authz scoping ONLY for Gateways that are actually targeted, so untargeted
-// Gateways keep the shared proxy-wide builder (byte-identical output).
-func (policy *AuthorizationPolicies) GatewaysTargetedByTargetRef(configNamespace string) sets.Set[types.NamespacedName] {
+// least one in-scope AuthorizationPolicy attaches to via a targetRef. Scope: the root namespace,
+// the given proxy config namespace, and the namespaces of the classic Gateways bound to the proxy
+// (gatewayNamespaces), all under the classic-Gateway same-namespace rule. The gateway namespaces
+// are needed for the shared-ingress topology, where a selector-less Gateway in a tenant namespace
+// binds to a proxy in a different namespace and its targetRef policy lives alongside it. Callers
+// use this to activate per-Gateway authz scoping ONLY for Gateways that are actually targeted, so
+// untargeted Gateways keep the shared proxy-wide builder (byte-identical output).
+func (policy *AuthorizationPolicies) GatewaysTargetedByTargetRef(
+	configNamespace string,
+	gatewayNamespaces ...string,
+) sets.Set[types.NamespacedName] {
 	result := sets.New[types.NamespacedName]()
 	if policy == nil {
 		return result
 	}
-	for _, ns := range slices.FilterDuplicates([]string{policy.RootNamespace, configNamespace}) {
+	for _, ns := range slices.FilterDuplicates(append([]string{policy.RootNamespace, configNamespace}, gatewayNamespaces...)) {
 		for _, cfg := range policy.NamespaceToPolicies[ns] {
 			for _, ref := range GetTargetRefs(cfg.Spec) {
 				if !matchesGroupKind(ref, gvk.Gateway) {

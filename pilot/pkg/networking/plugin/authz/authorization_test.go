@@ -130,6 +130,33 @@ func TestNewBuilderForGateways_NotAttached(t *testing.T) {
 	}
 }
 
+// TestNewBuilderForGateways_CrossNamespace verifies that a policy targeting a classic Gateway attaches even
+// when the policy/gateway live in a namespace different from the proxy's config namespace (the shared-ingress
+// topology).
+func TestNewBuilderForGateways_CrossNamespace(t *testing.T) {
+	push := pushWith(classicGatewayTargetRefPolicy("policy", "tenant-a", "gateway"))
+	proxy := classicGatewayProxy("not-default")
+
+	b := NewBuilderForGateways(Local, push, proxy, false, []types.NamespacedName{{Name: "gateway", Namespace: "tenant-a"}})
+	got := b.BuildHTTP(networking.ListenerClassGateway)
+	if len(got) == 0 {
+		t.Fatalf("expected cross-namespace policy targeting tenant-a/gateway to attach, got %d filters", len(got))
+	}
+}
+
+// TestNewBuilderForGateways_CrossNamespaceNoLeak is the anti-leak guard: a selector policy in the gateway's
+// namespace matching the shared proxy's labels must NOT attach, even when that gateway is passed in.
+func TestNewBuilderForGateways_CrossNamespaceNoLeak(t *testing.T) {
+	push := pushWith(selectorPolicy("selleak", "tenant-a", map[string]string{"app": "istio-ingressgateway"}))
+	proxy := classicGatewayProxy("not-default")
+
+	b := NewBuilderForGateways(Local, push, proxy, false, []types.NamespacedName{{Name: "gateway", Namespace: "tenant-a"}})
+	got := b.BuildHTTP(networking.ListenerClassGateway)
+	if len(got) != 0 {
+		t.Fatalf("selector policy in gateway namespace must not attach to the shared proxy, got %d filters", len(got))
+	}
+}
+
 // TestNewBuilderForService_SelectorRegression is a regression guard: NewBuilderForService with a nil service
 // still attaches a selector-based policy to a matching sidecar workload, exactly as before this change.
 func TestNewBuilderForService_SelectorRegression(t *testing.T) {

@@ -144,6 +144,26 @@ func GetTargetRefs(p TargetablePolicy) []*v1beta1.PolicyTargetReference {
 	return targetRefs
 }
 
+// attachesToClassicGateway reports whether policy attaches to one of p.Gateways via a classic
+// networking.istio.io Gateway targetRef, under the same-namespace rule: the policy must be in the
+// gateway's namespace and any targetRef namespace, if set, must equal it. It no-ops when p.Gateways
+// is empty. This is the ONLY classic-Gateway attachment path and never falls back to selectors.
+func (p WorkloadPolicyMatcher) attachesToClassicGateway(policyName types.NamespacedName, policy TargetablePolicy) bool {
+	for _, targetRef := range GetTargetRefs(policy) {
+		if !matchesGroupKind(targetRef, gvk.Gateway) {
+			continue
+		}
+		for _, gw := range p.Gateways {
+			if targetRef.GetName() == gw.Name &&
+				policyName.Namespace == gw.Namespace &&
+				(targetRef.GetNamespace() == "" || targetRef.GetNamespace() == gw.Namespace) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func (p WorkloadPolicyMatcher) ShouldAttachPolicy(kind config.GroupVersionKind,
 	policyName types.NamespacedName,
 	policy TargetablePolicy,
@@ -155,18 +175,9 @@ func (p WorkloadPolicyMatcher) ShouldAttachPolicy(kind config.GroupVersionKind,
 	// p.Gateways rather than the label. This runs independently of isGatewayAPI because a single
 	// workload can be both a Gateway API gateway (label present => isGatewayAPI==true) and an
 	// instance of a classic Gateway; gating it on !isGatewayAPI would silently drop classic-Gateway
-	// targetRefs for such mixed workloads. The loop no-ops when p.Gateways is empty.
-	for _, targetRef := range targetRefs {
-		if !matchesGroupKind(targetRef, gvk.Gateway) {
-			continue
-		}
-		for _, gw := range p.Gateways {
-			if targetRef.GetName() == gw.Name &&
-				policyName.Namespace == gw.Namespace &&
-				(targetRef.GetNamespace() == "" || targetRef.GetNamespace() == gw.Namespace) {
-				return true
-			}
-		}
+	// targetRefs for such mixed workloads. The check no-ops when p.Gateways is empty.
+	if p.attachesToClassicGateway(policyName, policy) {
+		return true
 	}
 
 	// non-gateway: use selector
