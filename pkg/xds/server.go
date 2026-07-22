@@ -94,10 +94,6 @@ type WatchedResource struct {
 
 	// LastError records the last error returned, if any. This is cleared on any successful ACK.
 	LastError string
-
-	// LastResources tracks the contents of the last push.
-	// This field is extremely expensive to maintain and is typically disabled
-	LastResources Resources
 }
 
 type Watcher interface {
