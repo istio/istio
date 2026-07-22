@@ -44,11 +44,8 @@ type WorkloadPolicyMatcher struct {
 	WorkloadLabels    labels.Instance
 	IsWaypoint        bool
 	Services          []ServiceInfoForPolicyMatcher
-	// Gateways are the classic networking.istio.io Gateways this workload is an instance of.
-	// Unlike Gateway API gateways, they are not identified by a workload label, so targetRef
-	// attachment matches against this list instead.
-	Gateways      []types.NamespacedName
-	RootNamespace string
+	Gateways          []types.NamespacedName
+	RootNamespace     string
 }
 
 type ServiceInfoForPolicyMatcher struct {
