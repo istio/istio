@@ -18,6 +18,8 @@ import (
 	"sort"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/tunnelingconfig"
@@ -158,7 +160,7 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 							metadata:         util.BuildConfigInfoMetadata(cfg.Meta),
 							sniHosts:         match.SniHosts,
 							destinationCIDRs: destinationCIDRs,
-							networkFilters:   lb.buildOutboundNetworkFilters(tls.Route, listenPort, cfg.Meta, false),
+							networkFilters:   lb.buildOutboundNetworkFilters(tls.Route, listenPort, cfg.Meta, false, types.NamespacedName{}),
 						})
 						hasTLSMatch = true
 					}
@@ -225,7 +227,7 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 			sniHosts:         sniHosts,
 			destinationCIDRs: destinationCIDRs,
 			networkFilters: lb.buildOutboundNetworkFiltersWithSingleDestination(statPrefix, clusterName, "",
-				listenPort, destinationRule, tunnelingconfig.Apply, false, service),
+				listenPort, destinationRule, tunnelingconfig.Apply, false, service, types.NamespacedName{}),
 		})
 	}
 
@@ -260,7 +262,7 @@ TcpLoop:
 				out = append(out, &filterChainOpts{
 					metadata:         util.BuildConfigInfoMetadata(cfg.Meta),
 					destinationCIDRs: destinationCIDRs,
-					networkFilters:   lb.buildOutboundNetworkFilters(tcp.Route, listenPort, cfg.Meta, false),
+					networkFilters:   lb.buildOutboundNetworkFilters(tcp.Route, listenPort, cfg.Meta, false, types.NamespacedName{}),
 				})
 				defaultRouteAdded = true
 				break TcpLoop
@@ -284,7 +286,7 @@ TcpLoop:
 						out = append(out, &filterChainOpts{
 							metadata:         util.BuildConfigInfoMetadata(cfg.Meta),
 							destinationCIDRs: destinationCIDRs,
-							networkFilters:   lb.buildOutboundNetworkFilters(tcp.Route, listenPort, cfg.Meta, false),
+							networkFilters:   lb.buildOutboundNetworkFilters(tcp.Route, listenPort, cfg.Meta, false, types.NamespacedName{}),
 						})
 						defaultRouteAdded = true
 						break TcpLoop
@@ -296,7 +298,7 @@ TcpLoop:
 			if len(virtualServiceDestinationSubnets) > 0 {
 				out = append(out, &filterChainOpts{
 					destinationCIDRs: virtualServiceDestinationSubnets,
-					networkFilters:   lb.buildOutboundNetworkFilters(tcp.Route, listenPort, cfg.Meta, false),
+					networkFilters:   lb.buildOutboundNetworkFilters(tcp.Route, listenPort, cfg.Meta, false, types.NamespacedName{}),
 				})
 
 				// If at this point there is a filter chain generated with the same CIDR match as the
@@ -335,7 +337,7 @@ TcpLoop:
 		out = append(out, &filterChainOpts{
 			destinationCIDRs: destinationCIDRs,
 			networkFilters: lb.buildOutboundNetworkFiltersWithSingleDestination(statPrefix, clusterName, "",
-				listenPort, destinationRule, tunnelingconfig.Apply, false, service),
+				listenPort, destinationRule, tunnelingconfig.Apply, false, service, types.NamespacedName{}),
 		})
 	}
 

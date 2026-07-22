@@ -5664,7 +5664,7 @@ func TestBuildGatewayListenersAuthzPlaintextHTTPUnaffected(t *testing.T) {
 // must produce the Envoy RBAC *network* filter ONLY on gw-tcp-a's TCP filter chain, and must NOT
 // appear on the co-resident gw-tcp-b's TCP filter chain. The TCP/passthrough path scopes authz via
 // the per-gateway builder selected in buildCompleteNetworkFilters (networkfilter.go) from the
-// transient lb.authzGatewayName armed in createGatewayTCPFilterChainOpts.
+// authzGateway identity threaded down from buildGatewayNetworkFiltersFrom{TCP,TLS}Routes.
 func TestBuildGatewayListenersAuthzTargetRefScopingTCP(t *testing.T) {
 	configs := append(tcpGatewayConfigs("gw-tcp-a", 100, "www-a.example.com"),
 		tcpGatewayConfigs("gw-tcp-b", 101, "www-b.example.com")...)

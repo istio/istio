@@ -145,9 +145,7 @@ func GetTargetRefs(p TargetablePolicy) []*v1beta1.PolicyTargetReference {
 }
 
 // attachesToClassicGateway reports whether policy attaches to one of p.Gateways via a classic
-// networking.istio.io Gateway targetRef, under the same-namespace rule: the policy must be in the
-// gateway's namespace and any targetRef namespace, if set, must equal it. It no-ops when p.Gateways
-// is empty. This is the ONLY classic-Gateway attachment path and never falls back to selectors.
+// networking.istio.io Gateway targetRef. Gateway must be in the same namespace as the policy
 func (p WorkloadPolicyMatcher) attachesToClassicGateway(policyName types.NamespacedName, policy TargetablePolicy) bool {
 	for _, targetRef := range GetTargetRefs(policy) {
 		if !matchesGroupKind(targetRef, gvk.Gateway) {
@@ -171,11 +169,9 @@ func (p WorkloadPolicyMatcher) ShouldAttachPolicy(kind config.GroupVersionKind,
 	gatewayName, isGatewayAPI := workloadGatewayName(p.WorkloadLabels)
 	targetRefs := GetTargetRefs(policy)
 
-	// Classic networking.istio.io Gateways carry no gateway-name label, so they are matched via
-	// p.Gateways rather than the label. This runs independently of isGatewayAPI because a single
-	// workload can be both a Gateway API gateway (label present => isGatewayAPI==true) and an
-	// instance of a classic Gateway; gating it on !isGatewayAPI would silently drop classic-Gateway
-	// targetRefs for such mixed workloads. The check no-ops when p.Gateways is empty.
+	// This runs independently of isGatewayAPI because a single
+	// workload can be both a Gateway API gateway and an
+	// instance of a classic Gateway
 	if p.attachesToClassicGateway(policyName, policy) {
 		return true
 	}

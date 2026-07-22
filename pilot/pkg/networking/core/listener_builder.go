@@ -83,11 +83,6 @@ type ListenerBuilder struct {
 	authzGatewayBuilders       map[types.NamespacedName]*authz.Builder
 	authzCustomGatewayBuilders map[types.NamespacedName]*authz.Builder
 
-	// authzGatewayName is transient scratch state, set only while a classic-Gateway TCP or TLS
-	// chain's network filters are built, so buildCompleteNetworkFilters can scope authz to the
-	// owning Gateway. The zero value means "use the proxy-wide builders".
-	authzGatewayName types.NamespacedName
-
 	// authzTargetedGateways is the set of classic Gateways targeted by an in-scope
 	// classic-Gateway-targetRef AuthorizationPolicy. Per-gateway authz scoping activates only for
 	// Gateways in this set; every other chain reuses the shared proxy-wide builders. Computed once.

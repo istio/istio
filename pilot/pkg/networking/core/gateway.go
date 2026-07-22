@@ -841,13 +841,6 @@ func (lb *ListenerBuilder) createGatewayTCPFilterChainOpts(
 	server *networking.Server, listenerPort uint32,
 	gatewayName string, tlsHostsByPort map[uint32]map[string]string,
 ) []*filterChainOpts {
-	// Scope authz to the owning classic Gateway while this server's network filters are built.
-	// buildCompleteNetworkFilters reads authzGatewayName, so every network-filter chain below MUST be
-	// materialized synchronously within this call, before the defer clears the field; a lazily/deferred
-	// build would silently fall back to the proxy-wide builder and widen authz (fail-open).
-	lb.authzGatewayName = parseGatewayName(gatewayName)
-	defer func() { lb.authzGatewayName = types.NamespacedName{} }()
-
 	// We have a TCP/TLS server. This could be TLS termination (user specifies server.TLS with simple/mutual)
 	// or opaque TCP (server.TLS is nil). or it could be a TLS passthrough with SNI based routing.
 
@@ -894,6 +887,9 @@ func (lb *ListenerBuilder) buildGatewayNetworkFiltersFromTCPRoutes(server *netwo
 		Port:     int(server.Port.Number),
 		Protocol: protocol.Parse(server.Port.Protocol),
 	}
+	// Scope authz to the owning classic Gateway. buildCompleteNetworkFilters selects the per-gateway
+	// authz builder for this identity; the zero value falls back to the proxy-wide builder.
+	authzGateway := parseGatewayName(gatewayName)
 
 	gatewayServerHosts := sets.NewWithLength[host.Name](len(server.Hosts))
 	for _, hostname := range server.Hosts {
@@ -926,7 +922,7 @@ func (lb *ListenerBuilder) buildGatewayNetworkFiltersFromTCPRoutes(server *netwo
 					continue
 				}
 				includeMx := server.GetTls().GetMode() == networking.ServerTLSSettings_ISTIO_MUTUAL
-				return lb.buildOutboundNetworkFilters(tcp.Route, port, v.Meta, includeMx)
+				return lb.buildOutboundNetworkFilters(tcp.Route, port, v.Meta, includeMx, authzGateway)
 			}
 		}
 
@@ -940,7 +936,7 @@ func (lb *ListenerBuilder) buildGatewayNetworkFiltersFromTCPRoutes(server *netwo
 			for _, tls := range vsvc.Tls {
 				for _, match := range tls.Match {
 					if l4SingleMatch(convertTLSMatchToL4Match(match), server, gatewayName) {
-						return lb.buildOutboundNetworkFilters(tls.Route, port, v.Meta, includeMx)
+						return lb.buildOutboundNetworkFilters(tls.Route, port, v.Meta, includeMx, authzGateway)
 					}
 				}
 			}
@@ -960,6 +956,9 @@ func (lb *ListenerBuilder) buildGatewayNetworkFiltersFromTLSRoutes(server *netwo
 		Port:     int(server.Port.Number),
 		Protocol: protocol.Parse(server.Port.Protocol),
 	}
+	// Scope authz to the owning classic Gateway. buildCompleteNetworkFilters selects the per-gateway
+	// authz builder for this identity; the zero value falls back to the proxy-wide builder.
+	authzGateway := parseGatewayName(gatewayName)
 
 	gatewayServerHosts := sets.NewWithLength[host.Name](len(server.Hosts))
 	for _, hostname := range server.Hosts {
@@ -1013,7 +1012,7 @@ func (lb *ListenerBuilder) buildGatewayNetworkFiltersFromTLSRoutes(server *netwo
 						filterChains = append(filterChains, &filterChainOpts{
 							sniHosts:       match.SniHosts,
 							tlsContext:     nil, // NO TLS context because this is passthrough
-							networkFilters: lb.buildOutboundNetworkFilters(tls.Route, port, v.Meta, false),
+							networkFilters: lb.buildOutboundNetworkFilters(tls.Route, port, v.Meta, false, authzGateway),
 						})
 					}
 				}
@@ -1071,7 +1070,7 @@ func builtAutoPassthroughFilterChains(push *model.PushContext, proxy *model.Prox
 				applicationProtocols: allIstioMtlsALPNs,
 				tlsContext:           nil, // NO TLS context because this is passthrough
 				networkFilters: lb.buildOutboundNetworkFiltersWithSingleDestination(
-					statPrefix, clusterName, "", port, destinationRule, tunnelingconfig.Skip, false, nil),
+					statPrefix, clusterName, "", port, destinationRule, tunnelingconfig.Skip, false, nil, types.NamespacedName{}),
 			})
 
 			// Do the same, but for each subset
@@ -1087,7 +1086,7 @@ func builtAutoPassthroughFilterChains(push *model.PushContext, proxy *model.Prox
 					applicationProtocols: allIstioMtlsALPNs,
 					tlsContext:           nil, // NO TLS context because this is passthrough
 					networkFilters: lb.buildOutboundNetworkFiltersWithSingleDestination(
-						subsetStatPrefix, subsetClusterName, subset.Name, port, destinationRule, tunnelingconfig.Skip, false, nil),
+						subsetStatPrefix, subsetClusterName, subset.Name, port, destinationRule, tunnelingconfig.Skip, false, nil, types.NamespacedName{}),
 				})
 			}
 		}
