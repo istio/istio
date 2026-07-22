@@ -17,6 +17,7 @@ package ambient
 import (
 	"net/netip"
 	"testing"
+	"time"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -24,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
+	"istio.io/api/annotation"
 	"istio.io/api/label"
 	meshConfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -31,6 +33,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh/meshwatcher"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/kube/krt/krttest"
 	"istio.io/istio/pkg/ptr"
@@ -73,11 +76,40 @@ func TestServiceEntryServices(t *testing.T) {
 		},
 	}
 
+	// A waypoint in a different namespace than the ServiceEntry ("ns"), reachable via
+	// use-waypoint-namespace. Its allowedRoutes permit attachment from "ns", so the binding is
+	// attempted and reaches the NAMESPACE-visibility guard rather than being denied earlier.
+	crossNsWaypointAddr := &workloadapi.GatewayAddress{
+		Destination: &workloadapi.GatewayAddress_Hostname{
+			Hostname: &workloadapi.NamespacedHostname{
+				Namespace: "other",
+				Hostname:  "hostname.other.example",
+			},
+		},
+		HboneMtlsPort: 15008,
+	}
+	crossNsWaypoint := Waypoint{
+		Named: krt.Named{
+			Name:      "waypoint",
+			Namespace: "other",
+		},
+		TrafficType: constants.AllTraffic,
+		Address:     crossNsWaypointAddr,
+		AllowedRoutes: WaypointSelector{
+			FromNamespaces: gatewayv1.NamespacesFromSelector,
+			Selector:       labels.ValidatedSetSelector(map[string]string{v1.LabelMetadataName: "ns"}),
+		},
+	}
+
 	cases := []struct {
 		name   string
 		inputs []any
 		se     *networkingclient.ServiceEntry
 		result []*workloadapi.Service
+		// waypointErr, when set, asserts the (single) resulting service's
+		// WaypointBindingStatus.Error -- the status surfaced when a binding is refused. The
+		// service builder result otherwise only carries the *workloadapi.Service, which drops it.
+		waypointErr *model.StatusMessage
 	}{
 		{
 			name:   "DNS service entry with address",
@@ -950,20 +982,498 @@ func TestServiceEntryServices(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "ServiceEntry visibility NAMESPACE via namespaceSelector",
+			inputs: []any{
+				ns,
+				meshwatcher.MeshConfigResource{MeshConfig: &meshConfig.MeshConfig{
+					ServiceEntryVisibility: &meshConfig.ServiceEntryVisibility{
+						DefaultVisibility: meshConfig.ServiceEntryVisibility_PUBLIC,
+						Policies: []*meshConfig.ServiceEntryVisibility_Policy{{
+							Visibility: meshConfig.ServiceEntryVisibility_NAMESPACE,
+							MatchingRules: []*meshConfig.ServiceEntryVisibility_MatchRule{{
+								Matcher: &meshConfig.ServiceEntryVisibility_MatchRule_NamespaceSelector{
+									NamespaceSelector: &meshConfig.LabelSelector{
+										MatchLabels: map[string]string{v1.LabelMetadataName: "ns"},
+									},
+								},
+							}},
+						}},
+					},
+				}},
+			},
+			se: &networkingclient.ServiceEntry{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "vis-namespace-se",
+					Namespace: "ns",
+				},
+				Spec: networking.ServiceEntry{
+					Addresses:  []string{"1.2.3.4/32"},
+					Hosts:      []string{"nslocal.example.com"},
+					Ports:      []*networking.ServicePort{{Number: 80, Name: "http", Protocol: "HTTP"}},
+					Resolution: networking.ServiceEntry_DNS,
+				},
+			},
+			result: []*workloadapi.Service{
+				{
+					Name:      "vis-namespace-se",
+					Namespace: "ns",
+					Hostname:  "nslocal.example.com",
+					Addresses: []*workloadapi.NetworkAddress{{
+						Network: testNW,
+						Address: netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice(),
+					}},
+					Ports: []*workloadapi.Port{{
+						ServicePort: 80,
+						TargetPort:  80,
+						AppProtocol: workloadapi.AppProtocol_HTTP11,
+					}},
+					Visibility: workloadapi.Service_NAMESPACE,
+				},
+			},
+		},
+		{
+			name: "ServiceEntry visibility NONE is dropped",
+			inputs: []any{
+				ns,
+				meshwatcher.MeshConfigResource{MeshConfig: &meshConfig.MeshConfig{
+					ServiceEntryVisibility: &meshConfig.ServiceEntryVisibility{
+						DefaultVisibility: meshConfig.ServiceEntryVisibility_NONE,
+					},
+				}},
+			},
+			se: &networkingclient.ServiceEntry{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "vis-none-se",
+					Namespace: "ns",
+				},
+				Spec: networking.ServiceEntry{
+					Addresses:  []string{"1.2.3.4/32"},
+					Hosts:      []string{"dropped.example.com"},
+					Ports:      []*networking.ServicePort{{Number: 80, Name: "http", Protocol: "HTTP"}},
+					Resolution: networking.ServiceEntry_DNS,
+				},
+			},
+			result: []*workloadapi.Service{},
+		},
+		{
+			name: "ServiceEntry falls back to defaultVisibility NAMESPACE when no policy matches",
+			inputs: []any{
+				ns,
+				meshwatcher.MeshConfigResource{MeshConfig: &meshConfig.MeshConfig{
+					ServiceEntryVisibility: &meshConfig.ServiceEntryVisibility{
+						DefaultVisibility: meshConfig.ServiceEntryVisibility_NAMESPACE,
+						Policies: []*meshConfig.ServiceEntryVisibility_Policy{{
+							Visibility: meshConfig.ServiceEntryVisibility_PUBLIC,
+							MatchingRules: []*meshConfig.ServiceEntryVisibility_MatchRule{{
+								Matcher: &meshConfig.ServiceEntryVisibility_MatchRule_NamespaceSelector{
+									NamespaceSelector: &meshConfig.LabelSelector{
+										// Selects a different namespace, so this policy does not match.
+										MatchLabels: map[string]string{v1.LabelMetadataName: "other"},
+									},
+								},
+							}},
+						}},
+					},
+				}},
+			},
+			se: &networkingclient.ServiceEntry{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "vis-default-ns-se",
+					Namespace: "ns",
+				},
+				Spec: networking.ServiceEntry{
+					Addresses:  []string{"1.2.3.4/32"},
+					Hosts:      []string{"defaultns.example.com"},
+					Ports:      []*networking.ServicePort{{Number: 80, Name: "http", Protocol: "HTTP"}},
+					Resolution: networking.ServiceEntry_DNS,
+				},
+			},
+			result: []*workloadapi.Service{
+				{
+					Name:      "vis-default-ns-se",
+					Namespace: "ns",
+					Hostname:  "defaultns.example.com",
+					Addresses: []*workloadapi.NetworkAddress{{
+						Network: testNW,
+						Address: netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice(),
+					}},
+					Ports: []*workloadapi.Port{{
+						ServicePort: 80,
+						TargetPort:  80,
+						AppProtocol: workloadapi.AppProtocol_HTTP11,
+					}},
+					Visibility: workloadapi.Service_NAMESPACE,
+				},
+			},
+		},
+		{
+			// Two policies both match the SE's namespace. First-match-wins means the earlier
+			// NAMESPACE policy applies; if ordering were broken (last-wins/most-restrictive),
+			// the later NONE policy would instead drop the service and this test would fail.
+			name: "ServiceEntry visibility uses the first matching policy in order",
+			inputs: []any{
+				ns,
+				meshwatcher.MeshConfigResource{MeshConfig: &meshConfig.MeshConfig{
+					ServiceEntryVisibility: &meshConfig.ServiceEntryVisibility{
+						DefaultVisibility: meshConfig.ServiceEntryVisibility_PUBLIC,
+						Policies: []*meshConfig.ServiceEntryVisibility_Policy{
+							{
+								Visibility: meshConfig.ServiceEntryVisibility_NAMESPACE,
+								MatchingRules: []*meshConfig.ServiceEntryVisibility_MatchRule{{
+									Matcher: &meshConfig.ServiceEntryVisibility_MatchRule_NamespaceSelector{
+										NamespaceSelector: &meshConfig.LabelSelector{
+											MatchLabels: map[string]string{v1.LabelMetadataName: "ns"},
+										},
+									},
+								}},
+							},
+							{
+								Visibility: meshConfig.ServiceEntryVisibility_NONE,
+								MatchingRules: []*meshConfig.ServiceEntryVisibility_MatchRule{{
+									Matcher: &meshConfig.ServiceEntryVisibility_MatchRule_NamespaceSelector{
+										NamespaceSelector: &meshConfig.LabelSelector{
+											MatchLabels: map[string]string{v1.LabelMetadataName: "ns"},
+										},
+									},
+								}},
+							},
+						},
+					},
+				}},
+			},
+			se: &networkingclient.ServiceEntry{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "vis-ordering-se",
+					Namespace: "ns",
+				},
+				Spec: networking.ServiceEntry{
+					Addresses:  []string{"1.2.3.4/32"},
+					Hosts:      []string{"ordered.example.com"},
+					Ports:      []*networking.ServicePort{{Number: 80, Name: "http", Protocol: "HTTP"}},
+					Resolution: networking.ServiceEntry_DNS,
+				},
+			},
+			result: []*workloadapi.Service{
+				{
+					Name:      "vis-ordering-se",
+					Namespace: "ns",
+					Hostname:  "ordered.example.com",
+					Addresses: []*workloadapi.NetworkAddress{{
+						Network: testNW,
+						Address: netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice(),
+					}},
+					Ports: []*workloadapi.Port{{
+						ServicePort: 80,
+						TargetPort:  80,
+						AppProtocol: workloadapi.AppProtocol_HTTP11,
+					}},
+					Visibility: workloadapi.Service_NAMESPACE,
+				},
+			},
+		},
+		{
+			// An empty namespaceSelector matches every namespace. Redundant with
+			// defaultVisibility in practice, but it is expressible, so confirm it always
+			// matches: the NAMESPACE policy applies rather than falling through to the
+			// PUBLIC default.
+			name: "ServiceEntry visibility empty namespaceSelector matches all namespaces",
+			inputs: []any{
+				ns,
+				meshwatcher.MeshConfigResource{MeshConfig: &meshConfig.MeshConfig{
+					ServiceEntryVisibility: &meshConfig.ServiceEntryVisibility{
+						DefaultVisibility: meshConfig.ServiceEntryVisibility_PUBLIC,
+						Policies: []*meshConfig.ServiceEntryVisibility_Policy{{
+							Visibility: meshConfig.ServiceEntryVisibility_NAMESPACE,
+							MatchingRules: []*meshConfig.ServiceEntryVisibility_MatchRule{{
+								Matcher: &meshConfig.ServiceEntryVisibility_MatchRule_NamespaceSelector{
+									NamespaceSelector: &meshConfig.LabelSelector{},
+								},
+							}},
+						}},
+					},
+				}},
+			},
+			se: &networkingclient.ServiceEntry{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "vis-empty-selector-se",
+					Namespace: "ns",
+				},
+				Spec: networking.ServiceEntry{
+					Addresses:  []string{"1.2.3.4/32"},
+					Hosts:      []string{"emptysel.example.com"},
+					Ports:      []*networking.ServicePort{{Number: 80, Name: "http", Protocol: "HTTP"}},
+					Resolution: networking.ServiceEntry_DNS,
+				},
+			},
+			result: []*workloadapi.Service{
+				{
+					Name:      "vis-empty-selector-se",
+					Namespace: "ns",
+					Hostname:  "emptysel.example.com",
+					Addresses: []*workloadapi.NetworkAddress{{
+						Network: testNW,
+						Address: netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice(),
+					}},
+					Ports: []*workloadapi.Port{{
+						ServicePort: 80,
+						TargetPort:  80,
+						AppProtocol: workloadapi.AppProtocol_HTTP11,
+					}},
+					Visibility: workloadapi.Service_NAMESPACE,
+				},
+			},
+		},
+		{
+			name: "NAMESPACE visibility refuses cross-namespace waypoint binding",
+			inputs: []any{
+				ns,
+				crossNsWaypoint,
+				meshwatcher.MeshConfigResource{MeshConfig: &meshConfig.MeshConfig{
+					ServiceEntryVisibility: &meshConfig.ServiceEntryVisibility{
+						DefaultVisibility: meshConfig.ServiceEntryVisibility_NAMESPACE,
+					},
+				}},
+			},
+			se: &networkingclient.ServiceEntry{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "ns-crossns-wp",
+					Namespace: "ns",
+					Labels: map[string]string{
+						label.IoIstioUseWaypoint.Name:          "waypoint",
+						label.IoIstioUseWaypointNamespace.Name: "other",
+					},
+				},
+				Spec: networking.ServiceEntry{
+					Addresses:  []string{"1.2.3.4"},
+					Hosts:      []string{"a.example.com"},
+					Ports:      []*networking.ServicePort{{Number: 80, Name: "http", Protocol: "HTTP"}},
+					Resolution: networking.ServiceEntry_STATIC,
+				},
+			},
+			result: []*workloadapi.Service{
+				{
+					Name:      "ns-crossns-wp",
+					Namespace: "ns",
+					Hostname:  "a.example.com",
+					Addresses: []*workloadapi.NetworkAddress{{
+						Network: testNW,
+						Address: netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice(),
+					}},
+					Ports: []*workloadapi.Port{{
+						ServicePort: 80,
+						TargetPort:  80,
+						AppProtocol: workloadapi.AppProtocol_HTTP11,
+					}},
+					Visibility: workloadapi.Service_NAMESPACE,
+					// Waypoint intentionally nil: the cross-namespace binding is refused, and it is
+					// NOT retargeted to a same-named colocated waypoint.
+				},
+			},
+			waypointErr: ReportWaypointCrossNamespaceForbidden("other/waypoint"),
+		},
+		{
+			name: "NAMESPACE visibility keeps same-namespace waypoint binding",
+			inputs: []any{
+				ns,
+				waypoint,
+				meshwatcher.MeshConfigResource{MeshConfig: &meshConfig.MeshConfig{
+					ServiceEntryVisibility: &meshConfig.ServiceEntryVisibility{
+						DefaultVisibility: meshConfig.ServiceEntryVisibility_NAMESPACE,
+					},
+				}},
+			},
+			se: &networkingclient.ServiceEntry{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "ns-samens-wp",
+					Namespace: "ns",
+					Labels: map[string]string{
+						label.IoIstioUseWaypoint.Name:          "waypoint",
+						label.IoIstioUseWaypointNamespace.Name: "ns",
+					},
+				},
+				Spec: networking.ServiceEntry{
+					Addresses:  []string{"1.2.3.4"},
+					Hosts:      []string{"a.example.com"},
+					Ports:      []*networking.ServicePort{{Number: 80, Name: "http", Protocol: "HTTP"}},
+					Resolution: networking.ServiceEntry_STATIC,
+				},
+			},
+			result: []*workloadapi.Service{
+				{
+					Name:      "ns-samens-wp",
+					Namespace: "ns",
+					Hostname:  "a.example.com",
+					Addresses: []*workloadapi.NetworkAddress{{
+						Network: testNW,
+						Address: netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice(),
+					}},
+					Waypoint: waypointAddr,
+					Ports: []*workloadapi.Port{{
+						ServicePort: 80,
+						TargetPort:  80,
+						AppProtocol: workloadapi.AppProtocol_HTTP11,
+					}},
+					Visibility: workloadapi.Service_NAMESPACE,
+				},
+			},
+		},
+		{
+			name: "PUBLIC visibility keeps cross-namespace waypoint binding",
+			inputs: []any{
+				ns,
+				crossNsWaypoint,
+			},
+			se: &networkingclient.ServiceEntry{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "public-crossns-wp",
+					Namespace: "ns",
+					Labels: map[string]string{
+						label.IoIstioUseWaypoint.Name:          "waypoint",
+						label.IoIstioUseWaypointNamespace.Name: "other",
+					},
+				},
+				Spec: networking.ServiceEntry{
+					Addresses:  []string{"1.2.3.4"},
+					Hosts:      []string{"a.example.com"},
+					Ports:      []*networking.ServicePort{{Number: 80, Name: "http", Protocol: "HTTP"}},
+					Resolution: networking.ServiceEntry_STATIC,
+				},
+			},
+			result: []*workloadapi.Service{
+				{
+					Name:      "public-crossns-wp",
+					Namespace: "ns",
+					Hostname:  "a.example.com",
+					Addresses: []*workloadapi.NetworkAddress{{
+						Network: testNW,
+						Address: netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice(),
+					}},
+					Waypoint: crossNsWaypointAddr,
+					Ports: []*workloadapi.Port{{
+						ServicePort: 80,
+						TargetPort:  80,
+						AppProtocol: workloadapi.AppProtocol_HTTP11,
+					}},
+					// Visibility PUBLIC (zero value): cross-namespace binding is allowed.
+				},
+			},
+		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			mock := krttest.NewMock(t, tt.inputs)
 			a := newAmbientUnitTest(t)
+			// Build a synchronous, precompiled visibility singleton from the mock mesh config.
+			// (A reactive NewSingleton is not computed synchronously under TestingDummyContext.)
+			var sev *meshConfig.ServiceEntryVisibility
+			if mc := krttest.GetMockSingleton[MeshConfig](mock).Get(); mc != nil {
+				sev = mc.GetServiceEntryVisibility()
+			}
+			matcher, _ := model.CompileServiceEntryVisibility(sev)
 			builder := a.serviceEntryServiceBuilder(
 				krttest.GetMockCollection[Waypoint](mock),
 				krttest.GetMockCollection[*v1.Namespace](mock),
+				krt.NewStatic(matcher, true),
 			)
 			wrapper := builder(krt.TestingDummyContext{}, tt.se)
 			res := slices.Map(wrapper, func(e TypedServiceInfo) *workloadapi.Service {
 				return e.Service
 			})
 			assert.Equal(t, res, tt.result)
+			if tt.waypointErr != nil {
+				assert.Equal(t, len(wrapper), 1)
+				assert.Equal(t, wrapper[0].Waypoint.Error, tt.waypointErr)
+			}
+		})
+	}
+}
+
+func TestSelectWorkloadServices(t *testing.T) {
+	const host = "shared.example.com"
+	older := time.Unix(100, 0)
+	newer := time.Unix(200, 0)
+
+	si := func(ns, name string, k kind.Kind, vis workloadapi.Service_Visibility, created time.Time) TypedServiceInfo {
+		return TypedServiceInfo{ServiceInfo: model.ServiceInfo{
+			Service: &workloadapi.Service{
+				Name:       name,
+				Namespace:  ns,
+				Hostname:   host,
+				Visibility: vis,
+			},
+			Source:       model.TypedObject{Kind: k},
+			CreationTime: created,
+		}}
+	}
+
+	// run returns the winning service name per namespace and the name of the single canonical
+	// service ("" if none).
+	run := func(t *testing.T, inputs []TypedServiceInfo) (map[string]string, string) {
+		winners := map[string]string{}
+		canonical := ""
+		for _, s := range selectWorkloadServices(inputs) {
+			winners[s.Service.Namespace] = s.Service.Name
+			if s.Service.Canonical {
+				if canonical != "" {
+					t.Fatalf("more than one canonical service: %s and %s", canonical, s.Service.Name)
+				}
+				canonical = s.Service.Name
+			}
+		}
+		return winners, canonical
+	}
+
+	cases := []struct {
+		name          string
+		inputs        []TypedServiceInfo
+		wantWinners   map[string]string
+		wantCanonical string
+	}{
+		{
+			// Same namespace, same hostname: the older SE owns the slot. Because the owner is
+			// NAMESPACE-scoped, nothing is canonical (out-of-namespace clients see no service).
+			name: "same namespace: older NAMESPACE beats newer PUBLIC, nothing canonical",
+			inputs: []TypedServiceInfo{
+				si("ns", "pub", kind.ServiceEntry, workloadapi.Service_PUBLIC, newer),
+				si("ns", "nslocal", kind.ServiceEntry, workloadapi.Service_NAMESPACE, older),
+			},
+			wantWinners:   map[string]string{"ns": "nslocal"},
+			wantCanonical: "",
+		},
+		{
+			// A Kubernetes Service must be canonical over an older ServiceEntry that camps its
+			// hostname -- age must not let the SE capture it.
+			name: "kube Service is canonical over an older camping PUBLIC ServiceEntry",
+			inputs: []TypedServiceInfo{
+				si("team-a", "svc", kind.Service, workloadapi.Service_PUBLIC, newer),
+				si("team-b", "camp", kind.ServiceEntry, workloadapi.Service_PUBLIC, older),
+			},
+			wantWinners:   map[string]string{"team-a": "svc", "team-b": "camp"},
+			wantCanonical: "svc",
+		},
+		{
+			// Cross namespace: the PUBLIC SE is canonical; the NAMESPACE SE owns only its namespace.
+			name: "cross namespace: PUBLIC is canonical, NAMESPACE is not",
+			inputs: []TypedServiceInfo{
+				si("team-a", "nslocal", kind.ServiceEntry, workloadapi.Service_NAMESPACE, older),
+				si("team-b", "pub", kind.ServiceEntry, workloadapi.Service_PUBLIC, newer),
+			},
+			wantWinners:   map[string]string{"team-a": "nslocal", "team-b": "pub"},
+			wantCanonical: "pub",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Order-independence: same result for the inputs and their reverse.
+			reverse := slices.Clone(tc.inputs)
+			slices.Reverse(reverse)
+			for _, order := range [][]TypedServiceInfo{tc.inputs, reverse} {
+				winners, canonical := run(t, order)
+				assert.Equal(t, winners, tc.wantWinners)
+				assert.Equal(t, canonical, tc.wantCanonical)
+			}
 		})
 	}
 }
@@ -978,6 +1488,32 @@ func TestServiceServices(t *testing.T) {
 		},
 		// TODO: look up the HBONE port instead of hardcoding it
 		HboneMtlsPort: 15008,
+	}
+	// Canary waypoint fixtures (both in namespace "ns", attachable from "ns").
+	canaryAddr := &workloadapi.GatewayAddress{
+		Destination: &workloadapi.GatewayAddress_Hostname{
+			Hostname: &workloadapi.NamespacedHostname{Namespace: "ns", Hostname: "canary.example"},
+		},
+		HboneMtlsPort: 15008,
+	}
+	allowNS := WaypointSelector{
+		FromNamespaces: gatewayv1.NamespacesFromSelector,
+		Selector:       labels.ValidatedSetSelector(map[string]string{v1.LabelMetadataName: "ns"}),
+	}
+	primaryWaypoint := Waypoint{
+		Named:         krt.Named{Name: "waypoint", Namespace: "ns"},
+		TrafficType:   constants.AllTraffic,
+		Address:       waypointAddr,
+		AllowedRoutes: allowNS,
+	}
+	canaryWaypoint := Waypoint{
+		Named:         krt.Named{Name: "canary", Namespace: "ns"},
+		TrafficType:   constants.AllTraffic,
+		Address:       canaryAddr,
+		AllowedRoutes: allowNS,
+	}
+	nsNS := &v1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{Name: "ns", Labels: map[string]string{v1.LabelMetadataName: "ns"}},
 	}
 	cases := []struct {
 		name   string
@@ -1592,6 +2128,118 @@ func TestServiceServices(t *testing.T) {
 					},
 					Mode: workloadapi.LoadBalancing_FAILOVER,
 				},
+				Ports: []*workloadapi.Port{{
+					ServicePort: 80,
+					AppProtocol: workloadapi.AppProtocol_HTTP11,
+				}},
+				Canonical: true,
+			},
+		},
+		{
+			name:   "weighted canary",
+			inputs: []any{primaryWaypoint, canaryWaypoint, nsNS},
+			svc: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "name",
+					Namespace: "ns",
+					Labels: map[string]string{
+						label.IoIstioUseWaypoint.Name:       "waypoint",
+						label.IoIstioUseWaypointCanary.Name: "canary",
+					},
+					Annotations: map[string]string{
+						annotation.IoIstioUseWaypointCanaryWeight.Name: "5",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					ClusterIP: "1.2.3.4",
+					Ports:     []v1.ServicePort{{Port: 80, Name: "http"}},
+				},
+			},
+			result: &workloadapi.Service{
+				Name:      "name",
+				Namespace: "ns",
+				Hostname:  "name.ns.svc.domain.suffix",
+				Addresses: []*workloadapi.NetworkAddress{{
+					Network: testNW,
+					Address: netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice(),
+				}},
+				Waypoint: waypointAddr,
+				WeightedWaypoints: []*workloadapi.WeightedWaypoint{
+					{Destination: waypointAddr, Weight: 95},
+					{Destination: canaryAddr, Weight: 5},
+				},
+				Ports: []*workloadapi.Port{{
+					ServicePort: 80,
+					AppProtocol: workloadapi.AppProtocol_HTTP11,
+				}},
+				Canonical: true,
+			},
+		},
+		{
+			name:   "canary invalid weight falls back to primary only",
+			inputs: []any{primaryWaypoint, canaryWaypoint, nsNS},
+			svc: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "name",
+					Namespace: "ns",
+					Labels: map[string]string{
+						label.IoIstioUseWaypoint.Name:       "waypoint",
+						label.IoIstioUseWaypointCanary.Name: "canary",
+					},
+					Annotations: map[string]string{
+						annotation.IoIstioUseWaypointCanaryWeight.Name: "not-a-number",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					ClusterIP: "1.2.3.4",
+					Ports:     []v1.ServicePort{{Port: 80, Name: "http"}},
+				},
+			},
+			result: &workloadapi.Service{
+				Name:      "name",
+				Namespace: "ns",
+				Hostname:  "name.ns.svc.domain.suffix",
+				Addresses: []*workloadapi.NetworkAddress{{
+					Network: testNW,
+					Address: netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice(),
+				}},
+				Waypoint: waypointAddr,
+				Ports: []*workloadapi.Port{{
+					ServicePort: 80,
+					AppProtocol: workloadapi.AppProtocol_HTTP11,
+				}},
+				Canonical: true,
+			},
+		},
+		{
+			name:   "canary not ready falls back to primary only",
+			inputs: []any{primaryWaypoint, nsNS}, // canary waypoint not provided/ready
+			svc: &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "name",
+					Namespace: "ns",
+					Labels: map[string]string{
+						label.IoIstioUseWaypoint.Name:       "waypoint",
+						label.IoIstioUseWaypointCanary.Name: "canary",
+					},
+					Annotations: map[string]string{
+						annotation.IoIstioUseWaypointCanaryWeight.Name: "5",
+					},
+				},
+				Spec: v1.ServiceSpec{
+					ClusterIP: "1.2.3.4",
+					Ports:     []v1.ServicePort{{Port: 80, Name: "http"}},
+				},
+			},
+			result: &workloadapi.Service{
+				Name:      "name",
+				Namespace: "ns",
+				Hostname:  "name.ns.svc.domain.suffix",
+				Addresses: []*workloadapi.NetworkAddress{{
+					Network: testNW,
+					Address: netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice(),
+				}},
+				Waypoint: waypointAddr,
 				Ports: []*workloadapi.Port{{
 					ServicePort: 80,
 					AppProtocol: workloadapi.AppProtocol_HTTP11,

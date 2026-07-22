@@ -21,9 +21,7 @@ import (
 	"strconv"
 
 	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/selection"
 
 	"istio.io/api/label"
 	meshapi "istio.io/api/mesh/v1alpha1"
@@ -33,10 +31,10 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/serviceentry"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/mesh/labelselector"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
@@ -60,6 +58,7 @@ func (a Builder) ServicesCollection(
 	waypoints krt.Collection[Waypoint],
 	namespaces krt.Collection[*v1.Namespace],
 	meshConfig krt.Singleton[MeshConfig],
+	serviceEntryVisibility krt.Singleton[model.ServiceEntryVisibilityMatcher],
 	opts krt.OptionsBuilder,
 	precompute bool,
 ) krt.Collection[model.ServiceInfo] {
@@ -71,7 +70,7 @@ func (a Builder) ServicesCollection(
 			}),
 		)...)
 
-	ServiceEntriesInfo := krt.NewManyCollection(serviceEntries, a.serviceEntryServiceBuilder(waypoints, namespaces),
+	ServiceEntriesInfo := krt.NewManyCollection(serviceEntries, a.serviceEntryServiceBuilder(waypoints, namespaces, serviceEntryVisibility),
 		append(
 			opts.WithName("ServiceEntriesInfo"),
 			krt.WithMetadata(krt.Metadata{
@@ -94,46 +93,7 @@ func (a Builder) ServicesCollection(
 			if len(ios.Objects) == 0 {
 				return nil
 			}
-
-			typedServiceInfos := ios.Objects
-
-			bestByNamespace := make(map[string]model.ServiceInfo)
-
-			// check if a is a better ServiceInfo than b
-			// better meaning both:
-			//     a is older than b
-			//     b is not a Kubernetes Service
-			isBetter := func(a, b model.ServiceInfo) bool {
-				return a.CreationTime.Before(b.CreationTime) && b.Source.Kind != kind.Service
-			}
-			var canonical *model.ServiceInfo
-			for _, tsi := range typedServiceInfos {
-				tsiNamespace := tsi.GetNamespace()
-				if tsi.Source.Kind == kind.Service {
-					// A Kubernetes Service is always used, and canonical
-					bestByNamespace[tsiNamespace] = tsi.ServiceInfo
-					canonical = &tsi.ServiceInfo
-					continue
-				}
-				currentBest, found := bestByNamespace[tsiNamespace]
-				if !found || isBetter(tsi.ServiceInfo, currentBest) {
-					bestByNamespace[tsiNamespace] = tsi.ServiceInfo
-				} else {
-					// if we are not the best for our namespace, then we don't need to worry about being canonical
-					continue
-				}
-				if canonical == nil || isBetter(tsi.ServiceInfo, *canonical) {
-					canonical = &tsi.ServiceInfo
-				}
-			}
-
-			// make a copy and then set canonical
-			if canonical != nil {
-				bestByNamespace[canonical.GetNamespace()] = setCanonical(canonical)
-			}
-
-			// convert map into slice and return
-			return maps.Values(bestByNamespace)
+			return selectWorkloadServices(ios.Objects)
 		}, append(
 			opts.WithName("WorkloadServices"),
 			krt.WithMetadata(krt.Metadata{
@@ -142,6 +102,53 @@ func (a Builder) ServicesCollection(
 		)...,
 	)
 	return WorkloadServices
+}
+
+// selectWorkloadServices resolves the set of services sharing a hostname down to one winner per
+// namespace and marks the single canonical service.
+func selectWorkloadServices(typedServiceInfos []TypedServiceInfo) []model.ServiceInfo {
+	bestByNamespace := make(map[string]model.ServiceInfo)
+
+	// check if a is a better ServiceInfo than b
+	// better meaning both:
+	//     a is older than b
+	//     b is not a Kubernetes Service
+	isBetter := func(a, b model.ServiceInfo) bool {
+		return a.CreationTime.Before(b.CreationTime) && b.Source.Kind != kind.Service
+	}
+	// Pick the winner for each namespace: a Kubernetes Service always wins, else the oldest.
+	for _, tsi := range typedServiceInfos {
+		tsiNamespace := tsi.GetNamespace()
+		if tsi.Source.Kind == kind.Service {
+			bestByNamespace[tsiNamespace] = tsi.ServiceInfo
+			continue
+		}
+		currentBest, found := bestByNamespace[tsiNamespace]
+		if !found || isBetter(tsi.ServiceInfo, currentBest) {
+			bestByNamespace[tsiNamespace] = tsi.ServiceInfo
+		}
+	}
+
+	// select and mark Canonical from bestByNamespace
+	var canonical *model.ServiceInfo
+	for ns := range bestByNamespace {
+		si := bestByNamespace[ns]
+		switch {
+		case si.Source.Kind == kind.Service:
+			canonical = &si
+		case si.Service.GetVisibility() == workloadapi.Service_NAMESPACE:
+			continue
+		default:
+			if canonical == nil || isBetter(si, *canonical) {
+				canonical = &si
+			}
+		}
+	}
+	if canonical != nil {
+		bestByNamespace[canonical.GetNamespace()] = setCanonical(canonical)
+	}
+
+	return maps.Values(bestByNamespace)
 }
 
 func GlobalNestedWorkloadServicesCollection(
@@ -269,7 +276,7 @@ func serviceServiceBuilder(
 		}
 		ns := krt.FetchOne(ctx, namespaces, krt.FilterKey(s.Namespace))
 		waypointStatus := model.WaypointBindingStatus{}
-		waypoint, wperr := fetchWaypointForService(ctx, waypoints, namespaces, s.ObjectMeta)
+		waypoint, wperr := fetchWaypointForService(ctx, waypoints, namespaces, nil, s.ObjectMeta)
 		if waypoint != nil {
 			waypointStatus.ResourceName = waypoint.ResourceName()
 			var nsLabels map[string]string
@@ -287,6 +294,7 @@ func serviceServiceBuilder(
 
 		svc := constructService(ctx, s, waypoint, domainSuffix, nsAnnotations, networkGetter)
 		svc.IngressUseWaypoint = waypointStatus.IngressUseWaypoint
+		svc.WeightedWaypoints = buildWeightedWaypoints(ctx, waypoints, namespaces, s.ObjectMeta, waypoint, &waypointStatus)
 
 		svcInfo := &model.ServiceInfo{
 			Service:       svc,
@@ -331,47 +339,6 @@ func typedServiceServiceBuilder(
 	}
 }
 
-// LabelSelectorAsSelector converts a mesh api LabelSelector to a labels.Selector.
-func LabelSelectorAsSelector(ps *meshapi.LabelSelector) (labels.Selector, error) {
-	if ps == nil {
-		return labels.Nothing(), nil
-	}
-	if len(ps.MatchLabels)+len(ps.MatchExpressions) == 0 {
-		return labels.Everything(), nil
-	}
-	requirements := make([]labels.Requirement, 0, len(ps.MatchLabels)+len(ps.MatchExpressions))
-	for k, v := range ps.MatchLabels {
-		r, err := labels.NewRequirement(k, selection.Equals, []string{v})
-		if err != nil {
-			return nil, err
-		}
-		requirements = append(requirements, *r)
-	}
-	for _, expr := range ps.MatchExpressions {
-		var op selection.Operator
-		switch metav1.LabelSelectorOperator(expr.Operator) {
-		case metav1.LabelSelectorOpIn:
-			op = selection.In
-		case metav1.LabelSelectorOpNotIn:
-			op = selection.NotIn
-		case metav1.LabelSelectorOpExists:
-			op = selection.Exists
-		case metav1.LabelSelectorOpDoesNotExist:
-			op = selection.DoesNotExist
-		default:
-			return nil, fmt.Errorf("%q is not a valid label selector operator", expr.Operator)
-		}
-		r, err := labels.NewRequirement(expr.Key, op, append([]string(nil), expr.Values...))
-		if err != nil {
-			return nil, err
-		}
-		requirements = append(requirements, *r)
-	}
-	selector := labels.NewSelector()
-	selector = selector.Add(requirements...)
-	return selector, nil
-}
-
 func matchServiceScope(ctx krt.HandlerContext, meshCfg *MeshConfig, namespaces krt.Collection[*v1.Namespace], s *v1.Service) model.ServiceScope {
 	// Apply label selectors from the MeshConfig's servieScopeConfig to determine the scope of the service based on the namespace
 	// or service label matches
@@ -379,7 +346,7 @@ func matchServiceScope(ctx krt.HandlerContext, meshCfg *MeshConfig, namespaces k
 	for _, scopeConfig := range meshCfg.ServiceScopeConfigs {
 		// Match namespace labels
 		// Treat Nothing selectors as Everything selectors
-		nss, err := LabelSelectorAsSelector(scopeConfig.NamespaceSelector)
+		nss, err := labelselector.LabelSelectorAsSelector(scopeConfig.NamespaceSelector)
 		if err != nil {
 			log.Warnf("failed to convert namespace selector: %v", err)
 			continue
@@ -387,7 +354,7 @@ func matchServiceScope(ctx krt.HandlerContext, meshCfg *MeshConfig, namespaces k
 		if nss.String() == labels.Nothing().String() {
 			nss = labels.Everything()
 		}
-		ss, err := LabelSelectorAsSelector(scopeConfig.ServicesSelector)
+		ss, err := labelselector.LabelSelectorAsSelector(scopeConfig.ServicesSelector)
 		if err != nil {
 			log.Warnf("failed to convert service selector: %v", err)
 			continue
@@ -417,6 +384,16 @@ func matchServiceScope(ctx krt.HandlerContext, meshCfg *MeshConfig, namespaces k
 	// Default to local scope if no match is found
 	log.Debugf("service %s/%s is locally scoped", s.Namespace, s.Name)
 	return model.Local
+}
+
+// wdsVisibility maps the neutral resolved visibility to the WDS Service visibility field. NONE has
+// no WDS representation (such services are dropped before this is called), so only the
+// PUBLIC/NAMESPACE cases are relevant here.
+func wdsVisibility(v model.ServiceVisibility) workloadapi.Service_Visibility {
+	if v == model.ServiceVisibilityNamespace {
+		return workloadapi.Service_NAMESPACE
+	}
+	return workloadapi.Service_PUBLIC
 }
 
 func (a Builder) serviceServiceBuilder(
@@ -461,9 +438,10 @@ func (t TypedServiceInfo) Equals(other TypedServiceInfo) bool {
 func (a Builder) serviceEntryServiceBuilder(
 	waypoints krt.Collection[Waypoint],
 	namespaces krt.Collection[*v1.Namespace],
+	visibility krt.Singleton[model.ServiceEntryVisibilityMatcher],
 ) krt.TransformationMulti[*networkingclient.ServiceEntry, TypedServiceInfo] {
 	return func(ctx krt.HandlerContext, s *networkingclient.ServiceEntry) []TypedServiceInfo {
-		waypoint, waypointError := fetchWaypointForService(ctx, waypoints, namespaces, s.ObjectMeta)
+		waypoint, waypointError := fetchWaypointForService(ctx, waypoints, namespaces, visibility, s.ObjectMeta)
 
 		ns := krt.FetchOne(ctx, namespaces, krt.FilterKey(s.Namespace))
 		var nsAnnotations map[string]string
@@ -473,7 +451,10 @@ func (a Builder) serviceEntryServiceBuilder(
 			nsLabels = (*ns).Labels
 		}
 
-		serviceInfos := serviceEntriesInfo(ctx, s, waypoint, waypointError, nsAnnotations, nsLabels, a.Networks.FetchLocalNetworkID)
+		serviceInfos := serviceEntriesInfo(
+			ctx, s, waypoints, namespaces, waypoint, waypointError,
+			nsAnnotations, nsLabels, visibility, a.Networks.FetchLocalNetworkID,
+		)
 		return slices.Map(serviceInfos, func(si model.ServiceInfo) TypedServiceInfo {
 			return TypedServiceInfo{ServiceInfo: si}
 		})
@@ -483,10 +464,13 @@ func (a Builder) serviceEntryServiceBuilder(
 func serviceEntriesInfo(
 	ctx krt.HandlerContext,
 	s *networkingclient.ServiceEntry,
+	waypoints krt.Collection[Waypoint],
+	namespaces krt.Collection[*v1.Namespace],
 	w *Waypoint,
 	wperr *model.StatusMessage,
 	nsAnnotations map[string]string,
 	nsLabels map[string]string,
+	visibility krt.Singleton[model.ServiceEntryVisibilityMatcher],
 	networkGetter func(ctx krt.HandlerContext) network.ID,
 ) []model.ServiceInfo {
 	sel := model.NewSelector(s.Spec.GetWorkloadSelector().GetLabels())
@@ -511,18 +495,40 @@ func serviceEntriesInfo(
 		log.Warnf("ServiceEntry %s/%s has dynamic DNS resolution but no valid waypoint", s.Namespace, s.Name)
 	}
 
-	return slices.Map(constructServiceEntries(ctx, s, w, nsAnnotations, networkGetter), func(e *workloadapi.Service) model.ServiceInfo {
+	weighted := buildWeightedWaypoints(ctx, waypoints, namespaces, s.ObjectMeta, w, &waypoint)
+
+	vis := krt.FetchOne(ctx, visibility.AsCollection())
+	// Resolve the ServiceEntry's visibility once from the precompiled serviceEntryVisibility; it is
+	// uniform across the ServiceEntry's hosts. NONE means Istio configures no dataplane for it, so it
+	// is not published to WDS.
+	resolvedVisibility := vis.VisibilityFor(nsLabels)
+	if resolvedVisibility == model.ServiceVisibilityNone {
+		log.Debugf("ServiceEntry %s/%s resolves to visibility NONE; not configuring", s.Namespace, s.Name)
+		// StatusBug: dropping the ServiceInfo means we can't write a condition that it was dropped.
+		// https://github.com/istio/istio/issues/60908
+		return nil
+	}
+	// Gate the visibility status on whether the feature is configured; an unset mesh writes no
+	// condition. The status value itself comes from the WDS Service.Visibility set above.
+	visibilityConfigured := vis.Configured()
+	services := constructServiceEntries(ctx, s, w, nsAnnotations, networkGetter)
+	result := make([]model.ServiceInfo, 0, len(services))
+	for _, e := range services {
+		e.Visibility = wdsVisibility(resolvedVisibility)
 		e.IngressUseWaypoint = waypoint.IngressUseWaypoint
-		return precomputeService(model.ServiceInfo{
-			Service:            e,
-			PortNames:          portNames,
-			LabelSelector:      sel,
-			Source:             MakeSource(s),
-			Waypoint:           waypoint,
-			DNSConnectStrategy: model.GetDNSConnectStrategy(s.Annotations),
-			CreationTime:       s.CreationTimestamp.Time,
-		})
-	})
+		e.WeightedWaypoints = weighted
+		result = append(result, precomputeService(model.ServiceInfo{
+			Service:              e,
+			PortNames:            portNames,
+			LabelSelector:        sel,
+			Source:               MakeSource(s),
+			Waypoint:             waypoint,
+			DNSConnectStrategy:   model.GetDNSConnectStrategy(s.Annotations),
+			CreationTime:         s.CreationTimestamp.Time,
+			VisibilityConfigured: visibilityConfigured,
+		}))
+	}
+	return result
 }
 
 func constructServiceEntries(
@@ -753,12 +759,8 @@ func precomputeServicePtr(w *model.ServiceInfo) *model.ServiceInfo {
 }
 
 func precomputeService(w model.ServiceInfo) model.ServiceInfo {
-	addr := serviceToAddress(w.Service)
-	w.MarshaledAddress = protoconv.MessageToAny(addr)
-	w.AsAddress = model.AddressInfo{
-		Address:   addr,
-		Marshaled: w.MarshaledAddress,
-	}
+	w.AsAddress = model.NewAddressInfo(serviceToAddress(w.Service))
+	w.MarshaledAddress = w.AsAddress.Marshaled
 	return w
 }
 

@@ -252,8 +252,11 @@ func New(options Options) Index {
 		Waypoints,
 		opts,
 	)
+	serviceEntryVisibility := model.ServiceEntryVisibilityCollection(a.meshConfig.AsCollection(), opts)
+
 	// these are workloadapi-style services combined from kube services and service entries
-	WorkloadServices := builder.ServicesCollection(options.ClusterID, Services, ServiceEntries, Waypoints, Namespaces, a.meshConfig, opts, true)
+	WorkloadServices := builder.ServicesCollection(options.ClusterID, Services, ServiceEntries, Waypoints,
+		Namespaces, a.meshConfig, serviceEntryVisibility, opts, true)
 
 	if features.EnableAmbientStatus {
 		serviceEntriesWriter := kclient.NewWriteClient[*networkingclient.ServiceEntry](client)
@@ -267,6 +270,7 @@ func New(options Options) Index {
 			ServiceEntries,
 			GatewayClasses,
 			a.meshConfig,
+			serviceEntryVisibility,
 			Namespaces,
 			opts,
 		)
@@ -301,20 +305,7 @@ func New(options Options) Index {
 		if s.LabelSelector.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayEastWestControllerLabel {
 			return nil
 		}
-
-		waypoint := s.Service.Waypoint
-		if waypoint == nil {
-			return nil
-		}
-		waypointAddress := waypoint.GetHostname()
-		if waypointAddress == nil {
-			return nil
-		}
-
-		return []NamespaceHostname{{
-			Namespace: waypointAddress.Namespace,
-			Hostname:  waypointAddress.Hostname,
-		}}
+		return serviceOwningWaypointHostnames(s)
 	})
 	ServiceInfosByOwningWaypointIP := krt.NewIndex(WorkloadServices, "owningWaypointIp", func(s model.ServiceInfo) []networkAddress {
 		// Filter out waypoint services
@@ -325,21 +316,7 @@ func New(options Options) Index {
 		if s.LabelSelector.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayEastWestControllerLabel {
 			return nil
 		}
-		waypoint := s.Service.Waypoint
-		if waypoint == nil {
-			return nil
-		}
-		waypointAddress := waypoint.GetAddress()
-		if waypointAddress == nil {
-			return nil
-		}
-		netip, _ := netip.AddrFromSlice(waypointAddress.Address)
-		netaddr := networkAddress{
-			network: waypointAddress.Network,
-			ip:      netip.String(),
-		}
-
-		return []networkAddress{netaddr}
+		return serviceOwningWaypointAddresses(s)
 	})
 	WorkloadServices.RegisterBatch(krt.BatchedEventFilter(
 		func(a model.ServiceInfo) *model.XDSServiceInfo {
@@ -686,6 +663,53 @@ func (a *index) AddressInformation(addresses sets.String) ([]model.AddressInfo, 
 		}
 	}
 	return res, sets.New(removed...)
+}
+
+// serviceOwningWaypoints returns the complete waypoint set fronting this service.
+func serviceOwningWaypoints(s model.ServiceInfo) []*workloadapi.GatewayAddress {
+	if s.Service == nil {
+		return nil
+	}
+	if ww := s.Service.WeightedWaypoints; len(ww) > 0 {
+		res := make([]*workloadapi.GatewayAddress, 0, len(ww))
+		for _, w := range ww {
+			if w.GetDestination() != nil {
+				res = append(res, w.GetDestination())
+			}
+		}
+		return res
+	}
+	if s.Service.Waypoint == nil {
+		return nil
+	}
+	return []*workloadapi.GatewayAddress{s.Service.Waypoint}
+}
+
+// serviceOwningWaypointHostnames adapts serviceOwningWaypoints for hostname indexes.
+func serviceOwningWaypointHostnames(s model.ServiceInfo) []NamespaceHostname {
+	var out []NamespaceHostname
+	for _, waypoint := range serviceOwningWaypoints(s) {
+		wa := waypoint.GetHostname()
+		if wa == nil {
+			continue
+		}
+		out = append(out, NamespaceHostname{Namespace: wa.Namespace, Hostname: wa.Hostname})
+	}
+	return out
+}
+
+// serviceOwningWaypointAddresses adapts serviceOwningWaypoints for IP indexes.
+func serviceOwningWaypointAddresses(s model.ServiceInfo) []networkAddress {
+	var out []networkAddress
+	for _, waypoint := range serviceOwningWaypoints(s) {
+		wa := waypoint.GetAddress()
+		if wa == nil {
+			continue
+		}
+		ip, _ := netip.AddrFromSlice(wa.Address)
+		out = append(out, networkAddress{network: wa.Network, ip: ip.String()})
+	}
+	return out
 }
 
 func (a *index) ServicesForWaypoint(key model.WaypointKey) []model.ServiceInfo {

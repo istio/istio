@@ -105,7 +105,7 @@ func fetchWaypointForTarget(
 	// namespace to be used when the annotation doesn't include a namespace
 	fallbackNamespace := o.Namespace
 	// try fetching the waypoint defined on the object itself
-	wp, isNone := getUseWaypoint(o, fallbackNamespace)
+	wp, isNone := GetUseWaypoint(o, fallbackNamespace)
 	if isNone {
 		// we've got a local override here opting out of waypoint
 		return nil, nil
@@ -131,7 +131,7 @@ func fetchWaypointForTarget(
 	// this probably should never be nil. How would o exist in a namespace we know nothing about? maybe edge case of starting the controller or ns delete?
 	if namespace != nil {
 		// toss isNone, we don't need to know /why/ we got nil
-		wp, _ := getUseWaypoint(namespace.ObjectMeta, fallbackNamespace)
+		wp, _ := GetUseWaypoint(namespace.ObjectMeta, fallbackNamespace)
 		if wp != nil {
 			w := krt.FetchOne[Waypoint](ctx, waypoints, krt.FilterKey(wp.ResourceName()))
 			if w != nil {
@@ -148,8 +148,9 @@ func fetchWaypointForTarget(
 	return nil, nil
 }
 
+// SAFETY: if fetching waypoints for a ServiceEntry visibility must be taken into account. For Kubernetes services a nil visibility singleton is expected
 func fetchWaypointForService(ctx krt.HandlerContext, Waypoints krt.Collection[Waypoint],
-	Namespaces krt.Collection[*v1.Namespace], o metav1.ObjectMeta,
+	Namespaces krt.Collection[*v1.Namespace], ServiceEntryVisibility krt.Singleton[model.ServiceEntryVisibilityMatcher], o metav1.ObjectMeta,
 ) (*Waypoint, *model.StatusMessage) {
 	// This is a waypoint, so it cannot have a waypoint
 	if o.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel {
@@ -163,13 +164,25 @@ func fetchWaypointForService(ctx krt.HandlerContext, Waypoints krt.Collection[Wa
 	if err != nil || w == nil {
 		return nil, err
 	}
-	if w.TrafficType == constants.ServiceTraffic || w.TrafficType == constants.AllTraffic {
-		return w, nil
+	if w.TrafficType != constants.ServiceTraffic && w.TrafficType != constants.AllTraffic {
+		// Waypoint does not support Service traffic
+		log.Debugf("Unable to add service waypoint %s/%s; traffic type %s not supported for %s/%s",
+			w.Namespace, w.Name, w.TrafficType, o.Namespace, o.Name)
+		return nil, ReportWaypointUnsupportedTrafficType(w.ResourceName(), constants.ServiceTraffic)
 	}
-	// Waypoint does not support Service traffic
-	log.Debugf("Unable to add service waypoint %s/%s; traffic type %s not supported for %s/%s",
-		w.Namespace, w.Name, w.TrafficType, o.Namespace, o.Name)
-	return nil, ReportWaypointUnsupportedTrafficType(w.ResourceName(), constants.ServiceTraffic)
+	// A NAMESPACE-visibility ServiceEntry must not bind to a waypoint in another namespace: that would
+	// expose it to the waypoint's namespace. Refuse here so every consumer is covered.
+	// ServiceEntryVisibility is nil for consumers it doesn't govern (e.g. Kubernetes Services).
+	if ServiceEntryVisibility != nil && w.Namespace != o.Namespace {
+		var nsLabels map[string]string
+		if ns := krt.FetchOne(ctx, Namespaces, krt.FilterKey(o.Namespace)); ns != nil {
+			nsLabels = (*ns).Labels
+		}
+		if krt.FetchOne(ctx, ServiceEntryVisibility.AsCollection()).VisibilityFor(nsLabels) == model.ServiceVisibilityNamespace {
+			return nil, ReportWaypointCrossNamespaceForbidden(w.ResourceName())
+		}
+	}
+	return w, nil
 }
 
 func fetchWaypointForWorkload(ctx krt.HandlerContext, Waypoints krt.Collection[Waypoint],
@@ -193,11 +206,11 @@ func fetchWaypointForWorkload(ctx krt.HandlerContext, Waypoints krt.Collection[W
 	return nil, ReportWaypointUnsupportedTrafficType(w.ResourceName(), constants.WorkloadTraffic)
 }
 
-// getUseWaypoint takes objectMeta and a defaultNamespace
+// GetUseWaypoint takes objectMeta and a defaultNamespace
 // it looks for the istio.io/use-waypoint label and parses it
 // if there is no namespace provided in the label the default namespace will be used
 // defaultNamespace avoids the need to infer when object meta from a namespace was given
-func getUseWaypoint(meta metav1.ObjectMeta, defaultNamespace string) (named *krt.Named, isNone bool) {
+func GetUseWaypoint(meta metav1.ObjectMeta, defaultNamespace string) (named *krt.Named, isNone bool) {
 	if labelValue, ok := meta.Labels[label.IoIstioUseWaypoint.Name]; ok {
 		// NOTE: this means Istio reserves the word "none" in this field with a special meaning
 		// a waypoint named "none" cannot be used and will be ignored
@@ -218,6 +231,111 @@ func getUseWaypoint(meta metav1.ObjectMeta, defaultNamespace string) (named *krt
 
 func (w Waypoint) ResourceName() string {
 	return w.GetNamespace() + "/" + w.GetName()
+}
+
+// getUseWaypointCanary parses the optional canary waypoint reference from the object, falling back
+// to its namespace (nsMeta, may be nil). The canary label and its namespace override are read from
+// whichever level declares the canary, mirroring how the primary waypoint is inherited.
+func getUseWaypointCanary(meta metav1.ObjectMeta, nsMeta *metav1.ObjectMeta, defaultNamespace string) *krt.Named {
+	labels := meta.Labels
+	if _, ok := labels[label.IoIstioUseWaypointCanary.Name]; !ok && nsMeta != nil {
+		if _, ok := nsMeta.Labels[label.IoIstioUseWaypointCanary.Name]; ok {
+			labels = nsMeta.Labels
+		}
+	}
+	labelValue, ok := labels[label.IoIstioUseWaypointCanary.Name]
+	if !ok || labelValue == "" || labelValue == "none" {
+		return nil
+	}
+	namespace := defaultNamespace
+	if override, f := labels[label.IoIstioUseWaypointCanaryNamespace.Name]; f {
+		namespace = override
+	}
+	return &krt.Named{Name: labelValue, Namespace: namespace}
+}
+
+// getCanaryWeight parses the canary weight annotation from the object, falling back to its
+// namespace (nsMeta, may be nil). Missing means 0%.
+func getCanaryWeight(meta metav1.ObjectMeta, nsMeta *metav1.ObjectMeta) (weight uint32, valid bool) {
+	v, ok := meta.Annotations[annotation.IoIstioUseWaypointCanaryWeight.Name]
+	if !ok && nsMeta != nil {
+		v, ok = nsMeta.Annotations[annotation.IoIstioUseWaypointCanaryWeight.Name]
+	}
+	if !ok {
+		return 0, true
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil || n < 0 || n > 100 {
+		return 0, false
+	}
+	return uint32(n), true
+}
+
+// resolveCanaryWaypoint applies the primary waypoint attachment and traffic-type checks.
+func resolveCanaryWaypoint(
+	ctx krt.HandlerContext,
+	waypoints krt.Collection[Waypoint],
+	namespaces krt.Collection[*v1.Namespace],
+	fallbackNamespace string,
+	named *krt.Named,
+) (*Waypoint, *model.StatusMessage) {
+	w := krt.FetchOne[Waypoint](ctx, waypoints, krt.FilterKey(named.ResourceName()))
+	if w == nil {
+		return nil, ReportWaypointIsNotReady(named.ResourceName())
+	}
+	if !w.AllowsAttachmentFromNamespaceOrLookup(ctx, namespaces, fallbackNamespace) {
+		return nil, ReportWaypointAttachmentDenied(w.ResourceName())
+	}
+	if w.TrafficType != constants.ServiceTraffic && w.TrafficType != constants.AllTraffic {
+		return nil, ReportWaypointUnsupportedTrafficType(w.ResourceName(), constants.ServiceTraffic)
+	}
+	return w, nil
+}
+
+// buildWeightedWaypoints returns [{primary, 100-weight}, {canary, weight}] for a valid canary.
+// Canary errors are reported on the binding status and fall back to the primary waypoint.
+func buildWeightedWaypoints(
+	ctx krt.HandlerContext,
+	waypoints krt.Collection[Waypoint],
+	namespaces krt.Collection[*v1.Namespace],
+	o metav1.ObjectMeta,
+	primary *Waypoint,
+	status *model.WaypointBindingStatus,
+) []*workloadapi.WeightedWaypoint {
+	if primary == nil || status.Error != nil {
+		return nil
+	}
+	// The canary is inherited from the same level as the primary: consult the namespace's canary
+	// attributes only when the primary itself was inherited from the namespace (the object sets no
+	// use-waypoint of its own).
+	var nsMeta *metav1.ObjectMeta
+	if objPrimary, _ := GetUseWaypoint(o, o.Namespace); objPrimary == nil {
+		if ns := ptr.OrEmpty(krt.FetchOne(ctx, namespaces, krt.FilterKey(o.Namespace))); ns != nil {
+			nsMeta = &ns.ObjectMeta
+		}
+	}
+	named := getUseWaypointCanary(o, nsMeta, o.Namespace)
+	if named == nil {
+		return nil
+	}
+	if named.ResourceName() == primary.ResourceName() {
+		status.Error = ReportWaypointCanarySameAsPrimary(named.ResourceName())
+		return nil
+	}
+	weight, ok := getCanaryWeight(o, nsMeta)
+	if !ok {
+		status.Error = ReportWaypointCanaryInvalidWeight(named.ResourceName())
+		return nil
+	}
+	canary, cerr := resolveCanaryWaypoint(ctx, waypoints, namespaces, o.Namespace, named)
+	if cerr != nil {
+		status.Error = cerr
+		return nil
+	}
+	return []*workloadapi.WeightedWaypoint{
+		{Destination: primary.GetAddress(), Weight: 100 - weight},
+		{Destination: canary.GetAddress(), Weight: weight},
+	}
 }
 
 func gatewayToWaypointTransform(

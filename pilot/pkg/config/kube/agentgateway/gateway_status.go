@@ -176,7 +176,7 @@ func reportGatewayStatus(
 		}
 	}
 	gs.Listeners = listeners
-	gs.Conditions = setConditions(obj.Generation, gs.Conditions, gatewayConditions)
+	gs.Conditions = gatewaycommon.SetListenerConditions(obj.Generation, gs.Conditions, toSharedConditions(gatewayConditions))
 }
 
 func setProgrammedCondition(gatewayConditions map[string]*Condition, internal []string, gatewayServices []string, warnings []string, allUsable bool) {
@@ -186,6 +186,16 @@ func setProgrammedCondition(gatewayConditions map[string]*Condition, internal []
 	}
 	gatewaycommon.SetProgrammedCondition(mapped, internal, gatewayServices, warnings, allUsable)
 	applyAgentgatewayConditionFromListenerStatus(programmed, mapped[string(gatewayv1.GatewayConditionProgrammed)])
+}
+
+// toSharedConditions converts a map of local conditions into the
+// shared gatewaycommon representation used by gatewaycommon.SetListenerConditions.
+func toSharedConditions(in map[string]*Condition) map[string]*gatewaycommon.ListenerStatusCondition {
+	out := make(map[string]*gatewaycommon.ListenerStatusCondition, len(in))
+	for k, c := range in {
+		out[k] = agentgatewayListenerStatusCondition(c)
+	}
+	return out
 }
 
 func agentgatewayListenerStatusCondition(c *Condition) *gatewaycommon.ListenerStatusCondition {

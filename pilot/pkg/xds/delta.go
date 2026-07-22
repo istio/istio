@@ -248,9 +248,6 @@ func (conn *Connection) sendDelta(res *discovery.DeltaDiscoveryResponse, newReso
 				}
 				wr.NonceSent = res.Nonce
 				wr.LastSendTime = time.Now()
-				if features.EnableUnsafeDeltaTest {
-					wr.LastResources = applyDelta(wr.LastResources, res)
-				}
 				return wr
 			})
 		}
@@ -297,6 +294,9 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 			// Record sub/unsub, but drop synthetic wildcard info
 			Subscribed:   subs,
 			Unsubscribed: sets.New(req.ResourceNamesUnsubscribe...).Delete("*"),
+			// On reconnect, the versions of resources the client retained. Generators with
+			// content-based versions use this to skip re-sending unchanged resources.
+			InitialResourceVersions: req.InitialResourceVersions,
 		},
 		Forced: true,
 	}
@@ -471,7 +471,6 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, w *model.WatchedResource
 	}
 	t0 := time.Now()
 
-	originalW := w
 	// If delta is set, client is requesting new resources or removing old ones. We should just generate the
 	// new resources it needs, rather than the entire set of known resources.
 	// Note: we do not need to account for unsubscribed resources as these are handled by parent removal;
@@ -495,10 +494,6 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection, w *model.WatchedResource
 	switch g := gen.(type) {
 	case model.XdsDeltaResourceGenerator:
 		res, deletedRes, logdata, usedDelta, err = g.GenerateDeltas(con.proxy, req, w)
-		if features.EnableUnsafeDeltaTest {
-			fullRes, l, _ := g.Generate(con.proxy, originalW, req)
-			s.compareDiff(con, originalW, fullRes, res, deletedRes, usedDelta, req.Delta, l.Incremental)
-		}
 	case model.XdsResourceGenerator:
 		res, logdata, err = g.Generate(con.proxy, w, req)
 	}

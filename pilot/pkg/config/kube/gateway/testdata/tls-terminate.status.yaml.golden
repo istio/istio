@@ -28,6 +28,11 @@ status:
     status: "True"
     type: Accepted
   - lastTransitionTime: fake
+    message: AllowInsecureFallback mode is disabled for frontend validation
+    reason: AllowInsecureFallbackNotConfigured
+    status: "False"
+    type: InsecureFrontendValidationMode
+  - lastTransitionTime: fake
     message: 'Assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:443,
       but failed to assign to all requested addresses: port 9443 not found for hostname
       "istio-ingressgateway.istio-system.svc.domain.suffix"'

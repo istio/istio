@@ -66,7 +66,7 @@ func (e WorkloadGenerator) GenerateDeltas(
 	have := sets.New[string]()
 	resources := make(model.Resources, 0, len(addrs))
 	for _, addr := range addrs {
-		resources = appendAddress(addr, w.TypeUrl, nil, have, resources)
+		resources = appendAddress(addr, w.TypeUrl, nil, have, req.Delta.InitialResourceVersions, resources)
 	}
 
 	if isReq {
@@ -85,14 +85,30 @@ func (e WorkloadGenerator) GenerateDeltas(
 	return resources, removed.UnsortedList(), model.XdsLogDetails{}, true, nil
 }
 
-func appendAddress(addr model.AddressInfo, requestedType string, aliases []string, have sets.Set[string], resources model.Resources) model.Resources {
+func appendAddress(
+	addr model.AddressInfo,
+	requestedType string,
+	aliases []string,
+	have sets.Set[string],
+	retained map[string]string,
+	resources model.Resources,
+) model.Resources {
 	n := addr.ResourceName()
 	have.Insert(n)
+	// On reconnect, the client reports the versions of resources it retained. If the content is
+	// unchanged, it does not need to be re-sent. Note this must come after the `have` insertion,
+	// as a skipped resource is still one the client (correctly) holds; it must not be removed.
+	if addr.Version != "" && addr.Version == retained[n] {
+		return resources
+	}
 	switch requestedType {
 	case v3.WorkloadType:
 		if addr.GetWorkload() != nil {
 			resources = append(resources, &discovery.Resource{
-				Name:     n,
+				Name: n,
+				// The Version hashes the Address wrapper rather than the Workload sent here; since
+				// the wrapping is 1:1 it still changes exactly when the content changes.
+				Version:  addr.Version,
 				Aliases:  aliases,
 				Resource: protoconv.MessageToAny(addr.GetWorkload()), // TODO: pre-marshal
 			})
@@ -105,6 +121,7 @@ func appendAddress(addr model.AddressInfo, requestedType string, aliases []strin
 
 		resources = append(resources, &discovery.Resource{
 			Name:     n,
+			Version:  addr.Version,
 			Aliases:  aliases,
 			Resource: proto,
 		})
@@ -163,7 +180,7 @@ func (e WorkloadGenerator) generateDeltasOndemand(
 	for _, addr := range addrs {
 		aliases := addr.Aliases()
 		removed.DeleteAll(aliases...)
-		resources = appendAddress(addr, w.TypeUrl, aliases, have, resources)
+		resources = appendAddress(addr, w.TypeUrl, aliases, have, req.Delta.InitialResourceVersions, resources)
 	}
 
 	proxy.Lock()

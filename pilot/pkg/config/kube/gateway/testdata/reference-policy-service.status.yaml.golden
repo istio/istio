@@ -15,6 +15,11 @@ status:
     status: "True"
     type: Accepted
   - lastTransitionTime: fake
+    message: AllowInsecureFallback mode is disabled for frontend validation
+    reason: AllowInsecureFallbackNotConfigured
+    status: "False"
+    type: InsecureFrontendValidationMode
+  - lastTransitionTime: fake
     message: Resource programmed, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:80
     reason: Programmed
     status: "True"

@@ -15,6 +15,7 @@
 package model
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -25,10 +26,12 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/workloadapi"
 )
 
 func TestGetByPort(t *testing.T) {
@@ -1068,6 +1071,72 @@ func BenchmarkEndpointDeepCopy(b *testing.B) {
 	}
 }
 
+func TestSupportsUnhealthyEndpoints(t *testing.T) {
+	svcAny := &Service{
+		Attributes: ServiceAttributes{K8sAttributes: K8sAttributes{TrafficDistribution: TrafficDistributionAny}},
+	}
+	svcPreferClose := &Service{
+		Attributes: ServiceAttributes{K8sAttributes: K8sAttributes{TrafficDistribution: TrafficDistributionPreferSameZone}},
+	}
+
+	tests := []struct {
+		name                 string
+		svc                  *Service
+		globalSendUnhealthy  bool
+		defaultSendUnhealthy bool
+		wantSupports         bool
+		wantForces           bool
+	}{
+		{
+			name:         "both flags off, TrafficDistributionAny",
+			svc:          svcAny,
+			wantSupports: false,
+			wantForces:   false,
+		},
+		{
+			name:                 "DefaultSendUnhealthyEndpoints=true",
+			svc:                  svcAny,
+			defaultSendUnhealthy: true,
+			wantSupports:         true,
+			wantForces:           false,
+		},
+		{
+			name:                "GlobalSendUnhealthyEndpoints=true",
+			svc:                 svcAny,
+			globalSendUnhealthy: true,
+			wantSupports:        true,
+			wantForces:          true,
+		},
+		{
+			name:         "TrafficDistribution != Any forces unhealthy regardless of flags",
+			svc:          svcPreferClose,
+			wantSupports: true,
+			wantForces:   true,
+		},
+		{
+			name:                 "nil service with DefaultSendUnhealthy",
+			svc:                  nil,
+			defaultSendUnhealthy: true,
+			wantSupports:         true,
+			wantForces:           false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			test.SetAtomicBoolForTest(t, features.GlobalSendUnhealthyEndpoints, tt.globalSendUnhealthy)
+			test.SetAtomicBoolForTest(t, features.DefaultSendUnhealthyEndpoints, tt.defaultSendUnhealthy)
+
+			if got := tt.svc.SupportsUnhealthyEndpoints(); got != tt.wantSupports {
+				t.Errorf("SupportsUnhealthyEndpoints() = %v, want %v", got, tt.wantSupports)
+			}
+			if got := tt.svc.ForcesSupportUnhealthyEndpoints(); got != tt.wantForces {
+				t.Errorf("ForcesSupportUnhealthyEndpoints() = %v, want %v", got, tt.wantForces)
+			}
+		})
+	}
+}
+
 func TestGetTrafficDistribution(t *testing.T) {
 	preferClose := "PreferClose"
 
@@ -1135,6 +1204,106 @@ func TestGetTrafficDistribution(t *testing.T) {
 			if got != tt.want {
 				t.Errorf("GetTrafficDistribution() = %v, want %v", got, tt.want)
 			}
+		})
+	}
+}
+
+func TestServiceInfoWaypointConditions(t *testing.T) {
+	base := func() ServiceInfo {
+		return ServiceInfo{
+			Service: &workloadapi.Service{Hostname: "foo.ns.svc.cluster.local"},
+			Source:  TypedObject{Kind: kind.Service},
+		}
+	}
+	canaryErr := &StatusMessage{Reason: "WaypointNotReady", Message: "waypoint ns/canary is not ready"}
+
+	t.Run("primary bound with canary error stays bound and surfaces the error", func(t *testing.T) {
+		si := base()
+		si.Waypoint = WaypointBindingStatus{ResourceName: "ns/primary", Error: canaryErr}
+		got := si.GetConditions(nil)[WaypointBound]
+		if got == nil || !got.Status {
+			t.Fatalf("want WaypointBound=true, got %+v", got)
+		}
+		if !strings.Contains(got.Message, canaryErr.Message) {
+			t.Fatalf("canary error not surfaced in WaypointBound message: %q", got.Message)
+		}
+	})
+
+	t.Run("primary failure reports not bound", func(t *testing.T) {
+		si := base()
+		si.Waypoint = WaypointBindingStatus{Error: canaryErr}
+		got := si.GetConditions(nil)[WaypointBound]
+		if got == nil || got.Status {
+			t.Fatalf("want WaypointBound=false, got %+v", got)
+		}
+	})
+}
+
+func TestServiceInfoVisibilityCondition(t *testing.T) {
+	cases := []struct {
+		name       string
+		sourceKind kind.Kind
+		configured bool
+		visibility workloadapi.Service_Visibility
+		// wantReason is the expected VisibilityApplied condition Reason; "" means the condition
+		// must not be set (pruned): non-ServiceEntry sources, or the feature unconfigured.
+		wantReason string
+	}{
+		{
+			name:       "ServiceEntry PUBLIC",
+			sourceKind: kind.ServiceEntry,
+			configured: true,
+			visibility: workloadapi.Service_PUBLIC,
+			wantReason: VisibilityPublic,
+		},
+		{
+			name:       "ServiceEntry NAMESPACE",
+			sourceKind: kind.ServiceEntry,
+			configured: true,
+			visibility: workloadapi.Service_NAMESPACE,
+			wantReason: VisibilityNamespace,
+		},
+		{
+			// Feature unconfigured: the dataplane stays PUBLIC (legacy) and we write no condition.
+			name:       "ServiceEntry unconfigured",
+			sourceKind: kind.ServiceEntry,
+			configured: false,
+			visibility: workloadapi.Service_PUBLIC,
+			wantReason: "",
+		},
+		{
+			// The Source.Kind gate wins for a Kubernetes Service even if the flag were somehow set.
+			name:       "kube Service",
+			sourceKind: kind.Service,
+			configured: true,
+			visibility: workloadapi.Service_PUBLIC,
+			wantReason: "",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			si := ServiceInfo{
+				Service: &workloadapi.Service{
+					Name:       "svc",
+					Namespace:  "ns",
+					Hostname:   "svc.example.com",
+					Visibility: tc.visibility,
+				},
+				Source:               TypedObject{Kind: tc.sourceKind},
+				VisibilityConfigured: tc.configured,
+			}
+			got := si.GetConditions(nil)[VisibilityApplied]
+			if tc.wantReason == "" {
+				if got != nil {
+					t.Fatalf("expected no VisibilityApplied condition, got %+v", got)
+				}
+				return
+			}
+			if got == nil {
+				t.Fatal("expected VisibilityApplied condition, got none")
+			}
+			assert.Equal(t, got.Status, true)
+			assert.Equal(t, got.Reason, tc.wantReason)
 		})
 	}
 }

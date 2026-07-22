@@ -21,8 +21,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8s "sigs.k8s.io/gateway-api/apis/v1"
 
+	"istio.io/istio/pilot/pkg/config/kube/gatewaycommon"
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
@@ -191,7 +191,7 @@ func createRouteStatus(
 		ns := k8s.RouteParentStatus{
 			ParentRef:      gw.OriginalReference,
 			ControllerName: k8s.GatewayController(features.ManagedGatewayController),
-			Conditions:     setConditions(generation, currentConditions, conds),
+			Conditions:     gatewaycommon.SetListenerConditions(generation, currentConditions, toSharedConditions(conds)),
 		}
 		// Parent ref already exists, insert in the same place
 		if idx, f := parentIndexes[myRef]; f {
@@ -307,51 +307,6 @@ type condition struct {
 	error *ConfigError
 	// setOnce, if enabled, will only set the condition if it is not yet present or set to this reason
 	setOnce string
-}
-
-// setConditions sets the existingConditions with the new conditions
-func setConditions(generation int64, existingConditions []metav1.Condition, conditions map[string]*condition) []metav1.Condition {
-	// Sort keys for deterministic ordering
-	for _, k := range slices.Sort(maps.Keys(conditions)) {
-		cond := conditions[k]
-		setter := kstatus.UpdateConditionIfChanged
-		if cond.setOnce != "" {
-			setter = func(conditions []metav1.Condition, condition metav1.Condition) []metav1.Condition {
-				return kstatus.CreateCondition(conditions, condition, cond.setOnce)
-			}
-		}
-		// A condition can be "negative polarity" (ex: ListenerInvalid) or "positive polarity" (ex:
-		// ListenerValid), so in order to determine the status we should set each `condition` defines its
-		// default positive status. When there is an error, we will invert that. Example: If we have
-		// condition ListenerInvalid, the status will be set to StatusFalse. If an error is reported, it
-		// will be inverted to StatusTrue to indicate listeners are invalid. See
-		// https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties
-		// for more information
-		if cond.error != nil {
-			existingConditions = setter(existingConditions, metav1.Condition{
-				Type:               k,
-				Status:             kstatus.InvertStatus(cond.status),
-				ObservedGeneration: generation,
-				LastTransitionTime: metav1.Now(),
-				Reason:             cond.error.Reason,
-				Message:            cond.error.Message,
-			})
-		} else {
-			status := cond.status
-			if status == "" {
-				status = kstatus.StatusTrue
-			}
-			existingConditions = setter(existingConditions, metav1.Condition{
-				Type:               k,
-				Status:             status,
-				ObservedGeneration: generation,
-				LastTransitionTime: metav1.Now(),
-				Reason:             cond.reason,
-				Message:            cond.message,
-			})
-		}
-	}
-	return existingConditions
 }
 
 func FilterInPlaceByIndex[E any](s []E, keep func(int) bool) []E {

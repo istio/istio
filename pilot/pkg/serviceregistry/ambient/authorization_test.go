@@ -242,6 +242,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 		},
 	})
 	meshConfigCol := GetMeshConfig(meshConfigMock)
+	serviceEntryVisibility := model.ServiceEntryVisibilityCollection(meshConfigCol.AsCollection(), opts)
 
 	clientNs := kclient.New[*v1.Namespace](c)
 	nsCol := krt.WrapClient(clientNs, opts.WithName("nsCol")...)
@@ -273,7 +274,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 		}
 	}, opts.WithName("waypoint")...)
 
-	wpsCollection := WaypointPolicyStatusCollection(authzPolCol, waypointCol, svcCol, seCol, gwClassCol, meshConfigCol, nsCol, opts)
+	wpsCollection := WaypointPolicyStatusCollection(authzPolCol, waypointCol, svcCol, seCol, gwClassCol, meshConfigCol, serviceEntryVisibility, nsCol, opts)
 	c.RunAndWait(ctx.Done())
 
 	_, err := clientNs.Create(&v1.Namespace{

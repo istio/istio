@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+
+issue:
+  - https://github.com/istio/istio/pull/60878
+
+releaseNotes:
+  - |
+    **Added** a new metric, `istio_cni_plugin_requests_total`, to the istio-cni node agent. It counts CNI plugin
+    add-event requests handled by the node agent, labeled by `response_code`.

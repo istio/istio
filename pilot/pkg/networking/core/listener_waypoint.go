@@ -482,6 +482,9 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 			if len(svcAddresses) > 0 && features.EnableAmbientMultiNetwork && !isAmbientEastWestGateway {
 				filters = []*listener.Filter{getOrigDstSfs(origDst, false)}
 			}
+			if isAmbientEastWestGateway {
+				cc.policyService = nil
+			}
 			tcpChain = &listener.FilterChain{
 				Filters: append(slices.Clone(filters), lb.buildWaypointNetworkFilters(svc, cc)...),
 				Name:    cc.clusterName,
@@ -1321,7 +1324,7 @@ func portToSubset(service *model.Service, port int, destination *networking.Dest
 // NB: Un-typed SAN validation is ignored when typed is used, so only typed version must be used with this function.
 func buildCommonConnectTLSContext(proxy *model.Proxy, push *model.PushContext) *tls.CommonTlsContext {
 	ctx := &tls.CommonTlsContext{}
-	security.ApplyToCommonTLSContext(ctx, proxy, nil, "", nil, true, nil)
+	security.ApplyToCommonTLSContext(ctx, proxy, nil, "", nil, true, nil, false)
 	aliases := authn.TrustDomainsForValidation(push.Mesh)
 	validationCtx := ctx.GetCombinedValidationContext().DefaultValidationContext
 	if len(aliases) > 0 {

@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+- 60018
+releaseNotes:
+- |
+  **Added** implementation of the Gateway API AllowInsecureFallback feature in the client certificate validation logic.
+  This feature allows gateway to request client certificate and try to validate it, but if the client does not present
+  a certificate or certificate is not valid, gateway will still allow the connection. By default, Istio will populate
+  `x-forward-client-cert` HTTP header, so when AllowInsecureFallback is enabled, the backend can verify certificate
+  instead of the gateway, if AllowInsecureFallback is enabled.

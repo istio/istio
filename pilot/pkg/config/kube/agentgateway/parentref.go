@@ -43,12 +43,13 @@ type RouteParentReference struct {
 	// OriginalReference contains the original reference
 	OriginalReference gatewayv1.ParentReference
 	// Hostname is the hostname match of the Parent, if any
-	Hostname        string
-	BannedHostnames sets.Set[string]
-	ParentKey       AgwParentKey
-	ParentSection   gatewayv1.SectionName
-	Accepted        bool
-	ParentGateway   types.NamespacedName
+	Hostname               string
+	BannedHostnames        sets.Set[string]
+	ParentKey              AgwParentKey
+	ParentSection          gatewayv1.SectionName
+	Accepted               bool
+	ParentGateway          types.NamespacedName
+	ParentGatewayClassName string
 }
 
 var allowedParentReferences = sets.New(
@@ -237,16 +238,17 @@ func extractParentReferenceInfo(ctx RouteContext, parents RouteParents, obj cont
 			deniedReason := ReferenceAllowed(ctx, pr, kind.Kubernetes(), pk, hostnames, localNamespace)
 
 			rpi := RouteParentReference{
-				ParentGateway:     pr.ParentGateway,
-				InternalName:      pr.InternalName,
-				InternalKind:      ir.Kind,
-				Hostname:          pr.OriginalHostname,
-				DeniedReason:      deniedReason,
-				OriginalReference: ref,
-				BannedHostnames:   bannedHostnames.Copy().Delete(pr.OriginalHostname),
-				ParentKey:         ir,
-				ParentSection:     pr.SectionName,
-				Accepted:          deniedReason == nil,
+				ParentGateway:          pr.ParentGateway,
+				InternalName:           pr.InternalName,
+				InternalKind:           ir.Kind,
+				Hostname:               pr.OriginalHostname,
+				DeniedReason:           deniedReason,
+				OriginalReference:      ref,
+				BannedHostnames:        bannedHostnames.Copy().Delete(pr.OriginalHostname),
+				ParentKey:              ir,
+				ParentSection:          pr.SectionName,
+				Accepted:               deniedReason == nil,
+				ParentGatewayClassName: pr.ParentGatewayClassName,
 			}
 			parentRefs = append(parentRefs, rpi)
 		}

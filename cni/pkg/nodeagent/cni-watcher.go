@@ -17,11 +17,13 @@ package nodeagent
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"net/netip"
+	"strconv"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -29,7 +31,16 @@ import (
 	pconstants "istio.io/istio/cni/pkg/constants"
 	"istio.io/istio/cni/pkg/pluginlistener"
 	istiolog "istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/sleep"
+)
+
+var (
+	responseCodeLabel   = monitoring.CreateLabel("response_code")
+	pluginRequestsTotal = monitoring.NewSum(
+		"istio_cni_plugin_requests_total",
+		"The total number of CNI plugin requests handled by the node agent.",
+	)
 )
 
 // Just a composite of the CNI plugin add event struct + some extracted "args"
@@ -118,30 +129,37 @@ func (s *CniPluginServer) Start() error {
 }
 
 func (s *CniPluginServer) handleAddEvent(w http.ResponseWriter, req *http.Request) {
+	code, err := s.processAddRequest(req)
+	pluginRequestsTotal.With(responseCodeLabel.Value(strconv.Itoa(code))).Increment()
+	if err != nil {
+		http.Error(w, err.Error(), code)
+		return
+	}
+	w.WriteHeader(code)
+}
+
+func (s *CniPluginServer) processAddRequest(req *http.Request) (int, error) {
 	if req.Body == nil {
 		log.Error("empty request body")
-		http.Error(w, "empty request body", http.StatusBadRequest)
-		return
+		return http.StatusBadRequest, errors.New("empty request body")
 	}
 	defer req.Body.Close()
 	data, err := io.ReadAll(req.Body)
 	if err != nil {
 		log.Errorf("failed to read event report from cni plugin: %v", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return http.StatusInternalServerError, err
 	}
 	msg, err := processAddEvent(data)
 	if err != nil {
 		log.Errorf("failed to process CNI event payload: %v", err)
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		return http.StatusBadRequest, err
 	}
 
 	if err := s.ReconcileCNIAddEvent(req.Context(), msg); err != nil {
 		log.WithLabels("ns", msg.PodNamespace, "name", msg.PodName).Errorf("failed to handle add event: %v", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return http.StatusInternalServerError, err
 	}
+	return http.StatusOK, nil
 }
 
 func processAddEvent(body []byte) (CNIPluginAddEvent, error) {

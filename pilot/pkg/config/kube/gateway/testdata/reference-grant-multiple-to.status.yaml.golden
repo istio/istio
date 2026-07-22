@@ -25,6 +25,11 @@ status:
     status: "True"
     type: Accepted
   - lastTransitionTime: fake
+    message: AllowInsecureFallback mode is disabled for frontend validation
+    reason: AllowInsecureFallbackNotConfigured
+    status: "False"
+    type: InsecureFrontendValidationMode
+  - lastTransitionTime: fake
     message: 'Failed to assign to any requested addresses: hostname "istio-ingressgateway.bookinfo-ingress.svc.domain.suffix"
       not found'
     reason: AddressNotUsable
