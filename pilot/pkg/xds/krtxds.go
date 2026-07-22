@@ -18,6 +18,7 @@ package xds
 
 import (
 	"fmt"
+	"strings"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/protobuf/proto"
@@ -182,6 +183,33 @@ func PerGatewayCollection[T IntoProto[TT], TT proto.Message](
 	return baseCollection(collection, extract, krtopts)
 }
 
+// getGatewayName retrieves the gateway name from the proxy's labels and returns it as a NamespacedName.
+// If getting the label fails, fallback to the reading the role from the xds metadata.
+func getGatewayNameForProxy(proxy *model.Proxy) (types.NamespacedName, error) {
+	if name, ok := proxy.Labels[gatewayNameLabel]; ok {
+		return types.NamespacedName{
+			Namespace: proxy.Metadata.Namespace,
+			Name:      name,
+		}, nil
+	}
+	if role, exists := proxy.Metadata.Raw["role"]; exists {
+		roleStr, ok := role.(string)
+		if !ok {
+			return types.NamespacedName{}, fmt.Errorf("unable to convert role to string for proxy")
+		}
+		parts := strings.SplitN(roleStr, "~", 2)
+		if len(parts) == 2 {
+			return types.NamespacedName{
+				Namespace: parts[0],
+				Name:      parts[1],
+			}, nil
+		} else {
+			return types.NamespacedName{}, fmt.Errorf("invalid role format for proxy")
+		}
+	}
+	return types.NamespacedName{}, fmt.Errorf("gateway name not found for proxy")
+}
+
 // GenerateDeltas computes discovery resources. This is design to be highly optimized to delta updates,
 // and supports *on-demand* client usage. A client can subscribe with a wildcard subscription and get all
 // resources (with delta updates), or on-demand and only get responses for specifically subscribed resources.
@@ -195,14 +223,11 @@ func (c CollectionGenerator) GenerateDeltas(
 	w *model.WatchedResource,
 ) (model.Resources, model.DeletedResources, model.XdsLogDetails, bool, error) {
 	// Get gw NamespacedName from proxy
-	agwName, ok := proxy.Labels[gatewayNameLabel]
-	if !ok {
-		return nil, nil, model.XdsLogDetails{}, false, fmt.Errorf("proxy missing %s label", gatewayNameLabel)
+	agwName, err := getGatewayNameForProxy(proxy)
+	if err != nil {
+		return nil, nil, model.XdsLogDetails{}, false, err
 	}
-	gw := types.NamespacedName{
-		Namespace: proxy.Metadata.Namespace,
-		Name:      agwName,
-	}
+	gw := agwName
 
 	if req.IsRequest() {
 		// Full update, expect everything
