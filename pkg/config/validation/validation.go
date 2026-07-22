@@ -1340,9 +1340,9 @@ func IsNegativeDuration(in time.Duration) error {
 	return nil
 }
 
-func validatePolicyTargetReferences(targetRefs []*type_beta.PolicyTargetReference) (v Validation) {
+func validatePolicyTargetReferences(targetRefs []*type_beta.PolicyTargetReference, additionalAllowed ...config.GroupVersionKind) (v Validation) {
 	for _, r := range targetRefs {
-		v = AppendValidation(v, validatePolicyTargetReference(r))
+		v = AppendValidation(v, validatePolicyTargetReference(r, additionalAllowed...))
 	}
 	return v
 }
@@ -1355,7 +1355,7 @@ var allowedTargetRefs = []config.GroupVersionKind{
 	gvk.GatewayClass,
 }
 
-func validatePolicyTargetReference(targetRef *type_beta.PolicyTargetReference) (v Validation) {
+func validatePolicyTargetReference(targetRef *type_beta.PolicyTargetReference, additionalAllowed ...config.GroupVersionKind) (v Validation) {
 	if targetRef == nil {
 		return v
 	}
@@ -1371,7 +1371,9 @@ func validatePolicyTargetReference(targetRef *type_beta.PolicyTargetReference) (
 	if canoncalGroup == "" {
 		canoncalGroup = "core"
 	}
-	allowed := slices.FindFunc(allowedTargetRefs, func(gvk config.GroupVersionKind) bool {
+	validTargetRefs := append([]config.GroupVersionKind(nil), allowedTargetRefs...)
+	validTargetRefs = append(validTargetRefs, additionalAllowed...)
+	allowed := slices.FindFunc(validTargetRefs, func(gvk config.GroupVersionKind) bool {
 		return gvk.Kind == targetRef.Kind && gvk.CanonicalGroup() == canoncalGroup
 	}) != nil
 
@@ -1437,8 +1439,9 @@ var ValidateAuthorizationPolicy = RegisterValidateFunc("ValidateAuthorizationPol
 		var warnings Warning
 		selectorTypeValidation := validateOneOfSelectorType(in.GetSelector(), in.GetTargetRef(), in.GetTargetRefs())
 		workloadSelectorValidation := validateWorkloadSelector(in.GetSelector())
-		targetRefValidation := validatePolicyTargetReference(in.GetTargetRef())
-		targetRefsValidation := validatePolicyTargetReferences(in.GetTargetRefs())
+		// Appending HTTPRoute as a valid targetRef of AuthorizationPolicy.
+		targetRefValidation := validatePolicyTargetReference(in.GetTargetRef(), gvk.HTTPRoute)
+		targetRefsValidation := validatePolicyTargetReferences(in.GetTargetRefs(), gvk.HTTPRoute)
 		errs = appendErrors(errs, selectorTypeValidation, workloadSelectorValidation, targetRefValidation, targetRefsValidation)
 		warnings = appendErrors(warnings, workloadSelectorValidation.Warning)
 
