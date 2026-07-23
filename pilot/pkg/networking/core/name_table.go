@@ -21,7 +21,9 @@ import (
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/util/protoconv"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/kind"
 	dnsProto "istio.io/istio/pkg/dns/proto"
 	dnsServer "istio.io/istio/pkg/dns/server"
@@ -73,18 +75,53 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaNameTable(proxy *model.Proxy, up
 		return toPerHostResources(nt.GetTable()), nil, model.DefaultXdsLogDetails, false
 	}
 
-	// True delta: build only the changed hostnames' records.
-	config.Hostnames = ndsChangedHostnames(updates.ConfigsUpdated)
-	newTable := dnsServer.BuildNameTable(config).GetTable()
+	headlessServiceChanged := sets.New[string]()
+	deletedResources := sets.New[string]()
+	var changed []*model.Service
+	seen := sets.New[host.Name]()
+	for key := range updates.ConfigsUpdated {
+		hostname := host.Name(key.Name)
+		var prevService *model.Service
+		if proxy.PrevSidecarScope != nil {
+			prevService = proxy.PrevSidecarScope.GetService(hostname)
+		}
+		service := proxy.SidecarScope.GetService(hostname)
 
-	res := toPerHostResources(newTable)
+		wasHeadless := prevService != nil && prevService.Attributes.ServiceRegistry == provider.Kubernetes &&
+			prevService.Resolution == model.Passthrough
+
+		if wasHeadless {
+			headlessServiceChanged.Insert(key.Name)
+		}
+
+		if service == nil {
+			deletedResources.Insert(key.Name)
+			continue
+		}
+
+		// Multiple ConfigKeys (e.g. a ServiceEntry and a DNSName) can resolve to the same service;
+		// dedup so BuildNameTableForServices doesn't process a hostname (and merge its IPs) twice.
+		if seen.InsertContains(hostname) {
+			continue
+		}
+		changed = append(changed, service)
+	}
+
+	// True delta: build only the changed services' records.
+	newTable := dnsServer.BuildNameTableForServices(config, changed).GetTable()
+
 	var removed []string
 	for name := range watched.ResourceNames {
-		if _, stillPresent := newTable[name]; !stillPresent && ownedByAny(name, config.Hostnames) {
+		if deletedResources.Contains(name) {
+			removed = append(removed, name)
+			continue
+		}
+		// check changed headless services for per-pod headless records that are no longer present in the new table
+		if _, stillPresent := newTable[name]; !stillPresent && ownedByAny(name, headlessServiceChanged) {
 			removed = append(removed, name)
 		}
 	}
-	return res, removed, model.XdsLogDetails{Incremental: true}, true
+	return toPerHostResources(newTable), removed, model.XdsLogDetails{Incremental: true}, true
 }
 
 // shouldUseNdsDelta reports whether the push can be handled incrementally: not forced and
@@ -99,16 +136,6 @@ func shouldUseNdsDelta(updates *model.PushRequest) bool {
 		}
 	}
 	return true
-}
-
-func ndsChangedHostnames(cfgs sets.Set[model.ConfigKey]) sets.String {
-	hosts := sets.NewWithLength[string](len(cfgs))
-	for k := range cfgs {
-		if deltaAwareNdsConfigs.Contains(k.Kind) {
-			hosts.Insert(k.Name)
-		}
-	}
-	return hosts
 }
 
 // ownedByAny reports whether name is owned by any of the given service hostnames: either name
