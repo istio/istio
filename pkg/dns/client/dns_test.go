@@ -834,10 +834,20 @@ func TestUpdateLookupTableNonKubernetes(t *testing.T) {
 		t.Error("www.example.com should survive an incremental add")
 	}
 
+	// The add path also stores a search-namespace-expanded CNAME entry
+	// (www.example.com.ns1.svc.cluster.local -> www.example.com); sanity check it exists.
+	if !resolves(h, "www.example.com.ns1.svc.cluster.local") {
+		t.Fatal("expected search-namespace-expanded CNAME entry for www.example.com")
+	}
+
 	// Incremental removal must delete exactly the FQDN the host contributed, leaving the other.
 	h.UpdateLookupTable(nil, []string{"www.example.com"})
 	if resolves(h, "www.example.com") {
 		t.Error("www.example.com should no longer resolve after removal")
+	}
+	// Removal must also purge the expanded CNAME entry, otherwise it leaks on every delta.
+	if resolves(h, "www.example.com.ns1.svc.cluster.local") {
+		t.Error("expanded CNAME entry for www.example.com should be purged after removal")
 	}
 	if !resolves(h, "api.example.com") {
 		t.Error("api.example.com should still resolve after removing www.example.com")

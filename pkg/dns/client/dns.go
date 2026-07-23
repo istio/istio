@@ -287,8 +287,14 @@ func (h *LocalDNSServer) removeHostEntries(table *LookupTable, hostname string, 
 	if ni == nil {
 		return
 	}
-	for ah := range h.altHostsFor(hostname, ni) {
+	altHosts := h.altHostsFor(hostname, ni)
+	for ah := range altHosts {
+		ah = strings.ToLower(ah)
 		delete(table.hosts, ah)
+		// buildDNSAnswers may have added a search-namespace-expanded CNAME entry for this alt host
+		if expandedHost, ok := expandedSearchHost(ah, altHosts, h.searchNamespaces); ok {
+			delete(table.hosts, expandedHost)
+		}
 	}
 }
 
@@ -711,28 +717,40 @@ func (table *LookupTable) buildDNSAnswers(altHosts map[string]struct{}, ipv4 []n
 			rec.name6 = aaaa(h, ipv6)
 		}
 		table.hosts[h] = rec
-		if len(searchNamespaces) > 0 && !strings.HasSuffix(h, searchNamespaces[0]+".") {
+		if expandedHost, ok := expandedSearchHost(h, altHosts, searchNamespaces); ok {
 			// NOTE: Right now, rather than storing one expanded host for each one of the search namespace
 			// entries, we are going to store just the first one (assuming that most clients will
 			// do sequential dns resolution, starting with the first search namespace)
-
-			// host h already ends with a .
-			// search namespace might not. So we append one in the end if needed
-			expandedHost := strings.ToLower(h + searchNamespaces[0])
-			if !strings.HasSuffix(searchNamespaces[0], ".") {
-				expandedHost += "."
-			}
-			// make sure this is not a proper hostname
-			// if host is productpage, and search namespace is ns1.svc.cluster.local
-			// then the expanded host productpage.ns1.svc.cluster.local is a valid hostname
-			// that is likely to be already present in the altHosts
-			if _, exists := altHosts[expandedHost]; !exists {
-				rec := table.hosts[expandedHost]
-				rec.cname = cname(expandedHost, h)
-				table.hosts[expandedHost] = rec
-			}
+			rec := table.hosts[expandedHost]
+			rec.cname = cname(expandedHost, h)
+			table.hosts[expandedHost] = rec
 		}
 	}
+}
+
+// expandedSearchHost returns the search-namespace-expanded hostname
+// CNAME for alt host h (e.g. "www.google.com." -> "www.google.com.ns1.svc.cluster.local.").
+// ok is false when no expansion applies: there are no search namespaces, h already ends with the
+// first search namespace, or the expanded name is itself one of altHosts and is therefore a real
+// host rather than a CNAME alias.
+func expandedSearchHost(h string, altHosts map[string]struct{}, searchNamespaces []string) (string, bool) {
+	if len(searchNamespaces) == 0 || strings.HasSuffix(h, searchNamespaces[0]+".") {
+		return "", false
+	}
+	// host h already ends with a .
+	// search namespace might not. So we append one in the end if needed
+	expandedHost := strings.ToLower(h + searchNamespaces[0])
+	if !strings.HasSuffix(searchNamespaces[0], ".") {
+		expandedHost += "."
+	}
+	// make sure this is not a proper hostname
+	// if host is productpage, and search namespace is ns1.svc.cluster.local
+	// then the expanded host productpage.ns1.svc.cluster.local is a valid hostname
+	// that is likely to be already present in the altHosts
+	if _, exists := altHosts[expandedHost]; exists {
+		return "", false
+	}
+	return expandedHost, true
 }
 
 // Borrowed from https://github.com/coredns/coredns/blob/master/plugin/hosts/hosts.go
