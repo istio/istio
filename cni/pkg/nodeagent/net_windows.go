@@ -215,8 +215,9 @@ func (p *podNetnsCache) Take(uid string) NamespaceCloser {
 	defer p.mu.Unlock()
 	if ns, ok := p.currentPodCache[uid]; ok {
 		delete(p.currentPodCache, uid)
-		// already in cache
-		return ns.NetnsCloser().(NamespaceCloser)
+		// already in cache. NetnsCloser() may be nil if we never found a netns for this pod.
+		nc, _ := ns.NetnsCloser().(NamespaceCloser)
+		return nc
 	}
 
 	return nil
