@@ -1367,14 +1367,14 @@ func validatePolicyTargetReference(targetRef *type_beta.PolicyTargetReference, a
 		v = appendErrorf(v, "targetRef namespace must not be set; cross namespace referencing is not supported")
 	}
 
-	canoncalGroup := targetRef.Group
-	if canoncalGroup == "" {
-		canoncalGroup = "core"
+	canonicalGroup := targetRef.Group
+	if canonicalGroup == "" {
+		canonicalGroup = "core"
 	}
 	validTargetRefs := append([]config.GroupVersionKind(nil), allowedTargetRefs...)
 	validTargetRefs = append(validTargetRefs, additionalAllowed...)
 	allowed := slices.FindFunc(validTargetRefs, func(gvk config.GroupVersionKind) bool {
-		return gvk.Kind == targetRef.Kind && gvk.CanonicalGroup() == canoncalGroup
+		return gvk.Kind == targetRef.Kind && gvk.CanonicalGroup() == canonicalGroup
 	}) != nil
 
 	if !allowed {
@@ -1444,6 +1444,16 @@ var ValidateAuthorizationPolicy = RegisterValidateFunc("ValidateAuthorizationPol
 		targetRefsValidation := validatePolicyTargetReferences(in.GetTargetRefs(), gvk.HTTPRoute)
 		errs = appendErrors(errs, selectorTypeValidation, workloadSelectorValidation, targetRefValidation, targetRefsValidation)
 		warnings = appendErrors(warnings, workloadSelectorValidation.Warning)
+
+		if hasHTTPRouteTargetRef(in) {
+			switch in.GetAction() {
+			case security_beta.AuthorizationPolicy_ALLOW, security_beta.AuthorizationPolicy_DENY:
+				// Allowed
+			default:
+				errs = appendErrors(errs,
+					fmt.Errorf("Only ALLOW/DENY actions are supported for HTTPRoute targetRefs, got %s", in.GetAction().String()))
+			}
+		}
 
 		if in.Action == security_beta.AuthorizationPolicy_CUSTOM {
 			if in.Rules == nil {
@@ -1643,6 +1653,29 @@ var ValidateRequestAuthentication = RegisterValidateFunc("ValidateRequestAuthent
 		}
 		return errs.Unwrap()
 	})
+
+func isHTTPRouteTargetRef(ref *type_beta.PolicyTargetReference) bool {
+	if ref != nil {
+		return false
+	}
+	return ref != nil && ref.Kind == gvk.HTTPRoute.Kind &&
+		config.CanonicalGroup(ref.GetGroup()) == gvk.HTTPRoute.CanonicalGroup()
+}
+
+func hasHTTPRouteTargetRef(in *security_beta.AuthorizationPolicy) bool {
+	targetRef := in.GetTargetRef()
+	if isHTTPRouteTargetRef(targetRef) {
+		return true
+	}
+
+	for _, ref := range in.GetTargetRefs() {
+		if isHTTPRouteTargetRef(ref) {
+			return true
+		}
+	}
+
+	return false
+}
 
 // warnPrivateJwksKeys warns if inline Jwks contains private key material.
 // Envoy only needs public keys for token verification.
