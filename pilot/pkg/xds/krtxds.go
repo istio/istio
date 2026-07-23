@@ -203,14 +203,13 @@ func getGatewayNameForProxy(proxy *model.Proxy) (types.NamespacedName, error) {
 				Namespace: parts[0],
 				Name:      parts[1],
 			}, nil
-		} else {
-			return types.NamespacedName{}, fmt.Errorf("invalid role format for proxy")
 		}
+		return types.NamespacedName{}, fmt.Errorf("invalid role format for proxy")
 	}
 	return types.NamespacedName{}, fmt.Errorf("gateway name not found for proxy")
 }
 
-// GenerateDeltas computes discovery resources. This is design to be highly optimized to delta updates,
+// GenerateDeltas computes discovery resources. This is des ign to be highly optimized to delta updates,
 // and supports *on-demand* client usage. A client can subscribe with a wildcard subscription and get all
 // resources (with delta updates), or on-demand and only get responses for specifically subscribed resources.
 //
