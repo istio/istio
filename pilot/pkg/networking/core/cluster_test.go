@@ -24,6 +24,7 @@ import (
 	"time"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	matcher "github.com/envoyproxy/go-control-plane/envoy/config/common/matcher/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	overridehost "github.com/envoyproxy/go-control-plane/envoy/extensions/load_balancing_policies/override_host/v3"
@@ -1443,68 +1444,33 @@ func TestApplyOutlierDetectionErrorCodes(t *testing.T) {
 	tests := []struct {
 		name  string
 		codes []uint32
-		// nil means outlierDetectionHttpErrorCodes is not set
-		wantErrorMatcher bool
-		wantOrMatch      bool
 	}{
-		{
-			"No outlier detection error codes",
-			nil,
-			false,
-			false,
-		},
-		{
-			"Single error code sets direct header match",
-			[]uint32{429},
-			true,
-			false,
-		},
-		{
-			"Multiple error codes sets or_match",
-			[]uint32{429, 503},
-			true,
-			true,
-		},
+		{"single outlier error code: direct header match", []uint32{429}},
+		{"multiple outlier error codes: or_match predicate", []uint32{429, 503}},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c := xdstest.ExtractCluster("outbound|8080||*.example.org",
-				buildTestClusters(clusterTest{
-					t: t, serviceHostname: "*.example.org", serviceResolution: model.DNSLB, nodeType: model.SidecarProxy,
-					locality: &core.Locality{}, mesh: testMesh(),
-					destRule: &networking.DestinationRule{
-						Host: "*.example.org",
-						TrafficPolicy: &networking.TrafficPolicy{
-							OutlierDetection: &networking.OutlierDetection{
-								Consecutive_5XxErrors:          &wrappers.UInt32Value{Value: 1},
-								OutlierDetectionHttpErrorCodes: tt.codes,
-							},
-						},
-					},
-				}))
-			anyOptions := c.TypedExtensionProtocolOptions[v3.HttpProtocolOptionsType]
-			if !tt.wantErrorMatcher {
-				if anyOptions != nil {
-					httpOpts := &http.HttpProtocolOptions{}
-					anyOptions.UnmarshalTo(httpOpts)
-					g.Expect(httpOpts.GetOutlierDetection()).To(BeNil())
-				}
-				return
-			}
-			g.Expect(anyOptions).NotTo(BeNil())
-			httpOpts := &http.HttpProtocolOptions{}
-			anyOptions.UnmarshalTo(httpOpts)
-			od := httpOpts.GetOutlierDetection()
+			mc := &clusterWrapper{cluster: &cluster.Cluster{}}
+			applyOutlierDetectionErrorCodes(mc, tt.codes)
+			od := mc.httpProtocolOptions.GetOutlierDetection()
 			g.Expect(od).NotTo(BeNil())
 			g.Expect(od.ErrorMatcher).NotTo(BeNil())
-			if tt.wantOrMatch {
-				g.Expect(od.ErrorMatcher.GetOrMatch()).NotTo(BeNil())
-				g.Expect(od.ErrorMatcher.GetOrMatch().Rules).To(HaveLen(len(tt.codes)))
+
+			var rules []*matcher.MatchPredicate
+			if len(tt.codes) > 1 {
+				orMatch := od.ErrorMatcher.GetOrMatch()
+				g.Expect(orMatch).NotTo(BeNil())
+				rules = orMatch.Rules
 			} else {
-				hdrs := od.ErrorMatcher.GetHttpResponseHeadersMatch().GetHeaders()
+				rules = []*matcher.MatchPredicate{od.ErrorMatcher}
+			}
+
+			g.Expect(rules).To(HaveLen(len(tt.codes)))
+			for i, code := range tt.codes {
+				hdrs := rules[i].GetHttpResponseHeadersMatch().GetHeaders()
 				g.Expect(hdrs).To(HaveLen(1))
-				g.Expect(hdrs[0].GetStringMatch().GetExact()).To(Equal("429"))
+				g.Expect(hdrs[0].GetStringMatch().GetExact()).To(Equal(fmt.Sprintf("%d", code)))
 			}
 		})
 	}
