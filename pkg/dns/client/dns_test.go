@@ -696,7 +696,7 @@ func resolves(h *LocalDNSServer, hostname string) bool {
 	if lp == nil {
 		return false
 	}
-	_, found := lp.(*LookupTable).lookupHost(dns.TypeA, hostname+".")
+	_, found := lp.lookupHost(dns.TypeA, hostname+".")
 	return found
 }
 
@@ -757,7 +757,7 @@ func TestUpdateLookupTableIncremental(t *testing.T) {
 		h.UpdateLookupTable(map[string]*dnsProto.NameTable_NameInfo{
 			"svc-a.ns1.svc.cluster.local": {Ips: []string{"10.0.0.99"}, Registry: "Kubernetes", Namespace: "ns1", Shortname: "svc-a"},
 		}, nil)
-		lp := h.lookupTable.Load().(*LookupTable)
+		lp := h.lookupTable.Load()
 		rrs, _ := lp.lookupHost(dns.TypeA, "svc-a.ns1.svc.cluster.local.")
 		if len(rrs) == 0 || rrs[0].(*dns.A).A.String() != "10.0.0.99" {
 			t.Errorf("expected svc-a to resolve to 10.0.0.99, got %v", rrs)
