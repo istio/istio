@@ -1619,16 +1619,19 @@ func TestClusterPerConnectionBufferLimitBytes(t *testing.T) {
 			mesh.DefaultConfig = &meshconfig.ProxyConfig{
 				ConnectionSettings: tt.meshConnSettings,
 			}
+			proxy := &model.Proxy{
+				Type:     tt.proxyType,
+				Metadata: &model.NodeMetadata{},
+			}
+			push := &model.PushContext{Mesh: mesh}
 			cb := &ClusterBuilder{
 				proxyType:     tt.proxyType,
 				proxyMetadata: &model.NodeMetadata{},
 				req: &model.PushRequest{
-					Push: &model.PushContext{
-						Mesh: mesh,
-					},
+					Push: push,
 				},
 			}
-			cb.connectionSettings = cb.resolveConnectionSettings()
+			cb.connectionSettings = resolveConnectionSettings(proxy, push)
 
 			defaultCluster := cb.buildCluster("my-cluster", cluster.Cluster_STATIC, endpoints, model.TrafficDirectionOutbound, servicePort, service, nil, "")
 			if defaultCluster == nil {
