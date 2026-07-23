@@ -26,6 +26,8 @@ const (
 	External ID = "External"
 	// GatewayBackend is the route-activated registry for Gateway API Backend resources.
 	GatewayBackend ID = "GatewayBackend"
+	// Destination is the shard owned by the source-neutral destination index.
+	Destination ID = "Destination"
 )
 
 func (id ID) String() string {

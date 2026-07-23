@@ -1202,38 +1202,24 @@ func buildDestination(ctx RouteContext, to k8s.BackendRef, ns string,
 		}
 		inferencePoolServiceName, _ := InferencePoolServiceName(string(to.Name))
 		hostname := inferencePoolServiceName + "." + namespace + ".svc." + ctx.DomainSuffix
-		svc := ctx.LookupHostname(hostname, namespace)
-		if svc == nil {
-			invalidBackendErr = &ConfigError{Reason: InvalidDestinationNotFound, Message: fmt.Sprintf("backend(%s) not found", hostname)}
-			return &istio.Destination{}, nil, invalidBackendErr
-		}
-		if svc.Attributes.Labels == nil {
-			invalidBackendErr = &ConfigError{Reason: InvalidDestination, Message: "InferencePool service invalid, extensionRef labels not found"}
-			return &istio.Destination{}, nil, invalidBackendErr
-		}
-
 		ipCfg := &inferencePoolConfig{
-			enableExtProc: true,
+			enableExtProc:             true,
+			endpointPickerDst:         string(infPool.Spec.EndpointPickerRef.Name) + "." + infPool.Namespace + ".svc." + ctx.DomainSuffix,
+			endpointPickerFailureMode: string(infPool.Spec.EndpointPickerRef.FailureMode),
 		}
-		if dst, ok := svc.Attributes.Labels[InferencePoolExtensionRefSvc]; ok {
-			ipCfg.endpointPickerDst = dst + "." + infPool.Namespace + ".svc." + ctx.DomainSuffix
+		if infPool.Spec.EndpointPickerRef.Port != nil {
+			ipCfg.endpointPickerPort = strconv.Itoa(int(infPool.Spec.EndpointPickerRef.Port.Number))
 		}
-		if p, ok := svc.Attributes.Labels[InferencePoolExtensionRefPort]; ok {
-			ipCfg.endpointPickerPort = p
-		}
-		if fm, ok := svc.Attributes.Labels[InferencePoolExtensionRefFailureMode]; ok {
-			ipCfg.endpointPickerFailureMode = fm
+		if ipCfg.endpointPickerFailureMode == "" {
+			ipCfg.endpointPickerFailureMode = string(inferencev1.EndpointPickerFailClose)
 		}
 		if ipCfg.endpointPickerDst == "" || ipCfg.endpointPickerPort == "" || ipCfg.endpointPickerFailureMode == "" {
-			invalidBackendErr = &ConfigError{Reason: InvalidDestination, Message: "InferencePool service invalid, extensionRef labels not found"}
+			invalidBackendErr = &ConfigError{Reason: InvalidDestination, Message: "InferencePool endpointPickerRef is incomplete"}
 		}
 
-		// For InferencePool, always use the first service port (54321).
-		// The cluster for that service port will include all endpoints for all
-		// target ports, allowing the EPP to load-balance across them.
 		var destPort uint32
-		if len(svc.Ports) > 0 {
-			destPort = uint32(svc.Ports[0].Port)
+		if len(infPool.Spec.TargetPorts) > 0 {
+			destPort = uint32(infPool.Spec.TargetPorts[0].Number)
 		}
 
 		return &istio.Destination{

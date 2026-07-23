@@ -38,7 +38,6 @@ import (
 	"istio.io/istio/pilot/pkg/status"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -50,7 +49,6 @@ import (
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/kube/kubetypes"
 	istiolog "istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/revisions"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -108,10 +106,9 @@ type Controller struct {
 
 	domainSuffix string // the domain suffix to use for generated resources
 
-	shadowServiceReconciler controllers.Queue
-
 	backendRegistry      *gatewaybackend.Controller
 	destinationIndex     *destinationmodel.Index
+	destinationEDS       *destinationmodel.EDSPublisher
 	destinationOpts      krt.OptionsBuilder
 	destinationSources   DestinationSources
 	destinationResolvers map[destinationmodel.EndpointSourceKind]destinationmodel.Resolver
@@ -321,12 +318,6 @@ func NewController(
 	)
 	inferenceDestinationDefinitions, inferenceDestinationBindings := InferencePoolDestinationCollections(InferencePools, opts)
 
-	// Create a queue for handling service updates.
-	// We create the queue even if the env var is off just to prevent nil pointer issues.
-	c.shadowServiceReconciler = controllers.NewQueue("inference pool shadow service reconciler",
-		controllers.WithReconciler(c.reconcileShadowService(kc, InferencePools, inputs.Services)),
-		controllers.WithMaxAttempts(5))
-
 	if features.EnableGatewayAPIInferenceExtension {
 		status.RegisterStatus(c.status, InferencePoolStatus, GetStatus, c.tagWatcher.AccessUnprotected())
 	}
@@ -519,46 +510,6 @@ func NewController(
 					Namespace: t.Namespace,
 				}
 			}), false),
-		outputs.InferencePools.Register(func(e krt.Event[InferencePool]) {
-			obj := e.Latest()
-			c.shadowServiceReconciler.Add(types.NamespacedName{
-				Namespace: obj.shadowService.key.Namespace,
-				Name:      obj.shadowService.poolName,
-			})
-		}),
-		// Reconcile shadow services if users break them.
-		inputs.Services.Register(func(o krt.Event[*corev1.Service]) {
-			obj := o.Latest()
-			// We only care about services that are tagged with the internal service semantics label.
-			if obj.GetLabels()[constants.InternalServiceSemantics] != constants.ServiceSemanticsInferencePool {
-				return
-			}
-			// We only care about delete events
-			if o.Event != controllers.EventDelete && o.Event != controllers.EventUpdate {
-				return
-			}
-
-			poolName, ok := obj.Labels[InferencePoolRefLabel]
-			if !ok && o.Event == controllers.EventUpdate && o.Old != nil {
-				// Try and find the label from the old object
-				old := ptr.Flatten(o.Old)
-				poolName, ok = old.Labels[InferencePoolRefLabel]
-			}
-
-			if !ok {
-				log.Errorf("service %s/%s is missing the %s label, cannot reconcile shadow service",
-					obj.Namespace, obj.Name, InferencePoolRefLabel)
-				return
-			}
-
-			// Add it back
-			c.shadowServiceReconciler.Add(types.NamespacedName{
-				Namespace: obj.Namespace,
-				Name:      poolName,
-			})
-			log.Infof("Re-adding shadow service for deleted inference pool service %s/%s",
-				obj.Namespace, obj.Name)
-		}),
 	)
 	c.handlers = handlers
 
@@ -677,7 +628,6 @@ func (c *Controller) Run(stop <-chan struct{}) {
 
 	tw := c.tagWatcher.AccessUnprotected()
 	go tw.Run(stop)
-	go c.shadowServiceReconciler.Run(stop)
 	go func() {
 		kube.WaitForCacheSync("gateway tag watcher", stop, tw.HasSynced)
 		c.tagWatcher.MarkSynced()
@@ -693,6 +643,9 @@ func (c *Controller) HasSynced() bool {
 		c.outputs.Gateways.HasSynced() &&
 		c.outputs.GatewayConfigs.HasSynced() &&
 		c.outputs.ReferenceGrants.Collection.HasSynced()) {
+		return false
+	}
+	if c.destinationEDS != nil && !c.destinationEDS.HasSynced() {
 		return false
 	}
 	for _, h := range c.handlers {
@@ -784,6 +737,10 @@ func (c *Controller) InitializeGlobalDestinationIndex(external ...DestinationSou
 		c.destinationSources.Definitions, c.destinationSources.Bindings, c.destinationOpts,
 		destinationmodel.IndexOptions{Resolvers: resolvers},
 	)
+	c.destinationEDS = destinationmodel.NewEDSPublisher(c.destinationIndex.Resolved, c.cluster, c.xdsUpdater,
+		func(resolved destinationmodel.ResolvedDestination) bool {
+			return resolved.Definition.Metadata.Semantics == destinationmodel.InferencePoolSemantics
+		})
 	runtimeBackends := krt.NewCollection(c.destinationIndex.Resolved, func(_ krt.HandlerContext, resolved destinationmodel.ResolvedDestination) *gatewaybackend.RuntimeBackend {
 		if resolved.Binding.Definition.Source.Kind != kind.XBackend {
 			return nil

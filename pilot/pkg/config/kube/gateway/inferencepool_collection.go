@@ -15,29 +15,23 @@
 package gateway
 
 import (
-	"context"
 	"crypto/sha256"
 	"fmt"
-	"strconv"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/apimachinery/pkg/util/json"
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"istio.io/istio/pilot/pkg/config/kube/gatewaycommon"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/destination"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
-	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
@@ -45,13 +39,8 @@ import (
 )
 
 const (
-	maxServiceNameLength                 = 63
-	hashSize                             = 8
-	InferencePoolRefLabel                = "istio.io/inferencepool-name"
-	InferencePoolExtensionRefSvc         = "istio.io/inferencepool-extension-service"
-	InferencePoolExtensionRefPort        = "istio.io/inferencepool-extension-port"
-	InferencePoolExtensionRefFailureMode = "istio.io/inferencepool-extension-failure-mode"
-	InferencePoolFieldManager            = "istio.io/inference-pool-controller"
+	maxServiceNameLength = 63
+	hashSize             = 8
 )
 
 // // ManagedLabel is the label used to identify resources managed by this controller
@@ -70,41 +59,13 @@ func getSupportedControllers() sets.Set[gatewayv1.GatewayController] {
 	return ret
 }
 
-type shadowServiceInfo struct {
-	key      types.NamespacedName
-	selector map[string]string
-	poolName string
-	poolUID  types.UID
-	// targetPorts is the port number on the pods selected by the selector.
-	// Currently, inference extension only supports a single target port.
-	targetPorts []targetPort
-	// appProtocol configured on the InferencePool, which will be configured on
-	// each port of the shadow service.
-	appProtocol string
-}
-
-type targetPort struct {
-	port int32
-}
-
-type extRefInfo struct {
-	name        string
-	port        int32
-	failureMode string
-}
-
 type InferencePool struct {
-	shadowService  shadowServiceInfo
-	extRef         extRefInfo
 	gatewayParents sets.Set[types.NamespacedName] // Gateways that reference this InferencePool
-	// destination is the destination-only representation of the pool. The
-	// shadow Service remains a compatibility projection while xDS consumers
-	// migrate to DestinationBinding.
-	destination destination.DestinationDefinition
+	destination    destination.DestinationDefinition
 }
 
 func (i InferencePool) ResourceName() string {
-	return i.shadowService.key.Namespace + "/" + i.shadowService.poolName
+	return i.destination.ID.Source.Namespace + "/" + i.destination.ID.Source.Name
 }
 
 // DestinationBindings returns one active binding for each accepted Gateway
@@ -152,10 +113,8 @@ func (i InferencePool) destinationDefinitions() []destination.DestinationDefinit
 	return result
 }
 
-// InferencePoolDestinationCollections exposes the destination-only half of
-// InferencePool compilation for the shared DestinationIndex. The existing
-// InferencePool collection remains the source of the shadow-Service projection
-// during the dual-run migration.
+// InferencePoolDestinationCollections exposes InferencePool definitions and
+// route-activated bindings to the shared DestinationIndex.
 func InferencePoolDestinationCollections(
 	pools krt.Collection[InferencePool],
 	opts krt.OptionsBuilder,
@@ -206,26 +165,23 @@ func InferencePoolCollection(
 		}, opts.WithName("InferenceExtension")...)
 }
 
-// createInferencePoolObject creates the InferencePool object with shadow service and extension ref info
+// createInferencePoolObject creates the destination-only InferencePool object.
 func createInferencePoolObject(
 	pool *inferencev1.InferencePool,
 	gatewayParents sets.Set[types.NamespacedName],
 	domainSuffix string,
 ) *InferencePool {
-	// Build extension reference info
-	extRef := extRefInfo{
-		name: string(pool.Spec.EndpointPickerRef.Name),
-	}
+	endpointPickerName := string(pool.Spec.EndpointPickerRef.Name)
 
 	if pool.Spec.EndpointPickerRef.Port == nil {
 		log.Errorf("invalid InferencePool %s/%s; endpointPickerRef port is required", pool.Namespace, pool.Name)
 		return nil
 	}
-	extRef.port = int32(pool.Spec.EndpointPickerRef.Port.Number)
+	endpointPickerPort := int32(pool.Spec.EndpointPickerRef.Port.Number)
 
-	extRef.failureMode = string(inferencev1.EndpointPickerFailClose) // Default failure mode
+	failureMode := string(inferencev1.EndpointPickerFailClose)
 	if pool.Spec.EndpointPickerRef.FailureMode != "" && pool.Spec.EndpointPickerRef.FailureMode != inferencev1.EndpointPickerFailClose {
-		extRef.failureMode = string(pool.Spec.EndpointPickerRef.FailureMode)
+		failureMode = string(pool.Spec.EndpointPickerRef.FailureMode)
 	}
 
 	svcName, err := InferencePoolServiceName(pool.Name)
@@ -234,36 +190,15 @@ func createInferencePoolObject(
 		return nil
 	}
 
-	shadowSvcInfo := shadowServiceInfo{
-		key: types.NamespacedName{
-			Name:      svcName,
-			Namespace: pool.GetNamespace(),
-		},
-		selector:    make(map[string]string, len(pool.Spec.Selector.MatchLabels)),
-		poolName:    pool.GetName(),
-		poolUID:     pool.GetUID(),
-		targetPorts: make([]targetPort, 0, len(pool.Spec.TargetPorts)),
-		appProtocol: string(pool.Spec.AppProtocol),
-	}
-
-	for k, v := range pool.Spec.Selector.MatchLabels {
-		shadowSvcInfo.selector[string(k)] = string(v)
-	}
-
-	for _, port := range pool.Spec.TargetPorts {
-		shadowSvcInfo.targetPorts = append(shadowSvcInfo.targetPorts, targetPort{port: int32(port.Number)})
-	}
-
-	ports := make([]destination.DestinationPort, 0, len(shadowSvcInfo.targetPorts))
-	applicationProtocol := protocol.Parse(shadowSvcInfo.appProtocol)
+	ports := make([]destination.DestinationPort, 0, len(pool.Spec.TargetPorts))
+	applicationProtocol := protocol.Parse(string(pool.Spec.AppProtocol))
 	if applicationProtocol == protocol.Unsupported {
-		// The compatibility Service names these ports "http-*", which causes
-		// Kubernetes service conversion to infer HTTP when appProtocol is empty.
+		// Preserve the inference extension's HTTP default when appProtocol is empty.
 		applicationProtocol = protocol.HTTP
 	}
-	for i, target := range shadowSvcInfo.targetPorts {
+	for i, target := range pool.Spec.TargetPorts {
 		ports = append(ports, destination.DestinationPort{
-			Name: fmt.Sprintf("http-%d", i), Number: int(target.port), Protocol: applicationProtocol,
+			Name: fmt.Sprintf("http-%d", i), Number: int(target.Number), Protocol: applicationProtocol,
 		})
 	}
 	if domainSuffix == "" {
@@ -277,19 +212,17 @@ func createInferencePoolObject(
 		Ports:     ports,
 		Endpoints: destination.EndpointSource{
 			Kind: destination.ExtensionResolved, Source: source, Hostname: runtimeName,
-			Extension: extRef.name, Port: uint32(extRef.port), //nolint:gosec // API port validation bounds this value.
+			Extension: endpointPickerName, Port: uint32(endpointPickerPort), //nolint:gosec // API port validation bounds this value.
 		},
 		Connection: destination.ConnectionPolicy{Protocol: applicationProtocol},
 		Metadata: destination.DestinationMetadata{
 			Semantics:   destination.InferencePoolSemantics,
-			FailureMode: destination.ExtensionFailureMode(extRef.failureMode),
+			FailureMode: destination.ExtensionFailureMode(failureMode),
 		},
 		CreationTime: pool.CreationTimestamp.Time,
 	}
 
 	return &InferencePool{
-		shadowService:  shadowSvcInfo,
-		extRef:         extRef,
 		gatewayParents: gatewayParents,
 		destination:    definition,
 	}
@@ -617,124 +550,6 @@ func InferencePoolServiceName(poolName string) (string, error) {
 		svcName = truncatedBase + ipSeparator + hash
 	}
 	return svcName, nil
-}
-
-func translateShadowServiceToService(shadow shadowServiceInfo, extRef extRefInfo) *corev1.Service {
-	// Create multiple ports for the shadow service - one for each InferencePool targetPort.
-	// This allows Istio to discover endpoints for all targetPorts.
-	// We use dummy service ports (54321, 54322, etc.) that map to the actual targetPorts.
-	baseDummyPort := int32(54321)
-	ports := make([]corev1.ServicePort, 0, len(shadow.targetPorts))
-
-	for i, tp := range shadow.targetPorts {
-		portName := fmt.Sprintf("http-%d", i)
-		sp := corev1.ServicePort{
-			Name:       portName,
-			Protocol:   corev1.ProtocolTCP,
-			Port:       baseDummyPort + int32(i),
-			TargetPort: intstr.FromInt(int(tp.port)),
-		}
-		if shadow.appProtocol != "" {
-			appProtocol := shadow.appProtocol
-			sp.AppProtocol = &appProtocol
-		}
-		ports = append(ports, sp)
-	}
-
-	// Create a new service object based on the shadow service info
-	svc := &corev1.Service{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "v1",
-			Kind:       "Service",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      shadow.key.Name,
-			Namespace: shadow.key.Namespace,
-			Labels: map[string]string{
-				InferencePoolRefLabel:                shadow.poolName,
-				InferencePoolExtensionRefSvc:         extRef.name,
-				InferencePoolExtensionRefPort:        strconv.Itoa(int(extRef.port)),
-				InferencePoolExtensionRefFailureMode: extRef.failureMode,
-				constants.InternalServiceSemantics:   constants.ServiceSemanticsInferencePool,
-			},
-		},
-		Spec: corev1.ServiceSpec{
-			Selector:  shadow.selector,
-			Type:      corev1.ServiceTypeClusterIP,
-			ClusterIP: corev1.ClusterIPNone, // Headless service
-			Ports:     ports,
-		},
-	}
-
-	svc.SetOwnerReferences([]metav1.OwnerReference{
-		{
-			APIVersion: gvk.InferencePool.GroupVersion(),
-			Kind:       gvk.InferencePool.Kind,
-			Name:       shadow.poolName,
-			UID:        shadow.poolUID,
-		},
-	})
-
-	return svc
-}
-
-func (c *Controller) reconcileShadowService(
-	kubeClient kube.Client,
-	inferencePools krt.Collection[InferencePool],
-	servicesCollection krt.Collection[*corev1.Service],
-) func(key types.NamespacedName) error {
-	return func(key types.NamespacedName) error {
-		// Find the InferencePool that matches the key
-		pool := inferencePools.GetKey(key.String())
-		if pool == nil {
-			// we'll generally ignore these scenarios, since the InferencePool may have been deleted
-			log.Debugf("inferencepool no longer exists", key.String())
-			return nil
-		}
-
-		// We found the InferencePool, now we need to translate it to a shadow Service
-		// and check if it exists already
-		existingService := ptr.Flatten(servicesCollection.GetKey(pool.shadowService.key.String()))
-
-		// Check if we can manage this service
-		if existingService != nil {
-			canManage, reason := c.canManageShadowServiceForInference(existingService)
-			if !canManage {
-				log.Debugf("skipping service %s/%s, already managed by another controller: %s", key.Namespace, key.Name, reason)
-				return nil
-			}
-		}
-
-		service := translateShadowServiceToService(pool.shadowService, pool.extRef)
-		return c.applyShadowService(kubeClient, service)
-	}
-}
-
-// applyShadowService uses Server-Side Apply to create or update shadow services
-func (c *Controller) applyShadowService(kubeClient kube.Client, service *corev1.Service) error {
-	data, err := json.Marshal(service)
-	if err != nil {
-		return fmt.Errorf("failed to marshal service for SSA: %v", err)
-	}
-
-	ctx := context.Background()
-	_, err = kubeClient.Kube().CoreV1().Services(service.Namespace).Patch(
-		ctx, service.Name, types.ApplyPatchType, data, metav1.PatchOptions{
-			FieldManager: InferencePoolFieldManager,
-			Force:        ptr.Of(true),
-		})
-	return err
-}
-
-func (c *Controller) canManageShadowServiceForInference(obj *corev1.Service) (bool, string) {
-	if obj == nil {
-		// No object exists, we can manage it
-		return true, ""
-	}
-
-	_, inferencePoolManaged := obj.GetLabels()[InferencePoolRefLabel]
-	// We can manage if it has no manager or if we are the manager
-	return inferencePoolManaged, obj.GetResourceVersion()
 }
 
 func indexHTTPRouteByInferencePool(o *gatewayv1.HTTPRoute) []string {

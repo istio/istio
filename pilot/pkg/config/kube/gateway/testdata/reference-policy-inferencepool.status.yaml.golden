@@ -82,9 +82,9 @@ status:
       status: "True"
       type: Accepted
     - lastTransitionTime: fake
-      message: backend(my-ip-ip-03f70481.inferencepool.svc.domain.suffix) not found
-      reason: BackendNotFound
-      status: "False"
+      message: All references resolved
+      reason: ResolvedRefs
+      status: "True"
       type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:

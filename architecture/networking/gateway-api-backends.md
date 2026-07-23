@@ -1308,3 +1308,50 @@ Validation at this checkpoint includes alpha-enabled Gateway, networking-core,
 and bootstrap tests plus the complete `pilot/pkg/...` suite. The implementation
 is therefore an end-to-end XBackend/common-index slice and a dual-run migration
 for the other sources, not yet the final global registry cutover.
+
+### Stage D: destination-owned EDS and InferencePool shadow removal
+
+The global destination index now publishes endpoint membership into Pilot's
+existing `EndpointIndex` through a dedicated `Destination` shard. Publication
+is selected by typed destination semantics; sources that still publish through
+legacy Kubernetes or ServiceEntry registries are not duplicated. InferencePool
+is the first source to make this path authoritative.
+
+Concrete decisions:
+
+* EDS publication groups by runtime hostname and namespace, then collapses
+  duplicate consumer bindings and combines endpoints from every target port.
+  This preserves InferencePool's one-cluster, all-target-port behavior.
+* The publisher sends the complete endpoint set through `XDSUpdater.EDSUpdate`.
+  When the final binding disappears it sends an empty update and a service
+  delete for its own shard, preventing stale EndpointIndex keys.
+* The destination shard uses the control-plane cluster ID. Endpoint locality,
+  network, workload identity, readiness, dual-stack addresses, and target port
+  are supplied by the InferencePool resolver before publication.
+* Route translation reads endpoint-picker service, port, failure mode, runtime
+  hostname, and first target port directly from the InferencePool API. It no
+  longer discovers those values through labels or dummy ports on a synthetic
+  Kubernetes Service.
+* Classic projection remains consumer-local: CDS gets the destination-only
+  service for an accepted Gateway, while EDS reads the same runtime hostname
+  from the destination-owned shard. No frontend is added to ambient address
+  discovery or the aggregate service registry.
+* The shadow-Service reconciler, server-side apply path, ownership labels, and
+  generated Service tests are removed. Existing route goldens no longer seed
+  synthetic services, proving that translation does not depend on them.
+
+Lifecycle and upgrade considerations:
+
+* A shadow Service created by an older Istiod remains owned by its
+  InferencePool and is garbage-collected when that pool is deleted. This
+  implementation does not proactively delete it during a mixed-revision
+  upgrade, because an older revision would recreate it and the controllers
+  would fight. New and updated pools do not create shadow Services.
+* Kubernetes Service and ServiceEntry remain on their existing EDS publishers
+  until their destination projections are promoted independently. The EDS
+  filter is explicit to prevent double-sharding during that migration.
+
+Validation covers multi-consumer deduplication, multi-port aggregation, final
+binding deletion, direct route translation without a shadow Service, typed
+inference semantics, endpoint metadata, and the existing Gateway conversion
+goldens.
