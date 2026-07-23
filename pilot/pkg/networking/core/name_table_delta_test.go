@@ -62,7 +62,7 @@ func headlessK8sService(hostname string) *model.Service {
 	}
 }
 
-func podEndpoints(ip string, svc *model.Service, hostname, subdomain string) map[int][]*model.IstioEndpoint {
+func podEndpoints(ip string, svc *model.Service, hostname string) map[int][]*model.IstioEndpoint {
 	instances := make(map[int][]*model.IstioEndpoint)
 	for _, port := range svc.Ports {
 		instances[port.Port] = []*model.IstioEndpoint{{
@@ -71,7 +71,7 @@ func podEndpoints(ip string, svc *model.Service, hostname, subdomain string) map
 			EndpointPort:    uint32(port.Port),
 			HealthStatus:    model.Healthy,
 			HostName:        hostname,
-			SubDomain:       subdomain,
+			SubDomain:       "headless-svc",
 		}}
 	}
 	return instances
@@ -164,10 +164,10 @@ func TestBuildDeltaNameTableServiceEntryNotOwnedAsPerPod(t *testing.T) {
 func TestBuildDeltaNameTableHeadlessDeletion(t *testing.T) {
 	svc := headlessK8sService("headless-svc.testns.svc.cluster.local")
 	prev := pushWith([]*model.Service{svc}, map[*model.Service]map[int][]*model.IstioEndpoint{
-		svc: podEndpoints("1.2.3.1", svc, "pod1", "headless-svc"),
+		svc: podEndpoints("1.2.3.1", svc, "pod1"),
 	})
 	// pod2 lived in a prior push too; both per-pod records are being watched.
-	prev.AddServiceInstances(svc, podEndpoints("1.2.3.2", svc, "pod2", "headless-svc"))
+	prev.AddServiceInstances(svc, podEndpoints("1.2.3.2", svc, "pod2"))
 
 	// New push no longer has the headless service.
 	next := pushWith([]*model.Service{externalService("other.example.com", "10.0.0.9")}, nil)
@@ -201,16 +201,16 @@ func TestBuildDeltaNameTableHeadlessScaleDown(t *testing.T) {
 	svc := headlessK8sService("headless-svc.testns.svc.cluster.local")
 
 	prev := pushWith([]*model.Service{svc}, map[*model.Service]map[int][]*model.IstioEndpoint{
-		svc: podEndpoints("1.2.3.1", svc, "pod1", "headless-svc"),
+		svc: podEndpoints("1.2.3.1", svc, "pod1"),
 	})
-	prev.AddServiceInstances(svc, podEndpoints("1.2.3.2", svc, "pod2", "headless-svc"))
-	prev.AddServiceInstances(svc, podEndpoints("1.2.3.3", svc, "pod3", "headless-svc"))
+	prev.AddServiceInstances(svc, podEndpoints("1.2.3.2", svc, "pod2"))
+	prev.AddServiceInstances(svc, podEndpoints("1.2.3.3", svc, "pod3"))
 
 	// pod3 is scaled down; the service is still headless.
 	next := pushWith([]*model.Service{svc}, map[*model.Service]map[int][]*model.IstioEndpoint{
-		svc: podEndpoints("1.2.3.1", svc, "pod1", "headless-svc"),
+		svc: podEndpoints("1.2.3.1", svc, "pod1"),
 	})
-	next.AddServiceInstances(svc, podEndpoints("1.2.3.2", svc, "pod2", "headless-svc"))
+	next.AddServiceInstances(svc, podEndpoints("1.2.3.2", svc, "pod2"))
 	proxy := deltaProxy(prev, next)
 
 	cg := &ConfigGeneratorImpl{}

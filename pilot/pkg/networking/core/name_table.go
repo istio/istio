@@ -87,10 +87,10 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaNameTable(proxy *model.Proxy, up
 		}
 		service := proxy.SidecarScope.GetService(hostname)
 
-		wasHeadless := prevService != nil && prevService.Attributes.ServiceRegistry == provider.Kubernetes &&
-			prevService.Resolution == model.Passthrough
-
-		if wasHeadless {
+		// we need to check if the previous service was headless to cleanup per-pod hostnames,
+		// we also need to check current service because DNSName kind updates
+		// don't trigger a SidecarScope recomputation.
+		if isHeadless(prevService) || isHeadless(service) {
 			headlessServiceChanged.Insert(key.Name)
 		}
 
@@ -136,6 +136,18 @@ func shouldUseNdsDelta(updates *model.PushRequest) bool {
 		}
 	}
 	return true
+}
+
+// isHeadless reports whether a service publishes per-pod headless DNS records
+// (<pod>.<subdomain>.<ns>.svc.<domain>). Only Kubernetes headless (Passthrough) services do.
+// provider.Mock is accepted so the in-memory registry used in tests, which stamps Mock, exercises
+// the same path as a real Kubernetes headless service.
+func isHeadless(svc *model.Service) bool {
+	if svc == nil || svc.Resolution != model.Passthrough {
+		return false
+	}
+	// we also include provider.Mock because MemRegistry.AddService hardcodes it
+	return svc.Attributes.ServiceRegistry == provider.Kubernetes || svc.Attributes.ServiceRegistry == provider.Mock
 }
 
 // ownedByAny reports whether name is owned by any of the given service hostnames: either name
