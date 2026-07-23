@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - https://github.com/istio/istio/issues/60920
+releaseNotes:
+- |
+  **Fixed** a bug where a remote cluster's network gateway could disappear from
+  cross-network routing after credential rotation and not recover until istiod restarted.
+  The in-place registry swap now re-wires the new registry to the aggregate controller's
+  handlers so its future gateway and service events propagate, and reloads gateways once
+  to pick up those discovered during the pre-swap sync.
