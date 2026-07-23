@@ -325,6 +325,7 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 	instances := proxy.ServiceTargets
 	cacheStats := cacheStats{}
 	destinationProjections := projectWaypointOutboundDestinations(destinationBindingsForGatewayProxy(proxy, req.Push))
+	cb.destinationEndpoints = destinationProjectionEndpoints(destinationProjections)
 	if proxy.Type != model.Waypoint {
 		// Gateway and sidecar CDS may consume the same destination-only view.
 		// Consumer filtering above makes this a no-op for ordinary sidecars.
@@ -542,9 +543,20 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 			var dnsWrappedLocalityLbEndpoints *loadbalancer.WrappedLocalityLbEndpoints
 			if clusterKey.endpointBuilder != nil {
 				// This is set only for DNS clusters.
-				lbEndpoints = clusterKey.endpointBuilder.FromServiceEndpoints()
+				key := model.NamespacedHostname{
+					Hostname:  service.Hostname,
+					Namespace: service.Attributes.Namespace,
+				}
+				if destinationEndpoints, found := cb.destinationEndpoints[key]; found {
+					lbEndpoints = clusterKey.endpointBuilder.FromEndpoints(destinationEndpoints)
+				} else {
+					lbEndpoints = clusterKey.endpointBuilder.FromServiceEndpoints()
+				}
 				if len(lbEndpoints) > 0 {
 					istioEndpoints := clusterKey.endpointBuilder.IstioEndpoints()
+					if destinationEndpoints, found := cb.destinationEndpoints[key]; found {
+						istioEndpoints = destinationEndpoints
+					}
 					dnsWrappedLocalityLbEndpoints = &loadbalancer.WrappedLocalityLbEndpoints{
 						IstioEndpoints: istioEndpoints,
 						// For DNS clusters, we only have one locality lb endpoint

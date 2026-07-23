@@ -20,6 +20,8 @@ import (
 	"sync"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube/krt"
 )
 
@@ -27,6 +29,14 @@ import (
 // The returned dependency keys must cover every non-KRT input read by the
 // resolver. KRT collections read through ctx are tracked automatically.
 type Resolver func(krt.HandlerContext, DestinationDefinition, DestinationBinding) ([]*model.IstioEndpoint, []model.ConfigKey)
+
+// ResolverKey scopes endpoint resolver ownership. Kind-only keys are fallbacks;
+// SourceKind and Extension disambiguate APIs sharing a transport shape.
+type ResolverKey struct {
+	Kind       EndpointSourceKind
+	SourceKind kind.Kind
+	Extension  string
+}
 
 // ResolvedDestination is the active, endpoint-resolved object consumed by
 // dataplane projections. Definitions with no authorized binding are inert.
@@ -41,7 +51,7 @@ func (r ResolvedDestination) ResourceName() string              { return r.Bindi
 func (r ResolvedDestination) Equals(o ResolvedDestination) bool { return reflect.DeepEqual(r, o) }
 
 type IndexOptions struct {
-	Resolvers map[EndpointSourceKind]Resolver
+	Resolvers map[ResolverKey]Resolver
 }
 
 // Index owns the active, resolved destination collection and consumer lookup.
@@ -61,8 +71,8 @@ func NewIndex(
 	indexOpts IndexOptions,
 ) *Index {
 	resolvers := builtinResolvers()
-	for endpointKind, resolver := range indexOpts.Resolvers {
-		resolvers[endpointKind] = resolver
+	for resolverKey, resolver := range indexOpts.Resolvers {
+		resolvers[resolverKey] = resolver
 	}
 	definitionsByID := krt.NewIndex(definitions, "destination-definition", func(d DestinationDefinition) []DefinitionID {
 		return []DefinitionID{d.ID}
@@ -74,7 +84,7 @@ func NewIndex(
 			return nil
 		}
 		definition := definitions[0]
-		resolver := resolvers[definition.Endpoints.Kind]
+		resolver := selectResolver(resolvers, definition)
 		if resolver == nil {
 			return nil
 		}
@@ -91,7 +101,7 @@ func NewIndex(
 	return idx
 }
 
-func builtinResolvers() map[EndpointSourceKind]Resolver {
+func builtinResolvers() map[ResolverKey]Resolver {
 	resolveAddress := func(_ krt.HandlerContext, definition DestinationDefinition, binding DestinationBinding) ([]*model.IstioEndpoint, []model.ConfigKey) {
 		source := binding.Endpoints
 		portSpec := binding.Port
@@ -107,10 +117,25 @@ func builtinResolvers() map[EndpointSourceKind]Resolver {
 			EndpointPort: port, Namespace: definition.Namespace,
 		}}, nil
 	}
-	return map[EndpointSourceKind]Resolver{
-		DNS:        resolveAddress,
-		DynamicDNS: resolveAddress,
+	return map[ResolverKey]Resolver{
+		{Kind: DNS}:        resolveAddress,
+		{Kind: DynamicDNS}: resolveAddress,
 	}
+}
+
+func selectResolver(resolvers map[ResolverKey]Resolver, definition DestinationDefinition) Resolver {
+	source := definition.Endpoints
+	for _, key := range []ResolverKey{
+		{Kind: source.Kind, SourceKind: definition.ID.Source.Kind, Extension: source.Extension},
+		{Kind: source.Kind, SourceKind: definition.ID.Source.Kind},
+		{Kind: source.Kind, Extension: source.Extension},
+		{Kind: source.Kind},
+	} {
+		if resolver := resolvers[key]; resolver != nil {
+			return resolver
+		}
+	}
+	return nil
 }
 
 func (i *Index) rebuild(_ []krt.Event[ResolvedDestination]) {
@@ -155,3 +180,48 @@ func (i *Index) ForConsumer(consumer ConsumerID) []ResolvedDestination {
 }
 
 func (i *Index) HasSynced() bool { return i.registration.HasSynced() }
+
+// ForRuntime returns the resolved destination backing an already-issued xDS
+// cluster name. It is intentionally not a discovery API: callers must already
+// possess the consumer-scoped cluster. This lets EDS resolve destination-owned
+// metadata without requiring a global model.Service lookup.
+func (i *Index) ForRuntime(consumer ConsumerID, runtimeName host.Name, port int) (ResolvedDestination, bool) {
+	var selected *ResolvedDestination
+	var related []ResolvedDestination
+	for _, resolved := range i.Resolved.List() {
+		if resolved.Binding.RuntimeName != runtimeName || resolved.Binding.Consumer != consumer {
+			continue
+		}
+		related = append(related, resolved)
+		if resolved.Binding.Port.Number == port {
+			copy := resolved
+			selected = &copy
+		}
+	}
+	if selected == nil {
+		return ResolvedDestination{}, false
+	}
+	if selected.Definition.Metadata.Semantics != InferencePoolSemantics {
+		return *selected, true
+	}
+	seen := make(map[string]struct{})
+	endpoints := make([]*model.IstioEndpoint, 0)
+	dependencies := append([]model.ConfigKey(nil), selected.Dependencies...)
+	for _, resolved := range related {
+		dependencies = append(dependencies, resolved.Dependencies...)
+		for _, endpoint := range resolved.Endpoints {
+			if endpoint == nil {
+				continue
+			}
+			if _, found := seen[endpoint.Key()]; found {
+				continue
+			}
+			seen[endpoint.Key()] = struct{}{}
+			endpoints = append(endpoints, endpoint)
+		}
+	}
+	sort.Slice(endpoints, func(a, b int) bool { return endpoints[a].Key() < endpoints[b].Key() })
+	selected.Endpoints = endpoints
+	selected.Dependencies = NormalizeDependencies(dependencies...)
+	return *selected, true
+}

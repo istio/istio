@@ -73,7 +73,7 @@ type Controller struct {
 	workloadEntryController bool
 
 	canonicalServiceForMeshExternal bool
-	destinationResolvers            map[destinationmodel.EndpointSourceKind]destinationmodel.Resolver
+	destinationResolvers            map[destinationmodel.ResolverKey]destinationmodel.Resolver
 	destinationIndex                *destinationmodel.Index
 
 	model.NetworkGatewaysHandler
@@ -81,7 +81,7 @@ type Controller struct {
 
 // DestinationResolvers returns resolver plugins backed by the same KRT
 // ServiceEntry instance collection as the legacy registry.
-func (s *Controller) DestinationResolvers() map[destinationmodel.EndpointSourceKind]destinationmodel.Resolver {
+func (s *Controller) DestinationResolvers() map[destinationmodel.ResolverKey]destinationmodel.Resolver {
 	return s.destinationResolvers
 }
 
@@ -98,11 +98,11 @@ type DestinationSources struct {
 	Frontends   krt.Collection[destinationmodel.FrontendDefinition]
 	Definitions krt.Collection[destinationmodel.DestinationDefinition]
 	Bindings    krt.Collection[destinationmodel.DestinationBinding]
-	Resolvers   map[destinationmodel.EndpointSourceKind]destinationmodel.Resolver
+	Resolvers   map[destinationmodel.ResolverKey]destinationmodel.Resolver
 }
 
 func (s *Controller) DestinationSources() DestinationSources {
-	resolvers := make(map[destinationmodel.EndpointSourceKind]destinationmodel.Resolver, len(s.destinationResolvers))
+	resolvers := make(map[destinationmodel.ResolverKey]destinationmodel.Resolver, len(s.destinationResolvers))
 	for sourceKind, resolver := range s.destinationResolvers {
 		resolvers[sourceKind] = resolver
 	}

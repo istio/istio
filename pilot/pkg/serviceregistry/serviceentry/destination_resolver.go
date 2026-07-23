@@ -57,7 +57,7 @@ func BuildDestinationCollections(
 func DestinationResolvers(
 	services krt.Collection[ServiceWithInstances],
 	_ krt.OptionsBuilder,
-) map[destination.EndpointSourceKind]destination.Resolver {
+) map[destination.ResolverKey]destination.Resolver {
 	byNamespaceHost := krt.NewIndex(services, "destination-serviceentry-ns-host", func(service ServiceWithInstances) []string {
 		return []string{service.Service.Attributes.Namespace + "/" + service.Service.Hostname.String()}
 	})
@@ -83,11 +83,11 @@ func DestinationResolvers(
 		}
 		return endpoints, []model.ConfigKey{definition.ID.Source}
 	}
-	return map[destination.EndpointSourceKind]destination.Resolver{
-		destination.StaticEndpoints:   resolver,
-		destination.DNS:               resolver,
-		destination.DynamicDNS:        resolver,
-		destination.ExtensionResolved: resolver,
+	return map[destination.ResolverKey]destination.Resolver{
+		{Kind: destination.StaticEndpoints, SourceKind: kind.ServiceEntry}:                                          resolver,
+		{Kind: destination.DNS, SourceKind: kind.ServiceEntry}:                                                      resolver,
+		{Kind: destination.DynamicDNS, SourceKind: kind.ServiceEntry}:                                               resolver,
+		{Kind: destination.ExtensionResolved, SourceKind: kind.ServiceEntry, Extension: "serviceentry/passthrough"}: resolver,
 	}
 }
 

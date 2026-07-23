@@ -88,8 +88,35 @@ func TestBackendBindingsRequireAcceptedAttachment(t *testing.T) {
 	if !withAttachment.Active.WaitUntilSynced(stop) {
 		t.Fatal("binding collection did not sync")
 	}
-	if got := withAttachment.Active.List(); len(got) != 1 || got[0].Gateway != gw {
+	if got := withAttachment.Active.List(); len(got) != 1 || got[0].Gateway != gw ||
+		got[0].Destination.Port.Protocol != protocol.HTTP || got[0].Destination.Connection.Protocol != protocol.HTTP {
 		t.Fatalf("accepted attachment did not activate binding: %+v", got)
+	}
+}
+
+func TestInheritBackendProtocol(t *testing.T) {
+	for _, tt := range []struct {
+		kind kind.Kind
+		want protocol.Instance
+	}{
+		{kind.HTTPRoute, protocol.HTTP},
+		{kind.GRPCRoute, protocol.GRPC},
+		{kind.TCPRoute, protocol.TCP},
+		{kind.TLSRoute, protocol.TCP},
+	} {
+		binding, err := compileBackendBinding(testXBackend("backend", "ns", "uid-1"), types.NamespacedName{Namespace: "ns", Name: "gw"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := inheritBackendProtocol(binding, tt.kind); err != nil {
+			t.Fatalf("%s: %v", tt.kind, err)
+		}
+		if binding.Destination.Port.Protocol != tt.want || binding.Destination.Connection.Protocol != tt.want ||
+			binding.Port.Protocol != tt.want || binding.Destination.Key.Policy != "protocol:"+string(tt.want) ||
+			binding.InternalName != backendInternalName("ns", "backend", "uid-1", string(tt.want)) ||
+			binding.Destination.RuntimeName != binding.InternalName {
+			t.Fatalf("%s inherited %+v, want %s", tt.kind, binding, tt.want)
+		}
 	}
 }
 
@@ -109,7 +136,7 @@ func TestBuildDestinationXBackend(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if destination.Host != string(backendInternalName(backend.Namespace, backend.Name, backend.UID)) ||
+	if destination.Host != string(backendInternalName(backend.Namespace, backend.Name, backend.UID, string(protocol.HTTP))) ||
 		destination.Port.GetNumber() != uint32(backend.Spec.Port.Port) {
 		t.Fatalf("unexpected XBackend destination: %+v", destination)
 	}

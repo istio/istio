@@ -1244,6 +1244,11 @@ func buildDestination(ctx RouteContext, to k8s.BackendRef, ns string,
 		if err != nil {
 			return &istio.Destination{}, nil, &ConfigError{Reason: InvalidDestination, Message: err.Error()}
 		}
+		if backend.Spec.Protocol == nil {
+			if err := inheritBackendProtocol(binding, kind.FromString(k.Kind)); err != nil {
+				return &istio.Destination{}, nil, &ConfigError{Reason: InvalidDestination, Message: err.Error()}
+			}
+		}
 		if _, err := compileXBackendConnectionPolicy(ctx.Krt, *binding, ctx.References, ctx.Grants); err != nil {
 			return &istio.Destination{}, nil, &ConfigError{Reason: InvalidDestination, Message: err.Error()}
 		}

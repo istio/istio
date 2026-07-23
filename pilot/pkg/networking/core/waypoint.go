@@ -67,7 +67,7 @@ func destinationBindingsForGateway(index destinationConsumerIndex, node *model.P
 func projectWaypointOutboundDestinations(resolved []destination.ResolvedDestination) []destination.ClassicProjection {
 	result := make([]destination.ClassicProjection, 0, len(resolved))
 	for _, binding := range resolved {
-		result = append(result, destination.ProjectClassic(binding, provider.GatewayBackend))
+		result = append(result, destination.ProjectClassic(binding, provider.Destination))
 	}
 	return result
 }
@@ -84,6 +84,21 @@ func appendDestinationServices(services []*model.Service, projections []destinat
 		}
 	}
 	return services
+}
+
+func destinationProjectionEndpoints(projections []destination.ClassicProjection) map[model.NamespacedHostname][]*model.IstioEndpoint {
+	if len(projections) == 0 {
+		return nil
+	}
+	result := make(map[model.NamespacedHostname][]*model.IstioEndpoint, len(projections))
+	for _, projection := range projections {
+		key := model.NamespacedHostname{
+			Hostname:  projection.Service.Hostname,
+			Namespace: projection.Service.Attributes.Namespace,
+		}
+		result[key] = append(result[key], projection.Endpoints...)
+	}
+	return result
 }
 
 const (

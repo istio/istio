@@ -32,7 +32,6 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	destinationmodel "istio.io/istio/pilot/pkg/model/destination"
-	"istio.io/istio/pilot/pkg/serviceregistry/gatewaybackend"
 	kuberegistry "istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pilot/pkg/status"
@@ -106,12 +105,11 @@ type Controller struct {
 
 	domainSuffix string // the domain suffix to use for generated resources
 
-	backendRegistry      *gatewaybackend.Controller
 	destinationIndex     *destinationmodel.Index
 	destinationEDS       *destinationmodel.EDSPublisher
 	destinationOpts      krt.OptionsBuilder
 	destinationSources   DestinationSources
-	destinationResolvers map[destinationmodel.EndpointSourceKind]destinationmodel.Resolver
+	destinationResolvers map[destinationmodel.ResolverKey]destinationmodel.Resolver
 }
 
 // DestinationSources are compiled independently of the global index owner.
@@ -121,7 +119,7 @@ type DestinationSources struct {
 	Frontends   krt.Collection[destinationmodel.FrontendDefinition]
 	Definitions krt.Collection[destinationmodel.DestinationDefinition]
 	Bindings    krt.Collection[destinationmodel.DestinationBinding]
-	Resolvers   map[destinationmodel.EndpointSourceKind]destinationmodel.Resolver
+	Resolvers   map[destinationmodel.ResolverKey]destinationmodel.Resolver
 }
 
 type ParentInfo struct {
@@ -151,6 +149,7 @@ type Outputs struct {
 type Inputs struct {
 	Namespaces krt.Collection[*corev1.Namespace]
 	Pods       krt.Collection[*corev1.Pod]
+	Nodes      krt.Collection[*corev1.Node]
 
 	Services   krt.Collection[*corev1.Service]
 	Secrets    krt.Collection[*corev1.Secret]
@@ -205,6 +204,7 @@ func NewController(
 	inputs := Inputs{
 		Namespaces: krt.NewInformer[*corev1.Namespace](kc, opts.WithName("informer/Namespaces")...),
 		Pods:       krt.NewInformer[*corev1.Pod](kc, opts.WithName("informer/Pods")...),
+		Nodes:      krt.NewInformer[*corev1.Node](kc, opts.WithName("informer/Nodes")...),
 		Secrets: krt.WrapClient(
 			kclient.NewFiltered[*corev1.Secret](kc, kubetypes.Filter{
 				FieldSelector: kubesecrets.SecretsFieldSelector,
@@ -434,8 +434,8 @@ func NewController(
 		inferenceDestinationBindings,
 		kubeBindings,
 	}, opts.WithName("DestinationBindings")...)
-	c.destinationResolvers = map[destinationmodel.EndpointSourceKind]destinationmodel.Resolver{
-		destinationmodel.ExtensionResolved: inferencePoolEndpointResolver(inputs.InferencePools, inputs.Pods, c.cluster, trustDomain),
+	c.destinationResolvers = map[destinationmodel.ResolverKey]destinationmodel.Resolver{
+		{Kind: destinationmodel.ExtensionResolved, SourceKind: kind.InferencePool}: inferencePoolEndpointResolver(inputs.InferencePools, inputs.Pods, inputs.Nodes, c.cluster, trustDomain),
 	}
 	c.destinationSources = DestinationSources{
 		Frontends: kubeFrontends, Definitions: allDestinationDefinitions, Bindings: allDestinationBindings,
@@ -688,12 +688,6 @@ func (c *Controller) HasInferencePool(gw types.NamespacedName) bool {
 	return len(c.outputs.InferencePoolsByGateway.Lookup(gw)) > 0
 }
 
-// BackendRegistry exposes route-activated Gateway API Backend services to the
-// aggregate service controller without synthesizing ServiceEntry resources.
-func (c *Controller) BackendRegistry() *gatewaybackend.Controller {
-	return c.backendRegistry
-}
-
 // DestinationIndex exposes the shared, consumer-scoped outbound destination
 // view. It contains no frontend or ztunnel addressability semantics.
 func (c *Controller) DestinationIndex() *destinationmodel.Index {
@@ -715,7 +709,7 @@ func (c *Controller) InitializeGlobalDestinationIndex(external ...DestinationSou
 	definitions := []krt.Collection[destinationmodel.DestinationDefinition]{c.destinationSources.Definitions}
 	bindings := []krt.Collection[destinationmodel.DestinationBinding]{c.destinationSources.Bindings}
 	frontends := []krt.Collection[destinationmodel.FrontendDefinition]{c.destinationSources.Frontends}
-	resolvers := make(map[destinationmodel.EndpointSourceKind]destinationmodel.Resolver, len(c.destinationResolvers))
+	resolvers := make(map[destinationmodel.ResolverKey]destinationmodel.Resolver, len(c.destinationResolvers))
 	for sourceKind, resolver := range c.destinationResolvers {
 		resolvers[sourceKind] = resolver
 	}
@@ -741,17 +735,6 @@ func (c *Controller) InitializeGlobalDestinationIndex(external ...DestinationSou
 		func(resolved destinationmodel.ResolvedDestination) bool {
 			return resolved.Definition.Metadata.Semantics == destinationmodel.InferencePoolSemantics
 		})
-	runtimeBackends := krt.NewCollection(c.destinationIndex.Resolved, func(_ krt.HandlerContext, resolved destinationmodel.ResolvedDestination) *gatewaybackend.RuntimeBackend {
-		if resolved.Binding.Definition.Source.Kind != kind.XBackend {
-			return nil
-		}
-		runtime, ok := destinationmodel.RuntimeBackendFromBinding(resolved.Binding)
-		if !ok {
-			return nil
-		}
-		return &runtime
-	}, c.destinationOpts.WithName("RuntimeXBackends")...)
-	c.backendRegistry = gatewaybackend.NewController(runtimeBackends, c.cluster, c.xdsUpdater)
 	return c.destinationIndex
 }
 

@@ -55,20 +55,3 @@ func TestNormalizeDependencies(t *testing.T) {
 		t.Fatalf("unexpected normalized dependencies: %v", got)
 	}
 }
-
-func TestRuntimeBackendFromBinding(t *testing.T) {
-	id := DefinitionID{UID: "v1"}
-	b := DestinationBinding{
-		Key: BindingKey{Definition: id}, Definition: id, RuntimeName: "opaque.internal", Namespace: "ns",
-		Port:      DestinationPort{Name: "https", Number: 443, Protocol: protocol.HTTPS},
-		Endpoints: EndpointSource{Kind: DNS, Hostname: "api.example.com", Port: 443},
-	}
-	runtime, ok := RuntimeBackendFromBinding(b)
-	if !ok || runtime.InternalName != b.RuntimeName || runtime.ExternalAddress != "api.example.com" || runtime.ResourceVersion != "v1" {
-		t.Fatalf("unexpected runtime projection: %+v, ok=%v", runtime, ok)
-	}
-	b.Endpoints.Kind = StaticEndpoints
-	if _, ok := RuntimeBackendFromBinding(b); ok {
-		t.Fatal("classic DNS compatibility adapter accepted unsupported endpoint source")
-	}
-}

@@ -31,6 +31,7 @@ import (
 func inferencePoolEndpointResolver(
 	pools krt.Collection[*inferencev1.InferencePool],
 	pods krt.Collection[*corev1.Pod],
+	nodes krt.Collection[*corev1.Node],
 	clusterID cluster.ID,
 	trustDomain string,
 ) destination.Resolver {
@@ -42,13 +43,21 @@ func inferencePoolEndpointResolver(
 		if pool == nil || len(definition.Ports) != 1 {
 			return nil, nil
 		}
-		return resolveInferencePoolPods(pool, podsByNamespace.Fetch(ctx, pool.Namespace), definition.Ports[0], clusterID, trustDomain), nil
+		selectedPods := podsByNamespace.Fetch(ctx, pool.Namespace)
+		selectedNodes := make(map[string]*corev1.Node)
+		for _, pod := range selectedPods {
+			if pod.Spec.NodeName != "" {
+				selectedNodes[pod.Spec.NodeName] = ptr.Flatten(krt.FetchOne(ctx, nodes, krt.FilterKey(pod.Spec.NodeName)))
+			}
+		}
+		return resolveInferencePoolPods(pool, selectedPods, selectedNodes, definition.Ports[0], clusterID, trustDomain), nil
 	}
 }
 
 func resolveInferencePoolPods(
 	pool *inferencev1.InferencePool,
 	pods []*corev1.Pod,
+	nodes map[string]*corev1.Node,
 	port destination.DestinationPort,
 	clusterID cluster.ID,
 	trustDomain string,
@@ -67,23 +76,31 @@ func resolveInferencePoolPods(
 		if len(addresses) == 0 && pod.Status.PodIP != "" {
 			addresses = []corev1.PodIP{{IP: pod.Status.PodIP}}
 		}
+		endpointAddresses := make([]string, 0, len(addresses))
 		for _, address := range addresses {
-			if address.IP == "" {
-				continue
+			if address.IP != "" {
+				endpointAddresses = append(endpointAddresses, address.IP)
 			}
-			podLabels := labels.Instance(maps.Clone(pod.Labels))
-			locality := strings.TrimRight(strings.Join([]string{
-				podLabels[corev1.LabelTopologyRegion], podLabels[corev1.LabelTopologyZone], podLabels[label.TopologySubzone.Name],
-			}, "/"), "/")
-			result = append(result, &model.IstioEndpoint{
-				Addresses: []string{address.IP}, EndpointPort: uint32(port.Number), //nolint:gosec
-				ServicePortName: port.Name, Labels: podLabels,
-				ServiceAccount: registrykube.SecureNamingSAN(pod, trustDomain), TLSMode: registrykube.PodTLSMode(pod),
-				Locality: model.Locality{Label: locality, ClusterID: clusterID},
-				Network:  network.ID(podLabels[label.TopologyNetwork.Name]), WorkloadName: pod.Name,
-				Namespace: pod.Namespace, NodeName: pod.Spec.NodeName, HealthStatus: model.Healthy,
-			})
 		}
+		if len(endpointAddresses) == 0 {
+			continue
+		}
+		podLabels := labels.Instance(maps.Clone(pod.Labels))
+		nodeLabels := map[string]string(nil)
+		if node := nodes[pod.Spec.NodeName]; node != nil {
+			nodeLabels = node.Labels
+		}
+		locality := strings.TrimRight(strings.Join([]string{
+			nodeLabels[corev1.LabelTopologyRegion], nodeLabels[corev1.LabelTopologyZone], nodeLabels[label.TopologySubzone.Name],
+		}, "/"), "/")
+		result = append(result, &model.IstioEndpoint{
+			Addresses: endpointAddresses, EndpointPort: uint32(port.Number), //nolint:gosec
+			ServicePortName: port.Name, Labels: podLabels,
+			ServiceAccount: registrykube.SecureNamingSAN(pod, trustDomain), TLSMode: registrykube.PodTLSMode(pod),
+			Locality: model.Locality{Label: locality, ClusterID: clusterID},
+			Network:  network.ID(podLabels[label.TopologyNetwork.Name]), WorkloadName: pod.Name,
+			Namespace: pod.Namespace, NodeName: pod.Spec.NodeName, HealthStatus: model.Healthy,
+		})
 	}
 	return result
 }

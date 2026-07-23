@@ -65,7 +65,7 @@ type BackendBinding struct {
 }
 
 func (b BackendBinding) ResourceName() string {
-	return b.Source.String() + "/" + b.Gateway.String()
+	return b.Destination.ResourceName()
 }
 
 func (b BackendBinding) Equals(other BackendBinding) bool {
@@ -153,6 +153,13 @@ func BackendBindings(
 			if err != nil {
 				result.Error = err.Error()
 			} else {
+				if backend.Spec.Protocol == nil {
+					if err := inheritBackendProtocol(binding, ref.Source.Kind); err != nil {
+						result.Error = err.Error()
+						out = append(out, result)
+						continue
+					}
+				}
 				result.Binding = binding
 			}
 			out = append(out, result)
@@ -161,7 +168,11 @@ func BackendBindings(
 	}, opts.WithName("XBackendBindingResults")...)
 
 	resultIndex := krt.NewIndex(results, "xbackend-gateway", func(r BackendBindingResult) []string {
-		return []string{r.Source.String() + "/" + r.Gateway.String()}
+		key := r.Source.String() + "/" + r.Gateway.String()
+		if r.Binding != nil {
+			key += "/" + string(r.Binding.Destination.Port.Protocol)
+		}
+		return []string{key}
 	})
 	active := krt.NewCollection(resultIndex.AsCollection(opts.WithName("XBackendBindingEdges")...),
 		func(_ krt.HandlerContext, edge krt.IndexObject[string, BackendBindingResult]) *BackendBinding {
@@ -173,6 +184,30 @@ func BackendBindings(
 			return nil
 		}, opts.WithName("ActiveXBackendBindings")...)
 	return BackendBindingCollections{Results: results, Active: active}
+}
+
+func inheritBackendProtocol(binding *BackendBinding, routeKind kind.Kind) error {
+	var inherited protocol.Instance
+	switch routeKind {
+	case kind.HTTPRoute:
+		inherited = protocol.HTTP
+	case kind.GRPCRoute:
+		inherited = protocol.GRPC
+	case kind.TCPRoute, kind.TLSRoute:
+		inherited = protocol.TCP
+	default:
+		return fmt.Errorf("cannot infer XBackend protocol from route kind %q", routeKind)
+	}
+	binding.Port.Protocol = inherited
+	binding.Destination.Port.Protocol = inherited
+	binding.Destination.Connection.Protocol = inherited
+	binding.Destination.Key.Policy = "protocol:" + string(inherited)
+	runtimeName := backendInternalName(
+		binding.Source.Namespace, binding.Source.Name, binding.SourceUID, string(inherited),
+	)
+	binding.InternalName = runtimeName
+	binding.Destination.RuntimeName = runtimeName
+	return nil
 }
 
 func compileBackendBinding(backend *gatewayx.XBackend, gateway types.NamespacedName) (*BackendBinding, error) {
@@ -286,8 +321,8 @@ func normalizeBackendProtocol(p *gatewayx.BackendProtocol) (gatewayx.BackendProt
 	}
 }
 
-func backendInternalName(namespace, name string, uid types.UID) host.Name {
-	identity := namespace + "/" + name + "/" + string(uid)
+func backendInternalName(namespace, name string, uid types.UID, variants ...string) host.Name {
+	identity := strings.Join(append([]string{namespace, name, string(uid)}, variants...), "/")
 	digest := fmt.Sprintf("%x", sha256.Sum256([]byte(identity)))[:16]
 	label := strings.Trim(strings.ToLower(name), "-")
 	if len(label) > 40 {

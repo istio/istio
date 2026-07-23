@@ -81,10 +81,18 @@ func TestProjectWaypointOutboundDestinations(t *testing.T) {
 	if got[0].Service.Hostname != runtimeName {
 		t.Fatalf("hostname = %q, want %q", got[0].Service.Hostname, runtimeName)
 	}
-	if got[0].Service.Attributes.ServiceRegistry != provider.GatewayBackend {
-		t.Fatalf("registry = %q, want %q", got[0].Service.Attributes.ServiceRegistry, provider.GatewayBackend)
+	if got[0].Service.Attributes.ServiceRegistry != provider.Destination {
+		t.Fatalf("registry = %q, want %q", got[0].Service.Attributes.ServiceRegistry, provider.Destination)
 	}
 	if len(got[0].Endpoints) != 1 || got[0].Endpoints[0] != endpoint {
 		t.Fatalf("endpoint projection changed: %+v", got[0].Endpoints)
+	}
+	projectedEndpoints := destinationProjectionEndpoints(got)
+	key := model.NamespacedHostname{Hostname: runtimeName, Namespace: "backends"}
+	if len(projectedEndpoints[key]) != 1 || projectedEndpoints[key][0].Addresses[0] != "api.example.com" {
+		t.Fatalf("CDS endpoint projection lost external hostname: %+v", projectedEndpoints)
+	}
+	if (&clusterCache{service: got[0].Service}).Cacheable() {
+		t.Fatal("consumer-scoped destination projection unexpectedly entered the legacy CDS cache")
 	}
 }

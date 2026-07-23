@@ -15,6 +15,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
+	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube/krt"
@@ -93,8 +94,8 @@ func TestIndexFailsClosedAndSupportsResolverPlugins(t *testing.T) {
 		t.Fatalf("unsupported source did not fail closed: %v", got)
 	}
 	resolverDependency := model.ConfigKey{Kind: kind.Service, Namespace: "apps", Name: "catalog-endpoints"}
-	withResolver := NewIndex(definitions, bindings, opts, IndexOptions{Resolvers: map[EndpointSourceKind]Resolver{
-		ServiceMembership: func(_ krt.HandlerContext, definition DestinationDefinition, _ DestinationBinding) ([]*model.IstioEndpoint, []model.ConfigKey) {
+	withResolver := NewIndex(definitions, bindings, opts, IndexOptions{Resolvers: map[ResolverKey]Resolver{
+		{Kind: ServiceMembership}: func(_ krt.HandlerContext, definition DestinationDefinition, _ DestinationBinding) ([]*model.IstioEndpoint, []model.ConfigKey) {
 			return []*model.IstioEndpoint{{Addresses: []string{"10.0.0.1"}, ServicePortName: definition.Ports[0].Name, EndpointPort: 8080}}, []model.ConfigKey{resolverDependency}
 		},
 	}})
@@ -121,13 +122,110 @@ func TestProjectClassic(t *testing.T) {
 		Definition: DestinationDefinition{ID: id, Namespace: "apps"},
 		Endpoints:  []*model.IstioEndpoint{{Addresses: []string{"payments.example.com"}, EndpointPort: 443}},
 	}
-	projection := ProjectClassic(resolved, provider.GatewayBackend)
+	projection := ProjectClassic(resolved, provider.Destination)
 	if projection.Service.Hostname != "opaque.internal" || projection.Service.Resolution != model.DNSLB ||
 		!projection.Service.MeshExternal || projection.Service.Attributes.Name != "opaque.internal" {
 		t.Fatalf("unexpected classic projection: %+v", projection.Service)
 	}
 	if len(projection.Endpoints) != 1 || projection.Endpoints[0].Addresses[0] != "payments.example.com" {
 		t.Fatalf("unexpected endpoints: %+v", projection.Endpoints)
+	}
+}
+
+func TestForRuntimeIsConsumerScoped(t *testing.T) {
+	runtimeName := host.Name("shared.internal")
+	firstConsumer := ConsumerID{Kind: "Gateway", Namespace: "a", Name: "gw"}
+	secondConsumer := ConsumerID{Kind: "Gateway", Namespace: "b", Name: "gw"}
+	resolved := krt.NewStaticCollection(nil, []ResolvedDestination{
+		{Binding: DestinationBinding{
+			Key: BindingKey{Consumer: firstConsumer, Policy: "first"}, Consumer: firstConsumer,
+			RuntimeName: runtimeName, Port: DestinationPort{Number: 8080},
+		}},
+		{Binding: DestinationBinding{
+			Key: BindingKey{Consumer: secondConsumer, Policy: "second"}, Consumer: secondConsumer,
+			RuntimeName: runtimeName, Port: DestinationPort{Number: 8080},
+		}},
+	})
+	index := &Index{Resolved: resolved}
+	got, found := index.ForRuntime(secondConsumer, runtimeName, 8080)
+	if !found || got.Binding.Consumer != secondConsumer {
+		t.Fatalf("runtime lookup crossed consumer boundary: %+v, found=%v", got, found)
+	}
+	if _, found := index.ForRuntime(ConsumerID{Kind: "Gateway", Name: "other"}, runtimeName, 8080); found {
+		t.Fatal("runtime lookup returned an unrelated consumer binding")
+	}
+}
+
+func TestForRuntimeAggregatesInferencePoolPorts(t *testing.T) {
+	runtimeName := host.Name("models.internal")
+	consumer := ConsumerID{Kind: "Gateway", Namespace: "models", Name: "gw"}
+	makeResolved := func(name string, port int, address string) ResolvedDestination {
+		id := DefinitionID{
+			Source: model.ConfigKey{Kind: kind.InferencePool, Namespace: "models", Name: "pool"},
+			Port:   name,
+		}
+		return ResolvedDestination{
+			Binding: DestinationBinding{
+				Key: BindingKey{Definition: id, Consumer: consumer}, Definition: id, Consumer: consumer,
+				RuntimeName: runtimeName, Port: DestinationPort{Name: name, Number: port},
+			},
+			Definition: DestinationDefinition{
+				ID: id, Metadata: DestinationMetadata{Semantics: InferencePoolSemantics},
+			},
+			Endpoints: []*model.IstioEndpoint{{
+				Addresses: []string{address}, EndpointPort: uint32(port), ServicePortName: name,
+			}},
+		}
+	}
+	index := &Index{Resolved: krt.NewStaticCollection(nil, []ResolvedDestination{
+		makeResolved("http-0", 8080, "10.0.0.1"),
+		makeResolved("http-1", 8081, "10.0.0.2"),
+	})}
+	got, found := index.ForRuntime(consumer, runtimeName, 8080)
+	if !found || got.Binding.Port.Number != 8080 || len(got.Endpoints) != 2 {
+		t.Fatalf("runtime lookup did not aggregate inference ports: %+v, found=%v", got, found)
+	}
+}
+
+func TestResolverOwnershipSeparatesSharedEndpointKinds(t *testing.T) {
+	serviceEntrySource := model.ConfigKey{Kind: kind.ServiceEntry, Namespace: "apps", Name: "passthrough"}
+	inferenceSource := model.ConfigKey{Kind: kind.InferencePool, Namespace: "apps", Name: "pool"}
+	serviceEntryID := DefinitionID{Source: serviceEntrySource, Port: "host/tcp"}
+	inferenceID := DefinitionID{Source: inferenceSource, Port: "http"}
+	consumer := ConsumerID{Kind: "Gateway", Namespace: "apps", Name: "gw"}
+	definitions := krt.NewStaticCollection(nil, []DestinationDefinition{
+		{ID: serviceEntryID, Namespace: "apps", Ports: []DestinationPort{{Name: "tcp", Number: 8080}},
+			Endpoints: EndpointSource{Kind: ExtensionResolved, Source: serviceEntrySource, Extension: "serviceentry/passthrough"}},
+		{ID: inferenceID, Namespace: "apps", Ports: []DestinationPort{{Name: "http", Number: 80}},
+			Endpoints: EndpointSource{Kind: ExtensionResolved, Source: inferenceSource, Extension: "inferencepool/v1"}},
+	})
+	bindings := krt.NewStaticCollection(nil, []DestinationBinding{
+		{Key: BindingKey{Definition: serviceEntryID, Consumer: consumer}, Definition: serviceEntryID, Consumer: consumer,
+			Port: DestinationPort{Name: "tcp", Number: 8080}, Endpoints: EndpointSource{Kind: ExtensionResolved, Extension: "serviceentry/passthrough"}},
+		{Key: BindingKey{Definition: inferenceID, Consumer: consumer}, Definition: inferenceID, Consumer: consumer,
+			Port: DestinationPort{Name: "http", Number: 80}, Endpoints: EndpointSource{Kind: ExtensionResolved, Extension: "inferencepool/v1"}},
+	})
+	resolver := func(address string) Resolver {
+		return func(_ krt.HandlerContext, _ DestinationDefinition, _ DestinationBinding) ([]*model.IstioEndpoint, []model.ConfigKey) {
+			return []*model.IstioEndpoint{{Addresses: []string{address}}}, nil
+		}
+	}
+	index := NewIndex(definitions, bindings, krt.NewOptionsBuilder(nil, "test", nil), IndexOptions{Resolvers: map[ResolverKey]Resolver{
+		{Kind: ExtensionResolved, SourceKind: kind.ServiceEntry, Extension: "serviceentry/passthrough"}: resolver("serviceentry"),
+		{Kind: ExtensionResolved, SourceKind: kind.InferencePool}:                                       resolver("inferencepool"),
+	}})
+	retry.UntilSuccessOrFail(t, func() error {
+		if len(index.ForConsumer(consumer)) != 2 {
+			return fmt.Errorf("joined destinations not resolved")
+		}
+		return nil
+	})
+	got := map[kind.Kind]string{}
+	for _, resolved := range index.ForConsumer(consumer) {
+		got[resolved.Definition.ID.Source.Kind] = resolved.Endpoints[0].Addresses[0]
+	}
+	if got[kind.ServiceEntry] != "serviceentry" || got[kind.InferencePool] != "inferencepool" {
+		t.Fatalf("resolver ownership collided: %v", got)
 	}
 }
 
@@ -143,7 +241,7 @@ func TestProjectClassicInferenceSemantics(t *testing.T) {
 			ID: id, Namespace: "apps", Metadata: DestinationMetadata{Semantics: InferencePoolSemantics},
 		},
 	}
-	projection := ProjectClassic(resolved, provider.GatewayBackend)
+	projection := ProjectClassic(resolved, provider.Destination)
 	if !projection.Service.UseInferenceSemantics() {
 		t.Fatalf("inference semantics were not preserved: %+v", projection.Service.Attributes.Labels)
 	}

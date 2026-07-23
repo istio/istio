@@ -937,6 +937,41 @@ uses that typed Go payload. Moving this data into destination metadata requires
 route compilation to select metadata by binding key; it is separate from
 endpoint discovery and remains an explicit follow-up.
 
+### Endpoint fidelity and inherited protocol follow-up
+
+InferencePool locality now comes from the selected Pod's Kubernetes Node,
+using the standard region/zone labels plus Istio subzone, rather than reading
+topology labels from the Pod. Node reads are KRT dependencies of the resolved
+destination, so relabeling or moving a workload recomputes endpoint locality.
+Tests deliberately put an incorrect region label on the Pod and verify that the
+Node-derived locality wins.
+
+**Remaining endpoint parity gap:** the direct resolver preserves explicit Pod
+network labels, but it does not yet invoke the Kubernetes registry's mesh
+network lookup or platform-specific locality override provider because those
+are controller-owned dependencies not exposed as reusable conversion inputs.
+The shadow Service remains the authoritative EDS path until the shared resolver
+receives those dependencies or the mature Kubernetes endpoint converter is
+extracted behind a source-neutral helper. Terminating/serving EndpointSlice
+conditions and discoverability policy remain part of the same cutover gate.
+
+An XBackend whose `spec.protocol` is omitted now inherits protocol from each
+accepted route edge: HTTPRoute becomes HTTP, GRPCRoute becomes gRPC, and TCPRoute
+or TLSRoute becomes TCP. Explicit XBackend protocol continues to override this
+inference. The inherited protocol is written to the binding port, connection
+policy, and policy portion of `BindingKey`, allowing one Gateway to hold
+distinct bindings when routes with different effective protocols reference the
+same XBackend.
+
+**Decision:** inheritance is a consumer-binding concern, not a destination
+definition default. The source definition therefore retains `Unsupported` for
+an omitted protocol; it cannot know the effective route/listener context.
+
+**Open question:** if multiple HTTP-family listeners require finer upstream
+distinctions than route kind provides (for example HTTP/1.1 versus HTTP/2), the
+activation edge must carry listener section/protocol information. Route kind is
+the most precise context in the current ancestor graph.
+
 **Open InferencePool question:** `EndpointSource` identifies the InferencePool
 and endpoint picker, allowing a resolver to read the selector from the source
 object. Before shadow removal, the extension resolver must reproduce
@@ -1105,6 +1140,53 @@ Open questions:
   Sidecar egress hosts, cluster tenancy, and waypoint ownership rather than
   being interpreted as globally visible by new consumers.
 
+### Destination-native EDS generation and lifecycle
+
+Resolved destinations now carry enough endpoint and runtime metadata to
+generate EDS without finding a registry or shadow `model.Service`. The shared
+index publishes destination-owned endpoint shards, while the EDS generator
+uses the proxy's consumer identity plus runtime hostname and port to retrieve
+the corresponding `ResolvedDestination`. It creates a request-local classic
+projection and transient endpoint index, then runs the standard
+`EndpointBuilder`; neither object is registered or globally discoverable.
+
+Decisions:
+
+* Runtime lookup is consumer-scoped. A hostname/port-only global lookup was
+  rejected because two Gateway or waypoint consumers may compile different
+  endpoint or policy views for the same runtime name.
+* Destination-owned endpoint slices run through the standard EndpointBuilder,
+  preserving dual-stack additional addresses, endpoint locality, health,
+  load-balancing weight, network/discoverability filtering, mTLS and telemetry
+  metadata, locality failover, and DestinationRule subset behavior. Resolver
+  output is already consumer-filtered; global service-registry membership is
+  not consulted again.
+* Endpoint publication collapses duplicate consumer bindings into one
+  destination shard. On last-binding removal it first publishes an empty EDS
+  shard and then sends the service-delete lifecycle notification. This ordering
+  prevents stale endpoints and lets the delete remove the now-empty shard.
+* Sources still owned by legacy registries remain filtered out of the
+  destination EDS publisher during dual-run. InferencePool is the first native
+  EDS owner; expanding the filter is an explicit source cutover.
+
+Open questions:
+
+* Subset selection and DestinationRule-derived endpoint filtering still use the
+  legacy EndpointBuilder. Destination-native subset metadata and normalized
+  traffic policy must land before native EDS handles non-empty subset names.
+* Multi-network gateway rewriting, waypoint tunneling, failover priority, and
+  panic-threshold policy require proxy-aware normalized metadata. The direct
+  generator currently preserves resolved endpoint metadata but does not
+  independently repeat those legacy service-policy transforms.
+* Mesh consumers currently use one reusable consumer scope. Sidecar-scope
+  identity must be introduced before sidecars can have divergent resolved views
+  for an otherwise identical runtime hostname.
+
+Regression coverage proves consumer-isolated runtime lookup, locality/health/
+weight/TLS metadata generation without a Service, populated destination shard
+publication, duplicate binding collapse, and empty-shard removal after the last
+binding disappears.
+
 ### Stage 2 implementation record: destination index and endpoint resolution
 
 `pilot/pkg/model/destination.Index` now joins active `DestinationBinding`
@@ -1253,6 +1335,32 @@ Tests cover static, DNS, and NONE endpoint parity, port and target-port
 selection, source dependency propagation, same-host source isolation, final
 source deletion, and destination collection lifecycle.
 
+### Resolver ownership correction
+
+Global resolver registration is keyed by `ResolverKey`, not only by
+`EndpointSourceKind`. The key contains the endpoint kind, source API kind, and
+an optional extension discriminator. Resolution tries the most specific key
+first, then source-scoped, extension-scoped, and finally kind-only fallback.
+
+This fixes a confirmed collision in which ServiceEntry passthrough and
+InferencePool both registered `ExtensionResolved`; bootstrap's map merge made
+the last source silently own both APIs. ServiceEntry now owns only
+`ExtensionResolved/ServiceEntry/serviceentry/passthrough`, while InferencePool
+owns `ExtensionResolved/InferencePool`. Built-in DNS remains a kind-only
+fallback, and ServiceEntry DNS overrides it only for ServiceEntry definitions.
+
+**Decision:** resolver identity follows the definition source, not the binding
+or registration order. Bindings may carry effective endpoint data, but they
+cannot change which source adapter is authorized to resolve a definition.
+
+**Open question:** extension discriminators are exact strings today. If a
+source introduces versioned or parameterized extension names, it should either
+register source-kind ownership or add an explicit stable resolver class rather
+than rely on prefix matching.
+
+Focused tests join ServiceEntry and InferencePool definitions using the same
+endpoint kind and prove each receives endpoints from its intended resolver.
+
 ### Integration checkpoint: shared consumption and cutover boundary
 
 The Gateway API controller now owns an interim `destination.Index` assembled
@@ -1355,3 +1463,58 @@ Validation covers multi-consumer deduplication, multi-port aggregation, final
 binding deletion, direct route translation without a shadow Service, typed
 inference semantics, endpoint metadata, and the existing Gateway conversion
 goldens.
+
+### Stage E: native EDS lookup and compatibility-registry removal
+
+The destination index is now sufficient to generate both CDS and EDS without a
+globally registered `model.Service`. EDS resolves an already-issued cluster by
+consumer, runtime hostname, and port, builds a request-local classic projection,
+and runs destination-owned endpoints through the standard `EndpointBuilder`.
+The projection is adapter metadata for one xDS request; it never enters
+`PushContext.Services`, aggregate service discovery, ambient address discovery,
+or a persistent shadow registry.
+
+Decisions:
+
+* Runtime lookup is consumer-aware. A Gateway can resolve only its own binding;
+  an unrelated sidecar cannot use a runtime hostname to discover another
+  consumer's destination.
+* Destination endpoints use the standard endpoint-generation path rather than
+  a reduced protobuf converter. This preserves dual-stack addresses,
+  discoverability and network filtering, mTLS metadata, locality weighting and
+  failover, and applicable DestinationRule behavior.
+* CDS carries consumer-scoped destination endpoints alongside its request-local
+  service projections. DNS clusters therefore resolve an XBackend's external
+  hostname rather than its opaque runtime hostname; the endpoint never has to
+  enter `PushContext` service discovery.
+* Resolver ownership is keyed by endpoint kind plus source kind and optional
+  extension discriminator. Registration order cannot change which adapter owns
+  an InferencePool or ServiceEntry definition.
+* The `gatewaybackend` service registry and `RuntimeBackend` projection are
+  deleted. XBackend activation can no longer add a service to aggregate
+  discovery, so route-local activation remains private to its Gateway consumer.
+* An omitted XBackend protocol is inherited from each accepted route edge.
+  HTTPRoute, GRPCRoute, and TCPRoute/TLSRoute variants receive distinct runtime
+  hostnames and therefore distinct Envoy cluster identities; an explicit
+  XBackend protocol remains authoritative.
+* InferencePool locality is derived from Node topology. Pod topology labels do
+  not override the Node, while explicit Istio network metadata on the workload
+  remains available to endpoint generation.
+
+Open questions:
+
+* InferencePool selection still originates from the local Pod/Node collections.
+  A shared multicluster workload index should become a resolver input before
+  claiming remote-cluster InferencePool endpoint parity.
+* Kubernetes EndpointSlice serving/terminating semantics and platform-specific
+  locality overrides are not yet represented by the generic selector resolver.
+  These belong in the shared workload adapter rather than source-specific
+  copies.
+* `DestinationIndex` is still exposed through the Gateway API controller while
+  bootstrap assembles global sources. Moving ownership to an environment-level
+  component would make the source-neutral lifecycle explicit.
+
+Validation for this stage covers resolver collision, route protocol inheritance
+and identity, Node-derived locality, consumer-aware runtime lookup, normal
+EndpointBuilder output without a registered Service, route activation/removal,
+and absence of the GatewayBackend aggregate registry.

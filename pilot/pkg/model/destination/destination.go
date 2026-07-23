@@ -257,36 +257,6 @@ func (b DestinationBinding) Equals(other DestinationBinding) bool {
 	return reflect.DeepEqual(b, other)
 }
 
-// RuntimeBackend is the temporary classic-registry projection of a binding.
-// It lives with the source-neutral contract so registries do not define an
-// independent notion of backend identity. New consumers should use
-// DestinationBinding directly.
-type RuntimeBackend struct {
-	EdgeKey         string
-	InternalName    host.Name
-	Namespace       string
-	PortName        string
-	Port            int
-	Protocol        protocol.Instance
-	ExternalAddress string
-	CreationTime    time.Time
-	ResourceVersion string
-}
-
-func (r RuntimeBackend) ResourceName() string { return r.EdgeKey }
-
-func RuntimeBackendFromBinding(b DestinationBinding) (RuntimeBackend, bool) {
-	if b.Endpoints.Kind != DNS || b.Endpoints.Hostname == "" {
-		return RuntimeBackend{}, false
-	}
-	return RuntimeBackend{
-		EdgeKey: b.ResourceName(), InternalName: b.RuntimeName, Namespace: b.Namespace,
-		PortName: b.Port.Name, Port: b.Port.Number, Protocol: b.Port.Protocol,
-		ExternalAddress: b.Endpoints.Hostname.String(), CreationTime: b.CreationTime,
-		ResourceVersion: b.Definition.UID,
-	}, true
-}
-
 // NormalizeDependencies returns a stable, duplicate-free dependency list.
 func NormalizeDependencies(in ...model.ConfigKey) []model.ConfigKey {
 	seen := make(map[model.ConfigKey]struct{}, len(in))

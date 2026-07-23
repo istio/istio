@@ -52,9 +52,6 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 			Frontends: serviceEntrySources.Frontends, Definitions: serviceEntrySources.Definitions,
 			Bindings: serviceEntrySources.Bindings, Resolvers: serviceEntrySources.Resolvers,
 		})
-		if features.EnableAlphaGatewayAPI {
-			serviceControllers.AddRegistry(gwc.BackendRegistry())
-		}
 	}
 
 	registered := sets.New[provider.ID]()
