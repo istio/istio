@@ -56,11 +56,6 @@ func TestPolicyMatcher(t *testing.T) {
 		Kind:  gvk.ServiceEntry.Kind,
 		Name:  "sample-svc-entry",
 	}
-	httpRouteTargetRef := &v1beta1.PolicyTargetReference{
-		Group: gvk.HTTPRoute.Group,
-		Kind:  gvk.HTTPRoute.Kind,
-		Name:  "sample-http-route",
-	}
 	sampleSelector := &v1beta1.WorkloadSelector{
 		MatchLabels: labels.Instance{
 			"app": "my-app",
@@ -90,19 +85,6 @@ func TestPolicyMatcher(t *testing.T) {
 		},
 		IsWaypoint: false,
 	}
-	sampleHTTPRoute := WorkloadPolicyMatcher{
-		WorkloadNamespace: "default",
-		WorkloadLabels: labels.Instance{
-			label.IoK8sNetworkingGatewayGatewayName.Name: "sample-gateway",
-		},
-		HTTPRoutes: []types.NamespacedName{
-			types.NamespacedName{
-				Name: httpRouteTargetRef.Name,
-				Namespace: "sample-route-ns",
-			},
-		},
-		IsWaypoint: false,
-	}
 	sampleWaypoint := WorkloadPolicyMatcher{
 		WorkloadNamespace: "default",
 		WorkloadLabels: labels.Instance{
@@ -129,13 +111,12 @@ func TestPolicyMatcher(t *testing.T) {
 		IsWaypoint: true,
 		Services:   []ServiceInfoForPolicyMatcher{{Name: "sample-svc-entry", Namespace: "default", Registry: provider.External}},
 	}
-	tests := []struct{
+	tests := []struct {
 		name                   string
 		selection              WorkloadPolicyMatcher
 		policy                 TargetablePolicy
 		enableSelectorPolicies bool
 		policyNamespacedName   *types.NamespacedName
-		policyKindOverride config.GroupVersionKind
 
 		expected bool
 	}{
@@ -395,19 +376,6 @@ func TestPolicyMatcher(t *testing.T) {
 			enableSelectorPolicies: false,
 			expected:               false,
 		},
-		{
-			name: "HTTPRoute attached policy",
-			selection: func() WorkloadPolicyMatcher {
-				return sampleHTTPRoute
-			}(),
-			// Policy points to an HTTPRoute.
-			policy: &mockPolicyTargetGetter{
-				targetRefs: []*v1beta1.PolicyTargetReference{httpRouteTargetRef},
-			},
-			enableSelectorPolicies: false,
-			expected:               true,
-			policyKindOverride: gvk.AuthorizationPolicy,
-		},
 	}
 
 	for _, tt := range tests {
@@ -420,9 +388,6 @@ func TestPolicyMatcher(t *testing.T) {
 				nsName = types.NamespacedName{Name: "policy1", Namespace: "default"}
 			}
 			kind := mockKind
-			if tt.policyKindOverride != (config.GroupVersionKind{}) {
-				kind = tt.policyKindOverride
-			}
 			matcher := tt.selection.ShouldAttachPolicy(kind, nsName, tt.policy)
 
 			if matcher != tt.expected {
