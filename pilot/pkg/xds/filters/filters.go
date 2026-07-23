@@ -604,34 +604,19 @@ var (
 		}
 	}()
 
-	WaypointClusterBaggagePeerMetadata = func() *cluster.Filter {
-		cfg := map[string]any{}
-		if features.EnableAmbientBaggageGenericTranport {
-			// Exchange peer metadata via a per-worker-thread registry instead of the
-			// data stream preamble, so baggage works over any underlying transport.
-			cfg["mode"] = "THREAD_LOCAL_REGISTRY"
-		}
-		return &cluster.Filter{
-			Name:        "upstream_hbone_peer_metadata",
-			TypedConfig: protoconv.TypedStructWithFields(HBONEClusterPeerMetadataTypeURL, cfg),
-		}
-	}()
+	WaypointClusterBaggagePeerMetadata = &cluster.Filter{
+		Name:        "upstream_hbone_peer_metadata",
+		TypedConfig: protoconv.TypedStructWithFields(HBONEClusterPeerMetadataTypeURL, map[string]any{}),
+	}
 
-	WaypointListenerBaggagePeerMetadata = func() *listener.Filter {
-		cfg := map[string]any{
-			"baggage_key": "io.istio.baggage",
-		}
-		if features.EnableAmbientBaggageGenericTranport {
-			// Must match the mode configured on the paired upstream (cluster) filter.
-			cfg["mode"] = "THREAD_LOCAL_REGISTRY"
-		}
-		return &listener.Filter{
-			Name: "upstream_hbone_peer_metadata",
-			ConfigType: &listener.Filter_TypedConfig{
-				TypedConfig: protoconv.TypedStructWithFields(HBONEListenerPeerMetadataTypeURL, cfg),
-			},
-		}
-	}()
+	WaypointListenerBaggagePeerMetadata = &listener.Filter{
+		Name: "upstream_hbone_peer_metadata",
+		ConfigType: &listener.Filter_TypedConfig{
+			TypedConfig: protoconv.TypedStructWithFields(HBONEListenerPeerMetadataTypeURL, map[string]any{
+				"baggage_key": "io.istio.baggage",
+			}),
+		},
+	}
 
 	SidecarInboundMetadataFilter = func() *hcm.HttpFilter {
 		cfg := map[string]any{

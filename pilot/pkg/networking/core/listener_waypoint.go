@@ -664,6 +664,16 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 			}
 		}
 	}
+
+	if features.EnableAmbientBaggage && features.EnableAmbientBaggageGenericTranport {
+		// We need this filter in place so the peer metadata filters can
+		// communicate with each other properly. They use this connection ID
+		// as a unique key for in-memory communication.
+		connIDFilter := buildPeerMetadataConnectionIDFilter(lb.node)
+		for _, fc := range chains {
+			fc.Filters = append([]*listener.Filter{connIDFilter}, fc.Filters...)
+		}
+	}
 	// This may affect the data path due to the server-first protocols triggering a time-out.
 	// Currently, we attempt to exclude ports where we can, but it's not perfect.
 	// https://github.com/envoyproxy/envoy/issues/35958 is likely required for an optimal solution
@@ -841,13 +851,6 @@ func buildConnectForwarder(push *model.PushContext, proxy *model.Proxy, class is
 				},
 			},
 		}
-		if features.EnableAmbientBaggageGenericTranport {
-			// In THREAD_LOCAL_REGISTRY mode the peer_metadata filters exchange metadata
-			// through a per-worker-thread registry keyed by the downstream connection ID,
-			// rather than a data-stream preamble. Stamp that ID into filter state (shared
-			// TRANSITIVE) before the peer_metadata filter runs so both ends agree on the key.
-			filters = append(filters, buildPeerMetadataConnectionIDFilter(proxy))
-		}
 		filters = append(filters, xdsfilters.WaypointListenerBaggagePeerMetadata)
 	}
 
@@ -874,10 +877,10 @@ func buildConnectForwarder(push *model.PushContext, proxy *model.Proxy, class is
 	return l
 }
 
-// buildPeerMetadataConnectionIDFilter returns a set_filter_state network filter that stamps
-// the downstream connection ID into filter state under the key the peer_metadata filter's
-// THREAD_LOCAL_REGISTRY mode uses to exchange metadata between the downstream and upstream
-// filters running on the same worker thread.
+// buildPeerMetadataConnectionIDFilter returns a set_filter_state network filter that stamps the
+// downstream connection ID into filter state. Its presence makes the peer_metadata filters
+// exchange metadata via a per-worker-thread registry keyed by that ID. It must run on the main
+// internal listener, before the upstream peer_metadata (UpstreamConfig) filter.
 func buildPeerMetadataConnectionIDFilter(proxy *model.Proxy) *listener.Filter {
 	setFilterState := &sfsnetwork.Config{
 		OnNewConnection: []*sfsvalue.FilterStateValue{peerMetadataConnectionIDFilterStateValue(proxy)},

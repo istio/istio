@@ -1451,11 +1451,6 @@ func buildInnerConnectOriginateListener(push *model.PushContext, proxy *model.Pr
 			},
 		},
 	}
-	if features.EnableAmbientBaggageGenericTranport {
-		// Also stamp the downstream connection ID so the peer_metadata filters can exchange
-		// metadata via the thread-local registry (THREAD_LOCAL_REGISTRY mode) on this tunnel.
-		setFilterState.OnNewConnection = append(setFilterState.OnNewConnection, peerMetadataConnectionIDFilterStateValue(proxy))
-	}
 	tunnel := &tcp.TcpProxy_TunnelingConfig{
 		Hostname: "%FILTER_STATE(istio.double_hbone.hbone_target_address:PLAIN)%",
 	}
