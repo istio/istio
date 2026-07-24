@@ -224,11 +224,6 @@ spec:
             value: "{{ .Values.global.istiod.enableAnalysis }}"
           - name: CLUSTER_ID
             value: "{{ $.Values.global.multiCluster.clusterName | default `Kubernetes` }}"
-          - name: GOMAXPROCS
-            valueFrom:
-              resourceFieldRef:
-                resource: limits.cpu
-                divisor: "1"
           - name: PLATFORM
             value: "{{ coalesce .Values.global.platform .Values.platform }}"
           resources:

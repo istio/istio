@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+  - 60235
+releaseNotes:
+  - |
+    **Removed** `GOMAXPROCS` environment variable from all Istio charts.
+    Go 1.25 automatically sets `GOMAXPROCS` to match CPU limits.
