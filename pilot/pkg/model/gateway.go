@@ -254,13 +254,15 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 					if err == nil && configAndProxyAllowed && parse.Namespace == lookupNamespace {
 						// Same namespace is always allowed
 						verifiedCertificateReferences.Insert(rn)
-						if s.GetTls().GetMode() == networking.ServerTLSSettings_MUTUAL {
+						if s.GetTls().GetMode() == networking.ServerTLSSettings_MUTUAL ||
+							s.GetTls().GetMode() == networking.ServerTLSSettings_OPTIONAL_MUTUAL {
 							verifiedCertificateReferences.Insert(rn + credentials.SdsCaSuffix)
 						}
 					} else if ps.SecretAllowed(gwKind, rn, lookupNamespace) {
 						// Explicitly allowed by some policy
 						verifiedCertificateReferences.Insert(rn)
-						if s.GetTls().GetMode() == networking.ServerTLSSettings_MUTUAL {
+						if s.GetTls().GetMode() == networking.ServerTLSSettings_MUTUAL ||
+							s.GetTls().GetMode() == networking.ServerTLSSettings_OPTIONAL_MUTUAL {
 							verifiedCertificateReferences.Insert(rn + credentials.SdsCaSuffix)
 						}
 					}
