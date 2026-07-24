@@ -99,6 +99,7 @@ func NewCLIContext(rootFlags *RootFlags) Context {
 			impersonateGroup: nil,
 			namespace:        ptr.Of[string](""),
 			istioNamespace:   ptr.Of[string](""),
+			revision:         ptr.Of[string](""),
 			defaultNamespace: "",
 			kubeTimeout:      ptr.Of[string](""),
 		}
@@ -139,7 +140,10 @@ func (i *instance) CLIClientWithRevision(rev string) (kube.CLIClient, error) {
 }
 
 func (i *instance) CLIClient() (kube.CLIClient, error) {
-	return i.CLIClientWithRevision("")
+	// Honor the global --revision flag so subcommands that just call CLIClient()
+	// pick it up without registering their own flag. Empty when unset, which keeps
+	// the prior behavior of a client not scoped to any revision.
+	return i.CLIClientWithRevision(i.Revision())
 }
 
 func (i *instance) CLIClientsForContexts(contexts []string) ([]kube.CLIClient, error) {
@@ -285,7 +289,7 @@ func (f *fakeInstance) CLIClientWithRevision(rev string) (kube.CLIClient, error)
 }
 
 func (f *fakeInstance) CLIClient() (kube.CLIClient, error) {
-	return f.CLIClientWithRevision("")
+	return f.CLIClientWithRevision(f.rootFlags.Revision())
 }
 
 func (f *fakeInstance) CLIClientsForContexts(contexts []string) ([]kube.CLIClient, error) {
@@ -335,6 +339,7 @@ func (f *fakeInstance) RevisionOrDefault(rev string) string {
 type NewFakeContextOption struct {
 	Namespace      string
 	IstioNamespace string
+	Revision       string
 	Results        map[string][]byte
 	// Objects are the objects to be applied to the fake client
 	Objects []runtime.Object
@@ -348,6 +353,7 @@ func NewFakeContext(opts *NewFakeContextOption) Context {
 	}
 	ns := opts.Namespace
 	ins := opts.IstioNamespace
+	rev := opts.Revision
 	return &fakeInstance{
 		clients: map[string]kube.CLIClient{},
 		rootFlags: &RootFlags{
@@ -355,6 +361,7 @@ func NewFakeContext(opts *NewFakeContextOption) Context {
 			configContext:    ptr.Of[string](""),
 			namespace:        &ns,
 			istioNamespace:   &ins,
+			revision:         &rev,
 			impersonate:      ptr.Of[string](""),
 			impersonateUID:   ptr.Of[string](""),
 			impersonateGroup: nil,

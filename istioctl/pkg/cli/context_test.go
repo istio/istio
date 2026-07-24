@@ -80,3 +80,34 @@ func TestRevisionOrDefault(t *testing.T) {
 		})
 	}
 }
+
+func TestCLIClientUsesGlobalRevision(t *testing.T) {
+	tests := []struct {
+		description  string
+		revision     string
+		wantRevision string
+	}{
+		{
+			description:  "client inherits the global revision",
+			revision:     "canary",
+			wantRevision: "canary",
+		},
+		{
+			description:  "no revision keeps the client unscoped",
+			revision:     "",
+			wantRevision: "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.description, func(t *testing.T) {
+			ctx := NewFakeContext(&NewFakeContextOption{Revision: tt.revision})
+			c, err := ctx.CLIClient()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := c.Revision(); got != tt.wantRevision {
+				t.Fatalf("unexpected revision: wanted %q got %q", tt.wantRevision, got)
+			}
+		})
+	}
+}
