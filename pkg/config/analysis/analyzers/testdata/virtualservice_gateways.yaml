@@ -57,3 +57,30 @@ spec:
   - "*"
   gateways:
   - another/crossnamespace-gw  # No validation error expected
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: k8s-gateway
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: httpbin-k8s-gateway
+spec:
+  hosts:
+    - "*"
+  gateways:
+    - k8s-gateway   # References a gateway.networking.k8s.io Gateway — must NOT produce an error
+---
+# --- K8s Gateway API: bogus reference (error expected) ---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: httpbin-k8s-gateway-bogus
+spec:
+  hosts:
+    - "*"
+  gateways:
+    - k8s-gateway-does-not-exist   # Neither Istio nor K8s Gateway — MUST produce an error
+
