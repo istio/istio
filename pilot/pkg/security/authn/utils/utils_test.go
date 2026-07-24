@@ -100,3 +100,41 @@ func TestGetMTLSCipherSuites(t *testing.T) {
 		})
 	}
 }
+
+func TestGetMTLSECDHCurves(t *testing.T) {
+	tests := []struct {
+		name               string
+		mesh               meshconfig.MeshConfig
+		expectedECDHCurves []string
+	}{
+		{
+			name:               "Default MTLS ECDH curves",
+			expectedECDHCurves: nil,
+		},
+		{
+			name: "Configure MTLS ECDH curves",
+			mesh: meshconfig.MeshConfig{
+				MeshMTLS: &meshconfig.MeshConfig_TLSConfig{
+					EcdhCurves: []string{"P-256", "P-384"},
+				},
+			},
+			expectedECDHCurves: []string{"P-256", "P-384"},
+		},
+	}
+	for i := range tests {
+		tt := &tests[i]
+		t.Run(tt.name, func(t *testing.T) {
+			testNode := &model.Proxy{
+				Labels: map[string]string{
+					"app": "foo",
+				},
+				Metadata: &model.NodeMetadata{},
+			}
+
+			got := BuildInboundTLS(model.MTLSStrict, testNode, networking.ListenerProtocolTCP, []string{}, tls.TlsParameters_TLSv1_2, &tt.mesh)
+			if diff := cmp.Diff(tt.expectedECDHCurves, got.CommonTlsContext.TlsParams.EcdhCurves, protocmp.Transform()); diff != "" {
+				t.Errorf("unexpected ECDH curves: %v", diff)
+			}
+		})
+	}
+}
