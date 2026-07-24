@@ -410,6 +410,50 @@ func TestPodWorkloads(t *testing.T) {
 			},
 		},
 		{
+			name: "pod locality label takes precedence over node locality",
+			inputs: []any{
+				Node{
+					Name: "node",
+					Locality: &workloadapi.Locality{
+						Region: "node-region",
+						Zone:   "node-zone",
+					},
+				},
+			},
+			pod: &v1.Pod{
+				TypeMeta: metav1.TypeMeta{},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "name",
+					Namespace: "ns",
+					Labels:    map[string]string{label.TopologyLocality.Name: "pod-region.pod-zone.pod-subzone"},
+				},
+				Spec: v1.PodSpec{NodeName: "node"},
+				Status: v1.PodStatus{
+					Phase: v1.PodPending,
+					PodIP: "1.2.3.4",
+				},
+			},
+			result: &workloadapi.Workload{
+				Uid:               "cluster0//Pod/ns/name",
+				Name:              "name",
+				Namespace:         "ns",
+				Node:              "node",
+				Addresses:         [][]byte{netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice()},
+				Network:           testNW,
+				CanonicalName:     "name",
+				CanonicalRevision: "latest",
+				WorkloadType:      workloadapi.WorkloadType_POD,
+				WorkloadName:      "name",
+				Status:            workloadapi.WorkloadStatus_UNHEALTHY,
+				ClusterId:         testC,
+				Locality: &workloadapi.Locality{
+					Region:  "pod-region",
+					Zone:    "pod-zone",
+					Subzone: "pod-subzone",
+				},
+			},
+		},
+		{
 			name: "pod with authz",
 			inputs: []any{
 				model.WorkloadAuthorization{
