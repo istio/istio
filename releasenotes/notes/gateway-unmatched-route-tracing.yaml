@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: telemetry
+releaseNotes:
+  - |
+    **Fixed** gateway trace operation names for requests that do not match a route.
+    They now use the bounded `gateway-unmatched-route` operation instead of the
+    user-provided `Host` header.
