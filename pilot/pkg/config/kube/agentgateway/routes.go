@@ -27,6 +27,7 @@ import (
 
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
@@ -47,6 +48,18 @@ func InternalRouteRuleKey(routeNamespace, routeName, ruleName string) string {
 		return fmt.Sprintf("%s/%s", routeNamespace, routeName)
 	}
 	return fmt.Sprintf("%s/%s.%s", routeNamespace, routeName, ruleName)
+}
+
+// internalL4RouteRuleKey returns the data-plane key for a TCPRoute/TLSRoute rule, prefixed with the
+// route's creation timestamp (fixed-width Unix seconds). The data plane sorts L4 routes by key and
+// picks the first, so this makes the oldest route win conflict resolution on a shared listener.
+func internalL4RouteRuleKey(obj controllers.Object, pos int) string {
+	key := InternalRouteRuleKey(obj.GetNamespace(), obj.GetName(), strconv.Itoa(pos))
+	created := obj.GetCreationTimestamp()
+	if created.IsZero() {
+		return key
+	}
+	return fmt.Sprintf("%010d/%s", created.Unix(), key)
 }
 
 // RouteName constructs the RouteName for a route rule, including the rule name if specified
@@ -307,10 +320,9 @@ func ConvertGRPCRouteToAgw(ctx RouteContext, r gatewayv1.GRPCRouteRule,
 func ConvertTCPRouteToAgw(ctx RouteContext, r gatewayv1.TCPRouteRule,
 	obj *gatewayv1.TCPRoute, pos int,
 ) (*api.TCPRoute, *Condition) {
-	routeRuleKey := strconv.Itoa(pos)
 	res := &api.TCPRoute{
 		// unique for route rule
-		Key:         InternalRouteRuleKey(obj.Namespace, obj.Name, routeRuleKey),
+		Key:         internalL4RouteRuleKey(obj, pos),
 		Name:        RouteName(gvk.TCPRoute.Kind, obj.Namespace, obj.Name, r.Name),
 		ListenerKey: "",
 	}
@@ -331,10 +343,9 @@ func ConvertTCPRouteToAgw(ctx RouteContext, r gatewayv1.TCPRouteRule,
 func ConvertTLSRouteToAgw(ctx RouteContext, r gatewayv1.TLSRouteRule,
 	obj *gatewayv1.TLSRoute, pos int,
 ) (*api.TCPRoute, *Condition) {
-	routeRuleKey := strconv.Itoa(pos)
 	res := &api.TCPRoute{
 		// unique for route rule
-		Key:         InternalRouteRuleKey(obj.Namespace, obj.Name, routeRuleKey),
+		Key:         internalL4RouteRuleKey(obj, pos),
 		Name:        RouteName(gvk.TLSRoute.Kind, obj.Namespace, obj.Name, r.Name),
 		ListenerKey: "",
 	}
