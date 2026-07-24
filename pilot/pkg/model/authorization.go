@@ -20,6 +20,7 @@ import (
 	authpb "istio.io/api/security/v1beta1"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/util/sets"
 )
 
 type AuthorizationPolicy struct {
@@ -33,10 +34,47 @@ func (ap *AuthorizationPolicy) NamespacedName() types.NamespacedName {
 	return types.NamespacedName{Name: ap.Name, Namespace: ap.Namespace}
 }
 
+func (policy *AuthorizationPolicies) indexHTTPRoutePolicies(authz AuthorizationPolicy) {
+	action := authz.Spec.GetAction()
+	isALLOW := action == authpb.AuthorizationPolicy_ALLOW
+	isDENY := action == authpb.AuthorizationPolicy_DENY
+	if !isALLOW && !isDENY {
+		// Not a valid action for HTTPRoute targetRefs currently.
+		return
+	}
+
+	seenRefs := sets.New[types.NamespacedName]()
+	for _, ref := range GetTargetRefs(authz.Spec) {
+		if !matchesGroupKind(ref, gvk.HTTPRoute) {
+			continue
+		}
+
+		if ref.GetName() == "" || ref.GetNamespace() == "" {
+			return
+		}
+
+		// Must target HTTPRoute in own namespace.
+		k := types.NamespacedName{Name: ref.GetName(), Namespace: authz.Namespace}
+		if !seenRefs.InsertContains(k) {
+			result := policy.httpRoutePolicies[k]
+			if isALLOW {
+				result.Allow = append(result.Allow, authz)
+			}
+			if isDENY {
+				result.Deny = append(result.Deny, authz)
+			}
+			policy.httpRoutePolicies[k] = result
+		}
+	}
+}
+
 // AuthorizationPolicies organizes AuthorizationPolicy by namespace.
 type AuthorizationPolicies struct {
 	// Maps from namespace to the Authorization policies.
 	NamespaceToPolicies map[string][]AuthorizationPolicy `json:"namespace_to_policies"`
+
+	// Index for HTTPRoute targeted policy.
+	httpRoutePolicies map[types.NamespacedName]AuthorizationPoliciesResult
 
 	// The name of the root namespace. Policy in the root namespace applies to workloads in all namespaces.
 	RootNamespace string `json:"root_namespace"`
@@ -46,6 +84,7 @@ type AuthorizationPolicies struct {
 func GetAuthorizationPolicies(env *Environment) *AuthorizationPolicies {
 	policy := &AuthorizationPolicies{
 		NamespaceToPolicies: map[string][]AuthorizationPolicy{},
+		httpRoutePolicies:   map[types.NamespacedName]AuthorizationPoliciesResult{},
 		RootNamespace:       env.Mesh().GetRootNamespace(),
 	}
 
@@ -68,6 +107,7 @@ func GetAuthorizationPolicies(env *Environment) *AuthorizationPolicies {
 			policy.NamespaceToPolicies[config.Namespace] = make([]AuthorizationPolicy, 0, policyCount[config.Namespace])
 		}
 		policy.NamespaceToPolicies[config.Namespace] = append(policy.NamespaceToPolicies[config.Namespace], authzConfig)
+		policy.indexHTTPRoutePolicies(authzConfig)
 	}
 
 	return policy
