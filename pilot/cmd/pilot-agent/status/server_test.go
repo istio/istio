@@ -25,6 +25,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"reflect"
 	"strconv"
 	"strings"
@@ -44,12 +45,12 @@ import (
 	grpcHealth "google.golang.org/grpc/health/grpc_health_v1"
 
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
+	testcert "istio.io/istio/pilot/cmd/pilot-agent/status/test-cert"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/testserver"
 	"istio.io/istio/pkg/kube/apimirror"
 	"istio.io/istio/pkg/lazy"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -1599,8 +1600,19 @@ func TestHttpsAppProbe(t *testing.T) {
 			t.Errorf("failed to allocate unused port %v", err)
 		}
 		t.Cleanup(func() { listener.Close() })
-		keyFile := env.IstioSrc + "/pilot/cmd/pilot-agent/status/test-cert/cert.key"
-		crtFile := env.IstioSrc + "/pilot/cmd/pilot-agent/status/test-cert/cert.crt"
+		writeTempFile := func(data []byte) string {
+			f, err := os.CreateTemp(t.TempDir(), "")
+			if err != nil {
+				t.Fatalf("failed to create temp file: %v", err)
+			}
+			if _, err := f.Write(data); err != nil {
+				t.Fatalf("failed to write temp file: %v", err)
+			}
+			_ = f.Close()
+			return f.Name()
+		}
+		keyFile := writeTempFile(testcert.TestCertKey)
+		crtFile := writeTempFile(testcert.TestCert)
 		cert, err := tls.LoadX509KeyPair(crtFile, keyFile)
 		if err != nil {
 			t.Fatalf("could not load TLS keys: %v", err)
