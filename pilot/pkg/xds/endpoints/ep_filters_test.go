@@ -543,6 +543,96 @@ func TestEndpointsByNetworkFilter(t *testing.T) {
 	runNetworkFilterTest(t, env, networkFiltered, "")
 }
 
+// TestEndpointsByNetworkFilter_MultiLocalityRemoteNetwork verifies that when a
+// remote network has endpoints spread across multiple localities, the E/W
+// gateway endpoint is emitted exactly once per ClusterLoadAssignment with the
+// aggregated weight of all remote endpoints, rather than once per locality.
+// Envoy deduplicates endpoints by address within a cluster - it keeps the
+// first copy and silently drops the rest - so emitting per-locality copies
+// collapses the effective remote weight to a single locality's endpoint count.
+// Regression test for https://github.com/istio/istio/issues/56355.
+func TestEndpointsByNetworkFilter_MultiLocalityRemoteNetwork(t *testing.T) {
+	test.SetForTest(t, &features.MultiNetworkGatewayAPI, true)
+	ds := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+		Services: []*model.Service{{
+			Hostname:   "example.ns.svc.cluster.local",
+			Attributes: model.ServiceAttributes{Name: "example", Namespace: "ns"},
+			Ports:      model.PortList{{Port: 80, Protocol: protocol.HTTP, Name: "http"}},
+		}},
+		Gateways: []model.NetworkGateway{{
+			Network: "network1",
+			Cluster: "cluster1",
+			Addr:    "1.1.1.1",
+			Port:    15443,
+		}},
+	})
+	ds.Env().InitNetworksManager(ds.Discovery)
+
+	// cluster1 (network1, remote) has endpoints spread across three zones;
+	// cluster2 (network2, local to the proxy) has two single-zone endpoints.
+	shards := map[model.ShardKey][]*model.IstioEndpoint{
+		{Cluster: "cluster1"}: {
+			{Network: "network1", Addresses: []string{"10.0.0.1"}, Locality: model.Locality{Label: "region1/zone-a"}},
+			{Network: "network1", Addresses: []string{"10.0.0.2"}, Locality: model.Locality{Label: "region1/zone-b"}},
+			{Network: "network1", Addresses: []string{"10.0.0.3"}, Locality: model.Locality{Label: "region1/zone-c"}},
+		},
+		{Cluster: "cluster2"}: {
+			{Network: "network2", Addresses: []string{"20.0.0.1"}, Locality: model.Locality{Label: "region2/zone-x"}},
+			{Network: "network2", Addresses: []string{"20.0.0.2"}, Locality: model.Locality{Label: "region2/zone-x"}},
+		},
+	}
+	index := model.NewEndpointIndex(model.NewXdsCache())
+	for sk, eps := range shards {
+		for _, ep := range eps {
+			ep.ServicePortName = "http"
+			ep.Namespace = "ns"
+			ep.HostName = "example.ns.svc.cluster.local"
+			ep.EndpointPort = 8080
+			ep.TLSMode = "istio"
+			ep.Labels = map[string]string{"app": "example"}
+			ep.Locality.ClusterID = sk.Cluster
+		}
+		svc, _ := index.GetOrCreateEndpointShard("example.ns.svc.cluster.local", "ns")
+		svc.Lock()
+		svc.Shards[sk] = eps
+		svc.Unlock()
+	}
+
+	proxy := ds.SetupProxy(makeProxy("network2", "cluster2"))
+	b := endpoints.NewEndpointBuilder("outbound|80||example.ns.svc.cluster.local", proxy, ds.PushContext())
+	filtered := b.BuildClusterLoadAssignment(index).Endpoints
+
+	// Collect every occurrence of the gateway endpoint across all locality groups.
+	var gwWeights []uint32
+	var localWeight uint32
+	for _, group := range filtered {
+		for _, lbEp := range group.LbEndpoints {
+			if util.GetEndpointHost(lbEp) == "1.1.1.1" {
+				gwWeights = append(gwWeights, lbEp.GetLoadBalancingWeight().GetValue())
+			} else {
+				localWeight += lbEp.GetLoadBalancingWeight().GetValue()
+			}
+		}
+	}
+
+	// The same gateway address must appear exactly once in the whole
+	// ClusterLoadAssignment. Envoy drops duplicate addresses (keeping only the
+	// first), so per-locality copies would silently lose the other localities'
+	// share of the remote weight.
+	if len(gwWeights) != 1 {
+		t.Fatalf("expected the E/W gateway endpoint to be emitted exactly once per ClusterLoadAssignment, got %d occurrences (weights %v)",
+			len(gwWeights), gwWeights)
+	}
+	// All three remote endpoints are behind the gateway: its weight must be the
+	// aggregate across all remote localities, not just one zone's share.
+	if gwWeights[0] != 3 {
+		t.Fatalf("expected aggregated gateway weight 3 (3 remote endpoints), got %d", gwWeights[0])
+	}
+	if localWeight != 2 {
+		t.Fatalf("expected total local weight 2, got %d", localWeight)
+	}
+}
+
 func TestEndpointsByNetworkFilter_WithConfig(t *testing.T) {
 	test.SetForTest(t, &features.MultiNetworkGatewayAPI, true)
 	test.SetForTest(t, &features.PreferHBONESend, true)
