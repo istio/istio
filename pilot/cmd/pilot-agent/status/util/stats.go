@@ -24,6 +24,7 @@ import (
 
 	multierror "github.com/hashicorp/go-multierror"
 
+	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/http"
 )
 
@@ -38,7 +39,11 @@ const (
 	updateStatsRegex   = "^(cluster_manager\\.cds|listener_manager\\.lds)\\.(update_success|update_rejected)$"
 )
 
-var readinessTimeout = time.Second * 3 // Default Readiness timeout. It is set the same in helm charts.
+// readinessTimeout is the timeout for the HTTP requests issued against the Envoy admin
+// endpoint while probing readiness (both config-status and server-state checks). The default
+// is set the same in helm charts and can be overridden via the PROXY_READINESS_PROBE_TIMEOUT env var.
+var readinessTimeout = env.Register("PROXY_READINESS_PROBE_TIMEOUT", time.Second*3,
+	"The timeout for each HTTP request the readiness probe issues against the Envoy admin endpoint.").Get()
 
 type stat struct {
 	name  string
@@ -108,7 +113,8 @@ func GetUpdateStatusStats(localHostAddr string, adminPort uint16) (*Stats, error
 	}
 
 	hostPort := net.JoinHostPort(localHostAddr, strconv.Itoa(int(adminPort)))
-	stats, err := http.DoHTTPGet(fmt.Sprintf("http://%s/stats?usedonly&filter=%s", hostPort, updateStatsRegex))
+	updateURL := fmt.Sprintf("http://%s/stats?usedonly&filter=%s", hostPort, updateStatsRegex)
+	stats, err := http.DoHTTPGetWithTimeout(updateURL, readinessTimeout)
 	if err != nil {
 		return nil, err
 	}
