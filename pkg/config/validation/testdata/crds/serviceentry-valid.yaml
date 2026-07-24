@@ -35,7 +35,7 @@ spec:
   resolution: DNS
 ---
 # Weird case but we allow it
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: empty-selector
@@ -44,7 +44,7 @@ spec:
   hosts: ["example.com"]
 ---
 # Weird case but we allow it
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: partial-wildcard
@@ -52,7 +52,7 @@ spec:
   hosts: ["*x"]
 ---
 # Weird case but we allow it
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: none-cidr
