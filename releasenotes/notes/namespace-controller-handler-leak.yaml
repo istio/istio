@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+issue:
+- 60909
+releaseNotes:
+- |
+  **Fixed** an issue where the namespace controller leaked informer event handlers on every
+  leader election cycle: handlers were not removed when the controller was stopped while
+  waiting for its caches to sync, and the CRL ConfigMap handler was never removed at all.

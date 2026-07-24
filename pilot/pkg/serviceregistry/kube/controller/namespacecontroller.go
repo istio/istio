@@ -125,6 +125,17 @@ func NewNamespaceController(kubeClient kube.Client, caBundleWatcher *keycertbund
 
 // Run starts the NamespaceController until a value is sent to stopCh.
 func (nc *NamespaceController) Run(stopCh <-chan struct{}) {
+	// The informers are shared and keep running after this controller stops, so the event
+	// handlers registered in NewNamespaceController must be removed on every exit path.
+	// Otherwise, each leader election cycle leaks them.
+	defer func() {
+		shutdowners := []controllers.Shutdowner{nc.configmaps, nc.namespaces}
+		if nc.crlConfigmaps != nil {
+			shutdowners = append(shutdowners, nc.crlConfigmaps)
+		}
+		controllers.ShutdownAll(shutdowners...)
+	}()
+
 	if !kube.WaitForCacheSync("namespace controller", stopCh, nc.namespaces.HasSynced, nc.configmaps.HasSynced) {
 		nc.queue.ShutDownEarly()
 		return
@@ -132,7 +143,6 @@ func (nc *NamespaceController) Run(stopCh <-chan struct{}) {
 
 	go nc.startCaBundleWatcher(stopCh)
 	nc.queue.Run(stopCh)
-	controllers.ShutdownAll(nc.configmaps, nc.namespaces)
 }
 
 // startCaBundleWatcher listens for updates to the CA bundle and update cm in each namespace
