@@ -46,6 +46,16 @@ func GetCondition(conditions []metav1.Condition, condition string) metav1.Condit
 	return EmptyCondition
 }
 
+func RemoveCondition(conditions []metav1.Condition, condition string) []metav1.Condition {
+	idx := slices.IndexFunc(conditions, func(c metav1.Condition) bool {
+		return c.Type == condition
+	})
+	if idx == -1 {
+		return conditions
+	}
+	return append(conditions[:idx], conditions[idx+1:]...)
+}
+
 // UpdateConditionIfChanged updates a condition if it has been changed.
 func UpdateConditionIfChanged(conditions []metav1.Condition, condition metav1.Condition) []metav1.Condition {
 	ret := slices.Clone(conditions)

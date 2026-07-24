@@ -131,11 +131,6 @@ status:
     status: "False"
     type: Accepted
   - lastTransitionTime: fake
-    message: AllowInsecureFallback mode is disabled for frontend validation
-    reason: AllowInsecureFallbackNotConfigured
-    status: "False"
-    type: InsecureFrontendValidationMode
-  - lastTransitionTime: fake
     message: Failed to assign to any requested addresses
     reason: UnsupportedAddress
     status: "False"
@@ -163,11 +158,6 @@ status:
     reason: Accepted
     status: "True"
     type: Accepted
-  - lastTransitionTime: fake
-    message: AllowInsecureFallback mode is disabled for frontend validation
-    reason: AllowInsecureFallbackNotConfigured
-    status: "False"
-    type: InsecureFrontendValidationMode
   - lastTransitionTime: fake
     message: 'Assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:80,
       but failed to assign to all requested addresses: port 12345 not found for hostname
@@ -227,11 +217,6 @@ status:
     status: "True"
     type: Accepted
   - lastTransitionTime: fake
-    message: AllowInsecureFallback mode is disabled for frontend validation
-    reason: AllowInsecureFallbackNotConfigured
-    status: "False"
-    type: InsecureFrontendValidationMode
-  - lastTransitionTime: fake
     message: Resource programmed, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:80
     reason: Programmed
     status: "True"
@@ -288,11 +273,6 @@ status:
     status: "True"
     type: Accepted
   - lastTransitionTime: fake
-    message: AllowInsecureFallback mode is disabled for frontend validation
-    reason: AllowInsecureFallbackNotConfigured
-    status: "False"
-    type: InsecureFrontendValidationMode
-  - lastTransitionTime: fake
     message: Resource programmed, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:80
     reason: Programmed
     status: "True"
@@ -345,11 +325,6 @@ status:
     reason: Accepted
     status: "True"
     type: Accepted
-  - lastTransitionTime: fake
-    message: AllowInsecureFallback mode is disabled for frontend validation
-    reason: AllowInsecureFallbackNotConfigured
-    status: "False"
-    type: InsecureFrontendValidationMode
   - lastTransitionTime: fake
     message: 'Failed to assign to any requested addresses: port 15008 not found for
       hostname "istio-ingressgateway.istio-system.svc.domain.suffix"'
