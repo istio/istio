@@ -33,7 +33,10 @@ spec:
   http:
   - name: istio-system.backend-allowed-ip.0
     route:
-    - destination: {}
+    - destination:
+        host: my-ip-ip-03f70481.inferencepool.svc.domain.suffix
+        port:
+          number: 3000
 ---
 apiVersion: networking.istio.io/v1
 kind: VirtualService
@@ -51,7 +54,10 @@ spec:
   http:
   - name: istio-system.backend-not-allowed-ip.0
     route:
-    - destination: {}
+    - destination:
+        host: my-ip-ip-03f70481.inferencepool.svc.domain.suffix
+        port:
+          number: 3000
       weight: 1
     - destination: {}
       weight: 1

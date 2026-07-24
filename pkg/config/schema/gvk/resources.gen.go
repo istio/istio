@@ -89,6 +89,7 @@ var (
 	WorkloadGroup                  = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1", Kind: "WorkloadGroup"}
 	WorkloadGroup_v1alpha3         = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1alpha3", Kind: "WorkloadGroup"}
 	WorkloadGroup_v1beta1          = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1beta1", Kind: "WorkloadGroup"}
+	XBackend                       = config.GroupVersionKind{Group: "gateway.networking.x-k8s.io", Version: "v1alpha1", Kind: "XBackend"}
 	XBackendTrafficPolicy          = config.GroupVersionKind{Group: "gateway.networking.x-k8s.io", Version: "v1alpha1", Kind: "XBackendTrafficPolicy"}
 )
 
@@ -251,6 +252,8 @@ func ToGVR(g config.GroupVersionKind) (schema.GroupVersionResource, bool) {
 		return gvr.WorkloadGroup_v1alpha3, true
 	case WorkloadGroup_v1beta1:
 		return gvr.WorkloadGroup_v1beta1, true
+	case XBackend:
+		return gvr.XBackend, true
 	case XBackendTrafficPolicy:
 		return gvr.XBackendTrafficPolicy, true
 	}
@@ -360,6 +363,8 @@ func ToKind(g config.GroupVersionKind) (kind.Kind, bool) {
 		return kind.WorkloadEntry, true
 	case WorkloadGroup:
 		return kind.WorkloadGroup, true
+	case XBackend:
+		return kind.XBackend, true
 	case XBackendTrafficPolicy:
 		return kind.XBackendTrafficPolicy, true
 	}
@@ -488,6 +493,8 @@ func FromGVR(g schema.GroupVersionResource) (config.GroupVersionKind, bool) {
 		return WorkloadEntry, true
 	case gvr.WorkloadGroup:
 		return WorkloadGroup, true
+	case gvr.XBackend:
+		return XBackend, true
 	case gvr.XBackendTrafficPolicy:
 		return XBackendTrafficPolicy, true
 	}
@@ -607,6 +614,8 @@ func KebabKind(k string) string {
 		return "workload-entry"
 	case "WorkloadGroup":
 		return "workload-group"
+	case "XBackend":
+		return "x-backend"
 	case "XBackendTrafficPolicy":
 		return "x-backend-traffic-policy"
 	}

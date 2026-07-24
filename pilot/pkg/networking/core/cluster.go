@@ -324,6 +324,13 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 	cb := NewClusterBuilder(proxy, req, configgen.Cache)
 	instances := proxy.ServiceTargets
 	cacheStats := cacheStats{}
+	destinationProjections := projectWaypointOutboundDestinations(destinationBindingsForGatewayProxy(proxy, req.Push))
+	cb.destinationEndpoints = destinationProjectionEndpoints(destinationProjections)
+	if proxy.Type != model.Waypoint {
+		// Gateway and sidecar CDS may consume the same destination-only view.
+		// Consumer filtering above makes this a no-op for ordinary sidecars.
+		services = appendDestinationServices(services, destinationProjections)
+	}
 	switch proxy.Type {
 	case model.SidecarProxy:
 		// Setup outbound clusters
@@ -354,6 +361,9 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 		extraNamespacedHosts, extraHosts := req.Push.ExtraWaypointServices(proxy, envoyFilterPatches)
 		outboundServices := filterWaypointOutboundServices(
 			req.Push.ServicesAttachedToMesh(), wps.services, extraNamespacedHosts, extraHosts, services)
+		// A valid Gateway reference is itself sufficient to activate an opaque
+		// outbound destination for this waypoint. It is not an ambient frontend.
+		outboundServices = appendDestinationServices(outboundServices, destinationProjections)
 		// For E/W gateways that also expose non-HBONE ports via the Gateway API (e.g., TLS passthrough
 		// to the Kubernetes API server), include services referenced by those gateway servers.
 		if isAmbientEastWestGateway(proxy) && proxy.MergedGateway != nil {
@@ -533,9 +543,20 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 			var dnsWrappedLocalityLbEndpoints *loadbalancer.WrappedLocalityLbEndpoints
 			if clusterKey.endpointBuilder != nil {
 				// This is set only for DNS clusters.
-				lbEndpoints = clusterKey.endpointBuilder.FromServiceEndpoints()
+				key := model.NamespacedHostname{
+					Hostname:  service.Hostname,
+					Namespace: service.Attributes.Namespace,
+				}
+				if destinationEndpoints, found := cb.destinationEndpoints[key]; found {
+					lbEndpoints = clusterKey.endpointBuilder.FromEndpoints(destinationEndpoints)
+				} else {
+					lbEndpoints = clusterKey.endpointBuilder.FromServiceEndpoints()
+				}
 				if len(lbEndpoints) > 0 {
 					istioEndpoints := clusterKey.endpointBuilder.IstioEndpoints()
+					if destinationEndpoints, found := cb.destinationEndpoints[key]; found {
+						istioEndpoints = destinationEndpoints
+					}
 					dnsWrappedLocalityLbEndpoints = &loadbalancer.WrappedLocalityLbEndpoints{
 						IstioEndpoints: istioEndpoints,
 						// For DNS clusters, we only have one locality lb endpoint

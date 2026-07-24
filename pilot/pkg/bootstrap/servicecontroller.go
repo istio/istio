@@ -17,6 +17,7 @@ package bootstrap
 import (
 	"fmt"
 
+	"istio.io/istio/pilot/pkg/config/kube/gateway"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
@@ -45,6 +46,13 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 		serviceentry.WithKRTDebugger(s.krtDebugger),
 	)
 	serviceControllers.AddRegistry(s.serviceEntryController)
+	if gwc, ok := s.environment.GatewayAPIController.(*gateway.Controller); ok {
+		serviceEntrySources := s.serviceEntryController.DestinationSources()
+		gwc.InitializeGlobalDestinationIndex(gateway.DestinationSources{
+			Frontends: serviceEntrySources.Frontends, Definitions: serviceEntrySources.Definitions,
+			Bindings: serviceEntrySources.Bindings, Resolvers: serviceEntrySources.Resolvers,
+		})
+	}
 
 	registered := sets.New[provider.ID]()
 	for _, r := range args.RegistryOptions.Registries {

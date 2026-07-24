@@ -20,8 +20,10 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"k8s.io/apimachinery/pkg/types"
 
+	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/model/destination"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pilot/pkg/xds/endpoints"
@@ -30,6 +32,33 @@ import (
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
+
+type destinationRuntimeIndex interface {
+	ForRuntime(destination.ConsumerID, host.Name, int) (destination.ResolvedDestination, bool)
+}
+
+type destinationRuntimeProvider interface {
+	DestinationIndex() *destination.Index
+}
+
+func destinationForRuntime(proxy *model.Proxy, push *model.PushContext, hostname host.Name, port int) (destination.ResolvedDestination, bool) {
+	if push == nil || push.GatewayAPIController == nil {
+		return destination.ResolvedDestination{}, false
+	}
+	provider, ok := push.GatewayAPIController.(destinationRuntimeProvider)
+	if !ok || provider.DestinationIndex() == nil {
+		return destination.ResolvedDestination{}, false
+	}
+	consumer := destination.ConsumerID{Kind: "Mesh"}
+	if gatewayName := proxy.Labels[label.IoK8sNetworkingGatewayGatewayName.Name]; gatewayName != "" {
+		namespace := proxy.GetNamespace()
+		if namespace == "" {
+			namespace = proxy.ConfigNamespace
+		}
+		consumer = destination.ConsumerID{Kind: "Gateway", Namespace: namespace, Name: gatewayName}
+	}
+	return destinationRuntimeIndex(provider.DestinationIndex()).ForRuntime(consumer, hostname, port)
+}
 
 // SvcUpdate is a callback from service discovery when service info changes.
 func (s *DiscoveryServer) SvcUpdate(shard model.ShardKey, hostname string, namespace string, event model.Event) {
@@ -217,6 +246,23 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 
 		dir, subsetName, hostname, port := parseClusterName(clusterName, proxy)
 		svc := req.Push.ServiceForHostname(proxy, hostname)
+		if svc == nil && subsetName == "" {
+			if resolved, found := destinationForRuntime(proxy, req.Push, hostname, port); found {
+				var dr *model.ConsolidatedDestRule
+				if proxy.SidecarScope != nil {
+					dr = proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, hostname)
+				}
+				assignment := endpoints.BuildDestinationLoadAssignment(proxy, req.Push, clusterName, dir, subsetName, resolved, dr)
+				resources = append(resources, &discovery.Resource{
+					Name: clusterName, Resource: protoconv.MessageToAny(assignment),
+				})
+				regenerated++
+				if len(assignment.Endpoints) == 0 || len(assignment.Endpoints[0].LbEndpoints) == 0 {
+					empty++
+				}
+				continue
+			}
+		}
 
 		isSelfDiscoveryCluster := clusterName == util.SelfDiscoveryCluster
 		var dr *model.ConsolidatedDestRule

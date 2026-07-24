@@ -24,6 +24,8 @@ const (
 	Kubernetes ID = "Kubernetes"
 	// External is a service registry for externally provided ServiceEntries
 	External ID = "External"
+	// Destination is the shard owned by the source-neutral destination index.
+	Destination ID = "Destination"
 )
 
 func (id ID) String() string {

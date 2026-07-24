@@ -34,6 +34,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	k8s "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayx "sigs.k8s.io/gateway-api/apisx/v1alpha1"
@@ -1201,44 +1202,66 @@ func buildDestination(ctx RouteContext, to k8s.BackendRef, ns string,
 		}
 		inferencePoolServiceName, _ := InferencePoolServiceName(string(to.Name))
 		hostname := inferencePoolServiceName + "." + namespace + ".svc." + ctx.DomainSuffix
-		svc := ctx.LookupHostname(hostname, namespace)
-		if svc == nil {
-			invalidBackendErr = &ConfigError{Reason: InvalidDestinationNotFound, Message: fmt.Sprintf("backend(%s) not found", hostname)}
-			return &istio.Destination{}, nil, invalidBackendErr
-		}
-		if svc.Attributes.Labels == nil {
-			invalidBackendErr = &ConfigError{Reason: InvalidDestination, Message: "InferencePool service invalid, extensionRef labels not found"}
-			return &istio.Destination{}, nil, invalidBackendErr
-		}
-
 		ipCfg := &inferencePoolConfig{
-			enableExtProc: true,
+			enableExtProc:             true,
+			endpointPickerDst:         string(infPool.Spec.EndpointPickerRef.Name) + "." + infPool.Namespace + ".svc." + ctx.DomainSuffix,
+			endpointPickerFailureMode: string(infPool.Spec.EndpointPickerRef.FailureMode),
 		}
-		if dst, ok := svc.Attributes.Labels[InferencePoolExtensionRefSvc]; ok {
-			ipCfg.endpointPickerDst = dst + "." + infPool.Namespace + ".svc." + ctx.DomainSuffix
+		if infPool.Spec.EndpointPickerRef.Port != nil {
+			ipCfg.endpointPickerPort = strconv.Itoa(int(infPool.Spec.EndpointPickerRef.Port.Number))
 		}
-		if p, ok := svc.Attributes.Labels[InferencePoolExtensionRefPort]; ok {
-			ipCfg.endpointPickerPort = p
-		}
-		if fm, ok := svc.Attributes.Labels[InferencePoolExtensionRefFailureMode]; ok {
-			ipCfg.endpointPickerFailureMode = fm
+		if ipCfg.endpointPickerFailureMode == "" {
+			ipCfg.endpointPickerFailureMode = string(inferencev1.EndpointPickerFailClose)
 		}
 		if ipCfg.endpointPickerDst == "" || ipCfg.endpointPickerPort == "" || ipCfg.endpointPickerFailureMode == "" {
-			invalidBackendErr = &ConfigError{Reason: InvalidDestination, Message: "InferencePool service invalid, extensionRef labels not found"}
+			invalidBackendErr = &ConfigError{Reason: InvalidDestination, Message: "InferencePool endpointPickerRef is incomplete"}
 		}
 
-		// For InferencePool, always use the first service port (54321).
-		// The cluster for that service port will include all endpoints for all
-		// target ports, allowing the EPP to load-balance across them.
 		var destPort uint32
-		if len(svc.Ports) > 0 {
-			destPort = uint32(svc.Ports[0].Port)
+		if len(infPool.Spec.TargetPorts) > 0 {
+			destPort = uint32(infPool.Spec.TargetPorts[0].Number)
 		}
 
 		return &istio.Destination{
 			Host: hostname,
 			Port: &istio.PortSelector{Number: destPort},
 		}, ipCfg, invalidBackendErr
+	case gvk.XBackend:
+		if !enforceRefGrant {
+			return &istio.Destination{}, nil, &ConfigError{
+				Reason:  InvalidDestinationKind,
+				Message: "XBackend is currently supported only by Routes attached to a Gateway",
+			}
+		}
+		backend := ptr.Flatten(krt.FetchOne(ctx.Krt, ctx.XBackends, krt.FilterKey(namespace+"/"+string(to.Name))))
+		if backend == nil {
+			return &istio.Destination{}, nil, &ConfigError{
+				Reason:  InvalidDestinationNotFound,
+				Message: fmt.Sprintf("backend(%s/%s) not found", namespace, to.Name),
+			}
+		}
+		binding, err := compileBackendBinding(backend, types.NamespacedName{})
+		if err != nil {
+			return &istio.Destination{}, nil, &ConfigError{Reason: InvalidDestination, Message: err.Error()}
+		}
+		if backend.Spec.Protocol == nil {
+			if err := inheritBackendProtocol(binding, kind.FromString(k.Kind)); err != nil {
+				return &istio.Destination{}, nil, &ConfigError{Reason: InvalidDestination, Message: err.Error()}
+			}
+		}
+		if _, err := compileXBackendConnectionPolicy(ctx.Krt, *binding, ctx.References, ctx.Grants); err != nil {
+			return &istio.Destination{}, nil, &ConfigError{Reason: InvalidDestination, Message: err.Error()}
+		}
+		if to.Port != nil && uint32(*to.Port) != uint32(binding.Port.Port) {
+			return &istio.Destination{}, nil, &ConfigError{
+				Reason:  InvalidDestination,
+				Message: fmt.Sprintf("backendRef port %d does not match XBackend port %d", *to.Port, binding.Port.Port),
+			}
+		}
+		return &istio.Destination{
+			Host: string(binding.InternalName),
+			Port: &istio.PortSelector{Number: uint32(binding.Port.Port)},
+		}, nil, nil
 	default:
 		return &istio.Destination{}, nil, &ConfigError{
 			Reason:  InvalidDestinationKind,
@@ -2702,6 +2725,8 @@ func GetStatus[I, IS any](spec I) IS {
 	case *k8s.GatewayClass:
 		return any(t.Status).(IS)
 	case *gatewayx.XBackendTrafficPolicy:
+		return any(t.Status).(IS)
+	case *gatewayx.XBackend:
 		return any(t.Status).(IS)
 	case *k8s.BackendTLSPolicy:
 		return any(t.Status).(IS)
