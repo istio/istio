@@ -133,15 +133,15 @@ func TestParseInputs(t *testing.T) {
 	if varr, others, err := ParseInputs("---\n"); err != nil || len(varr) != 0 || len(others) != 0 {
 		t.Errorf(`ParseInput("---") => got %v, %v, %v`, varr, others, err)
 	}
-	if _, _, err := ParseInputs("apiVersion: networking.istio.io/v1alpha3\nkind: VirtualService\nspec:\n  destination: x"); err == nil {
+	if _, _, err := ParseInputs("apiVersion: networking.istio.io/v1\nkind: VirtualService\nspec:\n  destination: x"); err == nil {
 		t.Error("ParseInput(bad spec) => got no error")
 	}
-	if _, _, err := ParseInputs("apiVersion: networking.istio.io/v1alpha3\nkind: VirtualService\nspec:\n  destination:\n    service:"); err == nil {
+	if _, _, err := ParseInputs("apiVersion: networking.istio.io/v1\nkind: VirtualService\nspec:\n  destination:\n    service:"); err == nil {
 		t.Error("ParseInput(invalid spec) => got no error")
 	}
 
 	// nolint: lll
-	validInput := `{"apiVersion": "networking.istio.io/v1alpha3", "kind":"VirtualService", "spec":{"hosts":["foo"],"http":[{"route":[{"destination":{"host":"bar"},"weight":100}]}]}}`
+	validInput := `{"apiVersion": "networking.istio.io/v1", "kind":"VirtualService", "spec":{"hosts":["foo"],"http":[{"route":[{"destination":{"host":"bar"},"weight":100}]}]}}`
 	varr, _, err := ParseInputs(validInput)
 	if err != nil || len(varr) == 0 {
 		t.Errorf("ParseInputs(correct input) => got %v, %v", varr, err)

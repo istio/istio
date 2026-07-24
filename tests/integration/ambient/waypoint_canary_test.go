@@ -185,7 +185,7 @@ func TestWeightedWaypointIngressTrafficShift(t *testing.T) {
 		// Ingress gateway routing to Captured.
 		t.ConfigIstio().Eval(ns, map[string]string{
 			"Destination": apps.Captured.ServiceName(),
-		}, `apiVersion: networking.istio.io/v1alpha3
+		}, `apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: canary-ingress
@@ -199,7 +199,7 @@ spec:
       protocol: HTTP
     hosts: ["*"]
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: canary-ingress-route
