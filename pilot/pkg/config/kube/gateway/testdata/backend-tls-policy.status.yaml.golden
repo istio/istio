@@ -88,6 +88,99 @@ status:
 apiVersion: gateway.networking.k8s.io/v1
 kind: BackendTLSPolicy
 metadata:
+  name: grpc-backend-tls-policy
+  namespace: default
+spec: null
+status:
+  ancestors:
+  - ancestorRef:
+      group: ""
+      kind: Service
+      name: grpc-backend-tls
+      sectionName: btls
+    conditions:
+    - lastTransitionTime: fake
+      message: Configuration is valid
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: Configuration is valid
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/mesh-controller
+  - ancestorRef:
+      group: ""
+      kind: Service
+      name: grpc-backend-tls
+      sectionName: declared-grpc
+    conditions:
+    - lastTransitionTime: fake
+      message: Configuration is valid
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: Configuration is valid
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/mesh-controller
+  - ancestorRef:
+      group: ""
+      kind: Service
+      name: grpc-backend-tls
+      sectionName: other-tls
+    conditions:
+    - lastTransitionTime: fake
+      message: Configuration is valid
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: Configuration is valid
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/mesh-controller
+  - ancestorRef:
+      group: ""
+      kind: Service
+      name: grpc-backend-tls
+      sectionName: mirror-btls
+    conditions:
+    - lastTransitionTime: fake
+      message: Configuration is valid
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: Configuration is valid
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/mesh-controller
+  - ancestorRef:
+      group: gateway.networking.k8s.io
+      kind: Gateway
+      name: gateway
+    conditions:
+    - lastTransitionTime: fake
+      message: Configuration is valid
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: Configuration is valid
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
   name: malformed-configmap
   namespace: default
 spec: null
@@ -407,7 +500,7 @@ status:
     status: "True"
     type: ResolvedRefs
   listeners:
-  - attachedRoutes: 1
+  - attachedRoutes: 3
     conditions:
     - lastTransitionTime: fake
       message: No errors found
@@ -459,4 +552,68 @@ status:
     controllerName: istio.io/gateway-controller
     parentRef:
       name: gateway
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: GRPCRoute
+metadata:
+  name: grpc-backend-tls
+  namespace: istio-system
+spec: null
+status:
+  parents:
+  - conditions:
+    - lastTransitionTime: fake
+      message: Route was valid
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      name: gateway
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: GRPCRoute
+metadata:
+  name: grpc-backend-tls-denied
+  namespace: istio-system
+spec: null
+status:
+  parents:
+  - conditions:
+    - lastTransitionTime: fake
+      message: Route was valid
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: backendRef echo-https/default not accessible to a GRPCRoute in namespace
+        "istio-system" (missing a ReferenceGrant?)
+      reason: RefNotPermitted
+      status: "False"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      name: gateway
+  - conditions:
+    - lastTransitionTime: fake
+      message: Route was valid
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      group: ""
+      kind: Service
+      name: echo-https
+      namespace: default
 ---

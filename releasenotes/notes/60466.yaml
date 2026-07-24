@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 60466
+
+releaseNotes:
+  - |
+    **Fixed** Gateway API gateways to negotiate HTTP/2 with `GRPCRoute` backends that use a `BackendTLSPolicy` when the Kubernetes Service port does not declare an application protocol.

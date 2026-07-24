@@ -58,6 +58,22 @@ func (a AncestorBackend) ResourceName() string {
 	return a.Source.String() + "/" + a.Gateway.String() + "/" + a.Backend.String()
 }
 
+// ResolvedBackend identifies a backend that survived route attachment, reference grant,
+// backend validation, and weight filtering during route conversion.
+type ResolvedBackend struct {
+	Source  types.NamespacedName
+	Backend TypedNamespacedName
+	Port    uint32
+}
+
+func (r ResolvedBackend) Equals(other ResolvedBackend) bool {
+	return r.Source == other.Source && r.Backend == other.Backend && r.Port == other.Port
+}
+
+func (r ResolvedBackend) ResourceName() string {
+	return r.Source.String() + "/" + r.Backend.String() + "/" + strconv.FormatUint(uint64(r.Port), 10)
+}
+
 func HTTPRouteCollection(
 	httpRoutes krt.Collection[*gatewayv1.HTTPRoute],
 	inputs RouteContextInputs,
@@ -427,6 +443,56 @@ func GRPCRouteCollection(
 		return status, virtualServices
 	}, opts.WithName("GRPCRoute")...)
 
+	resolvedBackends := krt.NewManyCollection(baseVirtualServices, func(ctx krt.HandlerContext, route RouteWithKey) []ResolvedBackend {
+		vs := route.Spec.(*istio.VirtualService)
+		if slices.Contains(vs.Gateways, constants.IstioMeshGateway) {
+			return nil
+		}
+		serviceSuffix := ".svc." + inputs.DomainSuffix
+		seen := sets.New[string]()
+		res := []ResolvedBackend{}
+		addDestination := func(destination *istio.Destination) {
+			if destination == nil || destination.GetPort().GetNumber() == 0 || !strings.HasSuffix(destination.Host, serviceSuffix) {
+				return
+			}
+			nameAndNamespace := strings.TrimSuffix(destination.Host, serviceSuffix)
+			parts := strings.Split(nameAndNamespace, ".")
+			if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+				return
+			}
+			backend := TypedNamespacedName{
+				NamespacedName: types.NamespacedName{Namespace: parts[1], Name: parts[0]},
+				Kind:           kind.Service,
+			}
+			port := destination.GetPort().GetNumber()
+			service := ptr.Flatten(krt.FetchOne(ctx, inputs.Services, krt.FilterKey(backend.NamespacedName.String())))
+			if service == nil || !slices.ContainsFunc(service.Spec.Ports, func(servicePort corev1.ServicePort) bool {
+				return uint32(servicePort.Port) == port
+			}) {
+				return
+			}
+			key := backend.String() + "/" + strconv.FormatUint(uint64(port), 10)
+			if seen.InsertContains(key) {
+				return
+			}
+			res = append(res, ResolvedBackend{
+				Source:  config.NamespacedName(route.Config),
+				Backend: backend,
+				Port:    port,
+			})
+		}
+		for _, httpRoute := range vs.Http {
+			for _, routeDestination := range httpRoute.Route {
+				addDestination(routeDestination.GetDestination())
+			}
+			addDestination(httpRoute.Mirror)
+			for _, mirror := range httpRoute.Mirrors {
+				addDestination(mirror.GetDestination())
+			}
+		}
+		return res
+	}, opts.WithName("ResolvedGRPCBackends")...)
+
 	finalVirtualServices := mergeHTTPRoutes(baseVirtualServices, opts.WithName("GRPCRouteMerged")...)
 	return RouteResult[*gatewayv1.GRPCRoute, gatewayv1.GRPCRouteStatus]{
 		VirtualServices:     finalVirtualServices,
@@ -434,6 +500,7 @@ func GRPCRouteCollection(
 		RouteAttachments:    routeCount,
 		Status:              status,
 		Ancestors:           ancestorBackends,
+		ResolvedBackends:    resolvedBackends,
 	}
 }
 
@@ -753,6 +820,8 @@ type RouteResult[I controllers.Object, IStatus any] struct {
 	Status krt.StatusCollection[I, IStatus]
 	// Ancestors stores information about Gateway --> Backend references
 	Ancestors krt.Collection[AncestorBackend]
+	// ResolvedBackends stores accepted and resolved route backends after conversion.
+	ResolvedBackends krt.Collection[ResolvedBackend]
 }
 
 type RouteAttachment struct {
