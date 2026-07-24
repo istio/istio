@@ -16,7 +16,9 @@ package ambient
 
 import (
 	"net/netip"
+	"reflect"
 	"testing"
+	"time"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,6 +33,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh/meshwatcher"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/kube/krt/krttest"
 	"istio.io/istio/pkg/ptr"
@@ -966,6 +969,42 @@ func TestServiceEntryServices(t *testing.T) {
 			assert.Equal(t, res, tt.result)
 		})
 	}
+}
+
+// Test_setCanonical asserts setCanonical propagates every ServiceInfo field to the canonical
+// copy. The reflection check keeps the fixture fully populated as fields are added; without it a
+// new field would default to zero and the equality below would pass without covering it. The
+// input is a fixed point of setCanonical: Canonical is already true and the marshaled address is
+// precomputed, so output must equal input exactly.
+func Test_setCanonical(t *testing.T) {
+	svc := &workloadapi.Service{
+		Name:      "name",
+		Namespace: "ns",
+		Hostname:  "host.example.com",
+		Canonical: true,
+	}
+	ai := model.NewAddressInfo(serviceToAddress(svc))
+	se := model.ServiceInfo{
+		Service:            svc,
+		LabelSelector:      model.LabelSelector{Labels: map[string]string{"app": "a"}},
+		PortNames:          map[int32]model.ServicePortName{80: {PortName: "http"}},
+		Source:             model.TypedObject{Kind: kind.ServiceEntry},
+		Scope:              model.Local,
+		Waypoint:           model.WaypointBindingStatus{ResourceName: "ns/waypoint"},
+		MarshaledAddress:   ai.Marshaled,
+		AsAddress:          ai,
+		DNSConnectStrategy: model.DNSConnectStrategyRaceFirstTCPConnect,
+		CreationTime:       time.Now(),
+	}
+	rv := reflect.ValueOf(se)
+	rt := rv.Type()
+	for i := range rv.NumField() {
+		if rv.Field(i).IsZero() {
+			t.Errorf("field %q must be non-zero so this test covers it", rt.Field(i).Name)
+		}
+	}
+	seCopy := setCanonical(se)
+	assert.Equal(t, &se, &seCopy)
 }
 
 func TestServiceServices(t *testing.T) {
