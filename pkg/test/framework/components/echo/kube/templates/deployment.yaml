@@ -52,6 +52,9 @@ spec:
         proxy.istio.io/config: '{"holdApplicationUntilProxyStarts": true}'
 {{- end }}
     spec:
+{{- if and (ne $.AmbientPodRuntimeClass "") (not $.ProxylessGRPC) (not $.HasSidecar) }}
+      runtimeClassName: {{ $.AmbientPodRuntimeClass }}
+{{- end }}
 {{- if $.Ambient }}
       topologySpreadConstraints:
       - topologyKey: "kubernetes.io/hostname"
@@ -103,6 +106,12 @@ spec:
         image: {{ $.ImageHub }}/app:{{ $.ImageTag }}
 {{- end }}
         imagePullPolicy: {{ $.ImagePullPolicy }}
+        # Give WDS some time to catch up.
+        # See https://github.com/istio/istio/issues/58514
+        lifecycle:
+          preStop:
+            sleep:
+              seconds: 2
         args:
 {{- if $appContainer.FallbackPort }}
           - --forwarding_address=0.0.0.0:{{ $appContainer.FallbackPort }}
