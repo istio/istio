@@ -37,6 +37,7 @@ import (
 	istiogrpc "istio.io/istio/pilot/pkg/grpc"
 	"istio.io/istio/pkg/channels"
 	"istio.io/istio/pkg/config/constants"
+	dnsClient "istio.io/istio/pkg/dns/client"
 	dnsProto "istio.io/istio/pkg/dns/proto"
 	"istio.io/istio/pkg/istio-agent/health"
 	"istio.io/istio/pkg/istio-agent/metrics"
@@ -68,6 +69,15 @@ var connectionNumber = atomic.NewUint32(0)
 // resource.
 type ResponseHandler func(resp *anypb.Any) error
 
+// DeltaHandler handles delta XDS responses for a specific type URL.
+type DeltaHandler interface {
+	// Handle processes the resources and removed names from a delta response.
+	Handle(resources []*discovery.Resource, removed []string) error
+	// OnStreamStart is called when a new upstream delta stream is established.
+	// Implementations should use this to reset any stream-scoped state.
+	OnStreamStart()
+}
+
 // XdsProxy proxies all XDS requests from envoy to istiod, in addition to allowing
 // subsystems inside the agent to also communicate with either istiod/envoy (eg dns, sds, etc).
 // The goal here is to consolidate all xds related connections to istiod/envoy into a
@@ -84,6 +94,7 @@ type XdsProxy struct {
 	optsMutex            sync.RWMutex
 	dialOptions          []grpc.DialOption
 	handlers             map[string]ResponseHandler
+	deltaHandlers        map[string]DeltaHandler
 	healthChecker        *health.WorkloadHealthChecker
 	xdsHeaders           map[string]string
 	xdsUdsPath           string
@@ -138,6 +149,7 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		istiodSAN:             ia.cfg.IstiodSAN,
 		clusterID:             ia.secOpts.ClusterID,
 		handlers:              map[string]ResponseHandler{},
+		deltaHandlers:         map[string]DeltaHandler{},
 		stopChan:              make(chan struct{}),
 		healthChecker:         health.NewWorkloadHealthChecker(ia.proxyConfig.ReadinessProbe, envoyProbe, ia.cfg.ProxyIPAddresses, ia.cfg.IsIPv6),
 		xdsHeaders:            ia.cfg.XDSHeaders,
@@ -152,12 +164,12 @@ func initXdsProxy(ia *Agent) (*XdsProxy, error) {
 		proxy.handlers[model.NameTableType] = func(resp *anypb.Any) error {
 			var nt dnsProto.NameTable
 			if err := resp.UnmarshalTo(&nt); err != nil {
-				log.Errorf("failed to unmarshal name table: %v", err)
 				return err
 			}
-			ia.localDNSServer.UpdateLookupTable(&nt)
+			ia.localDNSServer.Rebuild(nt.GetTable())
 			return nil
 		}
+		proxy.deltaHandlers[model.NameTableType] = &ndsDeltaHandler{dnsServer: ia.localDNSServer}
 	}
 	if ia.cfg.EnableDynamicProxyConfig && ia.secretCache != nil {
 		proxy.handlers[model.ProxyConfigType] = func(resp *anypb.Any) error {
@@ -588,6 +600,54 @@ func (p *XdsProxy) close() {
 	if p.downstreamListener != nil {
 		_ = p.downstreamListener.Close()
 	}
+}
+
+// ndsDeltaHandler implements DeltaHandler for the Name Discovery Service. It handles both the
+// full-table format (unnamed single resource from old/incapable istiod) and the per-hostname
+// incremental format. Stream-scoped state (needsRebuild) is reset via OnStreamStart so that
+// stale entries from a previous connection are purged on the first response.
+type ndsDeltaHandler struct {
+	dnsServer    *dnsClient.LocalDNSServer
+	needsRebuild bool
+	mu           sync.Mutex
+}
+
+func (h *ndsDeltaHandler) OnStreamStart() {
+	h.mu.Lock()
+	h.needsRebuild = true
+	h.mu.Unlock()
+}
+
+func (h *ndsDeltaHandler) Handle(resources []*discovery.Resource, removed []string) error {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if len(resources) > 0 && resources[0].Name == "" {
+		// Full-table resource from old/incapable istiod: single resource contains the whole table.
+		var nt dnsProto.NameTable
+		if err := resources[0].Resource.UnmarshalTo(&nt); err != nil {
+			return err
+		}
+		h.dnsServer.Rebuild(nt.GetTable())
+		h.needsRebuild = false
+		return nil
+	}
+
+	added := make(map[string]*dnsProto.NameTable_NameInfo, len(resources))
+	for _, r := range resources {
+		var nt dnsProto.NameTable
+		if err := r.Resource.UnmarshalTo(&nt); err != nil {
+			return err
+		}
+		added[r.Name] = nt.NameInfo
+	}
+
+	if h.needsRebuild {
+		h.dnsServer.Rebuild(added)
+		h.needsRebuild = false
+	} else {
+		h.dnsServer.UpdateLookupTable(added, removed)
+	}
+	return nil
 }
 
 func (p *XdsProxy) initDownstreamServer() error {

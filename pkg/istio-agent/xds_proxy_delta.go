@@ -145,7 +145,7 @@ func (p *XdsProxy) handleUpstreamDeltaRequest(con *ProxyConnection) {
 			con.sendDeltaRequest(req)
 			if !initialRequestsSent.Load() && req.TypeUrl == model.ListenerType {
 				// fire off an initial NDS request
-				if _, f := p.handlers[model.NameTableType]; f {
+				if _, f := p.deltaHandlers[model.NameTableType]; f {
 					con.sendDeltaRequest(&discovery.DeltaDiscoveryRequest{
 						TypeUrl: model.NameTableType,
 					})
@@ -204,6 +204,9 @@ func (p *XdsProxy) handleUpstreamDeltaRequest(con *ProxyConnection) {
 }
 
 func (p *XdsProxy) handleUpstreamDeltaResponse(con *ProxyConnection) {
+	for _, h := range p.deltaHandlers {
+		h.OnStreamStart()
+	}
 	forwardEnvoyCh := make(chan *discovery.DeltaDiscoveryResponse, 1)
 	for {
 		select {
@@ -217,6 +220,24 @@ func (p *XdsProxy) handleUpstreamDeltaResponse(con *ProxyConnection) {
 				"removes", len(resp.RemovedResources),
 			).Debugf("upstream response")
 			metrics.XdsProxyResponses.Increment()
+			// first check if we have a true delta handler for this TypeUrl
+			if h, f := p.deltaHandlers[resp.TypeUrl]; f {
+				err := h.Handle(resp.Resources, resp.RemovedResources)
+				var errorResp *google_rpc.Status
+				if err != nil {
+					errorResp = &google_rpc.Status{
+						Code:    int32(codes.Internal),
+						Message: err.Error(),
+					}
+				}
+				con.sendDeltaRequest(&discovery.DeltaDiscoveryRequest{
+					TypeUrl:       resp.TypeUrl,
+					ResponseNonce: resp.Nonce,
+					ErrorDetail:   errorResp,
+				})
+				continue
+			}
+			// fall back to stow handlers
 			if h, f := p.handlers[resp.TypeUrl]; f {
 				if len(resp.Resources) == 0 {
 					// Empty response, nothing to do

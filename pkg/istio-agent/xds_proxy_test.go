@@ -49,6 +49,8 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/gvk"
+	dnsClient "istio.io/istio/pkg/dns/client"
+	dnsProto "istio.io/istio/pkg/dns/proto"
 	"istio.io/istio/pkg/envoy"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/test"
@@ -611,4 +613,136 @@ func setupDownstreamConnectionUDS(t test.Failer, path string) *grpc.ClientConn {
 
 func setupDownstreamConnection(t *testing.T, proxy *XdsProxy) *grpc.ClientConn {
 	return setupDownstreamConnectionUDS(t, proxy.xdsUdsPath)
+}
+
+func TestNDSDeltaHandler(t *testing.T) {
+	makeResource := func(name string, ips ...string) *discovery.Resource {
+		ni := &dnsProto.NameTable_NameInfo{Ips: ips, Registry: "Kubernetes"}
+		var nt *dnsProto.NameTable
+		if name == "" {
+			// unnamed = full-table resource (old istiod format)
+			nt = &dnsProto.NameTable{Table: map[string]*dnsProto.NameTable_NameInfo{
+				"svc-a.default.svc.cluster.local": ni,
+			}}
+		} else {
+			// named per-host resource carries attributes in the single-valued NameInfo field.
+			nt = &dnsProto.NameTable{NameInfo: ni}
+		}
+		return &discovery.Resource{Name: name, Resource: protoconv.MessageToAny(nt)}
+	}
+
+	newDNSServer := func(t *testing.T) *dnsClient.LocalDNSServer {
+		t.Helper()
+		srv, err := dnsClient.NewLocalDNSServer("default", "default.svc.cluster.local", "localhost:0")
+		if err != nil {
+			t.Fatal(err)
+		}
+		return srv
+	}
+
+	t.Run("OnStreamStart marks rebuild needed; first Handle calls Rebuild", func(t *testing.T) {
+		srv := newDNSServer(t)
+		h := &ndsDeltaHandler{dnsServer: srv}
+
+		h.OnStreamStart()
+		if err := h.Handle([]*discovery.Resource{
+			makeResource("svc-a.default.svc.cluster.local", "10.0.0.1"),
+		}, nil); err != nil {
+			t.Fatal(err)
+		}
+		if srv.NameTable() == nil || srv.NameTable().Table["svc-a.default.svc.cluster.local"] == nil {
+			t.Error("expected svc-a after first Handle post-OnStreamStart")
+		}
+	})
+
+	t.Run("subsequent Handle calls are incremental", func(t *testing.T) {
+		srv := newDNSServer(t)
+		h := &ndsDeltaHandler{dnsServer: srv}
+
+		h.OnStreamStart()
+		_ = h.Handle([]*discovery.Resource{makeResource("svc-a.default.svc.cluster.local", "10.0.0.1")}, nil)
+
+		// Second call should be incremental (no rebuild needed flag), adding svc-b without losing svc-a.
+		_ = h.Handle([]*discovery.Resource{makeResource("svc-b.default.svc.cluster.local", "10.0.0.2")}, nil)
+
+		nt := srv.NameTable()
+		if nt.Table["svc-a.default.svc.cluster.local"] == nil {
+			t.Error("svc-a should survive an incremental push")
+		}
+		if nt.Table["svc-b.default.svc.cluster.local"] == nil {
+			t.Error("svc-b should be present after incremental push")
+		}
+	})
+
+	t.Run("removals are applied incrementally", func(t *testing.T) {
+		srv := newDNSServer(t)
+		h := &ndsDeltaHandler{dnsServer: srv}
+
+		h.OnStreamStart()
+		_ = h.Handle([]*discovery.Resource{
+			makeResource("svc-a.default.svc.cluster.local", "10.0.0.1"),
+			makeResource("svc-b.default.svc.cluster.local", "10.0.0.2"),
+		}, nil)
+		_ = h.Handle(nil, []string{"svc-a.default.svc.cluster.local"})
+
+		nt := srv.NameTable()
+		if nt.Table["svc-a.default.svc.cluster.local"] != nil {
+			t.Error("svc-a should have been removed")
+		}
+		if nt.Table["svc-b.default.svc.cluster.local"] == nil {
+			t.Error("svc-b should still be present after removing svc-a")
+		}
+	})
+
+	t.Run("unnamed resource triggers Rebuild (old istiod compat)", func(t *testing.T) {
+		srv := newDNSServer(t)
+		h := &ndsDeltaHandler{dnsServer: srv}
+
+		// Seed svc-a via a normal incremental push.
+		h.OnStreamStart()
+		_ = h.Handle([]*discovery.Resource{makeResource("svc-a.default.svc.cluster.local", "10.0.0.1")}, nil)
+
+		// Unnamed resource = full table from old istiod containing only svc-b; must replace svc-a.
+		unnamedResource := func() *discovery.Resource {
+			nt := &dnsProto.NameTable{Table: map[string]*dnsProto.NameTable_NameInfo{
+				"svc-b.default.svc.cluster.local": {Ips: []string{"10.0.0.2"}, Registry: "Kubernetes"},
+			}}
+			return &discovery.Resource{Name: "", Resource: protoconv.MessageToAny(nt)}
+		}
+		_ = h.Handle([]*discovery.Resource{unnamedResource()}, nil)
+
+		nt := srv.NameTable()
+		if nt.Table["svc-a.default.svc.cluster.local"] != nil {
+			t.Error("svc-a should be gone after full-table replace from unnamed resource")
+		}
+		if nt.Table["svc-b.default.svc.cluster.local"] == nil {
+			t.Error("svc-b from the unnamed full-table resource should be present")
+		}
+	})
+
+	t.Run("OnStreamStart followed by reconnect rebuild purges stale entries", func(t *testing.T) {
+		srv := newDNSServer(t)
+		h := &ndsDeltaHandler{dnsServer: srv}
+
+		// First stream: load svc-a and svc-b.
+		h.OnStreamStart()
+		_ = h.Handle([]*discovery.Resource{
+			makeResource("svc-a.default.svc.cluster.local", "10.0.0.1"),
+			makeResource("svc-b.default.svc.cluster.local", "10.0.0.2"),
+		}, nil)
+
+		// Reconnect: svc-b is gone from istiod (deleted between streams).
+		h.OnStreamStart()
+		_ = h.Handle([]*discovery.Resource{
+			makeResource("svc-a.default.svc.cluster.local", "10.0.0.1"),
+		}, nil)
+
+		nt := srv.NameTable()
+		if nt.Table["svc-b.default.svc.cluster.local"] != nil {
+			t.Error("svc-b was deleted between reconnects and must not survive OnStreamStart + Rebuild")
+		}
+		if nt.Table["svc-a.default.svc.cluster.local"] == nil {
+			t.Error("svc-a should still be present after reconnect")
+		}
+	})
 }

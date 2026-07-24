@@ -117,6 +117,14 @@ func TestGetNodeMetaData(t *testing.T) {
 	g.Expect(node.Metadata.Labels[model.LocalityLabel]).To(Equal("region/zone/subzone"))
 }
 
+func TestGetNodeMetaDataDeltaNDS(t *testing.T) {
+	t.Setenv(IstioMetaPrefix+"DELTA_NDS", "true")
+	node, err := GetNodeMetaData(MetadataOptions{ID: "test", Envs: os.Environ()})
+	g := NewWithT(t)
+	g.Expect(err).Should(BeNil())
+	g.Expect(node.Metadata.DeltaNDS).To(Equal(model.StringBool(true)))
+}
+
 func TestGetNodeMetaDataSecureMetricsPorts(t *testing.T) {
 	node, err := GetNodeMetaData(MetadataOptions{
 		ID:                           "test",

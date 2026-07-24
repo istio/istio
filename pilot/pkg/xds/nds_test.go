@@ -14,6 +14,7 @@
 package xds_test
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -26,10 +27,16 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
+	pkgxds "istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schema/kind"
 	dnsProto "istio.io/istio/pkg/dns/proto"
+	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -109,6 +116,343 @@ func TestNDS(t *testing.T) {
 			}
 		})
 	}
+}
+
+// ndsTableFromDeltaResponse merges a set of per-host delta resources into a single NameTable,
+// applying removals. This mirrors what the agent accumulates client-side.
+func ndsTableFromDeltaResponse(t *testing.T, resp *discovery.DeltaDiscoveryResponse) *dnsProto.NameTable {
+	t.Helper()
+	nt := &dnsProto.NameTable{Table: map[string]*dnsProto.NameTable_NameInfo{}}
+	for _, r := range resp.Resources {
+		var entry dnsProto.NameTable
+		if err := r.Resource.UnmarshalTo(&entry); err != nil {
+			t.Fatalf("failed to unmarshal NDS resource %q: %v", r.Name, err)
+		}
+		// Per-host delta resources carry the hostname in Resource.Name and the attributes in NameInfo.
+		nt.Table[r.Name] = entry.GetNameInfo()
+	}
+	for _, name := range resp.RemovedResources {
+		delete(nt.Table, name)
+	}
+	return nt
+}
+
+// connectDeltaNDS sets up a delta ADS connection subscribed to NDS with DeltaNDS capability set.
+func connectDeltaNDS(t *testing.T, s *xds.FakeDiscoveryServer) *pkgxds.DeltaAdsTest {
+	t.Helper()
+	ads := s.ConnectDeltaADS().WithType(v3.NameTableType).WithMetadata(model.NodeMetadata{
+		DNSCapture: true,
+		DeltaNDS:   true,
+	})
+	return ads
+}
+
+// The delta NDS tests all run in a single namespace against a single headless service, so these
+// are fixed constants rather than helper parameters (avoids unparam churn on the helpers below).
+const (
+	ns          = "default"
+	headlessSvc = "svc-h"
+)
+
+// addClusterIPService registers a ClusterIP service in the mem registry and fires a push.
+func addClusterIPService(s *xds.FakeDiscoveryServer, name, ip string) {
+	h := host.Name(fmt.Sprintf("%s.%s.svc.cluster.local", name, ns))
+	s.MemRegistry.AddService(&model.Service{
+		Hostname:       h,
+		DefaultAddress: ip,
+		Ports:          []*model.Port{{Name: "http", Port: 80, Protocol: protocol.HTTP}},
+		Attributes: model.ServiceAttributes{
+			Namespace: ns,
+			Name:      name,
+		},
+	})
+}
+
+// removeService signals a service deletion push for the given hostname.
+func removeService(s *xds.FakeDiscoveryServer, name string) {
+	h := host.Name(fmt.Sprintf("%s.%s.svc.cluster.local", name, ns))
+	s.MemRegistry.RemoveService(h)
+}
+
+// addHeadlessService registers the headless (Passthrough) service and fires a push.
+func addHeadlessService(s *xds.FakeDiscoveryServer) {
+	h := host.Name(fmt.Sprintf("%s.%s.svc.cluster.local", headlessSvc, ns))
+	s.MemRegistry.AddService(&model.Service{
+		Hostname:       h,
+		DefaultAddress: constants.UnspecifiedIP,
+		Resolution:     model.Passthrough,
+		Ports:          []*model.Port{{Name: "http", Port: 80, Protocol: protocol.HTTP}},
+		Attributes:     model.ServiceAttributes{Namespace: ns, Name: headlessSvc},
+	})
+}
+
+// addHeadlessPod adds a pod endpoint to the headless service and fires a push. The pod gets a
+// per-pod DNS entry <podName>.<headlessSvc>.<ns>.svc.cluster.local.
+func addHeadlessPod(s *xds.FakeDiscoveryServer, podName, ip string) {
+	h := host.Name(fmt.Sprintf("%s.%s.svc.cluster.local", headlessSvc, ns))
+	s.MemRegistry.AddInstance(&model.ServiceInstance{
+		Service: &model.Service{Hostname: h},
+		Endpoint: &model.IstioEndpoint{
+			Addresses:       []string{ip},
+			ServicePortName: "http",
+			EndpointPort:    80,
+			HostName:        podName,
+			SubDomain:       headlessSvc,
+			HealthStatus:    model.Healthy,
+		},
+		ServicePort: &model.Port{Name: "http", Port: 80, Protocol: protocol.HTTP},
+	})
+	s.Discovery.ConfigUpdate(&model.PushRequest{
+		ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.DNSName, Name: string(h), Namespace: ns}),
+	})
+}
+
+// removeAllHeadlessPods clears all endpoints from the headless service. With no endpoints the
+// service record itself also disappears from the name table, so RemovedResources will contain
+// the service hostname plus all per-pod hostnames that were previously tracked.
+func removeAllHeadlessPods(s *xds.FakeDiscoveryServer) {
+	h := host.Name(fmt.Sprintf("%s.%s.svc.cluster.local", headlessSvc, ns))
+	s.MemRegistry.SetEndpoints(string(h), ns, nil)
+	s.Discovery.ConfigUpdate(&model.PushRequest{
+		ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.DNSName, Name: string(h), Namespace: ns}),
+	})
+}
+
+// setHeadlessPods replaces the full endpoint set of the headless service with one endpoint per
+// entry in pods (podName->ip) and fires a DNSName push. Used to model headless scale up/down,
+// where the service record and surviving pods stay but a departed pod's per-pod record must go.
+func setHeadlessPods(s *xds.FakeDiscoveryServer, pods map[string]string) {
+	h := host.Name(fmt.Sprintf("%s.%s.svc.cluster.local", headlessSvc, ns))
+	eps := make([]*model.IstioEndpoint, 0, len(pods))
+	for podName, ip := range pods {
+		eps = append(eps, &model.IstioEndpoint{
+			Addresses:       []string{ip},
+			ServicePortName: "http",
+			EndpointPort:    80,
+			HostName:        podName,
+			SubDomain:       headlessSvc,
+			HealthStatus:    model.Healthy,
+		})
+	}
+	s.MemRegistry.SetEndpoints(string(h), ns, eps)
+	s.Discovery.ConfigUpdate(&model.PushRequest{
+		ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.DNSName, Name: string(h), Namespace: ns}),
+	})
+}
+
+// perPodHostname returns the expected per-pod DNS name for a headless service pod.
+func perPodHostname(podName string) string {
+	return fmt.Sprintf("%s.%s.%s.svc.cluster.local", podName, headlessSvc, ns)
+}
+
+func TestNDSDelta(t *testing.T) {
+	t.Run("initial full push returns per-host resources including headless per-pod entries", func(t *testing.T) {
+		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+		addClusterIPService(s, "svc-a", "10.0.0.1")
+		addHeadlessService(s)
+		addHeadlessPod(s, "pod-0", "10.1.0.1")
+		addHeadlessPod(s, "pod-1", "10.1.0.2")
+		s.EnsureSynced(t)
+
+		ads := connectDeltaNDS(t, s)
+		resp := ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{})
+
+		if len(resp.Resources) == 0 {
+			t.Fatal("expected per-host resources, got none")
+		}
+		if resp.Resources[0].Name == "" {
+			t.Fatal("expected named per-host resources, got unnamed full-table resource")
+		}
+		table := ndsTableFromDeltaResponse(t, resp)
+		expectedHosts := []string{
+			fmt.Sprintf("svc-a.%s.svc.cluster.local", ns),
+			fmt.Sprintf("svc-h.%s.svc.cluster.local", ns),
+			perPodHostname("pod-0"),
+			perPodHostname("pod-1"),
+		}
+		if len(expectedHosts) != len(table.Table) {
+			t.Errorf("expected %d entries in push table, got: %d", len(expectedHosts), len(table.Table))
+		}
+		for _, expected := range expectedHosts {
+			if _, ok := table.Table[expected]; !ok {
+				t.Errorf("expected %q in initial push table, got: %v", expected, maps.Keys(table.Table))
+			}
+		}
+	})
+
+	t.Run("incapable agent receives unnamed full-table resource", func(t *testing.T) {
+		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+		addClusterIPService(s, "svc-a", "10.0.0.1")
+		s.EnsureSynced(t)
+
+		// No DeltaNDS metadata — old agent.
+		ads := s.ConnectDeltaADS().WithType(v3.NameTableType).WithMetadata(model.NodeMetadata{DNSCapture: true})
+		resp := ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{})
+
+		if len(resp.Resources) != 1 {
+			t.Fatalf("expected 1 resource, got %d", len(resp.Resources))
+		}
+		if resp.Resources[0].Name != "" {
+			t.Errorf("expected unnamed full-table resource, got Name=%q", resp.Resources[0].Name)
+		}
+	})
+
+	t.Run("service add sends only the new hostname", func(t *testing.T) {
+		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+		addClusterIPService(s, "svc-a", "10.0.0.1")
+		addHeadlessService(s)
+		addHeadlessPod(s, "pod-0", "10.1.0.1")
+		s.EnsureSynced(t)
+
+		ads := connectDeltaNDS(t, s)
+		ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{}) // consume initial push
+
+		// Adding a new ClusterIP service should only send that service's hostname.
+		addClusterIPService(s, "svc-b", "10.0.0.2")
+		resp := ads.ExpectResponse()
+		hB := fmt.Sprintf("svc-b.%s.svc.cluster.local", ns)
+		if len(resp.Resources) != 1 || resp.Resources[0].Name != hB {
+			t.Errorf("expected only %q in delta, got resources: %v", hB, slices.Map(resp.Resources, func(r *discovery.Resource) string { return r.Name }))
+		}
+
+		// Adding a pod to the headless service should send the service record and the new per-pod entry.
+		addHeadlessPod(s, "pod-1", "10.1.0.2")
+		resp = ads.ExpectResponse()
+		addedNames := sets.New(slices.Map(resp.Resources, func(r *discovery.Resource) string { return r.Name })...)
+		if !addedNames.Contains(perPodHostname("pod-1")) {
+			t.Errorf("expected per-pod hostname %q in delta, got: %v", perPodHostname("pod-1"), addedNames)
+		}
+		// svc-a and svc-b must not appear (they were not changed).
+		for _, unchanged := range []string{
+			fmt.Sprintf("svc-a.%s.svc.cluster.local", ns),
+			fmt.Sprintf("svc-b.%s.svc.cluster.local", ns),
+		} {
+			if addedNames.Contains(unchanged) {
+				t.Errorf("%q should not be in an incremental push for svc-h pod", unchanged)
+			}
+		}
+	})
+
+	t.Run("service IP change sends updated entry", func(t *testing.T) {
+		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+		addClusterIPService(s, "svc-a", "10.0.0.1")
+		s.EnsureSynced(t)
+
+		ads := connectDeltaNDS(t, s)
+		ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{})
+
+		addClusterIPService(s, "svc-a", "10.0.0.99")
+		resp := ads.ExpectResponse()
+
+		table := ndsTableFromDeltaResponse(t, resp)
+		if len(resp.Resources) != 1 {
+			t.Fatalf("expected 1 resource, got %d", len(resp.Resources))
+		}
+		h := fmt.Sprintf("svc-a.%s.svc.cluster.local", ns)
+		if found, ok := table.Table[h]; ok {
+			if len(found.Ips) == 0 || found.Ips[0] != "10.0.0.99" {
+				t.Errorf("expected IP 10.0.0.99, got %v", found.Ips)
+			}
+		} else {
+			t.Errorf("expected %q in delta resources, got %v", h, table.Table)
+		}
+	})
+
+	t.Run("service delete sends RemovedResources including headless per-pod entries", func(t *testing.T) {
+		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+		addClusterIPService(s, "svc-a", "10.0.0.1")
+		addClusterIPService(s, "svc-b", "10.0.0.2")
+		addHeadlessService(s)
+		addHeadlessPod(s, "pod-0", "10.1.0.1")
+		addHeadlessPod(s, "pod-1", "10.1.0.2")
+		s.EnsureSynced(t)
+
+		ads := connectDeltaNDS(t, s)
+		ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{})
+
+		// ClusterIP service delete: only its hostname should be removed.
+		removeService(s, "svc-a")
+		resp := ads.ExpectResponse()
+		hA := fmt.Sprintf("svc-a.%s.svc.cluster.local", ns)
+		if !slices.Contains(resp.RemovedResources, hA) {
+			t.Errorf("expected %q in RemovedResources, got %v", hA, resp.RemovedResources)
+		}
+
+		// Headless scale-to-zero: removing all pods removes all per-pod entries AND the
+		// service record itself (no endpoints → no addresses → no table entry).
+		removeAllHeadlessPods(s)
+		resp = ads.ExpectResponse()
+
+		removed := sets.New(resp.RemovedResources...)
+		for _, expected := range []string{
+			fmt.Sprintf("svc-h.%s.svc.cluster.local", ns),
+			perPodHostname("pod-0"),
+			perPodHostname("pod-1"),
+		} {
+			if !removed.Contains(expected) {
+				t.Errorf("expected %q in RemovedResources after scale-to-zero, got: %v", expected, resp.RemovedResources)
+			}
+		}
+	})
+
+	t.Run("headless scale-down removes only the departed pod's per-pod entry", func(t *testing.T) {
+		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+		addHeadlessService(s)
+		setHeadlessPods(s, map[string]string{"pod-0": "10.1.0.1", "pod-1": "10.1.0.2", "pod-2": "10.1.0.3"})
+		s.EnsureSynced(t)
+
+		ads := connectDeltaNDS(t, s)
+		ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{})
+
+		// Scale down by one: pod-2 leaves; the service record and pod-0/pod-1 remain. This is the
+		// key removal case — the push only names the service hostname, yet the generator must
+		// derive that pod-2's per-pod record is gone (via owned(H) vs w.ResourceNames).
+		setHeadlessPods(s, map[string]string{"pod-0": "10.1.0.1", "pod-1": "10.1.0.2"})
+		resp := ads.ExpectResponse()
+
+		pod2 := perPodHostname("pod-2")
+		if !slices.Contains(resp.RemovedResources, pod2) {
+			t.Errorf("expected departed pod %q in RemovedResources, got %v", pod2, resp.RemovedResources)
+		}
+		// Neither the surviving pods nor the service record may be removed.
+		for _, keep := range []string{
+			perPodHostname("pod-0"),
+			perPodHostname("pod-1"),
+			fmt.Sprintf("svc-h.%s.svc.cluster.local", ns),
+		} {
+			if slices.Contains(resp.RemovedResources, keep) {
+				t.Errorf("%q survived a partial scale-down and must not be removed", keep)
+			}
+		}
+	})
+
+	t.Run("non-delta-aware push sends full per-host set with server-computed removals", func(t *testing.T) {
+		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+		addClusterIPService(s, "svc-a", "10.0.0.1")
+		addClusterIPService(s, "svc-b", "10.0.0.2")
+		s.EnsureSynced(t)
+
+		ads := connectDeltaNDS(t, s)
+		ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{})
+
+		s.Discovery.ConfigUpdate(&model.PushRequest{
+			ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.MeshConfig}),
+			Forced:         true,
+		})
+		resp := ads.ExpectResponse()
+
+		// All resources should be named per-host (not the unnamed full-table format).
+		for _, r := range resp.Resources {
+			if r.Name == "" {
+				t.Error("non-delta push to capable agent should still produce named per-host resources")
+			}
+		}
+
+		table := ndsTableFromDeltaResponse(t, resp)
+		if len(table.Table) != 2 {
+			t.Errorf("expected 2 entries in table, got %d", len(table.Table))
+		}
+	})
 }
 
 func TestGenerate(t *testing.T) {
