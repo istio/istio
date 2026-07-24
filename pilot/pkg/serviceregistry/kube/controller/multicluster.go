@@ -17,6 +17,7 @@ package controller
 import (
 	"context"
 	"strings"
+	"sync"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -53,13 +54,38 @@ type kubeController struct {
 	*Controller
 	workloadEntryController *serviceentry.Controller
 	stop                    chan struct{}
+
+	// syncedFn, if set, is invoked exactly once, the first time HasSynced observes the
+	// underlying registry has synced. initializeCluster uses this to swap the registry into
+	// the aggregate controller on the update path, without kubeController needing to know why.
+	syncedFn   func()
+	syncedOnce sync.Once
+}
+
+// HasSynced reports whether the underlying kube registry has completed its initial sync.
+// The first time it does, syncedFn (if set) is invoked before returning true. This lets
+// initializeCluster hook cluster-update logic - such as swapping the new registry into the
+// aggregate controller - directly into sync completion: the multicluster framework calls Close()
+// on the previous controller for this cluster as soon as HasSynced returns true, so any such
+// swap must happen here, synchronously, to avoid a window where the aggregate controller has no
+// registry for the cluster.
+func (k *kubeController) HasSynced() bool {
+	if !k.Controller.HasSynced() {
+		return false
+	}
+	if k.syncedFn != nil {
+		k.syncedOnce.Do(k.syncedFn)
+	}
+	return true
 }
 
 func (k *kubeController) Close() {
 	close(k.stop)
 	clusterID := k.Controller.clusterID
 	k.MeshServiceController.UnRegisterHandlersForCluster(clusterID)
-	k.MeshServiceController.DeleteRegistry(clusterID, provider.Kubernetes)
+	// DeleteRegistryIfCurrent avoids deleting a registry that HasSynced's UpdateRegistry call
+	// above already swapped in to replace this one.
+	k.MeshServiceController.DeleteRegistryIfCurrent(k.Controller)
 	if k.workloadEntryController != nil {
 		k.MeshServiceController.DeleteRegistry(clusterID, provider.External)
 	}
@@ -220,15 +246,15 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeCont
 
 	// run after WorkloadHandler is added
 	if cluster.Action == multicluster.Update {
-		// Start the new registry here. The registry is swapped in only after it syncs,
-		// so the old registry keeps serving until then.
-		go kubeRegistry.Run(clusterStopCh)
-		go func() {
-			// Wait for the new cluster to sync
-			<-cluster.SyncedCh
+		// Start the new registry here. The old registry keeps serving until the new one syncs;
+		// syncedFn swaps the new registry into the aggregate controller as soon as that happens,
+		// which is also the signal the multicluster framework uses to close the old kubeController,
+		// so the swap is guaranteed to complete before the old registry is removed.
+		kubeController.syncedFn = func() {
 			log.Infof("cluster %s synced, replacing registry", cluster.ID)
 			m.opts.MeshServiceController.UpdateRegistry(kubeRegistry, clusterStopCh)
-		}()
+		}
+		go kubeRegistry.Run(clusterStopCh)
 	} else {
 		// For adds, register immediately
 		m.opts.MeshServiceController.AddRegistryAndRun(kubeRegistry, clusterStopCh)

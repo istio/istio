@@ -16,6 +16,7 @@ package controller
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -27,6 +28,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/keycertbundle"
 	"istio.io/istio/pilot/pkg/server"
+	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/mesh/meshwatcher"
@@ -75,6 +77,30 @@ func deleteMultiClusterSecret(k8s kube.Client, sname string) error {
 	return k8s.Kube().CoreV1().Secrets(testSecretNameSpace).Delete(
 		context.TODO(),
 		sname, metav1.DeleteOptions{GracePeriodSeconds: &immediate})
+}
+
+// updateMultiClusterSecret rewrites the secret's kubeconfig bytes for cname, simulating
+// credential rotation. The bytes must differ from the original so the sha256 check in
+// addRemoteConfig doesn't treat this as a no-op.
+func updateMultiClusterSecret(k8s kube.Client, sname, cname string, generation int) error {
+	secret, err := k8s.Kube().CoreV1().Secrets(testSecretNameSpace).Get(context.TODO(), sname, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+	secret.Data[cname] = []byte(fmt.Sprintf("Test-%d", generation))
+	_, err = k8s.Kube().CoreV1().Secrets(testSecretNameSpace).Update(context.TODO(), secret, metav1.UpdateOptions{})
+	return err
+}
+
+// registryForCluster finds the registered serviceregistry.Instance for a given cluster/provider,
+// or nil if none is registered.
+func registryForCluster(mockserviceController *aggregate.Controller, clusterID cluster.ID) serviceregistry.Instance {
+	for _, r := range mockserviceController.GetRegistries() {
+		if r.Cluster() == clusterID {
+			return r
+		}
+	}
+	return nil
 }
 
 func verifyControllers(t *testing.T, m *Multicluster, expectedControllerCount int, timeoutName string) {
@@ -157,6 +183,72 @@ func Test_KubeSecretController(t *testing.T) {
 		// Test - Verify that the remote controller has been removed.
 		verifyControllers(t, mc, 1, "delete remote controller")
 	})
+}
+
+// Test_KubeSecretController_CredentialRotation verifies that when a remote cluster's secret is
+// updated with new kubeconfig bytes, the aggregate controller ends up with exactly one registry
+// for that cluster at all times - the make-before-break swap in kubeController.HasSynced must
+// complete before the old kubeController.Close() removes its registry, otherwise there would be
+// a window where the cluster has no registered registry, or the swap would delete the
+// newly-registered one out from under it.
+func Test_KubeSecretController_CredentialRotation(t *testing.T) {
+	clusterID := cluster.ID("cluster-1")
+	remoteClusterID := cluster.ID("test-remote-cluster-1")
+	mockserviceController := newMockserviceController(clusterID)
+	clientset := kube.NewFakeClient()
+	stop := test.NewStop(t)
+	s := server.New()
+	mcc := initController(clientset, testSecretNameSpace, stop)
+	mc := NewMulticluster("pilot-abc-123", Options{
+		ClusterID:             clusterID,
+		DomainSuffix:          DomainSuffix,
+		MeshWatcher:           meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{}),
+		MeshNetworksWatcher:   meshwatcher.NewFixedNetworksWatcher(nil),
+		MeshServiceController: mockserviceController,
+	}, nil, nil, "default", false, nil, s, mcc)
+	assert.NoError(t, mcc.Run(stop))
+	go mockserviceController.Run(stop)
+	clientset.RunAndWait(stop)
+	kube.WaitForCacheSync("test", stop, mcc.HasSynced)
+	_ = s.Start(stop)
+
+	verifyControllers(t, mc, 1, "create local controller")
+
+	assert.NoError(t, createMultiClusterSecret(clientset, "test-secret-1", string(remoteClusterID)))
+	verifyControllers(t, mc, 2, "create remote controller")
+
+	retry.UntilSuccessOrFail(t, func() error {
+		if registryForCluster(mockserviceController, remoteClusterID) == nil {
+			return fmt.Errorf("expected a registry for %s after add", remoteClusterID)
+		}
+		return nil
+	}, retry.Timeout(time.Second*5))
+	originalRegistry := registryForCluster(mockserviceController, remoteClusterID)
+
+	// Rotate the credentials a few times. After each rotation, the aggregate controller must have
+	// exactly one registry for the cluster, and it must be a different instance than before -
+	// never zero (a push/lookup gap) and never the stale one (a silently-dropped swap).
+	for generation := 1; generation <= 3; generation++ {
+		assert.NoError(t, updateMultiClusterSecret(clientset, "test-secret-1", string(remoteClusterID), generation))
+
+		retry.UntilSuccessOrFail(t, func() error {
+			current := registryForCluster(mockserviceController, remoteClusterID)
+			if current == nil {
+				return fmt.Errorf("registry for %s missing after credential rotation %d", remoteClusterID, generation)
+			}
+			if current == originalRegistry {
+				return fmt.Errorf("registry for %s was not swapped after credential rotation %d", remoteClusterID, generation)
+			}
+			return nil
+		}, retry.Timeout(time.Second*5), retry.Delay(time.Millisecond*10))
+
+		// The controller count must stay stable across the swap - no transient duplicate, no gap.
+		verifyControllers(t, mc, 2, fmt.Sprintf("controller count after credential rotation %d", generation))
+		originalRegistry = registryForCluster(mockserviceController, remoteClusterID)
+	}
+
+	assert.NoError(t, deleteMultiClusterSecret(clientset, "test-secret-1"))
+	verifyControllers(t, mc, 1, "delete remote controller")
 }
 
 func Test_KubeSecretController_ExternalIstiod_MultipleClusters(t *testing.T) {
