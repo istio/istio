@@ -827,6 +827,12 @@ func TestManifestGenerateCni(t *testing.T) {
 			desc:       "istio-cni_tolerations",
 			diffSelect: "DaemonSet:*:istio-cni",
 		},
+		{
+			desc:        "istio-cni_podmonitor",
+			diffSelect:  "PodMonitor:*:istio-cni-pod-monitor",
+			fileSelect:  []string{"templates/podmonitor.yaml"},
+			chartSource: liveCharts,
+		},
 	})
 }
 
@@ -839,6 +845,12 @@ func TestManifestGenerateZtunnel(t *testing.T) {
 		{
 			desc:       "ztunnel_tolerations",
 			diffSelect: "DaemonSet:*:ztunnel",
+		},
+		{
+			desc:        "ztunnel_podmonitor",
+			diffSelect:  "PodMonitor:*:ztunnel-pod-monitor",
+			fileSelect:  []string{"templates/podmonitor.yaml"},
+			chartSource: liveCharts,
 		},
 	})
 }

@@ -1,0 +1,14 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+spec:
+  values:
+    cni:
+      podMonitor:
+        enabled: true
+  components:
+    base:
+      enabled: false
+    pilot:
+      enabled: false
+    cni:
+      enabled: true

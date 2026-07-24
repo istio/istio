@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+  - 60926
+releaseNotes:
+  - |
+    **Added** optional `PodMonitor` resources for the `istio-cni` and `ztunnel` helm charts.
+
+    You can set `.Values.podMonitor.enabled=true` on either chart to deploy a basic `PodMonitor`
+    for Prometheus to scrape the component's metrics.
