@@ -304,20 +304,9 @@ func (j *mergejoin[T]) refreshEventsLocked(items []Event[T]) []Event[T] {
 		}
 		existing, ok := j.outputs[iKey]
 		if !ok {
-			switch ev.Event {
-			case controllers.EventAdd:
-				items[idx] = Event[T]{Event: controllers.EventAdd, New: iObj}
-			default:
-				// Not finding the key in our cache for update or delete events is probably a bug
-				msg := fmt.Sprintf("POTENTIAL BUG: key %s not found in cache for event %s", iKey, ev.Event)
-				if EnableAssertions {
-					msg += fmt.Sprintf(" in %s(%T)", j.collectionName, j)
-					panic(msg)
-				}
-				j.log.Debug(msg)
-				// Convert the update into an add since that's what it is to us
-				items[idx] = Event[T]{Event: controllers.EventAdd, New: iObj}
-			}
+			// The source state may have changed since this event was enqueued. The merged
+			// object exists now, so this is an add from the joined collection's perspective.
+			items[idx] = Event[T]{Event: controllers.EventAdd, New: iObj}
 			continue
 		}
 
