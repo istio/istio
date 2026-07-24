@@ -50,6 +50,11 @@ const (
 		"%UPSTREAM_CLUSTER_RAW% %UPSTREAM_LOCAL_ADDRESS% %DOWNSTREAM_LOCAL_ADDRESS% " +
 		"%DOWNSTREAM_REMOTE_ADDRESS% %REQUESTED_SERVER_NAME% %ROUTE_NAME%\n"
 
+	// hboneOriginalDstFilterStateKey is the filter state key populated by the original_dst
+	// listener filter and the ConnectAuthorityFilter on HBONE paths. It holds the real tunneled
+	// destination address (e.g. "10.244.0.10:80") rather than a synthetic envoy:// URI.
+	hboneOriginalDstFilterStateKey = "envoy.filters.listener.original_dst.local_ip"
+
 	HTTPEnvoyAccessLogFriendlyName = "http_envoy_accesslog"
 	TCPEnvoyAccessLogFriendlyName  = "tcp_envoy_accesslog"
 	OtelEnvoyAccessLogFriendlyName = "otel_envoy_accesslog"
@@ -119,6 +124,52 @@ var (
 		Name:        "envoy.formatter.req_without_query",
 		TypedConfig: protoconv.MessageToAny(&reqwithoutquery.ReqWithoutQuery{}),
 	}
+
+	// hboneFilterStateOperator is the Envoy access log operator that reads the real tunneled
+	// destination address from filter state, hiding the internal envoy:// URI scheme.
+	hboneFilterStateOperator = "%FILTER_STATE(" + hboneOriginalDstFilterStateKey + ":PLAIN)%"
+
+	// hboneOriginationTextLogFormat is derived from EnvoyTextLogFormat with the synthetic
+	// %DOWNSTREAM_REMOTE_ADDRESS% replaced. On the connect_originate internal listener the
+	// downstream address is always "envoy://internal_client_address/"; the filter state key
+	// holds the real tunneled destination set by the OriginalDestination listener filter.
+	hboneOriginationTextLogFormat = strings.NewReplacer(
+		"%DOWNSTREAM_REMOTE_ADDRESS%", hboneFilterStateOperator,
+	).Replace(EnvoyTextLogFormat)
+
+	// hboneTerminationTextLogFormat is derived from EnvoyTextLogFormat with %UPSTREAM_HOST%
+	// replaced. On the CONNECT-terminate HCM the upstream is the main_internal internal listener
+	// ("envoy://main_internal/<addr>"); the filter state key holds the real app destination set
+	// by the ConnectAuthorityFilter from the CONNECT :authority header.
+	hboneTerminationTextLogFormat = strings.NewReplacer(
+		"%UPSTREAM_HOST%", hboneFilterStateOperator,
+	).Replace(EnvoyTextLogFormat)
+
+	// hboneOriginationJSONLogFormatIstio is EnvoyJSONLogFormatIstio with the
+	// downstream_remote_address field replaced for HBONE origination paths.
+	hboneOriginationJSONLogFormatIstio = func() *structpb.Struct {
+		fields := make(map[string]*structpb.Value, len(EnvoyJSONLogFormatIstio.Fields))
+		for k, v := range EnvoyJSONLogFormatIstio.Fields {
+			fields[k] = v
+		}
+		fields["downstream_remote_address"] = &structpb.Value{
+			Kind: &structpb.Value_StringValue{StringValue: hboneFilterStateOperator},
+		}
+		return &structpb.Struct{Fields: fields}
+	}()
+
+	// hboneTerminationJSONLogFormatIstio is EnvoyJSONLogFormatIstio with the upstream_host
+	// field replaced for HBONE termination paths.
+	hboneTerminationJSONLogFormatIstio = func() *structpb.Struct {
+		fields := make(map[string]*structpb.Value, len(EnvoyJSONLogFormatIstio.Fields))
+		for k, v := range EnvoyJSONLogFormatIstio.Fields {
+			fields[k] = v
+		}
+		fields["upstream_host"] = &structpb.Value{
+			Kind: &structpb.Value_StringValue{StringValue: hboneFilterStateOperator},
+		}
+		return &structpb.Struct{Fields: fields}
+	}()
 )
 
 // configureFromProviderConfigHandled contains the number of providers we handle below.
@@ -370,14 +421,40 @@ func fileAccessLogFormat(formatString string) string {
 }
 
 func FileAccessLogFromMeshConfig(path string, mesh *meshconfig.MeshConfig) *accesslog.AccessLog {
-	// We need to build access log. This is needed either on first access or when mesh config changes.
+	return fileAccessLogWithDefaults(path, mesh, EnvoyTextLogFormat, EnvoyJSONLogFormatIstio)
+}
+
+// FileAccessLogFromMeshConfigForHboneOrigination creates an access log for the HBONE
+// origination path (connect_originate internal listener). It substitutes the synthetic
+// %DOWNSTREAM_REMOTE_ADDRESS% — which is "envoy://internal_client_address/" on internal
+// listeners — with the real tunneled destination from filter state. If the user has
+// configured a custom access log format it is used unchanged.
+func FileAccessLogFromMeshConfigForHboneOrigination(path string, mesh *meshconfig.MeshConfig) *accesslog.AccessLog {
+	return fileAccessLogWithDefaults(path, mesh, hboneOriginationTextLogFormat, hboneOriginationJSONLogFormatIstio)
+}
+
+// FileAccessLogFromMeshConfigForHboneTermination creates an access log for the HBONE
+// termination path (CONNECT-terminate HCM). It substitutes the synthetic %UPSTREAM_HOST%
+// — which is "envoy://main_internal/<addr>" when routing to the main_internal internal
+// listener — with the real app destination from filter state. If the user has configured
+// a custom access log format it is used unchanged.
+func FileAccessLogFromMeshConfigForHboneTermination(path string, mesh *meshconfig.MeshConfig) *accesslog.AccessLog {
+	return fileAccessLogWithDefaults(path, mesh, hboneTerminationTextLogFormat, hboneTerminationJSONLogFormatIstio)
+}
+
+// fileAccessLogWithDefaults builds a file access log using defaultText / defaultJSON as
+// the fallback format when the user has not set mesh.AccessLogFormat.
+func fileAccessLogWithDefaults(path string, mesh *meshconfig.MeshConfig, defaultText string, defaultJSON *structpb.Struct) *accesslog.AccessLog {
 	fl := &fileaccesslog.FileAccessLog{
 		Path: path,
 	}
 	var formatters []*core.TypedExtensionConfig
 	switch mesh.AccessLogEncoding {
 	case meshconfig.MeshConfig_TEXT:
-		formatString := fileAccessLogFormat(mesh.AccessLogFormat)
+		formatString := defaultText
+		if mesh.AccessLogFormat != "" {
+			formatString = fileAccessLogFormat(mesh.AccessLogFormat)
+		}
 		formatters = accessLogTextFormatters(formatString)
 		fl.AccessLogFormat = &fileaccesslog.FileAccessLog_LogFormat{
 			LogFormat: &core.SubstitutionFormatString{
@@ -391,7 +468,7 @@ func FileAccessLogFromMeshConfig(path string, mesh *meshconfig.MeshConfig) *acce
 			},
 		}
 	case meshconfig.MeshConfig_JSON:
-		jsonLogStruct := EnvoyJSONLogFormatIstio
+		jsonLogStruct := defaultJSON
 		if len(mesh.AccessLogFormat) > 0 {
 			parsedJSONLogStruct := structpb.Struct{}
 			if err := protomarshal.UnmarshalAllowUnknown([]byte(mesh.AccessLogFormat), &parsedJSONLogStruct); err != nil {
@@ -416,12 +493,10 @@ func FileAccessLogFromMeshConfig(path string, mesh *meshconfig.MeshConfig) *acce
 	if len(formatters) > 0 {
 		fl.GetLogFormat().Formatters = formatters
 	}
-	al := &accesslog.AccessLog{
+	return &accesslog.AccessLog{
 		Name:       wellknown.FileAccessLog,
 		ConfigType: &accesslog.AccessLog_TypedConfig{TypedConfig: protoconv.MessageToAny(fl)},
 	}
-
-	return al
 }
 
 func openTelemetryLog(pushCtx *PushContext,
