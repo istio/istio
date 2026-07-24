@@ -5139,7 +5139,7 @@ func TestBuildStaticClusterWithCredentialSocket(t *testing.T) {
 		"BlackHoleCluster", "InboundPassthroughCluster", "PassthroughCluster", security.SDSExternalClusterName,
 	}))
 
-	// Expect no sds_external cluster be added if if credentialSocket does NOT exists
+	// Expect no sds_external cluster be added if credentialSocket does NOT exists
 	proxy = cg.SetupProxy(nil)
 	clusters = cg.Clusters(proxy)
 	xdstest.ValidateClusters(t, clusters)
