@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 60828
+releaseNotes:
+  - |
+    **Added** `outlierDetectionHttpErrorCodes` field to `DestinationRule.OutlierDetection`,
+    allowing users to specify which HTTP status codes are treated as errors for outlier
+    detection. If specified, only responses with one of these codes are counted as errors
+    toward the `consecutive5xxErrors` and `consecutiveGatewayErrors` ejection thresholds.
+    If not specified, only 5xx responses are counted as errors.
