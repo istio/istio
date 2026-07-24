@@ -27,6 +27,7 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	statefulsession "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/stateful_session/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/hashicorp/go-multierror"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -843,6 +844,12 @@ func (lb *ListenerBuilder) createGatewayTCPFilterChainOpts(
 				},
 			}
 		}
+		// For ISTIO_MUTUAL mode on E/W gateways without VirtualServices, use auto-routing like AUTO_PASSTHROUGH
+		// but with TLS termination. This enables sidecar-to-ambient cross-network traffic where the gateway
+		// terminates the mTLS from the sidecar and forwards via HBONE to ambient workloads.
+		if server.Tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL && isAmbientEastWestGateway(lb.node) {
+			return builtAutoPassthroughFilterChainsWithTLS(lb.push, lb.node, server, lb.node.MergedGateway.TLSServerInfo[server].SNIHosts)
+		}
 		log.Warnf("gateway %s:%d listener missed network filter", gatewayName, server.Port.Number)
 	} else {
 		// Passthrough server.
@@ -1060,6 +1067,174 @@ func builtAutoPassthroughFilterChains(push *model.PushContext, proxy *model.Prox
 		}
 	}
 	return filterChains
+}
+
+// builtAutoPassthroughFilterChainsWithTLS builds filter chains similar to builtAutoPassthroughFilterChains
+// but with TLS termination instead of passthrough. This is used for E/W gateways with ISTIO_MUTUAL mode
+// to support sidecar-to-ambient cross-network traffic, where the gateway terminates the mTLS from the
+// sidecar and forwards the plaintext traffic via HBONE to ambient workloads.
+//
+// The filter chains match on the cluster name SNI format (outbound|port||hostname with pipes).
+// This is because sidecars use the cluster name as the SNI when connecting with ISTIO_MUTUAL mode.
+// The filter chains route to inbound-vip clusters which have EDS endpoints with HBONE tunnel settings.
+//
+// For HTTP protocols, we use HCM (HTTP Connection Manager) instead of TCP proxy to properly handle
+// HTTP/1.1 request-response semantics. TCP proxy doesn't understand HTTP half-close behavior where
+// the client sends FIN after the request body but expects a response. Using HCM ensures the upstream
+// connection stays open until the response is received from the waypoint.
+func builtAutoPassthroughFilterChainsWithTLS(push *model.PushContext, proxy *model.Proxy, server *networking.Server, hosts []string) []*filterChainOpts {
+	// We do not want any authz here, so build a new LB without it set
+	lb := &ListenerBuilder{
+		node: proxy,
+		push: push,
+	}
+	filterChains := make([]*filterChainOpts, 0)
+	tlsContext := buildGatewayListenerTLSContext(push, server, proxy, istionetworking.TransportProtocolTCP)
+
+	for _, service := range proxy.SidecarScope.Services() {
+		if service.MeshExternal {
+			continue
+		}
+		for _, port := range service.Ports {
+			if port.Protocol == protocol.UDP {
+				continue
+			}
+			matchFound := false
+			for _, h := range hosts {
+				if service.Hostname.SubsetOf(host.Name(h)) {
+					matchFound = true
+					break
+				}
+			}
+			if !matchFound {
+				continue
+			}
+			// One chain for the default subset plus one per DestinationRule subset,
+			// mirroring classic AUTO_PASSTHROUGH: remote sidecar clients embed the VS-selected
+			// subset in the SNI, and each subset gets its own bridge cluster whose EDS filters
+			// endpoints by the subset labels.
+			destinationRule := CastDestinationRule(proxy.SidecarScope.DestinationRule(
+				model.TrafficDirectionOutbound, proxy, service.Hostname).GetRule())
+			subsetNames := []string{""}
+			for _, ss := range destinationRule.GetSubsets() {
+				subsetNames = append(subsetNames, ss.Name)
+			}
+			for _, subsetName := range subsetNames {
+				// SNI hosts use the DNS SRV format (with underscores) - this is what sidecars send
+				// for mTLS SNI because DNS doesn't allow pipes in domain names.
+				// The underscore format (outbound_.80_.<subset>_.host) is DNS-compatible.
+				sniHost := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, subsetName, service.Hostname, port.Port)
+
+				// Route to the sidecar-bridge inbound-vip cluster, whose EDS endpoints originate a
+				// new HBONE tunnel toward the service (or its waypoint). The "tcp" subset cannot be
+				// used here: it forwards double-HBONE inner streams opaquely for the 15008 path.
+				inboundVIPCluster := model.BuildSubsetKey(model.TrafficDirectionInboundVIP,
+					model.SidecarBridgeSubsetOf(subsetName), service.Hostname, port.Port)
+				statPrefix := inboundVIPCluster
+
+				// For HTTP and unsupported (sniffing) protocols, use HCM to properly handle
+				// request-response semantics. This prevents the upstream HBONE tunnel from
+				// closing prematurely when the sidecar half-closes after sending the request.
+				var networkFilters []*listener.Filter
+				if port.Protocol.IsHTTP() || port.Protocol.IsUnsupported() {
+					networkFilters = buildHTTPPassthroughNetworkFilter(lb, statPrefix, inboundVIPCluster, port)
+				} else {
+					// For non-HTTP protocols (true TCP), use TCP proxy
+					networkFilters = buildSimpleTCPProxyNetworkFilter(lb, statPrefix, inboundVIPCluster)
+				}
+
+				// Build filter chain with TLS termination for ISTIO_MUTUAL mode.
+				// The gateway terminates mTLS from sidecar and forwards via inbound-vip cluster
+				// which uses HBONE to reach ambient workloads.
+				filterChains = append(filterChains, &filterChainOpts{
+					sniHosts:             []string{sniHost},
+					applicationProtocols: allIstioMtlsALPNs,
+					tlsContext:           tlsContext,
+					networkFilters:       networkFilters,
+				})
+			}
+		}
+	}
+	return filterChains
+}
+
+// buildSimpleTCPProxyNetworkFilter builds a simple TCP proxy filter that routes to the given cluster.
+func buildSimpleTCPProxyNetworkFilter(lb *ListenerBuilder, statPrefix, clusterName string) []*listener.Filter {
+	tcpProxy := &tcp.TcpProxy{
+		StatPrefix:       statPrefix,
+		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: clusterName},
+	}
+	class := istionetworking.ListenerClassSidecarInbound
+	tcpFilter := setAccessLogAndBuildTCPFilter(lb.push, lb.node, tcpProxy, class, nil)
+	return []*listener.Filter{tcpFilter}
+}
+
+// buildHTTPPassthroughNetworkFilter builds an HTTP Connection Manager filter that routes all
+// HTTP traffic to the given cluster. Unlike TCP proxy, HCM properly handles HTTP/1.1 request-response
+// semantics where the client may half-close (send FIN) after the request body but still expects
+// a response. This is critical for cross-network sidecar-to-ambient traffic where the upstream
+// uses HBONE tunneling - TCP proxy would propagate the half-close as end_stream causing the
+// tunnel to close before the response is received.
+func buildHTTPPassthroughNetworkFilter(lb *ListenerBuilder, statPrefix, clusterName string, port *model.Port) []*listener.Filter {
+	// Build a simple catch-all route to the target cluster
+	defaultRoute := &route.Route{
+		Name: "default",
+		Match: &route.RouteMatch{
+			PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"},
+		},
+		Action: &route.Route_Route{
+			Route: &route.RouteAction{
+				ClusterSpecifier: &route.RouteAction_Cluster{Cluster: clusterName},
+				// No timeout - let upstream handle it
+				Timeout: istio_route.Notimeout,
+			},
+		},
+	}
+
+	routeConfig := &route.RouteConfiguration{
+		Name:             statPrefix,
+		ValidateClusters: proto.BoolFalse,
+		VirtualHosts: []*route.VirtualHost{
+			{
+				Name:    "default",
+				Domains: []string{"*"},
+				Routes:  []*route.Route{defaultRoute},
+			},
+		},
+	}
+
+	httpOpts := &httpListenerOpts{
+		routeConfig:       routeConfig,
+		rds:               "", // inline route config, no RDS
+		useRemoteAddress:  false,
+		connectionManager: &hcm.HttpConnectionManager{
+			// No special server settings needed for passthrough
+		},
+		protocol:   port.Protocol,
+		class:      istionetworking.ListenerClassSidecarInbound,
+		statPrefix: statPrefix,
+	}
+
+	// Enable HTTP/2 for HTTP2/gRPC protocols
+	if port.Protocol.IsHTTP2() {
+		httpOpts.connectionManager.Http2ProtocolOptions = &core.Http2ProtocolOptions{}
+	}
+
+	// Enable HTTP/1.0 if configured
+	if features.HTTP10 || enableHTTP10(lb.node.Metadata.HTTP10) {
+		httpOpts.connectionManager.HttpProtocolOptions = &core.Http1ProtocolOptions{
+			AcceptHttp_10: true,
+		}
+	}
+
+	h := lb.buildHTTPConnectionManager(httpOpts)
+
+	return []*listener.Filter{
+		{
+			Name:       wellknown.HTTPConnectionManager,
+			ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(h)},
+		},
+	}
 }
 
 // Select the virtualService's hosts that match the ones specified in the gateway server's hosts

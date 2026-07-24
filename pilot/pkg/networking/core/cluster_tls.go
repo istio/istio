@@ -23,6 +23,7 @@ import (
 	dfpcluster "github.com/envoyproxy/go-control-plane/envoy/extensions/clusters/dynamic_forward_proxy/v3"
 	tlsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
+	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -40,12 +41,22 @@ import (
 	pm "istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/wellknown"
 )
 
 var istioMtlsTransportSocketMatch = &structpb.Struct{
 	Fields: map[string]*structpb.Value{
 		model.TLSModeLabelShortname: {Kind: &structpb.Value_StringValue{StringValue: model.IstioMutualTLSModeLabel}},
+	},
+}
+
+// gatewayMtlsTransportSocketMatch matches cross-network gateway endpoints.
+// These endpoints use trust domain prefix matching instead of exact SAN validation,
+// allowing sidecars to connect to gateways that present their own identity.
+var gatewayMtlsTransportSocketMatch = &structpb.Struct{
+	Fields: map[string]*structpb.Value{
+		model.TLSModeLabelShortname: {Kind: &structpb.Value_StringValue{StringValue: model.GatewayTLSModeLabel}},
 	},
 }
 
@@ -66,6 +77,61 @@ func hboneOrPlaintextSocket() []*cluster.Cluster_TransportSocketMatch {
 		hboneTransportSocket(xdsfilters.RawBufferTransportSocket),
 		defaultTransportSocketMatch(),
 	}
+}
+
+// buildGatewayMtlsTLSContext builds an ISTIO_MUTUAL TLS context for cross-network gateway connections.
+// Instead of exact SAN matching against target service accounts, it uses trust domain prefix matching,
+// allowing the sidecar to accept the gateway's identity (which is different from the target service).
+func (cb *ClusterBuilder) buildGatewayMtlsTLSContext(sni string) *tlsv3.UpstreamTlsContext {
+	trustDomain := cb.req.Push.Mesh.GetTrustDomain()
+
+	// Cluster names use the pipe-delimited format (outbound|80||host), but E/W gateway
+	// filter chains match the DNS SRV SNI format (outbound_.80_._.host), which is what
+	// sidecars send for in-mesh mTLS. Convert so the gateway can route by SNI.
+	if dir, subset, hostname, port := model.ParseSubsetKey(sni); hostname != "" {
+		sni = model.BuildDNSSrvSubsetKey(dir, subset, hostname, port)
+	}
+
+	// Use trust domain prefix matching to accept any identity from the mesh
+	sanMatcher := &matcher.StringMatcher{
+		MatchPattern: &matcher.StringMatcher_Prefix{
+			Prefix: spiffe.URIPrefix + trustDomain + "/",
+		},
+	}
+
+	tlsContext := &tlsv3.UpstreamTlsContext{
+		CommonTlsContext: defaultUpstreamCommonTLSContext(),
+		Sni:              sni,
+	}
+
+	tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs = append(
+		tlsContext.CommonTlsContext.TlsCertificateSdsSecretConfigs,
+		sec_model.ConstructSdsSecretConfig(sec_model.SDSDefaultResourceName),
+	)
+
+	tlsContext.CommonTlsContext.ValidationContextType = &tlsv3.CommonTlsContext_CombinedValidationContext{
+		CombinedValidationContext: &tlsv3.CommonTlsContext_CombinedCertificateValidationContext{
+			DefaultValidationContext: &tlsv3.CertificateValidationContext{
+				MatchTypedSubjectAltNames: []*tlsv3.SubjectAltNameMatcher{
+					{
+						SanType: tlsv3.SubjectAltNameMatcher_URI,
+						Matcher: sanMatcher,
+					},
+				},
+			},
+			ValidationContextSdsSecretConfig: sec_model.ConstructSdsSecretConfig(sec_model.SDSRootResourceName),
+		},
+	}
+
+	// Use standard in-mesh ALPN
+	if features.MetadataExchange && !features.DisableMxALPN {
+		tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshWithMxc
+	} else {
+		tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMesh
+	}
+
+	sec_model.EnforceCompliance(tlsContext.CommonTlsContext)
+	return tlsContext
 }
 
 // applyUpstreamTLSSettings applies upstream tls context to the cluster
@@ -98,11 +164,25 @@ func (cb *ClusterBuilder) applyUpstreamTLSSettings(
 			// convert to transport socket matcher if the mode was auto detected
 			transportSocket := c.cluster.TransportSocket
 			c.cluster.TransportSocket = nil
+
+			// Build gateway transport socket with trust domain prefix matching
+			// for cross-network gateway connections
+			gatewayTLSContext := cb.buildGatewayMtlsTLSContext(c.cluster.Name)
+			gatewayTransportSocket := &core.TransportSocket{
+				Name:       wellknown.TransportSocketTLS,
+				ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(gatewayTLSContext)},
+			}
+
 			c.cluster.TransportSocketMatches = []*cluster.Cluster_TransportSocketMatch{
 				{
 					Name:            "tlsMode-" + model.IstioMutualTLSModeLabel,
 					Match:           istioMtlsTransportSocketMatch,
 					TransportSocket: transportSocket,
+				},
+				{
+					Name:            "tlsMode-" + model.GatewayTLSModeLabel,
+					Match:           gatewayMtlsTransportSocketMatch,
+					TransportSocket: gatewayTransportSocket,
 				},
 				defaultTransportSocketMatch(),
 			}
@@ -350,12 +430,26 @@ func (cb *ClusterBuilder) applyHBONETransportSocketMatches(c *cluster.Cluster, t
 		if istioAutoDetectedMtls {
 			transportSocket := c.TransportSocket
 			c.TransportSocket = nil
+
+			// Build gateway transport socket with trust domain prefix matching
+			// for cross-network gateway connections
+			gatewayTLSContext := cb.buildGatewayMtlsTLSContext(c.Name)
+			gatewayTransportSocket := &core.TransportSocket{
+				Name:       wellknown.TransportSocketTLS,
+				ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(gatewayTLSContext)},
+			}
+
 			c.TransportSocketMatches = []*cluster.Cluster_TransportSocketMatch{
 				hboneTransportSocket(xdsfilters.RawBufferTransportSocket),
 				{
 					Name:            "tlsMode-" + model.IstioMutualTLSModeLabel,
 					Match:           istioMtlsTransportSocketMatch,
 					TransportSocket: transportSocket,
+				},
+				{
+					Name:            "tlsMode-" + model.GatewayTLSModeLabel,
+					Match:           gatewayMtlsTransportSocketMatch,
+					TransportSocket: gatewayTransportSocket,
 				},
 				defaultTransportSocketMatch(),
 			}
