@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+issue:
+  - 60708
+releaseNotes:
+  - |
+    **Fixed** `istioctl analyze` so `VirtualService` references to Kubernetes Gateway API `Gateway` resources no longer produce false `ReferencedResourceNotFound` errors.
