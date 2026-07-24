@@ -1854,11 +1854,6 @@ func reportGatewayStatus(
 			reason:  string(k8s.GatewayReasonResolvedRefs),
 			message: "All references resolved",
 		},
-		string(k8s.GatewayConditionInsecureFrontendValidationMode): {
-			status:  metav1.ConditionFalse,
-			reason:  "AllowInsecureFallbackNotConfigured",
-			message: "AllowInsecureFallback mode is disabled for frontend validation",
-		},
 	}
 	if gatewayErr != nil {
 		gatewayConditions[string(k8s.GatewayConditionAccepted)].error = gatewayErr
@@ -1902,6 +1897,8 @@ func reportGatewayStatus(
 				reason:  string(k8s.GatewayReasonConfigurationChanged),
 				message: "Gateway is operating in AllowInsecureFallback mode for frontend validation",
 			}
+		} else {
+			gs.Conditions = kstatus.RemoveCondition(gs.Conditions, string(k8s.GatewayConditionInsecureFrontendValidationMode))
 		}
 	}
 

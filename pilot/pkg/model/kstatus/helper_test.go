@@ -162,6 +162,84 @@ func TestGetCondition(t *testing.T) {
 	}
 }
 
+func TestRemoveCondition(t *testing.T) {
+	time := metav1.Now()
+	accepted := metav1.Condition{
+		Type:               string(k8s.GatewayConditionAccepted),
+		Reason:             string(k8s.GatewayReasonAccepted),
+		Status:             StatusTrue,
+		Message:            "Resource accepted",
+		LastTransitionTime: time,
+	}
+	programmed := metav1.Condition{
+		Type:               string(k8s.GatewayConditionProgrammed),
+		Reason:             string(k8s.GatewayReasonProgrammed),
+		Status:             StatusTrue,
+		Message:            "Resource programmed",
+		LastTransitionTime: time,
+	}
+	resolvedRefs := metav1.Condition{
+		Type:               string(k8s.GatewayConditionResolvedRefs),
+		Reason:             string(k8s.GatewayReasonResolvedRefs),
+		Status:             StatusTrue,
+		Message:            "All references resolved",
+		LastTransitionTime: time,
+	}
+	insecureMode := metav1.Condition{
+		Type:               string(k8s.GatewayConditionInsecureFrontendValidationMode),
+		Reason:             string(k8s.GatewayReasonConfigurationChanged),
+		Status:             StatusTrue,
+		Message:            "Gateway is operating in AllowInsecureFallback mode for frontend validation",
+		LastTransitionTime: time,
+	}
+	secureMode := metav1.Condition{
+		Type:               string(k8s.GatewayConditionInsecureFrontendValidationMode),
+		Reason:             "SomeReason",
+		Status:             StatusFalse,
+		Message:            "AllowInsecureFallback mode is not configured",
+		LastTransitionTime: time,
+	}
+	tests := []struct {
+		name       string
+		conditions []metav1.Condition
+		condition  string
+		want       []metav1.Condition
+	}{
+		{
+			name:       "condition not present",
+			conditions: []metav1.Condition{accepted, programmed, resolvedRefs},
+			condition:  string(k8s.GatewayConditionInsecureFrontendValidationMode),
+			want:       []metav1.Condition{accepted, programmed, resolvedRefs},
+		},
+		{
+			name:       "conditions list is empty",
+			conditions: []metav1.Condition{},
+			condition:  string(k8s.GatewayConditionInsecureFrontendValidationMode),
+			want:       []metav1.Condition{},
+		},
+		{
+			name:       "condition present with status true",
+			conditions: []metav1.Condition{accepted, programmed, resolvedRefs, insecureMode},
+			condition:  string(k8s.GatewayConditionInsecureFrontendValidationMode),
+			want:       []metav1.Condition{accepted, programmed, resolvedRefs},
+		},
+		{
+			name:       "condition present with status false",
+			conditions: []metav1.Condition{accepted, programmed, resolvedRefs, secureMode},
+			condition:  string(k8s.GatewayConditionInsecureFrontendValidationMode),
+			want:       []metav1.Condition{accepted, programmed, resolvedRefs},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := RemoveCondition(test.conditions, test.condition); !reflect.DeepEqual(got, test.want) {
+				t.Errorf("RemoveCondition got %v, want %v", got, test.want)
+			}
+		})
+	}
+}
+
 func TestCreateCondition(t *testing.T) {
 	transitionTime := metav1.Now()
 	tests := []struct {
