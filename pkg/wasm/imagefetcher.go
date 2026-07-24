@@ -132,6 +132,9 @@ func validateRealmURL(realm string) error {
 	if host == "" {
 		return fmt.Errorf("realm missing host")
 	}
+	// a trailing dot is an equivalent FQDN form (localhost. resolves to localhost,
+	// 127.0.0.1. parses as 127.0.0.1), so strip it before the checks below
+	host = strings.TrimSuffix(host, ".")
 
 	// block known cloud metadata DNS names
 	if host == "metadata.google.internal" {
@@ -143,13 +146,14 @@ func validateRealmURL(realm string) error {
 		return fmt.Errorf("realm targets localhost")
 	}
 
-	// block private, loopback, and link-local IP ranges
+	// block private, loopback, link-local, and unspecified IP ranges
 	// covers 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16 (private)
 	// covers 127.0.0.0/8, ::1 (loopback)
 	// covers 169.254.0.0/16, fe80::/10 (link-local, includes cloud metadata 169.254.169.254)
+	// covers 0.0.0.0, :: (unspecified, routed to loopback on Linux)
 	ip := net.ParseIP(host)
-	if ip != nil && (ip.IsPrivate() || ip.IsLoopback() || ip.IsLinkLocalUnicast()) {
-		return fmt.Errorf("realm targets private/loopback/link-local IP")
+	if ip != nil && (ip.IsPrivate() || ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsUnspecified()) {
+		return fmt.Errorf("realm targets private/loopback/link-local/unspecified IP")
 	}
 
 	return nil
