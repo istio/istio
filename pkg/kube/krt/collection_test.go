@@ -802,6 +802,30 @@ func TestCollectionDiscardResult(t *testing.T) {
 		// Use the initial state
 		assert.EventuallyEqual(t, col.Get, nil)
 	})
+	t.Run("discarded first run must remain retriggerable", func(t *testing.T) {
+		stop := test.NewStop(t)
+		opts := testOptions(t)
+		state := atomic.NewString("skip")
+		trigger := krt.NewRecomputeTrigger(true)
+		col := krt.NewSingleton(func(ctx krt.HandlerContext) *Static {
+			trigger.MarkDependant(ctx)
+			s := state.Load()
+			if s == "skip" {
+				// Discarding on the very first run must not drop the dependencies fetched
+				// above; otherwise TriggerRecomputation below would never retrigger this
+				// transformation and the collection would be stuck empty forever.
+				ctx.DiscardResult()
+				return nil
+			}
+			return &Static{Value: s}
+		}, opts.WithName("Test")...)
+		assert.Equal(t, col.AsCollection().WaitUntilSynced(stop), true)
+		assert.EventuallyEqual(t, col.Get, nil)
+
+		state.Store("final")
+		trigger.TriggerRecomputation()
+		assert.EventuallyEqual(t, col.Get, &Static{Value: "final"})
+	})
 	t.Run("swapping", func(t *testing.T) {
 		stop := test.NewStop(t)
 		opts := testOptions(t)

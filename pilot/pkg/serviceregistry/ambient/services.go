@@ -188,7 +188,8 @@ func GlobalNestedWorkloadServicesCollection(
 			services := cluster.Services()
 			waypointsPtr := krt.FetchOne(ctx, globalWaypoints, krt.FilterIndex(waypointsByCluster, cluster.ID))
 			if waypointsPtr == nil {
-				log.Warnf("Cluster %s does not have waypoints assigned, skipping", cluster.ID)
+				log.Warnf("Cluster %s does not have waypoints assigned yet, skipping", cluster.ID)
+				ctx.DiscardResult()
 				return nil
 			}
 			waypoints := *waypointsPtr
