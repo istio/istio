@@ -18,6 +18,7 @@ import (
 	"errors"
 	"net/netip"
 	"sync"
+	"time"
 
 	"golang.org/x/sys/unix"
 	corev1 "k8s.io/api/core/v1"
@@ -26,7 +27,17 @@ import (
 	set "istio.io/istio/cni/pkg/addressset"
 	"istio.io/istio/cni/pkg/trafficmanager"
 	"istio.io/istio/cni/pkg/util"
+	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/util/sets"
+)
+
+var (
+	reconcileResultTag = monitoring.CreateLabel("result")
+
+	hostRulesReconciles = monitoring.NewSum(
+		"nodeagent_host_rules_reconciles_total",
+		"The total number of host rule reconcile operations that detected drift or failed (result: repaired/failed).",
+	)
 )
 
 type meshDataplane struct {
@@ -34,6 +45,18 @@ type meshDataplane struct {
 	netServer          MeshDataplane
 	hostTrafficManager trafficmanager.TrafficRuleManager
 	hostAddrSet        set.AddressSetManager
+
+	// hostRulesReconcileInterval is the interval of the periodic host rules reconcile
+	// loop, <= 0 disables it. The loop detects and repairs host-level health check
+	// rules removed at runtime by external actors (firewalld reloads, an
+	// iptables-restore from an OS persistence unit, etc), see istio/istio#60607.
+	hostRulesReconcileInterval time.Duration
+	// stopHostRulesReconcile/hostRulesReconcileDone deterministically terminate the
+	// reconcile loop on Stop: the loop must have exited before the host rules are
+	// deleted, otherwise it could re-install the rules we just removed and leave
+	// residue behind after uninstall.
+	stopHostRulesReconcile context.CancelFunc
+	hostRulesReconcileDone chan struct{}
 
 	// branchENIRules tracks the branch ENI routing info we added rules for,
 	// keyed by pod IP. We cache it at add time so teardown can delete the rules
@@ -58,10 +81,57 @@ func (s *meshDataplane) ConstructInitialSnapshot(existingAmbientPods []*corev1.P
 // ConstructInitialSnapshot should always be invoked before this function.
 func (s *meshDataplane) Start(ctx context.Context) {
 	s.netServer.Start(ctx)
+
+	if s.hostRulesReconcileInterval > 0 {
+		loopCtx, cancel := context.WithCancel(ctx)
+		s.stopHostRulesReconcile = cancel
+		s.hostRulesReconcileDone = make(chan struct{})
+		go s.reconcileHostRulesLoop(loopCtx)
+	}
+}
+
+// reconcileHostRulesLoop periodically verifies the host-level health check rules and
+// re-installs them when drift is detected. The design follows kube-proxy's periodic
+// sync (30s by default) and kube-ovn's wait.Until idempotent re-assert: when there is
+// no drift the verification is read-only (iptables-save + iptables -C on the iptables
+// backend, an nft rule listing on the nftables backend) and no rule writes happen.
+func (s *meshDataplane) reconcileHostRulesLoop(ctx context.Context) {
+	defer close(s.hostRulesReconcileDone)
+	log.Infof("starting host rules reconcile loop (interval: %v)", s.hostRulesReconcileInterval)
+
+	ticker := time.NewTicker(s.hostRulesReconcileInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			log.Debug("host rules reconcile loop terminated")
+			return
+		case <-ticker.C:
+			repaired, err := s.hostTrafficManager.EnsureHostRules()
+			if err != nil {
+				// On error just log and retry on the next tick (the ticker itself
+				// provides throttling, no extra backoff needed)
+				log.Errorf("failed to reconcile host rules, will retry on next tick: %v", err)
+				hostRulesReconciles.With(reconcileResultTag.Value("failed")).Increment()
+				continue
+			}
+			if repaired {
+				log.Info("host rules drift detected and repaired")
+				hostRulesReconciles.With(reconcileResultTag.Value("repaired")).Increment()
+			}
+		}
+	}
 }
 
 // Stop terminates the netserver, flushes host ipsets, and removes host iptables healthprobe rules.
 func (s *meshDataplane) Stop(skipCleanup bool) {
+	// Deterministically stop the reconcile loop before cleaning up, so that it cannot
+	// race with DeleteHostRules and re-install the rules we just removed.
+	if s.stopHostRulesReconcile != nil {
+		s.stopHostRulesReconcile()
+		<-s.hostRulesReconcileDone
+	}
+
 	// Remove host rules (or not) that allow pod healthchecks to work.
 	// These are not critical but if they are not in place pods that have
 	// already been captured will eventually start to fail kubelet healthchecks.

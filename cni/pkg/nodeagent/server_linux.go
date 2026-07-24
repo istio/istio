@@ -140,10 +140,11 @@ func initMeshDataplane(client kube.Client, args AmbientArgs) (*meshDataplane, er
 	netServer := newNetServer(ztunnelServer, podNsMap, podTrafficManager, podNetns)
 
 	return &meshDataplane{
-		kubeClient:         client.Kube(),
-		netServer:          netServer,
-		hostTrafficManager: hostTrafficManager,
-		hostAddrSet:        setManager,
+		kubeClient:                 client.Kube(),
+		netServer:                  netServer,
+		hostTrafficManager:         hostTrafficManager,
+		hostAddrSet:                setManager,
+		hostRulesReconcileInterval: args.ReconcileHostRulesInterval,
 	}, nil
 }
 

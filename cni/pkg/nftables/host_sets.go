@@ -64,6 +64,29 @@ func NewHostSetManager(setPrefix string, enableIPv6 bool) (*HostNftSetManager, e
 	return manager, nil
 }
 
+// hostProbeIPSets returns the definitions of the probe IP sets referenced by the host
+// health check SNAT rules. The definitions are shared between the set manager
+// initialization and the host rules transaction (which re-asserts them so that a repair
+// converges even after an external actor removed the whole table): both must stay in
+// sync, since re-adding an existing set with a different definition is rejected by
+// nftables, while re-adding it with the same definition is a no-op that preserves the
+// set elements.
+func hostProbeIPSets(setPrefix string, enableIPv6 bool) []knftables.Set {
+	sets := []knftables.Set{{
+		Name:    fmt.Sprintf("%s-v4", setPrefix),
+		Type:    "ipv4_addr",
+		Comment: knftables.PtrTo("UUID of the pods that are part of ambient mesh"),
+	}}
+	if enableIPv6 {
+		sets = append(sets, knftables.Set{
+			Name:    fmt.Sprintf("%s-v6", setPrefix),
+			Type:    "ipv6_addr",
+			Comment: knftables.PtrTo("UUID of the pods that are part of ambient mesh"),
+		})
+	}
+	return sets
+}
+
 // initializeSets creates the nftables table and sets
 func (h *HostNftSetManager) initializeSets() error {
 	nft, err := h.nftProvider(knftables.InetFamily, AmbientNatTable)
@@ -76,20 +99,9 @@ func (h *HostNftSetManager) initializeSets() error {
 	// Create table
 	tx.Add(&knftables.Table{})
 
-	// Create IPv4 set
-	tx.Add(&knftables.Set{
-		Name:    h.v4SetName,
-		Type:    "ipv4_addr",
-		Comment: knftables.PtrTo("UUID of the pods that are part of ambient mesh"),
-	})
-
-	// Create IPv6 set if enabled
-	if h.enableIPv6 {
-		tx.Add(&knftables.Set{
-			Name:    h.v6SetName,
-			Type:    "ipv6_addr",
-			Comment: knftables.PtrTo("UUID of the pods that are part of ambient mesh"),
-		})
+	// Create the probe IP sets (the IPv6 one only if enabled)
+	for _, set := range hostProbeIPSets(h.prefix, h.enableIPv6) {
+		tx.Add(&set)
 	}
 
 	if err := nft.Run(context.TODO(), tx); err != nil {

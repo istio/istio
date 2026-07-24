@@ -289,6 +289,15 @@ cni:
 `,
 		},
 		{
+			desc: "CNIReconcileHostRulesInterval",
+			yamlStr: `
+cni:
+  ambient:
+    enabled: true
+    reconcileHostRulesInterval: "30s"
+`,
+		},
+		{
 			desc: "BadIPRange",
 			yamlStr: `
 global:
