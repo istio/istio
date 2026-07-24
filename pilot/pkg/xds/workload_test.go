@@ -41,6 +41,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/sets"
@@ -105,7 +106,7 @@ func TestWorkloadReconnect(t *testing.T) {
 		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
 			KubernetesObjects: []runtime.Object{mkPod("pod", "sa", "127.0.0.1", "not-node")},
 		})
-		ads := s.ConnectDeltaADS().WithType(v3.AddressType).WithMetadata(model.NodeMetadata{NodeName: "node"})
+		ads := s.ConnectDeltaADS().WithType(v3.AddressType).WithNodeType(model.Ztunnel).WithMetadata(model.NodeMetadata{NodeName: "node"})
 		ads.Request(&discovery.DeltaDiscoveryRequest{
 			ResourceNamesSubscribe:   []string{"*"},
 			ResourceNamesUnsubscribe: []string{"*"},
@@ -127,7 +128,7 @@ func TestWorkloadReconnect(t *testing.T) {
 		}, 2)
 
 		// Reconnect
-		ads = s.ConnectDeltaADS().WithType(v3.AddressType).WithMetadata(model.NodeMetadata{NodeName: "node"})
+		ads = s.ConnectDeltaADS().WithType(v3.AddressType).WithNodeType(model.Ztunnel).WithMetadata(model.NodeMetadata{NodeName: "node"})
 		ads.Request(&discovery.DeltaDiscoveryRequest{
 			ResourceNamesSubscribe:   []string{"*"},
 			ResourceNamesUnsubscribe: []string{"*"},
@@ -142,7 +143,7 @@ func TestWorkloadReconnect(t *testing.T) {
 		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
 			KubernetesObjects: []runtime.Object{mkPod("pod", "sa", "127.0.0.1", "not-node")},
 		})
-		ads := s.ConnectDeltaADS().WithType(v3.AddressType).WithMetadata(model.NodeMetadata{NodeName: "node"})
+		ads := s.ConnectDeltaADS().WithType(v3.AddressType).WithNodeType(model.Ztunnel).WithMetadata(model.NodeMetadata{NodeName: "node"})
 
 		// Subscribe to everything, expect to get the pod back
 		resp := ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{
@@ -161,7 +162,7 @@ func TestWorkloadReconnect(t *testing.T) {
 		}, 2)
 
 		// Reconnect
-		ads = s.ConnectDeltaADS().WithType(v3.AddressType).WithMetadata(model.NodeMetadata{NodeName: "node"})
+		ads = s.ConnectDeltaADS().WithType(v3.AddressType).WithNodeType(model.Ztunnel).WithMetadata(model.NodeMetadata{NodeName: "node"})
 		ads.Request(&discovery.DeltaDiscoveryRequest{
 			ResourceNamesSubscribe:   []string{},
 			ResourceNamesUnsubscribe: []string{},
@@ -275,7 +276,8 @@ func TestWorkload(t *testing.T) {
 		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
 			DebounceTime: time.Millisecond * 25,
 		})
-		ads := s.ConnectDeltaADS().WithTimeout(time.Second * 5).WithType(v3.AddressType).WithMetadata(model.NodeMetadata{NodeName: "node"})
+		ads := s.ConnectDeltaADS().WithTimeout(time.Second * 5).WithType(v3.AddressType).
+			WithNodeType(model.Ztunnel).WithMetadata(model.NodeMetadata{NodeName: "node"})
 		spamDebugEndpointsToDetectRace(t, s)
 
 		ads.Request(&discovery.DeltaDiscoveryRequest{
@@ -354,7 +356,8 @@ func TestWorkload(t *testing.T) {
 		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
 			DebounceTime: time.Millisecond * 25,
 		})
-		ads := s.ConnectDeltaADS().WithTimeout(time.Second * 5).WithType(v3.AddressType).WithMetadata(model.NodeMetadata{NodeName: "node"})
+		ads := s.ConnectDeltaADS().WithTimeout(time.Second * 5).WithType(v3.AddressType).
+			WithNodeType(model.Ztunnel).WithMetadata(model.NodeMetadata{NodeName: "node"})
 		spamDebugEndpointsToDetectRace(t, s)
 
 		ads.Request(&discovery.DeltaDiscoveryRequest{
@@ -644,4 +647,97 @@ func TestPeerAuthenticationUpdate(t *testing.T) {
 	})
 	assert.NoError(t, err)
 	ads.ExpectNoResponse()
+}
+
+// TestWorkloadGenerator_ProxyTypeFiltering verifies that WDS resources are only
+// generated for ambient mesh proxies (ztunnel and waypoint) and not for sidecars
+// or other traditional proxy types.
+//
+// This test ensures the fix for https://github.com/istio/istio/issues/60757
+// where sidecars were receiving WDS resources when PILOT_ENABLE_AMBIENT was
+// enabled, causing 10x CPU increases in large clusters.
+func TestWorkloadGenerator_ProxyTypeFiltering(t *testing.T) {
+	tests := []struct {
+		name              string
+		proxyType         model.NodeType
+		metadataDiscovery *model.StringBool
+		shouldGenerate    bool
+		description       string
+	}{
+		{
+			name:              "sidecar proxy should not receive WDS",
+			proxyType:         model.SidecarProxy,
+			metadataDiscovery: nil,
+			shouldGenerate:    false,
+			description:       "Sidecars use traditional xDS and should not receive WDS resources",
+		},
+		{
+			name:              "sidecar with PEER_METADATA_DISCOVERY enabled should receive WDS",
+			proxyType:         model.SidecarProxy,
+			metadataDiscovery: (*model.StringBool)(ptr.Of(true)),
+			shouldGenerate:    true,
+			description:       "Sidecars with explicit PEER_METADATA_DISCOVERY=true should receive WDS resources",
+		},
+		{
+			name:              "ztunnel should receive WDS",
+			proxyType:         model.Ztunnel,
+			metadataDiscovery: nil,
+			shouldGenerate:    true,
+			description:       "Ztunnels manage L4 traffic in ambient mesh and need WDS resources",
+		},
+		{
+			name:              "waypoint should receive WDS",
+			proxyType:         model.Waypoint,
+			metadataDiscovery: nil,
+			shouldGenerate:    true,
+			description:       "Waypoints handle L7 traffic in ambient mesh and need WDS resources",
+		},
+		{
+			name:              "router/gateway should not receive WDS",
+			proxyType:         model.Router,
+			metadataDiscovery: nil,
+			shouldGenerate:    false,
+			description:       "Traditional gateways use traditional xDS and should not receive WDS resources",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create a test server with a pod
+			s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+				KubernetesObjects: []runtime.Object{mkPod("test-pod", "test-sa", "127.0.0.10", "test-node")},
+			})
+
+			// Wait for the pod to be indexed
+			assert.EventuallyEqual(t, func() int {
+				return len(s.AmbientIndex.All())
+			}, 1)
+
+			// Create metadata with the specified discovery setting
+			metadata := model.NodeMetadata{}
+			if tt.metadataDiscovery != nil {
+				metadata.MetadataDiscovery = tt.metadataDiscovery
+			}
+
+			// Create an ADS connection with the specified proxy type and metadata
+			ads := s.ConnectDeltaADS().WithType(v3.AddressType).WithNodeType(tt.proxyType).WithMetadata(metadata)
+
+			// Request workload resources with wildcard subscription
+			ads.Request(&discovery.DeltaDiscoveryRequest{
+				ResourceNamesSubscribe: []string{"*"},
+			})
+
+			if tt.shouldGenerate {
+				// Ambient proxies should receive workload resources
+				resp := ads.ExpectResponse()
+				if len(resp.Resources) == 0 && len(resp.RemovedResources) == 0 {
+					t.Errorf("%s: expected to receive workload resources but got empty response. %s",
+						tt.name, tt.description)
+				}
+			} else {
+				// Non-ambient proxies should not receive any response
+				ads.ExpectNoResponse()
+			}
+		})
+	}
 }
