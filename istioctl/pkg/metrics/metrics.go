@@ -39,11 +39,15 @@ import (
 var (
 	metricsOpts     clioptions.ControlPlaneOptions
 	metricsDuration time.Duration
+	serviceFilter   string
+	responseCode    string
 )
 
 const (
 	destWorkloadLabel          = "destination_workload"
 	destWorkloadNamespaceLabel = "destination_workload_namespace"
+	destServiceLabel           = "destination_service"
+	responseCodeLabel          = "response_code"
 	reqTot                     = "istio_requests_total"
 	reqDur                     = "istio_request_duration_milliseconds"
 )
@@ -73,7 +77,13 @@ calculated over a time interval of 1 minute.
   istioctl experimental metrics productpage-v1 -d 2m
 
   # Retrieve workload metrics for various services in the different namespaces
-  istioctl experimental metrics productpage-v1.foo reviews-v1.bar ratings-v1.baz`,
+  istioctl experimental metrics productpage-v1.foo reviews-v1.bar ratings-v1.baz
+
+  # Retrieve workload metrics filtered by destination service
+  istioctl experimental metrics productpage-v1 --service "reviews.default.svc.cluster.local"
+
+  # Retrieve workload metrics filtered by response code (regex supported)
+  istioctl experimental metrics productpage-v1 --response-code "2[0-9]{2}"`,
 		// nolint: goimports
 		Aliases: []string{"m"},
 		Args: func(cmd *cobra.Command, args []string) error {
@@ -91,6 +101,8 @@ calculated over a time interval of 1 minute.
 	}
 
 	cmd.PersistentFlags().DurationVarP(&metricsDuration, "duration", "d", time.Minute, "Duration of query metrics, default value is 1m.")
+	cmd.PersistentFlags().StringVarP(&serviceFilter, "service", "s", "", "Filter metrics by destination service name (regex supported).")
+	cmd.PersistentFlags().StringVarP(&responseCode, "response-code", "r", "", "Filter metrics by response code (regex supported, e.g. \"2[0-9]{2}\").")
 
 	return cmd
 }
@@ -144,7 +156,7 @@ func run(c *cobra.Command, ctx cli.Context, args []string) error {
 
 	workloads := args
 	for _, workload := range workloads {
-		sm, err := metrics(promAPI, workload, metricsDuration)
+		sm, err := metrics(promAPI, workload, metricsDuration, serviceFilter, responseCode)
 		if err != nil {
 			return fmt.Errorf("could not build metrics for workload '%s': %v", workload, err)
 		}
@@ -162,7 +174,22 @@ func prometheusAPI(address string) (promv1.API, error) {
 	return promv1.NewAPI(promClient), nil
 }
 
-func metrics(promAPI promv1.API, workload string, duration time.Duration) (workloadMetrics, error) {
+func buildLabelMatchers(workloadName, workloadNamespace, service, respCode string) string {
+	matchers := []string{
+		fmt.Sprintf(`%s=~"%s.*"`, destWorkloadLabel, workloadName),
+		fmt.Sprintf(`%s=~"%s.*"`, destWorkloadNamespaceLabel, workloadNamespace),
+		`reporter="destination"`,
+	}
+	if service != "" {
+		matchers = append(matchers, fmt.Sprintf(`%s=~"%s"`, destServiceLabel, service))
+	}
+	if respCode != "" {
+		matchers = append(matchers, fmt.Sprintf(`%s=~"%s"`, responseCodeLabel, respCode))
+	}
+	return strings.Join(matchers, ",")
+}
+
+func metrics(promAPI promv1.API, workload string, duration time.Duration, service, respCode string) (workloadMetrics, error) {
 	parts := strings.Split(workload, ".")
 	wname := parts[0]
 	wns := ""
@@ -170,10 +197,11 @@ func metrics(promAPI promv1.API, workload string, duration time.Duration) (workl
 		wns = parts[1]
 	}
 
-	rpsQuery := fmt.Sprintf(`sum(rate(%s{%s=~"%s.*", %s=~"%s.*",reporter="destination"}[%s]))`,
-		reqTot, destWorkloadLabel, wname, destWorkloadNamespaceLabel, wns, duration)
-	errRPSQuery := fmt.Sprintf(`sum(rate(%s{%s=~"%s.*", %s=~"%s.*",reporter="destination",response_code=~"[45][0-9]{2}"}[%s]))`,
-		reqTot, destWorkloadLabel, wname, destWorkloadNamespaceLabel, wns, duration)
+	baseMatchers := buildLabelMatchers(wname, wns, service, respCode)
+	rpsQuery := fmt.Sprintf(`sum(rate(%s{%s}[%s]))`, reqTot, baseMatchers, duration)
+
+	errMatchers := buildLabelMatchers(wname, wns, service, "[45][0-9]{2}")
+	errRPSQuery := fmt.Sprintf(`sum(rate(%s{%s}[%s]))`, reqTot, errMatchers, duration)
 
 	var me *multierror.Error
 	var err error
@@ -188,19 +216,19 @@ func metrics(promAPI promv1.API, workload string, duration time.Duration) (workl
 		me = multierror.Append(me, err)
 	}
 
-	p50Latency, err := getLatency(promAPI, wname, wns, duration, 0.5)
+	p50Latency, err := getLatency(promAPI, wname, wns, duration, 0.5, service)
 	if err != nil {
 		me = multierror.Append(me, err)
 	}
 	sm.p50Latency = p50Latency
 
-	p90Latency, err := getLatency(promAPI, wname, wns, duration, 0.9)
+	p90Latency, err := getLatency(promAPI, wname, wns, duration, 0.9, service)
 	if err != nil {
 		me = multierror.Append(me, err)
 	}
 	sm.p90Latency = p90Latency
 
-	p99Latency, err := getLatency(promAPI, wname, wns, duration, 0.99)
+	p99Latency, err := getLatency(promAPI, wname, wns, duration, 0.99, service)
 	if err != nil {
 		me = multierror.Append(me, err)
 	}
@@ -213,9 +241,10 @@ func metrics(promAPI promv1.API, workload string, duration time.Duration) (workl
 	return sm, nil
 }
 
-func getLatency(promAPI promv1.API, workloadName, workloadNamespace string, duration time.Duration, quantile float64) (time.Duration, error) {
-	latencyQuery := fmt.Sprintf(`histogram_quantile(%f, sum(rate(%s_bucket{%s=~"%s.*", %s=~"%s.*",reporter="destination"}[%s])) by (le))`,
-		quantile, reqDur, destWorkloadLabel, workloadName, destWorkloadNamespaceLabel, workloadNamespace, duration)
+func getLatency(promAPI promv1.API, workloadName, workloadNamespace string, duration time.Duration, quantile float64, service string) (time.Duration, error) {
+	matchers := buildLabelMatchers(workloadName, workloadNamespace, service, "")
+	latencyQuery := fmt.Sprintf(`histogram_quantile(%f, sum(rate(%s_bucket{%s}[%s])) by (le))`,
+		quantile, reqDur, matchers, duration)
 
 	letency, err := vectorValue(promAPI, latencyQuery)
 	if err != nil {
