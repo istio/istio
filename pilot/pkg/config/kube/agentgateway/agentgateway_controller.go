@@ -877,6 +877,9 @@ func (c *Controller) getProtocolAndTLSConfig(obj *GatewayListener) (api.Protocol
 		}
 		if len(obj.TLSInfo.CaCert) > 0 {
 			tlsConfig.Root = obj.TLSInfo.CaCert
+			if obj.TLSInfo.AllowInsecureFallback {
+				tlsConfig.MtlsMode = api.TLSConfig_ALLOW_INSECURE_FALLBACK
+			}
 		}
 	}
 

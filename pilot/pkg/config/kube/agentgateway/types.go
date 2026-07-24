@@ -98,6 +98,10 @@ const (
 	InvalidFilter ConfigErrorReason = "InvalidFilter"
 	// InvalidTLS indicates an issue with TLS settings
 	InvalidTLS ConfigErrorReason = ConfigErrorReason(gatewayv1.ListenerReasonInvalidCertificateRef)
+	// InvalidCACertificateRef indicates an issue with a CA certificate reference
+	InvalidCACertificateRef ConfigErrorReason = ConfigErrorReason(gatewayv1.ListenerReasonInvalidCACertificateRef)
+	// InvalidCACertificateKind indicates an issue with the kind of a CA certificate reference
+	InvalidCACertificateKind ConfigErrorReason = ConfigErrorReason(gatewayv1.ListenerReasonInvalidCACertificateKind)
 	// InvalidListenerRefNotPermitted indicates a listener reference was not permitted
 	InvalidListenerRefNotPermitted ConfigErrorReason = ConfigErrorReason(gatewayv1.ListenerReasonRefNotPermitted)
 	// InvalidConfiguration indicates a generic error for all other invalid configurations

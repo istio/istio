@@ -66,14 +66,6 @@ var skippedTests = map[string]string{
 	// The following tests were added in v1.5.0
 	"BackendTLSPolicyObservedGenerationBump": "TODO",
 
-	"GatewayBackendClientCertificateFeature":                     "TODO",
-	"GatewayFrontendInvalidDefaultClientCertificateValidation":   "TODO",
-	"GatewayInvalidTLSBackendConfiguration":                      "TODO",
-	"GatewayTLSBackendClientCertificate":                         "TODO",
-	"GatewayFrontendClientCertificateValidationInsecureFallback": "TODO",
-	"GatewayFrontendClientCertificateValidation":                 "TODO",
-	"GatewayInvalidFrontendClientCertificateValidation":          "TODO",
-
 	"HTTPRouteHTTPSListenerDetectMisdirectedRequests": "TODO",
 
 	// The following tests were modified between v1.4.0 && v1.5.0
@@ -116,6 +108,9 @@ func TestGatewayConformanceAgentgateway(t *testing.T) {
 
 			supportedFeatures := gateway.SupportedFeatures.Clone().
 				Delete(features.MeshClusterIPMatchingFeature) // https://github.com/istio/istio/issues/44702
+			// Backend client certificate support (spec.tls.backend.clientCertificateRef) is implemented
+			// for agentgateway even though it is disabled in the shared gateway.SupportedFeatures.
+			supportedFeatures.Insert(features.GatewayBackendClientCertificateFeature)
 			if ctx.Settings().GatewayConformanceStandardOnly {
 				for f := range supportedFeatures {
 					if f.Channel != features.FeatureChannelStandard {
