@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+releaseNotes:
+  - |
+    **Added** a `terminationGracePeriodSeconds` field to the istiod (Pilot) Helm
+    values, allowing the istiod Deployment's pod termination grace period to be
+    configured. Defaults to 30 seconds, matching the previous behavior.
