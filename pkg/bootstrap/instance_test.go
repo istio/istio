@@ -248,6 +248,18 @@ func TestGolden(t *testing.T) {
 			},
 		},
 		{
+			// connection_settings.global_downstream_connection_limit set via ProxyConfig.
+			base: "global_downstream_connection_settings",
+		},
+		{
+			// Both connection_settings.global_downstream_connection_limit and
+			// ISTIO_META_GLOBAL_DOWNSTREAM_MAX_CONNECTIONS set; connection_settings wins.
+			base: "global_downstream_connection_settings_with_meta",
+			envVars: map[string]string{
+				GlobalDownstreamMaxConnections: "10000",
+			},
+		},
+		{
 			base: "stats_compression",
 		},
 		{
