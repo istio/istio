@@ -30,7 +30,7 @@ const (
 	// KubernetesGatewaySecretType is the name of a SDS secret stored in Kubernetes, used by the gateway-api. Secrets here
 	// take the form kubernetes-gateway://namespace/name. They are pulled from the config cluster.
 	KubernetesGatewaySecretType    = "kubernetes-gateway"
-	kubernetesGatewaySecretTypeURI = KubernetesGatewaySecretType + "://"
+	KubernetesGatewaySecretTypeURI = KubernetesGatewaySecretType + "://"
 	// BuiltinGatewaySecretType is the name of a SDS secret that uses the workloads own mTLS certificate
 	BuiltinGatewaySecretType    = "builtin"
 	BuiltinGatewaySecretTypeURI = BuiltinGatewaySecretType + "://"
@@ -86,7 +86,7 @@ func ToResourceName(name string) string {
 	// If they explicitly defined the type, keep it
 	if strings.HasPrefix(name, KubernetesConfigMapTypeURI) ||
 		strings.HasPrefix(name, KubernetesSecretTypeURI) ||
-		strings.HasPrefix(name, kubernetesGatewaySecretTypeURI) {
+		strings.HasPrefix(name, KubernetesGatewaySecretTypeURI) {
 		return name
 	}
 	// Otherwise, to kubernetes://
@@ -143,7 +143,7 @@ func ParseResourceName(resourceName string, proxyNamespace string, proxyCluster 
 			ResourceName: resourceName,
 			Cluster:      configCluster,
 		}, nil
-	} else if after, ok := strings.CutPrefix(resourceName, kubernetesGatewaySecretTypeURI); ok {
+	} else if after, ok := strings.CutPrefix(resourceName, KubernetesGatewaySecretTypeURI); ok {
 		// Valid formats:
 		// * kubernetes-gateway://secret-namespace/secret-name
 		// Namespace is required. The secret is read from the config cluster; this is the primary difference from KubernetesSecretType.
