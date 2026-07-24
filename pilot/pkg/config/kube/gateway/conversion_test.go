@@ -681,6 +681,7 @@ func TestConvertResources(t *testing.T) {
 		{name: "weighted"},
 		{name: "zero"},
 		{name: "mesh"},
+		{name: "foreign-waypoint"},
 		{
 			name: "invalid",
 			validationIgnorer: crdvalidation.NewValidationIgnorer(
