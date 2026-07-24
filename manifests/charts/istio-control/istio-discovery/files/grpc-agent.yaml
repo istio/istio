@@ -26,6 +26,12 @@
 {{- end }}
 {{- $containers := list }}
 {{- range $index, $container := .Spec.Containers }}{{ if not (eq $container.Name "istio-proxy") }}{{ $containers = append $containers $container.Name }}{{end}}{{- end}}
+{{- $holdWaitSec := .Values.global.proxy.holdApplicationUntilProxyStartsTimeoutSeconds | default 60 | int }}
+{{- if lt $holdWaitSec 1 }}{{- $holdWaitSec = 60 }}{{- end }}
+{{- if isset .ObjectMeta.Annotations `sidecar.istio.io/holdApplicationUntilProxyStartsTimeoutSeconds` }}
+{{- $annoWait := index .ObjectMeta.Annotations `sidecar.istio.io/holdApplicationUntilProxyStartsTimeoutSeconds` }}
+{{- if $annoWait }}{{- $parsedWait := atoi $annoWait }}{{- if gt $parsedWait 0 }}{{- $holdWaitSec = $parsedWait }}{{- end }}{{- end }}
+{{- end }}
 metadata:
   labels:
     {{/* security.istio.io/tlsMode: istio must be set by user, if gRPC is using mTLS initialization code. We can't set it automatically. */}}
@@ -75,6 +81,7 @@ spec:
           command:
           - pilot-agent
           - wait
+          - --timeoutSeconds={{ $holdWaitSec }}
           - --url=http://localhost:15020/healthz/ready
     env:
     - name: ISTIO_META_GENERATOR

@@ -103,6 +103,7 @@ spec:
               command:
               - pilot-agent
               - wait
+              - --timeoutSeconds=60
         name: istio-proxy
         ports:
         - containerPort: 15090
