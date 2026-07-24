@@ -35,6 +35,7 @@ import (
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
+	"k8s.io/apimachinery/pkg/types"
 
 	extensions "istio.io/api/extensions/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -170,11 +171,20 @@ func buildAllowAnyDynamicDNSHTTPForwardProxyFilter(meta *model.NodeMetadata) *hc
 	}
 }
 
+// networkFilterOptions carries the per-filter-chain context that selects which authz builder a
+// network filter stack uses. authzGateway scopes authz to the owning classic Gateway (its zero
+// value means "use the proxy-wide builders"); policySvc scopes authz and telemetry to a specific
+// service. In practice a chain belongs to a gateway or a service, not both.
+type networkFilterOptions struct {
+	policySvc    *model.Service
+	authzGateway types.NamespacedName
+}
+
 // buildOutboundNetworkFiltersWithSingleDestination takes a single cluster name
 // and builds a stack of network filters.
 func (lb *ListenerBuilder) buildOutboundNetworkFiltersWithSingleDestination(
 	statPrefix, clusterName, subsetName string, port *model.Port, destinationRule *networking.DestinationRule, applyTunnelingConfig tunnelingconfig.ApplyFunc,
-	includeMx bool, service *model.Service,
+	includeMx bool, service *model.Service, authzGateway types.NamespacedName,
 ) []*listener.Filter {
 	idleTimeout := destinationRule.GetTrafficPolicy().GetConnectionPool().GetTcp().GetIdleTimeout()
 	if idleTimeout == nil {
@@ -195,9 +205,11 @@ func (lb *ListenerBuilder) buildOutboundNetworkFiltersWithSingleDestination(
 
 	// Only pass service for DYNAMIC_DNS wildcard services that need SNI DFP filtering
 	if service != nil && service.Hostname.IsWildCarded() && service.Resolution == model.DynamicDNS {
-		return lb.buildCompleteNetworkFilters(class, port.Port, networkFilterStack, includeMx, service)
+		return lb.buildCompleteNetworkFilters(class, port.Port, networkFilterStack, includeMx,
+			networkFilterOptions{policySvc: service, authzGateway: authzGateway})
 	}
-	return lb.buildCompleteNetworkFilters(class, port.Port, networkFilterStack, includeMx, nil)
+	return lb.buildCompleteNetworkFilters(class, port.Port, networkFilterStack, includeMx,
+		networkFilterOptions{authzGateway: authzGateway})
 }
 
 func (lb *ListenerBuilder) buildCompleteNetworkFilters(
@@ -205,11 +217,16 @@ func (lb *ListenerBuilder) buildCompleteNetworkFilters(
 	port int,
 	networkFilterStack []*listener.Filter,
 	includeMx bool,
-	policySvc *model.Service,
+	opts networkFilterOptions,
 ) []*listener.Filter {
+	policySvc := opts.policySvc
 	authzCustomBuilder := lb.authzCustomBuilder
 	authzBuilder := lb.authzBuilder
-	if policySvc != nil {
+	switch {
+	case class == istionetworking.ListenerClassGateway && lb.authzTargetedGateways.Contains(opts.authzGateway):
+		authzBuilder = lb.gatewayAuthzBuilder(authz.Local, opts.authzGateway)
+		authzCustomBuilder = lb.gatewayAuthzBuilder(authz.Custom, opts.authzGateway)
+	case policySvc != nil:
 		useFilterState := lb.node.Type == model.Waypoint
 		authzBuilder = authz.NewBuilderForService(authz.Local, lb.push, lb.node, useFilterState, policySvc)
 		authzCustomBuilder = authz.NewBuilderForService(authz.Custom, lb.push, lb.node, useFilterState, policySvc)
@@ -258,7 +275,7 @@ func (lb *ListenerBuilder) buildCompleteNetworkFilters(
 // destination routes and builds a stack of network filters.
 func (lb *ListenerBuilder) buildOutboundNetworkFiltersWithWeightedClusters(routes []*networking.RouteDestination,
 	port *model.Port, configMeta config.Meta, destinationRule *networking.DestinationRule,
-	includeMx bool,
+	includeMx bool, authzGateway types.NamespacedName,
 ) []*listener.Filter {
 	statPrefix := configMeta.Name + "." + configMeta.Namespace
 	clusterSpecifier := &tcp.TcpProxy_WeightedClusters{
@@ -299,7 +316,8 @@ func (lb *ListenerBuilder) buildOutboundNetworkFiltersWithWeightedClusters(route
 	tcpFilter := setAccessLogAndBuildTCPFilter(lb.push, lb.node, tcpProxy, class, nil)
 	networkFilterStack := buildNetworkFiltersStack(port.Protocol, tcpFilter, statPrefix, clusterName)
 
-	return lb.buildCompleteNetworkFilters(class, port.Port, networkFilterStack, includeMx, nil)
+	return lb.buildCompleteNetworkFilters(class, port.Port, networkFilterStack, includeMx,
+		networkFilterOptions{authzGateway: authzGateway})
 }
 
 func maybeSetHashPolicy(destinationRule *networking.DestinationRule, tcpProxy *tcp.TcpProxy, subsetName string) {
@@ -364,7 +382,7 @@ func buildNetworkFiltersStack(p protocol.Instance, tcpFilter *listener.Filter, s
 // filter).
 func (lb *ListenerBuilder) buildOutboundNetworkFilters(
 	routes []*networking.RouteDestination,
-	port *model.Port, configMeta config.Meta, includeMx bool,
+	port *model.Port, configMeta config.Meta, includeMx bool, authzGateway types.NamespacedName,
 ) []*listener.Filter {
 	push, node := lb.push, lb.node
 	service := push.ServiceForHostname(node, host.Name(routes[0].Destination.Host))
@@ -382,9 +400,9 @@ func (lb *ListenerBuilder) buildOutboundNetworkFilters(
 		}
 
 		return lb.buildOutboundNetworkFiltersWithSingleDestination(
-			statPrefix, clusterName, routes[0].Destination.Subset, port, destinationRule, tunnelingconfig.Apply, includeMx, nil)
+			statPrefix, clusterName, routes[0].Destination.Subset, port, destinationRule, tunnelingconfig.Apply, includeMx, nil, authzGateway)
 	}
-	return lb.buildOutboundNetworkFiltersWithWeightedClusters(routes, port, configMeta, destinationRule, includeMx)
+	return lb.buildOutboundNetworkFiltersWithWeightedClusters(routes, port, configMeta, destinationRule, includeMx, authzGateway)
 }
 
 // buildMongoFilter builds an outbound Envoy MongoProxy filter.
