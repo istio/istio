@@ -79,6 +79,7 @@ func TestApplyEdgeProfileDefaults(t *testing.T) {
 			},
 			nodeType: model.Router,
 			verify: func(t *testing.T, cs *meshconfig.ProxyConfig_ConnectionSettings) {
+				assert.Equal(t, int32(32768), cs.GetClusterPerConnectionBufferLimitBytes().GetValue())
 				assert.Equal(t, int32(32768), cs.GetListenerPerConnectionBufferLimitBytes().GetValue())
 				assert.Equal(t, time.Hour, cs.GetHttpIdleTimeout().AsDuration())
 				assert.Equal(t, int32(100), cs.GetHttpMaxConcurrentStreams().GetValue())
