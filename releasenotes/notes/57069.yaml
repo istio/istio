@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+  - 57040
+releaseNotes:
+- |
+  **Added** support automatic retrieval of pod revision in `istioctl proxy-status <podName>`.
