@@ -422,6 +422,24 @@ func TestCmdAdd(t *testing.T) {
 	testDoAddRun(t, buildMockConf(true), testNSName, pod, ns)
 }
 
+// TestCmdAddCNIPodSkipsK8sClient verifies that the istio-cni node agent pod itself is
+// detected and skipped before a kube client is created, in both ambient and sidecar mode.
+// Otherwise the CNI pod deadlocks waiting on a kubeconfig it has not written yet (for
+// example after a node reboot). The mock kubeconfig does not exist, so reaching
+// newK8sClient would surface an error; an early return proves the deadlock is avoided.
+func TestCmdAddCNIPodSkipsK8sClient(t *testing.T) {
+	for _, ambientEnabled := range []bool{true, false} {
+		t.Run(fmt.Sprintf("ambient=%t", ambientEnabled), func(t *testing.T) {
+			// conf.PodNamespace is empty in the mock conf, so a pod in the empty namespace
+			// whose name has the istio-cni-node- prefix is treated as the CNI pod itself.
+			args := buildCmdArgs(buildMockConf(ambientEnabled), "istio-cni-node-abcde", "")
+			if err := CmdAdd(args); err != nil {
+				t.Fatalf("expected the CNI pod to be skipped without creating a kube client, got error: %v", err)
+			}
+		})
+	}
+}
+
 func TestCmdAddTwoContainersWithAnnotation(t *testing.T) {
 	pod, ns := buildFakePodAndNSForClient()
 

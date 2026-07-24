@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 60668
+releaseNotes:
+- |
+  **Fixed** a deadlock where the istio-cni node agent pod could fail to start (for
+  example after a node reboot) because the CNI plugin only skipped the kube client
+  creation for its own agent pod when ambient mode was enabled. The preemptive
+  check now runs in sidecar mode as well, so the agent pod no longer blocks on a
+  kubeconfig it has not written yet.
