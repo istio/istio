@@ -191,7 +191,7 @@ func HTTPRouteCollection(
 				routeOrigins := make([]types.NamespacedName, len(routes))
 				for i := range routeOrigins {
 					routeOrigins[i] = types.NamespacedName{
-						Name: obj.Name,
+						Name:      obj.Name,
 						Namespace: obj.Namespace,
 					}
 				}
@@ -841,7 +841,7 @@ func mergeHTTPRoutes(baseVirtualServices krt.Collection[RouteWithKey], opts ...k
 
 		origins, err := httpRouteOrigins(base)
 		if err != nil {
-			//TODO(ericdbishop): return nil and change to error log
+			// TODO(ericdbishop): return nil and change to error log
 			log.Debugf("invalid HTTPRoute origins: %v", err)
 		}
 
@@ -925,7 +925,6 @@ func mergeHTTPRoutes(baseVirtualServices krt.Collection[RouteWithKey], opts ...k
 	return finalVirtualServices
 }
 
-
 // Validate and copy httpRoute origins from Extra field for correctness.
 func httpRouteOrigins(config config.Config) ([]types.NamespacedName, error) {
 	virtualService := config.Spec.(*istio.VirtualService)
@@ -947,7 +946,7 @@ func httpRouteOrigins(config config.Config) ([]types.NamespacedName, error) {
 
 func sortHTTPRoutesWithOrigins(routes []*istio.HTTPRoute, origins []types.NamespacedName) {
 	type routeOriginPair struct {
-		route *istio.HTTPRoute
+		route  *istio.HTTPRoute
 		origin types.NamespacedName
 	}
 

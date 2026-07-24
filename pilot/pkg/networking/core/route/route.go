@@ -53,6 +53,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/util/grpc"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/wellknown"
@@ -387,6 +388,7 @@ type RouteOptions struct {
 	LookupHash                func(*networking.HTTPRouteDestination) *networking.LoadBalancerSettings_ConsistentHashLB
 
 	InferencePoolExtensionRefs map[string]kube.InferencePoolRouteRuleConfig
+	BuildPerRouteAuthConfig    func(origin types.NamespacedName) map[string]*anypb.Any
 }
 
 // BuildHTTPRoutesForVirtualService creates data plane HTTP routes from the virtual service spec.
@@ -412,15 +414,18 @@ func BuildHTTPRoutesForVirtualService(
 	out := make([]*route.Route, 0, len(vs.Http))
 
 	catchall := false
-	for _, http := range vs.Http {
+	for i, http := range vs.Http {
+		origin := virtualService.Extra[constants.ConfigExtraHTTPRouteOrigins].([]types.NamespacedName)[i]
 		if len(http.Match) == 0 {
 			if r := TranslateRoute(node, http, nil, listenPort, virtualService, gatewayNames, opts); r != nil {
+				applyPerRouteAuthPolicy(r, origin, opts)
 				out = append(out, r)
 			}
 			catchall = true
 		} else {
 			for _, match := range http.Match {
 				if r := TranslateRoute(node, http, match, listenPort, virtualService, gatewayNames, opts); r != nil {
+					applyPerRouteAuthPolicy(r, origin, opts)
 					out = append(out, r)
 					// This is a catch all path. Routes are matched in order, so we will never go beyond this match
 					// As an optimization, we can just stop sending any more routes here.
@@ -440,6 +445,23 @@ func BuildHTTPRoutesForVirtualService(
 		return nil, fmt.Errorf("no routes matched")
 	}
 	return out, nil
+}
+
+func applyPerRouteAuthPolicy(r *route.Route, origin types.NamespacedName, opts RouteOptions) {
+	if opts.BuildPerRouteAuthConfig == nil {
+		return
+	}
+
+	routeOverrides := opts.BuildPerRouteAuthConfig(origin)
+	if len(routeOverrides) == 0 {
+		return
+	}
+
+	if r.TypedPerFilterConfig == nil {
+		r.TypedPerFilterConfig = make(map[string]*anypb.Any)
+	}
+
+	maps.Copy(r.TypedPerFilterConfig, routeOverrides)
 }
 
 // sourceMatchHttp checks if the sourceLabels or the gateways in a match condition match with the
