@@ -1008,6 +1008,36 @@ func TestWaypointPeerMetadataFilters(t *testing.T) {
 	}
 }
 
+func TestWaypointPeerMetadataConnectionIDFilterPlacement(t *testing.T) {
+	// The connection ID set_filter_state filter must run on the main_internal listener,
+	// before the upstream peer_metadata filter. This allows for the peer metadata filters
+	// to communicate usig that connection ID as a unique key between them.
+	const setFilterStateName = "envoy.filters.network.set_filter_state"
+
+	g := NewWithT(t)
+	test.SetForTest(t, &features.EnableAmbientBaggage, true)
+	test.SetForTest(t, &features.EnableAmbientBaggageGenericTranport, true)
+
+	d, proxy := setupWaypointTest(t,
+		waypointGateway,
+		waypointSvc,
+		waypointInstance,
+		appServiceEntry)
+
+	listeners := make(map[string]*listenerv3.Listener)
+	for _, l := range d.Listeners(proxy) {
+		listeners[l.Name] = l
+	}
+
+	mainInternalListener := listeners["main_internal"]
+	g.Expect(mainInternalListener).NotTo(BeNil())
+	filterChain := xdstest.ExtractFilterChain("inbound-vip|80|http|app.com", mainInternalListener)
+	g.Expect(filterChain).NotTo(BeNil())
+	mainFilters, _ := xdstest.ExtractFilterNames(t, filterChain)
+	g.Expect(mainFilters).NotTo(BeEmpty())
+	g.Expect(mainFilters[0]).To(Equal(setFilterStateName), "connection ID filter must be the first filter on main_internal")
+}
+
 func TestWaypointMultipleVirtualServices(t *testing.T) {
 	// Test that multiple VirtualServices targeting the same host at a waypoint
 	// have all their routes merged into the inbound VirtualHost.
