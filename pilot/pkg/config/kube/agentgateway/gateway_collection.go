@@ -42,9 +42,10 @@ import (
 // Used by agentgateway controller
 // TLSInfo contains the TLS certificate and key for a gateway listener.
 type TLSInfo struct {
-	Cert   []byte
-	CaCert []byte
-	Key    []byte `json:"-"`
+	Cert                  []byte
+	CaCert                []byte
+	Key                   []byte `json:"-"`
+	AllowInsecureFallback bool
 }
 
 type portProtocol struct {
@@ -107,7 +108,8 @@ func (g GatewayListener) Equals(other GatewayListener) bool {
 	if g.TLSInfo != nil {
 		if !bytes.Equal(g.TLSInfo.Cert, other.TLSInfo.Cert) ||
 			!bytes.Equal(g.TLSInfo.Key, other.TLSInfo.Key) ||
-			!bytes.Equal(g.TLSInfo.CaCert, other.TLSInfo.CaCert) {
+			!bytes.Equal(g.TLSInfo.CaCert, other.TLSInfo.CaCert) ||
+			g.TLSInfo.AllowInsecureFallback != other.TLSInfo.AllowInsecureFallback {
 			return false
 		}
 	}
@@ -161,7 +163,8 @@ func (g ListenerSet) Equals(other ListenerSet) bool {
 	if g.TLSInfo != nil {
 		if !bytes.Equal(g.TLSInfo.Cert, other.TLSInfo.Cert) ||
 			!bytes.Equal(g.TLSInfo.Key, other.TLSInfo.Key) ||
-			!bytes.Equal(g.TLSInfo.CaCert, other.TLSInfo.CaCert) {
+			!bytes.Equal(g.TLSInfo.CaCert, other.TLSInfo.CaCert) ||
+			g.TLSInfo.AllowInsecureFallback != other.TLSInfo.AllowInsecureFallback {
 			return false
 		}
 	}
@@ -447,7 +450,7 @@ func GatewayCollection(
 		if len(gatewayServices) == 0 && err != nil {
 			// Short circuit if its a hard failure
 			log.Errorf("failed to translate gwv1", "name", obj.GetName(), "namespace", obj.GetNamespace(), "err", err.message)
-			reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, 0, err.error, 0)
+			reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, 0, err.error, nil, 0)
 			return status, nil
 		}
 		var gatewayErr *ConfigError
@@ -537,7 +540,11 @@ func GatewayCollection(
 		}
 		validateListenerConflicts(result)
 		// TODO(jaellio): include unique listener sets in status after validating listener conflicts
-		reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, len(listenerSets), gatewayErr, validListeners)
+		var backendTLSErr *ConfigError
+		if obj.Spec.TLS != nil {
+			backendTLSErr = resolveGatewayBackendTLS(ctx, secrets, grants, obj.Spec.TLS.Backend, obj)
+		}
+		reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, len(listenerSets), gatewayErr, backendTLSErr, validListeners)
 		return status, result
 	}, opts.WithName("KubernetesGateway")...)
 
