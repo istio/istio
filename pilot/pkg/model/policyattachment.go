@@ -186,6 +186,7 @@ func (p WorkloadPolicyMatcher) ShouldAttachPolicy(kind config.GroupVersionKind,
 			// Policy is not in the same namespace
 			continue
 		}
+
 		if !(targetRef.GetNamespace() == "" || targetRef.GetNamespace() == p.WorkloadNamespace) {
 			// Policy references a different namespace (which is unsupported; it will never match anything)
 			continue

@@ -17,6 +17,7 @@ package gateway
 import (
 	"fmt"
 	"iter"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -185,6 +186,16 @@ func HTTPRouteCollection(
 				if len(currentRouteInferenceConfigs) > 0 {
 					extraData[constants.ConfigExtraPerRouteRuleInferencePoolConfigs] = currentRouteInferenceConfigs
 				}
+
+				// Populate Extra field with HTTPRoute origins (name/namespace)
+				routeOrigins := make([]types.NamespacedName, len(routes))
+				for i := range routeOrigins {
+					routeOrigins[i] = types.NamespacedName{
+						Name:      obj.Name,
+						Namespace: obj.Namespace,
+					}
+				}
+				extraData[constants.ConfigExtraHTTPRouteOrigins] = routeOrigins
 
 				cfg := config.Config{
 					Meta: config.Meta{
@@ -827,6 +838,13 @@ func mergeHTTPRoutes(baseVirtualServices krt.Collection[RouteWithKey], opts ...k
 		sortRoutesByCreationTime(configs)
 		base := configs[0].DeepCopy()
 		baseVS := base.Spec.(*istio.VirtualService)
+
+		origins, err := httpRouteOrigins(base)
+		if err != nil {
+			// TODO(ericdbishop): return nil and change to error log
+			log.Debugf("invalid HTTPRoute origins: %v", err)
+		}
+
 		// Deep copy the InferencePool configs map to avoid race conditions
 		// The default DeepCopy() only does shallow copy of Extra field
 		if base.Extra != nil {
@@ -842,6 +860,12 @@ func mergeHTTPRoutes(baseVirtualServices krt.Collection[RouteWithKey], opts ...k
 		for i, config := range configs[1:] {
 			thisVS := config.Spec.(*istio.VirtualService)
 			baseVS.Http = append(baseVS.Http, thisVS.Http...)
+			thisOrigins, err := httpRouteOrigins(config.Config)
+			if err != nil {
+				log.Errorf("invalid HTTPRoute origins: %v", err)
+				return nil
+			}
+			origins = append(origins, thisOrigins...)
 			// append parents
 			base.Annotations[constants.InternalParentNames] = fmt.Sprintf("%s,%s",
 				base.Annotations[constants.InternalParentNames], config.Annotations[constants.InternalParentNames])
@@ -851,7 +875,10 @@ func mergeHTTPRoutes(baseVirtualServices krt.Collection[RouteWithKey], opts ...k
 			}
 			if config.Extra != nil {
 				for k, v := range config.Extra {
-					// For non-InferencePool configs, keep the first value for stability
+					if k == constants.ConfigExtraHTTPRouteOrigins {
+						continue
+					}
+					// For generic Extra configs, keep the first value for stability
 					if k != constants.ConfigExtraPerRouteRuleInferencePoolConfigs {
 						if _, exists := base.Extra[k]; !exists {
 							base.Extra[k] = v
@@ -885,9 +912,55 @@ func mergeHTTPRoutes(baseVirtualServices krt.Collection[RouteWithKey], opts ...k
 				log.Debugf("Final merged VirtualService for key %s has %d InferencePool route configs", object.Key, len(ipConfigs))
 			}
 		}
-		sortHTTPRoutes(baseVS.Http)
+		sortHTTPRoutesWithOrigins(baseVS.Http, origins)
+
+		if base.Extra == nil {
+			base.Extra = make(map[string]any)
+		}
+		base.Extra[constants.ConfigExtraHTTPRouteOrigins] = origins
+
 		base.Name = strings.ReplaceAll(object.Key, "/", "~")
 		return &base
 	}, opts...)
 	return finalVirtualServices
+}
+
+// Validate and copy httpRoute origins from Extra field for correctness.
+func httpRouteOrigins(config config.Config) ([]types.NamespacedName, error) {
+	virtualService := config.Spec.(*istio.VirtualService)
+	rawOrigins, ok := config.Extra[constants.ConfigExtraHTTPRouteOrigins]
+	if !ok {
+		return make([]types.NamespacedName, len(virtualService.Http)), nil
+	}
+	origins, ok := rawOrigins.([]types.NamespacedName)
+	if !ok {
+		return nil, fmt.Errorf("unexpected type for HTTPRoute origins: %T", rawOrigins)
+	}
+
+	if len(origins) != len(virtualService.Http) {
+		return nil, fmt.Errorf("HTTPRoute origins count does not equal route count")
+	}
+
+	return slices.Clone(origins), nil
+}
+
+func sortHTTPRoutesWithOrigins(routes []*istio.HTTPRoute, origins []types.NamespacedName) {
+	type routeOriginPair struct {
+		route  *istio.HTTPRoute
+		origin types.NamespacedName
+	}
+
+	pairs := make([]routeOriginPair, len(routes))
+	for i := range routes {
+		pairs[i] = routeOriginPair{routes[i], origins[i]}
+	}
+
+	sort.SliceStable(pairs, func(i, j int) bool {
+		return httpRouteLess(pairs[i].route, pairs[j].route)
+	})
+
+	for i := range pairs {
+		routes[i] = pairs[i].route
+		origins[i] = pairs[i].origin
+	}
 }
