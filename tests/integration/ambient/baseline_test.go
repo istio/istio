@@ -2953,7 +2953,7 @@ func TestIngressTLS(t *testing.T) {
 		t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]any{
 			"Destination": apps.Captured.Config().Service,
 			"Port":        ports.HTTPS.ServicePort,
-		}, `apiVersion: networking.istio.io/v1alpha3
+		}, `apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: gateway
@@ -2967,7 +2967,7 @@ spec:
       protocol: HTTP
     hosts: ["*"]
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: route
@@ -2983,7 +2983,7 @@ spec:
         port:
           number: {{.Port}}
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: DestinationRule
 metadata:
   name: "{{.Destination}}"
