@@ -431,6 +431,6 @@ func isCNIPod(conf *Config, k8sArgs *K8sArgs) bool {
 		log.Infof("in a degraded state and %v looks like our own agent pod, skipping", k8sArgs.K8S_POD_NAME)
 		return true
 	}
-	log.Warnf("not a CNI pod, podName: %s, podNamespace: %s, conf pod namespace: %s", k8sArgs.K8S_POD_NAME, k8sArgs.K8S_POD_NAMESPACE, conf.PodNamespace)
+	log.Debugf("not a CNI pod, podName: %s, podNamespace: %s, conf pod namespace: %s", k8sArgs.K8S_POD_NAME, k8sArgs.K8S_POD_NAMESPACE, conf.PodNamespace)
 	return false
 }
