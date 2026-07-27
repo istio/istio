@@ -37,7 +37,11 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
-func setupController(t *testing.T, defaultExportTo sets.Set[visibility.Instance], objs ...config.Config) *VirtualServiceController {
+func setupControllerWithWatcher(
+	t *testing.T,
+	defaultExportTo sets.Set[visibility.Instance],
+	objs ...config.Config,
+) (*VirtualServiceController, meshwatcher.TestWatcher) {
 	stop := test.NewStop(t)
 	meshHolder := meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{
 		DefaultVirtualServiceExportTo: slices.Map(defaultExportTo.UnsortedList(), func(i visibility.Instance) string {
@@ -58,7 +62,12 @@ func setupController(t *testing.T, defaultExportTo sets.Set[visibility.Instance]
 	kube.WaitForCacheSync("test", stop, store.HasSynced)
 	kube.WaitForCacheSync("test", stop, controller.HasSynced)
 
-	return controller
+	return controller, meshHolder
+}
+
+func setupController(t *testing.T, defaultExportTo sets.Set[visibility.Instance], objs ...config.Config) *VirtualServiceController {
+	c, _ := setupControllerWithWatcher(t, defaultExportTo, objs...)
+	return c
 }
 
 func dumpOnFailure(t *testing.T, debugger *krt.DebugHandler) {
@@ -809,6 +818,40 @@ func setupControllerWithXDS(t *testing.T, xds XDSUpdater, objs ...config.Config)
 	kube.WaitForCacheSync("test", stop, store.HasSynced)
 	kube.WaitForCacheSync("test", stop, controller.HasSynced)
 	return controller, store
+}
+
+func TestMergedVirtualServiceDefaultExportToUpdates(t *testing.T) {
+	vs := config.Config{
+		Meta: config.Meta{
+			Name:             "inherits-default",
+			Namespace:        "default",
+			GroupVersionKind: gvk.VirtualService,
+		},
+		Spec: &v1alpha3.VirtualService{
+			Hosts: []string{"example.org"},
+			Http: []*v1alpha3.HTTPRoute{
+				{Route: []*v1alpha3.HTTPRouteDestination{
+					{Destination: &v1alpha3.Destination{Host: "example.org"}},
+				}},
+			},
+		},
+	}
+
+	controller, meshHolder := setupControllerWithWatcher(t, sets.New(visibility.Public), vs)
+	exportTo := func() sets.Set[visibility.Instance] {
+		merged := controller.MergedVirtualServices()
+		if len(merged) != 1 {
+			return nil
+		}
+		return merged[0].ExportTo
+	}
+	assert.EventuallyEqual(t, exportTo, sets.New(visibility.Public))
+
+	meshHolder.Set(&meshconfig.MeshConfig{DefaultVirtualServiceExportTo: []string{"."}})
+	assert.EventuallyEqual(t, exportTo, sets.New(visibility.Instance("default")))
+
+	meshHolder.Set(&meshconfig.MeshConfig{DefaultVirtualServiceExportTo: []string{"*"}})
+	assert.EventuallyEqual(t, exportTo, sets.New(visibility.Public))
 }
 
 // TestXDSPushSuppression verifies that xdsPush suppresses pushes for metadata-only
