@@ -18,6 +18,9 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
+
+	"github.com/cenkalti/backoff/v4"
 
 	"istio.io/istio/cni/pkg/config"
 	"istio.io/istio/cni/pkg/ipset"
@@ -583,6 +586,109 @@ func (cfg *IptablesConfigurator) CreateHostRulesForHealthChecks() error {
 		}
 		return nil
 	})
+}
+
+// EnsureHostRules verifies that the health check rules in the host netns are still in
+// place and re-installs them when they have drifted (flushed/overwritten by an external
+// actor). When everything is in place it performs no writes at all. It is idempotent
+// and meant to be invoked from a periodic reconcile loop (istio/istio#60607).
+//
+// Notes:
+//   - This deliberately does NOT reuse the cfg.Reconcile cleanup path: that path sets up
+//     DROP guardrails in the filter table INPUT/FORWARD/OUTPUT chains. Inside a pod netns
+//     they prevent traffic from escaping the mesh while rules are rebuilt, but in the
+//     host netns they would drop the entire node's traffic, so they must never be
+//     enabled here.
+//   - The repair reuses the same retried DeleteHostRules + CreateHostRulesForHealthChecks
+//     delete-then-create sequence as the startup path, instead of simply replaying
+//     iptables-restore: the restore payload creates chains with -N, which fails when the
+//     chain already exists (so partial residue would never converge), and replaying
+//     would also duplicate the POSTROUTING jump.
+func (cfg *IptablesConfigurator) EnsureHostRules() (bool, error) {
+	builder := cfg.AppendHostRules()
+
+	converged := false
+	err := util.RunAsHost(func() error {
+		var err error
+		converged, err = cfg.hostRulesConverged(builder)
+		return err
+	})
+	if err != nil {
+		// The state could not be read; that is not evidence that the (possibly
+		// healthy) rules are gone. Skip the repair instead of deleting live rules
+		// based on a failed read - the loop will verify again on the next tick.
+		return false, fmt.Errorf("failed to verify host iptables rules, skipping repair: %w", err)
+	}
+	if converged {
+		return false, nil
+	}
+
+	log.WithLabels("component", "host").
+		Warn("detected drift in host-level iptables rules (external flush/overwrite?), re-applying them")
+	// Once the leftovers are deleted the re-create must succeed, otherwise the node
+	// would be left without probe SNAT rules until the next tick; retry the sequence
+	// like the startup path does, but bounded well below the reconcile interval.
+	err = backoff.Retry(func() error {
+		cfg.DeleteHostRules()
+		return cfg.CreateHostRulesForHealthChecks()
+	}, backoff.WithMaxRetries(backoff.NewConstantBackOff(2*time.Second), 5))
+	if err != nil {
+		return true, err
+	}
+	return true, nil
+}
+
+// hostRulesConverged reports whether every host-level rule this configurator manages is
+// still present, using the same read-only probes as VerifyIptablesState (an
+// iptables-save snapshot for chain existence and ISTIO_* chain rule counts, plus a
+// per-rule `iptables -C`). It intentionally diverges from VerifyIptablesState in two
+// ways that matter for a periodic runtime loop:
+//   - a failed iptables-save is returned as an error instead of being reported as
+//     drift, so a transient read failure can never trigger a destructive repair;
+//   - ISTIO_* chains that are not part of the expected host state (e.g. residue from
+//     other istio components or versions) are ignored, since the delete+create repair
+//     cannot remove chains it does not own and treating them as drift would make the
+//     loop re-apply the rules on every tick without ever converging.
+//
+// The IPv6 state is only verified when IPv6 is enabled, since no v6 rules are managed
+// otherwise.
+func (cfg *IptablesConfigurator) hostRulesConverged(ruleBuilder *builder.IptablesRuleBuilder) (bool, error) {
+	log := log.WithLabels("component", "host")
+	type ipFamily struct {
+		ver      *dep.IptablesVersion
+		expected string
+		checks   [][]string
+	}
+	families := []ipFamily{
+		{&cfg.iptV, ruleBuilder.BuildV4Restore(), ruleBuilder.BuildCheckV4()},
+	}
+	if cfg.cfg.EnableIPv6 {
+		families = append(families, ipFamily{&cfg.ipt6V, ruleBuilder.BuildV6Restore(), ruleBuilder.BuildCheckV6()})
+	}
+	for _, family := range families {
+		output, err := cfg.ext.Run(log, true, iptablesconstants.IPTablesSave, family.ver, nil)
+		if err != nil {
+			return false, fmt.Errorf("%s failed: %w", family.ver.CmdToString(iptablesconstants.IPTablesSave), err)
+		}
+		currentState := ruleBuilder.GetStateFromSave(output.String())
+		expectedState := ruleBuilder.GetStateFromSave(family.expected)
+		for table, chains := range expectedState {
+			for chain, rules := range chains {
+				currentRules, ok := currentState[table][chain]
+				if !ok || (strings.HasPrefix(chain, "ISTIO_") && len(rules) != len(currentRules)) {
+					log.Debugf("host chain %s (table: %s) is missing or has an unexpected number of rules", chain, table)
+					return false, nil
+				}
+			}
+		}
+		for _, cmd := range family.checks {
+			if _, err := cfg.ext.Run(log, true, iptablesconstants.IPTables, family.ver, nil, cmd...); err != nil {
+				log.Debugf("host rule check %v failed", cmd)
+				return false, nil
+			}
+		}
+	}
+	return true, nil
 }
 
 func (cfg *IptablesConfigurator) DeleteHostRules() {

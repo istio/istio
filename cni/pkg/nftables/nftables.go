@@ -67,6 +67,15 @@ type NftablesConfigurator struct {
 	nlDeps      iptables.NetlinkDependencies
 	cfg         *config.AmbientConfig
 	nftProvider NftProviderFunc
+
+	// programmedKubeletUID and programmedHostRules record the input and the shape of
+	// the last successfully programmed host rules. The periodic reconcile compares the
+	// current state against them to detect drift without having to interpret kernel
+	// rule text. They are only accessed from the startup programming and the reconcile
+	// loop, which the caller sequences (the loop starts after the startup programming
+	// and is stopped before the host rules are deleted), so no locking is needed.
+	programmedKubeletUID string
+	programmedHostRules  int
 }
 
 // NewNftablesConfigurator creates both host and pod nftables configurators
@@ -478,7 +487,7 @@ func (cfg *NftablesConfigurator) CreateHostRulesForHealthChecks() error {
 	rb.AppendV6RuleIfSupported(PostroutingChain, AmbientNatTable, "meta l4proto tcp", "skuid", kubeletUID,
 		"ip6", "daddr", fmt.Sprintf("@%s-v6", config.ProbeIPSet), Counter, "snat", "to", cfg.cfg.HostProbeV6SNATAddress.String())
 
-	return util.RunAsHost(func() error {
+	err = util.RunAsHost(func() error {
 		tx, err := cfg.executeHostCommands(rb)
 		if err != nil {
 			log.Errorf("failed to program nftable rules in the host network namespace: %v", err)
@@ -487,6 +496,93 @@ func (cfg *NftablesConfigurator) CreateHostRulesForHealthChecks() error {
 		builder.LogNftRules(tx)
 		return nil
 	})
+	if err != nil {
+		return err
+	}
+
+	// Record the input and the shape of this successful programming so the periodic
+	// reconcile can verify convergence without re-programming (see EnsureHostRules).
+	cfg.programmedKubeletUID = kubeletUID
+	cfg.programmedHostRules = len(rb.Rules[AmbientNatTable])
+	return nil
+}
+
+// EnsureHostRules verifies the health check rules in the host netns and re-programs
+// them only when drift is detected, meant to be invoked from a periodic reconcile
+// loop. It returns whether a repair was performed, so that steady state stays free of
+// rule writes, log churn, counter resets and nft generation bumps.
+//
+// Drift is detected without interpreting kernel rule text (the kernel normalizes rule
+// text, and knftables ListRules does not return it at all); instead the check covers
+// the two things that fully determine the desired state:
+//   - the rules present in the istio-owned postrouting chain: istio is the only owner
+//     of the istio-ambient-nat table, so it is enough to verify the chain still holds
+//     exactly the number of rules last programmed. External actors remove the rules
+//     wholesale (e.g. a firewalld reload running "flush ruleset") rather than editing
+//     them in place, and an absent table or chain is likewise drift;
+//   - the kubelet UID captured at the last programming: the rules embed it (meta
+//     skuid), so a kubelet restarted under a different UID makes them stale - a drift
+//     mode specific to the nftables backend (iptables matches on
+//     "-m owner --socket-exists" instead of a UID).
+//
+// When the check itself fails (for any reason other than the table/chain being
+// absent, which IS drift), the tick is skipped and the error is returned without
+// re-programming anything, matching the EnsureHostRules contract; the reconcile
+// ticker provides the retry. The repair is a single atomic knftables transaction that
+// also re-asserts the probe IP sets the rules reference, so it converges even after
+// the whole table was removed, and a failed repair leaves the previous state
+// untouched - which is why, unlike the iptables backend's delete+create sequence, it
+// needs no retry loop of its own. Note that re-creating the sets cannot restore their
+// elements: probe IPs of pods enrolled before a full table wipe are only restored as
+// pod events are re-processed.
+func (cfg *NftablesConfigurator) EnsureHostRules() (bool, error) {
+	converged, err := cfg.hostRulesConverged()
+	if err != nil {
+		return false, err
+	}
+	if converged {
+		return false, nil
+	}
+	if err := cfg.CreateHostRulesForHealthChecks(); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+// hostRulesConverged reports whether the host rules currently programmed in the
+// kernel still match the last successful programming. An error means the check itself
+// could not run; an absent table or chain is reported as non-converged, not as an
+// error. A configurator that never programmed successfully (empty recorded kubelet
+// UID) is treated as drift, which makes the reconcile self-seeding.
+func (cfg *NftablesConfigurator) hostRulesConverged() (bool, error) {
+	kubeletUID, err := kubeletUIDProvider(filepath.Join(constants.HostMountsPath, "proc"))
+	if err != nil {
+		return false, fmt.Errorf("failed to get the kubelet uid: %w", err)
+	}
+	if kubeletUID != cfg.programmedKubeletUID {
+		return false, nil
+	}
+
+	// The read must go through an interface scoped to the ambient NAT table, since
+	// knftables only supports ListRules with an associated family/table.
+	nft, err := cfg.nftProvider(knftables.InetFamily, AmbientNatTable)
+	if err != nil {
+		return false, err
+	}
+	var rules []*knftables.Rule
+	err = util.RunAsHost(func() error {
+		var listErr error
+		rules, listErr = nft.ListRules(context.TODO(), PostroutingChain)
+		return listErr
+	})
+	if err != nil {
+		if knftables.IsNotFound(err) {
+			// The table or the chain is gone: that is precisely the drift to repair.
+			return false, nil
+		}
+		return false, err
+	}
+	return len(rules) == cfg.programmedHostRules, nil
 }
 
 // DeleteHostRules removes host-level nftables rules
@@ -592,7 +688,12 @@ func (cfg *NftablesConfigurator) executeHostCommands(rb *builder.NftablesRuleBui
 	}
 
 	rules := rb.Rules[AmbientNatTable]
-	tx = cfg.addIstioTableRules(tx, AmbientNatTable, chains, rules)
+	// Re-assert the probe IP sets the SNAT rules reference, to keep the transaction
+	// self-contained: if an external actor removed the whole table (e.g. a "flush
+	// ruleset"), re-adding the rules alone would fail on the dangling set reference.
+	// When the sets already exist this is a no-op that preserves their elements.
+	sets := hostProbeIPSets(config.ProbeIPSet, cfg.cfg.EnableIPv6)
+	tx = cfg.addIstioTableRules(tx, AmbientNatTable, chains, rules, sets)
 	if tx.NumOperations() > 0 {
 		if err := nft.Run(context.TODO(), tx); err != nil {
 			return tx, fmt.Errorf("nftables run failed: %w", err)
@@ -631,7 +732,7 @@ func (cfg *NftablesConfigurator) addIstioNatTableRules(tx *knftables.Transaction
 
 	rules := rb.Rules[AmbientNatTable]
 
-	return cfg.addIstioTableRules(tx, AmbientNatTable, chains, rules)
+	return cfg.addIstioTableRules(tx, AmbientNatTable, chains, rules, nil)
 }
 
 // addIstioMangleTableRules updates a transaction to include the nftables rules for the AmbientMangleTable table.
@@ -664,7 +765,7 @@ func (cfg *NftablesConfigurator) addIstioMangleTableRules(tx *knftables.Transact
 
 	rules := rb.Rules[AmbientMangleTable]
 
-	return cfg.addIstioTableRules(tx, AmbientMangleTable, chains, rules)
+	return cfg.addIstioTableRules(tx, AmbientMangleTable, chains, rules, nil)
 }
 
 // addIstioRawTableRules updates a transaction to include the nftables rules for the AmbientRawTable table.
@@ -697,7 +798,7 @@ func (cfg *NftablesConfigurator) addIstioRawTableRules(tx *knftables.Transaction
 
 	rules := rb.Rules[AmbientRawTable]
 
-	return cfg.addIstioTableRules(tx, AmbientRawTable, chains, rules)
+	return cfg.addIstioTableRules(tx, AmbientRawTable, chains, rules, nil)
 }
 
 func (cfg *NftablesConfigurator) addIstioTableRules(
@@ -705,6 +806,7 @@ func (cfg *NftablesConfigurator) addIstioTableRules(
 	tableName string,
 	chains []knftables.Chain,
 	rules []knftables.Rule,
+	sets []knftables.Set,
 ) *knftables.Transaction {
 	// Track how many rules have been added to each chain
 	chainRuleCount := make(map[string]int)
@@ -744,6 +846,14 @@ func (cfg *NftablesConfigurator) addIstioTableRules(
 
 	// Flush the table to remove all existing rules before applying new ones
 	tx.Flush(&knftables.Table{Name: tableName, Family: knftables.InetFamily})
+
+	// Ensure the sets referenced by the rules exist. Adding an existing set with an
+	// unchanged definition is a no-op that preserves its elements.
+	for _, set := range sets {
+		set.Table = tableName
+		set.Family = knftables.InetFamily
+		tx.Add(&set)
+	}
 
 	// Add the chains that have rules
 	for _, chain := range chainsWithRules {
