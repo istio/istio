@@ -58,8 +58,8 @@ func WaypointPolicyStatusCollection(
 				rootNs     string
 			)
 
-			if meshCfg := krt.FetchOne(ctx, meshConfig.AsCollection()); meshCfg != nil {
-				rootNs = meshCfg.MeshConfig.RootNamespace
+			if meshConfig.Get() != nil {
+				rootNs = meshConfig.Get().MeshConfig.RootNamespace
 			}
 
 			for _, target := range targetRefs {
@@ -217,8 +217,8 @@ func PolicyCollections(
 		}
 
 		var nsPol, rootPol *securityclient.PeerAuthentication
-		nsPols := PeerAuthByNamespace.Fetch(ctx, i.GetNamespace())
-		rootPols := PeerAuthByNamespace.Fetch(ctx, meshCfg.GetRootNamespace())
+		nsPols := PeerAuthByNamespace.Lookup(i.GetNamespace())
+		rootPols := PeerAuthByNamespace.Lookup(meshCfg.GetRootNamespace())
 
 		switch len(nsPols) {
 		case 0:
