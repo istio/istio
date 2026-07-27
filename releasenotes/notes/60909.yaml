@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 60909
+releaseNotes:
+  - |
+    **Fixed** a memory leak in istiod where namespace controller informer handlers
+    accumulated across leader election cycles.

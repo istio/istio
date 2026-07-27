@@ -26,16 +26,62 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/keycertbundle"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/kube/kclient"
 	filter "istio.io/istio/pkg/kube/namespace"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
 )
+
+type shutdownTrackingClient[T controllers.Object] struct {
+	kclient.Client[T]
+	shutdownCalled bool
+}
+
+func (c *shutdownTrackingClient[T]) ShutdownHandlers() {
+	c.shutdownCalled = true
+	c.Client.ShutdownHandlers()
+}
+
+func (c *shutdownTrackingClient[T]) HasSynced() bool {
+	return false
+}
+
+func TestNamespaceControllerRunCleansUpHandlersBeforeCacheSync(t *testing.T) {
+	test.SetForTest(t, &features.EnableCACRL, true)
+	client := kube.NewFakeClient()
+	t.Cleanup(client.Shutdown)
+	clientStop := test.NewStop(t)
+
+	nc := NewNamespaceController(client, keycertbundle.NewWatcher())
+	namespaces := &shutdownTrackingClient[*v1.Namespace]{Client: nc.namespaces}
+	configmaps := &shutdownTrackingClient[*v1.ConfigMap]{Client: nc.configmaps}
+	crlConfigmaps := &shutdownTrackingClient[*v1.ConfigMap]{Client: nc.crlConfigmaps}
+	nc.namespaces = namespaces
+	nc.configmaps = configmaps
+	nc.crlConfigmaps = crlConfigmaps
+	client.RunAndWait(clientStop)
+
+	stop := make(chan struct{})
+	close(stop)
+	nc.Run(stop)
+
+	if !namespaces.shutdownCalled {
+		t.Error("namespace handlers were not shut down")
+	}
+	if !configmaps.shutdownCalled {
+		t.Error("configmap handlers were not shut down")
+	}
+	if !crlConfigmaps.shutdownCalled {
+		t.Error("CRL configmap handlers were not shut down")
+	}
+}
 
 func TestNamespaceController(t *testing.T) {
 	client := kube.NewFakeClient()
