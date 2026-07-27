@@ -260,9 +260,9 @@ status:
   - attachedRoutes: 0
     conditions:
     - lastTransitionTime: fake
-      message: No errors found
-      reason: Accepted
-      status: "True"
+      message: only one caCertificateRef is supported
+      reason: NoValidCACertificate
+      status: "False"
       type: Accepted
     - lastTransitionTime: fake
       message: No errors found
@@ -276,7 +276,7 @@ status:
       type: Programmed
     - lastTransitionTime: fake
       message: only one caCertificateRef is supported
-      reason: InvalidCertificateRef
+      reason: InvalidCACertificateRef
       status: "False"
       type: ResolvedRefs
     name: default
@@ -311,9 +311,10 @@ status:
   - attachedRoutes: 0
     conditions:
     - lastTransitionTime: fake
-      message: No errors found
-      reason: Accepted
-      status: "True"
+      message: caCertificateRef default/auth-cert not accessible to a Gateway in namespace
+        "istio-system" (missing a ReferenceGrant?)
+      reason: NoValidCACertificate
+      status: "False"
       type: Accepted
     - lastTransitionTime: fake
       message: No errors found
@@ -363,9 +364,10 @@ status:
   - attachedRoutes: 0
     conditions:
     - lastTransitionTime: fake
-      message: No errors found
-      reason: Accepted
-      status: "True"
+      message: invalid CA certificate reference /ConfigMap/nonexistent., configmap
+        istio-system/nonexistent not found
+      reason: NoValidCACertificate
+      status: "False"
       type: Accepted
     - lastTransitionTime: fake
       message: No errors found
@@ -380,7 +382,7 @@ status:
     - lastTransitionTime: fake
       message: invalid CA certificate reference /ConfigMap/nonexistent., configmap
         istio-system/nonexistent not found
-      reason: InvalidCertificateRef
+      reason: InvalidCACertificateRef
       status: "False"
       type: ResolvedRefs
     name: default
@@ -415,9 +417,10 @@ status:
   - attachedRoutes: 0
     conditions:
     - lastTransitionTime: fake
-      message: No errors found
-      reason: Accepted
-      status: "True"
+      message: invalid CA certificate reference core/unknown/my-cert-http., only secret
+        and configmap are allowed
+      reason: NoValidCACertificate
+      status: "False"
       type: Accepted
     - lastTransitionTime: fake
       message: No errors found
@@ -432,7 +435,7 @@ status:
     - lastTransitionTime: fake
       message: invalid CA certificate reference core/unknown/my-cert-http., only secret
         and configmap are allowed
-      reason: InvalidCertificateRef
+      reason: InvalidCACertificateKind
       status: "False"
       type: ResolvedRefs
     name: default
