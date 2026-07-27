@@ -1151,6 +1151,25 @@ func buildDestination(ctx RouteContext, to k8s.BackendRef, ns string,
 	var invalidBackendErr *ConfigError
 	var hostname string
 	switch ref {
+	case gvk.XBackend:
+		if !features.EnableAlphaGatewayAPI {
+			return &istio.Destination{}, nil, &ConfigError{
+				Reason:  InvalidDestinationKind,
+				Message: "The Alpha Gateway API is not enabled, XBackend is invalid. To enable, set PILOT_ENABLE_ALPHA_GATEWAY_API to true in istiod.",
+			}
+		}
+		backend := ptr.Flatten(krt.FetchOne(ctx.Krt, ctx.Backends, krt.FilterKey(namespace+"/"+string(to.Name))))
+		if backend == nil {
+			// Backend does not exist
+			invalidBackendErr = &ConfigError{Reason: InvalidDestinationNotFound, Message: fmt.Sprintf("backend(%s) not found", to.Name)}
+			return &istio.Destination{}, nil, invalidBackendErr
+		}
+		if backend.Spec.Type != gatewayx.BackendTypeExternalHostname {
+			// Backend type limited to ExternalHostname currently.
+			invalidBackendErr = &ConfigError{Reason: InvalidDestinationKind, Message: fmt.Sprintf("backend(%s) type: expected %s, got %s", to.Name, gatewayx.BackendTypeExternalHostname, string(backend.Spec.Type))}
+			return &istio.Destination{}, nil, invalidBackendErr
+		}
+		hostname = string(backend.Spec.ExternalHostname.Hostname)
 	case gvk.Service:
 		if strings.Contains(string(to.Name), ".") {
 			return nil, nil, &ConfigError{Reason: InvalidDestination, Message: "service name invalid; the name of the Service must be used, not the hostname."}
