@@ -37,7 +37,7 @@ func IsZtunnelPod(client kube.CLIClient, podName, podNamespace string) bool {
 		return isZtunnel
 	}
 	if v, ok := pod.Labels["app"]; ok {
-		return v == "ztunnel"
+		return strings.HasPrefix(v, "ztunnel")
 	}
 	return isZtunnel
 }
