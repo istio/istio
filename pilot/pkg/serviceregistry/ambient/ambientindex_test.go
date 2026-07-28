@@ -1558,6 +1558,52 @@ func TestAmbientIndex_Policy(t *testing.T) {
 	}
 }
 
+func TestAmbientIndex_PeerAuthenticationNamespacePolicyChange(t *testing.T) {
+	s := newAmbientTestServer(t, testC, testNW, "")
+	setupPolicyTest(t, s)
+
+	workloadPolicies := func() []string {
+		addrs := s.lookup(s.addrXdsName("127.0.0.1"))
+		if len(addrs) == 0 {
+			return nil
+		}
+		return addrs[0].Address.GetWorkload().AuthorizationPolicies
+	}
+	convertedSelector := fmt.Sprintf("%s/%s", testNS, model.GetAmbientPolicyConfigName(model.ConfigKey{
+		Kind:      kind.PeerAuthentication,
+		Name:      "selector",
+		Namespace: testNS,
+	}))
+	// The name the workload lists and the policy itself are computed separately, so check both.
+	convertedPolicyExists := func() bool {
+		return s.authorizationPolicies.GetKey(convertedSelector) != nil
+	}
+
+	// A workload policy with an unset mode and one permissive port needs an explicit exemption
+	// from the namespace's strictness, so it converts to a policy of its own.
+	s.addPolicy(t, "namespace", testNS, nil, gvk.PeerAuthentication, func(c controllers.Object) {
+		pol := c.(*clientsecurityv1beta1.PeerAuthentication)
+		pol.Spec.Mtls = &auth.PeerAuthentication_MutualTLS{Mode: auth.PeerAuthentication_MutualTLS_STRICT}
+	})
+	s.addPolicy(t, "selector", testNS, map[string]string{"app": "a"}, gvk.PeerAuthentication, func(c controllers.Object) {
+		pol := c.(*clientsecurityv1beta1.PeerAuthentication)
+		pol.Spec.PortLevelMtls = map[uint32]*auth.PeerAuthentication_MutualTLS{
+			9090: {Mode: auth.PeerAuthentication_MutualTLS_PERMISSIVE},
+		}
+	})
+	assert.EventuallyEqual(t, workloadPolicies, []string{convertedSelector})
+	assert.EventuallyEqual(t, convertedPolicyExists, true)
+
+	// Relax the namespace policy. There is nothing left to exempt the port from, so the
+	// conversion produces nothing and the policy goes away.
+	s.addPolicy(t, "namespace", testNS, nil, gvk.PeerAuthentication, func(c controllers.Object) {
+		pol := c.(*clientsecurityv1beta1.PeerAuthentication)
+		pol.Spec.Mtls = &auth.PeerAuthentication_MutualTLS{Mode: auth.PeerAuthentication_MutualTLS_PERMISSIVE}
+	})
+	assert.EventuallyEqual(t, workloadPolicies, []string(nil))
+	assert.EventuallyEqual(t, convertedPolicyExists, false)
+}
+
 func TestDefaultAllowWaypointPolicy(t *testing.T) {
 	// while the Waypoint is in testNS, the policies live in the Pods' namespaces
 	policyName := "ns1/istio_allow_waypoint_" + testNS + "_" + "waypoint-ns"
