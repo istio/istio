@@ -296,6 +296,10 @@ type NodeMetadata struct {
 	// This depends on DNSCapture.
 	DNSAutoAllocate StringBool `json:"DNS_AUTO_ALLOCATE,omitempty"`
 
+	// DeltaNDS indicates that the agent binary understands incremental (delta) NDS: it can
+	// consume a NameTable decomposed into one resource per DNS name and apply removals.
+	DeltaNDS StringBool `json:"DELTA_NDS,omitempty"`
+
 	// DNSProxyAddr is the host:port where istio-agent listens for DNS (DNS_PROXY_ADDR). Populated from bootstrap
 	// so Pilot can point Envoy dynamic forward proxy at the same address.
 	DNSProxyAddr string `json:"DNS_PROXY_ADDR,omitempty"`

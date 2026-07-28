@@ -40,7 +40,10 @@ const (
 type NameTable struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Map of hostname to resolution attributes.
-	Table         map[string]*NameTable_NameInfo `protobuf:"bytes,1,rep,name=table,proto3" json:"table,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	Table map[string]*NameTable_NameInfo `protobuf:"bytes,1,rep,name=table,proto3" json:"table,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// Resolution attributes for a single hostname, the hostname itself is carried by discovery.Resource.Name.
+	// Used to send incremental updates to the NameTable. Sent by istiod to istio agents via xds.
+	NameInfo      *NameTable_NameInfo `protobuf:"bytes,2,opt,name=name_info,json=nameInfo,proto3" json:"name_info,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -78,6 +81,13 @@ func (*NameTable) Descriptor() ([]byte, []int) {
 func (x *NameTable) GetTable() map[string]*NameTable_NameInfo {
 	if x != nil {
 		return x.Table
+	}
+	return nil
+}
+
+func (x *NameTable) GetNameInfo() *NameTable_NameInfo {
+	if x != nil {
+		return x.NameInfo
 	}
 	return nil
 }
@@ -170,9 +180,10 @@ var File_dns_proto_nds_proto protoreflect.FileDescriptor
 
 const file_dns_proto_nds_proto_rawDesc = "" +
 	"\n" +
-	"\x13dns/proto/nds.proto\x12\x17istio.networking.nds.v1\"\xcf\x02\n" +
+	"\x13dns/proto/nds.proto\x12\x17istio.networking.nds.v1\"\x99\x03\n" +
 	"\tNameTable\x12C\n" +
-	"\x05table\x18\x01 \x03(\v2-.istio.networking.nds.v1.NameTable.TableEntryR\x05table\x1a\x95\x01\n" +
+	"\x05table\x18\x01 \x03(\v2-.istio.networking.nds.v1.NameTable.TableEntryR\x05table\x12H\n" +
+	"\tname_info\x18\x02 \x01(\v2+.istio.networking.nds.v1.NameTable.NameInfoR\bnameInfo\x1a\x95\x01\n" +
 	"\bNameInfo\x12\x10\n" +
 	"\x03ips\x18\x01 \x03(\tR\x03ips\x12\x1a\n" +
 	"\bregistry\x18\x02 \x01(\tR\bregistry\x12\x1c\n" +
@@ -204,12 +215,13 @@ var file_dns_proto_nds_proto_goTypes = []any{
 }
 var file_dns_proto_nds_proto_depIdxs = []int32{
 	2, // 0: istio.networking.nds.v1.NameTable.table:type_name -> istio.networking.nds.v1.NameTable.TableEntry
-	1, // 1: istio.networking.nds.v1.NameTable.TableEntry.value:type_name -> istio.networking.nds.v1.NameTable.NameInfo
-	2, // [2:2] is the sub-list for method output_type
-	2, // [2:2] is the sub-list for method input_type
-	2, // [2:2] is the sub-list for extension type_name
-	2, // [2:2] is the sub-list for extension extendee
-	0, // [0:2] is the sub-list for field type_name
+	1, // 1: istio.networking.nds.v1.NameTable.name_info:type_name -> istio.networking.nds.v1.NameTable.NameInfo
+	1, // 2: istio.networking.nds.v1.NameTable.TableEntry.value:type_name -> istio.networking.nds.v1.NameTable.NameInfo
+	3, // [3:3] is the sub-list for method output_type
+	3, // [3:3] is the sub-list for method input_type
+	3, // [3:3] is the sub-list for extension type_name
+	3, // [3:3] is the sub-list for extension extendee
+	0, // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_dns_proto_nds_proto_init() }

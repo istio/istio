@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	dnsProto "istio.io/istio/pkg/dns/proto"
 	istiolog "istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/slices"
 	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/sets"
@@ -42,10 +43,10 @@ var log = istiolog.RegisterScope("dns", "Istio DNS proxy")
 // LocalDNSServer holds configurations for the DNS downstreamUDPServer in Istio Agent
 type LocalDNSServer struct {
 	// Holds the pointer to the DNS lookup table
-	lookupTable atomic.Value
+	lookupTable atomic.Pointer[LookupTable]
 
 	// nameTable holds the original NameTable, for debugging
-	nameTable atomic.Value
+	nameTable atomic.Pointer[dnsProto.NameTable]
 
 	dnsProxies []*dnsProxy
 
@@ -65,21 +66,27 @@ type LocalDNSServer struct {
 
 // LookupTable is borrowed from https://github.com/coredns/coredns/blob/master/plugin/hosts/hostsfile.go
 type LookupTable struct {
-	// This table will be first looked up to see if the host is something that we got a Nametable entry for
-	// (i.e. came from istiod's service registry). If it is, then we will be able to confidently return
-	// NXDOMAIN errors for AAAA records for such hosts when only A records exist (or vice versa). If the
-	// host does not exist in this map, then we will return nil, causing the caller to query the upstream
-	// DNS server to resolve the host. Without this map, we would end up making unnecessary upstream DNS queries
-	// for hosts that will never resolve (e.g., AAAA for svc1.ns1.svc.cluster.local.svc.cluster.local.)
-	allHosts sets.String
+	// hosts is keyed by a FQDN matching a DNS query (like example.com.) and holds the pre-created
+	// DNS RR records for that host.
+	//
+	// The presence of a key is first looked up to see if the host is something that we got a
+	// Nametable entry for (i.e. came from istiod's service registry). If it is, then we will be
+	// able to confidently return NXDOMAIN errors for AAAA records for such hosts when only A
+	// records exist (or vice versa). If the host does not exist in this map, then we will return
+	// nil, causing the caller to query the upstream DNS server to resolve the host. Without this
+	// map, we would end up making unnecessary upstream DNS queries for hosts that will never
+	// resolve (e.g., AAAA for svc1.ns1.svc.cluster.local.svc.cluster.local.)
+	hosts map[string]hostRecords
+}
 
-	// The key is a FQDN matching a DNS query (like example.com.), the value is pre-created DNS RR records
-	// of A or AAAA type as appropriate.
-	name4 map[string][]dns.RR
-	name6 map[string][]dns.RR
-	// The cname records here (comprised of different variants of the hosts above,
+// hostRecords holds the pre-created DNS RR records for a single host key.
+type hostRecords struct {
+	// name4 and name6 are the A and AAAA records for the host, as appropriate.
+	name4 []dns.RR
+	name6 []dns.RR
+	// cname holds CNAME records (comprised of different variants of the hosts,
 	// expanded by the search namespaces) pointing to the actual host.
-	cname map[string][]dns.RR
+	cname []dns.RR
 }
 
 const (
@@ -213,17 +220,82 @@ func (h *LocalDNSServer) StartDNS() {
 	}
 }
 
-func (h *LocalDNSServer) UpdateLookupTable(nt *dnsProto.NameTable) {
-	lookupTable := &LookupTable{
-		allHosts: sets.String{},
-		name4:    map[string][]dns.RR{},
-		name6:    map[string][]dns.RR{},
-		cname:    map[string][]dns.RR{},
+// Rebuild builds a fresh lookup table from table and atomically replaces the current one.
+// Used when the full set of DNS entries is known (initial load, reconnect after stream reset).
+func (h *LocalDNSServer) Rebuild(table map[string]*dnsProto.NameTable_NameInfo) {
+	newTable := &LookupTable{
+		hosts: map[string]hostRecords{},
 	}
-	h.BuildAlternateHosts(nt, lookupTable.buildDNSAnswers)
-	h.lookupTable.Store(lookupTable)
-	h.nameTable.Store(nt)
-	log.Debugf("updated lookup table with %d hosts", len(lookupTable.allHosts))
+	for hostname, ni := range table {
+		h.addHostEntries(newTable, hostname, ni)
+	}
+	h.lookupTable.Store(newTable)
+	h.nameTable.Store(&dnsProto.NameTable{Table: table})
+	log.Debugf("rebuilt lookup table with %d hosts", len(newTable.hosts))
+}
+
+// UpdateLookupTable incrementally updates the lookup table for a set of added/modified and removed NDS hostnames.
+func (h *LocalDNSServer) UpdateLookupTable(added map[string]*dnsProto.NameTable_NameInfo, removed []string) {
+	prevNT := h.nameTable.Load()
+	base := h.lookupTable.Load()
+	// We cannot modify the existing lookup table in place, as it may be concurrently read by DNS queries.
+	// Instead, we create a new table and atomically replace the old one.
+	// This can be more costly than modifying in place but it allows us to avoid blocking DNS queries while we update the table.
+	newTable := &LookupTable{
+		hosts: maps.Clone(base.hosts),
+	}
+	updatedNT := &dnsProto.NameTable{Table: maps.Clone(prevNT.GetTable())}
+	for _, hostname := range removed {
+		h.removeHostEntries(newTable, hostname, prevNT.GetTable()[hostname])
+		delete(updatedNT.Table, hostname)
+	}
+	for hostname, ni := range added {
+		h.removeHostEntries(newTable, hostname, prevNT.GetTable()[hostname])
+		h.addHostEntries(newTable, hostname, ni)
+		updatedNT.Table[hostname] = ni
+	}
+	h.lookupTable.Store(newTable)
+	h.nameTable.Store(updatedNT)
+
+	log.Debugf("applied delta to lookup table +%d -%d, total %d hosts", len(added), len(removed), len(newTable.hosts))
+}
+
+// altHostsFor returns the set of DNS keys a hostname contributes, derived from its NameInfo.
+func (h *LocalDNSServer) altHostsFor(hostname string, ni *dnsProto.NameTable_NameInfo) sets.String {
+	if ni.Registry == string(provider.Kubernetes) {
+		return generateAltHosts(hostname, ni, h.proxyNamespace, h.proxyDomain, h.proxyDomainParts)
+	}
+	fqdn := hostname
+	if !strings.HasSuffix(fqdn, ".") {
+		fqdn += "."
+	}
+	return sets.New(fqdn)
+}
+
+// addHostEntries computes the DNS alt-hosts for a single NDS hostname and inserts them into table.
+func (h *LocalDNSServer) addHostEntries(table *LookupTable, hostname string, ni *dnsProto.NameTable_NameInfo) {
+	ipv4, ipv6 := netutil.ParseIPsSplitToV4V6(ni.Ips)
+	if len(ipv4) == 0 && len(ipv6) == 0 {
+		return
+	}
+	table.buildDNSAnswers(h.altHostsFor(hostname, ni), ipv4, ipv6, h.searchNamespaces)
+}
+
+// removeHostEntries deletes all DNS keys that hostname contributed, re-deriving them from ni
+// (the NameInfo the hostname had before this delta).
+func (h *LocalDNSServer) removeHostEntries(table *LookupTable, hostname string, ni *dnsProto.NameTable_NameInfo) {
+	if ni == nil {
+		return
+	}
+	altHosts := h.altHostsFor(hostname, ni)
+	for ah := range altHosts {
+		ah = strings.ToLower(ah)
+		delete(table.hosts, ah)
+		// buildDNSAnswers may have added a search-namespace-expanded CNAME entry for this alt host
+		if expandedHost, ok := expandedSearchHost(ah, altHosts, h.searchNamespaces); ok {
+			delete(table.hosts, expandedHost)
+		}
+	}
 }
 
 // BuildAlternateHosts builds alternate hosts for Kubernetes services in the name table and
@@ -285,9 +357,9 @@ func (h *LocalDNSServer) ServeDNS(proxy *dnsProxy, w dns.ResponseWriter, req *dn
 		return
 	}
 
-	lp := h.lookupTable.Load()
+	lookupTable := h.lookupTable.Load()
 	hostname := strings.ToLower(req.Question[0].Name)
-	if lp == nil {
+	if lookupTable == nil {
 		if h.respondBeforeSync {
 			response = h.upstream(proxy, req, hostname)
 			response.Truncate(size(proxy.protocol, req))
@@ -301,7 +373,6 @@ func (h *LocalDNSServer) ServeDNS(proxy *dnsProxy, w dns.ResponseWriter, req *dn
 		}
 		return
 	}
-	lookupTable := lp.(*LookupTable)
 	var answers []dns.RR
 
 	// This name will always end in a dot.
@@ -342,11 +413,7 @@ func (h *LocalDNSServer) IsReady() bool {
 }
 
 func (h *LocalDNSServer) NameTable() *dnsProto.NameTable {
-	lt := h.nameTable.Load()
-	if lt == nil {
-		return nil
-	}
-	return lt.(*dnsProto.NameTable)
+	return h.nameTable.Load()
 }
 
 // Inspired by https://github.com/coredns/coredns/blob/master/plugin/loadbalance/loadbalance.go
@@ -542,8 +609,8 @@ func generateAltHosts(hostname string, nameinfo *dnsProto.NameTable_NameInfo, pr
 func (table *LookupTable) lookupHost(qtype uint16, hostname string) ([]dns.RR, bool) {
 	question := string(host.Name(hostname))
 	wildcard := false
-	// First check if host exists in all hosts.
-	hostFound := table.allHosts.Contains(hostname)
+	// First check if the host exists in the lookup table.
+	rec, hostFound := table.hosts[hostname]
 	// If it is not found, check if a wildcard host exists for it.
 	// For example for "*.example.com", with the question "svc.svcns.example.com",
 	// we check if we have entries for "*.svcns.example.com", "*.example.com" etc.
@@ -551,7 +618,7 @@ func (table *LookupTable) lookupHost(qtype uint16, hostname string) ([]dns.RR, b
 		labels := dns.SplitDomainName(hostname)
 		for idx := range labels {
 			qhost := "*." + strings.Join(labels[idx+1:], ".") + "."
-			if hostFound = table.allHosts.Contains(qhost); hostFound {
+			if rec, hostFound = table.hosts[qhost]; hostFound {
 				wildcard = true
 				hostname = qhost
 				break
@@ -570,20 +637,24 @@ func (table *LookupTable) lookupHost(qtype uint16, hostname string) ([]dns.RR, b
 
 	// Odds are, the first query will always be an expanded hostname
 	// (productpage.ns1.svc.cluster.local.ns1.svc.cluster.local)
-	// So lookup the cname table first
-	for _, cn := range table.cname[hostname] {
+	// So lookup the cname records first
+	for _, cn := range rec.cname {
 		// this was a cname match
 		copied := dns.Copy(cn).(*dns.CNAME)
 		copied.Header().Name = question
 		cnAnswers = append(cnAnswers, copied)
 		hostname = copied.Target
 	}
+	// If we followed a CNAME, the A/AAAA records live under the target host.
+	if len(cnAnswers) > 0 {
+		rec = table.hosts[hostname]
+	}
 
 	switch qtype {
 	case dns.TypeA:
-		ipAnswers = table.name4[hostname]
+		ipAnswers = rec.name4
 	case dns.TypeAAAA:
-		ipAnswers = table.name6[hostname]
+		ipAnswers = rec.name6
 	default:
 		// TODO: handle PTR records for reverse dns lookups
 		return nil, false
@@ -638,34 +709,48 @@ func (table *LookupTable) lookupHost(qtype uint16, hostname string) ([]dns.RR, b
 func (table *LookupTable) buildDNSAnswers(altHosts map[string]struct{}, ipv4 []netip.Addr, ipv6 []netip.Addr, searchNamespaces []string) {
 	for h := range altHosts {
 		h = strings.ToLower(h)
-		table.allHosts.Insert(h)
+		rec := table.hosts[h]
 		if len(ipv4) > 0 {
-			table.name4[h] = a(h, ipv4)
+			rec.name4 = a(h, ipv4)
 		}
 		if len(ipv6) > 0 {
-			table.name6[h] = aaaa(h, ipv6)
+			rec.name6 = aaaa(h, ipv6)
 		}
-		if len(searchNamespaces) > 0 && !strings.HasSuffix(h, searchNamespaces[0]+".") {
+		table.hosts[h] = rec
+		if expandedHost, ok := expandedSearchHost(h, altHosts, searchNamespaces); ok {
 			// NOTE: Right now, rather than storing one expanded host for each one of the search namespace
 			// entries, we are going to store just the first one (assuming that most clients will
 			// do sequential dns resolution, starting with the first search namespace)
-
-			// host h already ends with a .
-			// search namespace might not. So we append one in the end if needed
-			expandedHost := strings.ToLower(h + searchNamespaces[0])
-			if !strings.HasSuffix(searchNamespaces[0], ".") {
-				expandedHost += "."
-			}
-			// make sure this is not a proper hostname
-			// if host is productpage, and search namespace is ns1.svc.cluster.local
-			// then the expanded host productpage.ns1.svc.cluster.local is a valid hostname
-			// that is likely to be already present in the altHosts
-			if _, exists := altHosts[expandedHost]; !exists {
-				table.cname[expandedHost] = cname(expandedHost, h)
-				table.allHosts.Insert(expandedHost)
-			}
+			rec := table.hosts[expandedHost]
+			rec.cname = cname(expandedHost, h)
+			table.hosts[expandedHost] = rec
 		}
 	}
+}
+
+// expandedSearchHost returns the search-namespace-expanded hostname
+// CNAME for alt host h (e.g. "www.google.com." -> "www.google.com.ns1.svc.cluster.local.").
+// ok is false when no expansion applies: there are no search namespaces, h already ends with the
+// first search namespace, or the expanded name is itself one of altHosts and is therefore a real
+// host rather than a CNAME alias.
+func expandedSearchHost(h string, altHosts map[string]struct{}, searchNamespaces []string) (string, bool) {
+	if len(searchNamespaces) == 0 || strings.HasSuffix(h, searchNamespaces[0]+".") {
+		return "", false
+	}
+	// host h already ends with a .
+	// search namespace might not. So we append one in the end if needed
+	expandedHost := strings.ToLower(h + searchNamespaces[0])
+	if !strings.HasSuffix(searchNamespaces[0], ".") {
+		expandedHost += "."
+	}
+	// make sure this is not a proper hostname
+	// if host is productpage, and search namespace is ns1.svc.cluster.local
+	// then the expanded host productpage.ns1.svc.cluster.local is a valid hostname
+	// that is likely to be already present in the altHosts
+	if _, exists := altHosts[expandedHost]; exists {
+		return "", false
+	}
+	return expandedHost, true
 }
 
 // Borrowed from https://github.com/coredns/coredns/blob/master/plugin/hosts/hosts.go

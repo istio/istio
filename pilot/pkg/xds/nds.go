@@ -15,12 +15,9 @@
 package xds
 
 import (
-	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core"
-	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -36,6 +33,8 @@ type NdsGenerator struct {
 }
 
 var _ model.XdsResourceGenerator = &NdsGenerator{}
+
+var _ model.XdsDeltaResourceGenerator = &NdsGenerator{}
 
 // Map of all configs that do not impact NDS
 var skippedNdsConfigs = func() sets.Set[kind.Kind] {
@@ -65,26 +64,44 @@ var skippedNdsConfigs = func() sets.Set[kind.Kind] {
 	return s
 }()
 
-func ndsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
+// ndsNeedsPush returns a filtered PushRequest (including only NDS-relevant kinds) and whether NDS needs to be pushed.
+func ndsNeedsPush(req *model.PushRequest, proxy *model.Proxy) (*model.PushRequest, bool) {
 	if res, ok := xdsNeedsPush(req, proxy); ok {
-		return res
+		return req, res
 	}
+	relevantUpdates := make(sets.Set[model.ConfigKey])
+	filtered := false
 	for config := range req.ConfigsUpdated {
-		if _, f := skippedNdsConfigs[config.Kind]; !f {
-			return true
+		if !skippedNdsConfigs.Contains(config.Kind) {
+			relevantUpdates.Insert(config)
+		} else {
+			filtered = true
 		}
 	}
-	return false
+	if filtered {
+		newReq := *req
+		newReq.ConfigsUpdated = relevantUpdates
+		req = &newReq
+	}
+	return req, len(req.ConfigsUpdated) > 0
 }
 
 func (n NdsGenerator) Generate(proxy *model.Proxy, _ *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
-	if !ndsNeedsPush(req, proxy) {
+	req, needsPush := ndsNeedsPush(req, proxy)
+	if !needsPush {
 		return nil, model.DefaultXdsLogDetails, nil
 	}
-	nt := n.ConfigGenerator.BuildNameTable(proxy, req.Push)
-	if nt == nil {
-		return nil, model.DefaultXdsLogDetails, nil
+	resources, logs := n.ConfigGenerator.BuildNameTable(proxy, req.Push)
+	return resources, logs, nil
+}
+
+func (n NdsGenerator) GenerateDeltas(proxy *model.Proxy, req *model.PushRequest,
+	w *model.WatchedResource,
+) (model.Resources, model.DeletedResources, model.XdsLogDetails, bool, error) {
+	req, needsPush := ndsNeedsPush(req, proxy)
+	if !needsPush {
+		return nil, nil, model.DefaultXdsLogDetails, false, nil
 	}
-	resources := model.Resources{&discovery.Resource{Resource: protoconv.MessageToAny(nt)}}
-	return resources, model.DefaultXdsLogDetails, nil
+	res, removed, log, usedDelta := n.ConfigGenerator.BuildDeltaNameTable(proxy, req, w)
+	return res, removed, log, usedDelta, nil
 }

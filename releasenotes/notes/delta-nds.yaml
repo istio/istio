@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+
+releaseNotes:
+  - |
+    **Added** a new incremental Name Discovery Service (NDS) implementation which allows Istiod
+    to push only the added, modified, and removed name table entries
+    instead of always rebuilding and pushing the entire name table.
+    This feature is disabled by default and can be enabled with the `PILOT_ENABLE_DELTA_NDS` environment variable.

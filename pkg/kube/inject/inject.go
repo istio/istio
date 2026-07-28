@@ -117,6 +117,7 @@ type SidecarTemplateData struct {
 	ProxyGID                 int64
 	InboundTrafficPolicyMode string
 	CompliancePolicy         string
+	EnableDeltaNds           bool
 }
 
 type (
@@ -493,6 +494,7 @@ func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod
 		ProxyGID:                 proxyGID,
 		InboundTrafficPolicyMode: InboundTrafficPolicyMode(meshConfig),
 		CompliancePolicy:         common_features.CompliancePolicy,
+		EnableDeltaNds:           features.EnableDeltaNds,
 	}
 	if params.valuesConfig.asMap == nil {
 		return nil, nil, fmt.Errorf("failed to parse values.yaml; check Istiod logs for errors")
