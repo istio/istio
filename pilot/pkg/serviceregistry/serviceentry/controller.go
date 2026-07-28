@@ -83,6 +83,7 @@ type Inputs struct {
 	ServiceEntries  krt.Collection[config.Config]
 	// TODO: this should be a joined collection with multi cluster workloads
 	ExternalWorkloads krt.StaticCollection[*model.WorkloadInstance]
+	XBackends         krt.Collection[config.Config]
 }
 
 type Outputs struct {
@@ -222,6 +223,11 @@ func newController(
 		s.inputs.Namespaces = multiclusterController.ConfigCluster().Namespaces()
 		s.inputs.ServiceEntries = store.KrtCollection(gvk.ServiceEntry)
 		s.inputs.ExternalWorkloads = krt.NewStaticCollection[*model.WorkloadInstance](nil, nil, s.opts.WithName("inputs/ExternalWorkloads")...)
+		if features.EnableAlphaGatewayAPI {
+			s.inputs.XBackends = store.KrtCollection(gvk.XBackend)
+		} else {
+			s.inputs.XBackends = krt.NewStaticCollection[config.Config](nil, nil, s.opts.WithName("disable/XBackend")...)
+		}
 	}
 
 	s.buildCollections()
@@ -258,8 +264,14 @@ func (s *Controller) buildCollections() {
 		)
 		workloadsByNamespace := krt.NewNamespaceIndex(allWorkloads)
 
+		backendServiceEntries := krt.NewCollection(s.inputs.XBackends, backendToServiceEntry)
+		combinedServiceEntries := krt.JoinCollection(
+			[]krt.Collection[config.Config]{s.inputs.ServiceEntries, backendServiceEntries},
+			s.opts.WithName("inputs/combinedServiceEntries")...,
+		)
+
 		services, servicesByNsHost, servicesByHost := services(
-			s.inputs.ServiceEntries,
+			combinedServiceEntries,
 			s.inputs.MeshConfig,
 			s.inputs.Namespaces,
 			workloadsByNamespace,

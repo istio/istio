@@ -1169,6 +1169,9 @@ func buildDestination(ctx RouteContext, to k8s.BackendRef, ns string,
 			return &istio.Destination{}, nil, invalidBackendErr
 		}
 		hostname = string(backend.Spec.ExternalHostname.Hostname)
+		if ctx.LookupHostname(hostname, namespace) == nil {
+			invalidBackendErr = &ConfigError{Reason: InvalidDestinationNotFound, Message: fmt.Sprintf("backend(%s) not found", hostname)}
+		}
 	case gvk.Service:
 		if strings.Contains(string(to.Name), ".") {
 			return nil, nil, &ConfigError{Reason: InvalidDestination, Message: "service name invalid; the name of the Service must be used, not the hostname."}
