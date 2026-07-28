@@ -25,7 +25,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gw "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayx "sigs.k8s.io/gateway-api/apisx/v1alpha1"
 
@@ -305,7 +304,7 @@ func BackendResourcePolicyCollection(
 		backends,
 		func(ctx krt.HandlerContext, i *gatewayx.XBackend) (*gatewayx.BackendStatus, []BackendPolicy) {
 			status := i.Status.DeepCopy()
-			res := make([]BackendPolicy, 1)
+			res := make([]BackendPolicy, 0, 1)
 
 			conds := map[string]*condition{
 				string(gw.PolicyConditionAccepted): {
@@ -318,29 +317,43 @@ func BackendResourcePolicyCollection(
 				},
 			}
 
+			self := TypedNamespacedName{
+				NamespacedName: config.NamespacedName(i),
+				Kind:           kind.XBackend,
+			}
+
 			if i.Spec.Type != gatewayx.BackendTypeExternalHostname || i.Spec.ExternalHostname == nil {
 				conds[string(gw.PolicyConditionAccepted)].error = &ConfigError{
 					Reason:  string(gw.PolicyReasonInvalid),
 					Message: fmt.Sprintf("unsupported backend type: %s", i.Spec.Type),
 				}
-			}
-
-			tls := backendResourceTLSSettings(ctx, i, conds, references)
-			if tls != nil {
+			} else if tls := backendResourceTLSSettings(ctx, i, conds, references); tls != nil {
 				res = append(res, BackendPolicy{
-					Source: TypedNamespacedName{
-						NamespacedName: config.NamespacedName(i),
-						Kind:           kind.XBackend,
-					},
-					Target: TypedNamespacedName{
-						NamespacedName: config.NamespacedName(i),
-						Kind:           kind.XBackend,
-					},
+					Source:       self,
+					Target:       self,
 					Host:         string(i.Spec.ExternalHostname.Hostname),
 					TLS:          tls,
 					CreationTime: i.CreationTimestamp.Time,
 				})
 			}
+
+			gateways := sets.New[types.NamespacedName]()
+			for _, ab := range krt.FetchIndexObjects(ctx, ancestors, self) {
+				gateways.Insert(ab.Gateway)
+			}
+			gwl := slices.SortBy(gateways.UnsortedList(), types.NamespacedName.String)
+			ancestorStatus := make([]gatewayx.BackendAncestorStatus, 0, len(gwl))
+			for _, g := range gwl {
+				pr := gw.ParentReference{
+					Group:     new(gw.Group(gvk.KubernetesGateway.Group)),
+					Kind:      new(gw.Kind(gvk.KubernetesGateway.Kind)),
+					Namespace: new(gw.Namespace(g.Namespace)),
+					Name:      gw.ObjectName(g.Name),
+				}
+				ancestorStatus = append(ancestorStatus,
+					setBackendAncestorStatus(pr, status, i.Generation, conds, gw.GatewayController(features.ManagedGatewayController)))
+			}
+			status.Ancestors = mergeBackendAncestors(status.Ancestors, ancestorStatus)
 
 			return status, res
 		},
@@ -354,7 +367,99 @@ func backendResourceTLSSettings(
 	conds map[string]*condition,
 	references *gatewaycommon.ReferenceSet,
 ) *networking.ClientTLSSettings {
-	return nil
+	if i.Spec.TLS == nil {
+		return nil
+	}
+
+	switch i.Spec.TLS.Mode {
+	case gatewayx.BackendTLSModeClientAndServer:
+		// TODO(ericdbishop)
+		conds[string(gw.PolicyConditionAccepted)].message = "Istio does not support client certificates on backend"
+		return nil
+	case gatewayx.BackendTLSModeServerOnly:
+	case gatewayx.BackendTLSModeNone:
+		return nil
+	default:
+		conds[string(gw.PolicyConditionAccepted)].error = &ConfigError{
+			Reason:  string(gw.PolicyReasonInvalid),
+			Message: fmt.Sprintf("unsupported TLS mode: %q", i.Spec.TLS.Mode),
+		}
+		return nil
+	}
+
+	validation := i.Spec.TLS.Validation
+	tls := &networking.ClientTLSSettings{
+		// TODO(ericdbishop)
+		Mode: networking.ClientTLSSettings_SIMPLE,
+		Sni:  string(validation.Hostname),
+		SubjectAltNames: slices.MapFilter(validation.SubjectAltNames, func(e gw.SubjectAltName) *string {
+			switch e.Type {
+			case gw.HostnameSubjectAltNameType:
+				return new(string(e.Hostname))
+			case gw.URISubjectAltNameType:
+				return new(string(e.URI))
+			}
+			return nil
+		}),
+	}
+	if tls.Sni == "" {
+		// XBackend's validation field is optional, so Hostname may be unset.
+		tls.Sni = string(i.Spec.ExternalHostname.Hostname)
+	}
+	tls.CredentialName = getBackendTLSCredentialName(ctx, validation, i.Namespace, conds, references)
+
+	return tls
+}
+
+// setBackendAncestorStatus mirrors setAncestorStatus.
+// TODO(ericdbishop): Reduce code duplication across Backend ancestor and Policy ancestor helper functions.
+func setBackendAncestorStatus(
+	pr gw.ParentReference,
+	status *gatewayx.BackendStatus,
+	generation int64,
+	conds map[string]*condition,
+	controller gw.GatewayController,
+) gatewayx.BackendAncestorStatus {
+	currentAncestor := slices.FindFunc(status.Ancestors, func(ex gatewayx.BackendAncestorStatus) bool {
+		return parentRefEqual(ex.AncestorRef, pr)
+	})
+	var currentConds []metav1.Condition
+	if currentAncestor != nil {
+		currentConds = currentAncestor.Conditions
+	}
+	return gatewayx.BackendAncestorStatus{
+		AncestorRef:    pr,
+		ControllerName: controller,
+		Conditions:     gatewaycommon.SetResourceConditions(generation, currentConds, toSharedConditions(conds)),
+	}
+}
+
+// mergeBackendAncestors mirrors mergeAncestors, but allows for a maximum of 32 ancestors for BackendStatus rather than 16.
+func mergeBackendAncestors(existing, incoming []gatewayx.BackendAncestorStatus) []gatewayx.BackendAncestorStatus {
+	n := 0
+	for _, x := range existing {
+		if !outControllers.Contains(x.ControllerName) {
+			// Keep it as-is
+			existing[n] = x
+			n++
+			continue
+		}
+		replacement := slices.IndexFunc(incoming, func(status gatewayx.BackendAncestorStatus) bool {
+			return parentRefEqual(status.AncestorRef, x.AncestorRef)
+		})
+		if replacement != -1 {
+			// We found a replacement!
+			existing[n] = incoming[replacement]
+			incoming = slices.Delete(incoming, replacement)
+			n++
+		}
+		// Else, do nothing and it will be filtered
+	}
+	existing = existing[:n]
+	// Add all remaining ones.
+	existing = append(existing, incoming...)
+	// There is a max of 32
+	return existing[:min(len(existing), 32)]
 }
 
 func BackendTLSPolicyCollection(
