@@ -85,6 +85,7 @@ type Inputs struct {
 	ExternalWorkloads krt.StaticCollection[*model.WorkloadInstance]
 	// ExternalWorkloadsByIP attributes a service instance event back to the workload kind that produced it.
 	ExternalWorkloadsByIP krt.Index[string, *model.WorkloadInstance]
+	XBackends         krt.Collection[config.Config]
 }
 
 type Outputs struct {
@@ -227,6 +228,11 @@ func newController(
 		s.inputs.ExternalWorkloadsByIP = krt.NewIndex(s.inputs.ExternalWorkloads, "ip", func(wi *model.WorkloadInstance) []string {
 			return []string{wi.Endpoint.FirstAddressOrNil()}
 		})
+		if features.EnableAlphaGatewayAPI {
+			s.inputs.XBackends = store.KrtCollection(gvk.XBackend)
+		} else {
+			s.inputs.XBackends = krt.NewStaticCollection[config.Config](nil, nil, s.opts.WithName("disable/XBackend")...)
+		}
 	}
 
 	s.buildCollections()
@@ -265,8 +271,14 @@ func (s *Controller) buildCollections() {
 		)
 		workloadsByNamespace := krt.NewNamespaceIndex(allWorkloads)
 
+		backendServiceEntries := krt.NewCollection(s.inputs.XBackends, backendToServiceEntry)
+		combinedServiceEntries := krt.JoinCollection(
+			[]krt.Collection[config.Config]{s.inputs.ServiceEntries, backendServiceEntries},
+			s.opts.WithName("inputs/combinedServiceEntries")...,
+		)
+
 		services, servicesByNsHost, servicesByHost := services(
-			s.inputs.ServiceEntries,
+			combinedServiceEntries,
 			s.inputs.MeshConfig,
 			s.inputs.Namespaces,
 			workloadsByNamespace,
