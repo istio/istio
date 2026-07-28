@@ -16,6 +16,7 @@ package dependencies
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -75,6 +76,21 @@ func persistIptablesBackend(ipV6 bool, backend string) {
 	if err := os.WriteFile(f, []byte(backend), 0o644); err != nil {
 		log.Debugf("failed to persist detected iptables backend to %s: %v", f, err)
 	}
+}
+
+// CleanupPersistedIptablesBackend removes any iptables backend choice persisted by
+// DetectIptablesVersion (see detectedIptablesBackendDir), for both IPv4 and IPv6. It is a no-op
+// if nothing was ever persisted. Callers (e.g. CNI uninstall) should call this so a backend
+// choice from a previous installation can't leak into a future one on the same node.
+func CleanupPersistedIptablesBackend() error {
+	var errs []error
+	for _, ipV6 := range []bool{false, true} {
+		f := detectedIptablesBackendFile(ipV6)
+		if err := os.Remove(f); err != nil && !os.IsNotExist(err) {
+			errs = append(errs, fmt.Errorf("failed to remove %s: %w", f, err))
+		}
+	}
+	return errors.Join(errs...)
 }
 
 // XTablesExittype is the exit type of xtables commands.

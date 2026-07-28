@@ -228,3 +228,34 @@ func TestDetectIptablesVersionPersistence(t *testing.T) {
 		assert.Equal(t, []string{iptablesLegacyBin, iptablesLegacyBin, iptablesNftBin}, calls)
 	})
 }
+
+func TestCleanupPersistedIptablesBackend(t *testing.T) {
+	detectedIptablesBackendDir = t.TempDir()
+	defer func() {
+		detectedIptablesBackendDir = "/var/run/istio-cni"
+	}()
+
+	t.Run("no-op if nothing was ever persisted", func(t *testing.T) {
+		assert.NoError(t, CleanupPersistedIptablesBackend())
+	})
+
+	t.Run("removes both v4 and v6 persisted files", func(t *testing.T) {
+		persistIptablesBackend(false, nft)
+		persistIptablesBackend(true, legacy)
+
+		_, err := os.Stat(detectedIptablesBackendFile(false))
+		assert.NoError(t, err)
+		_, err = os.Stat(detectedIptablesBackendFile(true))
+		assert.NoError(t, err)
+
+		assert.NoError(t, CleanupPersistedIptablesBackend())
+
+		_, err = os.Stat(detectedIptablesBackendFile(false))
+		assert.Equal(t, true, os.IsNotExist(err))
+		_, err = os.Stat(detectedIptablesBackendFile(true))
+		assert.Equal(t, true, os.IsNotExist(err))
+
+		// calling it again with nothing left to remove should still be a no-op
+		assert.NoError(t, CleanupPersistedIptablesBackend())
+	})
+}

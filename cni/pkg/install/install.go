@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/sleep"
 	"istio.io/istio/pkg/util/sets"
+	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
 )
 
 var installLog = scopes.CNIAgent
@@ -190,6 +191,12 @@ func (in *Installer) Cleanup() error {
 				return fmt.Errorf("failed to remove binary %s: %w", istioCNIBin, err)
 			}
 		}
+	}
+
+	// Best-effort: don't fail the whole uninstall over this, but don't let a backend choice
+	// from this installation leak into a future one on the same node either.
+	if err := dep.CleanupPersistedIptablesBackend(); err != nil {
+		installLog.Warnf("failed to remove persisted iptables backend state: %v", err)
 	}
 	return nil
 }
