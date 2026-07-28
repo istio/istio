@@ -67,6 +67,9 @@ func backendProtocolToServiceEntryProtocol(p gatewayx.BackendProtocol) string {
 		return "HTTP"
 	case gatewayx.BackendProtocolGRPC:
 		return "GRPC"
+	case gatewayx.BackendProtocolMCP:
+		// ServicePort protocol can not explicitly be MCP.
+		return "TCP"
 	default:
 		// Any unrecognized protocols fall back to plain TCP.
 		return "TCP"
