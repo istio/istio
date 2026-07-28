@@ -25,6 +25,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gw "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayx "sigs.k8s.io/gateway-api/apisx/v1alpha1"
 
@@ -133,6 +134,7 @@ func (b BackendPolicy) Equals(other BackendPolicy) bool {
 func DestinationRuleCollection(
 	trafficPolicies krt.Collection[*gatewayx.XBackendTrafficPolicy],
 	tlsPolicies krt.Collection[*gw.BackendTLSPolicy],
+	backends krt.Collection[*gatewayx.XBackend],
 	ancestors krt.Index[TypedNamespacedName, AncestorBackend],
 	references *gatewaycommon.ReferenceSet,
 	domainSuffix string,
@@ -150,8 +152,13 @@ func DestinationRuleCollection(
 	tlsPolicyStatus, backendTLSPolicies := BackendTLSPolicyCollection(tlsPolicies, ancestorCollection, references, domainSuffix, opts)
 	status.RegisterStatus(c.status, tlsPolicyStatus, GetStatus, c.tagWatcher.AccessUnprotected())
 
+	backendResourceStatus, backendResourcePolicies := BackendResourcePolicyCollection(backends, ancestorCollection, references, opts)
+	if features.EnableAlphaGatewayAPI {
+		status.RegisterStatus(c.status, backendResourceStatus, GetStatus, c.tagWatcher.AccessUnprotected())
+	}
+
 	// We need to merge these by hostname into a single DR
-	allPolicies := krt.JoinCollection([]krt.Collection[BackendPolicy]{backendTrafficPolicies, backendTLSPolicies}, opts.WithName("AllBackendPolicies")...)
+	allPolicies := krt.JoinCollection([]krt.Collection[BackendPolicy]{backendTrafficPolicies, backendTLSPolicies, backendResourcePolicies}, opts.WithName("AllBackendPolicies")...)
 	byTargetAndHost := krt.NewIndex(allPolicies, "targetAndHost", func(o BackendPolicy) []TypedNamespacedNamePerHost {
 		return []TypedNamespacedNamePerHost{{Target: o.Target, Host: o.Host}}
 	})
@@ -286,6 +293,68 @@ func DestinationRuleCollection(
 		}, opts.WithName("BackendPolicyMerged")...,
 	)
 	return merged
+}
+
+func BackendResourcePolicyCollection(
+	backends krt.Collection[*gatewayx.XBackend],
+	ancestors krt.Collection[krt.IndexObject[TypedNamespacedName, AncestorBackend]],
+	references *gatewaycommon.ReferenceSet,
+	opts krt.OptionsBuilder,
+) (krt.StatusCollection[*gatewayx.XBackend, gatewayx.BackendStatus], krt.Collection[BackendPolicy]) {
+	return krt.NewStatusManyCollection(
+		backends,
+		func(ctx krt.HandlerContext, i *gatewayx.XBackend) (*gatewayx.BackendStatus, []BackendPolicy) {
+			status := i.Status.DeepCopy()
+			res := make([]BackendPolicy, 1)
+
+			conds := map[string]*condition{
+				string(gw.PolicyConditionAccepted): {
+					reason:  string(gw.PolicyReasonAccepted),
+					message: "Configuration is valid",
+				},
+				string(gw.BackendTLSPolicyConditionResolvedRefs): {
+					reason:  string(gw.BackendTLSPolicyReasonResolvedRefs),
+					message: "Configuration is valid",
+				},
+			}
+
+			if i.Spec.Type != gatewayx.BackendTypeExternalHostname || i.Spec.ExternalHostname == nil {
+				conds[string(gw.PolicyConditionAccepted)].error = &ConfigError{
+					Reason:  string(gw.PolicyReasonInvalid),
+					Message: fmt.Sprintf("unsupported backend type: %s", i.Spec.Type),
+				}
+			}
+
+			tls := backendResourceTLSSettings(ctx, i, conds, references)
+			if tls != nil {
+				res = append(res, BackendPolicy{
+					Source: TypedNamespacedName{
+						NamespacedName: config.NamespacedName(i),
+						Kind:           kind.XBackend,
+					},
+					Target: TypedNamespacedName{
+						NamespacedName: config.NamespacedName(i),
+						Kind:           kind.XBackend,
+					},
+					Host:         string(i.Spec.ExternalHostname.Hostname),
+					TLS:          tls,
+					CreationTime: i.CreationTimestamp.Time,
+				})
+			}
+
+			return status, res
+		},
+		opts.WithName("XBackend")...,
+	)
+}
+
+func backendResourceTLSSettings(
+	ctx krt.HandlerContext,
+	i *gatewayx.XBackend,
+	conds map[string]*condition,
+	references *gatewaycommon.ReferenceSet,
+) *networking.ClientTLSSettings {
+	return nil
 }
 
 func BackendTLSPolicyCollection(
