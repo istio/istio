@@ -36,6 +36,11 @@ type ResourceDelta struct {
 	Subscribed sets.String
 	// Unsubscribed indicates the client no longer requires these resources
 	Unsubscribed sets.String
+	// InitialResourceVersions, sent by a client on stream (re)establishment, maps the resources
+	// the client already retains to their versions. Generators that assign content-based versions
+	// (WDS) use it to skip re-sending resources the client already has. Every name in it is also
+	// present in Subscribed.
+	InitialResourceVersions map[string]string
 }
 
 var emptyResourceDelta = ResourceDelta{}
