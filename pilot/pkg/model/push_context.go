@@ -2649,6 +2649,27 @@ func (ps *PushContext) ServiceEndpoints(svcKey string) map[int][]*IstioEndpoint 
 	return nil
 }
 
+// ServiceEndpointsUnique returns deduplicated endpoints across all ports of a service.
+// When Kubernetes splits EndpointSlices by port subset, the same pod may be indexed
+// under multiple ports. This method deduplicates by address (unique per pod via K8s IPAM).
+func (ps *PushContext) ServiceEndpointsUnique(svc *Service) []*IstioEndpoint {
+	allPorts := ps.ServiceEndpoints(svc.Key())
+	if len(allPorts) == 0 {
+		return nil
+	}
+	seen := sets.New[string]()
+	var out []*IstioEndpoint
+	for _, endpoints := range allPorts {
+		for _, ep := range endpoints {
+			if seen.InsertContains(ep.FirstAddressOrNil()) {
+				continue
+			}
+			out = append(out, ep)
+		}
+	}
+	return out
+}
+
 // initKubernetesGateways initializes Kubernetes gateway-api objects
 func (ps *PushContext) initKubernetesGateways(env *Environment) {
 	if env.GatewayAPIController != nil {
