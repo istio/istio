@@ -289,7 +289,12 @@ func Test_KubeSecretController_CredentialRotation(t *testing.T) {
 		t.Helper()
 		retry.UntilSuccessOrFail(t, func() error {
 			shards, ok := endpointIndex.ShardsForService(hostname, remoteSvcNS)
-			if !ok || len(shards.Shards[shardKey]) == 0 {
+			if !ok {
+				return fmt.Errorf("endpoint shard %v for %s missing %s", shardKey, hostname, when)
+			}
+			shards.RLock()
+			defer shards.RUnlock()
+			if len(shards.Shards[shardKey]) == 0 {
 				return fmt.Errorf("endpoint shard %v for %s missing %s", shardKey, hostname, when)
 			}
 			return nil
