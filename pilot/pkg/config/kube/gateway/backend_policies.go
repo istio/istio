@@ -971,7 +971,7 @@ func btlsTargetRefEqual(a, b gw.LocalPolicyTargetReferenceWithSectionName) bool 
 }
 
 func generateDRName(target TypedNamespacedName, host string) string {
-	if target.Kind == kind.ServiceEntry {
+	if target.Kind == kind.ServiceEntry || target.Kind == kind.XBackend {
 		return target.Name + "~" + strings.ReplaceAll(host, ".", "-") + "~" + constants.KubernetesGatewayName
 	}
 	return target.Name + "~" + constants.KubernetesGatewayName
