@@ -342,7 +342,15 @@ func BackendResourcePolicyCollection(
 				gateways.Insert(ab.Gateway)
 			}
 			gwl := slices.SortBy(gateways.UnsortedList(), types.NamespacedName.String)
-			ancestorStatus := make([]gatewayx.BackendAncestorStatus, 0, len(gwl))
+			ancestorStatus := make([]gatewayx.BackendAncestorStatus, 0, len(gwl)+1)
+			// We add a status for Backend (for mesh), and for each Gateway
+			meshPR := gw.ParentReference{
+				Group: new(gw.Group(gvk.XBackend.Group)),
+				Kind:  new(gw.Kind(gvk.XBackend.Kind)),
+				Name:  gw.ObjectName(i.Name),
+			}
+			ancestorStatus = append(ancestorStatus,
+				setBackendAncestorStatus(meshPR, status, i.Generation, conds, constants.ManagedGatewayMeshController))
 			for _, g := range gwl {
 				pr := gw.ParentReference{
 					Group:     new(gw.Group(gvk.KubernetesGateway.Group)),
