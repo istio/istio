@@ -1,0 +1,14 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 61045
+
+releaseNotes:
+  - |
+    **Fixed** an issue where `consistentHash` load balancing in a `DestinationRule` did not work
+    for services routed through a waypoint proxy in ambient mode when no `VirtualService` was
+    present. The Envoy cluster correctly received `lb_policy: RING_HASH` but the inbound route
+    was missing `hash_policy`, causing Envoy to fall back to random backend selection and
+    breaking sticky sessions. A no-op passthrough `VirtualService` was previously required as
+    a workaround.
