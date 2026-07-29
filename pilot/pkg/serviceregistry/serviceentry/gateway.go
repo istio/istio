@@ -15,62 +15,86 @@
 package serviceentry
 
 import (
+	"strings"
+
 	gatewayx "sigs.k8s.io/gateway-api/apisx/v1alpha1"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/krt"
 )
 
-func backendToServiceEntry(ctx krt.HandlerContext, cfg config.Config) *config.Config {
-	gvk := gvk.ServiceEntry
-	backend, ok := cfg.Spec.(*gatewayx.BackendSpec)
-	if !ok || backend.Type != gatewayx.BackendTypeExternalHostname || backend.ExternalHostname == nil {
-		return nil
+func backendToServiceEntry(domainSuffix string) krt.TransformationSingle[config.Config, config.Config] {
+	// We must enforce that custom trust domains being used for Service FQDNs
+	// MUST also enforce that hostnames ending with those trust domains (e.g.
+	// .cluster.local) are not allowed.
+	// The CRD's CEL rule only covers the default `.cluster.local` suffix.
+	reserved := []string{
+		".svc." + domainSuffix,
+		".svc." + constants.DefaultClusterSetLocalDomain,
 	}
+	return func(ctx krt.HandlerContext, cfg config.Config) *config.Config {
+		backend, ok := cfg.Spec.(*gatewayx.BackendSpec)
+		if !ok || backend.Type != gatewayx.BackendTypeExternalHostname || backend.ExternalHostname == nil {
+			return nil
+		}
 
-	protocol := "TCP"
-	if backend.Protocol != nil {
-		protocol = backendProtocolToServiceEntryProtocol(*backend.Protocol)
-	}
+		host := string(backend.ExternalHostname.Hostname)
+		for _, suffix := range reserved {
+			if strings.HasSuffix(host, suffix) {
+				return nil
+			}
+		}
 
-	se := &networking.ServiceEntry{
-		Hosts: []string{string(backend.ExternalHostname.Hostname)},
-		Ports: []*networking.ServicePort{{
-			Number:   uint32(backend.Port.Port),
-			Protocol: protocol,
-			Name:     protocol,
-		}},
-		Location:   networking.ServiceEntry_MESH_EXTERNAL,
-		Resolution: networking.ServiceEntry_DNS,
-	}
+		protocol := "HTTP"
+		if backend.Protocol != nil {
+			protocol = backendProtocolToServiceEntryProtocol(*backend.Protocol)
+		}
 
-	return &config.Config{
-		Meta: config.Meta{
-			GroupVersionKind: gvk,
-			Name:             "backend-" + cfg.Name,
-			Namespace:        cfg.Namespace,
-		},
-		Spec: se,
+		se := &networking.ServiceEntry{
+			Hosts: []string{host},
+			Ports: []*networking.ServicePort{{
+				Number:   uint32(backend.Port.Port),
+				Protocol: protocol,
+				Name:     protocol,
+			}},
+			Location:   networking.ServiceEntry_MESH_EXTERNAL,
+			Resolution: networking.ServiceEntry_DNS,
+			// ExportTo is left unset, so it defaults to public, as it does for a user-authored
+			// ServiceEntry. `meshConfig.defaultServiceExportTo` applies here as well.
+		}
+
+		return &config.Config{
+			Meta: config.Meta{
+				GroupVersionKind: gvk.ServiceEntry,
+				// `~` cannot appear in a Kubernetes object name, so this cannot collide with a
+				// user-authored ServiceEntry.
+				Name:              cfg.Name + "~" + constants.KubernetesGatewayName,
+				Namespace:         cfg.Namespace,
+				CreationTimestamp: cfg.CreationTimestamp,
+			},
+			Spec: se,
+		}
 	}
 }
 
 func backendProtocolToServiceEntryProtocol(p gatewayx.BackendProtocol) string {
 	switch p {
-	case gatewayx.BackendProtocolHTTP:
+	case gatewayx.BackendProtocolHTTP, gatewayx.BackendProtocolHTTP11:
 		return "HTTP"
 	case gatewayx.BackendProtocolHTTP2, gatewayx.BackendProtocolH2C:
 		return "HTTP2"
-	case gatewayx.BackendProtocolHTTP11:
-		return "HTTP"
 	case gatewayx.BackendProtocolGRPC:
 		return "GRPC"
 	case gatewayx.BackendProtocolMCP:
-		// ServicePort protocol can not explicitly be MCP.
+		// ServicePort protocol cannot explicitly be MCP.
+		return "HTTP"
+	case gatewayx.BackendProtocolTCP:
 		return "TCP"
 	default:
-		// Any unrecognized protocols fall back to plain TCP.
+		// Any unrecognized protocol falls back to plain TCP.
 		return "TCP"
 	}
 }

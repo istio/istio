@@ -1164,7 +1164,7 @@ func buildDestination(ctx RouteContext, to k8s.BackendRef, ns string,
 			invalidBackendErr = &ConfigError{Reason: InvalidDestinationNotFound, Message: fmt.Sprintf("backend(%s) not found", to.Name)}
 			return &istio.Destination{}, nil, invalidBackendErr
 		}
-		if backend.Spec.Type != gatewayx.BackendTypeExternalHostname {
+		if backend.Spec.Type != gatewayx.BackendTypeExternalHostname || backend.Spec.ExternalHostname == nil {
 			// Backend type limited to ExternalHostname currently.
 			invalidBackendErr = &ConfigError{Reason: InvalidDestinationKind, Message: fmt.Sprintf("backend(%s) type: expected %s, got %s", to.Name, gatewayx.BackendTypeExternalHostname, string(backend.Spec.Type))}
 			return &istio.Destination{}, nil, invalidBackendErr
@@ -1173,6 +1173,19 @@ func buildDestination(ctx RouteContext, to k8s.BackendRef, ns string,
 		if ctx.LookupHostname(hostname, namespace) == nil {
 			invalidBackendErr = &ConfigError{Reason: InvalidDestinationNotFound, Message: fmt.Sprintf("backend(%s) not found", hostname)}
 		}
+		// Unlike a Service, the port is declared on the Backend itself, so backendRef.port is
+		// optional. When it is set it must agree with the Backend's port.
+		if to.Port != nil && k8s.PortNumber(*to.Port) != k8s.PortNumber(backend.Spec.Port.Port) {
+			invalidBackendErr = &ConfigError{
+				Reason:  InvalidDestinationNotFound,
+				Message: fmt.Sprintf("backend(%s) does not expose port %d, expected %d", to.Name, *to.Port, backend.Spec.Port.Port),
+			}
+			return &istio.Destination{}, nil, invalidBackendErr
+		}
+		return &istio.Destination{
+			Host: hostname,
+			Port: &istio.PortSelector{Number: uint32(backend.Spec.Port.Port)},
+		}, nil, invalidBackendErr
 	case gvk.Service:
 		if strings.Contains(string(to.Name), ".") {
 			return nil, nil, &ConfigError{Reason: InvalidDestination, Message: "service name invalid; the name of the Service must be used, not the hostname."}
@@ -2721,6 +2734,8 @@ func GetStatus[I, IS any](spec I) IS {
 	case *k8s.GatewayClass:
 		return any(t.Status).(IS)
 	case *gatewayx.XBackendTrafficPolicy:
+		return any(t.Status).(IS)
+	case *gatewayx.XBackend:
 		return any(t.Status).(IS)
 	case *k8s.BackendTLSPolicy:
 		return any(t.Status).(IS)

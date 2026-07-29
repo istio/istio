@@ -216,7 +216,7 @@ func NewController(
 	} else {
 		// If disabled, still build a collection but make it always empty
 		inputs.BackendTrafficPolicy = krt.NewStaticCollection[*gatewayx.XBackendTrafficPolicy](nil, nil, opts.WithName("disable/XBackendTrafficPolicy")...)
-		inputs.Backends = krt.NewStaticCollection[*gatewayx.XBackend](nil, nil, opts.WithName("informer/XBackend")...)
+		inputs.Backends = krt.NewStaticCollection[*gatewayx.XBackend](nil, nil, opts.WithName("disable/XBackend")...)
 	}
 
 	if features.EnableGatewayAPIInferenceExtension {
