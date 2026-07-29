@@ -51,9 +51,9 @@ const (
 	DomainSuffix        = "fake_domain"
 )
 
-func newMockserviceController(configCluster cluster.ID) *aggregate.Controller {
+func newMockserviceController() *aggregate.Controller {
 	return aggregate.NewController(aggregate.Options{
-		ConfigClusterID: configCluster,
+		ConfigClusterID: "cluster-1",
 	})
 }
 
@@ -115,10 +115,10 @@ func verifyControllers(t *testing.T, m *Multicluster, expectedControllerCount in
 	}, expectedControllerCount, retry.Message(timeoutName), retry.Delay(time.Millisecond*10), retry.Timeout(time.Second*5))
 }
 
-func initController(client kube.CLIClient, ns string, stop <-chan struct{}) *multicluster.Controller {
+func initController(client kube.CLIClient, stop <-chan struct{}) *multicluster.Controller {
 	sc := multicluster.NewController(multicluster.ControllerOptions{
 		Client:          client,
-		SystemNamespace: ns,
+		SystemNamespace: testSecretNameSpace,
 		ClusterID:       "cluster-1",
 		MeshConfig:      meshwatcher.NewTestWatcher(nil),
 		Debugger:        krt.GlobalDebugHandler,
@@ -132,11 +132,11 @@ func initController(client kube.CLIClient, ns string, stop <-chan struct{}) *mul
 
 func Test_KubeSecretController(t *testing.T) {
 	clusterID := cluster.ID("cluster-1")
-	mockserviceController := newMockserviceController(clusterID)
+	mockserviceController := newMockserviceController()
 	clientset := kube.NewFakeClient()
 	stop := test.NewStop(t)
 	s := server.New()
-	mcc := initController(clientset, testSecretNameSpace, stop)
+	mcc := initController(clientset, stop)
 	mc := NewMulticluster("pilot-abc-123", Options{
 		ClusterID:    clusterID,
 		DomainSuffix: DomainSuffix,
@@ -249,11 +249,11 @@ func Test_KubeSecretController_CredentialRotation(t *testing.T) {
 	endpointIndex := model.NewEndpointIndex(model.DisabledCache{})
 	xdsUpdater := model.NewEndpointIndexUpdater(endpointIndex)
 
-	mockserviceController := newMockserviceController(clusterID)
+	mockserviceController := newMockserviceController()
 	clientset := kube.NewFakeClient()
 	stop := test.NewStop(t)
 	s := server.New()
-	mcc := initController(clientset, testSecretNameSpace, stop)
+	mcc := initController(clientset, stop)
 	mcc.ClientBuilder = func(kubeConfig []byte, c cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
 		remoteClient := kube.NewFakeClient()
 		seedStableRemoteService(t, remoteClient, remoteSvcName, remoteSvcNS, remoteSvcIP)
@@ -359,11 +359,11 @@ func Test_KubeSecretController_CredentialRotation_StaleServiceAfterRotation(t *t
 	endpointIndex := model.NewEndpointIndex(model.DisabledCache{})
 	xdsUpdater := model.NewEndpointIndexUpdater(endpointIndex)
 
-	mockserviceController := newMockserviceController(clusterID)
+	mockserviceController := newMockserviceController()
 	clientset := kube.NewFakeClient()
 	stop := test.NewStop(t)
 	s := server.New()
-	mcc := initController(clientset, testSecretNameSpace, stop)
+	mcc := initController(clientset, stop)
 
 	// vanishing-svc is only ever seeded into the first generation of the remote client (the
 	// initial Add) - simulating a service that existed when the cluster was first added, but
@@ -446,12 +446,12 @@ func Test_KubeSecretController_ExternalIstiod_MultipleClusters(t *testing.T) {
 	test.SetForTest(t, &features.ExternalIstiod, true)
 	test.SetForTest(t, &features.InjectionWebhookConfigName, "")
 	clusterID := cluster.ID("cluster-1")
-	mockserviceController := newMockserviceController(clusterID)
+	mockserviceController := newMockserviceController()
 	clientset := kube.NewFakeClient()
 	stop := test.NewStop(t)
 	s := server.New()
 	certWatcher := keycertbundle.NewWatcher()
-	mcc := initController(clientset, testSecretNameSpace, stop)
+	mcc := initController(clientset, stop)
 	mc := NewMulticluster("pilot-abc-123", Options{
 		ClusterID:             clusterID,
 		DomainSuffix:          DomainSuffix,
