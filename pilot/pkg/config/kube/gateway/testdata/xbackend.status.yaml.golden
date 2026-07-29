@@ -174,6 +174,65 @@ status:
       group: gateway.networking.x-k8s.io
       kind: XBackend
       name: external-plain
+  - conditions:
+    - lastTransitionTime: fake
+      message: Configuration is valid
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: Configuration is valid
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      group: gateway.networking.k8s.io
+      kind: Gateway
+      name: gateway
+      namespace: istio-system
+---
+apiVersion: gateway.networking.x-k8s.io/v1alpha1
+kind: XBackend
+metadata:
+  name: external-tcp
+  namespace: default
+spec: null
+status:
+  parents:
+  - conditions:
+    - lastTransitionTime: fake
+      message: Configuration is valid
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: Configuration is valid
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/mesh-controller
+    parentRef:
+      group: gateway.networking.x-k8s.io
+      kind: XBackend
+      name: external-tcp
+  - conditions:
+    - lastTransitionTime: fake
+      message: Configuration is valid
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: Configuration is valid
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      group: gateway.networking.k8s.io
+      kind: Gateway
+      name: gateway
+      namespace: istio-system
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: GatewayClass
@@ -205,7 +264,8 @@ status:
     status: "True"
     type: Accepted
   - lastTransitionTime: fake
-    message: Resource programmed, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:80
+    message: Resource programmed, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:34000
+      and istio-ingressgateway.istio-system.svc.domain.suffix:80
     reason: Programmed
     status: "True"
     type: Programmed
@@ -215,7 +275,7 @@ status:
     status: "True"
     type: ResolvedRefs
   listeners:
-  - attachedRoutes: 6
+  - attachedRoutes: 7
     conditions:
     - lastTransitionTime: fake
       message: No errors found
@@ -243,6 +303,32 @@ status:
       kind: HTTPRoute
     - group: gateway.networking.k8s.io
       kind: GRPCRoute
+  - attachedRoutes: 2
+    conditions:
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: NoConflicts
+      status: "False"
+      type: Conflicted
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: Programmed
+      status: "True"
+      type: Programmed
+    - lastTransitionTime: fake
+      message: No errors found
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    name: tcp
+    supportedKinds:
+    - group: gateway.networking.k8s.io
+      kind: TCPRoute
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
@@ -388,4 +474,78 @@ status:
     parentRef:
       name: gateway
       namespace: istio-system
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: GRPCRoute
+metadata:
+  name: grpc-backend
+  namespace: default
+spec: null
+status:
+  parents:
+  - conditions:
+    - lastTransitionTime: fake
+      message: Route was valid
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      name: gateway
+      namespace: istio-system
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: TCPRoute
+metadata:
+  name: tcp-backend
+  namespace: default
+spec: null
+status:
+  parents:
+  - conditions:
+    - lastTransitionTime: fake
+      message: Route was valid
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: All references resolved
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      name: gateway
+      namespace: istio-system
+      sectionName: tcp
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: TCPRoute
+metadata:
+  name: tcp-mismatched-port
+  namespace: default
+spec: null
+status:
+  parents:
+  - conditions:
+    - lastTransitionTime: fake
+      message: Route was valid
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: backend(external-tcp) does not expose port 9999, expected 9000
+      reason: BackendNotFound
+      status: "False"
+      type: ResolvedRefs
+    controllerName: istio.io/gateway-controller
+    parentRef:
+      name: gateway
+      namespace: istio-system
+      sectionName: tcp
 ---

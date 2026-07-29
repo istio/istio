@@ -386,6 +386,20 @@ var services = []*model.Service{
 	},
 	{
 		Attributes: model.ServiceAttributes{
+			Namespace: "default",
+		},
+		Ports:    ports,
+		Hostname: "plaintext.example.net",
+	},
+	{
+		Attributes: model.ServiceAttributes{
+			Namespace: "default",
+		},
+		Ports:    ports,
+		Hostname: "tcp.example.net",
+	},
+	{
+		Attributes: model.ServiceAttributes{
 			Namespace: "istio-system",
 		},
 		Ports:    ports,

@@ -23,6 +23,12 @@ spec:
       allowedRoutes:
         namespaces:
           from: All
+    - name: tcp
+      port: 34000
+      protocol: TCP
+      allowedRoutes:
+        namespaces:
+          from: All
 ---
 # Fully specified: TLS origination with an explicit CA and SNI override.
 apiVersion: gateway.networking.x-k8s.io/v1alpha1
@@ -100,6 +106,20 @@ spec:
           name: auth-cert
           group: ""
       hostname: mtls.example.net
+---
+# A TCP backend, referenced by a TCPRoute below.
+apiVersion: gateway.networking.x-k8s.io/v1alpha1
+kind: XBackend
+metadata:
+  name: external-tcp
+  namespace: default
+spec:
+  type: ExternalHostname
+  externalHostname:
+    hostname: tcp.example.net
+  port:
+    port: 9000
+  protocol: TCP
 ---
 # Referenced from another namespace, permitted by a ReferenceGrant.
 apiVersion: gateway.networking.x-k8s.io/v1alpha1
@@ -235,3 +255,57 @@ spec:
           kind: XBackend
           name: external-mtls
           namespace: allowed-2
+---
+# A GRPCRoute resolves a Backend through the same path as an HTTPRoute, including
+# inferring the port from the Backend when backendRef.port is omitted.
+apiVersion: gateway.networking.k8s.io/v1
+kind: GRPCRoute
+metadata:
+  name: grpc-backend
+  namespace: default
+spec:
+  parentRefs:
+    - name: gateway
+      namespace: istio-system
+  hostnames: ["grpc.domain.example"]
+  rules:
+    - backendRefs:
+        - group: gateway.networking.x-k8s.io
+          kind: XBackend
+          name: external-plain
+---
+# A TCPRoute resolves a Backend through buildTCPDestination.
+apiVersion: gateway.networking.k8s.io/v1
+kind: TCPRoute
+metadata:
+  name: tcp-backend
+  namespace: default
+spec:
+  parentRefs:
+    - name: gateway
+      namespace: istio-system
+      sectionName: tcp
+  rules:
+    - backendRefs:
+        - group: gateway.networking.x-k8s.io
+          kind: XBackend
+          name: external-tcp
+---
+# A TCPRoute referencing a Backend with a conflicting port is rejected, and the
+# invalid backend is dropped gracefully rather than aborting the rule.
+apiVersion: gateway.networking.k8s.io/v1
+kind: TCPRoute
+metadata:
+  name: tcp-mismatched-port
+  namespace: default
+spec:
+  parentRefs:
+    - name: gateway
+      namespace: istio-system
+      sectionName: tcp
+  rules:
+    - backendRefs:
+        - group: gateway.networking.x-k8s.io
+          kind: XBackend
+          name: external-tcp
+          port: 9999
