@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+issue:
+  - https://github.com/istio/istio/pull/60775
+
+releaseNotes:
+  - |
+    **Fixed** ListenerSet conflict resolution for hostname and protocol conflicts.
+    Conflicting listeners are now correctly rejected and ListenerSet status conditions
+    report in compliance with Gateway API 1.5.

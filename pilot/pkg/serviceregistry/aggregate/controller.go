@@ -91,7 +91,12 @@ func (c *Controller) addRegistry(registry serviceregistry.Instance, stop <-chan 
 		c.registries = append(c.registries, &registryEntry{Instance: registry, stop: stop})
 	}
 
-	// Observe the registry for events.
+	c.appendHandlers(registry)
+}
+
+// appendHandlers must be called for every registry added to or swapped into c.registries,
+// else its gateway and service notifications never reach the aggregate controller's handlers.
+func (c *Controller) appendHandlers(registry serviceregistry.Instance) {
 	registry.AppendNetworkGatewayHandler(c.NotifyGatewayHandlers)
 	registry.AppendServiceHandler(c.handlers.NotifyServiceHandlers)
 	registry.AppendServiceHandler(func(prev, curr *model.Service, event model.Event) {
@@ -132,9 +137,21 @@ func (c *Controller) AddRegistryAndRun(registry serviceregistry.Instance, stop <
 
 // DeleteRegistry deletes specified registry from the aggregated controller
 func (c *Controller) DeleteRegistry(clusterID cluster.ID, providerID provider.ID) {
+	c.deleteRegistry(clusterID, providerID, nil)
+}
+
+// DeleteRegistryIfCurrent deletes the registry for registry's cluster/provider, but only if it is
+// still the instance registered - i.e. it was not already replaced by a concurrent UpdateRegistry
+// swap. This avoids removing a registry that was already atomically replaced by a newer one.
+func (c *Controller) DeleteRegistryIfCurrent(registry serviceregistry.Instance) {
+	c.deleteRegistry(registry.Cluster(), registry.Provider(), registry)
+}
+
+// deleteRegistry removes the registry for clusterID/providerID. If expect is non-nil, the
+// deletion only happens if the currently registered instance is identical to expect.
+func (c *Controller) deleteRegistry(clusterID cluster.ID, providerID provider.ID, expect serviceregistry.Instance) {
 	c.storeLock.Lock()
 	defer c.storeLock.Unlock()
-
 	if len(c.registries) == 0 {
 		log.Warnf("Registry list is empty, nothing to delete")
 		return
@@ -142,6 +159,10 @@ func (c *Controller) DeleteRegistry(clusterID cluster.ID, providerID provider.ID
 	index, ok := c.getRegistryIndex(clusterID, providerID)
 	if !ok {
 		log.Warnf("Registry %s/%s is not found in the registries list, nothing to delete", providerID, clusterID)
+		return
+	}
+	if expect != nil && c.registries[index].Instance != expect {
+		log.Infof("%s registry for cluster %s was already replaced, skipping delete.", providerID, clusterID)
 		return
 	}
 	c.registries[index] = nil
@@ -156,6 +177,16 @@ func (c *Controller) UpdateRegistry(newRegistry serviceregistry.Instance, stop <
 	if stop == nil {
 		log.Warnf("nil stop channel passed to UpdateRegistry for registry %s/%s", newRegistry.Provider(), newRegistry.Cluster())
 	}
+	c.swapRegistry(newRegistry, stop)
+
+	// On an atomic swap the new registry fires its gateway events before appendHandlers wires it;
+	// reload once here to handle the missed events.
+	c.NotifyGatewayHandlers()
+}
+
+// swapRegistry replaces the existing registry for the new registry's cluster/provider in place,
+// or adds it when none exists, and wires the new registry to the controller's handlers.
+func (c *Controller) swapRegistry(newRegistry serviceregistry.Instance, stop <-chan struct{}) {
 	c.storeLock.Lock()
 	defer c.storeLock.Unlock()
 
@@ -167,6 +198,7 @@ func (c *Controller) UpdateRegistry(newRegistry serviceregistry.Instance, stop <
 	if ok {
 		// Replace in place - this is atomic
 		c.registries[index] = &registryEntry{Instance: newRegistry, stop: stop}
+		c.appendHandlers(newRegistry)
 		log.Infof("%s registry for cluster %s has been replaced.", providerID, clusterID)
 	} else {
 		// No existing registry, just add

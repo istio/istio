@@ -507,6 +507,76 @@ func TestServicesEqual(t *testing.T) {
 			shouldEq: false,
 			name:     "different mesh external setting",
 		},
+		{
+			first: &Service{
+				Attributes: ServiceAttributes{
+					ClusterExternalPorts: map[cluster.ID]map[uint32]uint32{"cluster-1": {80: 30080}},
+				},
+			},
+			other: &Service{
+				Attributes: ServiceAttributes{
+					ClusterExternalPorts: map[cluster.ID]map[uint32]uint32{"cluster-1": {80: 30081}},
+				},
+			},
+			shouldEq: false,
+			name:     "different cluster external ports",
+		},
+		{
+			first: &Service{
+				Attributes: ServiceAttributes{
+					ClusterExternalPorts: map[cluster.ID]map[uint32]uint32{"cluster-1": {80: 30080}},
+				},
+			},
+			other: &Service{
+				Attributes: ServiceAttributes{
+					ClusterExternalPorts: map[cluster.ID]map[uint32]uint32{"cluster-2": {80: 30080}},
+				},
+			},
+			shouldEq: false,
+			name:     "cluster external ports under a different cluster",
+		},
+		{
+			first: &Service{
+				Attributes: ServiceAttributes{
+					ClusterExternalPorts: map[cluster.ID]map[uint32]uint32{"cluster-1": {80: 30080}},
+				},
+			},
+			other: &Service{
+				Attributes: ServiceAttributes{
+					ClusterExternalPorts: map[cluster.ID]map[uint32]uint32{"cluster-1": {80: 30080}},
+				},
+			},
+			shouldEq: true,
+			name:     "matching cluster external ports",
+		},
+		{
+			first: &Service{
+				Attributes: ServiceAttributes{
+					PassthroughTargetPorts: map[uint32]uint32{80: 8080},
+				},
+			},
+			other: &Service{
+				Attributes: ServiceAttributes{
+					PassthroughTargetPorts: map[uint32]uint32{80: 8081},
+				},
+			},
+			shouldEq: false,
+			name:     "different passthrough target ports",
+		},
+		{
+			first: &Service{
+				Attributes: ServiceAttributes{
+					PassthroughTargetPorts: map[uint32]uint32{80: 8080},
+				},
+			},
+			other: &Service{
+				Attributes: ServiceAttributes{
+					PassthroughTargetPorts: map[uint32]uint32{80: 8080},
+				},
+			},
+			shouldEq: true,
+			name:     "matching passthrough target ports",
+		},
 	}
 
 	for _, testCase := range cases {
