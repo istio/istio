@@ -84,12 +84,13 @@ func (k *kubeController) Close() {
 	clusterID := k.Controller.clusterID
 	k.MeshServiceController.UnRegisterHandlersForCluster(clusterID)
 	// DeleteRegistryIfCurrent avoids deleting a registry that HasSynced's UpdateRegistry call
-	// above already swapped in to replace this one.
-	k.MeshServiceController.DeleteRegistryIfCurrent(k.Controller)
+	// above already swapped in to replace this one. If it was already superseded, our EDS shard
+	// key now belongs to that new registry, so Cleanup must not remove it.
+	current := k.MeshServiceController.DeleteRegistryIfCurrent(k.Controller)
 	if k.workloadEntryController != nil {
 		k.MeshServiceController.DeleteRegistry(clusterID, provider.External)
 	}
-	if err := k.Controller.Cleanup(); err != nil {
+	if err := k.Controller.Cleanup(current); err != nil {
 		log.Warnf("failed cleaning up services in %s: %v", clusterID, err)
 	}
 	if k.opts.XDSUpdater != nil {
