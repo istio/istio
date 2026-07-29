@@ -1165,7 +1165,11 @@ func buildDestination(ctx RouteContext, to k8s.BackendRef, ns string,
 		}
 		if backend.Spec.Type != gatewayx.BackendTypeExternalHostname || backend.Spec.ExternalHostname == nil {
 			// Backend type limited to ExternalHostname currently.
-			invalidBackendErr = &ConfigError{Reason: InvalidDestinationKind, Message: fmt.Sprintf("backend(%s) type: expected %s, got %s", to.Name, gatewayx.BackendTypeExternalHostname, string(backend.Spec.Type))}
+			invalidBackendErr = &ConfigError{
+				Reason: InvalidDestinationKind,
+				Message: fmt.Sprintf("backend(%s) type: expected %s, got %s",
+					to.Name, gatewayx.BackendTypeExternalHostname, string(backend.Spec.Type)),
+			}
 			return &istio.Destination{}, nil, invalidBackendErr
 		}
 		hostname = string(backend.Spec.ExternalHostname.Hostname)
@@ -1174,7 +1178,7 @@ func buildDestination(ctx RouteContext, to k8s.BackendRef, ns string,
 		}
 		// Unlike a Service, the port is declared on the Backend itself, so backendRef.port is
 		// optional. When it is set it must agree with the Backend's port.
-		if to.Port != nil && k8s.PortNumber(*to.Port) != k8s.PortNumber(backend.Spec.Port.Port) {
+		if to.Port != nil && *to.Port != k8s.PortNumber(backend.Spec.Port.Port) {
 			invalidBackendErr = &ConfigError{
 				Reason:  InvalidDestinationNotFound,
 				Message: fmt.Sprintf("backend(%s) does not expose port %d, expected %d", to.Name, *to.Port, backend.Spec.Port.Port),
