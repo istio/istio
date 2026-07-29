@@ -44,7 +44,6 @@ func backendToServiceEntry(ctx krt.HandlerContext, cfg config.Config) *config.Co
 		}},
 		Location:   networking.ServiceEntry_MESH_EXTERNAL,
 		Resolution: networking.ServiceEntry_DNS,
-		// TODO(ericdbishop): map TLS
 	}
 
 	return &config.Config{

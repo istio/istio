@@ -371,10 +371,16 @@ func backendResourceTLSSettings(
 		return nil
 	}
 
+	validation := i.Spec.TLS.Validation
+	mode := networking.ClientTLSSettings_SIMPLE
+
 	switch i.Spec.TLS.Mode {
 	case gatewayx.BackendTLSModeClientAndServer:
-		// TODO(ericdbishop)
-		conds[string(gw.PolicyConditionAccepted)].message = "Istio does not support client certificates on backend"
+		// TODO(ericdbishop): resolve mTLS support for backend TLS settings.
+		conds[string(gw.PolicyConditionAccepted)].error = &ConfigError{
+			Reason:  string(gw.PolicyReasonInvalid),
+			Message: "unsupported ClientAndServer TLS mode: Istio does not support client certificates on backend",
+		}
 		return nil
 	case gatewayx.BackendTLSModeServerOnly:
 	case gatewayx.BackendTLSModeNone:
@@ -387,10 +393,8 @@ func backendResourceTLSSettings(
 		return nil
 	}
 
-	validation := i.Spec.TLS.Validation
 	tls := &networking.ClientTLSSettings{
-		// TODO(ericdbishop)
-		Mode: networking.ClientTLSSettings_SIMPLE,
+		Mode: mode,
 		Sni:  string(validation.Hostname),
 		SubjectAltNames: slices.MapFilter(validation.SubjectAltNames, func(e gw.SubjectAltName) *string {
 			switch e.Type {
