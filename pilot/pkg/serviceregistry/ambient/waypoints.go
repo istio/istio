@@ -271,6 +271,29 @@ func getCanaryWeight(meta metav1.ObjectMeta, nsMeta *metav1.ObjectMeta) (weight 
 	return uint32(n), true
 }
 
+// ResolveUseWaypointCanary returns the canary waypoint declared for o and its weight, or nil if o
+// declares no canary. The canary is inherited from the same level as the primary: the namespace's
+// canary attributes are consulted only when o sets no use-waypoint of its own. valid is false when
+// the declared weight is not a percentage, in which case the canary must be ignored.
+func ResolveUseWaypointCanary(
+	ctx krt.HandlerContext,
+	namespaces krt.Collection[*v1.Namespace],
+	o metav1.ObjectMeta,
+) (named *krt.Named, weight uint32, valid bool) {
+	var nsMeta *metav1.ObjectMeta
+	if objPrimary, _ := GetUseWaypoint(o, o.Namespace); objPrimary == nil {
+		if ns := ptr.OrEmpty(krt.FetchOne(ctx, namespaces, krt.FilterKey(o.Namespace))); ns != nil {
+			nsMeta = &ns.ObjectMeta
+		}
+	}
+	named = getUseWaypointCanary(o, nsMeta, o.Namespace)
+	if named == nil {
+		return nil, 0, true
+	}
+	weight, valid = getCanaryWeight(o, nsMeta)
+	return named, weight, valid
+}
+
 // resolveCanaryWaypoint applies the primary waypoint attachment and traffic-type checks.
 func resolveCanaryWaypoint(
 	ctx krt.HandlerContext,
@@ -305,16 +328,7 @@ func buildWeightedWaypoints(
 	if primary == nil || status.Error != nil {
 		return nil
 	}
-	// The canary is inherited from the same level as the primary: consult the namespace's canary
-	// attributes only when the primary itself was inherited from the namespace (the object sets no
-	// use-waypoint of its own).
-	var nsMeta *metav1.ObjectMeta
-	if objPrimary, _ := GetUseWaypoint(o, o.Namespace); objPrimary == nil {
-		if ns := ptr.OrEmpty(krt.FetchOne(ctx, namespaces, krt.FilterKey(o.Namespace))); ns != nil {
-			nsMeta = &ns.ObjectMeta
-		}
-	}
-	named := getUseWaypointCanary(o, nsMeta, o.Namespace)
+	named, weight, ok := ResolveUseWaypointCanary(ctx, namespaces, o)
 	if named == nil {
 		return nil
 	}
@@ -322,7 +336,6 @@ func buildWeightedWaypoints(
 		status.Error = ReportWaypointCanarySameAsPrimary(named.ResourceName())
 		return nil
 	}
-	weight, ok := getCanaryWeight(o, nsMeta)
 	if !ok {
 		status.Error = ReportWaypointCanaryInvalidWeight(named.ResourceName())
 		return nil
