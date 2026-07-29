@@ -92,7 +92,7 @@ mirror-licenses: mod-download-go
 	@license-lint --mirror
 
 TMP := $(shell mktemp -d -u)
-UPDATE_BRANCH ?= "release-1.31"
+UPDATE_BRANCH ?= "master"
 
 BUILD_TOOLS_ORG ?= "istio"
 
