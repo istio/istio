@@ -17,6 +17,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -326,6 +327,116 @@ func Test_KubeSecretController_CredentialRotation(t *testing.T) {
 		assertShardPopulated(fmt.Sprintf("after credential rotation %d", generation))
 		originalRegistry = registryForCluster(mockserviceController, remoteClusterID)
 	}
+
+	assert.NoError(t, deleteMultiClusterSecret(clientset, "test-secret-1"))
+	verifyControllers(t, mc, 1, "delete remote controller")
+}
+
+// Test_KubeSecretController_CredentialRotation_StaleServiceAfterRotation validates a potential gap
+// when a service is removed from the remote cluster in the same window as a credential rotation,
+// its stale endpoint shard is never cleaned up.
+//
+// The old registry keeps running - and could observe the deletion itself - right up until the
+// new registry syncs. But credential rotation is exactly the scenario where the old registry's
+// watch connection can go bad (that's the reason for rotating), so it may never see the delete.
+// The new registry's initial sync only lists what currently exists in the remote cluster, so a
+// service that's already gone by then never generates any event to diff against - there's
+// nothing to tell the shard index the old entry is now stale. kubeController.Close() no longer
+// blindly wipes the shard for this exact reason (see the fix above), so that stale entry is
+// never cleaned up.
+func Test_KubeSecretController_CredentialRotation_StaleServiceAfterRotation(t *testing.T) {
+	const (
+		vanishingSvcName = "vanishing-svc"
+		vanishingSvcNS   = "app-ns"
+		vanishingSvcIP   = "10.10.0.2"
+	)
+	vanishingHostname := vanishingSvcName + "." + vanishingSvcNS + ".svc." + DomainSuffix
+
+	clusterID := cluster.ID("cluster-1")
+	remoteClusterID := cluster.ID("test-remote-cluster-1")
+	shardKey := model.ShardKey{Cluster: remoteClusterID, Provider: provider.Kubernetes}
+
+	endpointIndex := model.NewEndpointIndex(model.DisabledCache{})
+	xdsUpdater := model.NewEndpointIndexUpdater(endpointIndex)
+
+	mockserviceController := newMockserviceController(clusterID)
+	clientset := kube.NewFakeClient()
+	stop := test.NewStop(t)
+	s := server.New()
+	mcc := initController(clientset, testSecretNameSpace, stop)
+
+	// vanishing-svc is only ever seeded into the first generation of the remote client (the
+	// initial Add) - simulating a service that existed when the cluster was first added, but
+	// was deleted from the remote cluster before the credential rotation below, in the same
+	// window the old registry's watch stopped observing changes.
+	var generation atomic.Int32
+	mcc.ClientBuilder = func(kubeConfig []byte, c cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
+		remoteClient := kube.NewFakeClient()
+		if generation.Add(1) == 1 {
+			seedStableRemoteService(t, remoteClient, vanishingSvcName, vanishingSvcNS, vanishingSvcIP)
+		}
+		return remoteClient, nil
+	}
+	mc := NewMulticluster("pilot-abc-123", Options{
+		ClusterID:             clusterID,
+		DomainSuffix:          DomainSuffix,
+		MeshWatcher:           meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{}),
+		MeshNetworksWatcher:   meshwatcher.NewFixedNetworksWatcher(nil),
+		MeshServiceController: mockserviceController,
+		XDSUpdater:            xdsUpdater,
+	}, nil, nil, "default", false, nil, s, mcc)
+	assert.NoError(t, mcc.Run(stop))
+	go mockserviceController.Run(stop)
+	clientset.RunAndWait(stop)
+	kube.WaitForCacheSync("test", stop, mcc.HasSynced)
+	_ = s.Start(stop)
+
+	verifyControllers(t, mc, 1, "create local controller")
+	assert.NoError(t, createMultiClusterSecret(clientset, "test-secret-1", string(remoteClusterID)))
+	verifyControllers(t, mc, 2, "create remote controller")
+
+	retry.UntilSuccessOrFail(t, func() error {
+		shards, ok := endpointIndex.ShardsForService(vanishingHostname, vanishingSvcNS)
+		if !ok {
+			return fmt.Errorf("expected endpoint shard for %s to be populated before rotation", vanishingHostname)
+		}
+		shards.RLock()
+		defer shards.RUnlock()
+		if len(shards.Shards[shardKey]) == 0 {
+			return fmt.Errorf("expected endpoint shard for %s to be populated before rotation", vanishingHostname)
+		}
+		return nil
+	}, retry.Timeout(time.Second*5), retry.Delay(time.Millisecond*10))
+
+	originalRegistry := registryForCluster(mockserviceController, remoteClusterID)
+
+	// Rotate credentials. The remote cluster's fixture no longer includes vanishing-svc,
+	// simulating that it was deleted before this rotation - the new registry's fresh sync
+	// never lists it, so nothing ever generates a delete for the shard entry the old registry
+	// wrote.
+	assert.NoError(t, updateMultiClusterSecret(clientset, "test-secret-1", string(remoteClusterID), 1))
+	retry.UntilSuccessOrFail(t, func() error {
+		current := registryForCluster(mockserviceController, remoteClusterID)
+		if current == nil || current == originalRegistry {
+			return fmt.Errorf("registry for %s not swapped after credential rotation", remoteClusterID)
+		}
+		return nil
+	}, retry.Timeout(time.Second*5), retry.Delay(time.Millisecond*10))
+
+	// The deleted service's endpoint shard must eventually be cleaned up - it must not serve
+	// stale endpoints for a service that no longer exists in the remote cluster.
+	retry.UntilSuccessOrFail(t, func() error {
+		shards, ok := endpointIndex.ShardsForService(vanishingHostname, vanishingSvcNS)
+		if !ok {
+			return nil
+		}
+		shards.RLock()
+		defer shards.RUnlock()
+		if len(shards.Shards[shardKey]) == 0 {
+			return nil
+		}
+		return fmt.Errorf("stale endpoint shard %v for deleted service %s still present after rotation", shardKey, vanishingHostname)
+	}, retry.Timeout(time.Second*2), retry.Delay(time.Millisecond*10))
 
 	assert.NoError(t, deleteMultiClusterSecret(clientset, "test-secret-1"))
 	verifyControllers(t, mc, 1, "delete remote controller")

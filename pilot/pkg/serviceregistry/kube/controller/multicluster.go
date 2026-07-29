@@ -41,6 +41,7 @@ import (
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/kube/multicluster"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/webhooks"
 )
 
@@ -96,6 +97,21 @@ func (k *kubeController) Close() {
 	if k.opts.XDSUpdater != nil {
 		k.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{Reason: model.NewReasonStats(model.ClusterUpdate), Forced: true})
 	}
+}
+
+// liveServiceHosts returns the hostname/namespace pairs registry currently knows about, for use
+// as the "keep" set passed to XDSUpdater.PruneShard once registry's initial sync completes.
+func liveServiceHosts(registry *Controller) map[string]sets.String {
+	svcs := registry.Services()
+	keep := make(map[string]sets.String, len(svcs))
+	for _, svc := range svcs {
+		hostname := string(svc.Hostname)
+		if keep[hostname] == nil {
+			keep[hostname] = sets.New[string]()
+		}
+		keep[hostname].Insert(svc.Attributes.Namespace)
+	}
+	return keep
 }
 
 // Multicluster structure holds the remote kube Controllers and multicluster specific attributes.
@@ -254,6 +270,15 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeCont
 		kubeController.syncedFn = func() {
 			log.Infof("cluster %s synced, replacing registry", cluster.ID)
 			m.opts.MeshServiceController.UpdateRegistry(kubeRegistry, clusterStopCh)
+			// The old registry (being replaced) may have written shard entries for services
+			// that no longer exist in the remote cluster - e.g. deleted in the same window the
+			// old registry's watch stopped observing changes. Those services never appear in
+			// kubeRegistry's own sync, so nothing else would ever clean up their stale shard
+			// entries. Prune anything under this shard key that kubeRegistry didn't just
+			// reaffirm.
+			if kubeRegistry.opts.XDSUpdater != nil {
+				kubeRegistry.opts.XDSUpdater.PruneShard(model.ShardKeyFromRegistry(kubeRegistry), liveServiceHosts(kubeRegistry))
+			}
 		}
 		go kubeRegistry.Run(clusterStopCh)
 	} else {
