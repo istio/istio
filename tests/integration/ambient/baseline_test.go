@@ -610,7 +610,8 @@ spec:
 `).ApplyOrFail(t)
 				opt.Check = check.And(
 					check.OK(),
-					check.RequestHeader("Istio-Custom-Header", "user-defined-value"))
+					check.RequestHeader("Istio-Custom-Header", "user-defined-value"),
+				)
 				src.CallOrFail(t, opt)
 			})
 			t.NewSubTest("subset").Run(func(t framework.TestContext) {
@@ -656,7 +657,8 @@ spec:
 				opt.Count = 10
 				opt.Check = check.And(
 					check.OK(),
-					check.Hostname(exp))
+					check.Hostname(exp),
+				)
 				src.CallOrFail(t, opt)
 			})
 		})
@@ -731,7 +733,8 @@ spec:
 				check.RequestHeaders(map[string]string{
 					"X-Lua-Inbound":   "hello world",
 					"X-Vhost-Inbound": "hello world",
-				}))
+				}),
+			)
 			src.CallOrFail(t, opt)
 		})
 	})
@@ -801,7 +804,8 @@ spec:
 							}
 						}
 						return nil
-					})
+					},
+				)
 				src.CallOrFail(t, opt)
 			})
 
@@ -822,7 +826,8 @@ spec:
 							}
 						}
 						return nil
-					})
+					},
+				)
 				src.CallOrFail(t, opt)
 			})
 		})
@@ -1447,8 +1452,8 @@ func TestAuthorizationL7(t *testing.T) {
 			// Ensure we don't get stuck on old connections with old RBAC rules. This causes 45s test times
 			// due to draining.
 			opt.NewConnectionPerRequest = true
-			if src.Config().HasSidecar() && dst.Config().HasAnyWaypointProxy() {
-				// TODO: sidecar -> workload waypoint support
+			if src.Config().HasSidecar() && dst.Config().HasServiceAddressedWaypointProxy() {
+				// Sidecars do not route through service waypoints to avoid double-applying VirtualService
 				t.Skip("https://github.com/istio/istio/issues/51445")
 			}
 
@@ -1572,9 +1577,12 @@ spec:
 					// Only waypoint proxy can handle L7 policies
 					opt.Check = CheckDeny
 				case dst.Config().HasWorkloadAddressedWaypointProxy() && !dst.Config().HasServiceAddressedWaypointProxy():
-					// send traffic to the workload instead of the service so it will redirect to the WL waypoint
-					opt.Address = dst.MustWorkloads().Addresses()[0]
-					opt.Port = echo.Port{ServicePort: ports.All().MustForName(opt.Port.Name).WorkloadPort}
+					if !src.Config().HasSidecar() {
+						// For non-sidecar sources (ztunnel), send to workload IP so ztunnel redirects to waypoint.
+						// Sidecars route via the service VIP, which already has waypoint tunnel metadata.
+						opt.Address = dst.MustWorkloads().Addresses()[0]
+						opt.Port = echo.Port{ServicePort: ports.All().MustForName(opt.Port.Name).WorkloadPort}
+					}
 				}
 			}
 			if src == dst {
@@ -1673,9 +1681,12 @@ func TestL7JWT(t *testing.T) {
 
 				switch {
 				case dst.Config().HasWorkloadAddressedWaypointProxy() && !dst.Config().HasServiceAddressedWaypointProxy():
-					// send traffic to the workload instead of the service so it will redirect to the WL waypoint
-					opt.Address = dst.MustWorkloads().Addresses()[0]
-					opt.Port = echo.Port{ServicePort: ports.All().MustForName(opt.Port.Name).WorkloadPort}
+					if !src.Config().HasSidecar() {
+						// For non-sidecar sources (ztunnel), send to workload IP so ztunnel redirects to waypoint.
+						// Sidecars route via the service VIP, which already has waypoint tunnel metadata.
+						opt.Address = dst.MustWorkloads().Addresses()[0]
+						opt.Port = echo.Port{ServicePort: ports.All().MustForName(opt.Port.Name).WorkloadPort}
+					}
 					if src == dst {
 						t.Skip("self call is not captured, L7 features will not work")
 					}
@@ -2892,7 +2903,8 @@ func RunReachability(testCases []reachability.TestCase, t framework.TestContext)
 					tpe = "positive"
 					opt.Check = check.And(
 						check.OK(),
-						check.ReachedTargetClusters(t))
+						check.ReachedTargetClusters(t),
+					)
 					if expectMTLS {
 						opt.Check = check.And(opt.Check, check.MTLSForHTTP())
 					}
