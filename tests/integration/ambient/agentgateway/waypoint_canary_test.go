@@ -64,12 +64,6 @@ func TestWeightedWaypointCanaryToAgentgateway(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(t framework.TestContext) {
-			// A waypoint only accepts traffic for a service that names it in the singular waypoint
-			// field, so a canary waypoint answers 404 "route not found" for everything until
-			// agentgateway/agentgateway#2716 - which is in no release yet; v1.4.0 predates it.
-			// Drop this skip once AGENTGATEWAY_IMAGE in istio.deps names a later release.
-			t.Skip("needs an agentgateway release after v1.4.0 (agentgateway/agentgateway#2716)")
-
 			if !t.Settings().Agentgateway {
 				t.Skip("Only run agentgateway tests when explicitly enabled")
 			}
