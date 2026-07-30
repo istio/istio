@@ -97,6 +97,16 @@ IMG="${IMG:-${TOOLS_REGISTRY_PROVIDER}/${PROJECT_ID}/${IMAGE_NAME}:${IMAGE_VERSI
 
 CONTAINER_CLI="${CONTAINER_CLI:-docker}"
 
+# SELinux: when CONTAINER_SELINUX=1, bind mounts get :z (shared label) so the
+# container process can access host paths under SELinux enforcement.
+if [[ "${CONTAINER_SELINUX:-0}" == "1" ]]; then
+  _SELINUX_BIND_RO=":ro,z"
+  _SELINUX_BIND_RW=":z"
+else
+  _SELINUX_BIND_RO=":ro"
+  _SELINUX_BIND_RW=""
+fi
+
 # Try to use the latest cached image we have. Use at your own risk, may have incompatibly-old versions
 if [[ "${LATEST_CACHED_IMAGE:-}" != "" ]]; then
   prefix="$(<<<"$IMAGE_VERSION" cut -d- -f1)"
@@ -124,22 +134,22 @@ container_kubeconfig=''
 
 # docker conditional host mount (needed for make docker push)
 if [[ -d "${HOME}/.docker" ]]; then
-  CONDITIONAL_HOST_MOUNTS+="--mount type=bind,source=${HOME}/.docker,destination=/config/.docker,readonly "
+  CONDITIONAL_HOST_MOUNTS+="-v ${HOME}/.docker:/config/.docker${_SELINUX_BIND_RO} "
 fi
 
 # gcloud conditional host mount (needed for docker push with the gcloud auth configure-docker)
 if [[ -d "${HOME}/.config/gcloud" ]]; then
-  CONDITIONAL_HOST_MOUNTS+="--mount type=bind,source=${HOME}/.config/gcloud,destination=/config/.config/gcloud,readonly "
+  CONDITIONAL_HOST_MOUNTS+="-v ${HOME}/.config/gcloud:/config/.config/gcloud${_SELINUX_BIND_RO} "
 fi
 
 # gitconfig conditional host mount (needed for git commands inside container)
 if [[ -f "${HOME}/.gitconfig" ]]; then
-  CONDITIONAL_HOST_MOUNTS+="--mount type=bind,source=${HOME}/.gitconfig,destination=/home/.gitconfig,readonly "
+  CONDITIONAL_HOST_MOUNTS+="-v ${HOME}/.gitconfig:/home/.gitconfig${_SELINUX_BIND_RO} "
 fi
 
 # .netrc conditional host mount (needed for git commands inside container)
 if [[ -f "${HOME}/.netrc" ]]; then
-  CONDITIONAL_HOST_MOUNTS+="--mount type=bind,source=${HOME}/.netrc,destination=/home/.netrc,readonly "
+  CONDITIONAL_HOST_MOUNTS+="-v ${HOME}/.netrc:/home/.netrc${_SELINUX_BIND_RO} "
 fi
 
 # echo ${CONDITIONAL_HOST_MOUNTS}
@@ -155,7 +165,7 @@ add_KUBECONFIG_if_exists () {
 
     kubeconfig_random="$(od -vAn -N4 -tx /dev/random | tr -d '[:space:]' | cut -c1-8)"
     container_kubeconfig+="/config/${kubeconfig_random}:"
-    CONDITIONAL_HOST_MOUNTS+="--mount type=bind,source=${local_config},destination=/config/${kubeconfig_random} "
+    CONDITIONAL_HOST_MOUNTS+="-v ${local_config}:/config/${kubeconfig_random}${_SELINUX_BIND_RW} "
   fi
 }
 
@@ -231,6 +241,7 @@ VARS=(
       CONDITIONAL_HOST_MOUNTS
       ENV_BLOCKLIST
       CONTAINER_CLI
+      CONTAINER_SELINUX
       DOCKER_GID
       IMG
       IMAGE_NAME

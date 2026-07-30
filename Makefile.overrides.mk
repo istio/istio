@@ -21,8 +21,12 @@
 BUILD_WITH_CONTAINER ?= 1
 # Container options for the build container. Can be customized for different container runtimes.
 # Example for podman on macOS: CONTAINER_OPTIONS="--mount type=bind,source=/tmp,destination=/tmp --net=host --security-opt label=disable"
-# Note: --security-opt label=disable disables SELinux labeling (safer than --privileged)
-CONTAINER_OPTIONS ?= --mount type=bind,source=/tmp,destination=/tmp --net=host
+# Set CONTAINER_SELINUX=1 on SELinux-enforcing systems to add :z labels to bind mounts.
+ifeq ($(CONTAINER_SELINUX),1)
+  CONTAINER_OPTIONS ?= --tmpfs /tmp:exec --net=host
+else
+  CONTAINER_OPTIONS ?= --mount type=bind,source=/tmp,destination=/tmp --net=host
+endif
 
 export COMMONFILES_POSTPROCESS = tools/commonfiles-postprocess.sh
 
