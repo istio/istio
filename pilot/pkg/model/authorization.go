@@ -49,8 +49,12 @@ func (policy *AuthorizationPolicies) indexHTTPRoutePolicies(authz AuthorizationP
 			continue
 		}
 
-		if ref.GetName() == "" || ref.GetNamespace() == "" {
-			return
+		if ref.GetName() == "" {
+			continue
+		}
+		// Cross namespace references are not supported.
+		if ref.GetNamespace() != "" && ref.GetNamespace() != authz.Namespace {
+			continue
 		}
 
 		// Must target HTTPRoute in own namespace.
@@ -118,6 +122,15 @@ type AuthorizationPoliciesResult struct {
 	Deny   []AuthorizationPolicy
 	Allow  []AuthorizationPolicy
 	Audit  []AuthorizationPolicy
+}
+
+// ListAuthorizationPoliciesForHTTPRoute returns authorization policies that explicitly target
+// the given HTTPRoute via targetRef. Limited to ALLOW and DENY actions currently.
+func (policy *AuthorizationPolicies) ListAuthorizationPoliciesForHTTPRoute(route types.NamespacedName) AuthorizationPoliciesResult {
+	if policy == nil {
+		return AuthorizationPoliciesResult{}
+	}
+	return policy.httpRoutePolicies[route]
 }
 
 // ListAuthorizationPolicies returns authorization policies applied to the workload in the given namespace.
