@@ -98,6 +98,63 @@ func (b Builder) BuildHTTP() []*hcm.HttpFilter {
 	return build(b, b.buildHTTP, "HTTP", false)
 }
 
+// Filter instance names for the RBAC filters built for ALLOW and DENY actions.
+const (
+	RBACFilterNameAllow = "istio.authorization.allow"
+	RBACFilterNameDeny  = "istio.authorization.deny"
+)
+
+// RBACFilterNameForAction returns the filter instance name that per-route RBAC config for the given
+// action must be keyed by.
+func RBACFilterNameForAction(action rbacpb.RBAC_Action) string {
+	switch action {
+	case rbacpb.RBAC_ALLOW:
+		return RBACFilterNameAllow
+	case rbacpb.RBAC_DENY:
+		return RBACFilterNameDeny
+	default:
+		return ""
+	}
+}
+
+// BuildHTTPRBACForRoute returns the raw RBAC config per action, for use as a per-route override
+// rather than as a listener level HTTP filter. It reuses the same rule translation
+// and trust domain migration as BuildHTTP so that route level and workload level policies cannot
+// diverge, but skips wrapping the result in an hcm.HttpFilter, which cannot be used in a
+// route's TypedPerFilterConfig.
+func (b Builder) BuildHTTPRBACForRoute() map[rbacpb.RBAC_Action]*rbachttp.RBAC {
+	if b.option.IsCustomBuilder {
+		return nil
+	}
+	logger := &AuthzLogger{}
+	defer logger.Report()
+
+	out := make(map[rbacpb.RBAC_Action]*rbachttp.RBAC, 2)
+	for _, action := range []struct {
+		action   rbacpb.RBAC_Action
+		policies []model.AuthorizationPolicy
+	}{
+		{rbacpb.RBAC_DENY, b.denyPolicies},
+		{rbacpb.RBAC_ALLOW, b.allowPolicies},
+	} {
+		forTCP := false
+		rule := b.build(action.policies, action.action, forTCP, logger)
+		if rule == nil {
+			continue
+		}
+		out[action.action] = &rbachttp.RBAC{
+			Rules:                 rule.rules,
+			ShadowRules:           rule.shadowRules,
+			ShadowRulesStatPrefix: shadowRuleStatPrefix(rule.shadowRules),
+		}
+		logger.AppendDebugf("built per-route RBAC for %s action", action.action)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
 // BuildTCP returns the TCP filters built from the authorization policy.
 func (b Builder) BuildTCP() []*listener.Filter {
 	return build(b, b.buildTCP, "TCP", true)
