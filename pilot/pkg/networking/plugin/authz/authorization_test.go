@@ -33,7 +33,11 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 )
 
-func httpRoutePolicy(t *testing.T, name, ns, routeName string, action authpb.AuthorizationPolicy_Action) config.Config {
+// testHTTPRouteName is the HTTPRoute every policy in this file targets; cases vary the origin
+// looked up against it rather than the target itself.
+const testHTTPRouteName = "route-a"
+
+func httpRoutePolicy(t *testing.T, name, ns string, action authpb.AuthorizationPolicy_Action) config.Config {
 	t.Helper()
 	return config.Config{
 		Meta: config.Meta{
@@ -46,7 +50,7 @@ func httpRoutePolicy(t *testing.T, name, ns, routeName string, action authpb.Aut
 			TargetRef: &selectorpb.PolicyTargetReference{
 				Group: gvk.HTTPRoute.Group,
 				Kind:  gvk.HTTPRoute.Kind,
-				Name:  routeName,
+				Name:  testHTTPRouteName,
 			},
 			Rules: []*authpb.Rule{
 				{
@@ -83,33 +87,33 @@ func TestPerRouteBuilderBuild(t *testing.T) {
 	}{
 		{
 			name:      "allow policy targeting the route",
-			configs:   []config.Config{httpRoutePolicy(t, "allow", "foo", "route-a", authpb.AuthorizationPolicy_ALLOW)},
-			origin:    types.NamespacedName{Name: "route-a", Namespace: "foo"},
+			configs:   []config.Config{httpRoutePolicy(t, "allow", "foo", authpb.AuthorizationPolicy_ALLOW)},
+			origin:    types.NamespacedName{Name: testHTTPRouteName, Namespace: "foo"},
 			wantNames: []string{builder.RBACFilterNameAllow},
 		},
 		{
 			name: "allow and deny produce independently overridable slots",
 			configs: []config.Config{
-				httpRoutePolicy(t, "allow", "foo", "route-a", authpb.AuthorizationPolicy_ALLOW),
-				httpRoutePolicy(t, "deny", "foo", "route-a", authpb.AuthorizationPolicy_DENY),
+				httpRoutePolicy(t, "allow", "foo", authpb.AuthorizationPolicy_ALLOW),
+				httpRoutePolicy(t, "deny", "foo", authpb.AuthorizationPolicy_DENY),
 			},
-			origin:    types.NamespacedName{Name: "route-a", Namespace: "foo"},
+			origin:    types.NamespacedName{Name: testHTTPRouteName, Namespace: "foo"},
 			wantNames: []string{builder.RBACFilterNameAllow, builder.RBACFilterNameDeny},
 		},
 		{
 			name:    "policy targeting a different route is not applied",
-			configs: []config.Config{httpRoutePolicy(t, "allow", "foo", "route-a", authpb.AuthorizationPolicy_ALLOW)},
+			configs: []config.Config{httpRoutePolicy(t, "allow", "foo", authpb.AuthorizationPolicy_ALLOW)},
 			origin:  types.NamespacedName{Name: "route-b", Namespace: "foo"},
 		},
 		{
 			name:    "policy in a different namespace is not applied",
-			configs: []config.Config{httpRoutePolicy(t, "allow", "bar", "route-a", authpb.AuthorizationPolicy_ALLOW)},
-			origin:  types.NamespacedName{Name: "route-a", Namespace: "foo"},
+			configs: []config.Config{httpRoutePolicy(t, "allow", "bar", authpb.AuthorizationPolicy_ALLOW)},
+			origin:  types.NamespacedName{Name: testHTTPRouteName, Namespace: "foo"},
 		},
 		{
 			// Routes not generated from an HTTPRoute carry a zero origin and must never be overridden.
 			name:    "zero origin yields no override",
-			configs: []config.Config{httpRoutePolicy(t, "allow", "foo", "route-a", authpb.AuthorizationPolicy_ALLOW)},
+			configs: []config.Config{httpRoutePolicy(t, "allow", "foo", authpb.AuthorizationPolicy_ALLOW)},
 			origin:  types.NamespacedName{},
 		},
 	}
@@ -146,13 +150,13 @@ func TestPerRouteBuilderBuild(t *testing.T) {
 // TestPerRouteBuilderNilSafe covers the route build path being reached with no authz policies set.
 func TestPerRouteBuilderNilSafe(t *testing.T) {
 	var p *PerRouteBuilder
-	if got := p.Build(types.NamespacedName{Name: "route-a", Namespace: "foo"}); got != nil {
+	if got := p.Build(types.NamespacedName{Name: testHTTPRouteName, Namespace: "foo"}); got != nil {
 		t.Fatalf("expected nil from nil builder, got %v", got)
 	}
 
 	push := &model.PushContext{Mesh: &meshconfig.MeshConfig{TrustDomain: "cluster.local"}}
 	p = NewPerRouteBuilder(push, &model.Proxy{Type: model.Router})
-	if got := p.Build(types.NamespacedName{Name: "route-a", Namespace: "foo"}); got != nil {
+	if got := p.Build(types.NamespacedName{Name: testHTTPRouteName, Namespace: "foo"}); got != nil {
 		t.Fatalf("expected nil when no authorization policies exist, got %v", got)
 	}
 }
