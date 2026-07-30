@@ -1655,10 +1655,10 @@ var ValidateRequestAuthentication = RegisterValidateFunc("ValidateRequestAuthent
 	})
 
 func isHTTPRouteTargetRef(ref *type_beta.PolicyTargetReference) bool {
-	if ref != nil {
+	if ref == nil {
 		return false
 	}
-	return ref != nil && ref.Kind == gvk.HTTPRoute.Kind &&
+	return ref.Kind == gvk.HTTPRoute.Kind &&
 		config.CanonicalGroup(ref.GetGroup()) == gvk.HTTPRoute.CanonicalGroup()
 }
 

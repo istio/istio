@@ -413,9 +413,17 @@ func BuildHTTPRoutesForVirtualService(
 
 	out := make([]*route.Route, 0, len(vs.Http))
 
+	origins, err := httpRouteOrigins(virtualService, len(vs.Http))
+	if err != nil {
+		return nil, err
+	}
+
 	catchall := false
 	for i, http := range vs.Http {
-		origin := virtualService.Extra[constants.ConfigExtraHTTPRouteOrigins].([]types.NamespacedName)[i]
+		var origin types.NamespacedName
+		if origins != nil {
+			origin = origins[i]
+		}
 		if len(http.Match) == 0 {
 			if r := TranslateRoute(node, http, nil, listenPort, virtualService, gatewayNames, opts); r != nil {
 				applyPerRouteAuthPolicy(r, origin, opts)
@@ -445,6 +453,25 @@ func BuildHTTPRoutesForVirtualService(
 		return nil, fmt.Errorf("no routes matched")
 	}
 	return out, nil
+}
+
+// httpRouteOrigins returns the HTTPRoute each of the VirtualService's HTTP routes was
+// generated from. Only applicable for HTTPRoute-produced VirtualService objects.
+func httpRouteOrigins(virtualService config.Config, routeCount int) ([]types.NamespacedName, error) {
+	raw, ok := virtualService.Extra[constants.ConfigExtraHTTPRouteOrigins]
+	if !ok {
+		return nil, nil
+	}
+	origins, ok := raw.([]types.NamespacedName)
+	if !ok {
+		return nil, fmt.Errorf("unexpected type %T for HTTPRoute origins in VirtualService %s/%s",
+			raw, virtualService.Namespace, virtualService.Name)
+	}
+	if len(origins) != routeCount {
+		return nil, fmt.Errorf("HTTPRoute origins count %d does not match route count %d in VirtualService %s/%s",
+			len(origins), routeCount, virtualService.Namespace, virtualService.Name)
+	}
+	return origins, nil
 }
 
 func applyPerRouteAuthPolicy(r *route.Route, origin types.NamespacedName, opts RouteOptions) {
