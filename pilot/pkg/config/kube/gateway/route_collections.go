@@ -841,8 +841,8 @@ func mergeHTTPRoutes(baseVirtualServices krt.Collection[RouteWithKey], opts ...k
 
 		origins, err := httpRouteOrigins(base)
 		if err != nil {
-			// TODO(ericdbishop): return nil and change to error log
-			log.Debugf("invalid HTTPRoute origins: %v", err)
+			log.Errorf("invalid HTTPRoute origins: %v", err)
+			return nil
 		}
 
 		// Deep copy the InferencePool configs map to avoid race conditions
