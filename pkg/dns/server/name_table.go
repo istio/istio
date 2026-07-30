@@ -69,13 +69,10 @@ func BuildNameTable(cfg Config) *dnsProto.NameTable {
 					remoteAddresses := make(map[string][]string)
 					hostMetadata := make(map[string]types.NamespacedName)
 					// Iterate all ports to collect endpoints from every EndpointSlice.
-					// Dedup by address since pod IPs are unique per cluster (K8s IPAM guarantee).
+					// Dedup by address since pod IPs are unique (IPAM guarantee).
 					seen := sets.New[string]()
 					for _, endpoints := range cfg.Push.ServiceEndpoints(svc.Key()) {
 						for _, instance := range endpoints {
-							if seen.InsertContains(instance.FirstAddressOrNil()) {
-								continue
-							}
 							isValidInstance := true
 							for _, addr := range instance.Addresses {
 								if !netutil.IsValidIPAddress(addr) {
@@ -85,6 +82,9 @@ func BuildNameTable(cfg Config) *dnsProto.NameTable {
 							}
 							if len(instance.Addresses) == 0 || !isValidInstance ||
 								(!svc.Attributes.PublishNotReadyAddresses && instance.HealthStatus != model.Healthy) {
+								continue
+							}
+							if seen.InsertContains(instance.FirstAddressOrNil()) {
 								continue
 							}
 							// TODO(stevenctl): headless across-networks https://github.com/istio/istio/issues/38327

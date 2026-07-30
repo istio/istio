@@ -794,25 +794,22 @@ func TestMultiPortHeadlessServiceSplitEndpointSlices(t *testing.T) {
 	push.AddServiceInstances(multiPortHeadlessService, brokerInstances)
 
 	cases := []struct {
-		name                       string
-		proxy                      *model.Proxy
-		enableMultiClusterHeadless bool
-		expectBrokerDNS            bool
-		expectControllerDNS        bool
+		name                string
+		proxy               *model.Proxy
+		expectBrokerDNS     bool
+		expectControllerDNS bool
 	}{
 		{
-			name:                       "local cluster sees both controller and broker",
-			proxy:                      controllerProxy,
-			enableMultiClusterHeadless: true,
-			expectBrokerDNS:            true,
-			expectControllerDNS:        true,
+			name:                "local cluster sees both controller and broker",
+			proxy:               controllerProxy,
+			expectBrokerDNS:     true,
+			expectControllerDNS: true,
 		},
 		{
-			name:                       "remote cluster sees both controller and broker",
-			proxy:                      remoteProxy,
-			enableMultiClusterHeadless: true,
-			expectBrokerDNS:            true,
-			expectControllerDNS:        true,
+			name:                "remote cluster sees both controller and broker",
+			proxy:               remoteProxy,
+			expectBrokerDNS:     true,
+			expectControllerDNS: true,
 		},
 	}
 
@@ -824,7 +821,7 @@ func TestMultiPortHeadlessServiceSplitEndpointSlices(t *testing.T) {
 			nt := dnsServer.BuildNameTable(dnsServer.Config{
 				Node:                        tt.proxy,
 				Push:                        push,
-				MulticlusterHeadlessEnabled: tt.enableMultiClusterHeadless,
+				MulticlusterHeadlessEnabled: true,
 			})
 
 			brokerEntry := "kafka-0.kafka-brokers.kafka.svc.cluster.local"
