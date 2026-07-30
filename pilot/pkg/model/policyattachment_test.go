@@ -387,8 +387,7 @@ func TestPolicyMatcher(t *testing.T) {
 			} else {
 				nsName = types.NamespacedName{Name: "policy1", Namespace: "default"}
 			}
-			kind := mockKind
-			matcher := tt.selection.ShouldAttachPolicy(kind, nsName, tt.policy)
+			matcher := tt.selection.ShouldAttachPolicy(mockKind, nsName, tt.policy)
 
 			if matcher != tt.expected {
 				t.Errorf("Expected %v, but got %v", tt.expected, matcher)
