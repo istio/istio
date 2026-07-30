@@ -152,9 +152,7 @@ func DestinationRuleCollection(
 	status.RegisterStatus(c.status, tlsPolicyStatus, GetStatus, c.tagWatcher.AccessUnprotected())
 
 	backendResourceStatus, backendResourcePolicies := BackendResourcePolicyCollection(backends, ancestorCollection, references, opts)
-	if features.EnableAlphaGatewayAPI {
-		status.RegisterStatus(c.status, backendResourceStatus, GetStatus, c.tagWatcher.AccessUnprotected())
-	}
+	status.RegisterStatus(c.status, backendResourceStatus, GetStatus, c.tagWatcher.AccessUnprotected())
 
 	// We need to merge these by hostname into a single DR
 	allPolicies := krt.JoinCollection(
