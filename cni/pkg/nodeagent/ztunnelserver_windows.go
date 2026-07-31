@@ -215,8 +215,8 @@ func (z *ztunnelServer) timeoutError() error {
 }
 
 func (z *ztunnelServer) handleWorkloadInfo(wl WorkloadInfo, uid string, conn ZtunnelConnection) (*zdsapi.WorkloadResponse, error) {
-	if wl != nil {
-		log.Infof("sending pod to ztunnel as part of snapshot")
+	if wl != nil && wl.Workload() != nil {
+		log.Infof("sending pod %s to ztunnel as part of snapshot", uid)
 		return conn.SendMsgAndWaitForAck(&zdsapi.WorkloadRequest{
 			Payload: &zdsapi.WorkloadRequest_Add{
 				Add: &zdsapi.AddWorkload{
