@@ -197,7 +197,7 @@ func (b *KeyCertBundle) setAllFromPem(certBytes, privKeyBytes, certChainBytes, r
 	b.rootCertBytes = copyBytes(rootCertBytes)
 
 	// CRL is optional and used with plugged in CA, if not provided, it will be nil
-	if len(crlBytes) != 0 {
+	if crlBytes != nil {
 		b.crlBytes = copyBytes(crlBytes)
 	}
 
