@@ -61,7 +61,10 @@ func NewVerifiedKeyCertBundleFromPem(certBytes, privKeyBytes, certChainBytes, ro
 	*KeyCertBundle, error,
 ) {
 	bundle := &KeyCertBundle{}
-	if err := bundle.VerifyAndSetAll(certBytes, privKeyBytes, certChainBytes, rootCertBytes, crlBytes); err != nil {
+	if err := bundle.VerifyAndSetAll(certBytes, privKeyBytes, certChainBytes, rootCertBytes); err != nil {
+		return nil, err
+	}
+	if err := bundle.VerifyAndSetCRL(crlBytes); err != nil {
 		return nil, err
 	}
 	return bundle, nil
@@ -180,11 +183,28 @@ func (b *KeyCertBundle) GetCRLPem() []byte {
 
 // VerifyAndSetAll verifies the key/certs, and sets all key/certs in KeyCertBundle together.
 // Setting all values together avoids inconsistency.
-func (b *KeyCertBundle) VerifyAndSetAll(certBytes, privKeyBytes, certChainBytes, rootCertBytes, crlBytes []byte) error {
-	if err := Verify(certBytes, privKeyBytes, certChainBytes, rootCertBytes, crlBytes); err != nil {
+func (b *KeyCertBundle) VerifyAndSetAll(certBytes, privKeyBytes, certChainBytes, rootCertBytes []byte) error {
+	if err := verify(certBytes, privKeyBytes, certChainBytes, rootCertBytes); err != nil {
 		return err
 	}
-	b.setAllFromPem(certBytes, privKeyBytes, certChainBytes, rootCertBytes, crlBytes)
+	b.setAllFromPem(certBytes, privKeyBytes, certChainBytes, rootCertBytes, nil)
+	return nil
+}
+
+// VerifyAndSetCRL validates the provided CRL against the currently stored cert chain and,
+// if valid, stores it.
+// A nil crl leaves the stored CRL untouched.
+func (b *KeyCertBundle) VerifyAndSetCRL(crl []byte) error {
+	if crl == nil {
+		return nil
+	}
+	if err := verifyCRL(b.certChainBytes, crl); err != nil {
+		return err
+	}
+
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
+	b.crlBytes = copyBytes(crl)
 	return nil
 }
 
@@ -249,7 +269,7 @@ func (b *KeyCertBundle) CertOptions() (*CertOptions, error) {
 func (b *KeyCertBundle) UpdateVerifiedKeyCertBundleFromFile(
 	certFile, privKeyFile string,
 	certChainFiles []string,
-	rootCertFile, crlFile string,
+	rootCertFile string,
 ) error {
 	certBytes, err := os.ReadFile(certFile)
 	if err != nil {
@@ -275,13 +295,7 @@ func (b *KeyCertBundle) UpdateVerifiedKeyCertBundleFromFile(
 		return err
 	}
 
-	// Read CRL file if provided
-	crlBytes, crlErr := gerCRLBytesFromFile(crlFile)
-	if crlErr != nil {
-		return crlErr
-	}
-
-	err = b.VerifyAndSetAll(certBytes, privKeyBytes, certChainBytes, rootCertBytes, crlBytes)
+	err = b.VerifyAndSetAll(certBytes, privKeyBytes, certChainBytes, rootCertBytes)
 	if err != nil {
 		return err
 	}
@@ -327,7 +341,7 @@ func TimeBeforeCertExpires(certBytes []byte, now time.Time) (time.Duration, erro
 }
 
 // Verify that the cert chain, root cert and key/cert match.
-func Verify(certBytes, privKeyBytes, certChainBytes, rootCertBytes, crl []byte) error {
+func verify(certBytes, privKeyBytes, certChainBytes, rootCertBytes []byte) error {
 	// Verify the cert can be verified from the root cert through the cert chain.
 	rcp := x509.NewCertPool()
 	rcp.AppendCertsFromPEM(rootCertBytes)
@@ -361,68 +375,75 @@ func Verify(certBytes, privKeyBytes, certChainBytes, rootCertBytes, crl []byte) 
 		return fmt.Errorf("the cert does not match the key: %v", err)
 	}
 
-	// verify only if the CRL is provided
-	if len(crl) != 0 {
-		// envoy expects that if a CRL is provided for any certificate authority in a trust chain,
-		// a CRL must be provided for all certificate authorities in that chain.
-		// Failure to do so will result in verification failure for both revoked and unrevoked certificates
-		// from that chain.
-		var parsedCRLs []*x509.RevocationList
-		var signers []*x509.Certificate
+	return nil
+}
 
-		// gather all the certs in the chain
-		for rest := certChainBytes; ; {
-			block, remaining := pem.Decode(rest)
-			if block == nil {
-				break
-			}
-			c, parseErr := x509.ParseCertificate(block.Bytes)
-			if parseErr != nil {
-				return fmt.Errorf("failed to parse cert chain: %w", parseErr)
-			}
-			signers = append(signers, c)
-			rest = remaining
-		}
+// verifyCRL validates a CRL bundle against the certificates in certChainBytes.
+// An empty crl is treated as "no CRL" and always passes.
+// Envoy expects that if a CRL is provided for any certificate authority in a trust chain,
+// a CRL must be provided for all certificate authorities in that chain.
+// Failure to do so results in verification failure for both revoked and unrevoked certificates
+// from that chain.
+func verifyCRL(certChainBytes, crl []byte) error {
+	if len(crl) == 0 {
+		return nil
+	}
 
-		// parse the CRL
-		for rest := crl; ; {
-			block, remaining := pem.Decode(rest)
-			if block == nil {
-				break
-			}
-			parsedCRL, parseErr := x509.ParseRevocationList(block.Bytes)
-			if parseErr != nil {
-				return fmt.Errorf("failed to parse CRL PEM: %w", parseErr)
-			}
-			parsedCRLs = append(parsedCRLs, parsedCRL)
-			rest = remaining
-		}
+	var parsedCRLs []*x509.RevocationList
+	var signers []*x509.Certificate
 
-		// validate that the CRL is signed by the cert in the chain
-		missing := make(map[string]*x509.Certificate, len(signers))
-		for _, s := range signers {
-			missing[s.Subject.String()] = s
+	// gather all the certs in the chain
+	for rest := certChainBytes; ; {
+		block, remaining := pem.Decode(rest)
+		if block == nil {
+			break
 		}
+		c, parseErr := x509.ParseCertificate(block.Bytes)
+		if parseErr != nil {
+			return fmt.Errorf("failed to parse cert chain: %w", parseErr)
+		}
+		signers = append(signers, c)
+		rest = remaining
+	}
 
-		for _, parsedCRL := range parsedCRLs {
-			for subj, s := range missing {
-				if parsedCRL.CheckSignatureFrom(s) == nil {
-					delete(missing, subj)
-				}
-			}
-			if len(missing) == 0 {
-				break
-			}
+	// parse the CRL
+	for rest := crl; ; {
+		block, remaining := pem.Decode(rest)
+		if block == nil {
+			break
 		}
+		parsedCRL, parseErr := x509.ParseRevocationList(block.Bytes)
+		if parseErr != nil {
+			return fmt.Errorf("failed to parse CRL PEM: %w", parseErr)
+		}
+		parsedCRLs = append(parsedCRLs, parsedCRL)
+		rest = remaining
+	}
 
-		// if there are any missing CRLs, return an error
-		if len(missing) != 0 {
-			names := make([]string, 0, len(missing))
-			for subj := range missing {
-				names = append(names, subj)
+	// validate that the CRL is signed by the cert in the chain
+	missing := make(map[string]*x509.Certificate, len(signers))
+	for _, s := range signers {
+		missing[s.Subject.String()] = s
+	}
+
+	for _, parsedCRL := range parsedCRLs {
+		for subj, s := range missing {
+			if parsedCRL.CheckSignatureFrom(s) == nil {
+				delete(missing, subj)
 			}
-			return fmt.Errorf("missing CRL signed by certificates: %v", names)
 		}
+		if len(missing) == 0 {
+			break
+		}
+	}
+
+	// if there are any missing CRLs, return an error
+	if len(missing) != 0 {
+		names := make([]string, 0, len(missing))
+		for subj := range missing {
+			names = append(names, subj)
+		}
+		return fmt.Errorf("missing CRL signed by certificates: %v", names)
 	}
 
 	return nil

@@ -89,7 +89,7 @@ func (w *Watcher) SetAndNotifyCACRL(crl []byte) {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 
-	if len(crl) != 0 {
+	if crl != nil {
 		w.bundle.CRL = crl
 	}
 

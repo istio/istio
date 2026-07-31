@@ -232,6 +232,6 @@ func FuzzUpdateVerifiedKeyCertBundleFromFile(data []byte) int {
 		return 0
 	}
 
-	bundle.UpdateVerifiedKeyCertBundleFromFile("newCertfile", "newPrivKeyFile", []string{"newCertChainFile"}, "newRootCertFile", "")
+	bundle.UpdateVerifiedKeyCertBundleFromFile("newCertfile", "newPrivKeyFile", []string{"newCertChainFile"}, "newRootCertFile")
 	return 1
 }

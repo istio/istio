@@ -161,7 +161,6 @@ func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCertForSigningCert
 				caSecret.Data[CAPrivateKeyFile],
 				nil,
 				rootCerts,
-				nil,
 			); err != nil {
 				rootCertRotatorLog.Errorf("failed to reload root cert into KeyCertBundle (%v)", err)
 			} else {
@@ -246,7 +245,7 @@ func (rotator *SelfSignedCARootCertRotator) updateRootCertificate(caSecret *v1.S
 		return false, fmt.Errorf("failed to update CA secret (error: %s)", err.Error())
 	}
 	rootCertRotatorLog.Infof("Root certificate is written into CA secret: %v", string(cert))
-	if err := rotator.ca.GetCAKeyCertBundle().VerifyAndSetAll(cert, key, nil, rootCert, nil); err != nil {
+	if err := rotator.ca.GetCAKeyCertBundle().VerifyAndSetAll(cert, key, nil, rootCert); err != nil {
 		if rollForward {
 			// Rolling forward root certificate fails at keycertbundle update, notify caller to rollback.
 			return true, fmt.Errorf("failed to update CA KeyCertBundle (error: %s)", err.Error())

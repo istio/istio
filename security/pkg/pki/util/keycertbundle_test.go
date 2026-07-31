@@ -15,7 +15,9 @@
 package util
 
 import (
+	"bytes"
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -388,6 +390,62 @@ func TestNewVerifiedKeyCertBundleFromFileWithCrl(t *testing.T) {
 				t.Errorf("%s: Expected error %s but succeeded", id, tc.expectedErr)
 			}
 		})
+	}
+}
+
+func TestVerifyAndSetCRL(t *testing.T) {
+	readFile := func(f string) []byte {
+		b, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatalf("failed to read %s: %v", f, err)
+		}
+		return b
+	}
+
+	cert := readFile(crlCertFile)
+	key := readFile(crlKeyFile)
+	certChain := readFile(crlCertChainFile)
+	root := readFile(crlRootCertFile)
+	validCRL := readFile(crlFile)
+	badCRL := readFile(badCrlFile)
+
+	b := &KeyCertBundle{}
+	if err := b.VerifyAndSetAll(cert, key, certChain, root); err != nil {
+		t.Fatalf("failed to set up bundle: %v", err)
+	}
+
+	// A valid CRL is stored.
+	if err := b.VerifyAndSetCRL(validCRL); err != nil {
+		t.Fatalf("valid CRL failed: %v", err)
+	}
+	if !bytes.Equal(b.GetCRLPem(), validCRL) {
+		t.Fatalf("expected valid CRL to be stored")
+	}
+
+	// An invalid CRL and the previously stored CRL is left intact.
+	err := b.VerifyAndSetCRL(badCRL)
+	if err == nil {
+		t.Fatalf("expected an error with an invalid CRL")
+	}
+	if !strings.HasPrefix(err.Error(), "missing CRL signed by certificates") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !bytes.Equal(b.GetCRLPem(), validCRL) {
+		t.Fatalf("invalid CRL must not disturb the stored CRL")
+	}
+
+	// A nil CRL preserves the stored CRL; an empty CRL clears it.
+	if err := b.VerifyAndSetCRL(nil); err != nil {
+		t.Fatalf("nil CRL failed: %v", err)
+	}
+	if !bytes.Equal(b.GetCRLPem(), validCRL) {
+		t.Fatalf("CRL not preserved")
+	}
+	if err := b.VerifyAndSetCRL([]byte{}); err != nil {
+		t.Fatalf("empty CRL failed: %v", err)
+	}
+	if len(b.GetCRLPem()) != 0 {
+		t.Fatalf("CRL is not cleared")
 	}
 }
 

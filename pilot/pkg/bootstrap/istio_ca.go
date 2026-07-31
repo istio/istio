@@ -331,9 +331,8 @@ func (s *Server) loadCACerts(caOpts *caOptions, dir string) error {
 func handleEvent(s *Server) {
 	log.Info("Update Istiod cacerts")
 
-	var newCABundle []byte
+	var newRootCert []byte
 	var err error
-	var updateCRL bool
 
 	fileBundle, err := detectSigningCABundleAndCRL()
 	if err != nil {
@@ -342,16 +341,16 @@ func handleEvent(s *Server) {
 	}
 
 	// check if CA bundle is updated
-	newCABundle, err = os.ReadFile(fileBundle.RootCertFile)
+	newRootCert, err = os.ReadFile(fileBundle.RootCertFile)
 	if err != nil {
 		log.Errorf("failed reading root-cert.pem: %v", err)
 		return
 	}
 
-	currentCABundle := s.CA.GetCAKeyCertBundle().GetRootCertPem()
+	currentRootCert := s.CA.GetCAKeyCertBundle().GetRootCertPem()
 
 	// Only updating intermediate CA is supported now
-	if !bytes.Equal(currentCABundle, newCABundle) {
+	if !bytes.Equal(currentRootCert, newRootCert) {
 		if !features.MultiRootMesh {
 			log.Warn("Multi root is disabled, updating new ROOT-CA not supported")
 			return
@@ -359,62 +358,58 @@ func handleEvent(s *Server) {
 
 		// allow the update when one CA bundle is a subset of the other,
 		// which covers both adding CA certs (rotation) and removing old CA certs
-		if pemBundleHasSubsetRelation(currentCABundle, newCABundle) {
+		if pemBundleHasSubsetRelation(currentRootCert, newRootCert) {
 			log.Info("Updating new ROOT-CA")
 		} else {
 			log.Warn("Updating new ROOT-CA not supported")
 			return
 		}
 	}
-
-	if features.EnableCACRL {
-		// check if crl file is updated
-		if len(fileBundle.CRLFile) > 0 {
-			currentCRLData := s.CA.GetCAKeyCertBundle().GetCRLPem()
-			crlData, crlReadErr := os.ReadFile(fileBundle.CRLFile)
-			if crlReadErr != nil {
-				// handleEvent can be triggered either for key-cert bundle update or
-				// for crl file update. So, even if there is an error in reading crl file,
-				// we should log error and continue with key-cert bundle update.
-				log.Errorf("failed reading crl file: %v", crlReadErr)
-			}
-
-			if !bytes.Equal(currentCRLData, crlData) {
-				log.Infof("Updating CRL data")
-				updateCRL = true
-			}
-		}
-	}
-
 	// process updated root cert or crl file
-	err = s.CA.GetCAKeyCertBundle().UpdateVerifiedKeyCertBundleFromFile(
+	bundle := s.CA.GetCAKeyCertBundle()
+	keyCertErr := bundle.UpdateVerifiedKeyCertBundleFromFile(
 		fileBundle.SigningCertFile,
 		fileBundle.SigningKeyFile,
 		fileBundle.CertChainFiles,
 		fileBundle.RootCertFile,
-		fileBundle.CRLFile,
 	)
-	if err != nil {
+	if keyCertErr != nil {
 		log.Errorf("Failed to update new Plug-in CA certs: %v", err)
-		return
-	}
-	if len(s.CA.GetCAKeyCertBundle().GetRootCertPem()) != 0 {
-		caserver.RecordCertsExpiry(s.CA.GetCAKeyCertBundle())
+	} else if len(bundle.GetRootCertPem()) != 0 {
+		caserver.RecordCertsExpiry(bundle)
 	}
 
-	// notify watcher to replicate new or updated crl data
-	if updateCRL {
-		s.istiodCertBundleWatcher.SetAndNotifyCACRL(s.CA.GetCAKeyCertBundle().GetCRLPem())
-		log.Infof("Istiod has detected the newly added CRL file and updated its CRL accordingly")
+	if features.EnableCACRL {
+		// check if crl file is updated
+		if len(fileBundle.CRLFile) > 0 {
+			crlData, crlReadErr := os.ReadFile(fileBundle.CRLFile)
+			if crlReadErr != nil {
+				// if there is an error in reading crl file, we should log error and continue with key-cert bundle update.
+				log.Errorf("failed reading crl file: %v", crlReadErr)
+			} else {
+				currentCRLData := bundle.GetCRLPem()
+				if !bytes.Equal(currentCRLData, crlData) {
+					log.Infof("Updating CRL data")
+					if crlErr := bundle.VerifyAndSetCRL(crlData); crlErr != nil {
+						log.Errorf("Failed to update CRL: %v", crlErr)
+					} else {
+						s.istiodCertBundleWatcher.SetAndNotifyCACRL(bundle.GetCRLPem())
+						log.Infof("Istiod has detected the newly added CRL file and updated its CRL accordingly")
+					}
+				}
+			}
+		}
 	}
 
-	err = s.updateRootCertAndGenKeyCert()
-	if err != nil {
-		log.Errorf("Failed generating plugged-in istiod key cert: %v", err)
-		return
-	}
+	if keyCertErr == nil {
+		err = s.updateRootCertAndGenKeyCert()
+		if err != nil {
+			log.Errorf("Failed generating plugged-in istiod key cert: %v", err)
+			return
+		}
 
-	log.Info("Istiod has detected the newly added intermediate CA and updated its key and certs accordingly")
+		log.Info("Istiod has detected the newly added intermediate CA and updated its key and certs accordingly")
+	}
 }
 
 // handleCACertsFileWatch handles the events on cacerts files
