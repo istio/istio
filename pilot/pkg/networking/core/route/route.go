@@ -335,7 +335,7 @@ func buildSidecarVirtualHostForService(svc *model.Service,
 	httpRoute := BuildDefaultHTTPOutboundRoute(cluster, traceOperation, push.Mesh)
 
 	// if this host has no virtualservice, the consistentHash on its destinationRule will be useless
-	hashPolicy := consistentHashToHashPolicy(hash)
+	hashPolicy := ConsistentHashToHashPolicy(hash)
 	if hashPolicy != nil {
 		httpRoute.GetRoute().HashPolicy = []*route.RouteAction_HashPolicy{hashPolicy}
 	}
@@ -734,7 +734,7 @@ func processDestination(dst *networking.HTTPRouteDestination, opts RouteOptions,
 		}
 	}
 	hash := opts.LookupHash(dst)
-	hashPolicy := consistentHashToHashPolicy(hash)
+	hashPolicy := ConsistentHashToHashPolicy(hash)
 	if hashPolicy != nil {
 		action.HashPolicy = append(action.HashPolicy, hashPolicy)
 	}
@@ -769,7 +769,7 @@ func processWeightedDestination(
 		}
 	}
 	hash := opts.LookupHash(dst)
-	hashPolicy := consistentHashToHashPolicy(hash)
+	hashPolicy := ConsistentHashToHashPolicy(hash)
 	if hashPolicy != nil {
 		action.HashPolicy = append(action.HashPolicy, hashPolicy)
 	}
@@ -1464,7 +1464,7 @@ func portLevelSettingsConsistentHash(dst *networking.Destination,
 	return nil
 }
 
-func consistentHashToHashPolicy(consistentHash *networking.LoadBalancerSettings_ConsistentHashLB) *route.RouteAction_HashPolicy {
+func ConsistentHashToHashPolicy(consistentHash *networking.LoadBalancerSettings_ConsistentHashLB) *route.RouteAction_HashPolicy {
 	switch consistentHash.GetHashKey().(type) {
 	case *networking.LoadBalancerSettings_ConsistentHashLB_HttpHeaderName:
 		return &route.RouteAction_HashPolicy{
