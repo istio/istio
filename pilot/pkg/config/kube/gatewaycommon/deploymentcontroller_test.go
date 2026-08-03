@@ -1548,3 +1548,61 @@ metadata:
 		})
 	}
 }
+
+// TestDeploymentControllerWaitsForPushContext verifies that the deployment
+// controller's queue does not start processing until PushContext is ready.
+func TestDeploymentControllerWaitsForPushContext(t *testing.T) {
+	c := kube.NewFakeClient(&corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{Name: "default"},
+	})
+	tw := revisions.NewTagWatcher(c, "default", "istio-system")
+
+	// Create an environment where PushContext is NOT initialized to simulate
+	// a startup race (i.e., informers sync before PushContext is ready)
+	env := model.NewEnvironment()
+	env.Watcher = meshwatcher.NewTestWatcher(mesh.DefaultMeshConfig())
+
+	d := NewDeploymentController(c, "", env, testInjectionConfig(t, ""), func(fn func()) {}, tw, "", "")
+
+	reconciles := atomic.NewInt32(0)
+	d.patcher = func(g schema.GroupVersionResource, name string, namespace string, data []byte, subresources ...string) error {
+		if g == gvr.Service {
+			reconciles.Inc()
+		}
+		return nil
+	}
+
+	stop := test.NewStop(t)
+	gws := clienttest.Wrap(t, d.gateways)
+
+	go tw.Run(stop)
+	// d.Run() enters WaitForCacheSync, which blocks because PushContextReady()
+	// returns false. queue.Run() is therefore not called yet.
+	go d.Run(stop)
+	// RunAndWait starts the fake client's reflectors and returns once all
+	// informer caches are synced. After this returns, d.Run() is still blocked
+	// on PushContextReady(), so no queue processing has started.
+	c.RunAndWait(stop)
+
+	// Create a Gateway while PushContext is not ready. The informer event handler
+	// enqueues the work item into the queue's internal buffer, but queue.Run()
+	// has not been called, so no reconciliation can occur.
+	gws.Create(&k8s.Gateway{
+		ObjectMeta: metav1.ObjectMeta{Name: "gw", Namespace: "default"},
+		Spec: k8s.GatewaySpec{
+			GatewayClassName: k8s.ObjectName(features.GatewayAPIDefaultGatewayClass),
+		},
+	})
+
+	// Since queue.Run() has not been called, reconciliation will not happen.
+	assert.Equal(t, reconciles.Load(), int32(0))
+
+	// Mark PushContext as ready. WaitForCacheSync in d.Run() will now detect all
+	// conditions satisfied, return, and call queue.Run(). The queued Gateway will
+	// then be processed, invoking the reconciliation method.
+	env.PushContext().InitDone.Store(true)
+
+	assert.EventuallyEqual(t, func() bool { return reconciles.Load() >= 1 }, true,
+		retry.Timeout(time.Second*5),
+		retry.Message("expected reconciliation after PushContext became ready, but none occurred"))
+}

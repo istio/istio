@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 61095
+releaseNotes:
+- |
+  **Fixed** an issue where gateway proxy Deployments could permanently fail to be created during istiod startup.
