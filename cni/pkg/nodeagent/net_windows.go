@@ -120,7 +120,9 @@ func (s *NetServer) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIPs []
 	// This can be simplified for Windows. All we need is the network namespace GUID.
 	openNetns, err := s.getOrOpenNetns(pod, netNs)
 	if err != nil {
-		// If netns not found, return not retryable.
+		// If netns not found, return not retryable,
+		// same the linux implementation.
+		s.currentPodSnapshot.Take(string(pod.UID))
 		return NewErrNonRetryableAdd(err)
 	}
 
