@@ -494,7 +494,6 @@ func TestReloadCRL(t *testing.T) {
 		t.Fatalf("MkdirAll(%v) failed: %v", cacertsDir, err)
 	}
 	test.SetEnvForTest(t, "ROOT_CA_DIR", cacertsDir)
-	test.SetForTest(t, &features.EnableCACRL, true)
 
 	readTestFile := func(name string) []byte {
 		data, err := os.ReadFile(filepath.Join(crlTestDir, name))
@@ -516,12 +515,12 @@ func TestReloadCRL(t *testing.T) {
 	s := &Server{
 		istiodCertBundleWatcher: keycertbundle.NewWatcher(),
 		server:                  server.New(),
+		caCRLEnabled:            true,
 	}
 
 	defer func() {
 		close(stop)
 		_ = s.cacertsWatcher.Close()
-		s.WaitUntilCompletion()
 	}()
 
 	// start server

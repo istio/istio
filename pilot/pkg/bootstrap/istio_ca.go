@@ -226,7 +226,7 @@ func detectAuthEnv(jwt string) (*authenticate.JwtPayload, error) {
 // kubernetes tls secrets mount files as tls.crt,tls.key,ca.crt
 // istiod secret is ca-cert.pem ca-key.pem cert-chain.pem root-cert.pem
 // it also checks for optional crl file and adds its file path if it exists
-func detectSigningCABundleAndCRL() (ca.SigningCAFileBundle, error) {
+func detectSigningCABundleAndCRL(caCRLEnabled bool) (ca.SigningCAFileBundle, error) {
 	tlsSigningFile := path.Join(LocalCertDir.Get(), ca.TLSSecretCACertFile)
 
 	// looking for tls file format (tls.crt)
@@ -254,7 +254,7 @@ func detectSigningCABundleAndCRL() (ca.SigningCAFileBundle, error) {
 		SigningKeyFile:  path.Join(LocalCertDir.Get(), ca.CAPrivateKeyFile),
 	}
 
-	if features.EnableCACRL {
+	if caCRLEnabled {
 		// load crl file if it exists
 		crlFilePath := path.Join(LocalCertDir.Get(), ca.CACRLFile)
 		if _, err := os.Stat(crlFilePath); err == nil {
@@ -334,7 +334,7 @@ func handleEvent(s *Server) {
 	var newRootCert []byte
 	var err error
 
-	fileBundle, err := detectSigningCABundleAndCRL()
+	fileBundle, err := detectSigningCABundleAndCRL(s.caCRLEnabled)
 	if err != nil {
 		log.Errorf("unable to determine signing file format %v", err)
 		return
@@ -379,7 +379,7 @@ func handleEvent(s *Server) {
 		caserver.RecordCertsExpiry(bundle)
 	}
 
-	if features.EnableCACRL {
+	if s.caCRLEnabled {
 		// check if crl file is updated
 		if len(fileBundle.CRLFile) > 0 {
 			crlData, crlReadErr := os.ReadFile(fileBundle.CRLFile)
@@ -488,7 +488,7 @@ func (s *Server) createIstioCA(opts *caOptions) (*ca.IstioCA, error) {
 	var istioGenerated bool
 	var err error
 
-	fileBundle, err := detectSigningCABundleAndCRL()
+	fileBundle, err := detectSigningCABundleAndCRL(s.caCRLEnabled)
 	if err != nil {
 		return nil, fmt.Errorf("unable to determine signing file format %v", err)
 	}
@@ -540,7 +540,7 @@ func (s *Server) createIstioCA(opts *caOptions) (*ca.IstioCA, error) {
 			return nil, fmt.Errorf("failed to create an istiod CA: %v", err)
 		}
 
-		if features.EnableCACRL {
+		if s.caCRLEnabled {
 			// CRL is only supported for Plugged CA.
 			// If CRL file is present, read and notify it for initial replication
 			if len(fileBundle.CRLFile) > 0 {
