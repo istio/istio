@@ -450,11 +450,11 @@ func push(t *testing.T, input string, mc *meshconfig.MeshConfig) *model.PushCont
 		AuthzPolicies: yamlPolicy(t, basePath+input),
 		Mesh:          mc,
 	}
-	p.ServiceIndex.HostnameAndNamespace = map[host.Name]map[string]*model.Service{
+	p.ServiceIndex.HostnameAndNamespace = map[host.Name]map[string][]*model.Service{
 		"my-custom-ext-authz.foo.svc.cluster.local": {
-			"foo": &model.Service{
+			"foo": {{
 				Hostname: "my-custom-ext-authz.foo.svc.cluster.local",
-			},
+			}},
 		},
 	}
 	return p

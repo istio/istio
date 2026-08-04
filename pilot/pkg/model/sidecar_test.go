@@ -2932,6 +2932,8 @@ func TestSelectServicesExactParity(t *testing.T) {
 		svc("foo", "b", port8000),                              // same hostname, different namespace
 		svc("priv", "b", port8000, visibility.Private),         // private to b
 		svc("shared", "c", port8000, visibility.Instance("a")), // exported to a only
+		svc("multiport", "a", port8000),                        // mergeable duplicate of below
+		svc("multiport", "a", port9000),                        // both must be returned
 	}
 
 	tests := []struct {
@@ -2983,6 +2985,13 @@ func TestSelectServicesExactParity(t *testing.T) {
 				"c": {allHosts: []host.Name{"shared"}, exactHosts: sets.New[host.Name]("shared")},
 			},
 		},
+		{
+			name:     "mergeable partial-port duplicates on same hostname+namespace",
+			configNS: "a",
+			listenerHosts: map[string]hostClassification{
+				"a": {allHosts: []host.Name{"multiport"}, exactHosts: sets.New[host.Name]("multiport")},
+			},
+		},
 	}
 
 	// Build a PushContext with the service index populated as initServiceRegistry would.
@@ -2991,10 +3000,10 @@ func TestSelectServicesExactParity(t *testing.T) {
 	for _, s := range svcs {
 		hostMap, ok := ps.ServiceIndex.HostnameAndNamespace[s.Hostname]
 		if !ok {
-			hostMap = map[string]*Service{}
+			hostMap = map[string][]*Service{}
 			ps.ServiceIndex.HostnameAndNamespace[s.Hostname] = hostMap
 		}
-		hostMap[s.Attributes.Namespace] = s
+		hostMap[s.Attributes.Namespace] = append(hostMap[s.Attributes.Namespace], s)
 		if s.Attributes.ExportTo.IsEmpty() || s.Attributes.ExportTo.Contains(visibility.Public) {
 			ps.ServiceIndex.public = append(ps.ServiceIndex.public, s)
 		} else {
@@ -3008,14 +3017,23 @@ func TestSelectServicesExactParity(t *testing.T) {
 		}
 	}
 
-	// byHostname gives a total order over a selection result. selectServices dedups to a single service per
-	// hostname, so hostname is a unique key. We compare order-insensitively because cluster order is not
-	// functionally significant to Envoy (CDS is state-of-the-world) and both paths are independently
-	// deterministic across pushes; the meaningful invariant is identical membership and trimmed content.
-	byHostname := func(svcs []*Service) []*Service {
+	// Sort order-insensitively; a hostname may repeat (mergeable duplicates), so tie-break on namespace then port.
+	firstPort := func(s *Service) int {
+		if len(s.Ports) > 0 {
+			return s.Ports[0].Port
+		}
+		return 0
+	}
+	sortServices := func(svcs []*Service) []*Service {
 		out := slices.Clone(svcs)
 		slices.SortFunc(out, func(a, b *Service) int {
-			return strings.Compare(string(a.Hostname), string(b.Hostname))
+			if r := strings.Compare(string(a.Hostname), string(b.Hostname)); r != 0 {
+				return r
+			}
+			if r := strings.Compare(a.Attributes.Namespace, b.Attributes.Namespace); r != 0 {
+				return r
+			}
+			return firstPort(a) - firstPort(b)
 		})
 		return out
 	}
@@ -3023,8 +3041,8 @@ func TestSelectServicesExactParity(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ilw := &IstioEgressListenerWrapper{}
-			fast := byHostname(ilw.selectServices(ps.servicesForExactHosts(tt.configNS, tt.listenerHosts), tt.configNS, tt.listenerHosts))
-			scan := byHostname(ilw.selectServices(ps.servicesExportedToNamespace(tt.configNS), tt.configNS, tt.listenerHosts))
+			fast := sortServices(ilw.selectServices(ps.servicesForExactHosts(tt.configNS, tt.listenerHosts), tt.configNS, tt.listenerHosts))
+			scan := sortServices(ilw.selectServices(ps.servicesExportedToNamespace(tt.configNS), tt.configNS, tt.listenerHosts))
 			if !reflect.DeepEqual(fast, scan) {
 				fastJSON, _ := json.MarshalIndent(fast, "", "  ")
 				scanJSON, _ := json.MarshalIndent(scan, "", "  ")
@@ -3054,7 +3072,7 @@ func BenchmarkSelectServicesExact(b *testing.B) {
 				Ports:      port8000,
 				Attributes: ServiceAttributes{Name: string(hostname), Namespace: "ns", ServiceRegistry: provider.Kubernetes},
 			}
-			ps.ServiceIndex.HostnameAndNamespace[hostname] = map[string]*Service{"ns": s}
+			ps.ServiceIndex.HostnameAndNamespace[hostname] = map[string][]*Service{"ns": {s}}
 			ps.ServiceIndex.public = append(ps.ServiceIndex.public, s)
 		}
 

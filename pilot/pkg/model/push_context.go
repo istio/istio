@@ -71,8 +71,9 @@ type serviceIndex struct {
 	// by an exportTo explicitly specifying this namespace or because they are private to the namespace.
 	exportedToNamespace map[string][]*Service
 
-	// HostnameAndNamespace has all services, indexed by hostname then namespace.
-	HostnameAndNamespace map[host.Name]map[string]*Service `json:"-"`
+	// HostnameAndNamespace has all services, indexed by hostname then namespace. Index 0 is the first
+	// Service (the oldest); later entries share the same hostname+namespace.
+	HostnameAndNamespace map[host.Name]map[string][]*Service `json:"-"`
 
 	// instancesByPort contains a map of service key and instances by port. It is stored here
 	// to avoid recomputations during push. This caches instanceByPort calls with empty labels.
@@ -85,7 +86,7 @@ func newServiceIndex() serviceIndex {
 		count:                0,
 		public:               []*Service{},
 		exportedToNamespace:  map[string][]*Service{},
-		HostnameAndNamespace: map[host.Name]map[string]*Service{},
+		HostnameAndNamespace: map[host.Name]map[string][]*Service{},
 		instancesByPort:      map[string]map[int][]*IstioEndpoint{},
 	}
 }
@@ -1063,8 +1064,10 @@ func (ps *PushContext) ServiceForHostname(proxy *Proxy, hostname host.Name) *Ser
 
 	// SidecarScope shouldn't be null here. If it is, we can't disambiguate the hostname to use for a namespace,
 	// so the selection must be undefined.
-	for _, service := range ps.ServiceIndex.HostnameAndNamespace[hostname] {
-		return service
+	for _, services := range ps.ServiceIndex.HostnameAndNamespace[hostname] {
+		if len(services) > 0 {
+			return services[0]
+		}
 	}
 
 	// No service found
@@ -1577,20 +1580,21 @@ func (ps *PushContext) initServiceRegistry(env *Environment, configsUpdate sets.
 
 		hostMap, f := ps.ServiceIndex.HostnameAndNamespace[s.Hostname]
 		if !f {
-			hostMap = map[string]*Service{}
+			hostMap = map[string][]*Service{}
 			ps.ServiceIndex.HostnameAndNamespace[s.Hostname] = hostMap
 		}
-		// In some scenarios, there may be multiple Services defined for the same hostname due to ServiceEntry allowing
-		// arbitrary hostnames. In these cases, we want to pick the first Service, which is the oldest. This ensures
-		// newly created Services cannot take ownership unexpectedly.
-		// However, the Service is from Kubernetes it should take precedence over ones not. This prevents someone from
-		// "domain squatting" on the hostname before a Kubernetes Service is created.
-		if existing := hostMap[s.Attributes.Namespace]; existing != nil &&
-			!(existing.Attributes.ServiceRegistry != provider.Kubernetes && s.Attributes.ServiceRegistry == provider.Kubernetes) {
-			log.Debugf("Service %s/%s from registry %s ignored by %s/%s/%s", s.Attributes.Namespace, s.Hostname, s.Attributes.ServiceRegistry,
-				existing.Attributes.ServiceRegistry, existing.Attributes.Namespace, existing.Hostname)
+		// Multiple Services may share a hostname+namespace (ServiceEntry allows arbitrary hostnames). Keep all of
+		// them; index 0 is the first Service, the oldest, unless a Kubernetes Service exists, which takes
+		// precedence to prevent "domain squatting".
+		existingList := hostMap[s.Attributes.Namespace]
+		if len(existingList) == 0 {
+			hostMap[s.Attributes.Namespace] = []*Service{s}
+		} else if winner := existingList[0]; winner.Attributes.ServiceRegistry != provider.Kubernetes &&
+			s.Attributes.ServiceRegistry == provider.Kubernetes {
+			// Kubernetes Service preempts a non-Kubernetes winner; move it to index 0.
+			hostMap[s.Attributes.Namespace] = append([]*Service{s}, existingList...)
 		} else {
-			hostMap[s.Attributes.Namespace] = s
+			hostMap[s.Attributes.Namespace] = append(existingList, s)
 		}
 
 		ns := s.Attributes.Namespace
@@ -2176,12 +2180,12 @@ func (ps *PushContext) TrafficExtensions(proxy *Proxy) map[extensions.TrafficExt
 		servicesInfo := ps.ServicesForWaypoint(WaypointKeyForProxy(proxy))
 		for _, si := range servicesInfo {
 			s := si.Service
-			svc, exist := ps.ServiceIndex.HostnameAndNamespace[host.Name(s.Hostname)][s.Namespace]
-			if !exist {
+			svcs := ps.ServiceIndex.HostnameAndNamespace[host.Name(s.Hostname)][s.Namespace]
+			if len(svcs) == 0 {
 				log.Warnf("cannot find waypoint service in serviceindex, namespace/hostname: %s/%s", s.Namespace, s.Hostname)
 				continue
 			}
-			listenerInfo = listenerInfo.WithService(svc)
+			listenerInfo = listenerInfo.WithService(svcs[0])
 		}
 	}
 	return ps.TrafficExtensionsByListenerInfo(proxy, listenerInfo, FilterChainTypeAny)
