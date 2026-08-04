@@ -21,7 +21,6 @@ import (
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube/krt"
@@ -68,12 +67,8 @@ func precomputeServicePtr(w *model.ServiceInfo) *model.ServiceInfo {
 }
 
 func precomputeService(w model.ServiceInfo) model.ServiceInfo {
-	addr := serviceToAddress(w.Service)
-	w.MarshaledAddress = protoconv.MessageToAny(addr)
-	w.AsAddress = model.AddressInfo{
-		Address:   addr,
-		Marshaled: w.MarshaledAddress,
-	}
+	w.AsAddress = model.NewAddressInfo(serviceToAddress(w.Service))
+	w.MarshaledAddress = w.AsAddress.Marshaled
 	return w
 }
 
