@@ -291,13 +291,18 @@ func (b *KeyCertBundle) UpdateVerifiedKeyCertBundleFromFile(
 }
 
 // gerCRLBytesFromFile reads the CRL file and returns the content if it exists.
+// if the crlFile does not exist, it is treated as an empty file.
 // Providing CRL file is optional, if not provided, it returns nil without an error.
 func gerCRLBytesFromFile(crlFile string) ([]byte, error) {
 	if crlFile == "" {
 		return nil, nil
 	}
 
-	return os.ReadFile(crlFile)
+	bytes, err := os.ReadFile(crlFile)
+	if os.IsNotExist(err) {
+		return []byte{}, nil
+	}
+	return bytes, err
 }
 
 // ExtractRootCertExpiryTimestamp returns the expiration of the first root cert

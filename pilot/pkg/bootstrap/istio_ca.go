@@ -255,11 +255,10 @@ func detectSigningCABundleAndCRL() (ca.SigningCAFileBundle, error) {
 	}
 
 	if features.EnableCACRL {
-		// load crl file if it exists
 		crlFilePath := path.Join(LocalCertDir.Get(), ca.CACRLFile)
+		signingCAFileBundle.CRLFile = crlFilePath
 		if _, err := os.Stat(crlFilePath); err == nil {
 			log.Info("Detected CRL file")
-			signingCAFileBundle.CRLFile = crlFilePath
 		}
 	}
 
@@ -368,21 +367,21 @@ func handleEvent(s *Server) {
 	}
 
 	if features.EnableCACRL {
-		// check if crl file is updated
-		if len(fileBundle.CRLFile) > 0 {
-			currentCRLData := s.CA.GetCAKeyCertBundle().GetCRLPem()
-			crlData, crlReadErr := os.ReadFile(fileBundle.CRLFile)
-			if crlReadErr != nil {
-				// handleEvent can be triggered either for key-cert bundle update or
-				// for crl file update. So, even if there is an error in reading crl file,
-				// we should log error and continue with key-cert bundle update.
-				log.Errorf("failed reading crl file: %v", crlReadErr)
-			}
-
-			if !bytes.Equal(currentCRLData, crlData) {
-				log.Infof("Updating CRL data")
-				updateCRL = true
-			}
+		currentCRLData := s.CA.GetCAKeyCertBundle().GetCRLPem()
+		crlData, crlReadErr := os.ReadFile(fileBundle.CRLFile)
+		if os.IsNotExist(crlReadErr) {
+			// no file is the same as no data
+			crlData = []byte{}
+			crlReadErr = nil
+		}
+		if crlReadErr != nil {
+			// handleEvent can be triggered either for key-cert bundle update or
+			// for crl file update. So, even if there is an error in reading crl file,
+			// we should log error and continue with key-cert bundle update.
+			log.Errorf("failed reading crl file: %v", crlReadErr)
+		} else if !bytes.Equal(currentCRLData, crlData) {
+			log.Infof("Updating CRL data")
+			updateCRL = true
 		}
 	}
 
@@ -548,16 +547,16 @@ func (s *Server) createIstioCA(opts *caOptions) (*ca.IstioCA, error) {
 		if features.EnableCACRL {
 			// CRL is only supported for Plugged CA.
 			// If CRL file is present, read and notify it for initial replication
-			if len(fileBundle.CRLFile) > 0 {
-				log.Debugf("CRL file %s found, notifying it for initial replication", fileBundle.CRLFile)
-				crlBytes, crlErr := os.ReadFile(fileBundle.CRLFile)
-				if crlErr != nil {
-					log.Errorf("failed to read CRL file %s: %v", fileBundle.CRLFile, crlErr)
-					return nil, crlErr
-				}
-
-				s.istiodCertBundleWatcher.SetAndNotifyCACRL(crlBytes)
+			log.Debugf("CRL file %s found, notifying it for initial replication", fileBundle.CRLFile)
+			crlBytes, crlErr := os.ReadFile(fileBundle.CRLFile)
+			if os.IsNotExist(crlErr) {
+				crlBytes = []byte{}
+			} else if crlErr != nil {
+				log.Errorf("failed to read CRL file %s: %v", fileBundle.CRLFile, crlErr)
+				return nil, crlErr
 			}
+
+			s.istiodCertBundleWatcher.SetAndNotifyCACRL(crlBytes)
 		}
 
 		s.initCACertsAndCRLWatcher()
