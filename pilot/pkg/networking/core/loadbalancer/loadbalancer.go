@@ -23,6 +23,7 @@ import (
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	"istio.io/api/label"
@@ -154,14 +155,26 @@ type ZoneAwareLBSettings struct {
 
 var _ LBSettings = ZoneAwareLBSettings{}
 
-// ForceFailover always returns true: similar to TrafficDistributionPreferSameZone, zone-aware
-// routing requires that we always enable failovers, since we need to always separate endpoints
-// in different regions.
-func (z ZoneAwareLBSettings) ForceFailover() bool { return true }
+// routingEnabled reports whether ZAR is enabled. When `enabled` is unset, ZAR is on
+// by default (consistent with localityLbSetting). When false, ApplyToCluster emits
+// routing_enabled: 0% to suppress Envoy's intrinsic zone-aware routing.
+func (z ZoneAwareLBSettings) routingEnabled() bool {
+	enabled := z.Setting.GetEnabled()
+	return enabled == nil || enabled.GetValue()
+}
 
+// ForceFailover returns true when routing is enabled, false when explicitly disabled.
+func (z ZoneAwareLBSettings) ForceFailover() bool {
+	return z.routingEnabled()
+}
+
+// IsZoneAware reports the config type, regardless of `enabled`.
 func (z ZoneAwareLBSettings) IsZoneAware() bool { return true }
 
 func (z ZoneAwareLBSettings) FailoverPriorityLabels() []string {
+	if !z.routingEnabled() {
+		return nil
+	}
 	return z.Setting.GetFailoverPriority()
 }
 
@@ -172,6 +185,10 @@ func (z ZoneAwareLBSettings) ApplyToLoadAssignment(
 	proxyLabels map[string]string,
 	_ bool,
 ) {
+	if !z.routingEnabled() {
+		// Skip regional failover partitioning to avoid corrupting EDS priorities.
+		return
+	}
 	ApplyZoneAwareLoadBalancer(loadAssignment, wrappedLocalityLbEndpoints, locality, proxyLabels, z.Setting)
 }
 
@@ -193,6 +210,15 @@ func (z ZoneAwareLBSettings) ApplyToCluster(
 		)
 		return
 	}
+	if !z.routingEnabled() {
+		c.CommonLbConfig.LocalityConfigSpecifier = &cluster.Cluster_CommonLbConfig_ZoneAwareLbConfig_{
+			ZoneAwareLbConfig: &cluster.Cluster_CommonLbConfig_ZoneAwareLbConfig{
+				RoutingEnabled: &xdstype.Percent{Value: 0},
+				MinClusterSize: z.Setting.GetMinClusterSize(),
+			},
+		}
+		return
+	}
 	if !enableSelfDiscovery {
 		log.Warnf("Zone-aware load balancing is enabled for cluster %s, but proxy self-discovery is not enabled on %s", c.Name, proxyID)
 	}
@@ -211,8 +237,12 @@ func (z ZoneAwareLBSettings) ApplyToCluster(
 }
 
 // GetEffectiveLbSetting resolves which load-balancing locality semantics apply for a
-// given DR / service / mesh combination. It returns nil when locality load balancing is
-// effectively disabled.
+// given DR / service / mesh combination. It returns nil when no setting applies.
+//
+// Resolution order is DR > service traffic distribution > mesh; within DR and mesh,
+// zone_aware_lb_setting takes precedence over locality_lb_setting. When ZAR is explicitly
+// disabled (enabled: false), it still wins at its level so ApplyToCluster emits
+// routing_enabled: 0% to suppress Envoy's intrinsic zone-aware routing.
 func GetEffectiveLbSetting(
 	meshLocality *v1alpha3.LocalityLoadBalancerSetting,
 	meshZoneAware *v1alpha3.ZoneAwareLoadBalancerSetting,
@@ -220,9 +250,6 @@ func GetEffectiveLbSetting(
 	service *model.Service,
 ) LBSettings {
 	if zaLbSetting := drSettings.GetZoneAwareLbSetting(); zaLbSetting != nil {
-		if zaLbSetting.GetEnabled() != nil && !zaLbSetting.GetEnabled().Value {
-			return nil
-		}
 		return ZoneAwareLBSettings{Setting: zaLbSetting}
 	}
 	if localityLbSetting := drSettings.GetLocalityLbSetting(); localityLbSetting != nil {
@@ -266,9 +293,6 @@ func GetEffectiveLbSetting(
 		}
 	}
 	if meshZoneAware != nil {
-		if meshZoneAware.GetEnabled() != nil && !meshZoneAware.GetEnabled().Value {
-			return nil
-		}
 		return ZoneAwareLBSettings{Setting: meshZoneAware}
 	}
 	if meshLocality != nil {
