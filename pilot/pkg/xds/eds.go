@@ -216,9 +216,18 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 		}
 
 		dir, subsetName, hostname, port := parseClusterName(clusterName, proxy)
-		svc := req.Push.ServiceForHostname(proxy, hostname)
 
 		isSelfDiscoveryCluster := clusterName == util.SelfDiscoveryCluster
+		var svc *model.Service
+		if isSelfDiscoveryCluster {
+			// The self-discovery local_cluster represents the proxy's own service, which may be outside
+			// the proxy's egress scope. Resolve it from the global service index, scoped to the local
+			// service's namespace.
+			svc = req.Push.ServiceIndex.HostnameAndNamespace[hostname][proxy.LocalService.Namespace]
+		} else {
+			svc = req.Push.ServiceForHostname(proxy, hostname)
+		}
+
 		var dr *model.ConsolidatedDestRule
 		if svc != nil && !isSelfDiscoveryCluster {
 			// disable DR lookup for self discovery cluster, we don't need to apply subsetting or traffic policies.
