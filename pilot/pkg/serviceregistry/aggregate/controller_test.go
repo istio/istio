@@ -584,6 +584,73 @@ func TestReplaceRegistryAddsIfNotExists(t *testing.T) {
 	}, retry.Timeout(50*time.Millisecond))
 }
 
+// Regression test for https://github.com/istio/istio/issues/60920: after UpdateRegistry
+// swaps a registry in, its gateway and service events must still reach the aggregate's handlers.
+func TestReplaceRegistryReloadsGateways(t *testing.T) {
+	stop := make(chan struct{})
+	defer close(stop)
+	ctrl := NewController(Options{})
+
+	reloads := atomic.NewInt32(0)
+	ctrl.AppendNetworkGatewayHandler(func() { reloads.Inc() })
+	svcEvents := atomic.NewInt32(0)
+	ctrl.AppendServiceHandler(func(_, _ *model.Service, _ model.Event) { svcEvents.Inc() })
+
+	oldSD := memory.NewServiceDiscovery()
+	oldRegistry := &RunnableRegistry{
+		Instance: serviceregistry.Simple{ClusterID: "cluster1", ProviderID: "test", DiscoveryController: oldSD},
+		running:  atomic.NewBool(false),
+	}
+	oldSD.AddGateways(model.NetworkGateway{Network: "network1", Cluster: "cluster1", Addr: "1.1.1.1", Port: 15443})
+	ctrl.AddRegistryAndRun(oldRegistry, stop)
+	go ctrl.Run(stop)
+	expectRunningOrFail(t, ctrl, true)
+
+	if got := ctrl.NetworkGateways(); len(got) != 1 {
+		t.Fatalf("expected 1 gateway before swap, got %d", len(got))
+	}
+
+	// Caller starts and syncs the new registry before UpdateRegistry swaps it in.
+	newSD := memory.NewServiceDiscovery()
+	newSD.AddGateways(model.NetworkGateway{Network: "network1", Cluster: "cluster1", Addr: "1.1.1.1", Port: 15443})
+	newRegistry := &RunnableRegistry{
+		Instance: serviceregistry.Simple{ClusterID: "cluster1", ProviderID: "test", DiscoveryController: newSD},
+		running:  atomic.NewBool(false),
+	}
+	go newRegistry.Run(stop)
+	retry.UntilSuccessOrFail(t, func() error {
+		if !newRegistry.running.Load() {
+			return fmt.Errorf("new registry should be running before swap")
+		}
+		return nil
+	}, retry.Timeout(time.Second))
+	ctrl.UpdateRegistry(newRegistry, stop)
+
+	if reloads.Load() == 0 {
+		t.Fatal("expected UpdateRegistry to notify gateway handlers")
+	}
+	before := reloads.Load()
+	newSD.AddGateways(model.NetworkGateway{Network: "network1", Cluster: "cluster1", Addr: "2.2.2.2", Port: 15443})
+	retry.UntilSuccessOrFail(t, func() error {
+		if reloads.Load() <= before {
+			return fmt.Errorf("gateway change on swapped-in registry did not reach handler")
+		}
+		return nil
+	}, retry.Timeout(time.Second))
+
+	if got := ctrl.NetworkGateways(); len(got) != 2 {
+		t.Fatalf("expected 2 gateways after change on swapped-in registry, got %d", len(got))
+	}
+
+	newSD.AddService(&model.Service{Hostname: "svc.example.com"})
+	retry.UntilSuccessOrFail(t, func() error {
+		if svcEvents.Load() == 0 {
+			return fmt.Errorf("service change on swapped-in registry did not reach handler")
+		}
+		return nil
+	}, retry.Timeout(time.Second))
+}
+
 func TestMergeServiceWithSameTrustDomain(t *testing.T) {
 	svc1 := mock.MakeService(mock.ServiceArgs{
 		Hostname:        "test.default.svc.cluster.local",
