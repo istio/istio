@@ -5,4 +5,4 @@ issue:
   - https://github.com/istio/istio/issues/61073
 releaseNotes:
 - |
-  **Fixed** the ability to clear the Certificate Revocation List (CRL) by specifying the empty string as the ca-crl.pem.
+  **Fixed** the ability to clear the Certificate Revocation List (CRL) by either specifying the empty string as the ca-crl.pem or removing it.
