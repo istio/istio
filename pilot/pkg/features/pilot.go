@@ -386,6 +386,35 @@ var (
 		return blockedCIDRs
 	}()
 
+	// BlockedCIDRsInWasmFetch is additive to the always-on link-local block applied to Wasm
+	// module fetches (see pkg/wasm/ssrf.go); it lets operators also block private ranges or
+	// specific in-cluster addresses (e.g. the Kubernetes API server or kubelet) if their
+	// environment does not need to fetch Wasm modules from internal registries/servers.
+	BlockedCIDRsInWasmFetch = func() []*net.IPNet {
+		v := env.Register(
+			"BLOCKED_CIDRS_IN_WASM_FETCH",
+			"",
+			"Comma separated list of CIDR ranges that are blocked when fetching Wasm modules (e.g., 10.0.0.0/8,192.168.1.0/24).").Get()
+		if v == "" {
+			return nil
+		}
+		cidrs := strings.Split(v, ",")
+		var blockedCIDRs []*net.IPNet
+		for _, cidr := range cidrs {
+			cidr = strings.TrimSpace(cidr)
+			if cidr == "" {
+				continue
+			}
+			_, ipNet, err := net.ParseCIDR(cidr)
+			if err != nil {
+				log.Warnf("Failed to parse CIDR range %q: %v", cidr, err)
+				continue
+			}
+			blockedCIDRs = append(blockedCIDRs, ipNet)
+		}
+		return blockedCIDRs
+	}()
+
 	// GatewayTransportSocketConnectTimeout specifies the timeout for transport socket (e.g., TLS
 	// handshake) connections on gateway listeners. This protects against slow or incomplete TLS
 	// handshakes consuming resources. Set to 0s to disable the timeout entirely.
