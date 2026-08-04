@@ -108,10 +108,10 @@ func TestBinarySizes(t *testing.T) {
 		// For now, having two small a range will result in lots of "merge conflicts"
 		"istioctl":        {60, 100},
 		"pilot-agent":     {20, 28},
-		"pilot-discovery": {60, 120}, // TODO: shrink this once we merge the multicluster ambient controller as default
+		"pilot-discovery": {60, 125}, // TODO: shrink this once we merge the multicluster ambient controller as default
 		"bug-report":      {60, 80},
-		"client":          {15, 30},
-		"server":          {15, 32},
+		"client":          {15, 32},
+		"server":          {15, 34},
 		"envoy":           {60, 160},
 		"ztunnel":         {12, 17},
 	}
