@@ -189,6 +189,7 @@ func (b *KeyCertBundle) VerifyAndSetAll(certBytes, privKeyBytes, certChainBytes,
 }
 
 // Setting all values together avoids inconsistency.
+// if crlBytes is nil, no CRL update will be performed.
 func (b *KeyCertBundle) setAllFromPem(certBytes, privKeyBytes, certChainBytes, rootCertBytes, crlBytes []byte) {
 	b.mutex.Lock()
 	b.certBytes = copyBytes(certBytes)
