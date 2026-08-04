@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/security/pkg/cmd"
@@ -136,6 +137,11 @@ var (
 	// TODO: Likely to be removed and added to mesh config
 	k8sSigner = env.Register("K8S_SIGNER", "",
 		"Kubernetes CA Signer type. Valid from Kubernetes 1.18").Get()
+
+	cacertsInvalid = monitoring.NewGauge(
+		"istiod_cacerts_invalid",
+		"Whether the current cacerts are invalid",
+	)
 )
 
 // initCAServer create a CA Server. The CA API uses cert with the max workload cert TTL.
@@ -338,6 +344,7 @@ func handleEvent(s *Server) {
 	fileBundle, err := detectSigningCABundleAndCRL()
 	if err != nil {
 		log.Errorf("unable to determine signing file format %v", err)
+		cacertsInvalid.Record(1)
 		return
 	}
 
@@ -345,6 +352,7 @@ func handleEvent(s *Server) {
 	newCABundle, err = os.ReadFile(fileBundle.RootCertFile)
 	if err != nil {
 		log.Errorf("failed reading root-cert.pem: %v", err)
+		cacertsInvalid.Record(1)
 		return
 	}
 
@@ -354,6 +362,7 @@ func handleEvent(s *Server) {
 	if !bytes.Equal(currentCABundle, newCABundle) {
 		if !features.MultiRootMesh {
 			log.Warn("Multi root is disabled, updating new ROOT-CA not supported")
+			cacertsInvalid.Record(1)
 			return
 		}
 
@@ -363,6 +372,7 @@ func handleEvent(s *Server) {
 			log.Info("Updating new ROOT-CA")
 		} else {
 			log.Warn("Updating new ROOT-CA not supported")
+			cacertsInvalid.Record(1)
 			return
 		}
 	}
@@ -396,6 +406,7 @@ func handleEvent(s *Server) {
 	)
 	if err != nil {
 		log.Errorf("Failed to update new Plug-in CA certs: %v", err)
+		cacertsInvalid.Record(1)
 		return
 	}
 	if len(s.CA.GetCAKeyCertBundle().GetRootCertPem()) != 0 {
@@ -414,11 +425,13 @@ func handleEvent(s *Server) {
 		return
 	}
 
+	cacertsInvalid.Record(0)
 	log.Info("Istiod has detected the newly added intermediate CA and updated its key and certs accordingly")
 }
 
 // handleCACertsFileWatch handles the events on cacerts files
 func (s *Server) handleCACertsFileWatch() {
+	cacertsInvalid.Record(0)
 	var timerC <-chan time.Time
 	for {
 		select {
