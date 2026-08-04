@@ -198,11 +198,12 @@ func (b *KeyCertBundle) VerifyAndSetCRL(crl []byte) error {
 	if crl == nil {
 		return nil
 	}
+
+	b.mutex.Lock()
 	if err := verifyCRL(b.certChainBytes, crl); err != nil {
 		return err
 	}
 
-	b.mutex.Lock()
 	defer b.mutex.Unlock()
 	b.crlBytes = copyBytes(crl)
 	return nil

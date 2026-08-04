@@ -5,4 +5,4 @@ issue:
   - https://github.com/istio/istio/issues/61075
 releaseNotes:
 - |
-  **Fixed** an invalid CRL prevents certificate rotation.
+  **Fixed** a bug where an invalid CRL would prevent certificate rotation.

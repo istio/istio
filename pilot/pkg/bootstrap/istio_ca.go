@@ -404,7 +404,7 @@ func handleEvent(s *Server) {
 	if keyCertErr == nil {
 		err = s.updateRootCertAndGenKeyCert()
 		if err != nil {
-			log.Errorf("Failed generating plugged-in istiod key cert: %v", err)
+			log.Errorf("Failed generating plugged-in istiod key cert: %v", keyCertErr)
 			return
 		}
 
