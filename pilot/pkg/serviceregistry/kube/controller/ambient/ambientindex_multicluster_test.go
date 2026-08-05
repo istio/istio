@@ -16,6 +16,7 @@ package ambient
 import (
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -798,6 +799,156 @@ func TestMulticlusterAmbientIndex_SplitHorizon(t *testing.T) {
 		s.podXdsNameForCluster("pod1-abc", remoteClient.clusterID),
 		splitHorizonName,
 	)
+}
+
+func TestMulticlusterAmbientIndex_SplitHorizonPreservesWaypoint(t *testing.T) {
+	test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
+	s := newAmbientTestServer(t, testC, testNW, "")
+	s.meshConfig.Mesh().TrustDomain = s.DomainSuffix
+	s.AddSecret("s1", "remote-cluster")
+	remoteClients := krt.NewCollection(s.remoteClusters, func(_ krt.HandlerContext, c *multicluster.Cluster) **remoteAmbientClients {
+		cl := c.Client
+		return ptr.Of(&remoteAmbientClients{
+			clusterID: c.ID,
+			ambientclients: &ambientclients{
+				pc:    clienttest.NewDirectClient[*corev1.Pod, corev1.Pod, *corev1.PodList](t, cl),
+				sc:    clienttest.NewDirectClient[*corev1.Service, corev1.Service, *corev1.ServiceList](t, cl),
+				ns:    clienttest.NewWriter[*corev1.Namespace](t, cl),
+				grc:   clienttest.NewWriter[*k8sv1.Gateway](t, cl),
+				gwcls: clienttest.NewWriter[*k8sv1.GatewayClass](t, cl),
+				se:    clienttest.NewWriter[*apiv1alpha3.ServiceEntry](t, cl),
+				we:    clienttest.NewWriter[*apiv1alpha3.WorkloadEntry](t, cl),
+				pa:    clienttest.NewWriter[*clientsecurityv1beta1.PeerAuthentication](t, cl),
+				authz: clienttest.NewWriter[*clientsecurityv1beta1.AuthorizationPolicy](t, cl),
+				sec:   clienttest.NewWriter[*corev1.Secret](t, cl),
+			},
+		})
+	})
+
+	const remoteNetwork = "remote-network"
+
+	assert.EventuallyEqual(t, func() int {
+		return len(remoteClients.List())
+	}, 1)
+
+	remoteClient := remoteClients.List()[0]
+	localClient := remoteAmbientClients{
+		clusterID: s.clusterID,
+		ambientclients: &ambientclients{
+			pc:    s.pc,
+			sc:    s.sc,
+			ns:    s.ns,
+			grc:   s.grc,
+			gwcls: s.gwcls,
+			se:    s.se,
+			we:    s.we,
+			pa:    s.pa,
+			authz: s.authz,
+			sec:   s.sec,
+		},
+	}
+	remoteClient.ns.Create(&corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   systemNS,
+			Labels: map[string]string{label.TopologyNetwork.Name: remoteNetwork},
+		},
+	})
+	remoteClient.ns.Create(&corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: testNS,
+		},
+	})
+	networkGatewayIP := "172.0.1.2"
+	s.addNetworkGatewayForClient(t, networkGatewayIP, remoteNetwork, remoteClient.grc)
+
+	// Create a waypoint for the service
+	s.addWaypointSpecificAddress(t, "10.0.0.10", "", "wp-svc", constants.AllTraffic, true)
+	s.addService(t, "wp-svc",
+		map[string]string{},
+		map[string]string{},
+		[]int32{80}, map[string]string{"app": "waypoint"}, "10.0.0.10")
+
+	// Create a global service with ingress-use-waypoint on both clusters
+	s.addServiceForClient(t, "svc1",
+		map[string]string{
+			"istio.io/global":               "true",
+			label.IoIstioUseWaypoint.Name:   "wp-svc",
+			"istio.io/ingress-use-waypoint": "true",
+		},
+		map[string]string{},
+		[]int32{80}, map[string]string{"app": "a"}, "10.0.0.1", localClient.sc,
+	)
+	s.addServiceForClient(t, "svc1",
+		map[string]string{
+			"istio.io/global":               "true",
+			label.IoIstioUseWaypoint.Name:   "wp-svc",
+			"istio.io/ingress-use-waypoint": "true",
+		},
+		map[string]string{},
+		[]int32{80}, map[string]string{"app": "a"}, "127.1.0.1", remoteClient.sc,
+	)
+	s.clearEvents()
+
+	// Add local and remote workloads to trigger the SAN merge in SplitHorizonServices.
+	// The remote pod must be on a different network so its SAN gets merged, which is
+	// the code path where fields were being dropped.
+	s.addPodsForClient(t, "10.0.1.1", "pod1", "sa1",
+		map[string]string{"app": "a"}, nil, true, corev1.PodRunning, localClient.pc)
+	s.addPodsForClient(t, "127.0.0.1", "pod1-remote", "sa-remote",
+		map[string]string{"app": "a"}, nil, true, corev1.PodRunning, remoteClient.pc)
+
+	// Wait for the SAN merge to happen — the service should have SANs from the remote workload.
+	// This proves the SplitHorizonServices code path that creates a new ServiceInfo was hit.
+	svcKey := s.svcXdsName("svc1")
+	retry.UntilSuccessOrFail(t, func() error {
+		svc := s.lookupService(fmt.Sprintf("%s/%s", testNS, s.hostnameForService("svc1")))
+		if svc == nil {
+			return fmt.Errorf("service not found")
+		}
+		if svc.Scope != model.Global {
+			return fmt.Errorf("expected service scope to be Global, got %s", svc.Scope)
+		}
+		hasRemoteSAN := false
+		for _, san := range svc.Service.SubjectAltNames {
+			if strings.Contains(san, "sa-remote") {
+				hasRemoteSAN = true
+				break
+			}
+		}
+		if !hasRemoteSAN {
+			return fmt.Errorf("expected SANs to include remote workload SAN (sa-remote), got %v",
+				svc.Service.SubjectAltNames)
+		}
+		// Now verify the fields that were previously dropped during SAN merge
+		if !svc.Waypoint.IngressLabelPresent {
+			return fmt.Errorf("expected Waypoint.IngressLabelPresent to be true, got false")
+		}
+		if !svc.Waypoint.IngressUseWaypoint {
+			return fmt.Errorf("expected Waypoint.IngressUseWaypoint to be true, got false")
+		}
+		if svc.Source.Kind == 0 {
+			return fmt.Errorf("expected Source.Kind to be preserved, got zero")
+		}
+		if len(svc.PortNames) == 0 {
+			return fmt.Errorf("expected PortNames to be preserved, got empty")
+		}
+		return nil
+	})
+
+	// Verify ServicesWithWaypoint also returns the correct IngressUseWaypoint
+	retry.UntilSuccessOrFail(t, func() error {
+		svcs := s.ServicesWithWaypoint(svcKey)
+		if len(svcs) == 0 {
+			return fmt.Errorf("ServicesWithWaypoint returned 0 results")
+		}
+		if !svcs[0].IngressUseWaypoint {
+			return fmt.Errorf("expected ServicesWithWaypoint to return IngressUseWaypoint=true, got false")
+		}
+		if svcs[0].WaypointHostname == "" {
+			return fmt.Errorf("expected WaypointHostname to be set, got empty")
+		}
+		return nil
+	})
 }
 
 func (a *ambientTestServer) DeleteSecret(secretName string) {
