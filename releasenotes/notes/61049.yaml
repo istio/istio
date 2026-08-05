@@ -1,0 +1,13 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 61049
+releaseNotes:
+  - |
+    **Fixed** a race condition on istiod startup where the readiness probe could
+    report ready before the dedicated injection and validation webhook server
+    (`--httpsAddr`, default `:15017`) was accepting connections, causing
+    intermittent `failed calling webhook` timeouts when creating resources
+    immediately after istiod became ready. This does not affect deployments
+    where webhooks share the main HTTP server (empty `--httpsAddr`).
