@@ -486,9 +486,14 @@ func (a *index) buildGlobalCollections(
 			sans = sans.Union(sets.New(svc.Service.SubjectAltNames...))
 
 			newSvcInfo := &model.ServiceInfo{
-				Service:      protomarshal.Clone(svc.Service),
-				Scope:        svc.Scope,
-				CreationTime: svc.CreationTime,
+				Service:            protomarshal.Clone(svc.Service),
+				PortNames:          svc.PortNames,
+				LabelSelector:      svc.LabelSelector,
+				Source:             svc.Source,
+				Waypoint:           svc.Waypoint,
+				Scope:              svc.Scope,
+				CreationTime:       svc.CreationTime,
+				DNSConnectStrategy: svc.DNSConnectStrategy,
 			}
 			newSvcInfo.Service.SubjectAltNames = sans.UnsortedList()
 			return precomputeServicePtr(newSvcInfo)
