@@ -493,7 +493,6 @@ func (a *index) buildGlobalCollections(
 				Waypoint:           svc.Waypoint,
 				Scope:              svc.Scope,
 				CreationTime:       svc.CreationTime,
-				DNSConnectStrategy: svc.DNSConnectStrategy,
 			}
 			newSvcInfo.Service.SubjectAltNames = sans.UnsortedList()
 			return precomputeServicePtr(newSvcInfo)
