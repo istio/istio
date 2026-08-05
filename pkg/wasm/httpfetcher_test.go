@@ -24,6 +24,7 @@ import (
 	"net/http/httptest"
 	"regexp"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -166,6 +167,34 @@ func TestWasmHTTPInsecureServer(t *testing.T) {
 				t.Errorf("downloaded wasm module got %v, want wasm", string(b))
 			}
 		})
+	}
+}
+
+func TestWasmHTTPFetchBlocksInternalRedirect(t *testing.T) {
+	var internalHits int32
+	// Stands in for a cluster-internal service or the cloud metadata endpoint.
+	internal := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&internalHits, 1)
+		fmt.Fprintln(w, "wasm")
+	}))
+	defer internal.Close()
+
+	// The configured module server, now malicious, redirects the fetch inward.
+	redirector := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, internal.URL+"/latest/meta-data/", http.StatusFound)
+	}))
+	defer redirector.Close()
+
+	fetcher := NewHTTPFetcher(DefaultHTTPRequestTimeout, DefaultHTTPRequestMaxRetries)
+	fetcher.initialBackoff = time.Microsecond
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if _, err := fetcher.Fetch(ctx, redirector.URL, false); err == nil {
+		t.Fatal("expected fetch to fail when redirected to an internal address")
+	}
+	if got := atomic.LoadInt32(&internalHits); got != 0 {
+		t.Fatalf("internal endpoint was reached %d times; redirect should have been blocked", got)
 	}
 }
 
