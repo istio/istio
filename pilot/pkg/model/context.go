@@ -178,6 +178,12 @@ func (e *Environment) PushContext() *PushContext {
 	return e.pushContext
 }
 
+// PushContextReady reports whether the current PushContext has completed
+// initialization. Suitable for use with WaitForCacheSync.
+func (e *Environment) PushContextReady() bool {
+	return e.PushContext().InitDone.Load()
+}
+
 // GetDiscoveryAddress parses the DiscoveryAddress specified via MeshConfig.
 func (e *Environment) GetDiscoveryAddress() (host.Name, string, error) {
 	proxyConfig := mesh.DefaultProxyConfig()
