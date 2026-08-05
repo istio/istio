@@ -806,7 +806,7 @@ func TestMulticlusterAmbientIndex_SplitHorizonPreservesWaypoint(t *testing.T) {
 	s := newAmbientTestServer(t, testC, testNW, "")
 	s.meshConfig.Mesh().TrustDomain = s.DomainSuffix
 	s.AddSecret("s1", "remote-cluster")
-	remoteClients := krt.NewCollection(s.mcController.Clusters(), func(_ krt.HandlerContext, c *multicluster.Cluster) **remoteAmbientClients {
+	remoteClients := krt.NewCollection(s.remoteClusters, func(_ krt.HandlerContext, c *multicluster.Cluster) **remoteAmbientClients {
 		cl := c.Client
 		return ptr.Of(&remoteAmbientClients{
 			clusterID: c.ID,
