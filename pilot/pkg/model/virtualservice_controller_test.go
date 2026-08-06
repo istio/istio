@@ -785,6 +785,7 @@ func (f *fakeXDSUpdater) EDSCacheUpdate(ShardKey, string, string, []*IstioEndpoi
 func (f *fakeXDSUpdater) SvcUpdate(ShardKey, string, string, Event)                 {}
 func (f *fakeXDSUpdater) ProxyUpdate(cluster.ID, string)                            {}
 func (f *fakeXDSUpdater) RemoveShard(ShardKey)                                      {}
+func (f *fakeXDSUpdater) PruneShard(ShardKey, map[string]sets.String)               {}
 
 func setupControllerWithXDS(t *testing.T, xds XDSUpdater, objs ...config.Config) (*VirtualServiceController, *FakeStore) {
 	stop := test.NewStop(t)
