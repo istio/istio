@@ -218,6 +218,65 @@ func TestToEnvoyHeadersWithUnderscoresAction(t *testing.T) {
 		toEnvoyHeadersWithUnderscoresAction(meshconfig.ProxyConfig_ConnectionSettings_HEADERS_WITH_UNDERSCORES_DROP_HEADER))
 }
 
+func TestResolveConnectionSettings(t *testing.T) {
+	meshCS := &meshconfig.ProxyConfig_ConnectionSettings{
+		ClusterPerConnectionBufferLimitBytes: &wrappers.Int32Value{Value: 1024},
+	}
+	proxyCS := &meshconfig.ProxyConfig_ConnectionSettings{
+		ClusterPerConnectionBufferLimitBytes: &wrappers.Int32Value{Value: 8192},
+	}
+
+	cases := []struct {
+		name        string
+		meshConfig  *meshconfig.ProxyConfig_ConnectionSettings
+		proxyConfig *model.NodeMetaProxyConfig
+		want        int32
+		wantNil     bool
+	}{
+		{
+			name:       "mesh default used when proxy config is nil",
+			meshConfig: meshCS,
+			want:       1024,
+		},
+		{
+			name:       "proxy-level overrides mesh default",
+			meshConfig: meshCS,
+			proxyConfig: &model.NodeMetaProxyConfig{
+				ConnectionSettings: proxyCS,
+			},
+			want: 8192,
+		},
+		{
+			name:    "nil when neither mesh nor proxy sets connection settings",
+			wantNil: true,
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			mesh := &meshconfig.MeshConfig{
+				DefaultConfig: &meshconfig.ProxyConfig{
+					ConnectionSettings: tt.meshConfig,
+				},
+			}
+			proxy := &model.Proxy{
+				Type: model.Router,
+				Metadata: &model.NodeMetadata{
+					ProxyConfig: tt.proxyConfig,
+				},
+			}
+			push := &model.PushContext{Mesh: mesh}
+
+			cs := resolveConnectionSettings(proxy, push)
+			if tt.wantNil {
+				assert.Equal(t, cs == nil, true)
+				return
+			}
+			assert.Equal(t, cs.GetClusterPerConnectionBufferLimitBytes().GetValue(), tt.want)
+		})
+	}
+}
+
 func TestToEnvoyPathWithEscapedSlashesAction(t *testing.T) {
 	assert.Equal(t, hcm.HttpConnectionManager_KEEP_UNCHANGED,
 		toEnvoyPathWithEscapedSlashesAction(meshconfig.ProxyConfig_ConnectionSettings_KEEP_UNCHANGED))

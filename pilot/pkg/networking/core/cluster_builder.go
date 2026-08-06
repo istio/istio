@@ -574,6 +574,11 @@ func (cb *ClusterBuilder) buildAllowAnyDFPCluster(tls *networking.ClientTLSSetti
 		ConnectTimeout: cb.req.Push.Mesh.ConnectTimeout,
 	}
 	c.AltStatName = util.DelimitedStatsPrefix(util.AllowAnyDynamicDNSCluster)
+	if cs := cb.connectionSettings; cs != nil {
+		if v := safeUint32(cs.GetClusterPerConnectionBufferLimitBytes()); v != nil {
+			c.PerConnectionBufferLimitBytes = v
+		}
+	}
 	// Use same protocol options as passthrough cluster
 	httpProtocolOptions := passthroughHttpProtocolOptions
 	if shouldPreserveHeaderCase(cb.proxyMetadata, cb.req.Push) {
@@ -627,6 +632,11 @@ func (cb *ClusterBuilder) buildDFPCluster(name string, service *model.Service, p
 
 	// TODO(keithmattix): Use figure out how to do happy eyeballs with dfp clusters
 	c.AltStatName = util.DelimitedStatsPrefix(name)
+	if cs := cb.connectionSettings; cs != nil {
+		if v := safeUint32(cs.GetClusterPerConnectionBufferLimitBytes()); v != nil {
+			c.PerConnectionBufferLimitBytes = v
+		}
+	}
 	ec := newDFPClusterWrapper(c)
 	cb.setUpstreamProtocol(ec, port)
 	return ec
