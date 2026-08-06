@@ -102,7 +102,7 @@ func NewVerifiedKeyCertBundleFromFile(
 	}
 
 	// Read CRL file if provided
-	crlBytes, crlErr := gerCRLBytesFromFile(crlFile)
+	crlBytes, crlErr := ReadCRLBytesFromFile(crlFile)
 	if crlErr != nil {
 		return nil, crlErr
 	}
@@ -277,7 +277,7 @@ func (b *KeyCertBundle) UpdateVerifiedKeyCertBundleFromFile(
 	}
 
 	// Read CRL file if provided
-	crlBytes, crlErr := gerCRLBytesFromFile(crlFile)
+	crlBytes, crlErr := ReadCRLBytesFromFile(crlFile)
 	if crlErr != nil {
 		return crlErr
 	}
@@ -290,10 +290,10 @@ func (b *KeyCertBundle) UpdateVerifiedKeyCertBundleFromFile(
 	return nil
 }
 
-// gerCRLBytesFromFile reads the CRL file and returns the content if it exists.
-// if the crlFile does not exist, it is treated as an empty file.
+// ReadCRLBytesFromFile reads the CRL file and returns the content if it exists.
+// If the crlFile does not exist, it is treated as an empty file.
 // Providing CRL file is optional, if not provided, it returns nil without an error.
-func gerCRLBytesFromFile(crlFile string) ([]byte, error) {
+func ReadCRLBytesFromFile(crlFile string) ([]byte, error) {
 	if crlFile == "" {
 		return nil, nil
 	}
