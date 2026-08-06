@@ -254,10 +254,6 @@ func (e *EndpointIndex) PruneShard(shardKey ShardKey, keep map[string]sets.Strin
 			e.deleteServiceInner(shardKey, svc, ns, false)
 		}
 	}
-	if e.cache == nil {
-		return
-	}
-	e.cache.ClearAll()
 }
 
 // must be called with lock
