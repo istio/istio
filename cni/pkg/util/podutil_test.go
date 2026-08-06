@@ -242,7 +242,7 @@ func TestPodRedirectionEnabled(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := defaultAmbientSelector.Matches(tt.args.pod.Labels, tt.args.pod.Annotations, tt.args.namespace.Labels); got != tt.want {
+			if got := defaultAmbientSelector.Matches(tt.args.pod, tt.args.namespace.Labels); got != tt.want {
 				t.Errorf("PodRedirectionEnabled() = %v, want %v", got, tt.want)
 			}
 		})

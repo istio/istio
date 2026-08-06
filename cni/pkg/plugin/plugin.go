@@ -422,7 +422,7 @@ func isAmbientPod(client kubernetes.Interface, podName, podNamespace string, sel
 		return false, fmt.Errorf("failed to get pod or namespace info: podErr=%v, nsErr=%v", podErr, nsErr)
 	}
 
-	return compiledSelectors.Matches(pod.Labels, pod.Annotations, ns.Labels), nil
+	return compiledSelectors.Matches(pod, ns.Labels), nil
 }
 
 func isCNIPod(conf *Config, k8sArgs *K8sArgs) bool {
