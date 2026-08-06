@@ -255,11 +255,9 @@ func TestGetCNIConfigFilepath(t *testing.T) {
 				if len(c.delayedConfName) > 0 {
 					// Delayed case
 					t.Fatalf("did not expect to retrieve a CNI config file %s", result)
-				} else if result != expectedFilepath {
-					if len(expectedFilepath) > 0 {
-						t.Fatalf("expected %s, got %s", expectedFilepath, result)
-					}
-					t.Fatalf("did not expect to retrieve a CNI config file %s", result)
+				}
+				if result != expectedFilepath {
+					t.Fatalf("expected %s, got %s", expectedFilepath, result)
 				}
 				// Successful test for non-delayed cases
 				return
@@ -278,11 +276,8 @@ func TestGetCNIConfigFilepath(t *testing.T) {
 						t.Fatal(err)
 					}
 					t.Logf("delayed write to %v", filepath.Join(tempDir, c.delayedConfName))
-				} else if len(c.expectedConfName) > 0 {
-					t.Fatalf("timed out waiting for expected %s", expectedFilepath)
 				} else {
-					// Successful test for test cases where CNI config file is never created
-					return
+					t.Fatalf("timed out waiting for expected %s", expectedFilepath)
 				}
 			}
 
