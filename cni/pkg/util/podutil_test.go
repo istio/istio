@@ -172,6 +172,27 @@ func TestPodRedirectionEnabled(t *testing.T) {
 				Annotations: sidecarStatusAnnotation,
 			},
 		}
+
+		hostNetworkPod = &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test",
+				Namespace: "test",
+			},
+			Spec: corev1.PodSpec{
+				HostNetwork: true,
+			},
+		}
+
+		hostNetworkPodWithAmbientEnabledLabel = &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test",
+				Namespace: "test",
+				Labels:    ambientEnabledLabel,
+			},
+			Spec: corev1.PodSpec{
+				HostNetwork: true,
+			},
+		}
 	)
 
 	type args struct {
@@ -236,6 +257,22 @@ func TestPodRedirectionEnabled(t *testing.T) {
 			args: args{
 				namespace: unlabelledNamespace,
 				pod:       podWithSidecarAndAmbientEnabledLabel,
+			},
+			want: false,
+		},
+		{
+			name: "hostNetwork pod in ambient-enabled namespace",
+			args: args{
+				namespace: namespaceWithAmbientEnabledLabel,
+				pod:       hostNetworkPod,
+			},
+			want: false,
+		},
+		{
+			name: "hostNetwork pod with ambient mode label",
+			args: args{
+				namespace: unlabelledNamespace,
+				pod:       hostNetworkPodWithAmbientEnabledLabel,
 			},
 			want: false,
 		},
