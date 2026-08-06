@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/containernetworking/cni/pkg/skel"
+	"github.com/containernetworking/cni/pkg/types"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -435,6 +436,34 @@ func TestCmdAddCNIPodSkipsK8sClient(t *testing.T) {
 			args := buildCmdArgs(buildMockConf(ambientEnabled), "istio-cni-node-abcde", "")
 			if err := CmdAdd(args); err != nil {
 				t.Fatalf("expected the CNI pod to be skipped without creating a kube client, got error: %v", err)
+			}
+		})
+	}
+}
+
+// TestIsCNIPod covers the identity check on its own. It is called both on the normal
+// path for every ADD and from the degraded failsafe, so it must stay a pure predicate
+// and leave the logging level to the caller.
+func TestIsCNIPod(t *testing.T) {
+	conf := &Config{PodNamespace: "istio-system"}
+	cases := []struct {
+		name     string
+		podName  string
+		podNS    string
+		expected bool
+	}{
+		{"agent pod in the conf namespace", "istio-cni-node-abcde", "istio-system", true},
+		{"agent pod in another namespace", "istio-cni-node-abcde", "default", false},
+		{"workload pod in the conf namespace", "productpage-v1-abcde", "istio-system", false},
+		{"workload pod in another namespace", "productpage-v1-abcde", "default", false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			k8sArgs := K8sArgs{}
+			k8sArgs.K8S_POD_NAME = types.UnmarshallableString(c.podName)
+			k8sArgs.K8S_POD_NAMESPACE = types.UnmarshallableString(c.podNS)
+			if got := isCNIPod(conf, &k8sArgs); got != c.expected {
+				t.Fatalf("isCNIPod = %t, want %t", got, c.expected)
 			}
 		})
 	}
