@@ -114,7 +114,7 @@ func TestGetPodIPsIfNoPodIPPresent(t *testing.T) {
 	assert.Equal(t, len(podIPs), 0)
 }
 
-func TestPodRedirectionEnabled(t *testing.T) {
+func TestEnablementSelectorMatches(t *testing.T) {
 	var (
 		ambientEnabledLabel     = map[string]string{label.IoIstioDataplaneMode.Name: constants.DataplaneModeAmbient}
 		ambientDisabledLabel    = map[string]string{label.IoIstioDataplaneMode.Name: constants.DataplaneModeNone}
@@ -280,7 +280,7 @@ func TestPodRedirectionEnabled(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := defaultAmbientSelector.Matches(tt.args.pod, tt.args.namespace.Labels); got != tt.want {
-				t.Errorf("PodRedirectionEnabled() = %v, want %v", got, tt.want)
+				t.Errorf("Matches() = %v, want %v", got, tt.want)
 			}
 		})
 	}
