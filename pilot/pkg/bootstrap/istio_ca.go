@@ -41,6 +41,7 @@ import (
 	"istio.io/istio/security/pkg/cmd"
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/ra"
+	pkiutil "istio.io/istio/security/pkg/pki/util"
 	caserver "istio.io/istio/security/pkg/server/ca"
 	"istio.io/istio/security/pkg/server/ca/authenticate"
 	"istio.io/istio/security/pkg/util"
@@ -368,12 +369,7 @@ func handleEvent(s *Server) {
 
 	if features.EnableCACRL {
 		currentCRLData := s.CA.GetCAKeyCertBundle().GetCRLPem()
-		crlData, crlReadErr := os.ReadFile(fileBundle.CRLFile)
-		if os.IsNotExist(crlReadErr) {
-			// no file is the same as no data
-			crlData = []byte{}
-			crlReadErr = nil
-		}
+		crlData, crlReadErr := pkiutil.ReadCRLBytesFromFile(fileBundle.CRLFile)
 		if crlReadErr != nil {
 			// handleEvent can be triggered either for key-cert bundle update or
 			// for crl file update. So, even if there is an error in reading crl file,
@@ -547,15 +543,13 @@ func (s *Server) createIstioCA(opts *caOptions) (*ca.IstioCA, error) {
 		if features.EnableCACRL {
 			// CRL is only supported for Plugged CA.
 			// If CRL file is present, read and notify it for initial replication
-			log.Debugf("CRL file %s found, notifying it for initial replication", fileBundle.CRLFile)
-			crlBytes, crlErr := os.ReadFile(fileBundle.CRLFile)
-			if os.IsNotExist(crlErr) {
-				crlBytes = []byte{}
-			} else if crlErr != nil {
+			crlBytes, crlErr := pkiutil.ReadCRLBytesFromFile(fileBundle.CRLFile)
+			if crlErr != nil {
 				log.Errorf("failed to read CRL file %s: %v", fileBundle.CRLFile, crlErr)
 				return nil, crlErr
 			}
 
+			log.Debugf("CRL file %s found, notifying it for initial replication", fileBundle.CRLFile)
 			s.istiodCertBundleWatcher.SetAndNotifyCACRL(crlBytes)
 		}
 
