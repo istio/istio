@@ -2308,7 +2308,7 @@ func buildTLS(
 		return nil, nil
 	}
 	// Explicitly not supported: file mounted
-	// Not yet implemented: TLS mode, https redirect, SANs, VerifyCertificate 
+	// Not yet implemented: TLS mode, https redirect, SANs, VerifyCertificate  
 	out := &istio.ServerTLSSettings{
 		HttpsRedirect: false,
 	}
