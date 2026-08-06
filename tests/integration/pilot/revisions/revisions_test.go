@@ -63,34 +63,6 @@ components:
     enabled: true
 `
 		})).
-		// The following two revisions exist solely to exercise
-		// sidecarInjectorWebhook.revisionLabelPrecedence: rev-a/rev-b are both
-		// configured with "pod" (the feature's intended, consistent configuration).
-		// See revision_label_precedence_test.go.
-		Setup(istio.Setup(nil, func(_ resource.Context, cfg *istio.Config) {
-			cfg.ControlPlaneValues = `
-profile: empty
-revision: rev-a
-components:
-  pilot:
-    enabled: true
-values:
-  sidecarInjectorWebhook:
-    revisionLabelPrecedence: pod
-`
-		})).
-		Setup(istio.Setup(nil, func(_ resource.Context, cfg *istio.Config) {
-			cfg.ControlPlaneValues = `
-profile: empty
-revision: rev-b
-components:
-  pilot:
-    enabled: true
-values:
-  sidecarInjectorWebhook:
-    revisionLabelPrecedence: pod
-`
-		})).
 		Run()
 }
 

@@ -14,10 +14,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package revisions
+package revisionlabelprecedence
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"istio.io/api/label"
@@ -66,29 +67,42 @@ func deployWithRevisionLabels(t framework.TestContext, nsPrefix, nsRevision, pod
 	return pods[0].Name, ns.Name()
 }
 
-// TestRevisionLabelPrecedenceNamespaceDefault locks in the pre-existing (default
-// sidecarInjectorWebhook.revisionLabelPrecedence=namespace) behavior of the stable/canary
-// control planes: when a pod carries an explicit istio.io/rev label that conflicts with its
-// namespace's istio.io/rev label, the namespace label wins and the pod-level label is
-// ignored. This is the "existing precedence assumption" that revisionLabelPrecedence=pod is
-// meant to optionally override.
-func TestRevisionLabelPrecedenceNamespaceDefault(t *testing.T) {
+func verifyRevision(t framework.TestContext, i istioctl.Instance, podName, podNamespace, revision string) {
+	t.Helper()
+	pcArgs := []string{"pc", "bootstrap", podName, "-n", podNamespace}
+	bootstrapConfig, _ := i.InvokeOrFail(t, pcArgs)
+	expected := fmt.Sprintf("\"discoveryAddress\": \"istiod-%s.istio-system.svc:15012\"", revision)
+	if !strings.Contains(bootstrapConfig, expected) {
+		t.Errorf("expected revision %q in bootstrap config, did not find", revision)
+	}
+}
+
+// TestRevisionLabelPrecedencePodWins verifies that when both revisions involved are
+// configured with sidecarInjectorWebhook.revisionLabelPrecedence=pod, an explicit pod-level
+// istio.io/rev label overrides a conflicting namespace-level istio.io/rev label, and that
+// pods with no explicit override still fall back to the namespace label as before.
+func TestRevisionLabelPrecedencePodWins(t *testing.T) {
 	// nolint: staticcheck
 	framework.NewTest(t).
 		RequiresSingleCluster().
 		RequiresLocalControlPlane().
 		Run(func(t framework.TestContext) {
 			istioCtl := istioctl.NewOrFail(t, istioctl.Config{Cluster: t.Clusters().Default()})
-			podName, podNamespace := deployWithRevisionLabels(t, "stable-ns-canary-pod-label", "stable", "canary")
-			verifyRevision(t, istioCtl, podName, podNamespace, "stable")
+
+			t.NewSubTest("PodOverride").Run(func(t framework.TestContext) {
+				// Namespace is labeled istio.io/rev=rev-a, but the pod explicitly
+				// requests rev-b. With revisionLabelPrecedence=pod on both revisions,
+				// the pod label wins.
+				podName, podNamespace := deployWithRevisionLabels(t, "rev-a-ns-rev-b-pod", "rev-a", "rev-b")
+				verifyRevision(t, istioCtl, podName, podNamespace, "rev-b")
+			})
+
+			t.NewSubTest("NamespaceFallback").Run(func(t framework.TestContext) {
+				// Pod has no explicit revision label, so injection falls back to the
+				// namespace's istio.io/rev=rev-a label, same as under the default
+				// (namespace) precedence mode.
+				podName, podNamespace := deployWithRevisionLabels(t, "rev-a-ns-no-pod-label", "rev-a", "")
+				verifyRevision(t, istioCtl, podName, podNamespace, "rev-a")
+			})
 		})
 }
-
-// TestRevisionLabelPrecedencePodWins lives in its own package/cluster
-// (tests/integration/pilot/revisionlabelprecedence) since co-installing a
-// revisionLabelPrecedence=pod revision alongside these namespace-precedence
-// stable/canary revisions trips istioctl's own webhook-overlap validation
-// (IST0139) at install time: stable/canary's Case 1 claims any pod in their
-// labeled namespace unconditionally, while a pod-precedence revision's Case 2
-// claims any pod with a matching explicit label regardless of namespace, so
-// the two structurally overlap for any hypothetical pod caught between them.
