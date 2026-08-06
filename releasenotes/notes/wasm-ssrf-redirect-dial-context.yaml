@@ -13,4 +13,4 @@ releaseNotes:
     `BLOCKED_CIDRS_IN_WASM_FETCH` environment variable lets operators additionally block
     private ranges or specific in-cluster addresses if desired.
 
-    **Credit**: The image fetcher redirect bypass was reported by SiddharthaBose30 (https://github.com/SiddharthaBose30) and Svpernova.
+    **Credit**: The image fetcher redirect bypass was reported by 박현범 and independently by Svpernova. The unrestricted HTTP fetcher was reported by Aser Ahmed.
