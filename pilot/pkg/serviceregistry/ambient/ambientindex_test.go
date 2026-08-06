@@ -3217,6 +3217,7 @@ func (p *pushRequestRecorder) SvcUpdate(model.ShardKey, string, string, model.Ev
 func (p *pushRequestRecorder) ConfigUpdate(req *model.PushRequest)                   { p.req = req }
 func (p *pushRequestRecorder) ProxyUpdate(cluster.ID, string)                        {}
 func (p *pushRequestRecorder) RemoveShard(model.ShardKey)                            {}
+func (p *pushRequestRecorder) PruneShard(model.ShardKey, map[string]sets.String)     {}
 
 func TestPushXdsAddressWaypointRefs(t *testing.T) {
 	waypoint := &workloadapi.GatewayAddress{

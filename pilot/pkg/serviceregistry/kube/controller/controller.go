@@ -392,11 +392,15 @@ func (c *Controller) Network(endpointIP string, labels labels.Instance) network.
 	return ""
 }
 
-func (c *Controller) Cleanup() error {
+// Cleanup releases resources held by the controller. removeShard must be false if this
+// controller has already been superseded by a newer registry for the same cluster (e.g. a
+// credential-rotation swap) - the old and new registries share a ShardKey, so removing it here
+// would wipe out endpoints the new registry already populated (istio.io/istio#61043).
+func (c *Controller) Cleanup(removeShard bool) error {
 	if err := queue.WaitForClose(c.queue, 30*time.Second); err != nil {
 		log.Warnf("queue for removed kube registry %q may not be done processing: %v", c.Cluster(), err)
 	}
-	if c.opts.XDSUpdater != nil {
+	if removeShard && c.opts.XDSUpdater != nil {
 		c.opts.XDSUpdater.RemoveShard(model.ShardKeyFromRegistry(c))
 	}
 
