@@ -120,6 +120,22 @@ func buildSidecarInboundHTTPRouteConfig(svc *model.Service, lb *ListenerBuilder,
 		// the inbound route of a Waypoint is more like the outbound route
 		defaultRoute = istio_route.BuildDefaultHTTPOutboundRoute(cc.clusterName, traceOperation, lb.push.Mesh)
 		responseBodySize = istio_route.DefaultMaxDirectResponseBodySizeBytes
+		// When a DestinationRule configures consistentHash, the cluster gets lb_policy: RING_HASH
+		// but the route needs a matching hash_policy for Envoy to actually use it. Without this,
+		// Envoy falls back to random selection and sticky sessions are broken.
+		// This mirrors what buildSidecarVirtualHostForService does for the sidecar outbound path.
+		// svc may be nil in some waypoint paths (e.g. when called without a specific service).
+		if svc != nil {
+			if drCfg := lb.node.SidecarScope.DestinationRuleConfig(model.TrafficDirectionInbound, lb.node, svc.Hostname); drCfg != nil {
+				if dr, ok := drCfg.Spec.(*networking.DestinationRule); ok {
+					if ch := dr.GetTrafficPolicy().GetLoadBalancer().GetConsistentHash(); ch != nil {
+						if hp := istio_route.ConsistentHashToHashPolicy(ch); hp != nil {
+							defaultRoute.GetRoute().HashPolicy = []*route.RouteAction_HashPolicy{hp}
+						}
+					}
+				}
+			}
+		}
 	} else {
 		defaultRoute = istio_route.BuildDefaultHTTPInboundRoute(lb.node, cc.clusterName, traceOperation, cc.port.Protocol)
 	}

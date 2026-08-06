@@ -137,21 +137,40 @@ func (c *Controller) AddRegistryAndRun(registry serviceregistry.Instance, stop <
 
 // DeleteRegistry deletes specified registry from the aggregated controller
 func (c *Controller) DeleteRegistry(clusterID cluster.ID, providerID provider.ID) {
+	c.deleteRegistry(clusterID, providerID, nil)
+}
+
+// DeleteRegistryIfCurrent deletes the registry for registry's cluster/provider, but only if it is
+// still the instance registered - i.e. it was not already replaced by a concurrent UpdateRegistry
+// swap. This avoids removing a registry that was already atomically replaced by a newer one.
+// Returns true if registry was deleted, false if it had already been superseded.
+func (c *Controller) DeleteRegistryIfCurrent(registry serviceregistry.Instance) bool {
+	return c.deleteRegistry(registry.Cluster(), registry.Provider(), registry)
+}
+
+// deleteRegistry removes the registry for clusterID/providerID. If expect is non-nil, the
+// deletion only happens if the currently registered instance is identical to expect. Returns
+// true if a registry was deleted.
+func (c *Controller) deleteRegistry(clusterID cluster.ID, providerID provider.ID, expect serviceregistry.Instance) bool {
 	c.storeLock.Lock()
 	defer c.storeLock.Unlock()
-
 	if len(c.registries) == 0 {
 		log.Warnf("Registry list is empty, nothing to delete")
-		return
+		return false
 	}
 	index, ok := c.getRegistryIndex(clusterID, providerID)
 	if !ok {
 		log.Warnf("Registry %s/%s is not found in the registries list, nothing to delete", providerID, clusterID)
-		return
+		return false
+	}
+	if expect != nil && c.registries[index].Instance != expect {
+		log.Infof("%s registry for cluster %s was already replaced, skipping delete.", providerID, clusterID)
+		return false
 	}
 	c.registries[index] = nil
 	c.registries = append(c.registries[:index], c.registries[index+1:]...)
 	log.Infof("%s registry for the cluster %s has been deleted.", providerID, clusterID)
+	return true
 }
 
 // UpdateRegistry atomically replaces an existing registry with a new one, used

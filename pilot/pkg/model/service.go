@@ -966,12 +966,12 @@ func (s *ServiceAttributes) Equals(other *ServiceAttributes) bool {
 	}
 
 	for k, v1 := range s.ClusterExternalPorts {
-		if v2, ok := s.ClusterExternalPorts[k]; !ok || !maps.Equal(v1, v2) {
+		if v2, ok := other.ClusterExternalPorts[k]; !ok || !maps.Equal(v1, v2) {
 			return false
 		}
 	}
 
-	return true
+	return maps.Equal(s.PassthroughTargetPorts, other.PassthroughTargetPorts)
 }
 
 // ServiceDiscovery enumerates Istio service instances.

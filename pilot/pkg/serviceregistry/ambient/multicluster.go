@@ -498,6 +498,10 @@ func (a *index) buildGlobalCollections(
 
 			newSvcInfo := &model.ServiceInfo{
 				Service:            protomarshal.Clone(svc.Service),
+				PortNames:          svc.PortNames,
+				LabelSelector:      svc.LabelSelector,
+				Source:             svc.Source,
+				Waypoint:           svc.Waypoint,
 				Scope:              svc.Scope,
 				CreationTime:       svc.CreationTime,
 				DNSConnectStrategy: svc.DNSConnectStrategy,

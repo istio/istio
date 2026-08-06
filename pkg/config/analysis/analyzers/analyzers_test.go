@@ -482,6 +482,14 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name:       "virtualServiceKubernetesGateways",
+		inputFiles: []string{"testdata/virtualservice_kubernetes_gateways.yaml"},
+		analyzer:   &virtualservice.GatewayAnalyzer{},
+		expected: []message{
+			{msg.VirtualServiceHostNotFoundInGateway, "VirtualService default/my-vs-host-mismatch"},
+		},
+	},
+	{
 		name:       "virtualServiceJWTClaimRoute",
 		inputFiles: []string{"testdata/virtualservice_jwtclaimroute.yaml"},
 		analyzer:   &virtualservice.JWTClaimRouteAnalyzer{},

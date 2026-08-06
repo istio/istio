@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 60618
+releaseNotes:
+- |
+  **Fixed** a bug where Gateway API listeners using the OPTIONAL_MUTUAL TLS
+  termination mode failed to authorize the client CA secret for SDS, leaving the
+  validation context stuck in a WARMING state. The CA certificate reference is now
+  authorized for OPTIONAL_MUTUAL the same way it already was for MUTUAL.

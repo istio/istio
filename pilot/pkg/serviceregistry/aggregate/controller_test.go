@@ -651,6 +651,75 @@ func TestReplaceRegistryReloadsGateways(t *testing.T) {
 	}, retry.Timeout(time.Second))
 }
 
+// TestReplaceRegistrySyncsNewServices verifies that services added to the new registry
+// after UpdateRegistry swaps it in are visible via the aggregate controller's Services()/
+// GetService() - i.e. the swapped-in registry is actually queried, not just notified.
+func TestReplaceRegistrySyncsNewServices(t *testing.T) {
+	stop := make(chan struct{})
+	defer close(stop)
+	ctrl := NewController(Options{})
+
+	oldSD := memory.NewServiceDiscovery()
+	oldSD.AddService(&model.Service{Hostname: "old.example.com", Attributes: model.ServiceAttributes{}})
+	oldRegistry := &RunnableRegistry{
+		Instance: serviceregistry.Simple{ClusterID: "cluster1", ProviderID: "test", DiscoveryController: oldSD},
+		running:  atomic.NewBool(false),
+	}
+	ctrl.AddRegistryAndRun(oldRegistry, stop)
+	go ctrl.Run(stop)
+	expectRunningOrFail(t, ctrl, true)
+
+	if svc := ctrl.GetService("old.example.com"); svc == nil {
+		t.Fatal("expected old service to be visible before swap")
+	}
+
+	// Caller starts and syncs the new registry - with its own, different set of services -
+	// before UpdateRegistry swaps it in.
+	newSD := memory.NewServiceDiscovery()
+	newSD.AddService(&model.Service{Hostname: "new.example.com", Attributes: model.ServiceAttributes{}})
+	newRegistry := &RunnableRegistry{
+		Instance: serviceregistry.Simple{ClusterID: "cluster1", ProviderID: "test", DiscoveryController: newSD},
+		running:  atomic.NewBool(false),
+	}
+	go newRegistry.Run(stop)
+	retry.UntilSuccessOrFail(t, func() error {
+		if !newRegistry.running.Load() {
+			return fmt.Errorf("new registry should be running before swap")
+		}
+		return nil
+	}, retry.Timeout(time.Second))
+	ctrl.UpdateRegistry(newRegistry, stop)
+
+	// The swapped-in registry's pre-existing service must be visible immediately.
+	if svc := ctrl.GetService("new.example.com"); svc == nil {
+		t.Fatal("expected new service to be visible immediately after swap")
+	}
+	if svc := ctrl.GetService("old.example.com"); svc != nil {
+		t.Fatal("expected old registry's service to no longer be visible after swap")
+	}
+
+	// A service added to the new registry after the swap must also be synced - this only
+	// works if appendHandlers actually wired the swapped-in registry's handlers.
+	newSD.AddService(&model.Service{Hostname: "post-swap.example.com", Attributes: model.ServiceAttributes{}})
+	retry.UntilSuccessOrFail(t, func() error {
+		if svc := ctrl.GetService("post-swap.example.com"); svc == nil {
+			return fmt.Errorf("expected service added after swap to be synced")
+		}
+		return nil
+	}, retry.Timeout(time.Second))
+
+	names := map[host.Name]bool{}
+	for _, svc := range ctrl.Services() {
+		names[svc.Hostname] = true
+	}
+	if !names["new.example.com"] || !names["post-swap.example.com"] {
+		t.Fatalf("expected Services() to include new and post-swap services, got %v", names)
+	}
+	if names["old.example.com"] {
+		t.Fatalf("expected Services() to no longer include old registry's service, got %v", names)
+	}
+}
+
 func TestMergeServiceWithSameTrustDomain(t *testing.T) {
 	svc1 := mock.MakeService(mock.ServiceArgs{
 		Hostname:        "test.default.svc.cluster.local",

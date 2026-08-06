@@ -218,6 +218,14 @@ var (
 	MulticlusterHeadlessEnabled = env.Register("ENABLE_MULTICLUSTER_HEADLESS", true,
 		"If true, the DNS name table for a headless service will resolve to same-network endpoints in any cluster.").Get()
 
+	// EnableHeadlessFilterChainListener controls whether headless TCP services use a single wildcard
+	// 0.0.0.0:Port listener with per-pod /32 CIDR filter chain matches, rather than a separate
+	// per-pod-IP listener. The single-listener approach reduces xDS size by ~10% for large
+	// headless services and keeps Envoy listener count at O(1) per headless service port.
+	EnableHeadlessFilterChainListener = env.Register("PILOT_ENABLE_HEADLESS_FILTER_CHAIN_LISTENER", false,
+		"If true, headless TCP services use a single wildcard listener with per-pod /32 CIDR filter chain matches "+
+			"instead of one listener per pod IP. Reduces xDS size and listener count for large headless services.").Get()
+
 	ResolveHostnameGateways = env.Register("RESOLVE_HOSTNAME_GATEWAYS", true,
 		"If true, hostnames in the LoadBalancer addresses of a Service will be resolved at the control plane for use in cross-network gateways.").Get()
 
@@ -358,6 +366,35 @@ var (
 			"BLOCKED_CIDRS_IN_JWKS_URIS",
 			"",
 			"Comma separated list of CIDR ranges that are blocked in JWKS URIs (e.g., 10.0.0.0/8,192.168.1.0/24).").Get()
+		if v == "" {
+			return nil
+		}
+		cidrs := strings.Split(v, ",")
+		var blockedCIDRs []*net.IPNet
+		for _, cidr := range cidrs {
+			cidr = strings.TrimSpace(cidr)
+			if cidr == "" {
+				continue
+			}
+			_, ipNet, err := net.ParseCIDR(cidr)
+			if err != nil {
+				log.Warnf("Failed to parse CIDR range %q: %v", cidr, err)
+				continue
+			}
+			blockedCIDRs = append(blockedCIDRs, ipNet)
+		}
+		return blockedCIDRs
+	}()
+
+	// BlockedCIDRsInWasmFetch is additive to the always-on link-local block applied to Wasm
+	// module fetches (see pkg/wasm/ssrf.go); it lets operators also block private ranges or
+	// specific in-cluster addresses (e.g. the Kubernetes API server or kubelet) if their
+	// environment does not need to fetch Wasm modules from internal registries/servers.
+	BlockedCIDRsInWasmFetch = func() []*net.IPNet {
+		v := env.Register(
+			"BLOCKED_CIDRS_IN_WASM_FETCH",
+			"",
+			"Comma separated list of CIDR ranges that are blocked when fetching Wasm modules (e.g., 10.0.0.0/8,192.168.1.0/24).").Get()
 		if v == "" {
 			return nil
 		}
