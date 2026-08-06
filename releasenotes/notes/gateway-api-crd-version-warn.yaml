@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+- |
+  **Improved** logging when a Gateway API CRD installed in the cluster is below the minimum version
+  required by this Istio version. The message is now logged at `warn` level and explains that
+  resources of that kind will not be processed until the CRDs are upgraded. Previously, this was
+  logged at `info` level and easy to miss, which made TLS passthrough breakage after upgrading to
+  1.30 with stale CRDs hard to diagnose.

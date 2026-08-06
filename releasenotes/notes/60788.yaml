@@ -1,0 +1,18 @@
+apiVersion: release-notes/v2
+
+kind: bug-fix
+
+area: traffic-management
+
+releaseNotes:
+- |
+  **Fixed** an issue where the advertised HBONE capability was not
+  propagated onto auto-registered WorkloadEntries for non-Kubernetes workloads.
+
+upgradeNotes:
+  - title: Existing auto-registered WorkloadEntries need re-registration or a manual label for HBONE
+    content: |
+      The HBONE tunnel label is applied only when a WorkloadEntry is auto-created, so workloads
+      auto-registered before upgrading continue to be reached over plaintext until either they
+      re-register (reconnect a fresh instance) or the label (`networking.istio.io/tunnel=http`)
+      is added to their existing WorkloadEntry.

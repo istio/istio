@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+  - |
+    **Fixed** an issue where an `HTTPRoute` with empty or omitted `backendRefs`
+    returned an HTTP 404 status code instead of 500. This matches the behavior
+    enforced by the `HTTPRouteNoBackendRefs` Gateway API conformance test,
+    introduced in v1.6.0.

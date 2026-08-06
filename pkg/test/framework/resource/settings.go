@@ -139,6 +139,9 @@ type Settings struct {
 	// Skip TProxy related parts for all the tests.
 	SkipTProxy bool
 
+	// Skip user namespace related parts for all the tests.
+	SkipUserNamespace bool
+
 	// Ambient mesh is being used
 	Ambient bool
 

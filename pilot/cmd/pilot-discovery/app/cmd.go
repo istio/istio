@@ -178,7 +178,8 @@ func addFlags(c *cobra.Command) {
 		"File containing the x509 private key matching --tlsCertFile")
 	c.PersistentFlags().StringSliceVar(&serverArgs.ServerOptions.TLSOptions.TLSCipherSuites, "tls-cipher-suites", nil,
 		"Comma-separated list of cipher suites for istiod TLS server. "+
-			"If omitted, the default Go cipher suites will be used. \n"+
+			"If omitted, the default Go cipher suites will be used. "+
+			"If 'tls-min-version' is set to '1.3', these cipher suites will be ignored.\n"+
 			"Preferred values: "+strings.Join(secureTLSCipherNames(), ", ")+". \n"+
 			"Insecure values: "+strings.Join(insecureTLSCipherNames(), ", ")+".")
 	c.PersistentFlags().StringVar(&serverArgs.ServerOptions.TLSOptions.TLSMinVersion, "tls-min-version", bootstrap.TLSMinVersion1_2,

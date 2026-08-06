@@ -1,0 +1,13 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: extensibility
+
+issue:
+  - https://github.com/istio/istio/issues/60530
+
+releaseNotes:
+  - |
+    **Fixed** a bug where a `WasmPlugin` in an application namespace targeting a `Service` via `targetRefs`
+    would cause a waypoint proxy to crash-loop on startup. The LDS path correctly included the plugin for
+    the waypoint, but the ECDS lookup path rejected it as cross-namespace, leaving Envoy waiting for a
+    resource that would never arrive.

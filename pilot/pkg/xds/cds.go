@@ -40,6 +40,7 @@ var skippedCdsConfigs = sets.New(
 	kind.Secret,
 	kind.Telemetry,
 	kind.WasmPlugin,
+	kind.TrafficExtension,
 	kind.ProxyConfig,
 	kind.DNSName,
 	kind.Endpoints,
@@ -66,14 +67,27 @@ func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) (*model.PushReques
 	if res, ok := xdsNeedsPush(req, proxy); ok {
 		return req, res
 	}
-	if proxy.Type == model.Waypoint && waypointNeedsPush(req) {
+	if proxy.Type == model.Waypoint && waypointNeedsPush(req, proxy) {
 		return req, true
 	}
+
+	// Optimization: Skip CDS for headless endpoint updates.
+	// For routers: Clusters are EDS type - endpoint IPs delivered via EDS.
+	// For sidecars: Clusters are ORIGINAL_DST (no endpoints) or EDS type.
+	// In both cases, cluster definitions are static when only endpoints change.
+	// However, if ServiceUpdate is also present, the service definition changed
+	// (ports, labels, etc.) and we need to push CDS.
+	headlessOnly := req.Reason.Has(model.HeadlessEndpointUpdate) && !req.Reason.Has(model.ServiceUpdate)
 
 	relevantUpdates := make(sets.Set[model.ConfigKey])
 	filtered := false
 	checkGateway := false
 	for config := range req.ConfigsUpdated {
+		// Check if all updates are ServiceEntry (headless endpoint marker)
+		if config.Kind != kind.ServiceEntry {
+			headlessOnly = false
+		}
+
 		if proxy.Type == model.Router {
 			if config.Kind == kind.Gateway {
 				// Do the check outside of the loop since its slow; just trigger we need it
@@ -92,6 +106,10 @@ func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) (*model.PushReques
 			// we filtered a config
 			filtered = true
 		}
+	}
+
+	if headlessOnly {
+		return req, false
 	}
 
 	needsPush := false

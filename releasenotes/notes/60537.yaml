@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+issue:
+  - 60537
+releaseNotes:
+  - |
+    **Fixed** `istioctl tag remove` not deleting the `istiod-default-validator` ValidatingWebhookConfiguration when removing the default revision tag.

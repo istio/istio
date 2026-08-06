@@ -64,6 +64,11 @@ allowlisted_modules:
 # MIT: https://github.com/ghodss/yaml/blob/master/LICENSE
 - github.com/ghodss/yaml
 
+# Apache 2.0: this is a sibling module within istio/test-infra repo (see top-level go.mod
+# `replace istio.io/test-infra/tools/prowgen => ./tools/prowgen`). The license
+# linter cannot detect a license for unpublished local modules.
+- istio.io/test-infra/tools/prowgen
+
 # BSD: https://github.com/gogo/protobuf/blob/master/LICENSE
 - github.com/gogo/protobuf
 

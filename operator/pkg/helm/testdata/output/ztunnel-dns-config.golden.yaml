@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: ztunnel
-  namespace: istio-system
+  namespace: "istio-system"
   labels:
     app.kubernetes.io/name: ztunnel
     app.kubernetes.io/managed-by: "Helm"
@@ -139,6 +139,11 @@ spec:
           valueFrom:
             resourceFieldRef:
               resource: limits.cpu
+              divisor: "1"
+        - name: ZTUNNEL_RESOURCE_CPU_REQUEST
+          valueFrom:
+            resourceFieldRef:
+              resource: requests.cpu
               divisor: "1"
         volumeMounts:
         - mountPath: /var/run/secrets/istio

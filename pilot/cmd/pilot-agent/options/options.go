@@ -96,6 +96,12 @@ var (
 		"The type of the credential fetcher. Currently supported types include GoogleComputeEngine").Get()
 	credIdentityProvider = env.Register("CREDENTIAL_IDENTITY_PROVIDER", "GoogleComputeEngine",
 		"The identity provider for credential. Currently default supported identity provider is GoogleComputeEngine").Get()
+	// EnableSelfDiscovery controls whether pilot-agent adds a local_cluster static cluster to the bootstrap
+	// for zone-aware routing support. Set ISTIO_META_ENABLE_SELF_DISCOVERY=true via proxyMetadata.
+	EnableSelfDiscovery = env.Register("ISTIO_META_ENABLE_SELF_DISCOVERY", false,
+		"If set to true, pilot-agent will configure a local_cluster static cluster in the Envoy bootstrap "+
+			"to support zone-aware load balancing.")
+
 	// DNSCaptureByAgent is a copy of the env var in the init code.
 	DNSCaptureByAgent = env.Register("ISTIO_META_DNS_CAPTURE", false,
 		"If set to true, enable the capture of outgoing DNS packets on port 53, redirecting to istio-agent on :15053")
@@ -104,8 +110,8 @@ var (
 		"If set to true, starts the DNS server on :15053. This won't automatically capture the DNS traffic and can be used "+
 			"when we want Gateways to resolve DNS using this as Resolver for use cases like Dynamic Forward Proxy")
 
-	// DNSCaptureAddr is the address to listen.
-	DNSCaptureAddr = env.Register("DNS_PROXY_ADDR", "localhost:15053",
+	// DNSCaptureAddr is the address istio-agent listens on for the DNS proxy.
+	DNSCaptureAddr = env.Register("DNS_PROXY_ADDR", constants.DefaultDNSProxyAddr,
 		"Custom address for the DNS proxy. If it ends with :53 and running as root allows running without iptable DNS capture")
 
 	DNSForwardParallel = env.Register("DNS_FORWARD_PARALLEL", false,
@@ -140,6 +146,12 @@ var (
 		"Envoy health status port value").Get()
 	envoyPrometheusPortEnv = env.Register("ENVOY_PROMETHEUS_PORT", 15090,
 		"Envoy prometheus redirection port value").Get()
+
+	envoySecureMetricsPortEnv = env.Register("ENVOY_SECURE_METRICS_PORT", 0,
+		"Envoy mTLS metrics port value (Envoy stats only)").Get()
+
+	envoySecureMergedMetricsPortEnv = env.Register("ENVOY_SECURE_MERGED_METRICS_PORT", 0,
+		"Envoy mTLS merged metrics port value (Envoy + app + agent stats)").Get()
 
 	// Defined by https://github.com/grpc/proposal/blob/c5722a35e71f83f07535c6c7c890cf0c58ec90c0/A27-xds-global-load-balancing.md#xdsclient-and-bootstrap-file
 	grpcBootstrapEnv = env.Register("GRPC_XDS_BOOTSTRAP", filepath.Join(constants.ConfigPathDir, "grpc-bootstrap.json"),

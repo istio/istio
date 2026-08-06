@@ -47,6 +47,10 @@ func (*meshDataplane) RemovePodFromMesh(ctx context.Context, pod *corev1.Pod, is
 	return errNotImplemented
 }
 
+func (*meshDataplane) SyncHostProbeIPSet(pod *corev1.Pod, podIPs []netip.Addr) error {
+	return errNotImplemented
+}
+
 func (*meshDataplane) Stop(skipCleanup bool) {
 	// not supported
 	return

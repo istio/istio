@@ -73,6 +73,7 @@ func All() []analysis.Analyzer {
 		&virtualservice.GatewayAnalyzer{},
 		&virtualservice.JWTClaimRouteAnalyzer{},
 		&serviceentry.ProtocolAddressesAnalyzer{},
+		&serviceentry.ConflictingServiceEntryProtocolAnalyzer{},
 		&webhook.Analyzer{},
 		&telemetry.ProviderAnalyzer{},
 		&telemetry.SelectorAnalyzer{},

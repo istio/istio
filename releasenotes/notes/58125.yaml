@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 58125
+
+releaseNotes:
+- |
+  **Fixed** a bug where inbound clusters were missing for proxies that reconnected to a new istiod
+  instance (e.g. during rolling restarts) when the pod was not yet present in the kube informer cache.
+  Workload labels are now populated before service targets are computed, so the metadata fallback path
+  in `GetProxyServiceTargets` correctly matches services instead of returning an empty list.

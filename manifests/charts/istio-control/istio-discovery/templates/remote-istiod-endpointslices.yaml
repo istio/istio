@@ -12,7 +12,7 @@ metadata:
   {{- else }}
   name: istiod{{- if .Values.revision }}-{{ .Values.revision}}{{- end }}
   {{- end }}
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ .Release.Namespace | quote }}
   labels:
     {{- if .Values.istiodRemote.enabledLocalInjectorIstiod }}
     # only primary `istiod` to xds and local `istiod` injection installs.

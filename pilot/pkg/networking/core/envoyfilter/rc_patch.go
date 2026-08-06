@@ -25,7 +25,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/runtime"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/proto/merge"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
@@ -54,12 +53,12 @@ func ApplyRouteConfigurationPatches(
 
 	// only merge is applicable for route configuration.
 	for _, rp := range efw.Patches[networking.EnvoyFilter_ROUTE_CONFIGURATION] {
-		if rp.Operation != networking.EnvoyFilter_Patch_MERGE {
+		if !isMergeOperation(rp.Operation) {
 			continue
 		}
 		if commonConditionMatch(patchContext, rp) &&
 			routeConfigurationMatch(patchContext, routeConfiguration, rp, portMap) {
-			merge.Merge(routeConfiguration, rp.Value)
+			mergePatchValue(rp.Operation, routeConfiguration, rp.Value)
 			IncrementEnvoyFilterMetric(rp.Key(), Route, true)
 		} else {
 			IncrementEnvoyFilterMetric(rp.Key(), Route, false)
@@ -117,8 +116,8 @@ func patchVirtualHost(patchContext networking.EnvoyFilter_PatchContext,
 			applied = true
 			if rp.Operation == networking.EnvoyFilter_Patch_REMOVE {
 				return true
-			} else if rp.Operation == networking.EnvoyFilter_Patch_MERGE {
-				merge.Merge(virtualHosts[idx], rp.Value)
+			} else if isMergeOperation(rp.Operation) {
+				mergePatchValue(rp.Operation, virtualHosts[idx], rp.Value)
 			} else if rp.Operation == networking.EnvoyFilter_Patch_REPLACE {
 				virtualHosts[idx] = proto.Clone(rp.Value).(*route.VirtualHost)
 			}
@@ -251,9 +250,9 @@ func patchHTTPRoute(patchContext networking.EnvoyFilter_PatchContext,
 				virtualHost.Routes[routeIndex] = nil
 				*routesRemoved = true
 				return
-			} else if rp.Operation == networking.EnvoyFilter_Patch_MERGE {
+			} else if isMergeOperation(rp.Operation) {
 				cloneVhostRouteByRouteIndex(virtualHost, routeIndex)
-				merge.Merge(virtualHost.Routes[routeIndex], rp.Value)
+				mergePatchValue(rp.Operation, virtualHost.Routes[routeIndex], rp.Value)
 			}
 			applied = true
 		}

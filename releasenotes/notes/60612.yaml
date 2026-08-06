@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - https://github.com/istio/istio/issues/60612
+releaseNotes:
+  - |
+    **Fixed** a bug where istiod did not pick up updated remote cluster secrets (e.g. during
+    credential/token rotation) until restarted. The new cluster registry could deadlock waiting
+    to sync, leaving the service registry stale for the affected remote cluster.

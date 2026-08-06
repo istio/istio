@@ -9,7 +9,7 @@ spec:
     name: {{ .To.ServiceName }}-gateway
   jwtRules:
   - issuer: "test-issuer-1@istio.io"
-    jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
+    jwksUri: "{{ .JWTServer.JwksURI }}"
 --- 
 apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy

@@ -1,0 +1,17 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 60328
+
+releaseNotes:
+  - |
+    **Fixed** a fatal `concurrent map writes` panic in the istio-cni agent when
+    two pods were added to the ambient mesh on the same node at the same time.
+  - |
+    **Added** an initialization check that verifies the bundled `nft` binary
+    supports JSON output. The native nftables backend requires JSON to read 
+    configuration during pod removal. On hosts whose `nft` binary doesn't
+    support JSON, those calls fail with `Error: JSON support not compiled-in` on
+    every removal, and the CNI agent retries indefinitely. The new check detects
+    this error at startup and falls back to the iptables backend.

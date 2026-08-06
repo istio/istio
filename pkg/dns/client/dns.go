@@ -28,6 +28,7 @@ import (
 	"github.com/miekg/dns"
 
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	dnsProto "istio.io/istio/pkg/dns/proto"
 	istiolog "istio.io/istio/pkg/log"
@@ -144,7 +145,7 @@ func NewLocalDNSServer(proxyNamespace, proxyDomain string, addr string, opts ...
 			}
 		} else {
 			log.Error("DNS address :53 and not running as root, use default")
-			addr = "localhost:15053"
+			addr = constants.DefaultDNSProxyAddr
 		}
 	}
 
@@ -172,7 +173,7 @@ func NewLocalDNSServer(proxyNamespace, proxyDomain string, addr string, opts ...
 	log.WithLabels("search", h.searchNamespaces, "servers", h.resolvConfServers).Debugf("initialized DNS")
 
 	if addr == "" {
-		addr = "localhost:15053"
+		addr = constants.DefaultDNSProxyAddr
 	}
 	v4, v6 := netutil.ParseIPsSplitToV4V6(dnsConfig.Servers)
 	host, port, err := net.SplitHostPort(addr)

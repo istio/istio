@@ -665,6 +665,30 @@ func TestOptions(t *testing.T) {
 			option:   option.EnvoyStatsEvictionInterval(durationpb.New(time.Second * 120)),
 			expected: "120s",
 		},
+		{
+			testName: "secure metrics port zero skipped",
+			key:      "secure_metrics_port",
+			option:   option.SecureMetricsPort(0),
+			expected: nil,
+		},
+		{
+			testName: "secure metrics port non-zero",
+			key:      "secure_metrics_port",
+			option:   option.SecureMetricsPort(15091),
+			expected: 15091,
+		},
+		{
+			testName: "secure merged metrics port zero skipped",
+			key:      "secure_merged_metrics_port",
+			option:   option.SecureMergedMetricsPort(0),
+			expected: nil,
+		},
+		{
+			testName: "secure merged metrics port non-zero",
+			key:      "secure_merged_metrics_port",
+			option:   option.SecureMergedMetricsPort(15092),
+			expected: 15092,
+		},
 	}
 
 	for _, c := range cases {

@@ -40,6 +40,107 @@ import (
 	"istio.io/istio/pkg/workloadapi"
 )
 
+// TestWeightedWaypointEndpointsFailsClosed verifies weighted waypoint routing never falls back to direct endpoints.
+func TestWeightedWaypointEndpointsFailsClosed(t *testing.T) {
+	svc := &model.Service{
+		Hostname:   "example.ns.svc.cluster.local",
+		Attributes: model.ServiceAttributes{Name: "example", Namespace: "ns"},
+		Ports:      model.PortList{{Port: 80, Protocol: protocol.HTTP, Name: "http"}},
+	}
+	// A waypoint service that has ready endpoints.
+	wpSvc := &model.Service{
+		Hostname:   "wp.ns.svc.cluster.local",
+		Attributes: model.ServiceAttributes{Name: "wp", Namespace: "ns"},
+		Ports:      model.PortList{{Port: 15008, Protocol: protocol.HTTP, Name: "hbone"}},
+	}
+
+	endpointIndex := model.NewEndpointIndex(model.NewXdsCache())
+	wpShards, _ := endpointIndex.GetOrCreateEndpointShard("wp.ns.svc.cluster.local", "ns")
+	wpShards.Lock()
+	wpShards.Shards[model.ShardKey{Cluster: "cluster1"}] = []*model.IstioEndpoint{
+		{Addresses: []string{"10.1.0.1"}, ServicePortName: "hbone", EndpointPort: 15008, HostName: "wp.ns.svc.cluster.local", Namespace: "ns"},
+		{Addresses: []string{"10.1.0.2"}, ServicePortName: "hbone", EndpointPort: 15008, HostName: "wp.ns.svc.cluster.local", Namespace: "ns"},
+	}
+	wpShards.Unlock()
+
+	proxy := &model.Proxy{
+		Type:            model.Router,
+		IPAddresses:     []string{"127.0.0.1"},
+		Metadata:        &model.NodeMetadata{Namespace: "ns", NodeName: "gw"},
+		ConfigNamespace: "ns",
+	}
+
+	env := model.NewEnvironment()
+	configStore := model.NewFakeStore()
+	env.ConfigStore = configStore
+	env.Watcher = meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-system"})
+	env.NetworksWatcher = meshwatcher.NewFixedNetworksWatcher(nil)
+	env.ServiceDiscovery = &localServiceDiscovery{services: []*model.Service{svc, wpSvc}}
+	xdsUpdater := xdsfake.NewFakeXDS()
+	if err := env.InitNetworksManager(xdsUpdater); err != nil {
+		t.Fatal(err)
+	}
+	env.VirtualServiceController = model.NewVirtualServiceController(
+		configStore,
+		model.VSControllerOptions{KrtDebugger: krt.GlobalDebugHandler},
+		env.Watcher,
+	)
+	stop := test.NewStop(t)
+	go configStore.Run(stop)
+	go env.VirtualServiceController.Run(stop)
+	kube.WaitForCacheSync("test", stop, configStore.HasSynced)
+	kube.WaitForCacheSync("test", stop, env.VirtualServiceController.HasSynced)
+	env.Init()
+
+	push := model.NewPushContext()
+	push.InitContext(env, nil, nil)
+	env.SetPushContext(push)
+	proxy.SetSidecarScope(push)
+
+	b := NewCDSEndpointBuilder(
+		proxy, push,
+		"outbound|80||example.ns.svc.cluster.local",
+		model.TrafficDirectionOutbound, "", "example.ns.svc.cluster.local", 80,
+		svc, nil)
+
+	cases := []struct {
+		name          string
+		weighted      []model.WeightedWaypointHostname
+		wantEndpoints int
+	}{
+		{
+			name: "all weighted waypoints empty still fails closed",
+			weighted: []model.WeightedWaypointHostname{
+				{Hostname: "missing.ns.svc.cluster.local", HboneMtlsPort: 15008, Weight: 50},
+				{Hostname: "also-missing.ns.svc.cluster.local", HboneMtlsPort: 15008, Weight: 50},
+			},
+			wantEndpoints: 0,
+		},
+		{
+			name: "populated waypoint returns its endpoints",
+			weighted: []model.WeightedWaypointHostname{
+				{Hostname: "wp.ns.svc.cluster.local", HboneMtlsPort: 15008, Weight: 50},
+			},
+			wantEndpoints: 2,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			info := model.ServiceWaypointInfo{
+				Service:           &workloadapi.Service{Hostname: "example", Namespace: "ns"},
+				WeightedWaypoints: tc.weighted,
+			}
+			eps, found := b.weightedWaypointEndpoints(info, endpointIndex)
+			if !found {
+				t.Fatalf("expected found=true, got false")
+			}
+			if len(eps) != tc.wantEndpoints {
+				t.Fatalf("expected %d endpoints, got %d", tc.wantEndpoints, len(eps))
+			}
+		})
+	}
+}
+
 // mockAmbientIndex is a test implementation of AmbientIndexes that returns mock service info
 type mockAmbientIndex struct {
 	model.NoopAmbientIndexes
@@ -551,6 +652,91 @@ func TestFilterIstioEndpoint(t *testing.T) {
 			expected := builder.filterIstioEndpoint(tt.ep)
 			if !reflect.DeepEqual(tt.expected, expected) {
 				t.Fatalf("expected  %v but got %v", tt.expected, expected)
+			}
+		})
+	}
+}
+
+func TestSupportsUnhealthyEndpoints(t *testing.T) {
+	svc := &model.Service{
+		Hostname: "example.ns.svc.cluster.local",
+		Attributes: model.ServiceAttributes{
+			Name:      "example",
+			Namespace: "ns",
+		},
+		Ports: model.PortList{{Port: 80, Protocol: protocol.HTTP, Name: "http"}},
+	}
+
+	makeDR := func(minHealthPercent int32) *config.Config {
+		return &config.Config{
+			Meta: config.Meta{
+				Name:      "dr",
+				Namespace: "ns",
+			},
+			Spec: &networking.DestinationRule{
+				Host: "example.ns.svc.cluster.local",
+				TrafficPolicy: &networking.TrafficPolicy{
+					OutlierDetection: &networking.OutlierDetection{
+						MinHealthPercent: minHealthPercent,
+					},
+				},
+			},
+		}
+	}
+
+	tests := []struct {
+		name                 string
+		dr                   *config.Config
+		globalSendUnhealthy  bool
+		defaultSendUnhealthy bool
+		want                 bool
+	}{
+		{
+			name: "both flags off",
+			want: false,
+		},
+		{
+			name:                "GlobalSendUnhealthyEndpoints=true",
+			globalSendUnhealthy: true,
+			want:                true,
+		},
+		{
+			name:                 "DefaultSendUnhealthyEndpoints=true, no DR",
+			defaultSendUnhealthy: true,
+			want:                 true,
+		},
+		{
+			name:                 "DefaultSendUnhealthyEndpoints=true, DR minHealthPercent=0",
+			defaultSendUnhealthy: true,
+			dr:                   makeDR(0),
+			want:                 true,
+		},
+		{
+			name:                 "DefaultSendUnhealthyEndpoints=true, DR minHealthPercent=50",
+			defaultSendUnhealthy: true,
+			dr:                   makeDR(50),
+			want:                 false,
+		},
+		{
+			name:                "GlobalSendUnhealthyEndpoints overrides DR minHealthPercent",
+			globalSendUnhealthy: true,
+			dr:                  makeDR(50),
+			want:                true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			test.SetAtomicBoolForTest(t, features.GlobalSendUnhealthyEndpoints, tt.globalSendUnhealthy)
+			test.SetAtomicBoolForTest(t, features.DefaultSendUnhealthyEndpoints, tt.defaultSendUnhealthy)
+
+			var dr *networking.DestinationRule
+			if tt.dr != nil {
+				dr = tt.dr.Spec.(*networking.DestinationRule)
+			}
+
+			if got := supportsUnhealthyEndpoints(svc, dr, 80, ""); got != tt.want {
+				t.Errorf("supportsUnhealthyEndpoints() = %v, want %v", got, tt.want)
 			}
 		})
 	}

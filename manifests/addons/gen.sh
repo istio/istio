@@ -26,15 +26,15 @@ ADDONS="${WD}/../../samples/addons"
 DASHBOARDS="${WD}/dashboards"
 mkdir -p "${ADDONS}"
 TMP=$(mktemp -d)
-LOKI_VERSION=${LOKI_VERSION:-"6.53.0"}
+LOKI_VERSION=${LOKI_VERSION:-"7.0.0"}
 GRAFANA_VERSION=${GRAFANA_VERSION:-"9.2.2"}
 
 # Set up kiali
 {
 helm template kiali-server \
   --namespace istio-system \
-  --version 2.26.0 \
-  --set deployment.image_version=v2.26 \
+  --version 2.27.0 \
+  --set deployment.image_version=v2.27 \
   --include-crds \
   kiali-server \
   --repo https://kiali.org/helm-charts \

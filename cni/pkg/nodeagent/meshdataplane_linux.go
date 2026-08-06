@@ -237,6 +237,13 @@ func (s *meshDataplane) RemovePodFromMesh(ctx context.Context, pod *corev1.Pod, 
 	return nil
 }
 
+// SyncHostProbeIPSet re-asserts an already-enrolled pod's probe IPs in the host ipset
+// (see the MeshDataplane interface for why). addPodToHostAddrSet is an idempotent upsert.
+func (s *meshDataplane) SyncHostProbeIPSet(pod *corev1.Pod, podIPs []netip.Addr) error {
+	_, err := s.addPodToHostAddrSet(pod, podIPs)
+	return err
+}
+
 // syncHostAddrSets is called after the host node ipset has been created (or found + flushed)
 // during initial snapshot creation, it will insert every snapshotted pod's IP into the set.
 //
@@ -245,11 +252,19 @@ func (s *meshDataplane) RemovePodFromMesh(ctx context.Context, pod *corev1.Pod, 
 // which is all we can do - these pods will fail healthcheck until the IPAM issue is resolved (which seems reasonable)
 func (s *meshDataplane) syncHostAddrSets(ambientPods []*corev1.Pod) error {
 	var addedIPSnapshot []netip.Addr
+	// If any enrolled pod is read without an IP, this snapshot is not a trustworthy view of
+	// what *should* be in the set. This happens when kubelet has not re-posted Status.PodIPs
+	// yet (node/kubelet restart) or the informer cache is not warm at scale. Pruning against
+	// such a snapshot evicts still-enrolled, still-running pods from the probe ipset, killing
+	// their kubelet probes until the next agent restart. Track it and skip the destructive
+	// prune below; the pod is re-added once its IP is observable.
+	snapshotIncomplete := false
 
 	for _, pod := range ambientPods {
 		podIPs := util.GetPodIPsIfPresent(pod)
 		if len(podIPs) == 0 {
-			log.Warnf("pod %s does not appear to have any assigned IPs, not syncing with ipset", pod.Name)
+			log.Warnf("pod %s does not appear to have any assigned IPs yet, deferring ipset sync", pod.Name)
+			snapshotIncomplete = true
 		} else {
 			addedIps, err := s.addPodToHostAddrSet(pod, podIPs)
 			if err != nil {
@@ -258,6 +273,14 @@ func (s *meshDataplane) syncHostAddrSets(ambientPods []*corev1.Pod) error {
 			addedIPSnapshot = append(addedIPSnapshot, addedIps...)
 		}
 
+	}
+
+	if snapshotIncomplete {
+		// Skipping the prune is safe: genuinely stale entries (pods that left while the agent
+		// was down) are harmless and get reaped by RemovePodFromMesh or the next complete
+		// startup snapshot. Evicting a live, still-enrolled pod is not safe - that is the bug.
+		log.Warn("startup ipset snapshot incomplete (some enrolled pods had no IP yet); skipping prune to avoid evicting still-enrolled pods")
+		return nil
 	}
 	return pruneHostAddrSet(sets.New(addedIPSnapshot...), s.hostAddrSet)
 }

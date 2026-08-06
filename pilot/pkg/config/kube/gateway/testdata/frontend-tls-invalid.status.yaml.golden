@@ -23,9 +23,9 @@ status:
     value: 1.2.3.4
   conditions:
   - lastTransitionTime: fake
-    message: Resource accepted
-    reason: Accepted
-    status: "True"
+    message: None of the Gateway's listeners are valid
+    reason: ListenersNotValid
+    status: "False"
     type: Accepted
   - lastTransitionTime: fake
     message: Resource programmed, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:443
@@ -81,8 +81,8 @@ status:
     value: 1.2.3.4
   conditions:
   - lastTransitionTime: fake
-    message: Resource accepted
-    reason: Accepted
+    message: One or more of the Gateway's listeners are invalid
+    reason: ListenersNotValid
     status: "True"
     type: Accepted
   - lastTransitionTime: fake

@@ -23,6 +23,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -44,7 +45,7 @@ func TestTaintsRemoved(t *testing.T) {
 
 				for _, node := range nodes.Items {
 					for _, taint := range node.Spec.Taints {
-						if taint.Key == "cni.istio.io/not-ready" {
+						if taint.Key == features.NodeUntaintTaintName {
 							return fmt.Errorf("node %v still has taint %v", node.Name, taint)
 						}
 					}

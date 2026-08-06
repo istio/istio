@@ -308,7 +308,10 @@ func createNamespaceLabels(ctx resource.Context, cfg Config) map[string]string {
 		if !ctx.Settings().Compatibility {
 			if cfg.Revision != "" {
 				l[label.IoIstioRev.Name] = cfg.Revision
-			} else {
+			} else if !ctx.Settings().GatewayAPIOnly {
+				// GatewayAPIOnly mode runs istiod without the sidecar-injector webhook,
+				// so the istio-injection label has no effect. Skip it to make intent clear
+				// and to avoid confusion when reading the namespace state.
 				l["istio-injection"] = "enabled"
 			}
 		}

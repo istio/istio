@@ -28,9 +28,9 @@ RUN apt-get update && \
     && apt-get clean \
     && rm -rf  /var/log/*log /var/lib/apt/lists/* /var/log/apt/* /var/lib/dpkg/*-old /var/cache/debconf/*-old
 
-RUN if [ -f /usr/sbin/iptables-legacy ]; then \
-    update-alternatives --set iptables /usr/sbin/iptables-legacy && \
-    update-alternatives --set ip6tables /usr/sbin/ip6tables-legacy; fi
+RUN if [ -f /usr/sbin/iptables-nft ]; then \
+    update-alternatives --set iptables /usr/sbin/iptables-nft && \
+    update-alternatives --set ip6tables /usr/sbin/ip6tables-nft; fi
 
 # Add a user that will run the application. This allows running as this user and capture iptables
 RUN useradd -m --uid 1338 application && \

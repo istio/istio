@@ -350,6 +350,127 @@ var (
 		},
 	}
 
+	RequestSourceFilterPre1_29_2 = &hcm.HttpFilter{
+		Name: "request_source",
+		ConfigType: &hcm.HttpFilter_TypedConfig{
+			TypedConfig: protoconv.MessageToAny(&sfs.Config{
+				OnRequestHeaders: []*sfsvalue.FilterStateValue{
+					{
+						Key: &sfsvalue.FilterStateValue_ObjectKey{
+							ObjectKey: RequestSourceFilterStateKey,
+						},
+						Value: &sfsvalue.FilterStateValue_FormatString{
+							FormatString: &core.SubstitutionFormatString{
+								Format: &core.SubstitutionFormatString_TextFormatSource{
+									TextFormatSource: &core.DataSource{
+										Specifier: &core.DataSource_InlineString{
+											InlineString: "%REQ(x-istio-source)%",
+										},
+									},
+								},
+							},
+						},
+						FactoryKey:         "envoy.string",
+						SharedWithUpstream: sfsvalue.FilterStateValue_ONCE,
+					},
+				},
+			}),
+		},
+	}
+
+	ConnectAuthorityFilterPre1_29_2 = &hcm.HttpFilter{
+		Name: "connect_authority",
+		ConfigType: &hcm.HttpFilter_TypedConfig{
+			TypedConfig: protoconv.MessageToAny(&sfs.Config{
+				OnRequestHeaders: []*sfsvalue.FilterStateValue{
+					{
+						Key: &sfsvalue.FilterStateValue_ObjectKey{
+							ObjectKey: OriginalDstFilterStateKey,
+						},
+						Value: &sfsvalue.FilterStateValue_FormatString{
+							FormatString: &core.SubstitutionFormatString{
+								Format: &core.SubstitutionFormatString_TextFormatSource{
+									TextFormatSource: &core.DataSource{
+										Specifier: &core.DataSource_InlineString{
+											InlineString: "%REQ(:AUTHORITY)%",
+										},
+									},
+								},
+							},
+						},
+						SharedWithUpstream: sfsvalue.FilterStateValue_ONCE,
+					}, {
+						Key: &sfsvalue.FilterStateValue_ObjectKey{
+							ObjectKey: AuthorityFilterStateKey,
+						},
+						Value: &sfsvalue.FilterStateValue_FormatString{
+							FormatString: &core.SubstitutionFormatString{
+								Format: &core.SubstitutionFormatString_TextFormatSource{
+									TextFormatSource: &core.DataSource{
+										Specifier: &core.DataSource_InlineString{
+											InlineString: "%REQ(:AUTHORITY)%",
+										},
+									},
+								},
+							},
+						},
+						FactoryKey:         "envoy.string",
+						SharedWithUpstream: sfsvalue.FilterStateValue_ONCE,
+					}, {
+						Key: &sfsvalue.FilterStateValue_ObjectKey{
+							ObjectKey: "envoy.filters.listener.original_dst.remote_ip",
+						},
+						Value: &sfsvalue.FilterStateValue_FormatString{
+							FormatString: &core.SubstitutionFormatString{
+								Format: &core.SubstitutionFormatString_TextFormatSource{
+									TextFormatSource: &core.DataSource{
+										Specifier: &core.DataSource_InlineString{
+											InlineString: "%DOWNSTREAM_REMOTE_ADDRESS%",
+										},
+									},
+								},
+							},
+						},
+						SharedWithUpstream: sfsvalue.FilterStateValue_ONCE,
+					}, {
+						Key: &sfsvalue.FilterStateValue_ObjectKey{
+							ObjectKey: "io.istio.peer_principal",
+						},
+						FactoryKey: "envoy.string",
+						Value: &sfsvalue.FilterStateValue_FormatString{
+							FormatString: &core.SubstitutionFormatString{
+								Format: &core.SubstitutionFormatString_TextFormatSource{
+									TextFormatSource: &core.DataSource{
+										Specifier: &core.DataSource_InlineString{
+											InlineString: "%DOWNSTREAM_PEER_URI_SAN%",
+										},
+									},
+								},
+							},
+						},
+						SharedWithUpstream: sfsvalue.FilterStateValue_ONCE,
+					}, {
+						Key: &sfsvalue.FilterStateValue_ObjectKey{
+							ObjectKey: "io.istio.local_principal",
+						},
+						FactoryKey: "envoy.string",
+						Value: &sfsvalue.FilterStateValue_FormatString{
+							FormatString: &core.SubstitutionFormatString{
+								Format: &core.SubstitutionFormatString_TextFormatSource{
+									TextFormatSource: &core.DataSource{
+										Specifier: &core.DataSource_InlineString{
+											InlineString: "%DOWNSTREAM_LOCAL_URI_SAN%",
+										},
+									},
+								},
+							},
+						},
+						SharedWithUpstream: sfsvalue.FilterStateValue_ONCE,
+					},
+				},
+			}),
+		},
+	}
 	ConnectAuthorityNetworkFilter = &listener.Filter{
 		Name: "connect_authority",
 		ConfigType: &listener.Filter_TypedConfig{
@@ -674,21 +795,21 @@ func additionalLabels(cfg map[string]any) {
 }
 
 // BuildWaypointInboundDFPFilter builds a dynamic forward proxy filter for waypoint inbound listeners
-// using the specified DNS cache config name. This name must match the name used in the corresponding
-// dynamic forward proxy cluster.
-func BuildWaypointInboundDFPFilter(dnsCacheConfigName string) *hcm.HttpFilter {
-	return buildDynamicForwardProxyFilter(dnsCacheConfigName)
+// using the specified DNS cache config name and lookup family. The name and lookup family must match
+// those used in the corresponding dynamic forward proxy cluster, since Envoy dedupes DNS caches by name.
+func BuildWaypointInboundDFPFilter(dnsCacheConfigName string, lookupFamily cluster.Cluster_DnsLookupFamily) *hcm.HttpFilter {
+	return buildDynamicForwardProxyFilter(dnsCacheConfigName, lookupFamily)
 }
 
 // BuildSidecarOutboundDynamicForwardProxyFilter builds a dynamic forward proxy filter for sidecar outbound listeners
-// using the specified DNS cache config name. This name must match the name used in the corresponding
-// dynamic forward proxy cluster.
-func BuildSidecarOutboundDynamicForwardProxyFilter(dnsCacheConfigName string) *hcm.HttpFilter {
-	return buildDynamicForwardProxyFilter(dnsCacheConfigName)
+// using the specified DNS cache config name and lookup family. The name and lookup family must match those used in
+// the corresponding dynamic forward proxy cluster, since Envoy dedupes DNS caches by name.
+func BuildSidecarOutboundDynamicForwardProxyFilter(dnsCacheConfigName string, lookupFamily cluster.Cluster_DnsLookupFamily) *hcm.HttpFilter {
+	return buildDynamicForwardProxyFilter(dnsCacheConfigName, lookupFamily)
 }
 
-// buildDynamicForwardProxyFilter builds a DFP HTTP filter using the specified DNS cache config name.
-func buildDynamicForwardProxyFilter(dnsCacheConfigName string) *hcm.HttpFilter {
+// buildDynamicForwardProxyFilter builds a DFP HTTP filter using the specified DNS cache config name and lookup family.
+func buildDynamicForwardProxyFilter(dnsCacheConfigName string, lookupFamily cluster.Cluster_DnsLookupFamily) *hcm.HttpFilter {
 	return &hcm.HttpFilter{
 		Name: "envoy.filters.http.dynamic_forward_proxy",
 		ConfigType: &hcm.HttpFilter_TypedConfig{
@@ -696,7 +817,7 @@ func buildDynamicForwardProxyFilter(dnsCacheConfigName string) *hcm.HttpFilter {
 				ImplementationSpecifier: &dfp.FilterConfig_DnsCacheConfig{
 					DnsCacheConfig: &dfpcommon.DnsCacheConfig{
 						Name:            dnsCacheConfigName,
-						DnsLookupFamily: cluster.Cluster_V4_ONLY,
+						DnsLookupFamily: lookupFamily,
 					},
 				},
 			}),

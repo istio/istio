@@ -1,0 +1,21 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 60310
+releaseNotes:
+  - |
+    **Fixed** an issue where the waypoint listener config on IPv6 clusters
+    contained an `IPMatcher.RangeMatcher` with an empty `ranges` field when a
+    headless Service (`spec.clusterIP: None`) was present in the waypoint's
+    scope. This was produced because the IPv4-encoded `constants.UnspecifiedIP`
+    placeholder used for headless services' `DefaultAddress` is filtered out
+    for IPv6-only proxies by `FilterAddressesByIPFamily`. Envoy 1.38
+    strict-validates the proto's `repeated.min_items=1` rule on
+    `IPMatcher.RangeMatcher.ranges` and rejects the LDS push. The waypoint
+    listener builder now elides the `IPRangeMatcher` entry when there are no
+    addresses to put into it, matching the existing behaviour of the
+    surrounding code that already removes the hostname half from
+    `svcHostnameMap` for the same case. IPv4 clusters are unaffected
+    behaviourally — the placeholder matcher that was previously emitted
+    matched nothing.

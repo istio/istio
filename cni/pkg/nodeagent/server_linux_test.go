@@ -612,11 +612,45 @@ func TestMeshDataplaneSyncHostIPSetsAddsNothingIfPodHasNoIPs(t *testing.T) {
 	setWrapper := set.NewIPSetWrapper(ipsetInstance)
 	m := getFakeDPWithAddressSet(server, fakeClientSet, setWrapper)
 
-	fakeIPSetDeps.On("listEntriesByIP",
-		"foo-v4",
-	).Return([]netip.Addr{}, nil)
-
+	// The pod has no IP, so the snapshot is incomplete and we must NOT prune - pruning
+	// against an incomplete snapshot would evict still-enrolled pods. So neither addIP
+	// nor listEntriesByIP (the prune) should be called here.
 	err := m.syncHostAddrSets([]*corev1.Pod{pod})
+	assert.NoError(t, err)
+	fakeIPSetDeps.AssertExpectations(t)
+}
+
+// TestMeshDataplaneSyncHostIPSetsSkipsPruneIfSnapshotIncomplete asserts that when at least
+// one enrolled pod is read without an IP (the cold-cache / post-restart condition), we add
+// the pods we can but skip the destructive prune, so pre-existing entries for still-enrolled
+// pods are preserved rather than evicted.
+func TestMeshDataplaneSyncHostIPSetsSkipsPruneIfSnapshotIncomplete(t *testing.T) {
+	withIP := buildConvincingPod(false)
+	noIP := buildConvincingPod(false)
+	noIP.ObjectMeta.UID = "no-ip-pod-uid"
+	noIP.Status.PodIP = ""
+	noIP.Status.PodIPs = []corev1.PodIP{}
+
+	podUID := string(withIP.ObjectMeta.UID)
+	ipProto := uint8(unix.IPPROTO_TCP)
+
+	fakeCtx := context.Background()
+	server := &fakeServer{}
+	server.Start(fakeCtx)
+	fakeClientSet := fake.NewClientset()
+
+	fakeIPSetDeps := ipset.FakeNLDeps()
+	ipsetInstance := ipset.IPSet{V4Name: "foo-v4", Prefix: "foo", Deps: fakeIPSetDeps}
+	setWrapper := set.NewIPSetWrapper(ipsetInstance)
+	m := getFakeDPWithAddressSet(server, fakeClientSet, setWrapper)
+
+	// The pod that has IPs is still added.
+	fakeIPSetDeps.On("addIP", "foo-v4", netip.MustParseAddr("3.3.3.3"), ipProto, podUID, true).Return(nil)
+	fakeIPSetDeps.On("addIP", "foo-v4", netip.MustParseAddr("2.2.2.2"), ipProto, podUID, true).Return(nil)
+
+	// Crucially, listEntriesByIP / clearEntriesWithIP are NOT expected: prune is skipped
+	// because the snapshot was incomplete. AssertExpectations fails if prune ran.
+	err := m.syncHostAddrSets([]*corev1.Pod{withIP, noIP})
 	assert.NoError(t, err)
 	fakeIPSetDeps.AssertExpectations(t)
 }

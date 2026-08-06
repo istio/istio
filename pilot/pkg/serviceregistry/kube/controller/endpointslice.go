@@ -85,12 +85,12 @@ func (esc *endpointSliceController) initializeNamespace(ns string, filtered bool
 	return err.ErrorOrNil()
 }
 
-func (esc *endpointSliceController) onEvent(_, ep *v1.EndpointSlice, event model.Event) error {
-	esc.onEventInternal(nil, ep, event)
+func (esc *endpointSliceController) onEvent(old, ep *v1.EndpointSlice, event model.Event) error {
+	esc.onEventInternal(old, ep, event)
 	return nil
 }
 
-func (esc *endpointSliceController) onEventInternal(_, ep *v1.EndpointSlice, event model.Event) {
+func (esc *endpointSliceController) onEventInternal(old, ep *v1.EndpointSlice, event model.Event) {
 	esLabels := ep.GetLabels()
 	if !endpointSliceSelector.Matches(klabels.Set(esLabels)) {
 		return
@@ -102,6 +102,9 @@ func (esc *endpointSliceController) onEventInternal(_, ep *v1.EndpointSlice, eve
 	if event == model.EventDelete {
 		esc.deleteEndpointSlice(ep)
 	} else {
+		if event == model.EventUpdate && old != nil {
+			esc.cleanupRemovedEndpoints(old, ep)
+		}
 		esc.updateEndpointSlice(ep)
 	}
 
@@ -228,6 +231,26 @@ func (esc *endpointSliceController) deleteEndpointSlice(slice *v1.EndpointSlice)
 		// endpointSlice cache update
 		if esc.endpointCache.has(hostName) {
 			esc.endpointCache.delete(hostName, slice.Name)
+		}
+	}
+}
+
+// cleanupRemovedEndpoints calls endpointDeleted for any IP present in old but absent in cur.
+// This prevents needResync entries from leaking when an EndpointSlice UPDATE removes an address
+// (e.g. after a pod fails and is filtered from the pod cache by the FieldSelector added in #58250).
+func (esc *endpointSliceController) cleanupRemovedEndpoints(old, cur *v1.EndpointSlice) {
+	curAddrs := sets.New[string]()
+	for _, e := range cur.Endpoints {
+		for _, a := range e.Addresses {
+			curAddrs.Insert(a)
+		}
+	}
+	key := config.NamespacedName(cur)
+	for _, e := range old.Endpoints {
+		for _, a := range e.Addresses {
+			if !curAddrs.Contains(a) {
+				esc.c.pods.endpointDeleted(key, a)
+			}
 		}
 	}
 }

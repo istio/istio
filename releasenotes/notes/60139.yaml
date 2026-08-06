@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 60139
+releaseNotes:
+- |
+  **Added** support for excluding namespaces and hosts from a `Sidecar` egress listener's `hosts`
+  using a `~` prefix on the namespace. Entries without a prefix are imported as before, and
+  `~`-prefixed entries subtract from them: `~ns1/*` excludes all hosts in `ns1`, and `~/foo.com`
+  excludes `foo.com` from every namespace. This lets large meshes import everything except a few
+  namespaces (e.g. `*/*` plus `~ns1/*`) without enumerating a long allowlist.

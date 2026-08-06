@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: istio-ingress
-  namespace: istio-ingress
+  namespace: "istio-ingress"
   labels:
     app.kubernetes.io/name: istio-ingress
     app.kubernetes.io/managed-by: "Helm"

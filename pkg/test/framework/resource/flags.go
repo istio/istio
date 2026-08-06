@@ -52,11 +52,17 @@ func SettingsFromCommandLine(testID string) (*Settings, error) {
 	}
 
 	// NOTE: not using echo.VM, etc. here to avoid circular dependency.
-	if s.SkipVM {
+
+	// VM auto-registration relies on Pilot reconciling WorkloadEntry, which is disabled
+	// under GatewayAPIOnly
+	if s.SkipVM || s.GatewayAPIOnly {
 		s.SkipWorkloadClasses = append(s.SkipWorkloadClasses, "vm")
 	}
 	if s.SkipTProxy {
 		s.SkipWorkloadClasses = append(s.SkipWorkloadClasses, "tproxy")
+	}
+	if s.SkipUserNamespace {
+		s.SkipWorkloadClasses = append(s.SkipWorkloadClasses, "userns")
 	}
 	// Allow passing a single CSV flag as well
 	normalized := make(ArrayFlags, 0)
@@ -187,6 +193,9 @@ func init() {
 
 	flag.BoolVar(&settingsFromCommandLine.SkipTProxy, "istio.test.skipTProxy", settingsFromCommandLine.SkipTProxy,
 		"Skip TProxy related parts in all tests.")
+
+	flag.BoolVar(&settingsFromCommandLine.SkipUserNamespace, "istio.test.skipUserNs", true,
+		"Skip user namespace related parts in all tests.")
 
 	flag.BoolVar(&settingsFromCommandLine.Ambient, "istio.test.ambient", settingsFromCommandLine.Ambient,
 		"Indicate the use of ambient mesh.")

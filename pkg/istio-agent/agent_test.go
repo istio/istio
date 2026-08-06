@@ -526,6 +526,8 @@ func TestAgent(t *testing.T) {
 			a.ProxyConfig.ProxyAdminPort = 15000
 			a.AgentConfig.EnvoyPrometheusPort = 15090
 			a.AgentConfig.EnvoyStatusPort = 15021
+			a.AgentConfig.EnvoySecureMetricsPort = 15091
+			a.AgentConfig.EnvoySecureMergedMetricsPort = 15092
 			return a
 		}).Check(t, security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
 		envoyReady(t, "first agent", 15000)
@@ -535,6 +537,8 @@ func TestAgent(t *testing.T) {
 			a.ProxyConfig.ProxyAdminPort = 25000
 			a.AgentConfig.EnvoyPrometheusPort = 25090
 			a.AgentConfig.EnvoyStatusPort = 25021
+			a.AgentConfig.EnvoySecureMetricsPort = 25091
+			a.AgentConfig.EnvoySecureMergedMetricsPort = 25092
 			return a
 		}).Check(t, security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
 		envoyReady(t, "second agent", 25000)
@@ -825,8 +829,8 @@ func proxyConfigToMetadata(t *testing.T, proxyConfig *meshconfig.ProxyConfig) mo
 	t.Helper()
 	m := map[string]any{}
 	for k, v := range proxyConfig.ProxyMetadata {
-		if strings.HasPrefix(k, bootstrap.IstioMetaPrefix) {
-			m[strings.TrimPrefix(k, bootstrap.IstioMetaPrefix)] = v
+		if after, ok := strings.CutPrefix(k, bootstrap.IstioMetaPrefix); ok {
+			m[after] = v
 		}
 	}
 	b, err := json.Marshal(m)

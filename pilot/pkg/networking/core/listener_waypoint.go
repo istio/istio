@@ -279,15 +279,25 @@ func (lb *ListenerBuilder) buildHCMConnectTerminateChain(routes []*route.Route) 
 		// If we put them as a network filter, we get poor logs and cannot return an error at the CONNECT level
 		filters = authzBuilder.BuildTCPRulesAsHTTPFilter()
 	}
+	// TODO: Remove in 1.32
+	pre1_29_2 := !lb.node.VersionGreaterOrEqual(&model.IstioVersion{Major: 1, Minor: 29, Patch: 2})
+	connectAuthorityFilter := xdsfilters.ConnectAuthorityFilter
+	if pre1_29_2 {
+		connectAuthorityFilter = xdsfilters.ConnectAuthorityFilterPre1_29_2
+	}
 	filters = append(filters,
 		xdsfilters.GenerateWaypointDownstreamMetadataFilter(),
-		xdsfilters.ConnectAuthorityFilter)
+		connectAuthorityFilter)
 
 	// This filter checks whether the request went through a waypoint already and thefore whether L7 policies have
 	// been applied already. We put that information into filter state for later use when we decide whether to
 	// send the request to a waypoint or skip it.
 	if features.EnableAmbientMultiNetwork && isAmbientEastWestGateway(lb.node) {
-		filters = append(filters, xdsfilters.RequestSourceFilter)
+		requestSourceFilter := xdsfilters.RequestSourceFilter
+		if pre1_29_2 {
+			requestSourceFilter = xdsfilters.RequestSourceFilterPre1_29_2
+		}
+		filters = append(filters, requestSourceFilter)
 	}
 
 	// Filters needed to propagate the tunnel metadata to the inner streams.
@@ -472,6 +482,9 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 			if len(svcAddresses) > 0 && features.EnableAmbientMultiNetwork && !isAmbientEastWestGateway {
 				filters = []*listener.Filter{getOrigDstSfs(origDst, false)}
 			}
+			if isAmbientEastWestGateway {
+				cc.policyService = nil
+			}
 			tcpChain = &listener.FilterChain{
 				Filters: append(slices.Clone(filters), lb.buildWaypointNetworkFilters(svc, cc)...),
 				Name:    cc.clusterName,
@@ -578,7 +591,10 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 				delete(svcHostnameMap.Map, authorityKey)
 			}
 		}
-		if len(portMapper.Map) > 0 {
+		// Skip the IP-range matcher when there are no addresses; envoy
+		// rejects an empty Ranges (proto min_items=1). Mirrors the
+		// svcHostnameMap guard above. See https://github.com/istio/istio/issues/60310.
+		if len(portMapper.Map) > 0 && len(svcAddresses) > 0 {
 			ranges := slices.Map(svcAddresses, func(vip string) *xds.CidrRange {
 				cidr := util.ConvertAddressToCidr(vip)
 				return &xds.CidrRange{
@@ -1005,7 +1021,7 @@ func (lb *ListenerBuilder) buildWaypointNetworkFilters(svc *model.Service, fcc i
 
 		// Conditionally build SNI DFP for wildcard hosts with Dynamic DNS resolution
 		if svcHostname.IsWildCarded() && svc.Resolution == model.DynamicDNS {
-			sniDFPFilter = buildSNIDFPFilter(fcc.port.Port, svc)
+			sniDFPFilter = buildSNIDFPFilter(fcc.port.Port, svc, util.SelectDNSLookupFamily(lb.node.IPAddresses))
 		}
 	}
 
@@ -1308,7 +1324,7 @@ func portToSubset(service *model.Service, port int, destination *networking.Dest
 // NB: Un-typed SAN validation is ignored when typed is used, so only typed version must be used with this function.
 func buildCommonConnectTLSContext(proxy *model.Proxy, push *model.PushContext) *tls.CommonTlsContext {
 	ctx := &tls.CommonTlsContext{}
-	security.ApplyToCommonTLSContext(ctx, proxy, nil, "", nil, true, nil)
+	security.ApplyToCommonTLSContext(ctx, proxy, nil, "", nil, true, nil, false)
 	aliases := authn.TrustDomainsForValidation(push.Mesh)
 	validationCtx := ctx.GetCombinedValidationContext().DefaultValidationContext
 	if len(aliases) > 0 {

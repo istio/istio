@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"strings"
 
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
+
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
@@ -41,6 +43,7 @@ func (s *GatewayAnalyzer) Metadata() analysis.Metadata {
 		Description: "Checks the gateways associated with each virtual service",
 		Inputs: []config.GroupVersionKind{
 			gvk.Gateway,
+			gvk.KubernetesGateway,
 			gvk.VirtualService,
 		},
 	}
@@ -77,8 +80,14 @@ func (s *GatewayAnalyzer) analyzeVirtualService(r *resource.Instance, c analysis
 		}
 
 		gwFullName := resource.NewShortOrFullName(vsNs, gwName)
+		exists := c.Exists(gvk.Gateway, gwFullName)
+		isKubernetesGateway := false
+		if !exists {
+			exists = c.Exists(gvk.KubernetesGateway, gwFullName)
+			isKubernetesGateway = exists
+		}
 
-		if !c.Exists(gvk.Gateway, gwFullName) {
+		if !exists {
 			m := msg.NewReferencedResourceNotFound(r, "gateway", gwName)
 
 			if line, ok := util.ErrorLine(r, fmt.Sprintf(util.VSGateway, i)); ok {
@@ -88,7 +97,14 @@ func (s *GatewayAnalyzer) analyzeVirtualService(r *resource.Instance, c analysis
 			c.Report(gvk.VirtualService, m)
 		}
 
-		if !vsHostInGateway(c, gwFullName, vs.Hosts, vsNs.String()) {
+		var hostsMatch bool
+		if isKubernetesGateway {
+			hostsMatch = vsHostInKubernetesGateway(c, gwFullName, vs.Hosts)
+		} else {
+			hostsMatch = vsHostInGateway(c, gwFullName, vs.Hosts, vsNs.String())
+		}
+
+		if !hostsMatch {
 			m := msg.NewVirtualServiceHostNotFoundInGateway(r, vs.Hosts, vsName.String(), gwFullName.String())
 
 			if line, ok := util.ErrorLine(r, fmt.Sprintf(util.VSGateway, i)); ok {
@@ -124,6 +140,43 @@ func vsHostInGateway(c analysis.Context, gateway resource.FullName, vsHosts []st
 			vsHost := host.Name(vsh)
 
 			if gatewayHost.Matches(vsHost) {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+func vsHostInKubernetesGateway(c analysis.Context, gateway resource.FullName, vsHosts []string) bool {
+	var gatewayHosts []string
+	matchAllHosts := false
+
+	c.ForEach(gvk.KubernetesGateway, func(r *resource.Instance) bool {
+		if r.Metadata.FullName != gateway {
+			return true
+		}
+
+		s := r.Message.(*gatewayv1.GatewaySpec)
+		for _, listener := range s.Listeners {
+			if listener.Hostname == nil || *listener.Hostname == "" {
+				matchAllHosts = true
+				return false
+			}
+			gatewayHosts = append(gatewayHosts, string(*listener.Hostname))
+		}
+
+		return true
+	})
+
+	if matchAllHosts {
+		return true
+	}
+
+	for _, gh := range gatewayHosts {
+		gatewayHost := host.Name(gh)
+		for _, vsh := range vsHosts {
+			if gatewayHost.Matches(host.Name(vsh)) {
 				return true
 			}
 		}

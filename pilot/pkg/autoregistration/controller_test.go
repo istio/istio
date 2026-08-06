@@ -189,6 +189,20 @@ func TestNonAutoRegisteredWorkloads(t *testing.T) {
 	}
 }
 
+// TestNewControllerZeroMaxConnAge ensures a zero (unset) maxConnAge is treated as "no limit",
+// consistent with gRPC's keepalive.ServerParameters.MaxConnectionAge, rather than as an
+// immediate cutoff that would cause connected WorkloadEntries to be treated as leaked.
+func TestNewControllerZeroMaxConnAge(t *testing.T) {
+	store := memory.NewController(memory.Make(collections.All))
+	stop := test.NewStop(t)
+	go store.Run(stop)
+	c := NewController(store, "pilot-1", 0)
+	go c.Run(stop)
+	if c.maxConnectionAge != time.Duration(math.MaxInt64) {
+		t.Fatalf("expected zero maxConnAge to result in no limit (MaxInt64), got %v", c.maxConnectionAge)
+	}
+}
+
 func TestAutoregistrationLifecycle(t *testing.T) {
 	maxConnAge := time.Hour
 	c1, c2, store := setup(t)
@@ -474,6 +488,67 @@ func TestWorkloadEntryFromGroup(t *testing.T) {
 
 	got := workloadEntryFromGroup("test-we", proxy, &group)
 	assert.Equal(t, got, &want)
+}
+
+func TestWorkloadEntryFromGroupHBONE(t *testing.T) {
+	// EnableHBONEListen() requires the sidecar HBONE listening feature, which only
+	// defaults on under ambient; force it so the labeling path is actually exercised.
+	test.SetForTest(t, &features.EnableSidecarHBONEListening, true)
+
+	baseGroup := func() config.Config {
+		return config.Config{
+			Meta: config.Meta{
+				GroupVersionKind: gvk.WorkloadGroup,
+				Namespace:        "a",
+				Name:             "wg-a",
+			},
+			Spec: &v1alpha3.WorkloadGroup{
+				Template: &v1alpha3.WorkloadEntry{
+					Ports:          map[string]uint32{"http": 80},
+					Labels:         map[string]string{"app": "a"},
+					ServiceAccount: "sa-a",
+				},
+			},
+		}
+	}
+
+	cases := []struct {
+		name        string
+		enableHBONE bool
+		tmplLabels  map[string]string
+		wantTunnel  string // expected value of the tunnel label ("" means absent)
+	}{
+		{
+			name:        "EnableHBONE sets tunnel label",
+			enableHBONE: true,
+			wantTunnel:  model.TunnelHTTP,
+		},
+		{
+			name:        "EnableHBONE false leaves label absent",
+			enableHBONE: false,
+			wantTunnel:  "",
+		},
+		{
+			name:        "explicit tunnel label not overwritten",
+			enableHBONE: true,
+			tmplLabels:  map[string]string{"app": "a", model.TunnelLabel: "other"},
+			wantTunnel:  "other",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			group := baseGroup()
+			if tc.tmplLabels != nil {
+				group.Spec.(*v1alpha3.WorkloadGroup).Template.Labels = tc.tmplLabels
+			}
+			proxy := fakeProxy("10.0.0.1", group, "nw1", "sa")
+			proxy.Metadata.EnableHBONE = model.StringBool(tc.enableHBONE)
+
+			got := workloadEntryFromGroup("test-we", proxy, &group)
+			assert.Equal(t, got.Labels[model.TunnelLabel], tc.wantTunnel)
+		})
+	}
 }
 
 func TestNonAutoregisteredWorkloads_UnsuitableForHealthChecks_WorkloadEntryNotFound(t *testing.T) {

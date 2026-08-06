@@ -437,8 +437,8 @@ func ExtractBearerToken(ctx context.Context) (string, error) {
 	}
 
 	for _, value := range authHeader {
-		if strings.HasPrefix(value, BearerTokenPrefix) {
-			return strings.TrimPrefix(value, BearerTokenPrefix), nil
+		if after, ok0 := strings.CutPrefix(value, BearerTokenPrefix); ok0 {
+			return after, nil
 		}
 	}
 
@@ -451,11 +451,11 @@ func ExtractRequestToken(req *http.Request) (string, error) {
 		return "", fmt.Errorf("no HTTP authorization header exists")
 	}
 
-	if strings.HasPrefix(value, BearerTokenPrefix) {
-		return strings.TrimPrefix(value, BearerTokenPrefix), nil
+	if after, ok := strings.CutPrefix(value, BearerTokenPrefix); ok {
+		return after, nil
 	}
-	if strings.HasPrefix(value, K8sTokenPrefix) {
-		return strings.TrimPrefix(value, K8sTokenPrefix), nil
+	if after, ok := strings.CutPrefix(value, K8sTokenPrefix); ok {
+		return after, nil
 	}
 
 	return "", fmt.Errorf("no bearer token exists in HTTP authorization header")
@@ -556,15 +556,15 @@ func (s SdsCertificateConfig) IsKeyCertificate() bool {
 // SdsCertificateConfigFromResourceName converts the provided resource name into a SdsCertificateConfig
 // If the resource name is not valid, false is returned.
 func SdsCertificateConfigFromResourceName(resource string) (SdsCertificateConfig, bool) {
-	if strings.HasPrefix(resource, "file-cert:") {
-		filesString := strings.TrimPrefix(resource, "file-cert:")
+	if after, ok := strings.CutPrefix(resource, "file-cert:"); ok {
+		filesString := after
 		split := strings.Split(filesString, ResourceSeparator)
 		if len(split) != 2 {
 			return SdsCertificateConfig{}, false
 		}
 		return SdsCertificateConfig{split[0], split[1], ""}, true
-	} else if strings.HasPrefix(resource, "file-root:") {
-		filesString := strings.TrimPrefix(resource, "file-root:")
+	} else if after, ok := strings.CutPrefix(resource, "file-root:"); ok {
+		filesString := after
 		split := strings.Split(filesString, ResourceSeparator)
 
 		if len(split) != 1 {

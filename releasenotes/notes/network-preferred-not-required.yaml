@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+
+kind: bug-fix
+
+area: traffic-management
+
+releaseNotes:
+- |
+  **Fixed** failover routing when the network is included.
+  Network is considered preferred but not required when determining failover priority.
+  As an example PreferSameZone will have the following priority:
+    Network+Region+Zone, Network+Region, Network, Region+Zone, Zone, No match.

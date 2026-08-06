@@ -15,6 +15,7 @@
 package xds
 
 import (
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pkg/config/schema/kind"
@@ -28,25 +29,54 @@ type RdsGenerator struct {
 var _ model.XdsResourceGenerator = &RdsGenerator{}
 
 // Map of all configs that do not impact RDS
-var skippedRdsConfigs = sets.New(
-	kind.WorkloadEntry,
-	kind.WorkloadGroup,
-	kind.AuthorizationPolicy,
-	kind.RequestAuthentication,
-	kind.PeerAuthentication,
-	kind.Secret,
-	kind.WasmPlugin,
-	kind.Telemetry,
-	kind.ProxyConfig,
-	kind.DNSName,
-	kind.Endpoints,
-)
+var skippedRdsConfigs = func() sets.Set[kind.Kind] {
+	s := sets.New(
+		kind.WorkloadEntry,
+		kind.WorkloadGroup,
+		kind.AuthorizationPolicy,
+		kind.RequestAuthentication,
+		kind.PeerAuthentication,
+		kind.Secret,
+		kind.WasmPlugin,
+		kind.TrafficExtension,
+		kind.Telemetry,
+		kind.ProxyConfig,
+		kind.DNSName,
+		kind.Endpoints,
+	)
+	if features.ScopedAddressPushes {
+		// Sidecar and gateway routes don't depend on ambient Address data; service changes that
+		// affect them arrive as ServiceEntry/Endpoints updates. Waypoints are handled in rdsNeedsPush.
+		s.Insert(kind.Address)
+	}
+	return s
+}()
 
 func rdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
 	if res, ok := xdsNeedsPush(req, proxy); ok {
 		return res
 	}
+	if proxy.Type == model.Waypoint && waypointNeedsPush(req, proxy) {
+		return true
+	}
+
+	// Optimization: Skip RDS for headless endpoint updates. A route's cluster name is built from
+	// the service hostname/port/subset (a static string), so it does not change when only
+	// endpoints change. However, if ServiceUpdate is also present, the service definition changed
+	// (ports, labels, etc.) and we need to push RDS.
+	headlessOnly := req.Reason.Has(model.HeadlessEndpointUpdate) && !req.Reason.Has(model.ServiceUpdate)
+	sawServiceEntry := false
+
 	for config := range req.ConfigsUpdated {
+		if headlessOnly {
+			if config.Kind == kind.ServiceEntry {
+				// Defer the decision on ServiceEntry until we know whether all updates are ServiceEntry.
+				sawServiceEntry = true
+				continue
+			}
+			// Not exclusively the headless endpoint marker; fall through to the normal check below.
+			headlessOnly = false
+		}
 		if !skippedRdsConfigs.Contains(config.Kind) {
 			if config.Kind == kind.Gateway {
 				if proxy.Type == model.Router || proxy.IsAmbientEastWestGateway() {
@@ -57,7 +87,8 @@ func rdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
 			return true
 		}
 	}
-	return false
+	// ServiceEntry updates only trigger a push here if they weren't exclusively headless endpoint markers.
+	return sawServiceEntry && !headlessOnly
 }
 
 func (c RdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {

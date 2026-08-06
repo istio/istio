@@ -354,13 +354,13 @@ func generateHeaders(headers []string) *envoy_type_matcher_v3.ListStringMatcher 
 		pattern := &envoy_type_matcher_v3.StringMatcher{
 			IgnoreCase: true,
 		}
-		if strings.HasPrefix(header, "*") {
+		if after, ok := strings.CutPrefix(header, "*"); ok {
 			pattern.MatchPattern = &envoy_type_matcher_v3.StringMatcher_Suffix{
-				Suffix: strings.TrimPrefix(header, "*"),
+				Suffix: after,
 			}
-		} else if strings.HasSuffix(header, "*") {
+		} else if before, ok := strings.CutSuffix(header, "*"); ok {
 			pattern.MatchPattern = &envoy_type_matcher_v3.StringMatcher_Prefix{
-				Prefix: strings.TrimSuffix(header, "*"),
+				Prefix: before,
 			}
 		} else {
 			pattern.MatchPattern = &envoy_type_matcher_v3.StringMatcher_Exact{

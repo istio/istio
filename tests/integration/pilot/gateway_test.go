@@ -60,6 +60,7 @@ func TestGateway(t *testing.T) {
 			t.NewSubTest("managed-owner").Run(ManagedOwnerGatewayTest)
 			t.NewSubTest("status").Run(StatusGatewayTest)
 			t.NewSubTest("managed-short-name").Run(ManagedGatewayShortNameTest)
+			t.NewSubTest("insecure-frontend-validation-mode").Run(InsecureFrontendValidationModeTest)
 		})
 }
 
@@ -70,7 +71,7 @@ func ManagedOwnerGatewayTest(t framework.TestContext) {
 apiVersion: v1
 kind: Service
 metadata:
-  name: managed-owner-istio
+  name: managed-owner-%[1]s
 spec:
   ports:
   - appProtocol: http
@@ -82,7 +83,7 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: managed-owner-istio
+  name: managed-owner-%[1]s
 spec:
   selector:
     matchLabels:
@@ -95,8 +96,8 @@ spec:
     spec:
       containers:
       - name: fake
-        image: %s
-`, image)).ApplyOrFail(t)
+        image: %[2]s
+`, i.GatewayClassName, image)).ApplyOrFail(t)
 	cls := t.Clusters().Default()
 	fetchFn := testKube.NewSinglePodFetch(cls, apps.Namespace.Name(), label.IoK8sNetworkingGatewayGatewayName.Name+"=managed-owner")
 	if _, err := testKube.WaitUntilPodsAreReady(fetchFn); err != nil {
@@ -139,14 +140,15 @@ spec:
 	retry.UntilSuccessOrFail(t, check)
 
 	// Make sure we did not overwrite our deployment or service
+	ownedName := "managed-owner-" + i.GatewayClassName
 	dep, err := t.Clusters().Default().Kube().AppsV1().Deployments(apps.Namespace.Name()).
-		Get(context.Background(), "managed-owner-istio", metav1.GetOptions{})
+		Get(context.Background(), ownedName, metav1.GetOptions{})
 	assert.NoError(t, err)
 	assert.Equal(t, dep.Labels[label.GatewayManaged.Name], "")
 	assert.Equal(t, dep.Spec.Template.Spec.Containers[0].Image, image)
 
 	svc, err := t.Clusters().Default().Kube().CoreV1().Services(apps.Namespace.Name()).
-		Get(context.Background(), "managed-owner-istio", metav1.GetOptions{})
+		Get(context.Background(), ownedName, metav1.GetOptions{})
 	assert.NoError(t, err)
 	assert.Equal(t, svc.Labels[label.GatewayManaged.Name], "")
 	assert.Equal(t, svc.Spec.Type, corev1.ServiceTypeClusterIP)
@@ -953,6 +955,129 @@ func StatusGatewayTest(t framework.TestContext) {
 	retry.UntilSuccessOrFail(t, check)
 }
 
+// InsecureFrontendValidationModeTest verifies that the Gateway API InsecureFrontendValidationMode condition gets removed from the gateway.
+// Normally for the conditions we report their status as either False or True, but the conditions remain in place.
+// InsecureFrontendValidationMode condition is somewhat unusual in the sense that Gateway API spec explicitly says that it must be removed
+// from the status as opposed to setting it to False.
+//
+// Ideally Gateway API conformance tests should check that, but they don't and given that I got it wrong before, it makes sense to cover it
+// with a test.
+func InsecureFrontendValidationModeTest(t framework.TestContext) {
+	gatewayName := "gateway"
+	gatewayNamespace := apps.Namespace.Name()
+	cluster := t.Clusters().Default()
+
+	i := istio.DefaultConfigOrFail(t, t)
+	ca := file.AsStringOrFail(t, filepath.Join(env.IstioSrc, "tests/testdata/certs/default/root-cert.pem"))
+	t.ConfigIstio().Eval(gatewayNamespace, ca, `
+apiVersion: v1
+kind: ConfigMap
+data:
+  ca.crt: |
+{{. | indent 4}}
+metadata:
+  name: root-cert`)
+	ingressutil.CreateIngressKubeSecretInNamespace(t, "tls", ingressutil.TLS, ingressutil.IngressCredentialA,
+		false, gatewayNamespace, cluster)
+	templateArgs := map[string]string{
+		"gatewayClass": i.GatewayClassName,
+		"gatewayName":  gatewayName,
+	}
+	t.ConfigIstio().Eval(gatewayNamespace, templateArgs,
+		`apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: {{.gatewayName}}
+spec:
+  gatewayClassName: {{.gatewayClass}}
+  tls:
+    frontend:
+      default:
+        validation:
+          mode: AllowInsecureFallback
+          caCertificateRefs:
+          - group: ""
+            kind: ConfigMap
+            name: root-cert
+  allowedListeners:
+    namespaces:
+      from: All
+  listeners:
+  - name: default
+    hostname: "server.example.com"
+    port: 443
+    protocol: HTTPS
+    tls:
+      certificateRefs:
+      - group: ""
+        kind: Secret
+        name: tls
+      mode: Terminate
+`).ApplyOrFail(t)
+	client := cluster.GatewayAPI().GatewayV1().Gateways(gatewayNamespace)
+	retry.UntilSuccessOrFail(t, func() error {
+		gw, err := client.Get(context.Background(), gatewayName, metav1.GetOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to get gateway %s/%s: %v", gatewayNamespace, gatewayName, err)
+		}
+		if cond := kstatus.GetCondition(gw.Status.Conditions, string(k8sv1.GatewayConditionProgrammed)); cond == kstatus.EmptyCondition {
+			return fmt.Errorf("gateway has not been programmed yet: %+v", gw.Status.Conditions)
+		}
+		cond := kstatus.GetCondition(gw.Status.Conditions, string(k8sv1.GatewayConditionInsecureFrontendValidationMode))
+		if cond == kstatus.EmptyCondition {
+			return fmt.Errorf("gateway missing InsecureFrontendValidationMode condition: %+v", gw.Status.Conditions)
+		}
+		if cond.Status != metav1.ConditionTrue {
+			return fmt.Errorf("gateway InsecureFrontendValidationMode condition is not true: %+v", cond)
+		}
+		return nil
+	})
+	t.ConfigIstio().Eval(gatewayNamespace, templateArgs,
+		`apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: {{.gatewayName}}
+spec:
+  gatewayClassName: {{.gatewayClass}}
+  tls:
+    frontend:
+      default:
+        validation:
+          caCertificateRefs:
+          - group: ""
+            kind: ConfigMap
+            name: root-cert
+  allowedListeners:
+    namespaces:
+      from: All
+  listeners:
+  - name: default
+    hostname: "server.example.com"
+    port: 443
+    protocol: HTTPS
+    tls:
+      certificateRefs:
+      - group: ""
+        kind: Secret
+        name: tls
+      mode: Terminate
+`).ApplyOrFail(t)
+	retry.UntilSuccessOrFail(t, func() error {
+		gw, err := client.Get(context.Background(), gatewayName, metav1.GetOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to get gateway %s/%s: %v", gatewayNamespace, gatewayName, err)
+		}
+		if cond := kstatus.GetCondition(gw.Status.Conditions, string(k8sv1.GatewayConditionProgrammed)); cond == kstatus.EmptyCondition {
+			return fmt.Errorf("gateway has not been programmed yet: %+v", gw.Status.Conditions)
+		}
+		cond := kstatus.GetCondition(gw.Status.Conditions, string(k8sv1.GatewayConditionInsecureFrontendValidationMode))
+		if cond != kstatus.EmptyCondition {
+			return fmt.Errorf("gateway has InsecureFrontendValidationMode condition: %+v", cond)
+		}
+		return nil
+	})
+}
+
 // Verify that the envoy readiness probes are reachable at
 // https://GatewaySvcIP:15021/healthz/ready . This is being explicitly done
 // to make sure, in dual-stack scenarios both v4 and v6 probes are reachable.
@@ -962,9 +1087,6 @@ func TestGatewayReadinessProbes(t *testing.T) {
 		RequiresSingleCluster().
 		RequiresLocalControlPlane().
 		Run(func(t framework.TestContext) {
-			if t.Settings().GatewayAPIOnly {
-				t.Skip("TestGatewayReadinessProbes requires pre-deployed ingress gateway")
-			}
 			c := t.Clusters().Default()
 			var svc *corev1.Service
 			svc, _, err := testKube.WaitUntilServiceEndpointsAreReady(c.Kube(), i.IngressFor(c).Namespace(), "istio-ingressgateway")
@@ -998,9 +1120,6 @@ func TestGatewayMetricsEndpoints(t *testing.T) {
 		RequiresSingleCluster().
 		RequiresLocalControlPlane().
 		Run(func(t framework.TestContext) {
-			if t.Settings().GatewayAPIOnly {
-				t.Skip("TestGatewayMetricsEndpoints requires pre-deployed ingress gateway")
-			}
 			c := t.Clusters().Default()
 			podIPs, err := i.PodIPsFor(c, i.IngressFor(c).Namespace(), "app=istio-ingressgateway")
 			if err != nil {

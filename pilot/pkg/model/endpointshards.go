@@ -190,23 +190,31 @@ func (e *EndpointIndex) ShardsForService(serviceName, namespace string) (*Endpoi
 // GetOrCreateEndpointShard returns the shards. The second return parameter will be true if this service was seen
 // for the first time.
 func (e *EndpointIndex) GetOrCreateEndpointShard(serviceName, namespace string) (*EndpointShards, bool) {
+	// attempt to find endpoint shard with a read lock first, to avoid unnecessary lock contention. If not found, acquire a write lock and create it.
+	if ep, ok := e.ShardsForService(serviceName, namespace); ok {
+		return ep, false
+	}
+
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	if _, exists := e.shardsBySvc[serviceName]; !exists {
-		e.shardsBySvc[serviceName] = map[string]*EndpointShards{}
+	m, ok := e.shardsBySvc[serviceName]
+	if !ok {
+		m = map[string]*EndpointShards{}
+		e.shardsBySvc[serviceName] = m
 	}
-	if ep, exists := e.shardsBySvc[serviceName][namespace]; exists {
-		return ep, false
+
+	ep, ok := m[namespace]
+	if !ok {
+		ep = &EndpointShards{
+			Shards:          map[ShardKey][]*IstioEndpoint{},
+			ServiceAccounts: sets.String{},
+		}
+		m[namespace] = ep
+		// Clear the cache here to avoid race in cache writes.
+		e.clearCacheForService(serviceName, namespace)
 	}
-	// This endpoint is for a service that was not previously loaded.
-	ep := &EndpointShards{
-		Shards:          map[ShardKey][]*IstioEndpoint{},
-		ServiceAccounts: sets.String{},
-	}
-	e.shardsBySvc[serviceName][namespace] = ep
-	// Clear the cache here to avoid race in cache writes.
-	e.clearCacheForService(serviceName, namespace)
+
 	return ep, true
 }
 

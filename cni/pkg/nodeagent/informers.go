@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/monitoring"
+	"istio.io/istio/pkg/slices"
 )
 
 var (
@@ -327,6 +328,21 @@ func (s *InformerHandlers) reconcilePod(input any) error {
 				return err
 			}
 			return nil
+		}
+
+		// Self-heal the host probe ipset for an already-enrolled pod whose probe IP just
+		// (re)appeared. Gate on an actual IP change versus the
+		// previous event so that the many status updates unrelated to networking (pod
+		// conditions, container statuses, etc.) don't each trigger a redundant ipset
+		// syscall. Re-asserting only when the IPs change, still self-heals it.
+		if isEnrolled && shouldBeEnabled && !isTerminated {
+			podIPs := util.GetPodIPsIfPresent(currentPod)
+			if len(podIPs) > 0 && !slices.EqualUnordered(podIPs, util.GetPodIPsIfPresent(oldPod)) {
+				if err := s.dataplane.SyncHostProbeIPSet(currentPod, podIPs); err != nil {
+					log.Warnf("failed to sync host probe ipset for enrolled pod, will retry: %v", err)
+					return err
+				}
+			}
 		}
 
 		if !changeNeeded || isTerminated {

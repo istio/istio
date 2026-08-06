@@ -3,7 +3,7 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: {{ include "ztunnel.release-name" . }}
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ .Release.Namespace | quote }}
   labels:
     app.kubernetes.io/name: ztunnel
     {{- include "istio.labels" . | nindent 4}}
@@ -168,6 +168,22 @@ spec:
             resourceFieldRef:
               resource: limits.cpu
               divisor: "1"
+        {{- if .Values.resources }}
+        {{- if (.Values.resources.limits).cpu }}
+        - name: ZTUNNEL_RESOURCE_CPU_LIMIT
+          valueFrom:
+            resourceFieldRef:
+              resource: limits.cpu
+              divisor: "1"
+        {{- end }}
+        {{- if (.Values.resources.requests).cpu }}
+        - name: ZTUNNEL_RESOURCE_CPU_REQUEST
+          valueFrom:
+            resourceFieldRef:
+              resource: requests.cpu
+              divisor: "1"
+        {{- end }}
+        {{- end }}
         {{- with .Values.env }}
         {{- range $key, $val := . }}
         - name: {{ $key }}

@@ -919,7 +919,7 @@ func (c *Controller) GetProxyServiceTargets(proxy *model.Proxy) []model.ServiceT
 		// attempt to read the real pod.
 		out, err := c.GetProxyServiceTargetsFromMetadata(proxy)
 		if err != nil {
-			log.Errorf("failed to get proxy service targets from metadata: %v", err)
+			log.Warnf("failed to get proxy service targets from metadata: %v", err)
 		}
 		if len(out) == 0 {
 			proxyNoSvcTargetFromMetadata.Increment()

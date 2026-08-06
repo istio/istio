@@ -89,6 +89,7 @@ const (
 	prometheusPortAnnotation               = "prometheus_io_port"
 	prometheusPathAnnotation               = "prometheus_io_path"
 	prometheusIstioScrapeTargetsAnnotation = "prometheus_istio_io_scrape_targets"
+	prometheusIstioSecurePortAnnotation    = "prometheus_istio_io_secure_port"
 
 	watchDebounceDelay = 100 * time.Millisecond
 )
@@ -752,6 +753,8 @@ func postProcessPod(pod *corev1.Pod, injectedPod corev1.Pod, req InjectionParame
 		return err
 	}
 
+	applySecurePrometheusAnnotation(pod)
+
 	if err := applyRewrite(pod, req); err != nil {
 		return err
 	}
@@ -880,6 +883,37 @@ func mergeOrAppendProbers(previouslyInjected bool, envVars []corev1.EnvVar, newP
 	return append(envVars, corev1.EnvVar{Name: status.KubeAppProberEnvName, Value: newProbers})
 }
 
+// applySecurePrometheusAnnotation auto-populates the "prometheus.istio.io/secure-port"
+// annotation when the istio-proxy container has ENVOY_SECURE_MERGED_METRICS_PORT set.
+// This mirrors applyPrometheusMerge's handling of the plain-text port so that users only
+// need to configure the env variable and Prometheus discovery is wired up automatically.
+//
+// The env var is present at postProcessPod time for both sidecars (where proxyMetadata
+// is expanded into the container env by the injection template) and for injected gateway
+// pods (where the env var is set directly on the istio-proxy container).
+//
+// If the user has already set the annotation explicitly it is left unchanged.
+func applySecurePrometheusAnnotation(pod *corev1.Pod) {
+	// User already opted in explicitly.
+	for k := range pod.Annotations {
+		if strutil.SanitizeLabelName(k) == prometheusIstioSecurePortAnnotation {
+			return
+		}
+	}
+
+	sidecar := FindSidecar(pod)
+	if sidecar == nil {
+		return
+	}
+
+	for _, env := range sidecar.Env {
+		if env.Name == "ENVOY_SECURE_MERGED_METRICS_PORT" && env.Value != "" && env.Value != "0" {
+			pod.Annotations["prometheus.istio.io/secure-port"] = env.Value
+			return
+		}
+	}
+}
+
 // applyPrometheusMerge configures prometheus scraping annotations for the "metrics merge" feature.
 // This moves the current prometheus.io annotations into an environment variable and replaces them
 // pointing to the agent.
@@ -901,19 +935,29 @@ func applyPrometheusMerge(pod *corev1.Pod, mesh *meshconfig.MeshConfig) error {
 			scrape.Port = scrape.Targets[0].Port
 			scrape.Path = scrape.Targets[0].Path
 			for _, t := range scrape.Targets {
-				if t.Port == targetPort {
+				portNum, err := strconv.Atoi(t.Port)
+				if err != nil || portNum < 1 || portNum > 65535 {
+					return fmt.Errorf("invalid prometheus scrape targets: invalid target port %q", t.Port)
+				}
+				canon := strconv.Itoa(portNum)
+				if canon == targetPort {
 					return fmt.Errorf("invalid prometheus scrape targets: target port %s conflicts with agent port", t.Port)
 				}
-				if reason, reserved := status.IstioReservedPortReason(t.Port); reserved {
+				if reason, reserved := status.IstioReservedPortReason(canon); reserved {
 					return fmt.Errorf("invalid prometheus scrape targets: target port %s is reserved for Istio (%s) and cannot be scraped", t.Port, reason)
 				}
 			}
 		} else if scrape.Port != "" {
 			// Validate legacy prometheus.io/port annotation when the new scrape-targets annotation is not used.
-			if scrape.Port == targetPort {
+			portNum, err := strconv.Atoi(scrape.Port)
+			if err != nil || portNum < 1 || portNum > 65535 {
+				return fmt.Errorf("invalid prometheus scrape configuration: invalid port %q", scrape.Port)
+			}
+			canon := strconv.Itoa(portNum)
+			if canon == targetPort {
 				return fmt.Errorf("invalid prometheus scrape configuration: port %s conflicts with agent port", scrape.Port)
 			}
-			if reason, reserved := status.IstioReservedPortReason(scrape.Port); reserved {
+			if reason, reserved := status.IstioReservedPortReason(canon); reserved {
 				return fmt.Errorf("invalid prometheus scrape configuration: port %s is reserved for Istio (%s) and cannot be scraped", scrape.Port, reason)
 			}
 		}

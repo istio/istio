@@ -21,6 +21,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"google.golang.org/protobuf/types/known/durationpb"
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -1054,6 +1055,61 @@ func TestValidateProtocolDetectionTimeout(t *testing.T) {
 	}
 }
 
+func TestValidateMeshConfigDefaultTrafficPolicy(t *testing.T) {
+	cases := []struct {
+		name    string
+		dtp     *meshconfig.MeshConfig_DefaultTrafficPolicy
+		wantErr bool
+	}{
+		{
+			name: "nil",
+			dtp:  nil,
+		},
+		{
+			name: "valid connectionPool and outlierDetection",
+			dtp: &meshconfig.MeshConfig_DefaultTrafficPolicy{
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Tcp: &networking.ConnectionPoolSettings_TCPSettings{MaxConnections: 100},
+				},
+				OutlierDetection: &networking.OutlierDetection{
+					MaxEjectionPercent: 50,
+				},
+			},
+		},
+		{
+			name: "empty connectionPool",
+			dtp: &meshconfig.MeshConfig_DefaultTrafficPolicy{
+				ConnectionPool: &networking.ConnectionPoolSettings{},
+			},
+			wantErr: true,
+		},
+		{
+			name: "negative max connections",
+			dtp: &meshconfig.MeshConfig_DefaultTrafficPolicy{
+				ConnectionPool: &networking.ConnectionPoolSettings{
+					Tcp: &networking.ConnectionPoolSettings_TCPSettings{MaxConnections: -1},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "outlier ejection percent out of range",
+			dtp: &meshconfig.MeshConfig_DefaultTrafficPolicy{
+				OutlierDetection: &networking.OutlierDetection{MaxEjectionPercent: 101},
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := validateMeshConfigDefaultTrafficPolicy(tt.dtp).Unwrap()
+			if tt.wantErr != (err != nil) {
+				t.Fatalf("wantErr=%v got err=%v", tt.wantErr, err)
+			}
+		})
+	}
+}
+
 func TestValidateMeshConfig(t *testing.T) {
 	if _, err := ValidateMeshConfig(&meshconfig.MeshConfig{}); err == nil {
 		t.Error("expected an error on an empty mesh config")
@@ -1369,6 +1425,161 @@ func TestValidateLocalityLbSetting(t *testing.T) {
 	}
 }
 
+func TestValidateZoneAwareLbSetting(t *testing.T) {
+	cases := []struct {
+		name    string
+		in      *networking.ZoneAwareLoadBalancerSetting
+		outlier *networking.OutlierDetection
+		err     bool
+		warn    bool
+	}{
+		{
+			name:    "nil setting is valid",
+			in:      nil,
+			outlier: nil,
+		},
+		{
+			name: "enabled only is valid",
+			in: &networking.ZoneAwareLoadBalancerSetting{
+				Enabled: &wrappers.BoolValue{Value: true},
+			},
+			outlier: &networking.OutlierDetection{},
+		},
+		{
+			name: "valid region-level failover",
+			in: &networking.ZoneAwareLoadBalancerSetting{
+				Failover: []*networking.ZoneAwareLoadBalancerSetting_Failover{
+					{From: "us-east", To: "eu-west"},
+				},
+			},
+			outlier: &networking.OutlierDetection{},
+		},
+		{
+			name: "failover same src and dst region",
+			in: &networking.ZoneAwareLoadBalancerSetting{
+				Failover: []*networking.ZoneAwareLoadBalancerSetting_Failover{
+					{From: "region1", To: "region1"},
+				},
+			},
+			outlier: &networking.OutlierDetection{},
+			err:     true,
+		},
+		{
+			name: "failover src has '/' (zone scope) is rejected",
+			in: &networking.ZoneAwareLoadBalancerSetting{
+				Failover: []*networking.ZoneAwareLoadBalancerSetting_Failover{
+					{From: "region1/zone1", To: "region2"},
+				},
+			},
+			outlier: &networking.OutlierDetection{},
+			err:     true,
+		},
+		{
+			name: "failover dst has '/' (zone scope) is rejected",
+			in: &networking.ZoneAwareLoadBalancerSetting{
+				Failover: []*networking.ZoneAwareLoadBalancerSetting_Failover{
+					{From: "region1", To: "region2/zone1"},
+				},
+			},
+			outlier: &networking.OutlierDetection{},
+			err:     true,
+		},
+		{
+			name: "failover src has '*' wildcard is rejected",
+			in: &networking.ZoneAwareLoadBalancerSetting{
+				Failover: []*networking.ZoneAwareLoadBalancerSetting_Failover{
+					{From: "*", To: "region2"},
+				},
+			},
+			outlier: &networking.OutlierDetection{},
+			err:     true,
+		},
+		{
+			name: "failover dst has '*' wildcard is rejected",
+			in: &networking.ZoneAwareLoadBalancerSetting{
+				Failover: []*networking.ZoneAwareLoadBalancerSetting_Failover{
+					{From: "region1", To: "*"},
+				},
+			},
+			outlier: &networking.OutlierDetection{},
+			err:     true,
+		},
+		{
+			name: "failover and failoverPriority both set with topology region",
+			in: &networking.ZoneAwareLoadBalancerSetting{
+				Failover: []*networking.ZoneAwareLoadBalancerSetting_Failover{
+					{From: "region1", To: "region2"},
+				},
+				FailoverPriority: []string{"topology.kubernetes.io/region"},
+			},
+			outlier: &networking.OutlierDetection{},
+			err:     true,
+		},
+		{
+			name: "failoverPriority with region label is rejected",
+			in: &networking.ZoneAwareLoadBalancerSetting{
+				FailoverPriority: []string{"topology.kubernetes.io/region"},
+			},
+			outlier: &networking.OutlierDetection{},
+			err:     true,
+		},
+		{
+			name: "failoverPriority with zone label is rejected",
+			in: &networking.ZoneAwareLoadBalancerSetting{
+				FailoverPriority: []string{"topology.kubernetes.io/zone"},
+			},
+			outlier: &networking.OutlierDetection{},
+			err:     true,
+		},
+		{
+			name: "failoverPriority with subzone label is rejected",
+			in: &networking.ZoneAwareLoadBalancerSetting{
+				FailoverPriority: []string{"topology.istio.io/subzone"},
+			},
+			outlier: &networking.OutlierDetection{},
+			err:     true,
+		},
+		{
+			name: "failoverPriority with non-topology labels is valid",
+			in: &networking.ZoneAwareLoadBalancerSetting{
+				FailoverPriority: []string{"version", "app=ratings"},
+			},
+			outlier: &networking.OutlierDetection{},
+		},
+		{
+			name: "failover without outlier detection warns",
+			in: &networking.ZoneAwareLoadBalancerSetting{
+				Failover: []*networking.ZoneAwareLoadBalancerSetting_Failover{
+					{From: "us-east", To: "eu-west"},
+				},
+			},
+			outlier: nil,
+			warn:    true,
+		},
+		{
+			name: "failoverPriority without outlier detection warns",
+			in: &networking.ZoneAwareLoadBalancerSetting{
+				FailoverPriority: []string{"version"},
+			},
+			outlier: nil,
+			warn:    true,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			v := ValidateZoneAwareLbSetting(c.in, c.outlier)
+			warn, err := v.Unwrap()
+			if (err != nil) != c.err {
+				t.Errorf("got err=%v but wanted err=%v: %v", err != nil, c.err, err)
+			}
+			if (warn != nil) != c.warn {
+				t.Errorf("got warn=%v but wanted warn=%v: %v", warn != nil, c.warn, warn)
+			}
+		})
+	}
+}
+
 func TestValidateLocalities(t *testing.T) {
 	cases := []struct {
 		name       string
@@ -1669,6 +1880,77 @@ func TestValidateMeshNetworks(t *testing.T) {
 			}
 			if err == nil && !tc.valid {
 				t.Errorf("expected an error on invalid meshnetworks: %v", tc.mn)
+			}
+		})
+	}
+}
+
+func TestValidateConnectionSettings(t *testing.T) {
+	tests := []struct {
+		name    string
+		cs      *meshconfig.ProxyConfig_ConnectionSettings
+		wantErr bool
+	}{
+		{
+			name: "valid EDGE settings",
+			cs: &meshconfig.ProxyConfig_ConnectionSettings{
+				Profile:                               meshconfig.ProxyConfig_ConnectionSettings_EDGE,
+				ListenerPerConnectionBufferLimitBytes: &wrappers.Int32Value{Value: 32768},
+				HttpIdleTimeout:                       durationpb.New(3600 * time.Second),
+				HttpMaxConcurrentStreams:              &wrappers.Int32Value{Value: 100},
+				Http2InitialStreamWindowSize:          &wrappers.Int32Value{Value: 65536},
+				Http2InitialConnectionWindowSize:      &wrappers.Int32Value{Value: 1048576},
+			},
+			wantErr: false,
+		},
+		{
+			name: "negative buffer limit",
+			cs: &meshconfig.ProxyConfig_ConnectionSettings{
+				ListenerPerConnectionBufferLimitBytes: &wrappers.Int32Value{Value: -1},
+			},
+			wantErr: true,
+		},
+		{
+			name: "zero concurrent streams",
+			cs: &meshconfig.ProxyConfig_ConnectionSettings{
+				HttpMaxConcurrentStreams: &wrappers.Int32Value{Value: 0},
+			},
+			wantErr: true,
+		},
+		{
+			name: "small HTTP/2 window and negative duration",
+			cs: &meshconfig.ProxyConfig_ConnectionSettings{
+				Http2InitialStreamWindowSize: &wrappers.Int32Value{Value: 100},
+				HttpIdleTimeout:              durationpb.New(-1 * time.Second),
+			},
+			wantErr: true,
+		},
+		{
+			name: "HTTP/2 connection window size below minimum",
+			cs: &meshconfig.ProxyConfig_ConnectionSettings{
+				Http2InitialConnectionWindowSize: &wrappers.Int32Value{Value: 1000},
+			},
+			wantErr: true,
+		},
+		{
+			name: "negative stream window size",
+			cs: &meshconfig.ProxyConfig_ConnectionSettings{
+				Http2InitialStreamWindowSize: &wrappers.Int32Value{Value: -1},
+			},
+			wantErr: true,
+		},
+		{
+			name:    "empty ConnectionSettings validates clean",
+			cs:      &meshconfig.ProxyConfig_ConnectionSettings{},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateConnectionSettings(tt.cs)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("validateConnectionSettings() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}

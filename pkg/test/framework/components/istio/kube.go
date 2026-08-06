@@ -648,7 +648,6 @@ func commonInstallArgs(ctx resource.Context, cfg Config, c cluster.Cluster, defa
 		args.AppendSet("values.pilot.env.PILOT_GATEWAY_API_DEFAULT_GATEWAYCLASS_NAME", cfg.GatewayClassName)
 	}
 
-	// When running in GatewayAPIOnly mode, tell Pilot to ignore all Istio CRDs and only process Gateway API resources.
 	if ctx.Settings().GatewayAPIOnly {
 		args.AppendSet("values.pilot.env.PILOT_IGNORE_RESOURCES", "*.istio.io")
 	}

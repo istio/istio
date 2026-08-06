@@ -95,11 +95,11 @@ type MergedGateway struct {
 	// PortMap defines a mapping of targetPorts to the set of Service ports that reference them
 	PortMap GatewayPortMap
 
-	// VerifiedCertificateReferences contains a set of all credentialNames referenced by gateways *in the same namespace as the proxy*.
-	// These are considered "verified", since there is mutually agreement from the pod, Secret, and Gateway, as all
-	// reside in the same namespace and trust boundary.
-	// Note: Secrets that are not referenced by any Gateway, but are in the same namespace as the pod, are explicitly *not*
-	// included. This ensures we don't give permission to unexpected secrets, such as the citadel root key/cert.
+	// VerifiedCertificateReferences is the set of SDS certificate resources referenced by gateway config and
+	// authorized for this proxy. Authorization requires either same-namespace trust (the gateway config, Secret,
+	// and proxy workload are all in the same namespace) or an explicit cross-namespace reference policy (ReferenceGrant
+	// for Gateway API gateways). Secrets in the same namespace that are not referenced by any gateway config are
+	// explicitly excluded to prevent unintended access (e.g., the citadel root key/cert).
 	VerifiedCertificateReferences sets.String
 }
 
@@ -227,24 +227,30 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 				cns = append(cns, s.GetTls().GetCredentialName())
 			}
 
+			gwKind := gvk.KubernetesGateway
+			if strings.HasPrefix(gatewayConfig.Annotations[constants.InternalParentNames], gvk.ListenerSet.Kind+"/") {
+				gwKind = gvk.ListenerSet
+			}
+			lookupNamespace := ""
+			configAndProxyAllowed := false
+			if identityVerified {
+				lookupNamespace = proxy.VerifiedIdentity.Namespace
+				if gwKind == gvk.ListenerSet {
+					lookupNamespace = gatewayConfig.Namespace
+				}
+				// For ListenerSet, we do not require the config to live in the same namespace. However, there is a trust handshake via AllowedListeners.
+				configAndProxyAllowed = gatewayConfig.Namespace == proxy.VerifiedIdentity.Namespace || gwKind == gvk.ListenerSet
+			}
+
 			for _, cn := range cns {
 				if !(cn != "" && identityVerified) {
 					continue
-				}
-
-				gwKind := gvk.KubernetesGateway
-				lookupNamespace := proxy.VerifiedIdentity.Namespace
-				if strings.HasPrefix(gatewayConfig.Annotations[constants.InternalParentNames], gvk.ListenerSet.Kind+"/") {
-					gwKind = gvk.ListenerSet
-					lookupNamespace = gatewayConfig.Namespace
 				}
 
 				// Ignore BuiltinGatewaySecretTypeURI, as it is not referencing a Secret at all
 				if !strings.HasPrefix(cn, credentials.BuiltinGatewaySecretTypeURI) {
 					rn := credentials.ToResourceName(cn)
 					parse, err := credentials.ParseResourceName(rn, proxy.VerifiedIdentity.Namespace, "", "")
-					// For ListenerSet, we do not require the config to live in the same namespace. However, there is a trust handshake via AllowedListeners.
-					configAndProxyAllowed := gatewayConfig.Namespace == proxy.VerifiedIdentity.Namespace || gwKind == gvk.ListenerSet
 					if err == nil && configAndProxyAllowed && parse.Namespace == lookupNamespace {
 						// Same namespace is always allowed
 						verifiedCertificateReferences.Insert(rn)
@@ -258,6 +264,21 @@ func mergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 							verifiedCertificateReferences.Insert(rn + credentials.SdsCaSuffix)
 						}
 					}
+				}
+			}
+
+			// Explicit frontend mTLS CA credentials are SDS resources too; authorize them with the same
+			// Gateway API secret-reference rules as serving certs: same-namespace trust or ReferenceGrant.
+			// Only applies to KubernetesGatewaySecretType (kind:Secret); ConfigMap CA certs are
+			// unconditionally allowed in sds.go and do not need a VerifiedCertificateReferences entry.
+			if caCertCN := s.GetTls().GetCaCertCredentialName(); caCertCN != "" && identityVerified &&
+				strings.HasPrefix(caCertCN, credentials.KubernetesGatewaySecretType+"://") {
+				caCertRN := credentials.ToResourceName(caCertCN)
+				caParse, err := credentials.ParseResourceName(caCertRN, proxy.VerifiedIdentity.Namespace, "", "")
+				if err == nil && configAndProxyAllowed && caParse.Namespace == lookupNamespace {
+					verifiedCertificateReferences.Insert(caCertRN)
+				} else if err == nil && ps.SecretAllowed(gwKind, caCertRN, lookupNamespace) {
+					verifiedCertificateReferences.Insert(caCertRN)
 				}
 			}
 

@@ -17,6 +17,7 @@ package xds
 import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pilot/pkg/util/protoconv"
@@ -52,25 +53,49 @@ var skippedLdsConfigs = map[model.NodeType]sets.Set[kind.Kind]{
 		kind.Endpoints,
 		kind.Address,
 	),
-	model.Waypoint: sets.New(
-		kind.Gateway,
-		kind.WorkloadGroup,
-		kind.WorkloadEntry,
-		kind.Secret,
-		kind.ProxyConfig,
-		kind.DNSName,
-		kind.Endpoints,
-	),
+	model.Waypoint: func() sets.Set[kind.Kind] {
+		s := sets.New(
+			kind.Gateway,
+			kind.WorkloadGroup,
+			kind.WorkloadEntry,
+			kind.Secret,
+			kind.ProxyConfig,
+			kind.DNSName,
+			kind.Endpoints,
+		)
+		if features.ScopedAddressPushes {
+			// Address changes are handled by waypointNeedsPush, scoped to the affected waypoints
+			s.Insert(kind.Address)
+		}
+		return s
+	}(),
 }
 
 func ldsNeedsPush(proxy *model.Proxy, req *model.PushRequest) bool {
 	if res, ok := xdsNeedsPush(req, proxy); ok {
 		return res
 	}
-	if proxy.Type == model.Waypoint && waypointNeedsPush(req) {
+	if proxy.Type == model.Waypoint && waypointNeedsPush(req, proxy) {
 		return true
 	}
+
+	// Optimization: Routers don't need LDS updates for headless endpoint changes.
+	// However, if ServiceUpdate is also present, the service definition changed
+	// (ports, labels, etc.) and we need to push LDS.
+	headlessOnly := proxy.Type == model.Router && req.Reason.Has(model.HeadlessEndpointUpdate) && !req.Reason.Has(model.ServiceUpdate)
+	sawServiceEntry := false
+
 	for config := range req.ConfigsUpdated {
+		if headlessOnly {
+			if config.Kind == kind.ServiceEntry {
+				// Defer the decision on ServiceEntry until we know whether all updates are ServiceEntry.
+				sawServiceEntry = true
+				continue
+			}
+			// Check if all updates are ServiceEntry (headless endpoint marker); if so, and this is a
+			// headless-only update, none of them need to trigger a push on their own.
+			headlessOnly = false
+		}
 		if !skippedLdsConfigs[proxy.Type].Contains(config.Kind) {
 			if config.Kind == kind.PeerAuthentication && config.Namespace != proxy.ConfigNamespace &&
 				config.Namespace != req.Push.Mesh.RootNamespace {
@@ -80,7 +105,8 @@ func ldsNeedsPush(proxy *model.Proxy, req *model.PushRequest) bool {
 			return true
 		}
 	}
-	return false
+	// ServiceEntry updates only trigger a push here if they weren't exclusively headless endpoint markers.
+	return sawServiceEntry && !headlessOnly
 }
 
 func (l LdsGenerator) Generate(proxy *model.Proxy, _ *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {

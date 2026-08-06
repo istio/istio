@@ -15,6 +15,11 @@ roleRef:
   name: istio-reader-clusterrole{{- if not (eq .Values.revision "")}}-{{ .Values.revision }}{{- end }}-{{ .Release.Namespace }}
 subjects:
   - kind: ServiceAccount
+{{- if dig "global" "readerServiceAccount" "name" "" .Values }}
+    name: {{ dig "global" "readerServiceAccount" "name" "" .Values }}
+    namespace: {{ dig "global" "readerServiceAccount" "namespace" "" .Values }}
+{{- else }}
     name: istio-reader-service-account
-    namespace: {{ .Values.global.istioNamespace }}
+    namespace: {{ .Values.global.istioNamespace | quote }}
+{{- end }}
 {{- end }}

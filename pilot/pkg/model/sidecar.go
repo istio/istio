@@ -40,6 +40,7 @@ const (
 	wildcardNamespace = "*"
 	currentNamespace  = "."
 	wildcardService   = host.Name("*")
+	excludePrefix     = "~"
 )
 
 var (
@@ -65,8 +66,19 @@ var (
 )
 
 type hostClassification struct {
-	exactHosts sets.Set[host.Name]
-	allHosts   []host.Name
+	exactHosts    sets.Set[host.Name]
+	allHosts      []host.Name
+	excludedHosts []host.Name
+}
+
+// Excluded reports whether h matches any ~-prefixed exclusion entry scoped to this namespace.
+func (hc hostClassification) Excluded(h host.Name) bool {
+	for _, excluded := range hc.excludedHosts {
+		if h.SubsetOf(excluded) {
+			return true
+		}
+	}
+	return false
 }
 
 // Matches checks if the hostClassification(sidecar egress hosts) matches the Service's hostname
@@ -345,9 +357,8 @@ func initSidecarScopeInternalIndexes(ps *PushContext, sidecarScope *SidecarScope
 
 	if sidecarScope.Sidecar.GetOutboundTrafficPolicy() == nil {
 		if ps.Mesh.OutboundTrafficPolicy != nil {
-			sidecarScope.OutboundTrafficPolicy = &networking.OutboundTrafficPolicy{
-				Mode: networking.OutboundTrafficPolicy_Mode(ps.Mesh.OutboundTrafficPolicy.Mode),
-			}
+			mode := networking.OutboundTrafficPolicy_Mode(ps.Mesh.OutboundTrafficPolicy.Mode)
+			sidecarScope.OutboundTrafficPolicy = &networking.OutboundTrafficPolicy{Mode: mode}
 		}
 	} else {
 		sidecarScope.OutboundTrafficPolicy = sidecarScope.Sidecar.GetOutboundTrafficPolicy()
@@ -484,12 +495,22 @@ func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 	}
 
 	hostsByNamespace := make(map[string]hostClassification)
+
+	allExactHosts := true
 	for _, h := range istioListener.Hosts {
 		if strings.Count(h, "/") != 1 {
 			log.Errorf("Illegal host in sidecar resource: %s, host must be of form namespace/dnsName", h)
 			continue
 		}
 		ns, name, _ := strings.Cut(h, "/")
+
+		excluded := strings.HasPrefix(ns, excludePrefix)
+		if excluded {
+			ns = strings.TrimPrefix(ns, excludePrefix)
+			if ns == "" {
+				ns = wildcardNamespace
+			}
+		}
 		if ns == currentNamespace {
 			ns = configNamespace
 		}
@@ -500,9 +521,20 @@ func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 			hc = hostClassification{exactHosts: sets.New[host.Name](), allHosts: make([]host.Name, 0)}
 		}
 
+		if excluded {
+			hc.excludedHosts = append(hc.excludedHosts, hName)
+			hostsByNamespace[ns] = hc
+			continue
+		}
+
 		// exact hosts are saved separately for map lookup
 		if !hName.IsWildCarded() {
 			hc.exactHosts.Insert(hName)
+		} else {
+			allExactHosts = false
+		}
+		if ns == wildcardNamespace {
+			allExactHosts = false
 		}
 
 		// allHosts contains the exact hosts and wildcard hosts,
@@ -512,11 +544,45 @@ func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 	}
 
 	out.virtualServices = SelectVirtualServices(ps.virtualServiceIndex, configNamespace, hostsByNamespace)
-	svces := ps.servicesExportedToNamespace(configNamespace)
+	var svces []*Service
+	if allExactHosts {
+		svces = ps.servicesForExactHosts(configNamespace, hostsByNamespace)
+	} else {
+		svces = ps.servicesExportedToNamespace(configNamespace)
+	}
 	out.services = out.selectServices(svces, configNamespace, hostsByNamespace)
 	out.mostSpecificWildcardVsIndex = computeWildcardHostVirtualServiceIndex(out.virtualServices, out.services)
 
 	return out
+}
+
+// servicesForExactHosts resolves the candidate services for an egress listener whose hosts are all exact
+// (non-wildcard) and explicitly namespaced, via direct lookups in ps.ServiceIndex.HostnameAndNamespace instead
+// of scanning every service visible to configNamespace. It is a fast-path replacement for
+// servicesExportedToNamespace; the returned list is fed to selectServices, exactly like the scan-based path.
+func (ps *PushContext) servicesForExactHosts(configNamespace string,
+	hostsByNamespace map[string]hostClassification,
+) []*Service {
+	var candidates []*Service
+	for ns, hc := range hostsByNamespace {
+		for hName := range hc.exactHosts {
+			byNamespace, ok := ps.ServiceIndex.HostnameAndNamespace[hName]
+			if !ok {
+				continue
+			}
+			svc, ok := byNamespace[ns]
+			if !ok {
+				continue
+			}
+			// HostnameAndNamespace contains all services regardless of exportTo, so visibility is reapplied.
+			if !ps.IsServiceVisible(svc, configNamespace) {
+				continue
+			}
+			candidates = append(candidates, svc)
+		}
+	}
+	// Sort for deterministic output, matching servicesExportedToNamespace (built from creation-ordered services).
+	return SortServicesByCreationTime(candidates)
 }
 
 // GetEgressListenerForRDS returns the egress listener corresponding to
@@ -734,10 +800,16 @@ func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, confi
 	wildcardHosts, wnsFound := hostsByNamespace[wildcardNamespace]
 	for _, s := range services {
 		configNamespace := s.Attributes.Namespace
+		nsHosts, nsFound := hostsByNamespace[configNamespace]
+
+		// Skip services excluded by a ~-prefixed host in the service's namespace or wildcard scope.
+		if (nsFound && nsHosts.Excluded(s.Hostname)) || (wnsFound && wildcardHosts.Excluded(s.Hostname)) {
+			continue
+		}
 
 		// Check if there is an explicit import of form ns/* or ns/host
-		if importedHosts, nsFound := hostsByNamespace[configNamespace]; nsFound {
-			if svc := matchingAliasService(importedHosts, matchingService(importedHosts, s, ilw)); svc != nil {
+		if nsFound {
+			if svc := matchingAliasService(nsHosts, matchingService(nsHosts, s, ilw)); svc != nil {
 				importedServices = append(importedServices, svc)
 				continue
 			}

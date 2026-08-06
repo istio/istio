@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 60473
+releaseNotes:
+- |
+  **Optimized** sidecar egress service resolution: listeners that import only exact (non-wildcard),
+  explicitly-namespaced hosts now resolve services through direct service-index lookups instead of
+  scanning every service visible to the namespace, reducing the per-listener cost from `O(services)`
+  to `O(imported hosts)` and eliminating the full-list allocation.

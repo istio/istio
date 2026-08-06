@@ -724,3 +724,18 @@ messages:
       type: string
     - name: minimumVersion
       type: string
+
+  - name: "ConflictingServiceEntryProtocol"
+    code: IST0177
+    level: Warning
+    description: "Multiple ServiceEntries define the same host and port with conflicting protocols."
+    template: "Multiple ServiceEntries (%s) define the same host %q and port %d with conflicting protocols (%s)."
+    args:
+    - name: serviceEntryNames
+      type: string
+    - name: host
+      type: string
+    - name: port
+      type: int
+    - name: protocols
+      type: string

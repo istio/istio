@@ -20,6 +20,7 @@ import (
 	"sync"
 	"testing"
 
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	"istio.io/istio/pilot/pkg/features"
@@ -229,12 +230,20 @@ func TestDeltaEDS(t *testing.T) {
 	// delete svc, only send eds for this service
 	s.MemRegistry.RemoveService(edsIncSvc)
 
+	// service deletion pushes and EDS update for the service with empty endpoints
 	resp = ads.ExpectResponse()
-	if len(resp.RemovedResources) != 1 || resp.RemovedResources[0] != "outbound|8080||"+edsIncSvc {
-		t.Fatalf("received unexpected removed eds resource %v", resp.RemovedResources)
-	}
-	if len(resp.Resources) != 0 {
+	if len(resp.Resources) != 1 || resp.Resources[0].Name != "outbound|8080||"+edsIncSvc {
 		t.Fatalf("received unexpected eds resource %v", resp.Resources)
+	}
+	cla := &endpoint.ClusterLoadAssignment{}
+	if err := resp.Resources[0].Resource.UnmarshalTo(cla); err != nil {
+		t.Fatalf("invalid eds push: %s", err)
+	}
+	if len(cla.Endpoints) > 0 {
+		t.Fatalf("received non-empty endpoints for service: %v", cla)
+	}
+	if len(resp.RemovedResources) != 0 {
+		t.Fatalf("received unexpected removed eds resource %v", resp.RemovedResources)
 	}
 }
 

@@ -52,7 +52,8 @@ function trace() {
   tracing::run "$1" "${@:2}"
 
   { set +x; } 2>/dev/null
-  elapsed=$(date_cmd +%s.%N --date="$start seconds ago" )
+  end="$(date_cmd -u +%s.%N)"
+  elapsed=$(awk "BEGIN {printf \"%.9f\", $end - $start}")
   log "Command '${1}' complete in ${elapsed}s"
   # Write to YAML file as well for easy reading by tooling
   echo "'${1}': $elapsed" >> "${ARTIFACTS}/trace.yaml"

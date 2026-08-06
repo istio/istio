@@ -814,6 +814,28 @@ spec:
                                     pool connection.
                                   format: int32
                                   type: integer
+                                http2KeepAlive:
+                                  description: Configure HTTP/2 PING frames for upstream
+                                    connections.
+                                  properties:
+                                    interval:
+                                      description: Send HTTP/2 PING frames at this
+                                        interval.
+                                      type: string
+                                      x-kubernetes-validations:
+                                      - message: must be a valid duration greater
+                                          than 1ms
+                                        rule: duration(self) >= duration('1ms')
+                                    timeout:
+                                      description: How long to wait for a response
+                                        to an HTTP/2 PING frame before closing the
+                                        connection.
+                                      type: string
+                                      x-kubernetes-validations:
+                                      - message: must be a valid duration greater
+                                          than 1ms
+                                        rule: duration(self) >= duration('1ms')
+                                  type: object
                                 http2MaxRequests:
                                   description: Maximum number of active requests to
                                     a destination.
@@ -951,6 +973,9 @@ spec:
                                   - ringHash
                                 - required:
                                   - maglev
+                              description: Consistent Hash-based load balancing can
+                                be used to provide soft session affinity based on
+                                HTTP headers, cookies or other properties.
                               properties:
                                 httpCookie:
                                   description: Hash based on HTTP cookie.
@@ -1017,6 +1042,7 @@ spec:
                                   type: boolean
                               type: object
                             localityLbSetting:
+                              description: Locality load balancer settings.
                               properties:
                                 distribute:
                                   description: 'Optional: only one of distribute,
@@ -1065,8 +1091,8 @@ spec:
                                   type: array
                               type: object
                             simple:
-                              description: |2-
-
+                              description: |-
+                                Standard load balancing algorithms that require no tuning.
 
                                 Valid Options: LEAST_CONN, RANDOM, PASSTHROUGH, ROUND_ROBIN, LEAST_REQUEST
                               enum:
@@ -1109,6 +1135,42 @@ spec:
                               x-kubernetes-validations:
                               - message: must be a valid duration greater than 1ms
                                 rule: duration(self) >= duration('1ms')
+                            zoneAwareLbSetting:
+                              description: Zone Aware load balancer settings.
+                              properties:
+                                enabled:
+                                  description: Enable zone aware load balancing.
+                                  nullable: true
+                                  type: boolean
+                                failover:
+                                  description: Optional.
+                                  items:
+                                    properties:
+                                      from:
+                                        description: Originating region.
+                                        type: string
+                                      to:
+                                        description: Destination region the traffic
+                                          will fail over to when endpoints in the
+                                          'from' region becomes unhealthy.
+                                        type: string
+                                    type: object
+                                  type: array
+                                failoverPriority:
+                                  description: failoverPriority is an ordered list
+                                    of labels used to sort endpoints for priority-based
+                                    load balancing.
+                                  items:
+                                    type: string
+                                  type: array
+                                minClusterSize:
+                                  description: Minimum number of hosts in the upstream
+                                    cluster's local region required for zone-aware
+                                    load balancing to be enabled.
+                                  minimum: 1
+                                  nullable: true
+                                  type: integer
+                              type: object
                           type: object
                         outlierDetection:
                           properties:
@@ -1159,6 +1221,14 @@ spec:
                                 `minHealthPercent` hosts in healthy mode.
                               format: int32
                               type: integer
+                            outlierDetectionHttpErrorCodes:
+                              description: Specifies the HTTP response status codes
+                                that are treated as outlier detection errors.
+                              items:
+                                maximum: 599
+                                minimum: 100
+                                type: integer
+                              type: array
                             splitExternalLocalOriginErrors:
                               description: Determines whether to distinguish local
                                 origin failures from external errors.
@@ -1189,6 +1259,28 @@ spec:
                                           connection pool connection.
                                         format: int32
                                         type: integer
+                                      http2KeepAlive:
+                                        description: Configure HTTP/2 PING frames
+                                          for upstream connections.
+                                        properties:
+                                          interval:
+                                            description: Send HTTP/2 PING frames at
+                                              this interval.
+                                            type: string
+                                            x-kubernetes-validations:
+                                            - message: must be a valid duration greater
+                                                than 1ms
+                                              rule: duration(self) >= duration('1ms')
+                                          timeout:
+                                            description: How long to wait for a response
+                                              to an HTTP/2 PING frame before closing
+                                              the connection.
+                                            type: string
+                                            x-kubernetes-validations:
+                                            - message: must be a valid duration greater
+                                                than 1ms
+                                              rule: duration(self) >= duration('1ms')
+                                        type: object
                                       http2MaxRequests:
                                         description: Maximum number of active requests
                                           to a destination.
@@ -1329,6 +1421,9 @@ spec:
                                         - ringHash
                                       - required:
                                         - maglev
+                                    description: Consistent Hash-based load balancing
+                                      can be used to provide soft session affinity
+                                      based on HTTP headers, cookies or other properties.
                                     properties:
                                       httpCookie:
                                         description: Hash based on HTTP cookie.
@@ -1400,6 +1495,7 @@ spec:
                                         type: boolean
                                     type: object
                                   localityLbSetting:
+                                    description: Locality load balancer settings.
                                     properties:
                                       distribute:
                                         description: 'Optional: only one of distribute,
@@ -1448,8 +1544,8 @@ spec:
                                         type: array
                                     type: object
                                   simple:
-                                    description: |2-
-
+                                    description: |-
+                                      Standard load balancing algorithms that require no tuning.
 
                                       Valid Options: LEAST_CONN, RANDOM, PASSTHROUGH, ROUND_ROBIN, LEAST_REQUEST
                                     enum:
@@ -1493,6 +1589,42 @@ spec:
                                     - message: must be a valid duration greater than
                                         1ms
                                       rule: duration(self) >= duration('1ms')
+                                  zoneAwareLbSetting:
+                                    description: Zone Aware load balancer settings.
+                                    properties:
+                                      enabled:
+                                        description: Enable zone aware load balancing.
+                                        nullable: true
+                                        type: boolean
+                                      failover:
+                                        description: Optional.
+                                        items:
+                                          properties:
+                                            from:
+                                              description: Originating region.
+                                              type: string
+                                            to:
+                                              description: Destination region the
+                                                traffic will fail over to when endpoints
+                                                in the 'from' region becomes unhealthy.
+                                              type: string
+                                          type: object
+                                        type: array
+                                      failoverPriority:
+                                        description: failoverPriority is an ordered
+                                          list of labels used to sort endpoints for
+                                          priority-based load balancing.
+                                        items:
+                                          type: string
+                                        type: array
+                                      minClusterSize:
+                                        description: Minimum number of hosts in the
+                                          upstream cluster's local region required
+                                          for zone-aware load balancing to be enabled.
+                                        minimum: 1
+                                        nullable: true
+                                        type: integer
+                                    type: object
                                 type: object
                               outlierDetection:
                                 properties:
@@ -1547,6 +1679,15 @@ spec:
                                       mode.
                                     format: int32
                                     type: integer
+                                  outlierDetectionHttpErrorCodes:
+                                    description: Specifies the HTTP response status
+                                      codes that are treated as outlier detection
+                                      errors.
+                                    items:
+                                      maximum: 599
+                                      minimum: 100
+                                      type: integer
+                                    type: array
                                   splitExternalLocalOriginErrors:
                                     description: Determines whether to distinguish
                                       local origin failures from external errors.
@@ -1636,6 +1777,11 @@ spec:
                           description: Specifies a limit on concurrent retries in
                             relation to the number of active requests.
                           properties:
+                            budgetInterval:
+                              description: Specifies the duration in which requests
+                                will be considered when calculating the budget for
+                                retries.
+                              type: string
                             minRetryConcurrency:
                               description: Specifies the minimum retry concurrency
                                 allowed for the retry budget.
@@ -1756,6 +1902,24 @@ spec:
                               while waiting for a ready connection pool connection.
                             format: int32
                             type: integer
+                          http2KeepAlive:
+                            description: Configure HTTP/2 PING frames for upstream
+                              connections.
+                            properties:
+                              interval:
+                                description: Send HTTP/2 PING frames at this interval.
+                                type: string
+                                x-kubernetes-validations:
+                                - message: must be a valid duration greater than 1ms
+                                  rule: duration(self) >= duration('1ms')
+                              timeout:
+                                description: How long to wait for a response to an
+                                  HTTP/2 PING frame before closing the connection.
+                                type: string
+                                x-kubernetes-validations:
+                                - message: must be a valid duration greater than 1ms
+                                  rule: duration(self) >= duration('1ms')
+                            type: object
                           http2MaxRequests:
                             description: Maximum number of active requests to a destination.
                             format: int32
@@ -1886,6 +2050,9 @@ spec:
                             - ringHash
                           - required:
                             - maglev
+                        description: Consistent Hash-based load balancing can be used
+                          to provide soft session affinity based on HTTP headers,
+                          cookies or other properties.
                         properties:
                           httpCookie:
                             description: Hash based on HTTP cookie.
@@ -1951,6 +2118,7 @@ spec:
                             type: boolean
                         type: object
                       localityLbSetting:
+                        description: Locality load balancer settings.
                         properties:
                           distribute:
                             description: 'Optional: only one of distribute, failover
@@ -1998,8 +2166,8 @@ spec:
                             type: array
                         type: object
                       simple:
-                        description: |2-
-
+                        description: |-
+                          Standard load balancing algorithms that require no tuning.
 
                           Valid Options: LEAST_CONN, RANDOM, PASSTHROUGH, ROUND_ROBIN, LEAST_REQUEST
                         enum:
@@ -2040,6 +2208,41 @@ spec:
                         x-kubernetes-validations:
                         - message: must be a valid duration greater than 1ms
                           rule: duration(self) >= duration('1ms')
+                      zoneAwareLbSetting:
+                        description: Zone Aware load balancer settings.
+                        properties:
+                          enabled:
+                            description: Enable zone aware load balancing.
+                            nullable: true
+                            type: boolean
+                          failover:
+                            description: Optional.
+                            items:
+                              properties:
+                                from:
+                                  description: Originating region.
+                                  type: string
+                                to:
+                                  description: Destination region the traffic will
+                                    fail over to when endpoints in the 'from' region
+                                    becomes unhealthy.
+                                  type: string
+                              type: object
+                            type: array
+                          failoverPriority:
+                            description: failoverPriority is an ordered list of labels
+                              used to sort endpoints for priority-based load balancing.
+                            items:
+                              type: string
+                            type: array
+                          minClusterSize:
+                            description: Minimum number of hosts in the upstream cluster's
+                              local region required for zone-aware load balancing
+                              to be enabled.
+                            minimum: 1
+                            nullable: true
+                            type: integer
+                        type: object
                     type: object
                   outlierDetection:
                     properties:
@@ -2090,6 +2293,14 @@ spec:
                           hosts in healthy mode.
                         format: int32
                         type: integer
+                      outlierDetectionHttpErrorCodes:
+                        description: Specifies the HTTP response status codes that
+                          are treated as outlier detection errors.
+                        items:
+                          maximum: 599
+                          minimum: 100
+                          type: integer
+                        type: array
                       splitExternalLocalOriginErrors:
                         description: Determines whether to distinguish local origin
                           failures from external errors.
@@ -2120,6 +2331,28 @@ spec:
                                     pool connection.
                                   format: int32
                                   type: integer
+                                http2KeepAlive:
+                                  description: Configure HTTP/2 PING frames for upstream
+                                    connections.
+                                  properties:
+                                    interval:
+                                      description: Send HTTP/2 PING frames at this
+                                        interval.
+                                      type: string
+                                      x-kubernetes-validations:
+                                      - message: must be a valid duration greater
+                                          than 1ms
+                                        rule: duration(self) >= duration('1ms')
+                                    timeout:
+                                      description: How long to wait for a response
+                                        to an HTTP/2 PING frame before closing the
+                                        connection.
+                                      type: string
+                                      x-kubernetes-validations:
+                                      - message: must be a valid duration greater
+                                          than 1ms
+                                        rule: duration(self) >= duration('1ms')
+                                  type: object
                                 http2MaxRequests:
                                   description: Maximum number of active requests to
                                     a destination.
@@ -2257,6 +2490,9 @@ spec:
                                   - ringHash
                                 - required:
                                   - maglev
+                              description: Consistent Hash-based load balancing can
+                                be used to provide soft session affinity based on
+                                HTTP headers, cookies or other properties.
                               properties:
                                 httpCookie:
                                   description: Hash based on HTTP cookie.
@@ -2323,6 +2559,7 @@ spec:
                                   type: boolean
                               type: object
                             localityLbSetting:
+                              description: Locality load balancer settings.
                               properties:
                                 distribute:
                                   description: 'Optional: only one of distribute,
@@ -2371,8 +2608,8 @@ spec:
                                   type: array
                               type: object
                             simple:
-                              description: |2-
-
+                              description: |-
+                                Standard load balancing algorithms that require no tuning.
 
                                 Valid Options: LEAST_CONN, RANDOM, PASSTHROUGH, ROUND_ROBIN, LEAST_REQUEST
                               enum:
@@ -2415,6 +2652,42 @@ spec:
                               x-kubernetes-validations:
                               - message: must be a valid duration greater than 1ms
                                 rule: duration(self) >= duration('1ms')
+                            zoneAwareLbSetting:
+                              description: Zone Aware load balancer settings.
+                              properties:
+                                enabled:
+                                  description: Enable zone aware load balancing.
+                                  nullable: true
+                                  type: boolean
+                                failover:
+                                  description: Optional.
+                                  items:
+                                    properties:
+                                      from:
+                                        description: Originating region.
+                                        type: string
+                                      to:
+                                        description: Destination region the traffic
+                                          will fail over to when endpoints in the
+                                          'from' region becomes unhealthy.
+                                        type: string
+                                    type: object
+                                  type: array
+                                failoverPriority:
+                                  description: failoverPriority is an ordered list
+                                    of labels used to sort endpoints for priority-based
+                                    load balancing.
+                                  items:
+                                    type: string
+                                  type: array
+                                minClusterSize:
+                                  description: Minimum number of hosts in the upstream
+                                    cluster's local region required for zone-aware
+                                    load balancing to be enabled.
+                                  minimum: 1
+                                  nullable: true
+                                  type: integer
+                              type: object
                           type: object
                         outlierDetection:
                           properties:
@@ -2465,6 +2738,14 @@ spec:
                                 `minHealthPercent` hosts in healthy mode.
                               format: int32
                               type: integer
+                            outlierDetectionHttpErrorCodes:
+                              description: Specifies the HTTP response status codes
+                                that are treated as outlier detection errors.
+                              items:
+                                maximum: 599
+                                minimum: 100
+                                type: integer
+                              type: array
                             splitExternalLocalOriginErrors:
                               description: Determines whether to distinguish local
                                 origin failures from external errors.
@@ -2552,6 +2833,10 @@ spec:
                     description: Specifies a limit on concurrent retries in relation
                       to the number of active requests.
                     properties:
+                      budgetInterval:
+                        description: Specifies the duration in which requests will
+                          be considered when calculating the budget for retries.
+                        type: string
                       minRetryConcurrency:
                         description: Specifies the minimum retry concurrency allowed
                           for the retry budget.
@@ -2815,6 +3100,28 @@ spec:
                                     pool connection.
                                   format: int32
                                   type: integer
+                                http2KeepAlive:
+                                  description: Configure HTTP/2 PING frames for upstream
+                                    connections.
+                                  properties:
+                                    interval:
+                                      description: Send HTTP/2 PING frames at this
+                                        interval.
+                                      type: string
+                                      x-kubernetes-validations:
+                                      - message: must be a valid duration greater
+                                          than 1ms
+                                        rule: duration(self) >= duration('1ms')
+                                    timeout:
+                                      description: How long to wait for a response
+                                        to an HTTP/2 PING frame before closing the
+                                        connection.
+                                      type: string
+                                      x-kubernetes-validations:
+                                      - message: must be a valid duration greater
+                                          than 1ms
+                                        rule: duration(self) >= duration('1ms')
+                                  type: object
                                 http2MaxRequests:
                                   description: Maximum number of active requests to
                                     a destination.
@@ -2952,6 +3259,9 @@ spec:
                                   - ringHash
                                 - required:
                                   - maglev
+                              description: Consistent Hash-based load balancing can
+                                be used to provide soft session affinity based on
+                                HTTP headers, cookies or other properties.
                               properties:
                                 httpCookie:
                                   description: Hash based on HTTP cookie.
@@ -3018,6 +3328,7 @@ spec:
                                   type: boolean
                               type: object
                             localityLbSetting:
+                              description: Locality load balancer settings.
                               properties:
                                 distribute:
                                   description: 'Optional: only one of distribute,
@@ -3066,8 +3377,8 @@ spec:
                                   type: array
                               type: object
                             simple:
-                              description: |2-
-
+                              description: |-
+                                Standard load balancing algorithms that require no tuning.
 
                                 Valid Options: LEAST_CONN, RANDOM, PASSTHROUGH, ROUND_ROBIN, LEAST_REQUEST
                               enum:
@@ -3110,6 +3421,42 @@ spec:
                               x-kubernetes-validations:
                               - message: must be a valid duration greater than 1ms
                                 rule: duration(self) >= duration('1ms')
+                            zoneAwareLbSetting:
+                              description: Zone Aware load balancer settings.
+                              properties:
+                                enabled:
+                                  description: Enable zone aware load balancing.
+                                  nullable: true
+                                  type: boolean
+                                failover:
+                                  description: Optional.
+                                  items:
+                                    properties:
+                                      from:
+                                        description: Originating region.
+                                        type: string
+                                      to:
+                                        description: Destination region the traffic
+                                          will fail over to when endpoints in the
+                                          'from' region becomes unhealthy.
+                                        type: string
+                                    type: object
+                                  type: array
+                                failoverPriority:
+                                  description: failoverPriority is an ordered list
+                                    of labels used to sort endpoints for priority-based
+                                    load balancing.
+                                  items:
+                                    type: string
+                                  type: array
+                                minClusterSize:
+                                  description: Minimum number of hosts in the upstream
+                                    cluster's local region required for zone-aware
+                                    load balancing to be enabled.
+                                  minimum: 1
+                                  nullable: true
+                                  type: integer
+                              type: object
                           type: object
                         outlierDetection:
                           properties:
@@ -3160,6 +3507,14 @@ spec:
                                 `minHealthPercent` hosts in healthy mode.
                               format: int32
                               type: integer
+                            outlierDetectionHttpErrorCodes:
+                              description: Specifies the HTTP response status codes
+                                that are treated as outlier detection errors.
+                              items:
+                                maximum: 599
+                                minimum: 100
+                                type: integer
+                              type: array
                             splitExternalLocalOriginErrors:
                               description: Determines whether to distinguish local
                                 origin failures from external errors.
@@ -3190,6 +3545,28 @@ spec:
                                           connection pool connection.
                                         format: int32
                                         type: integer
+                                      http2KeepAlive:
+                                        description: Configure HTTP/2 PING frames
+                                          for upstream connections.
+                                        properties:
+                                          interval:
+                                            description: Send HTTP/2 PING frames at
+                                              this interval.
+                                            type: string
+                                            x-kubernetes-validations:
+                                            - message: must be a valid duration greater
+                                                than 1ms
+                                              rule: duration(self) >= duration('1ms')
+                                          timeout:
+                                            description: How long to wait for a response
+                                              to an HTTP/2 PING frame before closing
+                                              the connection.
+                                            type: string
+                                            x-kubernetes-validations:
+                                            - message: must be a valid duration greater
+                                                than 1ms
+                                              rule: duration(self) >= duration('1ms')
+                                        type: object
                                       http2MaxRequests:
                                         description: Maximum number of active requests
                                           to a destination.
@@ -3330,6 +3707,9 @@ spec:
                                         - ringHash
                                       - required:
                                         - maglev
+                                    description: Consistent Hash-based load balancing
+                                      can be used to provide soft session affinity
+                                      based on HTTP headers, cookies or other properties.
                                     properties:
                                       httpCookie:
                                         description: Hash based on HTTP cookie.
@@ -3401,6 +3781,7 @@ spec:
                                         type: boolean
                                     type: object
                                   localityLbSetting:
+                                    description: Locality load balancer settings.
                                     properties:
                                       distribute:
                                         description: 'Optional: only one of distribute,
@@ -3449,8 +3830,8 @@ spec:
                                         type: array
                                     type: object
                                   simple:
-                                    description: |2-
-
+                                    description: |-
+                                      Standard load balancing algorithms that require no tuning.
 
                                       Valid Options: LEAST_CONN, RANDOM, PASSTHROUGH, ROUND_ROBIN, LEAST_REQUEST
                                     enum:
@@ -3494,6 +3875,42 @@ spec:
                                     - message: must be a valid duration greater than
                                         1ms
                                       rule: duration(self) >= duration('1ms')
+                                  zoneAwareLbSetting:
+                                    description: Zone Aware load balancer settings.
+                                    properties:
+                                      enabled:
+                                        description: Enable zone aware load balancing.
+                                        nullable: true
+                                        type: boolean
+                                      failover:
+                                        description: Optional.
+                                        items:
+                                          properties:
+                                            from:
+                                              description: Originating region.
+                                              type: string
+                                            to:
+                                              description: Destination region the
+                                                traffic will fail over to when endpoints
+                                                in the 'from' region becomes unhealthy.
+                                              type: string
+                                          type: object
+                                        type: array
+                                      failoverPriority:
+                                        description: failoverPriority is an ordered
+                                          list of labels used to sort endpoints for
+                                          priority-based load balancing.
+                                        items:
+                                          type: string
+                                        type: array
+                                      minClusterSize:
+                                        description: Minimum number of hosts in the
+                                          upstream cluster's local region required
+                                          for zone-aware load balancing to be enabled.
+                                        minimum: 1
+                                        nullable: true
+                                        type: integer
+                                    type: object
                                 type: object
                               outlierDetection:
                                 properties:
@@ -3548,6 +3965,15 @@ spec:
                                       mode.
                                     format: int32
                                     type: integer
+                                  outlierDetectionHttpErrorCodes:
+                                    description: Specifies the HTTP response status
+                                      codes that are treated as outlier detection
+                                      errors.
+                                    items:
+                                      maximum: 599
+                                      minimum: 100
+                                      type: integer
+                                    type: array
                                   splitExternalLocalOriginErrors:
                                     description: Determines whether to distinguish
                                       local origin failures from external errors.
@@ -3637,6 +4063,11 @@ spec:
                           description: Specifies a limit on concurrent retries in
                             relation to the number of active requests.
                           properties:
+                            budgetInterval:
+                              description: Specifies the duration in which requests
+                                will be considered when calculating the budget for
+                                retries.
+                              type: string
                             minRetryConcurrency:
                               description: Specifies the minimum retry concurrency
                                 allowed for the retry budget.
@@ -3757,6 +4188,24 @@ spec:
                               while waiting for a ready connection pool connection.
                             format: int32
                             type: integer
+                          http2KeepAlive:
+                            description: Configure HTTP/2 PING frames for upstream
+                              connections.
+                            properties:
+                              interval:
+                                description: Send HTTP/2 PING frames at this interval.
+                                type: string
+                                x-kubernetes-validations:
+                                - message: must be a valid duration greater than 1ms
+                                  rule: duration(self) >= duration('1ms')
+                              timeout:
+                                description: How long to wait for a response to an
+                                  HTTP/2 PING frame before closing the connection.
+                                type: string
+                                x-kubernetes-validations:
+                                - message: must be a valid duration greater than 1ms
+                                  rule: duration(self) >= duration('1ms')
+                            type: object
                           http2MaxRequests:
                             description: Maximum number of active requests to a destination.
                             format: int32
@@ -3887,6 +4336,9 @@ spec:
                             - ringHash
                           - required:
                             - maglev
+                        description: Consistent Hash-based load balancing can be used
+                          to provide soft session affinity based on HTTP headers,
+                          cookies or other properties.
                         properties:
                           httpCookie:
                             description: Hash based on HTTP cookie.
@@ -3952,6 +4404,7 @@ spec:
                             type: boolean
                         type: object
                       localityLbSetting:
+                        description: Locality load balancer settings.
                         properties:
                           distribute:
                             description: 'Optional: only one of distribute, failover
@@ -3999,8 +4452,8 @@ spec:
                             type: array
                         type: object
                       simple:
-                        description: |2-
-
+                        description: |-
+                          Standard load balancing algorithms that require no tuning.
 
                           Valid Options: LEAST_CONN, RANDOM, PASSTHROUGH, ROUND_ROBIN, LEAST_REQUEST
                         enum:
@@ -4041,6 +4494,41 @@ spec:
                         x-kubernetes-validations:
                         - message: must be a valid duration greater than 1ms
                           rule: duration(self) >= duration('1ms')
+                      zoneAwareLbSetting:
+                        description: Zone Aware load balancer settings.
+                        properties:
+                          enabled:
+                            description: Enable zone aware load balancing.
+                            nullable: true
+                            type: boolean
+                          failover:
+                            description: Optional.
+                            items:
+                              properties:
+                                from:
+                                  description: Originating region.
+                                  type: string
+                                to:
+                                  description: Destination region the traffic will
+                                    fail over to when endpoints in the 'from' region
+                                    becomes unhealthy.
+                                  type: string
+                              type: object
+                            type: array
+                          failoverPriority:
+                            description: failoverPriority is an ordered list of labels
+                              used to sort endpoints for priority-based load balancing.
+                            items:
+                              type: string
+                            type: array
+                          minClusterSize:
+                            description: Minimum number of hosts in the upstream cluster's
+                              local region required for zone-aware load balancing
+                              to be enabled.
+                            minimum: 1
+                            nullable: true
+                            type: integer
+                        type: object
                     type: object
                   outlierDetection:
                     properties:
@@ -4091,6 +4579,14 @@ spec:
                           hosts in healthy mode.
                         format: int32
                         type: integer
+                      outlierDetectionHttpErrorCodes:
+                        description: Specifies the HTTP response status codes that
+                          are treated as outlier detection errors.
+                        items:
+                          maximum: 599
+                          minimum: 100
+                          type: integer
+                        type: array
                       splitExternalLocalOriginErrors:
                         description: Determines whether to distinguish local origin
                           failures from external errors.
@@ -4121,6 +4617,28 @@ spec:
                                     pool connection.
                                   format: int32
                                   type: integer
+                                http2KeepAlive:
+                                  description: Configure HTTP/2 PING frames for upstream
+                                    connections.
+                                  properties:
+                                    interval:
+                                      description: Send HTTP/2 PING frames at this
+                                        interval.
+                                      type: string
+                                      x-kubernetes-validations:
+                                      - message: must be a valid duration greater
+                                          than 1ms
+                                        rule: duration(self) >= duration('1ms')
+                                    timeout:
+                                      description: How long to wait for a response
+                                        to an HTTP/2 PING frame before closing the
+                                        connection.
+                                      type: string
+                                      x-kubernetes-validations:
+                                      - message: must be a valid duration greater
+                                          than 1ms
+                                        rule: duration(self) >= duration('1ms')
+                                  type: object
                                 http2MaxRequests:
                                   description: Maximum number of active requests to
                                     a destination.
@@ -4258,6 +4776,9 @@ spec:
                                   - ringHash
                                 - required:
                                   - maglev
+                              description: Consistent Hash-based load balancing can
+                                be used to provide soft session affinity based on
+                                HTTP headers, cookies or other properties.
                               properties:
                                 httpCookie:
                                   description: Hash based on HTTP cookie.
@@ -4324,6 +4845,7 @@ spec:
                                   type: boolean
                               type: object
                             localityLbSetting:
+                              description: Locality load balancer settings.
                               properties:
                                 distribute:
                                   description: 'Optional: only one of distribute,
@@ -4372,8 +4894,8 @@ spec:
                                   type: array
                               type: object
                             simple:
-                              description: |2-
-
+                              description: |-
+                                Standard load balancing algorithms that require no tuning.
 
                                 Valid Options: LEAST_CONN, RANDOM, PASSTHROUGH, ROUND_ROBIN, LEAST_REQUEST
                               enum:
@@ -4416,6 +4938,42 @@ spec:
                               x-kubernetes-validations:
                               - message: must be a valid duration greater than 1ms
                                 rule: duration(self) >= duration('1ms')
+                            zoneAwareLbSetting:
+                              description: Zone Aware load balancer settings.
+                              properties:
+                                enabled:
+                                  description: Enable zone aware load balancing.
+                                  nullable: true
+                                  type: boolean
+                                failover:
+                                  description: Optional.
+                                  items:
+                                    properties:
+                                      from:
+                                        description: Originating region.
+                                        type: string
+                                      to:
+                                        description: Destination region the traffic
+                                          will fail over to when endpoints in the
+                                          'from' region becomes unhealthy.
+                                        type: string
+                                    type: object
+                                  type: array
+                                failoverPriority:
+                                  description: failoverPriority is an ordered list
+                                    of labels used to sort endpoints for priority-based
+                                    load balancing.
+                                  items:
+                                    type: string
+                                  type: array
+                                minClusterSize:
+                                  description: Minimum number of hosts in the upstream
+                                    cluster's local region required for zone-aware
+                                    load balancing to be enabled.
+                                  minimum: 1
+                                  nullable: true
+                                  type: integer
+                              type: object
                           type: object
                         outlierDetection:
                           properties:
@@ -4466,6 +5024,14 @@ spec:
                                 `minHealthPercent` hosts in healthy mode.
                               format: int32
                               type: integer
+                            outlierDetectionHttpErrorCodes:
+                              description: Specifies the HTTP response status codes
+                                that are treated as outlier detection errors.
+                              items:
+                                maximum: 599
+                                minimum: 100
+                                type: integer
+                              type: array
                             splitExternalLocalOriginErrors:
                               description: Determines whether to distinguish local
                                 origin failures from external errors.
@@ -4553,6 +5119,10 @@ spec:
                     description: Specifies a limit on concurrent retries in relation
                       to the number of active requests.
                     properties:
+                      budgetInterval:
+                        description: Specifies the duration in which requests will
+                          be considered when calculating the budget for retries.
+                        type: string
                       minRetryConcurrency:
                         description: Specifies the minimum retry concurrency allowed
                           for the retry budget.
@@ -4816,6 +5386,28 @@ spec:
                                     pool connection.
                                   format: int32
                                   type: integer
+                                http2KeepAlive:
+                                  description: Configure HTTP/2 PING frames for upstream
+                                    connections.
+                                  properties:
+                                    interval:
+                                      description: Send HTTP/2 PING frames at this
+                                        interval.
+                                      type: string
+                                      x-kubernetes-validations:
+                                      - message: must be a valid duration greater
+                                          than 1ms
+                                        rule: duration(self) >= duration('1ms')
+                                    timeout:
+                                      description: How long to wait for a response
+                                        to an HTTP/2 PING frame before closing the
+                                        connection.
+                                      type: string
+                                      x-kubernetes-validations:
+                                      - message: must be a valid duration greater
+                                          than 1ms
+                                        rule: duration(self) >= duration('1ms')
+                                  type: object
                                 http2MaxRequests:
                                   description: Maximum number of active requests to
                                     a destination.
@@ -4953,6 +5545,9 @@ spec:
                                   - ringHash
                                 - required:
                                   - maglev
+                              description: Consistent Hash-based load balancing can
+                                be used to provide soft session affinity based on
+                                HTTP headers, cookies or other properties.
                               properties:
                                 httpCookie:
                                   description: Hash based on HTTP cookie.
@@ -5019,6 +5614,7 @@ spec:
                                   type: boolean
                               type: object
                             localityLbSetting:
+                              description: Locality load balancer settings.
                               properties:
                                 distribute:
                                   description: 'Optional: only one of distribute,
@@ -5067,8 +5663,8 @@ spec:
                                   type: array
                               type: object
                             simple:
-                              description: |2-
-
+                              description: |-
+                                Standard load balancing algorithms that require no tuning.
 
                                 Valid Options: LEAST_CONN, RANDOM, PASSTHROUGH, ROUND_ROBIN, LEAST_REQUEST
                               enum:
@@ -5111,6 +5707,42 @@ spec:
                               x-kubernetes-validations:
                               - message: must be a valid duration greater than 1ms
                                 rule: duration(self) >= duration('1ms')
+                            zoneAwareLbSetting:
+                              description: Zone Aware load balancer settings.
+                              properties:
+                                enabled:
+                                  description: Enable zone aware load balancing.
+                                  nullable: true
+                                  type: boolean
+                                failover:
+                                  description: Optional.
+                                  items:
+                                    properties:
+                                      from:
+                                        description: Originating region.
+                                        type: string
+                                      to:
+                                        description: Destination region the traffic
+                                          will fail over to when endpoints in the
+                                          'from' region becomes unhealthy.
+                                        type: string
+                                    type: object
+                                  type: array
+                                failoverPriority:
+                                  description: failoverPriority is an ordered list
+                                    of labels used to sort endpoints for priority-based
+                                    load balancing.
+                                  items:
+                                    type: string
+                                  type: array
+                                minClusterSize:
+                                  description: Minimum number of hosts in the upstream
+                                    cluster's local region required for zone-aware
+                                    load balancing to be enabled.
+                                  minimum: 1
+                                  nullable: true
+                                  type: integer
+                              type: object
                           type: object
                         outlierDetection:
                           properties:
@@ -5161,6 +5793,14 @@ spec:
                                 `minHealthPercent` hosts in healthy mode.
                               format: int32
                               type: integer
+                            outlierDetectionHttpErrorCodes:
+                              description: Specifies the HTTP response status codes
+                                that are treated as outlier detection errors.
+                              items:
+                                maximum: 599
+                                minimum: 100
+                                type: integer
+                              type: array
                             splitExternalLocalOriginErrors:
                               description: Determines whether to distinguish local
                                 origin failures from external errors.
@@ -5191,6 +5831,28 @@ spec:
                                           connection pool connection.
                                         format: int32
                                         type: integer
+                                      http2KeepAlive:
+                                        description: Configure HTTP/2 PING frames
+                                          for upstream connections.
+                                        properties:
+                                          interval:
+                                            description: Send HTTP/2 PING frames at
+                                              this interval.
+                                            type: string
+                                            x-kubernetes-validations:
+                                            - message: must be a valid duration greater
+                                                than 1ms
+                                              rule: duration(self) >= duration('1ms')
+                                          timeout:
+                                            description: How long to wait for a response
+                                              to an HTTP/2 PING frame before closing
+                                              the connection.
+                                            type: string
+                                            x-kubernetes-validations:
+                                            - message: must be a valid duration greater
+                                                than 1ms
+                                              rule: duration(self) >= duration('1ms')
+                                        type: object
                                       http2MaxRequests:
                                         description: Maximum number of active requests
                                           to a destination.
@@ -5331,6 +5993,9 @@ spec:
                                         - ringHash
                                       - required:
                                         - maglev
+                                    description: Consistent Hash-based load balancing
+                                      can be used to provide soft session affinity
+                                      based on HTTP headers, cookies or other properties.
                                     properties:
                                       httpCookie:
                                         description: Hash based on HTTP cookie.
@@ -5402,6 +6067,7 @@ spec:
                                         type: boolean
                                     type: object
                                   localityLbSetting:
+                                    description: Locality load balancer settings.
                                     properties:
                                       distribute:
                                         description: 'Optional: only one of distribute,
@@ -5450,8 +6116,8 @@ spec:
                                         type: array
                                     type: object
                                   simple:
-                                    description: |2-
-
+                                    description: |-
+                                      Standard load balancing algorithms that require no tuning.
 
                                       Valid Options: LEAST_CONN, RANDOM, PASSTHROUGH, ROUND_ROBIN, LEAST_REQUEST
                                     enum:
@@ -5495,6 +6161,42 @@ spec:
                                     - message: must be a valid duration greater than
                                         1ms
                                       rule: duration(self) >= duration('1ms')
+                                  zoneAwareLbSetting:
+                                    description: Zone Aware load balancer settings.
+                                    properties:
+                                      enabled:
+                                        description: Enable zone aware load balancing.
+                                        nullable: true
+                                        type: boolean
+                                      failover:
+                                        description: Optional.
+                                        items:
+                                          properties:
+                                            from:
+                                              description: Originating region.
+                                              type: string
+                                            to:
+                                              description: Destination region the
+                                                traffic will fail over to when endpoints
+                                                in the 'from' region becomes unhealthy.
+                                              type: string
+                                          type: object
+                                        type: array
+                                      failoverPriority:
+                                        description: failoverPriority is an ordered
+                                          list of labels used to sort endpoints for
+                                          priority-based load balancing.
+                                        items:
+                                          type: string
+                                        type: array
+                                      minClusterSize:
+                                        description: Minimum number of hosts in the
+                                          upstream cluster's local region required
+                                          for zone-aware load balancing to be enabled.
+                                        minimum: 1
+                                        nullable: true
+                                        type: integer
+                                    type: object
                                 type: object
                               outlierDetection:
                                 properties:
@@ -5549,6 +6251,15 @@ spec:
                                       mode.
                                     format: int32
                                     type: integer
+                                  outlierDetectionHttpErrorCodes:
+                                    description: Specifies the HTTP response status
+                                      codes that are treated as outlier detection
+                                      errors.
+                                    items:
+                                      maximum: 599
+                                      minimum: 100
+                                      type: integer
+                                    type: array
                                   splitExternalLocalOriginErrors:
                                     description: Determines whether to distinguish
                                       local origin failures from external errors.
@@ -5638,6 +6349,11 @@ spec:
                           description: Specifies a limit on concurrent retries in
                             relation to the number of active requests.
                           properties:
+                            budgetInterval:
+                              description: Specifies the duration in which requests
+                                will be considered when calculating the budget for
+                                retries.
+                              type: string
                             minRetryConcurrency:
                               description: Specifies the minimum retry concurrency
                                 allowed for the retry budget.
@@ -5758,6 +6474,24 @@ spec:
                               while waiting for a ready connection pool connection.
                             format: int32
                             type: integer
+                          http2KeepAlive:
+                            description: Configure HTTP/2 PING frames for upstream
+                              connections.
+                            properties:
+                              interval:
+                                description: Send HTTP/2 PING frames at this interval.
+                                type: string
+                                x-kubernetes-validations:
+                                - message: must be a valid duration greater than 1ms
+                                  rule: duration(self) >= duration('1ms')
+                              timeout:
+                                description: How long to wait for a response to an
+                                  HTTP/2 PING frame before closing the connection.
+                                type: string
+                                x-kubernetes-validations:
+                                - message: must be a valid duration greater than 1ms
+                                  rule: duration(self) >= duration('1ms')
+                            type: object
                           http2MaxRequests:
                             description: Maximum number of active requests to a destination.
                             format: int32
@@ -5888,6 +6622,9 @@ spec:
                             - ringHash
                           - required:
                             - maglev
+                        description: Consistent Hash-based load balancing can be used
+                          to provide soft session affinity based on HTTP headers,
+                          cookies or other properties.
                         properties:
                           httpCookie:
                             description: Hash based on HTTP cookie.
@@ -5953,6 +6690,7 @@ spec:
                             type: boolean
                         type: object
                       localityLbSetting:
+                        description: Locality load balancer settings.
                         properties:
                           distribute:
                             description: 'Optional: only one of distribute, failover
@@ -6000,8 +6738,8 @@ spec:
                             type: array
                         type: object
                       simple:
-                        description: |2-
-
+                        description: |-
+                          Standard load balancing algorithms that require no tuning.
 
                           Valid Options: LEAST_CONN, RANDOM, PASSTHROUGH, ROUND_ROBIN, LEAST_REQUEST
                         enum:
@@ -6042,6 +6780,41 @@ spec:
                         x-kubernetes-validations:
                         - message: must be a valid duration greater than 1ms
                           rule: duration(self) >= duration('1ms')
+                      zoneAwareLbSetting:
+                        description: Zone Aware load balancer settings.
+                        properties:
+                          enabled:
+                            description: Enable zone aware load balancing.
+                            nullable: true
+                            type: boolean
+                          failover:
+                            description: Optional.
+                            items:
+                              properties:
+                                from:
+                                  description: Originating region.
+                                  type: string
+                                to:
+                                  description: Destination region the traffic will
+                                    fail over to when endpoints in the 'from' region
+                                    becomes unhealthy.
+                                  type: string
+                              type: object
+                            type: array
+                          failoverPriority:
+                            description: failoverPriority is an ordered list of labels
+                              used to sort endpoints for priority-based load balancing.
+                            items:
+                              type: string
+                            type: array
+                          minClusterSize:
+                            description: Minimum number of hosts in the upstream cluster's
+                              local region required for zone-aware load balancing
+                              to be enabled.
+                            minimum: 1
+                            nullable: true
+                            type: integer
+                        type: object
                     type: object
                   outlierDetection:
                     properties:
@@ -6092,6 +6865,14 @@ spec:
                           hosts in healthy mode.
                         format: int32
                         type: integer
+                      outlierDetectionHttpErrorCodes:
+                        description: Specifies the HTTP response status codes that
+                          are treated as outlier detection errors.
+                        items:
+                          maximum: 599
+                          minimum: 100
+                          type: integer
+                        type: array
                       splitExternalLocalOriginErrors:
                         description: Determines whether to distinguish local origin
                           failures from external errors.
@@ -6122,6 +6903,28 @@ spec:
                                     pool connection.
                                   format: int32
                                   type: integer
+                                http2KeepAlive:
+                                  description: Configure HTTP/2 PING frames for upstream
+                                    connections.
+                                  properties:
+                                    interval:
+                                      description: Send HTTP/2 PING frames at this
+                                        interval.
+                                      type: string
+                                      x-kubernetes-validations:
+                                      - message: must be a valid duration greater
+                                          than 1ms
+                                        rule: duration(self) >= duration('1ms')
+                                    timeout:
+                                      description: How long to wait for a response
+                                        to an HTTP/2 PING frame before closing the
+                                        connection.
+                                      type: string
+                                      x-kubernetes-validations:
+                                      - message: must be a valid duration greater
+                                          than 1ms
+                                        rule: duration(self) >= duration('1ms')
+                                  type: object
                                 http2MaxRequests:
                                   description: Maximum number of active requests to
                                     a destination.
@@ -6259,6 +7062,9 @@ spec:
                                   - ringHash
                                 - required:
                                   - maglev
+                              description: Consistent Hash-based load balancing can
+                                be used to provide soft session affinity based on
+                                HTTP headers, cookies or other properties.
                               properties:
                                 httpCookie:
                                   description: Hash based on HTTP cookie.
@@ -6325,6 +7131,7 @@ spec:
                                   type: boolean
                               type: object
                             localityLbSetting:
+                              description: Locality load balancer settings.
                               properties:
                                 distribute:
                                   description: 'Optional: only one of distribute,
@@ -6373,8 +7180,8 @@ spec:
                                   type: array
                               type: object
                             simple:
-                              description: |2-
-
+                              description: |-
+                                Standard load balancing algorithms that require no tuning.
 
                                 Valid Options: LEAST_CONN, RANDOM, PASSTHROUGH, ROUND_ROBIN, LEAST_REQUEST
                               enum:
@@ -6417,6 +7224,42 @@ spec:
                               x-kubernetes-validations:
                               - message: must be a valid duration greater than 1ms
                                 rule: duration(self) >= duration('1ms')
+                            zoneAwareLbSetting:
+                              description: Zone Aware load balancer settings.
+                              properties:
+                                enabled:
+                                  description: Enable zone aware load balancing.
+                                  nullable: true
+                                  type: boolean
+                                failover:
+                                  description: Optional.
+                                  items:
+                                    properties:
+                                      from:
+                                        description: Originating region.
+                                        type: string
+                                      to:
+                                        description: Destination region the traffic
+                                          will fail over to when endpoints in the
+                                          'from' region becomes unhealthy.
+                                        type: string
+                                    type: object
+                                  type: array
+                                failoverPriority:
+                                  description: failoverPriority is an ordered list
+                                    of labels used to sort endpoints for priority-based
+                                    load balancing.
+                                  items:
+                                    type: string
+                                  type: array
+                                minClusterSize:
+                                  description: Minimum number of hosts in the upstream
+                                    cluster's local region required for zone-aware
+                                    load balancing to be enabled.
+                                  minimum: 1
+                                  nullable: true
+                                  type: integer
+                              type: object
                           type: object
                         outlierDetection:
                           properties:
@@ -6467,6 +7310,14 @@ spec:
                                 `minHealthPercent` hosts in healthy mode.
                               format: int32
                               type: integer
+                            outlierDetectionHttpErrorCodes:
+                              description: Specifies the HTTP response status codes
+                                that are treated as outlier detection errors.
+                              items:
+                                maximum: 599
+                                minimum: 100
+                                type: integer
+                              type: array
                             splitExternalLocalOriginErrors:
                               description: Determines whether to distinguish local
                                 origin failures from external errors.
@@ -6554,6 +7405,10 @@ spec:
                     description: Specifies a limit on concurrent retries in relation
                       to the number of active requests.
                     properties:
+                      budgetInterval:
+                        description: Specifies the duration in which requests will
+                          be considered when calculating the budget for retries.
+                        type: string
                       minRetryConcurrency:
                         description: Specifies the minimum retry concurrency allowed
                           for the retry budget.
@@ -7044,7 +7899,7 @@ spec:
                           description: |-
                             Determines how the patch should be applied.
 
-                            Valid Options: MERGE, ADD, REMOVE, INSERT_BEFORE, INSERT_AFTER, INSERT_FIRST, REPLACE
+                            Valid Options: MERGE, ADD, REMOVE, INSERT_BEFORE, INSERT_AFTER, INSERT_FIRST, REPLACE, MERGE_AND_REPLACE_LIST
                           enum:
                           - INVALID
                           - MERGE
@@ -7054,6 +7909,7 @@ spec:
                           - INSERT_AFTER
                           - INSERT_FIRST
                           - REPLACE
+                          - MERGE_AND_REPLACE_LIST
                           type: string
                         value:
                           description: The JSON config of the object being patched.
@@ -7321,6 +8177,12 @@ spec:
                           description: If set to true, the load balancer will send
                             a 301 redirect for all http connections, asking the clients
                             to use HTTPS.
+                          type: boolean
+                        insecureSkipVerify:
+                          description: 'Optional: If set to true, the proxy will try
+                            to validate the certificate, but even if the validation
+                            fails, it will allow the connection through.'
+                          nullable: true
                           type: boolean
                         maxProtocolVersion:
                           description: |-
@@ -7597,6 +8459,12 @@ spec:
                             a 301 redirect for all http connections, asking the clients
                             to use HTTPS.
                           type: boolean
+                        insecureSkipVerify:
+                          description: 'Optional: If set to true, the proxy will try
+                            to validate the certificate, but even if the validation
+                            fails, it will allow the connection through.'
+                          nullable: true
+                          type: boolean
                         maxProtocolVersion:
                           description: |-
                             Optional: Maximum TLS protocol version.
@@ -7871,6 +8739,12 @@ spec:
                           description: If set to true, the load balancer will send
                             a 301 redirect for all http connections, asking the clients
                             to use HTTPS.
+                          type: boolean
+                        insecureSkipVerify:
+                          description: 'Optional: If set to true, the proxy will try
+                            to validate the certificate, but even if the validation
+                            fails, it will allow the connection through.'
+                          nullable: true
                           type: boolean
                         maxProtocolVersion:
                           description: |-
@@ -9229,6 +10103,23 @@ spec:
                           while waiting for a ready connection pool connection.
                         format: int32
                         type: integer
+                      http2KeepAlive:
+                        description: Configure HTTP/2 PING frames for upstream connections.
+                        properties:
+                          interval:
+                            description: Send HTTP/2 PING frames at this interval.
+                            type: string
+                            x-kubernetes-validations:
+                            - message: must be a valid duration greater than 1ms
+                              rule: duration(self) >= duration('1ms')
+                          timeout:
+                            description: How long to wait for a response to an HTTP/2
+                              PING frame before closing the connection.
+                            type: string
+                            x-kubernetes-validations:
+                            - message: must be a valid duration greater than 1ms
+                              rule: duration(self) >= duration('1ms')
+                        type: object
                       http2MaxRequests:
                         description: Maximum number of active requests to a destination.
                         format: int32
@@ -9350,6 +10241,26 @@ spec:
                                 queued while waiting for a ready connection pool connection.
                               format: int32
                               type: integer
+                            http2KeepAlive:
+                              description: Configure HTTP/2 PING frames for upstream
+                                connections.
+                              properties:
+                                interval:
+                                  description: Send HTTP/2 PING frames at this interval.
+                                  type: string
+                                  x-kubernetes-validations:
+                                  - message: must be a valid duration greater than
+                                      1ms
+                                    rule: duration(self) >= duration('1ms')
+                                timeout:
+                                  description: How long to wait for a response to
+                                    an HTTP/2 PING frame before closing the connection.
+                                  type: string
+                                  x-kubernetes-validations:
+                                  - message: must be a valid duration greater than
+                                      1ms
+                                    rule: duration(self) >= duration('1ms')
+                              type: object
                             http2MaxRequests:
                               description: Maximum number of active requests to a
                                 destination.
@@ -9499,6 +10410,12 @@ spec:
                           description: If set to true, the load balancer will send
                             a 301 redirect for all http connections, asking the clients
                             to use HTTPS.
+                          type: boolean
+                        insecureSkipVerify:
+                          description: 'Optional: If set to true, the proxy will try
+                            to validate the certificate, but even if the validation
+                            fails, it will allow the connection through.'
+                          nullable: true
                           type: boolean
                         maxProtocolVersion:
                           description: |-
@@ -9807,6 +10724,23 @@ spec:
                           while waiting for a ready connection pool connection.
                         format: int32
                         type: integer
+                      http2KeepAlive:
+                        description: Configure HTTP/2 PING frames for upstream connections.
+                        properties:
+                          interval:
+                            description: Send HTTP/2 PING frames at this interval.
+                            type: string
+                            x-kubernetes-validations:
+                            - message: must be a valid duration greater than 1ms
+                              rule: duration(self) >= duration('1ms')
+                          timeout:
+                            description: How long to wait for a response to an HTTP/2
+                              PING frame before closing the connection.
+                            type: string
+                            x-kubernetes-validations:
+                            - message: must be a valid duration greater than 1ms
+                              rule: duration(self) >= duration('1ms')
+                        type: object
                       http2MaxRequests:
                         description: Maximum number of active requests to a destination.
                         format: int32
@@ -9928,6 +10862,26 @@ spec:
                                 queued while waiting for a ready connection pool connection.
                               format: int32
                               type: integer
+                            http2KeepAlive:
+                              description: Configure HTTP/2 PING frames for upstream
+                                connections.
+                              properties:
+                                interval:
+                                  description: Send HTTP/2 PING frames at this interval.
+                                  type: string
+                                  x-kubernetes-validations:
+                                  - message: must be a valid duration greater than
+                                      1ms
+                                    rule: duration(self) >= duration('1ms')
+                                timeout:
+                                  description: How long to wait for a response to
+                                    an HTTP/2 PING frame before closing the connection.
+                                  type: string
+                                  x-kubernetes-validations:
+                                  - message: must be a valid duration greater than
+                                      1ms
+                                    rule: duration(self) >= duration('1ms')
+                              type: object
                             http2MaxRequests:
                               description: Maximum number of active requests to a
                                 destination.
@@ -10077,6 +11031,12 @@ spec:
                           description: If set to true, the load balancer will send
                             a 301 redirect for all http connections, asking the clients
                             to use HTTPS.
+                          type: boolean
+                        insecureSkipVerify:
+                          description: 'Optional: If set to true, the proxy will try
+                            to validate the certificate, but even if the validation
+                            fails, it will allow the connection through.'
+                          nullable: true
                           type: boolean
                         maxProtocolVersion:
                           description: |-
@@ -10385,6 +11345,23 @@ spec:
                           while waiting for a ready connection pool connection.
                         format: int32
                         type: integer
+                      http2KeepAlive:
+                        description: Configure HTTP/2 PING frames for upstream connections.
+                        properties:
+                          interval:
+                            description: Send HTTP/2 PING frames at this interval.
+                            type: string
+                            x-kubernetes-validations:
+                            - message: must be a valid duration greater than 1ms
+                              rule: duration(self) >= duration('1ms')
+                          timeout:
+                            description: How long to wait for a response to an HTTP/2
+                              PING frame before closing the connection.
+                            type: string
+                            x-kubernetes-validations:
+                            - message: must be a valid duration greater than 1ms
+                              rule: duration(self) >= duration('1ms')
+                        type: object
                       http2MaxRequests:
                         description: Maximum number of active requests to a destination.
                         format: int32
@@ -10506,6 +11483,26 @@ spec:
                                 queued while waiting for a ready connection pool connection.
                               format: int32
                               type: integer
+                            http2KeepAlive:
+                              description: Configure HTTP/2 PING frames for upstream
+                                connections.
+                              properties:
+                                interval:
+                                  description: Send HTTP/2 PING frames at this interval.
+                                  type: string
+                                  x-kubernetes-validations:
+                                  - message: must be a valid duration greater than
+                                      1ms
+                                    rule: duration(self) >= duration('1ms')
+                                timeout:
+                                  description: How long to wait for a response to
+                                    an HTTP/2 PING frame before closing the connection.
+                                  type: string
+                                  x-kubernetes-validations:
+                                  - message: must be a valid duration greater than
+                                      1ms
+                                    rule: duration(self) >= duration('1ms')
+                              type: object
                             http2MaxRequests:
                               description: Maximum number of active requests to a
                                 destination.
@@ -10655,6 +11652,12 @@ spec:
                           description: If set to true, the load balancer will send
                             a 301 redirect for all http connections, asking the clients
                             to use HTTPS.
+                          type: boolean
+                        insecureSkipVerify:
+                          description: 'Optional: If set to true, the proxy will try
+                            to validate the certificate, but even if the validation
+                            fails, it will allow the connection through.'
+                          nullable: true
                           type: boolean
                         maxProtocolVersion:
                           description: |-
@@ -11556,6 +12559,10 @@ spec:
                           maximum: 4294967295
                           minimum: 0
                           type: integer
+                        prefixRewrite:
+                          description: On a redirect, replace the matched prefix with
+                            this value.
+                          type: string
                         redirectCode:
                           description: On a redirect, Specifies the HTTP status code
                             to use in the redirect response.
@@ -12608,6 +13615,10 @@ spec:
                           maximum: 4294967295
                           minimum: 0
                           type: integer
+                        prefixRewrite:
+                          description: On a redirect, replace the matched prefix with
+                            this value.
+                          type: string
                         redirectCode:
                           description: On a redirect, Specifies the HTTP status code
                             to use in the redirect response.
@@ -13660,6 +14671,10 @@ spec:
                           maximum: 4294967295
                           minimum: 0
                           type: integer
+                        prefixRewrite:
+                          description: On a redirect, replace the matched prefix with
+                            this value.
+                          type: string
                         redirectCode:
                           description: On a redirect, Specifies the HTTP status code
                             to use in the redirect response.

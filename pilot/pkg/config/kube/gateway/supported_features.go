@@ -22,15 +22,10 @@ import (
 var skippedExtendedFeatures = []features.Feature{
 	// GatewayBackendClientCertificateFeature, GatewayInvalidTLSBackendConfiguration
 	features.GatewayBackendClientCertificateFeature,
-	// GatewayFrontendInvalidDefaultClientCertificateValidation, GatewayInvalidFrontendClientCertificateValidation,
-	// GatewayFrontendClientCertificateValidationInsecureFallback
-	features.GatewayFrontendClientCertificateValidationFeature,
-	// GatewayFrontendClientCertificateValidationInsecureFallback
-	features.GatewayFrontendClientCertificateValidationInsecureFallbackFeature,
 	// HTTPRouteHTTPSListenerDetectMisdirectedRequests
 	features.GatewayHTTPSListenerDetectMisdirectedRequestsFeature,
-	// ListenerSetHostnameConflict, ListenerSetProtocolConflict, ListenerSetReferenceGrant
-	features.ListenerSetFeature,
+	// UDPRoute* - Istio does not support UDPRoute
+	features.UDPRouteFeature,
 }
 
 var SupportedFeatures = features.AllFeatures.Clone().Delete(skippedExtendedFeatures...)

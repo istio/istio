@@ -691,6 +691,37 @@ func TestRemoveTag(t *testing.T) {
 	}
 }
 
+func TestRemoveDefaultTagDeletesValidatingWebhook(t *testing.T) {
+	mwh := &admitv1.MutatingWebhookConfiguration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "istio-revision-tag-default",
+			Labels: map[string]string{label.IoIstioTag.Name: "default"},
+		},
+	}
+	vwh := &admitv1.ValidatingWebhookConfiguration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   vwhBaseTemplateName,
+			Labels: map[string]string{label.IoIstioTag.Name: "default"},
+		},
+	}
+	client := fake.NewClientset(mwh, vwh)
+
+	var out bytes.Buffer
+	if err := removeTag(context.Background(), client, "default", true, "istio-system", &out); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	mwhs, _ := client.AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.Background(), metav1.ListOptions{})
+	if len(mwhs.Items) != 0 {
+		t.Errorf("expected MutatingWebhookConfiguration to be deleted, got %d", len(mwhs.Items))
+	}
+
+	vwhs, _ := client.AdmissionregistrationV1().ValidatingWebhookConfigurations().List(context.Background(), metav1.ListOptions{})
+	if len(vwhs.Items) != 0 {
+		t.Errorf("expected ValidatingWebhookConfiguration %q to be deleted, got %d", vwhBaseTemplateName, len(vwhs.Items))
+	}
+}
+
 func TestSetTagErrors(t *testing.T) {
 	serviceBefore := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{

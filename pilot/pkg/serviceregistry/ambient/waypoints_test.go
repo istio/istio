@@ -22,9 +22,13 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"istio.io/api/annotation"
+	"istio.io/api/label"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/workloadapi"
 )
 
 func TestMakeAllowedRoutes(t *testing.T) {
@@ -273,5 +277,140 @@ func assertWaypointSelector(t *testing.T, result, expected WaypointSelector) {
 		assert.Equal(t, result.Selector, nil)
 	} else {
 		assert.Equal(t, result.Selector.String(), expected.Selector.String())
+	}
+}
+
+func TestGetUseWaypointCanary(t *testing.T) {
+	cases := []struct {
+		name      string
+		labels    map[string]string
+		nsLabels  map[string]string
+		defaultNS string
+		want      *krt.Named
+	}{
+		{"no label", nil, nil, "ns", nil},
+		{"empty value", map[string]string{label.IoIstioUseWaypointCanary.Name: ""}, nil, "ns", nil},
+		{"none", map[string]string{label.IoIstioUseWaypointCanary.Name: "none"}, nil, "ns", nil},
+		{
+			"same namespace",
+			map[string]string{label.IoIstioUseWaypointCanary.Name: "wp"},
+			nil,
+			"ns",
+			&krt.Named{Name: "wp", Namespace: "ns"},
+		},
+		{
+			"cross namespace",
+			map[string]string{
+				label.IoIstioUseWaypointCanary.Name:          "wp",
+				label.IoIstioUseWaypointCanaryNamespace.Name: "other",
+			},
+			nil,
+			"ns",
+			&krt.Named{Name: "wp", Namespace: "other"},
+		},
+		{
+			"inherited from namespace",
+			nil,
+			map[string]string{label.IoIstioUseWaypointCanary.Name: "ns-wp"},
+			"ns",
+			&krt.Named{Name: "ns-wp", Namespace: "ns"},
+		},
+		{
+			"inherited cross namespace from namespace",
+			nil,
+			map[string]string{
+				label.IoIstioUseWaypointCanary.Name:          "ns-wp",
+				label.IoIstioUseWaypointCanaryNamespace.Name: "other",
+			},
+			"ns",
+			&krt.Named{Name: "ns-wp", Namespace: "other"},
+		},
+		{
+			"object overrides namespace",
+			map[string]string{label.IoIstioUseWaypointCanary.Name: "wp"},
+			map[string]string{label.IoIstioUseWaypointCanary.Name: "ns-wp"},
+			"ns",
+			&krt.Named{Name: "wp", Namespace: "ns"},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var nsMeta *metav1.ObjectMeta
+			if tc.nsLabels != nil {
+				nsMeta = &metav1.ObjectMeta{Labels: tc.nsLabels}
+			}
+			got := getUseWaypointCanary(metav1.ObjectMeta{Labels: tc.labels}, nsMeta, tc.defaultNS)
+			assert.Equal(t, got, tc.want)
+		})
+	}
+}
+
+func TestGetCanaryWeight(t *testing.T) {
+	anno := annotation.IoIstioUseWaypointCanaryWeight.Name
+	cases := []struct {
+		name       string
+		anns       map[string]string
+		nsAnns     map[string]string
+		wantWeight uint32
+		wantValid  bool
+	}{
+		{"absent defaults to 0", nil, nil, 0, true},
+		{"zero", map[string]string{anno: "0"}, nil, 0, true},
+		{"mid", map[string]string{anno: "42"}, nil, 42, true},
+		{"hundred", map[string]string{anno: "100"}, nil, 100, true},
+		{"non-integer", map[string]string{anno: "abc"}, nil, 0, false},
+		{"negative", map[string]string{anno: "-1"}, nil, 0, false},
+		{"over hundred", map[string]string{anno: "101"}, nil, 0, false},
+		{"inherited from namespace", nil, map[string]string{anno: "30"}, 30, true},
+		{"object overrides namespace", map[string]string{anno: "42"}, map[string]string{anno: "30"}, 42, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var nsMeta *metav1.ObjectMeta
+			if tc.nsAnns != nil {
+				nsMeta = &metav1.ObjectMeta{Annotations: tc.nsAnns}
+			}
+			w, valid := getCanaryWeight(metav1.ObjectMeta{Annotations: tc.anns}, nsMeta)
+			assert.Equal(t, valid, tc.wantValid)
+			assert.Equal(t, w, tc.wantWeight)
+		})
+	}
+}
+
+func TestServiceOwningWaypoints(t *testing.T) {
+	primary := &workloadapi.GatewayAddress{
+		Destination:   &workloadapi.GatewayAddress_Hostname{Hostname: &workloadapi.NamespacedHostname{Namespace: "ns", Hostname: "primary"}},
+		HboneMtlsPort: 15008,
+	}
+	canary := &workloadapi.GatewayAddress{
+		Destination:   &workloadapi.GatewayAddress_Hostname{Hostname: &workloadapi.NamespacedHostname{Namespace: "ns", Hostname: "canary"}},
+		HboneMtlsPort: 15008,
+	}
+	cases := []struct {
+		name string
+		svc  *workloadapi.Service
+		want []*workloadapi.GatewayAddress
+	}{
+		{"nil service", nil, nil},
+		{"no waypoint", &workloadapi.Service{}, nil},
+		{"primary only", &workloadapi.Service{Waypoint: primary}, []*workloadapi.GatewayAddress{primary}},
+		{
+			// The weighted set always contains the primary, so it is the complete set.
+			"primary plus weighted canary",
+			&workloadapi.Service{
+				Waypoint: primary,
+				WeightedWaypoints: []*workloadapi.WeightedWaypoint{
+					{Destination: primary, Weight: 95},
+					{Destination: canary, Weight: 5},
+				},
+			},
+			[]*workloadapi.GatewayAddress{primary, canary},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := serviceOwningWaypoints(model.ServiceInfo{Service: tc.svc})
+			assert.Equal(t, got, tc.want)
+		})
 	}
 }

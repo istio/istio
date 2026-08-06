@@ -415,6 +415,25 @@ func TestApplyLocalitySetting(t *testing.T) {
 									Value: 1,
 								},
 							},
+						},
+						LoadBalancingWeight: &wrappers.UInt32Value{
+							Value: 1,
+						},
+						Priority: 0,
+					},
+					{
+						Locality: &core.Locality{
+							Region:  "region1",
+							Zone:    "zone1",
+							SubZone: "subzone1",
+						},
+						LbEndpoints: []*endpoint.LbEndpoint{
+							{
+								HostIdentifier: buildEndpoint("1.1.1.1"),
+								LoadBalancingWeight: &wrappers.UInt32Value{
+									Value: 1,
+								},
+							},
 							{
 								HostIdentifier: buildEndpoint("2.2.2.2"),
 								LoadBalancingWeight: &wrappers.UInt32Value{
@@ -423,9 +442,9 @@ func TestApplyLocalitySetting(t *testing.T) {
 							},
 						},
 						LoadBalancingWeight: &wrappers.UInt32Value{
-							Value: 2,
+							Value: 1,
 						},
-						Priority: 0,
+						Priority: 1,
 					},
 					{
 						Locality: &core.Locality{
@@ -440,17 +459,11 @@ func TestApplyLocalitySetting(t *testing.T) {
 									Value: 1,
 								},
 							},
-							{
-								HostIdentifier: buildEndpoint("4.4.4.4"),
-								LoadBalancingWeight: &wrappers.UInt32Value{
-									Value: 1,
-								},
-							},
 						},
 						LoadBalancingWeight: &wrappers.UInt32Value{
 							Value: 2,
 						},
-						Priority: 0,
+						Priority: 1,
 					},
 					{
 						Locality: &core.Locality{
@@ -465,6 +478,19 @@ func TestApplyLocalitySetting(t *testing.T) {
 									Value: 1,
 								},
 							},
+						},
+						LoadBalancingWeight: &wrappers.UInt32Value{
+							Value: 1,
+						},
+						Priority: 0,
+					},
+					{
+						Locality: &core.Locality{
+							Region:  "region3",
+							Zone:    "zone3",
+							SubZone: "subzone3",
+						},
+						LbEndpoints: []*endpoint.LbEndpoint{
 							{
 								HostIdentifier: buildEndpointWithMultipleAddresses("2.3.4.5", "2001:1::2"),
 								LoadBalancingWeight: &wrappers.UInt32Value{
@@ -473,9 +499,9 @@ func TestApplyLocalitySetting(t *testing.T) {
 							},
 						},
 						LoadBalancingWeight: &wrappers.UInt32Value{
-							Value: 2,
+							Value: 1,
 						},
-						Priority: 0,
+						Priority: 1,
 					},
 				},
 			},
@@ -839,6 +865,157 @@ func TestApplyLocalitySetting(t *testing.T) {
 		}
 	})
 
+	t.Run("FailoverPriority including locality", func(t *testing.T) {
+		failoverPriority := []string{"topology.istio.io/network", "region", "zone"}
+		proxyLabels := map[string]string{
+			"topology.istio.io/network": "n1",
+			"region":                    "region2",
+			"zone":                      "zone2",
+		}
+
+		expected := []*endpoint.LocalityLbEndpoints{
+			{
+				Locality: &core.Locality{
+					Region:  "region1",
+					Zone:    "zone1",
+					SubZone: "subzone1",
+				},
+				LbEndpoints: []*endpoint.LbEndpoint{
+					{
+						HostIdentifier: buildEndpoint("1.1.1.1"),
+						LoadBalancingWeight: &wrappers.UInt32Value{
+							Value: 1,
+						},
+					},
+				},
+				LoadBalancingWeight: &wrappers.UInt32Value{
+					Value: 1,
+				},
+				Priority: 1, // n1 r1 z1
+			},
+			{
+				Locality: &core.Locality{
+					Region:  "region1",
+					Zone:    "zone2",
+					SubZone: "subzone2",
+				},
+				LbEndpoints: []*endpoint.LbEndpoint{
+					{
+						HostIdentifier: buildEndpoint("2.2.2.2"),
+						LoadBalancingWeight: &wrappers.UInt32Value{
+							Value: 1,
+						},
+					},
+				},
+				LoadBalancingWeight: &wrappers.UInt32Value{
+					Value: 1,
+				},
+				Priority: 3, // n2 r1 z2
+			},
+			{
+				Locality: &core.Locality{
+					Region:  "region2",
+					Zone:    "zone2",
+					SubZone: "subzone2",
+				},
+				LbEndpoints: []*endpoint.LbEndpoint{
+					{
+						HostIdentifier: buildEndpoint("3.3.3.3"),
+						LoadBalancingWeight: &wrappers.UInt32Value{
+							Value: 1,
+						},
+					},
+				},
+				LoadBalancingWeight: &wrappers.UInt32Value{
+					Value: 1,
+				},
+				Priority: 0, // n1 r2 z2
+			},
+			{
+				Locality: &core.Locality{
+					Region:  "region3",
+					Zone:    "zone3",
+					SubZone: "subzone3",
+				},
+				LbEndpoints: []*endpoint.LbEndpoint{
+					{
+						HostIdentifier: buildEndpoint("4.4.4.4"),
+						LoadBalancingWeight: &wrappers.UInt32Value{
+							Value: 1,
+						},
+					},
+				},
+				LoadBalancingWeight: &wrappers.UInt32Value{
+					Value: 1,
+				},
+				Priority: 3, // n2 r3 z3
+			},
+			{
+				Locality: &core.Locality{
+					Region:  "region2",
+					Zone:    "zone2",
+					SubZone: "subzone2",
+				},
+				LbEndpoints: []*endpoint.LbEndpoint{
+					{
+						HostIdentifier: buildEndpoint("5.5.5.5"),
+						LoadBalancingWeight: &wrappers.UInt32Value{
+							Value: 1,
+						},
+					},
+				},
+				LoadBalancingWeight: &wrappers.UInt32Value{
+					Value: 1,
+				},
+				Priority: 2, // n2 r2 z2
+			},
+			{
+				Locality: &core.Locality{
+					Region:  "region3",
+					Zone:    "zone3",
+					SubZone: "subzone3",
+				},
+				LbEndpoints: []*endpoint.LbEndpoint{
+					{
+						HostIdentifier: buildEndpoint("6.6.6.6"),
+						LoadBalancingWeight: &wrappers.UInt32Value{
+							Value: 1,
+						},
+					},
+				},
+				LoadBalancingWeight: &wrappers.UInt32Value{
+					Value: 1,
+				},
+				Priority: 1, // n1 r3 z3
+			},
+		}
+
+		env := buildEnvForClustersWithFailoverPriority(t, failoverPriority)
+		cluster := buildFakeCluster()
+		wrappedEndpoints := buildWrappedLocalityLbEndpointsForFailoverPriorityWithFailover()
+		for _, we := range wrappedEndpoints {
+			for _, ie := range we.IstioEndpoints {
+				ie.Labels["region"] = we.LocalityLbEndpoints.Locality.Region
+				ie.Labels["zone"] = we.LocalityLbEndpoints.Locality.Zone
+			}
+		}
+
+		ApplyLocalityLoadBalancer(cluster.LoadAssignment, wrappedEndpoints, locality, proxyLabels, env.Mesh().LocalityLbSetting, true)
+
+		if len(cluster.LoadAssignment.Endpoints) != len(expected) {
+			t.Fatalf("expected endpoints %d but got %d", len(cluster.LoadAssignment.Endpoints), len(expected))
+		}
+		for i := range cluster.LoadAssignment.Endpoints {
+			// TODO Below assertions are not robust to ordering changes in cluster.LoadAssignment.Endpoints[i]
+			if cluster.LoadAssignment.Endpoints[i].LoadBalancingWeight.GetValue() != expected[i].LoadBalancingWeight.GetValue() {
+				t.Errorf("Got unexpected lb weight %v expected %v", cluster.LoadAssignment.Endpoints[i].LoadBalancingWeight, expected[i].LoadBalancingWeight)
+			}
+			if cluster.LoadAssignment.Endpoints[i].Priority != expected[i].Priority {
+				t.Errorf("Got unexpected priority %v expected %v", cluster.LoadAssignment.Endpoints[i].Priority, expected[i].Priority)
+			}
+		}
+	})
+
 	// NOTE: The test "FailoverPriority with DNS service instances" has been moved to
 	// loadbalancer_simulation_test.go as TestFailoverPriorityWithDNSServiceEntry.
 	// That test uses a real ServiceEntry converted through the full xDS pipeline
@@ -1000,7 +1177,7 @@ func TestApplyLocalitySetting(t *testing.T) {
 	})
 }
 
-func TestGetLocalityLbSetting(t *testing.T) {
+func TestGetEffectiveLbSetting(t *testing.T) {
 	// dummy config for test
 	preferSameZoneService := &model.Service{Attributes: model.ServiceAttributes{K8sAttributes: model.K8sAttributes{
 		TrafficDistribution: model.TrafficDistributionPreferSameZone,
@@ -1009,122 +1186,294 @@ func TestGetLocalityLbSetting(t *testing.T) {
 		TrafficDistribution: model.TrafficDistributionPreferSameNode,
 	}}}
 	failover := []*networking.LocalityLoadBalancerSetting_Failover{nil}
+	zaFailover := []*networking.ZoneAwareLoadBalancerSetting_Failover{{From: "r1", To: "r2"}}
+	drLB := func(l *networking.LocalityLoadBalancerSetting) *networking.LoadBalancerSettings {
+		if l == nil {
+			return nil
+		}
+		return &networking.LoadBalancerSettings{LocalityLbSetting: l}
+	}
+	drZA := func(z *networking.ZoneAwareLoadBalancerSetting) *networking.LoadBalancerSettings {
+		if z == nil {
+			return nil
+		}
+		return &networking.LoadBalancerSettings{ZoneAwareLbSetting: z}
+	}
+	preferSameZoneExpected := &networking.LocalityLoadBalancerSetting{
+		FailoverPriority: []string{
+			label.TopologyNetwork.Name,
+			registrylabel.LabelTopologyRegion,
+			registrylabel.LabelTopologyZone,
+		},
+		Enabled: &wrappers.BoolValue{Value: true},
+	}
+	preferSameNodeExpected := &networking.LocalityLoadBalancerSetting{
+		FailoverPriority: []string{
+			label.TopologyNetwork.Name,
+			registrylabel.LabelTopologyRegion,
+			registrylabel.LabelTopologyZone,
+			label.TopologySubzone.Name,
+			registrylabel.LabelHostname,
+		},
+		Enabled: &wrappers.BoolValue{Value: true},
+	}
 	cases := []struct {
-		name     string
-		mesh     *networking.LocalityLoadBalancerSetting
-		dr       *networking.LocalityLoadBalancerSetting
-		svc      *model.Service
-		expected *networking.LocalityLoadBalancerSetting
+		name              string
+		meshLocality      *networking.LocalityLoadBalancerSetting
+		meshZoneAware     *networking.ZoneAwareLoadBalancerSetting
+		dr                *networking.LoadBalancerSettings
+		svc               *model.Service
+		expectedLocality  *networking.LocalityLoadBalancerSetting
+		expectedZoneAware *networking.ZoneAwareLoadBalancerSetting
+		expectedForce     bool
 	}{
 		{
-			"all disabled",
-			nil,
-			nil,
-			nil,
-			nil,
+			name: "all disabled",
 		},
 		{
-			"mesh only",
-			&networking.LocalityLoadBalancerSetting{},
-			nil,
-			nil,
-			&networking.LocalityLoadBalancerSetting{},
+			name:             "mesh locality only",
+			meshLocality:     &networking.LocalityLoadBalancerSetting{},
+			expectedLocality: &networking.LocalityLoadBalancerSetting{},
 		},
 		{
-			"dr only",
-			nil,
-			&networking.LocalityLoadBalancerSetting{},
-			nil,
-			&networking.LocalityLoadBalancerSetting{},
+			name:             "dr locality only",
+			dr:               drLB(&networking.LocalityLoadBalancerSetting{}),
+			expectedLocality: &networking.LocalityLoadBalancerSetting{},
 		},
 		{
-			"dr only override",
-			nil,
-			&networking.LocalityLoadBalancerSetting{Enabled: &wrappers.BoolValue{Value: true}},
-			nil,
-			&networking.LocalityLoadBalancerSetting{Enabled: &wrappers.BoolValue{Value: true}},
+			name:             "dr locality only override",
+			dr:               drLB(&networking.LocalityLoadBalancerSetting{Enabled: &wrappers.BoolValue{Value: true}}),
+			expectedLocality: &networking.LocalityLoadBalancerSetting{Enabled: &wrappers.BoolValue{Value: true}},
 		},
 		{
-			"dr and mesh",
-			&networking.LocalityLoadBalancerSetting{},
-			&networking.LocalityLoadBalancerSetting{Failover: failover},
-			nil,
-			&networking.LocalityLoadBalancerSetting{Failover: failover},
+			name:             "dr locality wins over mesh locality",
+			meshLocality:     &networking.LocalityLoadBalancerSetting{},
+			dr:               drLB(&networking.LocalityLoadBalancerSetting{Failover: failover}),
+			expectedLocality: &networking.LocalityLoadBalancerSetting{Failover: failover},
 		},
 		{
-			"prefer close service and mesh",
-			&networking.LocalityLoadBalancerSetting{},
-			nil,
-			preferSameZoneService,
-			&networking.LocalityLoadBalancerSetting{
-				FailoverPriority: []string{
-					label.TopologyNetwork.Name,
-					registrylabel.LabelTopologyRegion,
-					registrylabel.LabelTopologyZone,
-				},
+			name:             "prefer same zone service over mesh locality",
+			meshLocality:     &networking.LocalityLoadBalancerSetting{},
+			svc:              preferSameZoneService,
+			expectedLocality: preferSameZoneExpected,
+			expectedForce:    true,
+		},
+		{
+			name:             "prefer same node service over mesh locality",
+			meshLocality:     &networking.LocalityLoadBalancerSetting{},
+			svc:              preferSameNodeService,
+			expectedLocality: preferSameNodeExpected,
+			expectedForce:    true,
+		},
+		{
+			name:         "mesh locality disabled",
+			meshLocality: &networking.LocalityLoadBalancerSetting{Enabled: &wrappers.BoolValue{Value: false}},
+		},
+		{
+			name:         "dr locality disabled overrides mesh locality enabled",
+			meshLocality: &networking.LocalityLoadBalancerSetting{Enabled: &wrappers.BoolValue{Value: true}},
+			dr:           drLB(&networking.LocalityLoadBalancerSetting{Enabled: &wrappers.BoolValue{Value: false}}),
+		},
+		{
+			name:             "dr locality enabled overrides mesh locality disabled",
+			meshLocality:     &networking.LocalityLoadBalancerSetting{Enabled: &wrappers.BoolValue{Value: false}},
+			dr:               drLB(&networking.LocalityLoadBalancerSetting{Enabled: &wrappers.BoolValue{Value: true}}),
+			expectedLocality: &networking.LocalityLoadBalancerSetting{Enabled: &wrappers.BoolValue{Value: true}},
+		},
+
+		// ZoneAware scenarios
+		{
+			name:              "mesh zone-aware only",
+			meshZoneAware:     &networking.ZoneAwareLoadBalancerSetting{},
+			expectedZoneAware: &networking.ZoneAwareLoadBalancerSetting{},
+			expectedForce:     true,
+		},
+		{
+			name:              "dr zone-aware only",
+			dr:                drZA(&networking.ZoneAwareLoadBalancerSetting{Failover: zaFailover}),
+			expectedZoneAware: &networking.ZoneAwareLoadBalancerSetting{Failover: zaFailover},
+			expectedForce:     true,
+		},
+		{
+			name:              "dr zone-aware wins over mesh zone-aware",
+			meshZoneAware:     &networking.ZoneAwareLoadBalancerSetting{},
+			dr:                drZA(&networking.ZoneAwareLoadBalancerSetting{Failover: zaFailover}),
+			expectedZoneAware: &networking.ZoneAwareLoadBalancerSetting{Failover: zaFailover},
+			expectedForce:     true,
+		},
+		{
+			name:              "dr zone-aware wins over mesh locality",
+			meshLocality:      &networking.LocalityLoadBalancerSetting{Failover: failover},
+			dr:                drZA(&networking.ZoneAwareLoadBalancerSetting{}),
+			expectedZoneAware: &networking.ZoneAwareLoadBalancerSetting{},
+			expectedForce:     true,
+		},
+		{
+			name:             "dr locality wins over mesh zone-aware",
+			meshZoneAware:    &networking.ZoneAwareLoadBalancerSetting{},
+			dr:               drLB(&networking.LocalityLoadBalancerSetting{Failover: failover}),
+			expectedLocality: &networking.LocalityLoadBalancerSetting{Failover: failover},
+		},
+		{
+			name:              "mesh zone-aware wins over mesh locality when both set",
+			meshLocality:      &networking.LocalityLoadBalancerSetting{},
+			meshZoneAware:     &networking.ZoneAwareLoadBalancerSetting{Failover: zaFailover},
+			expectedZoneAware: &networking.ZoneAwareLoadBalancerSetting{Failover: zaFailover},
+			expectedForce:     true,
+		},
+		{
+			name:          "mesh zone-aware disabled",
+			meshZoneAware: &networking.ZoneAwareLoadBalancerSetting{Enabled: &wrappers.BoolValue{Value: false}},
+		},
+		{
+			name:         "dr zone-aware disabled overrides mesh locality enabled",
+			meshLocality: &networking.LocalityLoadBalancerSetting{Enabled: &wrappers.BoolValue{Value: true}},
+			dr:           drZA(&networking.ZoneAwareLoadBalancerSetting{Enabled: &wrappers.BoolValue{Value: false}}),
+		},
+		{
+			name:          "dr zone-aware enabled overrides mesh zone-aware disabled",
+			meshZoneAware: &networking.ZoneAwareLoadBalancerSetting{Enabled: &wrappers.BoolValue{Value: false}},
+			dr:            drZA(&networking.ZoneAwareLoadBalancerSetting{Enabled: &wrappers.BoolValue{Value: true}}),
+			expectedZoneAware: &networking.ZoneAwareLoadBalancerSetting{
 				Enabled: &wrappers.BoolValue{Value: true},
 			},
+			expectedForce: true,
 		},
 		{
-			"prefer same zone service and mesh",
-			&networking.LocalityLoadBalancerSetting{},
-			nil,
-			preferSameZoneService,
-			&networking.LocalityLoadBalancerSetting{
-				FailoverPriority: []string{
-					label.TopologyNetwork.Name,
-					registrylabel.LabelTopologyRegion,
-					registrylabel.LabelTopologyZone,
-				},
-				Enabled: &wrappers.BoolValue{Value: true},
-			},
+			name:             "service traffic distribution wins over mesh zone-aware",
+			meshZoneAware:    &networking.ZoneAwareLoadBalancerSetting{},
+			svc:              preferSameZoneService,
+			expectedLocality: preferSameZoneExpected,
+			expectedForce:    true,
 		},
 		{
-			"prefer same node service and mesh",
-			&networking.LocalityLoadBalancerSetting{},
-			nil,
-			preferSameNodeService,
-			&networking.LocalityLoadBalancerSetting{
-				FailoverPriority: []string{
-					label.TopologyNetwork.Name,
-					registrylabel.LabelTopologyRegion,
-					registrylabel.LabelTopologyZone,
-					label.TopologySubzone.Name,
-					registrylabel.LabelHostname,
-				},
-				Enabled: &wrappers.BoolValue{Value: true},
-			},
+			name:              "dr zone-aware wins over service traffic distribution",
+			dr:                drZA(&networking.ZoneAwareLoadBalancerSetting{}),
+			svc:               preferSameZoneService,
+			expectedZoneAware: &networking.ZoneAwareLoadBalancerSetting{},
+			expectedForce:     true,
 		},
 		{
-			"mesh disabled",
-			&networking.LocalityLoadBalancerSetting{Enabled: &wrappers.BoolValue{Value: false}},
-			nil,
-			nil,
-			nil,
-		},
-		{
-			"dr disabled",
-			&networking.LocalityLoadBalancerSetting{Enabled: &wrappers.BoolValue{Value: true}},
-			&networking.LocalityLoadBalancerSetting{Enabled: &wrappers.BoolValue{Value: false}},
-			nil,
-			nil,
-		},
-		{
-			"dr enabled override mesh disabled",
-			&networking.LocalityLoadBalancerSetting{Enabled: &wrappers.BoolValue{Value: false}},
-			&networking.LocalityLoadBalancerSetting{Enabled: &wrappers.BoolValue{Value: true}},
-			nil,
-			&networking.LocalityLoadBalancerSetting{Enabled: &wrappers.BoolValue{Value: true}},
+			name:             "dr locality wins over service traffic distribution",
+			dr:               drLB(&networking.LocalityLoadBalancerSetting{Failover: failover}),
+			svc:              preferSameZoneService,
+			expectedLocality: &networking.LocalityLoadBalancerSetting{Failover: failover},
 		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			got, _ := GetLocalityLbSetting(tt.mesh, tt.dr, tt.svc)
-			if !reflect.DeepEqual(tt.expected, got) {
-				t.Fatalf("Expected: %v, got: %v", tt.expected, got)
+			got := GetEffectiveLbSetting(tt.meshLocality, tt.meshZoneAware, tt.dr, tt.svc)
+			var (
+				gotLocality  *networking.LocalityLoadBalancerSetting
+				gotZoneAware *networking.ZoneAwareLoadBalancerSetting
+				gotForce     bool
+			)
+			switch s := got.(type) {
+			case LocalityLBSettings:
+				gotLocality, gotForce = s.Setting, s.ForceFailover()
+			case ZoneAwareLBSettings:
+				gotZoneAware, gotForce = s.Setting, s.ForceFailover()
+			}
+			if !reflect.DeepEqual(tt.expectedLocality, gotLocality) {
+				t.Fatalf("locality: expected %v, got %v", tt.expectedLocality, gotLocality)
+			}
+			if !reflect.DeepEqual(tt.expectedZoneAware, gotZoneAware) {
+				t.Fatalf("zone-aware: expected %v, got %v", tt.expectedZoneAware, gotZoneAware)
+			}
+			if tt.expectedForce != gotForce {
+				t.Fatalf("forceFailover: expected %v, got %v", tt.expectedForce, gotForce)
 			}
 		})
 	}
+}
+
+func TestApplyZoneAwareLoadBalancer(t *testing.T) {
+	proxyLocality := &core.Locality{Region: "region1", Zone: "zone1", SubZone: "subzone1"}
+	// fakeCluster has localities region1/zone1/subzone{1,2,3}, region1/zone2, region2, region3.
+	// Envoy zone-aware LB operates only inside one priority level, so when no failover is
+	// configured all LocalityLbEndpoints must remain flat at priority 0.
+
+	t.Run("zone-aware without explicit failover still region-buckets", func(t *testing.T) {
+		c := buildFakeCluster()
+		za := &networking.ZoneAwareLoadBalancerSetting{Enabled: wrappers.Bool(true)}
+		ApplyZoneAwareLoadBalancer(c.LoadAssignment, nil, proxyLocality, nil, za)
+		// Default behavior mirrors locality LB: same-region endpoints at p0, others compacted to p1,
+		// so Envoy zone-aware LB only balances zones inside the proxy's region.
+		want := []uint32{0, 0, 0, 0, 0, 1, 1}
+		for i, ep := range c.LoadAssignment.Endpoints {
+			if ep.Priority != want[i] {
+				t.Errorf("endpoint[%d] locality %v: got priority %d, want %d",
+					i, ep.Locality, ep.Priority, want[i])
+			}
+		}
+	})
+
+	t.Run("zone-aware Failover keeps same-region endpoints at priority 0", func(t *testing.T) {
+		c := buildFakeCluster()
+		za := &networking.ZoneAwareLoadBalancerSetting{
+			Failover: []*networking.ZoneAwareLoadBalancerSetting_Failover{{From: "region1", To: "region2"}},
+		}
+		ApplyZoneAwareLoadBalancer(c.LoadAssignment, nil, proxyLocality, nil, za)
+		// All region1 endpoints (any zone/subzone) → 0, failover-matched region2 → 1, region3 → 2.
+		// This is the shape Envoy zone-aware LB needs: priority 0 spans every same-region zone.
+		want := []uint32{0, 0, 0, 0, 0, 1, 2}
+		for i, ep := range c.LoadAssignment.Endpoints {
+			if ep.Priority != want[i] {
+				t.Errorf("endpoint[%d] locality %v: got priority %d, want %d",
+					i, ep.Locality, ep.Priority, want[i])
+			}
+		}
+	})
+
+	t.Run("zone-aware Failover with no matching rule compacts to two priorities", func(t *testing.T) {
+		c := buildFakeCluster()
+		// No failover rule applies for proxy region1 — all non-r1 endpoints collapse to one bucket.
+		za := &networking.ZoneAwareLoadBalancerSetting{
+			Failover: []*networking.ZoneAwareLoadBalancerSetting_Failover{{From: "region9", To: "region2"}},
+		}
+		ApplyZoneAwareLoadBalancer(c.LoadAssignment, nil, proxyLocality, nil, za)
+		// region1 → 0, region2 + region3 → compacted to 1.
+		want := []uint32{0, 0, 0, 0, 0, 1, 1}
+		for i, ep := range c.LoadAssignment.Endpoints {
+			if ep.Priority != want[i] {
+				t.Errorf("endpoint[%d] locality %v: got priority %d, want %d",
+					i, ep.Locality, ep.Priority, want[i])
+			}
+		}
+	})
+
+	t.Run("zone-aware FailoverPriority delegates to label-based priority", func(t *testing.T) {
+		c := buildSmallClusterForFailOverPriority()
+		wrapped := buildWrappedLocalityLbEndpoints()
+		za := &networking.ZoneAwareLoadBalancerSetting{
+			FailoverPriority: []string{"topology.istio.io/network", "topology.istio.io/cluster"},
+		}
+		proxyLabels := map[string]string{
+			"topology.istio.io/network": "n1",
+			"topology.istio.io/cluster": "c1",
+		}
+		ApplyZoneAwareLoadBalancer(c.LoadAssignment, wrapped, proxyLocality, proxyLabels, za)
+		// applyFailoverPriorities reshapes Endpoints. We just confirm the slice is non-empty
+		// and the priority math ran (some endpoint at priority 0).
+		if len(c.LoadAssignment.Endpoints) == 0 {
+			t.Fatal("expected non-empty endpoints after FailoverPriority")
+		}
+		foundP0 := false
+		for _, ep := range c.LoadAssignment.Endpoints {
+			if ep.Priority == 0 {
+				foundP0 = true
+				break
+			}
+		}
+		if !foundP0 {
+			t.Fatal("expected at least one priority-0 endpoint after FailoverPriority")
+		}
+	})
+
+	t.Run("nil CLA is a no-op", func(t *testing.T) {
+		za := &networking.ZoneAwareLoadBalancerSetting{Enabled: wrappers.Bool(true)}
+		ApplyZoneAwareLoadBalancer(nil, nil, proxyLocality, nil, za)
+	})
 }
 
 func buildEnvForClustersWithDistribute(t *testing.T, distribute []*networking.LocalityLoadBalancerSetting_Distribute) *model.Environment {
@@ -1519,12 +1868,6 @@ func buildSmallClusterForFailOverPriority() *cluster.Cluster {
 					LbEndpoints: []*endpoint.LbEndpoint{
 						{
 							HostIdentifier: buildEndpoint("1.1.1.1"),
-							LoadBalancingWeight: &wrappers.UInt32Value{
-								Value: 1,
-							},
-						},
-						{
-							HostIdentifier: buildEndpointWithMultipleAddresses("1.2.3.4", "2001:1::1"),
 							LoadBalancingWeight: &wrappers.UInt32Value{
 								Value: 1,
 							},

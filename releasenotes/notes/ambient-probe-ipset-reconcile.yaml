@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+releaseNotes:
+  - |
+    **Fixed** an issue where an ambient-enrolled pod could be left out of the host health-probe ipset following a
+    node or kubelet restart, causing kubelet probes to be redirected to ztunnel and rejected until the `istio-cni`
+    node agent restarted. On startup the node agent could evict still-enrolled pods from the ipset when their IP
+    was not yet observable, and it now re-asserts probe ipset membership for enrolled pods during reconciliation.

@@ -393,6 +393,10 @@ func removeTag(ctx context.Context, kubeClient kubernetes.Interface, tagName str
 		}
 	}
 
+	if err = DeleteTagValidatingWebhooks(ctx, kubeClient, tagName); err != nil {
+		return fmt.Errorf("failed to delete Istio revision tag ValidatingWebhookConfiguration: %v", err)
+	}
+
 	if tagServiceExists {
 		err = DeleteTagServices(ctx, kubeClient, istioNS, tagName)
 		if err != nil {

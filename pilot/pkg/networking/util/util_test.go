@@ -19,6 +19,7 @@ import (
 	"reflect"
 	"testing"
 
+	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
@@ -834,10 +835,91 @@ func TestIsAllowAnyOutbound(t *testing.T) {
 			},
 			result: true,
 		},
+		{
+			name: "OutboundTrafficPolicyAllowAnyDynamicDNS",
+			node: &model.Proxy{
+				SidecarScope: &model.SidecarScope{
+					OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
+						Mode: networking.OutboundTrafficPolicy_Mode(meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY_DYNAMIC_DNS),
+					},
+				},
+			},
+			result: false,
+		},
 	}
 	for i := range tests {
 		t.Run(tests[i].name, func(t *testing.T) {
 			out := IsAllowAnyOutbound(tests[i].node)
+			if out != tests[i].result {
+				t.Errorf("Expected %t but got %t for test case: %v\n", tests[i].result, out, tests[i].node)
+			}
+		})
+	}
+}
+
+func TestIsAllowAnyDynamicDNSOutbound(t *testing.T) {
+	tests := []struct {
+		name   string
+		node   *model.Proxy
+		result bool
+	}{
+		{
+			name:   "NilSidecarScope",
+			node:   &model.Proxy{Type: model.SidecarProxy},
+			result: false,
+		},
+		{
+			name: "AllowAny",
+			node: &model.Proxy{
+				Type: model.SidecarProxy,
+				SidecarScope: &model.SidecarScope{
+					OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
+						Mode: networking.OutboundTrafficPolicy_ALLOW_ANY,
+					},
+				},
+			},
+			result: false,
+		},
+		{
+			name: "RegistryOnly",
+			node: &model.Proxy{
+				Type: model.SidecarProxy,
+				SidecarScope: &model.SidecarScope{
+					OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
+						Mode: networking.OutboundTrafficPolicy_REGISTRY_ONLY,
+					},
+				},
+			},
+			result: false,
+		},
+		{
+			name: "AllowAnyDynamicDNS_Sidecar",
+			node: &model.Proxy{
+				Type: model.SidecarProxy,
+				SidecarScope: &model.SidecarScope{
+					OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
+						Mode: networking.OutboundTrafficPolicy_Mode(meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY_DYNAMIC_DNS),
+					},
+				},
+			},
+			result: true,
+		},
+		{
+			name: "AllowAnyDynamicDNS_Gateway_NotEligible",
+			node: &model.Proxy{
+				Type: model.Router,
+				SidecarScope: &model.SidecarScope{
+					OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{
+						Mode: networking.OutboundTrafficPolicy_Mode(meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY_DYNAMIC_DNS),
+					},
+				},
+			},
+			result: false,
+		},
+	}
+	for i := range tests {
+		t.Run(tests[i].name, func(t *testing.T) {
+			out := IsAllowAnyDynamicDNSOutbound(tests[i].node)
 			if out != tests[i].result {
 				t.Errorf("Expected %t but got %t for test case: %v\n", tests[i].result, out, tests[i].node)
 			}
@@ -1964,4 +2046,24 @@ func BenchmarkAddConfigInfoMetadata(b *testing.B) {
 			}
 		}
 	})
+}
+
+func TestSelectDNSLookupFamily(t *testing.T) {
+	tests := []struct {
+		name string
+		ips  []string
+		want cluster.Cluster_DnsLookupFamily
+	}{
+		{"no ips defaults to v4", nil, cluster.Cluster_V4_ONLY},
+		{"ipv4 only", []string{"10.0.0.1"}, cluster.Cluster_V4_ONLY},
+		{"ipv6 only", []string{"2001:db8::1"}, cluster.Cluster_V6_ONLY},
+		{"dual stack defaults to v4", []string{"10.0.0.1", "2001:db8::1"}, cluster.Cluster_V4_ONLY},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := SelectDNSLookupFamily(tc.ips); got != tc.want {
+				t.Errorf("SelectDNSLookupFamily(%v) = %v, want %v", tc.ips, got, tc.want)
+			}
+		})
+	}
 }

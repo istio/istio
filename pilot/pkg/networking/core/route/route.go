@@ -335,7 +335,7 @@ func buildSidecarVirtualHostForService(svc *model.Service,
 	httpRoute := BuildDefaultHTTPOutboundRoute(cluster, traceOperation, push.Mesh)
 
 	// if this host has no virtualservice, the consistentHash on its destinationRule will be useless
-	hashPolicy := consistentHashToHashPolicy(hash)
+	hashPolicy := ConsistentHashToHashPolicy(hash)
 	if hashPolicy != nil {
 		httpRoute.GetRoute().HashPolicy = []*route.RouteAction_HashPolicy{hashPolicy}
 	}
@@ -546,7 +546,7 @@ func TranslateRoute(
 		})
 	}
 	if in.Redirect != nil {
-		ApplyRedirect(out, in.Redirect, listenPort, opts.IsTLS, model.UseGatewaySemantics(virtualService))
+		ApplyRedirect(out, in.Redirect, listenPort, opts.IsTLS)
 	} else if in.DirectResponse != nil {
 		ApplyDirectResponse(out, in.DirectResponse)
 	} else {
@@ -734,7 +734,7 @@ func processDestination(dst *networking.HTTPRouteDestination, opts RouteOptions,
 		}
 	}
 	hash := opts.LookupHash(dst)
-	hashPolicy := consistentHashToHashPolicy(hash)
+	hashPolicy := ConsistentHashToHashPolicy(hash)
 	if hashPolicy != nil {
 		action.HashPolicy = append(action.HashPolicy, hashPolicy)
 	}
@@ -769,28 +769,27 @@ func processWeightedDestination(
 		}
 	}
 	hash := opts.LookupHash(dst)
-	hashPolicy := consistentHashToHashPolicy(hash)
+	hashPolicy := ConsistentHashToHashPolicy(hash)
 	if hashPolicy != nil {
 		action.HashPolicy = append(action.HashPolicy, hashPolicy)
 	}
 	return clusterWeight, hostname
 }
 
-func ApplyRedirect(out *route.Route, redirect *networking.HTTPRedirect, port int, isTLS bool, useGatewaySemantics bool) {
+func ApplyRedirect(out *route.Route, redirect *networking.HTTPRedirect, port int, isTLS bool) {
 	action := &route.Route_Redirect{
 		Redirect: &route.RedirectAction{
 			HostRedirect: redirect.Authority,
-			PathRewriteSpecifier: &route.RedirectAction_PathRedirect{
-				PathRedirect: redirect.Uri,
-			},
 		},
 	}
 
-	if useGatewaySemantics {
-		if uri, isPrefixReplace := cutPrefix(redirect.Uri, "%PREFIX()%"); isPrefixReplace {
-			action.Redirect.PathRewriteSpecifier = &route.RedirectAction_PrefixRewrite{
-				PrefixRewrite: uri,
-			}
+	if redirect.PrefixRewrite != "" {
+		action.Redirect.PathRewriteSpecifier = &route.RedirectAction_PrefixRewrite{
+			PrefixRewrite: redirect.PrefixRewrite,
+		}
+	} else {
+		action.Redirect.PathRewriteSpecifier = &route.RedirectAction_PathRedirect{
+			PathRedirect: redirect.Uri,
 		}
 	}
 
@@ -1465,7 +1464,7 @@ func portLevelSettingsConsistentHash(dst *networking.Destination,
 	return nil
 }
 
-func consistentHashToHashPolicy(consistentHash *networking.LoadBalancerSettings_ConsistentHashLB) *route.RouteAction_HashPolicy {
+func ConsistentHashToHashPolicy(consistentHash *networking.LoadBalancerSettings_ConsistentHashLB) *route.RouteAction_HashPolicy {
 	switch consistentHash.GetHashKey().(type) {
 	case *networking.LoadBalancerSettings_ConsistentHashLB_HttpHeaderName:
 		return &route.RouteAction_HashPolicy{
@@ -1646,13 +1645,6 @@ func IsCatchAllRoute(r *route.Route) bool {
 	}
 
 	return catchall && len(r.Match.Headers) == 0 && len(r.Match.QueryParameters) == 0 && len(r.Match.DynamicMetadata) == 0
-}
-
-func cutPrefix(s, prefix string) (after string, found bool) {
-	if !strings.HasPrefix(s, prefix) {
-		return s, false
-	}
-	return s[len(prefix):], true
 }
 
 // CheckAndGetInferencePoolConfigs extracts inference pool configurations from a VirtualService's Extra field.

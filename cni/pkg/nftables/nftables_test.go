@@ -189,6 +189,45 @@ func TestInvokedTwiceIsIdempotent(t *testing.T) {
 	}
 }
 
+// TestCreateInpodRulesConcurrent guards against the race that previously
+// existed when AppendInpodRules mutated a shared *NftablesRuleBuilder field
+// on NftablesConfigurator. Two pod-add goroutines hitting the same node
+// would race on the rules map and crash the agent with
+// "fatal error: concurrent map writes". Run with `-race` for the strongest
+// signal.
+func TestCreateInpodRulesConcurrent(t *testing.T) {
+	cfg := constructTestConfig()
+	cfg.RedirectDNS = true
+	ext := &dep.DependenciesStub{}
+
+	originalProvider := nftProviderVar
+	nftProviderVar = func(_ knftables.Family, table string) (builder.NftablesAPI, error) {
+		return NewMockNftablesCapture(), nil
+	}
+	t.Cleanup(func() { nftProviderVar = originalProvider })
+
+	iptConfigurator, _, err := NewNftablesConfigurator(cfg, cfg, ext, ext, iptables.EmptyNlDeps())
+	if err != nil {
+		t.Fatalf("NewNftablesConfigurator: %v", err)
+	}
+
+	const workers = 50
+	var wg sync.WaitGroup
+	wg.Add(workers)
+	start := make(chan struct{})
+	for i := 0; i < workers; i++ {
+		go func() {
+			defer wg.Done()
+			<-start
+			if err := iptConfigurator.CreateInpodRules(scopes.CNIAgent, config.PodLevelOverrides{}); err != nil {
+				t.Errorf("CreateInpodRules: %v", err)
+			}
+		}()
+	}
+	close(start)
+	wg.Wait()
+}
+
 func ipstr(ipv6 bool) string {
 	if ipv6 {
 		return "ipv6"

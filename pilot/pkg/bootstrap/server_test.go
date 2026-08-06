@@ -337,6 +337,69 @@ func TestReloadIstiodCert(t *testing.T) {
 	}, "10s", "100ms").Should(BeTrue())
 }
 
+// TestReloadIstiodCABundle verifies that rotating only the CA (root) cert file, leaving the serving
+// cert and key untouched, is picked up by the file watcher. This is the path used when istiod's TLS
+// is provided via files (e.g. an external CA such as istio-csr); a missed root reload leaves stale
+// CA bundles in webhook configs that istiod manages.
+func TestReloadIstiodCABundle(t *testing.T) {
+	dir := t.TempDir()
+	stop := make(chan struct{})
+	s := &Server{
+		fileWatcher:             filewatcher.NewWatcher(),
+		server:                  server.New(),
+		istiodCertBundleWatcher: keycertbundle.NewWatcher(),
+	}
+
+	defer func() {
+		close(stop)
+		_ = s.fileWatcher.Close()
+	}()
+
+	certFile := filepath.Join(dir, "cert-file.yaml")
+	keyFile := filepath.Join(dir, "key-file.yaml")
+	caFile := filepath.Join(dir, "ca-file.yaml")
+
+	if err := os.WriteFile(certFile, testcerts.ServerCert, 0o644); err != nil { // nolint: vetshadow
+		t.Fatalf("WriteFile(%v) failed: %v", certFile, err)
+	}
+	if err := os.WriteFile(keyFile, testcerts.ServerKey, 0o644); err != nil { // nolint: vetshadow
+		t.Fatalf("WriteFile(%v) failed: %v", keyFile, err)
+	}
+	if err := os.WriteFile(caFile, testcerts.CACert, 0o644); err != nil { // nolint: vetshadow
+		t.Fatalf("WriteFile(%v) failed: %v", caFile, err)
+	}
+
+	tlsOptions := TLSOptions{
+		CertFile:   certFile,
+		KeyFile:    keyFile,
+		CaCertFile: caFile,
+	}
+
+	if err := s.initFileCertificateWatches(tlsOptions); err != nil {
+		t.Fatalf("initFileCertificateWatches failed: %v", err)
+	}
+	if err := s.server.Start(stop); err != nil {
+		t.Fatalf("Could not invoke startFuncs: %v", err)
+	}
+
+	g := NewWithT(t)
+	g.Expect(s.istiodCertBundleWatcher.GetCABundle()).To(Equal(testcerts.CACert))
+
+	// Rotate only the CA bundle.
+	if err := os.WriteFile(caFile, testcerts.RotatedCert, 0o644); err != nil { // nolint: vetshadow
+		t.Fatalf("WriteFile(%v) failed: %v", caFile, err)
+	}
+
+	g.Eventually(func() bool {
+		return bytes.Equal(s.istiodCertBundleWatcher.GetCABundle(), testcerts.RotatedCert)
+	}, "10s", "100ms").Should(BeTrue())
+
+	// The serving cert and key are unaffected by a CA-only rotation.
+	kc := s.istiodCertBundleWatcher.GetKeyCertBundle()
+	g.Expect(kc.CertPem).To(Equal(testcerts.ServerCert))
+	g.Expect(kc.KeyPem).To(Equal(testcerts.ServerKey))
+}
+
 func TestReloadcacerts(t *testing.T) {
 	var err error
 
@@ -806,6 +869,68 @@ func TestIstiodReadinessHandler(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(resp.StatusCode).To(Equal(http.StatusOK))
 		g.Expect(resp.Body.Close()).To(Succeed())
+	}
+}
+
+// Webhook readiness must track when the server hosting the handlers is serving:
+// immediately for the shared main HTTP server, only after Start() for a dedicated
+// HTTPS server (istio/istio#61049).
+func TestWebhookReadiness(t *testing.T) {
+	cases := []struct {
+		name          string
+		httpsAddr     string
+		readyAfterNew bool // expected webhook readiness immediately after NewServer
+	}{
+		{
+			// istio defaults this to :15017.
+			name:          "dedicated HTTPS server",
+			httpsAddr:     ":45017",
+			readyAfterNew: false,
+		},
+		{
+			name:          "shared main HTTP server",
+			httpsAddr:     "",
+			readyAfterNew: true,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			configDir := t.TempDir()
+			args := NewPilotArgs(func(p *PilotArgs) {
+				p.Namespace = "istio-system"
+				p.ServerOptions = DiscoveryServerOptions{
+					HTTPAddr:       ":0",
+					HTTPSAddr:      c.httpsAddr,
+					MonitoringAddr: ":0",
+					GRPCAddr:       ":0",
+				}
+				p.RegistryOptions = RegistryOptions{
+					KubeConfig: "config",
+					FileDir:    configDir,
+				}
+				p.ShutdownDuration = 1 * time.Millisecond
+			})
+
+			g := NewWithT(t)
+			s, err := NewServer(args, func(s *Server) {
+				s.kubeClient = kube.NewFakeClient()
+			})
+			g.Expect(err).To(Succeed())
+
+			g.Expect(s.readinessFlags.configValidationReady.Load()).To(Equal(c.readyAfterNew))
+			g.Expect(s.readinessFlags.sidecarInjectorReady.Load()).To(Equal(c.readyAfterNew))
+
+			stop := make(chan struct{})
+			g.Expect(s.Start(stop)).To(Succeed())
+			defer func() {
+				close(stop)
+				s.WaitUntilCompletion()
+			}()
+
+			g.Expect(s.readinessFlags.configValidationReady.Load()).To(BeTrue())
+			g.Expect(s.readinessFlags.sidecarInjectorReady.Load()).To(BeTrue())
+		})
 	}
 }
 

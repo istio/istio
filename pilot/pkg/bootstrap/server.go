@@ -367,7 +367,10 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 		if err != nil {
 			return nil, fmt.Errorf("error initializing sidecar injector: %v", err)
 		}
-		s.readinessFlags.sidecarInjectorReady.Store(true)
+		// Mark webhook ready now here only if it runs on the shared main server.
+		if s.httpsServer == nil {
+			s.readinessFlags.sidecarInjectorReady.Store(true)
+		}
 		s.webhookInfo.mu.Lock()
 		s.webhookInfo.wh = wh
 		s.webhookInfo.mu.Unlock()
@@ -515,6 +518,9 @@ func (s *Server) Start(stop <-chan struct{}) error {
 		if err != nil {
 			return err
 		}
+		// Mark webhooks ready only after the dedicated server has started accepting connections.
+		s.readinessFlags.sidecarInjectorReady.Store(true)
+		s.readinessFlags.configValidationReady.Store(true)
 		go func() {
 			log.Infof("starting webhook service at %s", httpsListener.Addr())
 			if err := s.httpsServer.ServeTLS(httpsListener, "", ""); network.IsUnexpectedListenerError(err) {
@@ -954,6 +960,10 @@ func (s *Server) initRegistryEventHandlers() {
 			if schema.GroupVersionKind() == gvk.VirtualService {
 				continue
 			}
+			// Traffic extension controller already emits TrafficExtension events, we should suppress WasmPlugin events
+			if schema.GroupVersionKind() == gvk.WasmPlugin {
+				continue
+			}
 
 			s.configController.RegisterEventHandler(schema.GroupVersionKind(), configHandler)
 		}
@@ -1080,8 +1090,8 @@ func (s *Server) createPeerCertVerifier(tlsOptions TLSOptions, trustDomain strin
 		}
 	} else {
 		if s.RA != nil {
-			if strings.HasPrefix(features.PilotCertProvider, constants.CertProviderKubernetesSignerPrefix) {
-				signerName := strings.TrimPrefix(features.PilotCertProvider, constants.CertProviderKubernetesSignerPrefix)
+			if after, ok := strings.CutPrefix(features.PilotCertProvider, constants.CertProviderKubernetesSignerPrefix); ok {
+				signerName := after
 				caBundle, _ := s.RA.GetRootCertFromMeshConfig(signerName)
 				rootCertBytes = append(rootCertBytes, caBundle...)
 			} else {

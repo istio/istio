@@ -153,6 +153,22 @@ func DeleteTagWebhooks(ctx context.Context, client kubernetes.Interface, tag str
 	return result
 }
 
+// DeleteTagValidatingWebhooks deletes ValidatingWebhookConfigurations tagged with istio.io/tag=<tag>.
+func DeleteTagValidatingWebhooks(ctx context.Context, client kubernetes.Interface, tag string) error {
+	vwhs, err := client.AdmissionregistrationV1().ValidatingWebhookConfigurations().List(ctx, metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("%s=%s", label.IoIstioTag.Name, tag),
+	})
+	if err != nil {
+		return err
+	}
+	var result error
+	for _, vwh := range vwhs.Items {
+		err = client.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(ctx, vwh.Name, metav1.DeleteOptions{})
+		result = multierror.Append(result, err).ErrorOrNil()
+	}
+	return result
+}
+
 // DeleteTagServices deletes the given tag services
 func DeleteTagServices(ctx context.Context, client kubernetes.Interface, istioNS, tag string) error {
 	services, err := GetServicesWithTag(ctx, client, istioNS, tag)

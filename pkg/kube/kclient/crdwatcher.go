@@ -194,7 +194,9 @@ func minimumVersionFilter(t any) bool {
 	}
 	fv = &nv
 	if fv.LessThan(mv) {
-		log.Infof("CRD %v version %v is below minimum version %v, ignoring", crd.Name, fv, mv)
+		log.Warnf("CRD %v version %v is below minimum version %v required by this Istio version; "+
+			"resources of this kind will not be processed. Upgrade the Gateway API CRDs to satisfy the minimum version.",
+			crd.Name, fv, mv)
 		return false
 	}
 	return true

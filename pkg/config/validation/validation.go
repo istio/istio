@@ -34,6 +34,7 @@ import (
 	"istio.io/api/annotation"
 	extensions "istio.io/api/extensions/v1alpha1"
 	"istio.io/api/label"
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	networkingv1beta1 "istio.io/api/networking/v1beta1"
 	security_beta "istio.io/api/security/v1beta1"
@@ -513,8 +514,8 @@ func validateServerPort(port *networking.Port, bind string) (errs Validation) {
 }
 
 func validateServerBind(port *networking.Port, bind string) (errs error) {
-	if strings.HasPrefix(bind, UnixAddressPrefix) {
-		errs = appendErrors(errs, ValidateUnixAddress(strings.TrimPrefix(bind, UnixAddressPrefix)))
+	if after, ok := strings.CutPrefix(bind, UnixAddressPrefix); ok {
+		errs = appendErrors(errs, ValidateUnixAddress(after))
 		if port != nil && port.Number != 0 {
 			errs = appendErrors(errs, fmt.Errorf("port number must be 0 for unix domain socket: %v", port))
 		}
@@ -823,8 +824,8 @@ var ValidateSidecar = RegisterValidateFunc("ValidateSidecar",
 			portMap.Insert(i.Port.Number)
 
 			if len(i.DefaultEndpoint) != 0 {
-				if strings.HasPrefix(i.DefaultEndpoint, UnixAddressPrefix) {
-					errs = AppendValidation(errs, ValidateUnixAddress(strings.TrimPrefix(i.DefaultEndpoint, UnixAddressPrefix)))
+				if after, ok0 := strings.CutPrefix(i.DefaultEndpoint, UnixAddressPrefix); ok0 {
+					errs = AppendValidation(errs, ValidateUnixAddress(after))
 				} else {
 					// format should be 127.0.0.1:port, [::1]:port or :port
 					sHost, sPort, sErr := net.SplitHostPort(i.DefaultEndpoint)
@@ -932,7 +933,7 @@ var ValidateSidecar = RegisterValidateFunc("ValidateSidecar",
 				nssSvcs := map[string]map[string]bool{}
 				for _, hostname := range egress.Hosts {
 					parts := strings.SplitN(hostname, "/", 2)
-					if len(parts) == 2 {
+					if len(parts) == 2 && !strings.HasPrefix(parts[0], "~") {
 						ns := parts[0]
 						svc := parts[1]
 						if ns == "." {
@@ -978,6 +979,14 @@ func validateSidecarOutboundTrafficPolicy(tp *networking.OutboundTrafficPolicy) 
 		return errs
 	}
 	mode := tp.GetMode()
+
+	// ALLOW_ANY_DYNAMIC_DNS is only supported at the mesh level (MeshConfig),
+	// not in the Sidecar CRD.
+	if meshconfig.MeshConfig_OutboundTrafficPolicy_Mode(mode) == meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY_DYNAMIC_DNS {
+		errs = appendErrors(errs, fmt.Errorf("sidecar: ALLOW_ANY_DYNAMIC_DNS mode is only supported in MeshConfig, not in Sidecar resource"))
+		return errs
+	}
+
 	if tp.EgressProxy != nil {
 		if mode != networking.OutboundTrafficPolicy_ALLOW_ANY {
 			errs = appendErrors(errs, fmt.Errorf("sidecar: egress_proxy must be set only with ALLOW_ANY outbound_traffic_policy mode"))
@@ -1155,6 +1164,18 @@ func validateConnectionPool(settings *networking.ConnectionPoolSettings) (errs e
 		if httpSettings.MaxConcurrentStreams < 0 {
 			errs = appendErrors(errs, fmt.Errorf("max concurrent streams must be non-negative"))
 		}
+		if keepalive := httpSettings.GetHttp2KeepAlive(); keepalive != nil {
+			if keepalive.Interval == nil {
+				errs = appendErrors(errs, fmt.Errorf("http2 keepalive interval is required"))
+			} else {
+				errs = appendErrors(errs, agent.ValidateDuration(keepalive.Interval))
+			}
+			if keepalive.Timeout == nil {
+				errs = appendErrors(errs, fmt.Errorf("http2 keepalive timeout is required"))
+			} else {
+				errs = appendErrors(errs, agent.ValidateDuration(keepalive.Timeout))
+			}
+		}
 	}
 
 	if tcp := settings.Tcp; tcp != nil {
@@ -1235,7 +1256,11 @@ func validateLoadBalancer(settings *networking.LoadBalancerSettings, outlier *ne
 		}
 	}
 
+	if settings.LocalityLbSetting != nil && settings.ZoneAwareLbSetting != nil {
+		errs = AppendValidation(errs, fmt.Errorf("only one of localityLbSetting and zoneAwareLbSetting can be set"))
+	}
 	errs = AppendValidation(errs, agent.ValidateLocalityLbSetting(settings.LocalityLbSetting, outlier))
+	errs = AppendValidation(errs, agent.ValidateZoneAwareLbSetting(settings.ZoneAwareLbSetting, outlier))
 
 	if warm := settings.Warmup; warm != nil {
 		if warm.Duration == nil {
@@ -1246,8 +1271,8 @@ func validateLoadBalancer(settings *networking.LoadBalancerSettings, outlier *ne
 		if warm.MinimumPercent.GetValue() > 100 {
 			errs = AppendValidation(errs, fmt.Errorf("minimumPercent value should be less than or equal to 100"))
 		}
-		if warm.Aggression != nil && warm.Aggression.GetValue() < 1 {
-			errs = AppendValidation(errs, fmt.Errorf("aggression should be greater than or equal to 1"))
+		if warm.Aggression != nil && warm.Aggression.GetValue() <= 0 {
+			errs = AppendValidation(errs, fmt.Errorf("aggression should be greater than 0"))
 		}
 	}
 	return errs
@@ -1611,9 +1636,30 @@ var ValidateRequestAuthentication = RegisterValidateFunc("ValidateRequestAuthent
 
 		for _, rule := range in.JwtRules {
 			errs = AppendValidation(errs, validateJwtRule(rule))
+			errs = warnPrivateJwksKeys(errs, rule)
 		}
 		return errs.Unwrap()
 	})
+
+// warnPrivateJwksKeys warns if inline Jwks contains private key material.
+// Envoy only needs public keys for token verification.
+func warnPrivateJwksKeys(v Validation, rule *security_beta.JWTRule) Validation {
+	if rule == nil || rule.Jwks == "" {
+		return v
+	}
+	set, err := jwk.Parse([]byte(rule.Jwks))
+	if err != nil {
+		return v
+	}
+	for i := 0; i < set.Len(); i++ {
+		key, _ := set.Get(i)
+		switch key.(type) {
+		case jwk.RSAPrivateKey, jwk.ECDSAPrivateKey, jwk.OKPPrivateKey, jwk.SymmetricKey:
+			v = AppendWarningf(v, "jwks key at index %d contains private key material; only public keys are used for verification", i)
+		}
+	}
+	return v
+}
 
 func validateJwtRule(rule *security_beta.JWTRule) (errs error) {
 	if rule == nil {
@@ -2649,11 +2695,24 @@ func validateHTTPRetry(retries *networking.HTTPRetry) (errs error) {
 	return errs
 }
 
-func validateHTTPRedirect(redirect *networking.HTTPRedirect) error {
+func validateHTTPRedirect(redirect *networking.HTTPRedirect, matches []*networking.HTTPMatchRequest) error {
 	if redirect == nil {
 		return nil
 	}
-	if redirect.Uri == "" && redirect.Authority == "" && redirect.RedirectPort == nil && redirect.Scheme == "" {
+
+	if redirect.Uri != "" && redirect.PrefixRewrite != "" {
+		return errors.New("redirect may only specify one of uri or prefix_rewrite")
+	}
+
+	if redirect.PrefixRewrite != "" {
+		for _, match := range matches {
+			if _, isPrefix := match.GetUri().GetMatchType().(*networking.StringMatch_Prefix); match.Uri != nil && !isPrefix {
+				return errors.New("redirect prefix_rewrite requires all URI matches to use prefix match type")
+			}
+		}
+	}
+
+	if redirect.Uri == "" && redirect.PrefixRewrite == "" && redirect.Authority == "" && redirect.RedirectPort == nil && redirect.Scheme == "" {
 		return errors.New("redirect must specify URI, authority, scheme, or port")
 	}
 

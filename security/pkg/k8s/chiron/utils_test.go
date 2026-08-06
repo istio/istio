@@ -319,9 +319,6 @@ func initFakeKubeClient(t test.Failer, certificate []byte) kube.CLIClient {
 					continue
 				}
 				if approved(csr) {
-					// This is a pretty terrible hack, but client-go fake doesn't properly support list+watch,
-					// so any updates in between the list and watch would be missed. So give some time for the watch to start
-					time.Sleep(time.Millisecond * 25)
 					csr.Status.Certificate = certificate
 					_, err := client.Kube().CertificatesV1().CertificateSigningRequests().UpdateStatus(ctx, csr, metav1.UpdateOptions{})
 					log.Debugf("test signer sign %v: %v", csr.Name, err)

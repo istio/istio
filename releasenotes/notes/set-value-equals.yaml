@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+issue: []
+releaseNotes:
+- |
+  **Fixed** an issue where `istioctl` manifest `--set` values containing `=` were parsed as malformed input.

@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+issue:
+  - 50114
+releaseNotes:
+- |
+  **Added** Two new opt-in environment variables, `ENVOY_SECURE_METRICS_PORT` and `ENVOY_SECURE_MERGED_METRICS_PORT`,
+  that expose mTLS-protected Prometheus scrape endpoints on every Envoy sidecar proxy.
+  When set, the sidecar adds static bootstrap listeners on the configured ports that require
+  mutual TLS, allowing Prometheus to scrape metrics securely without relying on pod-network-level access controls.
+  See the [RFC](https://docs.google.com/document/d/1BiBOrYU06x5xdsnU0YDlMGOV-iHjZ2m9UVcZ62wKAn8/edit?usp=sharing) for details.

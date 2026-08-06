@@ -35,10 +35,12 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -47,42 +49,41 @@ import (
 )
 
 const (
-	secretName         = "cacerts"
-	waitTimeout        = 2 * time.Minute
-	proxyContainerName = "istio-proxy"
+	secretName  = "cacerts"
+	waitTimeout = 2 * time.Minute
 )
 
-type Bundle struct {
-	rootCertPEM         []byte
-	rootKeyPEM          []byte
-	intermediateCertPEM []byte
-	intermediateKeyPEM  []byte
-	certChainPEM        []byte
-	crlPEM              []byte
-	rootCRLPEM          []byte
-	intermediateCRLPEM  []byte
-
-	// internal state for revocation
-	rootCert           *x509.Certificate
-	rootKey            *rsa.PrivateKey
-	intermediateCert   *x509.Certificate
-	intermediateKey    *rsa.PrivateKey
-	intermediateSerial *big.Int
-	revoked            bool
+// RootBundle holds a shared root RootBundle and one intermediate Bundle per cluster.
+// Use GenerateCaCerts to construct one.
+type RootBundle struct {
+	rootCert    *x509.Certificate
+	rootKey     *rsa.PrivateKey
+	rootCertPEM []byte
+	bundles     map[string]*IABundle // keyed by cluster name
 }
 
-func GenerateBundle(ctx resource.Context) (*Bundle, error) {
-	bundle := &Bundle{}
+// IABundle holds the intermediate CA material and CRL state for a single cluster.
+type IABundle struct {
+	c                         cluster.Cluster
+	intermediateCert          *x509.Certificate
+	intermediateCertPEM       []byte
+	intermediateKey           *rsa.PrivateKey
+	intermediateKeyPEM        []byte
+	intermediateSerial        *big.Int
+	revokedIntermediateSerial *big.Int
+	certChainPEM              []byte
+	crlPEM                    []byte
+}
 
+// generateRootCA creates a new self-signed root CA key and certificate.
+func generateRootCA() (*x509.Certificate, *rsa.PrivateKey, []byte, error) {
 	rootKey, err := rsa.GenerateKey(rand.Reader, 4096)
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
 
-	// generate root cert and key
-	rootSerial := big.NewInt(1000)
 	rootTemplate := &x509.Certificate{
-		SerialNumber:          rootSerial,
+		SerialNumber:          big.NewInt(1000),
 		Subject:               pkix.Name{CommonName: "Root CA"},
 		NotBefore:             time.Now().Add(-1 * time.Hour),
 		NotAfter:              time.Now().AddDate(10, 0, 0),
@@ -91,34 +92,31 @@ func GenerateBundle(ctx resource.Context) (*Bundle, error) {
 		BasicConstraintsValid: true,
 		MaxPathLen:            1,
 	}
-
 	rootDER, err := x509.CreateCertificate(rand.Reader, rootTemplate, rootTemplate, &rootKey.PublicKey, rootKey)
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
-	bundle.rootCert, err = x509.ParseCertificate(rootDER)
+	rootCert, err := x509.ParseCertificate(rootDER)
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
-	bundle.rootKey = rootKey
-	bundle.rootCertPEM = pem.EncodeToMemory(&pem.Block{
-		Type:  "CERTIFICATE",
-		Bytes: rootDER,
-	})
-	bundle.rootKeyPEM = pem.EncodeToMemory(&pem.Block{
-		Type:  "RSA PRIVATE KEY",
-		Bytes: x509.MarshalPKCS1PrivateKey(rootKey),
-	})
+	return rootCert, rootKey, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: rootDER}), nil
+}
 
-	// generate intermediate cert and key
+// generateIntermediateCA creates an intermediate CA key and certificate signed by the given root.
+func generateIntermediateCA(
+	rootCert *x509.Certificate,
+	rootKey *rsa.PrivateKey,
+	commonName string,
+	intermediateSerial *big.Int,
+) (*x509.Certificate, *rsa.PrivateKey, []byte, []byte, error) {
 	intermediateKey, err := rsa.GenerateKey(rand.Reader, 4096)
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, nil, err
 	}
-	intermediateSerial := big.NewInt(2000)
 	intermediateTemplate := &x509.Certificate{
 		SerialNumber:          intermediateSerial,
-		Subject:               pkix.Name{CommonName: "Intermediate CA"},
+		Subject:               pkix.Name{CommonName: commonName},
 		NotBefore:             time.Now().Add(-1 * time.Hour),
 		NotAfter:              time.Now().AddDate(5, 0, 0),
 		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign | x509.KeyUsageDigitalSignature,
@@ -129,224 +127,231 @@ func GenerateBundle(ctx resource.Context) (*Bundle, error) {
 	intermediateDER, err := x509.CreateCertificate(
 		rand.Reader,
 		intermediateTemplate,
-		bundle.rootCert,
+		rootCert,
 		&intermediateKey.PublicKey,
 		rootKey,
 	)
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, nil, err
 	}
-	bundle.intermediateCert, err = x509.ParseCertificate(intermediateDER)
+	intermediateCert, err := x509.ParseCertificate(intermediateDER)
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, nil, err
 	}
-	bundle.intermediateKey = intermediateKey
-	bundle.intermediateSerial = intermediateSerial
-	bundle.intermediateCertPEM = pem.EncodeToMemory(&pem.Block{
+	intermediateCertPEM := pem.EncodeToMemory(&pem.Block{
 		Type:  "CERTIFICATE",
 		Bytes: intermediateDER,
 	})
-	bundle.intermediateKeyPEM = pem.EncodeToMemory(&pem.Block{
+	intermediateKeyPEM := pem.EncodeToMemory(&pem.Block{
 		Type:  "RSA PRIVATE KEY",
 		Bytes: x509.MarshalPKCS1PrivateKey(intermediateKey),
 	})
-
-	bundle.certChainPEM = append(bundle.intermediateCertPEM, bundle.rootCertPEM...)
-
-	// generate initial CRL with no revoked certs
-	if err = bundle.generateCRL(); err != nil {
-		return nil, err
-	}
-
-	// create cacert secret in istio-system namespace
-	if err = createCustomCASecret(ctx, bundle); err != nil {
-		return nil, err
-	}
-
-	return bundle, nil
+	return intermediateCert, intermediateKey, intermediateCertPEM, intermediateKeyPEM, nil
 }
 
-// generateCRL generates a combined CRL for root and intermediate with no revoked certificates
-func (b *Bundle) generateCRL() error {
+// signRootCRL signs a root CRL listing the given revoked certificate entries.
+func signRootCRL(rootCert *x509.Certificate, rootKey *rsa.PrivateKey, revoked []x509.RevocationListEntry) ([]byte, error) {
 	now := time.Now()
 	nextUpdate := now.Add(30 * 24 * time.Hour) // 30 days validity
+	rootCRLBytes, err := x509.CreateRevocationList(rand.Reader, &x509.RevocationList{
+		SignatureAlgorithm:        rootCert.SignatureAlgorithm,
+		Number:                    big.NewInt(1),
+		ThisUpdate:                now,
+		NextUpdate:                nextUpdate,
+		ExtraExtensions:           nil,
+		Issuer:                    rootCert.Subject,
+		RevokedCertificateEntries: revoked,
+	}, rootCert, rootKey)
+	if err != nil {
+		return nil, err
+	}
+	return pem.EncodeToMemory(&pem.Block{Type: "X509 CRL", Bytes: rootCRLBytes}), nil
+}
 
-	// root CRL (no revoked certs)
-	rootCRLBytes, err := x509.CreateRevocationList(
-		rand.Reader,
-		&x509.RevocationList{
-			SignatureAlgorithm:        b.rootCert.SignatureAlgorithm,
-			Number:                    big.NewInt(1),
-			ThisUpdate:                now,
-			NextUpdate:                nextUpdate,
-			ExtraExtensions:           nil,
-			Issuer:                    b.rootCert.Subject,
-			RevokedCertificateEntries: nil,
-		},
-		b.rootCert,
-		b.rootKey,
+// signIntermediateCRL signs an empty intermediate CRL (no workload-level revocations).
+func signIntermediateCRL(intermediateCert *x509.Certificate, intermediateKey *rsa.PrivateKey) ([]byte, error) {
+	now := time.Now()
+	crlBytes, err := x509.CreateRevocationList(rand.Reader, &x509.RevocationList{
+		SignatureAlgorithm: intermediateCert.SignatureAlgorithm,
+		Number:             big.NewInt(1),
+		ThisUpdate:         now,
+		NextUpdate:         now.Add(30 * 24 * time.Hour),
+		Issuer:             intermediateCert.Subject,
+	}, intermediateCert, intermediateKey)
+	if err != nil {
+		return nil, err
+	}
+	return pem.EncodeToMemory(&pem.Block{Type: "X509 CRL", Bytes: crlBytes}), nil
+}
+
+// GenerateCaCerts creates a shared root CA and one intermediate Bundle per cluster in ctx.
+// Each Bundle is installed into its cluster's cacerts secret.
+func GenerateCaCerts(ctx resource.Context) (*RootBundle, error) {
+	clusters := ctx.AllClusters()
+
+	rootCert, rootKey, rootCertPEM, err := generateRootCA()
+	if err != nil {
+		return nil, err
+	}
+
+	rb := &RootBundle{
+		rootCert:    rootCert,
+		rootKey:     rootKey,
+		rootCertPEM: rootCertPEM,
+		bundles:     make(map[string]*IABundle, len(clusters)),
+	}
+
+	for i, cl := range clusters {
+		b, err := rb.newBundle(cl, big.NewInt(int64(2000+i*1000)))
+		if err != nil {
+			return nil, err
+		}
+		if err := rb.rebuildCRL(b); err != nil {
+			return nil, err
+		}
+		if err := rb.createCaCertsSecret(ctx, b); err != nil {
+			return nil, err
+		}
+		rb.bundles[cl.Name()] = b
+	}
+
+	return rb, nil
+}
+
+// Bundle returns the intermediate CA bundle for the given cluster.
+func (rb *RootBundle) Bundle(c cluster.Cluster) *IABundle {
+	return rb.bundles[c.Name()]
+}
+
+// RevokeOwnIntermediate revokes the given cluster's own intermediate CA in its root CRL
+// and pushes the update to that cluster's cacerts secret.
+func (rb *RootBundle) RevokeOwnIntermediate(t framework.TestContext, c cluster.Cluster) {
+	t.Helper()
+	rb.RevokeRemoteIntermediate(t, c, c)
+}
+
+// RevokeRemoteIntermediate revokes the remote cluster's intermediate CA in the local
+// cluster's root CRL and pushes the update to the local cluster's cacerts secret.
+func (rb *RootBundle) RevokeRemoteIntermediate(t framework.TestContext, local, remote cluster.Cluster) {
+	t.Helper()
+	localBundle := rb.bundles[local.Name()]
+	remoteBundle := rb.bundles[remote.Name()]
+	t.Logf("revoking %s IA in %s root CRL", remote.Name(), local.Name())
+	localBundle.revokedIntermediateSerial = remoteBundle.intermediateSerial
+	if err := rb.rebuildCRL(localBundle); err != nil {
+		t.Fatalf("failed to rebuild CRL after revoking intermediate: %v", err)
+	}
+	rb.updateCRLInSecret(t, localBundle)
+}
+
+// WaitForCRLPropagation waits until the istio-ca-crl ConfigMap in ztunnel's namespace on the
+// given cluster reflects the cluster's current CRL.
+func (rb *RootBundle) WaitForCRLPropagation(t framework.TestContext, c cluster.Cluster) {
+	t.Helper()
+	istioCfg := istio.DefaultConfigOrFail(t, t)
+	b := rb.bundles[c.Name()]
+	retry.UntilSuccessOrFail(t, func() error {
+		return verifyCRLConfigMaps([]string{istioCfg.ZtunnelNamespace}, b.crlPEM, c)
+	}, retry.Timeout(waitTimeout))
+}
+
+// ResetCRL clears all revocation state for the given cluster, rebuilds empty CRLs, pushes
+// the update to the cluster's cacerts secret, and waits for propagation to ztunnel's namespace.
+func (rb *RootBundle) ResetCRL(t framework.TestContext, c cluster.Cluster) {
+	t.Helper()
+	istioCfg := istio.DefaultConfigOrFail(t, t)
+	b := rb.bundles[c.Name()]
+	t.Logf("resetting CRL to empty state on %s", c.Name())
+	b.revokedIntermediateSerial = nil
+	if err := rb.rebuildCRL(b); err != nil {
+		t.Fatalf("failed to rebuild CRL during reset on %s: %v", c.Name(), err)
+	}
+	rb.updateCRLInSecret(t, b)
+	retry.UntilSuccessOrFail(t, func() error {
+		return verifyCRLConfigMaps([]string{istioCfg.ZtunnelNamespace}, b.crlPEM, c)
+	}, retry.Timeout(waitTimeout))
+}
+
+func (rb *RootBundle) newBundle(c cluster.Cluster, iaSerial *big.Int) (*IABundle, error) {
+	iaCert, iaKey, iaCertPEM, iaKeyPEM, err := generateIntermediateCA(
+		rb.rootCert, rb.rootKey, "Intermediate CA "+c.Name(), iaSerial,
 	)
+	if err != nil {
+		return nil, err
+	}
+	return &IABundle{
+		c:                   c,
+		intermediateCert:    iaCert,
+		intermediateKey:     iaKey,
+		intermediateCertPEM: iaCertPEM,
+		intermediateKeyPEM:  iaKeyPEM,
+		intermediateSerial:  iaSerial,
+		certChainPEM:        append(iaCertPEM, rb.rootCertPEM...),
+	}, nil
+}
+
+func (rb *RootBundle) rebuildCRL(b *IABundle) error {
+	var rootRevoked []x509.RevocationListEntry
+	if b.revokedIntermediateSerial != nil {
+		rootRevoked = append(rootRevoked, x509.RevocationListEntry{
+			SerialNumber:   b.revokedIntermediateSerial,
+			RevocationTime: time.Now(),
+		})
+	}
+	rootCRLPEM, err := signRootCRL(rb.rootCert, rb.rootKey, rootRevoked)
 	if err != nil {
 		return err
 	}
-	rootCRLPEM := pem.EncodeToMemory(
-		&pem.Block{
-			Type:  "X509 CRL",
-			Bytes: rootCRLBytes,
-		},
-	)
-
-	// generate Intermediate CRL
-	intermediateCRLBytes, err := x509.CreateRevocationList(
-		rand.Reader,
-		&x509.RevocationList{
-			SignatureAlgorithm:        b.intermediateCert.SignatureAlgorithm,
-			Number:                    big.NewInt(1),
-			ThisUpdate:                now,
-			NextUpdate:                nextUpdate,
-			Issuer:                    b.intermediateCert.Subject,
-			RevokedCertificateEntries: nil,
-		},
-		b.intermediateCert,
-		b.intermediateKey,
-	)
+	intermediateCRLPEM, err := signIntermediateCRL(b.intermediateCert, b.intermediateKey)
 	if err != nil {
 		return err
 	}
-	intermediateCRLPEM := pem.EncodeToMemory(
-		&pem.Block{
-			Type:  "X509 CRL",
-			Bytes: intermediateCRLBytes,
-		},
-	)
-	b.intermediateCRLPEM = intermediateCRLPEM
-
-	// combine both CRLs
-	b.setCombineCRL(rootCRLPEM, b.intermediateCRLPEM)
-
+	b.crlPEM = append(rootCRLPEM, intermediateCRLPEM...)
 	return nil
 }
 
-// getUpdatedRootCRL generates root CRL with revoked intermediate cert
-func (b *Bundle) getUpdatedRootCRL(t framework.TestContext) ([]byte, error) {
+func (rb *RootBundle) updateCRLInSecret(t framework.TestContext, b *IABundle) {
 	t.Helper()
-	if !b.revoked {
-		// if the intermediate cert is not revoked, return the existing root CRL
-		return b.rootCRLPEM, nil
-	}
-
-	now := time.Now()
-	nextUpdate := now.Add(30 * 24 * time.Hour)
-
-	revokedIntermediates := []x509.RevocationListEntry{
-		{
-			SerialNumber:   b.intermediateSerial,
-			RevocationTime: now,
-		},
-	}
-
-	rootCRLBytes, err := x509.CreateRevocationList(
-		rand.Reader,
-		&x509.RevocationList{
-			SignatureAlgorithm:        b.rootCert.SignatureAlgorithm,
-			Number:                    big.NewInt(1),
-			ThisUpdate:                now,
-			NextUpdate:                nextUpdate,
-			ExtraExtensions:           nil,
-			Issuer:                    b.rootCert.Subject,
-			RevokedCertificateEntries: revokedIntermediates,
-		},
-		b.rootCert,
-		b.rootKey,
-	)
-	if err != nil {
-		return nil, err
-	}
-	rootCRLPEM := pem.EncodeToMemory(
-		&pem.Block{
-			Type:  "X509 CRL",
-			Bytes: rootCRLBytes,
-		},
-	)
-
-	return rootCRLPEM, nil
-}
-
-func (b *Bundle) setCombineCRL(rootCRLPEM, intermediateCRLPEM []byte) {
-	b.crlPEM = append(rootCRLPEM, intermediateCRLPEM...)
-}
-
-// RevokeIntermediate revokes the intermediate certificate and updates the CRL in the secret.
-func RevokeIntermediate(t framework.TestContext, bundle *Bundle) {
-	t.Helper()
-	t.Logf("revoking intermediate certificate")
-	bundle.revoked = true
-
-	// get updated root CRL with revoked intermediate cert
-	rootCRLPEM, err := bundle.getUpdatedRootCRL(t)
-	if err != nil {
-		t.Fatalf("failed to get updated root CRL: %v", err)
-	}
-
-	// combine both CRLs
-	bundle.setCombineCRL(rootCRLPEM, bundle.intermediateCRLPEM)
-
 	systemNS, err := istio.ClaimSystemNamespace(t)
 	if err != nil {
 		t.Fatalf("failed to claim system namespace: %v", err)
 	}
-
-	for _, kubeCluster := range t.AllClusters() {
-		data := map[string][]byte{
-			ca.CACRLFile: bundle.crlPEM,
-		}
-
-		err = upsertSecret(kubeCluster.Kube(), systemNS.Name(), data)
-		if err != nil {
-			t.Fatalf("failed to update CRL in secret %s/%s: %v", systemNS.Name(), secretName, err)
-		}
+	if err := upsertSecret(b.c.Kube(), systemNS.Name(), map[string][]byte{
+		ca.CACRLFile: b.crlPEM,
+	}); err != nil {
+		t.Fatalf("failed to update CRL in secret on %s: %v", b.c.Name(), err)
 	}
-
-	t.Logf("CRL updated successfully with revoked intermediate certificate")
 }
 
-func createCustomCASecret(
+func (rb *RootBundle) createCaCertsSecret(
 	ctx resource.Context,
-	bundle *Bundle,
+	bundle *IABundle,
 ) error {
 	systemNs, err := istio.ClaimSystemNamespace(ctx)
 	if err != nil {
 		return err
 	}
-
-	for _, kubeCluster := range ctx.AllClusters() {
-		data := map[string][]byte{
-			ca.CACertFile:       bundle.intermediateCertPEM,
-			ca.CAPrivateKeyFile: bundle.intermediateKeyPEM,
-			ca.CertChainFile:    bundle.certChainPEM,
-			ca.RootCertFile:     bundle.rootCertPEM,
-			ca.CACRLFile:        bundle.crlPEM,
-		}
-
-		if err = upsertSecret(kubeCluster.Kube(), systemNs.Name(), data); err != nil {
-			return err
-		}
-
-		// if there is a configmap storing the CA cert from a previous
-		// integration test, remove it. Ideally, CI should delete all
-		// resources from a previous integration test, but sometimes
-		// the resources from a previous integration test are not deleted.
-		configMapName := "istio-ca-root-cert"
-		err = kubeCluster.Kube().CoreV1().ConfigMaps(systemNs.Name()).Delete(context.TODO(), configMapName,
-			metav1.DeleteOptions{})
-		if err == nil {
-			log.Infof("configmap %v is deleted", configMapName)
-		} else {
-			log.Warnf("configmap %v may not exist and the deletion returns err (%v)",
-				configMapName, err)
-		}
+	data := map[string][]byte{
+		ca.CACertFile:       bundle.intermediateCertPEM,
+		ca.CAPrivateKeyFile: bundle.intermediateKeyPEM,
+		ca.CertChainFile:    bundle.certChainPEM,
+		ca.RootCertFile:     rb.rootCertPEM,
+		ca.CACRLFile:        bundle.crlPEM,
 	}
 
+	if err := upsertSecret(bundle.c.Kube(), systemNs.Name(), data); err != nil {
+		return err
+	}
+	// delete any stale istio-ca-root-cert ConfigMap from a previous test run so istiod
+	// recreates it from the new cacerts secret on startup.
+	err = bundle.c.Kube().CoreV1().ConfigMaps(systemNs.Name()).Delete(context.TODO(), features.CACertConfigMapName,
+		metav1.DeleteOptions{})
+	if err == nil {
+		log.Infof("configmap %v is deleted", features.CACertConfigMapName)
+	} else {
+		log.Warnf("configmap %v may not exist and the deletion returns err (%v)",
+			features.CACertConfigMapName, err)
+	}
 	return nil
 }
 
@@ -393,7 +398,7 @@ func upsertSecret(
 	return nil
 }
 
-func WaitForCRLUpdate(t framework.TestContext, namespaces []string, bundle *Bundle, instances ...echo.Instance) {
+func WaitForCRLUpdate(t framework.TestContext, namespaces []string, bundle *IABundle, instances ...echo.Instance) {
 	t.Helper()
 	startTime := time.Now()
 	t.Logf("waiting for CRL update in namespaces: %s", strings.Join(namespaces, ", "))
@@ -402,8 +407,9 @@ func WaitForCRLUpdate(t framework.TestContext, namespaces []string, bundle *Bund
 	}()
 
 	// verify crl ConfigMaps are updated
+	// istiod distributes ConfigMaps to its config cluster's namespaces, so we poll bundle.c.Config() cluster
 	retry.UntilSuccessOrFail(t, func() error {
-		return verifyCRLConfigMaps(t, namespaces, bundle.crlPEM)
+		return verifyCRLConfigMaps(namespaces, bundle.crlPEM, bundle.c.Config())
 	}, retry.Timeout(waitTimeout))
 
 	// force pod annotation update to trigger ConfigMap volume refresh
@@ -412,8 +418,8 @@ func WaitForCRLUpdate(t framework.TestContext, namespaces []string, bundle *Bund
 	}, retry.Timeout(waitTimeout))
 }
 
-func verifyCRLConfigMaps(t framework.TestContext, namespaces []string, expectedCRL []byte) error {
-	for _, c := range t.AllClusters() {
+func verifyCRLConfigMaps(namespaces []string, expectedCRL []byte, clusters ...cluster.Cluster) error {
+	for _, c := range clusters {
 		if c.IsExternalControlPlane() {
 			// we replicate the crl configmap to all clusters where workloads are running. So we can skip this cluster.
 			continue

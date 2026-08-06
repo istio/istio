@@ -19,16 +19,24 @@ import (
 	"testing"
 	"time"
 
+	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	httpdfp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/dynamic_forward_proxy/v3"
+	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	redis "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/redis_proxy/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
+	cares "github.com/envoyproxy/go-control-plane/envoy/extensions/network/dns_resolver/cares/v3"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/api/security/v1beta1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/listenertest"
 	"istio.io/istio/pilot/pkg/networking/telemetry"
+	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
@@ -885,5 +893,120 @@ func node(version *model.IstioVersion) *model.Proxy {
 			Namespace: "foo",
 		},
 		IstioVersion: version,
+	}
+}
+
+func TestBuildAllowAnyDynamicDNSDNSCacheConfig(t *testing.T) {
+	tests := []struct {
+		name           string
+		meta           *model.NodeMetadata
+		expectResolver bool
+		expectHost     string
+		expectPort     uint32
+	}{
+		{
+			name:           "nil metadata — no resolver set",
+			meta:           nil,
+			expectResolver: false,
+		},
+		{
+			name:           "DNS_CAPTURE disabled — no resolver set",
+			meta:           &model.NodeMetadata{DNSCapture: false},
+			expectResolver: false,
+		},
+		{
+			name:           "DNS_CAPTURE enabled with explicit addr",
+			meta:           &model.NodeMetadata{DNSCapture: true, DNSProxyAddr: "10.0.0.1:15053"},
+			expectResolver: true,
+			expectHost:     "10.0.0.1",
+			expectPort:     15053,
+		},
+		{
+			name:           "DNS_CAPTURE enabled, empty addr falls back to defaults",
+			meta:           &model.NodeMetadata{DNSCapture: true},
+			expectResolver: true,
+			expectHost:     "127.0.0.1",
+			expectPort:     15053,
+		},
+		{
+			name:           "DNS_CAPTURE enabled, localhost resolved to 127.0.0.1",
+			meta:           &model.NodeMetadata{DNSCapture: true, DNSProxyAddr: "localhost:15053"},
+			expectResolver: true,
+			expectHost:     "127.0.0.1",
+			expectPort:     15053,
+		},
+		{
+			name:           "DNS_CAPTURE enabled, custom port",
+			meta:           &model.NodeMetadata{DNSCapture: true, DNSProxyAddr: "127.0.0.1:53"},
+			expectResolver: true,
+			expectHost:     "127.0.0.1",
+			expectPort:     53,
+		},
+		{
+			name:           "DNS_CAPTURE enabled, invalid addr falls back to defaults",
+			meta:           &model.NodeMetadata{DNSCapture: true, DNSProxyAddr: "not-a-valid-addr"},
+			expectResolver: true,
+			expectHost:     "127.0.0.1",
+			expectPort:     15053,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := buildAllowAnyDynamicDNSDNSCacheConfig(tc.meta)
+			if cfg.Name != util.AllowAnyDFPDNSCacheName {
+				t.Errorf("expected cache name %q, got %q", util.AllowAnyDFPDNSCacheName, cfg.Name)
+			}
+			if cfg.DnsLookupFamily != cluster.Cluster_V4_ONLY {
+				t.Errorf("expected dns lookup family V4_ONLY, got %v", cfg.DnsLookupFamily)
+			}
+			if cfg.GetMaxHosts().GetValue() != uint32(features.AllowAnyDynamicDNSMaxHosts) {
+				t.Errorf("expected max hosts %d, got %d", features.AllowAnyDynamicDNSMaxHosts, cfg.GetMaxHosts().GetValue())
+			}
+			if !tc.expectResolver {
+				if cfg.TypedDnsResolverConfig != nil {
+					t.Error("expected no TypedDnsResolverConfig when DNS_CAPTURE is not set")
+				}
+				return
+			}
+			if cfg.TypedDnsResolverConfig == nil {
+				t.Fatal("expected TypedDnsResolverConfig to be set")
+			}
+			caresResolver := &cares.CaresDnsResolverConfig{}
+			if err := cfg.TypedDnsResolverConfig.TypedConfig.UnmarshalTo(caresResolver); err != nil {
+				t.Fatalf("failed to unmarshal c-ares config: %v", err)
+			}
+			if len(caresResolver.Resolvers) != 1 {
+				t.Fatalf("expected 1 resolver, got %d", len(caresResolver.Resolvers))
+			}
+			sa := caresResolver.Resolvers[0].GetSocketAddress()
+			if sa == nil {
+				t.Fatal("expected resolver to have SocketAddress")
+			}
+			if sa.Address != tc.expectHost {
+				t.Errorf("expected resolver host %q, got %q", tc.expectHost, sa.Address)
+			}
+			if sa.GetPortValue() != tc.expectPort {
+				t.Errorf("expected resolver port %d, got %d", tc.expectPort, sa.GetPortValue())
+			}
+		})
+	}
+}
+
+func TestBuildAllowAnyDynamicDNSHTTPForwardProxyFilter(t *testing.T) {
+	meta := &model.NodeMetadata{DNSCapture: true, DNSProxyAddr: "10.0.0.5:15053"}
+	got := buildAllowAnyDynamicDNSHTTPForwardProxyFilter(meta)
+
+	want := &hcm.HttpFilter{
+		Name: "envoy.filters.http.dynamic_forward_proxy",
+		ConfigType: &hcm.HttpFilter_TypedConfig{
+			TypedConfig: protoconv.MessageToAny(&httpdfp.FilterConfig{
+				ImplementationSpecifier: &httpdfp.FilterConfig_DnsCacheConfig{
+					DnsCacheConfig: buildAllowAnyDynamicDNSDNSCacheConfig(meta),
+				},
+			}),
+		},
+	}
+	if !proto.Equal(got, want) {
+		t.Errorf("filter mismatch:\ngot:  %v\nwant: %v", got, want)
 	}
 }

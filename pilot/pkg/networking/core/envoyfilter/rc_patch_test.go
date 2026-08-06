@@ -971,6 +971,89 @@ func TestReplaceVhost(t *testing.T) {
 	}
 }
 
+// TestMergeAndReplaceListVhost contrasts the list-handling of MERGE (append) and
+// MERGE_AND_REPLACE_LIST (replace) on a virtual host's repeated `domains` field.
+func TestMergeAndReplaceListVhost(t *testing.T) {
+	vhostPatch := func(op networking.EnvoyFilter_Patch_Operation) []*networking.EnvoyFilter_EnvoyConfigObjectPatch {
+		return []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+			{
+				ApplyTo: networking.EnvoyFilter_VIRTUAL_HOST,
+				Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+					Context: networking.EnvoyFilter_SIDECAR_INBOUND,
+					ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_RouteConfiguration{
+						RouteConfiguration: &networking.EnvoyFilter_RouteConfigurationMatch{
+							Vhost: &networking.EnvoyFilter_RouteConfigurationMatch_VirtualHostMatch{
+								Name: "vhost1",
+							},
+						},
+					},
+				},
+				Patch: &networking.EnvoyFilter_Patch{
+					Operation: op,
+					Value:     buildPatchStruct(`{"domains":["patched.com"]}`),
+				},
+			},
+		}
+	}
+
+	inputRC := func() *route.RouteConfiguration {
+		return &route.RouteConfiguration{
+			Name: "inbound|http|80",
+			VirtualHosts: []*route.VirtualHost{
+				{
+					Name:    "vhost1",
+					Domains: []string{"original.com"},
+				},
+			},
+		}
+	}
+	wantRC := func(domains ...string) *route.RouteConfiguration {
+		return &route.RouteConfiguration{
+			Name: "inbound|http|80",
+			VirtualHosts: []*route.VirtualHost{
+				{
+					Name:    "vhost1",
+					Domains: domains,
+				},
+			},
+		}
+	}
+
+	sidecarNode := &model.Proxy{Type: model.SidecarProxy, ConfigNamespace: "not-default"}
+
+	tests := []struct {
+		name      string
+		operation networking.EnvoyFilter_Patch_Operation
+		want      *route.RouteConfiguration
+	}{
+		{
+			name:      "MERGE appends to domains list",
+			operation: networking.EnvoyFilter_Patch_MERGE,
+			want:      wantRC("original.com", "patched.com"),
+		},
+		{
+			name:      "MERGE_AND_REPLACE_LIST replaces domains list",
+			operation: networking.EnvoyFilter_Patch_MERGE_AND_REPLACE_LIST,
+			want:      wantRC("patched.com"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			serviceDiscovery := memory.NewServiceDiscovery()
+			env := newTestEnvironment(t, serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(vhostPatch(tt.operation)))
+			push := model.NewPushContext()
+			push.InitContext(env, nil, nil)
+
+			efw := push.EnvoyFilters(sidecarNode)
+			got := ApplyRouteConfigurationPatches(networking.EnvoyFilter_SIDECAR_INBOUND, sidecarNode, efw, inputRC())
+			if diff := cmp.Diff(tt.want, got, protocmp.Transform()); diff != "" {
+				t.Errorf("%s mismatch (-want +got):\n%s", tt.name, diff)
+			}
+		})
+	}
+}
+
 func Test_routeMatch(t *testing.T) {
 	type args struct {
 		httpRoute *route.Route

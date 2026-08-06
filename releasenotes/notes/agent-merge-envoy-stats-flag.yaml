@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+releaseNotes:
+- |
+    **Added** a new environment variable `PILOT_AGENT_MERGE_ENVOY_STATS` to control whether pilot-agent merges Envoy stats
+    into its stats endpoint. Set to `false` to disable merging Envoy stats with agent stats.

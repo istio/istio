@@ -20,15 +20,18 @@ import (
 	"sort"
 	"strings"
 
+	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	"istio.io/api/label"
 	"istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	registrylabel "istio.io/istio/pilot/pkg/serviceregistry/util/label"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -36,50 +39,314 @@ const (
 	FailoverPriorityLabelDefaultSeparator = '='
 )
 
-func GetLocalityLbSetting(
-	mesh *v1alpha3.LocalityLoadBalancerSetting,
-	destrule *v1alpha3.LocalityLoadBalancerSetting,
-	service *model.Service,
-) (*v1alpha3.LocalityLoadBalancerSetting, bool) {
-	if destrule != nil {
-		if destrule.Enabled != nil && !destrule.Enabled.Value {
-			return nil, false
+// LBSettings captures the effective load-balancing locality semantics resolved from a
+// DR / service / mesh combination. A concrete value is either a *LocalityLBSettings or a
+// *ZoneAwareLBSettings; GetEffectiveLbSetting returns nil when locality load balancing is
+// effectively disabled.
+type LBSettings interface {
+	// ForceFailover reports whether failover must always be enabled, regardless of whether
+	// outlier detection is configured.
+	ForceFailover() bool
+	// IsZoneAware reports whether these are zone-aware settings (as opposed to locality settings).
+	IsZoneAware() bool
+	// FailoverPriorityLabels returns the failover priority labels used to compute per-proxy
+	// failover priority labels, or nil when none apply.
+	FailoverPriorityLabels() []string
+	// ApplyToLoadAssignment mutates loadAssignment with the locality/zone-aware priorities and
+	// weights relative to the calling proxy. enableFailover reflects whether outlier detection is
+	// configured; implementations additionally force failover on when ForceFailover reports true.
+	ApplyToLoadAssignment(
+		loadAssignment *endpoint.ClusterLoadAssignment,
+		wrappedLocalityLbEndpoints []*WrappedLocalityLbEndpoints,
+		locality *core.Locality,
+		proxyLabels map[string]string,
+		enableFailover bool,
+	)
+	// ApplyToCluster configures the cluster's locality LB config (CommonLbConfig) and applies the
+	// locality/zone-aware priorities and weights to its load assignment for the calling proxy.
+	// isWaypoint indicates the proxy is a waypoint, where zone-aware LB is unsupported and falls
+	// back to locality LB. proxyID and enableSelfDiscovery are only used to warn when zone-aware
+	// LB is configured without proxy self-discovery.
+	ApplyToCluster(
+		c *cluster.Cluster,
+		wrappedLocalityLbEndpoints *WrappedLocalityLbEndpoints,
+		locality *core.Locality,
+		proxyLabels map[string]string,
+		isWaypoint bool,
+		proxyID string,
+		enableSelfDiscovery bool,
+	)
+}
+
+// wrapEndpoints adapts a single WrappedLocalityLbEndpoints to the slice form expected by the
+// package-level Apply* helpers, preserving the nil case.
+func wrapEndpoints(w *WrappedLocalityLbEndpoints) []*WrappedLocalityLbEndpoints {
+	if w == nil {
+		return nil
+	}
+	return []*WrappedLocalityLbEndpoints{w}
+}
+
+// LocalityLBSettings is the effective locality load balancer setting.
+type LocalityLBSettings struct {
+	Setting *v1alpha3.LocalityLoadBalancerSetting
+	// Force reports whether failover must always be enabled (e.g. derived from a service's
+	// TrafficDistribution preference).
+	Force bool
+}
+
+var _ LBSettings = LocalityLBSettings{}
+
+func (l LocalityLBSettings) ForceFailover() bool { return l.Force }
+
+func (l LocalityLBSettings) IsZoneAware() bool { return false }
+
+func (l LocalityLBSettings) FailoverPriorityLabels() []string {
+	// Failover priority labels only apply when there is no explicit weight distribution and
+	// locality LB is enabled.
+	if l.Setting.GetDistribute() == nil && (l.Setting.GetEnabled() == nil || l.Setting.GetEnabled().Value) {
+		return l.Setting.GetFailoverPriority()
+	}
+	return nil
+}
+
+func (l LocalityLBSettings) ApplyToLoadAssignment(
+	loadAssignment *endpoint.ClusterLoadAssignment,
+	wrappedLocalityLbEndpoints []*WrappedLocalityLbEndpoints,
+	locality *core.Locality,
+	proxyLabels map[string]string,
+	enableFailover bool,
+) {
+	ApplyLocalityLoadBalancer(loadAssignment, wrappedLocalityLbEndpoints, locality, proxyLabels, l.Setting, enableFailover || l.Force)
+}
+
+func (l LocalityLBSettings) ApplyToCluster(
+	c *cluster.Cluster,
+	wrappedLocalityLbEndpoints *WrappedLocalityLbEndpoints,
+	locality *core.Locality,
+	proxyLabels map[string]string,
+	_ bool,
+	_ string,
+	_ bool,
+) {
+	// Failover should only be applied with outlier detection, or traffic will never failover.
+	// Conversely, because the default mesh config enables LocalityLbSetting (Enabled:true),
+	// enabling outlier detection in a DestinationRule will automatically activate locality LB
+	// failover behavior even when no explicit localityLbSetting is configured in the DR.
+	enableFailover := l.Force || c.OutlierDetection != nil
+	// set locality weighted lb config when locality lb is enabled, otherwise it will influence the result of LBPolicy like `least request`
+	if features.EnableLocalityWeightedLbConfig ||
+		(enableFailover && (l.Setting.GetFailover() != nil || l.Setting.GetFailoverPriority() != nil)) ||
+		l.Setting.GetDistribute() != nil {
+		c.CommonLbConfig.LocalityConfigSpecifier = &cluster.Cluster_CommonLbConfig_LocalityWeightedLbConfig_{
+			LocalityWeightedLbConfig: &cluster.Cluster_CommonLbConfig_LocalityWeightedLbConfig{},
 		}
-		return destrule, false
+	}
+	if c.LoadAssignment != nil {
+		l.ApplyToLoadAssignment(c.LoadAssignment, wrapEndpoints(wrappedLocalityLbEndpoints), locality, proxyLabels, c.OutlierDetection != nil)
+	}
+}
+
+// ZoneAwareLBSettings is the effective zone-aware load balancer setting.
+type ZoneAwareLBSettings struct {
+	Setting *v1alpha3.ZoneAwareLoadBalancerSetting
+}
+
+var _ LBSettings = ZoneAwareLBSettings{}
+
+// ForceFailover always returns true: similar to TrafficDistributionPreferSameZone, zone-aware
+// routing requires that we always enable failovers, since we need to always separate endpoints
+// in different regions.
+func (z ZoneAwareLBSettings) ForceFailover() bool { return true }
+
+func (z ZoneAwareLBSettings) IsZoneAware() bool { return true }
+
+func (z ZoneAwareLBSettings) FailoverPriorityLabels() []string {
+	return z.Setting.GetFailoverPriority()
+}
+
+func (z ZoneAwareLBSettings) ApplyToLoadAssignment(
+	loadAssignment *endpoint.ClusterLoadAssignment,
+	wrappedLocalityLbEndpoints []*WrappedLocalityLbEndpoints,
+	locality *core.Locality,
+	proxyLabels map[string]string,
+	_ bool,
+) {
+	ApplyZoneAwareLoadBalancer(loadAssignment, wrappedLocalityLbEndpoints, locality, proxyLabels, z.Setting)
+}
+
+func (z ZoneAwareLBSettings) ApplyToCluster(
+	c *cluster.Cluster,
+	wrappedLocalityLbEndpoints *WrappedLocalityLbEndpoints,
+	locality *core.Locality,
+	proxyLabels map[string]string,
+	isWaypoint bool,
+	proxyID string,
+	enableSelfDiscovery bool,
+) {
+	// Zone-aware LB is not supported for Waypoints; fall back to locality LB. Zone-aware always
+	// forces failover, so preserve that in the fallback (there is no locality setting configured,
+	// as the two are mutually exclusive).
+	if isWaypoint {
+		LocalityLBSettings{Force: true}.ApplyToCluster(
+			c, wrappedLocalityLbEndpoints, locality, proxyLabels, isWaypoint, proxyID, enableSelfDiscovery,
+		)
+		return
+	}
+	if !enableSelfDiscovery {
+		log.Warnf("Zone-aware load balancing is enabled for cluster %s, but proxy self-discovery is not enabled on %s", c.Name, proxyID)
+	}
+	c.CommonLbConfig.LocalityConfigSpecifier = &cluster.Cluster_CommonLbConfig_ZoneAwareLbConfig_{
+		ZoneAwareLbConfig: &cluster.Cluster_CommonLbConfig_ZoneAwareLbConfig{
+			MinClusterSize: z.Setting.GetMinClusterSize(),
+		},
+	}
+	if c.LoadAssignment != nil {
+		z.ApplyToLoadAssignment(c.LoadAssignment, wrapEndpoints(wrappedLocalityLbEndpoints), locality, proxyLabels, false)
+	}
+}
+
+// GetEffectiveLbSetting resolves which load-balancing locality semantics apply for a
+// given DR / service / mesh combination. It returns nil when locality load balancing is
+// effectively disabled.
+func GetEffectiveLbSetting(
+	meshLocality *v1alpha3.LocalityLoadBalancerSetting,
+	meshZoneAware *v1alpha3.ZoneAwareLoadBalancerSetting,
+	drSettings *v1alpha3.LoadBalancerSettings,
+	service *model.Service,
+) LBSettings {
+	if zaLbSetting := drSettings.GetZoneAwareLbSetting(); zaLbSetting != nil {
+		if zaLbSetting.GetEnabled() != nil && !zaLbSetting.GetEnabled().Value {
+			return nil
+		}
+		return ZoneAwareLBSettings{Setting: zaLbSetting}
+	}
+	if localityLbSetting := drSettings.GetLocalityLbSetting(); localityLbSetting != nil {
+		if localityLbSetting.GetEnabled() != nil && !localityLbSetting.GetEnabled().Value {
+			return nil
+		}
+		return LocalityLBSettings{Setting: localityLbSetting}
 	}
 	if service != nil && service.Attributes.TrafficDistribution != model.TrafficDistributionAny {
 		switch service.Attributes.TrafficDistribution {
 		case model.TrafficDistributionPreferSameZone:
-			return &v1alpha3.LocalityLoadBalancerSetting{
-				Enabled: wrappers.Bool(true),
-				// Prefer same zone, region, network
-				FailoverPriority: []string{
-					label.TopologyNetwork.Name,
-					registrylabel.LabelTopologyRegion,
-					registrylabel.LabelTopologyZone,
+			return LocalityLBSettings{
+				Setting: &v1alpha3.LocalityLoadBalancerSetting{
+					Enabled: wrappers.Bool(true),
+					// Prefer same zone, region, network
+					FailoverPriority: []string{
+						label.TopologyNetwork.Name,
+						registrylabel.LabelTopologyRegion,
+						registrylabel.LabelTopologyZone,
+					},
 				},
-			}, true
+				Force: true,
+			}
 		case model.TrafficDistributionPreferSameNode:
-			return &v1alpha3.LocalityLoadBalancerSetting{
-				Enabled: wrappers.Bool(true),
-				// Prefer same node, subzone, zone, region, network
-				FailoverPriority: []string{
-					label.TopologyNetwork.Name,
-					registrylabel.LabelTopologyRegion,
-					registrylabel.LabelTopologyZone,
-					label.TopologySubzone.Name,
-					registrylabel.LabelHostname,
+			return LocalityLBSettings{
+				Setting: &v1alpha3.LocalityLoadBalancerSetting{
+					Enabled: wrappers.Bool(true),
+					// Prefer same node, subzone, zone, region, network
+					FailoverPriority: []string{
+						label.TopologyNetwork.Name,
+						registrylabel.LabelTopologyRegion,
+						registrylabel.LabelTopologyZone,
+						label.TopologySubzone.Name,
+						registrylabel.LabelHostname,
+					},
 				},
-			}, true
+				Force: true,
+			}
 		case model.TrafficDistributionAny:
 			// fallthrough
 		}
 	}
-	msh := mesh.GetEnabled()
-	if msh != nil && !msh.Value {
-		return nil, false
+	if meshZoneAware != nil {
+		if meshZoneAware.GetEnabled() != nil && !meshZoneAware.GetEnabled().Value {
+			return nil
+		}
+		return ZoneAwareLBSettings{Setting: meshZoneAware}
 	}
-	return mesh, false
+	if meshLocality != nil {
+		if meshLocality.GetEnabled() != nil && !meshLocality.GetEnabled().Value {
+			return nil
+		}
+		return LocalityLBSettings{Setting: meshLocality}
+	}
+	return nil
+}
+
+func ApplyZoneAwareLoadBalancer(
+	loadAssignment *endpoint.ClusterLoadAssignment,
+	wrappedLocalityLbEndpoints []*WrappedLocalityLbEndpoints,
+	locality *core.Locality,
+	proxyLabels map[string]string,
+	zoneAwareLB *v1alpha3.ZoneAwareLoadBalancerSetting,
+) {
+	if zoneAwareLB == nil || loadAssignment == nil {
+		return
+	}
+	if len(zoneAwareLB.FailoverPriority) > 0 {
+		applyFailoverPriorities(loadAssignment, wrappedLocalityLbEndpoints, proxyLabels, zoneAwareLB.FailoverPriority)
+	}
+
+	// Always apply region bucketing, even with no Failover entries. This keeps
+	// cross-region endpoints out of priority 0 so Envoy's zone-aware LB only balances zones
+	// within the proxy's region.
+	applyZoneAwareRegionalFailover(locality, loadAssignment, zoneAwareLB.Failover)
+}
+
+// applyZoneAwareRegionalFailover buckets LocalityLbEndpoints by region only, so all endpoints in the
+// proxy's region land at priority 0 (where Envoy's zone-aware LB can balance them across zones).
+// Failover-matched regions occupy the next priority and remaining regions the last priority.
+// Like applyLocalityFailover, priorities are multiplied by 3 to compose with any prior
+// FailoverPriority assignment, then compacted to a contiguous 0..N range.
+func applyZoneAwareRegionalFailover(
+	locality *core.Locality,
+	loadAssignment *endpoint.ClusterLoadAssignment,
+	failover []*v1alpha3.ZoneAwareLoadBalancerSetting_Failover,
+) {
+	priorityMap := map[int][]int{}
+	proxyRegion := locality.GetRegion()
+
+	for i, localityEndpoint := range loadAssignment.Endpoints {
+		epRegion := localityEndpoint.GetLocality().GetRegion()
+		// 0: same region as proxy, 1: failover-matched region, 2: any other region.
+		var priority int
+		switch {
+		case epRegion == proxyRegion:
+			priority = 0
+		default:
+			priority = 2
+			for _, failoverSetting := range failover {
+				if failoverSetting.From == proxyRegion {
+					if epRegion == failoverSetting.To {
+						priority = 1
+					}
+					break
+				}
+			}
+		}
+		// Compose with any prior priority (e.g. set by applyFailoverPriorities).
+		// Zone-aware uses 3 buckets (0..2) so multiplying by 3 keeps the slots distinct.
+		priorityInt := int(loadAssignment.Endpoints[i].Priority*3) + priority
+		loadAssignment.Endpoints[i].Priority = uint32(priorityInt)
+		priorityMap[priorityInt] = append(priorityMap[priorityInt], i)
+	}
+
+	// Compact priorities to a contiguous 0..N range so Envoy doesn't skip empty buckets.
+	priorities := make([]int, 0, len(priorityMap))
+	for priority := range priorityMap {
+		priorities = append(priorities, priority)
+	}
+	sort.Ints(priorities)
+	for i, priority := range priorities {
+		if i != priority {
+			for _, index := range priorityMap[priority] {
+				loadAssignment.Endpoints[index].Priority = uint32(i)
+			}
+		}
+	}
 }
 
 func ApplyLocalityLoadBalancer(
@@ -309,11 +576,14 @@ func applyFailoverPriorityPerLocality(
 	failoverPriorities []string,
 ) []*endpoint.LocalityLbEndpoints {
 	lowestPriority := len(failoverPriorities)
+	includesNetwork := lowestPriority > 0 && failoverPriorities[0] == label.TopologyNetwork.Name
+
 	// key is priority, value is the index of LocalityLbEndpoints.LbEndpoints
 	priorityMap := map[int][]int{}
 	priorityLabels, priorityLabelOverrides := priorityLabelOverrides(failoverPriorities)
 	for i, istioEndpoint := range ep.IstioEndpoints {
 		var priority int
+		var adjust int
 		// failoverPriority labels match
 		for j, label := range priorityLabels {
 			valueForProxy, ok := priorityLabelOverrides[label]
@@ -321,10 +591,17 @@ func applyFailoverPriorityPerLocality(
 				valueForProxy = proxyLabels[label]
 			}
 			if valueForProxy != istioEndpoint.Labels[label] {
+				if j == 0 && includesNetwork {
+					// ignore network
+					adjust = len(failoverPriorities)
+					continue
+				}
 				priority = lowestPriority - j
 				break
 			}
 		}
+		priority += adjust
+		// adjust priority
 		priorityMap[priority] = append(priorityMap[priority], i)
 	}
 

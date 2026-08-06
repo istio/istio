@@ -519,6 +519,31 @@ func TestAmbientIndex_ServiceOverlap(t *testing.T) {
 		s.assertCanonicalService(t, "svc1.ns1.svc.company.com", "se-2")
 		s.assertNoEvent(t)
 	})
+
+	t.Run("namespace-scoped serviceentry is not canonical", func(t *testing.T) {
+		s := newAmbientTestServer(t, testC, testNW, "")
+		// Scope every ServiceEntry to its own namespace. Set() (rather than in-place mutation)
+		// so the derived ServiceEntryVisibility collection is notified and recomputes.
+		mc := s.meshConfig.Mesh()
+		mc.ServiceEntryVisibility = &v1alpha1.ServiceEntryVisibility{
+			DefaultVisibility: v1alpha1.ServiceEntryVisibility_NAMESPACE,
+		}
+		s.meshConfig.(meshwatcher.TestWatcher).Set(mc)
+
+		// The SE is still published (present in the registry)...
+		addServiceEntry(s, 1, "foo.com", testNS)
+		s.assertAddresses(t, testNW+"/10.255.0.1", "se-1")
+		// ...but a NAMESPACE-scoped service must never be promoted to the canonical
+		// cross-namespace service for its hostname (eventually, no service is canonical).
+		assert.EventuallyEqual(t, func() string {
+			for _, si := range s.services.List() {
+				if si.Service.Hostname == "foo.com" && si.Service.Canonical {
+					return si.Service.Name
+				}
+			}
+			return ""
+		}, "")
+	})
 }
 
 func TestAmbientIndex_ServiceAttachedWaypoints(t *testing.T) {
@@ -1531,6 +1556,52 @@ func TestAmbientIndex_Policy(t *testing.T) {
 			s.assertNoEvent(t)
 		})
 	}
+}
+
+func TestAmbientIndex_PeerAuthenticationNamespacePolicyChange(t *testing.T) {
+	s := newAmbientTestServer(t, testC, testNW, "")
+	setupPolicyTest(t, s)
+
+	workloadPolicies := func() []string {
+		addrs := s.lookup(s.addrXdsName("127.0.0.1"))
+		if len(addrs) == 0 {
+			return nil
+		}
+		return addrs[0].Address.GetWorkload().AuthorizationPolicies
+	}
+	convertedSelector := fmt.Sprintf("%s/%s", testNS, model.GetAmbientPolicyConfigName(model.ConfigKey{
+		Kind:      kind.PeerAuthentication,
+		Name:      "selector",
+		Namespace: testNS,
+	}))
+	// The name the workload lists and the policy itself are computed separately, so check both.
+	convertedPolicyExists := func() bool {
+		return s.authorizationPolicies.GetKey(convertedSelector) != nil
+	}
+
+	// A workload policy with an unset mode and one permissive port needs an explicit exemption
+	// from the namespace's strictness, so it converts to a policy of its own.
+	s.addPolicy(t, "namespace", testNS, nil, gvk.PeerAuthentication, func(c controllers.Object) {
+		pol := c.(*clientsecurityv1beta1.PeerAuthentication)
+		pol.Spec.Mtls = &auth.PeerAuthentication_MutualTLS{Mode: auth.PeerAuthentication_MutualTLS_STRICT}
+	})
+	s.addPolicy(t, "selector", testNS, map[string]string{"app": "a"}, gvk.PeerAuthentication, func(c controllers.Object) {
+		pol := c.(*clientsecurityv1beta1.PeerAuthentication)
+		pol.Spec.PortLevelMtls = map[uint32]*auth.PeerAuthentication_MutualTLS{
+			9090: {Mode: auth.PeerAuthentication_MutualTLS_PERMISSIVE},
+		}
+	})
+	assert.EventuallyEqual(t, workloadPolicies, []string{convertedSelector})
+	assert.EventuallyEqual(t, convertedPolicyExists, true)
+
+	// Relax the namespace policy. There is nothing left to exempt the port from, so the
+	// conversion produces nothing and the policy goes away.
+	s.addPolicy(t, "namespace", testNS, nil, gvk.PeerAuthentication, func(c controllers.Object) {
+		pol := c.(*clientsecurityv1beta1.PeerAuthentication)
+		pol.Spec.Mtls = &auth.PeerAuthentication_MutualTLS{Mode: auth.PeerAuthentication_MutualTLS_PERMISSIVE}
+	})
+	assert.EventuallyEqual(t, workloadPolicies, []string(nil))
+	assert.EventuallyEqual(t, convertedPolicyExists, false)
 }
 
 func TestDefaultAllowWaypointPolicy(t *testing.T) {
@@ -3202,5 +3273,65 @@ func generateService(name, namespace string, labels, annotations map[string]stri
 			Selector:  selector,
 			Type:      corev1.ServiceTypeClusterIP,
 		},
+	}
+}
+
+// pushRequestRecorder captures the PushRequest produced by event handlers under test.
+type pushRequestRecorder struct {
+	req *model.PushRequest
+}
+
+func (p *pushRequestRecorder) EDSUpdate(model.ShardKey, string, string, []*model.IstioEndpoint) {}
+func (p *pushRequestRecorder) EDSCacheUpdate(model.ShardKey, string, string, []*model.IstioEndpoint) {
+}
+func (p *pushRequestRecorder) SvcUpdate(model.ShardKey, string, string, model.Event) {}
+func (p *pushRequestRecorder) ConfigUpdate(req *model.PushRequest)                   { p.req = req }
+func (p *pushRequestRecorder) ProxyUpdate(cluster.ID, string)                        {}
+func (p *pushRequestRecorder) RemoveShard(model.ShardKey)                            {}
+
+func TestPushXdsAddressWaypointRefs(t *testing.T) {
+	waypoint := &workloadapi.GatewayAddress{
+		Destination: &workloadapi.GatewayAddress_Hostname{
+			Hostname: &workloadapi.NamespacedHostname{Namespace: "default", Hostname: "waypoint.default.svc.cluster.local"},
+		},
+	}
+	waypointRef := model.WaypointReference{Namespace: "default", Hostname: "waypoint.default.svc.cluster.local"}
+	attached := model.WorkloadInfo{Workload: &workloadapi.Workload{Uid: "cluster0//Pod/default/a", Waypoint: waypoint}}
+	unattached := model.WorkloadInfo{Workload: &workloadapi.Workload{Uid: "cluster0//Pod/default/a"}}
+
+	cases := []struct {
+		name  string
+		event krt.Event[model.WorkloadInfo]
+		want  sets.Set[model.WaypointReference]
+	}{
+		{
+			name:  "workload without waypoint",
+			event: krt.Event[model.WorkloadInfo]{New: &unattached, Event: controllers.EventAdd},
+			want:  sets.New[model.WaypointReference](),
+		},
+		{
+			name:  "workload attached to waypoint",
+			event: krt.Event[model.WorkloadInfo]{New: &attached, Event: controllers.EventAdd},
+			want:  sets.New(waypointRef),
+		},
+		{
+			// The waypoint a workload detaches from must still see the change to drop its config
+			name:  "workload detached from waypoint",
+			event: krt.Event[model.WorkloadInfo]{Old: &attached, New: &unattached, Event: controllers.EventUpdate},
+			want:  sets.New(waypointRef),
+		},
+		{
+			name:  "attached workload deleted",
+			event: krt.Event[model.WorkloadInfo]{Old: &attached, Event: controllers.EventDelete},
+			want:  sets.New(waypointRef),
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			rec := &pushRequestRecorder{}
+			PushXdsAddress(rec, model.WorkloadInfo.ResourceName, model.WorkloadInfo.WaypointRef)([]krt.Event[model.WorkloadInfo]{tt.event})
+			assert.Equal(t, rec.req.WaypointsUpdated, tt.want)
+			assert.Equal(t, rec.req.AddressesUpdated, sets.New("cluster0//Pod/default/a"))
+		})
 	}
 }

@@ -222,6 +222,13 @@ func TestRender(t *testing.T) {
 			diffSelect:  "Service:*:istio-eastwest",
 		},
 		{
+			desc:        "gateway-dns-config",
+			releaseName: "istio-ingress",
+			namespace:   "istio-ingress",
+			chartName:   "gateway",
+			diffSelect:  "Deployment:*:istio-ingress",
+		},
+		{
 			desc:        "ztunnel-dns-config",
 			releaseName: "ztunnel",
 			namespace:   "istio-system",

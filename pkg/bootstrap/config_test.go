@@ -117,6 +117,20 @@ func TestGetNodeMetaData(t *testing.T) {
 	g.Expect(node.Metadata.Labels[model.LocalityLabel]).To(Equal("region/zone/subzone"))
 }
 
+func TestGetNodeMetaDataSecureMetricsPorts(t *testing.T) {
+	node, err := GetNodeMetaData(MetadataOptions{
+		ID:                           "test",
+		Envs:                         os.Environ(),
+		EnvoySecureMetricsPort:       15091,
+		EnvoySecureMergedMetricsPort: 15092,
+	})
+
+	g := NewWithT(t)
+	g.Expect(err).Should(BeNil())
+	g.Expect(node.Metadata.EnvoySecureMetricsPort).To(Equal(15091))
+	g.Expect(node.Metadata.EnvoySecureMergedMetricsPort).To(Equal(15092))
+}
+
 func TestSetIstioVersion(t *testing.T) {
 	test.SetForTest(t, &version.Info.Version, "binary")
 
@@ -344,6 +358,41 @@ func TestServiceClusterOrDefault(t *testing.T) {
 			result := serviceClusterOrDefault(tt.input, tt.metadata)
 			if result != tt.expected {
 				t.Errorf("serviceClusterOrDefault() = %v, want %v", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestZoneAwareRoutingTemplateParam(t *testing.T) {
+	cases := []struct {
+		name   string
+		envVal string
+		want   bool
+	}{
+		{"disabled", "", false},
+		{"enabled", "true", true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			envs := os.Environ()
+			if tc.envVal != "" {
+				envs = append(envs, "ISTIO_META_ENABLE_SELF_DISCOVERY="+tc.envVal)
+			}
+			node, err := GetNodeMetaData(MetadataOptions{
+				ID:          "sidecar~1.2.3.4~foo~bar",
+				Envs:        envs,
+				ProxyConfig: &v1alpha1.ProxyConfig{},
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			params, err := (Config{Node: node}).toTemplateParams()
+			if err != nil {
+				t.Fatal(err)
+			}
+			got, _ := params["enable_self_discovery"].(bool)
+			if got != tc.want {
+				t.Errorf("enable_self_discovery = %v, want %v", got, tc.want)
 			}
 		})
 	}

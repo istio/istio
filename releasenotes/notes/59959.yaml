@@ -1,0 +1,14 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+issue:
+  - https://github.com/istio/istio/issues/59959
+
+releaseNotes:
+  - |
+    **Fixed** a brief traffic outage when changing the `istio.io/rev` label on a Kubernetes
+    Gateway (or `ListenerSet`). The previously-owning control plane no longer drops the
+    resource and pushes empty xDS config to gateway pods that are still running on the old
+    revision. Status writes for non-owning revisions are still suppressed, so revisions do
+    not flap on each other's status.

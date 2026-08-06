@@ -33,3 +33,16 @@ spec:
         duration: 300s
         minimumPercent: 5.0
         aggression: 5.0
+---
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: bookinfo-ratings-http2-ping
+spec:
+  host: ratings.prod.svc.cluster.local
+  trafficPolicy:
+    connectionPool:
+      http:
+        http2KeepAlive:
+          interval: 15s
+          timeout: 5s

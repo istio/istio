@@ -17,10 +17,14 @@
 package crl
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common/deployment"
@@ -32,7 +36,7 @@ import (
 )
 
 var (
-	certBundle *util.Bundle
+	certBundle *util.RootBundle
 	clientNS   namespace.Instance
 	serverNS   namespace.Instance
 	client     echo.Instance
@@ -47,8 +51,25 @@ func TestMain(m *testing.M) {
 		Label(label.CustomSetup).
 		Setup(func(ctx resource.Context) error {
 			var err error
-			certBundle, err = util.GenerateBundle(ctx)
-			return err
+			certBundle, err = util.GenerateCaCerts(ctx)
+			if err != nil {
+				return err
+			}
+			// register cleanup of k8s resources (derived from GenerateCaCerts) that istiod distributes to every ns so we don't pollute other test suites
+			ctx.Cleanup(func() {
+				log.Info("cleaning up istio-ca-crl and istio-ca-root-cert ConfigMaps")
+				for _, cl := range ctx.Clusters() {
+					nsList, err := cl.Kube().CoreV1().Namespaces().List(context.TODO(), metav1.ListOptions{})
+					if err != nil {
+						return
+					}
+					for _, ns := range nsList.Items {
+						_ = cl.Kube().CoreV1().ConfigMaps(ns.Name).Delete(context.TODO(), "istio-ca-crl", metav1.DeleteOptions{})
+						_ = cl.Kube().CoreV1().ConfigMaps(ns.Name).Delete(context.TODO(), "istio-ca-root-cert", metav1.DeleteOptions{})
+					}
+				}
+			})
+			return nil
 		}).
 		Setup(istio.Setup(nil, nil, nil)).
 		SetupParallel(

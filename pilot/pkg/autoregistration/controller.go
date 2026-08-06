@@ -120,6 +120,11 @@ func NewController(store model.ConfigStoreController, instanceID string, maxConn
 		return nil
 	}
 
+	// Consistent with gRPC's keepalive.ServerParameters.MaxConnectionAge: a zero (or negative)
+	// value means "unset", which is treated as no limit rather than an immediate cutoff.
+	if maxConnAge <= 0 {
+		maxConnAge = time.Duration(math.MaxInt64)
+	}
 	if maxConnAge != math.MaxInt64 {
 		maxConnAge += maxConnAge / 2
 		// if overflow, set it to max int64
@@ -697,6 +702,16 @@ func workloadEntryFromGroup(name string, proxy *model.Proxy, groupCfg *config.Co
 		// in pilot/pkg/xds/ads.go, and `/` is not allowed in k8s label value.
 		// Instead of converting again, we delete it since has set WorkloadEntry.Locality
 		delete(entry.Labels, pm.LocalityLabel)
+	}
+
+	// If the proxy accepts HBONE, set the tunnel label so istiod marks the workload HBONE-capable
+	if proxy.EnableHBONEListen() {
+		if entry.Labels == nil {
+			entry.Labels = map[string]string{}
+		}
+		if _, ok := entry.Labels[model.TunnelLabel]; !ok {
+			entry.Labels[model.TunnelLabel] = model.TunnelHTTP
+		}
 	}
 
 	annotations := map[string]string{annotation.IoIstioAutoRegistrationGroup.Name: groupCfg.Name}

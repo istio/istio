@@ -48,8 +48,10 @@ spec:
     - operation:
         paths: ["/private/secret.html"]
 `
-	jwtTool            = "jwttool"
-	requestAuthnPolicy = `
+	jwtTool = "jwttool"
+)
+
+var requestAuthnPolicy = `
 apiVersion: security.istio.io/v1
 kind: RequestAuthentication
 metadata:
@@ -57,11 +59,10 @@ metadata:
 spec:
   jwtRules:
   - issuer: "test-issuer-1@istio.io"
-    jwksUri: "https://raw.githubusercontent.com/istio/istio/release-1.10/tests/common/jwt/jwks.json"
+    jwks: '` + jwt.JwksJSON + `'
   - issuer: "test-issuer-2@istio.io"
-    jwksUri: "https://raw.githubusercontent.com/istio/istio/release-1.10/tests/common/jwt/jwks.json"
+    jwks: '` + jwt.JwksJSON + `'
 `
-)
 
 var (
 	// Known unsupported path parameter ("/bla;foo") normalization for Tomcat.

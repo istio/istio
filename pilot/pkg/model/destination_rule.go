@@ -22,6 +22,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/visibility"
@@ -38,6 +39,10 @@ import (
 // 2. If the original rule did not have any top level traffic policy, traffic policies from the new rule will be
 // used.
 // 3. If the original rule did not have any exportTo, exportTo settings from the new rule will be used.
+//
+// When a user authored DestinationRule and a DestinationRule synthesized from a Gateway API backend policy
+// (BackendTLSPolicy/XBackendTrafficPolicy) target the same host, the user fields win and the backend policy
+// only fills in fields the user rule leaves unset, regardless of creation order.
 func (ps *PushContext) mergeDestinationRule(p *consolidatedDestRules, destRuleConfig config.Config, exportToSet sets.Set[visibility.Instance]) {
 	rule := destRuleConfig.Spec.(*networking.DestinationRule)
 	resolvedHost := host.Name(rule.Host)
@@ -111,10 +116,24 @@ func (ps *PushContext) mergeDestinationRule(p *consolidatedDestRules, destRuleCo
 				}
 			}
 
-			// If there is no top level policy and the incoming rule has top level
-			// traffic policy, use the one from the incoming rule.
-			if mergedRule.TrafficPolicy == nil && rule.TrafficPolicy != nil {
-				mergedRule.TrafficPolicy = rule.TrafficPolicy
+			existingIsBackendPolicy := isBackendPolicyDestinationRule(&copied)
+			incomingIsBackendPolicy := isBackendPolicyDestinationRule(&destRuleConfig)
+			switch {
+			case existingIsBackendPolicy == incomingIsBackendPolicy:
+				// Both rules have the same origin (both user authored or both synthesized).
+				// Keep the first-wins behavior: only adopt the incoming top level policy when
+				// the merged rule does not have one yet.
+				if mergedRule.TrafficPolicy == nil && rule.TrafficPolicy != nil {
+					mergedRule.TrafficPolicy = rule.TrafficPolicy
+				}
+			case incomingIsBackendPolicy:
+				// The merged rule is user authored and the incoming one is synthesized from a
+				// backend policy. User fields win; the backend policy fills the gaps.
+				mergedRule.TrafficPolicy = mergeBackendPolicyTrafficPolicy(mergedRule.TrafficPolicy, rule.TrafficPolicy)
+			default:
+				// The merged rule is synthesized from a backend policy and the incoming one is
+				// user authored. Same precedence: user fields win.
+				mergedRule.TrafficPolicy = mergeBackendPolicyTrafficPolicy(rule.TrafficPolicy, mergedRule.TrafficPolicy)
 			}
 		}
 		if appendSeparately {
@@ -124,6 +143,113 @@ func (ps *PushContext) mergeDestinationRule(p *consolidatedDestRules, destRuleCo
 	}
 	// DestinationRule does not exist for the resolved host so add it
 	destRules[resolvedHost] = append(destRules[resolvedHost], ConvertConsolidatedDestRule(&destRuleConfig, exportToSet))
+}
+
+// isBackendPolicyDestinationRule reports whether a DestinationRule was synthesized by Istio from a
+// Gateway API backend policy rather than authored directly by a user. Synthesized rules carry the
+// internal parents annotation, which users are not permitted to set.
+func isBackendPolicyDestinationRule(cfg *config.Config) bool {
+	_, ok := cfg.Annotations[constants.InternalParentNames]
+	return ok
+}
+
+// mergeBackendPolicyTrafficPolicy merges a backend-policy-synthesized traffic policy underneath a user
+// authored one. Fields set on the user policy take precedence; the backend policy only supplies fields
+// the user policy leaves unset.
+func mergeBackendPolicyTrafficPolicy(user, backend *networking.TrafficPolicy) *networking.TrafficPolicy {
+	if user == nil {
+		return backend
+	}
+	if backend == nil {
+		return user
+	}
+	// Start from the backend policy and let the user fields override it. hasPortLevel is false so only the
+	// fields the user actually sets win; the rest fall back to the backend policy. ShallowCopyTrafficPolicy
+	// drops port level settings, so they are merged back in separately below.
+	merged := MergeTrafficPolicy(ShallowCopyTrafficPolicy(backend), user, false)
+	merged.PortLevelSettings = mergeBackendPolicyPortLevelSettings(user.PortLevelSettings, backend.PortLevelSettings)
+	return merged
+}
+
+// MergeTrafficPolicy overrides mergedPolicy with the fields set on subsetPolicy and returns mergedPolicy.
+// When hasPortLevel is true, port level settings replace the destination level settings wholesale, so a
+// field omitted in the port level policy falls back to its default rather than being inherited.
+// Lives here rather than pilot/pkg/networking/util to avoid an import cycle (that package imports model);
+// it is also used by util.MergeSubsetTrafficPolicy and mergeBackendPolicyTrafficPolicy.
+func MergeTrafficPolicy(mergedPolicy, subsetPolicy *networking.TrafficPolicy, hasPortLevel bool) *networking.TrafficPolicy {
+	if subsetPolicy.ConnectionPool != nil || hasPortLevel {
+		mergedPolicy.ConnectionPool = subsetPolicy.ConnectionPool
+	}
+	if subsetPolicy.OutlierDetection != nil || hasPortLevel {
+		mergedPolicy.OutlierDetection = subsetPolicy.OutlierDetection
+	}
+	if subsetPolicy.LoadBalancer != nil || hasPortLevel {
+		mergedPolicy.LoadBalancer = subsetPolicy.LoadBalancer
+	}
+	if subsetPolicy.Tls != nil || hasPortLevel {
+		mergedPolicy.Tls = subsetPolicy.Tls
+	}
+	if subsetPolicy.Tunnel != nil {
+		mergedPolicy.Tunnel = subsetPolicy.Tunnel
+	}
+	if subsetPolicy.ProxyProtocol != nil {
+		mergedPolicy.ProxyProtocol = subsetPolicy.ProxyProtocol
+	}
+	if subsetPolicy.RetryBudget != nil {
+		mergedPolicy.RetryBudget = subsetPolicy.RetryBudget
+	}
+	return mergedPolicy
+}
+
+// ShallowCopyTrafficPolicy shallow copies a traffic policy. Port level settings are ignored.
+// Lives here rather than pilot/pkg/networking/util to avoid an import cycle (that package imports model).
+func ShallowCopyTrafficPolicy(original *networking.TrafficPolicy) *networking.TrafficPolicy {
+	if original == nil {
+		return nil
+	}
+	ret := &networking.TrafficPolicy{}
+	ret.ConnectionPool = original.ConnectionPool
+	ret.LoadBalancer = original.LoadBalancer
+	ret.OutlierDetection = original.OutlierDetection
+	ret.Tls = original.Tls
+	ret.Tunnel = original.Tunnel
+	ret.ProxyProtocol = original.ProxyProtocol
+	ret.RetryBudget = original.RetryBudget
+	return ret
+}
+
+// mergeBackendPolicyPortLevelSettings overlays user port settings on top of the backend ones. For a port
+// configured by both, the user fields win and the backend fills the gaps; ports only the backend sets are
+// appended.
+func mergeBackendPolicyPortLevelSettings(user, backend []*networking.TrafficPolicy_PortTrafficPolicy) []*networking.TrafficPolicy_PortTrafficPolicy {
+	if len(backend) == 0 {
+		return user
+	}
+	byPort := make(map[uint32]*networking.TrafficPolicy_PortTrafficPolicy, len(user))
+	for _, p := range user {
+		byPort[p.GetPort().GetNumber()] = p
+	}
+	merged := user
+	for _, bp := range backend {
+		up, ok := byPort[bp.GetPort().GetNumber()]
+		if !ok {
+			merged = append(merged, bp)
+			continue
+		}
+		if up.LoadBalancer == nil {
+			up.LoadBalancer = bp.LoadBalancer
+		}
+		if up.ConnectionPool == nil {
+			up.ConnectionPool = bp.ConnectionPool
+		}
+		if up.OutlierDetection == nil {
+			up.OutlierDetection = bp.OutlierDetection
+		}
+		if up.Tls == nil {
+			up.Tls = bp.Tls
+		}
+	}
+	return merged
 }
 
 func ConvertConsolidatedDestRule(cfg *config.Config, exportToSet sets.Set[visibility.Instance]) *ConsolidatedDestRule {

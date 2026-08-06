@@ -746,7 +746,9 @@ func TestAuthz_JWT(t *testing.T) {
 			fromAndTo := to.Instances().Append(from)
 
 			config.New(t).
-				Source(config.File("testdata/authz/jwt.yaml.tmpl").WithNamespace(apps.Ns1.Namespace)).
+				Source(config.File("testdata/authz/jwt.yaml.tmpl").WithNamespace(apps.Ns1.Namespace).WithParams(param.Params{
+					"JWTServer": jwtServer,
+				})).
 				BuildAll(nil, to).
 				Apply()
 
@@ -1454,6 +1456,7 @@ func TestAuthz_EgressGateway(t *testing.T) {
 					"EgressGatewayServiceName":      i.Settings().EgressGatewayServiceName,
 					"EgressGatewayServiceNamespace": i.Settings().EgressGatewayServiceNamespace,
 					"Allowed":                       allowed,
+					"JWTServer":                     jwtServer,
 				})).
 				Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
 					allow := allowValue(from.NamespacedName() == allowed.Config().NamespacedName())

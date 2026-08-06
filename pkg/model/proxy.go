@@ -284,6 +284,10 @@ type NodeMetadata struct {
 	// Generator indicates the client wants to use a custom Generator plugin.
 	Generator string `json:"GENERATOR,omitempty"`
 
+	// EnableSelfDiscovery indicates that the proxy should configure a local_cluster static cluster
+	// in its bootstrap for zone-aware load balancing. Set via ISTIO_META_ENABLE_SELF_DISCOVERY.
+	EnableSelfDiscovery StringBool `json:"ENABLE_SELF_DISCOVERY,omitempty"`
+
 	// DNSCapture indicates whether the workload has enabled dns capture
 	DNSCapture StringBool `json:"DNS_CAPTURE,omitempty"`
 
@@ -291,6 +295,10 @@ type NodeMetadata struct {
 	// This allows resolving ServiceEntries, which is especially useful for distinguishing TCP traffic
 	// This depends on DNSCapture.
 	DNSAutoAllocate StringBool `json:"DNS_AUTO_ALLOCATE,omitempty"`
+
+	// DNSProxyAddr is the host:port where istio-agent listens for DNS (DNS_PROXY_ADDR). Populated from bootstrap
+	// so Pilot can point Envoy dynamic forward proxy at the same address.
+	DNSProxyAddr string `json:"DNS_PROXY_ADDR,omitempty"`
 
 	// EnableHBONE, if set, will enable generation of HBONE listener config.
 	// Note: this only impacts sidecars and gateways; ztunnel and waypoint proxy unconditionally use HBONE.
@@ -329,6 +337,12 @@ type NodeMetadata struct {
 
 	// Envoy prometheus port redirecting to admin port prometheus endpoint.
 	EnvoyPrometheusPort int `json:"ENVOY_PROMETHEUS_PORT,omitempty"`
+
+	// EnvoySecureMetricsPort, when non-zero, adds an mTLS listener for Envoy-only stats on this port.
+	EnvoySecureMetricsPort int `json:"ENVOY_SECURE_METRICS_PORT,omitempty"`
+
+	// EnvoySecureMergedMetricsPort, when non-zero, adds an mTLS listener for merged metrics (Envoy + app + agent) on this port.
+	EnvoySecureMergedMetricsPort int `json:"ENVOY_SECURE_MERGED_METRICS_PORT,omitempty"`
 
 	// ExitOnZeroActiveConnections terminates Envoy if there are no active connections if set.
 	ExitOnZeroActiveConnections StringBool `json:"EXIT_ON_ZERO_ACTIVE_CONNECTIONS,omitempty"`

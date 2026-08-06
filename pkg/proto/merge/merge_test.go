@@ -37,3 +37,71 @@ func TestMerge(t *testing.T) {
 	// dst duration not changed after merge
 	assert.Equal(t, dst, &durationpb.Duration{Seconds: 789, Nanos: 999})
 }
+
+func filterNames(filters []*listener.ListenerFilter) []string {
+	names := make([]string, 0, len(filters))
+	for _, f := range filters {
+		names = append(names, f.GetName())
+	}
+	return names
+}
+
+// TestMerge_AppendsList verifies the default Merge semantics: repeated fields are appended.
+func TestMerge_AppendsList(t *testing.T) {
+	dst := &listener.Listener{ListenerFilters: []*listener.ListenerFilter{{Name: "a"}, {Name: "b"}}}
+	src := &listener.Listener{ListenerFilters: []*listener.ListenerFilter{{Name: "c"}}}
+
+	Merge(dst, src)
+
+	assert.Equal(t, filterNames(dst.ListenerFilters), []string{"a", "b", "c"})
+}
+
+// TestMergeWithReplaceList verifies that lists in src fully replace lists in dst.
+func TestMergeWithReplaceList(t *testing.T) {
+	dst := &listener.Listener{
+		Name:            "keep-me",
+		ListenerFilters: []*listener.ListenerFilter{{Name: "a"}, {Name: "b"}},
+	}
+	src := &listener.Listener{ListenerFilters: []*listener.ListenerFilter{{Name: "c"}}}
+
+	MergeWithReplaceList(dst, src)
+
+	// The list is replaced, not appended.
+	assert.Equal(t, filterNames(dst.ListenerFilters), []string{"c"})
+	// Scalar fields not set by src are left untouched (sparse merge).
+	assert.Equal(t, dst.Name, "keep-me")
+}
+
+// TestMergeWithReplaceList_EmptyListNotCleared verifies that a list absent from src
+// leaves the dst list untouched (src.Range only visits set fields).
+func TestMergeWithReplaceList_EmptyListNotCleared(t *testing.T) {
+	dst := &listener.Listener{ListenerFilters: []*listener.ListenerFilter{{Name: "a"}}}
+	src := &listener.Listener{Name: "set-name"}
+
+	MergeWithReplaceList(dst, src)
+
+	assert.Equal(t, filterNames(dst.ListenerFilters), []string{"a"})
+	assert.Equal(t, dst.Name, "set-name")
+}
+
+// TestMergeWithReplaceList_Nested verifies replace semantics apply recursively into
+// nested messages.
+func TestMergeWithReplaceList_Nested(t *testing.T) {
+	dst := &listener.Listener{
+		FilterChains: []*listener.FilterChain{{
+			Filters: []*listener.Filter{{Name: "f1"}, {Name: "f2"}},
+		}},
+	}
+	src := &listener.Listener{
+		FilterChains: []*listener.FilterChain{{
+			Filters: []*listener.Filter{{Name: "f3"}},
+		}},
+	}
+
+	MergeWithReplaceList(dst, src)
+
+	// Top-level FilterChains list is replaced wholesale.
+	assert.Equal(t, len(dst.FilterChains), 1)
+	assert.Equal(t, dst.FilterChains[0].Filters[0].GetName(), "f3")
+	assert.Equal(t, len(dst.FilterChains[0].Filters), 1)
+}

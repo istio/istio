@@ -87,6 +87,12 @@ func (s *NetServer) Stop(_ bool) {
 	s.ztunnelServer.Close()
 }
 
+// SyncHostProbeIPSet is a no-op for the inner NetServer: the host probe ipset is owned
+// and managed by the meshDataplane wrapper, which implements the real behavior.
+func (s *NetServer) SyncHostProbeIPSet(_ *corev1.Pod, _ []netip.Addr) error {
+	return nil
+}
+
 // AddPodToMesh adds a pod to mesh by
 // 1. Getting the netns (and making sure the netns is cached in the ztunnel state of the world snapshot)
 // 2. Adding the pod's IPs to the hostnetns ipsets for node probe checks

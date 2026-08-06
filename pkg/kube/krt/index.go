@@ -309,3 +309,12 @@ func UnnamedIndex[K comparable, O any](
 
 	return NewIndex(c, key, extract)
 }
+
+// FetchIndexObjects fetches all objects from the index that match the given key.
+func FetchIndexObjects[K comparable, O any](ctx HandlerContext, index IndexCollection[K, O], name K) []O {
+	res := FetchOne(ctx, index, FilterKey(toString(name)))
+	if res == nil {
+		return nil
+	}
+	return res.Objects
+}

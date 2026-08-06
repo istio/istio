@@ -482,6 +482,14 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name:       "virtualServiceKubernetesGateways",
+		inputFiles: []string{"testdata/virtualservice_kubernetes_gateways.yaml"},
+		analyzer:   &virtualservice.GatewayAnalyzer{},
+		expected: []message{
+			{msg.VirtualServiceHostNotFoundInGateway, "VirtualService default/my-vs-host-mismatch"},
+		},
+	},
+	{
 		name:       "virtualServiceJWTClaimRoute",
 		inputFiles: []string{"testdata/virtualservice_jwtclaimroute.yaml"},
 		analyzer:   &virtualservice.JWTClaimRouteAnalyzer{},
@@ -1023,6 +1031,27 @@ var testGrid = []testCase{
 		expected: []message{
 			{msg.ServiceEntryAddressesRequired, "ServiceEntry address-missing-uppercase"},
 		},
+	},
+	{
+		name:       "ServiceEntry conflicting protocols on same host and port",
+		inputFiles: []string{"testdata/serviceentry-conflicting-protocol.yaml"},
+		analyzer:   &serviceentry.ConflictingServiceEntryProtocolAnalyzer{},
+		expected: []message{
+			{msg.ConflictingServiceEntryProtocol, "ServiceEntry default/se-http"},
+			{msg.ConflictingServiceEntryProtocol, "ServiceEntry default/se-https"},
+		},
+	},
+	{
+		name:       "ServiceEntry no conflict same protocol",
+		inputFiles: []string{"testdata/serviceentry-no-conflict-protocol.yaml"},
+		analyzer:   &serviceentry.ConflictingServiceEntryProtocolAnalyzer{},
+		expected:   []message{},
+	},
+	{
+		name:       "ServiceEntry no conflict non-overlapping exportTo scopes",
+		inputFiles: []string{"testdata/serviceentry-conflicting-exportto.yaml"},
+		analyzer:   &serviceentry.ConflictingServiceEntryProtocolAnalyzer{},
+		expected:   []message{},
 	},
 	{
 		name:       "Condition Analyzer",

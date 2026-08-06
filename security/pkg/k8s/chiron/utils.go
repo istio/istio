@@ -231,29 +231,28 @@ func readSignedCertificate(client clientset.Interface, csr *cert.CertificateSign
 // Return signed CSR through a watcher. If no CSR is read, return nil.
 func readSignedCsr(client clientset.Interface, csr string, watchTimeout time.Duration) ([]byte, error) {
 	selector := fields.OneTermEqualSelector("metadata.name", csr).String()
-	// Setup a List+Watch, like informers do
-	// A simple Watch will fail if the cert is signed too quickly
-	l, _ := client.CertificatesV1().CertificateSigningRequests().List(context.Background(), metav1.ListOptions{
-		FieldSelector: selector,
-	})
-	if l != nil && len(l.Items) > 0 {
-		reqSigned := l.Items[0]
-		if reqSigned.Status.Certificate != nil {
-			return reqSigned.Status.Certificate, nil
-		}
-	}
-	var rv string
-	if l != nil {
-		rv = l.ResourceVersion
-	}
+	// Subscribe to the watch first, then List. A List-then-Watch ordering
+	// has a window where an update can fire between the two calls and be lost.
+	// The client-go fake's tracker ignores the ResourceVersion passed to Watch,
+	// so a status update that landed before we subscribed is never replayed.
+	// Subscribing first closes the window: the List right after covers the
+	// case where the CSR was already signed before we got a chance to watch.
 	watcher, err := client.CertificatesV1().CertificateSigningRequests().Watch(context.Background(), metav1.ListOptions{
-		ResourceVersion: rv,
-		FieldSelector:   selector,
+		FieldSelector: selector,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to watch CSR %v", csr)
 	}
 	defer watcher.Stop()
+
+	l, _ := client.CertificatesV1().CertificateSigningRequests().List(context.Background(), metav1.ListOptions{
+		FieldSelector: selector,
+	})
+	if l != nil && len(l.Items) > 0 {
+		if l.Items[0].Status.Certificate != nil {
+			return l.Items[0].Status.Certificate, nil
+		}
+	}
 
 	// Set a timeout
 	timer := time.After(watchTimeout)

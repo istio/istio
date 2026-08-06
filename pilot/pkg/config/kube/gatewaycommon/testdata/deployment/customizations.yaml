@@ -13,6 +13,7 @@ metadata:
     gateway.istio.io/managed: istio.io-gateway-controller
     gateway.networking.k8s.io/gateway-class-name: istio
     gateway.networking.k8s.io/gateway-name: namespace
+    istio.io/dataplane-mode: none
   name: namespace-istio
   namespace: default
   ownerReferences:
@@ -31,6 +32,7 @@ metadata:
     gateway.istio.io/managed: istio.io-gateway-controller
     gateway.networking.k8s.io/gateway-class-name: istio
     gateway.networking.k8s.io/gateway-name: namespace
+    istio.io/dataplane-mode: none
   name: namespace-istio
   namespace: default
   ownerReferences:
@@ -55,6 +57,7 @@ spec:
         gateway.istio.io/managed: istio.io-gateway-controller
         gateway.networking.k8s.io/gateway-class-name: istio
         gateway.networking.k8s.io/gateway-name: namespace
+        istio.io/dataplane-mode: none
         service.istio.io/canonical-name: namespace-istio
         service.istio.io/canonical-revision: latest
         sidecar.istio.io/inject: "false"
@@ -237,6 +240,7 @@ metadata:
     gateway.istio.io/managed: istio.io-gateway-controller
     gateway.networking.k8s.io/gateway-class-name: istio
     gateway.networking.k8s.io/gateway-name: namespace
+    istio.io/dataplane-mode: none
   name: namespace-istio
   namespace: default
   ownerReferences:
@@ -264,6 +268,7 @@ metadata:
     gateway.istio.io/managed: istio.io-gateway-controller
     gateway.networking.k8s.io/gateway-class-name: istio
     gateway.networking.k8s.io/gateway-name: namespace
+    istio.io/dataplane-mode: none
   name: namespace-istio
   namespace: default
   ownerReferences:
@@ -288,6 +293,7 @@ metadata:
     gateway.istio.io/managed: istio.io-gateway-controller
     gateway.networking.k8s.io/gateway-class-name: istio
     gateway.networking.k8s.io/gateway-name: namespace
+    istio.io/dataplane-mode: none
   name: namespace-istio
   namespace: default
   ownerReferences:

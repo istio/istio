@@ -15,6 +15,21 @@
 // package jwt includes sample JWT Token used in e2e tests.
 package jwt
 
+import (
+	_ "embed"
+	"strings"
+)
+
+//go:embed jwks.json
+var jwksJSONRaw string
+
+// JwksJSON is the JWKS that matches the test signing key in key.pem, with
+// trailing whitespace stripped so it can be inlined into YAML scalars.
+// Tests embed this directly into RequestAuthentication CRs via the inline
+// `jwks:` field where setting up an in-cluster JWKS server (jwt.Setup) is
+// not available.
+var JwksJSON = strings.TrimSpace(jwksJSONRaw)
+
 const (
 	// Payload {
 	//  "exp": 4715782722,

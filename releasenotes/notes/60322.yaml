@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: telemetry
+issue:
+- 60322
+releaseNotes:
+- |
+  **Fixed** an issue when pilot-agent metric merging produces incorrect result when Envoy reports metrics using protobuf
+  content type. The logic currently implemented in pilot-agent cannot handle protobuf content type correctly, so the change
+  restrict allowed content types to text/plain and application/openmetrics-text only.

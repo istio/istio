@@ -397,10 +397,13 @@ func convertPeerAuthentication(rootNamespace string, cfg, nsCfg, rootCfg *securi
 func convertAuthorizationPolicy(rootns string, obj *securityclient.AuthorizationPolicy) (*security.Authorization, *model.StatusMessage) {
 	pol := &obj.Spec
 
-	dryRun, convErr := strconv.ParseBool(obj.Annotations[annotation.IoIstioDryRun.Name])
-	if convErr != nil {
-		// proceed anyway?
-		log.Errorf("Unable to parse dry run annotation, encountered error %v", convErr)
+	var dryRun bool
+	if val := obj.Annotations[annotation.IoIstioDryRun.Name]; val != "" {
+		var convErr error
+		if dryRun, convErr = strconv.ParseBool(val); convErr != nil {
+			// proceed anyway?
+			log.Errorf("Unable to parse dry run annotation, encountered error %v", convErr)
+		}
 	}
 
 	if dryRun && !features.EnableWdsDryRunAuthzPol {

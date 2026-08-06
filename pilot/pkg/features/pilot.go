@@ -170,6 +170,12 @@ var (
 		false,
 		"If enabled, controller that untaints nodes with cni pods ready will run. This should be enabled if you disabled ambient init containers.").Get()
 
+	NodeUntaintTaintName = env.Register(
+		"PILOT_NODE_UNTAINT_CONTROLLERS_TAINT_NAME",
+		"cni.istio.io/not-ready",
+		"The taint key used by the node-untaint controller to identify nodes that should be untainted.",
+	).Get()
+
 	EnableIPAutoallocate = env.Register(
 		"PILOT_ENABLE_IP_AUTOALLOCATE",
 		true,
@@ -197,15 +203,6 @@ var (
 			"These checks are both expensive and panic on failure. As a result, this should be used only for testing.",
 	).Get()
 
-	// EnableUnsafeDeltaTest enables runtime checks to test Delta XDS efficiency. This should never be enabled in
-	// production.
-	EnableUnsafeDeltaTest = env.Register(
-		"UNSAFE_PILOT_ENABLE_DELTA_TEST",
-		false,
-		"If enabled, addition runtime tests for Delta XDS efficiency are added. "+
-			"These checks are extremely expensive, so this should be used only for testing, not production.",
-	).Get()
-
 	SharedMeshConfig = env.Register("SHARED_MESH_CONFIG", "",
 		"Additional config map to load for shared MeshConfig settings. The standard mesh config will take precedence.").Get()
 
@@ -220,6 +217,14 @@ var (
 
 	MulticlusterHeadlessEnabled = env.Register("ENABLE_MULTICLUSTER_HEADLESS", true,
 		"If true, the DNS name table for a headless service will resolve to same-network endpoints in any cluster.").Get()
+
+	// EnableHeadlessFilterChainListener controls whether headless TCP services use a single wildcard
+	// 0.0.0.0:Port listener with per-pod /32 CIDR filter chain matches, rather than a separate
+	// per-pod-IP listener. The single-listener approach reduces xDS size by ~10% for large
+	// headless services and keeps Envoy listener count at O(1) per headless service port.
+	EnableHeadlessFilterChainListener = env.Register("PILOT_ENABLE_HEADLESS_FILTER_CHAIN_LISTENER", false,
+		"If true, headless TCP services use a single wildcard listener with per-pod /32 CIDR filter chain matches "+
+			"instead of one listener per pod IP. Reduces xDS size and listener count for large headless services.").Get()
 
 	ResolveHostnameGateways = env.Register("RESOLVE_HOSTNAME_GATEWAYS", true,
 		"If true, hostnames in the LoadBalancer addresses of a Service will be resolved at the control plane for use in cross-network gateways.").Get()
@@ -274,6 +279,12 @@ var (
 	EnableAdditionalIpv4OutboundListenerForIpv6Only = env.RegisterBoolVar("ISTIO_ENABLE_IPV4_OUTBOUND_LISTENER_FOR_IPV6_CLUSTERS", false,
 		"If true, pilot will configure an additional IPv4 listener for outbound traffic in IPv6 only clusters, e.g. AWS EKS IPv6 only clusters.").Get()
 
+	// AllowAnyDynamicDNSMaxHosts caps the number of resolved hosts held in the shared DFP DNS cache
+	// for ALLOW_ANY_DYNAMIC_DNS mode. This matches Envoy's own default (1024) and bounds the memory
+	// used by the cache; raise it for proxies that fan out to a very large number of external hosts.
+	AllowAnyDynamicDNSMaxHosts = env.RegisterIntVar("PILOT_ALLOW_ANY_DYNAMIC_DNS_MAX_HOSTS", 1024,
+		"Maximum number of hosts kept in the dynamic forward proxy DNS cache for ALLOW_ANY_DYNAMIC_DNS outbound traffic mode.").Get()
+
 	EnableVtprotobuf = env.Register("ENABLE_VTPROTOBUF", true,
 		"If true, will use optimized vtprotobuf based marshaling. Requires a build with -tags=vtprotobuf.").Get()
 
@@ -321,6 +332,11 @@ var (
 			"and will not distribute CRL data to namespaces for proxies to consume.",
 	).Get()
 
+	EnableStrictGatewayMerging = env.Register(
+		"PILOT_ENABLE_STRICT_GATEWAY_MERGING",
+		true,
+		"If enabled, managed GatewayAPI Gateways will not be merged with Istio Gateways from different namespaces.").Get()
+
 	EnableNativeSidecars = func() NativeSidecarMode {
 		v := env.Register("ENABLE_NATIVE_SIDECARS", "auto",
 			"If set to true, use Kubernetes native sidecar container support. Requires SidecarContainer feature flag. "+
@@ -350,6 +366,35 @@ var (
 			"BLOCKED_CIDRS_IN_JWKS_URIS",
 			"",
 			"Comma separated list of CIDR ranges that are blocked in JWKS URIs (e.g., 10.0.0.0/8,192.168.1.0/24).").Get()
+		if v == "" {
+			return nil
+		}
+		cidrs := strings.Split(v, ",")
+		var blockedCIDRs []*net.IPNet
+		for _, cidr := range cidrs {
+			cidr = strings.TrimSpace(cidr)
+			if cidr == "" {
+				continue
+			}
+			_, ipNet, err := net.ParseCIDR(cidr)
+			if err != nil {
+				log.Warnf("Failed to parse CIDR range %q: %v", cidr, err)
+				continue
+			}
+			blockedCIDRs = append(blockedCIDRs, ipNet)
+		}
+		return blockedCIDRs
+	}()
+
+	// BlockedCIDRsInWasmFetch is additive to the always-on link-local block applied to Wasm
+	// module fetches (see pkg/wasm/ssrf.go); it lets operators also block private ranges or
+	// specific in-cluster addresses (e.g. the Kubernetes API server or kubelet) if their
+	// environment does not need to fetch Wasm modules from internal registries/servers.
+	BlockedCIDRsInWasmFetch = func() []*net.IPNet {
+		v := env.Register(
+			"BLOCKED_CIDRS_IN_WASM_FETCH",
+			"",
+			"Comma separated list of CIDR ranges that are blocked when fetching Wasm modules (e.g., 10.0.0.0/8,192.168.1.0/24).").Get()
 		if v == "" {
 			return nil
 		}
@@ -402,7 +447,7 @@ var (
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.
 func UnsafeFeaturesEnabled() bool {
-	return EnableUnsafeAdminEndpoints || EnableUnsafeAssertions || EnableUnsafeDeltaTest
+	return EnableUnsafeAdminEndpoints || EnableUnsafeAssertions
 }
 
 type NativeSidecarMode int

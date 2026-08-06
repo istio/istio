@@ -314,8 +314,6 @@ spec:
       backendRefs:
         - name: httpbin
           port: 80
-      retry:
-        attempts: 0
 ---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute

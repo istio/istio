@@ -10,6 +10,7 @@ spec:
   trafficPolicy:
     loadBalancer: {}
     retryBudget:
+      budgetInterval: 10s
       minRetryConcurrency: 5
       percent: 30
 ---

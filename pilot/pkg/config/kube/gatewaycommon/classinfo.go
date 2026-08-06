@@ -88,6 +88,9 @@ func GetAgentGatewayClasses() map[gateway.ObjectName]gateway.GatewayController {
 	res := map[gateway.ObjectName]gateway.GatewayController{}
 	if features.EnableAgentgateway {
 		res[constants.AgentgatewayClassName] = constants.ManagedAgentgatewayController
+		if features.EnableAmbientWaypoints {
+			res[constants.AgentgatewayWaypointClassName] = constants.ManagedAgentgatewayWaypointController
+		}
 	}
 	return res
 }
@@ -99,6 +102,14 @@ func GetAllClasses() map[gateway.ObjectName]gateway.GatewayController {
 		res[k] = v
 	}
 	return res
+}
+
+// GetControllerForAgentgatewayClass returns the controller for a given agentgateway class.
+func GetControllerForAgentgatewayClass(className string) string {
+	if controller, ok := AgentgatewayClasses[gateway.ObjectName(className)]; ok {
+		return string(controller)
+	}
+	return string(constants.ManagedAgentgatewayController) // fallback
 }
 
 // GetClassInfos returns the full mapping of gateway controller to ClassInfo.
@@ -150,6 +161,18 @@ func GetClassInfos() map[gateway.GatewayController]ClassInfo {
 			AddressType:         gateway.HostnameAddressType,
 			ControllerLabel:     constants.ManagedGatewayControllerLabel,
 			SupportsListenerSet: true,
+		}
+		if features.EnableAmbientWaypoints {
+			m[constants.ManagedAgentgatewayWaypointController] = ClassInfo{
+				Controller:          constants.ManagedAgentgatewayWaypointController,
+				Description:         "Istio with Agentgateway Waypoint",
+				Templates:           "agentgateway-waypoint",
+				DisableNameSuffix:   true,
+				DefaultServiceType:  corev1.ServiceTypeClusterIP,
+				AddressType:         "",
+				ControllerLabel:     constants.ManagedAgentgatewayWaypointControllerLabel,
+				SupportsListenerSet: false,
+			}
 		}
 	}
 

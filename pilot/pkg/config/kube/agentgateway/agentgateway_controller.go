@@ -19,7 +19,7 @@ package agentgateway
 import (
 	"errors"
 	"fmt"
-	"strconv"
+	"strings"
 
 	"github.com/agentgateway/agentgateway/api"
 	"go.uber.org/atomic"
@@ -29,7 +29,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gatewayalpha "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
 	gatewayx "sigs.k8s.io/gateway-api/apisx/v1alpha1"
 
@@ -47,6 +46,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -57,6 +57,7 @@ import (
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/revisions"
 	"istio.io/istio/pkg/slices"
@@ -134,7 +135,7 @@ type AgwInputs struct {
 	Gateways             krt.Collection[*gatewayv1.Gateway]
 	HTTPRoutes           krt.Collection[*gatewayv1.HTTPRoute]
 	GRPCRoutes           krt.Collection[*gatewayv1.GRPCRoute]
-	TCPRoutes            krt.Collection[*gatewayalpha.TCPRoute]
+	TCPRoutes            krt.Collection[*gatewayv1.TCPRoute]
 	TLSRoutes            krt.Collection[*gatewayv1.TLSRoute]
 	ListenerSets         krt.Collection[*gatewayv1.ListenerSet]
 	ReferenceGrants      krt.Collection[*gateway.ReferenceGrant]
@@ -216,6 +217,7 @@ func (c *Controller) initializeInputs(kc kube.Client, opts krt.OptionsBuilder) {
 		HTTPRoutes:         buildClient[*gatewayv1.HTTPRoute](c, kc, gvr.HTTPRoute, opts, "informer/HTTPRoutes"),
 		GRPCRoutes:         buildClient[*gatewayv1.GRPCRoute](c, kc, gvr.GRPCRoute, opts, "informer/GRPCRoutes"),
 		TLSRoutes:          buildClient[*gatewayv1.TLSRoute](c, kc, gvr.TLSRoute, opts, "informer/TLSRoutes"),
+		TCPRoutes:          buildClient[*gatewayv1.TCPRoute](c, kc, gvr.TCPRoute, opts, "informer/TCPRoutes"),
 		BackendTLSPolicies: buildClient[*gatewayv1.BackendTLSPolicy](c, kc, gvr.BackendTLSPolicy, opts, "informer/BackendTLSPolicies"),
 		ListenerSets:       buildClient[*gatewayv1.ListenerSet](c, kc, gvr.ListenerSet, opts, "informer/ListenerSets"),
 
@@ -228,11 +230,9 @@ func (c *Controller) initializeInputs(kc kube.Client, opts krt.OptionsBuilder) {
 	}
 
 	if features.EnableAlphaGatewayAPI {
-		inputs.TCPRoutes = buildClient[*gatewayalpha.TCPRoute](c, kc, gvr.TCPRoute, opts, "informer/TCPRoutes")
 		inputs.BackendTrafficPolicy = buildClient[*gatewayx.XBackendTrafficPolicy](c, kc, gvr.XBackendTrafficPolicy, opts, "informer/XBackendTrafficPolicy")
 	} else {
 		// If disabled, still build a collection but make it always empty
-		inputs.TCPRoutes = krt.NewStaticCollection[*gatewayalpha.TCPRoute](nil, nil, opts.WithName("disable/TCPRoutes")...)
 		inputs.BackendTrafficPolicy = krt.NewStaticCollection[*gatewayx.XBackendTrafficPolicy](nil, nil, opts.WithName("disable/XBackendTrafficPolicy")...)
 	}
 
@@ -254,7 +254,7 @@ func (c *Controller) buildResourceCollections(opts krt.OptionsBuilder) {
 		if !builtInClass {
 			return nil
 		}
-		if controller != constants.ManagedAgentgatewayController {
+		if controller != constants.ManagedAgentgatewayController && controller != constants.ManagedAgentgatewayWaypointController {
 			return nil
 		}
 		agwClass := class.DeepCopy()
@@ -265,9 +265,17 @@ func (c *Controller) buildResourceCollections(opts krt.OptionsBuilder) {
 	status.RegisterStatus(c.status, gatewayClassStatus, GetStatus, c.tagWatcher.AccessUnprotected())
 
 	referenceGrants := gatewaycommon.BuildReferenceGrants(gatewaycommon.ReferenceGrantsCollection(c.inputs.ReferenceGrants, opts))
+	gatewayListenerConflicts := gatewaycommon.GatewayListenerConflictCollection(
+		c.inputs.Gateways,
+		c.inputs.ListenerSets,
+		c.inputs.Namespaces,
+		gatewaycommon.FetchAgentgatewayClassFetcher(gatewayClasses),
+		opts,
+	)
 	listenerSetIntialStatus, listenerSets := ListenerSetCollection(
 		c.inputs.ListenerSets,
 		c.inputs.Gateways,
+		gatewayListenerConflicts,
 		gatewayClasses,
 		c.inputs.Namespaces,
 		referenceGrants,
@@ -285,6 +293,7 @@ func (c *Controller) buildResourceCollections(opts krt.OptionsBuilder) {
 	gatewayInitialStatus, gateways := GatewayCollection(
 		c.inputs.Gateways,
 		listenerSets,
+		gatewayListenerConflicts,
 		gatewayClasses,
 		c.inputs.Namespaces,
 		referenceGrants,
@@ -299,8 +308,19 @@ func (c *Controller) buildResourceCollections(opts krt.OptionsBuilder) {
 	// Build agw resources for gateway
 	inferencePolicies := InferencePolicyCollection(c.inputs.InferencePools, c.domainSuffix, opts)
 
+	// Build waypoint service bindings: maps services to their AGW waypoint gateways
+	// if they are defined
+	// TODO(jaellio): Handle waypoint workload bindings
+	waypointBindings := BuildWaypointServiceBindings(
+		c.inputs.Services,
+		c.inputs.Namespaces,
+		c.inputs.Gateways,
+		gatewayClasses,
+		opts,
+	)
+
 	// Build ancestor backends (backend→gateway mapping) for BackendTLSPolicy status
-	ancestorBackends := BuildAncestorBackends(c.inputs.HTTPRoutes, c.inputs.GRPCRoutes, opts)
+	ancestorBackends := BuildAncestorBackends(c.inputs.HTTPRoutes, c.inputs.GRPCRoutes, waypointBindings, opts)
 
 	// Build BackendTLS policies
 	backendTLSInputs := BackendTLSPolicyInputs{
@@ -316,12 +336,12 @@ func (c *Controller) buildResourceCollections(opts krt.OptionsBuilder) {
 	backendTLSStatus, backendTLSPolicies := BackendTLSPolicyCollection(backendTLSInputs, opts)
 	status.RegisterStatus(c.status, backendTLSStatus, GetStatus, c.tagWatcher.AccessUnprotected())
 
-	agwResources, routeAttachments := c.buildAgwResources(gateways, referenceGrants, inferencePolicies, backendTLSPolicies, opts)
+	agwResources, routeAttachments := c.buildAgwResources(gateways, referenceGrants, inferencePolicies, backendTLSPolicies, waypointBindings, opts)
 
 	gatewayFinalStatus := c.buildFinalGatewayStatus(gatewayInitialStatus, routeAttachments, opts)
 	status.RegisterStatus(c.status, gatewayFinalStatus, GetStatus, c.tagWatcher.AccessUnprotected())
 
-	listenerSetFinalStatus := c.buildFinalListenerSetStatus(listenerSetIntialStatus, routeAttachments, opts)
+	listenerSetFinalStatus := c.buildFinalListenerSetStatus(gateways, listenerSetIntialStatus, routeAttachments, opts)
 	status.RegisterStatus(c.status, listenerSetFinalStatus, GetStatus, c.tagWatcher.AccessUnprotected())
 
 	httpRoutesByInferencePool := krt.NewIndex(c.inputs.HTTPRoutes, "inferencepool-route", indexHTTPRouteByInferencePool)
@@ -340,6 +360,7 @@ func (c *Controller) buildResourceCollections(opts krt.OptionsBuilder) {
 	// TODO(jaellio): Source addresses from the ambientindex so the agentgateway proxies get the same
 	// representation of addresses as ambient proxies (for multicluster)
 	// Build address collections
+	// TODO(jaellio): Scope addresses for waypoint gateways to only fronted + outbound services
 	addresses := c.buildAddressCollections(opts)
 
 	// Build XDS collection
@@ -349,11 +370,44 @@ func (c *Controller) buildResourceCollections(opts krt.OptionsBuilder) {
 	c.outputs.Addresses = addresses
 }
 
+type SectionedNamespacedName struct {
+	types.NamespacedName
+	SectionName gatewayv1.SectionName
+}
+
+func (s SectionedNamespacedName) String() string {
+	return s.Namespace + "/" + s.Name + "/" + string(s.SectionName)
+}
+
+var sectionedNamespacedNameIndexCollectionFunc = krt.WithIndexCollectionFromString(func(s string) SectionedNamespacedName {
+	parts := strings.Split(s, "/")
+	if len(parts) != 3 {
+		panic("invalid SectionedNamespacedName: " + s)
+	}
+	return SectionedNamespacedName{
+		NamespacedName: types.NamespacedName{
+			Namespace: parts[0],
+			Name:      parts[1],
+		},
+		SectionName: gatewayv1.SectionName(parts[2]),
+	}
+})
+
 func (c *Controller) buildFinalListenerSetStatus(
+	gateways krt.Collection[*GatewayListener],
 	listenerSetStatuses krt.StatusCollection[*gatewayv1.ListenerSet, gatewayv1.ListenerSetStatus],
 	routeAttachments krt.Collection[*RouteAttachment],
 	opts krt.OptionsBuilder,
 ) krt.StatusCollection[*gatewayv1.ListenerSet, gatewayv1.ListenerSetStatus] {
+	gatewayIndex := krt.NewIndex(gateways, "gateway-parent-section-name", func(gwl *GatewayListener) []SectionedNamespacedName {
+		return []SectionedNamespacedName{{
+			NamespacedName: types.NamespacedName{
+				Namespace: gwl.ParentObject.Namespace,
+				Name:      gwl.ParentObject.Name,
+			},
+			SectionName: gwl.ParentInfo.SectionName,
+		}}
+	}).AsCollection(append(opts.WithName("translator/ListenerSetListenersByParentSection"), sectionedNamespacedNameIndexCollectionFunc)...)
 	routeAttachmentsIndex := krt.NewIndex(routeAttachments, "to", func(o *RouteAttachment) []types.NamespacedName {
 		return []types.NamespacedName{o.To}
 	})
@@ -363,14 +417,44 @@ func (c *Controller) buildFinalListenerSetStatus(
 			ctx krt.HandlerContext, i krt.ObjectWithStatus[*gatewayv1.ListenerSet, gatewayv1.ListenerSetStatus],
 		) *krt.ObjectWithStatus[*gatewayv1.ListenerSet, gatewayv1.ListenerSetStatus] {
 			routes := routeAttachmentsIndex.Fetch(ctx, config.NamespacedName(i.Obj))
-			routesPerListener := map[string]int32{}
-			for _, r := range routes {
-				routesPerListener[r.ListenerName]++
-			}
 			status := i.Status.DeepCopy()
-			for i, l := range status.Listeners {
-				l.AttachedRoutes = routesPerListener[string(l.Name)]
-				status.Listeners[i] = l
+			counts := map[string]int32{}
+			for _, r := range routes {
+				counts[r.ListenerName]++
+			}
+			invalidListenerCount := 0
+			for idx, l := range i.Obj.Spec.Listeners {
+				gatewayListeners := krt.FetchIndexObjects(ctx, gatewayIndex, SectionedNamespacedName{
+					NamespacedName: types.NamespacedName{
+						Namespace: i.Obj.Namespace,
+						Name:      i.Obj.Name,
+					},
+					SectionName: l.Name,
+				})
+				if len(gatewayListeners) == 0 {
+					continue
+				}
+
+				obj := gatewayListeners[0]
+				if !obj.Valid {
+					invalidListenerCount++
+				} else {
+					if obj.Conflict == ListenerConflictHostname {
+						invalidListenerCount++
+						reportListenerSetListenerConflicts(&status.Listeners[idx], i.Obj, string(gatewayv1.ListenerReasonHostnameConflict),
+							"Found conflicting hostnames on listeners, all listeners on a single port must have unique hostnames")
+					} else if obj.Conflict == ListenerConflictProtocol {
+						invalidListenerCount++
+						ListenerMessageProtocolConflict := "Found conflicting protocols on listeners, a single port can only contain listeners with compatible protocols"
+						reportListenerSetListenerConflicts(&status.Listeners[idx], i.Obj, string(gatewayv1.ListenerReasonProtocolConflict), ListenerMessageProtocolConflict)
+					}
+				}
+				status.Listeners[idx].AttachedRoutes = counts[string(l.Name)]
+			}
+
+			if invalidListenerCount > 0 {
+				listenerSetAccepted := invalidListenerCount < len(i.Obj.Spec.Listeners)
+				reportListenerSetWithConflicts(status, i.Obj, listenerSetAccepted)
 			}
 			return &krt.ObjectWithStatus[*gatewayv1.ListenerSet, gatewayv1.ListenerSetStatus]{
 				Obj:    i.Obj,
@@ -420,10 +504,17 @@ func (c *Controller) buildAddressCollections(opts krt.OptionsBuilder) krt.Collec
 		Networks:     Networks,
 		Flags: ambient.FeatureFlags{
 			EnableK8SServiceSelectWorkloadEntries: true,
+			// Mark sidecar-meshed workloads (security.istio.io/tlsMode=istio) as
+			// LEGACY_ISTIO_MTLS in the WDS stream we serve to agentgateway. The
+			// agentgateway data plane uses this to reach such backends via
+			// istio-mutual mTLS instead of plaintext.
+			EnableMtlsTransportProtocol: true,
 		},
 	}
 	// Dummy empty mesh config
 	meshConfig := krt.NewStatic[ambient.MeshConfig](&ambient.MeshConfig{MeshConfig: mesh.DefaultMeshConfig()}, true, opts.WithName("MeshConfig")...)
+	// TODO: AGW should probably understand  all this stuff? Dummy for now per the above being a dummy
+	serviceEntryVisibility := model.ServiceEntryVisibilityCollection(meshConfig.AsCollection(), opts)
 
 	waypoints := builder.WaypointsCollection(c.cluster, inputs.Gateways, inputs.GatewayClasses, inputs.Pods, opts)
 	services := builder.ServicesCollection(
@@ -433,6 +524,7 @@ func (c *Controller) buildAddressCollections(opts krt.OptionsBuilder) krt.Collec
 		waypoints,
 		inputs.Namespaces,
 		meshConfig,
+		serviceEntryVisibility,
 		opts,
 		true,
 	)
@@ -479,6 +571,7 @@ func (c *Controller) buildXDSCollection(
 	agwResourcesByGateway := func(resource AgwResource) types.NamespacedName {
 		return resource.Gateway
 	}
+
 	c.Registrations = append(c.Registrations, xds.Collection[Address, *workloadapi.Address](xdsAddresses, opts),
 		xds.PerGatewayCollection[AgwResource, *api.Resource](agwResources, agwResourcesByGateway, opts))
 }
@@ -627,37 +720,19 @@ func (c *Controller) buildAgwResources(
 	refGrants gatewaycommon.ReferenceGrants,
 	inferencePolicies krt.Collection[AgwResource],
 	backendTLSPolicies krt.Collection[AgwResource],
+	waypointBindings krt.Collection[WaypointServiceBinding],
 	opts krt.OptionsBuilder,
 ) (
 	krt.Collection[AgwResource],
 	krt.Collection[*RouteAttachment],
 ) {
-	// Build ports and binds
-	ports := krt.UnnamedIndex(gateways, func(l *GatewayListener) []string {
-		return []string{fmt.Sprint(l.ParentInfo.Port)}
-	}).AsCollection(opts.WithName("PortBindings")...)
+	// Build binds
+	gatewayParents := krt.UnnamedIndex(gateways, func(l *GatewayListener) []string {
+		return []string{l.ParentInfo.ParentGateway.String()}
+	}).AsCollection(opts.WithName("GatewayParents")...)
 
-	binds := krt.NewManyCollection(ports, func(ctx krt.HandlerContext, object krt.IndexObject[string, *GatewayListener]) []AgwResource {
-		port, _ := strconv.Atoi(object.Key)
-		uniq := sets.New[types.NamespacedName]()
-		protocol := api.Bind_Protocol(0)
-		for _, gw := range object.Objects {
-			uniq.Insert(gw.ParentGateway)
-			// TODO: better handle conflicts of protocols. For now, we arbitrarily treat TLS > plain
-			if gw.Valid {
-				protocol = max(protocol, c.getBindProtocol(gw))
-			}
-		}
-		return slices.Map(uniq.UnsortedList(), func(e types.NamespacedName) AgwResource {
-			bind := AgwBind{
-				&api.Bind{
-					Key:      object.Key + "/" + e.String(),
-					Port:     uint32(port), //nolint:gosec // G115: port is always in valid port range
-					Protocol: protocol,
-				},
-			}
-			return ToResourceForGateway(e, bind)
-		})
+	binds := krt.NewManyCollection(gatewayParents, func(ctx krt.HandlerContext, object krt.IndexObject[string, *GatewayListener]) []AgwResource {
+		return c.buildBindsFromGateway(object.Objects)
 	}, opts.WithName("Binds")...)
 
 	// Build listeners
@@ -666,12 +741,11 @@ func (c *Controller) buildAgwResources(
 	}, opts.WithName("Listeners")...)
 
 	// Build routes
-	routeParents := BuildRouteParents(gateways)
+	routeParents := BuildRouteParents(gateways, waypointBindings)
 
 	routeInputs := RouteContextInputs{
 		Grants:         refGrants,
 		RouteParents:   routeParents,
-		ControllerName: constants.ManagedAgentgatewayController,
 		DomainSuffix:   c.domainSuffix,
 		Services:       c.inputs.Services,
 		Namespaces:     c.inputs.Namespaces,
@@ -698,6 +772,54 @@ func (c *Controller) buildAgwResources(
 	return allAgwResources, routeAttachments
 }
 
+// buildBindsFromGateway creates a bind resources from a list of gateway listeners belonging to the same parent gateway
+func (c *Controller) buildBindsFromGateway(listeners []*GatewayListener) []AgwResource {
+	if len(listeners) == 0 {
+		return nil
+	}
+	parentGateway := listeners[0].ParentGateway
+
+	type bindInfo struct {
+		protocol       api.Bind_Protocol
+		tunnelProtocol api.Bind_TunnelProtocol
+	}
+	byPort := map[uint32]*bindInfo{}
+	for _, listener := range listeners {
+		port := uint32(listener.ParentInfo.Port) //nolint:gosec // G115: port is always in valid port range
+		bi, ok := byPort[port]
+		if !ok {
+			// Initialize bindInfo with default zero values of protocol and tunnelProtocol enums
+			bi = &bindInfo{}
+			byPort[port] = bi
+		}
+		// If a single gateway has GatewayListeners with the same port, the "winner" is the one without a conflict
+		// There may be multiple valid GatewayListeners with the same port, as long as the hostnames are
+		// non-overlapping. This case doesn't need to be handled here since the generated bind is independent of
+		// hostname
+		if listener.Conflict == "" {
+			bi.protocol = c.getBindProtocol(listener)
+			if tp := c.getTunnelProtocol(listener); tp != api.Bind_DIRECT {
+				bi.tunnelProtocol = tp
+			}
+		}
+	}
+
+	binds := make([]AgwResource, 0, len(byPort))
+	for _, port := range slices.Sort(maps.Keys(byPort)) { // sorted for deterministic output
+		bi := byPort[port]
+		bind := AgwBind{
+			Bind: &api.Bind{
+				Key:            fmt.Sprint(port) + "/" + parentGateway.String(),
+				Port:           port,
+				Protocol:       bi.protocol,
+				TunnelProtocol: bi.tunnelProtocol,
+			},
+		}
+		binds = append(binds, ToResourceForGateway(parentGateway, bind))
+	}
+	return binds
+}
+
 func listenerName(listener *GatewayListener) *api.ListenerName {
 	gatewayName := listener.ParentGateway.Name
 	gatewayNamespace := listener.ParentGateway.Namespace
@@ -721,6 +843,9 @@ func listenerName(listener *GatewayListener) *api.ListenerName {
 
 // buildListenerFromGateway creates a listener resource from a gateway
 func (c *Controller) buildListenerFromGateway(obj *GatewayListener) *AgwResource {
+	if obj == nil || !obj.Valid {
+		return nil
+	}
 	l := &api.Listener{
 		Key:      obj.ResourceName(),
 		Name:     listenerName(obj),
@@ -775,6 +900,8 @@ func (c *Controller) getProtocolAndTLSConfig(obj *GatewayListener) (api.Protocol
 		return api.Protocol_TLS, tlsConfig, true
 	case gatewayv1.TCPProtocolType:
 		return api.Protocol_TCP, nil, true
+	case gatewayv1.ProtocolType(protocol.HBONE):
+		return api.Protocol_HBONE, nil, true
 	default:
 		return api.Protocol_HTTP, nil, false // Unsupported protocol
 	}
@@ -791,7 +918,29 @@ func (c *Controller) getBindProtocol(obj *GatewayListener) api.Bind_Protocol {
 		return api.Bind_TLS
 	case gatewayv1.TCPProtocolType:
 		return api.Bind_TCP
+	case gatewayv1.ProtocolType(protocol.HBONE):
+		// The bind protocol is not used for HBONE_GATEWAY in the data plane;
+		// the actual inner protocol is determined at runtime from the other
+		// listeners on the same port. Return HTTP as a placeholder.
+		return api.Bind_HTTP
 	default:
 		return api.Bind_HTTP
+	}
+}
+
+// getTunnelProtocol maps a Gateway listener protocol to its tunnel protocol.
+// HBONE listeners use HBONE_GATEWAY mode when agw is a gateway: the proxy terminates inbound HBONE
+// and routes CONNECT requests to local binds.
+// HBONE listeners use HBONE_WAYPOINT mode when agw is a waypoint: the proxy terminates inbound HBONE
+// and routes CONNECT requests to the waypoint.
+func (c *Controller) getTunnelProtocol(obj *GatewayListener) api.Bind_TunnelProtocol {
+	switch obj.ParentInfo.Protocol {
+	case gatewayv1.ProtocolType(protocol.HBONE):
+		if obj.ParentInfo.IsWaypoint() {
+			return api.Bind_HBONE_WAYPOINT
+		}
+		return api.Bind_HBONE_GATEWAY
+	default:
+		return api.Bind_DIRECT
 	}
 }

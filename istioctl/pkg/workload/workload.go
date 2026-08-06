@@ -648,7 +648,7 @@ func unstructureIstioType(spec any) (map[string]any, error) {
 func convertToUnsignedInt32Map(s []string) map[string]uint32 {
 	out := make(map[string]uint32, len(s))
 	for _, l := range s {
-		k, v := splitEqual(l)
+		k, v, _ := strings.Cut(l, "=")
 		u64, err := strconv.ParseUint(v, 10, 32)
 		if err != nil {
 			log.Errorf("failed to convert to uint32: %v", err)
@@ -661,25 +661,10 @@ func convertToUnsignedInt32Map(s []string) map[string]uint32 {
 func convertToStringMap(s []string) map[string]string {
 	out := make(map[string]string, len(s))
 	for _, l := range s {
-		k, v := splitEqual(l)
+		k, v, _ := strings.Cut(l, "=")
 		out[k] = v
 	}
 	return out
-}
-
-// splitEqual splits key=value string into key,value. if no = is found
-// the whole string is the key and value is empty.
-func splitEqual(str string) (string, string) {
-	idx := strings.Index(str, "=")
-	var k string
-	var v string
-	if idx >= 0 {
-		k = str[:idx]
-		v = str[idx+1:]
-	} else {
-		k = str
-	}
-	return k, v
 }
 
 // validateFlagIsSetManuallyOrNot can validate that a persistent flag is set manually or not by user for given command

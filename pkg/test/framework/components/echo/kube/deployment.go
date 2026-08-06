@@ -440,6 +440,7 @@ func deploymentParams(ctx resource.Context, cfg echo.Config, settings *resource.
 		"Ambient":                 settings.Ambient,
 		"BindFamily":              cfg.BindFamily,
 		"OpenShift":               settings.OpenShift,
+		"UserNamespace":           cfg.UserNamespace,
 	}
 
 	vmIstioHost, vmIstioIP := "", ""

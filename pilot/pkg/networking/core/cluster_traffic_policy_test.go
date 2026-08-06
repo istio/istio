@@ -21,14 +21,98 @@ import (
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	proxyprotocol "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/proxy_protocol/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/core/loadbalancer"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/test/util/assert"
 )
+
+func TestApplyDefaultTrafficPolicy(t *testing.T) {
+	meshConnPool := &networking.ConnectionPoolSettings{
+		Tcp: &networking.ConnectionPoolSettings_TCPSettings{MaxConnections: 100},
+	}
+	meshOutlier := &networking.OutlierDetection{
+		Consecutive_5XxErrors: &wrappers.UInt32Value{Value: 5},
+	}
+	drConnPool := &networking.ConnectionPoolSettings{
+		Tcp: &networking.ConnectionPoolSettings_TCPSettings{MaxConnections: 7},
+	}
+	drOutlier := &networking.OutlierDetection{
+		Consecutive_5XxErrors: &wrappers.UInt32Value{Value: 9},
+	}
+	bothDefault := &meshconfig.MeshConfig_DefaultTrafficPolicy{
+		ConnectionPool:   meshConnPool,
+		OutlierDetection: meshOutlier,
+	}
+
+	tests := []struct {
+		name         string
+		meshDefault  *meshconfig.MeshConfig_DefaultTrafficPolicy
+		policy       *networking.TrafficPolicy
+		wantConnPool *networking.ConnectionPoolSettings
+		wantOutlier  *networking.OutlierDetection
+		wantNil      bool
+	}{
+		{
+			name:        "no mesh default, nil policy stays nil",
+			meshDefault: nil,
+			policy:      nil,
+			wantNil:     true,
+		},
+		{
+			name:         "no mesh default leaves DR policy untouched",
+			meshDefault:  &meshconfig.MeshConfig_DefaultTrafficPolicy{},
+			policy:       &networking.TrafficPolicy{ConnectionPool: drConnPool},
+			wantConnPool: drConnPool,
+		},
+		{
+			name:         "no DR inherits both baseline blocks",
+			meshDefault:  bothDefault,
+			policy:       nil,
+			wantConnPool: meshConnPool,
+			wantOutlier:  meshOutlier,
+		},
+		{
+			name:         "DR connectionPool overrides, outlier inherited",
+			meshDefault:  bothDefault,
+			policy:       &networking.TrafficPolicy{ConnectionPool: drConnPool},
+			wantConnPool: drConnPool,
+			wantOutlier:  meshOutlier,
+		},
+		{
+			name:         "DR sets both, baseline ignored",
+			meshDefault:  bothDefault,
+			policy:       &networking.TrafficPolicy{ConnectionPool: drConnPool, OutlierDetection: drOutlier},
+			wantConnPool: drConnPool,
+			wantOutlier:  drOutlier,
+		},
+		{
+			name:         "baseline only connectionPool, DR sets outlier",
+			meshDefault:  &meshconfig.MeshConfig_DefaultTrafficPolicy{ConnectionPool: meshConnPool},
+			policy:       &networking.TrafficPolicy{OutlierDetection: drOutlier},
+			wantConnPool: meshConnPool,
+			wantOutlier:  drOutlier,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := applyDefaultTrafficPolicy(tt.meshDefault, tt.policy)
+			if tt.wantNil {
+				assert.Equal(t, got == nil, true)
+				return
+			}
+			assert.Equal(t, got.GetConnectionPool(), tt.wantConnPool)
+			assert.Equal(t, got.GetOutlierDetection(), tt.wantOutlier)
+		})
+	}
+}
 
 func TestApplyUpstreamProxyProtocol(t *testing.T) {
 	istioMutualTLSSettings := &networking.ClientTLSSettings{
@@ -223,4 +307,94 @@ func TestApplyUpstreamProxyProtocol(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestApplyZoneAwareLoadBalancer covers the cluster-level zone-aware wiring:
+//   - With enableSelfDiscovery=true, sets CommonLbConfig.ZoneAwareLbConfig
+//     and propagates MinClusterSize from the ZoneAwareLoadBalancerSetting.
+//   - With enableSelfDiscovery=false, leaves CommonLbConfig.LocalityConfigSpecifier unset.
+//   - Region-bucketing on the cluster's LoadAssignment is delegated to the loadbalancer
+//     package and exercised end-to-end here.
+func TestApplyZoneAwareLoadBalancer(t *testing.T) {
+	proxyLocality := &core.Locality{Region: "region1", Zone: "zone1", SubZone: "subzone1"}
+
+	newCluster := func() *cluster.Cluster {
+		return &cluster.Cluster{
+			Name:           "outbound|80||svc.default.svc.cluster.local",
+			CommonLbConfig: &cluster.Cluster_CommonLbConfig{},
+			LoadAssignment: &endpoint.ClusterLoadAssignment{
+				Endpoints: []*endpoint.LocalityLbEndpoints{
+					{Locality: &core.Locality{Region: "region1", Zone: "zone1", SubZone: "subzone1"}},
+					{Locality: &core.Locality{Region: "region1", Zone: "zone2", SubZone: "subzone1"}},
+					{Locality: &core.Locality{Region: "region2", Zone: "zone1", SubZone: "subzone1"}},
+				},
+			},
+		}
+	}
+
+	t.Run("sets ZoneAwareLbConfig with MinClusterSize", func(t *testing.T) {
+		c := newCluster()
+		za := &networking.ZoneAwareLoadBalancerSetting{
+			Enabled:        wrappers.Bool(true),
+			MinClusterSize: &wrappers.UInt64Value{Value: 7},
+		}
+		loadbalancer.ZoneAwareLBSettings{Setting: za}.ApplyToCluster(c, nil, proxyLocality, nil, false, "test-proxy", true)
+		zaCfg := c.CommonLbConfig.GetZoneAwareLbConfig()
+		if zaCfg == nil {
+			t.Fatal("expected CommonLbConfig.ZoneAwareLbConfig to be set")
+		}
+		if zaCfg.GetMinClusterSize().GetValue() != 7 {
+			t.Errorf("MinClusterSize = %v, want 7", zaCfg.GetMinClusterSize())
+		}
+	})
+
+	t.Run("sets ZoneAwareLbConfig with nil MinClusterSize", func(t *testing.T) {
+		c := newCluster()
+		za := &networking.ZoneAwareLoadBalancerSetting{Enabled: wrappers.Bool(true)}
+		loadbalancer.ZoneAwareLBSettings{Setting: za}.ApplyToCluster(c, nil, proxyLocality, nil, false, "test-proxy", true)
+		zaCfg := c.CommonLbConfig.GetZoneAwareLbConfig()
+		if zaCfg == nil {
+			t.Fatal("expected ZoneAwareLbConfig to be set even without MinClusterSize")
+		}
+		if zaCfg.GetMinClusterSize() != nil {
+			t.Errorf("MinClusterSize = %v, want nil", zaCfg.GetMinClusterSize())
+		}
+	})
+
+	t.Run("self-discovery off still sets ZoneAwareLbConfig and emits warning", func(t *testing.T) {
+		c := newCluster()
+		za := &networking.ZoneAwareLoadBalancerSetting{
+			Enabled:        wrappers.Bool(true),
+			MinClusterSize: &wrappers.UInt64Value{Value: 7},
+		}
+		// ZoneAwareLbConfig is always set; enableSelfDiscovery=false only triggers a warning.
+		loadbalancer.ZoneAwareLBSettings{Setting: za}.ApplyToCluster(c, nil, proxyLocality, nil, false, "test-proxy", false)
+		if c.CommonLbConfig.GetZoneAwareLbConfig() == nil {
+			t.Error("expected ZoneAwareLbConfig to be set even when self-discovery is off")
+		}
+	})
+
+	t.Run("region-buckets CLA priorities", func(t *testing.T) {
+		c := newCluster()
+		za := &networking.ZoneAwareLoadBalancerSetting{Enabled: wrappers.Bool(true)}
+		loadbalancer.ZoneAwareLBSettings{Setting: za}.ApplyToCluster(c, nil, proxyLocality, nil, false, "test-proxy", true)
+		// region1 endpoints (any zone) → 0, region2 → 1.
+		want := []uint32{0, 0, 1}
+		for i, ep := range c.LoadAssignment.Endpoints {
+			if ep.Priority != want[i] {
+				t.Errorf("endpoint[%d] locality %v: got priority %d, want %d",
+					i, ep.Locality, ep.Priority, want[i])
+			}
+		}
+	})
+
+	t.Run("nil LoadAssignment is safe", func(t *testing.T) {
+		c := &cluster.Cluster{CommonLbConfig: &cluster.Cluster_CommonLbConfig{}}
+		za := &networking.ZoneAwareLoadBalancerSetting{Enabled: wrappers.Bool(true)}
+		loadbalancer.ZoneAwareLBSettings{Setting: za}.ApplyToCluster(c, nil, proxyLocality, nil, false, "test-proxy", true)
+		// ZoneAwareLbConfig still gets set even without a LoadAssignment.
+		if c.CommonLbConfig.GetZoneAwareLbConfig() == nil {
+			t.Error("expected ZoneAwareLbConfig set even with nil LoadAssignment")
+		}
+	})
 }
