@@ -71,8 +71,20 @@ type serviceIndex struct {
 	// by an exportTo explicitly specifying this namespace or because they are private to the namespace.
 	exportedToNamespace map[string][]*Service
 
-	// HostnameAndNamespace has all services, indexed by hostname then namespace.
+	// HostnameAndNamespace has all services, indexed by hostname then namespace, keeping one canonical service
+	// per (hostname, namespace).
+	//
+	// TODO: delete this map once the hostTrie has been proven out by BenchmarkSelectServices* and the trie-backed
+	// accessors (ServiceByHostnameAndNamespace/ServicesByHostname) have replaced it everywhere. Production always
+	// builds the trie from the same services (initServiceRegistry), so the map is only read by tests that populate
+	// it directly and never build the trie; removing it means migrating those tests to build the trie and dropping
+	// the servicesForExactHostsMap comparison in BenchmarkSelectServicesExact.
 	HostnameAndNamespace map[host.Name]map[string]*Service `json:"-"`
+
+	// hostTrie indexes all services by reversed DNS labels then namespace, retaining every service per
+	// (hostname, namespace). It resolves Sidecar egress hosts (exact and wildcard) without a full-mesh scan and
+	// backs the canonical-service accessors.
+	hostTrie *hostTrie
 
 	// instancesByPort contains a map of service key and instances by port. It is stored here
 	// to avoid recomputations during push. This caches instanceByPort calls with empty labels.
@@ -1070,12 +1082,39 @@ func (ps *PushContext) ServiceForHostname(proxy *Proxy, hostname host.Name) *Ser
 
 	// SidecarScope shouldn't be null here. If it is, we can't disambiguate the hostname to use for a namespace,
 	// so the selection must be undefined.
-	for _, service := range ps.ServiceIndex.HostnameAndNamespace[hostname] {
+	for _, service := range ps.ServicesByHostname(hostname) {
 		return service
 	}
 
 	// No service found
 	return nil
+}
+
+// ServiceByHostnameAndNamespace returns the single canonical service for the exact hostname in namespace, or nil
+// if none exists. This is the trie-backed replacement for the ServiceIndex.HostnameAndNamespace[hostname][namespace]
+// lookup and returns the same service (see canonicalService for the precedence rule). Sidecar egress host
+// selection, which needs every matching service rather than the canonical one, uses servicesImportedToNamespace.
+func (ps *PushContext) ServiceByHostnameAndNamespace(hostname host.Name, namespace string) *Service {
+	if trie := ps.ServiceIndex.hostTrie; trie != nil {
+		if svc := trie.canonicalServiceFor(namespace, hostname); svc != nil {
+			return svc
+		}
+	}
+	// TODO: drop this fallback with HostnameAndNamespace. Production builds the trie from the same services as the
+	// map, so the fallback is only reached by tests that populate HostnameAndNamespace directly (bypassing the trie).
+	return ps.ServiceIndex.HostnameAndNamespace[hostname][namespace]
+}
+
+// ServicesByHostname returns the canonical service for the exact hostname in each namespace where it exists,
+// mirroring ServiceIndex.HostnameAndNamespace[hostname]. The returned map is freshly allocated and safe to read.
+func (ps *PushContext) ServicesByHostname(hostname host.Name) map[string]*Service {
+	if trie := ps.ServiceIndex.hostTrie; trie != nil {
+		if svcs := trie.canonicalServicesByNamespace(hostname); len(svcs) > 0 {
+			return svcs
+		}
+	}
+	// TODO: drop this fallback with HostnameAndNamespace (see ServiceByHostnameAndNamespace).
+	return ps.ServiceIndex.HostnameAndNamespace[hostname]
 }
 
 // serviceExportTo returns the effective exportTo set for a service: the declared exportTo (or the
@@ -1582,6 +1621,8 @@ func (ps *PushContext) initServiceRegistry(env *Environment, configsUpdate sets.
 		}
 		ps.addServiceAccounts(s, accounts)
 
+		// TODO: this HostnameAndNamespace bookkeeping is now redundant with the hostTrie built below (the trie's
+		// canonicalService applies the same precedence); remove it once the trie is proven out (see the field doc).
 		hostMap, f := ps.ServiceIndex.HostnameAndNamespace[s.Hostname]
 		if !f {
 			hostMap = map[string]*Service{}
@@ -1635,6 +1676,9 @@ func (ps *PushContext) initServiceRegistry(env *Environment, configsUpdate sets.
 			ps.ServiceIndex.exportedToNamespace[key] = append(exportedServices, s)
 		}
 	}
+
+	// Build the (namespace, reversed-label) trie over all services for wildcard egress host resolution.
+	ps.ServiceIndex.hostTrie = newHostTrie(allServices)
 }
 
 func (ps *PushContext) addServiceAccounts(s *Service, accounts sets.String) {
@@ -2183,8 +2227,8 @@ func (ps *PushContext) TrafficExtensions(proxy *Proxy) map[extensions.TrafficExt
 		servicesInfo := ps.ServicesForWaypoint(WaypointKeyForProxy(proxy))
 		for _, si := range servicesInfo {
 			s := si.Service
-			svc, exist := ps.ServiceIndex.HostnameAndNamespace[host.Name(s.Hostname)][s.Namespace]
-			if !exist {
+			svc := ps.ServiceByHostnameAndNamespace(host.Name(s.Hostname), s.Namespace)
+			if svc == nil {
 				log.Warnf("cannot find waypoint service in serviceindex, namespace/hostname: %s/%s", s.Namespace, s.Hostname)
 				continue
 			}

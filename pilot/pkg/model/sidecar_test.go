@@ -2909,10 +2909,11 @@ func TestCreateSidecarScope(t *testing.T) {
 	}
 }
 
-// TestSelectServicesExactParity asserts that the exact-host fast path (servicesForExactHosts, used when every
-// imported host is non-wildcarded) returns exactly what the legacy full-scan path (servicesExportedToNamespace)
-// returns once both are run through selectServices. This guards against the two paths diverging.
-func TestSelectServicesExactParity(t *testing.T) {
+// TestServicesImportedToNamespaceParity asserts that servicesImportedToNamespace (exact hosts via the
+// HostnameAndNamespace map lookup, wildcard hosts via the two-level trie) returns exactly what the legacy
+// full-scan path (servicesExportedToNamespace) returns once both are run through selectServices. This
+// guards against the two paths diverging.
+func TestServicesImportedToNamespaceParity(t *testing.T) {
 	svc := func(hostname, ns string, ports PortList, exportTo ...visibility.Instance) *Service {
 		s := &Service{
 			Hostname:   host.Name(hostname),
@@ -2932,6 +2933,12 @@ func TestSelectServicesExactParity(t *testing.T) {
 		svc("foo", "b", port8000),                              // same hostname, different namespace
 		svc("priv", "b", port8000, visibility.Private),         // private to b
 		svc("shared", "c", port8000, visibility.Instance("a")), // exported to a only
+		// Hierarchical hostnames so wildcards can nest: "*.mesh.example.com" subsumes "*.svc.mesh.example.com".
+		svc("mesh.example.com", "a", port8000),
+		svc("a.mesh.example.com", "a", port8000),
+		svc("b.svc.mesh.example.com", "a", port8000),
+		svc("c.svc.mesh.example.com", "a", port8000),
+		svc("a.mesh.example.com", "d", port8000), // caught by "*/a.mesh.example.com" but not "a/*.mesh.example.com"
 	}
 
 	tests := []struct {
@@ -2983,6 +2990,65 @@ func TestSelectServicesExactParity(t *testing.T) {
 				"c": {allHosts: []host.Name{"shared"}, exactHosts: sets.New[host.Name]("shared")},
 			},
 		},
+		{
+			name:     "exact host in wildcard namespace",
+			configNS: "a",
+			listenerHosts: map[string]hostClassification{
+				"*": {allHosts: []host.Name{"foo"}, exactHosts: sets.New[host.Name]("foo")},
+			},
+		},
+		{
+			name:     "match-all host in a namespace",
+			configNS: "a",
+			listenerHosts: map[string]hostClassification{
+				"a": {allHosts: []host.Name{"*"}, exactHosts: sets.New[host.Name]()},
+			},
+		},
+		{
+			name:     "whole mesh",
+			configNS: "a",
+			listenerHosts: map[string]hostClassification{
+				"*": {allHosts: []host.Name{"*"}, exactHosts: sets.New[host.Name]()},
+			},
+		},
+		{
+			name:     "nested wildcards: broader suffix subsumes narrower",
+			configNS: "a",
+			listenerHosts: map[string]hostClassification{
+				"a": {
+					allHosts:   []host.Name{"*.mesh.example.com", "*.svc.mesh.example.com"},
+					exactHosts: sets.New[host.Name](),
+				},
+			},
+		},
+		{
+			name:     "wildcard subsumes exact host under it",
+			configNS: "a",
+			listenerHosts: map[string]hostClassification{
+				"a": {
+					allHosts:   []host.Name{"*.mesh.example.com", "a.mesh.example.com"},
+					exactHosts: sets.New[host.Name]("a.mesh.example.com"),
+				},
+			},
+		},
+		{
+			name:     "match-all subsumes wildcard and exact",
+			configNS: "a",
+			listenerHosts: map[string]hostClassification{
+				"a": {
+					allHosts:   []host.Name{"*", "*.mesh.example.com", "foo"},
+					exactHosts: sets.New[host.Name]("foo"),
+				},
+			},
+		},
+		{
+			name:     "wildcard-namespace exact and concrete-namespace wildcard do not cross-collapse",
+			configNS: "a",
+			listenerHosts: map[string]hostClassification{
+				"*": {allHosts: []host.Name{"a.mesh.example.com"}, exactHosts: sets.New[host.Name]("a.mesh.example.com")},
+				"a": {allHosts: []host.Name{"*.mesh.example.com"}, exactHosts: sets.New[host.Name]()},
+			},
+		},
 	}
 
 	// Build a PushContext with the service index populated as initServiceRegistry would.
@@ -3007,6 +3073,7 @@ func TestSelectServicesExactParity(t *testing.T) {
 			}
 		}
 	}
+	ps.ServiceIndex.hostTrie = newHostTrie(svcs)
 
 	// byHostname gives a total order over a selection result. selectServices dedups to a single service per
 	// hostname, so hostname is a unique key. We compare order-insensitively because cluster order is not
@@ -3023,64 +3090,280 @@ func TestSelectServicesExactParity(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ilw := &IstioEgressListenerWrapper{}
-			fast := byHostname(ilw.selectServices(ps.servicesForExactHosts(tt.configNS, tt.listenerHosts), tt.configNS, tt.listenerHosts))
+			hc, ok := tt.listenerHosts[wildcardNamespace]
+			includesAllMesh := ok && slices.Contains(hc.allHosts, wildcardService)
+			fast := byHostname(ilw.selectServices(ps.servicesImportedToNamespace(tt.configNS, tt.listenerHosts, includesAllMesh), tt.configNS, tt.listenerHosts))
 			scan := byHostname(ilw.selectServices(ps.servicesExportedToNamespace(tt.configNS), tt.configNS, tt.listenerHosts))
 			if !reflect.DeepEqual(fast, scan) {
 				fastJSON, _ := json.MarshalIndent(fast, "", "  ")
 				scanJSON, _ := json.MarshalIndent(scan, "", "  ")
-				t.Errorf("fast path and scan path diverged.\nfast: %s\nscan: %s", string(fastJSON), string(scanJSON))
+				t.Errorf("import path and scan path diverged.\nimport: %s\nscan: %s", string(fastJSON), string(scanJSON))
 			}
 		})
 	}
 }
 
-// BenchmarkSelectServicesExact compares the exact-host fast path (servicesForExactHosts, O(H) index lookups +
-// O(H log H) sort) against the legacy full-scan path (servicesExportedToNamespace, O(M) scan + allocation),
-// each followed by the shared selectServices call, on identical input. H (hosts imported by the listener) is held at 10% of M
-// (services visible to the namespace), modeling a sidecar that imports a constant fraction of the mesh. Run with:
+// TestDedupEgressHosts asserts dedupEgressHosts drops only the hosts whose trie fanout a retained host already
+// covers: match-all "*" collapses the list to itself, a broader wildcard subsumes narrower ones, and exact hosts
+// (and disjoint wildcards) are always retained.
+func TestDedupEgressHosts(t *testing.T) {
+	tests := []struct {
+		name  string
+		hosts []host.Name
+		want  []host.Name
+	}{
+		{
+			name:  "no wildcards keeps every exact host",
+			hosts: []host.Name{"foo.com", "bar.com"},
+			want:  []host.Name{"foo.com", "bar.com"},
+		},
+		{
+			name:  "disjoint wildcards both kept",
+			hosts: []host.Name{"*.foo.com", "*.bar.com"},
+			want:  []host.Name{"*.foo.com", "*.bar.com"},
+		},
+		{
+			name:  "broader wildcard subsumes narrower",
+			hosts: []host.Name{"*.foo.com", "*.svc.foo.com"},
+			want:  []host.Name{"*.foo.com"},
+		},
+		{
+			name:  "chain collapses to the broadest wildcard",
+			hosts: []host.Name{"*.a.b.foo.com", "*.b.foo.com", "*.foo.com"},
+			want:  []host.Name{"*.foo.com"},
+		},
+		{
+			name:  "wildcard keeps an exact host sitting under it",
+			hosts: []host.Name{"*.foo.com", "a.foo.com"},
+			want:  []host.Name{"*.foo.com", "a.foo.com"},
+		},
+		{
+			name:  "match-all collapses everything",
+			hosts: []host.Name{"*.foo.com", "bar.com", "*"},
+			want:  []host.Name{"*"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := dedupEgressHosts(tt.hosts)
+			if !sets.New(got...).Equals(sets.New(tt.want...)) {
+				t.Errorf("dedupEgressHosts(%v) = %v, want %v", tt.hosts, got, tt.want)
+			}
+		})
+	}
+}
+
+// benchServiceMesh populates ps with M public services named "endpoint.svc-i.ns.svc.cluster.local", built
+// exactly as initServiceRegistry would (HostnameAndNamespace + public + trie), for the benchmarks below.
+func benchServiceMesh(meshServices int) *PushContext {
+	ps := NewPushContext()
+	ps.exportToDefaults.service = sets.New(visibility.Public)
+	for i := 0; i < meshServices; i++ {
+		hostname := host.Name("endpoint.svc-" + strconv.Itoa(i) + ".ns.svc.cluster.local")
+		s := &Service{
+			Hostname:   hostname,
+			Ports:      port8000,
+			Attributes: ServiceAttributes{Name: string(hostname), Namespace: "ns", ServiceRegistry: provider.Kubernetes},
+		}
+		ps.ServiceIndex.HostnameAndNamespace[hostname] = map[string]*Service{"ns": s}
+		ps.ServiceIndex.public = append(ps.ServiceIndex.public, s)
+	}
+	ps.ServiceIndex.hostTrie = newHostTrie(ps.ServiceIndex.public)
+	return ps
+}
+
+// servicesForExactHostsMap is the previous exact-host resolution path (before the hostTrie): direct
+// ps.ServiceIndex.HostnameAndNamespace[host][namespace] lookups. It is kept here only to benchmark the trie's
+// exact path against the plain map it replaced; it handles all-exact, explicitly-namespaced hosts.
+//
+// TODO: delete this together with the HostnameAndNamespace map (and its "map" subtest in BenchmarkSelectServicesExact)
+// once the trie is proven out.
+func servicesForExactHostsMap(ps *PushContext, configNamespace string,
+	hostsByNamespace map[string]hostClassification,
+) []*Service {
+	var candidates []*Service
+	for ns, hc := range hostsByNamespace {
+		for hName := range hc.exactHosts {
+			byNamespace, ok := ps.ServiceIndex.HostnameAndNamespace[hName]
+			if !ok {
+				continue
+			}
+			svc, ok := byNamespace[ns]
+			if !ok {
+				continue
+			}
+			if !ps.IsServiceVisible(svc, configNamespace) {
+				continue
+			}
+			candidates = append(candidates, svc)
+		}
+	}
+	return SortServicesByCreationTime(candidates)
+}
+
+// benchSelectServices runs the trie path (servicesImportedToNamespace) and the legacy full-scan path
+// (servicesExportedToNamespace) over hostsByNamespace, each followed by the shared selectServices call. When
+// includeMap is set it also runs the pre-trie exact path (servicesForExactHostsMap), for the all-exact case.
+func benchSelectServices(b *testing.B, ps *PushContext, hostsByNamespace map[string]hostClassification, includeMap bool) {
+	ilw := &IstioEgressListenerWrapper{}
+	hc, ok := hostsByNamespace[wildcardNamespace]
+	includesAllMesh := ok && slices.Contains(hc.allHosts, wildcardService)
+	b.Run("trie", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			ilw.selectServices(ps.servicesImportedToNamespace("ns", hostsByNamespace, includesAllMesh), "ns", hostsByNamespace)
+		}
+	})
+	if includeMap {
+		b.Run("map", func(b *testing.B) {
+			b.ReportAllocs()
+			for i := 0; i < b.N; i++ {
+				ilw.selectServices(servicesForExactHostsMap(ps, "ns", hostsByNamespace), "ns", hostsByNamespace)
+			}
+		})
+	}
+	b.Run("scan", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			ilw.selectServices(ps.servicesExportedToNamespace("ns"), "ns", hostsByNamespace)
+		}
+	})
+}
+
+// benchMeshSizes is the set of mesh sizes M the benchmarks sweep, each importing H=10% of the mesh.
+var benchMeshSizes = []int{1000, 10000, 100000}
+
+// BenchmarkSelectServicesExact sweeps M=1000/10000/100000 with the listener importing H=10% of the mesh as exact,
+// explicitly-namespaced hosts. It compares trie (current, O(H) byHostname lookups), map (pre-trie
+// HostnameAndNamespace lookups), and scan (legacy O(M) full scan). trie and map grow with H, not M; the trie edges
+// out the map by sorting on a precomputed build-order index instead of re-running SortServicesByCreationTime.
+//
+// trie and map are both faster than the scan (each entry is the speedup over the scan):
 //
 //	go test ./pilot/pkg/model/ -run '^$' -bench BenchmarkSelectServicesExact -benchmem
+//
+//	           trie vs scan   map vs scan
+//	M=1000     ~4x            ~4x
+//	M=10000    ~22x           ~16x
+//	M=100000   ~288x          ~158x
 func BenchmarkSelectServicesExact(b *testing.B) {
-	for _, meshServices := range []int{1000, 10000, 100000} {
-		importedHosts := meshServices / 10 // H: 10% of the mesh
-		ps := NewPushContext()
-		ps.exportToDefaults.service = sets.New(visibility.Public)
-		// Populate the indexes exactly as initServiceRegistry would: every service goes into
-		// HostnameAndNamespace (used by the fast path) and, being public, into public (used by the scan path).
-		for i := 0; i < meshServices; i++ {
-			hostname := host.Name("svc-" + strconv.Itoa(i) + ".ns.svc.cluster.local")
-			s := &Service{
-				Hostname:   hostname,
-				Ports:      port8000,
-				Attributes: ServiceAttributes{Name: string(hostname), Namespace: "ns", ServiceRegistry: provider.Kubernetes},
-			}
-			ps.ServiceIndex.HostnameAndNamespace[hostname] = map[string]*Service{"ns": s}
-			ps.ServiceIndex.public = append(ps.ServiceIndex.public, s)
-		}
-
-		// Listener imports the first H services as exact, explicitly-namespaced hosts.
+	for _, meshServices := range benchMeshSizes {
+		importedHosts := meshServices / 10 // H: 10% of the mesh, all exact
+		ps := benchServiceMesh(meshServices)
 		exact := sets.New[host.Name]()
 		all := make([]host.Name, 0, importedHosts)
 		for i := 0; i < importedHosts; i++ {
-			h := host.Name("svc-" + strconv.Itoa(i) + ".ns.svc.cluster.local")
+			h := host.Name("endpoint.svc-" + strconv.Itoa(i) + ".ns.svc.cluster.local")
 			exact.Insert(h)
 			all = append(all, h)
 		}
 		hostsByNamespace := map[string]hostClassification{"ns": {exactHosts: exact, allHosts: all}}
-
-		suffix := "M=" + strconv.Itoa(meshServices) + "/H=" + strconv.Itoa(importedHosts)
-		ilw := &IstioEgressListenerWrapper{}
-		b.Run("fast/"+suffix, func(b *testing.B) {
-			b.ReportAllocs()
-			for i := 0; i < b.N; i++ {
-				ilw.selectServices(ps.servicesForExactHosts("ns", hostsByNamespace), "ns", hostsByNamespace)
-			}
+		b.Run("M="+strconv.Itoa(meshServices), func(b *testing.B) {
+			benchSelectServices(b, ps, hostsByNamespace, true)
 		})
-		b.Run("scan/"+suffix, func(b *testing.B) {
-			b.ReportAllocs()
-			for i := 0; i < b.N; i++ {
-				ilw.selectServices(ps.servicesExportedToNamespace("ns"), "ns", hostsByNamespace)
-			}
+	}
+}
+
+// BenchmarkSelectServicesWildcardAndExact sweeps M=1000/10000/100000 with the listener importing H=10%: half (5%)
+// exact hosts and half (5%) wildcard dnsName hosts, each matching one service. Wildcards make each host a trie
+// walk, so the trie is slower than the all-exact case but still well ahead of the O(M) scan.
+//
+// trie is faster than the scan (each entry is the speedup over the scan):
+//
+//	go test ./pilot/pkg/model/ -run '^$' -bench BenchmarkSelectServicesWildcardAndExact -benchmem
+//
+//	           trie vs scan
+//	M=1000     ~7x
+//	M=10000    ~21x
+//	M=100000   ~29x
+func BenchmarkSelectServicesWildcardAndExact(b *testing.B) {
+	for _, meshServices := range benchMeshSizes {
+		exactHosts := meshServices / 20    // 5% of the mesh, exact
+		wildcardHosts := meshServices / 20 // 5% of the mesh, wildcard dnsName
+		ps := benchServiceMesh(meshServices)
+		exact := sets.New[host.Name]()
+		all := make([]host.Name, 0, exactHosts+wildcardHosts)
+		for i := 0; i < exactHosts; i++ {
+			h := host.Name("endpoint.svc-" + strconv.Itoa(i) + ".ns.svc.cluster.local")
+			exact.Insert(h)
+			all = append(all, h)
+		}
+		// Wildcard hosts cover a disjoint range of services; each "*.svc-i.ns..." matches one service.
+		for i := exactHosts; i < exactHosts+wildcardHosts; i++ {
+			all = append(all, host.Name("*.svc-"+strconv.Itoa(i)+".ns.svc.cluster.local"))
+		}
+		hostsByNamespace := map[string]hostClassification{"ns": {exactHosts: exact, allHosts: all}}
+		b.Run("M="+strconv.Itoa(meshServices), func(b *testing.B) {
+			benchSelectServices(b, ps, hostsByNamespace, false)
+		})
+	}
+}
+
+// BenchmarkSelectServicesWildcard sweeps M=1000/10000/100000 with the listener importing H=10% of the mesh as
+// wildcard dnsName hosts, each matching one service. Every host is a trie walk with no byHostname fast path, yet
+// it stays ahead of the O(M) scan across the sweep.
+//
+// trie is faster than the scan (each entry is the speedup over the scan):
+//
+//	go test ./pilot/pkg/model/ -run '^$' -bench BenchmarkSelectServicesWildcard -benchmem
+//
+//	           trie vs scan
+//	M=1000     ~7x
+//	M=10000    ~16x
+//	M=100000   ~19x
+func BenchmarkSelectServicesWildcard(b *testing.B) {
+	for _, meshServices := range benchMeshSizes {
+		importedHosts := meshServices / 10 // H: 10% of the mesh, all wildcard dnsName
+		ps := benchServiceMesh(meshServices)
+		all := make([]host.Name, 0, importedHosts)
+		for i := 0; i < importedHosts; i++ {
+			all = append(all, host.Name("*.svc-"+strconv.Itoa(i)+".ns.svc.cluster.local"))
+		}
+		hostsByNamespace := map[string]hostClassification{"ns": {exactHosts: sets.New[host.Name](), allHosts: all}}
+		b.Run("M="+strconv.Itoa(meshServices), func(b *testing.B) {
+			benchSelectServices(b, ps, hostsByNamespace, false)
+		})
+	}
+}
+
+// BenchmarkSelectServicesMatchAll sweeps M=1000/10000/100000 for a single match-all "*/*" host importing the whole
+// mesh. This is the trie's worst case: "*" walks every node of the reversed-label tree and sorts all M services,
+// the same work as the scan's flat O(M) pass but with tree-walk overhead and no fanout to prune, so the scan wins.
+// That gap is exactly why servicesImportedToNamespace short-circuits "*/*" to the scan; this benchmark documents it
+// by calling servicesImportedViaTrie directly for the "trie" subtest (the short-circuit would otherwise route it
+// straight to the scan and both subtests would measure the same thing).
+//
+// scan is faster than the trie; both are O(M) here, so this is a constant-factor overhead that plateaus (does not
+// grow with M) — each entry is the scan's speedup over the trie:
+//
+//	go test ./pilot/pkg/model/ -run '^$' -bench BenchmarkSelectServicesMatchAll -benchmem
+//
+//	           scan vs trie
+//	M=1000     ~7x
+//	M=10000    ~9x
+//	M=100000   ~9x
+func BenchmarkSelectServicesMatchAll(b *testing.B) {
+	ilw := &IstioEgressListenerWrapper{}
+	for _, meshServices := range benchMeshSizes {
+		ps := benchServiceMesh(meshServices)
+		trie := ps.ServiceIndex.hostTrie
+		// A single "*/*" host: namespace "*" and dnsName "*", matching every service in the mesh.
+		hostsByNamespace := map[string]hostClassification{
+			wildcardNamespace: {exactHosts: sets.New[host.Name](), allHosts: []host.Name{wildcardService}},
+		}
+		b.Run("M="+strconv.Itoa(meshServices), func(b *testing.B) {
+			b.Run("trie", func(b *testing.B) {
+				b.ReportAllocs()
+				for i := 0; i < b.N; i++ {
+					ilw.selectServices(ps.servicesImportedViaTrie("ns", hostsByNamespace, trie), "ns", hostsByNamespace)
+				}
+			})
+			b.Run("scan", func(b *testing.B) {
+				b.ReportAllocs()
+				for i := 0; i < b.N; i++ {
+					ilw.selectServices(ps.servicesExportedToNamespace("ns"), "ns", hostsByNamespace)
+				}
+			})
 		})
 	}
 }
