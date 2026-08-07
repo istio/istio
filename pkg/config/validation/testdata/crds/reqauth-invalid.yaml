@@ -221,3 +221,13 @@ spec:
     spaceDelimitedClaims:
     - ""
 ---
+_err: 'Unsupported value: "MANDATORY"'
+apiVersion: security.istio.io/v1
+kind: RequestAuthentication
+metadata:
+  name: invalid-presence-value
+spec:
+  jwtRules:
+  - issuer: example
+    presence: MANDATORY
+---

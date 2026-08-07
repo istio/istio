@@ -8173,6 +8173,12 @@ spec:
                           maxItems: 2
                           minItems: 1
                           type: array
+                        ecdhCurves:
+                          description: 'Optional: If specified, only support the specified
+                            ecdh curves.'
+                          items:
+                            type: string
+                          type: array
                         httpsRedirect:
                           description: If set to true, the load balancer will send
                             a 301 redirect for all http connections, asking the clients
@@ -8454,6 +8460,12 @@ spec:
                           maxItems: 2
                           minItems: 1
                           type: array
+                        ecdhCurves:
+                          description: 'Optional: If specified, only support the specified
+                            ecdh curves.'
+                          items:
+                            type: string
+                          type: array
                         httpsRedirect:
                           description: If set to true, the load balancer will send
                             a 301 redirect for all http connections, asking the clients
@@ -8734,6 +8746,12 @@ spec:
                             type: string
                           maxItems: 2
                           minItems: 1
+                          type: array
+                        ecdhCurves:
+                          description: 'Optional: If specified, only support the specified
+                            ecdh curves.'
+                          items:
+                            type: string
                           type: array
                         httpsRedirect:
                           description: If set to true, the load balancer will send
@@ -10406,6 +10424,12 @@ spec:
                           maxItems: 2
                           minItems: 1
                           type: array
+                        ecdhCurves:
+                          description: 'Optional: If specified, only support the specified
+                            ecdh curves.'
+                          items:
+                            type: string
+                          type: array
                         httpsRedirect:
                           description: If set to true, the load balancer will send
                             a 301 redirect for all http connections, asking the clients
@@ -11027,6 +11051,12 @@ spec:
                           maxItems: 2
                           minItems: 1
                           type: array
+                        ecdhCurves:
+                          description: 'Optional: If specified, only support the specified
+                            ecdh curves.'
+                          items:
+                            type: string
+                          type: array
                         httpsRedirect:
                           description: If set to true, the load balancer will send
                             a 301 redirect for all http connections, asking the clients
@@ -11647,6 +11677,12 @@ spec:
                             type: string
                           maxItems: 2
                           minItems: 1
+                          type: array
+                        ecdhCurves:
+                          description: 'Optional: If specified, only support the specified
+                            ecdh curves.'
+                          items:
+                            type: string
                           type: array
                         httpsRedirect:
                           description: If set to true, the load balancer will send
@@ -17805,6 +17841,15 @@ spec:
                       description: This field specifies the header name to output
                         a successfully verified JWT payload to the backend.
                       type: string
+                    presence:
+                      description: |-
+                        Configures whether the JWT token must be present in the request.
+
+                        Valid Options: OPTIONAL, REQUIRED
+                      enum:
+                      - OPTIONAL
+                      - REQUIRED
+                      type: string
                     spaceDelimitedClaims:
                       description: List of JWT claim names that should be treated
                         as space-delimited strings.
@@ -18093,6 +18138,15 @@ spec:
                     outputPayloadToHeader:
                       description: This field specifies the header name to output
                         a successfully verified JWT payload to the backend.
+                      type: string
+                    presence:
+                      description: |-
+                        Configures whether the JWT token must be present in the request.
+
+                        Valid Options: OPTIONAL, REQUIRED
+                      enum:
+                      - OPTIONAL
+                      - REQUIRED
                       type: string
                     spaceDelimitedClaims:
                       description: List of JWT claim names that should be treated
