@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+  - |
+    **Fixed** a file descriptor leak in the istio-cni node agent: when the procfs scan found
+    more than one network namespace for the same pod, the losing candidate's netns fd was
+    dropped without being closed, pinning the namespace in the kernel until garbage collection.
