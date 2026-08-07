@@ -1,0 +1,16 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+releaseNotes:
+  - |
+    **Fixed** SSRF protection gaps in Wasm module fetching (`pkg/wasm`). The HTTP fetcher
+    previously had no restriction on destination IP at all, and the OCI image fetcher's SSRF
+    protection only inspected `401` bearer-realm responses, not `3xx` redirects on the actual
+    manifest/blob fetch. Both fetchers now block connections to link-local addresses (which
+    includes cloud instance metadata endpoints such as `169.254.169.254`) at the dial level,
+    so the block applies to the original request and to every redirect hop, regardless of
+    whether the redirect target is an IP literal or a hostname that resolves to one. A new
+    `BLOCKED_CIDRS_IN_WASM_FETCH` environment variable lets operators additionally block
+    private ranges or specific in-cluster addresses if desired.
+
+    **Credit**: The image fetcher redirect bypass was reported by 박현범 and independently by Svpernova. The unrestricted HTTP fetcher was reported by Aser Ahmed.

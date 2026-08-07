@@ -39,26 +39,59 @@ read -ra DOCKER_RUN_OPTIONS <<< "${DOCKER_RUN_OPTIONS:-}"
 [[ -t 0 ]] && DOCKER_RUN_OPTIONS+=("-it")
 [[ ${UID} -ne 0 ]] && DOCKER_RUN_OPTIONS+=(-u "${UID}:${DOCKER_GID}")
 
+selinux_relabel() {
+    if ! selinuxenabled 2>/dev/null; then
+	# SELinux is not enabled, no processing
+	printf "%s " "$@"
+	return
+    fi
+
+    local arg volume
+    volume=false
+    for arg; do
+	if $volume; then
+	    if [[ "$arg" =~ .*:.*:.* ]]; then
+		printf "%s,z " "$arg"
+	    else
+		printf "%s:z " "$arg"
+	    fi
+	    volume=false
+	elif [ "$arg" = --volume ] || [ "$arg" = "-v" ]; then
+	    printf "%s " "$arg"
+	    # Process the next argument
+	    volume=true
+	else
+	    printf "%s " "$arg"
+	    volume=false
+	fi
+	if [[ "$arg" =~ ^type=bind ]]; then
+	    printf -- "--mount type=bind can't be configured for SELinux\nPlease convert '%s' to --volume\n" "$arg" 1>&2
+	fi
+    done
+}
+
 # $CONTAINER_OPTIONS becomes an empty arg when quoted, so SC2086 is disabled for the
 # following command only
-# shellcheck disable=SC2086
+# selinux_relabel's output must not be quoted, so SC2046 is disabled
+# shellcheck disable=SC2046,SC2086
 "${CONTAINER_CLI}" run \
     --rm \
     "${DOCKER_RUN_OPTIONS[@]}" \
     --init \
     --sig-proxy=true \
     --cap-add=SYS_ADMIN \
-    ${DOCKER_SOCKET_MOUNT:--v /var/run/docker.sock:/var/run/docker.sock} \
+    $(selinux_relabel ${DOCKER_SOCKET_MOUNT:--v /var/run/docker.sock:/var/run/docker.sock}) \
     -e DOCKER_HOST=${DOCKER_SOCKET_HOST:-unix:///var/run/docker.sock} \
     $CONTAINER_OPTIONS \
     --env-file <(env | grep -v ${ENV_BLOCKLIST}) \
     -e IN_BUILD_CONTAINER=1 \
     -e TZ="${TIMEZONE:-$TZ}" \
-    --mount "type=bind,source=${MOUNT_SOURCE},destination=/work" \
-    --mount "type=volume,source=go,destination=/go" \
-    --mount "type=volume,source=gocache,destination=/gocache" \
-    --mount "type=volume,source=cache,destination=/home/.cache" \
-    --mount "type=volume,source=crates,destination=/home/.cargo/registry" \
-    --mount "type=volume,source=git-crates,destination=/home/.cargo/git" \
-    ${CONDITIONAL_HOST_MOUNTS} \
+    $(selinux_relabel \
+        --volume "${MOUNT_SOURCE}:${MOUNT_DEST}" \
+        --mount "type=volume,source=go,destination=/go" \
+        --mount "type=volume,source=gocache,destination=/gocache" \
+        --mount "type=volume,source=cache,destination=/home/.cache" \
+        --mount "type=volume,source=crates,destination=/home/.cargo/registry" \
+        --mount "type=volume,source=git-crates,destination=/home/.cargo/git" \
+        ${CONDITIONAL_HOST_MOUNTS}) \
     -w "${MOUNT_DEST}" "${IMG}" "$@"

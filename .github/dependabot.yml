@@ -51,6 +51,7 @@ updates:
       - dependency-name: "github.com/envoyproxy/go-control-plane/*"
       - dependency-name: "github.com/prometheus/prometheus"
       - dependency-name: "helm.sh/helm/v3"
+      - dependency-name: "github.com/moby/buildkit"
     groups:
       all-dependencies:
         patterns:
@@ -62,6 +63,7 @@ updates:
           - "github.com/envoyproxy/go-control-plane/*"
           - "github.com/prometheus/prometheus"
           - "helm.sh/helm/v3"
+          - "github.com/moby/buildkit"
 
   - package-ecosystem: "gomod"
     directories:
@@ -81,6 +83,7 @@ updates:
       - dependency-name: "github.com/prometheus/prometheus"
       - dependency-name: "helm.sh/helm/v3"
       - dependency-name: "google.golang.org/grpc"
+      - dependency-name: "github.com/moby/buildkit"
     groups:
       all-dependencies:
         patterns:
@@ -93,6 +96,7 @@ updates:
           - "github.com/prometheus/prometheus"
           - "helm.sh/helm/v3"
           - "google.golang.org/grpc"
+          - "github.com/moby/buildkit"
 
   # Ignore all dependency updates in samples/
   # We do not care about the dependencies in the samples/ directory as they are not meant
