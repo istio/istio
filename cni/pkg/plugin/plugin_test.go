@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/containernetworking/cni/pkg/skel"
+	"github.com/containernetworking/cni/pkg/types"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -420,6 +421,52 @@ func TestCmdAddPodInExcludedNamespace(t *testing.T) {
 func TestCmdAdd(t *testing.T) {
 	pod, ns := buildFakePodAndNSForClient()
 	testDoAddRun(t, buildMockConf(true), testNSName, pod, ns)
+}
+
+// TestCmdAddCNIPodSkipsK8sClient verifies that the istio-cni node agent pod itself is
+// detected and skipped before a kube client is created, in both ambient and sidecar mode.
+// Otherwise the CNI pod deadlocks waiting on a kubeconfig it has not written yet (for
+// example after a node reboot). The mock kubeconfig does not exist, so reaching
+// newK8sClient would surface an error; an early return proves the deadlock is avoided.
+func TestCmdAddCNIPodSkipsK8sClient(t *testing.T) {
+	for _, ambientEnabled := range []bool{true, false} {
+		t.Run(fmt.Sprintf("ambient=%t", ambientEnabled), func(t *testing.T) {
+			// conf.PodNamespace is empty in the mock conf, so a pod in the empty namespace
+			// whose name has the istio-cni-node- prefix is treated as the CNI pod itself.
+			args := buildCmdArgs(buildMockConf(ambientEnabled), "istio-cni-node-abcde", "")
+			if err := CmdAdd(args); err != nil {
+				t.Fatalf("expected the CNI pod to be skipped without creating a kube client, got error: %v", err)
+			}
+		})
+	}
+}
+
+// TestIsCNIPod covers the identity check on its own. It is called both on the normal
+// path for every ADD and from the degraded failsafe, so it must stay a pure predicate
+// and leave the logging level to the caller.
+func TestIsCNIPod(t *testing.T) {
+	conf := &Config{PodNamespace: "istio-system"}
+	cases := []struct {
+		name     string
+		podName  string
+		podNS    string
+		expected bool
+	}{
+		{"agent pod in the conf namespace", "istio-cni-node-abcde", "istio-system", true},
+		{"agent pod in another namespace", "istio-cni-node-abcde", "default", false},
+		{"workload pod in the conf namespace", "productpage-v1-abcde", "istio-system", false},
+		{"workload pod in another namespace", "productpage-v1-abcde", "default", false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			k8sArgs := K8sArgs{}
+			k8sArgs.K8S_POD_NAME = types.UnmarshallableString(c.podName)
+			k8sArgs.K8S_POD_NAMESPACE = types.UnmarshallableString(c.podNS)
+			if got := isCNIPod(conf, &k8sArgs); got != c.expected {
+				t.Fatalf("isCNIPod = %t, want %t", got, c.expected)
+			}
+		})
+	}
 }
 
 func TestCmdAddTwoContainersWithAnnotation(t *testing.T) {
