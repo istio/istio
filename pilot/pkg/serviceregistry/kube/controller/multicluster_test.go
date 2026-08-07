@@ -24,7 +24,9 @@ import (
 	v1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
+	mcsapi "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
@@ -39,6 +41,7 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/kube/mcs"
 	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -225,6 +228,30 @@ func seedStableRemoteService(t *testing.T, client kube.Client, name, namespace, 
 	clienttest.NewWriter[*discovery.EndpointSlice](t, client).Create(slice)
 }
 
+// seedStableRemoteServiceWithImport is seedStableRemoteService plus a ServiceImport, so a
+// synthetic clusterset.local service is also generated for it.
+func seedStableRemoteServiceWithImport(t *testing.T, client kube.Client, name, namespace, ip string, clusterSetVIPs []string) {
+	t.Helper()
+	clienttest.MakeCRD(t, client, mcs.ServiceImportGVR)
+	seedStableRemoteService(t, client, name, namespace, ip)
+
+	si := &mcsapi.ServiceImport{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ServiceImport",
+			APIVersion: "multicluster.x-k8s.io/v1alpha1",
+		},
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace},
+		Spec: mcsapi.ServiceImportSpec{
+			Type: mcsapi.ClusterSetIP,
+			IPs:  clusterSetVIPs,
+		},
+	}
+	_, err := client.Dynamic().Resource(mcs.ServiceImportGVR).Namespace(namespace).Create(context.TODO(), toUnstructured(si), metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("failed creating ServiceImport: %v", err)
+	}
+}
+
 // Test_KubeSecretController_CredentialRotation verifies that when a remote cluster's secret is
 // updated with new kubeconfig bytes, the aggregate controller ends up with exactly one registry
 // for that cluster at all times - the make-before-break swap in kubeController.HasSynced must
@@ -233,14 +260,19 @@ func seedStableRemoteService(t *testing.T, client kube.Client, name, namespace, 
 // newly-registered one out from under it.
 //
 // It also verifies that endpoint shards for services with stable (unchanged) endpoints in the
-// remote cluster survive every rotation - see https://github.com/istio/istio/issues/61043.
+// remote cluster survive every rotation and that this holds for a service's synthetic MCS clusterset.local
+// shard too.
 func Test_KubeSecretController_CredentialRotation(t *testing.T) {
+	test.SetForTest(t, &features.EnableMCSHost, true)
+
 	const (
 		remoteSvcName = "stable-svc"
 		remoteSvcNS   = "app-ns"
 		remoteSvcIP   = "10.10.0.1"
 	)
+	clusterSetVIPs := []string{"10.20.0.1"}
 	hostname := remoteSvcName + "." + remoteSvcNS + ".svc." + DomainSuffix
+	mcsHostname := string(serviceClusterSetLocalHostname(types.NamespacedName{Name: remoteSvcName, Namespace: remoteSvcNS}))
 
 	clusterID := cluster.ID("cluster-1")
 	remoteClusterID := cluster.ID("test-remote-cluster-1")
@@ -256,7 +288,7 @@ func Test_KubeSecretController_CredentialRotation(t *testing.T) {
 	mcc := initController(clientset, stop)
 	mcc.ClientBuilder = func(kubeConfig []byte, c cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
 		remoteClient := kube.NewFakeClient()
-		seedStableRemoteService(t, remoteClient, remoteSvcName, remoteSvcNS, remoteSvcIP)
+		seedStableRemoteServiceWithImport(t, remoteClient, remoteSvcName, remoteSvcNS, remoteSvcIP, clusterSetVIPs)
 		return remoteClient, nil
 	}
 	mc := NewMulticluster("pilot-abc-123", Options{
@@ -286,7 +318,7 @@ func Test_KubeSecretController_CredentialRotation(t *testing.T) {
 	}, retry.Timeout(time.Second*5))
 	originalRegistry := registryForCluster(mockserviceController, remoteClusterID)
 
-	assertShardPopulated := func(when string) {
+	assertShardPopulated := func(hostname, when string) {
 		t.Helper()
 		retry.UntilSuccessOrFail(t, func() error {
 			shards, ok := endpointIndex.ShardsForService(hostname, remoteSvcNS)
@@ -301,13 +333,14 @@ func Test_KubeSecretController_CredentialRotation(t *testing.T) {
 			return nil
 		}, retry.Timeout(time.Second*5), retry.Delay(time.Millisecond*10))
 	}
-	assertShardPopulated("after add")
+	assertShardPopulated(hostname, "after add")
+	assertShardPopulated(mcsHostname, "after add")
 
 	// Rotate the credentials a few times. After each rotation, the aggregate controller must have
 	// exactly one registry for the cluster, and it must be a different instance than before -
 	// never zero (a push/lookup gap) and never the stale one (a silently-dropped swap). The
 	// remote cluster's content is unchanged across rotations (no pod churn), so its endpoint
-	// shard must also survive every rotation.
+	// shard (real and clusterset.local) must also survive every rotation.
 	for generation := 1; generation <= 3; generation++ {
 		assert.NoError(t, updateMultiClusterSecret(clientset, "test-secret-1", string(remoteClusterID), generation))
 
@@ -324,7 +357,8 @@ func Test_KubeSecretController_CredentialRotation(t *testing.T) {
 
 		// The controller count must stay stable across the swap - no transient duplicate, no gap.
 		verifyControllers(t, mc, 2, fmt.Sprintf("controller count after credential rotation %d", generation))
-		assertShardPopulated(fmt.Sprintf("after credential rotation %d", generation))
+		assertShardPopulated(hostname, fmt.Sprintf("after credential rotation %d", generation))
+		assertShardPopulated(mcsHostname, fmt.Sprintf("after credential rotation %d", generation))
 		originalRegistry = registryForCluster(mockserviceController, remoteClusterID)
 	}
 
