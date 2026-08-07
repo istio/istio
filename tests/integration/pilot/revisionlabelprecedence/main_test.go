@@ -45,11 +45,7 @@ func TestMain(m *testing.M) {
 		Label(label.CustomSetup).
 		Setup(istio.Setup(nil, func(_ resource.Context, cfg *istio.Config) {
 			cfg.ControlPlaneValues = `
-profile: empty
 revision: rev-a
-components:
-  pilot:
-    enabled: true
 values:
   sidecarInjectorWebhook:
     revisionLabelPrecedence: pod
