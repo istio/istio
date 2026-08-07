@@ -104,8 +104,12 @@ func (p *PodNetnsProcFinder) FindNetnsForPods(pods map[types.UID]*corev1.Pod) (P
 		if existingNetns, exists := podUIDNetns[string(res.uid)]; exists {
 			log.Warnf("found more than one netns for the same pod: %s, will use oldest process netns", res.uid)
 			if existingNetns.Netns.OwnerProcStarttime() < res.ownerProcStarttime {
+				// the existing entry wins; close the netns fd opened for this candidate
+				res.netns.Close()
 				continue
 			}
+			// this candidate wins; close the netns fd of the entry it replaces
+			existingNetns.Netns.Close()
 		}
 
 		pod := pods[res.uid]
