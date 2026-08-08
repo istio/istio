@@ -88,6 +88,19 @@ _internal_defaults_do_not_set:
     targetMemoryUtilizationPercentage: {}
     autoscaleBehavior: {}
 
+  vpa:
+    enabled: false
+    updateMode: InPlaceOrRecreate
+    controlledResources:
+      - "cpu"
+      - "memory"
+    minAllowed:
+      cpu: 100m
+      memory: 128Mi
+    maxAllowed:
+      cpu: 2000m
+      memory: 1024Mi
+
   # Pod environment variables
   env: {}
 
