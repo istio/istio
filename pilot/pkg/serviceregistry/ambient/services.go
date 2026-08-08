@@ -279,6 +279,7 @@ func serviceServiceBuilder(
 		waypoint, wperr := fetchWaypointForService(ctx, waypoints, namespaces, nil, s.ObjectMeta)
 		if waypoint != nil {
 			waypointStatus.ResourceName = waypoint.ResourceName()
+			waypointStatus.ServiceAccounts = waypoint.ServiceAccounts
 			var nsLabels map[string]string
 			if ns != nil {
 				nsLabels = (*ns).Labels
