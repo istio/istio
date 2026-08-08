@@ -337,6 +337,11 @@ var (
 		true,
 		"If enabled, managed GatewayAPI Gateways will not be merged with Istio Gateways from different namespaces.").Get()
 
+	EnableGatewayUnmatchedRouteTracing = env.Register(
+		"PILOT_ENABLE_GATEWAY_UNMATCHED_ROUTE_TRACING",
+		true,
+		"If enabled, gateway requests without a matching route use a bounded tracing operation name.").Get()
+
 	EnableNativeSidecars = func() NativeSidecarMode {
 		v := env.Register("ENABLE_NATIVE_SIDECARS", "auto",
 			"If set to true, use Kubernetes native sidecar container support. Requires SidecarContainer feature flag. "+
