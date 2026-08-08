@@ -16,12 +16,9 @@ package dependencies
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io"
-	"os"
 	"os/exec"
-	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -30,68 +27,6 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 )
-
-// detectedIptablesBackendDir is where we persist the auto-detected iptables backend choice
-// (see DetectIptablesVersion) across process restarts within the same node boot.
-//
-// This must live under a tmpfs-backed path that is cleared on reboot but not on process restart:
-// re-probing on every restart is unreliable, because probing a binary/table - even read-only -
-// materializes empty kernel tables for it that a later probe on the same node would misread as
-// "existing rules", flipping the chosen backend and duplicating rules already written under the
-// previous one. See https://github.com/istio/istio/issues/61020.
-//
-// "/var/run/istio-cni" matches the default of the CNI agent's own `--cni-agent-run-dir` flag
-// (cni/pkg/cmd/root.go); it's hardcoded here rather than threaded through config because this
-// package has no dependency on the CNI agent's config today.
-//
-// Variable (rather than const) so unit tests can redirect it to a temp dir.
-var detectedIptablesBackendDir = "/var/run/istio-cni"
-
-func detectedIptablesBackendFile(ipV6 bool) string {
-	name := "detected-iptables-backend-v4"
-	if ipV6 {
-		name = "detected-iptables-backend-v6"
-	}
-	return filepath.Join(detectedIptablesBackendDir, name)
-}
-
-// readPersistedIptablesBackend returns the backend ("legacy" or "nft") persisted by a previous
-// call to DetectIptablesVersion during this boot, if any.
-func readPersistedIptablesBackend(ipV6 bool) (string, bool) {
-	b, err := os.ReadFile(detectedIptablesBackendFile(ipV6))
-	if err != nil {
-		return "", false
-	}
-	return strings.TrimSpace(string(b)), true
-}
-
-// persistIptablesBackend best-effort persists the chosen backend so later calls to
-// DetectIptablesVersion (e.g. after an agent restart) reuse it instead of re-probing.
-func persistIptablesBackend(ipV6 bool, backend string) {
-	f := detectedIptablesBackendFile(ipV6)
-	if err := os.MkdirAll(filepath.Dir(f), 0o755); err != nil {
-		log.Debugf("failed to create %s to persist detected iptables backend: %v", filepath.Dir(f), err)
-		return
-	}
-	if err := os.WriteFile(f, []byte(backend), 0o644); err != nil {
-		log.Debugf("failed to persist detected iptables backend to %s: %v", f, err)
-	}
-}
-
-// CleanupPersistedIptablesBackend removes any iptables backend choice persisted by
-// DetectIptablesVersion (see detectedIptablesBackendDir), for both IPv4 and IPv6. It is a no-op
-// if nothing was ever persisted. Callers (e.g. CNI uninstall) should call this so a backend
-// choice from a previous installation can't leak into a future one on the same node.
-func CleanupPersistedIptablesBackend() error {
-	var errs []error
-	for _, ipV6 := range []bool{false, true} {
-		f := detectedIptablesBackendFile(ipV6)
-		if err := os.Remove(f); err != nil && !os.IsNotExist(err) {
-			errs = append(errs, fmt.Errorf("failed to remove %s: %w", f, err))
-		}
-	}
-	return errors.Join(errs...)
-}
 
 // XTablesExittype is the exit type of xtables commands.
 type XTablesExittype int
@@ -241,27 +176,6 @@ func (r *RealDependencies) DetectIptablesVersion(ipV6 bool) (IptablesVersion, er
 		}
 	}
 
-	// Re-probing on every restart is unreliable (see the package comment on
-	// detectedIptablesBackendDir), so if we've already picked a backend for this node during this
-	// boot, stick with it rather than re-running the detection heuristic below.
-	if persisted, ok := readPersistedIptablesBackend(ipV6); ok {
-		persistedBin := ""
-		switch persisted {
-		case legacy:
-			persistedBin = legacyBin
-		case nft:
-			persistedBin = nftBin
-		}
-		if persistedBin != "" {
-			v, verErr := shouldUseBinaryForContext(persistedBin)
-			if verErr == nil {
-				return v, nil
-			}
-			log.Warnf("previously detected iptables backend %q (from %s) is no longer usable, re-detecting: %v",
-				persisted, detectedIptablesBackendFile(ipV6), verErr)
-		}
-	}
-
 	// 1. What binaries we have
 	// 2. What binary we should use, based on existing rules defined in our current context.
 	//
@@ -269,7 +183,6 @@ func (r *RealDependencies) DetectIptablesVersion(ipV6 bool) (IptablesVersion, er
 	legVer, err := shouldUseBinaryForContext(legacyBin)
 	if err == nil && legVer.ExistingRules {
 		// if so, immediately use it
-		persistIptablesBackend(ipV6, legacy)
 		return legVer, nil
 	}
 	// not critical, may find another.
@@ -282,7 +195,6 @@ func (r *RealDependencies) DetectIptablesVersion(ipV6 bool) (IptablesVersion, er
 	nftVer, err := shouldUseBinaryForContext(nftBin)
 	if err == nil {
 		// if so, immediately use it.
-		persistIptablesBackend(ipV6, nft)
 		return nftVer, nil
 	}
 	// not critical, may find another.
