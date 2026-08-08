@@ -32,8 +32,10 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/kube/kclient/clienttest"
 	filter "istio.io/istio/pkg/kube/namespace"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -133,6 +135,47 @@ func TestNamespaceControllerForCrlConfigMap(t *testing.T) {
 		createConfigMap(t, client.Kube(), "not-root-cm", namespace, "key")
 		expectConfigMapNotExist(t, nc.crlConfigmaps, namespace)
 	}
+}
+
+// TestNamespaceControllerHandlerCleanup verifies that the event handlers registered in
+// NewNamespaceController are removed when Run exits, including when it exits before the
+// informer caches have synced (e.g. leadership is lost right after it was acquired).
+// The underlying informers are shared and keep running after the controller stops, so
+// leftover handlers would leak on every leader election cycle.
+func TestNamespaceControllerHandlerCleanup(t *testing.T) {
+	client := kube.NewFakeClient()
+	t.Cleanup(client.Shutdown)
+	watcher := keycertbundle.NewWatcher()
+	nc := NewNamespaceController(client, watcher)
+
+	// Register probe handlers on the controller's clients. ShutdownAll removes all handlers
+	// on a client, so if cleanup runs these probes are removed together with the handlers
+	// registered by NewNamespaceController.
+	leakTracker := assert.NewTracker[string](t)
+	nc.namespaces.AddEventHandler(clienttest.TrackerHandler(leakTracker))
+	nc.configmaps.AddEventHandler(clienttest.TrackerHandler(leakTracker))
+	nc.crlConfigmaps.AddEventHandler(clienttest.TrackerHandler(leakTracker))
+
+	// Interrupt WaitForCacheSync: the stop channel is closed before the informers ever start.
+	stop := make(chan struct{})
+	close(stop)
+	nc.Run(stop)
+
+	// The informers are shared and outlive the controller; start them now, as the real server
+	// does with the process-wide stop channel.
+	client.RunAndWait(test.NewStop(t))
+
+	// A handler registered after Run has returned still receives events and serves as a
+	// synchronization point for event delivery.
+	liveTracker := assert.NewTracker[string](t)
+	nc.namespaces.AddEventHandler(clienttest.TrackerHandler(liveTracker))
+
+	createConfigMap(t, client.Kube(), "some-config", "probe", "k")
+	createNamespace(t, client.Kube(), "probe", nil)
+	liveTracker.WaitUnordered("add/probe")
+
+	// All handlers registered before Run must be gone.
+	leakTracker.Empty()
 }
 
 func TestNamespaceControllerWithDiscoverySelectors(t *testing.T) {
