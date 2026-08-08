@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue: [59470]
+releaseNotes:
+  - |
+    **Added** support for the `gateway.istio.io/tls-min-protocol-version` and `gateway.istio.io/tls-max-protocol-version` annotations on Kubernetes Gateway API listeners. These expose the existing `ServerTLSSettings` min/max protocol version fields, mirroring the existing `gateway.istio.io/tls-cipher-suites` annotation.
