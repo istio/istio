@@ -57,6 +57,7 @@ const (
 	WasmPlugin
 	WorkloadEntry
 	WorkloadGroup
+	XBackend
 	XBackendTrafficPolicy
 )
 
@@ -168,6 +169,8 @@ func (k Kind) String() string {
 		return "WorkloadEntry"
 	case WorkloadGroup:
 		return "WorkloadGroup"
+	case XBackend:
+		return "XBackend"
 	case XBackendTrafficPolicy:
 		return "XBackendTrafficPolicy"
 	default:
@@ -283,6 +286,8 @@ func FromString(s string) Kind {
 		return WorkloadEntry
 	case "WorkloadGroup":
 		return WorkloadGroup
+	case "XBackend":
+		return XBackend
 	case "XBackendTrafficPolicy":
 		return XBackendTrafficPolicy
 	default:
