@@ -1,0 +1,17 @@
+{{- if .Values.podMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: {{ template "name" . }}-pod-monitor
+  namespace: {{ .Release.Namespace | quote }}
+  labels:
+    {{- include "istio.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ template "name" . }}
+  podMetricsEndpoints:
+  - port: metrics
+    path: /metrics
+    interval: 30s
+{{- end }}

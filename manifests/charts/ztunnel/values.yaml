@@ -54,6 +54,11 @@ _internal_defaults_do_not_set:
   # Additional labels to apply on the pod level
   podLabels: {}
 
+  # Set value to true to enable basic podMonitor resource for Prometheus to scrape
+  # Prometheus CRDs must be installed within the cluster before enabling
+  podMonitor:
+    enabled: false
+
   # Pod resource configuration
   resources:
     requests:
