@@ -23,6 +23,7 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
+	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	envoytype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -134,7 +135,13 @@ func (cc inboundChainConfig) ToFilterChainMatch(opt FilterChainMatchOptions) *li
 }
 
 func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
-	routes := []*route.Route{{
+	// Cross-network double-HBONE inner tunnels carry the service hostname as the CONNECT
+	// authority (cluster-local addresses are meaningless on the remote network), which cannot
+	// be restored into an original destination address for main_internal chain matching.
+	// Route those by exact authority match to per-target-port clusters that re-enter
+	// main_internal with the destination overridden to this workload's own address.
+	routes := buildHostnameAuthorityRoutes(lb.node)
+	routes = append(routes, &route.Route{
 		Match: &route.RouteMatch{
 			PathSpecifier: &route.RouteMatch_ConnectMatcher_{ConnectMatcher: &route.RouteMatch_ConnectMatcher{}},
 		},
@@ -146,7 +153,7 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 
 			ClusterSpecifier: &route.RouteAction_Cluster{Cluster: MainInternalName},
 		}},
-	}}
+	})
 	terminate := lb.buildConnectTerminateListener(routes)
 	// Now we have top level listener... but we must have an internal listener for each standard filter chain
 	// 1 listener per port; that listener will do protocol detection.
@@ -197,6 +204,48 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 	// TODO: Exclude inspectors from some inbound ports.
 	l.ListenerFilters = append(l.ListenerFilters, populateListenerFilters(lb.node, l, true)...)
 	return []*listener.Listener{terminate, l}
+}
+
+// buildHostnameAuthorityRoutes builds CONNECT routes matching the hostname:port form of this
+// workload's services on the :authority header. See buildInboundHBONEListeners for context.
+func buildHostnameAuthorityRoutes(node *model.Proxy) []*route.Route {
+	if !features.EnableAmbientMultiNetwork {
+		return nil
+	}
+	routes := []*route.Route{}
+	seen := sets.New[string]()
+	for _, st := range node.ServiceTargets {
+		if st.Service == nil || st.Port.ServicePort == nil {
+			continue
+		}
+		authority := fmt.Sprintf("%s:%d", st.Service.Hostname, st.Port.ServicePort.Port)
+		if seen.InsertContains(authority) {
+			continue
+		}
+		routes = append(routes, &route.Route{
+			Match: &route.RouteMatch{
+				PathSpecifier: &route.RouteMatch_ConnectMatcher_{ConnectMatcher: &route.RouteMatch_ConnectMatcher{}},
+				Headers: []*route.HeaderMatcher{{
+					Name: ":authority",
+					HeaderMatchSpecifier: &route.HeaderMatcher_StringMatch{
+						StringMatch: &matcher.StringMatcher{
+							MatchPattern: &matcher.StringMatcher_Exact{Exact: authority},
+						},
+					},
+				}},
+			},
+			Action: &route.Route_Route{Route: &route.RouteAction{
+				UpgradeConfigs: []*route.RouteAction_UpgradeConfig{{
+					UpgradeType:   ConnectUpgradeType,
+					ConnectConfig: &route.RouteAction_UpgradeConfig_ConnectConfig{},
+				}},
+				ClusterSpecifier: &route.RouteAction_Cluster{
+					Cluster: mainInternalPodCluster(int(st.Port.TargetPort)),
+				},
+			}},
+		})
+	}
+	return routes
 }
 
 func (lb *ListenerBuilder) sanitizeFilterChainForHBONE(c *listener.FilterChain) {

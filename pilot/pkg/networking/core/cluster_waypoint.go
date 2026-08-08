@@ -15,6 +15,7 @@
 package core
 
 import (
+	"fmt"
 	"time"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
@@ -45,6 +46,7 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/wellknown"
 )
 
@@ -87,8 +89,49 @@ var (
 	}
 )
 
-func (configgen *ConfigGeneratorImpl) buildInboundHBONEClusters() *cluster.Cluster {
-	return GetMainInternalCluster()
+func (configgen *ConfigGeneratorImpl) buildInboundHBONEClusters(proxy *model.Proxy) []*cluster.Cluster {
+	clusters := []*cluster.Cluster{GetMainInternalCluster()}
+	clusters = append(clusters, buildMainInternalPodClusters(proxy)...)
+	return clusters
+}
+
+// buildMainInternalPodClusters builds one cluster per inbound target port that re-enters
+// main_internal with the restored destination overridden to this workload's own address.
+// Used to terminate cross-network double-HBONE inner tunnels whose CONNECT authority is the
+// service hostname, which cannot be restored into an original destination address.
+func buildMainInternalPodClusters(proxy *model.Proxy) []*cluster.Cluster {
+	if !features.EnableAmbientMultiNetwork || len(proxy.IPAddresses) == 0 {
+		return nil
+	}
+	ip := proxy.IPAddresses[0]
+	ports := sets.New[int]()
+	for _, st := range proxy.ServiceTargets {
+		ports.Insert(int(st.Port.TargetPort))
+	}
+	clusters := make([]*cluster.Cluster, 0, ports.Len())
+	for _, port := range sets.SortedList(ports) {
+		name := mainInternalPodCluster(port)
+		meta := &core.Metadata{FilterMetadata: map[string]*structpb.Struct{
+			util.OriginalDstMetadataKey: util.BuildTunnelMetadataStruct(ip, port, ""),
+		}}
+		c := &cluster.Cluster{
+			Name:                 name,
+			ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
+			CircuitBreakers:      &cluster.CircuitBreakers{Thresholds: []*cluster.CircuitBreakers_Thresholds{getDefaultCircuitBreakerThresholds()}},
+			LoadAssignment: &endpoint.ClusterLoadAssignment{
+				ClusterName: name,
+				Endpoints:   util.BuildInternalEndpoint(MainInternalName, meta),
+			},
+			TransportSocket: util.WaypointInternalUpstreamTransportSocket(util.RawBufferTransport()),
+		}
+		c.AltStatName = util.DelimitedStatsPrefix(name)
+		clusters = append(clusters, c)
+	}
+	return clusters
+}
+
+func mainInternalPodCluster(targetPort int) string {
+	return fmt.Sprintf("%s_pod_%d", MainInternalName, targetPort)
 }
 
 func (configgen *ConfigGeneratorImpl) buildWaypointInboundClusters(
@@ -108,6 +151,9 @@ func (configgen *ConfigGeneratorImpl) buildWaypointInboundClusters(
 	if features.EnableAmbientMultiNetwork && isAmbientEastWestGateway(proxy) {
 		// Creates "blackhole" cluster to avoid failures if no globally scoped services exist
 		clusters = append(clusters, cb.buildWaypointForwardInnerConnect(), cb.buildBlackHoleCluster())
+		// E/W gateway needs connect_originate for traffic that needs to establish new HBONE tunnels
+		// (e.g., sidecar mTLS traffic bridging to ambient workloads via service waypoints)
+		clusters = append(clusters, cb.buildWaypointConnectOriginate(proxy, push))
 	} else {
 		clusters = append(clusters, cb.buildWaypointConnectOriginate(proxy, push))
 	}
@@ -199,8 +245,10 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 	}
 
 	if terminate {
-		// We're tunneling double HBONE as raw TCP, so no need for HTTP settings
-		// or h2 upgrade
+		// For E/W gateway: traffic is tunneled to waypoint via HBONE.
+		// We don't set HTTP protocol options here because the upstream goes through
+		// internal_upstream which passes raw bytes to connect_originate for HBONE tunneling.
+		// HCM at the listener level will parse HTTP, but the cluster connection is raw TCP.
 		connectionPool.Http = nil
 		cb.applyConnectionPool(mesh, localCluster, connectionPool, retryBudget)
 		applyOutlierDetection(nil, localCluster.cluster, outlierDetection)
@@ -215,6 +263,15 @@ func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(
 		// Set a transport socket since we're going to an internal listener
 		transportSocket := util.RawBufferTransport()
 		localCluster.cluster.TransportSocket = util.FullMetadataPassthroughInternalUpstreamTransportSocket(transportSocket)
+		// The connect_originate listener's peer_metadata filter injects a metadata-exchange
+		// blob into the response stream (synthesized from the HBONE CONNECT response baggage).
+		// Attach the consuming cluster filter so it is stripped before the response reaches
+		// the HTTP codec; without this the codec fails with a protocol error. Only the
+		// sidecar-bridge subset goes through connect_originate; the "tcp" subset forwards
+		// opaque double-HBONE bytes and must not have a consumer reading the stream.
+		if model.IsSidecarBridgeSubset(subset) {
+			cb.maybeApplyBaggageMetadataDiscovery(localCluster.cluster)
+		}
 		return localCluster.build()
 	}
 
@@ -335,9 +392,22 @@ func (cb *ClusterBuilder) buildWaypointInboundVIP(proxy *model.Proxy, svcs map[h
 				continue
 			}
 			if isAmbientEastWestGateway(proxy) {
-				// East-west gateways don't respect DestinationRule, so don't read it here
+				// East-west gateways don't respect DestinationRule traffic policy, so pass nil here.
 				// TODO: Confirm this decision
 				clusters = append(clusters, cb.buildWaypointInboundVIPCluster(proxy, svc, *port, "tcp", mesh, nil, nil))
+				// Separate subset for bridging terminated sidecar mTLS (15443) traffic into
+				// ambient. The "tcp" subset must keep forwarding double-HBONE inner streams
+				// opaquely, so the new-HBONE-origination semantics live on their own cluster.
+				clusters = append(clusters, cb.buildWaypointInboundVIPCluster(proxy, svc, *port, model.SidecarBridgeSubsetName, mesh, nil, nil))
+				// DR subsets do get bridge clusters, mirroring classic AUTO_PASSTHROUGH's
+				// per-subset SNI chains: remote sidecar clients route VS subset traffic with the
+				// subset embedded in the SNI, and EDS filters endpoints by the subset labels.
+				// Only endpoint selection is honored; traffic policy is still ignored.
+				drCfg := cb.sidecarScope.DestinationRule(model.TrafficDirectionInbound, proxy, svc.Hostname).GetRule()
+				for _, ss := range CastDestinationRule(drCfg).GetSubsets() {
+					clusters = append(clusters,
+						cb.buildWaypointInboundVIPCluster(proxy, svc, *port, model.SidecarBridgeSubsetOf(ss.Name), mesh, nil, nil))
+				}
 				continue
 			}
 			cfg := cb.sidecarScope.DestinationRule(model.TrafficDirectionInbound, proxy, svc.Hostname).GetRule()
