@@ -30,6 +30,7 @@ import (
 	"github.com/fsnotify/fsnotify"
 
 	"istio.io/istio/pkg/backoff"
+	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/file"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
@@ -46,6 +47,15 @@ var (
 	cacheLog = istiolog.RegisterScope("cache", "cache debugging")
 	// The total timeout for any credential retrieval process, default value of 10s is used.
 	totalTimeout = time.Second * 10
+
+	// disableCertSymlinkWatcher reverts file certificate watching to its pre-1.29 form.
+	disableCertSymlinkWatcher = env.Register("DISABLE_CERT_SYMLINK_WATCHER", false,
+		"If set, restores the pre-1.29 file-watching behavior for file-mounted certificates: a single "+
+			"watch on the resolved file, re-armed when that file is deleted. This fixes rotation "+
+			"detection for certificates whose symlink chain resolves into another directory that is "+
+			"rotated via the Kubernetes AtomicWriter pattern, such as certificates provided by a CSI "+
+			"driver, for a chain of any depth. In exchange, re-pointing a symlink at a different file "+
+			"while leaving the original file in place is no longer detected.").Get()
 )
 
 const (
@@ -323,12 +333,15 @@ func (sc *SecretManagerClient) GenerateSecret(resourceName string) (secret *secu
 }
 
 func (sc *SecretManagerClient) addFileWatcher(file string, resourceName string) {
-	// Check if the file or any part of its path is a symlink.
-	isInSymlink := sc.isPathInSymlink(file)
+	// Check if the file or any part of its path is a symlink. With the symlink-aware watcher disabled
+	// this does not matter, every path takes the regular file route.
+	isInSymlink := !disableCertSymlinkWatcher && sc.isPathInSymlink(file)
 
 	// Choose the appropriate watcher based on whether the path contains symlinks:
 	// - Regular files: Use tryAddFileWatcher (single watcher for the file itself)
 	// - Symlinks: Use addSymlinkWatcher (three watchers: symlink, target, directory)
+	// - DISABLE_CERT_SYMLINK_WATCHER forces the regular file route, whose watch is re-armed via the
+	//   Remove delivered when a rotation deletes the resolved file (see the flag's description).
 	watcherFunc := sc.tryAddFileWatcher
 	if isInSymlink {
 		watcherFunc = sc.addSymlinkWatcher
