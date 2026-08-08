@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 60695
+releaseNotes:
+  - |
+    **Fixed** a Gateway API bug where a `RegularExpression` `HTTPRoute` path match
+    was dropped from the generated configuration when a `PathPrefix: /` catch-all
+    route also existed on the same parent, causing matching requests to fall
+    through to the catch-all. Catch-all matches now sort last so they no longer
+    shadow more specific routes.

@@ -468,6 +468,16 @@ func sortHTTPRoutes(routes []*istio.HTTPRoute) {
 		}
 		// Only look at match[0], we always generate only one match
 		m1, m2 := routes[i].Match[0], routes[j].Match[0]
+		// A catch-all match ("/" prefix or ".*" regex with no method, header, or
+		// query-param constraints) is the least specific match and must sort last.
+		// Istio ranks Prefix above Regex, so a "/" catch-all would otherwise sort
+		// ahead of a more specific regex route; BuildHTTPRoutesForVirtualService
+		// then treats the catch-all as terminal and truncates every route after it.
+		// "Catch-all" is a cross-field property of the whole match, not a URI match
+		// type, so it is handled here rather than in getURIRank.
+		if c1, c2 := isCatchAll(m1), isCatchAll(m2); c1 != c2 {
+			return c2
+		}
 		r1, r2 := getURIRank(m1), getURIRank(m2)
 		len1, len2 := getURILength(m1), getURILength(m2)
 		switch {
@@ -514,6 +524,25 @@ func getURIRank(match *istio.HTTPMatchRequest) int {
 	}
 	// should not happen
 	return -1
+}
+
+// isCatchAll reports whether m matches every request: a "/" prefix or a ".*"
+// regex with no method, header, or query-param constraints. Mirrors
+// route.IsCatchAllRoute on the generated Envoy route.
+func isCatchAll(m *istio.HTTPMatchRequest) bool {
+	if m.Method != nil || len(m.Headers) > 0 || len(m.QueryParams) > 0 {
+		return false
+	}
+	if m.Uri == nil {
+		return false
+	}
+	switch m.Uri.MatchType.(type) {
+	case *istio.StringMatch_Prefix:
+		return m.Uri.GetPrefix() == "/"
+	case *istio.StringMatch_Regex:
+		return m.Uri.GetRegex() == ".*"
+	}
+	return false
 }
 
 func getURILength(match *istio.HTTPMatchRequest) int {
