@@ -15,6 +15,7 @@ package krt_test
 
 import (
 	"context"
+	"sync"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -27,6 +28,51 @@ import (
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test/util/assert"
 )
+
+func TestJoinWithMergeConcurrent(t *testing.T) {
+	opts := testOptions(t)
+	c1 := krt.NewStaticCollection[SimplePod](nil, nil, opts.WithName("c1")...)
+	c2 := krt.NewStaticCollection[SimplePod](nil, nil, opts.WithName("c2")...)
+	joined := krt.JoinWithMergeCollection(
+		[]krt.Collection[SimplePod]{c1, c2},
+		func(pods []SimplePod) *SimplePod {
+			switch len(pods) {
+			case 1:
+				return &pods[0]
+			case 2:
+				return &pods[1]
+			default:
+				return nil
+			}
+		},
+		opts.WithName("Join")...,
+	)
+	assert.EventuallyEqual(t, func() bool { return joined.WaitUntilSynced(opts.Stop()) }, true)
+
+	key := "c1/a"
+	val1 := SimplePod{Named: Named{"c1", "a"}, IP: "1.1.1.1"}
+	val2 := SimplePod{Named: Named{"c1", "a"}, IP: "1.1.1.2"}
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		for range 100 {
+			c1.UpdateObject(val1)
+			c1.DeleteObject(key)
+			c1.UpdateObject(val1)
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		for range 100 {
+			c2.UpdateObject(val2)
+			c2.DeleteObject(key)
+			c2.UpdateObject(val2)
+		}
+	}()
+	wg.Wait()
+	assert.EventuallyEqual(t, func() *SimplePod { return joined.GetKey(key) }, &val2)
+}
 
 func TestJoinWithMergeSimpleCollection(t *testing.T) {
 	opts := testOptions(t)
