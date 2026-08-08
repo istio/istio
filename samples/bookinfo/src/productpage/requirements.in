@@ -17,4 +17,4 @@ simplejson==3.20.1
 urllib3==2.7.0
 gunicorn==23.0.0
 gevent==24.11.1
-setuptools==78.1.0
+setuptools==83.0.0
