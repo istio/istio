@@ -40,6 +40,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/status"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/cluster"
@@ -705,6 +706,7 @@ func TestConvertResources(t *testing.T) {
 		// Some configs are intended to be generated with invalid configs, and since they will be validated
 		// by the validator, we need to ignore the validation errors to prevent the test from failing.
 		validationIgnorer *crdvalidation.ValidationIgnorer
+		extraServices     []*model.Service
 	}{
 		{name: "http"},
 		{name: "tcp"},
@@ -746,6 +748,22 @@ func TestConvertResources(t *testing.T) {
 			),
 		},
 		{name: "serviceentry"},
+		{
+			name: "multicluster-service-status",
+			// This is intentionally only added to the PushContext service registry,
+			// not the fake Kube client, to model a service discovered in a remote cluster.
+			extraServices: []*model.Service{
+				{
+					Attributes: model.ServiceAttributes{
+						Name:            "remote-backend",
+						Namespace:       "default",
+						ServiceRegistry: provider.Kubernetes,
+					},
+					Ports:    ports,
+					Hostname: "remote-backend.default.svc.domain.suffix",
+				},
+			},
+		},
 		{name: "status"},
 		{name: "eastwest"},
 		{name: "eastwest-tlsoption"},
@@ -811,8 +829,9 @@ func TestConvertResources(t *testing.T) {
 			kc := kube.NewFakeClient(input...)
 			setupClientCRDs(t, kc)
 			// Setup a few preconfigured services
+			testServices := append(slices.Clone(services), tt.extraServices...)
 			instances := []*model.ServiceInstance{}
-			for _, svc := range services {
+			for _, svc := range testServices {
 				for i, port := range svc.Ports {
 					epPort := uint32(0)
 					if i == 0 {
@@ -826,7 +845,7 @@ func TestConvertResources(t *testing.T) {
 				}
 			}
 			cg := core.NewConfigGenTest(t, core.TestOptions{
-				Services:  services,
+				Services:  testServices,
 				Instances: instances,
 			})
 

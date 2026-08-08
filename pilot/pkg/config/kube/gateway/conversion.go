@@ -49,6 +49,7 @@ import (
 	creds "istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -1157,7 +1158,7 @@ func buildDestination(ctx RouteContext, to k8s.BackendRef, ns string,
 		}
 		hostname = string(to.Name) + "." + namespace + ".svc." + ctx.DomainSuffix
 		key := namespace + "/" + string(to.Name)
-		if !krt.ResourceExists(ctx.Krt, ctx.Services, key) {
+		if !kubernetesServiceBackendExists(ctx, hostname, namespace, key) {
 			invalidBackendErr = &ConfigError{Reason: InvalidDestinationNotFound, Message: fmt.Sprintf("backend(%s) not found", hostname)}
 		}
 	case config.GroupVersionKind{Group: gvk.ServiceEntry.Group, Kind: "Hostname"}:
@@ -1177,7 +1178,7 @@ func buildDestination(ctx RouteContext, to k8s.BackendRef, ns string,
 		}
 		// TODO: currently we are always looking for Service. We should be looking for ServiceImport when features.EnableMCSHost
 		key := namespace + "/" + string(to.Name)
-		if !krt.ResourceExists(ctx.Krt, ctx.Services, key) {
+		if !kubernetesServiceBackendExists(ctx, hostname, namespace, key) {
 			invalidBackendErr = &ConfigError{Reason: InvalidDestinationNotFound, Message: fmt.Sprintf("backend(%s) not found", hostname)}
 		}
 	case gvk.InferencePool:
@@ -1255,6 +1256,14 @@ func buildDestination(ctx RouteContext, to k8s.BackendRef, ns string,
 		Host: hostname,
 		Port: &istio.PortSelector{Number: uint32(*to.Port)},
 	}, nil, invalidBackendErr
+}
+
+func kubernetesServiceBackendExists(ctx RouteContext, hostname, namespace, key string) bool {
+	if krt.ResourceExists(ctx.Krt, ctx.Services, key) {
+		return true
+	}
+	svc := ctx.LookupHostname(hostname, namespace)
+	return svc != nil && svc.Attributes.ServiceRegistry == provider.Kubernetes
 }
 
 // https://github.com/kubernetes-sigs/gateway-api/blob/cea484e38e078a2c1997d8c7a62f410a1540f519/apis/v1beta1/httproute_types.go#L207-L212
