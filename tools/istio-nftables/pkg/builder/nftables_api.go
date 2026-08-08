@@ -29,6 +29,11 @@ type NftablesAPI interface {
 	Dump(tx *knftables.Transaction) string
 	// ListElements returns a list of the elements in a set or map. (objectType should be "set" or "map".)
 	ListElements(ctx context.Context, objectType, name string) ([]*knftables.Element, error)
+	// ListRules returns a list of the rules in a chain. As with knftables, the returned
+	// Rule objects have their Chain, Comment and Handle fields filled in, but not the
+	// actual Rule text, and the underlying interface must have an associated
+	// family/table.
+	ListRules(ctx context.Context, chain string) ([]*knftables.Rule, error)
 }
 
 // NftImpl is the real implementation of NftablesAPI using the actual knftables backend.
@@ -64,6 +69,11 @@ func (r *NftImpl) Run(ctx context.Context, tx *knftables.Transaction) error {
 // ListElements returns a list of the elements in a set or map using the real knftables interface.
 func (r *NftImpl) ListElements(ctx context.Context, objectType, name string) ([]*knftables.Element, error) {
 	return r.nft.ListElements(ctx, objectType, name)
+}
+
+// ListRules returns a list of the rules in a chain using the real knftables interface.
+func (r *NftImpl) ListRules(ctx context.Context, chain string) ([]*knftables.Rule, error) {
+	return r.nft.ListRules(ctx, chain)
 }
 
 // MockNftables is a mock implementation of NftablesAPI for use in unit tests.
