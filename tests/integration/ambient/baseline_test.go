@@ -3435,7 +3435,6 @@ func TestAPIServer(t *testing.T) {
 			token, err := cluster.Kube().CoreV1().ServiceAccounts(apps.Namespace.Name()).CreateToken(context.Background(), "default",
 				&authenticationv1.TokenRequest{
 					Spec: authenticationv1.TokenRequestSpec{
-						Audiences:         []string{"kubernetes.default.svc"},
 						ExpirationSeconds: ptr.Of(int64(600)),
 					},
 				}, metav1.CreateOptions{})
