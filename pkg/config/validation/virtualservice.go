@@ -159,6 +159,7 @@ func validateHTTPRouteMatchRequest(http *networking.HTTPRoute) (errs error) {
 			// whereas scheme/method/authority does not:
 			// https://github.com/envoyproxy/envoy/blob/v1.29.2/api/envoy/type/matcher/string.proto#L38
 			errs = appendErrors(errs, validateStringMatchRegexp(match.GetUri(), "uri"))
+			errs = appendErrors(errs, validatePathTemplateMatch(match.GetUri(), "uri"))
 			errs = appendErrors(errs, validateStringMatch(match.GetScheme(), "scheme"))
 			errs = appendErrors(errs, validateStringMatch(match.GetMethod(), "method"))
 			errs = appendErrors(errs, validateStringMatch(match.GetAuthority(), "authority"))
