@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 61020
+releaseNotes:
+  - |
+    **Fixed** an issue in the CNI node agent where the auto-detected iptables backend
+    (`legacy` vs `nft`) could flip between agent restarts, causing a duplicate set of
+    redirect rules to be written into already-enrolled pods.
