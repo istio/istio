@@ -968,7 +968,7 @@ spec:
       protocol: HTTP
     hosts: ["*"]
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: route
@@ -1011,7 +1011,7 @@ spec:
 			}
 			t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
 				"Destination": apps.ServiceAddressedWaypoint.ServiceName(),
-			}, `apiVersion: networking.istio.io/v1alpha3
+			}, `apiVersion: networking.istio.io/v1
 kind: Gateway
 metadata:
   name: gateway
@@ -1025,7 +1025,7 @@ spec:
       protocol: HTTP
     hosts: ["*"]
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: VirtualService
 metadata:
   name: route
