@@ -30,6 +30,7 @@ import (
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/hashicorp/go-multierror"
 	"google.golang.org/protobuf/types/known/anypb"
+	"k8s.io/apimachinery/pkg/types"
 
 	extensions "istio.io/api/extensions/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -714,8 +715,33 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(node *mod
 			statPrefix:                server.Name,
 			http3Only:                 http3Enabled,
 			class:                     istionetworking.ListenerClassGateway,
+			gatewayName:               gatewayNameForServer(node, server),
 		},
 	}
+}
+
+// gatewayNameForServer returns the classic Gateway that owns the given server, which
+// MergedGateway records as a "namespace/name" string. The zero value is returned when the
+// server has no known owner, leaving authz scoping a no-op.
+func gatewayNameForServer(node *model.Proxy, server *networking.Server) types.NamespacedName {
+	if node.MergedGateway == nil {
+		return types.NamespacedName{}
+	}
+	name, ok := node.MergedGateway.GatewayNameForServer[server]
+	if !ok {
+		return types.NamespacedName{}
+	}
+	return parseGatewayName(name)
+}
+
+// parseGatewayName parses a "namespace/name" classic Gateway identifier into a NamespacedName.
+// The zero value is returned for an empty or malformed name, leaving authz scoping a no-op.
+func parseGatewayName(name string) types.NamespacedName {
+	ns, n, found := strings.Cut(name, "/")
+	if !found {
+		return types.NamespacedName{}
+	}
+	return types.NamespacedName{Namespace: ns, Name: n}
 }
 
 func buildGatewayConnectionManager(proxyConfig *meshconfig.ProxyConfig, node *model.Proxy, http3SupportEnabled bool,
@@ -861,6 +887,9 @@ func (lb *ListenerBuilder) buildGatewayNetworkFiltersFromTCPRoutes(server *netwo
 		Port:     int(server.Port.Number),
 		Protocol: protocol.Parse(server.Port.Protocol),
 	}
+	// Scope authz to the owning classic Gateway. buildCompleteNetworkFilters selects the per-gateway
+	// authz builder for this identity; the zero value falls back to the proxy-wide builder.
+	authzGateway := parseGatewayName(gatewayName)
 
 	gatewayServerHosts := sets.NewWithLength[host.Name](len(server.Hosts))
 	for _, hostname := range server.Hosts {
@@ -893,7 +922,7 @@ func (lb *ListenerBuilder) buildGatewayNetworkFiltersFromTCPRoutes(server *netwo
 					continue
 				}
 				includeMx := server.GetTls().GetMode() == networking.ServerTLSSettings_ISTIO_MUTUAL
-				return lb.buildOutboundNetworkFilters(tcp.Route, port, v.Meta, includeMx)
+				return lb.buildOutboundNetworkFilters(tcp.Route, port, v.Meta, includeMx, authzGateway)
 			}
 		}
 
@@ -907,7 +936,7 @@ func (lb *ListenerBuilder) buildGatewayNetworkFiltersFromTCPRoutes(server *netwo
 			for _, tls := range vsvc.Tls {
 				for _, match := range tls.Match {
 					if l4SingleMatch(convertTLSMatchToL4Match(match), server, gatewayName) {
-						return lb.buildOutboundNetworkFilters(tls.Route, port, v.Meta, includeMx)
+						return lb.buildOutboundNetworkFilters(tls.Route, port, v.Meta, includeMx, authzGateway)
 					}
 				}
 			}
@@ -927,6 +956,9 @@ func (lb *ListenerBuilder) buildGatewayNetworkFiltersFromTLSRoutes(server *netwo
 		Port:     int(server.Port.Number),
 		Protocol: protocol.Parse(server.Port.Protocol),
 	}
+	// Scope authz to the owning classic Gateway. buildCompleteNetworkFilters selects the per-gateway
+	// authz builder for this identity; the zero value falls back to the proxy-wide builder.
+	authzGateway := parseGatewayName(gatewayName)
 
 	gatewayServerHosts := sets.NewWithLength[host.Name](len(server.Hosts))
 	for _, hostname := range server.Hosts {
@@ -980,7 +1012,7 @@ func (lb *ListenerBuilder) buildGatewayNetworkFiltersFromTLSRoutes(server *netwo
 						filterChains = append(filterChains, &filterChainOpts{
 							sniHosts:       match.SniHosts,
 							tlsContext:     nil, // NO TLS context because this is passthrough
-							networkFilters: lb.buildOutboundNetworkFilters(tls.Route, port, v.Meta, false),
+							networkFilters: lb.buildOutboundNetworkFilters(tls.Route, port, v.Meta, false, authzGateway),
 						})
 					}
 				}
@@ -1038,7 +1070,7 @@ func builtAutoPassthroughFilterChains(push *model.PushContext, proxy *model.Prox
 				applicationProtocols: allIstioMtlsALPNs,
 				tlsContext:           nil, // NO TLS context because this is passthrough
 				networkFilters: lb.buildOutboundNetworkFiltersWithSingleDestination(
-					statPrefix, clusterName, "", port, destinationRule, tunnelingconfig.Skip, false, nil),
+					statPrefix, clusterName, "", port, destinationRule, tunnelingconfig.Skip, false, nil, types.NamespacedName{}),
 			})
 
 			// Do the same, but for each subset
@@ -1054,7 +1086,7 @@ func builtAutoPassthroughFilterChains(push *model.PushContext, proxy *model.Prox
 					applicationProtocols: allIstioMtlsALPNs,
 					tlsContext:           nil, // NO TLS context because this is passthrough
 					networkFilters: lb.buildOutboundNetworkFiltersWithSingleDestination(
-						subsetStatPrefix, subsetClusterName, subset.Name, port, destinationRule, tunnelingconfig.Skip, false, nil),
+						subsetStatPrefix, subsetClusterName, subset.Name, port, destinationRule, tunnelingconfig.Skip, false, nil, types.NamespacedName{}),
 				})
 			}
 		}

@@ -32,6 +32,7 @@ import (
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
+	"k8s.io/apimachinery/pkg/types"
 
 	extensions "istio.io/api/extensions/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -1080,6 +1081,11 @@ type httpListenerOpts struct {
 	// allow service attached policy for to-service chains
 	// currently only used for waypoints
 	policySvc *model.Service
+
+	// gatewayName identifies the classic Gateway that owns this filter chain, when known
+	// (chains built from a specific *networking.Server: HTTPS/QUIC/TCP). When set, authz is
+	// scoped to policies targeting this gateway. Plaintext HTTP chains leave it zero.
+	gatewayName types.NamespacedName
 }
 
 // filterChainOpts describes a filter chain: a set of filters with the same TLS context

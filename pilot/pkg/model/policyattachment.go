@@ -44,6 +44,7 @@ type WorkloadPolicyMatcher struct {
 	WorkloadLabels    labels.Instance
 	IsWaypoint        bool
 	Services          []ServiceInfoForPolicyMatcher
+	Gateways          []types.NamespacedName
 	RootNamespace     string
 }
 
@@ -87,6 +88,26 @@ func (p WorkloadPolicyMatcher) WithService(service *Service) WorkloadPolicyMatch
 	return p
 }
 
+// WithGateway adds a classic networking.istio.io Gateway to the selection criteria, so
+// targetRef-based policies can attach to it. The zero NamespacedName is ignored.
+func (p WorkloadPolicyMatcher) WithGateway(nn types.NamespacedName) WorkloadPolicyMatcher {
+	if nn == (types.NamespacedName{}) {
+		return p
+	}
+
+	p.Gateways = append(p.Gateways, nn)
+	return p
+}
+
+// WithGateways adds multiple classic networking.istio.io Gateways to the selection criteria.
+// Like WithServices, it is nil-slice safe.
+func (p WorkloadPolicyMatcher) WithGateways(nns []types.NamespacedName) WorkloadPolicyMatcher {
+	for _, nn := range nns {
+		p = p.WithGateway(nn)
+	}
+	return p
+}
+
 // WithServices marks multiple services as part of the selection criteria. This is used when we want to
 // find **all** policies attached to a specific proxy instance, rather than scoped to a specific service.
 // This is useful when using ECDS, for example, where we might have:
@@ -120,12 +141,37 @@ func GetTargetRefs(p TargetablePolicy) []*v1beta1.PolicyTargetReference {
 	return targetRefs
 }
 
+// attachesToClassicGateway reports whether policy attaches to one of p.Gateways via a classic
+// networking.istio.io Gateway targetRef. Gateway must be in the same namespace as the policy
+func (p WorkloadPolicyMatcher) attachesToClassicGateway(policyName types.NamespacedName, policy TargetablePolicy) bool {
+	for _, targetRef := range GetTargetRefs(policy) {
+		if !matchesGroupKind(targetRef, gvk.Gateway) {
+			continue
+		}
+		for _, gw := range p.Gateways {
+			if targetRef.GetName() == gw.Name &&
+				policyName.Namespace == gw.Namespace &&
+				(targetRef.GetNamespace() == "" || targetRef.GetNamespace() == gw.Namespace) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func (p WorkloadPolicyMatcher) ShouldAttachPolicy(kind config.GroupVersionKind,
 	policyName types.NamespacedName,
 	policy TargetablePolicy,
 ) bool {
 	gatewayName, isGatewayAPI := workloadGatewayName(p.WorkloadLabels)
 	targetRefs := GetTargetRefs(policy)
+
+	// This runs independently of isGatewayAPI because a single
+	// workload can be both a Gateway API gateway and an
+	// instance of a classic Gateway
+	if p.attachesToClassicGateway(policyName, policy) {
+		return true
+	}
 
 	// non-gateway: use selector
 	if !isGatewayAPI {
