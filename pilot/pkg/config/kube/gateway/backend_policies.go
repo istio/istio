@@ -80,6 +80,7 @@ type BackendPolicy struct {
 	Host         string
 	SectionName  *string
 	TLS          *networking.ClientTLSSettings
+	GRPCPorts    []uint32
 	LoadBalancer *networking.LoadBalancerSettings
 	RetryBudget  *networking.TrafficPolicy_RetryBudget
 	CreationTime time.Time
@@ -124,6 +125,7 @@ func (b BackendPolicy) Equals(other BackendPolicy) bool {
 	return b.Source == other.Source &&
 		ptr.Equal(b.SectionName, other.SectionName) &&
 		protoconv.Equals(b.TLS, other.TLS) &&
+		slices.Equal(b.GRPCPorts, other.GRPCPorts) &&
 		protoconv.Equals(b.LoadBalancer, other.LoadBalancer) &&
 		protoconv.Equals(b.RetryBudget, other.RetryBudget)
 }
@@ -134,6 +136,7 @@ func DestinationRuleCollection(
 	trafficPolicies krt.Collection[*gatewayx.XBackendTrafficPolicy],
 	tlsPolicies krt.Collection[*gw.BackendTLSPolicy],
 	ancestors krt.Index[TypedNamespacedName, AncestorBackend],
+	grpcBackends krt.Index[TypedNamespacedName, ResolvedBackend],
 	references *gatewaycommon.ReferenceSet,
 	domainSuffix string,
 	c *Controller,
@@ -147,7 +150,9 @@ func DestinationRuleCollection(
 	// Gateway API community if having the Gateway as an ancestor ref is required or not; we would prefer it to not be if possible.
 	// Until conformance requires it, for now we skip it.
 	ancestorCollection := ancestors.AsCollection(append(opts.WithName("AncestorBackend"), TypedNamespacedNameIndexCollectionFunc)...)
-	tlsPolicyStatus, backendTLSPolicies := BackendTLSPolicyCollection(tlsPolicies, ancestorCollection, references, domainSuffix, opts)
+	tlsPolicyStatus, backendTLSPolicies := BackendTLSPolicyCollection(
+		tlsPolicies, ancestorCollection, grpcBackends, references, domainSuffix, opts,
+	)
 	status.RegisterStatus(c.status, tlsPolicyStatus, GetStatus, c.tagWatcher.AccessUnprotected())
 
 	// We need to merge these by hostname into a single DR
@@ -173,6 +178,7 @@ func DestinationRuleCollection(
 			tlsSet := false
 			lbSet := false
 			rbSet := false
+			grpcPorts := sets.New[uint32]()
 
 			targetWithHost := i.Key
 			host := targetWithHost.Host
@@ -183,6 +189,9 @@ func DestinationRuleCollection(
 			portLevelSettings := make(map[string]*networking.TrafficPolicy_PortTrafficPolicy)
 			parents := make([]string, 0, len(pols))
 			for _, pol := range pols {
+				for _, port := range pol.GRPCPorts {
+					grpcPorts.Insert(port)
+				}
 				if pol.TLS != nil {
 					if pol.SectionName != nil {
 						// Port-specific TLS setting
@@ -271,7 +280,19 @@ func DestinationRuleCollection(
 				}
 				spec.TrafficPolicy.PortLevelSettings = append(spec.TrafficPolicy.PortLevelSettings, portPolicy)
 			}
+			spec.TrafficPolicy.PortLevelSettings = slices.SortFunc(
+				spec.TrafficPolicy.PortLevelSettings,
+				func(a, b *networking.TrafficPolicy_PortTrafficPolicy) int {
+					return cmp.Compare(a.GetPort().GetNumber(), b.GetPort().GetNumber())
+				},
+			)
 
+			extra := map[string]any(nil)
+			if grpcPorts.Len() > 0 {
+				extra = map[string]any{
+					constants.ConfigExtraGRPCBackendPorts: slices.Sort(grpcPorts.UnsortedList()),
+				}
+			}
 			return &config.Config{
 				Meta: config.Meta{
 					GroupVersionKind: gvk.DestinationRule,
@@ -281,7 +302,8 @@ func DestinationRuleCollection(
 						constants.InternalParentNames: strings.Join(parents, ","),
 					},
 				},
-				Spec: spec,
+				Spec:  spec,
+				Extra: extra,
 			}
 		}, opts.WithName("BackendPolicyMerged")...,
 	)
@@ -291,6 +313,7 @@ func DestinationRuleCollection(
 func BackendTLSPolicyCollection(
 	tlsPolicies krt.Collection[*gw.BackendTLSPolicy],
 	ancestors krt.IndexCollection[TypedNamespacedName, AncestorBackend],
+	grpcBackends krt.Index[TypedNamespacedName, ResolvedBackend],
 	references *gatewaycommon.ReferenceSet,
 	domainSuffix string,
 	opts krt.OptionsBuilder,
@@ -357,6 +380,7 @@ func BackendTLSPolicyCollection(
 			conds = maps.Clone(conds)
 			refo, err := references.LocalPolicyTargetRef(ctx, t.LocalPolicyTargetReference, i.Namespace)
 			var sectionName *string
+			protocolInferencePorts := sets.New[uint32]()
 			if err == nil {
 				switch refType := refo.(type) {
 				case *v1.Service:
@@ -366,11 +390,20 @@ func BackendTLSPolicyCollection(
 						for _, port := range refType.Spec.Ports {
 							if port.Name == *sectionName {
 								portExists = true
+								if port.AppProtocol == nil {
+									protocolInferencePorts.Insert(uint32(port.Port))
+								}
 								break
 							}
 						}
 						if !portExists {
 							err = fmt.Errorf("sectionName %q does not exist in Service %s/%s", *sectionName, refType.Namespace, refType.Name)
+						}
+					} else {
+						for _, port := range refType.Spec.Ports {
+							if port.AppProtocol == nil {
+								protocolInferencePorts.Insert(uint32(port.Port))
+							}
 						}
 					}
 				case *networkingclient.ServiceEntry:
@@ -417,6 +450,18 @@ func BackendTLSPolicyCollection(
 				tgtKey := fmt.Sprintf("%s/%s/%s", i.Namespace, t.Kind, t.Name)
 				allPoliciesForTarget := btlsTargetIdx.Fetch(ctx, tgtKey)
 				conflicted, highPriorityPolicy := btlsIsConflicted(i, t, allPoliciesForTarget)
+				ancestorBackends := krt.Fetch(ctx, ancestors, krt.FilterKey(target.String()))
+				for _, gwl := range ancestorBackends {
+					for _, ab := range gwl.Objects {
+						uniqueGateways.Insert(ab.Gateway)
+					}
+				}
+				grpcPorts := sets.New[uint32]()
+				for _, backend := range grpcBackends.Fetch(ctx, target) {
+					if protocolInferencePorts.Contains(backend.Port) {
+						grpcPorts.Insert(backend.Port)
+					}
+				}
 
 				if conflicted {
 					conds[string(gw.PolicyConditionAccepted)].error = &ConfigError{
@@ -435,15 +480,9 @@ func BackendTLSPolicyCollection(
 							Host:         host,
 							SectionName:  sectionName,
 							TLS:          tls,
+							GRPCPorts:    slices.Sort(grpcPorts.UnsortedList()),
 							CreationTime: i.CreationTimestamp.Time,
 						})
-					}
-				}
-
-				ancestorBackends := krt.Fetch(ctx, ancestors, krt.FilterKey(target.String()))
-				for _, gwl := range ancestorBackends {
-					for _, ab := range gwl.Objects {
-						uniqueGateways.Insert(ab.Gateway)
 					}
 				}
 			}

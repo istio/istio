@@ -232,4 +232,8 @@ const (
 
 	// TODO: think about a better name?
 	ConfigExtraPerRouteRuleInferencePoolConfigs = "perRouteRuleInferencePoolConfigs"
+	// ConfigExtraGRPCBackendPorts records Service ports referenced by resolved GRPCRoutes.
+	// Gateway API uses this internal metadata to select the upstream protocol for generated
+	// BackendTLSPolicy DestinationRules without changing user-visible traffic policy fields.
+	ConfigExtraGRPCBackendPorts = "grpcBackendPorts"
 )

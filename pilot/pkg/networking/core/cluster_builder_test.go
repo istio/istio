@@ -2875,6 +2875,23 @@ func TestIsHttp2Cluster(t *testing.T) {
 	}
 }
 
+func TestSetH2OptionsOverridesHTTP1(t *testing.T) {
+	cluster := newTestCluster()
+	cluster.httpProtocolOptions = &http.HttpProtocolOptions{
+		UpstreamProtocolOptions: &http.HttpProtocolOptions_ExplicitHttpConfig_{
+			ExplicitHttpConfig: &http.HttpProtocolOptions_ExplicitHttpConfig{
+				ProtocolConfig: &http.HttpProtocolOptions_ExplicitHttpConfig_HttpProtocolOptions{
+					HttpProtocolOptions: preserveCaseFormatterConfig,
+				},
+			},
+		},
+	}
+	setH2Options(cluster)
+	if cluster.httpProtocolOptions.GetExplicitHttpConfig().GetHttp2ProtocolOptions() == nil {
+		t.Fatal("explicit HTTP/2 must override HTTP/1-only protocol options")
+	}
+}
+
 func TestApplyDestinationRuleOSCACert(t *testing.T) {
 	servicePort := model.PortList{
 		&model.Port{
@@ -3000,6 +3017,170 @@ func TestApplyDestinationRuleOSCACert(t *testing.T) {
 			cl := xdstest.ExtractCluster("outbound|8080||foo.default.svc.cluster.local", cg.Clusters(cg.SetupProxy(nil)))
 			_, ca, _ := strings.Cut(xdstest.ExtractClusterSecretResources(t, cl)[0], "file-root:")
 			assert.Equal(t, ca, tt.expectedCaCertificateName)
+		})
+	}
+}
+
+func TestGRPCBackendTLSProtocol(t *testing.T) {
+	test.SetForTest(t, &features.FilterGatewayClusterConfig, false)
+	service := &model.Service{
+		Hostname: "grpc.default.svc.cluster.local",
+		Ports: model.PortList{{
+			Name:     "btls",
+			Port:     443,
+			Protocol: protocol.Unsupported,
+		}},
+		Resolution: model.ClientSideLB,
+		Attributes: model.ServiceAttributes{Namespace: "default"},
+	}
+	destinationRule := &config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.DestinationRule,
+			Name:             "grpc-backend-tls",
+			Namespace:        "default",
+		},
+		Extra: map[string]any{constants.ConfigExtraGRPCBackendPorts: []uint32{443}},
+		Spec: &networking.DestinationRule{
+			Host: string(service.Hostname),
+			TrafficPolicy: &networking.TrafficPolicy{
+				PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{{
+					Port: &networking.PortSelector{Number: 443},
+					Tls: &networking.ClientTLSSettings{
+						Mode:           networking.ClientTLSSettings_SIMPLE,
+						CaCertificates: "system",
+					},
+				}},
+			},
+		},
+	}
+	mesh := testMesh()
+	mesh.DefaultTrafficPolicy = &meshconfig.MeshConfig_DefaultTrafficPolicy{
+		ConnectionPool: &networking.ConnectionPoolSettings{
+			Tcp:  &networking.ConnectionPoolSettings_TCPSettings{MaxConnections: 17},
+			Http: &networking.ConnectionPoolSettings_HTTPSettings{MaxConcurrentStreams: 23},
+		},
+	}
+	cg := NewConfigGenTest(t, TestOptions{
+		ConfigPointers: []*config.Config{destinationRule},
+		Services:       []*model.Service{service},
+		MeshConfig:     mesh,
+	})
+	gateway := cg.SetupProxy(&model.Proxy{Type: model.Router})
+	clusters := cg.Clusters(gateway)
+	c := xdstest.ExtractCluster("outbound|443||grpc.default.svc.cluster.local", clusters)
+
+	httpOptions := &http.HttpProtocolOptions{}
+	anyOptions, found := c.TypedExtensionProtocolOptions[v3.HttpProtocolOptionsType]
+	if !found {
+		t.Fatal("expected HTTP protocol options")
+	}
+	if err := anyOptions.UnmarshalTo(httpOptions); err != nil {
+		t.Fatalf("failed to unmarshal HTTP protocol options: %v", err)
+	}
+	if httpOptions.GetAutoConfig().GetHttp2ProtocolOptions() == nil {
+		t.Fatal("expected automatic HTTP/2 protocol options")
+	}
+	assert.Equal(t, httpOptions.GetAutoConfig().GetHttp2ProtocolOptions().GetMaxConcurrentStreams().GetValue(), uint32(23))
+	assert.Equal(t, c.GetCircuitBreakers().GetThresholds()[0].GetMaxConnections().GetValue(), uint32(17))
+	tlsContext := getTLSContext(t, c)
+	if tlsContext == nil {
+		t.Fatal("expected an upstream TLS context")
+	}
+	assert.Equal(t, tlsContext.CommonTlsContext.AlpnProtocols, util.ALPNHttp)
+
+	cb := NewClusterBuilder(gateway, &model.PushRequest{Push: cg.PushContext()}, nil)
+	sniDnatCluster := newClusterWrapper(&cluster.Cluster{
+		Name:                 "outbound_.443_._.grpc.default.svc.cluster.local",
+		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS},
+		CommonLbConfig:       &cluster.Cluster_CommonLbConfig{},
+	})
+	cb.applyDestinationRule(sniDnatCluster, SniDnatClusterMode, service, service.Ports[0], nil, destinationRule, nil)
+	if sniDnatCluster.httpProtocolOptions.GetAutoConfig() != nil {
+		t.Fatal("SNI-DNAT clusters must not use HTTP protocol selection")
+	}
+
+}
+
+func TestGRPCBackendProtocolForCluster(t *testing.T) {
+	destinationRule := &config.Config{Extra: map[string]any{constants.ConfigExtraGRPCBackendPorts: []uint32{443}}}
+	port := &model.Port{Port: 443}
+	simpleTLS := &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_SIMPLE}
+	cases := []struct {
+		name              string
+		port              *model.Port
+		destinationPolicy *networking.TrafficPolicy
+		resolvedPolicy    *networking.TrafficPolicy
+		want              grpcBackendProtocol
+	}{
+		{
+			name:              "simple TLS",
+			port:              port,
+			destinationPolicy: &networking.TrafficPolicy{Tls: simpleTLS},
+			resolvedPolicy:    &networking.TrafficPolicy{Tls: simpleTLS},
+			want:              grpcBackendProtocolAuto,
+		},
+		{
+			name: "destination-level upgrade disabled with generated port TLS",
+			port: port,
+			destinationPolicy: &networking.TrafficPolicy{
+				ConnectionPool: &networking.ConnectionPoolSettings{Http: &networking.ConnectionPoolSettings_HTTPSettings{
+					H2UpgradePolicy: networking.ConnectionPoolSettings_HTTPSettings_DO_NOT_UPGRADE,
+				}},
+				PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{{
+					Port: &networking.PortSelector{Number: 443},
+					Tls:  simpleTLS,
+				}},
+			},
+			resolvedPolicy: &networking.TrafficPolicy{Tls: simpleTLS},
+			want:           grpcBackendProtocolNone,
+		},
+		{
+			name: "destination-level HTTP2 with generated port TLS",
+			port: port,
+			destinationPolicy: &networking.TrafficPolicy{
+				ConnectionPool: &networking.ConnectionPoolSettings{Http: &networking.ConnectionPoolSettings_HTTPSettings{
+					H2UpgradePolicy: networking.ConnectionPoolSettings_HTTPSettings_UPGRADE,
+				}},
+				PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{{
+					Port: &networking.PortSelector{Number: 443},
+					Tls:  simpleTLS,
+				}},
+			},
+			resolvedPolicy: &networking.TrafficPolicy{Tls: simpleTLS},
+			want:           grpcBackendProtocolHTTP2,
+		},
+		{
+			name: "use client protocol",
+			port: port,
+			destinationPolicy: &networking.TrafficPolicy{
+				Tls: simpleTLS,
+				ConnectionPool: &networking.ConnectionPoolSettings{Http: &networking.ConnectionPoolSettings_HTTPSettings{
+					UseClientProtocol: true,
+				}},
+			},
+			resolvedPolicy: &networking.TrafficPolicy{Tls: simpleTLS},
+			want:           grpcBackendProtocolNone,
+		},
+		{
+			name:              "TLS disabled",
+			port:              port,
+			destinationPolicy: &networking.TrafficPolicy{},
+			resolvedPolicy:    &networking.TrafficPolicy{Tls: &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_DISABLE}},
+			want:              grpcBackendProtocolNone,
+		},
+		{
+			name:              "different port",
+			port:              &model.Port{Port: 8443},
+			destinationPolicy: &networking.TrafficPolicy{Tls: simpleTLS},
+			resolvedPolicy:    &networking.TrafficPolicy{Tls: simpleTLS},
+			want:              grpcBackendProtocolNone,
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, grpcBackendProtocolForCluster(
+				destinationRule, tt.port, tt.destinationPolicy, tt.resolvedPolicy,
+			), tt.want)
 		})
 	}
 }

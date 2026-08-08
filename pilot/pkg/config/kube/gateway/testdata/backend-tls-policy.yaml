@@ -38,6 +38,122 @@ spec:
           namespace: default
           port: 80
 ---
+apiVersion: gateway.networking.k8s.io/v1
+kind: GRPCRoute
+metadata:
+  name: grpc-backend-tls
+  namespace: istio-system
+spec:
+  parentRefs:
+    - name: gateway
+  hostnames:
+    - grpc.domain.example
+  rules:
+    - filters:
+        - type: RequestMirror
+          requestMirror:
+            backendRef:
+              name: grpc-backend-tls
+              namespace: default
+              port: 9443
+      backendRefs:
+        - name: grpc-backend-tls
+          namespace: default
+          port: 443
+        - name: grpc-backend-tls
+          namespace: default
+          port: 7443
+        - name: grpc-backend-tls
+          namespace: default
+          port: 8443
+          weight: 0
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: allow-grpc-backend-tls
+  namespace: default
+spec:
+  from:
+    - group: gateway.networking.k8s.io
+      kind: GRPCRoute
+      namespace: istio-system
+  to:
+    - group: ""
+      kind: Service
+      name: grpc-backend-tls
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grpc-backend-tls
+  namespace: default
+spec:
+  ports:
+  - name: btls
+    port: 443
+    protocol: TCP
+  - name: declared-grpc
+    port: 7443
+    protocol: TCP
+    appProtocol: kubernetes.io/h2c
+  - name: other-tls
+    port: 8443
+    protocol: TCP
+  - name: mirror-btls
+    port: 9443
+    protocol: TCP
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: BackendTLSPolicy
+metadata:
+  name: grpc-backend-tls-policy
+  namespace: default
+spec:
+  targetRefs:
+    - kind: Service
+      name: grpc-backend-tls
+      group: ""
+      sectionName: btls
+    - kind: Service
+      name: grpc-backend-tls
+      group: ""
+      sectionName: declared-grpc
+    - kind: Service
+      name: grpc-backend-tls
+      group: ""
+      sectionName: other-tls
+    - kind: Service
+      name: grpc-backend-tls
+      group: ""
+      sectionName: mirror-btls
+  validation:
+    caCertificateRefs:
+      - kind: ConfigMap
+        name: auth-cert
+        group: ""
+    hostname: grpc.domain.example
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: GRPCRoute
+metadata:
+  name: grpc-backend-tls-denied
+  namespace: istio-system
+spec:
+  parentRefs:
+    - name: gateway
+    - group: ""
+      kind: Service
+      name: echo-https
+      namespace: default
+  hostnames:
+    - grpc-denied.domain.example
+  rules:
+    - backendRefs:
+        - name: echo-https
+          namespace: default
+          port: 443
+---
 apiVersion: v1
 kind: Service
 metadata:
