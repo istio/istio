@@ -1,0 +1,14 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+
+issue:
+  - https://github.com/istio/istio/issues/60823
+
+releaseNotes:
+- |
+  **Added** a `required` field to `JWTRule` in `RequestAuthentication`. When set to `true`, the JWT token for that rule must be present and valid; requests without it are rejected with `401 Unauthorized`.
+  Previously, configuring multiple `jwtRules` validated each token independently but allowed requests with only one valid token to pass. Setting `required: true` on each rule enforces that all configured tokens must be present and cryptographically valid.
+  This is useful when workloads must receive tokens from multiple issuers on distinct headers, for example an identity token in `Authorization` and a scope token in a custom header.
+  The field defaults to `false`, preserving existing behavior for current `RequestAuthentication` resources.
+  When multiple `required` rules are configured, claims from all validated tokens are accessible in `AuthorizationPolicy` via `request.auth.claims`. Each provider's payload is stored under its own metadata key, so authorization rules can reference claims from any of the required tokens.
