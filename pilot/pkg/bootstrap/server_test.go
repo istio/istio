@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -37,6 +38,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/filewatcher"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
@@ -400,6 +402,19 @@ func TestReloadIstiodCABundle(t *testing.T) {
 	g.Expect(kc.KeyPem).To(Equal(testcerts.ServerKey))
 }
 
+type metricRecording struct {
+	mu    sync.Mutex
+	tags  []monitoring.LabelValue
+	value float64
+}
+
+func (m *metricRecording) OnRecord(name string, tags []monitoring.LabelValue, value float64) {
+	m.mu.Lock()
+	m.tags = tags
+	m.value = value
+	m.mu.Unlock()
+}
+
 func TestReloadcacerts(t *testing.T) {
 	var err error
 
@@ -452,6 +467,9 @@ func TestReloadcacerts(t *testing.T) {
 		_ = s.cacertsWatcher.Close()
 	}()
 
+	recording := &metricRecording{value: -1}
+	monitoring.RegisterRecordHook(cacertsInvalid.Name(), recording)
+
 	// start server
 	if err := s.server.Start(stop); err != nil {
 		t.Fatalf("Could not invoke startFuncs: %v", err)
@@ -468,6 +486,27 @@ func TestReloadcacerts(t *testing.T) {
 		return len(s.CA.GetCAKeyCertBundle().GetCertChainPem()) > 0
 	}, "10s", "100ms").Should(BeTrue())
 
+	g.Eventually(func() bool {
+		recording.mu.Lock()
+		defer recording.mu.Unlock()
+		return len(recording.tags) == 0 && recording.value == 0
+	}, "1s", "100ms").Should(BeTrue())
+
+	// remove the root-cert  which will cause an error
+	if err := os.Rename(filepath.Join(cacertsDir, "root-cert.pem"), filepath.Join(cacertsDir, "root-cert.pem.tmp")); err != nil {
+		t.Fatal(err)
+	}
+
+	g.Eventually(func() bool {
+		recording.mu.Lock()
+		defer recording.mu.Unlock()
+		return len(recording.tags) == 0 && recording.value == 1
+	}, "1s", "100ms").Should(BeTrue())
+
+	if err := os.Rename(filepath.Join(cacertsDir, "root-cert.pem.tmp"), filepath.Join(cacertsDir, "root-cert.pem")); err != nil {
+		t.Fatal(err)
+	}
+
 	// update cert chain of cert bundle to alt version
 	certChainAlt, err := readSampleCertFromFile("cert-chain-alt.pem")
 	if err != nil {
@@ -482,6 +521,12 @@ func TestReloadcacerts(t *testing.T) {
 		currentCertChain := s.CA.GetCAKeyCertBundle().GetCertChainPem()
 		return bytes.Equal(currentCertChain, certChainAlt)
 	}, "10s", "100ms").Should(BeTrue())
+
+	g.Eventually(func() bool {
+		recording.mu.Lock()
+		defer recording.mu.Unlock()
+		return len(recording.tags) == 0 && recording.value == 0
+	}, "1s", "100ms").Should(BeTrue())
 }
 
 func TestNewServer(t *testing.T) {
