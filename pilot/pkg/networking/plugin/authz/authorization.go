@@ -16,12 +16,16 @@ package authz
 
 import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	rbachttp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	anypb "google.golang.org/protobuf/types/known/anypb"
+	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/security/authz/builder"
 	"istio.io/istio/pilot/pkg/security/trustdomain"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 )
 
 type ActionType int
@@ -116,4 +120,58 @@ func (b *Builder) BuildHTTP(class networking.ListenerClass) []*hcm.HttpFilter {
 	b.httpFilters = b.builder.BuildHTTP()
 
 	return b.httpFilters
+}
+
+// PerRouteBuilder builds authorization config that is attached to an individual HTTP route rather
+// than to a listener, for AuthorizationPolicy objects that select a route with an HTTPRoute targetRef.
+type PerRouteBuilder struct {
+	push           *model.PushContext
+	tdBundle       trustdomain.Bundle
+	useFilterState bool
+
+	// cache by origin: a single HTTPRoute commonly expands into several Envoy routes,
+	// and merged VirtualServices repeat origins across route configs.
+	cache map[types.NamespacedName]map[string]*anypb.Any
+}
+
+// NewPerRouteBuilder returns a builder for per-route authorization config for the given proxy.
+func NewPerRouteBuilder(push *model.PushContext, proxy *model.Proxy) *PerRouteBuilder {
+	return &PerRouteBuilder{
+		push:           push,
+		tdBundle:       trustdomain.NewBundle(push.Mesh.GetTrustDomain(), push.Mesh.GetTrustDomainAliases()),
+		useFilterState: proxy.Type == model.Waypoint,
+		cache:          map[types.NamespacedName]map[string]*anypb.Any{},
+	}
+}
+
+// Build returns the per-route authorization config for the HTTPRoute the route was generated from,
+// keyed by RBAC filter instance name. It returns nil when the route has no targeted policy, which
+// includes routes that did not originate from an HTTPRoute (a zero origin).
+func (p *PerRouteBuilder) Build(origin types.NamespacedName) map[string]*anypb.Any {
+	if p == nil || origin.Name == "" || origin.Namespace == "" {
+		return nil
+	}
+	if cached, ok := p.cache[origin]; ok {
+		return cached
+	}
+
+	var out map[string]*anypb.Any
+	policies := p.push.AuthzPolicies.ListAuthorizationPoliciesForHTTPRoute(origin)
+	// When there is no policy for any action, the route keeps
+	// whatever the listener enforces.
+	if b := builder.New(p.tdBundle, p.push, policies, builder.Option{UseFilterState: p.useFilterState}); b != nil {
+		for action, rbac := range b.BuildHTTPRBACForRoute() {
+			name := builder.RBACFilterNameForAction(action)
+			if name == "" {
+				continue
+			}
+			if out == nil {
+				out = make(map[string]*anypb.Any, 2)
+			}
+			out[name] = protoconv.MessageToAny(&rbachttp.RBACPerRoute{Rbac: rbac})
+		}
+	}
+
+	p.cache[origin] = out
+	return out
 }

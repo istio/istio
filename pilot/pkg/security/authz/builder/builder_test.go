@@ -19,11 +19,13 @@ import (
 	"testing"
 
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	authpb "istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
@@ -470,5 +472,112 @@ func node(version *model.IstioVersion) *model.Proxy {
 			Namespace: "foo",
 		},
 		IstioVersion: version,
+	}
+}
+
+func authzPolicy(name string, action authpb.AuthorizationPolicy_Action) model.AuthorizationPolicy {
+	return model.AuthorizationPolicy{
+		Name:      name,
+		Namespace: "foo",
+		Spec: &authpb.AuthorizationPolicy{
+			Action: action,
+			Rules: []*authpb.Rule{
+				{
+					From: []*authpb.Rule_From{
+						{
+							Source: &authpb.Source{
+								Principals: []string{"cluster.local/ns/foo/sa/bar"},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func TestBuildHTTPRBACForRoute(t *testing.T) {
+	cases := []struct {
+		name       string
+		policies   model.AuthorizationPoliciesResult
+		option     Option
+		wantAction []rbacpb.RBAC_Action
+	}{
+		{
+			name: "allow only",
+			policies: model.AuthorizationPoliciesResult{
+				Allow: []model.AuthorizationPolicy{authzPolicy("allow", authpb.AuthorizationPolicy_ALLOW)},
+			},
+			wantAction: []rbacpb.RBAC_Action{rbacpb.RBAC_ALLOW},
+		},
+		{
+			name: "deny only",
+			policies: model.AuthorizationPoliciesResult{
+				Deny: []model.AuthorizationPolicy{authzPolicy("deny", authpb.AuthorizationPolicy_DENY)},
+			},
+			wantAction: []rbacpb.RBAC_Action{rbacpb.RBAC_DENY},
+		},
+		{
+			name: "allow and deny produce independent configs",
+			policies: model.AuthorizationPoliciesResult{
+				Allow: []model.AuthorizationPolicy{authzPolicy("allow", authpb.AuthorizationPolicy_ALLOW)},
+				Deny:  []model.AuthorizationPolicy{authzPolicy("deny", authpb.AuthorizationPolicy_DENY)},
+			},
+			wantAction: []rbacpb.RBAC_Action{rbacpb.RBAC_ALLOW, rbacpb.RBAC_DENY},
+		},
+		{
+			// AUDIT is not valid for an HTTPRoute targetRef and must not produce a route override.
+			name: "audit is not built for routes",
+			policies: model.AuthorizationPoliciesResult{
+				Audit: []model.AuthorizationPolicy{authzPolicy("audit", authpb.AuthorizationPolicy_AUDIT)},
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			b := New(trustdomain.NewBundle("cluster.local", nil), nil, tc.policies, tc.option)
+			if b == nil {
+				if len(tc.wantAction) != 0 {
+					t.Fatalf("New returned nil builder but expected actions %v", tc.wantAction)
+				}
+				return
+			}
+
+			got := b.BuildHTTPRBACForRoute()
+			if len(got) != len(tc.wantAction) {
+				t.Fatalf("got %d actions, want %d (%v)", len(got), len(tc.wantAction), tc.wantAction)
+			}
+			for _, action := range tc.wantAction {
+				rbac, ok := got[action]
+				if !ok {
+					t.Fatalf("missing config for action %v", action)
+				}
+				if rbac.GetRules() == nil {
+					t.Fatalf("action %v: expected enforced rules", action)
+				}
+				// The inner action must match the slot it is keyed by, otherwise a route override
+				// would flip the effect of the policy.
+				if rbac.GetRules().GetAction() != action {
+					t.Errorf("action %v: inner RBAC action is %v", action, rbac.GetRules().GetAction())
+				}
+				if len(rbac.GetRules().GetPolicies()) == 0 {
+					t.Errorf("action %v: expected generated policies", action)
+				}
+			}
+		})
+	}
+}
+
+// TestBuildHTTPRBACForRouteCustomBuilder verifies CUSTOM policies never yield a route override:
+// only ALLOW and DENY are valid for an HTTPRoute targetRef. The Builder is constructed directly
+// because New requires a PushContext for CUSTOM providers.
+func TestBuildHTTPRBACForRouteCustomBuilder(t *testing.T) {
+	b := Builder{
+		option:         Option{IsCustomBuilder: true},
+		customPolicies: []model.AuthorizationPolicy{authzPolicy("custom", authpb.AuthorizationPolicy_CUSTOM)},
+	}
+	if got := b.BuildHTTPRBACForRoute(); got != nil {
+		t.Fatalf("expected nil for custom builder, got %v", got)
 	}
 }
