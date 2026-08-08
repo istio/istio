@@ -25,6 +25,7 @@ import (
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -32,8 +33,10 @@ import (
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/log"
+	pm "istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/ptr"
+	"istio.io/istio/pkg/workloadapi"
 )
 
 type NetworkGateway struct {
@@ -257,6 +260,30 @@ func k8sGatewayToNetworkGatewaysWithCluster(
 	return networkGateways
 }
 
+// localityFromLabels returns the locality encoded in the topology.istio.io/locality label (or the
+// legacy istio-locality label), if set. Returns nil if neither label is present.
+func localityFromLabels(labels map[string]string) *workloadapi.Locality {
+	localityLabel := pm.SanitizeLocalityLabel(pm.GetLocalityLabel(labels))
+	if localityLabel == "" {
+		return nil
+	}
+	region, zone, subzone := labelutil.SplitLocalityLabel(localityLabel)
+	if region == "" && zone == "" && subzone == "" {
+		return nil
+	}
+	return &workloadapi.Locality{
+		Region:  region,
+		Zone:    zone,
+		Subzone: subzone,
+	}
+}
+
+// gatewayLocality returns the locality advertised by the gateway via the topology.istio.io/locality
+// label (or the legacy istio-locality label), if set. Returns nil if the gateway has no locality label.
+func gatewayLocality(gw *gatewayv1.Gateway) *workloadapi.Locality {
+	return localityFromLabels(gw.GetLabels())
+}
+
 func remoteK8sGatewayToNetworkGateways(clusterID cluster.ID, gw *gatewayv1.Gateway) []NetworkGateway {
 	netLabel := gw.GetLabels()[label.TopologyNetwork.Name]
 	if netLabel == "" {
@@ -275,6 +302,7 @@ func remoteK8sGatewayToNetworkGateways(clusterID cluster.ID, gw *gatewayv1.Gatew
 			Namespace: gw.Namespace,
 			Name:      kube.GatewaySA(gw),
 		},
+		Locality: gatewayLocality(gw),
 	}
 	gateways := []NetworkGateway{}
 	source := config.NamespacedName(gw)
@@ -318,6 +346,7 @@ func localK8sGatewayToNetworkGateways(clusterID cluster.ID, gw *gatewayv1.Gatewa
 			Namespace: gw.Namespace,
 			Name:      kube.GatewaySA(gw),
 		},
+		Locality: gatewayLocality(gw),
 	}
 	gateways := []NetworkGateway{}
 	source := config.NamespacedName(gw)

@@ -1340,6 +1340,12 @@ func constructServices(p *v1.Pod, services []model.ServiceInfo) map[string]*work
 }
 
 func getPodLocality(ctx krt.HandlerContext, Nodes krt.Collection[Node], pod *v1.Pod) *workloadapi.Locality {
+	// Prefer an explicit locality label on the pod itself (topology.istio.io/locality, falling back to
+	// the legacy istio-locality label) over the locality derived from the node it's scheduled on.
+	if loc := localityFromLabels(pod.Labels); loc != nil {
+		return loc
+	}
+
 	// NodeName is set by the scheduler after the pod is created
 	// https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#late-initialization
 	node := krt.FetchOne(ctx, Nodes, krt.FilterKey(pod.Spec.NodeName))
@@ -1419,6 +1425,7 @@ func convertGateway(mesh *MeshConfig) func(gw NetworkGateway) model.WorkloadInfo
 			Namespace:      gw.ServiceAccount.Namespace,
 			Network:        gw.Network.String(),
 			TrustDomain:    pickTrustDomain(mesh),
+			Locality:       gw.Locality,
 		}
 
 		if ip, err := netip.ParseAddr(gw.Addr); err == nil {
