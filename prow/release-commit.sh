@@ -24,8 +24,6 @@ set +x
 # shellcheck source=prow/lib.sh
 source "${ROOT}/prow/lib.sh"
 
-setup_gcloud_credentials
-
 # Old prow image does not set this, so needed explicitly here as this is not called through make
 export GO111MODULE=on
 
@@ -115,5 +113,5 @@ if [[ -z "${DRY_RUN:-}" ]]; then
     release-builder publish --release "${WORK_DIR}/out" \
       --gcsbucket "${GCS_BUCKET}" --gcsaliases "${TAG},${NEXT_VERSION}-dev,latest" \
       --s3bucket "${R2_BUCKET}" --s3aliases "${TAG},${NEXT_VERSION}-dev,latest" --s3-base-endpoint "${ENDPOINT}" \
-      --dockerhub "gcr.io/istio-testing" --helmhub "${HELM_HUB}" --dockertags "${TAG},${VERSION},${NEXT_VERSION}-dev,latest"
+      --dockerhub "ghcr.io/istio/testing" --helmhub "${HELM_HUB}" --dockertags "${TAG},${VERSION},${NEXT_VERSION}-dev,latest"
 fi
