@@ -46,7 +46,6 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	crdvalidation "istio.io/istio/pkg/config/crd"
-	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/kube"
@@ -78,14 +77,6 @@ var ports = []*model.Port{
 		Name:     "tcp-other",
 		Port:     34001,
 		Protocol: "TCP",
-	},
-}
-
-var inferencePoolPorts = []*model.Port{
-	{
-		Name:     "http",
-		Port:     54321,
-		Protocol: "HTTP",
 	},
 }
 
@@ -138,55 +129,6 @@ var services = []*model.Service{
 		Ports:    ports,
 		Hostname: "httpbin.default.svc.domain.suffix",
 	},
-	{
-		Attributes: model.ServiceAttributes{
-			Namespace: "default",
-			Labels: map[string]string{
-				InferencePoolExtensionRefSvc:         "ext-proc-svc",
-				InferencePoolExtensionRefPort:        "9002",
-				InferencePoolExtensionRefFailureMode: "FailClose",
-			},
-		},
-		Ports:    inferencePoolPorts,
-		Hostname: host.Name(fmt.Sprintf("%s.default.svc.domain.suffix", firstValue(InferencePoolServiceName("infpool-gen")))),
-	},
-	{
-		Attributes: model.ServiceAttributes{
-			Namespace: "default",
-			Labels: map[string]string{
-				InferencePoolExtensionRefSvc:         "ext-proc-svc-2",
-				InferencePoolExtensionRefPort:        "9002",
-				InferencePoolExtensionRefFailureMode: "FailClose",
-			},
-		},
-		Ports:    inferencePoolPorts,
-		Hostname: host.Name(fmt.Sprintf("%s.default.svc.domain.suffix", firstValue(InferencePoolServiceName("infpool-gen2")))),
-	},
-	{
-		Attributes: model.ServiceAttributes{
-			Namespace: "default",
-			Labels: map[string]string{
-				InferencePoolExtensionRefSvc:         "model1-epp",
-				InferencePoolExtensionRefPort:        "9002",
-				InferencePoolExtensionRefFailureMode: "FailClose",
-			},
-		},
-		Ports:    ports,
-		Hostname: host.Name(fmt.Sprintf("%s.default.svc.domain.suffix", firstValue(InferencePoolServiceName("infpool-model1")))),
-	},
-	{
-		Attributes: model.ServiceAttributes{
-			Namespace: "default",
-			Labels: map[string]string{
-				InferencePoolExtensionRefSvc:         "model2-epp",
-				InferencePoolExtensionRefPort:        "9002",
-				InferencePoolExtensionRefFailureMode: "FailClose",
-			},
-		},
-		Ports:    ports,
-		Hostname: host.Name(fmt.Sprintf("%s.default.svc.domain.suffix", firstValue(InferencePoolServiceName("infpool-model2")))),
-	},
-
 	{
 		Attributes: model.ServiceAttributes{
 			Namespace: "apple",

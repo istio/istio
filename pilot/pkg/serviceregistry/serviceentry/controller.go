@@ -21,6 +21,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	destinationmodel "istio.io/istio/pilot/pkg/model/destination"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/cluster"
@@ -72,8 +73,43 @@ type Controller struct {
 	workloadEntryController bool
 
 	canonicalServiceForMeshExternal bool
+	destinationResolvers            map[destinationmodel.ResolverKey]destinationmodel.Resolver
+	destinationIndex                *destinationmodel.Index
 
 	model.NetworkGatewaysHandler
+}
+
+// DestinationResolvers returns resolver plugins backed by the same KRT
+// ServiceEntry instance collection as the legacy registry.
+func (s *Controller) DestinationResolvers() map[destinationmodel.ResolverKey]destinationmodel.Resolver {
+	return s.destinationResolvers
+}
+
+// DestinationIndex exposes the authoritative source-neutral ServiceEntry
+// destination view. Existing service-registry publication remains dual-run.
+func (s *Controller) DestinationIndex() *destinationmodel.Index {
+	return s.destinationIndex
+}
+
+// DestinationSources is the complete ServiceEntry contribution to a global
+// DestinationIndex. Collections and resolver closures share controller
+// lifecycle and the legacy instance conversion source.
+type DestinationSources struct {
+	Frontends   krt.Collection[destinationmodel.FrontendDefinition]
+	Definitions krt.Collection[destinationmodel.DestinationDefinition]
+	Bindings    krt.Collection[destinationmodel.DestinationBinding]
+	Resolvers   map[destinationmodel.ResolverKey]destinationmodel.Resolver
+}
+
+func (s *Controller) DestinationSources() DestinationSources {
+	resolvers := make(map[destinationmodel.ResolverKey]destinationmodel.Resolver, len(s.destinationResolvers))
+	for sourceKind, resolver := range s.destinationResolvers {
+		resolvers[sourceKind] = resolver
+	}
+	return DestinationSources{
+		Frontends: s.outputs.DestinationFrontends, Definitions: s.outputs.DestinationDefinitions,
+		Bindings: s.outputs.DestinationBindings, Resolvers: resolvers,
+	}
 }
 
 type Inputs struct {
@@ -109,6 +145,11 @@ type Outputs struct {
 	// - Notifying workload instance handlers.
 	// - XDS ProxyUpdates for workload instance updates.
 	Workloads krt.Collection[*model.WorkloadInstance]
+	// Destination* are the source-neutral dual-run view. The legacy registry
+	// remains authoritative until global DestinationIndex ownership is wired.
+	DestinationFrontends   krt.Collection[destinationmodel.FrontendDefinition]
+	DestinationDefinitions krt.Collection[destinationmodel.DestinationDefinition]
+	DestinationBindings    krt.Collection[destinationmodel.DestinationBinding]
 }
 
 type ServiceWithInstances struct {
@@ -287,6 +328,13 @@ func (s *Controller) buildCollections() {
 			ServiceInstances:                serviceInstances,
 			ServiceInstancesByIP:            serviceInstancesByIP,
 		}
+		s.outputs.DestinationFrontends, s.outputs.DestinationDefinitions, s.outputs.DestinationBindings =
+			BuildDestinationCollections(s.inputs.ServiceEntries, s.opts)
+		s.destinationResolvers = DestinationResolvers(services, s.opts)
+		s.destinationIndex = destinationmodel.NewIndex(
+			s.outputs.DestinationDefinitions, s.outputs.DestinationBindings, s.opts,
+			destinationmodel.IndexOptions{Resolvers: s.destinationResolvers},
+		)
 	}
 
 	s.outputs.Workloads = wleWorkloads

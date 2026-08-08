@@ -852,6 +852,21 @@ var (
 		ValidateProto: validation.ValidateWorkloadGroup,
 	}.MustBuild()
 
+	XBackend = resource.Builder{
+		Identifier: "XBackend",
+		Group:      "gateway.networking.x-k8s.io",
+		Kind:       "XBackend",
+		Plural:     "xbackends",
+		Version:    "v1alpha1",
+		Proto:      "k8s.io.gateway_api.apix.v1alpha1.BackendSpec", StatusProto: "k8s.io.gateway_api.apix.v1alpha1.BackendStatus",
+		ReflectType: reflect.TypeOf(&sigsk8siogatewayapiapisxv1alpha1.BackendSpec{}).Elem(), StatusType: reflect.TypeOf(&sigsk8siogatewayapiapisxv1alpha1.BackendStatus{}).Elem(),
+		ProtoPackage: "sigs.k8s.io/gateway-api/apisx/v1alpha1", StatusPackage: "sigs.k8s.io/gateway-api/apisx/v1alpha1",
+		ClusterScoped: false,
+		Synthetic:     false,
+		Builtin:       false,
+		ValidateProto: validation.EmptyValidate,
+	}.MustBuild()
+
 	XBackendTrafficPolicy = resource.Builder{
 		Identifier: "XBackendTrafficPolicy",
 		Group:      "gateway.networking.x-k8s.io",
@@ -919,6 +934,7 @@ var (
 		MustAdd(WasmPlugin).
 		MustAdd(WorkloadEntry).
 		MustAdd(WorkloadGroup).
+		MustAdd(XBackend).
 		MustAdd(XBackendTrafficPolicy).
 		Build()
 
@@ -957,6 +973,7 @@ var (
 		MustAdd(TLSRoute).
 		MustAdd(UDPRoute).
 		MustAdd(ValidatingWebhookConfiguration).
+		MustAdd(XBackend).
 		MustAdd(XBackendTrafficPolicy).
 		Build()
 
@@ -1006,6 +1023,7 @@ var (
 			MustAdd(WasmPlugin).
 			MustAdd(WorkloadEntry).
 			MustAdd(WorkloadGroup).
+			MustAdd(XBackend).
 			MustAdd(XBackendTrafficPolicy).
 			Build()
 

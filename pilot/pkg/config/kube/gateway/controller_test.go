@@ -15,8 +15,10 @@
 package gateway
 
 import (
+	"fmt"
 	"testing"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -25,15 +27,19 @@ import (
 	"istio.io/api/label"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/model"
+	destinationmodel "istio.io/istio/pilot/pkg/model/destination"
 	"istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 var (
@@ -104,6 +110,53 @@ func TestListInvalidGroupVersionKind(t *testing.T) {
 	typ := config.GroupVersionKind{Kind: "wrong-kind"}
 	c := controller.List(typ, "ns1")
 	assert.Equal(t, len(c), 0)
+}
+
+func TestGlobalDestinationSourcesIncludeKubernetesServices(t *testing.T) {
+	controller := setupController(t, &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{Name: "payments", Namespace: "apps", UID: "uid-1"},
+		Spec:       corev1.ServiceSpec{ClusterIP: "10.0.0.1", Ports: []corev1.ServicePort{{Name: "http", Port: 80}}},
+	})
+	sources := controller.DestinationSources()
+	retry.UntilSuccessOrFail(t, func() error {
+		if len(sources.Frontends.List()) != 1 {
+			return fmt.Errorf("frontend source not compiled")
+		}
+		for _, definition := range sources.Definitions.List() {
+			if definition.ID.Source.Kind == kind.Service && definition.ID.Source.Name == "payments" {
+				return nil
+			}
+		}
+		return fmt.Errorf("destination source not compiled")
+	})
+	externalID := destinationmodel.DefinitionID{Source: model.ConfigKey{Kind: kind.ServiceEntry, Namespace: "apps", Name: "external"}, Port: "http"}
+	externalDefinitions := krt.NewStaticCollection(nil, []destinationmodel.DestinationDefinition{{ID: externalID}})
+	externalBindings := krt.NewStaticCollection[destinationmodel.DestinationBinding](nil, nil)
+	externalFrontends := krt.NewStaticCollection[destinationmodel.FrontendDefinition](nil, nil)
+	index := controller.InitializeGlobalDestinationIndex(DestinationSources{
+		Frontends: externalFrontends, Definitions: externalDefinitions, Bindings: externalBindings,
+	})
+	if index != controller.DestinationIndex() {
+		t.Fatal("global destination index was not adopted by Gateway provider")
+	}
+	foundExternal := false
+	for _, definition := range controller.DestinationSources().Definitions.List() {
+		foundExternal = foundExternal || definition.ID == externalID
+	}
+	if !foundExternal {
+		t.Fatal("external source was not joined into global destination definitions")
+	}
+	bindings := sources.Bindings.List()
+	wantRuntimeName := sources.Frontends.List()[0].Hostname
+	found := false
+	for _, binding := range bindings {
+		if binding.Definition.Source.Kind == kind.Service {
+			found = binding.Consumer == (destinationmodel.ConsumerID{Kind: "Mesh"}) && binding.RuntimeName == wantRuntimeName
+		}
+	}
+	if !found {
+		t.Fatalf("Kubernetes frontend did not activate mesh destination: %+v", bindings)
+	}
 }
 
 func TestListGatewayResourceType(t *testing.T) {

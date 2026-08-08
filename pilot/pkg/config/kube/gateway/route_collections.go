@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
+	gatewayx "sigs.k8s.io/gateway-api/apisx/v1alpha1"
 
 	istio "istio.io/api/networking/v1alpha3"
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
@@ -697,6 +698,7 @@ func (r RouteContext) LookupHostname(hostname string, namespace string) *model.S
 
 type RouteContextInputs struct {
 	Grants          gatewaycommon.ReferenceGrants
+	References      *gatewaycommon.ReferenceSet
 	RouteParents    RouteParents
 	DomainSuffix    string
 	Services        krt.Collection[*corev1.Service]
@@ -705,6 +707,7 @@ type RouteContextInputs struct {
 	Gateways        krt.Collection[*gatewayv1.Gateway]
 	ServiceEntries  krt.Collection[*networkingclient.ServiceEntry]
 	InferencePools  krt.Collection[*inferencev1.InferencePool]
+	XBackends       krt.Collection[*gatewayx.XBackend]
 	internalContext krt.RecomputeProtected[*atomic.Pointer[gatewaycommon.GatewayContext]]
 }
 

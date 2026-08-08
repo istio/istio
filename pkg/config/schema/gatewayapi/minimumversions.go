@@ -30,4 +30,5 @@ var MinimumCRDVersions = map[string]*semver.Version{
 	"backendtlspolicies.gateway.networking.k8s.io": semver.New(1, 4, 0, "", ""),
 	"tlsroutes.gateway.networking.k8s.io":          semver.New(1, 5, 0, "", ""),
 	"tcproutes.gateway.networking.k8s.io":          semver.New(1, 6, 0, "", ""),
+	"xbackends.gateway.networking.x-k8s.io":        semver.New(1, 6, 0, "", ""),
 }

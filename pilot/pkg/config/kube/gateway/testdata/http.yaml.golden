@@ -271,7 +271,7 @@ spec:
     - destination:
         host: infpool-gen-ip-6580eb2c.default.svc.domain.suffix
         port:
-          number: 54321
+          number: 8000
   - match:
     - headers:
         my-header:
@@ -283,7 +283,7 @@ spec:
     - destination:
         host: infpool-gen2-ip-97b729d1.default.svc.domain.suffix
         port:
-          number: 54321
+          number: 8000
 ---
 apiVersion: networking.istio.io/v1
 kind: VirtualService
@@ -307,7 +307,7 @@ spec:
     - destination:
         host: infpool-model1-ip-aaaaf2d6.default.svc.domain.suffix
         port:
-          number: 80
+          number: 8000
   - match:
     - uri:
         prefix: /model2
@@ -316,7 +316,7 @@ spec:
     - destination:
         host: infpool-model2-ip-f857bff9.default.svc.domain.suffix
         port:
-          number: 80
+          number: 8000
 ---
 apiVersion: networking.istio.io/v1
 kind: VirtualService

@@ -412,6 +412,17 @@ func (b *EndpointBuilder) FromServiceEndpoints() []*endpoint.LocalityLbEndpoints
 	return ExtractEnvoyEndpoints(b.generate(svcEps, false))
 }
 
+// FromEndpoints builds CDS locality endpoints from a consumer-scoped
+// destination projection that is not registered in PushContext's service
+// index. It intentionally uses the same filtering and metadata pipeline as
+// ordinary DNS service endpoints.
+func (b *EndpointBuilder) FromEndpoints(eps []*model.IstioEndpoint) []*endpoint.LocalityLbEndpoints {
+	if b == nil {
+		return nil
+	}
+	return ExtractEnvoyEndpoints(b.generate(eps, false))
+}
+
 // IstioEndpoints returns IstioEndpoints from the PushContext's snapshotted ServiceIndex.
 func (b *EndpointBuilder) IstioEndpoints() []*model.IstioEndpoint {
 	if b == nil {
@@ -747,6 +758,9 @@ func buildEmptyClusterLoadAssignment(clusterName string) *endpoint.ClusterLoadAs
 }
 
 func (b *EndpointBuilder) gateways() *model.NetworkGateways {
+	if b.push.NetworkManager() == nil {
+		return nil
+	}
 	if b.IsDNSCluster() {
 		return b.push.NetworkManager().Unresolved
 	}

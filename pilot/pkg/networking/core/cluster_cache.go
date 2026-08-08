@@ -22,6 +22,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/xds/endpoints"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/util/hash"
@@ -159,6 +160,12 @@ func (t *clusterCache) DependentConfigs() []model.ConfigHash {
 }
 
 func (t *clusterCache) Cacheable() bool {
+	// Destination projections are consumer-scoped and are not registered in
+	// PushContext. Their source config and endpoint dependencies therefore are
+	// not represented by the legacy cache dependency keys.
+	if t.service != nil && t.service.Attributes.ServiceRegistry == provider.Destination {
+		return false
+	}
 	return true
 }
 
