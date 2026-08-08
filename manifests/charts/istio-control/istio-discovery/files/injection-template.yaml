@@ -295,11 +295,6 @@ spec:
         resourceFieldRef:
           resource: limits.memory
           divisor: "1"
-    - name: GOMAXPROCS
-      valueFrom:
-        resourceFieldRef:
-          resource: limits.cpu
-          divisor: "1"
     {{- if .CompliancePolicy }}
     - name: COMPLIANCE_POLICY
       value: "{{ .CompliancePolicy }}"
