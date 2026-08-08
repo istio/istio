@@ -287,6 +287,13 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 
 	// Execute External Control Plane Installer Script
 	if cfg.ControlPlaneInstaller != "" && !cfg.DeployIstio {
+		// For multicluster, create and push the CA certs to all clusters to establish a shared root of trust.
+		if i.env.IsMultiCluster() {
+			if err := i.deployCACerts(); err != nil {
+				return nil, err
+			}
+		}
+
 		scopes.Framework.Infof("=== BEGIN: Execute Control Plane Installer ===")
 		cmd := exec.Command(cfg.ControlPlaneInstaller, "install", workDir)
 		output, err := cmd.CombinedOutput()
@@ -297,6 +304,49 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		}
 		scopes.Framework.Debugf("Control Plane Installer output:\n%s", string(output))
 		scopes.Framework.Infof("=== DONE: Execute Control Plane Installer ===")
+
+		if i.env.IsMultiCluster() {
+			for _, c := range ctx.AllClusters().Primaries() {
+				if c.IsConfig() {
+					if !i.ctx.Settings().Ambient {
+						if err := i.applyIstiodGateway(c, i.primaryIOP.spec.Revision); err != nil {
+							return nil, fmt.Errorf("failed applying istiod gateway for cluster %s: %v", c.Name(), err)
+						}
+					}
+					if err := waitForIstioReady(i.ctx, c, i.cfg); err != nil {
+						return nil, err
+					}
+				}
+			}
+
+			if !cfg.SkipDeployCrossClusterSecrets {
+				if err := i.configureDirectAPIServerAccess(false); err != nil {
+					return nil, err
+				}
+			}
+
+			if i.env.IsMultiNetwork() {
+				for _, c := range ctx.Clusters().Remotes() {
+					if i.ctx.Settings().Ambient {
+						name := types.NamespacedName{Name: eastWestGatewayName, Namespace: i.cfg.SystemNamespace}
+						_ = i.CustomIngressFor(c, name, eastWestGatewayLabel).DiscoveryAddresses()
+					} else {
+						name := types.NamespacedName{Name: eastWestIngressServiceName, Namespace: i.cfg.SystemNamespace}
+						_ = i.CustomIngressFor(c, name, eastWestIngressIstioLabel).DiscoveryAddresses()
+					}
+				}
+
+				if !i.ctx.Settings().Ambient {
+					for _, c := range ctx.Clusters().Configs() {
+						if err := i.exposeUserServices(c); err != nil {
+							return nil, err
+						}
+					}
+				}
+			}
+		}
+
+		return i, nil
 	}
 
 	if !cfg.DeployIstio {
