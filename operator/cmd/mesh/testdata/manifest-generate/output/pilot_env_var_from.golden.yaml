@@ -151,6 +151,7 @@ spec:
           name: istio-csr-ca-configmap
           readOnly: true
       serviceAccountName: istiod
+      terminationGracePeriodSeconds: 30
       tolerations:
       - key: cni.istio.io/not-ready
         operator: Exists

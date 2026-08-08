@@ -3167,6 +3167,8 @@ type PilotConfig struct {
 	SeccompProfile *structpb.Struct `protobuf:"bytes,38,opt,name=seccompProfile,proto3" json:"seccompProfile,omitempty"`
 	// The k8s topologySpreadConstraints for the Pilot pods.
 	TopologySpreadConstraints []*structpb.Struct `protobuf:"bytes,41,rep,name=topologySpreadConstraints,proto3" json:"topologySpreadConstraints,omitempty"`
+	// The k8s terminationGracePeriodSeconds for the Pilot pods.
+	TerminationGracePeriodSeconds uint32 `protobuf:"varint,64,opt,name=terminationGracePeriodSeconds,proto3" json:"terminationGracePeriodSeconds,omitempty"`
 	// Additional container arguments for the Pilot container.
 	ExtraContainerArgs []*structpb.Struct `protobuf:"bytes,42,rep,name=extraContainerArgs,proto3" json:"extraContainerArgs,omitempty"`
 	// Additional volumeMounts to add to the Pilot container.
@@ -3442,6 +3444,13 @@ func (x *PilotConfig) GetTopologySpreadConstraints() []*structpb.Struct {
 		return x.TopologySpreadConstraints
 	}
 	return nil
+}
+
+func (x *PilotConfig) GetTerminationGracePeriodSeconds() uint32 {
+	if x != nil {
+		return x.TerminationGracePeriodSeconds
+	}
+	return 0
 }
 
 func (x *PilotConfig) GetExtraContainerArgs() []*structpb.Struct {
@@ -5906,7 +5915,7 @@ const file_pkg_apis_values_types_proto_rawDesc = "" +
 	"\x04mode\x18\x02 \x01(\x0e29.istio.operator.v1alpha1.OutboundTrafficPolicyConfig.ModeR\x04mode\"(\n" +
 	"\x04Mode\x12\r\n" +
 	"\tALLOW_ANY\x10\x00\x12\x11\n" +
-	"\rREGISTRY_ONLY\x10\x01\"\x8d\x13\n" +
+	"\rREGISTRY_ONLY\x10\x01\"\xd3\x13\n" +
 	"\vPilotConfig\x124\n" +
 	"\aenabled\x18\x01 \x01(\v2\x1a.google.protobuf.BoolValueR\aenabled\x12F\n" +
 	"\x10autoscaleEnabled\x18\x02 \x01(\v2\x1a.google.protobuf.BoolValueR\x10autoscaleEnabled\x12\"\n" +
@@ -5936,7 +5945,8 @@ const file_pkg_apis_values_types_proto_rawDesc = "" +
 	"\x03tag\x18# \x01(\v2\x16.google.protobuf.ValueR\x03tag\x12\x18\n" +
 	"\avariant\x18' \x01(\tR\avariant\x12?\n" +
 	"\x0eseccompProfile\x18& \x01(\v2\x17.google.protobuf.StructR\x0eseccompProfile\x12U\n" +
-	"\x19topologySpreadConstraints\x18) \x03(\v2\x17.google.protobuf.StructR\x19topologySpreadConstraints\x12G\n" +
+	"\x19topologySpreadConstraints\x18) \x03(\v2\x17.google.protobuf.StructR\x19topologySpreadConstraints\x12D\n" +
+	"\x1dterminationGracePeriodSeconds\x18@ \x01(\rR\x1dterminationGracePeriodSeconds\x12G\n" +
 	"\x12extraContainerArgs\x18* \x03(\v2\x17.google.protobuf.StructR\x12extraContainerArgs\x12;\n" +
 	"\fvolumeMounts\x181 \x03(\v2\x17.google.protobuf.StructR\fvolumeMounts\x121\n" +
 	"\avolumes\x183 \x03(\v2\x17.google.protobuf.StructR\avolumes\x12\x1e\n" +

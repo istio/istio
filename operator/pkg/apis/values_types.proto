@@ -975,6 +975,9 @@ message PilotConfig {
   // The k8s topologySpreadConstraints for the Pilot pods.
   repeated google.protobuf.Struct topologySpreadConstraints = 41;
 
+  // The k8s terminationGracePeriodSeconds for the Pilot pods.
+  uint32 terminationGracePeriodSeconds = 64;
+
   // Additional container arguments for the Pilot container.
   repeated google.protobuf.Struct extraContainerArgs = 42;
 
