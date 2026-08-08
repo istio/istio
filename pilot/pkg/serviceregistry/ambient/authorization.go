@@ -25,6 +25,7 @@ import (
 	securityclient "istio.io/client-go/pkg/apis/security/v1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
@@ -431,12 +432,10 @@ func convertAuthorizationPolicy(rootns string, obj *securityclient.Authorization
 		}
 	}
 	action := security.Action_ALLOW
-	boilerplate := httpAllowRuleBoilerplate
 	switch pol.Action {
 	case v1beta1.AuthorizationPolicy_ALLOW:
 	case v1beta1.AuthorizationPolicy_DENY:
 		action = security.Action_DENY
-		boilerplate = httpDenyRuleBoilerplate
 	default:
 		return nil, &model.StatusMessage{
 			Reason:  "UnsupportedValue",
@@ -466,6 +465,17 @@ func convertAuthorizationPolicy(rootns string, obj *securityclient.Authorization
 	}
 	if len(rulesWithL7) > 0 {
 		// this is an accepted with warning condition
+		var boilerplate string
+		switch {
+		case action == security.Action_DENY && !hasEffectiveRules(opol.Groups):
+			// After omitting L7 fields, no group can match (empty matches are
+			// skipped by ztunnel), so the DENY is a no-op.
+			boilerplate = httpDenyNoEffectBoilerplate
+		case action == security.Action_DENY:
+			boilerplate = httpDenyMixedBoilerplate
+		default:
+			boilerplate = httpAllowRuleBoilerplate
+		}
 
 		warnings := slices.Join(", ", sets.SortedList(rulesWithL7)...)
 
@@ -482,7 +492,9 @@ const (
 	httpRuleFmt string = "ztunnel does not support HTTP attributes (found: %s). " +
 		"In ambient mode you must use a waypoint proxy to enforce HTTP rules. %s"
 
-	httpDenyRuleBoilerplate string = "DENY policy with HTTP attributes is enforced without the HTTP rules. " +
+	httpDenyNoEffectBoilerplate string = "After omitting unsupported HTTP attributes, this DENY policy has no enforceable rules at ztunnel " +
+		"and will have no effect. Deploy a waypoint proxy and use a targetRef to enforce this policy."
+	httpDenyMixedBoilerplate string = "DENY policy with HTTP attributes is enforced without the HTTP rules. " +
 		"This will be more restrictive than requested."
 	httpAllowRuleBoilerplate string = "Within an ALLOW policy, rules matching HTTP attributes are omitted. " +
 		"This will be more restrictive than requested."
@@ -528,6 +540,45 @@ func httpSources(s *v1beta1.Source) []string {
 	}
 
 	return foundUnsupportedSources
+}
+
+// isMatchEmpty reports whether a Match has no fields populated.
+// An empty match sent to ztunnel is skipped (match-none), not match-all.
+func isMatchEmpty(m *security.Match) bool {
+	return m == nil || protoconv.Equals(m, &security.Match{})
+}
+
+// hasEffectiveRules reports whether the policy has at least one group that will
+// fire at ztunnel. Groups with only empty matches are skipped by ztunnel and
+// will never trigger.
+func hasEffectiveRules(groups []*security.Group) bool {
+	for _, g := range groups {
+		if g == nil {
+			continue
+		}
+		// Empty Authz rule → Group with no clauses → match-all at ztunnel.
+		if len(g.Rules) == 0 {
+			return true
+		}
+		groupEffective := true
+		for _, clause := range g.Rules {
+			hasNonEmpty := false
+			for _, m := range clause.GetMatches() {
+				if !isMatchEmpty(m) {
+					hasNonEmpty = true
+					break
+				}
+			}
+			if !hasNonEmpty {
+				groupEffective = false
+				break
+			}
+		}
+		if groupEffective {
+			return true
+		}
+	}
+	return false
 }
 
 func handleRule(action security.Action, rule *v1beta1.Rule, ruleNamespace string) ([]*security.Rules, []string) {
@@ -598,7 +649,7 @@ func handleRule(action security.Action, rule *v1beta1.Rule, ruleNamespace string
 	}
 	if action == security.Action_ALLOW && l7RuleFound {
 		// L7 policies never match for ALLOW
-		// For DENY they will always match, so it is more restrictive
+		// For DENY, empty matches are still emitted; ztunnel skips them (no-op).
 		rules = nil
 	}
 	// we will sort later, don't spend effort sorting now
