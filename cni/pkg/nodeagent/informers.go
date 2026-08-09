@@ -342,6 +342,13 @@ func (s *InformerHandlers) reconcilePod(input any) error {
 					log.Warnf("failed to sync host probe ipset for enrolled pod, will retry: %v", err)
 					return err
 				}
+				// A new pod IP is the observable side of a replaced sandbox: the pod keeps its UID,
+				// so nothing else reports that the network namespace this pod was enrolled in - and
+				// with it its redirection rules and its ztunnel proxy - is gone.
+				if err := s.dataplane.ReconcileEnrolledPod(s.ctx, currentPod); err != nil {
+					log.Warnf("failed to reconcile enrollment for pod, will retry: %v", err)
+					return err
+				}
 			}
 		}
 
