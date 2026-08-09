@@ -1,0 +1,13 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 61182
+releaseNotes:
+  - |
+    **Added** an optional periodic enrollment check to the CNI agent, controlled by
+    `AMBIENT_RECONCILE_ENROLLMENT_INTERVAL` (disabled by default). When set, the agent compares the network
+    namespace each ambient pod runs in with the one it was enrolled in, and re-enrolls the pods that no longer
+    match. A pod whose network namespace is replaced keeps its UID, so it produces no add or delete event, and
+    until now it kept running without traffic redirection and without a ztunnel proxy — outside the mesh, and so
+    outside its own authorization policy.
