@@ -52,7 +52,7 @@ var annotationRemovePatch = []byte(fmt.Sprintf(
 //
 // That is, have we annotated it after successfully setting up iptables rules AND sending it to a node proxy instance.
 //
-// If you just want to know if the pod _should be_ configured for traffic redirection, see PodRedirectionEnabled
+// If you just want to know if the pod _should be_ configured for traffic redirection, see CompiledEnablementSelectors.Matches
 func PodFullyEnrolled(pod *corev1.Pod) bool {
 	if pod != nil {
 		return pod.GetAnnotations()[annotation.AmbientRedirection.Name] == constants.AmbientRedirectionEnabled
@@ -68,7 +68,7 @@ func PodFullyEnrolled(pod *corev1.Pod) bool {
 //
 // Pods like this still need to undergo the removal process (to potentially undo the redirection).
 //
-// If you just want to know if the pod _should be_ configured for traffic redirection, see PodRedirectionEnabled
+// If you just want to know if the pod _should be_ configured for traffic redirection, see CompiledEnablementSelectors.Matches
 func PodPartiallyEnrolled(pod *corev1.Pod) bool {
 	if pod != nil {
 		return pod.GetAnnotations()[annotation.AmbientRedirection.Name] == constants.AmbientRedirectionPending
