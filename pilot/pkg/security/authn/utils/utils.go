@@ -73,9 +73,14 @@ func BuildInboundTLS(mTLSMode model.MutualTLSMode, node *model.Proxy,
 	if mc != nil && mc.MeshMTLS != nil && mc.MeshMTLS.CipherSuites != nil {
 		ciphers = mc.MeshMTLS.CipherSuites
 	}
-	// Set Minimum TLS version to match the default client version and allowed strong cipher suites for sidecars.
+	var ecdhCurves []string
+	if mc != nil && mc.MeshMTLS != nil && len(mc.MeshMTLS.EcdhCurves) > 0 {
+		ecdhCurves = mc.MeshMTLS.EcdhCurves
+	}
+	// Set TLS parameters: minimum version, cipher suites, and ECDH curves for sidecars.
 	ctx.CommonTlsContext.TlsParams = &tls.TlsParameters{
 		CipherSuites:              ciphers,
+		EcdhCurves:                ecdhCurves,
 		TlsMinimumProtocolVersion: minTLSVersion,
 		TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
 	}
