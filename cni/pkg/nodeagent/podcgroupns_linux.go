@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"net"
+	"net/netip"
 	"path"
 	"regexp"
 	"strconv"
@@ -30,6 +32,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"istio.io/istio/cni/pkg/util"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -119,6 +122,31 @@ func (p *PodNetnsProcFinder) FindNetnsForPods(pods map[types.UID]*corev1.Pod) (P
 			inode:              res.inode,
 			ownerProcStarttime: res.ownerProcStarttime,
 		}
+
+		// The cgroup ties the process to a pod, not the netns — a foreign process may be
+		// transiting another pod's netns. Accept the pairing only if the netns holds one
+		// of the pod's IPs; on rejection, forget the inode so the rightful pod's process
+		// can still claim it later in the scan.
+		podIPs := util.GetPodIPsIfPresent(pod)
+		if len(podIPs) == 0 {
+			log.Debugf("pod %s/%s has no IPs yet; cannot verify netns ownership, not enrolling on this scan", pod.Namespace, pod.Name)
+			netns.Close()
+			netnsObserved.Delete(res.inode)
+			continue
+		}
+		owned, err := p.netnsPodIPChecker(netns, podIPs)
+		if err != nil {
+			log.Warnf("could not verify netns (inode %d) ownership for pod %s/%s: %v", res.inode, pod.Namespace, pod.Name, err)
+		} else if !owned {
+			log.Warnf("netns (inode %d) does not contain any IP of pod %s/%s; refusing the pairing, "+
+				"a foreign process may be transiting another pod's netns", res.inode, pod.Namespace, pod.Name)
+		}
+		if err != nil || !owned {
+			netns.Close()
+			netnsObserved.Delete(res.inode)
+			continue
+		}
+
 		workload := WorkloadInfo{
 			Workload: podToWorkload(pod),
 			Netns:    netns,
@@ -421,6 +449,9 @@ func getPodUIDAndContainerIDFromCGroups(cgroups []Cgroup) (types.UID, string, er
 type PodNetnsProcFinder struct {
 	proc          fs.FS
 	hostNetnsStat *syscall.Stat_t
+	// netnsPodIPChecker reports whether an interface inside ns carries one of podIPs.
+	// Overridable in tests; production is netnsContainsAnyPodIP, which enters the netns.
+	netnsPodIPChecker func(ns Netns, podIPs []netip.Addr) (bool, error)
 }
 
 func NewPodNetnsProcFinder(proc fs.FS) (*PodNetnsProcFinder, error) {
@@ -429,7 +460,45 @@ func NewPodNetnsProcFinder(proc fs.FS) (*PodNetnsProcFinder, error) {
 		return nil, err
 	}
 
-	return &PodNetnsProcFinder{proc: proc, hostNetnsStat: hostNetnsStat}, nil
+	return &PodNetnsProcFinder{proc: proc, hostNetnsStat: hostNetnsStat, netnsPodIPChecker: netnsContainsAnyPodIP}, nil
+}
+
+// netnsContainsAnyPodIP enters ns and reports whether any interface inside it carries one
+// of podIPs. Mirrors the repair controller's ownership test (cni/pkg/repair/netns_linux.go),
+// reimplemented because that helper is unexported, single-IP, and errors on no-match.
+func netnsContainsAnyPodIP(ns Netns, podIPs []netip.Addr) (bool, error) {
+	var match bool
+	err := NetnsDo(ns, func() error {
+		addrs, err := net.InterfaceAddrs()
+		if err != nil {
+			return err
+		}
+		match = interfaceAddrsContainAny(addrs, podIPs)
+		return nil
+	})
+	return match, err
+}
+
+// interfaceAddrsContainAny reports whether any interface address in addrs equals one of
+// podIPs. Addresses are compared unmapped so a v4-in-v6 form matches its v4 equivalent.
+func interfaceAddrsContainAny(addrs []net.Addr, podIPs []netip.Addr) bool {
+	for _, addr := range addrs {
+		ipNet, ok := addr.(*net.IPNet)
+		if !ok {
+			continue
+		}
+		ifAddr, ok := netip.AddrFromSlice(ipNet.IP)
+		if !ok {
+			continue
+		}
+		ifAddr = ifAddr.Unmap()
+		for _, podIP := range podIPs {
+			if ifAddr == podIP.Unmap() {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func statHostNetns(proc fs.FS) (*syscall.Stat_t, error) {
