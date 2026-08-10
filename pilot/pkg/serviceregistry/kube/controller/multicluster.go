@@ -17,6 +17,7 @@ package controller
 import (
 	"context"
 	"strings"
+	"sync"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -40,6 +41,7 @@ import (
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/kube/multicluster"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/webhooks"
 )
 
@@ -53,22 +55,60 @@ type kubeController struct {
 	*Controller
 	workloadEntryController *serviceentry.Controller
 	stop                    chan struct{}
+
+	// onSynced, if set, runs exactly once the first time HasSynced observes the embedded
+	// registry has synced - before HasSynced reports true to the caller. This is used during a
+	// credential-rotation swap to atomically replace the aggregate controller's registry for this
+	// cluster before Component's pendingSwap sees this kubeController as synced and closes the
+	// old one; otherwise the old registry could still be "current" when Close() runs and its EDS
+	// shard would be wiped out from under the new registry.
+	onSynced     func()
+	onSyncedOnce sync.Once
+}
+
+// HasSynced reports whether the embedded registry has completed its initial sync. If onSynced is
+// set, it runs synchronously on the first true observation, before this method returns - see the
+// onSynced field comment for why the ordering matters.
+func (k *kubeController) HasSynced() bool {
+	synced := k.Controller.HasSynced()
+	if synced && k.onSynced != nil {
+		k.onSyncedOnce.Do(k.onSynced)
+	}
+	return synced
 }
 
 func (k *kubeController) Close() {
 	close(k.stop)
 	clusterID := k.Controller.clusterID
 	k.MeshServiceController.UnRegisterHandlersForCluster(clusterID)
-	k.MeshServiceController.DeleteRegistry(clusterID, provider.Kubernetes)
+	// DeleteRegistryIfCurrent avoids deleting a registry that HasSynced's UpdateRegistry call
+	// above already swapped in to replace this one. If it was already superseded, our EDS shard
+	// key now belongs to that new registry, so Cleanup must not remove it.
+	current := k.MeshServiceController.DeleteRegistryIfCurrent(k.Controller)
 	if k.workloadEntryController != nil {
 		k.MeshServiceController.DeleteRegistry(clusterID, provider.External)
 	}
-	if err := k.Controller.Cleanup(); err != nil {
+	if err := k.Controller.Cleanup(current); err != nil {
 		log.Warnf("failed cleaning up services in %s: %v", clusterID, err)
 	}
 	if k.opts.XDSUpdater != nil {
 		k.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{Reason: model.NewReasonStats(model.ClusterUpdate), Forced: true})
 	}
+}
+
+// liveServiceHosts returns the hostname/namespace pairs registry currently knows about, for use
+// as the "keep" set passed to XDSUpdater.PruneShard once registry's initial sync completes.
+func liveServiceHosts(registry *Controller) map[string]sets.String {
+	svcs := registry.Services()
+	keep := make(map[string]sets.String, len(svcs))
+	for _, svc := range svcs {
+		hostname := string(svc.Hostname)
+		if keep[hostname] == nil {
+			keep[hostname] = sets.New[string]()
+		}
+		keep[hostname].Insert(svc.Attributes.Namespace)
+	}
+	return keep
 }
 
 // Multicluster structure holds the remote kube Controllers and multicluster specific attributes.
@@ -220,15 +260,30 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeCont
 
 	// run after WorkloadHandler is added
 	if cluster.Action == multicluster.Update {
-		// Start the new registry here. The registry is swapped in only after it syncs,
-		// so the old registry keeps serving until then.
-		go kubeRegistry.Run(clusterStopCh)
-		go func() {
-			// Wait for the new cluster to sync
-			<-cluster.SyncedCh
+		// Start the new registry here. The registry is swapped in only once this kubeController
+		// reports synced, so the old registry keeps serving until then.
+		//
+		// This swap runs from kubeController.HasSynced rather than cluster.SyncedCh: the
+		// multicluster Component's pendingSwap also polls HasSynced to decide when the old
+		// kubeController is superseded and closes it, and that poll can observe synced before
+		// cluster.SyncedCh fires. If the old registry were closed first, it would still be
+		// "current" in the aggregate controller and its EDS shard would be wiped out from under
+		// this new registry. Running the swap inside HasSynced guarantees it completes before
+		// HasSynced can report true to that poll.
+		kubeController.onSynced = func() {
 			log.Infof("cluster %s synced, replacing registry", cluster.ID)
 			m.opts.MeshServiceController.UpdateRegistry(kubeRegistry, clusterStopCh)
-		}()
+			// The old registry (being replaced) may have written shard entries for services
+			// that no longer exist in the remote cluster - e.g. deleted in the same window the
+			// old registry's watch stopped observing changes. Those services never appear in
+			// kubeRegistry's own sync, so nothing else would ever clean up their stale shard
+			// entries. Prune anything under this shard key that kubeRegistry didn't just
+			// reaffirm.
+			if kubeRegistry.opts.XDSUpdater != nil {
+				kubeRegistry.opts.XDSUpdater.PruneShard(model.ShardKeyFromRegistry(kubeRegistry), liveServiceHosts(kubeRegistry))
+			}
+		}
+		go kubeRegistry.Run(clusterStopCh)
 	} else {
 		// For adds, register immediately
 		m.opts.MeshServiceController.AddRegistryAndRun(kubeRegistry, clusterStopCh)
