@@ -15,6 +15,7 @@
 package nodeagent
 
 import (
+	"net/netip"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -27,12 +28,20 @@ import (
 func TestWithProcFs(t *testing.T) {
 	n, err := NewPodNetnsProcFinder(fakeFs(true))
 	assert.NoError(t, err)
+	// the fake fs's netns fds can't be entered; ownership checks are tested separately
+	n.netnsPodIPChecker = func(Netns, []netip.Addr) (bool, error) { return true, nil }
 
-	pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{
-		Name:      "foo",
-		Namespace: "bar",
-		UID:       types.UID("863b91d4-4b68-4efa-917f-4b560e3e86aa"),
-	}}
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "bar",
+			UID:       types.UID("863b91d4-4b68-4efa-917f-4b560e3e86aa"),
+		},
+		Status: corev1.PodStatus{
+			PodIP:  "10.0.0.42",
+			PodIPs: []corev1.PodIP{{IP: "10.0.0.42"}},
+		},
+	}
 	podUIDNetns, err := n.FindNetnsForPods(map[types.UID]*corev1.Pod{
 		pod.UID: pod,
 	})
