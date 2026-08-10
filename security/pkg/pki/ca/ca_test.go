@@ -26,6 +26,7 @@ import (
 	"time"
 
 	v1 "k8s.io/api/core/v1"
+	apierror "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 
@@ -272,6 +273,54 @@ func TestCreateSelfSignedIstioCAWithSecret(t *testing.T) {
 
 	if len(certChainBytesFromCA) != 0 {
 		t.Errorf("Cert chain should be empty")
+	}
+}
+
+func TestCreateSelfSignedIstioCAWithExistingSecretAndUseCacertsEnabled(t *testing.T) {
+	caCertTTL := time.Hour
+	defaultCertTTL := 30 * time.Minute
+	maxCertTTL := time.Hour
+	org := "test.ca.Org"
+	caNamespace := "default"
+	const rootCertFile = ""
+	rootCertCheckInverval := time.Hour
+	rsaKeySize := 2048
+
+	signingCertPem := []byte(cert1Pem)
+	signingKeyPem := []byte(key1Pem)
+
+	client := fake.NewClientset()
+	initSecret := BuildSecret(CASecret, caNamespace, nil, nil, nil, signingCertPem, signingKeyPem, istioCASecretType)
+	if _, err := client.CoreV1().Secrets(caNamespace).Create(context.TODO(), initSecret, metav1.CreateOptions{}); err != nil {
+		t.Fatalf("Failed to create secret: %v", err)
+	}
+
+	caopts, err := NewSelfSignedIstioCAOptions(context.Background(),
+		0, caCertTTL, rootCertCheckInverval, defaultCertTTL, maxCertTTL,
+		org, true, false, caNamespace, client.CoreV1(),
+		rootCertFile, false, rsaKeySize)
+	if err != nil {
+		t.Fatalf("Failed to create a self-signed CA Options: %v", err)
+	}
+
+	ca, err := NewIstioCA(caopts)
+	if err != nil {
+		t.Fatalf("Failed to create a self-signed CA: %v", err)
+	}
+
+	signingCertFromCA, _, _, _ := ca.GetCAKeyCertBundle().GetAll()
+	signingCert, err := util.ParsePemEncodedCertificate(signingCertPem)
+	if err != nil {
+		t.Fatalf("Failed to parse cert: %v", err)
+	}
+	if !signingCert.Equal(signingCertFromCA) {
+		t.Error("Signing cert does not match the existing istio-ca-secret")
+	}
+
+	// cacerts should NOT have been created since istio-ca-secret was loaded successfully.
+	_, err = client.CoreV1().Secrets(caNamespace).Get(context.TODO(), CACertsSecret, metav1.GetOptions{})
+	if !apierror.IsNotFound(err) {
+		t.Errorf("expected NotFound error for cacerts secret, got: %v", err)
 	}
 }
 

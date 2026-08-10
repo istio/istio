@@ -128,8 +128,8 @@ func NewSelfSignedIstioCAOptions(ctx context.Context,
 	rootCertGracePeriodPercentile int, caCertTTL, rootCertCheckInverval, defaultCertTTL,
 	maxCertTTL time.Duration, org string, useCacertsSecretName, dualUse bool, namespace string, client corev1.CoreV1Interface,
 	rootCertFile string, enableJitter bool, caRSAKeySize int,
-) (caOpts *IstioCAOptions, err error) {
-	caOpts = &IstioCAOptions{
+) (*IstioCAOptions, error) {
+	caOpts := &IstioCAOptions{
 		CAType:         selfSignedCA,
 		DefaultCertTTL: defaultCertTTL,
 		MaxCertTTL:     maxCertTTL,
@@ -148,97 +148,48 @@ func NewSelfSignedIstioCAOptions(ctx context.Context,
 		},
 	}
 
-	// always use ``istio-ca-secret` in priority, otherwise fall back to `cacerts`
+	// Try to load an existing CA secret, checking istio-ca-secret first, then cacerts if enabled.
+	// If neither is found, create a new self-signed CA secret using the last candidate name.
+	candidates := []string{CASecret}
+	if useCacertsSecretName {
+		candidates = append(candidates, CACertsSecret)
+	}
+
 	var caCertName string
-	b := backoff.NewExponentialBackOff(backoff.DefaultOption())
-	err = b.RetryWithContext(ctx, func() error {
-		caCertName = CASecret
-		// 1. fetch `istio-ca-secret` in priority
-		err := loadSelfSignedCaSecret(client, namespace, caCertName, rootCertFile, caOpts)
-		if err == nil {
-			return nil
-		} else if apierror.IsNotFound(err) {
-			// 2. if `istio-ca-secret` not exist and use cacerts enabled, fallback to fetch `cacerts`
-			if useCacertsSecretName {
-				caCertName = CACertsSecret
-				err := loadSelfSignedCaSecret(client, namespace, caCertName, rootCertFile, caOpts)
-				if err == nil {
-					return nil
-				} else if apierror.IsNotFound(err) { // if neither `istio-ca-secret` nor `cacerts` exists, we create a `cacerts`
-					// continue to create `cacerts`
-				} else {
-					return err
-				}
+	var loadErr error
+	for _, name := range candidates {
+		caCertName = name
+		b := backoff.NewExponentialBackOff(backoff.DefaultOption())
+		if retryErr := b.RetryWithContext(ctx, func() error {
+			loadErr = loadSelfSignedCaSecret(client, namespace, name, rootCertFile, caOpts)
+			if loadErr == nil || apierror.IsNotFound(loadErr) {
+				return nil // stop retrying
 			}
-
-			// 3. if use cacerts disabled, create `istio-ca-secret`, otherwise create `cacerts`.
-			pkiCaLog.Infof("CASecret %s not found, will create one", caCertName)
-			options := util.CertOptions{
-				TTL:          caCertTTL,
-				Org:          org,
-				IsCA:         true,
-				IsSelfSigned: true,
-				RSAKeySize:   caRSAKeySize,
-				IsDualUse:    dualUse,
-			}
-			pemCert, pemKey, ckErr := util.GenCertKeyFromOptions(options)
-			if ckErr != nil {
-				pkiCaLog.Warnf("unable to generate CA cert and key for self-signed CA (%v)", ckErr)
-				return fmt.Errorf("unable to generate CA cert and key for self-signed CA (%v)", ckErr)
-			}
-
-			rootCerts, err := util.AppendRootCerts(pemCert, rootCertFile)
-			if err != nil {
-				pkiCaLog.Warnf("failed to append root certificates (%v)", err)
-				return fmt.Errorf("failed to append root certificates (%v)", err)
-			}
-			if caOpts.KeyCertBundle, err = util.NewVerifiedKeyCertBundleFromPem(
-				pemCert,
-				pemKey,
-				nil,
-				rootCerts,
-				nil,
-			); err != nil {
-				pkiCaLog.Warnf("failed to create CA KeyCertBundle (%v)", err)
-				return fmt.Errorf("failed to create CA KeyCertBundle (%v)", err)
-			}
-			// Write the key/cert back to secret, so they will be persistent when CA restarts.
-			secret := BuildSecret(caCertName, namespace, nil, nil, pemCert, pemCert, pemKey, istioCASecretType)
-			_, err = client.Secrets(namespace).Create(context.TODO(), secret, metav1.CreateOptions{})
-			if err != nil {
-				pkiCaLog.Warnf("Failed to create secret %s (%v)", caCertName, err)
-				return err
-			}
-			pkiCaLog.Infof("Using self-generated public key: %v", string(rootCerts))
-			return nil
+			return loadErr
+		}); retryErr != nil {
+			return nil, retryErr
 		}
-		return err
-	})
+		if loadErr == nil {
+			break
+		}
+		if !apierror.IsNotFound(loadErr) {
+			return nil, loadErr
+		}
+	}
+
+	if apierror.IsNotFound(loadErr) {
+		pkiCaLog.Infof("CASecret %s not found, will create one", caCertName)
+		b := backoff.NewExponentialBackOff(backoff.DefaultOption())
+		if err := b.RetryWithContext(ctx, func() error {
+			return createSelfSignedCaSecret(client, namespace, caCertName, rootCertFile, caCertTTL, org, dualUse, caRSAKeySize, caOpts)
+		}); err != nil {
+			return nil, err
+		}
+	}
+
 	pkiCaLog.Infof("Set secret name for self-signed CA cert rotator to %s", caCertName)
 	caOpts.RotatorConfig.secretName = caCertName
-	return caOpts, err
-}
-
-func loadSelfSignedCaSecret(client corev1.CoreV1Interface, namespace string, caCertName string, rootCertFile string, caOpts *IstioCAOptions) error {
-	caSecret, err := client.Secrets(namespace).Get(context.TODO(), caCertName, metav1.GetOptions{})
-	if err == nil {
-		pkiCaLog.Infof("Load signing key and cert from existing secret %s/%s", caSecret.Namespace, caSecret.Name)
-		rootCerts, err := util.AppendRootCerts(caSecret.Data[CACertFile], rootCertFile)
-		if err != nil {
-			return fmt.Errorf("failed to append root certificates (%v)", err)
-		}
-		if caOpts.KeyCertBundle, err = util.NewVerifiedKeyCertBundleFromPem(
-			caSecret.Data[CACertFile],
-			caSecret.Data[CAPrivateKeyFile],
-			nil,
-			rootCerts,
-			nil,
-		); err != nil {
-			return fmt.Errorf("failed to create CA KeyCertBundle (%v)", err)
-		}
-		pkiCaLog.Infof("Using existing public key: %v", string(rootCerts))
-	}
-	return err
+	return caOpts, nil
 }
 
 // NewSelfSignedDebugIstioCAOptions returns a new IstioCAOptions instance using self-signed certificate produced by in-memory CA,
@@ -528,4 +479,58 @@ func (ca *IstioCA) signWithCertChain(csrPEM []byte, subjectIDs []string, request
 		cert = append(cert, chainPem...)
 	}
 	return cert, nil
+}
+
+func createSelfSignedCaSecret(client corev1.CoreV1Interface, namespace, caCertName, rootCertFile string,
+	caCertTTL time.Duration, org string, dualUse bool, caRSAKeySize int, caOpts *IstioCAOptions,
+) error {
+	options := util.CertOptions{
+		TTL:          caCertTTL,
+		Org:          org,
+		IsCA:         true,
+		IsSelfSigned: true,
+		RSAKeySize:   caRSAKeySize,
+		IsDualUse:    dualUse,
+	}
+	pemCert, pemKey, ckErr := util.GenCertKeyFromOptions(options)
+	if ckErr != nil {
+		return fmt.Errorf("unable to generate CA cert and key for self-signed CA (%v)", ckErr)
+	}
+
+	rootCerts, err := util.AppendRootCerts(pemCert, rootCertFile)
+	if err != nil {
+		return fmt.Errorf("failed to append root certificates (%v)", err)
+	}
+	if caOpts.KeyCertBundle, err = util.NewVerifiedKeyCertBundleFromPem(pemCert, pemKey, nil, rootCerts, nil); err != nil {
+		return fmt.Errorf("failed to create CA KeyCertBundle (%v)", err)
+	}
+
+	secret := BuildSecret(caCertName, namespace, nil, nil, pemCert, pemCert, pemKey, istioCASecretType)
+	if _, err = client.Secrets(namespace).Create(context.TODO(), secret, metav1.CreateOptions{}); err != nil {
+		return err
+	}
+	pkiCaLog.Infof("Using self-generated public key: %v", string(rootCerts))
+	return nil
+}
+
+func loadSelfSignedCaSecret(client corev1.CoreV1Interface, namespace string, caCertName string, rootCertFile string, caOpts *IstioCAOptions) error {
+	caSecret, err := client.Secrets(namespace).Get(context.TODO(), caCertName, metav1.GetOptions{})
+	if err == nil {
+		pkiCaLog.Infof("Load signing key and cert from existing secret %s/%s", caSecret.Namespace, caSecret.Name)
+		rootCerts, err := util.AppendRootCerts(caSecret.Data[CACertFile], rootCertFile)
+		if err != nil {
+			return fmt.Errorf("failed to append root certificates (%v)", err)
+		}
+		if caOpts.KeyCertBundle, err = util.NewVerifiedKeyCertBundleFromPem(
+			caSecret.Data[CACertFile],
+			caSecret.Data[CAPrivateKeyFile],
+			nil,
+			rootCerts,
+			nil,
+		); err != nil {
+			return fmt.Errorf("failed to create CA KeyCertBundle (%v)", err)
+		}
+		pkiCaLog.Infof("Using existing public key: %v", string(rootCerts))
+	}
+	return err
 }
