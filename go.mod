@@ -19,7 +19,7 @@ require (
 	github.com/containernetworking/plugins v1.9.1
 	github.com/coreos/go-oidc/v3 v3.20.0
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
-	github.com/docker/cli v29.7.1+incompatible
+	github.com/docker/cli v29.7.2+incompatible
 	github.com/envoyproxy/go-control-plane/contrib v1.36.1-0.20260409083702-98966259b99a
 	github.com/envoyproxy/go-control-plane/envoy v1.37.1-0.20260409083702-98966259b99a
 	github.com/evanphx/json-patch/v5 v5.9.11
@@ -32,7 +32,7 @@ require (
 	github.com/golang/protobuf v1.5.4
 	github.com/google/cel-go v0.30.0
 	github.com/google/go-cmp v0.7.0
-	github.com/google/go-containerregistry v0.21.8
+	github.com/google/go-containerregistry v0.21.9
 	github.com/google/gofuzz v1.2.0
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/google/uuid v1.6.0
@@ -44,7 +44,7 @@ require (
 	github.com/hashicorp/go-version v1.9.0
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/howardjohn/unshare-go v0.5.0
-	github.com/klauspost/compress v1.19.1
+	github.com/klauspost/compress v1.19.2
 	github.com/lestrrat-go/jwx v1.2.31
 	github.com/mattn/go-isatty v0.0.24
 	github.com/miekg/dns v1.1.72
