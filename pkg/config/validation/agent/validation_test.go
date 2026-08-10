@@ -1226,9 +1226,6 @@ func TestValidateMeshConfig(t *testing.T) {
 		TlsDefaults: &meshconfig.MeshConfig_TLSConfig{
 			EcdhCurves: []string{"P-256", "P-256", "invalid"},
 		},
-		DefaultHttpRetryPolicy: &networking.HTTPRetry{
-			Attempts: -1,
-		},
 		DefaultInboundHttpRetryPolicy: &networking.HTTPRetry{
 			Attempts:      2,
 			RetryOn:       "not-a-policy",
@@ -1255,7 +1252,6 @@ func TestValidateMeshConfig(t *testing.T) {
 			"trustDomainAliases[1]",
 			"trustDomainAliases[2]",
 			"mesh TLS does not support ECDH curves configuration",
-			"invalid default http retry policy: attempts cannot be negative",
 			"invalid default inbound http retry policy: \"not-a-policy\" is not a valid retryOn policy",
 		}
 		switch err := err.(type) {

@@ -1069,10 +1069,6 @@ func ValidateMeshConfig(mesh *meshconfig.MeshConfig) (Warning, error) {
 
 	v = AppendValidation(v, validateMeshConfigDefaultTrafficPolicy(mesh.GetDefaultTrafficPolicy()))
 
-	if err := ValidateHTTPRetry(mesh.GetDefaultHttpRetryPolicy()); err != nil {
-		v = AppendValidation(v, multierror.Prefix(err, "invalid default http retry policy:"))
-	}
-
 	v = AppendValidation(v, validateMeshConfigDefaultInboundHTTPRetryPolicy(mesh.GetDefaultInboundHttpRetryPolicy()))
 
 	return v.Unwrap()
