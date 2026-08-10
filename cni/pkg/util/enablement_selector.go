@@ -17,6 +17,7 @@ package util
 import (
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 )
@@ -73,12 +74,19 @@ func NewCompiledEnablementSelectors(selectors []EnablementSelector) (*CompiledEn
 	}, nil
 }
 
-func (c *CompiledEnablementSelectors) Matches(podLabels, podAnnotations, namespaceLabels map[string]string) bool {
-	if podHasSidecar(podAnnotations) {
+// Matches reports whether the pod should be enrolled into ambient. Host-network pods
+// can never be captured (we cannot insert redirection rules into a netns they do not own),
+// so they are always excluded regardless of labels; otherwise the configured enablement
+// selectors decide.
+func (c *CompiledEnablementSelectors) Matches(pod *corev1.Pod, namespaceLabels map[string]string) bool {
+	if pod.Spec.HostNetwork {
+		return false
+	}
+	if podHasSidecar(pod.Annotations) {
 		// Ztunnel and sidecar for a single pod is currently not supported; opt out.
 		return false
 	}
-	podls := labels.Set(podLabels)
+	podls := labels.Set(pod.Labels)
 	namespacels := labels.Set(namespaceLabels)
 	for i, podSelector := range c.podSelectors {
 		if podSelector.Matches(podls) && c.namespaceSelectors[i].Matches(namespacels) {
