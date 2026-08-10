@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	nethttp "net/http"
 	"net/netip"
 	"regexp"
 	"strconv"
@@ -935,6 +936,97 @@ func validatePercent(val int32) error {
 	return nil
 }
 
+// envoy supported retry on header values
+var supportedRetryOnPolicies = sets.New(
+	// 'x-envoy-retry-on' supported policies:
+	// https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_filters/router_filter.html#x-envoy-retry-on
+	"5xx",
+	"gateway-error",
+	"reset",
+	"reset-before-request",
+	"connect-failure",
+	"retriable-4xx",
+	"refused-stream",
+	"retriable-status-codes",
+	"retriable-headers",
+	"envoy-ratelimited",
+	"http3-post-connect-failure",
+
+	// 'x-envoy-retry-grpc-on' supported policies:
+	// https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_filters/router_filter#x-envoy-retry-grpc-on
+	"cancelled",
+	"deadline-exceeded",
+	"internal",
+	"resource-exhausted",
+	"unavailable",
+)
+
+// ValidateHTTPRetry checks that an HTTP retry policy is well-formed. It is shared by the
+// VirtualService retry policy and the mesh-wide default retry policies, which reuse the same type.
+func ValidateHTTPRetry(retries *networking.HTTPRetry) (errs error) {
+	if retries == nil {
+		return errs
+	}
+
+	if retries.Attempts < 0 {
+		errs = multierror.Append(errs, errors.New("attempts cannot be negative"))
+	}
+
+	if retries.Attempts == 0 && (retries.PerTryTimeout != nil || retries.RetryOn != "" || retries.RetryRemoteLocalities != nil) {
+		errs = AppendErrors(errs, errors.New("http retry policy configured when attempts are set to 0 (disabled)"))
+	}
+
+	if retries.PerTryTimeout != nil {
+		errs = AppendErrors(errs, ValidateDuration(retries.PerTryTimeout))
+	}
+	if retries.RetryOn != "" {
+		retryOnPolicies := strings.Split(retries.RetryOn, ",")
+		for _, policy := range retryOnPolicies {
+			// Try converting it to an integer to see if it's a valid HTTP status code.
+			i, _ := strconv.Atoi(policy)
+
+			if nethttp.StatusText(i) == "" && !supportedRetryOnPolicies.Contains(policy) {
+				errs = AppendErrors(errs, fmt.Errorf("%q is not a valid retryOn policy", policy))
+			}
+		}
+	}
+	if retries.Backoff != nil {
+		errs = AppendErrors(errs, ValidateDuration(retries.Backoff))
+	}
+
+	return errs
+}
+
+// validateMeshConfigDefaultInboundHTTPRetryPolicy validates the mesh-wide default retry policy
+// applied to inbound routes on sidecars. Only `attempts`, `retryOn` and `backoff` are honored
+// there: an inbound route always targets the single local application cluster, so the per-try
+// timeout and host selection settings are meaningless and silently ignored.
+func validateMeshConfigDefaultInboundHTTPRetryPolicy(retry *networking.HTTPRetry) (v Validation) {
+	if retry == nil {
+		return v
+	}
+	v = AppendValidation(v, multierror.Prefix(ValidateHTTPRetry(retry), "invalid default inbound http retry policy:"))
+
+	// `attempts: 0` disables the policy mesh-wide, so configuring anything else alongside it is
+	// contradictory. ValidateHTTPRetry already covers the other fields, but not backoff, which
+	// does apply to inbound routes.
+	if retry.Attempts == 0 && retry.Backoff != nil {
+		v = AppendValidation(v, errors.New("invalid default inbound http retry policy: "+
+			"backoff configured when attempts are set to 0 (disabled)"))
+	}
+
+	if retry.PerTryTimeout != nil {
+		v = AppendWarningf(v, "perTryTimeout is ignored by the default inbound http retry policy")
+	}
+	if retry.RetryRemoteLocalities != nil {
+		v = AppendWarningf(v, "retryRemoteLocalities is ignored by the default inbound http retry policy")
+	}
+	if retry.RetryIgnorePreviousHosts != nil {
+		v = AppendWarningf(v, "retryIgnorePreviousHosts is ignored by the default inbound http retry policy")
+	}
+	return v
+}
+
 // ValidateMeshConfig checks that the mesh config is well-formed
 func ValidateMeshConfig(mesh *meshconfig.MeshConfig) (Warning, error) {
 	v := Validation{}
@@ -976,6 +1068,12 @@ func ValidateMeshConfig(mesh *meshconfig.MeshConfig) (Warning, error) {
 	v = AppendValidation(v, ValidateMeshTLSDefaults(mesh))
 
 	v = AppendValidation(v, validateMeshConfigDefaultTrafficPolicy(mesh.GetDefaultTrafficPolicy()))
+
+	if err := ValidateHTTPRetry(mesh.GetDefaultHttpRetryPolicy()); err != nil {
+		v = AppendValidation(v, multierror.Prefix(err, "invalid default http retry policy:"))
+	}
+
+	v = AppendValidation(v, validateMeshConfigDefaultInboundHTTPRetryPolicy(mesh.GetDefaultInboundHttpRetryPolicy()))
 
 	return v.Unwrap()
 }

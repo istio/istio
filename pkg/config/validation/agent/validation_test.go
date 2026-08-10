@@ -1110,6 +1110,94 @@ func TestValidateMeshConfigDefaultTrafficPolicy(t *testing.T) {
 	}
 }
 
+func TestValidateMeshConfigDefaultInboundHTTPRetryPolicy(t *testing.T) {
+	cases := []struct {
+		name     string
+		retry    *networking.HTTPRetry
+		wantErr  bool
+		wantWarn bool
+	}{
+		{
+			name:  "nil",
+			retry: nil,
+		},
+		{
+			name:  "empty policy disables inbound retries",
+			retry: &networking.HTTPRetry{},
+		},
+		{
+			name: "valid policy",
+			retry: &networking.HTTPRetry{
+				Attempts: 3,
+				RetryOn:  "reset-before-request,503",
+				Backoff:  durationpb.New(50 * time.Millisecond),
+			},
+		},
+		{
+			name:    "negative attempts",
+			retry:   &networking.HTTPRetry{Attempts: -1},
+			wantErr: true,
+		},
+		{
+			name:    "invalid retryOn",
+			retry:   &networking.HTTPRetry{Attempts: 3, RetryOn: "reset-before-request,not-a-policy"},
+			wantErr: true,
+		},
+		{
+			name:    "invalid retryOn status code",
+			retry:   &networking.HTTPRetry{Attempts: 3, RetryOn: "600"},
+			wantErr: true,
+		},
+		{
+			name:    "backoff below ms precision",
+			retry:   &networking.HTTPRetry{Attempts: 3, Backoff: durationpb.New(999 * time.Nanosecond)},
+			wantErr: true,
+		},
+		{
+			name:    "retryOn configured while disabled",
+			retry:   &networking.HTTPRetry{Attempts: 0, RetryOn: "reset-before-request"},
+			wantErr: true,
+		},
+		{
+			name:    "backoff configured while disabled",
+			retry:   &networking.HTTPRetry{Attempts: 0, Backoff: durationpb.New(50 * time.Millisecond)},
+			wantErr: true,
+		},
+		{
+			name:     "ignored perTryTimeout",
+			retry:    &networking.HTTPRetry{Attempts: 3, PerTryTimeout: durationpb.New(time.Second)},
+			wantWarn: true,
+		},
+		{
+			name:     "ignored retryRemoteLocalities",
+			retry:    &networking.HTTPRetry{Attempts: 3, RetryRemoteLocalities: &wrappers.BoolValue{Value: true}},
+			wantWarn: true,
+		},
+		{
+			name:     "ignored retryIgnorePreviousHosts",
+			retry:    &networking.HTTPRetry{Attempts: 3, RetryIgnorePreviousHosts: &wrappers.BoolValue{Value: true}},
+			wantWarn: true,
+		},
+		{
+			name:     "ignored perTryTimeout with an invalid value",
+			retry:    &networking.HTTPRetry{Attempts: 3, PerTryTimeout: durationpb.New(999 * time.Nanosecond)},
+			wantErr:  true,
+			wantWarn: true,
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			warn, err := validateMeshConfigDefaultInboundHTTPRetryPolicy(tt.retry).Unwrap()
+			if tt.wantErr != (err != nil) {
+				t.Fatalf("wantErr=%v got err=%v", tt.wantErr, err)
+			}
+			if tt.wantWarn != (warn != nil) {
+				t.Fatalf("wantWarn=%v got warn=%v", tt.wantWarn, warn)
+			}
+		})
+	}
+}
+
 func TestValidateMeshConfig(t *testing.T) {
 	if _, err := ValidateMeshConfig(&meshconfig.MeshConfig{}); err == nil {
 		t.Error("expected an error on an empty mesh config")
@@ -1138,6 +1226,14 @@ func TestValidateMeshConfig(t *testing.T) {
 		TlsDefaults: &meshconfig.MeshConfig_TLSConfig{
 			EcdhCurves: []string{"P-256", "P-256", "invalid"},
 		},
+		DefaultHttpRetryPolicy: &networking.HTTPRetry{
+			Attempts: -1,
+		},
+		DefaultInboundHttpRetryPolicy: &networking.HTTPRetry{
+			Attempts:      2,
+			RetryOn:       "not-a-policy",
+			PerTryTimeout: durationpb.New(time.Second),
+		},
 	}
 
 	warning, err := ValidateMeshConfig(invalid)
@@ -1159,6 +1255,8 @@ func TestValidateMeshConfig(t *testing.T) {
 			"trustDomainAliases[1]",
 			"trustDomainAliases[2]",
 			"mesh TLS does not support ECDH curves configuration",
+			"invalid default http retry policy: attempts cannot be negative",
+			"invalid default inbound http retry policy: \"not-a-policy\" is not a valid retryOn policy",
 		}
 		switch err := err.(type) {
 		case *multierror.Error:
@@ -1182,6 +1280,7 @@ func TestValidateMeshConfig(t *testing.T) {
 		wantWarnings := []string{
 			"detected unrecognized ECDH curves",
 			"detected duplicate ECDH curves",
+			"perTryTimeout is ignored by the default inbound http retry policy",
 		}
 		switch warn := warning.(type) {
 		case *multierror.Error:
