@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package pilot
+package nftables
 
 import (
 	"testing"
@@ -22,6 +22,16 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/tests/integration/pilot/common"
 )
+
+func TestZoneAwareLoadBalancer(t *testing.T) {
+	// nolint: staticcheck
+	framework.
+		NewTest(t).
+		RequiresSingleCluster().
+		Run(func(t framework.TestContext) {
+			common.RunZoneAwareLBTests(t, apps)
+		})
+}
 
 func TestDualStackEndpointLoadBalancer(t *testing.T) {
 	framework.NewTest(t).
