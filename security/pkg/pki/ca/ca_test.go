@@ -44,6 +44,9 @@ var (
 	testRootCertCheckInverval = time.Hour
 	testRSAKeySize            = 2048
 
+	signingCertPem = []byte(cert1Pem)
+	signingKeyPem  = []byte(key1Pem)
+
 	cert1Pem = `
 -----BEGIN CERTIFICATE-----
 MIIC3jCCAcagAwIBAgIJAMwyWk0iqlOoMA0GCSqGSIb3DQEBCwUAMBwxGjAYBgNV
@@ -214,9 +217,6 @@ func TestCreateSelfSignedIstioCAWithoutSecretAndUseCacertsEnabled(t *testing.T) 
 func TestCreateSelfSignedIstioCAWithSecret(t *testing.T) {
 	rootCertPem := cert1Pem
 	// Use the same signing cert and root cert for self-signed CA.
-	signingCertPem := []byte(cert1Pem)
-	signingKeyPem := []byte(key1Pem)
-
 	client := fake.NewClientset()
 	initSecret := BuildSecret(CASecret, testCaNamespace, nil, nil, nil, signingCertPem, signingKeyPem, istioCASecretType)
 	_, err := client.CoreV1().Secrets(testCaNamespace).Create(context.TODO(), initSecret, metav1.CreateOptions{})
@@ -261,9 +261,6 @@ func TestCreateSelfSignedIstioCAWithSecret(t *testing.T) {
 }
 
 func TestCreateSelfSignedIstioCAWithExistingSecretAndUseCacertsEnabled(t *testing.T) {
-	signingCertPem := []byte(cert1Pem)
-	signingKeyPem := []byte(key1Pem)
-
 	client := fake.NewClientset()
 	initSecret := BuildSecret(CASecret, testCaNamespace, nil, nil, nil, signingCertPem, signingKeyPem, istioCASecretType)
 	if _, err := client.CoreV1().Secrets(testCaNamespace).Create(context.TODO(), initSecret, metav1.CreateOptions{}); err != nil {
@@ -963,12 +960,10 @@ func TestGenKeyCert(t *testing.T) {
 
 // TestBuildSecret verifies that BuildSecret returns expected secret.
 func TestBuildSecret(t *testing.T) {
-	CertPem := []byte(cert1Pem)
-	KeyPem := []byte(key1Pem)
 	namespace := "default"
 	secretType := "secret-type"
 
-	caSecret := BuildSecret(CASecret, namespace, nil, nil, nil, CertPem, KeyPem, v1.SecretType(secretType))
+	caSecret := BuildSecret(CASecret, namespace, nil, nil, nil, signingCertPem, signingKeyPem, v1.SecretType(secretType))
 	if caSecret.ObjectMeta.Annotations != nil {
 		t.Fatalf("Annotation should be nil but got %v", caSecret)
 	}
@@ -981,13 +976,13 @@ func TestBuildSecret(t *testing.T) {
 	if caSecret.Data[PrivateKeyFile] != nil {
 		t.Fatalf("Private key should be nil but got %v", caSecret.Data[PrivateKeyFile])
 	}
-	if !bytes.Equal(caSecret.Data[CACertFile], CertPem) {
-		t.Fatalf("CA cert does not match, want %v got %v", CertPem, caSecret.Data[CACertFile])
+	if !bytes.Equal(caSecret.Data[CACertFile], signingCertPem) {
+		t.Fatalf("CA cert does not match, want %v got %v", signingCertPem, caSecret.Data[CACertFile])
 	}
-	if !bytes.Equal(caSecret.Data[CAPrivateKeyFile], KeyPem) {
-		t.Fatalf("CA cert does not match, want %v got %v", KeyPem, caSecret.Data[CAPrivateKeyFile])
+	if !bytes.Equal(caSecret.Data[CAPrivateKeyFile], signingKeyPem) {
+		t.Fatalf("CA cert does not match, want %v got %v", signingKeyPem, caSecret.Data[CAPrivateKeyFile])
 	}
-	serverSecret := BuildSecret(CACertsSecret, namespace, CertPem, KeyPem, nil, nil, nil, v1.SecretType(secretType))
+	serverSecret := BuildSecret(CACertsSecret, namespace, signingCertPem, signingKeyPem, nil, nil, nil, v1.SecretType(secretType))
 	if serverSecret.ObjectMeta.Annotations != nil {
 		t.Fatalf("Annotation should be nil but got %v", serverSecret)
 	}
@@ -1000,11 +995,11 @@ func TestBuildSecret(t *testing.T) {
 	if serverSecret.Data[CAPrivateKeyFile] != nil {
 		t.Fatalf("CA private key should be nil but got %v", serverSecret.Data[CAPrivateKeyFile])
 	}
-	if !bytes.Equal(serverSecret.Data[CertChainFile], CertPem) {
-		t.Fatalf("Cert chain does not match, want %v got %v", CertPem, serverSecret.Data[CertChainFile])
+	if !bytes.Equal(serverSecret.Data[CertChainFile], signingCertPem) {
+		t.Fatalf("Cert chain does not match, want %v got %v", signingCertPem, serverSecret.Data[CertChainFile])
 	}
-	if !bytes.Equal(serverSecret.Data[PrivateKeyFile], KeyPem) {
-		t.Fatalf("Private key does not match, want %v got %v", KeyPem, serverSecret.Data[PrivateKeyFile])
+	if !bytes.Equal(serverSecret.Data[PrivateKeyFile], signingKeyPem) {
+		t.Fatalf("Private key does not match, want %v got %v", signingKeyPem, serverSecret.Data[PrivateKeyFile])
 	}
 }
 
