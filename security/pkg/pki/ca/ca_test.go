@@ -296,6 +296,65 @@ func TestCreateSelfSignedIstioCAWithExistingSecretAndUseCacertsEnabled(t *testin
 	}
 }
 
+func TestSelfSignedIstioCARotatesExpiredCert(t *testing.T) {
+	expiredCert, expiredKey, err := util.GenCertKeyFromOptions(util.CertOptions{
+		TTL:          time.Second,
+		Org:          testOrg,
+		IsCA:         true,
+		IsSelfSigned: true,
+		RSAKeySize:   testRSAKeySize,
+		NotBefore:    time.Now().Add(-10 * time.Second),
+	})
+	if err != nil {
+		t.Fatalf("Failed to generate expired cert: %v", err)
+	}
+
+	client := fake.NewClientset()
+	initSecret := BuildSecret(CASecret, testCaNamespace, nil, nil, nil, expiredCert, expiredKey, istioCASecretType)
+	if _, err := client.CoreV1().Secrets(testCaNamespace).Create(context.TODO(), initSecret, metav1.CreateOptions{}); err != nil {
+		t.Fatalf("Failed to create secret: %v", err)
+	}
+
+	caopts, err := NewSelfSignedIstioCAOptions(context.Background(),
+		0, testCaCertTTL, testRootCertCheckInverval, testDefaultCertTTL, testMaxCertTTL,
+		testOrg, false, false, testCaNamespace, client.CoreV1(),
+		testRootCertFile, false, testRSAKeySize)
+	if err != nil {
+		t.Fatalf("Failed to create a self-signed CA Options: %v", err)
+	}
+
+	ca, err := NewIstioCA(caopts)
+	if err != nil {
+		t.Fatalf("Failed to create a self-signed CA: %v", err)
+	}
+
+	signingCert, _, _, rootCertBytes := ca.GetCAKeyCertBundle().GetAll()
+
+	if signingCert.NotAfter.Before(time.Now()) {
+		t.Error("Renewed signing cert should not be expired")
+	}
+
+	rootCert, err := util.ParsePemEncodedCertificate(rootCertBytes)
+	if err != nil {
+		t.Fatalf("Failed to parse root cert: %v", err)
+	}
+	if rootCert.NotAfter.Before(time.Now()) {
+		t.Error("Renewed root cert should not be expired")
+	}
+
+	caSecret, err := client.CoreV1().Secrets(testCaNamespace).Get(context.TODO(), CASecret, metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Failed to get secret: %v", err)
+	}
+	updatedCert, err := util.ParsePemEncodedCertificate(caSecret.Data[CACertFile])
+	if err != nil {
+		t.Fatalf("Failed to parse cert from secret: %v", err)
+	}
+	if updatedCert.NotAfter.Before(time.Now()) {
+		t.Error("Cert in K8s secret should not be expired after renewal")
+	}
+}
+
 func TestCreateSelfSignedIstioCAReadSigningCertOnly(t *testing.T) {
 	client := fake.NewClientset()
 
