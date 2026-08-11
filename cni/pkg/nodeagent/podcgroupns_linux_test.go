@@ -15,6 +15,8 @@
 package nodeagent
 
 import (
+	"errors"
+	"net"
 	"net/netip"
 	"testing"
 
@@ -22,6 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test/util/assert"
 )
 
@@ -75,22 +78,234 @@ func TestFindNetnsForPodsClosesLosingCandidates(t *testing.T) {
 	ffs := fakeFs(true)
 	n, err := NewPodNetnsProcFinder(ffs)
 	assert.NoError(t, err)
+	n.netnsPodIPChecker = func(Netns, []netip.Addr) (bool, error) { return true, nil }
+
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "bar",
+			UID:       types.UID("863b91d4-4b68-4efa-917f-4b560e3e86aa"),
+		},
+		Status: corev1.PodStatus{
+			PodIP:  "10.0.0.42",
+			PodIPs: []corev1.PodIP{{IP: "10.0.0.42"}},
+		},
+	}
+	podUIDNetns, err := n.FindNetnsForPods(map[types.UID]*corev1.Pod{
+		pod.UID: pod,
+	})
+	assert.NoError(t, err)
+
+	wl, ok := podUIDNetns[string(pod.UID)]
+	if !ok {
+		t.Fatal("expected pod to be paired with a netns")
+	}
+	assert.Equal(t, wl.Netns.OwnerProcStarttime(), uint64(70298968))
+	assert.Equal(t, ffs.openNetnsFiles(), 1)
+
+	podUIDNetns.Close()
+	assert.Equal(t, ffs.openNetnsFiles(), 0)
+}
+
+// A process whose cgroup ties it to pod A but which sits in pod B's netns (procs 2 and 3
+// share an inode here) must not pair A with that netns — and the rejected pairing must not
+// stop pod B's own process, scanned later, from claiming it.
+func TestProcScanRejectsForeignNetns(t *testing.T) {
+	const sharedIno = 4242
+	podA := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "bar",
+			UID:       types.UID("863b91d4-4b68-4efa-917f-4b560e3e86aa"),
+		},
+		Status: corev1.PodStatus{PodIPs: []corev1.PodIP{{IP: "10.0.0.1"}}},
+	}
+	podB := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "baz",
+			Namespace: "bar",
+			// see testdata/cgroupns/3/cgroup
+			UID: types.UID("aaaabbbb-cccc-dddd-eeee-ffff00001111"),
+		},
+		Status: corev1.PodStatus{PodIPs: []corev1.PodIP{{IP: "10.0.0.2"}}},
+	}
+
+	ffs := fakeFsWithNetnsInos(map[string]int{
+		"2/ns/net": sharedIno, // pod A's process transiting pod B's netns
+		"3/ns/net": sharedIno, // pod B's own process
+	})
+	n, err := NewPodNetnsProcFinder(ffs)
+	assert.NoError(t, err)
+
+	bIP := netip.MustParseAddr("10.0.0.2")
+	foreignRejected := false
+	n.netnsPodIPChecker = func(ns Netns, podIPs []netip.Addr) (bool, error) {
+		owned := ns.Inode() == sharedIno && slices.Contains(podIPs, bIP)
+		if ns.Inode() == sharedIno && !owned {
+			foreignRejected = true
+		}
+		return owned, nil
+	}
+
+	podUIDNetns, err := n.FindNetnsForPods(map[types.UID]*corev1.Pod{
+		podA.UID: podA,
+		podB.UID: podB,
+	})
+	assert.NoError(t, err)
+
+	// pod A reached the ownership check for pod B's netns and was refused
+	assert.Equal(t, foreignRejected, true)
+	// only pod B is paired, with the netns its own process lives in
+	assert.Equal(t, len(podUIDNetns), 1)
+	b, ok := podUIDNetns[string(podB.UID)]
+	if !ok {
+		t.Fatal("expected pod B to be paired with its netns")
+	}
+	assert.Equal(t, b.Netns.Inode(), uint64(sharedIno))
+	// rejected candidates' netns fds were closed by the scan
+	assert.Equal(t, ffs.openNetnsFiles(), 1)
+	podUIDNetns.Close()
+	assert.Equal(t, ffs.openNetnsFiles(), 0)
+}
+
+// A pod with no IPs yet cannot be ownership-verified: the scan must not enroll it, and
+// with nothing to match it should skip entering the netns (a no-match there would log a
+// misleading foreign-process warning). It will enroll normally later, via CNI ADD or a rescan.
+func TestProcScanDefersPodWithoutIPs(t *testing.T) {
+	ffs := fakeFs(true)
+	n, err := NewPodNetnsProcFinder(ffs)
+	assert.NoError(t, err)
+	checkerCalls := 0
+	n.netnsPodIPChecker = func(Netns, []netip.Addr) (bool, error) { checkerCalls++; return true, nil }
 
 	pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{
 		Name:      "foo",
 		Namespace: "bar",
 		UID:       types.UID("863b91d4-4b68-4efa-917f-4b560e3e86aa"),
 	}}
-	podUIDNetns, err := n.FindNetnsForPods(map[types.UID]*corev1.Pod{
-		pod.UID: pod,
-	})
+	podUIDNetns, err := n.FindNetnsForPods(map[types.UID]*corev1.Pod{pod.UID: pod})
 	assert.NoError(t, err)
-
-	assert.Equal(t, podUIDNetns[string(pod.UID)].Netns.OwnerProcStarttime(), uint64(70298968))
-	assert.Equal(t, ffs.openNetnsFiles(), 1)
-
-	podUIDNetns.Close()
+	assert.Equal(t, len(podUIDNetns), 0)
+	assert.Equal(t, checkerCalls, 0)
 	assert.Equal(t, ffs.openNetnsFiles(), 0)
+}
+
+// A dual-stack pod is accepted when any one of its IPs is found — here only the v6 one.
+func TestProcScanAcceptsDualStackPodByAnyIP(t *testing.T) {
+	ffs := fakeFs(true)
+	n, err := NewPodNetnsProcFinder(ffs)
+	assert.NoError(t, err)
+	v6 := netip.MustParseAddr("fd00::42")
+	sawIPs := 0
+	n.netnsPodIPChecker = func(ns Netns, podIPs []netip.Addr) (bool, error) {
+		sawIPs = len(podIPs)
+		// the netns carries only the pod's v6 address
+		return slices.Contains(podIPs, v6), nil
+	}
+
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "bar",
+			UID:       types.UID("863b91d4-4b68-4efa-917f-4b560e3e86aa"),
+		},
+		Status: corev1.PodStatus{
+			PodIP:  "10.0.0.42",
+			PodIPs: []corev1.PodIP{{IP: "10.0.0.42"}, {IP: "fd00::42"}},
+		},
+	}
+	podUIDNetns, err := n.FindNetnsForPods(map[types.UID]*corev1.Pod{pod.UID: pod})
+	assert.NoError(t, err)
+	defer podUIDNetns.Close()
+	assert.Equal(t, len(podUIDNetns), 1)
+	// both IPs were offered to the check in a single call
+	assert.Equal(t, sawIPs, 2)
+}
+
+// An ownership check that fails outright (vs. returning no-match) must also reject the
+// pairing: fail closed.
+func TestProcScanRejectsWhenOwnershipCheckErrs(t *testing.T) {
+	ffs := fakeFs(true)
+	n, err := NewPodNetnsProcFinder(ffs)
+	assert.NoError(t, err)
+	n.netnsPodIPChecker = func(Netns, []netip.Addr) (bool, error) { return false, errors.New("bad netns") }
+
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "bar",
+			UID:       types.UID("863b91d4-4b68-4efa-917f-4b560e3e86aa"),
+		},
+		Status: corev1.PodStatus{PodIPs: []corev1.PodIP{{IP: "10.0.0.42"}}},
+	}
+	podUIDNetns, err := n.FindNetnsForPods(map[types.UID]*corev1.Pod{pod.UID: pod})
+	assert.NoError(t, err)
+	assert.Equal(t, len(podUIDNetns), 0)
+	assert.Equal(t, ffs.openNetnsFiles(), 0)
+}
+
+func TestInterfaceAddrsContainAny(t *testing.T) {
+	ips := func(ss ...string) []netip.Addr {
+		out := make([]netip.Addr, 0, len(ss))
+		for _, s := range ss {
+			out = append(out, netip.MustParseAddr(s))
+		}
+		return out
+	}
+	for _, tt := range []struct {
+		name   string
+		addrs  []net.Addr
+		podIPs []netip.Addr
+		want   bool
+	}{
+		{
+			name:   "v4 match",
+			addrs:  []net.Addr{&net.IPNet{IP: net.IPv4(10, 0, 0, 5).To4()}},
+			podIPs: ips("10.0.0.5"),
+			want:   true,
+		},
+		{
+			name: "v4-mapped-in-v6 interface addr matches v4 pod IP",
+			// net.ParseIP returns the 16-byte mapped form for v4 addresses
+			addrs:  []net.Addr{&net.IPNet{IP: net.ParseIP("10.0.0.5")}},
+			podIPs: ips("10.0.0.5"),
+			want:   true,
+		},
+		{
+			name:   "v6 match",
+			addrs:  []net.Addr{&net.IPNet{IP: net.ParseIP("fd00::42")}},
+			podIPs: ips("fd00::42"),
+			want:   true,
+		},
+		{
+			name:   "any pod IP suffices",
+			addrs:  []net.Addr{&net.IPNet{IP: net.ParseIP("fd00::42")}},
+			podIPs: ips("10.0.0.5", "fd00::42"),
+			want:   true,
+		},
+		{
+			name:   "no match",
+			addrs:  []net.Addr{&net.IPNet{IP: net.ParseIP("10.0.0.6")}},
+			podIPs: ips("10.0.0.5"),
+			want:   false,
+		},
+		{
+			name:   "non-IPNet addrs ignored",
+			addrs:  []net.Addr{&net.TCPAddr{IP: net.ParseIP("10.0.0.5")}},
+			podIPs: ips("10.0.0.5"),
+			want:   false,
+		},
+		{
+			name:   "no interface addrs",
+			addrs:  nil,
+			podIPs: ips("10.0.0.5"),
+			want:   false,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, interfaceAddrsContainAny(tt.addrs, tt.podIPs), tt.want)
+		})
+	}
 }
 
 func TestHostNetnsWithSameIno(t *testing.T) {
