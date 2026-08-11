@@ -17,73 +17,15 @@
 package pilot
 
 import (
-	"strconv"
 	"testing"
-	"time"
 
-	"istio.io/api/annotation"
-	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/framework"
-	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/deployment"
-	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/tests/integration/pilot/common"
 )
 
 func TestTcpProbe(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
-			ns := namespace.NewOrFail(t, namespace.Config{Prefix: "tcp-probe", Inject: true})
-			for _, testCase := range []struct {
-				name     string
-				rewrite  bool
-				success  bool
-				openPort bool
-			}{
-				{name: "norewrite-success", rewrite: false, success: true, openPort: false},
-				{name: "rewrite-success", rewrite: true, success: true, openPort: true},
-			} {
-				t.NewSubTest(testCase.name).Run(func(t framework.TestContext) {
-					runTCPProbeDeployment(t, ns, testCase.name, testCase.rewrite, testCase.success, testCase.openPort)
-				})
-			}
+			common.RunTcpProbeTests(t)
 		})
-}
-
-func runTCPProbeDeployment(ctx framework.TestContext, ns namespace.Instance, //nolint:interfacer
-	name string, rewrite bool, wantSuccess bool, openPort bool,
-) {
-	ctx.Helper()
-
-	var tcpProbe echo.Instance
-	cfg := echo.Config{
-		Namespace:        ns,
-		Service:          name,
-		ReadinessTCPPort: "1234",
-		Subsets: []echo.SubsetConfig{
-			{
-				Annotations: map[string]string{annotation.SidecarRewriteAppHTTPProbers.Name: strconv.FormatBool(rewrite)},
-			},
-		},
-	}
-
-	if openPort {
-		cfg.Ports = []echo.Port{{
-			Name:         "readiness-tcp-port",
-			Protocol:     protocol.TCP,
-			ServicePort:  1234,
-			WorkloadPort: 1234,
-		}}
-	}
-
-	// Negative test, we expect the tcp readiness check fails, so set a timeout duration.
-	if !wantSuccess {
-		cfg.ReadinessTimeout = time.Second * 15
-	}
-	_, err := deployment.New(ctx).
-		With(&tcpProbe, cfg).
-		Build()
-	gotSuccess := err == nil
-	if gotSuccess != wantSuccess {
-		ctx.Errorf("tcpProbe app %v, got error %v, want success = %v", name, err, wantSuccess)
-	}
 }
