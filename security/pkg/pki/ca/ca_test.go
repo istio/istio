@@ -19,6 +19,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
 	"os"
 	"reflect"
 	"sync"
@@ -28,7 +29,10 @@ import (
 	v1 "k8s.io/api/core/v1"
 	apierror "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/fake"
+	ktesting "k8s.io/client-go/testing"
 
 	caerror "istio.io/istio/security/pkg/pki/error"
 	"istio.io/istio/security/pkg/pki/util"
@@ -352,6 +356,108 @@ func TestSelfSignedIstioCARotatesExpiredCert(t *testing.T) {
 	}
 	if updatedCert.NotAfter.Before(time.Now()) {
 		t.Error("Cert in K8s secret should not be expired after renewal")
+	}
+}
+
+func TestConcurrentRenewSelfSignedIstioCA(t *testing.T) {
+	expiredCert, expiredKey, err := util.GenCertKeyFromOptions(util.CertOptions{
+		TTL:          time.Second,
+		Org:          testOrg,
+		IsCA:         true,
+		IsSelfSigned: true,
+		RSAKeySize:   testRSAKeySize,
+		NotBefore:    time.Now().Add(-10 * time.Second),
+	})
+	if err != nil {
+		t.Fatalf("Failed to generate expired cert: %v", err)
+	}
+
+	client := fake.NewClientset()
+	initSecret := BuildSecret(CASecret, testCaNamespace, nil, nil, nil, expiredCert, expiredKey, istioCASecretType)
+	created, err := client.CoreV1().Secrets(testCaNamespace).Create(context.TODO(), initSecret, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatalf("Failed to create secret: %v", err)
+	}
+
+	// Simulate optimistic concurrency control: reject updates with stale resourceVersion.
+	var versionMu sync.Mutex
+	currentVersion := created.ResourceVersion
+	client.PrependReactor("update", "secrets", func(action ktesting.Action) (bool, runtime.Object, error) {
+		updateAction := action.(ktesting.UpdateAction)
+		secret := updateAction.GetObject().(*v1.Secret).DeepCopy()
+		versionMu.Lock()
+		defer versionMu.Unlock()
+		if secret.ResourceVersion != currentVersion {
+			return true, nil, apierror.NewConflict(
+				schema.GroupResource{Resource: "secrets"}, secret.Name, fmt.Errorf("resourceVersion mismatch"))
+		}
+		currentVersion = fmt.Sprintf("%s+1", secret.ResourceVersion)
+		secret.ResourceVersion = currentVersion
+		// Persist the update through the tracker so subsequent Get calls return it.
+		if err := client.Tracker().Update(
+			schema.GroupVersionResource{Version: "v1", Resource: "secrets"}, secret, secret.Namespace); err != nil {
+			return true, nil, err
+		}
+		return true, secret, nil
+	})
+
+	parallel := 10
+	wg := sync.WaitGroup{}
+	wg.Add(parallel)
+	rootCertCh := make(chan []byte, parallel)
+	privateKeyCh := make(chan []byte, parallel)
+
+	for i := 0; i < parallel; i++ {
+		go func() {
+			defer wg.Done()
+			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+			defer cancel()
+			caOpts, err := NewSelfSignedIstioCAOptions(ctx, 0,
+				testCaCertTTL, testDefaultCertTTL, testRootCertCheckInverval, testMaxCertTTL, testOrg, false, false,
+				testCaNamespace, client.CoreV1(), testRootCertFile, false, testRSAKeySize)
+			if err != nil {
+				t.Errorf("NewSelfSignedIstioCAOptions got unexpected error: %v", err)
+				return
+			}
+			cert, privateKey, _, rootCert := caOpts.KeyCertBundle.GetAllPem()
+			if !bytes.Equal(cert, rootCert) {
+				t.Error("Root cert and cert do not match")
+			}
+			rootCertCh <- rootCert
+			privateKeyCh <- privateKey
+		}()
+	}
+	wg.Wait()
+
+	caSecret, err := client.CoreV1().Secrets(testCaNamespace).Get(context.TODO(), CASecret, metav1.GetOptions{})
+	if err != nil || caSecret == nil {
+		t.Fatalf("Failed getting CA secret: %v", err)
+	}
+
+	updatedCert, err := util.ParsePemEncodedCertificate(caSecret.Data[CACertFile])
+	if err != nil {
+		t.Fatalf("Failed to parse cert from secret: %v", err)
+	}
+	if updatedCert.NotAfter.Before(time.Now()) {
+		t.Fatal("Cert in K8s secret should not be expired after renewal")
+	}
+
+	rootCert := caSecret.Data[CACertFile]
+	privateKey := caSecret.Data[CAPrivateKeyFile]
+
+	for {
+		select {
+		case current := <-rootCertCh:
+			if !bytes.Equal(rootCert, current) {
+				t.Error("Root cert does not match")
+			}
+		case current := <-privateKeyCh:
+			if !bytes.Equal(privateKey, current) {
+				t.Error("Private key does not match")
+			}
+		default:
+			return
+		}
 	}
 }
 
