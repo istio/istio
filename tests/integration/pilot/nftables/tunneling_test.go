@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package pilot
+package nftables
 
 import (
 	"testing"
@@ -27,7 +27,7 @@ func TestTunnelingOutboundTraffic(t *testing.T) {
 	framework.
 		NewTest(t).
 		RequireIstioVersion("1.15.0").
-		Run(func(ctx framework.TestContext) {
-			common.RunTunnelingOutboundTrafficTests(ctx, i, apps)
+		Run(func(t framework.TestContext) {
+			common.RunTunnelingOutboundTrafficTests(t, i, apps)
 		})
 }
