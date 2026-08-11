@@ -602,7 +602,7 @@ func BackendTrafficPolicyCollection(
 			}
 		}
 		if len(unsupported) > 0 {
-			msg := fmt.Sprintf("Configuration is valid, but Istio does not support the following fields: %v", humanReadableJoin(unsupported))
+			msg := fmt.Sprintf("Configuration is valid, but Istio does not support the following fields: %v", gatewaycommon.HumanReadableJoin(unsupported))
 			conds[string(gw.PolicyConditionAccepted)].message = msg
 		}
 
@@ -700,7 +700,7 @@ func setAncestorStatus(
 	return gw.PolicyAncestorStatus{
 		AncestorRef:    pr,
 		ControllerName: controller,
-		Conditions:     setConditions(generation, currentConds, conds),
+		Conditions:     gatewaycommon.SetResourceConditions(generation, currentConds, toSharedConditions(conds)),
 	}
 }
 

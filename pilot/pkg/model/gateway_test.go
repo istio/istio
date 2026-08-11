@@ -55,6 +55,8 @@ func TestMergeGateways(t *testing.T) {
 	gwMutualCredInNotAllowedNS := makeConfig("foo1", "ns", "foo.bar.com", "name1", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_MUTUAL, []string{fmt.Sprintf("kubernetes-gateway://%s/foo", NotAllowedNamespace)}, "sa")
 	// Even if we allow any SA name, we still should do namespace checks
 	gwMutualCredInNotAllowedNSNoSA := makeConfig("foo1", "ns", "foo.bar.com", "name1", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_MUTUAL, []string{fmt.Sprintf("kubernetes-gateway://%s/foo", NotAllowedNamespace)}, "")
+	// OPTIONAL_MUTUAL must authorize the -cacert resource just like MUTUAL, otherwise the validation context is never allowed via SDS.
+	gwOptionalMutualCredInAllowedNS := makeConfig("foo1", "ns", "foo.bar.com", "name1", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_OPTIONAL_MUTUAL, []string{fmt.Sprintf("kubernetes-gateway://%s/foo", AllowedNamespace)}, "sa")
 
 	proxyNoInput := makeProxy(func() *spiffe.Identity { return nil })
 	proxyIdentity := makeProxy(func() *spiffe.Identity {
@@ -89,6 +91,18 @@ func TestMergeGateways(t *testing.T) {
 	gwListenerSetCredSameNS := makeListenerSetConfig("kubernetes-gateway://tenant/foo")
 	gwListenerSetCredCrossNSAllowed := makeListenerSetConfig(fmt.Sprintf("kubernetes-gateway://%s/foo", AllowedNamespace))
 	gwListenerSetCredCrossNSNotAllowed := makeListenerSetConfig(fmt.Sprintf("kubernetes-gateway://%s/foo", NotAllowedNamespace))
+
+	// Configs with an explicit frontend mTLS CA credential (CaCertCredentialName already includes -cacert suffix).
+	gwMutualWithCaCertCredSameNS := makeConfigWithCaCert("foo1", "ns", "foo.bar.com", "name1", "http", 7, "ingressgateway",
+		networking.ServerTLSSettings_MUTUAL, "kubernetes-gateway://ns/server-cert", "kubernetes-gateway://ns/client-ca-cacert", "sa")
+	gwMutualWithCaCertCredAllowedNS := makeConfigWithCaCert("foo1", "ns", "foo.bar.com", "name1", "http", 7, "ingressgateway",
+		networking.ServerTLSSettings_MUTUAL,
+		fmt.Sprintf("kubernetes-gateway://%s/server-cert", AllowedNamespace),
+		fmt.Sprintf("kubernetes-gateway://%s/client-ca-cacert", AllowedNamespace), "sa")
+	gwMutualWithCaCertCredNotAllowedNS := makeConfigWithCaCert("foo1", "ns", "foo.bar.com", "name1", "http", 7, "ingressgateway",
+		networking.ServerTLSSettings_MUTUAL,
+		fmt.Sprintf("kubernetes-gateway://%s/server-cert", NotAllowedNamespace),
+		fmt.Sprintf("kubernetes-gateway://%s/client-ca-cacert", NotAllowedNamespace), "sa")
 
 	// TODO(ramaraochavali): Add more test cases here.
 	tests := []struct {
@@ -263,6 +277,16 @@ func TestMergeGateways(t *testing.T) {
 			2,
 		},
 		{
+			"optional-mutual-cred-in-allowed-ns",
+			[]config.Config{gwOptionalMutualCredInAllowedNS},
+			proxyIdentity,
+			1,
+			1,
+			map[string]int{"http.7": 1},
+			1,
+			2,
+		},
+		{
 			"mutual-cred-in-not-allowed-ns",
 			[]config.Config{gwMutualCredInNotAllowedNS},
 			proxyIdentity,
@@ -332,6 +356,51 @@ func TestMergeGateways(t *testing.T) {
 			1,
 			0,
 		},
+		{
+			"mutual-with-explicit-ca-cert-cred-same-ns",
+			[]config.Config{gwMutualWithCaCertCredSameNS},
+			proxyIdentity,
+			1,
+			1,
+			map[string]int{"http.7": 1},
+			1,
+			3,
+		},
+		{
+			"mutual-with-explicit-ca-cert-cred-allowed-ns",
+			[]config.Config{gwMutualWithCaCertCredAllowedNS},
+			proxyIdentity,
+			1,
+			1,
+			map[string]int{"http.7": 1},
+			1,
+			3,
+		},
+		{
+			"mutual-with-explicit-ca-cert-cred-not-allowed-ns",
+			[]config.Config{gwMutualWithCaCertCredNotAllowedNS},
+			proxyIdentity,
+			1,
+			1,
+			map[string]int{"http.7": 1},
+			1,
+			0,
+		},
+	}
+
+	// Exact-set assertions for the CaCertCredentialName test cases only.
+	caCertExpected := map[string]sets.Set[string]{
+		"mutual-with-explicit-ca-cert-cred-same-ns": sets.New(
+			"kubernetes-gateway://ns/server-cert",
+			"kubernetes-gateway://ns/server-cert-cacert",
+			"kubernetes-gateway://ns/client-ca-cacert",
+		),
+		"mutual-with-explicit-ca-cert-cred-allowed-ns": sets.New(
+			"kubernetes-gateway://"+AllowedNamespace+"/server-cert",
+			"kubernetes-gateway://"+AllowedNamespace+"/server-cert-cacert",
+			"kubernetes-gateway://"+AllowedNamespace+"/client-ca-cacert",
+		),
+		"mutual-with-explicit-ca-cert-cred-not-allowed-ns": sets.New[string](),
 	}
 
 	for idx, tt := range tests {
@@ -364,6 +433,10 @@ func TestMergeGateways(t *testing.T) {
 			}
 			if mgw.VerifiedCertificateReferences.Len() != tt.verifiedCertNum {
 				t.Errorf("Incorrect number of verified certs. Expected: %v Got: %d", tt.verifiedCertNum, mgw.VerifiedCertificateReferences.Len())
+			}
+			if expected, ok := caCertExpected[tt.name]; ok && !expected.Equals(mgw.VerifiedCertificateReferences) {
+				t.Errorf("VerifiedCertificateReferences mismatch for %q: want %v, got %v",
+					tt.name, expected, mgw.VerifiedCertificateReferences)
 			}
 		})
 	}
@@ -672,6 +745,36 @@ func makeTLSSettings(mode networking.ServerTLSSettings_TLSmode, credNames []stri
 	}
 
 	return &networking.ServerTLSSettings{Mode: mode, CredentialNames: credNames}
+}
+
+// makeConfigWithCaCert creates a gateway config with an explicit CaCertCredentialName, used to test
+// GEP-91 implementation-specific support for caCertificateRefs kind:Secret.
+func makeConfigWithCaCert(name, namespace, host, portName, portProtocol string, portNumber uint32, gw string,
+	mode networking.ServerTLSSettings_TLSmode, serverCredName, caCertCredName, sa string,
+) config.Config {
+	return config.Config{
+		Meta: config.Meta{
+			Name:      name,
+			Namespace: namespace,
+			Annotations: map[string]string{
+				"internal.istio.io/service-account-name": sa,
+			},
+		},
+		Spec: &networking.Gateway{
+			Selector: map[string]string{"istio": gw},
+			Servers: []*networking.Server{
+				{
+					Hosts: []string{host},
+					Port:  &networking.Port{Name: portName, Number: portNumber, Protocol: portProtocol},
+					Tls: &networking.ServerTLSSettings{
+						Mode:                 mode,
+						CredentialName:       serverCredName,
+						CaCertCredentialName: caCertCredName,
+					},
+				},
+			},
+		},
+	}
 }
 
 func makeProxy(fn func() *spiffe.Identity) *Proxy {

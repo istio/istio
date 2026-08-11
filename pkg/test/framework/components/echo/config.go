@@ -187,6 +187,9 @@ type Config struct {
 
 	// Specify IP family to which echo will bind
 	BindFamily string
+
+	// UserNamespace indicates the pod should run in a user namespace (hostUsers: false).
+	UserNamespace bool
 }
 
 // Getter for a custom echo deployment
@@ -383,6 +386,10 @@ func (c Config) IsAmbient() bool {
 
 func (c Config) IsVM() bool {
 	return c.DeployAsVM
+}
+
+func (c Config) IsUserNamespace() bool {
+	return c.UserNamespace
 }
 
 func (c Config) IsSotw() bool {
@@ -618,6 +625,8 @@ func (c Config) WorkloadClass() WorkloadClass {
 		return Waypoint
 	} else if c.ZTunnelCaptured() && !c.HasAnyWaypointProxy() {
 		return Captured
+	} else if c.IsUserNamespace() {
+		return UserNamespace
 	}
 	if c.IsHeadless() {
 		return Headless

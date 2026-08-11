@@ -20,7 +20,7 @@ metadata:
   # if this name is changed, CNI plugin logic that checks for this name
   # format should also be updated.
   name: {{ template "name" . }}-node
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ .Release.Namespace | quote }}
   labels:
     k8s-app: {{ template "name" . }}-node
     release: {{ .Release.Name }}
@@ -185,11 +185,6 @@ spec:
               valueFrom:
                 resourceFieldRef:
                   resource: limits.memory
-                  divisor: "1"
-            - name: GOMAXPROCS
-              valueFrom:
-                resourceFieldRef:
-                  resource: limits.cpu
                   divisor: "1"
             - name: POD_NAME
               valueFrom:

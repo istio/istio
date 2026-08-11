@@ -829,8 +829,8 @@ func proxyConfigToMetadata(t *testing.T, proxyConfig *meshconfig.ProxyConfig) mo
 	t.Helper()
 	m := map[string]any{}
 	for k, v := range proxyConfig.ProxyMetadata {
-		if strings.HasPrefix(k, bootstrap.IstioMetaPrefix) {
-			m[strings.TrimPrefix(k, bootstrap.IstioMetaPrefix)] = v
+		if after, ok := strings.CutPrefix(k, bootstrap.IstioMetaPrefix); ok {
+			m[after] = v
 		}
 	}
 	b, err := json.Marshal(m)

@@ -38,7 +38,15 @@ var downstreamCxPositiveAcStats = "http.admin.downstream_cx_active: 2 \n" +
 	"listener.10.112.43.239_9043.downstream_cx_active: 2 \n" +
 	"listener.10.112.49.68_9043.downstream_cx_active: 1 \n" +
 	"listener.admin.downstream_cx_active: 2 \n" +
-	"listener.admin.main_thread.downstream_cx_active: 2"
+	"listener.admin.main_thread.downstream_cx_active: 2 \n" +
+	// Ambient HBONE internal listeners — must be excluded from the active count;
+	// otherwise EXIT_ON_ZERO_ACTIVE_CONNECTIONS can never fire on ambient gateways
+	// and waypoints. See activeProxyConnections in agent.go.
+	"listener.envoy_internal_connect_originate.downstream_cx_active: 2 \n" +
+	"listener.envoy_internal_connect_originate.worker_0.downstream_cx_active: 2 \n" +
+	"listener.envoy_internal_main_internal.downstream_cx_active: 3 \n" +
+	"listener.envoy_internal_inner_connect_originate.downstream_cx_active: 1 \n" +
+	"listener.envoy_internal_outer_connect_originate.downstream_cx_active: 1"
 
 var downstreamCxZeroAcStats = "http.admin.downstream_cx_active: 2 \n" +
 	"http.agent.downstream_cx_active: 0 \n" +
@@ -54,7 +62,22 @@ var downstreamCxZeroAcStats = "http.admin.downstream_cx_active: 2 \n" +
 	"listener.10.112.43.239_9043.downstream_cx_active: 0 \n" +
 	"listener.10.112.49.68_9043.downstream_cx_active: 0\n" +
 	"listener.admin.downstream_cx_active: 2 \n" +
-	"listener.admin.main_thread.downstream_cx_active: 2"
+	"listener.admin.main_thread.downstream_cx_active: 2 \n" +
+	// Real user-facing listeners are all 0, but internal HBONE listeners still hold
+	// in-process pipe connections. The drain loop must treat this as zero.
+	"listener.envoy_internal_connect_originate.downstream_cx_active: 5 \n" +
+	"listener.envoy_internal_main_internal.downstream_cx_active: 3"
+
+// Only excluded listeners (status/prom/admin) and ambient internal listeners are
+// present, all with non-zero counts. Models a quiesced ambient ingress gateway /
+// waypoint where the only remaining connections are internal plumbing.
+var downstreamCxAmbientOnlyStats = "listener.0.0.0.0_15021.downstream_cx_active: 1 \n" +
+	"listener.0.0.0.0_15009.downstream_cx_active: 1 \n" +
+	"listener.admin.downstream_cx_active: 1 \n" +
+	"listener.admin.main_thread.downstream_cx_active: 1 \n" +
+	"listener.envoy_internal_connect_originate.downstream_cx_active: 2 \n" +
+	"listener.envoy_internal_connect_terminate.downstream_cx_active: 4 \n" +
+	"listener.envoy_internal_main_internal.downstream_cx_active: 3"
 
 // TestProxy sample struct for proxy
 type TestProxy struct {
@@ -130,6 +153,16 @@ func TestActiveConnections(t *testing.T) {
 		{
 			"zero active connections",
 			downstreamCxZeroAcStats,
+			0,
+		},
+		{
+			// Regression test for ambient ingress gateways / waypoints: the only
+			// non-excluded listener stats reporting a positive value are Envoy
+			// internal listeners (envoy_internal_*) used for HBONE plumbing. The
+			// drain loop must ignore them so EXIT_ON_ZERO_ACTIVE_CONNECTIONS can
+			// fire instead of waiting until terminationGracePeriodSeconds.
+			"ambient internal listeners excluded",
+			downstreamCxAmbientOnlyStats,
 			0,
 		},
 	}

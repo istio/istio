@@ -166,18 +166,22 @@ func NewImageFetcher(ctx context.Context, opt ImageFetcherOption) *ImageFetcher 
 		fetchOpts = append(fetchOpts, remote.WithAuthFromKeychain(&wasmKeyChain{data: opt.PullSecret}))
 	}
 
-	var transport http.RoundTripper
+	// Always clone rather than mutating the shared package-level remote.DefaultTransport.
+	t := remote.DefaultTransport.(*http.Transport).Clone()
 	if opt.Insecure {
-		t := remote.DefaultTransport.(*http.Transport).Clone()
 		// nolint: gosec
 		// This is only when a user explicitly sets a flag to enable insecure mode
 		t.TLSClientConfig = &tls.Config{
 			InsecureSkipVerify: opt.Insecure,
 		}
-		transport = t
-	} else {
-		transport = remote.DefaultTransport
 	}
+	// Block SSRF at the dial level: go-containerregistry's own CheckRedirect only rejects
+	// redirects to an IP-literal in a private/loopback/link-local range, and explicitly allows
+	// redirects to a hostname that resolves to one (e.g. metadata.google.internal). Checking the
+	// resolved IP at dial time closes that gap for every request this fetcher makes, including
+	// the bearer token fetch and any redirect hop, regardless of what the Location header names.
+	t.DialContext = wasmDialContext()
+	var transport http.RoundTripper = t
 
 	// wrap transport with SSRF protection for CVE-pending bearer realm vulnerability
 	fetchOpts = append(fetchOpts, remote.WithTransport(&ssrfProtectionTransport{inner: transport}))

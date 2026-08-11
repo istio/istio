@@ -28,6 +28,8 @@ import (
 
 	"istio.io/api/label"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/ambient"
@@ -50,7 +52,7 @@ type workload struct {
 	serviceLabels map[string]string
 }
 
-func TestMultinetworkFailover(t *testing.T) {
+func TestMulticlusterFailover(t *testing.T) {
 	const brokenService1 = "broken1"
 	const brokenService2 = "broken2"
 	const clientService = "client"
@@ -169,11 +171,11 @@ func TestMultinetworkFailover(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
 		t.NewSubTest("without-waypoint").Run(func(t framework.TestContext) {
 			if !t.Settings().Ambient || !t.Settings().AmbientMultiNetwork {
-				t.Skip("this test is ambient multi-network specific")
+				t.Skip("this test is ambient multi-cluster specific")
 			}
 
 			if len(t.Clusters()) < 2 {
-				t.Fatal("ambient multi-network failover test requires at least 2 clusters")
+				t.Fatal("ambient multi-cluster failover test requires at least 2 clusters")
 			}
 
 			allClusters := t.Clusters()
@@ -207,11 +209,11 @@ func TestMultinetworkFailover(t *testing.T) {
 		})
 		t.NewSubTest("with-waypoints").Run(func(t framework.TestContext) {
 			if !t.Settings().Ambient || !t.Settings().AmbientMultiNetwork {
-				t.Skip("this test is ambient multi-network specific")
+				t.Skip("this test is ambient multi-cluster specific")
 			}
 
 			if len(t.Clusters()) < 2 {
-				t.Fatal("ambient multi-network failover test requires at least 2 clusters")
+				t.Fatal("ambient multi-cluster failover test requires at least 2 clusters")
 			}
 
 			allClusters := t.Clusters()
@@ -401,18 +403,24 @@ func scaleDeploymentOrFail(t framework.TestContext, c cluster.Cluster, namespace
 func TestEastWestGatewayTLSRoute(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
 		if !t.Settings().Ambient || !t.Settings().AmbientMultiNetwork {
-			t.Skip("this test is ambient multi-network specific")
+			t.Skip("this test is ambient multi-cluster specific")
 		}
-		if len(t.Clusters()) < 2 {
-			t.Fatal("east-west gateway TLSRoute test requires at least 2 clusters")
+		allClusters := slices.Group(t.Clusters(), func(c cluster.Cluster) string {
+			return c.NetworkName()
+		})
+		networks := maps.Keys(allClusters)
+		if len(networks) < 2 {
+			t.Skip("east-west gateway TLSRoute test requires at least 2 clusters on different networks")
 		}
+
+		// gwCluster hosts the E/W gateway + backend; remoteCluster is the client.
+		gwNetwork := networks[0]
+		gwCluster := allClusters[gwNetwork][0]
+
+		remoteNetwork := networks[1]
+		remoteCluster := allClusters[remoteNetwork][0]
 
 		crd.DeployGatewayAPIOrSkip(t)
-
-		allClusters := t.Clusters()
-		// gwCluster hosts the E/W gateway + backend; remoteCluster is the client.
-		gwCluster := allClusters[0]
-		remoteCluster := allClusters[1]
 
 		nsConfig := namespace.NewOrFail(t, namespace.Config{
 			Prefix: "ew-tlsroute",

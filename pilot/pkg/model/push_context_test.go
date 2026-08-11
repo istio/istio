@@ -1550,10 +1550,95 @@ func TestServiceIndex(t *testing.T) {
 	g.Expect(serviceNames(si.exportedToNamespace["test1"])).To(Equal([]string{"svc-private"}))
 
 	g.Expect(serviceNames(si.public)).To(Equal([]string{"svc-public", "svc-unset"}))
+}
 
-	// Should just have "test1"
-	g.Expect(si.private).To(HaveLen(1))
-	g.Expect(serviceNames(si.private)).To(Equal([]string{"svc-private"}))
+// TestServiceIndexDefaultServiceExportTo verifies that meshConfig.defaultServiceExportTo entries
+// that name specific namespaces (e.g. [".", "bar"]) are honored for services that do not
+// set their own exportTo: such services stay private to their own namespace AND are exported to the
+// additional namespaces listed in the default.
+func TestServiceIndexDefaultServiceExportTo(t *testing.T) {
+	g := NewWithT(t)
+	env := NewEnvironment()
+	configController := NewFakeStore()
+	env.ConfigStore = configController
+	env.ServiceDiscovery = &localServiceDiscovery{
+		services: []*Service{
+			{
+				Hostname: "svc-unset-1",
+				Ports:    allPorts,
+				Attributes: ServiceAttributes{
+					Namespace: "test1",
+				},
+			},
+			{
+				Hostname: "svc-unset-2",
+				Ports:    allPorts,
+				Attributes: ServiceAttributes{
+					Namespace: "test2",
+				},
+			},
+			{
+				// A service that already lives in the default target namespace must not be
+				// duplicated by the additional-namespace export.
+				Hostname: "svc-bar-ns",
+				Ports:    allPorts,
+				Attributes: ServiceAttributes{
+					Namespace: "bar",
+				},
+			},
+			{
+				// An explicit exportTo still takes precedence over the default.
+				Hostname: "svc-public",
+				Ports:    allPorts,
+				Attributes: ServiceAttributes{
+					Namespace: "test1",
+					ExportTo:  sets.New(visibility.Public),
+				},
+			},
+		},
+		serviceInstances: []*ServiceInstance{
+			{
+				Endpoint: &IstioEndpoint{
+					Addresses:    []string{"192.168.1.2"},
+					EndpointPort: 8000,
+					TLSMode:      DisabledTLSModeLabel,
+				},
+			},
+		},
+	}
+	m := mesh.DefaultMeshConfig()
+	m.DefaultServiceExportTo = []string{".", "bar"}
+	env.Watcher = meshwatcher.NewTestWatcher(m)
+	stop := test.NewStop(t)
+	env.VirtualServiceController = NewVirtualServiceController(
+		configController,
+		VSControllerOptions{KrtDebugger: krt.GlobalDebugHandler},
+		env.Watcher,
+	)
+	go configController.Run(stop)
+	go env.VirtualServiceController.Run(stop)
+	kube.WaitForCacheSync("test", stop, configController.HasSynced)
+	kube.WaitForCacheSync("test", stop, env.VirtualServiceController.HasSynced)
+	env.Init()
+
+	pc := NewPushContext()
+	pc.InitContext(env, nil, nil)
+	si := pc.ServiceIndex
+
+	// Default-private services are exported to their own namespace.
+	g.Expect(serviceNames(si.exportedToNamespace["test1"])).To(Equal([]string{"svc-unset-1"}))
+	g.Expect(serviceNames(si.exportedToNamespace["test2"])).To(Equal([]string{"svc-unset-2"}))
+
+	// All default-private services are additionally exported to the bar namespace, and the
+	// service already living in bar appears exactly once (no duplicate from the export loop).
+	g.Expect(serviceNames(si.exportedToNamespace["bar"])).
+		To(Equal([]string{"svc-bar-ns", "svc-unset-1", "svc-unset-2"}))
+
+	// Services with an explicit exportTo are unaffected by the default.
+	g.Expect(serviceNames(si.public)).To(Equal([]string{"svc-public"}))
+
+	// All services are counted in the total service count.
+	g.Expect(pc.GetTotalServiceCount()).To(Equal(4))
 }
 
 func TestIsServiceVisible(t *testing.T) {
@@ -1700,6 +1785,338 @@ func TestIsServiceVisible(t *testing.T) {
 			},
 			expect: false,
 		},
+		{
+			name: "service whose namespace is bar has no exportTo map with global private and target namespace foo",
+			pushContext: &PushContext{
+				exportToDefaults: exportToDefaults{
+					service: sets.New(visibility.Private, visibility.Instance("foo")),
+				},
+			},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace: "bar",
+				},
+			},
+			expect: true,
+		},
+		{
+			name: "service whose namespace is bar has no exportTo map with global private and unrelated target namespace",
+			pushContext: &PushContext{
+				exportToDefaults: exportToDefaults{
+					service: sets.New(visibility.Private, visibility.Instance("baz")),
+				},
+			},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace: "bar",
+				},
+			},
+			expect: false,
+		},
+		{
+			name: "service whose namespace is foo has no exportTo map with global private and unrelated target namespace",
+			pushContext: &PushContext{
+				exportToDefaults: exportToDefaults{
+					service: sets.New(visibility.Private, visibility.Instance("baz")),
+				},
+			},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace: "foo",
+				},
+			},
+			expect: true,
+		},
+		// --- serviceEntryVisibility applyToSidecars ceiling (PushContext.serviceExportTo) ---
+		{
+			name: "applyToSidecars: NAMESPACE service in foo is visible in its own namespace",
+			pushContext: &PushContext{
+				Mesh: &meshconfig.MeshConfig{
+					ServiceEntryVisibility: &meshconfig.ServiceEntryVisibility{ApplyToSidecars: true},
+				},
+			},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace:  "foo",
+					ExportTo:   sets.New(visibility.Public),
+					Visibility: ServiceVisibilityNamespace,
+				},
+			},
+			expect: true,
+		},
+		{
+			name: "applyToSidecars: NAMESPACE service in bar with exportTo=* is clamped, not visible in foo",
+			pushContext: &PushContext{
+				Mesh: &meshconfig.MeshConfig{
+					ServiceEntryVisibility: &meshconfig.ServiceEntryVisibility{ApplyToSidecars: true},
+				},
+			},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace:  "bar",
+					ExportTo:   sets.New(visibility.Public),
+					Visibility: ServiceVisibilityNamespace,
+				},
+			},
+			expect: false,
+		},
+		{
+			name: "applyToSidecars: PUBLIC service in bar keeps exportTo=* (visible cross-namespace in foo)",
+			pushContext: &PushContext{
+				Mesh: &meshconfig.MeshConfig{
+					ServiceEntryVisibility: &meshconfig.ServiceEntryVisibility{ApplyToSidecars: true},
+				},
+			},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace:  "bar",
+					ExportTo:   sets.New(visibility.Public),
+					Visibility: ServiceVisibilityPublic,
+				},
+			},
+			expect: true,
+		},
+		{
+			name: "applyToSidecars: NONE service is not visible even in its own namespace",
+			pushContext: &PushContext{
+				Mesh: &meshconfig.MeshConfig{
+					ServiceEntryVisibility: &meshconfig.ServiceEntryVisibility{ApplyToSidecars: true},
+				},
+			},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace:  "foo",
+					ExportTo:   sets.New(visibility.Public),
+					Visibility: ServiceVisibilityNone,
+				},
+			},
+			expect: false,
+		},
+		{
+			name: "applyToSidecars: explicit exportTo=~ stays None under NAMESPACE visibility",
+			pushContext: &PushContext{
+				Mesh: &meshconfig.MeshConfig{
+					ServiceEntryVisibility: &meshconfig.ServiceEntryVisibility{ApplyToSidecars: true},
+				},
+			},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace:  "foo",
+					ExportTo:   sets.New(visibility.None),
+					Visibility: ServiceVisibilityNamespace,
+				},
+			},
+			expect: false,
+		},
+		{
+			name: "applyToSidecars: explicit exportTo=~ stays None even under PUBLIC visibility",
+			pushContext: &PushContext{
+				Mesh: &meshconfig.MeshConfig{
+					ServiceEntryVisibility: &meshconfig.ServiceEntryVisibility{ApplyToSidecars: true},
+				},
+			},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace:  "foo",
+					ExportTo:   sets.New(visibility.None),
+					Visibility: ServiceVisibilityPublic,
+				},
+			},
+			expect: false,
+		},
+		{
+			name: "applyToSidecars: exportTo=<own ns literal> under NAMESPACE stays visible in own namespace",
+			pushContext: &PushContext{
+				Mesh: &meshconfig.MeshConfig{
+					ServiceEntryVisibility: &meshconfig.ServiceEntryVisibility{ApplyToSidecars: true},
+				},
+			},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace:  "foo",
+					ExportTo:   sets.New(visibility.Instance("foo")),
+					Visibility: ServiceVisibilityNamespace,
+				},
+			},
+			expect: true,
+		},
+		{
+			name: "applyToSidecars: exportTo=<own ns literal> under PUBLIC stays visible in own namespace",
+			pushContext: &PushContext{
+				Mesh: &meshconfig.MeshConfig{
+					ServiceEntryVisibility: &meshconfig.ServiceEntryVisibility{ApplyToSidecars: true},
+				},
+			},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace:  "foo",
+					ExportTo:   sets.New(visibility.Instance("foo")),
+					Visibility: ServiceVisibilityPublic,
+				},
+			},
+			expect: true,
+		},
+		{
+			name: "applyToSidecars: NONE visibility hides service despite exportTo=.",
+			pushContext: &PushContext{
+				Mesh: &meshconfig.MeshConfig{
+					ServiceEntryVisibility: &meshconfig.ServiceEntryVisibility{ApplyToSidecars: true},
+				},
+			},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace:  "foo",
+					ExportTo:   sets.New(visibility.Private),
+					Visibility: ServiceVisibilityNone,
+				},
+			},
+			expect: false,
+		},
+		{
+			// [*,~] resolves to public (* wins over ~), so it is clamped, not short-circuited by the ~.
+			name: "applyToSidecars: exportTo=[*,~] in foo is clamped to own namespace (visible in foo)",
+			pushContext: &PushContext{
+				Mesh: &meshconfig.MeshConfig{
+					ServiceEntryVisibility: &meshconfig.ServiceEntryVisibility{ApplyToSidecars: true},
+				},
+			},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace:  "foo",
+					ExportTo:   sets.New(visibility.Public, visibility.None),
+					Visibility: ServiceVisibilityNamespace,
+				},
+			},
+			expect: true,
+		},
+		{
+			name: "applyToSidecars: exportTo=[*,~] in bar is clamped, not visible cross-namespace in foo",
+			pushContext: &PushContext{
+				Mesh: &meshconfig.MeshConfig{
+					ServiceEntryVisibility: &meshconfig.ServiceEntryVisibility{ApplyToSidecars: true},
+				},
+			},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace:  "bar",
+					ExportTo:   sets.New(visibility.Public, visibility.None),
+					Visibility: ServiceVisibilityNamespace,
+				},
+			},
+			expect: false,
+		},
+		{
+			name: "applyToSidecars: exportTo=. under NAMESPACE stays visible in own namespace",
+			pushContext: &PushContext{
+				Mesh: &meshconfig.MeshConfig{
+					ServiceEntryVisibility: &meshconfig.ServiceEntryVisibility{ApplyToSidecars: true},
+				},
+			},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace:  "foo",
+					ExportTo:   sets.New(visibility.Private),
+					Visibility: ServiceVisibilityNamespace,
+				},
+			},
+			expect: true,
+		},
+		{
+			name: "applyToSidecars: exportTo=<other ns> under NAMESPACE is None (disjoint intersection)",
+			pushContext: &PushContext{
+				Mesh: &meshconfig.MeshConfig{
+					ServiceEntryVisibility: &meshconfig.ServiceEntryVisibility{ApplyToSidecars: true},
+				},
+			},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace:  "foo",
+					ExportTo:   sets.New(visibility.Instance("baz")),
+					Visibility: ServiceVisibilityNamespace,
+				},
+			},
+			expect: false,
+		},
+		{
+			name: "applyToSidecars: exportTo=[foo,baz] in foo stays visible in own namespace under NAMESPACE",
+			pushContext: &PushContext{
+				Mesh: &meshconfig.MeshConfig{
+					ServiceEntryVisibility: &meshconfig.ServiceEntryVisibility{ApplyToSidecars: true},
+				},
+			},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace:  "foo",
+					ExportTo:   sets.New(visibility.Instance("foo"), visibility.Instance("baz")),
+					Visibility: ServiceVisibilityNamespace,
+				},
+			},
+			expect: true,
+		},
+		{
+			name: "applyToSidecars: exportTo=[foo,baz] in baz - NAMESPACE clamps away the cross-namespace foo grant",
+			pushContext: &PushContext{
+				Mesh: &meshconfig.MeshConfig{
+					ServiceEntryVisibility: &meshconfig.ServiceEntryVisibility{ApplyToSidecars: true},
+				},
+			},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace:  "baz",
+					ExportTo:   sets.New(visibility.Instance("foo"), visibility.Instance("baz")),
+					Visibility: ServiceVisibilityNamespace,
+				},
+			},
+			expect: false,
+		},
+		{
+			name: "applyToSidecars: exportTo=[foo] in baz - NAMESPACE strips the explicit foo grant",
+			pushContext: &PushContext{
+				Mesh: &meshconfig.MeshConfig{
+					ServiceEntryVisibility: &meshconfig.ServiceEntryVisibility{ApplyToSidecars: true},
+				},
+			},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace:  "baz",
+					ExportTo:   sets.New(visibility.Instance("foo")),
+					Visibility: ServiceVisibilityNamespace,
+				},
+			},
+			expect: false,
+		},
+		{
+			name: "applyToSidecars: exportTo=[baz] (own ns) in baz is namespace-local, not visible in foo",
+			pushContext: &PushContext{
+				Mesh: &meshconfig.MeshConfig{
+					ServiceEntryVisibility: &meshconfig.ServiceEntryVisibility{ApplyToSidecars: true},
+				},
+			},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace:  "baz",
+					ExportTo:   sets.New(visibility.Instance("baz")),
+					Visibility: ServiceVisibilityNamespace,
+				},
+			},
+			expect: false,
+		},
+		{
+			name: "applyToSidecars disabled: NAMESPACE visibility is ignored, exportTo=* governs",
+			pushContext: &PushContext{
+				Mesh: &meshconfig.MeshConfig{
+					ServiceEntryVisibility: &meshconfig.ServiceEntryVisibility{ApplyToSidecars: false},
+				},
+			},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Namespace:  "bar",
+					ExportTo:   sets.New(visibility.Public),
+					Visibility: ServiceVisibilityNamespace,
+				},
+			},
+			expect: true,
+		},
 	}
 
 	for _, c := range cases {
@@ -1709,6 +2126,97 @@ func TestIsServiceVisible(t *testing.T) {
 			g := NewWithT(t)
 			g.Expect(isVisible).To(Equal(c.expect))
 		})
+	}
+}
+
+// TestServiceExportToNeverWidens asserts the ceiling invariant of serviceExportTo across its whole
+// input space: the clamp only ever narrows. Two properties, checked for every combination:
+//
+//  1. Never broader than declared: the effective set is not reachable in any namespace the declared
+//     exportTo is not.
+//  2. Never exceeds the visibility clamp (when applyToSidecars): NONE is reachable nowhere, NAMESPACE
+//     only in the service's own namespace.
+func TestServiceExportToNeverWidens(t *testing.T) {
+	// reachable mirrors IsServiceVisible's interpretation of an exportTo set for a target namespace.
+	reachable := func(set sets.Set[visibility.Instance], target, ownNs string) bool {
+		return set.Contains(visibility.Public) ||
+			(set.Contains(visibility.Private) && target == ownNs) ||
+			set.Contains(visibility.Instance(target))
+	}
+
+	// Atoms spanning every distinct exportTo value the clamp branches on: the three symbolic scopes,
+	// own-namespace (as serviceNamespaces vary over "foo"/"baz"), another mesh namespace, and an
+	// unrelated one. The invariants must hold for any declared set (many are invalid configs that
+	// validation rejects), so enumerate every non-empty subset rather than hand-picking forms.
+	baseSet := []visibility.Instance{
+		visibility.Public,
+		visibility.Private,
+		visibility.None,
+		visibility.Instance("foo"),
+		visibility.Instance("baz"),
+		visibility.Instance("qux"),
+	}
+	// Every non-empty subset of baseSet: start with the empty set and, for each atom, add it to a copy
+	// of every subset already collected (doubling the collection each round).
+	exportToForms := []sets.Set[visibility.Instance]{sets.New[visibility.Instance]()}
+	for _, atom := range baseSet {
+		n := len(exportToForms) // freeze before appending this round
+		for i := 0; i < n; i++ {
+			withAtom := exportToForms[i].Copy()
+			withAtom.Insert(atom)
+			exportToForms = append(exportToForms, withAtom)
+		}
+	}
+	exportToForms = exportToForms[1:] // drop the empty set: it selects the mesh default, not a clamp of the declared set
+	visibilities := map[string]ServiceVisibility{
+		"PUBLIC":    ServiceVisibilityPublic,
+		"NAMESPACE": ServiceVisibilityNamespace,
+		"NONE":      ServiceVisibilityNone,
+	}
+	serviceNamespaces := []string{"foo", "baz"}
+	clientNamespaces := []string{"foo", "baz", "qux"}
+
+	for _, apply := range []bool{true, false} {
+		for visName, vis := range visibilities {
+			for _, serviceNs := range serviceNamespaces {
+				for _, declared := range exportToForms {
+					ps := &PushContext{
+						Mesh: &meshconfig.MeshConfig{
+							ServiceEntryVisibility: &meshconfig.ServiceEntryVisibility{ApplyToSidecars: apply},
+						},
+					}
+					svc := &Service{Attributes: ServiceAttributes{
+						Namespace:  serviceNs,
+						ExportTo:   declared.Copy(),
+						Visibility: vis,
+					}}
+					effective := ps.serviceExportTo(svc)
+					for _, clientNs := range clientNamespaces {
+						// Invariant 1: never reachable where the declared exportTo is not.
+						if reachable(effective, clientNs, serviceNs) && !reachable(declared, clientNs, serviceNs) {
+							t.Errorf("widened past declared: apply=%v vis=%s serviceNs=%s client=%s: declared=%v effective=%v",
+								apply, visName, serviceNs, clientNs, sets.SortedList(declared), sets.SortedList(effective))
+						}
+						if !apply {
+							continue
+						}
+						// Invariant 2: with applyToSidecars, never exceed the visibility clamp.
+						switch vis {
+						case ServiceVisibilityNone:
+							if reachable(effective, clientNs, serviceNs) {
+								t.Errorf("NONE visibility reachable: serviceNs=%s clientNs=%s: declared=%v effective=%v",
+									serviceNs, clientNs, sets.SortedList(declared), sets.SortedList(effective))
+							}
+						case ServiceVisibilityNamespace:
+							if reachable(effective, clientNs, serviceNs) && clientNs != serviceNs {
+								t.Errorf("NAMESPACE visibility reachable outside own namespace: serviceNs=%s clientNs=%s: declared=%v effective=%v",
+									serviceNs, clientNs, sets.SortedList(declared), sets.SortedList(effective))
+							}
+						}
+					}
+				}
+			}
+		}
 	}
 }
 
@@ -2471,6 +2979,88 @@ func TestSetDestinationRuleMerging(t *testing.T) {
 	}
 }
 
+func TestSetDestinationRuleBackendPolicyMerging(t *testing.T) {
+	testhost := "backend.test.svc.cluster.local"
+	userLb := &networking.LoadBalancerSettings{
+		LbPolicy: &networking.LoadBalancerSettings_Simple{Simple: networking.LoadBalancerSettings_ROUND_ROBIN},
+	}
+	userConnPool := &networking.ConnectionPoolSettings{
+		Tcp: &networking.ConnectionPoolSettings_TCPSettings{MaxConnections: 7},
+	}
+	// TLS and RetryBudget are set by both the user rule and the backend policy; the user values must win.
+	userTLS := &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_MUTUAL}
+	userRetryBudget := &networking.TrafficPolicy_RetryBudget{MinRetryConcurrency: 5}
+	backendLb := &networking.LoadBalancerSettings{
+		LbPolicy: &networking.LoadBalancerSettings_Simple{Simple: networking.LoadBalancerSettings_LEAST_REQUEST},
+	}
+	backendTLS := &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_SIMPLE}
+	backendRetryBudget := &networking.TrafficPolicy_RetryBudget{MinRetryConcurrency: 10}
+	// OutlierDetection is set only by the backend policy, so it should fill in.
+	backendOutlier := &networking.OutlierDetection{Consecutive_5XxErrors: &wrapperspb.UInt32Value{Value: 3}}
+
+	userRule := config.Config{
+		Meta: config.Meta{Name: "user-dr", Namespace: "test", CreationTimestamp: time.Unix(2, 0)},
+		Spec: &networking.DestinationRule{
+			Host: testhost,
+			TrafficPolicy: &networking.TrafficPolicy{
+				LoadBalancer:   userLb,
+				ConnectionPool: userConnPool,
+				Tls:            userTLS,
+				RetryBudget:    userRetryBudget,
+			},
+			Subsets: []*networking.Subset{{Name: "v1"}},
+		},
+	}
+	backendRule := config.Config{
+		Meta: config.Meta{
+			Name:        "backend.test~istio-gateway",
+			Namespace:   "test",
+			Annotations: map[string]string{constants.InternalParentNames: "XBackendTrafficPolicy/policy.test"},
+		},
+		Spec: &networking.DestinationRule{
+			Host: testhost,
+			TrafficPolicy: &networking.TrafficPolicy{
+				LoadBalancer:     backendLb,
+				Tls:              backendTLS,
+				RetryBudget:      backendRetryBudget,
+				OutlierDetection: backendOutlier,
+			},
+		},
+	}
+
+	// The user DestinationRule fields must win over the backend policy regardless of which one
+	// was created first, and the backend policy fills in the fields the user rule leaves unset.
+	cases := []struct {
+		name      string
+		backendTS time.Time
+	}{
+		{name: "backend created first", backendTS: time.Unix(1, 0)},
+		{name: "backend created last", backendTS: time.Unix(3, 0)},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			ps := NewPushContext()
+			ps.exportToDefaults.destinationRule = sets.New(visibility.Public)
+			backend := backendRule.DeepCopy()
+			backend.CreationTimestamp = tc.backendTS
+			ps.setDestinationRules([]config.Config{userRule, backend})
+
+			merged := ps.destinationRuleIndex.namespaceLocal["test"].specificDestRules[host.Name(testhost)]
+			assert.Equal(t, len(merged), 1)
+			tp := merged[0].rule.Spec.(*networking.DestinationRule).TrafficPolicy
+			// user fields win, including where both set the same field (Tls, RetryBudget)
+			assert.Equal(t, tp.LoadBalancer, userLb)
+			assert.Equal(t, tp.ConnectionPool, userConnPool)
+			assert.Equal(t, tp.Tls, userTLS)
+			assert.Equal(t, tp.RetryBudget, userRetryBudget)
+			// backend fills the gaps the user rule leaves unset
+			assert.Equal(t, tp.OutlierDetection, backendOutlier)
+			// user subsets carry through
+			assert.Equal(t, len(merged[0].rule.Spec.(*networking.DestinationRule).Subsets), 1)
+		})
+	}
+}
+
 func TestSetDestinationRuleWithExportTo(t *testing.T) {
 	ps := NewPushContext()
 	ps.Mesh = &meshconfig.MeshConfig{RootNamespace: "istio-system"}
@@ -2951,6 +3541,125 @@ func TestVirtualServiceWithExportTo(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(fmt.Sprintf("%s-%s", tt.proxyNs, tt.gateway), func(t *testing.T) {
+			rules := ps.VirtualServicesForGateway(tt.proxyNs, tt.gateway)
+			gotHosts := make([]string, 0)
+			for _, r := range rules {
+				vs := r.Spec.(*networking.VirtualService)
+				gotHosts = append(gotHosts, vs.Hosts...)
+			}
+			if !reflect.DeepEqual(gotHosts, tt.wantHosts) {
+				t.Errorf("want %+v, got %+v", tt.wantHosts, gotHosts)
+			}
+		})
+	}
+}
+
+// TestVirtualServiceWithDefaultExportTo verifies that meshConfig.defaultVirtualServiceExportTo entries
+// that name specific namespaces (e.g. [".", "ns1"]) are honored for virtual services that do not set
+// their own exportTo: such virtual services stay private to their own namespace AND are exported to the
+// additional namespaces listed in the default. It also asserts no duplicate entry is produced for the
+// virtual service's own namespace.
+func TestVirtualServiceWithDefaultExportTo(t *testing.T) {
+	ps := NewPushContext()
+	m := &meshconfig.MeshConfig{
+		RootNamespace:                 "zzz",
+		DefaultVirtualServiceExportTo: []string{".", "ns1"},
+	}
+	env := &Environment{Watcher: meshwatcher.NewTestWatcher(m)}
+	ps.Mesh = env.Mesh()
+	fakeStore := NewFakeStore()
+	var controller ConfigStoreController = fakeStore
+	gatewayName := "default/gateway"
+
+	// Mesh-gateway virtual service with no exportTo in namespace test1 -> default [".", "ns1"] applies.
+	meshRule1 := config.Config{
+		Meta: config.Meta{Name: "mesh-rule1", Namespace: "test1", GroupVersionKind: gvk.VirtualService},
+		Spec: &networking.VirtualService{Hosts: []string{"mesh-rule1.com"}},
+	}
+	// Mesh-gateway virtual service with no exportTo in namespace test2.
+	meshRule2 := config.Config{
+		Meta: config.Meta{Name: "mesh-rule2", Namespace: "test2", GroupVersionKind: gvk.VirtualService},
+		Spec: &networking.VirtualService{Hosts: []string{"mesh-rule2.com"}},
+	}
+	// Gateway-scoped virtual service with no exportTo in namespace test1.
+	gwRule := config.Config{
+		Meta: config.Meta{Name: "gw-rule", Namespace: "test1", GroupVersionKind: gvk.VirtualService},
+		Spec: &networking.VirtualService{Gateways: []string{gatewayName}, Hosts: []string{"gw-rule.com"}},
+	}
+
+	for _, c := range []config.Config{meshRule1, meshRule2, gwRule} {
+		if _, err := controller.Create(c); err != nil {
+			t.Fatalf("could not create %v", c.Name)
+		}
+	}
+
+	env.VirtualServiceController = NewVirtualServiceController(
+		controller,
+		VSControllerOptions{KrtDebugger: krt.GlobalDebugHandler},
+		env.Watcher,
+	)
+
+	stop := test.NewStop(t)
+	go controller.Run(stop)
+	go env.VirtualServiceController.Run(stop)
+	kube.WaitForCacheSync("test", stop, controller.HasSynced)
+	kube.WaitForCacheSync("test", stop, env.VirtualServiceController.HasSynced)
+
+	env.ConfigStore = controller
+	ps.initDefaultExportMaps()
+	ps.initVirtualServices(env)
+
+	cases := []struct {
+		name      string
+		proxyNs   string
+		gateway   string
+		wantHosts []string
+	}{
+		{
+			name:      "own namespace sees private default virtual service exactly once",
+			proxyNs:   "test1",
+			gateway:   constants.IstioMeshGateway,
+			wantHosts: []string{"mesh-rule1.com"},
+		},
+		{
+			name:      "additional default namespace sees virtual services exported from all namespaces",
+			proxyNs:   "ns1",
+			gateway:   constants.IstioMeshGateway,
+			wantHosts: []string{"mesh-rule1.com", "mesh-rule2.com"},
+		},
+		{
+			name:      "unrelated namespace only sees its own private default virtual service",
+			proxyNs:   "test2",
+			gateway:   constants.IstioMeshGateway,
+			wantHosts: []string{"mesh-rule2.com"},
+		},
+		{
+			name:      "unrelated namespace sees no default-private virtual services",
+			proxyNs:   "random",
+			gateway:   constants.IstioMeshGateway,
+			wantHosts: []string{},
+		},
+		{
+			name:      "gateway-scoped virtual service visible to its own namespace exactly once",
+			proxyNs:   "test1",
+			gateway:   gatewayName,
+			wantHosts: []string{"gw-rule.com"},
+		},
+		{
+			name:      "gateway-scoped virtual service exported to additional default namespace",
+			proxyNs:   "ns1",
+			gateway:   gatewayName,
+			wantHosts: []string{"gw-rule.com"},
+		},
+		{
+			name:      "gateway-scoped virtual service not visible to unrelated namespace",
+			proxyNs:   "random",
+			gateway:   gatewayName,
+			wantHosts: []string{},
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
 			rules := ps.VirtualServicesForGateway(tt.proxyNs, tt.gateway)
 			gotHosts := make([]string, 0)
 			for _, r := range rules {

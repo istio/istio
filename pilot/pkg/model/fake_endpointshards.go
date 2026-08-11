@@ -68,3 +68,7 @@ func (f *FakeEndpointIndexUpdater) ProxyUpdate(_ cluster.ID, _ string) {}
 func (f *FakeEndpointIndexUpdater) RemoveShard(shardKey ShardKey) {
 	f.Index.DeleteShard(shardKey)
 }
+
+func (f *FakeEndpointIndexUpdater) PruneShard(shardKey ShardKey, keep map[string]sets.String) {
+	f.Index.PruneShard(shardKey, keep)
+}

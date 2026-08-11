@@ -66,6 +66,10 @@ type ListenerBuilder struct {
 
 	envoyFilterWrapper *model.MergedEnvoyFilterWrapper
 
+	// connectionSettings caches the resolved ProxyConfig ConnectionSettings for this proxy,
+	// with EDGE profile defaults applied for Router proxies. Computed once in NewListenerBuilder.
+	connectionSettings *meshconfig.ProxyConfig_ConnectionSettings
+
 	// authnBuilder provides access to authn (mTLS) configuration for the given proxy.
 	authnBuilder *authn.Builder
 	// authzBuilder provides access to authz configuration for the given proxy.
@@ -82,8 +86,9 @@ type enabledInspector struct {
 
 func NewListenerBuilder(node *model.Proxy, push *model.PushContext) *ListenerBuilder {
 	builder := &ListenerBuilder{
-		node: node,
-		push: push,
+		node:               node,
+		push:               push,
+		connectionSettings: resolveConnectionSettings(node, push),
 	}
 	builder.authnBuilder = authn.NewBuilder(push, node)
 	builder.authzBuilder = authz.NewBuilder(authz.Local, push, node, node.Type == model.Waypoint)
@@ -433,6 +438,11 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 	}
 
 	connectionManager.StreamIdleTimeout = durationpb.New(0 * time.Second)
+
+	// Apply resolved ConnectionSettings (see resolveConnectionSettings; EDGE defaulting
+	// happens there). Explicit values override MeshConfig path normalization and the
+	// default StreamIdleTimeout above.
+	applyConnectionSettingsToHCM(connectionManager, lb.connectionSettings)
 
 	if httpOpts.rds != "" {
 		rds := &hcm.HttpConnectionManager_Rds{

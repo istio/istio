@@ -36,7 +36,6 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
-	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
 	cfgkube "istio.io/istio/pkg/config/kube"
@@ -1520,12 +1519,8 @@ func precomputeWorkloadPtr(w *model.WorkloadInfo) *model.WorkloadInfo {
 }
 
 func precomputeWorkload(w model.WorkloadInfo) model.WorkloadInfo {
-	addr := workloadToAddress(w.Workload)
-	w.MarshaledAddress = protoconv.MessageToAny(addr)
-	w.AsAddress = model.AddressInfo{
-		Address:   addr,
-		Marshaled: w.MarshaledAddress,
-	}
+	w.AsAddress = model.NewAddressInfo(workloadToAddress(w.Workload))
+	w.MarshaledAddress = w.AsAddress.Marshaled
 	return w
 }
 

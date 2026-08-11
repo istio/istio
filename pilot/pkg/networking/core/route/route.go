@@ -335,7 +335,7 @@ func buildSidecarVirtualHostForService(svc *model.Service,
 	httpRoute := BuildDefaultHTTPOutboundRoute(cluster, traceOperation, push.Mesh)
 
 	// if this host has no virtualservice, the consistentHash on its destinationRule will be useless
-	hashPolicy := consistentHashToHashPolicy(hash)
+	hashPolicy := ConsistentHashToHashPolicy(hash)
 	if hashPolicy != nil {
 		httpRoute.GetRoute().HashPolicy = []*route.RouteAction_HashPolicy{hashPolicy}
 	}
@@ -734,7 +734,7 @@ func processDestination(dst *networking.HTTPRouteDestination, opts RouteOptions,
 		}
 	}
 	hash := opts.LookupHash(dst)
-	hashPolicy := consistentHashToHashPolicy(hash)
+	hashPolicy := ConsistentHashToHashPolicy(hash)
 	if hashPolicy != nil {
 		action.HashPolicy = append(action.HashPolicy, hashPolicy)
 	}
@@ -769,7 +769,7 @@ func processWeightedDestination(
 		}
 	}
 	hash := opts.LookupHash(dst)
-	hashPolicy := consistentHashToHashPolicy(hash)
+	hashPolicy := ConsistentHashToHashPolicy(hash)
 	if hashPolicy != nil {
 		action.HashPolicy = append(action.HashPolicy, hashPolicy)
 	}
@@ -1291,7 +1291,7 @@ func GetRouteOperation(in *route.Route, vsName string, port int) string {
 }
 
 // BuildDefaultHTTPInboundRoute builds a default inbound route.
-func BuildDefaultHTTPInboundRoute(proxy *model.Proxy, clusterName string, operation string, protocol protocol.Instance) *route.Route {
+func BuildDefaultHTTPInboundRoute(clusterName string, operation string, protocol protocol.Instance, mesh *meshconfig.MeshConfig) *route.Route {
 	out := buildDefaultHTTPRoute(clusterName, operation)
 	// For inbound, configure with notimeout.
 	out.GetRoute().Timeout = Notimeout
@@ -1301,14 +1301,10 @@ func BuildDefaultHTTPInboundRoute(proxy *model.Proxy, clusterName string, operat
 		// gRPC requests time out like any other requests using timeout or its default.
 		GrpcTimeoutHeaderMax: Notimeout,
 	}
-	// "reset-before-request" does not work well for gRPC streaming services.
+	// The default "reset-before-request" condition does not work well for gRPC streaming services,
+	// so inbound retries are never configured for gRPC ports.
 	if !protocol.IsGRPC() {
-		out.GetRoute().RetryPolicy = &route.RetryPolicy{
-			RetryOn: "reset-before-request",
-			NumRetries: &wrapperspb.UInt32Value{
-				Value: 2,
-			},
-		}
+		out.GetRoute().RetryPolicy = retry.ConvertInboundPolicy(mesh.GetDefaultInboundHttpRetryPolicy())
 	}
 	return out
 }
@@ -1464,7 +1460,7 @@ func portLevelSettingsConsistentHash(dst *networking.Destination,
 	return nil
 }
 
-func consistentHashToHashPolicy(consistentHash *networking.LoadBalancerSettings_ConsistentHashLB) *route.RouteAction_HashPolicy {
+func ConsistentHashToHashPolicy(consistentHash *networking.LoadBalancerSettings_ConsistentHashLB) *route.RouteAction_HashPolicy {
 	switch consistentHash.GetHashKey().(type) {
 	case *networking.LoadBalancerSettings_ConsistentHashLB_HttpHeaderName:
 		return &route.RouteAction_HashPolicy{

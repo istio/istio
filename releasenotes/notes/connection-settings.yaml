@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue: []
+releaseNotes:
+  - |
+    **Added** support for `connectionSettings` in `ProxyConfig`, allowing configuration of
+    listener buffer limits, HTTP timeouts, HTTP/2 settings, and path/header normalization.
+    The new `EDGE` profile applies opinionated Envoy edge-proxy defaults to gateway proxies.

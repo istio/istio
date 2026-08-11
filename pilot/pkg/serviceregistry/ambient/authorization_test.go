@@ -242,6 +242,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 		},
 	})
 	meshConfigCol := GetMeshConfig(meshConfigMock)
+	serviceEntryVisibility := model.ServiceEntryVisibilityCollection(meshConfigCol.AsCollection(), opts)
 
 	clientNs := kclient.New[*v1.Namespace](c)
 	nsCol := krt.WrapClient(clientNs, opts.WithName("nsCol")...)
@@ -273,7 +274,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 		}
 	}, opts.WithName("waypoint")...)
 
-	wpsCollection := WaypointPolicyStatusCollection(authzPolCol, waypointCol, svcCol, seCol, gwClassCol, meshConfigCol, nsCol, opts)
+	wpsCollection := WaypointPolicyStatusCollection(authzPolCol, waypointCol, svcCol, seCol, gwClassCol, meshConfigCol, serviceEntryVisibility, nsCol, opts)
 	c.RunAndWait(ctx.Done())
 
 	_, err := clientNs.Create(&v1.Namespace{
@@ -1187,6 +1188,23 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 			}, tc.expect, retry.Timeout(2*time.Second))
 		})
 	}
+
+	t.Run("root namespace change is reflected in existing statuses", func(t *testing.T) {
+		updated := mesh.DefaultMeshConfig()
+		updated.RootNamespace = "new-root"
+		meshConfigCol.Set(&MeshConfig{MeshConfig: updated})
+
+		assert.EventuallyEqual(t, func() *model.StatusMessage {
+			s := getStatus(wpsCollection, "gateway-class-ap-not-in-root-ns-pol", "other-ns")
+			if s == nil || len(s.Conditions) != 1 {
+				return nil
+			}
+			return s.Conditions[0].Status
+		}, &model.StatusMessage{
+			Reason:  model.WaypointPolicyReasonInvalid,
+			Message: "AuthorizationPolicy must be in the root namespace `new-root` when referencing a GatewayClass",
+		}, retry.Timeout(2*time.Second))
+	})
 }
 
 type TestWaypointPolicyStatusCollectionTestCase struct {

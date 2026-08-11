@@ -373,7 +373,6 @@ spec:
     - uri:
         prefix: /disable
     name: default.http-retry-request.2
-    retries: {}
     route:
     - destination:
         host: httpbin.default.svc.domain.suffix

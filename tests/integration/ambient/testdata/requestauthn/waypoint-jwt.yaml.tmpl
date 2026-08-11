@@ -9,9 +9,9 @@ spec:
     name: {{ .To.Config.ServiceWaypointProxy }}
   jwtRules:
   - issuer: "test-issuer-1@istio.io"
-    jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
+    jwks: '{{ .Jwks }}'
   - issuer: "test-issuer-2@istio.io"
-    jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
+    jwks: '{{ .Jwks }}'
 ---
 apiVersion: security.istio.io/v1
 kind: RequestAuthentication
@@ -23,7 +23,7 @@ spec:
       gateway.networking.k8s.io/gateway-name: {{ .To.Config.ServiceWaypointProxy }} # This should be ignored because it's not a targetRef
   jwtRules:
   - issuer: "test-issuer-3@istio.io"
-    jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
+    jwks: '{{ .Jwks }}'
 ---
 apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy

@@ -192,6 +192,7 @@ func (a *index) buildGlobalCollections(
 		LocalWaypoints,
 		opts,
 	)
+	LocalServiceEntryVisibility := model.ServiceEntryVisibilityCollection(LocalMeshConfig.AsCollection(), opts)
 
 	LocalWorkloadServices := builder.ServicesCollection(
 		localCluster.ID,
@@ -200,6 +201,7 @@ func (a *index) buildGlobalCollections(
 		LocalWaypoints,
 		LocalNamespaces,
 		LocalMeshConfig,
+		LocalServiceEntryVisibility,
 		opts,
 		false, // Don't precompute here; these will just get merged into the global collection later
 	)
@@ -216,6 +218,7 @@ func (a *index) buildGlobalCollections(
 			localServiceEntries,
 			localGatewayClasses,
 			LocalMeshConfig,
+			LocalServiceEntryVisibility,
 			localCluster.Namespaces(),
 			opts,
 		)
@@ -411,7 +414,7 @@ func (a *index) buildGlobalCollections(
 			// Only trigger push if the XDS object changed; the rest is just for computation of others
 			return a.Workload
 		},
-		PushXdsAddress(a.XDSUpdater, model.WorkloadInfo.ResourceName),
+		PushXdsAddress(a.XDSUpdater, model.WorkloadInfo.ResourceName, model.WorkloadInfo.WaypointRef),
 	), false)
 
 	SplitHorizonWorkloadAddressIndex := krt.NewIndex[networkAddress, model.WorkloadInfo](SplitHorizonWorkloads, "networkAddress", networkAddressFromWorkload)
@@ -495,6 +498,10 @@ func (a *index) buildGlobalCollections(
 
 			newSvcInfo := &model.ServiceInfo{
 				Service:            protomarshal.Clone(svc.Service),
+				PortNames:          svc.PortNames,
+				LabelSelector:      svc.LabelSelector,
+				Source:             svc.Source,
+				Waypoint:           svc.Waypoint,
 				Scope:              svc.Scope,
 				CreationTime:       svc.CreationTime,
 				DNSConnectStrategy: svc.DNSConnectStrategy,
@@ -512,7 +519,7 @@ func (a *index) buildGlobalCollections(
 				DNSConnectStrategy: a.DNSConnectStrategy,
 			}
 		},
-		PushXdsAddress(a.XDSUpdater, model.ServiceInfo.ResourceName),
+		PushXdsAddress(a.XDSUpdater, model.ServiceInfo.ResourceName, model.ServiceInfo.WaypointRef),
 	), false)
 
 	SplitHorizonServiceAddressIndex := krt.NewIndex[networkAddress, model.ServiceInfo](SplitHorizonServices, "serviceAddress", networkAddressFromService)
@@ -522,40 +529,14 @@ func (a *index) buildGlobalCollections(
 		if s.LabelSelector.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel {
 			return nil
 		}
-		waypoint := s.Service.Waypoint
-		if waypoint == nil {
-			return nil
-		}
-		waypointAddress := waypoint.GetHostname()
-		if waypointAddress == nil {
-			return nil
-		}
-
-		return []NamespaceHostname{{
-			Namespace: waypointAddress.Namespace,
-			Hostname:  waypointAddress.Hostname,
-		}}
+		return serviceOwningWaypointHostnames(s)
 	})
 	SplitHorizonServiceInfosByOwningWaypointIP := krt.NewIndex(SplitHorizonServices, "owningWaypointIp", func(s model.ServiceInfo) []networkAddress {
 		// Filter out waypoint services
 		if s.LabelSelector.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel {
 			return nil
 		}
-		waypoint := s.Service.Waypoint
-		if waypoint == nil {
-			return nil
-		}
-		waypointAddress := waypoint.GetAddress()
-		if waypointAddress == nil {
-			return nil
-		}
-		netip, _ := netip.AddrFromSlice(waypointAddress.Address)
-		netaddr := networkAddress{
-			network: waypointAddress.Network,
-			ip:      netip.String(),
-		}
-
-		return []networkAddress{netaddr}
+		return serviceOwningWaypointAddresses(s)
 	})
 
 	if features.EnableIngressWaypointRouting {

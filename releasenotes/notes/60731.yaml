@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 60728
+releaseNotes:
+  - |
+    **Fixed** an issue where `EXIT_ON_ZERO_ACTIVE_CONNECTIONS` never fired on ambient ingress gateways and waypoints because pilot-agent's drain loop counted in-process connections on Envoy's HBONE internal listeners (`connect_originate`, `connect_terminate`, `main_internal`, etc.), preventing the active-connection count from reaching zero and forcing the proxy to wait until `terminationGracePeriodSeconds`.

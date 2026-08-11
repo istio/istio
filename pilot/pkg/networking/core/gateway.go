@@ -206,9 +206,18 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 			}
 		}
 	}
+	// Use the connection settings already resolved and cached in NewListenerBuilder.
+	cs := builder.connectionSettings
+
 	listeners := make([]*listener.Listener, 0)
 	for _, ml := range mutableopts {
 		ml.mutable.Listener = buildGatewayListener(*ml.opts, ml.transport)
+
+		// Set listener-level buffer limit from ConnectionSettings.
+		if v := safeUint32(cs.GetListenerPerConnectionBufferLimitBytes()); v != nil {
+			ml.mutable.Listener.PerConnectionBufferLimitBytes = v
+		}
+
 		log.Debugf("buildGatewayListeners: marshaling listener %q with %d filter chains",
 			ml.mutable.Listener.GetName(), len(ml.mutable.Listener.GetFilterChains()))
 

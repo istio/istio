@@ -171,6 +171,101 @@ func TestWorkloadReconnect(t *testing.T) {
 		})
 		expect(ads.ExpectResponse(), "Kubernetes//Pod/default/pod", "Kubernetes//Pod/default/pod2")
 	})
+	t.Run("ondemand-versioned", func(t *testing.T) {
+		expect := buildExpect(t)
+		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+			KubernetesObjects: []runtime.Object{mkPod("pod", "sa", "127.0.0.1", "not-node")},
+		})
+		ads := s.ConnectDeltaADS().WithType(v3.AddressType).WithMetadata(model.NodeMetadata{NodeName: "node"})
+		ads.Request(&discovery.DeltaDiscoveryRequest{
+			ResourceNamesSubscribe:   []string{"*"},
+			ResourceNamesUnsubscribe: []string{"*"},
+		})
+		ads.ExpectEmptyResponse()
+
+		// Subscribe to the pod and record the version the server assigns.
+		resp := ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{
+			ResourceNamesSubscribe: []string{"/127.0.0.1"},
+		})
+		expect(resp, "Kubernetes//Pod/default/pod")
+		podVersion := resp.Resources[0].Version
+		if podVersion == "" {
+			t.Fatal("resource sent without a version")
+		}
+		ads.Cleanup()
+
+		// Reconnect claiming the retained version. The content is unchanged, so it is not re-sent.
+		ads = s.ConnectDeltaADS().WithType(v3.AddressType).WithMetadata(model.NodeMetadata{NodeName: "node"})
+		ads.Request(&discovery.DeltaDiscoveryRequest{
+			ResourceNamesSubscribe:   []string{"*"},
+			ResourceNamesUnsubscribe: []string{"*"},
+			InitialResourceVersions: map[string]string{
+				"Kubernetes//Pod/default/pod": podVersion,
+			},
+		})
+		ads.ExpectEmptyResponse()
+		ads.Cleanup()
+
+		// Reconnect claiming a stale version. The pod must be re-sent.
+		ads = s.ConnectDeltaADS().WithType(v3.AddressType).WithMetadata(model.NodeMetadata{NodeName: "node"})
+		ads.Request(&discovery.DeltaDiscoveryRequest{
+			ResourceNamesSubscribe:   []string{"*"},
+			ResourceNamesUnsubscribe: []string{"*"},
+			InitialResourceVersions: map[string]string{
+				"Kubernetes//Pod/default/pod": "stale",
+			},
+		})
+		expect(ads.ExpectResponse(), "Kubernetes//Pod/default/pod")
+	})
+	t.Run("wildcard-versioned", func(t *testing.T) {
+		expectAddedAndRemoved := buildExpectAddedAndRemoved(t)
+		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+			KubernetesObjects: []runtime.Object{
+				mkPod("pod", "sa", "127.0.0.1", "not-node"),
+				mkPod("pod2", "sa", "127.0.0.2", "node"),
+			},
+		})
+		ads := s.ConnectDeltaADS().WithType(v3.AddressType).WithMetadata(model.NodeMetadata{NodeName: "node"})
+
+		// Subscribe to everything and record the versions the server assigns.
+		resp := ads.RequestResponseAck(&discovery.DeltaDiscoveryRequest{})
+		retained := map[string]string{}
+		for _, r := range resp.Resources {
+			if r.Version == "" {
+				t.Fatalf("resource %v sent without a version", r.Name)
+			}
+			retained[r.Name] = r.Version
+		}
+		assert.Equal(t, len(retained), 2)
+		ads.Cleanup()
+
+		// While disconnected, delete pod2 and create pod3.
+		deletePod(s, "pod2")
+		assert.EventuallyEqual(t, func() int {
+			return len(s.AmbientIndex.All())
+		}, 1)
+		createPod(s, "pod3", "sa", "127.0.0.3", "node")
+		assert.EventuallyEqual(t, func() int {
+			return len(s.AmbientIndex.All())
+		}, 2)
+
+		// Reconnect with the retained versions: the unchanged pod is skipped, pod3 is sent, and
+		// pod2 is removed.
+		ads = s.ConnectDeltaADS().WithType(v3.AddressType).WithMetadata(model.NodeMetadata{NodeName: "node"})
+		ads.Request(&discovery.DeltaDiscoveryRequest{InitialResourceVersions: retained})
+		resp = ads.ExpectResponse()
+		expectAddedAndRemoved(resp, []string{"Kubernetes//Pod/default/pod3"}, []string{"Kubernetes//Pod/default/pod2"})
+		pod3Version := resp.Resources[0].Version
+		ads.Cleanup()
+
+		// Reconnect claiming a stale version for the pod: it must be re-sent.
+		ads = s.ConnectDeltaADS().WithType(v3.AddressType).WithMetadata(model.NodeMetadata{NodeName: "node"})
+		ads.Request(&discovery.DeltaDiscoveryRequest{InitialResourceVersions: map[string]string{
+			"Kubernetes//Pod/default/pod":  "stale",
+			"Kubernetes//Pod/default/pod3": pod3Version,
+		}})
+		expectAddedAndRemoved(ads.ExpectResponse(), []string{"Kubernetes//Pod/default/pod"}, nil)
+	})
 }
 
 func TestWorkload(t *testing.T) {

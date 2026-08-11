@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+  - |
+    **Improved** istiod scalability in ambient mode by scoping XDS pushes from workload/service
+    `Address` changes to only the affected waypoints, instead of pushing to all waypoints and proxies.
+    Can be disabled with `AMBIENT_SCOPED_ADDRESS_PUSHES=false`.

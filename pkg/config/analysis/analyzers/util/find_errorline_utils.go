@@ -127,11 +127,10 @@ func ErrorLine(r *resource.Instance, path string) (line int, found bool) {
 
 // ExtractLabelFromSelectorString returns the label of the match in the k8s labels.Selector
 func ExtractLabelFromSelectorString(s string) string {
-	equalIndex := strings.Index(s, "=")
-	if equalIndex < 0 {
-		return ""
+	if k, _, ok := strings.Cut(s, "="); ok {
+		return k
 	}
-	return s[:equalIndex]
+	return ""
 }
 
 func AddLineNumber(r *resource.Instance, ann string, m diag.Message) bool {

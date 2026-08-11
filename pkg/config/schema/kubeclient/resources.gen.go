@@ -128,8 +128,8 @@ func GetWriteClient[T runtime.Object](c ClientGetter, namespace string) ktypes.W
 		return c.Istio().NetworkingV1().Sidecars(namespace).(ktypes.WriteAPI[T])
 	case *k8sioapiappsv1.StatefulSet:
 		return c.Kube().AppsV1().StatefulSets(namespace).(ktypes.WriteAPI[T])
-	case *sigsk8siogatewayapiapisv1alpha2.TCPRoute:
-		return c.GatewayAPI().GatewayV1alpha2().TCPRoutes(namespace).(ktypes.WriteAPI[T])
+	case *sigsk8siogatewayapiapisv1.TCPRoute:
+		return c.GatewayAPI().GatewayV1().TCPRoutes(namespace).(ktypes.WriteAPI[T])
 	case *sigsk8siogatewayapiapisv1.TLSRoute:
 		return c.GatewayAPI().GatewayV1().TLSRoutes(namespace).(ktypes.WriteAPI[T])
 	case *apiistioioapitelemetryv1.Telemetry:
@@ -233,8 +233,8 @@ func GetClient[T, TL runtime.Object](c ClientGetter, namespace string) ktypes.Re
 		return c.Istio().NetworkingV1().Sidecars(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *k8sioapiappsv1.StatefulSet:
 		return c.Kube().AppsV1().StatefulSets(namespace).(ktypes.ReadWriteAPI[T, TL])
-	case *sigsk8siogatewayapiapisv1alpha2.TCPRoute:
-		return c.GatewayAPI().GatewayV1alpha2().TCPRoutes(namespace).(ktypes.ReadWriteAPI[T, TL])
+	case *sigsk8siogatewayapiapisv1.TCPRoute:
+		return c.GatewayAPI().GatewayV1().TCPRoutes(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *sigsk8siogatewayapiapisv1.TLSRoute:
 		return c.GatewayAPI().GatewayV1().TLSRoutes(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *apiistioioapitelemetryv1.Telemetry:
@@ -339,7 +339,7 @@ func gvrToObject(g schema.GroupVersionResource) runtime.Object {
 	case gvr.StatefulSet:
 		return &k8sioapiappsv1.StatefulSet{}
 	case gvr.TCPRoute:
-		return &sigsk8siogatewayapiapisv1alpha2.TCPRoute{}
+		return &sigsk8siogatewayapiapisv1.TCPRoute{}
 	case gvr.TLSRoute:
 		return &sigsk8siogatewayapiapisv1.TLSRoute{}
 	case gvr.Telemetry:
@@ -638,10 +638,10 @@ func getInformerFiltered(c ClientGetter, opts ktypes.InformerOptions, g schema.G
 		}
 	case gvr.TCPRoute:
 		l = func(options metav1.ListOptions) (runtime.Object, error) {
-			return c.GatewayAPI().GatewayV1alpha2().TCPRoutes(opts.Namespace).List(context.Background(), options)
+			return c.GatewayAPI().GatewayV1().TCPRoutes(opts.Namespace).List(context.Background(), options)
 		}
 		w = func(options metav1.ListOptions) (watch.Interface, error) {
-			return c.GatewayAPI().GatewayV1alpha2().TCPRoutes(opts.Namespace).Watch(context.Background(), options)
+			return c.GatewayAPI().GatewayV1().TCPRoutes(opts.Namespace).Watch(context.Background(), options)
 		}
 	case gvr.TLSRoute:
 		l = func(options metav1.ListOptions) (runtime.Object, error) {

@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+  - |
+    **Fixed** an issue where the Accepted condition on a Gateway was not set to
+    False when referencing an invalid or non-existent parametersRef. This
+    matches the behavior enforced by the `GatewayInvalidParametersRef` Gateway
+    API conformance test, introduced in v1.6.0.

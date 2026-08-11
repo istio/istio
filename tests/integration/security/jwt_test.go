@@ -418,6 +418,7 @@ func TestIngressRequestAuthentication(t *testing.T) {
 					param.Namespace.String(): istio.ClaimSystemNamespaceOrFail(t, t),
 					"Services":               apps.Ns1.All,
 					"GatewayIstioLabel":      i.Settings().IngressGatewayIstioLabel,
+					"JWTServer":              jwtServer,
 				})).
 				Source(config.File("testdata/requestauthn/ingress.yaml.tmpl").WithParams(param.Params{
 					param.Namespace.String(): apps.Ns1.Namespace,
@@ -603,6 +604,7 @@ func TestGatewayAPIRequestAuthentication(t *testing.T) {
 				Source(config.File("testdata/requestauthn/gateway-jwt.yaml.tmpl").WithParams(param.Params{
 					param.Namespace.String(): apps.Ns1.Namespace,
 					"Services":               apps.Ns1.A.Append(apps.Ns1.B).Services(),
+					"JWTServer":              jwtServer,
 				})).
 				BuildAll(nil, apps.Ns1.A.Append(apps.Ns1.B).Services()).
 				Apply()

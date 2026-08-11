@@ -7,7 +7,7 @@
     # When processing a leaf namespace Istio will search for declarations in that namespace first
     # and if none are found it will search in the root namespace. Any matching declaration found in the root namespace
     # is processed as if it were declared in the leaf namespace.
-    rootNamespace: {{ .Values.meshConfig.rootNamespace | default .Values.global.istioNamespace }}
+    rootNamespace: {{ (.Values.meshConfig.rootNamespace | default .Values.global.istioNamespace) | quote }}
 
   {{ $prom := include "default-prometheus" . | eq "true" }}
   {{ $sdMetrics := include "default-sd-metrics" . | eq "true" }}
@@ -84,7 +84,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: istio{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ .Release.Namespace | quote }}
   labels:
     istio.io/rev: {{ .Values.revision | default "default" | quote }}
     install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}

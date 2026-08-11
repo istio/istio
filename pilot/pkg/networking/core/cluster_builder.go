@@ -352,6 +352,10 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *clusterWrapper, clusterMode C
 	destinationRule := CastDestinationRule(destRule)
 	// merge applicable port level traffic policy settings
 	trafficPolicy, _ := util.GetPortLevelTrafficPolicy(destinationRule.GetTrafficPolicy(), port)
+	// Seed the mesh-wide baseline so per-host clusters (including those with no matching
+	// DestinationRule) inherit it for any connectionPool / outlierDetection block the DR
+	// leaves unset. Subset / portLevelSettings still override on top via the merge below.
+	trafficPolicy = applyDefaultTrafficPolicy(cb.req.Push.Mesh.GetDefaultTrafficPolicy(), trafficPolicy)
 	opts := buildClusterOpts{
 		mesh:                      cb.req.Push.Mesh,
 		mutable:                   mc,
@@ -679,6 +683,10 @@ func (cb *ClusterBuilder) buildInboundCluster(clusterPort int, bind string,
 			util.AddConfigInfoMetadata(localCluster.cluster.Metadata, cfg.Meta)
 		}
 	}
+	// Seed the mesh-wide baseline below the DR (and below the Sidecar override applied next).
+	// connectionPool is set server-side too so the receiver has capacity matching client volume;
+	// outlierDetection seeded here is inert for inbound (applyTrafficPolicy skips it).
+	opts.policy = applyDefaultTrafficPolicy(cb.req.Push.Mesh.GetDefaultTrafficPolicy(), opts.policy)
 	// If there's a connection pool set on the Sidecar then override any settings derived from the DestinationRule
 	// with those set by Sidecar resource. This allows the user to resolve any ambiguity, e.g. in the case that
 	// multiple services are listening on the same port.
@@ -688,7 +696,7 @@ func (cb *ClusterBuilder) buildInboundCluster(clusterPort int, bind string,
 			opts.policy = &networking.TrafficPolicy{}
 		} else {
 			// copy policy to prevent mutating the original destinationRule trafficPolicy
-			opts.policy = util.ShallowCopyTrafficPolicy(opts.policy)
+			opts.policy = model.ShallowCopyTrafficPolicy(opts.policy)
 		}
 		opts.policy.ConnectionPool = sidecarConnPool
 	}
@@ -793,7 +801,14 @@ func (cb *ClusterBuilder) buildDefaultPassthroughCluster() *cluster.Cluster {
 		},
 	}
 	cluster.AltStatName = util.DelimitedStatsPrefix(util.PassthroughCluster)
-	cb.applyConnectionPool(cb.req.Push.Mesh, newClusterWrapper(cluster), &networking.ConnectionPoolSettings{}, nil)
+	// Cap the otherwise unbounded ALLOW_ANY passthrough egress with the mesh-wide baseline
+	// connectionPool when configured. outlierDetection is intentionally not applied here:
+	// on an ORIGINAL_DST catch-all there is no LB pool to shed to.
+	passthroughConnPool := cb.req.Push.Mesh.GetDefaultTrafficPolicy().GetConnectionPool()
+	if passthroughConnPool == nil {
+		passthroughConnPool = &networking.ConnectionPoolSettings{}
+	}
+	cb.applyConnectionPool(cb.req.Push.Mesh, newClusterWrapper(cluster), passthroughConnPool, nil)
 	cb.applyMetadataExchange(cluster)
 	return cluster
 }

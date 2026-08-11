@@ -77,7 +77,7 @@ fi
 TOOLS_REGISTRY_PROVIDER=${TOOLS_REGISTRY_PROVIDER:-registry.istio.io}
 PROJECT_ID=${PROJECT_ID:-testing}
 if [[ "${IMAGE_VERSION:-}" == "" ]]; then
-  IMAGE_VERSION=master-6db0b4c7fbe345bd531a07fbcff13877dc9cd801
+  IMAGE_VERSION=master-9a67f0594faf23c0974ab3db461b03f50f39ae33
 fi
 if [[ "${IMAGE_NAME:-}" == "" ]]; then
   IMAGE_NAME=build-tools
@@ -122,24 +122,27 @@ done
 CONDITIONAL_HOST_MOUNTS="${CONDITIONAL_HOST_MOUNTS:-} "
 container_kubeconfig=''
 
+# When adding volumes, bind mounts must use --volume so that they
+# can be configured for SELinux labeling
+
 # docker conditional host mount (needed for make docker push)
 if [[ -d "${HOME}/.docker" ]]; then
-  CONDITIONAL_HOST_MOUNTS+="--mount type=bind,source=${HOME}/.docker,destination=/config/.docker,readonly "
+  CONDITIONAL_HOST_MOUNTS+="--volume ${HOME}/.docker:/config/.docker:ro "
 fi
 
 # gcloud conditional host mount (needed for docker push with the gcloud auth configure-docker)
 if [[ -d "${HOME}/.config/gcloud" ]]; then
-  CONDITIONAL_HOST_MOUNTS+="--mount type=bind,source=${HOME}/.config/gcloud,destination=/config/.config/gcloud,readonly "
+  CONDITIONAL_HOST_MOUNTS+="--volume ${HOME}/.config/gcloud:/config/.config/gcloud:ro "
 fi
 
 # gitconfig conditional host mount (needed for git commands inside container)
 if [[ -f "${HOME}/.gitconfig" ]]; then
-  CONDITIONAL_HOST_MOUNTS+="--mount type=bind,source=${HOME}/.gitconfig,destination=/home/.gitconfig,readonly "
+  CONDITIONAL_HOST_MOUNTS+="--volume ${HOME}/.gitconfig:/home/.gitconfig:ro "
 fi
 
 # .netrc conditional host mount (needed for git commands inside container)
 if [[ -f "${HOME}/.netrc" ]]; then
-  CONDITIONAL_HOST_MOUNTS+="--mount type=bind,source=${HOME}/.netrc,destination=/home/.netrc,readonly "
+  CONDITIONAL_HOST_MOUNTS+="--volume ${HOME}/.netrc:/home/.netrc:ro "
 fi
 
 # echo ${CONDITIONAL_HOST_MOUNTS}
@@ -155,7 +158,7 @@ add_KUBECONFIG_if_exists () {
 
     kubeconfig_random="$(od -vAn -N4 -tx /dev/random | tr -d '[:space:]' | cut -c1-8)"
     container_kubeconfig+="/config/${kubeconfig_random}:"
-    CONDITIONAL_HOST_MOUNTS+="--mount type=bind,source=${local_config},destination=/config/${kubeconfig_random} "
+    CONDITIONAL_HOST_MOUNTS+="--volume ${local_config}:/config/${kubeconfig_random} "
   fi
 }
 

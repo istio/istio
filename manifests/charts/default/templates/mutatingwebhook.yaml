@@ -14,7 +14,7 @@
     {{- else }}
     service:
       name: istiod{{- if not (eq .revision "") }}-{{ .revision }}{{- end }}
-      namespace: {{ .namespace }}
+      namespace: {{ .namespace | quote }}
       path: "/inject"
     {{- end }}
   sideEffects: None

@@ -61,6 +61,9 @@ func SettingsFromCommandLine(testID string) (*Settings, error) {
 	if s.SkipTProxy {
 		s.SkipWorkloadClasses = append(s.SkipWorkloadClasses, "tproxy")
 	}
+	if s.SkipUserNamespace {
+		s.SkipWorkloadClasses = append(s.SkipWorkloadClasses, "userns")
+	}
 	// Allow passing a single CSV flag as well
 	normalized := make(ArrayFlags, 0)
 	for _, sk := range s.SkipWorkloadClasses {
@@ -190,6 +193,9 @@ func init() {
 
 	flag.BoolVar(&settingsFromCommandLine.SkipTProxy, "istio.test.skipTProxy", settingsFromCommandLine.SkipTProxy,
 		"Skip TProxy related parts in all tests.")
+
+	flag.BoolVar(&settingsFromCommandLine.SkipUserNamespace, "istio.test.skipUserNs", true,
+		"Skip user namespace related parts in all tests.")
 
 	flag.BoolVar(&settingsFromCommandLine.Ambient, "istio.test.ambient", settingsFromCommandLine.Ambient,
 		"Indicate the use of ambient mesh.")

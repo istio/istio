@@ -259,6 +259,15 @@ func (a *Agent) activeProxyConnections() (int, error) {
 		if !strings.HasPrefix(parts[0], "listener.") || strings.Contains(parts[0], "worker_") {
 			continue
 		}
+		// Skip Envoy internal listeners (envoy.bootstrap.internal_listener). These are
+		// in-process plumbing — e.g. ambient HBONE connect_originate / connect_terminate /
+		// main_internal — with no client-facing semantics. Their downstream_cx_active counts
+		// pipe connections from other filter chains and stays positive as long as the
+		// upstream HBONE pool holds any tunnel open, which would otherwise prevent
+		// EXIT_ON_ZERO_ACTIVE_CONNECTIONS from ever firing on ambient gateways and waypoints.
+		if strings.HasPrefix(parts[0], "listener.envoy_internal_") {
+			continue
+		}
 		// If the stat is for a known Istio listener skip it.
 		if a.knownIstioListeners.Contains(parts[0]) {
 			continue

@@ -26,7 +26,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gatewayalpha "sigs.k8s.io/gateway-api/apis/v1alpha2"
 
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
 	"istio.io/istio/pilot/pkg/config/kube/gatewaycommon"
@@ -53,7 +52,6 @@ type RouteContext struct {
 type RouteContextInputs struct {
 	Grants         gatewaycommon.ReferenceGrants
 	RouteParents   RouteParents
-	ControllerName string
 	DomainSuffix   string
 	Services       krt.Collection[*corev1.Service]
 	Namespaces     krt.Collection[*corev1.Namespace]
@@ -109,15 +107,22 @@ func gatewayRouteAttachmentCountCollection[T controllers.Object](
 
 		parentRefs := extractParentReferenceInfo(ctx, inputs.RouteParents, obj)
 		return slices.MapFilter(FilteredReferences(parentRefs), func(e RouteParentReference) **RouteAttachment {
+			// For Gateway/ListenerSet parentRefs, use ParentKey directly.
+			// For Service/ServiceEntry parentRefs (waypoint routes), use ParentGateway
+			// which is the resolved waypoint gateway.
+			to := types.NamespacedName{
+				Name:      e.ParentKey.Name,
+				Namespace: e.ParentKey.Namespace,
+			}
 			if e.ParentKey.Kind != gvk.KubernetesGateway.Kubernetes() && e.ParentKey.Kind != gvk.ListenerSet.Kubernetes() {
-				return nil
+				if e.ParentGateway == (types.NamespacedName{}) {
+					return nil
+				}
+				to = e.ParentGateway
 			}
 			return ptr.Of(&RouteAttachment{
-				From: from,
-				To: types.NamespacedName{
-					Name:      e.ParentKey.Name,
-					Namespace: e.ParentKey.Namespace,
-				},
+				From:         from,
+				To:           to,
 				ListenerName: string(e.ParentSection),
 			})
 		})
@@ -129,7 +134,7 @@ func AgwRouteCollection(
 	queue *status.StatusCollections,
 	httpRouteCol krt.Collection[*gatewayv1.HTTPRoute],
 	grpcRouteCol krt.Collection[*gatewayv1.GRPCRoute],
-	tcpRouteCol krt.Collection[*gatewayalpha.TCPRoute],
+	tcpRouteCol krt.Collection[*gatewayv1.TCPRoute],
 	tlsRouteCol krt.Collection[*gatewayv1.TLSRoute],
 	inputs RouteContextInputs,
 	tagWatcher krt.RecomputeProtected[revisions.TagWatcher],
@@ -182,7 +187,7 @@ func AgwRouteCollection(
 
 	// Create TCPRoutes collection
 	tcpRouteStatus, tcpRoutes := createTCPRouteCollection(tcpRouteCol, inputs, krtopts, "TCPRoutes",
-		func(ctx RouteContext, obj *gatewayalpha.TCPRoute) (RouteContext, iter.Seq2[AgwTCPRoute, *Condition]) {
+		func(ctx RouteContext, obj *gatewayv1.TCPRoute) (RouteContext, iter.Seq2[AgwTCPRoute, *Condition]) {
 			route := obj.Spec
 			return ctx, func(yield func(AgwTCPRoute, *Condition) bool) {
 				for n, r := range route.Rules {
@@ -193,8 +198,8 @@ func AgwRouteCollection(
 					}
 				}
 			}
-		}, func(status gatewayv1.RouteStatus) gatewayalpha.TCPRouteStatus {
-			return gatewayalpha.TCPRouteStatus{RouteStatus: status}
+		}, func(status gatewayv1.RouteStatus) gatewayv1.TCPRouteStatus {
+			return gatewayv1.TCPRouteStatus{RouteStatus: status}
 		})
 	status.RegisterStatus(queue, tcpRouteStatus, GetStatus, tagWatcher.AccessUnprotected())
 
@@ -218,7 +223,6 @@ func AgwRouteCollection(
 
 	// Join all the route types into a single collection
 	routes := krt.JoinCollection([]krt.Collection[AgwResource]{httpRoutes, grpcRoutes, tcpRoutes, tlsRoutes}, krtopts.WithName("ADPRoutes")...)
-
 	routeAttachments := krt.JoinCollection([]krt.Collection[*RouteAttachment]{
 		gatewayRouteAttachmentCountCollection(inputs, httpRouteCol, gvk.HTTPRoute, krtopts),
 		gatewayRouteAttachmentCountCollection(inputs, grpcRouteCol, gvk.GRPCRoute, krtopts),
@@ -330,7 +334,6 @@ func ToResourceForGateway(gw types.NamespacedName, resource any) AgwResource {
 	}
 }
 
-// TODO(jaellio): Handle Route conditions
 // ProcessParentReferences processes filtered parent references and builds resources per gateway.
 // It emits exactly one ParentStatus per Gateway (aggregate across listeners).
 // If no listeners are allowed, the Accepted reason is:
@@ -443,9 +446,10 @@ func createRouteCollectionGeneric[T controllers.Object, R comparable, ST any](
 				OriginalReference: r.OriginalReference,
 				DeniedReason:      r.DeniedReason,
 				RouteError:        gwResult.Error,
+				ControllerName:    gatewaycommon.GetControllerForAgentgatewayClass(r.ParentGatewayClassName),
 			}
 		})
-		parents := createRouteStatus(rpResults, obj.GetNamespace(), obj.GetGeneration(), inputs.ControllerName, GetCommonRouteStateParents(obj))
+		parents := createRouteStatus(rpResults, obj.GetNamespace(), obj.GetGeneration(), GetCommonRouteStateParents(obj))
 		routeStatus := gatewayv1.RouteStatus{Parents: parents}
 		return ptr.Of(buildStatus(routeStatus)), resources
 	}, krtopts.WithName(collectionName)...)

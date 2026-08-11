@@ -31,6 +31,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cespare/xxhash/v2"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/protobuf/proto"
@@ -161,8 +162,19 @@ func (s *Service) SupportsDrainingEndpoints() bool {
 		(features.PersistentSessionHeaderLabel != "" && s.Attributes.Labels[features.PersistentSessionHeaderLabel] != "")
 }
 
-// SupportsUnhealthyEndpoints marks if this service should send unhealthy endpoints
+// SupportsUnhealthyEndpoints marks if this service should send unhealthy endpoints.
 func (s *Service) SupportsUnhealthyEndpoints() bool {
+	if features.DefaultSendUnhealthyEndpoints.Load() {
+		return true
+	}
+	if s.ForcesSupportUnhealthyEndpoints() {
+		return true
+	}
+	return false
+}
+
+// ForcesSupportUnhealthyEndpoints marks if this service should always send unhealthy endpoints.
+func (s *Service) ForcesSupportUnhealthyEndpoints() bool {
 	if features.GlobalSendUnhealthyEndpoints.Load() {
 		// Enable process-wide
 		return true
@@ -736,7 +748,22 @@ type ServiceAttributes struct {
 	Labels map[string]string
 	// ExportTo defines the visibility of Service in
 	// a namespace when the namespace is imported.
+	//
+	// WARNING: reading ExportTo directly is visibility-unsafe. When
+	// MeshConfig.serviceEntryVisibility.applyToSidecars is set, the effective scoping is the
+	// intersection of ExportTo and Visibility (below); ExportTo alone can over-expose a service.
+	// Consult effective scoping via PushContext.serviceExportTo / IsServiceVisible instead.
 	ExportTo sets.Set[visibility.Instance]
+
+	// Visibility is the scope resolved from MeshConfig.serviceEntryVisibility for a ServiceEntry
+	// (Public for everything else / when unset). It caps ExportTo when applyToSidecars is enabled;
+	// see PushContext.serviceExportTo. The zero value is Public (legacy behavior).
+	//
+	// WARNING: do not read this raw for scoping — it must be combined with ExportTo via
+	// PushContext.serviceExportTo / IsServiceVisible, or a service can be over-exposed. It stays
+	// exported only because ServiceAttributes is compared with go-cmp across the codebase, which
+	// panics on unexported fields; treat it as read-only outside the ServiceEntry conversion.
+	Visibility ServiceVisibility
 
 	// LabelSelectors are the labels used by the service to select workloads.
 	// Applicable to both Kubernetes and ServiceEntries.
@@ -902,7 +929,8 @@ func (s *ServiceAttributes) DeepCopy() ServiceAttributes {
 // Equals checks whether the attributes are equal from the passed in service.
 func (s *ServiceAttributes) Equals(other *ServiceAttributes) bool {
 	eql := s.Name == other.Name && s.Namespace == other.Namespace &&
-		s.ServiceRegistry == other.ServiceRegistry && s.K8sAttributes == other.K8sAttributes
+		s.ServiceRegistry == other.ServiceRegistry && s.K8sAttributes == other.K8sAttributes &&
+		s.Visibility == other.Visibility
 	if !eql {
 		return false
 	}
@@ -938,12 +966,12 @@ func (s *ServiceAttributes) Equals(other *ServiceAttributes) bool {
 	}
 
 	for k, v1 := range s.ClusterExternalPorts {
-		if v2, ok := s.ClusterExternalPorts[k]; !ok || !maps.Equal(v1, v2) {
+		if v2, ok := other.ClusterExternalPorts[k]; !ok || !maps.Equal(v1, v2) {
 			return false
 		}
 	}
 
-	return true
+	return maps.Equal(s.PassthroughTargetPorts, other.PassthroughTargetPorts)
 }
 
 // ServiceDiscovery enumerates Istio service instances.
@@ -1054,6 +1082,45 @@ func waypointKeyForProxy(node *Proxy, externalAddresses bool) WaypointKey {
 	return key
 }
 
+// WaypointReference identifies the waypoint a service or workload is attached to, mirroring
+// workloadapi.GatewayAddress: either by namespaced hostname or by network address.
+type WaypointReference struct {
+	// Namespace and Hostname are set for hostname-based references.
+	Namespace string
+	Hostname  string
+	// Network and Address are set for address-based references.
+	Network string
+	Address string
+}
+
+// WaypointReferenceFromGatewayAddress converts a workloadapi waypoint reference, returning
+// false if there is no reference or it has no usable destination.
+func WaypointReferenceFromGatewayAddress(addr *workloadapi.GatewayAddress) (WaypointReference, bool) {
+	switch d := addr.GetDestination().(type) {
+	case *workloadapi.GatewayAddress_Hostname:
+		return WaypointReference{Namespace: d.Hostname.Namespace, Hostname: d.Hostname.Hostname}, true
+	case *workloadapi.GatewayAddress_Address:
+		ip, ok := netip.AddrFromSlice(d.Address.Address)
+		if !ok {
+			return WaypointReference{}, false
+		}
+		return WaypointReference{Network: d.Address.Network, Address: ip.String()}, true
+	}
+	return WaypointReference{}, false
+}
+
+// Matches reports whether the referenced waypoint is the one identified by key.
+// This mirrors the hostname and address lookups used by the ambient index's
+// ServicesForWaypoint/WorkloadsForWaypoint.
+func (ref WaypointReference) Matches(key WaypointKey) bool {
+	if ref.Hostname != "" {
+		return ref.Namespace == key.Namespace && slices.Contains(key.Hostnames, ref.Hostname)
+	}
+	return ref.Network == key.Network && slices.Contains(key.Addresses, ref.Address)
+}
+
+var _ AmbientIndexes = NoopAmbientIndexes{}
+
 // NoopAmbientIndexes provides an implementation of AmbientIndexes that always returns nil, to easily "skip" it.
 type NoopAmbientIndexes struct{}
 
@@ -1098,6 +1165,23 @@ var _ AmbientIndexes = NoopAmbientIndexes{}
 type AddressInfo struct {
 	*workloadapi.Address
 	Marshaled *anypb.Any
+	// Version is a content-based hash of Marshaled, sent as the resource version over WDS.
+	// Clients echo it back in InitialResourceVersions on reconnect, letting the server skip
+	// resources the client already has; hashing the content keeps versions consistent across
+	// istiod replicas. Empty when no pre-marshaled form exists, in which case the resource is
+	// never skipped.
+	Version string
+}
+
+// NewAddressInfo builds an AddressInfo from an Address, pre-marshaling it and computing the
+// content-based Version.
+func NewAddressInfo(addr *workloadapi.Address) AddressInfo {
+	marshaled := protoconv.MessageToAny(addr)
+	return AddressInfo{
+		Address:   addr,
+		Marshaled: marshaled,
+		Version:   strconv.FormatUint(xxhash.Sum64(marshaled.Value), 16),
+	}
 }
 
 func (i AddressInfo) Equals(other AddressInfo) bool {
@@ -1144,6 +1228,15 @@ type ServiceWaypointInfo struct {
 	Service            *workloadapi.Service
 	IngressUseWaypoint bool
 	WaypointHostname   string
+	// WeightedWaypoints is set only for canary waypoint routing; otherwise use WaypointHostname.
+	WeightedWaypoints []WeightedWaypointHostname
+}
+
+// WeightedWaypointHostname is a resolved waypoint plus its relative traffic weight.
+type WeightedWaypointHostname struct {
+	Hostname      string
+	HboneMtlsPort uint32
+	Weight        uint32
 }
 
 type TypedObject struct {
@@ -1179,6 +1272,10 @@ type ServiceInfo struct {
 	// CreationTime is the time when the service was created. Note this is used internally only
 	// for conflict resolution.
 	CreationTime time.Time
+	// VisibilityConfigured reports whether MeshConfig.serviceEntryVisibility was set. Used internally
+	// only, to gate the VisibilityApplied status; the status value itself comes from Service.Visibility
+	// so it always reflects what the dataplane received.
+	VisibilityConfigured bool
 }
 
 func (i ServiceInfo) GetLabelSelector() map[string]string {
@@ -1226,8 +1323,16 @@ const (
 	// It is used to inform the user that the ServiceEntry will not be active until it is bound to a waypoint.
 	WaypointMissing ConditionType = "istio.io/WaypointMissing"
 
+	// VisibilityApplied reports the visibility resolved for a ServiceEntry from
+	// MeshConfig.serviceEntryVisibility. Status is always true (informational); Reason carries the
+	// resolved value (VisibilityPublic / VisibilityNamespace).
+	VisibilityApplied ConditionType = "istio.io/VisibilityApplied"
+
 	NoWaypointForWildcardService          string = "NoWaypointForWildcardService"
 	NoWaypointForConnectStrategyCondition string = "NoWaypointForRacingConnectStrategy"
+
+	VisibilityPublic    string = "Public"
+	VisibilityNamespace string = "Namespace"
 )
 
 type ConditionSet = map[ConditionType]*Condition
@@ -1276,6 +1381,13 @@ func (i ServiceInfo) GetConditions(currentConditions map[string]Condition) Condi
 			buildMsg.WriteString(". Ingress traffic is not using the waypoint, set the istio.io/ingress-use-waypoint label to true if desired.")
 		}
 
+		// The primary is bound; an Error here is a canary failure. Surface it while keeping the
+		// service bound, since traffic still flows through the primary waypoint.
+		if i.Waypoint.Error != nil {
+			buildMsg.WriteString(". Canary waypoint not attached: ")
+			buildMsg.WriteString(i.Waypoint.Error.Message)
+		}
+
 		set[WaypointBound] = &Condition{
 			Status:  true,
 			Reason:  string(WaypointAccepted),
@@ -1304,6 +1416,28 @@ func (i ServiceInfo) GetConditions(currentConditions map[string]Condition) Condi
 			set[WaypointMissing] = &Condition{
 				Status:  true,
 				Reason:  NoWaypointForConnectStrategyCondition,
+				Message: msg,
+			}
+		}
+	}
+
+	// Surface the visibility resolved from MeshConfig.serviceEntryVisibility, only for ServiceEntry
+	// sources and only when the feature is configured (ResolvedVisibility non-nil) -- otherwise prune,
+	// so an unset mesh does not stamp a condition on every ServiceEntry. The value is uniform across a
+	// ServiceEntry's hosts today, so this host-independent condition is idempotent across the per-host
+	// ServiceInfos that target the same object.
+	if i.Source.Kind == kind.ServiceEntry {
+		set[VisibilityApplied] = nil
+		if i.VisibilityConfigured {
+			reason, msg := VisibilityPublic, "ServiceEntry is visible to the entire mesh (PUBLIC)."
+			if i.Service.GetVisibility() == workloadapi.Service_NAMESPACE {
+				reason = VisibilityNamespace
+				msg = "ServiceEntry is visible only within its own namespace (NAMESPACE), " +
+					"per mesh serviceEntryVisibility."
+			}
+			set[VisibilityApplied] = &Condition{
+				Status:  true,
+				Reason:  reason,
 				Message: msg,
 			}
 		}
@@ -1354,11 +1488,17 @@ func (i ServiceInfo) Equals(other ServiceInfo) bool {
 		i.Source == other.Source &&
 		i.DNSConnectStrategy == other.DNSConnectStrategy &&
 		i.Scope == other.Scope &&
-		i.Waypoint.Equals(other.Waypoint)
+		i.Waypoint.Equals(other.Waypoint) &&
+		i.VisibilityConfigured == other.VisibilityConfigured
 }
 
 func (i ServiceInfo) ResourceName() string {
 	return serviceResourceName(i.Service)
+}
+
+// WaypointRef returns the waypoint this service is attached to, if any.
+func (i ServiceInfo) WaypointRef() *workloadapi.GatewayAddress {
+	return i.Service.GetWaypoint()
 }
 
 func serviceResourceName(s *workloadapi.Service) string {
@@ -1443,6 +1583,11 @@ func (i WorkloadInfo) GetConditions(currentConditions map[string]Condition) Cond
 
 func (i WorkloadInfo) ResourceName() string {
 	return workloadResourceName(i.Workload)
+}
+
+// WaypointRef returns the waypoint this workload is attached to, if any.
+func (i WorkloadInfo) WaypointRef() *workloadapi.GatewayAddress {
+	return i.Workload.GetWaypoint()
 }
 
 type WaypointPolicyStatus struct {

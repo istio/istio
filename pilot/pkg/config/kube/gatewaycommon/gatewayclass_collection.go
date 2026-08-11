@@ -25,6 +25,23 @@ type GatewayClass struct {
 	Controller gatewayv1.GatewayController
 }
 
+// GatewayClassFetcher resolves a GatewayClass for conflict and status processing.
+type GatewayClassFetcher func(ctx krt.HandlerContext, gc gatewayv1.ObjectName) *GatewayClass
+
+// FetchGatewayClassFetcher returns a fetcher for GatewayClasses handled by the Istio gateway controller.
+func FetchGatewayClassFetcher(gatewayClasses krt.Collection[GatewayClass]) GatewayClassFetcher {
+	return func(ctx krt.HandlerContext, gc gatewayv1.ObjectName) *GatewayClass {
+		return FetchGatewayClass(ctx, gatewayClasses, gc)
+	}
+}
+
+// FetchAgentgatewayClassFetcher returns a fetcher for GatewayClasses handled by the agentgateway controller.
+func FetchAgentgatewayClassFetcher(gatewayClasses krt.Collection[GatewayClass]) GatewayClassFetcher {
+	return func(ctx krt.HandlerContext, gc gatewayv1.ObjectName) *GatewayClass {
+		return FetchAgentgatewayClass(ctx, gatewayClasses, gc)
+	}
+}
+
 func (g GatewayClass) ResourceName() string {
 	return g.Name
 }

@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+  - |
+    **Fixed** an issue where proxy draining could panic instead of returning an error when the Envoy admin endpoint was unavailable.

@@ -23,11 +23,11 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
-	gatewayalpha "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayx "sigs.k8s.io/gateway-api/apisx/v1alpha1"
 
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
@@ -48,6 +48,18 @@ func InternalRouteRuleKey(routeNamespace, routeName, ruleName string) string {
 		return fmt.Sprintf("%s/%s", routeNamespace, routeName)
 	}
 	return fmt.Sprintf("%s/%s.%s", routeNamespace, routeName, ruleName)
+}
+
+// internalL4RouteRuleKey returns the data-plane key for a TCPRoute/TLSRoute rule, prefixed with the
+// route's creation timestamp (fixed-width Unix seconds). The data plane sorts L4 routes by key and
+// picks the first, so this makes the oldest route win conflict resolution on a shared listener.
+func internalL4RouteRuleKey(obj controllers.Object, pos int) string {
+	key := InternalRouteRuleKey(obj.GetNamespace(), obj.GetName(), strconv.Itoa(pos))
+	created := obj.GetCreationTimestamp()
+	if created.IsZero() {
+		return key
+	}
+	return fmt.Sprintf("%010d/%s", created.Unix(), key)
 }
 
 // RouteName constructs the RouteName for a route rule, including the rule name if specified
@@ -305,13 +317,12 @@ func ConvertGRPCRouteToAgw(ctx RouteContext, r gatewayv1.GRPCRouteRule,
 }
 
 // ConvertTCPRouteToAgw converts a TCPRouteRule to an agentgateway TCPRoute
-func ConvertTCPRouteToAgw(ctx RouteContext, r gatewayalpha.TCPRouteRule,
-	obj *gatewayalpha.TCPRoute, pos int,
+func ConvertTCPRouteToAgw(ctx RouteContext, r gatewayv1.TCPRouteRule,
+	obj *gatewayv1.TCPRoute, pos int,
 ) (*api.TCPRoute, *Condition) {
-	routeRuleKey := strconv.Itoa(pos)
 	res := &api.TCPRoute{
 		// unique for route rule
-		Key:         InternalRouteRuleKey(obj.Namespace, obj.Name, routeRuleKey),
+		Key:         internalL4RouteRuleKey(obj, pos),
 		Name:        RouteName(gvk.TCPRoute.Kind, obj.Namespace, obj.Name, r.Name),
 		ListenerKey: "",
 	}
@@ -332,10 +343,9 @@ func ConvertTCPRouteToAgw(ctx RouteContext, r gatewayalpha.TCPRouteRule,
 func ConvertTLSRouteToAgw(ctx RouteContext, r gatewayv1.TLSRouteRule,
 	obj *gatewayv1.TLSRoute, pos int,
 ) (*api.TCPRoute, *Condition) {
-	routeRuleKey := strconv.Itoa(pos)
 	res := &api.TCPRoute{
 		// unique for route rule
-		Key:         InternalRouteRuleKey(obj.Namespace, obj.Name, routeRuleKey),
+		Key:         internalL4RouteRuleKey(obj, pos),
 		Name:        RouteName(gvk.TLSRoute.Kind, obj.Namespace, obj.Name, r.Name),
 		ListenerKey: "",
 	}
@@ -360,7 +370,7 @@ func ConvertTLSRouteToAgw(ctx RouteContext, r gatewayv1.TLSRouteRule,
 // GetStatus extracts the status from a route or gateway resource.
 func GetStatus[I, IS any](spec I) IS {
 	switch t := any(spec).(type) {
-	case *gatewayalpha.TCPRoute:
+	case *gatewayv1.TCPRoute:
 		return any(t.Status).(IS)
 	case *gatewayv1.TLSRoute:
 		return any(t.Status).(IS)
@@ -389,7 +399,7 @@ func GetStatus[I, IS any](spec I) IS {
 // GetCommonRouteInfo extracts parent references, hostnames, and GVK from a route resource.
 func GetCommonRouteInfo(spec any) ([]gatewayv1.ParentReference, []gatewayv1.Hostname, config.GroupVersionKind) {
 	switch t := spec.(type) {
-	case *gatewayalpha.TCPRoute:
+	case *gatewayv1.TCPRoute:
 		return t.Spec.ParentRefs, nil, gvk.TCPRoute
 	case *gatewayv1.TLSRoute:
 		return t.Spec.ParentRefs, t.Spec.Hostnames, gvk.TLSRoute

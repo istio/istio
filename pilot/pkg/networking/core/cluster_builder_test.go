@@ -1229,7 +1229,7 @@ func TestBuildDefaultCluster(t *testing.T) {
 				Name:                 "foo",
 				AltStatName:          "foo;",
 				ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS},
-				CommonLbConfig:       &cluster.Cluster_CommonLbConfig{},
+				CommonLbConfig:       &cluster.Cluster_CommonLbConfig{HealthyPanicThreshold: &xdstype.Percent{Value: 0}},
 				ConnectTimeout:       &durationpb.Duration{Seconds: 10, Nanos: 1},
 				CircuitBreakers: &cluster.CircuitBreakers{
 					Thresholds: []*cluster.CircuitBreakers_Thresholds{getDefaultCircuitBreakerThresholds()},
@@ -1286,7 +1286,7 @@ func TestBuildDefaultCluster(t *testing.T) {
 				Name:                 "foo.bar.com",
 				AltStatName:          "foo.bar.com;",
 				ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS},
-				CommonLbConfig:       &cluster.Cluster_CommonLbConfig{},
+				CommonLbConfig:       &cluster.Cluster_CommonLbConfig{HealthyPanicThreshold: &xdstype.Percent{Value: 0}},
 				ConnectTimeout:       &durationpb.Duration{Seconds: 10, Nanos: 1},
 				CircuitBreakers: &cluster.CircuitBreakers{
 					Thresholds: []*cluster.CircuitBreakers_Thresholds{getDefaultCircuitBreakerThresholds()},
@@ -1374,7 +1374,7 @@ func TestBuildDefaultCluster(t *testing.T) {
 				Name:                 "foo",
 				AltStatName:          "foo;",
 				ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_STATIC},
-				CommonLbConfig:       &cluster.Cluster_CommonLbConfig{},
+				CommonLbConfig:       &cluster.Cluster_CommonLbConfig{HealthyPanicThreshold: &xdstype.Percent{Value: 0}},
 				ConnectTimeout:       &durationpb.Duration{Seconds: 10, Nanos: 1},
 				Filters:              []*cluster.Filter{xdsfilters.TCPClusterMx},
 				LbPolicy:             defaultLBAlgorithm(),

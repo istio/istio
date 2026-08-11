@@ -82,7 +82,13 @@ func tlsModeForDestinationRule(drc *config.Config, subset string, port int) *net
 		if ss.Name != subset {
 			continue
 		}
-		return trafficPolicyTLSModeForPort(ss.GetTrafficPolicy(), port)
+
+		if mode := trafficPolicyTLSModeForPort(ss.GetTrafficPolicy(), port); mode != nil {
+			return mode
+		}
+
+		// fallback to the destination rule traffic policy if the subset does not have a TLS mode for this port
+		return trafficPolicyTLSModeForPort(dr.GetTrafficPolicy(), port)
 	}
 	return nil
 }

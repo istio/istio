@@ -3,7 +3,7 @@ apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
   name: istio-ingress
-  namespace: istio-ingress
+  namespace: "istio-ingress"
   labels:
     app.kubernetes.io/name: istio-ingress
     app.kubernetes.io/managed-by: "Helm"

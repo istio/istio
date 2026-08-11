@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+  - 60239
+releaseNotes:
+- |
+  **Fixed** Helm chart rendering when `global.istioNamespace` or the release namespace is numeric-only (for example, `1234`). Namespace fields in rendered manifests are now quoted so YAML parsers treat them as strings instead of numbers.

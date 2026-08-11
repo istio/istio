@@ -1,0 +1,21 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+
+releaseNotes:
+  - |
+    **Added** support for Envoy's zone-aware load balancing via a new `zoneAwareLbSetting` field
+    on `DestinationRule.TrafficPolicy.LoadBalancerSettings` and `MeshConfig`. When enabled, Envoy
+    automatically routes traffic to endpoints in the same availability zone as the downstream proxy,
+    spilling over to other zones only when local capacity is insufficient. This differs from the
+    existing `localityLbSetting` in that zone-level routing is handled automatically
+    by Envoy using the proxy's zone distribution, rather than through static percentages.
+    Cross-region failover ordering can be configured via the `failover` field, and label-based
+    priority tiers can be layered on top via `failoverPriority`. Zone-aware load balancing requires
+    `ISTIO_META_ENABLE_SELF_DISCOVERY: "true"` in `meshConfig.defaultConfig.proxyMetadata` to
+    inject the self-discovery `local_cluster` into sidecar bootstraps. It is not supported in Ambient,
+    only Sidecar mode.
+
+docs:
+  - '[reference] https://istio.io/latest/docs/reference/config/networking/destination-rule/#ZoneAwareLoadBalancerSetting'
+  - '[reference] https://istio.io/latest/docs/reference/config/istio.mesh.v1alpha1/#MeshConfig'

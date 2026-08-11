@@ -188,6 +188,26 @@ func (this *Service) EqualVT(that *Service) bool {
 	if this.IngressUseWaypoint != that.IngressUseWaypoint {
 		return false
 	}
+	if len(this.WeightedWaypoints) != len(that.WeightedWaypoints) {
+		return false
+	}
+	for i, vx := range this.WeightedWaypoints {
+		vy := that.WeightedWaypoints[i]
+		if p, q := vx, vy; p != q {
+			if p == nil {
+				p = &WeightedWaypoint{}
+			}
+			if q == nil {
+				q = &WeightedWaypoint{}
+			}
+			if !p.EqualVT(q) {
+				return false
+			}
+		}
+	}
+	if this.Visibility != that.Visibility {
+		return false
+	}
 	return string(this.unknownFields) == string(that.unknownFields)
 }
 
@@ -552,6 +572,28 @@ func (this *GatewayAddress_Address) EqualVT(thatIface isGatewayAddress_Destinati
 	return true
 }
 
+func (this *WeightedWaypoint) EqualVT(that *WeightedWaypoint) bool {
+	if this == that {
+		return true
+	} else if this == nil || that == nil {
+		return false
+	}
+	if !this.Destination.EqualVT(that.Destination) {
+		return false
+	}
+	if this.Weight != that.Weight {
+		return false
+	}
+	return string(this.unknownFields) == string(that.unknownFields)
+}
+
+func (this *WeightedWaypoint) EqualMessageVT(thatMsg proto.Message) bool {
+	that, ok := thatMsg.(*WeightedWaypoint)
+	if !ok {
+		return false
+	}
+	return this.EqualVT(that)
+}
 func (this *NetworkAddress) EqualVT(that *NetworkAddress) bool {
 	if this == that {
 		return true
@@ -743,6 +785,23 @@ func (m *Service) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
 	if m.unknownFields != nil {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
+	}
+	if m.Visibility != 0 {
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(m.Visibility))
+		i--
+		dAtA[i] = 0x70
+	}
+	if len(m.WeightedWaypoints) > 0 {
+		for iNdEx := len(m.WeightedWaypoints) - 1; iNdEx >= 0; iNdEx-- {
+			size, err := m.WeightedWaypoints[iNdEx].MarshalToSizedBufferVTStrict(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+			i--
+			dAtA[i] = 0x6a
+		}
 	}
 	if m.IngressUseWaypoint {
 		i--
@@ -1483,6 +1542,54 @@ func (m *GatewayAddress_Address) MarshalToSizedBufferVTStrict(dAtA []byte) (int,
 	}
 	return len(dAtA) - i, nil
 }
+func (m *WeightedWaypoint) MarshalVTStrict() (dAtA []byte, err error) {
+	if m == nil {
+		return nil, nil
+	}
+	size := m.SizeVT()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBufferVTStrict(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *WeightedWaypoint) MarshalToVTStrict(dAtA []byte) (int, error) {
+	size := m.SizeVT()
+	return m.MarshalToSizedBufferVTStrict(dAtA[:size])
+}
+
+func (m *WeightedWaypoint) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
+	if m == nil {
+		return 0, nil
+	}
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.unknownFields != nil {
+		i -= len(m.unknownFields)
+		copy(dAtA[i:], m.unknownFields)
+	}
+	if m.Weight != 0 {
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(m.Weight))
+		i--
+		dAtA[i] = 0x10
+	}
+	if m.Destination != nil {
+		size, err := m.Destination.MarshalToSizedBufferVTStrict(dAtA[:i])
+		if err != nil {
+			return 0, err
+		}
+		i -= size
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(size))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
 func (m *NetworkAddress) MarshalVTStrict() (dAtA []byte, err error) {
 	if m == nil {
 		return nil, nil
@@ -1731,6 +1838,15 @@ func (m *Service) SizeVT() (n int) {
 	}
 	if m.IngressUseWaypoint {
 		n += 2
+	}
+	if len(m.WeightedWaypoints) > 0 {
+		for _, e := range m.WeightedWaypoints {
+			l = e.SizeVT()
+			n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+		}
+	}
+	if m.Visibility != 0 {
+		n += 1 + protohelpers.SizeOfVarint(uint64(m.Visibility))
 	}
 	n += len(m.unknownFields)
 	return n
@@ -2000,6 +2116,23 @@ func (m *GatewayAddress_Address) SizeVT() (n int) {
 	}
 	return n
 }
+func (m *WeightedWaypoint) SizeVT() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Destination != nil {
+		l = m.Destination.SizeVT()
+		n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
+	}
+	if m.Weight != 0 {
+		n += 1 + protohelpers.SizeOfVarint(uint64(m.Weight))
+	}
+	n += len(m.unknownFields)
+	return n
+}
+
 func (m *NetworkAddress) SizeVT() (n int) {
 	if m == nil {
 		return 0

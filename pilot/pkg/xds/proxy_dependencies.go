@@ -17,6 +17,7 @@ package xds
 import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/util/sets"
@@ -43,10 +44,20 @@ func filterRelevantUpdates(proxy *model.Proxy, req *model.PushRequest) *model.Pu
 	for config := range req.ConfigsUpdated {
 		if proxyDependentOnConfig(proxy, config, req.Push) {
 			relevantUpdates.Insert(config)
-		} else {
-			// we have filtered out a config
-			changed = true
+			continue
 		}
+		// if proxy enables self-discovery, we need to always include LocalService related configs.
+		// we can avoid this elsewhere to avoid unnecessary proxy pushes.
+		if proxy.Metadata.EnableSelfDiscovery && (config.Kind == kind.ServiceEntry || config.Kind == kind.Endpoints) {
+			if (config.Name == proxy.PrevLocalService.Name && config.Namespace == proxy.PrevLocalService.Namespace) ||
+				(config.Name == proxy.LocalService.Name && config.Namespace == proxy.LocalService.Namespace) {
+				relevantUpdates.Insert(config)
+				continue
+			}
+		}
+
+		// we have filtered out a config
+		changed = true
 	}
 
 	// If the proxy's service updated, need push for it.
@@ -76,6 +87,12 @@ func proxyDependentOnConfig(proxy *model.Proxy, config model.ConfigKey, push *mo
 	// Skip config dependency check based on proxy type for certain configs.
 	if UnAffectedConfigKinds[proxy.Type].Contains(config.Kind) {
 		return false
+	}
+	// Ambient Address updates only matter to proxies subscribed to Workload Address resources;
+	// anything sidecars and gateways need from those changes is surfaced as ServiceEntry or
+	// Endpoints updates.
+	if features.ScopedAddressPushes && config.Kind == kind.Address {
+		return proxy.GetWatchedResource(v3.AddressType) != nil
 	}
 	// Detailed config dependencies check.
 	switch proxy.Type {

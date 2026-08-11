@@ -19,12 +19,14 @@ import (
 	"net/netip"
 	"reflect"
 	"testing"
+	"time"
 
 	matcher "github.com/cncf/xds/go/xds/type/matcher/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 	"k8s.io/apimachinery/pkg/types"
@@ -1584,5 +1586,112 @@ func TestDFPHTTPFilterInjectedInOutboundHCM(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+func TestBuildHTTPConnectionManagerWithConnectionSettings(t *testing.T) {
+	tests := []struct {
+		name          string
+		cs            *meshconfig.ProxyConfig_ConnectionSettings
+		nodeType      model.NodeType
+		pathNormalize *meshconfig.MeshConfig_ProxyPathNormalization
+		verify        func(t *testing.T, cm *hcm.HttpConnectionManager)
+	}{
+		{
+			name: "EDGE profile on gateway applies all defaults",
+			cs: &meshconfig.ProxyConfig_ConnectionSettings{
+				Profile: meshconfig.ProxyConfig_ConnectionSettings_EDGE,
+			},
+			nodeType: model.Router,
+			verify: func(t *testing.T, cm *hcm.HttpConnectionManager) {
+				assert.Equal(t, int64(300), cm.StreamIdleTimeout.GetSeconds())
+				assert.Equal(t, int64(300), cm.RequestTimeout.GetSeconds())
+				assert.Equal(t, int64(3600), cm.CommonHttpProtocolOptions.IdleTimeout.GetSeconds())
+				assert.Equal(t, true, cm.MergeSlashes)
+				assert.Equal(t, hcm.HttpConnectionManager_UNESCAPE_AND_REDIRECT, cm.PathWithEscapedSlashesAction)
+				assert.Equal(t, uint32(100), cm.Http2ProtocolOptions.MaxConcurrentStreams.GetValue())
+				assert.Equal(t, core.HttpProtocolOptions_REJECT_REQUEST, cm.CommonHttpProtocolOptions.HeadersWithUnderscoresAction)
+			},
+		},
+		{
+			name: "EDGE profile on sidecar does not apply defaults",
+			cs: &meshconfig.ProxyConfig_ConnectionSettings{
+				Profile: meshconfig.ProxyConfig_ConnectionSettings_EDGE,
+			},
+			nodeType: model.SidecarProxy,
+			verify: func(t *testing.T, cm *hcm.HttpConnectionManager) {
+				// StreamIdleTimeout should be the default 0s, not the EDGE 300s
+				assert.Equal(t, time.Duration(0), cm.StreamIdleTimeout.AsDuration())
+				assert.Equal(t, (*core.Http2ProtocolOptions)(nil), cm.Http2ProtocolOptions)
+			},
+		},
+		{
+			name: "explicit values on sidecar are applied",
+			cs: &meshconfig.ProxyConfig_ConnectionSettings{
+				Profile:               meshconfig.ProxyConfig_ConnectionSettings_SIDECAR,
+				HttpStreamIdleTimeout: durationpb.New(600 * time.Second),
+				HttpMergeSlashes:      &wrapperspb.BoolValue{Value: true},
+			},
+			nodeType: model.SidecarProxy,
+			verify: func(t *testing.T, cm *hcm.HttpConnectionManager) {
+				assert.Equal(t, int64(600), cm.StreamIdleTimeout.GetSeconds())
+				assert.Equal(t, true, cm.MergeSlashes)
+			},
+		},
+		{
+			name: "explicit overrides on gateway take precedence over EDGE defaults",
+			cs: &meshconfig.ProxyConfig_ConnectionSettings{
+				Profile:               meshconfig.ProxyConfig_ConnectionSettings_EDGE,
+				HttpStreamIdleTimeout: durationpb.New(120 * time.Second),
+				HttpMergeSlashes:      &wrapperspb.BoolValue{Value: false},
+			},
+			nodeType: model.Router,
+			verify: func(t *testing.T, cm *hcm.HttpConnectionManager) {
+				// Explicit override
+				assert.Equal(t, int64(120), cm.StreamIdleTimeout.GetSeconds())
+				assert.Equal(t, false, cm.MergeSlashes)
+				// EDGE defaults still applied for unset fields
+				assert.Equal(t, int64(3600), cm.CommonHttpProtocolOptions.IdleTimeout.GetSeconds())
+				assert.Equal(t, uint32(100), cm.Http2ProtocolOptions.MaxConcurrentStreams.GetValue())
+			},
+		},
+		{
+			name: "ConnectionSettings MergeSlashes=false overrides MeshConfig MERGE_SLASHES",
+			cs: &meshconfig.ProxyConfig_ConnectionSettings{
+				HttpMergeSlashes: &wrapperspb.BoolValue{Value: false},
+			},
+			nodeType: model.SidecarProxy,
+			pathNormalize: &meshconfig.MeshConfig_ProxyPathNormalization{
+				Normalization: meshconfig.MeshConfig_ProxyPathNormalization_MERGE_SLASHES,
+			},
+			verify: func(t *testing.T, cm *hcm.HttpConnectionManager) {
+				// MeshConfig sets MergeSlashes=true, but ConnectionSettings overrides to false
+				assert.Equal(t, false, cm.MergeSlashes)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mc := mesh.DefaultMeshConfig()
+			mc.DefaultConfig.ConnectionSettings = tt.cs
+			if tt.pathNormalize != nil {
+				mc.PathNormalization = tt.pathNormalize
+			}
+			cg := NewConfigGenTest(t, TestOptions{MeshConfig: mc})
+			proxy := cg.SetupProxy(nil)
+			proxy.Type = tt.nodeType
+			proxy.Metadata.ProxyConfig = nil // Force fallback to mesh default
+			push := cg.PushContext()
+			lb := &ListenerBuilder{
+				push:               push,
+				node:               proxy,
+				connectionSettings: resolveConnectionSettings(proxy, push),
+				authzCustomBuilder: &authz.Builder{},
+				authzBuilder:       &authz.Builder{},
+			}
+			cm := lb.buildHTTPConnectionManager(&httpListenerOpts{})
+			tt.verify(t, cm)
+		})
 	}
 }

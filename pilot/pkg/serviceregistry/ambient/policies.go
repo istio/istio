@@ -42,6 +42,7 @@ func WaypointPolicyStatusCollection(
 	serviceEntries krt.Collection[*networkingclient.ServiceEntry],
 	gatewayClasses krt.Collection[*gatewayv1.GatewayClass],
 	meshConfig krt.Singleton[MeshConfig],
+	serviceEntryVisibility krt.Singleton[model.ServiceEntryVisibilityMatcher],
 	namespaces krt.Collection[*corev1.Namespace],
 	opts krt.OptionsBuilder,
 ) krt.Collection[model.WaypointPolicyStatus] {
@@ -57,8 +58,8 @@ func WaypointPolicyStatusCollection(
 				rootNs     string
 			)
 
-			if meshConfig.Get() != nil {
-				rootNs = meshConfig.Get().MeshConfig.RootNamespace
+			if meshCfg := krt.FetchOne(ctx, meshConfig.AsCollection()); meshCfg != nil {
+				rootNs = meshCfg.RootNamespace
 			}
 
 			for _, target := range targetRefs {
@@ -105,7 +106,7 @@ func WaypointPolicyStatusCollection(
 				case gvk.Service.Kind:
 					fetchedServices := krt.Fetch(ctx, services, krt.FilterKey(key))
 					if len(fetchedServices) == 1 {
-						w, _ := fetchWaypointForService(ctx, waypoints, namespaces, fetchedServices[0].ObjectMeta)
+						w, _ := fetchWaypointForService(ctx, waypoints, namespaces, nil, fetchedServices[0].ObjectMeta)
 						if w != nil {
 							bound = true
 							reason = model.WaypointPolicyReasonAccepted
@@ -121,7 +122,7 @@ func WaypointPolicyStatusCollection(
 				case gvk.ServiceEntry.Kind:
 					fetchedServiceEntries := krt.Fetch(ctx, serviceEntries, krt.FilterKey(key))
 					if len(fetchedServiceEntries) == 1 {
-						w, _ := fetchWaypointForService(ctx, waypoints, namespaces, fetchedServiceEntries[0].ObjectMeta)
+						w, _ := fetchWaypointForService(ctx, waypoints, namespaces, serviceEntryVisibility, fetchedServiceEntries[0].ObjectMeta)
 						if w != nil {
 							bound = true
 							reason = model.WaypointPolicyReasonAccepted
@@ -216,8 +217,8 @@ func PolicyCollections(
 		}
 
 		var nsPol, rootPol *securityclient.PeerAuthentication
-		nsPols := PeerAuthByNamespace.Lookup(i.GetNamespace())
-		rootPols := PeerAuthByNamespace.Lookup(meshCfg.GetRootNamespace())
+		nsPols := PeerAuthByNamespace.Fetch(ctx, i.GetNamespace())
+		rootPols := PeerAuthByNamespace.Fetch(ctx, meshCfg.GetRootNamespace())
 
 		switch len(nsPols) {
 		case 0:

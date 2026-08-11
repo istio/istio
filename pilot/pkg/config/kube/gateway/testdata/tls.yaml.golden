@@ -124,6 +124,7 @@ spec:
     tls:
       caCertCredentialName: configmap://istio-system/my-cert-http-cacert
       credentialName: kubernetes-gateway://istio-system/my-cert-http
+      insecureSkipVerify: false
       mode: MUTUAL
 ---
 apiVersion: networking.istio.io/v1
@@ -190,6 +191,7 @@ spec:
     tls:
       caCertCredentialName: configmap://istio-system/my-cert-http-cacert
       credentialName: kubernetes-gateway://istio-system/my-cert-http
+      insecureSkipVerify: false
       mode: MUTUAL
 ---
 apiVersion: networking.istio.io/v1
@@ -213,6 +215,7 @@ spec:
     tls:
       caCertCredentialName: configmap://istio-system/my-cert-http-cacert
       credentialName: kubernetes-gateway://istio-system/my-cert-http
+      insecureSkipVerify: false
       mode: MUTUAL
 ---
 apiVersion: networking.istio.io/v1
@@ -236,6 +239,7 @@ spec:
     tls:
       caCertCredentialName: configmap://istio-system/my-cert-http-cacert
       credentialName: kubernetes-gateway://istio-system/my-cert-http
+      insecureSkipVerify: false
       mode: MUTUAL
 ---
 apiVersion: networking.istio.io/v1
@@ -261,6 +265,7 @@ spec:
       credentialNames:
       - kubernetes-gateway://istio-system/my-cert-http
       - kubernetes-gateway://istio-system/my-cert-http2
+      insecureSkipVerify: false
       mode: MUTUAL
 ---
 apiVersion: networking.istio.io/v1
@@ -284,6 +289,7 @@ spec:
     tls:
       caCertCredentialName: configmap://istio-system/my-cert-http-cacert
       credentialName: kubernetes-gateway://istio-system/my-cert-http
+      insecureSkipVerify: false
       mode: OPTIONAL_MUTUAL
 ---
 apiVersion: networking.istio.io/v1

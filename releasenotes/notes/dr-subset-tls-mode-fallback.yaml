@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+  - |
+    **Fixed** an issue where endpoint mTLS mode was not derived from the DestinationRule's
+    top-level traffic policy when a targeted subset did not specify a TLS mode for the port.
+    The subset traffic policy now correctly falls back to the DestinationRule-level TLS setting.

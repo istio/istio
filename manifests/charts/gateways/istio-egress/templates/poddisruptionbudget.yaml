@@ -6,7 +6,7 @@ apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
   name: {{ $gateway.name }}
-  namespace: {{ .Release.Namespace }}
+  namespace: {{ .Release.Namespace | quote }}
   labels:
 {{ $gateway.labels | toYaml | trim | indent 4 }}
     release: {{ .Release.Name }}

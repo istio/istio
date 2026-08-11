@@ -177,11 +177,11 @@ func namespaceMatch(ns, exp string) bool {
 	if strings.EqualFold(exp, "*") {
 		return true
 	}
-	if strings.HasPrefix(exp, "*") {
-		return strings.HasSuffix(ns, strings.TrimPrefix(exp, "*"))
+	if after, ok := strings.CutPrefix(exp, "*"); ok {
+		return strings.HasSuffix(ns, after)
 	}
-	if strings.HasSuffix(exp, "*") {
-		return strings.HasPrefix(ns, strings.TrimSuffix(exp, "*"))
+	if before, ok := strings.CutSuffix(exp, "*"); ok {
+		return strings.HasPrefix(ns, before)
 	}
 
 	return strings.EqualFold(ns, exp)

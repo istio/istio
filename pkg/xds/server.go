@@ -36,6 +36,11 @@ type ResourceDelta struct {
 	Subscribed sets.String
 	// Unsubscribed indicates the client no longer requires these resources
 	Unsubscribed sets.String
+	// InitialResourceVersions, sent by a client on stream (re)establishment, maps the resources
+	// the client already retains to their versions. Generators that assign content-based versions
+	// (WDS) use it to skip re-sending resources the client already has. Every name in it is also
+	// present in Subscribed.
+	InitialResourceVersions map[string]string
 }
 
 var emptyResourceDelta = ResourceDelta{}
@@ -89,10 +94,6 @@ type WatchedResource struct {
 
 	// LastError records the last error returned, if any. This is cleared on any successful ACK.
 	LastError string
-
-	// LastResources tracks the contents of the last push.
-	// This field is extremely expensive to maintain and is typically disabled
-	LastResources Resources
 }
 
 type Watcher interface {

@@ -1,10 +1,10 @@
-# Generated with `kubectl kustomize "https://github.com/kubernetes-sigs/gateway-api/config/crd/experimental?ref=v1.5.1"`
+# Generated with `kubectl kustomize "https://github.com/kubernetes-sigs/gateway-api/config/crd/experimental?ref=v1.6.0"`
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
     api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/4530
-    gateway.networking.k8s.io/bundle-version: v1.5.1
+    gateway.networking.k8s.io/bundle-version: v1.6.0
     gateway.networking.k8s.io/channel: experimental
   labels:
     gateway.networking.k8s.io/policy: Direct
@@ -115,12 +115,12 @@ spec:
 
                   Support Levels:
 
-                  * Extended: Kubernetes Service referenced by HTTPRoute backendRefs.
+                  * Extended: Kubernetes Service referenced by backendRefs used on a Route.
+                    - HTTPRoute, GRPCRoute, TLSRoute with termination
+                    - Filters that needs a backend of type Service, like Mirror and External Authorization
 
-                  * Implementation-Specific: Services not connected via HTTPRoute, and any
-                    other kind of backend. Implementations MAY use BackendTLSPolicy for:
+                  * Implementation-Specific: Implementations MAY use BackendTLSPolicy for:
                     - Services not referenced by any Route (e.g., infrastructure services)
-                    - Gateway feature backends (e.g., ExternalAuth, rate-limiting services)
                     - Service mesh workload-to-service communication
                     - Other resource types beyond Service
 
@@ -809,12 +809,12 @@ spec:
 
                   Support Levels:
 
-                  * Extended: Kubernetes Service referenced by HTTPRoute backendRefs.
+                  * Extended: Kubernetes Service referenced by backendRefs used on a Route.
+                    - HTTPRoute, GRPCRoute, TLSRoute with termination
+                    - Filters that needs a backend of type Service, like Mirror and External Authorization
 
-                  * Implementation-Specific: Services not connected via HTTPRoute, and any
-                    other kind of backend. Implementations MAY use BackendTLSPolicy for:
+                  * Implementation-Specific: Implementations MAY use BackendTLSPolicy for:
                     - Services not referenced by any Route (e.g., infrastructure services)
-                    - Gateway feature backends (e.g., ExternalAuth, rate-limiting services)
                     - Service mesh workload-to-service communication
                     - Other resource types beyond Service
 
@@ -1411,19 +1411,13 @@ spec:
     storage: false
     subresources:
       status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: null
-  storedVersions: null
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
     api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/4530
-    gateway.networking.k8s.io/bundle-version: v1.5.1
+    gateway.networking.k8s.io/bundle-version: v1.6.0
     gateway.networking.k8s.io/channel: experimental
   name: gatewayclasses.gateway.networking.k8s.io
 spec:
@@ -1474,6 +1468,9 @@ spec:
           Gateway is not deleted while in use.
 
           GatewayClass is a Cluster level resource.
+
+          A GatewayClass name SHOULD be compliant with RFC 1035, consisting of a maximum of 63 lower case alphanumeric
+          characters or hyphens ('-'), and MUST start and end with an alphanumeric character.
         properties:
           apiVersion:
             description: |-
@@ -1927,19 +1924,13 @@ spec:
     storage: false
     subresources:
       status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: null
-  storedVersions: null
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
     api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/4530
-    gateway.networking.k8s.io/bundle-version: v1.5.1
+    gateway.networking.k8s.io/bundle-version: v1.6.0
     gateway.networking.k8s.io/channel: experimental
   name: gateways.gateway.networking.k8s.io
 spec:
@@ -1974,6 +1965,8 @@ spec:
         description: |-
           Gateway represents an instance of a service-traffic handling infrastructure
           by binding Listeners to a set of IP addresses.
+          A Gateway name SHOULD be compliant with RFC 1035, consisting of a maximum of 63 lower case alphanumeric
+          characters or hyphens ('-'), and MUST start and end with an alphanumeric character.
         properties:
           apiVersion:
             description: |-
@@ -2207,7 +2200,7 @@ spec:
                       An implementation may chose to add additional implementation-specific annotations as they see fit.
 
                       Support: Extended
-                    maxProperties: 8
+                    maxProperties: 16
                     type: object
                     x-kubernetes-validations:
                     - message: Annotation keys must be in the form of an optional
@@ -2428,6 +2421,12 @@ spec:
                   For example, if Listeners are defined for "foo.example.com" and "*.example.com", a
                   request to "foo.example.com" SHOULD only be routed using routes attached
                   to the "foo.example.com" Listener (and not the "*.example.com" Listener).
+
+                  If traffic to a Gateway does not match any Listener's hostname (or if
+                  the Listener does not specify a hostname and the request does not match
+                  any attached Route), the request MUST be rejected. The specific mechanism
+                  for rejection depends on the protocol: HTTP returns a 404 status code,
+                  while gRPC returns an Unimplemented status code.
 
                   This concept is known as "Listener Isolation", and it is an Extended feature
                   of Gateway API. Implementations that do not support Listener Isolation MUST
@@ -3069,7 +3068,7 @@ spec:
                                   - kind
                                   - name
                                   type: object
-                                maxItems: 8
+                                maxItems: 16
                                 minItems: 1
                                 type: array
                                 x-kubernetes-list-type: atomic
@@ -3234,7 +3233,7 @@ spec:
                                         - kind
                                         - name
                                         type: object
-                                      maxItems: 8
+                                      maxItems: 16
                                       minItems: 1
                                       type: array
                                       x-kubernetes-list-type: atomic
@@ -3858,7 +3857,7 @@ spec:
                       An implementation may chose to add additional implementation-specific annotations as they see fit.
 
                       Support: Extended
-                    maxProperties: 8
+                    maxProperties: 16
                     type: object
                     x-kubernetes-validations:
                     - message: Annotation keys must be in the form of an optional
@@ -4079,6 +4078,12 @@ spec:
                   For example, if Listeners are defined for "foo.example.com" and "*.example.com", a
                   request to "foo.example.com" SHOULD only be routed using routes attached
                   to the "foo.example.com" Listener (and not the "*.example.com" Listener).
+
+                  If traffic to a Gateway does not match any Listener's hostname (or if
+                  the Listener does not specify a hostname and the request does not match
+                  any attached Route), the request MUST be rejected. The specific mechanism
+                  for rejection depends on the protocol: HTTP returns a 404 status code,
+                  while gRPC returns an Unimplemented status code.
 
                   This concept is known as "Listener Isolation", and it is an Extended feature
                   of Gateway API. Implementations that do not support Listener Isolation MUST
@@ -4720,7 +4725,7 @@ spec:
                                   - kind
                                   - name
                                   type: object
-                                maxItems: 8
+                                maxItems: 16
                                 minItems: 1
                                 type: array
                                 x-kubernetes-list-type: atomic
@@ -4885,7 +4890,7 @@ spec:
                                         - kind
                                         - name
                                         type: object
-                                      maxItems: 8
+                                      maxItems: 16
                                       minItems: 1
                                       type: array
                                       x-kubernetes-list-type: atomic
@@ -5257,19 +5262,13 @@ spec:
     storage: false
     subresources:
       status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: null
-  storedVersions: null
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
     api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/4530
-    gateway.networking.k8s.io/bundle-version: v1.5.1
+    gateway.networking.k8s.io/bundle-version: v1.6.0
     gateway.networking.k8s.io/channel: experimental
   name: grpcroutes.gateway.networking.k8s.io
 spec:
@@ -5946,6 +5945,10 @@ spec:
                                         Support: Extended for Kubernetes Service
 
                                         Support: Implementation-specific for any other resource
+
+                                        If the backend service requires TLS, use BackendTLSPolicy to tell the
+                                        implementation to supply the TLS details to be used to connect to that
+                                        backend.
                                       properties:
                                         group:
                                           default: ""
@@ -6613,6 +6616,10 @@ spec:
                                   Support: Extended for Kubernetes Service
 
                                   Support: Implementation-specific for any other resource
+
+                                  If the backend service requires TLS, use BackendTLSPolicy to tell the
+                                  implementation to supply the TLS details to be used to connect to that
+                                  backend.
                                 properties:
                                   group:
                                     default: ""
@@ -7169,15 +7176,6 @@ spec:
                               - Session
                               type: string
                           type: object
-                        idleTimeout:
-                          description: |-
-                            IdleTimeout defines the idle timeout of the persistent session.
-                            Once the session has been idle for more than the specified
-                            IdleTimeout duration, the session becomes invalid.
-
-                            Support: Extended
-                          pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
-                          type: string
                         sessionName:
                           description: |-
                             SessionName defines the name of the persistent session token
@@ -7537,19 +7535,13 @@ spec:
     storage: true
     subresources:
       status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: null
-  storedVersions: null
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
     api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/4530
-    gateway.networking.k8s.io/bundle-version: v1.5.1
+    gateway.networking.k8s.io/bundle-version: v1.6.0
     gateway.networking.k8s.io/channel: experimental
   name: httproutes.gateway.networking.k8s.io
 spec:
@@ -8034,9 +8026,9 @@ spec:
                                         Multiple header names in the value of the `Access-Control-Allow-Headers`
                                         response header are separated by a comma (",").
 
-                                        When the `AllowHeaders` field is configured with one or more headers, the
+                                        When the `allowHeaders` field is configured with one or more headers, the
                                         gateway must return the `Access-Control-Allow-Headers` response header
-                                        which value is present in the `AllowHeaders` field.
+                                        which value is present in the `allowHeaders` field.
 
                                         If any header name in the `Access-Control-Request-Headers` request header
                                         is not included in the list of header names specified by the response
@@ -8048,21 +8040,20 @@ spec:
                                         client side.
 
                                         A wildcard indicates that the requests with all HTTP headers are allowed.
-                                        If config contains the wildcard "*" in allowHeaders and the request is
-                                        not credentialed, the `Access-Control-Allow-Headers` response header
-                                        can either use the `*` wildcard or the value of
-                                        Access-Control-Request-Headers from the request.
 
-                                        When the request is credentialed, the gateway must not specify the `*`
-                                        wildcard in the `Access-Control-Allow-Headers` response header. When
-                                        also the `AllowCredentials` field is true and `AllowHeaders` field
-                                        is specified with the `*` wildcard, the gateway must specify one or more
-                                        HTTP headers in the value of the `Access-Control-Allow-Headers` response
-                                        header. The value of the header `Access-Control-Allow-Headers` is same as
-                                        the `Access-Control-Request-Headers` header provided by the client. If
-                                        the header `Access-Control-Request-Headers` is not included in the
-                                        request, the gateway will omit the `Access-Control-Allow-Headers`
-                                        response header, instead of specifying the `*` wildcard.
+                                        If the configuration contains the wildcard `*` in `allowHeaders` and
+                                        `allowCredentials` is set to `false`, the `Access-Control-Allow-Headers`
+                                        response header may either contain the wildcard `*` or echo the value
+                                        of the `Access-Control-Request-Headers` request header.
+
+                                        If the configuration contains the wildcard `*` in `allowHeaders` and
+                                        `allowCredentials` is set to `true`, the gateway must not return `*`
+                                        in the `Access-Control-Allow-Headers` response header. Instead, it must
+                                        return one or more header names matching the value of the
+                                        `Access-Control-Request-Headers` request header.
+                                        If the `Access-Control-Request-Headers` header is not present in the
+                                        request, the gateway must omit the `Access-Control-Allow-Headers`
+                                        response header.
 
                                         Support: Extended
                                       items:
@@ -8107,32 +8098,29 @@ spec:
                                         A CORS-safelisted method is a method that is `GET`, `HEAD`, or `POST`.
                                         (See https://fetch.spec.whatwg.org/#cors-safelisted-method) The
                                         CORS-safelisted methods are always allowed, regardless of whether they
-                                        are specified in the `AllowMethods` field.
+                                        are specified in the `allowMethods` field.
 
-                                        When the `AllowMethods` field is configured with one or more methods, the
+                                        When the `allowMethods` field is configured with one or more methods, the
                                         gateway must return the `Access-Control-Allow-Methods` response header
-                                        which value is present in the `AllowMethods` field.
+                                        which value is present in the `allowMethods` field.
 
                                         If the HTTP method of the `Access-Control-Request-Method` request header
                                         is not included in the list of methods specified by the response header
                                         `Access-Control-Allow-Methods`, it will present an error on the client
                                         side.
 
-                                        If config contains the wildcard "*" in allowMethods and the request is
-                                        not credentialed, the `Access-Control-Allow-Methods` response header
-                                        can either use the `*` wildcard or the value of
-                                        Access-Control-Request-Method from the request.
+                                        If the configuration contains the wildcard `*` in `allowMethods` and
+                                        `allowCredentials` is set to `false`, the `Access-Control-Allow-Methods`
+                                        response header may either contain the wildcard `*` or echo the value
+                                        of the `Access-Control-Request-Method` request header.
 
-                                        When the request is credentialed, the gateway must not specify the `*`
-                                        wildcard in the `Access-Control-Allow-Methods` response header. When
-                                        also the `AllowCredentials` field is true and `AllowMethods` field
-                                        specified with the `*` wildcard, the gateway must specify one HTTP method
-                                        in the value of the Access-Control-Allow-Methods response header. The
-                                        value of the header `Access-Control-Allow-Methods` is same as the
-                                        `Access-Control-Request-Method` header provided by the client. If the
-                                        header `Access-Control-Request-Method` is not included in the request,
-                                        the gateway will omit the `Access-Control-Allow-Methods` response header,
-                                        instead of specifying the `*` wildcard.
+                                        If the configuration contains the wildcard `*` in `allowMethods` and
+                                        `allowCredentials` is set to `true`, the gateway must not return `*`
+                                        in the `Access-Control-Allow-Methods` response header. Instead, it must
+                                        return a single HTTP method matching the value of the
+                                        `Access-Control-Request-Method` request header.
+                                        If the `Access-Control-Request-Method` header is not present in the request,
+                                        the gateway must omit the `Access-Control-Allow-Methods` response header.
 
                                         Support: Extended
                                       items:
@@ -8182,7 +8170,7 @@ spec:
                                         An origin value that includes _only_ the `*` character indicates requests
                                         from all `Origin`s are allowed.
 
-                                        When the `AllowOrigins` field is configured with multiple origins, it
+                                        When the `allowOrigins` field is configured with multiple origins, it
                                         means the server supports clients from multiple origins. If the request
                                         `Origin` matches the configured allowed origins, the gateway must return
                                         the given `Origin` and sets value of the header
@@ -8204,19 +8192,15 @@ spec:
                                         `Access-Control-Allow-Origin` to the same value as the `Origin`
                                         header provided by the client.
 
-                                        When config has the wildcard ("*") in allowOrigins, and the request
-                                        is not credentialed (e.g., it is a preflight request), the
-                                        `Access-Control-Allow-Origin` response header either contains the
-                                        wildcard as well or the Origin from the request.
+                                        If the configuration contains the wildcard `*` in `allowOrigins` and
+                                        `allowCredentials` is set to `false`, the `Access-Control-Allow-Origin`
+                                        response header may either contain the wildcard `*` or echo the value
+                                        of the `Origin` request header.
 
-                                        When the request is credentialed, the gateway must not specify the `*`
-                                        wildcard in the `Access-Control-Allow-Origin` response header. When
-                                        also the `AllowCredentials` field is true and `AllowOrigins` field
-                                        specified with the `*` wildcard, the gateway must return a single origin
-                                        in the value of the `Access-Control-Allow-Origin` response header,
-                                        instead of specifying the `*` wildcard. The value of the header
-                                        `Access-Control-Allow-Origin` is same as the `Origin` header provided by
-                                        the client.
+                                        If the configuration contains the wildcard `*` in `allowOrigins` and
+                                        `allowCredentials` is set to `true`, the gateway must not return `*`
+                                        in the `Access-Control-Allow-Origin` response header. Instead, it must
+                                        return a single origin matching the value of the `Origin` request header.
 
                                         Support: Extended
                                       items:
@@ -8255,7 +8239,7 @@ spec:
                                         (See https://fetch.spec.whatwg.org/#cors-safelisted-response-header-name)
                                         The CORS-safelisted response headers are exposed to client by default.
 
-                                        When an HTTP header name is specified using the `ExposeHeaders` field,
+                                        When an HTTP header name is specified using the `exposeHeaders` field,
                                         this additional header will be exposed as part of the response to the
                                         client.
 
@@ -8265,12 +8249,15 @@ spec:
                                         response header are separated by a comma (",").
 
                                         A wildcard indicates that the responses with all HTTP headers are exposed
-                                        to clients. The `Access-Control-Expose-Headers` response header can only
-                                        use `*` wildcard as value when the request is not credentialed.
+                                        to clients.
 
-                                        When the `exposeHeaders` config field contains the "*" wildcard and
-                                        the request is credentialed, the gateway cannot use the `*` wildcard in
-                                        the `Access-Control-Expose-Headers` response header.
+                                        If the configuration contains the wildcard `*` in `exposeHeaders` and
+                                        `allowCredentials` is set to `false`, the `Access-Control-Expose-Headers`
+                                        response header can contain the wildcard `*`.
+
+                                        If the configuration contains the wildcard `*` in `exposeHeaders` and
+                                        `allowCredentials` is set to `true`, the gateway cannot use the `*`
+                                        in the `Access-Control-Expose-Headers` response header.
 
                                         Support: Extended
                                       items:
@@ -8778,6 +8765,10 @@ spec:
                                         Support: Extended for Kubernetes Service
 
                                         Support: Implementation-specific for any other resource
+
+                                        If the backend service requires TLS, use BackendTLSPolicy to tell the
+                                        implementation to supply the TLS details to be used to connect to that
+                                        backend.
                                       properties:
                                         group:
                                           default: ""
@@ -9564,9 +9555,9 @@ spec:
                                   Multiple header names in the value of the `Access-Control-Allow-Headers`
                                   response header are separated by a comma (",").
 
-                                  When the `AllowHeaders` field is configured with one or more headers, the
+                                  When the `allowHeaders` field is configured with one or more headers, the
                                   gateway must return the `Access-Control-Allow-Headers` response header
-                                  which value is present in the `AllowHeaders` field.
+                                  which value is present in the `allowHeaders` field.
 
                                   If any header name in the `Access-Control-Request-Headers` request header
                                   is not included in the list of header names specified by the response
@@ -9578,21 +9569,20 @@ spec:
                                   client side.
 
                                   A wildcard indicates that the requests with all HTTP headers are allowed.
-                                  If config contains the wildcard "*" in allowHeaders and the request is
-                                  not credentialed, the `Access-Control-Allow-Headers` response header
-                                  can either use the `*` wildcard or the value of
-                                  Access-Control-Request-Headers from the request.
 
-                                  When the request is credentialed, the gateway must not specify the `*`
-                                  wildcard in the `Access-Control-Allow-Headers` response header. When
-                                  also the `AllowCredentials` field is true and `AllowHeaders` field
-                                  is specified with the `*` wildcard, the gateway must specify one or more
-                                  HTTP headers in the value of the `Access-Control-Allow-Headers` response
-                                  header. The value of the header `Access-Control-Allow-Headers` is same as
-                                  the `Access-Control-Request-Headers` header provided by the client. If
-                                  the header `Access-Control-Request-Headers` is not included in the
-                                  request, the gateway will omit the `Access-Control-Allow-Headers`
-                                  response header, instead of specifying the `*` wildcard.
+                                  If the configuration contains the wildcard `*` in `allowHeaders` and
+                                  `allowCredentials` is set to `false`, the `Access-Control-Allow-Headers`
+                                  response header may either contain the wildcard `*` or echo the value
+                                  of the `Access-Control-Request-Headers` request header.
+
+                                  If the configuration contains the wildcard `*` in `allowHeaders` and
+                                  `allowCredentials` is set to `true`, the gateway must not return `*`
+                                  in the `Access-Control-Allow-Headers` response header. Instead, it must
+                                  return one or more header names matching the value of the
+                                  `Access-Control-Request-Headers` request header.
+                                  If the `Access-Control-Request-Headers` header is not present in the
+                                  request, the gateway must omit the `Access-Control-Allow-Headers`
+                                  response header.
 
                                   Support: Extended
                                 items:
@@ -9637,32 +9627,29 @@ spec:
                                   A CORS-safelisted method is a method that is `GET`, `HEAD`, or `POST`.
                                   (See https://fetch.spec.whatwg.org/#cors-safelisted-method) The
                                   CORS-safelisted methods are always allowed, regardless of whether they
-                                  are specified in the `AllowMethods` field.
+                                  are specified in the `allowMethods` field.
 
-                                  When the `AllowMethods` field is configured with one or more methods, the
+                                  When the `allowMethods` field is configured with one or more methods, the
                                   gateway must return the `Access-Control-Allow-Methods` response header
-                                  which value is present in the `AllowMethods` field.
+                                  which value is present in the `allowMethods` field.
 
                                   If the HTTP method of the `Access-Control-Request-Method` request header
                                   is not included in the list of methods specified by the response header
                                   `Access-Control-Allow-Methods`, it will present an error on the client
                                   side.
 
-                                  If config contains the wildcard "*" in allowMethods and the request is
-                                  not credentialed, the `Access-Control-Allow-Methods` response header
-                                  can either use the `*` wildcard or the value of
-                                  Access-Control-Request-Method from the request.
+                                  If the configuration contains the wildcard `*` in `allowMethods` and
+                                  `allowCredentials` is set to `false`, the `Access-Control-Allow-Methods`
+                                  response header may either contain the wildcard `*` or echo the value
+                                  of the `Access-Control-Request-Method` request header.
 
-                                  When the request is credentialed, the gateway must not specify the `*`
-                                  wildcard in the `Access-Control-Allow-Methods` response header. When
-                                  also the `AllowCredentials` field is true and `AllowMethods` field
-                                  specified with the `*` wildcard, the gateway must specify one HTTP method
-                                  in the value of the Access-Control-Allow-Methods response header. The
-                                  value of the header `Access-Control-Allow-Methods` is same as the
-                                  `Access-Control-Request-Method` header provided by the client. If the
-                                  header `Access-Control-Request-Method` is not included in the request,
-                                  the gateway will omit the `Access-Control-Allow-Methods` response header,
-                                  instead of specifying the `*` wildcard.
+                                  If the configuration contains the wildcard `*` in `allowMethods` and
+                                  `allowCredentials` is set to `true`, the gateway must not return `*`
+                                  in the `Access-Control-Allow-Methods` response header. Instead, it must
+                                  return a single HTTP method matching the value of the
+                                  `Access-Control-Request-Method` request header.
+                                  If the `Access-Control-Request-Method` header is not present in the request,
+                                  the gateway must omit the `Access-Control-Allow-Methods` response header.
 
                                   Support: Extended
                                 items:
@@ -9712,7 +9699,7 @@ spec:
                                   An origin value that includes _only_ the `*` character indicates requests
                                   from all `Origin`s are allowed.
 
-                                  When the `AllowOrigins` field is configured with multiple origins, it
+                                  When the `allowOrigins` field is configured with multiple origins, it
                                   means the server supports clients from multiple origins. If the request
                                   `Origin` matches the configured allowed origins, the gateway must return
                                   the given `Origin` and sets value of the header
@@ -9734,19 +9721,15 @@ spec:
                                   `Access-Control-Allow-Origin` to the same value as the `Origin`
                                   header provided by the client.
 
-                                  When config has the wildcard ("*") in allowOrigins, and the request
-                                  is not credentialed (e.g., it is a preflight request), the
-                                  `Access-Control-Allow-Origin` response header either contains the
-                                  wildcard as well or the Origin from the request.
+                                  If the configuration contains the wildcard `*` in `allowOrigins` and
+                                  `allowCredentials` is set to `false`, the `Access-Control-Allow-Origin`
+                                  response header may either contain the wildcard `*` or echo the value
+                                  of the `Origin` request header.
 
-                                  When the request is credentialed, the gateway must not specify the `*`
-                                  wildcard in the `Access-Control-Allow-Origin` response header. When
-                                  also the `AllowCredentials` field is true and `AllowOrigins` field
-                                  specified with the `*` wildcard, the gateway must return a single origin
-                                  in the value of the `Access-Control-Allow-Origin` response header,
-                                  instead of specifying the `*` wildcard. The value of the header
-                                  `Access-Control-Allow-Origin` is same as the `Origin` header provided by
-                                  the client.
+                                  If the configuration contains the wildcard `*` in `allowOrigins` and
+                                  `allowCredentials` is set to `true`, the gateway must not return `*`
+                                  in the `Access-Control-Allow-Origin` response header. Instead, it must
+                                  return a single origin matching the value of the `Origin` request header.
 
                                   Support: Extended
                                 items:
@@ -9785,7 +9768,7 @@ spec:
                                   (See https://fetch.spec.whatwg.org/#cors-safelisted-response-header-name)
                                   The CORS-safelisted response headers are exposed to client by default.
 
-                                  When an HTTP header name is specified using the `ExposeHeaders` field,
+                                  When an HTTP header name is specified using the `exposeHeaders` field,
                                   this additional header will be exposed as part of the response to the
                                   client.
 
@@ -9795,12 +9778,15 @@ spec:
                                   response header are separated by a comma (",").
 
                                   A wildcard indicates that the responses with all HTTP headers are exposed
-                                  to clients. The `Access-Control-Expose-Headers` response header can only
-                                  use `*` wildcard as value when the request is not credentialed.
+                                  to clients.
 
-                                  When the `exposeHeaders` config field contains the "*" wildcard and
-                                  the request is credentialed, the gateway cannot use the `*` wildcard in
-                                  the `Access-Control-Expose-Headers` response header.
+                                  If the configuration contains the wildcard `*` in `exposeHeaders` and
+                                  `allowCredentials` is set to `false`, the `Access-Control-Expose-Headers`
+                                  response header can contain the wildcard `*`.
+
+                                  If the configuration contains the wildcard `*` in `exposeHeaders` and
+                                  `allowCredentials` is set to `true`, the gateway cannot use the `*`
+                                  in the `Access-Control-Expose-Headers` response header.
 
                                   Support: Extended
                                 items:
@@ -10304,6 +10290,10 @@ spec:
                                   Support: Extended for Kubernetes Service
 
                                   Support: Implementation-specific for any other resource
+
+                                  If the backend service requires TLS, use BackendTLSPolicy to tell the
+                                  implementation to supply the TLS details to be used to connect to that
+                                  backend.
                                 properties:
                                   group:
                                     default: ""
@@ -11243,6 +11233,7 @@ spec:
                             a backend request is implementation-specific.
 
                             Support: Extended
+                          minimum: 1
                           type: integer
                         backoff:
                           description: |-
@@ -11311,7 +11302,7 @@ spec:
                             minimum: 400
                             type: integer
                           type: array
-                          x-kubernetes-list-type: atomic
+                          x-kubernetes-list-type: set
                       type: object
                     sessionPersistence:
                       description: |-
@@ -11363,15 +11354,6 @@ spec:
                               - Session
                               type: string
                           type: object
-                        idleTimeout:
-                          description: |-
-                            IdleTimeout defines the idle timeout of the persistent session.
-                            Once the session has been idle for more than the specified
-                            IdleTimeout duration, the session becomes invalid.
-
-                            Support: Extended
-                          pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
-                          type: string
                         sessionName:
                           description: |-
                             SessionName defines the name of the persistent session token
@@ -12299,9 +12281,9 @@ spec:
                                         Multiple header names in the value of the `Access-Control-Allow-Headers`
                                         response header are separated by a comma (",").
 
-                                        When the `AllowHeaders` field is configured with one or more headers, the
+                                        When the `allowHeaders` field is configured with one or more headers, the
                                         gateway must return the `Access-Control-Allow-Headers` response header
-                                        which value is present in the `AllowHeaders` field.
+                                        which value is present in the `allowHeaders` field.
 
                                         If any header name in the `Access-Control-Request-Headers` request header
                                         is not included in the list of header names specified by the response
@@ -12313,21 +12295,20 @@ spec:
                                         client side.
 
                                         A wildcard indicates that the requests with all HTTP headers are allowed.
-                                        If config contains the wildcard "*" in allowHeaders and the request is
-                                        not credentialed, the `Access-Control-Allow-Headers` response header
-                                        can either use the `*` wildcard or the value of
-                                        Access-Control-Request-Headers from the request.
 
-                                        When the request is credentialed, the gateway must not specify the `*`
-                                        wildcard in the `Access-Control-Allow-Headers` response header. When
-                                        also the `AllowCredentials` field is true and `AllowHeaders` field
-                                        is specified with the `*` wildcard, the gateway must specify one or more
-                                        HTTP headers in the value of the `Access-Control-Allow-Headers` response
-                                        header. The value of the header `Access-Control-Allow-Headers` is same as
-                                        the `Access-Control-Request-Headers` header provided by the client. If
-                                        the header `Access-Control-Request-Headers` is not included in the
-                                        request, the gateway will omit the `Access-Control-Allow-Headers`
-                                        response header, instead of specifying the `*` wildcard.
+                                        If the configuration contains the wildcard `*` in `allowHeaders` and
+                                        `allowCredentials` is set to `false`, the `Access-Control-Allow-Headers`
+                                        response header may either contain the wildcard `*` or echo the value
+                                        of the `Access-Control-Request-Headers` request header.
+
+                                        If the configuration contains the wildcard `*` in `allowHeaders` and
+                                        `allowCredentials` is set to `true`, the gateway must not return `*`
+                                        in the `Access-Control-Allow-Headers` response header. Instead, it must
+                                        return one or more header names matching the value of the
+                                        `Access-Control-Request-Headers` request header.
+                                        If the `Access-Control-Request-Headers` header is not present in the
+                                        request, the gateway must omit the `Access-Control-Allow-Headers`
+                                        response header.
 
                                         Support: Extended
                                       items:
@@ -12372,32 +12353,29 @@ spec:
                                         A CORS-safelisted method is a method that is `GET`, `HEAD`, or `POST`.
                                         (See https://fetch.spec.whatwg.org/#cors-safelisted-method) The
                                         CORS-safelisted methods are always allowed, regardless of whether they
-                                        are specified in the `AllowMethods` field.
+                                        are specified in the `allowMethods` field.
 
-                                        When the `AllowMethods` field is configured with one or more methods, the
+                                        When the `allowMethods` field is configured with one or more methods, the
                                         gateway must return the `Access-Control-Allow-Methods` response header
-                                        which value is present in the `AllowMethods` field.
+                                        which value is present in the `allowMethods` field.
 
                                         If the HTTP method of the `Access-Control-Request-Method` request header
                                         is not included in the list of methods specified by the response header
                                         `Access-Control-Allow-Methods`, it will present an error on the client
                                         side.
 
-                                        If config contains the wildcard "*" in allowMethods and the request is
-                                        not credentialed, the `Access-Control-Allow-Methods` response header
-                                        can either use the `*` wildcard or the value of
-                                        Access-Control-Request-Method from the request.
+                                        If the configuration contains the wildcard `*` in `allowMethods` and
+                                        `allowCredentials` is set to `false`, the `Access-Control-Allow-Methods`
+                                        response header may either contain the wildcard `*` or echo the value
+                                        of the `Access-Control-Request-Method` request header.
 
-                                        When the request is credentialed, the gateway must not specify the `*`
-                                        wildcard in the `Access-Control-Allow-Methods` response header. When
-                                        also the `AllowCredentials` field is true and `AllowMethods` field
-                                        specified with the `*` wildcard, the gateway must specify one HTTP method
-                                        in the value of the Access-Control-Allow-Methods response header. The
-                                        value of the header `Access-Control-Allow-Methods` is same as the
-                                        `Access-Control-Request-Method` header provided by the client. If the
-                                        header `Access-Control-Request-Method` is not included in the request,
-                                        the gateway will omit the `Access-Control-Allow-Methods` response header,
-                                        instead of specifying the `*` wildcard.
+                                        If the configuration contains the wildcard `*` in `allowMethods` and
+                                        `allowCredentials` is set to `true`, the gateway must not return `*`
+                                        in the `Access-Control-Allow-Methods` response header. Instead, it must
+                                        return a single HTTP method matching the value of the
+                                        `Access-Control-Request-Method` request header.
+                                        If the `Access-Control-Request-Method` header is not present in the request,
+                                        the gateway must omit the `Access-Control-Allow-Methods` response header.
 
                                         Support: Extended
                                       items:
@@ -12447,7 +12425,7 @@ spec:
                                         An origin value that includes _only_ the `*` character indicates requests
                                         from all `Origin`s are allowed.
 
-                                        When the `AllowOrigins` field is configured with multiple origins, it
+                                        When the `allowOrigins` field is configured with multiple origins, it
                                         means the server supports clients from multiple origins. If the request
                                         `Origin` matches the configured allowed origins, the gateway must return
                                         the given `Origin` and sets value of the header
@@ -12469,19 +12447,15 @@ spec:
                                         `Access-Control-Allow-Origin` to the same value as the `Origin`
                                         header provided by the client.
 
-                                        When config has the wildcard ("*") in allowOrigins, and the request
-                                        is not credentialed (e.g., it is a preflight request), the
-                                        `Access-Control-Allow-Origin` response header either contains the
-                                        wildcard as well or the Origin from the request.
+                                        If the configuration contains the wildcard `*` in `allowOrigins` and
+                                        `allowCredentials` is set to `false`, the `Access-Control-Allow-Origin`
+                                        response header may either contain the wildcard `*` or echo the value
+                                        of the `Origin` request header.
 
-                                        When the request is credentialed, the gateway must not specify the `*`
-                                        wildcard in the `Access-Control-Allow-Origin` response header. When
-                                        also the `AllowCredentials` field is true and `AllowOrigins` field
-                                        specified with the `*` wildcard, the gateway must return a single origin
-                                        in the value of the `Access-Control-Allow-Origin` response header,
-                                        instead of specifying the `*` wildcard. The value of the header
-                                        `Access-Control-Allow-Origin` is same as the `Origin` header provided by
-                                        the client.
+                                        If the configuration contains the wildcard `*` in `allowOrigins` and
+                                        `allowCredentials` is set to `true`, the gateway must not return `*`
+                                        in the `Access-Control-Allow-Origin` response header. Instead, it must
+                                        return a single origin matching the value of the `Origin` request header.
 
                                         Support: Extended
                                       items:
@@ -12520,7 +12494,7 @@ spec:
                                         (See https://fetch.spec.whatwg.org/#cors-safelisted-response-header-name)
                                         The CORS-safelisted response headers are exposed to client by default.
 
-                                        When an HTTP header name is specified using the `ExposeHeaders` field,
+                                        When an HTTP header name is specified using the `exposeHeaders` field,
                                         this additional header will be exposed as part of the response to the
                                         client.
 
@@ -12530,12 +12504,15 @@ spec:
                                         response header are separated by a comma (",").
 
                                         A wildcard indicates that the responses with all HTTP headers are exposed
-                                        to clients. The `Access-Control-Expose-Headers` response header can only
-                                        use `*` wildcard as value when the request is not credentialed.
+                                        to clients.
 
-                                        When the `exposeHeaders` config field contains the "*" wildcard and
-                                        the request is credentialed, the gateway cannot use the `*` wildcard in
-                                        the `Access-Control-Expose-Headers` response header.
+                                        If the configuration contains the wildcard `*` in `exposeHeaders` and
+                                        `allowCredentials` is set to `false`, the `Access-Control-Expose-Headers`
+                                        response header can contain the wildcard `*`.
+
+                                        If the configuration contains the wildcard `*` in `exposeHeaders` and
+                                        `allowCredentials` is set to `true`, the gateway cannot use the `*`
+                                        in the `Access-Control-Expose-Headers` response header.
 
                                         Support: Extended
                                       items:
@@ -13043,6 +13020,10 @@ spec:
                                         Support: Extended for Kubernetes Service
 
                                         Support: Implementation-specific for any other resource
+
+                                        If the backend service requires TLS, use BackendTLSPolicy to tell the
+                                        implementation to supply the TLS details to be used to connect to that
+                                        backend.
                                       properties:
                                         group:
                                           default: ""
@@ -13829,9 +13810,9 @@ spec:
                                   Multiple header names in the value of the `Access-Control-Allow-Headers`
                                   response header are separated by a comma (",").
 
-                                  When the `AllowHeaders` field is configured with one or more headers, the
+                                  When the `allowHeaders` field is configured with one or more headers, the
                                   gateway must return the `Access-Control-Allow-Headers` response header
-                                  which value is present in the `AllowHeaders` field.
+                                  which value is present in the `allowHeaders` field.
 
                                   If any header name in the `Access-Control-Request-Headers` request header
                                   is not included in the list of header names specified by the response
@@ -13843,21 +13824,20 @@ spec:
                                   client side.
 
                                   A wildcard indicates that the requests with all HTTP headers are allowed.
-                                  If config contains the wildcard "*" in allowHeaders and the request is
-                                  not credentialed, the `Access-Control-Allow-Headers` response header
-                                  can either use the `*` wildcard or the value of
-                                  Access-Control-Request-Headers from the request.
 
-                                  When the request is credentialed, the gateway must not specify the `*`
-                                  wildcard in the `Access-Control-Allow-Headers` response header. When
-                                  also the `AllowCredentials` field is true and `AllowHeaders` field
-                                  is specified with the `*` wildcard, the gateway must specify one or more
-                                  HTTP headers in the value of the `Access-Control-Allow-Headers` response
-                                  header. The value of the header `Access-Control-Allow-Headers` is same as
-                                  the `Access-Control-Request-Headers` header provided by the client. If
-                                  the header `Access-Control-Request-Headers` is not included in the
-                                  request, the gateway will omit the `Access-Control-Allow-Headers`
-                                  response header, instead of specifying the `*` wildcard.
+                                  If the configuration contains the wildcard `*` in `allowHeaders` and
+                                  `allowCredentials` is set to `false`, the `Access-Control-Allow-Headers`
+                                  response header may either contain the wildcard `*` or echo the value
+                                  of the `Access-Control-Request-Headers` request header.
+
+                                  If the configuration contains the wildcard `*` in `allowHeaders` and
+                                  `allowCredentials` is set to `true`, the gateway must not return `*`
+                                  in the `Access-Control-Allow-Headers` response header. Instead, it must
+                                  return one or more header names matching the value of the
+                                  `Access-Control-Request-Headers` request header.
+                                  If the `Access-Control-Request-Headers` header is not present in the
+                                  request, the gateway must omit the `Access-Control-Allow-Headers`
+                                  response header.
 
                                   Support: Extended
                                 items:
@@ -13902,32 +13882,29 @@ spec:
                                   A CORS-safelisted method is a method that is `GET`, `HEAD`, or `POST`.
                                   (See https://fetch.spec.whatwg.org/#cors-safelisted-method) The
                                   CORS-safelisted methods are always allowed, regardless of whether they
-                                  are specified in the `AllowMethods` field.
+                                  are specified in the `allowMethods` field.
 
-                                  When the `AllowMethods` field is configured with one or more methods, the
+                                  When the `allowMethods` field is configured with one or more methods, the
                                   gateway must return the `Access-Control-Allow-Methods` response header
-                                  which value is present in the `AllowMethods` field.
+                                  which value is present in the `allowMethods` field.
 
                                   If the HTTP method of the `Access-Control-Request-Method` request header
                                   is not included in the list of methods specified by the response header
                                   `Access-Control-Allow-Methods`, it will present an error on the client
                                   side.
 
-                                  If config contains the wildcard "*" in allowMethods and the request is
-                                  not credentialed, the `Access-Control-Allow-Methods` response header
-                                  can either use the `*` wildcard or the value of
-                                  Access-Control-Request-Method from the request.
+                                  If the configuration contains the wildcard `*` in `allowMethods` and
+                                  `allowCredentials` is set to `false`, the `Access-Control-Allow-Methods`
+                                  response header may either contain the wildcard `*` or echo the value
+                                  of the `Access-Control-Request-Method` request header.
 
-                                  When the request is credentialed, the gateway must not specify the `*`
-                                  wildcard in the `Access-Control-Allow-Methods` response header. When
-                                  also the `AllowCredentials` field is true and `AllowMethods` field
-                                  specified with the `*` wildcard, the gateway must specify one HTTP method
-                                  in the value of the Access-Control-Allow-Methods response header. The
-                                  value of the header `Access-Control-Allow-Methods` is same as the
-                                  `Access-Control-Request-Method` header provided by the client. If the
-                                  header `Access-Control-Request-Method` is not included in the request,
-                                  the gateway will omit the `Access-Control-Allow-Methods` response header,
-                                  instead of specifying the `*` wildcard.
+                                  If the configuration contains the wildcard `*` in `allowMethods` and
+                                  `allowCredentials` is set to `true`, the gateway must not return `*`
+                                  in the `Access-Control-Allow-Methods` response header. Instead, it must
+                                  return a single HTTP method matching the value of the
+                                  `Access-Control-Request-Method` request header.
+                                  If the `Access-Control-Request-Method` header is not present in the request,
+                                  the gateway must omit the `Access-Control-Allow-Methods` response header.
 
                                   Support: Extended
                                 items:
@@ -13977,7 +13954,7 @@ spec:
                                   An origin value that includes _only_ the `*` character indicates requests
                                   from all `Origin`s are allowed.
 
-                                  When the `AllowOrigins` field is configured with multiple origins, it
+                                  When the `allowOrigins` field is configured with multiple origins, it
                                   means the server supports clients from multiple origins. If the request
                                   `Origin` matches the configured allowed origins, the gateway must return
                                   the given `Origin` and sets value of the header
@@ -13999,19 +13976,15 @@ spec:
                                   `Access-Control-Allow-Origin` to the same value as the `Origin`
                                   header provided by the client.
 
-                                  When config has the wildcard ("*") in allowOrigins, and the request
-                                  is not credentialed (e.g., it is a preflight request), the
-                                  `Access-Control-Allow-Origin` response header either contains the
-                                  wildcard as well or the Origin from the request.
+                                  If the configuration contains the wildcard `*` in `allowOrigins` and
+                                  `allowCredentials` is set to `false`, the `Access-Control-Allow-Origin`
+                                  response header may either contain the wildcard `*` or echo the value
+                                  of the `Origin` request header.
 
-                                  When the request is credentialed, the gateway must not specify the `*`
-                                  wildcard in the `Access-Control-Allow-Origin` response header. When
-                                  also the `AllowCredentials` field is true and `AllowOrigins` field
-                                  specified with the `*` wildcard, the gateway must return a single origin
-                                  in the value of the `Access-Control-Allow-Origin` response header,
-                                  instead of specifying the `*` wildcard. The value of the header
-                                  `Access-Control-Allow-Origin` is same as the `Origin` header provided by
-                                  the client.
+                                  If the configuration contains the wildcard `*` in `allowOrigins` and
+                                  `allowCredentials` is set to `true`, the gateway must not return `*`
+                                  in the `Access-Control-Allow-Origin` response header. Instead, it must
+                                  return a single origin matching the value of the `Origin` request header.
 
                                   Support: Extended
                                 items:
@@ -14050,7 +14023,7 @@ spec:
                                   (See https://fetch.spec.whatwg.org/#cors-safelisted-response-header-name)
                                   The CORS-safelisted response headers are exposed to client by default.
 
-                                  When an HTTP header name is specified using the `ExposeHeaders` field,
+                                  When an HTTP header name is specified using the `exposeHeaders` field,
                                   this additional header will be exposed as part of the response to the
                                   client.
 
@@ -14060,12 +14033,15 @@ spec:
                                   response header are separated by a comma (",").
 
                                   A wildcard indicates that the responses with all HTTP headers are exposed
-                                  to clients. The `Access-Control-Expose-Headers` response header can only
-                                  use `*` wildcard as value when the request is not credentialed.
+                                  to clients.
 
-                                  When the `exposeHeaders` config field contains the "*" wildcard and
-                                  the request is credentialed, the gateway cannot use the `*` wildcard in
-                                  the `Access-Control-Expose-Headers` response header.
+                                  If the configuration contains the wildcard `*` in `exposeHeaders` and
+                                  `allowCredentials` is set to `false`, the `Access-Control-Expose-Headers`
+                                  response header can contain the wildcard `*`.
+
+                                  If the configuration contains the wildcard `*` in `exposeHeaders` and
+                                  `allowCredentials` is set to `true`, the gateway cannot use the `*`
+                                  in the `Access-Control-Expose-Headers` response header.
 
                                   Support: Extended
                                 items:
@@ -14569,6 +14545,10 @@ spec:
                                   Support: Extended for Kubernetes Service
 
                                   Support: Implementation-specific for any other resource
+
+                                  If the backend service requires TLS, use BackendTLSPolicy to tell the
+                                  implementation to supply the TLS details to be used to connect to that
+                                  backend.
                                 properties:
                                   group:
                                     default: ""
@@ -15508,6 +15488,7 @@ spec:
                             a backend request is implementation-specific.
 
                             Support: Extended
+                          minimum: 1
                           type: integer
                         backoff:
                           description: |-
@@ -15576,7 +15557,7 @@ spec:
                             minimum: 400
                             type: integer
                           type: array
-                          x-kubernetes-list-type: atomic
+                          x-kubernetes-list-type: set
                       type: object
                     sessionPersistence:
                       description: |-
@@ -15628,15 +15609,6 @@ spec:
                               - Session
                               type: string
                           type: object
-                        idleTimeout:
-                          description: |-
-                            IdleTimeout defines the idle timeout of the persistent session.
-                            Once the session has been idle for more than the specified
-                            IdleTimeout duration, the session becomes invalid.
-
-                            Support: Extended
-                          pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
-                          type: string
                         sessionName:
                           description: |-
                             SessionName defines the name of the persistent session token
@@ -16093,19 +16065,13 @@ spec:
     storage: false
     subresources:
       status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: null
-  storedVersions: null
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
     api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/4530
-    gateway.networking.k8s.io/bundle-version: v1.5.1
+    gateway.networking.k8s.io/bundle-version: v1.6.0
     gateway.networking.k8s.io/channel: experimental
   name: listenersets.gateway.networking.k8s.io
 spec:
@@ -16874,19 +16840,13 @@ spec:
     storage: true
     subresources:
       status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: null
-  storedVersions: null
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
     api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/4530
-    gateway.networking.k8s.io/bundle-version: v1.5.1
+    gateway.networking.k8s.io/bundle-version: v1.6.0
     gateway.networking.k8s.io/channel: experimental
   name: referencegrants.gateway.networking.k8s.io
 spec:
@@ -17061,6 +17021,8 @@ spec:
             - from
             - to
             type: object
+        required:
+        - spec
         type: object
     served: true
     storage: false
@@ -17224,23 +17186,19 @@ spec:
             - from
             - to
             type: object
+        required:
+        - spec
         type: object
     served: true
     storage: true
     subresources: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: null
-  storedVersions: null
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
     api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/4530
-    gateway.networking.k8s.io/bundle-version: v1.5.1
+    gateway.networking.k8s.io/bundle-version: v1.6.0
     gateway.networking.k8s.io/channel: experimental
   name: tcproutes.gateway.networking.k8s.io
 spec:
@@ -17258,6 +17216,728 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
+    name: v1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          TCPRoute provides a way to route TCP requests. When combined with a Gateway
+          listener, it can be used to forward connections on the port specified by the
+          listener to a set of backends specified by the TCPRoute.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: Spec defines the desired state of TCPRoute.
+            properties:
+              parentRefs:
+                description: |-
+                  ParentRefs references the resources (usually Gateways) that a Route wants
+                  to be attached to. Note that the referenced parent resource needs to
+                  allow this for the attachment to be complete. For Gateways, that means
+                  the Gateway needs to allow attachment from Routes of this kind and
+                  namespace. For Services, that means the Service must either be in the same
+                  namespace for a "producer" route, or the mesh implementation must support
+                  and allow "consumer" routes for the referenced Service. ReferenceGrant is
+                  not applicable for governing ParentRefs to Services - it is not possible to
+                  create a "producer" route for a Service in a different namespace from the
+                  Route.
+
+                  There are two kinds of parent resources with "Core" support:
+
+                  * Gateway (Gateway conformance profile)
+                  * Service (Mesh conformance profile, ClusterIP Services only)
+
+                  This API may be extended in the future to support additional kinds of parent
+                  resources.
+
+                  ParentRefs must be _distinct_. This means either that:
+
+                  * They select different objects.  If this is the case, then parentRef
+                    entries are distinct. In terms of fields, this means that the
+                    multi-part key defined by `group`, `kind`, `namespace`, and `name` must
+                    be unique across all parentRef entries in the Route.
+                  * They do not select different objects, but for each optional field used,
+                    each ParentRef that selects the same object must set the same set of
+                    optional fields to different values. If one ParentRef sets a
+                    combination of optional fields, all must set the same combination.
+
+                  Some examples:
+
+                  * If one ParentRef sets `sectionName`, all ParentRefs referencing the
+                    same object must also set `sectionName`.
+                  * If one ParentRef sets `port`, all ParentRefs referencing the same
+                    object must also set `port`.
+                  * If one ParentRef sets `sectionName` and `port`, all ParentRefs
+                    referencing the same object must also set `sectionName` and `port`.
+
+                  It is possible to separately reference multiple distinct objects that may
+                  be collapsed by an implementation. For example, some implementations may
+                  choose to merge compatible Gateway Listeners together. If that is the
+                  case, the list of routes attached to those resources should also be
+                  merged.
+
+                  Note that for ParentRefs that cross namespace boundaries, there are specific
+                  rules. Cross-namespace references are only valid if they are explicitly
+                  allowed by something in the namespace they are referring to. For example,
+                  Gateway has the AllowedRoutes field, and ReferenceGrant provides a
+                  generic way to enable other kinds of cross-namespace reference.
+
+
+                  ParentRefs from a Route to a Service in the same namespace are "producer"
+                  routes, which apply default routing rules to inbound connections from
+                  any namespace to the Service.
+
+                  ParentRefs from a Route to a Service in a different namespace are
+                  "consumer" routes, and these routing rules are only applied to outbound
+                  connections originating from the same namespace as the Route, for which
+                  the intended destination of the connections are a Service targeted as a
+                  ParentRef of the Route.
+                items:
+                  description: |-
+                    ParentReference identifies an API object (usually a Gateway) that can be considered
+                    a parent of this resource (usually a route). There are two kinds of parent resources
+                    with "Core" support:
+
+                    * Gateway (Gateway conformance profile)
+                    * Service (Mesh conformance profile, ClusterIP Services only)
+
+                    This API may be extended in the future to support additional kinds of parent
+                    resources.
+
+                    The API object must be valid in the cluster; the Group and Kind must
+                    be registered in the cluster for this reference to be valid.
+                  properties:
+                    group:
+                      default: gateway.networking.k8s.io
+                      description: |-
+                        Group is the group of the referent.
+                        When unspecified, "gateway.networking.k8s.io" is inferred.
+                        To set the core API group (such as for a "Service" kind referent),
+                        Group must be explicitly set to "" (empty string).
+
+                        Support: Core
+                      maxLength: 253
+                      pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                      type: string
+                    kind:
+                      default: Gateway
+                      description: |-
+                        Kind is kind of the referent.
+
+                        There are two kinds of parent resources with "Core" support:
+
+                        * Gateway (Gateway conformance profile)
+                        * Service (Mesh conformance profile, ClusterIP Services only)
+
+                        Support for other resources is Implementation-Specific.
+                      maxLength: 63
+                      minLength: 1
+                      pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
+                      type: string
+                    name:
+                      description: |-
+                        Name is the name of the referent.
+
+                        Support: Core
+                      maxLength: 253
+                      minLength: 1
+                      type: string
+                    namespace:
+                      description: |-
+                        Namespace is the namespace of the referent. When unspecified, this refers
+                        to the local namespace of the Route.
+
+                        Note that there are specific rules for ParentRefs which cross namespace
+                        boundaries. Cross-namespace references are only valid if they are explicitly
+                        allowed by something in the namespace they are referring to. For example:
+                        Gateway has the AllowedRoutes field, and ReferenceGrant provides a
+                        generic way to enable any other kind of cross-namespace reference.
+
+
+                        ParentRefs from a Route to a Service in the same namespace are "producer"
+                        routes, which apply default routing rules to inbound connections from
+                        any namespace to the Service.
+
+                        ParentRefs from a Route to a Service in a different namespace are
+                        "consumer" routes, and these routing rules are only applied to outbound
+                        connections originating from the same namespace as the Route, for which
+                        the intended destination of the connections are a Service targeted as a
+                        ParentRef of the Route.
+
+
+                        Support: Core
+                      maxLength: 63
+                      minLength: 1
+                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                      type: string
+                    port:
+                      description: |-
+                        Port is the network port this Route targets. It can be interpreted
+                        differently based on the type of parent resource.
+
+                        When the parent resource is a Gateway, this targets all listeners
+                        listening on the specified port that also support this kind of Route(and
+                        select this Route). It's not recommended to set `Port` unless the
+                        networking behaviors specified in a Route must apply to a specific port
+                        as opposed to a listener(s) whose port(s) may be changed. When both Port
+                        and SectionName are specified, the name and port of the selected listener
+                        must match both specified values.
+
+
+                        When the parent resource is a Service, this targets a specific port in the
+                        Service spec. When both Port (experimental) and SectionName are specified,
+                        the name and port of the selected port must match both specified values.
+
+
+                        Implementations MAY choose to support other parent resources.
+                        Implementations supporting other types of parent resources MUST clearly
+                        document how/if Port is interpreted.
+
+                        For the purpose of status, an attachment is considered successful as
+                        long as the parent resource accepts it partially. For example, Gateway
+                        listeners can restrict which Routes can attach to them by Route kind,
+                        namespace, or hostname. If 1 of 2 Gateway listeners accept attachment
+                        from the referencing Route, the Route MUST be considered successfully
+                        attached. If no Gateway listeners accept attachment from this Route,
+                        the Route MUST be considered detached from the Gateway.
+
+                        Support: Extended
+                      format: int32
+                      maximum: 65535
+                      minimum: 1
+                      type: integer
+                    sectionName:
+                      description: |-
+                        SectionName is the name of a section within the target resource. In the
+                        following resources, SectionName is interpreted as the following:
+
+                        * Gateway: Listener name. When both Port (experimental) and SectionName
+                        are specified, the name and port of the selected listener must match
+                        both specified values.
+                        * Service: Port name. When both Port (experimental) and SectionName
+                        are specified, the name and port of the selected listener must match
+                        both specified values.
+
+                        Implementations MAY choose to support attaching Routes to other resources.
+                        If that is the case, they MUST clearly document how SectionName is
+                        interpreted.
+
+                        When unspecified (empty string), this will reference the entire resource.
+                        For the purpose of status, an attachment is considered successful if at
+                        least one section in the parent resource accepts it. For example, Gateway
+                        listeners can restrict which Routes can attach to them by Route kind,
+                        namespace, or hostname. If 1 of 2 Gateway listeners accept attachment from
+                        the referencing Route, the Route MUST be considered successfully
+                        attached. If no Gateway listeners accept attachment from this Route, the
+                        Route MUST be considered detached from the Gateway.
+
+                        Support: Core
+                      maxLength: 253
+                      minLength: 1
+                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                      type: string
+                  required:
+                  - name
+                  type: object
+                maxItems: 32
+                type: array
+                x-kubernetes-list-type: atomic
+                x-kubernetes-validations:
+                - message: sectionName or port must be specified when parentRefs includes
+                    2 or more references to the same parent
+                  rule: 'self.all(p1, self.all(p2, p1.group == p2.group && p1.kind
+                    == p2.kind && p1.name == p2.name && (((!has(p1.__namespace__)
+                    || p1.__namespace__ == '''') && (!has(p2.__namespace__) || p2.__namespace__
+                    == '''')) || (has(p1.__namespace__) && has(p2.__namespace__) &&
+                    p1.__namespace__ == p2.__namespace__)) ? ((!has(p1.sectionName)
+                    || p1.sectionName == '''') == (!has(p2.sectionName) || p2.sectionName
+                    == '''') && (!has(p1.port) || p1.port == 0) == (!has(p2.port)
+                    || p2.port == 0)): true))'
+                - message: sectionName or port must be unique when parentRefs includes
+                    2 or more references to the same parent
+                  rule: self.all(p1, self.exists_one(p2, p1.group == p2.group && p1.kind
+                    == p2.kind && p1.name == p2.name && (((!has(p1.__namespace__)
+                    || p1.__namespace__ == '') && (!has(p2.__namespace__) || p2.__namespace__
+                    == '')) || (has(p1.__namespace__) && has(p2.__namespace__) &&
+                    p1.__namespace__ == p2.__namespace__ )) && (((!has(p1.sectionName)
+                    || p1.sectionName == '') && (!has(p2.sectionName) || p2.sectionName
+                    == '')) || ( has(p1.sectionName) && has(p2.sectionName) && p1.sectionName
+                    == p2.sectionName)) && (((!has(p1.port) || p1.port == 0) && (!has(p2.port)
+                    || p2.port == 0)) || (has(p1.port) && has(p2.port) && p1.port
+                    == p2.port))))
+              rules:
+                description: Rules are a list of TCP matchers and actions.
+                items:
+                  description: TCPRouteRule is the configuration for a given rule.
+                  properties:
+                    backendRefs:
+                      description: |-
+                        BackendRefs defines the backend(s) where matching requests should be
+                        sent. If unspecified or invalid (refers to a nonexistent resource or a
+                        Service with no endpoints), the underlying implementation MUST actively
+                        reject connection attempts to this backend. Connection rejections must
+                        respect weight; if an invalid backend is requested to have 80% of
+                        connections, then 80% of connections must be rejected instead.
+
+                        Support: Core for Kubernetes Service
+                      items:
+                        description: |-
+                          BackendRef defines how a Route should forward a request to a Kubernetes
+                          resource.
+
+                          Note that when a namespace different than the local namespace is specified, a
+                          ReferenceGrant object is required in the referent namespace to allow that
+                          namespace's owner to accept the reference. See the ReferenceGrant
+                          documentation for details.
+
+
+                          When the BackendRef points to a Kubernetes Service, implementations SHOULD
+                          honor the appProtocol field if it is set for the target Service Port.
+
+                          Implementations supporting appProtocol SHOULD recognize the Kubernetes
+                          Standard Application Protocols defined in KEP-3726.
+
+                          If a Service appProtocol isn't specified, an implementation MAY infer the
+                          backend protocol through its own means. Implementations MAY infer the
+                          protocol from the Route type referring to the backend Service.
+
+                          If a Route is not able to send traffic to the backend using the specified
+                          protocol then the backend is considered invalid. Implementations MUST set the
+                          "ResolvedRefs" condition to "False" with the "UnsupportedProtocol" reason.
+
+
+                          Note that when the BackendTLSPolicy object is enabled by the implementation,
+                          there are some extra rules about validity to consider here. See the fields
+                          where this struct is used for more information about the exact behavior.
+                        properties:
+                          group:
+                            default: ""
+                            description: |-
+                              Group is the group of the referent. For example, "gateway.networking.k8s.io".
+                              When unspecified or empty string, core API group is inferred.
+                            maxLength: 253
+                            pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                            type: string
+                          kind:
+                            default: Service
+                            description: |-
+                              Kind is the Kubernetes resource kind of the referent. For example
+                              "Service".
+
+                              Defaults to "Service" when not specified.
+
+                              ExternalName services can refer to CNAME DNS records that may live
+                              outside of the cluster and as such are difficult to reason about in
+                              terms of conformance. They also may not be safe to forward to (see
+                              CVE-2021-25740 for more information). Implementations SHOULD NOT
+                              support ExternalName Services.
+
+                              Support: Core (Services with a type other than ExternalName)
+
+                              Support: Implementation-specific (Services with type ExternalName)
+                            maxLength: 63
+                            minLength: 1
+                            pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
+                            type: string
+                          name:
+                            description: Name is the name of the referent.
+                            maxLength: 253
+                            minLength: 1
+                            type: string
+                          namespace:
+                            description: |-
+                              Namespace is the namespace of the backend. When unspecified, the local
+                              namespace is inferred.
+
+                              Note that when a namespace different than the local namespace is specified,
+                              a ReferenceGrant object is required in the referent namespace to allow that
+                              namespace's owner to accept the reference. See the ReferenceGrant
+                              documentation for details.
+
+                              Support: Core
+                            maxLength: 63
+                            minLength: 1
+                            pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                            type: string
+                          port:
+                            description: |-
+                              Port specifies the destination port number to use for this resource.
+                              Port is required when the referent is a Kubernetes Service. In this
+                              case, the port number is the service port number, not the target port.
+                              For other resources, destination port might be derived from the referent
+                              resource or this field.
+                            format: int32
+                            maximum: 65535
+                            minimum: 1
+                            type: integer
+                          weight:
+                            default: 1
+                            description: |-
+                              Weight specifies the proportion of requests forwarded to the referenced
+                              backend. This is computed as weight/(sum of all weights in this
+                              BackendRefs list). For non-zero values, there may be some epsilon from
+                              the exact proportion defined here depending on the precision an
+                              implementation supports. Weight is not a percentage and the sum of
+                              weights does not need to equal 100.
+
+                              If only one backend is specified and it has a weight greater than 0, 100%
+                              of the traffic is forwarded to that backend. If weight is set to 0, no
+                              traffic should be forwarded for this entry. If unspecified, weight
+                              defaults to 1.
+
+                              Support for this field varies based on the context where used.
+                            format: int32
+                            maximum: 1000000
+                            minimum: 0
+                            type: integer
+                        required:
+                        - name
+                        type: object
+                        x-kubernetes-validations:
+                        - message: Must have port for Service reference
+                          rule: '(size(self.group) == 0 && self.kind == ''Service'')
+                            ? has(self.port) : true'
+                      maxItems: 16
+                      minItems: 1
+                      type: array
+                      x-kubernetes-list-type: atomic
+                    name:
+                      description: Name is the name of the route rule. This name MUST
+                        be unique within a Route if it is set.
+                      maxLength: 253
+                      minLength: 1
+                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                      type: string
+                  required:
+                  - backendRefs
+                  type: object
+                maxItems: 1
+                minItems: 1
+                type: array
+                x-kubernetes-list-type: atomic
+              useDefaultGateways:
+                description: |-
+                  UseDefaultGateways indicates the default Gateway scope to use for this
+                  Route. If unset (the default) or set to None, the Route will not be
+                  attached to any default Gateway; if set, it will be attached to any
+                  default Gateway supporting the named scope, subject to the usual rules
+                  about which Routes a Gateway is allowed to claim.
+
+                  Think carefully before using this functionality! The set of default
+                  Gateways supporting the requested scope can change over time without
+                  any notice to the Route author, and in many situations it will not be
+                  appropriate to request a default Gateway for a given Route -- for
+                  example, a Route with specific security requirements should almost
+                  certainly not use a default Gateway.
+                enum:
+                - All
+                - None
+                type: string
+            required:
+            - rules
+            type: object
+          status:
+            description: Status defines the current state of TCPRoute.
+            properties:
+              parents:
+                description: |-
+                  Parents is a list of parent resources (usually Gateways) that are
+                  associated with the route, and the status of the route with respect to
+                  each parent. When this route attaches to a parent, the controller that
+                  manages the parent must add an entry to this list when the controller
+                  first sees the route and should update the entry as appropriate when the
+                  route or gateway is modified.
+
+                  Note that parent references that cannot be resolved by an implementation
+                  of this API will not be added to this list. Implementations of this API
+                  can only populate Route status for the Gateways/parent resources they are
+                  responsible for.
+
+                  A maximum of 32 Gateways will be represented in this list. An empty list
+                  means the route has not been attached to any Gateway.
+                items:
+                  description: |-
+                    RouteParentStatus describes the status of a route with respect to an
+                    associated Parent.
+                  properties:
+                    conditions:
+                      description: |-
+                        Conditions describes the status of the route with respect to the Gateway.
+                        Note that the route's availability is also subject to the Gateway's own
+                        status conditions and listener status.
+
+                        If the Route's ParentRef specifies an existing Gateway that supports
+                        Routes of this kind AND that Gateway's controller has sufficient access,
+                        then that Gateway's controller MUST set the "Accepted" condition on the
+                        Route, to indicate whether the route has been accepted or rejected by the
+                        Gateway, and why.
+
+                        A Route MUST be considered "Accepted" if at least one of the Route's
+                        rules is implemented by the Gateway.
+
+                        There are a number of cases where the "Accepted" condition may not be set
+                        due to lack of controller visibility, that includes when:
+
+                        * The Route refers to a nonexistent parent.
+                        * The Route is of a type that the controller does not support.
+                        * The Route is in a namespace to which the controller does not have access.
+                      items:
+                        description: Condition contains details for one aspect of
+                          the current state of this API Resource.
+                        properties:
+                          lastTransitionTime:
+                            description: |-
+                              lastTransitionTime is the last time the condition transitioned from one status to another.
+                              This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                            format: date-time
+                            type: string
+                          message:
+                            description: |-
+                              message is a human readable message indicating details about the transition.
+                              This may be an empty string.
+                            maxLength: 32768
+                            type: string
+                          observedGeneration:
+                            description: |-
+                              observedGeneration represents the .metadata.generation that the condition was set based upon.
+                              For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                              with respect to the current state of the instance.
+                            format: int64
+                            minimum: 0
+                            type: integer
+                          reason:
+                            description: |-
+                              reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                              Producers of specific condition types may define expected values and meanings for this field,
+                              and whether the values are considered a guaranteed API.
+                              The value should be a CamelCase string.
+                              This field may not be empty.
+                            maxLength: 1024
+                            minLength: 1
+                            pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                            type: string
+                          status:
+                            description: status of the condition, one of True, False,
+                              Unknown.
+                            enum:
+                            - "True"
+                            - "False"
+                            - Unknown
+                            type: string
+                          type:
+                            description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                            maxLength: 316
+                            pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                            type: string
+                        required:
+                        - lastTransitionTime
+                        - message
+                        - reason
+                        - status
+                        - type
+                        type: object
+                      maxItems: 8
+                      minItems: 1
+                      type: array
+                      x-kubernetes-list-map-keys:
+                      - type
+                      x-kubernetes-list-type: map
+                    controllerName:
+                      description: |-
+                        ControllerName is a domain/path string that indicates the name of the
+                        controller that wrote this status. This corresponds with the
+                        controllerName field on GatewayClass.
+
+                        Example: "example.net/gateway-controller".
+
+                        The format of this field is DOMAIN "/" PATH, where DOMAIN and PATH are
+                        valid Kubernetes names
+                        (https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names).
+
+                        Controllers MUST populate this field when writing status. Controllers should ensure that
+                        entries to status populated with their ControllerName are cleaned up when they are no
+                        longer necessary.
+                      maxLength: 253
+                      minLength: 1
+                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\/[A-Za-z0-9\/\-._~%!$&'()*+,;=:]+$
+                      type: string
+                    parentRef:
+                      description: |-
+                        ParentRef corresponds with a ParentRef in the spec that this
+                        RouteParentStatus struct describes the status of.
+                      properties:
+                        group:
+                          default: gateway.networking.k8s.io
+                          description: |-
+                            Group is the group of the referent.
+                            When unspecified, "gateway.networking.k8s.io" is inferred.
+                            To set the core API group (such as for a "Service" kind referent),
+                            Group must be explicitly set to "" (empty string).
+
+                            Support: Core
+                          maxLength: 253
+                          pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                          type: string
+                        kind:
+                          default: Gateway
+                          description: |-
+                            Kind is kind of the referent.
+
+                            There are two kinds of parent resources with "Core" support:
+
+                            * Gateway (Gateway conformance profile)
+                            * Service (Mesh conformance profile, ClusterIP Services only)
+
+                            Support for other resources is Implementation-Specific.
+                          maxLength: 63
+                          minLength: 1
+                          pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
+                          type: string
+                        name:
+                          description: |-
+                            Name is the name of the referent.
+
+                            Support: Core
+                          maxLength: 253
+                          minLength: 1
+                          type: string
+                        namespace:
+                          description: |-
+                            Namespace is the namespace of the referent. When unspecified, this refers
+                            to the local namespace of the Route.
+
+                            Note that there are specific rules for ParentRefs which cross namespace
+                            boundaries. Cross-namespace references are only valid if they are explicitly
+                            allowed by something in the namespace they are referring to. For example:
+                            Gateway has the AllowedRoutes field, and ReferenceGrant provides a
+                            generic way to enable any other kind of cross-namespace reference.
+
+
+                            ParentRefs from a Route to a Service in the same namespace are "producer"
+                            routes, which apply default routing rules to inbound connections from
+                            any namespace to the Service.
+
+                            ParentRefs from a Route to a Service in a different namespace are
+                            "consumer" routes, and these routing rules are only applied to outbound
+                            connections originating from the same namespace as the Route, for which
+                            the intended destination of the connections are a Service targeted as a
+                            ParentRef of the Route.
+
+
+                            Support: Core
+                          maxLength: 63
+                          minLength: 1
+                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                          type: string
+                        port:
+                          description: |-
+                            Port is the network port this Route targets. It can be interpreted
+                            differently based on the type of parent resource.
+
+                            When the parent resource is a Gateway, this targets all listeners
+                            listening on the specified port that also support this kind of Route(and
+                            select this Route). It's not recommended to set `Port` unless the
+                            networking behaviors specified in a Route must apply to a specific port
+                            as opposed to a listener(s) whose port(s) may be changed. When both Port
+                            and SectionName are specified, the name and port of the selected listener
+                            must match both specified values.
+
+
+                            When the parent resource is a Service, this targets a specific port in the
+                            Service spec. When both Port (experimental) and SectionName are specified,
+                            the name and port of the selected port must match both specified values.
+
+
+                            Implementations MAY choose to support other parent resources.
+                            Implementations supporting other types of parent resources MUST clearly
+                            document how/if Port is interpreted.
+
+                            For the purpose of status, an attachment is considered successful as
+                            long as the parent resource accepts it partially. For example, Gateway
+                            listeners can restrict which Routes can attach to them by Route kind,
+                            namespace, or hostname. If 1 of 2 Gateway listeners accept attachment
+                            from the referencing Route, the Route MUST be considered successfully
+                            attached. If no Gateway listeners accept attachment from this Route,
+                            the Route MUST be considered detached from the Gateway.
+
+                            Support: Extended
+                          format: int32
+                          maximum: 65535
+                          minimum: 1
+                          type: integer
+                        sectionName:
+                          description: |-
+                            SectionName is the name of a section within the target resource. In the
+                            following resources, SectionName is interpreted as the following:
+
+                            * Gateway: Listener name. When both Port (experimental) and SectionName
+                            are specified, the name and port of the selected listener must match
+                            both specified values.
+                            * Service: Port name. When both Port (experimental) and SectionName
+                            are specified, the name and port of the selected listener must match
+                            both specified values.
+
+                            Implementations MAY choose to support attaching Routes to other resources.
+                            If that is the case, they MUST clearly document how SectionName is
+                            interpreted.
+
+                            When unspecified (empty string), this will reference the entire resource.
+                            For the purpose of status, an attachment is considered successful if at
+                            least one section in the parent resource accepts it. For example, Gateway
+                            listeners can restrict which Routes can attach to them by Route kind,
+                            namespace, or hostname. If 1 of 2 Gateway listeners accept attachment from
+                            the referencing Route, the Route MUST be considered successfully
+                            attached. If no Gateway listeners accept attachment from this Route, the
+                            Route MUST be considered detached from the Gateway.
+
+                            Support: Core
+                          maxLength: 253
+                          minLength: 1
+                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                          type: string
+                      required:
+                      - name
+                      type: object
+                  required:
+                  - conditions
+                  - controllerName
+                  - parentRef
+                  type: object
+                maxItems: 32
+                type: array
+                x-kubernetes-list-type: atomic
+            required:
+            - parents
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+  - additionalPrinterColumns:
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    deprecated: true
+    deprecationWarning: The v1alpha2 version of TCPRoute has been deprecated and will
+      be removed in a future release of the API. Please upgrade to v1.
     name: v1alpha2
     schema:
       openAPIV3Schema:
@@ -17537,12 +18217,6 @@ spec:
                         connections, then 80% of connections must be rejected instead.
 
                         Support: Core for Kubernetes Service
-
-                        Support: Extended for Kubernetes ServiceImport
-
-                        Support: Implementation-specific for any other resource
-
-                        Support for weight: Extended
                       items:
                         description: |-
                           BackendRef defines how a Route should forward a request to a Kubernetes
@@ -17665,10 +18339,8 @@ spec:
                       type: array
                       x-kubernetes-list-type: atomic
                     name:
-                      description: |-
-                        Name is the name of the route rule. This name MUST be unique within a Route if it is set.
-
-                        Support: Extended
+                      description: Name is the name of the route rule. This name MUST
+                        be unique within a Route if it is set.
                       maxLength: 253
                       minLength: 1
                       pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
@@ -17982,22 +18654,16 @@ spec:
         - spec
         type: object
     served: true
-    storage: true
+    storage: false
     subresources:
       status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: null
-  storedVersions: null
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
     api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/4530
-    gateway.networking.k8s.io/bundle-version: v1.5.1
+    gateway.networking.k8s.io/bundle-version: v1.6.0
     gateway.networking.k8s.io/channel: experimental
   name: tlsroutes.gateway.networking.k8s.io
 spec:
@@ -18075,7 +18741,7 @@ spec:
                   minLength: 1
                   pattern: ^(\*\.)?[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                   type: string
-                maxItems: 16
+                maxItems: 1024
                 minItems: 1
                 type: array
                 x-kubernetes-list-type: atomic
@@ -18342,6 +19008,9 @@ spec:
                         weight; if an invalid backend is requested to have 80% of requests, then
                         80% of requests must be rejected instead.
 
+                        When a TLSRoute is attached to a listener in Terminate mode, a BackendTLSPolicy
+                        can be used to enable re-encryption of the traffic to the backends.
+
                         Support: Core for Kubernetes Service
 
                         Support: Extended for Kubernetes ServiceImport
@@ -18349,6 +19018,8 @@ spec:
                         Support: Implementation-specific for any other resource
 
                         Support for weight: Extended
+
+                        Support for BackendTLSPolicy: Extended
                       items:
                         description: |-
                           BackendRef defines how a Route should forward a request to a Kubernetes
@@ -18876,7 +19547,7 @@ spec:
                   minLength: 1
                   pattern: ^(\*\.)?[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                   type: string
-                maxItems: 16
+                maxItems: 1024
                 type: array
                 x-kubernetes-list-type: atomic
               parentRefs:
@@ -19131,6 +19802,9 @@ spec:
                         weight; if an invalid backend is requested to have 80% of requests, then
                         80% of requests must be rejected instead.
 
+                        When a TLSRoute is attached to a listener in Terminate mode, a BackendTLSPolicy
+                        can be used to enable re-encryption of the traffic to the backends.
+
                         Support: Core for Kubernetes Service
 
                         Support: Extended for Kubernetes ServiceImport
@@ -19138,6 +19812,8 @@ spec:
                         Support: Implementation-specific for any other resource
 
                         Support for weight: Extended
+
+                        Support for BackendTLSPolicy: Extended
                       items:
                         description: |-
                           BackendRef defines how a Route should forward a request to a Kubernetes
@@ -19645,7 +20321,7 @@ spec:
                   minLength: 1
                   pattern: ^(\*\.)?[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
                   type: string
-                maxItems: 16
+                maxItems: 1024
                 minItems: 1
                 type: array
                 x-kubernetes-list-type: atomic
@@ -19912,6 +20588,9 @@ spec:
                         weight; if an invalid backend is requested to have 80% of requests, then
                         80% of requests must be rejected instead.
 
+                        When a TLSRoute is attached to a listener in Terminate mode, a BackendTLSPolicy
+                        can be used to enable re-encryption of the traffic to the backends.
+
                         Support: Core for Kubernetes Service
 
                         Support: Extended for Kubernetes ServiceImport
@@ -19919,6 +20598,8 @@ spec:
                         Support: Implementation-specific for any other resource
 
                         Support for weight: Extended
+
+                        Support for BackendTLSPolicy: Extended
                       items:
                         description: |-
                           BackendRef defines how a Route should forward a request to a Kubernetes
@@ -20356,19 +21037,13 @@ spec:
     storage: false
     subresources:
       status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: null
-  storedVersions: null
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
     api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/4530
-    gateway.networking.k8s.io/bundle-version: v1.5.1
+    gateway.networking.k8s.io/bundle-version: v1.6.0
     gateway.networking.k8s.io/channel: experimental
   name: udproutes.gateway.networking.k8s.io
 spec:
@@ -20386,6 +21061,728 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
+    name: v1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          UDPRoute provides a way to route UDP traffic. When combined with a Gateway
+          listener, it can be used to forward traffic on the port specified by the
+          listener to a set of backends specified by the UDPRoute.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: Spec defines the desired state of UDPRoute.
+            properties:
+              parentRefs:
+                description: |-
+                  ParentRefs references the resources (usually Gateways) that a Route wants
+                  to be attached to. Note that the referenced parent resource needs to
+                  allow this for the attachment to be complete. For Gateways, that means
+                  the Gateway needs to allow attachment from Routes of this kind and
+                  namespace. For Services, that means the Service must either be in the same
+                  namespace for a "producer" route, or the mesh implementation must support
+                  and allow "consumer" routes for the referenced Service. ReferenceGrant is
+                  not applicable for governing ParentRefs to Services - it is not possible to
+                  create a "producer" route for a Service in a different namespace from the
+                  Route.
+
+                  There are two kinds of parent resources with "Core" support:
+
+                  * Gateway (Gateway conformance profile)
+                  * Service (Mesh conformance profile, ClusterIP Services only)
+
+                  This API may be extended in the future to support additional kinds of parent
+                  resources.
+
+                  ParentRefs must be _distinct_. This means either that:
+
+                  * They select different objects.  If this is the case, then parentRef
+                    entries are distinct. In terms of fields, this means that the
+                    multi-part key defined by `group`, `kind`, `namespace`, and `name` must
+                    be unique across all parentRef entries in the Route.
+                  * They do not select different objects, but for each optional field used,
+                    each ParentRef that selects the same object must set the same set of
+                    optional fields to different values. If one ParentRef sets a
+                    combination of optional fields, all must set the same combination.
+
+                  Some examples:
+
+                  * If one ParentRef sets `sectionName`, all ParentRefs referencing the
+                    same object must also set `sectionName`.
+                  * If one ParentRef sets `port`, all ParentRefs referencing the same
+                    object must also set `port`.
+                  * If one ParentRef sets `sectionName` and `port`, all ParentRefs
+                    referencing the same object must also set `sectionName` and `port`.
+
+                  It is possible to separately reference multiple distinct objects that may
+                  be collapsed by an implementation. For example, some implementations may
+                  choose to merge compatible Gateway Listeners together. If that is the
+                  case, the list of routes attached to those resources should also be
+                  merged.
+
+                  Note that for ParentRefs that cross namespace boundaries, there are specific
+                  rules. Cross-namespace references are only valid if they are explicitly
+                  allowed by something in the namespace they are referring to. For example,
+                  Gateway has the AllowedRoutes field, and ReferenceGrant provides a
+                  generic way to enable other kinds of cross-namespace reference.
+
+
+                  ParentRefs from a Route to a Service in the same namespace are "producer"
+                  routes, which apply default routing rules to inbound connections from
+                  any namespace to the Service.
+
+                  ParentRefs from a Route to a Service in a different namespace are
+                  "consumer" routes, and these routing rules are only applied to outbound
+                  connections originating from the same namespace as the Route, for which
+                  the intended destination of the connections are a Service targeted as a
+                  ParentRef of the Route.
+                items:
+                  description: |-
+                    ParentReference identifies an API object (usually a Gateway) that can be considered
+                    a parent of this resource (usually a route). There are two kinds of parent resources
+                    with "Core" support:
+
+                    * Gateway (Gateway conformance profile)
+                    * Service (Mesh conformance profile, ClusterIP Services only)
+
+                    This API may be extended in the future to support additional kinds of parent
+                    resources.
+
+                    The API object must be valid in the cluster; the Group and Kind must
+                    be registered in the cluster for this reference to be valid.
+                  properties:
+                    group:
+                      default: gateway.networking.k8s.io
+                      description: |-
+                        Group is the group of the referent.
+                        When unspecified, "gateway.networking.k8s.io" is inferred.
+                        To set the core API group (such as for a "Service" kind referent),
+                        Group must be explicitly set to "" (empty string).
+
+                        Support: Core
+                      maxLength: 253
+                      pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                      type: string
+                    kind:
+                      default: Gateway
+                      description: |-
+                        Kind is kind of the referent.
+
+                        There are two kinds of parent resources with "Core" support:
+
+                        * Gateway (Gateway conformance profile)
+                        * Service (Mesh conformance profile, ClusterIP Services only)
+
+                        Support for other resources is Implementation-Specific.
+                      maxLength: 63
+                      minLength: 1
+                      pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
+                      type: string
+                    name:
+                      description: |-
+                        Name is the name of the referent.
+
+                        Support: Core
+                      maxLength: 253
+                      minLength: 1
+                      type: string
+                    namespace:
+                      description: |-
+                        Namespace is the namespace of the referent. When unspecified, this refers
+                        to the local namespace of the Route.
+
+                        Note that there are specific rules for ParentRefs which cross namespace
+                        boundaries. Cross-namespace references are only valid if they are explicitly
+                        allowed by something in the namespace they are referring to. For example:
+                        Gateway has the AllowedRoutes field, and ReferenceGrant provides a
+                        generic way to enable any other kind of cross-namespace reference.
+
+
+                        ParentRefs from a Route to a Service in the same namespace are "producer"
+                        routes, which apply default routing rules to inbound connections from
+                        any namespace to the Service.
+
+                        ParentRefs from a Route to a Service in a different namespace are
+                        "consumer" routes, and these routing rules are only applied to outbound
+                        connections originating from the same namespace as the Route, for which
+                        the intended destination of the connections are a Service targeted as a
+                        ParentRef of the Route.
+
+
+                        Support: Core
+                      maxLength: 63
+                      minLength: 1
+                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                      type: string
+                    port:
+                      description: |-
+                        Port is the network port this Route targets. It can be interpreted
+                        differently based on the type of parent resource.
+
+                        When the parent resource is a Gateway, this targets all listeners
+                        listening on the specified port that also support this kind of Route(and
+                        select this Route). It's not recommended to set `Port` unless the
+                        networking behaviors specified in a Route must apply to a specific port
+                        as opposed to a listener(s) whose port(s) may be changed. When both Port
+                        and SectionName are specified, the name and port of the selected listener
+                        must match both specified values.
+
+
+                        When the parent resource is a Service, this targets a specific port in the
+                        Service spec. When both Port (experimental) and SectionName are specified,
+                        the name and port of the selected port must match both specified values.
+
+
+                        Implementations MAY choose to support other parent resources.
+                        Implementations supporting other types of parent resources MUST clearly
+                        document how/if Port is interpreted.
+
+                        For the purpose of status, an attachment is considered successful as
+                        long as the parent resource accepts it partially. For example, Gateway
+                        listeners can restrict which Routes can attach to them by Route kind,
+                        namespace, or hostname. If 1 of 2 Gateway listeners accept attachment
+                        from the referencing Route, the Route MUST be considered successfully
+                        attached. If no Gateway listeners accept attachment from this Route,
+                        the Route MUST be considered detached from the Gateway.
+
+                        Support: Extended
+                      format: int32
+                      maximum: 65535
+                      minimum: 1
+                      type: integer
+                    sectionName:
+                      description: |-
+                        SectionName is the name of a section within the target resource. In the
+                        following resources, SectionName is interpreted as the following:
+
+                        * Gateway: Listener name. When both Port (experimental) and SectionName
+                        are specified, the name and port of the selected listener must match
+                        both specified values.
+                        * Service: Port name. When both Port (experimental) and SectionName
+                        are specified, the name and port of the selected listener must match
+                        both specified values.
+
+                        Implementations MAY choose to support attaching Routes to other resources.
+                        If that is the case, they MUST clearly document how SectionName is
+                        interpreted.
+
+                        When unspecified (empty string), this will reference the entire resource.
+                        For the purpose of status, an attachment is considered successful if at
+                        least one section in the parent resource accepts it. For example, Gateway
+                        listeners can restrict which Routes can attach to them by Route kind,
+                        namespace, or hostname. If 1 of 2 Gateway listeners accept attachment from
+                        the referencing Route, the Route MUST be considered successfully
+                        attached. If no Gateway listeners accept attachment from this Route, the
+                        Route MUST be considered detached from the Gateway.
+
+                        Support: Core
+                      maxLength: 253
+                      minLength: 1
+                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                      type: string
+                  required:
+                  - name
+                  type: object
+                maxItems: 32
+                type: array
+                x-kubernetes-list-type: atomic
+                x-kubernetes-validations:
+                - message: sectionName or port must be specified when parentRefs includes
+                    2 or more references to the same parent
+                  rule: 'self.all(p1, self.all(p2, p1.group == p2.group && p1.kind
+                    == p2.kind && p1.name == p2.name && (((!has(p1.__namespace__)
+                    || p1.__namespace__ == '''') && (!has(p2.__namespace__) || p2.__namespace__
+                    == '''')) || (has(p1.__namespace__) && has(p2.__namespace__) &&
+                    p1.__namespace__ == p2.__namespace__)) ? ((!has(p1.sectionName)
+                    || p1.sectionName == '''') == (!has(p2.sectionName) || p2.sectionName
+                    == '''') && (!has(p1.port) || p1.port == 0) == (!has(p2.port)
+                    || p2.port == 0)): true))'
+                - message: sectionName or port must be unique when parentRefs includes
+                    2 or more references to the same parent
+                  rule: self.all(p1, self.exists_one(p2, p1.group == p2.group && p1.kind
+                    == p2.kind && p1.name == p2.name && (((!has(p1.__namespace__)
+                    || p1.__namespace__ == '') && (!has(p2.__namespace__) || p2.__namespace__
+                    == '')) || (has(p1.__namespace__) && has(p2.__namespace__) &&
+                    p1.__namespace__ == p2.__namespace__ )) && (((!has(p1.sectionName)
+                    || p1.sectionName == '') && (!has(p2.sectionName) || p2.sectionName
+                    == '')) || ( has(p1.sectionName) && has(p2.sectionName) && p1.sectionName
+                    == p2.sectionName)) && (((!has(p1.port) || p1.port == 0) && (!has(p2.port)
+                    || p2.port == 0)) || (has(p1.port) && has(p2.port) && p1.port
+                    == p2.port))))
+              rules:
+                description: Rules are a list of UDP matchers and actions.
+                items:
+                  description: UDPRouteRule is the configuration for a given rule.
+                  properties:
+                    backendRefs:
+                      description: |-
+                        BackendRefs defines the backend(s) where matching requests should be
+                        sent. If unspecified or invalid (refers to a nonexistent resource or a
+                        Service with no endpoints), the underlying implementation MUST actively
+                        reject connection attempts to this backend. Packet drops must
+                        respect weight; if an invalid backend is requested to have 80% of
+                        the packets, then 80% of packets must be dropped instead.
+
+                        Support: Extended for Kubernetes Service
+                      items:
+                        description: |-
+                          BackendRef defines how a Route should forward a request to a Kubernetes
+                          resource.
+
+                          Note that when a namespace different than the local namespace is specified, a
+                          ReferenceGrant object is required in the referent namespace to allow that
+                          namespace's owner to accept the reference. See the ReferenceGrant
+                          documentation for details.
+
+
+                          When the BackendRef points to a Kubernetes Service, implementations SHOULD
+                          honor the appProtocol field if it is set for the target Service Port.
+
+                          Implementations supporting appProtocol SHOULD recognize the Kubernetes
+                          Standard Application Protocols defined in KEP-3726.
+
+                          If a Service appProtocol isn't specified, an implementation MAY infer the
+                          backend protocol through its own means. Implementations MAY infer the
+                          protocol from the Route type referring to the backend Service.
+
+                          If a Route is not able to send traffic to the backend using the specified
+                          protocol then the backend is considered invalid. Implementations MUST set the
+                          "ResolvedRefs" condition to "False" with the "UnsupportedProtocol" reason.
+
+
+                          Note that when the BackendTLSPolicy object is enabled by the implementation,
+                          there are some extra rules about validity to consider here. See the fields
+                          where this struct is used for more information about the exact behavior.
+                        properties:
+                          group:
+                            default: ""
+                            description: |-
+                              Group is the group of the referent. For example, "gateway.networking.k8s.io".
+                              When unspecified or empty string, core API group is inferred.
+                            maxLength: 253
+                            pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                            type: string
+                          kind:
+                            default: Service
+                            description: |-
+                              Kind is the Kubernetes resource kind of the referent. For example
+                              "Service".
+
+                              Defaults to "Service" when not specified.
+
+                              ExternalName services can refer to CNAME DNS records that may live
+                              outside of the cluster and as such are difficult to reason about in
+                              terms of conformance. They also may not be safe to forward to (see
+                              CVE-2021-25740 for more information). Implementations SHOULD NOT
+                              support ExternalName Services.
+
+                              Support: Core (Services with a type other than ExternalName)
+
+                              Support: Implementation-specific (Services with type ExternalName)
+                            maxLength: 63
+                            minLength: 1
+                            pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
+                            type: string
+                          name:
+                            description: Name is the name of the referent.
+                            maxLength: 253
+                            minLength: 1
+                            type: string
+                          namespace:
+                            description: |-
+                              Namespace is the namespace of the backend. When unspecified, the local
+                              namespace is inferred.
+
+                              Note that when a namespace different than the local namespace is specified,
+                              a ReferenceGrant object is required in the referent namespace to allow that
+                              namespace's owner to accept the reference. See the ReferenceGrant
+                              documentation for details.
+
+                              Support: Core
+                            maxLength: 63
+                            minLength: 1
+                            pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                            type: string
+                          port:
+                            description: |-
+                              Port specifies the destination port number to use for this resource.
+                              Port is required when the referent is a Kubernetes Service. In this
+                              case, the port number is the service port number, not the target port.
+                              For other resources, destination port might be derived from the referent
+                              resource or this field.
+                            format: int32
+                            maximum: 65535
+                            minimum: 1
+                            type: integer
+                          weight:
+                            default: 1
+                            description: |-
+                              Weight specifies the proportion of requests forwarded to the referenced
+                              backend. This is computed as weight/(sum of all weights in this
+                              BackendRefs list). For non-zero values, there may be some epsilon from
+                              the exact proportion defined here depending on the precision an
+                              implementation supports. Weight is not a percentage and the sum of
+                              weights does not need to equal 100.
+
+                              If only one backend is specified and it has a weight greater than 0, 100%
+                              of the traffic is forwarded to that backend. If weight is set to 0, no
+                              traffic should be forwarded for this entry. If unspecified, weight
+                              defaults to 1.
+
+                              Support for this field varies based on the context where used.
+                            format: int32
+                            maximum: 1000000
+                            minimum: 0
+                            type: integer
+                        required:
+                        - name
+                        type: object
+                        x-kubernetes-validations:
+                        - message: Must have port for Service reference
+                          rule: '(size(self.group) == 0 && self.kind == ''Service'')
+                            ? has(self.port) : true'
+                      maxItems: 16
+                      minItems: 1
+                      type: array
+                      x-kubernetes-list-type: atomic
+                    name:
+                      description: Name is the name of the route rule. This name MUST
+                        be unique within a Route if it is set.
+                      maxLength: 253
+                      minLength: 1
+                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                      type: string
+                  required:
+                  - backendRefs
+                  type: object
+                maxItems: 1
+                minItems: 1
+                type: array
+                x-kubernetes-list-type: atomic
+              useDefaultGateways:
+                description: |-
+                  UseDefaultGateways indicates the default Gateway scope to use for this
+                  Route. If unset (the default) or set to None, the Route will not be
+                  attached to any default Gateway; if set, it will be attached to any
+                  default Gateway supporting the named scope, subject to the usual rules
+                  about which Routes a Gateway is allowed to claim.
+
+                  Think carefully before using this functionality! The set of default
+                  Gateways supporting the requested scope can change over time without
+                  any notice to the Route author, and in many situations it will not be
+                  appropriate to request a default Gateway for a given Route -- for
+                  example, a Route with specific security requirements should almost
+                  certainly not use a default Gateway.
+                enum:
+                - All
+                - None
+                type: string
+            required:
+            - rules
+            type: object
+          status:
+            description: Status defines the current state of UDPRoute.
+            properties:
+              parents:
+                description: |-
+                  Parents is a list of parent resources (usually Gateways) that are
+                  associated with the route, and the status of the route with respect to
+                  each parent. When this route attaches to a parent, the controller that
+                  manages the parent must add an entry to this list when the controller
+                  first sees the route and should update the entry as appropriate when the
+                  route or gateway is modified.
+
+                  Note that parent references that cannot be resolved by an implementation
+                  of this API will not be added to this list. Implementations of this API
+                  can only populate Route status for the Gateways/parent resources they are
+                  responsible for.
+
+                  A maximum of 32 Gateways will be represented in this list. An empty list
+                  means the route has not been attached to any Gateway.
+                items:
+                  description: |-
+                    RouteParentStatus describes the status of a route with respect to an
+                    associated Parent.
+                  properties:
+                    conditions:
+                      description: |-
+                        Conditions describes the status of the route with respect to the Gateway.
+                        Note that the route's availability is also subject to the Gateway's own
+                        status conditions and listener status.
+
+                        If the Route's ParentRef specifies an existing Gateway that supports
+                        Routes of this kind AND that Gateway's controller has sufficient access,
+                        then that Gateway's controller MUST set the "Accepted" condition on the
+                        Route, to indicate whether the route has been accepted or rejected by the
+                        Gateway, and why.
+
+                        A Route MUST be considered "Accepted" if at least one of the Route's
+                        rules is implemented by the Gateway.
+
+                        There are a number of cases where the "Accepted" condition may not be set
+                        due to lack of controller visibility, that includes when:
+
+                        * The Route refers to a nonexistent parent.
+                        * The Route is of a type that the controller does not support.
+                        * The Route is in a namespace to which the controller does not have access.
+                      items:
+                        description: Condition contains details for one aspect of
+                          the current state of this API Resource.
+                        properties:
+                          lastTransitionTime:
+                            description: |-
+                              lastTransitionTime is the last time the condition transitioned from one status to another.
+                              This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                            format: date-time
+                            type: string
+                          message:
+                            description: |-
+                              message is a human readable message indicating details about the transition.
+                              This may be an empty string.
+                            maxLength: 32768
+                            type: string
+                          observedGeneration:
+                            description: |-
+                              observedGeneration represents the .metadata.generation that the condition was set based upon.
+                              For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                              with respect to the current state of the instance.
+                            format: int64
+                            minimum: 0
+                            type: integer
+                          reason:
+                            description: |-
+                              reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                              Producers of specific condition types may define expected values and meanings for this field,
+                              and whether the values are considered a guaranteed API.
+                              The value should be a CamelCase string.
+                              This field may not be empty.
+                            maxLength: 1024
+                            minLength: 1
+                            pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                            type: string
+                          status:
+                            description: status of the condition, one of True, False,
+                              Unknown.
+                            enum:
+                            - "True"
+                            - "False"
+                            - Unknown
+                            type: string
+                          type:
+                            description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                            maxLength: 316
+                            pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                            type: string
+                        required:
+                        - lastTransitionTime
+                        - message
+                        - reason
+                        - status
+                        - type
+                        type: object
+                      maxItems: 8
+                      minItems: 1
+                      type: array
+                      x-kubernetes-list-map-keys:
+                      - type
+                      x-kubernetes-list-type: map
+                    controllerName:
+                      description: |-
+                        ControllerName is a domain/path string that indicates the name of the
+                        controller that wrote this status. This corresponds with the
+                        controllerName field on GatewayClass.
+
+                        Example: "example.net/gateway-controller".
+
+                        The format of this field is DOMAIN "/" PATH, where DOMAIN and PATH are
+                        valid Kubernetes names
+                        (https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names).
+
+                        Controllers MUST populate this field when writing status. Controllers should ensure that
+                        entries to status populated with their ControllerName are cleaned up when they are no
+                        longer necessary.
+                      maxLength: 253
+                      minLength: 1
+                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\/[A-Za-z0-9\/\-._~%!$&'()*+,;=:]+$
+                      type: string
+                    parentRef:
+                      description: |-
+                        ParentRef corresponds with a ParentRef in the spec that this
+                        RouteParentStatus struct describes the status of.
+                      properties:
+                        group:
+                          default: gateway.networking.k8s.io
+                          description: |-
+                            Group is the group of the referent.
+                            When unspecified, "gateway.networking.k8s.io" is inferred.
+                            To set the core API group (such as for a "Service" kind referent),
+                            Group must be explicitly set to "" (empty string).
+
+                            Support: Core
+                          maxLength: 253
+                          pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                          type: string
+                        kind:
+                          default: Gateway
+                          description: |-
+                            Kind is kind of the referent.
+
+                            There are two kinds of parent resources with "Core" support:
+
+                            * Gateway (Gateway conformance profile)
+                            * Service (Mesh conformance profile, ClusterIP Services only)
+
+                            Support for other resources is Implementation-Specific.
+                          maxLength: 63
+                          minLength: 1
+                          pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
+                          type: string
+                        name:
+                          description: |-
+                            Name is the name of the referent.
+
+                            Support: Core
+                          maxLength: 253
+                          minLength: 1
+                          type: string
+                        namespace:
+                          description: |-
+                            Namespace is the namespace of the referent. When unspecified, this refers
+                            to the local namespace of the Route.
+
+                            Note that there are specific rules for ParentRefs which cross namespace
+                            boundaries. Cross-namespace references are only valid if they are explicitly
+                            allowed by something in the namespace they are referring to. For example:
+                            Gateway has the AllowedRoutes field, and ReferenceGrant provides a
+                            generic way to enable any other kind of cross-namespace reference.
+
+
+                            ParentRefs from a Route to a Service in the same namespace are "producer"
+                            routes, which apply default routing rules to inbound connections from
+                            any namespace to the Service.
+
+                            ParentRefs from a Route to a Service in a different namespace are
+                            "consumer" routes, and these routing rules are only applied to outbound
+                            connections originating from the same namespace as the Route, for which
+                            the intended destination of the connections are a Service targeted as a
+                            ParentRef of the Route.
+
+
+                            Support: Core
+                          maxLength: 63
+                          minLength: 1
+                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                          type: string
+                        port:
+                          description: |-
+                            Port is the network port this Route targets. It can be interpreted
+                            differently based on the type of parent resource.
+
+                            When the parent resource is a Gateway, this targets all listeners
+                            listening on the specified port that also support this kind of Route(and
+                            select this Route). It's not recommended to set `Port` unless the
+                            networking behaviors specified in a Route must apply to a specific port
+                            as opposed to a listener(s) whose port(s) may be changed. When both Port
+                            and SectionName are specified, the name and port of the selected listener
+                            must match both specified values.
+
+
+                            When the parent resource is a Service, this targets a specific port in the
+                            Service spec. When both Port (experimental) and SectionName are specified,
+                            the name and port of the selected port must match both specified values.
+
+
+                            Implementations MAY choose to support other parent resources.
+                            Implementations supporting other types of parent resources MUST clearly
+                            document how/if Port is interpreted.
+
+                            For the purpose of status, an attachment is considered successful as
+                            long as the parent resource accepts it partially. For example, Gateway
+                            listeners can restrict which Routes can attach to them by Route kind,
+                            namespace, or hostname. If 1 of 2 Gateway listeners accept attachment
+                            from the referencing Route, the Route MUST be considered successfully
+                            attached. If no Gateway listeners accept attachment from this Route,
+                            the Route MUST be considered detached from the Gateway.
+
+                            Support: Extended
+                          format: int32
+                          maximum: 65535
+                          minimum: 1
+                          type: integer
+                        sectionName:
+                          description: |-
+                            SectionName is the name of a section within the target resource. In the
+                            following resources, SectionName is interpreted as the following:
+
+                            * Gateway: Listener name. When both Port (experimental) and SectionName
+                            are specified, the name and port of the selected listener must match
+                            both specified values.
+                            * Service: Port name. When both Port (experimental) and SectionName
+                            are specified, the name and port of the selected listener must match
+                            both specified values.
+
+                            Implementations MAY choose to support attaching Routes to other resources.
+                            If that is the case, they MUST clearly document how SectionName is
+                            interpreted.
+
+                            When unspecified (empty string), this will reference the entire resource.
+                            For the purpose of status, an attachment is considered successful if at
+                            least one section in the parent resource accepts it. For example, Gateway
+                            listeners can restrict which Routes can attach to them by Route kind,
+                            namespace, or hostname. If 1 of 2 Gateway listeners accept attachment from
+                            the referencing Route, the Route MUST be considered successfully
+                            attached. If no Gateway listeners accept attachment from this Route, the
+                            Route MUST be considered detached from the Gateway.
+
+                            Support: Core
+                          maxLength: 253
+                          minLength: 1
+                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                          type: string
+                      required:
+                      - name
+                      type: object
+                  required:
+                  - conditions
+                  - controllerName
+                  - parentRef
+                  type: object
+                maxItems: 32
+                type: array
+                x-kubernetes-list-type: atomic
+            required:
+            - parents
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+  - additionalPrinterColumns:
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    deprecated: true
+    deprecationWarning: The v1alpha2 version of UDPRoute has been deprecated and will
+      be removed in a future release of the API. Please upgrade to v1.
     name: v1alpha2
     schema:
       openAPIV3Schema:
@@ -20664,13 +22061,7 @@ spec:
                         respect weight; if an invalid backend is requested to have 80% of
                         the packets, then 80% of packets must be dropped instead.
 
-                        Support: Core for Kubernetes Service
-
-                        Support: Extended for Kubernetes ServiceImport
-
-                        Support: Implementation-specific for any other resource
-
-                        Support for weight: Extended
+                        Support: Extended for Kubernetes Service
                       items:
                         description: |-
                           BackendRef defines how a Route should forward a request to a Kubernetes
@@ -20793,10 +22184,8 @@ spec:
                       type: array
                       x-kubernetes-list-type: atomic
                     name:
-                      description: |-
-                        Name is the name of the route rule. This name MUST be unique within a Route if it is set.
-
-                        Support: Extended
+                      description: Name is the name of the route rule. This name MUST
+                        be unique within a Route if it is set.
                       maxLength: 253
                       minLength: 1
                       pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
@@ -21110,22 +22499,16 @@ spec:
         - spec
         type: object
     served: true
-    storage: true
+    storage: false
     subresources:
       status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: null
-  storedVersions: null
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
     api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/4530
-    gateway.networking.k8s.io/bundle-version: v1.5.1
+    gateway.networking.k8s.io/bundle-version: v1.6.0
     gateway.networking.k8s.io/channel: experimental
   labels:
     gateway.networking.k8s.io/policy: Direct
@@ -21327,15 +22710,6 @@ spec:
                         - Session
                         type: string
                     type: object
-                  idleTimeout:
-                    description: |-
-                      IdleTimeout defines the idle timeout of the persistent session.
-                      Once the session has been idle for more than the specified
-                      IdleTimeout duration, the session becomes invalid.
-
-                      Support: Extended
-                    pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
-                    type: string
                   sessionName:
                     description: |-
                       SessionName defines the name of the persistent session token
@@ -21722,19 +23096,13 @@ spec:
     storage: true
     subresources:
       status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: null
-  storedVersions: null
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
     api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/4530
-    gateway.networking.k8s.io/bundle-version: v1.5.1
+    gateway.networking.k8s.io/bundle-version: v1.6.0
     gateway.networking.k8s.io/channel: experimental
   name: xmeshes.gateway.networking.x-k8s.io
 spec:
@@ -21971,18 +23339,12 @@ spec:
     storage: true
     subresources:
       status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: null
-  storedVersions: null
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicy
 metadata:
   annotations:
-    gateway.networking.k8s.io/bundle-version: v1.5.0-dev
+    gateway.networking.k8s.io/bundle-version: v1.6.0
     gateway.networking.k8s.io/channel: standard
   name: safe-upgrades.gateway.networking.k8s.io
 spec:
@@ -22010,21 +23372,22 @@ spec:
       by default. Uninstall ValidatingAdmissionPolicy safe-upgrades.gateway.networking.k8s.io
       to install experimental CRDs on top of standard channel CRDs.
     reason: Invalid
-  - expression: object.spec.group != 'gateway.networking.k8s.io' || (has(object.metadata.annotations)
-      && object.metadata.annotations.exists(k, k == 'gateway.networking.k8s.io/bundle-version')
-      && !matches(object.metadata.annotations['gateway.networking.k8s.io/bundle-version'],
-      'v1.[0-4].\\d+') && !matches(object.metadata.annotations['gateway.networking.k8s.io/bundle-version'],
-      'v0'))
-    message: Installing CRDs with version before v1.5.0 is prohibited by default.
-      Uninstall ValidatingAdmissionPolicy safe-upgrades.gateway.networking.k8s.io
-      to install older versions.
+  - expression: |
+      object.spec.group != 'gateway.networking.k8s.io' ||
+      (has(object.metadata.annotations) && object.metadata.annotations.exists(k, k == 'gateway.networking.k8s.io/bundle-version') &&
+      (object.metadata.annotations['gateway.networking.k8s.io/bundle-version'] == 'v0.0.0-dev' ||
+      (object.metadata.annotations['gateway.networking.k8s.io/bundle-version'].startsWith('v1.') &&
+       !matches(object.metadata.annotations['gateway.networking.k8s.io/bundle-version'], '^v1\\.[0-4](\\.|$)'))))
+    message: Installing CRDs with version other than v0.0.0-dev or v1.5+ is prohibited
+      by default. Uninstall ValidatingAdmissionPolicy safe-upgrades.gateway.networking.k8s.io
+      to install other versions.
     reason: Invalid
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicyBinding
 metadata:
   annotations:
-    gateway.networking.k8s.io/bundle-version: v1.5.0-dev
+    gateway.networking.k8s.io/bundle-version: v1.6.0
     gateway.networking.k8s.io/channel: standard
   name: safe-upgrades.gateway.networking.k8s.io
 spec:

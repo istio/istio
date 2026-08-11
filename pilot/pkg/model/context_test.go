@@ -304,24 +304,28 @@ func Test_parseIstioVersion(t *testing.T) {
 
 func TestSetServiceInstances(t *testing.T) {
 	tnow := time.Now()
+	dummyPort := &model.Port{Port: 80}
 	instances := []model.ServiceTarget{
 		{
 			Service: &model.Service{
 				CreationTime: tnow.Add(1 * time.Second),
 				Hostname:     host.Name("test1.com"),
 			},
+			Port: model.ServiceInstancePort{ServicePort: dummyPort},
 		},
 		{
 			Service: &model.Service{
 				CreationTime: tnow,
 				Hostname:     host.Name("test3.com"),
 			},
+			Port: model.ServiceInstancePort{ServicePort: dummyPort},
 		},
 		{
 			Service: &model.Service{
 				CreationTime: tnow,
 				Hostname:     host.Name("test2.com"),
 			},
+			Port: model.ServiceInstancePort{ServicePort: dummyPort},
 		},
 	}
 
