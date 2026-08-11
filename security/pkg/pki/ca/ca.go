@@ -181,7 +181,11 @@ func NewSelfSignedIstioCAOptions(ctx context.Context,
 		pkiCaLog.Infof("CASecret %s not found, will create one", caCertName)
 		b := backoff.NewExponentialBackOff(backoff.DefaultOption())
 		if err := b.RetryWithContext(ctx, func() error {
-			return createSelfSignedCaSecret(client, namespace, caCertName, rootCertFile, caCertTTL, org, dualUse, caRSAKeySize, caOpts)
+			err := createSelfSignedCaSecret(client, namespace, caCertName, rootCertFile, caCertTTL, org, dualUse, caRSAKeySize, caOpts)
+			if apierror.IsAlreadyExists(err) {
+				return loadSelfSignedCaSecret(client, namespace, caCertName, rootCertFile, caOpts)
+			}
+			return err
 		}); err != nil {
 			return nil, err
 		}
