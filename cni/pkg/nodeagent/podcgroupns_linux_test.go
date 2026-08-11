@@ -57,6 +57,33 @@ func TestWithProcFs(t *testing.T) {
 	}
 }
 
+// The fake procfs holds three processes of the same pod, each in its own netns
+// (testdata/cgroupns/{0,1,2}), scanned in that order with starttimes 70298999, 70298968,
+// 70298977. Proc 1 is the oldest and wins: proc 0's entry is replaced by it, and proc 2
+// loses to it. Both losing candidates' netns fds must be closed by the scan itself; only
+// the winner's stays open until the returned result is closed.
+func TestFindNetnsForPodsClosesLosingCandidates(t *testing.T) {
+	ffs := fakeFs(true)
+	n, err := NewPodNetnsProcFinder(ffs)
+	assert.NoError(t, err)
+
+	pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{
+		Name:      "foo",
+		Namespace: "bar",
+		UID:       types.UID("863b91d4-4b68-4efa-917f-4b560e3e86aa"),
+	}}
+	podUIDNetns, err := n.FindNetnsForPods(map[types.UID]*corev1.Pod{
+		pod.UID: pod,
+	})
+	assert.NoError(t, err)
+
+	assert.Equal(t, podUIDNetns[string(pod.UID)].Netns.OwnerProcStarttime(), uint64(70298968))
+	assert.Equal(t, ffs.openNetnsFiles(), 1)
+
+	podUIDNetns.Close()
+	assert.Equal(t, ffs.openNetnsFiles(), 0)
+}
+
 func TestHostNetnsWithSameIno(t *testing.T) {
 	n, err := NewPodNetnsProcFinder(fakeFs(false))
 	assert.NoError(t, err)
