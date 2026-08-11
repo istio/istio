@@ -66,8 +66,6 @@ var skippedTests = map[string]string{
 	// The following tests were added in v1.5.0
 	"BackendTLSPolicyObservedGenerationBump": "TODO",
 
-	"HTTPRouteHTTPSListenerDetectMisdirectedRequests": "TODO",
-
 	// The following tests were modified between v1.4.0 && v1.5.0
 	"BackendTLSPolicy": "TODO",
 
@@ -105,7 +103,11 @@ func TestGatewayConformanceAgentgateway(t *testing.T) {
 			}
 
 			supportedFeatures := gateway.SupportedFeatures.Clone().
-				Delete(features.MeshClusterIPMatchingFeature) // https://github.com/istio/istio/issues/44702
+				Delete(features.MeshClusterIPMatchingFeature). // https://github.com/istio/istio/issues/44702
+				// The agentgateway data plane implements HTTP 421 detection for misdirected requests on
+				// HTTPS listeners sharing a port, unlike the Envoy-based sidecar/ambient data planes. This
+				// feature is disabled in the shared gateway.SupportedFeatures set, so opt back in here.
+				Insert(features.GatewayHTTPSListenerDetectMisdirectedRequestsFeature)
 			// Backend client certificate support (spec.tls.backend.clientCertificateRef) is implemented
 			// for agentgateway even though it is disabled in the shared gateway.SupportedFeatures.
 			supportedFeatures.Insert(features.GatewayBackendClientCertificateFeature)
