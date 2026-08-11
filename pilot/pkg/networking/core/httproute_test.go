@@ -2045,6 +2045,7 @@ func TestInboundHTTPRouteConfig(t *testing.T) {
 	cases := []struct {
 		name          string
 		proxy         *model.Proxy
+		meshConfig    *meshapi.MeshConfig
 		validateRoute bool
 		expectedRetry *route.RetryPolicy
 	}{
@@ -2058,8 +2059,44 @@ func TestInboundHTTPRouteConfig(t *testing.T) {
 			},
 		},
 		{
+			name:  "sidecar with mesh wide inbound retry policy",
+			proxy: &model.Proxy{Type: model.SidecarProxy},
+			meshConfig: func() *meshapi.MeshConfig {
+				m := mesh.DefaultMeshConfig()
+				m.DefaultInboundHttpRetryPolicy = &networking.HTTPRetry{Attempts: 4, RetryOn: "reset"}
+				return m
+			}(),
+			validateRoute: false,
+			expectedRetry: &route.RetryPolicy{
+				NumRetries: wrapperspb.UInt32(4),
+				RetryOn:    "reset",
+			},
+		},
+		{
+			name:  "sidecar with inbound retries disabled mesh wide",
+			proxy: &model.Proxy{Type: model.SidecarProxy},
+			meshConfig: func() *meshapi.MeshConfig {
+				m := mesh.DefaultMeshConfig()
+				m.DefaultInboundHttpRetryPolicy = &networking.HTTPRetry{}
+				return m
+			}(),
+			validateRoute: false,
+			expectedRetry: nil,
+		},
+		{
 			name:          "waypoint",
 			proxy:         &model.Proxy{Type: model.Waypoint},
+			validateRoute: true,
+			expectedRetry: retry.DefaultPolicy(),
+		},
+		{
+			name:  "waypoint ignores mesh wide inbound retry policy",
+			proxy: &model.Proxy{Type: model.Waypoint},
+			meshConfig: func() *meshapi.MeshConfig {
+				m := mesh.DefaultMeshConfig()
+				m.DefaultInboundHttpRetryPolicy = &networking.HTTPRetry{}
+				return m
+			}(),
 			validateRoute: true,
 			expectedRetry: retry.DefaultPolicy(),
 		},
@@ -2067,7 +2104,7 @@ func TestInboundHTTPRouteConfig(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			cg := NewConfigGenTest(t, TestOptions{})
+			cg := NewConfigGenTest(t, TestOptions{MeshConfig: tt.meshConfig})
 			proxy := cg.SetupProxy(tt.proxy)
 			lb := NewListenerBuilder(proxy, cg.PushContext())
 
