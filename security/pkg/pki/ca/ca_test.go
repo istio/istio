@@ -35,6 +35,15 @@ import (
 )
 
 var (
+	testCaCertTTL             = time.Hour
+	testDefaultCertTTL        = 30 * time.Minute
+	testMaxCertTTL            = time.Hour
+	testOrg                   = "test.ca.Org"
+	testCaNamespace           = "default"
+	testRootCertFile          = ""
+	testRootCertCheckInverval = time.Hour
+	testRSAKeySize            = 2048
+
 	cert1Pem = `
 -----BEGIN CERTIFICATE-----
 MIIC3jCCAcagAwIBAgIJAMwyWk0iqlOoMA0GCSqGSIb3DQEBCwUAMBwxGjAYBgNV
@@ -89,20 +98,12 @@ iOmuuOfQWnMfcVk8I0YDL5+G9Pg=
 // TODO (myidpt): Test Istio CA can load plugin key/certs from secret.
 
 func TestCreateSelfSignedIstioCAWithoutSecret(t *testing.T) {
-	caCertTTL := time.Hour
-	defaultCertTTL := 30 * time.Minute
-	maxCertTTL := time.Hour
-	org := "test.ca.Org"
-	const caNamespace = "default"
 	client := fake.NewClientset()
-	rootCertFile := ""
-	rootCertCheckInverval := time.Hour
-	rsaKeySize := 2048
 
 	caopts, err := NewSelfSignedIstioCAOptions(context.Background(),
-		0, caCertTTL, rootCertCheckInverval, defaultCertTTL,
-		maxCertTTL, org, false, false, caNamespace, client.CoreV1(),
-		rootCertFile, false, rsaKeySize)
+		0, testCaCertTTL, testRootCertCheckInverval, testDefaultCertTTL,
+		testMaxCertTTL, testOrg, false, false, testCaNamespace, client.CoreV1(),
+		testRootCertFile, false, testRSAKeySize)
 	if err != nil {
 		t.Fatalf("Failed to create a self-signed CA Options: %v", err)
 	}
@@ -125,12 +126,12 @@ func TestCreateSelfSignedIstioCAWithoutSecret(t *testing.T) {
 		t.Error("CA root cert does not match signing cert")
 	}
 
-	if ttl := rootCert.NotAfter.Sub(rootCert.NotBefore); ttl != caCertTTL {
-		t.Errorf("Unexpected CA certificate TTL (expecting %v, actual %v)", caCertTTL, ttl)
+	if ttl := rootCert.NotAfter.Sub(rootCert.NotBefore); ttl != testCaCertTTL {
+		t.Errorf("Unexpected CA certificate TTL (expecting %v, actual %v)", testCaCertTTL, ttl)
 	}
 
-	if certOrg := rootCert.Issuer.Organization[0]; certOrg != org {
-		t.Errorf("Unexpected CA certificate organization (expecting %v, actual %v)", org, certOrg)
+	if certOrg := rootCert.Issuer.Organization[0]; certOrg != testOrg {
+		t.Errorf("Unexpected CA certificate organization (expecting %v, actual %v)", testOrg, certOrg)
 	}
 
 	if len(certChainBytes) != 0 {
@@ -138,7 +139,7 @@ func TestCreateSelfSignedIstioCAWithoutSecret(t *testing.T) {
 	}
 
 	// Check the signing cert stored in K8s secret.
-	caSecret, err := client.CoreV1().Secrets("default").Get(context.TODO(), CASecret, metav1.GetOptions{})
+	caSecret, err := client.CoreV1().Secrets(testCaNamespace).Get(context.TODO(), CASecret, metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("Failed to get secret (error: %s)", err)
 	}
@@ -154,20 +155,12 @@ func TestCreateSelfSignedIstioCAWithoutSecret(t *testing.T) {
 }
 
 func TestCreateSelfSignedIstioCAWithoutSecretAndUseCacertsEnabled(t *testing.T) {
-	caCertTTL := time.Hour
-	defaultCertTTL := 30 * time.Minute
-	maxCertTTL := time.Hour
-	org := "test.ca.Org"
-	const caNamespace = "default"
 	client := fake.NewClientset()
-	rootCertFile := ""
-	rootCertCheckInverval := time.Hour
-	rsaKeySize := 2048
 
 	caopts, err := NewSelfSignedIstioCAOptions(context.Background(),
-		0, caCertTTL, rootCertCheckInverval, defaultCertTTL,
-		maxCertTTL, org, true, false, caNamespace, client.CoreV1(),
-		rootCertFile, false, rsaKeySize)
+		0, testCaCertTTL, testRootCertCheckInverval, testDefaultCertTTL,
+		testMaxCertTTL, testOrg, true, false, testCaNamespace, client.CoreV1(),
+		testRootCertFile, false, testRSAKeySize)
 	if err != nil {
 		t.Fatalf("Failed to create a self-signed CA Options: %v", err)
 	}
@@ -190,12 +183,12 @@ func TestCreateSelfSignedIstioCAWithoutSecretAndUseCacertsEnabled(t *testing.T) 
 		t.Error("CA root cert does not match signing cert")
 	}
 
-	if ttl := rootCert.NotAfter.Sub(rootCert.NotBefore); ttl != caCertTTL {
-		t.Errorf("Unexpected CA certificate TTL (expecting %v, actual %v)", caCertTTL, ttl)
+	if ttl := rootCert.NotAfter.Sub(rootCert.NotBefore); ttl != testCaCertTTL {
+		t.Errorf("Unexpected CA certificate TTL (expecting %v, actual %v)", testCaCertTTL, ttl)
 	}
 
-	if certOrg := rootCert.Issuer.Organization[0]; certOrg != org {
-		t.Errorf("Unexpected CA certificate organization (expecting %v, actual %v)", org, certOrg)
+	if certOrg := rootCert.Issuer.Organization[0]; certOrg != testOrg {
+		t.Errorf("Unexpected CA certificate organization (expecting %v, actual %v)", testOrg, certOrg)
 	}
 
 	if len(certChainBytes) != 0 {
@@ -203,7 +196,7 @@ func TestCreateSelfSignedIstioCAWithoutSecretAndUseCacertsEnabled(t *testing.T) 
 	}
 
 	// Check the signing cert stored in K8s secret.
-	caSecret, err := client.CoreV1().Secrets("default").Get(context.TODO(), CACertsSecret, metav1.GetOptions{})
+	caSecret, err := client.CoreV1().Secrets(testCaNamespace).Get(context.TODO(), CACertsSecret, metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("Failed to get secret (error: %s)", err)
 	}
@@ -225,25 +218,16 @@ func TestCreateSelfSignedIstioCAWithSecret(t *testing.T) {
 	signingKeyPem := []byte(key1Pem)
 
 	client := fake.NewClientset()
-	initSecret := BuildSecret(CASecret, "default", nil, nil, nil, signingCertPem, signingKeyPem, istioCASecretType)
-	_, err := client.CoreV1().Secrets("default").Create(context.TODO(), initSecret, metav1.CreateOptions{})
+	initSecret := BuildSecret(CASecret, testCaNamespace, nil, nil, nil, signingCertPem, signingKeyPem, istioCASecretType)
+	_, err := client.CoreV1().Secrets(testCaNamespace).Create(context.TODO(), initSecret, metav1.CreateOptions{})
 	if err != nil {
 		t.Errorf("Failed to create secret (error: %s)", err)
 	}
 
-	caCertTTL := time.Hour
-	defaultCertTTL := 30 * time.Minute
-	maxCertTTL := time.Hour
-	org := "test.ca.Org"
-	caNamespace := "default"
-	const rootCertFile = ""
-	rootCertCheckInverval := time.Hour
-	rsaKeySize := 2048
-
 	caopts, err := NewSelfSignedIstioCAOptions(context.Background(),
-		0, caCertTTL, rootCertCheckInverval, defaultCertTTL, maxCertTTL,
-		org, false, false, caNamespace, client.CoreV1(),
-		rootCertFile, false, rsaKeySize)
+		0, testCaCertTTL, testRootCertCheckInverval, testDefaultCertTTL, testMaxCertTTL,
+		testOrg, false, false, testCaNamespace, client.CoreV1(),
+		testRootCertFile, false, testRSAKeySize)
 	if err != nil {
 		t.Fatalf("Failed to create a self-signed CA Options: %v", err)
 	}
@@ -277,28 +261,19 @@ func TestCreateSelfSignedIstioCAWithSecret(t *testing.T) {
 }
 
 func TestCreateSelfSignedIstioCAWithExistingSecretAndUseCacertsEnabled(t *testing.T) {
-	caCertTTL := time.Hour
-	defaultCertTTL := 30 * time.Minute
-	maxCertTTL := time.Hour
-	org := "test.ca.Org"
-	caNamespace := "default"
-	const rootCertFile = ""
-	rootCertCheckInverval := time.Hour
-	rsaKeySize := 2048
-
 	signingCertPem := []byte(cert1Pem)
 	signingKeyPem := []byte(key1Pem)
 
 	client := fake.NewClientset()
-	initSecret := BuildSecret(CASecret, caNamespace, nil, nil, nil, signingCertPem, signingKeyPem, istioCASecretType)
-	if _, err := client.CoreV1().Secrets(caNamespace).Create(context.TODO(), initSecret, metav1.CreateOptions{}); err != nil {
+	initSecret := BuildSecret(CASecret, testCaNamespace, nil, nil, nil, signingCertPem, signingKeyPem, istioCASecretType)
+	if _, err := client.CoreV1().Secrets(testCaNamespace).Create(context.TODO(), initSecret, metav1.CreateOptions{}); err != nil {
 		t.Fatalf("Failed to create secret: %v", err)
 	}
 
 	caopts, err := NewSelfSignedIstioCAOptions(context.Background(),
-		0, caCertTTL, rootCertCheckInverval, defaultCertTTL, maxCertTTL,
-		org, true, false, caNamespace, client.CoreV1(),
-		rootCertFile, false, rsaKeySize)
+		0, testCaCertTTL, testRootCertCheckInverval, testDefaultCertTTL, testMaxCertTTL,
+		testOrg, true, false, testCaNamespace, client.CoreV1(),
+		testRootCertFile, false, testRSAKeySize)
 	if err != nil {
 		t.Fatalf("Failed to create a self-signed CA Options: %v", err)
 	}
@@ -318,36 +293,27 @@ func TestCreateSelfSignedIstioCAWithExistingSecretAndUseCacertsEnabled(t *testin
 	}
 
 	// cacerts should NOT have been created since istio-ca-secret was loaded successfully.
-	_, err = client.CoreV1().Secrets(caNamespace).Get(context.TODO(), CACertsSecret, metav1.GetOptions{})
+	_, err = client.CoreV1().Secrets(testCaNamespace).Get(context.TODO(), CACertsSecret, metav1.GetOptions{})
 	if !apierror.IsNotFound(err) {
 		t.Errorf("expected NotFound error for cacerts secret, got: %v", err)
 	}
 }
 
 func TestCreateSelfSignedIstioCAReadSigningCertOnly(t *testing.T) {
-	caCertTTL := time.Hour
-	defaultCertTTL := 30 * time.Minute
-	maxCertTTL := time.Hour
-	org := "test.ca.Org"
-	caNamespace := "default"
-	const rootCertFile = ""
-	rootCertCheckInverval := time.Hour
-	rsaKeySize := 2048
-
 	client := fake.NewClientset()
 
 	// succeed creating a self-signed cert
 	ctx0, cancel0 := context.WithTimeout(context.Background(), time.Millisecond*50)
 	defer cancel0()
 	_, err := NewSelfSignedIstioCAOptions(ctx0, 0,
-		caCertTTL, defaultCertTTL, rootCertCheckInverval, maxCertTTL, org, false, false,
-		caNamespace, client.CoreV1(), rootCertFile, false, rsaKeySize)
+		testCaCertTTL, testDefaultCertTTL, testRootCertCheckInverval, testMaxCertTTL, testOrg, false, false,
+		testCaNamespace, client.CoreV1(), testRootCertFile, false, testRSAKeySize)
 	if err != nil {
 		t.Errorf("Got unexpected error: %v", err)
 	}
 
 	// Using existing CASecret.
-	secret, err := client.CoreV1().Secrets("default").Get(context.TODO(), CASecret, metav1.GetOptions{})
+	secret, err := client.CoreV1().Secrets(testCaNamespace).Get(context.TODO(), CASecret, metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("Got unexpected error %v", err)
 	}
@@ -355,8 +321,8 @@ func TestCreateSelfSignedIstioCAReadSigningCertOnly(t *testing.T) {
 
 	ctx1 := t.Context()
 	caopts, err := NewSelfSignedIstioCAOptions(ctx1, 0,
-		caCertTTL, defaultCertTTL, rootCertCheckInverval, maxCertTTL, org, false, false,
-		caNamespace, client.CoreV1(), rootCertFile, false, rsaKeySize)
+		testCaCertTTL, testDefaultCertTTL, testRootCertCheckInverval, testMaxCertTTL, testOrg, false, false,
+		testCaNamespace, client.CoreV1(), testRootCertFile, false, testRSAKeySize)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -384,15 +350,6 @@ func TestCreateSelfSignedIstioCAReadSigningCertOnly(t *testing.T) {
 }
 
 func TestConcurrentCreateSelfSignedIstioCA(t *testing.T) {
-	caCertTTL := time.Hour
-	defaultCertTTL := 30 * time.Minute
-	maxCertTTL := time.Hour
-	org := "test.ca.Org"
-	caNamespace := "default"
-	const rootCertFile = ""
-	rootCertCheckInverval := time.Hour
-	rsaKeySize := 2048
-
 	client := fake.NewClientset()
 
 	parallel := 10
@@ -408,8 +365,8 @@ func TestConcurrentCreateSelfSignedIstioCA(t *testing.T) {
 			ctx0, cancel0 := context.WithTimeout(context.Background(), 20*time.Second)
 			defer cancel0()
 			caOpts, err := NewSelfSignedIstioCAOptions(ctx0, 0,
-				caCertTTL, defaultCertTTL, rootCertCheckInverval, maxCertTTL, org, false, false,
-				caNamespace, client.CoreV1(), rootCertFile, false, rsaKeySize)
+				testCaCertTTL, testDefaultCertTTL, testRootCertCheckInverval, testMaxCertTTL, testOrg, false, false,
+				testCaNamespace, client.CoreV1(), testRootCertFile, false, testRSAKeySize)
 			if err != nil {
 				t.Errorf("NewSelfSignedIstioCAOptions got unexpected error: %v", err)
 			}
@@ -426,7 +383,7 @@ func TestConcurrentCreateSelfSignedIstioCA(t *testing.T) {
 		}()
 	}
 	wg.Wait()
-	caSecret, err := client.CoreV1().Secrets(caNamespace).Get(context.TODO(), CASecret, metav1.GetOptions{})
+	caSecret, err := client.CoreV1().Secrets(testCaNamespace).Get(context.TODO(), CASecret, metav1.GetOptions{})
 	if err != nil || caSecret == nil {
 		t.Errorf("failed getting ca secret %v", err)
 	}
