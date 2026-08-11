@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package pilot
+package nftables
 
 import (
 	"testing"
@@ -38,8 +38,6 @@ func TestMirroring(t *testing.T) {
 		})
 }
 
-// TestMirroringExternalService tests mirroring to an external service. Uses the same
-// topology as TestMirroring: a -> b -> external.
 func TestMirroringExternalService(t *testing.T) {
 	framework.
 		NewTest(t).
