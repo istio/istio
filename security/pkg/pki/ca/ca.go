@@ -180,6 +180,7 @@ func NewSelfSignedIstioCAOptions(ctx context.Context,
 		b := backoff.NewExponentialBackOff(backoff.DefaultOption())
 		if err := b.RetryWithContext(ctx, func() error {
 			err := createSelfSignedCaSecret(client, namespace, caCertName, rootCertFile, caCertTTL, org, dualUse, caRSAKeySize, caOpts)
+			// another replica created certificate
 			if apierror.IsAlreadyExists(err) {
 				return loadSelfSignedCaSecret(client, namespace, caCertName, rootCertFile, caOpts)
 			}
@@ -189,7 +190,15 @@ func NewSelfSignedIstioCAOptions(ctx context.Context,
 		}
 	} else if isCertExpired(loadErr) {
 		pkiCaLog.Infof("Expired CA cert in secret %s, will renew", caCertName)
-		if err := renewSelfSignedCaSecret(client, namespace, caCertName, rootCertFile, caCertTTL, org, dualUse, caRSAKeySize, caOpts); err != nil {
+		b := backoff.NewExponentialBackOff(backoff.DefaultOption())
+		if err := b.RetryWithContext(ctx, func() error {
+			err := renewSelfSignedCaSecret(client, namespace, caCertName, rootCertFile, caCertTTL, org, dualUse, caRSAKeySize, caOpts)
+			// another replica rotated certificate
+			if apierror.IsConflict(err) {
+				return loadSelfSignedCaSecret(client, namespace, caCertName, rootCertFile, caOpts)
+			}
+			return err
+		}); err != nil {
 			return nil, err
 		}
 	}
@@ -555,6 +564,15 @@ func renewSelfSignedCaSecret(client corev1.CoreV1Interface, namespace, caCertNam
 		return fmt.Errorf("failed to get CA secret for renewal: %w", err)
 	}
 
+	cert, err := util.ParsePemEncodedCertificate(caSecret.Data[CACertFile])
+	if err != nil {
+		return fmt.Errorf("failed to parse CA cert for renewal: %w", err)
+	}
+	if time.Now().Before(cert.NotAfter) {
+		pkiCaLog.Info("CA cert already renewed by another replica")
+		return loadSelfSignedCaSecret(client, namespace, caCertName, rootCertFile, caOpts)
+	}
+
 	options := util.CertOptions{
 		TTL:           caCertTTL,
 		SignerPrivPem: caSecret.Data[CAPrivateKeyFile],
@@ -569,19 +587,18 @@ func renewSelfSignedCaSecret(client corev1.CoreV1Interface, namespace, caCertNam
 		return fmt.Errorf("unable to generate CA cert from existing key for renewal: %w", err)
 	}
 
+	caSecret.Data[CACertFile] = pemCert
+	caSecret.Data[RootCertFile] = pemCert
+	if _, err = client.Secrets(namespace).Update(context.TODO(), caSecret, metav1.UpdateOptions{}); err != nil {
+		return err
+	}
+
 	rootCerts, err := util.AppendRootCerts(pemCert, rootCertFile)
 	if err != nil {
 		return fmt.Errorf("failed to append root certificates: %w", err)
 	}
 	if caOpts.KeyCertBundle, err = util.NewVerifiedKeyCertBundleFromPem(pemCert, pemKey, nil, rootCerts, nil); err != nil {
 		return fmt.Errorf("failed to create CA KeyCertBundle: %w", err)
-	}
-
-	caSecret.Data[CACertFile] = pemCert
-	caSecret.Data[CAPrivateKeyFile] = pemKey
-	caSecret.Data[RootCertFile] = pemCert
-	if _, err = client.Secrets(namespace).Update(context.TODO(), caSecret, metav1.UpdateOptions{}); err != nil {
-		return fmt.Errorf("failed to update CA secret after renewal: %w", err)
 	}
 	pkiCaLog.Infof("Renewed expired self-signed CA cert in secret %s/%s", namespace, caCertName)
 	return nil
