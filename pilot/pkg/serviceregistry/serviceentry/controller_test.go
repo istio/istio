@@ -1210,21 +1210,24 @@ func TestWorkloadInstanceFullPush(t *testing.T) {
 		expectServiceInstances(t, sd, selectorDNS, 0, instances)
 		expectEvents(t, events,
 			Event{Type: "eds", ID: "selector.com", Namespace: selectorDNS.Namespace, EndpointCount: len(instances)},
-			Event{Type: "xds", ID: "selector.com"})
+			Event{Type: "xds", ID: "selector.com"},
+			Event{Type: "proxy", ID: "4.4.4.4"})
 	})
 
 	t.Run("full push for another new workload instance", func(t *testing.T) {
 		callInstanceHandlers([]*model.WorkloadInstance{fi2}, sd, model.EventAdd, t)
 		expectEvents(t, events,
 			Event{Type: "eds", ID: "selector.com", Namespace: selectorDNS.Namespace, EndpointCount: 6},
-			Event{Type: "xds", ID: "selector.com"})
+			Event{Type: "xds", ID: "selector.com"},
+			Event{Type: "proxy", ID: "2.2.2.2"})
 	})
 
 	t.Run("full push for new instance with multiple addresses", func(t *testing.T) {
 		callInstanceHandlers([]*model.WorkloadInstance{fiwithmulAddrs}, sd, model.EventAdd, t)
 		expectEvents(t, events,
 			Event{Type: "eds", ID: "selector.com", Namespace: selectorDNS.Namespace, EndpointCount: 8},
-			Event{Type: "xds", ID: "selector.com"})
+			Event{Type: "xds", ID: "selector.com"},
+			Event{Type: "proxy", ID: "3.3.3.3"})
 	})
 
 	t.Run("full push on delete workload instance", func(t *testing.T) {
@@ -1359,7 +1362,9 @@ func TestServiceDiscoveryWorkloadInstance(t *testing.T) {
 		}
 		expectProxyInstances(t, sd, instances, []string{"2.2.2.2"})
 		expectServiceInstances(t, sd, selector, 0, instances)
-		expectEvents(t, events, Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace, EndpointCount: 2})
+		expectEvents(t, events,
+			Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace, EndpointCount: 2},
+			Event{Type: "proxy", ID: "2.2.2.2"})
 	})
 
 	t.Run("another workload instance", func(t *testing.T) {
@@ -1378,7 +1383,9 @@ func TestServiceDiscoveryWorkloadInstance(t *testing.T) {
 			makeInstanceWithServiceAccount(selector, "some-other-name", []string{"3.3.3.3"}, 445,
 				selector.Spec.(*networking.ServiceEntry).Ports[1], map[string]string{"app": "wle"}, "default"))
 		expectServiceInstances(t, sd, selector, 0, instances)
-		expectEvents(t, events, Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace, EndpointCount: 4})
+		expectEvents(t, events,
+			Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace, EndpointCount: 4},
+			Event{Type: "proxy", ID: "3.3.3.3"})
 	})
 
 	t.Run("add workload instance with multiple addresses", func(t *testing.T) {
@@ -1402,7 +1409,9 @@ func TestServiceDiscoveryWorkloadInstance(t *testing.T) {
 		expectProxyInstances(t, sd, instances[2:4], []string{"3.3.3.3"})
 		expectProxyInstances(t, sd, instances[4:], []string{"4.4.4.4", "2001:1::1"})
 		expectServiceInstances(t, sd, selector, 0, instances)
-		expectEvents(t, events, Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace, EndpointCount: 6})
+		expectEvents(t, events,
+			Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace, EndpointCount: 6},
+			Event{Type: "proxy", ID: "4.4.4.4"})
 	})
 
 	t.Run("delete workload instance", func(t *testing.T) {
@@ -1486,6 +1495,7 @@ func TestServiceDiscoveryWorkloadInstance(t *testing.T) {
 		expectEvents(t, events,
 			Event{Type: "eds", ID: "dns.selector.com", Namespace: dnsSelector.Namespace, EndpointCount: 2},
 			Event{Type: "xds", ID: "dns.selector.com"},
+			Event{Type: "proxy", ID: "2.2.2.2"},
 		)
 	})
 }
@@ -1679,10 +1689,103 @@ func TestServiceDiscoveryWorkloadInstanceChangeLabel(t *testing.T) {
 				}
 
 				expectServiceInstances(t, sd, selector, 0, totalInstances)
+				// The instance's own proxy is forced to recompute: which services it backs just changed.
 				expectEvents(t, events,
-					Event{Type: "eds", ID: selector.Spec.(*networking.ServiceEntry).Hosts[0], Namespace: selector.Namespace, EndpointCount: len(totalInstances)})
+					Event{Type: "eds", ID: selector.Spec.(*networking.ServiceEntry).Hosts[0], Namespace: selector.Namespace, EndpointCount: len(totalInstances)},
+					Event{Type: "proxy", ID: instance.address})
 			}
 		})
+	}
+}
+
+// A pod reaches this registry only after its proxy connected and snapshotted ServiceTargets from an
+// empty membership. Nothing else recomputes that snapshot, so the registry must push the pod's own
+// proxy once the pod starts backing a ServiceEntry.
+func TestPodEndpointForcesOwnProxyPush(t *testing.T) {
+	store, sd, events := initServiceDiscovery(t)
+
+	createConfigs([]*config.Config{selector}, store, t)
+	expectEvents(t, events,
+		Event{Type: "service", ID: "selector.com", Namespace: selector.Namespace},
+		Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace},
+		Event{Type: "xds", ID: "selector.com"})
+
+	pod := &model.WorkloadInstance{
+		Name:      "pod-1",
+		Namespace: selector.Namespace,
+		Kind:      model.PodKind,
+		Endpoint: &model.IstioEndpoint{
+			Addresses: []string{"2.2.2.2"},
+			Labels:    map[string]string{"app": "wle"},
+		},
+	}
+	proxy := &model.Proxy{IPAddresses: []string{"2.2.2.2"}, Metadata: &model.NodeMetadata{}}
+
+	// The state a proxy connecting before its pod is Ready would snapshot.
+	if targets := sd.GetProxyServiceTargets(proxy); len(targets) != 0 {
+		t.Fatalf("expected no service targets before the pod is registered, got %v", targets)
+	}
+
+	callInstanceHandlers([]*model.WorkloadInstance{pod}, sd, model.EventAdd, t)
+
+	// The push must be requested for this pod's own proxy...
+	expectEvents(t, events,
+		Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace, EndpointCount: 2},
+		Event{Type: "proxy", ID: "2.2.2.2"})
+
+	// ...and by then re-resolving must yield the hostname, since that is what the push
+	// regenerates config from.
+	targets := sd.GetProxyServiceTargets(proxy)
+	if len(targets) != 2 {
+		t.Fatalf("expected 2 service targets after the pod is registered, got %d: %v", len(targets), targets)
+	}
+	for _, target := range targets {
+		if got := string(target.Service.Hostname); got != "selector.com" {
+			t.Fatalf("expected target hostname selector.com, got %q", got)
+		}
+	}
+}
+
+// The push is scoped to pods, and a WorkloadEntry from a non-config cluster lands in
+// ExternalWorkloads alongside them. model.PodKind is the zero value of workloadKind, so without the
+// explicit Kind check the scoping would hold only by accident.
+func TestWorkloadEntryEndpointDoesNotDoublePushProxy(t *testing.T) {
+	store, sd, events := initServiceDiscovery(t)
+
+	createConfigs([]*config.Config{selector}, store, t)
+	expectEvents(t, events,
+		Event{Type: "service", ID: "selector.com", Namespace: selector.Namespace},
+		Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace},
+		Event{Type: "xds", ID: "selector.com"})
+
+	// Same shape as a pod-derived instance, but explicitly a WorkloadEntry.
+	wle := &model.WorkloadInstance{
+		Name:      "vm-1",
+		Namespace: selector.Namespace,
+		Kind:      model.WorkloadEntryKind,
+		Endpoint: &model.IstioEndpoint{
+			Addresses: []string{"2.2.2.2"},
+			Labels:    map[string]string{"app": "wle"},
+		},
+	}
+	callInstanceHandlers([]*model.WorkloadInstance{wle}, sd, model.EventAdd, t)
+
+	// Membership must still resolve; only the extra push is suppressed.
+	proxy := &model.Proxy{IPAddresses: []string{"2.2.2.2"}, Metadata: &model.NodeMetadata{}}
+	retry.UntilSuccessOrFail(t, func() error {
+		if got := len(sd.GetProxyServiceTargets(proxy)); got != 2 {
+			return fmt.Errorf("expected 2 service targets for the WorkloadEntry, got %d", got)
+		}
+		return nil
+	}, retry.Timeout(5*time.Second))
+
+	// The eds event proves the instance landed; no "proxy" event may accompany it. The match returns
+	// as soon as the wanted set empties, so assert on the event that arrives last.
+	expectEvents(t, events, Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace, EndpointCount: 2})
+	select {
+	case e := <-events.Events:
+		t.Fatalf("expected no further events for a WorkloadEntry-derived instance, got %q/%v", e.Type, e.ID)
+	case <-time.After(2 * time.Second):
 	}
 }
 
