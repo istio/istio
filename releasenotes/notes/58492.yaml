@@ -11,3 +11,6 @@ releaseNotes:
   Major Linux distributions have been informed of the nftables issue and released a fix for it, so
   we are removing the pinning in Istio. Users are advised to update nftables package on their
   nodes to the latest version to make sure that the version with the fix is used on the node.
+  If you're still experiencing issues with node nftables crashing please downgrade to an older
+  version of Istio and contact the provider of the node OS for your deployment and ask them to
+  backport the fix.
