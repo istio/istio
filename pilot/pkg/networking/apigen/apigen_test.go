@@ -106,34 +106,38 @@ func TestAPIGen(t *testing.T) {
 // client on the plaintext xDS port (15010) or a workload in any namespace on the mTLS port can
 // select GENERATOR=api and read cluster-wide Istio config across all namespaces.
 func TestAPIGenRequiresControlPlaneIdentity(t *testing.T) {
-	gen := apigen.NewGenerator(memory.NewController(memory.Make(collections.Pilot)))
+	// The generator captures the feature flag at construction, so each subtest builds its
+	// own generator after setting the flag.
+	newGen := func() *apigen.APIGenerator {
+		return apigen.NewGenerator(memory.NewController(memory.Make(collections.Pilot)))
+	}
 	w := &model.WatchedResource{TypeUrl: gvk.AuthorizationPolicy.String()}
 
 	t.Run("unauthenticated rejected", func(t *testing.T) {
 		test.SetForTest(t, &features.EnableXDSAPIGeneratorAuth, true)
 		proxy := &model.Proxy{VerifiedIdentity: nil} // simulates plaintext port 15010
-		_, _, err := gen.Generate(proxy, w, nil)
+		_, _, err := newGen().Generate(proxy, w, nil)
 		assert.Error(t, err)
 	})
 
 	t.Run("non-system namespace rejected", func(t *testing.T) {
 		test.SetForTest(t, &features.EnableXDSAPIGeneratorAuth, true)
 		proxy := &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "attacker"}}
-		_, _, err := gen.Generate(proxy, w, nil)
+		_, _, err := newGen().Generate(proxy, w, nil)
 		assert.Error(t, err)
 	})
 
 	t.Run("control-plane identity allowed", func(t *testing.T) {
 		test.SetForTest(t, &features.EnableXDSAPIGeneratorAuth, true)
 		proxy := &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: constants.IstioSystemNamespace}}
-		_, _, err := gen.Generate(proxy, w, nil)
+		_, _, err := newGen().Generate(proxy, w, nil)
 		assert.NoError(t, err)
 	})
 
 	t.Run("gate disabled allows unauthenticated", func(t *testing.T) {
 		test.SetForTest(t, &features.EnableXDSAPIGeneratorAuth, false)
 		proxy := &model.Proxy{VerifiedIdentity: nil}
-		_, _, err := gen.Generate(proxy, w, nil)
+		_, _, err := newGen().Generate(proxy, w, nil)
 		assert.NoError(t, err)
 	})
 }
