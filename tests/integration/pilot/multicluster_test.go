@@ -163,6 +163,32 @@ func TestRemoteSecretRotationKeepsCrossClusterTraffic(t *testing.T) {
 			targetCluster := t.Clusters().MeshClusters().Exclude(sourceCluster).Default()
 			source := apps.A.ForCluster(sourceCluster.Name())[0]
 			target := apps.B.ForCluster(targetCluster.Name())
+			config := tmpl.EvaluateOrFail(t, `
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: remote-secret-rotation
+spec:
+  host: {{ .target.Config.Service }}
+  subsets:
+  - name: target
+    labels:
+      topology.istio.io/cluster: {{ .target.Config.Cluster.Name }}
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: remote-secret-rotation
+spec:
+  hosts:
+  - {{ .target.Config.Service }}
+  http:
+  - route:
+    - destination:
+        host: {{ .target.Config.Service }}
+        subset: target
+`, map[string]any{"target": target[0]})
+			t.ConfigIstio().YAML(source.Config().Namespace.Name(), config).ApplyOrFail(t)
 
 			assertTargetReachable := func(options ...retry.Option) {
 				source.CallOrFail(t, echo.CallOptions{
