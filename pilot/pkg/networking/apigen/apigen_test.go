@@ -19,10 +19,16 @@ import (
 	"time"
 
 	"istio.io/istio/pilot/pkg/config/memory"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/apigen"
 	"istio.io/istio/pilot/test/xds"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/spiffe"
+	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 // Creates an in-process discovery server, using the same code as Istiod, but
@@ -60,6 +66,9 @@ func initDSwithMulAddresses(t *testing.T) *xds.FakeDiscoveryServer {
 // Test using resolving DNS over GRPC. This uses XDS protocol, and Listener resources
 // to represent the names. The protocol is based on GRPC resolution of XDS resources.
 func TestAPIGen(t *testing.T) {
+	// This test exercises the config-serving mechanics over an in-process connection that has no
+	// verified identity; disable the control-plane-identity gate so it targets the generator itself.
+	test.SetForTest(t, &features.EnableXDSAPIGeneratorAuth, false)
 	ds := initDS(t)
 
 	// Verify we can receive the DNS cluster IPs using XDS
@@ -92,9 +101,47 @@ func TestAPIGen(t *testing.T) {
 	})
 }
 
+// TestAPIGenRequiresControlPlaneIdentity verifies that the api generator only serves callers
+// with a verified control-plane (root namespace) identity. Without this, an unauthenticated
+// client on the plaintext xDS port (15010) or a workload in any namespace on the mTLS port can
+// select GENERATOR=api and read cluster-wide Istio config across all namespaces.
+func TestAPIGenRequiresControlPlaneIdentity(t *testing.T) {
+	gen := apigen.NewGenerator(memory.NewController(memory.Make(collections.Pilot)))
+	w := &model.WatchedResource{TypeUrl: gvk.AuthorizationPolicy.String()}
+
+	t.Run("unauthenticated rejected", func(t *testing.T) {
+		test.SetForTest(t, &features.EnableXDSAPIGeneratorAuth, true)
+		proxy := &model.Proxy{VerifiedIdentity: nil} // simulates plaintext port 15010
+		_, _, err := gen.Generate(proxy, w, nil)
+		assert.Error(t, err)
+	})
+
+	t.Run("non-system namespace rejected", func(t *testing.T) {
+		test.SetForTest(t, &features.EnableXDSAPIGeneratorAuth, true)
+		proxy := &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "attacker"}}
+		_, _, err := gen.Generate(proxy, w, nil)
+		assert.Error(t, err)
+	})
+
+	t.Run("control-plane identity allowed", func(t *testing.T) {
+		test.SetForTest(t, &features.EnableXDSAPIGeneratorAuth, true)
+		proxy := &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: constants.IstioSystemNamespace}}
+		_, _, err := gen.Generate(proxy, w, nil)
+		assert.NoError(t, err)
+	})
+
+	t.Run("gate disabled allows unauthenticated", func(t *testing.T) {
+		test.SetForTest(t, &features.EnableXDSAPIGeneratorAuth, false)
+		proxy := &model.Proxy{VerifiedIdentity: nil}
+		_, _, err := gen.Generate(proxy, w, nil)
+		assert.NoError(t, err)
+	})
+}
+
 // Test using resolving DNS over GRPC. This uses XDS protocol, and Listener resources
 // to represent the names. The protocol is based on GRPC resolution of XDS resources.
 func TestAPIGenWithMulAddresses(t *testing.T) {
+	test.SetForTest(t, &features.EnableXDSAPIGeneratorAuth, false)
 	ds := initDSwithMulAddresses(t)
 
 	// Verify we can receive the DNS cluster IPs using XDS
