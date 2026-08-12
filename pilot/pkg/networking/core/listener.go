@@ -229,6 +229,9 @@ func applyServerTLSSettings(serverTLSSettings *networking.ServerTLSSettings, ctx
 	if serverTLSSettings.MinProtocolVersion != networking.ServerTLSSettings_TLS_AUTO {
 		tlsParamsOrNew(ctx).TlsMinimumProtocolVersion = convertTLSProtocol(serverTLSSettings.MinProtocolVersion)
 	}
+	if len(serverTLSSettings.EcdhCurves) > 0 {
+		tlsParamsOrNew(ctx).EcdhCurves = serverTLSSettings.EcdhCurves
+	}
 	if len(serverTLSSettings.CipherSuites) > 0 {
 		tlsParamsOrNew(ctx).CipherSuites = serverTLSSettings.CipherSuites
 	}
