@@ -10,4 +10,4 @@ releaseNotes:
   version of nftables packaged with the images on the same node.
   Major Linux distributions have been informed of the nftables issue and released a fix for it, so
   we are removing the pinning in Istio. Users are advised to update nftables package on their
-  nodes to the latest version to make sure that the version of with the fix is used on the node.
+  nodes to the latest version to make sure that the version with the fix is used on the node.
