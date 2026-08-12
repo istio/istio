@@ -219,8 +219,7 @@ func TestRemoteSecretRotationKeepsCrossClusterTraffic(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			// The defect occurs when the old registry closes after the replacement has synced. Require
-			// sustained successes so a request that raced with the handoff cannot hide the cleanup.
+			// Validate when the old registry closes after the replacement has synced, we are still able to route.
 			assertTargetReachable(retry.Converge(10))
 		})
 }
