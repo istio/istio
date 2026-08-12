@@ -285,9 +285,9 @@ func TestPodIP(t *testing.T) {
 									t.Skip("not supported yet")
 								}
 
-								if t.Settings().AmbientMultiNetwork && srcWl.Cluster() != dstWl.Cluster() {
+								if t.Settings().AmbientMultiNetwork && srcWl.Cluster().NetworkName() != dstWl.Cluster().NetworkName() {
 									// TODO: Enable when we support multi-network workload addressing
-									t.Skip("not supported yet")
+									t.Skip("direct workload to workload communication is not supported in multi-network deployments")
 								}
 								for _, opt := range basicCalls {
 									opt := opt.DeepCopy()
