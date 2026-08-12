@@ -342,7 +342,7 @@ func getBackendTLSCACert(
 		if !ok || caCert == "" {
 			conds[string(gatewayv1.BackendTLSPolicyConditionResolvedRefs)].error = &ConfigError{
 				Reason:  string(gatewayv1.BackendTLSPolicyReasonInvalidCACertificateRef),
-				Message: "ConfigMap missing or empty ca.crt key",
+				Message: "ConfigMap missing ca.crt key or empty ca.crt key",
 			}
 			return nil, fmt.Errorf("ConfigMap %v missing or empty ca.crt key", nn)
 		}
