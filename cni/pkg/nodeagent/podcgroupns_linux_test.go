@@ -109,7 +109,9 @@ func TestFindNetnsForPodsClosesLosingCandidates(t *testing.T) {
 
 // A process whose cgroup ties it to pod A but which sits in pod B's netns (procs 2 and 3
 // share an inode here) must not pair A with that netns — and the rejected pairing must not
-// stop pod B's own process, scanned later, from claiming it.
+// stop pod B's own process, scanned later, from claiming it. Pod A's own netns (procs 0
+// and 1) is validated and paired independently: the foreign candidate loses without
+// poisoning either pod's real pairing.
 func TestProcScanRejectsForeignNetns(t *testing.T) {
 	const sharedIno = 4242
 	podA := &corev1.Pod{
@@ -137,14 +139,19 @@ func TestProcScanRejectsForeignNetns(t *testing.T) {
 	n, err := NewPodNetnsProcFinder(ffs)
 	assert.NoError(t, err)
 
+	aIP := netip.MustParseAddr("10.0.0.1")
 	bIP := netip.MustParseAddr("10.0.0.2")
 	foreignRejected := false
 	n.netnsPodIPChecker = func(ns Netns, podIPs []netip.Addr) (bool, error) {
-		owned := ns.Inode() == sharedIno && slices.Contains(podIPs, bIP)
-		if ns.Inode() == sharedIno && !owned {
-			foreignRejected = true
+		// the shared netns belongs to pod B; every other netns in the fake fs is pod A's
+		if ns.Inode() == sharedIno {
+			owned := slices.Contains(podIPs, bIP)
+			if !owned {
+				foreignRejected = true
+			}
+			return owned, nil
 		}
-		return owned, nil
+		return slices.Contains(podIPs, aIP), nil
 	}
 
 	podUIDNetns, err := n.FindNetnsForPods(map[types.UID]*corev1.Pod{
@@ -155,15 +162,22 @@ func TestProcScanRejectsForeignNetns(t *testing.T) {
 
 	// pod A reached the ownership check for pod B's netns and was refused
 	assert.Equal(t, foreignRejected, true)
-	// only pod B is paired, with the netns its own process lives in
-	assert.Equal(t, len(podUIDNetns), 1)
+	assert.Equal(t, len(podUIDNetns), 2)
+	// pod A keeps its own oldest netns (testdata/cgroupns/1), not pod B's
+	a, ok := podUIDNetns[string(podA.UID)]
+	if !ok {
+		t.Fatal("expected pod A to be paired with its own netns")
+	}
+	assert.Equal(t, a.Netns.Inode() != uint64(sharedIno), true)
+	assert.Equal(t, a.Netns.OwnerProcStarttime(), uint64(70298968))
+	// pod B claims the shared netns even though the foreign process was scanned first
 	b, ok := podUIDNetns[string(podB.UID)]
 	if !ok {
 		t.Fatal("expected pod B to be paired with its netns")
 	}
 	assert.Equal(t, b.Netns.Inode(), uint64(sharedIno))
-	// rejected candidates' netns fds were closed by the scan
-	assert.Equal(t, ffs.openNetnsFiles(), 1)
+	// losing and rejected candidates' netns fds were closed by the scan
+	assert.Equal(t, ffs.openNetnsFiles(), 2)
 	podUIDNetns.Close()
 	assert.Equal(t, ffs.openNetnsFiles(), 0)
 }
