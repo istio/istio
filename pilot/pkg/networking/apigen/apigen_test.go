@@ -18,6 +18,8 @@ import (
 	"testing"
 	"time"
 
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -140,6 +142,25 @@ func TestAPIGenRequiresControlPlaneIdentity(t *testing.T) {
 		_, _, err := newGen().Generate(proxy, w, nil)
 		assert.NoError(t, err)
 	})
+}
+
+// TestAPIGenADSRejectsUnauthenticated exercises the control-plane-identity gate over a full
+// ADS stream rather than calling authorize directly: a client that selects GENERATOR=api with
+// no verified identity (as on the plaintext xDS port 15010) must be rejected. This covers the
+// real path (generator selection in pushXds -> Generate -> authorize -> stream error) that the
+// unit test above stubs out.
+func TestAPIGenADSRejectsUnauthenticated(t *testing.T) {
+	test.SetForTest(t, &features.EnableXDSAPIGeneratorAuth, true)
+	ds := initDS(t)
+
+	// The buffcon ADS connection has no verified identity, matching an unauthenticated caller.
+	ads := ds.ConnectADS().
+		WithType(gvk.ServiceEntry.String()).
+		WithMetadata(model.NodeMetadata{Generator: "api"})
+	ads.Request(t, &discovery.DiscoveryRequest{TypeUrl: gvk.ServiceEntry.String()})
+	if err := ads.ExpectError(t); err == nil {
+		t.Fatal("expected api generator to reject an ADS connection without a verified identity")
+	}
 }
 
 // Test using resolving DNS over GRPC. This uses XDS protocol, and Listener resources
