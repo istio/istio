@@ -355,6 +355,53 @@ func TestInformerExistingPodNotAddedIfNoIPInAnyStatusField(t *testing.T) {
 	fs.AssertExpectations(t)
 }
 
+func TestInformerExistingHostNetworkPodNotAddedWhenNsLabeled(t *testing.T) {
+	setupLogging()
+	NodeName = "testnode"
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Host network pods have no netns of their own to capture, so they must never be
+	// enrolled, even in an ambient-labeled namespace. Note the pod has a valid IP:
+	// hostNetwork is the only thing keeping it out of the mesh.
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test",
+			Namespace: "test",
+		},
+		Spec: corev1.PodSpec{
+			NodeName:    NodeName,
+			HostNetwork: true,
+		},
+		Status: corev1.PodStatus{
+			PodIP: "11.1.1.12",
+		},
+	}
+	ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "test"}}
+
+	client := kube.NewFakeClient(ns, pod)
+
+	fs := &fakeServer{}
+
+	_, mt := populateClientAndWaitForInformer(ctx, t, client, fs, 2, 1)
+
+	// label the namespace
+	labelsPatch := []byte(fmt.Sprintf(`{"metadata":{"labels":{"%s":"%s"}}}`,
+		label.IoIstioDataplaneMode.Name, constants.DataplaneModeAmbient))
+	_, err := client.Kube().CoreV1().Namespaces().Patch(ctx, ns.Name,
+		types.MergePatchType, labelsPatch, metav1.PatchOptions{})
+	assert.NoError(t, err)
+
+	// wait for all update events to settle
+	// total 3: 1. init ns reconcile 2. ns label reconcile 3. pod reconcile
+	mt.Assert(EventTotals.Name(), map[string]string{"type": "update"}, monitortest.Exactly(3))
+
+	assertPodNotAnnotated(t, client, pod)
+
+	// Assert no dataplane calls (e.g. AddPodToMesh) were made
+	fs.AssertExpectations(t)
+}
+
 func TestInformerExistingPodRemovedWhenNsUnlabeled(t *testing.T) {
 	setupLogging()
 	NodeName = "testnode"
@@ -983,6 +1030,48 @@ func TestInformerAmbientEnabledReturnsNoPodIfNotEnabled(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Equal(t, disabledPod, nil)
+}
+
+func TestInformerAmbientEnabledReturnsNoPodIfHostNetwork(t *testing.T) {
+	setupLogging()
+	NodeName = "testnode"
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// GetPodIfAmbientEnabled feeds the CNI-event enrollment path, whose netns
+	// resolution can fall back to guessing via /proc scans. Host network pods must be
+	// rejected here so that fallback is never entered for them.
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test",
+			Namespace: "test",
+			UID:       "1234",
+		},
+		Spec: corev1.PodSpec{
+			NodeName:    NodeName,
+			HostNetwork: true,
+		},
+		Status: corev1.PodStatus{
+			PodIP: "11.1.1.12",
+		},
+	}
+	ns := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "test",
+			Labels: map[string]string{label.IoIstioDataplaneMode.Name: constants.DataplaneModeAmbient},
+		},
+	}
+
+	client := kube.NewFakeClient(ns, pod)
+	fs := &fakeServer{}
+
+	handlers, _ := populateClientAndWaitForInformer(ctx, t, client, fs, 2, 1)
+
+	hostNetworkPod, err := handlers.GetPodIfAmbientEnabled(pod.Name, ns.Name)
+
+	assert.NoError(t, err)
+	assert.Equal(t, hostNetworkPod, nil)
 }
 
 func TestInformerAmbientEnabledReturnsErrorIfBogusNS(t *testing.T) {

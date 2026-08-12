@@ -138,7 +138,7 @@ func (s *InformerHandlers) GetPodIfAmbientEnabled(podName, podNamespace string) 
 	if pod == nil {
 		return nil, fmt.Errorf("failed to find pod %v", ns)
 	}
-	if s.enablementSelector.Matches(pod.Labels, pod.Annotations, ns.Labels) {
+	if s.enablementSelector.Matches(pod, ns.Labels) {
 		return pod, nil
 	}
 	return nil, nil
@@ -289,7 +289,7 @@ func (s *InformerHandlers) reconcilePod(input any) error {
 		oldPod := event.Old.(*corev1.Pod)
 		isEnrolled := util.PodFullyEnrolled(currentPod)
 		isPartiallyEnrolled := util.PodPartiallyEnrolled(currentPod)
-		matchesSelector := s.enablementSelector.Matches(currentPod.Labels, currentPod.Annotations, ns.Labels)
+		matchesSelector := s.enablementSelector.Matches(currentPod, ns.Labels)
 		namespaceExcluded := s.isNamespaceExcluded(currentPod.Namespace)
 		shouldBeEnabled := matchesSelector && !namespaceExcluded
 		isTerminated := kube.CheckPodTerminal(currentPod)
@@ -401,7 +401,7 @@ func (s *InformerHandlers) reconcilePod(input any) error {
 		// pod information from the triggering event.
 		if util.PodFullyEnrolled(latestEventPod) ||
 			util.PodPartiallyEnrolled(latestEventPod) ||
-			s.enablementSelector.Matches(latestEventPod.Labels, latestEventPod.Annotations, ns.Labels) {
+			s.enablementSelector.Matches(latestEventPod, ns.Labels) {
 			log.Debugf("pod is deleted and was or should be captured, removing from ztunnel")
 			if err := s.dataplane.RemovePodFromMesh(s.ctx, latestEventPod, true); err != nil {
 				log.Warnf("Unable to send pod to ztunnel for removal. Will retry. RemovePodFrmMesh returned: %v", err)
