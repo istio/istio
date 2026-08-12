@@ -18,12 +18,16 @@ import (
 	"strings"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	"google.golang.org/grpc/codes"
+	grpcstatus "google.golang.org/grpc/status"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/log"
 )
@@ -60,6 +64,10 @@ func NewGenerator(store model.ConfigStore) *APIGenerator {
 //
 // Names are based on the current resource naming in istiod stores.
 func (g *APIGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
+	if err := authorize(proxy, req); err != nil {
+		return nil, model.DefaultXdsLogDetails, err
+	}
+
 	resp := model.Resources{}
 
 	// Note: this is the style used by MCP and its config. Pilot is using 'Group/Version/Kind' as the
@@ -130,4 +138,23 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, re
 	}
 
 	return resp, model.DefaultXdsLogDetails, nil
+}
+
+// authorize protects the api generator from unauthorized access. It serves cluster-wide
+// config, so only callers with a verified control-plane (root namespace) identity are allowed.
+func authorize(proxy *model.Proxy, req *model.PushRequest) error {
+	if !features.EnableXDSAPIGeneratorAuth {
+		return nil
+	}
+	systemNamespace := constants.IstioSystemNamespace
+	if req != nil && req.Push != nil && req.Push.Mesh != nil && req.Push.Mesh.GetRootNamespace() != "" {
+		systemNamespace = req.Push.Mesh.GetRootNamespace()
+	}
+	if proxy == nil || proxy.VerifiedIdentity == nil {
+		return grpcstatus.Error(codes.Unauthenticated, "the api generator requires an authenticated control-plane identity")
+	}
+	if proxy.VerifiedIdentity.Namespace != systemNamespace {
+		return grpcstatus.Error(codes.PermissionDenied, "the api generator is restricted to the control-plane (root) namespace")
+	}
+	return nil
 }
