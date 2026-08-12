@@ -1,0 +1,13 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 58492 
+releaseNotes:
+- |
+  **Upgraded** version of nftables used by Istio images. The version has been pinned to 1.1.1 to
+  avoid a bug that causes older versions of nftables on k8s node to crash after Istio uses a newer
+  version of nftables packaged with the images on the same node.
+  Major Linux distributions have been informed of the nftables issue and released a fix for it, so
+  we are removing the pinning in Istio. Users are advised to update nftables package on their
+  nodes to the latest version to make sure that the version of with the fix is used on the node.
