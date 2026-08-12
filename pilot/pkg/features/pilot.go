@@ -103,6 +103,11 @@ var (
 	EnableDebugEndpointAuth = env.Register("ENABLE_DEBUG_ENDPOINT_AUTH", true,
 		"Enforce namespace-based authorization on debug endpoints. Non-system namespaces restricted to config_dump/ndsz/edsz for same-namespace proxies only.").Get()
 
+	EnableXDSAPIGeneratorAuth = env.Register("ENABLE_XDS_API_GENERATOR_AUTH", true,
+		"If enabled, the XDS 'api' generator (MCP-over-xDS config serving) is restricted to callers with a verified "+
+			"control-plane (root namespace) identity. Prevents an unauthenticated client on the plaintext xDS port, or a "+
+			"workload in an unrelated namespace on the mTLS port, from reading cluster-wide Istio config.").Get()
+
 	DebugEndpointAuthAllowedNamespaces = func() sets.String {
 		v := env.Register(
 			"DEBUG_ENDPOINT_AUTH_ALLOWED_NAMESPACES",
