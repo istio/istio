@@ -44,11 +44,15 @@ import (
 type APIGenerator struct {
 	// ConfigStore interface for listing istio api resources.
 	store model.ConfigStore
+	// requireAuth restricts the generator to verified control-plane identities.
+	// Captured at construction to avoid reading the feature flag per-request.
+	requireAuth bool
 }
 
 func NewGenerator(store model.ConfigStore) *APIGenerator {
 	return &APIGenerator{
-		store: store,
+		store:       store,
+		requireAuth: features.EnableXDSAPIGeneratorAuth,
 	}
 }
 
@@ -64,7 +68,7 @@ func NewGenerator(store model.ConfigStore) *APIGenerator {
 //
 // Names are based on the current resource naming in istiod stores.
 func (g *APIGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
-	if err := authorize(proxy, req); err != nil {
+	if err := g.authorize(proxy, req); err != nil {
 		return nil, model.DefaultXdsLogDetails, err
 	}
 
@@ -142,8 +146,8 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, re
 
 // authorize protects the api generator from unauthorized access. It serves cluster-wide
 // config, so only callers with a verified control-plane (root namespace) identity are allowed.
-func authorize(proxy *model.Proxy, req *model.PushRequest) error {
-	if !features.EnableXDSAPIGeneratorAuth {
+func (g *APIGenerator) authorize(proxy *model.Proxy, req *model.PushRequest) error {
+	if !g.requireAuth {
 		return nil
 	}
 	systemNamespace := constants.IstioSystemNamespace
