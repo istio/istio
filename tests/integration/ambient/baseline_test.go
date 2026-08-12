@@ -1087,6 +1087,7 @@ spec:
 
 func TestAuthorizationServiceAttached(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
+		maybeSetupMultiCluster(t)
 		applyDrainingWorkaround(t)
 		src := apps.Captured
 		authzDst := apps.ServiceAddressedWaypoint
@@ -1901,6 +1902,7 @@ spec:
 		},
 	}
 	framework.NewTest(t).Run(func(t framework.TestContext) {
+		maybeSetupMultiCluster(t)
 		for _, tt := range cases {
 			t.NewSubTest(tt.name).Run(func(t framework.TestContext) {
 				for _, src := range apps.All {
@@ -3065,20 +3067,17 @@ func runAllTests(t framework.TestContext, f func(t framework.TestContext, src ec
 	runTestContextForCalls(t, allCalls, f)
 }
 
-func runTestContextForCalls(
-	t framework.TestContext,
-	callOptions []echo.CallOptions,
-	f func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions),
-) {
-	svcs := apps.All
+func maybeSetupMultiCluster(t framework.TestContext) {
 	if t.Settings().AmbientMultiNetwork {
 		// all meshed services need to be labeled as global for the reachability tests.
 		for _, app := range apps.Mesh {
 			if app.Config().IsAmbient() {
-				// don't label sidecar services until https://github.com/istio/istio/issues/57877 is resolved.
+				// don't label sidecar services until https://github.com/istio/istio/issues/57877 is
+				// resolved.
 				labelServiceGlobal(t, app.ServiceName(), app.Config().Cluster)
 			}
 		}
+
 		for name := range apps.WaypointProxies {
 			labelServiceGlobal(t, name, t.Clusters()...)
 		}
@@ -3105,7 +3104,15 @@ func runTestContextForCalls(
 		// to account for this issue.
 		time.Sleep(2 * features.DebounceAfter)
 	}
-	for _, src := range svcs {
+}
+
+func runTestContextForCalls(
+	t framework.TestContext,
+	callOptions []echo.CallOptions,
+	f func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions),
+) {
+	maybeSetupMultiCluster(t)
+	for _, src := range apps.All {
 		t.NewSubTestf("from %v %v", src.Config().Cluster.Name(), src.Config().Service).Run(func(t framework.TestContext) {
 			for _, dst := range getAllInstancesByServiceName() {
 				t.NewSubTestf("to all %v", dst.Config().Service).Run(func(t framework.TestContext) {
