@@ -33,7 +33,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/cni/pkg/util"
-	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -88,11 +87,10 @@ func (p *PodNetnsProcFinder) FindNetnsForPods(pods map[types.UID]*corev1.Pod) (P
 		return nil, err
 	}
 
-	desiredUIDs := sets.New(maps.Keys(pods)...)
 	for _, entry := range entries {
 		// we can't break here because we need to close all the netns we opened
 		// plus we want to return whatever we can to the user.
-		res, err := p.processEntry(p.proc, netnsObserved, desiredUIDs, entry)
+		res, err := p.processEntry(p.proc, netnsObserved, pods, entry)
 		if err != nil {
 			log.Debugf("error processing entry: %s %v", entry.Name(), err)
 			continue
@@ -122,31 +120,6 @@ func (p *PodNetnsProcFinder) FindNetnsForPods(pods map[types.UID]*corev1.Pod) (P
 			inode:              res.inode,
 			ownerProcStarttime: res.ownerProcStarttime,
 		}
-
-		// The cgroup ties the process to a pod, not the netns — a foreign process may be
-		// transiting another pod's netns. Accept the pairing only if the netns holds one
-		// of the pod's IPs; on rejection, forget the inode so the rightful pod's process
-		// can still claim it later in the scan.
-		podIPs := util.GetPodIPsIfPresent(pod)
-		if len(podIPs) == 0 {
-			log.Debugf("pod %s/%s has no IPs yet; cannot verify netns ownership, not enrolling on this scan", pod.Namespace, pod.Name)
-			netns.Close()
-			netnsObserved.Delete(res.inode)
-			continue
-		}
-		owned, err := p.netnsPodIPChecker(netns, podIPs)
-		if err != nil {
-			log.Warnf("could not verify netns (inode %d) ownership for pod %s/%s: %v", res.inode, pod.Namespace, pod.Name, err)
-		} else if !owned {
-			log.Warnf("netns (inode %d) does not contain any IP of pod %s/%s; refusing the pairing, "+
-				"a foreign process may be transiting another pod's netns", res.inode, pod.Namespace, pod.Name)
-		}
-		if err != nil || !owned {
-			netns.Close()
-			netnsObserved.Delete(res.inode)
-			continue
-		}
-
 		workload := WorkloadInfo{
 			Workload: podToWorkload(pod),
 			Netns:    netns,
@@ -157,7 +130,12 @@ func (p *PodNetnsProcFinder) FindNetnsForPods(pods map[types.UID]*corev1.Pod) (P
 	return podUIDNetns, nil
 }
 
-func (p *PodNetnsProcFinder) processEntry(proc fs.FS, netnsObserved sets.Set[uint64], filter sets.Set[types.UID], entry fs.DirEntry) (*PodNetnsEntry, error) {
+func (p *PodNetnsProcFinder) processEntry(
+	proc fs.FS,
+	netnsObserved sets.Set[uint64],
+	pods map[types.UID]*corev1.Pod,
+	entry fs.DirEntry,
+) (*PodNetnsEntry, error) {
 	log := log.WithLabels("PID", entry.Name())
 
 	if !isProcess(entry) {
@@ -215,25 +193,55 @@ func (p *PodNetnsProcFinder) processEntry(proc fs.FS, netnsObserved sets.Set[uin
 	if err != nil {
 		return nil, err
 	}
-	if filter != nil && !filter.Contains(uid) {
+	pod, desired := pods[uid]
+	if !desired {
 		return nil, nil
 	}
 
-	netns, err := proc.Open(netnsName)
+	netnsFile, err := proc.Open(netnsName)
 	if err != nil {
 		return nil, err
 	}
-	fd, err := GetFd(netns)
+	fd, err := GetFd(netnsFile)
 	if err != nil {
+		netnsFile.Close()
+		return nil, err
+	}
+
+	// The cgroup ties the process to a pod, not the netns — a foreign process may be
+	// transiting another pod's netns. Accept the pairing only if the netns holds one of
+	// the pod's IPs. Rejected netns are not marked observed, so the netns' rightful pod,
+	// scanned later, can still claim it.
+	netns := &NetnsWithFd{
+		netns:              netnsFile,
+		fd:                 fd,
+		inode:              entryNetnsStat.Ino,
+		ownerProcStarttime: ownerProcStarttime,
+	}
+	podIPs := util.GetPodIPsIfPresent(pod)
+	if len(podIPs) == 0 {
+		log.Debugf("pod %s/%s has no IPs yet; cannot verify netns ownership, not enrolling on this scan", pod.Namespace, pod.Name)
 		netns.Close()
-		return nil, err
+		return nil, nil
 	}
+	owned, err := p.netnsPodIPChecker(netns, podIPs)
+	if err != nil {
+		log.Warnf("could not verify netns ownership for pod %s/%s: %v", pod.Namespace, pod.Name, err)
+	} else if !owned {
+		log.Warnf("netns does not contain any IP of pod %s/%s; refusing the pairing, "+
+			"a foreign process may be transiting another pod's netns", pod.Namespace, pod.Name)
+	}
+	if err != nil || !owned {
+		netns.Close()
+		return nil, nil
+	}
+
 	netnsObserved[entryNetnsStat.Ino] = struct{}{}
 	log.Debugf("found pod to netns: %s", uid)
 
 	return &PodNetnsEntry{
 		uid,
-		netns,
+		netnsFile,
 		fd,
 		entryNetnsStat.Ino,
 		ownerProcStarttime,
