@@ -1621,26 +1621,6 @@ func (ps *PushContext) initServiceRegistry(env *Environment, configsUpdate sets.
 		}
 		ps.addServiceAccounts(s, accounts)
 
-		// TODO: this HostnameAndNamespace bookkeeping is now redundant with the hostTrie built below (the trie's
-		// canonicalService applies the same precedence); remove it once the trie is proven out (see the field doc).
-		hostMap, f := ps.ServiceIndex.HostnameAndNamespace[s.Hostname]
-		if !f {
-			hostMap = map[string]*Service{}
-			ps.ServiceIndex.HostnameAndNamespace[s.Hostname] = hostMap
-		}
-		// In some scenarios, there may be multiple Services defined for the same hostname due to ServiceEntry allowing
-		// arbitrary hostnames. In these cases, we want to pick the first Service, which is the oldest. This ensures
-		// newly created Services cannot take ownership unexpectedly.
-		// However, the Service is from Kubernetes it should take precedence over ones not. This prevents someone from
-		// "domain squatting" on the hostname before a Kubernetes Service is created.
-		if existing := hostMap[s.Attributes.Namespace]; existing != nil &&
-			!(existing.Attributes.ServiceRegistry != provider.Kubernetes && s.Attributes.ServiceRegistry == provider.Kubernetes) {
-			log.Debugf("Service %s/%s from registry %s ignored by %s/%s/%s", s.Attributes.Namespace, s.Hostname, s.Attributes.ServiceRegistry,
-				existing.Attributes.ServiceRegistry, existing.Attributes.Namespace, existing.Hostname)
-		} else {
-			hostMap[s.Attributes.Namespace] = s
-		}
-
 		ns := s.Attributes.Namespace
 		exportToSet := ps.serviceExportTo(s)
 
@@ -1677,8 +1657,36 @@ func (ps *PushContext) initServiceRegistry(env *Environment, configsUpdate sets.
 		}
 	}
 
-	// Build the (namespace, reversed-label) trie over all services for wildcard egress host resolution.
+	// Build the hostname indexes over all services: the legacy HostnameAndNamespace map (one canonical service per
+	// (hostname, namespace)) and the reversed-label trie used for wildcard egress host resolution.
+	ps.ServiceIndex.HostnameAndNamespace = buildHostnameAndNamespaceIndex(allServices)
 	ps.ServiceIndex.hostTrie = newHostTrie(allServices)
+}
+
+// buildHostnameAndNamespaceIndex indexes services by hostname then namespace, keeping one canonical service per
+// (hostname, namespace). services must be creation-time sorted; precedence matches canonicalService (oldest wins,
+// except a Kubernetes service beats a non-Kubernetes one to prevent domain squatting before a Kubernetes Service
+// exists).
+//
+// TODO: delete this together with the HostnameAndNamespace map once the hostTrie is proven out. newHostTrie indexes
+// the same services and canonicalService applies identical precedence, so this map is redundant.
+func buildHostnameAndNamespaceIndex(services []*Service) map[host.Name]map[string]*Service {
+	index := make(map[host.Name]map[string]*Service, len(services))
+	for _, s := range services {
+		hostMap, f := index[s.Hostname]
+		if !f {
+			hostMap = map[string]*Service{}
+			index[s.Hostname] = hostMap
+		}
+		if existing := hostMap[s.Attributes.Namespace]; existing != nil &&
+			!(existing.Attributes.ServiceRegistry != provider.Kubernetes && s.Attributes.ServiceRegistry == provider.Kubernetes) {
+			log.Debugf("Service %s/%s from registry %s ignored by %s/%s/%s", s.Attributes.Namespace, s.Hostname, s.Attributes.ServiceRegistry,
+				existing.Attributes.ServiceRegistry, existing.Attributes.Namespace, existing.Hostname)
+			continue
+		}
+		hostMap[s.Attributes.Namespace] = s
+	}
+	return index
 }
 
 func (ps *PushContext) addServiceAccounts(s *Service, accounts sets.String) {

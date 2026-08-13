@@ -3165,9 +3165,9 @@ func benchServiceMesh(meshServices int) *PushContext {
 			Ports:      port8000,
 			Attributes: ServiceAttributes{Name: string(hostname), Namespace: "ns", ServiceRegistry: provider.Kubernetes},
 		}
-		ps.ServiceIndex.HostnameAndNamespace[hostname] = map[string]*Service{"ns": s}
 		ps.ServiceIndex.public = append(ps.ServiceIndex.public, s)
 	}
+	ps.ServiceIndex.HostnameAndNamespace = buildHostnameAndNamespaceIndex(ps.ServiceIndex.public)
 	ps.ServiceIndex.hostTrie = newHostTrie(ps.ServiceIndex.public)
 	return ps
 }
@@ -3362,6 +3362,41 @@ func BenchmarkSelectServicesMatchAll(b *testing.B) {
 				b.ReportAllocs()
 				for i := 0; i < b.N; i++ {
 					ilw.selectServices(ps.servicesExportedToNamespace("ns"), "ns", hostsByNamespace)
+				}
+			})
+		})
+	}
+}
+
+// BenchmarkBuildServiceIndex measures the one-time cost of building each hostname index over the mesh's services,
+// sweeping M=1000/10000/100000. It answers the review question of whether the trie's build cost (newHostTrie) is
+// comparable to the map it replaces (buildHostnameAndNamespaceIndex); both are built once per PushContext and
+// amortized across every lookup that PushContext serves.
+//
+// Both build in O(M); the trie is a ~4.5x constant-factor heavier build (it allocates a node per DNS label rather
+// than one entry per hostname), which stays flat as M grows and is repaid by the lookup speedups (up to ~288x at
+// M=100000, see BenchmarkSelectServicesExact):
+//
+//	go test ./pilot/pkg/model/ -run '^$' -bench BenchmarkBuildServiceIndex -benchmem
+//
+//	           trie build   map build   trie/map
+//	M=1000     ~355µs       ~78µs       ~4.5x
+//	M=10000    ~3.6ms       ~0.78ms     ~4.6x
+//	M=100000   ~44ms        ~9.9ms      ~4.5x
+func BenchmarkBuildServiceIndex(b *testing.B) {
+	for _, meshServices := range benchMeshSizes {
+		svcs := benchServiceMesh(meshServices).ServiceIndex.public
+		b.Run("M="+strconv.Itoa(meshServices), func(b *testing.B) {
+			b.Run("trie", func(b *testing.B) {
+				b.ReportAllocs()
+				for i := 0; i < b.N; i++ {
+					_ = newHostTrie(svcs)
+				}
+			})
+			b.Run("map", func(b *testing.B) {
+				b.ReportAllocs()
+				for i := 0; i < b.N; i++ {
+					_ = buildHostnameAndNamespaceIndex(svcs)
 				}
 			})
 		})
