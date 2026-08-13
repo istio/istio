@@ -5,12 +5,8 @@ issue:
 - 58492 
 releaseNotes:
 - |
-  **Upgraded** version of nftables used by Istio images. The version has been pinned to 1.1.1 to
-  avoid a bug that causes older versions of nftables on k8s node to crash after Istio uses a newer
-  version of nftables packaged with the images on the same node.
-  Major Linux distributions have been informed of the nftables issue and released a fix for it, so
-  we are removing the pinning in Istio. Users are advised to update nftables package on their
-  nodes to the latest version to make sure that the version with the fix is used on the node.
-  If you're still experiencing issues with node nftables crashing please downgrade to an older
-  version of Istio and contact the provider of the node OS for your deployment and ask them to
-  backport the fix.
+**Upgraded** version of `nftables` used by Istio distroless images. The `nftables` version was previously pinned to 1.1.1 to avoid a bug that could cause older versions of `nftables` on K8s nodes to crash after Istio used a newer version packaged in its images on the same node.
+
+Major Linux distributions have been informed of the issue and have released fixes. As a result, Istio is removing the `nftables` version pinning. Users are advised to update the `nftables` package on their nodes to the latest available version to ensure that the fixed version is installed.
+
+If you continue to experience `nftables` crashes on your nodes, downgrade to an older version of Istio and contact your node OS provider to request that the fix be backported to your OS version.
