@@ -159,6 +159,10 @@ func TestRemoteSecretRotationKeepsCrossClusterTraffic(t *testing.T) {
 	framework.NewTest(t).
 		RequiresMinClusters(2).
 		Run(func(t framework.TestContext) {
+			if len(t.Clusters().Primaries()) == 0 {
+				t.Skip("no primary cluster in framework (most likely only remote-config, e.g. external control plane topology)")
+			}
+
 			sourceCluster := t.Clusters().Primaries().Default()
 			targetCluster := t.Clusters().MeshClusters().Exclude(sourceCluster).Default()
 			source := apps.A.ForCluster(sourceCluster.Name())[0]
