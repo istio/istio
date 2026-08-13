@@ -104,25 +104,18 @@ func (p *PodNetnsProcFinder) FindNetnsForPods(pods map[types.UID]*corev1.Pod) (P
 		// Otherwise replace it with the one we just found
 		if existingNetns, exists := podUIDNetns[string(res.uid)]; exists {
 			log.Warnf("found more than one netns for the same pod: %s, will use oldest process netns", res.uid)
-			if existingNetns.Netns.OwnerProcStarttime() < res.ownerProcStarttime {
-				// the existing entry wins; close the netns fd opened for this candidate
+			if existingNetns.Netns.OwnerProcStarttime() < res.netns.OwnerProcStarttime() {
+				// the existing entry wins; close the netns opened for this candidate
 				res.netns.Close()
 				continue
 			}
-			// this candidate wins; close the netns fd of the entry it replaces
+			// this candidate wins; close the netns of the entry it replaces
 			existingNetns.Netns.Close()
 		}
 
-		pod := pods[res.uid]
-		netns := &NetnsWithFd{
-			netns:              res.netns,
-			fd:                 res.netnsfd,
-			inode:              res.inode,
-			ownerProcStarttime: res.ownerProcStarttime,
-		}
 		workload := WorkloadInfo{
-			Workload: podToWorkload(pod),
-			Netns:    netns,
+			Workload: podToWorkload(pods[res.uid]),
+			Netns:    res.netns,
 		}
 		podUIDNetns[string(res.uid)] = workload
 
@@ -239,13 +232,7 @@ func (p *PodNetnsProcFinder) processEntry(
 	netnsObserved[entryNetnsStat.Ino] = struct{}{}
 	log.Debugf("found pod to netns: %s", uid)
 
-	return &PodNetnsEntry{
-		uid,
-		netnsFile,
-		fd,
-		entryNetnsStat.Ino,
-		ownerProcStarttime,
-	}, nil
+	return &PodNetnsEntry{uid: uid, netns: netns}, nil
 }
 
 func isProcess(entry fs.DirEntry) bool {
