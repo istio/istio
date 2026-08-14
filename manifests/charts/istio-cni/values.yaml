@@ -43,6 +43,11 @@ _internal_defaults_do_not_set:
   # Additional labels to apply on the pod level
   podLabels: {}
 
+  # Set value to true to enable basic podMonitor resource for Prometheus to scrape
+  # Prometheus CRDs must be installed within the cluster before enabling
+  podMonitor:
+    enabled: false
+
   # Deploy the config files as plugin chain (value "true") or as standalone files in the conf dir (value "false")?
   # Some k8s flavors (e.g. OpenShift) do not support the chain approach, set to false if this is the case
   chained: true

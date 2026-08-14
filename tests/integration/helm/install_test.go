@@ -244,6 +244,31 @@ func TestNumericNamespaceInstall(t *testing.T) {
 		Run(setupInstallation(values, false, nsConfig, ""))
 }
 
+// TestCNIPodMonitor verifies the istio-cni chart renders a PodMonitor when podMonitor.enabled is set.
+// The PodMonitor CRD is not present in the test cluster, so this only templates the chart rather than installing it.
+func TestCNIPodMonitor(t *testing.T) {
+	framework.NewTest(t).Run(verifyPodMonitorRendered(filepath.Join(ManifestsChartPath, CniChartsDir), CniReleaseName, "istio-cni-pod-monitor"))
+}
+
+// TestZtunnelPodMonitor verifies the ztunnel chart renders a PodMonitor when podMonitor.enabled is set.
+func TestZtunnelPodMonitor(t *testing.T) {
+	framework.NewTest(t).Run(verifyPodMonitorRendered(filepath.Join(ManifestsChartPath, ZtunnelChartsDir), ZtunnelReleaseName, "ztunnel-pod-monitor"))
+}
+
+func verifyPodMonitorRendered(chartPath, releaseName, expectedName string) func(t framework.TestContext) {
+	return func(t framework.TestContext) {
+		cs := t.Clusters().Default().(*kubecluster.Cluster)
+		h := helm.New(cs.Filename())
+		out, err := h.Template(releaseName, chartPath, IstioNamespace, "templates/podmonitor.yaml", Timeout, "--set", "podMonitor.enabled=true")
+		if err != nil {
+			t.Fatalf("failed to template %s podmonitor: %v", releaseName, err)
+		}
+		if !strings.Contains(out, "kind: PodMonitor") || !strings.Contains(out, "name: "+expectedName) {
+			t.Fatalf("expected rendered output to contain PodMonitor %q, got: %s", expectedName, out)
+		}
+	}
+}
+
 // nolint: unparam
 func setupInstallation(values map[string]interface{}, isAmbient bool, config NamespaceConfig, revision string) func(t framework.TestContext) {
 	return baseSetup(values, isAmbient, config, func(t framework.TestContext) {
