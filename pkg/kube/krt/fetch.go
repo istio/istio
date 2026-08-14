@@ -84,7 +84,7 @@ func fetch[T any](ctx HandlerContext, cc Collection[T], allowMissingContext bool
 	if ctx != nil {
 		h := ctx.(registerDependency)
 		// Important: register before we List(), so we cannot miss any events
-		h.registerDependency(d, c, func(f erasedEventHandler) Syncer {
+		h.registerDependency(d, c, func(f erasedEventHandler) HandlerRegistration {
 			ff := func(o []Event[T]) {
 				f(slices.Map(o, castEvent[T, any]))
 			}
