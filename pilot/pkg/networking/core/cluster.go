@@ -351,7 +351,7 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 		_, wps := findWaypointResources(proxy, req.Push)
 		// Waypoint proxies do not need outbound clusters in most cases, unless we have a route pointing to something
 		outboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_OUTBOUND}
-		extraNamespacedHosts, extraHosts := req.Push.ExtraWaypointServices(proxy, envoyFilterPatches)
+		extraNamespacedHosts, extraHosts := req.Push.ExtraWaypointServices(proxy, envoyFilterPatches, wps.orderedServices)
 		outboundServices := filterWaypointOutboundServices(
 			req.Push.ServicesAttachedToMesh(), wps.services, extraNamespacedHosts, extraHosts, services)
 		// For E/W gateways that also expose non-HBONE ports via the Gateway API (e.g., TLS passthrough
