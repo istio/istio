@@ -166,6 +166,7 @@ func (a *index) buildGlobalCollections(
 		LocalWaypoints,
 		opts,
 	)
+	authPoliciesByNs := workloadAuthorizationByNs(AuthorizationPolicies)
 	LocalServiceEntryVisibility := model.ServiceEntryVisibilityCollection(LocalMeshConfig.AsCollection(), opts)
 
 	LocalWorkloadServices := builder.ServicesCollection(
@@ -273,7 +274,7 @@ func (a *index) buildGlobalCollections(
 		GlobalNodeLocality,
 		GlobalNodeLocalityByCluster,
 		options.MeshConfig,
-		AuthorizationPolicies,
+		authPoliciesByNs,
 		localPeerAuthsByNs,
 		GlobalWaypoints,
 		WaypointsByCluster,

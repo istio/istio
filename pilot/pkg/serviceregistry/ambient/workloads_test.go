@@ -837,7 +837,7 @@ func TestPodWorkloads(t *testing.T) {
 			EndpointSlicesAddressIndex := endpointSliceAddressIndex(EndpointSlices)
 			builder := a.podWorkloadBuilder(
 				GetMeshConfig(mock),
-				krttest.GetMockCollection[model.WorkloadAuthorization](mock),
+				workloadAuthorizationByNs(krttest.GetMockCollection[model.WorkloadAuthorization](mock)),
 				krt.NewNamespaceIndex(krttest.GetMockCollection[*securityclient.PeerAuthentication](mock)),
 				krttest.GetMockCollection[Waypoint](mock),
 				WorkloadServices,
@@ -1445,7 +1445,7 @@ func TestWorkloadEntryWorkloads(t *testing.T) {
 			WorkloadServicesNamespaceIndex := krt.NewNamespaceIndex(WorkloadServices)
 			builder := a.workloadEntryWorkloadBuilder(
 				GetMeshConfig(mock),
-				krttest.GetMockCollection[model.WorkloadAuthorization](mock),
+				workloadAuthorizationByNs(krttest.GetMockCollection[model.WorkloadAuthorization](mock)),
 				krt.NewNamespaceIndex(krttest.GetMockCollection[*securityclient.PeerAuthentication](mock)),
 				krttest.GetMockCollection[Waypoint](mock),
 				WorkloadServices,
@@ -1692,7 +1692,7 @@ func TestWorkloadEntryConditions(t *testing.T) {
 			WorkloadServicesNamespaceIndex := krt.NewNamespaceIndex(WorkloadServices)
 			builder := a.workloadEntryWorkloadBuilder(
 				GetMeshConfig(mock),
-				krttest.GetMockCollection[model.WorkloadAuthorization](mock),
+				workloadAuthorizationByNs(krttest.GetMockCollection[model.WorkloadAuthorization](mock)),
 				krt.NewNamespaceIndex(krttest.GetMockCollection[*securityclient.PeerAuthentication](mock)),
 				krttest.GetMockCollection[Waypoint](mock),
 				WorkloadServices,
@@ -1937,7 +1937,7 @@ func TestServiceEntryWorkloads(t *testing.T) {
 			a := newAmbientUnitTest(t)
 			builder := a.serviceEntryWorkloadBuilder(
 				GetMeshConfig(mock),
-				krttest.GetMockCollection[model.WorkloadAuthorization](mock),
+				workloadAuthorizationByNs(krttest.GetMockCollection[model.WorkloadAuthorization](mock)),
 				krt.NewNamespaceIndex(krttest.GetMockCollection[*securityclient.PeerAuthentication](mock)),
 				krttest.GetMockCollection[Waypoint](mock),
 				krttest.GetMockCollection[*v1.Namespace](mock),
