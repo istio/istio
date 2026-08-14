@@ -196,9 +196,13 @@ func (z ZoneAwareLBSettings) ApplyToCluster(
 	if !enableSelfDiscovery {
 		log.Warnf("Zone-aware load balancing is enabled for cluster %s, but proxy self-discovery is not enabled on %s", c.Name, proxyID)
 	}
+	var minClusterSize *wrappers.UInt64Value
+	if v := z.Setting.GetMinClusterSize(); v != nil {
+		minClusterSize = &wrappers.UInt64Value{Value: uint64(v.GetValue())}
+	}
 	c.CommonLbConfig.LocalityConfigSpecifier = &cluster.Cluster_CommonLbConfig_ZoneAwareLbConfig_{
 		ZoneAwareLbConfig: &cluster.Cluster_CommonLbConfig_ZoneAwareLbConfig{
-			MinClusterSize: z.Setting.GetMinClusterSize(),
+			MinClusterSize: minClusterSize,
 		},
 	}
 	if c.LoadAssignment != nil {

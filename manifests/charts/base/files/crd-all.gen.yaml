@@ -1167,6 +1167,7 @@ spec:
                                   description: Minimum number of hosts in the upstream
                                     cluster's local region required for zone-aware
                                     load balancing to be enabled.
+                                  maximum: 4294967295
                                   minimum: 1
                                   nullable: true
                                   type: integer
@@ -1621,6 +1622,7 @@ spec:
                                         description: Minimum number of hosts in the
                                           upstream cluster's local region required
                                           for zone-aware load balancing to be enabled.
+                                        maximum: 4294967295
                                         minimum: 1
                                         nullable: true
                                         type: integer
@@ -2239,6 +2241,7 @@ spec:
                             description: Minimum number of hosts in the upstream cluster's
                               local region required for zone-aware load balancing
                               to be enabled.
+                            maximum: 4294967295
                             minimum: 1
                             nullable: true
                             type: integer
@@ -2684,6 +2687,7 @@ spec:
                                   description: Minimum number of hosts in the upstream
                                     cluster's local region required for zone-aware
                                     load balancing to be enabled.
+                                  maximum: 4294967295
                                   minimum: 1
                                   nullable: true
                                   type: integer
@@ -3453,6 +3457,7 @@ spec:
                                   description: Minimum number of hosts in the upstream
                                     cluster's local region required for zone-aware
                                     load balancing to be enabled.
+                                  maximum: 4294967295
                                   minimum: 1
                                   nullable: true
                                   type: integer
@@ -3907,6 +3912,7 @@ spec:
                                         description: Minimum number of hosts in the
                                           upstream cluster's local region required
                                           for zone-aware load balancing to be enabled.
+                                        maximum: 4294967295
                                         minimum: 1
                                         nullable: true
                                         type: integer
@@ -4525,6 +4531,7 @@ spec:
                             description: Minimum number of hosts in the upstream cluster's
                               local region required for zone-aware load balancing
                               to be enabled.
+                            maximum: 4294967295
                             minimum: 1
                             nullable: true
                             type: integer
@@ -4970,6 +4977,7 @@ spec:
                                   description: Minimum number of hosts in the upstream
                                     cluster's local region required for zone-aware
                                     load balancing to be enabled.
+                                  maximum: 4294967295
                                   minimum: 1
                                   nullable: true
                                   type: integer
@@ -5739,6 +5747,7 @@ spec:
                                   description: Minimum number of hosts in the upstream
                                     cluster's local region required for zone-aware
                                     load balancing to be enabled.
+                                  maximum: 4294967295
                                   minimum: 1
                                   nullable: true
                                   type: integer
@@ -6193,6 +6202,7 @@ spec:
                                         description: Minimum number of hosts in the
                                           upstream cluster's local region required
                                           for zone-aware load balancing to be enabled.
+                                        maximum: 4294967295
                                         minimum: 1
                                         nullable: true
                                         type: integer
@@ -6811,6 +6821,7 @@ spec:
                             description: Minimum number of hosts in the upstream cluster's
                               local region required for zone-aware load balancing
                               to be enabled.
+                            maximum: 4294967295
                             minimum: 1
                             nullable: true
                             type: integer
@@ -7256,6 +7267,7 @@ spec:
                                   description: Minimum number of hosts in the upstream
                                     cluster's local region required for zone-aware
                                     load balancing to be enabled.
+                                  maximum: 4294967295
                                   minimum: 1
                                   nullable: true
                                   type: integer
