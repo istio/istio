@@ -38,6 +38,7 @@ import (
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/workloadapi"
+	"istio.io/istio/tests/util/leak"
 )
 
 type ambientclients struct {
@@ -270,7 +271,8 @@ func TestAmbientMulticlusterIndex_WaypointForWorkloadTraffic(t *testing.T) {
 				if clusterToNetwork[client.clusterID] == clusterToNetwork[s.clusterID] {
 					events = append(events, s.podXdsNameForCluster("pod1", client.clusterID))
 				} else if networkGatewayIps[client.clusterID] != "" {
-					events = append(events, fmt.Sprintf("%s/SplitHorizonWorkload/ns1/east-west/%s/%s",
+					events = append(events, fmt.Sprintf(
+						"%s/SplitHorizonWorkload/ns1/east-west/%s/%s",
 						clusterToNetwork[client.clusterID],
 						networkGatewayIps[client.clusterID],
 						s.svcXdsName("svc2"),
@@ -312,7 +314,8 @@ func TestAmbientMulticlusterIndex_WaypointForWorkloadTraffic(t *testing.T) {
 					s.assertEvent(t, s.podXdsNameForCluster("pod1", rc.clusterID))
 				} else {
 					s.deleteServiceForClient(t, "svc2", rc.sc)
-					s.assertEvent(t, fmt.Sprintf("%s/SplitHorizonWorkload/ns1/east-west/%s/%s",
+					s.assertEvent(t, fmt.Sprintf(
+						"%s/SplitHorizonWorkload/ns1/east-west/%s/%s",
 						clusterToNetwork[rc.clusterID],
 						networkGatewayIps[rc.clusterID],
 						s.svcXdsName("svc2"),
@@ -479,13 +482,15 @@ func TestMulticlusterAmbientIndex_TestServiceMerging(t *testing.T) {
 			Name: testNS,
 		},
 	})
-	s.addServiceForClient(t, "svc2",
+	s.addServiceForClient(
+		t, "svc2",
 
 		map[string]string{},
 		map[string]string{},
 		[]int32{80}, map[string]string{"app": "a"}, "10.0.0.1", localClient.sc,
 	)
-	s.addServiceForClient(t, "svc2",
+	s.addServiceForClient(
+		t, "svc2",
 		map[string]string{},
 		map[string]string{},
 		[]int32{80}, map[string]string{"app": "a"}, "127.1.0.1", remoteClient.sc,
@@ -511,7 +516,8 @@ func TestMulticlusterAmbientIndex_TestServiceMerging(t *testing.T) {
 		}
 		return nil
 	})
-	s.labelServiceForClient(t, "svc2", testNS,
+	s.labelServiceForClient(
+		t, "svc2", testNS,
 		map[string]string{"istio.io/global": "true"},
 		remoteClient.sc,
 	)
@@ -529,7 +535,8 @@ func TestMulticlusterAmbientIndex_TestServiceMerging(t *testing.T) {
 		return nil
 	})
 	// Add a service to local cluster
-	s.addService(t, "svc2",
+	s.addService(
+		t, "svc2",
 		map[string]string{"istio.io/global": "true"},
 		map[string]string{},
 		[]int32{80}, map[string]string{"app": "a"}, "10.0.0.1",
@@ -609,14 +616,16 @@ func TestMulticlusterAmbientIndex_SplitHorizon(t *testing.T) {
 	})
 	networkGatewayIP := "172.0.1.2"
 	s.addNetworkGatewayForClient(t, networkGatewayIP, remoteNetwork, remoteClient.grc)
-	s.addServiceForClient(t, "svc2",
+	s.addServiceForClient(
+		t, "svc2",
 		map[string]string{
 			"istio.io/global": "true",
 		},
 		map[string]string{},
 		[]int32{80}, map[string]string{"app": "a"}, "10.0.0.1", localClient.sc,
 	)
-	s.addServiceForClient(t, "svc2",
+	s.addServiceForClient(
+		t, "svc2",
 		map[string]string{
 			"istio.io/global": "true",
 		},
@@ -639,14 +648,16 @@ func TestMulticlusterAmbientIndex_SplitHorizon(t *testing.T) {
 			return fmt.Errorf("expected network gateway workload to have addresses, got %v", gwwl.Workload.Addresses)
 		}
 		if gwwl.Workload.TrustDomain != s.DomainSuffix {
-			return fmt.Errorf("expected network gateway workload to have trust domain %s, got %s",
+			return fmt.Errorf(
+				"expected network gateway workload to have trust domain %s, got %s",
 				s.DomainSuffix,
 				gwwl.Workload.TrustDomain,
 			)
 		}
 		expectedAddress := []uint8{172, 0, 1, 2}
 		if !reflect.DeepEqual(gwwl.Workload.Addresses[0], expectedAddress) {
-			return fmt.Errorf("expected network gateway workload to have address %s, got %s",
+			return fmt.Errorf(
+				"expected network gateway workload to have address %s, got %s",
 				networkGatewayIP,
 				gwwl.Workload.Addresses[0],
 			)
@@ -684,18 +695,21 @@ func TestMulticlusterAmbientIndex_SplitHorizon(t *testing.T) {
 			)
 		}
 		if shwl.Workload.NetworkGateway.Destination.(*workloadapi.GatewayAddress_Address).Address.Network != remoteNetwork {
-			return fmt.Errorf("expected split horizon workload to have network %s, got %s",
+			return fmt.Errorf(
+				"expected split horizon workload to have network %s, got %s",
 				remoteNetwork,
 				shwl.Workload.NetworkGateway.Destination.(*workloadapi.GatewayAddress_Address).Address.Network,
 			)
 		}
 		if shwl.Workload.Capacity.GetValue() != 1 {
-			return fmt.Errorf("expected split horizon workload to have capacity 1, got %d",
+			return fmt.Errorf(
+				"expected split horizon workload to have capacity 1, got %d",
 				shwl.Workload.Capacity.GetValue(),
 			)
 		}
 		if len(shwl.Workload.Addresses) != 0 {
-			return fmt.Errorf("expected no addresses in split horizon workload, got %v",
+			return fmt.Errorf(
+				"expected no addresses in split horizon workload, got %v",
 				shwl.Workload.Addresses,
 			)
 		}
@@ -775,7 +789,8 @@ func TestMulticlusterAmbientIndex_SplitHorizon(t *testing.T) {
 		map[string]string{"istio.io/global": "true"}, localClient.sc)
 	s.labelServiceForClient(t, "svc2", testNS,
 		map[string]string{"istio.io/global": "true"}, remoteClient.sc)
-	s.assertEvent(t, s.podXdsNameForCluster("pod2", remoteClient.clusterID),
+	s.assertEvent(
+		t, s.podXdsNameForCluster("pod2", remoteClient.clusterID),
 		s.podXdsNameForCluster("pod1-abc", remoteClient.clusterID),
 	)
 	assert.EventuallyEqual(t, func() int {
@@ -795,7 +810,8 @@ func TestMulticlusterAmbientIndex_SplitHorizon(t *testing.T) {
 		ais := s.Lookup("ns1/svc2.ns1.svc.company.com")
 		return len(ais)
 	}, 3)
-	s.assertEvent(t, s.podXdsNameForCluster("pod2", remoteClient.clusterID),
+	s.assertEvent(
+		t, s.podXdsNameForCluster("pod2", remoteClient.clusterID),
 		s.podXdsNameForCluster("pod1-abc", remoteClient.clusterID),
 		splitHorizonName,
 	)
@@ -869,7 +885,8 @@ func TestMulticlusterAmbientIndex_SplitHorizonPreservesWaypoint(t *testing.T) {
 		[]int32{80}, map[string]string{"app": "waypoint"}, "10.0.0.10")
 
 	// Create a global service with ingress-use-waypoint on both clusters
-	s.addServiceForClient(t, "svc1",
+	s.addServiceForClient(
+		t, "svc1",
 		map[string]string{
 			"istio.io/global":               "true",
 			label.IoIstioUseWaypoint.Name:   "wp-svc",
@@ -878,7 +895,8 @@ func TestMulticlusterAmbientIndex_SplitHorizonPreservesWaypoint(t *testing.T) {
 		map[string]string{},
 		[]int32{80}, map[string]string{"app": "a"}, "10.0.0.1", localClient.sc,
 	)
-	s.addServiceForClient(t, "svc1",
+	s.addServiceForClient(
+		t, "svc1",
 		map[string]string{
 			"istio.io/global":               "true",
 			label.IoIstioUseWaypoint.Name:   "wp-svc",
@@ -959,4 +977,41 @@ func (a *ambientTestServer) DeleteSecret(secretName string) {
 func (a *ambientTestServer) AddSecret(secretName, clusterID string) {
 	kubeconfig++
 	a.sec.CreateOrUpdate(makeSecret(secretNamespace, secretName, clusterCredential{clusterID, fmt.Appendf(nil, "kubeconfig-%d", kubeconfig)}))
+}
+
+// TestMulticlusterAmbientIndex_ClusterLifecycleNoLeak verifies that adding and then removing a
+// remote cluster does not leak any goroutines backing that cluster's derived krt collections
+// (e.g. the per-cluster node locality collection) or the informer handlers they register.
+//
+// The ambient index (and its top-level stop channel) lives on the parent test, while the
+// add/remove cycles run in a subtest wrapped in leak.Check.
+func TestMulticlusterAmbientIndex_ClusterLifecycleNoLeak(t *testing.T) {
+	test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
+	s := newAmbientTestServer(t, testC, testNW, "")
+	clusters := s.mcController.Clusters()
+
+	waitRemoteClusters := func(n int) {
+		t.Helper()
+		assert.EventuallyEqual(t, func() int { return len(clusters.List()) }, n)
+	}
+
+	// Warm-up cycle: long-lived global collections lazily register a few dependency handlers the
+	// first time they process a remote cluster. Do one add/remove up front so those one-time
+	// registrations exist before leak.Check snapshots the baseline (they are fixed, not per-cycle).
+	s.AddSecret("s1", "remote-cluster")
+	waitRemoteClusters(1)
+	s.DeleteSecret("s1")
+	waitRemoteClusters(0)
+
+	t.Run("add-remove-cluster", func(t *testing.T) {
+		leak.Check(t)
+
+		const iterations = 5
+		for i := 0; i < iterations; i++ {
+			s.AddSecret("s1", "remote-cluster")
+			waitRemoteClusters(1)
+			s.DeleteSecret("s1")
+			waitRemoteClusters(0)
+		}
+	})
 }
