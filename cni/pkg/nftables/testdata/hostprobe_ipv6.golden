@@ -1,5 +1,7 @@
 add table inet istio-ambient-nat
 flush table inet istio-ambient-nat
+add set inet istio-ambient-nat istio-inpod-probes-v4 { type ipv4_addr ; comment "UUID of the pods that are part of ambient mesh" ; }
+add set inet istio-ambient-nat istio-inpod-probes-v6 { type ipv6_addr ; comment "UUID of the pods that are part of ambient mesh" ; }
 add chain inet istio-ambient-nat postrouting { type nat hook postrouting priority 100 ; }
 add rule inet istio-ambient-nat postrouting meta l4proto tcp skuid 1000 ip daddr @istio-inpod-probes-v4 counter snat to 169.254.7.127
 add rule inet istio-ambient-nat postrouting meta l4proto tcp skuid 1000 ip6 daddr @istio-inpod-probes-v6 counter snat to e9ac:1e77:90ca:399f:4d6d:ece2:2f9b:3164

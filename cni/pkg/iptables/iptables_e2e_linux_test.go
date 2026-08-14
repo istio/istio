@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/cni/pkg/scopes"
 	"istio.io/istio/pkg/test/util/assert"
 	iptablescapture "istio.io/istio/tools/istio-iptables/pkg/capture"
+	iptablesconstants "istio.io/istio/tools/istio-iptables/pkg/constants"
 	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
 )
 
@@ -253,6 +254,82 @@ func TestIptablesHostCleanRoundTrip(t *testing.T) {
 			assert.NoError(t, iptConfigurator.CreateHostRulesForHealthChecks())
 		})
 	}
+}
+
+// TestEnsureHostRulesRepairsExternalFlushE2E reproduces istio/istio#60607 against a
+// real kernel: after an external actor flushes the ISTIO_POSTRT chain, EnsureHostRules
+// must detect the drift and repair the host rules back to a converged state.
+func TestEnsureHostRulesRepairsExternalFlushE2E(t *testing.T) {
+	setup(t)
+
+	ext := &dep.RealDependencies{
+		UsePodScopedXtablesLock: false,
+		NetworkNamespace:        "",
+	}
+	iptVer, err := ext.DetectIptablesVersion(false)
+	if err != nil {
+		t.Fatalf("Can't detect iptables version: %v", err)
+	}
+	ipt6Ver, err := ext.DetectIptablesVersion(true)
+	if err != nil {
+		t.Fatalf("Can't detect ip6tables version")
+	}
+
+	cfg := constructTestConfig()
+
+	deps := &dep.RealDependencies{}
+	set, err := createHostsideProbeIpset(true)
+	if err != nil {
+		t.Fatalf("failed to create hostside probe ipset: %v", err)
+	}
+	defer func() {
+		assert.NoError(t, set.DestroySet())
+	}()
+
+	iptConfigurator, _, err := NewIptablesConfigurator(cfg, cfg, deps, deps, RealNlDeps())
+	if err != nil {
+		t.Fatalf("failed to setup iptables configurator: %v", err)
+	}
+	builder := iptConfigurator.AppendHostRules()
+	defer func() {
+		iptConfigurator.DeleteHostRules()
+	}()
+
+	assert.NoError(t, iptConfigurator.CreateHostRulesForHealthChecks())
+
+	// When converged, EnsureHostRules must be a read-only no-op
+	repaired, err := iptConfigurator.EnsureHostRules()
+	assert.NoError(t, err)
+	assert.Equal(t, repaired, false)
+
+	// Simulate an external flush (the issue's reproduction step): empty the
+	// ISTIO_POSTRT chain but keep the chain and the jump
+	if _, err := ext.Run(log, false, iptablesconstants.IPTables, &iptVer, nil,
+		"-t", "nat", "-F", ChainHostPostrouting); err != nil {
+		t.Fatalf("failed to simulate external flush: %v", err)
+	}
+	_, deltaExists := iptablescapture.VerifyIptablesState(log, iptConfigurator.ext, builder, &iptVer, &ipt6Ver)
+	assert.Equal(t, deltaExists, true)
+
+	// EnsureHostRules must detect the drift and repair it
+	repaired, err = iptConfigurator.EnsureHostRules()
+	assert.NoError(t, err)
+	assert.Equal(t, repaired, true)
+
+	residueExists, deltaExists := iptablescapture.VerifyIptablesState(log, iptConfigurator.ext, builder, &iptVer, &ipt6Ver)
+	assert.Equal(t, residueExists, true)
+	assert.Equal(t, deltaExists, false)
+
+	// A more thorough breakage: remove the chain and the jump altogether,
+	// which must also be repaired
+	iptConfigurator.DeleteHostRules()
+	repaired, err = iptConfigurator.EnsureHostRules()
+	assert.NoError(t, err)
+	assert.Equal(t, repaired, true)
+
+	residueExists, deltaExists = iptablescapture.VerifyIptablesState(log, iptConfigurator.ext, builder, &iptVer, &ipt6Ver)
+	assert.Equal(t, residueExists, true)
+	assert.Equal(t, deltaExists, false)
 }
 
 var initialized = &sync.Once{}
