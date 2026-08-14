@@ -290,7 +290,8 @@ func MergedGlobalWorkloadsCollection(
 			// to avoid hacks like this, we can deal with eventually consistent
 			// collection state for now.
 			if waypointsPtr == nil {
-				log.Warnf("Cluster %s does not have waypoints, skipping global workloads", c.ID)
+				log.Warnf("Cluster %s does not have waypoints yet, skipping global workloads", c.ID)
+				ctx.DiscardResult()
 				return nil
 			}
 			waypoints := *waypointsPtr
@@ -298,14 +299,16 @@ func MergedGlobalWorkloadsCollection(
 			namespaces := c.Namespaces()
 			clusteredNodesPtr := krt.FetchOne(ctx, globalNodes, krt.FilterIndex(nodesByCluster, c.ID))
 			if clusteredNodesPtr == nil {
-				log.Warnf("Cluster %s does not have nodes, skipping global workloads", c.ID)
+				log.Warnf("Cluster %s does not have nodes yet, skipping global workloads", c.ID)
+				ctx.DiscardResult()
 				return nil
 			}
 			clusteredNodes := *clusteredNodesPtr
 
 			workloadServicesPtr := krt.FetchOne(ctx, globalWorkloadServices, krt.FilterIndex(globalWorkloadServicesByCluster, c.ID))
 			if workloadServicesPtr == nil {
-				log.Warnf("Cluster %s does not have workload services, skipping global workloads", c.ID)
+				log.Warnf("Cluster %s does not have workload services yet, skipping global workloads", c.ID)
+				ctx.DiscardResult()
 				return nil
 			}
 

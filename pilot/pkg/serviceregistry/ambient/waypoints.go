@@ -431,7 +431,8 @@ func GlobalWaypointsCollection(
 
 			nw := krt.FetchOne(ctx, globalNetworks.RemoteSystemNamespaceNetworks, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, c.ID))
 			if nw == nil {
-				log.Warnf("Cluster %s does not have a network, skipping global workloads", c.ID)
+				log.Warnf("Cluster %s does not have a network yet, skipping global waypoints", c.ID)
+				ctx.DiscardResult()
 				return nil
 			}
 			clusterNetwork := nw.Network
