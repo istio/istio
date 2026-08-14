@@ -38,6 +38,10 @@ type (
 	Validation = validation.Validation
 )
 
+// maxProxyVersionLen bounds the proxyVersion match expression. Version strings are short
+// (e.g. `1\.30.*`); very long patterns are expensive to compile and serve no legitimate use.
+const maxProxyVersionLen = 1024
+
 // ValidateEnvoyFilter checks envoy filter config supplied by user
 var ValidateEnvoyFilter = validation.RegisterValidateFunc("ValidateEnvoyFilter",
 	func(cfg config.Config) (Warning, error) {
@@ -94,6 +98,10 @@ func validateEnvoyFilter(cfg config.Config, errs Validation) (Warning, error) {
 
 		// ensure that the supplied regex for proxy version compiles
 		if cp.Match != nil && cp.Match.Proxy != nil && cp.Match.Proxy.ProxyVersion != "" {
+			if len(cp.Match.Proxy.ProxyVersion) > maxProxyVersionLen {
+				errs = validation.AppendValidation(errs, fmt.Errorf("Envoy filter: proxy version match must be at most %d characters", maxProxyVersionLen)) // nolint: stylecheck
+				continue
+			}
 			if _, err := regexp.Compile(cp.Match.Proxy.ProxyVersion); err != nil {
 				errs = validation.AppendValidation(errs, fmt.Errorf("Envoy filter: invalid regex for proxy version, [%v]", err)) // nolint: stylecheck
 				continue
