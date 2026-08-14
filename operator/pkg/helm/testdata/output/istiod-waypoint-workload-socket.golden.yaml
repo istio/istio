@@ -146,6 +146,7 @@ data:
         "injectedAnnotations": {},
         "neverInjectSelector": [],
         "reinvocationPolicy": "Never",
+        "revisionLabelPrecedence": "namespace",
         "rewriteAppHTTPProbe": true,
         "templates": {}
       }
