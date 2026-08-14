@@ -148,7 +148,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					},
 				},
 			},
-		}, error: "Envoy filter: proxy version match must be at most 1024 characters"},
+		}, error: "Envoy filter: proxyVersion exceeds max length 1024"},
 		{name: "listener with invalid match", in: &networking.EnvoyFilter{
 			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
