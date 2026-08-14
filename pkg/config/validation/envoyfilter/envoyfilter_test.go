@@ -134,6 +134,21 @@ func TestValidateEnvoyFilter(t *testing.T) {
 				},
 			},
 		}, error: ""},
+		{name: "match with proxy version regex too long", in: &networking.EnvoyFilter{
+			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+				{
+					ApplyTo: networking.EnvoyFilter_LISTENER,
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						Proxy: &networking.EnvoyFilter_ProxyMatch{
+							ProxyVersion: strings.Repeat("a{100}", 200),
+						},
+					},
+					Patch: &networking.EnvoyFilter_Patch{
+						Operation: networking.EnvoyFilter_Patch_REMOVE,
+					},
+				},
+			},
+		}, error: "Envoy filter: proxy version match must be at most 1024 characters"},
 		{name: "listener with invalid match", in: &networking.EnvoyFilter{
 			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
