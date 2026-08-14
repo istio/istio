@@ -377,6 +377,13 @@ func (j *mergejoin[T]) runQueue() {
 			})
 		}, true))
 	}
+	// These registrations were made on collections that may outlive us. Once we are stopped,
+	// unregister them.
+	defer func() {
+		for _, reg := range regs {
+			reg.UnregisterHandler()
+		}
+	}()
 
 	syncers = slices.Map(regs, func(r HandlerRegistration) cache.InformerSynced {
 		return r.HasSynced
