@@ -110,7 +110,7 @@ type erasedEventHandler = func(o []Event[any])
 // This is called from Fetch to Collections, generally.
 type registerDependency interface {
 	// Registers a dependency, returning true if it is finalized
-	registerDependency(*dependency, Syncer, func(f erasedEventHandler) Syncer)
+	registerDependency(*dependency, Syncer, func(f erasedEventHandler) HandlerRegistration)
 	name() string
 }
 
