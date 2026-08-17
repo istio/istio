@@ -1481,3 +1481,36 @@ func TestDeploymentControllerWaitsForPushContext(t *testing.T) {
 		retry.Timeout(time.Second*5),
 		retry.Message("expected reconciliation after PushContext became ready, but none occurred"))
 }
+
+// TestExtractServicePortsUniqueNames proves listener names that sanitize to the same Service port
+// name still produce unique port names. ListenerName allows periods and 253 characters; Service
+// port names allow neither, so "web.a"/"web-a" or names differing only past character 63 collide
+// after sanitizing. Duplicate port names make the entire Service invalid, so one colliding listener
+// blocks every unpublished port on the Gateway.
+func TestExtractServicePortsUniqueNames(t *testing.T) {
+	long := strings.Repeat("a", 63)
+	gw := k8s.Gateway{
+		Spec: k8s.GatewaySpec{
+			Listeners: []k8s.Listener{
+				{Name: "web.a", Port: 80, Protocol: k8s.HTTPProtocolType},
+				{Name: "web-a", Port: 81, Protocol: k8s.HTTPProtocolType},
+				{Name: k8s.SectionName(long + "-first"), Port: 82, Protocol: k8s.HTTPProtocolType},
+				{Name: k8s.SectionName(long + "-second"), Port: 83, Protocol: k8s.HTTPProtocolType},
+			},
+		},
+	}
+	ports := extractServicePorts(gw, nil)
+	seen := map[string]int32{}
+	for _, p := range ports {
+		if prev, ok := seen[p.Name]; ok {
+			t.Fatalf("duplicate Service port name %q for ports %d and %d; a Service with duplicate port names is rejected entirely", p.Name, prev, p.Port)
+		}
+		if len(p.Name) > 63 {
+			t.Fatalf("port name %q exceeds 63 characters", p.Name)
+		}
+		seen[p.Name] = p.Port
+	}
+	if len(ports) != 5 { // status-port + 4 listeners
+		t.Fatalf("expected 5 ports, got %d", len(ports))
+	}
+}
