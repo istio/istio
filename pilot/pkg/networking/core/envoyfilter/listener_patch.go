@@ -303,7 +303,7 @@ func mergeTransportSocketListener(fc *listener.FilterChain, lp *model.EnvoyFilte
 
 			retVal, errMerge := mergeAnyPatchValue(lp.Operation, dstListener, srcPatch)
 			if errMerge != nil {
-				return false, fmt.Errorf("function mergeAnyWithAny failed for doFilterChainOperation: %v", errMerge)
+				return false, fmt.Errorf("function mergeAnyPatchValue failed for doFilterChainOperation: %v", errMerge)
 			}
 
 			// Merge the above result with the whole listener

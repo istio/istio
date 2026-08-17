@@ -116,7 +116,7 @@ func mergeTransportSocketCluster(c *cluster.Cluster, cp *model.EnvoyFilterConfig
 		if dst != nil && srcPatch != nil {
 			retVal, errMerge := mergeAnyPatchValue(cp.Operation, dst, srcPatch)
 			if errMerge != nil {
-				return false, fmt.Errorf("function MergeAnyWithAny failed for ApplyClusterMerge: %v", errMerge)
+				return false, fmt.Errorf("function mergeAnyPatchValue failed for ApplyClusterMerge: %v", errMerge)
 			}
 
 			// Merge the above result with the whole cluster
