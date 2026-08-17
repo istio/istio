@@ -23,7 +23,6 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/runtime"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/log"
@@ -115,7 +114,7 @@ func mergeTransportSocketCluster(c *cluster.Cluster, cp *model.EnvoyFilterConfig
 		dst := ts.GetTypedConfig()
 		srcPatch := cpValueCast.GetTransportSocket().GetTypedConfig()
 		if dst != nil && srcPatch != nil {
-			retVal, errMerge := util.MergeAnyWithAny(dst, srcPatch)
+			retVal, errMerge := mergeAnyPatchValue(cp.Operation, dst, srcPatch)
 			if errMerge != nil {
 				return false, fmt.Errorf("function MergeAnyWithAny failed for ApplyClusterMerge: %v", errMerge)
 			}
