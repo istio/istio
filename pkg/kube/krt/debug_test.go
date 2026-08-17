@@ -63,7 +63,7 @@ func merge(ts []dbgNamed) *dbgNamed {
 func TestDebuggerUnregistration(t *testing.T) {
 	// Each case builds one or more collections against a fresh DebugHandler, waits for them to
 	// register, then closes the stop channel and asserts every registration is cleaned up.
-	cases := map[string]func(t *testing.T, opts OptionsBuilder){
+	cases := map[string]func(_ *testing.T, opts OptionsBuilder){
 		"informer": func(t *testing.T, opts OptionsBuilder) {
 			c := kube.NewFakeClient()
 			kc := kclient.New[*corev1.ConfigMap](c)
@@ -73,33 +73,33 @@ func TestDebuggerUnregistration(t *testing.T) {
 			// goroutine-leak report from the fake client's slow-draining workqueue.
 			c.RunAndWait(test.NewStop(t))
 		},
-		"static": func(t *testing.T, opts OptionsBuilder) {
+		"static": func(_ *testing.T, opts OptionsBuilder) {
 			_ = NewStaticCollection[dbgNamed](nil, nil, opts.WithName("static")...)
 		},
-		"singleton": func(t *testing.T, opts OptionsBuilder) {
+		"singleton": func(_ *testing.T, opts OptionsBuilder) {
 			_ = NewStatic[dbgNamed](nil, true, opts.WithName("singleton")...).AsCollection()
 		},
-		"map": func(t *testing.T, opts OptionsBuilder) {
+		"map": func(_ *testing.T, opts OptionsBuilder) {
 			base := NewStaticCollection[dbgNamed](nil, nil, opts.WithName("base")...)
 			_ = MapCollection(base, func(n dbgNamed) dbgNamed { return n }, opts.WithName("map")...)
 		},
-		"index": func(t *testing.T, opts OptionsBuilder) {
+		"index": func(_ *testing.T, opts OptionsBuilder) {
 			base := NewStaticCollection[dbgNamed](nil, nil, opts.WithName("base")...)
 			idx := NewIndex(base, "name", func(n dbgNamed) []string { return []string{n.Name} })
 			_ = idx.AsCollection(opts.WithName("idx")...)
 		},
-		"manyCollection": func(t *testing.T, opts OptionsBuilder) {
+		"manyCollection": func(_ *testing.T, opts OptionsBuilder) {
 			base := NewStaticCollection[dbgNamed](nil, nil, opts.WithName("base")...)
 			_ = NewCollection(base, func(ctx HandlerContext, n dbgNamed) *dbgNamed {
 				return &n
 			}, opts.WithName("many")...)
 		},
-		"mergejoin": func(t *testing.T, opts OptionsBuilder) {
+		"mergejoin": func(_ *testing.T, opts OptionsBuilder) {
 			c1 := NewStaticCollection[dbgNamed](nil, nil, opts.WithName("c1")...)
 			c2 := NewStaticCollection[dbgNamed](nil, nil, opts.WithName("c2")...)
 			_ = JoinWithMergeCollection([]Collection[dbgNamed]{c1, c2}, merge, opts.WithName("merge")...)
 		},
-		"nestedjoinmerge": func(t *testing.T, opts OptionsBuilder) {
+		"nestedjoinmerge": func(_ *testing.T, opts OptionsBuilder) {
 			inner := NewStaticCollection[dbgNamed](nil, nil, opts.WithName("inner")...)
 			multi := NewStaticCollection(nil, []Collection[dbgNamed]{inner}, opts.WithName("multi")...)
 			_ = NestedJoinWithMergeCollection(multi, merge, opts.WithName("nested")...)
@@ -129,20 +129,20 @@ func TestDebuggerUnregistration(t *testing.T) {
 // this exercises the unregistration on those early-return paths. Inputs use a never-syncing static
 // collection so no informer/workqueue is involved.
 func TestDebuggerUnregistrationBeforeSync(t *testing.T) {
-	cases := map[string]func(t *testing.T, opts OptionsBuilder){
-		"manyCollection": func(t *testing.T, opts OptionsBuilder) {
+	cases := map[string]func(_ *testing.T, opts OptionsBuilder){
+		"manyCollection": func(_ *testing.T, opts OptionsBuilder) {
 			// Primary never syncs, so runQueue returns before running the queue.
 			base := NewStaticCollection[dbgNamed](blockingSyncer{}, nil, opts.WithName("base")...)
 			_ = NewCollection(base, func(ctx HandlerContext, n dbgNamed) *dbgNamed {
 				return &n
 			}, opts.WithName("many")...)
 		},
-		"mergejoin": func(t *testing.T, opts OptionsBuilder) {
+		"mergejoin": func(_ *testing.T, opts OptionsBuilder) {
 			c1 := NewStaticCollection[dbgNamed](blockingSyncer{}, nil, opts.WithName("c1")...)
 			c2 := NewStaticCollection[dbgNamed](blockingSyncer{}, nil, opts.WithName("c2")...)
 			_ = JoinWithMergeCollection([]Collection[dbgNamed]{c1, c2}, merge, opts.WithName("merge")...)
 		},
-		"nestedjoinmerge": func(t *testing.T, opts OptionsBuilder) {
+		"nestedjoinmerge": func(_ *testing.T, opts OptionsBuilder) {
 			inner := NewStaticCollection[dbgNamed](blockingSyncer{}, nil, opts.WithName("inner")...)
 			multi := NewStaticCollection(blockingSyncer{}, []Collection[dbgNamed]{inner}, opts.WithName("multi")...)
 			_ = NestedJoinWithMergeCollection(multi, merge, opts.WithName("nested")...)

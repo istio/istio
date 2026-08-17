@@ -171,7 +171,7 @@ func MapCollection[T, U any](
 		metadata:       metadata,
 	}
 	maybeRegisterCollectionForDebugging[U](m, o.debugger)
-	if o.debugger != nil && o.stop != nil {
+	if o.debugger != nil && o.stopProvided {
 		go func() {
 			<-o.stop
 			maybeUnregisterCollectionFromDebugger(m, o.debugger)
