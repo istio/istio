@@ -18,12 +18,16 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
+	"time"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	clientsidewrr "github.com/envoyproxy/go-control-plane/envoy/extensions/load_balancing_policies/client_side_weighted_round_robin/v3"
 	proxyprotocol "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/proxy_protocol/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
+	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -31,7 +35,9 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/loadbalancer"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/wellknown"
 )
 
 func TestApplyDefaultTrafficPolicy(t *testing.T) {
@@ -336,7 +342,7 @@ func TestApplyZoneAwareLoadBalancer(t *testing.T) {
 		c := newCluster()
 		za := &networking.ZoneAwareLoadBalancerSetting{
 			Enabled:        wrappers.Bool(true),
-			MinClusterSize: &wrappers.UInt64Value{Value: 7},
+			MinClusterSize: &wrappers.UInt32Value{Value: 7},
 		}
 		loadbalancer.ZoneAwareLBSettings{Setting: za}.ApplyToCluster(c, nil, proxyLocality, nil, false, "test-proxy", true)
 		zaCfg := c.CommonLbConfig.GetZoneAwareLbConfig()
@@ -365,7 +371,7 @@ func TestApplyZoneAwareLoadBalancer(t *testing.T) {
 		c := newCluster()
 		za := &networking.ZoneAwareLoadBalancerSetting{
 			Enabled:        wrappers.Bool(true),
-			MinClusterSize: &wrappers.UInt64Value{Value: 7},
+			MinClusterSize: &wrappers.UInt32Value{Value: 7},
 		}
 		// ZoneAwareLbConfig is always set; enableSelfDiscovery=false only triggers a warning.
 		loadbalancer.ZoneAwareLBSettings{Setting: za}.ApplyToCluster(c, nil, proxyLocality, nil, false, "test-proxy", false)
@@ -415,5 +421,146 @@ func TestApplyZoneAwareLoadBalancer(t *testing.T) {
 				t.Errorf("endpoint[%d] priority = %d, want 0 (priorities untouched when disabled)", i, ep.Priority)
 			}
 		}
+	})
+}
+
+func TestApplyBackendUtilizationLoadBalancer(t *testing.T) {
+	// unmarshalPolicy extracts the client_side_weighted_round_robin config from the cluster's
+	// extension based load_balancing_policy.
+	unmarshalPolicy := func(t *testing.T, c *cluster.Cluster) *clientsidewrr.ClientSideWeightedRoundRobin {
+		t.Helper()
+		policies := c.GetLoadBalancingPolicy().GetPolicies()
+		if len(policies) != 1 {
+			t.Fatalf("expected exactly 1 load balancing policy, got %d", len(policies))
+		}
+		tec := policies[0].GetTypedExtensionConfig()
+		if tec.GetName() != wellknown.EnvoyClientSideWeightedRoundRobinLbPolicy {
+			t.Fatalf("policy name = %q, want %q", tec.GetName(), wellknown.EnvoyClientSideWeightedRoundRobinLbPolicy)
+		}
+		got := &clientsidewrr.ClientSideWeightedRoundRobin{}
+		if err := tec.GetTypedConfig().UnmarshalTo(got); err != nil {
+			t.Fatalf("failed to unmarshal typed config: %v", err)
+		}
+		return got
+	}
+
+	t.Run("empty config only sets the error utilization penalty", func(t *testing.T) {
+		c := &cluster.Cluster{CommonLbConfig: &cluster.Cluster_CommonLbConfig{}}
+		applyBackendUtilizationLoadBalancer(c, &networking.LoadBalancerSettings_BackendUtilizationLB{})
+
+		// Envoy defaults the penalty to 1.0 while the Istio API defaults it to 0, so it is always
+		// set explicitly. Every other field is left unset so Envoy applies its own defaults, which
+		// already match the ones documented in the Istio API.
+		assert.Equal(t, unmarshalPolicy(t, c), &clientsidewrr.ClientSideWeightedRoundRobin{
+			ErrorUtilizationPenalty: &wrappers.FloatValue{Value: 0},
+		})
+		assert.Equal(t, c.LbPolicy, cluster.Cluster_LOAD_BALANCING_POLICY_CONFIG)
+	})
+
+	t.Run("all fields are translated", func(t *testing.T) {
+		c := &cluster.Cluster{CommonLbConfig: &cluster.Cluster_CommonLbConfig{}}
+		applyBackendUtilizationLoadBalancer(c, &networking.LoadBalancerSettings_BackendUtilizationLB{
+			WeightStabilizationPeriod:          durationpb.New(20 * time.Second),
+			WeightExpirationPeriod:             durationpb.New(5 * time.Minute),
+			WeightUpdatePeriod:                 durationpb.New(500 * time.Millisecond),
+			ErrorUtilizationPenaltyPercent:     150,
+			MetricNamesForComputingUtilization: []string{"named_metrics.foo", "named_metrics.bar"},
+		})
+
+		assert.Equal(t, unmarshalPolicy(t, c), &clientsidewrr.ClientSideWeightedRoundRobin{
+			BlackoutPeriod:                     durationpb.New(20 * time.Second),
+			WeightExpirationPeriod:             durationpb.New(5 * time.Minute),
+			WeightUpdatePeriod:                 durationpb.New(500 * time.Millisecond),
+			ErrorUtilizationPenalty:            &wrappers.FloatValue{Value: 1.5},
+			MetricNamesForComputingUtilization: []string{"named_metrics.foo", "named_metrics.bar"},
+		})
+	})
+
+	// Envoy rejects a cluster combining load_balancing_policy with any of the partial
+	// common_lb_config fields:
+	//
+	//	cluster: load_balancing_policy cannot be combined with partial fields
+	//	(zone_aware_lb_config, locality_weighted_lb_config, consistent_hashing_lb_config)
+	//	of common_lb_config
+	conflicting := map[string]*cluster.Cluster_CommonLbConfig{
+		"locality_weighted_lb_config": {
+			LocalityConfigSpecifier: &cluster.Cluster_CommonLbConfig_LocalityWeightedLbConfig_{
+				LocalityWeightedLbConfig: &cluster.Cluster_CommonLbConfig_LocalityWeightedLbConfig{},
+			},
+		},
+		"zone_aware_lb_config": {
+			LocalityConfigSpecifier: &cluster.Cluster_CommonLbConfig_ZoneAwareLbConfig_{
+				ZoneAwareLbConfig: &cluster.Cluster_CommonLbConfig_ZoneAwareLbConfig{
+					MinClusterSize: &wrappers.UInt64Value{Value: 7},
+				},
+			},
+		},
+		"consistent_hashing_lb_config": {
+			ConsistentHashingLbConfig: &cluster.Cluster_CommonLbConfig_ConsistentHashingLbConfig{
+				UseHostnameForHashing: true,
+			},
+		},
+	}
+	for name, common := range conflicting {
+		t.Run("clears conflicting "+name, func(t *testing.T) {
+			c := &cluster.Cluster{CommonLbConfig: common}
+			applyBackendUtilizationLoadBalancer(c, &networking.LoadBalancerSettings_BackendUtilizationLB{})
+
+			assert.Equal(t, c.CommonLbConfig.GetLocalityConfigSpecifier(), nil)
+			assert.Equal(t, c.CommonLbConfig.GetConsistentHashingLbConfig(), nil)
+		})
+	}
+
+	t.Run("clears any previous lb config", func(t *testing.T) {
+		// A stale LbConfig left over from an earlier policy would not apply anyway.
+		c := &cluster.Cluster{
+			CommonLbConfig: &cluster.Cluster_CommonLbConfig{},
+			LbConfig: &cluster.Cluster_RingHashLbConfig_{
+				RingHashLbConfig: &cluster.Cluster_RingHashLbConfig{},
+			},
+		}
+		applyBackendUtilizationLoadBalancer(c, &networking.LoadBalancerSettings_BackendUtilizationLB{})
+
+		assert.Equal(t, c.LbConfig, nil)
+	})
+
+	t.Run("non-conflicting common_lb_config fields are preserved", func(t *testing.T) {
+		// Only the three partial fields above conflict; the rest of common_lb_config is fine.
+		c := &cluster.Cluster{
+			CommonLbConfig: &cluster.Cluster_CommonLbConfig{
+				HealthyPanicThreshold: &xdstype.Percent{Value: 0},
+			},
+		}
+		applyBackendUtilizationLoadBalancer(c, &networking.LoadBalancerSettings_BackendUtilizationLB{})
+
+		if c.CommonLbConfig.GetHealthyPanicThreshold() == nil {
+			t.Error("expected HealthyPanicThreshold to be preserved")
+		}
+	})
+
+	t.Run("nil CommonLbConfig is safe", func(t *testing.T) {
+		c := &cluster.Cluster{}
+		applyBackendUtilizationLoadBalancer(c, &networking.LoadBalancerSettings_BackendUtilizationLB{})
+
+		assert.Equal(t, unmarshalPolicy(t, c).GetErrorUtilizationPenalty(), &wrappers.FloatValue{Value: 0})
+	})
+
+	t.Run("applied through applyLoadBalancer", func(t *testing.T) {
+		c := &cluster.Cluster{
+			ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS},
+			LoadAssignment:       &endpoint.ClusterLoadAssignment{},
+			CommonLbConfig:       &cluster.Cluster_CommonLbConfig{},
+		}
+		lb := &networking.LoadBalancerSettings{
+			LbPolicy: &networking.LoadBalancerSettings_BackendUtilization{
+				BackendUtilization: &networking.LoadBalancerSettings_BackendUtilizationLB{
+					WeightUpdatePeriod: durationpb.New(time.Second),
+				},
+			},
+		}
+		applyLoadBalancer(nil, c, lb, &model.Port{Protocol: protocol.HTTP}, nil, nil, &meshconfig.MeshConfig{}, nil,
+			model.SidecarProxy, "", false)
+
+		assert.Equal(t, unmarshalPolicy(t, c).GetWeightUpdatePeriod(), durationpb.New(time.Second))
 	})
 }

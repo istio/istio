@@ -30,6 +30,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/lestrrat-go/jwx/jwk"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	"istio.io/api/annotation"
 	extensions "istio.io/api/extensions/v1alpha1"
@@ -1228,6 +1229,37 @@ func validateLoadBalancer(settings *networking.LoadBalancerSettings, outlier *ne
 			if !isPrime(ml.TableSize) {
 				errs = AppendValidation(errs, fmt.Errorf("tableSize must be a prime number for maglev"))
 			}
+		}
+	}
+
+	if bu := settings.GetBackendUtilization(); bu != nil {
+		for name, dur := range map[string]*durationpb.Duration{
+			"weightStabilizationPeriod": bu.GetWeightStabilizationPeriod(),
+			"weightExpirationPeriod":    bu.GetWeightExpirationPeriod(),
+			"weightUpdatePeriod":        bu.GetWeightUpdatePeriod(),
+		} {
+			if dur != nil && dur.AsDuration() < 0 {
+				errs = AppendValidation(errs, fmt.Errorf("%s must not be negative", name))
+			}
+		}
+		if p := bu.GetWeightUpdatePeriod(); p != nil && p.AsDuration() > 0 && p.AsDuration() < 100*time.Millisecond {
+			warn := "backendUtilization weightUpdatePeriod is less than the 100ms minimum and will be capped at 100ms"
+			scope.Warnf(warn)
+			errs = AppendValidation(errs, WrapWarning(errors.New(warn)))
+		}
+		for _, name := range bu.GetMetricNamesForComputingUtilization() {
+			if name == "" {
+				errs = AppendValidation(errs, fmt.Errorf("metricNamesForComputingUtilization entries must not be empty"))
+			}
+		}
+		// Envoy rejects a cluster combining load_balancing_policy with zone_aware_lb_config or
+		// locality_weighted_lb_config, so those are dropped when backendUtilization is used.
+		// Priority based failover still applies, but zone-aware routing and locality weighting do not.
+		if settings.GetLocalityLbSetting() != nil || settings.GetZoneAwareLbSetting() != nil {
+			warn := "backendUtilization is not compatible with localityLbSetting or zoneAwareLbSetting; " +
+				"zone-aware routing and locality weighting will not be applied"
+			scope.Warnf(warn)
+			errs = AppendValidation(errs, WrapWarning(errors.New(warn)))
 		}
 	}
 
