@@ -74,7 +74,7 @@ func NewStaticCollection[T any](synced Syncer, vals []T, opts ...CollectionOptio
 		staticList: sl,
 	}
 	maybeRegisterCollectionForDebugging[T](c, o.debugger)
-	if o.debugger != nil && o.stop != nil {
+	if o.debugger != nil && o.stopProvided {
 		go func() {
 			<-o.stop
 			maybeUnregisterCollectionFromDebugger(c, o.debugger)
