@@ -88,7 +88,7 @@ type Inputs struct {
 	ExternalWorkloads krt.StaticCollection[*model.WorkloadInstance]
 	// ExternalWorkloadsByIP attributes a service instance event back to the workload kind that produced it.
 	ExternalWorkloadsByIP krt.Index[string, *model.WorkloadInstance]
-	XBackends         krt.Collection[config.Config]
+	XBackends             krt.Collection[config.Config]
 }
 
 type Outputs struct {
