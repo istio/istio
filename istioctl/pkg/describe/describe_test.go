@@ -1203,3 +1203,21 @@ func TestGetIstioVirtualServicePathForSvcFromRoute(t *testing.T) {
 		})
 	}
 }
+
+func TestRenderStringMatch(t *testing.T) {
+	tests := []struct {
+		name     string
+		in       *networking.StringMatch
+		expected string
+	}{
+		{name: "nil", in: nil, expected: ""},
+		{name: "exact", in: &networking.StringMatch{MatchType: &networking.StringMatch_Exact{Exact: "foo"}}, expected: "foo"},
+		{name: "prefix", in: &networking.StringMatch{MatchType: &networking.StringMatch_Prefix{Prefix: "foo"}}, expected: "foo*"},
+		{name: "suffix", in: &networking.StringMatch{MatchType: &networking.StringMatch_Suffix{Suffix: ".example.com"}}, expected: "*.example.com"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			assert.Equal(t, renderStringMatch(test.in), test.expected)
+		})
+	}
+}

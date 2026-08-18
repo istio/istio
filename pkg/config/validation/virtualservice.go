@@ -154,6 +154,11 @@ func validateHTTPRouteMatchRequest(http *networking.HTTPRoute) (errs error) {
 				}
 			}
 
+			// Envoy's RouteMatch does not support suffix path matching:
+			// https://github.com/envoyproxy/envoy/blob/v1.29.2/api/envoy/config/route/v3/route_components.proto#L541
+			if _, ok := match.GetUri().GetMatchType().(*networking.StringMatch_Suffix); ok {
+				errs = appendErrors(errs, fmt.Errorf(`"uri": suffix match type is not supported`))
+			}
 			// uri allows empty prefix match:
 			// https://github.com/envoyproxy/envoy/blob/v1.29.2/api/envoy/config/route/v3/route_components.proto#L560
 			// whereas scheme/method/authority does not:

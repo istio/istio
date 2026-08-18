@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	authzmatcher "istio.io/istio/pilot/pkg/security/authz/matcher"
 	authz "istio.io/istio/pilot/pkg/security/authz/model"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/util/sets"
@@ -173,6 +174,7 @@ func TestTranslateCORSPolicyForwardNotMatchingPreflights(t *testing.T) {
 			{MatchType: &networking.StringMatch_Exact{Exact: "exact"}},
 			{MatchType: &networking.StringMatch_Prefix{Prefix: "prefix"}},
 			{MatchType: &networking.StringMatch_Regex{Regex: "regex"}},
+			{MatchType: &networking.StringMatch_Suffix{Suffix: "suffix"}},
 		},
 		UnmatchedPreflights: networking.CorsPolicy_IGNORE,
 	}
@@ -188,6 +190,7 @@ func TestTranslateCORSPolicyForwardNotMatchingPreflights(t *testing.T) {
 					},
 				},
 			},
+			{MatchPattern: &matcher.StringMatcher_Suffix{Suffix: "suffix"}},
 		},
 		FilterEnabled: &core.RuntimeFractionalPercent{
 			DefaultValue: &xdstype.FractionalPercent{
@@ -208,6 +211,7 @@ func TestTranslateCORSPolicy(t *testing.T) {
 			{MatchType: &networking.StringMatch_Exact{Exact: "exact"}},
 			{MatchType: &networking.StringMatch_Prefix{Prefix: "prefix"}},
 			{MatchType: &networking.StringMatch_Regex{Regex: "regex"}},
+			{MatchType: &networking.StringMatch_Suffix{Suffix: "suffix"}},
 		},
 	}
 	expectedCorsPolicy := &cors.CorsPolicy{
@@ -221,6 +225,7 @@ func TestTranslateCORSPolicy(t *testing.T) {
 					},
 				},
 			},
+			{MatchPattern: &matcher.StringMatcher_Suffix{Suffix: "suffix"}},
 		},
 		ForwardNotMatchingPreflights: wrapperspb.Bool(true),
 		FilterEnabled: &core.RuntimeFractionalPercent{
@@ -232,6 +237,20 @@ func TestTranslateCORSPolicy(t *testing.T) {
 	}
 	if got := TranslateCORSPolicy(node, corsPolicy); !reflect.DeepEqual(got, expectedCorsPolicy) {
 		t.Errorf("TranslateCORSPolicy() = \n%v, want \n%v", got, expectedCorsPolicy)
+	}
+}
+
+func TestTranslateRouteMatchURISuffix(t *testing.T) {
+	// uri suffix matches are rejected by validation, but if one slips through it must
+	// be lowered to a regex rather than fall through to the default catch-all prefix "/".
+	out := TranslateRouteMatch(config.Config{}, &networking.HTTPMatchRequest{
+		Uri: &networking.StringMatch{MatchType: &networking.StringMatch_Suffix{Suffix: ".php"}},
+	})
+	if got, want := out.GetSafeRegex().GetRegex(), `.*\.php$`; got != want {
+		t.Errorf("expected safe regex %q, got %q", want, got)
+	}
+	if IsCatchAllRoute(&route.Route{Match: out}) {
+		t.Errorf("suffix uri match should not produce a catch-all route")
 	}
 }
 
@@ -475,6 +494,11 @@ func TestTranslateMetadataMatch(t *testing.T) {
 			name: "@request.auth.claims.prefix",
 			in:   &networking.StringMatch{MatchType: &networking.StringMatch_Prefix{Prefix: "prefix"}},
 			want: authz.MetadataMatcherForJWTClaims([]string{"prefix"}, authzmatcher.StringMatcher("prefix*")),
+		},
+		{
+			name: "@request.auth.claims.suffix",
+			in:   &networking.StringMatch{MatchType: &networking.StringMatch_Suffix{Suffix: "suffix"}},
+			want: authz.MetadataMatcherForJWTClaims([]string{"suffix"}, authzmatcher.StringMatcher("*suffix")),
 		},
 		{
 			name: "@request.auth.claims.regex",
