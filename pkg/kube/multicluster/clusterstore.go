@@ -30,7 +30,11 @@ type ClusterStore struct {
 	remoteClusters       map[string]map[cluster.ID]*Cluster
 	clusters             sets.String
 	clustersAwaitingSync sets.Set[cluster.ID]
-	casMu                sync.Mutex
+	// previousClusters holds, per cluster ID, the previous synced cluster during an in-flight
+	// update (make-before-break). AllReady keeps serving it until the new cluster has synced,
+	// so the cluster is not momentarily dropped from the collection. Guarded by casMu.
+	previousClusters map[cluster.ID]*Cluster
+	casMu            sync.Mutex
 	*krt.RecomputeTrigger
 }
 
@@ -58,6 +62,7 @@ func NewClustersStore() *ClusterStore {
 		clusters:             sets.New[string](),
 		RecomputeTrigger:     krt.NewRecomputeTrigger(false),
 		clustersAwaitingSync: sets.New[cluster.ID](),
+		previousClusters:     make(map[cluster.ID]*Cluster),
 	}
 }
 
@@ -96,6 +101,13 @@ func (c *ClusterStore) Swap(secretKey string, clusterID cluster.ID, value *Clust
 	if exists && c.clustersAwaitingSync.Contains(clusterID) {
 		c.clustersAwaitingSync.Delete(clusterID)
 	}
+	// If the previous cluster is currently serviceable, keep serving it via AllReady until the new
+	// (not-yet-synced) cluster syncs. This preserves make-before-break at the collection level:
+	// otherwise AllReady would drop the cluster (emitting a spurious delete followed by an add once
+	// the new cluster syncs) instead of a single update.
+	if clusterServable(prev) {
+		c.previousClusters[clusterID] = prev
+	}
 	c.TriggerRecomputation()
 
 	return &PendingClusterSwap{
@@ -114,6 +126,7 @@ func (c *ClusterStore) Delete(secretKey string, clusterID cluster.ID) {
 	if c.clustersAwaitingSync.Contains(clusterID) {
 		c.clustersAwaitingSync.Delete(clusterID)
 	}
+	delete(c.previousClusters, clusterID)
 	if len(c.remoteClusters[secretKey]) == 0 {
 		delete(c.remoteClusters, secretKey)
 	}
@@ -163,9 +176,21 @@ func (c *ClusterStore) AllReady() map[string]map[cluster.ID]*Cluster {
 			}
 			if !cl.HasSynced() {
 				log.Debugf("remote cluster %s registered informers have not been synced up yet. Skipping and will recompute on sync", cl.ID)
+				// During an in-flight update, keep serving the previous synced cluster until the new
+				// one syncs, so it is not momentarily dropped from the collection (make-before-break).
+				if prev := c.getPreviousCluster(cid); clusterServable(prev) {
+					log.Debugf("serving previous synced cluster %s while its update syncs", cid)
+					outCluster := *prev
+					if _, ok := out[secret]; !ok {
+						out[secret] = make(map[cluster.ID]*Cluster)
+					}
+					out[secret][cid] = &outCluster
+				}
 				c.triggerRecomputeOnSync(cl)
 				continue
 			}
+			// The new cluster has synced; stop tracking the previous cluster we were serving.
+			c.clearPreviousCluster(cid)
 			outCluster := *cl
 			if _, ok := out[secret]; !ok {
 				out[secret] = make(map[cluster.ID]*Cluster)
@@ -229,6 +254,27 @@ func (c *ClusterStore) HasSynced() bool {
 	}
 
 	return true
+}
+
+// clusterServable reports whether a cluster is currently usable: synced and neither
+// closed nor timed out. Used to decide whether the previous cluster can keep serving
+// during an in-flight update.
+func clusterServable(cl *Cluster) bool {
+	return cl != nil && !cl.Closed() && !cl.SyncDidTimeout() && cl.HasSynced()
+}
+
+// getPreviousCluster returns the previous cluster tracked for an in-flight update, if any.
+func (c *ClusterStore) getPreviousCluster(id cluster.ID) *Cluster {
+	c.casMu.Lock()
+	defer c.casMu.Unlock()
+	return c.previousClusters[id]
+}
+
+// clearPreviousCluster stops tracking the previous cluster for the given cluster ID.
+func (c *ClusterStore) clearPreviousCluster(id cluster.ID) {
+	c.casMu.Lock()
+	defer c.casMu.Unlock()
+	delete(c.previousClusters, id)
 }
 
 // triggerRecomputeOnSync sets up a goroutine to wait for the cluster to be synced,

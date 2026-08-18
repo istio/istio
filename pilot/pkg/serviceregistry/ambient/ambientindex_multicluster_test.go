@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/kube/multicluster"
@@ -1020,6 +1021,7 @@ func TestMulticlusterAmbientIndex_ClusterLifecycleNoLeak(t *testing.T) {
 
 		s.AddSecret("s2", "remote-cluster-2")
 		waitRemoteClusters(t, 2)
+
 		s.DeleteSecret("s2")
 		waitRemoteClusters(t, 1)
 	})
@@ -1030,10 +1032,7 @@ func TestMulticlusterAmbientIndex_ClusterLifecycleNoLeak(t *testing.T) {
 		swapped := make(chan struct{}, 1)
 		reg := clusters.RegisterBatch(func(events []krt.Event[*multicluster.Cluster]) {
 			for _, e := range events {
-				if e.New == nil {
-					continue
-				}
-				if c := *e.New; c.ID == "remote-cluster-2" {
+				if e.Event == controllers.EventUpdate && e.Latest().ID == "remote-cluster-2" {
 					select {
 					case swapped <- struct{}{}:
 					default:
@@ -1045,11 +1044,6 @@ func TestMulticlusterAmbientIndex_ClusterLifecycleNoLeak(t *testing.T) {
 		reg.WaitUntilSynced(test.NewStop(t))
 
 		s.AddSecret("s2", "remote-cluster-2")
-		select {
-		case <-swapped:
-		case <-time.After(30 * time.Second):
-			t.Fatal("timed out waiting for remote-cluster-2 swap event")
-		}
 		waitRemoteClusters(t, 2)
 
 		// Update the cluster: re-adding the secret with a fresh kubeconfig swaps in a new Cluster (new
