@@ -445,7 +445,7 @@ func (c *Controller) buildAddressCollections(opts krt.OptionsBuilder) krt.Collec
 		meshConfig,
 		// Authz/Authn are not use for agentgateway, ignore
 		krt.NewStaticCollection[model.WorkloadAuthorization](nil, nil),
-		krt.NewStaticCollection[*securityclient.PeerAuthentication](nil, nil),
+		krt.NewNamespaceIndex(krt.NewStaticCollection[*securityclient.PeerAuthentication](nil, nil)),
 		waypoints,
 		services,
 		inputs.WorkloadEntries,
