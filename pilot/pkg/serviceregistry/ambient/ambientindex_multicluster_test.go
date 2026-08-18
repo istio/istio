@@ -1059,12 +1059,19 @@ func TestMulticlusterAmbientIndex_ClusterLifecycleNoLeak(t *testing.T) {
 		// on the Clusters collection directly: capture the current cluster's stop channel and wait for
 		// an event carrying a remote-cluster-2 with a *different* stop (the swap surfaces as a delete of
 		// the not-yet-ready cluster followed by an add once it syncs, not necessarily a single update).
+		var oldStop <-chan struct{}
+		for _, c := range clusters.List() {
+			if c.ID == "remote-cluster-2" {
+				oldStop = c.GetStop()
+			}
+		}
 		s.AddSecret("s2", "remote-cluster-2")
 		select {
 		case <-swapped:
 		case <-time.After(30 * time.Second):
 			t.Fatal("timed out waiting for remote-cluster-2 swap event")
 		}
+		<-oldStop
 
 		// Remove so the subtest ends back at the single warm-up cluster, matching the leak.Check baseline.
 		s.DeleteSecret("s2")
