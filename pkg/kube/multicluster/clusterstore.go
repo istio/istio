@@ -260,7 +260,7 @@ func (c *ClusterStore) HasSynced() bool {
 // and it's synced. Used to decide whether the previous cluster can keep serving
 // during an in-flight update.
 func clusterServable(cl *Cluster) bool {
-	return cl != nil && !cl.Closed() && cl.HasSynced()
+	return cl != nil && !cl.Closed() && cl.HasSynced() && !cl.SyncDidTimeout()
 }
 
 // getPreviousCluster returns the previous cluster tracked for an in-flight update, if any.
