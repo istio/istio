@@ -106,11 +106,15 @@ spec:
       baseEjectionTime: 10m
       maxEjectionPercent: 100
 {{ end }}
-{{ if not .DisableZoneAware }}
+{{ if not .SkipZoneAware }}
     loadBalancer:
       zoneAwareLbSetting:
+{{ if .DisableZoneAware }}
+        enabled: false
+{{ else }}
         enabled: true
         minClusterSize: {{ .MinClusterSize }}
+{{ end }}
 {{ end }}
 {{ range $i, $we := .LocalClusterWorkloads }}
 ---
@@ -158,6 +162,7 @@ type zoneAwareInput struct {
 	WithOutlierDetection     bool
 	MinClusterSize           int
 	DisableZoneAware         bool
+	SkipZoneAware            bool
 }
 
 func TestZoneAwareLoadBalancer(t *testing.T) {
@@ -203,6 +208,7 @@ func TestZoneAwareLoadBalancer(t *testing.T) {
 				withOutlierDetection  bool
 				minClusterSize        int
 				disableZoneAware      bool
+				skipZoneAware         bool
 				expected              map[string]int
 			}{
 				{
@@ -295,16 +301,33 @@ func TestZoneAwareLoadBalancer(t *testing.T) {
 				},
 				{
 					// Same topology as CrossRegionEndpointIgnoredWhileSameRegionHealthy, but with
-					// no loadBalancer DR block (default locality LB, no outlier detection).
-					// Without zone-aware region-bucketing, both endpoints are at equal priority
-					// and traffic splits evenly across the same-region and cross-region endpoints.
-					name:                  "ZoneAwareDisabledCrossRegionEndpointNotIgnored",
+					// zone_aware_lb_setting explicitly disabled. No regional bucketing is applied,
+					// so both endpoints are at equal priority and traffic splits evenly across
+					// the same-region and cross-region endpoints.
+					name:                  "ZoneAwareDisabledCrossRegionEndpointEqualPriority",
 					localClusterWorkloads: oneLocalClusterEndpoint,
 					destinationWorkloads: []weEntry{
 						{Address: destB.Address(), Locality: localLocality},
 						{Address: destC.Address(), Locality: remoteRegionLocality},
 					},
 					disableZoneAware: true,
+					expected: map[string]int{
+						destB.Config().Service: sendCount / 2,
+						destC.Config().Service: sendCount / 2,
+					},
+				},
+				{
+					// No DR loadBalancer block; falls back to mesh default locality_lb_setting
+					// (enabled: true). Without outlier detection, applyLocalityFailover is skipped,
+					// so both same-region and cross-region endpoints stay at priority 0 and traffic
+					// splits evenly.
+					name:                  "MeshDefaultLocalityLBCrossRegionEndpointEqualPriority",
+					localClusterWorkloads: oneLocalClusterEndpoint,
+					destinationWorkloads: []weEntry{
+						{Address: destB.Address(), Locality: localLocality},
+						{Address: destC.Address(), Locality: remoteRegionLocality},
+					},
+					skipZoneAware: true,
 					expected: map[string]int{
 						destB.Config().Service: sendCount / 2,
 						destC.Config().Service: sendCount / 2,
@@ -362,20 +385,22 @@ func TestZoneAwareLoadBalancer(t *testing.T) {
 						WithOutlierDetection:     tc.withOutlierDetection,
 						MinClusterSize:           minClusterSize,
 						DisableZoneAware:         tc.disableZoneAware,
+						SkipZoneAware:            tc.skipZoneAware,
 					}
 					t.ConfigIstio().
 						Eval(apps.Namespace.Name(), input, zoneAwareConfig).
 						ApplyOrFail(t)
 
-					// For cases where zone-aware is enabled, verify the proxy's Envoy config
+					// For cases where zone-aware is explicitly enabled/disabled, verify the proxy's Envoy config
 					// is actually using zone-aware LB (not just locality LB defaults):
 					//   1. local_cluster is present as a static cluster
 					//   2. local_cluster has exactly the expected endpoint count (CLA populated via EDS)
 					//   3. the remote-host cluster uses zone_aware_lb_config, not locality_weighted
-					// For disabled cases, wait for EDS to converge on the destination cluster
+					//   4. routing_percentage is 100% when enabled, 0% when disabled
+					// For the unset case, wait for EDS to converge on the destination cluster
 					// before sending traffic so the distribution assertion is meaningful.
-					if !tc.disableZoneAware {
-						assertZoneAwareConfig(t, caller, input.RemoteHost, len(tc.localClusterWorkloads), tc.destinationWorkloads)
+					if !tc.skipZoneAware {
+						assertZoneAwareConfig(t, caller, input.RemoteHost, len(tc.localClusterWorkloads), tc.destinationWorkloads, tc.disableZoneAware)
 					} else {
 						waitForDestinationEndpoints(t, caller, input.RemoteHost, len(tc.destinationWorkloads))
 					}
@@ -424,11 +449,12 @@ func assertZoneAwareConfig(
 	remoteHost string,
 	expectedLocalClusterHosts int,
 	destinationWorkloads []weEntry,
+	disabled bool,
 ) {
 	t.Helper()
 	sidecar := caller.WorkloadsOrFail(t)[0].Sidecar()
 	remoteClusterName := fmt.Sprintf("outbound|80||%s", remoteHost)
-	expectedDestinationHosts := expectedDestinationHostPriorities(destinationWorkloads)
+	expectedDestinationHosts := expectedDestinationHostPriorities(destinationWorkloads, disabled)
 
 	// First: assert cluster definitions are correct.
 	sidecar.WaitForConfigOrFail(t, func(cd *admin.ConfigDump) (bool, error) {
@@ -463,6 +489,20 @@ func assertZoneAwareConfig(
 		default:
 			return false, fmt.Errorf("cluster %q has unexpected LocalityConfigSpecifier %T — expected ZoneAwareLbConfig",
 				remoteClusterName, remote.GetCommonLbConfig().GetLocalityConfigSpecifier())
+		}
+
+		// Assert routing_enabled: 0% when disabled, unset when enabled (Envoy defaults to 100%).
+		zaCfg := remote.GetCommonLbConfig().GetZoneAwareLbConfig()
+		if disabled {
+			if zaCfg.GetRoutingEnabled() == nil || zaCfg.GetRoutingEnabled().GetValue() != 0 {
+				return false, fmt.Errorf("cluster %q routing_enabled = %v, want 0",
+					remoteClusterName, zaCfg.GetRoutingEnabled())
+			}
+		} else {
+			if zaCfg.GetRoutingEnabled() != nil {
+				return false, fmt.Errorf("cluster %q routing_enabled = %v, want nil (unset; Envoy defaults to 100%%)",
+					remoteClusterName, zaCfg.GetRoutingEnabled())
+			}
 		}
 		return true, nil
 	}, retry.Delay(time.Second), retry.Timeout(30*time.Second))
@@ -536,12 +576,12 @@ func waitForDestinationEndpoints(
 	}, retry.Delay(time.Second), retry.Timeout(30*time.Second))
 }
 
-func expectedDestinationHostPriorities(workloads []weEntry) map[string]uint32 {
+func expectedDestinationHostPriorities(workloads []weEntry, disabled bool) map[string]uint32 {
 	raw := make(map[string]int, len(workloads))
 	seenRawPriority := map[int]bool{}
 	for _, we := range workloads {
 		priority := 0
-		if localityRegion(we.Locality) != localityRegion(localLocality) {
+		if !disabled && localityRegion(we.Locality) != localityRegion(localLocality) {
 			priority = 1
 		}
 		raw[we.Address] = priority
