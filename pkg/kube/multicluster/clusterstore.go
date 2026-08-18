@@ -105,7 +105,7 @@ func (c *ClusterStore) Swap(secretKey string, clusterID cluster.ID, value *Clust
 	// (not-yet-synced) cluster syncs. This preserves make-before-break at the collection level:
 	// otherwise AllReady would drop the cluster (emitting a spurious delete followed by an add once
 	// the new cluster syncs) instead of a single update.
-	if clusterServable(prev) {
+	if clusterReady(prev) {
 		c.previousClusters[clusterID] = prev
 	}
 	c.TriggerRecomputation()
@@ -178,7 +178,7 @@ func (c *ClusterStore) AllReady() map[string]map[cluster.ID]*Cluster {
 				log.Debugf("remote cluster %s registered informers have not been synced up yet. Skipping and will recompute on sync", cl.ID)
 				// During an in-flight update, keep serving the previous synced cluster until the new
 				// one syncs, so it is not momentarily dropped from the collection (make-before-break).
-				if prev := c.getPreviousCluster(cid); clusterServable(prev) {
+				if prev := c.getPreviousCluster(cid); clusterReady(prev) {
 					log.Debugf("serving previous synced cluster %s while its update syncs", cid)
 					outCluster := *prev
 					if _, ok := out[secret]; !ok {
@@ -256,10 +256,10 @@ func (c *ClusterStore) HasSynced() bool {
 	return true
 }
 
-// clusterServable reports whether a cluster is currently usable: it is still open
+// clusterReady reports whether a cluster is currently usable: it is still open
 // and it's synced. Used to decide whether the previous cluster can keep serving
 // during an in-flight update.
-func clusterServable(cl *Cluster) bool {
+func clusterReady(cl *Cluster) bool {
 	return cl != nil && !cl.Closed() && cl.HasSynced() && !cl.SyncDidTimeout()
 }
 
