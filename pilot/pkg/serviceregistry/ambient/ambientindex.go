@@ -252,7 +252,7 @@ func New(options Options) Index {
 		Waypoints,
 		opts,
 	)
-	authPoliciesByNs := workloadAuthorizationByNs(AuthorizationPolicies)
+	authPoliciesByNs := selectingWorkloadAuthzByNs(AuthorizationPolicies)
 	serviceEntryVisibility := model.ServiceEntryVisibilityCollection(a.meshConfig.AsCollection(), opts)
 
 	// these are workloadapi-style services combined from kube services and service entries
@@ -920,8 +920,14 @@ func PushXdsAddress[T any](xds model.XDSUpdater, f func(T) string, waypointRef f
 	}
 }
 
-func workloadAuthorizationByNs(c krt.Collection[model.WorkloadAuthorization]) krt.Index[string, model.WorkloadAuthorization] {
-	return krt.NewIndex(c, "byNS", func(wa model.WorkloadAuthorization) []string {
+func selectingWorkloadAuthzByNs(c krt.Collection[model.WorkloadAuthorization]) krt.Index[string, model.WorkloadAuthorization] {
+	return krt.NewIndex(c, "selectingWorklodAuthorizationsByNs", func(wa model.WorkloadAuthorization) []string {
+		if wa.Authorization == nil {
+			return nil // filter policy which are invalid
+		}
+		if wa.GetLabelSelector() == nil {
+			return nil
+		}
 		return []string{wa.Authorization.Namespace}
 	})
 }

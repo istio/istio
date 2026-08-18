@@ -856,13 +856,6 @@ func buildWorkloadPolicies(
 	// In general we just take all of the policies
 	opts := []krt.FetchOption{
 		krt.FilterSelects(workloadLabels),
-		krt.FilterGeneric(func(a any) bool {
-			wa := a.(model.WorkloadAuthorization)
-			if wa.Authorization == nil {
-				return false // filter policy which are invalid, only exist to hold the error condition
-			}
-			return wa.GetLabelSelector() != nil
-		}),
 	}
 	basePolicies := authPoliciesByNs.Fetch(ctx, meshCfg.RootNamespace, opts...)
 	if workloadNamespace != meshCfg.RootNamespace {
