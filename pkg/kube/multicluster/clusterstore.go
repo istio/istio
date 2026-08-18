@@ -277,7 +277,7 @@ func (c *ClusterStore) clearPreviousCluster(id cluster.ID) {
 	delete(c.previousClusters, id)
 }
 
-// triggerRecomputeOnSync sets up a goroutine to wait for the cluster to be synced,
+// triggerRecomputeOnSync sets up a goroutine to wait for the cluster to be fully synced,
 // and then triggers a recompute when it is. Callers must pass the cluster directly
 // rather than its ID: AllReady holds the store RLock when calling this, and looking
 // the cluster up here would attempt a recursive RLock that can deadlock against a
@@ -294,13 +294,13 @@ func (c *ClusterStore) triggerRecomputeOnSync(cl *Cluster) {
 	}
 
 	go func() {
-		// Wait until the cluster is synced. If it's deleted from the store before
+		// Wait until the cluster is fully synced. If it's deleted from the store before
 		// it's fully synced, this will return because of the stop.
 		// Double check to make sure this cluster is still in the store
-		// and that it wasn't closed/timed out (we don't want to send an event for bad clusters).
+		// and that it wasn't closed (we don't want to send an event for bad clusters).
 		// The GetByID call below runs without holding the caller's RLock, so it does not
 		// reintroduce the recursive-lock hazard.
-		if cl.WaitUntilSynced(cl.stop) && !cl.Closed() && !cl.SyncDidTimeout() && c.GetByID(id) != nil {
+		if cl.WaitUntilInitiallySynced(cl.stop) && !cl.Closed() && c.GetByID(id) != nil {
 			// Let dependent krt collections know that this cluster is ready to use
 			c.TriggerRecomputation()
 			// And clean up our tracking set
