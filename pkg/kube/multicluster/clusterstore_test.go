@@ -24,9 +24,11 @@ import (
 	"istio.io/istio/pkg/test/util/assert"
 )
 
-func testStoreCluster(id cluster.ID, seed string) *Cluster {
+const testClusterID cluster.ID = "c0"
+
+func testStoreCluster(seed string) *Cluster {
 	return &Cluster{
-		ID:                       id,
+		ID:                       testClusterID,
 		kubeConfigSha:            sha256.Sum256([]byte(seed)),
 		stop:                     make(chan struct{}),
 		initialSync:              uberatomic.NewBool(false),
@@ -43,10 +45,10 @@ func testStoreCluster(id cluster.ID, seed string) *Cluster {
 func TestClusterStoreSwapServesPreviousUntilSynced(t *testing.T) {
 	store := NewClustersStore()
 	secret := "istio-system/s0"
-	id := cluster.ID("c0")
+	id := testClusterID
 
 	// Initial cluster, synced.
-	old := testStoreCluster(id, "kubeconfig-old")
+	old := testStoreCluster("kubeconfig-old")
 	store.Swap(secret, id, old)
 	old.initialSync.Store(true)
 
@@ -56,7 +58,7 @@ func TestClusterStoreSwapServesPreviousUntilSynced(t *testing.T) {
 	}
 
 	// Update: new cluster for the same ID, not synced yet.
-	newCluster := testStoreCluster(id, "kubeconfig-new")
+	newCluster := testStoreCluster("kubeconfig-new")
 	store.Swap(secret, id, newCluster)
 
 	// While the new cluster is syncing, AllReady must still serve the previous (old) cluster.
@@ -87,14 +89,14 @@ func TestClusterStoreSwapServesPreviousUntilSynced(t *testing.T) {
 func TestClusterStoreSwapWithoutSyncedPreviousDrops(t *testing.T) {
 	store := NewClustersStore()
 	secret := "istio-system/s0"
-	id := cluster.ID("c0")
+	id := testClusterID
 
 	// Initial cluster that never synced.
-	old := testStoreCluster(id, "kubeconfig-old")
+	old := testStoreCluster("kubeconfig-old")
 	store.Swap(secret, id, old)
 
 	// Update before the old cluster ever synced.
-	newCluster := testStoreCluster(id, "kubeconfig-new")
+	newCluster := testStoreCluster("kubeconfig-new")
 	store.Swap(secret, id, newCluster)
 
 	ready := store.AllReady()
