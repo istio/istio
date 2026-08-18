@@ -262,6 +262,7 @@ func (a *index) buildGlobalCollections(
 	GlobalNodeLocality := GlobalNodesCollection(localCluster, LocalNodeLocality, a.mcController, opts)
 	GlobalNodeLocalityByCluster := multicluster.NestedCollectionIndexByCluster(GlobalNodeLocality)
 
+	localPeerAuthsByNs := krt.NewNamespaceIndex(localPeerAuths)
 	GlobalWorkloads := MergedGlobalWorkloadsCollection(
 		localCluster,
 		LocalWaypoints,
@@ -273,7 +274,7 @@ func (a *index) buildGlobalCollections(
 		GlobalNodeLocalityByCluster,
 		options.MeshConfig,
 		AuthorizationPolicies,
-		localPeerAuths,
+		localPeerAuthsByNs,
 		GlobalWaypoints,
 		WaypointsByCluster,
 		LocalWorkloadServices,
