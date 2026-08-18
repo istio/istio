@@ -101,7 +101,7 @@ func (c *ClusterStore) Swap(secretKey string, clusterID cluster.ID, value *Clust
 	if exists && c.clustersAwaitingSync.Contains(clusterID) {
 		c.clustersAwaitingSync.Delete(clusterID)
 	}
-	// If the previous cluster is currently serviceable, keep serving it via AllReady until the new
+	// If the previous cluster is currently ready, keep serving it via AllReady until the new
 	// (not-yet-synced) cluster syncs. This preserves make-before-break at the collection level:
 	// otherwise AllReady would drop the cluster (emitting a spurious delete followed by an add once
 	// the new cluster syncs) instead of a single update.
@@ -258,7 +258,8 @@ func (c *ClusterStore) HasSynced() bool {
 
 // clusterReady reports whether a cluster is currently usable: it is still open
 // and it's synced. Used to decide whether the previous cluster can keep serving
-// during an in-flight update.
+// during an in-flight update and allow performing an atomic swap of clusters without
+// dropping the cluster from the collection.
 func clusterReady(cl *Cluster) bool {
 	return cl != nil && !cl.Closed() && cl.HasSynced() && !cl.SyncDidTimeout()
 }
