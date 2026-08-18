@@ -309,6 +309,7 @@ func (h *httpHandler) echo(w http.ResponseWriter, r *http.Request, id uuid.UUID)
 	if err := setHeaderResponseFromHeaders(r, w); err != nil {
 		writeError(&body, "response headers error: "+err.Error())
 	}
+	setSafeResponseHeaders(w.Header())
 
 	// If the request has form ?codes=code[:chance][,code[:chance]]* return those codes, rather than 200
 	// For example, ?codes=500:1,200:1 returns 500 1/2 times and 200 1/2 times
@@ -320,7 +321,6 @@ func (h *httpHandler) echo(w http.ResponseWriter, r *http.Request, id uuid.UUID)
 
 	h.addResponsePayload(r, &body)
 
-	w.Header().Set("Content-Type", "application/text")
 	if _, err := w.Write(body.Bytes()); err != nil {
 		epLog.Warn(err)
 	}
@@ -412,6 +412,20 @@ func (h *httpHandler) addResponsePayload(r *http.Request, body *bytes.Buffer) {
 	if hostname, err := os.Hostname(); err == nil {
 		echo.HostnameField.Write(body, hostname)
 	}
+}
+
+// setSafeResponseHeaders prevents caller-supplied response headers from
+// causing the echo payload to be interpreted as executable content. Delete
+// every case variant first because setHeaderResponseFromHeaders intentionally
+// preserves non-canonical names.
+func setSafeResponseHeaders(headers http.Header) {
+	for key := range headers {
+		if strings.EqualFold(key, "Content-Type") || strings.EqualFold(key, "X-Content-Type-Options") {
+			delete(headers, key)
+		}
+	}
+	headers.Set("Content-Type", "text/plain; charset=utf-8")
+	headers.Set("X-Content-Type-Options", "nosniff")
 }
 
 func delayResponse(request *http.Request) error {
