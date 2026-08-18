@@ -79,6 +79,13 @@ type LBSettings interface {
 	)
 }
 
+func uint32ToUint64Value(v *wrappers.UInt32Value) *wrappers.UInt64Value {
+	if v == nil {
+		return nil
+	}
+	return &wrappers.UInt64Value{Value: uint64(v.GetValue())}
+}
+
 // wrapEndpoints adapts a single WrappedLocalityLbEndpoints to the slice form expected by the
 // package-level Apply* helpers, preserving the nil case.
 func wrapEndpoints(w *WrappedLocalityLbEndpoints) []*WrappedLocalityLbEndpoints {
@@ -214,7 +221,7 @@ func (z ZoneAwareLBSettings) ApplyToCluster(
 		c.CommonLbConfig.LocalityConfigSpecifier = &cluster.Cluster_CommonLbConfig_ZoneAwareLbConfig_{
 			ZoneAwareLbConfig: &cluster.Cluster_CommonLbConfig_ZoneAwareLbConfig{
 				RoutingEnabled: &xdstype.Percent{Value: 0},
-				MinClusterSize: z.Setting.GetMinClusterSize(),
+				MinClusterSize: uint32ToUint64Value(z.Setting.GetMinClusterSize()),
 			},
 		}
 		return
@@ -222,13 +229,9 @@ func (z ZoneAwareLBSettings) ApplyToCluster(
 	if !enableSelfDiscovery {
 		log.Warnf("Zone-aware load balancing is enabled for cluster %s, but proxy self-discovery is not enabled on %s", c.Name, proxyID)
 	}
-	var minClusterSize *wrappers.UInt64Value
-	if v := z.Setting.GetMinClusterSize(); v != nil {
-		minClusterSize = &wrappers.UInt64Value{Value: uint64(v.GetValue())}
-	}
 	c.CommonLbConfig.LocalityConfigSpecifier = &cluster.Cluster_CommonLbConfig_ZoneAwareLbConfig_{
 		ZoneAwareLbConfig: &cluster.Cluster_CommonLbConfig_ZoneAwareLbConfig{
-			MinClusterSize: minClusterSize,
+			MinClusterSize: uint32ToUint64Value(z.Setting.GetMinClusterSize()),
 		},
 	}
 	if c.LoadAssignment != nil {
