@@ -301,13 +301,12 @@ func (c *ClusterStore) triggerRecomputeOnSync(cl *Cluster) {
 		// The GetByID call below runs without holding the caller's RLock, so it does not
 		// reintroduce the recursive-lock hazard.
 		if cl.WaitUntilInitiallySynced(cl.stop) && !cl.Closed() && c.GetByID(id) != nil {
+			log.Debugf("remote cluster %s informers synced, triggering recompute", id)
 			// Let dependent krt collections know that this cluster is ready to use
 			c.TriggerRecomputation()
-			// And clean up our tracking set
-			c.casMu.Lock()
-			c.clustersAwaitingSync.Delete(id)
-			c.casMu.Unlock()
-			log.Debugf("remote cluster %s informers synced, triggering recompute", id)
 		}
+		c.casMu.Lock()
+		c.clustersAwaitingSync.Delete(id)
+		c.casMu.Unlock()
 	}()
 }
