@@ -256,11 +256,11 @@ func (c *ClusterStore) HasSynced() bool {
 	return true
 }
 
-// clusterServable reports whether a cluster is currently usable: synced and neither
-// closed nor timed out. Used to decide whether the previous cluster can keep serving
+// clusterServable reports whether a cluster is currently usable: it is still open
+// and it's synced. Used to decide whether the previous cluster can keep serving
 // during an in-flight update.
 func clusterServable(cl *Cluster) bool {
-	return cl != nil && !cl.Closed() && !cl.SyncDidTimeout() && cl.HasSynced()
+	return cl != nil && !cl.Closed() && cl.HasSynced()
 }
 
 // getPreviousCluster returns the previous cluster tracked for an in-flight update, if any.
