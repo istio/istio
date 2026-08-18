@@ -170,8 +170,17 @@ func (c *ClusterStore) AllReady() map[string]map[cluster.ID]*Cluster {
 	out := make(map[string]map[cluster.ID]*Cluster)
 	for secret, clusters := range c.remoteClusters {
 		for cid, cl := range clusters {
-			if cl.Closed() || cl.SyncDidTimeout() {
-				log.Warnf("remote cluster %s is closed or timed out, omitting it from the clusters collection", cl.ID)
+			if cl.Closed() {
+				log.Warnf("remote cluster %s is closed, omitting it from the clusters collection", cl.ID)
+				continue
+			}
+			// If the cluster has timed out, we don't want to serve it, but we also don't want to drop it entirely.
+			// Instead, we wait for it to sync (or fail) and then recompute the collection.
+			if cl.SyncDidTimeout() {
+				log.Warnf("remote cluster %s is timed out, omitting it from the clusters collection", cl.ID)
+				c.triggerRecomputeOnSync(cl)
+				// we should also clear the previous cluster if it exists, since the new cluster is not usable and we don't want to keep serving it.
+				c.clearPreviousCluster(cid)
 				continue
 			}
 			if !cl.HasSynced() {
