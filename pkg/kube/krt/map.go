@@ -171,6 +171,12 @@ func MapCollection[T, U any](
 		metadata:       metadata,
 	}
 	maybeRegisterCollectionForDebugging[U](m, o.debugger)
+	if o.debugger != nil && o.stopProvided {
+		go func() {
+			<-o.stop
+			maybeUnregisterCollectionFromDebugger(m, o.debugger)
+		}()
+	}
 	return m
 }
 
@@ -180,7 +186,8 @@ func assertKeyMatch[T, U any](original T, mapped U, name string) {
 	originalKey := GetKey(original)
 	mappedKey := GetKey(mapped)
 	if originalKey != mappedKey {
-		msg := fmt.Sprintf("MapCollection invariant violation in %s: T and U must have matching keys: (%T)%s != (%T)%s",
+		msg := fmt.Sprintf(
+			"MapCollection invariant violation in %s: T and U must have matching keys: (%T)%s != (%T)%s",
 			name,
 			original,
 			originalKey,
