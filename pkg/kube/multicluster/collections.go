@@ -19,6 +19,7 @@ import (
 	"sync"
 
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/log"
@@ -79,8 +80,11 @@ func NestedManyCollectionsFromLocalAndRemote[T any](
 	opts krt.OptionsBuilder,
 ) krt.Collection[krt.Collection[T]] {
 	clustersCollection := ctrl.Clusters()
+	// use a custom syncer to make globalCollection sync when all local and remote collections
+	// have synced
+	syncer := &combinedSyncer[T]{name: "Global" + name, local: localCollections}
 	globalCollection := krt.NewStaticCollection(
-		localCollections[0],
+		syncer,
 		localCollections,
 		opts.WithName("Global"+name)...,
 	)
@@ -109,7 +113,7 @@ func NestedManyCollectionsFromLocalAndRemote[T any](
 		return cols
 	}, opts.WithName("Remote"+name)...)
 
-	remoteCollections.RegisterBatch(func(o []krt.Event[krt.Collection[T]]) {
+	reg := remoteCollections.RegisterBatch(func(o []krt.Event[krt.Collection[T]]) {
 		for _, e := range o {
 			l := e.Latest()
 			switch e.Event {
@@ -120,7 +124,50 @@ func NestedManyCollectionsFromLocalAndRemote[T any](
 			}
 		}
 	}, true)
+	syncer.setRemote(reg, remoteCollections)
 	return globalCollection
+}
+
+// combinedSyncer reports synced only when all of the local collections are synced and the remote
+// clusters' collections have been discovered, propagated into the global collection, and synced
+// themselves.
+type combinedSyncer[T any] struct {
+	name       string
+	local      []krt.Collection[T]
+	mu         sync.RWMutex
+	remote     krt.Syncer
+	collection krt.Collection[krt.Collection[T]]
+}
+
+func (s *combinedSyncer[T]) setRemote(remoteSyncer krt.Syncer, remoteCollections krt.Collection[krt.Collection[T]]) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.remote = remoteSyncer
+	s.collection = remoteCollections
+}
+
+func (s *combinedSyncer[T]) HasSynced() bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	for _, c := range s.local {
+		if !c.HasSynced() {
+			return false
+		}
+	}
+	if s.remote == nil || !s.remote.HasSynced() {
+		return false
+	}
+	// The container is synced (all remote collections have been added), now ensure each of them has synced too.
+	for _, c := range s.collection.List() {
+		if !c.HasSynced() {
+			return false
+		}
+	}
+	return true
+}
+
+func (s *combinedSyncer[T]) WaitUntilSynced(stop <-chan struct{}) bool {
+	return kube.WaitForCacheSync(s.name, stop, s.HasSynced)
 }
 
 // collectionCacheByClusterMany is a thread-safe cache of slices of krt collections keyed by cluster ID.

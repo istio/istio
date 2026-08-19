@@ -435,3 +435,29 @@ func (c *Cluster) WaitUntilSynced(stop <-chan struct{}) bool {
 
 	return true
 }
+
+// WaitUntilInitiallySynced waits for the cluster to be fully synced
+// compared to WaitUntilSynced, this method does not return when cluster initial sync has timed out,
+// it will only return when the cluster is closed, has synced or the stop channel is closed.
+func (c *Cluster) WaitUntilInitiallySynced(stop <-chan struct{}) bool {
+	if c.Closed() {
+		return true
+	}
+	if c.initialSync.Load() {
+		return true
+	}
+
+	// First wait to confirm all of the collections are assigned
+	// and then check if they are synced.
+	kube.WaitForCacheSync(fmt.Sprintf("cluster[%s] synced", c.ID), stop, func() bool {
+		if c.Closed() {
+			return true
+		}
+		if c.initialSync.Load() {
+			return true
+		}
+		return false
+	})
+
+	return true
+}
