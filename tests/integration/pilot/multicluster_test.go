@@ -152,6 +152,108 @@ spec:
 		})
 }
 
+// TestRemoteSecretRotationKeepsCrossClusterTraffic verifies that rotating the standard remote
+// secret does not remove the remote cluster's EDS shard when the superseded registry is closed.
+func TestRemoteSecretRotationKeepsCrossClusterTraffic(t *testing.T) {
+	// nolint: staticcheck
+	framework.NewTest(t).
+		RequiresMinClusters(2).
+		Run(func(t framework.TestContext) {
+			if len(t.Clusters().Primaries()) == 0 {
+				t.Skip("no primary cluster in framework (most likely only remote-config, e.g. external control plane topology)")
+			}
+
+			sourceCluster := t.Clusters().Primaries().Default()
+			targetCluster := t.Clusters().MeshClusters().Exclude(sourceCluster).Default()
+			source := apps.A.ForCluster(sourceCluster.Name())[0]
+			target := apps.B.ForCluster(targetCluster.Name())
+			config := tmpl.EvaluateOrFail(t, `
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: remote-secret-rotation
+spec:
+  host: {{ .target.Config.Service }}
+  subsets:
+  - name: target
+    labels:
+      topology.istio.io/cluster: {{ .target.Config.Cluster.Name }}
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: remote-secret-rotation
+spec:
+  hosts:
+  - {{ .target.Config.Service }}
+  http:
+  - route:
+    - destination:
+        host: {{ .target.Config.Service }}
+        subset: target
+`, map[string]any{"target": target[0]})
+			t.ConfigIstio().YAML(source.Config().Namespace.Name(), config).ApplyOrFail(t)
+
+			assertTargetReachable := func(options ...retry.Option) {
+				source.CallOrFail(t, echo.CallOptions{
+					To: target,
+					Port: echo.Port{
+						Name: "http",
+					},
+					Check: check.And(
+						check.OK(),
+						check.ReachedClusters(t.AllClusters(), cluster.Clusters{targetCluster}),
+					),
+					Retry: echo.Retry{
+						Options: append([]retry.Option{multiclusterRetryDelay, multiclusterRetryTimeout}, options...),
+					},
+				})
+			}
+
+			assertTargetReachable()
+
+			secrets := sourceCluster.Kube().CoreV1().Secrets(i.Settings().SystemNamespace)
+			secretList, err := secrets.List(context.Background(), metav1.ListOptions{
+				LabelSelector: "istio/multiCluster=true",
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			var remoteSecret *corev1.Secret
+			for _, secret := range secretList.Items {
+				if _, found := secret.Data[targetCluster.Name()]; found {
+					remoteSecret = secret.DeepCopy()
+					break
+				}
+			}
+			if remoteSecret == nil {
+				t.Fatalf("could not find remote secret for cluster %s", targetCluster.Name())
+			}
+			originalKubeconfig := append([]byte(nil), remoteSecret.Data[targetCluster.Name()]...)
+			t.Cleanup(func() {
+				secret, err := secrets.Get(context.Background(), remoteSecret.Name, metav1.GetOptions{})
+				if err != nil {
+					t.Logf("failed to get remote secret %s during cleanup: %v", remoteSecret.Name, err)
+					return
+				}
+				secret.Data[targetCluster.Name()] = originalKubeconfig
+				if _, err := secrets.Update(context.Background(), secret, metav1.UpdateOptions{}); err != nil {
+					t.Logf("failed to restore remote secret %s during cleanup: %v", remoteSecret.Name, err)
+				}
+			})
+
+			// Keep the kubeconfig semantically identical while changing its bytes to trigger rotation.
+			remoteSecret.Data[targetCluster.Name()] = append(originalKubeconfig, []byte("\n# rotated by integration test\n")...)
+			if _, err := secrets.Update(context.Background(), remoteSecret, metav1.UpdateOptions{}); err != nil {
+				t.Fatal(err)
+			}
+
+			// Validate when the old registry closes after the replacement has synced, we are still able to route.
+			assertTargetReachable(retry.Converge(10))
+		})
+}
+
 func TestBadRemoteSecret(t *testing.T) {
 	// nolint: staticcheck
 	framework.NewTest(t).
