@@ -214,7 +214,7 @@ func (z ZoneAwareLBSettings) ApplyToCluster(
 		c.CommonLbConfig.LocalityConfigSpecifier = &cluster.Cluster_CommonLbConfig_ZoneAwareLbConfig_{
 			ZoneAwareLbConfig: &cluster.Cluster_CommonLbConfig_ZoneAwareLbConfig{
 				RoutingEnabled: &xdstype.Percent{Value: 0},
-				MinClusterSize: z.Setting.GetMinClusterSize(),
+				MinClusterSize: minClusterSize(z.Setting.GetMinClusterSize()),
 			},
 		}
 		return
@@ -224,12 +224,20 @@ func (z ZoneAwareLBSettings) ApplyToCluster(
 	}
 	c.CommonLbConfig.LocalityConfigSpecifier = &cluster.Cluster_CommonLbConfig_ZoneAwareLbConfig_{
 		ZoneAwareLbConfig: &cluster.Cluster_CommonLbConfig_ZoneAwareLbConfig{
-			MinClusterSize: z.Setting.GetMinClusterSize(),
+			MinClusterSize: minClusterSize(z.Setting.GetMinClusterSize()),
 		},
 	}
 	if c.LoadAssignment != nil {
 		z.ApplyToLoadAssignment(c.LoadAssignment, wrapEndpoints(wrappedLocalityLbEndpoints), locality, proxyLabels, false)
 	}
+}
+
+// minClusterSize converts the API's uint32 min cluster size into the uint64 form Envoy expects.
+func minClusterSize(v *wrappers.UInt32Value) *wrappers.UInt64Value {
+	if v == nil {
+		return nil
+	}
+	return &wrappers.UInt64Value{Value: uint64(v.GetValue())}
 }
 
 // GetEffectiveLbSetting resolves which load-balancing locality semantics apply for a

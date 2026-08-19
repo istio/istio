@@ -336,7 +336,7 @@ func TestApplyZoneAwareLoadBalancer(t *testing.T) {
 		c := newCluster()
 		za := &networking.ZoneAwareLoadBalancerSetting{
 			Enabled:        wrappers.Bool(true),
-			MinClusterSize: &wrappers.UInt64Value{Value: 7},
+			MinClusterSize: &wrappers.UInt32Value{Value: 7},
 		}
 		loadbalancer.ZoneAwareLBSettings{Setting: za}.ApplyToCluster(c, nil, proxyLocality, nil, false, "test-proxy", true)
 		zaCfg := c.CommonLbConfig.GetZoneAwareLbConfig()
@@ -365,7 +365,7 @@ func TestApplyZoneAwareLoadBalancer(t *testing.T) {
 		c := newCluster()
 		za := &networking.ZoneAwareLoadBalancerSetting{
 			Enabled:        wrappers.Bool(true),
-			MinClusterSize: &wrappers.UInt64Value{Value: 7},
+			MinClusterSize: &wrappers.UInt32Value{Value: 7},
 		}
 		// ZoneAwareLbConfig is always set; enableSelfDiscovery=false only triggers a warning.
 		loadbalancer.ZoneAwareLBSettings{Setting: za}.ApplyToCluster(c, nil, proxyLocality, nil, false, "test-proxy", false)
