@@ -126,32 +126,6 @@ func (a *index) buildGlobalCollections(
 	)
 	namespaceInformersByCluster := multicluster.NestedCollectionIndexByCluster(GlobalNamespaces)
 
-	LocalNodesWithCluster := krt.MapCollection(LocalNodes, func(obj *v1.Node) krt.ObjectWithCluster[*v1.Node] {
-		return krt.ObjectWithCluster[*v1.Node]{
-			ClusterID: localCluster.ID,
-			Object:    &obj,
-		}
-	}, opts.WithName("LocalNodesWithCluster")...)
-	GlobalNodesWithCluster := multicluster.NestedCollectionFromLocalAndRemote(
-		a.mcController,
-		LocalNodesWithCluster,
-		func(ctx krt.HandlerContext, c *multicluster.Cluster) *krt.Collection[krt.ObjectWithCluster[*v1.Node]] {
-			if !kube.WaitForCacheSync(fmt.Sprintf("ambient/informer/nodes[%s]", c.ID), a.stop, c.Nodes().HasSynced) {
-				log.Warnf("Failed to sync nodes informer for cluster %s", c.ID)
-				return nil
-			}
-			opts := []krt.CollectionOption{
-				krt.WithName(fmt.Sprintf("ambient/NodesWithCluster[%s]", c.ID)),
-				krt.WithDebugging(opts.Debugger()),
-				krt.WithStop(c.GetStop()),
-			}
-			return ptr.Of(krt.MapCollection(c.Nodes(), func(obj *v1.Node) krt.ObjectWithCluster[*v1.Node] {
-				return krt.ObjectWithCluster[*v1.Node]{
-					ClusterID: c.ID,
-					Object:    &obj,
-				}
-			}, opts...))
-		}, "NodesWithCluster", opts)
 	// Set up collections for remote clusters
 	GlobalNetworks := buildGlobalNetworkCollections(
 		a.mcController,
@@ -282,7 +256,7 @@ func (a *index) buildGlobalCollections(
 		LocalNodes,
 		opts.WithName("LocalNodeLocality")...,
 	)
-	GlobalNodeLocality := GlobalNodesCollection(GlobalNodesWithCluster, opts.WithName("GlobalNodeLocalityWithCluster")...)
+	GlobalNodeLocality := GlobalNodesCollection(localCluster, LocalNodeLocality, a.mcController, opts)
 	GlobalNodeLocalityByCluster := multicluster.NestedCollectionIndexByCluster(GlobalNodeLocality)
 
 	GlobalWorkloads := MergedGlobalWorkloadsCollection(
