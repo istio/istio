@@ -164,8 +164,8 @@ var (
 )
 
 func TestNonAutoRegisteredWorkloads(t *testing.T) {
-	store := memory.NewController(memory.Make(collections.All))
 	stop := test.NewStop(t)
+	store := memory.NewController(collections.All, false)
 	go store.Run(stop)
 	c := NewController(store, "", time.Duration(math.MaxInt64))
 	createOrFail(t, store, wgA)
@@ -355,8 +355,8 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 
 func TestAutoregistrationDisabled(t *testing.T) {
 	test.SetForTest(t, &features.WorkloadEntryAutoRegistration, false)
-	store := memory.NewController(memory.Make(collections.All))
 	stop := test.NewStop(t)
+	store := memory.NewController(collections.All, false)
 	go store.Run(stop)
 	createOrFail(t, store, weB)
 
@@ -538,8 +538,8 @@ func TestWorkloadEntryFromGroupHBONE(t *testing.T) {
 }
 
 func TestNonAutoregisteredWorkloads_UnsuitableForHealthChecks_WorkloadEntryNotFound(t *testing.T) {
-	store := memory.NewController(memory.Make(collections.All))
 	stop := test.NewStop(t)
+	store := memory.NewController(collections.All, false)
 	go store.Run(stop)
 	createOrFail(t, store, weB)
 
@@ -584,8 +584,8 @@ func TestNonAutoregisteredWorkloads_UnsuitableForHealthChecks_ShouldNotBeTreated
 		t.Run(tc.name, func(t *testing.T) {
 			we := tc.we()
 
-			store := memory.NewController(memory.Make(collections.All))
 			stop := test.NewStop(t)
+			store := memory.NewController(collections.All, false)
 			go store.Run(stop)
 			createOrFail(t, store, we)
 
@@ -615,8 +615,8 @@ func TestNonAutoregisteredWorkloads_SuitableForHealthChecks_ShouldBeTreatedAsCon
 			we := weB.DeepCopy()
 			we.Annotations["proxy.istio.io/health-checks-enabled"] = value
 
-			store := memory.NewController(memory.Make(collections.All))
 			stop := test.NewStop(t)
+			store := memory.NewController(collections.All, false)
 			go store.Run(stop)
 			createOrFail(t, store, we)
 
@@ -784,7 +784,7 @@ func TestNonAutoregisteredWorkloads_SuitableForHealthChecks_ShouldUpdateHealthCo
 }
 
 func setup(t *testing.T) (*Controller, *Controller, model.ConfigStoreController) {
-	store := memory.NewController(memory.Make(collections.All))
+	store := memory.NewController(collections.All, false)
 	c1 := NewController(store, "pilot-1", time.Duration(math.MaxInt64))
 	c2 := NewController(store, "pilot-2", time.Duration(math.MaxInt64))
 	createOrFail(t, store, wgA)

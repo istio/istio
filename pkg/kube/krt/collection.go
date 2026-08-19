@@ -232,6 +232,8 @@ type manyCollection[I, O any] struct {
 	// onPrimaryInputEventHandler is a specialized internal handler that runs synchronously when a primary input changes
 	onPrimaryInputEventHandler func(o []Event[I])
 
+	debugger *DebugHandler
+
 	syncer Syncer
 }
 
@@ -622,6 +624,7 @@ func newManyCollection[I, O any](
 		synced:                     make(chan struct{}),
 		stop:                       opts.stop,
 		onPrimaryInputEventHandler: onPrimaryInputEventHandler,
+		debugger:                   opts.debugger,
 	}
 
 	if opts.metadata != nil {
@@ -632,7 +635,7 @@ func newManyCollection[I, O any](
 		name:   h.collectionName,
 		synced: h.synced,
 	}
-	maybeRegisterCollectionForDebugging(h, opts.debugger)
+	maybeRegisterCollectionForDebugging(h, h.debugger)
 
 	// Create our queue. When it syncs (that is, all items that were present when Run() was called), we mark ourselves as synced.
 	h.queue = queue.NewWithSync(func() {
@@ -649,6 +652,7 @@ func newManyCollection[I, O any](
 }
 
 func (h *manyCollection[I, O]) runQueue() {
+	defer maybeUnregisterCollectionFromDebugger(h, h.debugger)
 	c := h.parent
 	// Wait for primary dependency to be ready
 	if !c.WaitUntilSynced(h.stop) {
