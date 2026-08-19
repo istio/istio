@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue: []
+releaseNotes:
+  - |
+    **Fixed** listener conflict tracking treating a `Gateway` and a `ListenerSet` with the same
+    namespace and name as the same object, which caused a conflict recorded for one to mark the
+    other's winning listener as `Conflicted` and stop it from being programmed.
