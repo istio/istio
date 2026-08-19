@@ -85,6 +85,7 @@ func NestedJoinWithMergeCollection[T any](collections Collection[Collection[T]],
 			merge:          merge,
 			synced:         synced,
 			stop:           o.stop,
+			debugger:       o.debugger,
 		},
 		collections: ics,
 		regs:        make(map[collectionUID]HandlerRegistration),
@@ -142,6 +143,7 @@ func NestedJoinWithMergeCollection[T any](collections Collection[Collection[T]],
 }
 
 func (j *nestedjoinmerge[T]) runQueue(initialCollections []Collection[T], subscriptionFunc func([]Event[T]), reg HandlerRegistration) {
+	defer maybeUnregisterCollectionFromDebugger(j, j.debugger)
 	// We subscribed to the container collection (reg) and to each sub-collection (j.regs); all of
 	// these may outlive us. Once we are stopped, unregister them (and their goroutines) so we don't
 	// leak them.
