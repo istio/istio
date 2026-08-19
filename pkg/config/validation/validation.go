@@ -40,6 +40,7 @@ import (
 	security_beta "istio.io/api/security/v1beta1"
 	telemetry "istio.io/api/telemetry/v1alpha1"
 	type_beta "istio.io/api/type/v1beta1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/networking/serviceentry"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -1439,13 +1440,17 @@ var ValidateAuthorizationPolicy = RegisterValidateFunc("ValidateAuthorizationPol
 		var warnings Warning
 		selectorTypeValidation := validateOneOfSelectorType(in.GetSelector(), in.GetTargetRef(), in.GetTargetRefs())
 		workloadSelectorValidation := validateWorkloadSelector(in.GetSelector())
-		// Appending HTTPRoute as a valid targetRef of AuthorizationPolicy.
-		targetRefValidation := validatePolicyTargetReference(in.GetTargetRef(), gvk.HTTPRoute)
-		targetRefsValidation := validatePolicyTargetReferences(in.GetTargetRefs(), gvk.HTTPRoute)
+		var additionalTargetRefs []config.GroupVersionKind
+		if features.EnableGatewayAPIHTTPRouteAuth {
+			// Appending HTTPRoute as a valid targetRef of AuthorizationPolicy.
+			additionalTargetRefs = append(additionalTargetRefs, gvk.HTTPRoute)
+		}
+		targetRefValidation := validatePolicyTargetReference(in.GetTargetRef(), additionalTargetRefs...)
+		targetRefsValidation := validatePolicyTargetReferences(in.GetTargetRefs(), additionalTargetRefs...)
 		errs = appendErrors(errs, selectorTypeValidation, workloadSelectorValidation, targetRefValidation, targetRefsValidation)
 		warnings = appendErrors(warnings, workloadSelectorValidation.Warning)
 
-		if hasHTTPRouteTargetRef(in) {
+		if features.EnableGatewayAPIHTTPRouteAuth && hasHTTPRouteTargetRef(in) {
 			switch in.GetAction() {
 			case security_beta.AuthorizationPolicy_ALLOW, security_beta.AuthorizationPolicy_DENY:
 				// Allowed
