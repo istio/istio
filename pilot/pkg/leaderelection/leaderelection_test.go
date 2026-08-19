@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"go.uber.org/atomic"
+	coordinationv1 "k8s.io/api/coordination/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
@@ -142,6 +143,43 @@ func TestPerRevisionElection(t *testing.T) {
 	_, stop4 := createPerRevisionElection(t, "pod4", "not-foo", watcher, true, client)
 	close(stop3)
 	close(stop4)
+}
+
+func TestPerRevisionLeaseLabels(t *testing.T) {
+	client := fake.NewClientset()
+	watcher := &fakeDefaultWatcher{"canary"}
+	_, stop := createPerRevisionElection(t, "pod1", "canary", watcher, true, client)
+	defer close(stop)
+
+	leases, err := client.CoordinationV1().Leases("ns").List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(leases.Items) != 1 {
+		t.Fatalf("expected 1 lease, got %d", len(leases.Items))
+	}
+	lease := leases.Items[0]
+	if got := lease.Labels["istio.io/rev"]; got != "canary" {
+		t.Errorf("expected label istio.io/rev=canary, got %v", lease.Labels)
+	}
+	if got := lease.Labels["operator.istio.io/component"]; got != "Pilot" {
+		t.Errorf("expected label operator.istio.io/component=Pilot, got %v", lease.Labels)
+	}
+}
+
+func TestPerRevisionLeaseLabelsExistingLease(t *testing.T) {
+	client := fake.NewClientset(&coordinationv1.Lease{ObjectMeta: metav1.ObjectMeta{
+		Name: "test-lock-canary", Namespace: "ns",
+	}})
+	watcher := &fakeDefaultWatcher{"canary"}
+	_, stop := createPerRevisionElection(t, "pod1", "canary", watcher, true, client)
+	defer close(stop)
+
+	retry.UntilOrFail(t, func() bool {
+		lease, err := client.CoordinationV1().Leases("ns").Get(context.TODO(), "test-lock-canary", metav1.GetOptions{})
+		return err == nil && lease.Labels["istio.io/rev"] == "canary" &&
+			lease.Labels["operator.istio.io/component"] == "Pilot"
+	}, retry.Timeout(time.Second*5), retry.Delay(time.Millisecond*100))
 }
 
 func TestPrioritizedLeaderElection(t *testing.T) {
