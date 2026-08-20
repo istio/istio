@@ -105,6 +105,10 @@ func TestAllowAnyDynamicDNSPolicy(t *testing.T) {
 			}).BuildOrFail(t)
 
 		t.NewSubTest("http-via-dfp").Run(func(t framework.TestContext) {
+			if len(t.Settings().IPFamilies) == 1 && t.Settings().IPFamilies[0] == "IPv6" {
+				t.Skip("https://github.com/istio/istio/issues/61330")
+			}
+
 			baseline := clusterUpstreamRqTotal(t, client, "AllowAnyDynamicDNSCluster")
 			passthroughBaseline := clusterUpstreamRqTotal(t, client, "PassthroughCluster")
 
@@ -207,6 +211,10 @@ outboundTrafficPolicy:
 			}).BuildOrFail(t)
 
 		t.NewSubTest("http-to-external-with-tls-origination").Run(func(t framework.TestContext) {
+			if len(t.Settings().IPFamilies) == 1 && t.Settings().IPFamilies[0] == "IPv6" {
+				t.Skip("https://github.com/istio/istio/issues/61330")
+			}
+
 			baseline := clusterUpstreamRqTotal(t, client, "AllowAnyDynamicDNSCluster")
 
 			client.CallOrFail(t, echo.CallOptions{
