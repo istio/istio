@@ -837,7 +837,7 @@ func TestPodWorkloads(t *testing.T) {
 			builder := a.builder.podWorkloadBuilder(
 				GetMeshConfig(mock),
 				krttest.GetMockCollection[model.WorkloadAuthorization](mock),
-				krttest.GetMockCollection[*securityclient.PeerAuthentication](mock),
+				krt.NewNamespaceIndex(krttest.GetMockCollection[*securityclient.PeerAuthentication](mock)),
 				krttest.GetMockCollection[Waypoint](mock),
 				WorkloadServices,
 				WorkloadServicesNamespaceIndex,
@@ -1446,7 +1446,7 @@ func TestWorkloadEntryWorkloads(t *testing.T) {
 			builder := a.builder.workloadEntryWorkloadBuilder(
 				GetMeshConfig(mock),
 				krttest.GetMockCollection[model.WorkloadAuthorization](mock),
-				krttest.GetMockCollection[*securityclient.PeerAuthentication](mock),
+				krt.NewNamespaceIndex(krttest.GetMockCollection[*securityclient.PeerAuthentication](mock)),
 				krttest.GetMockCollection[Waypoint](mock),
 				WorkloadServices,
 				WorkloadServicesNamespaceIndex,
@@ -1695,7 +1695,7 @@ func TestServiceEntryWorkloads(t *testing.T) {
 			builder := a.builder.serviceEntryWorkloadBuilder(
 				GetMeshConfig(mock),
 				krttest.GetMockCollection[model.WorkloadAuthorization](mock),
-				krttest.GetMockCollection[*securityclient.PeerAuthentication](mock),
+				krt.NewNamespaceIndex(krttest.GetMockCollection[*securityclient.PeerAuthentication](mock)),
 				krttest.GetMockCollection[Waypoint](mock),
 				krttest.GetMockCollection[*v1.Namespace](mock),
 				krttest.GetMockCollection[model.ServiceInfo](mock),
