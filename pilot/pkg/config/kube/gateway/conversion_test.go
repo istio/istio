@@ -717,6 +717,13 @@ func TestConvertResources(t *testing.T) {
 		{name: "mesh"},
 		{name: "foreign-waypoint"},
 		{
+			name: "foreign-waypoint-canary",
+			validationIgnorer: crdvalidation.NewValidationIgnorer(
+				"default/canary-echo",
+				"default/agentgateway-echo",
+			),
+		},
+		{
 			name: "invalid",
 			validationIgnorer: crdvalidation.NewValidationIgnorer(
 				"default/^invalid-backendRef-kind-",
