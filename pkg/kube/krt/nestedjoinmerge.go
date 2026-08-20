@@ -105,26 +105,23 @@ func NestedJoinWithMergeCollection[T any](collections Collection[Collection[T]],
 		j.log.Infof("%v synced (uid %v)", j.name(), j.uid())
 	}, j.collectionName)
 
-	// Subscribe to when collections are added or removed.
-	// Don't run existing because we want to ensure the first set
-	// of collections passed to us are synced before we mark
-	// ourselves as synced. Do this before returning so collections
-	// aren't added between now and when runQueue is called.
-	subscriptionFunc := func(events []Event[T]) {
-		j.queue.Push(func() error {
-			j.onSubCollectionEventHandler(events)
-			return nil
-		})
-	}
+	// Async: subscribe to the container, then wait for it (and everything it holds) to be ready before we
+	// start processing. The queue will process the initial state and mark ourselves as synced (from the
+	// NewWithSync callback).
+	go j.runQueue()
+
+	return j
+}
+
+func (j *nestedjoinmerge[T]) runQueue() {
+	defer maybeUnregisterCollectionFromDebugger(j, j.debugger)
+
 	reg := j.collections.RegisterBatch(func(e []Event[Collection[T]]) {
 		for _, ev := range e {
-			obj := ev.Latest()
 			switch ev.Event {
 			case controllers.EventAdd:
-				// When a collection is added, subscribe to its events
-				reg := obj.RegisterBatch(subscriptionFunc, true)
 				j.mu.Lock()
-				j.regs[obj.(internalCollection[T]).uid()] = reg
+				j.updateSubscriptionLocked(nil, ev.Latest().(internalCollection[T]), true)
 				j.mu.Unlock()
 			case controllers.EventUpdate:
 				j.handleCollectionUpdate(ev)
@@ -132,52 +129,76 @@ func NestedJoinWithMergeCollection[T any](collections Collection[Collection[T]],
 				j.handleCollectionDelete(ev)
 			}
 		}
-	}, false)
-	initialCollections := j.collections.List()
-	// Finally, async wait for the primary to be synced. Once it has, we know it has enqueued the initial state.
-	// After this, we can run our queue.
-	// The queue will process the initial state and mark ourselves as synced (from the NewWithSync callback)
-	go j.runQueue(initialCollections, subscriptionFunc, reg)
+	}, true)
 
-	return j
-}
-
-func (j *nestedjoinmerge[T]) runQueue(initialCollections []Collection[T], subscriptionFunc func([]Event[T]), reg HandlerRegistration) {
-	defer maybeUnregisterCollectionFromDebugger(j, j.debugger)
 	// We subscribed to the container collection (reg) and to each sub-collection (j.regs); all of
 	// these may outlive us. Once we are stopped, unregister them (and their goroutines) so we don't
 	// leak them.
 	defer j.unregisterAll(reg)
 
-	// Wait for the container of collections to be synced before we start processing events.
-	if !j.collections.WaitUntilSynced(j.stop) {
+	// Wait for the initial sub-collections to be registered.
+	if !reg.WaitUntilSynced(j.stop) {
 		return
 	}
-	j.mu.Lock()
 
-	// Now that we've subscribed, process the current set of collections.
-	for _, c := range initialCollections {
-		// Save these registrations so we can unsubscribe later if the collection is deleted.
-		// Ensure each sub-collection is synced before we're marked as synced.
-		j.regs[c.(internalCollection[T]).uid()] = c.RegisterBatch(subscriptionFunc, true)
-	}
-
-	regs := append([]HandlerRegistration{reg}, maps.Values(j.regs)...)
-	j.mu.Unlock()
-
-	syncers := slices.Map(regs, func(r HandlerRegistration) cache.InformerSynced {
+	j.mu.RLock()
+	syncers := slices.Map(maps.Values(j.regs), func(r HandlerRegistration) cache.InformerSynced {
 		return r.HasSynced
 	})
+	j.mu.RUnlock()
 
+	// wait for all initial sub-collections to be synced before we start processing events.
 	if !kube.WaitForCacheSync(j.collectionName, j.stop, syncers...) {
 		return
 	}
 	j.queue.Run(j.stop)
 }
 
+func (j *nestedjoinmerge[T]) stopped() bool {
+	select {
+	case <-j.stop:
+		return true
+	default:
+		return false
+	}
+}
+
+// updateSubscriptionLocked drops an old subscription if present and adds a new one for the updated collection if present.
+//
+// runExistingState controls whether the new subscription replays the collection's current contents. Pass
+// false only when the caller reads that state itself, after this returns.
+//
+// must always be called with j.mu held.
+func (j *nestedjoinmerge[T]) updateSubscriptionLocked(old, updated internalCollection[T], runExistingState bool) {
+	// avoid registering new subscriptions if the collection is stopped.
+	if j.stopped() {
+		return
+	}
+	if old != nil && updated != nil && old.uid() == updated.uid() {
+		return
+	}
+	if old != nil {
+		if oldReg, found := j.regs[old.uid()]; found {
+			oldReg.UnregisterHandler()
+			delete(j.regs, old.uid())
+		} else {
+			j.log.Warnf("NestedJoinWithMergeCollection: No registration found for collection %v", old.uid())
+		}
+	}
+	if updated != nil {
+		j.regs[updated.uid()] = updated.RegisterBatch(func(events []Event[T]) {
+			j.queue.Push(func() error {
+				j.onSubCollectionEventHandler(events)
+				return nil
+			})
+		}, runExistingState)
+	}
+}
+
 // unregisterAll unregisters the container collection subscription along with all currently tracked
-// sub-collection subscriptions. It is safe to call once the collection has stopped; after
-// unregistering the container subscription no new sub-collection subscriptions can be added.
+// sub-collection subscriptions. It is only called once the collection has stopped, which is what stops
+// the container's handler from taking new sub-collection subscriptions afterwards (see
+// updateSubscriptionLocked).
 func (j *nestedjoinmerge[T]) unregisterAll(containerReg HandlerRegistration) {
 	j.mu.Lock()
 	defer j.mu.Unlock()
@@ -203,6 +224,10 @@ func (j *nestedjoinmerge[T]) handleCollectionUpdate(e Event[Collection[T]]) {
 	// Stop the world and update our outputs with new state for everything in the collection.
 	j.mu.Lock()
 	defer j.mu.Unlock()
+
+	// drop the old collection subscription and add the new one.
+	// we intentionally don't run the existing state for the new collection because we are going to recalculate everything anyway.
+	j.updateSubscriptionLocked(oldCollectionValue.(internalCollection[T]), newCollectionValue.(internalCollection[T]), false)
 
 	oldItems := oldCollectionValue.List()
 	// Convert it to a map for easy lookup
@@ -297,12 +322,7 @@ func (j *nestedjoinmerge[T]) handleCollectionDelete(e Event[Collection[T]]) {
 
 	cc := e.Latest().(internalCollection[T])
 	// Unsubscribe from the collection
-	if reg, ok := j.regs[cc.uid()]; ok {
-		reg.UnregisterHandler()
-		delete(j.regs, cc.uid())
-	} else {
-		j.log.Warnf("NestedJoinWithMergeCollection: No registration found for collection %s during delete event", cc.uid())
-	}
+	j.updateSubscriptionLocked(cc, nil, false)
 
 	// Now we must send a final set of remove events for each object in the collection
 	var events []Event[T]

@@ -101,6 +101,13 @@ type uidable interface {
 	uid() collectionUID
 }
 
+// namer is implemented by every collection. Both methods are unexported, so only types declared in this
+// package can satisfy these interfaces; see GetKey and Equal, which use them to key and compare
+// collections held inside other collections.
+type namer interface {
+	name() string
+}
+
 // Singleton is a special Collection that only ever has a single object. They can be converted to the Collection where convenient,
 // but when using directly offer a more ergonomic API
 type Singleton[T any] interface {
