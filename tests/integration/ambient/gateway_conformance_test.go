@@ -80,6 +80,7 @@ func TestGatewayConformance(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
+			skipIfGatewayAPIUnsupported(ctx)
 			// Precreate the GatewayConformance namespaces, and apply the Image Pull Secret to them.
 			if ctx.Settings().Image.PullSecret != "" {
 				for _, ns := range conformanceNamespaces {

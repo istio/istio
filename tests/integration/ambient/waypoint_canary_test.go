@@ -65,6 +65,7 @@ var acceptAny = func(echo.CallResult, error) error { return nil }
 // simply yields fewer successes, so an assertion can never pass on failed traffic.
 func TestWeightedWaypointTrafficShift(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
+		skipIfGatewayAPIUnsupported(t)
 		newCanaryWaypoints(t)
 		src := apps.Captured[0]
 		dst := apps.Captured
@@ -95,6 +96,7 @@ func TestWeightedWaypointTrafficShift(t *testing.T) {
 // primary waypoint, so traffic keeps flowing rather than blackholing.
 func TestWeightedWaypointCanaryNotReady(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
+		skipIfGatewayAPIUnsupported(t)
 		newServiceWaypoint(t, canaryPrimaryWP)
 		src := apps.Captured[0]
 		dst := apps.Captured
@@ -117,6 +119,7 @@ func TestWeightedWaypointCanaryNotReady(t *testing.T) {
 // requests would be allowed (200) instead of denied (403).
 func TestWeightedWaypointPolicyPropagation(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
+		skipIfGatewayAPIUnsupported(t)
 		ns := apps.Namespace.Name()
 		newCanaryWaypoints(t)
 		src := apps.Captured[0]
@@ -176,6 +179,7 @@ spec:
 // chosen waypoint, so the destination sees that waypoint's SA.
 func TestWeightedWaypointIngressTrafficShift(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
+		skipIfGatewayAPIUnsupported(t)
 		if t.Settings().AmbientMultiNetwork {
 			t.Skip("https://github.com/istio/istio/issues/54245")
 		}
