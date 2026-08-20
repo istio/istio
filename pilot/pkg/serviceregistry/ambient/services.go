@@ -203,13 +203,7 @@ func GlobalNestedWorkloadServicesCollection(
 				false,
 				checkServiceScope,
 				func(ctx krt.HandlerContext) network.ID {
-					nw := krt.FetchOne(ctx, globalNetworks.RemoteSystemNamespaceNetworks, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, cluster.ID))
-					if nw == nil {
-						log.Warnf("Cluster %s does not have network assigned yet, skipping", cluster.ID)
-						ctx.DiscardResult()
-						return ""
-					}
-					return nw.Network
+					return globalNetworks.FetchRemoteSystemNamespaceNetwork(ctx, namespaces)
 				}, false,
 			),
 				append(
