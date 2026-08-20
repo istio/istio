@@ -241,6 +241,14 @@ func (z ZoneAwareLBSettings) ApplyToCluster(
 	}
 }
 
+// minClusterSize converts the API's uint32 min cluster size into the uint64 form Envoy expects.
+func minClusterSize(v *wrappers.UInt32Value) *wrappers.UInt64Value {
+	if v == nil {
+		return nil
+	}
+	return &wrappers.UInt64Value{Value: uint64(v.GetValue())}
+}
+
 // GetEffectiveLbSetting resolves which load-balancing locality semantics apply for a
 // given DR / service / mesh combination. It returns nil when no setting applies.
 //

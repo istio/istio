@@ -16,6 +16,7 @@ package model
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 
 	"google.golang.org/protobuf/types/known/structpb"
@@ -95,6 +96,28 @@ func TestEnvoyFilterMatch(t *testing.T) {
 				"1.19.0":       false,
 				"1.19-dev.foo": false,
 				"foobar":       true,
+			},
+		},
+		{
+			// an over-length pattern is never compiled; the patch must match nothing (fail closed),
+			// not fall through to matching every version.
+			"proxy version too long",
+			&networking.EnvoyFilter{
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+					{
+						Patch: &networking.EnvoyFilter_Patch{},
+						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+							Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: strings.Repeat("a{100}", 200)},
+						},
+					},
+				},
+			},
+			"",
+			map[string]bool{
+				"1.19":   false,
+				"1.19.0": false,
+				"foobar": false,
+				"":       false,
 			},
 		},
 	}

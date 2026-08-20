@@ -24,15 +24,16 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/test"
 )
 
 func TestStoreInvariant(t *testing.T) {
-	store := Make(collections.Mocks)
+	store := Make(collections.Mocks, false, test.NewStop(t))
 	mock.CheckMapInvariant(store, t, "some-namespace", 10)
 }
 
 func TestIstioConfig(t *testing.T) {
-	store := Make(collections.Pilot)
+	store := Make(collections.Pilot, false, test.NewStop(t))
 	mock.CheckIstioConfigTypes(store, "some-namespace", t)
 }
 
@@ -104,7 +105,7 @@ func BenchmarkStoreDelete(b *testing.B) {
 
 // make a new store and add 1000 configs to it
 func initStore(b *testing.B) model.ConfigStore {
-	s := MakeSkipValidation(collections.Pilot)
+	s := Make(collections.Pilot, true, test.NewStop(b))
 	cfg := config.Config{
 		Meta: config.Meta{
 			GroupVersionKind: gvk.ServiceEntry,

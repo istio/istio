@@ -8210,6 +8210,10 @@ spec:
                                 transportProtocol:
                                   description: Applies only to `SIDECAR_INBOUND` context.
                                   type: string
+                                transportSocket:
+                                  description: If non-empty, the name of the transport
+                                    socket the filter chain is configured with.
+                                  type: string
                               type: object
                             listenerFilter:
                               description: Match a specific listener filter.

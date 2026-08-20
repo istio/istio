@@ -27,12 +27,15 @@ type Controller struct {
 	hasSynced func() bool
 	store     *Store
 	handlers  []krt.HandlerRegistration
+	stop      chan struct{}
 }
 
-// NewController return an implementation of ConfigStoreController
-func NewController(store *Store) *Controller {
+// Make return an implementation of ConfigStoreController
+func NewController(schemas collection.Schemas, skipValidation bool) *Controller {
+	stop := make(chan struct{})
 	return &Controller{
-		store: store,
+		stop:  stop,
+		store: newStore(schemas, skipValidation, stop),
 	}
 }
 
@@ -81,7 +84,7 @@ func (c *Controller) Run(stop <-chan struct{}) {
 	// marked as synced on run to allow clients to store data before the store is marked as synced
 	c.store.markSynced()
 	<-stop
-	close(c.store.stop)
+	close(c.stop)
 }
 
 func (c *Controller) KrtCollection(kind config.GroupVersionKind) krt.Collection[config.Config] {
