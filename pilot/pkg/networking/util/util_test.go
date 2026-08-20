@@ -2067,3 +2067,34 @@ func TestSelectDNSLookupFamily(t *testing.T) {
 		})
 	}
 }
+
+func TestGetDNSProxyAddress(t *testing.T) {
+	tests := []struct {
+		name         string
+		ips          []string
+		dnsProxyAddr string
+		wantHost     string
+		wantPort     uint32
+	}{
+		{"no ips defaults to v4", nil, "", model.LocalhostAddressPrefix, 15053},
+		{"ipv4 localhost", []string{"10.0.0.1"}, "localhost:15053", model.LocalhostAddressPrefix, 15053},
+		{"ipv6 localhost", []string{"2001:db8::1"}, "localhost:15053", model.LocalhostIPv6AddressPrefix, 15053},
+		{"dual stack defaults to v4", []string{"10.0.0.1", "2001:db8::1"}, "", model.LocalhostAddressPrefix, 15053},
+		{"custom address", []string{"2001:db8::1"}, "10.0.0.1:53", "10.0.0.1", 53},
+		{"invalid address falls back to ipv6", []string{"2001:db8::1"}, "invalid", model.LocalhostIPv6AddressPrefix, 15053},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			sa := GetDNSProxyAddress(tc.ips, tc.dnsProxyAddr).GetSocketAddress()
+			if sa == nil {
+				t.Fatal("expected SocketAddress")
+			}
+			if sa.Address != tc.wantHost {
+				t.Errorf("expected host %q, got %q", tc.wantHost, sa.Address)
+			}
+			if sa.GetPortValue() != tc.wantPort {
+				t.Errorf("expected port %d, got %d", tc.wantPort, sa.GetPortValue())
+			}
+		})
+	}
+}
