@@ -177,14 +177,7 @@ func (j *nestedjoinmerge[T]) updateSubscriptionLocked(old, updated internalColle
 	if old != nil && updated != nil && old.uid() == updated.uid() {
 		return
 	}
-	if old != nil {
-		if oldReg, found := j.regs[old.uid()]; found {
-			oldReg.UnregisterHandler()
-			delete(j.regs, old.uid())
-		} else {
-			j.log.Warnf("NestedJoinWithMergeCollection: No registration found for collection %v", old.uid())
-		}
-	}
+	// create new handler before removing the old one, so we don't miss any events.
 	if updated != nil {
 		j.regs[updated.uid()] = updated.RegisterBatch(func(events []Event[T]) {
 			j.queue.Push(func() error {
@@ -192,6 +185,14 @@ func (j *nestedjoinmerge[T]) updateSubscriptionLocked(old, updated internalColle
 				return nil
 			})
 		}, runExistingState)
+	}
+	if old != nil {
+		if oldReg, found := j.regs[old.uid()]; found {
+			oldReg.UnregisterHandler()
+			delete(j.regs, old.uid())
+		} else {
+			j.log.Warnf("NestedJoinWithMergeCollection: No registration found for collection %v", old.uid())
+		}
 	}
 }
 
@@ -225,11 +226,13 @@ func (j *nestedjoinmerge[T]) handleCollectionUpdate(e Event[Collection[T]]) {
 	j.mu.Lock()
 	defer j.mu.Unlock()
 
+	oldItems := oldCollectionValue.List()
+
 	// drop the old collection subscription and add the new one.
 	// we intentionally don't run the existing state for the new collection because we are going to recalculate everything anyway.
+	// TODO: even though we drop the old subscription after List is called
+	// we could still miss Delete events for items that are not present in the oldItems list.
 	j.updateSubscriptionLocked(oldCollectionValue.(internalCollection[T]), newCollectionValue.(internalCollection[T]), false)
-
-	oldItems := oldCollectionValue.List()
 	// Convert it to a map for easy lookup
 	oldItemsMap := make(map[Key[T]]T, len(oldItems))
 	for _, i := range oldItems {
@@ -320,14 +323,14 @@ func (j *nestedjoinmerge[T]) handleCollectionDelete(e Event[Collection[T]]) {
 	// Get all of the elements in the old collection
 	oldCollectionValue := *e.Old
 
-	cc := e.Latest().(internalCollection[T])
-	// Unsubscribe from the collection
-	j.updateSubscriptionLocked(cc, nil, false)
-
 	// Now we must send a final set of remove events for each object in the collection
 	var events []Event[T]
 
 	oldItems := oldCollectionValue.List()
+	// Unsubscribe from the collection
+	// TODO: even though we drop the old subscription after List is called
+	// we could still miss Delete events for items that are not present in the oldItems list.
+	j.updateSubscriptionLocked(e.Latest().(internalCollection[T]), nil, false)
 
 	items := sets.NewWithLength[Key[T]](len(oldItems))
 	// First loop through the collection to get the deleted items by their keys
