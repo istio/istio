@@ -18,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	authpb "istio.io/api/security/v1beta1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
@@ -35,6 +36,9 @@ func (ap *AuthorizationPolicy) NamespacedName() types.NamespacedName {
 }
 
 func (policy *AuthorizationPolicies) indexHTTPRoutePolicies(authz AuthorizationPolicy) {
+	if !features.EnableGatewayAPIHTTPRouteAuth {
+		return
+	}
 	action := authz.Spec.GetAction()
 	isALLOW := action == authpb.AuthorizationPolicy_ALLOW
 	isDENY := action == authpb.AuthorizationPolicy_DENY
@@ -122,6 +126,9 @@ type AuthorizationPoliciesResult struct {
 	Deny   []AuthorizationPolicy
 	Allow  []AuthorizationPolicy
 	Audit  []AuthorizationPolicy
+	// RootDeny holds DENY policies from the root namespace. Enforced in a filter
+	// that per-route configuration cannot override.
+	RootDeny []AuthorizationPolicy
 }
 
 // ListAuthorizationPoliciesForHTTPRoute returns authorization policies that explicitly target
@@ -153,11 +160,12 @@ func (policy *AuthorizationPolicies) ListAuthorizationPolicies(selectionOpts Wor
 	}
 
 	for _, ns := range slices.FilterDuplicates(lookupInNamespaces) {
+		isRoot := features.EnableGatewayAPIHTTPRouteAuth && policy.RootNamespace != "" && ns == policy.RootNamespace
 		for _, config := range policy.NamespaceToPolicies[ns] {
 			spec := config.Spec
 
 			if selectionOpts.ShouldAttachPolicy(gvk.AuthorizationPolicy, config.NamespacedName(), spec) {
-				configs = updateAuthorizationPoliciesResult(configs, config)
+				configs = updateAuthorizationPoliciesResult(configs, config, isRoot)
 			}
 		}
 	}
@@ -165,14 +173,18 @@ func (policy *AuthorizationPolicies) ListAuthorizationPolicies(selectionOpts Wor
 	return configs
 }
 
-func updateAuthorizationPoliciesResult(configs AuthorizationPoliciesResult, config AuthorizationPolicy) AuthorizationPoliciesResult {
+func updateAuthorizationPoliciesResult(configs AuthorizationPoliciesResult, config AuthorizationPolicy, isRoot bool) AuthorizationPoliciesResult {
 	log.Debugf("applying authorization policy %s.%s",
 		config.Namespace, config.Name)
 	switch config.Spec.GetAction() {
 	case authpb.AuthorizationPolicy_ALLOW:
 		configs.Allow = append(configs.Allow, config)
 	case authpb.AuthorizationPolicy_DENY:
-		configs.Deny = append(configs.Deny, config)
+		if isRoot {
+			configs.RootDeny = append(configs.RootDeny, config)
+		} else {
+			configs.Deny = append(configs.Deny, config)
+		}
 	case authpb.AuthorizationPolicy_AUDIT:
 		configs.Audit = append(configs.Audit, config)
 	case authpb.AuthorizationPolicy_CUSTOM:

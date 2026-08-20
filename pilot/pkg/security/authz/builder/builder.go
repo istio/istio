@@ -61,9 +61,10 @@ type Builder struct {
 	extensions     map[string]*builtExtAuthz
 
 	// populated when building for ALLOW/DENY/AUDIT action.
-	denyPolicies  []model.AuthorizationPolicy
-	allowPolicies []model.AuthorizationPolicy
-	auditPolicies []model.AuthorizationPolicy
+	denyPolicies     []model.AuthorizationPolicy
+	rootDenyPolicies []model.AuthorizationPolicy
+	allowPolicies    []model.AuthorizationPolicy
+	auditPolicies    []model.AuthorizationPolicy
 }
 
 // New returns a new builder for the given workload with the authorization policy.
@@ -81,11 +82,12 @@ func New(trustDomainBundle trustdomain.Bundle, push *model.PushContext, policies
 		}
 	}
 
-	if len(policies.Deny) == 0 && len(policies.Allow) == 0 && len(policies.Audit) == 0 {
+	if len(policies.Deny) == 0 && len(policies.RootDeny) == 0 && len(policies.Allow) == 0 && len(policies.Audit) == 0 {
 		return nil
 	}
 	return &Builder{
 		denyPolicies:      policies.Deny,
+		rootDenyPolicies:  policies.RootDeny,
 		allowPolicies:     policies.Allow,
 		auditPolicies:     policies.Audit,
 		trustDomainBundle: trustDomainBundle,
@@ -99,9 +101,11 @@ func (b Builder) BuildHTTP() []*hcm.HttpFilter {
 }
 
 // Filter instance names for the RBAC filters built for ALLOW and DENY actions.
+// RBACFilterNameDenyRoot policies cannot be overridden by a route.
 const (
-	RBACFilterNameAllow = "istio.authorization.allow"
-	RBACFilterNameDeny  = "istio.authorization.deny"
+	RBACFilterNameAllow    = "istio.authorization.allow"
+	RBACFilterNameDeny     = "istio.authorization.deny"
+	RBACFilterNameDenyRoot = "istio.authorization.deny.root"
 )
 
 // RBACFilterNameForAction returns the filter instance name that per-route RBAC config for the given
@@ -184,12 +188,20 @@ func build[T any](b Builder, translateFn func(rule *builtRule, logger *AuthzLogg
 		logger.AppendDebugf("built %d %s filters for AUDIT action", len(t), logType)
 		filters = append(filters, t...)
 	}
+	if configs := b.build(b.rootDenyPolicies, rbacpb.RBAC_DENY, forTCP, logger); configs != nil {
+		configs.filterName = RBACFilterNameDenyRoot
+		t := translateFn(configs, logger)
+		logger.AppendDebugf("built %d %s filters for root namespace DENY action", len(t), logType)
+		filters = append(filters, t...)
+	}
 	if configs := b.build(b.denyPolicies, rbacpb.RBAC_DENY, forTCP, logger); configs != nil {
+		configs.filterName = RBACFilterNameDeny
 		t := translateFn(configs, logger)
 		logger.AppendDebugf("built %d %s filters for DENY action", len(t), logType)
 		filters = append(filters, t...)
 	}
 	if configs := b.build(b.allowPolicies, rbacpb.RBAC_ALLOW, forTCP, logger); configs != nil {
+		configs.filterName = RBACFilterNameAllow
 		t := translateFn(configs, logger)
 		logger.AppendDebugf("built %d %s filters for ALLOW action", len(t), logType)
 		filters = append(filters, t...)
@@ -200,7 +212,10 @@ func build[T any](b Builder, translateFn func(rule *builtRule, logger *AuthzLogg
 type builtRule struct {
 	rules       *rbacpb.RBAC
 	shadowRules *rbacpb.RBAC
-	providers   []string
+	// The HTTP filter instance name this rule set is emitted under. Empty means the
+	// well known RBAC filter name.
+	filterName string
+	providers  []string
 	// For CUSTOM policies, rules grouped by provider to support multiple providers per workload
 	providerRules       map[string]*rbacpb.RBAC
 	providerShadowRules map[string]*rbacpb.RBAC
@@ -380,9 +395,13 @@ func (b Builder) buildHTTP(rule *builtRule, logger *AuthzLogger) []*hcm.HttpFilt
 			ShadowRules:           shadowRules,
 			ShadowRulesStatPrefix: shadowRuleStatPrefix(shadowRules),
 		}
+		name := wellknown.HTTPRoleBasedAccessControl
+		if features.EnableGatewayAPIHTTPRouteAuth && rule.filterName != "" {
+			name = rule.filterName
+		}
 		return []*hcm.HttpFilter{
 			{
-				Name:       wellknown.HTTPRoleBasedAccessControl,
+				Name:       name,
 				ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(rbac)},
 			},
 		}
