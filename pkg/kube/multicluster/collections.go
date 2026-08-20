@@ -117,7 +117,7 @@ func NestedManyCollectionsFromLocalAndRemote[T any](
 		return cols
 	}, opts.WithName("Remote"+name)...)
 
-	// Return a joined collection fo local and remote collections, this ensures that cluster updates swap collections atomically.
+	// Return a joined collection for local and remote collections, this ensures that cluster updates swap collections atomically.
 	// We don't need to check if the inner collections are syncced, downstream consumers (like NestedJoin collections) will do this.
 	return krt.JoinCollection(
 		[]krt.Collection[krt.Collection[T]]{localContainer, remoteCollections},
