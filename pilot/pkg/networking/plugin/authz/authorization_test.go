@@ -67,7 +67,7 @@ func httpRoutePolicy(t *testing.T, name, ns string, action authpb.AuthorizationP
 
 func newTestPerRouteBuilder(t *testing.T, configs ...config.Config) *PerRouteBuilder {
 	t.Helper()
-	store := memory.Make(collections.Pilot)
+	store := memory.Make(collections.Pilot, false, test.NewStop(t))
 	for _, c := range configs {
 		if _, err := store.Create(c); err != nil {
 			t.Fatalf("failed to create config: %v", err)
