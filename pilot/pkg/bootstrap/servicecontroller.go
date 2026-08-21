@@ -43,6 +43,7 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 		s.environment.Watcher,
 		serviceentry.WithClusterID(s.clusterID),
 		serviceentry.WithKRTDebugger(s.krtDebugger),
+		serviceentry.WithDomainSuffix(args.RegistryOptions.KubeOptions.DomainSuffix),
 	)
 	serviceControllers.AddRegistry(s.serviceEntryController)
 

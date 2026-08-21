@@ -369,6 +369,35 @@ var services = []*model.Service{
 		Ports:    ports,
 		Hostname: "httpbin-alt.default.svc.domain.suffix",
 	},
+	// Stand-ins for the ServiceEntries the ServiceEntry registry synthesizes from XBackends.
+	{
+		Attributes: model.ServiceAttributes{
+			Namespace: "default",
+		},
+		Ports:    ports,
+		Hostname: "secure.example.net",
+	},
+	{
+		Attributes: model.ServiceAttributes{
+			Namespace: "allowed-1",
+		},
+		Ports:    ports,
+		Hostname: "cross.example.net",
+	},
+	{
+		Attributes: model.ServiceAttributes{
+			Namespace: "default",
+		},
+		Ports:    ports,
+		Hostname: "plaintext.example.net",
+	},
+	{
+		Attributes: model.ServiceAttributes{
+			Namespace: "default",
+		},
+		Ports:    ports,
+		Hostname: "tcp.example.net",
+	},
 	{
 		Attributes: model.ServiceAttributes{
 			Namespace: "istio-system",
@@ -806,6 +835,7 @@ func TestConvertResources(t *testing.T) {
 			),
 		},
 		{name: "backend-tls-client-cert"},
+		{name: "xbackend"},
 	}
 	test.SetForTest(t, &features.EnableGatewayAPIGatewayClassController, false)
 	test.SetForTest(t, &features.EnableGatewayAPIInferenceExtension, true)
@@ -885,6 +915,7 @@ func setupClientCRDs(t *testing.T, kc kube.CLIClient) {
 		gvr.TCPRoute,
 		gvr.TLSRoute,
 		gvr.ServiceEntry,
+		gvr.XBackend,
 		gvr.XBackendTrafficPolicy,
 		gvr.BackendTLSPolicy,
 		gvr.InferencePool,
@@ -2077,4 +2108,42 @@ func TestListenerSetStatusTruncatesOnListenerRemoval(t *testing.T) {
 	// With the fix, the orphaned "stale" entry is pruned and status matches the 2 spec
 	// listeners. Without the fix, status stays at 3.
 	assert.EventuallyEqual(t, statusListenerCount, 2)
+}
+
+// XBackend is an alpha Gateway API resource. With PILOT_ENABLE_ALPHA_GATEWAY_API off, no
+// DestinationRule may be derived from one, and routes referencing one must be told why.
+func TestXBackendAlphaDisabled(t *testing.T) {
+	test.SetForTest(t, &features.EnableGatewayAPIGatewayClassController, false)
+	test.SetForTest(t, &features.EnableAlphaGatewayAPI, false)
+	validator := crdvalidation.NewIstioValidator(t)
+	stop := test.NewStop(t)
+
+	input := readConfig(t, "testdata/xbackend.yaml", validator, nil)
+	kc := kube.NewFakeClient(input...)
+	setupClientCRDs(t, kc)
+	cg := core.NewConfigGenTest(t, core.TestOptions{Services: services})
+
+	dbg := &krt.DebugHandler{}
+	dumpOnFailure(t, dbg)
+	ctrl := NewController(kc, AlwaysReady, controller.Options{DomainSuffix: "domain.suffix", KrtDebugger: dbg}, nil)
+	sq := &TestStatusQueue{state: map[status.Resource]any{}}
+	go ctrl.Run(stop)
+	kc.RunAndWait(stop)
+	ctrl.Reconcile(cg.PushContext())
+	kube.WaitForCacheSync("test", stop, ctrl.HasSynced)
+	for _, st := range ctrl.status.SetQueue(sq) {
+		st.WaitUntilSynced(stop)
+	}
+
+	if drs := ctrl.List(gvk.DestinationRule, ""); len(drs) != 0 {
+		t.Fatalf("expected no DestinationRules with the alpha API disabled, got %v", drs)
+	}
+
+	dump := sq.Dump()
+	if strings.Contains(dump, "kind: XBackend") {
+		t.Errorf("expected no XBackend status with the alpha API disabled, got:\n%s", dump)
+	}
+	if !strings.Contains(dump, "PILOT_ENABLE_ALPHA_GATEWAY_API") {
+		t.Errorf("expected routes to explain that the alpha API is disabled, got:\n%s", dump)
+	}
 }
