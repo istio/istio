@@ -429,8 +429,9 @@ func shouldRespondDelta(con *Connection, request *discovery.DeltaDiscoveryReques
 	con.proxy.UpdateWatchedResource(request.TypeUrl, func(wr *model.WatchedResource) *model.WatchedResource {
 		if requiresResourceNamesModification(request.TypeUrl) && wr.Wildcard {
 			// As on initial requests, wildcard subscriptions to generator-managed types do not
-			// store ResourceNames; track subscription changes without persisting the names.
-			_, _, subChanged = deltaWatchedResources(nil, request)
+			// store ResourceNames. With no stored set to diff against, any named (un)subscription
+			// counts as a change.
+			subChanged = len(request.ResourceNamesSubscribe) > 0 || len(request.ResourceNamesUnsubscribe) > 0
 			wr.ResourceNames = nil
 		} else {
 			wr.ResourceNames, _, subChanged = deltaWatchedResources(wr.ResourceNames, request)

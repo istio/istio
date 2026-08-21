@@ -273,6 +273,7 @@ func TestWorkloadReconnect(t *testing.T) {
 		// memory for nothing.
 		for name, typeURL := range map[string]string{"address": v3.AddressType, "workload": v3.WorkloadType} {
 			t.Run(name, func(t *testing.T) {
+				test.SetForTest(t, &features.EnableUnsafeAssertions, true)
 				expect := buildExpect(t)
 				s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
 					KubernetesObjects: []runtime.Object{mkPod("pod", "sa", "127.0.0.1", "not-node")},
@@ -305,6 +306,14 @@ func TestWorkloadReconnect(t *testing.T) {
 				// path; it must not accumulate names either.
 				ads.Request(&discovery.DeltaDiscoveryRequest{
 					ResourceNamesSubscribe: []string{"Kubernetes//Pod/default/pod"},
+				})
+				expect(ads.ExpectResponse(), "Kubernetes//Pod/default/pod")
+				assertNoWatchedNames()
+
+				// A spontaneous unsubscription has no stored set to diff against; it must still
+				// be detected as a change rather than tripping the subscription-change assertion.
+				ads.Request(&discovery.DeltaDiscoveryRequest{
+					ResourceNamesUnsubscribe: []string{"Kubernetes//Pod/default/pod"},
 				})
 				expect(ads.ExpectResponse(), "Kubernetes//Pod/default/pod")
 				assertNoWatchedNames()
