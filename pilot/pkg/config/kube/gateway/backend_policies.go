@@ -74,11 +74,11 @@ func (t TypedNamespacedNamePerHost) String() string {
 }
 
 type BackendPolicy struct {
-	Source      TypedNamespacedName
-	TargetIndex int
-	Target      TypedNamespacedName
-	Host        string
-	SectionName *string
+	Source       TypedNamespacedName
+	TargetIndex  int
+	Target       TypedNamespacedName
+	Host         string
+	SectionName  *string
 	Port         *uint32
 	TLS          *networking.ClientTLSSettings
 	LoadBalancer *networking.LoadBalancerSettings
@@ -347,9 +347,9 @@ func BackendResourcePolicyCollection(
 				}
 			} else if tls := backendResourceTLSSettings(ctx, i, conds, references); tls != nil {
 				res = append(res, BackendPolicy{
-					Source: self,
-					Target: self,
-					Host:   string(i.Spec.ExternalHostname.Hostname),
+					Source:       self,
+					Target:       self,
+					Host:         string(i.Spec.ExternalHostname.Hostname),
 					Port:         new(uint32(i.Spec.Port.Port)),
 					TLS:          tls,
 					CreationTime: i.CreationTimestamp.Time,
