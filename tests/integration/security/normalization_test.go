@@ -176,6 +176,10 @@ func TestNormalization(t *testing.T) {
 						{`/app//../../admin`, `/admin`},
 						{`/%c0%2e%c0%2e/admin`, `/%c0.%c0./admin`},
 						{`/%c0%2fadmin`, `/%c0/admin`},
+						// Envoy strips "..;"/".;" path-parameter segments down to ".."/"."
+						// before dot-segment collapsing (envoy.reloadable_features.strip_dotdot_segments_with_parameters),
+						// so this is treated the same as "/../admin".
+						{`/..;/admin`, `/admin`},
 					},
 				},
 				{
@@ -198,7 +202,6 @@ func TestNormalization(t *testing.T) {
 						{`/%c0%afadmin`, `/%c0%afadmin`},
 						{`/.../admin`, `/.../admin`},
 						{`/..../admin`, `/..../admin`},
-						{`/..;/admin`, `/..;/admin`},
 						{`/;/admin`, `/;/admin`},
 						{`/admin;a=b`, `/admin;a=b`},
 						{`/admin;a=b/xyz`, `/admin;a=b/xyz`},
