@@ -74,11 +74,12 @@ func (t TypedNamespacedNamePerHost) String() string {
 }
 
 type BackendPolicy struct {
-	Source       TypedNamespacedName
-	TargetIndex  int
-	Target       TypedNamespacedName
-	Host         string
-	SectionName  *string
+	Source      TypedNamespacedName
+	TargetIndex int
+	Target      TypedNamespacedName
+	Host        string
+	SectionName *string
+	Port         *uint32
 	TLS          *networking.ClientTLSSettings
 	LoadBalancer *networking.LoadBalancerSettings
 	RetryBudget  *networking.TrafficPolicy_RetryBudget
@@ -123,6 +124,7 @@ var TypedNamespacedNamePerHostIndexCollectionFunc = krt.WithIndexCollectionFromS
 func (b BackendPolicy) Equals(other BackendPolicy) bool {
 	return b.Source == other.Source &&
 		ptr.Equal(b.SectionName, other.SectionName) &&
+		ptr.Equal(b.Port, other.Port) &&
 		protoconv.Equals(b.TLS, other.TLS) &&
 		protoconv.Equals(b.LoadBalancer, other.LoadBalancer) &&
 		protoconv.Equals(b.RetryBudget, other.RetryBudget)
@@ -187,10 +189,19 @@ func DestinationRuleCollection(
 				TrafficPolicy: &networking.TrafficPolicy{},
 			}
 			portLevelSettings := make(map[string]*networking.TrafficPolicy_PortTrafficPolicy)
+			numberedPortSettings := make(map[uint32]*networking.TrafficPolicy_PortTrafficPolicy)
 			parents := make([]string, 0, len(pols))
 			for _, pol := range pols {
 				if pol.TLS != nil {
-					if pol.SectionName != nil {
+					if pol.Port != nil {
+						// Port-specific TLS setting with a resolved port number.
+						if _, exists := numberedPortSettings[*pol.Port]; !exists {
+							numberedPortSettings[*pol.Port] = &networking.TrafficPolicy_PortTrafficPolicy{
+								Port: &networking.PortSelector{Number: *pol.Port},
+								Tls:  pol.TLS,
+							}
+						}
+					} else if pol.SectionName != nil {
 						// Port-specific TLS setting
 						portName := *pol.SectionName
 						if _, exists := portLevelSettings[portName]; !exists {
@@ -277,6 +288,13 @@ func DestinationRuleCollection(
 				}
 				spec.TrafficPolicy.PortLevelSettings = append(spec.TrafficPolicy.PortLevelSettings, portPolicy)
 			}
+			for _, portPolicy := range numberedPortSettings {
+				spec.TrafficPolicy.PortLevelSettings = append(spec.TrafficPolicy.PortLevelSettings, portPolicy)
+			}
+			spec.TrafficPolicy.PortLevelSettings = slices.SortBy(spec.TrafficPolicy.PortLevelSettings,
+				func(p *networking.TrafficPolicy_PortTrafficPolicy) uint32 {
+					return p.GetPort().GetNumber()
+				})
 
 			return &config.Config{
 				Meta: config.Meta{
@@ -329,9 +347,10 @@ func BackendResourcePolicyCollection(
 				}
 			} else if tls := backendResourceTLSSettings(ctx, i, conds, references); tls != nil {
 				res = append(res, BackendPolicy{
-					Source:       self,
-					Target:       self,
-					Host:         string(i.Spec.ExternalHostname.Hostname),
+					Source: self,
+					Target: self,
+					Host:   string(i.Spec.ExternalHostname.Hostname),
+					Port:         new(uint32(i.Spec.Port.Port)),
 					TLS:          tls,
 					CreationTime: i.CreationTimestamp.Time,
 				})
