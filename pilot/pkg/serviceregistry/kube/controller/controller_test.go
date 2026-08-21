@@ -2843,6 +2843,20 @@ func TestServiceUpdateNeedsPush(t *testing.T) {
 			Ports: []corev1.ServicePort{{Port: 80, TargetPort: intstr.FromInt32(8081)}},
 		},
 	}
+	nodePortSvc := corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "istio-ingressgateway",
+			Namespace:   "istio-system",
+			Annotations: map[string]string{annotation.TrafficNodeSelector.Name: "{}"},
+		},
+		Spec: corev1.ServiceSpec{
+			Type:  corev1.ServiceTypeNodePort,
+			Ports: []corev1.ServicePort{{Port: 80, TargetPort: intstr.FromInt32(8080), NodePort: 30080}},
+		},
+	}
+	updatedNodePortSvc := *nodePortSvc.DeepCopy()
+	updatedNodePortSvc.Spec.Ports = []corev1.ServicePort{{Port: 80, TargetPort: intstr.FromInt32(8080), NodePort: 30081}}
+
 	tests = append(tests,
 		testcase{
 			name:     "target ports changed",
@@ -2858,6 +2872,22 @@ func TestServiceUpdateNeedsPush(t *testing.T) {
 			curr:     &svc,
 			prevConv: kube.ConvertService(svc, nil, constants.DefaultClusterLocalDomain, "", ""),
 			currConv: kube.ConvertService(svc, nil, constants.DefaultClusterLocalDomain, "", ""),
+			expect:   false,
+		},
+		testcase{
+			name:     "node ports changed",
+			prev:     &nodePortSvc,
+			curr:     &updatedNodePortSvc,
+			prevConv: kube.ConvertService(nodePortSvc, nil, constants.DefaultClusterLocalDomain, "cluster-1", ""),
+			currConv: kube.ConvertService(updatedNodePortSvc, nil, constants.DefaultClusterLocalDomain, "cluster-1", ""),
+			expect:   true,
+		},
+		testcase{
+			name:     "node ports unchanged",
+			prev:     &nodePortSvc,
+			curr:     &nodePortSvc,
+			prevConv: kube.ConvertService(nodePortSvc, nil, constants.DefaultClusterLocalDomain, "cluster-1", ""),
+			currConv: kube.ConvertService(nodePortSvc, nil, constants.DefaultClusterLocalDomain, "cluster-1", ""),
 			expect:   false,
 		})
 

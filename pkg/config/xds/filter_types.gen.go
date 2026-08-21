@@ -132,6 +132,7 @@ import (
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/ai_protocol_manager/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/alternate_protocols_cache/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/api_key_auth/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/aws_eventstream_parser/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/aws_lambda/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/aws_request_signing/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/bandwidth_limit/v3"

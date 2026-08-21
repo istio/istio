@@ -85,6 +85,7 @@ func NestedJoinWithMergeCollection[T any](collections Collection[Collection[T]],
 			merge:          merge,
 			synced:         synced,
 			stop:           o.stop,
+			debugger:       o.debugger,
 		},
 		collections: ics,
 		regs:        make(map[collectionUID]HandlerRegistration),
@@ -142,6 +143,12 @@ func NestedJoinWithMergeCollection[T any](collections Collection[Collection[T]],
 }
 
 func (j *nestedjoinmerge[T]) runQueue(initialCollections []Collection[T], subscriptionFunc func([]Event[T]), reg HandlerRegistration) {
+	defer maybeUnregisterCollectionFromDebugger(j, j.debugger)
+	// We subscribed to the container collection (reg) and to each sub-collection (j.regs); all of
+	// these may outlive us. Once we are stopped, unregister them (and their goroutines) so we don't
+	// leak them.
+	defer j.unregisterAll(reg)
+
 	// Wait for the container of collections to be synced before we start processing events.
 	if !j.collections.WaitUntilSynced(j.stop) {
 		return
@@ -166,6 +173,21 @@ func (j *nestedjoinmerge[T]) runQueue(initialCollections []Collection[T], subscr
 		return
 	}
 	j.queue.Run(j.stop)
+}
+
+// unregisterAll unregisters the container collection subscription along with all currently tracked
+// sub-collection subscriptions. It is safe to call once the collection has stopped; after
+// unregistering the container subscription no new sub-collection subscriptions can be added.
+func (j *nestedjoinmerge[T]) unregisterAll(containerReg HandlerRegistration) {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	// Unregister the container subscription first so no further sub-collection subscriptions are added.
+	containerReg.UnregisterHandler()
+	for uid, reg := range j.regs {
+		reg.UnregisterHandler()
+		// we need to delete the entry to play nice with handleCollectionDelete
+		delete(j.regs, uid)
+	}
 }
 
 func (j *nestedjoinmerge[T]) handleCollectionUpdate(e Event[Collection[T]]) {

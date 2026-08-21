@@ -245,7 +245,7 @@ func (m MergedVirtualService) ResourceName() string {
 }
 
 func (m MergedVirtualService) Equals(other MergedVirtualService) bool {
-	return m.Config.Equals(other.Config)
+	return m.Config.Equals(other.Config) && m.ExportTo.Equals(other.ExportTo)
 }
 
 func mergeVirtualServices(

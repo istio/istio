@@ -37,6 +37,20 @@ type listenerOwner struct {
 	name      string
 }
 
+const (
+	ownerKindGateway     = "Gateway"
+	ownerKindListenerSet = "ListenerSet"
+)
+
+// ConflictOwner keys recorded conflicts by the owner's kind as well as its namespace and name.
+// Kind is part of the key on purpose: a Gateway and a ListenerSet may legally share a namespace
+// and name, and keying by namespace/name alone made such a pair read each other's conflict
+// entries, marking winning listeners as conflicted.
+type ConflictOwner struct {
+	Kind string
+	types.NamespacedName
+}
+
 // EligibleListenerSetsForConflict filters attached ListenerSets to those allowed on the Gateway.
 // Ineligible sets are excluded so they cannot mark allowed listeners as conflicted.
 func EligibleListenerSetsForConflict(
@@ -59,12 +73,12 @@ func EligibleListenerSetsForConflict(
 func ComputeGatewayListenerConflicts(
 	parent *gatewayv1.Gateway,
 	eligible []*gatewayv1.ListenerSet,
-) map[types.NamespacedName]map[gatewayv1.SectionName]gatewayv1.ListenerConditionReason {
+) map[ConflictOwner]map[gatewayv1.SectionName]gatewayv1.ListenerConditionReason {
 	if parent == nil {
 		return nil
 	}
 	ordered := orderedMergedListeners(parent, eligible)
-	conflicts := map[types.NamespacedName]map[gatewayv1.SectionName]gatewayv1.ListenerConditionReason{}
+	conflicts := map[ConflictOwner]map[gatewayv1.SectionName]gatewayv1.ListenerConditionReason{}
 	accepted := make([]gatewayv1.Listener, 0, len(ordered))
 	for _, entry := range ordered {
 		if prior, ok := firstConflictingPrior(entry.listener, accepted); ok {
@@ -89,16 +103,16 @@ func firstConflictingPrior(listener gatewayv1.Listener, accepted []gatewayv1.Lis
 
 // recordListenerConflict records a conflict reason for a Gateway or ListenerSet listener.
 func recordListenerConflict(
-	conflicts map[types.NamespacedName]map[gatewayv1.SectionName]gatewayv1.ListenerConditionReason,
+	conflicts map[ConflictOwner]map[gatewayv1.SectionName]gatewayv1.ListenerConditionReason,
 	owner listenerOwner,
 	name gatewayv1.SectionName,
 	reason gatewayv1.ListenerConditionReason,
 ) {
-	nsn := types.NamespacedName{Namespace: owner.namespace, Name: owner.name}
-	if conflicts[nsn] == nil {
-		conflicts[nsn] = map[gatewayv1.SectionName]gatewayv1.ListenerConditionReason{}
+	key := ConflictOwner{Kind: owner.kind, NamespacedName: types.NamespacedName{Namespace: owner.namespace, Name: owner.name}}
+	if conflicts[key] == nil {
+		conflicts[key] = map[gatewayv1.SectionName]gatewayv1.ListenerConditionReason{}
 	}
-	conflicts[nsn][name] = reason
+	conflicts[key][name] = reason
 }
 
 // orderedMergedListeners returns Gateway listeners followed by ListenerSet listeners in merge precedence order.
@@ -114,7 +128,7 @@ func orderedMergedListeners(parent *gatewayv1.Gateway, attached []*gatewayv1.Lis
 		out = append(out, mergedListener{
 			listener: l,
 			owner: listenerOwner{
-				kind:      "Gateway",
+				kind:      ownerKindGateway,
 				namespace: parent.Namespace,
 				name:      parent.Name,
 			},
@@ -135,7 +149,7 @@ func orderedMergedListeners(parent *gatewayv1.Gateway, attached []*gatewayv1.Lis
 
 	for _, set := range sets {
 		owner := listenerOwner{
-			kind:      "ListenerSet",
+			kind:      ownerKindListenerSet,
 			namespace: set.Namespace,
 			name:      set.Name,
 		}

@@ -449,7 +449,7 @@ func TestAmbientIndex_WorkloadEntries_DisableK8SServiceSelectWorkloadEntries(t *
 			s := newAmbientTestServerWithFlags(t, testC, testNW, FeatureFlags{
 				DefaultAllowFromWaypoint:              features.DefaultAllowFromWaypoint,
 				EnableK8SServiceSelectWorkloadEntries: false,
-			}, "")
+			}, "", true)
 
 			s.addWorkloadEntries(t, "127.0.0.1", "name1", "sa1", map[string]string{"app": "a"})
 			s.assertEvent(t, s.wleXdsName("name1"))

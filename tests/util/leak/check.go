@@ -267,8 +267,18 @@ func interestingGoroutine(g string) (*goroutine, error) {
 // interestingGoroutines returns all goroutines we care about for the purpose
 // of leak checking. It excludes testing or runtime ones.
 func interestingGoroutines() ([]*goroutine, error) {
+	// runtime.Stack truncates the dump to the buffer size instead of growing it. For
+	// goroutine-heavy tests the full dump can exceed a fixed buffer, and a truncated dump
+	// yields a partial goroutine chunk that fails to parse. Grow the buffer until it fits.
 	buf := make([]byte, 2<<20)
-	buf = buf[:runtime.Stack(buf, true)]
+	for {
+		n := runtime.Stack(buf, true)
+		if n < len(buf) {
+			buf = buf[:n]
+			break
+		}
+		buf = make([]byte, 2*len(buf))
+	}
 	var gs []*goroutine
 	for _, g := range strings.Split(string(buf), "\n\n") {
 		gr, err := interestingGoroutine(g)

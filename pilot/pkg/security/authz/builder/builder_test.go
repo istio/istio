@@ -436,7 +436,7 @@ func convertTCP(in []*listener.Filter) []proto.Message {
 }
 
 func newAuthzPolicies(t *testing.T, policies []*config.Config) *model.AuthorizationPolicies {
-	store := memory.Make(collections.Pilot)
+	store := memory.Make(collections.Pilot, false, test.NewStop(t))
 	for _, p := range policies {
 		if _, err := store.Create(*p); err != nil {
 			t.Fatalf("newAuthzPolicies: %v", err)

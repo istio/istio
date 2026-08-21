@@ -936,11 +936,49 @@ spec:
                                 - simple
                               - required:
                                 - consistentHash
+                              - required:
+                                - backendUtilization
                           - required:
                             - simple
                           - required:
                             - consistentHash
+                          - required:
+                            - backendUtilization
                           properties:
+                            backendUtilization:
+                              description: Utilization-based load balancing that uses
+                                backend-reported ORCA metrics to weight endpoints
+                                by their current load.
+                              properties:
+                                errorUtilizationPenaltyPercent:
+                                  description: Additional penalty applied to endpoints
+                                    that return errors, expressed as a percentage
+                                    of the utilization.
+                                  maximum: 4294967295
+                                  minimum: 0
+                                  type: integer
+                                metricNamesForComputingUtilization:
+                                  description: Custom ORCA metric names used to compute
+                                    utilization.
+                                  items:
+                                    type: string
+                                  type: array
+                                weightExpirationPeriod:
+                                  description: If an endpoint stops reporting utilization
+                                    metrics for this long, its reported weight is
+                                    discarded and it reverts to the default (equal)
+                                    weight.
+                                  type: string
+                                weightStabilizationPeriod:
+                                  description: Duration after an endpoint first reports
+                                    metrics before its weight is trusted.
+                                  type: string
+                                weightUpdatePeriod:
+                                  description: How often the load balancer recomputes
+                                    endpoint weights from the latest reported utilization
+                                    data.
+                                  type: string
+                              type: object
                             consistentHash:
                               allOf:
                               - oneOf:
@@ -1167,6 +1205,7 @@ spec:
                                   description: Minimum number of hosts in the upstream
                                     cluster's local region required for zone-aware
                                     load balancing to be enabled.
+                                  maximum: 4294967295
                                   minimum: 1
                                   nullable: true
                                   type: integer
@@ -1221,6 +1260,14 @@ spec:
                                 `minHealthPercent` hosts in healthy mode.
                               format: int32
                               type: integer
+                            outlierDetectionHttpErrorCodes:
+                              description: Specifies the HTTP response status codes
+                                that are treated as outlier detection errors.
+                              items:
+                                maximum: 599
+                                minimum: 100
+                                type: integer
+                              type: array
                             splitExternalLocalOriginErrors:
                               description: Determines whether to distinguish local
                                 origin failures from external errors.
@@ -1376,11 +1423,49 @@ spec:
                                       - simple
                                     - required:
                                       - consistentHash
+                                    - required:
+                                      - backendUtilization
                                 - required:
                                   - simple
                                 - required:
                                   - consistentHash
+                                - required:
+                                  - backendUtilization
                                 properties:
+                                  backendUtilization:
+                                    description: Utilization-based load balancing
+                                      that uses backend-reported ORCA metrics to weight
+                                      endpoints by their current load.
+                                    properties:
+                                      errorUtilizationPenaltyPercent:
+                                        description: Additional penalty applied to
+                                          endpoints that return errors, expressed
+                                          as a percentage of the utilization.
+                                        maximum: 4294967295
+                                        minimum: 0
+                                        type: integer
+                                      metricNamesForComputingUtilization:
+                                        description: Custom ORCA metric names used
+                                          to compute utilization.
+                                        items:
+                                          type: string
+                                        type: array
+                                      weightExpirationPeriod:
+                                        description: If an endpoint stops reporting
+                                          utilization metrics for this long, its reported
+                                          weight is discarded and it reverts to the
+                                          default (equal) weight.
+                                        type: string
+                                      weightStabilizationPeriod:
+                                        description: Duration after an endpoint first
+                                          reports metrics before its weight is trusted.
+                                        type: string
+                                      weightUpdatePeriod:
+                                        description: How often the load balancer recomputes
+                                          endpoint weights from the latest reported
+                                          utilization data.
+                                        type: string
+                                    type: object
                                   consistentHash:
                                     allOf:
                                     - oneOf:
@@ -1613,6 +1698,7 @@ spec:
                                         description: Minimum number of hosts in the
                                           upstream cluster's local region required
                                           for zone-aware load balancing to be enabled.
+                                        maximum: 4294967295
                                         minimum: 1
                                         nullable: true
                                         type: integer
@@ -1671,6 +1757,15 @@ spec:
                                       mode.
                                     format: int32
                                     type: integer
+                                  outlierDetectionHttpErrorCodes:
+                                    description: Specifies the HTTP response status
+                                      codes that are treated as outlier detection
+                                      errors.
+                                    items:
+                                      maximum: 599
+                                      minimum: 100
+                                      type: integer
+                                    type: array
                                   splitExternalLocalOriginErrors:
                                     description: Determines whether to distinguish
                                       local origin failures from external errors.
@@ -1996,11 +2091,45 @@ spec:
                           - simple
                         - required:
                           - consistentHash
+                        - required:
+                          - backendUtilization
                     - required:
                       - simple
                     - required:
                       - consistentHash
+                    - required:
+                      - backendUtilization
                     properties:
+                      backendUtilization:
+                        description: Utilization-based load balancing that uses backend-reported
+                          ORCA metrics to weight endpoints by their current load.
+                        properties:
+                          errorUtilizationPenaltyPercent:
+                            description: Additional penalty applied to endpoints that
+                              return errors, expressed as a percentage of the utilization.
+                            maximum: 4294967295
+                            minimum: 0
+                            type: integer
+                          metricNamesForComputingUtilization:
+                            description: Custom ORCA metric names used to compute
+                              utilization.
+                            items:
+                              type: string
+                            type: array
+                          weightExpirationPeriod:
+                            description: If an endpoint stops reporting utilization
+                              metrics for this long, its reported weight is discarded
+                              and it reverts to the default (equal) weight.
+                            type: string
+                          weightStabilizationPeriod:
+                            description: Duration after an endpoint first reports
+                              metrics before its weight is trusted.
+                            type: string
+                          weightUpdatePeriod:
+                            description: How often the load balancer recomputes endpoint
+                              weights from the latest reported utilization data.
+                            type: string
+                        type: object
                       consistentHash:
                         allOf:
                         - oneOf:
@@ -2222,6 +2351,7 @@ spec:
                             description: Minimum number of hosts in the upstream cluster's
                               local region required for zone-aware load balancing
                               to be enabled.
+                            maximum: 4294967295
                             minimum: 1
                             nullable: true
                             type: integer
@@ -2276,6 +2406,14 @@ spec:
                           hosts in healthy mode.
                         format: int32
                         type: integer
+                      outlierDetectionHttpErrorCodes:
+                        description: Specifies the HTTP response status codes that
+                          are treated as outlier detection errors.
+                        items:
+                          maximum: 599
+                          minimum: 100
+                          type: integer
+                        type: array
                       splitExternalLocalOriginErrors:
                         description: Determines whether to distinguish local origin
                           failures from external errors.
@@ -2428,11 +2566,49 @@ spec:
                                 - simple
                               - required:
                                 - consistentHash
+                              - required:
+                                - backendUtilization
                           - required:
                             - simple
                           - required:
                             - consistentHash
+                          - required:
+                            - backendUtilization
                           properties:
+                            backendUtilization:
+                              description: Utilization-based load balancing that uses
+                                backend-reported ORCA metrics to weight endpoints
+                                by their current load.
+                              properties:
+                                errorUtilizationPenaltyPercent:
+                                  description: Additional penalty applied to endpoints
+                                    that return errors, expressed as a percentage
+                                    of the utilization.
+                                  maximum: 4294967295
+                                  minimum: 0
+                                  type: integer
+                                metricNamesForComputingUtilization:
+                                  description: Custom ORCA metric names used to compute
+                                    utilization.
+                                  items:
+                                    type: string
+                                  type: array
+                                weightExpirationPeriod:
+                                  description: If an endpoint stops reporting utilization
+                                    metrics for this long, its reported weight is
+                                    discarded and it reverts to the default (equal)
+                                    weight.
+                                  type: string
+                                weightStabilizationPeriod:
+                                  description: Duration after an endpoint first reports
+                                    metrics before its weight is trusted.
+                                  type: string
+                                weightUpdatePeriod:
+                                  description: How often the load balancer recomputes
+                                    endpoint weights from the latest reported utilization
+                                    data.
+                                  type: string
+                              type: object
                             consistentHash:
                               allOf:
                               - oneOf:
@@ -2659,6 +2835,7 @@ spec:
                                   description: Minimum number of hosts in the upstream
                                     cluster's local region required for zone-aware
                                     load balancing to be enabled.
+                                  maximum: 4294967295
                                   minimum: 1
                                   nullable: true
                                   type: integer
@@ -2713,6 +2890,14 @@ spec:
                                 `minHealthPercent` hosts in healthy mode.
                               format: int32
                               type: integer
+                            outlierDetectionHttpErrorCodes:
+                              description: Specifies the HTTP response status codes
+                                that are treated as outlier detection errors.
+                              items:
+                                maximum: 599
+                                minimum: 100
+                                type: integer
+                              type: array
                             splitExternalLocalOriginErrors:
                               description: Determines whether to distinguish local
                                 origin failures from external errors.
@@ -3189,11 +3374,49 @@ spec:
                                 - simple
                               - required:
                                 - consistentHash
+                              - required:
+                                - backendUtilization
                           - required:
                             - simple
                           - required:
                             - consistentHash
+                          - required:
+                            - backendUtilization
                           properties:
+                            backendUtilization:
+                              description: Utilization-based load balancing that uses
+                                backend-reported ORCA metrics to weight endpoints
+                                by their current load.
+                              properties:
+                                errorUtilizationPenaltyPercent:
+                                  description: Additional penalty applied to endpoints
+                                    that return errors, expressed as a percentage
+                                    of the utilization.
+                                  maximum: 4294967295
+                                  minimum: 0
+                                  type: integer
+                                metricNamesForComputingUtilization:
+                                  description: Custom ORCA metric names used to compute
+                                    utilization.
+                                  items:
+                                    type: string
+                                  type: array
+                                weightExpirationPeriod:
+                                  description: If an endpoint stops reporting utilization
+                                    metrics for this long, its reported weight is
+                                    discarded and it reverts to the default (equal)
+                                    weight.
+                                  type: string
+                                weightStabilizationPeriod:
+                                  description: Duration after an endpoint first reports
+                                    metrics before its weight is trusted.
+                                  type: string
+                                weightUpdatePeriod:
+                                  description: How often the load balancer recomputes
+                                    endpoint weights from the latest reported utilization
+                                    data.
+                                  type: string
+                              type: object
                             consistentHash:
                               allOf:
                               - oneOf:
@@ -3420,6 +3643,7 @@ spec:
                                   description: Minimum number of hosts in the upstream
                                     cluster's local region required for zone-aware
                                     load balancing to be enabled.
+                                  maximum: 4294967295
                                   minimum: 1
                                   nullable: true
                                   type: integer
@@ -3474,6 +3698,14 @@ spec:
                                 `minHealthPercent` hosts in healthy mode.
                               format: int32
                               type: integer
+                            outlierDetectionHttpErrorCodes:
+                              description: Specifies the HTTP response status codes
+                                that are treated as outlier detection errors.
+                              items:
+                                maximum: 599
+                                minimum: 100
+                                type: integer
+                              type: array
                             splitExternalLocalOriginErrors:
                               description: Determines whether to distinguish local
                                 origin failures from external errors.
@@ -3629,11 +3861,49 @@ spec:
                                       - simple
                                     - required:
                                       - consistentHash
+                                    - required:
+                                      - backendUtilization
                                 - required:
                                   - simple
                                 - required:
                                   - consistentHash
+                                - required:
+                                  - backendUtilization
                                 properties:
+                                  backendUtilization:
+                                    description: Utilization-based load balancing
+                                      that uses backend-reported ORCA metrics to weight
+                                      endpoints by their current load.
+                                    properties:
+                                      errorUtilizationPenaltyPercent:
+                                        description: Additional penalty applied to
+                                          endpoints that return errors, expressed
+                                          as a percentage of the utilization.
+                                        maximum: 4294967295
+                                        minimum: 0
+                                        type: integer
+                                      metricNamesForComputingUtilization:
+                                        description: Custom ORCA metric names used
+                                          to compute utilization.
+                                        items:
+                                          type: string
+                                        type: array
+                                      weightExpirationPeriod:
+                                        description: If an endpoint stops reporting
+                                          utilization metrics for this long, its reported
+                                          weight is discarded and it reverts to the
+                                          default (equal) weight.
+                                        type: string
+                                      weightStabilizationPeriod:
+                                        description: Duration after an endpoint first
+                                          reports metrics before its weight is trusted.
+                                        type: string
+                                      weightUpdatePeriod:
+                                        description: How often the load balancer recomputes
+                                          endpoint weights from the latest reported
+                                          utilization data.
+                                        type: string
+                                    type: object
                                   consistentHash:
                                     allOf:
                                     - oneOf:
@@ -3866,6 +4136,7 @@ spec:
                                         description: Minimum number of hosts in the
                                           upstream cluster's local region required
                                           for zone-aware load balancing to be enabled.
+                                        maximum: 4294967295
                                         minimum: 1
                                         nullable: true
                                         type: integer
@@ -3924,6 +4195,15 @@ spec:
                                       mode.
                                     format: int32
                                     type: integer
+                                  outlierDetectionHttpErrorCodes:
+                                    description: Specifies the HTTP response status
+                                      codes that are treated as outlier detection
+                                      errors.
+                                    items:
+                                      maximum: 599
+                                      minimum: 100
+                                      type: integer
+                                    type: array
                                   splitExternalLocalOriginErrors:
                                     description: Determines whether to distinguish
                                       local origin failures from external errors.
@@ -4249,11 +4529,45 @@ spec:
                           - simple
                         - required:
                           - consistentHash
+                        - required:
+                          - backendUtilization
                     - required:
                       - simple
                     - required:
                       - consistentHash
+                    - required:
+                      - backendUtilization
                     properties:
+                      backendUtilization:
+                        description: Utilization-based load balancing that uses backend-reported
+                          ORCA metrics to weight endpoints by their current load.
+                        properties:
+                          errorUtilizationPenaltyPercent:
+                            description: Additional penalty applied to endpoints that
+                              return errors, expressed as a percentage of the utilization.
+                            maximum: 4294967295
+                            minimum: 0
+                            type: integer
+                          metricNamesForComputingUtilization:
+                            description: Custom ORCA metric names used to compute
+                              utilization.
+                            items:
+                              type: string
+                            type: array
+                          weightExpirationPeriod:
+                            description: If an endpoint stops reporting utilization
+                              metrics for this long, its reported weight is discarded
+                              and it reverts to the default (equal) weight.
+                            type: string
+                          weightStabilizationPeriod:
+                            description: Duration after an endpoint first reports
+                              metrics before its weight is trusted.
+                            type: string
+                          weightUpdatePeriod:
+                            description: How often the load balancer recomputes endpoint
+                              weights from the latest reported utilization data.
+                            type: string
+                        type: object
                       consistentHash:
                         allOf:
                         - oneOf:
@@ -4475,6 +4789,7 @@ spec:
                             description: Minimum number of hosts in the upstream cluster's
                               local region required for zone-aware load balancing
                               to be enabled.
+                            maximum: 4294967295
                             minimum: 1
                             nullable: true
                             type: integer
@@ -4529,6 +4844,14 @@ spec:
                           hosts in healthy mode.
                         format: int32
                         type: integer
+                      outlierDetectionHttpErrorCodes:
+                        description: Specifies the HTTP response status codes that
+                          are treated as outlier detection errors.
+                        items:
+                          maximum: 599
+                          minimum: 100
+                          type: integer
+                        type: array
                       splitExternalLocalOriginErrors:
                         description: Determines whether to distinguish local origin
                           failures from external errors.
@@ -4681,11 +5004,49 @@ spec:
                                 - simple
                               - required:
                                 - consistentHash
+                              - required:
+                                - backendUtilization
                           - required:
                             - simple
                           - required:
                             - consistentHash
+                          - required:
+                            - backendUtilization
                           properties:
+                            backendUtilization:
+                              description: Utilization-based load balancing that uses
+                                backend-reported ORCA metrics to weight endpoints
+                                by their current load.
+                              properties:
+                                errorUtilizationPenaltyPercent:
+                                  description: Additional penalty applied to endpoints
+                                    that return errors, expressed as a percentage
+                                    of the utilization.
+                                  maximum: 4294967295
+                                  minimum: 0
+                                  type: integer
+                                metricNamesForComputingUtilization:
+                                  description: Custom ORCA metric names used to compute
+                                    utilization.
+                                  items:
+                                    type: string
+                                  type: array
+                                weightExpirationPeriod:
+                                  description: If an endpoint stops reporting utilization
+                                    metrics for this long, its reported weight is
+                                    discarded and it reverts to the default (equal)
+                                    weight.
+                                  type: string
+                                weightStabilizationPeriod:
+                                  description: Duration after an endpoint first reports
+                                    metrics before its weight is trusted.
+                                  type: string
+                                weightUpdatePeriod:
+                                  description: How often the load balancer recomputes
+                                    endpoint weights from the latest reported utilization
+                                    data.
+                                  type: string
+                              type: object
                             consistentHash:
                               allOf:
                               - oneOf:
@@ -4912,6 +5273,7 @@ spec:
                                   description: Minimum number of hosts in the upstream
                                     cluster's local region required for zone-aware
                                     load balancing to be enabled.
+                                  maximum: 4294967295
                                   minimum: 1
                                   nullable: true
                                   type: integer
@@ -4966,6 +5328,14 @@ spec:
                                 `minHealthPercent` hosts in healthy mode.
                               format: int32
                               type: integer
+                            outlierDetectionHttpErrorCodes:
+                              description: Specifies the HTTP response status codes
+                                that are treated as outlier detection errors.
+                              items:
+                                maximum: 599
+                                minimum: 100
+                                type: integer
+                              type: array
                             splitExternalLocalOriginErrors:
                               description: Determines whether to distinguish local
                                 origin failures from external errors.
@@ -5442,11 +5812,49 @@ spec:
                                 - simple
                               - required:
                                 - consistentHash
+                              - required:
+                                - backendUtilization
                           - required:
                             - simple
                           - required:
                             - consistentHash
+                          - required:
+                            - backendUtilization
                           properties:
+                            backendUtilization:
+                              description: Utilization-based load balancing that uses
+                                backend-reported ORCA metrics to weight endpoints
+                                by their current load.
+                              properties:
+                                errorUtilizationPenaltyPercent:
+                                  description: Additional penalty applied to endpoints
+                                    that return errors, expressed as a percentage
+                                    of the utilization.
+                                  maximum: 4294967295
+                                  minimum: 0
+                                  type: integer
+                                metricNamesForComputingUtilization:
+                                  description: Custom ORCA metric names used to compute
+                                    utilization.
+                                  items:
+                                    type: string
+                                  type: array
+                                weightExpirationPeriod:
+                                  description: If an endpoint stops reporting utilization
+                                    metrics for this long, its reported weight is
+                                    discarded and it reverts to the default (equal)
+                                    weight.
+                                  type: string
+                                weightStabilizationPeriod:
+                                  description: Duration after an endpoint first reports
+                                    metrics before its weight is trusted.
+                                  type: string
+                                weightUpdatePeriod:
+                                  description: How often the load balancer recomputes
+                                    endpoint weights from the latest reported utilization
+                                    data.
+                                  type: string
+                              type: object
                             consistentHash:
                               allOf:
                               - oneOf:
@@ -5673,6 +6081,7 @@ spec:
                                   description: Minimum number of hosts in the upstream
                                     cluster's local region required for zone-aware
                                     load balancing to be enabled.
+                                  maximum: 4294967295
                                   minimum: 1
                                   nullable: true
                                   type: integer
@@ -5727,6 +6136,14 @@ spec:
                                 `minHealthPercent` hosts in healthy mode.
                               format: int32
                               type: integer
+                            outlierDetectionHttpErrorCodes:
+                              description: Specifies the HTTP response status codes
+                                that are treated as outlier detection errors.
+                              items:
+                                maximum: 599
+                                minimum: 100
+                                type: integer
+                              type: array
                             splitExternalLocalOriginErrors:
                               description: Determines whether to distinguish local
                                 origin failures from external errors.
@@ -5882,11 +6299,49 @@ spec:
                                       - simple
                                     - required:
                                       - consistentHash
+                                    - required:
+                                      - backendUtilization
                                 - required:
                                   - simple
                                 - required:
                                   - consistentHash
+                                - required:
+                                  - backendUtilization
                                 properties:
+                                  backendUtilization:
+                                    description: Utilization-based load balancing
+                                      that uses backend-reported ORCA metrics to weight
+                                      endpoints by their current load.
+                                    properties:
+                                      errorUtilizationPenaltyPercent:
+                                        description: Additional penalty applied to
+                                          endpoints that return errors, expressed
+                                          as a percentage of the utilization.
+                                        maximum: 4294967295
+                                        minimum: 0
+                                        type: integer
+                                      metricNamesForComputingUtilization:
+                                        description: Custom ORCA metric names used
+                                          to compute utilization.
+                                        items:
+                                          type: string
+                                        type: array
+                                      weightExpirationPeriod:
+                                        description: If an endpoint stops reporting
+                                          utilization metrics for this long, its reported
+                                          weight is discarded and it reverts to the
+                                          default (equal) weight.
+                                        type: string
+                                      weightStabilizationPeriod:
+                                        description: Duration after an endpoint first
+                                          reports metrics before its weight is trusted.
+                                        type: string
+                                      weightUpdatePeriod:
+                                        description: How often the load balancer recomputes
+                                          endpoint weights from the latest reported
+                                          utilization data.
+                                        type: string
+                                    type: object
                                   consistentHash:
                                     allOf:
                                     - oneOf:
@@ -6119,6 +6574,7 @@ spec:
                                         description: Minimum number of hosts in the
                                           upstream cluster's local region required
                                           for zone-aware load balancing to be enabled.
+                                        maximum: 4294967295
                                         minimum: 1
                                         nullable: true
                                         type: integer
@@ -6177,6 +6633,15 @@ spec:
                                       mode.
                                     format: int32
                                     type: integer
+                                  outlierDetectionHttpErrorCodes:
+                                    description: Specifies the HTTP response status
+                                      codes that are treated as outlier detection
+                                      errors.
+                                    items:
+                                      maximum: 599
+                                      minimum: 100
+                                      type: integer
+                                    type: array
                                   splitExternalLocalOriginErrors:
                                     description: Determines whether to distinguish
                                       local origin failures from external errors.
@@ -6502,11 +6967,45 @@ spec:
                           - simple
                         - required:
                           - consistentHash
+                        - required:
+                          - backendUtilization
                     - required:
                       - simple
                     - required:
                       - consistentHash
+                    - required:
+                      - backendUtilization
                     properties:
+                      backendUtilization:
+                        description: Utilization-based load balancing that uses backend-reported
+                          ORCA metrics to weight endpoints by their current load.
+                        properties:
+                          errorUtilizationPenaltyPercent:
+                            description: Additional penalty applied to endpoints that
+                              return errors, expressed as a percentage of the utilization.
+                            maximum: 4294967295
+                            minimum: 0
+                            type: integer
+                          metricNamesForComputingUtilization:
+                            description: Custom ORCA metric names used to compute
+                              utilization.
+                            items:
+                              type: string
+                            type: array
+                          weightExpirationPeriod:
+                            description: If an endpoint stops reporting utilization
+                              metrics for this long, its reported weight is discarded
+                              and it reverts to the default (equal) weight.
+                            type: string
+                          weightStabilizationPeriod:
+                            description: Duration after an endpoint first reports
+                              metrics before its weight is trusted.
+                            type: string
+                          weightUpdatePeriod:
+                            description: How often the load balancer recomputes endpoint
+                              weights from the latest reported utilization data.
+                            type: string
+                        type: object
                       consistentHash:
                         allOf:
                         - oneOf:
@@ -6728,6 +7227,7 @@ spec:
                             description: Minimum number of hosts in the upstream cluster's
                               local region required for zone-aware load balancing
                               to be enabled.
+                            maximum: 4294967295
                             minimum: 1
                             nullable: true
                             type: integer
@@ -6782,6 +7282,14 @@ spec:
                           hosts in healthy mode.
                         format: int32
                         type: integer
+                      outlierDetectionHttpErrorCodes:
+                        description: Specifies the HTTP response status codes that
+                          are treated as outlier detection errors.
+                        items:
+                          maximum: 599
+                          minimum: 100
+                          type: integer
+                        type: array
                       splitExternalLocalOriginErrors:
                         description: Determines whether to distinguish local origin
                           failures from external errors.
@@ -6934,11 +7442,49 @@ spec:
                                 - simple
                               - required:
                                 - consistentHash
+                              - required:
+                                - backendUtilization
                           - required:
                             - simple
                           - required:
                             - consistentHash
+                          - required:
+                            - backendUtilization
                           properties:
+                            backendUtilization:
+                              description: Utilization-based load balancing that uses
+                                backend-reported ORCA metrics to weight endpoints
+                                by their current load.
+                              properties:
+                                errorUtilizationPenaltyPercent:
+                                  description: Additional penalty applied to endpoints
+                                    that return errors, expressed as a percentage
+                                    of the utilization.
+                                  maximum: 4294967295
+                                  minimum: 0
+                                  type: integer
+                                metricNamesForComputingUtilization:
+                                  description: Custom ORCA metric names used to compute
+                                    utilization.
+                                  items:
+                                    type: string
+                                  type: array
+                                weightExpirationPeriod:
+                                  description: If an endpoint stops reporting utilization
+                                    metrics for this long, its reported weight is
+                                    discarded and it reverts to the default (equal)
+                                    weight.
+                                  type: string
+                                weightStabilizationPeriod:
+                                  description: Duration after an endpoint first reports
+                                    metrics before its weight is trusted.
+                                  type: string
+                                weightUpdatePeriod:
+                                  description: How often the load balancer recomputes
+                                    endpoint weights from the latest reported utilization
+                                    data.
+                                  type: string
+                              type: object
                             consistentHash:
                               allOf:
                               - oneOf:
@@ -7165,6 +7711,7 @@ spec:
                                   description: Minimum number of hosts in the upstream
                                     cluster's local region required for zone-aware
                                     load balancing to be enabled.
+                                  maximum: 4294967295
                                   minimum: 1
                                   nullable: true
                                   type: integer
@@ -7219,6 +7766,14 @@ spec:
                                 `minHealthPercent` hosts in healthy mode.
                               format: int32
                               type: integer
+                            outlierDetectionHttpErrorCodes:
+                              description: Specifies the HTTP response status codes
+                                that are treated as outlier detection errors.
+                              items:
+                                maximum: 599
+                                minimum: 100
+                                type: integer
+                              type: array
                             splitExternalLocalOriginErrors:
                               description: Determines whether to distinguish local
                                 origin failures from external errors.
@@ -7655,6 +8210,10 @@ spec:
                                 transportProtocol:
                                   description: Applies only to `SIDECAR_INBOUND` context.
                                   type: string
+                                transportSocket:
+                                  description: If non-empty, the name of the transport
+                                    socket the filter chain is configured with.
+                                  type: string
                               type: object
                             listenerFilter:
                               description: Match a specific listener filter.
@@ -8074,6 +8633,12 @@ spec:
                           maxItems: 2
                           minItems: 1
                           type: array
+                        ecdhCurves:
+                          description: 'Optional: If specified, only support the specified
+                            ecdh curves.'
+                          items:
+                            type: string
+                          type: array
                         httpsRedirect:
                           description: If set to true, the load balancer will send
                             a 301 redirect for all http connections, asking the clients
@@ -8355,6 +8920,12 @@ spec:
                           maxItems: 2
                           minItems: 1
                           type: array
+                        ecdhCurves:
+                          description: 'Optional: If specified, only support the specified
+                            ecdh curves.'
+                          items:
+                            type: string
+                          type: array
                         httpsRedirect:
                           description: If set to true, the load balancer will send
                             a 301 redirect for all http connections, asking the clients
@@ -8635,6 +9206,12 @@ spec:
                             type: string
                           maxItems: 2
                           minItems: 1
+                          type: array
+                        ecdhCurves:
+                          description: 'Optional: If specified, only support the specified
+                            ecdh curves.'
+                          items:
+                            type: string
                           type: array
                         httpsRedirect:
                           description: If set to true, the load balancer will send
@@ -10307,6 +10884,12 @@ spec:
                           maxItems: 2
                           minItems: 1
                           type: array
+                        ecdhCurves:
+                          description: 'Optional: If specified, only support the specified
+                            ecdh curves.'
+                          items:
+                            type: string
+                          type: array
                         httpsRedirect:
                           description: If set to true, the load balancer will send
                             a 301 redirect for all http connections, asking the clients
@@ -10928,6 +11511,12 @@ spec:
                           maxItems: 2
                           minItems: 1
                           type: array
+                        ecdhCurves:
+                          description: 'Optional: If specified, only support the specified
+                            ecdh curves.'
+                          items:
+                            type: string
+                          type: array
                         httpsRedirect:
                           description: If set to true, the load balancer will send
                             a 301 redirect for all http connections, asking the clients
@@ -11548,6 +12137,12 @@ spec:
                             type: string
                           maxItems: 2
                           minItems: 1
+                          type: array
+                        ecdhCurves:
+                          description: 'Optional: If specified, only support the specified
+                            ecdh curves.'
+                          items:
+                            type: string
                           type: array
                         httpsRedirect:
                           description: If set to true, the load balancer will send
@@ -17706,6 +18301,15 @@ spec:
                       description: This field specifies the header name to output
                         a successfully verified JWT payload to the backend.
                       type: string
+                    presence:
+                      description: |-
+                        Configures whether the JWT token must be present in the request.
+
+                        Valid Options: OPTIONAL, REQUIRED
+                      enum:
+                      - OPTIONAL
+                      - REQUIRED
+                      type: string
                     spaceDelimitedClaims:
                       description: List of JWT claim names that should be treated
                         as space-delimited strings.
@@ -17994,6 +18598,15 @@ spec:
                     outputPayloadToHeader:
                       description: This field specifies the header name to output
                         a successfully verified JWT payload to the backend.
+                      type: string
+                    presence:
+                      description: |-
+                        Configures whether the JWT token must be present in the request.
+
+                        Valid Options: OPTIONAL, REQUIRED
+                      enum:
+                      - OPTIONAL
+                      - REQUIRED
                       type: string
                     spaceDelimitedClaims:
                       description: List of JWT claim names that should be treated

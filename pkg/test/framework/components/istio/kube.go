@@ -287,6 +287,16 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 
 	// Execute External Control Plane Installer Script
 	if cfg.ControlPlaneInstaller != "" && !cfg.DeployIstio {
+		// For multicluster, create and push the CA certs to all clusters to establish a shared root of trust.
+		if i.env.IsMultiCluster() {
+			scopes.Framework.Infof("=== BEGIN: Execute Control Plane Installer Multi-Cluster configuration ===")
+			if err := i.deployCACerts(); err != nil {
+				scopes.Framework.Errorf("Execute Control Plane Installer Multi-Cluster configuration failed on: %v", err)
+				scopes.Framework.Infof("=== FAILED: Execute Control Plane Installer Multi-Cluster configuration ===")
+				return nil, err
+			}
+		}
+
 		scopes.Framework.Infof("=== BEGIN: Execute Control Plane Installer ===")
 		cmd := exec.Command(cfg.ControlPlaneInstaller, "install", workDir)
 		output, err := cmd.CombinedOutput()
@@ -297,6 +307,42 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		}
 		scopes.Framework.Debugf("Control Plane Installer output:\n%s", string(output))
 		scopes.Framework.Infof("=== DONE: Execute Control Plane Installer ===")
+
+		if i.env.IsMultiCluster() {
+			scopes.Framework.Infof("=== BEGIN: Execute Control Plane Installer Multi-Cluster configuration ===")
+			if !cfg.SkipDeployCrossClusterSecrets {
+				if err := i.configureDirectAPIServerAccess(false); err != nil {
+					scopes.Framework.Errorf("Execute Control Plane Installer Multi-Cluster configuration failed on: %v", err)
+					scopes.Framework.Infof("=== FAILED: Execute Control Plane Installer Multi-Cluster configuration ===")
+					return nil, err
+				}
+			}
+
+			if i.env.IsMultiNetwork() {
+				for _, c := range ctx.Clusters().Remotes() {
+					if i.ctx.Settings().Ambient {
+						name := types.NamespacedName{Name: eastWestGatewayName, Namespace: i.cfg.SystemNamespace}
+						_ = i.CustomIngressFor(c, name, eastWestGatewayLabel).DiscoveryAddresses()
+					} else {
+						name := types.NamespacedName{Name: eastWestIngressServiceName, Namespace: i.cfg.SystemNamespace}
+						_ = i.CustomIngressFor(c, name, eastWestIngressIstioLabel).DiscoveryAddresses()
+					}
+				}
+
+				if !i.ctx.Settings().Ambient {
+					for _, c := range ctx.Clusters().Configs() {
+						if err := i.exposeUserServices(c); err != nil {
+							scopes.Framework.Errorf("Execute Control Plane Installer Multi-Cluster configuration failed on: %v", err)
+							scopes.Framework.Infof("=== FAILED: Execute Control Plane Installer Multi-Cluster configuration ===")
+							return nil, err
+						}
+					}
+				}
+			}
+			scopes.Framework.Infof("=== DONE: Execute Control Plane Installer Multi-Cluster configuration ===")
+		}
+
+		return i, nil
 	}
 
 	if !cfg.DeployIstio {

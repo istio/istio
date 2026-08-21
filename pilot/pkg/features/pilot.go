@@ -103,6 +103,11 @@ var (
 	EnableDebugEndpointAuth = env.Register("ENABLE_DEBUG_ENDPOINT_AUTH", true,
 		"Enforce namespace-based authorization on debug endpoints. Non-system namespaces restricted to config_dump/ndsz/edsz for same-namespace proxies only.").Get()
 
+	EnableXDSAPIGeneratorAuth = env.Register("ENABLE_XDS_API_GENERATOR_AUTH", true,
+		"If enabled, the XDS 'api' generator (MCP-over-xDS config serving) is restricted to callers with a verified "+
+			"control-plane (root namespace) identity. Prevents an unauthenticated client on the plaintext xDS port, or a "+
+			"workload in an unrelated namespace on the mTLS port, from reading cluster-wide Istio config.").Get()
+
 	DebugEndpointAuthAllowedNamespaces = func() sets.String {
 		v := env.Register(
 			"DEBUG_ENDPOINT_AUTH_ALLOWED_NAMESPACES",
@@ -203,15 +208,6 @@ var (
 			"These checks are both expensive and panic on failure. As a result, this should be used only for testing.",
 	).Get()
 
-	// EnableUnsafeDeltaTest enables runtime checks to test Delta XDS efficiency. This should never be enabled in
-	// production.
-	EnableUnsafeDeltaTest = env.Register(
-		"UNSAFE_PILOT_ENABLE_DELTA_TEST",
-		false,
-		"If enabled, addition runtime tests for Delta XDS efficiency are added. "+
-			"These checks are extremely expensive, so this should be used only for testing, not production.",
-	).Get()
-
 	SharedMeshConfig = env.Register("SHARED_MESH_CONFIG", "",
 		"Additional config map to load for shared MeshConfig settings. The standard mesh config will take precedence.").Get()
 
@@ -226,6 +222,14 @@ var (
 
 	MulticlusterHeadlessEnabled = env.Register("ENABLE_MULTICLUSTER_HEADLESS", true,
 		"If true, the DNS name table for a headless service will resolve to same-network endpoints in any cluster.").Get()
+
+	// EnableHeadlessFilterChainListener controls whether headless TCP services use a single wildcard
+	// 0.0.0.0:Port listener with per-pod /32 CIDR filter chain matches, rather than a separate
+	// per-pod-IP listener. The single-listener approach reduces xDS size by ~10% for large
+	// headless services and keeps Envoy listener count at O(1) per headless service port.
+	EnableHeadlessFilterChainListener = env.Register("PILOT_ENABLE_HEADLESS_FILTER_CHAIN_LISTENER", false,
+		"If true, headless TCP services use a single wildcard listener with per-pod /32 CIDR filter chain matches "+
+			"instead of one listener per pod IP. Reduces xDS size and listener count for large headless services.").Get()
 
 	ResolveHostnameGateways = env.Register("RESOLVE_HOSTNAME_GATEWAYS", true,
 		"If true, hostnames in the LoadBalancer addresses of a Service will be resolved at the control plane for use in cross-network gateways.").Get()
@@ -387,6 +391,35 @@ var (
 		return blockedCIDRs
 	}()
 
+	// BlockedCIDRsInWasmFetch is additive to the always-on link-local block applied to Wasm
+	// module fetches (see pkg/wasm/ssrf.go); it lets operators also block private ranges or
+	// specific in-cluster addresses (e.g. the Kubernetes API server or kubelet) if their
+	// environment does not need to fetch Wasm modules from internal registries/servers.
+	BlockedCIDRsInWasmFetch = func() []*net.IPNet {
+		v := env.Register(
+			"BLOCKED_CIDRS_IN_WASM_FETCH",
+			"",
+			"Comma separated list of CIDR ranges that are blocked when fetching Wasm modules (e.g., 10.0.0.0/8,192.168.1.0/24).").Get()
+		if v == "" {
+			return nil
+		}
+		cidrs := strings.Split(v, ",")
+		var blockedCIDRs []*net.IPNet
+		for _, cidr := range cidrs {
+			cidr = strings.TrimSpace(cidr)
+			if cidr == "" {
+				continue
+			}
+			_, ipNet, err := net.ParseCIDR(cidr)
+			if err != nil {
+				log.Warnf("Failed to parse CIDR range %q: %v", cidr, err)
+				continue
+			}
+			blockedCIDRs = append(blockedCIDRs, ipNet)
+		}
+		return blockedCIDRs
+	}()
+
 	// GatewayTransportSocketConnectTimeout specifies the timeout for transport socket (e.g., TLS
 	// handshake) connections on gateway listeners. This protects against slow or incomplete TLS
 	// handshakes consuming resources. Set to 0s to disable the timeout entirely.
@@ -419,7 +452,7 @@ var (
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.
 func UnsafeFeaturesEnabled() bool {
-	return EnableUnsafeAdminEndpoints || EnableUnsafeAssertions || EnableUnsafeDeltaTest
+	return EnableUnsafeAdminEndpoints || EnableUnsafeAssertions
 }
 
 type NativeSidecarMode int

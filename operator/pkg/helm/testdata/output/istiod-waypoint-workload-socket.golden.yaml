@@ -255,7 +255,7 @@ data:
           - name: istio-init
           {{ end -}}
           {{- if contains "/" (annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy_init.image) }}
-            image: "{{ annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy_init.image }}"
+            image: {{ annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy_init.image | quote }}
           {{- else }}
             image: "{{ .ProxyInitImage }}"
           {{- end }}
@@ -300,7 +300,7 @@ data:
             - "-c"
             - "{{ index .ObjectMeta.Annotations `traffic.sidecar.istio.io/excludeInterfaces` }}"
             {{ end -}}
-            - "--log_output_level={{ annotation .ObjectMeta `sidecar.istio.io/agentLogLevel` .Values.global.logging.level }}"
+            - {{ printf "--log_output_level=%s" (annotation .ObjectMeta `sidecar.istio.io/agentLogLevel` .Values.global.logging.level) | quote }}
             {{ if .Values.global.logAsJson -}}
             - "--log_as_json"
             {{ end -}}
@@ -356,7 +356,7 @@ data:
           {{ end }}
           - name: istio-proxy
           {{- if contains "/" (annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image) }}
-            image: "{{ annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image }}"
+            image: {{ annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image | quote }}
           {{- else }}
             image: "{{ .ProxyImage }}"
           {{- end }}
@@ -370,9 +370,9 @@ data:
             - sidecar
             - --domain
             - $(POD_NAMESPACE).svc.{{ .Values.global.proxy.clusterDomain }}
-            - --proxyLogLevel={{ annotation .ObjectMeta `sidecar.istio.io/logLevel` .Values.global.proxy.logLevel }}
-            - --proxyComponentLogLevel={{ annotation .ObjectMeta `sidecar.istio.io/componentLogLevel` .Values.global.proxy.componentLogLevel }}
-            - --log_output_level={{ annotation .ObjectMeta `sidecar.istio.io/agentLogLevel` .Values.global.logging.level }}
+            - {{ printf "--proxyLogLevel=%s" (annotation .ObjectMeta `sidecar.istio.io/logLevel` .Values.global.proxy.logLevel) | quote }}
+            - {{ printf "--proxyComponentLogLevel=%s" (annotation .ObjectMeta `sidecar.istio.io/componentLogLevel` .Values.global.proxy.componentLogLevel) | quote }}
+            - {{ printf "--log_output_level=%s" (annotation .ObjectMeta `sidecar.istio.io/agentLogLevel` .Values.global.logging.level) | quote }}
           {{- if .Values.global.sts.servicePort }}
             - --stsPort={{ .Values.global.sts.servicePort }}
           {{- end }}
@@ -464,11 +464,6 @@ data:
               valueFrom:
                 resourceFieldRef:
                   resource: limits.memory
-                  divisor: "1"
-            - name: GOMAXPROCS
-              valueFrom:
-                resourceFieldRef:
-                  resource: limits.cpu
                   divisor: "1"
             {{- if .CompliancePolicy }}
             - name: COMPLIANCE_POLICY
@@ -659,7 +654,7 @@ data:
           {{- if (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapOverride`) }}
           - name: custom-bootstrap-volume
             configMap:
-              name: {{ annotation .ObjectMeta `sidecar.istio.io/bootstrapOverride` "" }}
+              name: {{ annotation .ObjectMeta `sidecar.istio.io/bootstrapOverride` "" | quote }}
           {{- end }}
           # SDS channel between istioagent and Envoy
           - emptyDir:
@@ -758,7 +753,7 @@ data:
           containers:
           - name: istio-proxy
           {{- if contains "/" (annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image) }}
-            image: "{{ annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image }}"
+            image: {{ annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image | quote }}
           {{- else }}
             image: "{{ .ProxyImage }}"
           {{- end }}
@@ -771,9 +766,9 @@ data:
             - router
             - --domain
             - $(POD_NAMESPACE).svc.{{ .Values.global.proxy.clusterDomain }}
-            - --proxyLogLevel={{ annotation .ObjectMeta `sidecar.istio.io/logLevel` .Values.global.proxy.logLevel }}
-            - --proxyComponentLogLevel={{ annotation .ObjectMeta `sidecar.istio.io/componentLogLevel` .Values.global.proxy.componentLogLevel }}
-            - --log_output_level={{ annotation .ObjectMeta `sidecar.istio.io/agentLogLevel` .Values.global.logging.level }}
+            - {{ printf "--proxyLogLevel=%s" (annotation .ObjectMeta `sidecar.istio.io/logLevel` .Values.global.proxy.logLevel) | quote }}
+            - {{ printf "--proxyComponentLogLevel=%s" (annotation .ObjectMeta `sidecar.istio.io/componentLogLevel` .Values.global.proxy.componentLogLevel) | quote }}
+            - {{ printf "--log_output_level=%s" (annotation .ObjectMeta `sidecar.istio.io/agentLogLevel` .Values.global.logging.level) | quote }}
           {{- if .Values.global.sts.servicePort }}
             - --stsPort={{ .Values.global.sts.servicePort }}
           {{- end }}
@@ -841,11 +836,6 @@ data:
               valueFrom:
                 resourceFieldRef:
                   resource: limits.memory
-                  divisor: "1"
-            - name: GOMAXPROCS
-              valueFrom:
-                resourceFieldRef:
-                  resource: limits.cpu
                   divisor: "1"
             {{- if .CompliancePolicy }}
             - name: COMPLIANCE_POLICY
@@ -957,7 +947,7 @@ data:
           {{- if (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapOverride`) }}
           - name: custom-bootstrap-volume
             configMap:
-              name: {{ annotation .ObjectMeta `sidecar.istio.io/bootstrapOverride` "" }}
+              name: {{ annotation .ObjectMeta `sidecar.istio.io/bootstrapOverride` "" | quote }}
           {{- end }}
           # SDS channel between istioagent and Envoy
           - emptyDir:
@@ -1127,7 +1117,7 @@ data:
           containers:
           - name: istio-proxy
           {{- if contains "/" (annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image) }}
-            image: "{{ annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image }}"
+            image: {{ annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image | quote }}
           {{- else }}
             image: "{{ .ProxyImage }}"
           {{- end }}
@@ -1140,9 +1130,9 @@ data:
             - sidecar
             - --domain
             - $(POD_NAMESPACE).svc.{{ .Values.global.proxy.clusterDomain }}
-            - --proxyLogLevel={{ annotation .ObjectMeta `sidecar.istio.io/logLevel` .Values.global.proxy.logLevel }}
-            - --proxyComponentLogLevel={{ annotation .ObjectMeta `sidecar.istio.io/componentLogLevel` .Values.global.proxy.componentLogLevel }}
-            - --log_output_level={{ annotation .ObjectMeta `sidecar.istio.io/agentLogLevel` .Values.global.logging.level }}
+            - {{ printf "--proxyLogLevel=%s" (annotation .ObjectMeta `sidecar.istio.io/logLevel` .Values.global.proxy.logLevel) | quote }}
+            - {{ printf "--proxyComponentLogLevel=%s" (annotation .ObjectMeta `sidecar.istio.io/componentLogLevel` .Values.global.proxy.componentLogLevel) | quote }}
+            - {{ printf "--log_output_level=%s" (annotation .ObjectMeta `sidecar.istio.io/agentLogLevel` .Values.global.logging.level) | quote }}
           {{- if .Values.global.sts.servicePort }}
             - --stsPort={{ .Values.global.sts.servicePort }}
           {{- end }}
@@ -1336,7 +1326,7 @@ data:
           {{- if (isset .ObjectMeta.Annotations `sidecar.istio.io/bootstrapOverride`) }}
           - name: custom-bootstrap-volume
             configMap:
-              name: {{ annotation .ObjectMeta `sidecar.istio.io/bootstrapOverride` "" }}
+              name: {{ annotation .ObjectMeta `sidecar.istio.io/bootstrapOverride` "" | quote }}
           {{- end }}
           # SDS channel between istioagent and Envoy
           - emptyDir:
@@ -1500,7 +1490,7 @@ data:
                   protocol: TCP
                   name: http-envoy-prom
                 {{- if contains "/" (annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image) }}
-                image: "{{ annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image }}"
+                image: {{ annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image | quote }}
                 {{- else }}
                 image: "{{ .ProxyImage }}"
                 {{- end }}
@@ -1579,11 +1569,6 @@ data:
                   valueFrom:
                     resourceFieldRef:
                       resource: limits.memory
-                      divisor: "1"
-                - name: GOMAXPROCS
-                  valueFrom:
-                    resourceFieldRef:
-                      resource: limits.cpu
                       divisor: "1"
                 - name: ISTIO_META_CLUSTER_ID
                   value: "{{ valueOrDefault .Values.global.multiCluster.clusterName `Kubernetes` }}"
@@ -1893,7 +1878,7 @@ data:
               containers:
               - name: istio-proxy
               {{- if contains "/" (annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image) }}
-                image: "{{ annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image }}"
+                image: {{ annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image | quote }}
               {{- else }}
                 image: "{{ .ProxyImage }}"
               {{- end }}
@@ -1988,11 +1973,6 @@ data:
                   valueFrom:
                     resourceFieldRef:
                       resource: limits.memory
-                      divisor: "1"
-                - name: GOMAXPROCS
-                  valueFrom:
-                    resourceFieldRef:
-                      resource: limits.cpu
                       divisor: "1"
                 - name: ISTIO_META_CLUSTER_ID
                   value: "{{ valueOrDefault .Values.global.multiCluster.clusterName .ClusterID }}"

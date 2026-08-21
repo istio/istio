@@ -15,8 +15,6 @@
 package nodeagent
 
 import (
-	"io/fs"
-
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -38,9 +36,6 @@ func isNotNumber(r rune) bool {
 }
 
 type PodNetnsEntry struct {
-	uid                types.UID
-	netns              fs.File
-	netnsfd            uintptr
-	inode              uint64
-	ownerProcStarttime uint64
+	uid   types.UID
+	netns NetnsCloser
 }

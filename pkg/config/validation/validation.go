@@ -89,31 +89,6 @@ const (
 )
 
 var (
-	// envoy supported retry on header values
-	supportedRetryOnPolicies = sets.New(
-		// 'x-envoy-retry-on' supported policies:
-		// https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_filters/router_filter.html#x-envoy-retry-on
-		"5xx",
-		"gateway-error",
-		"reset",
-		"reset-before-request",
-		"connect-failure",
-		"retriable-4xx",
-		"refused-stream",
-		"retriable-status-codes",
-		"retriable-headers",
-		"envoy-ratelimited",
-		"http3-post-connect-failure",
-
-		// 'x-envoy-retry-grpc-on' supported policies:
-		// https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_filters/router_filter#x-envoy-retry-grpc-on
-		"cancelled",
-		"deadline-exceeded",
-		"internal",
-		"resource-exhausted",
-		"unavailable",
-	)
-
 	// golang supported methods: https://golang.org/src/net/http/method.go
 	supportedCORSMethods = sets.New[string](
 		http.MethodGet,
@@ -2699,40 +2674,6 @@ func validatePortSelector(selector *networking.PortSelector) (errs error) {
 	// port must be a number
 	number := int(selector.GetNumber())
 	errs = appendErrors(errs, agent.ValidatePort(number))
-	return errs
-}
-
-func validateHTTPRetry(retries *networking.HTTPRetry) (errs error) {
-	if retries == nil {
-		return errs
-	}
-
-	if retries.Attempts < 0 {
-		errs = multierror.Append(errs, errors.New("attempts cannot be negative"))
-	}
-
-	if retries.Attempts == 0 && (retries.PerTryTimeout != nil || retries.RetryOn != "" || retries.RetryRemoteLocalities != nil) {
-		errs = appendErrors(errs, errors.New("http retry policy configured when attempts are set to 0 (disabled)"))
-	}
-
-	if retries.PerTryTimeout != nil {
-		errs = appendErrors(errs, agent.ValidateDuration(retries.PerTryTimeout))
-	}
-	if retries.RetryOn != "" {
-		retryOnPolicies := strings.Split(retries.RetryOn, ",")
-		for _, policy := range retryOnPolicies {
-			// Try converting it to an integer to see if it's a valid HTTP status code.
-			i, _ := strconv.Atoi(policy)
-
-			if http.StatusText(i) == "" && !supportedRetryOnPolicies.Contains(policy) {
-				errs = appendErrors(errs, fmt.Errorf("%q is not a valid retryOn policy", policy))
-			}
-		}
-	}
-	if retries.Backoff != nil {
-		errs = appendErrors(errs, agent.ValidateDuration(retries.Backoff))
-	}
-
 	return errs
 }
 

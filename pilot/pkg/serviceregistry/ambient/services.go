@@ -31,7 +31,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/serviceentry"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
@@ -89,7 +88,7 @@ func (a Builder) ServicesCollection(
 	})
 
 	WorkloadServices := krt.NewManyCollection(
-		allTypedServiceInfosByHostname.AsCollection(),
+		allTypedServiceInfosByHostname.AsCollection(opts.WithName("AllTypedServiceInfosByHostname")...),
 		func(ctx krt.HandlerContext, ios krt.IndexObject[string, TypedServiceInfo]) []model.ServiceInfo {
 			if len(ios.Objects) == 0 {
 				return nil
@@ -146,7 +145,7 @@ func selectWorkloadServices(typedServiceInfos []TypedServiceInfo) []model.Servic
 		}
 	}
 	if canonical != nil {
-		bestByNamespace[canonical.GetNamespace()] = setCanonical(canonical)
+		bestByNamespace[canonical.GetNamespace()] = setCanonical(*canonical)
 	}
 
 	return maps.Values(bestByNamespace)
@@ -173,7 +172,8 @@ func GlobalNestedWorkloadServicesCollection(
 	LocalServiceInfosWithCluster := krt.MapCollection(
 		localServiceInfos,
 		wrapObjectWithCluster[model.ServiceInfo](localCluster.ID),
-		opts.WithName("LocalServiceInfosWithCluster")...)
+		opts.WithName("LocalServiceInfosWithCluster")...,
+	)
 
 	checkServiceScope := features.EnableAmbientMultiNetwork
 
@@ -210,7 +210,8 @@ func GlobalNestedWorkloadServicesCollection(
 						return ""
 					}
 					return nw.Network
-				}, false),
+				}, false,
+			),
 				append(
 					opts,
 					krt.WithName(fmt.Sprintf("ambient/ServiceServiceInfos[%s]", cluster.ID)),
@@ -760,31 +761,18 @@ func precomputeServicePtr(w *model.ServiceInfo) *model.ServiceInfo {
 }
 
 func precomputeService(w model.ServiceInfo) model.ServiceInfo {
-	addr := serviceToAddress(w.Service)
-	w.MarshaledAddress = protoconv.MessageToAny(addr)
-	w.AsAddress = model.AddressInfo{
-		Address:   addr,
-		Marshaled: w.MarshaledAddress,
-	}
+	w.AsAddress = model.NewAddressInfo(serviceToAddress(w.Service))
+	w.MarshaledAddress = w.AsAddress.Marshaled
 	return w
 }
 
-// setCanonical sets the canonical field in a WDS service without mangling the ServiceInfo
-func setCanonical(se *model.ServiceInfo) model.ServiceInfo {
-	wdsSvc := protomarshal.ShallowClone(se.Service)
-	wdsSvc.Canonical = true
-	return precomputeService(model.ServiceInfo{
-		Service:            wdsSvc,
-		LabelSelector:      se.LabelSelector,
-		PortNames:          se.PortNames,
-		Source:             se.Source,
-		Scope:              se.Scope,
-		Waypoint:           se.Waypoint,
-		MarshaledAddress:   se.MarshaledAddress,
-		AsAddress:          se.AsAddress,
-		DNSConnectStrategy: se.DNSConnectStrategy,
-		CreationTime:       se.CreationTime,
-	})
+// setCanonical sets the canonical field in a WDS service without mangling the ServiceInfo.
+// The ServiceInfo is passed by value so every field is carried over to the returned copy; only
+// the cloned Service proto and the precomputed address fields differ from the input.
+func setCanonical(se model.ServiceInfo) model.ServiceInfo {
+	se.Service = protomarshal.ShallowClone(se.Service)
+	se.Service.Canonical = true
+	return precomputeService(se)
 }
 
 // ingressUseWaypointFromLabels returns whether the ingress-use-waypoint label is

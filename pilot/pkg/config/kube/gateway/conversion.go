@@ -59,6 +59,7 @@ import (
 	"istio.io/istio/pkg/config/security"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
@@ -1883,6 +1884,28 @@ func reportGatewayStatus(
 		gs.AttachedListenerSets = ptr.Of(int32(listenerSetCount))
 	}
 
+	if obj.Spec.TLS != nil && obj.Spec.TLS.Frontend != nil {
+		frontend := obj.Spec.TLS.Frontend
+		hasInsecure := frontend.Default.Validation != nil && frontend.Default.Validation.Mode == k8s.AllowInsecureFallback
+		if !hasInsecure {
+			for _, perPort := range frontend.PerPort {
+				if perPort.TLS.Validation != nil && perPort.TLS.Validation.Mode == k8s.AllowInsecureFallback {
+					hasInsecure = true
+					break
+				}
+			}
+		}
+		if hasInsecure {
+			gatewayConditions[string(k8s.GatewayConditionInsecureFrontendValidationMode)] = &condition{
+				status:  metav1.ConditionTrue,
+				reason:  string(k8s.GatewayReasonConfigurationChanged),
+				message: "Gateway is operating in AllowInsecureFallback mode for frontend validation",
+			}
+		} else {
+			gs.Conditions = kstatus.RemoveCondition(gs.Conditions, string(k8s.GatewayConditionInsecureFrontendValidationMode))
+		}
+	}
+
 	setProgrammedCondition(gatewayConditions, internal, gatewayServices, warnings, allUsable)
 
 	addressesToReport := external
@@ -2326,22 +2349,27 @@ func buildTLS(
 		validCertCount := 0
 		var combinedErr *ConfigError
 		for i, certRef := range tls.CertificateRefs {
-			cred, err := buildSecretReference(ctx, certRef, gw, secrets)
-			if err != nil {
-				combinedErr = joinErrors(combinedErr, err)
-				continue
-			}
 			credNs := ptr.OrDefault((*string)(certRef.Namespace), namespace)
 			sameNamespace := credNs == namespace
 			objectKind := schematypes.GvkFromObject(gw)
-			if !sameNamespace && !grants.SecretAllowed(ctx, objectKind, creds.ToResourceName(cred), namespace) {
-				combinedErr = joinErrors(combinedErr, &ConfigError{
-					Reason: InvalidListenerRefNotPermitted,
-					Message: fmt.Sprintf(
-						"certificateRef %v/%v not accessible to a Gateway in namespace %q (missing a ReferenceGrant?)",
-						certRef.Name, credNs, namespace,
-					),
-				})
+			// Authorize cross-namespace refs before resolving the target, so status never
+			// reveals whether the referent exists when no ReferenceGrant allows it (CWE-203).
+			if !sameNamespace {
+				resourceName := creds.ToResourceName(creds.ToKubernetesGatewayResource(credNs, string(certRef.Name)))
+				if !grants.SecretAllowed(ctx, objectKind, resourceName, namespace) {
+					combinedErr = joinErrors(combinedErr, &ConfigError{
+						Reason: InvalidListenerRefNotPermitted,
+						Message: fmt.Sprintf(
+							"certificateRef %v/%v not accessible to a Gateway in namespace %q (missing a ReferenceGrant?)",
+							certRef.Name, credNs, namespace,
+						),
+					})
+					continue
+				}
+			}
+			cred, err := buildSecretReference(ctx, certRef, gw, secrets)
+			if err != nil {
+				combinedErr = joinErrors(combinedErr, err)
 				continue
 			}
 			credNames[i] = cred
@@ -2358,7 +2386,6 @@ func buildTLS(
 		}
 
 		if gatewayTLS != nil && gatewayTLS.Validation != nil && len(gatewayTLS.Validation.CACertificateRefs) > 0 {
-			// TODO: add 'Mode'
 			if len(gatewayTLS.Validation.CACertificateRefs) > 1 {
 				return out, &ConfigError{
 					Reason:  InvalidCACertificateRef,
@@ -2366,27 +2393,38 @@ func buildTLS(
 				}
 			}
 			caCertRef := gatewayTLS.Validation.CACertificateRefs[0]
-			cred, err := buildCaCertificateReference(ctx, caCertRef, gw, configMaps, secrets)
-			if err != nil {
-				return out, err
-			}
-			if cred.Namespace != namespace && !grants.SecretAllowed(ctx, schematypes.GvkFromObject(gw), cred.ResourceName, namespace) {
+			// Authorize cross-namespace refs before resolving the target, so status never
+			// reveals whether the referent exists when no ReferenceGrant allows it (CWE-203).
+			caNamespace, caResourceName := caCertificateResourceName(caCertRef, gw)
+			if caNamespace != namespace && !grants.SecretAllowed(ctx, schematypes.GvkFromObject(gw), caResourceName, namespace) {
 				return out, &ConfigError{
 					Reason: InvalidListenerRefNotPermitted,
 					Message: fmt.Sprintf(
 						"caCertificateRef %v/%v not accessible to a Gateway in namespace %q (missing a ReferenceGrant?)",
-						cred.Namespace, caCertRef.Name, namespace,
+						caNamespace, caCertRef.Name, namespace,
 					),
 				}
 			}
+			cred, err := buildCaCertificateReference(ctx, caCertRef, gw, configMaps, secrets)
+			if err != nil {
+				return out, err
+			}
+
 			out.Mode = istio.ServerTLSSettings_MUTUAL
+			out.InsecureSkipVerify = proto.BoolFalse
+			if gatewayTLS.Validation.Mode == k8s.AllowInsecureFallback {
+				out.Mode = istio.ServerTLSSettings_OPTIONAL_MUTUAL
+				out.InsecureSkipVerify = proto.BoolTrue
+			}
 			out.CaCertCredentialName = cred.ResourceName
 			if tls.Options != nil {
 				switch tls.Options[gatewaycommon.GatewayTLSTerminateModeKey] {
 				case "MUTUAL":
 					out.Mode = istio.ServerTLSSettings_MUTUAL
+					out.InsecureSkipVerify = proto.BoolFalse
 				case "OPTIONAL_MUTUAL":
 					out.Mode = istio.ServerTLSSettings_OPTIONAL_MUTUAL
+					out.InsecureSkipVerify = proto.BoolFalse
 				}
 			}
 		}
@@ -2446,6 +2484,21 @@ func buildSecretReference(
 		}
 	}
 	return creds.ToKubernetesGatewayResource(secret.Namespace, secret.Name), nil
+}
+
+// caCertificateResourceName returns the CA reference's SDS resource identity
+// without fetching the referenced object, so authorization can run before
+// resolution. The returned resourceName matches SecretResource.ResourceName
+// produced by buildCaCertificateReference.
+func caCertificateResourceName(ref k8s.ObjectReference, gw controllers.Object) (namespace, resourceName string) {
+	namespace = ptr.OrDefault((*string)(ref.Namespace), gw.GetNamespace())
+	name := string(ref.Name)
+	resourceType := creds.KubernetesConfigMapType
+	if gatewaycommon.NormalizeReference(&ref.Group, &ref.Kind, config.GroupVersionKind{}) == gvk.Secret {
+		resourceType = creds.KubernetesGatewaySecretType
+	}
+	resourceName = fmt.Sprintf("%s://%s/%s%s", resourceType, namespace, name, creds.SdsCaSuffix)
+	return namespace, resourceName
 }
 
 func buildCaCertificateReference(
