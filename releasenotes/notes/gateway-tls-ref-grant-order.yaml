@@ -1,0 +1,14 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+releaseNotes:
+- |
+  **Fixed** a Gateway API issue where a cross-namespace TLS `certificateRef` or
+  `caCertificateRef` was resolved before the `ReferenceGrant` authorization
+  check, so a listener's `ResolvedRefs` status could distinguish whether the
+  referenced Secret or ConfigMap existed even when no grant permitted the
+  reference. Authorization now runs first, returning `RefNotPermitted` for any
+  ungranted cross-namespace reference.
+
+  **Credit**: This issue was reported by Darryl Jaskolski.
