@@ -70,11 +70,16 @@ func (c NetworkCollections) FetchLocalNetworkID(ctx krt.HandlerContext) network.
 // label on its system namespace. A cluster whose system namespace is absent, or carries no label, is
 // part of the default (empty) network.
 func (c NetworkCollections) FetchRemoteSystemNamespaceNetwork(ctx krt.HandlerContext, namespaces krt.Collection[*v1.Namespace]) network.ID {
-	ns := ptr.Flatten(krt.FetchOne(ctx, namespaces, krt.FilterKey(c.systemNamespace)))
-	if ns == nil {
+	nw := krt.PartialFetchComparable(ctx, namespaces, func(ns *v1.Namespace) string {
+		if ns == nil {
+			return ""
+		}
+		return ns.Labels[label.TopologyNetwork.Name]
+	}, krt.FilterKey(c.systemNamespace))
+	if len(nw) == 0 {
 		return ""
 	}
-	return network.ID(ns.Labels[label.TopologyNetwork.Name])
+	return network.ID(nw[0])
 }
 
 func (c NetworkCollections) HasSynced() bool {
