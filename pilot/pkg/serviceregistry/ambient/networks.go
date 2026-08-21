@@ -66,7 +66,7 @@ func (c ClusterNetwork) ResourceName() string {
 
 // FetchLocalNetworkID fetches the local network ID from a ClusterNetwork singleton within a KRT handler context.
 func (c NetworkCollections) FetchLocalNetworkID(ctx krt.HandlerContext) network.ID {
-	return ptr.OrEmpty(krt.FetchOne(ctx, c.LocalSystemNamespace.AsCollection())).Network
+	return ptr.OrEmpty(c.LocalSystemNamespace.AsCollection().FetchOne(ctx)).Network
 }
 
 func (c NetworkCollections) HasSynced() bool {
@@ -84,7 +84,7 @@ func buildGlobalNetworkCollections(
 	opts krt.OptionsBuilder,
 ) NetworkCollections {
 	LocalSystemNamespaceNetwork := krt.NewSingleton(func(ctx krt.HandlerContext) *ClusterNetwork {
-		ns := ptr.Flatten(krt.FetchOne(ctx, localNamespaces, krt.FilterKey(options.SystemNamespace)))
+		ns := ptr.Flatten(localNamespaces.FetchOne(ctx, krt.FilterKey(options.SystemNamespace)))
 		if ns == nil {
 			return nil
 		}
@@ -102,7 +102,7 @@ func buildGlobalNetworkCollections(
 			log.Errorf("Timed out waiting for cluster %s to sync namespaces", c.ID)
 			return nil
 		}
-		ns := ptr.Flatten(krt.FetchOne(ctx, c.Namespaces(), krt.FilterKey(options.SystemNamespace)))
+		ns := ptr.Flatten(c.Namespaces().FetchOne(ctx, krt.FilterKey(options.SystemNamespace)))
 		if ns == nil {
 			// If the namespace for the remote cluster is not found, we default to the empty string
 			// to indicate that this cluster is a part of the default network
@@ -141,7 +141,7 @@ func buildGlobalNetworkCollections(
 					multicluster.ClusterKRTMetadataKey: c.ID,
 				}),
 			}
-			gatewaysPtr := krt.FetchOne(ctx, gateways, krt.FilterIndex(gatewaysByCluster, c.ID))
+			gatewaysPtr := gateways.FetchOne(ctx, krt.FilterIndex(gatewaysByCluster, c.ID))
 			if gatewaysPtr == nil {
 				log.Warnf("No gateways found for cluster %s", c.ID)
 				return nil
@@ -211,7 +211,7 @@ func BuildNetworkCollections(
 	opts krt.OptionsBuilder,
 ) NetworkCollections {
 	SystemNamespaceNetwork := krt.NewSingleton(func(ctx krt.HandlerContext) *ClusterNetwork {
-		ns := ptr.Flatten(krt.FetchOne(ctx, namespaces, krt.FilterKey(options.SystemNamespace)))
+		ns := ptr.Flatten(namespaces.FetchOne(ctx, krt.FilterKey(options.SystemNamespace)))
 		if ns == nil {
 			return nil
 		}

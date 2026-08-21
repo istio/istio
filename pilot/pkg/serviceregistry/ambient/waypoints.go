@@ -92,7 +92,7 @@ func fetchWaypointForInstance(ctx krt.HandlerContext, Waypoints krt.Collection[W
 	if name == "" {
 		return nil
 	}
-	return krt.FetchOne[Waypoint](ctx, Waypoints, krt.FilterKey(namespace+"/"+name))
+	return Waypoints.FetchOne(ctx, krt.FilterKey(namespace+"/"+name))
 }
 
 // fetchWaypointForTarget attempts to find the waypoint that should handle traffic for a given service or workload
@@ -115,7 +115,7 @@ func fetchWaypointForTarget(
 		// the namespace-defined waypoint is ready and would not be nil... is this OK or should we handle that? Could lead to odd behavior when
 		// o was reliant on the namespace waypoint and then gets a use-waypoint label added before that gateway is ready.
 		// goes from having a waypoint to having no waypoint and then eventually gets a waypoint back
-		w := krt.FetchOne[Waypoint](ctx, waypoints, krt.FilterKey(wp.ResourceName()))
+		w := waypoints.FetchOne(ctx, krt.FilterKey(wp.ResourceName()))
 		if w != nil {
 			if !w.AllowsAttachmentFromNamespaceOrLookup(ctx, namespaces, fallbackNamespace) {
 				return nil, ReportWaypointAttachmentDenied(w.ResourceName())
@@ -127,13 +127,13 @@ func fetchWaypointForTarget(
 	}
 
 	// try fetching the namespace-defined waypoint
-	namespace := ptr.OrEmpty[*v1.Namespace](krt.FetchOne[*v1.Namespace](ctx, namespaces, krt.FilterKey(o.Namespace)))
+	namespace := ptr.OrEmpty[*v1.Namespace](namespaces.FetchOne(ctx, krt.FilterKey(o.Namespace)))
 	// this probably should never be nil. How would o exist in a namespace we know nothing about? maybe edge case of starting the controller or ns delete?
 	if namespace != nil {
 		// toss isNone, we don't need to know /why/ we got nil
 		wp, _ := GetUseWaypoint(namespace.ObjectMeta, fallbackNamespace)
 		if wp != nil {
-			w := krt.FetchOne[Waypoint](ctx, waypoints, krt.FilterKey(wp.ResourceName()))
+			w := waypoints.FetchOne(ctx, krt.FilterKey(wp.ResourceName()))
 			if w != nil {
 				if !w.AllowsAttachmentFromNamespace(namespace) {
 					return nil, ReportWaypointAttachmentDenied(w.ResourceName())
@@ -175,10 +175,10 @@ func fetchWaypointForService(ctx krt.HandlerContext, Waypoints krt.Collection[Wa
 	// ServiceEntryVisibility is nil for consumers it doesn't govern (e.g. Kubernetes Services).
 	if ServiceEntryVisibility != nil && w.Namespace != o.Namespace {
 		var nsLabels map[string]string
-		if ns := krt.FetchOne(ctx, Namespaces, krt.FilterKey(o.Namespace)); ns != nil {
+		if ns := Namespaces.FetchOne(ctx, krt.FilterKey(o.Namespace)); ns != nil {
 			nsLabels = (*ns).Labels
 		}
-		if krt.FetchOne(ctx, ServiceEntryVisibility.AsCollection()).VisibilityFor(nsLabels) == model.ServiceVisibilityNamespace {
+		if ServiceEntryVisibility.AsCollection().FetchOne(ctx).VisibilityFor(nsLabels) == model.ServiceVisibilityNamespace {
 			return nil, ReportWaypointCrossNamespaceForbidden(w.ResourceName())
 		}
 	}
@@ -279,7 +279,7 @@ func resolveCanaryWaypoint(
 	fallbackNamespace string,
 	named *krt.Named,
 ) (*Waypoint, *model.StatusMessage) {
-	w := krt.FetchOne[Waypoint](ctx, waypoints, krt.FilterKey(named.ResourceName()))
+	w := waypoints.FetchOne(ctx, krt.FilterKey(named.ResourceName()))
 	if w == nil {
 		return nil, ReportWaypointIsNotReady(named.ResourceName())
 	}
@@ -310,7 +310,7 @@ func buildWeightedWaypoints(
 	// use-waypoint of its own).
 	var nsMeta *metav1.ObjectMeta
 	if objPrimary, _ := GetUseWaypoint(o, o.Namespace); objPrimary == nil {
-		if ns := ptr.OrEmpty(krt.FetchOne(ctx, namespaces, krt.FilterKey(o.Namespace))); ns != nil {
+		if ns := ptr.OrEmpty(namespaces.FetchOne(ctx, krt.FilterKey(o.Namespace))); ns != nil {
 			nsMeta = &ns.ObjectMeta
 		}
 	}
@@ -362,7 +362,7 @@ func gatewayToWaypointTransform(
 		// default traffic type if neither GatewayClass nor Gateway specify a type
 		trafficType := constants.ServiceTraffic
 
-		gatewayClass := ptr.OrEmpty(krt.FetchOne(ctx, gatewayClasses, krt.FilterKey(string(gateway.Spec.GatewayClassName))))
+		gatewayClass := ptr.OrEmpty(gatewayClasses.FetchOne(ctx, krt.FilterKey(string(gateway.Spec.GatewayClassName))))
 		if gatewayClass == nil {
 			log.Warnf("could not find GatewayClass %s for Gateway %s/%s", gateway.Spec.GatewayClassName, gateway.Namespace, gateway.Name)
 		} else if tt, found := gatewayClass.Labels[label.IoIstioWaypointFor.Name]; found {
@@ -416,7 +416,7 @@ func GlobalWaypointsCollection(
 			// default traffic type if neither GatewayClass nor Gateway specify a type
 			trafficType := constants.ServiceTraffic
 
-			gatewayClass := ptr.OrEmpty(krt.FetchOne(ctx, gatewayClasses, krt.FilterKey(string(gateway.Spec.GatewayClassName))))
+			gatewayClass := ptr.OrEmpty(gatewayClasses.FetchOne(ctx, krt.FilterKey(string(gateway.Spec.GatewayClassName))))
 			if gatewayClass == nil {
 				log.Warnf("could not find GatewayClass %s in local cluster for Gateway %s/%s", gateway.Spec.GatewayClassName, gateway.Namespace, gateway.Name)
 			} else if tt, found := gatewayClass.Labels[label.IoIstioWaypointFor.Name]; found {
@@ -429,7 +429,7 @@ func GlobalWaypointsCollection(
 				trafficType = tt
 			}
 
-			nw := krt.FetchOne(ctx, globalNetworks.RemoteSystemNamespaceNetworks, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, c.ID))
+			nw := globalNetworks.RemoteSystemNamespaceNetworks.FetchOne(ctx, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, c.ID))
 			if nw == nil {
 				log.Warnf("Cluster %s does not have a network, skipping global workloads", c.ID)
 				return nil
@@ -561,7 +561,7 @@ func (w Waypoint) AllowsAttachmentFromNamespaceOrLookup(ctx krt.HandlerContext, 
 	case gatewayv1.NamespacesFromAll:
 		return true
 	case gatewayv1.NamespacesFromSelector:
-		ns := ptr.OrEmpty[*v1.Namespace](krt.FetchOne[*v1.Namespace](ctx, Namespaces, krt.FilterKey(namespace)))
+		ns := ptr.OrEmpty[*v1.Namespace](Namespaces.FetchOne(ctx, krt.FilterKey(namespace)))
 		return w.AllowedRoutes.Selector.Matches(labels.Set(ns.GetLabels()))
 	case gatewayv1.NamespacesFromSame:
 		return w.Namespace == namespace

@@ -58,7 +58,7 @@ func WaypointPolicyStatusCollection(
 				rootNs     string
 			)
 
-			if meshCfg := krt.FetchOne(ctx, meshConfig.AsCollection()); meshCfg != nil {
+			if meshCfg := meshConfig.AsCollection().FetchOne(ctx); meshCfg != nil {
 				rootNs = meshCfg.RootNamespace
 			}
 
@@ -80,7 +80,7 @@ func WaypointPolicyStatusCollection(
 						break
 					}
 
-					fetchedGatewayClass := ptr.Flatten(krt.FetchOne(ctx, gatewayClasses, krt.FilterKey(target.GetName())))
+					fetchedGatewayClass := ptr.Flatten(gatewayClasses.FetchOne(ctx, krt.FilterKey(target.GetName())))
 					if fetchedGatewayClass == nil {
 						reason = model.WaypointPolicyReasonTargetNotFound
 					} else {
@@ -95,7 +95,7 @@ func WaypointPolicyStatusCollection(
 						}
 					}
 				case gvk.KubernetesGateway.Kind:
-					fetchedWaypoints := krt.Fetch(ctx, waypoints, krt.FilterKey(key))
+					fetchedWaypoints := waypoints.Fetch(ctx, krt.FilterKey(key))
 					if len(fetchedWaypoints) == 1 {
 						bound = true
 						reason = model.WaypointPolicyReasonAccepted
@@ -104,7 +104,7 @@ func WaypointPolicyStatusCollection(
 						reason = model.WaypointPolicyReasonTargetNotFound
 					}
 				case gvk.Service.Kind:
-					fetchedServices := krt.Fetch(ctx, services, krt.FilterKey(key))
+					fetchedServices := services.Fetch(ctx, krt.FilterKey(key))
 					if len(fetchedServices) == 1 {
 						w, _ := fetchWaypointForService(ctx, waypoints, namespaces, nil, fetchedServices[0].ObjectMeta)
 						if w != nil {
@@ -120,7 +120,7 @@ func WaypointPolicyStatusCollection(
 						reason = model.WaypointPolicyReasonTargetNotFound
 					}
 				case gvk.ServiceEntry.Kind:
-					fetchedServiceEntries := krt.Fetch(ctx, serviceEntries, krt.FilterKey(key))
+					fetchedServiceEntries := serviceEntries.Fetch(ctx, krt.FilterKey(key))
 					if len(fetchedServiceEntries) == 1 {
 						w, _ := fetchWaypointForService(ctx, waypoints, namespaces, serviceEntryVisibility, fetchedServiceEntries[0].ObjectMeta)
 						if w != nil {
@@ -167,7 +167,7 @@ func PolicyCollections(
 	flags FeatureFlags,
 ) (krt.Collection[model.WorkloadAuthorization], krt.Collection[model.WorkloadAuthorization]) {
 	AuthzDerivedPolicies := krt.NewCollection(authzPolicies, func(ctx krt.HandlerContext, i *securityclient.AuthorizationPolicy) *model.WorkloadAuthorization {
-		meshCfg := krt.FetchOne(ctx, meshConfig.AsCollection())
+		meshCfg := meshConfig.AsCollection().FetchOne(ctx)
 		pol, status := convertAuthorizationPolicy(meshCfg.GetRootNamespace(), i)
 		if status == nil && pol == nil {
 			return nil
@@ -209,7 +209,7 @@ func PolicyCollections(
 	// requires that traffic matching *any* DENY policy is blocked, so attaching 2 polciies (the static strict policy + an exception)
 	// does not work (the traffic will be blocked despite the exception)
 	PeerAuthDerivedPolicies := krt.NewCollection(peerAuths, func(ctx krt.HandlerContext, i *securityclient.PeerAuthentication) *model.WorkloadAuthorization {
-		meshCfg := krt.FetchOne(ctx, meshConfig.AsCollection())
+		meshCfg := meshConfig.AsCollection().FetchOne(ctx)
 		// violates case #1, #2, or #3
 		if i.Namespace == meshCfg.GetRootNamespace() || i.Spec.GetSelector() == nil || len(i.Spec.PortLevelMtls) == 0 {
 			log.Debugf("skipping PeerAuthentication %s/%s for ambient since it isn't a workload policy with port level mTLS", i.Namespace, i.Name)
@@ -253,10 +253,10 @@ func PolicyCollections(
 	}, opts.WithName("DefaultAllowFromWaypointPolicies")...)
 
 	DefaultPolicy := krt.NewSingleton[model.WorkloadAuthorization](func(ctx krt.HandlerContext) *model.WorkloadAuthorization {
-		if len(krt.Fetch(ctx, peerAuths)) == 0 {
+		if len(peerAuths.Fetch(ctx)) == 0 {
 			return nil
 		}
-		meshCfg := krt.FetchOne(ctx, meshConfig.AsCollection())
+		meshCfg := meshConfig.AsCollection().FetchOne(ctx)
 		// If there are any PeerAuthentications in our cache, send our static STRICT policy
 		return &model.WorkloadAuthorization{
 			LabelSelector: model.LabelSelector{},
@@ -314,7 +314,7 @@ func implicitWaypointPolicy(
 	if !flags.DefaultAllowFromWaypoint || len(waypoint.ServiceAccounts) == 0 {
 		return nil
 	}
-	meshCfg := krt.FetchOne(ctx, MeshConfig.AsCollection())
+	meshCfg := MeshConfig.AsCollection().FetchOne(ctx)
 	return &model.WorkloadAuthorization{
 		Authorization: &security.Authorization{
 			Name:      implicitWaypointPolicyName(flags, &waypoint),

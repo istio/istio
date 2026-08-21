@@ -186,7 +186,7 @@ func GlobalNestedWorkloadServicesCollection(
 				krt.WithStop(cluster.GetStop()),
 			}
 			services := cluster.Services()
-			waypointsPtr := krt.FetchOne(ctx, globalWaypoints, krt.FilterIndex(waypointsByCluster, cluster.ID))
+			waypointsPtr := globalWaypoints.FetchOne(ctx, krt.FilterIndex(waypointsByCluster, cluster.ID))
 			if waypointsPtr == nil {
 				log.Warnf("Cluster %s does not have waypoints assigned, skipping", cluster.ID)
 				return nil
@@ -202,7 +202,7 @@ func GlobalNestedWorkloadServicesCollection(
 				false,
 				checkServiceScope,
 				func(ctx krt.HandlerContext) network.ID {
-					nw := krt.FetchOne(ctx, globalNetworks.RemoteSystemNamespaceNetworks, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, cluster.ID))
+					nw := globalNetworks.RemoteSystemNamespaceNetworks.FetchOne(ctx, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, cluster.ID))
 					if nw == nil {
 						log.Warnf("Cluster %s does not have network assigned yet, skipping", cluster.ID)
 						ctx.DiscardResult()
@@ -248,7 +248,7 @@ func serviceServiceBuilder(
 	return func(ctx krt.HandlerContext, s *v1.Service) *model.ServiceInfo {
 		serviceScope := model.Local
 		if checkServiceScope {
-			meshCfg := krt.FetchOne(ctx, meshConfig.AsCollection())
+			meshCfg := meshConfig.AsCollection().FetchOne(ctx)
 			if meshCfg != nil {
 				serviceScope = matchServiceScope(ctx, meshCfg, namespaces, s)
 			}
@@ -274,7 +274,7 @@ func serviceServiceBuilder(
 				TargetPortName: p.TargetPort.StrVal,
 			}
 		}
-		ns := krt.FetchOne(ctx, namespaces, krt.FilterKey(s.Namespace))
+		ns := namespaces.FetchOne(ctx, krt.FilterKey(s.Namespace))
 		waypointStatus := model.WaypointBindingStatus{}
 		waypoint, wperr := fetchWaypointForService(ctx, waypoints, namespaces, nil, s.ObjectMeta)
 		if waypoint != nil {
@@ -364,7 +364,7 @@ func matchServiceScope(ctx krt.HandlerContext, meshCfg *MeshConfig, namespaces k
 		}
 
 		// Get labels from the service and service's namespace
-		namespace := krt.FetchOne(ctx, namespaces, krt.FilterKey(s.Namespace))
+		namespace := namespaces.FetchOne(ctx, krt.FilterKey(s.Namespace))
 		if namespace == nil || *namespace == nil {
 			log.Warnf("namespace %s not found for service %s/%s in namespaces %v", s.Namespace, s.Name, s.UID, namespaces.List())
 			continue
@@ -443,7 +443,7 @@ func (a Builder) serviceEntryServiceBuilder(
 	return func(ctx krt.HandlerContext, s *networkingclient.ServiceEntry) []TypedServiceInfo {
 		waypoint, waypointError := fetchWaypointForService(ctx, waypoints, namespaces, visibility, s.ObjectMeta)
 
-		ns := krt.FetchOne(ctx, namespaces, krt.FilterKey(s.Namespace))
+		ns := namespaces.FetchOne(ctx, krt.FilterKey(s.Namespace))
 		var nsAnnotations map[string]string
 		var nsLabels map[string]string
 		if ns != nil {
@@ -497,7 +497,7 @@ func serviceEntriesInfo(
 
 	weighted := buildWeightedWaypoints(ctx, waypoints, namespaces, s.ObjectMeta, w, &waypoint)
 
-	vis := krt.FetchOne(ctx, visibility.AsCollection())
+	vis := visibility.AsCollection().FetchOne(ctx)
 	// Resolve the ServiceEntry's visibility once from the precompiled serviceEntryVisibility; it is
 	// uniform across the ServiceEntry's hosts. NONE means Istio configures no dataplane for it, so it
 	// is not published to WDS.
