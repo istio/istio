@@ -22,6 +22,7 @@ import (
 
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/util/smallset"
 )
 
@@ -43,7 +44,7 @@ type indexFilter struct {
 	list         func() any
 	indexMatches func(any) bool
 	extractKeys  objectKeyExtractor
-	key          string
+	keys         []string
 }
 
 type objectKeyExtractor = func(o any) []string
@@ -61,7 +62,7 @@ func (f *filter) reverseIndexKey() ([]string, indexedDependencyType, objectKeyEx
 		return f.keys.List(), getKeyType, getKeyExtractor, 0, true
 	}
 	if f.index != nil {
-		return []string{f.index.key}, indexType, f.index.extractKeys, f.index.filterUID, true
+		return f.index.keys, indexType, f.index.extractKeys, f.index.filterUID, true
 	}
 	return nil, unknownIndexType, nil, 0, false
 }
@@ -119,22 +120,46 @@ func FilterSelects(lbls map[string]string) FetchOption {
 
 // FilterIndex selects only objects matching a key in an index.
 func FilterIndex[K comparable, I any](idx Index[K, I], k K) FetchOption {
+	return FilterIndexes(idx, k)
+}
+
+// FilterIndexes selects only objects matching at least one of the provided keys in an index.
+// An object matching multiple keys is only returned once. No keys matches nothing.
+func FilterIndexes[K comparable, I any](idx Index[K, I], ks ...K) FetchOption {
 	return func(h *dependency) {
 		// Index is used to pre-filter on the List, and also to match in Matches. Provide type-erased methods for both
 		h.filter.index = &indexFilter{
 			filterUID: idx.id(),
 			list: func() any {
-				return idx.Lookup(k)
+				if len(ks) == 1 {
+					return idx.Lookup(ks[0])
+				}
+				// Union the per-key lookups, deduplicating objects that match multiple keys.
+				res := []I{}
+				seen := sets.New[string]()
+				for _, k := range ks {
+					for _, o := range idx.Lookup(k) {
+						if seen.InsertContains(GetKey(o)) {
+							continue
+						}
+						res = append(res, o)
+					}
+				}
+				return res
 			},
 			indexMatches: func(a any) bool {
-				return idx.objectHasKey(a.(I), k)
+				return slices.ContainsFunc(ks, func(k K) bool {
+					return idx.objectHasKey(a.(I), k)
+				})
 			},
 			extractKeys: func(o any) []string {
 				return slices.Map(idx.extractKeys(o.(I)), func(e K) string {
 					return toString(e)
 				})
 			},
-			key: toString(k),
+			keys: slices.Map(ks, func(k K) string {
+				return toString(k)
+			}),
 		}
 	}
 }

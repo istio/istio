@@ -1,0 +1,13 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+issue:
+  - 61382
+
+releaseNotes:
+  - |
+    **Improved** ambient workload building to look up matching services through a
+    label-selector index instead of scanning every service in the workload's namespace.
+    This substantially reduces istiod memory allocation and CPU under pod churn in
+    namespaces with many services.
