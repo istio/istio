@@ -88,9 +88,12 @@ func (i *informer[I]) uid() collectionUID {
 	return i.id
 }
 
-func (i *informer[I]) List() []I {
+func (i *informer[I]) ListFiltered(filter func(I) bool) []I {
 	res := i.inf.List(metav1.NamespaceAll, klabels.Everything())
-	return res
+	if filter == nil {
+		return res
+	}
+	return slices.FilterInPlace(res, filter)
 }
 
 func (i *informer[I]) GetKey(k string) *I {

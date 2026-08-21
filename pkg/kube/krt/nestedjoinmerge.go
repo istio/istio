@@ -37,7 +37,7 @@ var _ internalCollection[any] = &nestedjoinmerge[any]{}
 
 // nolint: unused // (not true, its to implement an interface)
 func (j *nestedjoinmerge[T]) dump() CollectionDump {
-	innerCols := j.collections.List()
+	innerCols := j.collections.ListFiltered(nil)
 	dumpsByCollectionUID := make(map[string]InputDump, len(innerCols))
 	for _, c := range innerCols {
 		if c.internalCollection == nil {
@@ -51,7 +51,7 @@ func (j *nestedjoinmerge[T]) dump() CollectionDump {
 		}
 	}
 	return CollectionDump{
-		Outputs: eraseMap(slices.GroupUnique(j.List(), getTypedKey)),
+		Outputs: eraseMap(slices.GroupUnique(j.ListFiltered(nil), getTypedKey)),
 		Synced:  j.HasSynced(),
 		Inputs:  dumpsByCollectionUID,
 	}
@@ -61,7 +61,7 @@ func (j *nestedjoinmerge[T]) dump() CollectionDump {
 func (j *nestedjoinmerge[T]) getCollections() []Collection[T] {
 	// This is used by the collection lister to get the collections for this join
 	// so it can be used in a nested join.
-	return j.collections.List()
+	return j.collections.ListFiltered(nil)
 }
 
 func NestedJoinWithMergeCollection[T any](collections Collection[Collection[T]], merge func(ts []T) *T, opts ...CollectionOption) Collection[T] {
@@ -132,7 +132,7 @@ func NestedJoinWithMergeCollection[T any](collections Collection[Collection[T]],
 			}
 		}
 	}, false)
-	initialCollections := j.collections.List()
+	initialCollections := j.collections.ListFiltered(nil)
 	// Finally, async wait for the primary to be synced. Once it has, we know it has enqueued the initial state.
 	// After this, we can run our queue.
 	// The queue will process the initial state and mark ourselves as synced (from the NewWithSync callback)

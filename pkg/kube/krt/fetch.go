@@ -101,6 +101,11 @@ func fetch[T any](ctx HandlerContext, cc Collection[T], allowMissingContext bool
 	// Compute our list of all possible objects that can match. Then we will filter them later.
 	// This pre-filtering upfront avoids extra work
 	var list []T
+	matches := func(i T) bool {
+		o := c.augment(i)
+		return d.filter.Matches(o, true)
+	}
+	prefiltered := false
 	if !d.filter.keys.IsNil() {
 		// If they fetch a set of keys, directly Get these. Usually this is a single resource.
 		list = make([]T, 0, d.filter.keys.Len())
@@ -114,12 +119,12 @@ func fetch[T any](ctx HandlerContext, cc Collection[T], allowMissingContext bool
 		list = d.filter.index.list().([]T)
 	} else {
 		// Otherwise get everything
-		list = c.List()
+		list = c.ListFiltered(matches)
+		prefiltered = true
 	}
-	list = slices.FilterInPlace(list, func(i T) bool {
-		o := c.augment(i)
-		return d.filter.Matches(o, true)
-	})
+	if !prefiltered {
+		list = slices.FilterInPlace(list, matches)
+	}
 	if log.DebugEnabled() {
 		log.WithLabels(
 			"parent", parent,

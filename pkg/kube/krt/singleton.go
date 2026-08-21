@@ -81,9 +81,9 @@ func (d *static[T]) GetKey(k string) *T {
 	return d.val.Load()
 }
 
-func (d *static[T]) List() []T {
+func (d *static[T]) ListFiltered(filter func(T) bool) []T {
 	v := d.val.Load()
-	if v == nil {
+	if v == nil || (filter != nil && !filter(*v)) {
 		return nil
 	}
 	return []T{*v}
