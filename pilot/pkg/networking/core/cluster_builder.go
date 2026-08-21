@@ -146,6 +146,7 @@ type ClusterBuilder struct {
 	// PushRequest to look for updates.
 	req                       *model.PushRequest
 	cache                     model.XdsCache
+	destinationEndpoints      map[model.NamespacedHostname][]*model.IstioEndpoint
 	credentialSocketExist     bool
 	fileCredentialSocketExist bool
 }
