@@ -31,9 +31,11 @@ import (
 	security_beta "istio.io/api/security/v1beta1"
 	telemetry "istio.io/api/telemetry/v1alpha1"
 	api "istio.io/api/type/v1beta1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 )
 
@@ -8718,6 +8720,112 @@ func TestValidateHTTPHeaderValue(t *testing.T) {
 				assert.NoError(t, got)
 			} else {
 				assert.Error(t, got)
+			}
+		})
+	}
+}
+
+func TestValidateAuthorizationPolicyHTTPRouteTargetRef(t *testing.T) {
+	httpRouteRef := func() *api.PolicyTargetReference {
+		return &api.PolicyTargetReference{
+			Group: gvk.HTTPRoute.Group,
+			Kind:  gvk.HTTPRoute.Kind,
+			Name:  "route",
+		}
+	}
+
+	cases := []struct {
+		name    string
+		enabled bool
+		in      *security_beta.AuthorizationPolicy
+		valid   bool
+	}{
+		{
+			name:    "disabled rejects targetRef",
+			enabled: false,
+			in: &security_beta.AuthorizationPolicy{
+				TargetRef: httpRouteRef(),
+				Action:    security_beta.AuthorizationPolicy_ALLOW,
+			},
+			valid: false,
+		},
+		{
+			name:    "disabled rejects targetRefs",
+			enabled: false,
+			in: &security_beta.AuthorizationPolicy{
+				TargetRefs: []*api.PolicyTargetReference{httpRouteRef()},
+				Action:     security_beta.AuthorizationPolicy_DENY,
+				Rules:      []*security_beta.Rule{{}},
+			},
+			valid: false,
+		},
+		{
+			name:    "disabled still accepts Service targetRef",
+			enabled: false,
+			in: &security_beta.AuthorizationPolicy{
+				TargetRef: &api.PolicyTargetReference{
+					Group: gvk.Service.Group,
+					Kind:  gvk.Service.Kind,
+					Name:  "svc",
+				},
+				Action: security_beta.AuthorizationPolicy_ALLOW,
+			},
+			valid: true,
+		},
+		{
+			name:    "enabled accepts ALLOW",
+			enabled: true,
+			in: &security_beta.AuthorizationPolicy{
+				TargetRef: httpRouteRef(),
+				Action:    security_beta.AuthorizationPolicy_ALLOW,
+			},
+			valid: true,
+		},
+		{
+			name:    "enabled accepts DENY via targetRefs",
+			enabled: true,
+			in: &security_beta.AuthorizationPolicy{
+				TargetRefs: []*api.PolicyTargetReference{httpRouteRef()},
+				Action:     security_beta.AuthorizationPolicy_DENY,
+				Rules:      []*security_beta.Rule{{}},
+			},
+			valid: true,
+		},
+		{
+			name:    "enabled rejects AUDIT",
+			enabled: true,
+			in: &security_beta.AuthorizationPolicy{
+				TargetRef: httpRouteRef(),
+				Action:    security_beta.AuthorizationPolicy_AUDIT,
+				Rules:     []*security_beta.Rule{{}},
+			},
+			valid: false,
+		},
+		{
+			name:    "enabled rejects cross namespace targetRef",
+			enabled: true,
+			in: &security_beta.AuthorizationPolicy{
+				TargetRef: &api.PolicyTargetReference{
+					Group:     gvk.HTTPRoute.Group,
+					Kind:      gvk.HTTPRoute.Kind,
+					Name:      "route",
+					Namespace: "other",
+				},
+				Action: security_beta.AuthorizationPolicy_ALLOW,
+			},
+			valid: false,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			test.SetForTest(t, &features.EnableGatewayAPIHTTPRouteAuth, c.enabled)
+			_, err := ValidateAuthorizationPolicy(config.Config{
+				Meta: config.Meta{Name: "name", Namespace: "namespace"},
+				Spec: c.in,
+			})
+			if (err == nil) != c.valid {
+				t.Fatalf("got error %v, want valid=%v", err, c.valid)
 			}
 		})
 	}

@@ -28,13 +28,16 @@ import (
 	authpb "istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/config/memory"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/security/trustdomain"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/wellknown"
 )
 
 const (
@@ -579,5 +582,64 @@ func TestBuildHTTPRBACForRouteCustomBuilder(t *testing.T) {
 	}
 	if got := b.BuildHTTPRBACForRoute(); got != nil {
 		t.Fatalf("expected nil for custom builder, got %v", got)
+	}
+}
+
+func TestBuildHTTPFilterNames(t *testing.T) {
+	policies := model.AuthorizationPoliciesResult{
+		Audit:    []model.AuthorizationPolicy{authzPolicy("audit", authpb.AuthorizationPolicy_AUDIT)},
+		RootDeny: []model.AuthorizationPolicy{authzPolicy("root-deny", authpb.AuthorizationPolicy_DENY)},
+		Deny:     []model.AuthorizationPolicy{authzPolicy("deny", authpb.AuthorizationPolicy_DENY)},
+		Allow:    []model.AuthorizationPolicy{authzPolicy("allow", authpb.AuthorizationPolicy_ALLOW)},
+	}
+
+	cases := []struct {
+		name    string
+		enabled bool
+		want    []string
+	}{
+		{
+			name:    "disabled keeps the well known name for every instance",
+			enabled: false,
+			want: []string{
+				wellknown.HTTPRoleBasedAccessControl,
+				wellknown.HTTPRoleBasedAccessControl,
+				wellknown.HTTPRoleBasedAccessControl,
+				wellknown.HTTPRoleBasedAccessControl,
+			},
+		},
+		{
+			name:    "enabled names each overridable slot distinctly",
+			enabled: true,
+			want: []string{
+				wellknown.HTTPRoleBasedAccessControl,
+				RBACFilterNameDenyRoot,
+				RBACFilterNameDeny,
+				RBACFilterNameAllow,
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			test.SetForTest(t, &features.EnableGatewayAPIHTTPRouteAuth, tc.enabled)
+			b := New(trustdomain.NewBundle("cluster.local", nil), nil, policies, Option{})
+			if b == nil {
+				t.Fatal("expected a builder")
+			}
+			filters := b.BuildHTTP()
+			got := make([]string, 0, len(filters))
+			for _, f := range filters {
+				got = append(got, f.Name)
+			}
+			if len(got) != len(tc.want) {
+				t.Fatalf("got %d filters %v, want %d", len(got), got, len(tc.want))
+			}
+			for i := range got {
+				if got[i] != tc.want[i] {
+					t.Errorf("filter[%d] = %q, want %q (full: %v)", i, got[i], tc.want[i], got)
+				}
+			}
+		})
 	}
 }

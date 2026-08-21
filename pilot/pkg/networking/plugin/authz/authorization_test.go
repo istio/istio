@@ -26,11 +26,13 @@ import (
 	authpb "istio.io/api/security/v1beta1"
 	selectorpb "istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/config/memory"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/security/authz/builder"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/test"
 )
 
 // testHTTPRouteName is the HTTPRoute every policy in this file targets; cases vary the origin
@@ -79,6 +81,7 @@ func newTestPerRouteBuilder(t *testing.T, configs ...config.Config) *PerRouteBui
 }
 
 func TestPerRouteBuilderBuild(t *testing.T) {
+	test.SetForTest(t, &features.EnableGatewayAPIHTTPRouteAuth, true)
 	cases := []struct {
 		name      string
 		configs   []config.Config
