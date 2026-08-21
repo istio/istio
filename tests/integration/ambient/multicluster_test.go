@@ -543,6 +543,26 @@ func TestMulticlusterRemoteSecretRotation(t *testing.T) {
 	})
 }
 
+// findRemoteSecretOrFail returns the multi-cluster secret in local that holds remote's kubeconfig.
+func findRemoteSecretOrFail(t framework.TestContext, local, remote cluster.Cluster) *corev1.Secret {
+	t.Helper()
+
+	secretList, err := local.Kube().CoreV1().Secrets(i.Settings().SystemNamespace).List(t.Context(), metav1.ListOptions{
+		LabelSelector: "istio/multiCluster=true",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, secret := range secretList.Items {
+		if _, found := secret.Data[remote.Name()]; found {
+			return secret.DeepCopy()
+		}
+	}
+
+	t.Fatalf("could not find remote secret for cluster %s in cluster %s", remote.Name(), local.Name())
+	return nil
+}
+
 // rotateRemoteSecretOrFail rewrites the kubeconfig that local holds for remote, keeping it
 // semantically identical while changing its bytes. This is what a credential rotation looks like to
 // istiod: the same cluster, but a new client, new informers and new collections built on top of them.
@@ -551,23 +571,7 @@ func rotateRemoteSecretOrFail(t framework.TestContext, local, remote cluster.Clu
 	t.Helper()
 
 	secrets := local.Kube().CoreV1().Secrets(i.Settings().SystemNamespace)
-	secretList, err := secrets.List(t.Context(), metav1.ListOptions{
-		LabelSelector: "istio/multiCluster=true",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	var remoteSecret *corev1.Secret
-	for _, secret := range secretList.Items {
-		if _, found := secret.Data[remote.Name()]; found {
-			remoteSecret = secret.DeepCopy()
-			break
-		}
-	}
-	if remoteSecret == nil {
-		t.Fatalf("could not find remote secret for cluster %s in cluster %s", remote.Name(), local.Name())
-	}
+	remoteSecret := findRemoteSecretOrFail(t, local, remote)
 
 	originalKubeconfig := slices.Clone(remoteSecret.Data[remote.Name()])
 	t.Cleanup(func() {
