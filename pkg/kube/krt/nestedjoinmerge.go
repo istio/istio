@@ -231,7 +231,7 @@ func (j *nestedjoinmerge[T]) handleCollectionUpdate(e Event[Collection[T]]) {
 	// drop the old collection subscription and add the new one.
 	// we intentionally don't run the existing state for the new collection because we are going to recalculate everything anyway.
 	// TODO: even though we drop the old subscription after List is called
-	// we could still miss Delete events for items that are not present in the oldItems list.
+	// we still might have missed Delete events for items that are not present in the oldItems list.
 	j.updateSubscriptionLocked(oldCollectionValue.(internalCollection[T]), newCollectionValue.(internalCollection[T]), false)
 	// Convert it to a map for easy lookup
 	oldItemsMap := make(map[Key[T]]T, len(oldItems))
@@ -329,7 +329,7 @@ func (j *nestedjoinmerge[T]) handleCollectionDelete(e Event[Collection[T]]) {
 	oldItems := oldCollectionValue.List()
 	// Unsubscribe from the collection
 	// TODO: even though we drop the old subscription after List is called
-	// we could still miss Delete events for items that are not present in the oldItems list.
+	// we still might have missed Delete events for items that are not present in the oldItems list.
 	j.updateSubscriptionLocked(e.Latest().(internalCollection[T]), nil, false)
 
 	items := sets.NewWithLength[Key[T]](len(oldItems))
