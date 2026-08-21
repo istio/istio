@@ -109,10 +109,6 @@ func (i *informer[I]) Metadata() Metadata {
 	return i.metadata
 }
 
-func (i *informer[I]) Register(f func(o Event[I])) HandlerRegistration {
-	return registerHandlerAsBatched[I](i, f)
-}
-
 func (i *informer[I]) RegisterBatch(f func(o []Event[I]), runExistingState bool) HandlerRegistration {
 	// Note: runExistingState is NOT respected here.
 	// Informer doesn't expose a way to do that. However, due to the runtime model of informers, this isn't a dealbreaker;
@@ -229,7 +225,7 @@ func WrapClient[I controllers.ComparableObject](c kclient.Informer[I], opts ...C
 
 		<-o.stop
 	}()
-	return h
+	return newCollection[I](h)
 }
 
 // NewInformer creates a Collection[I] sourced from
