@@ -234,6 +234,56 @@ status:
       name: gateway
       namespace: istio-system
 ---
+apiVersion: gateway.networking.x-k8s.io/v1alpha1
+kind: XBackend
+metadata:
+  name: shared-host-plain
+  namespace: default
+spec: null
+status:
+  parents:
+  - conditions:
+    - lastTransitionTime: fake
+      message: Configuration is valid
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: Configuration is valid
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/mesh-controller
+    parentRef:
+      group: gateway.networking.x-k8s.io
+      kind: XBackend
+      name: shared-host-plain
+---
+apiVersion: gateway.networking.x-k8s.io/v1alpha1
+kind: XBackend
+metadata:
+  name: shared-host-tls
+  namespace: default
+spec: null
+status:
+  parents:
+  - conditions:
+    - lastTransitionTime: fake
+      message: Configuration is valid
+      reason: Accepted
+      status: "True"
+      type: Accepted
+    - lastTransitionTime: fake
+      message: Configuration is valid
+      reason: ResolvedRefs
+      status: "True"
+      type: ResolvedRefs
+    controllerName: istio.io/mesh-controller
+    parentRef:
+      group: gateway.networking.x-k8s.io
+      kind: XBackend
+      name: shared-host-tls
+---
 apiVersion: gateway.networking.k8s.io/v1
 kind: GatewayClass
 metadata:

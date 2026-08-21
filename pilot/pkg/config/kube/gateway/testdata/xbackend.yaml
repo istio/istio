@@ -82,6 +82,36 @@ spec:
     port: 8080
   protocol: HTTP2
 ---
+# Two Backends sharing an external hostname on different ports: the TLS settings of one
+# must not leak onto the other's port.
+apiVersion: gateway.networking.x-k8s.io/v1alpha1
+kind: XBackend
+metadata:
+  name: shared-host-tls
+  namespace: default
+spec:
+  type: ExternalHostname
+  externalHostname:
+    hostname: shared.example.net
+  port:
+    port: 443
+  protocol: HTTP
+  tls:
+    mode: ServerOnly
+---
+apiVersion: gateway.networking.x-k8s.io/v1alpha1
+kind: XBackend
+metadata:
+  name: shared-host-plain
+  namespace: default
+spec:
+  type: ExternalHostname
+  externalHostname:
+    hostname: shared.example.net
+  port:
+    port: 8080
+  protocol: HTTP
+---
 # Client certificates are not supported; the Backend must be rejected.
 apiVersion: gateway.networking.x-k8s.io/v1alpha1
 kind: XBackend
