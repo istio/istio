@@ -372,7 +372,7 @@ func (h *manyCollection[I, O]) dump() CollectionDump {
 	return CollectionDump{
 		Outputs:         eraseMap(h.collectionState.outputs),
 		Inputs:          inputs,
-		InputCollection: h.parent.(internalCollection[I]).name(),
+		InputCollection: h.parent.name(),
 		Synced:          h.HasSynced(),
 	}
 }
@@ -578,7 +578,7 @@ func NewCollection[I, O any](c Collection[I], hf TransformationSingle[I, O], opt
 		// NOTE: this will print Collection[nil, nil] if I or O are interfaces
 		o.name = fmt.Sprintf("Collection[%v,%v]", ptr.TypeName[I](), ptr.TypeName[O]())
 	}
-	return newManyCollection(c, hm, o, nil)
+	return newCollection(newManyCollection(c, hm, o, nil))
 }
 
 // NewManyCollection transforms a Collection[I] to a Collection[O] by applying the provided transformation function.
@@ -589,7 +589,7 @@ func NewManyCollection[I, O any](c Collection[I], hf TransformationMulti[I, O], 
 	if o.name == "" {
 		o.name = fmt.Sprintf("ManyCollection[%v,%v]", ptr.TypeName[I](), ptr.TypeName[O]())
 	}
-	return newManyCollection[I, O](c, hf, o, nil)
+	return newCollection(newManyCollection[I, O](c, hf, o, nil))
 }
 
 func newManyCollection[I, O any](
@@ -597,15 +597,13 @@ func newManyCollection[I, O any](
 	hf TransformationMulti[I, O],
 	opts collectionOptions,
 	onPrimaryInputEventHandler func([]Event[I]),
-) Collection[O] {
-	c := cc.(internalCollection[I])
-
+) internalCollection[O] {
 	h := &manyCollection[I, O]{
 		transformation: hf,
 		collectionName: opts.name,
 		id:             nextUID(),
 		log:            log.WithLabels("owner", opts.name),
-		parent:         c,
+		parent:         cc,
 		dependencyState: dependencyState[I]{
 			collectionDependencies:       sets.New[collectionUID](),
 			objectDependencies:           map[Key[I]][]*dependency{},
@@ -732,10 +730,6 @@ func (h *manyCollection[I, O]) List() (res []O) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	return maps.Values(h.collectionState.outputs)
-}
-
-func (h *manyCollection[I, O]) Register(f func(o Event[O])) HandlerRegistration {
-	return registerHandlerAsBatched(h, f)
 }
 
 func (h *manyCollection[I, O]) RegisterBatch(f func(o []Event[O]), runExistingState bool) HandlerRegistration {

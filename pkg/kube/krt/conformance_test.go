@@ -37,7 +37,11 @@ import (
 )
 
 type Rig[T any] interface {
-	krt.Collection[T]
+	GetKey(string) *T
+	List() []T
+	Metadata() krt.Metadata
+	Register(func(krt.Event[T])) krt.HandlerRegistration
+	WaitUntilSynced(<-chan struct{}) bool
 	CreateObject(key string)
 	// ReplaceKey removes oldKey and adds newKey.
 	// This is used to test that List() consistency: if List() changes from [a,b,c] to [a,b,d],
@@ -68,6 +72,10 @@ func (r *informerRig) ReplaceKey(oldKey, newKey string) {
 
 type staticRig struct {
 	krt.StaticCollection[Named]
+}
+
+func (r *staticRig) Register(f func(krt.Event[Named])) krt.HandlerRegistration {
+	return r.AsCollection().Register(f)
 }
 
 func (r *staticRig) CreateObject(key string) {
@@ -153,6 +161,10 @@ type fileRig struct {
 	t        test.Failer
 }
 
+func (r *fileRig) Register(f func(krt.Event[Named])) krt.HandlerRegistration {
+	return r.AsCollection().Register(f)
+}
+
 var metadata = krt.Metadata{"foo": "bar"}
 
 func (r *fileRig) CreateObject(key string) {
@@ -233,7 +245,7 @@ func TestConformance(t *testing.T) {
 				krt.WithDebugging(krt.GlobalDebugHandler),
 				krt.WithName("join-conformance-2"))
 			j := krt.JoinCollection(
-				[]krt.Collection[Named]{col1, col2},
+				[]krt.Collection[Named]{col1.AsCollection(), col2.AsCollection()},
 				krt.WithStop(test.NewStop(t)),
 				krt.WithDebugging(krt.GlobalDebugHandler),
 				krt.WithMetadata(metadata),
@@ -250,8 +262,8 @@ func TestConformance(t *testing.T) {
 		factory := func(t *testing.T) Rig[Named] {
 			namespaces := krt.NewStaticCollection[string](nil, nil, krt.WithStop(test.NewStop(t)), krt.WithDebugging(krt.GlobalDebugHandler))
 			names := krt.NewStaticCollection[string](nil, nil, krt.WithStop(test.NewStop(t)), krt.WithDebugging(krt.GlobalDebugHandler))
-			col := krt.NewManyCollection(namespaces, func(ctx krt.HandlerContext, ns string) []Named {
-				names := krt.Fetch[string](ctx, names)
+			col := krt.NewManyCollection(namespaces.AsCollection(), func(ctx krt.HandlerContext, ns string) []Named {
+				names := krt.Fetch[string](ctx, names.AsCollection())
 				return slices.Map(names, func(e string) Named {
 					return Named{Namespace: ns, Name: e}
 				})

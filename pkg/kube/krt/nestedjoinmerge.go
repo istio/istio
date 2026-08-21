@@ -40,10 +40,10 @@ func (j *nestedjoinmerge[T]) dump() CollectionDump {
 	innerCols := j.collections.List()
 	dumpsByCollectionUID := make(map[string]InputDump, len(innerCols))
 	for _, c := range innerCols {
-		if c == nil {
+		if c.internalCollection == nil {
 			continue
 		}
-		ic := c.(internalCollection[T])
+		ic := c.internal()
 		icDump := ic.dump()
 		dumpsByCollectionUID[GetKey(ic)] = InputDump{
 			Outputs:      maps.Keys(icDump.Outputs),
@@ -70,7 +70,7 @@ func NestedJoinWithMergeCollection[T any](collections Collection[Collection[T]],
 		o.name = fmt.Sprintf("NestedJoinWithMerge[%v]", ptr.TypeName[T]())
 	}
 
-	ics := collections.(internalCollection[Collection[T]])
+	ics := collections.internal()
 	synced := make(chan struct{})
 
 	j := &nestedjoinmerge[T]{
@@ -123,7 +123,7 @@ func NestedJoinWithMergeCollection[T any](collections Collection[Collection[T]],
 				// When a collection is added, subscribe to its events
 				reg := obj.RegisterBatch(subscriptionFunc, true)
 				j.mu.Lock()
-				j.regs[obj.(internalCollection[T]).uid()] = reg
+				j.regs[obj.uid()] = reg
 				j.mu.Unlock()
 			case controllers.EventUpdate:
 				j.handleCollectionUpdate(ev)
@@ -138,7 +138,7 @@ func NestedJoinWithMergeCollection[T any](collections Collection[Collection[T]],
 	// The queue will process the initial state and mark ourselves as synced (from the NewWithSync callback)
 	go j.runQueue(initialCollections, subscriptionFunc, reg)
 
-	return j
+	return newCollection[T](j)
 }
 
 func (j *nestedjoinmerge[T]) runQueue(initialCollections []Collection[T], subscriptionFunc func([]Event[T]), reg HandlerRegistration) {
@@ -152,7 +152,7 @@ func (j *nestedjoinmerge[T]) runQueue(initialCollections []Collection[T], subscr
 	for _, c := range initialCollections {
 		// Save these registrations so we can unsubscribe later if the collection is deleted.
 		// Ensure each sub-collection is synced before we're marked as synced.
-		j.regs[c.(internalCollection[T]).uid()] = c.RegisterBatch(subscriptionFunc, true)
+		j.regs[c.uid()] = c.RegisterBatch(subscriptionFunc, true)
 	}
 
 	regs := append([]HandlerRegistration{reg}, maps.Values(j.regs)...)
@@ -169,14 +169,14 @@ func (j *nestedjoinmerge[T]) runQueue(initialCollections []Collection[T], subscr
 }
 
 func (j *nestedjoinmerge[T]) handleCollectionUpdate(e Event[Collection[T]]) {
-	innerCollection := e.Latest().(internalCollection[T])
+	innerCollection := e.Latest().internal()
 	log.Debugf("NestedJoinWithMergeCollection: Collection %s (uid %s) updated, recalculating merged values", innerCollection.name(), innerCollection.uid())
 	// Get all of the elements in the old collection
 	oldCollectionValue := *e.Old
 	newCollectionValue := *e.New
 	// Wait for the new collection to be synced before we process the update.
 	if !newCollectionValue.WaitUntilSynced(j.stop) {
-		log.Warnf("NestedJoinWithMergeCollection: Collection %s not synced, skipping update event", newCollectionValue.(internalCollection[T]).uid())
+		log.Warnf("NestedJoinWithMergeCollection: Collection %s not synced, skipping update event", newCollectionValue.uid())
 	}
 	// Stop the world and update our outputs with new state for everything in the collection.
 	j.mu.Lock()
@@ -273,7 +273,7 @@ func (j *nestedjoinmerge[T]) handleCollectionDelete(e Event[Collection[T]]) {
 	// Get all of the elements in the old collection
 	oldCollectionValue := *e.Old
 
-	cc := e.Latest().(internalCollection[T])
+	cc := e.Latest().internal()
 	// Unsubscribe from the collection
 	if reg, ok := j.regs[cc.uid()]; ok {
 		reg.UnregisterHandler()

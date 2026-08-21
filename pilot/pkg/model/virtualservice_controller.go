@@ -65,7 +65,7 @@ func NewVirtualServiceController(
 	}
 
 	VirtualServices := store.KrtCollection(gvk.VirtualService)
-	if VirtualServices == nil {
+	if VirtualServices.IsNil() {
 		panic("VirtualServices is nil")
 	}
 

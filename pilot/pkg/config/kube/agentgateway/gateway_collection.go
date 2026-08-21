@@ -588,7 +588,7 @@ func (p RouteParents) fetch(ctx krt.HandlerContext, pk AgwParentKey) []*AgwParen
 // If the service has a use-waypoint label pointing to an AGW waypoint gateway, the route
 // is attached to that waypoint gateway's listeners.
 func (p RouteParents) fetchServiceParent(ctx krt.HandlerContext, pk AgwParentKey) []*AgwParentInfo {
-	if p.waypointBindings == nil {
+	if p.waypointBindings.IsNil() {
 		return nil
 	}
 

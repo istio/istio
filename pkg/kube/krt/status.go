@@ -72,7 +72,7 @@ func NewStatusManyCollection[I controllers.Object, IStatus, O any](
 		}
 	}()
 
-	return status, primary
+	return newCollection[ObjectWithStatus[I, IStatus]](status), newCollection[O](primary)
 }
 
 func NewStatusCollection[I controllers.Object, IStatus, O any](

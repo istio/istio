@@ -75,7 +75,7 @@ func NewFakeStore() *FakeStore {
 		collection := krt.NewStaticCollection[config.Config](f.syncer, nil, opts.WithName(s.Kind())...)
 		kindStore := kindStore{
 			collection: collection,
-			index:      krt.NewNamespaceIndex(collection),
+			index:      krt.NewNamespaceIndex(collection.AsCollection()),
 		}
 		f.store[s.GroupVersionKind()] = kindStore
 	}
@@ -200,8 +200,8 @@ func (s *FakeStore) HasSynced() bool {
 
 func (s *FakeStore) KrtCollection(typ config.GroupVersionKind) krt.Collection[config.Config] {
 	if kindStore, ok := s.store[typ]; ok {
-		return kindStore.collection
+		return kindStore.collection.AsCollection()
 	}
 
-	return nil
+	return krt.Collection[config.Config]{}
 }

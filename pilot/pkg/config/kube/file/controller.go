@@ -82,7 +82,7 @@ func NewController(
 	for _, s := range schemas.All() {
 		gvk := s.GroupVersionKind()
 		if _, ok := collections.Pilot.FindByGroupVersionKind(gvk); ok {
-			collection := krt.NewCollection(mainCollection, func(ctx krt.HandlerContext, c ConfigKind) *config.Config {
+			collection := krt.NewCollection(mainCollection.AsCollection(), func(ctx krt.HandlerContext, c ConfigKind) *config.Config {
 				if c.GroupVersionKind == gvk {
 					return c.Config
 				}
@@ -113,7 +113,7 @@ func (c *Controller) KrtCollection(gvk config.GroupVersionKind) krt.Collection[c
 		return data.collection
 	}
 
-	return nil
+	return krt.Collection[config.Config]{}
 }
 
 func (c *Controller) Get(typ config.GroupVersionKind, name, namespace string) *config.Config {

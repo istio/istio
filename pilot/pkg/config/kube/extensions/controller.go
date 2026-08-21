@@ -157,7 +157,7 @@ func (c *Controller) KrtCollection(typ config.GroupVersionKind) krt.Collection[c
 	if typ == gvk.TrafficExtension {
 		return c.outputs.TrafficExtensions
 	}
-	return nil
+	return krt.Collection[config.Config]{}
 }
 
 // Run blocks until the stop channel is closed, then closes the internal stop channel.

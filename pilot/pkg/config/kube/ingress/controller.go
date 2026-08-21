@@ -269,7 +269,7 @@ func (c *Controller) KrtCollection(kind config.GroupVersionKind) krt.Collection[
 		return c.outputs.VirtualServices
 	}
 
-	return nil
+	return krt.Collection[config.Config]{}
 }
 
 func (c *Controller) Get(typ config.GroupVersionKind, name, namespace string) *config.Config {

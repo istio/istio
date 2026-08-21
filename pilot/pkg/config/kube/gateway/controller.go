@@ -213,14 +213,14 @@ func NewController(
 		inputs.BackendTrafficPolicy = buildClient[*gatewayx.XBackendTrafficPolicy](c, kc, gvr.XBackendTrafficPolicy, opts, "informer/XBackendTrafficPolicy")
 	} else {
 		// If disabled, still build a collection but make it always empty
-		inputs.BackendTrafficPolicy = krt.NewStaticCollection[*gatewayx.XBackendTrafficPolicy](nil, nil, opts.WithName("disable/XBackendTrafficPolicy")...)
+		inputs.BackendTrafficPolicy = krt.NewStaticCollection[*gatewayx.XBackendTrafficPolicy](nil, nil, opts.WithName("disable/XBackendTrafficPolicy")...).AsCollection()
 	}
 
 	if features.EnableGatewayAPIInferenceExtension {
 		inputs.InferencePools = buildClient[*inferencev1.InferencePool](c, kc, gvr.InferencePool, opts, "informer/InferencePools")
 	} else {
 		// If disabled, still build a collection but make it always empty
-		inputs.InferencePools = krt.NewStaticCollection[*inferencev1.InferencePool](nil, nil, opts.WithName("disable/InferencePools")...)
+		inputs.InferencePools = krt.NewStaticCollection[*inferencev1.InferencePool](nil, nil, opts.WithName("disable/InferencePools")...).AsCollection()
 	}
 
 	references := gatewaycommon.NewReferenceSet(
@@ -563,7 +563,7 @@ func (c *Controller) KrtCollection(typ config.GroupVersionKind) krt.Collection[c
 	case gvk.Gateway:
 		return c.outputs.GatewayConfigs
 	default:
-		return nil
+		return krt.Collection[config.Config]{}
 	}
 }
 

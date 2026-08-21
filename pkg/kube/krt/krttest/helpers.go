@@ -66,7 +66,7 @@ func GetMockCollection[T any](mc *MockCollection) krt.Collection[T] {
 		extractType[T](&mc.inputs),
 		krt.WithStop(test.NewStop(mc.t)),
 		krt.WithDebugging(krt.GlobalDebugHandler),
-	)
+	).AsCollection()
 }
 
 func GetMockSingleton[T any](mc *MockCollection) krt.StaticSingleton[T] {

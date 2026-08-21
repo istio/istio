@@ -233,7 +233,7 @@ func (c *Controller) initializeInputs(kc kube.Client, opts krt.OptionsBuilder) {
 		inputs.BackendTrafficPolicy = buildClient[*gatewayx.XBackendTrafficPolicy](c, kc, gvr.XBackendTrafficPolicy, opts, "informer/XBackendTrafficPolicy")
 	} else {
 		// If disabled, still build a collection but make it always empty
-		inputs.BackendTrafficPolicy = krt.NewStaticCollection[*gatewayx.XBackendTrafficPolicy](nil, nil, opts.WithName("disable/XBackendTrafficPolicy")...)
+		inputs.BackendTrafficPolicy = krt.NewStaticCollection[*gatewayx.XBackendTrafficPolicy](nil, nil, opts.WithName("disable/XBackendTrafficPolicy")...).AsCollection()
 	}
 
 	if features.EnableGatewayAPIInferenceExtension {
@@ -241,7 +241,7 @@ func (c *Controller) initializeInputs(kc kube.Client, opts krt.OptionsBuilder) {
 	} else {
 		// If disabled, still build a collection but make it always empty
 		log.Warnf("GatewayAPI Inference Extension is disabled, not watching InferencePool resources")
-		inputs.InferencePools = krt.NewStaticCollection[*inferencev1.InferencePool](nil, nil, opts.WithName("disable/InferencePools")...)
+		inputs.InferencePools = krt.NewStaticCollection[*inferencev1.InferencePool](nil, nil, opts.WithName("disable/InferencePools")...).AsCollection()
 	}
 	c.inputs = inputs
 }
@@ -539,8 +539,8 @@ func (c *Controller) buildAddressCollections(opts krt.OptionsBuilder) krt.Collec
 		nodeLocality, // NodeLocality,
 		meshConfig,
 		// Authz/Authn are not use for agentgateway, ignore
-		krt.NewStaticCollection[model.WorkloadAuthorization](nil, nil),
-		krt.NewStaticCollection[*securityclient.PeerAuthentication](nil, nil),
+		krt.NewStaticCollection[model.WorkloadAuthorization](nil, nil).AsCollection(),
+		krt.NewStaticCollection[*securityclient.PeerAuthentication](nil, nil).AsCollection(),
 		waypoints,
 		services,
 		inputs.WorkloadEntries,
@@ -653,7 +653,7 @@ func (c *Controller) Delete(typ config.GroupVersionKind, name, namespace string,
 }
 
 func (c *Controller) KrtCollection(typ config.GroupVersionKind) krt.Collection[config.Config] {
-	return nil
+	return krt.Collection[config.Config]{}
 }
 
 func (c *Controller) RegisterEventHandler(typ config.GroupVersionKind, handler model.EventHandler) {

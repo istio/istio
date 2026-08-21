@@ -243,7 +243,7 @@ func TestNestedMapCollection(t *testing.T) {
 		opts.WithName("MultiPods")...,
 	)
 	AllPods := krt.NestedJoinWithMergeCollection(
-		MultiPods,
+		MultiPods.AsCollection(),
 		func(ts []SimplePod) *SimplePod {
 			return &ts[0]
 		},

@@ -120,7 +120,7 @@ func NestedManyCollectionsFromLocalAndRemote[T any](
 			}
 		}
 	}, true)
-	return globalCollection
+	return globalCollection.AsCollection()
 }
 
 // collectionCacheByClusterMany is a thread-safe cache of slices of krt collections keyed by cluster ID.

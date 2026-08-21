@@ -58,7 +58,7 @@ func TestNestedJoinWithMergeSimpleCollection(t *testing.T) {
 	)
 
 	AllServices := krt.NestedJoinWithMergeCollection(
-		MultiServices,
+		MultiServices.AsCollection(),
 		func(ts []SimpleService) *SimpleService {
 			if len(ts) == 0 {
 				return nil
@@ -203,7 +203,7 @@ func TestNestedJoinWithMergeAndIndexSimpleCollection(t *testing.T) {
 	)
 
 	AllServices := krt.NestedJoinWithMergeCollection(
-		MultiServices,
+		MultiServices.AsCollection(),
 		func(ts []SimpleService) *SimpleService {
 			if len(ts) == 0 {
 				return nil

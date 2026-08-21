@@ -194,7 +194,7 @@ func TestGenerateDeltas_RoleNamespace(t *testing.T) {
 
 	gen := CollectionGenerator{
 		PerGateway: true,
-		Col:        staticCollection,
+		Col:        staticCollection.AsCollection(),
 	}
 
 	tests := []struct {

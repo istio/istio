@@ -147,7 +147,7 @@ func (cl *Client) KrtCollection(kind config.GroupVersionKind) krt.Collection[con
 		return c.collection
 	}
 
-	return nil
+	return krt.Collection[config.Config]{}
 }
 
 func (cl *Client) RegisterEventHandler(kind config.GroupVersionKind, handler model.EventHandler) {

@@ -88,7 +88,7 @@ func newStore(
 	}
 	for _, s := range schemas.All() {
 		collection := krt.NewStaticCollection[config.Config](out.syncer, nil, opts.WithName(s.Kind())...)
-		index := krt.NewNamespaceIndex(collection)
+		index := krt.NewNamespaceIndex(collection.AsCollection())
 		out.data[s.GroupVersionKind()] = kindStore{
 			collection: collection,
 			index:      index,

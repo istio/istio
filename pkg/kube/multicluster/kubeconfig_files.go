@@ -48,14 +48,14 @@ func NewKubeconfigCollection(
 	stop := krt.GetStop(opts...)
 	fw, err := krtfiles.NewFolderWatch[KubeconfigFile](root, parseKubeconfig, stop)
 	if err != nil {
-		return nil, err
+		return krt.Collection[KubeconfigFile]{}, err
 	}
 
 	collection := krtfiles.NewFileCollection[KubeconfigFile, KubeconfigFile](fw, func(k KubeconfigFile) *KubeconfigFile {
 		return &k
 	}, opts...)
 
-	return collection, nil
+	return collection.AsCollection(), nil
 }
 
 func parseKubeconfig(data []byte) ([]KubeconfigFile, error) {

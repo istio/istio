@@ -15,17 +15,66 @@
 package krt
 
 import (
+	"cmp"
+
 	"istio.io/istio/pkg/kube/controllers"
 	istiolog "istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/slices"
 )
 
 var log = istiolog.RegisterScope("krt", "")
 
 type Metadata map[string]any
 
-// Collection is the core resource type for krt, representing a collection of objects. Items can be listed, or fetched
-// directly. Most importantly, consumers can subscribe to events when objects change.
-type Collection[T any] interface {
+// Collection is the core resource type for krt, representing a collection of objects. Items can be listed, fetched,
+// or watched for changes. The implementation is kept behind a private interface so Collection can also expose generic
+// convenience methods.
+type Collection[T any] struct {
+	internalCollection[T]
+}
+
+func newCollection[T any](c internalCollection[T]) Collection[T] {
+	return Collection[T]{internalCollection: c}
+}
+
+func (t Collection[T]) Fetch(ctx HandlerContext, opts ...FetchOption) []T {
+	return Fetch(ctx, t, opts...)
+}
+
+func (t Collection[T]) FetchOne(ctx HandlerContext, opts ...FetchOption) *T {
+	return FetchOne(ctx, t, opts...)
+}
+
+func (t Collection[T]) FetchOrList(ctx HandlerContext, opts ...FetchOption) []T {
+	return FetchOrList(ctx, t, opts...)
+}
+
+func (t Collection[T]) ListSorted() []T {
+	return t.ListSortedBy(func(t T) string {
+		return GetKey(t)
+	})
+}
+
+func (t Collection[T]) ListSortedBy[K cmp.Ordered](extract func(T) K) []T {
+	return slices.SortBy(t.List(), extract)
+}
+
+// Register adds an event watcher to the collection. Any time an item in the collection changes, the handler is called.
+func (t Collection[T]) Register(f func(Event[T])) HandlerRegistration {
+	return registerHandlerAsBatched(t.internalCollection, f)
+}
+
+func (t Collection[T]) internal() internalCollection[T] {
+	return t.internalCollection
+}
+
+// IsNil reports whether the collection has no underlying implementation.
+func (t Collection[T]) IsNil() bool {
+	return t.internalCollection == nil
+}
+
+// collectionTrait is the implementation contract wrapped by Collection.
+type collectionTrait[T any] interface {
 	// GetKey returns an object by its key, if present. Otherwise, nil is returned.
 	GetKey(k string) *T
 
@@ -54,17 +103,6 @@ type Collection[T any] interface {
 type EventStream[T any] interface {
 	Syncer
 
-	// Register adds an event watcher to the collection. Any time an item in the collection changes, the handler will be
-	// called. Typically, usage of Register is done internally in krt via composition of Collections with Transformations
-	// (NewCollection, NewManyCollection, NewSingleton); however, at boundaries of the system (connecting to something not
-	// using krt), registering directly is expected.
-	// Handlers have the following semantics:
-	// * On each event, all handlers are called.
-	// * Each handler has its own unbounded event queue. Slow handlers will cause this queue to accumulate, but will not block
-	//   other handlers.
-	// * Events will be sent in order, and will not be dropped or deduplicated.
-	Register(f func(o Event[T])) HandlerRegistration
-
 	// RegisterBatch registers a handler that accepts multiple events at once. This can be useful as an optimization.
 	// Otherwise, behaves the same as Register.
 	// Additionally, skipping the default behavior of "send all current state through the handler" can be turned off.
@@ -73,10 +111,10 @@ type EventStream[T any] interface {
 	RegisterBatch(f func(o []Event[T]), runExistingState bool) HandlerRegistration
 }
 
-// internalCollection is a superset of Collection for internal usage. All collections must implement this type, but
-// we only expose some functions to external users for simplicity.
+// internalCollection extends collectionTrait for internal usage. All collection implementations must implement this
+// type, but the additional methods remain hidden from external users by the Collection wrapper.
 type internalCollection[T any] interface {
-	Collection[T]
+	collectionTrait[T]
 
 	// Name is a human facing name for this collection.
 	// Note this may not be universally unique

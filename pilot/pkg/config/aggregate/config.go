@@ -55,7 +55,7 @@ func makeStore(stores []model.ConfigStoreController, writer model.ConfigStoreCon
 		schemaCollections := make([]krt.Collection[config.Config], 0, len(storeTypes[gvk]))
 		for _, store := range storeTypes[gvk] {
 			collection := store.KrtCollection(gvk)
-			if collection != nil {
+			if !collection.IsNil() {
 				schemaCollections = append(schemaCollections, collection)
 			}
 		}
@@ -216,5 +216,5 @@ func (cr *storeCache) KrtCollection(gvk config.GroupVersionKind) krt.Collection[
 		return kindStore.collection
 	}
 
-	return nil
+	return krt.Collection[config.Config]{}
 }

@@ -41,6 +41,10 @@ type staticList[T any] struct {
 	indexes        map[string]staticListIndex[T]
 }
 
+func (s StaticCollection[T]) AsCollection() Collection[T] {
+	return newCollection[T](s.staticList)
+}
+
 func NewStaticCollection[T any](synced Syncer, vals []T, opts ...CollectionOption) StaticCollection[T] {
 	o := buildCollectionOptions(opts...)
 	if o.name == "" {
@@ -315,10 +319,6 @@ func (s *staticList[T]) List() []T {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return maps.Values(s.vals)
-}
-
-func (s *staticList[T]) Register(f func(o Event[T])) HandlerRegistration {
-	return registerHandlerAsBatched(s, f)
 }
 
 func (s *staticList[T]) HasSynced() bool {

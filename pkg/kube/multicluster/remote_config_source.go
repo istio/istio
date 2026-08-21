@@ -114,7 +114,7 @@ func (f *fileConfigSource) Start(stop <-chan struct{}) {
 			)
 			// Fall back to a synced dummy collection so the secret controller can
 			// continue starting even if the initial file-backed source setup fails.
-			collection = krt.NewStaticCollection[KubeconfigFile](nil, nil, opts.WithName("RemoteKubeconfigs")...)
+			collection = krt.NewStaticCollection[KubeconfigFile](nil, nil, opts.WithName("RemoteKubeconfigs")...).AsCollection()
 		}
 
 		f.mu.Lock()
@@ -133,7 +133,7 @@ func (f *fileConfigSource) Start(stop <-chan struct{}) {
 func (f *fileConfigSource) HasSynced() bool {
 	f.mu.RLock()
 	defer f.mu.RUnlock()
-	if f.collection == nil {
+	if f.collection.IsNil() {
 		return false
 	}
 	return f.collection.HasSynced()
@@ -143,7 +143,7 @@ func (f *fileConfigSource) Get(key types.NamespacedName) *remoteConfig {
 	f.mu.RLock()
 	collection := f.collection
 	f.mu.RUnlock()
-	if collection == nil {
+	if collection.IsNil() {
 		return nil
 	}
 
@@ -164,7 +164,7 @@ func (f *fileConfigSource) AddEventHandler(handler func(key types.NamespacedName
 
 	f.mu.Lock()
 	collection := f.collection
-	if collection == nil {
+	if collection.IsNil() {
 		f.deferredHandlers = append(f.deferredHandlers, handler)
 		f.mu.Unlock()
 		return
@@ -183,7 +183,7 @@ func registerHandler(collection krt.Collection[KubeconfigFile], handler func(key
 	if handler == nil {
 		return
 	}
-	if collection == nil {
+	if collection.IsNil() {
 		return
 	}
 

@@ -264,7 +264,7 @@ func testGateway(name, class string) *gatewayv1.Gateway {
 }
 
 func staticCol[T any](opts krt.OptionsBuilder, name string, items ...T) krt.Collection[T] {
-	return krt.NewStaticCollection(nil, items, opts.WithName(name)...)
+	return krt.NewStaticCollection(nil, items, opts.WithName(name)...).AsCollection()
 }
 
 func TestBuildWaypointServiceBindings(t *testing.T) {

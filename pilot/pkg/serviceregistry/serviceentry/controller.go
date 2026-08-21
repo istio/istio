@@ -224,7 +224,7 @@ func newController(
 		s.inputs.Namespaces = multiclusterController.ConfigCluster().Namespaces()
 		s.inputs.ServiceEntries = store.KrtCollection(gvk.ServiceEntry)
 		s.inputs.ExternalWorkloads = krt.NewStaticCollection[*model.WorkloadInstance](nil, nil, s.opts.WithName("inputs/ExternalWorkloads")...)
-		s.inputs.ExternalWorkloadsByIP = krt.NewIndex(s.inputs.ExternalWorkloads, "ip", func(wi *model.WorkloadInstance) []string {
+		s.inputs.ExternalWorkloadsByIP = krt.NewIndex(s.inputs.ExternalWorkloads.AsCollection(), "ip", func(wi *model.WorkloadInstance) []string {
 			return []string{wi.Endpoint.FirstAddressOrNil()}
 		})
 	}
@@ -260,7 +260,7 @@ func (s *Controller) buildCollections() {
 
 	if !s.workloadEntryController {
 		allWorkloads := krt.JoinCollection(
-			[]krt.Collection[*model.WorkloadInstance]{wleWorkloads, s.inputs.ExternalWorkloads},
+			[]krt.Collection[*model.WorkloadInstance]{wleWorkloads, s.inputs.ExternalWorkloads.AsCollection()},
 			s.opts.WithName("outputs/AllWorkloads")...,
 		)
 		workloadsByNamespace := krt.NewNamespaceIndex(allWorkloads)

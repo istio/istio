@@ -86,10 +86,10 @@ func (c *Controller) Run(stop <-chan struct{}) {
 
 func (c *Controller) KrtCollection(kind config.GroupVersionKind) krt.Collection[config.Config] {
 	if data, ok := c.store.data[kind]; ok {
-		return data.collection
+		return data.collection.AsCollection()
 	}
 
-	return nil
+	return krt.Collection[config.Config]{}
 }
 
 func (c *Controller) Schemas() collection.Schemas {

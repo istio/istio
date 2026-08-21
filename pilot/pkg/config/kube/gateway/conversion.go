@@ -601,7 +601,7 @@ func waypointManagedByAnotherController(ctx RouteContext, parentRef parentRefere
 	if !found || waypointName == "" || strings.EqualFold(waypointName, "none") {
 		return false
 	}
-	if ctx.Gateways == nil || ctx.GatewayClasses == nil {
+	if ctx.Gateways.IsNil() || ctx.GatewayClasses.IsNil() {
 		return false
 	}
 

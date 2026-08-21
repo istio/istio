@@ -39,7 +39,7 @@ type mappedIndexer[T any, U any] struct {
 	mapFunc        func(T) U
 }
 
-var _ Collection[any] = &mapCollection[any, any]{}
+var _ collectionTrait[any] = &mapCollection[any, any]{}
 
 // nolint: unused // (not true, its to implement an interface)
 func (m *mappedIndexer[T, U]) Lookup(k string) []U {
@@ -76,10 +76,6 @@ func (m *mapCollection[T, U]) List() []U {
 		}
 	}
 	return res
-}
-
-func (m *mapCollection[T, U]) Register(handler func(Event[U])) HandlerRegistration {
-	return registerHandlerAsBatched(m, handler)
 }
 
 func (m *mapCollection[T, U]) RegisterBatch(handler func([]Event[U]), runExistingState bool) HandlerRegistration {
@@ -158,7 +154,7 @@ func MapCollection[T, U any](
 	if o.name == "" {
 		o.name = fmt.Sprintf("Map[%v]", ptr.TypeName[T]())
 	}
-	ic := collection.(internalCollection[T])
+	ic := collection.internal()
 	metadata := o.metadata
 	if metadata == nil {
 		metadata = ic.Metadata()
@@ -171,7 +167,7 @@ func MapCollection[T, U any](
 		metadata:       metadata,
 	}
 	maybeRegisterCollectionForDebugging[U](m, o.debugger)
-	return m
+	return newCollection[U](m)
 }
 
 // Used only to make assertions internally about Collection invariants

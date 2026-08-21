@@ -415,12 +415,12 @@ func (c *Cluster) reportStatus(status string) {
 
 func (c *Cluster) hasInitialCollections() bool {
 	return c.remoteClusterCollections.Load() != nil &&
-		c.Namespaces() != nil &&
-		c.Gateways() != nil &&
-		c.Services() != nil &&
-		c.Nodes() != nil &&
-		c.EndpointSlices() != nil &&
-		c.Pods() != nil
+		!c.Namespaces().IsNil() &&
+		!c.Gateways().IsNil() &&
+		!c.Services().IsNil() &&
+		!c.Nodes().IsNil() &&
+		!c.EndpointSlices().IsNil() &&
+		!c.Pods().IsNil()
 }
 
 // WaitUntilSynced waits for the cluster to be fully synced.
