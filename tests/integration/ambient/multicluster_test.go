@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"golang.org/x/sync/errgroup"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sv1 "sigs.k8s.io/gateway-api/apis/v1"
 
@@ -40,6 +41,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
+	"istio.io/istio/pkg/test/framework/components/echo/util/traffic"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -394,6 +396,196 @@ func scaleDeploymentOrFail(t framework.TestContext, c cluster.Cluster, namespace
 		}
 		return fmt.Errorf("deployment still has different number of pods, want %d, got %d", scale, len(pods.Items))
 	})
+}
+
+const (
+	// How long we send traffic before rotating the remote secret, to establish a baseline.
+	rotationBaselineWindow = 5 * time.Second
+	// How long we keep sending traffic after rotating the remote secret. The rotation is handled
+	// asynchronously: istiod builds a new client for the remote cluster, waits for its informers to
+	// sync and swaps the collections built on top of them, so the window has to be wide enough to
+	// cover the whole swap.
+	rotationObservationWindow = 60 * time.Second
+)
+
+// TestMulticlusterRemoteSecretRotation verifies that rotating a remote cluster's secret does not
+// drop that cluster's ambient configuration while the per-cluster collections are rebuilt on the new
+// client. This is the ambient counterpart of TestRemoteSecretRotationKeepsCrossClusterTraffic in
+// tests/integration/pilot, which covers the same scenario for sidecars.
+func TestMulticlusterRemoteSecretRotation(t *testing.T) {
+	framework.NewTest(t).Run(func(t framework.TestContext) {
+		if !t.Settings().Ambient || !t.Settings().AmbientMultiNetwork {
+			t.Skip("this test is ambient multi-cluster specific")
+		}
+		if len(t.Clusters()) < 2 {
+			t.Fatal("ambient multi-cluster secret rotation test requires at least 2 clusters")
+		}
+
+		// The client runs in local, so it is local's istiod (and its remote secrets) whose handling of
+		// the rotation we are testing.
+		primaries := t.Clusters().Primaries()
+		if len(primaries) == 0 {
+			t.Skip("no primary cluster in framework (most likely only remote-config, e.g. external control plane topology)")
+		}
+		local := primaries.Default()
+		candidates := t.Clusters().MeshClusters().Exclude(local)
+		if len(candidates) == 0 {
+			t.Skip("no remote cluster to rotate the secret of")
+		}
+		remote := candidates.Default()
+		// Prefer a cluster on a different network, if one is available, so that traffic goes through an
+		// E/W gateway.
+		for _, c := range candidates {
+			if c.NetworkName() != local.NetworkName() {
+				remote = c
+				break
+			}
+		}
+
+		ns := namespace.NewOrFail(t, namespace.Config{
+			Prefix: "secret-rotation",
+			Inject: false,
+			Labels: map[string]string{
+				label.IoIstioDataplaneMode.Name: "ambient",
+			},
+		})
+
+		const targetService = "rotation-target"
+		const clientService = "rotation-client"
+
+		// The target service is global but only has healthy replicas in the remote cluster, so every
+		// successful call must have been routed using the configuration istiod learned from that
+		// cluster. If the collection swap drops it, calls start failing.
+		workloads := deployWorkloadsOrFail(t, []workload{
+			{
+				serviceName: targetService,
+				cluster:     local,
+				namespace:   ns,
+				serviceLabels: map[string]string{
+					"istio.io/global": "true",
+				},
+				replicas: 0,
+			},
+			{
+				serviceName: targetService,
+				cluster:     remote,
+				namespace:   ns,
+				serviceLabels: map[string]string{
+					"istio.io/global": "true",
+				},
+				replicas: 1,
+			},
+			{
+				serviceName: clientService,
+				cluster:     local,
+				namespace:   ns,
+				replicas:    1,
+			},
+		})
+
+		clients := match.ServiceName(echo.NamespacedName{Name: clientService, Namespace: ns}).GetMatches(workloads)
+		if len(clients) == 0 {
+			t.Fatalf("no %s instances deployed in cluster %s", clientService, local.Name())
+		}
+		source := clients[0]
+
+		callOptions := echo.CallOptions{
+			Address: fmt.Sprintf("%s.%s.svc.cluster.local", targetService, ns.Name()),
+			Port:    ports.HTTP,
+			Scheme:  scheme.HTTP,
+			Count:   1,
+			Check: check.And(
+				check.OK(),
+				check.ReachedClusters(t.AllClusters(), cluster.Clusters{remote}),
+			),
+		}
+
+		callTarget := func(options ...retry.Option) {
+			t.Helper()
+			opts := callOptions
+			opts.Retry = echo.Retry{
+				Options: append([]retry.Option{retry.Timeout(2 * time.Minute), retry.Delay(time.Second)}, options...),
+			}
+			source.CallOrFail(t, opts)
+		}
+
+		// Wait until the remote cluster's configuration has been programmed before measuring anything.
+		callTarget()
+
+		// Short per-request timeout and no retries, so a request that is dropped while the collections
+		// are swapped is counted as a failure instead of being silently retried.
+		trafficOptions := callOptions
+		trafficOptions.Timeout = 3 * time.Second
+		trafficOptions.Retry = echo.Retry{NoRetry: true}
+		gen := traffic.NewGenerator(t, traffic.Config{
+			Source:      source,
+			Options:     trafficOptions,
+			Interval:    500 * time.Millisecond,
+			StopTimeout: 10 * time.Second,
+		}).Start()
+
+		t.Log("Running baseline cross-cluster traffic")
+		time.Sleep(rotationBaselineWindow)
+
+		t.Logf("Rotating the remote secret for cluster %s in cluster %s", remote.Name(), local.Name())
+		rotateRemoteSecretOrFail(t, local, remote)
+
+		t.Log("Running cross-cluster traffic through the rotation")
+		time.Sleep(rotationObservationWindow)
+
+		result := gen.Stop()
+		t.Logf("traffic during remote secret rotation:\n%s", result)
+		result.CheckSuccessRate(t, 1.0)
+
+		// Finally, make sure the remote cluster's configuration is still being served, and is not a
+		// stale snapshot built on the informers that were shut down with the previous client.
+		callTarget(retry.Converge(5))
+	})
+}
+
+// rotateRemoteSecretOrFail rewrites the kubeconfig that local holds for remote, keeping it
+// semantically identical while changing its bytes. This is what a credential rotation looks like to
+// istiod: the same cluster, but a new client, new informers and new collections built on top of them.
+// The original kubeconfig is restored on cleanup.
+func rotateRemoteSecretOrFail(t framework.TestContext, local, remote cluster.Cluster) {
+	t.Helper()
+
+	secrets := local.Kube().CoreV1().Secrets(i.Settings().SystemNamespace)
+	secretList, err := secrets.List(t.Context(), metav1.ListOptions{
+		LabelSelector: "istio/multiCluster=true",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var remoteSecret *corev1.Secret
+	for _, secret := range secretList.Items {
+		if _, found := secret.Data[remote.Name()]; found {
+			remoteSecret = secret.DeepCopy()
+			break
+		}
+	}
+	if remoteSecret == nil {
+		t.Fatalf("could not find remote secret for cluster %s in cluster %s", remote.Name(), local.Name())
+	}
+
+	originalKubeconfig := slices.Clone(remoteSecret.Data[remote.Name()])
+	t.Cleanup(func() {
+		secret, err := secrets.Get(context.Background(), remoteSecret.Name, metav1.GetOptions{})
+		if err != nil {
+			t.Logf("failed to get remote secret %s during cleanup: %v", remoteSecret.Name, err)
+			return
+		}
+		secret.Data[remote.Name()] = originalKubeconfig
+		if _, err := secrets.Update(context.Background(), secret, metav1.UpdateOptions{}); err != nil {
+			t.Logf("failed to restore remote secret %s during cleanup: %v", remoteSecret.Name, err)
+		}
+	})
+
+	remoteSecret.Data[remote.Name()] = append(slices.Clone(originalKubeconfig), []byte("\n# rotated by integration test\n")...)
+	if _, err := secrets.Update(t.Context(), remoteSecret, metav1.UpdateOptions{}); err != nil {
+		t.Fatal(err)
+	}
 }
 
 // TestEastWestGatewayTLSRoute checks if we can expose passthrough ports on E/W gateways
