@@ -126,9 +126,6 @@ type AuthorizationPoliciesResult struct {
 	Deny   []AuthorizationPolicy
 	Allow  []AuthorizationPolicy
 	Audit  []AuthorizationPolicy
-	// RootDeny holds DENY policies from the root namespace. Enforced in a filter
-	// that per-route configuration cannot override.
-	RootDeny []AuthorizationPolicy
 }
 
 // ListAuthorizationPoliciesForHTTPRoute returns authorization policies that explicitly target
@@ -160,12 +157,11 @@ func (policy *AuthorizationPolicies) ListAuthorizationPolicies(selectionOpts Wor
 	}
 
 	for _, ns := range slices.FilterDuplicates(lookupInNamespaces) {
-		isRoot := features.EnableGatewayAPIHTTPRouteAuth && policy.RootNamespace != "" && ns == policy.RootNamespace
 		for _, config := range policy.NamespaceToPolicies[ns] {
 			spec := config.Spec
 
 			if selectionOpts.ShouldAttachPolicy(gvk.AuthorizationPolicy, config.NamespacedName(), spec) {
-				configs = updateAuthorizationPoliciesResult(configs, config, isRoot)
+				configs = updateAuthorizationPoliciesResult(configs, config)
 			}
 		}
 	}
@@ -173,18 +169,14 @@ func (policy *AuthorizationPolicies) ListAuthorizationPolicies(selectionOpts Wor
 	return configs
 }
 
-func updateAuthorizationPoliciesResult(configs AuthorizationPoliciesResult, config AuthorizationPolicy, isRoot bool) AuthorizationPoliciesResult {
+func updateAuthorizationPoliciesResult(configs AuthorizationPoliciesResult, config AuthorizationPolicy) AuthorizationPoliciesResult {
 	log.Debugf("applying authorization policy %s.%s",
 		config.Namespace, config.Name)
 	switch config.Spec.GetAction() {
 	case authpb.AuthorizationPolicy_ALLOW:
 		configs.Allow = append(configs.Allow, config)
 	case authpb.AuthorizationPolicy_DENY:
-		if isRoot {
-			configs.RootDeny = append(configs.RootDeny, config)
-		} else {
-			configs.Deny = append(configs.Deny, config)
-		}
+		configs.Deny = append(configs.Deny, config)
 	case authpb.AuthorizationPolicy_AUDIT:
 		configs.Audit = append(configs.Audit, config)
 	case authpb.AuthorizationPolicy_CUSTOM:

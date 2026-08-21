@@ -660,52 +660,6 @@ func assertPolicyNames(t *testing.T, action string, got []AuthorizationPolicy, w
 	}
 }
 
-func TestListAuthorizationPoliciesRootDeny(t *testing.T) {
-	denySpec := func() *authpb.AuthorizationPolicy {
-		return &authpb.AuthorizationPolicy{
-			Action: authpb.AuthorizationPolicy_DENY,
-			Rules:  []*authpb.Rule{{}},
-		}
-	}
-	allowSpec := func() *authpb.AuthorizationPolicy {
-		return &authpb.AuthorizationPolicy{
-			Action: authpb.AuthorizationPolicy_ALLOW,
-			Rules:  []*authpb.Rule{{}},
-		}
-	}
-
-	configs := []config.Config{
-		newConfig("root-deny", "istio-config", denySpec()),
-		newConfig("ns-deny", "foo", denySpec()),
-		newConfig("root-allow", "istio-config", allowSpec()),
-		newConfig("ns-allow", "foo", allowSpec()),
-	}
-
-	opts := WorkloadPolicyMatcher{
-		WorkloadNamespace: "foo",
-		WorkloadLabels:    labels.Instance{"app": "httpbin"},
-		RootNamespace:     "istio-config",
-	}
-
-	t.Run("enabled splits root deny", func(t *testing.T) {
-		test.SetForTest(t, &features.EnableGatewayAPIHTTPRouteAuth, true)
-		got := createFakeAuthorizationPolicies(configs).ListAuthorizationPolicies(opts)
-		assertPolicyNames(t, "rootDeny", got.RootDeny, []string{"root-deny"})
-		assertPolicyNames(t, "deny", got.Deny, []string{"ns-deny"})
-		// ALLOW stays merged: chaining separate ALLOW filters would turn Istio's OR into an AND.
-		assertPolicyNames(t, "allow", got.Allow, []string{"root-allow", "ns-allow"})
-	})
-
-	t.Run("disabled keeps root deny merged", func(t *testing.T) {
-		test.SetForTest(t, &features.EnableGatewayAPIHTTPRouteAuth, false)
-		got := createFakeAuthorizationPolicies(configs).ListAuthorizationPolicies(opts)
-		if len(got.RootDeny) != 0 {
-			t.Errorf("expected no root deny policies, got %d", len(got.RootDeny))
-		}
-		assertPolicyNames(t, "deny", got.Deny, []string{"root-deny", "ns-deny"})
-	})
-}
-
 func TestIndexHTTPRoutePoliciesFeatureGate(t *testing.T) {
 	test.SetForTest(t, &features.EnableGatewayAPIHTTPRouteAuth, false)
 	configs := []config.Config{
