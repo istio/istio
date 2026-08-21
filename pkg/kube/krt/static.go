@@ -321,7 +321,10 @@ func (s *staticList[T]) index(name string, extract func(o T) []string) indexer[T
 func (s *staticList[T]) ListFiltered(filter func(T) bool) []T {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	res := make([]T, 0, len(s.vals))
+	var res []T
+	if filter == nil {
+		res = make([]T, 0, len(s.vals))
+	}
 	for _, v := range s.vals {
 		if filter == nil || filter(v) {
 			res = append(res, v)

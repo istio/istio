@@ -161,7 +161,10 @@ func (j *mergejoin[T]) ListFiltered(filter func(T) bool) []T {
 	j.mu.RLock()
 	defer j.mu.RUnlock()
 
-	res := make([]T, 0, len(j.outputs))
+	var res []T
+	if filter == nil {
+		res = make([]T, 0, len(j.outputs))
+	}
 	for _, v := range j.outputs {
 		if filter == nil || filter(v) {
 			res = append(res, v)

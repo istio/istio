@@ -65,6 +65,21 @@ func (m *mapCollection[T, U]) GetKey(k string) *U {
 }
 
 func (m *mapCollection[T, U]) ListFiltered(filter func(U) bool) []U {
+	if filter != nil {
+		var res []U
+		m.collection.ListFiltered(func(obj T) bool {
+			mapped := m.mapFunc(obj)
+			if EnableAssertions {
+				assertKeyMatch(obj, mapped, m.collectionName)
+			}
+			if filter(mapped) {
+				res = append(res, mapped)
+			}
+			return false
+		})
+		return res
+	}
+
 	vals := m.collection.ListFiltered(nil)
 	res := make([]U, 0, len(vals))
 	for _, obj := range vals {
@@ -72,9 +87,7 @@ func (m *mapCollection[T, U]) ListFiltered(filter func(U) bool) []U {
 		if EnableAssertions {
 			assertKeyMatch(obj, mapped, m.collectionName)
 		}
-		if filter == nil || filter(mapped) {
-			res = append(res, mapped)
-		}
+		res = append(res, mapped)
 	}
 	return res
 }

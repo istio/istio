@@ -212,12 +212,15 @@ func (i indexCollection[K, O]) GetKey(k string) *IndexObject[K, O] {
 }
 
 func (i indexCollection[K, O]) ListFiltered(filter func(IndexObject[K, O]) bool) []IndexObject[K, O] {
-	o := i.idx.c.List()
 	keys := sets.New[K]()
-	for _, oo := range o {
+	i.idx.c.ListFiltered(func(oo O) bool {
 		keys.InsertAll(i.idx.extractKeys(oo)...)
+		return false
+	})
+	var res []IndexObject[K, O]
+	if filter == nil {
+		res = make([]IndexObject[K, O], 0, len(keys))
 	}
-	res := make([]IndexObject[K, O], 0, len(keys))
 	for k := range keys {
 		v := *i.GetKey(toString(k))
 		if filter == nil || filter(v) {

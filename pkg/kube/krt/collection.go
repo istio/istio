@@ -729,6 +729,9 @@ func (h *manyCollection[I, O]) GetKey(k string) (res *O) {
 func (h *manyCollection[I, O]) ListFiltered(filter func(O) bool) (res []O) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
+	if filter == nil {
+		res = make([]O, 0, len(h.collectionState.outputs))
+	}
 	for _, v := range h.collectionState.outputs {
 		if filter == nil || filter(v) {
 			res = append(res, v)
