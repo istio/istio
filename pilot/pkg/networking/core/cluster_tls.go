@@ -252,6 +252,9 @@ func constructUpstreamTLS(opts *buildClusterOpts, tls *networking.ClientTLSSetti
 	if isHttp2Cluster(c) {
 		// This is HTTP/2 cluster, advertise it with ALPN.
 		tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNH2Only
+	} else if isAutoProtocolCluster(c) {
+		// Auto protocol selection relies on ALPN to choose HTTP/2 when the upstream supports it.
+		tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNHttp
 	}
 	return tlsContext, nil
 }

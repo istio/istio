@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/visibility"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -92,6 +93,7 @@ func (ps *PushContext) mergeDestinationRule(p *consolidatedDestRules, destRuleCo
 			// Deep copy destination rule, to prevent mutate it later when merge with a new one.
 			// This can happen when there are more than one destination rule of same host in one namespace.
 			copied := mdr.rule.DeepCopy()
+			mergeDestinationRuleExtra(&copied, &destRuleConfig)
 			mdr.rule = &copied
 			mdr.from = append(mdr.from, destRuleConfig.NamespacedName())
 			mergedRule := copied.Spec.(*networking.DestinationRule)
@@ -143,6 +145,21 @@ func (ps *PushContext) mergeDestinationRule(p *consolidatedDestRules, destRuleCo
 	}
 	// DestinationRule does not exist for the resolved host so add it
 	destRules[resolvedHost] = append(destRules[resolvedHost], ConvertConsolidatedDestRule(&destRuleConfig, exportToSet))
+}
+
+func mergeDestinationRuleExtra(merged, incoming *config.Config) {
+	incomingPorts, ok := incoming.Extra[constants.ConfigExtraGRPCBackendPorts].([]uint32)
+	if !ok || len(incomingPorts) == 0 {
+		return
+	}
+	ports := sets.New(incomingPorts...)
+	if existingPorts, ok := merged.Extra[constants.ConfigExtraGRPCBackendPorts].([]uint32); ok {
+		ports.InsertAll(existingPorts...)
+	}
+	if merged.Extra == nil {
+		merged.Extra = map[string]any{}
+	}
+	merged.Extra[constants.ConfigExtraGRPCBackendPorts] = slices.Sort(ports.UnsortedList())
 }
 
 // isBackendPolicyDestinationRule reports whether a DestinationRule was synthesized by Istio from a

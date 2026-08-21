@@ -356,6 +356,14 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *clusterWrapper, clusterMode C
 	// DestinationRule) inherit it for any connectionPool / outlierDetection block the DR
 	// leaves unset. Subset / portLevelSettings still override on top via the merge below.
 	trafficPolicy = applyDefaultTrafficPolicy(cb.req.Push.Mesh.GetDefaultTrafficPolicy(), trafficPolicy)
+	if cb.proxyType == model.Router && clusterMode == DefaultClusterMode {
+		switch grpcBackendProtocolForCluster(destRule, port, destinationRule.GetTrafficPolicy(), trafficPolicy) {
+		case grpcBackendProtocolAuto:
+			setAutoProtocolOptions(mc)
+		case grpcBackendProtocolHTTP2:
+			setH2Options(mc)
+		}
+	}
 	opts := buildClusterOpts{
 		mesh:                      cb.req.Push.Mesh,
 		mutable:                   mc,
@@ -822,14 +830,111 @@ func setH2Options(mc *clusterWrapper) {
 		mc.httpProtocolOptions = &http.HttpProtocolOptions{}
 	}
 	options := mc.httpProtocolOptions
-	if options.UpstreamProtocolOptions == nil {
-		options.UpstreamProtocolOptions = &http.HttpProtocolOptions_ExplicitHttpConfig_{
-			ExplicitHttpConfig: &http.HttpProtocolOptions_ExplicitHttpConfig{
-				ProtocolConfig: &http.HttpProtocolOptions_ExplicitHttpConfig_Http2ProtocolOptions{
-					Http2ProtocolOptions: http2ProtocolOptions(),
-				},
-			},
+	switch current := options.UpstreamProtocolOptions.(type) {
+	case nil:
+	case *http.HttpProtocolOptions_ExplicitHttpConfig_:
+		if current.ExplicitHttpConfig.GetHttp2ProtocolOptions() != nil {
+			return
 		}
+	default:
+		return
+	}
+	options.UpstreamProtocolOptions = &http.HttpProtocolOptions_ExplicitHttpConfig_{
+		ExplicitHttpConfig: &http.HttpProtocolOptions_ExplicitHttpConfig{
+			ProtocolConfig: &http.HttpProtocolOptions_ExplicitHttpConfig_Http2ProtocolOptions{
+				Http2ProtocolOptions: http2ProtocolOptions(),
+			},
+		},
+	}
+}
+
+// setAutoProtocolOptions configures Envoy to negotiate HTTP/2 or HTTP/1.1 with a TLS upstream.
+// Existing explicit HTTP/2 and downstream-protocol selections take precedence.
+func setAutoProtocolOptions(mc *clusterWrapper) {
+	if mc == nil {
+		return
+	}
+	if mc.httpProtocolOptions == nil {
+		mc.httpProtocolOptions = &http.HttpProtocolOptions{}
+	}
+	options := mc.httpProtocolOptions
+	var http1Options *core.Http1ProtocolOptions
+	switch current := options.UpstreamProtocolOptions.(type) {
+	case nil:
+	case *http.HttpProtocolOptions_ExplicitHttpConfig_:
+		if current.ExplicitHttpConfig.GetHttp2ProtocolOptions() != nil {
+			return
+		}
+		http1Options = current.ExplicitHttpConfig.GetHttpProtocolOptions()
+	default:
+		return
+	}
+	options.UpstreamProtocolOptions = &http.HttpProtocolOptions_AutoConfig{
+		AutoConfig: &http.HttpProtocolOptions_AutoHttpConfig{
+			HttpProtocolOptions:  http1Options,
+			Http2ProtocolOptions: http2ProtocolOptions(),
+		},
+	}
+}
+
+type grpcBackendProtocol int
+
+const (
+	grpcBackendProtocolNone grpcBackendProtocol = iota
+	grpcBackendProtocolAuto
+	grpcBackendProtocolHTTP2
+)
+
+func grpcBackendProtocolForCluster(
+	destRule *config.Config,
+	port *model.Port,
+	destinationPolicy *networking.TrafficPolicy,
+	resolvedPolicy *networking.TrafficPolicy,
+) grpcBackendProtocol {
+	if destRule == nil || port == nil {
+		return grpcBackendProtocolNone
+	}
+	ports, ok := destRule.Extra[constants.ConfigExtraGRPCBackendPorts].([]uint32)
+	if !ok {
+		return grpcBackendProtocolNone
+	}
+	matched := false
+	for _, grpcPort := range ports {
+		if grpcPort == uint32(port.Port) {
+			matched = true
+			break
+		}
+	}
+	if !matched {
+		return grpcBackendProtocolNone
+	}
+	tlsMode := resolvedPolicy.GetTls().GetMode()
+	if tlsMode != networking.ClientTLSSettings_SIMPLE && tlsMode != networking.ClientTLSSettings_MUTUAL {
+		return grpcBackendProtocolNone
+	}
+	for _, portPolicy := range destinationPolicy.GetPortLevelSettings() {
+		if portPolicy.GetPort().GetNumber() == uint32(port.Port) && portPolicy.ConnectionPool != nil {
+			return grpcBackendProtocolFromHTTPSettings(portPolicy.ConnectionPool.Http)
+		}
+	}
+	if destinationPolicy.GetConnectionPool() != nil {
+		return grpcBackendProtocolFromHTTPSettings(destinationPolicy.ConnectionPool.Http)
+	}
+	return grpcBackendProtocolFromHTTPSettings(resolvedPolicy.GetConnectionPool().GetHttp())
+}
+
+func grpcBackendProtocolFromHTTPSettings(httpSettings *networking.ConnectionPoolSettings_HTTPSettings) grpcBackendProtocol {
+	if httpSettings.GetUseClientProtocol() {
+		// This is an explicit user selection; do not replace it with inferred auto protocol settings.
+		return grpcBackendProtocolNone
+	}
+	switch httpSettings.GetH2UpgradePolicy() {
+	case networking.ConnectionPoolSettings_HTTPSettings_UPGRADE:
+		return grpcBackendProtocolHTTP2
+	case networking.ConnectionPoolSettings_HTTPSettings_DO_NOT_UPGRADE:
+		return grpcBackendProtocolNone
+	default:
+		return grpcBackendProtocolAuto
 	}
 }
 
@@ -872,6 +977,10 @@ func http2ProtocolOptions() *core.Http2ProtocolOptions {
 func isHttp2Cluster(mc *clusterWrapper) bool {
 	options := mc.httpProtocolOptions
 	return options != nil && options.GetExplicitHttpConfig().GetHttp2ProtocolOptions() != nil
+}
+
+func isAutoProtocolCluster(mc *clusterWrapper) bool {
+	return mc != nil && mc.httpProtocolOptions != nil && mc.httpProtocolOptions.GetAutoConfig() != nil
 }
 
 // This is called after traffic policy applied
