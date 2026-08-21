@@ -410,6 +410,7 @@ func GlobalWaypointsCollection(
 		pods := c.Pods()
 		podsByNamespace := krt.NewNamespaceIndex(pods)
 		gateways := c.Gateways()
+		namespaces := c.Namespaces()
 
 		clusterWaypoints := krt.NewCollection(gateways, func(ctx krt.HandlerContext, gateway *gatewayv1.Gateway) *Waypoint {
 			if len(gateway.Status.Addresses) == 0 {
@@ -442,12 +443,7 @@ func GlobalWaypointsCollection(
 				trafficType = tt
 			}
 
-			nw := krt.FetchOne(ctx, globalNetworks.RemoteSystemNamespaceNetworks, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, c.ID))
-			if nw == nil {
-				log.Warnf("Cluster %s does not have a network, skipping global workloads", c.ID)
-				return nil
-			}
-			clusterNetwork := nw.Network
+			clusterNetwork := globalNetworks.FetchRemoteSystemNamespaceNetwork(ctx, namespaces)
 
 			return makeWaypoint(gateway, gatewayClass, serviceAccounts, trafficType, clusterNetwork)
 		}, opts...)
