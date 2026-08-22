@@ -159,11 +159,11 @@ func (g *APIGenerator) authorize(proxy *model.Proxy, req *model.PushRequest) err
 		if proxy != nil {
 			id = proxy.ID
 		}
-		log.Warnf("ADS: api generator denied unauthenticated request from %q; the caller sees the stream close and may silently retry", id)
+		log.Warnf("ADS: api generator denied unauthenticated request from %q", id)
 		return grpcstatus.Error(codes.Unauthenticated, "the api generator requires an authenticated control-plane identity")
 	}
 	if proxy.VerifiedIdentity.Namespace != systemNamespace {
-		log.Warnf("ADS: api generator denied %q (identity %q), restricted to the control-plane namespace %q; the caller sees the stream close and may silently retry",
+		log.Warnf("ADS: api generator denied %q (identity %q), restricted to the control-plane namespace %q",
 			proxy.ID, proxy.VerifiedIdentity.String(), systemNamespace)
 		return grpcstatus.Error(codes.PermissionDenied, "the api generator is restricted to the control-plane (root) namespace")
 	}
