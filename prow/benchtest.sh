@@ -54,7 +54,8 @@ case "${1}" in
     AWS_ACCESS_KEY_ID=$(echo "${CF_CREDENTIALS}" | jq -r '.access_key')
     AWS_SECRET_ACCESS_KEY=$(echo "${CF_CREDENTIALS}" | jq -r '.secret_key')
     AWS_SESSION_TOKEN=$(echo "${CF_CREDENTIALS}" | jq -r '.session_token')
-    export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
+    AWS_REGION=$(echo "${CF_CREDENTIALS}" | jq -r '.region')
+    export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN AWS_REGION
     aws --endpoint-url="${ENDPOINT}" s3 cp "${REPORT_JUNIT}" "s3://${S3_BENCHMARK_DIR}/${GIT_SHA}.xml"
     aws --endpoint-url="${ENDPOINT}" s3 cp "${REPORT_PLAINTEXT}" "s3://${S3_BENCHMARK_DIR}/${GIT_SHA}.txt"
     ;;
