@@ -2373,9 +2373,9 @@ func TestSidecarScope(t *testing.T) {
 	ps := NewPushContext()
 	env := &Environment{Watcher: meshwatcher.NewTestWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-system"})}
 	ps.Mesh = env.Mesh()
-	ps.ServiceIndex.HostnameAndNamespace["svc1.default.cluster.local"] = map[string]*Service{"default": nil}
-	ps.ServiceIndex.HostnameAndNamespace["svc2.nosidecar.cluster.local"] = map[string]*Service{"nosidecar": nil}
-	ps.ServiceIndex.HostnameAndNamespace["svc3.istio-system.cluster.local"] = map[string]*Service{"istio-system": nil}
+	ps.ServiceIndex.HostnameAndNamespace["svc1.default.cluster.local"] = map[string][]*Service{"default": nil}
+	ps.ServiceIndex.HostnameAndNamespace["svc2.nosidecar.cluster.local"] = map[string][]*Service{"nosidecar": nil}
+	ps.ServiceIndex.HostnameAndNamespace["svc3.istio-system.cluster.local"] = map[string][]*Service{"istio-system": nil}
 
 	configStore := NewFakeStore()
 	go configStore.Run(test.NewStop(t))
@@ -4054,7 +4054,7 @@ func TestServiceWithExportTo(t *testing.T) {
 	}
 	ps.initDefaultExportMaps()
 	ps.initServiceRegistry(env, nil)
-	assert.Equal(t, ps.ServiceIndex.HostnameAndNamespace[svc4.Hostname][svc4.Attributes.Namespace].Attributes.ServiceRegistry, provider.Kubernetes)
+	assert.Equal(t, ps.ServiceIndex.HostnameAndNamespace[svc4.Hostname][svc4.Attributes.Namespace][0].Attributes.ServiceRegistry, provider.Kubernetes)
 	cases := []struct {
 		proxyNs   string
 		wantHosts []string

@@ -3675,9 +3675,9 @@ func TestBuildListenerTLSContext(t *testing.T) {
 						},
 					},
 				}
-				pc.ServiceIndex.HostnameAndNamespace = map[host.Name]map[string]*model.Service{
+				pc.ServiceIndex.HostnameAndNamespace = map[host.Name]map[string][]*model.Service{
 					"sds-provider-service": {
-						"": &model.Service{
+						"": {{
 							Hostname: "sds-provider-service",
 							Ports: []*model.Port{
 								{
@@ -3686,7 +3686,7 @@ func TestBuildListenerTLSContext(t *testing.T) {
 									Protocol: protocol.GRPC,
 								},
 							},
-						},
+						}},
 					},
 				}
 				return pc
@@ -3723,9 +3723,9 @@ func TestBuildListenerTLSContext(t *testing.T) {
 						},
 					},
 				}
-				pc.ServiceIndex.HostnameAndNamespace = map[host.Name]map[string]*model.Service{
+				pc.ServiceIndex.HostnameAndNamespace = map[host.Name]map[string][]*model.Service{
 					"sds-provider-service": {
-						"": &model.Service{
+						"": {{
 							Hostname: "sds-provider-service",
 							Ports: []*model.Port{
 								{
@@ -3734,7 +3734,7 @@ func TestBuildListenerTLSContext(t *testing.T) {
 									Protocol: protocol.GRPC,
 								},
 							},
-						},
+						}},
 					},
 				}
 				return pc
