@@ -2586,6 +2586,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 		expectedHTTPRoutes                map[string]int
 		redirect                          bool
 		expectStatefulSession             bool
+		enableUnmatchedRouteTracing       bool
 	}{
 		{
 			name:            "404 when no services",
@@ -2724,6 +2725,22 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			expectedHTTPRoutes: map[string]int{"example.org:80": 1},
 		},
 		{
+			name:            "add a decorated 404 route for unmatched requests",
+			virtualServices: []config.Config{virtualService},
+			gateways:        []config.Config{httpGateway},
+			routeName:       "http.80",
+			expectedVirtualHosts: map[string][]string{
+				"example.org:80": {
+					"example.org",
+				},
+			},
+			expectedVirtualHostsHostPortStrip: map[string][]string{
+				"example.org:80": {"example.org"},
+			},
+			expectedHTTPRoutes:          map[string]int{"example.org:80": 2},
+			enableUnmatchedRouteTracing: true,
+		},
+		{
 			name:            "duplicate virtual service should merge",
 			virtualServices: []config.Config{virtualService, virtualServiceCopy},
 			gateways:        []config.Config{httpGateway},
@@ -2859,6 +2876,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
+			test.SetForTest(t, &features.EnableGatewayUnmatchedRouteTracing, tt.enableUnmatchedRouteTracing)
 			cfgs := tt.gateways
 			cfgs = append(cfgs, tt.virtualServices...)
 			cg := NewConfigGenTest(t, TestOptions{
@@ -2888,6 +2906,14 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 				}
 				if tt.expectStatefulSession && h.TypedPerFilterConfig[util.StatefulSessionFilter] == nil {
 					t.Errorf("expected per filter config for stateful session filter, but not found")
+				}
+				if tt.enableUnmatchedRouteTracing {
+					got := h.Routes[len(h.Routes)-1]
+					if got.Name != gatewayUnmatchedRouteOperation ||
+						got.GetDecorator().GetOperation() != gatewayUnmatchedRouteOperation ||
+						got.GetDirectResponse().GetStatus() != 404 {
+						t.Errorf("expected decorated 404 route, got %v", got)
+					}
 				}
 			}
 
