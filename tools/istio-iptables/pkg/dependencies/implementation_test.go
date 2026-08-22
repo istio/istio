@@ -16,6 +16,7 @@ package dependencies
 
 import (
 	"fmt"
+	"os"
 	"testing"
 
 	utilversion "k8s.io/apimachinery/pkg/util/version"
@@ -153,4 +154,108 @@ func TestDetectIptablesVersion(t *testing.T) {
 			assert.Equal(t, tt.expected, e)
 		})
 	}
+}
+
+// TestDetectIptablesVersionPersistence covers https://github.com/istio/istio/issues/61020:
+// probing which binary/table to use is not side-effect-free (even a read-only probe
+// materializes empty kernel tables), so re-running the "does legacy have existing rules"
+// heuristic on every process restart can flip the detected backend and duplicate rules
+// already written under the previously-detected one. Once a backend has been detected, it
+// must be reused on subsequent calls within the same boot instead of re-probed.
+func TestDetectIptablesVersionPersistence(t *testing.T) {
+	detectedIptablesBackendDir = t.TempDir()
+	defer func() {
+		detectedIptablesBackendDir = "/var/run/istio-cni"
+	}()
+
+	t.Run("persists the detected backend and reuses it without re-probing", func(t *testing.T) {
+		var calls []string
+		shouldUseBinaryForContext = func(s string) (IptablesVersion, error) {
+			calls = append(calls, s)
+			if s == iptablesNftBin {
+				return IptablesVersion{DetectedBinary: iptablesNftBin}, nil
+			}
+			// legacy binary exists, but (as in a clean boot) has no existing rules
+			return IptablesVersion{DetectedBinary: iptablesLegacyBin}, nil
+		}
+		defer func() {
+			shouldUseBinaryForContext = shouldUseBinaryForCurrentContext
+		}()
+
+		r := &RealDependencies{}
+
+		// First call: no persisted state yet, runs the full legacy-then-nft heuristic.
+		v, err := r.DetectIptablesVersion(false)
+		assert.NoError(t, err)
+		assert.Equal(t, IptablesVersion{DetectedBinary: iptablesNftBin}, v)
+		assert.Equal(t, []string{iptablesLegacyBin, iptablesNftBin}, calls)
+
+		persisted, err := os.ReadFile(detectedIptablesBackendFile(false))
+		assert.NoError(t, err)
+		assert.Equal(t, nft, string(persisted))
+
+		// Second call simulates a process restart in the same boot: it must go straight to
+		// re-validating the persisted binary, and must NOT re-run the existing-rules heuristic
+		// against legacyBin (which is exactly what causes the flip in the reported bug).
+		calls = nil
+		v, err = r.DetectIptablesVersion(false)
+		assert.NoError(t, err)
+		assert.Equal(t, IptablesVersion{DetectedBinary: iptablesNftBin}, v)
+		assert.Equal(t, []string{iptablesNftBin}, calls)
+	})
+
+	t.Run("falls back to full detection if the persisted backend no longer works", func(t *testing.T) {
+		assert.NoError(t, os.MkdirAll(detectedIptablesBackendDir, 0o755))
+		assert.NoError(t, os.WriteFile(detectedIptablesBackendFile(false), []byte(legacy), 0o644))
+
+		var calls []string
+		shouldUseBinaryForContext = func(s string) (IptablesVersion, error) {
+			calls = append(calls, s)
+			if s == iptablesLegacyBin {
+				return IptablesVersion{}, fmt.Errorf("binary not found")
+			}
+			return IptablesVersion{DetectedBinary: iptablesNftBin}, nil
+		}
+		defer func() {
+			shouldUseBinaryForContext = shouldUseBinaryForCurrentContext
+		}()
+
+		v, err := (&RealDependencies{}).DetectIptablesVersion(false)
+		assert.NoError(t, err)
+		assert.Equal(t, IptablesVersion{DetectedBinary: iptablesNftBin}, v)
+		// re-validating the stale persisted "legacy" choice, then falling through to the
+		// normal legacy-then-nft heuristic
+		assert.Equal(t, []string{iptablesLegacyBin, iptablesLegacyBin, iptablesNftBin}, calls)
+	})
+}
+
+func TestCleanupPersistedIptablesBackend(t *testing.T) {
+	detectedIptablesBackendDir = t.TempDir()
+	defer func() {
+		detectedIptablesBackendDir = "/var/run/istio-cni"
+	}()
+
+	t.Run("no-op if nothing was ever persisted", func(t *testing.T) {
+		assert.NoError(t, CleanupPersistedIptablesBackend())
+	})
+
+	t.Run("removes both v4 and v6 persisted files", func(t *testing.T) {
+		persistIptablesBackend(false, nft)
+		persistIptablesBackend(true, legacy)
+
+		_, err := os.Stat(detectedIptablesBackendFile(false))
+		assert.NoError(t, err)
+		_, err = os.Stat(detectedIptablesBackendFile(true))
+		assert.NoError(t, err)
+
+		assert.NoError(t, CleanupPersistedIptablesBackend())
+
+		_, err = os.Stat(detectedIptablesBackendFile(false))
+		assert.Equal(t, true, os.IsNotExist(err))
+		_, err = os.Stat(detectedIptablesBackendFile(true))
+		assert.Equal(t, true, os.IsNotExist(err))
+
+		// calling it again with nothing left to remove should still be a no-op
+		assert.NoError(t, CleanupPersistedIptablesBackend())
+	})
 }
