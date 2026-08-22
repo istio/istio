@@ -667,6 +667,16 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []model.WorkloadInfo, svcs 
 			}
 		}
 	}
+
+	if features.EnableAmbientBaggage && features.EnableAmbientBaggageGenericTranport {
+		// We need this filter in place so the peer metadata filters can
+		// communicate with each other properly. They use this connection ID
+		// as a unique key for in-memory communication.
+		connIDFilter := buildPeerMetadataConnectionIDFilter(lb.node)
+		for _, fc := range chains {
+			fc.Filters = append([]*listener.Filter{connIDFilter}, fc.Filters...)
+		}
+	}
 	// This may affect the data path due to the server-first protocols triggering a time-out.
 	// Currently, we attempt to exclude ports where we can, but it's not perfect.
 	// https://github.com/envoyproxy/envoy/issues/35958 is likely required for an optimal solution
@@ -844,7 +854,7 @@ func buildConnectForwarder(push *model.PushContext, proxy *model.Proxy, class is
 				},
 			},
 		}
-		filters = []*listener.Filter{xdsfilters.WaypointListenerBaggagePeerMetadata}
+		filters = append(filters, xdsfilters.WaypointListenerBaggagePeerMetadata)
 	}
 
 	tcp := &listener.Filter{
@@ -868,6 +878,54 @@ func buildConnectForwarder(push *model.PushContext, proxy *model.Proxy, class is
 	}
 	accessLogBuilder.setListenerAccessLog(push, proxy, l, class)
 	return l
+}
+
+// buildPeerMetadataConnectionIDFilter returns a set_filter_state network filter that stamps the
+// downstream connection ID into filter state. Its presence makes the peer_metadata filters
+// exchange metadata via a per-worker-thread registry keyed by that ID. It must run on the main
+// internal listener, before the upstream peer_metadata (UpstreamConfig) filter.
+func buildPeerMetadataConnectionIDFilter(proxy *model.Proxy) *listener.Filter {
+	setFilterState := &sfsnetwork.Config{
+		OnNewConnection: []*sfsvalue.FilterStateValue{peerMetadataConnectionIDFilterStateValue(proxy)},
+	}
+	return &listener.Filter{
+		Name: "envoy.filters.network.set_filter_state",
+		ConfigType: &listener.Filter_TypedConfig{
+			TypedConfig: protoconv.MessageToAny(setFilterState),
+		},
+	}
+}
+
+// peerMetadataConnectionIDFilterStateValue describes how the downstream connection ID is
+// stored in filter state. It is shared TRANSITIVE so the paired upstream peer_metadata filter
+// can read the same key on the upstream connection.
+func peerMetadataConnectionIDFilterStateValue(proxy *model.Proxy) *sfsvalue.FilterStateValue {
+	return &sfsvalue.FilterStateValue{
+		Key: &sfsvalue.FilterStateValue_ObjectKey{
+			ObjectKey: "envoy.peer_metadata.downstream_connection_id",
+		},
+		Value: &sfsvalue.FilterStateValue_FormatString{
+			FormatString: &core.SubstitutionFormatString{
+				Format: &core.SubstitutionFormatString_TextFormatSource{
+					TextFormatSource: &core.DataSource{
+						Specifier: &core.DataSource_InlineString{InlineString: "%CONNECTION_ID%"},
+					},
+				},
+			},
+		},
+		FactoryKey:         hashableStringFactoryKey(proxy),
+		SharedWithUpstream: sfsvalue.FilterStateValue_TRANSITIVE,
+	}
+}
+
+// hashableStringFactoryKey returns the set_filter_state factory key for a hashable string
+// object, accounting for the rename introduced in Istio 1.29.2.
+func hashableStringFactoryKey(proxy *model.Proxy) string {
+	// TODO: Remove in 1.32
+	if !proxy.VersionGreaterOrEqual(&model.IstioVersion{Major: 1, Minor: 29, Patch: 2}) {
+		return "envoy.string"
+	}
+	return "istio.hashable_string"
 }
 
 // buildWaypointHTTPFilters augments the common chain of Waypoint-bound HTTP filters.
