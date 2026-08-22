@@ -231,6 +231,49 @@ func TestPodWorkloads(t *testing.T) {
 			},
 		},
 		{
+			name: "pod without labels does not match selector services",
+			inputs: []any{
+				model.ServiceInfo{
+					Service: &workloadapi.Service{
+						Name:      "svc",
+						Namespace: "ns",
+						Hostname:  "hostname",
+						Ports: []*workloadapi.Port{{
+							ServicePort: 80,
+							TargetPort:  8080,
+						}},
+					},
+					LabelSelector: model.NewSelector(map[string]string{"app": "foo"}),
+				},
+			},
+			pod: &v1.Pod{
+				TypeMeta: metav1.TypeMeta{},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "name",
+					Namespace: "ns",
+				},
+				Spec: v1.PodSpec{},
+				Status: v1.PodStatus{
+					Phase:      v1.PodRunning,
+					Conditions: podReady,
+					PodIP:      "1.2.3.4",
+				},
+			},
+			result: &workloadapi.Workload{
+				Uid:               "cluster0//Pod/ns/name",
+				Name:              "name",
+				Namespace:         "ns",
+				Addresses:         [][]byte{netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice()},
+				Network:           testNW,
+				CanonicalName:     "name",
+				CanonicalRevision: "latest",
+				WorkloadType:      workloadapi.WorkloadType_POD,
+				WorkloadName:      "name",
+				Status:            workloadapi.WorkloadStatus_HEALTHY,
+				ClusterId:         testC,
+			},
+		},
+		{
 			name: "pod with service named ports",
 			inputs: []any{
 				model.ServiceInfo{
@@ -832,7 +875,7 @@ func TestPodWorkloads(t *testing.T) {
 			mock := krttest.NewMock(t, tt.inputs)
 			a := newAmbientUnitTest(t)
 			WorkloadServices := krttest.GetMockCollection[model.ServiceInfo](mock)
-			WorkloadServicesNamespaceIndex := krt.NewNamespaceIndex(WorkloadServices)
+			WorkloadServicesSelectorIndex := workloadServicesSelectorIndex(WorkloadServices)
 			EndpointSlices := krttest.GetMockCollection[*discovery.EndpointSlice](mock)
 			EndpointSlicesAddressIndex := endpointSliceAddressIndex(EndpointSlices)
 			builder := a.podWorkloadBuilder(
@@ -841,7 +884,7 @@ func TestPodWorkloads(t *testing.T) {
 				krt.NewNamespaceIndex(krttest.GetMockCollection[*securityclient.PeerAuthentication](mock)),
 				krttest.GetMockCollection[Waypoint](mock),
 				WorkloadServices,
-				WorkloadServicesNamespaceIndex,
+				WorkloadServicesSelectorIndex,
 				EndpointSlicesAddressIndex,
 				krttest.GetMockCollection[*v1.Namespace](mock),
 				krttest.GetMockCollection[Node](mock),
@@ -1442,14 +1485,14 @@ func TestWorkloadEntryWorkloads(t *testing.T) {
 			mock := krttest.NewMock(t, tt.inputs)
 			a := newAmbientUnitTest(t)
 			WorkloadServices := krttest.GetMockCollection[model.ServiceInfo](mock)
-			WorkloadServicesNamespaceIndex := krt.NewNamespaceIndex(WorkloadServices)
+			WorkloadServicesSelectorIndex := workloadServicesSelectorIndex(WorkloadServices)
 			builder := a.workloadEntryWorkloadBuilder(
 				GetMeshConfig(mock),
 				krttest.GetMockCollection[model.WorkloadAuthorization](mock),
 				krt.NewNamespaceIndex(krttest.GetMockCollection[*securityclient.PeerAuthentication](mock)),
 				krttest.GetMockCollection[Waypoint](mock),
 				WorkloadServices,
-				WorkloadServicesNamespaceIndex,
+				WorkloadServicesSelectorIndex,
 				krttest.GetMockCollection[*v1.Namespace](mock),
 			)
 			wrapper := builder(krt.TestingDummyContext{}, tt.we)
@@ -1689,14 +1732,14 @@ func TestWorkloadEntryConditions(t *testing.T) {
 			mock := krttest.NewMock(t, tt.inputs)
 			a := newAmbientUnitTest(t)
 			WorkloadServices := krttest.GetMockCollection[model.ServiceInfo](mock)
-			WorkloadServicesNamespaceIndex := krt.NewNamespaceIndex(WorkloadServices)
+			WorkloadServicesSelectorIndex := workloadServicesSelectorIndex(WorkloadServices)
 			builder := a.workloadEntryWorkloadBuilder(
 				GetMeshConfig(mock),
 				krttest.GetMockCollection[model.WorkloadAuthorization](mock),
 				krt.NewNamespaceIndex(krttest.GetMockCollection[*securityclient.PeerAuthentication](mock)),
 				krttest.GetMockCollection[Waypoint](mock),
 				WorkloadServices,
-				WorkloadServicesNamespaceIndex,
+				WorkloadServicesSelectorIndex,
 				krttest.GetMockCollection[*v1.Namespace](mock),
 			)
 			wrapper := builder(krt.TestingDummyContext{}, tt.we)
