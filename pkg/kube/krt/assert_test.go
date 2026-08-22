@@ -14,7 +14,11 @@
 
 package krt
 
-import "testing"
+import (
+	"testing"
+
+	"istio.io/istio/pkg/kube/controllers"
+)
 
 // TestAssertState logs the state of KRT test assertions. In the future we may wish to make this fail if tests are being run without strict assertions
 func TestAssertState(t *testing.T) {
@@ -23,4 +27,29 @@ func TestAssertState(t *testing.T) {
 		state = "enabled"
 	}
 	t.Logf("krt test assertions are %s.", state)
+}
+
+func TestAssertMergeJoinRefreshesStaleEventAsAdd(t *testing.T) {
+	const key = "key"
+	source := NewStaticCollection[string](nil, []string{key}, WithStop(t.Context().Done()))
+	joined := &mergejoin[string]{
+		collectionName: "test",
+		collections:    collections[string]{source},
+		log:            log.WithLabels("owner", "test"),
+		outputs:        map[Key[string]]string{},
+		merge:          func(values []string) *string { return &values[0] },
+	}
+
+	// Model an event that became stale in the queue: the source contains the
+	// object now, while the joined output does not contain it yet.
+	old := key
+	current := key
+	events := joined.refreshEventsLocked([]Event[string]{
+		{Event: controllers.EventUpdate, Old: &old, New: &current},
+	})
+
+	if len(events) != 1 || events[0].Event != controllers.EventAdd || events[0].Old != nil ||
+		events[0].New == nil || *events[0].New != current {
+		t.Fatalf("expected stale event to become an add, got %+v", events)
+	}
 }
