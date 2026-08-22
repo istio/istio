@@ -175,6 +175,19 @@ func TestOIDCAuthenticate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to generate JWT: %v", err)
 	}
+	// Create a JWT token whose subject only shares the "system:serviceaccount" prefix but is not
+	// the canonical "system:serviceaccount:<ns>:<sa>" form. It must not be mapped to bar/foo.
+	claimsUnanchoredSubject := `{"iss": "` + server.URL + `", "aud": ["baz.svc.id.goog"], "sub": "system:serviceaccountx:bar:foo", "exp": ` + expStr + `}`
+	tokenUnanchoredSubject, err := generateJWT(&key, []byte(claimsUnanchoredSubject))
+	if err != nil {
+		t.Fatalf("failed to generate JWT: %v", err)
+	}
+	// Create a JWT token whose subject has too few segments to index a namespace/service account.
+	claimsShortSubject := `{"iss": "` + server.URL + `", "aud": ["baz.svc.id.goog"], "sub": "system:serviceaccounts", "exp": ` + expStr + `}`
+	tokenShortSubject, err := generateJWT(&key, []byte(claimsShortSubject))
+	if err != nil {
+		t.Fatalf("failed to generate JWT: %v", err)
+	}
 
 	tests := map[string]struct {
 		token      string
@@ -199,6 +212,14 @@ func TestOIDCAuthenticate(t *testing.T) {
 		},
 		"Token with invalid subject": {
 			token:     tokenInvalidSubject,
+			expectErr: true,
+		},
+		"Token with unanchored subject prefix": {
+			token:     tokenUnanchoredSubject,
+			expectErr: true,
+		},
+		"Token with short subject": {
+			token:     tokenShortSubject,
 			expectErr: true,
 		},
 	}

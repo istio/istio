@@ -101,10 +101,14 @@ func (j *JwtAuthenticator) authenticate(ctx context.Context, bearerToken string)
 	if err := idToken.Claims(&sa); err != nil {
 		return nil, fmt.Errorf("failed to extract claims from ID token: %v", err)
 	}
-	if !strings.HasPrefix(sa.Sub, "system:serviceaccount") {
+	// sub must be exactly "system:serviceaccount:<namespace>:<serviceaccount>". Anchoring the
+	// prefix and pinning the segment count keeps a token whose sub merely begins with
+	// "system:serviceaccount" (e.g. "system:serviceaccountx:kube-system:istiod") from being
+	// mapped to an unrelated namespace/service account, and avoids indexing a shorter sub.
+	parts := strings.Split(sa.Sub, ":")
+	if len(parts) != 4 || parts[0] != "system" || parts[1] != "serviceaccount" {
 		return nil, fmt.Errorf("invalid sub %v", sa.Sub)
 	}
-	parts := strings.Split(sa.Sub, ":")
 	ns := parts[2]
 	ksa := parts[3]
 	if !checkAudience(sa.Aud, j.audiences) {
