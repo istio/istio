@@ -44,6 +44,9 @@ func applyEdgeProfileDefaults(cs *meshconfig.ProxyConfig_ConnectionSettings, nod
 	if cs.ListenerPerConnectionBufferLimitBytes == nil {
 		cs.ListenerPerConnectionBufferLimitBytes = &wrappers.Int32Value{Value: 32768} // 32 KiB
 	}
+	if cs.ClusterPerConnectionBufferLimitBytes == nil {
+		cs.ClusterPerConnectionBufferLimitBytes = &wrappers.Int32Value{Value: 32768} // 32 KiB
+	}
 	if cs.HttpIdleTimeout == nil {
 		cs.HttpIdleTimeout = durationpb.New(time.Hour)
 	}
