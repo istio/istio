@@ -355,6 +355,41 @@ func TestDoesntReturnRetryableErrorOnIptablesFail(t *testing.T) {
 	}
 }
 
+func TestReconcileEnrollmentReEnrollsPodWhoseNetnsWasReplaced(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	setupLogging()
+
+	pod := buildConvincingPod(false)
+	podUID := string(pod.UID)
+
+	podNsMap := newPodNetnsCache(openNsTestOverride)
+	fakeIptDeps := &dependencies.DependenciesStub{}
+	nlDeps := &fakeIptablesDeps{}
+	_, podIptC, _ := iptables.NewIptablesConfigurator(nil, nil, fakeIptDeps, fakeIptDeps, nlDeps)
+	ztunnelServer := &fakeZtunnel{}
+	finder := &fakePodNetnsFinder{inodes: map[types.UID]uint64{pod.UID: 1}}
+
+	netServer := newNetServer(ztunnelServer, podNsMap, podIptC, finder)
+	netServer.netnsRunner = func(fdable NetnsFd, toRun func() error) error { return toRun() }
+	netServer.Start(ctx)
+
+	// the pod is enrolled in the netns it currently runs in
+	podNsMap.UpsertPodCacheWithNetns(podUID, WorkloadInfo{Workload: podToWorkload(pod), Netns: newFakeNsInode(1, 1)})
+	assert.NoError(t, netServer.ReconcileEnrollment(ctx, []*corev1.Pod{pod}))
+	assert.Equal(t, 0, ztunnelServer.addedPods.Load())
+
+	// the sandbox was replaced: same pod, same UID, different netns
+	finder.inodes[pod.UID] = 2
+	assert.NoError(t, netServer.ReconcileEnrollment(ctx, []*corev1.Pod{pod}))
+	assert.Equal(t, 1, ztunnelServer.addedPods.Load())
+	assert.Equal(t, uint64(2), podNsMap.Get(podUID).Inode())
+
+	// once re-enrolled, the pod is left alone
+	assert.NoError(t, netServer.ReconcileEnrollment(ctx, []*corev1.Pod{pod}))
+	assert.Equal(t, 1, ztunnelServer.addedPods.Load())
+}
+
 func TestConstructInitialSnap(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

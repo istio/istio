@@ -55,6 +55,18 @@ func (s *meshDataplane) ConstructInitialSnapshot(existingAmbientPods []*corev1.P
 	return s.netServer.ConstructInitialSnapshot(existingAmbientPods)
 }
 
+// ReconcileEnrollment re-asserts the host-level state for the pods that should be enrolled, and
+// hands the pods themselves to the netserver, which re-enrolls the ones whose network namespace
+// was replaced under them.
+func (s *meshDataplane) ReconcileEnrollment(ctx context.Context, ambientPods []*corev1.Pod) error {
+	if err := s.syncHostAddrSets(ambientPods); err != nil {
+		log.Errorf("failed to sync host addressSet: %v", err)
+		return err
+	}
+
+	return s.netServer.ReconcileEnrollment(ctx, ambientPods)
+}
+
 // ConstructInitialSnapshot should always be invoked before this function.
 func (s *meshDataplane) Start(ctx context.Context) {
 	s.netServer.Start(ctx)
