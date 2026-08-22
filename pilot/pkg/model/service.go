@@ -253,12 +253,39 @@ const (
 	// IstioMutualTLSModeLabel implies that the endpoint is ready to receive Istio mTLS connections.
 	IstioMutualTLSModeLabel = "istio"
 
+	// GatewayTLSModeLabel indicates cross-network gateway endpoints.
+	// These use trust domain prefix matching instead of exact SAN validation,
+	// allowing sidecars to connect to gateways that present their own identity.
+	GatewayTLSModeLabel = "gateway"
+
+	// SidecarBridgeSubsetName is the inbound-vip cluster subset used by ambient east-west
+	// gateways to bridge terminated sidecar mTLS traffic into ambient. Unlike the "tcp"
+	// subset, which forwards double-HBONE inner streams opaquely to their destination,
+	// this subset originates a new HBONE tunnel toward the service (or its waypoint).
+	SidecarBridgeSubsetName = "sidecar"
+
 	// IstioCanonicalServiceLabelName is the name of label for the Istio Canonical Service for a workload instance.
 	IstioCanonicalServiceLabelName = pm.IstioCanonicalServiceLabelName
 
 	// IstioCanonicalServiceRevisionLabelName is the name of label for the Istio Canonical Service revision for a workload instance.
 	IstioCanonicalServiceRevisionLabelName = pm.IstioCanonicalServiceRevisionLabelName
 )
+
+// SidecarBridgeSubsetOf returns the inbound-vip subset name carrying sidecar-bridge
+// semantics for the given DestinationRule subset ("" for the default subset).
+// Mirrors the "http/<subset>" and "tcp/<subset>" convention used by waypoint VIP clusters.
+func SidecarBridgeSubsetOf(subset string) string {
+	if subset == "" {
+		return SidecarBridgeSubsetName
+	}
+	return SidecarBridgeSubsetName + "/" + subset
+}
+
+// IsSidecarBridgeSubset reports whether an inbound-vip subset name carries
+// sidecar-bridge semantics (the default bridge subset or a DR-subset variant).
+func IsSidecarBridgeSubset(subsetName string) bool {
+	return subsetName == SidecarBridgeSubsetName || strings.HasPrefix(subsetName, SidecarBridgeSubsetName+"/")
+}
 
 func SupportsTunnel(labels map[string]string, tunnelType string) bool {
 	tl, f := labels[TunnelLabel]
