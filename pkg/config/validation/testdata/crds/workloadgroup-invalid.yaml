@@ -5,7 +5,7 @@ metadata:
   name: no-spec
 ---
 _err: port must be between 1-65535
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: WorkloadGroup
 metadata:
   name: tcp-probe-invalid
@@ -18,7 +18,7 @@ spec:
     network: net
 ---
 _err: 'spec.probe.httpGet.httpHeaders[0].name in body should match'
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: WorkloadGroup
 metadata:
   name: http-probe-invalid

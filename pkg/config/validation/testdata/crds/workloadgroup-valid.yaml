@@ -1,4 +1,4 @@
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: WorkloadGroup
 metadata:
   name: full
@@ -32,7 +32,7 @@ spec:
     weight: 2
     locality: foo/bar/baz
 ---
-apiVersion: networking.istio.io/v1alpha3
+apiVersion: networking.istio.io/v1
 kind: WorkloadGroup
 metadata:
   name: tcp-probe
