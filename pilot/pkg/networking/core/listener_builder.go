@@ -46,6 +46,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/wellknown"
 )
 
@@ -76,6 +77,16 @@ type ListenerBuilder struct {
 	authzBuilder *authz.Builder
 	// authzCustomBuilder provides access to CUSTOM authz configuration for the given proxy.
 	authzCustomBuilder *authz.Builder
+
+	// authzGatewayBuilders and its CUSTOM counterpart cache per-classic-Gateway authz builders
+	// keyed by the owning Gateway, so the many filter chains of one gateway share a builder.
+	authzGatewayBuilders       map[types.NamespacedName]*authz.Builder
+	authzCustomGatewayBuilders map[types.NamespacedName]*authz.Builder
+
+	// authzTargetedGateways is the set of classic Gateways targeted by an in-scope
+	// classic-Gateway-targetRef AuthorizationPolicy. Per-gateway authz scoping activates only for
+	// Gateways in this set; every other chain reuses the shared proxy-wide builders. Computed once.
+	authzTargetedGateways sets.Set[types.NamespacedName]
 }
 
 // enabledInspector captures if for a given listener, listener filter inspectors are added
@@ -93,7 +104,29 @@ func NewListenerBuilder(node *model.Proxy, push *model.PushContext) *ListenerBui
 	builder.authnBuilder = authn.NewBuilder(push, node)
 	builder.authzBuilder = authz.NewBuilder(authz.Local, push, node, node.Type == model.Waypoint)
 	builder.authzCustomBuilder = authz.NewBuilder(authz.Custom, push, node, node.Type == model.Waypoint)
+	if node.Type == model.Router {
+		builder.authzTargetedGateways = push.AuthzPolicies.GatewaysTargetedByTargetRef(
+			node.ConfigNamespace, boundGatewayNamespaces(node)...)
+	}
 	return builder
+}
+
+// boundGatewayNamespaces returns the distinct namespaces of the classic Gateways bound to the proxy,
+// derived from the merged gateway's "namespace/name" identifiers. It is nil-safe and skips malformed
+// names. These namespaces are where cross-namespace classic-Gateway targetRef policies may live.
+func boundGatewayNamespaces(node *model.Proxy) []string {
+	if node.MergedGateway == nil {
+		return nil
+	}
+	namespaces := sets.New[string]()
+	for _, name := range node.MergedGateway.GetGatewayNames() {
+		nn := parseGatewayName(name)
+		if nn == (types.NamespacedName{}) {
+			continue
+		}
+		namespaces.Insert(nn.Namespace)
+	}
+	return namespaces.UnsortedList()
 }
 
 func maxConnectionsToAcceptPerSocketEvent() *wrappers.UInt32Value {
@@ -476,12 +509,13 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 		// Metadata exchange filter needs to be added before any other HTTP filters are added. This is done to
 		// ensure that mx filter comes before HTTP RBAC filter. This is related to https://github.com/istio/istio/issues/41066
 		filters = appendMxFilter(httpOpts, filters)
+		authzBuilder, authzCustomBuilder := lb.authzBuildersForChain(httpOpts)
 		// TODO: how to deal with ext-authz? It will be in the ordering twice
-		filters = append(filters, lb.authzCustomBuilder.BuildHTTP(httpOpts.class)...)
+		filters = append(filters, authzCustomBuilder.BuildHTTP(httpOpts.class)...)
 		filters = extension.PopAppendHTTPTrafficExtension(filters, trafficExtensions, extensions.TrafficExtension_AUTHN)
 		filters = append(filters, lb.authnBuilder.BuildHTTP(httpOpts.class)...)
 		filters = extension.PopAppendHTTPTrafficExtension(filters, trafficExtensions, extensions.TrafficExtension_AUTHZ)
-		filters = append(filters, lb.authzBuilder.BuildHTTP(httpOpts.class)...)
+		filters = append(filters, authzBuilder.BuildHTTP(httpOpts.class)...)
 		// TODO: these feel like the wrong place to insert, but this retains backwards compatibility with the original implementation
 		filters = extension.PopAppendHTTPTrafficExtension(filters, trafficExtensions, extensions.TrafficExtension_STATS)
 		filters = extension.PopAppendHTTPTrafficExtension(filters, trafficExtensions, extensions.TrafficExtension_UNSPECIFIED)
@@ -561,6 +595,37 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 	}
 	connectionManager.Proxy_100Continue = features.Enable100ContinueHeaders
 	return connectionManager
+}
+
+// authzBuildersForChain returns the (Local, Custom) authz builders for an HTTP filter chain:
+// per-gateway builders for a classic Gateway TARGETED by a targetRef AuthorizationPolicy, and the
+// shared proxy-wide builders for every other chain. Reusing the shared builders for every untargeted
+// chain keeps their output byte-identical to the pre-scoping behavior.
+func (lb *ListenerBuilder) authzBuildersForChain(httpOpts *httpListenerOpts) (local, custom *authz.Builder) {
+	if httpOpts.class != istionetworking.ListenerClassGateway ||
+		!lb.authzTargetedGateways.Contains(httpOpts.gatewayName) {
+		return lb.authzBuilder, lb.authzCustomBuilder
+	}
+	return lb.gatewayAuthzBuilder(authz.Local, httpOpts.gatewayName),
+		lb.gatewayAuthzBuilder(authz.Custom, httpOpts.gatewayName)
+}
+
+// gatewayAuthzBuilder returns the cached per-gateway authz builder, building it on first use.
+func (lb *ListenerBuilder) gatewayAuthzBuilder(actionType authz.ActionType, gatewayName types.NamespacedName) *authz.Builder {
+	useFilterState := lb.node.Type == model.Waypoint
+	cache := &lb.authzGatewayBuilders
+	if actionType == authz.Custom {
+		cache = &lb.authzCustomGatewayBuilders
+	}
+	if *cache == nil {
+		*cache = map[types.NamespacedName]*authz.Builder{}
+	}
+	if b, ok := (*cache)[gatewayName]; ok {
+		return b
+	}
+	b := authz.NewBuilderForGateways(actionType, lb.push, lb.node, useFilterState, []types.NamespacedName{gatewayName})
+	(*cache)[gatewayName] = b
+	return b
 }
 
 func appendMxFilter(httpOpts *httpListenerOpts, filters []*hcm.HttpFilter) []*hcm.HttpFilter {
