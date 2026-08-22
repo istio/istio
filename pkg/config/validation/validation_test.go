@@ -1156,6 +1156,7 @@ func TestValidateCORSPolicy(t *testing.T) {
 				{MatchType: &networking.StringMatch_Exact{Exact: ""}},
 				{MatchType: &networking.StringMatch_Prefix{Prefix: ""}},
 				{MatchType: &networking.StringMatch_Regex{Regex: ""}},
+				{MatchType: &networking.StringMatch_Suffix{Suffix: ""}},
 			},
 			AllowMethods:  []string{"GET", "POST"},
 			AllowHeaders:  []string{"header1", "header2"},
@@ -1167,6 +1168,7 @@ func TestValidateCORSPolicy(t *testing.T) {
 				{MatchType: &networking.StringMatch_Exact{Exact: "exact"}},
 				{MatchType: &networking.StringMatch_Prefix{Prefix: "prefix"}},
 				{MatchType: &networking.StringMatch_Regex{Regex: "regex"}},
+				{MatchType: &networking.StringMatch_Suffix{Suffix: "suffix"}},
 			},
 			AllowMethods:  []string{"GET", "POST"},
 			AllowHeaders:  []string{"header1", "header2"},
@@ -2162,6 +2164,42 @@ func TestValidateHTTPRoute(t *testing.T) {
 				},
 			}},
 		}, valid: false},
+		{name: "empty suffix header match", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.bar"},
+			}},
+			Match: []*networking.HTTPMatchRequest{{
+				Headers: map[string]*networking.StringMatch{
+					"emptysuffix": {MatchType: &networking.StringMatch_Suffix{Suffix: ""}},
+				},
+			}},
+		}, valid: false},
+		{name: "suffix header match", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.bar"},
+			}},
+			Match: []*networking.HTTPMatchRequest{{
+				Headers: map[string]*networking.StringMatch{
+					"referer": {MatchType: &networking.StringMatch_Suffix{Suffix: ".example.com"}},
+				},
+			}},
+		}, valid: true},
+		{name: "suffix authority match", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.bar"},
+			}},
+			Match: []*networking.HTTPMatchRequest{{
+				Authority: &networking.StringMatch{MatchType: &networking.StringMatch_Suffix{Suffix: ".example.com"}},
+			}},
+		}, valid: true},
+		{name: "uri suffix match", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.bar"},
+			}},
+			Match: []*networking.HTTPMatchRequest{{
+				Uri: &networking.StringMatch{MatchType: &networking.StringMatch_Suffix{Suffix: ".php"}},
+			}},
+		}, valid: false},
 		{name: "nil match", route: &networking.HTTPRoute{
 			Route: []*networking.HTTPRouteDestination{{
 				Destination: &networking.Destination{Host: "foo.bar"},
@@ -2372,6 +2410,54 @@ func TestValidateVirtualService(t *testing.T) {
 				}},
 			}},
 		}, valid: true},
+		{name: "overlapping suffix header match", in: &networking.VirtualService{
+			Hosts: []string{"foo.bar"},
+			Http: []*networking.HTTPRoute{{
+				Match: []*networking.HTTPMatchRequest{{
+					Uri: &networking.StringMatch{MatchType: &networking.StringMatch_Prefix{Prefix: "/a"}},
+					Headers: map[string]*networking.StringMatch{
+						"foo": {MatchType: &networking.StringMatch_Suffix{Suffix: "foo.example.com"}},
+					},
+				}},
+				Route: []*networking.HTTPRouteDestination{{
+					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+			}, {
+				Match: []*networking.HTTPMatchRequest{{
+					Uri: &networking.StringMatch{MatchType: &networking.StringMatch_Prefix{Prefix: "/a/b"}},
+					Headers: map[string]*networking.StringMatch{
+						"foo": {MatchType: &networking.StringMatch_Suffix{Suffix: ".example.com"}},
+					},
+				}},
+				Route: []*networking.HTTPRouteDestination{{
+					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+			}},
+		}, valid: true, warning: true},
+		{name: "disjoint suffix header match", in: &networking.VirtualService{
+			Hosts: []string{"foo.bar"},
+			Http: []*networking.HTTPRoute{{
+				Match: []*networking.HTTPMatchRequest{{
+					Uri: &networking.StringMatch{MatchType: &networking.StringMatch_Prefix{Prefix: "/a"}},
+					Headers: map[string]*networking.StringMatch{
+						"foo": {MatchType: &networking.StringMatch_Suffix{Suffix: "x.com"}},
+					},
+				}},
+				Route: []*networking.HTTPRouteDestination{{
+					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+			}, {
+				Match: []*networking.HTTPMatchRequest{{
+					Uri: &networking.StringMatch{MatchType: &networking.StringMatch_Prefix{Prefix: "/a/b"}},
+					Headers: map[string]*networking.StringMatch{
+						"foo": {MatchType: &networking.StringMatch_Suffix{Suffix: "x"}},
+					},
+				}},
+				Route: []*networking.HTTPRouteDestination{{
+					Destination: &networking.Destination{Host: "foo.baz"},
+				}},
+			}},
+		}, valid: true, warning: false},
 		{name: "allow sni based domains", in: &networking.VirtualService{
 			Hosts:    []string{"outbound_.15010_._.istiod.istio-system.svc.cluster.local"},
 			Gateways: []string{"ns1/gateway"},

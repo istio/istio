@@ -455,6 +455,8 @@ func renderStringMatch(sm *v1alpha3.StringMatch) string {
 		return x.Exact
 	case *v1alpha3.StringMatch_Prefix:
 		return x.Prefix + "*"
+	case *v1alpha3.StringMatch_Suffix:
+		return "*" + x.Suffix
 	}
 
 	return sm.String()

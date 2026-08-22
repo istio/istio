@@ -1108,6 +1108,15 @@ func TranslateRouteMatch(vs config.Config, in *networking.HTTPMatchRequest) *rou
 					Regex: m.Regex,
 				},
 			}
+		case *networking.StringMatch_Suffix:
+			// Envoy's RouteMatch has no native suffix path matcher, so suffix URI matches are
+			// rejected by validation. Lower to a safe regex anyway so an unvalidated config
+			// cannot fall through to the catch-all prefix "/" match initialized above.
+			out.PathSpecifier = &route.RouteMatch_SafeRegex{
+				SafeRegex: &matcher.RegexMatcher{
+					Regex: ".*" + regexp.QuoteMeta(m.Suffix) + "$",
+				},
+			}
 		}
 	}
 

@@ -236,6 +236,36 @@ func TestValidateRootHTTPRoute(t *testing.T) {
 			}, valid: false,
 		},
 		{
+			name: "suffix header match", route: &networking.HTTPRoute{
+				Delegate: &networking.Delegate{
+					Name:      "test",
+					Namespace: "test",
+				},
+				Match: []*networking.HTTPMatchRequest{{
+					Headers: map[string]*networking.StringMatch{
+						"header": {
+							MatchType: &networking.StringMatch_Suffix{Suffix: "test"},
+						},
+					},
+				}},
+			}, valid: true,
+		},
+		{
+			name: "empty suffix header match (delegate)", route: &networking.HTTPRoute{
+				Delegate: &networking.Delegate{
+					Name:      "test",
+					Namespace: "test",
+				},
+				Match: []*networking.HTTPMatchRequest{{
+					Headers: map[string]*networking.StringMatch{
+						"header": {
+							MatchType: &networking.StringMatch_Suffix{Suffix: ""},
+						},
+					},
+				}},
+			}, valid: false,
+		},
+		{
 			name: "exact header match", route: &networking.HTTPRoute{
 				Delegate: &networking.Delegate{
 					Name:      "test",
@@ -348,6 +378,17 @@ func TestValidateRootHTTPRoute(t *testing.T) {
 				},
 			}},
 		}, valid: true},
+		{name: "suffix uri match", route: &networking.HTTPRoute{
+			Delegate: &networking.Delegate{
+				Name:      "test",
+				Namespace: "test",
+			},
+			Match: []*networking.HTTPMatchRequest{{
+				Uri: &networking.StringMatch{
+					MatchType: &networking.StringMatch_Suffix{Suffix: "test"},
+				},
+			}},
+		}, valid: false},
 		{
 			name: "prefix queryParams match", route: &networking.HTTPRoute{
 				Delegate: &networking.Delegate{
@@ -503,6 +544,28 @@ func TestValidateDelegateHTTPRoute(t *testing.T) {
 				Destination: &networking.Destination{Host: "foo.baz"},
 			}},
 		}, valid: true},
+		{name: "suffix header match", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+			}},
+			Match: []*networking.HTTPMatchRequest{{
+				Headers: map[string]*networking.StringMatch{
+					"header": {
+						MatchType: &networking.StringMatch_Suffix{Suffix: "test"},
+					},
+				},
+			}},
+		}, valid: true},
+		{name: "suffix uri match", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+			}},
+			Match: []*networking.HTTPMatchRequest{{
+				Uri: &networking.StringMatch{
+					MatchType: &networking.StringMatch_Suffix{Suffix: "test"},
+				},
+			}},
+		}, valid: false},
 		{name: "no destination", route: &networking.HTTPRoute{
 			Route: []*networking.HTTPRouteDestination{{
 				Destination: nil,

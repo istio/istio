@@ -749,6 +749,67 @@ spec:
 		},
 	})
 	t.RunTraffic(TrafficTestCase{
+		name: "authority suffix match",
+		config: `
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: default
+spec:
+  hosts:
+    - b
+  http:
+  - match:
+    - authority:
+        suffix: .svc.cluster.local
+    route:
+    - destination:
+        host: b
+  - route:
+    - destination:
+        host: b
+    fault:
+      abort:
+        percentage:
+          value: 100
+        httpStatus: 418
+`,
+		children: []TrafficCall{
+			{
+				name: "matches suffix",
+				call: t.Apps.A[0].CallOrFail,
+				opts: echo.CallOptions{
+					To: t.Apps.B,
+					Port: echo.Port{
+						Name: "http",
+					},
+					HTTP: echo.HTTP{
+						Path:    "/foo",
+						Headers: HostHeader(t.Apps.B.Config().ClusterLocalFQDN()),
+					},
+					Count: 1,
+					Check: check.OK(),
+				},
+			},
+			{
+				name: "does not match suffix",
+				call: t.Apps.A[0].CallOrFail,
+				opts: echo.CallOptions{
+					To: t.Apps.B,
+					Port: echo.Port{
+						Name: "http",
+					},
+					HTTP: echo.HTTP{
+						Path:    "/foo",
+						Headers: HostHeader("b"),
+					},
+					Count: 1,
+					Check: check.Status(http.StatusTeapot),
+				},
+			},
+		},
+	})
+	t.RunTraffic(TrafficTestCase{
 		name: "rewrite uri",
 		config: `
 apiVersion: networking.istio.io/v1
@@ -1181,6 +1242,90 @@ spec:
 								Path: "/foo",
 								Headers: headers.New().
 									With("end-user", "not-jason").
+									Build(),
+							},
+							Count: 1,
+							Check: check.Status(http.StatusForbidden),
+						}
+					}(),
+				},
+				{
+					name: "do not have end-user header",
+					opts: func() echo.CallOptions {
+						return echo.CallOptions{
+							Port: echo.Port{
+								Name: "http",
+							},
+							HTTP: echo.HTTP{
+								Path: "/foo",
+							},
+							Count: 1,
+							Check: check.Status(http.StatusForbidden),
+						}
+					}(),
+				},
+			},
+			workloadAgnostic: true,
+		})
+
+		// access is denied when the request header `end-user` does not end with "son".
+		t.RunTraffic(TrafficTestCase{
+			name: "without headers suffix",
+			config: `
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: vs
+spec:
+  hosts:
+  - {{ .dstSvc }}
+  http:
+  - match:
+    - withoutHeaders:
+        end-user:
+          suffix: son
+    route:
+    - destination:
+        host: {{ .dstSvc }}
+    fault:
+      abort:
+        percentage:
+          value: 100
+        httpStatus: 403
+  - route:
+    - destination:
+        host: {{ .dstSvc }}
+`,
+			children: []TrafficCall{
+				{
+					name: "end-user ends with son",
+					opts: func() echo.CallOptions {
+						return echo.CallOptions{
+							Port: echo.Port{
+								Name: "http",
+							},
+							HTTP: echo.HTTP{
+								Path: "/foo",
+								Headers: headers.New().
+									With("end-user", "jason").
+									Build(),
+							},
+							Count: 1,
+							Check: check.Status(http.StatusOK),
+						}
+					}(),
+				},
+				{
+					name: "end-user does not end with son",
+					opts: func() echo.CallOptions {
+						return echo.CallOptions{
+							Port: echo.Port{
+								Name: "http",
+							},
+							HTTP: echo.HTTP{
+								Path: "/foo",
+								Headers: headers.New().
+									With("end-user", "mike").
 									Build(),
 							},
 							Count: 1,

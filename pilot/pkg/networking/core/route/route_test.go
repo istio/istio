@@ -355,6 +355,31 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetStringMatch().GetSafeRegex().GetRegex()).To(Equal("Bearer .+?\\..+?\\..+?"))
 	})
 
+	t.Run("for virtual service with suffix matching on header", func(t *testing.T) {
+		g := NewWithT(t)
+		cg := core.NewConfigGenTest(t, core.TestOptions{})
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithSuffixMatchingOnHeader,
+			8080, gatewayNames, routeOpts)
+		xdstest.ValidateRoutes(t, routes)
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(len(routes)).To(Equal(1))
+		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetStringMatch().GetSuffix()).To(Equal(".bar.com"))
+	})
+
+	t.Run("for virtual service with suffix matching on authority", func(t *testing.T) {
+		g := NewWithT(t)
+		cg := core.NewConfigGenTest(t, core.TestOptions{})
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithSuffixMatchingOnAuthority,
+			8080, gatewayNames, routeOpts)
+		xdstest.ValidateRoutes(t, routes)
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(len(routes)).To(Equal(1))
+		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetName()).To(Equal(":authority"))
+		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetStringMatch().GetSuffix()).To(Equal(".example.com"))
+	})
+
 	t.Run("for virtual service with regex matching on without_header", func(t *testing.T) {
 		g := NewWithT(t)
 		cg := core.NewConfigGenTest(t, core.TestOptions{})
@@ -365,6 +390,20 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(err).NotTo(HaveOccurred())
 		g.Expect(len(routes)).To(Equal(1))
 		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetStringMatch().GetSafeRegex().GetRegex()).To(Equal("BAR .+?\\..+?\\..+?"))
+		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetInvertMatch()).To(Equal(true))
+		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetTreatMissingHeaderAsEmpty()).To(Equal(true))
+	})
+
+	t.Run("for virtual service with suffix matching on without_header", func(t *testing.T) {
+		g := NewWithT(t)
+		cg := core.NewConfigGenTest(t, core.TestOptions{})
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithSuffixMatchingOnWithoutHeader,
+			8080, gatewayNames, routeOpts)
+		xdstest.ValidateRoutes(t, routes)
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(len(routes)).To(Equal(1))
+		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetStringMatch().GetSuffix()).To(Equal(".jwt"))
 		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetInvertMatch()).To(Equal(true))
 		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetTreatMissingHeaderAsEmpty()).To(Equal(true))
 	})
@@ -446,6 +485,18 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(err).NotTo(HaveOccurred())
 		g.Expect(len(routes)).To(Equal(1))
 		g.Expect(routes[0].GetMatch().GetQueryParameters()[0].GetStringMatch().GetPrefix()).To(Equal("foo-"))
+	})
+
+	t.Run("for virtual service with suffix matching on query parameter", func(t *testing.T) {
+		g := NewWithT(t)
+		cg := core.NewConfigGenTest(t, core.TestOptions{})
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithSuffixMatchingOnQueryParameter,
+			8080, gatewayNames, routeOpts)
+		xdstest.ValidateRoutes(t, routes)
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(len(routes)).To(Equal(1))
+		g.Expect(routes[0].GetMatch().GetQueryParameters()[0].GetStringMatch().GetSuffix()).To(Equal("-bar"))
 	})
 
 	t.Run("for virtual service with regex matching on query parameter", func(t *testing.T) {
@@ -2684,6 +2735,68 @@ var virtualServiceWithRegexMatchingOnHeader = config.Config{
 	},
 }
 
+var virtualServiceWithSuffixMatchingOnHeader = config.Config{
+	Meta: config.Meta{
+		GroupVersionKind: gvk.VirtualService,
+		Name:             "acme",
+	},
+	Spec: &networking.VirtualService{
+		Hosts:    []string{},
+		Gateways: []string{"some-gateway"},
+		Http: []*networking.HTTPRoute{
+			{
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Name: "referer",
+						Headers: map[string]*networking.StringMatch{
+							"Referer": {
+								MatchType: &networking.StringMatch_Suffix{
+									Suffix: ".bar.com",
+								},
+							},
+						},
+					},
+				},
+				Redirect: &networking.HTTPRedirect{
+					Uri:          "example.org",
+					Authority:    "some-authority.default.svc.cluster.local",
+					RedirectCode: 308,
+				},
+			},
+		},
+	},
+}
+
+var virtualServiceWithSuffixMatchingOnAuthority = config.Config{
+	Meta: config.Meta{
+		GroupVersionKind: gvk.VirtualService,
+		Name:             "acme",
+	},
+	Spec: &networking.VirtualService{
+		Hosts:    []string{},
+		Gateways: []string{"some-gateway"},
+		Http: []*networking.HTTPRoute{
+			{
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Name: "authority",
+						Authority: &networking.StringMatch{
+							MatchType: &networking.StringMatch_Suffix{
+								Suffix: ".example.com",
+							},
+						},
+					},
+				},
+				Redirect: &networking.HTTPRedirect{
+					Uri:          "example.org",
+					Authority:    "some-authority.default.svc.cluster.local",
+					RedirectCode: 308,
+				},
+			},
+		},
+	},
+}
+
 func createVirtualServiceWithRegexMatchingForAllCasesOnHeader() []*config.Config {
 	ret := []*config.Config{}
 	regex := "*"
@@ -2739,6 +2852,38 @@ var virtualServiceWithRegexMatchingOnWithoutHeader = config.Config{
 							"FOO-HEADER": {
 								MatchType: &networking.StringMatch_Regex{
 									Regex: "BAR .+?\\..+?\\..+?",
+								},
+							},
+						},
+					},
+				},
+				Redirect: &networking.HTTPRedirect{
+					Uri:          "example.org",
+					Authority:    "some-authority.default.svc.cluster.local",
+					RedirectCode: 308,
+				},
+			},
+		},
+	},
+}
+
+var virtualServiceWithSuffixMatchingOnWithoutHeader = config.Config{
+	Meta: config.Meta{
+		GroupVersionKind: gvk.VirtualService,
+		Name:             "acme",
+	},
+	Spec: &networking.VirtualService{
+		Hosts:    []string{},
+		Gateways: []string{"some-gateway"},
+		Http: []*networking.HTTPRoute{
+			{
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Name: "without-test",
+						WithoutHeaders: map[string]*networking.StringMatch{
+							"FOO-HEADER": {
+								MatchType: &networking.StringMatch_Suffix{
+									Suffix: ".jwt",
 								},
 							},
 						},
@@ -2887,6 +3032,38 @@ var virtualServiceWithPrefixMatchingOnQueryParameter = config.Config{
 							"token": {
 								MatchType: &networking.StringMatch_Prefix{
 									Prefix: "foo-",
+								},
+							},
+						},
+					},
+				},
+				Redirect: &networking.HTTPRedirect{
+					Uri:          "example.org",
+					Authority:    "some-authority.default.svc.cluster.local",
+					RedirectCode: 308,
+				},
+			},
+		},
+	},
+}
+
+var virtualServiceWithSuffixMatchingOnQueryParameter = config.Config{
+	Meta: config.Meta{
+		GroupVersionKind: gvk.VirtualService,
+		Name:             "acme",
+	},
+	Spec: &networking.VirtualService{
+		Hosts:    []string{},
+		Gateways: []string{"some-gateway"},
+		Http: []*networking.HTTPRoute{
+			{
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Name: "auth",
+						QueryParams: map[string]*networking.StringMatch{
+							"token": {
+								MatchType: &networking.StringMatch_Suffix{
+									Suffix: "-bar",
 								},
 							},
 						},
