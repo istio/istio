@@ -310,13 +310,13 @@ type testEnv struct {
 
 // newTestEnv creates an isolated namespace and echo deployments for a single test. Resources are
 // automatically cleaned up when the test context completes.
-func newTestEnv(ctx framework.TestContext) *testEnv {
+func newTestEnv(ctx framework.TestContext, postfix string) *testEnv {
 	ctx.Helper()
 
 	env := &testEnv{}
 	var err error
 	env.ns, err = namespace.New(ctx, namespace.Config{
-		Prefix: "sidecar-to-ambient",
+		Prefix: "sidecar-to-ambient-" + postfix,
 		Inject: true,
 	})
 	if err != nil {
@@ -364,10 +364,10 @@ func runMigrationTest(t *testing.T, run func(framework.TestContext, *testEnv)) {
 			t.Skip("skipping cross-cluster test")
 		}
 		ctx.NewSubTest("permissive").Run(func(ctx framework.TestContext) {
-			run(ctx, newTestEnv(ctx))
+			run(ctx, newTestEnv(ctx, "permissive"))
 		})
 		ctx.NewSubTest("strict-mtls").Run(func(ctx framework.TestContext) {
-			env := newTestEnv(ctx)
+			env := newTestEnv(ctx, "strict")
 			applyStrictPeerAuth(ctx, env)
 			run(ctx, env)
 		})
