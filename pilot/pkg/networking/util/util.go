@@ -34,6 +34,7 @@ import (
 	headerv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/http/stateful_session/header/v3"
 	httpv3 "github.com/envoyproxy/go-control-plane/envoy/type/http/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
@@ -481,6 +482,16 @@ func IsHTTPFilterChain(filterChain *listener.FilterChain) bool {
 // MergeAnyWithAny merges a given any typed message into the given Any typed message by dynamically inferring the
 // type of Any
 func MergeAnyWithAny(dst *anypb.Any, src *anypb.Any) (*anypb.Any, error) {
+	return mergeAnyWithAny(dst, src, merge.Merge)
+}
+
+// MergeAnyWithAnyReplaceList behaves like MergeAnyWithAny, except that repeated (list) fields
+// present in src fully replace the corresponding list in dst instead of being appended to it.
+func MergeAnyWithAnyReplaceList(dst *anypb.Any, src *anypb.Any) (*anypb.Any, error) {
+	return mergeAnyWithAny(dst, src, merge.MergeWithReplaceList)
+}
+
+func mergeAnyWithAny(dst *anypb.Any, src *anypb.Any, mergeFn func(dst, src proto.Message)) (*anypb.Any, error) {
 	// Assuming that Pilot is compiled with this type [which should always be the case]
 	var err error
 
@@ -497,7 +508,7 @@ func MergeAnyWithAny(dst *anypb.Any, src *anypb.Any) (*anypb.Any, error) {
 	}
 
 	// Merge the two typed protos
-	merge.Merge(dstX, srcX)
+	mergeFn(dstX, srcX)
 
 	// Convert the merged proto back to dst
 	retVal := protoconv.MessageToAny(dstX)

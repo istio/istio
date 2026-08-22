@@ -29,6 +29,7 @@ import (
 	httpv3 "github.com/envoyproxy/go-control-plane/envoy/type/http/v3"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/anypb"
 	structpb "google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -2064,6 +2065,50 @@ func TestSelectDNSLookupFamily(t *testing.T) {
 			if got := SelectDNSLookupFamily(tc.ips); got != tc.want {
 				t.Errorf("SelectDNSLookupFamily(%v) = %v, want %v", tc.ips, got, tc.want)
 			}
+		})
+	}
+}
+
+func TestMergeAnyWithAny(t *testing.T) {
+	dst := protoconv.MessageToAny(&hcm.HttpConnectionManager{
+		StatPrefix:  "dst",
+		HttpFilters: []*hcm.HttpFilter{{Name: "istio.metadata_exchange"}},
+	})
+	src := protoconv.MessageToAny(&hcm.HttpConnectionManager{
+		HttpFilters: []*hcm.HttpFilter{{Name: "envoy.filters.http.router"}},
+	})
+
+	tests := []struct {
+		name  string
+		merge func(dst, src *anypb.Any) (*anypb.Any, error)
+		want  *hcm.HttpConnectionManager
+	}{
+		{
+			name:  "MergeAnyWithAny appends lists",
+			merge: MergeAnyWithAny,
+			want: &hcm.HttpConnectionManager{
+				StatPrefix: "dst",
+				HttpFilters: []*hcm.HttpFilter{
+					{Name: "istio.metadata_exchange"},
+					{Name: "envoy.filters.http.router"},
+				},
+			},
+		},
+		{
+			name:  "MergeAnyWithAnyReplaceList replaces lists",
+			merge: MergeAnyWithAnyReplaceList,
+			want: &hcm.HttpConnectionManager{
+				StatPrefix:  "dst",
+				HttpFilters: []*hcm.HttpFilter{{Name: "envoy.filters.http.router"}},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := tt.merge(dst, src)
+			assert.NoError(t, err)
+			assert.Equal(t, got, protoconv.MessageToAny(tt.want))
 		})
 	}
 }
