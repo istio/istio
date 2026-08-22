@@ -273,6 +273,7 @@ func TestWorkloadReconnect(t *testing.T) {
 		// memory for nothing.
 		for name, typeURL := range map[string]string{"address": v3.AddressType, "workload": v3.WorkloadType} {
 			t.Run(name, func(t *testing.T) {
+				test.SetForTest(t, &features.EnableUnsafeAssertions, true)
 				expect := buildExpect(t)
 				s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
 					KubernetesObjects: []runtime.Object{mkPod("pod", "sa", "127.0.0.1", "not-node")},
@@ -289,13 +290,33 @@ func TestWorkloadReconnect(t *testing.T) {
 					},
 				})
 				expect(ads.ExpectResponse(), "Kubernetes//Pod/default/pod")
-				for _, c := range s.Discovery.AllClients() {
-					w := c.Proxy().GetWatchedResource(typeURL)
-					if w == nil {
-						t.Fatalf("connection %v missing watched resource %v", c.ID(), typeURL)
+				assertNoWatchedNames := func() {
+					t.Helper()
+					for _, c := range s.Discovery.AllClients() {
+						w := c.Proxy().GetWatchedResource(typeURL)
+						if w == nil {
+							t.Fatalf("connection %v missing watched resource %v", c.ID(), typeURL)
+						}
+						assert.Equal(t, len(w.ResourceNames), 0)
 					}
-					assert.Equal(t, len(w.ResourceNames), 0)
 				}
+				assertNoWatchedNames()
+
+				// A spontaneous subscription on the same stream takes the subsequent-request
+				// path; it must not accumulate names either.
+				ads.Request(&discovery.DeltaDiscoveryRequest{
+					ResourceNamesSubscribe: []string{"Kubernetes//Pod/default/pod"},
+				})
+				expect(ads.ExpectResponse(), "Kubernetes//Pod/default/pod")
+				assertNoWatchedNames()
+
+				// A spontaneous unsubscription has no stored set to diff against; it must still
+				// be detected as a change rather than tripping the subscription-change assertion.
+				ads.Request(&discovery.DeltaDiscoveryRequest{
+					ResourceNamesUnsubscribe: []string{"Kubernetes//Pod/default/pod"},
+				})
+				expect(ads.ExpectResponse(), "Kubernetes//Pod/default/pod")
+				assertNoWatchedNames()
 			})
 		}
 	})
