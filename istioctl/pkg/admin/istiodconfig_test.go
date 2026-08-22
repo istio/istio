@@ -186,6 +186,22 @@ func Test_chooseClientFlag(t *testing.T) {
 			}},
 		},
 		{
+			name: "given --level flag with all scope return outputLogLevel command",
+			args: args{
+				ctrzClient:      ctrzClient,
+				reset:           false,
+				logReset:        false,
+				stackTraceReset: false,
+				outputLogLevel:  "all:debug",
+				stackTraceLevel: "",
+				outputFormat:    "",
+			},
+			want: &istiodConfigLog{state: &levelState{
+				client:         ctrzClient,
+				outputLogLevel: "all:debug",
+			}},
+		},
+		{
 			name: "given --level flag containing '-' and none level return outputLogLevel command",
 			args: args{
 				ctrzClient:      ctrzClient,

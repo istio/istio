@@ -143,14 +143,14 @@ type levelState struct {
 func (ll *levelState) run(_ io.Writer) error {
 	var scopeInfos []*ScopeInfo
 	if ll.outputLogLevel != "" {
-		scopeLogInfos, err := newScopeInfosFromScopeLevelPairs(ll.outputLogLevel)
+		scopeLogInfos, err := ll.newScopeInfosFromScopeLevelPairs(ll.outputLogLevel)
 		if err != nil {
 			return err
 		}
 		scopeInfos = append(scopeInfos, scopeLogInfos...)
 	}
 	if ll.stackTraceLevel != "" {
-		scopeStackInfos, err := newScopeInfosFromScopeStackTraceLevelPairs(ll.stackTraceLevel)
+		scopeStackInfos, err := ll.newScopeInfosFromScopeStackTraceLevelPairs(ll.stackTraceLevel)
 		if err != nil {
 			return err
 		}
@@ -280,7 +280,7 @@ func newScopeLevelPair(slp, validationPattern string) (*ScopeLevelPair, error) {
 	return s, nil
 }
 
-func newScopeInfosFromScopeLevelPairs(scopeLevelPairs string) ([]*ScopeInfo, error) {
+func (ll *levelState) newScopeInfosFromScopeLevelPairs(scopeLevelPairs string) ([]*ScopeInfo, error) {
 	slParis := strings.Split(scopeLevelPairs, ",")
 	var scopeInfos []*ScopeInfo
 	for _, slp := range slParis {
@@ -288,11 +288,23 @@ func newScopeInfosFromScopeLevelPairs(scopeLevelPairs string) ([]*ScopeInfo, err
 		if err != nil {
 			return nil, err
 		}
-		si := &ScopeInfo{
-			Name:        sl.scope,
-			OutputLevel: sl.logLevel,
+		if sl.scope == "all" {
+			allScopes, err := ll.client.GetScopes()
+			if err != nil {
+				return nil, fmt.Errorf("could not get all scopes: %v", err)
+			}
+			for _, scope := range allScopes {
+				scopeInfos = append(scopeInfos, &ScopeInfo{
+					Name:        scope.Name,
+					OutputLevel: sl.logLevel,
+				})
+			}
+		} else {
+			scopeInfos = append(scopeInfos, &ScopeInfo{
+				Name:        sl.scope,
+				OutputLevel: sl.logLevel,
+			})
 		}
-		scopeInfos = append(scopeInfos, si)
 	}
 	return scopeInfos, nil
 }
@@ -313,19 +325,31 @@ func newScopeStackTraceLevelPair(sslp, validationPattern string) (*scopeStackTra
 	return ss, nil
 }
 
-func newScopeInfosFromScopeStackTraceLevelPairs(scopeStackTraceLevelPairs string) ([]*ScopeInfo, error) {
+func (ll *levelState) newScopeInfosFromScopeStackTraceLevelPairs(scopeStackTraceLevelPairs string) ([]*ScopeInfo, error) {
 	sslPairs := strings.Split(scopeStackTraceLevelPairs, ",")
 	var scopeInfos []*ScopeInfo
 	for _, sslp := range sslPairs {
-		slp, err := newScopeStackTraceLevelPair(sslp, validationPattern)
+		sl, err := newScopeStackTraceLevelPair(sslp, validationPattern)
 		if err != nil {
 			return nil, err
 		}
-		si := &ScopeInfo{
-			Name:            slp.scope,
-			StackTraceLevel: slp.logLevel,
+		if sl.scope == "all" {
+			allScopes, err := ll.client.GetScopes()
+			if err != nil {
+				return nil, fmt.Errorf("could not get all scopes: %v", err)
+			}
+			for _, scope := range allScopes {
+				scopeInfos = append(scopeInfos, &ScopeInfo{
+					Name:            scope.Name,
+					StackTraceLevel: sl.logLevel,
+				})
+			}
+		} else {
+			scopeInfos = append(scopeInfos, &ScopeInfo{
+				Name:            sl.scope,
+				StackTraceLevel: sl.logLevel,
+			})
 		}
-		scopeInfos = append(scopeInfos, si)
 	}
 	return scopeInfos, nil
 }
@@ -452,6 +476,12 @@ func istiodLogCmd(ctx cli.Context) *cobra.Command {
   # Update levels of the specified loggers and stack trace.
   istioctl admin log --level ads:debug,authorization:debug --stack-trace-level ads:debug,adsc:debug
 
+  # Update all loggers to debug level.
+  istioctl admin log --level all:debug
+
+  # Update all loggers stack trace level to debug.
+  istioctl admin log --stack-trace-level all:debug
+
   # Retrieve information about istiod logging levels for a specified revision.
   istioctl admin log --revision v1
 
@@ -548,9 +578,11 @@ func istiodLogCmd(ctx cli.Context) *cobra.Command {
 	logCmd.PersistentFlags().IntVar(&controlzPort, "ctrlz_port", ctrlz.DefaultControlZPort, "ControlZ port")
 	logCmd.PersistentFlags().StringVar(&outputLogLevel, "level", outputLogLevel,
 		"Comma-separated list of output logging level for scopes in the format of <scope>:<level>[,<scope>:<level>,...]. "+
+			"Use 'all' as <scope> to set all scopes to the same level. "+
 			"Possible values for <level>: none, error, warn, info, debug")
 	logCmd.PersistentFlags().StringVar(&stackTraceLevel, "stack-trace-level", stackTraceLevel,
 		"Comma-separated list of stack trace level for scopes in the format of <scope>:<stack-trace-level>[,<scope>:<stack-trace-level>,...]. "+
+			"Use 'all' as <scope> to set all scopes to the same stack trace level. "+
 			"Possible values for <stack-trace-level>: none, error, warn, info, debug")
 	logCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o",
 		outputFormat, "Output format: one of json|yaml|short")
