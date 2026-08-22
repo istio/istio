@@ -22,6 +22,7 @@ import (
 	matcher "github.com/envoyproxy/go-control-plane/envoy/config/common/matcher/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	clientsidewrr "github.com/envoyproxy/go-control-plane/envoy/extensions/load_balancing_policies/client_side_weighted_round_robin/v3"
 	proxyprotocol "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/proxy_protocol/v3"
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	matchertype "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
@@ -358,6 +359,15 @@ func applyLoadBalancer(
 		return
 	}
 
+	// Backend utilization is part of the lb_policy oneof, so it is mutually exclusive with
+	// simple and consistentHash. It is configured through the extension based
+	// `load_balancing_policy` rather than the `lb_policy` enum, so handle it before the
+	// simple LB policies and return early.
+	if lb.GetBackendUtilization() != nil {
+		applyBackendUtilizationLoadBalancer(c, lb.GetBackendUtilization())
+		return
+	}
+
 	// DO not do if else here. since lb.GetSimple returns a enum value (not pointer).
 	switch lb.GetSimple() {
 	// nolint: staticcheck
@@ -598,6 +608,50 @@ func applyOutlierDetectionErrorCodes(mc *clusterWrapper, codes []uint32) {
 	}
 	mc.httpProtocolOptions.OutlierDetection = &http.HttpProtocolOptions_OutlierDetection{
 		ErrorMatcher: predicate,
+	}
+}
+
+// applyBackendUtilizationLoadBalancer configures the cluster to use Envoy's
+// client_side_weighted_round_robin load balancing policy, which weights endpoints based on the
+// utilization they report through ORCA load reports.
+//
+// Unlike the simple and consistent hash policies, this one has no `lb_policy` enum value and must
+// be configured through the extension based `load_balancing_policy` field.
+// TODO(wbpcode): We should consider to migrate all load balancing policies to use the extension based
+// `load_balancing_policy` field because the legacy `lb_policy` enum will be deprecated.
+func applyBackendUtilizationLoadBalancer(c *cluster.Cluster, bu *networking.LoadBalancerSettings_BackendUtilizationLB) {
+	// Envoy rejects a cluster that combines `load_balancing_policy` with any of the partial
+	// `common_lb_config` fields, so drop them. `zone_aware_lb_config` and
+	// `locality_weighted_lb_config` share the `locality_config_specifier` oneof, while
+	// `consistent_hashing_lb_config` is a separate field.
+	if c.CommonLbConfig != nil {
+		c.CommonLbConfig.LocalityConfigSpecifier = nil
+		c.CommonLbConfig.ConsistentHashingLbConfig = nil
+	}
+
+	cswrr := &clientsidewrr.ClientSideWeightedRoundRobin{
+		BlackoutPeriod:                     bu.GetWeightStabilizationPeriod(),
+		WeightExpirationPeriod:             bu.GetWeightExpirationPeriod(),
+		WeightUpdatePeriod:                 bu.GetWeightUpdatePeriod(),
+		MetricNamesForComputingUtilization: bu.GetMetricNamesForComputingUtilization(),
+		// Envoy defaults this to 1.0 while the Istio API defaults it to 0 (disabled), so it must
+		// always be set explicitly.
+		ErrorUtilizationPenalty: &wrapperspb.FloatValue{Value: float32(bu.GetErrorUtilizationPenaltyPercent()) / 100.0},
+	}
+
+	// `lb_policy` is ignored by Envoy whenever `load_balancing_policy` is set, but it is an enum
+	// defaulting to ROUND_ROBIN, so set it explicitly to avoid any confusion.
+	c.LbPolicy = cluster.Cluster_LOAD_BALANCING_POLICY_CONFIG
+	c.LbConfig = nil
+	c.LoadBalancingPolicy = &cluster.LoadBalancingPolicy{
+		Policies: []*cluster.LoadBalancingPolicy_Policy{
+			{
+				TypedExtensionConfig: &core.TypedExtensionConfig{
+					Name:        wellknown.EnvoyClientSideWeightedRoundRobinLbPolicy,
+					TypedConfig: protoconv.MessageToAny(cswrr),
+				},
+			},
+		},
 	}
 }
 
