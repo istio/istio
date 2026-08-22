@@ -78,43 +78,40 @@ func TestNestedCollectionsRebuiltOnClusterUpdate(t *testing.T) {
 		opts,
 	)
 
-	// remote returns the key (the collection's uid) and contents of the single remote cluster's
-	// collection, so we can tell a rebuilt collection from a reused one.
+	// remoteServices returns the contents of the remote cluster's collection. A collection is keyed by
+	// its name, which is stable across generations, so the contents are what tell a rebuilt collection
+	// from a reused one: the two generations' clients hold different Services.
 	localKey := krt.GetKey(localCollection)
-	type remoteState struct {
-		key      string
-		services sets.String
-	}
-	remote := func() remoteState {
+	remoteServices := func() sets.String {
 		for _, col := range nested.List() {
 			if krt.GetKey(col) == localKey {
 				continue
 			}
-			return remoteState{
-				key: krt.GetKey(col),
-				services: sets.New(slices.Map(col.List(), func(s *v1.Service) string {
-					return s.Name
-				})...),
-			}
+			return sets.New(slices.Map(col.List(), func(s *v1.Service) string {
+				return s.Name
+			})...)
 		}
-		return remoteState{}
+		return nil
+	}
+	// The cluster contributes exactly one collection at all times, including across the swap. Consumers
+	// index this collection by cluster and read it with krt.FetchOne, which tolerates neither zero nor
+	// two.
+	assertSingleRemote := func() {
+		t.Helper()
+		if got := len(nested.List()); got != 2 {
+			t.Fatalf("expected the local collection and exactly one remote collection, got %d", got)
+		}
 	}
 
 	c.AddSecret("s0", "c0")
 	c.Run(stop)
 	retry.UntilOrFail(t, c.controller.HasSynced, retry.Timeout(2*time.Second))
-	assert.EventuallyEqual(t, func() sets.String { return remote().services }, sets.New("initial"))
-	before := remote()
+	assert.EventuallyEqual(t, remoteServices, sets.New("initial"))
+	assertSingleRemote()
 
-	// Rotate the credentials: same cluster ID, new kubeconfig.
+	// Rotate the credentials: same cluster ID, new kubeconfig. The collection must be rebuilt against
+	// the new client, which is observable as its contents changing.
 	c.AddSecret("s0", "c0")
-
-	// The cluster's collection must now be served from the new client...
-	assert.EventuallyEqual(t, func() sets.String { return remote().services }, sets.New("later"))
-	// ...by a newly built collection, and the previous one must be dropped rather than accumulated.
-	after := remote()
-	if after.key == before.key {
-		t.Fatalf("expected the cluster's collection to be rebuilt on update, but it is still %v", after.key)
-	}
-	assert.Equal(t, len(nested.List()), 2, "expected only the local and the current remote collection")
+	assert.EventuallyEqual(t, remoteServices, sets.New("later"))
+	assertSingleRemote()
 }

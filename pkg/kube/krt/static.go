@@ -49,7 +49,11 @@ func NewStaticCollection[T any](synced Syncer, vals []T, opts ...CollectionOptio
 
 	res := make(map[string]T, len(vals))
 	for _, v := range vals {
-		res[GetKey(v)] = v
+		k := GetKey(v)
+		if _, dupe := res[k]; dupe && EnableAssertions {
+			panic(fmt.Sprintf("duplicate key %q in %v; the collection would silently drop an entry", k, o.name))
+		}
+		res[k] = v
 	}
 
 	if synced == nil {
