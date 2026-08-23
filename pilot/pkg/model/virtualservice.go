@@ -418,20 +418,20 @@ func stringMatchConflict(root, leaf *networking.StringMatch) bool {
 	}
 	// If root regex match is specified, delegate should not have other matches.
 	if root.GetRegex() != "" {
-		if leaf.GetRegex() != "" || leaf.GetPrefix() != "" || leaf.GetExact() != "" {
+		if leaf.GetRegex() != "" || leaf.GetPrefix() != "" || leaf.GetExact() != "" || leaf.GetSuffix() != "" {
 			return true
 		}
 	}
 	// If delegate regex match is specified, root should not have other matches.
 	if leaf.GetRegex() != "" {
-		if root.GetRegex() != "" || root.GetPrefix() != "" || root.GetExact() != "" {
+		if root.GetRegex() != "" || root.GetPrefix() != "" || root.GetExact() != "" || root.GetSuffix() != "" {
 			return true
 		}
 	}
 	// root is exact match
 	if exact := root.GetExact(); exact != "" {
-		// leaf is prefix match, conflict
-		if leaf.GetPrefix() != "" {
+		// leaf is prefix or suffix match, conflict
+		if leaf.GetPrefix() != "" || leaf.GetSuffix() != "" {
 			return true
 		}
 		// both exact, but not equal
@@ -442,6 +442,10 @@ func stringMatchConflict(root, leaf *networking.StringMatch) bool {
 	}
 	// root is prefix match
 	if prefix := root.GetPrefix(); prefix != "" {
+		// leaf is suffix match, conflict
+		if leaf.GetSuffix() != "" {
+			return true
+		}
 		// leaf is prefix match
 		if leaf.GetPrefix() != "" {
 			// leaf(`/a`) is not subset of root(`/a/b`)
@@ -451,6 +455,23 @@ func stringMatchConflict(root, leaf *networking.StringMatch) bool {
 		if leaf.GetExact() != "" {
 			// leaf(`/a`) is not subset of root(`/a/b`)
 			return !strings.HasPrefix(leaf.GetExact(), prefix)
+		}
+	}
+	// root is suffix match
+	if suffix := root.GetSuffix(); suffix != "" {
+		// leaf is prefix match, conflict
+		if leaf.GetPrefix() != "" {
+			return true
+		}
+		// leaf is suffix match
+		if leaf.GetSuffix() != "" {
+			// leaf(`.com`) is not subset of root(`.example.com`)
+			return !strings.HasSuffix(leaf.GetSuffix(), suffix)
+		}
+		// leaf is exact match
+		if leaf.GetExact() != "" {
+			// leaf(`a.com`) is not subset of root(`.example.com`)
+			return !strings.HasSuffix(leaf.GetExact(), suffix)
 		}
 	}
 

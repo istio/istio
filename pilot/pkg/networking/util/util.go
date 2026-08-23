@@ -619,6 +619,8 @@ func ConvertToEnvoyMatch(in *networking.StringMatch) *matcher.StringMatcher {
 				},
 			},
 		}
+	case *networking.StringMatch_Suffix:
+		return &matcher.StringMatcher{MatchPattern: &matcher.StringMatcher_Suffix{Suffix: m.Suffix}}
 	}
 	return nil
 }

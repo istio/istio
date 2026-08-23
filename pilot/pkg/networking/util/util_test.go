@@ -27,6 +27,7 @@ import (
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	cookiev3 "github.com/envoyproxy/go-control-plane/envoy/extensions/http/stateful_session/cookie/v3"
 	httpv3 "github.com/envoyproxy/go-control-plane/envoy/type/http/v3"
+	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
 	structpb "google.golang.org/protobuf/types/known/structpb"
@@ -2064,6 +2065,51 @@ func TestSelectDNSLookupFamily(t *testing.T) {
 			if got := SelectDNSLookupFamily(tc.ips); got != tc.want {
 				t.Errorf("SelectDNSLookupFamily(%v) = %v, want %v", tc.ips, got, tc.want)
 			}
+		})
+	}
+}
+
+func TestConvertToEnvoyMatch(t *testing.T) {
+	tests := []struct {
+		name string
+		in   *networking.StringMatch
+		want *matcher.StringMatcher
+	}{
+		{
+			name: "exact",
+			in:   &networking.StringMatch{MatchType: &networking.StringMatch_Exact{Exact: "foo"}},
+			want: &matcher.StringMatcher{MatchPattern: &matcher.StringMatcher_Exact{Exact: "foo"}},
+		},
+		{
+			name: "prefix",
+			in:   &networking.StringMatch{MatchType: &networking.StringMatch_Prefix{Prefix: "foo"}},
+			want: &matcher.StringMatcher{MatchPattern: &matcher.StringMatcher_Prefix{Prefix: "foo"}},
+		},
+		{
+			name: "suffix",
+			in:   &networking.StringMatch{MatchType: &networking.StringMatch_Suffix{Suffix: "foo"}},
+			want: &matcher.StringMatcher{MatchPattern: &matcher.StringMatcher_Suffix{Suffix: "foo"}},
+		},
+		{
+			name: "regex",
+			in:   &networking.StringMatch{MatchType: &networking.StringMatch_Regex{Regex: "foo.*"}},
+			want: &matcher.StringMatcher{
+				MatchPattern: &matcher.StringMatcher_SafeRegex{
+					SafeRegex: &matcher.RegexMatcher{
+						Regex: "foo.*",
+					},
+				},
+			},
+		},
+		{
+			name: "unset",
+			in:   &networking.StringMatch{},
+			want: nil,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, ConvertToEnvoyMatch(tc.in), tc.want)
 		})
 	}
 }

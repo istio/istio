@@ -70,6 +70,7 @@ const (
 
 	matchExact  = "exact:"
 	matchPrefix = "prefix:"
+	matchSuffix = "suffix:"
 )
 
 // https://greenbytes.de/tech/webdav/rfc7230.html#header.fields
@@ -1866,14 +1867,37 @@ var ValidateVirtualService = RegisterValidateFunc("ValidateVirtualService",
 		return errs.Unwrap()
 	})
 
-func assignExactOrPrefix(exact, prefix string) string {
-	if exact != "" {
+// assignStringMatch encodes the exact, prefix or suffix value of a StringMatch into a
+// single tagged string used by the overlapping-match analysis, e.g. "prefix:/debug".
+func assignStringMatch(sm *networking.StringMatch) string {
+	if exact := sm.GetExact(); exact != "" {
 		return matchExact + exact
 	}
-	if prefix != "" {
+	if prefix := sm.GetPrefix(); prefix != "" {
 		return matchPrefix + prefix
 	}
+	if suffix := sm.GetSuffix(); suffix != "" {
+		return matchSuffix + suffix
+	}
 	return ""
+}
+
+// coveredStringMatch returns true if the encoded string match vA is covered by vB,
+// i.e. vB matches a superset of what vA matches. An empty vB covers anything.
+func coveredStringMatch(vA, vB string) bool {
+	if vA == vB {
+		return true
+	}
+	if suffixB, ok := strings.CutPrefix(vB, matchSuffix); ok {
+		// vB is a suffix match: it only covers a suffix match ending with vB's suffix.
+		suffixA, ok := strings.CutPrefix(vA, matchSuffix)
+		return ok && strings.HasSuffix(suffixA, suffixB)
+	}
+	if strings.HasPrefix(vA, matchSuffix) {
+		// vA is a suffix match while vB is not: only an unconstrained vB covers it.
+		return vB == ""
+	}
+	return strings.HasPrefix(vA, vB)
 }
 
 func isSniHost(context *networking.VirtualService) bool {
@@ -1909,44 +1933,31 @@ func genMatchHTTPRoutes(route *networking.HTTPRoute, match *networking.HTTPMatch
 	tmpPrefix := match.Uri.GetPrefix()
 	if tmpPrefix != "" {
 		// set Method
-		methodExact := match.Method.GetExact()
-		methodPrefix := match.Method.GetPrefix()
-		methodMatch := assignExactOrPrefix(methodExact, methodPrefix)
+		methodMatch := assignStringMatch(match.Method)
 		// if no method information, it should be GET by default
 		if methodMatch == "" {
 			methodMatch = matchExact + "GET"
 		}
 
 		// set Authority
-		authorityExact := match.Authority.GetExact()
-		authorityPrefix := match.Authority.GetPrefix()
-		authorityMatch := assignExactOrPrefix(authorityExact, authorityPrefix)
+		authorityMatch := assignStringMatch(match.Authority)
 
 		// set Headers
 		headerMap := make(map[string]string)
 		for hkey, hvalue := range match.Headers {
-			hvalueExact := hvalue.GetExact()
-			hvaluePrefix := hvalue.GetPrefix()
-			hvalueMatch := assignExactOrPrefix(hvalueExact, hvaluePrefix)
-			headerMap[hkey] = hvalueMatch
+			headerMap[hkey] = assignStringMatch(hvalue)
 		}
 
 		// set QueryParams
 		QPMap := make(map[string]string)
 		for qpkey, qpvalue := range match.QueryParams {
-			qpvalueExact := qpvalue.GetExact()
-			qpvaluePrefix := qpvalue.GetPrefix()
-			qpvalueMatch := assignExactOrPrefix(qpvalueExact, qpvaluePrefix)
-			QPMap[qpkey] = qpvalueMatch
+			QPMap[qpkey] = assignStringMatch(qpvalue)
 		}
 
 		// set WithoutHeaders
 		noHeaderMap := make(map[string]string)
 		for nhkey, nhvalue := range match.WithoutHeaders {
-			nhvalueExact := nhvalue.GetExact()
-			nhvaluePrefix := nhvalue.GetPrefix()
-			nhvalueMatch := assignExactOrPrefix(nhvalueExact, nhvaluePrefix)
-			noHeaderMap[nhkey] = nhvalueMatch
+			noHeaderMap[nhkey] = assignStringMatch(nhvalue)
 		}
 
 		matchHTTPRoutes = &OverlappingMatchValidationForHTTPRoute{
@@ -1975,17 +1986,13 @@ func coveredValidation(vA, vB *OverlappingMatchValidationForHTTPRoute) bool {
 		}
 
 		// check the match method
-		if vA.MatchMethod != vB.MatchMethod {
-			if !strings.HasPrefix(vA.MatchMethod, vB.MatchMethod) {
-				return false
-			}
+		if !coveredStringMatch(vA.MatchMethod, vB.MatchMethod) {
+			return false
 		}
 
 		// check the match authority
-		if vA.MatchAuthority != vB.MatchAuthority {
-			if !strings.HasPrefix(vA.MatchAuthority, vB.MatchAuthority) {
-				return false
-			}
+		if !coveredStringMatch(vA.MatchAuthority, vB.MatchAuthority) {
+			return false
 		}
 
 		// check the match Headers
@@ -1998,10 +2005,8 @@ func coveredValidation(vA, vB *OverlappingMatchValidationForHTTPRoute) bool {
 			vBhdValue, ok := vB.MatchHeaders[hdKey]
 			if !ok {
 				return false
-			} else if hdValue != vBhdValue {
-				if !strings.HasPrefix(hdValue, vBhdValue) {
-					return false
-				}
+			} else if !coveredStringMatch(hdValue, vBhdValue) {
+				return false
 			}
 		}
 
@@ -2015,10 +2020,8 @@ func coveredValidation(vA, vB *OverlappingMatchValidationForHTTPRoute) bool {
 			vBqpValue, ok := vB.MatchQueryParams[qpKey]
 			if !ok {
 				return false
-			} else if qpValue != vBqpValue {
-				if !strings.HasPrefix(qpValue, vBqpValue) {
-					return false
-				}
+			} else if !coveredStringMatch(qpValue, vBqpValue) {
+				return false
 			}
 		}
 
@@ -2032,10 +2035,8 @@ func coveredValidation(vA, vB *OverlappingMatchValidationForHTTPRoute) bool {
 			vBnhValue, ok := vB.MatchNonHeaders[nhKey]
 			if !ok {
 				return false
-			} else if nhValue != vBnhValue {
-				if !strings.HasPrefix(nhValue, vBnhValue) {
-					return false
-				}
+			} else if !coveredStringMatch(nhValue, vBnhValue) {
+				return false
 			}
 		}
 	} else {
@@ -2330,6 +2331,10 @@ func validateStringMatch(sm *networking.StringMatch, where string) error {
 		if sm.GetPrefix() == "" {
 			return fmt.Errorf("%q: prefix string match should not be empty", where)
 		}
+	case *networking.StringMatch_Suffix:
+		if sm.GetSuffix() == "" {
+			return fmt.Errorf("%q: suffix string match should not be empty", where)
+		}
 	case *networking.StringMatch_Regex:
 		return validateStringMatchRegexp(sm, where)
 	}
@@ -2509,6 +2514,8 @@ func validateAllowOrigins(origin *networking.StringMatch) error {
 		match = origin.GetPrefix()
 	case *networking.StringMatch_Regex:
 		match = origin.GetRegex()
+	case *networking.StringMatch_Suffix:
+		match = origin.GetSuffix()
 	}
 	if match == "" {
 		return fmt.Errorf("'%v' is not a valid match type for CORS allow origins", match)

@@ -549,6 +549,68 @@ func TestMergeHTTPMatchRequests(t *testing.T) {
 			expected: nil,
 		},
 		{
+			name: "authority suffix match",
+			root: []*networking.HTTPMatchRequest{
+				{
+					Authority: &networking.StringMatch{
+						MatchType: &networking.StringMatch_Suffix{Suffix: ".example.com"},
+					},
+				},
+			},
+			delegate: []*networking.HTTPMatchRequest{
+				{
+					Authority: &networking.StringMatch{
+						MatchType: &networking.StringMatch_Exact{Exact: "foo.example.com"},
+					},
+				},
+			},
+			expected: []*networking.HTTPMatchRequest{
+				{
+					Authority: &networking.StringMatch{
+						MatchType: &networking.StringMatch_Exact{Exact: "foo.example.com"},
+					},
+				},
+			},
+		},
+		{
+			name: "authority suffix inherited from root",
+			root: []*networking.HTTPMatchRequest{
+				{
+					Authority: &networking.StringMatch{
+						MatchType: &networking.StringMatch_Suffix{Suffix: ".example.com"},
+					},
+				},
+			},
+			delegate: []*networking.HTTPMatchRequest{
+				{},
+			},
+			expected: []*networking.HTTPMatchRequest{
+				{
+					Authority: &networking.StringMatch{
+						MatchType: &networking.StringMatch_Suffix{Suffix: ".example.com"},
+					},
+				},
+			},
+		},
+		{
+			name: "authority suffix conflict",
+			root: []*networking.HTTPMatchRequest{
+				{
+					Authority: &networking.StringMatch{
+						MatchType: &networking.StringMatch_Suffix{Suffix: ".example.com"},
+					},
+				},
+			},
+			delegate: []*networking.HTTPMatchRequest{
+				{
+					Authority: &networking.StringMatch{
+						MatchType: &networking.StringMatch_Exact{Exact: "example.org"},
+					},
+				},
+			},
+			expected: nil,
+		},
+		{
 			name: "multi url match",
 			root: []*networking.HTTPMatchRequest{
 				{
@@ -1003,6 +1065,114 @@ func TestHasConflict(t *testing.T) {
 					MatchType: &networking.StringMatch_Exact{Exact: "/productpage/v2"},
 				},
 			},
+			expected: false,
+		},
+		{
+			name: "match authority suffix",
+			root: &networking.HTTPMatchRequest{
+				Authority: &networking.StringMatch{
+					MatchType: &networking.StringMatch_Suffix{Suffix: ".example.com"},
+				},
+			},
+			leaf: &networking.HTTPMatchRequest{
+				Authority: &networking.StringMatch{
+					MatchType: &networking.StringMatch_Suffix{Suffix: "a.example.com"},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "mismatch authority suffix",
+			root: &networking.HTTPMatchRequest{
+				Authority: &networking.StringMatch{
+					MatchType: &networking.StringMatch_Suffix{Suffix: "a.example.com"},
+				},
+			},
+			leaf: &networking.HTTPMatchRequest{
+				Authority: &networking.StringMatch{
+					MatchType: &networking.StringMatch_Suffix{Suffix: ".example.com"},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "suffix authority in root and exact match in delegate",
+			root: &networking.HTTPMatchRequest{
+				Authority: &networking.StringMatch{
+					MatchType: &networking.StringMatch_Suffix{Suffix: ".example.com"},
+				},
+			},
+			leaf: &networking.HTTPMatchRequest{
+				Authority: &networking.StringMatch{
+					MatchType: &networking.StringMatch_Exact{Exact: "foo.example.com"},
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "suffix authority in root and conflicting exact match in delegate",
+			root: &networking.HTTPMatchRequest{
+				Authority: &networking.StringMatch{
+					MatchType: &networking.StringMatch_Suffix{Suffix: ".example.com"},
+				},
+			},
+			leaf: &networking.HTTPMatchRequest{
+				Authority: &networking.StringMatch{
+					MatchType: &networking.StringMatch_Exact{Exact: "example.org"},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "suffix authority in root and prefix match in delegate",
+			root: &networking.HTTPMatchRequest{
+				Authority: &networking.StringMatch{
+					MatchType: &networking.StringMatch_Suffix{Suffix: ".example.com"},
+				},
+			},
+			leaf: &networking.HTTPMatchRequest{
+				Authority: &networking.StringMatch{
+					MatchType: &networking.StringMatch_Prefix{Prefix: "foo"},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "exact authority in root and suffix match in delegate",
+			root: &networking.HTTPMatchRequest{
+				Authority: &networking.StringMatch{
+					MatchType: &networking.StringMatch_Exact{Exact: "foo.example.com"},
+				},
+			},
+			leaf: &networking.HTTPMatchRequest{
+				Authority: &networking.StringMatch{
+					MatchType: &networking.StringMatch_Suffix{Suffix: ".example.com"},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "regex authority in root and suffix match in delegate",
+			root: &networking.HTTPMatchRequest{
+				Authority: &networking.StringMatch{
+					MatchType: &networking.StringMatch_Regex{Regex: ".*example.com"},
+				},
+			},
+			leaf: &networking.HTTPMatchRequest{
+				Authority: &networking.StringMatch{
+					MatchType: &networking.StringMatch_Suffix{Suffix: ".example.com"},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "suffix authority in root and delegate does not have authority",
+			root: &networking.HTTPMatchRequest{
+				Authority: &networking.StringMatch{
+					MatchType: &networking.StringMatch_Suffix{Suffix: ".example.com"},
+				},
+			},
+			leaf:     &networking.HTTPMatchRequest{},
 			expected: false,
 		},
 		{

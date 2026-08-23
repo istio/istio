@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 61292
+releaseNotes:
+  - |
+    **Added** support for `suffix` string matching in `VirtualService` HTTP match conditions
+    (`headers`, `withoutHeaders`, `authority`, `scheme`, `method`, `queryParams`) and CORS `allowOrigins`.
+    Suffix matching is not supported for `uri`.
