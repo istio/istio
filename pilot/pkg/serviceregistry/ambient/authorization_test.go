@@ -51,9 +51,11 @@ const (
 
 func TestConvertAuthorizationPolicyStatus(t *testing.T) {
 	testCases := []struct {
-		name                string
-		inputAuthzPol       *securityclient.AuthorizationPolicy
-		expectStatusMessage *model.StatusMessage
+		name                 string
+		inputAuthzPol        *securityclient.AuthorizationPolicy
+		expectStatusMessage  *model.StatusMessage
+		checkEffectiveRules  bool
+		expectEffectiveRules bool
 	}{
 		{
 			name: "no status - targetRef is not for ztunnel",
@@ -208,12 +210,248 @@ func TestConvertAuthorizationPolicyStatus(t *testing.T) {
 					"This will be more restrictive than requested.",
 			},
 		},
+		{
+			name: "DENY policy with only L4 attributes - no status warning",
+			inputAuthzPol: &securityclient.AuthorizationPolicy{
+				Spec: v1beta1.AuthorizationPolicy{
+					Action: v1beta1.AuthorizationPolicy_DENY,
+					Rules: []*v1beta1.Rule{
+						{
+							From: []*v1beta1.Rule_From{
+								{
+									Source: &v1beta1.Source{
+										Principals: []string{
+											"cluster.local/ns/foo/sa/bar",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectStatusMessage: nil,
+		},
+		{
+			name: "DENY policy with only L7 attributes results in no effect at ztunnel",
+			inputAuthzPol: &securityclient.AuthorizationPolicy{
+				Spec: v1beta1.AuthorizationPolicy{
+					Action: v1beta1.AuthorizationPolicy_DENY,
+					Rules: []*v1beta1.Rule{
+						{
+							From: []*v1beta1.Rule_From{
+								{
+									Source: &v1beta1.Source{
+										NotRequestPrincipals: []string{
+											"example.com/sub-1",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectStatusMessage: &model.StatusMessage{
+				Reason: "UnsupportedValue",
+				Message: "ztunnel does not support HTTP attributes (found: notRequestPrincipals). " +
+					"In ambient mode you must use a waypoint proxy to enforce HTTP rules. " +
+					"After omitting unsupported HTTP attributes, this DENY policy has no enforceable rules at ztunnel and will have no effect. " +
+					"Deploy a waypoint proxy and use a targetRef to enforce this policy.",
+			},
+			checkEffectiveRules:  true,
+			expectEffectiveRules: false,
+		},
+		{
+			name: "DENY policy with mixed L4 and L7 attributes is enforced without HTTP rules",
+			inputAuthzPol: &securityclient.AuthorizationPolicy{
+				Spec: v1beta1.AuthorizationPolicy{
+					Action: v1beta1.AuthorizationPolicy_DENY,
+					Rules: []*v1beta1.Rule{
+						{
+							From: []*v1beta1.Rule_From{
+								{
+									Source: &v1beta1.Source{
+										Principals: []string{
+											"cluster.local/ns/foo/sa/bar",
+										},
+										NotRequestPrincipals: []string{
+											"example.com/sub-1",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectStatusMessage: &model.StatusMessage{
+				Reason: "UnsupportedValue",
+				Message: "ztunnel does not support HTTP attributes (found: notRequestPrincipals). " +
+					"In ambient mode you must use a waypoint proxy to enforce HTTP rules. " +
+					"DENY policy with HTTP attributes is enforced without the HTTP rules. " +
+					"This will be more restrictive than requested.",
+			},
+			checkEffectiveRules:  true,
+			expectEffectiveRules: true,
+		},
+		{
+			name: "DENY policy with L7-only and separate L4 rule is still enforced",
+			inputAuthzPol: &securityclient.AuthorizationPolicy{
+				Spec: v1beta1.AuthorizationPolicy{
+					Action: v1beta1.AuthorizationPolicy_DENY,
+					Rules: []*v1beta1.Rule{
+						{
+							From: []*v1beta1.Rule_From{
+								{
+									Source: &v1beta1.Source{
+										NotRequestPrincipals: []string{
+											"example.com/sub-1",
+										},
+									},
+								},
+							},
+						},
+						{
+							From: []*v1beta1.Rule_From{
+								{
+									Source: &v1beta1.Source{
+										Principals: []string{
+											"cluster.local/ns/foo/sa/bar",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectStatusMessage: &model.StatusMessage{
+				Reason: "UnsupportedValue",
+				Message: "ztunnel does not support HTTP attributes (found: notRequestPrincipals). " +
+					"In ambient mode you must use a waypoint proxy to enforce HTTP rules. " +
+					"DENY policy with HTTP attributes is enforced without the HTTP rules. " +
+					"This will be more restrictive than requested.",
+			},
+			checkEffectiveRules:  true,
+			expectEffectiveRules: true,
+		},
+		{
+			name: "DENY policy with empty catch-all rule and L7-only rule is still enforced",
+			inputAuthzPol: &securityclient.AuthorizationPolicy{
+				Spec: v1beta1.AuthorizationPolicy{
+					Action: v1beta1.AuthorizationPolicy_DENY,
+					Rules: []*v1beta1.Rule{
+						{},
+						{
+							From: []*v1beta1.Rule_From{
+								{
+									Source: &v1beta1.Source{
+										NotRequestPrincipals: []string{
+											"example.com/sub-1",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectStatusMessage: &model.StatusMessage{
+				Reason: "UnsupportedValue",
+				Message: "ztunnel does not support HTTP attributes (found: notRequestPrincipals). " +
+					"In ambient mode you must use a waypoint proxy to enforce HTTP rules. " +
+					"DENY policy with HTTP attributes is enforced without the HTTP rules. " +
+					"This will be more restrictive than requested.",
+			},
+			checkEffectiveRules:  true,
+			expectEffectiveRules: true,
+		},
+		{
+			name: "DENY policy with L4 From and L7 When is a no-op due to AND empty clause",
+			inputAuthzPol: &securityclient.AuthorizationPolicy{
+				Spec: v1beta1.AuthorizationPolicy{
+					Action: v1beta1.AuthorizationPolicy_DENY,
+					Rules: []*v1beta1.Rule{
+						{
+							From: []*v1beta1.Rule_From{
+								{
+									Source: &v1beta1.Source{
+										Principals: []string{
+											"cluster.local/ns/foo/sa/bar",
+										},
+									},
+								},
+							},
+							When: []*v1beta1.Condition{
+								{
+									Key:    "request.headers[x-token]",
+									Values: []string{"secret"},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectStatusMessage: &model.StatusMessage{
+				Reason: "UnsupportedValue",
+				Message: "ztunnel does not support HTTP attributes (found: request.headers[x-token]). " +
+					"In ambient mode you must use a waypoint proxy to enforce HTTP rules. " +
+					"After omitting unsupported HTTP attributes, this DENY policy has no enforceable rules at ztunnel and will have no effect. " +
+					"Deploy a waypoint proxy and use a targetRef to enforce this policy.",
+			},
+			checkEffectiveRules:  true,
+			expectEffectiveRules: false,
+		},
+		{
+			name: "DENY policy with L4 From and L7-only To methods is a no-op due to AND empty clause",
+			inputAuthzPol: &securityclient.AuthorizationPolicy{
+				Spec: v1beta1.AuthorizationPolicy{
+					Action: v1beta1.AuthorizationPolicy_DENY,
+					Rules: []*v1beta1.Rule{
+						{
+							From: []*v1beta1.Rule_From{
+								{
+									Source: &v1beta1.Source{
+										Principals: []string{
+											"cluster.local/ns/foo/sa/bar",
+										},
+									},
+								},
+							},
+							To: []*v1beta1.Rule_To{
+								{
+									Operation: &v1beta1.Operation{
+										Methods: []string{"GET"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectStatusMessage: &model.StatusMessage{
+				Reason: "UnsupportedValue",
+				Message: "ztunnel does not support HTTP attributes (found: methods). " +
+					"In ambient mode you must use a waypoint proxy to enforce HTTP rules. " +
+					"After omitting unsupported HTTP attributes, this DENY policy has no enforceable rules at ztunnel and will have no effect. " +
+					"Deploy a waypoint proxy and use a targetRef to enforce this policy.",
+			},
+			checkEffectiveRules:  true,
+			expectEffectiveRules: false,
+		},
 	}
 
-	for _, test := range testCases {
-		t.Run(test.name, func(t *testing.T) {
-			_, outStatusMessage := convertAuthorizationPolicy(rootns, test.inputAuthzPol)
-			assert.Equal(t, test.expectStatusMessage, outStatusMessage)
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			outPol, outStatusMessage := convertAuthorizationPolicy(rootns, tt.inputAuthzPol)
+			assert.Equal(t, tt.expectStatusMessage, outStatusMessage)
+			if tt.checkEffectiveRules {
+				if outPol == nil {
+					t.Fatal("expected non-nil authorization policy when checking effective rules")
+				}
+				assert.Equal(t, tt.expectEffectiveRules, hasEffectiveRules(outPol.Groups))
+			}
 		})
 	}
 }
@@ -242,6 +480,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 		},
 	})
 	meshConfigCol := GetMeshConfig(meshConfigMock)
+	serviceEntryVisibility := model.ServiceEntryVisibilityCollection(meshConfigCol.AsCollection(), opts)
 
 	clientNs := kclient.New[*v1.Namespace](c)
 	nsCol := krt.WrapClient(clientNs, opts.WithName("nsCol")...)
@@ -273,7 +512,7 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 		}
 	}, opts.WithName("waypoint")...)
 
-	wpsCollection := WaypointPolicyStatusCollection(authzPolCol, waypointCol, svcCol, seCol, gwClassCol, meshConfigCol, nsCol, opts)
+	wpsCollection := WaypointPolicyStatusCollection(authzPolCol, waypointCol, svcCol, seCol, gwClassCol, meshConfigCol, serviceEntryVisibility, nsCol, opts)
 	c.RunAndWait(ctx.Done())
 
 	_, err := clientNs.Create(&v1.Namespace{
@@ -1187,6 +1426,23 @@ func TestWaypointPolicyStatusCollection(t *testing.T) {
 			}, tc.expect, retry.Timeout(2*time.Second))
 		})
 	}
+
+	t.Run("root namespace change is reflected in existing statuses", func(t *testing.T) {
+		updated := mesh.DefaultMeshConfig()
+		updated.RootNamespace = "new-root"
+		meshConfigCol.Set(&MeshConfig{MeshConfig: updated})
+
+		assert.EventuallyEqual(t, func() *model.StatusMessage {
+			s := getStatus(wpsCollection, "gateway-class-ap-not-in-root-ns-pol", "other-ns")
+			if s == nil || len(s.Conditions) != 1 {
+				return nil
+			}
+			return s.Conditions[0].Status
+		}, &model.StatusMessage{
+			Reason:  model.WaypointPolicyReasonInvalid,
+			Message: "AuthorizationPolicy must be in the root namespace `new-root` when referencing a GatewayClass",
+		}, retry.Timeout(2*time.Second))
+	})
 }
 
 type TestWaypointPolicyStatusCollectionTestCase struct {

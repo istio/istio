@@ -91,18 +91,18 @@ func ConstructSdsSecretConfigForCredential(name string, credentialSocketExist bo
 		if credentialSocketExist {
 			// Preserve full name (including sds:// prefix) for backward compatibility —
 			// existing UDS-based SDS agents expect the complete credentialName as the resource name.
-			return ConstructSdsSecretConfigForCredentialSocket(name, security.SDSExternalClusterName)
+			return ConstructSdsSecretConfigForCredentialSocket(name, security.SDSExternalClusterName, "")
 		}
 		if push != nil {
 			for _, provider := range push.Mesh.ExtensionProviders {
 				if provider.GetSds() != nil {
-					_, cluster, err := model.LookupCluster(push, provider.GetSds().Service, int(provider.GetSds().Port))
+					hostName, cluster, err := model.LookupCluster(push, provider.GetSds().Service, int(provider.GetSds().Port))
 					if err != nil {
 						model.IncLookupClusterFailures("externalSds")
 						log.Errorf("could not find cluster for external sds provider %q: %v", provider.GetSds(), err)
 						return nil
 					}
-					return ConstructSdsSecretConfigForCredentialSocket(resourceName, cluster)
+					return ConstructSdsSecretConfigForCredentialSocket(resourceName, cluster, hostName)
 				}
 			}
 		}
@@ -117,7 +117,7 @@ func ConstructSdsSecretConfigForCredential(name string, credentialSocketExist bo
 }
 
 // ConstructSdsSecretConfigForCredentialSocket constructs SDS Secret Configuration based on CredentialNameSocketPath
-func ConstructSdsSecretConfigForCredentialSocket(name string, clusterName string) *tls.SdsSecretConfig {
+func ConstructSdsSecretConfigForCredentialSocket(name string, clusterName string, hostName string) *tls.SdsSecretConfig {
 	return &tls.SdsSecretConfig{
 		Name: name,
 		SdsConfig: &core.ConfigSource{
@@ -129,7 +129,10 @@ func ConstructSdsSecretConfigForCredentialSocket(name string, clusterName string
 					GrpcServices: []*core.GrpcService{
 						{
 							TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
-								EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: clusterName},
+								EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
+									ClusterName: clusterName,
+									Authority:   hostName,
+								},
 							},
 						},
 					},
@@ -157,6 +160,7 @@ func AppendURIPrefixToTrustDomain(trustDomainAliases []string) []string {
 func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, proxy *model.Proxy,
 	subjectAltNames []string, crl string, trustDomainAliases []string, validateClient bool,
 	tlsCertificates []*networking.ServerTLSSettings_TLSCertificate,
+	allowInsecure bool,
 ) {
 	sdsSecretConfigs := make([]*tls.SdsSecretConfig, 0)
 	customFileSDSServer := proxy.Metadata.Raw[security.CredentialFileMetaDataName] == "true"
@@ -205,6 +209,9 @@ func ApplyToCommonTLSContext(tlsContext *tls.CommonTlsContext, proxy *model.Prox
 					Filename: crl,
 				},
 			}
+		}
+		if allowInsecure {
+			defaultValidationContext.TrustChainVerification = tls.CertificateValidationContext_ACCEPT_UNTRUSTED
 		}
 		caRes := security.SdsCertificateConfig{
 			CaCertificatePath: caCert,
@@ -289,6 +296,9 @@ func ApplyCredentialSDSToServerCommonTLSContext(tlsContext *tls.CommonTlsContext
 			MatchSubjectAltNames:  util.StringToExactMatch(tlsOpts.SubjectAltNames),
 			VerifyCertificateSpki: tlsOpts.VerifyCertificateSpki,
 			VerifyCertificateHash: tlsOpts.VerifyCertificateHash,
+		}
+		if tlsOpts.GetInsecureSkipVerify().GetValue() {
+			defaultValidationContext.TrustChainVerification = tls.CertificateValidationContext_ACCEPT_UNTRUSTED
 		}
 		tlsContext.ValidationContextType = &tls.CommonTlsContext_CombinedValidationContext{
 			CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{

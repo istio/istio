@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
+	gatewayx "sigs.k8s.io/gateway-api/apisx/v1alpha1"
 
 	istio "istio.io/api/networking/v1alpha3"
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
@@ -701,7 +702,10 @@ type RouteContextInputs struct {
 	DomainSuffix    string
 	Services        krt.Collection[*corev1.Service]
 	Namespaces      krt.Collection[*corev1.Namespace]
+	GatewayClasses  krt.Collection[*gatewayv1.GatewayClass]
+	Gateways        krt.Collection[*gatewayv1.Gateway]
 	ServiceEntries  krt.Collection[*networkingclient.ServiceEntry]
+	Backends        krt.Collection[*gatewayx.XBackend]
 	InferencePools  krt.Collection[*inferencev1.InferencePool]
 	internalContext krt.RecomputeProtected[*atomic.Pointer[gatewaycommon.GatewayContext]]
 }

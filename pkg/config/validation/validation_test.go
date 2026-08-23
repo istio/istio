@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/validation/agent"
 	"istio.io/istio/pkg/test/util/assert"
 )
 
@@ -1431,7 +1432,7 @@ func TestValidateHTTPRetry(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := validateHTTPRetry(tc.in); (got == nil) != tc.valid {
+			if got := agent.ValidateHTTPRetry(tc.in); (got == nil) != tc.valid {
 				t.Errorf("got valid=%v, want valid=%v: %v",
 					got == nil, tc.valid, got)
 			}
@@ -3687,6 +3688,26 @@ func TestValidateLoadBalancer(t *testing.T) {
 				},
 			},
 			valid: false,
+		},
+
+		{
+			name: "invalid: localityLbSetting and zoneAwareLbSetting both set",
+			in: &networking.LoadBalancerSettings{
+				LocalityLbSetting:  &networking.LocalityLoadBalancerSetting{},
+				ZoneAwareLbSetting: &networking.ZoneAwareLoadBalancerSetting{},
+			},
+			valid: false,
+		},
+		{
+			name: "valid: zoneAwareLbSetting only",
+			in: &networking.LoadBalancerSettings{
+				ZoneAwareLbSetting: &networking.ZoneAwareLoadBalancerSetting{
+					Failover: []*networking.ZoneAwareLoadBalancerSetting_Failover{
+						{From: "us-east", To: "eu-west"},
+					},
+				},
+			},
+			valid: true,
 		},
 	}
 

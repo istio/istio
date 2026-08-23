@@ -190,23 +190,31 @@ func (e *EndpointIndex) ShardsForService(serviceName, namespace string) (*Endpoi
 // GetOrCreateEndpointShard returns the shards. The second return parameter will be true if this service was seen
 // for the first time.
 func (e *EndpointIndex) GetOrCreateEndpointShard(serviceName, namespace string) (*EndpointShards, bool) {
+	// attempt to find endpoint shard with a read lock first, to avoid unnecessary lock contention. If not found, acquire a write lock and create it.
+	if ep, ok := e.ShardsForService(serviceName, namespace); ok {
+		return ep, false
+	}
+
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	if _, exists := e.shardsBySvc[serviceName]; !exists {
-		e.shardsBySvc[serviceName] = map[string]*EndpointShards{}
+	m, ok := e.shardsBySvc[serviceName]
+	if !ok {
+		m = map[string]*EndpointShards{}
+		e.shardsBySvc[serviceName] = m
 	}
-	if ep, exists := e.shardsBySvc[serviceName][namespace]; exists {
-		return ep, false
+
+	ep, ok := m[namespace]
+	if !ok {
+		ep = &EndpointShards{
+			Shards:          map[ShardKey][]*IstioEndpoint{},
+			ServiceAccounts: sets.String{},
+		}
+		m[namespace] = ep
+		// Clear the cache here to avoid race in cache writes.
+		e.clearCacheForService(serviceName, namespace)
 	}
-	// This endpoint is for a service that was not previously loaded.
-	ep := &EndpointShards{
-		Shards:          map[ShardKey][]*IstioEndpoint{},
-		ServiceAccounts: sets.String{},
-	}
-	e.shardsBySvc[serviceName][namespace] = ep
-	// Clear the cache here to avoid race in cache writes.
-	e.clearCacheForService(serviceName, namespace)
+
 	return ep, true
 }
 
@@ -228,6 +236,24 @@ func (e *EndpointIndex) DeleteShard(shardKey ShardKey) {
 		return
 	}
 	e.cache.ClearAll()
+}
+
+// PruneShard removes shardKey from every (service, namespace) entry not present in keep. A
+// registry calls this after completing a full resync (e.g. following a credential rotation) to
+// clean up shard entries for services that no longer exist in the source: such a service never
+// generates a delete event of its own, since a full resync only lists what currently exists -
+// there's nothing left to diff a fresh list against.
+func (e *EndpointIndex) PruneShard(shardKey ShardKey, keep map[string]sets.String) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	for svc, shardsByNamespace := range e.shardsBySvc {
+		for ns := range shardsByNamespace {
+			if keep[svc].Contains(ns) {
+				continue
+			}
+			e.deleteServiceInner(shardKey, svc, ns, false)
+		}
+	}
 }
 
 // must be called with lock

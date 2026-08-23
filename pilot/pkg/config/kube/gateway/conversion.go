@@ -59,6 +59,7 @@ import (
 	"istio.io/istio/pkg/config/security"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
@@ -569,6 +570,57 @@ func waypointConfigured(labels map[string]string) bool {
 	return false
 }
 
+func waypointManagedByAnotherController(ctx RouteContext, parentRef parentReference) bool {
+	var labels map[string]string
+	switch parentRef.Kind {
+	case gvk.Service:
+		svc := ptr.Flatten(krt.FetchOne(ctx.Krt, ctx.Services, krt.FilterKey(parentRef.Namespace+"/"+parentRef.Name)))
+		if svc == nil {
+			return false
+		}
+		labels = svc.Labels
+	case gvk.ServiceEntry:
+		svc := ptr.Flatten(krt.FetchOne(ctx.Krt, ctx.ServiceEntries, krt.FilterKey(parentRef.Namespace+"/"+parentRef.Name)))
+		if svc == nil {
+			return false
+		}
+		labels = svc.Labels
+	default:
+		return false
+	}
+
+	waypointName, found := labels[label.IoIstioUseWaypoint.Name]
+	if !found {
+		ns := ptr.Flatten(krt.FetchOne(ctx.Krt, ctx.Namespaces, krt.FilterKey(parentRef.Namespace)))
+		if ns == nil {
+			return false
+		}
+		labels = ns.Labels
+		waypointName, found = labels[label.IoIstioUseWaypoint.Name]
+	}
+	if !found || waypointName == "" || strings.EqualFold(waypointName, "none") {
+		return false
+	}
+	if ctx.Gateways == nil || ctx.GatewayClasses == nil {
+		return false
+	}
+
+	waypointNamespace := parentRef.Namespace
+	if namespace := labels[label.IoIstioUseWaypointNamespace.Name]; namespace != "" {
+		waypointNamespace = namespace
+	}
+	waypoint := ptr.Flatten(krt.FetchOne(ctx.Krt, ctx.Gateways, krt.FilterKey(waypointNamespace+"/"+waypointName)))
+	if waypoint == nil {
+		return false
+	}
+	class := ptr.Flatten(krt.FetchOne(ctx.Krt, ctx.GatewayClasses, krt.FilterKey(string(waypoint.Spec.GatewayClassName))))
+	if class == nil {
+		return false
+	}
+	return class.Spec.ControllerName != constants.ManagedGatewayMeshController &&
+		class.Spec.ControllerName != k8s.GatewayController(features.ManagedGatewayController)
+}
+
 func referenceAllowed(
 	ctx RouteContext,
 	parent *parentInfo,
@@ -738,6 +790,9 @@ func extractParentReferenceInfo(ctx RouteContext, parents RouteParents, obj cont
 		}
 		gk := ir
 		if ir.Kind == gvk.Service || ir.Kind == gvk.ServiceEntry {
+			if waypointManagedByAnotherController(ctx, pk) {
+				continue
+			}
 			gk = meshParentKey
 		}
 		currentParents := parents.fetch(ctx.Krt, gk)
@@ -1096,6 +1151,45 @@ func buildDestination(ctx RouteContext, to k8s.BackendRef, ns string,
 	var invalidBackendErr *ConfigError
 	var hostname string
 	switch ref {
+	case gvk.XBackend:
+		if !features.EnableAlphaGatewayAPI {
+			return &istio.Destination{}, nil, &ConfigError{
+				Reason:  InvalidDestinationKind,
+				Message: "The Alpha Gateway API is not enabled, XBackend is invalid. To enable, set PILOT_ENABLE_ALPHA_GATEWAY_API to true in istiod.",
+			}
+		}
+		backend := ptr.Flatten(krt.FetchOne(ctx.Krt, ctx.Backends, krt.FilterKey(namespace+"/"+string(to.Name))))
+		if backend == nil {
+			// Backend does not exist
+			invalidBackendErr = &ConfigError{Reason: InvalidDestinationNotFound, Message: fmt.Sprintf("backend(%s) not found", to.Name)}
+			return &istio.Destination{}, nil, invalidBackendErr
+		}
+		if backend.Spec.Type != gatewayx.BackendTypeExternalHostname || backend.Spec.ExternalHostname == nil {
+			// Backend type limited to ExternalHostname currently.
+			invalidBackendErr = &ConfigError{
+				Reason: InvalidDestinationKind,
+				Message: fmt.Sprintf("backend(%s) type: expected %s, got %s",
+					to.Name, gatewayx.BackendTypeExternalHostname, string(backend.Spec.Type)),
+			}
+			return &istio.Destination{}, nil, invalidBackendErr
+		}
+		hostname = string(backend.Spec.ExternalHostname.Hostname)
+		if ctx.LookupHostname(hostname, namespace) == nil {
+			invalidBackendErr = &ConfigError{Reason: InvalidDestinationNotFound, Message: fmt.Sprintf("backend(%s) not found", hostname)}
+		}
+		// Unlike a Service, the port is declared on the Backend itself, so backendRef.port is
+		// optional. When it is set it must agree with the Backend's port.
+		if to.Port != nil && *to.Port != k8s.PortNumber(backend.Spec.Port.Port) {
+			invalidBackendErr = &ConfigError{
+				Reason:  InvalidDestinationNotFound,
+				Message: fmt.Sprintf("backend(%s) does not expose port %d, expected %d", to.Name, *to.Port, backend.Spec.Port.Port),
+			}
+			return &istio.Destination{}, nil, invalidBackendErr
+		}
+		return &istio.Destination{
+			Host: hostname,
+			Port: &istio.PortSelector{Number: uint32(backend.Spec.Port.Port)},
+		}, nil, invalidBackendErr
 	case gvk.Service:
 		if strings.Contains(string(to.Name), ".") {
 			return nil, nil, &ConfigError{Reason: InvalidDestination, Message: "service name invalid; the name of the Service must be used, not the hostname."}
@@ -1825,6 +1919,28 @@ func reportGatewayStatus(
 		gs.AttachedListenerSets = ptr.Of(int32(listenerSetCount))
 	}
 
+	if obj.Spec.TLS != nil && obj.Spec.TLS.Frontend != nil {
+		frontend := obj.Spec.TLS.Frontend
+		hasInsecure := frontend.Default.Validation != nil && frontend.Default.Validation.Mode == k8s.AllowInsecureFallback
+		if !hasInsecure {
+			for _, perPort := range frontend.PerPort {
+				if perPort.TLS.Validation != nil && perPort.TLS.Validation.Mode == k8s.AllowInsecureFallback {
+					hasInsecure = true
+					break
+				}
+			}
+		}
+		if hasInsecure {
+			gatewayConditions[string(k8s.GatewayConditionInsecureFrontendValidationMode)] = &condition{
+				status:  metav1.ConditionTrue,
+				reason:  string(k8s.GatewayReasonConfigurationChanged),
+				message: "Gateway is operating in AllowInsecureFallback mode for frontend validation",
+			}
+		} else {
+			gs.Conditions = kstatus.RemoveCondition(gs.Conditions, string(k8s.GatewayConditionInsecureFrontendValidationMode))
+		}
+	}
+
 	setProgrammedCondition(gatewayConditions, internal, gatewayServices, warnings, allUsable)
 
 	addressesToReport := external
@@ -1873,7 +1989,7 @@ func reportGatewayStatus(
 		}
 	}
 	gs.Listeners = listeners
-	gs.Conditions = setConditions(obj.Generation, gs.Conditions, gatewayConditions)
+	gs.Conditions = gatewaycommon.SetListenerConditions(obj.Generation, gs.Conditions, toSharedConditions(gatewayConditions))
 }
 
 func setProgrammedCondition(gatewayConditions map[string]*condition, internal []string, gatewayServices []string, warnings []string, allUsable bool) {
@@ -1883,6 +1999,16 @@ func setProgrammedCondition(gatewayConditions map[string]*condition, internal []
 	}
 	gatewaycommon.SetProgrammedCondition(mapped, internal, gatewayServices, warnings, allUsable)
 	applyConditionFromListenerStatus(programmed, mapped[string(k8s.GatewayConditionProgrammed)])
+}
+
+// toSharedConditions converts a map of local conditions into the
+// shared gatewaycommon representation used by SetListenerConditions.
+func toSharedConditions(in map[string]*condition) map[string]*gatewaycommon.ListenerStatusCondition {
+	out := make(map[string]*gatewaycommon.ListenerStatusCondition, len(in))
+	for k, c := range in {
+		out[k] = listenerStatusConditionFromCondition(c)
+	}
+	return out
 }
 
 func listenerStatusConditionFromCondition(c *condition) *gatewaycommon.ListenerStatusCondition {
@@ -1923,15 +2049,15 @@ func reportUnmanagedGatewayStatus(
 	status *k8s.GatewayStatus,
 	obj *k8s.Gateway,
 ) {
-	gatewayConditions := map[string]*condition{
+	gatewayConditions := map[string]*gatewaycommon.ListenerStatusCondition{
 		string(k8s.GatewayConditionAccepted): {
-			reason:  string(k8s.GatewayReasonAccepted),
-			message: "Resource accepted",
+			Reason:  string(k8s.GatewayReasonAccepted),
+			Message: "Resource accepted",
 		},
 		string(k8s.GatewayConditionProgrammed): {
-			reason: string(k8s.GatewayReasonProgrammed),
+			Reason: string(k8s.GatewayReasonProgrammed),
 			// Set to true anyway since this is basically declaring it as valid
-			message: "This Gateway is remote; Istio will not program it",
+			Message: "This Gateway is remote; Istio will not program it",
 		},
 	}
 
@@ -1939,7 +2065,7 @@ func reportUnmanagedGatewayStatus(
 		return k8s.GatewayStatusAddress(e)
 	})
 	status.Listeners = nil
-	status.Conditions = setConditions(obj.Generation, status.Conditions, gatewayConditions)
+	status.Conditions = gatewaycommon.SetListenerConditions(obj.Generation, status.Conditions, gatewayConditions)
 }
 
 func extractGatewayServices(domainSuffix string, kgw *k8s.Gateway, info gatewaycommon.ClassInfo) ([]string, *ConfigError) {
@@ -2091,7 +2217,7 @@ func buildListener(
 		}
 	}
 
-	updatedStatus := gatewaycommon.ReportListenerCondition(listenerIndex, l, obj, status, listenerConditions)
+	updatedStatus := gatewaycommon.ReportListenerCondition(listenerIndex, l, obj, status, listenerConditions, gatewaycommon.GenerateGatewaySupportedKinds)
 	return server, updatedStatus, ok
 }
 
@@ -2258,22 +2384,27 @@ func buildTLS(
 		validCertCount := 0
 		var combinedErr *ConfigError
 		for i, certRef := range tls.CertificateRefs {
-			cred, err := buildSecretReference(ctx, certRef, gw, secrets)
-			if err != nil {
-				combinedErr = joinErrors(combinedErr, err)
-				continue
-			}
 			credNs := ptr.OrDefault((*string)(certRef.Namespace), namespace)
 			sameNamespace := credNs == namespace
 			objectKind := schematypes.GvkFromObject(gw)
-			if !sameNamespace && !grants.SecretAllowed(ctx, objectKind, creds.ToResourceName(cred), namespace) {
-				combinedErr = joinErrors(combinedErr, &ConfigError{
-					Reason: InvalidListenerRefNotPermitted,
-					Message: fmt.Sprintf(
-						"certificateRef %v/%v not accessible to a Gateway in namespace %q (missing a ReferenceGrant?)",
-						certRef.Name, credNs, namespace,
-					),
-				})
+			// Authorize cross-namespace refs before resolving the target, so status never
+			// reveals whether the referent exists when no ReferenceGrant allows it (CWE-203).
+			if !sameNamespace {
+				resourceName := creds.ToResourceName(creds.ToKubernetesGatewayResource(credNs, string(certRef.Name)))
+				if !grants.SecretAllowed(ctx, objectKind, resourceName, namespace) {
+					combinedErr = joinErrors(combinedErr, &ConfigError{
+						Reason: InvalidListenerRefNotPermitted,
+						Message: fmt.Sprintf(
+							"certificateRef %v/%v not accessible to a Gateway in namespace %q (missing a ReferenceGrant?)",
+							certRef.Name, credNs, namespace,
+						),
+					})
+					continue
+				}
+			}
+			cred, err := buildSecretReference(ctx, certRef, gw, secrets)
+			if err != nil {
+				combinedErr = joinErrors(combinedErr, err)
 				continue
 			}
 			credNames[i] = cred
@@ -2290,7 +2421,6 @@ func buildTLS(
 		}
 
 		if gatewayTLS != nil && gatewayTLS.Validation != nil && len(gatewayTLS.Validation.CACertificateRefs) > 0 {
-			// TODO: add 'Mode'
 			if len(gatewayTLS.Validation.CACertificateRefs) > 1 {
 				return out, &ConfigError{
 					Reason:  InvalidCACertificateRef,
@@ -2298,27 +2428,38 @@ func buildTLS(
 				}
 			}
 			caCertRef := gatewayTLS.Validation.CACertificateRefs[0]
-			cred, err := buildCaCertificateReference(ctx, caCertRef, gw, configMaps, secrets)
-			if err != nil {
-				return out, err
-			}
-			if cred.Namespace != namespace && !grants.SecretAllowed(ctx, schematypes.GvkFromObject(gw), cred.ResourceName, namespace) {
+			// Authorize cross-namespace refs before resolving the target, so status never
+			// reveals whether the referent exists when no ReferenceGrant allows it (CWE-203).
+			caNamespace, caResourceName := caCertificateResourceName(caCertRef, gw)
+			if caNamespace != namespace && !grants.SecretAllowed(ctx, schematypes.GvkFromObject(gw), caResourceName, namespace) {
 				return out, &ConfigError{
 					Reason: InvalidListenerRefNotPermitted,
 					Message: fmt.Sprintf(
 						"caCertificateRef %v/%v not accessible to a Gateway in namespace %q (missing a ReferenceGrant?)",
-						cred.Namespace, caCertRef.Name, namespace,
+						caNamespace, caCertRef.Name, namespace,
 					),
 				}
 			}
+			cred, err := buildCaCertificateReference(ctx, caCertRef, gw, configMaps, secrets)
+			if err != nil {
+				return out, err
+			}
+
 			out.Mode = istio.ServerTLSSettings_MUTUAL
+			out.InsecureSkipVerify = proto.BoolFalse
+			if gatewayTLS.Validation.Mode == k8s.AllowInsecureFallback {
+				out.Mode = istio.ServerTLSSettings_OPTIONAL_MUTUAL
+				out.InsecureSkipVerify = proto.BoolTrue
+			}
 			out.CaCertCredentialName = cred.ResourceName
 			if tls.Options != nil {
 				switch tls.Options[gatewaycommon.GatewayTLSTerminateModeKey] {
 				case "MUTUAL":
 					out.Mode = istio.ServerTLSSettings_MUTUAL
+					out.InsecureSkipVerify = proto.BoolFalse
 				case "OPTIONAL_MUTUAL":
 					out.Mode = istio.ServerTLSSettings_OPTIONAL_MUTUAL
+					out.InsecureSkipVerify = proto.BoolFalse
 				}
 			}
 		}
@@ -2378,6 +2519,21 @@ func buildSecretReference(
 		}
 	}
 	return creds.ToKubernetesGatewayResource(secret.Namespace, secret.Name), nil
+}
+
+// caCertificateResourceName returns the CA reference's SDS resource identity
+// without fetching the referenced object, so authorization can run before
+// resolution. The returned resourceName matches SecretResource.ResourceName
+// produced by buildCaCertificateReference.
+func caCertificateResourceName(ref k8s.ObjectReference, gw controllers.Object) (namespace, resourceName string) {
+	namespace = ptr.OrDefault((*string)(ref.Namespace), gw.GetNamespace())
+	name := string(ref.Name)
+	resourceType := creds.KubernetesConfigMapType
+	if gatewaycommon.NormalizeReference(&ref.Group, &ref.Kind, config.GroupVersionKind{}) == gvk.Secret {
+		resourceType = creds.KubernetesGatewaySecretType
+	}
+	resourceName = fmt.Sprintf("%s://%s/%s%s", resourceType, namespace, name, creds.SdsCaSuffix)
+	return namespace, resourceName
 }
 
 func buildCaCertificateReference(
@@ -2605,6 +2761,8 @@ func GetStatus[I, IS any](spec I) IS {
 	case *k8s.GatewayClass:
 		return any(t.Status).(IS)
 	case *gatewayx.XBackendTrafficPolicy:
+		return any(t.Status).(IS)
+	case *gatewayx.XBackend:
 		return any(t.Status).(IS)
 	case *k8s.BackendTLSPolicy:
 		return any(t.Status).(IS)

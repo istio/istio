@@ -21,6 +21,7 @@ import (
 	"github.com/agentgateway/agentgateway/api"
 	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
@@ -35,14 +36,50 @@ import (
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/revisions"
 	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // Used by agentgateway controller
 // TLSInfo contains the TLS certificate and key for a gateway listener.
 type TLSInfo struct {
-	Cert   []byte
-	CaCert []byte
-	Key    []byte `json:"-"`
+	Cert                  []byte
+	CaCert                []byte
+	Key                   []byte `json:"-"`
+	AllowInsecureFallback bool
+}
+
+type portProtocol struct {
+	hostnames sets.String
+	protocol  gatewayv1.ProtocolType
+}
+
+type ListenerConflict string
+
+const (
+	ListenerConflictHostname = "hostname"
+	ListenerConflictProtocol = "protocol"
+)
+
+func validateListenerConflicts(listeners []*GatewayListener) {
+	portMap := make(map[gatewayv1.PortNumber]*portProtocol)
+	for _, listener := range listeners {
+		if p, ok := portMap[listener.ParentInfo.Port]; ok {
+			if p.protocol == listener.ParentInfo.Protocol {
+				if slices.ContainsFunc(listener.ParentInfo.Hostnames, p.hostnames.Contains) {
+					listener.Conflict = ListenerConflictHostname
+				} else {
+					p.hostnames.InsertAll(listener.ParentInfo.Hostnames...)
+				}
+			} else {
+				listener.Conflict = ListenerConflictProtocol
+			}
+		} else {
+			portMap[listener.ParentInfo.Port] = &portProtocol{
+				hostnames: sets.New(listener.ParentInfo.Hostnames...),
+				protocol:  listener.ParentInfo.Protocol,
+			}
+		}
+	}
 }
 
 // Used by agentgateway controller
@@ -54,7 +91,10 @@ type GatewayListener struct {
 	ParentObject AgwParentKey
 	ParentInfo   AgwParentInfo
 	TLSInfo      *TLSInfo
-	Valid        bool
+	// Indicates if a listener built successfully independently of other listeners
+	Valid bool
+	// Indicates if a listener has any conflicts with other listeners
+	Conflict ListenerConflict
 }
 
 func (g GatewayListener) ResourceName() string {
@@ -68,11 +108,13 @@ func (g GatewayListener) Equals(other GatewayListener) bool {
 	if g.TLSInfo != nil {
 		if !bytes.Equal(g.TLSInfo.Cert, other.TLSInfo.Cert) ||
 			!bytes.Equal(g.TLSInfo.Key, other.TLSInfo.Key) ||
-			!bytes.Equal(g.TLSInfo.CaCert, other.TLSInfo.CaCert) {
+			!bytes.Equal(g.TLSInfo.CaCert, other.TLSInfo.CaCert) ||
+			g.TLSInfo.AllowInsecureFallback != other.TLSInfo.AllowInsecureFallback {
 			return false
 		}
 	}
 	return g.Valid == other.Valid &&
+		g.Conflict == other.Conflict &&
 		g.Name == other.Name &&
 		g.ParentGateway == other.ParentGateway &&
 		g.ParentObject == other.ParentObject &&
@@ -93,6 +135,10 @@ func (g AgwParentInfo) Equals(other AgwParentInfo) bool {
 		slices.Equal(g.Hostnames, other.Hostnames)
 }
 
+func (g AgwParentInfo) IsWaypoint() bool {
+	return g.ParentGatewayClassName == constants.AgentgatewayWaypointClassName
+}
+
 // Borrowed from kgateway
 type ListenerSet struct {
 	Name string `json:"name"`
@@ -102,7 +148,8 @@ type ListenerSet struct {
 	ParentInfo    AgwParentInfo        `json:"parentInfo"`
 	TLSInfo       *TLSInfo             `json:"tlsInfo"`
 	GatewayParent types.NamespacedName `json:"gatewayParent"`
-	Valid         bool                 `json:"valid"`
+	// Indicates if a listener built successfully independently of other listeners
+	Valid bool `json:"valid"`
 }
 
 func (g ListenerSet) ResourceName() string {
@@ -116,7 +163,8 @@ func (g ListenerSet) Equals(other ListenerSet) bool {
 	if g.TLSInfo != nil {
 		if !bytes.Equal(g.TLSInfo.Cert, other.TLSInfo.Cert) ||
 			!bytes.Equal(g.TLSInfo.Key, other.TLSInfo.Key) ||
-			!bytes.Equal(g.TLSInfo.CaCert, other.TLSInfo.CaCert) {
+			!bytes.Equal(g.TLSInfo.CaCert, other.TLSInfo.CaCert) ||
+			g.TLSInfo.AllowInsecureFallback != other.TLSInfo.AllowInsecureFallback {
 			return false
 		}
 	}
@@ -220,7 +268,7 @@ func ListenerSetCollection(
 				standardListener := gatewaycommon.ConvertListenerSetToListener(l)
 
 				if reason, ok := conflicts[l.Name]; ok {
-					standardStatus = gatewaycommon.ReportListenerConflict(i, standardListener, obj, standardStatus, reason)
+					standardStatus = gatewaycommon.ReportListenerConflict(i, standardListener, obj, standardStatus, reason, gatewaycommon.GenerateAgentgatewaySupportedKinds)
 					continue
 				}
 
@@ -244,7 +292,7 @@ func ListenerSetCollection(
 				}
 				name := InternalGatewayName(obj.Namespace, obj.Name, string(l.Name))
 
-				allowed, _ := gatewaycommon.GenerateSupportedKinds(standardListener)
+				allowed, _ := gatewaycommon.GenerateAgentgatewaySupportedKinds(standardListener)
 				pri := AgwParentInfo{
 					ParentGateway:    config.NamespacedName(parentGwObj),
 					InternalName:     obj.Namespace + "/" + name,
@@ -281,6 +329,66 @@ func listenerSetParentErr(err *Condition) *gatewaycommon.ListenerStatusConfigErr
 		return nil
 	}
 	return &gatewaycommon.ListenerStatusConfigError{Reason: err.error.Reason, Message: err.error.Message}
+}
+
+// reportListenerSetWithConflicts sets the ListenerSet-level (top-level) Accepted and Programmed
+// conditions when one or more of its listeners are unusable (invalid or conflicting). It is called
+// once per ListenerSet, after every listener entry has been evaluated. The accepted argument carries
+// partial-acceptance semantics: it is true when at least one listener is still usable (so the
+// ListenerSet as a whole is Accepted/Programmed=True even though some entries are not), and false
+// when no listener is usable. For the per-listener Conflicted condition, see
+// reportListenerSetListenerConflicts.
+func reportListenerSetWithConflicts(status *gatewayv1.ListenerSetStatus, obj *gatewayv1.ListenerSet, accepted bool) {
+	condition := metav1.ConditionFalse
+	if accepted {
+		condition = metav1.ConditionTrue
+	}
+	programmedReason := gatewayv1.ListenerSetReasonListenersNotValid
+	if accepted {
+		programmedReason = gatewayv1.ListenerSetReasonProgrammed
+	}
+	// In case any listeners are invalid, this status should be set even if the gateway / listenerset is accepted
+	// https://github.com/kubernetes-sigs/gateway-api/blob/8fe8316f5792a7830a49c800f89fe689e0df042e/apisx/v1alpha1/xlistenerset_types.go#L396
+	gatewayConditions := map[string]*Condition{
+		string(gatewayv1.GatewayConditionAccepted): {
+			status: condition,
+			reason: string(gatewayv1.ListenerSetReasonListenersNotValid),
+		},
+		string(gatewayv1.GatewayConditionProgrammed): {
+			status: condition,
+			reason: string(programmedReason),
+		},
+	}
+
+	status.Conditions = gatewaycommon.SetResourceConditions(obj.Generation, status.Conditions, toSharedConditions(gatewayConditions))
+}
+
+// reportListenerSetListenerConflicts sets the conditions for a single listener entry that conflicts
+// with another listener (e.g. hostname or protocol clash on a shared port). It is called once per
+// conflicting listener and operates on that entry's ListenerEntryStatus, setting Conflicted=True
+// along with Accepted=False and Programmed=False, using the given conflict reason/message. This is
+// the per-listener counterpart to reportListenerSetWithConflicts, which reports the aggregate
+// ListenerSet-level status.
+func reportListenerSetListenerConflicts(status *gatewayv1.ListenerEntryStatus, obj *gatewayv1.ListenerSet, reason string, message string) {
+	gatewayConditions := map[string]*Condition{
+		string(gatewayv1.ListenerConditionConflicted): {
+			status:  metav1.ConditionTrue,
+			reason:  reason,
+			message: message,
+		},
+		string(gatewayv1.GatewayConditionAccepted): {
+			status:  metav1.ConditionFalse,
+			reason:  reason,
+			message: message,
+		},
+		string(gatewayv1.GatewayConditionProgrammed): {
+			status:  metav1.ConditionFalse,
+			reason:  reason,
+			message: message,
+		},
+	}
+
+	status.Conditions = gatewaycommon.SetResourceConditions(obj.Generation, status.Conditions, toSharedConditions(gatewayConditions))
 }
 
 // GatewayCollection builds the collection of Gateways. This is responsible for translating from the Kubernetes Gateway API
@@ -342,7 +450,7 @@ func GatewayCollection(
 		if len(gatewayServices) == 0 && err != nil {
 			// Short circuit if its a hard failure
 			log.Errorf("failed to translate gwv1", "name", obj.GetName(), "namespace", obj.GetNamespace(), "err", err.message)
-			reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, 0, err.error, 0)
+			reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, 0, err.error, nil, 0)
 			return status, nil
 		}
 		var gatewayErr *ConfigError
@@ -358,7 +466,7 @@ func GatewayCollection(
 
 		for i, l := range kgw.Listeners {
 			if reason, ok := gwListenerConflicts[l.Name]; ok {
-				status.Listeners = gatewaycommon.ReportListenerConflict(i, l, obj, status.Listeners, reason)
+				status.Listeners = gatewaycommon.ReportListenerConflict(i, l, obj, status.Listeners, reason, gatewaycommon.GenerateAgentgatewaySupportedKinds)
 				continue
 			}
 
@@ -378,7 +486,7 @@ func GatewayCollection(
 			servers = append(servers, server)
 
 			// Generate supported kinds for the listener
-			allowed, _ := gatewaycommon.GenerateSupportedKinds(l)
+			allowed, _ := gatewaycommon.GenerateAgentgatewaySupportedKinds(l)
 
 			name := InternalGatewayName(obj.Namespace, obj.Name, string(l.Name))
 			pri := AgwParentInfo{
@@ -430,8 +538,13 @@ func GatewayCollection(
 				Valid:      ls.Valid,
 			})
 		}
-
-		reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, len(listenerSets), gatewayErr, validListeners)
+		validateListenerConflicts(result)
+		// TODO(jaellio): include unique listener sets in status after validating listener conflicts
+		var backendTLSErr *ConfigError
+		if obj.Spec.TLS != nil {
+			backendTLSErr = resolveGatewayBackendTLS(ctx, secrets, grants, obj.Spec.TLS.Backend, obj)
+		}
+		reportGatewayStatus(context, obj, status, classInfo, gatewayServices, servers, len(listenerSets), gatewayErr, backendTLSErr, validListeners)
 		return status, result
 	}, opts.WithName("KubernetesGateway")...)
 
@@ -450,25 +563,66 @@ func InternalGatewayName(gwNamespace, gwName, lName string) string {
 
 // TODO(jaellio): Move these definitions to route collection (?)
 // RouteParents holds information about things routes can reference as parents.
+// For ingress gateways, parents are Gateway/ListenerSet resources.
+// For waypoint gateways, routes can also reference Services as parents.
 type RouteParents struct {
 	gatewayIndex krt.Index[AgwParentKey, *GatewayListener]
+
+	// waypointBindingsByService maps services to their AGW waypoint gateways.
+	// When a route references a Service as parentRef, this index is used to
+	// resolve the service to its waypoint gateways, enabling route attachment.
+	waypointBindingsByService krt.Index[types.NamespacedName, WaypointServiceBinding]
 }
 
 func (p RouteParents) fetch(ctx krt.HandlerContext, pk AgwParentKey) []*AgwParentInfo {
+	// TODO(jaellio): support ServiceEntry for fetchServiceParent
+	if pk.Kind == gvk.Service.Kubernetes() {
+		return p.fetchServiceParent(ctx, pk)
+	}
 	return slices.Map(p.gatewayIndex.Fetch(ctx, pk), func(gw *GatewayListener) *AgwParentInfo {
 		return &gw.ParentInfo
 	})
 }
 
+// fetchServiceParent resolves a Service parentRef to the waypoint gateways that front it.
+// If the service has a use-waypoint or use-waypoint-canary label pointing to an AGW waypoint
+// gateway, the route is attached to that waypoint gateway's listeners. A service split between a
+// primary and a canary waypoint resolves to both.
+func (p RouteParents) fetchServiceParent(ctx krt.HandlerContext, pk AgwParentKey) []*AgwParentInfo {
+	if p.waypointBindingsByService == nil {
+		return nil
+	}
+
+	svcKey := types.NamespacedName{Namespace: pk.Namespace, Name: pk.Name}
+	var parents []*AgwParentInfo
+	for _, binding := range p.waypointBindingsByService.Fetch(ctx, svcKey) {
+		wpKey := AgwParentKey{
+			Kind:      gvk.KubernetesGateway.Kubernetes(),
+			Name:      binding.WaypointGateway.Name,
+			Namespace: binding.WaypointGateway.Namespace,
+		}
+		parents = append(parents, slices.Map(p.gatewayIndex.Fetch(ctx, wpKey), func(gw *GatewayListener) *AgwParentInfo {
+			return &gw.ParentInfo
+		})...)
+	}
+	return parents
+}
+
 func BuildRouteParents(
 	gateways krt.Collection[*GatewayListener],
+	waypointBindings krt.Collection[WaypointServiceBinding],
 ) RouteParents {
 	idx := krt.NewIndex(gateways, "parent", func(o *GatewayListener) []AgwParentKey {
 		return []AgwParentKey{o.ParentObject}
 	})
-	return RouteParents{
-		gatewayIndex: idx,
+	p := RouteParents{gatewayIndex: idx}
+	if waypointBindings != nil {
+		p.waypointBindingsByService = krt.NewIndex(waypointBindings, "waypoint-by-service",
+			func(b WaypointServiceBinding) []types.NamespacedName {
+				return []types.NamespacedName{b.ServiceKey}
+			})
 	}
+	return p
 }
 
 // AgwRoute is a wrapper type that contains the route on the gateway, as well as the status for the route.

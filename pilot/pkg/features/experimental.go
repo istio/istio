@@ -42,6 +42,14 @@ var (
 			" to unhealthy/non-ready hosts even if the percentage of healthy hosts fall below minimum health percentage(panic threshold).",
 	).Get())
 
+	DefaultSendUnhealthyEndpoints = atomic.NewBool(env.Register(
+		"PILOT_AUTO_SEND_UNHEALTHY_ENDPOINTS",
+		true,
+		"If enabled, Pilot will include unhealthy endpoints in EDS pushes by default. "+
+			"Unhealthy endpoints are excluded only when OutlierDetection is configured with minHealthPercent > 0, "+
+			"to prevent Envoy from routing traffic to non-ready endpoints when the panic threshold is triggered.",
+	).Get())
+
 	EnablePersistentSessionFilter = atomic.NewBool(env.Register(
 		"PILOT_ENABLE_PERSISTENT_SESSION_FILTER",
 		false,
@@ -87,7 +95,8 @@ var (
 		"If enabled, istiod will enable Kubernetes Multi-Cluster "+
 			"Services (MCS) service discovery mode. In this mode, service "+
 			"endpoints in a cluster will only be discoverable within the "+
-			"same cluster unless explicitly exported via ServiceExport.").Get()
+			"same cluster unless explicitly exported via ServiceExport.",
+	).Get()
 
 	EnableMCSHost = env.Register(
 		"ENABLE_MCS_HOST",
@@ -98,7 +107,8 @@ var (
 			"cluster. Clients must, however, be able to successfully lookup "+
 			"these DNS hosts. That means that either Istio DNS interception "+
 			"must be enabled or an MCS controller must be used. Requires "+
-			"that ENABLE_MCS_SERVICE_DISCOVERY also be enabled.").Get() &&
+			"that ENABLE_MCS_SERVICE_DISCOVERY also be enabled.",
+	).Get() &&
 		EnableMCSServiceDiscovery
 
 	EnableMCSClusterLocal = env.Register(
@@ -110,7 +120,8 @@ var (
 			"requests to `cluster.local` will be routed to only those "+
 			"endpoints residing within the same cluster as the client. "+
 			"Requires that both ENABLE_MCS_SERVICE_DISCOVERY and "+
-			"ENABLE_MCS_HOST also be enabled.").Get() &&
+			"ENABLE_MCS_HOST also be enabled.",
+	).Get() &&
 		EnableMCSHost
 
 	EnableAnalysis = env.Register(

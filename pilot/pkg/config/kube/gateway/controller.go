@@ -147,6 +147,7 @@ type Inputs struct {
 	TLSRoutes            krt.Collection[*gatewayv1.TLSRoute]
 	ListenerSets         krt.Collection[*gatewayv1.ListenerSet]
 	ReferenceGrants      krt.Collection[*gateway.ReferenceGrant]
+	Backends             krt.Collection[*gatewayx.XBackend]
 	BackendTrafficPolicy krt.Collection[*gatewayx.XBackendTrafficPolicy]
 	BackendTLSPolicies   krt.Collection[*gatewayv1.BackendTLSPolicy]
 	ServiceEntries       krt.Collection[*networkingclient.ServiceEntry]
@@ -211,9 +212,11 @@ func NewController(
 	}
 	if features.EnableAlphaGatewayAPI {
 		inputs.BackendTrafficPolicy = buildClient[*gatewayx.XBackendTrafficPolicy](c, kc, gvr.XBackendTrafficPolicy, opts, "informer/XBackendTrafficPolicy")
+		inputs.Backends = buildClient[*gatewayx.XBackend](c, kc, gvr.XBackend, opts, "informer/XBackend")
 	} else {
 		// If disabled, still build a collection but make it always empty
 		inputs.BackendTrafficPolicy = krt.NewStaticCollection[*gatewayx.XBackendTrafficPolicy](nil, nil, opts.WithName("disable/XBackendTrafficPolicy")...)
+		inputs.Backends = krt.NewStaticCollection[*gatewayx.XBackend](nil, nil, opts.WithName("disable/XBackend")...)
 	}
 
 	if features.EnableGatewayAPIInferenceExtension {
@@ -312,7 +315,10 @@ func NewController(
 		DomainSuffix:    c.domainSuffix,
 		Services:        inputs.Services,
 		Namespaces:      inputs.Namespaces,
+		GatewayClasses:  inputs.GatewayClasses,
+		Gateways:        inputs.Gateways,
 		ServiceEntries:  inputs.ServiceEntries,
+		Backends:        inputs.Backends,
 		InferencePools:  inputs.InferencePools,
 		internalContext: c.gatewayContext,
 	}
@@ -363,6 +369,7 @@ func NewController(
 	DestinationRules := DestinationRuleCollection(
 		inputs.BackendTrafficPolicy,
 		inputs.BackendTLSPolicies,
+		inputs.Backends,
 		AncestorsIndex,
 		references,
 		c.domainSuffix,

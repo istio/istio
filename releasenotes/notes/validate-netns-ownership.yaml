@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 61211
+releaseNotes:
+  - |
+    **Fixed** a bug where the istio-cni node agent could pair an ambient pod with another
+    pod's network namespace when a third-party process was inside that namespace during a
+    scan, which could cause traffic to be proxied with the wrong identity. The node agent
+    now verifies that a namespace holds one of the pod's IPs before enrolling the pod.

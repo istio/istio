@@ -284,6 +284,10 @@ type NodeMetadata struct {
 	// Generator indicates the client wants to use a custom Generator plugin.
 	Generator string `json:"GENERATOR,omitempty"`
 
+	// EnableSelfDiscovery indicates that the proxy should configure a local_cluster static cluster
+	// in its bootstrap for zone-aware load balancing. Set via ISTIO_META_ENABLE_SELF_DISCOVERY.
+	EnableSelfDiscovery StringBool `json:"ENABLE_SELF_DISCOVERY,omitempty"`
+
 	// DNSCapture indicates whether the workload has enabled dns capture
 	DNSCapture StringBool `json:"DNS_CAPTURE,omitempty"`
 

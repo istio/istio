@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh/meshwatcher"
@@ -55,6 +56,8 @@ type Controller struct {
 	store     model.ConfigStore
 	clusterID cluster.ID
 
+	domainSuffix string
+
 	stop        chan struct{}
 	krtDebugger *krt.DebugHandler
 	opts        krt.OptionsBuilder
@@ -83,6 +86,9 @@ type Inputs struct {
 	ServiceEntries  krt.Collection[config.Config]
 	// TODO: this should be a joined collection with multi cluster workloads
 	ExternalWorkloads krt.StaticCollection[*model.WorkloadInstance]
+	// ExternalWorkloadsByIP attributes a service instance event back to the workload kind that produced it.
+	ExternalWorkloadsByIP krt.Index[string, *model.WorkloadInstance]
+	XBackends             krt.Collection[config.Config]
 }
 
 type Outputs struct {
@@ -171,6 +177,12 @@ func WithKRTDebugger(debugger *krt.DebugHandler) Option {
 	}
 }
 
+func WithDomainSuffix(domainSuffix string) Option {
+	return func(o *Controller) {
+		o.domainSuffix = domainSuffix
+	}
+}
+
 // NewController creates a new ServiceEntry discovery service.
 func NewController(configController model.ConfigStoreController,
 	xdsUpdater model.XDSUpdater,
@@ -211,6 +223,9 @@ func newController(
 	for _, o := range options {
 		o(s)
 	}
+	if s.domainSuffix == "" {
+		s.domainSuffix = constants.DefaultClusterLocalDomain
+	}
 
 	s.opts = krt.NewOptionsBuilder(stop, "serviceentry", s.krtDebugger)
 	s.inputs = Inputs{
@@ -222,6 +237,15 @@ func newController(
 		s.inputs.Namespaces = multiclusterController.ConfigCluster().Namespaces()
 		s.inputs.ServiceEntries = store.KrtCollection(gvk.ServiceEntry)
 		s.inputs.ExternalWorkloads = krt.NewStaticCollection[*model.WorkloadInstance](nil, nil, s.opts.WithName("inputs/ExternalWorkloads")...)
+		s.inputs.ExternalWorkloadsByIP = krt.NewIndex(s.inputs.ExternalWorkloads, "ip", func(wi *model.WorkloadInstance) []string {
+			return []string{wi.Endpoint.FirstAddressOrNil()}
+		})
+		if features.EnableAlphaGatewayAPI {
+			s.inputs.XBackends = store.KrtCollection(gvk.XBackend)
+		}
+		if s.inputs.XBackends == nil {
+			s.inputs.XBackends = krt.NewStaticCollection[config.Config](nil, nil, s.opts.WithName("disable/XBackend")...)
+		}
 	}
 
 	s.buildCollections()
@@ -232,6 +256,8 @@ func newController(
 			s.handlers,
 			s.outputs.ServiceInstancesByNamespaceHost.RegisterBatch(s.pushServiceEndpointUpdates, false),
 			s.outputs.Services.RegisterBatch(s.pushServiceUpdates, false),
+			s.outputs.ServiceInstancesByIP.AsCollection(s.opts.WithName("outputs/ServiceInstancesByIPCollection")...).
+				RegisterBatch(s.pushPodProxyUpdates, false),
 		)
 	}
 	// Register EDS/XDS push handlers for WLEs
@@ -258,8 +284,14 @@ func (s *Controller) buildCollections() {
 		)
 		workloadsByNamespace := krt.NewNamespaceIndex(allWorkloads)
 
+		backendServiceEntries := krt.NewCollection(s.inputs.XBackends, backendToServiceEntry(s.domainSuffix), s.opts.WithName("inputs/BackendServiceEntries")...)
+		combinedServiceEntries := krt.JoinCollection(
+			[]krt.Collection[config.Config]{s.inputs.ServiceEntries, backendServiceEntries},
+			s.opts.WithName("inputs/combinedServiceEntries")...,
+		)
+
 		services, servicesByNsHost, servicesByHost := services(
-			s.inputs.ServiceEntries,
+			combinedServiceEntries,
 			s.inputs.MeshConfig,
 			s.inputs.Namespaces,
 			workloadsByNamespace,
@@ -350,6 +382,34 @@ func (s *Controller) pushWorkloadUpdates(events []krt.Event[*model.WorkloadInsta
 			e.Event == controllers.EventUpdate && !(*e.Old).Endpoint.Labels.Equals((*e.New).Endpoint.Labels) {
 			s.XdsUpdater.ProxyUpdate(s.Cluster(), (*e.New).Endpoint.FirstAddressOrNil())
 		}
+	}
+}
+
+// pushPodProxyUpdates forces a pod's own proxy to recompute when this registry's instances for
+// that pod change.
+//
+// A proxy snapshots model.Proxy.ServiceTargets when its xDS stream is established and reuses it for
+// every later push. A pod only becomes an endpoint here once it is Ready, which is after that
+// snapshot, and the incremental endpoint update that follows does not refresh it.
+//
+// Triggering off the derived instance collection rather than the pod event is what makes this
+// reliable: krt updates a collection's indexes before dispatching handlers, so GetProxyServiceTargets,
+// which reads this same index, observes the new state. It also collapses a workload's per-port
+// instances into one event per IP.
+func (s *Controller) pushPodProxyUpdates(events []krt.Event[krt.IndexObject[string, *model.ServiceInstance]]) {
+	for _, e := range events {
+		ip := e.Latest().Key
+		if ip == "" {
+			continue
+		}
+		// Only pods. ExternalWorkloads also carries WorkloadEntry-derived instances from non-config
+		// clusters, whose proxies connect elsewhere and are pushed by pushWorkloadUpdates.
+		if !slices.ContainsFunc(s.inputs.ExternalWorkloadsByIP.Lookup(ip), func(wi *model.WorkloadInstance) bool {
+			return wi.Kind == model.PodKind
+		}) {
+			continue
+		}
+		s.XdsUpdater.ProxyUpdate(s.Cluster(), ip)
 	}
 }
 

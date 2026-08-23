@@ -39,7 +39,10 @@ func (s *Server) initConfigValidation(args *PilotArgs) error {
 		return err
 	}
 
-	s.readinessFlags.configValidationReady.Store(true)
+	// Mark webhook ready now here only if it runs on the shared main server.
+	if s.httpsServer == nil {
+		s.readinessFlags.configValidationReady.Store(true)
+	}
 
 	if features.ValidationWebhookConfigName != "" && s.kubeClient != nil {
 		s.addStartFunc("validation controller", func(stop <-chan struct{}) error {

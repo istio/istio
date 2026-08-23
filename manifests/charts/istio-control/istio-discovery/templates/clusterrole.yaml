@@ -145,6 +145,7 @@ rules:
     verbs: ["get", "watch", "list"]
   - apiGroups: ["gateway.networking.x-k8s.io"]
     resources:
+    - xbackends/status
     - xbackendtrafficpolicies/status
     verbs: ["update", "patch"]
   - apiGroups: ["gateway.networking.k8s.io"]

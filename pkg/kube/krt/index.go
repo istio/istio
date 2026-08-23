@@ -122,6 +122,12 @@ func (i index[K, O]) AsCollection(opts ...CollectionOption) IndexCollection[K, O
 		c.metadata = o.metadata
 	}
 	maybeRegisterCollectionForDebugging(c, o.debugger)
+	if o.debugger != nil && o.stopProvided {
+		go func() {
+			<-o.stop
+			maybeUnregisterCollectionFromDebugger(c, o.debugger)
+		}()
+	}
 	return c
 }
 
@@ -308,4 +314,13 @@ func UnnamedIndex[K comparable, O any](
 	key := fmt.Sprintf("%p", extract)
 
 	return NewIndex(c, key, extract)
+}
+
+// FetchIndexObjects fetches all objects from the index that match the given key.
+func FetchIndexObjects[K comparable, O any](ctx HandlerContext, index IndexCollection[K, O], name K) []O {
+	res := FetchOne(ctx, index, FilterKey(toString(name)))
+	if res == nil {
+		return nil
+	}
+	return res.Objects
 }

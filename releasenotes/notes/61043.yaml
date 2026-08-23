@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 61043
+releaseNotes:
+  - |
+    **Fixed** an issue in multicluster deployments where rotating a remote cluster's
+    `istio-remote-secret` could permanently wipe endpoint shards for services with
+    stable endpoints in that cluster, making them unreachable across clusters until
+    istiod was restarted.

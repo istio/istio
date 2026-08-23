@@ -184,10 +184,20 @@ message CNIAmbientConfig {
   // If enabled, and ambient is enabled, iptables reconciliation will be enabled.
   google.protobuf.BoolValue reconcileIptablesOnStartup = 9;
 
+  // If ambient is enabled, these selectors are used to identify the ambient-enabled pods.
+  repeated google.protobuf.Struct enablementSelectors = 10;
+
+  // If enabled, and ambient is enabled, the CNI agent will always share the network namespace
+  // of the host node it is running on.
+  google.protobuf.BoolValue shareHostNetworkNamespace = 11;
+
+  // If enabled, the CNI plugin will retry checking whether a pod is ambient enabled when there are errors.
+  google.protobuf.BoolValue enableAmbientDetectionRetry = 12;
+
   // The interval at which the CNI agent periodically verifies the ambient host-level
   // health check rules and re-installs them if they were removed by an external actor,
   // as a duration string (e.g. "30s"). "0" disables the periodic reconciliation.
-  string reconcileHostRulesInterval = 10;
+  string reconcileHostRulesInterval = 13;
 }
 
 message CNIRepairConfig {

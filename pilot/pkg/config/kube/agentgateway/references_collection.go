@@ -20,7 +20,6 @@ import (
 
 	"istio.io/istio/pilot/pkg/config/kube/gatewaycommon"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/krt"
 )
 
@@ -28,11 +27,12 @@ func AgwSecretAllowed(
 	refs gatewaycommon.ReferenceGrants,
 	ctx krt.HandlerContext,
 	kind config.GroupVersionKind,
+	toKind config.GroupVersionKind,
 	resourceName types.NamespacedName,
 	namespace string,
 ) bool {
 	from := gatewaycommon.Reference{Kind: kind, Namespace: gateway.Namespace(namespace)}
-	to := gatewaycommon.Reference{Kind: gvk.Secret, Namespace: gateway.Namespace(resourceName.Namespace)}
+	to := gatewaycommon.Reference{Kind: toKind, Namespace: gateway.Namespace(resourceName.Namespace)}
 	pair := gatewaycommon.ReferencePair{From: from, To: to}
 	grants := krt.FetchOrList(ctx, refs.Collection, krt.FilterIndex(refs.Index, pair))
 	for _, g := range grants {

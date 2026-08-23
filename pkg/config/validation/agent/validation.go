@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	nethttp "net/http"
 	"net/netip"
 	"regexp"
 	"strconv"
@@ -588,6 +589,55 @@ func ValidateLocalityLbSetting(lb *networking.LocalityLoadBalancerSetting, outli
 	return errs
 }
 
+// ValidateZoneAwareLbSetting checks the ZoneAwareLoadBalancerSetting on a
+// DestinationRule's TrafficPolicy. ZoneAwareLbSetting differs from
+// LocalityLbSetting in that region-, zone-, and subzone-level routing are all
+// handled automatically by Envoy: endpoints are always partitioned by region and
+// zone/subzone routing within a region is implicit. As a result, failover only
+// configures cross-region ordering, and failover_priority must not contain the
+// region, zone, or subzone topology labels.
+func ValidateZoneAwareLbSetting(lb *networking.ZoneAwareLoadBalancerSetting, outlier *networking.OutlierDetection) (errs Validation) {
+	if lb == nil {
+		return errs
+	}
+
+	for _, priorityLabel := range lb.GetFailoverPriority() {
+		// Region-, zone-, and subzone-level routing are all handled automatically by
+		// zone-aware LB: endpoints are always partitioned by region (use `failover` to
+		// order the cross-region tiers) and zone/subzone routing within a region is
+		// implicit. Allowing these topology labels in failover_priority would be
+		// redundant with, or conflict with, the ordering Envoy already applies.
+		switch priorityLabel {
+		case label.LabelTopologyRegion, label.LabelTopologyZone, label.LabelTopologySubzone:
+			errs = AppendValidation(
+				errs,
+				fmt.Errorf(
+					"'failover_priority' for zone aware lb must not use topology label '%s'; region- and zone-level routing are handled automatically",
+					priorityLabel,
+				),
+			)
+		}
+	}
+
+	if (len(lb.GetFailover()) != 0 || len(lb.GetFailoverPriority()) != 0) && outlier == nil {
+		errs = AppendValidation(errs, WrapWarning(fmt.Errorf("outlier detection policy must be provided for failover")))
+	}
+
+	for _, failover := range lb.GetFailover() {
+		if failover.From == failover.To {
+			errs = AppendValidation(errs, fmt.Errorf("zone aware lb failover settings must specify different regions"))
+		}
+		if strings.Contains(failover.From, "/") || strings.Contains(failover.To, "/") {
+			errs = AppendValidation(errs, fmt.Errorf("zone aware lb failover only specifies region; zone and subzone failover are handled automatically"))
+		}
+		if strings.Contains(failover.To, "*") || strings.Contains(failover.From, "*") {
+			errs = AppendValidation(errs, fmt.Errorf("zone aware lb failover region should not contain '*' wildcard"))
+		}
+	}
+
+	return errs
+}
+
 const (
 	regionIndex int = iota
 	zoneIndex
@@ -806,6 +856,177 @@ func ValidateMeshTLSDefaults(mesh *meshconfig.MeshConfig) (v Validation) {
 	return v
 }
 
+// validateMeshConfigDefaultTrafficPolicy validates the value constraints of the mesh-wide
+// baseline traffic policy. It mirrors the connectionPool / outlierDetection checks applied to
+// a DestinationRule traffic policy, since the field reuses the same sub-types.
+func validateMeshConfigDefaultTrafficPolicy(dtp *meshconfig.MeshConfig_DefaultTrafficPolicy) (errs Validation) {
+	if dtp == nil {
+		return errs
+	}
+	if cp := dtp.GetConnectionPool(); cp != nil {
+		if cp.Http == nil && cp.Tcp == nil {
+			errs = AppendValidation(errs, errors.New("connection pool must have at least one field"))
+		}
+		if http := cp.Http; http != nil {
+			if http.Http1MaxPendingRequests < 0 {
+				errs = AppendValidation(errs, errors.New("http1 max pending requests must be non-negative"))
+			}
+			if http.Http2MaxRequests < 0 {
+				errs = AppendValidation(errs, errors.New("http2 max requests must be non-negative"))
+			}
+			if http.MaxRequestsPerConnection < 0 {
+				errs = AppendValidation(errs, errors.New("max requests per connection must be non-negative"))
+			}
+			if http.MaxRetries < 0 {
+				errs = AppendValidation(errs, errors.New("max retries must be non-negative"))
+			}
+			if http.MaxConcurrentStreams < 0 {
+				errs = AppendValidation(errs, errors.New("max concurrent streams must be non-negative"))
+			}
+			if http.IdleTimeout != nil {
+				errs = AppendValidation(errs, ValidateDuration(http.IdleTimeout))
+			}
+			if http.H2UpgradePolicy == networking.ConnectionPoolSettings_HTTPSettings_UPGRADE && http.UseClientProtocol {
+				errs = AppendValidation(errs, errors.New("use client protocol must not be true when H2UpgradePolicy is UPGRADE"))
+			}
+		}
+		if tcp := cp.Tcp; tcp != nil {
+			if tcp.MaxConnections < 0 {
+				errs = AppendValidation(errs, errors.New("max connections must be non-negative"))
+			}
+			if tcp.ConnectTimeout != nil {
+				errs = AppendValidation(errs, ValidateDuration(tcp.ConnectTimeout))
+			}
+			if tcp.MaxConnectionDuration != nil {
+				errs = AppendValidation(errs, ValidateDuration(tcp.MaxConnectionDuration))
+			}
+			if tcp.IdleTimeout != nil && tcp.IdleTimeout.AsDuration().Milliseconds() != 0 {
+				errs = AppendValidation(errs, ValidateDuration(tcp.IdleTimeout))
+			}
+			if ka := tcp.TcpKeepalive; ka != nil {
+				if ka.Time != nil {
+					errs = AppendValidation(errs, ValidateDuration(ka.Time))
+				}
+				if ka.Interval != nil {
+					errs = AppendValidation(errs, ValidateDuration(ka.Interval))
+				}
+			}
+		}
+	}
+	if od := dtp.GetOutlierDetection(); od != nil {
+		if od.BaseEjectionTime != nil {
+			errs = AppendValidation(errs, ValidateDuration(od.BaseEjectionTime))
+		}
+		if od.Interval != nil {
+			errs = AppendValidation(errs, ValidateDuration(od.Interval))
+		}
+		if !od.SplitExternalLocalOriginErrors && od.ConsecutiveLocalOriginFailures.GetValue() > 0 {
+			errs = AppendValidation(errs, errors.New("outlier detection consecutive local origin failures is specified, "+
+				"but split external local origin errors is set to false"))
+		}
+		errs = AppendValidation(errs, validatePercent(od.MaxEjectionPercent), validatePercent(od.MinHealthPercent))
+	}
+	return errs
+}
+
+func validatePercent(val int32) error {
+	if val < 0 || val > 100 {
+		return fmt.Errorf("percentage %v is not in range 0..100", val)
+	}
+	return nil
+}
+
+// envoy supported retry on header values
+var supportedRetryOnPolicies = sets.New(
+	// 'x-envoy-retry-on' supported policies:
+	// https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_filters/router_filter.html#x-envoy-retry-on
+	"5xx",
+	"gateway-error",
+	"reset",
+	"reset-before-request",
+	"connect-failure",
+	"retriable-4xx",
+	"refused-stream",
+	"retriable-status-codes",
+	"retriable-headers",
+	"envoy-ratelimited",
+	"http3-post-connect-failure",
+
+	// 'x-envoy-retry-grpc-on' supported policies:
+	// https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_filters/router_filter#x-envoy-retry-grpc-on
+	"cancelled",
+	"deadline-exceeded",
+	"internal",
+	"resource-exhausted",
+	"unavailable",
+)
+
+// ValidateHTTPRetry checks that an HTTP retry policy is well-formed. It is shared by the
+// VirtualService retry policy and the mesh-wide default retry policies, which reuse the same type.
+func ValidateHTTPRetry(retries *networking.HTTPRetry) (errs error) {
+	if retries == nil {
+		return errs
+	}
+
+	if retries.Attempts < 0 {
+		errs = multierror.Append(errs, errors.New("attempts cannot be negative"))
+	}
+
+	if retries.Attempts == 0 && (retries.PerTryTimeout != nil || retries.RetryOn != "" || retries.RetryRemoteLocalities != nil) {
+		errs = AppendErrors(errs, errors.New("http retry policy configured when attempts are set to 0 (disabled)"))
+	}
+
+	if retries.PerTryTimeout != nil {
+		errs = AppendErrors(errs, ValidateDuration(retries.PerTryTimeout))
+	}
+	if retries.RetryOn != "" {
+		retryOnPolicies := strings.Split(retries.RetryOn, ",")
+		for _, policy := range retryOnPolicies {
+			// Try converting it to an integer to see if it's a valid HTTP status code.
+			i, _ := strconv.Atoi(policy)
+
+			if nethttp.StatusText(i) == "" && !supportedRetryOnPolicies.Contains(policy) {
+				errs = AppendErrors(errs, fmt.Errorf("%q is not a valid retryOn policy", policy))
+			}
+		}
+	}
+	if retries.Backoff != nil {
+		errs = AppendErrors(errs, ValidateDuration(retries.Backoff))
+	}
+
+	return errs
+}
+
+// validateMeshConfigDefaultInboundHTTPRetryPolicy validates the mesh-wide default retry policy
+// applied to inbound routes on sidecars. Only `attempts`, `retryOn` and `backoff` are honored
+// there: an inbound route always targets the single local application cluster, so the per-try
+// timeout and host selection settings are meaningless and silently ignored.
+func validateMeshConfigDefaultInboundHTTPRetryPolicy(retry *networking.HTTPRetry) (v Validation) {
+	if retry == nil {
+		return v
+	}
+	v = AppendValidation(v, multierror.Prefix(ValidateHTTPRetry(retry), "invalid default inbound http retry policy:"))
+
+	// `attempts: 0` disables the policy mesh-wide, so configuring anything else alongside it is
+	// contradictory. ValidateHTTPRetry already covers the other fields, but not backoff, which
+	// does apply to inbound routes.
+	if retry.Attempts == 0 && retry.Backoff != nil {
+		v = AppendValidation(v, errors.New("invalid default inbound http retry policy: "+
+			"backoff configured when attempts are set to 0 (disabled)"))
+	}
+
+	if retry.PerTryTimeout != nil {
+		v = AppendWarningf(v, "perTryTimeout is ignored by the default inbound http retry policy")
+	}
+	if retry.RetryRemoteLocalities != nil {
+		v = AppendWarningf(v, "retryRemoteLocalities is ignored by the default inbound http retry policy")
+	}
+	if retry.RetryIgnorePreviousHosts != nil {
+		v = AppendWarningf(v, "retryIgnorePreviousHosts is ignored by the default inbound http retry policy")
+	}
+	return v
+}
+
 // ValidateMeshConfig checks that the mesh config is well-formed
 func ValidateMeshConfig(mesh *meshconfig.MeshConfig) (Warning, error) {
 	v := Validation{}
@@ -827,7 +1048,14 @@ func ValidateMeshConfig(mesh *meshconfig.MeshConfig) (Warning, error) {
 		v = AppendValidation(v, ValidateMeshConfigProxyConfig(mesh.DefaultConfig))
 	}
 
+	// LocalityLbSetting and ZoneAwareLbSetting are not mutually exclusive at the mesh level:
+	// the default mesh config always enables LocalityLbSetting, and load-balancer resolution
+	// (GetEffectiveLbSetting) gives ZoneAwareLbSetting deterministic precedence over
+	// LocalityLbSetting, so a user opting into mesh-wide zone-aware LB simply has locality LB
+	// ignored. The mutual-exclusion check is still enforced for DestinationRule LoadBalancerSettings,
+	// where specifying both in a single policy is a genuine mistake.
 	v = AppendValidation(v, ValidateLocalityLbSetting(mesh.LocalityLbSetting, &networking.OutlierDetection{}))
+	v = AppendValidation(v, ValidateZoneAwareLbSetting(mesh.ZoneAwareLbSetting, &networking.OutlierDetection{}))
 	v = AppendValidation(v, validateServiceSettings(mesh))
 	v = AppendValidation(v, validateTrustDomainConfig(mesh))
 
@@ -838,6 +1066,10 @@ func ValidateMeshConfig(mesh *meshconfig.MeshConfig) (Warning, error) {
 	v = AppendValidation(v, ValidateMeshTLSConfig(mesh))
 
 	v = AppendValidation(v, ValidateMeshTLSDefaults(mesh))
+
+	v = AppendValidation(v, validateMeshConfigDefaultTrafficPolicy(mesh.GetDefaultTrafficPolicy()))
+
+	v = AppendValidation(v, validateMeshConfigDefaultInboundHTTPRetryPolicy(mesh.GetDefaultInboundHttpRetryPolicy()))
 
 	return v.Unwrap()
 }
@@ -1005,7 +1237,7 @@ func validateConnectionSettings(cs *meshconfig.ProxyConfig_ConnectionSettings) e
 	if v := cs.GetHttp2InitialConnectionWindowSize(); v != nil && v.GetValue() < 65535 {
 		errs = multierror.Append(errs, errors.New("http2_initial_connection_window_size must be at least 65535"))
 	}
-	// TODO: ListenerConnectionLimit and GlobalDownstreamConnectionLimit are validated here but wired in later PR (listener limits).
+	// TODO: ListenerConnectionLimit is validated here but wired in a later PR (listener limits).
 	if v := cs.GetListenerConnectionLimit(); v != nil && v.GetValue() <= 0 {
 		errs = multierror.Append(errs, errors.New("listener_connection_limit must be positive"))
 	}

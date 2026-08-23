@@ -53,6 +53,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
 	"istio.io/istio/pkg/test/framework/components/echo/config"
 	"istio.io/istio/pkg/test/framework/components/echo/config/param"
+	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/echo/util/traffic"
@@ -284,9 +285,9 @@ func TestPodIP(t *testing.T) {
 									t.Skip("not supported yet")
 								}
 
-								if t.Settings().AmbientMultiNetwork && srcWl.Cluster() != dstWl.Cluster() {
+								if t.Settings().AmbientMultiNetwork && srcWl.Cluster().NetworkName() != dstWl.Cluster().NetworkName() {
 									// TODO: Enable when we support multi-network workload addressing
-									t.Skip("not supported yet")
+									t.Skip("direct workload to workload communication is not supported in multi-network deployments")
 								}
 								for _, opt := range basicCalls {
 									opt := opt.DeepCopy()
@@ -1086,6 +1087,7 @@ spec:
 
 func TestAuthorizationServiceAttached(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
+		maybeSetupMultiCluster(t)
 		applyDrainingWorkaround(t)
 		src := apps.Captured
 		authzDst := apps.ServiceAddressedWaypoint
@@ -1094,9 +1096,17 @@ func TestAuthorizationServiceAttached(t *testing.T) {
 		// make another target use our waypoint, but don't expect authz there
 		ambient.SetWaypointForService(t, apps.Namespace, otherDst.ServiceName(), authzDst.Config().ServiceWaypointProxy)
 
-		t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
-			"Destination": authzDst.Config().Service,
-		}, `
+		// Mark the service as global so cross-network endpoints are populated
+		// in multi-network deployments. No-op for single-cluster.
+		labelServiceGlobal(t, authzDst.Config().Service, t.AllClusters()...)
+		t.Cleanup(func() {
+			unlabelServiceGlobal(t, authzDst.Config().Service, t.AllClusters()...)
+		})
+
+		t.NewSubTest("principal").Run(func(t framework.TestContext) {
+			t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
+				"Destination": authzDst.Config().Service,
+			}, `
 apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
@@ -1112,30 +1122,84 @@ spec:
         principals: ["cluster.local/ns/something/sa/else"]
   `).ApplyOrFail(t)
 
-		for _, src := range src.Instances() {
-			t.NewSubTest(src.Config().Cluster.StableName()).Run(func(t framework.TestContext) {
-				t.NewSubTest("authz target deny").RunParallel(func(t framework.TestContext) {
-					opts := echo.CallOptions{
-						To:     authzDst,
-						Check:  CheckDeny,
-						Port:   echo.Port{Name: "http"},
-						Scheme: scheme.HTTP,
-						Count:  10,
-					}
-					src.CallOrFail(t, opts)
+			for _, src := range src.Instances() {
+				t.NewSubTest(src.Config().Cluster.StableName()).Run(func(t framework.TestContext) {
+					t.NewSubTest("authz target deny").RunParallel(func(t framework.TestContext) {
+						opts := echo.CallOptions{
+							To:     authzDst,
+							Check:  CheckDeny,
+							Port:   echo.Port{Name: "http"},
+							Scheme: scheme.HTTP,
+							Count:  10,
+						}
+						src.CallOrFail(t, opts)
+					})
+					t.NewSubTest("non-authz target allow").RunParallel(func(t framework.TestContext) {
+						opts := echo.CallOptions{
+							To:     otherDst,
+							Check:  check.OK(),
+							Port:   echo.Port{Name: "http"},
+							Scheme: scheme.HTTP,
+							Count:  10,
+						}
+						src.CallOrFail(t, opts)
+					})
 				})
-				t.NewSubTest("non-authz target allow").RunParallel(func(t framework.TestContext) {
-					opts := echo.CallOptions{
-						To:     otherDst,
-						Check:  check.OK(),
-						Port:   echo.Port{Name: "http"},
-						Scheme: scheme.HTTP,
-						Count:  10,
-					}
-					src.CallOrFail(t, opts)
+			}
+		})
+
+		t.NewSubTest("header").Run(func(t framework.TestContext) {
+			t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
+				"Destination": authzDst.Config().Service,
+			}, `
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  name: policy-header-match
+spec:
+  targetRefs:
+  - kind: Service
+    group: ""
+    name: "{{ .Destination }}"
+  action: ALLOW
+  rules:
+  - when:
+    - key: request.headers[x-foo]
+      values: ["x-bar"]
+  `).ApplyOrFail(t)
+
+			for _, src := range src.Instances() {
+				t.NewSubTest(src.Config().Cluster.StableName()).Run(func(t framework.TestContext) {
+					t.NewSubTest("allow with matching header").RunParallel(func(t framework.TestContext) {
+						opts := echo.CallOptions{
+							To:                      authzDst,
+							Check:                   check.And(check.OK(), check.ReachedTargetClusters(t)),
+							Port:                    echo.Port{Name: "http"},
+							Scheme:                  scheme.HTTP,
+							Count:                   10,
+							NewConnectionPerRequest: true,
+							HTTP: echo.HTTP{
+								Headers: headers.New().With("x-foo", "x-bar").Build(),
+							},
+						}
+						src.CallOrFail(t, opts)
+					})
+					t.NewSubTest("deny without matching header").RunParallel(func(t framework.TestContext) {
+						opts := echo.CallOptions{
+							To:     authzDst,
+							Check:  CheckDeny,
+							Port:   echo.Port{Name: "http"},
+							Scheme: scheme.HTTP,
+							Count:  10,
+							HTTP: echo.HTTP{
+								Headers: headers.New().With("x-foo", "wrong-value").Build(),
+							},
+						}
+						src.CallOrFail(t, opts)
+					})
 				})
-			})
-		}
+			}
+		})
 	})
 }
 
@@ -1838,6 +1902,7 @@ spec:
 		},
 	}
 	framework.NewTest(t).Run(func(t framework.TestContext) {
+		maybeSetupMultiCluster(t)
 		for _, tt := range cases {
 			t.NewSubTest(tt.name).Run(func(t framework.TestContext) {
 				for _, src := range apps.All {
@@ -2628,6 +2693,153 @@ spec:
 		})
 }
 
+// TestServiceEntryVisibility exercises MeshConfig.serviceEntryVisibility end-to-end in ambient:
+// with a safe-by-default NAMESPACE default and a policy promoting se-visibility=public namespaces
+// to PUBLIC, a namespace-local ServiceEntry must be completely invisible to an out-of-namespace
+// client and must not shadow a PUBLIC ServiceEntry that shares its hostname -- even when the
+// namespace-local one is created first (older, so it would win canonical selection if istiod's
+// guard were missing). This single test covers visibility filtering, the canonical guard, and
+// non-shadowing at once.
+func TestServiceEntryVisibility(t *testing.T) {
+	framework.NewTest(t).Run(func(t framework.TestContext) {
+		// Safe-by-default posture: every ServiceEntry is namespace-local unless its namespace is
+		// explicitly labeled se-visibility=public.
+		i.PatchMeshConfigOrFail(t, `
+serviceEntryVisibility:
+  applyToSidecars: true
+  defaultVisibility: NAMESPACE
+  policies:
+  - visibility: PUBLIC
+    matchingRules:
+    - namespaceSelector:
+        matchLabels:
+          se-visibility: public`)
+
+		const (
+			shadowHost    = "visibility-shadow.internal"
+			localOnlyHost = "visibility-local-only.internal"
+			localBackend  = "shadowlocal"  // backs the namespace-local ServiceEntry
+			pubBackend    = "shadowpublic" // backs the public ServiceEntry
+			sidecarClient = "seclient"     // sidecar-injected client exercising applyToSidecars
+		)
+
+		// Two ambient namespaces, both discovered by istiod (they lack the test-exclude label the
+		// discoverySelectors in tests/integration/iop-ambient-test-defaults.yaml filter on -- note
+		// apps.ExternalNamespace carries that label and is deliberately NOT discovered, so a
+		// ServiceEntry there never reaches WDS). Only the public namespace is labeled
+		// se-visibility=public, so the policy promotes just its ServiceEntries to PUBLIC; the other
+		// stays namespace-local by the NAMESPACE default.
+		localNs := namespace.NewOrFail(t, namespace.Config{
+			Prefix: "vis-local",
+			Labels: map[string]string{"istio.io/dataplane-mode": "ambient"},
+		})
+		pubNs := namespace.NewOrFail(t, namespace.Config{
+			Prefix: "vis-public",
+			Labels: map[string]string{
+				"istio.io/dataplane-mode": "ambient",
+				"se-visibility":           "public",
+			},
+		})
+
+		// Distinct backends so a shadow surfaces as the wrong responder, not merely a failure. The
+		// sidecar client lives in the public namespace -- cross-namespace to the namespace-local
+		// ServiceEntry -- with DNS capture on so it resolves auto-allocated ServiceEntry addresses
+		// (PILOT_ENABLE_IP_AUTOALLOCATE is on by default). A sidecar-injected pod in an ambient
+		// namespace opts out of ztunnel capture (DataplaneModeNone) and uses its injected proxy, so it
+		// exercises the applyToSidecars exportTo ceiling rather than the ztunnel path.
+		echos := deployment.New(t).
+			WithConfig(echo.Config{Service: localBackend, Namespace: localNs, Ports: ports.All()}).
+			WithConfig(echo.Config{Service: pubBackend, Namespace: pubNs, Ports: ports.All()}).
+			WithConfig(echo.Config{
+				Service:        sidecarClient,
+				Namespace:      pubNs,
+				Ports:          ports.All(),
+				ServiceAccount: true,
+				Subsets: []echo.SubsetConfig{{
+					Replicas: 1,
+					Labels: map[string]string{
+						"sidecar.istio.io/inject":       "true",
+						label.IoIstioDataplaneMode.Name: constants.DataplaneModeNone,
+					},
+					Annotations: map[string]string{
+						"proxy.istio.io/config": `{"proxyMetadata":{"ISTIO_META_DNS_CAPTURE":"true"}}`,
+					},
+				}},
+			}).
+			BuildOrFail(t)
+		sidecar := match.ServiceName(echo.NamespacedName{Name: sidecarClient, Namespace: pubNs}).GetMatches(echos)
+
+		seHost := func(name, host, app string) string {
+			return fmt.Sprintf(`apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: %s
+spec:
+  hosts:
+  - %s
+  ports:
+  - name: http
+    number: 80
+    protocol: HTTP
+    targetPort: 8080
+  location: MESH_INTERNAL
+  resolution: STATIC
+  workloadSelector:
+    labels:
+      app: %s`, name, host, app)
+		}
+
+		// Create the namespace-local ServiceEntry FIRST so it is the older entry: absent the
+		// canonical guard it would win canonical selection and shadow the public one.
+		t.ConfigIstio().YAML(localNs.Name(), seHost("shadow-local", shadowHost, localBackend)).ApplyOrFail(t)
+		t.ConfigIstio().YAML(pubNs.Name(), seHost("shadow-public", shadowHost, pubBackend)).ApplyOrFail(t)
+		// A namespace-local ServiceEntry with no public sibling, used only for the sidecar negative
+		// case below: it is NAMESPACE-visible and lives in localNs, so it must be unreachable from a
+		// client outside localNs.
+		t.ConfigIstio().YAML(localNs.Name(), seHost("local-only", localOnlyHost, localBackend)).ApplyOrFail(t)
+
+		// A cross-namespace ambient client: the namespace-local ServiceEntry is invisible to it and
+		// must not shadow the public one, so the shared host must resolve to the PUBLIC backend.
+		apps.Captured[0].CallOrFail(t, echo.CallOptions{
+			Address: shadowHost,
+			Port:    echo.Port{Name: "http", ServicePort: 80},
+			Scheme:  scheme.HTTP,
+			HTTP:    echo.HTTP{Path: "/visibility"},
+			Check: check.And(
+				check.OK(),
+				// The echo response identifies the responding pod; it must be the public backend,
+				// never the namespace-local one (which would indicate shadowing / wrong canonical).
+				check.BodyContains("Hostname="+pubBackend),
+			),
+		})
+
+		// The sidecar client is cross-namespace to the namespace-local ServiceEntry. With
+		// applyToSidecars, that SE's exportTo is capped to its own namespace, so it is absent from the
+		// sidecar's config: the shared host resolves only to the PUBLIC backend (no shadowing), exactly
+		// as for the ambient client above.
+		sidecar[0].CallOrFail(t, echo.CallOptions{
+			Address: shadowHost,
+			Port:    echo.Port{Name: "http", ServicePort: 80},
+			Scheme:  scheme.HTTP,
+			HTTP:    echo.HTTP{Path: "/visibility"},
+			Check: check.And(
+				check.OK(),
+				check.BodyContains("Hostname="+pubBackend),
+			),
+		})
+		// The namespace-local-only ServiceEntry has no public sibling, so the ceiling removes it from
+		// the cross-namespace sidecar entirely: the host is neither routable nor resolvable, and the
+		// call fails. This distinguishes the positive case above from one that passes for unrelated
+		// reasons.
+		sidecar[0].CallOrFail(t, echo.CallOptions{
+			Address: localOnlyHost,
+			Port:    echo.Port{Name: "http", ServicePort: 80},
+			Scheme:  scheme.HTTP,
+			Check:   check.Error(),
+		})
+	})
+}
+
 // Run runs the given reachability test cases with the context.
 func RunReachability(testCases []reachability.TestCase, t framework.TestContext) {
 	runTest := func(t framework.TestContext, f func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions)) {
@@ -2855,20 +3067,17 @@ func runAllTests(t framework.TestContext, f func(t framework.TestContext, src ec
 	runTestContextForCalls(t, allCalls, f)
 }
 
-func runTestContextForCalls(
-	t framework.TestContext,
-	callOptions []echo.CallOptions,
-	f func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions),
-) {
-	svcs := apps.All
+func maybeSetupMultiCluster(t framework.TestContext) {
 	if t.Settings().AmbientMultiNetwork {
 		// all meshed services need to be labeled as global for the reachability tests.
 		for _, app := range apps.Mesh {
 			if app.Config().IsAmbient() {
-				// don't label sidecar services until https://github.com/istio/istio/issues/57877 is resolved.
+				// don't label sidecar services until https://github.com/istio/istio/issues/57877 is
+				// resolved.
 				labelServiceGlobal(t, app.ServiceName(), app.Config().Cluster)
 			}
 		}
+
 		for name := range apps.WaypointProxies {
 			labelServiceGlobal(t, name, t.Clusters()...)
 		}
@@ -2895,7 +3104,15 @@ func runTestContextForCalls(
 		// to account for this issue.
 		time.Sleep(2 * features.DebounceAfter)
 	}
-	for _, src := range svcs {
+}
+
+func runTestContextForCalls(
+	t framework.TestContext,
+	callOptions []echo.CallOptions,
+	f func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions),
+) {
+	maybeSetupMultiCluster(t)
+	for _, src := range apps.All {
 		t.NewSubTestf("from %v %v", src.Config().Cluster.Name(), src.Config().Service).Run(func(t framework.TestContext) {
 			for _, dst := range getAllInstancesByServiceName() {
 				t.NewSubTestf("to all %v", dst.Config().Service).Run(func(t framework.TestContext) {

@@ -96,6 +96,12 @@ var (
 		"The type of the credential fetcher. Currently supported types include GoogleComputeEngine").Get()
 	credIdentityProvider = env.Register("CREDENTIAL_IDENTITY_PROVIDER", "GoogleComputeEngine",
 		"The identity provider for credential. Currently default supported identity provider is GoogleComputeEngine").Get()
+	// EnableSelfDiscovery controls whether pilot-agent adds a local_cluster static cluster to the bootstrap
+	// for zone-aware routing support. Set ISTIO_META_ENABLE_SELF_DISCOVERY=true via proxyMetadata.
+	EnableSelfDiscovery = env.Register("ISTIO_META_ENABLE_SELF_DISCOVERY", false,
+		"If set to true, pilot-agent will configure a local_cluster static cluster in the Envoy bootstrap "+
+			"to support zone-aware load balancing.")
+
 	// DNSCaptureByAgent is a copy of the env var in the init code.
 	DNSCaptureByAgent = env.Register("ISTIO_META_DNS_CAPTURE", false,
 		"If set to true, enable the capture of outgoing DNS packets on port 53, redirecting to istio-agent on :15053")

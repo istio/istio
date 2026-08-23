@@ -936,11 +936,49 @@ spec:
                                 - simple
                               - required:
                                 - consistentHash
+                              - required:
+                                - backendUtilization
                           - required:
                             - simple
                           - required:
                             - consistentHash
+                          - required:
+                            - backendUtilization
                           properties:
+                            backendUtilization:
+                              description: Utilization-based load balancing that uses
+                                backend-reported ORCA metrics to weight endpoints
+                                by their current load.
+                              properties:
+                                errorUtilizationPenaltyPercent:
+                                  description: Additional penalty applied to endpoints
+                                    that return errors, expressed as a percentage
+                                    of the utilization.
+                                  maximum: 4294967295
+                                  minimum: 0
+                                  type: integer
+                                metricNamesForComputingUtilization:
+                                  description: Custom ORCA metric names used to compute
+                                    utilization.
+                                  items:
+                                    type: string
+                                  type: array
+                                weightExpirationPeriod:
+                                  description: If an endpoint stops reporting utilization
+                                    metrics for this long, its reported weight is
+                                    discarded and it reverts to the default (equal)
+                                    weight.
+                                  type: string
+                                weightStabilizationPeriod:
+                                  description: Duration after an endpoint first reports
+                                    metrics before its weight is trusted.
+                                  type: string
+                                weightUpdatePeriod:
+                                  description: How often the load balancer recomputes
+                                    endpoint weights from the latest reported utilization
+                                    data.
+                                  type: string
+                              type: object
                             consistentHash:
                               allOf:
                               - oneOf:
@@ -973,6 +1011,9 @@ spec:
                                   - ringHash
                                 - required:
                                   - maglev
+                              description: Consistent Hash-based load balancing can
+                                be used to provide soft session affinity based on
+                                HTTP headers, cookies or other properties.
                               properties:
                                 httpCookie:
                                   description: Hash based on HTTP cookie.
@@ -1039,6 +1080,7 @@ spec:
                                   type: boolean
                               type: object
                             localityLbSetting:
+                              description: Locality load balancer settings.
                               properties:
                                 distribute:
                                   description: 'Optional: only one of distribute,
@@ -1087,8 +1129,8 @@ spec:
                                   type: array
                               type: object
                             simple:
-                              description: |2-
-
+                              description: |-
+                                Standard load balancing algorithms that require no tuning.
 
                                 Valid Options: LEAST_CONN, RANDOM, PASSTHROUGH, ROUND_ROBIN, LEAST_REQUEST
                               enum:
@@ -1131,6 +1173,43 @@ spec:
                               x-kubernetes-validations:
                               - message: must be a valid duration greater than 1ms
                                 rule: duration(self) >= duration('1ms')
+                            zoneAwareLbSetting:
+                              description: Zone Aware load balancer settings.
+                              properties:
+                                enabled:
+                                  description: Enable zone aware load balancing.
+                                  nullable: true
+                                  type: boolean
+                                failover:
+                                  description: Optional.
+                                  items:
+                                    properties:
+                                      from:
+                                        description: Originating region.
+                                        type: string
+                                      to:
+                                        description: Destination region the traffic
+                                          will fail over to when endpoints in the
+                                          'from' region becomes unhealthy.
+                                        type: string
+                                    type: object
+                                  type: array
+                                failoverPriority:
+                                  description: failoverPriority is an ordered list
+                                    of labels used to sort endpoints for priority-based
+                                    load balancing.
+                                  items:
+                                    type: string
+                                  type: array
+                                minClusterSize:
+                                  description: Minimum number of hosts in the upstream
+                                    cluster's local region required for zone-aware
+                                    load balancing to be enabled.
+                                  maximum: 4294967295
+                                  minimum: 1
+                                  nullable: true
+                                  type: integer
+                              type: object
                           type: object
                         outlierDetection:
                           properties:
@@ -1181,6 +1260,14 @@ spec:
                                 `minHealthPercent` hosts in healthy mode.
                               format: int32
                               type: integer
+                            outlierDetectionHttpErrorCodes:
+                              description: Specifies the HTTP response status codes
+                                that are treated as outlier detection errors.
+                              items:
+                                maximum: 599
+                                minimum: 100
+                                type: integer
+                              type: array
                             splitExternalLocalOriginErrors:
                               description: Determines whether to distinguish local
                                 origin failures from external errors.
@@ -1336,11 +1423,49 @@ spec:
                                       - simple
                                     - required:
                                       - consistentHash
+                                    - required:
+                                      - backendUtilization
                                 - required:
                                   - simple
                                 - required:
                                   - consistentHash
+                                - required:
+                                  - backendUtilization
                                 properties:
+                                  backendUtilization:
+                                    description: Utilization-based load balancing
+                                      that uses backend-reported ORCA metrics to weight
+                                      endpoints by their current load.
+                                    properties:
+                                      errorUtilizationPenaltyPercent:
+                                        description: Additional penalty applied to
+                                          endpoints that return errors, expressed
+                                          as a percentage of the utilization.
+                                        maximum: 4294967295
+                                        minimum: 0
+                                        type: integer
+                                      metricNamesForComputingUtilization:
+                                        description: Custom ORCA metric names used
+                                          to compute utilization.
+                                        items:
+                                          type: string
+                                        type: array
+                                      weightExpirationPeriod:
+                                        description: If an endpoint stops reporting
+                                          utilization metrics for this long, its reported
+                                          weight is discarded and it reverts to the
+                                          default (equal) weight.
+                                        type: string
+                                      weightStabilizationPeriod:
+                                        description: Duration after an endpoint first
+                                          reports metrics before its weight is trusted.
+                                        type: string
+                                      weightUpdatePeriod:
+                                        description: How often the load balancer recomputes
+                                          endpoint weights from the latest reported
+                                          utilization data.
+                                        type: string
+                                    type: object
                                   consistentHash:
                                     allOf:
                                     - oneOf:
@@ -1373,6 +1498,9 @@ spec:
                                         - ringHash
                                       - required:
                                         - maglev
+                                    description: Consistent Hash-based load balancing
+                                      can be used to provide soft session affinity
+                                      based on HTTP headers, cookies or other properties.
                                     properties:
                                       httpCookie:
                                         description: Hash based on HTTP cookie.
@@ -1444,6 +1572,7 @@ spec:
                                         type: boolean
                                     type: object
                                   localityLbSetting:
+                                    description: Locality load balancer settings.
                                     properties:
                                       distribute:
                                         description: 'Optional: only one of distribute,
@@ -1492,8 +1621,8 @@ spec:
                                         type: array
                                     type: object
                                   simple:
-                                    description: |2-
-
+                                    description: |-
+                                      Standard load balancing algorithms that require no tuning.
 
                                       Valid Options: LEAST_CONN, RANDOM, PASSTHROUGH, ROUND_ROBIN, LEAST_REQUEST
                                     enum:
@@ -1537,6 +1666,43 @@ spec:
                                     - message: must be a valid duration greater than
                                         1ms
                                       rule: duration(self) >= duration('1ms')
+                                  zoneAwareLbSetting:
+                                    description: Zone Aware load balancer settings.
+                                    properties:
+                                      enabled:
+                                        description: Enable zone aware load balancing.
+                                        nullable: true
+                                        type: boolean
+                                      failover:
+                                        description: Optional.
+                                        items:
+                                          properties:
+                                            from:
+                                              description: Originating region.
+                                              type: string
+                                            to:
+                                              description: Destination region the
+                                                traffic will fail over to when endpoints
+                                                in the 'from' region becomes unhealthy.
+                                              type: string
+                                          type: object
+                                        type: array
+                                      failoverPriority:
+                                        description: failoverPriority is an ordered
+                                          list of labels used to sort endpoints for
+                                          priority-based load balancing.
+                                        items:
+                                          type: string
+                                        type: array
+                                      minClusterSize:
+                                        description: Minimum number of hosts in the
+                                          upstream cluster's local region required
+                                          for zone-aware load balancing to be enabled.
+                                        maximum: 4294967295
+                                        minimum: 1
+                                        nullable: true
+                                        type: integer
+                                    type: object
                                 type: object
                               outlierDetection:
                                 properties:
@@ -1591,6 +1757,15 @@ spec:
                                       mode.
                                     format: int32
                                     type: integer
+                                  outlierDetectionHttpErrorCodes:
+                                    description: Specifies the HTTP response status
+                                      codes that are treated as outlier detection
+                                      errors.
+                                    items:
+                                      maximum: 599
+                                      minimum: 100
+                                      type: integer
+                                    type: array
                                   splitExternalLocalOriginErrors:
                                     description: Determines whether to distinguish
                                       local origin failures from external errors.
@@ -1916,11 +2091,45 @@ spec:
                           - simple
                         - required:
                           - consistentHash
+                        - required:
+                          - backendUtilization
                     - required:
                       - simple
                     - required:
                       - consistentHash
+                    - required:
+                      - backendUtilization
                     properties:
+                      backendUtilization:
+                        description: Utilization-based load balancing that uses backend-reported
+                          ORCA metrics to weight endpoints by their current load.
+                        properties:
+                          errorUtilizationPenaltyPercent:
+                            description: Additional penalty applied to endpoints that
+                              return errors, expressed as a percentage of the utilization.
+                            maximum: 4294967295
+                            minimum: 0
+                            type: integer
+                          metricNamesForComputingUtilization:
+                            description: Custom ORCA metric names used to compute
+                              utilization.
+                            items:
+                              type: string
+                            type: array
+                          weightExpirationPeriod:
+                            description: If an endpoint stops reporting utilization
+                              metrics for this long, its reported weight is discarded
+                              and it reverts to the default (equal) weight.
+                            type: string
+                          weightStabilizationPeriod:
+                            description: Duration after an endpoint first reports
+                              metrics before its weight is trusted.
+                            type: string
+                          weightUpdatePeriod:
+                            description: How often the load balancer recomputes endpoint
+                              weights from the latest reported utilization data.
+                            type: string
+                        type: object
                       consistentHash:
                         allOf:
                         - oneOf:
@@ -1953,6 +2162,9 @@ spec:
                             - ringHash
                           - required:
                             - maglev
+                        description: Consistent Hash-based load balancing can be used
+                          to provide soft session affinity based on HTTP headers,
+                          cookies or other properties.
                         properties:
                           httpCookie:
                             description: Hash based on HTTP cookie.
@@ -2018,6 +2230,7 @@ spec:
                             type: boolean
                         type: object
                       localityLbSetting:
+                        description: Locality load balancer settings.
                         properties:
                           distribute:
                             description: 'Optional: only one of distribute, failover
@@ -2065,8 +2278,8 @@ spec:
                             type: array
                         type: object
                       simple:
-                        description: |2-
-
+                        description: |-
+                          Standard load balancing algorithms that require no tuning.
 
                           Valid Options: LEAST_CONN, RANDOM, PASSTHROUGH, ROUND_ROBIN, LEAST_REQUEST
                         enum:
@@ -2107,6 +2320,42 @@ spec:
                         x-kubernetes-validations:
                         - message: must be a valid duration greater than 1ms
                           rule: duration(self) >= duration('1ms')
+                      zoneAwareLbSetting:
+                        description: Zone Aware load balancer settings.
+                        properties:
+                          enabled:
+                            description: Enable zone aware load balancing.
+                            nullable: true
+                            type: boolean
+                          failover:
+                            description: Optional.
+                            items:
+                              properties:
+                                from:
+                                  description: Originating region.
+                                  type: string
+                                to:
+                                  description: Destination region the traffic will
+                                    fail over to when endpoints in the 'from' region
+                                    becomes unhealthy.
+                                  type: string
+                              type: object
+                            type: array
+                          failoverPriority:
+                            description: failoverPriority is an ordered list of labels
+                              used to sort endpoints for priority-based load balancing.
+                            items:
+                              type: string
+                            type: array
+                          minClusterSize:
+                            description: Minimum number of hosts in the upstream cluster's
+                              local region required for zone-aware load balancing
+                              to be enabled.
+                            maximum: 4294967295
+                            minimum: 1
+                            nullable: true
+                            type: integer
+                        type: object
                     type: object
                   outlierDetection:
                     properties:
@@ -2157,6 +2406,14 @@ spec:
                           hosts in healthy mode.
                         format: int32
                         type: integer
+                      outlierDetectionHttpErrorCodes:
+                        description: Specifies the HTTP response status codes that
+                          are treated as outlier detection errors.
+                        items:
+                          maximum: 599
+                          minimum: 100
+                          type: integer
+                        type: array
                       splitExternalLocalOriginErrors:
                         description: Determines whether to distinguish local origin
                           failures from external errors.
@@ -2309,11 +2566,49 @@ spec:
                                 - simple
                               - required:
                                 - consistentHash
+                              - required:
+                                - backendUtilization
                           - required:
                             - simple
                           - required:
                             - consistentHash
+                          - required:
+                            - backendUtilization
                           properties:
+                            backendUtilization:
+                              description: Utilization-based load balancing that uses
+                                backend-reported ORCA metrics to weight endpoints
+                                by their current load.
+                              properties:
+                                errorUtilizationPenaltyPercent:
+                                  description: Additional penalty applied to endpoints
+                                    that return errors, expressed as a percentage
+                                    of the utilization.
+                                  maximum: 4294967295
+                                  minimum: 0
+                                  type: integer
+                                metricNamesForComputingUtilization:
+                                  description: Custom ORCA metric names used to compute
+                                    utilization.
+                                  items:
+                                    type: string
+                                  type: array
+                                weightExpirationPeriod:
+                                  description: If an endpoint stops reporting utilization
+                                    metrics for this long, its reported weight is
+                                    discarded and it reverts to the default (equal)
+                                    weight.
+                                  type: string
+                                weightStabilizationPeriod:
+                                  description: Duration after an endpoint first reports
+                                    metrics before its weight is trusted.
+                                  type: string
+                                weightUpdatePeriod:
+                                  description: How often the load balancer recomputes
+                                    endpoint weights from the latest reported utilization
+                                    data.
+                                  type: string
+                              type: object
                             consistentHash:
                               allOf:
                               - oneOf:
@@ -2346,6 +2641,9 @@ spec:
                                   - ringHash
                                 - required:
                                   - maglev
+                              description: Consistent Hash-based load balancing can
+                                be used to provide soft session affinity based on
+                                HTTP headers, cookies or other properties.
                               properties:
                                 httpCookie:
                                   description: Hash based on HTTP cookie.
@@ -2412,6 +2710,7 @@ spec:
                                   type: boolean
                               type: object
                             localityLbSetting:
+                              description: Locality load balancer settings.
                               properties:
                                 distribute:
                                   description: 'Optional: only one of distribute,
@@ -2460,8 +2759,8 @@ spec:
                                   type: array
                               type: object
                             simple:
-                              description: |2-
-
+                              description: |-
+                                Standard load balancing algorithms that require no tuning.
 
                                 Valid Options: LEAST_CONN, RANDOM, PASSTHROUGH, ROUND_ROBIN, LEAST_REQUEST
                               enum:
@@ -2504,6 +2803,43 @@ spec:
                               x-kubernetes-validations:
                               - message: must be a valid duration greater than 1ms
                                 rule: duration(self) >= duration('1ms')
+                            zoneAwareLbSetting:
+                              description: Zone Aware load balancer settings.
+                              properties:
+                                enabled:
+                                  description: Enable zone aware load balancing.
+                                  nullable: true
+                                  type: boolean
+                                failover:
+                                  description: Optional.
+                                  items:
+                                    properties:
+                                      from:
+                                        description: Originating region.
+                                        type: string
+                                      to:
+                                        description: Destination region the traffic
+                                          will fail over to when endpoints in the
+                                          'from' region becomes unhealthy.
+                                        type: string
+                                    type: object
+                                  type: array
+                                failoverPriority:
+                                  description: failoverPriority is an ordered list
+                                    of labels used to sort endpoints for priority-based
+                                    load balancing.
+                                  items:
+                                    type: string
+                                  type: array
+                                minClusterSize:
+                                  description: Minimum number of hosts in the upstream
+                                    cluster's local region required for zone-aware
+                                    load balancing to be enabled.
+                                  maximum: 4294967295
+                                  minimum: 1
+                                  nullable: true
+                                  type: integer
+                              type: object
                           type: object
                         outlierDetection:
                           properties:
@@ -2554,6 +2890,14 @@ spec:
                                 `minHealthPercent` hosts in healthy mode.
                               format: int32
                               type: integer
+                            outlierDetectionHttpErrorCodes:
+                              description: Specifies the HTTP response status codes
+                                that are treated as outlier detection errors.
+                              items:
+                                maximum: 599
+                                minimum: 100
+                                type: integer
+                              type: array
                             splitExternalLocalOriginErrors:
                               description: Determines whether to distinguish local
                                 origin failures from external errors.
@@ -3030,11 +3374,49 @@ spec:
                                 - simple
                               - required:
                                 - consistentHash
+                              - required:
+                                - backendUtilization
                           - required:
                             - simple
                           - required:
                             - consistentHash
+                          - required:
+                            - backendUtilization
                           properties:
+                            backendUtilization:
+                              description: Utilization-based load balancing that uses
+                                backend-reported ORCA metrics to weight endpoints
+                                by their current load.
+                              properties:
+                                errorUtilizationPenaltyPercent:
+                                  description: Additional penalty applied to endpoints
+                                    that return errors, expressed as a percentage
+                                    of the utilization.
+                                  maximum: 4294967295
+                                  minimum: 0
+                                  type: integer
+                                metricNamesForComputingUtilization:
+                                  description: Custom ORCA metric names used to compute
+                                    utilization.
+                                  items:
+                                    type: string
+                                  type: array
+                                weightExpirationPeriod:
+                                  description: If an endpoint stops reporting utilization
+                                    metrics for this long, its reported weight is
+                                    discarded and it reverts to the default (equal)
+                                    weight.
+                                  type: string
+                                weightStabilizationPeriod:
+                                  description: Duration after an endpoint first reports
+                                    metrics before its weight is trusted.
+                                  type: string
+                                weightUpdatePeriod:
+                                  description: How often the load balancer recomputes
+                                    endpoint weights from the latest reported utilization
+                                    data.
+                                  type: string
+                              type: object
                             consistentHash:
                               allOf:
                               - oneOf:
@@ -3067,6 +3449,9 @@ spec:
                                   - ringHash
                                 - required:
                                   - maglev
+                              description: Consistent Hash-based load balancing can
+                                be used to provide soft session affinity based on
+                                HTTP headers, cookies or other properties.
                               properties:
                                 httpCookie:
                                   description: Hash based on HTTP cookie.
@@ -3133,6 +3518,7 @@ spec:
                                   type: boolean
                               type: object
                             localityLbSetting:
+                              description: Locality load balancer settings.
                               properties:
                                 distribute:
                                   description: 'Optional: only one of distribute,
@@ -3181,8 +3567,8 @@ spec:
                                   type: array
                               type: object
                             simple:
-                              description: |2-
-
+                              description: |-
+                                Standard load balancing algorithms that require no tuning.
 
                                 Valid Options: LEAST_CONN, RANDOM, PASSTHROUGH, ROUND_ROBIN, LEAST_REQUEST
                               enum:
@@ -3225,6 +3611,43 @@ spec:
                               x-kubernetes-validations:
                               - message: must be a valid duration greater than 1ms
                                 rule: duration(self) >= duration('1ms')
+                            zoneAwareLbSetting:
+                              description: Zone Aware load balancer settings.
+                              properties:
+                                enabled:
+                                  description: Enable zone aware load balancing.
+                                  nullable: true
+                                  type: boolean
+                                failover:
+                                  description: Optional.
+                                  items:
+                                    properties:
+                                      from:
+                                        description: Originating region.
+                                        type: string
+                                      to:
+                                        description: Destination region the traffic
+                                          will fail over to when endpoints in the
+                                          'from' region becomes unhealthy.
+                                        type: string
+                                    type: object
+                                  type: array
+                                failoverPriority:
+                                  description: failoverPriority is an ordered list
+                                    of labels used to sort endpoints for priority-based
+                                    load balancing.
+                                  items:
+                                    type: string
+                                  type: array
+                                minClusterSize:
+                                  description: Minimum number of hosts in the upstream
+                                    cluster's local region required for zone-aware
+                                    load balancing to be enabled.
+                                  maximum: 4294967295
+                                  minimum: 1
+                                  nullable: true
+                                  type: integer
+                              type: object
                           type: object
                         outlierDetection:
                           properties:
@@ -3275,6 +3698,14 @@ spec:
                                 `minHealthPercent` hosts in healthy mode.
                               format: int32
                               type: integer
+                            outlierDetectionHttpErrorCodes:
+                              description: Specifies the HTTP response status codes
+                                that are treated as outlier detection errors.
+                              items:
+                                maximum: 599
+                                minimum: 100
+                                type: integer
+                              type: array
                             splitExternalLocalOriginErrors:
                               description: Determines whether to distinguish local
                                 origin failures from external errors.
@@ -3430,11 +3861,49 @@ spec:
                                       - simple
                                     - required:
                                       - consistentHash
+                                    - required:
+                                      - backendUtilization
                                 - required:
                                   - simple
                                 - required:
                                   - consistentHash
+                                - required:
+                                  - backendUtilization
                                 properties:
+                                  backendUtilization:
+                                    description: Utilization-based load balancing
+                                      that uses backend-reported ORCA metrics to weight
+                                      endpoints by their current load.
+                                    properties:
+                                      errorUtilizationPenaltyPercent:
+                                        description: Additional penalty applied to
+                                          endpoints that return errors, expressed
+                                          as a percentage of the utilization.
+                                        maximum: 4294967295
+                                        minimum: 0
+                                        type: integer
+                                      metricNamesForComputingUtilization:
+                                        description: Custom ORCA metric names used
+                                          to compute utilization.
+                                        items:
+                                          type: string
+                                        type: array
+                                      weightExpirationPeriod:
+                                        description: If an endpoint stops reporting
+                                          utilization metrics for this long, its reported
+                                          weight is discarded and it reverts to the
+                                          default (equal) weight.
+                                        type: string
+                                      weightStabilizationPeriod:
+                                        description: Duration after an endpoint first
+                                          reports metrics before its weight is trusted.
+                                        type: string
+                                      weightUpdatePeriod:
+                                        description: How often the load balancer recomputes
+                                          endpoint weights from the latest reported
+                                          utilization data.
+                                        type: string
+                                    type: object
                                   consistentHash:
                                     allOf:
                                     - oneOf:
@@ -3467,6 +3936,9 @@ spec:
                                         - ringHash
                                       - required:
                                         - maglev
+                                    description: Consistent Hash-based load balancing
+                                      can be used to provide soft session affinity
+                                      based on HTTP headers, cookies or other properties.
                                     properties:
                                       httpCookie:
                                         description: Hash based on HTTP cookie.
@@ -3538,6 +4010,7 @@ spec:
                                         type: boolean
                                     type: object
                                   localityLbSetting:
+                                    description: Locality load balancer settings.
                                     properties:
                                       distribute:
                                         description: 'Optional: only one of distribute,
@@ -3586,8 +4059,8 @@ spec:
                                         type: array
                                     type: object
                                   simple:
-                                    description: |2-
-
+                                    description: |-
+                                      Standard load balancing algorithms that require no tuning.
 
                                       Valid Options: LEAST_CONN, RANDOM, PASSTHROUGH, ROUND_ROBIN, LEAST_REQUEST
                                     enum:
@@ -3631,6 +4104,43 @@ spec:
                                     - message: must be a valid duration greater than
                                         1ms
                                       rule: duration(self) >= duration('1ms')
+                                  zoneAwareLbSetting:
+                                    description: Zone Aware load balancer settings.
+                                    properties:
+                                      enabled:
+                                        description: Enable zone aware load balancing.
+                                        nullable: true
+                                        type: boolean
+                                      failover:
+                                        description: Optional.
+                                        items:
+                                          properties:
+                                            from:
+                                              description: Originating region.
+                                              type: string
+                                            to:
+                                              description: Destination region the
+                                                traffic will fail over to when endpoints
+                                                in the 'from' region becomes unhealthy.
+                                              type: string
+                                          type: object
+                                        type: array
+                                      failoverPriority:
+                                        description: failoverPriority is an ordered
+                                          list of labels used to sort endpoints for
+                                          priority-based load balancing.
+                                        items:
+                                          type: string
+                                        type: array
+                                      minClusterSize:
+                                        description: Minimum number of hosts in the
+                                          upstream cluster's local region required
+                                          for zone-aware load balancing to be enabled.
+                                        maximum: 4294967295
+                                        minimum: 1
+                                        nullable: true
+                                        type: integer
+                                    type: object
                                 type: object
                               outlierDetection:
                                 properties:
@@ -3685,6 +4195,15 @@ spec:
                                       mode.
                                     format: int32
                                     type: integer
+                                  outlierDetectionHttpErrorCodes:
+                                    description: Specifies the HTTP response status
+                                      codes that are treated as outlier detection
+                                      errors.
+                                    items:
+                                      maximum: 599
+                                      minimum: 100
+                                      type: integer
+                                    type: array
                                   splitExternalLocalOriginErrors:
                                     description: Determines whether to distinguish
                                       local origin failures from external errors.
@@ -4010,11 +4529,45 @@ spec:
                           - simple
                         - required:
                           - consistentHash
+                        - required:
+                          - backendUtilization
                     - required:
                       - simple
                     - required:
                       - consistentHash
+                    - required:
+                      - backendUtilization
                     properties:
+                      backendUtilization:
+                        description: Utilization-based load balancing that uses backend-reported
+                          ORCA metrics to weight endpoints by their current load.
+                        properties:
+                          errorUtilizationPenaltyPercent:
+                            description: Additional penalty applied to endpoints that
+                              return errors, expressed as a percentage of the utilization.
+                            maximum: 4294967295
+                            minimum: 0
+                            type: integer
+                          metricNamesForComputingUtilization:
+                            description: Custom ORCA metric names used to compute
+                              utilization.
+                            items:
+                              type: string
+                            type: array
+                          weightExpirationPeriod:
+                            description: If an endpoint stops reporting utilization
+                              metrics for this long, its reported weight is discarded
+                              and it reverts to the default (equal) weight.
+                            type: string
+                          weightStabilizationPeriod:
+                            description: Duration after an endpoint first reports
+                              metrics before its weight is trusted.
+                            type: string
+                          weightUpdatePeriod:
+                            description: How often the load balancer recomputes endpoint
+                              weights from the latest reported utilization data.
+                            type: string
+                        type: object
                       consistentHash:
                         allOf:
                         - oneOf:
@@ -4047,6 +4600,9 @@ spec:
                             - ringHash
                           - required:
                             - maglev
+                        description: Consistent Hash-based load balancing can be used
+                          to provide soft session affinity based on HTTP headers,
+                          cookies or other properties.
                         properties:
                           httpCookie:
                             description: Hash based on HTTP cookie.
@@ -4112,6 +4668,7 @@ spec:
                             type: boolean
                         type: object
                       localityLbSetting:
+                        description: Locality load balancer settings.
                         properties:
                           distribute:
                             description: 'Optional: only one of distribute, failover
@@ -4159,8 +4716,8 @@ spec:
                             type: array
                         type: object
                       simple:
-                        description: |2-
-
+                        description: |-
+                          Standard load balancing algorithms that require no tuning.
 
                           Valid Options: LEAST_CONN, RANDOM, PASSTHROUGH, ROUND_ROBIN, LEAST_REQUEST
                         enum:
@@ -4201,6 +4758,42 @@ spec:
                         x-kubernetes-validations:
                         - message: must be a valid duration greater than 1ms
                           rule: duration(self) >= duration('1ms')
+                      zoneAwareLbSetting:
+                        description: Zone Aware load balancer settings.
+                        properties:
+                          enabled:
+                            description: Enable zone aware load balancing.
+                            nullable: true
+                            type: boolean
+                          failover:
+                            description: Optional.
+                            items:
+                              properties:
+                                from:
+                                  description: Originating region.
+                                  type: string
+                                to:
+                                  description: Destination region the traffic will
+                                    fail over to when endpoints in the 'from' region
+                                    becomes unhealthy.
+                                  type: string
+                              type: object
+                            type: array
+                          failoverPriority:
+                            description: failoverPriority is an ordered list of labels
+                              used to sort endpoints for priority-based load balancing.
+                            items:
+                              type: string
+                            type: array
+                          minClusterSize:
+                            description: Minimum number of hosts in the upstream cluster's
+                              local region required for zone-aware load balancing
+                              to be enabled.
+                            maximum: 4294967295
+                            minimum: 1
+                            nullable: true
+                            type: integer
+                        type: object
                     type: object
                   outlierDetection:
                     properties:
@@ -4251,6 +4844,14 @@ spec:
                           hosts in healthy mode.
                         format: int32
                         type: integer
+                      outlierDetectionHttpErrorCodes:
+                        description: Specifies the HTTP response status codes that
+                          are treated as outlier detection errors.
+                        items:
+                          maximum: 599
+                          minimum: 100
+                          type: integer
+                        type: array
                       splitExternalLocalOriginErrors:
                         description: Determines whether to distinguish local origin
                           failures from external errors.
@@ -4403,11 +5004,49 @@ spec:
                                 - simple
                               - required:
                                 - consistentHash
+                              - required:
+                                - backendUtilization
                           - required:
                             - simple
                           - required:
                             - consistentHash
+                          - required:
+                            - backendUtilization
                           properties:
+                            backendUtilization:
+                              description: Utilization-based load balancing that uses
+                                backend-reported ORCA metrics to weight endpoints
+                                by their current load.
+                              properties:
+                                errorUtilizationPenaltyPercent:
+                                  description: Additional penalty applied to endpoints
+                                    that return errors, expressed as a percentage
+                                    of the utilization.
+                                  maximum: 4294967295
+                                  minimum: 0
+                                  type: integer
+                                metricNamesForComputingUtilization:
+                                  description: Custom ORCA metric names used to compute
+                                    utilization.
+                                  items:
+                                    type: string
+                                  type: array
+                                weightExpirationPeriod:
+                                  description: If an endpoint stops reporting utilization
+                                    metrics for this long, its reported weight is
+                                    discarded and it reverts to the default (equal)
+                                    weight.
+                                  type: string
+                                weightStabilizationPeriod:
+                                  description: Duration after an endpoint first reports
+                                    metrics before its weight is trusted.
+                                  type: string
+                                weightUpdatePeriod:
+                                  description: How often the load balancer recomputes
+                                    endpoint weights from the latest reported utilization
+                                    data.
+                                  type: string
+                              type: object
                             consistentHash:
                               allOf:
                               - oneOf:
@@ -4440,6 +5079,9 @@ spec:
                                   - ringHash
                                 - required:
                                   - maglev
+                              description: Consistent Hash-based load balancing can
+                                be used to provide soft session affinity based on
+                                HTTP headers, cookies or other properties.
                               properties:
                                 httpCookie:
                                   description: Hash based on HTTP cookie.
@@ -4506,6 +5148,7 @@ spec:
                                   type: boolean
                               type: object
                             localityLbSetting:
+                              description: Locality load balancer settings.
                               properties:
                                 distribute:
                                   description: 'Optional: only one of distribute,
@@ -4554,8 +5197,8 @@ spec:
                                   type: array
                               type: object
                             simple:
-                              description: |2-
-
+                              description: |-
+                                Standard load balancing algorithms that require no tuning.
 
                                 Valid Options: LEAST_CONN, RANDOM, PASSTHROUGH, ROUND_ROBIN, LEAST_REQUEST
                               enum:
@@ -4598,6 +5241,43 @@ spec:
                               x-kubernetes-validations:
                               - message: must be a valid duration greater than 1ms
                                 rule: duration(self) >= duration('1ms')
+                            zoneAwareLbSetting:
+                              description: Zone Aware load balancer settings.
+                              properties:
+                                enabled:
+                                  description: Enable zone aware load balancing.
+                                  nullable: true
+                                  type: boolean
+                                failover:
+                                  description: Optional.
+                                  items:
+                                    properties:
+                                      from:
+                                        description: Originating region.
+                                        type: string
+                                      to:
+                                        description: Destination region the traffic
+                                          will fail over to when endpoints in the
+                                          'from' region becomes unhealthy.
+                                        type: string
+                                    type: object
+                                  type: array
+                                failoverPriority:
+                                  description: failoverPriority is an ordered list
+                                    of labels used to sort endpoints for priority-based
+                                    load balancing.
+                                  items:
+                                    type: string
+                                  type: array
+                                minClusterSize:
+                                  description: Minimum number of hosts in the upstream
+                                    cluster's local region required for zone-aware
+                                    load balancing to be enabled.
+                                  maximum: 4294967295
+                                  minimum: 1
+                                  nullable: true
+                                  type: integer
+                              type: object
                           type: object
                         outlierDetection:
                           properties:
@@ -4648,6 +5328,14 @@ spec:
                                 `minHealthPercent` hosts in healthy mode.
                               format: int32
                               type: integer
+                            outlierDetectionHttpErrorCodes:
+                              description: Specifies the HTTP response status codes
+                                that are treated as outlier detection errors.
+                              items:
+                                maximum: 599
+                                minimum: 100
+                                type: integer
+                              type: array
                             splitExternalLocalOriginErrors:
                               description: Determines whether to distinguish local
                                 origin failures from external errors.
@@ -5124,11 +5812,49 @@ spec:
                                 - simple
                               - required:
                                 - consistentHash
+                              - required:
+                                - backendUtilization
                           - required:
                             - simple
                           - required:
                             - consistentHash
+                          - required:
+                            - backendUtilization
                           properties:
+                            backendUtilization:
+                              description: Utilization-based load balancing that uses
+                                backend-reported ORCA metrics to weight endpoints
+                                by their current load.
+                              properties:
+                                errorUtilizationPenaltyPercent:
+                                  description: Additional penalty applied to endpoints
+                                    that return errors, expressed as a percentage
+                                    of the utilization.
+                                  maximum: 4294967295
+                                  minimum: 0
+                                  type: integer
+                                metricNamesForComputingUtilization:
+                                  description: Custom ORCA metric names used to compute
+                                    utilization.
+                                  items:
+                                    type: string
+                                  type: array
+                                weightExpirationPeriod:
+                                  description: If an endpoint stops reporting utilization
+                                    metrics for this long, its reported weight is
+                                    discarded and it reverts to the default (equal)
+                                    weight.
+                                  type: string
+                                weightStabilizationPeriod:
+                                  description: Duration after an endpoint first reports
+                                    metrics before its weight is trusted.
+                                  type: string
+                                weightUpdatePeriod:
+                                  description: How often the load balancer recomputes
+                                    endpoint weights from the latest reported utilization
+                                    data.
+                                  type: string
+                              type: object
                             consistentHash:
                               allOf:
                               - oneOf:
@@ -5161,6 +5887,9 @@ spec:
                                   - ringHash
                                 - required:
                                   - maglev
+                              description: Consistent Hash-based load balancing can
+                                be used to provide soft session affinity based on
+                                HTTP headers, cookies or other properties.
                               properties:
                                 httpCookie:
                                   description: Hash based on HTTP cookie.
@@ -5227,6 +5956,7 @@ spec:
                                   type: boolean
                               type: object
                             localityLbSetting:
+                              description: Locality load balancer settings.
                               properties:
                                 distribute:
                                   description: 'Optional: only one of distribute,
@@ -5275,8 +6005,8 @@ spec:
                                   type: array
                               type: object
                             simple:
-                              description: |2-
-
+                              description: |-
+                                Standard load balancing algorithms that require no tuning.
 
                                 Valid Options: LEAST_CONN, RANDOM, PASSTHROUGH, ROUND_ROBIN, LEAST_REQUEST
                               enum:
@@ -5319,6 +6049,43 @@ spec:
                               x-kubernetes-validations:
                               - message: must be a valid duration greater than 1ms
                                 rule: duration(self) >= duration('1ms')
+                            zoneAwareLbSetting:
+                              description: Zone Aware load balancer settings.
+                              properties:
+                                enabled:
+                                  description: Enable zone aware load balancing.
+                                  nullable: true
+                                  type: boolean
+                                failover:
+                                  description: Optional.
+                                  items:
+                                    properties:
+                                      from:
+                                        description: Originating region.
+                                        type: string
+                                      to:
+                                        description: Destination region the traffic
+                                          will fail over to when endpoints in the
+                                          'from' region becomes unhealthy.
+                                        type: string
+                                    type: object
+                                  type: array
+                                failoverPriority:
+                                  description: failoverPriority is an ordered list
+                                    of labels used to sort endpoints for priority-based
+                                    load balancing.
+                                  items:
+                                    type: string
+                                  type: array
+                                minClusterSize:
+                                  description: Minimum number of hosts in the upstream
+                                    cluster's local region required for zone-aware
+                                    load balancing to be enabled.
+                                  maximum: 4294967295
+                                  minimum: 1
+                                  nullable: true
+                                  type: integer
+                              type: object
                           type: object
                         outlierDetection:
                           properties:
@@ -5369,6 +6136,14 @@ spec:
                                 `minHealthPercent` hosts in healthy mode.
                               format: int32
                               type: integer
+                            outlierDetectionHttpErrorCodes:
+                              description: Specifies the HTTP response status codes
+                                that are treated as outlier detection errors.
+                              items:
+                                maximum: 599
+                                minimum: 100
+                                type: integer
+                              type: array
                             splitExternalLocalOriginErrors:
                               description: Determines whether to distinguish local
                                 origin failures from external errors.
@@ -5524,11 +6299,49 @@ spec:
                                       - simple
                                     - required:
                                       - consistentHash
+                                    - required:
+                                      - backendUtilization
                                 - required:
                                   - simple
                                 - required:
                                   - consistentHash
+                                - required:
+                                  - backendUtilization
                                 properties:
+                                  backendUtilization:
+                                    description: Utilization-based load balancing
+                                      that uses backend-reported ORCA metrics to weight
+                                      endpoints by their current load.
+                                    properties:
+                                      errorUtilizationPenaltyPercent:
+                                        description: Additional penalty applied to
+                                          endpoints that return errors, expressed
+                                          as a percentage of the utilization.
+                                        maximum: 4294967295
+                                        minimum: 0
+                                        type: integer
+                                      metricNamesForComputingUtilization:
+                                        description: Custom ORCA metric names used
+                                          to compute utilization.
+                                        items:
+                                          type: string
+                                        type: array
+                                      weightExpirationPeriod:
+                                        description: If an endpoint stops reporting
+                                          utilization metrics for this long, its reported
+                                          weight is discarded and it reverts to the
+                                          default (equal) weight.
+                                        type: string
+                                      weightStabilizationPeriod:
+                                        description: Duration after an endpoint first
+                                          reports metrics before its weight is trusted.
+                                        type: string
+                                      weightUpdatePeriod:
+                                        description: How often the load balancer recomputes
+                                          endpoint weights from the latest reported
+                                          utilization data.
+                                        type: string
+                                    type: object
                                   consistentHash:
                                     allOf:
                                     - oneOf:
@@ -5561,6 +6374,9 @@ spec:
                                         - ringHash
                                       - required:
                                         - maglev
+                                    description: Consistent Hash-based load balancing
+                                      can be used to provide soft session affinity
+                                      based on HTTP headers, cookies or other properties.
                                     properties:
                                       httpCookie:
                                         description: Hash based on HTTP cookie.
@@ -5632,6 +6448,7 @@ spec:
                                         type: boolean
                                     type: object
                                   localityLbSetting:
+                                    description: Locality load balancer settings.
                                     properties:
                                       distribute:
                                         description: 'Optional: only one of distribute,
@@ -5680,8 +6497,8 @@ spec:
                                         type: array
                                     type: object
                                   simple:
-                                    description: |2-
-
+                                    description: |-
+                                      Standard load balancing algorithms that require no tuning.
 
                                       Valid Options: LEAST_CONN, RANDOM, PASSTHROUGH, ROUND_ROBIN, LEAST_REQUEST
                                     enum:
@@ -5725,6 +6542,43 @@ spec:
                                     - message: must be a valid duration greater than
                                         1ms
                                       rule: duration(self) >= duration('1ms')
+                                  zoneAwareLbSetting:
+                                    description: Zone Aware load balancer settings.
+                                    properties:
+                                      enabled:
+                                        description: Enable zone aware load balancing.
+                                        nullable: true
+                                        type: boolean
+                                      failover:
+                                        description: Optional.
+                                        items:
+                                          properties:
+                                            from:
+                                              description: Originating region.
+                                              type: string
+                                            to:
+                                              description: Destination region the
+                                                traffic will fail over to when endpoints
+                                                in the 'from' region becomes unhealthy.
+                                              type: string
+                                          type: object
+                                        type: array
+                                      failoverPriority:
+                                        description: failoverPriority is an ordered
+                                          list of labels used to sort endpoints for
+                                          priority-based load balancing.
+                                        items:
+                                          type: string
+                                        type: array
+                                      minClusterSize:
+                                        description: Minimum number of hosts in the
+                                          upstream cluster's local region required
+                                          for zone-aware load balancing to be enabled.
+                                        maximum: 4294967295
+                                        minimum: 1
+                                        nullable: true
+                                        type: integer
+                                    type: object
                                 type: object
                               outlierDetection:
                                 properties:
@@ -5779,6 +6633,15 @@ spec:
                                       mode.
                                     format: int32
                                     type: integer
+                                  outlierDetectionHttpErrorCodes:
+                                    description: Specifies the HTTP response status
+                                      codes that are treated as outlier detection
+                                      errors.
+                                    items:
+                                      maximum: 599
+                                      minimum: 100
+                                      type: integer
+                                    type: array
                                   splitExternalLocalOriginErrors:
                                     description: Determines whether to distinguish
                                       local origin failures from external errors.
@@ -6104,11 +6967,45 @@ spec:
                           - simple
                         - required:
                           - consistentHash
+                        - required:
+                          - backendUtilization
                     - required:
                       - simple
                     - required:
                       - consistentHash
+                    - required:
+                      - backendUtilization
                     properties:
+                      backendUtilization:
+                        description: Utilization-based load balancing that uses backend-reported
+                          ORCA metrics to weight endpoints by their current load.
+                        properties:
+                          errorUtilizationPenaltyPercent:
+                            description: Additional penalty applied to endpoints that
+                              return errors, expressed as a percentage of the utilization.
+                            maximum: 4294967295
+                            minimum: 0
+                            type: integer
+                          metricNamesForComputingUtilization:
+                            description: Custom ORCA metric names used to compute
+                              utilization.
+                            items:
+                              type: string
+                            type: array
+                          weightExpirationPeriod:
+                            description: If an endpoint stops reporting utilization
+                              metrics for this long, its reported weight is discarded
+                              and it reverts to the default (equal) weight.
+                            type: string
+                          weightStabilizationPeriod:
+                            description: Duration after an endpoint first reports
+                              metrics before its weight is trusted.
+                            type: string
+                          weightUpdatePeriod:
+                            description: How often the load balancer recomputes endpoint
+                              weights from the latest reported utilization data.
+                            type: string
+                        type: object
                       consistentHash:
                         allOf:
                         - oneOf:
@@ -6141,6 +7038,9 @@ spec:
                             - ringHash
                           - required:
                             - maglev
+                        description: Consistent Hash-based load balancing can be used
+                          to provide soft session affinity based on HTTP headers,
+                          cookies or other properties.
                         properties:
                           httpCookie:
                             description: Hash based on HTTP cookie.
@@ -6206,6 +7106,7 @@ spec:
                             type: boolean
                         type: object
                       localityLbSetting:
+                        description: Locality load balancer settings.
                         properties:
                           distribute:
                             description: 'Optional: only one of distribute, failover
@@ -6253,8 +7154,8 @@ spec:
                             type: array
                         type: object
                       simple:
-                        description: |2-
-
+                        description: |-
+                          Standard load balancing algorithms that require no tuning.
 
                           Valid Options: LEAST_CONN, RANDOM, PASSTHROUGH, ROUND_ROBIN, LEAST_REQUEST
                         enum:
@@ -6295,6 +7196,42 @@ spec:
                         x-kubernetes-validations:
                         - message: must be a valid duration greater than 1ms
                           rule: duration(self) >= duration('1ms')
+                      zoneAwareLbSetting:
+                        description: Zone Aware load balancer settings.
+                        properties:
+                          enabled:
+                            description: Enable zone aware load balancing.
+                            nullable: true
+                            type: boolean
+                          failover:
+                            description: Optional.
+                            items:
+                              properties:
+                                from:
+                                  description: Originating region.
+                                  type: string
+                                to:
+                                  description: Destination region the traffic will
+                                    fail over to when endpoints in the 'from' region
+                                    becomes unhealthy.
+                                  type: string
+                              type: object
+                            type: array
+                          failoverPriority:
+                            description: failoverPriority is an ordered list of labels
+                              used to sort endpoints for priority-based load balancing.
+                            items:
+                              type: string
+                            type: array
+                          minClusterSize:
+                            description: Minimum number of hosts in the upstream cluster's
+                              local region required for zone-aware load balancing
+                              to be enabled.
+                            maximum: 4294967295
+                            minimum: 1
+                            nullable: true
+                            type: integer
+                        type: object
                     type: object
                   outlierDetection:
                     properties:
@@ -6345,6 +7282,14 @@ spec:
                           hosts in healthy mode.
                         format: int32
                         type: integer
+                      outlierDetectionHttpErrorCodes:
+                        description: Specifies the HTTP response status codes that
+                          are treated as outlier detection errors.
+                        items:
+                          maximum: 599
+                          minimum: 100
+                          type: integer
+                        type: array
                       splitExternalLocalOriginErrors:
                         description: Determines whether to distinguish local origin
                           failures from external errors.
@@ -6497,11 +7442,49 @@ spec:
                                 - simple
                               - required:
                                 - consistentHash
+                              - required:
+                                - backendUtilization
                           - required:
                             - simple
                           - required:
                             - consistentHash
+                          - required:
+                            - backendUtilization
                           properties:
+                            backendUtilization:
+                              description: Utilization-based load balancing that uses
+                                backend-reported ORCA metrics to weight endpoints
+                                by their current load.
+                              properties:
+                                errorUtilizationPenaltyPercent:
+                                  description: Additional penalty applied to endpoints
+                                    that return errors, expressed as a percentage
+                                    of the utilization.
+                                  maximum: 4294967295
+                                  minimum: 0
+                                  type: integer
+                                metricNamesForComputingUtilization:
+                                  description: Custom ORCA metric names used to compute
+                                    utilization.
+                                  items:
+                                    type: string
+                                  type: array
+                                weightExpirationPeriod:
+                                  description: If an endpoint stops reporting utilization
+                                    metrics for this long, its reported weight is
+                                    discarded and it reverts to the default (equal)
+                                    weight.
+                                  type: string
+                                weightStabilizationPeriod:
+                                  description: Duration after an endpoint first reports
+                                    metrics before its weight is trusted.
+                                  type: string
+                                weightUpdatePeriod:
+                                  description: How often the load balancer recomputes
+                                    endpoint weights from the latest reported utilization
+                                    data.
+                                  type: string
+                              type: object
                             consistentHash:
                               allOf:
                               - oneOf:
@@ -6534,6 +7517,9 @@ spec:
                                   - ringHash
                                 - required:
                                   - maglev
+                              description: Consistent Hash-based load balancing can
+                                be used to provide soft session affinity based on
+                                HTTP headers, cookies or other properties.
                               properties:
                                 httpCookie:
                                   description: Hash based on HTTP cookie.
@@ -6600,6 +7586,7 @@ spec:
                                   type: boolean
                               type: object
                             localityLbSetting:
+                              description: Locality load balancer settings.
                               properties:
                                 distribute:
                                   description: 'Optional: only one of distribute,
@@ -6648,8 +7635,8 @@ spec:
                                   type: array
                               type: object
                             simple:
-                              description: |2-
-
+                              description: |-
+                                Standard load balancing algorithms that require no tuning.
 
                                 Valid Options: LEAST_CONN, RANDOM, PASSTHROUGH, ROUND_ROBIN, LEAST_REQUEST
                               enum:
@@ -6692,6 +7679,43 @@ spec:
                               x-kubernetes-validations:
                               - message: must be a valid duration greater than 1ms
                                 rule: duration(self) >= duration('1ms')
+                            zoneAwareLbSetting:
+                              description: Zone Aware load balancer settings.
+                              properties:
+                                enabled:
+                                  description: Enable zone aware load balancing.
+                                  nullable: true
+                                  type: boolean
+                                failover:
+                                  description: Optional.
+                                  items:
+                                    properties:
+                                      from:
+                                        description: Originating region.
+                                        type: string
+                                      to:
+                                        description: Destination region the traffic
+                                          will fail over to when endpoints in the
+                                          'from' region becomes unhealthy.
+                                        type: string
+                                    type: object
+                                  type: array
+                                failoverPriority:
+                                  description: failoverPriority is an ordered list
+                                    of labels used to sort endpoints for priority-based
+                                    load balancing.
+                                  items:
+                                    type: string
+                                  type: array
+                                minClusterSize:
+                                  description: Minimum number of hosts in the upstream
+                                    cluster's local region required for zone-aware
+                                    load balancing to be enabled.
+                                  maximum: 4294967295
+                                  minimum: 1
+                                  nullable: true
+                                  type: integer
+                              type: object
                           type: object
                         outlierDetection:
                           properties:
@@ -6742,6 +7766,14 @@ spec:
                                 `minHealthPercent` hosts in healthy mode.
                               format: int32
                               type: integer
+                            outlierDetectionHttpErrorCodes:
+                              description: Specifies the HTTP response status codes
+                                that are treated as outlier detection errors.
+                              items:
+                                maximum: 599
+                                minimum: 100
+                                type: integer
+                              type: array
                             splitExternalLocalOriginErrors:
                               description: Determines whether to distinguish local
                                 origin failures from external errors.
@@ -7178,6 +8210,10 @@ spec:
                                 transportProtocol:
                                   description: Applies only to `SIDECAR_INBOUND` context.
                                   type: string
+                                transportSocket:
+                                  description: If non-empty, the name of the transport
+                                    socket the filter chain is configured with.
+                                  type: string
                               type: object
                             listenerFilter:
                               description: Match a specific listener filter.
@@ -7597,10 +8633,22 @@ spec:
                           maxItems: 2
                           minItems: 1
                           type: array
+                        ecdhCurves:
+                          description: 'Optional: If specified, only support the specified
+                            ecdh curves.'
+                          items:
+                            type: string
+                          type: array
                         httpsRedirect:
                           description: If set to true, the load balancer will send
                             a 301 redirect for all http connections, asking the clients
                             to use HTTPS.
+                          type: boolean
+                        insecureSkipVerify:
+                          description: 'Optional: If set to true, the proxy will try
+                            to validate the certificate, but even if the validation
+                            fails, it will allow the connection through.'
+                          nullable: true
                           type: boolean
                         maxProtocolVersion:
                           description: |-
@@ -7872,10 +8920,22 @@ spec:
                           maxItems: 2
                           minItems: 1
                           type: array
+                        ecdhCurves:
+                          description: 'Optional: If specified, only support the specified
+                            ecdh curves.'
+                          items:
+                            type: string
+                          type: array
                         httpsRedirect:
                           description: If set to true, the load balancer will send
                             a 301 redirect for all http connections, asking the clients
                             to use HTTPS.
+                          type: boolean
+                        insecureSkipVerify:
+                          description: 'Optional: If set to true, the proxy will try
+                            to validate the certificate, but even if the validation
+                            fails, it will allow the connection through.'
+                          nullable: true
                           type: boolean
                         maxProtocolVersion:
                           description: |-
@@ -8147,10 +9207,22 @@ spec:
                           maxItems: 2
                           minItems: 1
                           type: array
+                        ecdhCurves:
+                          description: 'Optional: If specified, only support the specified
+                            ecdh curves.'
+                          items:
+                            type: string
+                          type: array
                         httpsRedirect:
                           description: If set to true, the load balancer will send
                             a 301 redirect for all http connections, asking the clients
                             to use HTTPS.
+                          type: boolean
+                        insecureSkipVerify:
+                          description: 'Optional: If set to true, the proxy will try
+                            to validate the certificate, but even if the validation
+                            fails, it will allow the connection through.'
+                          nullable: true
                           type: boolean
                         maxProtocolVersion:
                           description: |-
@@ -9812,10 +10884,22 @@ spec:
                           maxItems: 2
                           minItems: 1
                           type: array
+                        ecdhCurves:
+                          description: 'Optional: If specified, only support the specified
+                            ecdh curves.'
+                          items:
+                            type: string
+                          type: array
                         httpsRedirect:
                           description: If set to true, the load balancer will send
                             a 301 redirect for all http connections, asking the clients
                             to use HTTPS.
+                          type: boolean
+                        insecureSkipVerify:
+                          description: 'Optional: If set to true, the proxy will try
+                            to validate the certificate, but even if the validation
+                            fails, it will allow the connection through.'
+                          nullable: true
                           type: boolean
                         maxProtocolVersion:
                           description: |-
@@ -10427,10 +11511,22 @@ spec:
                           maxItems: 2
                           minItems: 1
                           type: array
+                        ecdhCurves:
+                          description: 'Optional: If specified, only support the specified
+                            ecdh curves.'
+                          items:
+                            type: string
+                          type: array
                         httpsRedirect:
                           description: If set to true, the load balancer will send
                             a 301 redirect for all http connections, asking the clients
                             to use HTTPS.
+                          type: boolean
+                        insecureSkipVerify:
+                          description: 'Optional: If set to true, the proxy will try
+                            to validate the certificate, but even if the validation
+                            fails, it will allow the connection through.'
+                          nullable: true
                           type: boolean
                         maxProtocolVersion:
                           description: |-
@@ -11042,10 +12138,22 @@ spec:
                           maxItems: 2
                           minItems: 1
                           type: array
+                        ecdhCurves:
+                          description: 'Optional: If specified, only support the specified
+                            ecdh curves.'
+                          items:
+                            type: string
+                          type: array
                         httpsRedirect:
                           description: If set to true, the load balancer will send
                             a 301 redirect for all http connections, asking the clients
                             to use HTTPS.
+                          type: boolean
+                        insecureSkipVerify:
+                          description: 'Optional: If set to true, the proxy will try
+                            to validate the certificate, but even if the validation
+                            fails, it will allow the connection through.'
+                          nullable: true
                           type: boolean
                         maxProtocolVersion:
                           description: |-
@@ -17193,6 +18301,15 @@ spec:
                       description: This field specifies the header name to output
                         a successfully verified JWT payload to the backend.
                       type: string
+                    presence:
+                      description: |-
+                        Configures whether the JWT token must be present in the request.
+
+                        Valid Options: OPTIONAL, REQUIRED
+                      enum:
+                      - OPTIONAL
+                      - REQUIRED
+                      type: string
                     spaceDelimitedClaims:
                       description: List of JWT claim names that should be treated
                         as space-delimited strings.
@@ -17481,6 +18598,15 @@ spec:
                     outputPayloadToHeader:
                       description: This field specifies the header name to output
                         a successfully verified JWT payload to the backend.
+                      type: string
+                    presence:
+                      description: |-
+                        Configures whether the JWT token must be present in the request.
+
+                        Valid Options: OPTIONAL, REQUIRED
+                      enum:
+                      - OPTIONAL
+                      - REQUIRED
                       type: string
                     spaceDelimitedClaims:
                       description: List of JWT claim names that should be treated

@@ -137,9 +137,7 @@ func TestMultiRevision(t *testing.T) {
 func TestMultiRevisionRouteStatusHandling(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
-			if err := crd.DeployGatewayAPI(t); err != nil {
-				t.Fatal(err)
-			}
+			crd.DeployGatewayAPIOrSkip(t)
 			cfg := istio.DefaultConfigOrFail(t, t)
 			stable := namespace.NewOrFail(t, namespace.Config{
 				Prefix:   "stable",
@@ -209,36 +207,36 @@ spec:
       port: 8090
 `).ApplyOrFail(t)
 
-			var parentsFound bool
-			checkStatus := func() (completed bool, err error) {
+			getRoute := func() (int, error) {
 				route, err := t.Clusters().Default().GatewayAPI().GatewayV1beta1().HTTPRoutes(canary.Name()).Get(context.Background(), "test-route", v1.GetOptions{})
 				if err != nil {
-					return false, err
+					return 0, err
 				}
-
-				// give the status handler time to properly calculate status
-				if len(route.Status.Parents) > 0 && !parentsFound {
-					parentsFound = true
-					return false, nil
-				} else if len(route.Status.Parents) == 0 && parentsFound {
-					// the status previously had parents, they should not get removed
-					return true, fmt.Errorf("httproute status was incorrectly overwritten")
-				}
-
-				return false, nil
+				return len(route.Status.Parents), nil
 			}
 
-			var err error
-			for attempts := 0; attempts <= 10; attempts++ {
-				complete, localErr := checkStatus()
-				if complete {
-					err = localErr
-					break
+			// Wait for the status handler to populate parent status.
+			retry.UntilSuccessOrFail(t, func() error {
+				parentCount, err := getRoute()
+				if err != nil {
+					return err
 				}
-			}
+				if parentCount == 0 {
+					return fmt.Errorf("waiting for httproute status parents")
+				}
+				return nil
+			}, retry.Timeout(30*time.Second), retry.Delay(100*time.Millisecond))
 
-			if err != nil {
-				t.Fatal(err)
-			}
+			// Verify parent status is not cleared after it appears.
+			retry.UntilSuccessOrFail(t, func() error {
+				parentCount, err := getRoute()
+				if err != nil {
+					return err
+				}
+				if parentCount == 0 {
+					return fmt.Errorf("httproute status was incorrectly overwritten")
+				}
+				return nil
+			}, retry.Converge(10), retry.Delay(10*time.Millisecond))
 		})
 }

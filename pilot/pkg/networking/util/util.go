@@ -81,6 +81,13 @@ const (
 	// Inbound pass through cluster need to the bind the loopback ip address for the security and loop avoidance.
 	InboundPassthroughCluster = "InboundPassthroughCluster"
 
+	// SelfDiscoveryCluster is the self-discovery static cluster injected into the Envoy bootstrap when
+	// ISTIO_META_ENABLE_SELF_DISCOVERY is set. It mirrors the proxy's own service endpoints within
+	// its region and is referenced as cluster_manager.local_cluster_name so Envoy can compute the
+	// per-zone host distribution used by zone-aware load balancing. This value must stay in sync with
+	// the "local_cluster" name hardcoded in the envoy bootstrap template.
+	SelfDiscoveryCluster = "local_cluster"
+
 	// IstioMetadataKey is the key under which metadata is added to a route or cluster
 	// regarding the virtual service or destination rule used for each
 	IstioMetadataKey = "istio"

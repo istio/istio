@@ -32,7 +32,7 @@ set -x
 ####################################################################
 
 # DEFAULT_KIND_IMAGE is used to set the Kubernetes version for KinD unless overridden in params to setup_kind_cluster(s)
-DEFAULT_KIND_IMAGE="registry.istio.io/testing/kind-node:v1.35.0"
+DEFAULT_KIND_IMAGE="registry.istio.io/testing/kind-node:v1.36.0"
 
 # the default kind cluster should be ipv4 if not otherwise specified
 KIND_IP_FAMILY="${KIND_IP_FAMILY:-ipv4}"
@@ -154,7 +154,7 @@ function setup_kind_cluster() {
   local NAME="${1:-istio-testing}"
   local IMAGE="${2:-"${DEFAULT_KIND_IMAGE}"}"
   local CONFIG="${3:-}"
-  local NOMETALBINSTALL="${4:-}"
+  local NOMETALBINSTALL="${4:-${NOMETALBINSTALL:-}}"
   local CLEANUP="${5:-true}"
 
   check_default_cluster_yaml
@@ -345,7 +345,9 @@ EOF
   for CLUSTER_NAME in "${CLUSTER_NAMES[@]}"; do
     KUBECONFIG_FILE="${KUBECONFIG_DIR}/${CLUSTER_NAME}"
     if [[ ${NUM_CLUSTERS} -gt 1 ]]; then
-      retry install_metallb "${KUBECONFIG_FILE}"
+      if [[ -z "${NOMETALBINSTALL}" ]]; then
+        retry install_metallb "${KUBECONFIG_FILE}"
+      fi
     fi
     KUBECONFIGS+=("${KUBECONFIG_FILE}")
   done
@@ -416,20 +418,20 @@ function install_metallb() {
     METALLB_IPS4=()
     while read -r ip; do
       METALLB_IPS4+=("$ip")
-    done < <(cidr_to_ips "$DOCKER_KIND_SUBNET" | tail -n 100)
+    done < <(cidr_to_ips "$DOCKER_KIND_SUBNET" | tail -n 400)
     METALLB_IPS6=()
     if [[ "$(docker inspect kind | jq '.[0].IPAM.Config | length' -r)" == 2 ]]; then
       # Two configs? Must be dual stack.
       DOCKER_KIND_SUBNET="$(docker inspect kind | jq '.[0].IPAM.Config[1].Subnet' -r)"
       while read -r ip; do
         METALLB_IPS6+=("$ip")
-      done < <(cidr_to_ips "$DOCKER_KIND_SUBNET" | tail -n 100)
+      done < <(cidr_to_ips "$DOCKER_KIND_SUBNET" | tail -n 400)
     fi
   fi
 
   # Give this cluster of those IPs
   RANGE="["
-  for i in {0..19}; do
+  for i in {0..49}; do
     RANGE+="${METALLB_IPS4[1]},"
     METALLB_IPS4=("${METALLB_IPS4[@]:1}")
     if [[ "${#METALLB_IPS6[@]}" != 0 ]]; then

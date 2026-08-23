@@ -3527,6 +3527,7 @@ func TestSidecarScopeAuthnPolicies(t *testing.T) {
 	}
 
 	configStore := NewFakeStore()
+	go configStore.Run(test.NewStop(t))
 	for _, cfg := range peerAuthnConfigs {
 		if _, err := configStore.Create(cfg); err != nil {
 			t.Fatalf("failed to create config: %v", err)

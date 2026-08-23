@@ -98,6 +98,30 @@ message Service {
   // for this service through the service's waypoint proxy.
   // This is controlled by the istio.io/ingress-use-waypoint label on the Service or its namespace.
   bool ingress_use_waypoint = 12;
+
+  // weighted_waypoints, when non-empty, describes a weighted set of waypoints for this
+  // service, and the client dataplane selects one waypoint per connection proportional to
+  // each entry's weight. This is used to shift a configurable share of a service's
+  // in-mesh connections from one waypoint to another (for example, a canary migration between
+  // two waypoint revisions or implementations).
+  //
+  // When this is empty, the single `waypoint` field is used exactly as before. When it is
+  // set, `waypoint` remains populated with the primary waypoint so that dataplanes which do
+  // not understand this field continue to send all traffic to the primary.
+  repeated WeightedWaypoint weighted_waypoints = 13;
+  // Visibility controls which clients can resolve and send traffic to a service.
+  enum Visibility {
+    // Visible to every client the control plane serves. This is the default,
+    // and matches the behavior before this field was introduced.
+    PUBLIC = 0;
+    // Visible only to clients in the same namespace as the service.
+    NAMESPACE = 1;
+  }
+
+  // visibility controls which clients this service is resolvable by. When
+  // unset it defaults to PUBLIC. Services that a mesh administrator has scoped
+  // to no visibility at all are simply not sent, so they do not appear here.
+  Visibility visibility = 14;
 }
 
 enum IPFamilies {
@@ -379,6 +403,20 @@ message GatewayAddress {
   uint32 hbone_mtls_port = 3;
   reserved "hbone_single_tls_port";
   reserved 4;
+}
+
+// WeightedWaypoint is a single waypoint together with the relative weight for
+// selecting it out of a weighted set (see Service.weighted_waypoints).
+message WeightedWaypoint {
+  // The waypoint address, in the same form as Service.waypoint. The destination
+  // identity is resolved from the waypoint's own workload record at connect time,
+  // exactly as for the single-waypoint field; this message adds no identity.
+  GatewayAddress destination = 1;
+  // Relative weight for selecting this waypoint. The realized share of connections
+  // sent to this waypoint is weight / (sum of weights in the set). A weight of 0
+  // means the waypoint is described (and may be validated/reported) but receives no
+  // traffic.
+  uint32 weight = 2;
 }
 
 // NetworkAddress represents an address bound to a specific network.

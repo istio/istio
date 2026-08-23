@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - https://github.com/istio/istio/issues/61038
+releaseNotes:
+  - |
+    **Fixed** NDS name table generation for headless services to include endpoints from all service ports,
+    not just the first port. Previously, when Kubernetes split EndpointSlices by port subset (e.g., heterogeneous
+    `targetPort` names across pod pools), only pods present in the first-port slice were included in the DNS
+    name table, causing `NXDOMAIN` for other pods' per-pod hostnames on remote clusters.

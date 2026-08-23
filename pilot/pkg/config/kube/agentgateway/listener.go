@@ -30,6 +30,7 @@ import (
 	istio "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/kube/gatewaycommon"
 	kubecreds "istio.io/istio/pilot/pkg/credentials/kube"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -115,6 +116,15 @@ func buildListener(
 		listenerConditions[string(gatewayv1.GatewayConditionProgrammed)].Error = &gatewaycommon.ListenerStatusConfigError{
 			Reason: string(gatewayv1.GatewayReasonInvalid), Message: "Bad TLS configuration",
 		}
+		// Frontend client certificate validation (CA) failures additionally mark the listener
+		// as not Accepted with the NoValidCACertificate reason. A reference-grant failure only
+		// applies to a CA reference (not the server certificate), identified by the message prefix.
+		if err.Reason == InvalidCACertificateRef || err.Reason == InvalidCACertificateKind ||
+			(err.Reason == InvalidListenerRefNotPermitted && strings.HasPrefix(err.Message, "caCertificateRef")) {
+			listenerConditions[string(gatewayv1.ListenerConditionAccepted)].Error = &gatewaycommon.ListenerStatusConfigError{
+				Reason: string(gatewayv1.ListenerReasonNoValidCACertificate), Message: err.Message,
+			}
+		}
 		ok = false
 	}
 	if portErr != nil {
@@ -133,6 +143,15 @@ func buildListener(
 		ok = false
 	}
 
+	if controllerName == constants.ManagedAgentgatewayWaypointController {
+		if unexpectedWaypointListener(l) {
+			listenerConditions[string(gatewayv1.ListenerConditionAccepted)].Error = &gatewaycommon.ListenerStatusConfigError{
+				Reason:  string(gatewayv1.ListenerReasonUnsupportedProtocol),
+				Message: `Expected a single listener on port 15008 with protocol "HBONE"`,
+			}
+		}
+	}
+
 	server := &istio.Server{
 		Port: &istio.Port{
 			// Name is required. We only have one server per Gateway, so we can just name them all the same
@@ -142,8 +161,23 @@ func buildListener(
 		Hosts: hostnames,
 	}
 
-	updatedStatus := gatewaycommon.ReportListenerCondition(listenerIndex, l, obj, status, listenerConditions)
+	updatedStatus := gatewaycommon.ReportListenerCondition(listenerIndex, l, obj, status, listenerConditions, gatewaycommon.GenerateAgentgatewaySupportedKinds)
 	return server, tlsInfo, updatedStatus, ok
+}
+
+// Gateway currently requires a listener (https://github.com/kubernetes-sigs/gateway-api/pull/1596).
+// We don't *really* care about the listener, but it may make sense to add a warning if users do not
+// configure it in an expected way so that we have consistency and can make changes in the future as needed.
+// We could completely reject but that seems more likely to cause pain.
+// TODO(jaellio): do we want to enforce only having a single listener?
+func unexpectedWaypointListener(l gatewayv1.Listener) bool {
+	if l.Port != 15008 {
+		return true
+	}
+	if l.Protocol != gatewayv1.ProtocolType(protocol.HBONE) {
+		return true
+	}
+	return false
 }
 
 func listenerProtocolToIstio(name gatewayv1.GatewayController, p gatewayv1.ProtocolType) (string, error) {
@@ -156,11 +190,15 @@ func listenerProtocolToIstio(name gatewayv1.GatewayController, p gatewayv1.Proto
 	case gatewayv1.TLSProtocolType:
 		return string(p), nil
 	case gatewayv1.TCPProtocolType:
+		if !features.EnableAlphaGatewayAPI {
+			return "", fmt.Errorf("protocol %q is only supported when the alpha Gateway API is enabled", p)
+		}
 		return string(p), nil
 	// Our own custom types
 	case gatewayv1.ProtocolType(protocol.HBONE):
-		if name != constants.ManagedGatewayMeshController && name != constants.ManagedGatewayEastWestController {
-			return "", fmt.Errorf("protocol %q is only supported for waypoint proxies", p)
+		if name != constants.ManagedGatewayMeshController && name != constants.ManagedGatewayEastWestController &&
+			name != constants.ManagedAgentgatewayWaypointController && name != constants.ManagedAgentgatewayController {
+			return "", fmt.Errorf("protocol %q is only supported for HBONE-enabled gateways/waypoints", p)
 		}
 		return string(p), nil
 	}
@@ -299,7 +337,7 @@ func buildTLS(
 		// If we are going to send a cert, validate we can access it
 		sameNamespace := tlsRes.Source.Namespace == namespace
 		objectKind := schematypes.GvkFromObject(gw)
-		if !sameNamespace && !AgwSecretAllowed(grants, ctx, objectKind, tlsRes.Source, namespace) {
+		if !sameNamespace && !AgwSecretAllowed(grants, ctx, objectKind, gvk.Secret, tlsRes.Source, namespace) {
 			return dummyTLS, &ConfigError{
 				Reason: InvalidListenerRefNotPermitted,
 				Message: fmt.Sprintf(
@@ -310,10 +348,9 @@ func buildTLS(
 		}
 
 		if gatewayTLS != nil && gatewayTLS.Validation != nil && len(gatewayTLS.Validation.CACertificateRefs) > 0 {
-			// TODO: add 'Mode'
 			if len(gatewayTLS.Validation.CACertificateRefs) > 1 {
 				return dummyTLS, &ConfigError{
-					Reason:  InvalidTLS,
+					Reason:  InvalidCACertificateRef,
 					Message: "only one caCertificateRef is supported",
 				}
 			}
@@ -323,8 +360,13 @@ func buildTLS(
 				return dummyTLS, err
 			}
 			sameNamespace := cred.Source.Namespace == namespace
-			isSecret := cred.Kind == gvk.Secret.Kind
-			if isSecret && !sameNamespace && !AgwSecretAllowed(grants, ctx, schematypes.GvkFromObject(gw), cred.Source, namespace) {
+			// CA certificate references may be Secrets or ConfigMaps; enforce a ReferenceGrant for
+			// cross-namespace references of either kind.
+			caCertToKind := gvk.Secret
+			if cred.Kind == gvk.ConfigMap.Kind {
+				caCertToKind = gvk.ConfigMap
+			}
+			if !sameNamespace && !AgwSecretAllowed(grants, ctx, schematypes.GvkFromObject(gw), caCertToKind, cred.Source, namespace) {
 				return dummyTLS, &ConfigError{
 					Reason: InvalidListenerRefNotPermitted,
 					Message: fmt.Sprintf(
@@ -334,6 +376,9 @@ func buildTLS(
 				}
 			}
 			tlsRes.Info.CaCert = cred.Info.CaCert
+			// AllowInsecureFallback permits clients to connect without presenting a valid client
+			// certificate; otherwise (AllowValidOnly, the default) mTLS is strictly enforced.
+			tlsRes.Info.AllowInsecureFallback = gatewayTLS.Validation.Mode == gatewayv1.AllowInsecureFallback
 		}
 		return &tlsRes.Info, nil
 	case gatewayv1.TLSModePassthrough:
@@ -341,6 +386,41 @@ func buildTLS(
 		return nil, nil
 	}
 	return nil, nil
+}
+
+// resolveGatewayBackendTLS validates the Gateway's spec.tls.backend.clientCertificateRef, which is
+// the client certificate the Gateway presents when originating mTLS to a backend. It returns a
+// ConfigError to surface on the Gateway ResolvedRefs condition; the certificate itself is wired into
+// backend TLS policies separately (see BackendTLSPolicyCollection).
+func resolveGatewayBackendTLS(
+	ctx krt.HandlerContext,
+	secrets krt.Collection[*corev1.Secret],
+	grants gatewaycommon.ReferenceGrants,
+	backendTLS *gatewayv1.GatewayBackendTLS,
+	gw controllers.Object,
+) *ConfigError {
+	if backendTLS == nil || backendTLS.ClientCertificateRef == nil {
+		return nil
+	}
+	tlsRes, err := buildSecretReference(ctx, *backendTLS.ClientCertificateRef, gw, secrets)
+	if err != nil {
+		return &ConfigError{
+			Reason:  string(gatewayv1.GatewayReasonInvalidClientCertificateRef),
+			Message: err.Message,
+		}
+	}
+	namespace := gw.GetNamespace()
+	if tlsRes.Source.Namespace != namespace &&
+		!AgwSecretAllowed(grants, ctx, schematypes.GvkFromObject(gw), gvk.Secret, tlsRes.Source, namespace) {
+		return &ConfigError{
+			Reason: string(gatewayv1.GatewayReasonRefNotPermitted),
+			Message: fmt.Sprintf(
+				"clientCertificateRef %v/%v not accessible to a Gateway in namespace %q (missing a ReferenceGrant?)",
+				backendTLS.ClientCertificateRef.Name, tlsRes.Source.Namespace, namespace,
+			),
+		}
+	}
+	return nil
 }
 
 func buildCaCertificateReference(
@@ -366,14 +446,14 @@ func buildCaCertificateReference(
 		cm := ptr.Flatten(krt.FetchOne(ctx, configMaps, krt.FilterObjectName(res.Source)))
 		if cm == nil {
 			return nil, &ConfigError{
-				Reason:  InvalidTLS,
+				Reason:  InvalidCACertificateRef,
 				Message: fmt.Sprintf("invalid CA certificate reference, configmap %v not found", res.Source),
 			}
 		}
 		certInfo, err := kubecreds.ExtractRootFromString(cm.Data)
 		if err != nil {
 			return nil, &ConfigError{
-				Reason:  InvalidTLS,
+				Reason:  InvalidCACertificateRef,
 				Message: fmt.Sprintf("invalid CA certificate reference %v, %v", plainObjectReferenceString(ref), err),
 			}
 		}
@@ -383,21 +463,21 @@ func buildCaCertificateReference(
 		scrt := ptr.Flatten(krt.FetchOne(ctx, secrets, krt.FilterObjectName(res.Source)))
 		if scrt == nil {
 			return nil, &ConfigError{
-				Reason:  InvalidTLS,
+				Reason:  InvalidCACertificateRef,
 				Message: fmt.Sprintf("invalid CA certificate reference, secret %v not found", res.Source),
 			}
 		}
 		certInfo, err := kubecreds.ExtractRoot(scrt.Data)
 		if err != nil {
 			return nil, &ConfigError{
-				Reason:  InvalidTLS,
+				Reason:  InvalidCACertificateRef,
 				Message: fmt.Sprintf("invalid CA certificate reference %v, %v", plainObjectReferenceString(ref), err),
 			}
 		}
 		res.Info.CaCert = certInfo.Cert
 	default:
 		return nil, &ConfigError{
-			Reason:  InvalidTLS,
+			Reason:  InvalidCACertificateKind,
 			Message: fmt.Sprintf("invalid CA certificate reference %v, only secret and configmap are allowed", plainObjectReferenceString(ref)),
 		}
 	}

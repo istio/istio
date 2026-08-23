@@ -696,6 +696,161 @@ func makeInstances(proxy *model.Proxy, svc *model.Service, servicePort int, targ
 	return ret
 }
 
+func TestMultiPortHeadlessServiceSplitEndpointSlices(t *testing.T) {
+	mesh := &meshconfig.MeshConfig{RootNamespace: "istio-system"}
+
+	multiPortHeadlessService := &model.Service{
+		Hostname:       host.Name("kafka-brokers.kafka.svc.cluster.local"),
+		DefaultAddress: constants.UnspecifiedIP,
+		Ports: model.PortList{
+			{Name: "tcp-ctrlplane", Port: 9090, Protocol: protocol.TCP},
+			{Name: "tcp-replication", Port: 9091, Protocol: protocol.TCP},
+			{Name: "tcp-kafkaagent", Port: 8443, Protocol: protocol.TCP},
+			{Name: "tcp-clientstls", Port: 9093, Protocol: protocol.TCP},
+		},
+		Resolution: model.Passthrough,
+		Attributes: model.ServiceAttributes{
+			Name:            "kafka-brokers",
+			Namespace:       "kafka",
+			ServiceRegistry: provider.Kubernetes,
+		},
+	}
+
+	controllerProxy := &model.Proxy{
+		IPAddresses: []string{"10.0.1.1"},
+		Metadata:    &model.NodeMetadata{ClusterID: "cluster1"},
+		Type:        model.SidecarProxy,
+		DNSDomain:   "kafka.svc.cluster.local",
+	}
+	brokerProxy := &model.Proxy{
+		IPAddresses: []string{"10.0.2.1"},
+		Metadata:    &model.NodeMetadata{ClusterID: "cluster1"},
+		Type:        model.SidecarProxy,
+		DNSDomain:   "kafka.svc.cluster.local",
+	}
+	remoteProxy := &model.Proxy{
+		IPAddresses: []string{"10.1.0.1"},
+		Metadata:    &model.NodeMetadata{ClusterID: "cluster2"},
+		Type:        model.SidecarProxy,
+		DNSDomain:   "kafka.svc.cluster.local",
+	}
+
+	push := model.NewPushContext()
+	push.Mesh = mesh
+	push.AddPublicServices([]*model.Service{multiPortHeadlessService})
+
+	controllerInstances := map[int][]*model.IstioEndpoint{
+		9090: {{
+			Addresses:       controllerProxy.IPAddresses,
+			ServicePortName: "tcp-ctrlplane",
+			EndpointPort:    9090,
+			HostName:        "controller-0",
+			SubDomain:       "kafka-brokers",
+			HealthStatus:    model.Healthy,
+			Locality:        model.Locality{ClusterID: "cluster1"},
+		}},
+		8443: {{
+			Addresses:       controllerProxy.IPAddresses,
+			ServicePortName: "tcp-kafkaagent",
+			EndpointPort:    8443,
+			HostName:        "controller-0",
+			SubDomain:       "kafka-brokers",
+			HealthStatus:    model.Healthy,
+			Locality:        model.Locality{ClusterID: "cluster1"},
+		}},
+	}
+	push.AddServiceInstances(multiPortHeadlessService, controllerInstances)
+
+	// Broker has no endpoints on port 9090 (Ports[0]).
+	brokerInstances := map[int][]*model.IstioEndpoint{
+		9091: {{
+			Addresses:       brokerProxy.IPAddresses,
+			ServicePortName: "tcp-replication",
+			EndpointPort:    9091,
+			HostName:        "kafka-0",
+			SubDomain:       "kafka-brokers",
+			HealthStatus:    model.Healthy,
+			Locality:        model.Locality{ClusterID: "cluster1"},
+		}},
+		9093: {{
+			Addresses:       brokerProxy.IPAddresses,
+			ServicePortName: "tcp-clientstls",
+			EndpointPort:    9093,
+			HostName:        "kafka-0",
+			SubDomain:       "kafka-brokers",
+			HealthStatus:    model.Healthy,
+			Locality:        model.Locality{ClusterID: "cluster1"},
+		}},
+		8443: {{
+			Addresses:       brokerProxy.IPAddresses,
+			ServicePortName: "tcp-kafkaagent",
+			EndpointPort:    8443,
+			HostName:        "kafka-0",
+			SubDomain:       "kafka-brokers",
+			HealthStatus:    model.Healthy,
+			Locality:        model.Locality{ClusterID: "cluster1"},
+		}},
+	}
+	push.AddServiceInstances(multiPortHeadlessService, brokerInstances)
+
+	cases := []struct {
+		name                string
+		proxy               *model.Proxy
+		expectBrokerDNS     bool
+		expectControllerDNS bool
+	}{
+		{
+			name:                "local cluster sees both controller and broker",
+			proxy:               controllerProxy,
+			expectBrokerDNS:     true,
+			expectControllerDNS: true,
+		},
+		{
+			name:                "remote cluster sees both controller and broker",
+			proxy:               remoteProxy,
+			expectBrokerDNS:     true,
+			expectControllerDNS: true,
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.proxy.SetSidecarScope(push)
+			tt.proxy.DiscoverIPMode()
+
+			nt := dnsServer.BuildNameTable(dnsServer.Config{
+				Node:                        tt.proxy,
+				Push:                        push,
+				MulticlusterHeadlessEnabled: true,
+			})
+
+			brokerEntry := "kafka-0.kafka-brokers.kafka.svc.cluster.local"
+			controllerEntry := "controller-0.kafka-brokers.kafka.svc.cluster.local"
+
+			if tt.expectBrokerDNS {
+				if _, found := nt.Table[brokerEntry]; !found {
+					t.Errorf("expected broker DNS entry %q but it was missing from name table (keys: %v)",
+						brokerEntry, nameTableKeys(nt))
+				}
+			}
+			if tt.expectControllerDNS {
+				if _, found := nt.Table[controllerEntry]; !found {
+					t.Errorf("expected controller DNS entry %q but it was missing from name table (keys: %v)",
+						controllerEntry, nameTableKeys(nt))
+				}
+			}
+		})
+	}
+}
+
+func nameTableKeys(nt *dnsProto.NameTable) []string {
+	keys := make([]string, 0, len(nt.Table))
+	for k := range nt.Table {
+		keys = append(keys, k)
+	}
+	return keys
+}
+
 func TestPodNameTableLocalRemoteAddresses(t *testing.T) {
 	mesh := &meshconfig.MeshConfig{RootNamespace: "istio-system"}
 

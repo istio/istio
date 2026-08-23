@@ -126,32 +126,6 @@ func (a *index) buildGlobalCollections(
 	)
 	namespaceInformersByCluster := multicluster.NestedCollectionIndexByCluster(GlobalNamespaces)
 
-	LocalNodesWithCluster := krt.MapCollection(LocalNodes, func(obj *v1.Node) krt.ObjectWithCluster[*v1.Node] {
-		return krt.ObjectWithCluster[*v1.Node]{
-			ClusterID: localCluster.ID,
-			Object:    &obj,
-		}
-	}, opts.WithName("LocalNodesWithCluster")...)
-	GlobalNodesWithCluster := multicluster.NestedCollectionFromLocalAndRemote(
-		a.mcController,
-		LocalNodesWithCluster,
-		func(ctx krt.HandlerContext, c *multicluster.Cluster) *krt.Collection[krt.ObjectWithCluster[*v1.Node]] {
-			if !kube.WaitForCacheSync(fmt.Sprintf("ambient/informer/nodes[%s]", c.ID), a.stop, c.Nodes().HasSynced) {
-				log.Warnf("Failed to sync nodes informer for cluster %s", c.ID)
-				return nil
-			}
-			opts := []krt.CollectionOption{
-				krt.WithName(fmt.Sprintf("ambient/NodesWithCluster[%s]", c.ID)),
-				krt.WithDebugging(opts.Debugger()),
-				krt.WithStop(c.GetStop()),
-			}
-			return ptr.Of(krt.MapCollection(c.Nodes(), func(obj *v1.Node) krt.ObjectWithCluster[*v1.Node] {
-				return krt.ObjectWithCluster[*v1.Node]{
-					ClusterID: c.ID,
-					Object:    &obj,
-				}
-			}, opts...))
-		}, "NodesWithCluster", opts)
 	// Set up collections for remote clusters
 	GlobalNetworks := buildGlobalNetworkCollections(
 		a.mcController,
@@ -192,6 +166,7 @@ func (a *index) buildGlobalCollections(
 		LocalWaypoints,
 		opts,
 	)
+	LocalServiceEntryVisibility := model.ServiceEntryVisibilityCollection(LocalMeshConfig.AsCollection(), opts)
 
 	LocalWorkloadServices := builder.ServicesCollection(
 		localCluster.ID,
@@ -200,6 +175,7 @@ func (a *index) buildGlobalCollections(
 		LocalWaypoints,
 		LocalNamespaces,
 		LocalMeshConfig,
+		LocalServiceEntryVisibility,
 		opts,
 		false, // Don't precompute here; these will just get merged into the global collection later
 	)
@@ -216,6 +192,7 @@ func (a *index) buildGlobalCollections(
 			localServiceEntries,
 			localGatewayClasses,
 			LocalMeshConfig,
+			LocalServiceEntryVisibility,
 			localCluster.Namespaces(),
 			opts,
 		)
@@ -282,9 +259,10 @@ func (a *index) buildGlobalCollections(
 		LocalNodes,
 		opts.WithName("LocalNodeLocality")...,
 	)
-	GlobalNodeLocality := GlobalNodesCollection(GlobalNodesWithCluster, opts.WithName("GlobalNodeLocalityWithCluster")...)
+	GlobalNodeLocality := GlobalNodesCollection(localCluster, LocalNodeLocality, a.mcController, opts)
 	GlobalNodeLocalityByCluster := multicluster.NestedCollectionIndexByCluster(GlobalNodeLocality)
 
+	localPeerAuthsByNs := krt.NewNamespaceIndex(localPeerAuths)
 	GlobalWorkloads := MergedGlobalWorkloadsCollection(
 		localCluster,
 		LocalWaypoints,
@@ -296,7 +274,7 @@ func (a *index) buildGlobalCollections(
 		GlobalNodeLocalityByCluster,
 		options.MeshConfig,
 		AuthorizationPolicies,
-		localPeerAuths,
+		localPeerAuthsByNs,
 		GlobalWaypoints,
 		WaypointsByCluster,
 		LocalWorkloadServices,
@@ -495,6 +473,10 @@ func (a *index) buildGlobalCollections(
 
 			newSvcInfo := &model.ServiceInfo{
 				Service:            protomarshal.Clone(svc.Service),
+				PortNames:          svc.PortNames,
+				LabelSelector:      svc.LabelSelector,
+				Source:             svc.Source,
+				Waypoint:           svc.Waypoint,
 				Scope:              svc.Scope,
 				CreationTime:       svc.CreationTime,
 				DNSConnectStrategy: svc.DNSConnectStrategy,
@@ -522,40 +504,14 @@ func (a *index) buildGlobalCollections(
 		if s.LabelSelector.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel {
 			return nil
 		}
-		waypoint := s.Service.Waypoint
-		if waypoint == nil {
-			return nil
-		}
-		waypointAddress := waypoint.GetHostname()
-		if waypointAddress == nil {
-			return nil
-		}
-
-		return []NamespaceHostname{{
-			Namespace: waypointAddress.Namespace,
-			Hostname:  waypointAddress.Hostname,
-		}}
+		return serviceOwningWaypointHostnames(s)
 	})
 	SplitHorizonServiceInfosByOwningWaypointIP := krt.NewIndex(SplitHorizonServices, "owningWaypointIp", func(s model.ServiceInfo) []networkAddress {
 		// Filter out waypoint services
 		if s.LabelSelector.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel {
 			return nil
 		}
-		waypoint := s.Service.Waypoint
-		if waypoint == nil {
-			return nil
-		}
-		waypointAddress := waypoint.GetAddress()
-		if waypointAddress == nil {
-			return nil
-		}
-		netip, _ := netip.AddrFromSlice(waypointAddress.Address)
-		netaddr := networkAddress{
-			network: waypointAddress.Network,
-			ip:      netip.String(),
-		}
-
-		return []networkAddress{netaddr}
+		return serviceOwningWaypointAddresses(s)
 	})
 
 	if features.EnableIngressWaypointRouting {

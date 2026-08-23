@@ -64,12 +64,6 @@ var conformanceNamespaces = []string{
 
 var skippedTests = map[string]string{
 	// The following tests were added in v1.5.0
-	"GatewayBackendClientCertificateFeature":                     "TODO",
-	"GatewayFrontendClientCertificateValidationInsecureFallback": "TODO",
-	"GatewayFrontendInvalidDefaultClientCertificateValidation":   "TODO",
-	"GatewayInvalidFrontendClientCertificateValidation":          "TODO",
-	"GatewayInvalidTLSBackendConfiguration":                      "TODO",
-
 	"HTTPRouteHTTPSListenerDetectMisdirectedRequests": "TODO",
 
 	// Fixed upstream, waiting for new gateway api release to pick up fix

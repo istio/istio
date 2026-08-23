@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+  - |
+    **Added** support for Gateway API client certificate TLS configuration when using `agentgateway`. Gateways now honor
+    frontend client certificate validation (`spec.tls.frontend`, including `AllowInsecureFallback` mode) and backend client
+    certificates (`spec.tls.backend.clientCertificateRef`), and report the corresponding `ResolvedRefs` and
+    `InsecureFrontendValidationMode` conditions in status.

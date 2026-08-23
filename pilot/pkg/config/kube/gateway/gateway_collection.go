@@ -164,7 +164,7 @@ func ListenerSetCollection(
 				standardListener := gatewaycommon.ConvertListenerSetToListener(l)
 
 				if reason, ok := conflicts[l.Name]; ok {
-					standardStatus = gatewaycommon.ReportListenerConflict(i, standardListener, obj, standardStatus, reason)
+					standardStatus = gatewaycommon.ReportListenerConflict(i, standardListener, obj, standardStatus, reason, gatewaycommon.GenerateGatewaySupportedKinds)
 					continue
 				}
 
@@ -221,7 +221,7 @@ func ListenerSetCollection(
 					},
 				}
 
-				allowed, _ := gatewaycommon.GenerateSupportedKinds(standardListener)
+				allowed, _ := gatewaycommon.GenerateGatewaySupportedKinds(standardListener)
 				ref := parentKey{
 					Kind:      gvk.ListenerSet,
 					Name:      obj.Name,
@@ -341,7 +341,7 @@ func GatewayCollection(
 
 		for i, l := range kgw.Listeners {
 			if reason, ok := gwListenerConflicts[l.Name]; ok {
-				status.Listeners = gatewaycommon.ReportListenerConflict(i, l, obj, status.Listeners, reason)
+				status.Listeners = gatewaycommon.ReportListenerConflict(i, l, obj, status.Listeners, reason, gatewaycommon.GenerateGatewaySupportedKinds)
 				continue
 			}
 
@@ -387,7 +387,7 @@ func GatewayCollection(
 				},
 			}
 
-			allowed, _ := gatewaycommon.GenerateSupportedKinds(l)
+			allowed, _ := gatewaycommon.GenerateGatewaySupportedKinds(l)
 			ref := parentKey{
 				Kind:      gvk.KubernetesGateway,
 				Name:      obj.Name,

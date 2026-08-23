@@ -872,6 +872,68 @@ func TestIstiodReadinessHandler(t *testing.T) {
 	}
 }
 
+// Webhook readiness must track when the server hosting the handlers is serving:
+// immediately for the shared main HTTP server, only after Start() for a dedicated
+// HTTPS server (istio/istio#61049).
+func TestWebhookReadiness(t *testing.T) {
+	cases := []struct {
+		name          string
+		httpsAddr     string
+		readyAfterNew bool // expected webhook readiness immediately after NewServer
+	}{
+		{
+			// istio defaults this to :15017.
+			name:          "dedicated HTTPS server",
+			httpsAddr:     ":45017",
+			readyAfterNew: false,
+		},
+		{
+			name:          "shared main HTTP server",
+			httpsAddr:     "",
+			readyAfterNew: true,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			configDir := t.TempDir()
+			args := NewPilotArgs(func(p *PilotArgs) {
+				p.Namespace = "istio-system"
+				p.ServerOptions = DiscoveryServerOptions{
+					HTTPAddr:       ":0",
+					HTTPSAddr:      c.httpsAddr,
+					MonitoringAddr: ":0",
+					GRPCAddr:       ":0",
+				}
+				p.RegistryOptions = RegistryOptions{
+					KubeConfig: "config",
+					FileDir:    configDir,
+				}
+				p.ShutdownDuration = 1 * time.Millisecond
+			})
+
+			g := NewWithT(t)
+			s, err := NewServer(args, func(s *Server) {
+				s.kubeClient = kube.NewFakeClient()
+			})
+			g.Expect(err).To(Succeed())
+
+			g.Expect(s.readinessFlags.configValidationReady.Load()).To(Equal(c.readyAfterNew))
+			g.Expect(s.readinessFlags.sidecarInjectorReady.Load()).To(Equal(c.readyAfterNew))
+
+			stop := make(chan struct{})
+			g.Expect(s.Start(stop)).To(Succeed())
+			defer func() {
+				close(stop)
+				s.WaitUntilCompletion()
+			}()
+
+			g.Expect(s.readinessFlags.configValidationReady.Load()).To(BeTrue())
+			g.Expect(s.readinessFlags.sidecarInjectorReady.Load()).To(BeTrue())
+		})
+	}
+}
+
 func TestInitOIDC(t *testing.T) {
 	tests := []struct {
 		name      string

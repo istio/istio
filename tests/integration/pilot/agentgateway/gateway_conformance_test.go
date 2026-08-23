@@ -63,38 +63,10 @@ var conformanceNamespaces = []string{
 }
 
 var skippedTests = map[string]string{
-	// The following tests were added in v1.5.0
-	"BackendTLSPolicyObservedGenerationBump": "TODO",
-
-	"GatewayBackendClientCertificateFeature":                     "TODO",
-	"GatewayFrontendInvalidDefaultClientCertificateValidation":   "TODO",
-	"GatewayInvalidTLSBackendConfiguration":                      "TODO",
-	"GatewayTLSBackendClientCertificate":                         "TODO",
-	"GatewayFrontendClientCertificateValidationInsecureFallback": "TODO",
-	"GatewayFrontendClientCertificateValidation":                 "TODO",
-	"GatewayInvalidFrontendClientCertificateValidation":          "TODO",
-
-	"HTTPRouteHTTPSListenerDetectMisdirectedRequests": "TODO",
-
-	// The following tests were modified between v1.4.0 && v1.5.0
-	"BackendTLSPolicy": "TODO",
-
-	// The following tests were added in v1.5.0
-	"TLSRouteTerminateSimpleSameNamespace":  "TODO",
-	"TLSRouteMixedTerminationSameNamespace": "TODO",
-
 	// The following tests were added in v1.6.0
 	"GatewayInvalidParametersRef":        "TODO",
 	"GatewayListenerUnsupportedProtocol": "TODO",
 	"TCPRouteWeightedRouting":            "TODO: flaky in dual-stack and multicluster environments",
-
-	// agentgateway does not yet route TCPRoute data-plane traffic, so the
-	// traffic-based TCPRoute conformance tests fail. The status/validation-only
-	// TCPRouteInvalid* tests still run and pass, so they are not skipped.
-	"TCPRouteMultipleRoutesAttachment":    "TODO: agentgateway does not yet support TCPRoute traffic",
-	"TCPRouteParentRefAttachAll":          "TODO: agentgateway does not yet support TCPRoute traffic",
-	"TCPRouteParentRefPortAndSectionName": "TODO: agentgateway does not yet support TCPRoute traffic",
-	"TCPRouteReferenceGrant":              "TODO: agentgateway does not yet support TCPRoute traffic",
 }
 
 func TestGatewayConformanceAgentgateway(t *testing.T) {
@@ -125,7 +97,14 @@ func TestGatewayConformanceAgentgateway(t *testing.T) {
 			}
 
 			supportedFeatures := gateway.SupportedFeatures.Clone().
-				Delete(features.MeshClusterIPMatchingFeature) // https://github.com/istio/istio/issues/44702
+				Delete(features.MeshClusterIPMatchingFeature). // https://github.com/istio/istio/issues/44702
+				// The agentgateway data plane implements HTTP 421 detection for misdirected requests on
+				// HTTPS listeners sharing a port, unlike the Envoy-based sidecar/ambient data planes. This
+				// feature is disabled in the shared gateway.SupportedFeatures set, so opt back in here.
+				Insert(features.GatewayHTTPSListenerDetectMisdirectedRequestsFeature)
+			// Backend client certificate support (spec.tls.backend.clientCertificateRef) is implemented
+			// for agentgateway even though it is disabled in the shared gateway.SupportedFeatures.
+			supportedFeatures.Insert(features.GatewayBackendClientCertificateFeature)
 			if ctx.Settings().GatewayConformanceStandardOnly {
 				for f := range supportedFeatures {
 					if f.Channel != features.FeatureChannelStandard {

@@ -2045,6 +2045,7 @@ func TestInboundHTTPRouteConfig(t *testing.T) {
 	cases := []struct {
 		name          string
 		proxy         *model.Proxy
+		meshConfig    *meshapi.MeshConfig
 		validateRoute bool
 		expectedRetry *route.RetryPolicy
 	}{
@@ -2058,8 +2059,44 @@ func TestInboundHTTPRouteConfig(t *testing.T) {
 			},
 		},
 		{
+			name:  "sidecar with mesh wide inbound retry policy",
+			proxy: &model.Proxy{Type: model.SidecarProxy},
+			meshConfig: func() *meshapi.MeshConfig {
+				m := mesh.DefaultMeshConfig()
+				m.DefaultInboundHttpRetryPolicy = &networking.HTTPRetry{Attempts: 4, RetryOn: "reset"}
+				return m
+			}(),
+			validateRoute: false,
+			expectedRetry: &route.RetryPolicy{
+				NumRetries: wrapperspb.UInt32(4),
+				RetryOn:    "reset",
+			},
+		},
+		{
+			name:  "sidecar with inbound retries disabled mesh wide",
+			proxy: &model.Proxy{Type: model.SidecarProxy},
+			meshConfig: func() *meshapi.MeshConfig {
+				m := mesh.DefaultMeshConfig()
+				m.DefaultInboundHttpRetryPolicy = &networking.HTTPRetry{}
+				return m
+			}(),
+			validateRoute: false,
+			expectedRetry: nil,
+		},
+		{
 			name:          "waypoint",
 			proxy:         &model.Proxy{Type: model.Waypoint},
+			validateRoute: true,
+			expectedRetry: retry.DefaultPolicy(),
+		},
+		{
+			name:  "waypoint ignores mesh wide inbound retry policy",
+			proxy: &model.Proxy{Type: model.Waypoint},
+			meshConfig: func() *meshapi.MeshConfig {
+				m := mesh.DefaultMeshConfig()
+				m.DefaultInboundHttpRetryPolicy = &networking.HTTPRetry{}
+				return m
+			}(),
 			validateRoute: true,
 			expectedRetry: retry.DefaultPolicy(),
 		},
@@ -2067,7 +2104,7 @@ func TestInboundHTTPRouteConfig(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			cg := NewConfigGenTest(t, TestOptions{})
+			cg := NewConfigGenTest(t, TestOptions{MeshConfig: tt.meshConfig})
 			proxy := cg.SetupProxy(tt.proxy)
 			lb := NewListenerBuilder(proxy, cg.PushContext())
 
@@ -2090,5 +2127,168 @@ func TestInboundHTTPRouteConfig(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestWaypointInboundRouteHashPolicy(t *testing.T) {
+	hostname := "helloworld.default.svc.cluster.local"
+	svc := buildHTTPService(hostname, visibility.Public, "", "default", 5000)
+
+	cases := []struct {
+		name           string
+		configs        []config.Config
+		expectHash     bool
+		expectedCookie string
+	}{
+		{
+			name:       "no destination rule",
+			configs:    nil,
+			expectHash: false,
+		},
+		{
+			name: "destination rule with consistentHash cookie",
+			configs: []config.Config{
+				{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.DestinationRule,
+						Name:             "helloworld-dr",
+						Namespace:        "default",
+					},
+					Spec: &networking.DestinationRule{
+						Host: hostname,
+						TrafficPolicy: &networking.TrafficPolicy{
+							LoadBalancer: &networking.LoadBalancerSettings{
+								LbPolicy: &networking.LoadBalancerSettings_ConsistentHash{
+									ConsistentHash: &networking.LoadBalancerSettings_ConsistentHashLB{
+										HashKey: &networking.LoadBalancerSettings_ConsistentHashLB_HttpCookie{
+											HttpCookie: &networking.LoadBalancerSettings_ConsistentHashLB_HTTPCookie{
+												Name: "user-session",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectHash:     true,
+			expectedCookie: "user-session",
+		},
+		{
+			name: "destination rule with consistentHash header",
+			configs: []config.Config{
+				{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.DestinationRule,
+						Name:             "helloworld-dr",
+						Namespace:        "default",
+					},
+					Spec: &networking.DestinationRule{
+						Host: hostname,
+						TrafficPolicy: &networking.TrafficPolicy{
+							LoadBalancer: &networking.LoadBalancerSettings{
+								LbPolicy: &networking.LoadBalancerSettings_ConsistentHash{
+									ConsistentHash: &networking.LoadBalancerSettings_ConsistentHashLB{
+										HashKey: &networking.LoadBalancerSettings_ConsistentHashLB_HttpHeaderName{
+											HttpHeaderName: "x-session-id",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expectHash: true,
+		},
+		{
+			name: "destination rule without consistentHash",
+			configs: []config.Config{
+				{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.DestinationRule,
+						Name:             "helloworld-dr",
+						Namespace:        "default",
+					},
+					Spec: &networking.DestinationRule{
+						Host: hostname,
+						TrafficPolicy: &networking.TrafficPolicy{
+							LoadBalancer: &networking.LoadBalancerSettings{
+								LbPolicy: &networking.LoadBalancerSettings_Simple{
+									Simple: networking.LoadBalancerSettings_ROUND_ROBIN,
+								},
+							},
+						},
+					},
+				},
+			},
+			expectHash: false,
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			cg := NewConfigGenTest(t, TestOptions{
+				Services: []*model.Service{svc},
+				Configs:  tt.configs,
+			})
+			proxy := cg.SetupProxy(&model.Proxy{Type: model.Waypoint})
+			lb := NewListenerBuilder(proxy, cg.PushContext())
+
+			cc := inboundChainConfig{
+				telemetryMetadata: telemetry.FilterChainMetadata{InstanceHostname: svc.Hostname},
+				port:              model.ServiceInstancePort{ServicePort: &model.Port{Port: 5000}, TargetPort: 5000},
+				clusterName:       model.BuildInboundSubsetKey(5000),
+				hbone:             true,
+			}
+			routeCfg := buildSidecarInboundHTTPRouteConfig(svc, lb, cc)
+			xdstest.ValidateRouteConfiguration(t, routeCfg)
+
+			for _, vh := range routeCfg.VirtualHosts {
+				for _, r := range vh.Routes {
+					hp := r.GetRoute().HashPolicy
+					if tt.expectHash {
+						if len(hp) == 0 {
+							t.Fatalf("expected hash_policy on waypoint inbound route but got none")
+						}
+						if tt.expectedCookie != "" {
+							cookie := hp[0].GetCookie()
+							if cookie == nil {
+								t.Fatalf("expected cookie hash policy but got %v", hp[0].PolicySpecifier)
+							}
+							if cookie.Name != tt.expectedCookie {
+								t.Errorf("expected cookie name %q, got %q", tt.expectedCookie, cookie.Name)
+							}
+						}
+					} else if len(hp) != 0 {
+						t.Fatalf("expected no hash_policy on waypoint inbound route but got %v", hp)
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestWaypointInboundRouteHashPolicyNilService(t *testing.T) {
+	cg := NewConfigGenTest(t, TestOptions{})
+	proxy := cg.SetupProxy(&model.Proxy{Type: model.Waypoint})
+	lb := NewListenerBuilder(proxy, cg.PushContext())
+
+	cc := inboundChainConfig{
+		telemetryMetadata: telemetry.FilterChainMetadata{InstanceHostname: "unknown.default.svc.cluster.local"},
+		port:              model.ServiceInstancePort{ServicePort: &model.Port{Port: 8080}, TargetPort: 8080},
+		clusterName:       model.BuildInboundSubsetKey(8080),
+		hbone:             true,
+	}
+	routeCfg := buildSidecarInboundHTTPRouteConfig(nil, lb, cc)
+	xdstest.ValidateRouteConfiguration(t, routeCfg)
+
+	for _, vh := range routeCfg.VirtualHosts {
+		for _, r := range vh.Routes {
+			if hp := r.GetRoute().HashPolicy; len(hp) != 0 {
+				t.Fatalf("expected no hash_policy when svc is nil, got %v", hp)
+			}
+		}
 	}
 }
