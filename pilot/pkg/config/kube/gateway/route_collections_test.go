@@ -20,8 +20,10 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	istio "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/test"
 )
 
 // uriRoute builds an HTTPRoute with a single URI match of the given type.
@@ -45,6 +47,7 @@ func regexURI(v string) *istio.StringMatch {
 }
 
 func TestHTTPRouteOrigins(t *testing.T) {
+	test.SetForTest(t, &features.EnableGatewayAPIHTTPRouteAuth, true)
 	origins := func(nn ...types.NamespacedName) []types.NamespacedName { return nn }
 	vs := func(n int) *istio.VirtualService {
 		routes := make([]*istio.HTTPRoute, n)
@@ -139,6 +142,7 @@ func TestHTTPRouteOrigins(t *testing.T) {
 // TestHTTPRouteOriginsClone verifies the returned slice is a copy: mutating it
 // must not corrupt the origins stored in the source config's Extra field.
 func TestHTTPRouteOriginsClone(t *testing.T) {
+	test.SetForTest(t, &features.EnableGatewayAPIHTTPRouteAuth, true)
 	stored := []types.NamespacedName{
 		{Name: "a", Namespace: "ns"},
 		{Name: "b", Namespace: "ns"},

@@ -458,6 +458,9 @@ func BuildHTTPRoutesForVirtualService(
 // httpRouteOrigins returns the HTTPRoute each of the VirtualService's HTTP routes was
 // generated from. Only applicable for HTTPRoute-produced VirtualService objects.
 func httpRouteOrigins(virtualService config.Config, routeCount int) ([]types.NamespacedName, error) {
+	if !features.EnableGatewayAPIHTTPRouteAuth {
+		return nil, nil
+	}
 	raw, ok := virtualService.Extra[constants.ConfigExtraHTTPRouteOrigins]
 	if !ok {
 		return nil, nil

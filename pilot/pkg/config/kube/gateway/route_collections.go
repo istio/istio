@@ -31,6 +31,7 @@ import (
 	istio "istio.io/api/networking/v1alpha3"
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
 	"istio.io/istio/pilot/pkg/config/kube/gatewaycommon"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -188,14 +189,16 @@ func HTTPRouteCollection(
 				}
 
 				// Populate Extra field with HTTPRoute origins (name/namespace)
-				routeOrigins := make([]types.NamespacedName, len(routes))
-				for i := range routeOrigins {
-					routeOrigins[i] = types.NamespacedName{
-						Name:      obj.Name,
-						Namespace: obj.Namespace,
+				if features.EnableGatewayAPIHTTPRouteAuth {
+					routeOrigins := make([]types.NamespacedName, len(routes))
+					for i := range routeOrigins {
+						routeOrigins[i] = types.NamespacedName{
+							Name:      obj.Name,
+							Namespace: obj.Namespace,
+						}
 					}
+					extraData[constants.ConfigExtraHTTPRouteOrigins] = routeOrigins
 				}
-				extraData[constants.ConfigExtraHTTPRouteOrigins] = routeOrigins
 
 				cfg := config.Config{
 					Meta: config.Meta{
@@ -912,13 +915,15 @@ func mergeHTTPRoutes(baseVirtualServices krt.Collection[RouteWithKey], opts ...k
 				log.Debugf("Final merged VirtualService for key %s has %d InferencePool route configs", object.Key, len(ipConfigs))
 			}
 		}
-		sortHTTPRoutesWithOrigins(baseVS.Http, origins)
-
-		if base.Extra == nil {
-			base.Extra = make(map[string]any)
+		if features.EnableGatewayAPIHTTPRouteAuth {
+			sortHTTPRoutesWithOrigins(baseVS.Http, origins)
+			if base.Extra == nil {
+				base.Extra = make(map[string]any)
+			}
+			base.Extra[constants.ConfigExtraHTTPRouteOrigins] = origins
+		} else {
+			sortHTTPRoutes(baseVS.Http)
 		}
-		base.Extra[constants.ConfigExtraHTTPRouteOrigins] = origins
-
 		base.Name = strings.ReplaceAll(object.Key, "/", "~")
 		return &base
 	}, opts...)
@@ -927,6 +932,9 @@ func mergeHTTPRoutes(baseVirtualServices krt.Collection[RouteWithKey], opts ...k
 
 // Validate and copy httpRoute origins from Extra field for correctness.
 func httpRouteOrigins(config config.Config) ([]types.NamespacedName, error) {
+	if !features.EnableGatewayAPIHTTPRouteAuth {
+		return nil, nil
+	}
 	virtualService := config.Spec.(*istio.VirtualService)
 	rawOrigins, ok := config.Extra[constants.ConfigExtraHTTPRouteOrigins]
 	if !ok {
