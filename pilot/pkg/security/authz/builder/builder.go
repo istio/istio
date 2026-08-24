@@ -49,6 +49,10 @@ var rbacPolicyMatchNever = &rbacpb.Policy{
 type Option struct {
 	IsCustomBuilder bool
 	UseFilterState  bool
+	// NamedAllowFilter emits the ALLOW filter instance under RBACFilterNameAllow instead of the
+	// well-known name, so that per-route config can address it. Only set for proxies that support
+	// per-route AuthorizationPolicy, to keep the rest of the mesh on the well-known name.
+	NamedAllowFilter bool
 }
 
 // Builder builds Istio authorization policy to Envoy filters.
@@ -98,20 +102,29 @@ func (b Builder) BuildHTTP() []*hcm.HttpFilter {
 	return build(b, b.buildHTTP, "HTTP", false)
 }
 
-// Filter instance names for the anchor RBAC filters that carry per-route AuthorizationPolicy
-// configuration. They are deliberately distinct from the workload filters, which keep the
-// well-known name, so that a route override can never replace workload or root-namespace policy.
+// Filter instance names that per-route AuthorizationPolicy configuration is keyed by.
+//
+// DENY gets its own anchor filter, appended after the workload filters. Chained DENY filters
+// reject if any of them matches, so a route DENY adds to workload and root-namespace DENY
+// policies and can never remove them.
+//
+// ALLOW instead reuses the workload's own ALLOW filter under a dedicated name. Chained ALLOW
+// filters intersect, so a separate route filter could only ever narrow access, whereas ALLOW
+// policies within a single filter union. Merging into one filter is what lets a route ALLOW
+// widen access, matching how root-namespace and workload-namespace ALLOW policies combine
+// today. The name has to be distinct from the DENY and AUDIT instances, which share the
+// well-known name, so that a route can address the ALLOW instance alone.
 const (
-	RBACRouteAnchorNameAllow = "istio.authorization.route.allow"
-	RBACRouteAnchorNameDeny  = "istio.authorization.route.deny"
+	RBACFilterNameAllow     = "istio.authorization.allow"
+	RBACRouteAnchorNameDeny = "istio.authorization.route.deny"
 )
 
-// RouteAnchorFilterName returns the anchor filter instance name that per-route RBAC config for
-// the given action must be keyed by.
-func RouteAnchorFilterName(action rbacpb.RBAC_Action) string {
+// PerRouteFilterName returns the filter instance name that per-route RBAC config for the given
+// action must be keyed by.
+func PerRouteFilterName(action rbacpb.RBAC_Action) string {
 	switch action {
 	case rbacpb.RBAC_ALLOW:
-		return RBACRouteAnchorNameAllow
+		return RBACFilterNameAllow
 	case rbacpb.RBAC_DENY:
 		return RBACRouteAnchorNameDeny
 	default:
@@ -218,6 +231,16 @@ func isDryRun(policy model.AuthorizationPolicy, logger *AuthzLogger) bool {
 		}
 	}
 	return dryRun
+}
+
+// actionOf reports the action a built filter carries. Enforce and shadow rules always share an
+// action, but either may be nil when a policy set is entirely dry-run or entirely enforcing, and
+// a nil RBAC reports ALLOW.
+func actionOf(rules, shadowRules *rbacpb.RBAC) rbacpb.RBAC_Action {
+	if rules != nil {
+		return rules.GetAction()
+	}
+	return shadowRules.GetAction()
 }
 
 func shadowRuleStatPrefix(rule *rbacpb.RBAC) string {
@@ -382,9 +405,13 @@ func (b Builder) buildHTTP(rule *builtRule, logger *AuthzLogger) []*hcm.HttpFilt
 			ShadowRules:           shadowRules,
 			ShadowRulesStatPrefix: shadowRuleStatPrefix(shadowRules),
 		}
+		name := wellknown.HTTPRoleBasedAccessControl
+		if b.option.NamedAllowFilter && actionOf(rules, shadowRules) == rbacpb.RBAC_ALLOW {
+			name = RBACFilterNameAllow
+		}
 		return []*hcm.HttpFilter{
 			{
-				Name:       wellknown.HTTPRoleBasedAccessControl,
+				Name:       name,
 				ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(rbac)},
 			},
 		}
