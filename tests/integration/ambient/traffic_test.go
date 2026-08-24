@@ -28,6 +28,7 @@ func TestTraffic(t *testing.T) {
 	framework.NewTest(t).
 		TopLevel().
 		Run(func(t framework.TestContext) {
+			skipIfGatewayAPIUnsupported(t)
 			deployments := deployment.NewOrFail(t, deployment.Config{
 				IncludeExtAuthz: false,
 			})
