@@ -8831,3 +8831,71 @@ func TestValidateAuthorizationPolicyHTTPRouteTargetRef(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateAuthorizationPolicyMixedHTTPRouteTargetRefs(t *testing.T) {
+	test.SetForTest(t, &features.EnableGatewayAPIHTTPRouteAuth, true)
+	httpRouteRef := func(name string) *api.PolicyTargetReference {
+		return &api.PolicyTargetReference{Group: gvk.HTTPRoute.Group, Kind: gvk.HTTPRoute.Kind, Name: name}
+	}
+	gatewayRef := &api.PolicyTargetReference{
+		Group: gvk.KubernetesGateway.Group, Kind: gvk.KubernetesGateway.Kind, Name: "gw",
+	}
+
+	cases := []struct {
+		name  string
+		in    *security_beta.AuthorizationPolicy
+		valid bool
+	}{
+		{
+			name: "httproute only",
+			in: &security_beta.AuthorizationPolicy{
+				Action:     security_beta.AuthorizationPolicy_ALLOW,
+				TargetRefs: []*api.PolicyTargetReference{httpRouteRef("route-a")},
+				Rules:      []*security_beta.Rule{{}},
+			},
+			valid: true,
+		},
+		{
+			name: "two httproutes",
+			in: &security_beta.AuthorizationPolicy{
+				Action:     security_beta.AuthorizationPolicy_ALLOW,
+				TargetRefs: []*api.PolicyTargetReference{httpRouteRef("route-a"), httpRouteRef("route-b")},
+				Rules:      []*security_beta.Rule{{}},
+			},
+			valid: true,
+		},
+		{
+			name: "httproute mixed with gateway",
+			in: &security_beta.AuthorizationPolicy{
+				Action:     security_beta.AuthorizationPolicy_ALLOW,
+				TargetRefs: []*api.PolicyTargetReference{gatewayRef, httpRouteRef("route-a")},
+				Rules:      []*security_beta.Rule{{}},
+			},
+			valid: false,
+		},
+		{
+			name: "gateway only is unaffected",
+			in: &security_beta.AuthorizationPolicy{
+				Action:     security_beta.AuthorizationPolicy_ALLOW,
+				TargetRefs: []*api.PolicyTargetReference{gatewayRef},
+				Rules:      []*security_beta.Rule{{}},
+			},
+			valid: true,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := ValidateAuthorizationPolicy(config.Config{
+				Meta: config.Meta{Name: "foo", Namespace: "bar"},
+				Spec: tc.in,
+			})
+			if (err == nil) != tc.valid {
+				t.Errorf("got err=%v, want valid=%v", err, tc.valid)
+			}
+			if !tc.valid && err != nil && !strings.Contains(err.Error(), "must not be combined") {
+				t.Errorf("rejected for the wrong reason: %v", err)
+			}
+		})
+	}
+}
