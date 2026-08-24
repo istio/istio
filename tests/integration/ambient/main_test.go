@@ -20,6 +20,9 @@ import (
 	"context"
 	"testing"
 
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"istio.io/api/label"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test/framework"
@@ -37,8 +40,6 @@ import (
 	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/tests/integration/security/util/cert"
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var (
