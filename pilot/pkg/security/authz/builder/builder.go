@@ -98,20 +98,22 @@ func (b Builder) BuildHTTP() []*hcm.HttpFilter {
 	return build(b, b.buildHTTP, "HTTP", false)
 }
 
-// Filter instance names that per-route RBAC configuration is keyed by.
+// Filter instance names for the anchor RBAC filters that carry per-route AuthorizationPolicy
+// configuration. They are deliberately distinct from the workload filters, which keep the
+// well-known name, so that a route override can never replace workload or root-namespace policy.
 const (
-	RBACFilterNameAllow = "istio.authorization.allow"
-	RBACFilterNameDeny  = "istio.authorization.deny"
+	RBACRouteAnchorNameAllow = "istio.authorization.route.allow"
+	RBACRouteAnchorNameDeny  = "istio.authorization.route.deny"
 )
 
-// RBACFilterNameForAction returns the filter instance name that per-route RBAC config for the given
-// action must be keyed by.
-func RBACFilterNameForAction(action rbacpb.RBAC_Action) string {
+// RouteAnchorFilterName returns the anchor filter instance name that per-route RBAC config for
+// the given action must be keyed by.
+func RouteAnchorFilterName(action rbacpb.RBAC_Action) string {
 	switch action {
 	case rbacpb.RBAC_ALLOW:
-		return RBACFilterNameAllow
+		return RBACRouteAnchorNameAllow
 	case rbacpb.RBAC_DENY:
-		return RBACFilterNameDeny
+		return RBACRouteAnchorNameDeny
 	default:
 		return ""
 	}

@@ -40,6 +40,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/extension"
 	istio_route "istio.io/istio/pilot/pkg/networking/core/route"
 	"istio.io/istio/pilot/pkg/networking/core/tunnelingconfig"
+	"istio.io/istio/pilot/pkg/networking/plugin/authz"
 	"istio.io/istio/pilot/pkg/networking/telemetry"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/protoconv"
@@ -433,6 +434,11 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 	gatewayRoutes := make(map[string]map[string][]*route.Route)
 	gatewayVirtualServices := make(map[string][]*config.Config)
 	vHostDedupMap := make(map[host.Name]*route.VirtualHost)
+
+	var perRouteAuthz *authz.PerRouteBuilder
+	if features.EnableGatewayAPIHTTPRouteAuth {
+		perRouteAuthz = authz.NewPerRouteBuilder(push, node)
+	}
 	for _, server := range servers {
 		gatewayName := merged.GatewayNameForServer[server]
 		port := int(server.Port.Number)
@@ -486,6 +492,9 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 						return hashByDestination[destination]
 					},
 					InferencePoolExtensionRefs: infPoolConfigs,
+				}
+				if perRouteAuthz != nil {
+					opts.BuildPerRouteAuthConfig = perRouteAuthz.Build
 				}
 				routes, err = istio_route.BuildHTTPRoutesForVirtualService(node, *virtualService, port, sets.New(gatewayName), opts)
 				if err != nil {

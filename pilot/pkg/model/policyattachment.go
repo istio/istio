@@ -127,6 +127,17 @@ func (p WorkloadPolicyMatcher) ShouldAttachPolicy(kind config.GroupVersionKind,
 	gatewayName, isGatewayAPI := workloadGatewayName(p.WorkloadLabels)
 	targetRefs := GetTargetRefs(policy)
 
+	// A policy that targets an HTTPRoute is scoped to individual routes and must never also
+	// attach workload-wide, even if it carries other targetRefs. Validation rejects the
+	// combination, but validation is not guaranteed to have run.
+	if features.EnableGatewayAPIHTTPRouteAuth && kind == gvk.AuthorizationPolicy {
+		for _, ref := range targetRefs {
+			if matchesGroupKind(ref, gvk.HTTPRoute) {
+				return false
+			}
+		}
+	}
+
 	// non-gateway: use selector
 	if !isGatewayAPI {
 		// if targetRef is specified, ignore the policy altogether

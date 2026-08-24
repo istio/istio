@@ -77,6 +77,16 @@ func rdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
 			// Not exclusively the headless endpoint marker; fall through to the normal check below.
 			headlessOnly = false
 		}
+		if config.Kind == kind.AuthorizationPolicy && proxy.Type == model.Router &&
+			features.EnableGatewayAPIHTTPRouteAuth {
+			// AuthorizationPolicy can target an HTTPRoute, which attaches RBAC config to individual
+			// routes, so RDS has to be regenerated. Waypoints carry routes inline in LDS.
+			//
+			// This cannot be narrowed to "a route-targeted policy exists" without comparing against
+			// the previous push: deleting the last such policy has to regenerate RDS too, and by
+			// then it is already absent from the new PushContext.
+			return true
+		}
 		if !skippedRdsConfigs.Contains(config.Kind) {
 			if config.Kind == kind.Gateway {
 				if proxy.Type == model.Router || proxy.IsAmbientEastWestGateway() {

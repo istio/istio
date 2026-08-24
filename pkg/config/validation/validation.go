@@ -1433,6 +1433,13 @@ var ValidateAuthorizationPolicy = RegisterValidateFunc("ValidateAuthorizationPol
 				errs = appendErrors(errs,
 					fmt.Errorf("Only ALLOW/DENY actions are supported for HTTPRoute targetRefs, got %s", in.GetAction().String()))
 			}
+			// An HTTPRoute targetRef scopes the policy to individual routes. Mixing it with any
+			// other target would additionally apply the same policy workload-wide, which for ALLOW
+			// silently widens access beyond the targeted route.
+			if hasNonHTTPRouteTargetRef(in) {
+				errs = appendErrors(errs,
+					fmt.Errorf("an HTTPRoute targetRef must not be combined with targetRefs of other kinds"))
+			}
 		}
 
 		if in.Action == security_beta.AuthorizationPolicy_CUSTOM {
@@ -1640,6 +1647,18 @@ func isHTTPRouteTargetRef(ref *type_beta.PolicyTargetReference) bool {
 	}
 	return ref.Kind == gvk.HTTPRoute.Kind &&
 		config.CanonicalGroup(ref.GetGroup()) == gvk.HTTPRoute.CanonicalGroup()
+}
+
+func hasNonHTTPRouteTargetRef(in *security_beta.AuthorizationPolicy) bool {
+	if ref := in.GetTargetRef(); ref != nil && !isHTTPRouteTargetRef(ref) {
+		return true
+	}
+	for _, ref := range in.GetTargetRefs() {
+		if !isHTTPRouteTargetRef(ref) {
+			return true
+		}
+	}
+	return false
 }
 
 func hasHTTPRouteTargetRef(in *security_beta.AuthorizationPolicy) bool {

@@ -21,6 +21,7 @@ import (
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	"k8s.io/apimachinery/pkg/types"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/security/authz/builder"
@@ -122,6 +123,35 @@ func (b *Builder) BuildHTTP(class networking.ListenerClass) []*hcm.HttpFilter {
 	return b.httpFilters
 }
 
+// RouteAnchorFilters returns the RBAC filter instances that per-route AuthorizationPolicy
+// configuration attaches to. They carry no rules, so they enforce nothing until an individual
+// route overrides one via typed_per_filter_config.
+//
+// They are emitted independently of the policies actually present, so that listener generation
+// never has to resolve which routes are served by this listener.
+func RouteAnchorFilters(proxy *model.Proxy, class networking.ListenerClass) []*hcm.HttpFilter {
+	if !features.EnableGatewayAPIHTTPRouteAuth {
+		return nil
+	}
+	if proxy == nil || proxy.Type != model.Router {
+		return nil
+	}
+	if class == networking.ListenerClassSidecarOutbound {
+		return nil
+	}
+	return []*hcm.HttpFilter{
+		routeAnchorFilter(builder.RBACRouteAnchorNameDeny),
+		routeAnchorFilter(builder.RBACRouteAnchorNameAllow),
+	}
+}
+
+func routeAnchorFilter(name string) *hcm.HttpFilter {
+	return &hcm.HttpFilter{
+		Name:       name,
+		ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(&rbachttp.RBAC{})},
+	}
+}
+
 // PerRouteBuilder builds authorization config that is attached to an individual HTTP route rather
 // than to a listener, for AuthorizationPolicy objects that select a route with an HTTPRoute targetRef.
 type PerRouteBuilder struct {
@@ -161,7 +191,7 @@ func (p *PerRouteBuilder) Build(origin types.NamespacedName) map[string]*anypb.A
 	// whatever the listener enforces.
 	if b := builder.New(p.tdBundle, p.push, policies, builder.Option{UseFilterState: p.useFilterState}); b != nil {
 		for action, rbac := range b.BuildHTTPRBACForRoute() {
-			name := builder.RBACFilterNameForAction(action)
+			name := builder.RouteAnchorFilterName(action)
 			if name == "" {
 				continue
 			}
