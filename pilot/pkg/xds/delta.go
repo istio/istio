@@ -307,6 +307,13 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 		s.computeProxyState(con.proxy, request)
 	}
 
+	if !requiresResourceNamesModification(req.TypeUrl) {
+		// Only the workload generator uses InitialResourceVersions past this point. The map can
+		// hold the client's entire resource set on reconnect; release it before generation.
+		request.Delta.InitialResourceVersions = nil
+		req.InitialResourceVersions = nil
+	}
+
 	err := s.pushDeltaXds(con, con.proxy.GetWatchedResource(req.TypeUrl), request)
 	if err != nil {
 		return err
@@ -387,7 +394,7 @@ func shouldRespondDelta(con *Connection, request *discovery.DeltaDiscoveryReques
 		}
 
 		res, wildcard, _ := deltaWatchedResources(nil, request)
-		skip := request.TypeUrl == v3.AddressType && wildcard
+		skip := requiresResourceNamesModification(request.TypeUrl) && wildcard
 		if skip {
 			// Due to the high resource count in WDS at scale, we do not store ResourceName.
 			// See the workload generator for more information on why we don't use this.
@@ -420,7 +427,15 @@ func shouldRespondDelta(con *Connection, request *discovery.DeltaDiscoveryReques
 
 	// Update resource names, and record ACK if required.
 	con.proxy.UpdateWatchedResource(request.TypeUrl, func(wr *model.WatchedResource) *model.WatchedResource {
-		wr.ResourceNames, _, subChanged = deltaWatchedResources(wr.ResourceNames, request)
+		if requiresResourceNamesModification(request.TypeUrl) && wr.Wildcard {
+			// As on initial requests, wildcard subscriptions to generator-managed types do not
+			// store ResourceNames. With no stored set to diff against, any named (un)subscription
+			// counts as a change.
+			subChanged = len(request.ResourceNamesSubscribe) > 0 || len(request.ResourceNamesUnsubscribe) > 0
+			wr.ResourceNames = nil
+		} else {
+			wr.ResourceNames, _, subChanged = deltaWatchedResources(wr.ResourceNames, request)
+		}
 		if !spontaneousReq {
 			// Clear last error, we got an ACK.
 			// Otherwise, this is just a change in resource subscription, so leave the last ACK info in place.

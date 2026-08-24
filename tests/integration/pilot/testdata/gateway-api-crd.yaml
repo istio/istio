@@ -23405,3 +23405,672 @@ spec:
   policyName: safe-upgrades.gateway.networking.k8s.io
   validationActions:
   - Deny
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/4530
+    gateway.networking.k8s.io/bundle-version: v1.6.0
+    gateway.networking.k8s.io/channel: experimental
+  name: xbackends.gateway.networking.x-k8s.io
+spec:
+  group: gateway.networking.x-k8s.io
+  names:
+    categories:
+    - gateway-api
+    kind: XBackend
+    listKind: XBackendList
+    plural: xbackends
+    shortNames:
+    - xbackend
+    singular: xbackend
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          XBackend is a Gateway API resource that represents a backend destination for
+          routing traffic. It serves as a Gateway-native way to define where and how a
+          Gateway should connect to a backend.
+
+          Support: Extended
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: Spec defines the desired state of XBackend.
+            properties:
+              externalHostname:
+                description: |-
+                  ExternalHostname specifies the configuration for an ExternalHostname
+                  backend. This field must be set when type is ExternalHostname and must
+                  be unset otherwise.
+
+                  Support: Extended
+                properties:
+                  hostname:
+                    description: |-
+                      Hostname specifies the FQDN used to reach this backend.
+                      IP addresses are not allowed in this field.
+                    maxLength: 253
+                    minLength: 1
+                    pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                    type: string
+                    x-kubernetes-validations:
+                    - message: hostname must not be an IP address or end with .cluster.local
+                      rule: '!self.endsWith(''.cluster.local'')'
+                required:
+                - hostname
+                type: object
+              port:
+                description: |-
+                  Port defines the port that the implementation should use when connecting
+                  to this backend.
+                properties:
+                  name:
+                    description: |-
+                      Name represents the name of this port. All ports in a Backend must have
+                      a unique name. Name must either be an empty string or pass DNS_LABEL
+                      validation (lowercase alphanumeric or '-', starting and ending with an
+                      alphanumeric character, at most 63 characters).
+                    maxLength: 63
+                    type: string
+                    x-kubernetes-validations:
+                    - message: Name must be a valid DNS label
+                      rule: size(self) == 0 || format.dns1123Label().validate(self)
+                        == null
+                  port:
+                    description: Port represents the port number of the endpoint.
+                    format: int32
+                    maximum: 65535
+                    minimum: 1
+                    type: integer
+                required:
+                - port
+                type: object
+              protocol:
+                description: |-
+                  Protocol defines the protocol for backend communication.
+
+                  In the common case, the underlying transport protocol for the
+                  proxied traffic will already have been determined and processed
+                  by the dataplane at the routing step. Where this field is useful
+                  is either for higher level protocols or asymmetrical protocol
+                  configurations (e.g. version upgrades or h2c).
+
+                  When set, the implementation uses the specified protocol when connecting
+                  to this backend. When not set, the implementation will use the protocol
+                  determined by the route or listener configuration.
+
+                  Support: Core - HTTP, HTTP2, H2C, and HTTP11
+
+                  Support: Extended - GRPC, MCP, TCP
+                enum:
+                - TCP
+                - HTTP
+                - HTTP2
+                - HTTP11
+                - H2C
+                - MCP
+                type: string
+              tls:
+                description: |-
+                  TLS defines the TLS configuration that the implementation should use
+                  when connecting to the backend.
+
+                  ExternalHostname backends SHOULD have TLS configured; the lack of TLS
+                  for external hostnames should be considered insecure and a security risk.
+
+                  Support: Extended
+                properties:
+                  clientCertificateRef:
+                    description: |-
+                      ClientCertificateRef is a reference to a Secret containing the client
+                      TLS certificate and private key for mutual TLS. This field is required
+                      when mode is ClientAndServer and must be unset otherwise.
+                    properties:
+                      group:
+                        default: ""
+                        description: |-
+                          Group is the group of the referent. For example, "gateway.networking.k8s.io".
+                          When unspecified or empty string, core API group is inferred.
+                        maxLength: 253
+                        pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                        type: string
+                      kind:
+                        default: Secret
+                        description: Kind is kind of the referent. For example "Secret".
+                        maxLength: 63
+                        minLength: 1
+                        pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
+                        type: string
+                      name:
+                        description: Name is the name of the referent.
+                        maxLength: 253
+                        minLength: 1
+                        type: string
+                      namespace:
+                        description: |-
+                          Namespace is the namespace of the referenced object. When unspecified, the local
+                          namespace is inferred.
+
+                          Note that when a namespace different than the local namespace is specified,
+                          a ReferenceGrant object is required in the referent namespace to allow that
+                          namespace's owner to accept the reference. See the ReferenceGrant
+                          documentation for details.
+
+                          Support: Core
+                        maxLength: 63
+                        minLength: 1
+                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                        type: string
+                    required:
+                    - name
+                    type: object
+                  mode:
+                    description: Mode defines the TLS mode for the backend connection.
+                    enum:
+                    - None
+                    - ServerOnly
+                    - ClientAndServer
+                    type: string
+                  validation:
+                    description: Validation contains TLS validation configuration
+                      for the backend connection.
+                    properties:
+                      caCertificateRefs:
+                        description: |-
+                          CACertificateRefs contains one or more references to Kubernetes objects that
+                          contain a PEM-encoded TLS CA certificate bundle, which is used to
+                          validate a TLS handshake between the Gateway and backend Pod.
+
+                          If CACertificateRefs is empty or unspecified, then WellKnownCACertificates must be
+                          specified. Only one of CACertificateRefs or WellKnownCACertificates may be specified,
+                          not both. If CACertificateRefs is empty or unspecified, the configuration for
+                          WellKnownCACertificates MUST be honored instead if supported by the implementation.
+
+                          A CACertificateRef is invalid if:
+
+                          * It refers to a resource that cannot be resolved (e.g., the referenced resource
+                            does not exist) or is misconfigured (e.g., a ConfigMap does not contain a key
+                            named `ca.crt`). In this case, the Reason must be set to `InvalidCACertificateRef`
+                            and the Message of the Condition must indicate which reference is invalid and why.
+
+                          * It refers to an unknown or unsupported kind of resource. In this case, the Reason
+                            must be set to `InvalidKind` and the Message of the Condition must explain which
+                            kind of resource is unknown or unsupported.
+
+                          * It refers to a resource in another namespace. This may change in future
+                            spec updates.
+
+                          Implementations MAY choose to perform further validation of the certificate
+                          content (e.g., checking expiry or enforcing specific formats). In such cases,
+                          an implementation-specific Reason and Message must be set for the invalid reference.
+
+                          In all cases, the implementation MUST ensure the `ResolvedRefs` Condition on
+                          the BackendTLSPolicy is set to `status: False`, with a Reason and Message
+                          that indicate the cause of the error. Connections using an invalid
+                          CACertificateRef MUST fail, and the client MUST receive an HTTP 5xx error
+                          response. If ALL CACertificateRefs are invalid, the implementation MUST also
+                          ensure the `Accepted` Condition on the BackendTLSPolicy is set to
+                          `status: False`, with a Reason `NoValidCACertificate`.
+
+                          A single CACertificateRef to a Kubernetes ConfigMap kind has "Core" support.
+                          Implementations MAY choose to support attaching multiple certificates to
+                          a backend, but this behavior is implementation-specific.
+
+                          Support: Core - An optional single reference to a Kubernetes ConfigMap,
+                          with the CA certificate in a key named `ca.crt`.
+
+                          Support: Implementation-specific - More than one reference, other kinds
+                          of resources, or a single reference that includes multiple certificates.
+                        items:
+                          description: |-
+                            LocalObjectReference identifies an API object within the namespace of the
+                            referrer.
+                            The API object must be valid in the cluster; the Group and Kind must
+                            be registered in the cluster for this reference to be valid.
+
+                            References to objects with invalid Group and Kind are not valid, and must
+                            be rejected by the implementation, with appropriate Conditions set
+                            on the containing object.
+                          properties:
+                            group:
+                              description: |-
+                                Group is the group of the referent. For example, "gateway.networking.k8s.io".
+                                When unspecified or empty string, core API group is inferred.
+                              maxLength: 253
+                              pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                              type: string
+                            kind:
+                              description: Kind is kind of the referent. For example
+                                "HTTPRoute" or "Service".
+                              maxLength: 63
+                              minLength: 1
+                              pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
+                              type: string
+                            name:
+                              description: Name is the name of the referent.
+                              maxLength: 253
+                              minLength: 1
+                              type: string
+                          required:
+                          - group
+                          - kind
+                          - name
+                          type: object
+                        maxItems: 8
+                        type: array
+                        x-kubernetes-list-type: atomic
+                      hostname:
+                        description: |-
+                          Hostname is used for two purposes in the connection between Gateways and
+                          backends:
+
+                          1. Hostname MUST be used as the SNI to connect to the backend (RFC 6066).
+                          2. Hostname MUST be used for authentication and MUST match the certificate
+                             served by the matching backend, unless SubjectAltNames is specified.
+                          3. If SubjectAltNames are specified, Hostname can be used for certificate selection
+                             but MUST NOT be used for authentication. If you want to use the value
+                             of the Hostname field for authentication, you MUST add it to the SubjectAltNames list.
+
+                          Support: Core
+                        maxLength: 253
+                        minLength: 1
+                        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                        type: string
+                      subjectAltNames:
+                        description: |-
+                          SubjectAltNames contains one or more Subject Alternative Names.
+                          When specified the certificate served from the backend MUST
+                          have at least one Subject Alternate Name matching one of the specified SubjectAltNames.
+
+                          Support: Extended
+                        items:
+                          description: SubjectAltName represents Subject Alternative
+                            Name.
+                          properties:
+                            hostname:
+                              description: |-
+                                Hostname contains Subject Alternative Name specified in DNS name format.
+                                Required when Type is set to Hostname, ignored otherwise.
+
+                                Support: Core
+                              maxLength: 253
+                              minLength: 1
+                              pattern: ^(\*\.)?[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                              type: string
+                            type:
+                              description: |-
+                                Type determines the format of the Subject Alternative Name. Always required.
+
+                                Support: Core
+                              enum:
+                              - Hostname
+                              - URI
+                              type: string
+                            uri:
+                              description: |-
+                                URI contains Subject Alternative Name specified in a full URI format.
+                                It MUST include both a scheme (e.g., "http" or "ftp") and a scheme-specific-part.
+                                Common values include SPIFFE IDs like "spiffe://mycluster.example.com/ns/myns/sa/svc1sa".
+                                Required when Type is set to URI, ignored otherwise.
+
+                                Support: Core
+                              maxLength: 253
+                              minLength: 1
+                              pattern: ^(([^:/?#]+):)(//([^/?#]*))([^?#]*)(\?([^#]*))?(#(.*))?
+                              type: string
+                          required:
+                          - type
+                          type: object
+                          x-kubernetes-validations:
+                          - message: SubjectAltName element must contain Hostname,
+                              if Type is set to Hostname
+                            rule: '!(self.type == "Hostname" && (!has(self.hostname)
+                              || self.hostname == ""))'
+                          - message: SubjectAltName element must not contain Hostname,
+                              if Type is not set to Hostname
+                            rule: '!(self.type != "Hostname" && has(self.hostname)
+                              && self.hostname != "")'
+                          - message: SubjectAltName element must contain URI, if Type
+                              is set to URI
+                            rule: '!(self.type == "URI" && (!has(self.uri) || self.uri
+                              == ""))'
+                          - message: SubjectAltName element must not contain URI,
+                              if Type is not set to URI
+                            rule: '!(self.type != "URI" && has(self.uri) && self.uri
+                              != "")'
+                        maxItems: 5
+                        type: array
+                        x-kubernetes-list-type: atomic
+                      wellKnownCACertificates:
+                        description: |-
+                          WellKnownCACertificates specifies whether a well-known set of CA certificates
+                          may be used in the TLS handshake between the gateway and backend pod.
+
+                          If WellKnownCACertificates is unspecified or empty (""), then CACertificateRefs
+                          must be specified with at least one entry for a valid configuration. Only one of
+                          CACertificateRefs or WellKnownCACertificates may be specified, not both.
+                          If an implementation does not support the WellKnownCACertificates field, or
+                          the supplied value is not recognized, the implementation MUST ensure the
+                          `Accepted` Condition on the BackendTLSPolicy is set to `status: False`, with
+                          a Reason `Invalid`.
+
+                          Valid values include:
+                          * "System" - indicates that well-known system CA certificates should be used.
+
+                          Implementations MAY define their own sets of CA certificates. Such definitions
+                          MUST use an implementation-specific, prefixed name, such as
+                          `mycompany.com/my-custom-ca-certificates`.
+
+                          Support: Implementation-specific
+                        maxLength: 253
+                        minLength: 1
+                        pattern: ^(System|([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/([A-Za-z0-9][-A-Za-z0-9_.]{0,61})?[A-Za-z0-9]))$
+                        type: string
+                    required:
+                    - hostname
+                    type: object
+                    x-kubernetes-validations:
+                    - message: must not contain both CACertificateRefs and WellKnownCACertificates
+                      rule: '!(has(self.caCertificateRefs) && size(self.caCertificateRefs)
+                        > 0 && has(self.wellKnownCACertificates) && self.wellKnownCACertificates
+                        != "")'
+                    - message: must specify either CACertificateRefs or WellKnownCACertificates
+                      rule: (has(self.caCertificateRefs) && size(self.caCertificateRefs)
+                        > 0 || has(self.wellKnownCACertificates) && self.wellKnownCACertificates
+                        != "")
+                required:
+                - mode
+                type: object
+                x-kubernetes-validations:
+                - message: clientCertificateRef must be set if and only if mode is
+                    ClientAndServer
+                  rule: 'self.mode == ''ClientAndServer'' ? has(self.clientCertificateRef)
+                    : !has(self.clientCertificateRef)'
+              type:
+                description: Type defines the backend type.
+                enum:
+                - ExternalHostname
+                type: string
+            required:
+            - port
+            - type
+            type: object
+            x-kubernetes-validations:
+            - message: externalHostname must be set when type is ExternalHostname
+                and must be unset otherwise
+              rule: 'self.type == ''ExternalHostname'' ? has(self.externalHostname)
+                : !has(self.externalHostname)'
+          status:
+            description: Status defines the current state of XBackend.
+            properties:
+              parents:
+                description: |-
+                  Ancestors is a list of parent resources associated with this Backend,
+                  and the status of the Backend with respect to each parent.
+
+                  A maximum of 32 parents will be represented in this list. An empty list
+                  indicates that the Backend is not associated with any parents.
+                items:
+                  description: |-
+                    BackendAncestorStatus describes the status of a Backend with respect to a
+                    specific parent resource (typically a Gateway).
+                  properties:
+                    conditions:
+                      description: |-
+                        For Kubernetes API conventions, see:
+                        https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md#typical-status-properties
+                        conditions represent the current state of the Backend resource.
+                        Each condition has a unique type and reflects the status of a specific aspect of the resource.
+
+                        Defined condition types include:
+                        - "Accepted": the resource has been acknowledged and accepteed by the controller
+
+                        The status of each condition is one of True, False, or Unknown.
+                      items:
+                        description: Condition contains details for one aspect of
+                          the current state of this API Resource.
+                        properties:
+                          lastTransitionTime:
+                            description: |-
+                              lastTransitionTime is the last time the condition transitioned from one status to another.
+                              This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                            format: date-time
+                            type: string
+                          message:
+                            description: |-
+                              message is a human readable message indicating details about the transition.
+                              This may be an empty string.
+                            maxLength: 32768
+                            type: string
+                          observedGeneration:
+                            description: |-
+                              observedGeneration represents the .metadata.generation that the condition was set based upon.
+                              For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                              with respect to the current state of the instance.
+                            format: int64
+                            minimum: 0
+                            type: integer
+                          reason:
+                            description: |-
+                              reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                              Producers of specific condition types may define expected values and meanings for this field,
+                              and whether the values are considered a guaranteed API.
+                              The value should be a CamelCase string.
+                              This field may not be empty.
+                            maxLength: 1024
+                            minLength: 1
+                            pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                            type: string
+                          status:
+                            description: status of the condition, one of True, False,
+                              Unknown.
+                            enum:
+                            - "True"
+                            - "False"
+                            - Unknown
+                            type: string
+                          type:
+                            description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                            maxLength: 316
+                            pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                            type: string
+                        required:
+                        - lastTransitionTime
+                        - message
+                        - reason
+                        - status
+                        - type
+                        type: object
+                      type: array
+                      x-kubernetes-list-map-keys:
+                      - type
+                      x-kubernetes-list-type: map
+                    controllerName:
+                      description: |-
+                        ControllerName is a domain/path string that indicates the name of the
+                        controller that manages the Backend.
+
+                        Example: "example.net/gateway-controller".
+
+                        The format of this field is DOMAIN "/" PATH, where DOMAIN and PATH are
+                        valid Kubernetes names
+                        (https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names).
+                      maxLength: 253
+                      minLength: 1
+                      pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\/[A-Za-z0-9\/\-._~%!$&'()*+,;=:]+$
+                      type: string
+                    parentRef:
+                      description: AncestorRef identifies the parent resource that
+                        this status is associated with.
+                      properties:
+                        group:
+                          default: gateway.networking.k8s.io
+                          description: |-
+                            Group is the group of the referent.
+                            When unspecified, "gateway.networking.k8s.io" is inferred.
+                            To set the core API group (such as for a "Service" kind referent),
+                            Group must be explicitly set to "" (empty string).
+
+                            Support: Core
+                          maxLength: 253
+                          pattern: ^$|^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                          type: string
+                        kind:
+                          default: Gateway
+                          description: |-
+                            Kind is kind of the referent.
+
+                            There are two kinds of parent resources with "Core" support:
+
+                            * Gateway (Gateway conformance profile)
+                            * Service (Mesh conformance profile, ClusterIP Services only)
+
+                            Support for other resources is Implementation-Specific.
+                          maxLength: 63
+                          minLength: 1
+                          pattern: ^[a-zA-Z]([-a-zA-Z0-9]*[a-zA-Z0-9])?$
+                          type: string
+                        name:
+                          description: |-
+                            Name is the name of the referent.
+
+                            Support: Core
+                          maxLength: 253
+                          minLength: 1
+                          type: string
+                        namespace:
+                          description: |-
+                            Namespace is the namespace of the referent. When unspecified, this refers
+                            to the local namespace of the Route.
+
+                            Note that there are specific rules for ParentRefs which cross namespace
+                            boundaries. Cross-namespace references are only valid if they are explicitly
+                            allowed by something in the namespace they are referring to. For example:
+                            Gateway has the AllowedRoutes field, and ReferenceGrant provides a
+                            generic way to enable any other kind of cross-namespace reference.
+
+
+                            ParentRefs from a Route to a Service in the same namespace are "producer"
+                            routes, which apply default routing rules to inbound connections from
+                            any namespace to the Service.
+
+                            ParentRefs from a Route to a Service in a different namespace are
+                            "consumer" routes, and these routing rules are only applied to outbound
+                            connections originating from the same namespace as the Route, for which
+                            the intended destination of the connections are a Service targeted as a
+                            ParentRef of the Route.
+
+
+                            Support: Core
+                          maxLength: 63
+                          minLength: 1
+                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+                          type: string
+                        port:
+                          description: |-
+                            Port is the network port this Route targets. It can be interpreted
+                            differently based on the type of parent resource.
+
+                            When the parent resource is a Gateway, this targets all listeners
+                            listening on the specified port that also support this kind of Route(and
+                            select this Route). It's not recommended to set `Port` unless the
+                            networking behaviors specified in a Route must apply to a specific port
+                            as opposed to a listener(s) whose port(s) may be changed. When both Port
+                            and SectionName are specified, the name and port of the selected listener
+                            must match both specified values.
+
+
+                            When the parent resource is a Service, this targets a specific port in the
+                            Service spec. When both Port (experimental) and SectionName are specified,
+                            the name and port of the selected port must match both specified values.
+
+
+                            Implementations MAY choose to support other parent resources.
+                            Implementations supporting other types of parent resources MUST clearly
+                            document how/if Port is interpreted.
+
+                            For the purpose of status, an attachment is considered successful as
+                            long as the parent resource accepts it partially. For example, Gateway
+                            listeners can restrict which Routes can attach to them by Route kind,
+                            namespace, or hostname. If 1 of 2 Gateway listeners accept attachment
+                            from the referencing Route, the Route MUST be considered successfully
+                            attached. If no Gateway listeners accept attachment from this Route,
+                            the Route MUST be considered detached from the Gateway.
+
+                            Support: Extended
+                          format: int32
+                          maximum: 65535
+                          minimum: 1
+                          type: integer
+                        sectionName:
+                          description: |-
+                            SectionName is the name of a section within the target resource. In the
+                            following resources, SectionName is interpreted as the following:
+
+                            * Gateway: Listener name. When both Port (experimental) and SectionName
+                            are specified, the name and port of the selected listener must match
+                            both specified values.
+                            * Service: Port name. When both Port (experimental) and SectionName
+                            are specified, the name and port of the selected listener must match
+                            both specified values.
+
+                            Implementations MAY choose to support attaching Routes to other resources.
+                            If that is the case, they MUST clearly document how SectionName is
+                            interpreted.
+
+                            When unspecified (empty string), this will reference the entire resource.
+                            For the purpose of status, an attachment is considered successful if at
+                            least one section in the parent resource accepts it. For example, Gateway
+                            listeners can restrict which Routes can attach to them by Route kind,
+                            namespace, or hostname. If 1 of 2 Gateway listeners accept attachment from
+                            the referencing Route, the Route MUST be considered successfully
+                            attached. If no Gateway listeners accept attachment from this Route, the
+                            Route MUST be considered detached from the Gateway.
+
+                            Support: Core
+                          maxLength: 253
+                          minLength: 1
+                          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$
+                          type: string
+                      required:
+                      - name
+                      type: object
+                  required:
+                  - controllerName
+                  - parentRef
+                  type: object
+                maxItems: 32
+                type: array
+                x-kubernetes-list-type: atomic
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

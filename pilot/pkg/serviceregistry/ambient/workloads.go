@@ -63,7 +63,7 @@ func (a Builder) WorkloadsCollection(
 	nodes krt.Collection[Node],
 	meshConfig krt.Singleton[MeshConfig],
 	authorizationPolicies krt.Collection[model.WorkloadAuthorization],
-	peerAuths krt.Collection[*securityclient.PeerAuthentication],
+	peerAuthsByNs krt.Index[string, *securityclient.PeerAuthentication],
 	waypoints krt.Collection[Waypoint],
 	workloadServices krt.Collection[model.ServiceInfo],
 	workloadEntries krt.Collection[*networkingclient.WorkloadEntry],
@@ -80,7 +80,7 @@ func (a Builder) WorkloadsCollection(
 		a.podWorkloadBuilder(
 			meshConfig,
 			authorizationPolicies,
-			peerAuths,
+			peerAuthsByNs,
 			waypoints,
 			workloadServices,
 			WorkloadServicesNamespaceIndex,
@@ -93,14 +93,14 @@ func (a Builder) WorkloadsCollection(
 	// Workloads coming from workloadEntries. These are 1:1 with WorkloadEntry.
 	WorkloadEntryWorkloads := krt.NewCollection(
 		workloadEntries,
-		a.workloadEntryWorkloadBuilder(meshConfig, authorizationPolicies, peerAuths, waypoints, workloadServices, WorkloadServicesNamespaceIndex, namespaces),
+		a.workloadEntryWorkloadBuilder(meshConfig, authorizationPolicies, peerAuthsByNs, waypoints, workloadServices, WorkloadServicesNamespaceIndex, namespaces),
 		opts.WithName("WorkloadEntryWorkloads")...,
 	)
 	// Workloads coming from serviceEntries. These are inlined workloadEntries (under `spec.endpoints`); these serviceEntries will
 	// also be generating `workloadapi.Service` definitions in the `ServicesCollection` logic.
 	ServiceEntryWorkloads := krt.NewManyCollection(
 		serviceEntries,
-		a.serviceEntryWorkloadBuilder(meshConfig, authorizationPolicies, peerAuths, waypoints, namespaces, workloadServices),
+		a.serviceEntryWorkloadBuilder(meshConfig, authorizationPolicies, peerAuthsByNs, waypoints, namespaces, workloadServices),
 		opts.WithName("ServiceEntryWorkloads")...,
 	)
 	// Workloads coming from endpointSlices. These are for *manually added* endpoints. Typically, Kubernetes will insert each pod
@@ -144,7 +144,7 @@ func MergedGlobalWorkloadsCollection(
 	nodesByCluster krt.Index[cluster.ID, krt.Collection[krt.ObjectWithCluster[Node]]],
 	meshConfig krt.Singleton[MeshConfig],
 	localAuthorizationPolicies krt.Collection[model.WorkloadAuthorization],
-	localPeerAuths krt.Collection[*securityclient.PeerAuthentication],
+	localPeerAuthsByNs krt.Index[string, *securityclient.PeerAuthentication],
 	globalWaypoints krt.Collection[krt.Collection[Waypoint]],
 	waypointsByCluster krt.Index[cluster.ID, krt.Collection[Waypoint]],
 	localWorkloadServices krt.Collection[model.ServiceInfo],
@@ -164,7 +164,7 @@ func MergedGlobalWorkloadsCollection(
 			meshConfig,
 			globalNetworks.FetchLocalNetworkID,
 			localAuthorizationPolicies,
-			localPeerAuths,
+			localPeerAuthsByNs,
 			localWaypoints,
 			localWorkloadServices,
 			LocalWorkloadServicesNamespaceIndex,
@@ -191,7 +191,7 @@ func MergedGlobalWorkloadsCollection(
 			meshConfig,
 			globalNetworks.FetchLocalNetworkID,
 			localAuthorizationPolicies,
-			localPeerAuths,
+			localPeerAuthsByNs,
 			localWaypoints,
 			localWorkloadServices,
 			LocalWorkloadServicesNamespaceIndex,
@@ -216,7 +216,7 @@ func MergedGlobalWorkloadsCollection(
 		serviceEntryWorkloadBuilder(
 			meshConfig,
 			localAuthorizationPolicies,
-			localPeerAuths,
+			localPeerAuthsByNs,
 			localWaypoints,
 			localCluster.Namespaces(),
 			localWorkloadServices,
@@ -336,7 +336,7 @@ func MergedGlobalWorkloadsCollection(
 					meshConfig,
 					globalNetworks.FetchLocalNetworkID,
 					localAuthorizationPolicies,
-					localPeerAuths,
+					localPeerAuthsByNs,
 					waypoints,
 					globalWorkloadServices,
 					WorkloadServicesNamespaceIndex,
@@ -346,13 +346,7 @@ func MergedGlobalWorkloadsCollection(
 					domainSuffix,
 					c.ID,
 					func(ctx krt.HandlerContext) network.ID {
-						nw := krt.FetchOne(ctx, globalNetworks.RemoteSystemNamespaceNetworks, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, c.ID))
-						if nw == nil {
-							log.Warnf("Cluster %s does not have a network, skipping global workloads", c.ID)
-							ctx.DiscardResult()
-							return ""
-						}
-						return nw.Network
+						return globalNetworks.FetchRemoteSystemNamespaceNetwork(ctx, namespaces)
 					},
 					globalNetworks.GatewaysByNetwork,
 					flags,
@@ -384,20 +378,14 @@ func MergedGlobalWorkloadsCollection(
 					meshConfig,
 					globalNetworks.FetchLocalNetworkID,
 					localAuthorizationPolicies,
-					localPeerAuths,
+					localPeerAuthsByNs,
 					waypoints,
 					globalWorkloadServices,
 					WorkloadServicesNamespaceIndex,
 					namespaces,
 					c.ID,
 					func(ctx krt.HandlerContext) network.ID {
-						nw := krt.FetchOne(ctx, globalNetworks.RemoteSystemNamespaceNetworks, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, c.ID))
-						if nw == nil {
-							log.Warnf("Cluster %s does not have a network, skipping global workloads", c.ID)
-							ctx.DiscardResult()
-							return ""
-						}
-						return nw.Network
+						return globalNetworks.FetchRemoteSystemNamespaceNetwork(ctx, namespaces)
 					},
 					globalNetworks.GatewaysByNetwork,
 					flags,
@@ -429,19 +417,13 @@ func MergedGlobalWorkloadsCollection(
 				serviceEntryWorkloadBuilder(
 					meshConfig,
 					localAuthorizationPolicies,
-					localPeerAuths,
+					localPeerAuthsByNs,
 					waypoints,
 					namespaces,
 					globalWorkloadServices,
 					c.ID,
 					func(ctx krt.HandlerContext) network.ID {
-						nw := krt.FetchOne(ctx, globalNetworks.RemoteSystemNamespaceNetworks, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, c.ID))
-						if nw == nil {
-							log.Warnf("Cluster %s does not have a network, skipping global workloads", c.ID)
-							ctx.DiscardResult()
-							return ""
-						}
-						return nw.Network
+						return globalNetworks.FetchRemoteSystemNamespaceNetwork(ctx, namespaces)
 					},
 					globalNetworks.GatewaysByNetwork,
 					flags,
@@ -477,13 +459,7 @@ func MergedGlobalWorkloadsCollection(
 					domainSuffix,
 					c.ID,
 					func(ctx krt.HandlerContext) network.ID {
-						nw := krt.FetchOne(ctx, globalNetworks.RemoteSystemNamespaceNetworks, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, c.ID))
-						if nw == nil {
-							log.Warnf("Cluster %s does not have a network, skipping global workloads", c.ID)
-							ctx.DiscardResult()
-							return ""
-						}
-						return nw.Network
+						return globalNetworks.FetchRemoteSystemNamespaceNetwork(ctx, namespaces)
 					},
 				),
 				append(
@@ -527,7 +503,7 @@ func workloadEntryWorkloadBuilder(
 	meshConfig krt.Singleton[MeshConfig],
 	localNetworkGetter func(krt.HandlerContext) network.ID,
 	authorizationPolicies krt.Collection[model.WorkloadAuthorization],
-	peerAuths krt.Collection[*securityclient.PeerAuthentication],
+	peerAuthsByNs krt.Index[string, *securityclient.PeerAuthentication],
 	waypoints krt.Collection[Waypoint],
 	workloadServices krt.Collection[model.ServiceInfo],
 	workloadServicesNamespaceIndex krt.Index[string, model.ServiceInfo],
@@ -542,7 +518,7 @@ func workloadEntryWorkloadBuilder(
 		// WLE can put labels in multiple places; normalize this
 		wle = serviceentry.ConvertClientWorkloadEntry(wle)
 		meshCfg := krt.FetchOne(ctx, meshConfig.AsCollection())
-		policies := buildWorkloadPolicies(ctx, authorizationPolicies, peerAuths, meshCfg, wle.Labels, wle.Namespace)
+		policies := buildWorkloadPolicies(ctx, authorizationPolicies, peerAuthsByNs, meshCfg, wle.Labels, wle.Namespace)
 
 		appTunnel, targetWaypoint, waypointErr := computeWaypoint(ctx, waypoints, namespaces, wle.ObjectMeta)
 
@@ -616,7 +592,7 @@ func workloadEntryWorkloadBuilder(
 func (a Builder) workloadEntryWorkloadBuilder(
 	meshConfig krt.Singleton[MeshConfig],
 	authorizationPolicies krt.Collection[model.WorkloadAuthorization],
-	peerAuths krt.Collection[*securityclient.PeerAuthentication],
+	peerAuthsByNs krt.Index[string, *securityclient.PeerAuthentication],
 	waypoints krt.Collection[Waypoint],
 	workloadServices krt.Collection[model.ServiceInfo],
 	workloadServicesNamespaceIndex krt.Index[string, model.ServiceInfo],
@@ -626,7 +602,7 @@ func (a Builder) workloadEntryWorkloadBuilder(
 		meshConfig,
 		a.Networks.FetchLocalNetworkID,
 		authorizationPolicies,
-		peerAuths,
+		peerAuthsByNs,
 		waypoints,
 		workloadServices,
 		workloadServicesNamespaceIndex,
@@ -669,7 +645,7 @@ func podWorkloadBuilder(
 	meshConfig krt.Singleton[MeshConfig],
 	localNetworkGetter func(krt.HandlerContext) network.ID,
 	authorizationPolicies krt.Collection[model.WorkloadAuthorization],
-	peerAuths krt.Collection[*securityclient.PeerAuthentication],
+	peerAuthsByNs krt.Index[string, *securityclient.PeerAuthentication],
 	waypoints krt.Collection[Waypoint],
 	workloadServices krt.Collection[model.ServiceInfo],
 	workloadServicesNamespaceIndex krt.Index[string, model.ServiceInfo],
@@ -706,7 +682,7 @@ func podWorkloadBuilder(
 			return nil
 		}
 		meshCfg := krt.FetchOne(ctx, meshConfig.AsCollection())
-		policies := buildWorkloadPolicies(ctx, authorizationPolicies, peerAuths, meshCfg, p.Labels, p.Namespace)
+		policies := buildWorkloadPolicies(ctx, authorizationPolicies, peerAuthsByNs, meshCfg, p.Labels, p.Namespace)
 		fo := []krt.FetchOption{krt.FilterIndex(workloadServicesNamespaceIndex, p.Namespace), krt.FilterSelectsNonEmpty(p.GetLabels())}
 		if !features.EnableServiceEntrySelectPods {
 			fo = append(fo, krt.FilterGeneric(func(a any) bool {
@@ -774,7 +750,7 @@ func podWorkloadBuilder(
 func (a Builder) podWorkloadBuilder(
 	meshConfig krt.Singleton[MeshConfig],
 	authorizationPolicies krt.Collection[model.WorkloadAuthorization],
-	peerAuths krt.Collection[*securityclient.PeerAuthentication],
+	peerAuthsByNs krt.Index[string, *securityclient.PeerAuthentication],
 	waypoints krt.Collection[Waypoint],
 	workloadServices krt.Collection[model.ServiceInfo],
 	workloadServicesNamespaceIndex krt.Index[string, model.ServiceInfo],
@@ -786,7 +762,7 @@ func (a Builder) podWorkloadBuilder(
 		meshConfig,
 		a.Networks.FetchLocalNetworkID,
 		authorizationPolicies,
-		peerAuths,
+		peerAuthsByNs,
 		waypoints,
 		workloadServices,
 		workloadServicesNamespaceIndex,
@@ -870,7 +846,7 @@ func matchingServicesWithoutSelectors(
 func buildWorkloadPolicies(
 	ctx krt.HandlerContext,
 	authorizationPolicies krt.Collection[model.WorkloadAuthorization],
-	peerAuths krt.Collection[*securityclient.PeerAuthentication],
+	peerAuthsByNs krt.Index[string, *securityclient.PeerAuthentication],
 	meshCfg *MeshConfig,
 	workloadLabels map[string]string,
 	workloadNamespace string,
@@ -895,7 +871,7 @@ func buildWorkloadPolicies(
 		return t.ResourceName()
 	}))
 	// We could do a non-FilterGeneric but krt currently blows up if we depend on the same collection twice
-	auths := fetchPeerAuthentications(ctx, peerAuths, meshCfg, workloadNamespace, workloadLabels)
+	auths := fetchPeerAuthentications(ctx, peerAuthsByNs, meshCfg, workloadNamespace, workloadLabels)
 	policies = append(policies, convertedSelectorPeerAuthentications(meshCfg.GetRootNamespace(), auths)...)
 	return policies
 }
@@ -903,7 +879,7 @@ func buildWorkloadPolicies(
 func serviceEntryWorkloadBuilder(
 	meshConfig krt.Singleton[MeshConfig],
 	authorizationPolicies krt.Collection[model.WorkloadAuthorization],
-	peerAuths krt.Collection[*securityclient.PeerAuthentication],
+	peerAuthsByNs krt.Index[string, *securityclient.PeerAuthentication],
 	waypoints krt.Collection[Waypoint],
 	namespaces krt.Collection[*v1.Namespace],
 	workloadServices krt.Collection[model.ServiceInfo],
@@ -961,7 +937,7 @@ func serviceEntryWorkloadBuilder(
 				services = []model.ServiceInfo{allServices[i]}
 			}
 
-			policies := buildWorkloadPolicies(ctx, authorizationPolicies, peerAuths, meshCfg, se.Labels, se.Namespace)
+			policies := buildWorkloadPolicies(ctx, authorizationPolicies, peerAuthsByNs, meshCfg, se.Labels, se.Namespace)
 
 			var appTunnel *workloadapi.ApplicationTunnel
 			var targetWaypoint *Waypoint
@@ -1025,7 +1001,7 @@ func serviceEntryWorkloadBuilder(
 func (a Builder) serviceEntryWorkloadBuilder(
 	meshConfig krt.Singleton[MeshConfig],
 	authorizationPolicies krt.Collection[model.WorkloadAuthorization],
-	peerAuths krt.Collection[*securityclient.PeerAuthentication],
+	peerAuthsByNs krt.Index[string, *securityclient.PeerAuthentication],
 	waypoints krt.Collection[Waypoint],
 	namespaces krt.Collection[*v1.Namespace],
 	workloadServices krt.Collection[model.ServiceInfo],
@@ -1033,7 +1009,7 @@ func (a Builder) serviceEntryWorkloadBuilder(
 	return serviceEntryWorkloadBuilder(
 		meshConfig,
 		authorizationPolicies,
-		peerAuths,
+		peerAuthsByNs,
 		waypoints,
 		namespaces,
 		workloadServices,
@@ -1221,25 +1197,28 @@ func pickTrustDomain(mesh *MeshConfig) string {
 
 func fetchPeerAuthentications(
 	ctx krt.HandlerContext,
-	peerAuths krt.Collection[*securityclient.PeerAuthentication],
+	peerAuthsByNs krt.Index[string, *securityclient.PeerAuthentication],
 	meshCfg *MeshConfig,
 	ns string,
 	matchLabels map[string]string,
 ) []*securityclient.PeerAuthentication {
-	return krt.Fetch(ctx, peerAuths, krt.FilterGeneric(func(a any) bool {
-		pol := a.(*securityclient.PeerAuthentication)
-		if pol.Namespace == meshCfg.GetRootNamespace() && pol.Spec.Selector == nil {
-			return true
-		}
-		if pol.Namespace != ns {
-			return false
-		}
-		sel := pol.Spec.Selector
+	// Policies in the workload's own namespace apply if they have no selector or their selector matches.
+	auths := peerAuthsByNs.Fetch(ctx, ns, krt.FilterGeneric(func(a any) bool {
+		sel := a.(*securityclient.PeerAuthentication).Spec.Selector
 		if sel == nil {
 			return true // No selector matches everything
 		}
 		return labels.Instance(sel.MatchLabels).SubsetOf(matchLabels)
 	}))
+	// Mesh-wide policies live in the root namespace and must not have a selector. When the workload is
+	// itself in the root namespace, these are already covered by the fetch above.
+	if rootNamespace := meshCfg.GetRootNamespace(); ns != rootNamespace {
+		rootAuths := peerAuthsByNs.Fetch(ctx, rootNamespace, krt.FilterGeneric(func(a any) bool {
+			return a.(*securityclient.PeerAuthentication).Spec.Selector == nil
+		}))
+		auths = append(auths, rootAuths...)
+	}
+	return auths
 }
 
 func constructServicesFromWorkloadEntry(p *networkingv1alpha3.WorkloadEntry, services []model.ServiceInfo) map[string]*workloadapi.PortList {

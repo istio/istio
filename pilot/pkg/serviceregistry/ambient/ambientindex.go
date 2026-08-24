@@ -337,12 +337,13 @@ func New(options Options) Index {
 	}, opts.WithName("NamespacesInfo")...)
 
 	NodeLocality := NodesCollection(Nodes, opts.WithName("NodeLocality")...)
+	PeerAuthsByNs := krt.NewNamespaceIndex(PeerAuths)
 	Workloads := builder.WorkloadsCollection(
 		Pods,
 		NodeLocality,
 		a.meshConfig,
 		AuthorizationPolicies,
-		PeerAuths,
+		PeerAuthsByNs,
 		Waypoints,
 		WorkloadServices,
 		WorkloadEntries,

@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh/meshwatcher"
@@ -54,6 +55,8 @@ type Controller struct {
 
 	store     model.ConfigStore
 	clusterID cluster.ID
+
+	domainSuffix string
 
 	stop        chan struct{}
 	krtDebugger *krt.DebugHandler
@@ -85,6 +88,7 @@ type Inputs struct {
 	ExternalWorkloads krt.StaticCollection[*model.WorkloadInstance]
 	// ExternalWorkloadsByIP attributes a service instance event back to the workload kind that produced it.
 	ExternalWorkloadsByIP krt.Index[string, *model.WorkloadInstance]
+	XBackends             krt.Collection[config.Config]
 }
 
 type Outputs struct {
@@ -173,6 +177,12 @@ func WithKRTDebugger(debugger *krt.DebugHandler) Option {
 	}
 }
 
+func WithDomainSuffix(domainSuffix string) Option {
+	return func(o *Controller) {
+		o.domainSuffix = domainSuffix
+	}
+}
+
 // NewController creates a new ServiceEntry discovery service.
 func NewController(configController model.ConfigStoreController,
 	xdsUpdater model.XDSUpdater,
@@ -213,6 +223,9 @@ func newController(
 	for _, o := range options {
 		o(s)
 	}
+	if s.domainSuffix == "" {
+		s.domainSuffix = constants.DefaultClusterLocalDomain
+	}
 
 	s.opts = krt.NewOptionsBuilder(stop, "serviceentry", s.krtDebugger)
 	s.inputs = Inputs{
@@ -227,6 +240,12 @@ func newController(
 		s.inputs.ExternalWorkloadsByIP = krt.NewIndex(s.inputs.ExternalWorkloads, "ip", func(wi *model.WorkloadInstance) []string {
 			return []string{wi.Endpoint.FirstAddressOrNil()}
 		})
+		if features.EnableAlphaGatewayAPI {
+			s.inputs.XBackends = store.KrtCollection(gvk.XBackend)
+		}
+		if s.inputs.XBackends == nil {
+			s.inputs.XBackends = krt.NewStaticCollection[config.Config](nil, nil, s.opts.WithName("disable/XBackend")...)
+		}
 	}
 
 	s.buildCollections()
@@ -265,8 +284,14 @@ func (s *Controller) buildCollections() {
 		)
 		workloadsByNamespace := krt.NewNamespaceIndex(allWorkloads)
 
+		backendServiceEntries := krt.NewCollection(s.inputs.XBackends, backendToServiceEntry(s.domainSuffix), s.opts.WithName("inputs/BackendServiceEntries")...)
+		combinedServiceEntries := krt.JoinCollection(
+			[]krt.Collection[config.Config]{s.inputs.ServiceEntries, backendServiceEntries},
+			s.opts.WithName("inputs/combinedServiceEntries")...,
+		)
+
 		services, servicesByNsHost, servicesByHost := services(
-			s.inputs.ServiceEntries,
+			combinedServiceEntries,
 			s.inputs.MeshConfig,
 			s.inputs.Namespaces,
 			workloadsByNamespace,
