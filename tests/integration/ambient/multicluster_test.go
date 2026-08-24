@@ -19,6 +19,7 @@ package ambient
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -42,6 +43,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/echo/util/traffic"
+	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -401,10 +403,9 @@ func scaleDeploymentOrFail(t framework.TestContext, c cluster.Cluster, namespace
 const (
 	// How long we send traffic before rotating the remote secret, to establish a baseline.
 	rotationBaselineWindow = 5 * time.Second
-	// How long we keep sending traffic after rotating the remote secret. The rotation is handled
-	// asynchronously: istiod builds a new client for the remote cluster, waits for its informers to
-	// sync and swaps the collections built on top of them, so the window has to be wide enough to
-	// cover the whole swap.
+	// How long we keep sending traffic after rotating the remote secret, to catch requests dropped
+	// while the collections are swapped. Completion of the swap is waited on separately, so this window
+	// does not have to cover it.
 	rotationObservationWindow = 15 * time.Second
 )
 
@@ -414,7 +415,6 @@ const (
 // tests/integration/pilot, which covers the same scenario for sidecars.
 func TestMulticlusterRemoteSecretRotation(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
-		t.Skip("temporary skip")
 		if !t.Settings().Ambient || !t.Settings().AmbientMultiNetwork {
 			t.Skip("this test is ambient multi-cluster specific")
 		}
@@ -513,6 +513,16 @@ func TestMulticlusterRemoteSecretRotation(t *testing.T) {
 		// Wait until the remote cluster's configuration has been programmed before measuring anything.
 		callTarget()
 
+		originalKubeconfig := slices.Clone(findRemoteSecretOrFail(t, local, remote).Data[remote.Name()])
+		// Safety net in case the test fails before restoring the kubeconfig itself. Writing back bytes
+		// that are already there is a no-op for istiod, which skips updates that leave the kubeconfig
+		// unchanged.
+		t.Cleanup(func() {
+			if err := setRemoteKubeconfig(local, remote, originalKubeconfig); err != nil {
+				t.Logf("failed to restore the remote secret during cleanup: %v", err)
+			}
+		})
+
 		// Short per-request timeout and no retries, so a request that is dropped while the collections
 		// are swapped is counted as a failure instead of being silently retried.
 		trafficOptions := callOptions
@@ -528,8 +538,12 @@ func TestMulticlusterRemoteSecretRotation(t *testing.T) {
 		t.Log("Running baseline cross-cluster traffic")
 		time.Sleep(rotationBaselineWindow)
 
+		// Keep the kubeconfig semantically identical while changing its bytes. This is what a credential
+		// rotation looks like to istiod: the same cluster, but a new client, new informers and new
+		// collections built on top of them.
 		t.Logf("Rotating the remote secret for cluster %s in cluster %s", remote.Name(), local.Name())
-		rotateRemoteSecretOrFail(t, local, remote)
+		rotated := append(slices.Clone(originalKubeconfig), []byte("\n# rotated by integration test\n")...)
+		setRemoteKubeconfigOrFail(t, local, remote, rotated)
 
 		t.Log("Running cross-cluster traffic through the rotation")
 		time.Sleep(rotationObservationWindow)
@@ -538,57 +552,99 @@ func TestMulticlusterRemoteSecretRotation(t *testing.T) {
 		t.Logf("traffic during remote secret rotation:\n%s", result)
 		result.CheckSuccessRate(t, 1.0)
 
-		// Finally, make sure the remote cluster's configuration is still being served, and is not a
-		// stale snapshot built on the informers that were shut down with the previous client.
+		waitForRemoteClusterSyncedOrFail(t, local, remote)
+		// Make sure the remote cluster's configuration is still being served, and is not a stale snapshot
+		// built on the informers that were shut down with the previous client.
+		callTarget(retry.Converge(5))
+
+		// Put the original kubeconfig back. That is another rotation, so it has to settle before the test
+		// returns: handing a half-rotated control plane to whatever runs next makes it flaky.
+		t.Log("Restoring the original remote secret")
+		setRemoteKubeconfigOrFail(t, local, remote, originalKubeconfig)
+		waitForRemoteClusterSyncedOrFail(t, local, remote)
 		callTarget(retry.Converge(5))
 	})
 }
 
-// findRemoteSecretOrFail returns the multi-cluster secret in local that holds remote's kubeconfig.
-func findRemoteSecretOrFail(t framework.TestContext, local, remote cluster.Cluster) *corev1.Secret {
+// waitForRemoteClusterSyncedOrFail waits until every istiod in local reports remote as synced. A
+// rotation is handled asynchronously: istiod builds a new client for the cluster and only swaps the
+// collections built on top of it once that client's informers have synced.
+func waitForRemoteClusterSyncedOrFail(t framework.TestContext, local, remote cluster.Cluster) {
 	t.Helper()
 
-	secretList, err := local.Kube().CoreV1().Secrets(i.Settings().SystemNamespace).List(t.Context(), metav1.ListOptions{
+	istioCtl := istioctl.NewOrFail(t, istioctl.Config{Cluster: local})
+	retry.UntilSuccessOrFail(t, func() error {
+		out, _, err := istioCtl.Invoke([]string{"remote-clusters"})
+		if err != nil {
+			return err
+		}
+		// One row per istiod instance: NAME SECRET STATUS ISTIOD REVISION. The status is looked up by
+		// value rather than by column, since the revision column is empty for the default revision.
+		rows := 0
+		for _, line := range strings.Split(out, "\n") {
+			fields := strings.Fields(line)
+			if len(fields) == 0 || fields[0] != remote.Name() {
+				continue
+			}
+			rows++
+			if !slices.Contains(fields, "synced") {
+				return fmt.Errorf("cluster %s is not synced: %s", remote.Name(), line)
+			}
+		}
+		if rows == 0 {
+			return fmt.Errorf("cluster %s is not listed by istiod in cluster %s:\n%s", remote.Name(), local.Name(), out)
+		}
+		return nil
+		// Converge, so that reading a status that istiod has not had the chance to invalidate yet is not
+		// mistaken for the rotation being over.
+	}, retry.Timeout(2*time.Minute), retry.Delay(2*time.Second), retry.Converge(3))
+}
+
+// findRemoteSecret returns the multi-cluster secret in local that holds remote's kubeconfig.
+func findRemoteSecret(local, remote cluster.Cluster) (*corev1.Secret, error) {
+	secretList, err := local.Kube().CoreV1().Secrets(i.Settings().SystemNamespace).List(context.Background(), metav1.ListOptions{
 		LabelSelector: "istio/multiCluster=true",
 	})
 	if err != nil {
-		t.Fatal(err)
+		return nil, err
 	}
 	for _, secret := range secretList.Items {
 		if _, found := secret.Data[remote.Name()]; found {
-			return secret.DeepCopy()
+			return secret.DeepCopy(), nil
 		}
 	}
 
-	t.Fatalf("could not find remote secret for cluster %s in cluster %s", remote.Name(), local.Name())
+	return nil, fmt.Errorf("could not find remote secret for cluster %s in cluster %s", remote.Name(), local.Name())
+}
+
+func findRemoteSecretOrFail(t framework.TestContext, local, remote cluster.Cluster) *corev1.Secret {
+	t.Helper()
+
+	secret, err := findRemoteSecret(local, remote)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return secret
+}
+
+// setRemoteKubeconfig writes kubeconfig as the one local holds for remote. Every write whose bytes
+// differ from the current ones is a credential rotation as far as istiod is concerned.
+func setRemoteKubeconfig(local, remote cluster.Cluster, kubeconfig []byte) error {
+	secret, err := findRemoteSecret(local, remote)
+	if err != nil {
+		return err
+	}
+	secret.Data[remote.Name()] = kubeconfig
+	if _, err := local.Kube().CoreV1().Secrets(secret.Namespace).Update(context.Background(), secret, metav1.UpdateOptions{}); err != nil {
+		return fmt.Errorf("failed to update remote secret %s: %w", secret.Name, err)
+	}
 	return nil
 }
 
-// rotateRemoteSecretOrFail rewrites the kubeconfig that local holds for remote, keeping it
-// semantically identical while changing its bytes. This is what a credential rotation looks like to
-// istiod: the same cluster, but a new client, new informers and new collections built on top of them.
-// The original kubeconfig is restored on cleanup.
-func rotateRemoteSecretOrFail(t framework.TestContext, local, remote cluster.Cluster) {
+func setRemoteKubeconfigOrFail(t framework.TestContext, local, remote cluster.Cluster, kubeconfig []byte) {
 	t.Helper()
 
-	secrets := local.Kube().CoreV1().Secrets(i.Settings().SystemNamespace)
-	remoteSecret := findRemoteSecretOrFail(t, local, remote)
-
-	originalKubeconfig := slices.Clone(remoteSecret.Data[remote.Name()])
-	t.Cleanup(func() {
-		secret, err := secrets.Get(context.Background(), remoteSecret.Name, metav1.GetOptions{})
-		if err != nil {
-			t.Logf("failed to get remote secret %s during cleanup: %v", remoteSecret.Name, err)
-			return
-		}
-		secret.Data[remote.Name()] = originalKubeconfig
-		if _, err := secrets.Update(context.Background(), secret, metav1.UpdateOptions{}); err != nil {
-			t.Logf("failed to restore remote secret %s during cleanup: %v", remoteSecret.Name, err)
-		}
-	})
-
-	remoteSecret.Data[remote.Name()] = append(slices.Clone(originalKubeconfig), []byte("\n# rotated by integration test\n")...)
-	if _, err := secrets.Update(t.Context(), remoteSecret, metav1.UpdateOptions{}); err != nil {
+	if err := setRemoteKubeconfig(local, remote, kubeconfig); err != nil {
 		t.Fatal(err)
 	}
 }
