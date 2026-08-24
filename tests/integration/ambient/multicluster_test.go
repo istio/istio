@@ -405,7 +405,7 @@ const (
 	// asynchronously: istiod builds a new client for the remote cluster, waits for its informers to
 	// sync and swaps the collections built on top of them, so the window has to be wide enough to
 	// cover the whole swap.
-	rotationObservationWindow = 60 * time.Second
+	rotationObservationWindow = 15 * time.Second
 )
 
 // TestMulticlusterRemoteSecretRotation verifies that rotating a remote cluster's secret does not
