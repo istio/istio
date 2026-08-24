@@ -282,6 +282,79 @@ func TestIndexAsCollection(t *testing.T) {
 	})
 }
 
+func TestFilterIndexes(t *testing.T) {
+	stop := test.NewStop(t)
+	opts := testOptions(t)
+	c := kube.NewFakeClient()
+	kpc := kclient.New[*corev1.Pod](c)
+	pc := clienttest.Wrap(t, kpc)
+	podsCol := krt.WrapClient[*corev1.Pod](kpc, opts.WithName("Pods")...)
+	c.RunAndWait(stop)
+	SimplePods := SimplePodCollection(podsCol, opts)
+	LabelIndex := krt.NewIndex[string, SimplePod](SimplePods, "label", func(o SimplePod) []string {
+		var out []string
+		for k, v := range o.GetLabels() {
+			out = append(out, k+"="+v)
+		}
+		return out
+	})
+	collect := func(pods []SimplePod) *string {
+		names := slices.Sort(slices.Map(pods, SimplePod.ResourceName))
+		return ptr.Of(strings.Join(names, ","))
+	}
+	// Fetch by two keys of the index; a pod matching both must be returned only once.
+	Both := krt.NewSingleton[string](func(ctx krt.HandlerContext) *string {
+		return collect(krt.Fetch(ctx, SimplePods, krt.FilterIndexes(LabelIndex, "a=1", "b=2")))
+	}, opts.WithName("Both")...)
+	// Fetch by no keys; matches nothing, no matter what churns.
+	None := krt.NewSingleton[string](func(ctx krt.HandlerContext) *string {
+		return collect(krt.Fetch(ctx, SimplePods, krt.FilterIndexes(LabelIndex)))
+	}, opts.WithName("None")...)
+	Both.AsCollection().WaitUntilSynced(stop)
+	None.AsCollection().WaitUntilSynced(stop)
+
+	assertBoth := func(want string) {
+		t.Helper()
+		assert.EventuallyEqual(t, Both.Get, ptr.Of(want))
+		assert.Equal(t, None.Get(), ptr.Of(""))
+	}
+
+	mkPod := func(name string, lbls map[string]string) *corev1.Pod {
+		return &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "ns", Labels: lbls},
+			Status:     corev1.PodStatus{PodIP: "1.2.3.4"},
+		}
+	}
+
+	// Pods entering via each key show up...
+	pod1 := mkPod("pod1", map[string]string{"a": "1"})
+	pc.CreateOrUpdateStatus(pod1)
+	assertBoth("ns/pod1")
+	pod2 := mkPod("pod2", map[string]string{"b": "2"})
+	pc.CreateOrUpdateStatus(pod2)
+	assertBoth("ns/pod1,ns/pod2")
+	// ...a pod matching both keys shows up exactly once...
+	pod3 := mkPod("pod3", map[string]string{"a": "1", "b": "2"})
+	pc.CreateOrUpdateStatus(pod3)
+	assertBoth("ns/pod1,ns/pod2,ns/pod3")
+	// ...and one matching neither does not show up.
+	pod4 := mkPod("pod4", map[string]string{"c": "3"})
+	pc.CreateOrUpdateStatus(pod4)
+	assertBoth("ns/pod1,ns/pod2,ns/pod3")
+
+	// An update moving a pod out of all fetched keys triggers recomputation.
+	pod1.Labels = map[string]string{"c": "3"}
+	pc.CreateOrUpdateStatus(pod1)
+	assertBoth("ns/pod2,ns/pod3")
+	// An update moving it back in under the other key does too.
+	pod1.Labels = map[string]string{"b": "2"}
+	pc.CreateOrUpdateStatus(pod1)
+	assertBoth("ns/pod1,ns/pod2,ns/pod3")
+
+	pc.Delete(pod2.Name, pod2.Namespace)
+	assertBoth("ns/pod1,ns/pod3")
+}
+
 type PodCounts struct {
 	ByIP   int
 	ByName int

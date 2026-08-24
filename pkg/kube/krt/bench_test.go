@@ -261,3 +261,59 @@ func BenchmarkControllers(b *testing.B) {
 		benchmark(b, NewLegacy)
 	})
 }
+
+type benchService struct {
+	krt.Named
+	Selector map[string]string
+}
+
+func (s benchService) GetLabelSelector() map[string]string {
+	return s.Selector
+}
+
+// BenchmarkFetchSelectorMatch compares two ways of fetching the services whose label selector
+// matches a given workload: a namespace index (materializes every service in the namespace,
+// then filters) versus a selector-pair index (looks up only the candidates sharing a selector
+// pair with the workload). This is the access pattern of the ambient workload builders.
+func BenchmarkFetchSelectorMatch(b *testing.B) {
+	log.FindScope("krt").SetOutputLevel(log.InfoLevel)
+	const numServices = 1000
+	services := make([]benchService, 0, numServices)
+	for i := 0; i < numServices; i++ {
+		services = append(services, benchService{
+			Named:    krt.Named{Namespace: "ns", Name: fmt.Sprintf("svc-%d", i)},
+			Selector: map[string]string{"app": fmt.Sprintf("app-%d", i)},
+		})
+	}
+	podLabels := map[string]string{"app": "app-42", "other": "label"}
+
+	Services := krt.NewStaticCollection(nil, services)
+	NamespaceIndex := krt.NewNamespaceIndex(Services)
+	PairIndex := krt.NewIndex(Services, "selectorPairs", func(s benchService) []string {
+		keys := make([]string, 0, len(s.Selector))
+		for k, v := range s.Selector {
+			keys = append(keys, s.Namespace+"/"+k+"="+v)
+		}
+		return keys
+	})
+	pairKeys := make([]string, 0, len(podLabels))
+	for k, v := range podLabels {
+		pairKeys = append(pairKeys, "ns/"+k+"="+v)
+	}
+
+	run := func(b *testing.B, opt krt.FetchOption) {
+		b.ReportAllocs()
+		for n := 0; n < b.N; n++ {
+			got := krt.Fetch(krt.TestingDummyContext{}, Services, opt, krt.FilterSelectsNonEmpty(podLabels))
+			if len(got) != 1 || got[0].Name != "svc-42" {
+				b.Fatalf("unexpected fetch result: %v", got)
+			}
+		}
+	}
+	b.Run("namespace-index", func(b *testing.B) {
+		run(b, krt.FilterIndex(NamespaceIndex, "ns"))
+	})
+	b.Run("selector-pair-index", func(b *testing.B) {
+		run(b, krt.FilterIndexes(PairIndex, pairKeys...))
+	})
+}
