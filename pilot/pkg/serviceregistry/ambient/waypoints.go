@@ -102,50 +102,24 @@ func fetchWaypointForTarget(
 	namespaces krt.Collection[*v1.Namespace],
 	o metav1.ObjectMeta,
 ) (*Waypoint, *model.StatusMessage) {
-	// namespace to be used when the annotation doesn't include a namespace
-	fallbackNamespace := o.Namespace
-	// try fetching the waypoint defined on the object itself
-	wp, isNone := GetUseWaypoint(o, fallbackNamespace)
-	if isNone {
-		// we've got a local override here opting out of waypoint
+	wp := ResolveUseWaypoint(ctx, namespaces, o)
+	if wp == nil {
+		// neither o nor its namespace has a use-waypoint label, or o opted out with "none"
 		return nil, nil
 	}
-	if wp != nil {
-		// plausible the object has a waypoint defined but that waypoint's underlying gateway is not ready, in this case we'd return nil here even if
-		// the namespace-defined waypoint is ready and would not be nil... is this OK or should we handle that? Could lead to odd behavior when
-		// o was reliant on the namespace waypoint and then gets a use-waypoint label added before that gateway is ready.
-		// goes from having a waypoint to having no waypoint and then eventually gets a waypoint back
-		w := krt.FetchOne[Waypoint](ctx, waypoints, krt.FilterKey(wp.ResourceName()))
-		if w != nil {
-			if !w.AllowsAttachmentFromNamespaceOrLookup(ctx, namespaces, fallbackNamespace) {
-				return nil, ReportWaypointAttachmentDenied(w.ResourceName())
-			}
-			return w, nil
-		}
+	// plausible the object has a waypoint defined but that waypoint's underlying gateway is not ready, in this case we'd return nil here even if
+	// the namespace-defined waypoint is ready and would not be nil... is this OK or should we handle that? Could lead to odd behavior when
+	// o was reliant on the namespace waypoint and then gets a use-waypoint label added before that gateway is ready.
+	// goes from having a waypoint to having no waypoint and then eventually gets a waypoint back
+	w := krt.FetchOne[Waypoint](ctx, waypoints, krt.FilterKey(wp.ResourceName()))
+	if w == nil {
 		// Todo: we may need to pull this from Waypoint, it could be for other reasons
 		return nil, ReportWaypointIsNotReady(wp.ResourceName())
 	}
-
-	// try fetching the namespace-defined waypoint
-	namespace := ptr.OrEmpty[*v1.Namespace](krt.FetchOne[*v1.Namespace](ctx, namespaces, krt.FilterKey(o.Namespace)))
-	// this probably should never be nil. How would o exist in a namespace we know nothing about? maybe edge case of starting the controller or ns delete?
-	if namespace != nil {
-		// toss isNone, we don't need to know /why/ we got nil
-		wp, _ := GetUseWaypoint(namespace.ObjectMeta, fallbackNamespace)
-		if wp != nil {
-			w := krt.FetchOne[Waypoint](ctx, waypoints, krt.FilterKey(wp.ResourceName()))
-			if w != nil {
-				if !w.AllowsAttachmentFromNamespace(namespace) {
-					return nil, ReportWaypointAttachmentDenied(w.ResourceName())
-				}
-				return w, nil
-			}
-			return nil, ReportWaypointIsNotReady(wp.ResourceName())
-		}
+	if !w.AllowsAttachmentFromNamespaceOrLookup(ctx, namespaces, o.Namespace) {
+		return nil, ReportWaypointAttachmentDenied(w.ResourceName())
 	}
-
-	// neither o nor it's namespace has a use-waypoint label
-	return nil, nil
+	return w, nil
 }
 
 // SAFETY: if fetching waypoints for a ServiceEntry visibility must be taken into account. For Kubernetes services a nil visibility singleton is expected
@@ -229,6 +203,29 @@ func GetUseWaypoint(meta metav1.ObjectMeta, defaultNamespace string) (named *krt
 	return nil, false
 }
 
+// ResolveUseWaypoint resolves the primary waypoint reference for o: the use-waypoint label on the
+// object itself, falling back to its namespace's, honoring the "none" opt-out. Nil if o names no
+// waypoint. Only the reference is resolved; whether the waypoint exists is up to the caller.
+func ResolveUseWaypoint(
+	ctx krt.HandlerContext,
+	namespaces krt.Collection[*v1.Namespace],
+	o metav1.ObjectMeta,
+) *krt.Named {
+	wp, isNone := GetUseWaypoint(o, o.Namespace)
+	if isNone {
+		return nil
+	}
+	if wp != nil {
+		return wp
+	}
+	ns := ptr.OrEmpty(krt.FetchOne(ctx, namespaces, krt.FilterKey(o.Namespace)))
+	if ns == nil {
+		return nil
+	}
+	wp, _ = GetUseWaypoint(ns.ObjectMeta, o.Namespace)
+	return wp
+}
+
 func (w Waypoint) ResourceName() string {
 	return w.GetNamespace() + "/" + w.GetName()
 }
@@ -292,6 +289,28 @@ func ResolveUseWaypointCanary(
 	}
 	weight, valid = getCanaryWeight(o, nsMeta)
 	return named, weight, valid
+}
+
+// ResolveWaypointRefs returns references to every waypoint fronting o: the primary and, when o
+// declares a usable canary (distinct from the primary, with a valid weight), the canary. Empty when
+// o names no waypoint or opts out with "none". This is the reference-level counterpart of
+// buildWeightedWaypoints: a canary that helper ignores fronts nothing here either. Only references
+// are resolved; existence, attachment and traffic-type checks on the waypoints are the caller's.
+func ResolveWaypointRefs(
+	ctx krt.HandlerContext,
+	namespaces krt.Collection[*v1.Namespace],
+	o metav1.ObjectMeta,
+) []krt.Named {
+	primary := ResolveUseWaypoint(ctx, namespaces, o)
+	if primary == nil {
+		return nil
+	}
+	refs := []krt.Named{*primary}
+	if canary, _, valid := ResolveUseWaypointCanary(ctx, namespaces, o); canary != nil && valid &&
+		canary.ResourceName() != primary.ResourceName() {
+		refs = append(refs, *canary)
+	}
+	return refs
 }
 
 // resolveCanaryWaypoint applies the primary waypoint attachment and traffic-type checks.
@@ -581,20 +600,6 @@ func (w Waypoint) AllowsAttachmentFromNamespaceOrLookup(ctx krt.HandlerContext, 
 	default:
 		// Should be impossible
 		return w.Namespace == namespace
-	}
-}
-
-func (w Waypoint) AllowsAttachmentFromNamespace(namespace *v1.Namespace) bool {
-	switch w.AllowedRoutes.FromNamespaces {
-	case gatewayv1.NamespacesFromAll:
-		return true
-	case gatewayv1.NamespacesFromSelector:
-		return w.AllowedRoutes.Selector.Matches(labels.Set(namespace.GetLabels()))
-	case gatewayv1.NamespacesFromSame:
-		return w.Namespace == namespace.Name
-	default:
-		// Should be impossible
-		return w.Namespace == namespace.Name
 	}
 }
 

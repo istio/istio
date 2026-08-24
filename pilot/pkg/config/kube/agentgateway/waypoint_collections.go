@@ -16,7 +16,6 @@ package agentgateway
 
 import (
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
@@ -65,22 +64,19 @@ func BuildWaypointServiceBindings(
 	opts krt.OptionsBuilder,
 ) krt.Collection[WaypointServiceBinding] {
 	return krt.NewManyCollection(services, func(ctx krt.HandlerContext, svc *corev1.Service) []WaypointServiceBinding {
-		// check if the service or its namespace has the use-waypoint label
-		primary := resolveUseWaypoint(ctx, svc.ObjectMeta, namespaces)
-		if primary == nil {
+		refs := ambient.ResolveWaypointRefs(ctx, namespaces, svc.ObjectMeta)
+		if len(refs) == 0 {
 			return nil
 		}
 		// The primary must exist for the service to be fronted at all, whatever class it is.
-		primaryGw := ptr.Flatten(krt.FetchOne(ctx, gateways, krt.FilterKey(primary.ResourceName())))
+		primaryGw := ptr.Flatten(krt.FetchOne(ctx, gateways, krt.FilterKey(refs[0].ResourceName())))
 		if primaryGw == nil {
 			return nil
 		}
 
 		fronting := []*gatewayv1.Gateway{primaryGw}
-		// A canary with an unparseable weight is ignored by the ambient index too, so it fronts
-		// nothing and needs no config.
-		if canary, _, validWeight := ambient.ResolveUseWaypointCanary(ctx, namespaces, svc.ObjectMeta); canary != nil && validWeight &&
-			canary.ResourceName() != primary.ResourceName() {
+		// A missing canary Gateway drops only the canary binding, not the service's.
+		for _, canary := range refs[1:] {
 			if gw := ptr.Flatten(krt.FetchOne(ctx, gateways, krt.FilterKey(canary.ResourceName()))); gw != nil {
 				fronting = append(fronting, gw)
 			}
@@ -100,30 +96,4 @@ func BuildWaypointServiceBindings(
 		}
 		return bindings
 	}, opts.WithName("WaypointServiceBindings")...)
-}
-
-// resolveUseWaypoint looks up the use-waypoint label on a service or its namespace
-// and returns the referenced waypoint gateway, if any.
-func resolveUseWaypoint(
-	ctx krt.HandlerContext,
-	meta metav1.ObjectMeta,
-	namespaces krt.Collection[*corev1.Namespace],
-) *krt.Named {
-	// Check object labels first
-	// These labels take precedence over namespace labels
-	wp, isNone := ambient.GetUseWaypoint(meta, meta.Namespace)
-	if isNone {
-		return nil
-	}
-	if wp != nil {
-		return wp
-	}
-
-	// Fall back to namespace labels
-	ns := ptr.Flatten(krt.FetchOne(ctx, namespaces, krt.FilterKey(meta.Namespace)))
-	if ns == nil {
-		return nil
-	}
-	wp, _ = ambient.GetUseWaypoint(ns.ObjectMeta, meta.Namespace)
-	return wp
 }

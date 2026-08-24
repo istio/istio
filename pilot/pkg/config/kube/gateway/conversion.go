@@ -591,39 +591,19 @@ func waypointManagedByAnotherController(ctx RouteContext, parentRef parentRefere
 		return false
 	}
 
-	primary := resolveUseWaypointRef(ctx, meta)
-	if primary == nil {
-		return false
-	}
 	if ctx.Gateways == nil || ctx.GatewayClasses == nil {
 		return false
 	}
-	if !waypointClassManagedByAnotherController(ctx, *primary) {
+	refs := ambient.ResolveWaypointRefs(ctx.Krt, ctx.Namespaces, meta)
+	if len(refs) == 0 {
 		return false
 	}
-	// Ignore canaries that do not front the service.
-	canary, _, validWeight := ambient.ResolveUseWaypointCanary(ctx.Krt, ctx.Namespaces, meta)
-	if canary == nil || !validWeight || canary.ResourceName() == primary.ResourceName() {
-		return true
+	for _, ref := range refs {
+		if !waypointClassManagedByAnotherController(ctx, ref) {
+			return false
+		}
 	}
-	return waypointClassManagedByAnotherController(ctx, *canary)
-}
-
-// resolveUseWaypointRef resolves the object's primary waypoint, including namespace inheritance.
-func resolveUseWaypointRef(ctx RouteContext, meta metav1.ObjectMeta) *krt.Named {
-	wp, isNone := ambient.GetUseWaypoint(meta, meta.Namespace)
-	if isNone {
-		return nil
-	}
-	if wp != nil {
-		return wp
-	}
-	ns := ptr.Flatten(krt.FetchOne(ctx.Krt, ctx.Namespaces, krt.FilterKey(meta.Namespace)))
-	if ns == nil {
-		return nil
-	}
-	wp, _ = ambient.GetUseWaypoint(ns.ObjectMeta, meta.Namespace)
-	return wp
+	return true
 }
 
 // waypointClassManagedByAnotherController reports whether the waypoint's class is foreign.
