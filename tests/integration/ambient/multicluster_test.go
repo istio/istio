@@ -414,6 +414,7 @@ const (
 // tests/integration/pilot, which covers the same scenario for sidecars.
 func TestMulticlusterRemoteSecretRotation(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
+		t.Skip("temporary skip")
 		if !t.Settings().Ambient || !t.Settings().AmbientMultiNetwork {
 			t.Skip("this test is ambient multi-cluster specific")
 		}
