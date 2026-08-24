@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 61330
+releaseNotes:
+  - |
+    **Fixed** `ALLOW_ANY_DYNAMIC_DNS` traffic failing in IPv6-only clusters because Envoy used the
+    IPv4 loopback address to reach the DNS proxy.
