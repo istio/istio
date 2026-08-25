@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+  - |
+    **Updated** the OpenShift platform profile to default `global.nativeNftables` to `true` for both sidecar and ambient
+    mode installations. This can still be overridden by explicitly setting `global.nativeNftables=false`.
