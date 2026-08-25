@@ -19,6 +19,8 @@ import (
 	"reflect"
 	"testing"
 
+	"k8s.io/apimachinery/pkg/types"
+
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	authpb "istio.io/api/security/v1beta1"
@@ -481,6 +483,74 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestGatewaysTargetedByTargetRef_CrossNamespace(t *testing.T) {
+	classicGWTargetRef := &authpb.AuthorizationPolicy{
+		Action: authpb.AuthorizationPolicy_ALLOW,
+		TargetRef: &selectorpb.PolicyTargetReference{
+			Group: gvk.Gateway.Group, // networking.istio.io
+			Kind:  gvk.Gateway.Kind,  // Gateway (classic, not KubernetesGateway)
+			Name:  "gateway",
+		},
+	}
+	authzPolicies := createFakeAuthorizationPolicies([]config.Config{
+		newConfig("policy", "tenant-a", classicGWTargetRef),
+	})
+
+	// Passing tenant-a (the namespace of a classic Gateway bound to the proxy) widens the scan so the
+	// cross-namespace targetRef in tenant-a is seen even though the proxy config namespace is not-default.
+	got := authzPolicies.GatewaysTargetedByTargetRef("not-default", "tenant-a")
+	tenantGW := types.NamespacedName{Namespace: "tenant-a", Name: "gateway"}
+	if !got.Contains(tenantGW) {
+		t.Fatalf("expected cross-namespace gateway %v in targeted set for proxy ns not-default, got %v",
+			tenantGW, got.UnsortedList())
+	}
+}
+
+func TestListAuthorizationPolicies_CrossNamespaceGateway(t *testing.T) {
+	proxyLabels := labels.Instance{"app": "istio-ingressgateway"}
+	tenantGateways := []types.NamespacedName{{Namespace: "tenant-a", Name: "gateway"}}
+
+	classicGWTargetRef := &authpb.AuthorizationPolicy{
+		Action: authpb.AuthorizationPolicy_ALLOW,
+		TargetRef: &selectorpb.PolicyTargetReference{
+			Group: gvk.Gateway.Group,
+			Kind:  gvk.Gateway.Kind,
+			Name:  "gateway",
+		},
+	}
+	selectorSpec := &authpb.AuthorizationPolicy{
+		Action:   authpb.AuthorizationPolicy_ALLOW,
+		Selector: &selectorpb.WorkloadSelector{MatchLabels: proxyLabels},
+	}
+
+	t.Run("targetRef attaches cross-namespace", func(t *testing.T) {
+		authzPolicies := createFakeAuthorizationPolicies([]config.Config{
+			newConfig("policy", "tenant-a", classicGWTargetRef),
+		})
+		opts := PolicyMatcherFor("not-default", proxyLabels, false).
+			WithGateways(tenantGateways).
+			WithRootNamespace("istio-config")
+		got := authzPolicies.ListAuthorizationPolicies(opts)
+		want := []AuthorizationPolicy{{Name: "policy", Namespace: "tenant-a", Spec: classicGWTargetRef}}
+		if !reflect.DeepEqual(want, got.Allow) {
+			t.Fatalf("want:%v\n but got: %v\n", want, got.Allow)
+		}
+	})
+
+	t.Run("selector does not leak cross-namespace", func(t *testing.T) {
+		authzPolicies := createFakeAuthorizationPolicies([]config.Config{
+			newConfig("selleak", "tenant-a", selectorSpec),
+		})
+		opts := PolicyMatcherFor("not-default", proxyLabels, false).
+			WithGateways(tenantGateways).
+			WithRootNamespace("istio-config")
+		got := authzPolicies.ListAuthorizationPolicies(opts)
+		if len(got.Allow) != 0 {
+			t.Fatalf("selector policy in gateway namespace must not attach to the shared proxy, got %v", got.Allow)
+		}
+	})
 }
 
 func createFakeAuthorizationPolicies(configs []config.Config) *AuthorizationPolicies {
