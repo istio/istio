@@ -103,7 +103,7 @@ func NewVerifiedKeyCertBundleFromFile(
 
 	// Read CRL file if provided
 	crlBytes, crlErr := ReadCRLBytesFromFile(crlFile)
-	if crlErr != nil {
+	if crlErr != nil && !os.IsNotExist(crlErr) {
 		return nil, crlErr
 	}
 
@@ -278,7 +278,7 @@ func (b *KeyCertBundle) UpdateVerifiedKeyCertBundleFromFile(
 
 	// Read CRL file if provided
 	crlBytes, crlErr := ReadCRLBytesFromFile(crlFile)
-	if crlErr != nil {
+	if crlErr != nil && !os.IsNotExist(crlErr) {
 		return crlErr
 	}
 
@@ -300,7 +300,7 @@ func ReadCRLBytesFromFile(crlFile string) ([]byte, error) {
 
 	bytes, err := os.ReadFile(crlFile)
 	if os.IsNotExist(err) {
-		return []byte{}, nil
+		return []byte{}, err
 	}
 	return bytes, err
 }
