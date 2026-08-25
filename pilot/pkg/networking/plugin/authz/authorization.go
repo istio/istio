@@ -125,6 +125,19 @@ func (b *Builder) BuildHTTP(class networking.ListenerClass) []*hcm.HttpFilter {
 	return b.httpFilters
 }
 
+// PartitionRouteScopedFilters splits the workload's RBAC filters into those that are evaluated
+// independently of the selected route and those that resolve per-route configuration.
+func PartitionRouteScopedFilters(built []*hcm.HttpFilter) (workload, routeScoped []*hcm.HttpFilter) {
+	for _, f := range built {
+		if f.GetName() == builder.RBACFilterNameAllow {
+			routeScoped = append(routeScoped, f)
+			continue
+		}
+		workload = append(workload, f)
+	}
+	return workload, routeScoped
+}
+
 // RouteAnchorFilters returns the RBAC filters a route override needs to attach to, beyond those
 // the workload's own policies already produced in built. They carry no rules and enforce nothing
 // until a route overrides one via typed_per_filter_config.
