@@ -260,6 +260,8 @@ func detectSigningCABundleAndCRL() (ca.SigningCAFileBundle, error) {
 		signingCAFileBundle.CRLFile = crlFilePath
 		if _, err := os.Stat(crlFilePath); err == nil {
 			log.Info("Detected CRL file")
+		} else if os.IsNotExist(err) {
+			log.Warn("No CRL file found")
 		}
 	}
 
@@ -370,7 +372,7 @@ func handleEvent(s *Server) {
 	if features.EnableCACRL {
 		currentCRLData := s.CA.GetCAKeyCertBundle().GetCRLPem()
 		crlData, crlReadErr := pkiutil.ReadCRLBytesFromFile(fileBundle.CRLFile)
-		if crlReadErr != nil {
+		if crlReadErr != nil && !os.IsNotExist(crlReadErr) {
 			// handleEvent can be triggered either for key-cert bundle update or
 			// for crl file update. So, even if there is an error in reading crl file,
 			// we should log error and continue with key-cert bundle update.
@@ -544,12 +546,16 @@ func (s *Server) createIstioCA(opts *caOptions) (*ca.IstioCA, error) {
 			// CRL is only supported for Plugged CA.
 			// If CRL file is present, read and notify it for initial replication
 			crlBytes, crlErr := pkiutil.ReadCRLBytesFromFile(fileBundle.CRLFile)
-			if crlErr != nil {
+			if os.IsNotExist(crlErr) {
+				log.Debugf("CRL file %q not found", fileBundle.CRLFile)
+			} else if crlErr != nil {
 				log.Errorf("failed to read CRL file %s: %v", fileBundle.CRLFile, crlErr)
 				return nil, crlErr
+			} else if len(crlBytes) == 0 {
+				log.Debugf("CRL file %s is empty, notifying it for initial replication", fileBundle.CRLFile)
+			} else {
+				log.Debugf("CRL file %s found, notifying it for initial replication", fileBundle.CRLFile)
 			}
-
-			log.Debugf("CRL file %s found, notifying it for initial replication", fileBundle.CRLFile)
 			s.istiodCertBundleWatcher.SetAndNotifyCACRL(crlBytes)
 		}
 
