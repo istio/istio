@@ -166,6 +166,7 @@ func (a *index) buildGlobalCollections(
 		LocalWaypoints,
 		opts,
 	)
+	authPoliciesByNs := selectingWorkloadAuthzByNs(AuthorizationPolicies)
 
 	LocalWorkloadServices := builder.ServicesCollection(
 		localCluster.ID,
@@ -270,7 +271,7 @@ func (a *index) buildGlobalCollections(
 		GlobalNodeLocality,
 		GlobalNodeLocalityByCluster,
 		options.MeshConfig,
-		AuthorizationPolicies,
+		authPoliciesByNs,
 		localPeerAuthsByNs,
 		GlobalWaypoints,
 		WaypointsByCluster,
