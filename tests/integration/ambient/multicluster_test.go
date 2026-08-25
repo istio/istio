@@ -400,14 +400,9 @@ func scaleDeploymentOrFail(t framework.TestContext, c cluster.Cluster, namespace
 	})
 }
 
-const (
-	// How long we send traffic before rotating the remote secret, to establish a baseline.
-	rotationBaselineWindow = 5 * time.Second
-	// How long we keep sending traffic after rotating the remote secret, to catch requests dropped
-	// while the collections are swapped. Completion of the swap is waited on separately, so this window
-	// does not have to cover it.
-	rotationObservationWindow = 15 * time.Second
-)
+// How long we send traffic before rotating the remote secret, to establish a baseline. Traffic after
+// the rotation is not run for a fixed window: it keeps going until the rotation is known to be over.
+const rotationBaselineWindow = 5 * time.Second
 
 // TestMulticlusterRemoteSecretRotation verifies that rotating a remote cluster's secret does not
 // drop that cluster's ambient configuration while the per-cluster collections are rebuilt on the new
@@ -490,20 +485,22 @@ func TestMulticlusterRemoteSecretRotation(t *testing.T) {
 		}
 		source := clients[0]
 
-		callOptions := echo.CallOptions{
-			Address: fmt.Sprintf("%s.%s.svc.cluster.local", targetService, ns.Name()),
-			Port:    ports.HTTP,
-			Scheme:  scheme.HTTP,
-			Count:   1,
-			Check: check.And(
-				check.OK(),
-				check.ReachedClusters(t.AllClusters(), cluster.Clusters{remote}),
-			),
+		callOptions := func(service string) echo.CallOptions {
+			return echo.CallOptions{
+				Address: fmt.Sprintf("%s.%s.svc.cluster.local", service, ns.Name()),
+				Port:    ports.HTTP,
+				Scheme:  scheme.HTTP,
+				Count:   1,
+				Check: check.And(
+					check.OK(),
+					check.ReachedClusters(t.AllClusters(), cluster.Clusters{remote}),
+				),
+			}
 		}
 
-		callTarget := func(options ...retry.Option) {
+		callService := func(service string, options ...retry.Option) {
 			t.Helper()
-			opts := callOptions
+			opts := callOptions(service)
 			opts.Retry = echo.Retry{
 				Options: append([]retry.Option{retry.Timeout(2 * time.Minute), retry.Delay(time.Second)}, options...),
 			}
@@ -511,7 +508,7 @@ func TestMulticlusterRemoteSecretRotation(t *testing.T) {
 		}
 
 		// Wait until the remote cluster's configuration has been programmed before measuring anything.
-		callTarget()
+		callService(targetService)
 
 		originalKubeconfig := slices.Clone(findRemoteSecretOrFail(t, local, remote).Data[remote.Name()])
 		// Safety net in case the test fails before restoring the kubeconfig itself. Writing back bytes
@@ -525,7 +522,7 @@ func TestMulticlusterRemoteSecretRotation(t *testing.T) {
 
 		// Short per-request timeout and no retries, so a request that is dropped while the collections
 		// are swapped is counted as a failure instead of being silently retried.
-		trafficOptions := callOptions
+		trafficOptions := callOptions(targetService)
 		trafficOptions.Timeout = 3 * time.Second
 		trafficOptions.Retry = echo.Retry{NoRetry: true}
 		gen := traffic.NewGenerator(t, traffic.Config{
@@ -545,24 +542,55 @@ func TestMulticlusterRemoteSecretRotation(t *testing.T) {
 		rotated := append(slices.Clone(originalKubeconfig), []byte("\n# rotated by integration test\n")...)
 		setRemoteKubeconfigOrFail(t, local, remote, rotated)
 
+		// The generator keeps running for everything below, so the measured window covers the whole
+		// rotation rather than a fixed guess at how long it takes.
 		t.Log("Running cross-cluster traffic through the rotation")
-		time.Sleep(rotationObservationWindow)
-
-		result := gen.Stop()
-		t.Logf("traffic during remote secret rotation:\n%s", result)
-		result.CheckSuccessRate(t, 1.0)
-
 		waitForRemoteClusterSyncedOrFail(t, local, remote)
 		// Make sure the remote cluster's configuration is still being served, and is not a stale snapshot
 		// built on the informers that were shut down with the previous client.
-		callTarget(retry.Converge(5))
+		callService(targetService, retry.Converge(5))
+
+		// Configuration created after the rotation must reach the mesh too. Serving what was already
+		// known is not enough: if the collections were left reading the informers of the previous client,
+		// or stopped processing events altogether, everything created from here on is invisible, and it is
+		// whatever runs next that fails rather than this test.
+		t.Log("Verifying configuration created after the rotation is still programmed")
+		const postRotationService = "rotation-late-target"
+		deployWorkloadsOrFail(t, []workload{
+			{
+				serviceName: postRotationService,
+				cluster:     local,
+				namespace:   ns,
+				serviceLabels: map[string]string{
+					"istio.io/global": "true",
+				},
+				replicas: 0,
+			},
+			{
+				serviceName: postRotationService,
+				cluster:     remote,
+				namespace:   ns,
+				serviceLabels: map[string]string{
+					"istio.io/global": "true",
+				},
+				replicas: 1,
+			},
+		})
+		callService(postRotationService, retry.Converge(5))
+
+		// The rotation is over: the cluster is synced, what it held is still served and what was created
+		// after it is programmed. Only now is it safe to stop measuring.
+		result := gen.Stop()
+		t.Logf("traffic during remote secret rotation:\n%s", result)
+		result.CheckSuccessRate(t, 1.0)
 
 		// Put the original kubeconfig back. That is another rotation, so it has to settle before the test
 		// returns: handing a half-rotated control plane to whatever runs next makes it flaky.
 		t.Log("Restoring the original remote secret")
 		setRemoteKubeconfigOrFail(t, local, remote, originalKubeconfig)
 		waitForRemoteClusterSyncedOrFail(t, local, remote)
-		callTarget(retry.Converge(5))
+		callService(targetService, retry.Converge(5))
+		callService(postRotationService, retry.Converge(5))
 	})
 }
 
