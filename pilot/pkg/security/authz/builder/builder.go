@@ -49,9 +49,9 @@ var rbacPolicyMatchNever = &rbacpb.Policy{
 type Option struct {
 	IsCustomBuilder bool
 	UseFilterState  bool
-	// NamedAllowFilter emits the ALLOW filter instance under RBACFilterNameAllow instead of the
-	// well-known name, so that per-route config can address it. Only set for proxies that support
-	// per-route AuthorizationPolicy, to keep the rest of the mesh on the well-known name.
+	// NamedAllowFilter emits the ALLOW filter under RBACFilterNameAllow instead of the well-known
+	// name so per-route config can address it. Only set for proxies that support per-route
+	// AuthorizationPolicy; everything else stays on the well-known name.
 	NamedAllowFilter bool
 }
 
@@ -102,25 +102,22 @@ func (b Builder) BuildHTTP() []*hcm.HttpFilter {
 	return build(b, b.buildHTTP, "HTTP", false)
 }
 
-// Filter instance names that per-route AuthorizationPolicy configuration is keyed by.
+// Filter instance names that per-route AuthorizationPolicy config is keyed by.
 //
-// DENY gets its own anchor filter, appended after the workload filters. Chained DENY filters
-// reject if any of them matches, so a route DENY adds to workload and root-namespace DENY
-// policies and can never remove them.
+// DENY uses a dedicated filter appended after the workload filters: chained DENY filters reject
+// if any matches, so a route DENY can only add to workload and root-namespace DENY.
 //
-// ALLOW instead reuses the workload's own ALLOW filter under a dedicated name. Chained ALLOW
-// filters intersect, so a separate route filter could only ever narrow access, whereas ALLOW
-// policies within a single filter union. Merging into one filter is what lets a route ALLOW
-// widen access, matching how root-namespace and workload-namespace ALLOW policies combine
-// today. The name has to be distinct from the DENY and AUDIT instances, which share the
-// well-known name, so that a route can address the ALLOW instance alone.
+// ALLOW reuses the workload's ALLOW filter under a distinct name, because chained ALLOW filters
+// intersect while policies within one filter union. Sharing the filter is what lets a route
+// ALLOW widen access. The name must differ from the DENY and AUDIT instances, which both use
+// the well-known name, so a route can address ALLOW alone.
 const (
 	RBACFilterNameAllow     = "istio.authorization.allow"
 	RBACRouteAnchorNameDeny = "istio.authorization.route.deny"
 )
 
-// PerRouteFilterName returns the filter instance name that per-route RBAC config for the given
-// action must be keyed by.
+// PerRouteFilterName returns the filter instance name to key per-route RBAC config by, or ""
+// if the action cannot be set per route.
 func PerRouteFilterName(action rbacpb.RBAC_Action) string {
 	switch action {
 	case rbacpb.RBAC_ALLOW:
@@ -132,11 +129,9 @@ func PerRouteFilterName(action rbacpb.RBAC_Action) string {
 	}
 }
 
-// BuildHTTPRBACForRoute returns the raw RBAC config per action, for use as a per-route override
-// rather than as a listener level HTTP filter. It reuses the same rule translation
-// and trust domain migration as BuildHTTP so that route level and workload level policies cannot
-// diverge, but skips wrapping the result in an hcm.HttpFilter, which cannot be used in a
-// route's TypedPerFilterConfig.
+// BuildHTTPRBACForRoute returns the RBAC config per action for use in a route's
+// typed_per_filter_config. It shares BuildHTTP's rule translation and trust domain migration,
+// but skips the hcm.HttpFilter wrapper, which is not valid per route.
 func (b Builder) BuildHTTPRBACForRoute() map[rbacpb.RBAC_Action]*rbachttp.RBAC {
 	if b.option.IsCustomBuilder {
 		return nil
@@ -233,9 +228,8 @@ func isDryRun(policy model.AuthorizationPolicy, logger *AuthzLogger) bool {
 	return dryRun
 }
 
-// actionOf reports the action a built filter carries. Enforce and shadow rules always share an
-// action, but either may be nil when a policy set is entirely dry-run or entirely enforcing, and
-// a nil RBAC reports ALLOW.
+// actionOf reports the action a built filter carries. Enforce and shadow rules always agree on
+// the action, but either may be nil depending on whether the policies are dry-run.
 func actionOf(rules, shadowRules *rbacpb.RBAC) rbacpb.RBAC_Action {
 	if rules != nil {
 		return rules.GetAction()

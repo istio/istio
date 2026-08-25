@@ -672,7 +672,7 @@ func TestIndexHTTPRoutePoliciesFeatureGate(t *testing.T) {
 	}
 }
 
-// I5: the index must match on exact name, exact namespace and the HTTPRoute group/kind only.
+// The index must match on exact name, exact namespace and the HTTPRoute group/kind only.
 // Each case here corresponds to a guard in indexHTTPRoutePolicies; deleting any one of them
 // must fail this test.
 func TestIndexHTTPRoutePoliciesRejectsNonMatchingTargets(t *testing.T) {
@@ -740,7 +740,7 @@ func TestIndexHTTPRoutePoliciesRejectsNonMatchingTargets(t *testing.T) {
 	}
 }
 
-// Guards the positive half of I5, so the negative test above cannot pass by indexing nothing.
+// Guards the positive case, so the negative test above cannot pass by indexing nothing.
 func TestIndexHTTPRoutePoliciesMatchesOwnNamespace(t *testing.T) {
 	test.SetForTest(t, &features.EnableGatewayAPIHTTPRouteAuth, true)
 	for _, ns := range []string{"", "foo"} {

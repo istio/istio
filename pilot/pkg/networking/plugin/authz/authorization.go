@@ -125,16 +125,12 @@ func (b *Builder) BuildHTTP(class networking.ListenerClass) []*hcm.HttpFilter {
 	return b.httpFilters
 }
 
-// RouteAnchorFilters returns the RBAC filter instances that per-route AuthorizationPolicy
-// configuration needs to attach to, beyond those the workload's own policies already produce.
-// They carry no rules, so they enforce nothing until an individual route overrides one via
-// typed_per_filter_config.
+// RouteAnchorFilters returns the RBAC filters a route override needs to attach to, beyond those
+// the workload's own policies already produced in built. They carry no rules and enforce nothing
+// until a route overrides one via typed_per_filter_config.
 //
-// They are emitted independently of the policies actually present, so that listener generation
-// never has to resolve which routes are served by this listener.
-//
-// built is the filter list the workload's policies produced, which already contains the ALLOW
-// instance whenever the workload has an ALLOW policy of its own.
+// They do not depend on which policies exist, so listener generation never has to resolve which
+// routes this listener serves.
 func RouteAnchorFilters(proxy *model.Proxy, class networking.ListenerClass, built []*hcm.HttpFilter) []*hcm.HttpFilter {
 	if !features.EnableGatewayAPIHTTPRouteAuth {
 		return nil
@@ -146,8 +142,8 @@ func RouteAnchorFilters(proxy *model.Proxy, class networking.ListenerClass, buil
 		return nil
 	}
 	out := []*hcm.HttpFilter{routeAnchorFilter(builder.RBACRouteAnchorNameDeny)}
-	// Route ALLOW policies merge into the workload's ALLOW filter rather than chaining after it,
-	// so that instance has to exist even when the workload has no ALLOW policy to produce one.
+	// Route ALLOW merges into the workload's ALLOW filter rather than chaining after it, so that
+	// filter must exist even when the workload has no ALLOW policy to produce one.
 	if !slices.ContainsFunc(built, func(f *hcm.HttpFilter) bool { return f.GetName() == builder.RBACFilterNameAllow }) {
 		out = append(out, routeAnchorFilter(builder.RBACFilterNameAllow))
 	}
@@ -168,12 +164,12 @@ type PerRouteBuilder struct {
 	tdBundle       trustdomain.Bundle
 	useFilterState bool
 
-	// ALLOW policies that already apply to this proxy workload-wide. Route ALLOW policies are
-	// merged with these into a single filter so the two union rather than intersect.
+	// ALLOW policies applying to this proxy workload-wide. Route ALLOW policies merge with these
+	// into one filter so they union rather than intersect.
 	workloadAllow []model.AuthorizationPolicy
 
-	// cache by origin: a single HTTPRoute commonly expands into several Envoy routes,
-	// and merged VirtualServices repeat origins across route configs.
+	// Cached by origin: one HTTPRoute usually expands into several Envoy routes, and merged
+	// VirtualServices repeat origins across route configs.
 	cache map[types.NamespacedName]map[string]*anypb.Any
 }
 
@@ -192,9 +188,9 @@ func NewPerRouteBuilder(push *model.PushContext, proxy *model.Proxy) *PerRouteBu
 	return p
 }
 
-// Build returns the per-route authorization config for the HTTPRoute the route was generated from,
-// keyed by RBAC filter instance name. It returns nil when the route has no targeted policy, which
-// includes routes that did not originate from an HTTPRoute (a zero origin).
+// Build returns the authorization config for the HTTPRoute a route was generated from, keyed by
+// RBAC filter name. Returns nil if no policy targets it, including routes with a zero origin,
+// which did not come from an HTTPRoute.
 func (p *PerRouteBuilder) Build(origin types.NamespacedName) map[string]*anypb.Any {
 	if p == nil || origin.Name == "" || origin.Namespace == "" {
 		return nil
@@ -205,12 +201,12 @@ func (p *PerRouteBuilder) Build(origin types.NamespacedName) map[string]*anypb.A
 
 	var out map[string]*anypb.Any
 	route := p.push.AuthzPolicies.ListAuthorizationPoliciesForHTTPRoute(origin)
-	// When there is no policy for an action, that action's filter is left alone and the route
-	// keeps whatever the listener enforces.
+	// An action with no route policy is left out entirely, so its filter keeps enforcing whatever
+	// the listener configured.
 	policies := model.AuthorizationPoliciesResult{Deny: route.Deny}
 	if len(route.Allow) > 0 {
-		// The override replaces the ALLOW filter's config on this route, so it has to carry the
-		// workload's ALLOW policies too or they would stop applying here.
+		// The override replaces the ALLOW filter's config here, so it must carry the workload's
+		// ALLOW policies too or they would stop applying to this route.
 		policies.Allow = make([]model.AuthorizationPolicy, 0, len(p.workloadAllow)+len(route.Allow))
 		policies.Allow = append(policies.Allow, p.workloadAllow...)
 		policies.Allow = append(policies.Allow, route.Allow...)

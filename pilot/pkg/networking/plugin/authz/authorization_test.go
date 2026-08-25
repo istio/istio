@@ -204,7 +204,7 @@ func anchorRBAC(t *testing.T, f *hcm.HttpFilter) *rbachttp.RBAC {
 	return got
 }
 
-// I9/I3: anchors exist only for gateways with the flag on, and enforce nothing until a route
+// Anchors exist only for gateways with the flag on, and enforce nothing until a route
 // overrides them.
 func TestRouteAnchorFilters(t *testing.T) {
 	router := &model.Proxy{Type: model.Router}
@@ -288,56 +288,120 @@ func TestRouteAnchorFilters(t *testing.T) {
 	}
 }
 
-// I1: no key a route can emit may name a filter instance that carries workload or
-// root-namespace policy. This is the invariant that makes the design safe, so it is asserted
-// on the two sets directly rather than on any single name.
-func TestRouteOverridesDisjointFromWorkloadFilters(t *testing.T) {
+// The two actions relate to the workload filters differently, so they are asserted separately:
+// a route DENY must never name a filter carrying workload policy, while a route ALLOW must name
+// the workload ALLOW filter and carry its policies forward.
+//
+// The workload filters are built with the option production uses for a gateway. A zero Option
+// would leave every filter on the well-known name, and the assertions would pass against a
+// naming scheme that is never emitted.
+func TestRouteOverrideRelationshipToWorkloadFilters(t *testing.T) {
 	test.SetForTest(t, &features.EnableGatewayAPIHTTPRouteAuth, true)
 
+	workloadAllow := []model.AuthorizationPolicy{workloadPolicy("root-allow", "istio-system", authpb.AuthorizationPolicy_ALLOW)}
 	policies := model.AuthorizationPoliciesResult{
 		Audit: []model.AuthorizationPolicy{workloadPolicy("audit", "istio-system", authpb.AuthorizationPolicy_AUDIT)},
 		Deny:  []model.AuthorizationPolicy{workloadPolicy("root-deny", "istio-system", authpb.AuthorizationPolicy_DENY)},
-		Allow: []model.AuthorizationPolicy{workloadPolicy("root-allow", "istio-system", authpb.AuthorizationPolicy_ALLOW)},
+		Allow: workloadAllow,
+	}
+	wb := builder.New(trustdomain.NewBundle("cluster.local", nil), nil, policies,
+		builder.Option{NamedAllowFilter: true})
+	if wb == nil {
+		t.Fatal("expected a workload builder")
+	}
+	workloadFilters := wb.BuildHTTP()
+	if len(workloadFilters) != 3 {
+		t.Fatalf("got %d workload filters, want one each for AUDIT, DENY and ALLOW", len(workloadFilters))
+	}
+
+	// name -> the actions the filter instance under that name enforces.
+	byName := map[string]sets.Set[rbacpb.RBAC_Action]{}
+	for _, f := range workloadFilters {
+		action := anchorRBAC(t, f).GetRules().GetAction()
+		if byName[f.Name] == nil {
+			byName[f.Name] = sets.New[rbacpb.RBAC_Action]()
+		}
+		byName[f.Name].Insert(action)
+	}
+
+	p := newTestPerRouteBuilder(t,
+		httpRoutePolicy(t, "route-allow", "foo", authpb.AuthorizationPolicy_ALLOW),
+		httpRoutePolicy(t, "route-deny", "foo", authpb.AuthorizationPolicy_DENY),
+	)
+	p.workloadAllow = workloadAllow
+	overrides := p.Build(types.NamespacedName{Name: testHTTPRouteName, Namespace: "foo"})
+	if len(overrides) != 2 {
+		t.Fatalf("got %d per-route overrides %v, want one per action", len(overrides), keys(overrides))
+	}
+
+	// The DENY override rides its own anchor. If its key named a filter carrying workload DENY or
+	// AUDIT, a route could replace that config and drop a mandatory policy.
+	denyKey := builder.RBACRouteAnchorNameDeny
+	if actions, ok := byName[denyKey]; ok {
+		t.Errorf("deny override key %q also names a workload filter enforcing %v; a route could "+
+			"replace workload or root-namespace DENY", denyKey, actions.UnsortedList())
+	}
+
+	// The ALLOW override must land on the workload ALLOW filter. Envoy resolves per-route config
+	// by name without checking it against the chain, so a key naming no filter is dropped
+	// silently, leaving the route unprotected with no NACK.
+	allowKey := builder.RBACFilterNameAllow
+	actions, ok := byName[allowKey]
+	if !ok {
+		t.Fatalf("allow override key %q names no workload filter, so Envoy would silently ignore "+
+			"it; workload filters: %v", allowKey, filterNames(byName))
+	}
+	if !actions.Equals(sets.New(rbacpb.RBAC_ALLOW)) {
+		t.Errorf("filter %q enforces %v, want ALLOW only; the override replaces this filter's "+
+			"config, so anything else sharing the name would be dropped", allowKey, actions.UnsortedList())
+	}
+
+	// Replacing that config is only safe because the override carries the workload's own ALLOW
+	// policies forward. Dropping them would silently narrow the route.
+	got := policyNames(perRouteRBAC(t, overrides, allowKey))
+	for _, want := range []string{"root-allow", "route-allow"} {
+		if !slices.ContainsFunc(got, func(s string) bool { return strings.Contains(s, want) }) {
+			t.Errorf("allow override %v is missing %q", got, want)
+		}
+	}
+
+	// AUDIT and DENY keep the well-known name, which istioctl and the ext_authz metadata
+	// namespacing depend on.
+	for _, f := range workloadFilters {
+		action := anchorRBAC(t, f).GetRules().GetAction()
+		if action == rbacpb.RBAC_ALLOW {
+			continue
+		}
+		if f.Name != wellknown.HTTPRoleBasedAccessControl {
+			t.Errorf("%v filter is named %q, want %q", action, f.Name, wellknown.HTTPRoleBasedAccessControl)
+		}
+	}
+}
+
+// The rename is what makes the workload ALLOW filter addressable from a route, so it must not
+// reach proxies that have no per-route support. Sidecars and waypoints keep every RBAC filter on
+// the well-known name.
+func TestAllowFilterRenameIsScopedToGateways(t *testing.T) {
+	test.SetForTest(t, &features.EnableGatewayAPIHTTPRouteAuth, true)
+
+	policies := model.AuthorizationPoliciesResult{
+		Deny:  []model.AuthorizationPolicy{workloadPolicy("deny", "foo", authpb.AuthorizationPolicy_DENY)},
+		Allow: []model.AuthorizationPolicy{workloadPolicy("allow", "foo", authpb.AuthorizationPolicy_ALLOW)},
 	}
 	wb := builder.New(trustdomain.NewBundle("cluster.local", nil), nil, policies, builder.Option{})
 	if wb == nil {
 		t.Fatal("expected a workload builder")
 	}
-	workloadFilters := wb.BuildHTTP()
-	if len(workloadFilters) == 0 {
-		t.Fatal("expected workload filters; the disjointness check would be vacuous")
-	}
-	workloadNames := sets.New[string]()
-	for _, f := range workloadFilters {
-		workloadNames.Insert(f.Name)
-	}
-
-	overrides := newTestPerRouteBuilder(t,
-		httpRoutePolicy(t, "route-allow", "foo", authpb.AuthorizationPolicy_ALLOW),
-		httpRoutePolicy(t, "route-deny", "foo", authpb.AuthorizationPolicy_DENY),
-	).Build(types.NamespacedName{Name: testHTTPRouteName, Namespace: "foo"})
-	if len(overrides) != 2 {
-		t.Fatalf("got %d per-route overrides, want 2; the disjointness check would be vacuous", len(overrides))
-	}
-
-	for name := range overrides {
-		if workloadNames.Contains(name) {
-			t.Errorf("per-route override key %q also names a workload filter: a route could replace "+
-				"workload or root-namespace policy", name)
-		}
-	}
-
-	// The workload filters must also keep the well-known name, which istioctl and the
-	// ext_authz metadata namespacing depend on.
-	for _, f := range workloadFilters {
+	for _, f := range wb.BuildHTTP() {
 		if f.Name != wellknown.HTTPRoleBasedAccessControl {
-			t.Errorf("workload filter is named %q, want %q", f.Name, wellknown.HTTPRoleBasedAccessControl)
+			t.Errorf("filter is named %q, want %q; the rename must be scoped to proxies that "+
+				"consume per-route authz config", f.Name, wellknown.HTTPRoleBasedAccessControl)
 		}
 	}
 }
 
-// I2: a dry-run route policy must not disable enforcement. Under the anchor design it overrides
-// an inert filter, so shadow rules are preserved and nothing is switched off.
+// A dry-run route policy must not disable enforcement: it overrides an inert filter, so shadow
+// rules are preserved and nothing is switched off.
 func TestPerRouteBuilderDryRunDoesNotDisableEnforcement(t *testing.T) {
 	test.SetForTest(t, &features.EnableGatewayAPIHTTPRouteAuth, true)
 
@@ -457,4 +521,13 @@ func TestRouteDenyOnlyLeavesAllowFilterAlone(t *testing.T) {
 	if _, ok := got[builder.RBACRouteAnchorNameDeny]; !ok {
 		t.Fatalf("deny-only route produced no deny override: %v", keys(got))
 	}
+}
+
+func filterNames(byName map[string]sets.Set[rbacpb.RBAC_Action]) []string {
+	out := make([]string, 0, len(byName))
+	for k := range byName {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
 }

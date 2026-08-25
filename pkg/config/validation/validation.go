@@ -1417,7 +1417,7 @@ var ValidateAuthorizationPolicy = RegisterValidateFunc("ValidateAuthorizationPol
 		workloadSelectorValidation := validateWorkloadSelector(in.GetSelector())
 		var additionalTargetRefs []config.GroupVersionKind
 		if features.EnableGatewayAPIHTTPRouteAuth {
-			// Appending HTTPRoute as a valid targetRef of AuthorizationPolicy.
+			// HTTPRoute is only a valid targetRef when the feature is enabled.
 			additionalTargetRefs = append(additionalTargetRefs, gvk.HTTPRoute)
 		}
 		targetRefValidation := validatePolicyTargetReference(in.GetTargetRef(), additionalTargetRefs...)
@@ -1433,9 +1433,9 @@ var ValidateAuthorizationPolicy = RegisterValidateFunc("ValidateAuthorizationPol
 				errs = appendErrors(errs,
 					fmt.Errorf("Only ALLOW/DENY actions are supported for HTTPRoute targetRefs, got %s", in.GetAction().String()))
 			}
-			// An HTTPRoute targetRef scopes the policy to individual routes. Mixing it with any
-			// other target would additionally apply the same policy workload-wide, which for ALLOW
-			// silently widens access beyond the targeted route.
+			// An HTTPRoute targetRef scopes the policy to individual routes. Mixing it with another
+			// kind would also apply the policy workload-wide, silently widening an ALLOW beyond
+			// the targeted route.
 			if hasNonHTTPRouteTargetRef(in) {
 				errs = appendErrors(errs,
 					fmt.Errorf("an HTTPRoute targetRef must not be combined with targetRefs of other kinds"))

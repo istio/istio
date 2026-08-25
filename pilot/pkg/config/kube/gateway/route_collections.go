@@ -188,7 +188,7 @@ func HTTPRouteCollection(
 					extraData[constants.ConfigExtraPerRouteRuleInferencePoolConfigs] = currentRouteInferenceConfigs
 				}
 
-				// Populate Extra field with HTTPRoute origins (name/namespace)
+				// Record which HTTPRoute each generated route came from.
 				if features.EnableGatewayAPIHTTPRouteAuth {
 					routeOrigins := make([]types.NamespacedName, len(routes))
 					for i := range routeOrigins {
@@ -930,7 +930,8 @@ func mergeHTTPRoutes(baseVirtualServices krt.Collection[RouteWithKey], opts ...k
 	return finalVirtualServices
 }
 
-// Validate and copy httpRoute origins from Extra field for correctness.
+// httpRouteOrigins returns a copy of the HTTPRoute each of the VirtualService's routes came from,
+// or a slice of zero values when none were recorded.
 func httpRouteOrigins(config config.Config) ([]types.NamespacedName, error) {
 	if !features.EnableGatewayAPIHTTPRouteAuth {
 		return nil, nil
