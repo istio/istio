@@ -5,7 +5,7 @@ go 1.25.9
 require (
 	cloud.google.com/go/compute/metadata v0.9.0
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20240806141605-e8a1dd7889d6
-	github.com/KimMachineGun/automemlimit v0.7.5
+	github.com/KimMachineGun/automemlimit v1.0.0
 	github.com/Masterminds/semver/v3 v3.5.0
 	github.com/Masterminds/sprig/v3 v3.3.0
 	github.com/agentgateway/agentgateway/api v0.0.0-20260506232448-6ae4ab07bb06
