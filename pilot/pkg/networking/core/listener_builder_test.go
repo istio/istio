@@ -24,6 +24,7 @@ import (
 	matcher "github.com/cncf/xds/go/xds/type/matcher/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	header_mutationv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/header_mutation/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -35,6 +36,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/core/listenertest"
 	"istio.io/istio/pilot/pkg/networking/plugin/authz"
 	"istio.io/istio/pilot/pkg/networking/util"
@@ -1508,6 +1510,161 @@ func TestPreserveHeader(t *testing.T) {
 			assert.NoError(t, tt.isExpected(lb.buildHTTPConnectionManager(tt.opts)))
 		})
 	}
+}
+
+const sidecarXFCCFilterName = "istio.sidecar.xfcc_client_identity"
+
+func TestSidecarXFCCClientIdentityFilter(t *testing.T) {
+	cg := NewConfigGenTest(t, TestOptions{})
+	push := cg.PushContext()
+
+	cases := []struct {
+		name       string
+		proxy      *model.Proxy
+		opts       *httpListenerOpts
+		isExpected func(*hcm.HttpConnectionManager) error
+	}{
+		{
+			name: "hbone + APPEND_FORWARD",
+			opts: &httpListenerOpts{
+				hbone: true,
+				class: istionetworking.ListenerClassSidecarInbound,
+				connectionManager: &hcm.HttpConnectionManager{
+					ForwardClientCertDetails: hcm.HttpConnectionManager_APPEND_FORWARD,
+				},
+			},
+			isExpected: expectXFCCAction(core.HeaderValueOption_APPEND_IF_EXISTS_OR_ADD),
+		},
+		{
+			name: "hbone + SANITIZE_SET",
+			opts: &httpListenerOpts{
+				hbone: true,
+				class: istionetworking.ListenerClassSidecarInbound,
+				connectionManager: &hcm.HttpConnectionManager{
+					ForwardClientCertDetails: hcm.HttpConnectionManager_SANITIZE_SET,
+				},
+			},
+			isExpected: expectXFCCAction(core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD),
+		},
+		{
+			name: "hbone + SANITIZE",
+			opts: &httpListenerOpts{
+				hbone: true,
+				class: istionetworking.ListenerClassSidecarInbound,
+				connectionManager: &hcm.HttpConnectionManager{
+					ForwardClientCertDetails: hcm.HttpConnectionManager_SANITIZE,
+				},
+			},
+			isExpected: expectNoXFCC(),
+		},
+		{
+			name: "hbone + FORWARD_ONLY",
+			opts: &httpListenerOpts{
+				hbone: true,
+				class: istionetworking.ListenerClassSidecarInbound,
+				connectionManager: &hcm.HttpConnectionManager{
+					ForwardClientCertDetails: hcm.HttpConnectionManager_FORWARD_ONLY,
+				},
+			},
+			isExpected: expectNoXFCC(),
+		},
+		{
+			name: "non-hbone + APPEND_FORWARD",
+			opts: &httpListenerOpts{
+				hbone: false,
+				class: istionetworking.ListenerClassSidecarInbound,
+				connectionManager: &hcm.HttpConnectionManager{
+					ForwardClientCertDetails: hcm.HttpConnectionManager_APPEND_FORWARD,
+				},
+			},
+			isExpected: expectNoXFCC(),
+		},
+		{
+			name: "hbone + APPEND_FORWARD + outbound",
+			opts: &httpListenerOpts{
+				hbone: true,
+				class: istionetworking.ListenerClassSidecarOutbound,
+				connectionManager: &hcm.HttpConnectionManager{
+					ForwardClientCertDetails: hcm.HttpConnectionManager_APPEND_FORWARD,
+				},
+			},
+			isExpected: expectNoXFCC(),
+		},
+		{
+			name:  "hbone + APPEND_FORWARD + Router",
+			proxy: &model.Proxy{Type: model.Router},
+			opts: &httpListenerOpts{
+				hbone: true,
+				class: istionetworking.ListenerClassSidecarInbound,
+				connectionManager: &hcm.HttpConnectionManager{
+					ForwardClientCertDetails: hcm.HttpConnectionManager_APPEND_FORWARD,
+				},
+			},
+			isExpected: expectNoXFCC(),
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			proxy := cg.SetupProxy(tt.proxy)
+			lb := &ListenerBuilder{
+				push:               push,
+				node:               proxy,
+				authzCustomBuilder: &authz.Builder{},
+				authzBuilder:       &authz.Builder{},
+			}
+			assert.NoError(t, tt.isExpected(lb.buildHTTPConnectionManager(tt.opts)))
+		})
+	}
+}
+
+// expectNoXFCC returns a check that fails if the XFCC synthesis filter is present.
+func expectNoXFCC() func(*hcm.HttpConnectionManager) error {
+	return func(connMgr *hcm.HttpConnectionManager) error {
+		if findXFCCFilter(connMgr) != nil {
+			return fmt.Errorf("did not expect %q filter, but it was added", sidecarXFCCFilterName)
+		}
+		return nil
+	}
+}
+
+// expectXFCCAction returns a check that fails unless the XFCC synthesis filter is
+// present and its request header mutation uses the given append action.
+func expectXFCCAction(want core.HeaderValueOption_HeaderAppendAction) func(*hcm.HttpConnectionManager) error {
+	return func(connMgr *hcm.HttpConnectionManager) error {
+		filter := findXFCCFilter(connMgr)
+		if filter == nil {
+			return fmt.Errorf("expected %q filter, but it was not added", sidecarXFCCFilterName)
+		}
+		hm := &header_mutationv3.HeaderMutation{}
+		if err := filter.GetTypedConfig().UnmarshalTo(hm); err != nil {
+			return fmt.Errorf("failed to unmarshal %q typed config: %v", sidecarXFCCFilterName, err)
+		}
+		muts := hm.GetMutations().GetRequestMutations()
+		if len(muts) != 1 {
+			return fmt.Errorf("expected exactly 1 request mutation, got %d", len(muts))
+		}
+		opt := muts[0].GetAppend()
+		if opt == nil {
+			return fmt.Errorf("expected an append mutation on the XFCC header")
+		}
+		if got := opt.GetHeader().GetKey(); got != "x-forwarded-client-cert" {
+			return fmt.Errorf("expected header key x-forwarded-client-cert, got %q", got)
+		}
+		if got := opt.GetAppendAction(); got != want {
+			return fmt.Errorf("expected append action %v, got %v", want, got)
+		}
+		return nil
+	}
+}
+
+func findXFCCFilter(connMgr *hcm.HttpConnectionManager) *hcm.HttpFilter {
+	for _, f := range connMgr.GetHttpFilters() {
+		if f.GetName() == sidecarXFCCFilterName {
+			return f
+		}
+	}
+	return nil
 }
 
 func TestVirtualOutboundListenerAllowAnyDynamicDNS(t *testing.T) {
