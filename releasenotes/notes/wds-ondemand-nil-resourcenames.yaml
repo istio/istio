@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+- |
+  **Fixed** a potential panic in the workload xDS generator when an on-demand watch has no tracked resource names.
