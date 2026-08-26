@@ -94,6 +94,9 @@ message CNIConfig {
   // Additional labels to apply to the istio-cni DaemonSet.
   google.protobuf.Struct daemonSetLabels = 33;
 
+  // Additional annotations to apply to the istio-cni DaemonSet.
+  google.protobuf.Struct daemonSetAnnotations = 38;
+
   // Additional annotations to apply to the istio-cni Pods.
   google.protobuf.Struct podAnnotations = 10 [deprecated = true];
 
