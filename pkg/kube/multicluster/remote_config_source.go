@@ -21,6 +21,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
@@ -43,7 +44,9 @@ type remoteConfigSource interface {
 }
 
 type secretConfigSource struct {
-	client kclient.Client[*corev1.Secret]
+	client   kclient.Client[*corev1.Secret]
+	handlers []cache.ResourceEventHandlerRegistration
+	mu       sync.Mutex
 }
 
 func newSecretConfigSource(client kclient.Client[*corev1.Secret]) *secretConfigSource {
@@ -51,7 +54,9 @@ func newSecretConfigSource(client kclient.Client[*corev1.Secret]) *secretConfigS
 }
 
 func (s *secretConfigSource) AddEventHandler(handler func(key types.NamespacedName, event controllers.EventType)) {
-	s.client.AddEventHandler(controllers.EventHandler[*corev1.Secret]{
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.handlers = append(s.handlers, s.client.AddEventHandler(controllers.EventHandler[*corev1.Secret]{
 		AddFunc: func(obj *corev1.Secret) {
 			handler(types.NamespacedName{Name: obj.Name, Namespace: obj.Namespace}, controllers.EventAdd)
 		},
@@ -61,11 +66,23 @@ func (s *secretConfigSource) AddEventHandler(handler func(key types.NamespacedNa
 		DeleteFunc: func(obj *corev1.Secret) {
 			handler(types.NamespacedName{Name: obj.Name, Namespace: obj.Namespace}, controllers.EventDelete)
 		},
-	})
+	}))
 }
 
 func (s *secretConfigSource) HasSynced() bool {
-	return s.client.HasSynced()
+	if !s.client.HasSynced() {
+		return false
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, h := range s.handlers {
+		if !h.HasSynced() {
+			return false
+		}
+	}
+
+	return true
 }
 
 func (s *secretConfigSource) Start(stop <-chan struct{}) {
@@ -89,6 +106,9 @@ type fileConfigSource struct {
 	// deferredHandlers stores AddEventHandler registrations made before Start() initializes the collection.
 	// They are registered against the collection once Start() finishes creating it.
 	deferredHandlers []func(types.NamespacedName, controllers.EventType)
+	// handlers stores the collection registrations so HasSynced can verify that each handler has
+	// processed the initial state, not just that the collection itself has synced.
+	handlers []krt.HandlerRegistration
 }
 
 func newFileConfigSource(root string) *fileConfigSource {
@@ -118,14 +138,16 @@ func (f *fileConfigSource) Start(stop <-chan struct{}) {
 		}
 
 		f.mu.Lock()
+		defer f.mu.Unlock()
 		f.collection = collection
 		deferredHandlers := f.deferredHandlers
 		f.deferredHandlers = nil
-		f.mu.Unlock()
 
 		// Register deferred handlers that arrived before the collection was initialized.
 		for _, handler := range deferredHandlers {
-			registerHandler(collection, handler)
+			if reg := registerHandler(collection, handler); reg != nil {
+				f.handlers = append(f.handlers, reg)
+			}
 		}
 	})
 }
@@ -136,7 +158,15 @@ func (f *fileConfigSource) HasSynced() bool {
 	if f.collection == nil {
 		return false
 	}
-	return f.collection.HasSynced()
+	if !f.collection.HasSynced() {
+		return false
+	}
+	for _, h := range f.handlers {
+		if !h.HasSynced() {
+			return false
+		}
+	}
+	return true
 }
 
 func (f *fileConfigSource) Get(key types.NamespacedName) *remoteConfig {
@@ -163,15 +193,15 @@ func (f *fileConfigSource) AddEventHandler(handler func(key types.NamespacedName
 	}
 
 	f.mu.Lock()
-	collection := f.collection
-	if collection == nil {
+	defer f.mu.Unlock()
+	if f.collection == nil {
 		f.deferredHandlers = append(f.deferredHandlers, handler)
-		f.mu.Unlock()
 		return
 	}
-	f.mu.Unlock()
 
-	registerHandler(collection, handler)
+	if reg := registerHandler(f.collection, handler); reg != nil {
+		f.handlers = append(f.handlers, reg)
+	}
 }
 
 // registerHandler adapts KRT file collection events into controller queue keys.
@@ -179,15 +209,8 @@ func (f *fileConfigSource) AddEventHandler(handler func(key types.NamespacedName
 // so updates enqueue old and new cluster IDs when they differ. This ensures a kubeconfig
 // file changing from cluster A to cluster B reconciles both keys so the old
 // cluster can be deleted and the new cluster can be added.
-func registerHandler(collection krt.Collection[KubeconfigFile], handler func(key types.NamespacedName, event controllers.EventType)) {
-	if handler == nil {
-		return
-	}
-	if collection == nil {
-		return
-	}
-
-	collection.Register(func(ev krt.Event[KubeconfigFile]) {
+func registerHandler(collection krt.Collection[KubeconfigFile], handler func(key types.NamespacedName, event controllers.EventType)) krt.HandlerRegistration {
+	return collection.Register(func(ev krt.Event[KubeconfigFile]) {
 		oldClusterID := ""
 		if ev.Old != nil {
 			oldClusterID = ev.Old.ClusterID

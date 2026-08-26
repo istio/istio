@@ -63,6 +63,12 @@ func NewStatic[T any](initial *T, startSynced bool, opts ...CollectionOption) St
 		x.metadata = o.metadata
 	}
 	maybeRegisterCollectionForDebugging(x, o.debugger)
+	if o.debugger != nil && o.stopProvided {
+		go func() {
+			<-o.stop
+			maybeUnregisterCollectionFromDebugger(x, o.debugger)
+		}()
+	}
 	return collectionAdapter[T]{x}
 }
 

@@ -1,0 +1,151 @@
+# Regression test for the cross-namespace existence oracle (CWE-203).
+# All four listeners reference material in namespace "certs" with NO ReferenceGrant.
+# Grant-first authorization must make existing-vs-missing indistinguishable:
+# every listener must report ResolvedRefs=False / RefNotPermitted with no "not found".
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: istio
+spec:
+  controllerName: istio.io/gateway-controller
+---
+# caCertificateRef -> EXISTING ConfigMap in another namespace, no grant.
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: cacert-exists
+  namespace: istio-system
+spec:
+  gatewayClassName: istio
+  addresses:
+  - value: istio-ingressgateway
+    type: Hostname
+  tls:
+    frontend:
+      default:
+        validation:
+          caCertificateRefs:
+          - group: ""
+            kind: ConfigMap
+            namespace: certs
+            name: existing-ca
+  listeners:
+  - name: https
+    hostname: "a.example.com"
+    port: 443
+    protocol: HTTPS
+    allowedRoutes:
+      namespaces:
+        from: All
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - name: my-cert
+---
+# caCertificateRef -> MISSING ConfigMap in another namespace, no grant.
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: cacert-missing
+  namespace: istio-system
+spec:
+  gatewayClassName: istio
+  addresses:
+  - value: istio-ingressgateway
+    type: Hostname
+  tls:
+    frontend:
+      default:
+        validation:
+          caCertificateRefs:
+          - group: ""
+            kind: ConfigMap
+            namespace: certs
+            name: missing-ca
+  listeners:
+  - name: https
+    hostname: "b.example.com"
+    port: 443
+    protocol: HTTPS
+    allowedRoutes:
+      namespaces:
+        from: All
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - name: my-cert
+---
+# certificateRef (Secret) -> EXISTING Secret in another namespace, no grant.
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: cert-exists
+  namespace: istio-system
+spec:
+  gatewayClassName: istio
+  addresses:
+  - value: istio-ingressgateway
+    type: Hostname
+  listeners:
+  - name: https
+    hostname: "c.example.com"
+    port: 443
+    protocol: HTTPS
+    allowedRoutes:
+      namespaces:
+        from: All
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - name: existing-cert
+        namespace: certs
+---
+# certificateRef (Secret) -> MISSING Secret in another namespace, no grant.
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: cert-missing
+  namespace: istio-system
+spec:
+  gatewayClassName: istio
+  addresses:
+  - value: istio-ingressgateway
+    type: Hostname
+  listeners:
+  - name: https
+    hostname: "d.example.com"
+    port: 443
+    protocol: HTTPS
+    allowedRoutes:
+      namespaces:
+        from: All
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - name: missing-cert
+        namespace: certs
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: existing-ca
+  namespace: certs
+data:
+  ca.crt: |
+    -----BEGIN CERTIFICATE-----
+    MIIDCzCCAfOgAwIBAgIQbfOzhcKTldFipQ1X2Wff1zANBgkqhkiG9w0BAQsFADAv
+    MRkwFwYDVQQKExBrOHMuY2x1c3Rlci5sb2NhbDESMBAGA1UEAxMJTXkgQ0EgQ0Ew
+    HhcNMjAwMTAxMDAwMDAwWhcNMzAwMTAxMDAwMDAwWjAvMRkwFwYDVQQKExBrOHMu
+    Y2x1c3Rlci5sb2NhbDESMBAGA1UEAxMJTXkgQ0EgQ0EwggEiMA0GCSqGSIb3DQEB
+    AQUAA4IBDwAwggEKAoIBAQDVE1YvVMhLPFVDzHUJHDfLPQVsBLGXOMsCP2OjCC0K
+    -----END CERTIFICATE-----
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: existing-cert
+  namespace: certs
+type: kubernetes.io/tls
+data:
+  tls.crt: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCg==
+  tls.key: LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCg==

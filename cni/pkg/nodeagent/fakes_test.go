@@ -105,10 +105,19 @@ func fakeFs(uniqueInos bool) *fakeFsWithFakeFds {
 	return &fakeFsWithFakeFds{ReadDirFS: subFs.(fs.ReadDirFS), uniqueInos: uniqueInos}
 }
 
+// fakeFsWithNetnsInos is fakeFs(true) with fixed inodes for the given paths
+// (e.g. "3/ns/net"), letting tests model processes that share a netns.
+func fakeFsWithNetnsInos(inos map[string]int) *fakeFsWithFakeFds {
+	ffs := fakeFs(true)
+	ffs.inos = inos
+	return ffs
+}
+
 type fakeFsWithFakeFds struct {
 	fs.ReadDirFS
 	inoCounter int
 	uniqueInos bool
+	inos       map[string]int
 	opened     []*fakeFileFakeFds
 }
 
@@ -128,7 +137,11 @@ func (ffs *fakeFsWithFakeFds) Open(name string) (fs.File, error) {
 	if ffs.uniqueInos {
 		ffs.inoCounter++
 	}
-	wrapped := wrapFile(name, f, ffs.inoCounter)
+	ino := ffs.inoCounter
+	if override, ok := ffs.inos[name]; ok {
+		ino = override
+	}
+	wrapped := wrapFile(name, f, ino)
 	ffs.opened = append(ffs.opened, wrapped)
 	return wrapped, nil
 }

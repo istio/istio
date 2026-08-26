@@ -17,17 +17,21 @@ package statusqueue_test
 import (
 	"fmt"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/ambient/statusqueue"
 	"istio.io/istio/pkg/activenotifier"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient"
@@ -36,6 +40,7 @@ import (
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -228,4 +233,55 @@ func TestQueueLeaderElection(t *testing.T) {
 	notifier.StoreAndNotify(true)
 	expectConditions("conds", map[string]bool{"t2": true})
 	expectConditions("conds2", map[string]bool{"t1": true})
+}
+
+type FailingPatcher struct {
+	groupResource schema.GroupResource
+	patchCount    atomic.Int32
+}
+
+func (*FailingPatcher) Patch(name, namespace string, pt types.PatchType, data []byte) error {
+	return nil
+}
+
+func (*FailingPatcher) PatchStatus(name, namespace string, pt types.PatchType, data []byte) error {
+	return nil
+}
+
+func (p *FailingPatcher) ApplyStatus(name, namespace string, pt types.PatchType, data []byte, fieldManager string) error {
+	p.patchCount.Add(1)
+	return errors.NewNotFound(p.groupResource, name)
+}
+
+func TestQueueApplyStatusNotFound(t *testing.T) {
+	q := statusqueue.NewQueue(activenotifier.New(true))
+	c := kube.NewFakeClient()
+	svc := kclient.New[*v1.Service](c)
+	stop := test.NewStop(t)
+	opts := krt.NewOptionsBuilder(stop, "", krt.GlobalDebugHandler)
+	svcs := krt.WrapClient(svc, opts.WithName("Services")...)
+	col := krt.NewCollection(svcs, func(ctx krt.HandlerContext, i *v1.Service) *serviceStatus {
+		return &serviceStatus{
+			Target: model.TypedObject{
+				NamespacedName: config.NamespacedName(i),
+				Kind:           kind.Service,
+			},
+			Conditions: model.ConditionSet{
+				model.ConditionType("t1"): {Reason: "reason", Status: true},
+			},
+		}
+	}, opts.WithName("col")...)
+	failingPatcher := &FailingPatcher{groupResource: gvr.Service.GroupResource()}
+	statusqueue.Register(q, "services", col, func(status serviceStatus) (kclient.Patcher, map[string]model.Condition) {
+		return failingPatcher, nil
+	})
+	clienttest.Wrap(t, svc).Create(&v1.Service{ObjectMeta: metav1.ObjectMeta{
+		Name:      "conds",
+		Namespace: "default",
+	}})
+	c.RunAndWait(stop)
+	go q.Run(stop)
+
+	assert.EventuallyEqual(t, failingPatcher.patchCount.Load, 1)
+	assert.Consistently(t, failingPatcher.patchCount.Load, 1)
 }

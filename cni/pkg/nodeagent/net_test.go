@@ -61,6 +61,8 @@ func getTestFixureWithIptablesConfig(ctx context.Context, fakeDeps *dependencies
 	if err != nil {
 		panic("couldn't create mocked procfinder")
 	}
+	// the fake fs's netns fds can't be entered; ownership checks are tested separately
+	procFinder.netnsPodIPChecker = func(Netns, []netip.Addr) (bool, error) { return true, nil }
 
 	netServer := newNetServer(ztunnelServer, podNsMap, podIptC, procFinder)
 
@@ -288,7 +290,14 @@ func TestServerAddPodWithNoNetns(t *testing.T) {
 	podIP := netip.MustParseAddr("99.9.9.9")
 	podIPs := []netip.Addr{podIP}
 
-	err := netServer.AddPodToMesh(ctx, &corev1.Pod{ObjectMeta: podMeta}, podIPs, "")
+	pod := &corev1.Pod{
+		ObjectMeta: podMeta,
+		Status: corev1.PodStatus{
+			PodIP:  "99.9.9.9",
+			PodIPs: []corev1.PodIP{{IP: "99.9.9.9"}},
+		},
+	}
+	err := netServer.AddPodToMesh(ctx, pod, podIPs, "")
 	assert.NoError(t, err)
 	assert.Equal(t, ztunnelServer.addedPods.Load(), 1)
 }
@@ -357,7 +366,13 @@ func TestConstructInitialSnap(t *testing.T) {
 		Namespace: "bar",
 		UID:       types.UID("863b91d4-4b68-4efa-917f-4b560e3e86aa"),
 	}
-	pod := &corev1.Pod{ObjectMeta: podMeta}
+	pod := &corev1.Pod{
+		ObjectMeta: podMeta,
+		Status: corev1.PodStatus{
+			PodIP:  "99.9.9.9",
+			PodIPs: []corev1.PodIP{{IP: "99.9.9.9"}},
+		},
+	}
 
 	err := netServer.ConstructInitialSnapshot([]*corev1.Pod{pod})
 	assert.NoError(t, err)
@@ -385,7 +400,13 @@ func TestConstructInitialSnapReconcilesPodsIfIptConfiguratorSupportsReconciliati
 		Namespace: "bar",
 		UID:       types.UID("863b91d4-4b68-4efa-917f-4b560e3e86aa"),
 	}
-	pod := &corev1.Pod{ObjectMeta: podMeta}
+	pod := &corev1.Pod{
+		ObjectMeta: podMeta,
+		Status: corev1.PodStatus{
+			PodIP:  "99.9.9.9",
+			PodIPs: []corev1.PodIP{{IP: "99.9.9.9"}},
+		},
+	}
 
 	err := netServer.ConstructInitialSnapshot([]*corev1.Pod{pod})
 	assert.NoError(t, err)
@@ -418,7 +439,13 @@ func TestConstructInitialSnapDoesNotReconcilePodIfIptablesReconciliationDisabled
 		Namespace: "bar",
 		UID:       types.UID("863b91d4-4b68-4efa-917f-4b560e3e86aa"),
 	}
-	pod := &corev1.Pod{ObjectMeta: podMeta}
+	pod := &corev1.Pod{
+		ObjectMeta: podMeta,
+		Status: corev1.PodStatus{
+			PodIP:  "99.9.9.9",
+			PodIPs: []corev1.PodIP{{IP: "99.9.9.9"}},
+		},
+	}
 
 	err := netServer.ConstructInitialSnapshot([]*corev1.Pod{pod})
 	assert.NoError(t, err)
@@ -451,7 +478,13 @@ func TestReconcilePodReturnsErrorIfNoNetnsFound(t *testing.T) {
 		Namespace: "bar",
 		UID:       types.UID("863b91d4-4b68-4efa-917f-4b560e3e86aa"),
 	}
-	pod := &corev1.Pod{ObjectMeta: podMeta}
+	pod := &corev1.Pod{
+		ObjectMeta: podMeta,
+		Status: corev1.PodStatus{
+			PodIP:  "99.9.9.9",
+			PodIPs: []corev1.PodIP{{IP: "99.9.9.9"}},
+		},
+	}
 
 	// make sure the uid was taken from cache
 	fixture.podNsMap.Take(string(pod.UID))
@@ -483,7 +516,13 @@ func TestReconcilePodReturnsNoErrorIfPodReconciles(t *testing.T) {
 		Namespace: "bar",
 		UID:       types.UID("863b91d4-4b68-4efa-917f-4b560e3e86aa"),
 	}
-	pod := &corev1.Pod{ObjectMeta: podMeta}
+	pod := &corev1.Pod{
+		ObjectMeta: podMeta,
+		Status: corev1.PodStatus{
+			PodIP:  "99.9.9.9",
+			PodIPs: []corev1.PodIP{{IP: "99.9.9.9"}},
+		},
+	}
 
 	// Pod is NOT in cache yet, as we haven't added it.
 	// But faked cache should find it via fakeProc anyway

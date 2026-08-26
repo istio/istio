@@ -35,16 +35,10 @@ var (
 
 const ResourceVersion string = "ResourceVersion"
 
-// Make creates an in-memory config store from a config schemas
-// It is with validation
-func Make(schemas collection.Schemas) *Store {
-	return newStore(schemas, false)
-}
-
-// MakeSkipValidation creates an in-memory config store from a config schemas
-// It is without validation
-func MakeSkipValidation(schemas collection.Schemas) *Store {
-	return newStore(schemas, true)
+// Make creates an in-memory config store for the specified schemas,
+// skipValidation can optionally skip validations.
+func Make(schemas collection.Schemas, skipValidation bool, stop <-chan struct{}) *Store {
+	return newStore(schemas, false, stop)
 }
 
 type syncer struct {
@@ -76,15 +70,14 @@ func (c *syncer) markSynced() {
 func newStore(
 	schemas collection.Schemas,
 	skipValidation bool,
+	stop <-chan struct{},
 ) *Store {
-	stop := make(chan struct{})
 	opts := krt.NewOptionsBuilder(stop, "memory", krt.GlobalDebugHandler)
 	out := Store{
 		schemas:        schemas,
 		data:           make(map[config.GroupVersionKind]kindStore),
 		skipValidation: skipValidation,
 		syncer:         &syncer{make(chan struct{})},
-		stop:           stop,
 	}
 	for _, s := range schemas.All() {
 		collection := krt.NewStaticCollection[config.Config](out.syncer, nil, opts.WithName(s.Kind())...)
@@ -107,7 +100,6 @@ type Store struct {
 	data           map[config.GroupVersionKind]kindStore
 	skipValidation bool
 	syncer         *syncer
-	stop           chan struct{}
 }
 
 func (cr *Store) hasSynced() bool {

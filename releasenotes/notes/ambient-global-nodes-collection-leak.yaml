@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 60033
+releaseNotes:
+  - |
+    **Fixed** a memory and goroutine leak in Istiod ambient multi-cluster mode where the per-cluster
+    node locality collections were scoped to the process lifetime instead of the cluster lifetime, so
+    they were never torn down when a remote cluster was removed.
