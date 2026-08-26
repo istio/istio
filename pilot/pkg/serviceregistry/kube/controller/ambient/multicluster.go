@@ -194,6 +194,7 @@ func (a *index) buildGlobalCollections(
 		LocalWaypoints,
 		opts,
 	)
+	authPoliciesByNs := selectingWorkloadAuthzByNs(AuthorizationPolicies)
 
 	LocalWorkloadServices := a.builder.ServicesCollection(
 		localCluster.ID,
@@ -287,6 +288,7 @@ func (a *index) buildGlobalCollections(
 	GlobalNodeLocality := GlobalNodesCollection(GlobalNodesWithCluster, opts.WithName("GlobalNodeLocalityWithCluster")...)
 	GlobalNodeLocalityByCluster := nestedCollectionIndexByCluster(GlobalNodeLocality)
 
+	localPeerAuthsByNs := krt.NewNamespaceIndex(localPeerAuths)
 	GlobalWorkloads := MergedGlobalWorkloadsCollection(
 		localCluster,
 		LocalWaypoints,
@@ -297,8 +299,8 @@ func (a *index) buildGlobalCollections(
 		GlobalNodeLocality,
 		GlobalNodeLocalityByCluster,
 		options.MeshConfig,
-		AuthorizationPolicies,
-		localPeerAuths,
+		authPoliciesByNs,
+		localPeerAuthsByNs,
 		GlobalWaypoints,
 		WaypointsByCluster,
 		LocalWorkloadServices,

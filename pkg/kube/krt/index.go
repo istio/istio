@@ -28,6 +28,7 @@ import (
 type Index[K comparable, O any] interface {
 	Lookup(k K) []O
 	AsCollection(opts ...CollectionOption) IndexCollection[K, O]
+	Fetch(ctx HandlerContext, key K, opts ...FetchOption) []O
 	objectHasKey(obj O, k K) bool
 	extractKeys(o O) []K
 	id() collectionUID
@@ -122,6 +123,11 @@ func (i index[K, O]) AsCollection(opts ...CollectionOption) IndexCollection[K, O
 	}
 	maybeRegisterCollectionForDebugging(c, o.debugger)
 	return c
+}
+
+// Fetch fetches all entries from the index with dependency tracking
+func (i index[K, O]) Fetch(ctx HandlerContext, key K, opts ...FetchOption) []O {
+	return Fetch(ctx, i.c, append([]FetchOption{FilterIndex(i, key)}, opts...)...)
 }
 
 // nolint: unused // (not true)
