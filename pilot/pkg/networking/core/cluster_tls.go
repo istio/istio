@@ -119,7 +119,13 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 	// that would result in the CredentialName being supplied to all the sidecars which the DestinationRule is scoped to,
 	// resulting in delayed startup of sidecars who do not have access to the credentials.
 	// `filterAuthorizedResources` allows ConfigMap to anyone, so do not exclude it here.
-	privilegedCredentialLookup := tls.CredentialName != "" && !(strings.HasPrefix(tls.CredentialName, credentials.KubernetesConfigMapTypeURI))
+	//
+	// invalid:// (BackendTLSPolicy's unresolved-CA sentinel) is not privileged either: SDS drops
+	// it for everyone, so let it build an unservable validation context that fails closed instead
+	// of short-circuiting to no transport socket, which fails open (sidecar sends plaintext).
+	privilegedCredentialLookup := tls.CredentialName != "" &&
+		!strings.HasPrefix(tls.CredentialName, credentials.KubernetesConfigMapTypeURI) &&
+		tls.CredentialName != credentials.InvalidSecretTypeURI
 	if privilegedCredentialLookup && cb.sidecarProxy() && !opts.isDrWithSelector {
 		if tls.Mode == networking.ClientTLSSettings_SIMPLE || tls.Mode == networking.ClientTLSSettings_MUTUAL {
 			return nil, nil

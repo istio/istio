@@ -1,0 +1,13 @@
+apiVersion: release-notes/v2
+
+kind: security-fix
+
+area: security
+
+issue: []
+
+releaseNotes:
+- |
+  **Fixed** a fail-open in `BackendTLSPolicy`: when a policy's `caCertificateRefs` could
+  not be resolved, sidecar proxies sent upstream traffic in plaintext instead of failing
+  closed. Reported by [@thc1006](https://github.com/thc1006).
