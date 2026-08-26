@@ -1,10 +1,10 @@
 apiVersion: release-notes/v2
 kind: bug-fix
-area: traffic-management
+area: ambient
 issue:
   - 61020
 releaseNotes:
   - |
-    **Fixed** an issue in the CNI node agent where the auto-detected iptables backend
-    (`legacy` vs `nft`) could flip between agent restarts, causing a duplicate set of
+    **Fixed** an issue in ambient mode where the CNI node agent auto-detected iptables backend
+    (`legacy` vs `nft`) could flip between agent restarts, causing duplicate
     redirect rules to be written into already-enrolled pods.
