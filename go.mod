@@ -2,6 +2,8 @@ module istio.io/istio
 
 go 1.26.0
 
+replace istio.io/api => github.com/zirain/api v0.0.0-20260826024702-d62fe5ad2418
+
 require (
 	cloud.google.com/go/compute/metadata v0.9.0
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20240806141605-e8a1dd7889d6
