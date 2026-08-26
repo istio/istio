@@ -842,7 +842,7 @@ func mergeHTTPRoutes(baseVirtualServices krt.Collection[RouteWithKey], opts ...k
 		base := configs[0].DeepCopy()
 		baseVS := base.Spec.(*istio.VirtualService)
 
-		origins, err := httpRouteOrigins(base)
+		origins, err := cloneHTTPRouteOrigins(base)
 		if err != nil {
 			log.Errorf("invalid HTTPRoute origins: %v", err)
 			return nil
@@ -863,7 +863,7 @@ func mergeHTTPRoutes(baseVirtualServices krt.Collection[RouteWithKey], opts ...k
 		for i, config := range configs[1:] {
 			thisVS := config.Spec.(*istio.VirtualService)
 			baseVS.Http = append(baseVS.Http, thisVS.Http...)
-			thisOrigins, err := httpRouteOrigins(config.Config)
+			thisOrigins, err := cloneHTTPRouteOrigins(config.Config)
 			if err != nil {
 				log.Errorf("invalid HTTPRoute origins: %v", err)
 				return nil
@@ -930,9 +930,9 @@ func mergeHTTPRoutes(baseVirtualServices krt.Collection[RouteWithKey], opts ...k
 	return finalVirtualServices
 }
 
-// httpRouteOrigins returns a copy of the HTTPRoute each of the VirtualService's routes came from,
+// cloneHTTPRouteOrigins returns a copy of the HTTPRoute each of the VirtualService's routes came from,
 // or a slice of zero values when none were recorded.
-func httpRouteOrigins(config config.Config) ([]types.NamespacedName, error) {
+func cloneHTTPRouteOrigins(config config.Config) ([]types.NamespacedName, error) {
 	if !features.EnableGatewayAPIHTTPRouteAuth {
 		return nil, nil
 	}

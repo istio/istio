@@ -125,8 +125,10 @@ func (b *Builder) BuildHTTP(class networking.ListenerClass) []*hcm.HttpFilter {
 	return b.httpFilters
 }
 
-// PartitionRouteScopedFilters splits the workload's RBAC filters into those that are evaluated
-// independently of the selected route and those that resolve per-route configuration.
+// PartitionRouteScopedFilters splits the workload's RBAC filters into those
+// that are evaluated at the workload scope and those that contain per-route
+// configuration. Used to build the filter chain in the correct order when
+// accounting for Envoy's route cache clearing risk.
 func PartitionRouteScopedFilters(built []*hcm.HttpFilter) (workload, routeScoped []*hcm.HttpFilter) {
 	for _, f := range built {
 		if f.GetName() == builder.RBACFilterNameAllow {

@@ -46,7 +46,7 @@ func regexURI(v string) *istio.StringMatch {
 	return &istio.StringMatch{MatchType: &istio.StringMatch_Regex{Regex: v}}
 }
 
-func TestHTTPRouteOrigins(t *testing.T) {
+func TestCloneHTTPRouteOrigins(t *testing.T) {
 	test.SetForTest(t, &features.EnableGatewayAPIHTTPRouteAuth, true)
 	origins := func(nn ...types.NamespacedName) []types.NamespacedName { return nn }
 	vs := func(n int) *istio.VirtualService {
@@ -114,7 +114,7 @@ func TestHTTPRouteOrigins(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := httpRouteOrigins(tc.cfg)
+			got, err := cloneHTTPRouteOrigins(tc.cfg)
 			if tc.wantErr {
 				if err == nil {
 					t.Fatalf("expected error, got nil (origins=%v)", got)
@@ -139,9 +139,9 @@ func TestHTTPRouteOrigins(t *testing.T) {
 	}
 }
 
-// TestHTTPRouteOriginsClone verifies the returned slice is a copy: mutating it
-// must not corrupt the origins stored in the source config's Extra field.
-func TestHTTPRouteOriginsClone(t *testing.T) {
+// Mutating the returned slice must not corrupt the origins stored in the source config's Extra
+// field, which is shared with the collection the config came from.
+func TestCloneHTTPRouteOriginsDoesNotAliasSource(t *testing.T) {
 	test.SetForTest(t, &features.EnableGatewayAPIHTTPRouteAuth, true)
 	stored := []types.NamespacedName{
 		{Name: "a", Namespace: "ns"},
@@ -154,7 +154,7 @@ func TestHTTPRouteOriginsClone(t *testing.T) {
 		},
 	}
 
-	got, err := httpRouteOrigins(cfg)
+	got, err := cloneHTTPRouteOrigins(cfg)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

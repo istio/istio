@@ -481,7 +481,7 @@ func httpRouteLess(i, j *istio.HTTPRoute) bool {
 		return r1 > r2
 	case len1 != len2:
 		return len1 > len2
-		// 2: method math
+		// 2: method match
 	case (m1.Method == nil) != (m2.Method == nil):
 		return m1.Method != nil
 		// 3: number of header matches
