@@ -277,7 +277,7 @@ func patchFilterChain(patchContext networking.EnvoyFilter_PatchContext,
 // Returns a boolean indicating if the merge was handled by this function; if false, it should still be called
 // outside of this function.
 func mergeTransportSocketListener(fc *listener.FilterChain, lp *model.EnvoyFilterConfigPatchWrapper) (merged bool, err error) {
-	lpValueCast, ok := (lp.Value).(*listener.FilterChain)
+	lpValueCast, ok := lp.Value.(*listener.FilterChain)
 	if !ok {
 		return false, fmt.Errorf("cast of cp.Value failed: %v", ok)
 	}

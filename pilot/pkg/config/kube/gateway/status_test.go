@@ -35,7 +35,7 @@ func TestStatusCollections(t *testing.T) {
 	stop := test.NewStop(t)
 	fetch := func(q *TestStatusQueue) []string {
 		return slices.Sort(slices.Map(q.Statuses(), func(e any) string {
-			return *(e.(*string))
+			return *e.(*string)
 		}))
 	}
 
