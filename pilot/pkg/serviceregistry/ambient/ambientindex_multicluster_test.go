@@ -956,14 +956,14 @@ func TestMulticlusterAmbientIndex_SplitHorizonPreservesWaypoint(t *testing.T) {
 	})
 }
 
-func (a *ambientTestServer) DeleteSecret(secretName string) {
-	a.t.Helper()
-	a.sec.Delete(secretName, secretNamespace)
+func (s *ambientTestServer) DeleteSecret(secretName string) {
+	s.t.Helper()
+	s.sec.Delete(secretName, secretNamespace)
 }
 
-func (a *ambientTestServer) AddSecret(secretName, clusterID string) {
+func (s *ambientTestServer) AddSecret(secretName, clusterID string) {
 	kubeconfig++
-	a.sec.CreateOrUpdate(makeSecret(secretNamespace, secretName, clusterCredential{clusterID, fmt.Appendf(nil, "kubeconfig-%d", kubeconfig)}))
+	s.sec.CreateOrUpdate(makeSecret(secretNamespace, secretName, clusterCredential{clusterID, fmt.Appendf(nil, "kubeconfig-%d", kubeconfig)}))
 }
 
 // TestMulticlusterAmbientIndex_ClusterLifecycleNoLeak verifies that adding and then removing a
