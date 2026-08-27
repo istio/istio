@@ -14,6 +14,7 @@
 package ambient
 
 import (
+	"cmp"
 	"fmt"
 	"reflect"
 	"strings"
@@ -36,6 +37,7 @@ import (
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/ptr"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
@@ -131,28 +133,91 @@ func TestAmbientMulticlusterIndex_WaypointForWorkloadTraffic(t *testing.T) {
 			s := newAmbientTestServer(t, testC, testNW, "")
 			s.AddSecret("s1", "c1") // overlapping ips
 			s.AddSecret("s2", "c2") // Non-overlapping ips
-			remoteClients := krt.NewCollection(s.mcController.Clusters(), func(_ krt.HandlerContext, c *multicluster.Cluster) **remoteAmbientClients {
-				cl := c.Client
-				return ptr.Of(&remoteAmbientClients{
-					clusterID: c.ID,
-					ambientclients: &ambientclients{
-						pc:    clienttest.NewDirectClient[*corev1.Pod, corev1.Pod, *corev1.PodList](t, cl),
-						sc:    clienttest.NewDirectClient[*corev1.Service, corev1.Service, *corev1.ServiceList](t, cl),
-						ns:    clienttest.NewWriter[*corev1.Namespace](t, cl),
-						grc:   clienttest.NewWriter[*k8sv1.Gateway](t, cl),
-						gwcls: clienttest.NewWriter[*k8sv1.GatewayClass](t, cl),
-						se:    clienttest.NewWriter[*apiv1alpha3.ServiceEntry](t, cl),
-						we:    clienttest.NewWriter[*apiv1alpha3.WorkloadEntry](t, cl),
-						pa:    clienttest.NewWriter[*clientsecurityv1beta1.PeerAuthentication](t, cl),
-						authz: clienttest.NewWriter[*clientsecurityv1beta1.AuthorizationPolicy](t, cl),
-						sec:   clienttest.NewWriter[*corev1.Secret](t, cl),
-					},
+			stop := test.NewStop(t)
+
+			// Build the test clients for every cluster through the multicluster nested collection API.
+			// That API is the only way to reach a cluster from outside the multicluster package, so the
+			// test never needs a raw *Cluster: the local cluster's clients are the "local" collection and
+			// each remote cluster contributes a single-element collection built inside its own lifecycle.
+			localClients := krt.NewStaticCollection(nil, []*remoteAmbientClients{{
+				clusterID: s.clusterID,
+				ambientclients: &ambientclients{
+					pc:    s.pc,
+					sc:    s.sc,
+					ns:    s.ns,
+					grc:   s.grc,
+					gwcls: s.gwcls,
+					se:    s.se,
+					we:    s.we,
+					pa:    s.pa,
+					authz: s.authz,
+					sec:   s.sec,
+				},
+			}}, krt.WithName("LocalAmbientClients"), krt.WithStop(stop))
+
+			clientCollections := multicluster.NestedCollectionFromLocalAndRemote(
+				s.mcController,
+				localClients,
+				func(ctx krt.HandlerContext, c multicluster.ClusterCollections) *krt.Collection[*remoteAmbientClients] {
+					cl := c.Client()
+					var col krt.Collection[*remoteAmbientClients] = krt.NewStaticCollection(nil, []*remoteAmbientClients{{
+						clusterID: c.ID(),
+						ambientclients: &ambientclients{
+							pc:    clienttest.NewDirectClient[*corev1.Pod, corev1.Pod, *corev1.PodList](t, cl),
+							sc:    clienttest.NewDirectClient[*corev1.Service, corev1.Service, *corev1.ServiceList](t, cl),
+							ns:    clienttest.NewWriter[*corev1.Namespace](t, cl),
+							grc:   clienttest.NewWriter[*k8sv1.Gateway](t, cl),
+							gwcls: clienttest.NewWriter[*k8sv1.GatewayClass](t, cl),
+							se:    clienttest.NewWriter[*apiv1alpha3.ServiceEntry](t, cl),
+							we:    clienttest.NewWriter[*apiv1alpha3.WorkloadEntry](t, cl),
+							pa:    clienttest.NewWriter[*clientsecurityv1beta1.PeerAuthentication](t, cl),
+							authz: clienttest.NewWriter[*clientsecurityv1beta1.AuthorizationPolicy](t, cl),
+							sec:   clienttest.NewWriter[*corev1.Secret](t, cl),
+						},
+					}}, krt.WithName(fmt.Sprintf("AmbientClients[%s]", c.ID())), krt.WithStop(c.GetStop()))
+					return &col
+				},
+				"GlobalAmbientClients",
+				krt.NewOptionsBuilder(stop, "TestClients", nil),
+			)
+
+			// The local cluster is kept first, and the remotes sorted by ID, so the order in which the
+			// clusters happen to show up in the collection cannot change what this test does.
+			listClients := func() []*remoteAmbientClients {
+				var out []*remoteAmbientClients
+				for _, col := range clientCollections.List() {
+					out = append(out, col.List()...)
+				}
+				slices.SortFunc(out, func(a, b *remoteAmbientClients) int {
+					if (a.clusterID == s.clusterID) != (b.clusterID == s.clusterID) {
+						if a.clusterID == s.clusterID {
+							return -1
+						}
+						return 1
+					}
+					return cmp.Compare(a.clusterID, b.clusterID)
 				})
+				return out
+			}
+			assert.EventuallyEqual(t, func() int { return len(listClients()) }, 3)
+			clients := listClients()
+			remoteClients := slices.Filter(clients, func(c *remoteAmbientClients) bool {
+				return c.clusterID != s.clusterID
 			})
 
-			assert.EventuallyEqual(t, func() int {
-				return len(remoteClients.List())
-			}, 2)
+			// The per-cluster namespace collections already carry the cluster metadata, so they can be
+			// nested and indexed as-is. Nothing is derived from them here (we only read them), so no
+			// per-cluster stop channel is needed.
+			namespaceCollections := multicluster.NestedCollectionFromLocalAndRemote(
+				s.mcController,
+				s.mcController.ConfigCluster().Namespaces(),
+				func(ctx krt.HandlerContext, i multicluster.ClusterCollections) *krt.Collection[*corev1.Namespace] {
+					return ptr.Of(i.Namespaces())
+				},
+				"GlobalNamespacesTest",
+				krt.NewOptionsBuilder(stop, "TestNamespaces", nil),
+			)
+			namespacesByCluster := multicluster.NestedCollectionIndexByCluster(namespaceCollections)
 
 			differentCIDRIPs := map[string]string{
 				"waypoint": "10.1.0.10",
@@ -179,24 +244,6 @@ func TestAmbientMulticlusterIndex_WaypointForWorkloadTraffic(t *testing.T) {
 				"c1":       "77.1.2.49",
 				"c2":       "", // c2 and cluster0 share the same network, so no gw
 			}
-			rClients := remoteClients.List()
-			clients := append([]*remoteAmbientClients{
-				{
-					clusterID: s.clusterID,
-					ambientclients: &ambientclients{
-						pc:    s.pc,
-						sc:    s.sc,
-						ns:    s.ns,
-						grc:   s.grc,
-						gwcls: s.gwcls,
-						se:    s.se,
-						we:    s.we,
-						pa:    s.pa,
-						authz: s.authz,
-						sec:   s.sec,
-					},
-				},
-			}, rClients...)
 			for _, client := range clients {
 				// Test ambient index already creates istio-system namespace
 				if client.clusterID != s.clusterID {
@@ -224,11 +271,11 @@ func TestAmbientMulticlusterIndex_WaypointForWorkloadTraffic(t *testing.T) {
 					// A cluster's network is read from the topology label on its own system namespace, so wait
 					// for that namespace to reach the cluster's informer before making other assertions.
 					assert.EventuallyEqual(t, func() string {
-						cl := s.mcController.ClusterStore().GetByID(client.clusterID)
-						if cl == nil || !cl.HasSynced() {
+						collections := namespacesByCluster.Lookup(client.clusterID)
+						if len(collections) == 0 {
 							return ""
 						}
-						ns := cl.Namespaces().GetKey(systemNS)
+						ns := collections[0].GetKey(systemNS)
 						if ns == nil {
 							return ""
 						}
@@ -308,7 +355,7 @@ func TestAmbientMulticlusterIndex_WaypointForWorkloadTraffic(t *testing.T) {
 			s.assertEvent(t, s.podXdsName("pod1"))
 			s.deleteWaypoint(t, "test-wp")
 
-			for _, rc := range remoteClients.List() {
+			for _, rc := range remoteClients {
 				// Removing the service changes the WDS workload in that cluster due to service attachments.
 				// Note that we should NOT get an event changing the service attachment in our local cluster.
 				// We also get a service event because we lost an IP
@@ -1000,7 +1047,7 @@ func TestMulticlusterAmbientIndex_ClusterLifecycleNoLeak(t *testing.T) {
 		EnableK8SServiceSelectWorkloadEntries: features.EnableK8SServiceSelectWorkloadEntries,
 	}, "", false /* runClient */)
 	clusters := s.mcController.Clusters()
-	cl := s.mcController.ConfigCluster().Client
+	cl := s.mcController.ConfigCluster().Client()
 
 	waitRemoteClusters := func(t *testing.T, n int) {
 		t.Helper()

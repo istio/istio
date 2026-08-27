@@ -172,7 +172,7 @@ func New(options Options) Index {
 	Nodes := LocalCluster.Nodes()
 	Gateways := LocalCluster.Gateways()
 
-	client := LocalCluster.Client
+	client := LocalCluster.Client()
 	filter := kclient.Filter{
 		ObjectFilter: client.ObjectFilter(),
 	}

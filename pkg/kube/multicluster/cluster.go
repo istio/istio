@@ -41,7 +41,98 @@ var _ krt.ResourceNamer = &Cluster{}
 
 const ClusterKRTMetadataKey = "cluster"
 
-// Cluster defines cluster struct
+// ClusterCollections is a restricted, read-only view over one generation of a Cluster: its ID, its
+// client, its stop channel and the krt collections built from its informers. It exists so that code
+// outside this package can derive krt collections from a cluster's informers without ever holding
+// the *Cluster itself.
+//
+// Deriving a krt collection registers a handler on the source collection, and
+// that registration lives until the derived collection is stopped. A remote cluster's collections
+// are per-generation — they are discarded when the cluster is removed or its credentials rotate — so
+// a derived collection that is not stopped with the cluster keeps its registration, its informer and
+// the whole *Cluster alive for the lifetime of the process. Handing out only this view keeps the set
+// of places that can make that mistake small enough to audit.
+//
+// A ClusterCollections is only produced where deriving collections is safe:
+//   - in the callbacks of NestedCollectionFromLocalAndRemote and
+//     NestedManyCollectionsFromLocalAndRemote, which run inside the cluster's lifecycle and whose
+//     results are dropped when the cluster goes away;
+//   - from Controller.ConfigCluster, whose cluster lives for the lifetime of the process (its stop
+//     channel is the controller's, so passing it to krt.WithStop is a no-op but still correct).
+//
+// Rules for callers:
+//   - Build every derived collection with krt.WithStop(cc.GetStop()), never with a process-wide stop
+//     channel.
+//   - Do not retain a ClusterCollections, or the collections it returns, past the call that received
+//     it. After a credential rotation the same cluster ID is served by a new generation; the old
+//     collections are frozen at rotation time, fed by informers that are no longer running.
+//   - Use Client() for things that do not create an informer — write clients, object filters, direct
+//     API calls.
+type ClusterCollections struct {
+	cluster *Cluster
+}
+
+// ID returns the ID of the cluster.
+func (cc ClusterCollections) ID() cluster.ID {
+	return cc.cluster.ID
+}
+
+// Client returns the cluster's kube client.
+//
+// Building a *new* informer on it — one for a (resource, filter) combination the cluster does not
+// already have — requires starting it yourself:
+//
+//	inf := kclient.NewFiltered[T](cc.Client(), filter)
+//	inf.Start(cc.GetStop())
+//	col := krt.WrapClient(inf, krt.WithStop(cc.GetStop()), ...)
+//
+// Prefer the collection accessors below, which are already started and synced.
+func (cc ClusterCollections) Client() kube.Client {
+	return cc.cluster.Client
+}
+
+// GetStop returns the stop channel for the cluster. Every collection derived from this view must be
+// built with krt.WithStop(cc.GetStop()) so it is torn down with the cluster.
+func (cc ClusterCollections) GetStop() <-chan struct{} {
+	return cc.cluster.stop
+}
+
+// Namespaces returns the namespaces collection.
+func (cc ClusterCollections) Namespaces() krt.Collection[*corev1.Namespace] {
+	return cc.cluster.namespaces()
+}
+
+// Pods returns the pods collection.
+func (cc ClusterCollections) Pods() krt.Collection[*corev1.Pod] {
+	return cc.cluster.pods()
+}
+
+// Services returns the services collection.
+func (cc ClusterCollections) Services() krt.Collection[*corev1.Service] {
+	return cc.cluster.services()
+}
+
+// EndpointSlices returns the endpointSlices collection.
+func (cc ClusterCollections) EndpointSlices() krt.Collection[*discovery.EndpointSlice] {
+	return cc.cluster.endpointSlices()
+}
+
+// Nodes returns the nodes collection.
+func (cc ClusterCollections) Nodes() krt.Collection[*corev1.Node] {
+	return cc.cluster.nodes()
+}
+
+// Gateways returns the gateways collection.
+func (cc ClusterCollections) Gateways() krt.Collection[*gatewayv1.Gateway] {
+	return cc.cluster.gateways()
+}
+
+// Cluster defines cluster struct.
+//
+// A Cluster owns one generation of a remote (or the config) cluster: its client, its informers, its
+// stop channel and the krt collections built from those informers. The collections are deliberately
+// unexported; code outside this package gets at them through ClusterCollections, which documents the
+// rules that keep derived collections from outliving the cluster they read from.
 type Cluster struct {
 	// ID of the cluster.
 	ID cluster.ID
@@ -88,33 +179,33 @@ type remoteClusterCollections struct {
 	gateways       krt.Collection[*gatewayv1.Gateway]
 }
 
-// Namespaces returns the namespaces collection.
-func (c *Cluster) Namespaces() krt.Collection[*corev1.Namespace] {
+// namespaces returns the namespaces collection.
+func (c *Cluster) namespaces() krt.Collection[*corev1.Namespace] {
 	return c.remoteClusterCollections.Load().namespaces
 }
 
-// Pods returns the pods collection.
-func (c *Cluster) Pods() krt.Collection[*corev1.Pod] {
+// pods returns the pods collection.
+func (c *Cluster) pods() krt.Collection[*corev1.Pod] {
 	return c.remoteClusterCollections.Load().pods
 }
 
-// Services returns the services collection.
-func (c *Cluster) Services() krt.Collection[*corev1.Service] {
+// services returns the services collection.
+func (c *Cluster) services() krt.Collection[*corev1.Service] {
 	return c.remoteClusterCollections.Load().services
 }
 
-// EndpointSlices returns the endpointSlices collection.
-func (c *Cluster) EndpointSlices() krt.Collection[*discovery.EndpointSlice] {
+// endpointSlices returns the endpointSlices collection.
+func (c *Cluster) endpointSlices() krt.Collection[*discovery.EndpointSlice] {
 	return c.remoteClusterCollections.Load().endpointSlices
 }
 
-// Nodes returns the nodes collection.
-func (c *Cluster) Nodes() krt.Collection[*corev1.Node] {
+// nodes returns the nodes collection.
+func (c *Cluster) nodes() krt.Collection[*corev1.Node] {
 	return c.remoteClusterCollections.Load().nodes
 }
 
-// Gateways returns the gateways collection.
-func (c *Cluster) Gateways() krt.Collection[*gatewayv1.Gateway] {
+// gateways returns the gateways collection.
+func (c *Cluster) gateways() krt.Collection[*gatewayv1.Gateway] {
 	return c.remoteClusterCollections.Load().gateways
 }
 
@@ -173,12 +264,12 @@ func (c *Cluster) Run(mesh meshwatcher.WatcherCollection, handlers []handler, ac
 	if c.remoteClusterCollections.Load() != nil {
 		log.Infof("Configuring cluster %s with existing informers", c.ID)
 		syncers := []krt.Syncer{
-			c.Namespaces(),
-			c.Gateways(),
-			c.Services(),
-			c.Nodes(),
-			c.EndpointSlices(),
-			c.Pods(),
+			c.namespaces(),
+			c.gateways(),
+			c.services(),
+			c.nodes(),
+			c.endpointSlices(),
+			c.pods(),
 		}
 		for _, syncer := range syncers {
 			if !syncer.WaitUntilSynced(c.stop) {
@@ -256,12 +347,12 @@ func (c *Cluster) Run(mesh meshwatcher.WatcherCollection, handlers []handler, ac
 
 	// Also wait for KRT collections to sync
 	krtSyncers := []krt.Syncer{
-		c.Namespaces(),
-		c.Gateways(),
-		c.Services(),
-		c.Nodes(),
-		c.EndpointSlices(),
-		c.Pods(),
+		c.namespaces(),
+		c.gateways(),
+		c.services(),
+		c.nodes(),
+		c.endpointSlices(),
+		c.pods(),
 	}
 	for _, syncer := range krtSyncers {
 		if !syncer.WaitUntilSynced(c.stop) {
@@ -415,12 +506,12 @@ func (c *Cluster) reportStatus(status string) {
 
 func (c *Cluster) hasInitialCollections() bool {
 	return c.remoteClusterCollections.Load() != nil &&
-		c.Namespaces() != nil &&
-		c.Gateways() != nil &&
-		c.Services() != nil &&
-		c.Nodes() != nil &&
-		c.EndpointSlices() != nil &&
-		c.Pods() != nil
+		c.namespaces() != nil &&
+		c.gateways() != nil &&
+		c.services() != nil &&
+		c.nodes() != nil &&
+		c.endpointSlices() != nil &&
+		c.pods() != nil
 }
 
 // WaitUntilSynced waits for the cluster to be fully synced.

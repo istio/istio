@@ -393,19 +393,19 @@ func gatewayToWaypointTransform(
 }
 
 func GlobalWaypointsCollection(
-	localCluster *multicluster.Cluster,
+	localCluster multicluster.ClusterCollections,
 	localWaypoints krt.Collection[Waypoint],
 	ctrl *multicluster.Controller,
 	gatewayClasses krt.Collection[*gatewayv1.GatewayClass],
 	globalNetworks NetworkCollections,
 	opts krt.OptionsBuilder,
 ) krt.Collection[krt.Collection[Waypoint]] {
-	return multicluster.NestedCollectionFromLocalAndRemote(ctrl, localWaypoints, func(ctx krt.HandlerContext, c *multicluster.Cluster) *krt.Collection[Waypoint] {
+	return multicluster.NestedCollectionFromLocalAndRemote(ctrl, localWaypoints, func(ctx krt.HandlerContext, c multicluster.ClusterCollections) *krt.Collection[Waypoint] {
 		opts := []krt.CollectionOption{
-			krt.WithName(fmt.Sprintf("Waypoints[%s]", c.ID)),
+			krt.WithName(fmt.Sprintf("Waypoints[%s]", c.ID())),
 			krt.WithDebugging(opts.Debugger()),
 			krt.WithStop(c.GetStop()),
-			krt.WithMetadata(krt.Metadata{multicluster.ClusterKRTMetadataKey: c.ID}),
+			krt.WithMetadata(krt.Metadata{multicluster.ClusterKRTMetadataKey: c.ID()}),
 		}
 		pods := c.Pods()
 		podsByNamespace := krt.NewNamespaceIndex(pods)
@@ -556,7 +556,7 @@ func (w WaypointSelector) Equals(other WaypointSelector) bool {
 	if w.FromNamespaces != other.FromNamespaces {
 		return false
 	}
-	if (w.Selector) == nil != (other.Selector == nil) {
+	if w.Selector == nil != (other.Selector == nil) {
 		return false
 	}
 	if w.Selector == nil && other.Selector == nil {

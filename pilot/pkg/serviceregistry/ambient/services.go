@@ -152,7 +152,7 @@ func selectWorkloadServices(typedServiceInfos []TypedServiceInfo) []model.Servic
 }
 
 func GlobalNestedWorkloadServicesCollection(
-	localCluster *multicluster.Cluster,
+	localCluster multicluster.ClusterCollections,
 	localServiceInfos krt.Collection[model.ServiceInfo],
 	localWaypoints krt.Collection[Waypoint],
 	ctrl *multicluster.Controller,
@@ -167,7 +167,7 @@ func GlobalNestedWorkloadServicesCollection(
 	// This will contain the serviceinfos derived from Services AND ServiceEntries
 	LocalServiceInfosWithCluster := krt.MapCollection(
 		localServiceInfos,
-		wrapObjectWithCluster[model.ServiceInfo](localCluster.ID),
+		wrapObjectWithCluster[model.ServiceInfo](localCluster.ID()),
 		opts.WithName("LocalServiceInfosWithCluster")...,
 	)
 
@@ -177,15 +177,15 @@ func GlobalNestedWorkloadServicesCollection(
 	return multicluster.NestedCollectionFromLocalAndRemote(
 		ctrl,
 		LocalServiceInfosWithCluster,
-		func(ctx krt.HandlerContext, cluster *multicluster.Cluster) *krt.Collection[krt.ObjectWithCluster[model.ServiceInfo]] {
+		func(ctx krt.HandlerContext, cluster multicluster.ClusterCollections) *krt.Collection[krt.ObjectWithCluster[model.ServiceInfo]] {
 			opts := []krt.CollectionOption{
 				krt.WithDebugging(opts.Debugger()),
 				krt.WithStop(cluster.GetStop()),
 			}
 			services := cluster.Services()
-			waypointsPtr := krt.FetchOne(ctx, globalWaypoints, krt.FilterIndex(waypointsByCluster, cluster.ID))
+			waypointsPtr := krt.FetchOne(ctx, globalWaypoints, krt.FilterIndex(waypointsByCluster, cluster.ID()))
 			if waypointsPtr == nil {
-				log.Warnf("Cluster %s does not have waypoints assigned, skipping", cluster.ID)
+				log.Warnf("Cluster %s does not have waypoints assigned, skipping", cluster.ID())
 				return nil
 			}
 			waypoints := *waypointsPtr
@@ -204,20 +204,20 @@ func GlobalNestedWorkloadServicesCollection(
 			),
 				append(
 					opts,
-					krt.WithName(fmt.Sprintf("ambient/ServiceServiceInfos[%s]", cluster.ID)),
+					krt.WithName(fmt.Sprintf("ambient/ServiceServiceInfos[%s]", cluster.ID())),
 					krt.WithMetadata(krt.Metadata{
-						multicluster.ClusterKRTMetadataKey: cluster.ID,
+						multicluster.ClusterKRTMetadataKey: cluster.ID(),
 					}),
 				)...)
 
 			servicesInfoWithCluster := krt.MapCollection(
 				servicesInfo,
 				func(o model.ServiceInfo) krt.ObjectWithCluster[model.ServiceInfo] {
-					return krt.ObjectWithCluster[model.ServiceInfo]{ClusterID: cluster.ID, Object: &o}
+					return krt.ObjectWithCluster[model.ServiceInfo]{ClusterID: cluster.ID(), Object: &o}
 				},
 				append(
 					opts,
-					krt.WithName(fmt.Sprintf("ServiceServiceInfosWithCluster[%s]", cluster.ID)),
+					krt.WithName(fmt.Sprintf("ServiceServiceInfosWithCluster[%s]", cluster.ID())),
 				)...,
 			)
 			return ptr.Of(servicesInfoWithCluster)
