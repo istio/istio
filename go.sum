@@ -461,8 +461,6 @@ github.com/yl2chen/cidranger v1.0.2 h1:lbOWZVCG1tCRX4u24kuM1Tb4nHqWkDxwLdoS+Seva
 github.com/yl2chen/cidranger v1.0.2/go.mod h1:9U1yz7WPYDwf0vpNWFaeRh0bjwz5RVgRy/9UEQfHl0g=
 github.com/yuin/goldmark v1.1.27/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/yuin/goldmark v1.2.1/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
-github.com/zirain/api v0.0.0-20260826024702-d62fe5ad2418 h1:4CPGUZa5+nAdan2KsqOgTEssYLNfGgbljp+z+ZWrY2o=
-github.com/zirain/api v0.0.0-20260826024702-d62fe5ad2418/go.mod h1:+brQWcBHoROuyA6fv8rbgg8Kfn0RCGuqoY0duCMuSLA=
 go.etcd.io/etcd/api/v3 v3.6.8 h1:gqb1VN92TAI6G2FiBvWcqKtHiIjr4SU2GdXxTwyexbM=
 go.etcd.io/etcd/api/v3 v3.6.8/go.mod h1:qyQj1HZPUV3B5cbAL8scG62+fyz5dSxxu0w8pn28N6Q=
 go.etcd.io/etcd/client/pkg/v3 v3.6.8 h1:Qs/5C0LNFiqXxYf2GU8MVjYUEXJ6sZaYOz0zEqQgy50=
@@ -598,6 +596,8 @@ istio.io/api v1.31.0-alpha.1.0.20260826150658-f7ae8c4fe7ab h1:Hu9A9I4+7dt07s92Fv
 istio.io/api v1.31.0-alpha.1.0.20260826150658-f7ae8c4fe7ab/go.mod h1:+brQWcBHoROuyA6fv8rbgg8Kfn0RCGuqoY0duCMuSLA=
 istio.io/client-go v1.31.0-alpha.1.0.20260826151058-37a790e1b0fc h1:ZJ2LCZ/MkYoMzgR2f1WkVDm4UJC4C36TllOFvY2KlQk=
 istio.io/client-go v1.31.0-alpha.1.0.20260826151058-37a790e1b0fc/go.mod h1:AixxMeFDL74ooEYm3YHUHK0YzCQIr93/QjerZArFsAg=
+istio.io/api v1.31.0-alpha.1.0.20260819121012-5803fb6accf7 h1:OWLDeAAvyCOlfY/OxvsPgnaGfWAKmmQ9oBNdDdAIIwQ=
+istio.io/api v1.31.0-alpha.1.0.20260819121012-5803fb6accf7/go.mod h1:+brQWcBHoROuyA6fv8rbgg8Kfn0RCGuqoY0duCMuSLA=
 istio.io/client-go v1.31.0-alpha.0.0.20260807010324-676a810f2c1f h1:gQdOmYc2jLje+2MgBpI8lp3l4DEu8CnK30nEQnD0Fxo=
 istio.io/client-go v1.31.0-alpha.0.0.20260807010324-676a810f2c1f/go.mod h1:C9xdF2vvPA1euALglqrxHzjEWuJ63i2+jIqpUCjtJo0=
 k8s.io/api v0.36.1 h1:XbL/EMj8K2aJpJtePmqUyQMsM0D4QI2pvl7YKJ20FTY=
