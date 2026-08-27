@@ -166,6 +166,7 @@ func (a *index) buildGlobalCollections(
 		LocalWaypoints,
 		opts,
 	)
+	authPoliciesByNs := selectingWorkloadAuthzByNs(AuthorizationPolicies)
 	LocalServiceEntryVisibility := model.ServiceEntryVisibilityCollection(LocalMeshConfig.AsCollection(), opts)
 
 	LocalWorkloadServices := builder.ServicesCollection(
@@ -262,6 +263,7 @@ func (a *index) buildGlobalCollections(
 	GlobalNodeLocality := GlobalNodesCollection(localCluster, LocalNodeLocality, a.mcController, opts)
 	GlobalNodeLocalityByCluster := multicluster.NestedCollectionIndexByCluster(GlobalNodeLocality)
 
+	localPeerAuthsByNs := krt.NewNamespaceIndex(localPeerAuths)
 	GlobalWorkloads := MergedGlobalWorkloadsCollection(
 		localCluster,
 		LocalWaypoints,
@@ -272,8 +274,8 @@ func (a *index) buildGlobalCollections(
 		GlobalNodeLocality,
 		GlobalNodeLocalityByCluster,
 		options.MeshConfig,
-		AuthorizationPolicies,
-		localPeerAuths,
+		authPoliciesByNs,
+		localPeerAuthsByNs,
 		GlobalWaypoints,
 		WaypointsByCluster,
 		LocalWorkloadServices,

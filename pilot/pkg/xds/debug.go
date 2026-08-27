@@ -114,6 +114,16 @@ type AdsClient struct {
 	Metadata     *model.NodeMetadata `json:"metadata,omitempty"`
 	Locality     *core.Locality      `json:"locality,omitempty"`
 	Watches      map[string][]string `json:"watches,omitempty"`
+	// WatchesSummary summarizes each watch without listing resource names, which can be
+	// very numerous at scale; pass ?brief to omit the name lists entirely.
+	WatchesSummary map[string]WatchSummary `json:"watchesSummary,omitempty"`
+}
+
+// WatchSummary summarizes one watched type: the number of resource names tracked and whether
+// the subscription is wildcard. Wildcard WDS watches intentionally track no names.
+type WatchSummary struct {
+	Count    int  `json:"count"`
+	Wildcard bool `json:"wildcard,omitempty"`
 }
 
 // AdsClients is collection of AdsClient connected to this Istiod.
@@ -197,6 +207,7 @@ func (s *DiscoveryServer) AddDebugHandlers(mux, internalMux *http.ServeMux, enab
 	s.addDebugHandler(mux, internalMux, "/debug/ndsz", "Status and debug interface for NDS", s.typedConfigDumpHandler("nds"))
 	s.addDebugHandler(mux, internalMux, "/debug/adsz", "Status and debug interface for ADS", s.adsz)
 	s.addDebugHandler(mux, internalMux, "/debug/adsz?push=true", "Initiates push of the current state to all connected endpoints", s.adsz)
+	s.addDebugHandler(mux, internalMux, "/debug/adsz?brief", "Status and debug interface for ADS, omitting watched resource names", s.adsz)
 
 	s.addDebugHandler(mux, internalMux, "/debug/syncz", "Synchronization status of all Envoys connected to this Pilot instance", s.Syncz)
 
@@ -562,21 +573,28 @@ func (s *DiscoveryServer) adsz(w http.ResponseWriter, req *http.Request) {
 		connections = s.SortedClients()
 	}
 
+	brief := req.URL.Query().Has("brief")
 	adsClients := &AdsClients{}
 	adsClients.Total = len(connections)
 	for _, c := range connections {
 		adsClient := AdsClient{
-			ConnectionID: c.ID(),
-			ConnectedAt:  c.ConnectedAt(),
-			PeerAddress:  c.Peer(),
-			Labels:       c.proxy.Labels,
-			Metadata:     c.proxy.Metadata,
-			Locality:     c.proxy.Locality,
-			Watches:      map[string][]string{},
+			ConnectionID:   c.ID(),
+			ConnectedAt:    c.ConnectedAt(),
+			PeerAddress:    c.Peer(),
+			Labels:         c.proxy.Labels,
+			Metadata:       c.proxy.Metadata,
+			Locality:       c.proxy.Locality,
+			WatchesSummary: map[string]WatchSummary{},
+		}
+		if !brief {
+			adsClient.Watches = map[string][]string{}
 		}
 		c.proxy.RLock()
 		for k, wr := range c.proxy.WatchedResources {
-			adsClient.Watches[k] = wr.ResourceNames.UnsortedList()
+			adsClient.WatchesSummary[k] = WatchSummary{Count: len(wr.ResourceNames), Wildcard: wr.Wildcard}
+			if !brief {
+				adsClient.Watches[k] = wr.ResourceNames.UnsortedList()
+			}
 		}
 		c.proxy.RUnlock()
 		adsClients.Connected = append(adsClients.Connected, adsClient)

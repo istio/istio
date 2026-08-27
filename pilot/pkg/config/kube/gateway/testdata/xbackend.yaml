@@ -1,0 +1,341 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: istio
+spec:
+  controllerName: istio.io/gateway-controller
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: gateway
+  namespace: istio-system
+spec:
+  addresses:
+    - value: istio-ingressgateway
+      type: Hostname
+  gatewayClassName: istio
+  listeners:
+    - name: default
+      hostname: "*.domain.example"
+      port: 80
+      protocol: HTTP
+      allowedRoutes:
+        namespaces:
+          from: All
+    - name: tcp
+      port: 34000
+      protocol: TCP
+      allowedRoutes:
+        namespaces:
+          from: All
+---
+# Fully specified: TLS origination with an explicit CA and SNI override.
+apiVersion: gateway.networking.x-k8s.io/v1alpha1
+kind: XBackend
+metadata:
+  name: external-https
+  namespace: default
+spec:
+  type: ExternalHostname
+  externalHostname:
+    hostname: secure.example.net
+  port:
+    port: 80
+  protocol: HTTP
+  tls:
+    mode: ServerOnly
+    validation:
+      caCertificateRefs:
+        - kind: ConfigMap
+          name: auth-cert
+          group: ""
+      hostname: auth.example.com
+---
+# validation is optional on an XBackend (unlike BackendTLSPolicy), so SNI falls
+# back to the external hostname.
+apiVersion: gateway.networking.x-k8s.io/v1alpha1
+kind: XBackend
+metadata:
+  name: external-novalidation
+  namespace: default
+spec:
+  type: ExternalHostname
+  externalHostname:
+    hostname: google.com
+  port:
+    port: 80
+  tls:
+    mode: ServerOnly
+---
+# No TLS block at all: no DestinationRule should be produced.
+apiVersion: gateway.networking.x-k8s.io/v1alpha1
+kind: XBackend
+metadata:
+  name: external-plain
+  namespace: default
+spec:
+  type: ExternalHostname
+  externalHostname:
+    hostname: plaintext.example.net
+  port:
+    port: 8080
+  protocol: HTTP2
+---
+# Two Backends sharing an external hostname on different ports: the TLS settings of one
+# must not leak onto the other's port.
+apiVersion: gateway.networking.x-k8s.io/v1alpha1
+kind: XBackend
+metadata:
+  name: shared-host-tls
+  namespace: default
+spec:
+  type: ExternalHostname
+  externalHostname:
+    hostname: shared.example.net
+  port:
+    port: 443
+  protocol: HTTP
+  tls:
+    mode: ServerOnly
+---
+apiVersion: gateway.networking.x-k8s.io/v1alpha1
+kind: XBackend
+metadata:
+  name: shared-host-plain
+  namespace: default
+spec:
+  type: ExternalHostname
+  externalHostname:
+    hostname: shared.example.net
+  port:
+    port: 8080
+  protocol: HTTP
+---
+# Client certificates are not supported; the Backend must be rejected.
+apiVersion: gateway.networking.x-k8s.io/v1alpha1
+kind: XBackend
+metadata:
+  name: external-mtls
+  namespace: default
+spec:
+  type: ExternalHostname
+  externalHostname:
+    hostname: mtls.example.net
+  port:
+    port: 443
+  tls:
+    mode: ClientAndServer
+    clientCertificateRef:
+      kind: Secret
+      name: my-cert
+      group: ""
+    validation:
+      caCertificateRefs:
+        - kind: ConfigMap
+          name: auth-cert
+          group: ""
+      hostname: mtls.example.net
+---
+# A TCP backend, referenced by a TCPRoute below.
+apiVersion: gateway.networking.x-k8s.io/v1alpha1
+kind: XBackend
+metadata:
+  name: external-tcp
+  namespace: default
+spec:
+  type: ExternalHostname
+  externalHostname:
+    hostname: tcp.example.net
+  port:
+    port: 9000
+  protocol: TCP
+---
+# Referenced from another namespace, permitted by a ReferenceGrant.
+apiVersion: gateway.networking.x-k8s.io/v1alpha1
+kind: XBackend
+metadata:
+  name: cross-namespace
+  namespace: allowed-1
+spec:
+  type: ExternalHostname
+  externalHostname:
+    hostname: cross.example.net
+  port:
+    port: 80
+  tls:
+    mode: ServerOnly
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: allow-xbackend
+  namespace: allowed-1
+spec:
+  from:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      namespace: default
+  to:
+    - group: gateway.networking.x-k8s.io
+      kind: XBackend
+---
+# The Backend declares the port, so backendRef.port may be omitted.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: no-port
+  namespace: default
+spec:
+  parentRefs:
+    - name: gateway
+      namespace: istio-system
+  hostnames: ["no-port.domain.example"]
+  rules:
+    - backendRefs:
+        - group: gateway.networking.x-k8s.io
+          kind: XBackend
+          name: external-https
+---
+# An explicit backendRef.port matching the Backend is also accepted.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: matching-port
+  namespace: default
+spec:
+  parentRefs:
+    - name: gateway
+      namespace: istio-system
+  hostnames: ["matching-port.domain.example"]
+  rules:
+    - backendRefs:
+        - group: gateway.networking.x-k8s.io
+          kind: XBackend
+          name: external-novalidation
+          port: 80
+---
+# A conflicting backendRef.port is rejected.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: mismatched-port
+  namespace: default
+spec:
+  parentRefs:
+    - name: gateway
+      namespace: istio-system
+  hostnames: ["mismatched-port.domain.example"]
+  rules:
+    - backendRefs:
+        - group: gateway.networking.x-k8s.io
+          kind: XBackend
+          name: external-https
+          port: 8080
+---
+# The referenced Backend does not exist.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: missing-backend
+  namespace: default
+spec:
+  parentRefs:
+    - name: gateway
+      namespace: istio-system
+  hostnames: ["missing.domain.example"]
+  rules:
+    - backendRefs:
+        - group: gateway.networking.x-k8s.io
+          kind: XBackend
+          name: does-not-exist
+---
+# Cross-namespace reference permitted by the ReferenceGrant above.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: cross-namespace
+  namespace: default
+spec:
+  parentRefs:
+    - name: gateway
+      namespace: istio-system
+  hostnames: ["cross.domain.example"]
+  rules:
+    - backendRefs:
+        - group: gateway.networking.x-k8s.io
+          kind: XBackend
+          name: cross-namespace
+          namespace: allowed-1
+---
+# Cross-namespace reference with no ReferenceGrant.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: not-allowed
+  namespace: default
+spec:
+  parentRefs:
+    - name: gateway
+      namespace: istio-system
+  hostnames: ["not-allowed.domain.example"]
+  rules:
+    - backendRefs:
+        - group: gateway.networking.x-k8s.io
+          kind: XBackend
+          name: external-mtls
+          namespace: allowed-2
+---
+# A GRPCRoute resolves a Backend through the same path as an HTTPRoute, including
+# inferring the port from the Backend when backendRef.port is omitted.
+apiVersion: gateway.networking.k8s.io/v1
+kind: GRPCRoute
+metadata:
+  name: grpc-backend
+  namespace: default
+spec:
+  parentRefs:
+    - name: gateway
+      namespace: istio-system
+  hostnames: ["grpc.domain.example"]
+  rules:
+    - backendRefs:
+        - group: gateway.networking.x-k8s.io
+          kind: XBackend
+          name: external-plain
+---
+# A TCPRoute resolves a Backend through buildTCPDestination.
+apiVersion: gateway.networking.k8s.io/v1
+kind: TCPRoute
+metadata:
+  name: tcp-backend
+  namespace: default
+spec:
+  parentRefs:
+    - name: gateway
+      namespace: istio-system
+      sectionName: tcp
+  rules:
+    - backendRefs:
+        - group: gateway.networking.x-k8s.io
+          kind: XBackend
+          name: external-tcp
+---
+# A TCPRoute referencing a Backend with a conflicting port is rejected, and the
+# invalid backend is dropped gracefully rather than aborting the rule.
+apiVersion: gateway.networking.k8s.io/v1
+kind: TCPRoute
+metadata:
+  name: tcp-mismatched-port
+  namespace: default
+spec:
+  parentRefs:
+    - name: gateway
+      namespace: istio-system
+      sectionName: tcp
+  rules:
+    - backendRefs:
+        - group: gateway.networking.x-k8s.io
+          kind: XBackend
+          name: external-tcp
+          port: 9999

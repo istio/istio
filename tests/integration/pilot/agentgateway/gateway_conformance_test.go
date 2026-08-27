@@ -63,12 +63,6 @@ var conformanceNamespaces = []string{
 }
 
 var skippedTests = map[string]string{
-	// The following tests were added in v1.5.0
-	"BackendTLSPolicyObservedGenerationBump": "TODO",
-
-	// The following tests were modified between v1.4.0 && v1.5.0
-	"BackendTLSPolicy": "TODO",
-
 	// The following tests were added in v1.6.0
 	"GatewayInvalidParametersRef":        "TODO",
 	"GatewayListenerUnsupportedProtocol": "TODO",

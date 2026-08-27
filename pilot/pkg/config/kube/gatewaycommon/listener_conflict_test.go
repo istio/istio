@@ -576,3 +576,39 @@ func TestListenerSetParentKey(t *testing.T) {
 		t.Fatalf("got %q/%q", ns, name)
 	}
 }
+
+// TestConflictsKeyedByOwnerKind proves a Gateway and a ListenerSet sharing a namespace and name do
+// not read each other's conflict entries. The conflicts map was previously keyed by namespace/name
+// alone; with a same-named pair, a conflict recorded for the losing ListenerSet listener was also
+// returned for the Gateway, marking the winning listener conflicted and taking both objects dark.
+func TestConflictsKeyedByOwnerKind(t *testing.T) {
+	gw := &gatewayv1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{Name: "shared", Namespace: "infra"},
+		Spec: gatewayv1.GatewaySpec{
+			Listeners: []gatewayv1.Listener{
+				{Name: "http", Port: 80, Protocol: gatewayv1.HTTPProtocolType, Hostname: hostname("app.example.com")},
+			},
+		},
+	}
+	// Same namespace AND name as the Gateway, and a listener that loses to the Gateway's.
+	ls := &gatewayv1.ListenerSet{
+		ObjectMeta: metav1.ObjectMeta{Name: "shared", Namespace: "infra", CreationTimestamp: metav1.NewTime(time.Now())},
+		Spec: gatewayv1.ListenerSetSpec{
+			Listeners: []gatewayv1.ListenerEntry{
+				{Name: "http", Port: 80, Protocol: gatewayv1.HTTPProtocolType, Hostname: hostname("app.example.com")},
+			},
+		},
+	}
+
+	result := GatewayListenerConflicts{Conflicts: ComputeGatewayListenerConflicts(gw, []*gatewayv1.ListenerSet{ls})}
+
+	// The ListenerSet listener loses to the Gateway's own listener: conflict expected.
+	if got := result.ConflictsFor(ls)["http"]; got != gatewayv1.ListenerReasonHostnameConflict {
+		t.Fatalf("ListenerSet listener should lose to the Gateway listener: got %q", got)
+	}
+	// The Gateway's listener WON. It must not inherit the ListenerSet's conflict through the
+	// shared namespace/name key.
+	if got := result.ConflictsForGateway(gw); len(got) != 0 {
+		t.Fatalf("winning Gateway listener must not be marked conflicted by a same-named ListenerSet: %+v", got)
+	}
+}

@@ -18,6 +18,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,6 +31,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/kube/multicluster"
@@ -219,16 +221,19 @@ func TestAmbientMulticlusterIndex_WaypointForWorkloadTraffic(t *testing.T) {
 						},
 					})
 
-					// Ensure the namespace network is set in up in the collection before doing other assertions
-					assert.EventuallyEqual(t, func() bool {
-						networks := s.networks.SystemNamespaceNetworkByCluster.Lookup(client.clusterID)
-						if len(networks) == 0 {
-							return false
+					// A cluster's network is read from the topology label on its own system namespace, so wait
+					// for that namespace to reach the cluster's informer before making other assertions.
+					assert.EventuallyEqual(t, func() string {
+						cl := s.mcController.ClusterStore().GetByID(client.clusterID)
+						if cl == nil || !cl.HasSynced() {
+							return ""
 						}
-
-						nw := networks[0].Network
-						return string(nw) == clusterToNetwork[client.clusterID]
-					}, true)
+						ns := cl.Namespaces().GetKey(systemNS)
+						if ns == nil {
+							return ""
+						}
+						return (*ns).Labels[label.TopologyNetwork.Name]
+					}, clusterToNetwork[client.clusterID])
 				}
 				if networkGatewayIps[client.clusterID] != "" {
 					s.addNetworkGatewayForClient(t, networkGatewayIps[client.clusterID], clusterToNetwork[client.clusterID], client.grc)
@@ -987,31 +992,86 @@ func (a *ambientTestServer) AddSecret(secretName, clusterID string) {
 // add/remove cycles run in a subtest wrapped in leak.Check.
 func TestMulticlusterAmbientIndex_ClusterLifecycleNoLeak(t *testing.T) {
 	test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
-	s := newAmbientTestServer(t, testC, testNW, "")
+	// Build the index WITHOUT starting the config cluster client. This lets us create the warmup
+	// remote-cluster secret up front and have it processed as part of the very first sync, so that
+	// waiting on HasSynced deterministically means "all global collections are wired up".
+	s := newAmbientTestServerWithFlags(t, testC, testNW, FeatureFlags{
+		DefaultAllowFromWaypoint:              features.DefaultAllowFromWaypoint,
+		EnableK8SServiceSelectWorkloadEntries: features.EnableK8SServiceSelectWorkloadEntries,
+	}, "", false /* runClient */)
 	clusters := s.mcController.Clusters()
+	cl := s.mcController.ConfigCluster().Client
 
-	waitRemoteClusters := func(n int) {
+	waitRemoteClusters := func(t *testing.T, n int) {
 		t.Helper()
 		assert.EventuallyEqual(t, func() int { return len(clusters.List()) }, n)
 	}
 
-	// Warm-up cycle: long-lived global collections lazily register a few dependency handlers the
-	// first time they process a remote cluster. Do one add/remove up front so those one-time
-	// registrations exist before leak.Check snapshots the baseline (they are fixed, not per-cycle).
-	s.AddSecret("s1", "remote-cluster")
-	waitRemoteClusters(1)
-	s.DeleteSecret("s1")
-	waitRemoteClusters(0)
+	// Warm-up: create a remote cluster BEFORE running the client. Global collections lazily wire up
+	// per-cluster dependency handlers the first time they see a remote cluster; doing this as part of
+	// the initial sync (gated by HasSynced) guarantees they are all created before leak.Check snapshots
+	// its baseline. We intentionally do NOT remove this cluster: teardown is async, and leaving the
+	// cluster in place keeps us in a stable, fully-initialized steady state. The subtests exercise
+	// add/remove of a *second* cluster and must return to this baseline.
+	s.AddSecret("s1", "remote-cluster-1")
+	t.Cleanup(cl.Shutdown)
+	cl.RunAndWait(test.NewStop(t))
+	assert.EventuallyEqual(t, s.HasSynced, true)
+	waitRemoteClusters(t, 1)
 
 	t.Run("add-remove-cluster", func(t *testing.T) {
 		leak.Check(t)
 
-		const iterations = 5
-		for i := 0; i < iterations; i++ {
-			s.AddSecret("s1", "remote-cluster")
-			waitRemoteClusters(1)
-			s.DeleteSecret("s1")
-			waitRemoteClusters(0)
+		s.AddSecret("s2", "remote-cluster-2")
+		waitRemoteClusters(t, 2)
+
+		s.DeleteSecret("s2")
+		waitRemoteClusters(t, 1)
+	})
+
+	t.Run("update-then-remove-cluster", func(t *testing.T) {
+		leak.Check(t)
+
+		swapped := make(chan struct{}, 1)
+		reg := clusters.RegisterBatch(func(events []krt.Event[*multicluster.Cluster]) {
+			for _, e := range events {
+				if e.Event == controllers.EventUpdate && e.Latest().ID == "remote-cluster-2" {
+					select {
+					case swapped <- struct{}{}:
+					default:
+					}
+				}
+			}
+		}, false)
+		defer reg.UnregisterHandler()
+		reg.WaitUntilSynced(test.NewStop(t))
+
+		s.AddSecret("s2", "remote-cluster-2")
+		waitRemoteClusters(t, 2)
+
+		// Update the cluster: re-adding the secret with a fresh kubeconfig swaps in a new Cluster (new
+		// stop + collections), tearing down the old one. This is the teardown path we verify doesn't
+		// leak. The cluster count stays at 2 across the update, so waitRemoteClusters would return
+		// immediately without the swap having propagated into the collection. Instead, observe the swap
+		// on the Clusters collection directly: capture the current cluster's stop channel and wait for
+		// an event carrying a remote-cluster-2 with a *different* stop (the swap surfaces as a delete of
+		// the not-yet-ready cluster followed by an add once it syncs, not necessarily a single update).
+		var oldStop <-chan struct{}
+		for _, c := range clusters.List() {
+			if c.ID == "remote-cluster-2" {
+				oldStop = c.GetStop()
+			}
 		}
+		s.AddSecret("s2", "remote-cluster-2")
+		select {
+		case <-swapped:
+		case <-time.After(30 * time.Second):
+			t.Fatal("timed out waiting for remote-cluster-2 swap event")
+		}
+		<-oldStop
+
+		// Remove so the subtest ends back at the single warm-up cluster, matching the leak.Check baseline.
+		s.DeleteSecret("s2")
+		waitRemoteClusters(t, 1)
 	})
 }

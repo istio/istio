@@ -212,12 +212,12 @@ func NewController(opts ControllerOptions) *Controller {
 }
 
 func (c *Controller) buildClustersCollection(optsBuilder krt.OptionsBuilder) {
-	// Wait for the remote config source to sync and mark the cluster store as ready.
+	// Wait for the remote config source, queue and cluster store to sync and then mark the cluster store as ready.
 	// Run() also waits on the same source before starting the queue; this goroutine
 	// separately gates the KRT-backed clusters collection on source sync.
 	// For the file-backed source, sync will not begin until Run() calls Start().
 	go func() {
-		if !kube.WaitForCacheSync("multicluster remote config source", c.stop, c.source.HasSynced) {
+		if !kube.WaitForCacheSync("multicluster remote config source", c.stop, c.source.HasSynced, c.queue.HasSynced, c.cs.HasSynced) {
 			log.Errorf("Timed out waiting for remote config source to sync")
 		}
 		c.cs.MarkSynced()
