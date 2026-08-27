@@ -44,8 +44,8 @@ func NestedCollectionIndexByCluster[T any](
 }
 
 // NestedCollectionFromLocalAndRemote builds a collection of collections that merges
-// a local collection with per-cluster remote collections derived from the Controller's
-// Clusters() collection.
+// a local collection with per-cluster remote collections derived from the Controller's clusters
+// collection.
 //
 // See NestedManyCollectionsFromLocalAndRemote for the contract clusterToCollection must honor.
 func NestedCollectionFromLocalAndRemote[T any](
@@ -72,7 +72,7 @@ func NestedCollectionFromLocalAndRemote[T any](
 
 // NestedManyCollectionsFromLocalAndRemote builds a collection of collections that merges
 // multiple local collections with per-cluster remote collections derived from the Controller's
-// Clusters() collection. This is a generalization of NestedCollectionFromLocalAndRemote for
+// clusters collection. This is a generalization of NestedCollectionFromLocalAndRemote for
 // cases where each cluster produces multiple collections instead of one.
 //
 // clusterToCollections is called once per cluster generation — a cluster whose credentials rotate is
@@ -97,7 +97,7 @@ func NestedManyCollectionsFromLocalAndRemote[T any](
 	name string,
 	opts krt.OptionsBuilder,
 ) krt.Collection[krt.Collection[T]] {
-	clustersCollection := ctrl.Clusters()
+	clustersCollection := ctrl.clusters
 	// The local collections are fixed for the lifetime of the process, so a static container is enough.
 	localContainer := krt.NewStaticCollection(
 		nil,

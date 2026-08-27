@@ -32,7 +32,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/kube/multicluster"
@@ -65,6 +64,116 @@ type remoteAmbientClients struct {
 
 func (r *remoteAmbientClients) ResourceName() string {
 	return string(r.clusterID)
+}
+
+// clusterGeneration identifies one generation of a remote cluster: its ID, plus the stop channel that
+// is closed when that generation is torn down. A credential rotation replaces the generation, which a
+// nested collection surfaces by rebuilding the cluster's contribution with the new stop channel.
+type clusterGeneration struct {
+	id   cluster.ID
+	stop <-chan struct{}
+}
+
+func (c clusterGeneration) ResourceName() string {
+	return string(c.id)
+}
+
+// clusterClients holds the ambient test clients for every cluster the multicluster controller knows
+// about.
+//
+// They are built through the multicluster nested collection API, which is the only way to reach a
+// cluster from outside the multicluster package: tests never hold a raw *Cluster. The local cluster's
+// clients are the "local" collection and each remote cluster contributes a single-element collection
+// built inside its own lifecycle, so a cluster's clients appear when it syncs and go away with it.
+type clusterClients struct {
+	// local is the config cluster's clients, which the ambient test server already owns.
+	local *remoteAmbientClients
+	// localID identifies local within the flattened collection.
+	localID     cluster.ID
+	collections krt.Collection[krt.Collection[*remoteAmbientClients]]
+}
+
+func (s *ambientTestServer) newClusterClients(t *testing.T, stop <-chan struct{}) *clusterClients {
+	t.Helper()
+	local := &remoteAmbientClients{
+		clusterID: s.clusterID,
+		ambientclients: &ambientclients{
+			pc:    s.pc,
+			sc:    s.sc,
+			ns:    s.ns,
+			grc:   s.grc,
+			gwcls: s.gwcls,
+			se:    s.se,
+			we:    s.we,
+			pa:    s.pa,
+			authz: s.authz,
+			sec:   s.sec,
+		},
+	}
+	localCollection := krt.NewStaticCollection(nil, []*remoteAmbientClients{local},
+		krt.WithName("LocalAmbientClients"), krt.WithStop(stop))
+
+	return &clusterClients{
+		local:   local,
+		localID: s.clusterID,
+		collections: multicluster.NestedCollectionFromLocalAndRemote(
+			s.mcController,
+			localCollection,
+			func(ctx krt.HandlerContext, c multicluster.ClusterCollections) *krt.Collection[*remoteAmbientClients] {
+				cl := c.Client()
+				// krt.NewStaticCollection returns a concrete StaticCollection, so the interface value
+				// has to be named to take its address.
+				var col krt.Collection[*remoteAmbientClients] = krt.NewStaticCollection(nil, []*remoteAmbientClients{{
+					clusterID: c.ID(),
+					ambientclients: &ambientclients{
+						pc:    clienttest.NewDirectClient[*corev1.Pod, corev1.Pod, *corev1.PodList](t, cl),
+						sc:    clienttest.NewDirectClient[*corev1.Service, corev1.Service, *corev1.ServiceList](t, cl),
+						ns:    clienttest.NewWriter[*corev1.Namespace](t, cl),
+						grc:   clienttest.NewWriter[*k8sv1.Gateway](t, cl),
+						gwcls: clienttest.NewWriter[*k8sv1.GatewayClass](t, cl),
+						se:    clienttest.NewWriter[*apiv1alpha3.ServiceEntry](t, cl),
+						we:    clienttest.NewWriter[*apiv1alpha3.WorkloadEntry](t, cl),
+						pa:    clienttest.NewWriter[*clientsecurityv1beta1.PeerAuthentication](t, cl),
+						authz: clienttest.NewWriter[*clientsecurityv1beta1.AuthorizationPolicy](t, cl),
+						sec:   clienttest.NewWriter[*corev1.Secret](t, cl),
+					},
+				}}, krt.WithName(fmt.Sprintf("AmbientClients[%s]", c.ID())), krt.WithStop(c.GetStop()))
+				return &col
+			},
+			"GlobalAmbientClients",
+			krt.NewOptionsBuilder(stop, "TestClients", nil),
+		),
+	}
+}
+
+// remotes returns the remote clusters' clients, sorted by cluster ID so that the order in which
+// clusters happen to appear in the collection cannot change what a test does.
+func (c *clusterClients) remotes() []*remoteAmbientClients {
+	var out []*remoteAmbientClients
+	for _, col := range c.collections.List() {
+		for _, client := range col.List() {
+			if client.clusterID != c.localID {
+				out = append(out, client)
+			}
+		}
+	}
+	slices.SortFunc(out, func(a, b *remoteAmbientClients) int {
+		return cmp.Compare(a.clusterID, b.clusterID)
+	})
+	return out
+}
+
+// all returns the local cluster's clients followed by remotes().
+func (c *clusterClients) all() []*remoteAmbientClients {
+	return append([]*remoteAmbientClients{c.local}, c.remotes()...)
+}
+
+// waitForRemotes blocks until exactly n remote clusters have contributed their clients, and returns
+// them. A cluster only reaches the collection once it has completed its initial sync.
+func (c *clusterClients) waitForRemotes(t *testing.T, n int) []*remoteAmbientClients {
+	t.Helper()
+	assert.EventuallyEqual(t, func() int { return len(c.remotes()) }, n)
+	return c.remotes()
 }
 
 func TestAmbientMulticlusterIndex_WaypointForWorkloadTraffic(t *testing.T) {
@@ -135,75 +244,9 @@ func TestAmbientMulticlusterIndex_WaypointForWorkloadTraffic(t *testing.T) {
 			s.AddSecret("s2", "c2") // Non-overlapping ips
 			stop := test.NewStop(t)
 
-			// Build the test clients for every cluster through the multicluster nested collection API.
-			// That API is the only way to reach a cluster from outside the multicluster package, so the
-			// test never needs a raw *Cluster: the local cluster's clients are the "local" collection and
-			// each remote cluster contributes a single-element collection built inside its own lifecycle.
-			localClients := krt.NewStaticCollection(nil, []*remoteAmbientClients{{
-				clusterID: s.clusterID,
-				ambientclients: &ambientclients{
-					pc:    s.pc,
-					sc:    s.sc,
-					ns:    s.ns,
-					grc:   s.grc,
-					gwcls: s.gwcls,
-					se:    s.se,
-					we:    s.we,
-					pa:    s.pa,
-					authz: s.authz,
-					sec:   s.sec,
-				},
-			}}, krt.WithName("LocalAmbientClients"), krt.WithStop(stop))
-
-			clientCollections := multicluster.NestedCollectionFromLocalAndRemote(
-				s.mcController,
-				localClients,
-				func(ctx krt.HandlerContext, c multicluster.ClusterCollections) *krt.Collection[*remoteAmbientClients] {
-					cl := c.Client()
-					var col krt.Collection[*remoteAmbientClients] = krt.NewStaticCollection(nil, []*remoteAmbientClients{{
-						clusterID: c.ID(),
-						ambientclients: &ambientclients{
-							pc:    clienttest.NewDirectClient[*corev1.Pod, corev1.Pod, *corev1.PodList](t, cl),
-							sc:    clienttest.NewDirectClient[*corev1.Service, corev1.Service, *corev1.ServiceList](t, cl),
-							ns:    clienttest.NewWriter[*corev1.Namespace](t, cl),
-							grc:   clienttest.NewWriter[*k8sv1.Gateway](t, cl),
-							gwcls: clienttest.NewWriter[*k8sv1.GatewayClass](t, cl),
-							se:    clienttest.NewWriter[*apiv1alpha3.ServiceEntry](t, cl),
-							we:    clienttest.NewWriter[*apiv1alpha3.WorkloadEntry](t, cl),
-							pa:    clienttest.NewWriter[*clientsecurityv1beta1.PeerAuthentication](t, cl),
-							authz: clienttest.NewWriter[*clientsecurityv1beta1.AuthorizationPolicy](t, cl),
-							sec:   clienttest.NewWriter[*corev1.Secret](t, cl),
-						},
-					}}, krt.WithName(fmt.Sprintf("AmbientClients[%s]", c.ID())), krt.WithStop(c.GetStop()))
-					return &col
-				},
-				"GlobalAmbientClients",
-				krt.NewOptionsBuilder(stop, "TestClients", nil),
-			)
-
-			// The local cluster is kept first, and the remotes sorted by ID, so the order in which the
-			// clusters happen to show up in the collection cannot change what this test does.
-			listClients := func() []*remoteAmbientClients {
-				var out []*remoteAmbientClients
-				for _, col := range clientCollections.List() {
-					out = append(out, col.List()...)
-				}
-				slices.SortFunc(out, func(a, b *remoteAmbientClients) int {
-					if (a.clusterID == s.clusterID) != (b.clusterID == s.clusterID) {
-						if a.clusterID == s.clusterID {
-							return -1
-						}
-						return 1
-					}
-					return cmp.Compare(a.clusterID, b.clusterID)
-				})
-				return out
-			}
-			assert.EventuallyEqual(t, func() int { return len(listClients()) }, 3)
-			clients := listClients()
-			remoteClients := slices.Filter(clients, func(c *remoteAmbientClients) bool {
-				return c.clusterID != s.clusterID
-			})
+			cc := s.newClusterClients(t, stop)
+			remoteClients := cc.waitForRemotes(t, 2)
+			clients := cc.all()
 
 			// The per-cluster namespace collections already carry the cluster metadata, so they can be
 			// nested and indexed as-is. Nothing is derived from them here (we only read them), so no
@@ -482,47 +525,11 @@ func TestMulticlusterAmbientIndex_TestServiceMerging(t *testing.T) {
 	test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
 	s := newAmbientTestServer(t, testC, testNW, "")
 	s.AddSecret("s1", "remote-cluster") // overlapping ips
-	remoteClients := krt.NewCollection(s.mcController.Clusters(), func(_ krt.HandlerContext, c *multicluster.Cluster) **remoteAmbientClients {
-		cl := c.Client
-		return ptr.Of(&remoteAmbientClients{
-			clusterID: c.ID,
-			ambientclients: &ambientclients{
-				pc:    clienttest.NewDirectClient[*corev1.Pod, corev1.Pod, *corev1.PodList](t, cl),
-				sc:    clienttest.NewDirectClient[*corev1.Service, corev1.Service, *corev1.ServiceList](t, cl),
-				ns:    clienttest.NewWriter[*corev1.Namespace](t, cl),
-				grc:   clienttest.NewWriter[*k8sv1.Gateway](t, cl),
-				gwcls: clienttest.NewWriter[*k8sv1.GatewayClass](t, cl),
-				se:    clienttest.NewWriter[*apiv1alpha3.ServiceEntry](t, cl),
-				we:    clienttest.NewWriter[*apiv1alpha3.WorkloadEntry](t, cl),
-				pa:    clienttest.NewWriter[*clientsecurityv1beta1.PeerAuthentication](t, cl),
-				authz: clienttest.NewWriter[*clientsecurityv1beta1.AuthorizationPolicy](t, cl),
-				sec:   clienttest.NewWriter[*corev1.Secret](t, cl),
-			},
-		})
-	})
+	cc := s.newClusterClients(t, test.NewStop(t))
 
 	const remoteNetwork = "remote-network"
-
-	assert.EventuallyEqual(t, func() int {
-		return len(remoteClients.List())
-	}, 1)
-
-	remoteClient := remoteClients.List()[0]
-	localClient := remoteAmbientClients{
-		clusterID: s.clusterID,
-		ambientclients: &ambientclients{
-			pc:    s.pc,
-			sc:    s.sc,
-			ns:    s.ns,
-			grc:   s.grc,
-			gwcls: s.gwcls,
-			se:    s.se,
-			we:    s.we,
-			pa:    s.pa,
-			authz: s.authz,
-			sec:   s.sec,
-		},
-	}
+	remoteClient := cc.waitForRemotes(t, 1)[0]
+	localClient := cc.local
 	remoteClient.ns.Create(&corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   systemNS,
@@ -614,47 +621,11 @@ func TestMulticlusterAmbientIndex_SplitHorizon(t *testing.T) {
 	// Test that we're propagating the trust domain correctly
 	s.meshConfig.Mesh().TrustDomain = s.DomainSuffix
 	s.AddSecret("s1", "remote-cluster") // overlapping ips
-	remoteClients := krt.NewCollection(s.mcController.Clusters(), func(_ krt.HandlerContext, c *multicluster.Cluster) **remoteAmbientClients {
-		cl := c.Client
-		return ptr.Of(&remoteAmbientClients{
-			clusterID: c.ID,
-			ambientclients: &ambientclients{
-				pc:    clienttest.NewDirectClient[*corev1.Pod, corev1.Pod, *corev1.PodList](t, cl),
-				sc:    clienttest.NewDirectClient[*corev1.Service, corev1.Service, *corev1.ServiceList](t, cl),
-				ns:    clienttest.NewWriter[*corev1.Namespace](t, cl),
-				grc:   clienttest.NewWriter[*k8sv1.Gateway](t, cl),
-				gwcls: clienttest.NewWriter[*k8sv1.GatewayClass](t, cl),
-				se:    clienttest.NewWriter[*apiv1alpha3.ServiceEntry](t, cl),
-				we:    clienttest.NewWriter[*apiv1alpha3.WorkloadEntry](t, cl),
-				pa:    clienttest.NewWriter[*clientsecurityv1beta1.PeerAuthentication](t, cl),
-				authz: clienttest.NewWriter[*clientsecurityv1beta1.AuthorizationPolicy](t, cl),
-				sec:   clienttest.NewWriter[*corev1.Secret](t, cl),
-			},
-		})
-	})
+	cc := s.newClusterClients(t, test.NewStop(t))
 
 	const remoteNetwork = "remote-network"
-
-	assert.EventuallyEqual(t, func() int {
-		return len(remoteClients.List())
-	}, 1)
-
-	remoteClient := remoteClients.List()[0]
-	localClient := remoteAmbientClients{
-		clusterID: s.clusterID,
-		ambientclients: &ambientclients{
-			pc:    s.pc,
-			sc:    s.sc,
-			ns:    s.ns,
-			grc:   s.grc,
-			gwcls: s.gwcls,
-			se:    s.se,
-			we:    s.we,
-			pa:    s.pa,
-			authz: s.authz,
-			sec:   s.sec,
-		},
-	}
+	remoteClient := cc.waitForRemotes(t, 1)[0]
+	localClient := cc.local
 	remoteClient.ns.Create(&corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   systemNS,
@@ -874,47 +845,11 @@ func TestMulticlusterAmbientIndex_SplitHorizonPreservesWaypoint(t *testing.T) {
 	s := newAmbientTestServer(t, testC, testNW, "")
 	s.meshConfig.Mesh().TrustDomain = s.DomainSuffix
 	s.AddSecret("s1", "remote-cluster")
-	remoteClients := krt.NewCollection(s.mcController.Clusters(), func(_ krt.HandlerContext, c *multicluster.Cluster) **remoteAmbientClients {
-		cl := c.Client
-		return ptr.Of(&remoteAmbientClients{
-			clusterID: c.ID,
-			ambientclients: &ambientclients{
-				pc:    clienttest.NewDirectClient[*corev1.Pod, corev1.Pod, *corev1.PodList](t, cl),
-				sc:    clienttest.NewDirectClient[*corev1.Service, corev1.Service, *corev1.ServiceList](t, cl),
-				ns:    clienttest.NewWriter[*corev1.Namespace](t, cl),
-				grc:   clienttest.NewWriter[*k8sv1.Gateway](t, cl),
-				gwcls: clienttest.NewWriter[*k8sv1.GatewayClass](t, cl),
-				se:    clienttest.NewWriter[*apiv1alpha3.ServiceEntry](t, cl),
-				we:    clienttest.NewWriter[*apiv1alpha3.WorkloadEntry](t, cl),
-				pa:    clienttest.NewWriter[*clientsecurityv1beta1.PeerAuthentication](t, cl),
-				authz: clienttest.NewWriter[*clientsecurityv1beta1.AuthorizationPolicy](t, cl),
-				sec:   clienttest.NewWriter[*corev1.Secret](t, cl),
-			},
-		})
-	})
+	cc := s.newClusterClients(t, test.NewStop(t))
 
 	const remoteNetwork = "remote-network"
-
-	assert.EventuallyEqual(t, func() int {
-		return len(remoteClients.List())
-	}, 1)
-
-	remoteClient := remoteClients.List()[0]
-	localClient := remoteAmbientClients{
-		clusterID: s.clusterID,
-		ambientclients: &ambientclients{
-			pc:    s.pc,
-			sc:    s.sc,
-			ns:    s.ns,
-			grc:   s.grc,
-			gwcls: s.gwcls,
-			se:    s.se,
-			we:    s.we,
-			pa:    s.pa,
-			authz: s.authz,
-			sec:   s.sec,
-		},
-	}
+	remoteClient := cc.waitForRemotes(t, 1)[0]
+	localClient := cc.local
 	remoteClient.ns.Create(&corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   systemNS,
@@ -1046,12 +981,44 @@ func TestMulticlusterAmbientIndex_ClusterLifecycleNoLeak(t *testing.T) {
 		DefaultAllowFromWaypoint:              features.DefaultAllowFromWaypoint,
 		EnableK8SServiceSelectWorkloadEntries: features.EnableK8SServiceSelectWorkloadEntries,
 	}, "", false /* runClient */)
-	clusters := s.mcController.Clusters()
 	cl := s.mcController.ConfigCluster().Client()
+	stop := test.NewStop(t)
+
+	// Track the clusters through the nested collection API rather than a raw *Cluster collection. Each
+	// remote cluster contributes one clusterGeneration carrying the stop channel of the generation that
+	// produced it, which is what lets this test observe a credential rotation and the teardown of the
+	// generation it replaced.
+	generations := multicluster.NestedCollectionFromLocalAndRemote(
+		s.mcController,
+		krt.NewStaticCollection[clusterGeneration](nil, nil, krt.WithName("LocalGenerations"), krt.WithStop(stop)),
+		func(ctx krt.HandlerContext, c multicluster.ClusterCollections) *krt.Collection[clusterGeneration] {
+			var col krt.Collection[clusterGeneration] = krt.NewStaticCollection(nil,
+				[]clusterGeneration{{id: c.ID(), stop: c.GetStop()}},
+				krt.WithName(fmt.Sprintf("Generation[%s]", c.ID())), krt.WithStop(c.GetStop()))
+			return &col
+		},
+		"GlobalClusterGenerations",
+		krt.NewOptionsBuilder(stop, "TestGenerations", nil),
+	)
+	remoteGenerations := func() []clusterGeneration {
+		var out []clusterGeneration
+		for _, col := range generations.List() {
+			out = append(out, col.List()...)
+		}
+		return out
+	}
+	generationStop := func(id cluster.ID) <-chan struct{} {
+		for _, g := range remoteGenerations() {
+			if g.id == id {
+				return g.stop
+			}
+		}
+		return nil
+	}
 
 	waitRemoteClusters := func(t *testing.T, n int) {
 		t.Helper()
-		assert.EventuallyEqual(t, func() int { return len(clusters.List()) }, n)
+		assert.EventuallyEqual(t, func() int { return len(remoteGenerations()) }, n)
 	}
 
 	// Warm-up: create a remote cluster BEFORE running the client. Global collections lazily wire up
@@ -1079,42 +1046,24 @@ func TestMulticlusterAmbientIndex_ClusterLifecycleNoLeak(t *testing.T) {
 	t.Run("update-then-remove-cluster", func(t *testing.T) {
 		leak.Check(t)
 
-		swapped := make(chan struct{}, 1)
-		reg := clusters.RegisterBatch(func(events []krt.Event[*multicluster.Cluster]) {
-			for _, e := range events {
-				if e.Event == controllers.EventUpdate && e.Latest().ID == "remote-cluster-2" {
-					select {
-					case swapped <- struct{}{}:
-					default:
-					}
-				}
-			}
-		}, false)
-		defer reg.UnregisterHandler()
-		reg.WaitUntilSynced(test.NewStop(t))
-
 		s.AddSecret("s2", "remote-cluster-2")
 		waitRemoteClusters(t, 2)
 
 		// Update the cluster: re-adding the secret with a fresh kubeconfig swaps in a new Cluster (new
 		// stop + collections), tearing down the old one. This is the teardown path we verify doesn't
 		// leak. The cluster count stays at 2 across the update, so waitRemoteClusters would return
-		// immediately without the swap having propagated into the collection. Instead, observe the swap
-		// on the Clusters collection directly: capture the current cluster's stop channel and wait for
-		// an event carrying a remote-cluster-2 with a *different* stop (the swap surfaces as a delete of
-		// the not-yet-ready cluster followed by an add once it syncs, not necessarily a single update).
-		var oldStop <-chan struct{}
-		for _, c := range clusters.List() {
-			if c.ID == "remote-cluster-2" {
-				oldStop = c.GetStop()
-			}
+		// immediately without the swap having propagated into the collection. The rotation is a new
+		// generation, so it rebuilds the cluster's contribution: wait for remote-cluster-2 to be
+		// reported with a stop channel other than the one it had.
+		oldStop := generationStop("remote-cluster-2")
+		if oldStop == nil {
+			t.Fatal("remote-cluster-2 is not in the generations collection")
 		}
 		s.AddSecret("s2", "remote-cluster-2")
-		select {
-		case <-swapped:
-		case <-time.After(30 * time.Second):
-			t.Fatal("timed out waiting for remote-cluster-2 swap event")
-		}
+		assert.EventuallyEqual(t, func() bool {
+			current := generationStop("remote-cluster-2")
+			return current != nil && current != oldStop
+		}, true, retry.Timeout(30*time.Second))
 		<-oldStop
 
 		// Remove so the subtest ends back at the single warm-up cluster, matching the leak.Check baseline.
