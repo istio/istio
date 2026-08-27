@@ -119,29 +119,22 @@ func (p *PodNetnsProcFinder) FindNetnsForPods(pods map[types.UID]*corev1.Pod) (P
 			existingNetns.Netns.Close()
 		}
 
-		netns := &NetnsWithFd{
-			netns:              res.netns,
-			fd:                 res.netnsfd,
-			inode:              res.inode,
-			ownerProcStarttime: res.ownerProcStarttime,
-		}
-
 		if isKata {
 			// Kata helper processes can share the pod cgroup while using private netns;
 			// prefer the namespace with more network interfaces as that's usually the
 			// pod netns
-			candidateHasMultifaceIface := netnsHasMultipleInterfaces(netns)
+			candidateHasMultifaceIface := netnsHasMultipleInterfaces(res.netns)
 
 			if exists {
 				log.Warnf("found more than one netns for kata pod: %s", res.uid)
 				existingHasMultipleIface := selectedNetnsHasMutilpleIface[string(res.uid)]
 				if existingHasMultipleIface != candidateHasMultifaceIface {
 					if existingHasMultipleIface {
-						netns.Close()
+						res.netns.Close()
 						continue
 					}
-				} else if existingNetns.Netns.OwnerProcStarttime() < res.ownerProcStarttime {
-					netns.Close()
+				} else if existingNetns.Netns.OwnerProcStarttime() < res.netns.OwnerProcStarttime() {
+					res.netns.Close()
 					continue
 				}
 				existingNetns.Netns.Close()
