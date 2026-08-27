@@ -38,11 +38,17 @@ var cniPodLabels = map[string]string{
 	"some-other": "label",
 }
 
+var ztunnelPodLabels = map[string]string{
+	"app": "ztunnel",
+}
+
 type nodeTainterTestServer struct {
 	client kubelib.Client
 	pc     clienttest.TestClient[*corev1.Pod]
 	nc     clienttest.TestClient[*corev1.Node]
 	t      *testing.T
+	cniNs  string
+	sysNs  string
 }
 
 func setupLogging() {
@@ -55,11 +61,15 @@ func setupLogging() {
 }
 
 func newNodeUntainterTestServer(t *testing.T) *nodeTainterTestServer {
+	return newNodeUntainterTestServerNs(t, systemNS, systemNS)
+}
+
+func newNodeUntainterTestServerNs(t *testing.T, cniNs, sysNs string) *nodeTainterTestServer {
 	stop := make(chan struct{})
 	t.Cleanup(func() { close(stop) })
 	client := kubelib.NewFakeClient()
 
-	nodeUntainter := NewNodeUntainter(stop, client, systemNS, systemNS, krt.GlobalDebugHandler)
+	nodeUntainter := NewNodeUntainter(stop, client, cniNs, sysNs, krt.GlobalDebugHandler)
 	go nodeUntainter.Run(stop)
 	client.RunAndWait(stop)
 	kubelib.WaitForCacheSync("test", stop, nodeUntainter.HasSynced)
@@ -72,17 +82,21 @@ func newNodeUntainterTestServer(t *testing.T) *nodeTainterTestServer {
 		t:      t,
 		pc:     pc,
 		nc:     nc,
+		cniNs:  cniNs,
+		sysNs:  sysNs,
 	}
 }
 
 func TestNodeUntainter(t *testing.T) {
 	setupLogging()
 	test.SetForTest(t, &features.EnableNodeUntaintControllers, true)
+	test.SetForTest(t, &features.NodeUntaintCheckZtunnel, true)
 	s := newNodeUntainterTestServer(t)
 	s.addTaintedNodes(t, "node1", "node2", "node3")
 	s.addPod(t, "node3", true, map[string]string{"k8s-app": "other-app"}, "")
 	s.addCniPod(t, "node2", false)
 	s.addCniPod(t, "node1", true)
+	s.addZtunnelPod(t, "node1", true)
 	s.assertNodeUntainted(t, "node1")
 	s.assertNodeTainted(t, "node2")
 	s.assertNodeTainted(t, "node3")
@@ -90,10 +104,12 @@ func TestNodeUntainter(t *testing.T) {
 
 func TestNodeUntainterOnlyUntaintsWhenIstiocniInourNs(t *testing.T) {
 	test.SetForTest(t, &features.EnableNodeUntaintControllers, true)
+	test.SetForTest(t, &features.NodeUntaintCheckZtunnel, true)
 	s := newNodeUntainterTestServer(t)
 	s.addTaintedNodes(t, "node1", "node2")
 	s.addPod(t, "node2", true, cniPodLabels, "default")
 	s.addCniPod(t, "node1", true)
+	s.addZtunnelPod(t, "node1", true)
 
 	// wait for the untainter to run
 	s.assertNodeUntainted(t, "node1")
@@ -103,6 +119,7 @@ func TestNodeUntainterOnlyUntaintsWhenIstiocniInourNs(t *testing.T) {
 func TestNodeUntainterWithCustomTaintName(t *testing.T) {
 	setupLogging()
 	test.SetForTest(t, &features.EnableNodeUntaintControllers, true)
+	test.SetForTest(t, &features.NodeUntaintCheckZtunnel, true)
 	test.SetForTest(t, &features.NodeUntaintTaintName, "custom.io/not-ready")
 
 	s := newNodeUntainterTestServer(t)
@@ -119,11 +136,68 @@ func TestNodeUntainterWithCustomTaintName(t *testing.T) {
 
 	s.addCniPod(t, "node1", true)
 	s.addCniPod(t, "node2", true)
+	s.addZtunnelPod(t, "node1", true)
+	s.addZtunnelPod(t, "node2", true)
 
 	s.assertNodeUntainted(t, "node1")
 	// node2 still has the `cni.istio.io/not-ready` taint rather than the `custom.io/not-ready` one.
 	// The untaint controller should not remove it, as it only manages the `custom.io/not-ready` taint.
 	s.assertNodeHasTaintKey(t, "node2", "cni.istio.io/not-ready")
+}
+
+func TestNodeStaysTaintedWhileZtunnelNotReady(t *testing.T) {
+	setupLogging()
+	test.SetForTest(t, &features.EnableNodeUntaintControllers, true)
+	test.SetForTest(t, &features.NodeUntaintCheckZtunnel, true)
+	s := newNodeUntainterTestServer(t)
+	s.addTaintedNodes(t, "node1")
+
+	// cni is ready but ztunnel is wedged (0/1): the node must stay tainted.
+	s.addCniPod(t, "node1", true)
+	s.addZtunnelPod(t, "node1", false)
+	s.assertNodeTainted(t, "node1")
+
+	// once ztunnel becomes ready the node gets untainted.
+	s.markZtunnelReady(t, "node1")
+	s.assertNodeUntainted(t, "node1")
+}
+
+func TestNodeStaysTaintedWithNoZtunnel(t *testing.T) {
+	setupLogging()
+	test.SetForTest(t, &features.EnableNodeUntaintControllers, true)
+	test.SetForTest(t, &features.NodeUntaintCheckZtunnel, true)
+	s := newNodeUntainterTestServer(t)
+	s.addTaintedNodes(t, "node1")
+
+	// cni ready, no ztunnel pod on the node at all: stays tainted.
+	s.addCniPod(t, "node1", true)
+	s.assertNodeTainted(t, "node1")
+}
+
+func TestNodeUntaintedWithCniAndZtunnelInSeparateNamespaces(t *testing.T) {
+	setupLogging()
+	test.SetForTest(t, &features.EnableNodeUntaintControllers, true)
+	test.SetForTest(t, &features.NodeUntaintCheckZtunnel, true)
+	// istio-cni in its own namespace, ztunnel in the system namespace.
+	s := newNodeUntainterTestServerNs(t, "istio-cni", systemNS)
+	s.addTaintedNodes(t, "node1")
+
+	s.addCniPod(t, "node1", true)
+	s.addZtunnelPod(t, "node1", true)
+	s.assertNodeUntainted(t, "node1")
+}
+
+// In sidecar mode there is no ztunnel, so the ztunnel gate is off and a ready
+// istio-cni is enough to untaint the node.
+func TestNodeUntaintedInSidecarModeIgnoresZtunnel(t *testing.T) {
+	setupLogging()
+	test.SetForTest(t, &features.EnableNodeUntaintControllers, true)
+	test.SetForTest(t, &features.NodeUntaintCheckZtunnel, false)
+	s := newNodeUntainterTestServer(t)
+	s.addTaintedNodes(t, "node1")
+
+	s.addCniPod(t, "node1", true)
+	s.assertNodeUntainted(t, "node1")
 }
 
 func (s *nodeTainterTestServer) assertNodeTainted(t *testing.T, node string) {
@@ -182,13 +256,35 @@ func (s *nodeTainterTestServer) addTaintedNodes(t *testing.T, nodes ...string) {
 }
 
 func (s *nodeTainterTestServer) addCniPod(t *testing.T, node string, markReady bool) {
-	s.addPod(t, node, markReady, cniPodLabels, systemNS)
+	s.addPod(t, node, markReady, cniPodLabels, s.cniNs)
+}
+
+func (s *nodeTainterTestServer) addZtunnelPod(t *testing.T, node string, markReady bool) {
+	s.addPod(t, node, markReady, ztunnelPodLabels, s.sysNs)
+}
+
+// markZtunnelReady flips an already-created ztunnel pod to Ready.
+func (s *nodeTainterTestServer) markZtunnelReady(t *testing.T, node string) {
+	t.Helper()
+	name := "ztunnel-" + node
+	p := s.pc.Get(name, s.sysNs)
+	if p == nil {
+		t.Fatalf("ztunnel pod for node %s not found", node)
+	}
+	// Get returns the shared cache object; copy before mutating to avoid racing the controller.
+	p = p.DeepCopy()
+	setPodReady(p)
+	s.pc.UpdateStatus(p)
 }
 
 func (s *nodeTainterTestServer) addPod(t *testing.T, node string, markReady bool, labels map[string]string, ns string) {
 	t.Helper()
 	ip := "1.2.3.4"
-	name := "istio-cni-" + node
+	prefix := "istio-cni-"
+	if labels["app"] == "ztunnel" {
+		prefix = "ztunnel-"
+	}
+	name := prefix + node
 	if ns == "" {
 		ns = systemNS
 	}
