@@ -18,7 +18,7 @@ linters:
     - revive
     - staticcheck
     - unconvert
-    - unparam
+    # - unparam # disabled: panics on Go 1.27 with generics (golangci-lint#6755); re-enable after v2.13.2+ is released
     - unused
   settings:
     depguard:
