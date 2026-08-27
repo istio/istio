@@ -93,6 +93,14 @@ func GetKey[O any](a O) string {
 	if ok {
 		return arn.ResourceName()
 	}
+	// Collections are keyed by their name, so that a collection replacing another one under the same
+	// name is an update of a single entry rather than a delete plus an add of two unrelated entries.
+	// Names must therefore be unique within any collection that holds collections. Identity is still
+	// compared by uid; see Equal.
+	anm, ok := any(a).(namer)
+	if ok {
+		return anm.name()
+	}
 	auid, ok := any(a).(uidable)
 	if ok {
 		return strconv.FormatUint(uint64(auid.uid()), 10)
