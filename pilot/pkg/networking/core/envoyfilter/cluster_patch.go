@@ -76,7 +76,7 @@ func ApplyClusterMerge(pctx networking.EnvoyFilter_PatchContext, efw *model.Merg
 // Returns a boolean indicating if the merge was handled by this function; if false, it should still be called
 // outside of this function.
 func mergeTransportSocketCluster(c *cluster.Cluster, cp *model.EnvoyFilterConfigPatchWrapper) (merged bool, err error) {
-	cpValueCast, okCpCast := (cp.Value).(*cluster.Cluster)
+	cpValueCast, okCpCast := cp.Value.(*cluster.Cluster)
 	if !okCpCast {
 		return false, fmt.Errorf("cast of cp.Value failed: %v", okCpCast)
 	}

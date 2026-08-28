@@ -366,9 +366,8 @@ type CNIConfig struct {
 	//
 	// Examples:
 	// env:
-	//
-	//	ENV_VAR_1: value1
-	//	ENV_VAR_2: value2
+	//   ENV_VAR_1: value1
+	//   ENV_VAR_2: value2
 	Env *structpb.Struct `protobuf:"bytes,32,opt,name=env,proto3" json:"env,omitempty"`
 	// Additional labels to apply to the istio-cni DaemonSet.
 	DaemonSetLabels *structpb.Struct `protobuf:"bytes,33,opt,name=daemonSetLabels,proto3" json:"daemonSetLabels,omitempty"`
@@ -1358,10 +1357,8 @@ type EgressGatewayConfig struct {
 	// your pod is eligible to be scheduled based on labels on pods that are
 	// already running on the node rather than based on labels on nodes.
 	// There are currently two types of anti-affinity:
-	//
-	//	"requiredDuringSchedulingIgnoredDuringExecution"
-	//	"preferredDuringSchedulingIgnoredDuringExecution"
-	//
+	//    "requiredDuringSchedulingIgnoredDuringExecution"
+	//    "preferredDuringSchedulingIgnoredDuringExecution"
 	// which denote “hard” vs. “soft” requirements, you can define your values
 	// in "podAntiAffinityLabelSelector" and "podAntiAffinityTermLabelSelector"
 	// correspondingly.
@@ -1369,13 +1366,13 @@ type EgressGatewayConfig struct {
 	//
 	// Examples:
 	// podAntiAffinityLabelSelector:
-	//   - key: security
-	//     operator: In
-	//     values: S1,S2
-	//     topologyKey: "kubernetes.io/hostname"
-	//     This pod anti-affinity rule says that the pod requires not to be scheduled
-	//     onto a node if that node is already running a pod with label having key
-	//     “security” and value “S1”.
+	//  - key: security
+	//    operator: In
+	//    values: S1,S2
+	//    topologyKey: "kubernetes.io/hostname"
+	//  This pod anti-affinity rule says that the pod requires not to be scheduled
+	//  onto a node if that node is already running a pod with label having key
+	//  “security” and value “S1”.
 	//
 	// Deprecated: Marked as deprecated in pkg/apis/values_types.proto.
 	PodAntiAffinityLabelSelector []*structpb.Struct `protobuf:"bytes,12,rep,name=podAntiAffinityLabelSelector,proto3" json:"podAntiAffinityLabelSelector,omitempty"`
@@ -1758,11 +1755,10 @@ func (x *GatewaysConfig) GetSeccompProfile() *structpb.Value {
 type GlobalConfig struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Specifies pod scheduling arch(amd64, ppc64le, s390x, arm64) and weight as follows:
-	//
-	//	0 - Never scheduled
-	//	1 - Least preferred
-	//	2 - No preference
-	//	3 - Most preferred
+	//   0 - Never scheduled
+	//   1 - Least preferred
+	//   2 - No preference
+	//   3 - Most preferred
 	//
 	// Deprecated: replaced by the affinity k8s settings which allows architecture nodeAffinity configuration of this behavior.
 	//
@@ -1848,19 +1844,19 @@ type GlobalConfig struct {
 	// it still need to be configured manually).
 	//
 	// meshNetworks:
+	//   network1:
+	//     endpoints:
+	//     - fromCidr: "192.168.0.1/24"
+	//     gateways:
+	//     - address: 1.1.1.1
+	//       port: 80
+	//   network2:
+	//     endpoints:
+	//     - fromRegistry: reg1
+	//     gateways:
+	//     - registryServiceName: istio-ingressgateway.istio-system.svc.cluster.local
+	//       port: 443
 	//
-	//	network1:
-	//	  endpoints:
-	//	  - fromCidr: "192.168.0.1/24"
-	//	  gateways:
-	//	  - address: 1.1.1.1
-	//	    port: 80
-	//	network2:
-	//	  endpoints:
-	//	  - fromRegistry: reg1
-	//	  gateways:
-	//	  - registryServiceName: istio-ingressgateway.istio-system.svc.cluster.local
-	//	    port: 443
 	MeshNetworks *structpb.Struct `protobuf:"bytes,19,opt,name=meshNetworks,proto3" json:"meshNetworks,omitempty"`
 	// Specifies the Configuration for Istio mesh across multiple clusters through Istio gateways.
 	MultiCluster *MultiClusterConfig `protobuf:"bytes,22,opt,name=multiCluster,proto3" json:"multiCluster,omitempty"`
@@ -3153,9 +3149,8 @@ type PilotConfig struct {
 	//
 	// Examples:
 	// env:
-	//
-	//	ENV_VAR_1: value1
-	//	ENV_VAR_2: value2
+	//   ENV_VAR_1: value1
+	//   ENV_VAR_2: value2
 	Env *structpb.Struct `protobuf:"bytes,21,opt,name=env,proto3" json:"env,omitempty"`
 	// K8s affinity to set on the Pilot Pods.
 	Affinity *structpb.Struct `protobuf:"bytes,22,opt,name=affinity,proto3" json:"affinity,omitempty"`
@@ -4629,7 +4624,7 @@ type SidecarInjectorConfig struct {
 	NeverInjectSelector []*structpb.Struct `protobuf:"bytes,11,rep,name=neverInjectSelector,proto3" json:"neverInjectSelector,omitempty"`
 	// See NeverInjectSelector.
 	AlwaysInjectSelector []*structpb.Struct `protobuf:"bytes,12,rep,name=alwaysInjectSelector,proto3" json:"alwaysInjectSelector,omitempty"`
-	// If true, webhook or istioctl injector will rewrite PodSpec for liveness health check to redirect request to sidecar. This makes liveness check work even when mTLS is enabled.
+	//  If true, webhook or istioctl injector will rewrite PodSpec for liveness health check to redirect request to sidecar. This makes liveness check work even when mTLS is enabled.
 	RewriteAppHTTPProbe *wrapperspb.BoolValue `protobuf:"bytes,16,opt,name=rewriteAppHTTPProbe,proto3" json:"rewriteAppHTTPProbe,omitempty"`
 	// injectedAnnotations are additional annotations that will be added to the pod spec after injection
 	// This is primarily to support PSP annotations.
@@ -4639,11 +4634,10 @@ type SidecarInjectorConfig struct {
 	// Templates defines a set of custom injection templates that can be used. For example, defining:
 	//
 	// templates:
-	//
-	//	hello: |
-	//	  metadata:
-	//	    labels:
-	//	      hello: world
+	//   hello: |
+	//     metadata:
+	//       labels:
+	//         hello: world
 	//
 	// Then starting a pod with the `inject.istio.io/templates: hello` annotation, will result in the pod
 	// being injected with the hello=world labels.
