@@ -71,7 +71,6 @@ var skippedTests = map[string]string{
 
 	// The following tests were added in v1.6.0
 	"GatewayListenerUnsupportedProtocol": "TODO",
-	"TCPRouteWeightedRouting":            "TODO: flaky in dual-stack and multicluster environments",
 }
 
 func TestGatewayConformance(t *testing.T) {
