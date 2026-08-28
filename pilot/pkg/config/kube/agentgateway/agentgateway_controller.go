@@ -104,6 +104,11 @@ type Controller struct {
 
 	stop chan struct{}
 
+	// ambientIndex, when non-nil, supplies the shared services/workloads collections built by the
+	// ambient controller. Sharing avoids duplicate informers and inherits ambient's multicluster
+	// behavior. When nil, buildLocalAmbientCollections builds a single-cluster equivalent.
+	ambientIndex ambient.Index
+
 	// TODO(jaellio): Verify we don't need handlers for syncing. In the gateway controller we register handlers for the outputs
 	outputs OutputCollections
 
@@ -156,6 +161,7 @@ func NewAgwController(
 	kc kube.Client,
 	waitForCRD func(class schema.GroupVersionResource, stop <-chan struct{}) bool,
 	options controller.Options,
+	ambientIndex ambient.Index,
 ) *Controller {
 	stop := make(chan struct{})
 	opts := krt.NewOptionsBuilder(stop, "agentgateway", options.KrtDebugger)
@@ -172,6 +178,7 @@ func NewAgwController(
 		gatewayContext: krt.NewRecomputeProtected(atomic.NewPointer[gatewaycommon.GatewayContext](nil), false, opts.WithName("gatewayContext")...),
 		stop:           stop,
 		domainSuffix:   options.DomainSuffix,
+		ambientIndex:   ambientIndex,
 	}
 	tw.AddHandler(func(s sets.String) {
 		c.tagWatcher.TriggerRecomputation()
@@ -308,14 +315,18 @@ func (c *Controller) buildResourceCollections(opts krt.OptionsBuilder) {
 	// Build agw resources for gateway
 	inferencePolicies := InferencePolicyCollection(c.inputs.InferencePools, c.domainSuffix, opts)
 
+	// Shared services/workloads. Reused for both waypoint bindings and the address path so we only
+	// resolve waypoint mappings once per event.
+	services, workloads, waypointNames := c.buildAmbientCollections(opts)
+
 	// Build waypoint service bindings: maps services to their AGW waypoint gateways
 	// if they are defined
 	// TODO(jaellio): Handle waypoint workload bindings
 	waypointBindings := BuildWaypointServiceBindings(
-		c.inputs.Services,
-		c.inputs.Namespaces,
+		services,
 		c.inputs.Gateways,
 		gatewayClasses,
+		waypointNames,
 		opts,
 	)
 
@@ -361,7 +372,7 @@ func (c *Controller) buildResourceCollections(opts krt.OptionsBuilder) {
 	// representation of addresses as ambient proxies (for multicluster)
 	// Build address collections
 	// TODO(jaellio): Scope addresses for waypoint gateways to only fronted + outbound services
-	addresses := c.buildAddressCollections(opts)
+	addresses := c.buildAddressCollections(services, workloads, opts)
 
 	// Build XDS collection
 	c.buildXDSCollection(agwResources, addresses, opts)
@@ -492,7 +503,48 @@ func (c *Controller) buildFinalGatewayStatus(
 		}, opts.WithName("GatewayFinalStatus")...)
 }
 
-func (c *Controller) buildAddressCollections(opts krt.OptionsBuilder) krt.Collection[Address] {
+func (c *Controller) buildAddressCollections(
+	services krt.Collection[model.ServiceInfo],
+	workloads krt.Collection[model.WorkloadInfo],
+	opts krt.OptionsBuilder,
+) krt.Collection[Address] {
+	inferencePoolsInfo := krt.NewCollection(c.inputs.InferencePools, inferencePoolBuilder(c.domainSuffix),
+		opts.WithName("InferencePools")...)
+	services = krt.JoinCollection([]krt.Collection[model.ServiceInfo]{services, inferencePoolsInfo}, krt.WithJoinUnchecked())
+
+	workloadAddresses := krt.MapCollection(workloads, func(t model.WorkloadInfo) Address {
+		return Address{Workload: &t}
+	})
+	svcAddresses := krt.MapCollection(services, func(t model.ServiceInfo) Address {
+		return Address{Service: &t}
+	})
+
+	return krt.JoinCollection([]krt.Collection[Address]{svcAddresses, workloadAddresses}, opts.WithName("Addresses")...)
+}
+
+// buildAmbientCollections returns shared ambient services and workloads plus a resolver that
+// maps each ServiceInfo to the k8s Gateway names of its fronting waypoints. When the ambient
+// index is wired in, its collections and resolver are reused directly (giving multicluster-aware
+// output). Otherwise a local single-cluster equivalent is built from this controller's own
+// informers.
+func (c *Controller) buildAmbientCollections(opts krt.OptionsBuilder) (
+	krt.Collection[model.ServiceInfo],
+	krt.Collection[model.WorkloadInfo],
+	ambient.ServiceWaypointResolver,
+) {
+	if c.ambientIndex != nil {
+		return c.ambientIndex.Services(), c.ambientIndex.Workloads(), c.ambientIndex.ServiceOwningWaypointNames
+	}
+	return c.buildLocalAmbientCollections(opts)
+}
+
+// buildLocalAmbientCollections mirrors ambient.New's construction for the single-cluster case.
+// Only used when the shared ambient index is not available.
+func (c *Controller) buildLocalAmbientCollections(opts krt.OptionsBuilder) (
+	krt.Collection[model.ServiceInfo],
+	krt.Collection[model.WorkloadInfo],
+	ambient.ServiceWaypointResolver,
+) {
 	inputs := c.inputs
 	Networks := ambient.BuildNetworkCollections(inputs.Namespaces, inputs.Gateways, ambient.Options{
 		SystemNamespace: c.istioNamespace,
@@ -504,11 +556,6 @@ func (c *Controller) buildAddressCollections(opts krt.OptionsBuilder) krt.Collec
 		Networks:     Networks,
 		Flags: ambient.FeatureFlags{
 			EnableK8SServiceSelectWorkloadEntries: true,
-			// Mark sidecar-meshed workloads (security.istio.io/tlsMode=istio) as
-			// LEGACY_ISTIO_MTLS in the WDS stream we serve to agentgateway. The
-			// agentgateway data plane uses this to reach such backends via
-			// istio-mutual mTLS instead of plaintext.
-			EnableMtlsTransportProtocol: true,
 		},
 	}
 	// Dummy empty mesh config
@@ -529,10 +576,6 @@ func (c *Controller) buildAddressCollections(opts krt.OptionsBuilder) krt.Collec
 		true,
 	)
 
-	inferencePoolsInfo := krt.NewCollection(inputs.InferencePools, inferencePoolBuilder(c.domainSuffix),
-		opts.WithName("InferencePools")...)
-	services = krt.JoinCollection([]krt.Collection[model.ServiceInfo]{services, inferencePoolsInfo}, krt.WithJoinUnchecked())
-
 	nodeLocality := ambient.NodesCollection(inputs.Nodes, opts.WithName("NodeLocality")...)
 	workloads := builder.WorkloadsCollection(
 		inputs.Pods,
@@ -550,16 +593,7 @@ func (c *Controller) buildAddressCollections(opts krt.OptionsBuilder) krt.Collec
 		opts,
 	)
 
-	// Build address collections
-	workloadAddresses := krt.MapCollection(workloads, func(t model.WorkloadInfo) Address {
-		return Address{Workload: &t}
-	})
-	svcAddresses := krt.MapCollection(services, func(t model.ServiceInfo) Address {
-		return Address{Service: &t}
-	})
-
-	adpAddresses := krt.JoinCollection([]krt.Collection[Address]{svcAddresses, workloadAddresses}, opts.WithName("Addresses")...)
-	return adpAddresses
+	return services, workloads, ambient.NewServiceWaypointResolver(waypoints, opts)
 }
 
 func (c *Controller) buildXDSCollection(

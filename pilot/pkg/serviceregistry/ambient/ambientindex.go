@@ -57,6 +57,13 @@ type Index interface {
 	AllLocalNetworkGlobalServices(key model.WaypointKey) []model.ServiceInfo
 	WorkloadsForWaypoint(key model.WaypointKey) []model.WorkloadInfo
 	ServicesForWaypoint(key model.WaypointKey) []model.ServiceInfo
+	// Services and Workloads expose the underlying krt collections for controllers that want to
+	// consume the ambient view reactively rather than through the point-in-time lookup APIs above.
+	Services() krt.Collection[model.ServiceInfo]
+	Workloads() krt.Collection[model.WorkloadInfo]
+	// ServiceOwningWaypointNames returns the k8s Gateway namespaced names of every waypoint fronting svc,
+	// covering the primary attachment and any canary. Reactively re-runs when the underlying Waypoints change.
+	ServiceOwningWaypointNames(ctx krt.HandlerContext, svc model.ServiceInfo) []types.NamespacedName
 	Run(stop <-chan struct{})
 	HasSynced() bool
 	model.AmbientIndexes
@@ -124,6 +131,8 @@ type index struct {
 	mcController *multicluster.Controller
 	meshConfig   meshwatcher.WatcherCollection
 	stop         chan struct{}
+
+	serviceWaypointResolver ServiceWaypointResolver
 }
 
 type FeatureFlags struct {
@@ -456,6 +465,7 @@ func New(options Options) Index {
 		Collection: Waypoints,
 	}
 	a.authorizationPolicies = AllPolicies
+	a.serviceWaypointResolver = NewServiceWaypointResolver(Waypoints, opts)
 
 	return a
 }
@@ -789,6 +799,21 @@ func (a *index) ServiceInfo(key string) *model.ServiceInfo {
 		return svc
 	}
 	return nil
+}
+
+func (a *index) Services() krt.Collection[model.ServiceInfo] {
+	return a.services.Collection
+}
+
+func (a *index) Workloads() krt.Collection[model.WorkloadInfo] {
+	return a.workloads.Collection
+}
+
+func (a *index) ServiceOwningWaypointNames(ctx krt.HandlerContext, svc model.ServiceInfo) []types.NamespacedName {
+	if a.serviceWaypointResolver == nil {
+		return nil
+	}
+	return a.serviceWaypointResolver(ctx, svc)
 }
 
 func (a *index) AdditionalPodSubscriptions(
