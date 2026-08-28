@@ -25,10 +25,13 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/adsc"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
 )
 
@@ -101,16 +104,30 @@ func DialOptions(opts clioptions.CentralControlPlaneOptions,
 	if isMCP {
 		return mcpDialOptions(ctx, opts.GCPProject, k8sCreds)
 	}
+	tlsCfg, err := tlsConfig(ctx, opts, ns, kubeClient)
+	if err != nil {
+		return nil, err
+	}
 	return []grpc.DialOption{
-		// nolint: gosec
-		// Only runs over istioctl experimental
-		// TODO: https://github.com/istio/istio/issues/41937
-		grpc.WithTransportCredentials(credentials.NewTLS(
-			&tls.Config{
-				// Always skip verifying, because without it we always get "certificate signed by unknown authority".
-				// We don't set the XDSSAN for the same reason.
-				InsecureSkipVerify: true,
-			})),
+		grpc.WithTransportCredentials(credentials.NewTLS(tlsCfg)),
 		grpc.WithPerRPCCredentials(k8sCreds),
 	}, nil
+}
+
+// tlsConfig verifies istiod against the root in the istio-ca-root-cert configmap unless --insecure is set.
+func tlsConfig(ctx context.Context, opts clioptions.CentralControlPlaneOptions, ns string, kubeClient kube.CLIClient) (*tls.Config, error) {
+	cfg := &adsc.Config{
+		Address:            opts.Xds,
+		XDSSAN:             opts.XDSSAN,
+		InsecureSkipVerify: opts.InsecureSkipVerify,
+	}
+	if !opts.InsecureSkipVerify {
+		cm, err := kubeClient.Kube().CoreV1().ConfigMaps(ns).Get(ctx, controller.CACertNamespaceConfigMap, metav1.GetOptions{})
+		if err != nil {
+			return nil, fmt.Errorf("failed to read the XDS root cert from configmap %s/%s (use --cert-dir, or --insecure to skip verification): %w",
+				ns, controller.CACertNamespaceConfigMap, err)
+		}
+		cfg.XDSRootCA = []byte(cm.Data[constants.CACertNamespaceConfigMapDataName])
+	}
+	return adsc.TLSConfig(cfg)
 }
