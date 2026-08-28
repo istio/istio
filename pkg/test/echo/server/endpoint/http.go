@@ -134,6 +134,9 @@ func (s *httpInstance) Start(onReady OnReadyFunc) error {
 			}
 			config.ClientCAs = caCertPool
 		}
+		// Go 1.27: Protocols is authoritative; http2.ConfigureServer is only called when
+		// TLSConfig is set. Set it here so the server registers TLSNextProto["h2"].
+		s.server.TLSConfig = config
 		// Listen on the given port and update the port if it changed from what was passed in.
 		//nolint:ineffassign,staticcheck // not true, we check all branches for error conditions below
 		listener, port, err = listenOnAddressTLS(s.ListenerIP, s.Port.Port, config)
