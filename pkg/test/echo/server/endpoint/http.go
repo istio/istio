@@ -70,6 +70,8 @@ func (s *httpInstance) GetConfig() Config {
 func (s *httpInstance) Start(onReady OnReadyFunc) error {
 	protocols := new(http.Protocols)
 	protocols.SetHTTP1(true)
+	// Go 1.27: Server.Protocols is authoritative; must set explicitly to serve ALPN "h2" over TLS.
+	protocols.SetHTTP2(true)
 	protocols.SetUnencryptedHTTP2(true)
 
 	s.server = &http.Server{
