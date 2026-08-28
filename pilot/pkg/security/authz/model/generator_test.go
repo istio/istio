@@ -378,6 +378,18 @@ func TestGenerator(t *testing.T) {
             exact: foo`),
 		},
 		{
+			name:  "requestHeaderGenerator-method",
+			g:     requestHeaderGenerator{},
+			key:   "request.headers[:method]",
+			value: "POST",
+			want: yamlPrincipal(t, `
+        header:
+          name: :method
+          stringMatch:
+            exact: POST
+            ignoreCase: true`),
+		},
+		{
 			name:  "hostGenerator",
 			g:     hostGenerator{},
 			value: "foo",
@@ -416,7 +428,8 @@ func TestGenerator(t *testing.T) {
          header:
           name: :method
           stringMatch:
-            exact: GET`),
+            exact: GET
+            ignoreCase: true`),
 		},
 	}
 
