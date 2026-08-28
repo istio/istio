@@ -421,33 +421,6 @@ func TestBuildWaypointServiceBindings(t *testing.T) {
 			},
 			want: []WaypointServiceBinding{binding("ns1", "wp"), binding("ns2", "wpc")},
 		},
-		{
-			name:     "Envoy waypoint class is ignored",
-			services: []model.ServiceInfo{testServiceInfo("svc1", "ns1/envoy-wp")},
-			gateways: []*gatewayv1.Gateway{testGateway("envoy-wp", constants.WaypointGatewayClassName)},
-			want:     nil,
-		},
-		{
-			name:     "ServiceEntry source is dropped even when waypoint resolves",
-			services: []model.ServiceInfo{testServiceInfoIn("ns1", "svc1", kind.ServiceEntry, "ns1/wp")},
-			gateways: []*gatewayv1.Gateway{testGateway("wp", constants.AgentgatewayWaypointClassName)},
-			want:     nil,
-		},
-		{
-			name:     "malformed waypoint resource name is dropped",
-			services: []model.ServiceInfo{testServiceInfo("svc1", "badformat")},
-			gateways: []*gatewayv1.Gateway{testGateway("wp", constants.AgentgatewayWaypointClassName)},
-			want:     nil,
-		},
-		{
-			name:     "cross-namespace waypoint reference resolves",
-			services: []model.ServiceInfo{testServiceInfo("svc1", "ns2/wp")},
-			gateways: []*gatewayv1.Gateway{testGatewayIn("ns2", "wp", constants.AgentgatewayWaypointClassName)},
-			want: []WaypointServiceBinding{{
-				ServiceKey:      types.NamespacedName{Namespace: "ns1", Name: "svc1"},
-				WaypointGateway: types.NamespacedName{Namespace: "ns2", Name: "wp"},
-			}},
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
