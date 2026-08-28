@@ -110,9 +110,9 @@ require (
 	k8s.io/streaming v0.36.1
 	k8s.io/utils v0.0.0-20260319190234-28399d86e0b5
 	sigs.k8s.io/controller-runtime v0.24.1
-	sigs.k8s.io/gateway-api v1.6.0
+	sigs.k8s.io/gateway-api v1.6.1
 	sigs.k8s.io/gateway-api-inference-extension v1.5.0
-	sigs.k8s.io/gateway-api/conformance v1.6.0
+	sigs.k8s.io/gateway-api/conformance v1.6.1
 	sigs.k8s.io/knftables v0.0.21
 	sigs.k8s.io/mcs-api v0.4.1
 	sigs.k8s.io/yaml v1.6.0
