@@ -385,15 +385,15 @@ func (h *httpHandler) addResponsePayload(r *http.Request, body *bytes.Buffer) {
 	ip, _, _ := net.SplitHostPort(r.RemoteAddr)
 	echo.IPField.Write(body, ip)
 
-	if r.TLS != nil {
+	if tlsState := requestTLS(r); tlsState != nil {
 		// Note: since this is the NegotiatedProtocol, it will be set to empty if the client sends an ALPN
 		// not supported by the server (ie one of h2,http/1.1,http/1.0)
-		echo.AlpnField.WriteNonEmpty(body, r.TLS.NegotiatedProtocol)
-		echo.SNIField.WriteNonEmpty(body, r.TLS.ServerName)
+		echo.AlpnField.WriteNonEmpty(body, tlsState.NegotiatedProtocol)
+		echo.SNIField.WriteNonEmpty(body, tlsState.ServerName)
 		// If the client cert is present, write the subject to the response
-		if len(r.TLS.PeerCertificates) > 0 {
-			echo.ClientCertSubjectField.WriteNonEmpty(body, r.TLS.PeerCertificates[0].Subject.String())
-			echo.ClientCertSerialNumberField.WriteNonEmpty(body, r.TLS.PeerCertificates[0].SerialNumber.String())
+		if len(tlsState.PeerCertificates) > 0 {
+			echo.ClientCertSubjectField.WriteNonEmpty(body, tlsState.PeerCertificates[0].Subject.String())
+			echo.ClientCertSerialNumberField.WriteNonEmpty(body, tlsState.PeerCertificates[0].SerialNumber.String())
 		}
 	}
 
@@ -551,6 +551,36 @@ func GetConn(r *http.Request) net.Conn {
 	v, ok := r.Context().Value(ConnContextKey).(net.Conn)
 	if ok {
 		return v
+	}
+	return nil
+}
+
+type connectionStater interface {
+	ConnectionState() tls.ConnectionState
+}
+
+// requestTLS returns the TLS state for r.
+// Go 1.27's HTTP/2 server only sets Request.TLS when :scheme is "https". Envoy TLS
+// origination of an HTTP request keeps :scheme=http, so fall back to the connection
+// stored in ConnContext.
+func requestTLS(r *http.Request) *tls.ConnectionState {
+	if r.TLS != nil {
+		return r.TLS
+	}
+	return connTLS(GetConn(r))
+}
+
+func connTLS(conn net.Conn) *tls.ConnectionState {
+	for conn != nil {
+		if p, ok := conn.(*proxyproto.Conn); ok {
+			conn = p.Raw()
+			continue
+		}
+		if tc, ok := conn.(connectionStater); ok {
+			cs := tc.ConnectionState()
+			return &cs
+		}
+		return nil
 	}
 	return nil
 }
