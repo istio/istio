@@ -184,7 +184,8 @@ func mergeShards(responses map[string]*discovery.DiscoveryResponse) (*discovery.
 }
 
 func makeSan(istioNamespace, revision string) string {
-	if revision == "" {
+	// istiod only adds istiod-<revision> to its cert for non-default revisions, see getDNSNames in pilot/pkg/bootstrap.
+	if revision == "" || revision == "default" {
 		return fmt.Sprintf("istiod.%s.svc", istioNamespace)
 	}
 	return fmt.Sprintf("istiod-%s.%s.svc", revision, istioNamespace)
