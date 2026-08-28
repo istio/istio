@@ -196,14 +196,6 @@ func (c *Controller) initializeInputs(kc kube.Client, opts krt.OptionsBuilder) {
 	}
 	inputs := &AgwInputs{
 		Namespaces: krt.NewInformer[*corev1.Namespace](kc, opts.WithName("informer/Namespaces")...),
-		Nodes: krt.NewFilteredInformer[*corev1.Node](kc, kclient.Filter{
-			ObjectTransform: kube.StripNodeUnusedFields,
-			ObjectFilter:    kc.ObjectFilter(),
-		}, opts.WithName("informer/Nodes")...),
-		Pods: krt.NewFilteredInformer[*corev1.Pod](kc, kclient.Filter{
-			ObjectTransform: kube.StripPodUnusedFields,
-			ObjectFilter:    kc.ObjectFilter(),
-		}, opts.WithName("informer/Pods")...),
 		Secrets: krt.WrapClient(
 			kclient.NewFiltered[*corev1.Secret](kc, kubetypes.Filter{
 				FieldSelector: kubesecrets.SecretsFieldSelector,
@@ -229,11 +221,23 @@ func (c *Controller) initializeInputs(kc kube.Client, opts krt.OptionsBuilder) {
 		ListenerSets:       buildClient[*gatewayv1.ListenerSet](c, kc, gvr.ListenerSet, opts, "informer/ListenerSets"),
 
 		ReferenceGrants: buildClient[*gateway.ReferenceGrant](c, kc, gvr.ReferenceGrant, opts, "informer/ReferenceGrants"),
-		ServiceEntries:  buildClient[*networkingclient.ServiceEntry](c, kc, gvr.ServiceEntry, opts, "informer/ServiceEntries"),
-		WorkloadEntries: buildClient[*networkingclient.WorkloadEntry](c, kc, gvr.WorkloadEntry, opts, "informer/WorkloadEntries"),
-		EndpointSlices: krt.NewFilteredInformer[*discovery.EndpointSlice](kc, kclient.Filter{
+	}
+
+	// When ambient is enabled, we use the shared ambient index for services and workloads. Otherwise, we build our own local collections
+	if !features.EnableAmbient {
+		inputs.Nodes = krt.NewFilteredInformer[*corev1.Node](kc, kclient.Filter{
+			ObjectTransform: kube.StripNodeUnusedFields,
+			ObjectFilter:    kc.ObjectFilter(),
+		}, opts.WithName("informer/Nodes")...)
+		inputs.Pods = krt.NewFilteredInformer[*corev1.Pod](kc, kclient.Filter{
+			ObjectTransform: kube.StripPodUnusedFields,
+			ObjectFilter:    kc.ObjectFilter(),
+		}, opts.WithName("informer/Pods")...)
+		inputs.ServiceEntries = buildClient[*networkingclient.ServiceEntry](c, kc, gvr.ServiceEntry, opts, "informer/ServiceEntries")
+		inputs.WorkloadEntries = buildClient[*networkingclient.WorkloadEntry](c, kc, gvr.WorkloadEntry, opts, "informer/WorkloadEntries")
+		inputs.EndpointSlices = krt.NewFilteredInformer[*discovery.EndpointSlice](kc, kclient.Filter{
 			ObjectFilter: kc.ObjectFilter(),
-		}, opts.WithName("informer/EndpointSlices")...),
+		}, opts.WithName("informer/EndpointSlices")...)
 	}
 
 	if features.EnableAlphaGatewayAPI {
@@ -368,8 +372,6 @@ func (c *Controller) buildResourceCollections(opts krt.OptionsBuilder) {
 		status.RegisterStatus(c.status, inferencePoolStatus, GetStatus, c.tagWatcher.AccessUnprotected())
 	}
 
-	// TODO(jaellio): Source addresses from the ambientindex so the agentgateway proxies get the same
-	// representation of addresses as ambient proxies (for multicluster)
 	// Build address collections
 	// TODO(jaellio): Scope addresses for waypoint gateways to only fronted + outbound services
 	addresses := c.buildAddressCollections(services, workloads, opts)
@@ -556,6 +558,10 @@ func (c *Controller) buildLocalAmbientCollections(opts krt.OptionsBuilder) (
 		Networks:     Networks,
 		Flags: ambient.FeatureFlags{
 			EnableK8SServiceSelectWorkloadEntries: true,
+			// EnableMtlsTransportProtocol is intentionally left off: sidecar-meshed workloads
+			// (security.istio.io/tlsMode=istio) will surface with TunnelProtocol_NONE rather than
+			// LEGACY_ISTIO_MTLS in the WDS stream served to agentgateway. Restore this and add a
+			// pinning test if agentgateway needs to reach such backends via istio-mutual mTLS.
 		},
 	}
 	// Dummy empty mesh config

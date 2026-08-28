@@ -248,7 +248,8 @@ func TestAgwParentInfoIsWaypoint(t *testing.T) {
 	}
 }
 
-// test helpers for building inputs. All inputs live in the "ns1" namespace.
+// test helpers for building inputs. All inputs live in the "ns1" namespace unless a
+// namespaced variant is used.
 
 func testGateway(name, class string) *gatewayv1.Gateway {
 	return testGatewayIn("ns1", name, class)
@@ -265,9 +266,13 @@ func testGatewayIn(namespace, name, class string) *gatewayv1.Gateway {
 // mirrors what ambient's ServicesCollection writes when a use-waypoint label resolves; it is
 // either "" or "namespace/name" of the target waypoint Gateway.
 func testServiceInfo(name, waypointRef string) model.ServiceInfo {
+	return testServiceInfoIn("ns1", name, kind.Service, waypointRef)
+}
+
+func testServiceInfoIn(namespace, name string, srcKind kind.Kind, waypointRef string) model.ServiceInfo {
 	return model.ServiceInfo{
-		Service: &workloadapi.Service{Namespace: "ns1", Name: name},
-		Source:  model.TypedObject{Kind: kind.Service},
+		Service: &workloadapi.Service{Namespace: namespace, Name: name},
+		Source:  model.TypedObject{Kind: srcKind},
 		Waypoint: model.WaypointBindingStatus{
 			ResourceName: waypointRef,
 		},
@@ -416,6 +421,33 @@ func TestBuildWaypointServiceBindings(t *testing.T) {
 			},
 			want: []WaypointServiceBinding{binding("ns1", "wp"), binding("ns2", "wpc")},
 		},
+		{
+			name:     "Envoy waypoint class is ignored",
+			services: []model.ServiceInfo{testServiceInfo("svc1", "ns1/envoy-wp")},
+			gateways: []*gatewayv1.Gateway{testGateway("envoy-wp", constants.WaypointGatewayClassName)},
+			want:     nil,
+		},
+		{
+			name:     "ServiceEntry source is dropped even when waypoint resolves",
+			services: []model.ServiceInfo{testServiceInfoIn("ns1", "svc1", kind.ServiceEntry, "ns1/wp")},
+			gateways: []*gatewayv1.Gateway{testGateway("wp", constants.AgentgatewayWaypointClassName)},
+			want:     nil,
+		},
+		{
+			name:     "malformed waypoint resource name is dropped",
+			services: []model.ServiceInfo{testServiceInfo("svc1", "badformat")},
+			gateways: []*gatewayv1.Gateway{testGateway("wp", constants.AgentgatewayWaypointClassName)},
+			want:     nil,
+		},
+		{
+			name:     "cross-namespace waypoint reference resolves",
+			services: []model.ServiceInfo{testServiceInfo("svc1", "ns2/wp")},
+			gateways: []*gatewayv1.Gateway{testGatewayIn("ns2", "wp", constants.AgentgatewayWaypointClassName)},
+			want: []WaypointServiceBinding{{
+				ServiceKey:      types.NamespacedName{Namespace: "ns1", Name: "svc1"},
+				WaypointGateway: types.NamespacedName{Namespace: "ns2", Name: "wp"},
+			}},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -438,8 +470,8 @@ func TestBuildWaypointServiceBindings(t *testing.T) {
 
 // TestBuildWaypointServiceBindings_LiveUpdate pins the reactive contract: mutations to the
 // upstream services and gateways collections propagate into the binding collection without a
-// restart. Guards against a regression where the collection is inadvertently rebuilt from a
-// snapshot.
+// restart. This guards against a regression where the collection is inadvertently rebuilt from
+// a snapshot.
 func TestBuildWaypointServiceBindings_LiveUpdate(t *testing.T) {
 	opts := krttest.Options(t)
 	stop := test.NewStop(t)
