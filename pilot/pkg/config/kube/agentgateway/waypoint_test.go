@@ -344,7 +344,7 @@ func TestBuildWaypointServiceBindings(t *testing.T) {
 		},
 		{
 			name:      "ServiceEntry source is dropped even when waypoint resolves",
-			services:  []model.ServiceInfo{{Service: &workloadapi.Service{Namespace: "ns1", Name: "svc1"}, Source: model.TypedObject{Kind: kind.ServiceEntry}, Waypoint: model.WaypointBindingStatus{ResourceName: "ns1/wp"}}},
+			services:  []model.ServiceInfo{testServiceInfoIn("ns1", "svc1", kind.ServiceEntry, "ns1/wp")},
 			waypoints: []types.NamespacedName{{Namespace: "ns1", Name: "wp"}},
 			gateways:  []*gatewayv1.Gateway{testGateway("wp", constants.AgentgatewayWaypointClassName)},
 			want:      nil,
