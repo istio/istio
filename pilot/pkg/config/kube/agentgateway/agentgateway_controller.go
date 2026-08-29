@@ -526,16 +526,19 @@ func (c *Controller) buildAddressCollections(
 
 // buildAmbientCollections returns shared ambient services and workloads plus a resolver that
 // maps each ServiceInfo to the k8s Gateway names of its fronting waypoints. When the ambient
-// index is wired in, its collections and resolver are reused directly (giving multicluster-aware
-// output). Otherwise a local single-cluster equivalent is built from this controller's own
-// informers.
+// index is wired in, its collections are reused directly (giving multicluster-aware output).
+// Otherwise a local single-cluster equivalent is built from this controller's own informers. In
+// both paths the waypoint-name resolver is composed here rather than exposed on ambient.Index,
+// since AGW is its only consumer.
 func (c *Controller) buildAmbientCollections(opts krt.OptionsBuilder) (
 	krt.Collection[model.ServiceInfo],
 	krt.Collection[model.WorkloadInfo],
-	ambient.ServiceWaypointResolver,
+	ServiceWaypointResolver,
 ) {
 	if c.ambientIndex != nil {
-		return c.ambientIndex.Services(), c.ambientIndex.Workloads(), c.ambientIndex.ServiceOwningWaypointNames
+		return c.ambientIndex.Services(),
+			c.ambientIndex.Workloads(),
+			NewServiceWaypointResolver(c.ambientIndex.Waypoints())
 	}
 	return c.buildLocalAmbientCollections(opts)
 }
@@ -545,7 +548,7 @@ func (c *Controller) buildAmbientCollections(opts krt.OptionsBuilder) (
 func (c *Controller) buildLocalAmbientCollections(opts krt.OptionsBuilder) (
 	krt.Collection[model.ServiceInfo],
 	krt.Collection[model.WorkloadInfo],
-	ambient.ServiceWaypointResolver,
+	ServiceWaypointResolver,
 ) {
 	inputs := c.inputs
 	Networks := ambient.BuildNetworkCollections(inputs.Namespaces, inputs.Gateways, ambient.Options{
@@ -599,7 +602,7 @@ func (c *Controller) buildLocalAmbientCollections(opts krt.OptionsBuilder) (
 		opts,
 	)
 
-	return services, workloads, ambient.NewServiceWaypointResolver(waypoints, opts)
+	return services, workloads, NewServiceWaypointResolver(waypoints)
 }
 
 func (c *Controller) buildXDSCollection(

@@ -20,7 +20,6 @@ import (
 
 	"istio.io/istio/pilot/pkg/config/kube/gatewaycommon"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry/ambient"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube/krt"
@@ -55,7 +54,7 @@ func BuildWaypointServiceBindings(
 	services krt.Collection[model.ServiceInfo],
 	gateways krt.Collection[*gatewayv1.Gateway],
 	gatewayClasses krt.Collection[gatewaycommon.GatewayClass],
-	waypointNames ambient.ServiceWaypointResolver,
+	waypointNames ServiceWaypointResolver,
 	opts krt.OptionsBuilder,
 ) krt.Collection[WaypointServiceBinding] {
 	return krt.NewManyCollection(services, func(ctx krt.HandlerContext, svc model.ServiceInfo) []WaypointServiceBinding {

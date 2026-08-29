@@ -522,7 +522,6 @@ func (a *index) buildGlobalCollections(
 	a.waypoints = waypointsCollection{
 		Collection: LocalWaypoints,
 	}
-	a.serviceWaypointResolver = NewServiceWaypointResolver(LocalWaypoints, opts)
 }
 
 type simplePort struct {

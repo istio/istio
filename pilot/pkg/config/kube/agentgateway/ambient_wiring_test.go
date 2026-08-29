@@ -17,8 +17,6 @@ package agentgateway
 import (
 	"testing"
 
-	"k8s.io/apimachinery/pkg/types"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/ambient"
 	"istio.io/istio/pkg/kube/krt"
@@ -32,7 +30,7 @@ type fakeAmbientIndex struct {
 	model.NoopAmbientIndexes
 	services  krt.Collection[model.ServiceInfo]
 	workloads krt.Collection[model.WorkloadInfo]
-	resolver  ambient.ServiceWaypointResolver
+	waypoints krt.Collection[ambient.Waypoint]
 	synced    bool
 }
 
@@ -43,14 +41,9 @@ func (f *fakeAmbientIndex) AllLocalNetworkGlobalServices(model.WaypointKey) []mo
 }
 func (f *fakeAmbientIndex) Services() krt.Collection[model.ServiceInfo]   { return f.services }
 func (f *fakeAmbientIndex) Workloads() krt.Collection[model.WorkloadInfo] { return f.workloads }
-func (f *fakeAmbientIndex) ServiceOwningWaypointNames(ctx krt.HandlerContext, svc model.ServiceInfo) []types.NamespacedName {
-	if f.resolver == nil {
-		return nil
-	}
-	return f.resolver(ctx, svc)
-}
-func (f *fakeAmbientIndex) Run(<-chan struct{}) {}
-func (f *fakeAmbientIndex) HasSynced() bool     { return f.synced }
+func (f *fakeAmbientIndex) Waypoints() krt.Collection[ambient.Waypoint]   { return f.waypoints }
+func (f *fakeAmbientIndex) Run(<-chan struct{})                           {}
+func (f *fakeAmbientIndex) HasSynced() bool                               { return f.synced }
 
 var _ ambient.Index = (*fakeAmbientIndex)(nil)
 
@@ -61,7 +54,8 @@ func TestBuildAmbientCollections_Shared(t *testing.T) {
 	opts := krttest.Options(t)
 	svcs := krt.NewStaticCollection[model.ServiceInfo](nil, nil, opts.WithName("AmbientServices")...)
 	wls := krt.NewStaticCollection[model.WorkloadInfo](nil, nil, opts.WithName("AmbientWorkloads")...)
-	idx := &fakeAmbientIndex{services: svcs, workloads: wls, synced: true}
+	wps := krt.NewStaticCollection[ambient.Waypoint](nil, nil, opts.WithName("AmbientWaypoints")...)
+	idx := &fakeAmbientIndex{services: svcs, workloads: wls, waypoints: wps, synced: true}
 
 	c := &Controller{ambientIndex: idx}
 	gotSvcs, gotWls, gotResolver := c.buildAmbientCollections(opts)

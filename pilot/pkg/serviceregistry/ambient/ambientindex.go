@@ -57,13 +57,12 @@ type Index interface {
 	AllLocalNetworkGlobalServices(key model.WaypointKey) []model.ServiceInfo
 	WorkloadsForWaypoint(key model.WaypointKey) []model.WorkloadInfo
 	ServicesForWaypoint(key model.WaypointKey) []model.ServiceInfo
-	// Services and Workloads expose the underlying krt collections for controllers that want to
-	// consume the ambient view reactively rather than through the point-in-time lookup APIs above.
+	// Services, Workloads, and Waypoints expose the underlying krt collections for controllers that
+	// want to consume the ambient view reactively rather than through the point-in-time lookup APIs
+	// above.
 	Services() krt.Collection[model.ServiceInfo]
 	Workloads() krt.Collection[model.WorkloadInfo]
-	// ServiceOwningWaypointNames returns the k8s Gateway namespaced names of every waypoint fronting svc,
-	// covering the primary attachment and any canary. Reactively re-runs when the underlying Waypoints change.
-	ServiceOwningWaypointNames(ctx krt.HandlerContext, svc model.ServiceInfo) []types.NamespacedName
+	Waypoints() krt.Collection[Waypoint]
 	Run(stop <-chan struct{})
 	HasSynced() bool
 	model.AmbientIndexes
@@ -131,8 +130,6 @@ type index struct {
 	mcController *multicluster.Controller
 	meshConfig   meshwatcher.WatcherCollection
 	stop         chan struct{}
-
-	serviceWaypointResolver ServiceWaypointResolver
 }
 
 type FeatureFlags struct {
@@ -465,7 +462,6 @@ func New(options Options) Index {
 		Collection: Waypoints,
 	}
 	a.authorizationPolicies = AllPolicies
-	a.serviceWaypointResolver = NewServiceWaypointResolver(Waypoints, opts)
 
 	return a
 }
@@ -679,8 +675,11 @@ func (a *index) AddressInformation(addresses sets.String) ([]model.AddressInfo, 
 	return res, sets.New(removed...)
 }
 
-// serviceOwningWaypoints returns the complete waypoint set fronting this service.
-func serviceOwningWaypoints(s model.ServiceInfo) []*workloadapi.GatewayAddress {
+// ServiceOwningWaypoints returns the complete waypoint set fronting this service — the primary
+// waypoint address, or every WeightedWaypoint destination when canary routing is set. Exported so
+// controllers that need to resolve waypoint addresses back to k8s Gateway identities can iterate
+// them without re-implementing the "weighted overrides primary" rule.
+func ServiceOwningWaypoints(s model.ServiceInfo) []*workloadapi.GatewayAddress {
 	if s.Service == nil {
 		return nil
 	}
@@ -702,7 +701,7 @@ func serviceOwningWaypoints(s model.ServiceInfo) []*workloadapi.GatewayAddress {
 // serviceOwningWaypointHostnames adapts serviceOwningWaypoints for hostname indexes.
 func serviceOwningWaypointHostnames(s model.ServiceInfo) []NamespaceHostname {
 	var out []NamespaceHostname
-	for _, waypoint := range serviceOwningWaypoints(s) {
+	for _, waypoint := range ServiceOwningWaypoints(s) {
 		wa := waypoint.GetHostname()
 		if wa == nil {
 			continue
@@ -715,7 +714,7 @@ func serviceOwningWaypointHostnames(s model.ServiceInfo) []NamespaceHostname {
 // serviceOwningWaypointAddresses adapts serviceOwningWaypoints for IP indexes.
 func serviceOwningWaypointAddresses(s model.ServiceInfo) []networkAddress {
 	var out []networkAddress
-	for _, waypoint := range serviceOwningWaypoints(s) {
+	for _, waypoint := range ServiceOwningWaypoints(s) {
 		wa := waypoint.GetAddress()
 		if wa == nil {
 			continue
@@ -809,11 +808,8 @@ func (a *index) Workloads() krt.Collection[model.WorkloadInfo] {
 	return a.workloads.Collection
 }
 
-func (a *index) ServiceOwningWaypointNames(ctx krt.HandlerContext, svc model.ServiceInfo) []types.NamespacedName {
-	if a.serviceWaypointResolver == nil {
-		return nil
-	}
-	return a.serviceWaypointResolver(ctx, svc)
+func (a *index) Waypoints() krt.Collection[Waypoint] {
+	return a.waypoints.Collection
 }
 
 func (a *index) AdditionalPodSubscriptions(

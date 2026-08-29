@@ -25,7 +25,6 @@ import (
 	"istio.io/istio/pilot/pkg/config/kube/gatewaycommon"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry/ambient"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -286,7 +285,7 @@ func staticCol[T any](opts krt.OptionsBuilder, name string, items ...T) krt.Coll
 // resolverFromMap returns a ServiceWaypointResolver backed by a static NamespacedName-keyed map.
 // The AGW binding builder consumes only the k8s Gateway names, so tests can bypass ambient's
 // address/index machinery and inject the resolved answer directly.
-func resolverFromMap(m map[types.NamespacedName][]types.NamespacedName) ambient.ServiceWaypointResolver {
+func resolverFromMap(m map[types.NamespacedName][]types.NamespacedName) ServiceWaypointResolver {
 	return func(_ krt.HandlerContext, svc model.ServiceInfo) []types.NamespacedName {
 		return m[svc.NamespacedName()]
 	}
