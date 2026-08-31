@@ -76,6 +76,10 @@ _internal_defaults_do_not_set:
 
   topologySpreadConstraints: []
 
+  # The duration in seconds the istiod pod needs to terminate gracefully.
+  # Defaults to the Kubernetes default of 30 seconds.
+  terminationGracePeriodSeconds: 30
+
   # You can use jwksResolverExtraRootCA to provide a root certificate
   # in PEM format. This will then be trusted by pilot when resolving
   # JWKS URIs.
