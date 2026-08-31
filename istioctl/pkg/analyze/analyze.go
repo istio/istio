@@ -551,6 +551,13 @@ func getClients(ctx cli.Context) ([]*Client, error) {
 	}
 	for _, s := range secrets.Items {
 		for _, cfg := range s.Data {
+			// Secrets in this namespace are untrusted input from the perspective of this
+			// process, exactly as istiod treats them in DefaultBuildClientsFromConfig. Reject
+			// kubeconfigs using exec, file-based, or other unsafe auth before building any
+			// client from them.
+			if _, err := kube.NewUntrustedRestConfig(cfg); err != nil {
+				return nil, fmt.Errorf("kubeconfig in secret %s/%s is not allowed: %v", s.Namespace, s.Name, err)
+			}
 			clientConfig, err := clientcmd.NewClientConfigFromBytes(cfg)
 			if err != nil {
 				return nil, err
