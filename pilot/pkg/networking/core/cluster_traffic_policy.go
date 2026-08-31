@@ -514,6 +514,11 @@ func applyOutlierDetection(service *model.Service, c *cluster.Cluster, outlier *
 		v := e.GetValue()
 
 		out.FailurePercentageThreshold = &wrapperspb.UInt32Value{Value: v}
+
+		if v > 0 {
+			v = 100
+		}
+		out.EnforcingFailurePercentage = &wrapperspb.UInt32Value{Value: v}
 	}
 	if e := outlier.ConsecutiveGatewayErrors; e != nil {
 		v := e.GetValue()
