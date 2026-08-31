@@ -19,6 +19,7 @@ package gie
 import (
 	"context"
 	"fmt"
+	"net"
 	"strconv"
 	"testing"
 	"time"
@@ -317,7 +318,7 @@ spec:
 			// Test routing to each of the three ports to verify EPP can select different endpoints
 			testPorts := []int{8000, 8001, 8002}
 			for _, targetPort := range testPorts {
-				targetEndpoint := fmt.Sprintf("%s:%d", workloadPodIP, targetPort)
+				targetEndpoint := net.JoinHostPort(workloadPodIP, strconv.Itoa(targetPort))
 				ctx.Logf("Testing EPP routing to port %d (endpoint: %s)", targetPort, targetEndpoint)
 
 				retry.UntilSuccessOrFail(ctx, func() error {
