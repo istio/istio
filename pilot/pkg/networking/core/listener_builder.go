@@ -492,6 +492,8 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 				filters = append(filters, xdsfilters.InferencePoolExtProc)
 			}
 		}
+		// Filters which rely on the route remaining unchanged need to be placed
+		// last, in case another filter in the chain clears the routing cache.
 		filters = append(filters, routeScopedAuthzFilters...)
 		filters = append(filters, authz.RouteAnchorFilters(lb.node, httpOpts.class, routeScopedAuthzFilters)...)
 	}

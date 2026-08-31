@@ -24,6 +24,12 @@ releaseNotes:
   root and workload namespaces already combine. Route-scoped `DENY` policies are additive and
   cannot override a `DENY` policy defined for the gateway or in the root namespace.
 
+- |
+  **Added** analyzer message `IST0178`, which warns when an `EnvoyFilter` inserts an HTTP filter
+  while an `AuthorizationPolicy` targeting an `HTTPRoute` is present. EnvoyFilters that clear the
+  routing cache after a route-dependent filter has run can cause a request to be routed
+  differently than it was when the filter was evaluated.
+
 upgradeNotes:
 - title: EnvoyFilter patches matching the gateway RBAC filter by name
   content: |
