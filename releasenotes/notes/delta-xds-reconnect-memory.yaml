@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+releaseNotes:
+  - |
+    **Improved** delta xDS memory usage: wildcard WDS subscriptions no longer accumulate resource names
+    from subsequent requests, and the `initial_resource_versions` map sent on reconnect is released
+    before response generation for types that do not use it.

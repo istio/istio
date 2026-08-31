@@ -106,7 +106,8 @@ func TestZtunnelCrlInbound(t *testing.T) {
 // resetCrlState resets a cluster's CRL to empty state, waits for ConfigMap propagation, then restarts all ztunnel instances.
 func resetCrlState(t framework.TestContext, cl cluster.Cluster) {
 	t.Helper()
-	certBundle.ResetCRL(t, cl)
+	certBundle.RemoveCRL(t, cl)
+	certBundle.WaitForCRLPropagation(t, cl)
 	restartZtunnelPodAndWait(t, cl)
 	t.Logf("CRL reset complete on %s", cl.Name())
 }

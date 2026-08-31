@@ -42,6 +42,7 @@ const xfccClientIdentityAnnotation = "ambient.istio.io/xfcc-include-client-ident
 // SPIFFE identity. Without the annotation XFCC does not contain the client URI.
 func TestWaypointXFCCClientIdentity(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
+		skipIfGatewayAPIUnsupported(t)
 		runTestToServiceWaypoint(t, func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions) {
 			if opt.Scheme != scheme.HTTP {
 				return
@@ -88,6 +89,46 @@ func TestWaypointXFCCClientIdentity(t *testing.T) {
 					}
 					if !containsXFCCField(xfcc, "URI", expectedURI) {
 						return fmt.Errorf("XFCC missing URI=%s; got %q", expectedURI, xfcc)
+					}
+					return nil
+				}),
+			)
+			src.CallOrFail(t, opt)
+		})
+	})
+}
+
+// TestSidecarXFCCClientIdentity verifies that when a sidecar synthesizes an
+// x-forwarded-client-cert header populated from the ztunnel-provided source workload
+// SPIFFE identity.
+func TestSidecarXFCCClientIdentity(t *testing.T) {
+	framework.NewTest(t).Run(func(t framework.TestContext) {
+		runTestContext(t, func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions) {
+			if !dst.Config().HasSidecar() {
+				t.Skip("dst has no sidecar")
+			}
+
+			if opt.Scheme != scheme.HTTP {
+				t.Skip("not http")
+			}
+
+			expectXFCC := src.Config().HasProxyCapabilities()
+			expectedURI := "spiffe://" + src.Config().SpiffeIdentity()
+
+			opt.Count = 5
+			opt.Check = check.And(
+				check.OK(),
+				check.Each(func(r echot.Response) error {
+					xfcc := firstXFCC(r)
+					if expectXFCC {
+						if xfcc == "" {
+							return fmt.Errorf("no X-Forwarded-Client-Cert header in response: %v", r.RequestHeaders)
+						}
+						if !containsXFCCField(xfcc, "URI", expectedURI) {
+							return fmt.Errorf("XFCC missing URI=%s; got %q", expectedURI, xfcc)
+						}
+					} else if xfcc != "" {
+						return fmt.Errorf("X-Forwarded-Client-Cert header in response: %v", r.RequestHeaders)
 					}
 					return nil
 				}),

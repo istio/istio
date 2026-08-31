@@ -124,6 +124,9 @@ func TestCrossNamespaceWaypoint(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(t framework.TestContext) {
+			if !crd.SupportsGatewayAPI(t) {
+				t.Skip("requires gateway API (k8s 1.31+)")
+			}
 			if t.Settings().AmbientMultiNetwork {
 				t.Skip("https://github.com/istio/istio/issues/57878")
 			}

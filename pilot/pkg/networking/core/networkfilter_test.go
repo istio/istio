@@ -898,56 +898,80 @@ func node(version *model.IstioVersion) *model.Proxy {
 
 func TestBuildAllowAnyDynamicDNSDNSCacheConfig(t *testing.T) {
 	tests := []struct {
-		name           string
-		meta           *model.NodeMetadata
-		expectResolver bool
-		expectHost     string
-		expectPort     uint32
+		name               string
+		meta               *model.NodeMetadata
+		expectLookupFamily cluster.Cluster_DnsLookupFamily
+		expectResolver     bool
+		expectHost         string
+		expectPort         uint32
 	}{
 		{
-			name:           "nil metadata — no resolver set",
-			meta:           nil,
-			expectResolver: false,
+			name:               "nil metadata — no resolver set",
+			meta:               nil,
+			expectLookupFamily: cluster.Cluster_V4_ONLY,
+			expectResolver:     false,
 		},
 		{
-			name:           "DNS_CAPTURE disabled — no resolver set",
-			meta:           &model.NodeMetadata{DNSCapture: false},
-			expectResolver: false,
+			name:               "DNS_CAPTURE disabled — no resolver set",
+			meta:               &model.NodeMetadata{DNSCapture: false},
+			expectLookupFamily: cluster.Cluster_V4_ONLY,
+			expectResolver:     false,
 		},
 		{
-			name:           "DNS_CAPTURE enabled with explicit addr",
-			meta:           &model.NodeMetadata{DNSCapture: true, DNSProxyAddr: "10.0.0.1:15053"},
-			expectResolver: true,
-			expectHost:     "10.0.0.1",
-			expectPort:     15053,
+			name:               "DNS_CAPTURE enabled with explicit addr",
+			meta:               &model.NodeMetadata{DNSCapture: true, DNSProxyAddr: "10.0.0.1:15053"},
+			expectLookupFamily: cluster.Cluster_V4_ONLY,
+			expectResolver:     true,
+			expectHost:         "10.0.0.1",
+			expectPort:         15053,
 		},
 		{
-			name:           "DNS_CAPTURE enabled, empty addr falls back to defaults",
-			meta:           &model.NodeMetadata{DNSCapture: true},
-			expectResolver: true,
-			expectHost:     "127.0.0.1",
-			expectPort:     15053,
+			name:               "DNS_CAPTURE enabled, empty addr falls back to IPv4 defaults",
+			meta:               &model.NodeMetadata{DNSCapture: true, InstanceIPs: []string{"10.0.0.1"}},
+			expectLookupFamily: cluster.Cluster_V4_ONLY,
+			expectResolver:     true,
+			expectHost:         "127.0.0.1",
+			expectPort:         15053,
 		},
 		{
-			name:           "DNS_CAPTURE enabled, localhost resolved to 127.0.0.1",
-			meta:           &model.NodeMetadata{DNSCapture: true, DNSProxyAddr: "localhost:15053"},
-			expectResolver: true,
-			expectHost:     "127.0.0.1",
-			expectPort:     15053,
+			name:               "DNS_CAPTURE enabled, localhost resolved to 127.0.0.1",
+			meta:               &model.NodeMetadata{DNSCapture: true, DNSProxyAddr: "localhost:15053", InstanceIPs: []string{"10.0.0.1"}},
+			expectLookupFamily: cluster.Cluster_V4_ONLY,
+			expectResolver:     true,
+			expectHost:         "127.0.0.1",
+			expectPort:         15053,
 		},
 		{
-			name:           "DNS_CAPTURE enabled, custom port",
-			meta:           &model.NodeMetadata{DNSCapture: true, DNSProxyAddr: "127.0.0.1:53"},
-			expectResolver: true,
-			expectHost:     "127.0.0.1",
-			expectPort:     53,
+			name:               "DNS_CAPTURE enabled, empty addr falls back to IPv6 defaults",
+			meta:               &model.NodeMetadata{DNSCapture: true, InstanceIPs: []string{"2001:db8::1"}},
+			expectLookupFamily: cluster.Cluster_V6_ONLY,
+			expectResolver:     true,
+			expectHost:         "::1",
+			expectPort:         15053,
 		},
 		{
-			name:           "DNS_CAPTURE enabled, invalid addr falls back to defaults",
-			meta:           &model.NodeMetadata{DNSCapture: true, DNSProxyAddr: "not-a-valid-addr"},
-			expectResolver: true,
-			expectHost:     "127.0.0.1",
-			expectPort:     15053,
+			name:               "DNS_CAPTURE enabled, localhost resolved to ::1",
+			meta:               &model.NodeMetadata{DNSCapture: true, DNSProxyAddr: "localhost:15053", InstanceIPs: []string{"2001:db8::1"}},
+			expectLookupFamily: cluster.Cluster_V6_ONLY,
+			expectResolver:     true,
+			expectHost:         "::1",
+			expectPort:         15053,
+		},
+		{
+			name:               "DNS_CAPTURE enabled, custom port",
+			meta:               &model.NodeMetadata{DNSCapture: true, DNSProxyAddr: "127.0.0.1:53"},
+			expectLookupFamily: cluster.Cluster_V4_ONLY,
+			expectResolver:     true,
+			expectHost:         "127.0.0.1",
+			expectPort:         53,
+		},
+		{
+			name:               "DNS_CAPTURE enabled, invalid addr falls back to IPv6 defaults",
+			meta:               &model.NodeMetadata{DNSCapture: true, DNSProxyAddr: "not-a-valid-addr", InstanceIPs: []string{"2001:db8::1"}},
+			expectLookupFamily: cluster.Cluster_V6_ONLY,
+			expectResolver:     true,
+			expectHost:         "::1",
+			expectPort:         15053,
 		},
 	}
 	for _, tc := range tests {
@@ -956,8 +980,8 @@ func TestBuildAllowAnyDynamicDNSDNSCacheConfig(t *testing.T) {
 			if cfg.Name != util.AllowAnyDFPDNSCacheName {
 				t.Errorf("expected cache name %q, got %q", util.AllowAnyDFPDNSCacheName, cfg.Name)
 			}
-			if cfg.DnsLookupFamily != cluster.Cluster_V4_ONLY {
-				t.Errorf("expected dns lookup family V4_ONLY, got %v", cfg.DnsLookupFamily)
+			if cfg.DnsLookupFamily != tc.expectLookupFamily {
+				t.Errorf("expected dns lookup family %v, got %v", tc.expectLookupFamily, cfg.DnsLookupFamily)
 			}
 			if cfg.GetMaxHosts().GetValue() != uint32(features.AllowAnyDynamicDNSMaxHosts) {
 				t.Errorf("expected max hosts %d, got %d", features.AllowAnyDynamicDNSMaxHosts, cfg.GetMaxHosts().GetValue())

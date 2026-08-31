@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+  - |
+    **Added** synthesis of `x-forwarded-client-cert` on sidecars when coming over hbone.

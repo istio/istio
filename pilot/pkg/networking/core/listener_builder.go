@@ -476,6 +476,13 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 		// Metadata exchange filter needs to be added before any other HTTP filters are added. This is done to
 		// ensure that mx filter comes before HTTP RBAC filter. This is related to https://github.com/istio/istio/issues/41066
 		filters = appendMxFilter(httpOpts, filters)
+		if fccd := httpOpts.connectionManager.GetForwardClientCertDetails(); lb.node.Type == model.SidecarProxy &&
+			httpOpts.hbone && httpOpts.class == istionetworking.ListenerClassSidecarInbound &&
+			(fccd == hcm.HttpConnectionManager_APPEND_FORWARD || fccd == hcm.HttpConnectionManager_SANITIZE_SET) {
+			// synthensize XFCC if permitted
+			// See: https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/filters/network/http_connection_manager/v3/http_connection_manager.proto
+			filters = append(filters, xdsfilters.SidecarXFCCClientIdentityFilter(fccd == hcm.HttpConnectionManager_SANITIZE_SET))
+		}
 		// TODO: how to deal with ext-authz? It will be in the ordering twice
 		filters = append(filters, lb.authzCustomBuilder.BuildHTTP(httpOpts.class)...)
 		filters = extension.PopAppendHTTPTrafficExtension(filters, trafficExtensions, extensions.TrafficExtension_AUTHN)

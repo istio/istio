@@ -187,6 +187,10 @@ func (e WorkloadGenerator) generateDeltasOndemand(
 	defer proxy.Unlock()
 	// For on-demand, we may have requested a VIP but gotten Pod IPs back. We need to update
 	// the internal book-keeping to subscribe to the Pods, so that we push updates to those Pods.
+	// subs can be nil if the watch was created without tracked resource names; Merge on a nil set panics.
+	if subs == nil {
+		subs = sets.New[string]()
+	}
 	w.ResourceNames = subs.Merge(have)
 	return resources, removed.UnsortedList(), model.XdsLogDetails{}, true, nil
 }

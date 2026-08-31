@@ -824,17 +824,17 @@ func getIstioRevision(n namespace.Instance) string {
 }
 
 func statefulsetComplete(statefulset *appsv1.StatefulSet) bool {
-	return statefulset.Status.UpdatedReplicas == *(statefulset.Spec.Replicas) &&
-		statefulset.Status.Replicas == *(statefulset.Spec.Replicas) &&
-		statefulset.Status.AvailableReplicas == *(statefulset.Spec.Replicas) &&
-		statefulset.Status.ReadyReplicas == *(statefulset.Spec.Replicas) &&
+	return statefulset.Status.UpdatedReplicas == *statefulset.Spec.Replicas &&
+		statefulset.Status.Replicas == *statefulset.Spec.Replicas &&
+		statefulset.Status.AvailableReplicas == *statefulset.Spec.Replicas &&
+		statefulset.Status.ReadyReplicas == *statefulset.Spec.Replicas &&
 		statefulset.Status.ObservedGeneration >= statefulset.Generation
 }
 
 func deploymentComplete(deployment *appsv1.Deployment) bool {
-	return deployment.Status.UpdatedReplicas == *(deployment.Spec.Replicas) &&
-		deployment.Status.Replicas == *(deployment.Spec.Replicas) &&
-		deployment.Status.AvailableReplicas == *(deployment.Spec.Replicas) &&
-		deployment.Status.ReadyReplicas == *(deployment.Spec.Replicas) &&
+	return deployment.Status.UpdatedReplicas == *deployment.Spec.Replicas &&
+		deployment.Status.Replicas == *deployment.Spec.Replicas &&
+		deployment.Status.AvailableReplicas == *deployment.Spec.Replicas &&
+		deployment.Status.ReadyReplicas == *deployment.Spec.Replicas &&
 		deployment.Status.ObservedGeneration >= deployment.Generation
 }
