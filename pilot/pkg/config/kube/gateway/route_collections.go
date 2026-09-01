@@ -191,13 +191,12 @@ func HTTPRouteCollection(
 
 				// Record which HTTPRoute each generated route came from.
 				if features.EnableGatewayAPIHTTPRouteAuth {
-					routeOrigins := make([]types.NamespacedName, len(routes))
-					for i := range routeOrigins {
-						routeOrigins[i] = types.NamespacedName{
-							Name:      obj.Name,
-							Namespace: obj.Namespace,
-						}
-					}
+					origin := types.NamespacedName{Name: obj.Name, Namespace: obj.Namespace}
+					// Give each individual route an entry as VirtualServices and their
+					// routes can be merged.
+					routeOrigins := slices.Map(routes, func(*istio.HTTPRoute) types.NamespacedName {
+						return origin
+					})
 					extraData[constants.ConfigExtraHTTPRouteOrigins] = routeOrigins
 				}
 
