@@ -35,9 +35,9 @@ server:
   # Match legacy addon deployment
   fullnameOverride: prometheus
 
-  # Use Quay to avoid Docker Hub pull limits in CI.
+  # use dockerhub
   image:
-    repository: quay.io/prometheus/prometheus
+    repository: docker.io/prom/prometheus
 
   securityContext: null
 
