@@ -23,11 +23,14 @@ import (
 	"time"
 
 	"golang.org/x/sync/errgroup"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"istio.io/api/label"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test/echo/common/scheme"
@@ -50,6 +53,7 @@ type workload struct {
 	namespace     namespace.Instance
 	replicas      int32
 	serviceLabels map[string]string
+	subsetLabels  map[string]string
 }
 
 func TestMulticlusterFailover(t *testing.T) {
@@ -324,6 +328,154 @@ spec:
 	})
 }
 
+func TestIngressToRemoteSidecar(t *testing.T) {
+	framework.NewTest(t).Run(func(t framework.TestContext) {
+		if !t.Settings().Ambient || !t.Settings().AmbientMultiNetwork {
+			t.Skip("this test is ambient multi-network specific")
+		}
+		if len(t.Clusters()) < 2 {
+			t.Fatal("ingress to remote sidecar test requires at least 2 clusters")
+		}
+
+		local := t.Clusters()[0]
+		var remote cluster.Cluster
+		for _, c := range t.Clusters() {
+			if c.NetworkName() != local.NetworkName() {
+				remote = c
+				break
+			}
+		}
+		if remote == nil {
+			t.Skip("ingress to remote sidecar test requires clusters on different networks")
+		}
+
+		for _, c := range []cluster.Cluster{local, remote} {
+			_, err := c.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().
+				Get(t.Context(), "istio-sidecar-injector", metav1.GetOptions{})
+			if kerrors.IsNotFound(err) {
+				t.Skipf("sidecar injection webhook is not installed in cluster %s", c.Name())
+			}
+			if err != nil {
+				t.Fatalf("failed checking sidecar injection webhook in cluster %s: %v", c.Name(), err)
+			}
+		}
+
+		ns := namespace.NewOrFail(t, namespace.Config{
+			Prefix: "ingress-remote-sidecar",
+			Inject: true,
+		})
+		sidecarLabels := map[string]string{
+			"sidecar.istio.io/inject":       "true",
+			label.IoIstioDataplaneMode.Name: constants.DataplaneModeNone,
+		}
+		globalService := map[string]string{"istio.io/global": "true"}
+		workloads := deployWorkloadsOrFail(t, []workload{
+			{
+				serviceName:   "remote-sidecar",
+				cluster:       local,
+				namespace:     ns,
+				replicas:      0,
+				serviceLabels: globalService,
+				subsetLabels:  sidecarLabels,
+			},
+			{
+				serviceName:   "remote-sidecar",
+				cluster:       remote,
+				namespace:     ns,
+				replicas:      1,
+				serviceLabels: globalService,
+				subsetLabels:  sidecarLabels,
+			},
+		})
+
+		remoteBackends := workloads.ForCluster(remote.Name())
+		if len(remoteBackends) != 1 {
+			t.Fatalf("expected 1 remote sidecar instance in cluster %s, got %d", remote.Name(), len(remoteBackends))
+		}
+		remoteBackend := remoteBackends[0]
+		if !remoteBackend.Config().HasSidecar() {
+			t.Fatal("remote backend echo config does not enable sidecar injection")
+		}
+		remoteWorkloads := remoteBackend.WorkloadsOrFail(t)
+		if len(remoteWorkloads) != 1 {
+			t.Fatalf("expected 1 remote sidecar workload, got %d", len(remoteWorkloads))
+		}
+		remoteWorkload := remoteWorkloads[0]
+		if remoteWorkload.Sidecar() == nil {
+			t.Fatalf("remote workload %s does not have an injected sidecar", remoteWorkload.PodName())
+		}
+
+		pod, err := remote.Kube().CoreV1().Pods(ns.Name()).Get(t.Context(), remoteWorkload.PodName(), metav1.GetOptions{})
+		if err != nil {
+			t.Fatalf("failed getting remote sidecar pod %s: %v", remoteWorkload.PodName(), err)
+		}
+		if got := pod.Labels["networking.istio.io/tunnel"]; got != "http" {
+			t.Fatalf("remote sidecar pod networking.istio.io/tunnel label = %q, want %q", got, "http")
+		}
+		// istio-proxy is an init container when native sidecars are in use, so search both lists.
+		proxy := inject.FindSidecar(pod)
+		if proxy == nil {
+			t.Fatalf("remote sidecar pod %s has no istio-proxy container", remoteWorkload.PodName())
+		}
+		hboneEnabled := false
+		for _, env := range proxy.Env {
+			if env.Name == "ISTIO_META_ENABLE_HBONE" && env.Value == "true" {
+				hboneEnabled = true
+				break
+			}
+		}
+		if !hboneEnabled {
+			t.Fatal("remote sidecar pod does not have ISTIO_META_ENABLE_HBONE=true")
+		}
+
+		t.ConfigIstio().Eval(ns.Name(), map[string]string{
+			"Destination": remoteBackend.Config().ClusterLocalFQDN(),
+		}, `apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: remote-sidecar
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts: ["*"]
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: remote-sidecar
+spec:
+  gateways:
+  - remote-sidecar
+  hosts:
+  - "*"
+  http:
+  - route:
+    - destination:
+        host: "{{.Destination}}"
+`).ApplyOrFail(t)
+
+		i.IngressFor(local).CallOrFail(t, echo.CallOptions{
+			Port: echo.Port{
+				Protocol:    protocol.HTTP,
+				ServicePort: 80,
+			},
+			Scheme: scheme.HTTP,
+			Check: check.And(
+				check.OK(),
+				check.Cluster(remote.Name()),
+			),
+			Retry: echo.Retry{
+				Options: []retry.Option{retry.Timeout(2 * time.Minute), retry.Delay(time.Second)},
+			},
+		})
+	})
+}
+
 func deployWorkloadsOrFail(t framework.TestContext, workloads []workload) echo.Instances {
 	t.Helper()
 
@@ -338,6 +490,7 @@ func deployWorkloadsOrFail(t framework.TestContext, workloads []workload) echo.I
 			Subsets: []echo.SubsetConfig{{
 				Version:  w.serviceName,
 				Replicas: 1,
+				Labels:   w.subsetLabels,
 			}},
 		})
 	}
