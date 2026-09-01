@@ -576,7 +576,7 @@ spec:
               mountPath: /etc/config
               readOnly: true
         - name: prometheus-server
-          image: "quay.io/prometheus/prometheus:v3.10.0"
+          image: "docker.io/prom/prometheus:v3.10.0"
           imagePullPolicy: "IfNotPresent"
           args:
             - --storage.tsdb.retention.time=15d
