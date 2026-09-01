@@ -116,10 +116,12 @@ func fetch[T any](ctx HandlerContext, cc Collection[T], allowMissingContext bool
 		// Otherwise get everything
 		list = c.List()
 	}
-	list = slices.FilterInPlace(list, func(i T) bool {
-		o := c.augment(i)
-		return d.filter.Matches(o, true)
-	})
+	if d.filter.needsMatching(true) {
+		list = slices.FilterInPlace(list, func(i T) bool {
+			o := c.augment(i)
+			return d.filter.Matches(o, true)
+		})
+	}
 	if log.DebugEnabled() {
 		log.WithLabels(
 			"parent", parent,
