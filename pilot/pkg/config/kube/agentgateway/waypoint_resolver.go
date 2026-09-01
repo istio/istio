@@ -35,6 +35,11 @@ type waypointIPKey struct {
 	ip      string
 }
 
+// String satisfies fmt.Stringer so krt.NewIndex can key this struct (see krt/index.go toString).
+func (k waypointIPKey) String() string {
+	return k.network + "/" + k.ip
+}
+
 // NewServiceWaypointResolver maps a ServiceInfo back to the k8s Gateways that front it.
 //
 // Ambient stamps waypoints on ServiceInfo as workloadapi.GatewayAddresses (hostname or IP), not
