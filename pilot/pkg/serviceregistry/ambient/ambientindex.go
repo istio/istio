@@ -698,7 +698,7 @@ func ServiceOwningWaypoints(s model.ServiceInfo) []*workloadapi.GatewayAddress {
 	return []*workloadapi.GatewayAddress{s.Service.Waypoint}
 }
 
-// serviceOwningWaypointHostnames adapts serviceOwningWaypoints for hostname indexes.
+// serviceOwningWaypointHostnames adapts ServiceOwningWaypoints for hostname indexes.
 func serviceOwningWaypointHostnames(s model.ServiceInfo) []NamespaceHostname {
 	var out []NamespaceHostname
 	for _, waypoint := range ServiceOwningWaypoints(s) {

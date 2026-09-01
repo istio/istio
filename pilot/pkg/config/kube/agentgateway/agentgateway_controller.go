@@ -219,8 +219,8 @@ func (c *Controller) initializeInputs(kc kube.Client, opts krt.OptionsBuilder) {
 		TCPRoutes:          buildClient[*gatewayv1.TCPRoute](c, kc, gvr.TCPRoute, opts, "informer/TCPRoutes"),
 		BackendTLSPolicies: buildClient[*gatewayv1.BackendTLSPolicy](c, kc, gvr.BackendTLSPolicy, opts, "informer/BackendTLSPolicies"),
 		ListenerSets:       buildClient[*gatewayv1.ListenerSet](c, kc, gvr.ListenerSet, opts, "informer/ListenerSets"),
-
-		ReferenceGrants: buildClient[*gateway.ReferenceGrant](c, kc, gvr.ReferenceGrant, opts, "informer/ReferenceGrants"),
+		ReferenceGrants:    buildClient[*gateway.ReferenceGrant](c, kc, gvr.ReferenceGrant, opts, "informer/ReferenceGrants"),
+		ServiceEntries:     buildClient[*networkingclient.ServiceEntry](c, kc, gvr.ServiceEntry, opts, "informer/ServiceEntries"),
 	}
 
 	// When ambient is enabled, we use the shared ambient index for services and workloads. Otherwise, we build our own local collections
@@ -233,7 +233,6 @@ func (c *Controller) initializeInputs(kc kube.Client, opts krt.OptionsBuilder) {
 			ObjectTransform: kube.StripPodUnusedFields,
 			ObjectFilter:    kc.ObjectFilter(),
 		}, opts.WithName("informer/Pods")...)
-		inputs.ServiceEntries = buildClient[*networkingclient.ServiceEntry](c, kc, gvr.ServiceEntry, opts, "informer/ServiceEntries")
 		inputs.WorkloadEntries = buildClient[*networkingclient.WorkloadEntry](c, kc, gvr.WorkloadEntry, opts, "informer/WorkloadEntries")
 		inputs.EndpointSlices = krt.NewFilteredInformer[*discovery.EndpointSlice](kc, kclient.Filter{
 			ObjectFilter: kc.ObjectFilter(),

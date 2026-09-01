@@ -25,27 +25,29 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
-// ServiceWaypointResolver returns the k8s Gateway namespaced names of every waypoint fronting a
-// service (both primary and any canary). Registers reactive krt dependencies on the underlying
-// Waypoints collection so downstream collections re-run when a waypoint's address changes.
+// ServiceWaypointResolver returns the k8s Gateway ns/names of every waypoint fronting a service
+// (primary + any canary). Reactive: re-runs when a waypoint's address changes.
 type ServiceWaypointResolver func(ctx krt.HandlerContext, svc model.ServiceInfo) []types.NamespacedName
 
-// waypointIPKey is the composite key used to look up waypoints by their address. Kept local to
-// agentgateway since only the resolver needs it.
+// waypointIPKey keys the byIP index. Local because only the resolver needs it.
 type waypointIPKey struct {
 	network string
 	ip      string
 }
 
-// NewServiceWaypointResolver builds a ServiceWaypointResolver that maps the GatewayAddresses
-// stamped onto a ServiceInfo by ambient's ServicesCollection (via Waypoint / WeightedWaypoints)
-// back to the k8s Gateway identities that AGW listeners are keyed by.
+// NewServiceWaypointResolver maps a ServiceInfo back to the k8s Gateways that front it.
 //
-// TODO(agw-multicluster): in multicluster deployments ambient.Index.Waypoints() currently returns
-// only LocalWaypoints (see the TODO in pilot/pkg/serviceregistry/ambient/multicluster.go where
-// a.waypoints is assigned). A service whose Waypoint/WeightedWaypoint destination points at a
-// waypoint that lives in a remote cluster will not resolve here, and AGW will silently emit no
-// binding. Track and fix once ambient exposes global waypoints (flattened) via Waypoints().
+// Ambient stamps waypoints on ServiceInfo as workloadapi.GatewayAddresses (hostname or IP), not
+// as ns/names. Two indexes over the Waypoints collection reverse the lookup.
+//
+// Example — service ns1/foo has primary waypoint ns1/wp-a and canary waypoint ns1/wp-b:
+//
+//	ambient.ServiceOwningWaypoints(foo) -> [<addr of wp-a>, <addr of wp-b>]
+//	resolver(ctx, foo)                  -> [{ns1, wp-a}, {ns1, wp-b}]
+//
+// TODO(agw-multicluster): Waypoints() currently returns LocalWaypoints only (see the TODO in
+// pilot/pkg/serviceregistry/ambient/multicluster.go). Services whose waypoint destination lives
+// in a remote cluster resolve to nothing and AGW silently emits no binding.
 func NewServiceWaypointResolver(waypoints krt.Collection[ambient.Waypoint]) ServiceWaypointResolver {
 	byHostname := krt.NewIndex(waypoints, "byHostname", func(w ambient.Waypoint) []ambient.NamespaceHostname {
 		h := w.Address.GetHostname()
@@ -54,11 +56,8 @@ func NewServiceWaypointResolver(waypoints krt.Collection[ambient.Waypoint]) Serv
 		}
 		return []ambient.NamespaceHostname{{Namespace: h.Namespace, Hostname: h.Hostname}}
 	})
-	// TODO(agw-scoping): byIP collides for two Gateways in different namespaces sharing an
-	// externally assigned LoadBalancer IP. The workloadapi GatewayAddress IP form does not carry
-	// the Gateway namespace, so we cannot disambiguate here. Rare in practice, but the resolver
-	// may return both Gateways in that case; downstream will emit a WaypointServiceBinding for
-	// each. Prefer hostname-based waypoint status if this matters.
+	// TODO(agw-scoping): byIP is only ns-safe if every Waypoint has a Hostname status address (the
+	// stock case). Two IP-only Gateways in different namespaces sharing an IP would both match.
 	byIP := krt.NewIndex(waypoints, "byIP", func(w ambient.Waypoint) []waypointIPKey {
 		na := w.Address.GetAddress()
 		if na == nil {
@@ -71,14 +70,19 @@ func NewServiceWaypointResolver(waypoints krt.Collection[ambient.Waypoint]) Serv
 		return []waypointIPKey{{network: na.Network, ip: ip.String()}}
 	})
 	return func(ctx krt.HandlerContext, svc model.ServiceInfo) []types.NamespacedName {
+		// Primary alone, or the weighted set (primary + canary); never both.
 		addrs := ambient.ServiceOwningWaypoints(svc)
 		if len(addrs) == 0 {
 			return nil
 		}
+		// Dedupe: two addresses can still resolve to the same Gateway on IP collision or when
+		// primary and canary reach the same Waypoint via different address types.
 		seen := sets.New[types.NamespacedName]()
 		var out []types.NamespacedName
 		for _, addr := range addrs {
+			// Destination is a proto oneof: hostname XOR IP.
 			if h := addr.GetHostname(); h != nil {
+				// Fetch, not FetchOne — a hostname index bucket may hold multiple Waypoints.
 				for _, wp := range krt.Fetch(ctx, waypoints, krt.FilterIndex(byHostname,
 					ambient.NamespaceHostname{Namespace: h.Namespace, Hostname: h.Hostname})) {
 					nn := types.NamespacedName{Namespace: wp.GetNamespace(), Name: wp.GetName()}
@@ -91,7 +95,7 @@ func NewServiceWaypointResolver(waypoints krt.Collection[ambient.Waypoint]) Serv
 			if na := addr.GetAddress(); na != nil {
 				ip, ok := netip.AddrFromSlice(na.Address)
 				if !ok {
-					continue
+					continue // malformed proto bytes; ambient shouldn't emit these
 				}
 				for _, wp := range krt.Fetch(ctx, waypoints, krt.FilterIndex(byIP,
 					waypointIPKey{network: na.Network, ip: ip.String()})) {
