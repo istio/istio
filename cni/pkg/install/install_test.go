@@ -26,6 +26,7 @@ import (
 	testutils "istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/file"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -269,41 +270,28 @@ func TestSleepCheckInstall(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			// Listen for isReady to be set to true
-			ticker := time.NewTicker(500 * time.Millisecond)
-			defer ticker.Stop()
-			readyChan := make(chan bool)
-			go func(ctx context.Context, tick <-chan time.Time) {
-				for {
+			// sleepWatchInstall should detect a valid configuration, become ready, and wait
+			// indefinitely for a file modification.
+			errChan := make(chan error, 1)
+			runAndWaitForReady := func() {
+				t.Helper()
+				go func() {
+					errChan <- in.sleepWatchInstall(ctx, sets.String{})
+				}()
+
+				retry.UntilOrFail(t, func() bool {
 					select {
-					case <-ctx.Done():
-						return
-					case <-tick:
-						if isReady.Load().(bool) {
-							readyChan <- true
+					case err := <-errChan:
+						if err == nil {
+							t.Fatal("invalid configuration detected")
 						}
+						t.Fatal(err)
+					default:
 					}
-				}
-			}(ctx, ticker.C)
-
-			// Listen to sleepWatchInstall return value
-			// Should detect a valid configuration and wait indefinitely for a file modification
-			errChan := make(chan error)
-			go func(ctx context.Context) {
-				errChan <- in.sleepWatchInstall(ctx, sets.String{})
-			}(ctx)
-
-			select {
-			case <-readyChan:
-				assert.Equal(t, isReady.Load(), true)
-			case err := <-errChan:
-				if err == nil {
-					t.Fatal("invalid configuration detected")
-				}
-				t.Fatal(err)
-			case <-time.After(5 * time.Second):
-				t.Fatal("timed out waiting for isReady to be set to true")
+					return isReady.Load().(bool)
+				}, retry.Timeout(5*time.Second), retry.Message("waiting for isReady to be set to true"))
 			}
+			runAndWaitForReady()
 
 			// Change SA token
 			if len(c.saNewFilename) > 0 {
@@ -328,10 +316,7 @@ func TestSleepCheckInstall(t *testing.T) {
 					t.Fatal(err)
 				}
 
-				// Run sleepWatchInstall
-				go func(ctx context.Context, in *Installer) {
-					errChan <- in.sleepWatchInstall(ctx, sets.String{})
-				}(ctx, in)
+				runAndWaitForReady()
 			}
 
 			// Remove Istio CNI's config

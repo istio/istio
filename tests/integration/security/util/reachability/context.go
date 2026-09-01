@@ -213,7 +213,7 @@ func Run(testCases []TestCase, t framework.TestContext) {
 
 									t.NewSubTest(subTestName).
 										Run(func(t framework.TestContext) {
-											if (from.Config().IsNaked()) && len(toClusters) > 1 {
+											if from.Config().IsNaked() && len(toClusters) > 1 {
 												// TODO use echotest to generate the cases that would work for multi-network + naked
 												t.Skip("https://github.com/istio/istio/issues/37307")
 											}

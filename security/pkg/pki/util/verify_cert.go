@@ -127,7 +127,7 @@ func VerifyCertificate(privPem []byte, certChainPem []byte, rootCertPem []byte, 
 			return fmt.Errorf("unexpected value for 'NotBefore' field: want %v but got %v", nb, cert.NotBefore)
 		}
 
-		if ttl := expectedFields.TTL; ttl != 0 && ttl != (cert.NotAfter.Sub(cert.NotBefore)) {
+		if ttl := expectedFields.TTL; ttl != 0 && ttl != cert.NotAfter.Sub(cert.NotBefore) {
 			return fmt.Errorf("unexpected value for 'NotAfter' - 'NotBefore': want %v but got %v", ttl, cert.NotAfter.Sub(cert.NotBefore))
 		}
 

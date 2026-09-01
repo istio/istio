@@ -18,7 +18,7 @@ linters:
     - revive
     - staticcheck
     - unconvert
-    - unparam
+    # - unparam # disabled: panics on Go 1.27 with generics (golangci-lint#6755); re-enable after v2.13.2+ is released
     - unused
   settings:
     depguard:
@@ -228,19 +228,50 @@ linters:
         text: 'SA1019: "github.com/golang/protobuf/jsonpb"'
       - linters:
           - staticcheck
+        text: 'SA1019: github.com/golang/protobuf/jsonpb is deprecated'
+      - linters:
+          - staticcheck
         text: 'SA1019: grpc.Dial is deprecated: use NewClient instead'
+      - linters:
+          - staticcheck
+        text: 'SA1019: google.golang.org/grpc.Dial is deprecated'
       - linters:
           - staticcheck
         text: 'SA1019: grpc.DialContext is deprecated: use NewClient instead'
       - linters:
           - staticcheck
+        text: 'SA1019: google.golang.org/grpc.DialContext is deprecated'
+      - linters:
+          - staticcheck
         text: 'SA1019: grpc.WithBlock is deprecated'
+      - linters:
+          - staticcheck
+        text: 'SA1019: google.golang.org/grpc.WithBlock is deprecated'
       - linters:
           - staticcheck
         text: 'SA1019: grpc.FailOnNonTempDialError'
       - linters:
           - staticcheck
+        text: 'SA1019: google.golang.org/grpc.FailOnNonTempDialError'
+      - linters:
+          - staticcheck
         text: 'SA1019: grpc.WithReturnConnectionError'
+      - linters:
+          - staticcheck
+        text: 'SA1019: google.golang.org/grpc.WithReturnConnectionError'
+      # staticcheck 2.17 (golangci-lint v2.13) reports new SA1019 deprecations for APIs we still use intentionally
+      - linters:
+          - staticcheck
+        text: 'SA1019:.*envoyproxy/go-control-plane'
+      - linters:
+          - staticcheck
+        text: 'SA1019:.*istio.io/api'
+      - linters:
+          - staticcheck
+        text: 'SA1019:.*k8s.io/client-go/tools/cache.ListWatch'
+      - linters:
+          - staticcheck
+        text: 'SA1019:.*golang.org/x/net/http2.Transport'
       - path: (.+)\.go$
         text: composite literal uses unkeyed fields
       # TODO: remove following rule in the future

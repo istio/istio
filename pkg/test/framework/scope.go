@@ -80,7 +80,7 @@ func (s *scope) get(ref any) error {
 	defer s.mu.Unlock()
 
 	refVal := reflect.ValueOf(ref)
-	if refVal.Kind() != reflect.Ptr {
+	if refVal.Kind() != reflect.Pointer {
 		return fmt.Errorf("ref must be a pointer instead got: %T", ref)
 	}
 	// work with the underlying value rather than the pointer
