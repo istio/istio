@@ -126,7 +126,7 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 	configs := getConfigs(t, opts)
 	cc := opts.ConfigController
 	if cc == nil {
-		cc = memory.NewController(memory.MakeSkipValidation(collections.PilotGatewayAPI()))
+		cc = memory.NewController(collections.PilotGatewayAPI(), true)
 	}
 	controllers := []model.ConfigStoreController{cc}
 	if opts.CreateConfigStore != nil {
@@ -179,7 +179,8 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 		mc,
 		env.Watcher,
 		serviceentry.WithClusterID(opts.ClusterID),
-		serviceentry.WithKRTDebugger(krt.GlobalDebugHandler))
+		serviceentry.WithKRTDebugger(krt.GlobalDebugHandler),
+	)
 	// TODO allow passing in registry, for k8s, mem registry
 	serviceDiscovery.AddRegistry(se)
 	msd := memregistry.NewServiceDiscovery(opts.Services...)
