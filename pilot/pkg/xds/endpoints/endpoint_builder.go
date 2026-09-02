@@ -428,10 +428,7 @@ func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.Endpoi
 		return buildEmptyClusterLoadAssignment(b.clusterName)
 	}
 
-	// features.EnableIngressWaypointRouting only makes sense for ingress gateways and for E/W gateways
-	// we don't want this behavior, so additionally check that we are not generating endpoints for the
-	// E/W gateway.
-	if features.EnableIngressWaypointRouting && !isEastWestGateway(b.proxy) {
+	if b.waypointRoutingEnabled() {
 		if waypointEps, f := b.findServiceWaypoint(endpointIndex); f {
 			// endpoints are from waypoint service but the envoy endpoint is different envoy cluster
 			locLbEps := b.generate(waypointEps, true)
@@ -999,12 +996,27 @@ func getSubSetLabels(dr *v1alpha3.DestinationRule, subsetName string) labels.Ins
 	return nil
 }
 
+// waypointRoutingEnabled reports whether waypoint routing is enabled for the proxy type.
+// Sidecars and ingress gateways are controlled by separate feature flags, while east-west gateways
+// are excluded.
+func (b *EndpointBuilder) waypointRoutingEnabled() bool {
+	if isEastWestGateway(b.proxy) {
+		return false
+	}
+	if b.nodeType == model.SidecarProxy {
+		return features.EnableSidecarWaypointRouting
+	}
+
+	return features.EnableIngressWaypointRouting
+}
+
 // For services that have a waypoint, we want to send to the waypoints rather than the service endpoints.
 // Lookup the service, find its waypoint, then find the waypoint's endpoints.
 func (b *EndpointBuilder) findServiceWaypoint(endpointIndex *model.EndpointIndex) ([]*model.IstioEndpoint, bool) {
-	// Currently we only support routers (gateways)
-	if b.nodeType != model.Router && !isEastWestGateway(b.proxy) {
-		// Currently only ingress and e/w gateway will call waypoints
+	// Currently we only support routers (gateways) and feature-flag-enabled sidecars.
+	if b.nodeType != model.Router &&
+		(b.nodeType != model.SidecarProxy || !features.EnableSidecarWaypointRouting) &&
+		!isEastWestGateway(b.proxy) {
 		return nil, false
 	}
 	if !b.service.HasAddressOrAssigned(b.proxy.Metadata.ClusterID) {
@@ -1022,7 +1034,7 @@ func (b *EndpointBuilder) findServiceWaypoint(endpointIndex *model.EndpointIndex
 	}
 	svc := svcs[0]
 	// They need to explicitly opt-in on the service to send from ingress -> waypoint
-	if !svc.IngressUseWaypoint && !isEastWestGateway(b.proxy) {
+	if !svc.IngressUseWaypoint && b.nodeType != model.SidecarProxy && !isEastWestGateway(b.proxy) {
 		return nil, false
 	}
 	// Weighted waypoints override the single primary waypoint for gateway endpoint generation.
