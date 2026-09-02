@@ -745,10 +745,18 @@ func (h *manyCollection[I, O]) GetKey(k string) (res *O) {
 	return nil
 }
 
-func (h *manyCollection[I, O]) List() (res []O) {
+func (h *manyCollection[I, O]) ListFiltered(filter func(O) bool) (res []O) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
-	return maps.Values(h.collectionState.outputs)
+	if filter == nil {
+		res = make([]O, 0, len(h.collectionState.outputs))
+	}
+	for _, v := range h.collectionState.outputs {
+		if filter == nil || filter(v) {
+			res = append(res, v)
+		}
+	}
+	return res
 }
 
 func (h *manyCollection[I, O]) RegisterBatch(f func(o []Event[O]), runExistingState bool) HandlerRegistration {
