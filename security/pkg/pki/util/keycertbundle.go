@@ -102,8 +102,8 @@ func NewVerifiedKeyCertBundleFromFile(
 	}
 
 	// Read CRL file if provided
-	crlBytes, crlErr := gerCRLBytesFromFile(crlFile)
-	if crlErr != nil {
+	crlBytes, crlErr := ReadCRLBytesFromFile(crlFile)
+	if crlErr != nil && !os.IsNotExist(crlErr) {
 		return nil, crlErr
 	}
 
@@ -189,6 +189,7 @@ func (b *KeyCertBundle) VerifyAndSetAll(certBytes, privKeyBytes, certChainBytes,
 }
 
 // Setting all values together avoids inconsistency.
+// if crlBytes is nil, no CRL update will be performed.
 func (b *KeyCertBundle) setAllFromPem(certBytes, privKeyBytes, certChainBytes, rootCertBytes, crlBytes []byte) {
 	b.mutex.Lock()
 	b.certBytes = copyBytes(certBytes)
@@ -197,7 +198,7 @@ func (b *KeyCertBundle) setAllFromPem(certBytes, privKeyBytes, certChainBytes, r
 	b.rootCertBytes = copyBytes(rootCertBytes)
 
 	// CRL is optional and used with plugged in CA, if not provided, it will be nil
-	if len(crlBytes) != 0 {
+	if crlBytes != nil {
 		b.crlBytes = copyBytes(crlBytes)
 	}
 
@@ -276,8 +277,8 @@ func (b *KeyCertBundle) UpdateVerifiedKeyCertBundleFromFile(
 	}
 
 	// Read CRL file if provided
-	crlBytes, crlErr := gerCRLBytesFromFile(crlFile)
-	if crlErr != nil {
+	crlBytes, crlErr := ReadCRLBytesFromFile(crlFile)
+	if crlErr != nil && !os.IsNotExist(crlErr) {
 		return crlErr
 	}
 
@@ -289,14 +290,19 @@ func (b *KeyCertBundle) UpdateVerifiedKeyCertBundleFromFile(
 	return nil
 }
 
-// gerCRLBytesFromFile reads the CRL file and returns the content if it exists.
+// ReadCRLBytesFromFile reads the CRL file and returns the content if it exists.
+// If the crlFile does not exist, it is treated as an empty file.
 // Providing CRL file is optional, if not provided, it returns nil without an error.
-func gerCRLBytesFromFile(crlFile string) ([]byte, error) {
+func ReadCRLBytesFromFile(crlFile string) ([]byte, error) {
 	if crlFile == "" {
 		return nil, nil
 	}
 
-	return os.ReadFile(crlFile)
+	bytes, err := os.ReadFile(crlFile)
+	if os.IsNotExist(err) {
+		return []byte{}, err
+	}
+	return bytes, err
 }
 
 // ExtractRootCertExpiryTimestamp returns the expiration of the first root cert

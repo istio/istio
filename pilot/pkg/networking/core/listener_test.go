@@ -672,6 +672,53 @@ func TestOutboundListenerConflictWithReservedListener(t *testing.T) {
 	}
 }
 
+// TestOutboundListenerCIDRServiceEntryReservedPort verifies that a ServiceEntry whose
+// address is a CIDR (so the outbound listener falls back to the 0.0.0.0 wildcard) does
+// not generate a listener on a reserved proxy port. Such a listener binds to
+// 0.0.0.0:15001 and collides with the virtualOutbound listener, which rejects the whole
+// LDS update and breaks the sidecar. A service on a non-reserved port must still get its
+// wildcard listener.
+func TestOutboundListenerCIDRServiceEntryReservedPort(t *testing.T) {
+	buildCIDRServiceEntry := func(hostname string, port int) *model.Service {
+		return &model.Service{
+			CreationTime:   tnow,
+			Hostname:       host.Name(hostname),
+			DefaultAddress: "10.80.68.0/29",
+			Ports: model.PortList{
+				&model.Port{Name: "tls", Port: port, Protocol: protocol.TLS},
+			},
+			Resolution: model.Passthrough,
+			Attributes: model.ServiceAttributes{
+				Namespace:       "default",
+				ServiceRegistry: provider.External,
+			},
+		}
+	}
+
+	cases := []struct {
+		name         string
+		port         int
+		expectListen bool
+	}{
+		{"cidr service on reserved outbound port is skipped", 15001, false},
+		{"cidr service on reserved inbound port is skipped", 15006, false},
+		{"cidr service on a normal port still listens", 15010, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			svc := buildCIDRServiceEntry("redis.example.com", tc.port)
+			listeners := buildOutboundListeners(t, getProxy(), nil, nil, svc)
+			l := findListenerByPort(listeners, uint32(tc.port))
+			if tc.expectListen && l == nil {
+				t.Fatalf("expected a listener on port %d, found none", tc.port)
+			}
+			if !tc.expectListen && l != nil {
+				t.Fatalf("expected no listener on reserved port %d, but found %s", tc.port, l.Name)
+			}
+		})
+	}
+}
+
 func TestOutboundListenerDualStackWildcard(t *testing.T) {
 	test.SetForTest(t, &features.EnableDualStack, true)
 	service := buildService("test1.com", "0.0.0.0", protocol.TCP, tnow.Add(1*time.Second))

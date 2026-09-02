@@ -135,11 +135,8 @@ func shouldUseBinaryForCurrentContext(iptablesBin string) (IptablesVersion, erro
 	// Note that this is highly dependent on context.
 	// new pod netns? probably no rules. Hostnetns? probably rules
 	// So this is mostly just a "hint"/heuristic as to which version we should be using, if more than one binary is present.
-	// `xx-save` should return _no_ output (0 lines) if no rules are defined in this netns for that binary variant.
-	// `xx-save` should return at least 3 output lines if at least one rule is defined in this netns for that binary variant.
-	existingRules := false
-	if strings.Count(string(rulesDump), "\n") >= 3 {
-		existingRules = true
+	existingRules := hasExistingRules(rulesDump)
+	if existingRules {
 		log.Debugf("found existing rules for %s", iptablesSaveBin)
 	}
 	return IptablesVersion{
@@ -150,6 +147,24 @@ func shouldUseBinaryForCurrentContext(iptablesBin string) (IptablesVersion, erro
 		Legacy:                !isNft,
 		ExistingRules:         existingRules,
 	}, nil
+}
+
+// hasExistingRules scans an `xx-save` dump for lines that define an actual rule (the ones
+// starting with "-A "/"-I "), rather than just counting total output lines.
+//
+// An empty table still produces several output lines from `xx-save` (table header, default
+// chain definitions, COMMIT), so a naive line count is not enough: the kernel-support probe in
+// shouldUseBinaryForCurrentContext above adds then deletes a no-op rule in a table, and doing so
+// materializes that (still otherwise-empty) table for good. A later call here, in the same boot,
+// would then see 4+ lines from that table and misdetect it as having existing rules, flipping
+// the backend this function picks on every restart. See https://github.com/istio/istio/issues/61020.
+func hasExistingRules(rulesDump []byte) bool {
+	for _, line := range strings.Split(string(rulesDump), "\n") {
+		if strings.HasPrefix(line, "-A ") || strings.HasPrefix(line, "-I ") {
+			return true
+		}
+	}
+	return false
 }
 
 // runInSandbox builds a lightweight sandbox ("container") to build a suitable environment to run iptables commands in.

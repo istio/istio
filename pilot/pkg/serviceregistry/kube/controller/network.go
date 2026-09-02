@@ -127,7 +127,7 @@ func (n *networkManager) networkFromMeshNetworks(endpointIP string) network.ID {
 			log.Warnf("Found multiple networks CIDRs matching the endpoint IP: %s. Using the first match.", endpointIP)
 		}
 		if len(entries) > 0 {
-			return (entries[0].(namedRangerEntry)).name
+			return entries[0].(namedRangerEntry).name
 		}
 	}
 	return ""

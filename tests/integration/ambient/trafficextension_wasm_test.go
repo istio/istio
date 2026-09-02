@@ -110,6 +110,7 @@ func uninstallTrafficExtensionWasm(ctx framework.TestContext, filterName, path s
 func TestTrafficExtension_WasmConfigurations(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
+			skipIfGatewayAPIUnsupported(t)
 			testCases := []struct {
 				desc         string
 				name         string

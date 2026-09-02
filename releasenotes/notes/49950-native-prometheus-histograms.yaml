@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+issue:
+  - 49950
+
+releaseNotes:
+  - |
+    **Added** native Prometheus protobuf passthrough through pilot-agent's metrics merger. When a Prometheus scraper sends `Accept: application/vnd.google.protobuf; proto=io.prometheus.client.MetricFamily; encoding=delimited`, Envoy's native (sparse) histograms now reach the scraper unchanged instead of being silently degraded by text-format re-encoding. The pre-existing text/OpenMetrics scrape path is byte-for-byte unchanged.
+
+  - |
+    **Added** a new `istio_agent_scrape_format_total{format,downgrade}` counter to pilot-agent that reports the format negotiation outcome per scrape (text / openmetrics / protobuf, with a downgrade indicator when upstreams disagree).

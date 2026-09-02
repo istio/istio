@@ -157,12 +157,8 @@ func GlobalNestedWorkloadServicesCollection(
 	localWaypoints krt.Collection[Waypoint],
 	ctrl *multicluster.Controller,
 	localServiceEntries krt.Collection[*networkingclient.ServiceEntry],
-	globalServices krt.Collection[krt.Collection[*v1.Service]],
-	servicesByCluster krt.Index[cluster.ID, krt.Collection[*v1.Service]],
 	globalWaypoints krt.Collection[krt.Collection[Waypoint]],
 	waypointsByCluster krt.Index[cluster.ID, krt.Collection[Waypoint]],
-	globalNamespaces krt.Collection[krt.Collection[*v1.Namespace]],
-	namespacesByCluster krt.Index[cluster.ID, krt.Collection[*v1.Namespace]],
 	meshConfig krt.Singleton[MeshConfig],
 	globalNetworks NetworkCollections,
 	domainSuffix string,
@@ -203,13 +199,7 @@ func GlobalNestedWorkloadServicesCollection(
 				false,
 				checkServiceScope,
 				func(ctx krt.HandlerContext) network.ID {
-					nw := krt.FetchOne(ctx, globalNetworks.RemoteSystemNamespaceNetworks, krt.FilterIndex(globalNetworks.SystemNamespaceNetworkByCluster, cluster.ID))
-					if nw == nil {
-						log.Warnf("Cluster %s does not have network assigned yet, skipping", cluster.ID)
-						ctx.DiscardResult()
-						return ""
-					}
-					return nw.Network
+					return globalNetworks.FetchRemoteSystemNamespaceNetwork(ctx, namespaces)
 				}, false,
 			),
 				append(

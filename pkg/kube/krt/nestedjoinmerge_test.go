@@ -14,6 +14,7 @@
 package krt_test
 
 import (
+	"fmt"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -169,6 +170,107 @@ func TestNestedJoinWithMergeSimpleCollection(t *testing.T) {
 		Named:    Named{"namespace", "svc"},
 		Selector: map[string]string{"app": "foo", "version": "v1"},
 	})
+}
+
+// testCluster stands in for the per-cluster state in multicluster: the name is stable for the
+// lifetime of the cluster, while the generation changes every time its credentials are rotated and
+// its collections are rebuilt on a new client.
+type testCluster struct {
+	name string
+	gen  int
+	// service is the single service the cluster holds, and version the value of its "app" selector.
+	service string
+	version string
+}
+
+func (c testCluster) ResourceName() string {
+	return c.name
+}
+
+// TestNestedJoinWithMergeCollectionSwap checks how the collections held by a container collection are
+// keyed: a collection with a new name is added alongside the existing ones, while one replacing another
+// under the same name is an update of a single entry rather than a delete plus an add. The items of the
+// collections involved are never deleted along the way. Replacing a collection under the same name is
+// what a credential rotation looks like: the same cluster, but new informers and new collections built
+// on top of them.
+func TestNestedJoinWithMergeCollectionSwap(t *testing.T) {
+	opts := testOptions(t)
+
+	clusters := krt.NewStaticCollection(nil, []testCluster{{name: "c0", gen: 1, service: "a", version: "v1"}},
+		opts.WithName("Clusters")...)
+	perCluster := krt.NewCollection(clusters, func(ctx krt.HandlerContext, c testCluster) *krt.Collection[SimpleService] {
+		// The collection's name depends only on the cluster, not on its generation, so a rebuilt
+		// collection replaces the previous one under the same key. This mirrors how the per-cluster
+		// informers are named in multicluster.
+		var col krt.Collection[SimpleService] = krt.NewStaticCollection(nil, []SimpleService{{
+			Named:    Named{"namespace", c.service},
+			Selector: map[string]string{"app": c.version},
+		}}, opts.With(krt.WithName(fmt.Sprintf("Services[%s]", c.name)))...)
+		return &col
+	}, opts.WithName("PerClusterServices")...)
+	// Every service here is held by a single cluster, so there is nothing to actually merge.
+	merged := krt.NestedJoinWithMergeCollection(perCluster, func(ts []SimpleService) *SimpleService {
+		if len(ts) == 0 {
+			return nil
+		}
+		return &ts[0]
+	}, opts.With(krt.WithName("MergedServices"))...)
+
+	// containerEvents tracks the collections held by perCluster, mergedEvents the merged items.
+	containerEvents, mergedEvents := assert.NewTracker[string](t), assert.NewTracker[string](t)
+	perCluster.RegisterBatch(BatchedTrackerHandler[krt.Collection[SimpleService]](containerEvents), true)
+	merged.RegisterBatch(BatchedTrackerHandler[SimpleService](mergedEvents), true)
+	assert.EventuallyEqual(t, func() bool {
+		return merged.WaitUntilSynced(opts.Stop())
+	}, true)
+
+	collectionNames := func() []string {
+		return slices.Sort(slices.Map(perCluster.List(), krt.GetKey[krt.Collection[SimpleService]]))
+	}
+	version := func(service string) string {
+		if svc := merged.GetKey("namespace/" + service); svc != nil {
+			return svc.Selector["app"]
+		}
+		return ""
+	}
+
+	containerEvents.WaitOrdered("add/Services[c0]")
+	mergedEvents.WaitOrdered("add/namespace/a")
+
+	// A new name is a new entry: the collection we already had is kept, and only the new item is
+	// reported.
+	clusters.UpdateObject(testCluster{name: "c1", gen: 1, service: "b", version: "v1"})
+	containerEvents.WaitOrdered("add/Services[c1]")
+	mergedEvents.WaitOrdered("add/namespace/b")
+	assert.EventuallyEqual(t, collectionNames, []string{"Services[c0]", "Services[c1]"})
+
+	// Rebuild c0's collection with new contents. The container holds one entry per cluster before and
+	// after, and reports the swap as an update of that entry; the item is updated to the value held by
+	// the new collection, never deleted and re-added.
+	clusters.UpdateObject(testCluster{name: "c0", gen: 2, service: "a", version: "v2"})
+	containerEvents.WaitOrdered("update/Services[c0]")
+	mergedEvents.WaitOrdered("update/namespace/a")
+	assert.EventuallyEqual(t, collectionNames, []string{"Services[c0]", "Services[c1]"})
+	assert.Equal(t, version("a"), "v2")
+	assert.Equal(t, version("b"), "v1")
+
+	// A rotation that leaves the cluster's contents unchanged, which is the common case, must not report
+	// anything at all. "No event" cannot be asserted by looking at an empty tracker right after the
+	// swap, so we follow it with a rotation that does change the contents: any spurious event from the
+	// first swap would show up before that update.
+	clusters.UpdateObject(testCluster{name: "c0", gen: 3, service: "a", version: "v2"})
+	containerEvents.WaitOrdered("update/Services[c0]")
+
+	clusters.UpdateObject(testCluster{name: "c0", gen: 4, service: "a", version: "v3"})
+	containerEvents.WaitOrdered("update/Services[c0]")
+	mergedEvents.WaitOrdered("update/namespace/a")
+	assert.Equal(t, version("a"), "v3")
+
+	// Removing the cluster is still a delete, both of its collection and of the items only it held.
+	clusters.DeleteObject(krt.GetKey(testCluster{name: "c0"}))
+	containerEvents.WaitOrdered("delete/Services[c0]")
+	mergedEvents.WaitOrdered("delete/namespace/a")
+	assert.EventuallyEqual(t, collectionNames, []string{"Services[c1]"})
 }
 
 func TestNestedJoinWithMergeAndIndexSimpleCollection(t *testing.T) {
