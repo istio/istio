@@ -1,6 +1,6 @@
 module istio.io/istio
 
-go 1.25.9
+go 1.26.0
 
 require (
 	cloud.google.com/go/compute/metadata v0.9.0
@@ -60,7 +60,7 @@ require (
 	github.com/prometheus/common v0.70.1
 	github.com/prometheus/procfs v0.22.0
 	github.com/prometheus/prometheus v0.311.3
-	github.com/quic-go/quic-go v0.61.0
+	github.com/quic-go/quic-go v0.62.0
 	github.com/ryanuber/go-glob v1.0.0
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
