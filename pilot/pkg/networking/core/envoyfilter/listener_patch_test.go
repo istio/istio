@@ -2375,122 +2375,325 @@ func TestApplyListenerPatches(t *testing.T) {
 	}
 }
 
-func TestFilterChainMatchTransportSocket(t *testing.T) {
-	rawBufferChain := &listener.FilterChain{
-		Name:             "raw-buffer",
-		FilterChainMatch: &listener.FilterChainMatch{TransportProtocol: "tls"},
-		TransportSocket:  &core.TransportSocket{Name: wellknown.TransportSocketRawBuffer},
+func TestMergeAndReplaceListTransportSocket(t *testing.T) {
+	alpnPatch := func(op networking.EnvoyFilter_Patch_Operation) []*networking.EnvoyFilter_EnvoyConfigObjectPatch {
+		return []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+			{
+				ApplyTo: networking.EnvoyFilter_FILTER_CHAIN,
+				Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+					Context: networking.EnvoyFilter_GATEWAY,
+					ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+						Listener: &networking.EnvoyFilter_ListenerMatch{PortNumber: 443},
+					},
+				},
+				Patch: &networking.EnvoyFilter_Patch{
+					Operation: op,
+					Value: buildPatchStruct(`
+						{"transport_socket":{
+							"name":"envoy.transport_sockets.tls",
+							"typed_config":{
+								"@type":"type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.DownstreamTlsContext",
+								"common_tls_context":{
+									"alpn_protocols":["my-alpn"]}}}}`),
+				},
+			},
+		}
 	}
-	tlsChain := &listener.FilterChain{
-		Name:             "tls",
-		FilterChainMatch: &listener.FilterChainMatch{TransportProtocol: "tls"},
-		TransportSocket:  &core.TransportSocket{Name: wellknown.TransportSocketTLS},
-	}
-	quicChain := &listener.FilterChain{
-		Name:            "quic",
-		TransportSocket: &core.TransportSocket{Name: wellknown.TransportSocketQuic},
-	}
-	// A filter chain with no transport socket configured uses raw_buffer, Envoy's default.
-	noTransportSocketChain := &listener.FilterChain{
-		Name:             "no-transport-socket",
-		FilterChainMatch: &listener.FilterChainMatch{TransportProtocol: "raw_buffer"},
+
+	buildListener := func(alpnProtocols ...string) *listener.Listener {
+		return &listener.Listener{
+			Name: "443",
+			Address: &core.Address{Address: &core.Address_SocketAddress{
+				SocketAddress: &core.SocketAddress{PortSpecifier: &core.SocketAddress_PortValue{PortValue: 443}},
+			}},
+			FilterChains: []*listener.FilterChain{
+				{
+					Filters: []*listener.Filter{{Name: wellknown.HTTPConnectionManager}},
+					TransportSocket: &core.TransportSocket{
+						Name: "envoy.transport_sockets.tls",
+						ConfigType: &core.TransportSocket_TypedConfig{
+							TypedConfig: protoconv.MessageToAny(&tls.DownstreamTlsContext{
+								CommonTlsContext: &tls.CommonTlsContext{AlpnProtocols: alpnProtocols},
+							}),
+						},
+					},
+				},
+			},
+		}
 	}
 
 	tests := []struct {
-		name  string
-		match *networking.EnvoyFilter_ListenerMatch_FilterChainMatch
-		fc    *listener.FilterChain
-		want  bool
+		name      string
+		operation networking.EnvoyFilter_Patch_Operation
+		wantALPN  []string
 	}{
 		{
-			name:  "no transport socket match matches any filter chain",
-			match: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{TransportProtocol: "tls"},
-			fc:    tlsChain,
-			want:  true,
+			name:      "MERGE appends to alpn_protocols",
+			operation: networking.EnvoyFilter_Patch_MERGE,
+			wantALPN:  []string{"h2", "http/1.1", "my-alpn"},
 		},
 		{
-			name:  "tls transport socket matches tls chain",
-			match: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{TransportSocket: wellknown.TransportSocketTLS},
-			fc:    tlsChain,
-			want:  true,
-		},
-		{
-			name:  "tls transport socket does not match raw buffer chain",
-			match: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{TransportSocket: wellknown.TransportSocketTLS},
-			fc:    rawBufferChain,
-			want:  false,
-		},
-		{
-			name:  "tls transport socket does not match chain without transport socket",
-			match: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{TransportSocket: wellknown.TransportSocketTLS},
-			fc:    noTransportSocketChain,
-			want:  false,
-		},
-		{
-			name:  "raw buffer transport socket matches raw buffer chain",
-			match: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{TransportSocket: wellknown.TransportSocketRawBuffer},
-			fc:    rawBufferChain,
-			want:  true,
-		},
-		{
-			name:  "raw buffer transport socket matches chain without transport socket",
-			match: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{TransportSocket: wellknown.TransportSocketRawBuffer},
-			fc:    noTransportSocketChain,
-			want:  true,
-		},
-		{
-			name:  "raw buffer transport socket does not match tls chain",
-			match: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{TransportSocket: wellknown.TransportSocketRawBuffer},
-			fc:    tlsChain,
-			want:  false,
-		},
-		{
-			name:  "quic transport socket matches quic chain",
-			match: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{TransportSocket: wellknown.TransportSocketQuic},
-			fc:    quicChain,
-			want:  true,
-		},
-		{
-			name:  "quic transport socket does not match tls chain",
-			match: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{TransportSocket: wellknown.TransportSocketQuic},
-			fc:    tlsChain,
-			want:  false,
-		},
-		{
-			// transportProtocol is the traffic the chain accepts, transportSocket is what processes it.
-			// The two are independent, and both must match when both are set.
-			name: "transport protocol and transport socket are combined",
-			match: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
-				TransportProtocol: "tls",
-				TransportSocket:   wellknown.TransportSocketRawBuffer,
-			},
-			fc:   rawBufferChain,
-			want: true,
-		},
-		{
-			name: "transport socket match with mismatched transport protocol",
-			match: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
-				TransportProtocol: "tls",
-				TransportSocket:   wellknown.TransportSocketRawBuffer,
-			},
-			fc:   noTransportSocketChain,
-			want: false,
+			name:      "MERGE_AND_REPLACE_LIST replaces alpn_protocols",
+			operation: networking.EnvoyFilter_Patch_MERGE_AND_REPLACE_LIST,
+			wantALPN:  []string{"my-alpn"},
 		},
 	}
 
-	lis := &listener.Listener{Name: "some-listener"}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			lp := &model.EnvoyFilterConfigPatchWrapper{
-				Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
-					ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
-						Listener: &networking.EnvoyFilter_ListenerMatch{FilterChain: tt.match},
-					},
-				},
-			}
-			if got := filterChainMatch(lis, tt.fc, lp); got != tt.want {
-				t.Errorf("filterChainMatch() = %v, want %v", got, tt.want)
+			got := applyGatewayListenerPatches(t, alpnPatch(tt.operation), buildListener("h2", "http/1.1"))
+			if diff := cmp.Diff([]*listener.Listener{buildListener(tt.wantALPN...)}, got, protocmp.Transform()); diff != "" {
+				t.Errorf("%s mismatch (-want +got):\n%s", tt.name, diff)
 			}
 		})
 	}
+}
+
+func TestMergeAndReplaceListNetworkFilter(t *testing.T) {
+	httpFiltersPatch := func(op networking.EnvoyFilter_Patch_Operation) []*networking.EnvoyFilter_EnvoyConfigObjectPatch {
+		return []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+			{
+				ApplyTo: networking.EnvoyFilter_NETWORK_FILTER,
+				Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+					Context: networking.EnvoyFilter_GATEWAY,
+					ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+						Listener: &networking.EnvoyFilter_ListenerMatch{
+							PortNumber: 80,
+							FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
+								Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
+									Name: wellknown.HTTPConnectionManager,
+								},
+							},
+						},
+					},
+				},
+				Patch: &networking.EnvoyFilter_Patch{
+					Operation: op,
+					Value: buildPatchStruct(`
+						{"name":"envoy.filters.network.http_connection_manager",
+						 "typed_config":{
+							"@type":"type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
+							"http_filters":[{"name":"my.custom.filter"}]}}`),
+				},
+			},
+		}
+	}
+
+	buildListener := func(httpFilters ...string) *listener.Listener {
+		filters := make([]*hcm.HttpFilter, 0, len(httpFilters))
+		for _, name := range httpFilters {
+			filters = append(filters, &hcm.HttpFilter{Name: name})
+		}
+		return buildHTTPListener(&hcm.HttpConnectionManager{
+			StatPrefix:  "http",
+			HttpFilters: filters,
+		})
+	}
+
+	tests := []struct {
+		name        string
+		operation   networking.EnvoyFilter_Patch_Operation
+		wantFilters []string
+	}{
+		{
+			name:        "MERGE appends to http_filters",
+			operation:   networking.EnvoyFilter_Patch_MERGE,
+			wantFilters: []string{"istio.metadata_exchange", "envoy.filters.http.router", "my.custom.filter"},
+		},
+		{
+			name:        "MERGE_AND_REPLACE_LIST replaces http_filters",
+			operation:   networking.EnvoyFilter_Patch_MERGE_AND_REPLACE_LIST,
+			wantFilters: []string{"my.custom.filter"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			in := buildListener("istio.metadata_exchange", "envoy.filters.http.router")
+			got := applyGatewayListenerPatches(t, httpFiltersPatch(tt.operation), in)
+			if diff := cmp.Diff([]*listener.Listener{buildListener(tt.wantFilters...)}, got, protocmp.Transform()); diff != "" {
+				t.Errorf("%s mismatch (-want +got):\n%s", tt.name, diff)
+			}
+		})
+	}
+}
+
+func TestMergeAndReplaceListHTTPFilter(t *testing.T) {
+	faultPatch := func(op networking.EnvoyFilter_Patch_Operation) []*networking.EnvoyFilter_EnvoyConfigObjectPatch {
+		return []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+			{
+				ApplyTo: networking.EnvoyFilter_HTTP_FILTER,
+				Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+					Context: networking.EnvoyFilter_GATEWAY,
+					ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+						Listener: &networking.EnvoyFilter_ListenerMatch{
+							PortNumber: 80,
+							FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{
+								Filter: &networking.EnvoyFilter_ListenerMatch_FilterMatch{
+									Name: wellknown.HTTPConnectionManager,
+									SubFilter: &networking.EnvoyFilter_ListenerMatch_SubFilterMatch{
+										Name: "envoy.filters.http.fault",
+									},
+								},
+							},
+						},
+					},
+				},
+				Patch: &networking.EnvoyFilter_Patch{
+					Operation: op,
+					Value: buildPatchStruct(`
+						{"name":"envoy.filters.http.fault",
+						 "typed_config":{
+							"@type":"type.googleapis.com/envoy.extensions.filters.http.fault.v3.HTTPFault",
+							"downstream_nodes":["node-b"]}}`),
+				},
+			},
+		}
+	}
+
+	buildListener := func(downstreamNodes ...string) *listener.Listener {
+		return buildHTTPListener(&hcm.HttpConnectionManager{
+			StatPrefix: "http",
+			HttpFilters: []*hcm.HttpFilter{
+				{
+					Name: "envoy.filters.http.fault",
+					ConfigType: &hcm.HttpFilter_TypedConfig{
+						TypedConfig: protoconv.MessageToAny(&fault.HTTPFault{DownstreamNodes: downstreamNodes}),
+					},
+				},
+			},
+		})
+	}
+
+	tests := []struct {
+		name      string
+		operation networking.EnvoyFilter_Patch_Operation
+		wantNodes []string
+	}{
+		{
+			name:      "MERGE appends to downstream_nodes",
+			operation: networking.EnvoyFilter_Patch_MERGE,
+			wantNodes: []string{"node-a", "node-b"},
+		},
+		{
+			name:      "MERGE_AND_REPLACE_LIST replaces downstream_nodes",
+			operation: networking.EnvoyFilter_Patch_MERGE_AND_REPLACE_LIST,
+			wantNodes: []string{"node-b"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := applyGatewayListenerPatches(t, faultPatch(tt.operation), buildListener("node-a"))
+			if diff := cmp.Diff([]*listener.Listener{buildListener(tt.wantNodes...)}, got, protocmp.Transform()); diff != "" {
+				t.Errorf("%s mismatch (-want +got):\n%s", tt.name, diff)
+			}
+		})
+	}
+}
+
+func TestMergeAndReplaceListListenerFilter(t *testing.T) {
+	proxyProtocolPatch := func(op networking.EnvoyFilter_Patch_Operation) []*networking.EnvoyFilter_EnvoyConfigObjectPatch {
+		return []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+			{
+				ApplyTo: networking.EnvoyFilter_LISTENER_FILTER,
+				Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+					Context: networking.EnvoyFilter_GATEWAY,
+					ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+						Listener: &networking.EnvoyFilter_ListenerMatch{
+							PortNumber:     80,
+							ListenerFilter: "envoy.filters.listener.proxy_protocol",
+						},
+					},
+				},
+				Patch: &networking.EnvoyFilter_Patch{
+					Operation: op,
+					Value: buildPatchStruct(`
+						{"name":"envoy.filters.listener.proxy_protocol",
+						 "typed_config":{
+							"@type":"type.googleapis.com/envoy.extensions.filters.listener.proxy_protocol.v3.ProxyProtocol",
+							"disallowed_versions":["V2"]}}`),
+				},
+			},
+		}
+	}
+
+	buildListener := func(disallowedVersions ...core.ProxyProtocolConfig_Version) *listener.Listener {
+		lis := buildHTTPListener(&hcm.HttpConnectionManager{StatPrefix: "http"})
+		lis.ListenerFilters = []*listener.ListenerFilter{
+			{
+				Name: "envoy.filters.listener.proxy_protocol",
+				ConfigType: &listener.ListenerFilter_TypedConfig{
+					TypedConfig: protoconv.MessageToAny(&proxyprotocol.ProxyProtocol{
+						DisallowedVersions: disallowedVersions,
+					}),
+				},
+			},
+		}
+		return lis
+	}
+
+	tests := []struct {
+		name         string
+		operation    networking.EnvoyFilter_Patch_Operation
+		wantVersions []core.ProxyProtocolConfig_Version
+	}{
+		{
+			name:         "MERGE appends to disallowed_versions",
+			operation:    networking.EnvoyFilter_Patch_MERGE,
+			wantVersions: []core.ProxyProtocolConfig_Version{core.ProxyProtocolConfig_V1, core.ProxyProtocolConfig_V2},
+		},
+		{
+			name:         "MERGE_AND_REPLACE_LIST replaces disallowed_versions",
+			operation:    networking.EnvoyFilter_Patch_MERGE_AND_REPLACE_LIST,
+			wantVersions: []core.ProxyProtocolConfig_Version{core.ProxyProtocolConfig_V2},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := applyGatewayListenerPatches(t, proxyProtocolPatch(tt.operation), buildListener(core.ProxyProtocolConfig_V1))
+			if diff := cmp.Diff([]*listener.Listener{buildListener(tt.wantVersions...)}, got, protocmp.Transform()); diff != "" {
+				t.Errorf("%s mismatch (-want +got):\n%s", tt.name, diff)
+			}
+		})
+	}
+}
+
+// buildHTTPListener returns a gateway listener on port 80 with a single filter chain holding
+// the given HTTP connection manager.
+func buildHTTPListener(httpConn *hcm.HttpConnectionManager) *listener.Listener {
+	return &listener.Listener{
+		Name: "80",
+		Address: &core.Address{Address: &core.Address_SocketAddress{
+			SocketAddress: &core.SocketAddress{PortSpecifier: &core.SocketAddress_PortValue{PortValue: 80}},
+		}},
+		FilterChains: []*listener.FilterChain{
+			{
+				Filters: []*listener.Filter{
+					{
+						Name: wellknown.HTTPConnectionManager,
+						ConfigType: &listener.Filter_TypedConfig{
+							TypedConfig: protoconv.MessageToAny(httpConn),
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+// applyGatewayListenerPatches applies the given patches to the given listeners in the gateway
+// patch context.
+func applyGatewayListenerPatches(t *testing.T, patches []*networking.EnvoyFilter_EnvoyConfigObjectPatch,
+	listeners ...*listener.Listener,
+) []*listener.Listener {
+	t.Helper()
+	serviceDiscovery := memregistry.NewServiceDiscovery()
+	env := newTestEnvironment(t, serviceDiscovery, testMesh, buildEnvoyFilterConfigStore(patches))
+	push := model.NewPushContext()
+	push.InitContext(env, nil, nil)
+
+	gatewayNode := &model.Proxy{Type: model.Router, ConfigNamespace: "not-default"}
+	return ApplyListenerPatches(networking.EnvoyFilter_GATEWAY, push.EnvoyFilters(gatewayNode), listeners, false)
 }
