@@ -599,6 +599,12 @@ type IstioEndpoint struct {
 
 	// If in k8s, the node where the pod resides
 	NodeName string
+
+	// If the workload has Istio sidecar injected
+	HasSidecar bool
+
+	// If the workload supports HBONE connections
+	SupportsHBONE bool
 }
 
 func (ep *IstioEndpoint) SupportsTunnel(tunnelType string) bool {
