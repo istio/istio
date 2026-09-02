@@ -1138,6 +1138,8 @@ var _ AmbientIndexes = NoopAmbientIndexes{}
 type AddressInfo struct {
 	*workloadapi.Address
 	Marshaled *anypb.Any
+	// MarshaledWorkload contains the pre-marshaled inner Workload, when present.
+	MarshaledWorkload *anypb.Any
 	// Version is a content-based hash of Marshaled, sent as the resource version over WDS.
 	// Clients echo it back in InitialResourceVersions on reconnect, letting the server skip
 	// resources the client already has; hashing the content keeps versions consistent across
@@ -1150,10 +1152,15 @@ type AddressInfo struct {
 // content-based Version.
 func NewAddressInfo(addr *workloadapi.Address) AddressInfo {
 	marshaled := protoconv.MessageToAny(addr)
+	var marshaledWorkload *anypb.Any
+	if workload := addr.GetWorkload(); workload != nil {
+		marshaledWorkload = protoconv.MessageToAny(workload)
+	}
 	return AddressInfo{
-		Address:   addr,
-		Marshaled: marshaled,
-		Version:   strconv.FormatUint(xxhash.Sum64(marshaled.Value), 16),
+		Address:           addr,
+		Marshaled:         marshaled,
+		MarshaledWorkload: marshaledWorkload,
+		Version:           strconv.FormatUint(xxhash.Sum64(marshaled.Value), 16),
 	}
 }
 
