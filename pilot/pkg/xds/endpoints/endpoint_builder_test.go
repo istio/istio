@@ -869,3 +869,50 @@ func TestBuildClusterLoadAssignment_InferenceServicePortFiltering(t *testing.T) 
 		})
 	}
 }
+
+func TestWaypointRoutingEnabled(t *testing.T) {
+	tests := []struct {
+		name           string
+		nodeType       model.NodeType
+		ingressEnabled bool
+		sidecarEnabled bool
+		want           bool
+	}{
+		{
+			name:           "sidecar flag enables sidecar routing",
+			nodeType:       model.SidecarProxy,
+			sidecarEnabled: true,
+			want:           true,
+		},
+		{
+			name:           "ingress flag does not enable sidecar routing",
+			nodeType:       model.SidecarProxy,
+			ingressEnabled: true,
+		},
+		{
+			name:           "ingress flag enables router routing",
+			nodeType:       model.Router,
+			ingressEnabled: true,
+			want:           true,
+		},
+		{
+			name:           "sidecar flag does not enable router routing",
+			nodeType:       model.Router,
+			sidecarEnabled: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			test.SetForTest(t, &features.EnableIngressWaypointRouting, tt.ingressEnabled)
+			test.SetForTest(t, &features.EnableSidecarWaypointRouting, tt.sidecarEnabled)
+			b := &EndpointBuilder{
+				nodeType: tt.nodeType,
+				proxy:    &model.Proxy{Type: tt.nodeType, Metadata: &model.NodeMetadata{}},
+			}
+
+			if got := b.waypointRoutingEnabled(); got != tt.want {
+				t.Fatalf("waypointRoutingEnabled() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
