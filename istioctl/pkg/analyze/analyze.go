@@ -552,17 +552,15 @@ func getClients(ctx cli.Context) ([]*Client, error) {
 	for _, s := range secrets.Items {
 		for _, cfg := range s.Data {
 			// Secrets in this namespace are untrusted input from the perspective of this
-			// process, exactly as istiod treats them in DefaultBuildClientsFromConfig. Reject
-			// kubeconfigs using exec, file-based, or other unsafe auth before building any
-			// client from them.
-			if _, err := kube.NewUntrustedRestConfig(cfg); err != nil {
+			// process, exactly as istiod treats them in DefaultBuildClientsFromConfig. Sanitize
+			// the kubeconfig - rejecting exec, file-based, or other unsafe auth - and build the
+			// client from the sanitized rest.Config itself, not from the original bytes, so a
+			// gap between what's validated and what's used can't reopen this.
+			restConfig, err := kube.NewUntrustedRestConfig(cfg)
+			if err != nil {
 				return nil, fmt.Errorf("kubeconfig in secret %s/%s is not allowed: %v", s.Namespace, s.Name, err)
 			}
-			clientConfig, err := clientcmd.NewClientConfigFromBytes(cfg)
-			if err != nil {
-				return nil, err
-			}
-			rawConfig, err := clientConfig.RawConfig()
+			rawConfig, err := clientcmd.Load(cfg)
 			if err != nil {
 				return nil, err
 			}
@@ -570,7 +568,7 @@ func getClients(ctx cli.Context) ([]*Client, error) {
 			if curContext == nil {
 				continue
 			}
-			client, err := kube.NewCLIClient(clientConfig,
+			client, err := kube.NewCLIClient(kube.NewClientConfigForRestConfig(restConfig),
 				kube.WithRevision(revisionSpecified),
 				kube.WithCluster(cluster.ID(curContext.Cluster)))
 			if err != nil {
