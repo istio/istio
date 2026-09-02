@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: security-fix
+area: extensibility
+issue: []
+releaseNotes:
+  - |
+    **Fixed** the Wasm OCI image fetcher deciding to retry a failed HTTPS fetch over
+    plaintext HTTP based on the error returned by the registry. Since the registry is
+    untrusted input, a MITM or malicious registry could trigger this fallback on demand
+    to force plaintext transport and, without an optional module digest pinned, serve an
+    arbitrary Wasm binary. The plaintext retry is now only attempted for registries the
+    operator has explicitly allowlisted via `WASM_INSECURE_REGISTRIES`.
