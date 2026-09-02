@@ -269,8 +269,6 @@ func TestImageFetcher_Fetch(t *testing.T) {
 	})
 }
 
-// TestShouldRetryPlaintext guards against pswg#24: a registry response must never be
-// sufficient on its own to authorize retrying over plaintext HTTP.
 func TestShouldRetryPlaintext(t *testing.T) {
 	downgradeErr := errors.New("http: server gave HTTP response to HTTPS client")
 	otherErr := errors.New("dial tcp: connection refused")
@@ -308,10 +306,6 @@ func (schemeAwareErrorTransport) RoundTrip(req *http.Request) (*http.Response, e
 	return nil, errors.New("plaintext attempt reached the wire")
 }
 
-// TestImageFetcher_PrepareFetch_HTTPSDowngrade guards against pswg#24 end-to-end through
-// the real PrepareFetch: an HTTPS failure that looks exactly like the registry
-// TLS-downgrade signal must only trigger a plaintext retry when the operator has already,
-// out of band, allowlisted this registry as insecure - never based on the response alone.
 func TestImageFetcher_PrepareFetch_HTTPSDowngrade(t *testing.T) {
 	cases := []struct {
 		name          string
