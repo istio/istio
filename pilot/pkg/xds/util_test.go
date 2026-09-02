@@ -21,12 +21,38 @@ import (
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/genproto/googleapis/rpc/status"
+	"google.golang.org/protobuf/types/known/anypb"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/workloadapi"
 )
+
+func TestAppendAddressWorkloadMarshal(t *testing.T) {
+	workload := &workloadapi.Workload{Uid: "workload"}
+	marshaled := protoconv.MessageToAny(workload)
+	for name, cached := range map[string]*anypb.Any{
+		"cached":   marshaled,
+		"fallback": nil,
+	} {
+		t.Run(name, func(t *testing.T) {
+			resources := appendAddress(model.AddressInfo{
+				Address: &workloadapi.Address{
+					Type: &workloadapi.Address_Workload{Workload: workload},
+				},
+				MarshaledWorkload: cached,
+			}, v3.WorkloadType, nil, sets.New[string](), nil, nil)
+			assert.Equal(t, len(resources), 1)
+			assert.Equal(t, resources[0].Resource, marshaled)
+			if cached != nil && resources[0].Resource != cached {
+				t.Fatal("appendAddress did not reuse the pre-marshaled workload")
+			}
+		})
+	}
+}
 
 func TestAtMostNJoin(t *testing.T) {
 	tests := []struct {

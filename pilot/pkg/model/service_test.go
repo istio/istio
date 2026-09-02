@@ -15,12 +15,15 @@
 package model
 
 import (
+	"strconv"
 	"testing"
 
+	"github.com/cespare/xxhash/v2"
 	"github.com/google/go-cmp/cmp"
 	fuzz "github.com/google/gofuzz"
 
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -29,7 +32,39 @@ import (
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/workloadapi"
 )
+
+func TestNewAddressInfo(t *testing.T) {
+	workload := &workloadapi.Workload{Uid: "workload"}
+	workloadAddress := &workloadapi.Address{
+		Type: &workloadapi.Address_Workload{Workload: workload},
+	}
+	serviceAddress := &workloadapi.Address{
+		Type: &workloadapi.Address_Service{Service: &workloadapi.Service{Name: "service"}},
+	}
+
+	for name, tt := range map[string]struct {
+		address               *workloadapi.Address
+		wantMarshaledWorkload *workloadapi.Workload
+	}{
+		"workload": {address: workloadAddress, wantMarshaledWorkload: workload},
+		"service":  {address: serviceAddress},
+	} {
+		t.Run(name, func(t *testing.T) {
+			got := NewAddressInfo(tt.address)
+			wantAddress := protoconv.MessageToAny(tt.address)
+			assert.Equal(t, got.Marshaled, wantAddress)
+			assert.Equal(t, got.Version, strconv.FormatUint(xxhash.Sum64(wantAddress.Value), 16))
+
+			if tt.wantMarshaledWorkload == nil {
+				assert.Equal(t, got.MarshaledWorkload, nil)
+				return
+			}
+			assert.Equal(t, got.MarshaledWorkload, protoconv.MessageToAny(tt.wantMarshaledWorkload))
+		})
+	}
+}
 
 func TestGetByPort(t *testing.T) {
 	ports := PortList{{
