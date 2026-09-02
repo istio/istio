@@ -2719,6 +2719,9 @@ func (s *ambientTestServer) assertAddresses(t *testing.T, lookup string, names .
 		for _, address := range addresses {
 			// Validate we pre-marshal everything
 			assert.Equal(t, address.Marshaled != nil, true)
+			if address.GetWorkload() != nil {
+				assert.Equal(t, address.MarshaledWorkload != nil, true)
+			}
 			switch addr := address.Address.Type.(type) {
 			case *workloadapi.Address_Workload:
 				have.Insert(addr.Workload.Name)
