@@ -754,6 +754,21 @@ func TestTelemetryFilters(t *testing.T) {
 			},
 		},
 	}
+	// A Telemetry in the waypoint's own namespace targeting the waypoint Gateway.
+	// It must apply to every service the waypoint serves, including services in
+	// other namespaces.
+	targetRefsWaypointGateway := &tpb.Telemetry{
+		TargetRefs: []*v1beta1.PolicyTargetReference{{
+			Group: gvk.KubernetesGateway.Group,
+			Kind:  gvk.KubernetesGateway.Kind,
+			Name:  "waypoint",
+		}},
+		Metrics: []*tpb.Metrics{
+			{
+				Overrides: overrides,
+			},
+		},
+	}
 	emptyWaypointMetrics := `{"disable_host_header_fallback":true,"reporter":"SERVER_GATEWAY"}`
 	cfg := `{"metrics":[{"dimensions":{"add":"bar"},"name":"requests_total","tags_to_remove":["remove"]}]}`
 
@@ -1156,6 +1171,27 @@ func TestTelemetryFilters(t *testing.T) {
 			want: map[string]string{
 				"istio.stats": `{"disable_host_header_fallback":true,"metrics":[{"dimensions":{"add":"otherBar"}` +
 					`,"name":"request_duration_milliseconds","tags_to_remove":["removeOther"]}],"reporter":"SERVER_GATEWAY"}`,
+			},
+		},
+		{
+			name: "waypoint gateway targetRef applies to cross namespace service",
+			cfgs: []config.Config{
+				newTelemetry("default", targetRefsWaypointGateway),
+			},
+			service: &Service{
+				Attributes: ServiceAttributes{
+					Name:            "sample-svc",
+					Namespace:       "other",
+					ServiceRegistry: provider.Kubernetes,
+				},
+			},
+			proxy:            waypoint,
+			class:            networking.ListenerClassSidecarInbound,
+			protocol:         networking.ListenerProtocolHTTP,
+			defaultProviders: &meshconfig.MeshConfig_DefaultProviders{Metrics: []string{"prometheus"}},
+			want: map[string]string{
+				"istio.stats": `{"disable_host_header_fallback":true,"metrics":[{"dimensions":{"add":"bar"},"name":"requests_total"` +
+					`,"tags_to_remove":["remove"]}],"reporter":"SERVER_GATEWAY"}`,
 			},
 		},
 		{
