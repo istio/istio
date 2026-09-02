@@ -84,9 +84,6 @@ func TestSkipPodsInFiles(t *testing.T) {
 	testutil.VerifyOutput(t, analyze, c)
 }
 
-// TestGetClientsRejectsUnsafeMultiClusterSecret guards against pswg#23: a multicluster
-// secret in istio-system is untrusted input, and a kubeconfig exec plugin in it must never
-// reach client construction, since client-go would run it as a local process.
 func TestGetClientsRejectsUnsafeMultiClusterSecret(t *testing.T) {
 	g := NewWithT(t)
 
@@ -137,8 +134,6 @@ users:
 	g.Expect(err.Error()).To(ContainSubstring("exec is not allowed"))
 }
 
-// TestGetClientsAllowsLegitimateTokenSecret makes sure the sanitization added for pswg#23
-// doesn't reject the kind of secret istioctl create-remote-secret actually produces.
 func TestGetClientsAllowsLegitimateTokenSecret(t *testing.T) {
 	g := NewWithT(t)
 
@@ -189,9 +184,6 @@ users:
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(clients).To(HaveLen(2)) // local fake client + the sanitized remote one
 
-	// The client must be built from the sanitized rest.Config itself (not just validated and
-	// then discarded), while still carrying the cluster ID and revision the original code path
-	// set from the raw kubeconfig - this is what pswg#23's review comment asked to confirm.
 	remote := clients[1]
 	g.Expect(remote.remote).To(BeTrue())
 	g.Expect(remote.client.ClusterID()).To(Equal(cluster.ID("remote")))
