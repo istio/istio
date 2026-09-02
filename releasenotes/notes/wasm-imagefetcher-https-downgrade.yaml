@@ -10,3 +10,5 @@ releaseNotes:
     to force plaintext transport and, without an optional module digest pinned, serve an
     arbitrary Wasm binary. The plaintext retry is now only attempted for registries the
     operator has explicitly allowlisted via `WASM_INSECURE_REGISTRIES`.
+
+    **Credit**: This vulnerability was discovered and reported by Adam Korczynski.
