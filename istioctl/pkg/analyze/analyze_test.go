@@ -25,7 +25,9 @@ import (
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/util/testutil"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/analysis/diag"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/multicluster"
 )
 
@@ -140,6 +142,10 @@ users:
 func TestGetClientsAllowsLegitimateTokenSecret(t *testing.T) {
 	g := NewWithT(t)
 
+	oldRevision := revisionSpecified
+	revisionSpecified = "canary"
+	t.Cleanup(func() { revisionSpecified = oldRevision })
+
 	legitKubeconfig := []byte(`
 apiVersion: v1
 kind: Config
@@ -182,6 +188,17 @@ users:
 
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(clients).To(HaveLen(2)) // local fake client + the sanitized remote one
+
+	// The client must be built from the sanitized rest.Config itself (not just validated and
+	// then discarded), while still carrying the cluster ID and revision the original code path
+	// set from the raw kubeconfig - this is what pswg#23's review comment asked to confirm.
+	remote := clients[1]
+	g.Expect(remote.remote).To(BeTrue())
+	g.Expect(remote.client.ClusterID()).To(Equal(cluster.ID("remote")))
+
+	cliClient, ok := remote.client.(kube.CLIClient)
+	g.Expect(ok).To(BeTrue())
+	g.Expect(cliClient.Revision()).To(Equal("canary"))
 }
 
 func TestRunSpecificAnalyzer(t *testing.T) {
