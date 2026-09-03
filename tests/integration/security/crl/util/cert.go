@@ -272,6 +272,14 @@ func (rb *RootBundle) ResetCRL(t framework.TestContext, c cluster.Cluster) {
 	}, retry.Timeout(waitTimeout))
 }
 
+func (rb *RootBundle) RemoveCRL(t framework.TestContext, c cluster.Cluster) {
+	t.Helper()
+	b := rb.bundles[c.Name()]
+	t.Logf("removing CRLs on %s", c.Name())
+	b.crlPEM = []byte{}
+	rb.updateCRLInSecret(t, b)
+}
+
 func (rb *RootBundle) newBundle(c cluster.Cluster, iaSerial *big.Int) (*IABundle, error) {
 	iaCert, iaKey, iaCertPEM, iaKeyPEM, err := generateIntermediateCA(
 		rb.rootCert, rb.rootKey, "Intermediate CA "+c.Name(), iaSerial,

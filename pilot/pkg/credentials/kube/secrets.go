@@ -202,6 +202,12 @@ func (s *CredentialsController) Authorize(serviceAccount, namespace string) erro
 					Resource:  "secrets",
 				},
 				User: user,
+				// Groups must be sent alongside the user, otherwise RoleBindings and
+				// ClusterRoleBindings that grant access to a group are not evaluated and the
+				// review comes back denied. These are the groups the Kubernetes API server
+				// assigns to every service account. system:authenticated is intentionally
+				// excluded: it covers every authenticated identity, not just service accounts.
+				Groups: sa.MakeGroupNames(namespace),
 			},
 		}, metav1.CreateOptions{})
 		if err != nil {

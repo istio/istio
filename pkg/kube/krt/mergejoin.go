@@ -177,10 +177,6 @@ func (j *mergejoin[T]) GetKey(k string) *T {
 	return nil
 }
 
-func (j *mergejoin[T]) Register(f func(e Event[T])) HandlerRegistration {
-	return registerHandlerAsBatched(j, f)
-}
-
 func (j *mergejoin[T]) RegisterBatch(f func(e []Event[T]), runExistingState bool) HandlerRegistration {
 	j.mu.Lock()
 	defer j.mu.Unlock()
@@ -442,5 +438,5 @@ func JoinWithMergeCollection[T any](cs []Collection[T], merge func(ts []T) *T, o
 	// The queue will process the initial state and mark ourselves as synced (from the NewWithSync callback)
 	go j.runQueue()
 
-	return j
+	return newCollection[T](j)
 }

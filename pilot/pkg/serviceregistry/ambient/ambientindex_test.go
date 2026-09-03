@@ -1789,7 +1789,7 @@ func TestRBACConvert(t *testing.T) {
 								Name:      pol[0].Name,
 								Namespace: pol[0].Namespace,
 							},
-							Spec: *((pol[0].Spec).(*auth.AuthorizationPolicy)), //nolint: govet
+							Spec: *pol[0].Spec.(*auth.AuthorizationPolicy), //nolint: govet
 						})
 					case gvk.PeerAuthentication: // we assume all crds in the same file are of the same type
 						var rootCfg, nsCfg, workloadCfg *config.Config
@@ -1828,7 +1828,7 @@ func TestRBACConvert(t *testing.T) {
 									Name:      pol[0].Name,
 									Namespace: pol[0].Namespace,
 								},
-								Spec: *((pol[0].Spec).(*auth.PeerAuthentication)), //nolint: govet
+								Spec: *pol[0].Spec.(*auth.PeerAuthentication), //nolint: govet
 							}, nil, nil)
 						} else {
 							var workloadPA, nsPA, rootPA *clientsecurityv1beta1.PeerAuthentication
@@ -1839,7 +1839,7 @@ func TestRBACConvert(t *testing.T) {
 										Name:      workloadCfg.Name,
 										Namespace: workloadCfg.Namespace,
 									},
-									Spec: *((workloadCfg.Spec).(*auth.PeerAuthentication)), //nolint: govet
+									Spec: *workloadCfg.Spec.(*auth.PeerAuthentication), //nolint: govet
 								}
 							}
 							if nsCfg != nil {
@@ -1849,7 +1849,7 @@ func TestRBACConvert(t *testing.T) {
 										Name:      nsCfg.Name,
 										Namespace: nsCfg.Namespace,
 									},
-									Spec: *((nsCfg.Spec).(*auth.PeerAuthentication)), //nolint: govet
+									Spec: *nsCfg.Spec.(*auth.PeerAuthentication), //nolint: govet
 								}
 							}
 
@@ -1860,7 +1860,7 @@ func TestRBACConvert(t *testing.T) {
 										Name:      rootCfg.Name,
 										Namespace: rootCfg.Namespace,
 									},
-									Spec: *((rootCfg.Spec).(*auth.PeerAuthentication)), //nolint: govet
+									Spec: *rootCfg.Spec.(*auth.PeerAuthentication), //nolint: govet
 								}
 							}
 
@@ -2968,6 +2968,9 @@ func (s *ambientTestServer) assertAddresses(t *testing.T, lookup string, names .
 		for _, address := range addresses {
 			// Validate we pre-marshal everything
 			assert.Equal(t, address.Marshaled != nil, true)
+			if address.GetWorkload() != nil {
+				assert.Equal(t, address.MarshaledWorkload != nil, true)
+			}
 			switch addr := address.Address.Type.(type) {
 			case *workloadapi.Address_Workload:
 				have.Insert(addr.Workload.Name)

@@ -1,6 +1,6 @@
 module istio.io/istio
 
-go 1.26.0
+go 1.27.0
 
 require (
 	cloud.google.com/go/compute/metadata v0.9.0
@@ -96,8 +96,8 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 	helm.sh/helm/v4 v4.2.0
-	istio.io/api v1.31.0-alpha.1.0.20260819121012-5803fb6accf7
-	istio.io/client-go v1.31.0-alpha.0.0.20260807010324-676a810f2c1f
+	istio.io/api v1.31.0-alpha.1.0.20260827143759-ff3bec58c3ca
+	istio.io/client-go v1.31.0-alpha.1.0.20260827144400-25b5d989d542
 	k8s.io/api v0.36.1
 	k8s.io/apiextensions-apiserver v0.36.1
 	k8s.io/apimachinery v0.36.1
@@ -110,9 +110,9 @@ require (
 	k8s.io/streaming v0.36.1
 	k8s.io/utils v0.0.0-20260319190234-28399d86e0b5
 	sigs.k8s.io/controller-runtime v0.24.1
-	sigs.k8s.io/gateway-api v1.6.0
+	sigs.k8s.io/gateway-api v1.6.1
 	sigs.k8s.io/gateway-api-inference-extension v1.5.0
-	sigs.k8s.io/gateway-api/conformance v1.6.0
+	sigs.k8s.io/gateway-api/conformance v1.6.1
 	sigs.k8s.io/knftables v0.0.21
 	sigs.k8s.io/mcs-api v0.4.1
 	sigs.k8s.io/yaml v1.6.0

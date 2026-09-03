@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 61348
+releaseNotes:
+  - |
+    **Fixed** ambient multi-cluster dropping configuration from a remote cluster while its per-cluster
+    collections were being swapped, for example when its credentials were rotated. The swap was seen as
+    the removal of one cluster and the addition of an unrelated one, so services, waypoints and workloads
+    from that cluster could briefly disappear from the config served to proxies, and events happening
+    during the swap could be missed entirely.

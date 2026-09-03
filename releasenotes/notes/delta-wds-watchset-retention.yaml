@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+releaseNotes:
+  - |
+    **Fixed** an issue where istiod permanently retained a copy of every workload resource name for each
+    envoy MDS (WDS, used for telemetry metadata lookups) connection that sent `initial_resource_versions`.

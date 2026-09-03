@@ -198,7 +198,7 @@ func TestNormalization(t *testing.T) {
 						{`/%c0%afadmin`, `/%c0%afadmin`},
 						{`/.../admin`, `/.../admin`},
 						{`/..../admin`, `/..../admin`},
-						{`/..;/admin`, `/..;/admin`},
+						{`/..;/admin`, `/admin`},
 						{`/;/admin`, `/;/admin`},
 						{`/admin;a=b`, `/admin;a=b`},
 						{`/admin;a=b/xyz`, `/admin;a=b/xyz`},

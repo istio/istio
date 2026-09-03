@@ -28,7 +28,6 @@ import (
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
-	kubectrl "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/log"
@@ -46,13 +45,11 @@ func (n NetworkGateway) ResourceName() string {
 }
 
 type NetworkCollections struct {
-	LocalSystemNamespace          krt.Singleton[ClusterNetwork]
-	RemoteSystemNamespaceNetworks krt.Collection[ClusterNetwork]
-	// SystemNamespaceNetworkByCluster is an index of cluster ID to the system namespace network
-	// for that cluster.
-	SystemNamespaceNetworkByCluster krt.Index[cluster.ID, ClusterNetwork]
-	NetworkGateways                 krt.Collection[NetworkGateway]
-	GatewaysByNetwork               krt.Index[network.ID, NetworkGateway]
+	LocalSystemNamespace krt.Singleton[ClusterNetwork]
+	NetworkGateways      krt.Collection[NetworkGateway]
+	GatewaysByNetwork    krt.Index[network.ID, NetworkGateway]
+	// systemNamespace is the namespace whose topology label names the network a cluster belongs to.
+	systemNamespace string
 }
 
 type ClusterNetwork struct {
@@ -67,6 +64,22 @@ func (c ClusterNetwork) ResourceName() string {
 // FetchLocalNetworkID fetches the local network ID from a ClusterNetwork singleton within a KRT handler context.
 func (c NetworkCollections) FetchLocalNetworkID(ctx krt.HandlerContext) network.ID {
 	return ptr.OrEmpty(krt.FetchOne(ctx, c.LocalSystemNamespace.AsCollection())).Network
+}
+
+// FetchRemoteSystemNamespaceNetwork returns the network a remote cluster belongs to, read from the topology
+// label on its system namespace. A cluster whose system namespace is absent, or carries no label, is
+// part of the default (empty) network.
+func (c NetworkCollections) FetchRemoteSystemNamespaceNetwork(ctx krt.HandlerContext, namespaces krt.Collection[*v1.Namespace]) network.ID {
+	nw := krt.PartialFetchComparable(ctx, namespaces, func(ns *v1.Namespace) string {
+		if ns == nil {
+			return ""
+		}
+		return ns.Labels[label.TopologyNetwork.Name]
+	}, krt.FilterKey(c.systemNamespace))
+	if len(nw) == 0 {
+		return ""
+	}
+	return network.ID(nw[0])
 }
 
 func (c NetworkCollections) HasSynced() bool {
@@ -97,34 +110,9 @@ func buildGlobalNetworkCollections(
 			Network:   network.ID(nw),
 		}
 	}, opts.WithName("LocalSystemNamespaceNetwork")...)
-	RemoteSystemNamespaceNetworks := krt.NewCollection(ctrl.Clusters(), func(ctx krt.HandlerContext, c *multicluster.Cluster) *ClusterNetwork {
-		if !kubectrl.WaitForCacheSync(fmt.Sprintf("remote cluster[%s] namespaces", c.ID), opts.Stop(), c.HasSynced) {
-			log.Errorf("Timed out waiting for cluster %s to sync namespaces", c.ID)
-			return nil
-		}
-		ns := ptr.Flatten(krt.FetchOne(ctx, c.Namespaces(), krt.FilterKey(options.SystemNamespace)))
-		if ns == nil {
-			// If the namespace for the remote cluster is not found, we default to the empty string
-			// to indicate that this cluster is a part of the default network
-			return &ClusterNetwork{
-				ClusterID: c.ID,
-				Network:   "",
-			}
-		}
-		nw, f := ns.Labels[label.TopologyNetwork.Name]
-		if !f {
-			nw = ""
-		}
-		return &ClusterNetwork{
-			ClusterID: c.ID,
-			Network:   network.ID(nw),
-		}
-	}, opts.WithName("RemoteSystemNamespaceNetworks")...)
-
-	RemoteSystemNamespaceNetworksByCluster := krt.NewIndex(RemoteSystemNamespaceNetworks, "cluster", func(o ClusterNetwork) []cluster.ID {
-		return []cluster.ID{o.ClusterID}
-	})
-
+	// N.B there is deliberately no aggregated collection of remote clusters' networks. A cluster's
+	// network is read straight from its own namespaces collection, by the per-cluster collections that
+	// need it, via FetchRemoteSystemNamespaceNetwork.
 	localNetworkGateways := krt.NewManyCollection(localGateways, func(ctx krt.HandlerContext, gw *gatewayv1.Gateway) []krt.ObjectWithCluster[NetworkGateway] {
 		return k8sGatewayToNetworkGatewaysWithCluster(options.ClusterID, gw, options.ClusterID)
 	}, opts.WithName("LocalNetworkGateways")...)
@@ -196,11 +184,10 @@ func buildGlobalNetworkCollections(
 	})
 
 	return NetworkCollections{
-		SystemNamespaceNetworkByCluster: RemoteSystemNamespaceNetworksByCluster,
-		NetworkGateways:                 MergedNetworkGateways,
-		GatewaysByNetwork:               GatewaysByNetwork,
-		LocalSystemNamespace:            LocalSystemNamespaceNetwork,
-		RemoteSystemNamespaceNetworks:   RemoteSystemNamespaceNetworks,
+		NetworkGateways:      MergedNetworkGateways,
+		GatewaysByNetwork:    GatewaysByNetwork,
+		LocalSystemNamespace: LocalSystemNamespaceNetwork,
+		systemNamespace:      options.SystemNamespace,
 	}
 }
 
@@ -237,6 +224,7 @@ func BuildNetworkCollections(
 		LocalSystemNamespace: SystemNamespaceNetwork,
 		NetworkGateways:      NetworkGateways,
 		GatewaysByNetwork:    GatewaysByNetwork,
+		systemNamespace:      options.SystemNamespace,
 	}
 }
 
