@@ -98,6 +98,7 @@ func uninstallLuaTrafficExtension(ctx framework.TestContext, filterName, path st
 func TestLuaTrafficExtension_HeaderInjection(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
+			skipIfGatewayAPIUnsupported(t)
 			testCases := []struct {
 				desc         string
 				name         string
@@ -150,6 +151,7 @@ func TestLuaTrafficExtension_HeaderInjection(t *testing.T) {
 func TestLuaTrafficExtension_ResponseModification(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
+			skipIfGatewayAPIUnsupported(t)
 			filterName := "lua-response-modifier"
 			targetType := "service"
 			targetName := GetTarget().Instances().ServiceName()
@@ -176,6 +178,7 @@ func TestLuaTrafficExtension_ResponseModification(t *testing.T) {
 func TestLuaTrafficExtension_MultipleFilters(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
+			skipIfGatewayAPIUnsupported(t)
 			targetType := "service"
 			targetName := GetTarget().Instances().ServiceName()
 
@@ -215,6 +218,7 @@ func TestLuaTrafficExtension_MultipleFilters(t *testing.T) {
 func TestLuaTrafficExtension_PhaseOrdering(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
+			skipIfGatewayAPIUnsupported(t)
 			targetType := "service"
 			targetName := GetTarget().Instances().ServiceName()
 

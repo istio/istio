@@ -672,6 +672,53 @@ func TestOutboundListenerConflictWithReservedListener(t *testing.T) {
 	}
 }
 
+// TestOutboundListenerCIDRServiceEntryReservedPort verifies that a ServiceEntry whose
+// address is a CIDR (so the outbound listener falls back to the 0.0.0.0 wildcard) does
+// not generate a listener on a reserved proxy port. Such a listener binds to
+// 0.0.0.0:15001 and collides with the virtualOutbound listener, which rejects the whole
+// LDS update and breaks the sidecar. A service on a non-reserved port must still get its
+// wildcard listener.
+func TestOutboundListenerCIDRServiceEntryReservedPort(t *testing.T) {
+	buildCIDRServiceEntry := func(hostname string, port int) *model.Service {
+		return &model.Service{
+			CreationTime:   tnow,
+			Hostname:       host.Name(hostname),
+			DefaultAddress: "10.80.68.0/29",
+			Ports: model.PortList{
+				&model.Port{Name: "tls", Port: port, Protocol: protocol.TLS},
+			},
+			Resolution: model.Passthrough,
+			Attributes: model.ServiceAttributes{
+				Namespace:       "default",
+				ServiceRegistry: provider.External,
+			},
+		}
+	}
+
+	cases := []struct {
+		name         string
+		port         int
+		expectListen bool
+	}{
+		{"cidr service on reserved outbound port is skipped", 15001, false},
+		{"cidr service on reserved inbound port is skipped", 15006, false},
+		{"cidr service on a normal port still listens", 15010, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			svc := buildCIDRServiceEntry("redis.example.com", tc.port)
+			listeners := buildOutboundListeners(t, getProxy(), nil, nil, svc)
+			l := findListenerByPort(listeners, uint32(tc.port))
+			if tc.expectListen && l == nil {
+				t.Fatalf("expected a listener on port %d, found none", tc.port)
+			}
+			if !tc.expectListen && l != nil {
+				t.Fatalf("expected no listener on reserved port %d, but found %s", tc.port, l.Name)
+			}
+		})
+	}
+}
+
 func TestOutboundListenerDualStackWildcard(t *testing.T) {
 	test.SetForTest(t, &features.EnableDualStack, true)
 	service := buildService("test1.com", "0.0.0.0", protocol.TCP, tnow.Add(1*time.Second))
@@ -1017,6 +1064,7 @@ func TestOutboundListenerTLSWithVSEmptyRoute(t *testing.T) {
 }
 
 func TestOutboundListenerForHeadlessServices(t *testing.T) {
+	test.SetForTest(t, &features.EnableHeadlessFilterChainListener, true)
 	svc := buildServiceWithPort("test.com", 9999, protocol.TCP, tnow)
 	svc.Resolution = model.Passthrough
 	svc.Attributes.ServiceRegistry = provider.Kubernetes
@@ -1040,18 +1088,23 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 		instances                 []*model.ServiceInstance
 		services                  []*model.Service
 		numListenersOnServicePort int
+		// numFilterChainsOnListener is the expected number of non-default filter chains on the
+		// single wildcard listener that now replaces per-pod listeners. Only checked when > 0.
+		numFilterChainsOnListener int
 	}{
 		{
 			name: "gen a listener per IP instance",
 			instances: []*model.ServiceInstance{
-				// This instance is the proxy itself, will not gen a outbound listener for it.
+				// This instance is the proxy itself, will not gen an outbound listener for it.
 				buildServiceInstance(services[0], "1.1.1.1"),
 				buildServiceInstance(services[0], "10.10.10.10"),
 				buildServiceInstance(services[0], "11.11.11.11"),
 				buildServiceInstance(services[0], "12.11.11.11"),
 			},
-			services:                  []*model.Service{svc},
-			numListenersOnServicePort: 3,
+			services: []*model.Service{svc},
+			// 3 non-self pods → 1 wildcard listener with 3 per-pod CIDR filter chains
+			numListenersOnServicePort: 1,
+			numFilterChainsOnListener: 3,
 		},
 		{
 			name:                      "no listeners for empty services",
@@ -1085,8 +1138,10 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 				buildServiceInstance(extSvcSelector, "10.10.10.10"),
 				buildServiceInstance(extSvcSelector, "11.11.11.11"),
 			},
-			services:                  []*model.Service{extSvcSelector},
-			numListenersOnServicePort: 2,
+			services: []*model.Service{extSvcSelector},
+			// 2 pods → 1 wildcard listener with 2 per-pod CIDR filter chains
+			numListenersOnServicePort: 1,
+			numFilterChainsOnListener: 2,
 		},
 		{
 			name:                      "no listeners for empty Kubernetes auto protocol",
@@ -1100,7 +1155,10 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 				buildServiceInstance(autoSvc, "10.10.10.10"),
 				buildServiceInstance(autoSvc, "11.11.11.11"),
 			},
-			services:                  []*model.Service{autoSvc},
+			services: []*model.Service{autoSvc},
+			// auto-detect (Unsupported) protocol: CIDR optimization is not applied because
+			// Envoy's destination-IP priority beats ALPN, which would route HTTP to TCP proxy.
+			// Falls back to per-pod-IP listeners (2 pods → 2 listeners).
 			numListenersOnServicePort: 2,
 		},
 	}
@@ -1116,10 +1174,12 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 			proxy.Metadata.OutboundListenerExactBalance = true
 
 			listeners := NewListenerBuilder(proxy, cg.env.PushContext()).buildSidecarOutboundListeners(proxy, cg.env.PushContext())
-			listenersToCheck := make([]string, 0)
+			var listenersToCheck []string
+			var filterChainCount int
 			for _, l := range listeners {
 				if l.Address.GetSocketAddress().GetPortValue() == 9999 {
 					listenersToCheck = append(listenersToCheck, l.Name)
+					filterChainCount = len(l.FilterChains)
 				}
 
 				if l.ConnectionBalanceConfig == nil || l.ConnectionBalanceConfig.GetExactBalance() == nil {
@@ -1129,6 +1189,11 @@ func TestOutboundListenerForHeadlessServices(t *testing.T) {
 
 			if len(listenersToCheck) != tt.numListenersOnServicePort {
 				t.Errorf("Expected %d listeners on service port 9999, got %d (%v)", tt.numListenersOnServicePort, len(listenersToCheck), listenersToCheck)
+			}
+			if tt.numFilterChainsOnListener > 0 {
+				if filterChainCount != tt.numFilterChainsOnListener {
+					t.Errorf("Expected %d filter chains on listener, got %d", tt.numFilterChainsOnListener, filterChainCount)
+				}
 			}
 		})
 	}

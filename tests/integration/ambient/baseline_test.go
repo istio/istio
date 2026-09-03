@@ -53,6 +53,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
 	"istio.io/istio/pkg/test/framework/components/echo/config"
 	"istio.io/istio/pkg/test/framework/components/echo/config/param"
+	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/echo/util/traffic"
@@ -284,9 +285,9 @@ func TestPodIP(t *testing.T) {
 									t.Skip("not supported yet")
 								}
 
-								if t.Settings().AmbientMultiNetwork && srcWl.Cluster() != dstWl.Cluster() {
+								if t.Settings().AmbientMultiNetwork && srcWl.Cluster().NetworkName() != dstWl.Cluster().NetworkName() {
 									// TODO: Enable when we support multi-network workload addressing
-									t.Skip("not supported yet")
+									t.Skip("direct workload to workload communication is not supported in multi-network deployments")
 								}
 								for _, opt := range basicCalls {
 									opt := opt.DeepCopy()
@@ -393,6 +394,7 @@ func TestServerSideLB(t *testing.T) {
 
 func TestWaypointChanges(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
+		skipIfGatewayAPIUnsupported(t)
 		waypointName := "waypoint-service"
 		getGracePeriod := func(want int64) bool {
 			pods, err := kubetest.NewPodFetch(t.AllClusters()[0], apps.Namespace.Name(), label.IoK8sNetworkingGatewayGatewayName.Name+"="+waypointName)()
@@ -429,6 +431,7 @@ func TestWaypointChanges(t *testing.T) {
 
 func TestOtherRevisionIgnored(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
+		skipIfGatewayAPIUnsupported(t)
 		// This is a negative test, ensuring gateways with tags other
 		// than my tags do not get controlled by me.
 		nsConfig, err := namespace.New(t, namespace.Config{
@@ -469,6 +472,7 @@ func TestOtherRevisionIgnored(t *testing.T) {
 
 func TestRemoveAddWaypoint(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
+		skipIfGatewayAPIUnsupported(t)
 		for _, c := range t.Clusters() {
 			istioctl.NewOrFail(t, istioctl.Config{
 				Cluster: c,
@@ -544,6 +548,7 @@ func TestRemoveAddWaypoint(t *testing.T) {
 
 func TestBogusUseWaypoint(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
+		skipIfGatewayAPIUnsupported(t)
 		check := func(t framework.TestContext) {
 			dst := apps.Captured
 			for _, src := range apps.All {
@@ -578,6 +583,7 @@ func TestBogusUseWaypoint(t *testing.T) {
 
 func TestServerRouting(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
+		skipIfGatewayAPIUnsupported(t)
 		runTestToServiceWaypoint(t, func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions) {
 			// Need waypoint proxy and HTTP
 			if opt.Scheme != scheme.HTTP {
@@ -659,6 +665,7 @@ spec:
 
 func TestWaypointEnvoyFilter(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
+		skipIfGatewayAPIUnsupported(t)
 		runTestToServiceWaypoint(t, func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions) {
 			// Need at least one waypoint proxy and HTTP
 			if opt.Scheme != scheme.HTTP {
@@ -732,6 +739,7 @@ spec:
 
 func TestTrafficSplit(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
+		skipIfGatewayAPIUnsupported(t)
 		if t.Settings().AmbientMultiNetwork {
 			t.Skip("https://github.com/istio/istio/issues/58140")
 		}
@@ -1086,6 +1094,8 @@ spec:
 
 func TestAuthorizationServiceAttached(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
+		skipIfGatewayAPIUnsupported(t)
+		maybeSetupMultiCluster(t)
 		applyDrainingWorkaround(t)
 		src := apps.Captured
 		authzDst := apps.ServiceAddressedWaypoint
@@ -1332,6 +1342,7 @@ spec:
 
 func TestAuthorizationWaypointDefaultDeny(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
+		skipIfGatewayAPIUnsupported(t)
 		applyDrainingWorkaround(t)
 		runTestContextIndividual(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
 			if !dst.Config().HasAnyWaypointProxy() {
@@ -1736,6 +1747,9 @@ func TestL7JWT(t *testing.T) {
 
 func TestDestinationRule(t *testing.T) {
 	dst := apps.ServiceAddressedWaypoint
+	if len(dst) == 0 {
+		t.Skip("requires gateway API (k8s 1.31+)")
+	}
 	cases := []struct {
 		name   string
 		config string
@@ -1900,6 +1914,7 @@ spec:
 		},
 	}
 	framework.NewTest(t).Run(func(t framework.TestContext) {
+		maybeSetupMultiCluster(t)
 		for _, tt := range cases {
 			t.NewSubTest(tt.name).Run(func(t framework.TestContext) {
 				for _, src := range apps.All {
@@ -2690,6 +2705,153 @@ spec:
 		})
 }
 
+// TestServiceEntryVisibility exercises MeshConfig.serviceEntryVisibility end-to-end in ambient:
+// with a safe-by-default NAMESPACE default and a policy promoting se-visibility=public namespaces
+// to PUBLIC, a namespace-local ServiceEntry must be completely invisible to an out-of-namespace
+// client and must not shadow a PUBLIC ServiceEntry that shares its hostname -- even when the
+// namespace-local one is created first (older, so it would win canonical selection if istiod's
+// guard were missing). This single test covers visibility filtering, the canonical guard, and
+// non-shadowing at once.
+func TestServiceEntryVisibility(t *testing.T) {
+	framework.NewTest(t).Run(func(t framework.TestContext) {
+		// Safe-by-default posture: every ServiceEntry is namespace-local unless its namespace is
+		// explicitly labeled se-visibility=public.
+		i.PatchMeshConfigOrFail(t, `
+serviceEntryVisibility:
+  applyToSidecars: true
+  defaultVisibility: NAMESPACE
+  policies:
+  - visibility: PUBLIC
+    matchingRules:
+    - namespaceSelector:
+        matchLabels:
+          se-visibility: public`)
+
+		const (
+			shadowHost    = "visibility-shadow.internal"
+			localOnlyHost = "visibility-local-only.internal"
+			localBackend  = "shadowlocal"  // backs the namespace-local ServiceEntry
+			pubBackend    = "shadowpublic" // backs the public ServiceEntry
+			sidecarClient = "seclient"     // sidecar-injected client exercising applyToSidecars
+		)
+
+		// Two ambient namespaces, both discovered by istiod (they lack the test-exclude label the
+		// discoverySelectors in tests/integration/iop-ambient-test-defaults.yaml filter on -- note
+		// apps.ExternalNamespace carries that label and is deliberately NOT discovered, so a
+		// ServiceEntry there never reaches WDS). Only the public namespace is labeled
+		// se-visibility=public, so the policy promotes just its ServiceEntries to PUBLIC; the other
+		// stays namespace-local by the NAMESPACE default.
+		localNs := namespace.NewOrFail(t, namespace.Config{
+			Prefix: "vis-local",
+			Labels: map[string]string{"istio.io/dataplane-mode": "ambient"},
+		})
+		pubNs := namespace.NewOrFail(t, namespace.Config{
+			Prefix: "vis-public",
+			Labels: map[string]string{
+				"istio.io/dataplane-mode": "ambient",
+				"se-visibility":           "public",
+			},
+		})
+
+		// Distinct backends so a shadow surfaces as the wrong responder, not merely a failure. The
+		// sidecar client lives in the public namespace -- cross-namespace to the namespace-local
+		// ServiceEntry -- with DNS capture on so it resolves auto-allocated ServiceEntry addresses
+		// (PILOT_ENABLE_IP_AUTOALLOCATE is on by default). A sidecar-injected pod in an ambient
+		// namespace opts out of ztunnel capture (DataplaneModeNone) and uses its injected proxy, so it
+		// exercises the applyToSidecars exportTo ceiling rather than the ztunnel path.
+		echos := deployment.New(t).
+			WithConfig(echo.Config{Service: localBackend, Namespace: localNs, Ports: ports.All()}).
+			WithConfig(echo.Config{Service: pubBackend, Namespace: pubNs, Ports: ports.All()}).
+			WithConfig(echo.Config{
+				Service:        sidecarClient,
+				Namespace:      pubNs,
+				Ports:          ports.All(),
+				ServiceAccount: true,
+				Subsets: []echo.SubsetConfig{{
+					Replicas: 1,
+					Labels: map[string]string{
+						"sidecar.istio.io/inject":       "true",
+						label.IoIstioDataplaneMode.Name: constants.DataplaneModeNone,
+					},
+					Annotations: map[string]string{
+						"proxy.istio.io/config": `{"proxyMetadata":{"ISTIO_META_DNS_CAPTURE":"true"}}`,
+					},
+				}},
+			}).
+			BuildOrFail(t)
+		sidecar := match.ServiceName(echo.NamespacedName{Name: sidecarClient, Namespace: pubNs}).GetMatches(echos)
+
+		seHost := func(name, host, app string) string {
+			return fmt.Sprintf(`apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: %s
+spec:
+  hosts:
+  - %s
+  ports:
+  - name: http
+    number: 80
+    protocol: HTTP
+    targetPort: 8080
+  location: MESH_INTERNAL
+  resolution: STATIC
+  workloadSelector:
+    labels:
+      app: %s`, name, host, app)
+		}
+
+		// Create the namespace-local ServiceEntry FIRST so it is the older entry: absent the
+		// canonical guard it would win canonical selection and shadow the public one.
+		t.ConfigIstio().YAML(localNs.Name(), seHost("shadow-local", shadowHost, localBackend)).ApplyOrFail(t)
+		t.ConfigIstio().YAML(pubNs.Name(), seHost("shadow-public", shadowHost, pubBackend)).ApplyOrFail(t)
+		// A namespace-local ServiceEntry with no public sibling, used only for the sidecar negative
+		// case below: it is NAMESPACE-visible and lives in localNs, so it must be unreachable from a
+		// client outside localNs.
+		t.ConfigIstio().YAML(localNs.Name(), seHost("local-only", localOnlyHost, localBackend)).ApplyOrFail(t)
+
+		// A cross-namespace ambient client: the namespace-local ServiceEntry is invisible to it and
+		// must not shadow the public one, so the shared host must resolve to the PUBLIC backend.
+		apps.Captured[0].CallOrFail(t, echo.CallOptions{
+			Address: shadowHost,
+			Port:    echo.Port{Name: "http", ServicePort: 80},
+			Scheme:  scheme.HTTP,
+			HTTP:    echo.HTTP{Path: "/visibility"},
+			Check: check.And(
+				check.OK(),
+				// The echo response identifies the responding pod; it must be the public backend,
+				// never the namespace-local one (which would indicate shadowing / wrong canonical).
+				check.BodyContains("Hostname="+pubBackend),
+			),
+		})
+
+		// The sidecar client is cross-namespace to the namespace-local ServiceEntry. With
+		// applyToSidecars, that SE's exportTo is capped to its own namespace, so it is absent from the
+		// sidecar's config: the shared host resolves only to the PUBLIC backend (no shadowing), exactly
+		// as for the ambient client above.
+		sidecar[0].CallOrFail(t, echo.CallOptions{
+			Address: shadowHost,
+			Port:    echo.Port{Name: "http", ServicePort: 80},
+			Scheme:  scheme.HTTP,
+			HTTP:    echo.HTTP{Path: "/visibility"},
+			Check: check.And(
+				check.OK(),
+				check.BodyContains("Hostname="+pubBackend),
+			),
+		})
+		// The namespace-local-only ServiceEntry has no public sibling, so the ceiling removes it from
+		// the cross-namespace sidecar entirely: the host is neither routable nor resolvable, and the
+		// call fails. This distinguishes the positive case above from one that passes for unrelated
+		// reasons.
+		sidecar[0].CallOrFail(t, echo.CallOptions{
+			Address: localOnlyHost,
+			Port:    echo.Port{Name: "http", ServicePort: 80},
+			Scheme:  scheme.HTTP,
+			Check:   check.Error(),
+		})
+	})
+}
+
 // Run runs the given reachability test cases with the context.
 func RunReachability(testCases []reachability.TestCase, t framework.TestContext) {
 	runTest := func(t framework.TestContext, f func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions)) {
@@ -2917,20 +3079,17 @@ func runAllTests(t framework.TestContext, f func(t framework.TestContext, src ec
 	runTestContextForCalls(t, allCalls, f)
 }
 
-func runTestContextForCalls(
-	t framework.TestContext,
-	callOptions []echo.CallOptions,
-	f func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions),
-) {
-	svcs := apps.All
+func maybeSetupMultiCluster(t framework.TestContext) {
 	if t.Settings().AmbientMultiNetwork {
 		// all meshed services need to be labeled as global for the reachability tests.
 		for _, app := range apps.Mesh {
 			if app.Config().IsAmbient() {
-				// don't label sidecar services until https://github.com/istio/istio/issues/57877 is resolved.
+				// don't label sidecar services until https://github.com/istio/istio/issues/57877 is
+				// resolved.
 				labelServiceGlobal(t, app.ServiceName(), app.Config().Cluster)
 			}
 		}
+
 		for name := range apps.WaypointProxies {
 			labelServiceGlobal(t, name, t.Clusters()...)
 		}
@@ -2957,7 +3116,15 @@ func runTestContextForCalls(
 		// to account for this issue.
 		time.Sleep(2 * features.DebounceAfter)
 	}
-	for _, src := range svcs {
+}
+
+func runTestContextForCalls(
+	t framework.TestContext,
+	callOptions []echo.CallOptions,
+	f func(t framework.TestContext, src echo.Instance, dst echo.Target, opt echo.CallOptions),
+) {
+	maybeSetupMultiCluster(t)
+	for _, src := range apps.All {
 		t.NewSubTestf("from %v %v", src.Config().Cluster.Name(), src.Config().Service).Run(func(t framework.TestContext) {
 			for _, dst := range getAllInstancesByServiceName() {
 				t.NewSubTestf("to all %v", dst.Config().Service).Run(func(t framework.TestContext) {
@@ -3004,6 +3171,7 @@ func runIngressTest(t *testing.T, f func(t framework.TestContext, src ingress.In
 func TestL7Telemetry(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(tc framework.TestContext) {
+			skipIfGatewayAPIUnsupported(tc)
 			// ensure that some traffic from each captured workload is
 			// sent to each waypoint proxy. This will likely have happened in
 			// the other tests (without the teardown), but we want to make
@@ -3056,6 +3224,7 @@ func TestL7Telemetry(t *testing.T) {
 func TestCustomizeMetrics(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
+			skipIfGatewayAPIUnsupported(t)
 			t.ConfigIstio().YAML(apps.Namespace.Name(), `
 apiVersion: telemetry.istio.io/v1
 kind: Telemetry
@@ -3315,6 +3484,7 @@ func TestAPIServer(t *testing.T) {
 
 func TestDirect(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
+		skipIfGatewayAPIUnsupported(t)
 		t.NewSubTest("waypoint").Run(func(t framework.TestContext) {
 			c := common.NewCaller()
 			for _, cluster := range t.Clusters() {
@@ -3617,6 +3787,7 @@ func TestServiceRestart(t *testing.T) {
 	}
 
 	framework.NewTest(t).Run(func(t framework.TestContext) {
+		skipIfGatewayAPIUnsupported(t)
 		generators := []traffic.Generator{}
 		mkGen := func(src echo.Caller, dst echo.Instances) {
 			g := traffic.NewGenerator(t, traffic.Config{
@@ -3662,6 +3833,7 @@ func TestZtunnelRestart(t *testing.T) {
 	const sidecarSuccessThreshold = .9
 
 	framework.NewTest(t).Run(func(t framework.TestContext) {
+		skipIfGatewayAPIUnsupported(t)
 		mkGen := func(src echo.Caller, dst echo.Instances) traffic.Generator {
 			g := traffic.NewGenerator(t, traffic.Config{
 				Source: src,
@@ -3710,6 +3882,7 @@ func TestServiceDynamicEnroll(t *testing.T) {
 	successThreshold := 0.5
 
 	framework.NewTest(t).Run(func(t framework.TestContext) {
+		skipIfGatewayAPIUnsupported(t)
 		if t.Settings().AmbientMultiNetwork {
 			t.Skip("https://github.com/istio/istio/issues/58228")
 		}
@@ -3868,6 +4041,7 @@ func daemonsetsetComplete(ds *appsv1.DaemonSet) bool {
 func TestWaypointWithInvalidBackend(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
+			skipIfGatewayAPIUnsupported(t)
 			// We should expect a 500 error since the backend is invalid.
 			t.ConfigIstio().
 				Eval(apps.Namespace.Name(), apps.Namespace.Name(), `apiVersion: gateway.networking.k8s.io/v1
@@ -3910,6 +4084,7 @@ spec:
 func TestWaypointWithSidecarBackend(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
+			skipIfGatewayAPIUnsupported(t)
 			// Ensure we go through the waypoint (verified by modifying the request) and that we are doing mTLS.
 			t.ConfigIstio().
 				Eval(apps.Namespace.Name(), apps.Namespace.Name(), `apiVersion: gateway.networking.k8s.io/v1

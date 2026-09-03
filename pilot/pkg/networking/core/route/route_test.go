@@ -18,6 +18,7 @@ import (
 	"log"
 	"reflect"
 	"testing"
+	"time"
 
 	envoycore "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoyroute "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
@@ -3314,6 +3315,7 @@ func TestInboundHTTPRoute(t *testing.T) {
 	testCases := []struct {
 		name     string
 		protocol protocol.Instance
+		mesh     *meshconfig.MeshConfig
 		expected *envoyroute.Route
 	}{
 		{
@@ -3364,11 +3366,96 @@ func TestInboundHTTPRoute(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:     "http protocol with mesh wide inbound retry policy",
+			protocol: protocol.HTTP,
+			mesh: &meshconfig.MeshConfig{
+				DefaultInboundHttpRetryPolicy: &networking.HTTPRetry{
+					Attempts: 5,
+					RetryOn:  "reset,connect-failure",
+					Backoff:  durationpb.New(10 * time.Millisecond),
+				},
+			},
+			expected: &envoyroute.Route{
+				Name:  "default",
+				Match: route.TranslateRouteMatch(config.Config{}, nil),
+				Action: &envoyroute.Route_Route{
+					Route: &envoyroute.RouteAction{
+						ClusterSpecifier: &envoyroute.RouteAction_Cluster{Cluster: "cluster"},
+						RetryPolicy: &envoyroute.RetryPolicy{
+							RetryOn: "reset,connect-failure",
+							NumRetries: &wrapperspb.UInt32Value{
+								Value: 5,
+							},
+							RetriableStatusCodes: []uint32{},
+							RetryBackOff: &envoyroute.RetryPolicy_RetryBackOff{
+								BaseInterval: durationpb.New(10 * time.Millisecond),
+							},
+						},
+						Timeout: route.Notimeout,
+						MaxStreamDuration: &envoyroute.RouteAction_MaxStreamDuration{
+							MaxStreamDuration:    route.Notimeout,
+							GrpcTimeoutHeaderMax: route.Notimeout,
+						},
+					},
+				},
+				Decorator: &envoyroute.Decorator{
+					Operation: "operation",
+				},
+			},
+		},
+		{
+			name:     "http protocol with inbound retries disabled mesh wide",
+			protocol: protocol.HTTP,
+			mesh: &meshconfig.MeshConfig{
+				DefaultInboundHttpRetryPolicy: &networking.HTTPRetry{},
+			},
+			expected: &envoyroute.Route{
+				Name:  "default",
+				Match: route.TranslateRouteMatch(config.Config{}, nil),
+				Action: &envoyroute.Route_Route{
+					Route: &envoyroute.RouteAction{
+						ClusterSpecifier: &envoyroute.RouteAction_Cluster{Cluster: "cluster"},
+						Timeout:          route.Notimeout,
+						MaxStreamDuration: &envoyroute.RouteAction_MaxStreamDuration{
+							MaxStreamDuration:    route.Notimeout,
+							GrpcTimeoutHeaderMax: route.Notimeout,
+						},
+					},
+				},
+				Decorator: &envoyroute.Decorator{
+					Operation: "operation",
+				},
+			},
+		},
+		{
+			name:     "grpc protocol ignores mesh wide inbound retry policy",
+			protocol: protocol.GRPC,
+			mesh: &meshconfig.MeshConfig{
+				DefaultInboundHttpRetryPolicy: &networking.HTTPRetry{Attempts: 5},
+			},
+			expected: &envoyroute.Route{
+				Name:  "default",
+				Match: route.TranslateRouteMatch(config.Config{}, nil),
+				Action: &envoyroute.Route_Route{
+					Route: &envoyroute.RouteAction{
+						ClusterSpecifier: &envoyroute.RouteAction_Cluster{Cluster: "cluster"},
+						Timeout:          route.Notimeout,
+						MaxStreamDuration: &envoyroute.RouteAction_MaxStreamDuration{
+							MaxStreamDuration:    route.Notimeout,
+							GrpcTimeoutHeaderMax: route.Notimeout,
+						},
+					},
+				},
+				Decorator: &envoyroute.Decorator{
+					Operation: "operation",
+				},
+			},
+		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			inroute := route.BuildDefaultHTTPInboundRoute(&model.Proxy{IstioVersion: &model.IstioVersion{Major: 1, Minor: 24, Patch: -1}},
-				"cluster", "operation", tc.protocol)
+			inroute := route.BuildDefaultHTTPInboundRoute("cluster", "operation", tc.protocol, tc.mesh)
 			if !reflect.DeepEqual(tc.expected, inroute) {
 				t.Errorf("error in inbound routes. Got: %v, Want: %v", inroute, tc.expected)
 			}

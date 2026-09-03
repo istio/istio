@@ -42,7 +42,8 @@ type dependencyState[I any] struct {
 	// collectionDependencies specifies the set of collections we depend on from within the transformation functions (via Fetch).
 	// These are keyed by the internal uid() function on collections.
 	// Note this does not include `parent`, which is the *primary* dependency declared outside of transformation functions.
-	collectionDependencies sets.Set[collectionUID]
+	collectionDependencies       sets.Set[collectionUID]
+	collectionDependencyHandlers map[collectionUID]HandlerRegistration
 	// Stores a map of I -> secondary dependencies (added via Fetch)
 	objectDependencies  map[Key[I]][]*dependency
 	indexedDependencies map[indexedDependency]sets.Set[Key[I]]
@@ -234,6 +235,8 @@ type manyCollection[I, O any] struct {
 	// onPrimaryInputEventHandler is a specialized internal handler that runs synchronously when a primary input changes
 	onPrimaryInputEventHandler func(o []Event[I])
 
+	debugger *DebugHandler
+
 	syncer Syncer
 }
 
@@ -372,7 +375,7 @@ func (h *manyCollection[I, O]) dump() CollectionDump {
 	return CollectionDump{
 		Outputs:         eraseMap(h.collectionState.outputs),
 		Inputs:          inputs,
-		InputCollection: h.parent.(internalCollection[I]).name(),
+		InputCollection: h.parent.name(),
 		Synced:          h.HasSynced(),
 	}
 }
@@ -578,7 +581,7 @@ func NewCollection[I, O any](c Collection[I], hf TransformationSingle[I, O], opt
 		// NOTE: this will print Collection[nil, nil] if I or O are interfaces
 		o.name = fmt.Sprintf("Collection[%v,%v]", ptr.TypeName[I](), ptr.TypeName[O]())
 	}
-	return newManyCollection(c, hm, o, nil)
+	return newCollection(newManyCollection(c, hm, o, nil))
 }
 
 // NewManyCollection transforms a Collection[I] to a Collection[O] by applying the provided transformation function.
@@ -589,7 +592,7 @@ func NewManyCollection[I, O any](c Collection[I], hf TransformationMulti[I, O], 
 	if o.name == "" {
 		o.name = fmt.Sprintf("ManyCollection[%v,%v]", ptr.TypeName[I](), ptr.TypeName[O]())
 	}
-	return newManyCollection[I, O](c, hf, o, nil)
+	return newCollection(newManyCollection[I, O](c, hf, o, nil))
 }
 
 func newManyCollection[I, O any](
@@ -597,17 +600,16 @@ func newManyCollection[I, O any](
 	hf TransformationMulti[I, O],
 	opts collectionOptions,
 	onPrimaryInputEventHandler func([]Event[I]),
-) Collection[O] {
-	c := cc.(internalCollection[I])
-
+) internalCollection[O] {
 	h := &manyCollection[I, O]{
 		transformation: hf,
 		collectionName: opts.name,
 		id:             nextUID(),
 		log:            log.WithLabels("owner", opts.name),
-		parent:         c,
+		parent:         cc,
 		dependencyState: dependencyState[I]{
 			collectionDependencies:       sets.New[collectionUID](),
+			collectionDependencyHandlers: map[collectionUID]HandlerRegistration{},
 			objectDependencies:           map[Key[I]][]*dependency{},
 			indexedDependencies:          map[indexedDependency]sets.Set[Key[I]]{},
 			indexedDependenciesExtractor: map[extractorKey]func(o any) []string{},
@@ -623,6 +625,7 @@ func newManyCollection[I, O any](
 		synced:                     make(chan struct{}),
 		stop:                       opts.stop,
 		onPrimaryInputEventHandler: onPrimaryInputEventHandler,
+		debugger:                   opts.debugger,
 	}
 
 	if opts.metadata != nil {
@@ -633,7 +636,7 @@ func newManyCollection[I, O any](
 		name:   h.collectionName,
 		synced: h.synced,
 	}
-	maybeRegisterCollectionForDebugging(h, opts.debugger)
+	maybeRegisterCollectionForDebugging(h, h.debugger)
 
 	// Create our queue. When it syncs (that is, all items that were present when Run() was called), we mark ourselves as synced.
 	h.queue = queue.NewWithSync(func() {
@@ -650,13 +653,14 @@ func newManyCollection[I, O any](
 }
 
 func (h *manyCollection[I, O]) runQueue() {
+	defer maybeUnregisterCollectionFromDebugger(h, h.debugger)
 	c := h.parent
 	// Wait for primary dependency to be ready
 	if !c.WaitUntilSynced(h.stop) {
 		return
 	}
 	// Now register to our primary collection. On any event, we will enqueue the update.
-	syncer := c.RegisterBatch(func(o []Event[I]) {
+	parentReg := c.RegisterBatch(func(o []Event[I]) {
 		if h.onPrimaryInputEventHandler != nil {
 			h.onPrimaryInputEventHandler(o)
 		}
@@ -666,9 +670,22 @@ func (h *manyCollection[I, O]) runQueue() {
 		})
 	}, true)
 	// Wait for everything initial state to be enqueued
-	if !syncer.WaitUntilSynced(h.stop) {
+	if !parentReg.WaitUntilSynced(h.stop) {
+		parentReg.UnregisterHandler()
 		return
 	}
+
+	defer func() {
+		// This collection has been stopped, ensure we cleanup all handler registrations we made on
+		// other collections.
+		parentReg.UnregisterHandler()
+		h.mu.Lock()
+		for _, reg := range h.dependencyState.collectionDependencyHandlers {
+			reg.UnregisterHandler()
+		}
+		h.mu.Unlock()
+	}()
+
 	h.queue.Run(h.stop)
 }
 
@@ -732,10 +749,6 @@ func (h *manyCollection[I, O]) List() (res []O) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	return maps.Values(h.collectionState.outputs)
-}
-
-func (h *manyCollection[I, O]) Register(f func(o Event[O])) HandlerRegistration {
-	return registerHandlerAsBatched(h, f)
 }
 
 func (h *manyCollection[I, O]) RegisterBatch(f func(o []Event[O]), runExistingState bool) HandlerRegistration {
@@ -814,7 +827,7 @@ func (i *collectionDependencyTracker[I, O]) name() string {
 func (i *collectionDependencyTracker[I, O]) registerDependency(
 	d *dependency,
 	syncer Syncer,
-	register func(f erasedEventHandler) Syncer,
+	register func(f erasedEventHandler) HandlerRegistration,
 ) {
 	i.d = append(i.d, d)
 
@@ -824,13 +837,22 @@ func (i *collectionDependencyTracker[I, O]) registerDependency(
 	// For any new collections we depend on, start watching them if its the first time we have watched them.
 	if !existed {
 		i.log.WithLabels("collection", d.collectionName).Debugf("register new dependency")
-		syncer.WaitUntilSynced(i.stop)
-		register(func(o []Event[any]) {
+		if !syncer.WaitUntilSynced(i.stop) {
+			return
+		}
+		h := register(func(o []Event[any]) {
 			i.queue.Push(func() error {
 				i.onSecondaryDependencyEvent(d.id, o)
 				return nil
 			})
-		}).WaitUntilSynced(i.stop)
+		})
+		i.mu.Lock()
+		if h.WaitUntilSynced(i.stop) {
+			i.dependencyState.collectionDependencyHandlers[d.id] = h
+		} else {
+			h.UnregisterHandler()
+		}
+		i.mu.Unlock()
 	}
 }
 

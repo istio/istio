@@ -71,7 +71,7 @@ func Fetch[T any](ctx HandlerContext, cc Collection[T], opts ...FetchOption) []T
 }
 
 func fetch[T any](ctx HandlerContext, cc Collection[T], allowMissingContext bool, opts ...FetchOption) []T {
-	c := cc.(internalCollection[T])
+	c := cc.internal()
 	d := &dependency{
 		id:             c.uid(),
 		collectionName: c.name(),
@@ -84,7 +84,7 @@ func fetch[T any](ctx HandlerContext, cc Collection[T], allowMissingContext bool
 	if ctx != nil {
 		h := ctx.(registerDependency)
 		// Important: register before we List(), so we cannot miss any events
-		h.registerDependency(d, c, func(f erasedEventHandler) Syncer {
+		h.registerDependency(d, c, func(f erasedEventHandler) HandlerRegistration {
 			ff := func(o []Event[T]) {
 				f(slices.Map(o, castEvent[T, any]))
 			}

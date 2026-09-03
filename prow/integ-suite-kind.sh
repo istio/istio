@@ -223,6 +223,19 @@ fi
 
 # Run the test target if provided.
 if [[ -n "${PARAMS:-}" ]]; then
+  if [[ "${TOPOLOGY}" == "SINGLE_CLUSTER" ]]; then
+    # The setup and registry steps above enumerate every kind cluster on the host (e.g.
+    # setup_kind_registry loops over `kind get clusters`) and leave the shared kubeconfig's
+    # current-context on an arbitrary one. Single-cluster tests otherwise inherit that context and
+    # can install into an unrelated bystander cluster. Hand the framework an isolated kubeconfig for
+    # just the cluster we provisioned -- mirroring the per-cluster kubeconfigs the multicluster path
+    # builds under ARTIFACTS -- so it can only ever act on that cluster.
+    SINGLE_CLUSTER_KUBECONFIG="${ARTIFACTS}/kubeconfig/${CLUSTER_NAME}"
+    mkdir -p "$(dirname "${SINGLE_CLUSTER_KUBECONFIG}")"
+    kind export kubeconfig --name="${CLUSTER_NAME}" ${DEVCONTAINER:+--internal} \
+      --kubeconfig "${SINGLE_CLUSTER_KUBECONFIG}"
+    export KUBECONFIG="${SINGLE_CLUSTER_KUBECONFIG}"
+  fi
   trace "test" make "${PARAMS[*]}"
 fi
 

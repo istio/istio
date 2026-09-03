@@ -17,18 +17,20 @@ package krt
 import (
 	"encoding/json"
 	"sync"
+
+	"istio.io/istio/pkg/maps"
 )
 
 // DebugHandler allows attaching a variety of collections to it and then dumping them
 type DebugHandler struct {
-	debugCollections []DebugCollection
+	debugCollections map[collectionUID]DebugCollection
 	mu               sync.RWMutex
 }
 
 func (p *DebugHandler) MarshalJSON() ([]byte, error) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	return json.Marshal(p.debugCollections)
+	return json.Marshal(maps.Values(p.debugCollections))
 }
 
 var GlobalDebugHandler = new(DebugHandler)
@@ -62,18 +64,30 @@ func (p DebugCollection) MarshalJSON() ([]byte, error) {
 }
 
 // maybeRegisterCollectionForDebugging registers the collection in the debugger, if one is enabled
-func maybeRegisterCollectionForDebugging[T any](c Collection[T], handler *DebugHandler) {
+func maybeRegisterCollectionForDebugging[T any](c internalCollection[T], handler *DebugHandler) {
 	if handler == nil {
 		return
 	}
-	cc := c.(internalCollection[T])
 	handler.mu.Lock()
 	defer handler.mu.Unlock()
-	handler.debugCollections = append(handler.debugCollections, DebugCollection{
-		name: cc.name(),
-		dump: cc.dump,
-		uid:  cc.uid(),
-	})
+	if handler.debugCollections == nil {
+		handler.debugCollections = make(map[collectionUID]DebugCollection)
+	}
+	handler.debugCollections[c.uid()] = DebugCollection{
+		name: c.name(),
+		dump: c.dump,
+		uid:  c.uid(),
+	}
+}
+
+// maybeUnregisterCollectionFromDebugger removes the collection from the debugger, if one is enabled
+func maybeUnregisterCollectionFromDebugger[T any](c internalCollection[T], handler *DebugHandler) {
+	if handler == nil {
+		return
+	}
+	handler.mu.Lock()
+	defer handler.mu.Unlock()
+	delete(handler.debugCollections, c.uid())
 }
 
 // nolint: unused // (not true, not sure why it thinks it is!)

@@ -252,8 +252,12 @@ func New(options Options) Index {
 		Waypoints,
 		opts,
 	)
+	authPoliciesByNs := selectingWorkloadAuthzByNs(AuthorizationPolicies)
+	serviceEntryVisibility := model.ServiceEntryVisibilityCollection(a.meshConfig.AsCollection(), opts)
+
 	// these are workloadapi-style services combined from kube services and service entries
-	WorkloadServices := builder.ServicesCollection(options.ClusterID, Services, ServiceEntries, Waypoints, Namespaces, a.meshConfig, opts, true)
+	WorkloadServices := builder.ServicesCollection(options.ClusterID, Services, ServiceEntries, Waypoints,
+		Namespaces, a.meshConfig, serviceEntryVisibility, opts, true)
 
 	if features.EnableAmbientStatus {
 		serviceEntriesWriter := kclient.NewWriteClient[*networkingclient.ServiceEntry](client)
@@ -267,6 +271,7 @@ func New(options Options) Index {
 			ServiceEntries,
 			GatewayClasses,
 			a.meshConfig,
+			serviceEntryVisibility,
 			Namespaces,
 			opts,
 		)
@@ -333,12 +338,13 @@ func New(options Options) Index {
 	}, opts.WithName("NamespacesInfo")...)
 
 	NodeLocality := NodesCollection(Nodes, opts.WithName("NodeLocality")...)
+	PeerAuthsByNs := krt.NewNamespaceIndex(PeerAuths)
 	Workloads := builder.WorkloadsCollection(
 		Pods,
 		NodeLocality,
 		a.meshConfig,
-		AuthorizationPolicies,
-		PeerAuths,
+		authPoliciesByNs,
+		PeerAuthsByNs,
 		Waypoints,
 		WorkloadServices,
 		WorkloadEntries,
@@ -584,13 +590,15 @@ func (a *index) inRevision(obj any) bool {
 
 // All return all known workloads and services. Result is un-ordered
 func (a *index) All() []model.AddressInfo {
+	allWl := a.workloads.List()
+	allSvc := a.services.List()
 	// Add all workloads
-	res := make([]model.AddressInfo, 0, len(a.workloads.List())+len(a.services.List()))
-	for _, wl := range a.workloads.List() {
+	res := make([]model.AddressInfo, 0, len(allWl)+len(allSvc))
+	for _, wl := range allWl {
 		res = append(res, wl.AsAddress)
 	}
 	// Add all services
-	for _, s := range a.services.List() {
+	for _, s := range allSvc {
 		res = append(res, s.AsAddress)
 	}
 	return res
@@ -912,6 +920,18 @@ func PushXdsAddress[T any](xds model.XDSUpdater, f func(T) string, waypointRef f
 			Reason:           model.NewReasonStats(model.AmbientUpdate),
 		})
 	}
+}
+
+func selectingWorkloadAuthzByNs(c krt.Collection[model.WorkloadAuthorization]) krt.Index[string, model.WorkloadAuthorization] {
+	return krt.NewIndex(c, "selectingWorklodAuthorizationsByNs", func(wa model.WorkloadAuthorization) []string {
+		if wa.Authorization == nil {
+			return nil // filter policy which are invalid
+		}
+		if wa.GetLabelSelector() == nil {
+			return nil
+		}
+		return []string{wa.Authorization.Namespace}
+	})
 }
 
 type MeshConfig = meshwatcher.MeshConfigResource

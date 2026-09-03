@@ -638,7 +638,7 @@ func TestApplyToCommonTLSContext(t *testing.T) {
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
 			tlsContext := &auth.CommonTlsContext{}
-			ApplyToCommonTLSContext(tlsContext, test.node, []string{}, test.crl, test.trustDomainAliases, test.validateClient, test.tlsCertificates)
+			ApplyToCommonTLSContext(tlsContext, test.node, []string{}, test.crl, test.trustDomainAliases, test.validateClient, test.tlsCertificates, false)
 
 			if !cmp.Equal(tlsContext, test.expected, protocmp.Transform()) {
 				t.Errorf("got(%#v), want(%#v)\n", spew.Sdump(tlsContext), spew.Sdump(test.expected))
@@ -793,7 +793,10 @@ func TestConstructSdsSecretConfigForCredential(t *testing.T) {
 							GrpcServices: []*core.GrpcService{
 								{
 									TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
-										EnvoyGrpc: &core.GrpcService_EnvoyGrpc{ClusterName: "outbound|8080||sds-provider-service"},
+										EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
+											ClusterName: "outbound|8080||sds-provider-service",
+											Authority:   "sds-provider-service",
+										},
 									},
 								},
 							},

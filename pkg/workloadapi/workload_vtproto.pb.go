@@ -205,6 +205,9 @@ func (this *Service) EqualVT(that *Service) bool {
 			}
 		}
 	}
+	if this.Visibility != that.Visibility {
+		return false
+	}
 	return string(this.unknownFields) == string(that.unknownFields)
 }
 
@@ -782,6 +785,11 @@ func (m *Service) MarshalToSizedBufferVTStrict(dAtA []byte) (int, error) {
 	if m.unknownFields != nil {
 		i -= len(m.unknownFields)
 		copy(dAtA[i:], m.unknownFields)
+	}
+	if m.Visibility != 0 {
+		i = protohelpers.EncodeVarint(dAtA, i, uint64(m.Visibility))
+		i--
+		dAtA[i] = 0x70
 	}
 	if len(m.WeightedWaypoints) > 0 {
 		for iNdEx := len(m.WeightedWaypoints) - 1; iNdEx >= 0; iNdEx-- {
@@ -1836,6 +1844,9 @@ func (m *Service) SizeVT() (n int) {
 			l = e.SizeVT()
 			n += 1 + l + protohelpers.SizeOfVarint(uint64(l))
 		}
+	}
+	if m.Visibility != 0 {
+		n += 1 + protohelpers.SizeOfVarint(uint64(m.Visibility))
 	}
 	n += len(m.unknownFields)
 	return n

@@ -116,6 +116,7 @@ type ZtunnelService struct {
 	SubjectAltNames []string                    `json:"subjectAltNames,omitempty"`
 	IPFamilies      string                      `json:"ipFamilies"`
 	Canonical       bool                        `json:"canonical,omitempty"`
+	Visibility      string                      `json:"visibility,omitempty"`
 }
 
 type PolicyMatch struct {

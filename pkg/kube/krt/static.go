@@ -41,7 +41,18 @@ type staticList[T any] struct {
 	indexes        map[string]staticListIndex[T]
 }
 
-func NewStaticCollection[T any](synced Syncer, vals []T, opts ...CollectionOption) StaticCollection[T] {
+func (s StaticCollection[T]) AsCollection() Collection[T] {
+	return newCollection[T](s.staticList)
+}
+
+// NewStaticCollection creates a read-only collection initialized with the provided values.
+// Callers that need to update the collection after creation should use NewMutableCollection.
+func NewStaticCollection[T any](synced Syncer, vals []T, opts ...CollectionOption) Collection[T] {
+	return NewMutableCollection(synced, vals, opts...).AsCollection()
+}
+
+// NewMutableCollection creates a StaticCollection that callers can update directly.
+func NewMutableCollection[T any](synced Syncer, vals []T, opts ...CollectionOption) StaticCollection[T] {
 	o := buildCollectionOptions(opts...)
 	if o.name == "" {
 		o.name = fmt.Sprintf("Static[%v]", ptr.TypeName[T]())
@@ -49,7 +60,11 @@ func NewStaticCollection[T any](synced Syncer, vals []T, opts ...CollectionOptio
 
 	res := make(map[string]T, len(vals))
 	for _, v := range vals {
-		res[GetKey(v)] = v
+		k := GetKey(v)
+		if _, dupe := res[k]; dupe && EnableAssertions {
+			panic(fmt.Sprintf("duplicate key %q in %v; the collection would silently drop an entry", k, o.name))
+		}
+		res[k] = v
 	}
 
 	if synced == nil {
@@ -74,6 +89,12 @@ func NewStaticCollection[T any](synced Syncer, vals []T, opts ...CollectionOptio
 		staticList: sl,
 	}
 	maybeRegisterCollectionForDebugging[T](c, o.debugger)
+	if o.debugger != nil && o.stopProvided {
+		go func() {
+			<-o.stop
+			maybeUnregisterCollectionFromDebugger(c, o.debugger)
+		}()
+	}
 	return c
 }
 
@@ -315,10 +336,6 @@ func (s *staticList[T]) List() []T {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return maps.Values(s.vals)
-}
-
-func (s *staticList[T]) Register(f func(o Event[T])) HandlerRegistration {
-	return registerHandlerAsBatched(s, f)
 }
 
 func (s *staticList[T]) HasSynced() bool {

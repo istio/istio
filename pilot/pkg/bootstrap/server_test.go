@@ -38,6 +38,7 @@ import (
 	"istio.io/istio/pkg/filewatcher"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/testcerts"
@@ -484,6 +485,117 @@ func TestReloadcacerts(t *testing.T) {
 	}, "10s", "100ms").Should(BeTrue())
 }
 
+func TestClearCRL(t *testing.T) {
+	crlTestDir := filepath.Join(env.IstioSrc, "security/pkg/pki/testdata/crl")
+
+	cacertsDir := filepath.Join(t.TempDir(), "etc", "cacerts")
+	if err := os.MkdirAll(cacertsDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll(%v) failed: %v", cacertsDir, err)
+	}
+	test.SetEnvForTest(t, "ROOT_CA_DIR", cacertsDir)
+	test.SetForTest(t, &features.EnableCACRL, true)
+
+	readTestFile := func(name string) []byte {
+		data, err := os.ReadFile(filepath.Join(crlTestDir, name))
+		if err != nil {
+			t.Fatalf("read %s: %v", name, err)
+		}
+		return data
+	}
+	validCRL := readTestFile("ca-crl.pem")
+
+	// Seed a complete plugged-in signing bundle from the CRL testdata.
+	for _, f := range []string{"ca-cert.pem", "ca-key.pem", "cert-chain.pem", "root-cert.pem"} {
+		if err := os.WriteFile(filepath.Join(cacertsDir, f), readTestFile(f), 0o644); err != nil {
+			t.Fatalf("WriteFile(%v) failed: %v", f, err)
+		}
+	}
+
+	stop := make(chan struct{})
+	s := &Server{
+		istiodCertBundleWatcher: keycertbundle.NewWatcher(),
+		server:                  server.New(),
+	}
+
+	defer func() {
+		close(stop)
+		_ = s.cacertsWatcher.Close()
+		s.WaitUntilCompletion()
+	}()
+
+	// start server
+	if err := s.server.Start(stop); err != nil {
+		t.Fatalf("Could not invoke startFuncs: %v", err)
+	}
+
+	// create server CA for load cacerts files
+	if err := s.maybeCreateCA(&caOptions{}); err != nil {
+		t.Fatalf("Could not create CA: %v", err)
+	}
+
+	// validate that the cacerts files are loaded
+	g := NewWithT(t)
+	g.Eventually(func() bool {
+		return len(s.CA.GetCAKeyCertBundle().GetCertChainPem()) > 0
+	}, "10s", "100ms").Should(BeTrue())
+
+	g.Expect(s.CA.GetCAKeyCertBundle().GetCRLPem()).Should(BeEmpty())
+	g.Expect(s.istiodCertBundleWatcher.GetCRL()).Should(BeEmpty())
+
+	crlPath := filepath.Join(cacertsDir, "ca-crl.pem")
+	for _, tt := range []struct {
+		name   string
+		action func(t *testing.T)
+	}{
+		{
+			"crl deleted",
+			func(t *testing.T) {
+				if err := os.Remove(crlPath); err != nil {
+					t.Fatal(err)
+				}
+				// deletes are not watched so create a file
+				if err := os.WriteFile(filepath.Join(cacertsDir, "trigger"), []byte{}, 0o644); err != nil {
+					t.Fatal(err)
+				}
+			},
+		},
+		{
+			"empty crl",
+			func(t *testing.T) {
+				if err := os.WriteFile(crlPath, []byte{}, 0o644); err != nil {
+					t.Fatal(err)
+				}
+			},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := os.WriteFile(crlPath, validCRL, 0o644); err != nil {
+				t.Fatal(err)
+			}
+
+			g.Eventually(func() bool {
+				currentCRL := s.CA.GetCAKeyCertBundle().GetCRLPem()
+				return bytes.Equal(currentCRL, validCRL)
+			}, "10s", "100ms").Should(BeTrue())
+			g.Eventually(func() bool {
+				currentCRL := s.istiodCertBundleWatcher.GetCRL()
+				return bytes.Equal(currentCRL, validCRL)
+			}, "10s", "100ms").Should(BeTrue())
+
+			tt.action(t)
+
+			g.Eventually(func() bool {
+				currentCRL := s.CA.GetCAKeyCertBundle().GetCRLPem()
+				return currentCRL != nil && len(currentCRL) == 0
+			}, "10s", "100ms").Should(BeTrue())
+			g.Eventually(func() bool {
+				currentCRL := s.istiodCertBundleWatcher.GetCRL()
+				return currentCRL != nil && len(currentCRL) == 0
+			}, "10s", "100ms").Should(BeTrue())
+		})
+	}
+}
+
 func TestNewServer(t *testing.T) {
 	// All of the settings to apply and verify. Currently just testing domain suffix,
 	// but we should expand this list.
@@ -869,6 +981,68 @@ func TestIstiodReadinessHandler(t *testing.T) {
 		g.Expect(err).ToNot(HaveOccurred())
 		g.Expect(resp.StatusCode).To(Equal(http.StatusOK))
 		g.Expect(resp.Body.Close()).To(Succeed())
+	}
+}
+
+// Webhook readiness must track when the server hosting the handlers is serving:
+// immediately for the shared main HTTP server, only after Start() for a dedicated
+// HTTPS server (istio/istio#61049).
+func TestWebhookReadiness(t *testing.T) {
+	cases := []struct {
+		name          string
+		httpsAddr     string
+		readyAfterNew bool // expected webhook readiness immediately after NewServer
+	}{
+		{
+			// istio defaults this to :15017.
+			name:          "dedicated HTTPS server",
+			httpsAddr:     ":45017",
+			readyAfterNew: false,
+		},
+		{
+			name:          "shared main HTTP server",
+			httpsAddr:     "",
+			readyAfterNew: true,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			configDir := t.TempDir()
+			args := NewPilotArgs(func(p *PilotArgs) {
+				p.Namespace = "istio-system"
+				p.ServerOptions = DiscoveryServerOptions{
+					HTTPAddr:       ":0",
+					HTTPSAddr:      c.httpsAddr,
+					MonitoringAddr: ":0",
+					GRPCAddr:       ":0",
+				}
+				p.RegistryOptions = RegistryOptions{
+					KubeConfig: "config",
+					FileDir:    configDir,
+				}
+				p.ShutdownDuration = 1 * time.Millisecond
+			})
+
+			g := NewWithT(t)
+			s, err := NewServer(args, func(s *Server) {
+				s.kubeClient = kube.NewFakeClient()
+			})
+			g.Expect(err).To(Succeed())
+
+			g.Expect(s.readinessFlags.configValidationReady.Load()).To(Equal(c.readyAfterNew))
+			g.Expect(s.readinessFlags.sidecarInjectorReady.Load()).To(Equal(c.readyAfterNew))
+
+			stop := make(chan struct{})
+			g.Expect(s.Start(stop)).To(Succeed())
+			defer func() {
+				close(stop)
+				s.WaitUntilCompletion()
+			}()
+
+			g.Expect(s.readinessFlags.configValidationReady.Load()).To(BeTrue())
+			g.Expect(s.readinessFlags.sidecarInjectorReady.Load()).To(BeTrue())
+		})
 	}
 }
 

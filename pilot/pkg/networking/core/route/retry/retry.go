@@ -36,6 +36,11 @@ var (
 	defaultNumRetries = &wrappers.UInt32Value{Value: 2}
 	defaultRetryOn    = "connect-failure,refused-stream,unavailable,cancelled,retriable-status-codes"
 
+	// A request reset before it reached the application was never processed, so retrying it is
+	// safe even for non-idempotent methods. This shields clients from races where the application
+	// closes an idle connection while a request is in flight.
+	defaultInboundRetryOn = "reset-before-request"
+
 	// Shared slice for RetryHostPredicate - immutable, safe to share
 	defaultRetryHostPredicate = []*route.RetryPolicy_RetryHostPredicate{
 		xdsfilters.RetryPreviousHosts,
@@ -54,6 +59,12 @@ var (
 		NumRetries:                    defaultNumRetries,
 		RetryOn:                       defaultRetryOn,
 		HostSelectionRetryMaxAttempts: 5,
+	}
+
+	// Cached default policy for inbound routes.
+	cachedDefaultInboundPolicy = &route.RetryPolicy{
+		NumRetries: defaultNumRetries,
+		RetryOn:    defaultInboundRetryOn,
 	}
 
 	cachedRetryRemoteLocalitiesPredicate = &route.RetryPolicy_RetryPriority{
@@ -138,6 +149,45 @@ func ConvertPolicy(in *networking.HTTPRetry, hashPolicy bool) *route.RetryPolicy
 
 	if in.RetryRemoteLocalities != nil && in.RetryRemoteLocalities.GetValue() {
 		out.RetryPriority = cachedRetryRemoteLocalitiesPredicate
+	}
+
+	if in.Backoff != nil {
+		out.RetryBackOff = &route.RetryPolicy_RetryBackOff{
+			BaseInterval: in.Backoff,
+		}
+	}
+
+	return out
+}
+
+// ConvertInboundPolicy converts the given Istio retry policy to an Envoy policy for an inbound
+// route. An inbound route always targets the single local application cluster, so the host
+// selection and per-try timeout settings that apply to outbound retries are meaningless here;
+// only `attempts`, `retryOn` and `backoff` are honored.
+func ConvertInboundPolicy(in *networking.HTTPRetry) *route.RetryPolicy {
+	// Fast path: if no custom config, return cached immutable default
+	if in == nil {
+		return cachedDefaultInboundPolicy
+	}
+
+	if in.Attempts <= 0 {
+		// Configuration is explicitly disabling the retry policy.
+		return nil
+	}
+
+	out := &route.RetryPolicy{
+		NumRetries: &wrappers.UInt32Value{Value: uint32(in.Attempts)},
+		RetryOn:    defaultInboundRetryOn,
+	}
+
+	if in.RetryOn != "" {
+		// Allow the incoming configuration to specify both Envoy RetryOn and RetriableStatusCodes. Any integers are
+		// assumed to be status codes.
+		out.RetryOn, out.RetriableStatusCodes = parseRetryOn(in.RetryOn)
+		// If user has just specified HTTP status codes in retryOn but have not specified "retriable-status-codes", let us add it.
+		if len(out.RetriableStatusCodes) > 0 && !strings.Contains(out.RetryOn, "retriable-status-codes") {
+			out.RetryOn += ",retriable-status-codes"
+		}
 	}
 
 	if in.Backoff != nil {

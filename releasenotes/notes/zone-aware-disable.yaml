@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+releaseNotes:
+  - |
+    **Fixed** `zoneAwareLbSetting.enabled: false` to explicitly disable Envoy's intrinsic
+    zone-aware routing by emitting `routing_enabled: 0%`. Previously, `enabled: false` was
+    a no-op: Istio emitted no `ZoneAwareLbConfig`, causing Envoy to fall back to its default
+    `routing_enabled: 100%`, which engaged zone-aware routing automatically whenever a
+    self-discovery local cluster was present. This made gradual rollout unsafe, as pods in a
+    mixed state (some with self-discovery, some without) would unevenly distribute traffic.

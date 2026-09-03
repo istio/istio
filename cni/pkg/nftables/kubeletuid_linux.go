@@ -22,9 +22,31 @@ import (
 	"github.com/prometheus/procfs"
 )
 
-// getKubeletUIDFromPath finds the kubelet or kubelite process UID by inspecting the proc filesystem path.
-// In standard Kubernetes distributions, it looks for the "kubelet" process.
-// On some platforms like MicroK8s, where multiple k8s components are consolidated, it looks for the "kubelite" process.
+// kubeletProcess describes how to identify a kubelet-hosting process by name.
+type kubeletProcess struct {
+	// name is the value expected in /proc/<pid>/comm.
+	name string
+
+	// requireKubeletInCmdline, when true, requires that at least one cmdline argument
+	// contains the substring "kubelet" before the process is accepted. Set to false for
+	// platforms (e.g. k3s) where kubelet is embedded directly in the binary and argv do
+	// not include any kubelet name.
+	requireKubeletInCmdline bool
+}
+
+// kubeletProcesses lists platforms whose kubelet-hosting process we can identify,
+// in order of preference.
+var kubeletProcesses = []kubeletProcess{
+	// Standard Kubernetes: /usr/bin/kubelet [args...]
+	{"kubelet", true},
+	// MicroK8s consolidates k8s components; kubelite path contains "kubelet".
+	{"kubelite", true},
+	// k3s embeds kubelet directly in the k3s binary (k3s server / k3s agent).
+	// No kubelet substring appears in argv under a default install.
+	{"k3s", false},
+}
+
+// getKubeletUIDFromPath finds the UID of the kubelet-hosting process by inspecting procPath.
 func getKubeletUIDFromPath(procPath string) (string, error) {
 	fs, err := procfs.NewFS(procPath)
 	if err != nil {
@@ -36,9 +58,6 @@ func getKubeletUIDFromPath(procPath string) (string, error) {
 		return "", fmt.Errorf("failed to read processes from %s: %v", procPath, err)
 	}
 
-	// List of process names to search for, in order of preference
-	processNames := []string{"kubelet", "kubelite"}
-
 	for _, proc := range procs {
 		comm, err := proc.Comm()
 		if err != nil {
@@ -46,43 +65,36 @@ func getKubeletUIDFromPath(procPath string) (string, error) {
 			continue
 		}
 
-		for _, targetName := range processNames {
-			if comm == targetName {
-				// Lets check the command line to ensure it's really the target process
+		for _, kp := range kubeletProcesses {
+			if comm != kp.name {
+				continue
+			}
+
+			if kp.requireKubeletInCmdline {
 				cmdline, err := proc.CmdLine()
 				if err != nil {
 					continue
 				}
-
-				// Verify that this process is actually related to kubelet by checking
-				// if "kubelet" appears in any of the command line arguments.
-				// This works for both:
-				//   - Standard kubelet: /usr/bin/kubelet [args...]
-				//   - MicroK8s kubelite: /snap/microk8s/.../kubelite --kubelet-args-file=...
-				processFound := false
+				found := false
 				for _, arg := range cmdline {
 					if strings.Contains(strings.ToLower(arg), "kubelet") {
-						processFound = true
+						found = true
 						break
 					}
 				}
-				if !processFound {
+				if !found {
 					continue
 				}
-
-				// Get process status with UIDs
-				status, err := proc.NewStatus()
-				if err != nil {
-					continue
-				}
-
-				realUID := status.UIDs[0]
-				realUIDStr := strconv.FormatUint(realUID, 10)
-
-				return realUIDStr, nil
 			}
+
+			status, err := proc.NewStatus()
+			if err != nil {
+				continue
+			}
+
+			return strconv.FormatUint(status.UIDs[0], 10), nil
 		}
 	}
 
-	return "", fmt.Errorf("kubelet or kubelite process not found in %s", procPath)
+	return "", fmt.Errorf("no kubelet process found in %s", procPath)
 }

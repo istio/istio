@@ -15,17 +15,64 @@
 package krt
 
 import (
+	"cmp"
+
 	"istio.io/istio/pkg/kube/controllers"
 	istiolog "istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/slices"
 )
 
 var log = istiolog.RegisterScope("krt", "")
 
 type Metadata map[string]any
 
-// Collection is the core resource type for krt, representing a collection of objects. Items can be listed, or fetched
-// directly. Most importantly, consumers can subscribe to events when objects change.
-type Collection[T any] interface {
+// Collection is the core resource type for krt, representing a collection of objects. Items can be listed, fetched,
+// or watched for changes. The implementation is kept behind a private pointer type so Collection can expose convenience
+// methods while retaining normal nil semantics.
+type Collection[T any] = *collection[T]
+
+type collection[T any] struct {
+	internalCollection[T]
+}
+
+func newCollection[T any](c internalCollection[T]) Collection[T] {
+	if c == nil {
+		return nil
+	}
+	return &collection[T]{internalCollection: c}
+}
+
+func (t *collection[T]) Fetch(ctx HandlerContext, opts ...FetchOption) []T {
+	return Fetch(ctx, t, opts...)
+}
+
+func (t *collection[T]) FetchOne(ctx HandlerContext, opts ...FetchOption) *T {
+	return FetchOne(ctx, t, opts...)
+}
+
+func (t *collection[T]) FetchOrList(ctx HandlerContext, opts ...FetchOption) []T {
+	return FetchOrList(ctx, t, opts...)
+}
+
+func (t *collection[T]) ListSorted() []T {
+	return t.ListSortedBy(GetKey)
+}
+
+func (t *collection[T]) ListSortedBy[K cmp.Ordered](extract func(T) K) []T {
+	return slices.SortBy(t.List(), extract)
+}
+
+// Register adds an event watcher to the collection. Any time an item in the collection changes, the handler is called.
+func (t *collection[T]) Register(f func(Event[T])) HandlerRegistration {
+	return registerHandlerAsBatched(t.internalCollection, f)
+}
+
+func (t *collection[T]) internal() internalCollection[T] {
+	return t.internalCollection
+}
+
+// collectionTrait is the implementation contract wrapped by Collection.
+type collectionTrait[T any] interface {
 	// GetKey returns an object by its key, if present. Otherwise, nil is returned.
 	GetKey(k string) *T
 
@@ -54,17 +101,6 @@ type Collection[T any] interface {
 type EventStream[T any] interface {
 	Syncer
 
-	// Register adds an event watcher to the collection. Any time an item in the collection changes, the handler will be
-	// called. Typically, usage of Register is done internally in krt via composition of Collections with Transformations
-	// (NewCollection, NewManyCollection, NewSingleton); however, at boundaries of the system (connecting to something not
-	// using krt), registering directly is expected.
-	// Handlers have the following semantics:
-	// * On each event, all handlers are called.
-	// * Each handler has its own unbounded event queue. Slow handlers will cause this queue to accumulate, but will not block
-	//   other handlers.
-	// * Events will be sent in order, and will not be dropped or deduplicated.
-	Register(f func(o Event[T])) HandlerRegistration
-
 	// RegisterBatch registers a handler that accepts multiple events at once. This can be useful as an optimization.
 	// Otherwise, behaves the same as Register.
 	// Additionally, skipping the default behavior of "send all current state through the handler" can be turned off.
@@ -73,10 +109,10 @@ type EventStream[T any] interface {
 	RegisterBatch(f func(o []Event[T]), runExistingState bool) HandlerRegistration
 }
 
-// internalCollection is a superset of Collection for internal usage. All collections must implement this type, but
-// we only expose some functions to external users for simplicity.
+// internalCollection extends collectionTrait for internal usage. All collection implementations must implement this
+// type, but the additional methods remain hidden from external users by the Collection wrapper.
 type internalCollection[T any] interface {
-	Collection[T]
+	collectionTrait[T]
 
 	// Name is a human facing name for this collection.
 	// Note this may not be universally unique
@@ -99,6 +135,13 @@ type indexer[T any] interface {
 
 type uidable interface {
 	uid() collectionUID
+}
+
+// namer is implemented by every collection. Both methods are unexported, so only types declared in this
+// package can satisfy these interfaces; see GetKey and Equal, which use them to key and compare
+// collections held inside other collections.
+type namer interface {
+	name() string
 }
 
 // Singleton is a special Collection that only ever has a single object. They can be converted to the Collection where convenient,

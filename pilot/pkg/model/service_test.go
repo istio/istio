@@ -15,13 +15,16 @@
 package model
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 
+	"github.com/cespare/xxhash/v2"
 	"github.com/google/go-cmp/cmp"
 	fuzz "github.com/google/gofuzz"
 
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -33,6 +36,37 @@ import (
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/workloadapi"
 )
+
+func TestNewAddressInfo(t *testing.T) {
+	workload := &workloadapi.Workload{Uid: "workload"}
+	workloadAddress := &workloadapi.Address{
+		Type: &workloadapi.Address_Workload{Workload: workload},
+	}
+	serviceAddress := &workloadapi.Address{
+		Type: &workloadapi.Address_Service{Service: &workloadapi.Service{Name: "service"}},
+	}
+
+	for name, tt := range map[string]struct {
+		address               *workloadapi.Address
+		wantMarshaledWorkload *workloadapi.Workload
+	}{
+		"workload": {address: workloadAddress, wantMarshaledWorkload: workload},
+		"service":  {address: serviceAddress},
+	} {
+		t.Run(name, func(t *testing.T) {
+			got := NewAddressInfo(tt.address)
+			wantAddress := protoconv.MessageToAny(tt.address)
+			assert.Equal(t, got.Marshaled, wantAddress)
+			assert.Equal(t, got.Version, strconv.FormatUint(xxhash.Sum64(wantAddress.Value), 16))
+
+			if tt.wantMarshaledWorkload == nil {
+				assert.Equal(t, got.MarshaledWorkload, nil)
+				return
+			}
+			assert.Equal(t, got.MarshaledWorkload, protoconv.MessageToAny(tt.wantMarshaledWorkload))
+		})
+	}
+}
 
 func TestGetByPort(t *testing.T) {
 	ports := PortList{{
@@ -506,6 +540,76 @@ func TestServicesEqual(t *testing.T) {
 			other:    &Service{MeshExternal: false},
 			shouldEq: false,
 			name:     "different mesh external setting",
+		},
+		{
+			first: &Service{
+				Attributes: ServiceAttributes{
+					ClusterExternalPorts: map[cluster.ID]map[uint32]uint32{"cluster-1": {80: 30080}},
+				},
+			},
+			other: &Service{
+				Attributes: ServiceAttributes{
+					ClusterExternalPorts: map[cluster.ID]map[uint32]uint32{"cluster-1": {80: 30081}},
+				},
+			},
+			shouldEq: false,
+			name:     "different cluster external ports",
+		},
+		{
+			first: &Service{
+				Attributes: ServiceAttributes{
+					ClusterExternalPorts: map[cluster.ID]map[uint32]uint32{"cluster-1": {80: 30080}},
+				},
+			},
+			other: &Service{
+				Attributes: ServiceAttributes{
+					ClusterExternalPorts: map[cluster.ID]map[uint32]uint32{"cluster-2": {80: 30080}},
+				},
+			},
+			shouldEq: false,
+			name:     "cluster external ports under a different cluster",
+		},
+		{
+			first: &Service{
+				Attributes: ServiceAttributes{
+					ClusterExternalPorts: map[cluster.ID]map[uint32]uint32{"cluster-1": {80: 30080}},
+				},
+			},
+			other: &Service{
+				Attributes: ServiceAttributes{
+					ClusterExternalPorts: map[cluster.ID]map[uint32]uint32{"cluster-1": {80: 30080}},
+				},
+			},
+			shouldEq: true,
+			name:     "matching cluster external ports",
+		},
+		{
+			first: &Service{
+				Attributes: ServiceAttributes{
+					PassthroughTargetPorts: map[uint32]uint32{80: 8080},
+				},
+			},
+			other: &Service{
+				Attributes: ServiceAttributes{
+					PassthroughTargetPorts: map[uint32]uint32{80: 8081},
+				},
+			},
+			shouldEq: false,
+			name:     "different passthrough target ports",
+		},
+		{
+			first: &Service{
+				Attributes: ServiceAttributes{
+					PassthroughTargetPorts: map[uint32]uint32{80: 8080},
+				},
+			},
+			other: &Service{
+				Attributes: ServiceAttributes{
+					PassthroughTargetPorts: map[uint32]uint32{80: 8080},
+				},
+			},
+			shouldEq: true,
+			name:     "matching passthrough target ports",
 		},
 	}
 
@@ -1237,4 +1341,73 @@ func TestServiceInfoWaypointConditions(t *testing.T) {
 			t.Fatalf("want WaypointBound=false, got %+v", got)
 		}
 	})
+}
+
+func TestServiceInfoVisibilityCondition(t *testing.T) {
+	cases := []struct {
+		name       string
+		sourceKind kind.Kind
+		configured bool
+		visibility workloadapi.Service_Visibility
+		// wantReason is the expected VisibilityApplied condition Reason; "" means the condition
+		// must not be set (pruned): non-ServiceEntry sources, or the feature unconfigured.
+		wantReason string
+	}{
+		{
+			name:       "ServiceEntry PUBLIC",
+			sourceKind: kind.ServiceEntry,
+			configured: true,
+			visibility: workloadapi.Service_PUBLIC,
+			wantReason: VisibilityPublic,
+		},
+		{
+			name:       "ServiceEntry NAMESPACE",
+			sourceKind: kind.ServiceEntry,
+			configured: true,
+			visibility: workloadapi.Service_NAMESPACE,
+			wantReason: VisibilityNamespace,
+		},
+		{
+			// Feature unconfigured: the dataplane stays PUBLIC (legacy) and we write no condition.
+			name:       "ServiceEntry unconfigured",
+			sourceKind: kind.ServiceEntry,
+			configured: false,
+			visibility: workloadapi.Service_PUBLIC,
+			wantReason: "",
+		},
+		{
+			// The Source.Kind gate wins for a Kubernetes Service even if the flag were somehow set.
+			name:       "kube Service",
+			sourceKind: kind.Service,
+			configured: true,
+			visibility: workloadapi.Service_PUBLIC,
+			wantReason: "",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			si := ServiceInfo{
+				Service: &workloadapi.Service{
+					Name:       "svc",
+					Namespace:  "ns",
+					Hostname:   "svc.example.com",
+					Visibility: tc.visibility,
+				},
+				Source:               TypedObject{Kind: tc.sourceKind},
+				VisibilityConfigured: tc.configured,
+			}
+			got := si.GetConditions(nil)[VisibilityApplied]
+			if tc.wantReason == "" {
+				if got != nil {
+					t.Fatalf("expected no VisibilityApplied condition, got %+v", got)
+				}
+				return
+			}
+			if got == nil {
+				t.Fatal("expected VisibilityApplied condition, got none")
+			}
+			assert.Equal(t, got.Status, true)
+			assert.Equal(t, got.Reason, tc.wantReason)
+		})
+	}
 }

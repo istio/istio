@@ -63,7 +63,13 @@ func NewStatic[T any](initial *T, startSynced bool, opts ...CollectionOption) St
 		x.metadata = o.metadata
 	}
 	maybeRegisterCollectionForDebugging(x, o.debugger)
-	return collectionAdapter[T]{x}
+	if o.debugger != nil && o.stopProvided {
+		go func() {
+			<-o.stop
+			maybeUnregisterCollectionFromDebugger(x, o.debugger)
+		}()
+	}
+	return collectionAdapter[T]{newCollection[T](x)}
 }
 
 // static represents a Collection of a single static value. This can be explicitly Set() to override it
@@ -91,10 +97,6 @@ func (d *static[T]) List() []T {
 
 func (d *static[T]) Metadata() Metadata {
 	return d.metadata
-}
-
-func (d *static[T]) Register(f func(o Event[T])) HandlerRegistration {
-	return registerHandlerAsBatched[T](d, f)
 }
 
 func (d *static[T]) RegisterBatch(f func(o []Event[T]), runExistingState bool) HandlerRegistration {
@@ -236,18 +238,18 @@ func tryGetKey[T any](a T) (string, bool) {
 	return "", false
 }
 
-var _ Collection[dummyValue] = &static[dummyValue]{}
+var _ collectionTrait[dummyValue] = &static[dummyValue]{}
 
 type collectionAdapter[T any] struct {
 	c Collection[T]
 }
 
 func (c collectionAdapter[T]) MarkSynced() {
-	c.c.(*static[T]).synced.Store(true)
+	c.c.internal().(*static[T]).synced.Store(true)
 }
 
 func (c collectionAdapter[T]) Set(t *T) {
-	c.c.(*static[T]).Set(t)
+	c.c.internal().(*static[T]).Set(t)
 }
 
 func (c collectionAdapter[T]) Get() *T {
@@ -274,7 +276,7 @@ func (c collectionAdapter[T]) AsCollection() Collection[T] {
 
 // Every thing that collectionAdapter adapts has a uid so this is safe
 func (c collectionAdapter[T]) uid() collectionUID {
-	return c.c.(uidable).uid()
+	return c.c.uid()
 }
 
 var (

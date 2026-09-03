@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	resource2 "istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/test"
 )
 
 // This is a very basic benchmark on unit test data, so it doesn't tell us anything about how an analyzer performs at scale
@@ -77,7 +78,7 @@ func benchmarkAnalyzersArtificialBlankData(count int, b *testing.B) {
 	defer validationScope.SetOutputLevel(oldLevel)
 
 	// Generate blank test data
-	store := memory.MakeSkipValidation(collections.All)
+	store := memory.Make(collections.All, true, test.NewStop(b))
 	collections.All.ForEach(func(s resource2.Schema) bool {
 		for i := 0; i < count; i++ {
 			name := resource.NewFullName("default", resource.LocalName(fmt.Sprintf("%s-%d", s.Kind(), i)))

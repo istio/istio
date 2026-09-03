@@ -519,6 +519,31 @@ func TestAmbientIndex_ServiceOverlap(t *testing.T) {
 		s.assertCanonicalService(t, "svc1.ns1.svc.company.com", "se-2")
 		s.assertNoEvent(t)
 	})
+
+	t.Run("namespace-scoped serviceentry is not canonical", func(t *testing.T) {
+		s := newAmbientTestServer(t, testC, testNW, "")
+		// Scope every ServiceEntry to its own namespace. Set() (rather than in-place mutation)
+		// so the derived ServiceEntryVisibility collection is notified and recomputes.
+		mc := s.meshConfig.Mesh()
+		mc.ServiceEntryVisibility = &v1alpha1.ServiceEntryVisibility{
+			DefaultVisibility: v1alpha1.ServiceEntryVisibility_NAMESPACE,
+		}
+		s.meshConfig.(meshwatcher.TestWatcher).Set(mc)
+
+		// The SE is still published (present in the registry)...
+		addServiceEntry(s, 1, "foo.com", testNS)
+		s.assertAddresses(t, testNW+"/10.255.0.1", "se-1")
+		// ...but a NAMESPACE-scoped service must never be promoted to the canonical
+		// cross-namespace service for its hostname (eventually, no service is canonical).
+		assert.EventuallyEqual(t, func() string {
+			for _, si := range s.services.List() {
+				if si.Service.Hostname == "foo.com" && si.Service.Canonical {
+					return si.Service.Name
+				}
+			}
+			return ""
+		}, "")
+	})
 }
 
 func TestAmbientIndex_ServiceAttachedWaypoints(t *testing.T) {
@@ -1533,6 +1558,52 @@ func TestAmbientIndex_Policy(t *testing.T) {
 	}
 }
 
+func TestAmbientIndex_PeerAuthenticationNamespacePolicyChange(t *testing.T) {
+	s := newAmbientTestServer(t, testC, testNW, "")
+	setupPolicyTest(t, s)
+
+	workloadPolicies := func() []string {
+		addrs := s.lookup(s.addrXdsName("127.0.0.1"))
+		if len(addrs) == 0 {
+			return nil
+		}
+		return addrs[0].Address.GetWorkload().AuthorizationPolicies
+	}
+	convertedSelector := fmt.Sprintf("%s/%s", testNS, model.GetAmbientPolicyConfigName(model.ConfigKey{
+		Kind:      kind.PeerAuthentication,
+		Name:      "selector",
+		Namespace: testNS,
+	}))
+	// The name the workload lists and the policy itself are computed separately, so check both.
+	convertedPolicyExists := func() bool {
+		return s.authorizationPolicies.GetKey(convertedSelector) != nil
+	}
+
+	// A workload policy with an unset mode and one permissive port needs an explicit exemption
+	// from the namespace's strictness, so it converts to a policy of its own.
+	s.addPolicy(t, "namespace", testNS, nil, gvk.PeerAuthentication, func(c controllers.Object) {
+		pol := c.(*clientsecurityv1beta1.PeerAuthentication)
+		pol.Spec.Mtls = &auth.PeerAuthentication_MutualTLS{Mode: auth.PeerAuthentication_MutualTLS_STRICT}
+	})
+	s.addPolicy(t, "selector", testNS, map[string]string{"app": "a"}, gvk.PeerAuthentication, func(c controllers.Object) {
+		pol := c.(*clientsecurityv1beta1.PeerAuthentication)
+		pol.Spec.PortLevelMtls = map[uint32]*auth.PeerAuthentication_MutualTLS{
+			9090: {Mode: auth.PeerAuthentication_MutualTLS_PERMISSIVE},
+		}
+	})
+	assert.EventuallyEqual(t, workloadPolicies, []string{convertedSelector})
+	assert.EventuallyEqual(t, convertedPolicyExists, true)
+
+	// Relax the namespace policy. There is nothing left to exempt the port from, so the
+	// conversion produces nothing and the policy goes away.
+	s.addPolicy(t, "namespace", testNS, nil, gvk.PeerAuthentication, func(c controllers.Object) {
+		pol := c.(*clientsecurityv1beta1.PeerAuthentication)
+		pol.Spec.Mtls = &auth.PeerAuthentication_MutualTLS{Mode: auth.PeerAuthentication_MutualTLS_PERMISSIVE}
+	})
+	assert.EventuallyEqual(t, workloadPolicies, []string(nil))
+	assert.EventuallyEqual(t, convertedPolicyExists, false)
+}
+
 func TestDefaultAllowWaypointPolicy(t *testing.T) {
 	// while the Waypoint is in testNS, the policies live in the Pods' namespaces
 	policyName := "ns1/istio_allow_waypoint_" + testNS + "_" + "waypoint-ns"
@@ -1558,7 +1629,7 @@ func TestDefaultAllowWaypointPolicy(t *testing.T) {
 			s := newAmbientTestServerWithFlags(t, testC, testNW, FeatureFlags{
 				DefaultAllowFromWaypoint:              true,
 				EnableK8SServiceSelectWorkloadEntries: features.EnableK8SServiceSelectWorkloadEntries,
-			}, "")
+			}, "", true)
 			setupPolicyTest(t, s)
 
 			t.Run("policy with service accounts", func(t *testing.T) {
@@ -1718,7 +1789,7 @@ func TestRBACConvert(t *testing.T) {
 								Name:      pol[0].Name,
 								Namespace: pol[0].Namespace,
 							},
-							Spec: *((pol[0].Spec).(*auth.AuthorizationPolicy)), //nolint: govet
+							Spec: *pol[0].Spec.(*auth.AuthorizationPolicy), //nolint: govet
 						})
 					case gvk.PeerAuthentication: // we assume all crds in the same file are of the same type
 						var rootCfg, nsCfg, workloadCfg *config.Config
@@ -1757,7 +1828,7 @@ func TestRBACConvert(t *testing.T) {
 									Name:      pol[0].Name,
 									Namespace: pol[0].Namespace,
 								},
-								Spec: *((pol[0].Spec).(*auth.PeerAuthentication)), //nolint: govet
+								Spec: *pol[0].Spec.(*auth.PeerAuthentication), //nolint: govet
 							}, nil, nil)
 						} else {
 							var workloadPA, nsPA, rootPA *clientsecurityv1beta1.PeerAuthentication
@@ -1768,7 +1839,7 @@ func TestRBACConvert(t *testing.T) {
 										Name:      workloadCfg.Name,
 										Namespace: workloadCfg.Namespace,
 									},
-									Spec: *((workloadCfg.Spec).(*auth.PeerAuthentication)), //nolint: govet
+									Spec: *workloadCfg.Spec.(*auth.PeerAuthentication), //nolint: govet
 								}
 							}
 							if nsCfg != nil {
@@ -1778,7 +1849,7 @@ func TestRBACConvert(t *testing.T) {
 										Name:      nsCfg.Name,
 										Namespace: nsCfg.Namespace,
 									},
-									Spec: *((nsCfg.Spec).(*auth.PeerAuthentication)), //nolint: govet
+									Spec: *nsCfg.Spec.(*auth.PeerAuthentication), //nolint: govet
 								}
 							}
 
@@ -1789,7 +1860,7 @@ func TestRBACConvert(t *testing.T) {
 										Name:      rootCfg.Name,
 										Namespace: rootCfg.Namespace,
 									},
-									Spec: *((rootCfg.Spec).(*auth.PeerAuthentication)), //nolint: govet
+									Spec: *rootCfg.Spec.(*auth.PeerAuthentication), //nolint: govet
 								}
 							}
 
@@ -2283,7 +2354,7 @@ func newAmbientTestServer(t *testing.T, clusterID cluster.ID, networkID network.
 	return newAmbientTestServerWithFlags(t, clusterID, networkID, FeatureFlags{
 		DefaultAllowFromWaypoint:              features.DefaultAllowFromWaypoint,
 		EnableK8SServiceSelectWorkloadEntries: features.EnableK8SServiceSelectWorkloadEntries,
-	}, revision)
+	}, revision, true)
 }
 
 func newAmbientTestServerFromOptions(t *testing.T, networkID network.ID, options Options, runClient bool) *ambientTestServer {
@@ -2387,7 +2458,14 @@ func newAmbientTestServerFromOptions(t *testing.T, networkID network.ID, options
 	return a
 }
 
-func newAmbientTestServerWithFlags(t *testing.T, clusterID cluster.ID, networkID network.ID, flags FeatureFlags, revision string) *ambientTestServer {
+func newAmbientTestServerWithFlags(
+	t *testing.T,
+	clusterID cluster.ID,
+	networkID network.ID,
+	flags FeatureFlags,
+	revision string,
+	runClient bool,
+) *ambientTestServer {
 	up := xdsfake.NewFakeXDS()
 	up.SplitEvents = true
 	cl := kubeclient.NewFakeClient()
@@ -2449,7 +2527,7 @@ func newAmbientTestServerWithFlags(t *testing.T, clusterID cluster.ID, networkID
 		}
 	}
 
-	return newAmbientTestServerFromOptions(t, networkID, o, true)
+	return newAmbientTestServerFromOptions(t, networkID, o, runClient)
 }
 
 func dumpOnFailure(t *testing.T, debugger *krt.DebugHandler) {
@@ -2890,6 +2968,9 @@ func (s *ambientTestServer) assertAddresses(t *testing.T, lookup string, names .
 		for _, address := range addresses {
 			// Validate we pre-marshal everything
 			assert.Equal(t, address.Marshaled != nil, true)
+			if address.GetWorkload() != nil {
+				assert.Equal(t, address.MarshaledWorkload != nil, true)
+			}
 			switch addr := address.Address.Type.(type) {
 			case *workloadapi.Address_Workload:
 				have.Insert(addr.Workload.Name)
@@ -3217,6 +3298,7 @@ func (p *pushRequestRecorder) SvcUpdate(model.ShardKey, string, string, model.Ev
 func (p *pushRequestRecorder) ConfigUpdate(req *model.PushRequest)                   { p.req = req }
 func (p *pushRequestRecorder) ProxyUpdate(cluster.ID, string)                        {}
 func (p *pushRequestRecorder) RemoveShard(model.ShardKey)                            {}
+func (p *pushRequestRecorder) PruneShard(model.ShardKey, map[string]sets.String)     {}
 
 func TestPushXdsAddressWaypointRefs(t *testing.T) {
 	waypoint := &workloadapi.GatewayAddress{

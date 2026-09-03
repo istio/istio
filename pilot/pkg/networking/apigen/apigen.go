@@ -18,12 +18,16 @@ import (
 	"strings"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	"google.golang.org/grpc/codes"
+	grpcstatus "google.golang.org/grpc/status"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/log"
 )
@@ -40,11 +44,15 @@ import (
 type APIGenerator struct {
 	// ConfigStore interface for listing istio api resources.
 	store model.ConfigStore
+	// requireAuth restricts the generator to verified control-plane identities.
+	// Captured at construction to avoid reading the feature flag per-request.
+	requireAuth bool
 }
 
 func NewGenerator(store model.ConfigStore) *APIGenerator {
 	return &APIGenerator{
-		store: store,
+		store:       store,
+		requireAuth: features.EnableXDSAPIGeneratorAuth,
 	}
 }
 
@@ -60,6 +68,10 @@ func NewGenerator(store model.ConfigStore) *APIGenerator {
 //
 // Names are based on the current resource naming in istiod stores.
 func (g *APIGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
+	if err := g.authorize(proxy, req); err != nil {
+		return nil, model.DefaultXdsLogDetails, err
+	}
+
 	resp := model.Resources{}
 
 	// Note: this is the style used by MCP and its config. Pilot is using 'Group/Version/Kind' as the
@@ -130,4 +142,30 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, re
 	}
 
 	return resp, model.DefaultXdsLogDetails, nil
+}
+
+// authorize protects the api generator from unauthorized access. It serves cluster-wide
+// config, so only callers with a verified control-plane (root namespace) identity are allowed.
+func (g *APIGenerator) authorize(proxy *model.Proxy, req *model.PushRequest) error {
+	if !g.requireAuth {
+		return nil
+	}
+	systemNamespace := constants.IstioSystemNamespace
+	if req != nil && req.Push != nil && req.Push.Mesh != nil && req.Push.Mesh.GetRootNamespace() != "" {
+		systemNamespace = req.Push.Mesh.GetRootNamespace()
+	}
+	if proxy == nil || proxy.VerifiedIdentity == nil {
+		id := "<none>"
+		if proxy != nil {
+			id = proxy.ID
+		}
+		log.Warnf("ADS: api generator denied unauthenticated request from %q", id)
+		return grpcstatus.Error(codes.Unauthenticated, "the api generator requires an authenticated control-plane identity")
+	}
+	if proxy.VerifiedIdentity.Namespace != systemNamespace {
+		log.Warnf("ADS: api generator denied %q (identity %q), restricted to the control-plane namespace %q",
+			proxy.ID, proxy.VerifiedIdentity.String(), systemNamespace)
+		return grpcstatus.Error(codes.PermissionDenied, "the api generator is restricted to the control-plane (root) namespace")
+	}
+	return nil
 }

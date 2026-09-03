@@ -15,6 +15,7 @@
 package multicluster
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"sync"
 
@@ -79,13 +80,14 @@ func NestedManyCollectionsFromLocalAndRemote[T any](
 	opts krt.OptionsBuilder,
 ) krt.Collection[krt.Collection[T]] {
 	clustersCollection := ctrl.Clusters()
-	globalCollection := krt.NewStaticCollection(
-		localCollections[0],
+	// The local collections are fixed for the lifetime of the process, so a static container is enough.
+	localContainer := krt.NewStaticCollection(
+		nil,
 		localCollections,
-		opts.WithName("Global"+name)...,
+		opts.WithName("Local"+name)...,
 	)
 	cache := &collectionCacheByClusterMany[T]{
-		collections: make(map[cluster.ID][]krt.Collection[T]),
+		collections: make(map[cluster.ID]clusterCollections[T]),
 	}
 	clustersCollection.Register(func(e krt.Event[*Cluster]) {
 		if e.Event != controllers.EventDelete {
@@ -96,8 +98,14 @@ func NestedManyCollectionsFromLocalAndRemote[T any](
 			log.Debugf("clusterID %s doesn't exist in cache %v. Removal is a no-op", old.ID, cache)
 		}
 	})
+	// TODO: the transformation function here could actually race with the cluster deletion above.
 	remoteCollections := krt.NewManyCollection(clustersCollection, func(ctx krt.HandlerContext, c *Cluster) []krt.Collection[T] {
-		if existing := cache.Get(c.ID); existing != nil {
+		// Cache is keyed on the kubeconfig SHA and not just the cluster ID because a credential rotation
+		// replaces the *Cluster with a new client, new informers and a new stop channel.
+		// The previous generation is stopped once the new one syncs. Reusing
+		// its collections would leave us serving a snapshot frozen at rotation time, from informers that
+		// are no longer running.
+		if existing := cache.Get(c.ID, c.kubeConfigSha); existing != nil {
 			return existing
 		}
 		cols := clusterToCollections(ctx, c)
@@ -105,40 +113,52 @@ func NestedManyCollectionsFromLocalAndRemote[T any](
 			log.Warnf("no collections for %s returned for cluster %v", name, c.ID)
 			return nil
 		}
-		cache.Insert(c.ID, cols)
+		cache.Insert(c.ID, c.kubeConfigSha, cols)
 		return cols
 	}, opts.WithName("Remote"+name)...)
 
-	remoteCollections.RegisterBatch(func(o []krt.Event[krt.Collection[T]]) {
-		for _, e := range o {
-			l := e.Latest()
-			switch e.Event {
-			case controllers.EventAdd, controllers.EventUpdate:
-				globalCollection.UpdateObject(l)
-			case controllers.EventDelete:
-				globalCollection.DeleteObject(krt.GetKey(l))
-			}
-		}
-	}, true)
-	return globalCollection
+	// Return a joined collection for local and remote collections, this ensures that cluster updates swap collections atomically.
+	// We don't need to check if the inner collections are syncced, downstream consumers (like NestedJoin collections) will do this.
+	return krt.JoinCollection(
+		[]krt.Collection[krt.Collection[T]]{localContainer, remoteCollections},
+		opts.With(krt.WithName("Global"+name), krt.WithJoinUnchecked())...,
+	)
 }
 
-// collectionCacheByClusterMany is a thread-safe cache of slices of krt collections keyed by cluster ID.
+// clusterCollections holds the krt collections built for one generation of a cluster. The kubeconfig
+// SHA identifies the generation: it is what changes when a cluster's credentials are rotated, and it is
+// what Cluster.Equals compares.
+type clusterCollections[T any] struct {
+	kubeConfigSha [sha256.Size]byte
+	collections   []krt.Collection[T]
+}
+
+// collectionCacheByClusterMany is a thread-safe cache of slices of krt collections keyed by cluster ID
+// and generation.
 type collectionCacheByClusterMany[T any] struct {
-	collections map[cluster.ID][]krt.Collection[T]
+	collections map[cluster.ID]clusterCollections[T]
 	sync.RWMutex
 }
 
-func (c *collectionCacheByClusterMany[T]) Get(clusterID cluster.ID) []krt.Collection[T] {
+// Get returns the cached collections for the cluster, but only if they were built for the requested
+// generation. A generation mismatch reports a miss so the caller rebuilds.
+func (c *collectionCacheByClusterMany[T]) Get(clusterID cluster.ID, kubeConfigSha [sha256.Size]byte) []krt.Collection[T] {
 	c.RLock()
 	defer c.RUnlock()
-	return c.collections[clusterID]
+	existing, ok := c.collections[clusterID]
+	if !ok || existing.kubeConfigSha != kubeConfigSha {
+		return nil
+	}
+	return existing.collections
 }
 
-func (c *collectionCacheByClusterMany[T]) Insert(clusterID cluster.ID, cols []krt.Collection[T]) {
+func (c *collectionCacheByClusterMany[T]) Insert(clusterID cluster.ID, kubeConfigSha [sha256.Size]byte, cols []krt.Collection[T]) {
 	c.Lock()
 	defer c.Unlock()
-	c.collections[clusterID] = cols
+	c.collections[clusterID] = clusterCollections[T]{
+		kubeConfigSha: kubeConfigSha,
+		collections:   cols,
+	}
 }
 
 func (c *collectionCacheByClusterMany[T]) Remove(clusterID cluster.ID) bool {

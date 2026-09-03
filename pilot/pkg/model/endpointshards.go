@@ -238,6 +238,24 @@ func (e *EndpointIndex) DeleteShard(shardKey ShardKey) {
 	e.cache.ClearAll()
 }
 
+// PruneShard removes shardKey from every (service, namespace) entry not present in keep. A
+// registry calls this after completing a full resync (e.g. following a credential rotation) to
+// clean up shard entries for services that no longer exist in the source: such a service never
+// generates a delete event of its own, since a full resync only lists what currently exists -
+// there's nothing left to diff a fresh list against.
+func (e *EndpointIndex) PruneShard(shardKey ShardKey, keep map[string]sets.String) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	for svc, shardsByNamespace := range e.shardsBySvc {
+		for ns := range shardsByNamespace {
+			if keep[svc].Contains(ns) {
+				continue
+			}
+			e.deleteServiceInner(shardKey, svc, ns, false)
+		}
+	}
+}
+
 // must be called with lock
 func (e *EndpointIndex) deleteServiceInner(shard ShardKey, serviceName, namespace string, preserveKeys bool) {
 	if e.shardsBySvc[serviceName] == nil ||

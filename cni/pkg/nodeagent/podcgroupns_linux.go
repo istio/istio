@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"net"
+	"net/netip"
 	"path"
 	"regexp"
 	"strconv"
@@ -30,7 +32,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	"istio.io/istio/pkg/maps"
+	"istio.io/istio/cni/pkg/util"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -85,11 +87,10 @@ func (p *PodNetnsProcFinder) FindNetnsForPods(pods map[types.UID]*corev1.Pod) (P
 		return nil, err
 	}
 
-	desiredUIDs := sets.New(maps.Keys(pods)...)
 	for _, entry := range entries {
 		// we can't break here because we need to close all the netns we opened
 		// plus we want to return whatever we can to the user.
-		res, err := p.processEntry(p.proc, netnsObserved, desiredUIDs, entry)
+		res, err := p.processEntry(p.proc, netnsObserved, pods, entry)
 		if err != nil {
 			log.Debugf("error processing entry: %s %v", entry.Name(), err)
 			continue
@@ -103,21 +104,18 @@ func (p *PodNetnsProcFinder) FindNetnsForPods(pods map[types.UID]*corev1.Pod) (P
 		// Otherwise replace it with the one we just found
 		if existingNetns, exists := podUIDNetns[string(res.uid)]; exists {
 			log.Warnf("found more than one netns for the same pod: %s, will use oldest process netns", res.uid)
-			if existingNetns.Netns.OwnerProcStarttime() < res.ownerProcStarttime {
+			if existingNetns.Netns.OwnerProcStarttime() < res.netns.OwnerProcStarttime() {
+				// the existing entry wins; close the netns opened for this candidate
+				res.netns.Close()
 				continue
 			}
+			// this candidate wins; close the netns of the entry it replaces
+			existingNetns.Netns.Close()
 		}
 
-		pod := pods[res.uid]
-		netns := &NetnsWithFd{
-			netns:              res.netns,
-			fd:                 res.netnsfd,
-			inode:              res.inode,
-			ownerProcStarttime: res.ownerProcStarttime,
-		}
 		workload := WorkloadInfo{
-			Workload: podToWorkload(pod),
-			Netns:    netns,
+			Workload: podToWorkload(pods[res.uid]),
+			Netns:    res.netns,
 		}
 		podUIDNetns[string(res.uid)] = workload
 
@@ -125,7 +123,12 @@ func (p *PodNetnsProcFinder) FindNetnsForPods(pods map[types.UID]*corev1.Pod) (P
 	return podUIDNetns, nil
 }
 
-func (p *PodNetnsProcFinder) processEntry(proc fs.FS, netnsObserved sets.Set[uint64], filter sets.Set[types.UID], entry fs.DirEntry) (*PodNetnsEntry, error) {
+func (p *PodNetnsProcFinder) processEntry(
+	proc fs.FS,
+	netnsObserved sets.Set[uint64],
+	pods map[types.UID]*corev1.Pod,
+	entry fs.DirEntry,
+) (*PodNetnsEntry, error) {
 	log := log.WithLabels("PID", entry.Name())
 
 	if !isProcess(entry) {
@@ -183,29 +186,53 @@ func (p *PodNetnsProcFinder) processEntry(proc fs.FS, netnsObserved sets.Set[uin
 	if err != nil {
 		return nil, err
 	}
-	if filter != nil && !filter.Contains(uid) {
+	pod, desired := pods[uid]
+	if !desired {
 		return nil, nil
 	}
 
-	netns, err := proc.Open(netnsName)
+	netnsFile, err := proc.Open(netnsName)
 	if err != nil {
 		return nil, err
 	}
-	fd, err := GetFd(netns)
+	fd, err := GetFd(netnsFile)
 	if err != nil {
+		netnsFile.Close()
+		return nil, err
+	}
+
+	// The cgroup ties the process to a pod, not the netns — a foreign process may be
+	// transiting another pod's netns. Accept the pairing only if the netns holds one of
+	// the pod's IPs. Rejected netns are not marked observed, so the netns' rightful pod,
+	// scanned later, can still claim it.
+	netns := &NetnsWithFd{
+		netns:              netnsFile,
+		fd:                 fd,
+		inode:              entryNetnsStat.Ino,
+		ownerProcStarttime: ownerProcStarttime,
+	}
+	podIPs := util.GetPodIPsIfPresent(pod)
+	if len(podIPs) == 0 {
+		log.Debugf("pod %s/%s has no IPs yet; cannot verify netns ownership, not enrolling on this scan", pod.Namespace, pod.Name)
 		netns.Close()
-		return nil, err
+		return nil, nil
 	}
+	owned, err := p.netnsPodIPChecker(netns, podIPs)
+	if err != nil {
+		log.Warnf("could not verify netns ownership for pod %s/%s: %v", pod.Namespace, pod.Name, err)
+	} else if !owned {
+		log.Warnf("netns does not contain any IP of pod %s/%s; refusing the pairing, "+
+			"a foreign process may be transiting another pod's netns", pod.Namespace, pod.Name)
+	}
+	if err != nil || !owned {
+		netns.Close()
+		return nil, nil
+	}
+
 	netnsObserved[entryNetnsStat.Ino] = struct{}{}
 	log.Debugf("found pod to netns: %s", uid)
 
-	return &PodNetnsEntry{
-		uid,
-		netns,
-		fd,
-		entryNetnsStat.Ino,
-		ownerProcStarttime,
-	}, nil
+	return &PodNetnsEntry{uid: uid, netns: netns}, nil
 }
 
 func isProcess(entry fs.DirEntry) bool {
@@ -417,6 +444,9 @@ func getPodUIDAndContainerIDFromCGroups(cgroups []Cgroup) (types.UID, string, er
 type PodNetnsProcFinder struct {
 	proc          fs.FS
 	hostNetnsStat *syscall.Stat_t
+	// netnsPodIPChecker reports whether an interface inside ns carries one of podIPs.
+	// Overridable in tests; production is netnsContainsAnyPodIP, which enters the netns.
+	netnsPodIPChecker func(ns Netns, podIPs []netip.Addr) (bool, error)
 }
 
 func NewPodNetnsProcFinder(proc fs.FS) (*PodNetnsProcFinder, error) {
@@ -425,7 +455,45 @@ func NewPodNetnsProcFinder(proc fs.FS) (*PodNetnsProcFinder, error) {
 		return nil, err
 	}
 
-	return &PodNetnsProcFinder{proc: proc, hostNetnsStat: hostNetnsStat}, nil
+	return &PodNetnsProcFinder{proc: proc, hostNetnsStat: hostNetnsStat, netnsPodIPChecker: netnsContainsAnyPodIP}, nil
+}
+
+// netnsContainsAnyPodIP enters ns and reports whether any interface inside it carries one
+// of podIPs. Mirrors the repair controller's ownership test (cni/pkg/repair/netns_linux.go),
+// reimplemented because that helper is unexported, single-IP, and errors on no-match.
+func netnsContainsAnyPodIP(ns Netns, podIPs []netip.Addr) (bool, error) {
+	var match bool
+	err := NetnsDo(ns, func() error {
+		addrs, err := net.InterfaceAddrs()
+		if err != nil {
+			return err
+		}
+		match = interfaceAddrsContainAny(addrs, podIPs)
+		return nil
+	})
+	return match, err
+}
+
+// interfaceAddrsContainAny reports whether any interface address in addrs equals one of
+// podIPs. Addresses are compared unmapped so a v4-in-v6 form matches its v4 equivalent.
+func interfaceAddrsContainAny(addrs []net.Addr, podIPs []netip.Addr) bool {
+	for _, addr := range addrs {
+		ipNet, ok := addr.(*net.IPNet)
+		if !ok {
+			continue
+		}
+		ifAddr, ok := netip.AddrFromSlice(ipNet.IP)
+		if !ok {
+			continue
+		}
+		ifAddr = ifAddr.Unmap()
+		for _, podIP := range podIPs {
+			if ifAddr == podIP.Unmap() {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func statHostNetns(proc fs.FS) (*syscall.Stat_t, error) {

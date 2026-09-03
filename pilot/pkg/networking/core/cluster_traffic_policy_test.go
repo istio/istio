@@ -336,7 +336,7 @@ func TestApplyZoneAwareLoadBalancer(t *testing.T) {
 		c := newCluster()
 		za := &networking.ZoneAwareLoadBalancerSetting{
 			Enabled:        wrappers.Bool(true),
-			MinClusterSize: &wrappers.UInt64Value{Value: 7},
+			MinClusterSize: &wrappers.UInt32Value{Value: 7},
 		}
 		loadbalancer.ZoneAwareLBSettings{Setting: za}.ApplyToCluster(c, nil, proxyLocality, nil, false, "test-proxy", true)
 		zaCfg := c.CommonLbConfig.GetZoneAwareLbConfig()
@@ -365,7 +365,7 @@ func TestApplyZoneAwareLoadBalancer(t *testing.T) {
 		c := newCluster()
 		za := &networking.ZoneAwareLoadBalancerSetting{
 			Enabled:        wrappers.Bool(true),
-			MinClusterSize: &wrappers.UInt64Value{Value: 7},
+			MinClusterSize: &wrappers.UInt32Value{Value: 7},
 		}
 		// ZoneAwareLbConfig is always set; enableSelfDiscovery=false only triggers a warning.
 		loadbalancer.ZoneAwareLBSettings{Setting: za}.ApplyToCluster(c, nil, proxyLocality, nil, false, "test-proxy", false)
@@ -395,6 +395,25 @@ func TestApplyZoneAwareLoadBalancer(t *testing.T) {
 		// ZoneAwareLbConfig still gets set even without a LoadAssignment.
 		if c.CommonLbConfig.GetZoneAwareLbConfig() == nil {
 			t.Error("expected ZoneAwareLbConfig set even with nil LoadAssignment")
+		}
+	})
+
+	t.Run("disabled sets routing_enabled 0% and leaves priorities untouched", func(t *testing.T) {
+		c := newCluster()
+		za := &networking.ZoneAwareLoadBalancerSetting{Enabled: wrappers.Bool(false)}
+		loadbalancer.ZoneAwareLBSettings{Setting: za}.ApplyToCluster(c, nil, proxyLocality, nil, false, "test-proxy", true)
+		zaCfg := c.CommonLbConfig.GetZoneAwareLbConfig()
+		if zaCfg == nil {
+			t.Fatal("expected ZoneAwareLbConfig to be set even when disabled")
+		}
+		if zaCfg.GetRoutingEnabled() == nil || zaCfg.GetRoutingEnabled().GetValue() != 0 {
+			t.Errorf("RoutingEnabled = %v, want 0", zaCfg.GetRoutingEnabled())
+		}
+		// Priorities should be untouched (all 0 from newCluster).
+		for i, ep := range c.LoadAssignment.Endpoints {
+			if ep.Priority != 0 {
+				t.Errorf("endpoint[%d] priority = %d, want 0 (priorities untouched when disabled)", i, ep.Priority)
+			}
 		}
 	})
 }

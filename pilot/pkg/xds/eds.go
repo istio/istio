@@ -86,6 +86,10 @@ func (s *DiscoveryServer) RemoveShard(shardKey model.ShardKey) {
 	s.Env.EndpointIndex.DeleteShard(shardKey)
 }
 
+func (s *DiscoveryServer) PruneShard(shardKey model.ShardKey, keep map[string]sets.String) {
+	s.Env.EndpointIndex.PruneShard(shardKey, keep)
+}
+
 // EdsGenerator implements the new Generate method for EDS, using the in-memory, optimized endpoint
 // storage in DiscoveryServer.
 type EdsGenerator struct {

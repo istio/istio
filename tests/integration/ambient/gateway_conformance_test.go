@@ -67,14 +67,7 @@ var conformanceNamespaces = []string{
 
 var skippedTests = map[string]string{
 	// The following tests were added in v1.5.0
-
-	"GatewayBackendClientCertificateFeature":                     "TODO",
-	"GatewayFrontendClientCertificateValidationInsecureFallback": "TODO",
-
 	"HTTPRouteHTTPSListenerDetectMisdirectedRequests": "TODO",
-
-	// Fixed upstream, waiting for new gateway api release to pick up fix
-	"MeshHTTPRoute307Redirect": "TODO",
 
 	// The following tests were added in v1.6.0
 	"GatewayListenerUnsupportedProtocol": "TODO",
@@ -84,6 +77,7 @@ func TestGatewayConformance(t *testing.T) {
 	framework.
 		NewTest(t).
 		Run(func(ctx framework.TestContext) {
+			skipIfGatewayAPIUnsupported(ctx)
 			// Precreate the GatewayConformance namespaces, and apply the Image Pull Secret to them.
 			if ctx.Settings().Image.PullSecret != "" {
 				for _, ns := range conformanceNamespaces {

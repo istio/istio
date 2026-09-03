@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+issue:
+  - 58120
+releaseNotes:
+  - |
+    **Fixed** a bug where the authorization check for gateway secret access did not include the
+    service account's Kubernetes groups. As a result, `RoleBinding` and `ClusterRoleBinding` rules
+    granting secret access to groups such as `system:serviceaccounts:<namespace>` were ignored,
+    and gateways were denied access to credentials they had been granted.

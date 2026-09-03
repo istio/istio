@@ -1548,3 +1548,94 @@ metadata:
 		})
 	}
 }
+
+// TestDeploymentControllerWaitsForPushContext verifies that the deployment
+// controller's queue does not start processing until PushContext is ready.
+func TestDeploymentControllerWaitsForPushContext(t *testing.T) {
+	c := kube.NewFakeClient(&corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{Name: "default"},
+	})
+	tw := revisions.NewTagWatcher(c, "default", "istio-system")
+
+	// Create an environment where PushContext is NOT initialized to simulate
+	// a startup race (i.e., informers sync before PushContext is ready)
+	env := model.NewEnvironment()
+	env.Watcher = meshwatcher.NewTestWatcher(mesh.DefaultMeshConfig())
+
+	d := NewDeploymentController(c, "", env, testInjectionConfig(t, ""), func(fn func()) {}, tw, "", "")
+
+	reconciles := atomic.NewInt32(0)
+	d.patcher = func(g schema.GroupVersionResource, name string, namespace string, data []byte, subresources ...string) error {
+		if g == gvr.Service {
+			reconciles.Inc()
+		}
+		return nil
+	}
+
+	stop := test.NewStop(t)
+	gws := clienttest.Wrap(t, d.gateways)
+
+	go tw.Run(stop)
+	// d.Run() enters WaitForCacheSync, which blocks because PushContextReady()
+	// returns false. queue.Run() is therefore not called yet.
+	go d.Run(stop)
+	// RunAndWait starts the fake client's reflectors and returns once all
+	// informer caches are synced. After this returns, d.Run() is still blocked
+	// on PushContextReady(), so no queue processing has started.
+	c.RunAndWait(stop)
+
+	// Create a Gateway while PushContext is not ready. The informer event handler
+	// enqueues the work item into the queue's internal buffer, but queue.Run()
+	// has not been called, so no reconciliation can occur.
+	gws.Create(&k8s.Gateway{
+		ObjectMeta: metav1.ObjectMeta{Name: "gw", Namespace: "default"},
+		Spec: k8s.GatewaySpec{
+			GatewayClassName: k8s.ObjectName(features.GatewayAPIDefaultGatewayClass),
+		},
+	})
+
+	// Since queue.Run() has not been called, reconciliation will not happen.
+	assert.Equal(t, reconciles.Load(), int32(0))
+
+	// Mark PushContext as ready. WaitForCacheSync in d.Run() will now detect all
+	// conditions satisfied, return, and call queue.Run(). The queued Gateway will
+	// then be processed, invoking the reconciliation method.
+	env.PushContext().InitDone.Store(true)
+
+	assert.EventuallyEqual(t, func() bool { return reconciles.Load() >= 1 }, true,
+		retry.Timeout(time.Second*5),
+		retry.Message("expected reconciliation after PushContext became ready, but none occurred"))
+}
+
+// TestExtractServicePortsUniqueNames proves listener names that sanitize to the same Service port
+// name still produce unique port names. ListenerName allows periods and 253 characters; Service
+// port names allow neither, so "web.a"/"web-a" or names differing only past character 63 collide
+// after sanitizing. Duplicate port names make the entire Service invalid, so one colliding listener
+// blocks every unpublished port on the Gateway.
+func TestExtractServicePortsUniqueNames(t *testing.T) {
+	long := strings.Repeat("a", 63)
+	gw := k8s.Gateway{
+		Spec: k8s.GatewaySpec{
+			Listeners: []k8s.Listener{
+				{Name: "web.a", Port: 80, Protocol: k8s.HTTPProtocolType},
+				{Name: "web-a", Port: 81, Protocol: k8s.HTTPProtocolType},
+				{Name: k8s.SectionName(long + "-first"), Port: 82, Protocol: k8s.HTTPProtocolType},
+				{Name: k8s.SectionName(long + "-second"), Port: 83, Protocol: k8s.HTTPProtocolType},
+			},
+		},
+	}
+	ports := extractServicePorts(gw, nil)
+	seen := map[string]int32{}
+	for _, p := range ports {
+		if prev, ok := seen[p.Name]; ok {
+			t.Fatalf("duplicate Service port name %q for ports %d and %d; a Service with duplicate port names is rejected entirely", p.Name, prev, p.Port)
+		}
+		if len(p.Name) > 63 {
+			t.Fatalf("port name %q exceeds 63 characters", p.Name)
+		}
+		seen[p.Name] = p.Port
+	}
+	if len(ports) != 5 { // status-port + 4 listeners
+		t.Fatalf("expected 5 ports, got %d", len(ports))
+	}
+}

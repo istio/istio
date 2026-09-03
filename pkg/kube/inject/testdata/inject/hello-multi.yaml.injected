@@ -132,11 +132,6 @@ spec:
             resourceFieldRef:
               divisor: "1"
               resource: limits.memory
-        - name: GOMAXPROCS
-          valueFrom:
-            resourceFieldRef:
-              divisor: "1"
-              resource: limits.cpu
         - name: ISTIO_META_CLUSTER_ID
           value: Kubernetes
         - name: ISTIO_META_NODE_NAME
@@ -387,11 +382,6 @@ spec:
             resourceFieldRef:
               divisor: "1"
               resource: limits.memory
-        - name: GOMAXPROCS
-          valueFrom:
-            resourceFieldRef:
-              divisor: "1"
-              resource: limits.cpu
         - name: ISTIO_META_CLUSTER_ID
           value: Kubernetes
         - name: ISTIO_META_NODE_NAME

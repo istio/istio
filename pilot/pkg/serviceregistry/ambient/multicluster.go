@@ -63,24 +63,11 @@ func (a *index) buildGlobalCollections(
 	opts krt.OptionsBuilder,
 ) {
 	LocalPods := localCluster.Pods()
-	LocalServices := localCluster.Services()
 	LocalNamespaces := localCluster.Namespaces()
 	LocalNodes := localCluster.Nodes()
 	LocalGateways := localCluster.Gateways()
 
 	LocalMeshConfig := options.MeshConfig
-	// These first collections can't be merged since the Kubernetes APIs don't have enough room
-	// for e.g. duplicate IPs, etc. So we keep around collections of collections and indexes per cluster.
-	GlobalServices := multicluster.NestedCollectionFromLocalAndRemote(
-		a.mcController,
-		LocalServices,
-		func(_ krt.HandlerContext, c *multicluster.Cluster) *krt.Collection[*v1.Service] {
-			return ptr.Of(c.Services())
-		},
-		"Services",
-		opts,
-	)
-	serviceInformersByCluster := multicluster.NestedCollectionIndexByCluster(GlobalServices)
 
 	LocalGatewaysWithCluster := krt.MapCollection(LocalGateways, func(obj *gatewayv1.Gateway) krt.ObjectWithCluster[*gatewayv1.Gateway] {
 		return krt.ObjectWithCluster[*gatewayv1.Gateway]{
@@ -111,47 +98,11 @@ func (a *index) buildGlobalCollections(
 					Object:    &obj,
 				}
 			}, opts...))
-		}, "GatewaysWithCluster", opts)
+		}, "GatewaysWithCluster", opts,
+	)
 
 	globalGatewaysByCluster := multicluster.NestedCollectionIndexByCluster(GlobalGatewaysWithCluster)
 
-	GlobalNamespaces := multicluster.NestedCollectionFromLocalAndRemote(
-		a.mcController,
-		LocalNamespaces,
-		func(_ krt.HandlerContext, c *multicluster.Cluster) *krt.Collection[*v1.Namespace] {
-			return ptr.Of(c.Namespaces())
-		},
-		"Namespaces",
-		opts,
-	)
-	namespaceInformersByCluster := multicluster.NestedCollectionIndexByCluster(GlobalNamespaces)
-
-	LocalNodesWithCluster := krt.MapCollection(LocalNodes, func(obj *v1.Node) krt.ObjectWithCluster[*v1.Node] {
-		return krt.ObjectWithCluster[*v1.Node]{
-			ClusterID: localCluster.ID,
-			Object:    &obj,
-		}
-	}, opts.WithName("LocalNodesWithCluster")...)
-	GlobalNodesWithCluster := multicluster.NestedCollectionFromLocalAndRemote(
-		a.mcController,
-		LocalNodesWithCluster,
-		func(ctx krt.HandlerContext, c *multicluster.Cluster) *krt.Collection[krt.ObjectWithCluster[*v1.Node]] {
-			if !kube.WaitForCacheSync(fmt.Sprintf("ambient/informer/nodes[%s]", c.ID), a.stop, c.Nodes().HasSynced) {
-				log.Warnf("Failed to sync nodes informer for cluster %s", c.ID)
-				return nil
-			}
-			opts := []krt.CollectionOption{
-				krt.WithName(fmt.Sprintf("ambient/NodesWithCluster[%s]", c.ID)),
-				krt.WithDebugging(opts.Debugger()),
-				krt.WithStop(c.GetStop()),
-			}
-			return ptr.Of(krt.MapCollection(c.Nodes(), func(obj *v1.Node) krt.ObjectWithCluster[*v1.Node] {
-				return krt.ObjectWithCluster[*v1.Node]{
-					ClusterID: c.ID,
-					Object:    &obj,
-				}
-			}, opts...))
-		}, "NodesWithCluster", opts)
 	// Set up collections for remote clusters
 	GlobalNetworks := buildGlobalNetworkCollections(
 		a.mcController,
@@ -192,6 +143,8 @@ func (a *index) buildGlobalCollections(
 		LocalWaypoints,
 		opts,
 	)
+	authPoliciesByNs := selectingWorkloadAuthzByNs(AuthorizationPolicies)
+	LocalServiceEntryVisibility := model.ServiceEntryVisibilityCollection(LocalMeshConfig.AsCollection(), opts)
 
 	LocalWorkloadServices := builder.ServicesCollection(
 		localCluster.ID,
@@ -200,6 +153,7 @@ func (a *index) buildGlobalCollections(
 		LocalWaypoints,
 		LocalNamespaces,
 		LocalMeshConfig,
+		LocalServiceEntryVisibility,
 		opts,
 		false, // Don't precompute here; these will just get merged into the global collection later
 	)
@@ -216,6 +170,7 @@ func (a *index) buildGlobalCollections(
 			localServiceEntries,
 			localGatewayClasses,
 			LocalMeshConfig,
+			LocalServiceEntryVisibility,
 			localCluster.Namespaces(),
 			opts,
 		)
@@ -245,12 +200,8 @@ func (a *index) buildGlobalCollections(
 		LocalWaypoints,
 		a.mcController,
 		localServiceEntries,
-		GlobalServices,
-		serviceInformersByCluster,
 		GlobalWaypoints,
 		WaypointsByCluster,
-		GlobalNamespaces,
-		namespaceInformersByCluster,
 		LocalMeshConfig,
 		GlobalNetworks,
 		options.DomainSuffix,
@@ -282,9 +233,10 @@ func (a *index) buildGlobalCollections(
 		LocalNodes,
 		opts.WithName("LocalNodeLocality")...,
 	)
-	GlobalNodeLocality := GlobalNodesCollection(GlobalNodesWithCluster, opts.WithName("GlobalNodeLocalityWithCluster")...)
+	GlobalNodeLocality := GlobalNodesCollection(localCluster, LocalNodeLocality, a.mcController, opts)
 	GlobalNodeLocalityByCluster := multicluster.NestedCollectionIndexByCluster(GlobalNodeLocality)
 
+	localPeerAuthsByNs := krt.NewNamespaceIndex(localPeerAuths)
 	GlobalWorkloads := MergedGlobalWorkloadsCollection(
 		localCluster,
 		LocalWaypoints,
@@ -295,8 +247,8 @@ func (a *index) buildGlobalCollections(
 		GlobalNodeLocality,
 		GlobalNodeLocalityByCluster,
 		options.MeshConfig,
-		AuthorizationPolicies,
-		localPeerAuths,
+		authPoliciesByNs,
+		localPeerAuthsByNs,
 		GlobalWaypoints,
 		WaypointsByCluster,
 		LocalWorkloadServices,
@@ -319,14 +271,14 @@ func (a *index) buildGlobalCollections(
 			})
 	}
 
-	GlobalWorkloadServiceIndex := krt.NewIndex[string, model.WorkloadInfo](GlobalWorkloads, "service", func(o model.WorkloadInfo) []string {
+	GlobalWorkloadServiceIndex := krt.NewIndex(GlobalWorkloads, "service", func(o model.WorkloadInfo) []string {
 		return maps.Keys(o.Workload.Services)
 	})
 
 	// This allows us to find all the workloads that correspond to a service, network pair.
 	// This will allow us to build coalesced workloads that represent all the workloads in a remote network,
 	// for a given service. This helps reduce the number of XDS objects we to proxies.
-	workloadNetworkServiceIndex := krt.NewIndex[string, model.WorkloadInfo](GlobalWorkloads, "network;service", func(o model.WorkloadInfo) []string {
+	workloadNetworkServiceIndex := krt.NewIndex(GlobalWorkloads, "network;service", func(o model.WorkloadInfo) []string {
 		res := make([]string, 0, len(o.Workload.Services))
 		for svc := range o.Workload.Services {
 			res = append(res, strings.Join([]string{o.Workload.Network, svc}, ";"))
@@ -414,8 +366,8 @@ func (a *index) buildGlobalCollections(
 		PushXdsAddress(a.XDSUpdater, model.WorkloadInfo.ResourceName, model.WorkloadInfo.WaypointRef),
 	), false)
 
-	SplitHorizonWorkloadAddressIndex := krt.NewIndex[networkAddress, model.WorkloadInfo](SplitHorizonWorkloads, "networkAddress", networkAddressFromWorkload)
-	SplitHorizonWorkloadServiceIndex := krt.NewIndex[string, model.WorkloadInfo](SplitHorizonWorkloads, "service", func(o model.WorkloadInfo) []string {
+	SplitHorizonWorkloadAddressIndex := krt.NewIndex(SplitHorizonWorkloads, "networkAddress", networkAddressFromWorkload)
+	SplitHorizonWorkloadServiceIndex := krt.NewIndex(SplitHorizonWorkloads, "service", func(o model.WorkloadInfo) []string {
 		return maps.Keys(o.Workload.Services)
 	})
 	SplitHorizonWorkloadWaypointIndexHostname := krt.NewIndex(SplitHorizonWorkloads, "namespaceHostname", func(w model.WorkloadInfo) []NamespaceHostname {
@@ -495,6 +447,10 @@ func (a *index) buildGlobalCollections(
 
 			newSvcInfo := &model.ServiceInfo{
 				Service:            protomarshal.Clone(svc.Service),
+				PortNames:          svc.PortNames,
+				LabelSelector:      svc.LabelSelector,
+				Source:             svc.Source,
+				Waypoint:           svc.Waypoint,
 				Scope:              svc.Scope,
 				CreationTime:       svc.CreationTime,
 				DNSConnectStrategy: svc.DNSConnectStrategy,
@@ -502,7 +458,8 @@ func (a *index) buildGlobalCollections(
 			newSvcInfo.Service.SubjectAltNames = sans.UnsortedList()
 			return precomputeServicePtr(newSvcInfo)
 		},
-		opts.WithName("SplitHorizonServices")...)
+		opts.WithName("SplitHorizonServices")...,
+	)
 
 	SplitHorizonServices.RegisterBatch(krt.BatchedEventFilter(
 		func(a model.ServiceInfo) *model.XDSServiceInfo {
@@ -515,7 +472,7 @@ func (a *index) buildGlobalCollections(
 		PushXdsAddress(a.XDSUpdater, model.ServiceInfo.ResourceName, model.ServiceInfo.WaypointRef),
 	), false)
 
-	SplitHorizonServiceAddressIndex := krt.NewIndex[networkAddress, model.ServiceInfo](SplitHorizonServices, "serviceAddress", networkAddressFromService)
+	SplitHorizonServiceAddressIndex := krt.NewIndex(SplitHorizonServices, "serviceAddress", networkAddressFromService)
 	SplitHorizonServiceInfosByOwningWaypointHostname := krt.NewIndex(SplitHorizonServices, "namespaceHostname", func(s model.ServiceInfo) []NamespaceHostname {
 		// Filter out waypoint services
 		// TODO: we are looking at the *selector* -- we should be looking the labels themselves or something equivalent.

@@ -1,0 +1,21 @@
+apiVersion: release-notes/v2
+
+kind: security-fix
+
+area: security
+
+# no public issue for security vulnerability
+issue: []
+
+releaseNotes:
+- |
+  **Fixed** the XDS `api` generator (MCP config serving) to require a verified control-plane identity.
+  Previously any client that could reach istiod's XDS port could read Istio config across all namespaces.
+  Disable with ENABLE_XDS_API_GENERATOR_AUTH=false if needed for compatibility.
+
+upgradeNotes:
+- title: The XDS api generator now requires a control-plane identity
+  content: |
+    Custom MCP consumers connecting to istiod's api generator from non-system namespaces are now rejected.
+    Standard sidecar, gateway, and ztunnel traffic is unaffected.
+    To restore previous behavior, set ENABLE_XDS_API_GENERATOR_AUTH=false.

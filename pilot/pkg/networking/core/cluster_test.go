@@ -24,6 +24,7 @@ import (
 	"time"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	matcher "github.com/envoyproxy/go-control-plane/envoy/config/common/matcher/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	overridehost "github.com/envoyproxy/go-control-plane/envoy/extensions/load_balancing_policies/override_host/v3"
@@ -1404,6 +1405,42 @@ func TestApplyOutlierDetection(t *testing.T) {
 			},
 		},
 		{
+			"Failure percentage threshold is set",
+			&networking.OutlierDetection{
+				FailurePercentageThreshold: &wrappers.UInt32Value{Value: 85},
+			},
+			&cluster.OutlierDetection{
+				FailurePercentageThreshold: &wrappers.UInt32Value{Value: 85},
+				EnforcingFailurePercentage: &wrappers.UInt32Value{Value: 100},
+				EnforcingSuccessRate:       &wrappers.UInt32Value{Value: 0},
+			},
+		},
+		{
+			"Failure percentage threshold is set to 0",
+			&networking.OutlierDetection{
+				FailurePercentageThreshold: &wrappers.UInt32Value{Value: 0},
+			},
+			&cluster.OutlierDetection{
+				FailurePercentageThreshold: &wrappers.UInt32Value{Value: 0},
+				EnforcingFailurePercentage: &wrappers.UInt32Value{Value: 0},
+				EnforcingSuccessRate:       &wrappers.UInt32Value{Value: 0},
+			},
+		},
+		{
+			"Failure percentage threshold combined with consecutive 5xx",
+			&networking.OutlierDetection{
+				Consecutive_5XxErrors:      &wrappers.UInt32Value{Value: 4},
+				FailurePercentageThreshold: &wrappers.UInt32Value{Value: 50},
+			},
+			&cluster.OutlierDetection{
+				Consecutive_5Xx:            &wrappers.UInt32Value{Value: 4},
+				EnforcingConsecutive_5Xx:   &wrappers.UInt32Value{Value: 100},
+				FailurePercentageThreshold: &wrappers.UInt32Value{Value: 50},
+				EnforcingFailurePercentage: &wrappers.UInt32Value{Value: 100},
+				EnforcingSuccessRate:       &wrappers.UInt32Value{Value: 0},
+			},
+		},
+		{
 			"Local origin errors is enabled",
 			&networking.OutlierDetection{
 				SplitExternalLocalOriginErrors: true,
@@ -1433,6 +1470,44 @@ func TestApplyOutlierDetection(t *testing.T) {
 					},
 				}))
 			g.Expect(c.OutlierDetection).To(Equal(tt.o))
+		})
+	}
+}
+
+func TestApplyOutlierDetectionErrorCodes(t *testing.T) {
+	g := NewWithT(t)
+
+	tests := []struct {
+		name  string
+		codes []uint32
+	}{
+		{"single outlier error code: direct header match", []uint32{429}},
+		{"multiple outlier error codes: or_match predicate", []uint32{429, 503}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mc := &clusterWrapper{cluster: &cluster.Cluster{}}
+			applyOutlierDetectionErrorCodes(mc, tt.codes)
+			od := mc.httpProtocolOptions.GetOutlierDetection()
+			g.Expect(od).NotTo(BeNil())
+			g.Expect(od.ErrorMatcher).NotTo(BeNil())
+
+			var rules []*matcher.MatchPredicate
+			if len(tt.codes) > 1 {
+				orMatch := od.ErrorMatcher.GetOrMatch()
+				g.Expect(orMatch).NotTo(BeNil())
+				rules = orMatch.Rules
+			} else {
+				rules = []*matcher.MatchPredicate{od.ErrorMatcher}
+			}
+
+			g.Expect(rules).To(HaveLen(len(tt.codes)))
+			for i, code := range tt.codes {
+				hdrs := rules[i].GetHttpResponseHeadersMatch().GetHeaders()
+				g.Expect(hdrs).To(HaveLen(1))
+				g.Expect(hdrs[0].GetStringMatch().GetExact()).To(Equal(fmt.Sprintf("%d", code)))
+			}
 		})
 	}
 }

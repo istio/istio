@@ -351,6 +351,13 @@ type XDSUpdater interface {
 
 	// RemoveShard removes all endpoints for the given shard key
 	RemoveShard(shardKey ShardKey)
+
+	// PruneShard removes the given shard key from every (hostname, namespace) pair not present
+	// in keep. Called after a registry completes a full resync (e.g. following a credential
+	// rotation) to clean up shard entries for services that no longer exist in the source -
+	// such a service never generates a delete event of its own, since a full resync only lists
+	// what currently exists.
+	PruneShard(shardKey ShardKey, keep map[string]sets.String)
 }
 
 // PushRequest defines a request to push to proxies
@@ -1071,6 +1078,41 @@ func (ps *PushContext) ServiceForHostname(proxy *Proxy, hostname host.Name) *Ser
 	return nil
 }
 
+// serviceExportTo returns the effective exportTo set for a service: the declared exportTo (or the
+// mesh default when unset), capped by the service's resolved Visibility when
+// MeshConfig.serviceEntryVisibility.applyToSidecars is enabled. This is the visibility-safe way to
+// read a service's scope; callers must not read Attributes.ExportTo directly for scoping decisions.
+func (ps *PushContext) serviceExportTo(service *Service) sets.Set[visibility.Instance] {
+	exportToSet := ps.exportToDefaults.service
+	if !service.Attributes.ExportTo.IsEmpty() {
+		exportToSet = service.Attributes.ExportTo
+	}
+	// The user requested only None (~), so honor it; else run through the ServiceEntryVisibility logic
+	// to ensure we don't leak
+	if exportToSet.Len() == 1 && exportToSet.Contains(visibility.None) {
+		return exportToSet
+	}
+	// serviceEntryVisibility caps exportTo for classic (sidecar) proxies when opted in. It only
+	// ever narrows: NAMESPACE clamps to namespace-local, NONE hides the service entirely.
+	if ps.Mesh.GetServiceEntryVisibility().GetApplyToSidecars() {
+		switch service.Attributes.Visibility {
+		case ServiceVisibilityNamespace:
+			// Clamp to own-ns: keep Private only if the declared exportTo includes own namespace
+			// (*, ., or a literal own-ns entry); otherwise the intersection is None.
+			ns := service.Attributes.Namespace
+			if exportToSet.Contains(visibility.Public) ||
+				exportToSet.Contains(visibility.Private) ||
+				exportToSet.Contains(visibility.Instance(ns)) {
+				return sets.New(visibility.Private)
+			}
+			return sets.New(visibility.None)
+		case ServiceVisibilityNone:
+			return sets.New(visibility.None)
+		}
+	}
+	return exportToSet
+}
+
 // IsServiceVisible returns true if the input service is visible to the given namespace.
 func (ps *PushContext) IsServiceVisible(service *Service, namespace string) bool {
 	if service == nil {
@@ -1078,10 +1120,7 @@ func (ps *PushContext) IsServiceVisible(service *Service, namespace string) bool
 	}
 
 	ns := service.Attributes.Namespace
-	exportToSet := ps.exportToDefaults.service
-	if !service.Attributes.ExportTo.IsEmpty() {
-		exportToSet = service.Attributes.ExportTo
-	}
+	exportToSet := ps.serviceExportTo(service)
 
 	return exportToSet.Contains(visibility.Public) ||
 		(exportToSet.Contains(visibility.Private) && ns == namespace) ||
@@ -1562,10 +1601,7 @@ func (ps *PushContext) initServiceRegistry(env *Environment, configsUpdate sets.
 		}
 
 		ns := s.Attributes.Namespace
-		exportToSet := ps.exportToDefaults.service
-		if !s.Attributes.ExportTo.IsEmpty() {
-			exportToSet = s.Attributes.ExportTo
-		}
+		exportToSet := ps.serviceExportTo(s)
 
 		// if service has exportTo *, make it public and ignore all other exportTos.
 		// if service does not have exportTo *, but has exportTo ~ - i.e. not visible to anyone, ignore all exportTos.
