@@ -19,13 +19,18 @@ import (
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	inferencev1 "sigs.k8s.io/gateway-api-inference-extension/api/v1"
 
+	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -345,4 +350,182 @@ func TestReconcileInferencePool(t *testing.T) {
 			assert.Equal(t, service.OwnerReferences[0].Name, tc.inferencePool.Name)
 		})
 	}
+}
+
+func TestReconcileInferencePoolDeletesShadowServiceAfterLastRoute(t *testing.T) {
+	test.SetForTest(t, &features.EnableGatewayAPIInferenceExtension, true)
+
+	pool := NewInferencePool("test-pool", InNamespace("default"))
+	pool.UID = types.UID("pool-uid")
+	pool.Spec.TargetPorts = []inferencev1.Port{{Number: 8080}}
+	pool.Spec.EndpointPickerRef.Port = &inferencev1.Port{Number: 5421}
+	route := NewHTTPRoute("test-route", InNamespace("default"),
+		WithParentRefAndStatus("test-gateway", "default", "istio.io/gateway-controller"),
+		WithBackendRef(pool.Name, pool.Namespace),
+	)
+	secondRoute := NewHTTPRoute("second-route", InNamespace("default"),
+		WithParentRefAndStatus("test-gateway", "default", "istio.io/gateway-controller"),
+		WithBackendRef(pool.Name, pool.Namespace),
+	)
+	controller := setupController(t,
+		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "default"}},
+		NewGateway("test-gateway", InNamespace("default"), WithGatewayClass("istio")),
+		route,
+		secondRoute,
+		pool,
+	)
+
+	serviceName, err := InferencePoolServiceName(pool.Name)
+	assert.NoError(t, err)
+	assert.EventuallyEqual(t, func() bool {
+		_, err := controller.client.Kube().CoreV1().Services(pool.Namespace).
+			Get(t.Context(), serviceName, metav1.GetOptions{})
+		return err == nil
+	}, true)
+
+	assert.NoError(t, controller.client.GatewayAPI().GatewayV1().HTTPRoutes(route.Namespace).
+		Delete(t.Context(), route.Name, metav1.DeleteOptions{}))
+	assert.EventuallyEqual(t, func() bool {
+		_, err := controller.client.Kube().CoreV1().Services(pool.Namespace).
+			Get(t.Context(), serviceName, metav1.GetOptions{})
+		return err == nil
+	}, true)
+
+	assert.NoError(t, controller.client.GatewayAPI().GatewayV1().HTTPRoutes(secondRoute.Namespace).
+		Delete(t.Context(), secondRoute.Name, metav1.DeleteOptions{}))
+	assert.EventuallyEqual(t, func() bool {
+		_, err := controller.client.Kube().CoreV1().Services(pool.Namespace).
+			Get(t.Context(), serviceName, metav1.GetOptions{})
+		return apierrors.IsNotFound(err)
+	}, true)
+}
+
+func TestReconcileInferencePoolDoesNotDeleteShadowServiceOnStartup(t *testing.T) {
+	test.SetForTest(t, &features.EnableGatewayAPIInferenceExtension, true)
+
+	poolName := "test-pool"
+	namespace := "default"
+	serviceName, err := InferencePoolServiceName(poolName)
+	assert.NoError(t, err)
+	poolUID := types.UID("pool-uid")
+	pool := NewInferencePool(poolName, InNamespace(namespace))
+	pool.UID = poolUID
+	pool.Spec.TargetPorts = []inferencev1.Port{{Number: 8080}}
+	pool.Spec.EndpointPickerRef.Port = &inferencev1.Port{Number: 5421}
+	controller := setupController(t,
+		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace}},
+		pool,
+		managedShadowServiceForTest(serviceName, poolName, namespace, poolUID),
+	)
+
+	_, err = controller.client.Kube().CoreV1().Services(namespace).
+		Get(t.Context(), serviceName, metav1.GetOptions{})
+	assert.NoError(t, err)
+}
+
+func TestReconcileInferencePoolDoesNotDeleteShadowServiceWhenFeatureDisabled(t *testing.T) {
+	test.SetForTest(t, &features.EnableGatewayAPIInferenceExtension, false)
+
+	poolName := "test-pool"
+	namespace := "default"
+	serviceName, err := InferencePoolServiceName(poolName)
+	assert.NoError(t, err)
+	controller := setupController(t,
+		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace}},
+		managedShadowServiceForTest(serviceName, poolName, namespace, types.UID("pool-uid")),
+	)
+
+	_, err = controller.client.Kube().CoreV1().Services(namespace).
+		Get(t.Context(), serviceName, metav1.GetOptions{})
+	assert.NoError(t, err)
+}
+
+func TestReconcileInferencePoolDoesNotDeleteShadowServiceAfterRevisionHandoff(t *testing.T) {
+	test.SetForTest(t, &features.EnableGatewayAPIInferenceExtension, true)
+
+	poolName := "test-pool"
+	namespace := "default"
+	poolUID := types.UID("pool-uid")
+	serviceName, err := InferencePoolServiceName(poolName)
+	assert.NoError(t, err)
+	pool := NewInferencePool(poolName, InNamespace(namespace))
+	pool.UID = poolUID
+	pool.Labels = map[string]string{label.IoIstioRev.Name: "canary"}
+	service := managedShadowServiceForTest(serviceName, poolName, namespace, poolUID)
+	controller := setupControllerWithRevision(t, "stable",
+		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace}},
+		pool,
+		service,
+	)
+	opts := krt.NewOptionsBuilder(test.NewStop(t), "test", nil)
+	services := krt.NewStaticCollection(nil, []*corev1.Service{service}, opts.WithName("Services")...)
+	reconcile := controller.reconcileShadowService(controller.client, controller.outputs.InferencePools, services)
+
+	assert.NoError(t, reconcile(shadowServiceReconcileRequest{
+		key:     types.NamespacedName{Namespace: namespace, Name: poolName},
+		delete:  true,
+		poolUID: poolUID,
+	}))
+	_, err = controller.client.Kube().CoreV1().Services(namespace).Get(t.Context(), serviceName, metav1.GetOptions{})
+	assert.NoError(t, err)
+}
+
+func TestCanDeleteShadowServiceForInference(t *testing.T) {
+	poolName := "test-pool"
+	base := &corev1.Service{ObjectMeta: metav1.ObjectMeta{
+		Labels: map[string]string{
+			InferencePoolRefLabel:              poolName,
+			constants.InternalServiceSemantics: constants.ServiceSemanticsInferencePool,
+		},
+		OwnerReferences: []metav1.OwnerReference{{
+			APIVersion: gvk.InferencePool.GroupVersion(), Kind: gvk.InferencePool.Kind,
+			Name: poolName, UID: types.UID("pool-uid"),
+		}},
+	}}
+
+	testCases := []struct {
+		name    string
+		mutate  func(*corev1.Service)
+		allowed bool
+	}{
+		{name: "matching managed service", allowed: true},
+		{name: "different pool label", mutate: func(s *corev1.Service) {
+			s.Labels[InferencePoolRefLabel] = "other-pool"
+		}},
+		{name: "missing internal semantics", mutate: func(s *corev1.Service) {
+			delete(s.Labels, constants.InternalServiceSemantics)
+		}},
+		{name: "missing owner reference", mutate: func(s *corev1.Service) {
+			s.OwnerReferences = nil
+		}},
+		{name: "different pool UID", mutate: func(s *corev1.Service) {
+			s.OwnerReferences[0].UID = types.UID("other-pool-uid")
+		}},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			service := base.DeepCopy()
+			if tc.mutate != nil {
+				tc.mutate(service)
+			}
+			allowed, _ := (&Controller{}).canDeleteShadowServiceForInference(
+				service, poolName, types.UID("pool-uid"))
+			assert.Equal(t, allowed, tc.allowed)
+		})
+	}
+}
+
+func managedShadowServiceForTest(serviceName, poolName, namespace string, poolUID types.UID) *corev1.Service {
+	return &corev1.Service{ObjectMeta: metav1.ObjectMeta{
+		Name: serviceName, Namespace: namespace, UID: types.UID("service-uid"), ResourceVersion: "1",
+		Labels: map[string]string{
+			InferencePoolRefLabel:              poolName,
+			constants.InternalServiceSemantics: constants.ServiceSemanticsInferencePool,
+		},
+		OwnerReferences: []metav1.OwnerReference{{
+			APIVersion: gvk.InferencePool.GroupVersion(), Kind: gvk.InferencePool.Kind,
+			Name: poolName, UID: poolUID,
+		}},
+	}}
 }
