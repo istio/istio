@@ -158,6 +158,23 @@ message CNIConfig {
   // See https://kubernetes.io/docs/tutorials/security/apparmor/
   // https://kubernetes.io/docs/reference/labels-annotations-taints/#container-apparmor-security-beta-kubernetes-io
   google.protobuf.BoolValue useAppArmorAnnotation = 37;
+
+  // The duration in seconds the istio-cni pod needs to terminate gracefully.
+  // Defaults to the Kubernetes default of 30 seconds.
+  // See: https://kubernetes.io/docs/concepts/containers/container-lifecycle-hooks/#hook-handler-execution
+  int32 terminationGracePeriodSeconds = 39;
+
+  // The update strategy for the CNI DaemonSet.
+  // See https://kubernetes.io/docs/tasks/manage-daemon/update-daemon-set/
+  google.protobuf.Struct updateStrategy = 40;
+
+  // SELinux options for the CNI pod security context.
+  google.protobuf.Struct seLinuxOptions = 41;
+
+  // K8s tolerations settings for CNI pods.
+  //
+  // See https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
+  repeated google.protobuf.Struct tolerations = 42;
 }
 
 message CNIUsageConfig {
@@ -1032,6 +1049,22 @@ message PilotConfig {
 
   // Select a custom name for istiod's plugged-in CA CRL ConfigMap.
   string crlConfigMapName = 63;
+
+  // Init containers for the istiod pod.
+  repeated google.protobuf.Struct initContainers = 65;
+
+  // Pod disruption budget for istiod.
+  // See https://kubernetes.io/docs/concepts/workloads/pods/disruptions/
+  google.protobuf.Struct pdb = 66;
+
+  // Annotations for the istiod deployment.
+  google.protobuf.Struct deploymentAnnotations = 67;
+
+  // Annotations for the sidecar injector webhook.
+  google.protobuf.Struct sidecarInjectorWebhookAnnotations = 68;
+
+  // The name of the ztunnel that istiod should trust for mTLS.
+  string trustedZtunnelName = 69;
 }
 
 message PilotTaintControllerConfig {
@@ -1266,6 +1299,9 @@ message ProxyInitConfig {
   //
   // See https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container
   Resources resources = 5 [deprecated = true];
+  // Bypasses iptables idempotency handling, and attempts to apply iptables rules regardless of table state, which may cause unrecoverable failures.
+  // Do not use unless you need to work around an issue of the idempotency handling. This flag will be removed in future releases.
+  bool forceApplyIptables = 6;
 }
 
 // Configuration for K8s resource requests.
@@ -1547,7 +1583,7 @@ message WaypointConfig {
   // K8s tolerations settings.
   //
   // See https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
-  repeated google.protobuf.Struct toleration = 5;
+  repeated google.protobuf.Struct tolerations = 5;
 }
 
 // Configuration for NetworkPolicy
