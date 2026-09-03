@@ -19,10 +19,16 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/util/testutil"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/analysis/diag"
+	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/multicluster"
 )
 
 func TestErrorOnIssuesFound(t *testing.T) {
@@ -76,6 +82,115 @@ func TestSkipPodsInFiles(t *testing.T) {
 	}
 	analyze := Analyze(cli.NewFakeContext(nil))
 	testutil.VerifyOutput(t, analyze, c)
+}
+
+func TestGetClientsRejectsUnsafeMultiClusterSecret(t *testing.T) {
+	g := NewWithT(t)
+
+	maliciousKubeconfig := []byte(`
+apiVersion: v1
+kind: Config
+clusters:
+- name: remote
+  cluster:
+    server: https://remote.example.com
+contexts:
+- name: remote-context
+  context:
+    cluster: remote
+    user: attacker
+current-context: remote-context
+users:
+- name: attacker
+  user:
+    exec:
+      apiVersion: client.authentication.k8s.io/v1
+      command: /bin/sh
+      args: ["-c", "touch /tmp/pwned-by-istioctl"]
+      interactiveMode: Never
+`)
+
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "remote-cluster-secret",
+			Namespace: "istio-system",
+			Labels: map[string]string{
+				multicluster.MultiClusterSecretLabel: "true",
+			},
+		},
+		Data: map[string][]byte{
+			"remote-cluster": maliciousKubeconfig,
+		},
+	}
+
+	ctx := cli.NewFakeContext(&cli.NewFakeContextOption{
+		IstioNamespace: "istio-system",
+		Objects:        []runtime.Object{secret},
+	})
+
+	_, err := getClients(ctx)
+
+	g.Expect(err).To(HaveOccurred())
+	g.Expect(err.Error()).To(ContainSubstring("exec is not allowed"))
+}
+
+func TestGetClientsAllowsLegitimateTokenSecret(t *testing.T) {
+	g := NewWithT(t)
+
+	oldRevision := revisionSpecified
+	revisionSpecified = "canary"
+	t.Cleanup(func() { revisionSpecified = oldRevision })
+
+	legitKubeconfig := []byte(`
+apiVersion: v1
+kind: Config
+clusters:
+- name: remote
+  cluster:
+    server: https://127.0.0.1:6443
+    insecure-skip-tls-verify: true
+contexts:
+- name: remote-context
+  context:
+    cluster: remote
+    user: remote-sa
+current-context: remote-context
+users:
+- name: remote-sa
+  user:
+    token: some-bearer-token
+`)
+
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "remote-cluster-secret",
+			Namespace: "istio-system",
+			Labels: map[string]string{
+				multicluster.MultiClusterSecretLabel: "true",
+			},
+		},
+		Data: map[string][]byte{
+			"remote-cluster": legitKubeconfig,
+		},
+	}
+
+	ctx := cli.NewFakeContext(&cli.NewFakeContextOption{
+		IstioNamespace: "istio-system",
+		Objects:        []runtime.Object{secret},
+	})
+
+	clients, err := getClients(ctx)
+
+	g.Expect(err).ToNot(HaveOccurred())
+	g.Expect(clients).To(HaveLen(2)) // local fake client + the sanitized remote one
+
+	remote := clients[1]
+	g.Expect(remote.remote).To(BeTrue())
+	g.Expect(remote.client.ClusterID()).To(Equal(cluster.ID("remote")))
+
+	cliClient, ok := remote.client.(kube.CLIClient)
+	g.Expect(ok).To(BeTrue())
+	g.Expect(cliClient.Revision()).To(Equal("canary"))
 }
 
 func TestRunSpecificAnalyzer(t *testing.T) {

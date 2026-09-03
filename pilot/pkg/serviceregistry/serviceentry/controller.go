@@ -234,7 +234,7 @@ func newController(
 	if !workloadEntryController {
 		s.inputs.Namespaces = multiclusterController.ConfigCluster().Namespaces()
 		s.inputs.ServiceEntries = store.KrtCollection(gvk.ServiceEntry)
-		s.inputs.ExternalWorkloads = krt.NewStaticCollection[*model.WorkloadInstance](nil, nil, s.opts.WithName("inputs/ExternalWorkloads")...)
+		s.inputs.ExternalWorkloads = krt.NewMutableCollection[*model.WorkloadInstance](nil, nil, s.opts.WithName("inputs/ExternalWorkloads")...)
 		if features.EnableAlphaGatewayAPI {
 			s.inputs.XBackends = store.KrtCollection(gvk.XBackend)
 		}
@@ -272,7 +272,7 @@ func (s *Controller) buildCollections() {
 
 	if !s.workloadEntryController {
 		allWorkloads := krt.JoinCollection(
-			[]krt.Collection[*model.WorkloadInstance]{wleWorkloads, s.inputs.ExternalWorkloads},
+			[]krt.Collection[*model.WorkloadInstance]{wleWorkloads, s.inputs.ExternalWorkloads.AsCollection()},
 			s.opts.WithName("outputs/AllWorkloads")...,
 		)
 		workloadsByNamespace := krt.NewNamespaceIndex(allWorkloads)

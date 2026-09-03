@@ -75,7 +75,7 @@ spec:
     spec:
       containers:
       - name: primary
-        image: busybox:1.28
+        image: registry.k8s.io/e2e-test-images/busybox:1.29-4
         command: ["httpd", "-f", "-p", "8080", "-h", "/www"]
         ports:
         - containerPort: 8080
@@ -83,7 +83,7 @@ spec:
         - name: primary-metrics
           mountPath: /www
       - name: secondary
-        image: busybox:1.28
+        image: registry.k8s.io/e2e-test-images/busybox:1.29-4
         command: ["httpd", "-f", "-p", "9100", "-h", "/www"]
         ports:
         - containerPort: 9100
@@ -120,7 +120,7 @@ spec:
     spec:
       containers:
       - name: primary
-        image: busybox:1.28
+        image: registry.k8s.io/e2e-test-images/busybox:1.29-4
         command: ["httpd", "-f", "-p", "8080", "-h", "/www"]
         ports:
         - containerPort: 8080
@@ -128,7 +128,7 @@ spec:
         - name: primary-metrics
           mountPath: /www
       - name: noop
-        image: busybox:1.28
+        image: registry.k8s.io/e2e-test-images/busybox:1.29-4
         command: ["sleep", "infinity"]
       volumes:
       - name: primary-metrics

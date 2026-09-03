@@ -41,7 +41,18 @@ type staticList[T any] struct {
 	indexes        map[string]staticListIndex[T]
 }
 
-func NewStaticCollection[T any](synced Syncer, vals []T, opts ...CollectionOption) StaticCollection[T] {
+func (s StaticCollection[T]) AsCollection() Collection[T] {
+	return newCollection[T](s.staticList)
+}
+
+// NewStaticCollection creates a read-only collection initialized with the provided values.
+// Callers that need to update the collection after creation should use NewMutableCollection.
+func NewStaticCollection[T any](synced Syncer, vals []T, opts ...CollectionOption) Collection[T] {
+	return NewMutableCollection(synced, vals, opts...).AsCollection()
+}
+
+// NewMutableCollection creates a StaticCollection that callers can update directly.
+func NewMutableCollection[T any](synced Syncer, vals []T, opts ...CollectionOption) StaticCollection[T] {
 	o := buildCollectionOptions(opts...)
 	if o.name == "" {
 		o.name = fmt.Sprintf("Static[%v]", ptr.TypeName[T]())
@@ -325,10 +336,6 @@ func (s *staticList[T]) List() []T {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return maps.Values(s.vals)
-}
-
-func (s *staticList[T]) Register(f func(o Event[T])) HandlerRegistration {
-	return registerHandlerAsBatched(s, f)
 }
 
 func (s *staticList[T]) HasSynced() bool {

@@ -237,13 +237,13 @@ func TestNestedMapCollection(t *testing.T) {
 			IP: p.Status.PodIP,
 		}
 	})
-	MultiPods := krt.NewStaticCollection(
+	MultiPods := krt.NewMutableCollection(
 		nil,
 		[]krt.Collection[SimplePod]{simplePods},
 		opts.WithName("MultiPods")...,
 	)
 	AllPods := krt.NestedJoinWithMergeCollection(
-		MultiPods,
+		MultiPods.AsCollection(),
 		func(ts []SimplePod) *SimplePod {
 			return &ts[0]
 		},
