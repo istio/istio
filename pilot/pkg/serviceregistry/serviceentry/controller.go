@@ -86,9 +86,7 @@ type Inputs struct {
 	ServiceEntries  krt.Collection[config.Config]
 	// TODO: this should be a joined collection with multi cluster workloads
 	ExternalWorkloads krt.StaticCollection[*model.WorkloadInstance]
-	// ExternalWorkloadsByIP attributes a service instance event back to the workload kind that produced it.
-	ExternalWorkloadsByIP krt.Index[string, *model.WorkloadInstance]
-	XBackends             krt.Collection[config.Config]
+	XBackends         krt.Collection[config.Config]
 }
 
 type Outputs struct {
@@ -237,9 +235,6 @@ func newController(
 		s.inputs.Namespaces = multiclusterController.ConfigCluster().Namespaces()
 		s.inputs.ServiceEntries = store.KrtCollection(gvk.ServiceEntry)
 		s.inputs.ExternalWorkloads = krt.NewStaticCollection[*model.WorkloadInstance](nil, nil, s.opts.WithName("inputs/ExternalWorkloads")...)
-		s.inputs.ExternalWorkloadsByIP = krt.NewIndex(s.inputs.ExternalWorkloads, "ip", func(wi *model.WorkloadInstance) []string {
-			return []string{wi.Endpoint.FirstAddressOrNil()}
-		})
 		if features.EnableAlphaGatewayAPI {
 			s.inputs.XBackends = store.KrtCollection(gvk.XBackend)
 		}
@@ -256,12 +251,10 @@ func newController(
 			s.handlers,
 			s.outputs.ServiceInstancesByNamespaceHost.RegisterBatch(s.pushServiceEndpointUpdates, false),
 			s.outputs.Services.RegisterBatch(s.pushServiceUpdates, false),
-			s.outputs.ServiceInstancesByIP.AsCollection(s.opts.WithName("outputs/ServiceInstancesByIPCollection")...).
-				RegisterBatch(s.pushPodProxyUpdates, false),
+			s.outputs.ServiceInstances.RegisterBatch(s.pushProxyUpdates, false),
 		)
 	}
-	// Register EDS/XDS push handlers for WLEs
-	s.handlers = append(s.handlers, s.outputs.Workloads.RegisterBatch(s.pushWorkloadUpdates, false))
+	s.handlers = append(s.handlers, s.outputs.Workloads.RegisterBatch(s.notifyWorkloadHandlers, false))
 
 	return s
 }
@@ -372,44 +365,46 @@ func (s *Controller) pushServiceUpdates(events []krt.Event[ServiceWithInstances]
 	}
 }
 
-func (s *Controller) pushWorkloadUpdates(events []krt.Event[*model.WorkloadInstance]) {
+func (s *Controller) notifyWorkloadHandlers(events []krt.Event[*model.WorkloadInstance]) {
 	for _, e := range events {
 		if !e.Latest().DNSServiceEntryOnly {
 			s.NotifyWorkloadInstanceHandlers(e.Latest(), model.Event(e.Event))
 		}
-
-		if e.Event == controllers.EventAdd ||
-			e.Event == controllers.EventUpdate && !(*e.Old).Endpoint.Labels.Equals((*e.New).Endpoint.Labels) {
-			s.XdsUpdater.ProxyUpdate(s.Cluster(), (*e.New).Endpoint.FirstAddressOrNil())
-		}
 	}
 }
 
-// pushPodProxyUpdates forces a pod's own proxy to recompute when this registry's instances for
-// that pod change.
-//
-// A proxy snapshots model.Proxy.ServiceTargets when its xDS stream is established and reuses it for
-// every later push. A pod only becomes an endpoint here once it is Ready, which is after that
-// snapshot, and the incremental endpoint update that follows does not refresh it.
-//
-// Triggering off the derived instance collection rather than the pod event is what makes this
-// reliable: krt updates a collection's indexes before dispatching handlers, so GetProxyServiceTargets,
-// which reads this same index, observes the new state. It also collapses a workload's per-port
-// instances into one event per IP.
-func (s *Controller) pushPodProxyUpdates(events []krt.Event[krt.IndexObject[string, *model.ServiceInstance]]) {
+type proxyKey struct {
+	cluster cluster.ID
+	address string
+}
+
+// pushProxyUpdates forces a workload's own proxy to recompute when this registry's instances for
+// that workload change.
+func (s *Controller) pushProxyUpdates(events []krt.Event[*model.ServiceInstance]) {
+	// A workload has one instance per service port, and may be selected by several ServiceEntries;
+	// collapse those into a single push per proxy.
+	pushed := sets.New[proxyKey]()
 	for _, e := range events {
-		ip := e.Latest().Key
-		if ip == "" {
+		// we only care for Add events since Deletes can happen when instances become unhealthy
+		if e.Event != controllers.EventAdd {
 			continue
 		}
-		// Only pods. ExternalWorkloads also carries WorkloadEntry-derived instances from non-config
-		// clusters, whose proxies connect elsewhere and are pushed by pushWorkloadUpdates.
-		if !slices.ContainsFunc(s.inputs.ExternalWorkloadsByIP.Lookup(ip), func(wi *model.WorkloadInstance) bool {
-			return wi.Kind == model.PodKind
-		}) {
+
+		si := e.Latest()
+		// skip service entry inline instances
+		if len(si.Service.Attributes.LabelSelectors) == 0 {
 			continue
 		}
-		s.XdsUpdater.ProxyUpdate(s.Cluster(), ip)
+		ep := si.Endpoint
+		key := proxyKey{
+			// ServiceEntry can select pods and WorkloadEntries from any cluster, use their own cluster ID.
+			cluster: ep.Locality.ClusterID,
+			address: ep.FirstAddressOrNil(),
+		}
+		if key.address == "" || pushed.InsertContains(key) {
+			continue
+		}
+		s.XdsUpdater.ProxyUpdate(key.cluster, key.address)
 	}
 }
 
