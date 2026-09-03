@@ -28,6 +28,7 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"k8s.io/apimachinery/pkg/util/wait"
 
 	mesh "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd/pilot-agent/config"
@@ -45,7 +46,6 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/security"
-	"istio.io/istio/pkg/sleep"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/wasm"
 	"istio.io/istio/security/pkg/nodeagent/cache"
@@ -744,20 +744,14 @@ func waitForSocket(ctx context.Context, socketPath string, timeout time.Duration
 	log := log.WithLabels("path", socketPath)
 	log.Infof("waiting up to %v for workload SDS socket to become available", timeout)
 
-	waitCtx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-
-	for {
-		socketExists, err := checkSocket(waitCtx, socketPath, false)
-		if err != nil {
-			return false, err
-		}
-		if socketExists {
-			return true, nil
-		}
-		if !sleep.UntilContext(waitCtx, socketPollInterval) {
-			break
-		}
+	err := wait.PollUntilContextTimeout(ctx, socketPollInterval, timeout, true, func(ctx context.Context) (bool, error) {
+		return checkSocket(ctx, socketPath, false)
+	})
+	if err == nil {
+		return true, nil
+	}
+	if !wait.Interrupted(err) {
+		return false, err
 	}
 
 	// The agent is shutting down, so do not fall through to the final check.
