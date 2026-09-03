@@ -730,7 +730,7 @@ my_other_metric{} 0
 			}))
 			defer envoy.Close()
 			app := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				format := expfmt.NegotiateIncludingOpenMetrics(r.Header)
+				format := expfmt.NegotiateAccept(r.Header, expfmt.FmtOpenMetrics_1_0_0, expfmt.FmtOpenMetrics_0_0_1, expfmt.FmtProtoDelim, expfmt.FmtProtoText, expfmt.FmtProtoCompact, expfmt.FmtText)
 				var negotiatedMetrics string
 				if strings.Contains(string(format), "text/plain") {
 					negotiatedMetrics = appText004
@@ -1263,7 +1263,7 @@ my_other_metric{} 0
 	}))
 	t.Cleanup(envoyServer.Close)
 	app := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		format := expfmt.NegotiateIncludingOpenMetrics(r.Header)
+		format := expfmt.NegotiateAccept(r.Header, expfmt.FmtOpenMetrics_1_0_0, expfmt.FmtOpenMetrics_0_0_1, expfmt.FmtProtoDelim, expfmt.FmtProtoText, expfmt.FmtProtoCompact, expfmt.FmtText)
 		var negotiatedMetrics string
 		if format == FmtText {
 			negotiatedMetrics = appText
