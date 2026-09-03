@@ -1,0 +1,16 @@
+apiVersion: release-notes/v2
+
+kind: security-fix
+
+area: traffic-management
+
+issue: []
+
+releaseNotes:
+- |
+  **Fixed** the `istio.io/use-waypoint-canary` label bypassing the `serviceEntryVisibility`
+  NAMESPACE isolation: a NAMESPACE-visibility `ServiceEntry` could route its canary share of
+  traffic through a waypoint in another namespace. The canary waypoint is now subject to the
+  same cross-namespace refusal as the primary.
+
+  **Credit**: This issue was reported by Raphael Zanarelli.

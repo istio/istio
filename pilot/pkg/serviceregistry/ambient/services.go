@@ -286,7 +286,7 @@ func serviceServiceBuilder(
 
 		svc := constructService(ctx, s, waypoint, domainSuffix, nsAnnotations, networkGetter)
 		svc.IngressUseWaypoint = waypointStatus.IngressUseWaypoint
-		svc.WeightedWaypoints = buildWeightedWaypoints(ctx, waypoints, namespaces, s.ObjectMeta, waypoint, &waypointStatus)
+		svc.WeightedWaypoints = buildWeightedWaypoints(ctx, waypoints, namespaces, nil, s.ObjectMeta, waypoint, &waypointStatus)
 
 		svcInfo := &model.ServiceInfo{
 			Service:       svc,
@@ -487,7 +487,7 @@ func serviceEntriesInfo(
 		log.Warnf("ServiceEntry %s/%s has dynamic DNS resolution but no valid waypoint", s.Namespace, s.Name)
 	}
 
-	weighted := buildWeightedWaypoints(ctx, waypoints, namespaces, s.ObjectMeta, w, &waypoint)
+	weighted := buildWeightedWaypoints(ctx, waypoints, namespaces, visibility, s.ObjectMeta, w, &waypoint)
 
 	vis := krt.FetchOne(ctx, visibility.AsCollection())
 	// Resolve the ServiceEntry's visibility once from the precompiled serviceEntryVisibility; it is

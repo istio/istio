@@ -102,6 +102,29 @@ func TestServiceEntryServices(t *testing.T) {
 		},
 	}
 
+	// A second waypoint in the ServiceEntry's own namespace, used as a canary target.
+	canaryAddr := &workloadapi.GatewayAddress{
+		Destination: &workloadapi.GatewayAddress_Hostname{
+			Hostname: &workloadapi.NamespacedHostname{
+				Namespace: "ns",
+				Hostname:  "canary.example",
+			},
+		},
+		HboneMtlsPort: 15008,
+	}
+	canaryWaypoint := Waypoint{
+		Named: krt.Named{
+			Name:      "canary",
+			Namespace: "ns",
+		},
+		TrafficType: constants.AllTraffic,
+		Address:     canaryAddr,
+		AllowedRoutes: WaypointSelector{
+			FromNamespaces: gatewayv1.NamespacesFromSelector,
+			Selector:       labels.ValidatedSetSelector(map[string]string{v1.LabelMetadataName: "ns"}),
+		},
+	}
+
 	cases := []struct {
 		name   string
 		inputs []any
@@ -1357,6 +1380,166 @@ func TestServiceEntryServices(t *testing.T) {
 						AppProtocol: workloadapi.AppProtocol_HTTP11,
 					}},
 					// Visibility PUBLIC (zero value): cross-namespace binding is allowed.
+				},
+			},
+		},
+		{
+			// The canary path must apply the same NAMESPACE-visibility guard as the primary:
+			// the primary binds in-namespace, but the cross-namespace canary is refused and no
+			// weighted waypoints are emitted.
+			name: "NAMESPACE visibility refuses cross-namespace canary waypoint",
+			inputs: []any{
+				ns,
+				waypoint,
+				crossNsWaypoint,
+				meshwatcher.MeshConfigResource{MeshConfig: &meshConfig.MeshConfig{
+					ServiceEntryVisibility: &meshConfig.ServiceEntryVisibility{
+						DefaultVisibility: meshConfig.ServiceEntryVisibility_NAMESPACE,
+					},
+				}},
+			},
+			se: &networkingclient.ServiceEntry{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "ns-crossns-canary",
+					Namespace: "ns",
+					Labels: map[string]string{
+						label.IoIstioUseWaypoint.Name:                "waypoint",
+						label.IoIstioUseWaypointCanary.Name:          "waypoint",
+						label.IoIstioUseWaypointCanaryNamespace.Name: "other",
+					},
+					Annotations: map[string]string{
+						annotation.IoIstioUseWaypointCanaryWeight.Name: "20",
+					},
+				},
+				Spec: networking.ServiceEntry{
+					Addresses:  []string{"1.2.3.4"},
+					Hosts:      []string{"a.example.com"},
+					Ports:      []*networking.ServicePort{{Number: 80, Name: "http", Protocol: "HTTP"}},
+					Resolution: networking.ServiceEntry_STATIC,
+				},
+			},
+			result: []*workloadapi.Service{
+				{
+					Name:      "ns-crossns-canary",
+					Namespace: "ns",
+					Hostname:  "a.example.com",
+					Addresses: []*workloadapi.NetworkAddress{{
+						Network: testNW,
+						Address: netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice(),
+					}},
+					Waypoint: waypointAddr,
+					Ports: []*workloadapi.Port{{
+						ServicePort: 80,
+						TargetPort:  80,
+						AppProtocol: workloadapi.AppProtocol_HTTP11,
+					}},
+					Visibility: workloadapi.Service_NAMESPACE,
+					// WeightedWaypoints intentionally absent: the cross-namespace canary is refused.
+				},
+			},
+			waypointErr: ReportWaypointCrossNamespaceForbidden("other/waypoint"),
+		},
+		{
+			name: "NAMESPACE visibility keeps same-namespace canary waypoint",
+			inputs: []any{
+				ns,
+				waypoint,
+				canaryWaypoint,
+				meshwatcher.MeshConfigResource{MeshConfig: &meshConfig.MeshConfig{
+					ServiceEntryVisibility: &meshConfig.ServiceEntryVisibility{
+						DefaultVisibility: meshConfig.ServiceEntryVisibility_NAMESPACE,
+					},
+				}},
+			},
+			se: &networkingclient.ServiceEntry{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "ns-samens-canary",
+					Namespace: "ns",
+					Labels: map[string]string{
+						label.IoIstioUseWaypoint.Name:       "waypoint",
+						label.IoIstioUseWaypointCanary.Name: "canary",
+					},
+					Annotations: map[string]string{
+						annotation.IoIstioUseWaypointCanaryWeight.Name: "20",
+					},
+				},
+				Spec: networking.ServiceEntry{
+					Addresses:  []string{"1.2.3.4"},
+					Hosts:      []string{"a.example.com"},
+					Ports:      []*networking.ServicePort{{Number: 80, Name: "http", Protocol: "HTTP"}},
+					Resolution: networking.ServiceEntry_STATIC,
+				},
+			},
+			result: []*workloadapi.Service{
+				{
+					Name:      "ns-samens-canary",
+					Namespace: "ns",
+					Hostname:  "a.example.com",
+					Addresses: []*workloadapi.NetworkAddress{{
+						Network: testNW,
+						Address: netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice(),
+					}},
+					Waypoint: waypointAddr,
+					WeightedWaypoints: []*workloadapi.WeightedWaypoint{
+						{Destination: waypointAddr, Weight: 80},
+						{Destination: canaryAddr, Weight: 20},
+					},
+					Ports: []*workloadapi.Port{{
+						ServicePort: 80,
+						TargetPort:  80,
+						AppProtocol: workloadapi.AppProtocol_HTTP11,
+					}},
+					Visibility: workloadapi.Service_NAMESPACE,
+				},
+			},
+		},
+		{
+			name: "PUBLIC visibility keeps cross-namespace canary waypoint",
+			inputs: []any{
+				ns,
+				waypoint,
+				crossNsWaypoint,
+			},
+			se: &networkingclient.ServiceEntry{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "public-crossns-canary",
+					Namespace: "ns",
+					Labels: map[string]string{
+						label.IoIstioUseWaypoint.Name:                "waypoint",
+						label.IoIstioUseWaypointCanary.Name:          "waypoint",
+						label.IoIstioUseWaypointCanaryNamespace.Name: "other",
+					},
+					Annotations: map[string]string{
+						annotation.IoIstioUseWaypointCanaryWeight.Name: "20",
+					},
+				},
+				Spec: networking.ServiceEntry{
+					Addresses:  []string{"1.2.3.4"},
+					Hosts:      []string{"a.example.com"},
+					Ports:      []*networking.ServicePort{{Number: 80, Name: "http", Protocol: "HTTP"}},
+					Resolution: networking.ServiceEntry_STATIC,
+				},
+			},
+			result: []*workloadapi.Service{
+				{
+					Name:      "public-crossns-canary",
+					Namespace: "ns",
+					Hostname:  "a.example.com",
+					Addresses: []*workloadapi.NetworkAddress{{
+						Network: testNW,
+						Address: netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice(),
+					}},
+					Waypoint: waypointAddr,
+					WeightedWaypoints: []*workloadapi.WeightedWaypoint{
+						{Destination: waypointAddr, Weight: 80},
+						{Destination: crossNsWaypointAddr, Weight: 20},
+					},
+					Ports: []*workloadapi.Port{{
+						ServicePort: 80,
+						TargetPort:  80,
+						AppProtocol: workloadapi.AppProtocol_HTTP11,
+					}},
+					// Visibility PUBLIC (zero value): cross-namespace canary is allowed.
 				},
 			},
 		},
