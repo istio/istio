@@ -1,0 +1,13 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+- |
+  **Added** `PILOT_ENABLE_AWS_ZONE_ID` to prefer the physical AWS zone ID node labels that are
+  stable across AWS accounts for Kubernetes locality in sidecar and ambient modes. Disabled by
+  default.
+upgradeNotes:
+- title: Use AWS zone IDs for locality
+  content: |
+    Before enabling this option, check that all participating AWS nodes have the stable physical
+    zone ID labels: `topology.k8s.aws/zone-id`. This is a default in AWS EKS 1.30+.

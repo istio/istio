@@ -29,25 +29,34 @@ import (
 	"testing"
 	"time"
 
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	uatomic "go.uber.org/atomic"
+	v1 "k8s.io/api/core/v1"
+	discoveryv1 "k8s.io/api/discovery/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 
+	"istio.io/api/annotation"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
+	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	xdsfake "istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/adsc"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
@@ -66,6 +75,96 @@ const (
 	edsIncSvc = "eds.test.svc.cluster.local"
 	edsIncVip = "10.10.1.2"
 )
+
+func TestPreferCloseAWSZoneID(t *testing.T) {
+	for _, tc := range []struct {
+		name         string
+		enabled      bool
+		native       bool
+		secondZoneID string
+		want         map[string]uint32
+	}{
+		{name: "disabled", secondZoneID: "use1-az6", want: map[string]uint32{"10.0.1.1": 0, "10.0.1.2": 1}},
+		{name: "annotation", enabled: true, secondZoneID: "use1-az6", want: map[string]uint32{"10.0.1.1": 1, "10.0.1.2": 0}},
+		{name: "service field", enabled: true, native: true, secondZoneID: "use1-az6", want: map[string]uint32{"10.0.1.1": 1, "10.0.1.2": 0}},
+		{name: "no local endpoint", enabled: true, secondZoneID: "use1-az4", want: map[string]uint32{"10.0.1.1": 0, "10.0.1.2": 0}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			test.SetForTest(t, &features.EnableAWSZoneID, tc.enabled)
+			node := func(name, zone, id string) *v1.Node {
+				return &v1.Node{ObjectMeta: metav1.ObjectMeta{Name: name, Labels: map[string]string{
+					v1.LabelTopologyRegion: "us-east-1", v1.LabelTopologyZone: zone, labelutil.LabelTopologyAWSZoneID: id,
+				}}}
+			}
+			pod := func(name, ip string) *v1.Pod {
+				return &v1.Pod{
+					ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "default"},
+					Spec:       v1.PodSpec{NodeName: name},
+					Status: v1.PodStatus{PodIP: ip, Phase: v1.PodRunning, Conditions: []v1.PodCondition{
+						{Type: v1.PodReady, Status: v1.ConditionTrue},
+					}},
+				}
+			}
+			svc := &v1.Service{
+				ObjectMeta: metav1.ObjectMeta{Name: "cache", Namespace: "default"},
+				Spec:       v1.ServiceSpec{ClusterIP: "10.10.0.1", Ports: []v1.ServicePort{{Name: "grpc", Port: 18000}}},
+			}
+			if tc.native {
+				svc.Spec.TrafficDistribution = ptr.Of(v1.ServiceTrafficDistributionPreferClose)
+			} else {
+				svc.Annotations = map[string]string{annotation.NetworkingTrafficDistribution.Name: "PreferClose"}
+			}
+			slice := &discoveryv1.EndpointSlice{
+				ObjectMeta: metav1.ObjectMeta{Name: "cache", Namespace: "default", Labels: map[string]string{
+					discoveryv1.LabelServiceName: "cache",
+				}},
+				AddressType: discoveryv1.AddressTypeIPv4,
+				Ports:       []discoveryv1.EndpointPort{{Name: ptr.Of("grpc"), Port: ptr.Of(int32(18000))}},
+				Endpoints: []discoveryv1.Endpoint{
+					{
+						Addresses: []string{"10.0.1.1"}, TargetRef: &v1.ObjectReference{Kind: "Pod", Name: "cache1", Namespace: "default"},
+						Conditions: discoveryv1.EndpointConditions{Ready: ptr.Of(true)},
+					},
+					{
+						Addresses: []string{"10.0.1.2"}, TargetRef: &v1.ObjectReference{Kind: "Pod", Name: "cache2", Namespace: "default"},
+						Conditions: discoveryv1.EndpointConditions{Ready: ptr.Of(true)},
+					},
+				},
+			}
+			s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{
+				DefaultClusterName: "reader",
+				KubernetesObjectsByCluster: map[cluster.ID][]k8sruntime.Object{
+					"reader": {node("reader", "us-east-1d", "use1-az6"), pod("reader", "10.0.0.1")},
+					"cache": {
+						svc, slice,
+						node("cache1", "us-east-1d", "use1-az2"), pod("cache1", "10.0.1.1"),
+						node("cache2", "us-east-1a", tc.secondZoneID), pod("cache2", "10.0.1.2"),
+					},
+				},
+			})
+			metadata := model.NodeMetadata{ClusterID: "reader", Namespace: "default", NodeName: "reader", Generator: "grpc"}
+			ads := s.ConnectADS().WithType(v3.EndpointType)
+			defer ads.Cleanup()
+			response := ads.RequestResponseAck(t, &discovery.DiscoveryRequest{
+				ResourceNames: []string{"outbound|18000||cache.default.svc.cluster.local"},
+				Node: &core.Node{
+					Id:       "sidecar~10.0.0.1~reader.default~default.svc.cluster.local",
+					Metadata: metadata.ToStruct(),
+					Locality: &core.Locality{Region: "us-east-1", Zone: "us-east-1d"},
+				},
+			})
+			assignments := xdstest.UnmarshalClusterLoadAssignment(t, response.Resources)
+			assert.Equal(t, len(assignments), 1)
+			priorities := map[string]uint32{}
+			for _, locality := range assignments[0].Endpoints {
+				for _, ep := range locality.LbEndpoints {
+					priorities[ep.GetEndpoint().GetAddress().GetSocketAddress().Address] = locality.Priority
+				}
+			}
+			assert.Equal(t, priorities, tc.want)
+		})
+	}
+}
 
 func TestIncrementalPush(t *testing.T) {
 	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{

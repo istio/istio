@@ -763,6 +763,11 @@ func (c *Controller) getPodLocality(pod *v1.Pod) string {
 
 	region := getLabelValue(node.ObjectMeta, NodeRegionLabelGA, NodeRegionLabel)
 	zone := getLabelValue(node.ObjectMeta, NodeZoneLabelGA, NodeZoneLabel)
+	if features.EnableAWSZoneID {
+		if zoneID := node.Labels[labelutil.LabelTopologyAWSZoneID]; zoneID != "" {
+			zone = zoneID
+		}
+	}
 	subzone := getLabelValue(node.ObjectMeta, label.TopologySubzone.Name, "")
 
 	if region == "" && zone == "" && subzone == "" {

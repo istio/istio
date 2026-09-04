@@ -33,6 +33,7 @@ import (
 	securityclient "istio.io/client-go/pkg/apis/security/v1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/kind"
@@ -46,6 +47,35 @@ import (
 	"istio.io/istio/pkg/workloadapi"
 	"istio.io/istio/pkg/workloadapi/security"
 )
+
+func TestNodeLocalityAWSZoneID(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		enabled  bool
+		zone     string
+		zoneID   string
+		wantZone string
+	}{
+		{name: "disabled", zone: "us-east-1d", zoneID: "use1-az6", wantZone: "us-east-1d"},
+		{name: "enabled", enabled: true, zone: "us-east-1d", zoneID: "use1-az6", wantZone: "use1-az6"},
+		{name: "missing label", enabled: true, zone: "us-east-1d", wantZone: "us-east-1d"},
+		{name: "no zone name", enabled: true, zoneID: "use1-az6", wantZone: "use1-az6"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			test.SetForTest(t, &features.EnableAWSZoneID, tc.enabled)
+			node := &v1.Node{ObjectMeta: metav1.ObjectMeta{Name: "node", Labels: map[string]string{
+				v1.LabelTopologyRegion: "us-east-1", v1.LabelTopologyZone: tc.zone, label.TopologySubzone.Name: "rack1",
+			}}}
+			if tc.zoneID != "" {
+				node.Labels[labelutil.LabelTopologyAWSZoneID] = tc.zoneID
+			}
+			assert.Equal(t, nodeLocality(node), &Node{Name: "node", Locality: &workloadapi.Locality{
+				Region: "us-east-1", Zone: tc.wantZone, Subzone: "rack1",
+			}})
+			assert.Equal(t, node.Labels[v1.LabelTopologyZone], tc.zone)
+		})
+	}
+}
 
 func TestPodWorkloads(t *testing.T) {
 	waypointAddr := &workloadapi.GatewayAddress{
