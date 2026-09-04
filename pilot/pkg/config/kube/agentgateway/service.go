@@ -45,9 +45,9 @@ func (i Address) Equals(other Address) bool {
 		return false
 	}
 	if i.Workload != nil {
-		return i.Workload.Equals(*other.Workload)
+		return i.Workload.Equals(other.Workload)
 	}
-	return i.Service.Equals(*other.Service)
+	return i.Service.Equals(other.Service)
 }
 
 func (i Address) IntoProto() *workloadapi.Address {
