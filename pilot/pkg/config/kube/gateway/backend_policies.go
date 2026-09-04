@@ -16,12 +16,14 @@ package gateway
 
 import (
 	"cmp"
+	cryptotls "crypto/tls"
 	"fmt"
 	"strings"
 	"time"
 
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
+	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -31,6 +33,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	networkingclient "istio.io/client-go/pkg/apis/networking/v1"
 	"istio.io/istio/pilot/pkg/config/kube/gatewaycommon"
+	kubecreds "istio.io/istio/pilot/pkg/credentials/kube"
 	kubesecrets "istio.io/istio/pilot/pkg/credentials/kube"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model/credentials"
@@ -403,12 +406,7 @@ func backendResourceTLSSettings(
 
 	switch i.Spec.TLS.Mode {
 	case gatewayx.BackendTLSModeClientAndServer:
-		// TODO(ericdbishop): resolve mTLS support for backend TLS settings.
-		conds[string(gw.PolicyConditionAccepted)].error = &ConfigError{
-			Reason:  string(gw.PolicyReasonInvalid),
-			Message: "unsupported ClientAndServer TLS mode: Istio does not support client certificates on backend",
-		}
-		return nil
+		mode = networking.ClientTLSSettings_MUTUAL
 	case gatewayx.BackendTLSModeServerOnly:
 	case gatewayx.BackendTLSModeNone:
 		return nil
@@ -437,7 +435,72 @@ func backendResourceTLSSettings(
 		// XBackend's validation field is optional, so Hostname may be unset.
 		tls.Sni = string(i.Spec.ExternalHostname.Hostname)
 	}
-	tls.CredentialName = getBackendTLSCredentialName(ctx, validation, i.Namespace, conds, references)
+
+	switch mode {
+	case networking.ClientTLSSettings_SIMPLE:
+		tls.CredentialName = getBackendTLSCredentialName(ctx, validation, i.Namespace, conds, references)
+	case networking.ClientTLSSettings_MUTUAL:
+		ref := i.Spec.TLS.ClientCertificateRef
+
+		if ref == nil {
+			conds[string(gw.PolicyConditionAccepted)].error = &ConfigError{
+				Reason:  string(gw.PolicyReasonInvalid),
+				Message: fmt.Sprintf("clientCertificateRef is required for TLS mode: %q", i.Spec.TLS.Mode),
+			}
+			return nil
+		}
+
+		if gatewaycommon.NormalizeReference(ref.Group, ref.Kind, gvk.Secret) != gvk.Secret {
+			conds[string(gw.PolicyConditionAccepted)].error = &ConfigError{
+				Reason:  string(gw.PolicyReasonInvalid),
+				Message: fmt.Sprintf("invalid certificate reference %v, only secret is allowed", ref),
+			}
+			return nil
+		}
+
+		if ref.Namespace != nil && string(*ref.Namespace) != i.Namespace {
+			conds[string(gw.PolicyConditionAccepted)].error = &ConfigError{
+				Reason:  string(gw.PolicyReasonInvalid),
+				Message: "clientCertificateRef only valid for same-namespace Backend, ReferenceGrant not supported",
+			}
+			return nil
+		}
+
+		obj, err := references.LocalPolicyRef(ctx, gw.LocalObjectReference{
+			Group: ptr.OrDefault(ref.Group, ""),
+			Kind:  ptr.OrDefault(ref.Kind, ""),
+			Name:  ref.Name,
+		}, i.Namespace)
+		if err != nil {
+			conds[string(gw.PolicyConditionAccepted)].error = &ConfigError{
+				Reason:  string(InvalidClientCertificateRef),
+				Message: "clientCertificateRef not found: " + err.Error(),
+			}
+			return nil
+		}
+
+		scrt, ok := obj.(*corev1.Secret)
+		if !ok {
+			conds[string(gw.PolicyConditionAccepted)].error = &ConfigError{
+				Reason:  string(InvalidClientCertificateRef),
+				Message: "clientCertificateRef not found: " + err.Error(),
+			}
+		}
+
+		certInfo, err := kubecreds.ExtractCertInfo(scrt)
+		if err == nil {
+			_, err = cryptotls.X509KeyPair(certInfo.Cert, certInfo.Key)
+		}
+		if err != nil {
+			conds[string(gw.PolicyConditionAccepted)].error = &ConfigError{
+				Reason:  InvalidClientCertificateRef,
+				Message: fmt.Sprintf("invalid clientCertificateRef %v, the certificate is malformed: %v", ref, err),
+			}
+			return nil
+		}
+
+		tls.CredentialName = credentials.ToKubernetesGatewayResource(i.Namespace, string(ref.Name))
+	}
 
 	return tls
 }
