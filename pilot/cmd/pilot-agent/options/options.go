@@ -59,6 +59,11 @@ var (
 	workloadIdentitySocketFile = env.Register("WORKLOAD_IDENTITY_SOCKET_FILE", security.DefaultWorkloadIdentitySocketFile,
 		fmt.Sprintf("SPIRE workload identity SDS socket filename. If set, an SDS socket with this name must exist at %s", security.WorkloadIdentityPath)).Get()
 
+	workloadIdentitySocketTimeout = env.Register("WORKLOAD_IDENTITY_SOCKET_TIMEOUT", security.DefaultWorkloadIdentitySocketTimeout,
+		fmt.Sprintf("How long to wait at startup for the workload identity SDS socket at %s to appear and become healthy. "+
+			"This is useful when an external SDS provider, such as SPIRE, may bind its socket after the agent starts. "+
+			"If zero (the default), the socket is checked once and the agent does not wait.", security.WorkloadIdentityPath)).Get()
+
 	// set to "SYSTEM" for ACME/public signed CA servers.
 	caRootCA = env.Register("CA_ROOT_CA", "",
 		"Explicitly set the root CA to expect for the CA connection.").Get()
