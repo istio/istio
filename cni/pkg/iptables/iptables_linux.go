@@ -93,6 +93,12 @@ func ReadSysctl(key string) (string, error) {
 	return strings.TrimSpace(string(data)), nil
 }
 
+// writeSysctl writes a single value into a /proc/sys entry. Used to flip
+// route_localnet for kata-mode DNS interception.
+func writeSysctl(key, value string) error {
+	return os.WriteFile(key, []byte(value), 0o644)
+}
+
 func forEachLoopbackRoute(cfg *cniconfig.AmbientConfig, operation string, f func(*netlink.Route) error) error {
 	loopbackLink, err := config.LinkByNameWithRetries("lo")
 	if err != nil {

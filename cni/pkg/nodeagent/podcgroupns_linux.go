@@ -29,6 +29,7 @@ import (
 	"syscall"
 	"unicode"
 
+	"github.com/vishvananda/netlink"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -80,6 +81,7 @@ func (p *PodNetnsProcFinder) FindNetnsForPods(pods map[types.UID]*corev1.Pod) (P
 	*/
 
 	podUIDNetns := make(PodToNetns)
+	selectedNetnsHasMutilpleIface := make(map[string]bool)
 	netnsObserved := sets.New[uint64]()
 
 	entries, err := fs.ReadDir(p.proc, ".")
@@ -99,10 +101,14 @@ func (p *PodNetnsProcFinder) FindNetnsForPods(pods map[types.UID]*corev1.Pod) (P
 			continue
 		}
 
+		pod := pods[res.uid]
+		isKata := pod.Spec.RuntimeClassName != nil && KataRuntimeClassNames.Contains(*pod.Spec.RuntimeClassName)
+
 		// Check if we found another procfs entry for this UID already
 		// if we did, and it's older than this one, continue.
 		// Otherwise replace it with the one we just found
-		if existingNetns, exists := podUIDNetns[string(res.uid)]; exists {
+		existingNetns, exists := podUIDNetns[string(res.uid)]
+		if exists && !isKata {
 			log.Warnf("found more than one netns for the same pod: %s, will use oldest process netns", res.uid)
 			if existingNetns.Netns.OwnerProcStarttime() < res.netns.OwnerProcStarttime() {
 				// the existing entry wins; close the netns opened for this candidate
@@ -113,6 +119,29 @@ func (p *PodNetnsProcFinder) FindNetnsForPods(pods map[types.UID]*corev1.Pod) (P
 			existingNetns.Netns.Close()
 		}
 
+		if isKata {
+			// Kata helper processes can share the pod cgroup while using private netns;
+			// prefer the namespace with more network interfaces as that's usually the
+			// pod netns
+			candidateHasMultifaceIface := netnsHasMultipleInterfaces(res.netns)
+
+			if exists {
+				log.Warnf("found more than one netns for kata pod: %s", res.uid)
+				existingHasMultipleIface := selectedNetnsHasMutilpleIface[string(res.uid)]
+				if existingHasMultipleIface != candidateHasMultifaceIface {
+					if existingHasMultipleIface {
+						res.netns.Close()
+						continue
+					}
+				} else if existingNetns.Netns.OwnerProcStarttime() < res.netns.OwnerProcStarttime() {
+					res.netns.Close()
+					continue
+				}
+				existingNetns.Netns.Close()
+			}
+			selectedNetnsHasMutilpleIface[string(res.uid)] = candidateHasMultifaceIface
+		}
+
 		workload := WorkloadInfo{
 			Workload: podToWorkload(pods[res.uid]),
 			Netns:    res.netns,
@@ -121,6 +150,21 @@ func (p *PodNetnsProcFinder) FindNetnsForPods(pods map[types.UID]*corev1.Pod) (P
 
 	}
 	return podUIDNetns, nil
+}
+
+func netnsHasMultipleInterfaces(netns NetnsFd) bool {
+	hasPodInterfaces := false
+	if err := NetnsDo(netns, func() error {
+		links, err := netlink.LinkList()
+		if err != nil {
+			return err
+		}
+		hasPodInterfaces = len(links) > 1
+		return nil
+	}); err != nil {
+		log.Debugf("failed checking network namespace interfaces: %v", err)
+	}
+	return hasPodInterfaces
 }
 
 func (p *PodNetnsProcFinder) processEntry(

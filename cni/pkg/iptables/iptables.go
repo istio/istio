@@ -166,6 +166,11 @@ func (cfg *IptablesConfigurator) executeDeleteCommands(log *istiolog.Scope) {
 // Setup iptables rules for in-pod mode. Ideally this should be an idempotent function.
 // NOTE that this expects to be run from within the pod network namespace!
 func (cfg *IptablesConfigurator) CreateInpodRules(log *istiolog.Scope, podOverrides config.PodLevelOverrides) error {
+	// Kata pods take a completely separate path -- see iptables_kata.go.
+	if podOverrides.Kata {
+		return cfg.createInpodRulesKata(log, podOverrides)
+	}
+
 	// Append our rules here
 	builder := cfg.AppendInpodRules(podOverrides)
 
