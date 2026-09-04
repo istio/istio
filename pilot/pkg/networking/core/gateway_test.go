@@ -5010,16 +5010,18 @@ func TestListenerTransportSocketConnectTimeoutForGateway(t *testing.T) {
 
 func TestGatewayExternalSDSProvider(t *testing.T) {
 	cases := []struct {
-		name                string
-		credentialName      string
-		tlsMode             networking.ServerTLSSettings_TLSmode
-		providerName        string
-		providerService     string
-		providerPort        uint32
-		expectedClusterName string
-		expectSDS           bool
-		expectADSFallback   bool
-		noSDSProvider       bool
+		name                  string
+		credentialName        string
+		caCertCredentialName  string
+		tlsMode               networking.ServerTLSSettings_TLSmode
+		providerName          string
+		providerService       string
+		providerPort          uint32
+		expectedClusterName   string
+		expectedCaClusterName string
+		expectSDS             bool
+		expectADSFallback     bool
+		noSDSProvider         bool
 	}{
 		{
 			name:                "external SDS provider with SIMPLE TLS",
@@ -5040,6 +5042,18 @@ func TestGatewayExternalSDSProvider(t *testing.T) {
 			providerPort:        9443,
 			expectedClusterName: "outbound|9443||sds-mutual.sds-ns.svc.cluster.local",
 			expectSDS:           true,
+		},
+		{
+			name:                  "external SDS provider with MUTUAL TLS and CA cert credential name",
+			credentialName:        "sds://mutual-cert-credential",
+			caCertCredentialName:  "sds://mutual-ca-credential",
+			tlsMode:               networking.ServerTLSSettings_MUTUAL,
+			providerName:          "my-sds-provider",
+			providerService:       "sds-mutual-ca.sds-ns.svc.cluster.local",
+			providerPort:          9444,
+			expectedClusterName:   "outbound|9444||sds-mutual-ca.sds-ns.svc.cluster.local",
+			expectedCaClusterName: "outbound|9444||sds-mutual-ca.sds-ns.svc.cluster.local",
+			expectSDS:             true,
 		},
 		{
 			name:                "sds:// prefix without any SDS provider falls back to ADS",
@@ -5079,8 +5093,9 @@ func TestGatewayExternalSDSProvider(t *testing.T) {
 							Port:  &networking.Port{Name: "https", Number: 443, Protocol: "HTTPS"},
 							Hosts: []string{"secure.example.com"},
 							Tls: &networking.ServerTLSSettings{
-								Mode:           tt.tlsMode,
-								CredentialName: tt.credentialName,
+								Mode:                 tt.tlsMode,
+								CredentialName:       tt.credentialName,
+								CaCertCredentialName: tt.caCertCredentialName,
 							},
 						},
 					},
@@ -5178,7 +5193,22 @@ func TestGatewayExternalSDSProvider(t *testing.T) {
 			if tt.tlsMode == networking.ServerTLSSettings_MUTUAL {
 				validationCtx := tlsContext.GetCommonTlsContext().GetCombinedValidationContext()
 				if validationCtx == nil {
-					t.Error("expected combined validation context for MUTUAL TLS")
+					t.Fatal("expected combined validation context for MUTUAL TLS")
+				}
+				if tt.caCertCredentialName != "" {
+					caSdsConfig := validationCtx.GetValidationContextSdsSecretConfig()
+					expectedCaResourceName := strings.TrimPrefix(tt.caCertCredentialName, "sds://")
+					if caSdsConfig.GetName() != expectedCaResourceName {
+						t.Errorf("expected CA cert SDS secret name %q, got %q", expectedCaResourceName, caSdsConfig.GetName())
+					}
+					caGrpcServices := caSdsConfig.GetSdsConfig().GetApiConfigSource().GetGrpcServices()
+					if len(caGrpcServices) == 0 {
+						t.Fatal("expected gRPC services in CA cert SDS config")
+					}
+					caClusterName := caGrpcServices[0].GetEnvoyGrpc().GetClusterName()
+					if caClusterName != tt.expectedCaClusterName {
+						t.Errorf("expected CA cert cluster name %q, got %q", tt.expectedCaClusterName, caClusterName)
+					}
 				}
 			}
 		})
