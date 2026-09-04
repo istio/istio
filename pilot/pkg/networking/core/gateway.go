@@ -58,6 +58,8 @@ import (
 	"istio.io/istio/pkg/wellknown"
 )
 
+const gatewayUnmatchedRouteOperation = "gateway-unmatched-route"
+
 type mutableListenerOpts struct {
 	mutable   *MutableGatewayListener
 	opts      *gatewayListenerOpts
@@ -572,6 +574,13 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 	}
 
 	util.SortVirtualHosts(virtualHosts)
+	// Add a specific 404 route so we can decorate the operation name.
+	// Otherwise, it defaults to the user-provided Host header unbounded in length.
+	if features.EnableGatewayUnmatchedRouteTracing {
+		for _, virtualHost := range virtualHosts {
+			virtualHost.Routes = append(virtualHost.Routes, gatewayUnmatchedRoute())
+		}
+	}
 
 	routeCfg := &route.RouteConfiguration{
 		// Retain the routeName as its used by EnvoyFilter patching logic
@@ -583,6 +592,23 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 	}
 
 	return routeCfg
+}
+
+func gatewayUnmatchedRoute() *route.Route {
+	return &route.Route{
+		Name: gatewayUnmatchedRouteOperation,
+		Match: &route.RouteMatch{
+			PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"},
+		},
+		Action: &route.Route_DirectResponse{
+			DirectResponse: &route.DirectResponseAction{
+				Status: 404,
+			},
+		},
+		Decorator: &route.Decorator{
+			Operation: gatewayUnmatchedRouteOperation,
+		},
+	}
 }
 
 // hashRouteList returns a hash of a list of pointers
