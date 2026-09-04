@@ -3709,6 +3709,68 @@ func TestValidateLoadBalancer(t *testing.T) {
 			},
 			valid: true,
 		},
+
+		{
+			name: "valid: empty backendUtilization",
+			in: &networking.LoadBalancerSettings{
+				LbPolicy: &networking.LoadBalancerSettings_BackendUtilization{
+					BackendUtilization: &networking.LoadBalancerSettings_BackendUtilizationLB{},
+				},
+			},
+			valid: true,
+		},
+
+		{
+			name: "valid: fully specified backendUtilization",
+			in: &networking.LoadBalancerSettings{
+				LbPolicy: &networking.LoadBalancerSettings_BackendUtilization{
+					BackendUtilization: &networking.LoadBalancerSettings_BackendUtilizationLB{
+						WeightStabilizationPeriod:          durationpb.New(10 * time.Second),
+						WeightExpirationPeriod:             durationpb.New(3 * time.Minute),
+						WeightUpdatePeriod:                 durationpb.New(time.Second),
+						ErrorUtilizationPenaltyPercent:     150,
+						MetricNamesForComputingUtilization: []string{"named_metrics.foo"},
+					},
+				},
+			},
+			valid: true,
+		},
+
+		{
+			name: "valid: backendUtilization weightUpdatePeriod below 100ms is only a warning",
+			in: &networking.LoadBalancerSettings{
+				LbPolicy: &networking.LoadBalancerSettings_BackendUtilization{
+					BackendUtilization: &networking.LoadBalancerSettings_BackendUtilizationLB{
+						WeightUpdatePeriod: durationpb.New(50 * time.Millisecond),
+					},
+				},
+			},
+			valid: true,
+		},
+
+		{
+			name: "invalid: backendUtilization with negative weightExpirationPeriod",
+			in: &networking.LoadBalancerSettings{
+				LbPolicy: &networking.LoadBalancerSettings_BackendUtilization{
+					BackendUtilization: &networking.LoadBalancerSettings_BackendUtilizationLB{
+						WeightExpirationPeriod: durationpb.New(-1 * time.Second),
+					},
+				},
+			},
+			valid: false,
+		},
+
+		{
+			name: "invalid: backendUtilization with empty metric name",
+			in: &networking.LoadBalancerSettings{
+				LbPolicy: &networking.LoadBalancerSettings_BackendUtilization{
+					BackendUtilization: &networking.LoadBalancerSettings_BackendUtilizationLB{
+						MetricNamesForComputingUtilization: []string{"named_metrics.foo", ""},
+					},
+				},
+			},
+			valid: false,
+		},
 	}
 
 	for _, c := range cases {
