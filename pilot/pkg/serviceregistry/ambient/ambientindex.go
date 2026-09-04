@@ -75,11 +75,11 @@ func (n NamespaceHostname) String() string {
 }
 
 type workloadsCollection struct {
-	krt.Collection[model.WorkloadInfo]
-	ByAddress                krt.Index[networkAddress, model.WorkloadInfo]
-	ByServiceKey             krt.Index[string, model.WorkloadInfo]
-	ByOwningWaypointHostname krt.Index[NamespaceHostname, model.WorkloadInfo]
-	ByOwningWaypointIP       krt.Index[networkAddress, model.WorkloadInfo]
+	krt.Collection[*model.WorkloadInfo]
+	ByAddress                krt.Index[networkAddress, *model.WorkloadInfo]
+	ByServiceKey             krt.Index[string, *model.WorkloadInfo]
+	ByOwningWaypointHostname krt.Index[NamespaceHostname, *model.WorkloadInfo]
+	ByOwningWaypointIP       krt.Index[networkAddress, *model.WorkloadInfo]
 }
 
 type waypointsCollection struct {
@@ -357,7 +357,7 @@ func New(options Options) Index {
 	if features.EnableAmbientStatus {
 		workloadEntriesWriter := kclient.NewWriteClient[*networkingclient.WorkloadEntry](client)
 		statusqueue.Register(a.statusQueue, "istio-ambient-workloadentry", Workloads,
-			func(info model.WorkloadInfo) (kclient.Patcher, map[string]model.Condition) {
+			func(info *model.WorkloadInfo) (kclient.Patcher, map[string]model.Condition) {
 				if info.Source.Kind != kind.WorkloadEntry {
 					return nil, nil
 				}
@@ -365,11 +365,11 @@ func New(options Options) Index {
 			})
 	}
 
-	WorkloadAddressIndex := krt.NewIndex[networkAddress, model.WorkloadInfo](Workloads, "networkAddress", networkAddressFromWorkload)
-	WorkloadServiceIndex := krt.NewIndex[string, model.WorkloadInfo](Workloads, "service", func(o model.WorkloadInfo) []string {
+	WorkloadAddressIndex := krt.NewIndex(Workloads, "networkAddress", networkAddressFromWorkload)
+	WorkloadServiceIndex := krt.NewIndex(Workloads, "service", func(o *model.WorkloadInfo) []string {
 		return maps.Keys(o.Workload.Services)
 	})
-	WorkloadWaypointIndexHostname := krt.NewIndex(Workloads, "namespaceHostname", func(w model.WorkloadInfo) []NamespaceHostname {
+	WorkloadWaypointIndexHostname := krt.NewIndex(Workloads, "namespaceHostname", func(w *model.WorkloadInfo) []NamespaceHostname {
 		// Filter out waypoints.
 		if w.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel {
 			return nil
@@ -392,7 +392,7 @@ func New(options Options) Index {
 			Hostname:  waypointAddress.Hostname,
 		}}
 	})
-	WorkloadWaypointIndexIP := krt.NewIndex(Workloads, "waypointIp", func(w model.WorkloadInfo) []networkAddress {
+	WorkloadWaypointIndexIP := krt.NewIndex(Workloads, "waypointIp", func(w *model.WorkloadInfo) []networkAddress {
 		// Filter out waypoints.
 		if w.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel {
 			return nil
@@ -419,11 +419,11 @@ func New(options Options) Index {
 		return []networkAddress{netaddr}
 	})
 	Workloads.RegisterBatch(krt.BatchedEventFilter(
-		func(a model.WorkloadInfo) *workloadapi.Workload {
+		func(a *model.WorkloadInfo) *workloadapi.Workload {
 			// Only trigger push if the XDS object changed; the rest is just for computation of others
 			return a.Workload
 		},
-		PushXdsAddress(a.XDSUpdater, model.WorkloadInfo.ResourceName, model.WorkloadInfo.WaypointRef),
+		PushXdsAddress(a.XDSUpdater, (*model.WorkloadInfo).ResourceName, (*model.WorkloadInfo).WaypointRef),
 	), false)
 
 	if features.EnableIngressWaypointRouting {
@@ -536,7 +536,7 @@ func translateKubernetesCondition(conds []metav1.Condition) map[string]model.Con
 func (a *index) Lookup(key string) []model.AddressInfo {
 	// 1. Workload UID
 	if w := a.workloads.GetKey(key); w != nil {
-		return []model.AddressInfo{w.AsAddress}
+		return []model.AddressInfo{(*w).AsAddress}
 	}
 
 	// 2. Workload by IP
@@ -766,7 +766,7 @@ func (a *index) WorkloadsForWaypoint(key model.WaypointKey) []model.WorkloadInfo
 		}) {
 			name := res.ResourceName()
 			if _, f := out[name]; !f {
-				out[name] = res
+				out[name] = *res
 			}
 		}
 	}
@@ -778,7 +778,7 @@ func (a *index) WorkloadsForWaypoint(key model.WaypointKey) []model.WorkloadInfo
 		}) {
 			name := res.ResourceName()
 			if _, f := out[name]; !f {
-				out[name] = res
+				out[name] = *res
 			}
 		}
 	}

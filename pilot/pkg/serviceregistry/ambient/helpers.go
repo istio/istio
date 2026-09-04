@@ -57,7 +57,7 @@ func workloadToAddress(w *workloadapi.Workload) *workloadapi.Address {
 	}
 }
 
-func modelWorkloadToAddressInfo(w model.WorkloadInfo) model.AddressInfo {
+func modelWorkloadToAddressInfo(w *model.WorkloadInfo) model.AddressInfo {
 	return w.AsAddress
 }
 
@@ -195,7 +195,7 @@ func namespacedHostname(namespace, hostname string) string {
 	return namespace + "/" + hostname
 }
 
-func networkAddressFromWorkload(wl model.WorkloadInfo) []networkAddress {
+func networkAddressFromWorkload(wl *model.WorkloadInfo) []networkAddress {
 	networkAddrs := make([]networkAddress, 0, len(wl.Workload.Addresses))
 	for _, addr := range wl.Workload.Addresses {
 		// mustByteIPToString is ok since this is from our IP constructed

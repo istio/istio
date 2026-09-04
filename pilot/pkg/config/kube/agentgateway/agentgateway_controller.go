@@ -551,8 +551,8 @@ func (c *Controller) buildAddressCollections(opts krt.OptionsBuilder) krt.Collec
 	)
 
 	// Build address collections
-	workloadAddresses := krt.MapCollection(workloads, func(t model.WorkloadInfo) Address {
-		return Address{Workload: &t}
+	workloadAddresses := krt.MapCollection(workloads, func(t *model.WorkloadInfo) Address {
+		return Address{Workload: t}
 	})
 	svcAddresses := krt.MapCollection(services, func(t *model.ServiceInfo) Address {
 		return Address{Service: t}

@@ -645,7 +645,7 @@ func TestMulticlusterAmbientIndex_SplitHorizon(t *testing.T) {
 		if svc.Scope != model.Global {
 			return fmt.Errorf("expected service scope to be Global, got %s", svc.Scope)
 		}
-		gwwl := s.workloads.GetKey("NetworkGateway/remote-network/172.0.1.2/0")
+		gwwl := ptr.Flatten(s.workloads.GetKey("NetworkGateway/remote-network/172.0.1.2/0"))
 		if gwwl == nil {
 			return fmt.Errorf("expected network gateway workload to exist, but it does not")
 		}
@@ -682,7 +682,7 @@ func TestMulticlusterAmbientIndex_SplitHorizon(t *testing.T) {
 		if len(ais) != 3 {
 			return fmt.Errorf("expected 3 pods, got %d", len(ais))
 		}
-		shwl := s.workloads.GetKey(splitHorizonName)
+		shwl := ptr.Flatten(s.workloads.GetKey(splitHorizonName))
 		if shwl == nil {
 			return fmt.Errorf("expected split horizon workload to exist, but it does not")
 		}
@@ -730,7 +730,7 @@ func TestMulticlusterAmbientIndex_SplitHorizon(t *testing.T) {
 		if len(ais) != 3 {
 			return fmt.Errorf("expected 3 pods, got %d", len(ais))
 		}
-		shwl := s.workloads.GetKey(splitHorizonName)
+		shwl := ptr.Flatten(s.workloads.GetKey(splitHorizonName))
 		if shwl == nil {
 			return fmt.Errorf("expected split horizon workload to exist, but it does not")
 		}
@@ -759,7 +759,7 @@ func TestMulticlusterAmbientIndex_SplitHorizon(t *testing.T) {
 		if len(ais) != 3 {
 			return fmt.Errorf("expected 3 pods, got %d", len(ais))
 		}
-		shwl := s.workloads.GetKey(splitHorizonName)
+		shwl := ptr.Flatten(s.workloads.GetKey(splitHorizonName))
 		if shwl == nil {
 			return fmt.Errorf("expected split horizon workload to exist, but it does not")
 		}
