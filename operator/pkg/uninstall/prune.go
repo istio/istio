@@ -75,6 +75,7 @@ func NamespacedResources() []schema.GroupVersionKind {
 		{Group: "policy", Version: "v1", Kind: "PodDisruptionBudget"},
 		{Group: "autoscaling", Version: "v2", Kind: "HorizontalPodAutoscaler"},
 		gvk.EnvoyFilter.Kubernetes(),
+		{Group: "coordination.k8s.io", Version: "v1", Kind: "Lease"},
 	}
 	return res
 }
