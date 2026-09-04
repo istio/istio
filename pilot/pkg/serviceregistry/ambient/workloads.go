@@ -65,7 +65,7 @@ func (a Builder) WorkloadsCollection(
 	authPoliciesByNs krt.Index[string, model.WorkloadAuthorization],
 	peerAuthsByNs krt.Index[string, *securityclient.PeerAuthentication],
 	waypoints krt.Collection[Waypoint],
-	workloadServices krt.Collection[model.ServiceInfo],
+	workloadServices krt.Collection[*model.ServiceInfo],
 	workloadEntries krt.Collection[*networkingclient.WorkloadEntry],
 	serviceEntries krt.Collection[*networkingclient.ServiceEntry],
 	endpointSlices krt.Collection[*discovery.EndpointSlice],
@@ -147,7 +147,7 @@ func MergedGlobalWorkloadsCollection(
 	localPeerAuthsByNs krt.Index[string, *securityclient.PeerAuthentication],
 	globalWaypoints krt.Collection[krt.Collection[Waypoint]],
 	waypointsByCluster krt.Index[cluster.ID, krt.Collection[Waypoint]],
-	localWorkloadServices krt.Collection[model.ServiceInfo],
+	localWorkloadServices krt.Collection[*model.ServiceInfo],
 	globalWorkloadServices krt.Collection[krt.Collection[krt.ObjectWithCluster[model.ServiceInfo]]],
 	globalWorkloadServicesByCluster krt.Index[cluster.ID, krt.Collection[krt.ObjectWithCluster[model.ServiceInfo]]],
 	globalNetworks NetworkCollections,
@@ -317,7 +317,9 @@ func MergedGlobalWorkloadsCollection(
 			globalWorkloadServicesWithCluster := *workloadServicesPtr
 			globalWorkloadServices := krt.MapCollection(
 				globalWorkloadServicesWithCluster,
-				unwrapObjectWithCluster[model.ServiceInfo],
+				func(obj krt.ObjectWithCluster[model.ServiceInfo]) *model.ServiceInfo {
+					return obj.Object
+				},
 				append(
 					opts,
 					krt.WithName(fmt.Sprintf("WorkloadServices[%s]", c.ID)),
@@ -505,8 +507,8 @@ func workloadEntryWorkloadBuilder(
 	authPoliciesByNs krt.Index[string, model.WorkloadAuthorization],
 	peerAuthsByNs krt.Index[string, *securityclient.PeerAuthentication],
 	waypoints krt.Collection[Waypoint],
-	workloadServices krt.Collection[model.ServiceInfo],
-	workloadServicesNamespaceIndex krt.Index[string, model.ServiceInfo],
+	workloadServices krt.Collection[*model.ServiceInfo],
+	workloadServicesNamespaceIndex krt.Index[string, *model.ServiceInfo],
 	namespaces krt.Collection[*v1.Namespace],
 	clusterID cluster.ID,
 	networkGetter func(krt.HandlerContext) network.ID,
@@ -525,7 +527,7 @@ func workloadEntryWorkloadBuilder(
 		fo := []krt.FetchOption{krt.FilterIndex(workloadServicesNamespaceIndex, wle.Namespace), krt.FilterSelectsNonEmpty(wle.GetLabels())}
 		if !flags.EnableK8SServiceSelectWorkloadEntries {
 			fo = append(fo, krt.FilterGeneric(func(a any) bool {
-				return a.(model.ServiceInfo).Source.Kind == kind.ServiceEntry
+				return a.(*model.ServiceInfo).Source.Kind == kind.ServiceEntry
 			}))
 		}
 		services := krt.Fetch(ctx, workloadServices, fo...)
@@ -594,8 +596,8 @@ func (a Builder) workloadEntryWorkloadBuilder(
 	authPoliciesByNs krt.Index[string, model.WorkloadAuthorization],
 	peerAuthsByNs krt.Index[string, *securityclient.PeerAuthentication],
 	waypoints krt.Collection[Waypoint],
-	workloadServices krt.Collection[model.ServiceInfo],
-	workloadServicesNamespaceIndex krt.Index[string, model.ServiceInfo],
+	workloadServices krt.Collection[*model.ServiceInfo],
+	workloadServicesNamespaceIndex krt.Index[string, *model.ServiceInfo],
 	namespaces krt.Collection[*v1.Namespace],
 ) krt.TransformationSingle[*networkingclient.WorkloadEntry, model.WorkloadInfo] {
 	return workloadEntryWorkloadBuilder(
@@ -647,8 +649,8 @@ func podWorkloadBuilder(
 	authPoliciesByNs krt.Index[string, model.WorkloadAuthorization],
 	peerAuthsByNs krt.Index[string, *securityclient.PeerAuthentication],
 	waypoints krt.Collection[Waypoint],
-	workloadServices krt.Collection[model.ServiceInfo],
-	workloadServicesNamespaceIndex krt.Index[string, model.ServiceInfo],
+	workloadServices krt.Collection[*model.ServiceInfo],
+	workloadServicesNamespaceIndex krt.Index[string, *model.ServiceInfo],
 	endpointSlicesAddressIndex krt.Index[TargetRef, *discovery.EndpointSlice],
 	namespaces krt.Collection[*v1.Namespace],
 	nodes krt.Collection[Node],
@@ -686,7 +688,7 @@ func podWorkloadBuilder(
 		fo := []krt.FetchOption{krt.FilterIndex(workloadServicesNamespaceIndex, p.Namespace), krt.FilterSelectsNonEmpty(p.GetLabels())}
 		if !features.EnableServiceEntrySelectPods {
 			fo = append(fo, krt.FilterGeneric(func(a any) bool {
-				return a.(model.ServiceInfo).Source.Kind == kind.Service
+				return a.(*model.ServiceInfo).Source.Kind == kind.Service
 			}))
 		}
 		services := krt.Fetch(ctx, workloadServices, fo...)
@@ -752,8 +754,8 @@ func (a Builder) podWorkloadBuilder(
 	authPoliciesByNs krt.Index[string, model.WorkloadAuthorization],
 	peerAuthsByNs krt.Index[string, *securityclient.PeerAuthentication],
 	waypoints krt.Collection[Waypoint],
-	workloadServices krt.Collection[model.ServiceInfo],
-	workloadServicesNamespaceIndex krt.Index[string, model.ServiceInfo],
+	workloadServices krt.Collection[*model.ServiceInfo],
+	workloadServicesNamespaceIndex krt.Index[string, *model.ServiceInfo],
 	endpointSlicesAddressIndex krt.Index[TargetRef, *discovery.EndpointSlice],
 	namespaces krt.Collection[*v1.Namespace],
 	nodes krt.Collection[Node],
@@ -796,12 +798,12 @@ func getPodIPs(p *v1.Pod) []v1.PodIP {
 func matchingServicesWithoutSelectors(
 	ctx krt.HandlerContext,
 	p *v1.Pod,
-	alreadyMatchingServices []model.ServiceInfo,
-	workloadServices krt.Collection[model.ServiceInfo],
+	alreadyMatchingServices []*model.ServiceInfo,
+	workloadServices krt.Collection[*model.ServiceInfo],
 	endpointSlicesAddressIndex krt.Index[TargetRef, *discovery.EndpointSlice],
 	domainSuffix string,
-) []model.ServiceInfo {
-	var res []model.ServiceInfo
+) []*model.ServiceInfo {
+	var res []*model.ServiceInfo
 	// Build out our set of already-matched services to avoid double-selecting a service
 	seen := sets.NewWithLength[string](len(alreadyMatchingServices))
 	for _, s := range alreadyMatchingServices {
@@ -830,7 +832,7 @@ func matchingServicesWithoutSelectors(
 		serviceKey := es.Namespace + "/" + hostname
 		svcs := krt.Fetch(ctx, workloadServices, krt.FilterKey(serviceKey), krt.FilterGeneric(func(a any) bool {
 			// Only find Service, not Service Entry
-			return a.(model.ServiceInfo).Source.Kind == kind.Service
+			return a.(*model.ServiceInfo).Source.Kind == kind.Service
 		}))
 		if len(svcs) == 0 {
 			// no service found
@@ -878,13 +880,13 @@ func serviceEntryWorkloadBuilder(
 	peerAuthsByNs krt.Index[string, *securityclient.PeerAuthentication],
 	waypoints krt.Collection[Waypoint],
 	namespaces krt.Collection[*v1.Namespace],
-	workloadServices krt.Collection[model.ServiceInfo],
+	workloadServices krt.Collection[*model.ServiceInfo],
 	clusterID cluster.ID,
 	networkGetter func(krt.HandlerContext) network.ID,
 	gatewaysByNetwork krt.Index[network.ID, NetworkGateway],
 	flags FeatureFlags,
 ) krt.TransformationMulti[*networkingclient.ServiceEntry, model.WorkloadInfo] {
-	serviceEntryInfosByNamespaceAndName := krt.NewIndex(workloadServices, "serviceEntryInfosByNamespaceAndName", func(si model.ServiceInfo) []string {
+	serviceEntryInfosByNamespaceAndName := krt.NewIndex(workloadServices, "serviceEntryInfosByNamespaceAndName", func(si *model.ServiceInfo) []string {
 		if si.Source.Kind != kind.ServiceEntry {
 			return nil
 		}
@@ -913,7 +915,7 @@ func serviceEntryWorkloadBuilder(
 			return nil
 		}
 		if implicitEndpoints {
-			eps = slices.Map(allServices, func(si model.ServiceInfo) *networkingv1alpha3.WorkloadEntry {
+			eps = slices.Map(allServices, func(si *model.ServiceInfo) *networkingv1alpha3.WorkloadEntry {
 				return &networkingv1alpha3.WorkloadEntry{Address: si.Service.Hostname}
 			})
 		}
@@ -930,7 +932,7 @@ func serviceEntryWorkloadBuilder(
 				// For implicit endpoints, we generate each one from the hostname it was from.
 				// Otherwise, use all.
 				// [i] is safe here since we these are constructed to mirror each other
-				services = []model.ServiceInfo{allServices[i]}
+				services = []*model.ServiceInfo{allServices[i]}
 			}
 
 			policies := buildWorkloadPolicies(ctx, authPoliciesByNs, peerAuthsByNs, meshCfg, se.Labels, se.Namespace)
@@ -1000,7 +1002,7 @@ func (a Builder) serviceEntryWorkloadBuilder(
 	peerAuthsByNs krt.Index[string, *securityclient.PeerAuthentication],
 	waypoints krt.Collection[Waypoint],
 	namespaces krt.Collection[*v1.Namespace],
-	workloadServices krt.Collection[model.ServiceInfo],
+	workloadServices krt.Collection[*model.ServiceInfo],
 ) krt.TransformationMulti[*networkingclient.ServiceEntry, model.WorkloadInfo] {
 	return serviceEntryWorkloadBuilder(
 		meshConfig,
@@ -1018,7 +1020,7 @@ func (a Builder) serviceEntryWorkloadBuilder(
 
 func endpointSlicesBuilder(
 	meshConfig krt.Singleton[MeshConfig],
-	workloadServices krt.Collection[model.ServiceInfo],
+	workloadServices krt.Collection[*model.ServiceInfo],
 	domainSuffix string,
 	clusterID cluster.ID,
 	networkGetter func(krt.HandlerContext) network.ID,
@@ -1045,7 +1047,7 @@ func endpointSlicesBuilder(
 		serviceKey := es.Namespace + "/" + string(kube.ServiceHostname(serviceName, es.Namespace, domainSuffix))
 		svcs := krt.Fetch(ctx, workloadServices, krt.FilterKey(serviceKey), krt.FilterGeneric(func(a any) bool {
 			// Only find Service, not Service Entry
-			return a.(model.ServiceInfo).Source.Kind == kind.Service
+			return a.(*model.ServiceInfo).Source.Kind == kind.Service
 		}))
 		if len(svcs) == 0 {
 			// no service found
@@ -1156,7 +1158,7 @@ func endpointSlicesBuilder(
 
 func (a Builder) endpointSlicesBuilder(
 	meshConfig krt.Singleton[MeshConfig],
-	workloadServices krt.Collection[model.ServiceInfo],
+	workloadServices krt.Collection[*model.ServiceInfo],
 ) krt.TransformationMulti[*discovery.EndpointSlice, model.WorkloadInfo] {
 	return endpointSlicesBuilder(
 		meshConfig,
@@ -1217,7 +1219,7 @@ func fetchPeerAuthentications(
 	return auths
 }
 
-func constructServicesFromWorkloadEntry(p *networkingv1alpha3.WorkloadEntry, services []model.ServiceInfo) map[string]*workloadapi.PortList {
+func constructServicesFromWorkloadEntry(p *networkingv1alpha3.WorkloadEntry, services []*model.ServiceInfo) map[string]*workloadapi.PortList {
 	res := map[string]*workloadapi.PortList{}
 	for _, svc := range services {
 		n := namespacedHostname(svc.Service.Namespace, svc.Service.Hostname)
@@ -1272,7 +1274,7 @@ func workloadName(pod *v1.Pod) string {
 	return objMeta.Name
 }
 
-func constructServices(p *v1.Pod, services []model.ServiceInfo) map[string]*workloadapi.PortList {
+func constructServices(p *v1.Pod, services []*model.ServiceInfo) map[string]*workloadapi.PortList {
 	res := map[string]*workloadapi.PortList{}
 	for _, svc := range services {
 		n := namespacedHostname(svc.Service.Namespace, svc.Service.Hostname)
@@ -1344,12 +1346,12 @@ func implicitWaypointPolicies(
 	ctx krt.HandlerContext,
 	Waypoints krt.Collection[Waypoint],
 	waypoint *Waypoint,
-	services []model.ServiceInfo,
+	services []*model.ServiceInfo,
 ) []string {
 	if !flags.DefaultAllowFromWaypoint {
 		return nil
 	}
-	serviceWaypointKeys := slices.MapFilter(services, func(si model.ServiceInfo) *string {
+	serviceWaypointKeys := slices.MapFilter(services, func(si *model.ServiceInfo) *string {
 		if si.Waypoint.ResourceName == "" || (waypoint != nil && waypoint.ResourceName() == si.Waypoint.ResourceName) {
 			return nil
 		}

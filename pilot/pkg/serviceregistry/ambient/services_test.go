@@ -1378,7 +1378,7 @@ func TestServiceEntryServices(t *testing.T) {
 				krt.NewStatic(matcher, true),
 			)
 			wrapper := builder(krt.TestingDummyContext{}, tt.se)
-			res := slices.Map(wrapper, func(e TypedServiceInfo) *workloadapi.Service {
+			res := slices.Map(wrapper, func(e *TypedServiceInfo) *workloadapi.Service {
 				return e.Service
 			})
 			assert.Equal(t, res, tt.result)
@@ -1395,8 +1395,8 @@ func TestSelectWorkloadServices(t *testing.T) {
 	older := time.Unix(100, 0)
 	newer := time.Unix(200, 0)
 
-	si := func(ns, name string, k kind.Kind, vis workloadapi.Service_Visibility, created time.Time) TypedServiceInfo {
-		return TypedServiceInfo{ServiceInfo: model.ServiceInfo{
+	si := func(ns, name string, k kind.Kind, vis workloadapi.Service_Visibility, created time.Time) *TypedServiceInfo {
+		return &TypedServiceInfo{ServiceInfo: &model.ServiceInfo{
 			Service: &workloadapi.Service{
 				Name:       name,
 				Namespace:  ns,
@@ -1410,7 +1410,7 @@ func TestSelectWorkloadServices(t *testing.T) {
 
 	// run returns the winning service name per namespace and the name of the single canonical
 	// service ("" if none).
-	run := func(t *testing.T, inputs []TypedServiceInfo) (map[string]string, string) {
+	run := func(t *testing.T, inputs []*TypedServiceInfo) (map[string]string, string) {
 		winners := map[string]string{}
 		canonical := ""
 		for _, s := range selectWorkloadServices(inputs) {
@@ -1427,7 +1427,7 @@ func TestSelectWorkloadServices(t *testing.T) {
 
 	cases := []struct {
 		name          string
-		inputs        []TypedServiceInfo
+		inputs        []*TypedServiceInfo
 		wantWinners   map[string]string
 		wantCanonical string
 	}{
@@ -1435,7 +1435,7 @@ func TestSelectWorkloadServices(t *testing.T) {
 			// Same namespace, same hostname: the older SE owns the slot. Because the owner is
 			// NAMESPACE-scoped, nothing is canonical (out-of-namespace clients see no service).
 			name: "same namespace: older NAMESPACE beats newer PUBLIC, nothing canonical",
-			inputs: []TypedServiceInfo{
+			inputs: []*TypedServiceInfo{
 				si("ns", "pub", kind.ServiceEntry, workloadapi.Service_PUBLIC, newer),
 				si("ns", "nslocal", kind.ServiceEntry, workloadapi.Service_NAMESPACE, older),
 			},
@@ -1446,7 +1446,7 @@ func TestSelectWorkloadServices(t *testing.T) {
 			// A Kubernetes Service must be canonical over an older ServiceEntry that camps its
 			// hostname -- age must not let the SE capture it.
 			name: "kube Service is canonical over an older camping PUBLIC ServiceEntry",
-			inputs: []TypedServiceInfo{
+			inputs: []*TypedServiceInfo{
 				si("team-a", "svc", kind.Service, workloadapi.Service_PUBLIC, newer),
 				si("team-b", "camp", kind.ServiceEntry, workloadapi.Service_PUBLIC, older),
 			},
@@ -1456,7 +1456,7 @@ func TestSelectWorkloadServices(t *testing.T) {
 		{
 			// Cross namespace: the PUBLIC SE is canonical; the NAMESPACE SE owns only its namespace.
 			name: "cross namespace: PUBLIC is canonical, NAMESPACE is not",
-			inputs: []TypedServiceInfo{
+			inputs: []*TypedServiceInfo{
 				si("team-a", "nslocal", kind.ServiceEntry, workloadapi.Service_NAMESPACE, older),
 				si("team-b", "pub", kind.ServiceEntry, workloadapi.Service_PUBLIC, newer),
 			},
@@ -1470,7 +1470,7 @@ func TestSelectWorkloadServices(t *testing.T) {
 			// Order-independence: same result for the inputs and their reverse.
 			reverse := slices.Clone(tc.inputs)
 			slices.Reverse(reverse)
-			for _, order := range [][]TypedServiceInfo{tc.inputs, reverse} {
+			for _, order := range [][]*TypedServiceInfo{tc.inputs, reverse} {
 				winners, canonical := run(t, order)
 				assert.Equal(t, winners, tc.wantWinners)
 				assert.Equal(t, canonical, tc.wantCanonical)
@@ -1479,17 +1479,12 @@ func TestSelectWorkloadServices(t *testing.T) {
 	}
 }
 
-// Test_setCanonical asserts setCanonical propagates every ServiceInfo field to the canonical
-// copy. The reflection check keeps the fixture fully populated as fields are added; without it a
-// new field would default to zero and the equality below would pass without covering it. The
-// input is a fixed point of setCanonical: Canonical is already true and the marshaled address is
-// precomputed, so output must equal input exactly.
+// Test_setCanonical asserts setCanonical creates a canonical copy without modifying its input.
 func Test_setCanonical(t *testing.T) {
 	svc := &workloadapi.Service{
 		Name:      "name",
 		Namespace: "ns",
 		Hostname:  "host.example.com",
-		Canonical: true,
 	}
 	ai := model.NewAddressInfo(serviceToAddress(svc))
 	se := model.ServiceInfo{
@@ -1512,8 +1507,17 @@ func Test_setCanonical(t *testing.T) {
 			t.Errorf("field %q must be non-zero so this test covers it", rt.Field(i).Name)
 		}
 	}
-	seCopy := setCanonical(se)
-	assert.Equal(t, &se, &seCopy)
+	seCopy := setCanonical(&se)
+	assert.Equal(t, se.Service.Canonical, false)
+	assert.Equal(t, seCopy.Service.Canonical, true)
+	if seCopy == &se || seCopy.Service == se.Service {
+		t.Fatal("setCanonical must create a new ServiceInfo and Service")
+	}
+
+	alreadyCanonical := setCanonical(seCopy)
+	if alreadyCanonical != seCopy {
+		t.Fatal("setCanonical must retain an already canonical ServiceInfo")
+	}
 }
 
 func TestServiceServices(t *testing.T) {
@@ -2297,10 +2301,10 @@ func TestServiceServices(t *testing.T) {
 				true,
 			)
 			res := builder(krt.TestingDummyContext{}, tt.svc)
-			if res == nil {
+			if len(res) == 0 {
 				assert.Equal(t, nil, tt.result)
 			} else {
-				assert.Equal(t, res.Service, tt.result)
+				assert.Equal(t, res[0].Service, tt.result)
 			}
 		})
 	}
@@ -2352,11 +2356,11 @@ func TestPreferSamePresetNotMutated(t *testing.T) {
 	// Process a "poisoner" Service (PreferSameZone + PNRA) before a plain Service
 	// using PreferSameZone. The plain Service must NOT inherit ALLOW_ALL.
 	_ = builder(ctx, mkSvc("poisoner-zone", "1.2.3.4", "PreferSameZone", true))
-	victimZone := builder(ctx, mkSvc("victim-zone", "1.2.3.5", "PreferSameZone", false))
+	victimZone := builder(ctx, mkSvc("victim-zone", "1.2.3.5", "PreferSameZone", false))[0]
 
 	// Same scenario for PreferSameNode.
 	_ = builder(ctx, mkSvc("poisoner-node", "1.2.3.6", "PreferSameNode", true))
-	victimNode := builder(ctx, mkSvc("victim-node", "1.2.3.7", "PreferSameNode", false))
+	victimNode := builder(ctx, mkSvc("victim-node", "1.2.3.7", "PreferSameNode", false))[0]
 
 	assert.Equal(t,
 		victimZone.Service.LoadBalancing.HealthPolicy, workloadapi.LoadBalancing_ONLY_HEALTHY)
@@ -2491,7 +2495,7 @@ func TestServiceConditions(t *testing.T) {
 				true,
 			)
 			res := builder(krt.TestingDummyContext{}, tt.svc)
-			assert.Equal(t, res.GetConditions(nil), tt.conditions) // TODO: Test transitions for conditions
+			assert.Equal(t, res[0].GetConditions(nil), tt.conditions) // TODO: Test transitions for conditions
 		})
 	}
 }

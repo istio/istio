@@ -61,8 +61,8 @@ func (a Builder) ServicesCollection(
 	serviceEntryVisibility krt.Singleton[model.ServiceEntryVisibilityMatcher],
 	opts krt.OptionsBuilder,
 	precompute bool,
-) krt.Collection[model.ServiceInfo] {
-	ServicesInfo := krt.NewCollection(services, a.serviceServiceBuilder(waypoints, namespaces, meshConfig, precompute),
+) krt.Collection[*model.ServiceInfo] {
+	ServicesInfo := krt.NewManyCollection(services, a.serviceServiceBuilder(waypoints, namespaces, meshConfig, precompute),
 		append(
 			opts.WithName("ServicesInfo"),
 			krt.WithMetadata(krt.Metadata{
@@ -78,18 +78,18 @@ func (a Builder) ServicesCollection(
 			}),
 		)...)
 
-	allTypedServiceInfos := krt.JoinCollection([]krt.Collection[TypedServiceInfo]{ServicesInfo, ServiceEntriesInfo},
+	allTypedServiceInfos := krt.JoinCollection([]krt.Collection[*TypedServiceInfo]{ServicesInfo, ServiceEntriesInfo},
 		append(opts.WithName("AllTypedServiceInfo"), krt.WithMetadata(krt.Metadata{
 			multicluster.ClusterKRTMetadataKey: clusterID,
 		}))...)
 
-	allTypedServiceInfosByHostname := krt.NewIndex(allTypedServiceInfos, "TypedServiceInfosByHostname", func(ts TypedServiceInfo) []string {
+	allTypedServiceInfosByHostname := krt.NewIndex(allTypedServiceInfos, "TypedServiceInfosByHostname", func(ts *TypedServiceInfo) []string {
 		return []string{ts.Service.Hostname}
 	})
 
 	WorkloadServices := krt.NewManyCollection(
 		allTypedServiceInfosByHostname.AsCollection(opts.WithName("AllTypedServiceInfosByHostname")...),
-		func(ctx krt.HandlerContext, ios krt.IndexObject[string, TypedServiceInfo]) []model.ServiceInfo {
+		func(ctx krt.HandlerContext, ios krt.IndexObject[string, *TypedServiceInfo]) []*model.ServiceInfo {
 			if len(ios.Objects) == 0 {
 				return nil
 			}
@@ -106,14 +106,14 @@ func (a Builder) ServicesCollection(
 
 // selectWorkloadServices resolves the set of services sharing a hostname down to one winner per
 // namespace and marks the single canonical service.
-func selectWorkloadServices(typedServiceInfos []TypedServiceInfo) []model.ServiceInfo {
-	bestByNamespace := make(map[string]model.ServiceInfo)
+func selectWorkloadServices(typedServiceInfos []*TypedServiceInfo) []*model.ServiceInfo {
+	bestByNamespace := make(map[string]*model.ServiceInfo)
 
 	// check if a is a better ServiceInfo than b
 	// better meaning both:
 	//     a is older than b
 	//     b is not a Kubernetes Service
-	isBetter := func(a, b model.ServiceInfo) bool {
+	isBetter := func(a, b *model.ServiceInfo) bool {
 		return a.CreationTime.Before(b.CreationTime) && b.Source.Kind != kind.Service
 	}
 	// Pick the winner for each namespace: a Kubernetes Service always wins, else the oldest.
@@ -135,17 +135,17 @@ func selectWorkloadServices(typedServiceInfos []TypedServiceInfo) []model.Servic
 		si := bestByNamespace[ns]
 		switch {
 		case si.Source.Kind == kind.Service:
-			canonical = &si
+			canonical = si
 		case si.Service.GetVisibility() == workloadapi.Service_NAMESPACE:
 			continue
 		default:
-			if canonical == nil || isBetter(si, *canonical) {
-				canonical = &si
+			if canonical == nil || isBetter(si, canonical) {
+				canonical = si
 			}
 		}
 	}
 	if canonical != nil {
-		bestByNamespace[canonical.GetNamespace()] = setCanonical(*canonical)
+		bestByNamespace[canonical.GetNamespace()] = setCanonical(canonical)
 	}
 
 	return maps.Values(bestByNamespace)
@@ -153,7 +153,7 @@ func selectWorkloadServices(typedServiceInfos []TypedServiceInfo) []model.Servic
 
 func GlobalNestedWorkloadServicesCollection(
 	localCluster *multicluster.Cluster,
-	localServiceInfos krt.Collection[model.ServiceInfo],
+	localServiceInfos krt.Collection[*model.ServiceInfo],
 	localWaypoints krt.Collection[Waypoint],
 	ctrl *multicluster.Controller,
 	localServiceEntries krt.Collection[*networkingclient.ServiceEntry],
@@ -167,7 +167,9 @@ func GlobalNestedWorkloadServicesCollection(
 	// This will contain the serviceinfos derived from Services AND ServiceEntries
 	LocalServiceInfosWithCluster := krt.MapCollection(
 		localServiceInfos,
-		wrapObjectWithCluster[model.ServiceInfo](localCluster.ID),
+		func(obj *model.ServiceInfo) krt.ObjectWithCluster[model.ServiceInfo] {
+			return krt.ObjectWithCluster[model.ServiceInfo]{ClusterID: localCluster.ID, Object: obj}
+		},
 		opts.WithName("LocalServiceInfosWithCluster")...,
 	)
 
@@ -191,7 +193,7 @@ func GlobalNestedWorkloadServicesCollection(
 			waypoints := *waypointsPtr
 			namespaces := cluster.Namespaces()
 			// N.B Never precompute the service info for remote clusters; the merge function will do that
-			servicesInfo := krt.NewCollection(services, serviceServiceBuilder(
+			servicesInfo := krt.NewManyCollection(services, serviceServiceBuilder(
 				waypoints,
 				namespaces,
 				meshConfig,
@@ -212,8 +214,8 @@ func GlobalNestedWorkloadServicesCollection(
 
 			servicesInfoWithCluster := krt.MapCollection(
 				servicesInfo,
-				func(o model.ServiceInfo) krt.ObjectWithCluster[model.ServiceInfo] {
-					return krt.ObjectWithCluster[model.ServiceInfo]{ClusterID: cluster.ID, Object: &o}
+				func(o *model.ServiceInfo) krt.ObjectWithCluster[model.ServiceInfo] {
+					return krt.ObjectWithCluster[model.ServiceInfo]{ClusterID: cluster.ID, Object: o}
 				},
 				append(
 					opts,
@@ -236,8 +238,8 @@ func serviceServiceBuilder(
 	checkServiceScope bool,
 	networkGetter func(ctx krt.HandlerContext) network.ID,
 	precompute bool,
-) krt.TransformationSingle[*v1.Service, model.ServiceInfo] {
-	return func(ctx krt.HandlerContext, s *v1.Service) *model.ServiceInfo {
+) krt.TransformationMulti[*v1.Service, *model.ServiceInfo] {
+	return func(ctx krt.HandlerContext, s *v1.Service) []*model.ServiceInfo {
 		serviceScope := model.Local
 		if checkServiceScope {
 			meshCfg := krt.FetchOne(ctx, meshConfig.AsCollection())
@@ -298,10 +300,10 @@ func serviceServiceBuilder(
 			CreationTime:  s.CreationTimestamp.Time,
 		}
 		if precompute {
-			return precomputeServicePtr(svcInfo)
+			return []*model.ServiceInfo{precomputeService(svcInfo)}
 		}
 
-		return svcInfo
+		return []*model.ServiceInfo{svcInfo}
 	}
 }
 
@@ -314,8 +316,8 @@ func typedServiceServiceBuilder(
 	checkServiceScope bool,
 	networkGetter func(ctx krt.HandlerContext) network.ID,
 	precompute bool,
-) krt.TransformationSingle[*v1.Service, TypedServiceInfo] {
-	return func(ctx krt.HandlerContext, s *v1.Service) *TypedServiceInfo {
+) krt.TransformationMulti[*v1.Service, *TypedServiceInfo] {
+	return func(ctx krt.HandlerContext, s *v1.Service) []*TypedServiceInfo {
 		svcInfo := serviceServiceBuilder(waypoints,
 			namespaces,
 			meshConfig,
@@ -324,10 +326,10 @@ func typedServiceServiceBuilder(
 			checkServiceScope,
 			networkGetter,
 			precompute)(ctx, s)
-		if svcInfo == nil {
+		if len(svcInfo) == 0 {
 			return nil
 		}
-		return &TypedServiceInfo{ServiceInfo: *svcInfo}
+		return []*TypedServiceInfo{{ServiceInfo: svcInfo[0]}}
 	}
 }
 
@@ -393,7 +395,7 @@ func (a Builder) serviceServiceBuilder(
 	namespaces krt.Collection[*v1.Namespace],
 	meshConfig krt.Singleton[MeshConfig],
 	precompute bool,
-) krt.TransformationSingle[*v1.Service, TypedServiceInfo] {
+) krt.TransformationMulti[*v1.Service, *TypedServiceInfo] {
 	return typedServiceServiceBuilder(
 		waypoints,
 		namespaces,
@@ -416,23 +418,23 @@ func MakeSource(o controllers.Object) model.TypedObject {
 
 // TypedServiceInfo is a wrapper around ServiceInfo to avoid key conflicts during processing
 type TypedServiceInfo struct {
-	model.ServiceInfo
+	*model.ServiceInfo
 }
 
 func (t TypedServiceInfo) ResourceName() string {
 	return t.Source.Kind.String() + "/" + t.GetNamespace() + "/" + t.GetName() + "/" + t.Service.GetHostname()
 }
 
-func (t TypedServiceInfo) Equals(other TypedServiceInfo) bool {
-	return t.ServiceInfo.Equals(&other.ServiceInfo)
+func (t *TypedServiceInfo) Equals(other *TypedServiceInfo) bool {
+	return t.ServiceInfo.Equals(other.ServiceInfo)
 }
 
 func (a Builder) serviceEntryServiceBuilder(
 	waypoints krt.Collection[Waypoint],
 	namespaces krt.Collection[*v1.Namespace],
 	visibility krt.Singleton[model.ServiceEntryVisibilityMatcher],
-) krt.TransformationMulti[*networkingclient.ServiceEntry, TypedServiceInfo] {
-	return func(ctx krt.HandlerContext, s *networkingclient.ServiceEntry) []TypedServiceInfo {
+) krt.TransformationMulti[*networkingclient.ServiceEntry, *TypedServiceInfo] {
+	return func(ctx krt.HandlerContext, s *networkingclient.ServiceEntry) []*TypedServiceInfo {
 		waypoint, waypointError := fetchWaypointForService(ctx, waypoints, namespaces, visibility, s.ObjectMeta)
 
 		ns := krt.FetchOne(ctx, namespaces, krt.FilterKey(s.Namespace))
@@ -447,8 +449,8 @@ func (a Builder) serviceEntryServiceBuilder(
 			ctx, s, waypoints, namespaces, waypoint, waypointError,
 			nsAnnotations, nsLabels, visibility, a.Networks.FetchLocalNetworkID,
 		)
-		return slices.Map(serviceInfos, func(si model.ServiceInfo) TypedServiceInfo {
-			return TypedServiceInfo{ServiceInfo: si}
+		return slices.Map(serviceInfos, func(si *model.ServiceInfo) *TypedServiceInfo {
+			return &TypedServiceInfo{ServiceInfo: si}
 		})
 	}
 }
@@ -464,7 +466,7 @@ func serviceEntriesInfo(
 	nsLabels map[string]string,
 	visibility krt.Singleton[model.ServiceEntryVisibilityMatcher],
 	networkGetter func(ctx krt.HandlerContext) network.ID,
-) []model.ServiceInfo {
+) []*model.ServiceInfo {
 	sel := model.NewSelector(s.Spec.GetWorkloadSelector().GetLabels())
 	portNames := map[int32]model.ServicePortName{}
 	for _, p := range s.Spec.Ports {
@@ -504,12 +506,12 @@ func serviceEntriesInfo(
 	// condition. The status value itself comes from the WDS Service.Visibility set above.
 	visibilityConfigured := vis.Configured()
 	services := constructServiceEntries(ctx, s, w, nsAnnotations, networkGetter)
-	result := make([]model.ServiceInfo, 0, len(services))
+	result := make([]*model.ServiceInfo, 0, len(services))
 	for _, e := range services {
 		e.Visibility = wdsVisibility(resolvedVisibility)
 		e.IngressUseWaypoint = waypoint.IngressUseWaypoint
 		e.WeightedWaypoints = weighted
-		result = append(result, precomputeService(model.ServiceInfo{
+		result = append(result, precomputeService(&model.ServiceInfo{
 			Service:              e,
 			PortNames:            portNames,
 			LabelSelector:        sel,
@@ -746,11 +748,7 @@ func getVIPs(svc *v1.Service) []string {
 	return res
 }
 
-func precomputeServicePtr(w *model.ServiceInfo) *model.ServiceInfo {
-	return ptr.Of(precomputeService(*w))
-}
-
-func precomputeService(w model.ServiceInfo) model.ServiceInfo {
+func precomputeService(w *model.ServiceInfo) *model.ServiceInfo {
 	w.AsAddress = model.NewAddressInfo(serviceToAddress(w.Service))
 	w.MarshaledAddress = w.AsAddress.Marshaled
 	return w
@@ -759,10 +757,14 @@ func precomputeService(w model.ServiceInfo) model.ServiceInfo {
 // setCanonical sets the canonical field in a WDS service without mangling the ServiceInfo.
 // The ServiceInfo is passed by value so every field is carried over to the returned copy; only
 // the cloned Service proto and the precomputed address fields differ from the input.
-func setCanonical(se model.ServiceInfo) model.ServiceInfo {
-	se.Service = protomarshal.ShallowClone(se.Service)
-	se.Service.Canonical = true
-	return precomputeService(se)
+func setCanonical(se *model.ServiceInfo) *model.ServiceInfo {
+	if se.Service.Canonical {
+		return se
+	}
+	result := *se
+	result.Service = protomarshal.ShallowClone(se.Service)
+	result.Service.Canonical = true
+	return precomputeService(&result)
 }
 
 // ingressUseWaypointFromLabels returns whether the ingress-use-waypoint label is

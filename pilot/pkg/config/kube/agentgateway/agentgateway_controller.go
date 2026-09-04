@@ -529,9 +529,9 @@ func (c *Controller) buildAddressCollections(opts krt.OptionsBuilder) krt.Collec
 		true,
 	)
 
-	inferencePoolsInfo := krt.NewCollection(inputs.InferencePools, inferencePoolBuilder(c.domainSuffix),
+	inferencePoolsInfo := krt.NewManyCollection(inputs.InferencePools, inferencePoolBuilder(c.domainSuffix),
 		opts.WithName("InferencePools")...)
-	services = krt.JoinCollection([]krt.Collection[model.ServiceInfo]{services, inferencePoolsInfo}, krt.WithJoinUnchecked())
+	services = krt.JoinCollection([]krt.Collection[*model.ServiceInfo]{services, inferencePoolsInfo}, krt.WithJoinUnchecked())
 
 	nodeLocality := ambient.NodesCollection(inputs.Nodes, opts.WithName("NodeLocality")...)
 	workloads := builder.WorkloadsCollection(
@@ -554,8 +554,8 @@ func (c *Controller) buildAddressCollections(opts krt.OptionsBuilder) krt.Collec
 	workloadAddresses := krt.MapCollection(workloads, func(t model.WorkloadInfo) Address {
 		return Address{Workload: &t}
 	})
-	svcAddresses := krt.MapCollection(services, func(t model.ServiceInfo) Address {
-		return Address{Service: &t}
+	svcAddresses := krt.MapCollection(services, func(t *model.ServiceInfo) Address {
+		return Address{Service: t}
 	})
 
 	adpAddresses := krt.JoinCollection([]krt.Collection[Address]{svcAddresses, workloadAddresses}, opts.WithName("Addresses")...)

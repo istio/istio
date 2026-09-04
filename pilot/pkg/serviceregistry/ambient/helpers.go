@@ -204,7 +204,7 @@ func networkAddressFromWorkload(wl model.WorkloadInfo) []networkAddress {
 	return networkAddrs
 }
 
-func networkAddressFromService(s model.ServiceInfo) []networkAddress {
+func networkAddressFromService(s *model.ServiceInfo) []networkAddress {
 	networkAddrs := make([]networkAddress, 0, len(s.Service.Addresses))
 	for _, addr := range s.Service.Addresses {
 		// mustByteIPToString is ok since this is from our IP constructed
