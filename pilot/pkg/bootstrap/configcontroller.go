@@ -201,7 +201,7 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 		// need SetStatusWrite called to activate their respective status queues.
 		var agwc *agentgateway.Controller
 		if features.EnableAgentgateway {
-			agwc = agentgateway.NewAgwController(s.kubeClient, s.kubeClient.CrdWatcher().WaitForCRD, args.RegistryOptions.KubeOptions)
+			agwc = agentgateway.NewAgwController(s.kubeClient, s.kubeClient.CrdWatcher().WaitForCRD, args.RegistryOptions.KubeOptions, s.ambientIndex)
 			s.environment.AgentgatewayController = agwc
 			s.agentgatewayController = agwc
 			s.ConfigStores = append(s.ConfigStores, s.environment.AgentgatewayController)

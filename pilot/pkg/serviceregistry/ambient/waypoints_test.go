@@ -409,7 +409,7 @@ func TestServiceOwningWaypoints(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := serviceOwningWaypoints(model.ServiceInfo{Service: tc.svc})
+			got := ServiceOwningWaypoints(model.ServiceInfo{Service: tc.svc})
 			assert.Equal(t, got, tc.want)
 		})
 	}
