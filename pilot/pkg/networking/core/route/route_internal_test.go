@@ -27,12 +27,15 @@ import (
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
+	"k8s.io/apimachinery/pkg/types"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	authzmatcher "istio.io/istio/pilot/pkg/security/authz/matcher"
 	authz "istio.io/istio/pilot/pkg/security/authz/model"
+	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/util/sets"
@@ -711,6 +714,73 @@ func TestTranslateRequestMirrorPolicy(t *testing.T) {
 			got := TranslateRequestMirrorPolicy(tt.cluster, tt.runtimeFraction)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("TranslateRequestMirrorPolicy() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestHTTPRouteOrigins(t *testing.T) {
+	origins := []types.NamespacedName{{Namespace: "ns", Name: "a"}, {Namespace: "ns", Name: "b"}}
+	vs := func(extra any) config.Config {
+		c := config.Config{Meta: config.Meta{Name: "vs", Namespace: "ns"}}
+		if extra != nil {
+			c.Extra = map[string]any{constants.ConfigExtraHTTPRouteOrigins: extra}
+		}
+		return c
+	}
+
+	cases := []struct {
+		name       string
+		flag       bool
+		vs         config.Config
+		routeCount int
+		want       []types.NamespacedName
+		wantErr    bool
+	}{
+		{
+			name:       "flag off ignores origins",
+			vs:         vs(origins),
+			routeCount: 2,
+		},
+		{
+			name:       "no origins is not an error",
+			flag:       true,
+			vs:         vs(nil),
+			routeCount: 2,
+		},
+		{
+			name:       "origins are returned",
+			flag:       true,
+			vs:         vs(origins),
+			routeCount: 2,
+			want:       origins,
+		},
+		{
+			// A short slice would index the wrong HTTPRoute or panic, so it has to fail closed.
+			name:       "count mismatch is an error",
+			flag:       true,
+			vs:         vs(origins[:1]),
+			routeCount: 2,
+			wantErr:    true,
+		},
+		{
+			name:       "wrong type is an error",
+			flag:       true,
+			vs:         vs([]string{"a", "b"}),
+			routeCount: 2,
+			wantErr:    true,
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			test.SetForTest(t, &features.EnableGatewayAPIHTTPRouteAuth, tt.flag)
+			got, err := httpRouteOrigins(tt.vs, tt.routeCount)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("httpRouteOrigins() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("httpRouteOrigins() = %v, want %v", got, tt.want)
 			}
 		})
 	}

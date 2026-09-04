@@ -73,7 +73,6 @@ import (
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/url"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/istio/pkg/wellknown"
 )
 
 type myProtoValue struct {
@@ -646,20 +645,24 @@ func getIstioRBACPolicies(cd *configdump.Wrapper, port int32) ([]string, error) 
 	}
 
 	// Identify RBAC policies. Currently there are no "breadcrumbs" so we only return the policy names.
+	policies := []string{}
 	for _, httpFilter := range hcm.HttpFilters {
-		if httpFilter.Name == wellknown.HTTPRoleBasedAccessControl {
-			rbac := &rbachttp.RBAC{}
-			if err := httpFilter.GetTypedConfig().UnmarshalTo(rbac); err == nil {
-				policies := []string{}
-				for polName := range rbac.Rules.Policies {
-					policies = append(policies, polName)
-				}
-				return policies, nil
-			}
+		// Select on the typed config, not the filter name: RBAC filters are emitted under more
+		// than one instance name.
+		if !httpFilter.GetTypedConfig().MessageIs((*rbachttp.RBAC)(nil)) {
+			continue
+		}
+		rbac := &rbachttp.RBAC{}
+		if err := httpFilter.GetTypedConfig().UnmarshalTo(rbac); err != nil {
+			continue
+		}
+		for polName := range rbac.GetRules().GetPolicies() {
+			policies = append(policies, polName)
 		}
 	}
+	sort.Strings(policies)
 
-	return []string{}, nil
+	return policies, nil
 }
 
 // Return the first HTTP Connection Manager config for the inbound port

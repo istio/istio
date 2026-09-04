@@ -40,6 +40,7 @@ import (
 	security_beta "istio.io/api/security/v1beta1"
 	telemetry "istio.io/api/telemetry/v1alpha1"
 	type_beta "istio.io/api/type/v1beta1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/networking/serviceentry"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -1315,9 +1316,9 @@ func IsNegativeDuration(in time.Duration) error {
 	return nil
 }
 
-func validatePolicyTargetReferences(targetRefs []*type_beta.PolicyTargetReference) (v Validation) {
+func validatePolicyTargetReferences(targetRefs []*type_beta.PolicyTargetReference, additionalAllowed ...config.GroupVersionKind) (v Validation) {
 	for _, r := range targetRefs {
-		v = AppendValidation(v, validatePolicyTargetReference(r))
+		v = AppendValidation(v, validatePolicyTargetReference(r, additionalAllowed...))
 	}
 	return v
 }
@@ -1330,7 +1331,7 @@ var allowedTargetRefs = []config.GroupVersionKind{
 	gvk.GatewayClass,
 }
 
-func validatePolicyTargetReference(targetRef *type_beta.PolicyTargetReference) (v Validation) {
+func validatePolicyTargetReference(targetRef *type_beta.PolicyTargetReference, additionalAllowed ...config.GroupVersionKind) (v Validation) {
 	if targetRef == nil {
 		return v
 	}
@@ -1342,12 +1343,14 @@ func validatePolicyTargetReference(targetRef *type_beta.PolicyTargetReference) (
 		v = appendErrorf(v, "targetRef namespace must not be set; cross namespace referencing is not supported")
 	}
 
-	canoncalGroup := targetRef.Group
-	if canoncalGroup == "" {
-		canoncalGroup = "core"
+	canonicalGroup := targetRef.Group
+	if canonicalGroup == "" {
+		canonicalGroup = "core"
 	}
-	allowed := slices.FindFunc(allowedTargetRefs, func(gvk config.GroupVersionKind) bool {
-		return gvk.Kind == targetRef.Kind && gvk.CanonicalGroup() == canoncalGroup
+	validTargetRefs := append([]config.GroupVersionKind(nil), allowedTargetRefs...)
+	validTargetRefs = append(validTargetRefs, additionalAllowed...)
+	allowed := slices.FindFunc(validTargetRefs, func(gvk config.GroupVersionKind) bool {
+		return gvk.Kind == targetRef.Kind && gvk.CanonicalGroup() == canonicalGroup
 	}) != nil
 
 	if !allowed {
@@ -1412,10 +1415,32 @@ var ValidateAuthorizationPolicy = RegisterValidateFunc("ValidateAuthorizationPol
 		var warnings Warning
 		selectorTypeValidation := validateOneOfSelectorType(in.GetSelector(), in.GetTargetRef(), in.GetTargetRefs())
 		workloadSelectorValidation := validateWorkloadSelector(in.GetSelector())
-		targetRefValidation := validatePolicyTargetReference(in.GetTargetRef())
-		targetRefsValidation := validatePolicyTargetReferences(in.GetTargetRefs())
+		var additionalTargetRefs []config.GroupVersionKind
+		if features.EnableGatewayAPIHTTPRouteAuth {
+			// HTTPRoute is only a valid targetRef when the feature is enabled.
+			additionalTargetRefs = append(additionalTargetRefs, gvk.HTTPRoute)
+		}
+		targetRefValidation := validatePolicyTargetReference(in.GetTargetRef(), additionalTargetRefs...)
+		targetRefsValidation := validatePolicyTargetReferences(in.GetTargetRefs(), additionalTargetRefs...)
 		errs = appendErrors(errs, selectorTypeValidation, workloadSelectorValidation, targetRefValidation, targetRefsValidation)
 		warnings = appendErrors(warnings, workloadSelectorValidation.Warning)
+
+		if features.EnableGatewayAPIHTTPRouteAuth && hasHTTPRouteTargetRef(in) {
+			switch in.GetAction() {
+			case security_beta.AuthorizationPolicy_ALLOW, security_beta.AuthorizationPolicy_DENY:
+				// Allowed
+			default:
+				errs = appendErrors(errs,
+					fmt.Errorf("Only ALLOW/DENY actions are supported for HTTPRoute targetRefs, got %s", in.GetAction().String()))
+			}
+			// An HTTPRoute targetRef scopes the policy to individual routes. Mixing it with another
+			// kind would also apply the policy workload-wide, silently widening an ALLOW beyond
+			// the targeted route.
+			if hasNonHTTPRouteTargetRef(in) {
+				errs = appendErrors(errs,
+					fmt.Errorf("an HTTPRoute targetRef must not be combined with targetRefs of other kinds"))
+			}
+		}
 
 		if in.Action == security_beta.AuthorizationPolicy_CUSTOM {
 			if in.Rules == nil {
@@ -1615,6 +1640,41 @@ var ValidateRequestAuthentication = RegisterValidateFunc("ValidateRequestAuthent
 		}
 		return errs.Unwrap()
 	})
+
+func isHTTPRouteTargetRef(ref *type_beta.PolicyTargetReference) bool {
+	if ref == nil {
+		return false
+	}
+	return ref.Kind == gvk.HTTPRoute.Kind &&
+		config.CanonicalGroup(ref.GetGroup()) == gvk.HTTPRoute.CanonicalGroup()
+}
+
+func hasNonHTTPRouteTargetRef(in *security_beta.AuthorizationPolicy) bool {
+	if ref := in.GetTargetRef(); ref != nil && !isHTTPRouteTargetRef(ref) {
+		return true
+	}
+	for _, ref := range in.GetTargetRefs() {
+		if !isHTTPRouteTargetRef(ref) {
+			return true
+		}
+	}
+	return false
+}
+
+func hasHTTPRouteTargetRef(in *security_beta.AuthorizationPolicy) bool {
+	targetRef := in.GetTargetRef()
+	if isHTTPRouteTargetRef(targetRef) {
+		return true
+	}
+
+	for _, ref := range in.GetTargetRefs() {
+		if isHTTPRouteTargetRef(ref) {
+			return true
+		}
+	}
+
+	return false
+}
 
 // warnPrivateJwksKeys warns if inline Jwks contains private key material.
 // Envoy only needs public keys for token verification.

@@ -905,6 +905,20 @@ var testGrid = []testCase{
 		expected:   []message{},
 	},
 	{
+		name:       "EnvoyFilterMayClearRouteCache",
+		inputFiles: []string{"testdata/envoy-filter-route-cache.yaml"},
+		analyzer:   &envoyfilter.RouteCacheAnalyzer{},
+		expected: []message{
+			{msg.EnvoyFilterMayClearRouteCache, "EnvoyFilter testing/lua-before-router"},
+		},
+	},
+	{
+		name:       "EnvoyFilterMayClearRouteCacheWithoutHTTPRoutePolicy",
+		inputFiles: []string{"testdata/envoy-filter-filterchain.yaml"},
+		analyzer:   &envoyfilter.RouteCacheAnalyzer{},
+		expected:   []message{},
+	},
+	{
 		name:       "EnvoyFilterUsesAbsoluteOperation",
 		inputFiles: []string{"testdata/absolute-envoy-filter-operation.yaml"},
 		analyzer:   &envoyfilter.EnvoyPatchAnalyzer{},
