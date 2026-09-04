@@ -1417,8 +1417,8 @@ func TestTelemetryAccessLog(t *testing.T) {
 	defaultFormatJSON, _ := protomarshal.ToJSON(EnvoyJSONLogFormatIstio)
 
 	ctx := NewPushContext()
-	ctx.ServiceIndex.HostnameAndNamespace["otel-collector.foo.svc.cluster.local"] = map[string]*Service{
-		"foo": {
+	ctx.ServiceIndex.HostnameAndNamespace["otel-collector.foo.svc.cluster.local"] = map[string][]*Service{
+		"foo": {{
 			Hostname:       "otel-collector.foo.svc.cluster.local",
 			DefaultAddress: "172.217.0.0/16",
 			Ports: PortList{
@@ -1439,7 +1439,7 @@ func TestTelemetryAccessLog(t *testing.T) {
 				Namespace:       "foo",
 				ServiceRegistry: provider.Kubernetes,
 			},
-		},
+		}},
 	}
 
 	for _, tc := range []struct {

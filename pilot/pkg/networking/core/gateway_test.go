@@ -4688,11 +4688,11 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 				Configs:    tt.configs,
 				MeshConfig: mc,
 			})
-			cg.PushContext().ServiceIndex.HostnameAndNamespace = map[host.Name]map[string]*pilot_model.Service{
+			cg.PushContext().ServiceIndex.HostnameAndNamespace = map[host.Name]map[string][]*pilot_model.Service{
 				"example.local": {
-					"foo": &pilot_model.Service{
+					"foo": {{
 						Hostname: "example.local",
-					},
+					}},
 				},
 			}
 			proxy := cg.SetupProxy(&proxyGateway)
@@ -4978,11 +4978,11 @@ func TestListenerTransportSocketConnectTimeoutForGateway(t *testing.T) {
 				Configs:    tt.configs,
 				MeshConfig: mesh.DefaultMeshConfig(),
 			})
-			cg.PushContext().ServiceIndex.HostnameAndNamespace = map[host.Name]map[string]*pilot_model.Service{
+			cg.PushContext().ServiceIndex.HostnameAndNamespace = map[host.Name]map[string][]*pilot_model.Service{
 				"example.local": {
-					"foo": &pilot_model.Service{
+					"foo": {{
 						Hostname: "example.local",
-					},
+					}},
 				},
 			}
 			proxy := cg.SetupProxy(&proxyGateway)
@@ -5110,9 +5110,9 @@ func TestGatewayExternalSDSProvider(t *testing.T) {
 				Configs:    []config.Config{gatewayConfig, vsConfig},
 				MeshConfig: mc,
 			})
-			cg.PushContext().ServiceIndex.HostnameAndNamespace = map[host.Name]map[string]*pilot_model.Service{
+			cg.PushContext().ServiceIndex.HostnameAndNamespace = map[host.Name]map[string][]*pilot_model.Service{
 				host.Name(tt.providerService): {
-					"sds-ns": {
+					"sds-ns": {{
 						Hostname: host.Name(tt.providerService),
 						Ports: []*pilot_model.Port{
 							{
@@ -5121,7 +5121,7 @@ func TestGatewayExternalSDSProvider(t *testing.T) {
 								Protocol: protocol.GRPC,
 							},
 						},
-					},
+					}},
 				},
 			}
 
