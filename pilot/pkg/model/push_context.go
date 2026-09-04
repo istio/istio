@@ -874,8 +874,8 @@ func virtualServiceDestinationsFilteredBySourceNamespace(v *networking.VirtualSe
 	return out
 }
 
-func (ps *PushContext) ExtraWaypointServices(proxy *Proxy, patches *MergedEnvoyFilterWrapper) (sets.Set[NamespacedHostname], sets.String) {
-	return ps.extraServicesForProxy(proxy, patches)
+func (ps *PushContext) ExtraWaypointServices(proxy *Proxy, patches *MergedEnvoyFilterWrapper, services []*Service) (sets.Set[NamespacedHostname], sets.String) {
+	return ps.extraServicesForProxy(proxy, patches, services)
 }
 
 // GatewayServices returns the set of services which are referred from the proxy gateways.
@@ -883,7 +883,7 @@ func (ps *PushContext) GatewayServices(proxy *Proxy, patches *MergedEnvoyFilterW
 	svcs := proxy.SidecarScope.services
 
 	// host set.
-	namespacedHostsFromGateways, hostsFromGateways := ps.extraServicesForProxy(proxy, patches)
+	namespacedHostsFromGateways, hostsFromGateways := ps.extraServicesForProxy(proxy, patches, nil)
 	// MergedGateway will be nil when there are no configs in the
 	// system during initial installation.
 	if proxy.MergedGateway != nil {
@@ -932,7 +932,7 @@ func (ps *PushContext) ServiceAttachedToGateway(hostname string, namespace strin
 		}
 	}
 	patches := ps.EnvoyFilters(proxy)
-	namespaced, hosts := ps.extraServicesForProxy(proxy, patches)
+	namespaced, hosts := ps.extraServicesForProxy(proxy, patches, nil)
 	return hosts.Contains(hostname) || namespaced.Contains(NamespacedHostname{Hostname: host.Name(hostname), Namespace: namespace})
 }
 
@@ -971,7 +971,7 @@ const addHostsFromMeshConfigProvidersHandled = 15
 // 1. MeshConfig.ExtensionProviders
 // 2. RequestAuthentication.JwtRules.JwksUri
 // 3. EnvoyFilters with explicitly annotated references
-func (ps *PushContext) extraServicesForProxy(proxy *Proxy, patches *MergedEnvoyFilterWrapper) (sets.Set[NamespacedHostname], sets.String) {
+func (ps *PushContext) extraServicesForProxy(proxy *Proxy, patches *MergedEnvoyFilterWrapper, services []*Service) (sets.Set[NamespacedHostname], sets.String) {
 	hosts := sets.String{}
 	namespaceScoped := sets.New[NamespacedHostname]()
 	addService := func(s string) {
@@ -1019,7 +1019,7 @@ func (ps *PushContext) extraServicesForProxy(proxy *Proxy, patches *MergedEnvoyF
 	}
 	// add services from RequestAuthentication.JwtRules.JwksUri
 	if features.JwksFetchMode != jwt.Istiod {
-		forWorkload := PolicyMatcherForProxy(proxy)
+		forWorkload := PolicyMatcherForProxy(proxy).WithServices(services)
 		jwtPolicies := ps.AuthnPolicies.GetJwtPoliciesForWorkload(forWorkload)
 		for _, cfg := range jwtPolicies {
 			rules := cfg.Spec.(*v1beta1.RequestAuthentication).JwtRules
