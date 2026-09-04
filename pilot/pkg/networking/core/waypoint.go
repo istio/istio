@@ -69,8 +69,8 @@ func findWaypointResources(node *model.Proxy, push *model.PushContext) ([]model.
 	waypointServices := &waypointServices{}
 	for _, s := range serviceInfos {
 		hostName := host.Name(s.Service.Hostname)
-		svc, ok := push.ServiceIndex.HostnameAndNamespace[hostName][s.Service.Namespace]
-		if !ok {
+		svc := push.ServiceByHostnameAndNamespace(hostName, s.Service.Namespace)
+		if svc == nil {
 			continue
 		}
 		// Exclude MESH_INTERNAL services with DYNAMIC_DNS resolution from waypoint.
