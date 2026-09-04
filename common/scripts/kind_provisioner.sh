@@ -407,9 +407,65 @@ function install_calico {
   kubectl --kubeconfig="$KUBECONFIG" wait --for condition=ready -n kube-system pod -l k8s-app=calico-kube-controllers --timeout 90s
 }
 
+function configure_ecr_image_pull_secret() {
+  local KUBECONFIG="${1}"
+  local ecr_password
+  local xtrace_enabled=false
+
+  if [[ -z "${ECR_REGISTRY:-}" ]]; then
+    return
+  fi
+
+  if [[ "$-" == *x* ]]; then
+    xtrace_enabled=true
+    set +x
+  fi
+
+  ecr_password=$(aws ecr get-login-password)
+  kubectl --kubeconfig="$KUBECONFIG" --namespace metallb-system create secret docker-registry ecr-pull-secret \
+    --docker-server="${ECR_REGISTRY}" \
+    --docker-username=AWS \
+    --docker-password="${ecr_password}" \
+    --dry-run=client \
+    --output=yaml | kubectl --kubeconfig="$KUBECONFIG" --namespace metallb-system apply -f -
+  unset ecr_password
+
+  if [[ "${xtrace_enabled}" == true ]]; then
+    set -x
+  fi
+}
+
+function configure_metallb_image_pull_secret() {
+  local KUBECONFIG="${1}"
+
+  if [[ -z "${ECR_REGISTRY:-}" ]]; then
+    return
+  fi
+
+  for service_account in controller speaker; do
+    cat <<EOF | kubectl --kubeconfig="$KUBECONFIG" apply --server-side --field-manager=istio-ecr-pull-secret -f -
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ${service_account}
+  namespace: metallb-system
+imagePullSecrets:
+- name: ecr-pull-secret
+EOF
+  done
+
+}
+
 function install_metallb() {
   KUBECONFIG="${1}"
-  kubectl --kubeconfig="$KUBECONFIG" apply -f "${COMMON_SCRIPTS}/metallb-native.yaml"
+  if [[ -n "${ECR_REGISTRY:-}" ]]; then
+    kubectl --kubeconfig="$KUBECONFIG" create namespace metallb-system --dry-run=client --output=yaml | \
+      kubectl --kubeconfig="$KUBECONFIG" apply -f -
+    configure_ecr_image_pull_secret "$KUBECONFIG"
+    configure_metallb_image_pull_secret "$KUBECONFIG"
+  fi
+  sed "s?registry.istio.io/testing?${METALLB_REGISTRY:-registry.istio.io/testing}?g" \
+    "${COMMON_SCRIPTS}/metallb-native.yaml" | kubectl --kubeconfig="$KUBECONFIG" apply -f -
   kubectl --kubeconfig="$KUBECONFIG" wait -n metallb-system pod --timeout=120s -l app=metallb --for=condition=Ready
 
   if [ -z "${METALLB_IPS4+x}" ]; then
