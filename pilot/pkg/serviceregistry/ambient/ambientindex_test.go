@@ -1339,7 +1339,7 @@ func TestAmbientIndex_Policy(t *testing.T) {
 				}
 			})
 			// All pods have an event (since we're only testing one namespace)
-			s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("pod2"), s.podXdsName("waypoint-ns-pod"), s.podXdsName("waypoint2-sa"))
+			s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("pod2"), s.podXdsName("waypoint-ns-pod"), s.podXdsName("waypoint2-sa"), xdsConvertedPeerAuthSelector)
 			assert.Equal(t,
 				s.lookup(s.addrXdsName("127.0.0.1"))[0].Address.GetWorkload().AuthorizationPolicies,
 				[]string{fmt.Sprintf("istio-system/%s", staticStrictPolicyName)}) // Effective mode is STRICT so set static policy
@@ -2968,6 +2968,9 @@ func (s *ambientTestServer) assertAddresses(t *testing.T, lookup string, names .
 		for _, address := range addresses {
 			// Validate we pre-marshal everything
 			assert.Equal(t, address.Marshaled != nil, true)
+			if address.GetWorkload() != nil {
+				assert.Equal(t, address.MarshaledWorkload != nil, true)
+			}
 			switch addr := address.Address.Type.(type) {
 			case *workloadapi.Address_Workload:
 				have.Insert(addr.Workload.Name)

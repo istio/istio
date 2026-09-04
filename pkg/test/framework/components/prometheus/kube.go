@@ -75,6 +75,7 @@ func getPrometheusYaml() (string, error) {
 		return "", err
 	}
 	yaml := string(yamlBytes)
+	yaml = strings.ReplaceAll(yaml, "docker.io/prom/prometheus", "quay.io/prometheus/prometheus")
 	// For faster tests, drop scrape interval
 	yaml = strings.ReplaceAll(yaml, "scrape_interval: 15s", "scrape_interval: 5s")
 	yaml = strings.ReplaceAll(yaml, "scrape_timeout: 10s", "scrape_timeout: 5s")
