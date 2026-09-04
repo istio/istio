@@ -1,0 +1,252 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: example
+spec:
+  controllerName: example.com/waypoint-controller
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: istio-waypoint
+spec:
+  controllerName: istio.io/mesh-controller
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: istio-agentgateway-waypoint
+spec:
+  controllerName: istio.io/agentgateway-waypoint-controller
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: foreign-primary
+  namespace: default
+spec:
+  gatewayClassName: example
+  listeners:
+  - name: mesh
+    port: 15008
+    protocol: HBONE
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: agentgateway-primary
+  namespace: default
+spec:
+  gatewayClassName: istio-agentgateway-waypoint
+  listeners:
+  - name: mesh
+    port: 15008
+    protocol: HBONE
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: foreign-canary
+  namespace: default
+spec:
+  gatewayClassName: example
+  listeners:
+  - name: mesh
+    port: 15008
+    protocol: HBONE
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: istio-canary
+  namespace: default
+spec:
+  gatewayClassName: istio-waypoint
+  listeners:
+  - name: mesh
+    port: 15008
+    protocol: HBONE
+---
+# Keep the route when only the canary is ours.
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: istio-canary-mcp
+  namespace: default
+  labels:
+    istio.io/use-waypoint: foreign-primary
+    istio.io/use-waypoint-canary: istio-canary
+  annotations:
+    istio.io/use-waypoint-canary-weight: "50"
+spec:
+  hosts:
+  - istio-canary-mcp.example.com
+  resolution: STATIC
+  ports:
+  - name: http
+    number: 80
+    protocol: HTTP
+  endpoints:
+  - address: 0.0.0.1
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: istio-canary-mcp
+  namespace: default
+spec:
+  parentRefs:
+  - group: networking.istio.io
+    kind: ServiceEntry
+    name: istio-canary-mcp
+  rules:
+  - filters:
+    - type: RequestHeaderModifier
+      requestHeaderModifier:
+        add:
+        - name: my-added-header
+          value: added-value
+    backendRefs:
+    - name: echo
+      port: 80
+---
+# Drop the route when both waypoints are foreign.
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: foreign-canary-mcp
+  namespace: default
+  labels:
+    istio.io/use-waypoint: foreign-primary
+    istio.io/use-waypoint-canary: foreign-canary
+  annotations:
+    istio.io/use-waypoint-canary-weight: "50"
+spec:
+  hosts:
+  - foreign-canary-mcp.example.com
+  resolution: STATIC
+  ports:
+  - name: http
+    number: 80
+    protocol: HTTP
+  endpoints:
+  - address: 0.0.0.2
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: foreign-canary-mcp
+  namespace: default
+spec:
+  parentRefs:
+  - group: networking.istio.io
+    kind: ServiceEntry
+    name: foreign-canary-mcp
+  rules:
+  - backendRefs:
+    - name: echo
+      port: 80
+---
+# Ignore a canary with an invalid weight.
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: invalid-weight-mcp
+  namespace: default
+  labels:
+    istio.io/use-waypoint: foreign-primary
+    istio.io/use-waypoint-canary: istio-canary
+  annotations:
+    istio.io/use-waypoint-canary-weight: "500"
+spec:
+  hosts:
+  - invalid-weight-mcp.example.com
+  resolution: STATIC
+  ports:
+  - name: http
+    number: 80
+    protocol: HTTP
+  endpoints:
+  - address: 0.0.0.3
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: invalid-weight-mcp
+  namespace: default
+spec:
+  parentRefs:
+  - group: networking.istio.io
+    kind: ServiceEntry
+    name: invalid-weight-mcp
+  rules:
+  - backendRefs:
+    - name: echo
+      port: 80
+---
+# Keep a Service route for an Istio canary with an agentgateway primary.
+apiVersion: v1
+kind: Service
+metadata:
+  name: canary-echo
+  namespace: default
+  labels:
+    istio.io/use-waypoint: agentgateway-primary
+    istio.io/use-waypoint-canary: istio-canary
+  annotations:
+    istio.io/use-waypoint-canary-weight: "50"
+spec:
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: canary-echo
+  namespace: default
+spec:
+  parentRefs:
+  - group: ""
+    kind: Service
+    name: canary-echo
+  rules:
+  - filters:
+    - type: RequestHeaderModifier
+      requestHeaderModifier:
+        add:
+        - name: my-added-header
+          value: added-value
+    backendRefs:
+    - name: echo
+      port: 80
+---
+# Drop a Service route with only an agentgateway waypoint.
+apiVersion: v1
+kind: Service
+metadata:
+  name: agentgateway-echo
+  namespace: default
+  labels:
+    istio.io/use-waypoint: agentgateway-primary
+spec:
+  ports:
+  - name: http
+    port: 80
+    protocol: TCP
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: agentgateway-echo
+  namespace: default
+spec:
+  parentRefs:
+  - group: ""
+    kind: Service
+    name: agentgateway-echo
+  rules:
+  - backendRefs:
+    - name: echo
+      port: 80

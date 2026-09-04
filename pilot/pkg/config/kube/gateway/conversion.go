@@ -48,6 +48,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	creds "istio.io/istio/pilot/pkg/model/credentials"
 	"istio.io/istio/pilot/pkg/model/kstatus"
+	"istio.io/istio/pilot/pkg/serviceregistry/ambient"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -570,46 +571,44 @@ func waypointConfigured(labels map[string]string) bool {
 	return false
 }
 
+// waypointManagedByAnotherController reports whether all waypoints fronting parentRef are foreign.
 func waypointManagedByAnotherController(ctx RouteContext, parentRef parentReference) bool {
-	var labels map[string]string
+	var meta metav1.ObjectMeta
 	switch parentRef.Kind {
 	case gvk.Service:
 		svc := ptr.Flatten(krt.FetchOne(ctx.Krt, ctx.Services, krt.FilterKey(parentRef.Namespace+"/"+parentRef.Name)))
 		if svc == nil {
 			return false
 		}
-		labels = svc.Labels
+		meta = svc.ObjectMeta
 	case gvk.ServiceEntry:
 		svc := ptr.Flatten(krt.FetchOne(ctx.Krt, ctx.ServiceEntries, krt.FilterKey(parentRef.Namespace+"/"+parentRef.Name)))
 		if svc == nil {
 			return false
 		}
-		labels = svc.Labels
+		meta = svc.ObjectMeta
 	default:
 		return false
 	}
 
-	waypointName, found := labels[label.IoIstioUseWaypoint.Name]
-	if !found {
-		ns := ptr.Flatten(krt.FetchOne(ctx.Krt, ctx.Namespaces, krt.FilterKey(parentRef.Namespace)))
-		if ns == nil {
-			return false
-		}
-		labels = ns.Labels
-		waypointName, found = labels[label.IoIstioUseWaypoint.Name]
-	}
-	if !found || waypointName == "" || strings.EqualFold(waypointName, "none") {
-		return false
-	}
 	if ctx.Gateways == nil || ctx.GatewayClasses == nil {
 		return false
 	}
-
-	waypointNamespace := parentRef.Namespace
-	if namespace := labels[label.IoIstioUseWaypointNamespace.Name]; namespace != "" {
-		waypointNamespace = namespace
+	refs := ambient.ResolveWaypointRefs(ctx.Krt, ctx.Namespaces, meta)
+	if len(refs) == 0 {
+		return false
 	}
-	waypoint := ptr.Flatten(krt.FetchOne(ctx.Krt, ctx.Gateways, krt.FilterKey(waypointNamespace+"/"+waypointName)))
+	for _, ref := range refs {
+		if !waypointClassManagedByAnotherController(ctx, ref) {
+			return false
+		}
+	}
+	return true
+}
+
+// waypointClassManagedByAnotherController reports whether the waypoint's class is foreign.
+func waypointClassManagedByAnotherController(ctx RouteContext, ref krt.Named) bool {
+	waypoint := ptr.Flatten(krt.FetchOne(ctx.Krt, ctx.Gateways, krt.FilterKey(ref.ResourceName())))
 	if waypoint == nil {
 		return false
 	}

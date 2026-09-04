@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - https://github.com/istio/istio/issues/61326
+releaseNotes:
+- |
+  **Fixed** an issue where an Istio waypoint that a service referenced only as its canary, via the
+  `istio.io/use-waypoint-canary` label, was not programmed with the routes attached to that service
+  when the primary waypoint belonged to another controller. The canary served its share of the
+  connections with default routing, ignoring the route's rules.
