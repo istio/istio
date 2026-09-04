@@ -806,6 +806,8 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 			Event{Type: "eds", ID: "updated.com", Namespace: selector.Namespace},
 			Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace},
 			Event{Type: "xds", ID: "selector.com,updated.com"},
+			// the workload is now an endpoint of updated.com instead of selector.com
+			Event{Type: "proxy", ID: "2.2.2.2"},
 		)
 	})
 
@@ -836,6 +838,7 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 			Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace},
 			Event{Type: "eds", ID: "updated.com", Namespace: selector.Namespace},
 			Event{Type: "xds", ID: "selector.com,updated.com"},
+			Event{Type: "proxy", ID: "2.2.2.2"},
 		)
 	})
 
@@ -912,10 +915,8 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 			makeInstanceWithServiceAccount(selector, "wl2", []string{"3.3.3.3"}, 445,
 				selector.Spec.(*networking.ServiceEntry).Ports[1], map[string]string{"app": "wle"}, "default"))
 		expectServiceInstances(t, sd, selector, 0, instances)
-		expectEvents(
-			t, events,
-			Event{Type: "proxy", ID: "abc.def"},
-		)
+		// The workload produces no instance, so nothing is pushed for it.
+		events.AssertEmpty(t, 40*time.Millisecond)
 	})
 
 	t.Run("deletion", func(t *testing.T) {
@@ -976,8 +977,8 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 		expectServiceInstances(t, sd, selector, 0, instances)
 		expectEvents(
 			t, events,
-			// Event{Type: "proxy", ID: "9.9.9.9"},
 			Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace, EndpointCount: 2},
+			Event{Type: "proxy", ID: "9.9.9.9"},
 		)
 	})
 
@@ -1084,9 +1085,7 @@ func TestServiceDiscoveryWorkloadChangeLabel(t *testing.T) {
 		instances = []*model.ServiceInstance{}
 		expectServiceInstances(t, sd, selector, 0, instances)
 		expectProxyInstances(t, sd, instances, []string{"2.2.2.2"})
-		expectEvents(t, events,
-			Event{Type: "proxy", ID: "2.2.2.2"},
-			Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace, EndpointCount: 0})
+		expectEvents(t, events, Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace, EndpointCount: 0})
 	})
 
 	t.Run("change label removing one", func(t *testing.T) {
@@ -1133,9 +1132,7 @@ func TestServiceDiscoveryWorkloadChangeLabel(t *testing.T) {
 		}
 		expectServiceInstances(t, sd, selector, 0, instances)
 		expectProxyInstances(t, sd, instances, []string{"3.3.3.3"})
-		expectEvents(t, events,
-			Event{Type: "proxy", ID: "2.2.2.2"},
-			Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace, EndpointCount: 2})
+		expectEvents(t, events, Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace, EndpointCount: 2})
 	})
 }
 
@@ -1542,6 +1539,7 @@ func TestServiceDiscoveryWorkloadInstanceChangeLabel(t *testing.T) {
 		serviceAccount         string
 		tlsmode                string
 		expectedProxyInstances []expectedProxyInstances
+		expectProxyUpdate      bool
 	}
 
 	t.Run("service entry", func(t *testing.T) {
@@ -1564,12 +1562,13 @@ func TestServiceDiscoveryWorkloadInstanceChangeLabel(t *testing.T) {
 			name: "change label removing all 0",
 			instances: []testWorkloadInstance{
 				{
-					name:           selector.Name,
-					namespace:      selector.Namespace,
-					address:        "2.2.2.2",
-					labels:         map[string]string{"app": "wle"},
-					serviceAccount: "default",
-					tlsmode:        model.IstioMutualTLSModeLabel,
+					name:              selector.Name,
+					namespace:         selector.Namespace,
+					address:           "2.2.2.2",
+					labels:            map[string]string{"app": "wle"},
+					expectProxyUpdate: true,
+					serviceAccount:    "default",
+					tlsmode:           model.IstioMutualTLSModeLabel,
 					expectedProxyInstances: []expectedProxyInstances{
 						{
 							instancesWithSA: []*model.ServiceInstance{
@@ -1606,12 +1605,13 @@ func TestServiceDiscoveryWorkloadInstanceChangeLabel(t *testing.T) {
 			name: "change label removing all 1",
 			instances: []testWorkloadInstance{
 				{
-					name:           selector.Name,
-					namespace:      selector.Namespace,
-					address:        "2.2.2.2",
-					labels:         map[string]string{"app": "wle"},
-					serviceAccount: "default",
-					tlsmode:        model.IstioMutualTLSModeLabel,
+					name:              selector.Name,
+					namespace:         selector.Namespace,
+					address:           "2.2.2.2",
+					labels:            map[string]string{"app": "wle"},
+					expectProxyUpdate: true,
+					serviceAccount:    "default",
+					tlsmode:           model.IstioMutualTLSModeLabel,
 					expectedProxyInstances: []expectedProxyInstances{
 						{
 							instancesWithSA: []*model.ServiceInstance{
@@ -1629,12 +1629,13 @@ func TestServiceDiscoveryWorkloadInstanceChangeLabel(t *testing.T) {
 					},
 				},
 				{
-					name:           "another-name",
-					namespace:      selector.Namespace,
-					address:        "3.3.3.3",
-					labels:         map[string]string{"app": "wle"},
-					serviceAccount: "default",
-					tlsmode:        model.IstioMutualTLSModeLabel,
+					name:              "another-name",
+					namespace:         selector.Namespace,
+					address:           "3.3.3.3",
+					labels:            map[string]string{"app": "wle"},
+					expectProxyUpdate: true,
+					serviceAccount:    "default",
+					tlsmode:           model.IstioMutualTLSModeLabel,
 					expectedProxyInstances: []expectedProxyInstances{
 						{
 							instancesWithSA: []*model.ServiceInstance{
@@ -1715,10 +1716,14 @@ func TestServiceDiscoveryWorkloadInstanceChangeLabel(t *testing.T) {
 				}
 
 				expectServiceInstances(t, sd, selector, 0, totalInstances)
-				// The instance's own proxy is forced to recompute: which services it backs just changed.
-				expectEvents(t, events,
-					Event{Type: "eds", ID: selector.Spec.(*networking.ServiceEntry).Hosts[0], Namespace: selector.Namespace, EndpointCount: len(totalInstances)},
-					Event{Type: "proxy", ID: instance.address})
+				wantEvents := []Event{{
+					Type: "eds", ID: selector.Spec.(*networking.ServiceEntry).Hosts[0],
+					Namespace: selector.Namespace, EndpointCount: len(totalInstances),
+				}}
+				if instance.expectProxyUpdate {
+					wantEvents = append(wantEvents, Event{Type: "proxy", ID: instance.address})
+				}
+				expectEvents(t, events, wantEvents...)
 			}
 		})
 	}
@@ -1775,7 +1780,7 @@ func TestPodEndpointForcesOwnProxyPush(t *testing.T) {
 // The push is scoped to pods, and a WorkloadEntry from a non-config cluster lands in
 // ExternalWorkloads alongside them. model.PodKind is the zero value of workloadKind, so without the
 // explicit Kind check the scoping would hold only by accident.
-func TestWorkloadEntryEndpointDoesNotDoublePushProxy(t *testing.T) {
+func TestWorkloadEntryEndpointPushesProxyOnce(t *testing.T) {
 	store, sd, events := initServiceDiscovery(t)
 
 	createConfigs([]*config.Config{selector}, store, t)
@@ -1796,7 +1801,6 @@ func TestWorkloadEntryEndpointDoesNotDoublePushProxy(t *testing.T) {
 	}
 	callInstanceHandlers([]*model.WorkloadInstance{wle}, sd, model.EventAdd, t)
 
-	// Membership must still resolve; only the extra push is suppressed.
 	proxy := &model.Proxy{IPAddresses: []string{"2.2.2.2"}, Metadata: &model.NodeMetadata{}}
 	retry.UntilSuccessOrFail(t, func() error {
 		if got := len(sd.GetProxyServiceTargets(proxy)); got != 2 {
@@ -1805,9 +1809,10 @@ func TestWorkloadEntryEndpointDoesNotDoublePushProxy(t *testing.T) {
 		return nil
 	}, retry.Timeout(5*time.Second))
 
-	// The eds event proves the instance landed; no "proxy" event may accompany it. The match returns
-	// as soon as the wanted set empties, so assert on the event that arrives last.
-	expectEvents(t, events, Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace, EndpointCount: 2})
+	// The workload produces one instance per port, but its proxy is only pushed once.
+	expectEvents(t, events,
+		Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace, EndpointCount: 2},
+		Event{Type: "proxy", ID: "2.2.2.2"})
 	select {
 	case e := <-events.Events:
 		t.Fatalf("expected no further events for a WorkloadEntry-derived instance, got %q/%v", e.Type, e.ID)
