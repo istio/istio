@@ -916,3 +916,17 @@ func TestWaypointRoutingEnabled(t *testing.T) {
 		})
 	}
 }
+
+func TestCacheableWithSidecarWaypointRouting(t *testing.T) {
+	b := &EndpointBuilder{service: &model.Service{}, nodeType: model.SidecarProxy}
+
+	test.SetForTest(t, &features.EnableSidecarWaypointRouting, true)
+	if b.Cacheable() {
+		t.Fatal("sidecar waypoint EDS must not be cached without waypoint dependencies")
+	}
+
+	test.SetForTest(t, &features.EnableSidecarWaypointRouting, false)
+	if !b.Cacheable() {
+		t.Fatal("ordinary sidecar EDS should remain cacheable")
+	}
+}
