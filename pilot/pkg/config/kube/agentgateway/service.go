@@ -24,7 +24,6 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube/krt"
-	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/workloadapi"
 )
 
@@ -62,11 +61,7 @@ func InferenceHostname(name, namespace, domainSuffix string) host.Name {
 	return host.Name(name + "." + namespace + "." + "inference" + "." + domainSuffix) // Format: "%s.%s.svc.%s"
 }
 
-func precomputeServicePtr(w *model.ServiceInfo) *model.ServiceInfo {
-	return ptr.Of(precomputeService(*w))
-}
-
-func precomputeService(w model.ServiceInfo) model.ServiceInfo {
+func precomputeService(w *model.ServiceInfo) *model.ServiceInfo {
 	w.AsAddress = model.NewAddressInfo(serviceToAddress(w.Service))
 	w.MarshaledAddress = w.AsAddress.Marshaled
 	return w
@@ -80,8 +75,8 @@ func serviceToAddress(s *workloadapi.Service) *workloadapi.Address {
 	}
 }
 
-func inferencePoolBuilder(domainSuffix string) krt.TransformationSingle[*inferencev1.InferencePool, model.ServiceInfo] {
-	return func(ctx krt.HandlerContext, s *inferencev1.InferencePool) *model.ServiceInfo {
+func inferencePoolBuilder(domainSuffix string) krt.TransformationMulti[*inferencev1.InferencePool, *model.ServiceInfo] {
+	return func(ctx krt.HandlerContext, s *inferencev1.InferencePool) []*model.ServiceInfo {
 		portNames := map[int32]model.ServicePortName{}
 		ports := []*workloadapi.Port{{
 			ServicePort: uint32(s.Spec.TargetPorts[0].Number), //nolint:gosec // G115: InferencePool TargetPort is int32 with validation 1-65535, always safe
@@ -101,7 +96,7 @@ func inferencePoolBuilder(domainSuffix string) krt.TransformationSingle[*inferen
 		for k, v := range s.Spec.Selector.MatchLabels {
 			selector[string(k)] = string(v)
 		}
-		return precomputeServicePtr(&model.ServiceInfo{
+		return []*model.ServiceInfo{precomputeService(&model.ServiceInfo{
 			Service:       svc,
 			PortNames:     portNames,
 			LabelSelector: model.NewSelector(selector),
@@ -112,6 +107,6 @@ func inferencePoolBuilder(domainSuffix string) krt.TransformationSingle[*inferen
 				},
 				Kind: kind.InferencePool,
 			},
-		})
+		})}
 	}
 }

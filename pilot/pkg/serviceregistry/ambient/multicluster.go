@@ -176,7 +176,7 @@ func (a *index) buildGlobalCollections(
 		)
 		statusQueue := statusqueue.NewQueue(options.StatusNotifier)
 		statusqueue.Register(statusQueue, "istio-ambient-service", LocalWorkloadServices,
-			func(info model.ServiceInfo) (kclient.Patcher, map[string]model.Condition) {
+			func(info *model.ServiceInfo) (kclient.Patcher, map[string]model.Condition) {
 				// Since we have 1 collection for multiple types, we need to split these out
 				if info.Source.Kind == kind.ServiceEntry {
 					return kclient.ToPatcher(serviceEntriesWriter), getConditions(info.Source.NamespacedName, localServiceEntryInformers)
@@ -216,7 +216,9 @@ func (a *index) buildGlobalCollections(
 
 	GlobalMergedWorkloadServices := krt.MapCollection(
 		GlobalMergedWorkloadServicesWithCluster,
-		unwrapObjectWithCluster,
+		func(obj krt.ObjectWithCluster[model.ServiceInfo]) *model.ServiceInfo {
+			return obj.Object
+		},
 		opts.WithName("GlobalMergedServiceInfos")...,
 	)
 
@@ -306,11 +308,11 @@ func (a *index) buildGlobalCollections(
 			svcName := parts[1]
 			svc := krt.FetchOne(ctx, GlobalMergedWorkloadServices, krt.FilterKey(svcName))
 
-			if svc == nil {
+			if svc == nil || *svc == nil {
 				log.Errorf("Failed to find service %s to coalesce workloads", svcName)
 				return nil
 			}
-			if svc.Scope != model.Global {
+			if (*svc).Scope != model.Global {
 				return nil
 			}
 
@@ -337,7 +339,7 @@ func (a *index) buildGlobalCollections(
 				log.Warnf("Multiple gateways found for network %s, using the first one", networkID)
 			}
 			gw := gws[0]
-			wi := a.createSplitHorizonWorkload(svcName, svc.Service, &gw, capacity, meshCfg)
+			wi := a.createSplitHorizonWorkload(svcName, (*svc).Service, &gw, capacity, meshCfg)
 			return []model.WorkloadInfo{wi}
 		}, opts.WithName("CoalesedWorkloads")...,
 	)
@@ -412,16 +414,16 @@ func (a *index) buildGlobalCollections(
 		return []networkAddress{netaddr}
 	})
 
-	SplitHorizonServices := krt.NewCollection(
+	SplitHorizonServices := krt.NewManyCollection(
 		GlobalMergedWorkloadServices,
-		func(ctx krt.HandlerContext, svc model.ServiceInfo) *model.ServiceInfo {
+		func(ctx krt.HandlerContext, svc *model.ServiceInfo) []*model.ServiceInfo {
 			if svc.Scope != model.Global {
-				return &svc
+				return []*model.ServiceInfo{svc}
 			}
 
 			wls := GlobalWorkloadServiceIndex.Fetch(ctx, svc.ResourceName())
 			if len(wls) == 0 {
-				return &svc
+				return []*model.ServiceInfo{svc}
 			}
 
 			// Since we merge the workloads in the remote cluster, we need to input the
@@ -441,7 +443,7 @@ func (a *index) buildGlobalCollections(
 				sans.Insert(spiffe.MustGenSpiffeURI(meshCfg.MeshConfig, wl.Workload.Namespace, wl.Workload.ServiceAccount))
 			}
 			if sans.IsEmpty() {
-				return &svc
+				return []*model.ServiceInfo{svc}
 			}
 			sans = sans.Union(sets.New(svc.Service.SubjectAltNames...))
 
@@ -456,37 +458,37 @@ func (a *index) buildGlobalCollections(
 				DNSConnectStrategy: svc.DNSConnectStrategy,
 			}
 			newSvcInfo.Service.SubjectAltNames = sans.UnsortedList()
-			return precomputeServicePtr(newSvcInfo)
+			return []*model.ServiceInfo{precomputeService(newSvcInfo)}
 		},
 		opts.WithName("SplitHorizonServices")...,
 	)
 
 	SplitHorizonServices.RegisterBatch(krt.BatchedEventFilter(
-		func(a model.ServiceInfo) *model.XDSServiceInfo {
+		func(a *model.ServiceInfo) *model.XDSServiceInfo {
 			// Only trigger push if the XDS object changed; the rest is just for computation of others
 			return &model.XDSServiceInfo{
 				Service:            a.Service,
 				DNSConnectStrategy: a.DNSConnectStrategy,
 			}
 		},
-		PushXdsAddress(a.XDSUpdater, model.ServiceInfo.ResourceName, model.ServiceInfo.WaypointRef),
+		PushXdsAddress(a.XDSUpdater, (*model.ServiceInfo).ResourceName, (*model.ServiceInfo).WaypointRef),
 	), false)
 
 	SplitHorizonServiceAddressIndex := krt.NewIndex(SplitHorizonServices, "serviceAddress", networkAddressFromService)
-	SplitHorizonServiceInfosByOwningWaypointHostname := krt.NewIndex(SplitHorizonServices, "namespaceHostname", func(s model.ServiceInfo) []NamespaceHostname {
+	SplitHorizonServiceInfosByOwningWaypointHostname := krt.NewIndex(SplitHorizonServices, "namespaceHostname", func(s *model.ServiceInfo) []NamespaceHostname {
 		// Filter out waypoint services
 		// TODO: we are looking at the *selector* -- we should be looking the labels themselves or something equivalent.
 		if s.LabelSelector.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel {
 			return nil
 		}
-		return serviceOwningWaypointHostnames(s)
+		return serviceOwningWaypointHostnames(*s)
 	})
-	SplitHorizonServiceInfosByOwningWaypointIP := krt.NewIndex(SplitHorizonServices, "owningWaypointIp", func(s model.ServiceInfo) []networkAddress {
+	SplitHorizonServiceInfosByOwningWaypointIP := krt.NewIndex(SplitHorizonServices, "owningWaypointIp", func(s *model.ServiceInfo) []networkAddress {
 		// Filter out waypoint services
 		if s.LabelSelector.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel {
 			return nil
 		}
-		return serviceOwningWaypointAddresses(s)
+		return serviceOwningWaypointAddresses(*s)
 	})
 
 	if features.EnableIngressWaypointRouting {
@@ -562,9 +564,10 @@ func mergeServiceInfosWithCluster(
 		// Precompute the svc info here
 		if svcInfosLen == 1 {
 			obj := serviceInfos[0]
+			merged := *obj.Object
 			return &krt.ObjectWithCluster[model.ServiceInfo]{
 				ClusterID: obj.ClusterID,
-				Object:    precomputeServicePtr(obj.Object),
+				Object:    precomputeService(&merged),
 			}
 		}
 
@@ -588,9 +591,10 @@ func mergeServiceInfosWithCluster(
 				return nil
 			}
 			// otherwise, skip merging
+			merged := *base.Object
 			return &krt.ObjectWithCluster[model.ServiceInfo]{
 				ClusterID: base.ClusterID,
-				Object:    precomputeServicePtr(base.Object),
+				Object:    precomputeService(&merged),
 			}
 		}
 
@@ -626,8 +630,9 @@ func mergeServiceInfosWithCluster(
 			}
 		}
 
-		// Prevent modifying the underlying workloadapi.Service
-		base.Object.Service = protomarshal.Clone(base.Object.Service)
+		// Never modify a ServiceInfo published by an input collection.
+		merged := *base.Object
+		merged.Service = protomarshal.Clone(base.Object.Service)
 
 		// TODO: Do we need to merge anything else?
 
@@ -635,7 +640,7 @@ func mergeServiceInfosWithCluster(
 		orderedVips := slices.SortBy(vips.UnsortedList(), func(a simpleNetworkAddress) string {
 			return a.network + "/" + a.ip.String()
 		})
-		base.Object.Service.Addresses = slices.Map(orderedVips, func(a simpleNetworkAddress) *workloadapi.NetworkAddress {
+		merged.Service.Addresses = slices.Map(orderedVips, func(a simpleNetworkAddress) *workloadapi.NetworkAddress {
 			na := &workloadapi.NetworkAddress{
 				Network: a.network,
 				Address: a.ip.Addr().AsSlice(),
@@ -645,12 +650,12 @@ func mergeServiceInfosWithCluster(
 			}
 			return na
 		})
-		base.Object.Service.SubjectAltNames = sans.UnsortedList()
+		merged.Service.SubjectAltNames = sans.UnsortedList()
 
 		// Remember, we have to re-precompute the serviceinfo since we changed it
 		return &krt.ObjectWithCluster[model.ServiceInfo]{
 			ClusterID: base.ClusterID,
-			Object:    precomputeServicePtr(base.Object),
+			Object:    precomputeService(&merged),
 		}
 	}
 }

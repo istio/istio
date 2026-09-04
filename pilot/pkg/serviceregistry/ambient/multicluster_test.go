@@ -13,3 +13,48 @@
 // limitations under the License.
 
 package ambient
+
+import (
+	"testing"
+
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/workloadapi"
+)
+
+func TestMergeServiceInfosDoesNotModifyInputs(t *testing.T) {
+	input := &model.ServiceInfo{
+		Service: &workloadapi.Service{
+			Name:            "svc",
+			Namespace:       "ns",
+			Hostname:        "svc.ns.svc.cluster.local",
+			Addresses:       []*workloadapi.NetworkAddress{{Network: "network-1", Address: []byte{1, 2, 3, 4}}},
+			SubjectAltNames: []string{"original"},
+		},
+		Scope: model.Global,
+	}
+	other := &model.ServiceInfo{
+		Service: &workloadapi.Service{
+			Name:            "svc",
+			Namespace:       "ns",
+			Hostname:        "svc.ns.svc.cluster.local",
+			Addresses:       []*workloadapi.NetworkAddress{{Network: "network-2", Address: []byte{5, 6, 7, 8}}},
+			SubjectAltNames: []string{"other"},
+		},
+		Scope: model.Global,
+	}
+
+	merged := mergeServiceInfosWithCluster("local")([]krt.ObjectWithCluster[model.ServiceInfo]{
+		{ClusterID: cluster.ID("local"), Object: input},
+		{ClusterID: cluster.ID("remote"), Object: other},
+	})
+
+	assert.Equal(t, input.Service.Addresses, []*workloadapi.NetworkAddress{{Network: "network-1", Address: []byte{1, 2, 3, 4}}})
+	assert.Equal(t, input.Service.SubjectAltNames, []string{"original"})
+	assert.Equal(t, input.MarshaledAddress, nil)
+	if merged.Object == input || merged.Object.Service == input.Service {
+		t.Fatal("merge must create a new ServiceInfo and Service")
+	}
+}

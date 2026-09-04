@@ -876,7 +876,7 @@ func TestPodWorkloads(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mock := krttest.NewMock(t, tt.inputs)
 			a := newAmbientUnitTest(t)
-			WorkloadServices := krttest.GetMockCollection[model.ServiceInfo](mock)
+			WorkloadServices := krttest.GetMockPointers[model.ServiceInfo](mock)
 			WorkloadServicesNamespaceIndex := krt.NewNamespaceIndex(WorkloadServices)
 			EndpointSlices := krttest.GetMockCollection[*discovery.EndpointSlice](mock)
 			EndpointSlicesAddressIndex := endpointSliceAddressIndex(EndpointSlices)
@@ -1486,7 +1486,7 @@ func TestWorkloadEntryWorkloads(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mock := krttest.NewMock(t, tt.inputs)
 			a := newAmbientUnitTest(t)
-			WorkloadServices := krttest.GetMockCollection[model.ServiceInfo](mock)
+			WorkloadServices := krttest.GetMockPointers[model.ServiceInfo](mock)
 			WorkloadServicesNamespaceIndex := krt.NewNamespaceIndex(WorkloadServices)
 			builder := a.workloadEntryWorkloadBuilder(
 				GetMeshConfig(mock),
@@ -1733,7 +1733,7 @@ func TestWorkloadEntryConditions(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mock := krttest.NewMock(t, tt.inputs)
 			a := newAmbientUnitTest(t)
-			WorkloadServices := krttest.GetMockCollection[model.ServiceInfo](mock)
+			WorkloadServices := krttest.GetMockPointers[model.ServiceInfo](mock)
 			WorkloadServicesNamespaceIndex := krt.NewNamespaceIndex(WorkloadServices)
 			builder := a.workloadEntryWorkloadBuilder(
 				GetMeshConfig(mock),
@@ -1986,7 +1986,7 @@ func TestServiceEntryWorkloads(t *testing.T) {
 				krt.NewNamespaceIndex(krttest.GetMockCollection[*securityclient.PeerAuthentication](mock)),
 				krttest.GetMockCollection[Waypoint](mock),
 				krttest.GetMockCollection[*v1.Namespace](mock),
-				krttest.GetMockCollection[model.ServiceInfo](mock),
+				krttest.GetMockPointers[model.ServiceInfo](mock),
 			)
 			res := builder(krt.TestingDummyContext{}, tt.se)
 			wl := slices.Map(res, func(e model.WorkloadInfo) *workloadapi.Workload {
@@ -2105,7 +2105,7 @@ func TestEndpointSliceWorkloads(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mock := krttest.NewMock(t, tt.inputs)
 			a := newAmbientUnitTest(t)
-			WorkloadServices := krttest.GetMockCollection[model.ServiceInfo](mock)
+			WorkloadServices := krttest.GetMockPointers[model.ServiceInfo](mock)
 			builder := a.endpointSlicesBuilder(
 				GetMeshConfig(mock),
 				WorkloadServices,
