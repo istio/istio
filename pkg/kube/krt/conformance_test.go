@@ -39,6 +39,7 @@ import (
 type Rig[T any] interface {
 	GetKey(string) *T
 	List() []T
+	ListFiltered(func(T) bool) []T
 	Metadata() krt.Metadata
 	Register(func(krt.Event[T])) krt.HandlerRegistration
 	WaitUntilSynced(<-chan struct{}) bool
@@ -324,6 +325,9 @@ func runConformance[T any](t *testing.T, factory func(t *testing.T) Rig[T]) {
 	collection.CreateObject("a/b")
 	earlyHandler.WaitOrdered("add/a/b")
 	assert.Equal(t, len(collection.List()), 1)
+	assert.Equal(t, len(collection.ListFiltered(nil)), 1)
+	assert.Equal(t, len(collection.ListFiltered(func(T) bool { return true })), 1)
+	assert.Equal(t, len(collection.ListFiltered(func(T) bool { return false })), 0)
 	assert.Equal(t, collection.GetKey("a/b") != nil, true)
 
 	// Now register one later
