@@ -706,6 +706,7 @@ func TestProxyNeedsPushServiceTargets(t *testing.T) {
 
 func TestCanSendPartialFullPushesIgnoresSkippedConfigs(t *testing.T) {
 	endpoint := model.ConfigKey{Kind: kind.Endpoints, Name: "service.example"}
+	proxy := &model.Proxy{Type: model.Router}
 	for skippedKind := range skippedEdsConfigs {
 		if skippedKind == kind.Address {
 			continue
@@ -716,13 +717,14 @@ func TestCanSendPartialFullPushesIgnoresSkippedConfigs(t *testing.T) {
 					endpoint,
 					model.ConfigKey{Kind: skippedKind, Name: "unrelated"},
 				),
-			}), true)
+			}, proxy), true)
 		})
 	}
 }
 
 func TestCanSendPartialFullPushesConservativeFallbacks(t *testing.T) {
 	endpoint := model.ConfigKey{Kind: kind.Endpoints, Name: "service.example"}
+	proxy := &model.Proxy{Type: model.Router}
 	tests := []struct {
 		name string
 		req  *model.PushRequest
@@ -751,7 +753,7 @@ func TestCanSendPartialFullPushesConservativeFallbacks(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, canSendPartialFullPushes(tt.req), false)
+			assert.Equal(t, canSendPartialFullPushes(tt.req, proxy), false)
 		})
 	}
 }
@@ -904,4 +906,38 @@ func TestWaypointNeedsPush(t *testing.T) {
 		test.SetForTest(t, &features.ScopedAddressPushes, false)
 		assert.Equal(t, waypointNeedsPush(addressUpdate(), waypoint), true)
 	})
+}
+
+// TestSidecarWaypointPushes ensures that sidecar proxies correctly receive xDS pushes for waypoint
+// updates based on the feature flag and attachment.
+func TestSidecarWaypointPushes(t *testing.T) {
+	sidecar := &model.Proxy{Type: model.SidecarProxy}
+	addressUpdate := &model.PushRequest{
+		ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.Address}),
+		WaypointsUpdated: sets.New(model.WaypointReference{
+			Namespace: "default",
+			Hostname:  "waypoint.default.svc.cluster.local",
+		}),
+	}
+	unrelatedAddressUpdate := &model.PushRequest{
+		ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.Address}),
+	}
+	endpointUpdate := &model.PushRequest{
+		ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.Endpoints}),
+	}
+
+	test.SetForTest(t, &features.EnableSidecarWaypointRouting, true)
+	assert.Equal(t, waypointNeedsPush(addressUpdate, sidecar), true)
+	assert.Equal(t, edsNeedsPush(addressUpdate, sidecar), true)
+	assert.Equal(t, ldsNeedsPush(sidecar, addressUpdate), true)
+	assert.Equal(t, canSendPartialFullPushes(endpointUpdate, sidecar), false)
+	assert.Equal(t, waypointNeedsPush(unrelatedAddressUpdate, sidecar), false)
+	assert.Equal(t, edsNeedsPush(unrelatedAddressUpdate, sidecar), false)
+	assert.Equal(t, ldsNeedsPush(sidecar, unrelatedAddressUpdate), false)
+
+	test.SetForTest(t, &features.EnableSidecarWaypointRouting, false)
+	assert.Equal(t, waypointNeedsPush(addressUpdate, sidecar), false)
+	assert.Equal(t, edsNeedsPush(addressUpdate, sidecar), false)
+	assert.Equal(t, ldsNeedsPush(sidecar, addressUpdate), false)
+	assert.Equal(t, canSendPartialFullPushes(endpointUpdate, sidecar), true)
 }
