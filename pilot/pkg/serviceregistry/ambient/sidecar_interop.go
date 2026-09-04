@@ -32,7 +32,7 @@ import (
 // serviceEDS captures the inputs that affect gateway EDS for a waypoint-bound service.
 type serviceEDS struct {
 	ServiceKey       string
-	WaypointInstance []model.WorkloadInfo
+	WaypointInstance []*model.WorkloadInfo
 	UseWaypoint      bool
 	// Included so weight changes trigger EDS for the bound service.
 	WeightedWaypoints []*workloadapi.WeightedWaypoint
@@ -54,7 +54,7 @@ func (s serviceEDS) Equals(other serviceEDS) bool {
 	}
 	// assumes builder sorted the slices
 	for i := range s.WaypointInstance {
-		if !s.WaypointInstance[i].Equals(&other.WaypointInstance[i]) {
+		if !s.WaypointInstance[i].Equals(other.WaypointInstance[i]) {
 			return false
 		}
 	}
@@ -98,9 +98,9 @@ func weightedWaypointEqual(a, b *workloadapi.WeightedWaypoint) bool {
 // Ideally, the information we are using in Envoy and the event trigger are using the same data directly.
 func RegisterEdsShim(
 	xdsUpdater model.XDSUpdater,
-	Workloads krt.Collection[model.WorkloadInfo],
+	Workloads krt.Collection[*model.WorkloadInfo],
 	Namespaces krt.Collection[model.NamespaceInfo],
-	WorkloadsByServiceKey krt.Index[string, model.WorkloadInfo],
+	WorkloadsByServiceKey krt.Index[string, *model.WorkloadInfo],
 	Services krt.Collection[*model.ServiceInfo],
 	ServicesByAddress krt.Index[networkAddress, *model.ServiceInfo],
 	opts krt.OptionsBuilder,
@@ -122,7 +122,7 @@ func RegisterEdsShim(
 				return nil
 			}
 			// Track every waypoint whose endpoints can appear in the gateway CLA.
-			var workloads []model.WorkloadInfo
+			var workloads []*model.WorkloadInfo
 			for _, wp := range serviceOwningWaypoints(*svc) {
 				var waypointServiceKey string
 				switch addr := wp.Destination.(type) {
@@ -144,7 +144,7 @@ func RegisterEdsShim(
 				workloads = append(workloads, WorkloadsByServiceKey.Fetch(ctx, waypointServiceKey)...)
 			}
 			// for comparison in Equals
-			workloads = slices.SortBy(workloads, func(i model.WorkloadInfo) string {
+			workloads = slices.SortBy(workloads, func(i *model.WorkloadInfo) string {
 				return i.Workload.Uid
 			})
 			return &serviceEDS{

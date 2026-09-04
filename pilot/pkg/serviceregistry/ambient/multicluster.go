@@ -265,7 +265,7 @@ func (a *index) buildGlobalCollections(
 	if features.EnableAmbientStatus {
 		workloadEntriesWriter := kclient.NewWriteClient[*networkingclient.WorkloadEntry](localCluster.Client)
 		statusqueue.Register(a.statusQueue, "istio-ambient-workloadentry", GlobalWorkloads,
-			func(info model.WorkloadInfo) (kclient.Patcher, map[string]model.Condition) {
+			func(info *model.WorkloadInfo) (kclient.Patcher, map[string]model.Condition) {
 				if info.Source.Kind != kind.WorkloadEntry {
 					return nil, nil
 				}
@@ -273,14 +273,14 @@ func (a *index) buildGlobalCollections(
 			})
 	}
 
-	GlobalWorkloadServiceIndex := krt.NewIndex(GlobalWorkloads, "service", func(o model.WorkloadInfo) []string {
+	GlobalWorkloadServiceIndex := krt.NewIndex(GlobalWorkloads, "service", func(o *model.WorkloadInfo) []string {
 		return maps.Keys(o.Workload.Services)
 	})
 
 	// This allows us to find all the workloads that correspond to a service, network pair.
 	// This will allow us to build coalesced workloads that represent all the workloads in a remote network,
 	// for a given service. This helps reduce the number of XDS objects we to proxies.
-	workloadNetworkServiceIndex := krt.NewIndex(GlobalWorkloads, "network;service", func(o model.WorkloadInfo) []string {
+	workloadNetworkServiceIndex := krt.NewIndex(GlobalWorkloads, "network;service", func(o *model.WorkloadInfo) []string {
 		res := make([]string, 0, len(o.Workload.Services))
 		for svc := range o.Workload.Services {
 			res = append(res, strings.Join([]string{o.Workload.Network, svc}, ";"))
@@ -292,7 +292,7 @@ func (a *index) buildGlobalCollections(
 		workloadNetworkServiceIndex.AsCollection(
 			opts.WithName("workloadNetworkServiceIndex")...,
 		),
-		func(ctx krt.HandlerContext, i krt.IndexObject[string, model.WorkloadInfo]) []model.WorkloadInfo {
+		func(ctx krt.HandlerContext, i krt.IndexObject[string, *model.WorkloadInfo]) []*model.WorkloadInfo {
 			parts := strings.Split(i.Key, ";")
 			if len(parts) != 2 {
 				log.Errorf("Invalid key %s for SplitHorizonWorkloads, expected <network>;<service>", i.Key)
@@ -340,39 +340,39 @@ func (a *index) buildGlobalCollections(
 			}
 			gw := gws[0]
 			wi := a.createSplitHorizonWorkload(svcName, (*svc).Service, &gw, capacity, meshCfg)
-			return []model.WorkloadInfo{wi}
+			return []*model.WorkloadInfo{wi}
 		}, opts.WithName("CoalesedWorkloads")...,
 	)
-	networkLocalWorkloads := krt.NewCollection(GlobalWorkloads, func(ctx krt.HandlerContext, wi model.WorkloadInfo) *model.WorkloadInfo {
+	networkLocalWorkloads := krt.NewManyCollection(GlobalWorkloads, func(ctx krt.HandlerContext, wi *model.WorkloadInfo) []*model.WorkloadInfo {
 		if strings.HasPrefix(wi.Workload.Uid, "NetworkGateway/") {
-			return &wi
+			return []*model.WorkloadInfo{wi}
 		}
 		if wi.Workload.Network != GlobalNetworks.FetchLocalNetworkID(ctx).String() {
 			return nil
 		}
-		return &wi
+		return []*model.WorkloadInfo{wi}
 	}, opts.WithName("NetworkLocalWorkloads")...)
 
 	SplitHorizonWorkloads := krt.JoinCollection(
-		[]krt.Collection[model.WorkloadInfo]{
+		[]krt.Collection[*model.WorkloadInfo]{
 			coalescedWorkloads,
 			networkLocalWorkloads,
 		},
 		opts.WithName("SplitHorizonWorkloads")...,
 	)
 	SplitHorizonWorkloads.RegisterBatch(krt.BatchedEventFilter(
-		func(a model.WorkloadInfo) *workloadapi.Workload {
+		func(a *model.WorkloadInfo) *workloadapi.Workload {
 			// Only trigger push if the XDS object changed; the rest is just for computation of others
 			return a.Workload
 		},
-		PushXdsAddress(a.XDSUpdater, model.WorkloadInfo.ResourceName, model.WorkloadInfo.WaypointRef),
+		PushXdsAddress(a.XDSUpdater, (*model.WorkloadInfo).ResourceName, (*model.WorkloadInfo).WaypointRef),
 	), false)
 
 	SplitHorizonWorkloadAddressIndex := krt.NewIndex(SplitHorizonWorkloads, "networkAddress", networkAddressFromWorkload)
-	SplitHorizonWorkloadServiceIndex := krt.NewIndex(SplitHorizonWorkloads, "service", func(o model.WorkloadInfo) []string {
+	SplitHorizonWorkloadServiceIndex := krt.NewIndex(SplitHorizonWorkloads, "service", func(o *model.WorkloadInfo) []string {
 		return maps.Keys(o.Workload.Services)
 	})
-	SplitHorizonWorkloadWaypointIndexHostname := krt.NewIndex(SplitHorizonWorkloads, "namespaceHostname", func(w model.WorkloadInfo) []NamespaceHostname {
+	SplitHorizonWorkloadWaypointIndexHostname := krt.NewIndex(SplitHorizonWorkloads, "namespaceHostname", func(w *model.WorkloadInfo) []NamespaceHostname {
 		// Filter out waypoints.
 		if w.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel {
 			return nil
@@ -391,7 +391,7 @@ func (a *index) buildGlobalCollections(
 			Hostname:  waypointAddress.Hostname,
 		}}
 	})
-	SplitHorizonWorkloadWaypointIndexIP := krt.NewIndex(SplitHorizonWorkloads, "waypointIp", func(w model.WorkloadInfo) []networkAddress {
+	SplitHorizonWorkloadWaypointIndexIP := krt.NewIndex(SplitHorizonWorkloads, "waypointIp", func(w *model.WorkloadInfo) []networkAddress {
 		// Filter out waypoints.
 		if w.Labels[label.GatewayManaged.Name] == constants.ManagedGatewayMeshControllerLabel {
 			return nil
@@ -701,9 +701,15 @@ func wrapObjectWithCluster[T any](clusterID cluster.ID) func(obj T) krt.ObjectWi
 	}
 }
 
+func wrapPointerObjectWithCluster[T any](clusterID cluster.ID) func(obj *T) krt.ObjectWithCluster[T] {
+	return func(obj *T) krt.ObjectWithCluster[T] {
+		return krt.ObjectWithCluster[T]{ClusterID: clusterID, Object: obj}
+	}
+}
+
 func (a *index) createSplitHorizonWorkload(
 	svcNamespacedName string, svc *workloadapi.Service, networkGateway *NetworkGateway, capacity uint32, meshCfg *MeshConfig,
-) model.WorkloadInfo {
+) *model.WorkloadInfo {
 	hboneMtlsPort := networkGateway.HBONEPort
 	if hboneMtlsPort == 0 {
 		hboneMtlsPort = 15008
@@ -748,7 +754,7 @@ func (a *index) createSplitHorizonWorkload(
 		}
 	}
 
-	wi := model.WorkloadInfo{
+	wi := &model.WorkloadInfo{
 		Workload: &wl,
 		Source:   model.TypedObject{Kind: kind.KubernetesGateway},
 		Labels:   labelutil.AugmentLabels(nil, networkGateway.Cluster, "", "", networkGateway.Network),

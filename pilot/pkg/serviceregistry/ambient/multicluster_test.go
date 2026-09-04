@@ -58,3 +58,20 @@ func TestMergeServiceInfosDoesNotModifyInputs(t *testing.T) {
 		t.Fatal("merge must create a new ServiceInfo and Service")
 	}
 }
+
+func TestWorkloadPointerIdentity(t *testing.T) {
+	input := &model.WorkloadInfo{Workload: &workloadapi.Workload{Uid: "workload"}}
+	if got := precomputeWorkload(input); got != input {
+		t.Fatal("precomputeWorkload must retain its newly allocated input")
+	}
+
+	wrapped := wrapPointerObjectWithCluster[model.WorkloadInfo]("local")(input)
+	if wrapped.Object != input {
+		t.Fatal("workload wrapper must retain the producer pointer")
+	}
+
+	merged := mergeWorkloadInfosWithCluster("local")([]krt.ObjectWithCluster[model.WorkloadInfo]{wrapped})
+	if merged.Object != input {
+		t.Fatal("workload merge must retain the selected producer pointer")
+	}
+}

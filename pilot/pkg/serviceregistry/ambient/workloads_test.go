@@ -893,8 +893,8 @@ func TestPodWorkloads(t *testing.T) {
 			)
 			wrapper := builder(krt.TestingDummyContext{}, tt.pod)
 			var res *workloadapi.Workload
-			if wrapper != nil {
-				res = wrapper.Workload
+			if len(wrapper) > 0 {
+				res = wrapper[0].Workload
 			}
 			assert.Equal(t, res, tt.result)
 		})
@@ -1499,8 +1499,8 @@ func TestWorkloadEntryWorkloads(t *testing.T) {
 			)
 			wrapper := builder(krt.TestingDummyContext{}, tt.we)
 			var res *workloadapi.Workload
-			if wrapper != nil {
-				res = wrapper.Workload
+			if len(wrapper) > 0 {
+				res = wrapper[0].Workload
 			}
 			assert.Equal(t, res, tt.result)
 		})
@@ -1745,7 +1745,7 @@ func TestWorkloadEntryConditions(t *testing.T) {
 				krttest.GetMockCollection[*v1.Namespace](mock),
 			)
 			wrapper := builder(krt.TestingDummyContext{}, tt.we)
-			assert.Equal(t, wrapper.GetConditions(nil), tt.conditions)
+			assert.Equal(t, wrapper[0].GetConditions(nil), tt.conditions)
 		})
 	}
 }
@@ -1989,7 +1989,7 @@ func TestServiceEntryWorkloads(t *testing.T) {
 				krttest.GetMockPointers[model.ServiceInfo](mock),
 			)
 			res := builder(krt.TestingDummyContext{}, tt.se)
-			wl := slices.Map(res, func(e model.WorkloadInfo) *workloadapi.Workload {
+			wl := slices.Map(res, func(e *model.WorkloadInfo) *workloadapi.Workload {
 				return e.Workload
 			})
 			slices.SortFunc(wl, func(a, b *workloadapi.Workload) int {
@@ -2111,7 +2111,7 @@ func TestEndpointSliceWorkloads(t *testing.T) {
 				WorkloadServices,
 			)
 			res := builder(krt.TestingDummyContext{}, tt.slice)
-			wl := slices.Map(res, func(e model.WorkloadInfo) *workloadapi.Workload {
+			wl := slices.Map(res, func(e *model.WorkloadInfo) *workloadapi.Workload {
 				return e.Workload
 			})
 			assert.Equal(t, wl, tt.result)
