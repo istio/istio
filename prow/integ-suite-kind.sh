@@ -45,6 +45,11 @@ CLUSTER_YAML="${CLUSTER_YAML:-prow/config/default.yaml}"
 
 export FAST_VM_BUILDS=true
 export ISTIO_DOCKER_BUILDER="${ISTIO_DOCKER_BUILDER:-crane}"
+# Override these registries to route integration-test image pulls through a
+# registry cache. ISTIO_BASE_REGISTRY is consumed by dockerx.pushx.
+export ISTIO_BASE_REGISTRY="${ISTIO_BASE_REGISTRY:-docker.io/istio}"
+export WASM_REGISTRY="${WASM_REGISTRY:-registry.istio.io/testing}"
+export METALLB_REGISTRY="${METALLB_REGISTRY:-registry.istio.io/testing}"
 # DEVCONTAINER controls a set of features that allow this script to be run from
 # within a dev container using ghcr.io/devcontainers/features/docker-outside-of-docker
 export DEVCONTAINER="${DEVCONTAINER:-}"
@@ -195,9 +200,9 @@ if [[ -z "${SKIP_BUILD:-}" ]]; then
 
   # upload WASM plugins to kind-registry
   registry_url=$(if [ -z "$DEVCONTAINER" ]; then echo "localhost"; else echo $KIND_REGISTRY_NAME; fi):$KIND_REGISTRY_PORT
-  crane copy registry.istio.io/testing/wasm/attributegen:359dcd3a19f109c50e97517fe6b1e2676e870c4d "$registry_url/testing/wasm/attributegen:0.0.1" --insecure
-  crane copy registry.istio.io/testing/wasm/header-injector:0.0.1 "$registry_url/testing/wasm/header-injector:0.0.1" --insecure
-  crane copy registry.istio.io/testing/wasm/header-injector:0.0.2 "$registry_url/testing/wasm/header-injector:0.0.2" --insecure
+  crane copy "${WASM_REGISTRY}/wasm/attributegen:359dcd3a19f109c50e97517fe6b1e2676e870c4d" "$registry_url/testing/wasm/attributegen:0.0.1" --insecure
+  crane copy "${WASM_REGISTRY}/wasm/header-injector:0.0.1" "$registry_url/testing/wasm/header-injector:0.0.1" --insecure
+  crane copy "${WASM_REGISTRY}/wasm/header-injector:0.0.2" "$registry_url/testing/wasm/header-injector:0.0.2" --insecure
 
   # Make "kind-registry" resolvable in IPv6 cluster
   if [[ "$KIND_IP_FAMILY" == "ipv6" ]]; then

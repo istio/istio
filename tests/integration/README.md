@@ -576,6 +576,9 @@ The following environment variables can be used to configure the KinD cluster se
 |---|---|
 | `SKIP_SETUP` | Skip KinD cluster setup entirely if set. Useful when reusing an existing cluster. |
 | `NOMETALBINSTALL` | Skip MetalLB installation if set. Useful when using [cloud-provider-kind](https://github.com/kubernetes-sigs/cloud-provider-kind). |
+| `ISTIO_BASE_REGISTRY` | Registry containing the base images used by `dockerx.pushx`. Defaults to `docker.io/istio`. |
+| `WASM_REGISTRY` | Registry containing the Wasm test artifacts copied to the KinD registry. Defaults to `registry.istio.io/testing`. |
+| `METALLB_REGISTRY` | Registry containing the MetalLB images deployed to KinD. Defaults to `registry.istio.io/testing`. |
 
 ## Diagnosing Failures
 
