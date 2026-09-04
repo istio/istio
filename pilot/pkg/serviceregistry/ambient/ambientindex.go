@@ -252,6 +252,7 @@ func New(options Options) Index {
 		Waypoints,
 		opts,
 	)
+	authPoliciesByNs := selectingWorkloadAuthzByNs(AuthorizationPolicies)
 	serviceEntryVisibility := model.ServiceEntryVisibilityCollection(a.meshConfig.AsCollection(), opts)
 
 	// these are workloadapi-style services combined from kube services and service entries
@@ -342,7 +343,7 @@ func New(options Options) Index {
 		Pods,
 		NodeLocality,
 		a.meshConfig,
-		AuthorizationPolicies,
+		authPoliciesByNs,
 		PeerAuthsByNs,
 		Waypoints,
 		WorkloadServices,
@@ -917,6 +918,18 @@ func PushXdsAddress[T any](xds model.XDSUpdater, f func(T) string, waypointRef f
 			Reason:           model.NewReasonStats(model.AmbientUpdate),
 		})
 	}
+}
+
+func selectingWorkloadAuthzByNs(c krt.Collection[model.WorkloadAuthorization]) krt.Index[string, model.WorkloadAuthorization] {
+	return krt.NewIndex(c, "selectingWorklodAuthorizationsByNs", func(wa model.WorkloadAuthorization) []string {
+		if wa.Authorization == nil {
+			return nil // filter policy which are invalid
+		}
+		if wa.GetLabelSelector() == nil {
+			return nil
+		}
+		return []string{wa.Authorization.Namespace}
+	})
 }
 
 type MeshConfig = meshwatcher.MeshConfigResource
