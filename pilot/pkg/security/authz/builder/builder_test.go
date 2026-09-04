@@ -51,6 +51,24 @@ var (
 				Name: "default",
 				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzGrpc{
 					EnvoyExtAuthzGrpc: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationGrpcProvider{
+						Service:         "my-custom-ext-authz.foo.svc.cluster.local",
+						Port:            9000,
+						FailOpen:        true,
+						ClearRouteCache: true,
+						StatusOnError:   "403",
+					},
+				},
+			},
+		},
+	}
+	// ClearRouteCache left unset (defaults to false) to verify the field is
+	// correctly omitted from the generated ext_authz filter when not configured.
+	meshConfigGRPCClearRouteCacheDefault = &meshconfig.MeshConfig{
+		ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{
+			{
+				Name: "default",
+				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzGrpc{
+					EnvoyExtAuthzGrpc: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationGrpcProvider{
 						Service:       "my-custom-ext-authz.foo.svc.cluster.local",
 						Port:          9000,
 						FailOpen:      true,
@@ -66,11 +84,12 @@ var (
 				Name: "default",
 				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzGrpc{
 					EnvoyExtAuthzGrpc: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationGrpcProvider{
-						Service:       "foo/my-custom-ext-authz.foo.svc.cluster.local",
-						Port:          9000,
-						Timeout:       &durationpb.Duration{Nanos: 2000 * 1000},
-						FailOpen:      true,
-						StatusOnError: "403",
+						Service:         "foo/my-custom-ext-authz.foo.svc.cluster.local",
+						Port:            9000,
+						Timeout:         &durationpb.Duration{Nanos: 2000 * 1000},
+						FailOpen:        true,
+						ClearRouteCache: true,
+						StatusOnError:   "403",
 						IncludeRequestBodyInCheck: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationRequestBody{
 							MaxRequestBytes:     4096,
 							AllowPartialMessage: true,
@@ -90,6 +109,7 @@ var (
 						Port:                         9000,
 						Timeout:                      &durationpb.Duration{Seconds: 10},
 						FailOpen:                     true,
+						ClearRouteCache:              true,
 						StatusOnError:                "403",
 						PathPrefix:                   "/check",
 						IncludeRequestHeadersInCheck: []string{"x-custom-id", "x-prefix-*", "*-suffix"},
@@ -104,6 +124,23 @@ var (
 						HeadersToUpstreamOnAllow:   []string{"Authorization", "x-prefix-*", "*-suffix"},
 						HeadersToDownstreamOnDeny:  []string{"Set-cookie", "x-prefix-*", "*-suffix"},
 						HeadersToDownstreamOnAllow: []string{"Set-cookie", "x-prefix-*", "*-suffix"},
+					},
+				},
+			},
+		},
+	}
+	// ClearRouteCache left unset (defaults to false) to verify the field is
+	// correctly omitted from the generated ext_authz filter when not configured.
+	meshConfigHTTPClearRouteCacheDefault = &meshconfig.MeshConfig{
+		ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{
+			{
+				Name: "default",
+				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzHttp{
+					EnvoyExtAuthzHttp: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationHttpProvider{
+						Service:       "foo/my-custom-ext-authz.foo.svc.cluster.local",
+						Port:          9000,
+						FailOpen:      true,
+						StatusOnError: "403",
 					},
 				},
 			},
@@ -173,10 +210,28 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 			want:       []string{"custom-grpc-provider-out1.yaml", "custom-grpc-provider-out2.yaml"},
 		},
 		{
+			name:       "custom-grpc-provider-clear-route-cache-default",
+			meshConfig: meshConfigGRPCClearRouteCacheDefault,
+			input:      "custom-simple-http-in.yaml",
+			want: []string{
+				"custom-grpc-provider-clear-route-cache-default-out1.yaml",
+				"custom-grpc-provider-clear-route-cache-default-out2.yaml",
+			},
+		},
+		{
 			name:       "custom-http-provider",
 			meshConfig: meshConfigHTTP,
 			input:      "custom-simple-http-in.yaml",
 			want:       []string{"custom-http-provider-out1.yaml", "custom-http-provider-out2.yaml"},
+		},
+		{
+			name:       "custom-http-provider-clear-route-cache-default",
+			meshConfig: meshConfigHTTPClearRouteCacheDefault,
+			input:      "custom-simple-http-in.yaml",
+			want: []string{
+				"custom-http-provider-clear-route-cache-default-out1.yaml",
+				"custom-http-provider-clear-route-cache-default-out2.yaml",
+			},
 		},
 		{
 			name:       "custom-bad-multiple-providers",
