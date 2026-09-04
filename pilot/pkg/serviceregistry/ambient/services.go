@@ -424,7 +424,7 @@ func (t TypedServiceInfo) ResourceName() string {
 }
 
 func (t TypedServiceInfo) Equals(other TypedServiceInfo) bool {
-	return t.ServiceInfo.Equals(other.ServiceInfo)
+	return t.ServiceInfo.Equals(&other.ServiceInfo)
 }
 
 func (a Builder) serviceEntryServiceBuilder(

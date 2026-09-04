@@ -1494,7 +1494,10 @@ func (i ServiceInfo) GetNamespace() string {
 	return i.Service.Namespace
 }
 
-func (i ServiceInfo) Equals(other ServiceInfo) bool {
+func (i *ServiceInfo) Equals(other *ServiceInfo) bool {
+	if i == nil || other == nil {
+		return i == other
+	}
 	return equalUsingPremarshaled(i.Service, i.MarshaledAddress, other.Service, other.MarshaledAddress) &&
 		maps.Equal(i.LabelSelector.Labels, other.LabelSelector.Labels) &&
 		maps.Equal(i.PortNames, other.PortNames) &&
@@ -1548,7 +1551,10 @@ type WorkloadInfo struct {
 	Waypoint  WaypointBindingStatus
 }
 
-func (i WorkloadInfo) Equals(other WorkloadInfo) bool {
+func (i *WorkloadInfo) Equals(other *WorkloadInfo) bool {
+	if i == nil || other == nil {
+		return i == other
+	}
 	return equalUsingPremarshaled(i.Workload, i.MarshaledAddress, other.Workload, other.MarshaledAddress) &&
 		maps.Equal(i.Labels, other.Labels) &&
 		i.Source == other.Source &&
