@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/cni/pkg/trafficmanager"
+	"istio.io/istio/cni/pkg/util"
 	"istio.io/istio/pkg/slices"
 )
 
@@ -72,6 +73,40 @@ func (s *NetServer) ConstructInitialSnapshot(existingAmbientPods []*corev1.Pod) 
 		}
 	}
 	return errors.Join(consErr...)
+}
+
+// ReconcileEnrollment re-enrolls every pod that no longer runs in the network namespace this agent
+// enrolled it in. Such a pod keeps its UID, so neither the informer nor the CNI plugin reports it,
+// while its redirection rules and its ztunnel proxy stay behind in a network namespace that is gone -
+// the pod itself is then silently outside the mesh for the rest of its life.
+func (s *NetServer) ReconcileEnrollment(ctx context.Context, ambientPods []*corev1.Pod) error {
+	podsByUID := slices.GroupUnique(ambientPods, (*corev1.Pod).GetUID)
+	running, err := s.podNs.FindNetnsForPods(podsByUID)
+	if err != nil {
+		return err
+	}
+
+	var errs []error
+	for uid, found := range running {
+		pod, isAmbient := podsByUID[types.UID(uid)]
+		if !isAmbient || found.Netns == nil {
+			continue
+		}
+		enrolled := s.currentPodSnapshot.Get(uid)
+		sameNetns := enrolled != nil && enrolled.Inode() == found.Netns.Inode()
+		found.Netns.Close()
+		if sameNetns {
+			continue
+		}
+
+		log := log.WithLabels("ns", pod.Namespace, "name", pod.Name)
+		log.Warn("pod is no longer in the network namespace it was enrolled in, re-enrolling it")
+		s.currentPodSnapshot.Take(uid)
+		if err := s.AddPodToMesh(ctx, pod, util.GetPodIPsIfPresent(pod), ""); err != nil {
+			errs = append(errs, fmt.Errorf("failed to re-enroll pod %s/%s: %w", pod.Namespace, pod.Name, err))
+		}
+	}
+	return errors.Join(errs...)
 }
 
 // Start starts the ztunnel connection listen server.
