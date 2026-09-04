@@ -49,7 +49,7 @@ import (
 )
 
 func (a *index) buildGlobalCollections(
-	localCluster *multicluster.Cluster,
+	localCluster multicluster.ClusterCollections,
 	localAuthzPolicies krt.Collection[*securityclient.AuthorizationPolicy],
 	localPeerAuths krt.Collection[*securityclient.PeerAuthentication],
 	localGatewayClasses krt.Collection[*gatewayv1.GatewayClass],
@@ -71,16 +71,16 @@ func (a *index) buildGlobalCollections(
 
 	LocalGatewaysWithCluster := krt.MapCollection(LocalGateways, func(obj *gatewayv1.Gateway) krt.ObjectWithCluster[*gatewayv1.Gateway] {
 		return krt.ObjectWithCluster[*gatewayv1.Gateway]{
-			ClusterID: localCluster.ID,
+			ClusterID: localCluster.ID(),
 			Object:    &obj,
 		}
 	}, opts.WithName("LocalGatewaysWithCluster")...)
 	GlobalGatewaysWithCluster := multicluster.NestedCollectionFromLocalAndRemote(
 		a.mcController,
 		LocalGatewaysWithCluster,
-		func(ctx krt.HandlerContext, c *multicluster.Cluster) *krt.Collection[krt.ObjectWithCluster[*gatewayv1.Gateway]] {
-			if !kube.WaitForCacheSync(fmt.Sprintf("ambient/informer/gateways[%s]", c.ID), a.stop, c.Gateways().HasSynced) {
-				log.Warnf("Failed to sync gateways informer for cluster %s", c.ID)
+		func(ctx krt.HandlerContext, c multicluster.ClusterCollections) *krt.Collection[krt.ObjectWithCluster[*gatewayv1.Gateway]] {
+			if !kube.WaitForCacheSync(fmt.Sprintf("ambient/informer/gateways[%s]", c.ID()), a.stop, c.Gateways().HasSynced) {
+				log.Warnf("Failed to sync gateways informer for cluster %s", c.ID())
 				return nil
 			}
 
@@ -88,13 +88,13 @@ func (a *index) buildGlobalCollections(
 			// stop is being used to shutdown the collection (it should always be the cluster stop, NEVER
 			// the top-level stop associated with the ambient controller)
 			opts := []krt.CollectionOption{
-				krt.WithName(fmt.Sprintf("ambient/GatewaysWithCluster[%s]", c.ID)),
+				krt.WithName(fmt.Sprintf("ambient/GatewaysWithCluster[%s]", c.ID())),
 				krt.WithDebugging(opts.Debugger()),
 				krt.WithStop(c.GetStop()),
 			}
 			return ptr.Of(krt.MapCollection(c.Gateways(), func(obj *gatewayv1.Gateway) krt.ObjectWithCluster[*gatewayv1.Gateway] {
 				return krt.ObjectWithCluster[*gatewayv1.Gateway]{
-					ClusterID: c.ID,
+					ClusterID: c.ID(),
 					Object:    &obj,
 				}
 			}, opts...))
@@ -147,7 +147,7 @@ func (a *index) buildGlobalCollections(
 	LocalServiceEntryVisibility := model.ServiceEntryVisibilityCollection(LocalMeshConfig.AsCollection(), opts)
 
 	LocalWorkloadServices := builder.ServicesCollection(
-		localCluster.ID,
+		localCluster.ID(),
 		localCluster.Services(),
 		localServiceEntries,
 		LocalWaypoints,
@@ -159,9 +159,9 @@ func (a *index) buildGlobalCollections(
 	)
 	// All of this is local only, but we need to do it here so we don't have to rebuild collections in ambientindex
 	if features.EnableAmbientStatus {
-		serviceEntriesWriter := kclient.NewWriteClient[*networkingclient.ServiceEntry](localCluster.Client)
-		servicesWriter := kclient.NewWriteClient[*v1.Service](localCluster.Client)
-		authorizationPoliciesWriter := kclient.NewWriteClient[*securityclient.AuthorizationPolicy](localCluster.Client)
+		serviceEntriesWriter := kclient.NewWriteClient[*networkingclient.ServiceEntry](localCluster.Client())
+		servicesWriter := kclient.NewWriteClient[*v1.Service](localCluster.Client())
+		authorizationPoliciesWriter := kclient.NewWriteClient[*securityclient.AuthorizationPolicy](localCluster.Client())
 
 		WaypointPolicyStatus := WaypointPolicyStatusCollection(
 			localAuthzPolicies,
@@ -210,7 +210,7 @@ func (a *index) buildGlobalCollections(
 
 	GlobalMergedWorkloadServicesWithCluster := krt.NestedJoinWithMergeCollection(
 		GlobalWorkloadServicesWithCluster,
-		mergeServiceInfosWithCluster(localCluster.ID),
+		mergeServiceInfosWithCluster(localCluster.ID()),
 		opts.WithName("GlobalMergedServiceInfosWithCluster")...,
 	)
 
@@ -261,7 +261,7 @@ func (a *index) buildGlobalCollections(
 		opts,
 	)
 	if features.EnableAmbientStatus {
-		workloadEntriesWriter := kclient.NewWriteClient[*networkingclient.WorkloadEntry](localCluster.Client)
+		workloadEntriesWriter := kclient.NewWriteClient[*networkingclient.WorkloadEntry](localCluster.Client())
 		statusqueue.Register(a.statusQueue, "istio-ambient-workloadentry", GlobalWorkloads,
 			func(info model.WorkloadInfo) (kclient.Patcher, map[string]model.Condition) {
 				if info.Source.Kind != kind.WorkloadEntry {

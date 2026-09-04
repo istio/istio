@@ -65,36 +65,36 @@ func nodeLocality(k *v1.Node) *Node {
 
 // GlobalNodesCollection builds a nested collection of per-cluster node locality collections.
 func GlobalNodesCollection(
-	localCluster *multicluster.Cluster,
+	localCluster multicluster.ClusterCollections,
 	localNodeLocality krt.Collection[Node],
 	ctrl *multicluster.Controller,
 	opts krt.OptionsBuilder,
 ) krt.Collection[krt.Collection[krt.ObjectWithCluster[Node]]] {
 	localNodeLocalityWithCluster := krt.MapCollection(
 		localNodeLocality,
-		wrapObjectWithCluster[Node](localCluster.ID),
+		wrapObjectWithCluster[Node](localCluster.ID()),
 		append(
 			opts.WithName("LocalNodeLocalityWithCluster"),
-			krt.WithMetadata(krt.Metadata{multicluster.ClusterKRTMetadataKey: localCluster.ID}),
+			krt.WithMetadata(krt.Metadata{multicluster.ClusterKRTMetadataKey: localCluster.ID()}),
 		)...,
 	)
 	return multicluster.NestedCollectionFromLocalAndRemote(
 		ctrl,
 		localNodeLocalityWithCluster,
-		func(ctx krt.HandlerContext, c *multicluster.Cluster) *krt.Collection[krt.ObjectWithCluster[Node]] {
-			if !kube.WaitForCacheSync(fmt.Sprintf("ambient/informer/nodes[%s]", c.ID), opts.Stop(), c.Nodes().HasSynced) {
-				log.Warnf("Failed to sync nodes informer for cluster %s", c.ID)
+		func(ctx krt.HandlerContext, c multicluster.ClusterCollections) *krt.Collection[krt.ObjectWithCluster[Node]] {
+			if !kube.WaitForCacheSync(fmt.Sprintf("ambient/informer/nodes[%s]", c.ID()), opts.Stop(), c.Nodes().HasSynced) {
+				log.Warnf("Failed to sync nodes informer for cluster %s", c.ID())
 				return nil
 			}
 			clusterOpts := []krt.CollectionOption{
-				krt.WithName(fmt.Sprintf("ambient/NodeLocalityWithCluster[%s]", c.ID)),
+				krt.WithName(fmt.Sprintf("ambient/NodeLocalityWithCluster[%s]", c.ID())),
 				krt.WithDebugging(opts.Debugger()),
 				krt.WithStop(c.GetStop()),
-				krt.WithMetadata(krt.Metadata{multicluster.ClusterKRTMetadataKey: c.ID}),
+				krt.WithMetadata(krt.Metadata{multicluster.ClusterKRTMetadataKey: c.ID()}),
 			}
 			nodes := krt.NewCollection(c.Nodes(), func(ctx krt.HandlerContext, k *v1.Node) *krt.ObjectWithCluster[Node] {
 				return &krt.ObjectWithCluster[Node]{
-					ClusterID: c.ID,
+					ClusterID: c.ID(),
 					Object:    nodeLocality(k),
 				}
 			}, clusterOpts...)
