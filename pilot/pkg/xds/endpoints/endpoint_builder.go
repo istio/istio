@@ -337,7 +337,17 @@ func (b *EndpointBuilder) Cacheable() bool {
 	// If service is not defined, we cannot do any caching as we will not have a way to
 	// invalidate the results.
 	// Service being nil means the EDS will be empty anyways, so not much lost here.
-	return b.service != nil
+	if b.service == nil {
+		return false
+	}
+	// Waypoint selection and waypoint endpoints are not represented in the cache dependencies.
+	// TODO: Include waypoint selection and endpoint dependencies in cache invalidation to safely
+	// cache EDS for waypoint-routed sidecars.
+	if b.nodeType == model.SidecarProxy && features.EnableSidecarWaypointRouting {
+		return false
+	}
+
+	return true
 }
 
 func (b *EndpointBuilder) DependentConfigs() []model.ConfigHash {
