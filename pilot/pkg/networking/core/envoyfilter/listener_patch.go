@@ -674,6 +674,20 @@ func filterChainMatch(listener *listener.Listener, fc *listener.FilterChain, lp 
 		}
 	}
 
+	// Check the transport socket the filter chain is configured with. Unlike TransportProtocol, which is
+	// a match criteria of the filter chain, this is the extension that actually processes the bytes of a
+	// matched connection, so it identifies the filter chains that terminate TLS or QUIC. A filter chain
+	// with no transport socket set uses raw_buffer, which is Envoy's default.
+	if match.TransportSocket != "" {
+		transportSocket := fc.GetTransportSocket().GetName()
+		if transportSocket == "" {
+			transportSocket = wellknown.TransportSocketRawBuffer
+		}
+		if transportSocket != match.TransportSocket {
+			return false
+		}
+	}
+
 	if match.ApplicationProtocols != "" {
 		if fc.FilterChainMatch == nil {
 			return false
