@@ -196,7 +196,7 @@ var (
 	Enable100ContinueHeaders = env.Register("ENABLE_100_CONTINUE_HEADERS", true,
 		"If enabled, istiod will proxy 100-continue headers as is").Get()
 
-	EnableAWSZoneID = env.Register("PILOT_ENABLE_AWS_ZONE_ID", false,
+	EnableAWSZoneID = env.Register("PILOT_ENABLE_AWS_ZONE_ID", true,
 		"Use topology.k8s.aws/zone-id for Kubernetes workload locality when the label exists. "+
 			"Applies to sidecar and ambient modes.").Get()
 

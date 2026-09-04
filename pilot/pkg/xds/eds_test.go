@@ -79,18 +79,20 @@ const (
 func TestPreferCloseAWSZoneID(t *testing.T) {
 	for _, tc := range []struct {
 		name         string
-		enabled      bool
+		disabled     bool
 		native       bool
 		secondZoneID string
 		want         map[string]uint32
 	}{
-		{name: "disabled", secondZoneID: "use1-az6", want: map[string]uint32{"10.0.1.1": 0, "10.0.1.2": 1}},
-		{name: "annotation", enabled: true, secondZoneID: "use1-az6", want: map[string]uint32{"10.0.1.1": 1, "10.0.1.2": 0}},
-		{name: "service field", enabled: true, native: true, secondZoneID: "use1-az6", want: map[string]uint32{"10.0.1.1": 1, "10.0.1.2": 0}},
-		{name: "no local endpoint", enabled: true, secondZoneID: "use1-az4", want: map[string]uint32{"10.0.1.1": 0, "10.0.1.2": 0}},
+		{name: "disabled", disabled: true, secondZoneID: "use1-az6", want: map[string]uint32{"10.0.1.1": 0, "10.0.1.2": 1}},
+		{name: "annotation", secondZoneID: "use1-az6", want: map[string]uint32{"10.0.1.1": 1, "10.0.1.2": 0}},
+		{name: "service field", native: true, secondZoneID: "use1-az6", want: map[string]uint32{"10.0.1.1": 1, "10.0.1.2": 0}},
+		{name: "no local endpoint", secondZoneID: "use1-az4", want: map[string]uint32{"10.0.1.1": 0, "10.0.1.2": 0}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			test.SetForTest(t, &features.EnableAWSZoneID, tc.enabled)
+			if tc.disabled {
+				test.SetForTest(t, &features.EnableAWSZoneID, false)
+			}
 			node := func(name, zone, id string) *v1.Node {
 				return &v1.Node{ObjectMeta: metav1.ObjectMeta{Name: name, Labels: map[string]string{
 					v1.LabelTopologyRegion: "us-east-1", v1.LabelTopologyZone: zone, labelutil.LabelTopologyAWSZoneID: id,
