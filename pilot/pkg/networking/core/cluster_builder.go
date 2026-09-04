@@ -551,8 +551,9 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 // from the Host/:authority header. Optional TLS origination is applied when OutboundTrafficPolicy tls is configured.
 func (cb *ClusterBuilder) buildAllowAnyDFPCluster(tls *networking.ClientTLSSettings) *clusterWrapper {
 	c := &cluster.Cluster{
-		Name:     util.AllowAnyDynamicDNSCluster,
-		LbPolicy: cluster.Cluster_CLUSTER_PROVIDED,
+		Name:           util.AllowAnyDynamicDNSCluster,
+		LbPolicy:       cluster.Cluster_CLUSTER_PROVIDED,
+		CommonLbConfig: &cluster.Cluster_CommonLbConfig{},
 		ClusterDiscoveryType: &cluster.Cluster_ClusterType{ClusterType: &cluster.Cluster_CustomClusterType{
 			Name: "envoy.clusters.dynamic_forward_proxy",
 			TypedConfig: protoconv.MessageToAny(&dfpcluster.ClusterConfig{
@@ -602,8 +603,9 @@ func (cb *ClusterBuilder) buildAllowAnyDFPCluster(tls *networking.ClientTLSSetti
 // and upstream protocol settings.
 func (cb *ClusterBuilder) buildDFPCluster(name string, service *model.Service, port *model.Port) *clusterWrapper {
 	c := &cluster.Cluster{
-		Name:     name,
-		LbPolicy: cluster.Cluster_CLUSTER_PROVIDED,
+		Name:           name,
+		LbPolicy:       cluster.Cluster_CLUSTER_PROVIDED,
+		CommonLbConfig: &cluster.Cluster_CommonLbConfig{},
 		ClusterDiscoveryType: &cluster.Cluster_ClusterType{ClusterType: &cluster.Cluster_CustomClusterType{
 			Name: "envoy.clusters.dynamic_forward_proxy",
 			TypedConfig: protoconv.MessageToAny(&dfpcluster.ClusterConfig{
