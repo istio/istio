@@ -500,6 +500,35 @@ func validateServerBind(port *networking.Port, bind string) (errs error) {
 	return errs
 }
 
+func validateALPNProtocols(tls *networking.ServerTLSSettings) (v Validation) {
+	if len(tls.AlpnProtocols) == 0 {
+		return v
+	}
+	// ALPN is only advertised by the proxy when it terminates TLS itself.
+	switch tls.Mode {
+	case networking.ServerTLSSettings_SIMPLE, networking.ServerTLSSettings_MUTUAL,
+		networking.ServerTLSSettings_OPTIONAL_MUTUAL:
+	default:
+		v = AppendWarningf(v, "%v mode does not advertise ALPN protocols, alpnProtocols will be ignored", tls.Mode)
+	}
+
+	duplicates := sets.New[string]()
+	seen := sets.New[string]()
+	for _, alpn := range tls.AlpnProtocols {
+		// See https://datatracker.ietf.org/doc/html/rfc7301#section-3.1: an ALPN protocol name is a
+		// non-empty byte string with a length that fits in a single byte.
+		if alpn == "" || len(alpn) > 255 {
+			v = AppendValidation(v, fmt.Errorf("invalid ALPN protocol %q: must be between 1 and 255 characters", alpn))
+		} else if seen.InsertContains(alpn) {
+			duplicates.Insert(alpn)
+		}
+	}
+	if len(duplicates) > 0 {
+		v = AppendWarningf(v, "ignoring duplicate ALPN protocols: %v", sets.SortedList(duplicates))
+	}
+	return v
+}
+
 func validateTLSOptions(tls *networking.ServerTLSSettings) (v Validation) {
 	if tls == nil {
 		// no tls config at all is valid
@@ -529,6 +558,8 @@ func validateTLSOptions(tls *networking.ServerTLSSettings) (v Validation) {
 	if len(duplicateCiphers) > 0 {
 		v = AppendWarningf(v, "ignoring duplicate cipher suites: %v", sets.SortedList(duplicateCiphers))
 	}
+
+	v = AppendValidation(v, validateALPNProtocols(tls))
 
 	if tls.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL {
 		// ISTIO_MUTUAL TLS mode uses either SDS or default certificate mount paths

@@ -16,6 +16,7 @@ package security_test
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 
 	"istio.io/istio/pkg/config/security"
@@ -576,6 +577,50 @@ func TestContainsPathTemplate(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			pathTemplate := security.ContainsPathTemplate(tc.path)
 			assert.Equal(t, tc.isPathTemplate, pathTemplate)
+		})
+	}
+}
+
+func TestFilterALPNProtocols(t *testing.T) {
+	cases := []struct {
+		name     string
+		in       []string
+		expected []string
+	}{
+		{
+			name:     "empty",
+			in:       nil,
+			expected: nil,
+		},
+		{
+			name:     "valid",
+			in:       []string{"h2", "http/1.1"},
+			expected: []string{"h2", "http/1.1"},
+		},
+		{
+			name:     "duplicates are dropped, order is kept",
+			in:       []string{"http/1.1", "h2", "http/1.1"},
+			expected: []string{"http/1.1", "h2"},
+		},
+		{
+			name:     "empty protocol is dropped",
+			in:       []string{"h2", ""},
+			expected: []string{"h2"},
+		},
+		{
+			name:     "too long protocol is dropped",
+			in:       []string{strings.Repeat("a", 256), "h2"},
+			expected: []string{"h2"},
+		},
+		{
+			name:     "all invalid",
+			in:       []string{""},
+			expected: []string{},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, security.FilterALPNProtocols(tc.in), tc.expected)
 		})
 	}
 }

@@ -1025,6 +1025,49 @@ func TestValidateTlsOptions(t *testing.T) {
 			"requires a private key", "not-a-cipher-suite",
 		},
 		{
+			"valid alpn protocols",
+			&networking.ServerTLSSettings{
+				Mode:           networking.ServerTLSSettings_SIMPLE,
+				CredentialName: "sds-name",
+				AlpnProtocols:  []string{"h2", "http/1.1"},
+			},
+			"", "",
+		},
+		{
+			"empty alpn protocol",
+			&networking.ServerTLSSettings{
+				Mode:           networking.ServerTLSSettings_SIMPLE,
+				CredentialName: "sds-name",
+				AlpnProtocols:  []string{"h2", ""},
+			},
+			"invalid ALPN protocol", "",
+		},
+		{
+			"duplicate alpn protocols",
+			&networking.ServerTLSSettings{
+				Mode:           networking.ServerTLSSettings_SIMPLE,
+				CredentialName: "sds-name",
+				AlpnProtocols:  []string{"h2", "h2"},
+			},
+			"", "ignoring duplicate ALPN protocols",
+		},
+		{
+			"alpn protocols with istio_mutual",
+			&networking.ServerTLSSettings{
+				Mode:          networking.ServerTLSSettings_ISTIO_MUTUAL,
+				AlpnProtocols: []string{"h2"},
+			},
+			"", "alpnProtocols will be ignored",
+		},
+		{
+			"alpn protocols with passthrough",
+			&networking.ServerTLSSettings{
+				Mode:          networking.ServerTLSSettings_PASSTHROUGH,
+				AlpnProtocols: []string{"h2"},
+			},
+			"", "alpnProtocols will be ignored",
+		},
+		{
 			"crl specified for SIMPLE TLS",
 			&networking.ServerTLSSettings{
 				Mode:  networking.ServerTLSSettings_SIMPLE,

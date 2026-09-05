@@ -50,6 +50,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/security"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/proto"
@@ -237,6 +238,10 @@ func applyServerTLSSettings(serverTLSSettings *networking.ServerTLSSettings, ctx
 	}
 	if serverTLSSettings.MaxProtocolVersion != networking.ServerTLSSettings_TLS_AUTO {
 		tlsParamsOrNew(ctx).TlsMaximumProtocolVersion = convertTLSProtocol(serverTLSSettings.MaxProtocolVersion)
+	}
+	// Explicitly configured ALPN protocols override the ones derived from the server protocol.
+	if alpn := security.FilterALPNProtocols(serverTLSSettings.AlpnProtocols); len(alpn) > 0 {
+		ctx.AlpnProtocols = alpn
 	}
 }
 
