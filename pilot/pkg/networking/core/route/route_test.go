@@ -1566,7 +1566,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 
 		routeOpts := buildRouteOpts(serviceRegistry, nil)
 		routeOpts.InferencePoolExtensionRefs = map[string]kube.InferencePoolRouteRuleConfig{
-			"routeA": {FQDN: "ext-proc-svc.test-namespace.svc.cluster.local", Port: "9002"},
+			"routeA": {"*.example.org": {FQDN: "ext-proc-svc.test-namespace.svc.cluster.local", Port: "9002"}},
 		}
 		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServicePlain, 8080, gatewayNames, routeOpts)
 		xdstest.ValidateRoutes(t, routes)
@@ -1591,7 +1591,7 @@ func TestBuildHTTPRoutes(t *testing.T) {
 
 		routeOpts := buildRouteOpts(serviceRegistry, nil)
 		routeOpts.InferencePoolExtensionRefs = map[string]kube.InferencePoolRouteRuleConfig{
-			"routeA": {FQDN: "ext-proc-svc.test-namespace.svc.cluster.local", Port: "9002", FailureModeAllow: true},
+			"routeA": {"*.example.org": {FQDN: "ext-proc-svc.test-namespace.svc.cluster.local", Port: "9002", FailureModeAllow: true}},
 		}
 		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServicePlain, 8080, gatewayNames, routeOpts)
 		xdstest.ValidateRoutes(t, routes)
@@ -1609,6 +1609,85 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(extProcPerRoute.GetOverrides().GetProcessingMode().GetResponseHeaderMode()).To(Equal(extproc.ProcessingMode_SEND))
 		g.Expect(extProcPerRoute.GetOverrides().GetFailureModeAllow().GetValue()).To(BeTrue())
 	})
+
+	t.Run("for virtual service splitting across two inference pools", func(t *testing.T) {
+		g := NewWithT(t)
+		cg := core.NewConfigGenTest(t, core.TestOptions{})
+
+		routeOpts := buildRouteOpts(serviceRegistry, nil)
+		routeOpts.InferencePoolExtensionRefs = map[string]kube.InferencePoolRouteRuleConfig{
+			"routeA": {
+				poolAHost: {FQDN: "epp-a.test-namespace.svc.cluster.local", Port: "9002"},
+				poolBHost: {FQDN: "epp-b.test-namespace.svc.cluster.local", Port: "9002", FailureModeAllow: true},
+			},
+		}
+		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceTwoInferencePools, 8080, gatewayNames, routeOpts)
+		xdstest.ValidateRoutes(t, routes)
+		g.Expect(err).NotTo(HaveOccurred())
+
+		// A rule-wide override would hand one pool's picker every request on the rule, including
+		// the share weighted to the other pool.
+		g.Expect(routes[0].GetTypedPerFilterConfig()).NotTo(HaveKey(wellknown.HTTPExternalProcessing))
+
+		clusters := routes[0].GetRoute().GetWeightedClusters().GetClusters()
+		g.Expect(clusters).To(HaveLen(2))
+		g.Expect(clusters[0].GetWeight().GetValue()).To(Equal(uint32(90)))
+		g.Expect(clusters[1].GetWeight().GetValue()).To(Equal(uint32(10)))
+
+		aOverrides := extProcOverrides(t, clusters[0])
+		g.Expect(pickerCluster(aOverrides)).To(Equal("outbound|9002||epp-a.test-namespace.svc.cluster.local"))
+		g.Expect(aOverrides.GetFailureModeAllow().GetValue()).To(BeFalse())
+		g.Expect(aOverrides.GetProcessingMode().GetRequestBodyMode()).To(Equal(extproc.ProcessingMode_FULL_DUPLEX_STREAMED))
+
+		bOverrides := extProcOverrides(t, clusters[1])
+		g.Expect(pickerCluster(bOverrides)).To(Equal("outbound|9002||epp-b.test-namespace.svc.cluster.local"))
+		g.Expect(bOverrides.GetFailureModeAllow().GetValue()).To(BeTrue())
+		g.Expect(bOverrides.GetProcessingMode().GetRequestBodyMode()).To(Equal(extproc.ProcessingMode_FULL_DUPLEX_STREAMED))
+	})
+
+	t.Run("for virtual service splitting between an inference pool and an ordinary service", func(t *testing.T) {
+		g := NewWithT(t)
+		cg := core.NewConfigGenTest(t, core.TestOptions{})
+
+		routeOpts := buildRouteOpts(serviceRegistry, nil)
+		routeOpts.InferencePoolExtensionRefs = map[string]kube.InferencePoolRouteRuleConfig{
+			"routeA": {poolAHost: {FQDN: "epp-a.test-namespace.svc.cluster.local", Port: "9002"}},
+		}
+		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceInferencePoolAndService, 8080, gatewayNames, routeOpts)
+		xdstest.ValidateRoutes(t, routes)
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(routes[0].GetTypedPerFilterConfig()).NotTo(HaveKey(wellknown.HTTPExternalProcessing))
+
+		clusters := routes[0].GetRoute().GetWeightedClusters().GetClusters()
+		g.Expect(clusters).To(HaveLen(2))
+		g.Expect(pickerCluster(extProcOverrides(t, clusters[0]))).To(Equal("outbound|9002||epp-a.test-namespace.svc.cluster.local"))
+
+		// The plain Service belongs to no pool, so no picker may score its share.
+		perRoute := new(extproc.ExtProcPerRoute)
+		g.Expect(clusters[1].GetTypedPerFilterConfig()).To(HaveKey(wellknown.HTTPExternalProcessing))
+		if err := clusters[1].GetTypedPerFilterConfig()[wellknown.HTTPExternalProcessing].UnmarshalTo(perRoute); err != nil {
+			t.Fatalf("couldn't unmarshal any proto: %v", err)
+		}
+		g.Expect(perRoute.GetDisabled()).To(BeTrue())
+	})
+
+	t.Run("for a redirect rule that also lists an inference pool backend", func(t *testing.T) {
+		g := NewWithT(t)
+		cg := core.NewConfigGenTest(t, core.TestOptions{})
+
+		routeOpts := buildRouteOpts(serviceRegistry, nil)
+		routeOpts.InferencePoolExtensionRefs = map[string]kube.InferencePoolRouteRuleConfig{
+			"routeA": {poolAHost: {FQDN: "epp-a.test-namespace.svc.cluster.local", Port: "9002"}},
+		}
+		routes, err := route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceRedirectWithInferencePool, 8080, gatewayNames, routeOpts)
+		xdstest.ValidateRoutes(t, routes)
+		g.Expect(err).NotTo(HaveOccurred())
+
+		// The redirect answers the request, so there is no backend for a picker to score.
+		g.Expect(routes[0].Action).To(BeAssignableToTypeOf(&envoyroute.Route_Redirect{}))
+		g.Expect(routes[0].GetTypedPerFilterConfig()).NotTo(HaveKey(wellknown.HTTPExternalProcessing))
+	})
+
 	t.Run("for virtualservices with with wildcard hosts outside of the serviceregistry (on port 80)", func(t *testing.T) {
 		g := NewWithT(t)
 		cg := core.NewConfigGenTest(t, core.TestOptions{
@@ -1730,6 +1809,126 @@ var virtualServicePlain = config.Config{
 			},
 		},
 	},
+}
+
+// Hostnames of the Services Istio synthesizes for an InferencePool. The endpoint picker config
+// is keyed by these, which is how a weighted cluster is matched back to the pool it came from.
+const (
+	poolAHost = "pool-a-ip-1a2b3c4d.test-namespace.svc.cluster.local"
+	poolBHost = "pool-b-ip-5e6f7a8b.test-namespace.svc.cluster.local"
+)
+
+// The canary shape from llm-d's blue-green rollout: one rule, two InferencePools, 90:10.
+var virtualServiceTwoInferencePools = config.Config{
+	Meta: config.Meta{
+		GroupVersionKind: gvk.VirtualService,
+		Name:             "acme",
+	},
+	Spec: &networking.VirtualService{
+		Hosts:    []string{},
+		Gateways: []string{"some-gateway"},
+		Http: []*networking.HTTPRoute{
+			{
+				Name: "routeA",
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: poolAHost,
+							Port: &networking.PortSelector{Number: 54321},
+						},
+						Weight: 90,
+					},
+					{
+						Destination: &networking.Destination{
+							Host: poolBHost,
+							Port: &networking.PortSelector{Number: 54321},
+						},
+						Weight: 10,
+					},
+				},
+			},
+		},
+	},
+}
+
+// Gateway API lets a rule carry both a RequestRedirect filter and backendRefs. The redirect
+// answers the request, so the backends are never dialed.
+var virtualServiceRedirectWithInferencePool = config.Config{
+	Meta: config.Meta{
+		GroupVersionKind: gvk.VirtualService,
+		Name:             "acme",
+	},
+	Spec: &networking.VirtualService{
+		Hosts:    []string{},
+		Gateways: []string{"some-gateway"},
+		Http: []*networking.HTTPRoute{
+			{
+				Name: "routeA",
+				Redirect: &networking.HTTPRedirect{
+					Uri:          "example.org",
+					RedirectCode: 308,
+				},
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: poolAHost,
+							Port: &networking.PortSelector{Number: 54321},
+						},
+						Weight: 100,
+					},
+				},
+			},
+		},
+	},
+}
+
+var virtualServiceInferencePoolAndService = config.Config{
+	Meta: config.Meta{
+		GroupVersionKind: gvk.VirtualService,
+		Name:             "acme",
+	},
+	Spec: &networking.VirtualService{
+		Hosts:    []string{},
+		Gateways: []string{"some-gateway"},
+		Http: []*networking.HTTPRoute{
+			{
+				Name: "routeA",
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: poolAHost,
+							Port: &networking.PortSelector{Number: 54321},
+						},
+						Weight: 90,
+					},
+					{
+						Destination: &networking.Destination{
+							Host: "*.example.org",
+							Port: &networking.PortSelector{Number: 8484},
+						},
+						Weight: 10,
+					},
+				},
+			},
+		},
+	},
+}
+
+func extProcOverrides(t *testing.T, cw *envoyroute.WeightedCluster_ClusterWeight) *extproc.ExtProcOverrides {
+	t.Helper()
+	cfg, ok := cw.GetTypedPerFilterConfig()[wellknown.HTTPExternalProcessing]
+	if !ok {
+		t.Fatalf("weighted cluster %q has no %s config", cw.GetName(), wellknown.HTTPExternalProcessing)
+	}
+	perRoute := new(extproc.ExtProcPerRoute)
+	if err := cfg.UnmarshalTo(perRoute); err != nil {
+		t.Fatalf("couldn't unmarshal any proto: %v", err)
+	}
+	return perRoute.GetOverrides()
+}
+
+func pickerCluster(o *extproc.ExtProcOverrides) string {
+	return o.GetGrpcService().GetTargetSpecifier().(*envoycore.GrpcService_EnvoyGrpc_).EnvoyGrpc.GetClusterName()
 }
 
 var virtualServiceWithTimeout = config.Config{

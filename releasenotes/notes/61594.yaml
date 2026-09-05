@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 61594
+releaseNotes:
+  - |
+    **Fixed** an `HTTPRoute` rule with several `InferencePool` backendRefs configuring only one
+    endpoint picker. The picker of the last backendRef listed scored every request on the rule,
+    so the other pools' pickers were never invoked, and a pool with no ready endpoints failed
+    the whole rule rather than its own weighted share. Each pool now gets its own picker,
+    attached to its own weighted cluster.
