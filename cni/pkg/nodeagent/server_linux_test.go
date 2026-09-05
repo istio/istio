@@ -121,6 +121,43 @@ func TestMeshDataplaneAddsAnnotationOnAddWithPartialError(t *testing.T) {
 	assert.Equal(t, pod.Annotations[annotation.AmbientRedirection.Name], constants.AmbientRedirectionPending)
 }
 
+func TestMeshDataplaneAddsPartialAnnotationOnAddressSetFailure(t *testing.T) {
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test",
+			Namespace: "test",
+			UID:       types.UID("test"),
+		},
+	}
+	fakeCtx := context.Background()
+	podIP := netip.MustParseAddr("99.9.9.1")
+	podIPs := []netip.Addr{podIP}
+
+	server := &fakeServer{}
+	server.On("AddPodToMesh", fakeCtx, pod, podIPs, "").Return(nil)
+
+	fakeClientSet := fake.NewClientset(pod)
+	fakeIPSetDeps := ipset.FakeNLDeps()
+	fakeIPSetDeps.On(
+		"addIP",
+		"foo-v4",
+		podIP,
+		uint8(unix.IPPROTO_TCP),
+		string(pod.UID),
+		true,
+	).Return(errors.New("address set failure"))
+	ipsetInstance := ipset.IPSet{V4Name: "foo-v4", Prefix: "foo", Deps: fakeIPSetDeps}
+	m := getFakeDPWithAddressSet(server, fakeClientSet, set.NewIPSetWrapper(ipsetInstance))
+
+	err := m.AddPodToMesh(fakeCtx, pod, podIPs, "")
+	assert.Error(t, err)
+
+	updatedPod, err := fakeClientSet.CoreV1().Pods(pod.Namespace).Get(fakeCtx, pod.Name, metav1.GetOptions{})
+	assert.NoError(t, err)
+	assert.Equal(t, updatedPod.Annotations[annotation.AmbientRedirection.Name], constants.AmbientRedirectionPending)
+	fakeIPSetDeps.AssertExpectations(t)
+}
+
 func TestMeshDataplaneDoesntAnnotateOnAddWithNonretryableError(t *testing.T) {
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
