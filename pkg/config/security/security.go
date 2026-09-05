@@ -369,6 +369,33 @@ func IsValidECDHCurve(cs string) bool {
 	return ValidECDHCurves.Contains(cs)
 }
 
+// FilterALPNProtocols filters out invalid ALPN protocols which would lead Envoy to NACKing.
+// See https://datatracker.ietf.org/doc/html/rfc7301#section-3.1: a protocol name is a non-empty
+// byte string whose length fits in a single byte.
+func FilterALPNProtocols(protocols []string) []string {
+	if len(protocols) == 0 {
+		return nil
+	}
+	ret := make([]string, 0, len(protocols))
+	seen := sets.New[string]()
+	for _, p := range protocols {
+		if p == "" || len(p) > 255 {
+			if log.DebugEnabled() {
+				log.Debugf("ignoring invalid ALPN protocol: %q", p)
+			}
+			continue
+		}
+		if seen.InsertContains(p) {
+			if log.DebugEnabled() {
+				log.Debugf("ignoring duplicated ALPN protocol: %q", p)
+			}
+			continue
+		}
+		ret = append(ret, p)
+	}
+	return ret
+}
+
 // FilterCipherSuites filters out invalid cipher suites which would lead Envoy to NACKing.
 func FilterCipherSuites(suites []string) []string {
 	if len(suites) == 0 {
