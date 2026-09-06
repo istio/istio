@@ -15,6 +15,8 @@
 package util
 
 import (
+	"net/netip"
+	"slices"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -112,6 +114,45 @@ func TestGetPodIPsIfNoPodIPPresent(t *testing.T) {
 
 	podIPs := GetPodIPsIfPresent(pod)
 	assert.Equal(t, len(podIPs), 0)
+}
+
+func TestGetPodIPsIfPresentSkipsInvalidIPs(t *testing.T) {
+	tests := []struct {
+		name   string
+		status corev1.PodStatus
+		want   []netip.Addr
+	}{
+		{
+			name: "invalid PodIPs entry",
+			status: corev1.PodStatus{
+				PodIPs: []corev1.PodIP{{IP: "not-an-ip"}, {IP: "2.2.2.2"}},
+			},
+			want: []netip.Addr{netip.MustParseAddr("2.2.2.2")},
+		},
+		{
+			name: "invalid legacy PodIP",
+			status: corev1.PodStatus{
+				PodIP: "not-an-ip",
+			},
+			want: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pod := &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "test",
+				},
+				Status: tt.status,
+			}
+
+			if got := GetPodIPsIfPresent(pod); !slices.Equal(got, tt.want) {
+				t.Fatalf("GetPodIPsIfPresent() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }
 
 func TestEnablementSelectorMatches(t *testing.T) {
