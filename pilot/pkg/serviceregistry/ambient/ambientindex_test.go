@@ -2413,6 +2413,7 @@ func newAmbientTestServerFromOptions(t *testing.T, networkID network.ID, options
 			pa:    clienttest.NewWriter[*clientsecurityv1beta1.PeerAuthentication](t, cl),
 			authz: clienttest.NewWriter[*clientsecurityv1beta1.AuthorizationPolicy](t, cl),
 			sec:   clienttest.NewWriter[*corev1.Secret](t, cl),
+			cm:    clienttest.NewWriter[*corev1.ConfigMap](t, cl),
 		},
 	}
 

@@ -102,10 +102,11 @@ type Builder struct {
 // index maintains an index of ambient WorkloadInfo objects by various keys.
 // These are intentionally pre-computed based on events such that lookups are efficient.
 type index struct {
-	services  servicesCollection
-	workloads workloadsCollection
-	waypoints waypointsCollection
-	networks  NetworkCollections
+	services           servicesCollection
+	workloads          workloadsCollection
+	waypoints          waypointsCollection
+	networks           NetworkCollections
+	clusterMeshConfigs MeshConfigCollections
 
 	namespaces krt.Collection[model.NamespaceInfo]
 

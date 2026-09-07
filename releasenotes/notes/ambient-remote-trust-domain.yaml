@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue: [61608, 58427]
+releaseNotes:
+  - |
+    **Fixed** ambient workloads and east-west gateways in remote clusters being advertised with the
+    local cluster's trust domain, causing connections to them to fail when clusters use different
+    trust domains. The trust domain is now read from each cluster's own mesh config.
