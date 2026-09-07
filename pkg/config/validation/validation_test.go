@@ -1043,6 +1043,15 @@ func TestValidateTlsOptions(t *testing.T) {
 			"invalid ALPN protocol", "",
 		},
 		{
+			"alpn protocol with comma",
+			&networking.ServerTLSSettings{
+				Mode:           networking.ServerTLSSettings_SIMPLE,
+				CredentialName: "sds-name",
+				AlpnProtocols:  []string{"h2,http/1.1"},
+			},
+			"invalid ALPN protocol", "",
+		},
+		{
 			"duplicate alpn protocols",
 			&networking.ServerTLSSettings{
 				Mode:           networking.ServerTLSSettings_SIMPLE,

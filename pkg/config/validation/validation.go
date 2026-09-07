@@ -515,10 +515,9 @@ func validateALPNProtocols(tls *networking.ServerTLSSettings) (v Validation) {
 	duplicates := sets.New[string]()
 	seen := sets.New[string]()
 	for _, alpn := range tls.AlpnProtocols {
-		// See https://datatracker.ietf.org/doc/html/rfc7301#section-3.1: an ALPN protocol name is a
-		// non-empty byte string with a length that fits in a single byte.
-		if alpn == "" || len(alpn) > 255 {
-			v = AppendValidation(v, fmt.Errorf("invalid ALPN protocol %q: must be between 1 and 255 characters", alpn))
+		if security.IsInvalidALPNProtocol(alpn) {
+			v = AppendValidation(v,
+				fmt.Errorf("invalid ALPN protocol %q: must be between 1 and 255 characters and must not contain a comma", alpn))
 		} else if seen.InsertContains(alpn) {
 			duplicates.Insert(alpn)
 		}

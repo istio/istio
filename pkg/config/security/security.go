@@ -369,9 +369,17 @@ func IsValidECDHCurve(cs string) bool {
 	return ValidECDHCurves.Contains(cs)
 }
 
-// FilterALPNProtocols filters out invalid ALPN protocols which would lead Envoy to NACKing.
-// See https://datatracker.ietf.org/doc/html/rfc7301#section-3.1: a protocol name is a non-empty
-// byte string whose length fits in a single byte.
+// IsInvalidALPNProtocol reports whether the given ALPN protocol name cannot be advertised as-is by
+// Envoy. See https://datatracker.ietf.org/doc/html/rfc7301#section-3.1: a protocol name is a
+// non-empty byte string whose length fits in a single byte. Envoy joins the configured names with
+// commas before parsing them, so a name containing a comma would be silently split into several
+// protocols.
+func IsInvalidALPNProtocol(protocol string) bool {
+	return protocol == "" || len(protocol) > 255 || strings.Contains(protocol, ",")
+}
+
+// FilterALPNProtocols filters out invalid ALPN protocols which would lead Envoy to NACKing or to
+// advertising something other than what was configured.
 func FilterALPNProtocols(protocols []string) []string {
 	if len(protocols) == 0 {
 		return nil
@@ -379,7 +387,7 @@ func FilterALPNProtocols(protocols []string) []string {
 	ret := make([]string, 0, len(protocols))
 	seen := sets.New[string]()
 	for _, p := range protocols {
-		if p == "" || len(p) > 255 {
+		if IsInvalidALPNProtocol(p) {
 			if log.DebugEnabled() {
 				log.Debugf("ignoring invalid ALPN protocol: %q", p)
 			}

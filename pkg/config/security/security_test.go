@@ -613,8 +613,13 @@ func TestFilterALPNProtocols(t *testing.T) {
 			expected: []string{"h2"},
 		},
 		{
+			name:     "protocol with comma is dropped",
+			in:       []string{"h2,http/1.1", "h2"},
+			expected: []string{"h2"},
+		},
+		{
 			name:     "all invalid",
-			in:       []string{""},
+			in:       []string{"", "h2,"},
 			expected: []string{},
 		},
 	}
