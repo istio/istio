@@ -17,6 +17,8 @@ package meshwatcher
 import (
 	"os"
 	"path"
+	"strings"
+	"sync/atomic"
 
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/filewatcher"
@@ -25,18 +27,26 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
-// MeshConfigSource provides an input to the full mesh config (which is made by merging multiple sources)
-type MeshConfigSource = krt.Singleton[string]
+// MeshConfigSource provides a named mesh config input.
+type MeshConfigSource struct {
+	krt.Singleton[string]
+	Name string
+}
 
 // NewFileSource creates a MeshConfigSource from a file. The file must exist.
 func NewFileSource(fileWatcher filewatcher.FileWatcher, filename string, opts krt.OptionsBuilder) (MeshConfigSource, error) {
-	return krtfiles.NewFileSingleton[string](fileWatcher, filename, func(filename string) (string, error) {
+	sourceName := "Mesh_File_" + path.Base(filename)
+	source, err := krtfiles.NewFileSingleton[string](fileWatcher, filename, func(filename string) (string, error) {
 		b, err := os.ReadFile(filename)
 		if err != nil {
 			return "", err
 		}
 		return string(b), nil
-	}, opts.WithName("Mesh_File_"+path.Base(filename))...)
+	}, opts.WithName(sourceName)...)
+	if err != nil {
+		return MeshConfigSource{}, err
+	}
+	return MeshConfigSource{Singleton: source, Name: sourceName}, nil
 }
 
 // NewCollection builds a new mesh config built by applying the provided sources.
@@ -46,9 +56,13 @@ func NewCollection(opts krt.OptionsBuilder, sources ...MeshConfigSource) krt.Sin
 		// There is no real reason for this other than to enforce we don't accidentally put more sources
 		panic("currently only 2 sources are supported")
 	}
+	var hasValidConfig atomic.Bool
 	return krt.NewSingleton[MeshConfigResource](
 		func(ctx krt.HandlerContext) *MeshConfigResource {
 			meshCfg := mesh.DefaultMeshConfig()
+			appliedConfig := false
+			appliedSource := ""
+			failedSources := []string{}
 
 			for _, attempt := range sources {
 				s := krt.FetchOne(ctx, attempt.AsCollection())
@@ -61,21 +75,38 @@ func NewCollection(opts krt.OptionsBuilder, sources ...MeshConfigSource) krt.Sin
 				}
 				n, err := mesh.ApplyMeshConfig(*s, meshCfg)
 				if err != nil {
+					meshConfigLoadErrors.Increment()
+					failedSources = append(failedSources, attempt.Name)
 					// For backwards compatibility, keep inconsistent behavior
 					// TODO(https://github.com/istio/istio/issues/54615) align this.
 					if len(sources) == 1 {
-						log.Warnf("invalid mesh config, using last known state: %v", err)
+						if hasValidConfig.Load() {
+							log.Errorf("invalid mesh config from %s, using last known state: %v", attempt.Name, err)
+						} else {
+							log.Errorf("invalid mesh config from %s, no last known state, using default mesh configuration: %v", attempt.Name, err)
+						}
 						// We never want a nil mesh config. If it fails, we discard the result but allow falling back to the
 						// default if there is no last known state.
 						// We may consider failing hard on startup instead of silently ignoring errors.
 						ctx.DiscardResult()
 						return &MeshConfigResource{mesh.DefaultMeshConfig()}
 					}
-					log.Warnf("invalid mesh config, ignoring: %v", err)
+					log.Errorf("invalid mesh config from %s, ignoring: %v", attempt.Name, err)
 					continue
 				}
 				meshCfg = n
+				appliedConfig = true
+				appliedSource = attempt.Name
 			}
+			if len(failedSources) > 0 {
+				failed := strings.Join(failedSources, ", ")
+				if appliedConfig {
+					log.Warnf("mesh configuration loaded with errors from %s, using configuration from %s along with defaults", failed, appliedSource)
+				} else {
+					log.Warnf("mesh configuration loaded with errors from %s, using default mesh configuration", failed)
+				}
+			}
+			hasValidConfig.Store(appliedConfig)
 			return &MeshConfigResource{meshCfg}
 		}, opts.WithName("MeshConfig")...,
 	)

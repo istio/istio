@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/pkg/config/mesh/meshwatcher"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/krt/krttest"
+	"istio.io/istio/pkg/monitoring/monitortest"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/protomarshal"
@@ -190,6 +191,7 @@ func assertMeshConfig(t *testing.T, w mesh.Watcher, v string) {
 }
 
 func TestNewConfigMapWatcher(t *testing.T) {
+	mt := monitortest.New(t)
 	yaml := "trustDomain: something.new"
 	m, err := mesh.ApplyMeshConfigDefaults(yaml)
 	if err != nil {
@@ -207,6 +209,7 @@ func TestNewConfigMapWatcher(t *testing.T) {
 	cms := client.Kube().CoreV1().ConfigMaps(namespace)
 	opts := krttest.Options(t)
 	primaryMeshConfig := NewConfigMapSource(client, namespace, name, MeshConfigKey, opts)
+	assert.Equal(t, primaryMeshConfig.Name, "ConfigMap_istio_mesh")
 	col := meshwatcher.NewCollection(opts, primaryMeshConfig)
 	col.AsCollection().WaitUntilSynced(opts.Stop())
 	w := meshwatcher.ConfigAdapter(col)
@@ -261,4 +264,5 @@ func TestNewConfigMapWatcher(t *testing.T) {
 			}, step.expect)
 		})
 	}
+	mt.Assert("istiod_mesh_config_load_errors_total", nil, monitortest.Exactly(3))
 }
