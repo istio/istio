@@ -194,6 +194,8 @@ spec:
         - name: CRL_PATH
           value: "/var/run/secrets/istio/crl/ca-crl.pem"
         {{- end }}
+        - name: TRUST_DOMAINS_PATH
+          value: "/var/run/secrets/istio/trust-domains/trust-domains"
         volumeMounts:
         - mountPath: /var/run/secrets/istio
           name: istiod-ca-cert
@@ -208,6 +210,9 @@ spec:
           name: crl-volume
           readOnly: true
         {{- end }}
+        - mountPath: /var/run/secrets/istio/trust-domains
+          name: trust-domains
+          readOnly: true
         {{- with .Values.volumeMounts }}
           {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -246,6 +251,12 @@ spec:
           name: istio-ca-crl
           optional: true
       {{- end }}
+      # Trust domains peers are accepted from, written by istiod from the mesh config. Optional so ztunnel
+      # starts before it exists; ztunnel picks up the file and any later change without a restart.
+      - name: trust-domains
+        configMap:
+          name: {{ .Values.trustDomainsConfigMapName | default "istio-trust-domains" }}
+          optional: true
       {{- with .Values.volumes }}
         {{- toYaml . | nindent 6}}
       {{- end }}

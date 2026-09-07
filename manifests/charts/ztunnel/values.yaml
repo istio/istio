@@ -72,6 +72,10 @@ _internal_defaults_do_not_set:
   peerCaCrl:
     enabled: false
 
+  # Name of the ConfigMap istiod writes the accepted peer trust domains to (the mesh trust domain,
+  # `trustDomainAliases` and `caCertificates[].trustDomains`). Must match istiod's PILOT_TRUST_DOMAINS_CONFIGMAP.
+  trustDomainsConfigMapName: ""
+
   # List of secret names to add to the service account as image pull secrets
   imagePullSecrets: []
 

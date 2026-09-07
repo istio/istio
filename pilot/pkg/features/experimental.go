@@ -213,6 +213,10 @@ var (
 	CRLConfigMapName = env.Register("PILOT_CRL_CONFIGMAP", "istio-ca-crl",
 		"The name of the ConfigMap that stores the Certificate Revocation List (CRL) for a plugged-in CA").Get()
 
+	TrustDomainsConfigMapName = env.Register("PILOT_TRUST_DOMAINS_CONFIGMAP", "istio-trust-domains",
+		"The name of the ConfigMap that stores the trust domains peers are accepted from, for proxies such as ztunnel "+
+			"that do not receive them over xDS").Get()
+
 	EnvoyStatusPortEnableProxyProtocol = env.Register("ENVOY_STATUS_PORT_ENABLE_PROXY_PROTOCOL", false,
 		"If enabled, Envoy will support requests with proxy protocol on its status port").Get()
 
