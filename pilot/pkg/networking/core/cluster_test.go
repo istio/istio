@@ -1438,6 +1438,23 @@ func TestApplyOutlierDetection(t *testing.T) {
 	}
 }
 
+// TestApplyOutlierDetectionNilCommonLbConfig guards against a nil pointer panic when
+// CommonLbConfig is unset on the cluster passed in, which is the case for DFP clusters
+// built by buildDFPCluster and buildAllowAnyDFPCluster.
+func TestApplyOutlierDetectionNilCommonLbConfig(t *testing.T) {
+	g := NewWithT(t)
+
+	c := &cluster.Cluster{}
+	g.Expect(c.CommonLbConfig).To(BeNil())
+
+	applyOutlierDetection(&model.Service{}, c, &networking.OutlierDetection{
+		MinHealthPercent: 10,
+	})
+
+	g.Expect(c.CommonLbConfig).ToNot(BeNil())
+	g.Expect(c.CommonLbConfig.HealthyPanicThreshold.GetValue()).To(Equal(float64(10)))
+}
+
 func TestApplyOutlierDetectionErrorCodes(t *testing.T) {
 	g := NewWithT(t)
 
