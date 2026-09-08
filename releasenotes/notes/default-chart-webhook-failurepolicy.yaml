@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+  - 61613
+releaseNotes:
+  - |
+    **Fixed** the `default` chart's `ValidatingWebhookConfiguration` still hardcoding `failurePolicy: Ignore`
+    with no `caBundle` support, which caused the same field manager conflict on `helm upgrade` with
+    server-side apply that was previously fixed for the `base` and `istiod` charts.
