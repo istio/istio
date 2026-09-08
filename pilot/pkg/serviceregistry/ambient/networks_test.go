@@ -150,5 +150,4 @@ func TestLocalK8sGatewayToNetworkGateways(t *testing.T) {
 	t.Run("remote cluster uses the remote conversion", func(t *testing.T) {
 		assert.Equal(t, k8sGatewayToNetworkGateways(cluster.ID("cluster-2"), gateway(nil), cluster.ID("cluster-1")), nil)
 	})
-
 }
