@@ -150,3 +150,101 @@ spec:
 		})
 	})
 }
+
+func TestDestinationRuleTLSOriginationAfterWaypointL7(t *testing.T) {
+	framework.NewTest(t).Run(func(t framework.TestContext) {
+		testNamespace := namespace.NewOrFail(t, namespace.Config{
+			Prefix: "sidecar-waypoint-tls",
+			Inject: false,
+			Labels: map[string]string{
+				label.IoIstioDataplaneMode.Name: constants.DataplaneModeAmbient,
+			},
+		})
+
+		var client, server echo.Instance
+		deployment.New(t).
+			With(&client, echo.Config{
+				Service:        "client",
+				Namespace:      testNamespace,
+				ServiceAccount: true,
+				Ports:          []echo.Port{},
+				Subsets: []echo.SubsetConfig{
+					{
+						Labels: map[string]string{
+							"sidecar.istio.io/inject":       "true",
+							label.IoIstioDataplaneMode.Name: constants.DataplaneModeNone,
+						},
+					},
+				},
+			}).
+			With(&server, echo.Config{
+				Service:        "server",
+				Namespace:      testNamespace,
+				ServiceAccount: true,
+				ServiceLabels: map[string]string{
+					label.IoIstioUseWaypoint.Name: "waypoint",
+				},
+				Ports: []echo.Port{
+					{
+						// Advertise HTTP to the mesh while requiring TLS at the workload.
+						Name:         "http-tls",
+						Protocol:     protocol.HTTP,
+						ServicePort:  80,
+						WorkloadPort: 8090,
+						TLS:          true,
+					},
+				},
+			}).
+			BuildOrFail(t)
+
+		if _, err := ambient.NewWaypointProxyWithTrafficType(t, testNamespace, "waypoint", constants.ServiceTraffic); err != nil {
+			t.Fatal(err)
+		}
+
+		t.ConfigIstio().Eval(testNamespace.Name(), map[string]string{
+			"Service": server.Config().Service,
+		}, `apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: prove-waypoint-l7
+spec:
+  parentRefs:
+  - name: {{.Service}}
+    kind: Service
+    group: ""
+    port: 80
+  rules:
+  - filters:
+    - type: RequestHeaderModifier
+      requestHeaderModifier:
+        add:
+        - name: x-waypoint-processed
+          value: "true"
+    backendRefs:
+    - name: {{.Service}}
+      port: 80
+---
+apiVersion: networking.istio.io/v1
+kind: DestinationRule
+metadata:
+  name: originate-tls
+spec:
+  host: {{.Service}}
+  trafficPolicy:
+    tls:
+      mode: SIMPLE
+      insecureSkipVerify: true
+`).ApplyOrFail(t)
+
+		// SIMPLE TLS must apply only from the waypoint to the backend. If CDS also applies it to the
+		// sidecar's delegation cluster, the waypoint receives TLS instead of HTTP and resets the connection.
+		client.CallOrFail(t, echo.CallOptions{
+			To:   server,
+			Port: echo.Port{Name: "http-tls"},
+			Check: check.And(
+				check.OK(),
+				check.RequestHeader("x-waypoint-processed", "true"),
+			),
+		})
+	})
+}
