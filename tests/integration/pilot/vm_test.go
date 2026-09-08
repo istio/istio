@@ -69,8 +69,28 @@ func TestVmOSPost(t *testing.T) {
 			b := deployment.New(t, t.Clusters().Primaries().Default())
 			images := GetAdditionVMImages(t)
 			for _, image := range images {
+				service := "vm-" + strings.ReplaceAll(image, "_", "-")
+				// Exclude the external DNS fixture: these VMs use public DNS, so its Kubernetes
+				// endpoint cannot resolve and delays proxy initialization until DNS retries expire.
+				t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]any{
+					"Service":         service,
+					"SystemNamespace": i.Settings().SystemNamespace,
+				}, `
+apiVersion: networking.istio.io/v1
+kind: Sidecar
+metadata:
+  name: {{.Service}}
+spec:
+  workloadSelector:
+    labels:
+      app: {{.Service}}
+  egress:
+  - hosts:
+    - "{{.SystemNamespace}}/*"
+    - "./*.svc.cluster.local"
+`).ApplyOrFail(t)
 				b = b.WithConfig(echo.Config{
-					Service:    "vm-" + strings.ReplaceAll(image, "_", "-"),
+					Service:    service,
 					Namespace:  apps.Namespace,
 					Ports:      ports.All(),
 					DeployAsVM: true,
