@@ -23,7 +23,6 @@ webhooks:
         name: istiod
         namespace: "istio-system"
         path: "/validate"
-      caBundle: "dGVzdC1jYQ=="
     rules:
       - operations:
           - CREATE
@@ -37,7 +36,6 @@ webhooks:
           - "*"
         resources:
           - "*"
-    # Disable webhook controller in Pilot to stop patching it
     failurePolicy: Fail
     sideEffects: None
     admissionReviewVersions: ["v1"]

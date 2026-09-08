@@ -23,9 +23,6 @@ webhooks:
         namespace: {{ .Values.global.istioNamespace | quote }}
         path: "/validate"
       {{- end }}
-      {{- if .Values.base.validationCABundle }}
-      caBundle: "{{ .Values.base.validationCABundle }}"
-      {{- end }}
     rules:
       - operations:
           - CREATE
@@ -39,10 +36,7 @@ webhooks:
           - "*"
         resources:
           - "*"
-    {{- if .Values.base.validationCABundle }}
-    # Disable webhook controller in Pilot to stop patching it
-    failurePolicy: Fail
-    {{- else if .Values.base.validationFailurePolicy }}
+    {{- if .Values.base.validationFailurePolicy }}
     failurePolicy: {{ .Values.base.validationFailurePolicy }}
     {{- else if not .Release.IsUpgrade }}
     # Fail open until the validation webhook is ready. The webhook controller
