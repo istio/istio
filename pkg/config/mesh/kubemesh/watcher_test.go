@@ -68,7 +68,7 @@ func TestExtraConfigmap(t *testing.T) {
 		key: "ingressClass: user",
 	})
 	cmUserinvalid := makeConfigMapWithName(extraCmName, "1", map[string]string{
-		key: "ingressClass: 1",
+		key: "ingressClass: user\nconnectTimeout: -1s",
 	})
 	setup := func(t *testing.T) (corev1.ConfigMapInterface, mesh.Watcher) {
 		client := kube.NewFakeClient()
@@ -123,9 +123,13 @@ func TestExtraConfigmap(t *testing.T) {
 		if _, err := cms.Create(context.Background(), cmCore, metav1.CreateOptions{}); err != nil {
 			t.Fatal(err)
 		}
+		assertMeshConfig(t, w, "core")
+		mt := monitortest.New(t)
 		if _, err := cms.Create(context.Background(), cmUserinvalid, metav1.CreateOptions{}); err != nil {
 			t.Fatal(err)
 		}
+		mt.Assert("istiod_mesh_config_load_errors_total", nil, monitortest.Exactly(1))
+		// The valid source would also fail if the invalid source mutated the accumulated config.
 		assertMeshConfig(t, w, "core")
 	})
 	t.Run("many updates", func(t *testing.T) {

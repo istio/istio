@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pkg/kube/krt"
 	krtfiles "istio.io/istio/pkg/kube/krt/files"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 // MeshConfigSource provides a named mesh config input.
@@ -73,7 +74,7 @@ func NewCollection(opts krt.OptionsBuilder, sources ...MeshConfigSource) krt.Sin
 					log.Debugf("mesh configuration source missing")
 					continue
 				}
-				n, err := mesh.ApplyMeshConfig(*s, meshCfg)
+				n, err := mesh.ApplyMeshConfig(*s, protomarshal.Clone(meshCfg))
 				if err != nil {
 					meshConfigLoadErrors.Increment()
 					failedSources = append(failedSources, attempt.Name)
