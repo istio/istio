@@ -45,7 +45,7 @@ const innerConnectOriginate = "inner_connect_originate"
 // sidecar network and add a gateway endpoint to remote networks that have endpoints
 // (if gateway exists and its IP is an IP and not a dns name).
 // Information for the mesh networks is provided as a MeshNetwork config map.
-func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoints) []*LocalityEndpoints {
+func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoints, toWaypoint bool) []*LocalityEndpoints {
 	// In sidecar mode multi-network setup, when we have multiple networks but no E/W gateways configured we still
 	// generate EDS endpoints for remote networks as if they were on the same network. In practice it may not
 	// actually work, e.g., when pods are not directly reachable without E/W gateways, so in that case EDS
@@ -109,29 +109,15 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 				continue
 			}
 
-			epNetwork := istioEndpoint.Network
 			epCluster := istioEndpoint.Locality.ClusterID
-			useHBONE := model.IsWaypointProxy(b.proxy) || !istioEndpoint.HasSidecar && istioEndpoint.SupportsHBONE
-			gateways := b.selectNetworkGateways(istioEndpoint, epNetwork, epCluster)
-			reachableGateways := b.filterGatewaysByIPFamily(gateways)
+			epNetwork := istioEndpoint.Network
 
-			// We are generating endpoints for an ambient waypoint and we encountered an endpoint on a remote network.
-			// Check if we allow waypoints to talk across networks (EnableAmbientWaypointMultiNetwork feature flag)
-			// and whether we have an E/W gateway we can use. If neither is true, then just ignore the endpoint
-			// completely.
-			if !b.proxy.InNetwork(epNetwork) && features.EnableAmbientMultiNetwork && useHBONE {
-				if !features.EnableAmbientWaypointMultiNetwork && model.IsWaypointProxy(b.proxy) {
-					continue
-				}
-				if !features.EnableAmbientIngressMultiNetwork && model.IsIngressGateway(b.proxy) {
-					continue
-				}
-				if len(reachableGateways) == 0 {
-					// We have an endpoint on a remote network, but no reachable E/W gateway (either none
-					// configured or none matching this proxy's IP family).
-					continue
-				}
-			}
+			// When the proxy's network is not set (empty) but the endpoint has a specific
+			// network and gateways are configured for that network, we should route through
+			// the gateway rather than treating the endpoint as directly reachable. This handles
+			// the case where ISTIO_META_NETWORK is not configured on the sidecar but multi-network
+			// routing is still desired.
+			remoteEndpoint := !b.proxy.InNetwork(epNetwork) || (b.network == "" && epNetwork != "")
 
 			// Copy the endpoint in order to expand the load balancing weight.
 			// When multiplying, be careful to avoid overflow - clipping the
@@ -144,22 +130,55 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 				}
 			}
 
+			// If the endpoint is on the same network, it must be directly reachable
+			// without a gateway. Make sure that it has an address we can use and if
+			// so add it to the list of endpoints without any additional modifications.
+			if !remoteEndpoint {
+				if util.GetEndpointHost(lbEp) != "" {
+					lbEndpoints.append(ep.istioEndpoints[i], lbEp)
+				}
+				continue
+			}
+
+			// Is the proxy a waypoint proxy and we need to send traffic to a remote
+			// network? Check if the feature flag is enabled and if not, ignore the
+			// endpoint completely.
+			if model.IsWaypointProxy(b.proxy) && !features.EnableAmbientWaypointMultiNetwork {
+				continue
+			}
+
+			supportsHBONE := supportTunnel(b, istioEndpoint)
+			supportsMtls := isMtlsEnabled(lbEp)
+
+			requireHBONE := model.IsWaypointProxy(b.proxy) || toWaypoint
+			disableHBONE := isSidecarProxy(b.proxy) || bool(b.proxy.Metadata.DisableHBONESend)
+			if requireHBONE && (!supportsHBONE || disableHBONE) {
+				continue
+			}
+
+			useHBONE := features.EnableAmbientMultiNetwork && (requireHBONE || (supportsHBONE && !supportsMtls))
+
+			// If we use HBONE and the proxy is ingress gateway check that the feature
+			// is enabled first and if it's not, skip the endpoint.
+			if useHBONE && model.IsIngressGateway(b.proxy) && !features.EnableAmbientIngressMultiNetwork {
+				continue
+			}
+
+			gateways := b.selectNetworkGateways(epNetwork, epCluster, useHBONE)
+			reachableGateways := b.filterGatewaysByIPFamily(gateways)
+
 			// Check if the endpoint is directly reachable. It's considered directly reachable if
 			// the endpoint is either on the local network or on a remote network that can be reached
 			// directly from the local network.
-			// However, when the proxy's network is not set (empty) but the endpoint has a specific
-			// network and gateways are configured for that network, we should route through
-			// the gateway rather than treating the endpoint as directly reachable. This handles
-			// the case where ISTIO_META_NETWORK is not configured on the sidecar but multi-network
-			// routing is still desired.
-			forceGateway := useHBONE || (b.network == "" && epNetwork != "" && len(gateways) > 0)
-			if !forceGateway && (b.proxy.InNetwork(epNetwork) || len(gateways) == 0) {
+			// We consider remote network reachable from local network if there are no E/W gateways
+			// configured for the remote network at all.
+			// When HBONE is used to communicate with the remote endpoint - we always need a gateway.
+			if !useHBONE && len(gateways) == 0 {
 				// The endpoint is directly reachable - just add it.
 				// If there is no gateway, the address must not be empty
 				if util.GetEndpointHost(lbEp) != "" {
 					lbEndpoints.append(ep.istioEndpoints[i], lbEp)
 				}
-
 				continue
 			}
 
@@ -167,6 +186,8 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 			// Skip the endpoint entirely rather than falling back to the raw remote workload IP (which
 			// would also be unreachable or bypass the gateway).
 			if len(reachableGateways) == 0 {
+				log.Warnf("Workload %s on network %s has no reachable E/W gateway for this proxy, skipping",
+					istioEndpoint.WorkloadName, epNetwork)
 				continue
 			}
 
@@ -174,7 +195,9 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 			// So if we are not in ambient multi-network mode and mTLS is not enabled for the target endpoint on a remote
 			// network we skip it altogether.
 			// TODO BTS may allow us to work around this
-			if (!features.EnableAmbientMultiNetwork || !useHBONE || isSidecarProxy(b.proxy)) && !isMtlsEnabled(lbEp) {
+			if !useHBONE && !supportsMtls {
+				log.Warnf("Workload %s on network %s does not support mTLS or double-HBONE, skipping",
+					istioEndpoint.WorkloadName, epNetwork)
 				continue
 			}
 
@@ -207,7 +230,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 			// gateways differently as we use somewhat different protocols in those two distinct cases.
 			var gwEp *endpoint.LbEndpoint
 
-			if features.EnableAmbientMultiNetwork && gw.HBONEPort != 0 {
+			if gw.HBONEPort != 0 {
 				gwAddr := gw.Addr
 				gwPort := int(gw.HBONEPort)
 
@@ -295,7 +318,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 //  2. Enables Kubernetes MCS use cases, where endpoints for a service might be exported in one
 //     cluster but not another within the same network. By targeting the gateway for the cluster
 //     where the exported endpoints reside, we ensure that we only send traffic to exported endpoints.
-func (b *EndpointBuilder) selectNetworkGateways(ep *model.IstioEndpoint, nw network.ID, c cluster.ID) []model.NetworkGateway {
+func (b *EndpointBuilder) selectNetworkGateways(nw network.ID, c cluster.ID, useHBONE bool) []model.NetworkGateway {
 	// Get the gateways for this network+cluster combination.
 	gws := b.gateways().GatewaysForNetworkAndCluster(nw, c)
 	if len(gws) == 0 {
@@ -303,49 +326,6 @@ func (b *EndpointBuilder) selectNetworkGateways(ep *model.IstioEndpoint, nw netw
 		gws = b.gateways().GatewaysForNetwork(nw)
 	}
 
-	// Sidecar proxies cannot talk to ambient E/W gateway for now, so when we see an ambient
-	// E/W gateway (e.g., a gateway that listens on hbone port, but does not have an mTLS port
-	// we filter it out.
-	if isSidecarProxy(b.proxy) {
-		var sidecarGws []model.NetworkGateway
-		for _, gw := range gws {
-			if gw.Port == 0 {
-				continue
-			}
-			gw.HBONEPort = 0
-			sidecarGws = append(sidecarGws, gw)
-		}
-		return sidecarGws
-	}
-
-	useHBONE := !ep.HasSidecar && ep.SupportsHBONE
-
-	// We are supposed to use HBONE to talk to an endpoint on a remote network, but ambient multi-network
-	// is not enabled? Well, no luck, let's not generate any endpoints for that and just skip it.
-	if useHBONE && !features.EnableAmbientMultiNetwork {
-		return []model.NetworkGateway{}
-	}
-
-	// This is configuration for the waypoint proxy, but multi-network is not enabled for waypoints?
-	// Again, let's not return any gateways, as none of them should be used.
-	if model.IsWaypointProxy(b.proxy) && !features.EnableAmbientWaypointMultiNetwork {
-		return []model.NetworkGateway{}
-	}
-
-	// The endpoint is not an HBONE endpoint but this is a configuration for waypoint proxy that can
-	// only talk HBONE, well again tough luck - no gateways for you.
-	if !useHBONE && model.IsWaypointProxy(b.proxy) {
-		return []model.NetworkGateway{}
-	}
-
-	// The endpoint is an HBONE endpoint, and this proxy is an ingress gateway, but we didn't enable
-	// multinetwork ambient ingress gateways? Again, let's not return any gateways for this case.
-	if useHBONE && model.IsIngressGateway(b.proxy) && !features.EnableAmbientIngressMultiNetwork {
-		return []model.NetworkGateway{}
-	}
-
-	// In all other cases, if we have an HBONE endpoint, let's find HBONE capable gateways for it.
-	// If it's a "sidecar" endpoint, let's use a sidecar capable gateway then.
 	var filtered []model.NetworkGateway
 	for _, gw := range gws {
 		if useHBONE && gw.HBONEPort == 0 {
@@ -354,6 +334,20 @@ func (b *EndpointBuilder) selectNetworkGateways(ep *model.IstioEndpoint, nw netw
 		if !useHBONE && gw.Port == 0 {
 			continue
 		}
+		// NOTE: This is quite subtle and creates a sitaution where we may generate multiple
+		// EDS endpoints pointing to the same gateway (one for HBONE connections and one for
+		// legacy mTLS).
+		//
+		// Normally, Envoy will deduplicate endpoints with the same address in the EDS
+		// configuration, so generating multiple endpoints does not make sense and is
+		// misleading.
+		//
+		// However, specifically for internal listener addresses - we can generate multiple
+		// endpoints as long as they have different endpoint ID.
+		//
+		// At the moment it's not a problem, because for HBONE connections we use internal
+		// listener and for mTLS connections we don't, so they can never collide, but it's
+		// something to be aware in the future if we make changes here.
 		if useHBONE {
 			gw.Port = 0
 		} else {

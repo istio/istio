@@ -32,7 +32,6 @@ type EndpointBuilder struct {
 	controller controllerInterface
 
 	labels         labels.Instance
-	annotations    labels.Instance
 	metaNetwork    network.ID
 	serviceAccount string
 	locality       model.Locality
@@ -51,12 +50,11 @@ type EndpointBuilder struct {
 
 func (c *Controller) NewEndpointBuilder(pod *v1.Pod) *EndpointBuilder {
 	var locality, sa, namespace, hostname, subdomain, ip, node string
-	var podLabels, podAnnotations labels.Instance
+	var podLabels labels.Instance
 	if pod != nil {
 		locality = c.getPodLocality(pod)
 		sa = kube.SecureNamingSAN(pod, c.meshWatcher.TrustDomain())
 		podLabels = pod.Labels
-		podAnnotations = pod.Annotations
 		namespace = pod.Namespace
 		subdomain = pod.Spec.Subdomain
 		if subdomain != "" {
@@ -82,7 +80,6 @@ func (c *Controller) NewEndpointBuilder(pod *v1.Pod) *EndpointBuilder {
 		hostname:     hostname,
 		subDomain:    subdomain,
 		labels:       podLabels,
-		annotations:  podAnnotations,
 		nodeName:     node,
 	}
 	networkID := out.endpointNetwork(ip)
@@ -126,8 +123,6 @@ func (b *EndpointBuilder) buildIstioEndpoint(
 		HealthStatus:           healthStatus,
 		SendUnhealthyEndpoints: sendUnhealthy,
 		NodeName:               b.nodeName,
-		HasSidecar:             b.endpointHasSidecar(),
-		SupportsHBONE:          b.supportsHBONE(),
 	}
 }
 
@@ -139,14 +134,4 @@ func (b *EndpointBuilder) endpointNetwork(endpointIP string) network.ID {
 	}
 
 	return b.controller.Network(endpointIP, b.labels)
-}
-
-// TOOD: This is a pretty shallow check TBH, we also have to consider things like proxyless mode and maybe other things before we can conclusively tell that this specific endpoint has a proper sidecar.
-func (b *EndpointBuilder) endpointHasSidecar() bool {
-	_, exists := b.annotations[annotation.SidecarStatus.Name]
-	return exists
-}
-
-func (b *EndpointBuilder) supportsHBONE() bool {
-	return b.labels[model.TunnelLabel] == model.TunnelHTTP
 }

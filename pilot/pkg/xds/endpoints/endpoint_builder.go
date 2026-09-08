@@ -571,7 +571,7 @@ func (b *EndpointBuilder) generate(eps []*model.IstioEndpoint, toServiceWaypoint
 	}
 
 	// Apply the Split Horizon EDS filter, if applicable.
-	locEps = b.EndpointsByNetworkFilter(locEps)
+	locEps = b.EndpointsByNetworkFilter(locEps, toServiceWaypoint)
 
 	if model.IsDNSSrvSubsetKey(b.clusterName) {
 		// For the SNI-DNAT clusters, we are using AUTO_PASSTHROUGH gateway. AUTO_PASSTHROUGH is intended
@@ -804,22 +804,7 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 	}
 	util.AppendLbEndpointMetadata(meta, ep.Metadata)
 
-	tunnel := supportTunnel(b, e)
-	// Only send HBONE if its necessary. If they support legacy mTLS and do not explicitly PreferHBONE, we will use legacy mTLS.
-	// However, waypoints (TrafficDirectionInboundVIP) do not support legacy mTLS, so do not allow opting out of that case.
-	supportsMtls := e.TLSMode == model.IstioMutualTLSModeLabel
-	if supportsMtls && !features.PreferHBONESend && b.dir != model.TrafficDirectionInboundVIP {
-		tunnel = false
-	}
-	if b.proxy.Metadata.DisableHBONESend {
-		tunnel = false
-	}
-	// Waypoints always use HBONE
-	if toServiceWaypoint {
-		tunnel = true
-	}
-
-	if tunnel {
+	if useTunnel(b, e, toServiceWaypoint) {
 		// Currently, Envoy cannot support tunneling to multiple IP families.
 		// TODO(https://github.com/envoyproxy/envoy/issues/36318)
 		address, port := e.Addresses[0], int(e.EndpointPort)
@@ -902,6 +887,27 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 	}
 
 	return ep
+}
+
+func useTunnel(b *EndpointBuilder, e *model.IstioEndpoint, toWaypoint bool) bool {
+	// Only send HBONE if its necessary. If they support legacy mTLS and do not
+	// explicitly PreferHBONE, we will use legacy mTLS. However, waypoints
+	// (TrafficDirectionInboundVIP) do not support legacy mTLS, so do not allow
+	// opting out of that case.
+	if toWaypoint {
+		return true
+	}
+
+	if b.proxy.Metadata.DisableHBONESend {
+		return false
+	}
+
+	supportsMtls := e.TLSMode == model.IstioMutualTLSModeLabel
+	if supportsMtls && !features.PreferHBONESend && b.dir != model.TrafficDirectionInboundVIP {
+		return false
+	}
+
+	return supportTunnel(b, e)
 }
 
 func supportTunnel(b *EndpointBuilder, e *model.IstioEndpoint) bool {

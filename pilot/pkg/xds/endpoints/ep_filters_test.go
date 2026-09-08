@@ -833,127 +833,622 @@ func TestEndpointsByNetworkFilter_ProxyWithEmptyNetwork(t *testing.T) {
 	xdstest.CompareEndpointsOrFail(t, cn, filtered, want)
 }
 
-func TestEndpointsByNetworkFilter_AmbientMuiltiNetwork(t *testing.T) {
+func TestEndpointsByNetworkFilter_AmbientMultiNetwork(t *testing.T) {
 	test.SetForTest(t, &features.EnableAmbient, true)
 	test.SetForTest(t, &features.EnableAmbientMultiNetwork, true)
 	test.SetForTest(t, &features.EnableAmbientWaypointMultiNetwork, true)
 	test.SetForTest(t, &features.EnableAmbientIngressMultiNetwork, true)
-	env := environment(t)
-	env.Env().InitNetworksManager(env.Discovery)
-	ambientNetworkFiltered := []networkFilterCase{
+
+	svc := &model.Service{
+		Hostname:   "example.ns.svc.cluster.local",
+		Attributes: model.ServiceAttributes{Name: "example", Namespace: "ns"},
+		Ports:      model.PortList{{Port: 80, Protocol: protocol.HTTP, Name: "http"}},
+	}
+
+	cluster1a := model.Locality{ClusterID: "cluster1a"}
+	cluster1b := model.Locality{ClusterID: "cluster1b"}
+	cluster2a := model.Locality{ClusterID: "cluster2a"}
+	cluster2b := model.Locality{ClusterID: "cluster2b"}
+	cluster3a := model.Locality{ClusterID: "cluster3a"}
+
+	tests := []struct {
+		name                 string
+		proxy                *model.Proxy
+		endpoints            []*model.IstioEndpoint
+		gateways             []model.NetworkGateway
+		want                 []xdstest.LocLbEpInfo
+		wantWorkloadMetadata []string
+	}{
 		{
-			name:  "from_network1_cluster1a",
-			proxy: makeWaypointProxy("network1", "cluster1a"),
+			name:  "waypoint handles local endpoints",
+			proxy: makeWaypointProxy("network1", "cluster1"),
+			endpoints: []*model.IstioEndpoint{
+				{
+					Network:   "network1",
+					Locality:  cluster1a,
+					Addresses: []string{"10.0.0.1"},
+					Labels:    map[string]string{model.TunnelLabel: model.TunnelHTTP},
+				},
+				{
+					Network:   "network1",
+					Locality:  cluster1b,
+					Addresses: []string{"10.0.0.2"},
+					Labels:    map[string]string{model.TunnelLabel: model.TunnelHTTP},
+				},
+				{
+					Network:   "network1",
+					Locality:  cluster1b,
+					Addresses: []string{"10.0.0.3"},
+					// This endpoint does not support HTTP tunneling, but it's still on
+					// the same network, so it will be included
+					Labels: map[string]string{},
+				},
+			},
+			gateways: []model.NetworkGateway{
+				{
+					Network:   "network1",
+					Cluster:   "cluster1a",
+					Addr:      "1.1.1.10",
+					Port:      15443,
+					HBONEPort: 15008,
+				},
+				{
+					Network:   "network1",
+					Cluster:   "cluster1b",
+					Addr:      "1.1.1.11",
+					Port:      15443,
+					HBONEPort: 15008,
+				},
+			},
 			want: []xdstest.LocLbEpInfo{
 				{
 					LbEps: []xdstest.LbEpInfo{
-						// 3 local endpoints on network1
-						{Address: "10.0.0.1", Weight: 6},
-						{Address: "10.0.0.2", Weight: 6},
-						{Address: "10.0.0.3", Weight: 6},
-						// 1 endpoint on network2, cluster2a
-						{Address: "2.2.2.2", Weight: 6},
-						// 2 endpoints on network2, cluster2b
-						{Address: "2.2.2.20", Weight: 6},
-						{Address: "2.2.2.21", Weight: 6},
-						// 1 endpoint on network4 is not considered reachable in ambient mode without a gateway
+						{Address: "10.0.0.1", Weight: 2},
+						{Address: "10.0.0.2", Weight: 2},
+						{Address: "10.0.0.3", Weight: 2},
 					},
-					Weight: 36,
+					Weight: 6,
 				},
 			},
 			wantWorkloadMetadata: []string{
-				";ns;example;;cluster1a",
 				";ns;example;;cluster1a",
 				";ns;example;;cluster1b",
-				";;;;cluster2a",
-				";;;;cluster2b",
-				";;;;cluster2b",
-			},
-		},
-		{
-			name:  "from_network1_cluster1b",
-			proxy: makeWaypointProxy("network1", "cluster1b"),
-			want: []xdstest.LocLbEpInfo{
-				{
-					LbEps: []xdstest.LbEpInfo{
-						// 3 local endpoints on network1
-						{Address: "10.0.0.1", Weight: 6},
-						{Address: "10.0.0.2", Weight: 6},
-						{Address: "10.0.0.3", Weight: 6},
-						// 1 endpoint on network2, cluster2a
-						{Address: "2.2.2.2", Weight: 6},
-						// 2 endpoints on network2, cluster2b
-						{Address: "2.2.2.20", Weight: 6},
-						{Address: "2.2.2.21", Weight: 6},
-						// 1 endpoint on network4 is not considered reachable in ambient mode without a gateway
-					},
-					Weight: 36,
-				},
-			},
-			wantWorkloadMetadata: []string{
-				";ns;example;;cluster1a",
-				";ns;example;;cluster1a",
 				";ns;example;;cluster1b",
-				";;;;cluster2a",
-				";;;;cluster2b",
-				";;;;cluster2b",
 			},
 		},
 		{
-			name:  "from_network2_cluster2a",
-			proxy: makeWaypointProxy("network2", "cluster2a"),
+			name:  "waypoint proxy only routes to remote HBONE endpoints",
+			proxy: makeWaypointProxy("network1", "cluster1"),
+			endpoints: []*model.IstioEndpoint{
+				{
+					Network:   "network2",
+					Locality:  cluster2a,
+					Addresses: []string{"20.0.0.1"},
+					Labels:    map[string]string{model.TunnelLabel: model.TunnelHTTP},
+				},
+				{
+					// This endpoint will be skipped, because it's on a remote network,
+					// the proxy is a waypoint proxy and requires use of HBONE and
+					// the endpoint does not support HBONE
+					Network:   "network2",
+					Locality:  cluster2b,
+					Addresses: []string{"20.0.0.2"},
+					Labels:    map[string]string{},
+				},
+			},
+			gateways: []model.NetworkGateway{
+				{
+					Network:   "network2",
+					Cluster:   "cluster2a",
+					Addr:      "2.2.2.20",
+					HBONEPort: 15008,
+				},
+				{
+					Network:   "network2",
+					Cluster:   "cluster2b",
+					Addr:      "2.2.2.21",
+					HBONEPort: 15008,
+				},
+			},
 			want: []xdstest.LocLbEpInfo{
 				{
 					LbEps: []xdstest.LbEpInfo{
-						// 3 local endpoints in network2
-						{Address: "20.0.0.1", Weight: 6},
-						{Address: "20.0.0.2", Weight: 6},
-						{Address: "20.0.0.3", Weight: 6},
-						// Nothing on network1 since gateway there does not listen on HBONE port
-						// 1 endpoint on network4 is not considered reachable in ambient mode without a gateway
+						{Address: "2.2.2.20", Weight: 2},
 					},
-					Weight: 18,
+					Weight: 2,
+				},
+			},
+			wantWorkloadMetadata: []string{";;;;cluster2a"},
+		},
+		{
+			name:  "waypoint proxy only uses HBONE gateways",
+			proxy: makeWaypointProxy("network1", "cluster1"),
+			endpoints: []*model.IstioEndpoint{
+				{
+					Network:   "network2",
+					Locality:  cluster2a,
+					Addresses: []string{"20.0.0.1"},
+					Labels:    map[string]string{model.TunnelLabel: model.TunnelHTTP},
+				},
+			},
+			gateways: []model.NetworkGateway{
+				{
+					Network:   "network2",
+					Cluster:   "cluster2a",
+					Addr:      "2.2.2.20",
+					HBONEPort: 15008,
+				},
+				{
+					Network: "network2",
+					Cluster: "cluster2a",
+					Addr:    "2.2.2.21",
+					Port:    80,
+				},
+				{
+					Network:   "network2",
+					Cluster:   "cluster2a",
+					Addr:      "2.2.2.22",
+					Port:      80,
+					HBONEPort: 15008,
+				},
+			},
+			want: []xdstest.LocLbEpInfo{
+				{
+					LbEps: []xdstest.LbEpInfo{
+						{Address: "2.2.2.20", Weight: 1},
+						{Address: "2.2.2.22", Weight: 1},
+					},
+					Weight: 2,
 				},
 			},
 			wantWorkloadMetadata: []string{
-				";ns;example;;cluster2a",
-				";ns;example;;cluster2b",
-				";ns;example;;cluster2b",
+				";;;;cluster2a",
+				";;;;cluster2a",
 			},
 		},
 		{
-			name:  "ingress_in_cluster1",
+			name:  "ingress gateway handles local endpoints",
 			proxy: makeIngressGatewayProxy("network1", "cluster1"),
+			endpoints: []*model.IstioEndpoint{
+				{
+					Network:   "network1",
+					Locality:  cluster1a,
+					Addresses: []string{"10.0.0.1"},
+					Labels:    map[string]string{model.TunnelLabel: model.TunnelHTTP},
+				},
+				{
+					Network:   "network1",
+					Locality:  cluster1b,
+					Addresses: []string{"10.0.0.2"},
+					Labels:    map[string]string{model.TunnelLabel: model.TunnelHTTP},
+				},
+				{
+					Network:   "network1",
+					Locality:  cluster1b,
+					Addresses: []string{"10.0.0.3"},
+					// This endpoint does not support HTTP tunneling, but it's still on
+					// the same network, so it will be included
+					Labels: map[string]string{},
+				},
+			},
+			gateways: []model.NetworkGateway{
+				{
+					Network:   "network1",
+					Cluster:   "cluster1a",
+					Addr:      "1.1.1.10",
+					Port:      80,
+					HBONEPort: 15008,
+				},
+				{
+					Network:   "network1",
+					Cluster:   "cluster1b",
+					Addr:      "1.1.1.11",
+					Port:      80,
+					HBONEPort: 15008,
+				},
+			},
 			want: []xdstest.LocLbEpInfo{
 				{
 					LbEps: []xdstest.LbEpInfo{
-						// Local endpoints
-						{Address: "10.0.0.1", Weight: 6},
-						{Address: "10.0.0.2", Weight: 6},
-						{Address: "10.0.0.3", Weight: 6},
-						// 3 EW gateways in network2
-						{Address: "2.2.2.2", Weight: 6},
-						{Address: "2.2.2.20", Weight: 6},
-						{Address: "2.2.2.21", Weight: 6},
-						// network3 has no endpoints
-						// network4 has no EW gateway
+						{Address: "10.0.0.1", Weight: 2},
+						{Address: "10.0.0.2", Weight: 2},
+						{Address: "10.0.0.3", Weight: 2},
 					},
-					Weight: 36,
+					Weight: 6,
 				},
 			},
 			wantWorkloadMetadata: []string{
 				";ns;example;;cluster1a",
-				";ns;example;;cluster1a",
 				";ns;example;;cluster1b",
-				";;;;cluster2a",
-				";;;;cluster2b",
-				";;;;cluster2b",
+				";ns;example;;cluster1b",
 			},
+		},
+		{
+			name:  "ingress gateways supports both HBONE and mTLS endpoints",
+			proxy: makeIngressGatewayProxy("network1", "cluster1"),
+			endpoints: []*model.IstioEndpoint{
+				{
+					Network:   "network2",
+					Locality:  cluster2a,
+					Addresses: []string{"20.0.0.1"},
+					// This is an HBONE-only endpoints, so it will be routed through
+					// the ambient E/W gateway
+					Labels: map[string]string{model.TunnelLabel: model.TunnelHTTP},
+				},
+				{
+					// This is an mTLS endpoint, so it will be routed through mTLS gateway
+					Network:   "network2",
+					Locality:  cluster2b,
+					Addresses: []string{"20.0.0.2"},
+					Labels:    map[string]string{},
+					TLSMode:   model.IstioMutualTLSModeLabel,
+				},
+				{
+					// This endpoint does not support HBONE or mTLS, but we also don't have
+					// a gateway for this network, so we presume it directly reachable
+					// without a gateway.
+					Network:   "network3",
+					Locality:  cluster3a,
+					Addresses: []string{"20.0.0.3"},
+				},
+			},
+			gateways: []model.NetworkGateway{
+				{
+					Network:   "network2",
+					Cluster:   "cluster2a",
+					Addr:      "2.2.2.20",
+					HBONEPort: 15008,
+				},
+				{
+					Network: "network2",
+					Cluster: "cluster2b",
+					Addr:    "2.2.2.21",
+					Port:    15443,
+				},
+			},
+			want: []xdstest.LocLbEpInfo{
+				{
+					LbEps: []xdstest.LbEpInfo{
+						{Address: "2.2.2.20", Weight: 2},
+						{Address: "2.2.2.21", Weight: 2},
+						{Address: "20.0.0.3", Weight: 2},
+					},
+					Weight: 6,
+				},
+			},
+			wantWorkloadMetadata: []string{";ns;example;;cluster3a", ";;;;cluster2a", ";;;;cluster2b"},
+		},
+		{
+			name:  "waypoint filters remote HBONE endpoints that don't have a gateway",
+			proxy: makeWaypointProxy("network1", "cluster1"),
+			endpoints: []*model.IstioEndpoint{
+				{
+					Network:   "network2",
+					Locality:  cluster2a,
+					Addresses: []string{"20.0.0.1"},
+					Labels:    map[string]string{model.TunnelLabel: model.TunnelHTTP},
+				},
+			},
+			gateways: []model.NetworkGateway{
+				{
+					Network:   "network3",
+					Cluster:   "cluster3a",
+					Addr:      "3.3.3.30",
+					Port:      15443,
+					HBONEPort: 15008,
+				},
+			},
+			want: []xdstest.LocLbEpInfo{
+				{
+					LbEps:  []xdstest.LbEpInfo{},
+					Weight: 0,
+				},
+			},
+			wantWorkloadMetadata: []string{},
+		},
+		{
+			name:  "ingress gateway filters remote HBONE endpoints that don't have a gateway",
+			proxy: makeIngressGatewayProxy("network1", "cluster1"),
+			endpoints: []*model.IstioEndpoint{
+				{
+					Network:   "network2",
+					Locality:  cluster2a,
+					Addresses: []string{"20.0.0.1"},
+					Labels:    map[string]string{model.TunnelLabel: model.TunnelHTTP},
+				},
+			},
+			gateways: []model.NetworkGateway{
+				{
+					Network:   "network3",
+					Cluster:   "cluster3a",
+					Addr:      "3.3.3.30",
+					Port:      15443,
+					HBONEPort: 15008,
+				},
+			},
+			want: []xdstest.LocLbEpInfo{
+				{
+					LbEps:  []xdstest.LbEpInfo{},
+					Weight: 0,
+				},
+			},
+			wantWorkloadMetadata: []string{},
+		},
+		{
+			name:  "ingress gateway allows mTLS endpoints without gateway",
+			proxy: makeIngressGatewayProxy("network1", "cluster1"),
+			endpoints: []*model.IstioEndpoint{
+				{
+					Network:   "network3",
+					Locality:  cluster3a,
+					Addresses: []string{"30.0.0.1"},
+					TLSMode:   model.IstioMutualTLSModeLabel,
+				},
+			},
+			gateways: []model.NetworkGateway{},
+			want: []xdstest.LocLbEpInfo{
+				{
+					LbEps: []xdstest.LbEpInfo{
+						{Address: "30.0.0.1", Weight: 1},
+					},
+					Weight: 1,
+				},
+			},
+			wantWorkloadMetadata: []string{";ns;example;;cluster3a"},
+		},
+		{
+			// Waypoints cannot speak mTLS with or without gateway
+			name:  "waypoint filters remote mTLS endpoints without gateway",
+			proxy: makeWaypointProxy("network1", "cluster1"),
+			endpoints: []*model.IstioEndpoint{
+				{
+					Network:   "network3",
+					Locality:  cluster3a,
+					Addresses: []string{"30.0.0.1"},
+					TLSMode:   model.IstioMutualTLSModeLabel,
+				},
+			},
+			gateways: []model.NetworkGateway{},
+			want: []xdstest.LocLbEpInfo{
+				{
+					LbEps:  []xdstest.LbEpInfo{},
+					Weight: 0,
+				},
+			},
+			wantWorkloadMetadata: []string{},
+		},
+		{
+			name:  "waypoints prefer cluster-specific E/W gateways over network-wide E/W gateways",
+			proxy: makeWaypointProxy("network1", "cluster1"),
+			endpoints: []*model.IstioEndpoint{
+				{
+					Network:   "network2",
+					Locality:  cluster2a,
+					Addresses: []string{"20.0.0.1"},
+					Labels:    map[string]string{model.TunnelLabel: model.TunnelHTTP},
+				},
+			},
+			gateways: []model.NetworkGateway{
+				{
+					Network:   "network2",
+					Addr:      "1.1.1.10",
+					HBONEPort: 15008,
+				},
+				{
+					Network:   "network2",
+					Cluster:   "cluster2a",
+					Addr:      "2.2.2.20",
+					HBONEPort: 15008,
+				},
+			},
+			want: []xdstest.LocLbEpInfo{
+				{
+					LbEps: []xdstest.LbEpInfo{
+						{Address: "2.2.2.20", Weight: 2},
+					},
+					Weight: 2,
+				},
+			},
+			wantWorkloadMetadata: []string{";;;;cluster2a"},
+		},
+		{
+			name:  "ingress gateways prefer cluster-specific E/W gateways over network-wide E/W gateways",
+			proxy: makeIngressGatewayProxy("network1", "cluster1"),
+			endpoints: []*model.IstioEndpoint{
+				{
+					Network:   "network2",
+					Locality:  cluster2a,
+					Addresses: []string{"20.0.0.1"},
+					Labels:    map[string]string{model.TunnelLabel: model.TunnelHTTP},
+				},
+			},
+			gateways: []model.NetworkGateway{
+				{
+					Network:   "network2",
+					Addr:      "1.1.1.10",
+					HBONEPort: 15008,
+				},
+				{
+					Network:   "network2",
+					Cluster:   "cluster2a",
+					Addr:      "2.2.2.20",
+					HBONEPort: 15008,
+				},
+			},
+			want: []xdstest.LocLbEpInfo{
+				{
+					LbEps: []xdstest.LbEpInfo{
+						{Address: "2.2.2.20", Weight: 2},
+					},
+					Weight: 2,
+				},
+			},
+			wantWorkloadMetadata: []string{";;;;cluster2a"},
+		},
+		{
+			name:  "waypoints fallback network-wide E/W gateways when there are no cluster-specific E/W gateways",
+			proxy: makeWaypointProxy("network1", "cluster1"),
+			endpoints: []*model.IstioEndpoint{
+				{
+					Network:   "network2",
+					Locality:  cluster2a,
+					Addresses: []string{"20.0.0.1"},
+					Labels:    map[string]string{model.TunnelLabel: model.TunnelHTTP},
+				},
+			},
+			gateways: []model.NetworkGateway{
+				{
+					Network:   "network2",
+					Addr:      "1.1.1.10",
+					HBONEPort: 15008,
+				},
+			},
+			want: []xdstest.LocLbEpInfo{
+				{
+					LbEps: []xdstest.LbEpInfo{
+						{Address: "1.1.1.10", Weight: 1},
+					},
+					Weight: 1,
+				},
+			},
+			wantWorkloadMetadata: []string{";;;;"},
+		},
+		{
+			name:  "ingress gateways fallback to network-wide E/W gateways when there are no cluster-specific E/W gateways",
+			proxy: makeIngressGatewayProxy("network1", "cluster1"),
+			endpoints: []*model.IstioEndpoint{
+				{
+					Network:   "network2",
+					Locality:  cluster2a,
+					Addresses: []string{"20.0.0.1"},
+					Labels:    map[string]string{model.TunnelLabel: model.TunnelHTTP},
+				},
+			},
+			gateways: []model.NetworkGateway{
+				{
+					Network:   "network2",
+					Addr:      "1.1.1.10",
+					HBONEPort: 15008,
+				},
+			},
+			want: []xdstest.LocLbEpInfo{
+				{
+					LbEps: []xdstest.LbEpInfo{
+						{Address: "1.1.1.10", Weight: 1},
+					},
+					Weight: 1,
+				},
+			},
+			wantWorkloadMetadata: []string{";;;;"},
+		},
+		{
+			name:  "ingress gateways prefer mTLS over HBONE",
+			proxy: makeIngressGatewayProxy("network1", "cluster1"),
+			endpoints: []*model.IstioEndpoint{
+				{
+					Network:   "network2",
+					Locality:  cluster2a,
+					Addresses: []string{"20.0.0.1"},
+					Labels:    map[string]string{model.TunnelLabel: model.TunnelHTTP},
+					TLSMode:   model.IstioMutualTLSModeLabel,
+				},
+			},
+			gateways: []model.NetworkGateway{
+				{
+					Cluster:   "cluster2a",
+					Network:   "network2",
+					Addr:      "2.2.2.20",
+					HBONEPort: 15008,
+				},
+				{
+					Cluster: "cluster2a",
+					Network: "network2",
+					Addr:    "2.2.2.21",
+					Port:    15443,
+				},
+			},
+			want: []xdstest.LocLbEpInfo{
+				{
+					LbEps: []xdstest.LbEpInfo{
+						{Address: "2.2.2.21", Weight: 2},
+					},
+					Weight: 2,
+				},
+			},
+			wantWorkloadMetadata: []string{";;;;cluster2a"},
+		},
+		{
+			name:  "waypoints use HBONE even when mTLS is possible",
+			proxy: makeWaypointProxy("network1", "cluster1"),
+			endpoints: []*model.IstioEndpoint{
+				{
+					Network:   "network2",
+					Locality:  cluster2a,
+					Addresses: []string{"20.0.0.1"},
+					Labels:    map[string]string{model.TunnelLabel: model.TunnelHTTP},
+					TLSMode:   model.IstioMutualTLSModeLabel,
+				},
+			},
+			gateways: []model.NetworkGateway{
+				{
+					Cluster:   "cluster2a",
+					Network:   "network2",
+					Addr:      "2.2.2.20",
+					HBONEPort: 15008,
+				},
+				{
+					Cluster: "cluster2a",
+					Network: "network2",
+					Addr:    "2.2.2.21",
+					Port:    15443,
+				},
+			},
+			want: []xdstest.LocLbEpInfo{
+				{
+					LbEps: []xdstest.LbEpInfo{
+						{Address: "2.2.2.20", Weight: 2},
+					},
+					Weight: 2,
+				},
+			},
+			wantWorkloadMetadata: []string{";;;;cluster2a"},
 		},
 	}
-	// The tests below are calling the endpoints filter from each one of the
-	// networks and examines the returned filtered endpoints
-	runNetworkFilterTest(t, env, ambientNetworkFiltered, "")
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			ds := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+				Services: []*model.Service{svc},
+				Gateways: test.gateways,
+			})
+			ds.Env().InitNetworksManager(ds.Discovery)
+
+			index := newEndpointIndex(t, test.endpoints)
+
+			cn := "outbound|80||example.ns.svc.cluster.local"
+			proxy := ds.SetupProxy(test.proxy)
+			b := endpoints.NewEndpointBuilder(cn, proxy, ds.PushContext())
+			filtered := b.BuildClusterLoadAssignment(index).Endpoints
+			xdstest.CompareEndpointsOrFail(t, cn, filtered, test.want)
+
+			var got []string
+			for _, llbEndpoints := range filtered {
+				for _, ep := range llbEndpoints.LbEndpoints {
+					metadata := ep.Metadata.FilterMetadata[util.IstioMetadataKey].Fields["workload"].GetStringValue()
+					got = append(got, metadata)
+				}
+			}
+			if !slices.Equal(got, test.wantWorkloadMetadata) {
+				t.Errorf("incorrect workload metadata, got %v, want %v", got, test.wantWorkloadMetadata)
+			}
+
+			b2 := endpoints.NewEndpointBuilder(cn, test.proxy, ds.PushContext())
+			filtered2 := b2.BuildClusterLoadAssignment(index).Endpoints
+			if diff := cmp.Diff(filtered, filtered2, protocmp.Transform(), cmpopts.IgnoreUnexported(endpoints.LocalityEndpoints{})); diff != "" {
+				t.Fatalf("outout of EndpointsByNetworkFilter is non-deterministic: %s", diff)
+			}
+		})
+	}
 }
 
 func TestEndpointsByNetworkFilter_GatewayIPFamily(t *testing.T) {
@@ -980,7 +1475,8 @@ func TestEndpointsByNetworkFilter_GatewayIPFamily(t *testing.T) {
 				Network: "network2", Addresses: []string{"20.0.0.1"},
 				ServicePortName: "http", Namespace: "ns",
 				HostName: "example.ns.svc.cluster.local", EndpointPort: 8080,
-				TLSMode: "istio", Labels: map[string]string{"app": "example"},
+				TLSMode:  "istio",
+				Labels:   map[string]string{"app": "example"},
 				Locality: model.Locality{ClusterID: "cluster2"},
 			},
 		}
@@ -1112,7 +1608,11 @@ func TestEndpointsByNetworkFilter_GatewayIPFamily_Ambient(t *testing.T) {
 			Network: "network2", Addresses: []string{"20.0.0.1"},
 			ServicePortName: "http", Namespace: "ns",
 			HostName: "example.ns.svc.cluster.local", EndpointPort: 8080,
-			TLSMode: "istio", Labels: map[string]string{"app": "example"},
+			TLSMode: "istio",
+			Labels: map[string]string{
+				"app":             "example",
+				model.TunnelLabel: model.TunnelHTTP,
+			},
 			Locality: model.Locality{ClusterID: "cluster2"},
 		},
 	}
@@ -1244,6 +1744,8 @@ func runMTLSFilterTest(t *testing.T, ds *xds.FakeDiscoveryServer, tests []networ
 			cn := fmt.Sprintf("outbound_.80_.%s_.example.ns.svc.cluster.local", subset)
 			b := endpoints.NewEndpointBuilder(cn, proxy, ds.PushContext())
 			filtered := b.BuildClusterLoadAssignment(testShards()).Endpoints
+			t.Logf("filtered endpoints: %+v", filtered)
+			t.Logf("expected endpoints: %+v", tt.want)
 			xdstest.CompareEndpointsOrFail(t, cn, filtered, tt.want)
 
 			b2 := endpoints.NewEndpointBuilder(cn, proxy, ds.PushContext())
@@ -1378,10 +1880,16 @@ func testShards() *model.EndpointIndex {
 		// network1 has one endpoint in each cluster
 		{Cluster: "cluster1a"}: {
 			{Network: "network1", Addresses: []string{"10.0.0.1"}},
-			{Network: "network1", Addresses: []string{"foo.bar"}}, // endpoint generated from ServiceEntry
 			{
-				Network: "network1", Addresses: []string{"10.0.0.3"}, // endpoint when using HBONE
-				Labels: map[string]string{model.TunnelLabel: model.TunnelHTTP},
+				// endpoint generated from ServiceEntry
+				Network:   "network1",
+				Addresses: []string{"foo.bar"},
+			},
+			{
+				// endpoint when using HBONE
+				Network:   "network1",
+				Addresses: []string{"10.0.0.3"},
+				Labels:    map[string]string{model.TunnelLabel: model.TunnelHTTP},
 			},
 		},
 		{Cluster: "cluster1b"}: {
@@ -1422,6 +1930,47 @@ func testShards() *model.EndpointIndex {
 			shards.Shards[sk][i] = ep
 		}
 	}
+	// convert to EndpointIndex
+	index := model.NewEndpointIndex(model.NewXdsCache())
+	for shardKey, testEps := range shards.Shards {
+		svc, _ := index.GetOrCreateEndpointShard("example.ns.svc.cluster.local", "ns")
+		svc.Lock()
+		svc.Shards[shardKey] = testEps
+		svc.Unlock()
+	}
+	return index
+}
+
+func newEndpointIndex(t *testing.T, eps []*model.IstioEndpoint) *model.EndpointIndex {
+	t.Helper()
+
+	shards := &model.EndpointShards{Shards: map[model.ShardKey][]*model.IstioEndpoint{}}
+
+	// apply common properties
+	for _, ep := range eps {
+		e := *ep
+		if e.ServicePortName == "" {
+			e.ServicePortName = "http"
+		}
+		if e.Namespace == "" {
+			e.Namespace = "ns"
+		}
+		if e.HostName == "" {
+			e.HostName = "example.ns.svc.cluster.local"
+		}
+		if e.EndpointPort == 0 {
+			e.EndpointPort = 8080
+		}
+		if e.Labels == nil {
+			e.Labels = make(map[string]string)
+		}
+		if _, exists := e.Labels["app"]; !exists {
+			e.Labels["app"] = "example"
+		}
+		shardKey := model.ShardKey{Cluster: e.Locality.ClusterID}
+		shards.Shards[shardKey] = append(shards.Shards[shardKey], &e)
+	}
+
 	// convert to EndpointIndex
 	index := model.NewEndpointIndex(model.NewXdsCache())
 	for shardKey, testEps := range shards.Shards {
