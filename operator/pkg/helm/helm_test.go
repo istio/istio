@@ -326,7 +326,7 @@ func TestRender(t *testing.T) {
 			diffSelect:  "ValidatingWebhookConfiguration:*:istiod-default-validator",
 		},
 		{
-			desc:        "default-webhook-cabundle-policy",
+			desc:        "default-webhook-failure-policy",
 			releaseName: "istiod",
 			namespace:   "istio-system",
 			chartName:   "default",

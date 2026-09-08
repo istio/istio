@@ -1,5 +1,0 @@
-spec:
-  values:
-    base:
-      validationCABundle: dGVzdC1jYQ==
-      validationFailurePolicy: Ignore
